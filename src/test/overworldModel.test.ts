@@ -19,6 +19,16 @@ import { materializeProjectEdits } from "../pokeweb/projectMaterialize";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
 
 describe("overworldModel", () => {
+  it("uses the selected header when an event file is shared between maps", () => {
+    const project = makeProject();
+    project.headers = parseHeaders(project);
+    project.headers.rows[2] = { ...project.headers.rows[1], index: 1, location_name: "Shared event map" };
+    project.headers.count = 2;
+    expect(getOverworldScene(project, 0).headerRowId).toBe(1);
+    expect(getOverworldScene(project, 0, 2)).toMatchObject({ headerRowId: 2, locationName: "Shared event map" });
+    expect(() => getOverworldScene(project, 1, 2)).toThrow(/No header references/);
+    expect(project.narcs.overworlds!.dirty.size).toBe(0);
+  });
   it("derives a scene from headers, matrix, maps, and overworlds lazily", () => {
     const project = makeProject();
     project.headers = parseHeaders(project);

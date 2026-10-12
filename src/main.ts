@@ -23,6 +23,7 @@ import "./styles/legacyStarters.css";
 import "./styles/fileSystem.css";
 import "./styles/legacyTypes.css";
 import "./styles/codeInjection.css";
+import "./styles/bw2Scripts.css";
 import "./styles/followingPokemon.css";
 import "./styles/legacyPatches.css";
 import "./styles/pwanAnimation.css";
@@ -55,6 +56,7 @@ import { buildMoveTestBattleDownloads, buildQuickLaunchDownloads, buildTestBattl
 import { buildOverworldTestWarpDownloads, type OverworldTestWarpSelection } from "./pokeweb/testOverworldWarp";
 import { renderDebugNarcs } from "./ui/debugNarcs";
 import { renderCodeInjectionEditor } from "./ui/codeInjectionEditor";
+import { renderBw2ScriptEditor, stopBw2ScriptEditor } from "./ui/bw2ScriptEditor";
 import { renderFollowingPokemonEditor } from "./ui/followingPokemonEditor";
 import { renderMusicEditor } from "./ui/musicEditor";
 import { renderFileSystemEditor } from "./ui/fileSystemEditor";
@@ -103,6 +105,7 @@ type AppRoute =
   | "upload"
   | "fileSystem"
   | "codeInjection"
+  | "bw2Scripts"
   | "followingPokemon"
   | "music"
   | "patches"
@@ -204,6 +207,7 @@ const APP_ROUTES: AppRoute[] = [
   "upload",
   "fileSystem",
   "codeInjection",
+  "bw2Scripts",
   "followingPokemon",
   "music",
   "patches",
@@ -252,6 +256,7 @@ const EDITOR_REQUIREMENTS: Record<
   Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "followingPokemon" | "patches" | "debugNarcs" | "grottoOdds" | "docGenerators" | "mastersheet" | "maps3d" | "changelog" | "tutorMoves">,
   NarcName[]
 > = {
+  bw2Scripts: ["scripts"],
   headers: ["headers", "message_texts"],
   weather: ["headers", "message_texts"],
   weatherGraphics: [],
@@ -548,6 +553,7 @@ function renderApp(): void {
   stopTitleScreenEditor();
   stopCustomUiEditor();
   stopCGearButtonsEditor();
+  stopBw2ScriptEditor();
   stopTrainerSpriteEditorPlayback();
   stopPlayerTrainerBackSpritePlayback();
   stopTrainerMusicEditorPlayback();
@@ -621,6 +627,14 @@ function renderApp(): void {
       },
     }).catch((error) => {
       content.innerHTML = `<div class="file-system-page"><div class="file-system-empty">${error instanceof Error ? error.message : String(error)}</div></div>`;
+    });
+    return;
+  }
+
+  if (route === "bw2Scripts") {
+    renderBw2ScriptEditor(project, content, {
+      onApply: () => { dirty = true; scheduleSave(project!); renderDirtyIndicator(); },
+      onDraftChange: () => { scheduleSave(project!); },
     });
     return;
   }
@@ -1210,13 +1224,14 @@ function renderMovesMenu(): string {
 
 function renderTextsMenu(): string {
   const storyAvailable = project ? !isGen4Project(project) : false;
-  const active = (storyAvailable && route === "storyText") || route === "infoText";
+  const active = (storyAvailable && route === "storyText") || route === "infoText" || route === "bw2Scripts";
   return `
     <div class="header-more ${active ? "-active" : ""}">
       <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Texts</button>
       <div class="header-more-menu">
         ${storyAvailable ? navItem("storyText", "Story Text") : ""}
         ${navItem("infoText", "Message Text")}
+        ${project?.session.baseRom === "BW2" ? navItem("bw2Scripts", "BW2 Scripts") : ""}
       </div>
     </div>
   `;
@@ -2161,6 +2176,7 @@ function hasAnyRomChanges(currentProject: ProjectState): boolean {
 
 function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds">): boolean {
   if (!project) return false;
+  if (nextRoute === "bw2Scripts") return hasExportBase && project.session.baseRom === "BW2" && !isGen4Project(project) && Boolean(project.narcs.scripts);
   if (nextRoute === "changelog") return true;
   if (nextRoute === "cgearButtons") return project.session.baseRom === "BW2" && hasExportBase;
   if (nextRoute === "customUi") return hasExportBase;

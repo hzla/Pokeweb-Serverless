@@ -27,7 +27,10 @@ const editedOptions = new NARC(pristine.files[optionsId]);
 const editedEntries = decodeGen5TextBank(editedOptions.files[32]);
 editedEntries[0] = [editedEntries[0][0], `${editedEntries[0][1]} TEST`, editedEntries[0][2]];
 editedOptions.files[32] = encodeGen5TextBank(editedEntries);
-const clean = pristine.save({ files: new Map([[optionsId, editedOptions.save()]]) });
+// Match the ordinary editor's warned DS-only fallback for DS-mode Upgrade
+// inputs. Strict DSi export and native section validation remain unchanged.
+const clean = pristine.save({ files: new Map([[optionsId, editedOptions.save()]]), allowDamagedDsi: true,
+  onWarning: () => console.log("Source DSi metadata is damaged; testing the editor's DS-only export path, not DSi compatibility.") });
 const project = await loadProjectFromRomBytes(clean, basename(cleanPath), { selectedNarcs: [] });
 const cleanRom = new NintendoDSRom(clean, { fileData: "view" });
 const optionWords = (value: NintendoDSRom) => decodeGen5TextBank(new NARC(value.files[value.filenames.idOf("a/0/0/2")!]).files[32]).map(entry => entry[1]);

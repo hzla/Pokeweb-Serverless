@@ -1510,7 +1510,7 @@ function sceneRawNpcValue(entity: OverworldNpc, key: string): number {
   return 0;
 }
 
-function drawMap(
+export function drawMap(
   context: CanvasRenderingContext2D,
   map: OverworldMapScene,
   size: number,
@@ -1587,7 +1587,7 @@ function drawSelectedPermissionTile(
   context.restore();
 }
 
-function drawTrueMap(
+export function drawTrueMap(
   context: CanvasRenderingContext2D,
   render: OverworldMapRender,
   placement: { x: number; y: number; width: number; height: number },
@@ -1626,7 +1626,7 @@ function drawTrueMapSection(
   context.strokeRect(panX, panY, width, height);
 }
 
-function mapRenderTileBounds(render: OverworldMapRender): { x: number; y: number; width: number; height: number } {
+export function mapRenderTileBounds(render: OverworldMapRender): { x: number; y: number; width: number; height: number } {
   return {
     x: (render.worldBounds.minX - render.worldOrigin.x) / render.unitsPerTile,
     y: (render.worldBounds.minZ - render.worldOrigin.z) / render.unitsPerTile,
@@ -1640,7 +1640,7 @@ function mapViewTileBounds(scene: OverworldScene, render: OverworldMapRender, is
   return mapRenderTileBounds(render);
 }
 
-function mapGridBounds(scene: OverworldScene): { x: number; y: number; width: number; height: number } {
+export function mapGridBounds(scene: OverworldScene): { x: number; y: number; width: number; height: number } {
   const maps = scene.maps.length > 0 ? scene.maps : [{ x: 0, y: 0, width: scene.width, height: scene.height }];
   const minX = Math.min(...maps.map((map) => map.x), 0);
   const minY = Math.min(...maps.map((map) => map.y), 0);
@@ -1672,7 +1672,7 @@ function isEditableTarget(target: EventTarget | null): boolean {
   return target.isContentEditable || ["INPUT", "SELECT", "TEXTAREA", "BUTTON"].includes(target.tagName);
 }
 
-function renderNpc(
+export function renderNpc(
   project: ProjectState,
   npc: OverworldNpc,
   worldToScreen: (x: number, y: number) => { x: number; y: number; tileSize: number },
@@ -1703,7 +1703,7 @@ function renderNpc(
   `;
 }
 
-function renderGridEntity(
+export function renderGridEntity(
   entity: OverworldFurniture | OverworldWarp | OverworldTrigger,
   worldToScreen: (x: number, y: number) => { x: number; y: number; tileSize: number },
   selected: boolean,
@@ -1724,7 +1724,7 @@ function renderGridEntity(
   `;
 }
 
-function adjustSpriteDirections(root: HTMLElement): void {
+export function adjustSpriteDirections(root: HTMLElement): void {
   root.querySelectorAll<HTMLImageElement>(".overworld-sprite").forEach((image) => {
     if (image.dataset.romSprite === "true") {
       image.style.top = "0";

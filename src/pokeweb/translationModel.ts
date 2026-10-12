@@ -3,14 +3,14 @@ import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { validateDsRomSections } from "../nds/romValidation";
 import { decodeGen5TextBank, encodeGen5TextBank } from "./text";
-import { loadTranslationProfile, TRANSLATION_LOCALES, TRANSLATION_VERSION, type TranslationLocaleId } from "./translationProfile";
+import { loadTranslationProfile, TRANSLATION_GAMES, TRANSLATION_VERSION, translationSourceGame, translationDonorLocale, type TranslationLocaleId, type TranslationGameId } from "./translationProfile";
 import { isTranslationNativeRecord, planTranslationTransfers, translationBytesEqual, translationSha256, type TranslationRecord } from "./translationTransfer";
 import type { TranslationScriptAudit } from "./translationScripts";
 
 export const ITALIAN_WHITE2_TRANSLATION_VERSION = TRANSLATION_VERSION;
 export type TranslationProgress = (message: string) => void | Promise<void>;
 export type TranslationReport = {
-  schemaVersion: 2; profile: string; version: string; language: string; gameCode: "IRDO";
+  schemaVersion: 2; profile: string; version: string; language: string; gameCode: "IRDO" | "IREO"; game?: TranslationGameId;
   sourceSha256: string; donorSha256: string; outputBytes: number;
   outputSha256: string; donorGameCode: string; donorKind: "retail" | "edited";
   baselineDonorSha256: string; replacedFiles: number; importedHackMembers: number; skippedDonorEdits: number;
@@ -80,21 +80,23 @@ export function assertTranslationPreservesCode(source: NintendoDSRom, result: Ni
   }
 }
 
-export async function translateWhite2(sourceBytes: Uint8Array, donorBytes: Uint8Array, locale?: TranslationLocaleId, progress?: TranslationProgress): Promise<TranslationResult> {
-  await progress?.("Checking the US White 2 ROM…");
+export async function translateGen5Rom(sourceBytes: Uint8Array, donorBytes: Uint8Array, locale?: TranslationLocaleId, progress?: TranslationProgress, expectedGame?: TranslationGameId): Promise<TranslationResult> {
+  await progress?.("Checking the US ROM…");
   validateDsRomSections(sourceBytes);
   const source = new NintendoDSRom(sourceBytes, { fileData: "view" });
-  if (source.idCode !== "IRDO" || sourceBytes[30] !== 0) throw new Error("Choose a clean US White 2 revision-0 ROM.");
+  const game = translationSourceGame(source.idCode);
+  if (!game || expectedGame && game !== expectedGame || sourceBytes[30] !== 0) throw new Error(`Choose a clean US ${expectedGame ? TRANSLATION_GAMES[expectedGame].title : "Black 2 or White 2"} revision-0 ROM.`);
+  const title = TRANSLATION_GAMES[game];
   const sourceSha256 = await translationSha256(sourceBytes);
-  if (sourceSha256 !== "3e50aec3db401332175a5d2b5fe2a68ac1a05ec63995dba9d1506b1b51837446") throw new Error("This version needs clean US White 2. Translate the clean ROM first, then apply patches and editor changes to the translated ROM.");
+  if (sourceSha256 !== title.sourceSha256) throw new Error(`This version needs clean US ${title.title}. Translate the clean ROM first, then apply patches and editor changes to the translated ROM.`);
 
-  await progress?.("Checking the White 2 donor…");
+  await progress?.(`Checking the ${title.title} donor…`);
   validateDsRomSections(donorBytes);
   const donor = new NintendoDSRom(donorBytes, { fileData: "view" });
-  const detected = TRANSLATION_LOCALES.find(item => item.gameCode === donor.idCode);
-  if (!detected || donorBytes[30] !== 0) throw new Error("Choose an Italian, French, German, Spanish or Korean White 2 revision-0 donor.");
+  const detected = translationDonorLocale(donor.idCode, game);
+  if (!detected || donorBytes[30] !== 0) throw new Error(`Choose an Italian, French, German, Spanish or Korean ${title.title} revision-0 donor matching the US game.`);
   if (locale && detected.id !== locale) throw new Error(`The selected language does not match the ${detected.language} donor.`);
-  const profile = await loadTranslationProfile(detected.id);
+  const profile = await loadTranslationProfile(detected.id, game);
   const donorSha256 = await translationSha256(donorBytes);
 
   await progress?.(`Comparing ${detected.language} assets and donor data edits…`);
@@ -108,7 +110,7 @@ export async function translateWhite2(sourceBytes: Uint8Array, donorBytes: Uint8
   const untransferred = records.filter(item => item.action !== "imported");
   const partialMembers = importedMembers.filter(item => item.output?.sha256 !== item.donor.sha256);
   const report: TranslationReport = {
-    schemaVersion: 2, profile: profile.id, version: TRANSLATION_VERSION, language: detected.language, gameCode: "IRDO", sourceSha256, donorSha256, outputBytes: bytes.length,
+    schemaVersion: 2, profile: profile.id, version: TRANSLATION_VERSION, language: detected.language, gameCode: title.sourceCode, game, sourceSha256, donorSha256, outputBytes: bytes.length,
     donorGameCode: donor.idCode, donorKind: donorSha256 === profile.donorSha256 ? "retail" : "edited", baselineDonorSha256: profile.donorSha256,
     outputSha256: await translationSha256(bytes), replacedFiles: replacements.size,
     replacedArchives: records.filter(item => item.scope === "file" && item.action === "imported" && item.changedMemberIds).length,
@@ -135,13 +137,21 @@ export async function translateWhite2(sourceBytes: Uint8Array, donorBytes: Uint8
       "US executable sections, overlays, filename table and file IDs are retained. Native donor modifications and added files are not imported.",
       "Native and overlay hashes are compared with the clean regional baseline. A mismatch detects changed bytes, including possible compression or repacking changes; it does not identify the code's intended behavior. Imported data edits can depend on donor code that was retained.",
       "US alphabetical search keys, main-menu tilemap row stride and OT origin language are retained. Compatible script changes and trade fields can be imported.",
+      "The small numeric font keeps US cell geometry, glyph metrics and character IDs. Compatible donor glyph artwork is repacked into US cells; unsupported numeric-font layouts are retained and logged.",
       "Changed scripts are checked against US entry/command layouts, branches, actual output text banks and decrypted word-buffer references. Known appended facility hints can be remapped. Unresolved new dependencies retain the US script; inherited US dynamic references are logged without claiming their runtime range is proven.",
       "The script audit is a bounded static compatibility check, not a proof of gameplay behavior. New native calls outside the audited edit set, changed native dependencies and unverified regional renderers require a separate port.",
       "Unexpected member counts, changed fixed-record schemas and incompatible text-bank shapes are retained and recorded with a reason.",
-      "Patch-added text remains in English. Apply US White 2 patches to this ROM after translation.",
+      `Patch-added text remains in English. Apply US ${title.title} patches to this ROM after translation.`,
       "This is an alpha for emulator testing. In-game text layout, variable bindings, word-search screens and DSi hardware acceptance require further validation."],
   };
   return { bytes, report };
+}
+
+export function translateWhite2(sourceBytes: Uint8Array, donorBytes: Uint8Array, locale?: TranslationLocaleId, progress?: TranslationProgress): Promise<TranslationResult> {
+  return translateGen5Rom(sourceBytes, donorBytes, locale, progress, "white2");
+}
+export function translateBlack2(sourceBytes: Uint8Array, donorBytes: Uint8Array, locale?: TranslationLocaleId, progress?: TranslationProgress): Promise<TranslationResult> {
+  return translateGen5Rom(sourceBytes, donorBytes, locale, progress, "black2");
 }
 
 export async function translateWhite2ToItalian(sourceBytes: Uint8Array, donorBytes: Uint8Array, progress?: TranslationProgress): Promise<TranslationResult> {

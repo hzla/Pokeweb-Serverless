@@ -62,8 +62,8 @@ describe("ROM-only translation graphics", () => {
     expect(renderTranslationTileSheet(tiles(1)).warnings[0]).toContain("Grayscale");
     expect(() => renderTranslationTileSheet(tiles(1).slice(0, -1))).toThrow("truncated");
   });
-  it("finds compressed Summary artwork changes and renders the matching US and donor components", async () => {
-    const profile = await loadTranslationProfile("italian"), baseline = profile.files.find(file => file.path === "a/0/7/7")!;
+  it.each(["white2", "black2"] as const)("finds compressed %s Summary artwork changes and renders the matching US and donor components", async game => {
+    const profile = await loadTranslationProfile("italian", game), baseline = profile.files.find(file => file.path === "a/0/7/7")!;
     const archive = (value: number) => {
       const n = new NARC(); n.files = Array.from({ length: baseline.members! }, () => new Uint8Array());
       n.files[2] = palette(); n.files[11] = compressLz11Literal(tiles(value));
@@ -73,7 +73,7 @@ describe("ROM-only translation graphics", () => {
     const rom = (code: string, value: number) => ({ gameCode: code, revision: 0, readFile: async (path: string) => {
       if (path !== "a/0/7/7") throw new Error("Not in fixture"); return archive(value);
     } });
-    const source = rom("IRDO", 0x11), donor = rom("IRDI", 0x22), catalog = await compareTranslationGraphics(source, donor);
+    const source = rom(profile.sourceCode, 0x11), donor = rom(profile.donorCode, 0x22), catalog = await compareTranslationGraphics(source, donor);
     const graphic = catalog.graphics.find(g => g.member === 67)!;
     expect(graphic).toMatchObject({ kind: "background", character: 11, palette: 2 });
     const a = await renderTranslationGraphic(source, graphic), b = await renderTranslationGraphic(donor, graphic);
@@ -81,6 +81,7 @@ describe("ROM-only translation graphics", () => {
     expect(Array.from(a!.rgba.slice(0, 4))).toEqual([248, 0, 0, 255]);
     expect(Array.from(b!.rgba.slice(0, 4))).toEqual([0, 248, 0, 255]);
     await expect(compareTranslationGraphics(source, donor, "french")).rejects.toThrow("does not match");
+    await expect(compareTranslationGraphics(source, rom(game === "black2" ? "IRDI" : "IREI", 0x22))).rejects.toThrow("matching the US game");
   });
   it("shows retained native edits separately from retail regional differences and escapes donor content", () => {
     const report = { records: [

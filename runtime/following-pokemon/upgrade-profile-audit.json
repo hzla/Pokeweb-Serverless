@@ -1,0 +1,50 @@
+{
+  "auditDate": "2026-10-11",
+  "profile": "white2upgrade",
+  "followerVersion": "0.7.44-alpha",
+  "sourceRomSha256": "41ec23667f7e8ce0d6269a84d910a34a841ae8b5987d47654042bf4a95461140",
+  "upgradeNativeAdaptersPreserved": 10,
+  "baseCompatibilityChecks": 416,
+  "fullCompatibilityChecks": 450,
+  "atomicRejectionsPerVariant": 13,
+  "focusedVitestTests": 55,
+  "pythonTests": 24,
+  "explicitMegaAppearanceSubstitutes": 72,
+  "speciesWithNewSubstitutes": 18,
+  "appearanceCount": 4842,
+  "preservedOriginalFilesPerExport": 370,
+  "nativeProgramsAndOverlayTablesPreserved": true,
+  "packagedBuildAndShippedDllsByteIdentical": true,
+  "baseRom": {
+    "file": "White2Upgrade-Following-Base-0.7.44-alpha-20261011.nds",
+    "sha256": "c85826153d1300eb7d79f5addabf26831db08905dbe37976d53dbef92dea0152",
+    "fixedCodeDataBssBytes": 60356
+  },
+  "fullRom": {
+    "file": "White2Upgrade-Following-0.7.44-alpha-20261011.nds",
+    "sha256": "84b7ceed849baa0289d454c26abc2ff82c52483926084963b1b34b7806c15fe8",
+    "fixedCodeDataBssBytes": 73464
+  },
+  "battleResidentCodeDataBssBytes": 1152,
+  "conditionalOverlay12CodeDataBssBytes": 1464,
+  "registryCpu": {
+    "lookupCases": 6888,
+    "objectMappings": 65536,
+    "unloadReloadCycles": 100,
+    "failureModes": 16,
+    "balancedFileOpens": 10296,
+    "balancedFileCloses": 10296,
+    "registryHeapAllocations": 0
+  },
+  "migrationFromPreviousBaseAndFull": "passed",
+  "baseFullConversionAndAuthoredDataPreservation": "passed",
+  "productionViteBundle": "passed",
+  "sourcePrivacyAudit": "passed",
+  "fullTypeScriptCheck": "blocked by unrelated in-progress script compiler schema errors",
+  "originalRomAndSaveUnchanged": true,
+  "gameEmulatorRun": false,
+  "hardwareRun": false,
+  "dsiAcceptance": false,
+  "exportTarget": "DS mode; existing warned fallback for damaged source DSi metadata",
+  "unmeasured": ["actual free PMC heap", "loader and allocator overhead", "native sprite heap", "VRAM", "GPU pixels"]
+}

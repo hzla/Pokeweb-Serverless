@@ -1,4 +1,4 @@
-import { translateWhite2, translationRomFilename } from "../pokeweb/translationModel";
+import { translateGen5Rom, translationRomFilename } from "../pokeweb/translationModel";
 import { TRANSLATION_LOCALES, TRANSLATION_VERSION, type TranslationLocaleId } from "../pokeweb/translationProfile";
 import type { TranslationReport } from "../pokeweb/translationModel";
 import type { TranslationGraphicsCatalog, TranslationPreviewRom, TranslationGraphicImage } from "../pokeweb/translationGraphics";
@@ -26,6 +26,7 @@ export function renderTranslationScriptAudit(report: TranslationReport): string 
   return `<details class="translation-script-audit" ${blocked ? "open" : ""}>
     <summary>Script compatibility · ${scripts.imported} imported · ${scripts.adapted} adapted · ${scripts.retained} retained</summary>
     ${scripts.audits.map(audit => `<details class="translation-script-member"><summary>a/0/5/6 · ${audit.member} · ${audit.status} · ${audit.diagnostics.length} diagnostics</summary>
+      <p>${audit.mapLocations?.length ? audit.mapLocations.map(location => `${escape(location.locationName ?? `Place name ${location.placeNameId}`)} · header row ${location.headerRow} · map ${location.map}`).join("<br>") : `Shared/unbound script · text banks ${[...new Set(audit.contexts.map(context => context.bank).filter(bank => bank !== undefined))].join(", ") || "unresolved"}`}</p>
       ${audit.diagnostics.length ? `<div class="translation-assets-scroll"><table class="translation-assets-table"><thead><tr><th>Check</th><th>Position / dependency</th><th>Reason</th></tr></thead><tbody>${audit.diagnostics.map(item => `<tr${item.severity === "blocked" ? ' class="translation-error"' : ""}><th scope="row">${escape(item.code)} · ${item.severity}</th><td>${escape(position(item.offset, item.opcode))}${item.dependency ? `<br>${escape(item.dependency)}` : ""}${item.bank === undefined ? "" : `<br>Bank ${item.bank}`}${item.messageId === undefined ? "" : ` · entry ${item.messageId}`}${item.variable === undefined ? "" : `<br>Variable 0x${item.variable.toString(16).toUpperCase()}`}</td><td>${escape(item.reason)}</td></tr>`).join("")}</tbody></table></div>` : ""}
       ${audit.references.length ? `<details><summary>Text references · ${audit.references.length}</summary><div class="translation-assets-scroll"><table class="translation-assets-table"><thead><tr><th>Reference</th><th>US text</th><th>Donor text</th><th>Output text</th></tr></thead><tbody>${audit.references.map(item => `<tr><th scope="row">${escape(position(item.offset, item.opcode))}<br>${item.bank === undefined ? "Dynamic bank" : `Bank ${item.bank}`} · ${item.messageId === undefined ? "dynamic entry" : `entry ${item.messageId}`}<br>${item.status}</th><td>${escape(item.sourceText ?? "—")}</td><td>${escape(item.donorText ?? "—")}</td><td>${escape(item.outputText ?? "—")}</td></tr>`).join("")}</tbody></table></div></details>` : ""}
       ${audit.rewrites.length ? `<ul>${audit.rewrites.map(item => `<li>Byte ${item.offset}: ${item.before} → ${item.after}. ${escape(item.reason)}</li>`).join("")}</ul>` : ""}
@@ -37,12 +38,12 @@ export function renderTranslationCard(): string {
   return `<section class="upload-panel translation-tool" aria-labelledby="translation-title">
     <h2 id="translation-title">Translation</h2>
     <label class="changelog-file"><span>Language</span>
-      <select id="translation-language" aria-label="Translation language"><option value="">Auto-detect</option>${TRANSLATION_LOCALES.map(locale => `<option value="${locale.id}">${locale.language} · White 2</option>`).join("")}</select>
+      <select id="translation-language" aria-label="Translation language"><option value="">Auto-detect</option>${TRANSLATION_LOCALES.map(locale => `<option value="${locale.id}">${locale.language}</option>`).join("")}</select>
     </label>
-    <label class="changelog-file"><span>Clean US White 2 ROM</span>
+    <label class="changelog-file"><span>Clean US Black 2 / White 2 ROM</span>
       <input id="translation-source" type="file" accept=".nds" />
     </label>
-    <label class="changelog-file"><span>Foreign White 2 ROM</span>
+    <label class="changelog-file"><span>Foreign Black 2 / White 2 ROM</span>
       <input id="translation-donor" type="file" accept=".nds" />
     </label>
     <div class="changelog-actions">
@@ -75,7 +76,7 @@ export function renderTranslationCard(): string {
           <tr><th scope="row">Battle UI</th><td><code>a/0/1/1</code></td><td>Graphical labels and battle-screen layouts.</td></tr>
           <tr><th scope="row">Summary screen</th><td><code>a/0/7/7</code></td><td>Regional artwork and screen layouts.</td></tr>
           <tr><th scope="row">Main menu</th><td><code>a/0/3/4</code></td><td>Compatible regional menu graphics.</td></tr>
-          <tr><th scope="row">Fonts</th><td><code>a/0/2/3</code></td><td>Member 3 changes for European languages; the primary fonts match the clean US ROM.</td></tr>
+          <tr><th scope="row">Fonts</th><td><code>a/0/2/3</code></td><td>Regional numeric glyphs are adapted to the US font layout so HP and level numbers remain readable.</td></tr>
           <tr><th scope="row">Other 2D artwork</th><td>Various graphics archives</td><td>Bitmap lettering, palettes, sprites, layouts and animations.</td></tr>
           <tr><th scope="row">Musical labels</th><td><code>a/0/4/5</code></td><td>Localized “new” lettering used when dressing up Pokémon.</td></tr>
           <tr><th scope="row">Battle and Entralink cut-ins</th><td><code>a/1/1/6</code><br><code>a/1/7/8</code></td><td>Regional trainer and link-battle VS artwork with its matching models and animations, plus Entralink “Time’s up!” lettering.</td></tr>
@@ -113,7 +114,7 @@ export function attachTranslationCard(root: HTMLElement, download: (bytes: Uint8
   const previewIssues = root.querySelector<HTMLDetailsElement>("#translation-preview-issues")!;
   let busy: "translation" | "preview" | undefined, report: Uint8Array | undefined;
   let catalog: TranslationGraphicsCatalog | undefined, previewRoms: [TranslationPreviewRom, TranslationPreviewRom] | undefined;
-  let reportLanguage = "White2";
+  let reportLanguage = "White2", reportGame = "White2";
   const sync = () => {
     button.disabled = previewButton.disabled = Boolean(busy) || !source.files?.[0] || !donor.files?.[0];
     source.disabled = donor.disabled = language.disabled = graphicSelect.disabled = paletteSelect.disabled = paletteBank.disabled = Boolean(busy);
@@ -140,19 +141,20 @@ export function attachTranslationCard(root: HTMLElement, download: (bytes: Uint8
       if (![a, b].every(file => /\.nds$/iu.test(file.name))) throw new Error("Choose two .nds ROM files.");
       await progress("Reading the US ROM and foreign donor…");
       const sourceBytes = new Uint8Array(await a.arrayBuffer()), donorBytes = new Uint8Array(await b.arrayBuffer());
-      const result = await translateWhite2(sourceBytes, donorBytes, (language.value || undefined) as TranslationLocaleId | undefined, progress);
+      const result = await translateGen5Rom(sourceBytes, donorBytes, (language.value || undefined) as TranslationLocaleId | undefined, progress);
       download(result.bytes, translationRomFilename(a.name, result.report.language));
       report = new TextEncoder().encode(JSON.stringify(result.report, null, 2) + "\n"); reportButton.hidden = false;
       reportLanguage = result.report.language;
+      reportGame = result.report.gameCode === "IREO" ? "Black2" : "White2";
       differences.innerHTML = renderUntransferredDifferences(result.report) + renderTranslationScriptAudit(result.report);
-      status.textContent = `${result.report.language} ROM downloaded. ${result.report.replacedFiles} files imported; ${result.report.skippedDonorEdits} donor edits skipped.`;
+      status.textContent = `${result.report.language} ${reportGame === "Black2" ? "Black 2" : "White 2"} ROM downloaded. ${result.report.replacedFiles} files imported; ${result.report.skippedDonorEdits} donor edits skipped.`;
     } catch (error) {
       status.classList.add("translation-error");
       status.textContent = `Translation failed. ${error instanceof Error ? error.message : String(error)}`;
     } finally { busy = undefined; sync(); }
   });
   reportButton.addEventListener("click", () => {
-    if (report) download(report, `White2-${reportLanguage}-${TRANSLATION_VERSION}-translation.json`);
+    if (report) download(report, `${reportGame}-${reportLanguage}-${TRANSLATION_VERSION}-translation.json`);
   });
   const draw = (parent: HTMLElement, image: TranslationGraphicImage | undefined, crop?: { x: number; y: number; width: number; height: number }) => {
     parent.replaceChildren();

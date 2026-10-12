@@ -9,7 +9,7 @@ import { exportModifiedRom } from "../src/pokeweb/exportRom";
 import { checkFollowerCompatibility } from "../src/pokeweb/followingPokemonProject";
 import { getBattleTypeHudStatus, getMoveEffectivenessStatus, installBattleTypeHud, installMoveEffectiveness, uninstallBattleTypeHud, uninstallMoveEffectiveness } from "../src/pokeweb/battleTypeHudModel";
 import { decompressNitro } from "../src/pokeweb/pokemonSpriteModel";
-import { white2LocalizedAssetVariant } from "../src/pokeweb/translationAssets";
+import { localizedAssetVariant } from "../src/pokeweb/translationAssets";
 import expansion from "../src/assets/codeinjection/battleTypeHudPanelExpansion.json";
 import hudManifest from "../src/assets/codeinjection/battleTypeHudManifest.json";
 
@@ -18,7 +18,8 @@ if (!reportPath || resolve(inputPath) === resolve(reportPath)) throw new Error("
 const sha = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 const bytes = new Uint8Array(await readFile(inputPath)), original = new NintendoDSRom(bytes, { fileData: "view" });
 const originalHash = sha(bytes);
-assert.equal(original.idCode, "IRDO");
+assert(["IRDO", "IREO"].includes(original.idCode));
+const version = original.idCode === "IREO" ? "B2" : "W2";
 globalThis.fetch = (async (value: RequestInfo | URL) => {
   const url = value instanceof URL ? value : new URL(value instanceof Request ? value.url : String(value));
   try {
@@ -36,8 +37,8 @@ const output = await exportModifiedRom(project), exported = new NintendoDSRom(ou
 const after = new NARC(exported.getFileByName("a/0/1/1"));
 for (let member = 0; member < before.files.length; member++) {
   const key = String(member);
-  const change = key in hudManifest.games.W2.resources ? expansion[key as keyof typeof expansion] : undefined;
-  if (change) assert.equal(sha(unpack(after.files[member])), white2LocalizedAssetVariant("a/0/1/1", member, sha(unpack(before.files[member])))?.expandedSha256 ?? change.patchedSha256);
+  const change = key in hudManifest.games[version].resources ? expansion[key as keyof typeof expansion] : undefined;
+  if (change) assert.equal(sha(unpack(after.files[member])), localizedAssetVariant(version, "a/0/1/1", member, sha(unpack(before.files[member])))?.expandedSha256 ?? change.patchedSha256);
   else assert.deepEqual(after.files[member], before.files[member], `Unrelated localized battle resource ${member}`);
 }
 const reopened = await loadProjectFromRomBytes(output, "localized-hud-check.nds", { selectedNarcs: [] });
@@ -46,7 +47,7 @@ assert(getMoveEffectivenessStatus(reopened).installed && getMoveEffectivenessSta
 for (const variant of ["circular", "solid", "letters"] as const) {
   await installBattleTypeHud(reopened, variant);
   const rom = new NintendoDSRom(await exportModifiedRom(reopened), { fileData: "view" });
-  const filename = variant === "letters" ? "TypeIconsW2.dll" : variant === "circular" ? "TypeIconsCircularW2.dll" : "TypeIconsSolidW2.dll";
+  const filename = variant === "letters" ? `TypeIcons${version}.dll` : variant === "circular" ? `TypeIconsCircular${version}.dll` : `TypeIconsSolid${version}.dll`;
   assert.deepEqual(rom.getFileByName(getBattleTypeHudStatus(reopened).dllPath!), new Uint8Array(await readFile(new URL(`../src/assets/codeinjection/${filename}`, import.meta.url))));
   assert.deepEqual(rom.getFileByName("a/0/1/1"), exported.getFileByName("a/0/1/1"), "Reinstall expanded a panel twice");
 }
@@ -59,6 +60,6 @@ const damaged = new NARC(original.getFileByName("a/0/1/1")); damaged.files[434] 
 edited.fileSystem ??= {}; edited.fileSystem.replacements = { [original.fileId("a/0/1/1")]: damaged.save() };
 await assert.rejects(() => installBattleTypeHud(edited), /434/u);
 assert.equal(sha(new Uint8Array(await readFile(inputPath))), originalHash);
-const report = { sourceSha256: originalHash, followingUsProfile: { compatible: following.compatible, checksPassed: following.checks.length }, battleHud: { regionalHashesAndExpansion: true, stockUsDlls: true, movePreviewCoexistence: true, exportReload: true, threeVariantsAndIdempotence: true, uninstallRestoresRegionalArt: true, unknownEditedArtRejected: true }, sourceUnchanged: true };
+const report = { version, sourceSha256: originalHash, followingUsProfile: { compatible: following.compatible, checksPassed: following.checks.length }, battleHud: { regionalHashesAndExpansion: true, stockUsDlls: true, movePreviewCoexistence: true, exportReload: true, threeVariantsAndIdempotence: true, uninstallRestoresRegionalArt: true, unknownEditedArtRejected: true }, sourceUnchanged: true };
 await writeFile(reportPath, JSON.stringify(report, null, 2) + "\n", { flag: "wx" });
 console.log(JSON.stringify(report));

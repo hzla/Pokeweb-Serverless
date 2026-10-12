@@ -6,8 +6,9 @@ import { MAIN_MENU_LABEL_ADAPTATIONS, translationFileNames, type TranslationProf
 import { BW2_NARCS, HEADER_NARCS } from "./constants";
 import { getNarcFormats } from "./formats";
 import { decompressNitro } from "./pokemonSpriteModel";
-import { auditTranslationScript, translationScriptContexts, type TranslationScriptAudit } from "./translationScripts";
+import { auditTranslationScript, loadTranslationScriptContracts, translationScriptContexts, translationScriptLocations, type TranslationScriptAudit } from "./translationScripts";
 import { gen5ScriptEntries } from "./gen5ScriptCommands";
+import { adaptTranslationNumericFont } from "./translationFonts";
 
 export type TranslationFingerprint = { bytes: number; sha256: string };
 export type TranslationRecord = {
@@ -89,6 +90,7 @@ export function translationOverlayFiles(rom: NintendoDSRom): Map<string, number>
 
 /** Merge compatible data by path/member ID, never by the donor's numeric file ID. */
 export async function planTranslationTransfers(source: NintendoDSRom, donor: NintendoDSRom, profile: TranslationProfile): Promise<TranslationPlan> {
+  if (source.idCode !== profile.sourceCode || donor.idCode !== profile.donorCode) throw new Error("The donor and US game must match the selected translation profile.");
   const records: TranslationRecord[] = [], replacements = new Map<number, Uint8Array>(), scriptAudits: TranslationScriptAudit[] = [];
   const sourceNames = translationFileNames(source.filenames), donorNames = translationFileNames(donor.filenames);
   const sourceOverlays = translationOverlayFiles(source), donorOverlays = translationOverlayFiles(donor);
@@ -160,6 +162,13 @@ export async function planTranslationTransfers(source: NintendoDSRom, donor: Nin
         // The US menu copies these maps with a fixed row stride. Its labels come from message banks.
         if (!original || !translationMenuMapCompatible(original, incoming)) reason = "Keep US main-menu tilemap dimensions and row stride; localized labels are imported separately.";
       }
+      if (!reason && file.path === "a/0/2/3" && member === 3) {
+        try {
+          if (!original) throw new Error("The US numeric font is missing.");
+          output = adaptTranslationNumericFont(original, incoming);
+          importReason = "Import regional numeric-font artwork in US 13-pixel cells. Keep US glyph metrics, character IDs and font metadata so party HP/level numbers use the native reader layout.";
+        } catch (error) { reason = error instanceof Error ? error.message : String(error); }
+      }
       if (!reason && (file.path === "a/0/0/2" || file.path === "a/0/0/3" || ["a/1/1/2", "a/1/1/3", "a/1/1/4", "a/1/1/5"].includes(file.path) && member === 1)) {
         try {
           if (!original || readU16(original, 0) !== readU16(incoming, 0)) throw new Error("Text block count changed.");
@@ -190,7 +199,7 @@ export async function planTranslationTransfers(source: NintendoDSRom, donor: Nin
         reason = "Keep US OT origin language at byte 88; import other trade fields.";
       }
       if (original && translationBytesEqual(original, output)) {
-        await record("member", file.path, original, incoming, baseline, original, "retained", { ...ids, member, reason }); continue;
+        await record("member", file.path, original, incoming, baseline, original, "retained", { ...ids, member, reason: importReason ?? reason }); continue;
       }
       merged.files[member] = output;
       imported.push(member);
@@ -206,6 +215,7 @@ export async function planTranslationTransfers(source: NintendoDSRom, donor: Nin
   }
   const scriptFile = profile.files.find(file => file.path === "a/0/5/6");
   if (scriptFile) {
+    const scriptContracts = await loadTranslationScriptContracts(profile.sourceCode);
     const sourceId = sourceNames.get(scriptFile.path)!, donorId = donorNames.get(scriptFile.donorPath);
     if (donorId !== undefined) {
       const a = source.files[sourceId], b = donor.files[donorId], ids = { sourceFileId: sourceId, donorFileId: donorId };
@@ -233,6 +243,9 @@ export async function planTranslationTransfers(source: NintendoDSRom, donor: Nin
           return textCache.get(key)!.get(id);
         };
         const headers = archive("output", "a/0/1/2")?.files[0], originalHeaders = archive("source", "a/0/1/2")?.files[0];
+        const locationBank = archive("source", "a/0/0/2")?.files[109];
+        const locationNames = new Map<number, string>();
+        if (locationBank) for (const [id, value] of decodeGen5TextBank(locationBank)) if (id.startsWith("0_")) locationNames.set(Number(id.slice(2)), value);
         const bindingCache = new Map<number, { entry: number; slot: number } | undefined>();
         const slots = (value: string) => [...new Set(Array.from(value.matchAll(/VAR\((\d+),\s*(\d+)(?:,|\))/gu)).filter(match => Number(match[1]) >= 256 && Number(match[1]) < 768).map(match => Number(match[2])))];
         const addedBankWordSlot = (bank: number) => {
@@ -257,15 +270,16 @@ export async function planTranslationTransfers(source: NintendoDSRom, donor: Nin
           const unchanged = translationBytesEqual(original, donorBytes);
           if (unchanged && !(member === 1281 && profile.storyBankLimits[436] !== undefined)) continue;
           const { bytes, audit } = auditTranslationScript({ member, original, incoming: donorBytes,
-            locale: profile.locale,
-            contexts: translationScriptContexts(member, headers, originalHeaders), sourceText: text("source"), donorText: text("donor"), outputText: text("output"),
+            locale: profile.locale, contracts: scriptContracts,
+            contexts: translationScriptContexts(member, headers, originalHeaders, scriptContracts), sourceText: text("source"), donorText: text("donor"), outputText: text("output"),
             globalEntryCount: member => us.files[member] ? gen5ScriptEntries(us.files[member]).length : undefined,
             nativeChanges, addedBankWordSlot, dataCounts: { items: archive("output", "a/0/2/4")?.files.length ?? 0xffff, moves: archive("output", "a/0/2/1")?.files.length ?? 0xffff, species: archive("output", "a/0/1/6")?.files.length ?? 0xffff } });
-          if (member === 1281 && profile.locale !== "korean") {
+          if (member === 1281 && profile.locale !== "korean" && profile.sourceCode === "IRDO") {
             audit.diagnostics.push({ code: "regional-native-text-selection", severity: "warning", offset: 9971, opcode: 1012, bank: 436, dependency: "overlay/arm9/127",
               reason: "The European helper selects appended negative-floor hints 592–599. The retained US helper uses 512–519; its selection logic is not transplanted." });
             audit.nativeDependencies.push({ opcode: 1012, segment: "overlay/arm9/127", resolution: "unresolved" });
           }
+          audit.mapLocations = translationScriptLocations(member, headers, id => locationNames.get(id));
           scriptAudits.push(audit);
           if (unchanged) continue;
           const blocked = audit.diagnostics.filter(item => item.severity === "blocked");

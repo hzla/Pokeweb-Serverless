@@ -9310,6 +9310,28 @@
       "profile": "pokemon-asymmetric"
     },
     {
+      "species": 809,
+      "form": 1,
+      "gender": 2,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 694,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 809,
+      "form": 1,
+      "gender": 2,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 242,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
       "species": 810,
       "form": 0,
       "gender": 0,
@@ -9437,6 +9459,50 @@
       "shiny": true,
       "placeholder": false,
       "placeholderReason": null,
+      "member": 322,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 812,
+      "form": 1,
+      "gender": 0,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 774,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 812,
+      "form": 1,
+      "gender": 0,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 322,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 812,
+      "form": 1,
+      "gender": 1,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 774,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 812,
+      "form": 1,
+      "gender": 1,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
       "member": 322,
       "size": 32,
       "profile": "pokemon-asymmetric"
@@ -9569,6 +9635,50 @@
       "shiny": true,
       "placeholder": false,
       "placeholderReason": null,
+      "member": 62,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 815,
+      "form": 1,
+      "gender": 0,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 514,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 815,
+      "form": 1,
+      "gender": 0,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 62,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 815,
+      "form": 1,
+      "gender": 1,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 514,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 815,
+      "form": 1,
+      "gender": 1,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
       "member": 62,
       "size": 32,
       "profile": "pokemon-asymmetric"
@@ -9701,6 +9811,50 @@
       "shiny": true,
       "placeholder": false,
       "placeholderReason": null,
+      "member": 204,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 818,
+      "form": 1,
+      "gender": 0,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 656,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 818,
+      "form": 1,
+      "gender": 0,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 204,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 818,
+      "form": 1,
+      "gender": 1,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 656,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 818,
+      "form": 1,
+      "gender": 1,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
       "member": 204,
       "size": 32,
       "profile": "pokemon-asymmetric"
@@ -9921,6 +10075,50 @@
       "shiny": true,
       "placeholder": false,
       "placeholderReason": null,
+      "member": 70,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 823,
+      "form": 1,
+      "gender": 0,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 522,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 823,
+      "form": 1,
+      "gender": 0,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 70,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 823,
+      "form": 1,
+      "gender": 1,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 522,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 823,
+      "form": 1,
+      "gender": 1,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
       "member": 70,
       "size": 32,
       "profile": "pokemon-asymmetric"
@@ -10053,6 +10251,50 @@
       "shiny": true,
       "placeholder": false,
       "placeholderReason": null,
+      "member": 283,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 826,
+      "form": 1,
+      "gender": 0,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 735,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 826,
+      "form": 1,
+      "gender": 0,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 283,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 826,
+      "form": 1,
+      "gender": 1,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 735,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 826,
+      "form": 1,
+      "gender": 1,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
       "member": 283,
       "size": 32,
       "profile": "pokemon-asymmetric"
@@ -10405,6 +10647,50 @@
       "shiny": true,
       "placeholder": false,
       "placeholderReason": null,
+      "member": 103,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 834,
+      "form": 1,
+      "gender": 0,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 555,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 834,
+      "form": 1,
+      "gender": 0,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 103,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 834,
+      "form": 1,
+      "gender": 1,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 555,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 834,
+      "form": 1,
+      "gender": 1,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
       "member": 103,
       "size": 32,
       "profile": "pokemon-asymmetric"
@@ -10625,6 +10911,50 @@
       "shiny": true,
       "placeholder": false,
       "placeholderReason": null,
+      "member": 67,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 839,
+      "form": 1,
+      "gender": 0,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 519,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 839,
+      "form": 1,
+      "gender": 0,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 67,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 839,
+      "form": 1,
+      "gender": 1,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 519,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 839,
+      "form": 1,
+      "gender": 1,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
       "member": 67,
       "size": 32,
       "profile": "pokemon-asymmetric"
@@ -10713,6 +11043,50 @@
       "shiny": true,
       "placeholder": false,
       "placeholderReason": null,
+      "member": 129,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 841,
+      "form": 1,
+      "gender": 0,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 581,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 841,
+      "form": 1,
+      "gender": 0,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 129,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 841,
+      "form": 1,
+      "gender": 1,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 581,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 841,
+      "form": 1,
+      "gender": 1,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
       "member": 129,
       "size": 32,
       "profile": "pokemon-asymmetric"
@@ -10757,6 +11131,50 @@
       "shiny": true,
       "placeholder": false,
       "placeholderReason": null,
+      "member": 8,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 842,
+      "form": 1,
+      "gender": 0,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 460,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 842,
+      "form": 1,
+      "gender": 0,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 8,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 842,
+      "form": 1,
+      "gender": 1,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 460,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 842,
+      "form": 1,
+      "gender": 1,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
       "member": 8,
       "size": 32,
       "profile": "pokemon-asymmetric"
@@ -11109,6 +11527,94 @@
       "shiny": true,
       "placeholder": false,
       "placeholderReason": null,
+      "member": 399,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 849,
+      "form": 2,
+      "gender": 0,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 850,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 849,
+      "form": 2,
+      "gender": 0,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 398,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 849,
+      "form": 2,
+      "gender": 1,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 850,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 849,
+      "form": 2,
+      "gender": 1,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 398,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 849,
+      "form": 3,
+      "gender": 0,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 851,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 849,
+      "form": 3,
+      "gender": 0,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 399,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 849,
+      "form": 3,
+      "gender": 1,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 851,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 849,
+      "form": 3,
+      "gender": 1,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
       "member": 399,
       "size": 32,
       "profile": "pokemon-asymmetric"
@@ -11197,6 +11703,50 @@
       "shiny": true,
       "placeholder": false,
       "placeholderReason": null,
+      "member": 51,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 851,
+      "form": 1,
+      "gender": 0,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 503,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 851,
+      "form": 1,
+      "gender": 0,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 51,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 851,
+      "form": 1,
+      "gender": 1,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 503,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 851,
+      "form": 1,
+      "gender": 1,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
       "member": 51,
       "size": 32,
       "profile": "pokemon-asymmetric"
@@ -11400,6 +11950,28 @@
       "profile": "pokemon-asymmetric"
     },
     {
+      "species": 858,
+      "form": 1,
+      "gender": 1,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 642,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 858,
+      "form": 1,
+      "gender": 1,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 190,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
       "species": 859,
       "form": 0,
       "gender": 0,
@@ -11461,6 +12033,28 @@
       "shiny": true,
       "placeholder": false,
       "placeholderReason": null,
+      "member": 183,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 861,
+      "form": 1,
+      "gender": 0,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 635,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 861,
+      "form": 1,
+      "gender": 0,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
       "member": 183,
       "size": 32,
       "profile": "pokemon-asymmetric"
@@ -11769,6 +12363,28 @@
       "shiny": true,
       "placeholder": false,
       "placeholderReason": null,
+      "member": 5,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 869,
+      "form": 1,
+      "gender": 1,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 457,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 869,
+      "form": 1,
+      "gender": 1,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
       "member": 5,
       "size": 32,
       "profile": "pokemon-asymmetric"
@@ -12302,6 +12918,50 @@
       "profile": "pokemon-asymmetric"
     },
     {
+      "species": 879,
+      "form": 1,
+      "gender": 0,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 521,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 879,
+      "form": 1,
+      "gender": 0,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 69,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 879,
+      "form": 1,
+      "gender": 1,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 521,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 879,
+      "form": 1,
+      "gender": 1,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 69,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
       "species": 880,
       "form": 0,
       "gender": 2,
@@ -12429,6 +13089,50 @@
       "shiny": true,
       "placeholder": false,
       "placeholderReason": null,
+      "member": 109,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 884,
+      "form": 1,
+      "gender": 0,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 561,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 884,
+      "form": 1,
+      "gender": 0,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 109,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 884,
+      "form": 1,
+      "gender": 1,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 561,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 884,
+      "form": 1,
+      "gender": 1,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
       "member": 109,
       "size": 32,
       "profile": "pokemon-asymmetric"
@@ -12803,6 +13507,94 @@
       "shiny": true,
       "placeholder": false,
       "placeholderReason": null,
+      "member": 409,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 892,
+      "form": 2,
+      "gender": 0,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 860,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 892,
+      "form": 2,
+      "gender": 0,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 408,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 892,
+      "form": 2,
+      "gender": 1,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 860,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 892,
+      "form": 2,
+      "gender": 1,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 408,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 892,
+      "form": 3,
+      "gender": 0,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 861,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 892,
+      "form": 3,
+      "gender": 0,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 409,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 892,
+      "form": 3,
+      "gender": 1,
+      "shiny": false,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
+      "member": 861,
+      "size": 32,
+      "profile": "pokemon-asymmetric"
+    },
+    {
+      "species": 892,
+      "form": 3,
+      "gender": 1,
+      "shiny": true,
+      "placeholder": true,
+      "placeholderReason": "Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.",
       "member": 409,
       "size": 32,
       "profile": "pokemon-asymmetric"
@@ -58884,5 +59676,6 @@
       "sha256": "377ec04126e38afbdab2d9f4ff7461e1c17a4ef7716a1fc2747ba6de3bacd9d9"
     }
   ],
-  "archiveSha256": "8cfd9ee88ba288546f0778072527f05402e653a85422971a7fece922727b4afe"
+  "archiveSha256": "8cfd9ee88ba288546f0778072527f05402e653a85422971a7fece922727b4afe",
+  "sourceRomSha256": "41ec23667f7e8ce0d6269a84d910a34a841ae8b5987d47654042bf4a95461140"
 }

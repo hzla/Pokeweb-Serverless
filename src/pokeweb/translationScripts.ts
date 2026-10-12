@@ -18,7 +18,9 @@ export type TranslationScriptAudit = {
   contexts: ScriptContext[]; references: ScriptTextReference[]; diagnostics: ScriptDiagnostic[];
   rewrites: { offset: number; before: number; after: number; reason: string }[];
   nativeDependencies: { opcode: number; segment: string; resolution: "US contract" | "unresolved" }[];
+  mapLocations?: ScriptMapLocation[];
 };
+export type ScriptMapLocation = { map: number; headerRow: number; placeNameId: number; locationName?: string };
 export type ScriptContext = { bank?: number; sourceBank?: number; overlay?: number; map?: number };
 export type ScriptTextLookup = (bank: number, id: number) => string | undefined;
 type Command = { offset: number; opcode: number; size: number; target?: number };
@@ -45,7 +47,7 @@ const textSlots = (text: string | undefined) => [...new Set(Array.from((text ?? 
 const sample = (text: string | undefined) => text === undefined ? undefined : Array.from(text).slice(0, 200).join("");
 
 /** Reject unknown instructions and invalid branch/movement targets; never scan operand bytes as opcodes. */
-function program(bytes: Uint8Array, overlay?: number): Program {
+function program(bytes: Uint8Array, overlay: number | undefined, scriptContracts: TranslationScriptContracts): Program {
   const entries = gen5ScriptEntries(bytes), commands: Command[] = [], byOffset = new Map<number, Command>();
   const diagnostics: ScriptDiagnostic[] = [], covered = new Int32Array(bytes.length).fill(-1);
   const tableEnd = entries.length * 4 + 2;
@@ -87,7 +89,7 @@ function program(bytes: Uint8Array, overlay?: number): Program {
     for (let count = 0; count < 4096; count++, at += 4) {
       if (at < tableEnd || at + 4 > bytes.length || covered[at] !== -1) break;
       const opcode = readU16(bytes, at);
-      if (!translationScriptContracts.movementOpcodes.includes(opcode)) break;
+      if (!scriptContracts.movementOpcodes.includes(opcode)) break;
       starts.push(at);
       covered.fill(command.offset, at, at + 4);
       if (opcode === 0xfe) { ended = true; for (const start of starts) movements.add(start); break; }
@@ -124,22 +126,38 @@ function align(a: string[], b: string[]): Map<number, number> | undefined {
   return result;
 }
 
-export const translationScriptContracts = contracts as {
+export type TranslationScriptContracts = {
   globalRanges: { start: number; end: number; member: number; bank: number }[];
   zoneOverlays: Record<string, number>; sharedOverlays: Record<string, number>;
   handlers: Record<string, { address: number; segment: string }>;
   movementOpcodes: number[]; workVariables: number[];
   overlayHandlers: Record<string, Record<string, number>>;
 };
+export const translationScriptContracts = contracts as TranslationScriptContracts;
+export async function loadTranslationScriptContracts(sourceCode: string): Promise<TranslationScriptContracts> {
+  if (sourceCode === "IREO") return (await import("../assets/translation/black2-script-contracts.json")).default as TranslationScriptContracts;
+  if (sourceCode !== "IRDO") throw new Error("Unsupported US script contract.");
+  return translationScriptContracts;
+}
 
-export function translationScriptContexts(member: number, headers: Uint8Array | undefined, originalHeaders?: Uint8Array): ScriptContext[] {
+export function translationScriptLocations(member: number, headers: Uint8Array | undefined, locationName: (id: number) => string | undefined): ScriptMapLocation[] {
+  if (!headers || headers.length % 48) return [];
+  const result: ScriptMapLocation[] = [];
+  for (let at = 0; at < headers.length; at += 48) if (readU16(headers, at + 6) === member) {
+    const map = at / 48, placeNameId = headers[at + 26] | (headers[at + 27] & 3) << 8;
+    result.push({ map, headerRow: map + 1, placeNameId, locationName: locationName(placeNameId) });
+  }
+  return result;
+}
+
+export function translationScriptContexts(member: number, headers: Uint8Array | undefined, originalHeaders?: Uint8Array, scriptContracts: TranslationScriptContracts = translationScriptContracts): ScriptContext[] {
   const contexts: ScriptContext[] = [];
   if (headers && headers.length % 48 === 0) for (let at = 0; at < headers.length; at += 48) {
     if (readU16(headers, at + 6) === member) contexts.push({ map: at / 48, bank: readU16(headers, at + 10),
       sourceBank: originalHeaders && readU16(originalHeaders, at + 6) === member ? readU16(originalHeaders, at + 10) : undefined,
-      overlay: translationScriptContracts.zoneOverlays[at / 48] });
+      overlay: scriptContracts.zoneOverlays[at / 48] });
   }
-  for (const range of translationScriptContracts.globalRanges.filter(range => range.member === member)) contexts.push({ bank: range.bank, sourceBank: range.bank, overlay: translationScriptContracts.sharedOverlays[member] });
+  for (const range of scriptContracts.globalRanges.filter(range => range.member === member)) contexts.push({ bank: range.bank, sourceBank: range.bank, overlay: scriptContracts.sharedOverlays[member] });
   return contexts.length ? [...new Map(contexts.map(context => [`${context.bank}/${context.sourceBank}/${context.overlay}`, context])).values()] : [{}];
 }
 
@@ -150,10 +168,12 @@ type AuditInput = {
   nativeChanges?: ReadonlySet<string>; dataCounts?: Record<string, number>;
   locale?: TranslationLocaleId;
   addedBankWordSlot?: (bank: number) => { entry: number; slot: number } | undefined;
+  contracts?: TranslationScriptContracts;
 };
 
 export function auditTranslationScript(input: AuditInput): { bytes: Uint8Array; audit: TranslationScriptAudit } {
   const { member, original, incoming, contexts } = input;
+  const scriptContracts = input.contracts ?? translationScriptContracts;
   const audit: TranslationScriptAudit = { member, status: "imported", entries: 0, commands: 0, contexts,
     references: [], diagnostics: [], rewrites: [], nativeDependencies: [] };
   const output = incoming.slice(), rewriteValues = new Map<number, Set<number>>();
@@ -163,7 +183,7 @@ export function auditTranslationScript(input: AuditInput): { bytes: Uint8Array; 
     reason: "The donor changed a VM/dispatch dependency. Its effect on script behavior cannot be resolved while retaining the US implementation.",
   });
   for (const context of contexts) {
-    const us = program(original, context.overlay), donor = program(incoming, context.overlay);
+    const us = program(original, context.overlay, scriptContracts), donor = program(incoming, context.overlay, scriptContracts);
     audit.entries = donor.entries.length; audit.commands = Math.max(audit.commands, donor.commands.length);
     audit.diagnostics.push(...donor.diagnostics);
     if (!bytesEqual(us.uncovered, donor.uncovered)) add({ code: "unparsed-script-data", severity: "blocked", reason: "Changed embedded or unreachable data has no decoded US script/movement contract." });
@@ -207,10 +227,10 @@ export function auditTranslationScript(input: AuditInput): { bytes: Uint8Array; 
         while (donor.byOffset.has(target) && !structure.has(target) && !flow.has(donor.byOffset.get(target)!.opcode) && !terminal.has(donor.byOffset.get(target)!.opcode)) target += donor.byOffset.get(target)!.size;
         if (!shapeCounterpart || structure.get(target)?.offset !== shapeCounterpart.target) changedFlow = true;
       }
-      if (command.opcode < 1000 && !translationScriptContracts.handlers[command.opcode]) add({ code: "native-command-unavailable", severity: "blocked", offset: command.offset, opcode: command.opcode, reason: "This command has no native handler in the clean US ROM." });
-      if (command.opcode >= 1000 && !translationScriptContracts.overlayHandlers[context.overlay ?? -1]?.[command.opcode]) add({ code: "native-overlay-command-unavailable", severity: "blocked", offset: command.offset, opcode: command.opcode,
+      if (command.opcode < 1000 && !scriptContracts.handlers[command.opcode]) add({ code: "native-command-unavailable", severity: "blocked", offset: command.offset, opcode: command.opcode, reason: "This command has no native handler in the clean US ROM." });
+      if (command.opcode >= 1000 && !scriptContracts.overlayHandlers[context.overlay ?? -1]?.[command.opcode]) add({ code: "native-overlay-command-unavailable", severity: "blocked", offset: command.offset, opcode: command.opcode,
         reason: "This overlay command has no verified native handler in the active US overlay." });
-      const segment = command.opcode >= 1000 ? `overlay/arm9/${context.overlay}` : translationScriptContracts.handlers[command.opcode]?.segment ?? "unresolved";
+      const segment = command.opcode >= 1000 ? `overlay/arm9/${context.overlay}` : scriptContracts.handlers[command.opcode]?.segment ?? "unresolved";
       const unaudited = !counterpart && !editable(command.opcode);
       if (unaudited || segment === "unresolved") add({ code: "native-contract-unresolved", severity: "blocked", offset: command.offset, opcode: command.opcode, dependency: segment,
         reason: "A new or changed native call has no audited operand and side-effect contract for this port." });
@@ -218,13 +238,13 @@ export function auditTranslationScript(input: AuditInput): { bytes: Uint8Array; 
       if (input.nativeChanges?.has(segment)) add({ code: "donor-native-dependency", severity: "blocked", offset: command.offset, opcode: command.opcode, dependency: segment,
         reason: "The donor edited the native module used by this script; its dependency on that code cannot be resolved while retaining US code." });
       if (globalCalls.has(command.opcode)) {
-        const id = readU16(incoming, command.offset + 2), range = translationScriptContracts.globalRanges.find(range => id >= range.start && id <= range.end);
+        const id = readU16(incoming, command.offset + 2), range = scriptContracts.globalRanges.find(range => id >= range.start && id <= range.end);
         const count = range && input.globalEntryCount(range.member);
         if (opcodeIsClearReservation(command.opcode, id) || id >= 1 && id <= donor.entries.length && context.map !== undefined) continue;
         if (id >= 0x4000 || !range || count === undefined || id - range.start >= count) add({ code: "global-script-reference", severity: counterpart ? "warning" : "blocked", offset: command.offset, opcode: command.opcode, dependency: `script/${id}`,
           reason: "The called or reserved global script entry could not be resolved in the US script table." });
-        else if (translationScriptContracts.sharedOverlays[range.member] !== undefined && translationScriptContracts.sharedOverlays[range.member] !== context.overlay) add({ code: "native-overlay-context", severity: counterpart ? "warning" : "blocked", offset: command.offset, opcode: command.opcode,
-          dependency: `overlay/arm9/${translationScriptContracts.sharedOverlays[range.member]}`, reason: "The callee needs a native command overlay that is not established in this map context." });
+        else if (scriptContracts.sharedOverlays[range.member] !== undefined && scriptContracts.sharedOverlays[range.member] !== context.overlay) add({ code: "native-overlay-context", severity: counterpart ? "warning" : "blocked", offset: command.offset, opcode: command.opcode,
+          dependency: `overlay/arm9/${scriptContracts.sharedOverlays[range.member]}`, reason: "The callee needs a native command overlay that is not established in this map context." });
       }
     }
     // Context-insensitive return summaries over-approximate callers. Join conflicting
@@ -288,7 +308,7 @@ export function auditTranslationScript(input: AuditInput): { bytes: Uint8Array; 
         const implicit = globalCalls.has(opcode) ? [...state.tainted].find(variable => variable >= 0x8000 && variable < 0x8020) : undefined;
         const variable = explicit ?? implicit;
         if (variable !== undefined) add({ code: "native-argument-unresolved", severity: "blocked", offset, opcode, variable,
-          dependency: globalCalls.has(opcode) ? `script/${readU16(incoming, offset + 2)}` : translationScriptContracts.handlers[opcode]?.segment,
+          dependency: globalCalls.has(opcode) ? `script/${readU16(incoming, offset + 2)}` : scriptContracts.handlers[opcode]?.segment,
           reason: "An edited work value reaches a native/global callee without an audited argument contract. Its data bounds or downstream effects cannot be resolved." });
       }
       if (spec) for (const relative of spec.ids) {
@@ -354,7 +374,7 @@ export function auditTranslationScript(input: AuditInput): { bytes: Uint8Array; 
       }
       if (writesWork(opcode)) {
         const destination = readU16(incoming, offset + 2), operand = size >= 6 ? readU16(incoming, offset + 4) : undefined, v = operand === undefined ? undefined : value(operand);
-        if (!translationScriptContracts.workVariables.includes(destination)) add({ code: "work-variable-range", severity: "blocked", offset, opcode, variable: destination, reason: "The work-variable destination has no verified use in the stock US script contract." });
+        if (!scriptContracts.workVariables.includes(destination)) add({ code: "work-variable-range", severity: "blocked", offset, opcode, variable: destination, reason: "The work-variable destination has no verified use in the stock US script contract." });
         if (!counterpart || operand !== undefined && state.tainted.has(operand) || opcode !== 0x28 && state.tainted.has(destination)) state.tainted.add(destination);
         else state.tainted.delete(destination);
         if ([0x2c, 0x2d].includes(opcode) && v === 0) add({ code: "work-arithmetic", severity: "blocked", offset, opcode, reason: "A resolved division/modulo operand is zero." });

@@ -171,6 +171,11 @@ type FollowerRuntimeManifest = {
 function runtimeFor(profile: FollowerProfile): FollowerRuntimeManifest { return profile === "white2upgrade" ? upgradeRuntimeManifest : profile === "black2" ? black2RuntimeManifest : profile === "white2italy" ? italyRuntimeManifest : stockRuntimeManifest; }
 function interactionFor(profile: FollowerProfile): typeof interactionManifest { return profile === "white2italy" ? italyInteractionManifest : interactionManifest; }
 function targetFor(profile: FollowerProfile): string { return profile === "white2upgrade" ? upgradeContract.sourceRomSha256 : profile === "black2" ? black2Contract.target.sha256 : profile === "white2italy" ? italyContract.target.sha256 : contract.target.sha256; }
+function ownsTarget(profile: FollowerProfile, target: string): boolean {
+  // Recognize earlier owned receipts without authorizing their old Upgrade
+  // DLLs. Compatibility still requires the complete current module set.
+  return target === targetFor(profile) || (profile === "white2upgrade" && upgradeContract.previousSourceRomSha256.includes(target));
+}
 function binaryContractFor(profile: FollowerProfile) { return profile === "black2" ? black2Contract : profile === "white2italy" ? italyContract : contract; }
 export function followerModuleHookConflicts(rpm: RpmModule, hooks: readonly { segment: string; address: number; patchBytes: number }[]): boolean {
   for (const relocation of rpm.relocations) {
@@ -279,7 +284,7 @@ export function readFollowerWorkspace(project: ProjectState, rom: FollowerFiles)
   const bytes = readFollowingFile(project, rom, FOLLOWER_MANIFEST_PATH);
   if (!bytes) return;
   const value = JSON.parse(new TextDecoder().decode(bytes)) as FollowerAssetWorkspace;
-  if (value.schemaVersion !== 1 || ![contract.target.sha256, black2Contract.target.sha256, italyContract.target.sha256, upgradeContract.sourceRomSha256].includes(value.targetSha256) || !value.imports || typeof value.imports !== "object") throw new Error("Unsupported follower asset workspace.");
+  if (value.schemaVersion !== 1 || ![contract.target.sha256, black2Contract.target.sha256, italyContract.target.sha256, upgradeContract.sourceRomSha256, ...upgradeContract.previousSourceRomSha256].includes(value.targetSha256) || !value.imports || typeof value.imports !== "object") throw new Error("Unsupported follower asset workspace.");
   validateFollowerRegistry(value.registry);
   for (const [key, item] of Object.entries(value.imports)) {
     if (!value.registry.entries.some(e => followerKey(e.key) === key) || item.path !== `following/asset-${key.replaceAll(":", "-")}.btx` || !Number.isInteger(item.crc32)) throw new Error("Invalid follower import reference.");
@@ -650,7 +655,7 @@ export async function readFollowerAlphaInstall(project: ProjectState, rom?: Foll
   const previous = runtimeManifest.previousVersions.find(version => (version.variant ?? "full") === variant && version.version === state.version && (state.removed ? removedHash : version.fieldSha256) === state.moduleSha256);
   const extendedPrevious = !current && previous && "coreSha256" in previous ? previous : undefined;
   const extended = current || !!extendedPrevious;
-  if ((state.schemaVersion !== 1 && state.schemaVersion !== 2) || (state.schemaVersion === 2 && !state.variant) || !fingerprint || (!current && !previous) || state.targetSha256 !== targetFor(profile) || typeof state.enabled !== "boolean" || (state.removed && state.enabled) ||
+  if ((state.schemaVersion !== 1 && state.schemaVersion !== 2) || (state.schemaVersion === 2 && !state.variant) || !fingerprint || (!current && !previous) || !ownsTarget(profile, state.targetSha256) || typeof state.enabled !== "boolean" || (state.removed && state.enabled) ||
       !dll || await followerRomSha256(dll) !== state.moduleSha256 || !config || followerCrc32(config) !== state.configCrc32)
     throw new Error("Follower installation files have changed. Refusing to overwrite owned data.");
   if (extended) {

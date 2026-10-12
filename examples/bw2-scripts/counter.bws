@@ -1,0 +1,32 @@
+# Explicitly bind a work slot reviewed for this event. Helpers share bindings.
+work :counter, 0x8000
+LIMIT = 3
+
+script :main, entry: 1 do
+  lock
+  face_player
+  counter = 0
+
+  while counter < LIMIT
+    pause_once
+    counter += 1
+    next if counter == 1
+    break if counter == LIMIT
+  end
+
+  case counter
+  when 0, 1
+    nop
+  when LIMIT
+    play_sound 0x547
+  else
+    nop
+  end
+
+  unlock
+end
+
+def pause_once
+  sleep 1
+  return
+end

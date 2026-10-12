@@ -211,13 +211,15 @@ type SceneTranslation = Pick<SceneMapData, "translateX" | "translateY">;
 
 const spriteMap = spriteHash as Record<string, string>;
 
-export function getOverworldScene(project: ProjectState, overworldId: number): OverworldScene {
+export function getOverworldScene(project: ProjectState, overworldId: number, headerRowId?: number): OverworldScene {
   requireStore(project, "overworlds");
   requireStore(project, "matrix");
   requireStore(project, "maps");
   if (!project.headers) project.headers = parseHeaders(project);
 
-  const found = findHeaderForOverworld(project, overworldId);
+  const requested = headerRowId === undefined ? undefined : project.headers.rows[headerRowId];
+  const found = requested && Number(requested.overworlds_id ?? requested.map_id) === overworldId
+    ? { rowId: headerRowId!, header: requested } : headerRowId === undefined ? findHeaderForOverworld(project, overworldId) : undefined;
   if (!found) throw new Error(`No header references overworld ${overworldId}`);
 
   const matrixId = Number(found.header.matrix_id ?? 0);

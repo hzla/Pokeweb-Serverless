@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readU16, writeU16, writeU32 } from "../nds/binary";
-import { auditTranslationScript, translationScriptContexts, translationScriptContracts } from "../pokeweb/translationScripts";
+import { auditTranslationScript, loadTranslationScriptContracts, translationScriptContexts, translationScriptContracts, translationScriptLocations } from "../pokeweb/translationScripts";
 import { renderTranslationScriptAudit } from "../ui/translation";
 import type { TranslationReport } from "../pokeweb/translationModel";
 
@@ -32,6 +32,21 @@ function check(original: Uint8Array, incoming: Uint8Array, extra: Partial<Parame
 const codes = (result: ReturnType<typeof check>) => result.audit.diagnostics.filter(diagnostic => diagnostic.severity === "blocked").map(diagnostic => diagnostic.code);
 
 describe("US White 2 script translation contracts", () => {
+  it("uses Black 2's own native addresses rather than White 2's", async () => {
+    const black2 = await loadTranslationScriptContracts("IREO");
+    expect(black2.handlers[0].address).toBe(translationScriptContracts.handlers[0].address - 0x40);
+    expect(black2.globalRanges).toEqual(translationScriptContracts.globalRanges);
+    await expect(loadTranslationScriptContracts("IREJ")).rejects.toThrow("Unsupported");
+  });
+  it("keeps every map location and distinguishes native map IDs from Pokeweb header rows", () => {
+    const headers = new Uint8Array(96); writeU16(headers, 6, 298); writeU16(headers, 54, 298);
+    headers[26] = 12; headers[27] = 1; headers[74] = 13;
+    expect(translationScriptLocations(298, headers, id => id === 268 ? "Unity Tower" : "Other")).toEqual([
+      { map: 0, headerRow: 1, placeNameId: 268, locationName: "Unity Tower" },
+      { map: 1, headerRow: 2, placeNameId: 13, locationName: "Other" },
+    ]);
+    expect(translationScriptLocations(298, headers.slice(1), () => "Unknown")).toEqual([]);
+  });
   it("imports a literal dialogue edit and reads all three referenced texts", () => {
     const original = script([say(0), halt()]), incoming = script([say(1), halt()]);
     const result = check(original, incoming);

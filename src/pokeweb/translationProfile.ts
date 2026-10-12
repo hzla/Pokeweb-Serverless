@@ -1,14 +1,25 @@
 import type { Folder } from "../nds/fnt";
 
-export const TRANSLATION_VERSION = "0.3.0-alpha";
+export const TRANSLATION_VERSION = "0.4.1-alpha";
+export const TRANSLATION_GAMES = {
+  white2: { title: "White 2", version: "W2", sourceCode: "IRDO", sourceSha256: "3e50aec3db401332175a5d2b5fe2a68ac1a05ec63995dba9d1506b1b51837446" },
+  black2: { title: "Black 2", version: "B2", sourceCode: "IREO", sourceSha256: "2e6b2415354aa41471bc7617068dce059a59931bf5c4348a264f8043f297683a" },
+} as const;
+export type TranslationGameId = keyof typeof TRANSLATION_GAMES;
 export const TRANSLATION_LOCALES = [
-  { id: "italian", language: "Italian", region: "Italy", gameCode: "IRDI" },
-  { id: "french", language: "French", region: "France", gameCode: "IRDF" },
-  { id: "german", language: "German", region: "Germany", gameCode: "IRDD" },
-  { id: "spanish", language: "Spanish", region: "Spain", gameCode: "IRDS" },
-  { id: "korean", language: "Korean", region: "Korea", gameCode: "IRDK" },
+  { id: "italian", language: "Italian", region: "Italy", gameCode: "IRDI", black2GameCode: "IREI" },
+  { id: "french", language: "French", region: "France", gameCode: "IRDF", black2GameCode: "IREF" },
+  { id: "german", language: "German", region: "Germany", gameCode: "IRDD", black2GameCode: "IRED" },
+  { id: "spanish", language: "Spanish", region: "Spain", gameCode: "IRDS", black2GameCode: "IRES" },
+  { id: "korean", language: "Korean", region: "Korea", gameCode: "IRDK", black2GameCode: "IREK" },
 ] as const;
 export type TranslationLocaleId = typeof TRANSLATION_LOCALES[number]["id"];
+export function translationSourceGame(code: string): TranslationGameId | undefined {
+  return (Object.keys(TRANSLATION_GAMES) as TranslationGameId[]).find(game => TRANSLATION_GAMES[game].sourceCode === code);
+}
+export function translationDonorLocale(code: string, game: TranslationGameId) {
+  return TRANSLATION_LOCALES.find(locale => (game === "black2" ? locale.black2GameCode : locale.gameCode) === code);
+}
 export const MAIN_MENU_LABEL_ADAPTATIONS: Partial<Record<TranslationLocaleId, { before: string; after: string }>> = {
   german: { before: "EINSTELLUNGEN DER NINTENDO WFC", after: "NINTENDO WFC-EINSTELLUNGEN" },
   spanish: { before: "CONFIG. DE LA CWF DE NINTENDO", after: "CONFIG. CWF DE NINTENDO" },
@@ -36,8 +47,19 @@ export function translationFileNames(folder: Folder, prefix = "", result = new M
 }
 
 /** Load only the selected locale's baseline fingerprints. No ROM payloads are shipped. */
-export async function loadTranslationProfile(locale: TranslationLocaleId): Promise<TranslationProfile> {
+export async function loadTranslationProfile(locale: TranslationLocaleId, game: TranslationGameId = "white2"): Promise<TranslationProfile> {
   let data: unknown;
+  if (game === "black2") {
+    switch (locale) {
+      case "italian": data = (await import("../assets/translation/black2-italian.json")).default; break;
+      case "french": data = (await import("../assets/translation/black2-french.json")).default; break;
+      case "german": data = (await import("../assets/translation/black2-german.json")).default; break;
+      case "spanish": data = (await import("../assets/translation/black2-spanish.json")).default; break;
+      case "korean": data = (await import("../assets/translation/black2-korean.json")).default; break;
+      default: throw new Error("Unsupported Black 2 language.");
+    }
+    return data as TranslationProfile;
+  }
   switch (locale) {
     case "italian": data = (await import("../assets/translation/white2-italian.json")).default; break;
     case "french": data = (await import("../assets/translation/white2-french.json")).default; break;

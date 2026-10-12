@@ -4,11 +4,12 @@ import { Folder, addFilePath, saveFnt } from "../nds/fnt";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { decodeGen5TextBank, encodeGen5TextBank } from "../pokeweb/text";
-import { assertTranslationPreservesCode, mergeTranslationTextArchive, translateWhite2ToItalian, translationRomFilename } from "../pokeweb/translationModel";
+import { assertTranslationPreservesCode, mergeTranslationTextArchive, translateBlack2, translateWhite2ToItalian, translationRomFilename } from "../pokeweb/translationModel";
 import { white2ItalianAssetVariant } from "../pokeweb/translationAssets";
-import { TRANSLATION_LOCALES, loadTranslationProfile, translationFileNames, type TranslationProfile } from "../pokeweb/translationProfile";
+import { TRANSLATION_GAMES, TRANSLATION_LOCALES, loadTranslationProfile, translationFileNames, translationSourceGame, translationDonorLocale, type TranslationProfile } from "../pokeweb/translationProfile";
 import { planTranslationTransfers, translationSha256 } from "../pokeweb/translationTransfer";
 import { compressLz11Literal } from "../pokeweb/pokemonSpriteModel";
+import { numericFontFixture } from "./fixtures/numericFont";
 
 const bank = (...texts: string[]) => encodeGen5TextBank(texts.map((text, index) => [`0_${index}`, text, 0]));
 const narc = (...files: Uint8Array[]) => { const archive = new NARC(); archive.files = files; return archive; };
@@ -74,7 +75,7 @@ describe("Italian White 2 translation", () => {
   it("provides pinned Italian graphics alternatives only for reviewed members", () => {
     expect(white2ItalianAssetVariant("a/0/1/1", 438)?.expandedSha256).toMatch(/^[\da-f]{64}$/u);
     expect(white2ItalianAssetVariant("a/0/1/1", 430)).toBeUndefined();
-    expect(translationRomFilename("White2.nds")).toBe("White2-Italian-0.3.0-alpha.nds");
+    expect(translationRomFilename("White2.nds")).toBe("White2-Italian-0.4.1-alpha.nds");
   });
 });
 
@@ -87,7 +88,7 @@ function dataRom(files: [string, Uint8Array][], code = "IRDO"): NintendoDSRom {
   return new NintendoDSRom(rom.save({ filenames: names }));
 }
 async function baseline(source: NintendoDSRom, donor: NintendoDSRom): Promise<TranslationProfile> {
-  const profile: TranslationProfile = { schemaVersion: 2, id: "fixture", locale: "italian", language: "Italian", version: "test", sourceCode: "IRDO", donorCode: "IRDI", revision: 0,
+  const profile: TranslationProfile = { schemaVersion: 2, id: "fixture", locale: "italian", language: "Italian", version: "test", sourceCode: source.idCode, donorCode: donor.idCode, revision: 0,
     sourceSha256: "", donorSha256: "", alphabetBanks: [1], storyBankLimits: {}, files: [], native: {}, overlays: {} };
   for (const [path, id] of translationFileNames(source.filenames)) {
     const a = source.files[id], b = donor.getFileByName(path);
@@ -104,6 +105,20 @@ async function baseline(source: NintendoDSRom, donor: NintendoDSRom): Promise<Tr
 const recordBytes = (size: number, fill: number) => new Uint8Array(size).fill(fill);
 
 describe("Regional donor data transplant", () => {
+  it.each([["IRDO", "IRDI"], ["IREO", "IREI"]])("adapts the %s small numeric font and logs unsupported donor font mappings", async (sourceCode, donorCode) => {
+    const us = numericFontFixture(13), foreign = numericFontFixture(11, true);
+    const fonts = (font: Uint8Array) => narc(new Uint8Array(), new Uint8Array(), new Uint8Array(), font).save();
+    const source = dataRom([["a/0/2/3", fonts(us)]], sourceCode), donor = dataRom([["a/0/2/3", fonts(foreign)]], donorCode);
+    const profile = await baseline(source, donor), plan = await planTranslationTransfers(source, donor, profile);
+    const result = new NARC(plan.replacements.get(source.fileId("a/0/2/3"))!).files[3];
+    expect(result.length).toBe(us.length); expect(result[52]).toBe(13);
+    expect(result.subarray(63 + 2 * 29, 60 + 3 * 29)).toEqual(us.subarray(63 + 2 * 29, 60 + 3 * 29));
+    expect(plan.records.find(row => row.scope === "member" && row.member === 3)).toMatchObject({ action: "imported", reason: expect.stringContaining("US 13-pixel cells") });
+    writeU16(foreign, foreign.length - 152 + 24, 9);
+    const changed = dataRom([["a/0/2/3", fonts(foreign)]], donorCode), retained = await planTranslationTransfers(source, changed, profile);
+    expect(retained.replacements.size).toBe(0);
+    expect(retained.records.find(row => row.member === 3)).toMatchObject({ action: "retained", change: "regional-and-hack", reason: expect.stringContaining("character-to-glyph IDs") });
+  });
   it("imports the US range of an audited extended story bank and records the omitted tail", async () => {
     const source = dataRom([["a/0/0/3", narc(bank("First", "Last")).save()]]);
     const donor = dataRom([["a/0/0/3", narc(bank("Primo", "Ultimo", "Extra")).save()]], "IRDI");
@@ -219,15 +234,15 @@ describe("Regional donor data transplant", () => {
     }
     expect(await translationSha256(source.data)).toBe(inputHash); expect(await translationSha256(donor.data)).toBe(donorHash);
   });
-  it("audits scripts after text merging and imports compatible stock regional and minor hack changes", async () => {
+  it.each([["IRDO", "IRDI"], ["IREO", "IREI"]])("audits %s scripts after text merging and imports compatible stock regional and minor hack changes", async (sourceCode, donorCode) => {
     const script = (message: number) => {
       const bytes = new Uint8Array(14); writeU32(bytes, 0, 2); writeU16(bytes, 4, 0xfd13);
       writeU16(bytes, 6, 0x34); writeU16(bytes, 8, message); writeU16(bytes, 12, 2); return bytes;
     };
     const header = new Uint8Array(48);
     const files: [string, Uint8Array][] = [["a/0/5/6", narc(script(0)).save()], ["a/0/1/2", narc(header).save()], ["a/0/0/3", narc(bank("One", "Two")).save()]];
-    const source = dataRom(files);
-    const stock = dataRom([["a/0/0/3", narc(bank("Uno", "Due")).save()], ["a/0/1/2", narc(header).save()], ["a/0/5/6", narc(script(1)).save()]], "IRDI");
+    const source = dataRom(files, sourceCode);
+    const stock = dataRom([["a/0/0/3", narc(bank("Uno", "Due")).save()], ["a/0/1/2", narc(header).save()], ["a/0/5/6", narc(script(1)).save()]], donorCode);
     const profile = await baseline(source, stock);
     const regional = await planTranslationTransfers(source, stock, profile);
     expect(profile.files.find(file => file.path === "a/0/5/6")!.retainedMembers).toEqual([0]);
@@ -236,7 +251,7 @@ describe("Regional donor data transplant", () => {
     const output = new NintendoDSRom(source.save({ files: regional.replacements })); assertTranslationPreservesCode(source, output, regional.replacements);
     expect(readU16(new NARC(output.getFileByName("a/0/5/6")).files[0], 8)).toBe(1);
     // An extra entry rejected by text merging must not silently become a script reference.
-    const edited = dataRom([["a/0/0/3", narc(bank("Uno", "Due", "Extra")).save()], ["a/0/1/2", narc(header).save()], ["a/0/5/6", narc(script(2)).save()]], "IRDI");
+    const edited = dataRom([["a/0/0/3", narc(bank("Uno", "Due", "Extra")).save()], ["a/0/1/2", narc(header).save()], ["a/0/5/6", narc(script(2)).save()]], donorCode);
     const rejected = await planTranslationTransfers(source, edited, profile);
     expect(rejected.scriptAudits[0]).toMatchObject({ status: "retained", references: [expect.objectContaining({ messageId: 2, status: "unresolved", donorText: "Extra" })] });
     expect(rejected.records.find(record => record.path === "a/0/5/6" && record.scope === "member")).toMatchObject({ action: "retained", change: "regional-and-hack" });
@@ -264,5 +279,24 @@ describe("Regional donor data transplant", () => {
     expect(profile.files.length).toBe(318);
     expect(profile.files.some(file => file.path === "a/0/1/6" && file.members! > 649)).toBe(true);
     expect(profile.alphabetBanks.at(-1)).toBe(locale.id === "korean" ? 139 : 138);
+  });
+  it.each(TRANSLATION_LOCALES)("loads the separate Black 2 $language baseline", async locale => {
+    const profile = await loadTranslationProfile(locale.id, "black2");
+    expect(profile.sourceCode).toBe("IREO"); expect(profile.donorCode).toBe(locale.black2GameCode);
+    expect(profile.sourceSha256).toBe(TRANSLATION_GAMES.black2.sourceSha256);
+    expect(profile.id).toBe(`black2-us-${locale.id}`);
+    expect(profile.files).toHaveLength(318);
+    expect(profile.native.arm9).toMatch(/^[\da-f]{64}$/u);
+  });
+  it("detects titles independently of language and rejects cross-title donors", async () => {
+    expect(translationSourceGame("IREO")).toBe("black2"); expect(translationSourceGame("IRDO")).toBe("white2");
+    expect(translationSourceGame("IREJ")).toBeUndefined();
+    expect(translationDonorLocale("IREI", "black2")?.id).toBe("italian");
+    expect(translationDonorLocale("IRDI", "black2")).toBeUndefined();
+    expect(translationDonorLocale("IREJ", "black2")).toBeUndefined();
+    const files: [string, Uint8Array][] = [["data.narc", narc(bank("Text")).save()]];
+    const source = dataRom(files), donor = dataRom(files, "IRDI"), profile = await baseline(source, donor);
+    await expect(planTranslationTransfers(dataRom(files, "IREO"), donor, profile)).rejects.toThrow("must match");
+    await expect(translateBlack2(dataRom(files, "IREO").data, new Uint8Array())).rejects.toThrow("clean US Black 2");
   });
 });

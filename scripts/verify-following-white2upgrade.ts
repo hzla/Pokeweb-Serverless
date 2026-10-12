@@ -1,8 +1,10 @@
 // Read-only input ROM; native game execution remains the user's emulator task.
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
+import { createHash } from "node:crypto";
 import { loadProjectFromRomBytes } from "../src/pokeweb/loader";
 import { NintendoDSRom } from "../src/nds/rom";
+import { decompressCode } from "../src/nds/codeCompression";
 import { writeRpm } from "../src/pokeweb/rpm";
 import { checkFollowerCompatibility, installFollowerAlpha, readFollowerAlphaInstall, readFollowingFile, FOLLOWER_RESOURCE_PATH, FOLLOWER_DESCRIPTOR_PATH, FOLLOWER_RUNTIME_REGISTRY_PATH } from "../src/pokeweb/followingPokemonProject";
 import { decodeFollowerRegistry, followerPreview } from "../src/pokeweb/followingPokemonModel";
@@ -15,6 +17,11 @@ if (!input || !output) throw new Error("Expected original White2Upgrade ROM and 
 const a = new NintendoDSRom(new Uint8Array(await readFile(input)), {fileData:"view"});
 const project = await loadProjectFromRomBytes(new Uint8Array(await readFile(output)), basename(output), {selectedNarcs:[]});
 const b = new NintendoDSRom(project.originalRomBytes!, {fileData:"view"});
+const hash=(data:Uint8Array)=>createHash("sha256").update(data).digest("hex");
+for(const [name,before,after] of [
+ ["ARM9",decompressCode(a.arm9),project.arm9], ["ARM7",a.arm7,b.arm7],
+ ["ARM9 overlay table",a.arm9OverlayTable,b.arm9OverlayTable], ["ARM7 overlay table",a.arm7OverlayTable,b.arm7OverlayTable],
+] as const)if(hash(before)!==hash(after))throw new Error(`Changed native ${name}`);
 const state = await readFollowerAlphaInstall(project);
 if (state?.profile !== "white2upgrade" || !state.enabled) throw new Error("Expansion profile receipt not recognized");
 const report = await checkFollowerCompatibility(project);
@@ -70,10 +77,13 @@ for(const mode of ["fingerprint","conflict"]) {
    relocations:[{sourceSymbolIndex:0,target:{module:hook.segment,address:hook.address,type:"FULL_COPY"}}],metadata:{PMCGameID:"W2"}},{ident:"DLXF"});
  }
  project.fileSystem={...originalFiles,additions};
- const before=JSON.stringify(project.fileSystem);
+ // Large follower archives must not be expanded into huge JSON number maps.
+ const snapshot=()=>JSON.stringify(Object.entries(project.fileSystem ?? {}).map(([kind,files])=>[kind,
+  Object.entries(files as Record<string,Uint8Array>).map(([path,data])=>[path,createHash("sha256").update(data).digest("hex")]).sort()]));
+ const before=snapshot();
  const rejected=await checkFollowerCompatibility(project);if(rejected.compatible)throw new Error(`Accepted ${mode}`);
  let threw=false;try{await installFollowerAlpha(project);}catch{threw=true;}
- if(!threw||JSON.stringify(project.fileSystem)!==before)throw new Error(`Installation mutated project on ${mode}`);
+ if(!threw||snapshot()!==before)throw new Error(`Installation mutated project on ${mode}`);
  project.fileSystem=originalFiles;
 }
-console.log(`White2Upgrade: ${registry.entries.length} appearances cover species 1–1023; ${seen.size} imported resources decoded without visible sentinel magenta; ${unchanged} original file payloads preserved; runtime fingerprint and conflicting hook rejection passed.`);
+console.log(`White2Upgrade: ${registry.entries.length} appearances cover species 1–1023; ${seen.size} imported resources decoded without visible sentinel magenta; ${unchanged} original file payloads and native programs/overlay tables preserved; runtime fingerprint and conflicting hook rejection passed.`);

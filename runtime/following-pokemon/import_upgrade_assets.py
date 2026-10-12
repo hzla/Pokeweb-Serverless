@@ -12,6 +12,13 @@ FORMS = {666:list(range(20)),669:list(range(5)),670:list(range(6)),671:list(rang
          888:[0,1],889:[0,1],892:[0,1],893:[0,1],898:[0,1,2],902:[0,1],905:[0,1],916:[0,1],
          925:[0,1],931:list(range(4)),964:[0,1],978:[0,1,2],982:[0,1],999:[0,1],1017:list(range(4))}
 GENDER_TAG = {668:1,678:1,876:1,902:1,916:1}
+# Audited G-Max-derived Mega IDs in the integration profile. These have no
+# dedicated land-follower sheets. Keep the source form (including Low Key and
+# Rapid Strike) rather than treating every new form as the first base form.
+EXPANSION_MEGA_BASE_FORMS = {809:{1:0},812:{1:0},815:{1:0},818:{1:0},823:{1:0},
+    826:{1:0},834:{1:0},839:{1:0},841:{1:0},842:{1:0},849:{2:0,3:1},851:{1:0},
+    858:{1:0},861:{1:0},869:{1:0},879:{1:0},884:{1:0},892:{2:0,3:1}}
+MEGA_PLACEHOLDER = 'Expanded Mega form uses its source-form follower artwork; dedicated Mega overworld artwork is not bundled.'
 
 def norm(s):return re.sub('[^A-Z0-9]+','_',unicodedata.normalize('NFKD',s).encode('ascii','ignore').decode().upper()).strip('_')
 
@@ -40,9 +47,11 @@ def build(rom_path, engine, names_path, output, png_root=None):
         ratio=personal[species][18];genders=[2] if ratio==255 else [1] if ratio==254 else [0] if ratio==0 else [0,1]
         for form in range(max(1,personal[species][32])):
             for gender in genders:
-                offsets=FORMS.get(species,[0]);offset=offsets[form] if form<len(offsets) else 0
+                source_form=EXPANSION_MEGA_BASE_FORMS.get(species,{}).get(form,form)
+                offsets=FORMS.get(species,[0]);offset=offsets[source_form] if source_form<len(offsets) else 0
                 reasons=[]
-                if form>=len(offsets):reasons.append('Form artwork not mapped; base-form substitute.')
+                if source_form!=form:reasons.append(MEGA_PLACEHOLDER)
+                if source_form>=len(offsets):reasons.append('Form artwork not mapped; base-form substitute.')
                 if form==0 and gender==1 and species in GENDER_TAG:offset=GENDER_TAG[species]
                 source_tag=tag+offset
                 if owners.get(source_tag)!=name:
@@ -56,7 +65,7 @@ def build(rom_path, engine, names_path, output, png_root=None):
                         basename=file_key(names[species]);basename='POLTHCAGEIST' if species==1012 else basename
                         # Only verified ordinary form IDs may select a numbered sheet.
                         # Expansion-added Mega IDs must not accidentally select an unrelated form.
-                        mapped_form=form if form<len(FORMS.get(species,[0])) or species==774 else 0
+                        mapped_form=source_form if source_form<len(FORMS.get(species,[0])) or species==774 else 0
                         if species==718 and form==3:mapped_form=0
                         female=(gender==1 and species in GENDER_TAG)
                         if species in (678,876,902,916) and form==1:female=True;mapped_form=0
@@ -80,6 +89,7 @@ def build(rom_path, engine, names_path, output, png_root=None):
                                 source=fan[False].get(candidate)
                                 if source:break
                             if source:fan_reasons.append('Shiny PNG missing; normal-palette substitute.')
+                        if source and source_form!=form:fan_reasons.append(MEGA_PLACEHOLDER)
                     mapped.append(dict(species=species,form=form,gender=gender,shiny=shiny,gfx=gfx,
                         sourcePng=str(source.relative_to(png_root)) if source else None,
                         placeholder=bool(fan_reasons if source else reasons),placeholderReason=' '.join(fan_reasons if source else reasons) or None))
@@ -103,10 +113,52 @@ def build(rom_path, engine, names_path, output, png_root=None):
         if r['paletteRepairs']:
             m['placeholder']=True;m['placeholderReason']=((m['placeholderReason'] or '')+' Missing shiny palette entries use normal colors.').strip()
     narc=ndspy.narc.NARC();narc.files=files;data=narc.save()
-    manifest=dict(schemaVersion=1,speciesMin=650,speciesMax=1023,appearances=mapped,resources=rows,archiveSha256=hashlib.sha256(data).hexdigest())
+    manifest=dict(schemaVersion=1,speciesMin=650,speciesMax=1023,appearances=mapped,resources=rows,archiveSha256=hashlib.sha256(data).hexdigest(),sourceRomSha256=hashlib.sha256(rom_path.read_bytes()).hexdigest())
     output.mkdir(parents=True,exist_ok=True)
     (output/'later-followers.narc').write_bytes(data);(output/'later-followers.json').write_text(json.dumps(manifest,indent=2)+'\n')
     print(f'{len(mapped)} appearances, {len(files)} resources, {sum(m["placeholder"] for m in mapped)} explicit placeholders')
 
+def extend_expansion_forms(personal, manifest):
+    """Reuse bundled art only for explicit audited Mega-to-source-form routes."""
+    from copy import deepcopy
+    value=deepcopy(manifest)
+    keys={(m['species'],m['form'],m['gender'],m['shiny']):m for m in value['appearances']}
+    if len(keys)!=len(value['appearances']):raise ValueError('Duplicate bundled appearance')
+    for species in range(650,1024):
+        ratio=personal[species][18]
+        genders=[2] if ratio==255 else [1] if ratio==254 else [0] if ratio==0 else [0,1]
+        for form in range(max(1,personal[species][32])):
+            for gender in genders:
+                for shiny in (False,True):
+                    key=(species,form,gender,shiny)
+                    if key in keys:continue
+                    source_form=EXPANSION_MEGA_BASE_FORMS.get(species,{}).get(form)
+                    source=keys.get((species,source_form,gender,shiny))
+                    if source_form is None or source is None:raise ValueError(f'Unreviewed expanded appearance: {key}')
+                    entry={**source,'form':form,'placeholder':True,
+                           'placeholderReason':' '.join(filter(None,[source.get('placeholderReason'),MEGA_PLACEHOLDER]))}
+                    if not 0<=entry['member']<len(value['resources']):raise ValueError('Invalid source-form resource')
+                    value['appearances'].append(entry);keys[key]=entry
+    value['appearances'].sort(key=lambda m:(m['species'],m['form'],m['gender'],m['shiny']))
+    return value
+
+def sync_expansion_forms(rom_path, output):
+    raw=rom_path.read_bytes()
+    contract=json.loads(Path(__file__).with_name('upgrade-contract.json').read_text())
+    if hashlib.sha256(raw).hexdigest()!=contract['sourceRomSha256']:raise ValueError('Requires the pinned audited integration ROM')
+    rom=ndspy.rom.NintendoDSRom(raw)
+    manifest_path=output/'later-followers.json'
+    original=json.loads(manifest_path.read_text())
+    archive=(output/'later-followers.narc').read_bytes()
+    if hashlib.sha256(archive).hexdigest()!=original['archiveSha256']:raise ValueError('Bundled archive fingerprint differs')
+    if len(ndspy.narc.NARC(archive).files)!=len(original['resources']):raise ValueError('Bundled resource count differs')
+    value=extend_expansion_forms(ndspy.narc.NARC(rom.getFileByName('a/0/1/6')).files,original)
+    value['sourceRomSha256']=contract['sourceRomSha256']
+    manifest_path.write_text(json.dumps(value,indent=2)+'\n')
+    print(f"Added {len(value['appearances'])-len(original['appearances'])} explicitly substituted Mega appearances; artwork archive unchanged.")
+
 if __name__=='__main__':
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('rom',type=Path);p.add_argument('engine',type=Path);p.add_argument('names',type=Path);p.add_argument('--png-root',type=Path);p.add_argument('--output',type=Path,default=Path(__file__).parents[2]/'src/assets/following/white2upgrade');a=p.parse_args();build(a.rom,a.engine,a.names,a.output,a.png_root)
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('rom',type=Path);p.add_argument('engine',type=Path,nargs='?');p.add_argument('names',type=Path,nargs='?');p.add_argument('--png-root',type=Path);p.add_argument('--sync-expansion-forms',action='store_true');p.add_argument('--output',type=Path,default=Path(__file__).parents[2]/'src/assets/following/white2upgrade');a=p.parse_args()
+    if a.sync_expansion_forms:sync_expansion_forms(a.rom,a.output)
+    elif a.engine and a.names:build(a.rom,a.engine,a.names,a.output,a.png_root)
+    else:p.error('engine and names are required unless --sync-expansion-forms is used')

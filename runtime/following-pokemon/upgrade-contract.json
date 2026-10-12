@@ -5,23 +5,23 @@
   "maxRows": 6144,
   "gameCode": "IRDO",
   "revision": 0,
-  "sourceRomSha256": "6888096bd87bd3303a994f3f32bc5902fe21ad5c2eca50c11abea6b8c54a1e19",
+  "sourceRomSha256": "41ec23667f7e8ce0d6269a84d910a34a841ae8b5987d47654042bf4a95461140",
   "requiredModules": [
     {
       "path": "patches/White2Upgrade.dll",
-      "sha256": "5e9ab0fe5e3e8b820248a68342b4a61e674af7839ff4646a0498215668ff3469"
+      "sha256": "09da2b26ae66c1fe3641ec0ea70bb6a3da47b08b03b44b041a4423c50a0c997e"
     },
     {
       "path": "patches/White2UpgradeField.dll",
-      "sha256": "36ae1bd1bdbccf21052da5858ae561ed707ae64cc69b67afcd331c6f6b17fc33"
+      "sha256": "5969edc742540c121e5ad9e90ac5e08868972fcec122f24b17a26aea81f4eadb"
     },
     {
       "path": "patches/White2UpgradePokedex.dll",
-      "sha256": "869347a876a924ce31ad441b04d5e5078cba88cf95aa52475d67e716a4f5748d"
+      "sha256": "a8a3a1051dc5a699ca19d7c6908ab72dcbdcbfcb2b7b983a51b86df30812dbe9"
     },
     {
       "path": "patches/White2UpgradeUI.dll",
-      "sha256": "5ae9d198c8bc7669169969b8595208a4a82ffbc7b464fbd7c7f59b2353360329"
+      "sha256": "00d4d592a25c6ddc10e7307db62392ead0adfce02ace838d852682cfd9632bb6"
     }
   ],
   "nativeAdapters": [
@@ -105,5 +105,8 @@
     "Shared hook/native-adapter contract must match exactly.",
     "Every installed patch is independently checked for overlap before mutation.",
     "Species 1024 and 1025 are reserved Egg IDs, not supported species."
+  ],
+  "previousSourceRomSha256": [
+    "6888096bd87bd3303a994f3f32bc5902fe21ad5c2eca50c11abea6b8c54a1e19"
   ]
 }

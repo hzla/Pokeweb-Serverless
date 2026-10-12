@@ -2,7 +2,7 @@
 
 Reads artifacts only; does not modify runtime code, ROMs, or saves.
 """
-import argparse, json, struct
+import argparse, json, os, struct
 from pathlib import Path
 from collections import Counter
 import ndspy.rom
@@ -15,6 +15,7 @@ def audit(profile,rom_path):
  if profile=='white2upgrade':assets/='white2upgrade';build/='white2upgrade'
  if profile=='black2':assets/='black2';build/='black2'
  if profile=='white2italy':assets/='white2italy';build/='white2italy'
+ build=Path(os.environ.get('FOLLOWING_BUILD_DIR',build))
  manifest=json.loads((assets/'runtime.json').read_text());modules=[];objects=[]
  for name in ['Core','Events','Field','Options','Battle']:
   stem='PokewebFollowing'+name+('B2' if profile=='black2' else 'W2I' if profile=='white2italy' else 'W2');path=assets/(stem+'.dll');raw=path.read_bytes()

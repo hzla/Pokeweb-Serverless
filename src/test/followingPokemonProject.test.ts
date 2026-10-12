@@ -11,6 +11,7 @@ import { FOLLOWER_MANIFEST_PATH, FOLLOWER_REGISTRY_PATH, readFollowerWorkspace, 
 import { parseRpm, writeRpm, type RpmModule } from "../pokeweb/rpm";
 import { deriveFollowerGrounding, encodeFollowerFrames, followerGroundingPixels, followerKey } from "../pokeweb/followingPokemonModel";
 import contract from "../../runtime/following-pokemon/contract.json";
+import upgradeContract from "../../runtime/following-pokemon/upgrade-contract.json";
 const bytes=new Uint8Array(readFileSync(new URL("../assets/following/template-32-8.btx",import.meta.url)));
 const italianFieldDll=new Uint8Array(readFileSync(new URL("../assets/following/white2italy/PokewebFollowingFieldW2I.dll",import.meta.url)));
 describe("persisted Italian follower installation",()=>{
@@ -30,6 +31,15 @@ function fixture(){
   const rom=new NintendoDSRom(new Uint8Array(512));return {project,rom,workspace};
 }
 describe("follower asset transactions",()=>{
+  it("recognizes historical owned Upgrade workspaces without accepting arbitrary targets",()=>{
+    const {project,rom,workspace}=fixture();
+    for(const target of [upgradeContract.sourceRomSha256,...upgradeContract.previousSourceRomSha256]) {
+      project.fileSystem!.additions![FOLLOWER_MANIFEST_PATH]=new TextEncoder().encode(JSON.stringify({...workspace,targetSha256:target}));
+      expect(readFollowerWorkspace(project,rom)?.targetSha256).toBe(target);
+    }
+    project.fileSystem!.additions![FOLLOWER_MANIFEST_PATH]=new TextEncoder().encode(JSON.stringify({...workspace,targetSha256:"0".repeat(64)}));
+    expect(()=>readFollowerWorkspace(project,rom)).toThrow(/Unsupported/);
+  });
   it("allows other DLLs to extend an audited script table but rejects actual hook overlap",()=>{
     const table=contract.nativeAdapters.find(site=>site.id==="events-script-normal-table")!;
     const hook=contract.hooks.find(site=>site.id==="field-actor-update")!;

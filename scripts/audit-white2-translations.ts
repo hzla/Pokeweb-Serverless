@@ -6,7 +6,7 @@ import { readU16, readU32 } from "../src/nds/binary";
 import { NARC } from "../src/nds/narc";
 import { NintendoDSRom } from "../src/nds/rom";
 import { decodeGen5TextBank } from "../src/pokeweb/text";
-import { MAIN_MENU_LABEL_ADAPTATIONS, TRANSLATION_LOCALES, TRANSLATION_VERSION, translationFileNames, type TranslationProfile, type TranslationFileBaseline } from "../src/pokeweb/translationProfile";
+import { MAIN_MENU_LABEL_ADAPTATIONS, TRANSLATION_GAMES, TRANSLATION_LOCALES, TRANSLATION_VERSION, translationFileNames, type TranslationProfile, type TranslationFileBaseline, type TranslationGameId } from "../src/pokeweb/translationProfile";
 import { decompressNitro } from "../src/pokeweb/pokemonSpriteModel";
 import { transformBattleTypeHudPanel, battleTypeHudPanelExpansion } from "../src/pokeweb/battleTypeHudResources";
 import summary from "../src/assets/codeinjection/summaryStatViewerManifest.json";
@@ -20,18 +20,27 @@ const hashes: Record<string, string> = {
   spanish: "1b0243fdb58acff6f043ab7b62535e97151a0baa92d5d2b4735653378ed7c360",
   korean: "c9e05e82ec314021eb584d75a537dadaf273a153269940dcfb9d44acc337ae30",
 };
-const [sourcePath, donorFolder, italianPath, outputFolder, reportPath] = process.argv.slice(2);
+const black2Hashes: Record<string, string> = {
+  italian: "5bbdab894552cffc71a9699a0875cd51f0dc3f6fec936d6ea2f0bcb6805b3e87",
+  french: "693c009dc031e74d01e00385f7156386c457640ebf800e1a04629e1e07aa7d37",
+  german: "afe5d5a679cdc8f98fa459647d4fb703b734ea8084b77f138db9cb276f8b80b9",
+  spanish: "87ffdb8ee2aee97079e9852eab4ee7f50e389c05dbba337235c40eb7080a98bc",
+  korean: "d4c8f16b229ed104a19c03a2627240ea0d4565438c8f30fb77f65a77b8a2021a",
+};
+const [sourcePath, donorFolder, italianPath, outputFolder, reportPath, gameArg = "white2"] = process.argv.slice(2);
 if (!reportPath) throw new Error("Usage: audit-white2-translations.ts US.nds DONOR_FOLDER ITALIAN.nds PROFILE_FOLDER REPORT.json");
+assert(gameArg === "white2" || gameArg === "black2");
+const game = gameArg as TranslationGameId, title = TRANSLATION_GAMES[game], donorHashes = game === "black2" ? black2Hashes : hashes;
 const sha = (data: Uint8Array) => createHash("sha256").update(data).digest("hex");
 const source = new NintendoDSRom(new Uint8Array(await readFile(sourcePath)), { fileData: "view" });
-assert.equal(sha(source.data), "3e50aec3db401332175a5d2b5fe2a68ac1a05ec63995dba9d1506b1b51837446");
+assert.equal(sha(source.data), title.sourceSha256); assert.equal(source.idCode, title.sourceCode);
 const sourceNames = translationFileNames(source.filenames);
 const variants: Record<string, Record<string, { nativeSha256: string; expandedSha256?: string }[]>> = {};
 const reports: unknown[] = [];
 const unpack = (data: Uint8Array) => data[0] === 0x10 || data[0] === 0x11 ? decompressNitro(data) : data;
 for (const locale of TRANSLATION_LOCALES) {
   const donor = new NintendoDSRom(new Uint8Array(await readFile(locale.id === "italian" ? italianPath : join(donorFolder, `${locale.region}.nds`))), { fileData: "view" });
-  assert.equal(donor.idCode, locale.gameCode); assert.equal(sha(donor.data), hashes[locale.id]);
+  assert.equal(donor.idCode, game === "black2" ? locale.black2GameCode : locale.gameCode); assert.equal(sha(donor.data), donorHashes[locale.id]);
   assert.equal(donor.data[30], 0);
   const donorNames = translationFileNames(donor.filenames);
   const alphabetBanks = Array.from({ length: locale.id === "korean" ? 27 : 26 }, (_, i) => 113 + i);
@@ -93,9 +102,9 @@ for (const locale of TRANSLATION_LOCALES) {
   }
   const patchChecks: unknown[] = [];
   for (const [path, members] of [
-    [summary.games.W2.graphicsArchive, summary.games.W2.resources.map(resource => resource.member)],
-    [hud.games.W2.graphicsArchive, Object.keys(hud.games.W2.resources).map(Number)],
-    [learnset.games.W2.graphicsArchive ?? "a/1/2/5", learnset.games.W2.resources.map(resource => resource.member)],
+    [summary.games[title.version].graphicsArchive, summary.games[title.version].resources.map(resource => resource.member)],
+    [hud.games[title.version].graphicsArchive, Object.keys(hud.games[title.version].resources).map(Number)],
+    [learnset.games[title.version].graphicsArchive ?? "a/1/2/5", learnset.games[title.version].resources.map(resource => resource.member)],
   ] as [string, number[]][]) {
     const a = new NARC(source.getFileByName(path)), b = new NARC(donor.getFileByName(path));
     for (const member of members) {
@@ -104,7 +113,7 @@ for (const locale of TRANSLATION_LOCALES) {
       assert.equal(x.length, y.length, `${locale.id} ${path}/${member}`);
       assert.deepEqual(x.subarray(0, 16), y.subarray(0, 16), `${locale.id} ${path}/${member}`);
       const variant: { nativeSha256: string; expandedSha256?: string } = { nativeSha256: sha(y) };
-      if (path === hud.games.W2.graphicsArchive && String(member) in battleTypeHudPanelExpansion) {
+      if (path === hud.games[title.version].graphicsArchive && String(member) in battleTypeHudPanelExpansion) {
         const key = String(member) as keyof typeof battleTypeHudPanelExpansion;
         const expanded = transformBattleTypeHudPanel(y, key);
         assert.deepEqual(transformBattleTypeHudPanel(expanded, key, true), y);
@@ -115,11 +124,11 @@ for (const locale of TRANSLATION_LOCALES) {
       patchChecks.push({ path, member, ...variant });
     }
   }
-  const profile: TranslationProfile = { schemaVersion: 2, id: `white2-us-${locale.id}`, locale: locale.id, language: locale.language, version: TRANSLATION_VERSION,
-    sourceCode: "IRDO", donorCode: donor.idCode, revision: 0, sourceSha256: sha(source.data), donorSha256: hashes[locale.id], alphabetBanks, storyBankLimits: { "436": 592 }, files, native, overlays };
-  await writeFile(join(outputFolder, `white2-${locale.id}.json`), JSON.stringify(profile) + "\n");
-  reports.push({ locale: locale.id, donorCode: donor.idCode, donorSha256: hashes[locale.id], changedArchives, changedMembers, textShapes, archiveShapes, decodedTextBanks, variableDifferences, retainedMenuTilemaps, mainMenuLabelAdaptation: MAIN_MENU_LABEL_ADAPTATIONS[locale.id], patchChecks });
+  const profile: TranslationProfile = { schemaVersion: 2, id: `${game}-us-${locale.id}`, locale: locale.id, language: locale.language, version: TRANSLATION_VERSION,
+    sourceCode: title.sourceCode, donorCode: donor.idCode, revision: 0, sourceSha256: sha(source.data), donorSha256: donorHashes[locale.id], alphabetBanks, storyBankLimits: { "436": readU16(new NARC(source.getFileByName("a/0/0/3")).files[436], 2) }, files, native, overlays };
+  await writeFile(join(outputFolder, `${game}-${locale.id}.json`), JSON.stringify(profile) + "\n");
+  reports.push({ locale: locale.id, donorCode: donor.idCode, donorSha256: donorHashes[locale.id], changedArchives, changedMembers, textShapes, archiveShapes, decodedTextBanks, variableDifferences, retainedMenuTilemaps, mainMenuLabelAdaptation: MAIN_MENU_LABEL_ADAPTATIONS[locale.id], patchChecks });
   console.log(locale.id, changedArchives.length, "regional archives;", decodedTextBanks, "text banks decoded");
 }
-await writeFile(join(outputFolder, "white2AssetVariants.json"), JSON.stringify(variants, null, 2) + "\n");
+await writeFile(join(outputFolder, `${game}AssetVariants.json`), JSON.stringify(variants, null, 2) + "\n");
 await writeFile(reportPath, JSON.stringify({ version: TRANSLATION_VERSION, locales: reports, validation: { emulator: "not performed by this audit script", hardware: "not performed" } }, null, 2) + "\n");

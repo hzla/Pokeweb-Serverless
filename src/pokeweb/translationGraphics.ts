@@ -3,7 +3,7 @@ import { Folder } from "../nds/fnt";
 import { parseNitroBackground, parseNitroPalette } from "./nitroBg";
 import { parseNitroCellImage } from "./nitroCell";
 import { decompressNitro, parsePokemonCellBank } from "./pokemonSpriteModel";
-import { TRANSLATION_LOCALES, loadTranslationProfile, type TranslationLocaleId } from "./translationProfile";
+import { TRANSLATION_GAMES, translationSourceGame, translationDonorLocale, loadTranslationProfile, type TranslationLocaleId } from "./translationProfile";
 import { readTranslationArchive, translationBytesEqual, translationMenuMapCompatible } from "./translationTransfer";
 
 export type TranslationGraphicImage = { width: number; height: number; rgba: Uint8ClampedArray; warnings: string[] };
@@ -79,7 +79,7 @@ function backgrounds(path: string): Layout[] {
   if (path === "a/0/7/7") return [64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78].map(member => ({
     member, character: [67, 71, 77, 78].includes(member) ? 11 : [64, 65, 68, 72, 74].includes(member) ? 10 : 12,
     palette: [64, 65, 68, 72, 74].includes(member) ? 0 : 2,
-    label: ({ 67: "Summary · info title", 71: "Summary · ribbons title", 77: "Summary · moves title", 78: "Summary · moves title (alternate)" } as Record<number, string>)[member] ?? `Summary screen ${member}`,
+    label: ({ 67: "Summary · info title", 71: "Summary · ribbons title", 77: "Summary · stats title", 78: "Summary · moves title (alternate)" } as Record<number, string>)[member] ?? `Summary screen ${member}`,
   }));
   if (path === "a/0/3/4") return [0, 2, 6, 7, 8, 9].map(member => ({ member, character: member === 2 ? 3 : 1, palette: member === 2 ? 4 : 5, label: `Main menu · layout ${member}` }));
   return [];
@@ -117,11 +117,12 @@ function background(member: number, screen: Uint8Array, character: Uint8Array, p
 
 /** Catalog metadata only; artwork is decoded again from the selected files when a preview is requested. */
 export async function compareTranslationGraphics(source: TranslationPreviewRom, donor: TranslationPreviewRom, locale?: TranslationLocaleId, progress?: (message: string) => Promise<void>): Promise<TranslationGraphicsCatalog> {
-  if (source.gameCode !== "IRDO" || source.revision !== 0) throw new Error("Choose US White 2 revision 0 for graphics comparison.");
-  const detected = TRANSLATION_LOCALES.find(item => item.gameCode === donor.gameCode);
-  if (!detected || donor.revision !== 0) throw new Error("Choose an Italian, French, German, Spanish or Korean White 2 revision-0 donor.");
+  const game = translationSourceGame(source.gameCode);
+  if (!game || source.revision !== 0) throw new Error("Choose US Black 2 or White 2 revision 0 for graphics comparison.");
+  const detected = translationDonorLocale(donor.gameCode, game);
+  if (!detected || donor.revision !== 0) throw new Error(`Choose an Italian, French, German, Spanish or Korean ${TRANSLATION_GAMES[game].title} revision-0 donor matching the US game.`);
   if (locale && locale !== detected.id) throw new Error(`The selected language does not match the ${detected.language} donor.`);
-  const profile = await loadTranslationProfile(detected.id);
+  const profile = await loadTranslationProfile(detected.id, game);
   const result: TranslationGraphicsCatalog = { language: detected.language, graphics: [], issues: [], archivesCompared: 0 };
   // All stock graphics archives are included, so graphics edits outside the usual regional set are visible too.
   for (const file of profile.files.filter(file => file.members !== undefined && !TEXT_ARCHIVES.has(file.path))) {

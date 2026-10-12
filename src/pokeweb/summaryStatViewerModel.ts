@@ -3,7 +3,7 @@ import { loadOverlayTable } from "../nds/code";
 import { decompressCode } from "../nds/codeCompression";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
-import { white2LocalizedAssetVariant } from "./translationAssets";
+import { localizedAssetVariant } from "./translationAssets";
 import manifestData from "../assets/codeinjection/summaryStatViewerManifest.json";
 import { recordGenericChange } from "./actionChangelog";
 import { getRomFileBytes } from "./fileSystemModel";
@@ -157,7 +157,7 @@ export async function installSummaryStatViewer(project: ProjectState, options: S
   for (const resource of profile.resources) {
     const data = archive.files[resource.member];
     const digest = data && await hash(data);
-    const localized = v === "W2" && digest ? white2LocalizedAssetVariant(profile.graphicsArchive, resource.member, digest) : undefined;
+    const localized = (v === "W2" || v === "B2") && digest ? localizedAssetVariant(v, profile.graphicsArchive, resource.member, digest) : undefined;
     if (!digest || digest !== resource.sha256 && digest !== localized?.nativeSha256) throw new Error(`Unrecognized Summary graphics member ${resource.member}. Restore the native title/footer graphics before installing.`);
   }
   const response = await fetch(urls[v]);
