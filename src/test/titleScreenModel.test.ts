@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { strToU8, zipSync } from "fflate";
-import { writeU16, writeU32 } from "../nds/binary";
+import { readU32, writeU16, writeU32 } from "../nds/binary";
 import { Folder, saveFnt } from "../nds/fnt";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
@@ -9,8 +9,9 @@ import { replaceNarcFile } from "../pokeweb/fileSystemModel";
 import type { ProjectState, NarcStore } from "../pokeweb/projectStore";
 import {
   decodeTitleAsset, decodeTitleComposition, encodeTitleLz10, exportTitleBundle, importTitleAssets,
-  loadTitleScreenDocument, parseTitleCamera, readTitleBundle, titleAssetDefinitions, titleCameraFrame,
+  loadTitleScreenDocument, parseTitleCamera, readTitleBundle, titleAssetDefinitions, titleCameraFrame, titleNitroBlocks,
 } from "../pokeweb/titleScreenModel";
+import { compileTitlePng, titlePngTarget, type TitlePngImage } from "../pokeweb/titleScreenPng";
 
 describe("title screen assets", () => {
   it.each(["B2", "W2"] as const)("loads %s resources and round-trips native bundles without recompression", async (version) => {
@@ -121,6 +122,101 @@ describe("title screen assets", () => {
   it("rejects unsupported games before looking up ROM files", async () => {
     const project = makeProject("W2"); project.session.baseRom = "BW";
     await expect(loadTitleScreenDocument(project)).rejects.toThrow(/Black 2 and White 2/);
+  });
+});
+
+describe("title PNG resource conversion", () => {
+  const image = (width = 256, height = 192): TitlePngImage => ({ width, height, rgba: Uint8ClampedArray.from({ length: width * height * 4 }, (_, i) => i % 4 === 3 ? 255 : ((i >> 2) >> (i % 4 * 4) & 15) * 16) });
+
+  it.each(["B2", "W2"] as const)("imports a quantized %s logo and preserves the scrolling background through ROM export", async (version) => {
+    const project = makeProject(version), doc = await loadTitleScreenDocument(project);
+    const tiles = doc.assets[0].bytes.slice(), palette = doc.assets[2].bytes.slice();
+    tiles.fill(7, 48, 112); writeU16(palette, 54, 31);
+    await importTitleAssets(project, new Map([["logo-tiles", tiles], ["logo-palette", palette]]));
+    const before = await loadTitleScreenDocument(project), background = decodeTitleComposition(before).background.rgba;
+    const compiled = compileTitlePng(before, "logo", image());
+    expect(compiled.colorLimit).toBe(256); expect(compiled.tiles).toBeLessThanOrEqual(512);
+    expect(compiled.quantized).toBe(true);
+    await importTitleAssets(project, compiled.imports);
+    const after = await loadTitleScreenDocument(project), result = decodeTitleComposition(after);
+    expect(result.background.rgba).toEqual(background); expect(result.logo.warnings).toEqual([]);
+    expect(new Set(result.logo.rgba.filter((_, i) => i % 4 === 3))).toEqual(new Set([255]));
+    expect(after.assets.slice(4).map((a) => a.storedBytes)).toEqual(before.assets.slice(4).map((a) => a.storedBytes));
+    const rom = new NintendoDSRom(await exportModifiedRom(project)), archive = new NARC(rom.getFileByName("a/0/2/6"));
+    expect(archive.files[0][0]).toBe(0x10); expect(decodeTitleAsset(archive.files[0])).toEqual(compiled.imports.get("logo-tiles"));
+  });
+
+  it("preserves the logo when rebuilding the shared resources for a new background", async () => {
+    const project = makeProject("W2"), doc = await loadTitleScreenDocument(project);
+    const logo = decodeTitleComposition(doc).logo.rgba;
+    await importTitleAssets(project, compileTitlePng(doc, "background", image()).imports);
+    expect(decodeTitleComposition(await loadTitleScreenDocument(project)).logo.rgba).toEqual(logo);
+  });
+
+  it("reduces dense artwork to the tile allocation and keeps the native preview accurate", async () => {
+    const project = makeProject("W2"), doc = await loadTitleScreenDocument(project), source = image();
+    let random = 123456;
+    for (let i = 0; i < source.rgba.length; i++) { random = (Math.imul(random, 1664525) + 1013904223) >>> 0; source.rgba[i] = i % 4 === 3 ? 255 : random >>> 24; }
+    const compiled = compileTitlePng(doc, "logo", source);
+    expect(compiled.tiles).toBe(512); expect(compiled.approximatedTiles).toBeGreaterThan(0);
+    await importTitleAssets(project, compiled.imports);
+    expect(decodeTitleComposition(await loadTitleScreenDocument(project)).logo.rgba).toEqual(compiled.image.rgba);
+  });
+
+  it("never paints over transparent source pixels when approximating tiles", async () => {
+    const doc = await loadTitleScreenDocument(makeProject("W2")), source = image();
+    let random = 42;
+    for (let i = 0; i < source.width * source.height; i++) {
+      random = (Math.imul(random, 1664525) + 1013904223) >>> 0;
+      source.rgba[i * 4 + 3] = random >>> 24 > 100 ? 255 : 0;
+    }
+    const compiled = compileTitlePng(doc, "logo", source);
+    expect(compiled.approximatedTiles).toBeGreaterThan(0);
+    for (let i = 3; i < source.rgba.length; i += 4) if (!source.rgba[i]) expect(compiled.image.rgba[i]).toBe(0);
+  });
+
+  it("converts credits to 4bpp and maps alpha to transparent index zero", async () => {
+    const project = makeProject("B2"), doc = await loadTitleScreenDocument(project), source = image();
+    source.rgba[3] = 127; source.rgba[7] = 128;
+    const compiled = compileTitlePng(doc, "credits", source);
+    expect(compiled.colorLimit).toBe(16); expect(compiled.quantized).toBe(true);
+    await importTitleAssets(project, compiled.imports);
+    const result = decodeTitleComposition(await loadTitleScreenDocument(project)).credits;
+    expect(result.indexed.bitsPerPixel).toBe(4); expect(result.rgba[3]).toBe(0); expect(result.rgba[7]).toBe(255);
+    expect(Math.max(...result.indexed.tilePixels.flatMap((t) => [...t]))).toBeLessThan(16);
+  });
+
+  it("keeps Press Start's empty blink cell, layout and animation unchanged", async () => {
+    const project = makeProject("W2");
+    const cells = nitro("RECN", "KBEC", 70); writeU16(cells, 24, 2); writeU32(cells, 28, 24); writeU16(cells, 56, 1);
+    const animation = nitro("RNAN", "KNBA", 84); writeU16(animation, 24, 1); writeU16(animation, 26, 2); writeU32(animation, 28, 24); writeU32(animation, 32, 40); writeU32(animation, 36, 56);
+    writeU16(animation, 48, 2); writeU32(animation, 52, 1 << 16); writeU32(animation, 56, 2); writeU16(animation, 68, 32); writeU32(animation, 72, 2); writeU16(animation, 76, 64); writeU16(animation, 82, 1);
+    await importTitleAssets(project, new Map([["prompt-cells", cells], ["prompt-animation", animation]]));
+    const doc = await loadTitleScreenDocument(project), target = titlePngTarget(doc, "prompt"), compiled = compileTitlePng(doc, "prompt", image(target.width, target.height));
+    expect([...compiled.imports.keys()]).toEqual(["prompt-tiles", "prompt-palette"]);
+    await importTitleAssets(project, compiled.imports);
+    const after = await loadTitleScreenDocument(project), prompt = decodeTitleComposition(after).prompt;
+    expect(after.assets[6].bytes).toEqual(cells); expect(after.assets[7].bytes).toEqual(animation);
+    expect(prompt.frames.map((f) => f.duration)).toEqual([32, 64]);
+    expect(prompt.frames[0].rgba.every((v) => v === 0)).toBe(true);
+    expect(prompt.frames[1].rgba.some((v, i) => i % 4 === 3 && v === 255)).toBe(true);
+  });
+
+  it("clears unseen logo rows when importing the visible screen", async () => {
+    const doc = await loadTitleScreenDocument(makeProject("W2"));
+    const map = nitro("RCSN", "NRCS", 36 + 2048); writeU16(map, 24, 256); writeU16(map, 26, 256); writeU32(map, 32, 2048);
+    doc.assets[1].bytes = map;
+    const compiled = compileTitlePng(doc, "logo", image()), tiles = compiled.imports.get("logo-tiles")!, offset = titleNitroBlocks(tiles).get("RAHC")!;
+    expect(readU32(tiles, offset + 24)).toBe(0x8000);
+    const candidate = { ...doc, assets: doc.assets.map((a) => ({ ...a, bytes: compiled.imports.get(a.id) ?? a.bytes })) };
+    expect(decodeTitleComposition(candidate).logo.rgba.slice(256 * 192 * 4).every((v) => v === 0)).toBe(true);
+  });
+
+  it("rejects mismatched or malformed images before changing the project", async () => {
+    const project = makeProject("W2"), doc = await loadTitleScreenDocument(project);
+    expect(() => compileTitlePng(doc, "logo", image(12, 8))).toThrow(/Resize/);
+    expect(() => compileTitlePng(doc, "logo", { width: 256, height: 192, rgba: new Uint8Array(4) })).toThrow(/valid pixels/);
+    expect(project.fileSystem).toBeUndefined();
   });
 });
 

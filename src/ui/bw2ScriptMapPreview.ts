@@ -47,7 +47,7 @@ export function installBw2ScriptMapPreview(project: ProjectState, root: HTMLElem
     <div class="bw2-map-tools"><button type="button" data-map-action="out" aria-label="Zoom map out">−</button><button type="button" data-map-action="fit">Fit</button><button type="button" data-map-action="in" aria-label="Zoom map in">+</button><span>Drag to pan · scroll to zoom</span></div>
     <p id="bw2-map-focus" class="bw2-map-focus" aria-live="polite">Place the cursor inside an entry or helper to highlight its assigned entities.</p>
     <div class="bw2-map-stage"><canvas class="bw2-map-canvas" aria-label="2D map with overworld entities"></canvas><div class="overworld-entities bw2-map-entities"></div><p class="bw2-map-message bw2-map-loading">Loading map…</p></div>
-    <p class="bw2-map-legend">Event placements: NPCs · signs · triggers · warps. Bright rings mark assigned entities; blue marks the command's actor.</p>`;
+    <p class="bw2-map-legend">Event placements: NPCs · signs · triggers · warps. Solid red outlines mark assigned entities; dashed red outlines mark other command actors.</p>`;
   const choiceSelect = root.querySelector<HTMLSelectElement>("#bw2-map-choice")!;
   const stage = root.querySelector<HTMLElement>(".bw2-map-stage")!;
   const canvas = root.querySelector<HTMLCanvasElement>(".bw2-map-canvas")!;

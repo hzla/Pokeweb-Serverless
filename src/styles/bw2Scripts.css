@@ -13,14 +13,9 @@
 .bw2-script-rom { overflow-wrap: anywhere; margin: 0 0 28px; color: #adb3c6; font-size: 13px; }
 .bw2-script-sidebar label { display: block; margin-bottom: 8px; font-weight: 600; }
 .bw2-script-sidebar select { width: 100%; padding: 8px; background: #181a23; color: #f2f2f2; border: 1px solid #54586e; border-radius: 4px; }
-#bw2-file-summary { color: #adb3c6; font-size: 13px; line-height: 1.5; }
+#bw2-script-file { margin-bottom: 20px; }
 .bw2-script-source-actions { display: grid; gap: 8px; margin: 20px 0; }
 .bw2-script-source-actions .btn { width: 100%; }
-.bw2-script-notice { padding: 14px; border-left: 3px solid #e0b46e; background: #e0b46e0c; line-height: 1.55; font-size: 13px; }
-.bw2-script-help { margin-top: 24px; font-size: 13px; line-height: 1.5; }
-.bw2-script-help summary, .bw2-script-diagnostics summary { cursor: pointer; color: #b5caff; }
-.bw2-script-help pre { white-space: pre-wrap; font-size: 12px; padding: 12px; background: #181a23; border-radius: 4px; }
-.bw2-script-help p { color: #adb3c6; }
 .bw2-script-workspace { min-width: 0; min-height: 0; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
 .bw2-script-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .bw2-script-toolbar h2 { margin: 0 0 4px; font-size: 18px; }
@@ -32,6 +27,12 @@
 .bw2-script-page .btn:disabled { cursor: not-allowed; opacity: 0.45; }
 .bw2-script-split { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; flex: 1; min-height: 0; }
 .bw2-script-code { min-width: 0; height: 100%; min-height: 0; border: 1px solid #44475a; border-radius: 6px; overflow: hidden; }
+.bw2-script-source-pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.bw2-script-source-pane .bw2-script-code { flex: 1; height: auto; }
+.bw2-script-code[hidden] { display: none; }
+.bw2-script-tabs { display: flex; gap: 6px; }
+.bw2-script-tabs button { padding: 7px 14px; border: 1px solid #54586e; border-radius: 4px; background: #21232e; color: #adb3c6; cursor: pointer; font: inherit; font-size: 13px; }
+.bw2-script-tabs button[aria-selected="true"] { color: #f2f2f2; border-color: #bd93f9; background: #bd93f926; }
 .bw2-script-diagnostics { font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; max-height: 72px; overflow-y: auto; }
 .bw2-script-diagnostics p { margin: 0 0 8px; }
 .bw2-script-diagnostics p:last-child { margin-bottom: 0; }
@@ -59,9 +60,9 @@
 .bw2-map-canvas { position: absolute; width: 100%; height: 100%; }
 .bw2-map-entities { position: absolute; inset: 0; overflow: hidden; }
 .bw2-map-entities .overworld-item { pointer-events: none; }
-.bw2-map-entities .overworld-item.selected { outline: 3px solid #ffdf80; outline-offset: 3px; z-index: 5; box-shadow: 0 0 12px #ffdf8099; }
-.bw2-map-entities .overworld-item.bw2-command-actor { border: 2px solid #82aaff; box-shadow: 0 0 12px #82aaffbb; z-index: 6; }
-.bw2-map-entities .overworld-item.bw2-command-actor:not(.selected) { outline: 3px solid #82aaff; outline-offset: 3px; }
+.bw2-map-entities .overworld-item.selected { outline: 4px solid #ff2424; outline-offset: 3px; z-index: 5; box-shadow: 0 0 0 3px #fff, 0 0 18px #ff2424; }
+.bw2-map-entities .overworld-item.bw2-command-actor { border: 2px solid #ff2424; box-shadow: 0 0 0 3px #fff, 0 0 18px #ff2424; z-index: 6; }
+.bw2-map-entities .overworld-item.bw2-command-actor:not(.selected) { outline: 4px dashed #ff2424; outline-offset: 3px; }
 .bw2-map-entities .overworld-item { font-size: 10px; }
 .bw2-map-message { padding: 12px; margin: 0; font-size: 13px; line-height: 1.5; color: #adb3c6; }
 .bw2-map-loading { position: absolute; bottom: 0; left: 0; right: 0; background: #181a23dc; pointer-events: none; }

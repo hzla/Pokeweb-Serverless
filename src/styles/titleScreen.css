@@ -51,5 +51,26 @@
 .title-scene-controls { margin: 18px 0; font-size: 12px; }
 .title-scene-controls label { display: flex; gap: 6px; align-items: center; margin-right: auto; }
 #title-scene-error { color: #ffaaa5; }
+.title-png-dialog { width: min(880px, calc(100vw - 40px)); max-height: calc(100vh - 40px); overflow: auto; box-sizing: border-box; padding: 24px; background: #1e222c; border: 1px solid #555e70; border-radius: 10px; color: #dddfe5; }
+.title-png-dialog::backdrop { background: #080b12c9; }
+.title-png-dialog h2 { margin: 0 0 8px; font-size: 20px; }
+.title-png-dialog p { font-size: 13px; line-height: 1.6; }
+.title-png-dialog .btn { cursor: pointer; }
+.title-png-dialog button:disabled { opacity: .5; cursor: wait; }
+.title-png-controls, .title-png-crop-controls { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; margin: 20px 0; }
+.title-png-controls label, .title-png-crop-controls label { display: grid; gap: 8px; font-size: 13px; flex: 1; }
+.title-png-controls select { padding: 9px; color: #eee; background: #141821; border: 1px solid #495063; border-radius: 4px; }
+.title-png-crop-controls[hidden] { display: none; }
+.title-png-crop-controls input { width: 100%; accent-color: #ef9494; }
+.title-png-previews { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.title-png-previews figure { margin: 0; min-width: 0; }
+.title-png-previews figcaption { font-size: 12px; margin-bottom: 10px; color: #abb4c5; }
+.title-png-previews canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; background: repeating-conic-gradient(#383e4b 0% 25%, #2a303c 0% 50%) 0 / 16px 16px; border-radius: 5px; }
+.title-png-previews canvas.-cropping { cursor: grab; touch-action: none; }
+.title-png-previews canvas.-cropping:active { cursor: grabbing; }
+.title-png-actions { justify-content: flex-end; margin-top: 22px; }
+#title-png-report { min-height: 24px; color: #91d8ac; }
+#title-png-report.-error { color: #ffaaa5; }
+@media (max-width: 620px) { .title-png-previews { grid-template-columns: 1fr; } .title-png-dialog { padding: 16px; } }
 @media (max-width: 950px) { .title-page-header, .title-section-header { flex-direction: column; } .title-editor { padding: 52px 16px 16px; } .title-layout { grid-template-columns: 210px minmax(0, 1fr); gap: 12px; } .title-metadata { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 620px) { .title-layout { grid-template-columns: 1fr; } .title-sidebar { max-height: 240px; overflow-y: auto; } .title-card { padding: 14px; } .title-playback { flex-wrap: wrap; } }

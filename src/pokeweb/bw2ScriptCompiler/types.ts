@@ -14,10 +14,13 @@ export type Value = SourcePosition & (
   | { kind: "name" | "symbol"; name: string }
 );
 export type Comparison = "==" | "!=" | "<" | "<=" | ">" | ">=";
+export type ConditionEncoding = "compare" | "stack";
 export type Expression = SourcePosition & (
   | { kind: "value"; value: Value }
   | { kind: "boolean"; value: boolean }
   | { kind: "not"; expression: Expression }
+  | { kind: "encoded"; encoding: ConditionEncoding; expression: Expression }
+  | { kind: "flag"; value: Value }
   | { kind: "binary"; operator: Comparison | "&&" | "||"; left: Expression; right: Expression }
 );
 export type Statement = SourcePosition & (
@@ -41,6 +44,7 @@ export type Program = {
   definitions: Definition[];
   preserveLayout?: boolean;
   overlayId?: number;
+  conditionEncoding?: ConditionEncoding;
   aliases?: (SourcePosition & { entry: number; target: string })[];
   layout?: (Definition | DataBlock)[];
 };

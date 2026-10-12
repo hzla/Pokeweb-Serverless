@@ -40,7 +40,7 @@ function tokenize(source: string): Token[] {
 }
 
 const PRECEDENCE: Readonly<Record<string, number>> = { "||": 1, "&&": 2, "==": 3, "!=": 3, "<": 4, "<=": 4, ">": 4, ">=": 4 };
-const RESERVED = new Set(["script", "def", "work", "if", "elsif", "else", "unless", "while", "until", "case", "when", "do", "end", "break", "next", "return", "true", "false", "call", "preserve_layout", "entry", "data", "block", "label", "jump", "overlay"]);
+const RESERVED = new Set(["script", "def", "work", "if", "elsif", "else", "unless", "while", "until", "case", "when", "do", "end", "break", "next", "return", "true", "false", "call", "preserve_layout", "entry", "data", "block", "label", "jump", "overlay", "condition_encoding", "vm_compare", "stack_condition", "flag_set?"]);
 
 class Parser {
   private index = 0;
@@ -90,6 +90,14 @@ class Parser {
       if (this.accept("!")) left = { ...position, kind: "not", expression: this.expression(5) };
       else if (this.accept("(")) { this.newlines(); left = this.expression(); this.newlines(); this.expect(")"); }
       else if (this.at("true") || this.at("false")) left = { ...position, kind: "boolean", value: this.take().text === "true" };
+      else if (this.at("vm_compare") || this.at("stack_condition")) {
+        const encoding = this.take().text === "vm_compare" ? "compare" : "stack";
+        this.expect("("); this.newlines(); const expression = this.expression(); this.newlines(); this.expect(")");
+        left = { ...position, kind: "encoded", encoding, expression };
+      } else if (this.accept("flag_set?")) {
+        this.expect("("); const value = this.value(); this.expect(")");
+        left = { ...position, kind: "flag", value };
+      }
       else left = { ...position, kind: "value", value: this.value() };
       while ((PRECEDENCE[this.token.text] ?? 0) >= minimum) {
         const operator = this.take().text as Extract<Expression, { kind: "binary" }>["operator"];
@@ -198,6 +206,7 @@ class Parser {
     const aliases: NonNullable<Program["aliases"]> = [];
     let preserveLayout = false;
     let overlayId: number | undefined;
+    let conditionEncoding: Program["conditionEncoding"];
     this.newlines();
     while (this.token.kind !== "eof") {
       const position = this.token;
@@ -209,6 +218,11 @@ class Parser {
         overlayId = this.number();
         if (!Object.hasOwn(BW2_OVERLAY_LAYOUTS, overlayId)) this.fail("Unsupported BW2 command overlay", position);
         this.lineEnd();
+      } else if (this.accept("condition_encoding")) {
+        if (conditionEncoding || layout.length) this.fail("condition_encoding must appear once before code", position);
+        this.expect(":"); const encoding = this.take();
+        if (encoding.text !== "stack" && encoding.text !== "compare") this.fail("Expected :stack or :compare condition encoding", encoding);
+        conditionEncoding = encoding.text; this.lineEnd();
       } else if (this.accept("entry")) {
         const entry = this.number(); this.expect(","); this.expect(":");
         aliases.push({ ...position, entry, target: this.name() }); this.lineEnd();
@@ -245,7 +259,7 @@ class Parser {
         this.lineEnd();
       } else this.fail("Expected work :name, ID, CONSTANT = integer, script :name, entry: N do, or def helper");
     }
-    return { bindings, definitions, preserveLayout, overlayId, aliases, layout };
+    return { bindings, definitions, preserveLayout, overlayId, conditionEncoding, aliases, layout };
   }
 }
 

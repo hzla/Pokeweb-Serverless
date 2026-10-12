@@ -9,6 +9,8 @@ import { escapeHtml } from "./dom";
 import { mountBattleBackgroundRenderer, type BattleBackgroundRenderer } from "./battleBackgroundRenderer";
 import { advanceTitleFrame, compileTitleScene, TITLE_IDLE_START, TITLE_LAST_FRAME, type TitleScene } from "../pokeweb/titleScreenScene";
 import { mountTitleSceneRenderer } from "./titleSceneRenderer";
+import { openTitlePngImport, readTitlePng } from "./titleScreenPngImport";
+import type { TitlePngLayer } from "../pokeweb/titleScreenPng";
 
 let disposeEditor: (() => void) | undefined;
 export function stopTitleScreenEditor(): void { disposeEditor?.(); disposeEditor = undefined; }
@@ -25,7 +27,8 @@ export function renderTitleScreenEditor(project: ProjectState, root: HTMLElement
   let scene: TitleScene | undefined;
   let animationRequest = 0, lastTick = 0;
   let layerImages: Record<string, HTMLCanvasElement> = {};
-  disposeEditor = () => { disposed = true; playing = false; cancelAnimationFrame(animationRequest); renderer?.dispose(); sceneRenderer?.dispose(); };
+  let pngDialog: ReturnType<typeof openTitlePngImport> | undefined;
+  disposeEditor = () => { disposed = true; pngDialog?.close(); playing = false; cancelAnimationFrame(animationRequest); renderer?.dispose(); sceneRenderer?.dispose(); };
   root.innerHTML = `<main class="title-editor"><section class="title-card"><h1>Title Screen</h1><p>Loading title assets…</p></section></main>`;
 
   function setStatus(message: string, error = false): void {
@@ -51,7 +54,7 @@ export function renderTitleScreenEditor(project: ProjectState, root: HTMLElement
         ${["2D graphics", "3D scene"].map((group, groupIndex) => `<h2>${group}</h2>${document.assets.filter((asset) => (asset.path === "a/0/2/6") === (groupIndex === 0) && asset.id !== "camera").map((asset) => `<button class="title-nav ${selected === asset.id ? "-active" : ""}" data-select="${asset.id}"><span>${escapeHtml(asset.label)}${asset.changed ? ` <i title="Changed from original ROM">●</i>` : ""}</span><small>${asset.format} · #${asset.member}</small></button>`).join("")}`).join("")}
         <p class="title-muted">${document.assets.length} native assets<br>${document.assets.filter((asset) => asset.changed).length} changed from original ROM</p>
       </aside><section class="title-detail">${selected === "scene" ? sceneHtml() : selected === "composition" ? compositionHtml() : assetHtml(document.assets.find((asset) => asset.id === selected)!)}</section></div>
-      <input hidden type="file" id="title-native-input"><input hidden type="file" id="title-bundle-input" accept=".zip,application/zip">
+      <input hidden type="file" id="title-native-input"><input hidden type="file" id="title-bundle-input" accept=".zip,application/zip"><input hidden type="file" id="title-png-input" accept=".png,image/png">
     </main>`;
     root.querySelectorAll<HTMLButtonElement>("[data-select]").forEach((button) => button.addEventListener("click", () => { playing = false; selected = button.dataset.select!; render(); }));
     root.querySelectorAll<HTMLButtonElement>("[data-action]").forEach((button) => button.addEventListener("click", () => void action(button.dataset.action!)));
@@ -63,6 +66,17 @@ export function renderTitleScreenEditor(project: ProjectState, root: HTMLElement
     root.querySelector<HTMLInputElement>("#title-bundle-input")?.addEventListener("change", (event) => {
       const file = (event.target as HTMLInputElement).files?.[0];
       if (file) void runImport(async () => readTitleBundle(await readFile(file), document.version));
+    });
+    root.querySelector<HTMLInputElement>("#title-png-input")?.addEventListener("change", (event) => {
+      const input = event.target as HTMLInputElement, file = input.files?.[0], layer = input.dataset.layer as TitlePngLayer;
+      input.value = "";
+      if (file) void runImport(async () => {
+        const source = await readTitlePng(file);
+        if (disposed) return;
+        pngDialog = openTitlePngImport(document, layer, source);
+        const result = await pngDialog.result; pngDialog = undefined;
+        return result?.imports;
+      }, "Preparing PNG import…", `Imported ${layer === "prompt" ? "Press Start" : layer} PNG.`);
     });
     if (selected === "scene") {
       hydrateScene();
@@ -136,7 +150,7 @@ export function renderTitleScreenEditor(project: ProjectState, root: HTMLElement
       <div class="title-screen-wrap"><canvas id="title-top-screen" width="256" height="192" aria-label="Title logo screen preview"></canvas></div>
       <div class="title-playback"><button class="btn -default" data-action="play">${playing ? "Pause" : "Play 2D"}</button><label for="title-frame">Frame <output id="title-frame-value">${frame}</output></label><input id="title-frame" type="range" min="0" max="7780" step="1" value="${frame}"></div>
       <p class="title-muted">This view previews the 2D layers. Choose Bottom-screen animation for the 3D scene, or Preview in game for screen swaps and transitions.</p></section>
-      <section class="title-card"><h2>Export individual layers</h2><div class="title-layer-grid">${[["logo", "Logo"], ["background", "Scrolling background"], ["credits", "Game Freak credit layer"], ["prompt", "Press Start frame"]].map(([id, label]) => `<figure><canvas data-layer="${id}" aria-label="${label}"></canvas><figcaption>${label}</figcaption><button class="btn -default" data-action="png-${id}">Export PNG</button></figure>`).join("")}</div><p class="title-muted">The logo and scrolling background share tiles and a palette. PNG exports are for external editing; this version imports native resources.</p></section>`;
+      <section class="title-card"><h2>Individual layers</h2><div class="title-layer-grid">${[["logo", "Logo"], ["background", "Scrolling background"], ["credits", "Game Freak credit layer"], ["prompt", "Press Start frame"]].map(([id, label]) => `<figure><canvas data-layer="${id}" aria-label="${label}"></canvas><figcaption>${label}</figcaption><div class="title-toolbar"><button class="btn -default" data-action="png-${id}">Export PNG</button><button class="btn -primary" data-action="import-png-${id}">Import PNG</button></div></figure>`).join("")}</div><p class="title-muted">Import PNG automatically resizes or crops your image and converts it to the layer's palette and tiles. Review the converted preview before applying. The logo and scrolling background share a 256-color palette; credits and Press Start use 16-color banks.</p></section>`;
   }
 
   function assetHtml(asset: TitleAsset): string {
@@ -241,6 +255,8 @@ export function renderTitleScreenEditor(project: ProjectState, root: HTMLElement
       else if (name === "export-native" && asset) download(asset.bytes, asset.filename);
       else if (name === "import-native" && asset) {
         const input = root.querySelector<HTMLInputElement>("#title-native-input")!; input.accept = `.${asset.format === "camera" ? "bin" : asset.format.toLowerCase()},.bin`; input.value = ""; input.click();
+      } else if (name.startsWith("import-png-")) {
+        const input = root.querySelector<HTMLInputElement>("#title-png-input")!; input.dataset.layer = name.slice(11); input.value = ""; input.click();
       } else if (name === "export-composition") savePng(root.querySelector<HTMLCanvasElement>("#title-top-screen")!, `${document.version}-title-logo-screen.png`);
       else if (name.startsWith("png-")) savePng(layerImages[name.slice(4)], `${document.version}-${name.slice(4)}.png`);
       else if (name === "play") {
@@ -268,17 +284,19 @@ export function renderTitleScreenEditor(project: ProjectState, root: HTMLElement
     finally { busy = false; if (!disposed) updateBusy(); }
   }
 
-  async function runImport(read: () => Promise<Map<string, Uint8Array>>): Promise<void> {
+  async function runImport(read: () => Promise<Map<string, Uint8Array> | undefined>, preparing = "Validating native title assets…", imported?: string): Promise<void> {
     if (busy) return;
-    busy = true; updateBusy(); setStatus("Validating native title assets…");
+    busy = true; updateBusy(); setStatus(preparing);
     try {
       const imports = await read();
       if (disposed) return;
+      if (!imports) { setStatus("PNG import cancelled."); return; }
+      setStatus("Validating title assets…");
       const count = await importTitleAssets(project, imports);
       if (count) options.onDirty();
       if (disposed) return;
       await reload();
-      if (!disposed) { setStatus(count ? `Imported ${count} native asset${count === 1 ? "" : "s"}. Changes are saved with your project.` : "All imported assets already match the project."); render(); }
+      if (!disposed) { setStatus(count ? `${imported ?? `Imported ${count} native asset${count === 1 ? "" : "s"}.`} Changes are saved with your project.` : "All imported assets already match the project."); render(); }
     } catch (error) { if (!disposed) setStatus(errorMessage(error), true); }
     finally { busy = false; if (!disposed) updateBusy(); }
   }

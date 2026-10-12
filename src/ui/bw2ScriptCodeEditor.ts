@@ -4,9 +4,11 @@ import { EditorState, StateEffect, StateField, Text } from "@codemirror/state";
 import { Decoration, EditorView, ViewPlugin, drawSelection, highlightActiveLine, keymap, lineNumbers, type DecorationSet, type ViewUpdate } from "@codemirror/view";
 import { BW2_SCRIPT_COMMANDS, type SourcePosition } from "../pokeweb/bw2ScriptCompiler";
 import { bw2CommandByName } from "../pokeweb/bw2ScriptCompiler/commands";
+import { BW2_WORK_ALIASES, bw2WorkAlias } from "../pokeweb/bw2ScriptCompiler/workAliases";
 
-const KEYWORDS = new Set(["script", "work", "def", "do", "end", "if", "elsif", "else", "unless", "while", "until", "case", "when", "break", "next", "return", "call", "true", "false", "preserve_layout", "entry", "block", "data", "label", "jump", "overlay"]);
-export type Bw2ScriptHighlight = { from: number; to: number; kind: "keyword" | "symbol" | "number" | "constant" | "command" | "helper" | "comment" | "string" | "operator" };
+const KEYWORDS = new Set(["script", "work", "def", "do", "end", "if", "elsif", "else", "unless", "while", "until", "case", "when", "break", "next", "return", "call", "true", "false", "preserve_layout", "entry", "block", "data", "label", "jump", "overlay", "condition_encoding", "vm_compare", "stack_condition", "flag_set?"]);
+const WORK_NAMES = new Set(BW2_WORK_ALIASES.map((work) => work.name));
+export type Bw2ScriptHighlight = { from: number; to: number; kind: "keyword" | "symbol" | "number" | "constant" | "command" | "helper" | "work" | "comment" | "string" | "operator" };
 
 /** Tolerant lexical highlighting also works while source is incomplete/invalid. */
 export function highlightBw2ScriptLine(line: string): Bw2ScriptHighlight[] {
@@ -24,6 +26,7 @@ export function highlightBw2ScriptLine(line: string): Bw2ScriptHighlight[] {
     else if (afterDef) kind = "helper";
     else if (/^[A-Z][A-Z_0-9]*$/.test(text)) kind = "constant";
     else if (bw2CommandByName(text, true) || /^cmd_[0-9a-f]{4}$/.test(text)) kind = "command";
+    else if (WORK_NAMES.has(text)) kind = "work";
     else if (/^[=<>!&|+\-]/.test(text)) kind = "operator";
     if (kind) ranges.push({ from: match.index!, to: match.index! + text.length, kind });
     afterDef = text === "def";
@@ -89,6 +92,7 @@ export type Bw2ScriptCodeEditor = {
   focusError: (position: SourcePosition) => void;
   destroy: () => void;
   getCursor: () => Bw2ScriptCursor;
+  refreshLayout?: () => void;
 };
 export type Bw2ScriptCursor = SourcePosition & { word: string; text: string };
 
@@ -96,11 +100,11 @@ function cursorFor(view: EditorView): Bw2ScriptCursor {
   const offset = view.state.selection.main.head;
   const line = view.state.doc.lineAt(offset);
   const column = offset - line.from;
-  const word = [...line.text.matchAll(/[A-Za-z_]\w*/g)].find((match) => match.index! <= column && column <= match.index! + match[0].length)?.[0] ?? "";
+  const word = [...line.text.matchAll(/[A-Za-z_]\w*(?:\?|!(?!=))?/g)].find((match) => match.index! <= column && column <= match.index! + match[0].length)?.[0] ?? "";
   return { line: line.number, column: column + 1, word, text: line.text };
 }
 
-export function installBw2ScriptCodeEditor(host: HTMLElement, source: string, onChange: (source: string) => void, onCursor?: (cursor: Bw2ScriptCursor) => void): Bw2ScriptCodeEditor {
+export function installBw2ScriptCodeEditor(host: HTMLElement, source: string, onChange: (source: string) => void, onCursor?: (cursor: Bw2ScriptCursor) => void, options: { bindingSource?: () => string; label?: string } = {}): Bw2ScriptCodeEditor {
   const view = new EditorView({
     parent: host,
     doc: source,
@@ -108,11 +112,12 @@ export function installBw2ScriptCodeEditor(host: HTMLElement, source: string, on
       lineNumbers(), history(), drawSelection(), highlightActiveLine(), highlighting, errorHighlight,
       EditorState.tabSize.of(2),
       keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
-      EditorView.contentAttributes.of({ "aria-label": "Ruby-like BW2 script source", spellcheck: "false" }),
+      EditorView.contentAttributes.of({ "aria-label": options.label ?? "Ruby-like BW2 script source", spellcheck: "false" }),
       autocompletion({ override: [(context) => {
-        const word = context.matchBefore(/[A-Za-z_]\w*/);
+        const word = context.matchBefore(/[A-Za-z_]\w*[?]?/);
         if (!word || (word.from === word.to && !context.explicit)) return null;
-        return { from: word.from, options: [...KEYWORDS].map((label) => ({ label, type: "keyword" })).concat(Object.keys(BW2_SCRIPT_COMMANDS).map((label) => ({ label, type: "function" }))) };
+        const bindings = [...(options.bindingSource?.() ?? context.state.doc.toString()).matchAll(/^\s*work\s+:(\w+),\s*(0x[\da-f]+|\d+)\b/gim)].map((match) => ({ label: match[1], type: "variable", info: bw2WorkAlias(Number(match[2])).description }));
+        return { from: word.from, options: [...KEYWORDS].map((label) => ({ label, type: "keyword" })).concat(Object.keys(BW2_SCRIPT_COMMANDS).map((label) => ({ label, type: "function" }))).concat(bindings) };
       }] }),
       EditorView.updateListener.of((update) => {
         if (update.docChanged) onChange(update.state.doc.toString());
@@ -131,6 +136,7 @@ export function installBw2ScriptCodeEditor(host: HTMLElement, source: string, on
         ".cm-bw2-symbol": { color: "#82aaff" },
         ".cm-bw2-number": { color: "#ffb86c" },
         ".cm-bw2-constant": { color: "#89ddff" },
+        ".cm-bw2-work": { color: "#89ddff" },
         ".cm-bw2-string": { color: "#f1fa8c" },
         ".cm-bw2-comment": { color: "#8b91a5", fontStyle: "italic" },
         ".cm-bw2-operator": { color: "#ff92be" },
@@ -151,5 +157,6 @@ export function installBw2ScriptCodeEditor(host: HTMLElement, source: string, on
     },
     destroy: () => view.destroy(),
     getCursor: () => cursorFor(view),
+    refreshLayout: () => view.requestMeasure(),
   };
 }

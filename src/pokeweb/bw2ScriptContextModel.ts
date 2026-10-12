@@ -40,11 +40,13 @@ export function bw2ScriptNpcCommandTarget(project: ProjectState, sourceLine: str
 }
 
 /** Parse once per edit; selection changes query a small immutable call graph. */
-export function buildBw2ScriptSourceContext(source: string): { definitions: Bw2ScriptFocus[]; focusAt: (line: number) => Bw2ScriptFocus | undefined } {
+export function buildBw2ScriptSourceContext(source: string): { definitions: Bw2ScriptFocus[]; workBindings: ReadonlyMap<string, number>; focusAt: (line: number) => Bw2ScriptFocus | undefined } {
   let sections: Section[] = [];
   let aliases: { entry: number; target: string }[] = [];
+  const workBindings = new Map<string, number>();
   try {
     const program = parseBw2Script(source);
+    for (const binding of program.bindings) if (binding.kind === "work") workBindings.set(binding.name, binding.value);
     aliases = program.aliases ?? [];
     const names = new Set(program.definitions.map((definition) => definition.name));
     const collect = (statements: Statement[], section: Section): void => {
@@ -72,9 +74,12 @@ export function buildBw2ScriptSourceContext(source: string): { definitions: Bw2S
   } catch {
     // While an argument is incomplete, keep navigation usable without trusting stale compiled code.
     const lines = source.split(/\r?\n/);
+    workBindings.clear();
     let section: Section | undefined, depth = 0;
     for (const [index, full] of lines.entries()) {
       const text = full.replace(/#.*$/, "").trim();
+      const binding = /^work\s+:(\w+),\s*(0x[\da-f]+|\d+)\s*$/i.exec(text);
+      if (binding) workBindings.set(binding[1], Number(binding[2]));
       const start = /^(script|block)\s+:(\w+)(?:,\s*entry:\s*(\d+))?\s+do\b/.exec(text) ?? /^(def)\s+(\w+)/.exec(text);
       if (start) {
         if (section) section.endLine = index;
@@ -114,7 +119,7 @@ export function buildBw2ScriptSourceContext(source: string): { definitions: Bw2S
     }
   }
   const focusFor = (section: Section): Bw2ScriptFocus => ({ name: section.name, kind: section.kind, line: section.line, endLine: section.endLine, entries: [...(entryOwners.get(section) ?? [])].sort((a, b) => a - b) });
-  return { definitions: sections.map(focusFor), focusAt: (line) => {
+  return { definitions: sections.map(focusFor), workBindings, focusAt: (line) => {
     const section = sections.find((section) => section.line <= line && line <= section.endLine);
     return section ? focusFor(section) : undefined;
   } };

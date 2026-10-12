@@ -81,12 +81,78 @@ Supported statements:
   `counter += 1`, and `counter -= other`.
 
 Conditions support `==`, `!=`, `<`, `<=`, `>`, `>=`, `&&`, `||`, `!`, parentheses,
-`true`, and `false`. Boolean operators short-circuit. Numeric conditions require
+`true`, and `false`. Boolean operators short-circuit in the default comparison
+encoding. Numeric conditions require
 an explicit comparison such as `counter != 0`; they do not use Ruby truthiness.
 Comparison operands are integers, constants, or work bindings. `when` values
 must be distinct constants. Arithmetic literals must be below `0x4000`, because
 the BW2 arithmetic operand convention interprets larger values as work IDs.
 Assignments and explicit constant comparisons retain their literal 16-bit form.
+
+### Descriptive work names and stack conditions
+
+The BW2 catalog contains 420 named work slots, including story progress,
+system state, map-local slots, and event-scoped temporary slots. Decompilation
+emits bindings only for referenced, documented work operands. Each binding has
+a description comment. Unknown IDs keep `work_XXXX`; reused temporary slots
+keep names such as `event_temp_0`, since their meaning changes between events.
+Catalog names identify an event or storage role, not a complete interpretation
+of every numeric stage. Regional and modified-ROM event meanings still need
+checking against the actual scripts. Names do not establish valid free storage.
+
+For Aspertia script file 854, the important bindings are:
+
+```ruby
+work :bianca_intro_progress, 0x40a1
+work :aspertia_gym_opening_progress, 0x40a8
+work :lake_guardians_cave_of_being_event_progress, 0x4115
+```
+
+The first two are saved integer work variables. `_progress` denotes a numeric
+event stage; `_flag` is reserved for Boolean event flags.
+`bianca_intro_progress != 0` tests whether the progress value has left
+stage zero; it does not assert that the entire introduction has finished.
+The third belongs to the Cave of Being lake-guardian sequence and also controls
+Hugh/sister placements in Aspertia. Aspertia and lake-guardian event context was
+checked against the
+[BW2 walkthrough](https://bulbapedia.bulbagarden.net/wiki/Walkthrough:Pok%C3%A9mon_Black_2_and_White_2);
+the walkthrough does not establish numeric work IDs or stage values.
+
+Recognized stack conditions use a file-level `condition_encoding :stack` directive
+so plain conditions reproduce the original stack commands instead of substituting
+comparison-flag commands. For example, this jump preserves the original
+`stack_push 0x40a1; stack_push_const 0; stack_cmp 1; jump_if 0xff, :loc_d1`:
+
+```ruby
+preserve_layout
+condition_encoding :stack
+work :bianca_intro_progress, 0x40a1
+
+script :main, entry: 1 do
+  if bianca_intro_progress != 0
+    jump :loc_d1
+  end
+  nop
+  label :loc_d1
+  halt
+end
+```
+
+Stack encoding evaluates both sides of `&&`/`||` in order and emits stack
+Boolean AND/OR. Both sides must be comparisons, Boolean values, or flag
+predicates; numeric Ruby truthiness is not supported. Existing comparison-flag
+conditions in a mixed import use `vm_compare(condition)` to retain their opcode
+sequence. `stack_condition(condition)` selects stack encoding for one complete
+condition in an otherwise default-encoding file. `case` retains its existing
+comparison-flag dispatch. Old source files without the new directive keep their
+previous encoding, including saved import baselines.
+
+`flag_set?(0x0123)` tests a real Boolean event flag in separate flag storage.
+It accepts a literal/constant flag ID below `0x4000`, not a work binding. Use an
+integer comparison for work progress. Named work bindings are also accepted in
+documented raw work-ID/work-literal operands, including `stack_push`, work
+operations, and actor/player position commands. A literal-only operand such as
+`stack_push_const` continues to reject a work binding.
 
 Ruby `#` comments, decimal/hex integers, optional call parentheses, and semicolon
 statement separators work. Headers and structural keywords use separate lines;
@@ -107,18 +173,29 @@ nesting is bounded, and source size is limited to one million characters.
 | `face_player` | `0x0074` | None |
 | `play_sound` | `0x00A6` | Sound operand |
 
-These commands take raw unsigned integer/constant operands in this milestone.
-They do not automatically resolve work bindings or insert message lifecycle
-commands. Authors must supply appropriate message operands and explicit cleanup
+These commands take unsigned integer/constant operands. Documented work/literal
+operands of `set_flag`, `clear_flag`, and `play_sound` also accept work bindings;
+the compiler emits their numeric work ID for the game to resolve at runtime.
+Message lifecycle commands are explicit. Authors must supply appropriate message operands and cleanup
 such as unlocking actors before an early script return.
 
 ## Use with a loaded Pokeweb project
 
 Open **Texts → BW2 Scripts** after loading a Black 2 or White 2 ROM with the
-Scripts archive. Select a script file, then click **Decompile from ROM**, import a `.bws` source, or write it
+Scripts archive. Select a script file, then click **Decompile from ROM** or write it
 in the Ruby-like editor. Syntax highlighting, line numbers, command completion,
 undo/redo, and live compiler errors are available. Click an error location to
 jump to its source line.
+
+The source editor has **Script** and **Definitions** tabs. Script opens by default
+with entries, helpers and shared code. Definitions holds the leading work bindings,
+constants, layout directives, entry aliases and preserved data before the first
+routine. Both sections compile together as one source file in their original
+order; there is no separate include file or change to ROM layout. Drafts keep
+both sections, and each editor keeps its own selection and undo history while
+switching tabs. Work completion in Script includes bindings from Definitions.
+Entry/helper navigation opens Script, and compiler-error links open the relevant
+tab at its local line number.
 
 The workspace uses a 60% source / 40% map split, with a 2D map on the right.
 The preview uses the overworld editor's terrain and entity renderers. Headers
@@ -130,13 +207,17 @@ Moving the cursor inside an entry highlights its assigned NPCs, signs, or
 triggers. Inside a helper, highlights follow transitive local callers, including
 shared helpers with multiple owners. Entry aliases and shared code blocks are
 supported. Uncalled helpers and map initialization entries may have no entity
-assignment. Supported actor commands also mark their literal actor target in
-blue, separately from entry ownership. Markers show event-data placements; the
+assignment. Solid bright red outlines mark assigned entities; dashed red outlines
+mark a supported command's literal actor target when it is not already assigned.
+A white inner halo and red glow keep both visible against the map.
+Markers show event-data placements; the
 preview does not execute story branches or simulate script-driven repositioning.
 Drag to pan, scroll to zoom, or use Fit. The source navigation menu jumps to
 entries and helpers. Source context remains available during incomplete edits.
 
 Click a command name for sidebar help describing its purpose and parameters.
+Click a declared work name for its numeric ID, storage scope, and event description.
+Declared work names are included in completion; catalog aliases are highlighted.
 `actor_set_g_pos` documents actor, X, elevation/Y, map Z, and facing direction;
 stack commands document expression-stack behavior and false-result branching.
 Other known commands retain their verified widths when semantic descriptions
@@ -151,8 +232,7 @@ scripts in game.
 
 Drafts are saved per script file in the project's browser storage and survive
 file switches and navigation. Editing a draft does not modify ROM bytecode.
-Successful apply also records the applied source. Use **Download source** for
-an editable `.bws` copy outside browser storage. **Decompile from ROM** replaces
+Successful apply also records the applied source. **Decompile from ROM** replaces
 the current source draft with source reconstructed from the project's current
 bytes, including previously applied edits. Decompiling does not dirty the ROM.
 
@@ -190,9 +270,13 @@ instruction positions, padding, and unrecognized bytes are retained.
 Recognizable compare/branch patterns become `if`, `if/else`, `while`, or
 `case/when` blocks. Assignments and arithmetic use work bindings where their
 opcodes match the high-level syntax. Local routines become helpers. Unstructured
-flow keeps symbolic labels and jumps; stack-based conditions retain their VM
-commands. Original variable names, event intent, and Ruby source cannot be
-reconstructed from bytecode. Generated names describe work IDs and offsets.
+flow keeps symbolic labels and jumps. Self-contained stack comparisons and
+Boolean combinations become readable conditions when their exact opcode
+sequence can be reproduced. Entry/jump targets inside an expression, arithmetic
+stack operations, indirect flag IDs, and unsupported stack encodings stay explicit.
+Original author names and Ruby source cannot be reconstructed from bytecode;
+documented work slots use descriptive catalog aliases, while other names describe
+IDs and offsets.
 
 Every import compiles its generated source and compares the entire member byte
 for byte. If recovered blocks cannot reproduce the original encoding, it retries
@@ -207,6 +291,11 @@ to retain an existing unconditional jump. `entry N, :label` preserves alias slot
 `call_if`, and numeric `cmd_XXXX` commands retain raw VM behavior. `data :name,
 0x00, ...` retains exact bytes. Relative operands use symbols so entry, branch,
 call, movement (`0x64`), and elevator (`0x1C1`) pointers relocate after edits.
+Labels name positions without emitting an instruction or opening a helper.
+`jump :label` transfers control without remembering a return address;
+`call :helper` records a return address and the helper ends with `vm_return`.
+Generated `loc_XXXX` names refer to original byte offsets, but remain symbolic
+when edits move the code; the compiler computes their new offsets.
 
 The imported command catalog uses FrostsGen5Editor's BW2 layouts, independently
 checked against Pokeweb's command sizes. Regenerate encoding facts with
@@ -221,7 +310,7 @@ The source retains `overlay ID`, and changing context requires a fresh import.
 
 Unknown commands, unrecognized nonzero bytes, unsupported movements, and
 unterminated typed data produce a verified **read-only** import. Source remains
-viewable and downloadable. Compile & Apply is disabled, and the model refuses
+viewable and can be copied. Compile & Apply is disabled, and the model refuses
 changed bytecode even if a caller forces Apply. Unsupported auxiliary archive
 members without an entry table cannot be decompiled as field-command files.
 
@@ -247,6 +336,18 @@ relocation; it does not modify or export the input ROM. With base commands only,
 the tested US White 2 (`IRDO`) ROM had 585 recognized members: all 585 round trips
 passed, 310 were editable and passed code-growth checks, and 275 remained
 read-only. The other 704 members had empty or unrecognized command entry tables.
+The alias/stack-condition update recovered 3,203 structured blocks across those
+585 members. Aspertia file 854 recovered 46 blocks while retaining its read-only
+status for unsupported commands and data.
+
+In the tested White 2 file 854, `data :bytes_86` preserves 24 bytes at
+`0x86`–`0x9D`. They decode as four `work_set_const` commands setting work IDs
+`0x8020`–`0x8023` to zero. The earliest public entry begins at `0x9E`, and no
+decoded relative pointer targets that prefix. It is retained as unreferenced
+initialization bytes for lossless import; it is not part of entry 6's decoded
+placement logic. Unsupported commands prevent stronger claims about all possible
+runtime paths. The leading data appears in Definitions, with its original
+physical position retained when compiling.
 These counts describe that ROM, not all BW2 regions or modified ROMs.
 
 ## Encoding and verification boundaries
@@ -272,7 +373,7 @@ VM executes the generated control-flow bytes. These host checks do not establish
 retail gameplay acceptance or runtime call-stack capacity; keep helper call chains
 shallow until an in-game test establishes the supported depth.
 
-BW1, battle scripts, automatic overlay discovery, general stack-condition
-recovery, flag/result predicates, general arithmetic expressions, helper parameters,
+BW1, battle scripts, automatic overlay discovery, arbitrary stack-expression
+recovery, result predicates, general arithmetic expressions, helper parameters,
 text strings, movement builders, and automatic temporary allocation are not
 implemented in this milestone.

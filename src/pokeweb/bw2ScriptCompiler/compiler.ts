@@ -2,6 +2,7 @@ import { writeU16, writeU32 } from "../../nds/binary";
 import { gen5ScriptCommandSize } from "../gen5ScriptCommands";
 import { BW2_COMPARISON_IDS, BW2_SCRIPT_COMMANDS, bw2CommandByName } from "./commands";
 import { parseBw2Script } from "./parser";
+import { BW2_WORK_OPERANDS } from "./workAliases";
 import { Bw2ScriptCompileError, type Comparison, type CompiledBw2Script, type Definition, type Expression, type Program, type SourcePosition, type Statement, type Value, type DataBlock, type RelocationKind } from "./types";
 
 type Scalar = { kind: "work" | "constant"; value: number };
@@ -46,23 +47,59 @@ class Compiler {
     this.emit(opcode, values.map((value) => ({ width: 2, value })), position);
   }
   private jump(target: string, position: SourcePosition): void { this.emit(0x1e, [{ width: 4, target, kind: "jump" }], position); }
-  private branch(expression: Expression, target: string, whenTrue: boolean, depth = 0): void {
+  /** Stack expressions evaluate left then right; AND/OR consume normalized booleans. */
+  private stackExpression(expression: Expression, negate = false, depth = 0): boolean {
     if (depth > 128) this.fail("Condition nesting exceeds 128 levels", expression);
+    if (expression.kind === "not") return this.stackExpression(expression.expression, !negate, depth + 1);
+    if (expression.kind === "encoded") this.fail("Encoding wrappers must surround a complete condition", expression);
+    if (expression.kind === "value") {
+      if (negate) this.fail("Conditions require an explicit comparison; write count != 0", expression);
+      const value = this.scalar(expression.value);
+      this.words(value.kind === "work" ? 0x09 : 0x08, [value.value], expression);
+      return value.kind === "constant" && (value.value === 0 || value.value === 1);
+    }
+    if (expression.kind === "boolean") {
+      this.words(0x08, [Number(negate ? !expression.value : expression.value)], expression); return true;
+    }
+    if (expression.kind === "flag") {
+      const flag = this.scalar(expression.value);
+      if (flag.kind !== "constant" || flag.value >= 0x4000) this.fail("flag_set? expects a literal event-flag ID below 0x4000. For work variables, use an integer comparison such as bianca_intro_progress != 0", expression);
+      this.words(0x10, [flag.value], expression);
+      if (negate) { this.words(0x08, [0], expression); this.words(0x11, [1], expression); }
+      return true;
+    }
+    const logical = expression.operator === "&&" || expression.operator === "||";
+    const leftBoolean = this.stackExpression(expression.left, logical && negate, depth + 1);
+    const rightBoolean = this.stackExpression(expression.right, logical && negate, depth + 1);
+    if (logical && (!leftBoolean || !rightBoolean)) this.fail("Stack AND/OR require Boolean comparisons or flag predicates, not integer truthiness", expression);
+    const operator = logical ? (negate ? (expression.operator === "&&" ? "||" : "&&") : expression.operator) : (negate ? INVERT[expression.operator as Comparison] : expression.operator);
+    this.words(0x11, [operator === "||" ? 6 : operator === "&&" ? 7 : BW2_COMPARISON_IDS[operator as Comparison]], expression);
+    return true;
+  }
+  private branch(expression: Expression, target: string, whenTrue: boolean, depth = 0, encoding = this.program.conditionEncoding ?? "compare"): void {
+    if (depth > 128) this.fail("Condition nesting exceeds 128 levels", expression);
+    if (expression.kind === "encoded") { this.branch(expression.expression, target, whenTrue, depth + 1, expression.encoding); return; }
+    if (expression.kind === "not") { this.branch(expression.expression, target, !whenTrue, depth + 1, encoding); return; }
+    if (encoding === "stack" || expression.kind === "flag") {
+      if (expression.kind === "value") this.fail("Conditions require an explicit comparison; write count != 0", expression);
+      this.stackExpression(expression, whenTrue);
+      this.emit(0x1f, [{ width: 1, value: 0xff }, { width: 4, target, kind: "jump" }], expression);
+      return;
+    }
     if (expression.kind === "boolean") {
       if (expression.value === whenTrue) this.jump(target, expression);
       return;
     }
-    if (expression.kind === "not") { this.branch(expression.expression, target, !whenTrue, depth + 1); return; }
     if (expression.kind !== "binary") this.fail("Conditions require a comparison or boolean; write count != 0 rather than if count", expression);
     if (expression.operator === "&&" || expression.operator === "||") {
       const either = expression.operator === "||";
       if (whenTrue === either) {
-        this.branch(expression.left, target, whenTrue, depth + 1);
-        this.branch(expression.right, target, whenTrue, depth + 1);
+        this.branch(expression.left, target, whenTrue, depth + 1, encoding);
+        this.branch(expression.right, target, whenTrue, depth + 1, encoding);
       } else {
         const skip = this.freshLabel();
-        this.branch(expression.left, skip, !whenTrue, depth + 1);
-        this.branch(expression.right, target, whenTrue, depth + 1);
+        this.branch(expression.left, skip, !whenTrue, depth + 1, encoding);
+        this.branch(expression.right, target, whenTrue, depth + 1, encoding);
         this.label(skip);
       }
       return;
@@ -117,9 +154,7 @@ class Compiler {
                 return { width: 4, target: arg.name, kind: reference };
               }
               const scalar = arg.kind === "number" ? { kind: "constant", value: arg.value } : this.scalar(arg);
-              // This initial command subset accepts raw integer operands, not
-              // implicit WorkGet evaluation. Use explicit VM variable operations.
-              if (scalar.kind !== "constant") this.fail(`'${statement.name}' requires literal/constant operands in this version`, arg);
+              if (scalar.kind === "work" && !BW2_WORK_OPERANDS[command.opcode]?.includes(index)) this.fail(`'${statement.name}' argument ${index + 1} requires a literal/constant operand`, arg);
               return { width: command.widths[index], value: this.unsigned(scalar.value, command.widths[index], arg) };
             });
             this.emit(command.opcode, operands, statement);
@@ -177,7 +212,7 @@ class Compiler {
               if (scalar.kind !== "constant") this.fail("when values must be integer constants", value);
               if (seen.has(scalar.value)) this.fail(`Duplicate when value ${scalar.value}`, value);
               seen.add(scalar.value);
-              this.branch({ ...statement, kind: "binary", operator: "==", left: { ...statement.subject, kind: "value", value: statement.subject }, right: { ...value, kind: "value", value } }, body, true);
+              this.branch({ ...statement, kind: "binary", operator: "==", left: { ...statement.subject, kind: "value", value: statement.subject }, right: { ...value, kind: "value", value } }, body, true, 0, "compare");
             }
             this.jump(next, statement);
             this.label(body);

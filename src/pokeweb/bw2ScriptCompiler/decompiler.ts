@@ -3,6 +3,7 @@ import { gen5ScriptCommandSize, gen5ScriptEntries } from "../gen5ScriptCommands"
 import { bw2CommandByOpcode } from "./commands";
 import { compileBw2Script } from "./compiler";
 import { BW2_OVERLAY_LAYOUTS } from "./commandLayouts";
+import { BW2_WORK_OPERANDS, bw2WorkAlias } from "./workAliases";
 
 export class Bw2ScriptDecompileError extends Error {
   constructor(message: string, readonly offset: number) {
@@ -123,19 +124,47 @@ export function decompileBw2Script(bytes: Uint8Array, options: { overlayId?: num
   const roots = new Set([...entries, ...calls]);
   const works = new Set<number>();
   for (const i of instructions.values()) {
-    if ([0x19, 0x1a, 0x26, 0x27, 0x28, 0x29].includes(i.opcode) && i.args[0] >= 0x4000) {
-      works.add(i.args[0]);
-      if ([0x1a, 0x29].includes(i.opcode) || ([0x26, 0x27].includes(i.opcode) && i.args[1] >= 0x4000)) {
-        if (i.args[1] >= 0x4000) works.add(i.args[1]);
-      }
+    for (const index of BW2_WORK_OPERANDS[i.opcode] ?? []) if (i.args[index] >= 0x4000) works.add(i.args[index]);
+  }
+  const work = (id: number): string => bw2WorkAlias(id).name;
+  type StackNode = { text: string; boolean: boolean; inverse?: string };
+  type StackTest = { expression: StackNode; branch: Instruction };
+  const stackTests = new Map<number, StackTest>();
+  // Only fold a self-contained expression with no entry/jump into its interior.
+  // Pop/dup/arithmetic, indirect flags, and push-work literal encodings stay raw.
+  for (const start of instructions.values()) {
+    if (![0x08, 0x09, 0x10].includes(start.opcode)) continue;
+    const stack: StackNode[] = [];
+    let p = start.offset;
+    for (let count = 0; count < 128; count++) {
+      const i = instructions.get(p);
+      if (!i || (p !== start.offset && targets.has(p))) break;
+      const value = i.args[0];
+      if (i.opcode === 0x08) stack.push({ text: hex(value), boolean: value === 0 || value === 1 });
+      else if (i.opcode === 0x09 && value >= 0x4000) stack.push({ text: work(value), boolean: false });
+      else if (i.opcode === 0x10 && value < 0x4000) stack.push({ text: `flag_set?(${hex(value)})`, boolean: true });
+      else if (i.opcode === 0x11 && value <= 7 && stack.length >= 2) {
+        const right = stack.pop()!, left = stack.pop()!;
+        if (value >= 6 && (!left.boolean || !right.boolean)) break;
+        const operator = value === 6 ? "||" : value === 7 ? "&&" : OPS[value];
+        stack.push({ text: `(${left.text} ${operator} ${right.text})`, boolean: true,
+          inverse: value < 6 ? `(${left.text} ${INVERSE[value]} ${right.text})` : undefined });
+      } else if (i.opcode === 0x1f && value === 0xff && stack.length === 1 && stack[0].boolean) {
+        const expression = stack[0];
+        // Bare stack constants are Boolean in a condition but stay numeric in comparisons.
+        if (expression.text === "0x0000" || expression.text === "0x0001") expression.text = expression.text === "0x0001" ? "true" : "false";
+        stackTests.set(start.offset, { expression, branch: i }); break;
+      } else break;
+      p = i.next;
     }
   }
-  const work = (id: number): string => `work_${id.toString(16)}`;
+  const stackEncoding = stackTests.size > 0;
   const condition = (i: Instruction, branch: Instruction, invert: boolean): string | undefined => {
     if (i.opcode !== 0x19 && i.opcode !== 0x1a) return;
     if (branch.opcode !== 0x1f || branch.args[0] > 5 || i.args[0] < 0x4000 || (i.opcode === 0x1a && i.args[1] < 0x4000)) return;
     if (targets.has(branch.offset)) return;
-    return `${work(i.args[0])} ${(invert ? INVERSE : OPS)[branch.args[0]]} ${i.opcode === 0x1a ? work(i.args[1]) : hex(i.args[1])}`;
+    const test = `${work(i.args[0])} ${(invert ? INVERSE : OPS)[branch.args[0]]} ${i.opcode === 0x1a ? work(i.args[1]) : hex(i.args[1])}`;
+    return stackEncoding ? `vm_compare(${test})` : test;
   };
   const safeRegion = (start: number, end: number, retained: number[]): boolean => {
     const keep = new Set([start, end, ...retained]);
@@ -187,7 +216,8 @@ export function decompileBw2Script(bytes: Uint8Array, options: { overlayId?: num
     while (p < end) {
       const i = instructions.get(p)!;
       if (targets.has(p) && p !== start) lines.push(`${indent}label :${name(p)}`);
-      const branch = instructions.get(i.next);
+      const stackTest = structured ? stackTests.get(p) : undefined;
+      const branch = stackTest?.branch ?? instructions.get(i.next);
       if (structured && depth < 80 && branch) {
         const match = recoverCase(p, end);
         if (match) {
@@ -202,7 +232,7 @@ export function decompileBw2Script(bytes: Uint8Array, options: { overlayId?: num
           }
           lines.push(`${indent}end`); structuredBlocks++; p = match.end; continue;
         }
-        const test = condition(i, branch, true);
+        const test = stackTest?.expression.text ?? condition(i, branch, true);
         const falseOffset = branch.targets.get(1);
         if (test && falseOffset !== undefined && falseOffset >= branch.next && falseOffset <= end) {
           const tail = instructions.get(falseOffset - 6);
@@ -230,9 +260,10 @@ export function decompileBw2Script(bytes: Uint8Array, options: { overlayId?: num
             structuredBlocks++; p = falseOffset; continue;
           }
         }
-        const directTest = condition(i, branch, false);
+        const directTest = stackTest ? (stackTest.expression.inverse ?? stackTest.expression.text) : condition(i, branch, false);
         if (directTest && falseOffset !== undefined) {
-          lines.push(`${indent}jump :${name(falseOffset)} if ${directTest}`); p = branch.next; continue;
+          const modifier = stackTest && !stackTest.expression.inverse ? "unless" : "if";
+          lines.push(`${indent}jump :${name(falseOffset)} ${modifier} ${directTest}`); p = branch.next; continue;
         }
       }
       if ([0x26, 0x27, 0x28, 0x29].includes(i.opcode) && works.has(i.args[0]) && (i.opcode !== 0x29 || works.has(i.args[1]))) {
@@ -241,7 +272,7 @@ export function decompileBw2Script(bytes: Uint8Array, options: { overlayId?: num
       } else if (i.opcode === 4 || i.opcode === 0x1e) lines.push(`${indent}${i.opcode === 4 ? "call" : "jump"} :${name(i.targets.get(0)!)}`);
       else {
         const command = bw2CommandByOpcode(i.opcode, overlayId)!;
-        lines.push(`${indent}${command.name}${i.args.length ? " " : ""}${i.args.map((arg, index) => i.targets.has(index) ? `:${name(i.targets.get(index)!)}` : hex(arg, command.definition.widths[index] * 2)).join(", ")}`);
+        lines.push(`${indent}${command.name}${i.args.length ? " " : ""}${i.args.map((arg, index) => i.targets.has(index) ? `:${name(i.targets.get(index)!)}` : BW2_WORK_OPERANDS[i.opcode]?.includes(index) && works.has(arg) ? work(arg) : hex(arg, command.definition.widths[index] * 2)).join(", ")}`);
       }
       p = i.next;
     }
@@ -250,8 +281,12 @@ export function decompileBw2Script(bytes: Uint8Array, options: { overlayId?: num
   function source(structured: boolean): string {
     structuredBlocks = 0;
     const lines = ["# Imported BW2 script. Exact layout and explicit terminators are preserved.", "preserve_layout", ""];
+    if (stackEncoding) lines.push("condition_encoding :stack", "");
     if (overlayId !== undefined) lines.push(`overlay ${overlayId}`, "");
-    for (const id of [...works].sort((a, b) => a - b)) lines.push(`work :${work(id)}, ${hex(id)}`);
+    for (const id of [...works].sort((a, b) => a - b)) {
+      const alias = bw2WorkAlias(id);
+      lines.push(`# ${alias.description}`, `work :${work(id)}, ${hex(id)}`);
+    }
     if (works.size) lines.push("");
     // Entry declarations are separate from code: slots may share or enter a block.
     entries.forEach((offset, index) => {

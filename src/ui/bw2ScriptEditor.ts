@@ -5,6 +5,8 @@ import { BW2_OVERLAY_COMMAND_BYTES } from "../pokeweb/gen5ScriptOverlayCommands"
 import type { ProjectState } from "../pokeweb/projectStore";
 import { buildBw2ScriptSourceContext } from "../pokeweb/bw2ScriptContextModel";
 import { bw2ScriptCommandHelp } from "../pokeweb/bw2ScriptCommandHelp";
+import { bw2WorkAlias } from "../pokeweb/bw2ScriptCompiler/workAliases";
+import { bw2ScriptPartPosition, bw2ScriptPreambleLines, joinBw2ScriptSource, splitBw2ScriptSource, type Bw2ScriptSourcePart, type Bw2ScriptSourceParts } from "../pokeweb/bw2ScriptSourceParts";
 import { escapeHtml, formatBytes } from "./dom";
 import { installBw2ScriptCodeEditor, type Bw2ScriptCodeEditor, type Bw2ScriptCursor } from "./bw2ScriptCodeEditor";
 import { installBw2ScriptMapPreview, type Bw2ScriptMapPreview } from "./bw2ScriptMapPreview";
@@ -26,6 +28,9 @@ export function renderBw2ScriptEditor(project: ProjectState, root: HTMLElement, 
   const state = project.bw2ScriptEditor ??= { drafts: {} };
   let fileId = files.some((file) => file.id === state.selectedFileId) ? state.selectedFileId! : files.find((file) => file.entries > 0)?.id ?? 0;
   let editor: Bw2ScriptCodeEditor | undefined;
+  let partEditors: Partial<Record<Bw2ScriptSourcePart, Bw2ScriptCodeEditor>> = {};
+  let activePart: Bw2ScriptSourcePart = "script";
+  let settingSource = false;
   let mapPreview: Bw2ScriptMapPreview | undefined;
   let sourceContext = buildBw2ScriptSourceContext("");
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -38,35 +43,12 @@ export function renderBw2ScriptEditor(project: ProjectState, root: HTMLElement, 
         <p class="bw2-script-rom">${escapeHtml(project.romInfo.fileName)}</p>
         <label for="bw2-script-file">Script file</label>
         <select id="bw2-script-file">${files.map((file) => `<option value="${file.id}" ${file.id === fileId ? "selected" : ""}>${file.id} — ${file.entries ? counted(file.entries, "entry", "entries") : "unrecognized table"} — ${formatBytes(file.size)}</option>`).join("")}</select>
-        <p id="bw2-file-summary"></p>
         <label for="bw2-command-overlay">Command overlay</label>
         <select id="bw2-command-overlay"><option value="">Base commands only</option>${Object.keys(BW2_OVERLAY_COMMAND_BYTES).map((id) => `<option value="${id}">Overlay ${id}</option>`).join("")}</select>
-        <p class="bw2-script-notice">For commands 1000+, select the event's loaded overlay before decompiling.</p>
         <div class="bw2-script-source-actions">
           <button type="button" class="btn -default" id="bw2-decompile">Decompile from ROM</button>
-          <button type="button" class="btn -default" id="bw2-import-source">Import source</button>
-          <button type="button" class="btn -default" id="bw2-download-source">Download source</button>
-          <input type="file" id="bw2-source-file" accept=".bws,.rb,.txt" hidden />
         </div>
-        <section class="bw2-command-help" aria-labelledby="bw2-command-help-title"><h2 id="bw2-command-help-title">Command help</h2><div id="bw2-command-help">Click a command in the source to see what it does and what each argument means.</div></section>
-        <p class="bw2-script-notice">Applying replaces this entire script file. Imports must pass an exact round trip. Decompiling replaces this file's source draft.</p>
-        <details class="bw2-script-help">
-          <summary>Syntax example</summary>
-          <pre>work :counter, 0x8000
-
-script :main, entry: 1 do
-  counter = 0
-  while counter &lt; 3
-    pause_once
-    counter += 1
-  end
-end
-
-def pause_once
-  sleep 1
-end</pre>
-          <p>Use if / elsif / else, unless, while, until, case / when, break, next, and return. Helpers share explicitly bound work variables.</p>
-        </details>
+        <section class="bw2-command-help" aria-labelledby="bw2-command-help-title"><h2 id="bw2-command-help-title">Command &amp; work help</h2><div id="bw2-command-help">Click a command or work name in the source to see its meaning.</div></section>
       </aside>
       <div class="bw2-script-workspace">
         <div class="bw2-script-toolbar">
@@ -78,16 +60,26 @@ end</pre>
           </div>
         </div>
         <div class="bw2-script-diagnostics" aria-live="polite" aria-atomic="true">
-          <p id="bw2-compile-status">Import a source file or write a complete script to begin.</p>
+          <p id="bw2-compile-status">Decompile from ROM or write a complete script to begin.</p>
           <button type="button" id="bw2-error-location" class="bw2-script-error-link" hidden></button>
         </div>
         <div class="bw2-script-split">
-          <div id="bw2-source-editor" class="bw2-script-code"></div>
+          <div class="bw2-script-source-pane">
+            <div class="bw2-script-tabs" role="tablist" aria-label="Script source sections">
+              <button type="button" role="tab" id="bw2-script-tab" aria-controls="bw2-source-editor" aria-selected="true">Script</button>
+              <button type="button" role="tab" id="bw2-definitions-tab" aria-controls="bw2-definitions-editor" aria-selected="false" tabindex="-1">Definitions</button>
+            </div>
+            <div id="bw2-source-editor" class="bw2-script-code" role="tabpanel" aria-labelledby="bw2-script-tab"></div>
+            <div id="bw2-definitions-editor" class="bw2-script-code" role="tabpanel" aria-labelledby="bw2-definitions-tab" hidden></div>
+          </div>
           <aside id="bw2-map-preview" class="bw2-script-map" aria-label="Script map preview"></aside>
         </div>
       </div>
     </section>`;
   const host = root.querySelector<HTMLElement>("#bw2-source-editor");
+  const definitionsHost = root.querySelector<HTMLElement>("#bw2-definitions-editor");
+  const scriptTab = root.querySelector<HTMLButtonElement>("#bw2-script-tab");
+  const definitionsTab = root.querySelector<HTMLButtonElement>("#bw2-definitions-tab");
   const selector = root.querySelector<HTMLSelectElement>("#bw2-script-file");
   const overlaySelector = root.querySelector<HTMLSelectElement>("#bw2-command-overlay");
   const applyButton = root.querySelector<HTMLButtonElement>("#bw2-apply");
@@ -98,21 +90,45 @@ end</pre>
   const sectionSelect = root.querySelector<HTMLSelectElement>("#bw2-source-section");
   const errorButton = root.querySelector<HTMLButtonElement>("#bw2-error-location");
   const draftStatus = root.querySelector<HTMLElement>("#bw2-draft-state");
-  const summary = root.querySelector<HTMLElement>("#bw2-file-summary");
   const title = root.querySelector<HTMLElement>("#bw2-source-title");
-  const importButton = root.querySelector<HTMLButtonElement>("#bw2-import-source");
-  const sourceFile = root.querySelector<HTMLInputElement>("#bw2-source-file");
-  if (!host || !selector || !applyButton || !compileButton || !status || !errorButton || !draftStatus || !summary || !title || !importButton || !sourceFile) return;
+  if (!host || !definitionsHost || !scriptTab || !definitionsTab || !selector || !applyButton || !compileButton || !status || !errorButton || !draftStatus || !title) return;
+
+  function sourceParts(): Bw2ScriptSourceParts { return { script: partEditors.script?.getValue() ?? "", definitions: partEditors.definitions?.getValue() ?? "" }; }
+  function fullCursor(part: Bw2ScriptSourcePart, cursor: Bw2ScriptCursor): Bw2ScriptCursor {
+    return { ...cursor, line: cursor.line + (part === "script" ? bw2ScriptPreambleLines(sourceParts()) : 0) };
+  }
+  function selectPart(part: Bw2ScriptSourcePart): void {
+    activePart = part;
+    host!.hidden = part !== "script";
+    definitionsHost!.hidden = part !== "definitions";
+    for (const [name, tab] of [["script", scriptTab], ["definitions", definitionsTab]] as const) {
+      tab!.setAttribute("aria-selected", String(name === part));
+      tab!.setAttribute("tabindex", name === part ? "0" : "-1");
+    }
+    partEditors[part]?.refreshLayout?.();
+    const cursor = partEditors[part]?.getCursor();
+    if (cursor) updateCursor(fullCursor(part, cursor));
+  }
+  scriptTab.addEventListener("click", () => selectPart("script"));
+  definitionsTab.addEventListener("click", () => selectPart("definitions"));
+  for (const tab of [scriptTab, definitionsTab]) tab.addEventListener("keydown", (event) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    selectPart(event.key === "Home" ? "script" : event.key === "End" ? "definitions" : activePart === "script" ? "definitions" : "script");
+    (activePart === "script" ? scriptTab : definitionsTab).focus();
+  });
 
   function clearTimer(): void { if (timer !== undefined) clearTimeout(timer); timer = undefined; }
   function showError(error: unknown): void {
-    status!.textContent = error instanceof Error ? error.message : String(error);
+    const local = error instanceof Bw2ScriptCompileError ? bw2ScriptPartPosition(sourceParts(), error.position) : undefined;
+    const section = local?.part === "definitions" ? "Definitions" : "Script";
+    status!.textContent = local && error instanceof Error ? error.message.replace(/\(line \d+, column \d+\)$/, `(${section} line ${local.position.line}, column ${local.position.column})`) : error instanceof Error ? error.message : String(error);
     status!.className = "-error";
     applyButton!.disabled = true;
     lastError = error instanceof Bw2ScriptCompileError ? error.position : undefined;
     editor?.setError(lastError);
     errorButton!.hidden = !lastError;
-    if (lastError) errorButton!.textContent = `Go to line ${lastError.line}, column ${lastError.column}`;
+    if (lastError && local) errorButton!.textContent = `Go to ${section} line ${local.position.line}, column ${local.position.column}`;
   }
   function showResult(result: CompiledBw2Script, applied = false): void {
     status!.className = applied ? "-success" : "";
@@ -142,6 +158,13 @@ end</pre>
     const focus = sourceContext.focusAt(cursor.line);
     if (sectionSelect) sectionSelect.value = focus?.line.toString() ?? "";
     mapPreview?.setFocus(focus, cursor.text, overlayId);
+    const workId = sourceContext.workBindings.get(cursor.word);
+    if (help && workId !== undefined) {
+      const work = bw2WorkAlias(workId);
+      help.innerHTML = `<code class="bw2-command-name">${escapeHtml(cursor.word)}</code><span class="bw2-command-opcode">Work 0x${workId.toString(16).padStart(4, "0")} · ${escapeHtml(work.scope)} · integer</span><p>${escapeHtml(work.description)}</p>
+        ${work.scope !== "unknown" && cursor.word !== work.name ? `<p>Catalog name: <code>${escapeHtml(work.name)}</code></p>` : ""}<p class="bw2-command-note">Work variables store numbers. Compare a stage with == or !=; flag_set? reads the separate event-flag storage.</p>`;
+      return;
+    }
     const command = bw2ScriptCommandHelp(cursor.word, overlayId);
     if (!help || !command) return;
     help.innerHTML = `<code class="bw2-command-name">${escapeHtml(command.name)}</code><span class="bw2-command-opcode">Opcode 0x${command.opcode.toString(16).padStart(4, "0")}</span><p>${escapeHtml(command.description)}</p>
@@ -161,21 +184,22 @@ end</pre>
     editor?.destroy();
     mapPreview?.destroy();
     mapPreview = mapHost ? installBw2ScriptMapPreview(project, mapHost, fileId) : undefined;
-    if (help) help.textContent = "Click a command in the source to see what it does and what each argument means.";
+    if (help) help.textContent = "Click a command or work name in the source to see its meaning.";
     if (overlaySelector) overlaySelector.value = state.drafts[fileId]?.imported?.overlayId?.toString() ?? "";
     const count = gen5ScriptEntries(scripts!.rawFiles[fileId]).length;
     title!.textContent = `Script file ${fileId}`;
-    summary!.textContent = count ? `Requires ${counted(count, "entry slot")}. Current size: ${formatBytes(scripts!.rawFiles[fileId].length)}.` : "This file has an unrecognized entry table. Apply is unavailable.";
     errorButton!.hidden = true;
     lastError = undefined;
     status!.className = "";
-    status!.textContent = "Decompile from ROM, import source, or write a complete script to begin.";
+    status!.textContent = "Decompile from ROM or write a complete script to begin.";
     draftStatus!.textContent = state.drafts[fileId] ? "Source draft" : "No authored source";
     applyButton!.disabled = true;
-    const source = state.drafts[fileId]?.source ?? `# Author ${counted(count, "entry", "entries")} for script file ${fileId}.\n# Import a .bws source or write your script below.\n`;
+    const source = state.drafts[fileId]?.source ?? `# Author ${counted(count, "entry", "entries")} for script file ${fileId}.\n# Decompile from ROM or write your script below.\n`;
     updateSourceIndex(source);
-    editor = installBw2ScriptCodeEditor(host!, source, (text) => {
-      if (stopped) return;
+    const parts = splitBw2ScriptSource(source);
+    const changed = () => {
+      if (stopped || settingSource) return;
+      const text = joinBw2ScriptSource(sourceParts());
       clearTimer();
       applyButton!.disabled = true;
       errorButton!.hidden = true;
@@ -187,7 +211,32 @@ end</pre>
       catch (error) { showError(error); return; }
       updateSourceIndex(text);
       timer = setTimeout(validate, 250);
-    }, updateCursor);
+    };
+    partEditors = {};
+    partEditors.script = installBw2ScriptCodeEditor(host!, parts.script, changed, (cursor) => { if (!settingSource && activePart === "script") updateCursor(fullCursor("script", cursor)); }, { bindingSource: () => joinBw2ScriptSource(sourceParts()) });
+    partEditors.definitions = installBw2ScriptCodeEditor(definitionsHost!, parts.definitions, changed, (cursor) => { if (!settingSource && activePart === "definitions") updateCursor(cursor); }, { bindingSource: () => joinBw2ScriptSource(sourceParts()), label: "BW2 script definitions" });
+    editor = {
+      getValue: () => joinBw2ScriptSource(sourceParts()),
+      setValue: (text) => {
+        const parts = splitBw2ScriptSource(text);
+        settingSource = true;
+        try { partEditors.definitions!.setValue(parts.definitions); partEditors.script!.setValue(parts.script); }
+        finally { settingSource = false; }
+        updateSourceIndex(text);
+        selectPart("script");
+      },
+      getCursor: () => fullCursor(activePart, partEditors[activePart]!.getCursor()),
+      setError: (position) => {
+        partEditors.script!.setError(); partEditors.definitions!.setError();
+        if (position) { const local = bw2ScriptPartPosition(sourceParts(), position); partEditors[local.part]!.setError(local.position); }
+      },
+      focusError: (position) => {
+        const local = bw2ScriptPartPosition(sourceParts(), position);
+        selectPart(local.part); partEditors[local.part]!.focusError(local.position);
+      },
+      destroy: () => { partEditors.script?.destroy(); partEditors.definitions?.destroy(); partEditors = {}; },
+    };
+    selectPart("script");
     if (editor.getCursor) updateCursor(editor.getCursor());
     if (state.drafts[fileId]) validate();
   }
@@ -218,37 +267,12 @@ end</pre>
       const result = replaceBw2ProjectScript(project, fileId, editor.getValue());
       showResult(result, true);
       draftStatus.textContent = "Applied source";
-      summary.textContent = `Requires ${counted(result.entries.length, "entry slot")}. Current size: ${formatBytes(result.bytes.length)}.`;
       const option = selector.selectedOptions[0];
       if (option) option.textContent = `${fileId} — ${counted(result.entries.length, "entry", "entries")} — ${formatBytes(result.bytes.length)}`;
       options.onApply();
     } catch (error) { showError(error); }
   });
   errorButton.addEventListener("click", () => { if (lastError) editor?.focusError(lastError); });
-  importButton.addEventListener("click", () => sourceFile.click());
-  sourceFile.addEventListener("change", async () => {
-    const file = sourceFile.files?.[0];
-    const receivingEditor = editor;
-    sourceFile.value = "";
-    if (!file || !receivingEditor) return;
-    importButton.disabled = true;
-    try {
-      if (file.size > 4_000_000) throw new Error("Source file is too large; the compiler accepts up to one million characters.");
-      const text = await file.text();
-      if (stopped || editor !== receivingEditor) return;
-      if (text.length > 1_000_000) throw new Error("Source exceeds the one-million-character limit.");
-      receivingEditor.setValue(text);
-      validate();
-    } catch (error) { if (!stopped && editor === receivingEditor) showError(error); }
-    finally { if (!stopped) importButton.disabled = false; }
-  });
-  root.querySelector<HTMLButtonElement>("#bw2-download-source")?.addEventListener("click", () => {
-    if (!editor) return;
-    const url = URL.createObjectURL(new Blob([editor.getValue()], { type: "text/plain;charset=utf-8" }));
-    const anchor = document.createElement("a");
-    anchor.href = url; anchor.download = `bw2-script-${fileId}.bws`; anchor.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  });
   dispose = () => { stopped = true; clearTimer(); editor?.destroy(); mapPreview?.destroy(); editor = undefined; mapPreview = undefined; };
   openFile();
 }

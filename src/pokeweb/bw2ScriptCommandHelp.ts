@@ -50,6 +50,7 @@ const HELP: Readonly<Record<number, Semantics>> = {
 };
 
 export function bw2ScriptCommandHelp(name: string, overlayId?: number): Bw2ScriptCommandHelp | undefined {
+  if (name === "flag_set?") return { name, opcode: 0x10, description: "Test a Boolean event flag in the game's separate flag storage.", note: "A work alias such as bianca_intro_progress is integer progress, not an event-flag ID. Write bianca_intro_progress != 0 instead.", parameters: [{ name: "flag_id", width: 2, description: "Literal event-flag ID below 0x4000. This predicate does not test a work variable." }] };
   const command = bw2CommandByName(name, true, overlayId);
   if (!command) return;
   const semantics = HELP[command.opcode];

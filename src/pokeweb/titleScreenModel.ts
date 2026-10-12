@@ -272,7 +272,7 @@ export function exportTitleBundle(document: TitleScreenDocument): Uint8Array {
     return { id: asset.id, file, archive: asset.path, member: asset.member, format: asset.format, romCompression: asset.compressed ? "lz10" : "none" };
   });
   files["manifest.json"] = strToU8(JSON.stringify({ format: "pokeweb-title-screen", version: 1, game: document.version, assets }, null, 2));
-  files["README.txt"] = strToU8("Native title assets are decompressed for external editing. Pokeweb restores required compression on import. Keep filenames and manifest.json when rebuilding this ZIP. PNG import is not supported. The bottom-screen preview plays the model, joint, texture and recorded camera tracks together. Preserve model/animation bindings and the title timeline (event frames 7001, 7300, 7780).\n");
+  files["README.txt"] = strToU8("Native title assets are decompressed for external editing. Pokeweb restores required compression on import. Keep filenames and manifest.json when rebuilding this ZIP. For PNG artwork, use Import PNG on an individual layer in the 2D composition editor; it resizes or crops and converts the image to native palette/tile resources. The bottom-screen preview plays the model, joint, texture and recorded camera tracks together. Preserve model/animation bindings and the title timeline (event frames 7001, 7300, 7780).\n");
   return zipSync(files);
 }
 
