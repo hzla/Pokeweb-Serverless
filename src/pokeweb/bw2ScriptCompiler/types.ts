@@ -25,6 +25,7 @@ export type Expression = SourcePosition & (
 );
 export type Statement = SourcePosition & (
   | { kind: "call"; name: string; args: Value[]; helperOnly?: boolean }
+  | { kind: "macro"; name: string; keywords: Record<string, Value> }
   | { kind: "assign"; name: string; operator: "=" | "+=" | "-="; value: Value }
   | { kind: "if"; branches: { condition: Expression; body: Statement[] }[]; otherwise: Statement[]; hasElse?: boolean }
   | { kind: "loop"; condition: Expression; body: Statement[] }
@@ -36,6 +37,7 @@ export type Definition = SourcePosition & {
   kind: "script" | "helper" | "block";
   name: string;
   entry?: number;
+  parameters?: (SourcePosition & { name: string })[];
   endLine?: number;
   body: Statement[];
 };
@@ -45,10 +47,16 @@ export type Program = {
   preserveLayout?: boolean;
   overlayId?: number;
   conditionEncoding?: ConditionEncoding;
+  movementAlignment?: 2;
   aliases?: (SourcePosition & { entry: number; target: string })[];
-  layout?: (Definition | DataBlock)[];
+  layout?: (Definition | DataBlock | MovementBlock)[];
 };
 export type DataBlock = SourcePosition & { kind: "data"; name: string; bytes: number[] };
+export type MovementStatement = SourcePosition & (
+  | { kind: "action"; name: string; args: Value[] }
+  | { kind: "label"; target: string }
+);
+export type MovementBlock = SourcePosition & { kind: "movement"; name: string; body: MovementStatement[]; endLine: number; before?: string };
 export type RelocationKind = "entry" | "jump" | "call" | "movement" | "data";
 
 export type CompiledBw2Script = {
@@ -56,7 +64,7 @@ export type CompiledBw2Script = {
   /** Public entry IDs are one-based; their binary table indices are entry - 1. */
   entries: { name: string; entry: number; offset: number }[];
   helpers: { name: string; offset: number }[];
-  instructions: (SourcePosition & { offset: number; opcode: number; operands: number[] })[];
+  instructions: (SourcePosition & { offset: number; opcode: number; operands: number[]; dispatchId?: number })[];
   relocations: {
     kind: RelocationKind;
     operandOffset: number;
@@ -66,5 +74,10 @@ export type CompiledBw2Script = {
   preserveLayout?: boolean;
   overlayId?: number;
   dataBlocks?: { name: string; offset: number; bytes: Uint8Array }[];
+  codeBlocks?: { name: string; offset: number; endOffset: number }[];
+  movementBlocks?: { name: string; offset: number; endOffset: number }[];
+  /** Compiler-owned slots; existing explicit work bindings are never allocated. */
+  scratchWorks?: { routine: string; parameters: { name: string; id: number }[]; locals: { name: string; id: number }[] }[];
+  entryChanges?: { oldCount: number; newCount: number; mapping: number[]; references: { location: string; before: number; after: number }[] };
   roundTrip?: { verified: true; editable: boolean; warnings: string[] };
 };

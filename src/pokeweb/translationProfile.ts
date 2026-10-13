@@ -1,6 +1,6 @@
 import type { Folder } from "../nds/fnt";
 
-export const TRANSLATION_VERSION = "0.4.1-alpha";
+export const TRANSLATION_VERSION = "0.4.2-alpha";
 export const TRANSLATION_GAMES = {
   white2: { title: "White 2", version: "W2", sourceCode: "IRDO", sourceSha256: "3e50aec3db401332175a5d2b5fe2a68ac1a05ec63995dba9d1506b1b51837446" },
   black2: { title: "Black 2", version: "B2", sourceCode: "IREO", sourceSha256: "2e6b2415354aa41471bc7617068dce059a59931bf5c4348a264f8043f297683a" },

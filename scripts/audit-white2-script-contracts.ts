@@ -49,7 +49,7 @@ for (let at = 114176; at <= 114476; at += 20) {
     if (pointer) overlayHandlers[overlay][1000 + index] = pointer;
   }
 }
-const sharedOverlays = { 1231: 65, 1276: 65, 1277: 55, 1278: 55, 1279: 55, 1280: 58, 1281: 61, 1284: 62, 1288: 64 };
+const sharedOverlays = { 1246: 65, 1254: 53, 1258: 50, 1287: 62, 1231: 65, 1276: 65, 1277: 55, 1278: 55, 1279: 55, 1280: 58, 1281: 61, 1284: 62, 1288: 64 };
 const scripts = new NARC(rom.getFileByName('a/0/5/6')), headers = new NARC(rom.getFileByName('a/0/1/2')).files[0];
 const movementOpcodes = new Set<number>(), workVariables = new Set<number>();
 for (let member = 0; member < scripts.files.length; member++) {

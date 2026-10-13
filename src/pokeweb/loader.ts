@@ -1,4 +1,5 @@
 import { hydrateCGearButtons } from "./cgearButtonsModel";
+import { cacheBw2ScriptRuntimeContext } from "./bw2ScriptOverlayContext";
 import { hydrateCustomUi } from "./customUiModel";
 import { readU16 } from "../nds/binary";
 import { repairDecompressedArm9CompressionMetadata } from "../nds/arm9ModuleParams";
@@ -175,6 +176,7 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
   await reportLoadProgress(onProgress, "Parsing TM table");
   project.tms = parseTms(project);
 
+  if (project.narcs.scripts) cacheBw2ScriptRuntimeContext(project, rom);
   return project;
 }
 

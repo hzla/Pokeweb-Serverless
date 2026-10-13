@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { renderCodeInjectionEditor } from "../ui/codeInjectionEditor";
 import { MENU_EVOLUTION_TITLE } from "../pokeweb/menuEvolutionModel";
@@ -23,6 +23,30 @@ function renderFixture(version: "W2" | "B2" | "B" | "W", pmcInstalled = false): 
   renderCodeInjectionEditor(project, root as unknown as HTMLElement, () => {});
   return root.innerHTML;
 }
+
+describe("local summary-type-icons installer", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it.each(["localhost", "127.0.0.1", "::1", "[::1]"])("shows the installation card on %s", hostname => {
+    vi.stubGlobal("window", { location: { hostname } });
+    for (const version of ["B2", "W2"] as const) {
+      const html = renderFixture(version);
+      expect(html).toContain("<h2>Summary Type Icons</h2>");
+      expect(html).toContain('id="install-summary-types-btn"');
+    }
+  });
+
+  it.each(["pokeweb.example", "localhost.example", "192.168.1.2", "0.0.0.0"])("omits the installation card on %s", hostname => {
+    vi.stubGlobal("window", { location: { hostname } });
+    for (const version of ["B2", "W2"] as const) {
+      const html = renderFixture(version);
+      expect(html).not.toContain("<h2>Summary Type Icons</h2>");
+      expect(html).not.toContain('id="install-summary-types-btn"');
+      expect(html).not.toContain('id="uninstall-summary-types-btn"');
+      expect(html).toContain("<h2>Type Icons</h2>");
+    }
+  });
+});
 
 describe("code-injection design credits", () => {
   it.each(["W2", "B2"] as const)("credits TrustyPeaches only on the requested %s cards", (version) => {
@@ -54,7 +78,7 @@ describe("unsupported patch visibility", () => {
   it.each(["B", "W"] as const)("hides unsupported patches on %s while keeping supported patches and PMC visible", version => {
     const html = renderFixture(version);
     const cards = html.match(/<section class="code-injection-panel"[^>]*>[\s\S]*?<\/section>/g)!;
-    expect(cards).toHaveLength(20);
+    expect(cards).toHaveLength(21);
     for (const card of cards) {
       const opening = card.slice(0, card.indexOf(">"));
       expect(opening).toContain("data-code-injection-supported=");
@@ -168,7 +192,7 @@ describe("code-injection patch categories", () => {
       "PWAN GIF Support", "Trainer PWAN GIF Support", "Overworld Weather Runtime", "Trainer Battle Log",
     ]);
     expect(headings(panels[1])).toEqual([
-      "Summary IV/EV Viewer", "Enhanced Party Menu and Battle Log Integration", "Type Icons", "Learnset Viewer", "Move Effectiveness Preview",
+      "Black 2 / White 2 Save Menu", "Summary IV/EV Viewer", "Enhanced Party Menu and Battle Log Integration", "Type Icons", "Learnset Viewer", "Move Effectiveness Preview",
     ]);
     expect(headings(panels[2])).toEqual(["Instant Fast Text", "Background Music Toggle"]);
     expect(headings(panels[3])).toEqual([
@@ -186,7 +210,7 @@ describe("code-injection patch categories", () => {
     expect(html).not.toContain("Prebuilt DLL upload will use the ROM filesystem support added for /patches and /lib.");
     expect(html).not.toContain("Patch DLLs are staged in patches/. Library DLLs are staged in lib/.");
     const actionNotes = [...html.matchAll(/<div class="code-injection-note" id="[^"]+-note" aria-live="polite">([\s\S]*?)<\/div>/g)];
-    expect(actionNotes).toHaveLength(21);
+    expect(actionNotes).toHaveLength(22);
     expect(actionNotes.every((match) => match[1] === "")).toBe(true);
   });
 });

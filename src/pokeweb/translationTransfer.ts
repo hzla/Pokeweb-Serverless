@@ -9,6 +9,8 @@ import { decompressNitro } from "./pokemonSpriteModel";
 import { auditTranslationScript, loadTranslationScriptContracts, translationScriptContexts, translationScriptLocations, type TranslationScriptAudit } from "./translationScripts";
 import { gen5ScriptEntries } from "./gen5ScriptCommands";
 import { adaptTranslationNumericFont } from "./translationFonts";
+import { fillTranslationArticleNames, TRANSLATION_ARTICLE_NAME_BANKS } from "./translationNames";
+import { TRANSLATION_TRAINER_TEXT_BANK, TRANSLATION_TRAINER_TEXT_TABLES, validateTranslationTrainerText } from "./translationTrainerText";
 
 export type TranslationFingerprint = { bytes: number; sha256: string };
 export type TranslationRecord = {
@@ -95,6 +97,25 @@ export async function planTranslationTransfers(source: NintendoDSRom, donor: Nin
   const sourceNames = translationFileNames(source.filenames), donorNames = translationFileNames(donor.filenames);
   const sourceOverlays = translationOverlayFiles(source), donorOverlays = translationOverlayFiles(donor);
   const protectedSource = new Set(sourceOverlays.values()), protectedDonor = new Set(donorOverlays.values());
+  // Dialogue and its two lookup tables form one native dataset. A changed text
+  // count is safe when those rows/offsets still resolve inside the US ID range.
+  let trainerTextReason: string | undefined;
+  const trainerPaths = ["a/0/0/2", ...TRANSLATION_TRAINER_TEXT_TABLES];
+  const hasTrainerText = trainerPaths.every(path => sourceNames.has(path) && donorNames.has(path));
+  if (hasTrainerText) {
+    try {
+      const [messages, rows, offsets] = trainerPaths.map(path => readTranslationArchive(donor.files[donorNames.get(path)!]));
+      const messageFile = profile.files.find(file => file.path === "a/0/0/2");
+      if (messageFile?.members !== messages.files.length)
+        throw new Error("Message archive member count changed; its trainer dialogue cannot transfer independently of the lookup tables.");
+      const sourceOffsets = readTranslationArchive(source.files[sourceNames.get(TRANSLATION_TRAINER_TEXT_TABLES[1])!]);
+      if (rows.files.length !== 1 || offsets.files.length !== 1 || sourceOffsets.files.length !== 1 || !messages.files[TRANSLATION_TRAINER_TEXT_BANK])
+        throw new Error("Trainer dialogue lookup archives must each contain one member.");
+      validateTranslationTrainerText(messages.files[TRANSLATION_TRAINER_TEXT_BANK], rows.files[0], offsets.files[0], sourceOffsets.files[0].length);
+    } catch (error) { trainerTextReason = `Retain the US trainer dialogue and both lookup tables together: ${error instanceof Error ? error.message : String(error)}`; }
+  } else if (trainerPaths.some(path => sourceNames.has(path)) && trainerPaths.some(path => !donorNames.has(path))) {
+    trainerTextReason = "Retain the US trainer dialogue and both lookup tables together: the donor is missing part of the linked dataset.";
+  }
   const fingerprint = async (data: Uint8Array): Promise<TranslationFingerprint> => ({ bytes: data.length, sha256: await translationSha256(data) });
   const record = async (scope: TranslationRecord["scope"], path: string, a: Uint8Array | undefined, b: Uint8Array, baseline: string | undefined, out: Uint8Array | undefined, action: TranslationRecord["action"], extra: Partial<TranslationRecord> = {}) => {
     const before = a ? await fingerprint(a) : null, incoming = await fingerprint(b);
@@ -157,6 +178,8 @@ export async function planTranslationTransfers(source: NintendoDSRom, donor: Nin
       const baseline = file.regionalMembers?.[member];
       let output = incoming, reason: string | undefined, importReason: string | undefined, omittedEntries: number | undefined;
       let adjustedTextEntries: TranslationRecord["adjustedTextEntries"];
+      const trainerPart = (file.path === "a/0/0/2" && member === TRANSLATION_TRAINER_TEXT_BANK) || (TRANSLATION_TRAINER_TEXT_TABLES as readonly string[]).includes(file.path);
+      if (trainerPart && trainerTextReason) reason = trainerTextReason;
       if (file.path === "a/0/0/2" && profile.alphabetBanks.includes(member)) reason = "Keep US alphabetical search IDs and lookup ordering.";
       if (!reason && file.path === "a/0/3/4" && (member === 6 || member === 7)) {
         // The US menu copies these maps with a fixed row stride. Its labels come from message banks.
@@ -179,7 +202,8 @@ export async function planTranslationTransfers(source: NintendoDSRom, donor: Nin
             omittedEntries = readU16(incoming, 2) - limit;
             output = encodeGen5TextBank(entries.filter(([entry]) => Number(entry.match(/^\d+_(\d+)/u)?.[1]) < limit));
             if (omittedEntries) importReason = `Keep US message IDs 0–${limit - 1}; omit ${omittedEntries} appended regional entries whose callers are not ported.`;
-          } else if (readU16(original, 2) !== readU16(incoming, 2)) throw new Error("Text entry count changed; preserve the stock message IDs.");
+          } else if (readU16(original, 2) !== readU16(incoming, 2) && !(trainerPart && hasTrainerText)) throw new Error("Text entry count changed; preserve the stock message IDs.");
+          if (trainerPart && hasTrainerText) importReason = "Import donor trainer dialogue with its validated lookup rows and offsets, including added or deleted lines; native US readers resolve messages through those tables.";
           const label = file.path === "a/0/0/2" && member === 371 ? MAIN_MENU_LABEL_ADAPTATIONS[profile.locale] : undefined;
           const entry = label && entries.find(item => item[0] === "0_3" && item[1] === label.before);
           if (label && entry) {
@@ -211,6 +235,38 @@ export async function planTranslationTransfers(source: NintendoDSRom, donor: Nin
       await record("file", file.path, a, b, file.sha256, bytes, "imported", { ...ids, changedMemberIds: imported });
     } else if (!records.some(item => item.path === file.path)) {
       await record("file", file.path, a, b, file.sha256, a, "retained", { ...ids, reason: "Only archive packing or metadata changed; no member payload differs." });
+    }
+  }
+  // Use the final name banks, including donor data edits and any schema guards.
+  // Run before script audits so their output references see the adapted text.
+  const messagePath = "a/0/0/2", messageId = sourceNames.get(messagePath), donorMessageId = donorNames.get(messagePath);
+  if (messageId !== undefined && donorMessageId !== undefined && replacements.has(messageId)) {
+    const sourceArchive = readTranslationArchive(source.files[messageId]), donorArchive = readTranslationArchive(donor.files[donorMessageId]);
+    const merged = readTranslationArchive(replacements.get(messageId) ?? source.files[messageId]);
+    const messageBaseline = profile.files.find(file => file.path === messagePath);
+    const adapted: number[] = [];
+    for (const [member, nameBank] of TRANSLATION_ARTICLE_NAME_BANKS) {
+      if (!merged.files[member] || !merged.files[nameBank] || !donorArchive.files[member]) continue;
+      const existing = records.find(item => item.scope === "member" && item.path === messagePath && item.member === member);
+      if (existing && existing.action !== "imported") continue;
+      try {
+        const result = fillTranslationArticleNames(merged.files[member], merged.files[nameBank]);
+        if (!result.adjustedTextEntries.length) continue;
+        merged.files[member] = result.bytes; adapted.push(member);
+        const reason = `Fill ${result.adjustedTextEntries.length} blank regional article-name entries from output name bank ${nameBank}; US word-set commands still read bank ${member}. Preserve nonblank donor forms.`;
+        if (existing) Object.assign(existing, { output: await fingerprint(result.bytes), reason, adjustedTextEntries: result.adjustedTextEntries });
+        else await record("member", messagePath, sourceArchive.files[member], donorArchive.files[member], messageBaseline?.regionalMembers?.[member], result.bytes, "imported",
+          { sourceFileId: messageId, donorFileId: donorMessageId, member, reason, adjustedTextEntries: result.adjustedTextEntries });
+      } catch (error) {
+        if (existing) existing.reason = error instanceof Error ? error.message : String(error);
+      }
+    }
+    if (adapted.length) {
+      const bytes = merged.save(); replacements.set(messageId, bytes);
+      const existing = records.find(item => item.scope === "file" && item.path === messagePath && item.action === "imported");
+      if (existing) Object.assign(existing, { output: await fingerprint(bytes), changedMemberIds: [...new Set([...(existing.changedMemberIds ?? []), ...adapted])] });
+      else await record("file", messagePath, source.files[messageId], donor.files[donorMessageId], messageBaseline?.sha256, bytes, "imported",
+        { sourceFileId: messageId, donorFileId: donorMessageId, changedMemberIds: adapted });
     }
   }
   const scriptFile = profile.files.find(file => file.path === "a/0/5/6");

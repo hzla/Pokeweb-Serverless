@@ -75,7 +75,7 @@ describe("Italian White 2 translation", () => {
   it("provides pinned Italian graphics alternatives only for reviewed members", () => {
     expect(white2ItalianAssetVariant("a/0/1/1", 438)?.expandedSha256).toMatch(/^[\da-f]{64}$/u);
     expect(white2ItalianAssetVariant("a/0/1/1", 430)).toBeUndefined();
-    expect(translationRomFilename("White2.nds")).toBe("White2-Italian-0.4.1-alpha.nds");
+    expect(translationRomFilename("White2.nds")).toBe("White2-Italian-0.4.2-alpha.nds");
   });
 });
 
@@ -105,6 +105,44 @@ async function baseline(source: NintendoDSRom, donor: NintendoDSRom): Promise<Tr
 const recordBytes = (size: number, fill: number) => new Uint8Array(size).fill(fill);
 
 describe("Regional donor data transplant", () => {
+  it.each(["IRDO", "IREO"])("imports edited %s trainer dialogue additions/deletions with both tables and retains inconsistent sets together", async (sourceCode) => {
+    const rows = (values: number[]) => { const bytes = new Uint8Array(values.length * 2); values.forEach((value, i) => writeU16(bytes, i * 2, value)); return bytes; };
+    const messages = (dialogue: Uint8Array) => {
+      const archive = narc(...Array.from({ length: 486 }, () => bank("other")));
+      archive.files[381] = dialogue; archive.files[64] = bank("MT01"); archive.files[481] = bank("");
+      return archive.save();
+    };
+    const files = (dialogue: Uint8Array, table: number[], offsets: number[]): [string, Uint8Array][] => [
+      ["a/0/0/2", messages(dialogue)], ["a/0/8/9", narc(rows(table)).save()], ["a/0/9/0", narc(rows(offsets)).save()],
+    ];
+    const donorCode = sourceCode === "IREO" ? "IREI" : "IRDI";
+    const source = dataRom(files(bank("US first", "US second"), [0, 0, 1, 0], [0, 4, 8]), sourceCode);
+    const stock = dataRom(files(bank("Italian first", "Italian second"), [0, 0, 1, 0], [0, 4, 8]), donorCode);
+    const profile = await baseline(source, stock);
+    const incoming = [
+      files(bank("edited first", "edited second", "added third"), [0, 0, 1, 0, 2, 0], [0, 4, 8]),
+      files(bank("edited first"), [0, 0], [0, 4, 4]),
+    ];
+    for (const edits of incoming) {
+      const donor = dataRom(edits, donorCode), plan = await planTranslationTransfers(source, donor, profile);
+      const output = new NintendoDSRom(source.save({ files: plan.replacements }));
+      expect(new NARC(output.getFileByName("a/0/0/2")).files[381]).toEqual(new NARC(donor.getFileByName("a/0/0/2")).files[381]);
+      for (const path of ["a/0/8/9", "a/0/9/0"]) expect(output.getFileByName(path)).toEqual(donor.getFileByName(path));
+      expect(plan.records.find(item => item.path === "a/0/0/2" && item.member === 381)).toMatchObject({ action: "imported", change: "regional-and-hack" });
+      expect(decodeGen5TextBank(new NARC(output.getFileByName("a/0/0/2")).files[481])[0][1]).toBe("MT01");
+      expect(plan.records.find(item => item.path === "a/0/0/2" && item.member === 481)?.adjustedTextEntries).toHaveLength(1);
+    }
+    const inconsistent = dataRom(files(bank("one", "two", "three"), [0, 0, 1, 0], [0, 0, 8]), donorCode);
+    const plan = await planTranslationTransfers(source, inconsistent, profile), output = new NintendoDSRom(source.save({ files: plan.replacements }));
+    expect(new NARC(output.getFileByName("a/0/0/2")).files[381]).toEqual(new NARC(source.getFileByName("a/0/0/2")).files[381]);
+    for (const path of ["a/0/8/9", "a/0/9/0"]) expect(output.getFileByName(path)).toEqual(source.getFileByName(path));
+    expect(plan.records.find(item => item.path === "a/0/0/2" && item.member === 381)?.reason).toContain("both lookup tables together");
+    const expandedFiles = incoming[0].map(([path, bytes]) => [path, bytes] as [string, Uint8Array]);
+    const expanded = new NARC(expandedFiles[0][1]); expanded.files.push(bank("extra bank")); expandedFiles[0][1] = expanded.save();
+    const expandedDonor = dataRom(expandedFiles, donorCode), expandedPlan = await planTranslationTransfers(source, expandedDonor, profile);
+    const expandedOutput = new NintendoDSRom(source.save({ files: expandedPlan.replacements }));
+    for (const path of ["a/0/0/2", "a/0/8/9", "a/0/9/0"]) expect(expandedOutput.getFileByName(path)).toEqual(source.getFileByName(path));
+  });
   it.each([["IRDO", "IRDI"], ["IREO", "IREI"]])("adapts the %s small numeric font and logs unsupported donor font mappings", async (sourceCode, donorCode) => {
     const us = numericFontFixture(13), foreign = numericFontFixture(11, true);
     const fonts = (font: Uint8Array) => narc(new Uint8Array(), new Uint8Array(), new Uint8Array(), font).save();

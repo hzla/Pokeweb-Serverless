@@ -51,8 +51,13 @@ src/test/local/
 !/scripts/compile-bw2-script.ts
 !/scripts/decompile-bw2-script.ts
 !/scripts/audit-bw2-script-roundtrips.ts
+!/scripts/verify-bw2-aspertia-editing.ts
+!/scripts/verify-bw2-entry-editing.ts
+!/scripts/verify-bw2-full-editing.ts
+!/scripts/verify-bw2-interaction-macros.ts
 !/scripts/generate-bw2-command-layouts.py
 !/scripts/verify-summary-stat-viewer-install.ts
+!/scripts/verify-summary-type-icons-install.ts
 !/scripts/refresh-pwan-assets.ts
 !/scripts/prepare-gmax-megas.ts
 !/scripts/bundle-gmax-megas.ts
@@ -80,3 +85,6 @@ src/test/local/
 !/scripts/audit-white2-script-contracts.ts
 !/scripts/audit-bw2-translation-locations.ts
 !/scripts/verify-white2-donor-transplant.ts
+
+!/scripts/generate-white2-script-summaries.ts
+!/scripts/verify-white2-script-summaries.ts

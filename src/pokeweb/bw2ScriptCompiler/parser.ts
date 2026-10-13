@@ -1,5 +1,6 @@
-import { Bw2ScriptCompileError, type Definition, type Expression, type Program, type SourcePosition, type Statement, type Value } from "./types";
+import { Bw2ScriptCompileError, type Definition, type Expression, type Program, type SourcePosition, type Statement, type Value, type MovementStatement } from "./types";
 import { BW2_OVERLAY_LAYOUTS } from "./commandLayouts";
+import { BW2_SCRIPT_MACROS, bw2ScriptMacroByName } from "./macros";
 
 type Token = SourcePosition & { kind: "word" | "number" | "punctuation" | "newline" | "eof"; text: string };
 
@@ -40,7 +41,8 @@ function tokenize(source: string): Token[] {
 }
 
 const PRECEDENCE: Readonly<Record<string, number>> = { "||": 1, "&&": 2, "==": 3, "!=": 3, "<": 4, "<=": 4, ">": 4, ">=": 4 };
-const RESERVED = new Set(["script", "def", "work", "if", "elsif", "else", "unless", "while", "until", "case", "when", "do", "end", "break", "next", "return", "true", "false", "call", "preserve_layout", "entry", "data", "block", "label", "jump", "overlay", "condition_encoding", "vm_compare", "stack_condition", "flag_set?"]);
+const RESERVED = new Set(["script", "def", "work", "if", "elsif", "else", "unless", "while", "until", "case", "when", "do", "end", "break", "next", "return", "true", "false", "call", "preserve_layout", "entry", "data", "block", "movement", "movement_alignment", "label", "jump", "overlay", "condition_encoding", "vm_compare", "stack_condition", "flag_set?"]);
+for (const name of Object.keys(BW2_SCRIPT_MACROS)) RESERVED.add(name);
 
 class Parser {
   private index = 0;
@@ -129,6 +131,25 @@ class Parser {
     if (parenthesized) this.expect(")");
     return values;
   }
+  private macroArguments(name: string, position: SourcePosition): Record<string, Value> {
+    const parameters = bw2ScriptMacroByName(name)!.parameters;
+    const values: Record<string, Value> = {};
+    const parenthesized = this.accept("(");
+    if (parenthesized) this.newlines();
+    while (!(parenthesized ? this.at(")") : this.token.kind === "newline" || this.token.kind === "eof" || this.at("if") || this.at("unless"))) {
+      const key = this.take();
+      if (key.kind !== "word") this.fail(`'${name}' requires keyword arguments`, key);
+      if (!parameters.some((parameter) => parameter.name === key.text)) this.fail(`Unknown '${name}' keyword '${key.text}'`, key);
+      if (Object.hasOwn(values, key.text)) this.fail(`Duplicate '${name}' keyword '${key.text}'`, key);
+      this.expect(":"); values[key.text] = this.value();
+      if (parenthesized) this.newlines();
+      if (!this.accept(",")) break;
+      this.newlines();
+    }
+    if (parenthesized) this.expect(")");
+    for (const parameter of parameters) if (!Object.hasOwn(values, parameter.name)) this.fail(`'${name}' requires '${parameter.name}:'`, position);
+    return values;
+  }
   private statement(): Statement {
     const position = this.token;
     let statement: Statement;
@@ -181,8 +202,11 @@ class Parser {
       statement = { ...position, kind, target: this.name() };
     } else if (this.accept("call")) {
       const args = this.arguments();
-      if (args.length !== 1 || args[0].kind !== "symbol") this.fail("Use call :helper_name", position);
-      statement = { ...position, kind: "call", name: args[0].name, args: [], helperOnly: true };
+      if (!args.length || args[0].kind !== "symbol") this.fail("Use call :helper_name, arguments", position);
+      statement = { ...position, kind: "call", name: args[0].name, args: args.slice(1), helperOnly: true };
+    } else if (bw2ScriptMacroByName(this.token.text)) {
+      const name = this.take().text;
+      statement = { ...position, kind: "macro", name, keywords: this.macroArguments(name, position) };
     } else {
       const name = this.name();
       if (this.at("=") || this.at("+=") || this.at("-=")) {
@@ -207,6 +231,7 @@ class Parser {
     let preserveLayout = false;
     let overlayId: number | undefined;
     let conditionEncoding: Program["conditionEncoding"];
+    let movementAlignment: Program["movementAlignment"];
     this.newlines();
     while (this.token.kind !== "eof") {
       const position = this.token;
@@ -223,6 +248,10 @@ class Parser {
         this.expect(":"); const encoding = this.take();
         if (encoding.text !== "stack" && encoding.text !== "compare") this.fail("Expected :stack or :compare condition encoding", encoding);
         conditionEncoding = encoding.text; this.lineEnd();
+      } else if (this.accept("movement_alignment")) {
+        if (movementAlignment || layout.length) this.fail("movement_alignment must appear once before code", position);
+        if (this.number() !== 2) this.fail("Movement alignment must be 2 bytes", position);
+        movementAlignment = 2; this.lineEnd();
       } else if (this.accept("entry")) {
         const entry = this.number(); this.expect(","); this.expect(":");
         aliases.push({ ...position, entry, target: this.name() }); this.lineEnd();
@@ -231,6 +260,20 @@ class Parser {
         const bytes: number[] = [];
         do { bytes.push(this.number()); } while (this.accept(","));
         layout.push({ ...position, kind: "data", name, bytes }); this.lineEnd();
+      } else if (this.accept("movement")) {
+        this.expect(":"); const name = this.name();
+        let before: string | undefined;
+        if (this.accept(",")) { this.expect("before"); this.expect(":"); this.expect(":"); before = this.name(); }
+        this.expect("do"); this.lineEnd();
+        const body: MovementStatement[] = [];
+        while (!this.at("end") && !this.at("")) {
+          const step = this.token;
+          if (this.accept("label")) { this.expect(":"); body.push({ ...step, kind: "label", target: this.name() }); }
+          else { const name = this.name(); body.push({ ...step, kind: "action", name, args: this.arguments() }); }
+          this.lineEnd();
+        }
+        const endLine = this.token.line; this.expect("end"); this.lineEnd();
+        layout.push({ ...position, kind: "movement", name, body, endLine, before });
       } else if (this.accept("block")) {
         this.expect(":"); const name = this.name(); this.expect("do"); this.lineEnd();
         const body = this.body(["end"]); const endLine = this.token.line; this.expect("end"); this.lineEnd();
@@ -248,10 +291,21 @@ class Parser {
         definitions.push(definition); layout.push(definition);
       } else if (this.accept("def")) {
         const name = this.name();
-        if (this.accept("(")) this.expect(")");
+        const parameters: NonNullable<Definition["parameters"]> = [];
+        if (this.accept("(")) {
+          this.newlines();
+          while (!this.at(")")) {
+            const parameter = this.token;
+            parameters.push({ line: parameter.line, column: parameter.column, name: this.name() });
+            this.newlines();
+            if (!this.accept(",")) break;
+            this.newlines();
+          }
+          this.expect(")");
+        }
         this.lineEnd();
         const body = this.body(["end"]); const endLine = this.token.line; this.expect("end"); this.lineEnd();
-        const definition: Definition = { ...position, kind: "helper", name, body, endLine };
+        const definition: Definition = { ...position, kind: "helper", name, body, endLine, ...(parameters.length ? { parameters } : {}) };
         definitions.push(definition); layout.push(definition);
       } else if (this.token.kind === "word" && /^[A-Z][A-Z_0-9]*$/.test(this.token.text)) {
         const name = this.take().text; this.expect("=");
@@ -259,7 +313,7 @@ class Parser {
         this.lineEnd();
       } else this.fail("Expected work :name, ID, CONSTANT = integer, script :name, entry: N do, or def helper");
     }
-    return { bindings, definitions, preserveLayout, overlayId, conditionEncoding, aliases, layout };
+    return { bindings, definitions, preserveLayout, overlayId, conditionEncoding, movementAlignment, aliases, layout };
   }
 }
 

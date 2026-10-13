@@ -1,4 +1,4 @@
-"""Extract encoding facts from FrostsGen5Editor; no C# implementation is copied."""
+"""Extract encoding facts and retain corrections verified in native US White 2."""
 import argparse
 import pathlib
 import re
@@ -25,7 +25,31 @@ def layouts(section):
 
 base = layouts(text.split("bw2BeaterScriptCommandList =", 1)[1].split("internal static Dictionary", 1)[0])
 overlays = text.split("bw2OverlayCommands =", 1)[1].split("internal static Dictionary", 1)[0]
-lines = ["// Generated command encoding facts from FrostsGen5Editor ScriptNARC.cs.",
+overlay_rows = {int(overlay): layouts(section) for overlay, section in re.findall(
+    r"\{ (\d+), new Dictionary<int, CommandType>\(\) \{(.*?)\} \},", overlays, re.S)}
+if len(base) != 660 or len(overlay_rows) != 15:
+    raise ValueError("Unexpected command inventory; review changed source")
+
+# Native handlers establish operand boundaries, including adjacent words whose
+# old combined width happened to give the same total size. Keep these corrections
+# when refreshing the upstream inventory. Independent sizes live in
+# src/pokeweb/gen5ScriptOverlayCommands.ts; hand-encoded regression cases cover
+# the corrected callbacks and the command-table switch.
+native_widths = {
+    50: {0x03eb: [2, 2, 2, 2]},
+    55: {0x03fe: [2, 2], 0x040a: [1, 2], 0x0415: [1]},
+    58: {0x040c: []},
+}
+for overlay, corrections in native_widths.items():
+    if not corrections.keys() <= {row[0] for row in overlay_rows[overlay]}:
+        raise ValueError("Corrected opcode missing from upstream inventory")
+    overlay_rows[overlay] = [(opcode, name, corrections.get(opcode, widths))
+                             for opcode, name, widths in overlay_rows[overlay]]
+# Join Avenue temporarily selects the shop table (overlay 60). Its only field
+# callback is 1011 with eight words, distinct from 1011 in the common table.
+overlay_rows[60] = [(0x03f3, "join_avenue_shop_menu", [2] * 8)]
+
+lines = ["// Generated command encoding facts from FrostsGen5Editor ScriptNARC.cs with native US White 2 corrections.",
          "// Regenerate with scripts/generate-bw2-command-layouts.py; sizes are checked independently.",
          'import type { CommandDefinition } from "./commands";',
          'type Layout = Pick<CommandDefinition, "widths"> & { name: string };',
@@ -33,12 +57,11 @@ lines = ["// Generated command encoding facts from FrostsGen5Editor ScriptNARC.c
 for opcode, name, widths in base:
     lines.append(f'  0x{opcode:04x}: {{ name: "{name}", widths: {widths} }},')
 lines += ["};", "", "export const BW2_OVERLAY_LAYOUTS: Readonly<Record<number, Readonly<Record<number, Layout>>>> = {"]
-for overlay, section in re.findall(r"\{ (\d+), new Dictionary<int, CommandType>\(\) \{(.*?)\} \},", overlays, re.S):
+for overlay, rows in sorted(overlay_rows.items()):
     lines.append(f"  {overlay}: {{")
-    for opcode, _, widths in layouts(section):
-        lines.append(f'    0x{opcode:04x}: {{ name: "cmd_{opcode:04x}", widths: {widths} }},')
+    for opcode, name, widths in rows:
+        spelling = name if overlay == 60 else f"cmd_{opcode:04x}"
+        lines.append(f'    0x{opcode:04x}: {{ name: "{spelling}", widths: {widths} }},')
     lines.append("  },")
 lines += ["};", ""]
-if len(base) != 660 or sum(line.endswith(": {") for line in lines) != 15:
-    raise ValueError("Unexpected command inventory; review changed source")
 args.out.write_text("\n".join(lines))

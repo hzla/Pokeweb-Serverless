@@ -1,12 +1,14 @@
 /**
  * Initial BW2 field-command subset. Layouts/condition IDs follow the
- * FrostsGen5Editor BW2 BeaterScript definitions (ScriptNARC.cs).
+ * FrostsGen5Editor BW2 BeaterScript definitions (ScriptNARC.cs), with native
+ * US White 2 callback corrections and semantic names in commandFacts.json.
  * The existing gen5ScriptCommands table independently checks emitted sizes.
  * Control-transfer opcodes are emitted only by structured lowering.
  */
+import { bw2CommandFactByName, bw2CommandFactByOpcode } from "./commandFacts";
 import { BW2_BASE_LAYOUTS, BW2_OVERLAY_LAYOUTS } from "./commandLayouts";
 import type { RelocationKind } from "./types";
-export type CommandDefinition = { opcode: number; widths: readonly (1 | 2 | 4)[]; relative?: Readonly<Record<number, Exclude<RelocationKind, "entry">>> };
+export type CommandDefinition = { opcode: number; widths: readonly (1 | 2 | 4)[]; relative?: Readonly<Record<number, Exclude<RelocationKind, "entry">>>; dispatchId?: number; workOperands?: readonly number[] };
 export const BW2_SCRIPT_COMMANDS: Readonly<Record<string, CommandDefinition>> = Object.freeze({
   nop: { opcode: 0x00, widths: [] },
   sleep: { opcode: 0x03, widths: [2] },
@@ -19,11 +21,22 @@ export const BW2_SCRIPT_COMMANDS: Readonly<Record<string, CommandDefinition>> = 
   wait_last: { opcode: 0x32, widths: [] },
   message_actor: { opcode: 0x3d, widths: [2, 2, 2, 2] },
   close_message: { opcode: 0x3e, widths: [] },
+  apply_movement: { opcode: 0x64, widths: [2, 4], relative: { 1: "movement" } },
+  wait_movement: { opcode: 0x65, widths: [] },
+  join_avenue_shop_menu: { opcode: 0x03f3, widths: [2, 2, 2, 2, 2, 2, 2, 2], dispatchId: 60, workOperands: [0, 1, 2, 3, 4, 5, 6, 7] },
   face_player: { opcode: 0x74, widths: [] },
   play_sound: { opcode: 0xa6, widths: [2] },
 });
 
 export const BW2_COMPARISON_IDS = { "<": 0, "==": 1, ">": 2, "<=": 3, ">=": 4, "!=": 5 } as const;
+
+// Native overlay 66 handlers use only event work, with no VM operand reads.
+export const BW2_OVERLAY_COMMAND_ALIASES: Readonly<Record<number, Readonly<Record<string, CommandDefinition>>>> = {
+  66: {
+    aspertia_start_petals: { opcode: 0x03e8, widths: [] },
+    aspertia_initialize_ending: { opcode: 0x03f3, widths: [] },
+  },
+};
 
 const layoutNames = new Map<string, CommandDefinition>();
 const layoutOpcodes = new Map<number, { name: string; definition: CommandDefinition }>();
@@ -40,9 +53,16 @@ for (const [id, layout] of Object.entries(BW2_BASE_LAYOUTS)) {
   if (!layoutNames.has(name)) layoutNames.set(name, definition);
   layoutOpcodes.set(opcode, { name, definition });
 }
-for (const [name, definition] of Object.entries(BW2_SCRIPT_COMMANDS)) layoutOpcodes.set(definition.opcode, { name, definition });
+for (const [name, definition] of Object.entries(BW2_SCRIPT_COMMANDS)) if (definition.dispatchId === undefined) layoutOpcodes.set(definition.opcode, { name, definition });
 
 export function bw2CommandByName(name: string, imported = false, overlayId?: number): CommandDefinition | undefined {
+  const fact = bw2CommandFactByName(name);
+  if (fact) {
+    if (fact.overlayId !== undefined && fact.overlayId !== overlayId && !(fact.overlayId === 60 && overlayId === 58)) return;
+    const definition = fact.overlayId !== undefined ? BW2_OVERLAY_LAYOUTS[fact.overlayId]?.[fact.opcode] : BW2_BASE_LAYOUTS[fact.opcode];
+    if (definition) return { ...(fact.overlayId === undefined ? layoutOpcodes.get(fact.opcode)?.definition : {}), opcode: fact.opcode, widths: definition.widths, workOperands: fact.workOperands, ...(fact.overlayId !== undefined ? { dispatchId: fact.overlayId } : {}) };
+  }
+  if (imported && overlayId !== undefined && Object.hasOwn(BW2_OVERLAY_COMMAND_ALIASES[overlayId] ?? {}, name)) return BW2_OVERLAY_COMMAND_ALIASES[overlayId][name];
   if (imported && overlayId !== undefined && /^cmd_[0-9a-f]{4}$/.test(name)) {
     const opcode = parseInt(name.slice(4), 16);
     const layout = BW2_OVERLAY_LAYOUTS[overlayId]?.[opcode];
@@ -51,9 +71,13 @@ export function bw2CommandByName(name: string, imported = false, overlayId?: num
   return Object.hasOwn(BW2_SCRIPT_COMMANDS, name) ? BW2_SCRIPT_COMMANDS[name] : imported ? layoutNames.get(name) : undefined;
 }
 export function bw2CommandByOpcode(opcode: number, overlayId?: number): { name: string; definition: CommandDefinition } | undefined {
+  if (opcode === 0x03f3 && overlayId === 60) return { name: "join_avenue_shop_menu", definition: BW2_SCRIPT_COMMANDS.join_avenue_shop_menu };
   if (opcode >= 1000 && overlayId !== undefined) {
-    const layout = BW2_OVERLAY_LAYOUTS[overlayId]?.[opcode];
-    if (layout) return { name: layout.name, definition: { opcode, widths: layout.widths } };
+    const alias = Object.entries(BW2_OVERLAY_COMMAND_ALIASES[overlayId] ?? {}).find(([, command]) => command.opcode === opcode);
+    if (alias) return { name: alias[0], definition: alias[1] };
+    const layout = BW2_OVERLAY_LAYOUTS[overlayId]?.[opcode], fact = bw2CommandFactByOpcode(opcode, overlayId);
+    if (layout) return { name: fact?.name ?? layout.name, definition: { opcode, widths: layout.widths, ...(fact ? { workOperands: fact.workOperands } : {}) } };
   }
-  return layoutOpcodes.get(opcode);
+  const fact = bw2CommandFactByOpcode(opcode), command = layoutOpcodes.get(opcode);
+  return fact && command ? { name: fact.name, definition: { ...command.definition, workOperands: fact.workOperands } } : command;
 }

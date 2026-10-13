@@ -52,6 +52,21 @@ describe("BW2 authored project scripts", () => {
     expect(() => replaceBw2ProjectScript(project, 0, REPLACEMENT)).toThrow(/read-only/);
     expect(project).toEqual(before);
   });
+  it("requires reimport when an older draft preserves newly recovered jumps as raw bytes", () => {
+    const project = makeProject();
+    const legacy = "preserve_layout\nscript :main, entry: 1 do\nhalt\nend\ndata :old_raw_code, 9, 2, 8, 0, 3, 0, 30, 0, 242, 255, 255, 255\n";
+    const bytes = compileBw2Script(legacy).bytes;
+    project.narcs.scripts!.rawFiles[0] = bytes;
+    project.bw2ScriptEditor = { drafts: { 0: { source: legacy, appliedSource: legacy, imported: { baselineSource: legacy, baselineBytes: bytes.slice(), expectedCurrentBytes: bytes.slice() } } } };
+    // The unrelocated raw jump still lands on an instruction after this edit;
+    // byte identity and valid boundaries cannot prove the intended destination.
+    const edited = legacy.replace("halt", "sleep 1\nhalt"), before = structuredClone(project);
+    expect(() => replaceBw2ProjectScript(project, 0, edited)).toThrow(/raw bytes.*Decompile from ROM again/);
+    expect(project).toEqual(before);
+    const refreshed = decompileBw2ProjectScript(project, 0), fixed = refreshed.source.replace("  halt", "  sleep 1\n  halt");
+    expect(refreshed.editable).toBe(true);
+    expect(replaceBw2ProjectScript(project, 0, fixed).roundTrip?.verified).toBe(true);
+  });
   it("requires a verified ROM import for layout source and rejects changed overlay context", () => {
     const project = makeProject();
     const raw = "preserve_layout\nscript :main, entry: 1 do\nhalt\nend";

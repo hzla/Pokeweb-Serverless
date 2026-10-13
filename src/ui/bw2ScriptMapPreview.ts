@@ -9,7 +9,7 @@ import { drawMap, drawTrueMap, mapGridBounds, mapRenderTileBounds, renderNpc, re
 import type { OverworldMapRender } from "./overworldMapRenderer";
 import { escapeHtml } from "./dom";
 
-export type Bw2ScriptMapPreview = { setFocus: (focus: Bw2ScriptFocus | undefined, sourceLine: string, overlayId?: number) => void; destroy: () => void };
+export type Bw2ScriptMapPreview = { setFocus: (focus: Bw2ScriptFocus | undefined, sourceLine: string, overlayId?: number, constants?: ReadonlyMap<string, number>) => void; destroy: () => void };
 const entityKey = (item: OverworldEntitySelection) => `${item.kind}:${item.index}`;
 const mapCache = new WeakMap<ProjectState, Map<string, Promise<OverworldMapRender>>>();
 
@@ -34,6 +34,7 @@ export function installBw2ScriptMapPreview(project: ProjectState, root: HTMLElem
   let stopped = false, token = 0;
   let scene: OverworldScene | undefined, terrain: OverworldMapRender | undefined;
   let focus: Bw2ScriptFocus | undefined, sourceLine = "", overlayId: number | undefined;
+  let constants: ReadonlyMap<string, number> | undefined;
   let selected = new Set<string>(), commandTarget: OverworldEntitySelection | undefined;
   let choices: Bw2ScriptMapChoice[];
   try { choices = bw2ScriptMapChoices(project, fileId); }
@@ -45,7 +46,7 @@ export function installBw2ScriptMapPreview(project: ProjectState, root: HTMLElem
   }
   root.innerHTML = `<div class="bw2-map-heading"><h3>Map preview</h3><select id="bw2-map-choice" aria-label="Map assigned to script">${choices.map((choice) => `<option value="${choice.headerRowId}">${escapeHtml(choice.label)}</option>`).join("")}</select></div>
     <div class="bw2-map-tools"><button type="button" data-map-action="out" aria-label="Zoom map out">−</button><button type="button" data-map-action="fit">Fit</button><button type="button" data-map-action="in" aria-label="Zoom map in">+</button><span>Drag to pan · scroll to zoom</span></div>
-    <p id="bw2-map-focus" class="bw2-map-focus" aria-live="polite">Place the cursor inside an entry or helper to highlight its assigned entities.</p>
+    <p id="bw2-map-focus" class="bw2-map-focus" aria-live="polite">Place the cursor inside an entry, helper or movement to highlight its assigned entities.</p>
     <div class="bw2-map-stage"><canvas class="bw2-map-canvas" aria-label="2D map with overworld entities"></canvas><div class="overworld-entities bw2-map-entities"></div><p class="bw2-map-message bw2-map-loading">Loading map…</p></div>
     <p class="bw2-map-legend">Event placements: NPCs · signs · triggers · warps. Solid red outlines mark assigned entities; dashed red outlines mark other command actors.</p>`;
   const choiceSelect = root.querySelector<HTMLSelectElement>("#bw2-map-choice")!;
@@ -93,9 +94,9 @@ export function installBw2ScriptMapPreview(project: ProjectState, root: HTMLElem
   function updateFocus(): void {
     if (!scene) return;
     selected = new Set(bw2ScriptAssignedEntities(scene, focus?.entries ?? []).map(entityKey));
-    commandTarget = bw2ScriptNpcCommandTarget(project, sourceLine, scene, overlayId);
+    commandTarget = bw2ScriptNpcCommandTarget(project, sourceLine, scene, overlayId, constants);
     const entries = focus?.entries.join(", ");
-    focusText.textContent = !focus ? "Place the cursor inside an entry or helper to highlight its assigned entities." : `${focus.kind === "helper" ? "Helper" : "Script"} ${focus.name}${entries ? ` · ${focus.entries.length === 1 ? "entry" : "caller entries"} ${entries}` : " · no public caller"} · ${selected.size ? `${selected.size} assigned ${selected.size === 1 ? "entity" : "entities"}` : "no entity assignment (map event or unassigned entry)"}${commandTarget ? ` · command actor ${scene.npcs.find((npc) => npc.index === commandTarget!.index)?.overworldId}` : ""}`;
+    focusText.textContent = !focus ? "Place the cursor inside an entry, helper or movement to highlight its assigned entities." : `${focus.kind === "helper" ? "Helper" : focus.kind === "movement" ? "Movement" : "Script"} ${focus.name}${entries ? ` · ${focus.entries.length === 1 ? "entry" : "caller entries"} ${entries}` : " · no public caller"} · ${selected.size ? `${selected.size} assigned ${selected.size === 1 ? "entity" : "entities"}` : "no entity assignment (map event or unassigned entry)"}${commandTarget ? ` · command actor ${scene.npcs.find((npc) => npc.index === commandTarget!.index)?.overworldId}` : ""}`;
     const key = `${[...selected].sort().join("|")}:${commandTarget ? entityKey(commandTarget) : ""}`;
     if (key === highlightedKey) return;
     highlightedKey = key;
@@ -160,5 +161,5 @@ export function installBw2ScriptMapPreview(project: ProjectState, root: HTMLElem
   choiceSelect.addEventListener("change", () => { const choice = choices.find((choice) => choice.headerRowId === Number(choiceSelect.value)); if (choice) void open(choice); });
   const observer = new ResizeObserver(() => { if (!framed) fit(); else draw(); }); observer.observe(stage);
   void open(choices[0]);
-  return { setFocus: (next, line, overlay) => { focus = next; sourceLine = line; overlayId = overlay; updateFocus(); }, destroy: () => { stopped = true; token++; observer.disconnect(); } };
+  return { setFocus: (next, line, overlay, bindings) => { focus = next; sourceLine = line; overlayId = overlay; constants = bindings; updateFocus(); }, destroy: () => { stopped = true; token++; observer.disconnect(); } };
 }

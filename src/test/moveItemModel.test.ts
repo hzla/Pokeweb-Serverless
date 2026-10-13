@@ -1,10 +1,31 @@
 import { describe, expect, it } from "vitest";
 import type { NarcName } from "../pokeweb/constants";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
-import { EFFECTS, getMoveAutofills, getItemRecord, getMoveRecord, moveMatchesSearch, updateItemField, updateItemPackedField, updateMoveEffectId, updateMoveField } from "../pokeweb/moveItemModel";
+import { EFFECTS, getMoveAutofills, getItemRecord, getMoveGeneration, getMoveRecord, moveMatchesSearch, updateItemField, updateItemPackedField, updateMoveEffectId, updateMoveField } from "../pokeweb/moveItemModel";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
 
 describe("moveItemModel", () => {
+  it.each([
+    [1, 1], [165, 1], [166, 2], [251, 2], [252, 3], [354, 3],
+    [355, 4], [467, 4], [468, 5], [559, 5], [560, 6], [621, 6],
+    [622, 7], [742, 7], [743, 8], [850, 8], [851, 9], [919, 9],
+  ])("classifies canonical move %i as Gen %i", (moveId, generation) => {
+    expect(getMoveGeneration(makeProject(), moveId)).toBe(generation);
+  });
+
+  it("classifies relocated expansion moves by their source IDs rather than their new slots", () => {
+    const project = makeProject();
+    project.patches = { applied: { moveExpansion: true } } as ProjectState["patches"];
+    for (const [id, generation] of [[680, 6], [741, 6], [742, 7], [825, 7], [826, 8], [885, 8], [915, 8], [916, 9], [984, 9]]) {
+      expect(getMoveGeneration(project, id), `move ${id}`).toBe(generation);
+    }
+    for (const id of [560, 621, 679, 985, 999]) expect(getMoveGeneration(project, id)).toBeUndefined();
+  });
+
+  it.each([0, -1, 1.5, NaN, 920, 1000])("does not assign a generation to invalid or unknown move %s", moveId => {
+    expect(getMoveGeneration(makeProject(), moveId)).toBeUndefined();
+  });
+
   it("derives move readable fields including effects, hits, signed magnitudes, and props", () => {
     const project = makeProject();
     const move = getMoveRecord(project, 1);

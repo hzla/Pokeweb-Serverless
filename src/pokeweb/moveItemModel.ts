@@ -3,7 +3,7 @@ import resultEffectsText from "../assets/data/result_effects.txt?raw";
 import { recordFieldChange } from "./actionChangelog";
 import { EFFECT_CATEGORIES, PROPERTIES, STATS, STATUSES, TARGETS, moveCategoryNamesForProject, typeNamesForProject } from "./constants";
 import { copyMoveAnimationScript } from "./moveAnimationModel";
-import { MOVE_EXPANSION_FIRST_USABLE_ID, usesFrostMoveExpansionLayout } from "./moveExpansionPatch";
+import { getMoveExpansionSourceMoveId, MOVE_EXPANSION_FIRST_USABLE_ID, usesFrostMoveExpansionLayout } from "./moveExpansionPatch";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
 
 // Line index is the ROM's AISeqNo (0-337). Keep every slot, including unused ones,
@@ -197,6 +197,19 @@ const TRI_ATTACK_RESULT = "Chance of either Paralyzing; Burning; or Freezing tar
 
 export function getMoveCount(project: ProjectState): number {
   return project.narcs.moves?.fileCount ?? 0;
+}
+
+const MOVE_GENERATION_LAST_IDS = [165, 251, 354, 467, 559, 621, 742, 850, 919];
+
+export function getMoveGeneration(project: ProjectState, moveId: number): number | undefined {
+  if (!Number.isSafeInteger(moveId) || moveId < 1) return undefined;
+  // Frost keeps generic battle-animation slots before its relocated moves.
+  const sourceId = moveId > 559 && usesFrostMoveExpansionLayout(project)
+    ? getMoveExpansionSourceMoveId(moveId)
+    : moveId;
+  if (sourceId === undefined) return undefined;
+  const index = MOVE_GENERATION_LAST_IDS.findIndex(lastId => sourceId <= lastId);
+  return index < 0 ? undefined : index + 1;
 }
 
 export function getItemCount(project: ProjectState): number {

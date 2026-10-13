@@ -352,6 +352,7 @@ export type PatchState = {
 };
 
 export type ProjectState = {
+  bw2ScriptRuntimeContext?: import("./bw2ScriptOverlayContext").Bw2ScriptRuntimeContext;
   bw2ScriptEditor?: import("./bw2ScriptModel").Bw2ScriptEditorState;
   cgearButtons?: import("../cgearButtons/document").Project;
   customUi?: import("../customUi/document").Project;

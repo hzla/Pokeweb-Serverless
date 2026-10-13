@@ -1,0 +1,6649 @@
+{
+  "version": 1,
+  "gameCode": "IRDO",
+  "facts": [
+    {
+      "opcode": 206,
+      "name": "get_trainer_card_rank",
+      "legacy": "cmd_ce",
+      "description": "Get trainer card rank.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 228,
+      "name": "get_box_wall_paper",
+      "legacy": "cmd_e4",
+      "description": "Get box wall paper.",
+      "parameters": [
+        {
+          "name": "flag",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 229,
+      "name": "check_player_view_change",
+      "legacy": "cmd_e5",
+      "description": "Check player view change.",
+      "parameters": [
+        {
+          "name": "ret_wk_disp",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        },
+        {
+          "name": "ret_wk_type",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 231,
+      "name": "set_start_menu_flag",
+      "legacy": "cmd_e7",
+      "description": "Set start menu flag.",
+      "parameters": [
+        {
+          "name": "flag",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 316,
+      "name": "reboot_beacon_search",
+      "legacy": "cmd_13_c",
+      "description": "Reboot beacon search.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 347,
+      "name": "wifi_check_my_gsid",
+      "legacy": "cmd_15_b",
+      "description": "Wifi check my gsid.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 348,
+      "name": "wifi_get_friend_num",
+      "legacy": "cmd_15_c",
+      "description": "Wifi get friend num.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 355,
+      "name": "musical_call",
+      "legacy": "cmd_163",
+      "description": "Musical call.",
+      "parameters": [
+        {
+          "name": "poke_idx",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "mode",
+          "width": 1,
+          "description": "Literal unsigned 8-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 356,
+      "name": "musical_fitting_call",
+      "legacy": "cmd_164",
+      "description": "Musical fitting call.",
+      "parameters": [
+        {
+          "name": "poke_idx",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 357,
+      "name": "get_musical_value",
+      "legacy": "cmd_165",
+      "description": "Get musical value.",
+      "parameters": [
+        {
+          "name": "type",
+          "width": 1,
+          "description": "Literal unsigned 8-bit operand; does not read a work variable."
+        },
+        {
+          "name": "val",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        1,
+        2
+      ]
+    },
+    {
+      "opcode": 358,
+      "name": "get_musical_fan_value",
+      "legacy": "cmd_166",
+      "description": "Get musical fan value.",
+      "parameters": [
+        {
+          "name": "pos",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "type",
+          "width": 1,
+          "description": "Literal unsigned 8-bit operand; does not read a work variable."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        2
+      ]
+    },
+    {
+      "opcode": 359,
+      "name": "musical_tools",
+      "legacy": "cmd_167",
+      "description": "Musical tools.",
+      "parameters": [
+        {
+          "name": "type",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "val1",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "val2",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "opcode": 360,
+      "name": "add_musical_goods",
+      "legacy": "cmd_168",
+      "description": "Add musical goods.",
+      "parameters": [
+        {
+          "name": "val",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 361,
+      "name": "reset_musical_fan_gift_flg",
+      "legacy": "cmd_169",
+      "description": "Reset musical fan gift flg.",
+      "parameters": [
+        {
+          "name": "pos",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 362,
+      "name": "select_musical_poke",
+      "legacy": "cmd_16_a",
+      "description": "Select musical poke.",
+      "parameters": [
+        {
+          "name": "ret_decide",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 366,
+      "name": "call_monolith_proc",
+      "legacy": "cmd_16_e",
+      "description": "Call monolith proc.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 370,
+      "name": "get_mission_entry",
+      "legacy": "cmd_172",
+      "description": "Get mission entry.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 378,
+      "name": "open_information_board",
+      "legacy": "cmd_17_a",
+      "description": "Open information board.",
+      "parameters": [
+        {
+          "name": "frame",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 379,
+      "name": "gym_old_elec_init",
+      "legacy": "cmd_17_b",
+      "description": "Gym old elec init.",
+      "parameters": [
+        {
+          "name": "evt1",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        },
+        {
+          "name": "evt2",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 380,
+      "name": "gym_old_elec_push_sw",
+      "legacy": "cmd_17_c",
+      "description": "Gym old elec push sw.",
+      "parameters": [
+        {
+          "name": "sw_idx",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 381,
+      "name": "gym_old_elec_set_tr_enc_flg",
+      "legacy": "cmd_17_d",
+      "description": "Gym old elec set tr enc flg.",
+      "parameters": [
+        {
+          "name": "cap_idx",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 390,
+      "name": "gym_ground_set_enter_pos",
+      "legacy": "cmd_186",
+      "description": "Gym ground set enter pos.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 391,
+      "name": "gym_ground_ent_set_enter_pos",
+      "legacy": "cmd_187",
+      "description": "Gym ground ent set enter pos.",
+      "parameters": [
+        {
+          "name": "set",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 396,
+      "name": "gym_ground_mv_lift",
+      "legacy": "cmd_18_c",
+      "description": "Gym ground mv lift.",
+      "parameters": [
+        {
+          "name": "lift_id",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        },
+        {
+          "name": "way",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 397,
+      "name": "gym_ground_exit_lift",
+      "legacy": "cmd_18_d",
+      "description": "Gym ground exit lift.",
+      "parameters": [
+        {
+          "name": "exit",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 398,
+      "name": "gym_ground_ent_exit_lift",
+      "legacy": "cmd_18_e",
+      "description": "Gym ground ent exit lift.",
+      "parameters": [
+        {
+          "name": "exit",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 399,
+      "name": "gym_ice_sw_anm",
+      "legacy": "cmd_18_f",
+      "description": "Gym ice sw anm.",
+      "parameters": [
+        {
+          "name": "idx",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 400,
+      "name": "gym_ice_wall_anm",
+      "legacy": "cmd_190",
+      "description": "Gym ice wall anm.",
+      "parameters": [
+        {
+          "name": "idx",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 401,
+      "name": "gym_ice_chg_rail",
+      "legacy": "cmd_191",
+      "description": "Gym ice chg rail.",
+      "parameters": [
+        {
+          "name": "idx",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 417,
+      "name": "pl_boat_get_room_info",
+      "legacy": "cmd_1_a1",
+      "description": "Pl boat get room info.",
+      "parameters": [
+        {
+          "name": "room_idx",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "info_kind",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        },
+        {
+          "name": "param",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        2,
+        3
+      ]
+    },
+    {
+      "opcode": 431,
+      "name": "btl_util_set_regulation_out_poke_name",
+      "legacy": "cmd_1_af",
+      "description": "Btl util set regulation out poke name.",
+      "parameters": [
+        {
+          "name": "regulation",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 432,
+      "name": "btl_util_party_select",
+      "legacy": "cmd_1_b0",
+      "description": "Btl util party select.",
+      "parameters": [
+        {
+          "name": "regu_code",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 460,
+      "name": "get_feeling_check_count",
+      "legacy": "cmd_1_cc",
+      "description": "Get feeling check count.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 461,
+      "name": "set_feeling_check_name",
+      "legacy": "cmd_1_cd",
+      "description": "Set feeling check name.",
+      "parameters": [
+        {
+          "name": "set_pos",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 462,
+      "name": "un_get_room_actor_code",
+      "legacy": "cmd_1_ce",
+      "description": "Un get room actor code.",
+      "parameters": [
+        {
+          "name": "obj_idx",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        },
+        {
+          "name": "ret",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        1
+      ]
+    },
+    {
+      "opcode": 475,
+      "name": "postman_command",
+      "legacy": "cmd_1_db",
+      "description": "Postman command.",
+      "parameters": [
+        {
+          "name": "req",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 476,
+      "name": "dream_world_command",
+      "legacy": "cmd_1_dc",
+      "description": "Dream world command.",
+      "parameters": [
+        {
+          "name": "req",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 477,
+      "name": "wireless_beacon_set_request",
+      "legacy": "cmd_1_dd",
+      "description": "Wireless beacon set request.",
+      "parameters": [
+        {
+          "name": "beacon_id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "value1",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "value2",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "opcode": 478,
+      "name": "check_g_power_finish",
+      "legacy": "cmd_1_de",
+      "description": "Check g power finish.",
+      "parameters": [
+        {
+          "name": "ret_power",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        },
+        {
+          "name": "ret_next",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 479,
+      "name": "g_power_use_effect",
+      "legacy": "cmd_1_df",
+      "description": "G power use effect.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 490,
+      "name": "th_set_trainer",
+      "legacy": "cmd_1_ea",
+      "description": "Th set trainer.",
+      "parameters": [
+        {
+          "name": "btl_count",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "obj_id",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 493,
+      "name": "th_set_dl_flg",
+      "legacy": "cmd_1_ed",
+      "description": "Th set dl flg.",
+      "parameters": [
+        {
+          "name": "dl",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 496,
+      "name": "th_search_beacon",
+      "legacy": "cmd_1_f0",
+      "description": "Th search beacon.",
+      "parameters": [
+        {
+          "name": "ret",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 498,
+      "name": "th_get_dl_data_type",
+      "legacy": "cmd_1_f2",
+      "description": "Th get dl data type.",
+      "parameters": [
+        {
+          "name": "type",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 500,
+      "name": "th_call_rank_app",
+      "legacy": "cmd_1_f4",
+      "description": "Th call rank app.",
+      "parameters": [
+        {
+          "name": "dl",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "me",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 501,
+      "name": "th_get_rank_data_state",
+      "legacy": "cmd_1_f5",
+      "description": "Th get rank data state.",
+      "parameters": [
+        {
+          "name": "state",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 502,
+      "name": "pdw_common_tools",
+      "legacy": "cmd_1_f6",
+      "description": "Pdw common tools.",
+      "parameters": [
+        {
+          "name": "type",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "val1",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "val2",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "opcode": 503,
+      "name": "pdw_furniture_tools",
+      "legacy": "cmd_1_f7",
+      "description": "Pdw furniture tools.",
+      "parameters": [
+        {
+          "name": "type",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "val1",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "val2",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "opcode": 504,
+      "name": "pdw_set_furniture_word",
+      "legacy": "cmd_1_f8",
+      "description": "Pdw set furniture word.",
+      "parameters": [
+        {
+          "name": "idx",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "val",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 509,
+      "name": "start_survey",
+      "legacy": "cmd_1_fd",
+      "description": "Start survey.",
+      "parameters": [],
+      "workOperands": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "opcode": 510,
+      "name": "survey_finish",
+      "legacy": "cmd_1_fe",
+      "description": "Survey finish.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 514,
+      "name": "survey_check_request_complete",
+      "legacy": "cmd_202",
+      "description": "Survey check request complete.",
+      "parameters": [
+        {
+          "name": "rid",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 515,
+      "name": "get_lack_for_achieve",
+      "legacy": "cmd_203",
+      "description": "Get lack for achieve.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 521,
+      "name": "survey_set_answer",
+      "legacy": "cmd_209",
+      "description": "Store the player's answer to a survey question and refresh the wireless questionnaire data.",
+      "parameters": [
+        {
+          "name": "question",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "answer",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ],
+      "note": "In Aspertia starter selection, question 8 stores 1 for Tepig, 2 for Oshawott, or 3 for Snivy. This is survey/profile data, separate from bianca_intro_progress."
+    },
+    {
+      "opcode": 522,
+      "name": "disp_survey_team_info",
+      "legacy": "cmd_20_a",
+      "description": "Disp survey team info.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 523,
+      "name": "get_survey_team_rank",
+      "legacy": "cmd_20_b",
+      "description": "Get survey team rank.",
+      "parameters": [
+        {
+          "name": "ret",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 524,
+      "name": "survey_rank_up",
+      "legacy": "cmd_20_c",
+      "description": "Survey rank up.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 526,
+      "name": "move_ball",
+      "legacy": "cmd_20_e",
+      "description": "Move ball.",
+      "parameters": [
+        {
+          "name": "type",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "x",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "y",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "z",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "height",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "sync",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "opcode": 527,
+      "name": "start_ball_anm",
+      "legacy": "cmd_20_f",
+      "description": "Start ball anm.",
+      "parameters": [
+        {
+          "name": "type",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "x",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "y",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "z",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "opcode": 528,
+      "name": "wait_ball_anm",
+      "legacy": "cmd_210",
+      "description": "Wait ball anm.",
+      "parameters": [
+        {
+          "name": "type",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 529,
+      "name": "wait_ball_poke_app",
+      "legacy": "cmd_211",
+      "description": "Wait ball poke app.",
+      "parameters": [
+        {
+          "name": "type",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 536,
+      "name": "symbol_map_get_info",
+      "legacy": "cmd_218",
+      "description": "Symbol map get info.",
+      "parameters": [
+        {
+          "name": "mode",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 537,
+      "name": "symbol_map_move_pokemon",
+      "legacy": "cmd_219",
+      "description": "Symbol map move pokemon.",
+      "parameters": [
+        {
+          "name": "obj_id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 541,
+      "name": "symbol_poke_get",
+      "legacy": "cmd_21_d",
+      "description": "Symbol poke get.",
+      "parameters": [
+        {
+          "name": "obj_id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 543,
+      "name": "get_wheel_trainer_actor_id",
+      "legacy": "cmd_21_f",
+      "description": "Get wheel trainer actor id.",
+      "parameters": [
+        {
+          "name": "id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 544,
+      "name": "get_wheel_trainer_tr_id",
+      "legacy": "cmd_220",
+      "description": "Get wheel trainer tr id.",
+      "parameters": [
+        {
+          "name": "id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 545,
+      "name": "get_train_model_id",
+      "legacy": "cmd_221",
+      "description": "Get train model id.",
+      "parameters": [
+        {
+          "name": "train_id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 546,
+      "name": "get_train_town_condition",
+      "legacy": "cmd_222",
+      "description": "Get train town condition.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 550,
+      "name": "poke_id_search_num",
+      "legacy": "cmd_226",
+      "description": "Poke id search num.",
+      "parameters": [
+        {
+          "name": "ret",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 554,
+      "name": "tv_get_msg",
+      "legacy": "cmd_22_a",
+      "description": "Tv get msg.",
+      "parameters": [
+        {
+          "name": "select_tv",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 557,
+      "name": "show_item_cutin",
+      "legacy": "cmd_22_d",
+      "description": "Show the field cut-in associated with the supplied item when that item has a registered cut-in.",
+      "parameters": [
+        {
+          "name": "item_no",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 558,
+      "name": "actor_set_not_del_zone_change",
+      "legacy": "cmd_22_e",
+      "description": "Actor set not del zone change.",
+      "parameters": [
+        {
+          "name": "obj_id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 560,
+      "name": "bg_win_sea_temple_msg",
+      "legacy": "cmd_230",
+      "description": "Bg win sea temple msg.",
+      "parameters": [
+        {
+          "name": "msg_id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "type",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 561,
+      "name": "call_game_manual",
+      "legacy": "cmd_231",
+      "description": "Call game manual.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 563,
+      "name": "un_is_seting_my_country",
+      "legacy": "cmd_233",
+      "description": "Un is seting my country.",
+      "parameters": [
+        {
+          "name": "ret",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 569,
+      "name": "player_check_special_actor",
+      "legacy": "cmd_239",
+      "description": "Write whether the player uses a restricted field actor/model into a result work. Item pickups use this to choose their presentation.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 570,
+      "name": "voice_play_for_mine",
+      "legacy": "cmd_23_a",
+      "description": "Voice play for mine.",
+      "parameters": [
+        {
+          "name": "monsno",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "formno",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 576,
+      "name": "bgm_volume_down",
+      "legacy": "cmd_240",
+      "description": "Bgm volume down.",
+      "parameters": [
+        {
+          "name": "volume",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "frame",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 577,
+      "name": "bgm_volume_recover",
+      "legacy": "cmd_241",
+      "description": "Bgm volume recover.",
+      "parameters": [
+        {
+          "name": "frame",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 585,
+      "name": "re_battle_trainer_get_rnd_tr_index",
+      "legacy": "cmd_249",
+      "description": "Re battle trainer get rnd tr index.",
+      "parameters": [
+        {
+          "name": "ret_index0",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        },
+        {
+          "name": "ret_index1",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        },
+        {
+          "name": "ret_index2",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        },
+        {
+          "name": "ret_index3",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        },
+        {
+          "name": "ret_index4",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        },
+        {
+          "name": "ret_index5",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "opcode": 586,
+      "name": "get_c_gear_status",
+      "legacy": "cmd_24_a",
+      "description": "Get c gear status.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 589,
+      "name": "gym_old_elec_init_se",
+      "legacy": "cmd_24_d",
+      "description": "Gym old elec init se.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 602,
+      "name": "gym_elec_init",
+      "legacy": "cmd_25_a",
+      "description": "Gym elec init.",
+      "parameters": [
+        {
+          "name": "seq",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 603,
+      "name": "gym_elec_recover",
+      "legacy": "cmd_25_b",
+      "description": "Gym elec recover.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 604,
+      "name": "gym_elec_set_spot_light",
+      "legacy": "cmd_25_c",
+      "description": "Gym elec set spot light.",
+      "parameters": [
+        {
+          "name": "on_off",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        },
+        {
+          "name": "obj_id",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        },
+        {
+          "name": "type",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 605,
+      "name": "gym_elec_call_fadeout_event",
+      "legacy": "cmd_25_d",
+      "description": "Gym elec call fadeout event.",
+      "parameters": [
+        {
+          "name": "phase",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 607,
+      "name": "gym_elec_set_effect",
+      "legacy": "cmd_25_f",
+      "description": "Gym elec set effect.",
+      "parameters": [
+        {
+          "name": "type",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 610,
+      "name": "npc_state_set",
+      "legacy": "cmd_262",
+      "description": "Set a state value in the NPC/person state system.",
+      "parameters": [
+        {
+          "name": "person",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        },
+        {
+          "name": "state",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 611,
+      "name": "person_state_set_l_tvt_call",
+      "legacy": "cmd_263",
+      "description": "Person state set l tvt call.",
+      "parameters": [
+        {
+          "name": "person",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 613,
+      "name": "call_tvt_secret",
+      "legacy": "cmd_265",
+      "description": "Call tvt secret.",
+      "parameters": [
+        {
+          "name": "color",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 614,
+      "name": "person_state_get_date_type",
+      "legacy": "cmd_266",
+      "description": "Person state get date type.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 615,
+      "name": "person_state_set_date_end",
+      "legacy": "cmd_267",
+      "description": "Person state set date end.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 616,
+      "name": "gym_insect_coccon_open",
+      "legacy": "cmd_268",
+      "description": "Gym insect coccon open.",
+      "parameters": [
+        {
+          "name": "idx",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 617,
+      "name": "gym_insect_vacuum_anm",
+      "legacy": "cmd_269",
+      "description": "Gym insect vacuum anm.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 629,
+      "name": "f_mission_name",
+      "legacy": "cmd_275",
+      "description": "F mission name.",
+      "parameters": [
+        {
+          "name": "idx",
+          "width": 1,
+          "description": "Literal unsigned 8-bit operand; does not read a work variable."
+        },
+        {
+          "name": "fmission_id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "fmission_level",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        1,
+        2
+      ]
+    },
+    {
+      "opcode": 654,
+      "name": "gym_fly_blow",
+      "legacy": "cmd_28_e",
+      "description": "Gym fly blow.",
+      "parameters": [
+        {
+          "name": "obj_id",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 657,
+      "name": "gym_poison_anm_stop",
+      "legacy": "cmd_291",
+      "description": "Gym poison anm stop.",
+      "parameters": [
+        {
+          "name": "idx",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 658,
+      "name": "gym_poison_iss_actor_stop",
+      "legacy": "cmd_292",
+      "description": "Gym poison iss actor stop.",
+      "parameters": [
+        {
+          "name": "obj_id",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 674,
+      "name": "gym_water_splash_anime",
+      "legacy": "cmd_2_a2",
+      "description": "Gym water splash anime.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 675,
+      "name": "gym_water_return_anime",
+      "legacy": "cmd_2_a3",
+      "description": "Gym water return anime.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 676,
+      "name": "gym_dragon_init",
+      "legacy": "cmd_2_a4",
+      "description": "Gym dragon init.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 677,
+      "name": "gym_dragon_push_button",
+      "legacy": "cmd_2_a5",
+      "description": "Gym dragon push button.",
+      "parameters": [
+        {
+          "name": "event_seq",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 678,
+      "name": "gym_dragon_refresh_button",
+      "legacy": "cmd_2_a6",
+      "description": "Gym dragon refresh button.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 679,
+      "name": "gym_dragon_turn_on_up_button",
+      "legacy": "cmd_2_a7",
+      "description": "Gym dragon turn on up button.",
+      "parameters": [
+        {
+          "name": "layer",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 680,
+      "name": "gym_dragon_release_anm_heap",
+      "legacy": "cmd_2_a8",
+      "description": "Gym dragon release anm heap.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 681,
+      "name": "gym_dragon_make_anm_heap",
+      "legacy": "cmd_2_a9",
+      "description": "Gym dragon make anm heap.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 689,
+      "name": "key_sys_get_door",
+      "legacy": "cmd_2_b1",
+      "description": "Key sys get door.",
+      "parameters": [
+        {
+          "name": "ret",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 690,
+      "name": "memory_link_get_flag",
+      "legacy": "cmd_2_b2",
+      "description": "Memory link get flag.",
+      "parameters": [
+        {
+          "name": "flag",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 691,
+      "name": "memory_link_get_work",
+      "legacy": "cmd_2_b3",
+      "description": "Memory link get work.",
+      "parameters": [
+        {
+          "name": "wk",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 692,
+      "name": "memory_link_is_exist",
+      "legacy": "cmd_2_b4",
+      "description": "Memory link is exist.",
+      "parameters": [
+        {
+          "name": "id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 693,
+      "name": "memory_link_word_set_owner_name",
+      "legacy": "cmd_2_b5",
+      "description": "Memory link word set owner name.",
+      "parameters": [
+        {
+          "name": "id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "buff_idx",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 694,
+      "name": "memory_link_get_data",
+      "legacy": "cmd_2_b6",
+      "description": "Memory link get data.",
+      "parameters": [
+        {
+          "name": "param",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 695,
+      "name": "memory_link_convert_musical",
+      "legacy": "cmd_2_b7",
+      "description": "Memory link convert musical.",
+      "parameters": [
+        {
+          "name": "ret",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 707,
+      "name": "person_state_set_trade",
+      "legacy": "cmd_2_c3",
+      "description": "Person state set trade.",
+      "parameters": [
+        {
+          "name": "monsno",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 708,
+      "name": "h06_gmk_init",
+      "legacy": "cmd_2_c4",
+      "description": "H06 gmk init.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 709,
+      "name": "resort_set_record",
+      "legacy": "cmd_2_c5",
+      "description": "Resort set record.",
+      "parameters": [
+        {
+          "name": "id",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 715,
+      "name": "pokewood_get_star_rank",
+      "legacy": "cmd_2_cb",
+      "description": "Pokewood get star rank.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 721,
+      "name": "black_city_white_forest_get_progress",
+      "legacy": "cmd_2_d1",
+      "description": "Write the saved Black City/White Forest challenge progress into a result work.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 723,
+      "name": "person_state_get_state",
+      "legacy": "cmd_2_d3",
+      "description": "Person state get state.",
+      "parameters": [
+        {
+          "name": "person",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        1
+      ]
+    },
+    {
+      "opcode": 725,
+      "name": "pwt_get_trainer_flag",
+      "legacy": "cmd_2_d5",
+      "description": "Read a Pokémon World Tournament trainer's saved status into a result work.",
+      "parameters": [
+        {
+          "name": "flag_id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 727,
+      "name": "un_get_country_num",
+      "legacy": "cmd_2_d7",
+      "description": "Un get country num.",
+      "parameters": [
+        {
+          "name": "my_country_flg",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 728,
+      "name": "un_set_talk_flg",
+      "legacy": "cmd_2_d8",
+      "description": "Un set talk flg.",
+      "parameters": [
+        {
+          "name": "obj_idx",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 729,
+      "name": "un_check_talk_flg",
+      "legacy": "cmd_2_d9",
+      "description": "Un check talk flg.",
+      "parameters": [
+        {
+          "name": "obj_idx",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 730,
+      "name": "un_set_player_nature",
+      "legacy": "cmd_2_da",
+      "description": "Un set player nature.",
+      "parameters": [
+        {
+          "name": "nature_idx",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 744,
+      "name": "map_fade_out_msg_enable",
+      "legacy": "cmd_2_e8",
+      "description": "Map fade out msg enable.",
+      "parameters": [
+        {
+          "name": "mode",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "map_change",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 745,
+      "name": "map_fade_in_msg_enable",
+      "legacy": "cmd_2_e9",
+      "description": "Map fade in msg enable.",
+      "parameters": [
+        {
+          "name": "mode",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "map_change",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 749,
+      "name": "set_soft_reset",
+      "legacy": "cmd_2_ed",
+      "description": "Set soft reset.",
+      "parameters": [
+        {
+          "name": "enable",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "type",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 753,
+      "name": "set_evt_lock",
+      "legacy": "cmd_2_f1",
+      "description": "Set evt lock.",
+      "parameters": [
+        {
+          "name": "param",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 754,
+      "name": "get_evt_lock",
+      "legacy": "cmd_2_f2",
+      "description": "Get evt lock.",
+      "parameters": [
+        {
+          "name": "param",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1000,
+      "overlayId": 50,
+      "name": "battle_subway_work_clear",
+      "legacy": "cmd_03e8",
+      "description": "Battle subway work clear.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1001,
+      "overlayId": 50,
+      "name": "battle_subway_work_create",
+      "legacy": "cmd_03e9",
+      "description": "Battle subway work create.",
+      "parameters": [
+        {
+          "name": "init",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        },
+        {
+          "name": "mode",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        1
+      ]
+    },
+    {
+      "opcode": 1002,
+      "overlayId": 50,
+      "name": "battle_subway_work_release",
+      "legacy": "cmd_03ea",
+      "description": "Battle subway work release.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1003,
+      "overlayId": 50,
+      "name": "battle_subway_tool",
+      "legacy": "cmd_03eb",
+      "description": "Perform a Battle Subway operation and write its result to the supplied work slot.",
+      "parameters": [
+        {
+          "name": "operation",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        },
+        {
+          "name": "param0",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "param1",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "result_work",
+          "width": 2,
+          "description": "Destination work-variable ID for the operation result. This operand is read as an ID, not as the current work value."
+        }
+      ],
+      "workOperands": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "opcode": 1000,
+      "overlayId": 51,
+      "name": "pl_boat_start",
+      "legacy": "cmd_03e8",
+      "description": "Pl boat start.",
+      "parameters": [
+        {
+          "name": "flag",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1001,
+      "overlayId": 51,
+      "name": "pl_boat_end",
+      "legacy": "cmd_03e9",
+      "description": "Pl boat end.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1002,
+      "overlayId": 51,
+      "name": "pl_boat_get_tr_num",
+      "legacy": "cmd_03ea",
+      "description": "Pl boat get tr num.",
+      "parameters": [
+        {
+          "name": "type",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        },
+        {
+          "name": "ret",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        1
+      ]
+    },
+    {
+      "opcode": 1003,
+      "overlayId": 51,
+      "name": "pl_boat_add_time",
+      "legacy": "cmd_03eb",
+      "description": "Pl boat add time.",
+      "parameters": [
+        {
+          "name": "add_time",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        },
+        {
+          "name": "whistle",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 1004,
+      "overlayId": 51,
+      "name": "pl_boat_set_room_info",
+      "legacy": "cmd_03ec",
+      "description": "Pl boat set room info.",
+      "parameters": [
+        {
+          "name": "room_idx",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "info_kind",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        },
+        {
+          "name": "param",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        },
+        {
+          "name": "set_val",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        3
+      ]
+    },
+    {
+      "opcode": 1005,
+      "overlayId": 51,
+      "name": "pl_boat_end_game",
+      "legacy": "cmd_03ed",
+      "description": "Pl boat end game.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1000,
+      "overlayId": 52,
+      "name": "four_kings_rail_off",
+      "legacy": "cmd_03e8",
+      "description": "Four kings rail off.",
+      "parameters": [
+        {
+          "name": "index",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1001,
+      "overlayId": 52,
+      "name": "four_kings_set_camera_param",
+      "legacy": "cmd_03e9",
+      "description": "Four kings set camera param.",
+      "parameters": [
+        {
+          "name": "index",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1002,
+      "overlayId": 52,
+      "name": "four_kings_evil_fire",
+      "legacy": "cmd_03ea",
+      "description": "Four kings evil fire.",
+      "parameters": [
+        {
+          "name": "id",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 1003,
+      "overlayId": 52,
+      "name": "four_kings_evil_claw",
+      "legacy": "cmd_03eb",
+      "description": "Four kings evil claw.",
+      "parameters": [
+        {
+          "name": "id",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 1004,
+      "overlayId": 52,
+      "name": "four_kings_esp_init",
+      "legacy": "cmd_03ec",
+      "description": "Four kings esp init.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1005,
+      "overlayId": 52,
+      "name": "four_kings_esp_stairs",
+      "legacy": "cmd_03ed",
+      "description": "Four kings esp stairs.",
+      "parameters": [
+        {
+          "name": "id",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 1006,
+      "overlayId": 52,
+      "name": "four_kings_esp_flower",
+      "legacy": "cmd_03ee",
+      "description": "Four kings esp flower.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1007,
+      "overlayId": 52,
+      "name": "four_kings_esp_cube",
+      "legacy": "cmd_03ef",
+      "description": "Four kings esp cube.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1008,
+      "overlayId": 52,
+      "name": "four_kings_esp_cattleya",
+      "legacy": "cmd_03f0",
+      "description": "Four kings esp cattleya.",
+      "parameters": [
+        {
+          "name": "obj_id",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        },
+        {
+          "name": "fall_spd",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 1009,
+      "overlayId": 52,
+      "name": "four_kings_ghost_mist",
+      "legacy": "cmd_03f1",
+      "description": "Four kings ghost mist.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1010,
+      "overlayId": 52,
+      "name": "four_kings_ghost_fire",
+      "legacy": "cmd_03f2",
+      "description": "Four kings ghost fire.",
+      "parameters": [
+        {
+          "name": "fire_id",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 1011,
+      "overlayId": 52,
+      "name": "four_kings_ghost_book_fall",
+      "legacy": "cmd_03f3",
+      "description": "Four kings ghost book fall.",
+      "parameters": [
+        {
+          "name": "wait",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 1012,
+      "overlayId": 52,
+      "name": "four_kings_ghost_lamp",
+      "legacy": "cmd_03f4",
+      "description": "Four kings ghost lamp.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1013,
+      "overlayId": 52,
+      "name": "four_kings_fight_door",
+      "legacy": "cmd_03f5",
+      "description": "Four kings fight door.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1014,
+      "overlayId": 52,
+      "name": "four_kings_fight_stairs",
+      "legacy": "cmd_03f6",
+      "description": "Four kings fight stairs.",
+      "parameters": [
+        {
+          "name": "id",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 1015,
+      "overlayId": 52,
+      "name": "four_kings_fight_light",
+      "legacy": "cmd_03f7",
+      "description": "Four kings fight light.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1016,
+      "overlayId": 52,
+      "name": "four_kings_fight_stage",
+      "legacy": "cmd_03f8",
+      "description": "Four kings fight stage.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1017,
+      "overlayId": 52,
+      "name": "champion_lighting",
+      "legacy": "cmd_03f9",
+      "description": "Champion lighting.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1018,
+      "overlayId": 52,
+      "name": "champion_hall_room",
+      "legacy": "cmd_03fa",
+      "description": "Champion hall room.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1019,
+      "overlayId": 52,
+      "name": "champion_light_attr_off",
+      "legacy": "cmd_03fb",
+      "description": "Champion light attr off.",
+      "parameters": [
+        {
+          "name": "obj_id",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 1020,
+      "overlayId": 52,
+      "name": "champion_light_attr_on",
+      "legacy": "cmd_03fc",
+      "description": "Champion light attr on.",
+      "parameters": [
+        {
+          "name": "obj_id",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 1021,
+      "overlayId": 52,
+      "name": "champion_set_exchange_flag",
+      "legacy": "cmd_03fd",
+      "description": "Champion set exchange flag.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1000,
+      "overlayId": 53,
+      "name": "palpark_call",
+      "legacy": "cmd_03e8",
+      "description": "Palpark call.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1001,
+      "overlayId": 53,
+      "name": "get_palpark_value",
+      "legacy": "cmd_03e9",
+      "description": "Get palpark value.",
+      "parameters": [
+        {
+          "name": "type",
+          "width": 1,
+          "description": "Literal unsigned 8-bit operand; does not read a work variable."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        1
+      ]
+    },
+    {
+      "opcode": 1000,
+      "overlayId": 54,
+      "name": "sea_temple_start",
+      "legacy": "cmd_03e8",
+      "description": "Sea temple start.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1001,
+      "overlayId": 54,
+      "name": "sea_temple_get_step_walk",
+      "legacy": "cmd_03e9",
+      "description": "Sea temple get step walk.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1000,
+      "overlayId": 55,
+      "name": "pwt_system_start",
+      "legacy": "cmd_03e8",
+      "description": "Pwt system start.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1001,
+      "overlayId": 55,
+      "name": "pwt_system_end",
+      "legacy": "cmd_03e9",
+      "description": "Pwt system end.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1002,
+      "overlayId": 55,
+      "name": "pwt_system_check_enable",
+      "legacy": "cmd_03ea",
+      "description": "Pwt system check enable.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1003,
+      "overlayId": 55,
+      "name": "pwt_system_set_stage",
+      "legacy": "cmd_03eb",
+      "description": "Pwt system set stage.",
+      "parameters": [
+        {
+          "name": "stage",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1004,
+      "overlayId": 55,
+      "name": "pwt_system_get_stage",
+      "legacy": "cmd_03ec",
+      "description": "Pwt system get stage.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1005,
+      "overlayId": 55,
+      "name": "pwt_system_entry",
+      "legacy": "cmd_03ed",
+      "description": "Pwt system entry.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1006,
+      "overlayId": 55,
+      "name": "pwt_check_cup_enable",
+      "legacy": "cmd_03ee",
+      "description": "Pwt check cup enable.",
+      "parameters": [
+        {
+          "name": "wbtcup",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1007,
+      "overlayId": 55,
+      "name": "pwt_check_cup_unlock",
+      "legacy": "cmd_03ef",
+      "description": "Pwt check cup unlock.",
+      "parameters": [
+        {
+          "name": "wbtcup",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1008,
+      "overlayId": 55,
+      "name": "pwt_check_battle_rule",
+      "legacy": "cmd_03f0",
+      "description": "Pwt check battle rule.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1009,
+      "overlayId": 55,
+      "name": "pwt_set_battle_rule",
+      "legacy": "cmd_03f1",
+      "description": "Pwt set battle rule.",
+      "parameters": [
+        {
+          "name": "rule",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1010,
+      "overlayId": 55,
+      "name": "pwt_get_battle_rule",
+      "legacy": "cmd_03f2",
+      "description": "Pwt get battle rule.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1011,
+      "overlayId": 55,
+      "name": "pwt_set_pwt_cup",
+      "legacy": "cmd_03f3",
+      "description": "Pwt set pwt cup.",
+      "parameters": [
+        {
+          "name": "wbtcup",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1012,
+      "overlayId": 55,
+      "name": "pwt_get_pwt_cup",
+      "legacy": "cmd_03f4",
+      "description": "Pwt get pwt cup.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1013,
+      "overlayId": 55,
+      "name": "pwt_set_tournament_poke_type",
+      "legacy": "cmd_03f5",
+      "description": "Pwt set tournament poke type.",
+      "parameters": [
+        {
+          "name": "poketype",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1014,
+      "overlayId": 55,
+      "name": "pwt_get_tournament_poke_type",
+      "legacy": "cmd_03f6",
+      "description": "Pwt get tournament poke type.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1015,
+      "overlayId": 55,
+      "name": "pwt_set_reception_id",
+      "legacy": "cmd_03f7",
+      "description": "Pwt set reception id.",
+      "parameters": [
+        {
+          "name": "reception_id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1016,
+      "overlayId": 55,
+      "name": "pwt_get_reception_id",
+      "legacy": "cmd_03f8",
+      "description": "Pwt get reception id.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1017,
+      "overlayId": 55,
+      "name": "pwt_inc_victory_count",
+      "legacy": "cmd_03f9",
+      "description": "Pwt inc victory count.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1018,
+      "overlayId": 55,
+      "name": "pwt_get_victory_count",
+      "legacy": "cmd_03fa",
+      "description": "Pwt get victory count.",
+      "parameters": [
+        {
+          "name": "wbtcup",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "poketype",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "opcode": 1019,
+      "overlayId": 55,
+      "name": "pwt_get_survival_count",
+      "legacy": "cmd_03fb",
+      "description": "Pwt get survival count.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1020,
+      "overlayId": 55,
+      "name": "pwt_get_reward",
+      "legacy": "cmd_03fc",
+      "description": "Pwt get reward.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1022,
+      "overlayId": 55,
+      "name": "pwt_get_lobby_trainer_id",
+      "legacy": "cmd_03fe",
+      "description": "Get the trainer ID for a PWT lobby position and write it to the result work slot.",
+      "parameters": [
+        {
+          "name": "lobby_position",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "result_work",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1023,
+      "overlayId": 55,
+      "name": "pwt_get_lobby_m_mdl_code",
+      "legacy": "cmd_03ff",
+      "description": "Pwt get lobby m mdl code.",
+      "parameters": [
+        {
+          "name": "ret_wk1",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        },
+        {
+          "name": "ret_wk2",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        },
+        {
+          "name": "ret_wk3",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "opcode": 1024,
+      "overlayId": 55,
+      "name": "pwt_get_party_max",
+      "legacy": "cmd_0400",
+      "description": "Pwt get party max.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1025,
+      "overlayId": 55,
+      "name": "pwt_get_down_load_count",
+      "legacy": "cmd_0401",
+      "description": "Pwt get down load count.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1026,
+      "overlayId": 55,
+      "name": "pwt_set_dl_data",
+      "legacy": "cmd_0402",
+      "description": "Pwt set dl data.",
+      "parameters": [
+        {
+          "name": "number",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1027,
+      "overlayId": 55,
+      "name": "pwt_get_dl_number",
+      "legacy": "cmd_0403",
+      "description": "Pwt get dl number.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1028,
+      "overlayId": 55,
+      "name": "pwt_setup_battle_box",
+      "legacy": "cmd_0404",
+      "description": "Pwt setup battle box.",
+      "parameters": [
+        {
+          "name": "use_mode",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1029,
+      "overlayId": 55,
+      "name": "pwt_mix_info_win_open",
+      "legacy": "cmd_0405",
+      "description": "Pwt mix info win open.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1030,
+      "overlayId": 55,
+      "name": "pwt_mix_info_win_close",
+      "legacy": "cmd_0406",
+      "description": "Pwt mix info win close.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1031,
+      "overlayId": 55,
+      "name": "pwt_mix_init",
+      "legacy": "cmd_0407",
+      "description": "Pwt mix init.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1032,
+      "overlayId": 55,
+      "name": "pwt_mix_random_select",
+      "legacy": "cmd_0408",
+      "description": "Pwt mix random select.",
+      "parameters": [
+        {
+          "name": "target",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1033,
+      "overlayId": 55,
+      "name": "pwt_mix_set_select",
+      "legacy": "cmd_0409",
+      "description": "Pwt mix set select.",
+      "parameters": [
+        {
+          "name": "target",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "select",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1034,
+      "overlayId": 55,
+      "name": "pwt_mix_get_selected_name",
+      "legacy": "cmd_040a",
+      "description": "Put the selected PWT trainer name into a text-buffer slot for dialogue.",
+      "parameters": [
+        {
+          "name": "text_slot",
+          "width": 1,
+          "description": "Literal 8-bit text-buffer slot to fill with the trainer name."
+        },
+        {
+          "name": "selection_context",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        1
+      ]
+    },
+    {
+      "opcode": 1035,
+      "overlayId": 55,
+      "name": "pwt_mix_list_start",
+      "legacy": "cmd_040b",
+      "description": "Pwt mix list start.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1036,
+      "overlayId": 55,
+      "name": "pwt_mix_setup_check_msg",
+      "legacy": "cmd_040c",
+      "description": "Pwt mix setup check msg.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1037,
+      "overlayId": 55,
+      "name": "pwt_setup_mix_party",
+      "legacy": "cmd_040d",
+      "description": "Pwt setup mix party.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1038,
+      "overlayId": 55,
+      "name": "pwt_setup_rental_party",
+      "legacy": "cmd_040e",
+      "description": "Pwt setup rental party.",
+      "parameters": [
+        {
+          "name": "rental_type",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1039,
+      "overlayId": 55,
+      "name": "pwt_setup_enemy_party",
+      "legacy": "cmd_040f",
+      "description": "Pwt setup enemy party.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1040,
+      "overlayId": 55,
+      "name": "pwt_get_enemy_m_mdl_code",
+      "legacy": "cmd_0410",
+      "description": "Pwt get enemy m mdl code.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1041,
+      "overlayId": 55,
+      "name": "pwt_trainer_msg",
+      "legacy": "cmd_0411",
+      "description": "Pwt trainer msg.",
+      "parameters": [
+        {
+          "name": "type",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "obj_id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1042,
+      "overlayId": 55,
+      "name": "pwt_trainer_battle",
+      "legacy": "cmd_0412",
+      "description": "Pwt trainer battle.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1043,
+      "overlayId": 55,
+      "name": "pwt_announce",
+      "legacy": "cmd_0413",
+      "description": "Pwt announce.",
+      "parameters": [
+        {
+          "name": "up_down",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1044,
+      "overlayId": 55,
+      "name": "pwt_set_tournament_name",
+      "legacy": "cmd_0414",
+      "description": "Pwt set tournament name.",
+      "parameters": [
+        {
+          "name": "idx",
+          "width": 1,
+          "description": "Literal unsigned 8-bit operand; does not read a work variable."
+        },
+        {
+          "name": "wbtcup",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        1
+      ]
+    },
+    {
+      "opcode": 1045,
+      "overlayId": 55,
+      "name": "pwt_set_enemy_name",
+      "legacy": "cmd_0415",
+      "description": "Put the opposing PWT trainer name into a text-buffer slot for dialogue.",
+      "parameters": [
+        {
+          "name": "text_slot",
+          "width": 1,
+          "description": "Literal 8-bit text-buffer slot to fill with the trainer name."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 1046,
+      "overlayId": 55,
+      "name": "pwt_btl_util_party_select",
+      "legacy": "cmd_0416",
+      "description": "Pwt btl util party select.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1047,
+      "overlayId": 55,
+      "name": "pwt_show_tornament_list",
+      "legacy": "cmd_0417",
+      "description": "Pwt show tornament list.",
+      "parameters": [
+        {
+          "name": "list_type",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1048,
+      "overlayId": 55,
+      "name": "pwt_select_pokemon",
+      "legacy": "cmd_0418",
+      "description": "Pwt select pokemon.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1049,
+      "overlayId": 55,
+      "name": "pwt_select_dl_data",
+      "legacy": "cmd_0419",
+      "description": "Pwt select dl data.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        },
+        {
+          "name": "cur_pos",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1050,
+      "overlayId": 55,
+      "name": "pwte_checker_record",
+      "legacy": "cmd_041a",
+      "description": "Pwte checker record.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1051,
+      "overlayId": 55,
+      "name": "pwte_checker_down_load",
+      "legacy": "cmd_041b",
+      "description": "Pwte checker down load.",
+      "parameters": [
+        {
+          "name": "app_id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1052,
+      "overlayId": 55,
+      "name": "pwtgmk_vision_change",
+      "legacy": "cmd_041c",
+      "description": "Pwtgmk vision change.",
+      "parameters": [
+        {
+          "name": "type",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1053,
+      "overlayId": 55,
+      "name": "pwtgmk_effect_start",
+      "legacy": "cmd_041d",
+      "description": "Pwtgmk effect start.",
+      "parameters": [
+        {
+          "name": "type",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "pos",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1054,
+      "overlayId": 55,
+      "name": "pwtgmk_win_effect_start",
+      "legacy": "cmd_041e",
+      "description": "Pwtgmk win effect start.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1055,
+      "overlayId": 55,
+      "name": "pwtgmk_light_set",
+      "legacy": "cmd_041f",
+      "description": "Pwtgmk light set.",
+      "parameters": [
+        {
+          "name": "on_off",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "pos",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1056,
+      "overlayId": 55,
+      "name": "pwtgmk_explosion",
+      "legacy": "cmd_0420",
+      "description": "Pwtgmk explosion.",
+      "parameters": [
+        {
+          "name": "type",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1057,
+      "overlayId": 55,
+      "name": "pwt_get_regulation_id",
+      "legacy": "cmd_0421",
+      "description": "Pwt get regulation id.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1058,
+      "overlayId": 55,
+      "name": "pwt_get_ng_message_id",
+      "legacy": "cmd_0422",
+      "description": "Pwt get ng message id.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1059,
+      "overlayId": 55,
+      "name": "pwt_btl_util_check_party_select",
+      "legacy": "cmd_0423",
+      "description": "Pwt btl util check party select.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1060,
+      "overlayId": 55,
+      "name": "pwtgmk_vision_change_init",
+      "legacy": "cmd_0424",
+      "description": "Pwtgmk vision change init.",
+      "parameters": [
+        {
+          "name": "type",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1000,
+      "overlayId": 58,
+      "name": "join_avenue_talk_start",
+      "legacy": "cmd_03e8",
+      "description": "Join avenue talk start.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1001,
+      "overlayId": 58,
+      "name": "join_avenue_talk_end",
+      "legacy": "cmd_03e9",
+      "description": "Join avenue talk end.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1002,
+      "overlayId": 58,
+      "name": "join_avenue_get_data",
+      "legacy": "cmd_03ea",
+      "description": "Join avenue get data.",
+      "parameters": [
+        {
+          "name": "param",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1003,
+      "overlayId": 58,
+      "name": "join_avenue_get_msg_id",
+      "legacy": "cmd_03eb",
+      "description": "Join avenue get msg id.",
+      "parameters": [
+        {
+          "name": "param",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1004,
+      "overlayId": 58,
+      "name": "join_avenue_print_rank_window",
+      "legacy": "cmd_03ec",
+      "description": "Join avenue print rank window.",
+      "parameters": [
+        {
+          "name": "param",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1005,
+      "overlayId": 58,
+      "name": "join_avenue_job_change",
+      "legacy": "cmd_03ed",
+      "description": "Join avenue job change.",
+      "parameters": [
+        {
+          "name": "param",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        1
+      ]
+    },
+    {
+      "opcode": 1006,
+      "overlayId": 58,
+      "name": "join_avenue_reset_mmdl",
+      "legacy": "cmd_03ee",
+      "description": "Join avenue reset mmdl.",
+      "parameters": [
+        {
+          "name": "param",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1007,
+      "overlayId": 58,
+      "name": "join_avenue_set_word",
+      "legacy": "cmd_03ef",
+      "description": "Join avenue set word.",
+      "parameters": [
+        {
+          "name": "type",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        },
+        {
+          "name": "param",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "idx",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "buff_idx",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": [
+        1,
+        2
+      ]
+    },
+    {
+      "opcode": 1008,
+      "overlayId": 58,
+      "name": "join_avenue_delete_people",
+      "legacy": "cmd_03f0",
+      "description": "Join avenue delete people.",
+      "parameters": [
+        {
+          "name": "mode",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "type",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "idx",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "opcode": 1009,
+      "overlayId": 58,
+      "name": "join_avenue_add_exp_shop",
+      "legacy": "cmd_03f1",
+      "description": "Join avenue add exp shop.",
+      "parameters": [
+        {
+          "name": "idx",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "add_exp",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_result",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        },
+        {
+          "name": "ret_lv",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "opcode": 1010,
+      "overlayId": 58,
+      "name": "join_avenue_add_exp_city",
+      "legacy": "cmd_03f2",
+      "description": "Join avenue add exp city.",
+      "parameters": [
+        {
+          "name": "add_exp",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_result",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        },
+        {
+          "name": "ret_lv",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "opcode": 1011,
+      "overlayId": 58,
+      "name": "join_avenue_call_list",
+      "legacy": "cmd_03f3",
+      "description": "Join avenue call list.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1012,
+      "overlayId": 58,
+      "name": "join_avenue_merge_off",
+      "legacy": "cmd_03f4",
+      "description": "Join avenue merge off.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1013,
+      "overlayId": 58,
+      "name": "join_avenue_set_merge_lock",
+      "legacy": "cmd_03f5",
+      "description": "Join avenue set merge lock.",
+      "parameters": [
+        {
+          "name": "on_off",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1014,
+      "overlayId": 58,
+      "name": "join_avenue_set_secene_visible",
+      "legacy": "cmd_03f6",
+      "description": "Join avenue set secene visible.",
+      "parameters": [
+        {
+          "name": "mode",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1015,
+      "overlayId": 58,
+      "name": "join_avenue_lot",
+      "legacy": "cmd_03f7",
+      "description": "Join avenue lot.",
+      "parameters": [
+        {
+          "name": "param",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_item",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "opcode": 1016,
+      "overlayId": 58,
+      "name": "join_avenue_add_kindly",
+      "legacy": "cmd_03f8",
+      "description": "Join avenue add kindly.",
+      "parameters": [
+        {
+          "name": "param",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "value",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "opcode": 1017,
+      "overlayId": 58,
+      "name": "join_avenue_add_lv",
+      "legacy": "cmd_03f9",
+      "description": "Join avenue add lv.",
+      "parameters": [
+        {
+          "name": "param",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "value",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "opcode": 1018,
+      "overlayId": 58,
+      "name": "join_avenue_add_effort",
+      "legacy": "cmd_03fa",
+      "description": "Join avenue add effort.",
+      "parameters": [
+        {
+          "name": "idx",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "effort",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        },
+        {
+          "name": "value",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        2,
+        3
+      ]
+    },
+    {
+      "opcode": 1019,
+      "overlayId": 58,
+      "name": "join_avenue_hatch",
+      "legacy": "cmd_03fb",
+      "description": "Join avenue hatch.",
+      "parameters": [
+        {
+          "name": "idx",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "pos",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "opcode": 1020,
+      "overlayId": 58,
+      "name": "join_avenue_set_day_flag",
+      "legacy": "cmd_03fc",
+      "description": "Join avenue set day flag.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1021,
+      "overlayId": 58,
+      "name": "join_avenue_end_service",
+      "legacy": "cmd_03fd",
+      "description": "Join avenue end service.",
+      "parameters": [
+        {
+          "name": "place",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "flag",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1022,
+      "overlayId": 58,
+      "name": "join_avenue_set_spot",
+      "legacy": "cmd_03fe",
+      "description": "Join avenue set spot.",
+      "parameters": [
+        {
+          "name": "idx",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_result",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        },
+        {
+          "name": "ret_grade_msg",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        },
+        {
+          "name": "ret_eff_msg",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        },
+        {
+          "name": "ret_exp",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "opcode": 1023,
+      "overlayId": 58,
+      "name": "join_avenue_call_input_name",
+      "legacy": "cmd_03ff",
+      "description": "Join avenue call input name.",
+      "parameters": [
+        {
+          "name": "type",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        },
+        {
+          "name": "is_default",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 1024,
+      "overlayId": 58,
+      "name": "join_avenue_combo",
+      "legacy": "cmd_0400",
+      "description": "Join avenue combo.",
+      "parameters": [
+        {
+          "name": "data",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "param",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        },
+        {
+          "name": "ret_idx",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "opcode": 1025,
+      "overlayId": 58,
+      "name": "join_avenue_check_prize",
+      "legacy": "cmd_0401",
+      "description": "Join avenue check prize.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1026,
+      "overlayId": 58,
+      "name": "join_avenue_end_item",
+      "legacy": "cmd_0402",
+      "description": "Join avenue end item.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1027,
+      "overlayId": 58,
+      "name": "join_avenue_add_people",
+      "legacy": "cmd_0403",
+      "description": "Join avenue add people.",
+      "parameters": [
+        {
+          "name": "id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1028,
+      "overlayId": 58,
+      "name": "join_avenue_set_preset_poeple",
+      "legacy": "cmd_0404",
+      "description": "Join avenue set preset poeple.",
+      "parameters": [
+        {
+          "name": "people",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "preset",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1029,
+      "overlayId": 58,
+      "name": "join_avenue_get_npc_data",
+      "legacy": "cmd_0405",
+      "description": "Join avenue get npc data.",
+      "parameters": [
+        {
+          "name": "objid",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "param",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "opcode": 1030,
+      "overlayId": 58,
+      "name": "join_avenue_set_my_data",
+      "legacy": "cmd_0406",
+      "description": "Join avenue set my data.",
+      "parameters": [
+        {
+          "name": "param",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "data",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1031,
+      "overlayId": 58,
+      "name": "join_avenue_get_my_data",
+      "legacy": "cmd_0407",
+      "description": "Join avenue get my data.",
+      "parameters": [
+        {
+          "name": "param",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1032,
+      "overlayId": 58,
+      "name": "join_avenue_get_mouth_comm",
+      "legacy": "cmd_0408",
+      "description": "Join avenue get mouth comm.",
+      "parameters": [
+        {
+          "name": "index",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "cnt",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "opcode": 1033,
+      "overlayId": 58,
+      "name": "join_avenue_set_word_mouth_comm_answer",
+      "legacy": "cmd_0409",
+      "description": "Join avenue set word mouth comm answer.",
+      "parameters": [
+        {
+          "name": "npc_idx",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "answer_idx",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "buf_id",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1034,
+      "overlayId": 58,
+      "name": "join_avenue_get_service_data",
+      "legacy": "cmd_040a",
+      "description": "Join avenue get service data.",
+      "parameters": [
+        {
+          "name": "service_idx",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "param",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "opcode": 1035,
+      "overlayId": 58,
+      "name": "join_avenue_get_offreco",
+      "legacy": "cmd_040b",
+      "description": "Join avenue get offreco.",
+      "parameters": [
+        {
+          "name": "index",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "param",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "opcode": 1036,
+      "overlayId": 58,
+      "name": "call_medal_info",
+      "legacy": "cmd_040c",
+      "description": "Show medal information using the current event context.",
+      "parameters": [],
+      "workOperands": [],
+      "note": "Join Avenue common-table callback. It consumes no script operands; the following bytes begin the next command."
+    },
+    {
+      "opcode": 1037,
+      "overlayId": 58,
+      "name": "join_avenue_start_effect",
+      "legacy": "cmd_040d",
+      "description": "Join avenue start effect.",
+      "parameters": [
+        {
+          "name": "id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1038,
+      "overlayId": 58,
+      "name": "join_avenue_wait_effect",
+      "legacy": "cmd_040e",
+      "description": "Join avenue wait effect.",
+      "parameters": [
+        {
+          "name": "id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1039,
+      "overlayId": 58,
+      "name": "join_avenue_end_effect",
+      "legacy": "cmd_040f",
+      "description": "Join avenue end effect.",
+      "parameters": [
+        {
+          "name": "id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1000,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_start",
+      "legacy": "cmd_03e8",
+      "description": "Black tower white tree start.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1001,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_warp",
+      "legacy": "cmd_03e9",
+      "description": "Black tower white tree warp.",
+      "parameters": [
+        {
+          "name": "warp_dir",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "fade_out_param",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "fade_in_param",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "opcode": 1003,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_reset_seed",
+      "legacy": "cmd_03eb",
+      "description": "Black tower white tree reset seed.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1004,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_get_floor_no",
+      "legacy": "cmd_03ec",
+      "description": "Black tower white tree get floor no.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1005,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_floor_move",
+      "legacy": "cmd_03ed",
+      "description": "Black tower white tree floor move.",
+      "parameters": [
+        {
+          "name": "floor_no",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1006,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_get_area_no",
+      "legacy": "cmd_03ee",
+      "description": "Black tower white tree get area no.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1007,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_battle_trainer",
+      "legacy": "cmd_03ef",
+      "description": "Black tower white tree battle trainer.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1008,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_get_boss_no",
+      "legacy": "cmd_03f0",
+      "description": "Black tower white tree get boss no.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1009,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_set_trainer_battle_flag",
+      "legacy": "cmd_03f1",
+      "description": "Black tower white tree set trainer battle flag.",
+      "parameters": [
+        {
+          "name": "id_pos",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "status",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1010,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_get_boss_obj_code",
+      "legacy": "cmd_03f2",
+      "description": "Black tower white tree get boss obj code.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1011,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_get_trainer_battle_flag",
+      "legacy": "cmd_03f3",
+      "description": "Black tower white tree get trainer battle flag.",
+      "parameters": [
+        {
+          "name": "id_pos",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1012,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_get_hint_msg_id",
+      "legacy": "cmd_03f4",
+      "description": "Black tower white tree get hint msg id.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1013,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_get_after_btl_msg_type",
+      "legacy": "cmd_03f5",
+      "description": "Black tower white tree get after btl msg type.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1014,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_get_recover_flag",
+      "legacy": "cmd_03f6",
+      "description": "Black tower white tree get recover flag.",
+      "parameters": [
+        {
+          "name": "tr_id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1015,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_set_recover_flag",
+      "legacy": "cmd_03f7",
+      "description": "Black tower white tree set recover flag.",
+      "parameters": [
+        {
+          "name": "tr_id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "status",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1016,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_open_elevator",
+      "legacy": "cmd_03f8",
+      "description": "Black tower white tree open elevator.",
+      "parameters": [
+        {
+          "name": "id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "is_open",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1017,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_get_boss_floor",
+      "legacy": "cmd_03f9",
+      "description": "Black tower white tree get boss floor.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1018,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_get_trainer_type",
+      "legacy": "cmd_03fa",
+      "description": "Black tower white tree get trainer type.",
+      "parameters": [
+        {
+          "name": "tr_id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1019,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_set_status",
+      "legacy": "cmd_03fb",
+      "description": "Black tower white tree set status.",
+      "parameters": [
+        {
+          "name": "status",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1020,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_get_map_status",
+      "legacy": "cmd_03fc",
+      "description": "Black tower white tree get map status.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1021,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_set_map_status",
+      "legacy": "cmd_03fd",
+      "description": "Black tower white tree set map status.",
+      "parameters": [
+        {
+          "name": "status",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1022,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_get_tr_id_by_id_pos",
+      "legacy": "cmd_03fe",
+      "description": "Black tower white tree get tr id by id pos.",
+      "parameters": [
+        {
+          "name": "id_pos",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1023,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_get_version",
+      "legacy": "cmd_03ff",
+      "description": "Black tower white tree get version.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1024,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_get_dungeon_data",
+      "legacy": "cmd_0400",
+      "description": "Black tower white tree get dungeon data.",
+      "parameters": [
+        {
+          "name": "param_id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "area_id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "opcode": 1025,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_lift_ban_elevator",
+      "legacy": "cmd_0401",
+      "description": "Black tower white tree lift ban elevator.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1026,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_get_is_gate_trainer",
+      "legacy": "cmd_0402",
+      "description": "Black tower white tree get is gate trainer.",
+      "parameters": [
+        {
+          "name": "id_pos",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1027,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_get_gate_battle_msg_id",
+      "legacy": "cmd_0403",
+      "description": "Black tower white tree get gate battle msg id.",
+      "parameters": [
+        {
+          "name": "is_before_battle",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1028,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_get_gate_trainer_room_tr_num",
+      "legacy": "cmd_0404",
+      "description": "Black tower white tree get gate trainer room tr num.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1029,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_get_penalty_gold",
+      "legacy": "cmd_0405",
+      "description": "Black tower white tree get penalty gold.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1030,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_open_gate",
+      "legacy": "cmd_0406",
+      "description": "Black tower white tree open gate.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1031,
+      "overlayId": 61,
+      "name": "black_tower_white_tree_set_penalty_gold",
+      "legacy": "cmd_0407",
+      "description": "Black tower white tree set penalty gold.",
+      "parameters": [
+        {
+          "name": "work_id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1000,
+      "overlayId": 62,
+      "name": "pokestar_rec",
+      "legacy": "cmd_03e8",
+      "description": "Pokestar rec.",
+      "parameters": [
+        {
+          "name": "rec_pos",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "scenario_no",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "opcode": 1001,
+      "overlayId": 62,
+      "name": "pokestar_show",
+      "legacy": "cmd_03e9",
+      "description": "Pokestar show.",
+      "parameters": [
+        {
+          "name": "rec_id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1002,
+      "overlayId": 62,
+      "name": "pokestar_select_scenario",
+      "legacy": "cmd_03ea",
+      "description": "Pokestar select scenario.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1003,
+      "overlayId": 62,
+      "name": "pokestar_select_movie",
+      "legacy": "cmd_03eb",
+      "description": "Pokestar select movie.",
+      "parameters": [
+        {
+          "name": "mode",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1004,
+      "overlayId": 62,
+      "name": "pokestar_save_movie",
+      "legacy": "cmd_03ec",
+      "description": "Pokestar save movie.",
+      "parameters": [
+        {
+          "name": "rec_pos",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1005,
+      "overlayId": 62,
+      "name": "pokestar_set_scenario_name",
+      "legacy": "cmd_03ed",
+      "description": "Pokestar set scenario name.",
+      "parameters": [
+        {
+          "name": "idx",
+          "width": 1,
+          "description": "Literal unsigned 8-bit operand; does not read a work variable."
+        },
+        {
+          "name": "sc_no",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        1
+      ]
+    },
+    {
+      "opcode": 1006,
+      "overlayId": 62,
+      "name": "pokestar_get_scenario_status",
+      "legacy": "cmd_03ee",
+      "description": "Pokestar get scenario status.",
+      "parameters": [
+        {
+          "name": "type",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "sc_no",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "opcode": 1007,
+      "overlayId": 62,
+      "name": "pokestar_set_scenario_status",
+      "legacy": "cmd_03ef",
+      "description": "Pokestar set scenario status.",
+      "parameters": [
+        {
+          "name": "type",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "sc_no",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1008,
+      "overlayId": 62,
+      "name": "pokestar_get_movies_count",
+      "legacy": "cmd_03f0",
+      "description": "Pokestar get movies count.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1009,
+      "overlayId": 62,
+      "name": "pokestar_check_movie_enable",
+      "legacy": "cmd_03f1",
+      "description": "Pokestar check movie enable.",
+      "parameters": [
+        {
+          "name": "rec_id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1010,
+      "overlayId": 62,
+      "name": "pokestar_get_movie_value",
+      "legacy": "cmd_03f2",
+      "description": "Pokestar get movie value.",
+      "parameters": [
+        {
+          "name": "rec_id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1011,
+      "overlayId": 62,
+      "name": "pokestar_system_start",
+      "legacy": "cmd_03f3",
+      "description": "Pokestar system start.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1012,
+      "overlayId": 62,
+      "name": "pokestar_system_end",
+      "legacy": "cmd_03f4",
+      "description": "Pokestar system end.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1013,
+      "overlayId": 62,
+      "name": "pokestar_select_pokemon",
+      "legacy": "cmd_03f5",
+      "description": "Pokestar select pokemon.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1014,
+      "overlayId": 62,
+      "name": "pokestar_set_join_mypoke",
+      "legacy": "cmd_03f6",
+      "description": "Pokestar set join mypoke.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1015,
+      "overlayId": 62,
+      "name": "pokestar_check_new_scenario",
+      "legacy": "cmd_03f7",
+      "description": "Pokestar check new scenario.",
+      "parameters": [
+        {
+          "name": "sc_no",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "msg_type",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "opcode": 1016,
+      "overlayId": 62,
+      "name": "pokestar_check_new_star_rank",
+      "legacy": "cmd_03f8",
+      "description": "Pokestar check new star rank.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1017,
+      "overlayId": 62,
+      "name": "pokestar_is_showed_movie",
+      "legacy": "cmd_03f9",
+      "description": "Pokestar is showed movie.",
+      "parameters": [
+        {
+          "name": "play_id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1018,
+      "overlayId": 62,
+      "name": "pokestar_is_rental_poke_movie",
+      "legacy": "cmd_03fa",
+      "description": "Pokestar is rental poke movie.",
+      "parameters": [
+        {
+          "name": "play_id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1019,
+      "overlayId": 62,
+      "name": "pokestar_set_studio_m_mdl",
+      "legacy": "cmd_03fb",
+      "description": "Pokestar set studio m mdl.",
+      "parameters": [
+        {
+          "name": "sc_no",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "mmdl1",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        },
+        {
+          "name": "mmdl2",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "opcode": 1020,
+      "overlayId": 62,
+      "name": "pokestar_get_director_type",
+      "legacy": "cmd_03fc",
+      "description": "Pokestar get director type.",
+      "parameters": [
+        {
+          "name": "sc_no",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1021,
+      "overlayId": 62,
+      "name": "pokestar_check_all_success",
+      "legacy": "cmd_03fd",
+      "description": "Pokestar check all success.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1022,
+      "overlayId": 62,
+      "name": "pokestar_set_showed_movie",
+      "legacy": "cmd_03fe",
+      "description": "Pokestar set showed movie.",
+      "parameters": [
+        {
+          "name": "play_id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1023,
+      "overlayId": 62,
+      "name": "pokestar_record_monitor",
+      "legacy": "cmd_03ff",
+      "description": "Pokestar record monitor.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1024,
+      "overlayId": 62,
+      "name": "pokestar_get_bonus_item",
+      "legacy": "cmd_0400",
+      "description": "Pokestar get bonus item.",
+      "parameters": [
+        {
+          "name": "rec_id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "fan_no",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_item_no",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        },
+        {
+          "name": "ret_item_num",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "opcode": 1025,
+      "overlayId": 62,
+      "name": "pokestar_get_flag_total",
+      "legacy": "cmd_0401",
+      "description": "Pokestar get flag total.",
+      "parameters": [
+        {
+          "name": "type",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1026,
+      "overlayId": 62,
+      "name": "pokestar_show_tutorial",
+      "legacy": "cmd_0402",
+      "description": "Pokestar show tutorial.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1000,
+      "overlayId": 63,
+      "name": "b_gate_monument_start",
+      "legacy": "cmd_03e8",
+      "description": "B gate monument start.",
+      "parameters": [
+        {
+          "name": "monument_id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1001,
+      "overlayId": 63,
+      "name": "b_gate_gate_open",
+      "legacy": "cmd_03e9",
+      "description": "B gate gate open.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1000,
+      "overlayId": 64,
+      "name": "hide_ship_button",
+      "legacy": "cmd_03e8",
+      "description": "Hide ship button.",
+      "parameters": [
+        {
+          "name": "id",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 1001,
+      "overlayId": 64,
+      "name": "hide_ship_gate_set",
+      "legacy": "cmd_03e9",
+      "description": "Hide ship gate set.",
+      "parameters": [
+        {
+          "name": "id",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        },
+        {
+          "name": "state",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        1
+      ]
+    },
+    {
+      "opcode": 1002,
+      "overlayId": 64,
+      "name": "hide_ship_gate_off",
+      "legacy": "cmd_03ea",
+      "description": "Hide ship gate off.",
+      "parameters": [
+        {
+          "name": "id",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 1003,
+      "overlayId": 64,
+      "name": "hide_ship_button_off",
+      "legacy": "cmd_03eb",
+      "description": "Hide ship button off.",
+      "parameters": [
+        {
+          "name": "id",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 1004,
+      "overlayId": 64,
+      "name": "hide_ship_password_input",
+      "legacy": "cmd_03ec",
+      "description": "Hide ship password input.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1005,
+      "overlayId": 64,
+      "name": "hide_ship_password_id_get",
+      "legacy": "cmd_03ed",
+      "description": "Hide ship password id get.",
+      "parameters": [
+        {
+          "name": "ret_wk",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1006,
+      "overlayId": 64,
+      "name": "hide_ship_bow_button_set",
+      "legacy": "cmd_03ee",
+      "description": "Hide ship bow button set.",
+      "parameters": [
+        {
+          "name": "id",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        },
+        {
+          "name": "state",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        1
+      ]
+    },
+    {
+      "opcode": 1007,
+      "overlayId": 64,
+      "name": "hide_ship_bow_button_off",
+      "legacy": "cmd_03ef",
+      "description": "Hide ship bow button off.",
+      "parameters": [
+        {
+          "name": "id",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 1008,
+      "overlayId": 64,
+      "name": "hide_ship_bow_gate_off",
+      "legacy": "cmd_03f0",
+      "description": "Hide ship bow gate off.",
+      "parameters": [
+        {
+          "name": "id",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 1000,
+      "overlayId": 65,
+      "name": "update_medal_info",
+      "legacy": "cmd_03e8",
+      "description": "Update medal info.",
+      "parameters": [
+        {
+          "name": "idx",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 1001,
+      "overlayId": 65,
+      "name": "get_last_achieve_medal_id",
+      "legacy": "cmd_03e9",
+      "description": "Get last achieve medal id.",
+      "parameters": [
+        {
+          "name": "ret_result",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        },
+        {
+          "name": "ret_medalid",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1005,
+      "overlayId": 65,
+      "name": "random_match_get_data",
+      "legacy": "cmd_03ed",
+      "description": "Random match get data.",
+      "parameters": [
+        {
+          "name": "param",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "ret",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1006,
+      "overlayId": 65,
+      "name": "random_match_start_check",
+      "legacy": "cmd_03ee",
+      "description": "Random match start check.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1007,
+      "overlayId": 65,
+      "name": "random_match_end_check",
+      "legacy": "cmd_03ef",
+      "description": "Random match end check.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1008,
+      "overlayId": 65,
+      "name": "random_match_set_data",
+      "legacy": "cmd_03f0",
+      "description": "Random match set data.",
+      "parameters": [
+        {
+          "name": "param",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "value",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1
+      ]
+    },
+    {
+      "opcode": 1009,
+      "overlayId": 65,
+      "name": "random_match_add_bp",
+      "legacy": "cmd_03f1",
+      "description": "Random match add bp.",
+      "parameters": [
+        {
+          "name": "param",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1000,
+      "overlayId": 66,
+      "name": "c12_anm_start",
+      "legacy": "cmd_03e8",
+      "description": "C12 anm start.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1001,
+      "overlayId": 66,
+      "name": "gianthole_disp",
+      "legacy": "cmd_03e9",
+      "description": "Gianthole disp.",
+      "parameters": [
+        {
+          "name": "id",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 1002,
+      "overlayId": 66,
+      "name": "gianthole_anm_start",
+      "legacy": "cmd_03ea",
+      "description": "Gianthole anm start.",
+      "parameters": [
+        {
+          "name": "id",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 1003,
+      "overlayId": 66,
+      "name": "gianthole_stone_float",
+      "legacy": "cmd_03eb",
+      "description": "Gianthole stone float.",
+      "parameters": [
+        {
+          "name": "obj_id",
+          "width": 2,
+          "description": "Literal unsigned 16-bit operand; does not read a work variable."
+        }
+      ],
+      "workOperands": []
+    },
+    {
+      "opcode": 1004,
+      "overlayId": 66,
+      "name": "gianthole_n_poke_anm_start",
+      "legacy": "cmd_03ec",
+      "description": "Gianthole n poke anm start.",
+      "parameters": [
+        {
+          "name": "param1",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1005,
+      "overlayId": 66,
+      "name": "gianthole_n_poke_anm_end",
+      "legacy": "cmd_03ed",
+      "description": "Gianthole n poke anm end.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1006,
+      "overlayId": 66,
+      "name": "gianthole_obj_offset_set",
+      "legacy": "cmd_03ee",
+      "description": "Gianthole obj offset set.",
+      "parameters": [
+        {
+          "name": "obj_id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "offset_x",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "offset_z",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "opcode": 1007,
+      "overlayId": 66,
+      "name": "gianthole_wild_win",
+      "legacy": "cmd_03ef",
+      "description": "Gianthole wild win.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1009,
+      "overlayId": 66,
+      "name": "ending_fire_works",
+      "legacy": "cmd_03f1",
+      "description": "Ending fire works.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1010,
+      "overlayId": 66,
+      "name": "ending_fire_works_se_end",
+      "legacy": "cmd_03f2",
+      "description": "Ending fire works se end.",
+      "parameters": [
+        {
+          "name": "se_no",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1011,
+      "overlayId": 66,
+      "name": "ending_c12_init",
+      "legacy": "cmd_03f3",
+      "description": "Ending c12 init.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1012,
+      "overlayId": 66,
+      "name": "start_leg_gmk",
+      "legacy": "cmd_03f4",
+      "description": "Start leg gmk.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1013,
+      "overlayId": 66,
+      "name": "leg_move_ball",
+      "legacy": "cmd_03f5",
+      "description": "Leg move ball.",
+      "parameters": [
+        {
+          "name": "target_obj",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "x",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "y",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "z",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "height",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "sync",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "opcode": 1014,
+      "overlayId": 66,
+      "name": "leg_start_ball_anm",
+      "legacy": "cmd_03f6",
+      "description": "Leg start ball anm.",
+      "parameters": [
+        {
+          "name": "x",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "y",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "z",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "opcode": 1015,
+      "overlayId": 66,
+      "name": "leg_wait_ball_anm",
+      "legacy": "cmd_03f7",
+      "description": "Leg wait ball anm.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1016,
+      "overlayId": 66,
+      "name": "leg_wait_ball_poke_app",
+      "legacy": "cmd_03f8",
+      "description": "Leg wait ball poke app.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1000,
+      "overlayId": 67,
+      "name": "c14_gmk_splash",
+      "legacy": "cmd_03e8",
+      "description": "C14 gmk splash.",
+      "parameters": [
+        {
+          "name": "gx",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "gy",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "gz",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "opcode": 1001,
+      "overlayId": 67,
+      "name": "c14_gmk_obj_water_jump",
+      "legacy": "cmd_03e9",
+      "description": "C14 gmk obj water jump.",
+      "parameters": [
+        {
+          "name": "obj_id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "gx",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "gz",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "dir",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "opcode": 1000,
+      "overlayId": 68,
+      "name": "regi_gmk_set_eye",
+      "legacy": "cmd_03e8",
+      "description": "Regi gmk set eye.",
+      "parameters": [
+        {
+          "name": "id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1001,
+      "overlayId": 68,
+      "name": "regi_gmk_set_door_state",
+      "legacy": "cmd_03e9",
+      "description": "Regi gmk set door state.",
+      "parameters": [
+        {
+          "name": "is_open",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1002,
+      "overlayId": 68,
+      "name": "regi_gmk_anm_door_start",
+      "legacy": "cmd_03ea",
+      "description": "Regi gmk anm door start.",
+      "parameters": [
+        {
+          "name": "is_open",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1003,
+      "overlayId": 68,
+      "name": "kerudhio_gmk_remember_event",
+      "legacy": "cmd_03eb",
+      "description": "Kerudhio gmk remember event.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1004,
+      "overlayId": 68,
+      "name": "kerudhio_gmk_effect_delete",
+      "legacy": "cmd_03ec",
+      "description": "Kerudhio gmk effect delete.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1005,
+      "overlayId": 68,
+      "name": "mero_gmk_start_anime",
+      "legacy": "cmd_03ed",
+      "description": "Mero gmk start anime.",
+      "parameters": [
+        {
+          "name": "obj_id",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        }
+      ],
+      "workOperands": [
+        0
+      ]
+    },
+    {
+      "opcode": 1006,
+      "overlayId": 68,
+      "name": "mero_gmk_is_anime_end",
+      "legacy": "cmd_03ee",
+      "description": "Mero gmk is anime end.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1007,
+      "overlayId": 68,
+      "name": "mero_gmk_down",
+      "legacy": "cmd_03ef",
+      "description": "Mero gmk down.",
+      "parameters": [],
+      "workOperands": []
+    },
+    {
+      "opcode": 1011,
+      "overlayId": 60,
+      "name": "join_avenue_shop_menu",
+      "legacy": "join_avenue_shop_menu",
+      "description": "Open the Join Avenue shop/service menu and write the selected service and price to the supplied work slots.",
+      "parameters": [
+        {
+          "name": "shop_type",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "shop_parameter",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "camera_type",
+          "width": 2,
+          "description": "Literal below 0x4000, or a work-variable ID whose value is read."
+        },
+        {
+          "name": "service_type",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        },
+        {
+          "name": "service_parameter",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        },
+        {
+          "name": "service_parameter_2",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        },
+        {
+          "name": "service_index",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        },
+        {
+          "name": "price",
+          "width": 2,
+          "description": "Destination work-variable ID for the command result."
+        }
+      ],
+      "workOperands": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    }
+  ]
+}

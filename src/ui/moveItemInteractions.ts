@@ -1,6 +1,7 @@
 import {
   getItemRecord,
   getMoveRecord,
+  getMoveGeneration,
   itemMatchesSearch,
   moveMatchesSearch,
   updateMoveEffectId,
@@ -42,6 +43,7 @@ import { installMoveAnimationPreview, renderMoveBackgroundPreviewCanvas, type Mo
 import { installMoveAnimationCodeEditor, type MoveAnimationCommandReference } from "./moveAnimationCodeEditor";
 import { installMoveAnimationDocsPanel, type MoveAnimationDocsPanelController } from "./moveAnimationDocsPanel";
 import { installMoveSpaEditor, type MoveSpaEditorController } from "./moveSpaEditor";
+import { getMoveListFilters } from "./moveListFilters";
 
 export type MoveAnimationEditorOptions = {
   onDirty?: () => void;
@@ -71,6 +73,7 @@ type SelectedBattleVariant = {
 };
 
 const MOVE_ANIMATION_SWAP_SIDES_STORAGE_KEY = "pokeweb.moveAnimation.swapSides";
+const moveInteractionInstallations = new WeakMap<HTMLElement, AbortController>();
 const MOVE_ANIMATION_AUDIO_STORAGE_KEY = "pokeweb.moveAnimation.audioEnabled";
 const MOVE_ANIMATION_POKEMON_STORAGE_KEYS = {
   user: "pokeweb.moveAnimation.userSpeciesId",
@@ -231,37 +234,62 @@ function errorMessage(error: unknown): string {
 }
 
 export function attachMoveInteractions(root: HTMLElement, project: ProjectState, options: MoveOptions): void {
-  const activeCategories = new Set<string>();
-  const activeTypes = new Set<string>();
+  moveInteractionInstallations.get(root)?.abort();
+  const controller = new AbortController();
+  moveInteractionInstallations.set(root, controller);
+  const filters = getMoveListFilters(project);
+  const activeCategories = filters.categories;
+  const activeTypes = filters.types;
+  const activeGenerations = filters.generations;
   const searchInput = root.querySelector<HTMLInputElement>("#search-text");
   const searchButton = root.querySelector<HTMLButtonElement>("#search-text-btn");
+  if (searchInput) searchInput.value = filters.searchText;
 
   const runFilter = () => {
-    filterMoves(root, project, searchInput?.value ?? "", activeCategories, activeTypes);
+    filters.searchText = searchInput?.value ?? "";
+    filterMoves(root, project, filters.searchText, activeCategories, activeTypes, activeGenerations);
     stripeRows(root);
   };
 
-  searchButton?.addEventListener("click", runFilter);
+  searchButton?.addEventListener("click", runFilter, { signal: controller.signal });
+  searchInput?.addEventListener("input", runFilter, { signal: controller.signal });
   searchInput?.addEventListener("keypress", (event) => {
     if (event.key === "Enter") runFilter();
-  });
+  }, { signal: controller.signal });
 
   root.querySelectorAll<HTMLButtonElement>(".cat-filters [data-mcat]").forEach((button) => {
+    button.classList.toggle("-active", activeCategories.has(button.dataset.mcat ?? ""));
+    button.setAttribute("aria-pressed", String(activeCategories.has(button.dataset.mcat ?? "")));
     button.addEventListener("click", () => {
       toggleSet(activeCategories, button.dataset.mcat ?? "");
       button.classList.toggle("-active", activeCategories.has(button.dataset.mcat ?? ""));
       button.setAttribute("aria-pressed", String(activeCategories.has(button.dataset.mcat ?? "")));
       runFilter();
-    });
+    }, { signal: controller.signal });
   });
 
   root.querySelectorAll<HTMLButtonElement>(".type-filters [data-ptype]").forEach((button) => {
+    button.classList.toggle("-active", activeTypes.has(button.dataset.ptype ?? ""));
+    button.setAttribute("aria-pressed", String(activeTypes.has(button.dataset.ptype ?? "")));
     button.addEventListener("click", () => {
       toggleSet(activeTypes, button.dataset.ptype ?? "");
       button.classList.toggle("-active", activeTypes.has(button.dataset.ptype ?? ""));
       button.setAttribute("aria-pressed", String(activeTypes.has(button.dataset.ptype ?? "")));
       runFilter();
-    });
+    }, { signal: controller.signal });
+  });
+
+  root.querySelectorAll<HTMLButtonElement>(".gen-filters [data-gen]").forEach(button => {
+    const generation = Number(button.dataset.gen);
+    button.classList.toggle("-active", activeGenerations.has(generation));
+    button.setAttribute("aria-pressed", String(activeGenerations.has(generation)));
+    button.addEventListener("click", () => {
+      if (activeGenerations.has(generation)) activeGenerations.delete(generation);
+      else activeGenerations.add(generation);
+      button.classList.toggle("-active", activeGenerations.has(generation));
+      button.setAttribute("aria-pressed", String(activeGenerations.has(generation)));
+      runFilter();
+    }, { signal: controller.signal });
   });
 
   root.addEventListener("click", (event) => {
@@ -315,7 +343,7 @@ export function attachMoveInteractions(root: HTMLElement, project: ProjectState,
     }
     togglePanel(card, ".expanded-move", icon);
     stripeRows(root);
-  });
+  }, { signal: controller.signal });
 
   installMoveEditableFields(root, project, options);
   runFilter();
@@ -1078,11 +1106,12 @@ export function attachItemInteractions(root: HTMLElement, project: ProjectState,
   runFilter();
 }
 
-function filterMoves(root: HTMLElement, project: ProjectState, searchText: string, categories: Set<string>, types: Set<string>): HTMLElement[] {
+function filterMoves(root: HTMLElement, project: ProjectState, searchText: string, categories: Set<string>, types: Set<string>, generations: Set<number>): HTMLElement[] {
   const visible: HTMLElement[] = [];
   root.querySelectorAll<HTMLElement>("#moves .move-card").forEach((card) => {
     const moveId = Number(card.dataset.index);
-    const show = Number.isInteger(moveId) ? moveMatchesSearch(getMoveRecord(project, moveId), searchText, categories, types) : false;
+    const generationMatches = generations.size === 0 || generations.has(getMoveGeneration(project, moveId) ?? 0);
+    const show = Number.isInteger(moveId) && generationMatches && moveMatchesSearch(getMoveRecord(project, moveId), searchText, categories, types);
     card.style.display = show ? "" : "none";
     if (show) visible.push(card);
   });

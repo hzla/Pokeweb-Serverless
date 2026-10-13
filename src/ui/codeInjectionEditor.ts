@@ -51,6 +51,9 @@ import { getPortaPcStatus, installPortaPc, uninstallPortaPc } from "../pokeweb/p
 import { CGEAR_QUICK_ACTIONS_VERSION, getCGearQuickActionsStatus, installCGearQuickActions, disableCGearQuickActions, removeCGearQuickActions } from "../pokeweb/cgearQuickActionsModel";
 import { getLearnsetViewerStatus, installLearnsetViewer, uninstallLearnsetViewer } from "../pokeweb/learnsetViewerModel";
 import { getSummaryStatViewerStatus, installSummaryStatViewer, uninstallSummaryStatViewer, SUMMARY_STAT_VIEWER_VERSION } from "../pokeweb/summaryStatViewerModel";
+import { getSummaryTypeIconsStatus, installSummaryTypeIcons, uninstallSummaryTypeIcons, SUMMARY_TYPE_ICONS_VERSION } from "../pokeweb/summaryTypeIconsModel";
+import { getSaveMenuStatus, installSaveMenu, SAVE_MENU_VERSION } from "../pokeweb/saveMenuModel";
+import { canUseLocalRomBridge } from "../pokeweb/localRomBridge";
 import { getInfiniteCandyStatus, installInfiniteCandy } from "../pokeweb/infiniteCandyModel";
 import { getLevelCapsStatus, installLevelCaps } from "../pokeweb/levelCapsModel";
 import { TESTING_PATCHES, getTestingPatchStatus, installTestingPatch, uninstallTestingPatch, type TestingPatchId } from "../pokeweb/testingPatchesModel";
@@ -69,6 +72,7 @@ const pwanCompatibilityHydrationProjects = new WeakSet<ProjectState>();
 const typeIconLettersPreview = new URL("../assets/codeinjection/type-icons-letters-preview.png", import.meta.url).href;
 const typeIconCircularPreview = new URL("../assets/codeinjection/type-icons-circular-preview.png", import.meta.url).href;
 const typeIconSolidPreview = new URL("../assets/codeinjection/type-icons-solid-preview.png", import.meta.url).href;
+const summaryTypeIconsPreview = new URL("../assets/codeinjection/summary-type-icons-preview.png", import.meta.url).href;
 const codeInjectionTabs = [
   { id: "infrastructure", label: "Infrastructure and Dependencies" },
   { id: "graphics", label: "Graphical/UI Enhancements" },
@@ -117,6 +121,8 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const quickActionsStatus = getCGearQuickActionsStatus(project);
   const learnsetStatus = getLearnsetViewerStatus(project);
   const summaryStatStatus = getSummaryStatViewerStatus(project);
+  const summaryTypeStatus = canUseLocalRomBridge() ? getSummaryTypeIconsStatus(project) : undefined;
+  const saveMenuStatus = getSaveMenuStatus(project);
   const battleHudStatus = getBattleTypeHudStatus(project);
   const moveEffectivenessStatus = getMoveEffectivenessStatus(project);
   const moveColors = moveEffectivenessStatus.colors ?? DEFAULT_MOVE_HIGHLIGHT_COLORS;
@@ -390,6 +396,18 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         </section>
         </section>
         <section class="code-injection-tab-panel" id="code-injection-panel-graphics" role="tabpanel" aria-labelledby="code-injection-tab-graphics" tabindex="0" ${activeTab === "graphics" ? "" : "hidden"}>
+        <section class="code-injection-panel" ${patchVisibility(saveMenuStatus.supported)}>
+          <div class="code-injection-panel__header"><div>
+            <h2>Black 2 / White 2 Save Menu</h2>
+            <p>An animated save card and native Unova map. Continue recalls the party from right to left while the player raises a Poké Ball, then jumps across both screens onto the location marker. The C-Gear question is answered Yes automatically.</p>
+          </div><span class="code-injection-status ${saveMenuStatus.installed && !saveMenuStatus.updateAvailable ? "-installed" : saveMenuStatus.supported ? "" : "-error"}">${saveMenuStatus.updateAvailable ? "Update Available" : saveMenuStatus.installed ? "Installed" : saveMenuStatus.supported ? "Ready" : "Unsupported"}</span></div>
+          <div class="code-injection-facts"><div><span>ROM</span><strong>English Black 2 / White 2</strong></div><div><span>Version</span><strong>${SAVE_MENU_VERSION}</strong></div></div>
+          <p>${escapeHtml(saveMenuStatus.message)}</p>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-save-menu-btn" type="button" ${saveMenuStatus.supported ? "" : "disabled"}>${saveMenuStatus.updateAvailable ? "Update Save Menu" : saveMenuStatus.installed ? "Reinstall Save Menu" : "Install Save Menu"}</button>
+            <div class="code-injection-note" id="save-menu-note" aria-live="polite"></div>
+          </div>
+        </section>
         <section class="code-injection-panel" ${patchVisibility(summaryStatStatus.supported)}>
           <div class="code-injection-panel__header"><div>
             <h2>Summary IV/EV Viewer</h2>
@@ -405,6 +423,20 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div class="code-injection-note" id="summary-stat-note" aria-live="polite"></div>
           </div>
         </section>
+        ${summaryTypeStatus ? `<section class="code-injection-panel" ${patchVisibility(summaryTypeStatus.supported)}>
+          <div class="code-injection-panel__header"><div>
+            <h2>Summary Type Icons</h2>
+            <p>Decorated badges for the 17 original BW2 types on the information page only. Places Type first, Name second, and Dex No. third. Other screens retain their original icons.</p>
+          </div><span class="code-injection-status ${summaryTypeStatus.installed ? "-installed" : summaryTypeStatus.compatible ? "" : "-error"}">${summaryTypeStatus.installed ? "Installed" : summaryTypeStatus.compatible ? "Ready" : summaryTypeStatus.supported ? "Incompatible" : "Unsupported"}</span></div>
+          <div class="code-injection-facts"><div><span>ROM</span><strong>English US Black 2 / White 2</strong></div><div><span>Version</span><strong>${SUMMARY_TYPE_ICONS_VERSION}</strong></div></div>
+          <img src="${summaryTypeIconsPreview}" alt="Decorated type icons in native BW2 colors" style="max-width:100%;image-rendering:pixelated" />
+          <p>${escapeHtml(summaryTypeStatus.message)}</p>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-summary-types-btn" type="button" ${summaryTypeStatus.compatible ? "" : "disabled"}>${summaryTypeStatus.installed ? "Reinstall Summary Type Icons" : "Install Summary Type Icons"}</button>
+            <button class="btn -default" id="uninstall-summary-types-btn" type="button" ${summaryTypeStatus.canUninstall ? "" : "disabled"}>Remove</button>
+            <div class="code-injection-note" id="summary-types-note" aria-live="polite"></div>
+          </div>
+        </section>` : ""}
         <section class="code-injection-panel" ${patchVisibility(menuEvolutionStatus.supported)}>
           <div class="code-injection-panel__header">
             <div>
@@ -1224,6 +1256,20 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     });
   }
   const dllNote = root.querySelector<HTMLDivElement>("#dll-install-note");
+  root.querySelector<HTMLButtonElement>("#install-save-menu-btn")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget as HTMLButtonElement;
+    const note = root.querySelector<HTMLElement>("#save-menu-note");
+    button.disabled = true;
+    if (note) note.textContent = "Checking menu compatibility and staging the save menu…";
+    try {
+      await installSaveMenu(project); onDirty(); renderCodeInjectionEditor(project, root, onDirty);
+      const updated = root.querySelector<HTMLElement>("#save-menu-note");
+      if (updated) updated.textContent = "Save menu staged. Export the ROM to use it.";
+    } catch (error) {
+      button.disabled = false;
+      if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
   for (const [selector, action] of [
     ["#install-summary-stat-btn", () => installSummaryStatViewer(project, { includeEvs: root.querySelector<HTMLInputElement>("#summary-stat-evs")?.checked ?? true })],
     ["#uninstall-summary-stat-btn", () => uninstallSummaryStatViewer(project)],
@@ -1244,6 +1290,25 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     });
   }
   let selectedTarget: CodeInjectionDllTarget = "patches";
+  for (const [selector, action] of [
+    ["#install-summary-types-btn", () => installSummaryTypeIcons(project)],
+    ["#uninstall-summary-types-btn", () => uninstallSummaryTypeIcons(project)],
+  ] as const) {
+    const button = root.querySelector<HTMLButtonElement>(selector);
+    button?.addEventListener("click", async () => {
+      button.disabled = true;
+      const note = root.querySelector<HTMLElement>("#summary-types-note");
+      if (note) note.textContent = "Checking Summary compatibility and staging type icons…";
+      try {
+        await action(); onDirty(); renderCodeInjectionEditor(project, root, onDirty);
+        const updated = root.querySelector<HTMLElement>("#summary-types-note");
+        if (updated) updated.textContent = "Changes staged. Export the ROM to use them.";
+      } catch (error) {
+        button.disabled = false;
+        if (note) note.textContent = error instanceof Error ? error.message : String(error);
+      }
+    });
+  }
   root.querySelectorAll<HTMLButtonElement>("[data-dll-target]").forEach((targetButton) => {
     targetButton.addEventListener("click", () => {
       selectedTarget = targetButton.dataset.dllTarget === "lib" ? "lib" : "patches";

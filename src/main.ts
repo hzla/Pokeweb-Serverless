@@ -45,6 +45,7 @@ import { exportModifiedRom } from "./pokeweb/exportRom";
 import { parseHeaders } from "./pokeweb/headerModel";
 import { installIntegrationConsoleApi } from "./pokeweb/integrationConsole";
 import { canUseLocalRomBridge, pickLocalRomFile, readDevRomFile, readLocalRomFile, readStoredLocalRomPath, rememberLocalRomPath, type LocalRomFile } from "./pokeweb/localRomBridge";
+import { prepareBw2ScriptOverlayContext } from "./pokeweb/bw2ScriptOverlayContext";
 import { loadProjectFromRomBytes, loadProjectFromRomFile } from "./pokeweb/loader";
 import { moveEffectHandlerOverlayId } from "./pokeweb/moveEffectHandlerModel";
 import { prepareBw2FormEvolutionCodeInjection } from "./pokeweb/pmcModel";
@@ -632,9 +633,16 @@ function renderApp(): void {
   }
 
   if (route === "bw2Scripts") {
-    renderBw2ScriptEditor(project, content, {
-      onApply: () => { dirty = true; scheduleSave(project!); renderDirtyIndicator(); },
-      onDraftChange: () => { scheduleSave(project!); },
+    const scriptProject = project;
+    content.innerHTML = '<section class="bw2-script-empty"><h1>BW2 Scripts</h1><p>Loading script context…</p></section>';
+    void prepareBw2ScriptOverlayContext(scriptProject).then(() => {
+      if (!content.isConnected || route !== "bw2Scripts" || project !== scriptProject) return;
+      renderBw2ScriptEditor(scriptProject, content, {
+        onApply: () => { dirty = true; scheduleSave(scriptProject); renderDirtyIndicator(); },
+        onDraftChange: () => { scheduleSave(scriptProject); },
+      });
+    }).catch((error) => {
+      if (content.isConnected && route === "bw2Scripts" && project === scriptProject) content.innerHTML = `<section class="bw2-script-empty"><h1>BW2 Scripts</h1><p>${escapeHtml(error instanceof Error ? error.message : String(error))}</p></section>`;
     });
     return;
   }
@@ -1231,7 +1239,7 @@ function renderTextsMenu(): string {
       <div class="header-more-menu">
         ${storyAvailable ? navItem("storyText", "Story Text") : ""}
         ${navItem("infoText", "Message Text")}
-        ${project?.session.baseRom === "BW2" ? navItem("bw2Scripts", "BW2 Scripts") : ""}
+        ${canUseLocalRomBridge() && project?.session.baseRom === "BW2" ? navItem("bw2Scripts", "BW2 Scripts") : ""}
       </div>
     </div>
   `;
@@ -2176,7 +2184,7 @@ function hasAnyRomChanges(currentProject: ProjectState): boolean {
 
 function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds">): boolean {
   if (!project) return false;
-  if (nextRoute === "bw2Scripts") return hasExportBase && project.session.baseRom === "BW2" && !isGen4Project(project) && Boolean(project.narcs.scripts);
+  if (nextRoute === "bw2Scripts") return canUseLocalRomBridge() && hasExportBase && project.session.baseRom === "BW2" && !isGen4Project(project) && Boolean(project.narcs.scripts);
   if (nextRoute === "changelog") return true;
   if (nextRoute === "cgearButtons") return project.session.baseRom === "BW2" && hasExportBase;
   if (nextRoute === "customUi") return hasExportBase;

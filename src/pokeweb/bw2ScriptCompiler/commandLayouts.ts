@@ -1,4 +1,4 @@
-// Generated command encoding facts from FrostsGen5Editor ScriptNARC.cs.
+// Generated command encoding facts from FrostsGen5Editor ScriptNARC.cs with native US White 2 corrections.
 // Regenerate with scripts/generate-bw2-command-layouts.py; sizes are checked independently.
 import type { CommandDefinition } from "./commands";
 type Layout = Pick<CommandDefinition, "widths"> & { name: string };
@@ -734,7 +734,7 @@ export const BW2_OVERLAY_LAYOUTS: Readonly<Record<number, Readonly<Record<number
     0x03fa: { name: "cmd_03fa", widths: [2, 2, 2] },
     0x03fb: { name: "cmd_03fb", widths: [2] },
     0x03fc: { name: "cmd_03fc", widths: [2] },
-    0x03fe: { name: "cmd_03fe", widths: [] },
+    0x03fe: { name: "cmd_03fe", widths: [2, 2] },
     0x03ff: { name: "cmd_03ff", widths: [2, 2, 2] },
     0x0400: { name: "cmd_0400", widths: [2] },
     0x0401: { name: "cmd_0401", widths: [2] },
@@ -746,7 +746,7 @@ export const BW2_OVERLAY_LAYOUTS: Readonly<Record<number, Readonly<Record<number
     0x0407: { name: "cmd_0407", widths: [] },
     0x0408: { name: "cmd_0408", widths: [2] },
     0x0409: { name: "cmd_0409", widths: [2, 2] },
-    0x040a: { name: "cmd_040a", widths: [2] },
+    0x040a: { name: "cmd_040a", widths: [1, 2] },
     0x040b: { name: "cmd_040b", widths: [] },
     0x040c: { name: "cmd_040c", widths: [] },
     0x040d: { name: "cmd_040d", widths: [] },
@@ -757,7 +757,7 @@ export const BW2_OVERLAY_LAYOUTS: Readonly<Record<number, Readonly<Record<number
     0x0412: { name: "cmd_0412", widths: [2] },
     0x0413: { name: "cmd_0413", widths: [2] },
     0x0414: { name: "cmd_0414", widths: [1, 2] },
-    0x0415: { name: "cmd_0415", widths: [] },
+    0x0415: { name: "cmd_0415", widths: [1] },
     0x0416: { name: "cmd_0416", widths: [2] },
     0x0417: { name: "cmd_0417", widths: [2] },
     0x0418: { name: "cmd_0418", widths: [2] },
@@ -811,10 +811,13 @@ export const BW2_OVERLAY_LAYOUTS: Readonly<Record<number, Readonly<Record<number
     0x0409: { name: "cmd_0409", widths: [2, 2, 2] },
     0x040a: { name: "cmd_040a", widths: [2, 2, 2] },
     0x040b: { name: "cmd_040b", widths: [2, 2, 2] },
-    0x040c: { name: "cmd_040c", widths: [1] },
+    0x040c: { name: "cmd_040c", widths: [] },
     0x040d: { name: "cmd_040d", widths: [2] },
     0x040e: { name: "cmd_040e", widths: [2, 2] },
     0x040f: { name: "cmd_040f", widths: [2] },
+  },
+  60: {
+    0x03f3: { name: "join_avenue_shop_menu", widths: [2, 2, 2, 2, 2, 2, 2, 2] },
   },
   61: {
     0x03e8: { name: "cmd_03e8", widths: [] },

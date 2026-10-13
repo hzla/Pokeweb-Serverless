@@ -11,6 +11,21 @@ const roundTrip = (bytes: Uint8Array) => {
 };
 
 describe("BW2 lossless script decompiler", () => {
+  it("recovers complete temporary-store prologues and leaves malformed prefixes read-only", () => {
+    const bytes = Uint8Array.from([26, 0, 0, 0, 0x13, 0xfd,
+      0x28, 0, 0x20, 0x80, 0, 0, 0x28, 0, 0x21, 0x80, 0, 0,
+      0x28, 0, 0x22, 0x80, 0, 0, 0x28, 0, 0x23, 0x80, 0, 0, 2, 0]);
+    const imported = roundTrip(bytes);
+    expect(imported.editable).toBe(true);
+    expect(imported.stats.instructions).toBe(5);
+    expect(imported.source).toContain("block :loc_6 do");
+    for (const offset of [10, 26]) {
+      const changed = bytes.slice(); changed[offset] = 1;
+      expect(roundTrip(changed).editable).toBe(true);
+    }
+    const malformed = bytes.slice(); malformed[6] = 0xff; malformed[7] = 0xff;
+    expect(roundTrip(malformed).editable).toBe(false);
+  });
   it("round trips an independently hand-encoded forward call and odd file length", () => {
     const bytes = Uint8Array.from([2, 0, 0, 0, 0x13, 0xfd, 4, 0, 2, 0, 0, 0, 2, 0, 0, 0, 5, 0, 0]);
     const result = roundTrip(bytes);
@@ -71,7 +86,7 @@ describe("BW2 lossless script decompiler", () => {
     expect(roundTrip(bytes).editable).toBe(false);
     const withContext = decompileBw2Script(bytes, { overlayId: 51 });
     expect(withContext.editable).toBe(true);
-    expect(withContext.source).toContain("cmd_03e8 0x0001");
+    expect(withContext.source).toContain("pl_boat_start 0x0001");
     expect(compileBw2Script(withContext.source).bytes).toEqual(bytes);
     const otherContext = decompileBw2Script(bytes, { overlayId: 50 });
     expect(otherContext.source).toContain("vm_nop2");
@@ -100,7 +115,7 @@ describe("BW2 lossless script decompiler", () => {
   it("rejects code/data overlap and malformed entry tables", () => {
     const bytes = compileBw2Script(source("apply_movement 1, :main")).bytes;
     expect(() => decompileBw2Script(bytes)).toThrow(/overlap/);
-    expect(() => decompileBw2Script(new Uint8Array([0x13, 0xfd]))).toThrow(/entry table/);
+    expect(() => decompileBw2Script(new Uint8Array([0x13]))).toThrow(/entry table/);
   });
   it("recovers an independently encoded work/constant stack comparison with the correct false-branch sense", () => {
     const bytes = Uint8Array.from([2, 0, 0, 0, 0x13, 0xfd, 9, 0, 0xa1, 0x40, 8, 0, 0, 0, 0x11, 0, 1, 0, 0x1f, 0, 0xff, 2, 0, 0, 0, 0, 0, 2, 0]);

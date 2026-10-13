@@ -111,10 +111,14 @@ export function renderMoveEditor(
   onOpenMoveAnimation?: (moveId: number) => void,
 ): void {
   root.innerHTML = `
-    <div class="pokemon-filter move-filter">
+    <div class="pokemon-filter move-filter move-data-filter">
       <div class="filter-title">Search Text</div>
       <input class="filter-input" id="search-text"/>
       <button class="btn -default" id="search-text-btn" type="button">Search</button>
+      <div class="filter-title">Generation</div>
+      <div class="small-filters gen-filters move-generation-filters" role="group" aria-label="Move generation">
+        ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(gen => `<button class="btn -default" data-gen="${gen}" type="button" aria-pressed="false">Gen ${gen}</button>`).join("")}
+      </div>
       <div class="small-filters cat-filters">
         ${["physical", "special", "status"].map((cat) => `<button class="btn -default btn-3" data-mcat="${cat}" type="button" aria-pressed="false"><img src="${publicAsset(`images/move-${cat}.png`)}" alt="${cat}"></button>`).join("")}
       </div>

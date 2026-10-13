@@ -344,6 +344,11 @@ export function usesFrostMoveExpansionLayout(project: ProjectState): boolean {
   return detectProjectMoveExpansionRouting(project) === "patched";
 }
 
+export function getMoveExpansionSourceMoveId(moveId: number): number | undefined {
+  if (!Number.isSafeInteger(moveId)) return undefined;
+  return EXPANSION_MOVES[moveId - EXPANSION_ASSET.firstTargetMoveId]?.sourceId;
+}
+
 export function detectMoveExpansionRoutingHook(
   overlay: Uint8Array,
   baseRom: Gen5BaseRom,

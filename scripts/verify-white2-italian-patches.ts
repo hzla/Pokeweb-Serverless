@@ -6,7 +6,7 @@ import { NintendoDSRom } from "../src/nds/rom";
 import { NARC } from "../src/nds/narc";
 import { loadProjectFromRomBytes } from "../src/pokeweb/loader";
 import { exportModifiedRom } from "../src/pokeweb/exportRom";
-import { checkFollowerCompatibility } from "../src/pokeweb/followingPokemonProject";
+import { checkFollowerCompatibility, installFollowerAlpha, readFollowerAlphaInstall, removeFollowerAlpha } from "../src/pokeweb/followingPokemonProject";
 import { getBattleTypeHudStatus, getMoveEffectivenessStatus, installBattleTypeHud, installMoveEffectiveness, uninstallBattleTypeHud, uninstallMoveEffectiveness } from "../src/pokeweb/battleTypeHudModel";
 import { decompressNitro } from "../src/pokeweb/pokemonSpriteModel";
 import { localizedAssetVariant } from "../src/pokeweb/translationAssets";
@@ -23,13 +23,36 @@ const version = original.idCode === "IREO" ? "B2" : "W2";
 globalThis.fetch = (async (value: RequestInfo | URL) => {
   const url = value instanceof URL ? value : new URL(value instanceof Request ? value.url : String(value));
   try {
-    return new Response(new Uint8Array(await readFile(new URL(`../src/assets/codeinjection/${url.pathname.split("/").pop()}`, import.meta.url))));
+    return new Response(new Uint8Array(await readFile(url.protocol === "file:" ? url : new URL(`../src/assets/codeinjection/${url.pathname.split("/").pop()}`, import.meta.url))));
   } catch { return new Response(undefined, { status: 404 }); }
 }) as typeof fetch;
 const project = await loadProjectFromRomBytes(bytes, basename(inputPath), { selectedNarcs: [] });
 const following = await checkFollowerCompatibility(project);
 assert(following.compatible, JSON.stringify(following));
 assert(following.checks.every(check => check.passed));
+// The browser persists the base ROM before installing. Exercise that path,
+// both runtime variants, and the installation receipt after export/reload.
+const request = <T>(result: T): IDBRequest<T> => {
+  const item = { result } as IDBRequest<T>;
+  queueMicrotask(() => item.onsuccess?.(new Event("success")));
+  return item;
+};
+const previousIndexedDb = globalThis.indexedDB;
+globalThis.indexedDB = { open: () => request({ transaction: () => ({ objectStore: () => ({ get: () => request(bytes) }) }), close: () => {} }) } as unknown as IDBFactory;
+try {
+  for (const riding of [false, true]) {
+    const fresh = await loadProjectFromRomBytes(bytes, basename(inputPath), { selectedNarcs: [] });
+    delete fresh.originalRomBytes;
+    const receipt = await installFollowerAlpha(fresh, undefined, { riding });
+    assert.equal(receipt.profile, version === "B2" ? "black2" : "stock");
+    assert.equal(receipt.variant, riding ? "full" : "base");
+    assert.deepEqual(await installFollowerAlpha(fresh, undefined, { riding }), receipt);
+    const reopened = await loadProjectFromRomBytes(await exportModifiedRom(fresh), "localized-following-check.nds", { selectedNarcs: [] });
+    assert.deepEqual(await readFollowerAlphaInstall(reopened), receipt);
+    await removeFollowerAlpha(reopened);
+    assert.equal((await readFollowerAlphaInstall(reopened))?.removed, true);
+  }
+} finally { globalThis.indexedDB = previousIndexedDb; }
 const before = new NARC(original.getFileByName("a/0/1/1"));
 const unpack = (raw: Uint8Array) => raw[0] === 0x10 || raw[0] === 0x11 ? decompressNitro(raw) : raw;
 await installBattleTypeHud(project); await installMoveEffectiveness(project);
@@ -60,6 +83,6 @@ const damaged = new NARC(original.getFileByName("a/0/1/1")); damaged.files[434] 
 edited.fileSystem ??= {}; edited.fileSystem.replacements = { [original.fileId("a/0/1/1")]: damaged.save() };
 await assert.rejects(() => installBattleTypeHud(edited), /434/u);
 assert.equal(sha(new Uint8Array(await readFile(inputPath))), originalHash);
-const report = { version, sourceSha256: originalHash, followingUsProfile: { compatible: following.compatible, checksPassed: following.checks.length }, battleHud: { regionalHashesAndExpansion: true, stockUsDlls: true, movePreviewCoexistence: true, exportReload: true, threeVariantsAndIdempotence: true, uninstallRestoresRegionalArt: true, unknownEditedArtRejected: true }, sourceUnchanged: true };
+const report = { version, sourceSha256: originalHash, followingUsProfile: { compatible: following.compatible, checksPassed: following.checks.length, persistedRomInstall: true, baseAndRidingVariants: true, reinstallExportReloadRemove: true }, battleHud: { regionalHashesAndExpansion: true, stockUsDlls: true, movePreviewCoexistence: true, exportReload: true, threeVariantsAndIdempotence: true, uninstallRestoresRegionalArt: true, unknownEditedArtRejected: true }, sourceUnchanged: true };
 await writeFile(reportPath, JSON.stringify(report, null, 2) + "\n", { flag: "wx" });
 console.log(JSON.stringify(report));

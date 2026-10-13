@@ -1,6 +1,6 @@
 .bw2-script-page {
   display: grid;
-  grid-template-columns: minmax(240px, 290px) minmax(0, 1fr);
+  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
   height: calc(100vh - 88px);
   min-height: 540px;
   margin-top: 44px;
@@ -16,6 +16,14 @@
 #bw2-script-file { margin-bottom: 20px; }
 .bw2-script-source-actions { display: grid; gap: 8px; margin: 20px 0; }
 .bw2-script-source-actions .btn { width: 100%; }
+.bw2-script-structure { display: grid; gap: 8px; margin: 18px 0; padding-top: 14px; border-top: 1px solid #44475a; }
+.bw2-script-structure label { margin: 4px 0 0; font-size: 12px; }
+.bw2-structure-buttons { display: flex; gap: 6px; }
+.bw2-script-structure .btn { padding: 7px 9px; font-size: 12px; flex: 1; }
+#bw2-entry-impact { color: #b5caff; }
+#bw2-entry-impact p { margin: 0; }
+#bw2-entry-impact summary { cursor: pointer; }
+#bw2-entry-impact ul { max-height: 9rem; overflow: auto; }
 .bw2-script-workspace { min-width: 0; min-height: 0; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
 .bw2-script-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .bw2-script-toolbar h2 { margin: 0 0 4px; font-size: 18px; }
@@ -33,6 +41,35 @@
 .bw2-script-tabs { display: flex; gap: 6px; }
 .bw2-script-tabs button { padding: 7px 14px; border: 1px solid #54586e; border-radius: 4px; background: #21232e; color: #adb3c6; cursor: pointer; font: inherit; font-size: 13px; }
 .bw2-script-tabs button[aria-selected="true"] { color: #f2f2f2; border-color: #bd93f9; background: #bd93f926; }
+.bw2-script-texts { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid #44475a; border-radius: 6px; background: #21232e; overflow: hidden; }
+.bw2-script-texts[hidden], .bw2-script-message[hidden] { display: none; }
+.bw2-text-toolbar { display: grid; gap: 6px; }
+.bw2-text-toolbar label { font-size: 12px; color: #adb3c6; }
+.bw2-text-toolbar select, .bw2-text-toolbar input { width: 100%; box-sizing: border-box; padding: 7px; border: 1px solid #54586e; border-radius: 4px; color: #f2f2f2; background: #181a23; }
+.bw2-text-context, .bw2-text-controls { margin: 0; font-size: 12px; line-height: 1.5; color: #adb3c6; overflow-wrap: anywhere; }
+.bw2-text-context.-success { color: #8be9c1; }
+.bw2-text-context.-error { color: #ff9a9a; }
+.bw2-text-entries { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+.bw2-text-entry { flex-shrink: 0; display: block; width: 100%; text-align: left; border: 1px solid #44475a; border-radius: 4px; padding: 10px; color: #f2f2f2; background: #282a36; font: inherit; font-size: 13px; cursor: pointer; }
+.bw2-text-entry:hover, .bw2-text-entry:focus-visible { border-color: #bd93f9; }
+.bw2-text-entry strong { display: block; color: #8be9c1; font-size: 12px; margin-bottom: 6px; }
+.bw2-text-entry span { display: block; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+.bw2-script-message { border-top: 1px solid #44475a; margin-top: 18px; padding-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+.bw2-script-message h2 { margin: 0; font-size: 16px; }
+.bw2-script-message label { margin: 2px 0 0; font-size: 12px; }
+.bw2-script-message textarea { width: 100%; box-sizing: border-box; resize: vertical; min-height: 150px; border: 1px solid #54586e; border-radius: 4px; padding: 8px; color: #f2f2f2; background: #181a23; font: inherit; font-size: 13px; line-height: 1.5; }
+.bw2-text-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.bw2-text-actions .btn { padding: 7px 10px; font-size: 12px; }
+.bw2-message-tabs button { padding: 5px 10px; font-size: 12px; }
+#bw2-message-edit-pane[hidden], .bw2-dialogue-preview[hidden] { display: none; }
+.bw2-dialogue-preview { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.bw2-dialogue-navigation { display: flex; gap: 4px; align-items: center; }
+.bw2-dialogue-navigation select { width: auto; flex: 1; min-width: 0; padding: 5px; font-size: 11px; }
+.bw2-dialogue-navigation button { background: #333747; color: #f2f2f2; border: 1px solid #54586e; border-radius: 4px; padding: 3px 7px; cursor: pointer; }
+.bw2-dialogue-navigation button:disabled { opacity: .4; cursor: default; }
+.bw2-dialogue-stage { overflow-x: auto; background: #181a23; }
+.bw2-dialogue-stage canvas { display: block; width: 256px; height: auto; image-rendering: pixelated; }
+.bw2-dialogue-preview .-error { color: #ff9a9a; }
 .bw2-script-diagnostics { font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; max-height: 72px; overflow-y: auto; }
 .bw2-script-diagnostics p { margin: 0 0 8px; }
 .bw2-script-diagnostics p:last-child { margin-bottom: 0; }

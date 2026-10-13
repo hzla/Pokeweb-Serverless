@@ -3,12 +3,16 @@ import { gen5ScriptCommandSize } from "../gen5ScriptCommands";
 import { BW2_COMPARISON_IDS, BW2_SCRIPT_COMMANDS, bw2CommandByName } from "./commands";
 import { parseBw2Script } from "./parser";
 import { BW2_WORK_OPERANDS } from "./workAliases";
-import { Bw2ScriptCompileError, type Comparison, type CompiledBw2Script, type Definition, type Expression, type Program, type SourcePosition, type Statement, type Value, type DataBlock, type RelocationKind } from "./types";
+import { bw2MovementByName } from "./movementCommands";
+import { bw2ScriptMacroByName } from "./macros";
+import { planBw2HelperFrames, type HelperFrames } from "./helperFrames";
+import { verifyBw2HelperStack, type ScratchStackAction } from "./helperStack";
+import { Bw2ScriptCompileError, type Comparison, type CompiledBw2Script, type Definition, type Expression, type Program, type SourcePosition, type Statement, type Value, type DataBlock, type RelocationKind, type MovementBlock } from "./types";
 
 type Scalar = { kind: "work" | "constant"; value: number };
 type Operand = { width: 1 | 2 | 4; value: number } | { width: 4; target: string; kind: Exclude<RelocationKind, "entry"> };
-type Instruction = SourcePosition & { kind: "instruction"; opcode: number; operands: Operand[] };
-type Item = { kind: "label"; name: string } | Instruction | DataBlock;
+type Instruction = SourcePosition & { kind: "instruction"; opcode: number; operands: Operand[]; dispatchId?: number };
+type Item = { kind: "label"; name: string } | { kind: "movementAlignment" } | Instruction | DataBlock;
 type Loop = { start: string; end: string };
 const INVERT: Record<Comparison, Comparison> = { "<": ">=", "<=": ">", ">": "<=", ">=": "<", "==": "!=", "!=": "==" };
 const SWAP: Record<Comparison, Comparison> = { "<": ">", "<=": ">=", ">": "<", ">=": "<=", "==": "==", "!=": "!=" };
@@ -20,6 +24,9 @@ class Compiler {
   private items: Item[] = [];
   private labelCounter = 0;
   private callEdges = new Map<string, { target: string; position: SourcePosition }[]>();
+  private helperFrames?: HelperFrames;
+  private activeDefinition?: Definition;
+  private stackActions = new Map<Instruction, ScratchStackAction>();
   constructor(private program: Program) {}
   private fail(message: string, position: SourcePosition): never { throw new Bw2ScriptCompileError(message, position); }
   private unsigned(value: number, width: number, position: SourcePosition): number {
@@ -28,7 +35,8 @@ class Compiler {
   }
   private scalar(value: Value): Scalar {
     if (value.kind === "number") return { kind: "constant", value: this.unsigned(value.value, 2, value) };
-    const binding = this.bindings.get(value.name);
+    const id = this.helperFrames?.frames.get(this.activeDefinition?.name ?? "")?.bindings.get(value.name);
+    const binding = id === undefined ? this.bindings.get(value.name) : { kind: "work" as const, value: id };
     if (!binding) this.fail(`Unknown binding '${value.name}'`, value);
     return binding;
   }
@@ -38,15 +46,81 @@ class Compiler {
   }
   private freshLabel(): string { return `$branch${this.labelCounter++}`; }
   private label(name: string): void { this.items.push({ kind: "label", name }); }
-  private emit(opcode: number, operands: Operand[], position: SourcePosition): void {
+  private emit(opcode: number, operands: Operand[], position: SourcePosition, dispatchId?: number): Instruction {
     const size = 2 + operands.reduce((sum, operand) => sum + operand.width, 0);
-    if (gen5ScriptCommandSize(opcode, "BW2", this.program.overlayId) !== size) this.fail(`BW2 command 0x${opcode.toString(16)} has an inconsistent layout`, position);
-    this.items.push({ ...position, kind: "instruction", opcode, operands });
+    if (gen5ScriptCommandSize(opcode, "BW2", dispatchId ?? this.program.overlayId) !== size) this.fail(`BW2 command 0x${opcode.toString(16)} has an inconsistent layout`, position);
+    const instruction: Instruction = { ...position, kind: "instruction", opcode, operands, ...(dispatchId !== undefined ? { dispatchId } : {}) };
+    this.items.push(instruction); return instruction;
   }
-  private words(opcode: number, values: number[], position: SourcePosition): void {
-    this.emit(opcode, values.map((value) => ({ width: 2, value })), position);
+  private words(opcode: number, values: number[], position: SourcePosition): Instruction {
+    return this.emit(opcode, values.map((value) => ({ width: 2, value })), position);
+  }
+  private saveWorks(ids: readonly number[], position: SourcePosition): void {
+    for (const id of ids) this.stackActions.set(this.words(0x09, [id], position), { kind: "save", id });
+  }
+  private restoreWorks(ids: readonly number[], position: SourcePosition): void {
+    for (const id of [...ids].reverse()) this.stackActions.set(this.words(0x0a, [id], position), { kind: "restore", id });
+  }
+  private currentSlots(): number[] { return this.helperFrames?.frames.get(this.activeDefinition?.name ?? "")?.slots ?? []; }
+  private finish(opcode: number, position: SourcePosition): void {
+    const slots = this.currentSlots();
+    if ([0x02, 0x1d].includes(opcode) && slots.length) {
+      if (this.activeDefinition?.kind !== "script") this.fail("Helpers with automatic locals/parameters must return to their caller; use return", position);
+      this.restoreWorks(slots, position);
+    }
+    if (opcode === 5 && slots.length && this.activeDefinition?.kind === "script") this.fail("Use return to finish a public script with automatic locals", position);
+    this.words(opcode, [], position);
+  }
+  private command(opcode: number, operands: Operand[], position: SourcePosition, dispatchId?: number): void {
+    if ([2, 5, 0x1d].includes(opcode)) { this.finish(opcode, position); return; }
+    const slots = this.currentSlots();
+    if (opcode === 0x1b && slots.length) this.fail("Asynchronous global scripts cannot share automatic locals; use a synchronous call", position);
+    if (opcode === 0x20 && slots.length && "value" in operands[0] && operands[0].value === 0xff) this.fail("Use if/unless around a helper call with automatic locals instead of stack-based call_if", position);
+    const preserve = [4, 0x20, 0x1c].includes(opcode) ? slots : [];
+    this.saveWorks(preserve, position); this.emit(opcode, operands, position, dispatchId); this.restoreWorks(preserve, position);
+  }
+  private checkTransfer(target: string, position: SourcePosition, call: boolean): void {
+    const owner = this.helperFrames?.owners.get(target), targetSlots = owner ? this.helperFrames?.frames.get(owner.name)?.slots.length : 0;
+    if (call && targetSlots) this.fail("Calls into automatic locals/parameters require the named helper invocation and its arguments", position);
+    if (!call && owner?.name !== this.activeDefinition?.name && (targetSlots || this.currentSlots().length)) this.fail("Jumps cannot cross routine boundaries with automatic locals/parameters", position);
+  }
+  private endsPath(statements: Statement[]): boolean {
+    const tail = statements.at(-1);
+    if (!tail) return false;
+    if (tail.kind === "return") return true;
+    if (tail.kind === "macro") return [0x02, 0x05, 0x1d].includes(bw2ScriptMacroByName(tail.name)!.sequence.at(-1)!.opcode);
+    if (tail.kind === "call" && !tail.helperOnly) return [0x02, 0x05, 0x1d].includes(bw2CommandByName(tail.name, this.program.preserveLayout, this.program.overlayId)?.opcode ?? -1);
+    if (tail.kind === "if") return !!tail.hasElse && tail.branches.every((branch) => this.endsPath(branch.body)) && this.endsPath(tail.otherwise);
+    if (tail.kind === "case") return tail.cases.every((branch) => this.endsPath(branch.body)) && this.endsPath(tail.otherwise);
+    return false;
   }
   private jump(target: string, position: SourcePosition): void { this.emit(0x1e, [{ width: 4, target, kind: "jump" }], position); }
+  private movement(block: MovementBlock): void {
+    let bytes: number[] = [], name = block.name, finished = false;
+    const flush = () => { if (bytes.length) this.items.push({ ...block, kind: "data", name, bytes }); bytes = []; };
+    const literal = (value: Value): number => {
+      const scalar = this.scalar(value);
+      if (value.kind === "symbol" || scalar.kind !== "constant") this.fail("Movement operands require literal integers or constants, not work variables", value);
+      return this.unsigned(scalar.value, 2, value);
+    };
+    const record = (opcode: number, parameter: number) => bytes.push(opcode & 255, opcode >>> 8, parameter & 255, parameter >>> 8);
+    if (this.program.movementAlignment || !this.program.preserveLayout) this.items.push({ kind: "movementAlignment" });
+    this.label(name);
+    for (const step of block.body) {
+      if (finished) this.fail("Movement finish must be the last statement", step);
+      if (step.kind === "label") { flush(); name = step.target; this.label(name); continue; }
+      const command = bw2MovementByName(step.name);
+      const raw = step.name === "raw_step", finish = step.name === "finish";
+      if (!command && !raw && !finish) this.fail(`Unknown movement command '${step.name}'`, step);
+      if (step.args.length !== (raw ? 2 : 1)) this.fail(`'${step.name}' expects ${raw ? 2 : 1} movement arguments`, step);
+      const opcode = raw ? literal(step.args[0]) : finish ? 0xfe : command!.opcode;
+      if (raw && opcode === 0xfe) this.fail("Use finish PARAMETER to preserve a movement terminator", step);
+      record(opcode, literal(step.args[raw ? 1 : 0]));
+      finished = finish;
+    }
+    if (!finished) record(0xfe, 0);
+    flush();
+  }
   /** Stack expressions evaluate left then right; AND/OR consume normalized booleans. */
   private stackExpression(expression: Expression, negate = false, depth = 0): boolean {
     if (depth > 128) this.fail("Condition nesting exceeds 128 levels", expression);
@@ -124,24 +198,56 @@ class Compiler {
   private statements(statements: Statement[], definition: Definition, loops: Loop[]): void {
     for (const statement of statements) {
       switch (statement.kind) {
+        case "macro": {
+          const macro = bw2ScriptMacroByName(statement.name)!;
+          const values: Record<string, number> = {};
+          for (const parameter of macro.parameters) {
+            const arg = statement.keywords[parameter.name];
+            if (arg.kind === "symbol") {
+              if (!Object.hasOwn(parameter.aliases ?? {}, arg.name)) this.fail(`Unknown '${statement.name}' ${parameter.name} alias ':${arg.name}'`, arg);
+              values[parameter.name] = parameter.aliases![arg.name];
+            } else {
+              const scalar = this.scalar(arg);
+              if (parameter.literalOnly && scalar.kind === "work") this.fail(`'${statement.name}' ${parameter.name} requires a literal or constant, not a work variable`, arg);
+              if (!parameter.literalOnly && scalar.kind === "constant" && scalar.value >= 0x4000) this.fail(`'${statement.name}' ${parameter.name} literals must be below 0x4000; use a work binding for runtime values`, arg);
+              values[parameter.name] = scalar.value;
+            }
+          }
+          for (const command of macro.sequence) this.command(command.opcode, command.args.map((arg) => ({ width: 2, value: typeof arg === "number" ? arg : values[arg] })), statement);
+          break;
+        }
         case "label":
         case "jump": {
           if (!this.program.preserveLayout) this.fail("Symbolic labels/jumps require preserve_layout", statement);
           if (statement.kind === "label") this.label(statement.target);
-          else this.jump(statement.target, statement);
+          else { this.checkTransfer(statement.target, statement, false); this.jump(statement.target, statement); }
           break;
         }
         case "call": {
           const helper = this.definitions.get(statement.name);
           if (helper) {
             if (helper.kind !== "helper" && !this.program.preserveLayout) this.fail(`'${statement.name}' is a public script; only helpers can be called`, statement);
-            if (statement.args.length) this.fail("Helpers do not accept arguments in this version", statement);
+            const frame = this.helperFrames!.frames.get(helper.name)!;
+            if (helper.kind !== "helper" && frame.slots.length) this.fail("A public script with automatic locals cannot be called as a helper", statement);
+            if (statement.args.length !== frame.parameters.length) this.fail(`Helper '${helper.name}' expects ${frame.parameters.length} arguments, received ${statement.args.length}`, statement);
             this.callEdges.get(definition.name)!.push({ target: helper.name, position: statement });
+            const slots = [...new Set([...this.currentSlots(), ...frame.slots])];
+            this.saveWorks(slots, statement);
+            // Snapshot every argument before writing any parameter: f(b, a)
+            // remains correct even when caller/callee scratch slots coincide.
+            for (const arg of statement.args) {
+              if (arg.kind === "symbol") this.fail("Helper arguments must be integer values, constants, or variables", arg);
+              const value = this.scalar(arg); this.words(value.kind === "work" ? 0x09 : 0x08, [value.value], arg);
+            }
+            for (const parameter of [...frame.parameters].reverse()) this.words(0x0a, [parameter.id], statement);
             this.emit(0x04, [{ width: 4, target: helper.name, kind: "call" }], statement);
+            this.restoreWorks(slots, statement);
           } else {
             if (statement.helperOnly) {
               if (!this.program.preserveLayout) this.fail(`Unknown helper '${statement.name}'`, statement);
-              this.emit(0x04, [{ width: 4, target: statement.name, kind: "call" }], statement);
+              if (statement.args.length) this.fail("Arguments require a named helper definition", statement);
+              this.checkTransfer(statement.name, statement, true);
+              this.command(0x04, [{ width: 4, target: statement.name, kind: "call" }], statement);
               break;
             }
             const command = bw2CommandByName(statement.name, this.program.preserveLayout, this.program.overlayId);
@@ -151,18 +257,24 @@ class Compiler {
               const reference = command.relative?.[index];
               if (reference) {
                 if (arg.kind !== "symbol" || command.widths[index] !== 4) this.fail("Relative pointers require a symbolic target", arg);
+                if (reference === "jump" || reference === "call") {
+                  this.checkTransfer(arg.name, arg, reference === "call");
+                  const owner = this.helperFrames?.owners.get(arg.name);
+                  if (reference === "call" && owner) this.callEdges.get(definition.name)!.push({ target: owner.name, position: statement });
+                }
                 return { width: 4, target: arg.name, kind: reference };
               }
               const scalar = arg.kind === "number" ? { kind: "constant", value: arg.value } : this.scalar(arg);
-              if (scalar.kind === "work" && !BW2_WORK_OPERANDS[command.opcode]?.includes(index)) this.fail(`'${statement.name}' argument ${index + 1} requires a literal/constant operand`, arg);
+              if (scalar.kind === "work" && !(command.workOperands ?? BW2_WORK_OPERANDS[command.opcode])?.includes(index)) this.fail(`'${statement.name}' argument ${index + 1} requires a literal/constant operand`, arg);
               return { width: command.widths[index], value: this.unsigned(scalar.value, command.widths[index], arg) };
             });
-            this.emit(command.opcode, operands, statement);
+            if (command.dispatchId === 60 && ![58, 60].includes(this.program.overlayId ?? -1)) this.fail("Join Avenue shop commands require overlay 58 or 60 context", statement);
+            this.command(command.opcode, operands, statement, command.dispatchId);
           }
           break;
         }
         case "assign": {
-          const destination = this.bindings.get(statement.name);
+          const destination = this.scalar({ ...statement, kind: "name", name: statement.name });
           if (!destination || destination.kind !== "work") this.fail(`Assignment requires a bound work variable: '${statement.name}'`, statement);
           const source = this.scalar(statement.value);
           if (statement.operator === "=") this.words(source.kind === "constant" ? 0x28 : 0x29, [destination.value, source.value], statement);
@@ -185,7 +297,7 @@ class Compiler {
             const next = this.freshLabel();
             this.branch(branch.condition, next, false);
             this.statements(branch.body, definition, loops);
-            if (!this.program.preserveLayout || statement.hasElse || statement.otherwise.length || index < statement.branches.length - 1) this.jump(end, statement);
+            if ((!this.program.preserveLayout || statement.hasElse || statement.otherwise.length || index < statement.branches.length - 1) && !this.endsPath(branch.body)) this.jump(end, statement);
             this.label(next);
           }
           this.statements(statement.otherwise, definition, loops);
@@ -197,7 +309,7 @@ class Compiler {
           this.label(loop.start);
           this.branch(statement.condition, loop.end, false);
           this.statements(statement.body, definition, [...loops, loop]);
-          this.jump(loop.start, statement);
+          if (!this.endsPath(statement.body)) this.jump(loop.start, statement);
           this.label(loop.end);
           break;
         }
@@ -217,7 +329,7 @@ class Compiler {
             this.jump(next, statement);
             this.label(body);
             this.statements(branch.body, definition, loops);
-            this.jump(end, statement);
+            if (!this.endsPath(branch.body)) this.jump(end, statement);
             this.label(next);
           }
           this.statements(statement.otherwise, definition, loops);
@@ -231,7 +343,7 @@ class Compiler {
           this.jump(statement.kind === "break" ? loop.end : loop.start, statement);
           break;
         }
-        case "return": this.words(definition.kind === "script" ? 0x02 : 0x05, [], statement); break;
+        case "return": this.finish(definition.kind === "script" ? 0x02 : 0x05, statement); break;
       }
     }
   }
@@ -266,7 +378,9 @@ class Compiler {
         if (!this.program.preserveLayout) this.fail("Data/blocks require preserve_layout", item);
       }
       addName(item.name, item);
-      if (item.kind !== "data") labels(item.body);
+      if (item.kind === "movement") {
+        for (const step of item.body) if (step.kind === "label") addName(step.target, step);
+      } else if (item.kind !== "data") labels(item.body);
     }
     if ((this.program.aliases?.length ?? 0) && !this.program.preserveLayout) this.fail("Entry aliases require preserve_layout", this.program.aliases![0]);
     for (const definition of this.program.definitions) {
@@ -276,7 +390,7 @@ class Compiler {
     const scripts: Definition[] = this.program.definitions.filter((definition) => definition.kind === "script");
     for (const alias of this.program.aliases ?? []) scripts.push({ ...alias, kind: "script", name: alias.target, body: [] });
     scripts.sort((a, b) => a.entry! - b.entry!);
-    if (!scripts.length) this.fail("At least one public script is required", FIRST_POSITION);
+    if (!scripts.length && !(this.program.preserveLayout && !this.program.definitions.length)) this.fail("At least one public script is required", FIRST_POSITION);
     for (const [index, script] of scripts.entries()) {
       if (script.entry !== index + 1 || script.entry > 0xffff) this.fail("Script entry IDs must be unique and contiguous, starting at 1", script);
     }
@@ -300,26 +414,61 @@ class Compiler {
   }
   compile(): CompiledBw2Script {
     const scripts = this.collect();
-    for (const definition of this.program.layout ?? this.program.definitions) {
+    this.helperFrames = planBw2HelperFrames(this.program);
+    const layout = this.program.layout ?? this.program.definitions;
+    const before = new Map<string, MovementBlock[]>(), layoutNames = new Set(layout.map((item) => item.name));
+    for (const item of layout) if (item.kind === "movement" && item.before) {
+      if (!this.program.preserveLayout) this.fail("Movement placement requires preserve_layout", item);
+      if (!layoutNames.has(item.before)) this.fail(`Unknown movement placement '${item.before}'`, item);
+      const group = before.get(item.before) ?? []; group.push(item); before.set(item.before, group);
+    }
+    const ordered: typeof layout = [], visiting = new Set<string>();
+    const place = (item: typeof layout[number], depth = 0): void => {
+      if (visiting.has(item.name)) this.fail("Cyclic movement placement", item);
+      if (depth > 128) this.fail("Movement placement nesting exceeds 128 levels", item);
+      visiting.add(item.name);
+      for (const movement of before.get(item.name) ?? []) place(movement, depth + 1);
+      visiting.delete(item.name); ordered.push(item);
+    };
+    for (const item of layout) if (item.kind !== "movement" || !item.before) place(item);
+    if (ordered.length !== layout.length) this.fail("Cyclic movement placement", layout.find((item) => item.kind === "movement" && item.before)!);
+    const codeNames: { name: string; end: string }[] = [], movementNames: { name: string; end: string }[] = [];
+    for (const definition of ordered) {
+      this.activeDefinition = undefined;
+      if (definition.kind === "movement") { this.movement(definition); const end = this.freshLabel(); this.label(end); movementNames.push({ name: definition.name, end }); continue; }
       if (definition.kind === "data") {
         definition.bytes.forEach((value) => this.unsigned(value, 1, definition));
         this.label(definition.name); this.items.push(definition); continue;
       }
       this.label(definition.name);
+      this.activeDefinition = definition;
+      const start = this.items.length;
+      const frame = this.helperFrames.frames.get(definition.name)!;
+      if (definition.kind === "script") this.saveWorks(frame.slots, definition);
+      for (const local of frame.locals) this.words(0x28, [local.id, 0], definition);
       this.statements(definition.body, definition, []);
-      if (!this.program.preserveLayout) this.words(definition.kind === "script" ? 0x02 : 0x05, [], definition);
+      // Do not append unreachable terminators after a terminating macro or
+      // branches that all terminate. Paths that can fall through still need one.
+      if ((!this.program.preserveLayout || frame.slots.length) && !this.endsPath(definition.body)) this.finish(definition.kind === "script" ? 0x02 : 0x05, definition);
+      if (this.items.slice(start).some((item) => item.kind === "instruction")) { const end = this.freshLabel(); this.label(end); codeNames.push({ name: definition.name, end }); }
     }
-    if (!this.program.preserveLayout) this.checkCalls();
+    if (!this.program.preserveLayout || this.helperFrames.managed) this.checkCalls();
     const offsets = new Map<string, number>();
     let length = scripts.length * 4 + 2;
     for (const item of this.items) {
       if (item.kind === "label") offsets.set(item.name, length);
+      else if (item.kind === "movementAlignment") length += length % 2;
       else if (item.kind === "data") length += item.bytes.length;
       else length += 2 + item.operands.reduce((sum, operand) => sum + operand.width, 0);
     }
     const bytes = new Uint8Array(this.program.preserveLayout ? length : Math.ceil(length / 4) * 4);
     const result: CompiledBw2Script = { bytes, entries: [], helpers: [], instructions: [], relocations: [] };
-    if (this.program.preserveLayout) { result.preserveLayout = true; result.dataBlocks = []; }
+    if (this.helperFrames.managed) result.scratchWorks = [...this.helperFrames.frames].filter(([, frame]) => frame.slots.length).map(([routine, frame]) => ({ routine, parameters: frame.parameters, locals: frame.locals }));
+    const stackActions = new Map<number, ScratchStackAction>();
+    result.codeBlocks = codeNames.map(({ name, end }) => ({ name, offset: offsets.get(name)!, endOffset: offsets.get(end)! }));
+    result.movementBlocks = movementNames.map(({ name, end }) => ({ name, offset: offsets.get(name)!, endOffset: offsets.get(end)! }));
+    if (this.program.preserveLayout) result.preserveLayout = true;
+    if (this.program.preserveLayout || this.items.some((item) => item.kind === "data")) result.dataBlocks = [];
     if (this.program.overlayId !== undefined) result.overlayId = this.program.overlayId;
     const relocate = (operandOffset: number, target: string, kind: RelocationKind): number => {
       const targetOffset = offsets.get(target);
@@ -343,12 +492,14 @@ class Compiler {
     let cursor = scripts.length * 4 + 2;
     for (const item of this.items) {
       if (item.kind === "label") continue;
+      if (item.kind === "movementAlignment") { cursor += cursor % 2; continue; }
       if (item.kind === "data") {
         bytes.set(item.bytes, cursor);
         result.dataBlocks!.push({ name: item.name, offset: cursor, bytes: Uint8Array.from(item.bytes) });
         cursor += item.bytes.length; continue;
       }
       const offset = cursor;
+      if (this.stackActions.has(item)) stackActions.set(offset, this.stackActions.get(item)!);
       writeU16(bytes, cursor, item.opcode); cursor += 2;
       const operands: number[] = [];
       for (const operand of item.operands) {
@@ -361,8 +512,9 @@ class Compiler {
         }
         cursor += operand.width;
       }
-      result.instructions.push({ offset, opcode: item.opcode, operands, line: item.line, column: item.column });
+      result.instructions.push({ offset, opcode: item.opcode, operands, line: item.line, column: item.column, ...(item.dispatchId !== undefined ? { dispatchId: item.dispatchId } : {}) });
     }
+    if (this.helperFrames.managed) verifyBw2HelperStack(result, stackActions);
     return result;
   }
 }
