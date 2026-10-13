@@ -25,8 +25,8 @@
       },
       {
         "artifact": "PokewebPwanMiscW2.dll",
-        "sha256": "f5fab7c75bfcb91c84684c3bc771d4354f9438e0b6de1b6bf60c97372fc3b0f6",
-        "bytes": 10544,
+        "sha256": "5f58058a3831f58974ebd3ba27690c6772e5c398086a55085b556c0796b1c2e6",
+        "bytes": 10576,
         "bss": 26732,
         "guardFunctions": 3,
         "rangeChecks": true,
@@ -67,8 +67,8 @@
       },
       {
         "artifact": "PokewebPwanMiscB2.dll",
-        "sha256": "87e92755dc2411ae1a89dcff86857d3dbc5db0bbc3f6bab52f382a89fff78fc8",
-        "bytes": 10544,
+        "sha256": "870df7361826cbee9d3f15e02e25373062e9774a7ec68116d5e4bc783c6bac29",
+        "bytes": 10576,
         "bss": 26732,
         "guardFunctions": 3,
         "rangeChecks": true,

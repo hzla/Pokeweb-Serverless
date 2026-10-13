@@ -107,6 +107,30 @@ describe("Pokeweb automatic battle boot", () => {
     expect(configuration()).toEqual({ trainer: 0, rule: 0 });
     expect(source.fileSystem).toBeUndefined();
   });
+  it.each([false, true])("replaces quick launch's party from the Showdown team (Upgrade %s)", async upgrade => {
+    const source = project(upgrade), before = structuredClone(source);
+    const team = "Bulbasaur\nLevel: 25\n- Tackle";
+    const patched = saved.slice();
+    patched[0x18e04] = 1;
+    native.party.mockReturnValueOnce(patched);
+    const result = await buildQuickLaunchDownloads(source, { playerTeamText: `\n${team}\n` });
+    expect(native.party).toHaveBeenCalledWith(saved, source, team, "BW2");
+    expect(rawSaveBytesFromDesmumeDsv(result.saveBytes)).toEqual(patched);
+    expect(native.trainer).not.toHaveBeenCalled();
+    expect(native.stage).not.toHaveBeenCalled();
+    expect(source).toEqual(before);
+  });
+  it("keeps the default quick-launch party for a whitespace-only textarea", async () => {
+    const result = await buildQuickLaunchDownloads(project(), { playerTeamText: " \n\t " });
+    expect(native.party).not.toHaveBeenCalled();
+    expect(rawSaveBytesFromDesmumeDsv(result.saveBytes)).toEqual(saved);
+  });
+  it("reports invalid quick-launch team imports without mutating the source project", async () => {
+    const source = project(), before = structuredClone(source);
+    native.party.mockImplementationOnce(() => { throw new Error("Unknown Pokemon: Missingno"); });
+    await expect(buildQuickLaunchDownloads(source, { playerTeamText: "Missingno" })).rejects.toThrow("Unknown Pokemon: Missingno");
+    expect(source).toEqual(before);
+  });
   it("rejects incompatible native code without staging a runtime or mutating the project", async () => {
     const source = project(), before = structuredClone(source);
     native.validate.mockImplementationOnce(() => { throw new Error("Native hook mismatch"); });

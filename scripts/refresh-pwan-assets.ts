@@ -12,6 +12,7 @@ import { parsePwanLibraryArchive, type PwanLibraryEntry, type PwanLibraryManifes
 import { SPRITE_PRIORITIES, spriteKey, parseSpriteConfig, selectSpriteSource, nativeSpriteBlock, readNclrPalette, extractRomPwan, type SpriteSource, type SpriteRow } from './lib/pwan-sprite-refresh';
 import { gen6SpriteCredits, joinSpriteCredits, resolveSpriteCredit } from './lib/pwan-sprite-credits';
 import { readBundledPwanArchive, writeBundledPwanArchive } from './lib/pwan-library-payload';
+import { compilePwanLibraryIcon } from './lib/pwan-library-icons';
 
 type Tracker = { id: number; name: string; key: string; kind: string; baseSpeciesId?: number; form?: number; credits?: string; runtimeNotes?: string };
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -207,14 +208,17 @@ for (const [index,p] of plans.entries()) {
     const direct=readU16(record,0x1c)+p.formIndex-1;
     if (readU16(record,0x1c)&&icons.files[direct*2+8]?.length) {iconIndex=direct*2+8;paletteKey=direct;}
   }
-  const male=previous?previousLibrary.files[previous.maleMemberId]:icons.files[iconIndex], female=previous?previousLibrary.files[previous.femaleMemberId]:icons.files[iconIndex+1];
+  const generatedIcon = previous?.sourcePng
+    ? compilePwanLibraryIcon(new Uint8Array(await readFile(path.join(sprites, previous.sourcePng))), icons.files[0]!, previousLibrary.files[previous.maleMemberId]!)
+    : undefined;
+  const male=generatedIcon?.male??(previous?previousLibrary.files[previous.maleMemberId]:icons.files[iconIndex]), female=generatedIcon?.female??(previous?previousLibrary.files[previous.femaleMemberId]:icons.files[iconIndex+1]);
   if(!male?.length||paletteKey>=paletteMap.length) throw new Error(`Missing icon for ${p.name}: ${iconIndex}/${paletteKey}`);
-  const palettes=paletteMap[paletteKey]!, malePaletteId=previous?.malePaletteId??(palettes&15), femalePaletteId=previous?.femalePaletteId??(female?.length?palettes>>>4:malePaletteId);
+  const palettes=paletteMap[paletteKey]!, malePaletteId=generatedIcon?.malePaletteId??previous?.malePaletteId??(palettes&15), femalePaletteId=generatedIcon?.femalePaletteId??previous?.femalePaletteId??(female?.length?palettes>>>4:malePaletteId);
   if(malePaletteId>2||femalePaletteId>2) throw new Error(`Invalid icon palette for ${p.name}`);
   const maleMemberId=members.length;members.push(male);const femaleMemberId=members.length;members.push(previous ? female! : female?.length?female:male);
   const credits=joinSpriteCredits(p.sides.map(s=>sourceCredit(s.source,p.credits)));
   const spriteSources=p.sides.flatMap(s=>s.source?[{side:s.side,source:s.source.relative,...sourceAttribution(s.source)}]:[]);
-  libraryEntries.push({id:`${p.speciesId}-${p.formIndex}-${p.assetIndex}`,name:p.name,key:p.key,kind:p.kind,speciesId:p.speciesId,formIndex:p.formIndex,assetIndex:p.assetIndex,hasFront:!!(p.flags&1),hasBack:!!(p.flags&2),credits,creditSource:'import-report',spriteSources,notes:`Regenerated from approved priority GIF sources with nearest-neighbor resizing and 15 visible RGB555 colors; Gen 5 preset ${preset==='gen5'?'enabled (+15% saturation, +10% contrast)':'disabled'}. Unavailable sources preserve the previous ROM stream.`,icon:{maleMemberId,femaleMemberId,malePaletteId,femalePaletteId,sourceArchiveIndex:previous?.sourceArchiveIndex??iconIndex,sourcePaletteKey:previous?.sourcePaletteKey??paletteKey}});
+  libraryEntries.push({id:`${p.speciesId}-${p.formIndex}-${p.assetIndex}`,name:p.name,key:p.key,kind:p.kind,speciesId:p.speciesId,formIndex:p.formIndex,assetIndex:p.assetIndex,hasFront:!!(p.flags&1),hasBack:!!(p.flags&2),credits,creditSource:'import-report',spriteSources,notes:`Regenerated from approved priority GIF sources with nearest-neighbor resizing and 15 visible RGB555 colors; Gen 5 preset ${preset==='gen5'?'enabled (+15% saturation, +10% contrast)':'disabled'}. Unavailable sources preserve the previous ROM stream.`,icon:{maleMemberId,femaleMemberId,malePaletteId,femalePaletteId,...(previous?.sourcePng?{sourcePng:previous.sourcePng}:{sourceArchiveIndex:previous?.sourceArchiveIndex??iconIndex,sourcePaletteKey:previous?.sourcePaletteKey??paletteKey})}});
   if(index%20===0) console.log(`Prepared ${index+1}/${plans.length} species/forms (${variants.size} unique sides)`);
 }
 if(failures.length) {await json(path.join(output,'conversion-failures.json'),failures);throw new Error(`${failures.length} GIF conversions failed; repositories not modified`);}

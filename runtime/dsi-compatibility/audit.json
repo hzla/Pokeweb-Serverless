@@ -1,24 +1,33 @@
 {
   "format": 1,
   "scope": "4 MiB pointer limits; source review and executable inventory, not game compatibility certification.",
-  "sourceFilesScanned": 437,
-  "artifactCount": 97,
+  "sourceFilesScanned": 509,
+  "artifactCount": 122,
   "sourceCandidates": [
     {
       "repository": "pokeweb",
       "path": "runtime/battle-type-hud/hud_common.h",
       "lines": [
-        17
+        25
       ],
-      "sha256": "3e66fe34d803ce49bcbdb82b1372792d8fd54ba984bc68a80eb7cdec5ba5c04f"
+      "sha256": "4fd684e593dacd2bfb7a8a84f902f5ba9ccf930049e58d36728c3ce6d7be27d4"
     },
     {
       "repository": "pokeweb",
       "path": "runtime/following-pokemon/render.c",
       "lines": [
-        28
+        28,
+        140
       ],
-      "sha256": "68c653e0203480d6ef5cd1e26e1fda5e88bac49b344d42fd2a71d825c7e4cfdf"
+      "sha256": "762d41e5b1abb6f135d549ec2eda88a7f11b801c9c1152f0eeff994263e41fd2"
+    },
+    {
+      "repository": "w2u-integration",
+      "path": "include/util/main_ram.h",
+      "lines": [
+        12
+      ],
+      "sha256": "1d64c730ee7398e02c33c28f612cf55ddc12f651d137251acb7c3ff55406d080"
     },
     {
       "repository": "w2u-runtime",
@@ -40,9 +49,77 @@
       "repository": "w2u-runtime",
       "path": "src/pokeweb_gameplay/w2u_abilities.cpp",
       "lines": [
-        906
+        893
       ],
-      "sha256": "eda2c989f2c44cc098d95380ce9176c9bfddf63b1b2ac9d1280b1563ee44332f"
+      "sha256": "351fdbae43ecd6999e622a67b271e235871cb450e6701fd34d77628f1ed5c802"
+    },
+    {
+      "repository": "w2u-runtime",
+      "path": "src/pokeweb_gameplay/w2u_battle_module_loader.cpp",
+      "lines": [
+        278,
+        325,
+        398
+      ],
+      "sha256": "5ce0650c588b8d63811395ad4b8e515619dd477a70d9ec22e7bf78dfe84afafa"
+    },
+    {
+      "repository": "w2u-runtime",
+      "path": "src/pwan_animation/w2u_battle_anim.cpp",
+      "lines": [
+        65
+      ],
+      "sha256": "c4885f86c03147a90ce44616b5565cd84c3e9f12a59e6c6605faca39b3923e28"
+    },
+    {
+      "repository": "w2u-runtime",
+      "path": "src/pwan_animation/w2u_egg_hatch_anim.cpp",
+      "lines": [
+        28
+      ],
+      "sha256": "022937ad1bcc0ae261f71fec005a03f4bf62ae659d55e1259c5195a6ab71f39c"
+    },
+    {
+      "repository": "w2u-runtime",
+      "path": "src/pwan_animation/w2u_evolution_anim.cpp",
+      "lines": [
+        53
+      ],
+      "sha256": "ad4ee1e5d6c25a83e23f2d615c0770800b39b9ae5d2b843e9de4b1511ff851a7"
+    },
+    {
+      "repository": "w2u-runtime",
+      "path": "src/pwan_animation/w2u_nonbattle_mcss.cpp",
+      "lines": [
+        49
+      ],
+      "sha256": "7d989fc7321f2fa36f2ae9100fff57d430a35da2cd1bc00ae10560cf15c4ae38"
+    },
+    {
+      "repository": "w2u-runtime",
+      "path": "src/pwan_animation/w2u_summary_anim.cpp",
+      "lines": [
+        28
+      ],
+      "sha256": "f0d07389c704e4ff00ab8a20dbdd17b5f9a72ffd9b1d2df3792995c424acb599"
+    },
+    {
+      "repository": "w2u-runtime",
+      "path": "src/pwan_animation/w2u_trainer_anim.cpp",
+      "lines": [
+        28
+      ],
+      "sha256": "b085916e49ff1b4ea651673143e199bb699e8f93e8548ef3ae37a216bdef7f91"
+    },
+    {
+      "repository": "w2u-runtime",
+      "path": "src/w2anim/w2u_anim_streams.cpp",
+      "lines": [
+        237,
+        240,
+        369
+      ],
+      "sha256": "348cae26684d139e667af9b0af9c945a23fa2b0b83fb50776b1fe381878d6edf"
     }
   ],
   "artifacts": [
@@ -90,22 +167,22 @@
     },
     {
       "path": "src/assets/codeinjection/Black1BattleCounters.dll",
-      "sha256": "5cc3e519b1fe4d71dc3adb22ddca6690a4a1e60578a0f2d52b1b356869616cd5",
-      "codeBytes": 348,
-      "bssBytes": 0,
+      "sha256": "75a2d9e21b95072549065fec3739778c3b8d03b20e4dec3fa6d20d3341196ee5",
+      "codeBytes": 1256,
+      "bssBytes": 80,
       "boundaryLiteralCandidates": []
     },
     {
       "path": "src/assets/codeinjection/Black1BattleLog.dll",
-      "sha256": "dda15e52ec37be84615c1e74e1e0f7c41ff6ba8da92c4074f54af0f92184fc83",
-      "codeBytes": 1784,
+      "sha256": "fb3e13f3c9cd5e71c3fceecf14b0b809fbb34b0e82cf1ad045c503529f50686d",
+      "codeBytes": 1840,
       "bssBytes": 92,
       "boundaryLiteralCandidates": []
     },
     {
       "path": "src/assets/codeinjection/Black1BattleLogSummary.dll",
-      "sha256": "635d8c92225c89267c4b9b0b0a9b9f705ff95f390cb991f3586a298a5ad6ee7b",
-      "codeBytes": 548,
+      "sha256": "6568f4a8c68edcdca1ee3ff3faadf8e4561a740407bd9b402488af9f5e09d83e",
+      "codeBytes": 568,
       "bssBytes": 0,
       "boundaryLiteralCandidates": []
     },
@@ -155,6 +232,27 @@
       "path": "src/assets/codeinjection/Black2UpgradeUI.dll",
       "sha256": "bd7ff2ee419c38a629a2ae3212f3903c0fa6b33ef852a6420b0f9f9e17d366af",
       "codeBytes": 256,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/CGearQuickActionsB2.dll",
+      "sha256": "b7f96018d9b90997a1f1b9ee858380e0b52b0e840357df212e7aecb7dd1580bf",
+      "codeBytes": 10256,
+      "bssBytes": 1416,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/CGearQuickActionsW2.dll",
+      "sha256": "012bdcd8b333bf226e672ea304813ae19ef68b380537106d62943c5276a4dd6c",
+      "codeBytes": 8144,
+      "bssBytes": 1412,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/DoubleBattleFixB.dll",
+      "sha256": "a454f54ae412abef2f6123ca3ae85c67c1bc5cf669ac569100599160f6bda219",
+      "codeBytes": 412,
       "bssBytes": 0,
       "boundaryLiteralCandidates": []
     },
@@ -229,9 +327,23 @@
       "boundaryLiteralCandidates": []
     },
     {
+      "path": "src/assets/codeinjection/LearnsetMenuB.dll",
+      "sha256": "d0c5b359f5a8e44422fe9cd4bb1310d33839fb9c89b3bd0ea37dc0d420d89898",
+      "codeBytes": 4484,
+      "bssBytes": 8,
+      "boundaryLiteralCandidates": []
+    },
+    {
       "path": "src/assets/codeinjection/LearnsetMenuB2.dll",
       "sha256": "84e413f722229284c0ad2b0b3bad2ac592de6d6cbca50a637beb76a9301db61c",
       "codeBytes": 2540,
+      "bssBytes": 8,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/LearnsetMenuW.dll",
+      "sha256": "40ed5d424ca0010f0f476d0227f3dcc05793e96f207d6b59ce10dab18fc97bd3",
+      "codeBytes": 4484,
       "bssBytes": 8,
       "boundaryLiteralCandidates": []
     },
@@ -243,9 +355,23 @@
       "boundaryLiteralCandidates": []
     },
     {
+      "path": "src/assets/codeinjection/LearnsetViewerB.dll",
+      "sha256": "e39f69ded0bd71d6fe043f28928032eddf928662b18e75efd55fd6ed08816892",
+      "codeBytes": 18260,
+      "bssBytes": 8,
+      "boundaryLiteralCandidates": []
+    },
+    {
       "path": "src/assets/codeinjection/LearnsetViewerB2.dll",
       "sha256": "0f906b685fbca33303aac4d3ffbae040b8690753f55ebc260e2f05217d9768f7",
       "codeBytes": 15512,
+      "bssBytes": 8,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/LearnsetViewerW.dll",
+      "sha256": "b982e1e98a4f820ed628a30bf919ff582a1856d7d6720ee8a3ba9a052ee12432",
+      "codeBytes": 18260,
       "bssBytes": 8,
       "boundaryLiteralCandidates": []
     },
@@ -271,9 +397,23 @@
       "boundaryLiteralCandidates": []
     },
     {
+      "path": "src/assets/codeinjection/MenuEvolutionB.dll",
+      "sha256": "b39be1e935104ea1213c3862543925142fffe398f1cb6e79876c5e2bfb36b620",
+      "codeBytes": 3024,
+      "bssBytes": 44,
+      "boundaryLiteralCandidates": []
+    },
+    {
       "path": "src/assets/codeinjection/MenuEvolutionB2.dll",
       "sha256": "02b4100ff4a8877a770eacf7e2861f0ab11c68cea8ff72a7438c3dce81a568ed",
       "codeBytes": 2912,
+      "bssBytes": 44,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/MenuEvolutionW.dll",
+      "sha256": "917bb44093bb7ad9f9d62104bb6ad4021e39e8f1b22871b4dd4b3365481f08fd",
+      "codeBytes": 3024,
       "bssBytes": 44,
       "boundaryLiteralCandidates": []
     },
@@ -285,10 +425,24 @@
       "boundaryLiteralCandidates": []
     },
     {
+      "path": "src/assets/codeinjection/MoveEffectivenessB.dll",
+      "sha256": "f3d3d00679078d8846905da9ff30e2a43d88f2db7fe025c37878dfad31d3765c",
+      "codeBytes": 3048,
+      "bssBytes": 28,
+      "boundaryLiteralCandidates": []
+    },
+    {
       "path": "src/assets/codeinjection/MoveEffectivenessB2.dll",
       "sha256": "8cb285aea96c8d85ea3ba778ed8334be57654f2270f15466eabc0d9384e22795",
       "codeBytes": 2984,
       "bssBytes": 20,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/MoveEffectivenessW.dll",
+      "sha256": "f021d83f005b920190446d04bf97cb6cbfb5a5a9b4af5b2cb8a0fe5449a83a5f",
+      "codeBytes": 3048,
+      "bssBytes": 28,
       "boundaryLiteralCandidates": []
     },
     {
@@ -317,6 +471,20 @@
       "sha256": "286b4bd96e0acbe82014eb0121ed674fd3618ba6d328b2cd3c300e88779d4dfe",
       "codeBytes": 6476,
       "bssBytes": 92,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/PartyQuickActionsB2.dll",
+      "sha256": "eb7318758b8d8386b2a588ab60143323a8f8501755c84b39a015cb6a383a1cdc",
+      "codeBytes": 6828,
+      "bssBytes": 492,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/PartyQuickActionsW2.dll",
+      "sha256": "054b8a3f3dcff37cfb5a21ae27a13930097a892278c9377097ca8befac140a70",
+      "codeBytes": 6548,
+      "bssBytes": 492,
       "boundaryLiteralCandidates": []
     },
     {
@@ -349,15 +517,15 @@
     },
     {
       "path": "src/assets/codeinjection/PokewebPwanMiscB2.dll",
-      "sha256": "87e92755dc2411ae1a89dcff86857d3dbc5db0bbc3f6bab52f382a89fff78fc8",
-      "codeBytes": 7792,
+      "sha256": "870df7361826cbee9d3f15e02e25373062e9774a7ec68116d5e4bc783c6bac29",
+      "codeBytes": 7816,
       "bssBytes": 26732,
       "boundaryLiteralCandidates": []
     },
     {
       "path": "src/assets/codeinjection/PokewebPwanMiscW2.dll",
-      "sha256": "f5fab7c75bfcb91c84684c3bc771d4354f9438e0b6de1b6bf60c97372fc3b0f6",
-      "codeBytes": 7792,
+      "sha256": "5f58058a3831f58974ebd3ba27690c6772e5c398086a55085b556c0796b1c2e6",
+      "codeBytes": 7816,
       "bssBytes": 26732,
       "boundaryLiteralCandidates": []
     },
@@ -404,9 +572,51 @@
       "boundaryLiteralCandidates": []
     },
     {
+      "path": "src/assets/codeinjection/SaveMenuB2.dll",
+      "sha256": "9fd0b72ddef222ca3b01d94cac40e47923e89098de67df21fbbbba6cb859d969",
+      "codeBytes": 33288,
+      "bssBytes": 6624,
+      "boundaryLiteralCandidates": [
+        {
+          "offset": 31432,
+          "value": "0x003fffff"
+        },
+        {
+          "offset": 31444,
+          "value": "0x003fffff"
+        }
+      ]
+    },
+    {
+      "path": "src/assets/codeinjection/SaveMenuW2.dll",
+      "sha256": "5464dc3f3a48b047357622c5e0d8c7cacf60ee85e113cf86d209153563a4c23a",
+      "codeBytes": 33096,
+      "bssBytes": 6628,
+      "boundaryLiteralCandidates": [
+        {
+          "offset": 30832,
+          "value": "0x003fffff"
+        }
+      ]
+    },
+    {
+      "path": "src/assets/codeinjection/SummaryStatViewerB.dll",
+      "sha256": "dfd4ebfdf5f90a3a3176c5664d8acd7d097869bedb765a5e237b54a0bca26845",
+      "codeBytes": 10020,
+      "bssBytes": 108,
+      "boundaryLiteralCandidates": []
+    },
+    {
       "path": "src/assets/codeinjection/SummaryStatViewerB2.dll",
       "sha256": "9672f1c7538b30e4791806dec071031fd37bbf3265e78713dc406574d9913950",
       "codeBytes": 10004,
+      "bssBytes": 108,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/SummaryStatViewerW.dll",
+      "sha256": "8c2d5ccf6171ba0930955cd7321b8c9eb54b50551d2d6536e57216811470c51f",
+      "codeBytes": 10020,
       "bssBytes": 108,
       "boundaryLiteralCandidates": []
     },
@@ -416,6 +626,54 @@
       "codeBytes": 10004,
       "bssBytes": 108,
       "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/SummaryTypeIconsB2.dll",
+      "sha256": "460d1d2f3c2d83676d1fb3d37e47899162438908e55ddf53858888b8382083ed",
+      "codeBytes": 6516,
+      "bssBytes": 1192,
+      "boundaryLiteralCandidates": [
+        {
+          "offset": 2436,
+          "value": "0x00400000"
+        },
+        {
+          "offset": 4228,
+          "value": "0x00400000"
+        },
+        {
+          "offset": 5508,
+          "value": "0x00400000"
+        },
+        {
+          "offset": 5768,
+          "value": "0x00400000"
+        }
+      ]
+    },
+    {
+      "path": "src/assets/codeinjection/SummaryTypeIconsW2.dll",
+      "sha256": "5211c343b0c5fbb91f8c46cd9c4feb117fd9bc1c2cf67567ae070abff3ea6887",
+      "codeBytes": 6516,
+      "bssBytes": 1192,
+      "boundaryLiteralCandidates": [
+        {
+          "offset": 2436,
+          "value": "0x00400000"
+        },
+        {
+          "offset": 4228,
+          "value": "0x00400000"
+        },
+        {
+          "offset": 5508,
+          "value": "0x00400000"
+        },
+        {
+          "offset": 5768,
+          "value": "0x00400000"
+        }
+      ]
     },
     {
       "path": "src/assets/codeinjection/TagBattleStabilizationW2.dll",
@@ -439,11 +697,30 @@
       "boundaryLiteralCandidates": []
     },
     {
+      "path": "src/assets/codeinjection/TypeIconsB.dll",
+      "sha256": "5266fbd0a83a3962ee5b50d59cdbf515e6caf4e9bdb4dafbadfde8965ae3149b",
+      "codeBytes": 3820,
+      "bssBytes": 796,
+      "boundaryLiteralCandidates": []
+    },
+    {
       "path": "src/assets/codeinjection/TypeIconsB2.dll",
       "sha256": "2ef06fca00da5a1e9d7a99baa33dc6f7fbe994322efcae37edf715a531bbe037",
       "codeBytes": 6880,
       "bssBytes": 364,
       "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/TypeIconsCircularB.dll",
+      "sha256": "826017222fb9f145782d2842b29ca9103ad99ea7292c414856ff4ae39f9fd1b6",
+      "codeBytes": 3820,
+      "bssBytes": 796,
+      "boundaryLiteralCandidates": [
+        {
+          "offset": 3624,
+          "value": "0x00400000"
+        }
+      ]
     },
     {
       "path": "src/assets/codeinjection/TypeIconsCircularB2.dll",
@@ -453,6 +730,18 @@
       "boundaryLiteralCandidates": [
         {
           "offset": 6680,
+          "value": "0x00400000"
+        }
+      ]
+    },
+    {
+      "path": "src/assets/codeinjection/TypeIconsCircularW.dll",
+      "sha256": "d80f3db5da33ab6500bc5b814c238b48d342c9d420fe0eae6d936e626282fd1c",
+      "codeBytes": 3820,
+      "bssBytes": 796,
+      "boundaryLiteralCandidates": [
+        {
+          "offset": 3624,
           "value": "0x00400000"
         }
       ]
@@ -470,6 +759,13 @@
       ]
     },
     {
+      "path": "src/assets/codeinjection/TypeIconsSolidB.dll",
+      "sha256": "c43b1a7afc92a29d6107a187d9381dfcd069f1c4a8f1bc0379cd621c5616bb4b",
+      "codeBytes": 3380,
+      "bssBytes": 796,
+      "boundaryLiteralCandidates": []
+    },
+    {
       "path": "src/assets/codeinjection/TypeIconsSolidB2.dll",
       "sha256": "710665ad2326598a694d07afb798263e1e76e10e6c80bd93750d7da5f1a60e85",
       "codeBytes": 6636,
@@ -477,10 +773,24 @@
       "boundaryLiteralCandidates": []
     },
     {
+      "path": "src/assets/codeinjection/TypeIconsSolidW.dll",
+      "sha256": "1d0ab6980eee94db98cc86c61fc1c8ff0604046137b85ceceb470be0fd6afc02",
+      "codeBytes": 3380,
+      "bssBytes": 796,
+      "boundaryLiteralCandidates": []
+    },
+    {
       "path": "src/assets/codeinjection/TypeIconsSolidW2.dll",
       "sha256": "6958865aa62c7882edc60c823977221f9706d352ec7055322b31741a5d00d214",
       "codeBytes": 6636,
       "bssBytes": 364,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/TypeIconsW.dll",
+      "sha256": "a1d274e4f4ec21d2b8f71cba2c0d38dc4695cc859b250000fa93fd97860b1e02",
+      "codeBytes": 3820,
+      "bssBytes": 796,
       "boundaryLiteralCandidates": []
     },
     {
@@ -499,22 +809,22 @@
     },
     {
       "path": "src/assets/codeinjection/White1BattleCounters.dll",
-      "sha256": "0ebabac8ef960c336d7081a200345bf16acbb2a6a28dba2040b27057d86a43c2",
-      "codeBytes": 348,
-      "bssBytes": 0,
+      "sha256": "34bd0a7f3f492659c6acfaba59b2ec38b4ec1bfb8f64cc77d912c89ce894dd5c",
+      "codeBytes": 1256,
+      "bssBytes": 80,
       "boundaryLiteralCandidates": []
     },
     {
       "path": "src/assets/codeinjection/White1BattleLog.dll",
-      "sha256": "10e1a875f26917d610899fe434b586fb459b59c9914e3669f4fbe291ca231e17",
-      "codeBytes": 1784,
+      "sha256": "c4d49701700a71296a0bd74b9199ea48ea5945c824a54658566829363e0e7921",
+      "codeBytes": 1840,
       "bssBytes": 92,
       "boundaryLiteralCandidates": []
     },
     {
       "path": "src/assets/codeinjection/White1BattleLogSummary.dll",
-      "sha256": "9e0ff9251324922cde7a254fb973fba1749c691997443a8fe26964cc5c8ef8ca",
-      "codeBytes": 548,
+      "sha256": "c985a07a9eca56f34a88c2460a5ec6a0ec8a981e10cb69756d3714f374219902",
+      "codeBytes": 568,
       "bssBytes": 0,
       "boundaryLiteralCandidates": []
     },
@@ -541,59 +851,59 @@
     },
     {
       "path": "src/assets/following/PokewebFollowingBattleW2.dll",
-      "sha256": "be4e10297d8252f9e7085b93e0df6e3bc7fa7bec54053c59e0a6d351c5d377e5",
+      "sha256": "0835bad06843b5de59f85bd53992e077ec2fb5a279ed54185020cae0ac23c2d2",
       "codeBytes": 364,
       "bssBytes": 0,
       "boundaryLiteralCandidates": []
     },
     {
       "path": "src/assets/following/PokewebFollowingCoreW2.dll",
-      "sha256": "3f2ef8f0b59bd6df98e41bd7afa6923cbb53c1a43ba9961deef6838f8d85c7e7",
+      "sha256": "d0cfc581344f077f295bdf7c96e6eb5cff5aba0fb5fe464dd083445dfa3c5da8",
       "codeBytes": 652,
       "bssBytes": 136,
       "boundaryLiteralCandidates": []
     },
     {
       "path": "src/assets/following/PokewebFollowingEventsW2.dll",
-      "sha256": "4317b8aa9515bde45d5abd7f7acefda229faa2d23f19e4d44202df866b19cdbe",
+      "sha256": "d0d2379caa27ba1b5036eb180d8b943445552db3d5675e93fdb40186695970df",
       "codeBytes": 1436,
       "bssBytes": 28,
       "boundaryLiteralCandidates": []
     },
     {
       "path": "src/assets/following/PokewebFollowingEventsW2Base.dll",
-      "sha256": "5555c96704e649fc2d2ec7d820d8557a3eb52cfff6f8a6f5e5d532511197ecb6",
+      "sha256": "e09e8163561c54ce8f249e3a944a445d080880586a836fea88c698e71e8d4bff",
       "codeBytes": 1324,
       "bssBytes": 28,
       "boundaryLiteralCandidates": []
     },
     {
       "path": "src/assets/following/PokewebFollowingFieldW2.dll",
-      "sha256": "838c043154bfb63edec40332c20c3d52bd37bc3ca07d749655ba5b1197ed4927",
-      "codeBytes": 46492,
+      "sha256": "af4d2754888a0051e55bf9d05bdb95c53f4ee0f1259f507212de2c1096976ce7",
+      "codeBytes": 49244,
       "bssBytes": 20140,
       "boundaryLiteralCandidates": [
         {
-          "offset": 28596,
+          "offset": 30084,
           "value": "0x023fff40"
         }
       ]
     },
     {
       "path": "src/assets/following/PokewebFollowingFieldW2Base.dll",
-      "sha256": "6789cb86a778b684b4e79f2dadd05f501a125390181fb91e417132c0a5f6514e",
-      "codeBytes": 35148,
+      "sha256": "40bbe8689d0bda5e63ce3ccaceb5049b566cf6ef0e60cb4b9a56d0c7199a4ce8",
+      "codeBytes": 37896,
       "bssBytes": 18492,
       "boundaryLiteralCandidates": [
         {
-          "offset": 26304,
+          "offset": 27792,
           "value": "0x023fff40"
         }
       ]
     },
     {
       "path": "src/assets/following/PokewebFollowingOptionsW2.dll",
-      "sha256": "8090c923b9850e995e73d30ad0d7a53723bc773d3bb0578abc776bfdb530ead5",
+      "sha256": "e5d79b3710f5a7d5f17aed0fc45abd2b57805d256e5febeb26283e3811cc0a95",
       "codeBytes": 1996,
       "bssBytes": 40,
       "boundaryLiteralCandidates": []
@@ -698,49 +1008,59 @@
     },
     {
       "path": "src/assets/following/white2upgrade/PokewebFollowingBattleW2.dll",
-      "sha256": "7ca99fd85a265f0ba014538c4ea2580e1f181deef703230fb37b154e963851c4",
+      "sha256": "e9e8e3bb16e8117d0c90e6159c0920edc1d29f60355c6a366c7991596b98a40a",
       "codeBytes": 364,
       "bssBytes": 0,
       "boundaryLiteralCandidates": []
     },
     {
       "path": "src/assets/following/white2upgrade/PokewebFollowingCoreW2.dll",
-      "sha256": "549201cf001cf0a9674d09911a1d38889408e6702b625b7931f66a18a9933935",
+      "sha256": "ff073b2bb26231ea4aab2a7415b6ce313ada42057c04032c7d89d4663f20f82d",
       "codeBytes": 652,
       "bssBytes": 136,
       "boundaryLiteralCandidates": []
     },
     {
       "path": "src/assets/following/white2upgrade/PokewebFollowingEventsW2.dll",
-      "sha256": "770361ebda830a8d7ddede084ca3cc5a5d2d4c853b0dfce2173728aaa11316f9",
+      "sha256": "c4d96354ea5ea60d1505e15d716ea535d8b02bdcc35ad48cc0cf2269eedaf042",
       "codeBytes": 1436,
       "bssBytes": 28,
       "boundaryLiteralCandidates": []
     },
     {
       "path": "src/assets/following/white2upgrade/PokewebFollowingEventsW2Base.dll",
-      "sha256": "5e858d254f46c86d85945882f718b92abc5a5bdac2f138c1d19a5bef0f079123",
+      "sha256": "996867a1df4be2a5bc8bb3dce6d679f2931c47307fbd611d47d9e5246e928a16",
       "codeBytes": 1324,
       "bssBytes": 28,
       "boundaryLiteralCandidates": []
     },
     {
       "path": "src/assets/following/white2upgrade/PokewebFollowingFieldW2.dll",
-      "sha256": "ea596734d7298c56078d0f0d8288639cbda0b6e451ef3d04d007f5616314a231",
-      "codeBytes": 44852,
-      "bssBytes": 20832,
-      "boundaryLiteralCandidates": []
+      "sha256": "79ee2c4bdcc578d47f4c14d60dbb6d34a2116731372e601a21911e34e134e788",
+      "codeBytes": 47924,
+      "bssBytes": 20888,
+      "boundaryLiteralCandidates": [
+        {
+          "offset": 28860,
+          "value": "0x023fff40"
+        }
+      ]
     },
     {
       "path": "src/assets/following/white2upgrade/PokewebFollowingFieldW2Base.dll",
-      "sha256": "998d3644fd08ed0f5a9beda12eab9ba0f6ae8d613f42fb3fcc79b0083bfa8fde",
-      "codeBytes": 33612,
-      "bssBytes": 19180,
-      "boundaryLiteralCandidates": []
+      "sha256": "6bd92f019151637328ca63d014b0776e28e222a573d49c1777e2f592e0f63fbd",
+      "codeBytes": 36576,
+      "bssBytes": 19240,
+      "boundaryLiteralCandidates": [
+        {
+          "offset": 26568,
+          "value": "0x023fff40"
+        }
+      ]
     },
     {
       "path": "src/assets/following/white2upgrade/PokewebFollowingOptionsW2.dll",
-      "sha256": "40c271c8c102d7e183122018669465f059eafa4812d2428103b72455da0b6cd6",
+      "sha256": "65eeb7427c3cb339c36863ea8de65ae288131573c05a3ec027dfb30aed8ca834",
       "codeBytes": 1996,
       "bssBytes": 40,
       "boundaryLiteralCandidates": []

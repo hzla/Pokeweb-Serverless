@@ -7,6 +7,7 @@ import { PWAN_ARCHIVE_PATH, parsePwanArchiveBytes, pwanAssetIndex } from "../src
 import type { PwanAnimationOverride } from "../src/pokeweb/projectStore";
 import type { PwanLibraryEntry, PwanLibraryManifest } from "../src/pokeweb/pwanLibraryModel";
 import { writeBundledPwanArchive } from './lib/pwan-library-payload';
+import { compilePwanLibraryIcon, regionalPwanIconSource } from './lib/pwan-library-icons';
 
 type BuildPwanLibraryOptions = {
   romPath: string;
@@ -109,7 +110,7 @@ export async function buildPwanLibrary(options: BuildPwanLibraryOptions): Promis
   const trackerRows = JSON.parse(await readFile(options.trackerPath, "utf8")) as TrackerRow[];
   const reportIndex = await loadReportIndex(options.reportsDir);
   const entries = overrides.map((override) => buildManifestEntry(override, trackerRows, reportIndex));
-  const missingIcons = appendIconPayloads(libraryArchive, iconArchive, iconPaletteMap, entries, trackerRows);
+  const missingIcons = await appendIconPayloads(libraryArchive, iconArchive, iconPaletteMap, entries, trackerRows);
   const libraryArchiveBytes = libraryArchive.save();
   const iconCount = entries.filter((entry) => entry.icon).length;
   const frontCount = entries.filter((entry) => entry.hasFront).length;
@@ -154,15 +155,27 @@ export async function buildPwanLibrary(options: BuildPwanLibraryOptions): Promis
   return { manifest, report };
 }
 
-function appendIconPayloads(
+async function appendIconPayloads(
   libraryArchive: NARC,
   iconArchive: NARC,
   paletteMap: Uint8Array,
   entries: PwanLibraryEntry[],
   trackerRows: TrackerRow[],
-): string[] {
+): Promise<string[]> {
   const missing: string[] = [];
   for (const entry of entries) {
+    const tracker = findTrackerRow(trackerRows, entry.speciesId, entry.formIndex, entry.assetIndex);
+    const sourcePng = tracker ? regionalPwanIconSource(tracker) : undefined;
+    const png = sourcePng ? await readFile(path.join(WORKSPACE_ROOT, sourcePng)) : undefined;
+    if (png) {
+      const template = iconArchive.files[GEN8PLUS_ICON_ARCHIVE_START];
+      if (!template) throw new Error('The icon archive has no native template');
+      const generated = compilePwanLibraryIcon(png, iconArchive.files[0]!, template);
+      const maleMemberId = libraryArchive.files.length;
+      libraryArchive.files.push(generated.male, generated.female);
+      entry.icon = { maleMemberId, femaleMemberId: maleMemberId + 1, malePaletteId: generated.malePaletteId, femalePaletteId: generated.femalePaletteId, sourcePng };
+      continue;
+    }
     const source = sourceIconLocation(entry, iconArchive, trackerRows);
     const sourceBase = source.archiveIndex;
     const male = iconArchive.files[sourceBase];

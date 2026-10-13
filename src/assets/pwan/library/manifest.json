@@ -4,7 +4,7 @@
   "sourceRom": "White2Upgrade.nds",
   "iconSourceRom": "White2Upgrade.nds",
   "archivePath": "zz_pokeweb_pwan/pwan.narc",
-  "archiveBytes": 120504476,
+  "archiveBytes": 120503404,
   "entryCount": 596,
   "iconCount": 596,
   "sideCount": {
@@ -8417,10 +8417,9 @@
       "icon": {
         "maleMemberId": 3539,
         "femaleMemberId": 3540,
-        "malePaletteId": 0,
-        "femalePaletteId": 0,
-        "sourceArchiveIndex": 2292,
-        "sourcePaletteKey": 1142
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourcePng": "essentials_pngs/Icons/SAMUROTT_1.png"
       },
       "spriteSources": [
         {

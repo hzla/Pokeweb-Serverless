@@ -572,9 +572,9 @@ function evolutionTargetField(slot: EvolutionSlot): string {
     <div class="expanded-field evolution-target-field">
       <div class="expanded-field-name evolution-target-label">
         <span>Evolves to</span>
-        <span class="evolution-target-id" data-evolution-target-id="${slot.index}" title="Raw evolution target species ID">Species ID ${slot.targetId}</span>
+        <span class="evolution-target-id">Species ID ${editable("evolution", `target_${slot.index}`, slot.targetId, "evolution-target-id-input", { type: "int-65535", label: `Evolution ${slot.index + 1} target species ID` })}</span>
       </div>
-      ${editable("evolution", `target_${slot.index}`, slot.target, "evo-value", { autofill: "pokemon_names" })}
+      ${editable("evolution", `target_${slot.index}`, slot.target, "evo-value", { autofill: "evolution_targets", label: `Evolution ${slot.index + 1} target name or species ID` })}
     </div>
   `;
 }

@@ -1081,10 +1081,10 @@
 }
 
 .evolution-target-label {
-  align-items: baseline;
+  align-items: flex-start;
   display: flex;
-  flex-wrap: wrap;
-  gap: 5px 10px;
+  flex-direction: column;
+  gap: 5px;
 }
 
 .evolution-target-id {
@@ -1092,6 +1092,16 @@
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.evolution-target-id-input {
+  display: inline-block;
+  min-width: 3ch;
+  padding: 1px 4px;
+  border: 1px solid rgba(242, 242, 242, 0.3);
+  border-radius: 3px;
+  color: #1abc9c;
+  cursor: text;
 }
 
 .expanded-card-content .expanded-field.multi {

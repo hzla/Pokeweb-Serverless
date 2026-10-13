@@ -1,7 +1,7 @@
 import { concatBytes, readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { NintendoDSRom } from "../nds/rom";
 import { recordGenericChange } from "./actionChangelog";
-import { getRomFileBytes, replaceRomFile } from "./fileSystemModel";
+import { addRomFile, getRomFileBytes, replaceRomFile, setRomFileReplacement } from "./fileSystemModel";
 import { invalidateNitroSdatCache, loadNitroSdatFromProject } from "./nitroSound";
 import { loadActiveRomBytes } from "./persistence";
 import {
@@ -15,11 +15,14 @@ import {
 } from "./pmcModel";
 import {
   getNativeStreamReplacementConfigs,
+  getStandaloneStreamConfigs,
   getStreamedBgmConfigs,
   type NativeStreamReplacementConfig,
   type ProjectState,
   type StreamedBgmConfig,
+  type StandaloneStreamConfig,
 } from "./projectStore";
+import { decodeStandaloneStreamManifest, encodeStandaloneStreamManifest, STANDALONE_STREAM_MANIFEST_PATH } from "./standaloneStreamManifest";
 
 export const STREAMED_BGM_SAMPLE_RATE = 32_728 as const;
 export const STREAMED_BGM_CHANNELS = 2 as const;
@@ -115,6 +118,17 @@ export type NativeStreamInstallInput = {
   loopStartSeconds?: number;
   /** Legacy alias for trimEndSeconds, retained for programmatic callers. */
   loopEndSeconds?: number;
+};
+
+export type StandaloneStreamInstallInput = {
+  name: string;
+  sourceName: string;
+  pcm: StereoPcm;
+  encoding: StreamedBgmEncoding;
+  loop?: boolean;
+  loopStartSeconds?: number;
+  trimStartSeconds?: number;
+  trimEndSeconds?: number;
 };
 
 export type StreamedBgmStatus =
@@ -248,11 +262,11 @@ function appendStreamInfo(infoBytes: Uint8Array, fileId: number): { info: Uint8A
 function removeStreamInfo(infoBytes: Uint8Array, streamId: number, streamFileId: number): Uint8Array {
   const table = infoTableOffset(infoBytes, 7);
   const count = readU32(infoBytes, table);
-  if (count < 2 || streamId !== count - 1) throw new Error("The installed streamed-BGM entry is no longer the final SDAT stream.");
+  if (count < 2 || streamId !== count - 1) throw new Error("The managed stream is no longer the final SDAT stream.");
   const slot = table + 4 + streamId * 4;
   const recordOffset = readU32(infoBytes, slot);
   if (recordOffset + 12 !== infoBytes.length || readU16(infoBytes, recordOffset) !== streamFileId) {
-    throw new Error("The installed streamed-BGM INFO record no longer matches its configuration.");
+    throw new Error("The managed stream INFO record no longer matches its configuration.");
   }
   let info: Uint8Array = replaceRange(infoBytes, recordOffset, 12, new Uint8Array());
   info = replaceRange(info, slot, 4, new Uint8Array());
@@ -737,6 +751,35 @@ export function installStreamedBgmInSdat(sdatBytes: Uint8Array, targetSequenceId
   return { bytes: rebuildSdat(parts), ...mapping };
 }
 
+/** Add a native STRM without redirecting or changing any existing sequence. */
+export function appendStandaloneSdatStream(sdatBytes: Uint8Array, strmBytes: Uint8Array): { bytes: Uint8Array; streamId: number; streamFileId: number } {
+  requireMagic(strmBytes, 0, "STRM");
+  if (strmBytes.length < STRM_HEADER_SIZE || readU32(strmBytes, 8) !== strmBytes.length) {
+    throw new Error("The standalone STRM header is malformed.");
+  }
+  const parts = parseSdat(sdatBytes);
+  if (parts.files.length >= 0xffff || readU32(parts.info, infoTableOffset(parts.info, 7)) >= 0xffff) {
+    throw new Error("The sound archive has exhausted its native 16-bit stream or file IDs.");
+  }
+  const streamFileId = parts.files.length;
+  const appended = appendStreamInfo(parts.info, streamFileId);
+  parts.info = appended.info;
+  parts.files.push(strmBytes);
+  return { bytes: rebuildSdat(parts), streamId: appended.streamId, streamFileId };
+}
+
+/** A standalone stream is removable only after later owned BGM entries are lifted. */
+export function removeFinalStandaloneSdatStream(sdatBytes: Uint8Array, streamId: number, streamFileId: number): Uint8Array {
+  const parts = parseSdat(sdatBytes);
+  if (streamFileId !== parts.files.length - 1) throw new Error("The standalone stream is no longer the final SDAT file.");
+  const file = parts.files[streamFileId];
+  if (!file) throw new Error("The standalone stream file is missing.");
+  requireMagic(file, 0, "STRM");
+  parts.info = removeStreamInfo(parts.info, streamId, streamFileId);
+  parts.files.pop();
+  return rebuildSdat(parts);
+}
+
 function appendMapping(parts: SdatParts, targetSequenceId: number, strmBytes: Uint8Array): SdatStreamedBgmConfig {
   requireMagic(strmBytes, 0, "STRM");
   if (targetSequenceId >= 0xffff || parts.files.length + 1 >= 0xffff
@@ -968,6 +1011,47 @@ function commitNativeStreamState(project: ProjectState, configs: NativeStreamRep
   else delete project.codeInjection.nativeStreamReplacements;
 }
 
+function standaloneManifestBytes(project: ProjectState, rom: NintendoDSRom): Uint8Array | undefined {
+  const staged = Object.entries(project.fileSystem?.additions ?? {}).find(([path]) => path.toLowerCase() === STANDALONE_STREAM_MANIFEST_PATH);
+  if (staged) return staged[1];
+  const fileId = rom.filenames.idOf(STANDALONE_STREAM_MANIFEST_PATH);
+  return fileId === undefined ? undefined : getRomFileBytes(project, rom, fileId);
+}
+
+async function readStandaloneStreams(project: ProjectState, rom: NintendoDSRom, sdatBytes: Uint8Array): Promise<StandaloneStreamConfig[]> {
+  const bytes = standaloneManifestBytes(project, rom);
+  const saved = getStandaloneStreamConfigs(project);
+  if (!bytes) {
+    if (saved.length) throw new Error("Standalone stream metadata is missing from the ROM file system.");
+    return [];
+  }
+  const configs = decodeStandaloneStreamManifest(bytes);
+  if (saved.length && JSON.stringify(saved) !== JSON.stringify(configs)) {
+    throw new Error("The project's standalone stream metadata disagrees with the ROM manifest.");
+  }
+  const streams = listNativeSdatStreams(sdatBytes);
+  for (const config of configs) {
+    const stream = streams[config.streamId];
+    if (!stream || stream.fileId !== config.streamFileId || stream.encodedBytes !== config.encodedBytes) {
+      throw new Error(`Standalone stream ${config.streamId} no longer matches its archive entry.`);
+    }
+    const bytes = nativeStreamBytes(sdatBytes, config.streamId).bytes;
+    if (await sha256Hex(bytes) !== config.audioSha256) {
+      throw new Error(`Standalone stream ${config.streamId} changed outside the Music editor.`);
+    }
+  }
+  return configs;
+}
+
+function commitStandaloneStreams(project: ProjectState, rom: NintendoDSRom, configs: StandaloneStreamConfig[]): void {
+  project.codeInjection ??= {};
+  project.codeInjection.standaloneStreams = configs;
+  const bytes = encodeStandaloneStreamManifest(configs);
+  const fileId = rom.filenames.idOf(STANDALONE_STREAM_MANIFEST_PATH);
+  if (fileId !== undefined) setRomFileReplacement(project, fileId, bytes);
+  else addRomFile(project, STANDALONE_STREAM_MANIFEST_PATH, bytes);
+}
+
 /** Detect both legacy ABI 1 ROMs and variable-length ABI 2 tables without
  * changing project state before the caller's transaction has succeeded. */
 async function readInstalledMusic(project: ProjectState, rom: NintendoDSRom, version: "B2" | "W2", sdatBytes: Uint8Array): Promise<{ configs: StreamedBgmConfig[]; shortcutEnabled: boolean }> {
@@ -1052,6 +1136,9 @@ export async function installNativeStreamReplacement(
     if (sdat.sourceFileId === undefined) throw new Error("The active SDAT has no NitroFS file ID.");
     if (getStreamedBgmConfigs(draft).some((mapping) => mapping.streamId === input.streamId)) {
       throw new Error("This stream belongs to a sequence replacement. Update that track from Installed replacements instead.");
+    }
+    if (getStandaloneStreamConfigs(draft).some((entry) => entry.streamId === input.streamId)) {
+      throw new Error("This is a standalone song. It is managed by the Standalone streamed songs panel.");
     }
     const current = nativeStreamBytes(sdat.bytes, input.streamId);
     const baseSdat = rom.files[sdat.sourceFileId];
@@ -1149,6 +1236,93 @@ export async function removeNativeStreamReplacement(project: ProjectState, strea
       "Native Stream Replacement",
       { key: `music:native-stream:${streamId}` },
     );
+  });
+}
+
+/** Install an independent SDAT stream, leaving all original sequence and stream IDs intact. */
+export async function installStandaloneStream(project: ProjectState, input: StandaloneStreamInstallInput): Promise<StandaloneStreamConfig> {
+  return musicTransaction(project, async (draft) => {
+    const name = input.name.trim();
+    if (!name || name.length > 80) throw new Error("Give the standalone track a name of up to 80 characters.");
+    const { bytes: romBytes, rom, version } = await projectRom(draft);
+    const sdat = await loadNitroSdatFromProject(draft);
+    if (sdat.sourceFileId === undefined) throw new Error("The active SDAT has no NitroFS file ID.");
+    const standalone = await readStandaloneStreams(draft, rom, sdat.bytes);
+    if (standalone.some((entry) => entry.name.toLowerCase() === name.toLowerCase())) throw new Error("A standalone track already has that name.");
+    const { configs: bgms, shortcutEnabled } = await readInstalledMusic(draft, rom, version, sdat.bytes);
+    if (bgms.length) assertBundledBgmRuntimeCompatibility(draft, romBytes);
+    const cropped = cropImportedAudio(input.pcm, input.trimStartSeconds, input.trimEndSeconds, undefined);
+    const loopStartSeconds = input.loop === false ? 0 : input.loopStartSeconds ?? 0;
+    if (!Number.isFinite(loopStartSeconds) || loopStartSeconds < 0 || loopStartSeconds >= cropped.pcm.left.length / cropped.pcm.sampleRate) {
+      throw new Error("Loop start must be inside the cropped audio.");
+    }
+    const loopStartSample = Math.round(loopStartSeconds * cropped.pcm.sampleRate);
+    const loopEndSample = cropped.pcm.left.length;
+    const encoded = input.encoding === "pcm16"
+      ? encodePcm16Strm(cropped.pcm, loopStartSample, loopEndSample, input.loop !== false)
+      : encodeAdpcmStrm(cropped.pcm, loopStartSample, loopEndSample, input.loop !== false);
+    const retainedBgms = bgms.map((entry) => ({ targetSequenceId: entry.targetSequenceId, bytes: sdat.files[entry.streamFileId]!.data }));
+    const cleared = bgms.length ? rebuildStreamedBgmMappings(sdat.bytes, bgms, []).bytes : sdat.bytes;
+    const added = appendStandaloneSdatStream(cleared, encoded.bytes);
+    const rebuilt = bgms.length ? rebuildStreamedBgmMappings(added.bytes, [], retainedBgms) : { bytes: added.bytes, mappings: [] };
+    const oldRuntime = bgms.length ? findRuntimeBytes(draft, rom, version) : undefined;
+    const runtime = bgms.length ? await configureBundledBgmRuntime(version, { shortcutEnabled, mappings: rebuilt.mappings }) : undefined;
+    assertRomCapacity(draft, rom, sdat.bytes.length, rebuilt.bytes.length, (runtime?.length ?? 0) - (oldRuntime?.length ?? 0));
+    const config: StandaloneStreamConfig = {
+      name, sourceName: input.sourceName, streamId: added.streamId, streamFileId: added.streamFileId,
+      encoding: encoded.encoding, sampleRate: STREAMED_BGM_SAMPLE_RATE,
+      sampleCount: encoded.sampleCount, loopStartSample: encoded.loopStartSample,
+      loopEndSample: encoded.loopEndSample, encodedBytes: encoded.bytes.length,
+      audioSha256: await sha256Hex(encoded.bytes),
+    };
+    if (runtime) stageCodeInjectionDll(draft, runtimeFileName(version), runtime, "patches", romBytes);
+    replaceRomFile(draft, rom, sdat.sourceFileId, rebuilt.bytes);
+    commitStandaloneStreams(draft, rom, [...standalone, config]);
+    if (bgms.length) commitMusicState(draft, rebuilt.mappings.map((mapping) => ({
+      ...bgms.find((entry) => entry.targetSequenceId === mapping.targetSequenceId)!, ...mapping,
+    })));
+    invalidateNitroSdatCache(draft);
+    recordGenericChange(draft, "code_injection", `Standalone streamed track ${name} added without replacing existing music.`, "Standalone Stream", {
+      key: `music:standalone:${config.streamId}`,
+    });
+    return config;
+  });
+}
+
+/** Remove only the newest standalone track, keeping earlier IDs stable. */
+export async function removeLastStandaloneStream(project: ProjectState): Promise<void> {
+  return musicTransaction(project, async (draft) => {
+    const { bytes: romBytes, rom, version } = await projectRom(draft);
+    const sdat = await loadNitroSdatFromProject(draft);
+    if (sdat.sourceFileId === undefined) throw new Error("The active SDAT has no NitroFS file ID.");
+    const standalone = await readStandaloneStreams(draft, rom, sdat.bytes);
+    const last = standalone.at(-1);
+    if (!last) throw new Error("No standalone stream is installed.");
+    const settingsPath = "ui/save-menu/settings.bin";
+    const settingsId = rom.filenames.idOf(settingsPath);
+    const settings = Object.entries(draft.fileSystem?.additions ?? {}).find(([path]) => path.toLowerCase() === settingsPath)?.[1]
+      ?? (settingsId === undefined ? undefined : getRomFileBytes(draft, rom, settingsId));
+    if (settings && settings.length === 16 && readAscii(settings, 0, 4) === "SMNU"
+      && readU16(settings, 6) === 1 && readU16(settings, 8) === last.streamId) {
+      throw new Error("Select another song in the Save Menu editor before removing this stream.");
+    }
+    const { configs: bgms, shortcutEnabled } = await readInstalledMusic(draft, rom, version, sdat.bytes);
+    if (bgms.length) assertBundledBgmRuntimeCompatibility(draft, romBytes);
+    const retainedBgms = bgms.map((entry) => ({ targetSequenceId: entry.targetSequenceId, bytes: sdat.files[entry.streamFileId]!.data }));
+    const cleared = bgms.length ? rebuildStreamedBgmMappings(sdat.bytes, bgms, []).bytes : sdat.bytes;
+    const removed = removeFinalStandaloneSdatStream(cleared, last.streamId, last.streamFileId);
+    const rebuilt = bgms.length ? rebuildStreamedBgmMappings(removed, [], retainedBgms) : { bytes: removed, mappings: [] };
+    const runtime = bgms.length ? await configureBundledBgmRuntime(version, { shortcutEnabled, mappings: rebuilt.mappings }) : undefined;
+    if (runtime) stageCodeInjectionDll(draft, runtimeFileName(version), runtime, "patches", romBytes);
+    replaceRomFile(draft, rom, sdat.sourceFileId, rebuilt.bytes);
+    commitStandaloneStreams(draft, rom, standalone.slice(0, -1));
+    if (bgms.length) commitMusicState(draft, rebuilt.mappings.map((mapping) => ({
+      ...bgms.find((entry) => entry.targetSequenceId === mapping.targetSequenceId)!, ...mapping,
+    })));
+    invalidateNitroSdatCache(draft);
+    recordGenericChange(draft, "code_injection", `Standalone streamed track ${last.name} removed.`, "Standalone Stream", {
+      key: `music:standalone:${last.streamId}`,
+    });
   });
 }
 

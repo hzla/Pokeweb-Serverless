@@ -2,18 +2,55 @@ import { loadOverlayTable } from "../nds/code";
 import { decompressCode } from "../nds/codeCompression";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
+import { parseNitroSdat } from "./nitroSound";
 import { recordGenericChange } from "./actionChangelog";
 import { getRomFileBytes, addRomFile, setRomFileReplacement } from "./fileSystemModel";
 import { loadActiveRomBytes } from "./persistence";
 import { getPmcInstallStatus, adoptExistingPmcInstall, installPmcBytes, loadBundledPmcBytes, listCodeInjectionDlls, stageCodeInjectionDll } from "./pmcModel";
-import type { ProjectState } from "./projectStore";
+import { getStandaloneStreamConfigs, type ProjectState } from "./projectStore";
+import { listNativeSdatStreams } from "./streamedBgmModel";
 import { parseRpm, type RpmModule } from "./rpm";
 import manifest from "../assets/codeinjection/save-menu-compatibility.json";
 
 type Version = "W2" | "B2";
 const TARGETS = manifest.games;
-export const SAVE_MENU_VERSION = "0.3.5";
+export const SAVE_MENU_VERSION = "0.3.7";
 const DLL_VERSION = SAVE_MENU_VERSION;
+export const SAVE_MENU_SETTINGS_PATH = "ui/save-menu/settings.bin";
+export type SaveMenuSettings = NonNullable<NonNullable<ProjectState["codeInjection"]>["saveMenuSettings"]>;
+const DEFAULT_SETTINGS: SaveMenuSettings = { music: "relic-song", bpm: 150, stepsPerBeat: 2 };
+export function getSaveMenuSettings(project: ProjectState): SaveMenuSettings {
+  return project.codeInjection?.saveMenuSettings ?? DEFAULT_SETTINGS;
+}
+export function encodeSaveMenuSettings(settings: SaveMenuSettings): Uint8Array {
+  if (!Number.isInteger(settings.bpm) || settings.bpm < 30 || settings.bpm > 300
+    || ![1, 2, 4].includes(settings.stepsPerBeat)
+    || (settings.music === "stream" && (!Number.isInteger(settings.streamId) || settings.streamId! < 0 || settings.streamId! >= 0xffff))) {
+    throw new Error("Choose a valid song and animation tempo (30–300 BPM, 1/2/4 pose changes per beat).");
+  }
+  const bytes = new Uint8Array(16);
+  bytes.set([0x53, 0x4d, 0x4e, 0x55], 0); // SMNU
+  const view = new DataView(bytes.buffer);
+  view.setUint16(4, 1, true);
+  view.setUint16(6, settings.music === "stream" ? 1 : 0, true);
+  view.setUint16(8, settings.music === "stream" ? settings.streamId! : 0x0446, true);
+  view.setUint16(10, settings.bpm, true);
+  view.setUint16(12, settings.stepsPerBeat, true);
+  view.setUint16(14, 48 / settings.stepsPerBeat, true);
+  return bytes;
+}
+export function decodeSaveMenuSettings(bytes: Uint8Array): SaveMenuSettings {
+  if (bytes.length !== 16 || bytes[0] !== 0x53 || bytes[1] !== 0x4d || bytes[2] !== 0x4e || bytes[3] !== 0x55) {
+    throw new Error("Save-menu settings are malformed.");
+  }
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (view.getUint16(4, true) !== 1) throw new Error("Save-menu settings use an unsupported version.");
+  const mode = view.getUint16(6, true), soundId = view.getUint16(8, true);
+  const bpm = view.getUint16(10, true), stepsPerBeat = view.getUint16(12, true);
+  if (mode > 1 || bpm < 30 || bpm > 300 || ![1, 2, 4].includes(stepsPerBeat)
+    || view.getUint16(14, true) !== 48 / stepsPerBeat) throw new Error("Save-menu settings contain an invalid cadence.");
+  return { music: mode ? "stream" : "relic-song", ...(mode ? { streamId: soundId } : {}), bpm, stepsPerBeat: stepsPerBeat as 1 | 2 | 4 };
+}
 const MAP_URL = new URL("../assets/codeinjection/save-menu-map.lz", import.meta.url);
 const DLL_URLS: Record<Version, URL> = {
   W2: new URL("../assets/codeinjection/SaveMenuW2.dll", import.meta.url),
@@ -47,10 +84,10 @@ export function getSaveMenuStatus(project: ProjectState): { supported: boolean; 
   return { supported, installed, updateAvailable, message: !supported ? "Requires an English Black 2 or White 2 ROM with a compatible menu layout."
     : updateAvailable ? "A newer Black 2/White 2 save menu is available. Update it, then export a new ROM."
       : installed ? "Save menu module is staged. Export a new ROM to use it."
-        : `Installs the animated save card, Unova map, party recall, and Continue jump for compatible ${version}; PMC is installed if needed.` };
+        : `Installs the animated save card, configurable menu music, Unova map, party recall, and Continue jump for compatible ${version}; PMC is installed if needed.` };
 }
 
-export async function installSaveMenu(project: ProjectState): Promise<void> {
+export async function installSaveMenu(project: ProjectState, settings: SaveMenuSettings = getSaveMenuSettings(project)): Promise<void> {
   const status = getSaveMenuStatus(project);
   if (!status.supported) throw new Error(status.message);
   const version = versionOf(project);
@@ -78,6 +115,26 @@ export async function installSaveMenu(project: ProjectState): Promise<void> {
   }
   for (const requiredPath of target.requiredPaths) {
     if (rom.filenames.idOf(requiredPath) === undefined) throw new Error(`Required save-menu archive is missing: ${requiredPath}.`);
+  }
+  const song = target.soundSequence;
+  const soundId = rom.filenames.idOf(song.path)!;
+  const sdat = parseNitroSdat(getRomFileBytes(project, rom, soundId), song.path);
+  const settingsBytes = encodeSaveMenuSettings(settings);
+  if (settings.music === "relic-song") {
+    const sequence = sdat.sequenceInfos[song.id];
+    const sequenceFile = sequence && sdat.files[sequence.fileId];
+    if (!sequence || !sequenceFile || sequence.symbol !== song.symbol || sequence.bankId !== song.bankId
+      || await sha256(sequenceFile.data) !== song.sha256) {
+      throw new Error("The ROM's Relic Song sequence differs from the supported save-menu soundtrack.");
+    }
+  } else {
+    const selected = getStandaloneStreamConfigs(project).find(entry => entry.streamId === settings.streamId);
+    const stream = listNativeSdatStreams(getRomFileBytes(project, rom, soundId)).find(entry => entry.id === settings.streamId);
+    const file = selected && sdat.files[selected.streamFileId];
+    if (!selected || !stream || stream.fileId !== selected.streamFileId || !file
+      || await sha256(file.data) !== selected.audioSha256) {
+      throw new Error("The selected standalone stream is missing or changed. Reopen Music and select a valid track.");
+    }
   }
   const member = (archivePath: string, index: number): Uint8Array => {
     const id = rom.filenames.idOf(archivePath);
@@ -143,6 +200,11 @@ export async function installSaveMenu(project: ProjectState): Promise<void> {
     }
     if (rpm.relocations.some(r => {
       const start = r.target.address & ~1;
+      // White2Upgrade extends these two native icon lookups for added forms.
+      // Our menu calls their public entry points and benefits from those hooks.
+      const upgradeIconAddress = version === "W2" ? [0x02020fc0, 0x02021060] : [0x02020f94, 0x02021034];
+      if (/\/White2Upgrade\.dll$/iu.test(entry.path) && r.target.module === "ARM9"
+        && r.target.type === "THUMB_BRANCH" && upgradeIconAddress.includes(start)) return false;
       return claimedRanges.some(range => (r.target.module === range.module || range.module === "ARM9" && r.target.module === "0")
         && start < range.address + range.bytes && range.address < start + hookSize(rpm, r));
     })) throw new Error(`Save-menu hook conflicts with ${entry.path}.`);
@@ -167,6 +229,11 @@ export async function installSaveMenu(project: ProjectState): Promise<void> {
   if (currentMap && await sha256(currentMap) !== manifest.map.sha256 && !ownsMap) {
     throw new Error(`Save-menu asset path conflicts with an existing file: ${manifest.map.path}.`);
   }
+  const currentSettings = patchBytes(project, rom, SAVE_MENU_SETTINGS_PATH);
+  if (currentSettings) {
+    try { decodeSaveMenuSettings(currentSettings); }
+    catch { throw new Error(`Save-menu settings path conflicts with an existing file: ${SAVE_MENU_SETTINGS_PATH}.`); }
+  }
   const staged: ProjectState = { ...project, originalRomBytes: source, arm9: project.arm9.slice(),
     overlays: Object.fromEntries(Object.entries(project.overlays).map(([id, bytes]) => [id, bytes?.slice()])),
     fileSystem: structuredClone(project.fileSystem), codeInjection: structuredClone(project.codeInjection),
@@ -180,7 +247,16 @@ export async function installSaveMenu(project: ProjectState): Promise<void> {
     if (added) delete staged.fileSystem!.additions![added];
     setRomFileReplacement(staged, mapId, map);
   }
+  const settingsId = rom.filenames.idOf(SAVE_MENU_SETTINGS_PATH);
+  if (settingsId === undefined) addRomFile(staged, SAVE_MENU_SETTINGS_PATH, settingsBytes);
+  else {
+    const added = Object.keys(staged.fileSystem?.additions ?? {}).find(p => p.toLowerCase() === SAVE_MENU_SETTINGS_PATH);
+    if (added) delete staged.fileSystem!.additions![added];
+    setRomFileReplacement(staged, settingsId, settingsBytes);
+  }
   stageCodeInjectionDll(staged, `SaveMenu${version}.dll`, dll, "patches", source);
+  staged.codeInjection ??= {};
+  staged.codeInjection.saveMenuSettings = settings;
   recordGenericChange(staged, "code_injection", `${version} animated save menu ${status.installed ? "updated" : "staged"}; party recall and Continue jump.`, "Save Menu", {
     key: "code-injection:save-menu",
   });

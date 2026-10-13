@@ -3,7 +3,7 @@
   "sourceRom": "White2Upgrade.nds",
   "iconSourceRom": "White2Upgrade.nds",
   "archivePath": "zz_pokeweb_pwan/pwan.narc",
-  "archiveBytes": 120504476,
+  "archiveBytes": 120503404,
   "entryCount": 596,
   "sideCount": {
     "front": 596,
@@ -56,9 +56,9 @@
   },
   "distribution": {
     "encoding": "gzip",
-    "compressedBytes": 12648584,
-    "archiveBytes": 120504476,
-    "archiveSha256": "227ea208b1b02a419dabb70443c17e474c4eab7048a4e2b395107a62b92fc825"
+    "compressedBytes": 12648551,
+    "archiveBytes": 120503404,
+    "archiveSha256": "3afd5152d875e6b972eef4c9b809d2172e2e54c8bbe62e9503ab4dd7e554c2cf"
   },
   "gmaxMegas": {
     "addedEntries": 33,
@@ -67,5 +67,12 @@
     "preset": "gen5",
     "stone": "Megite",
     "statPolicy": "clone-source-form"
+  },
+  "iconRepairs": {
+    "REGIONAL_HISUI_SAMUROTT": {
+      "sourcePng": "essentials_pngs/Icons/SAMUROTT_1.png",
+      "malePaletteId": 2,
+      "femalePaletteId": 2
+    }
   }
 }

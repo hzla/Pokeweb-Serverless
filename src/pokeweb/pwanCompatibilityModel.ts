@@ -1,4 +1,5 @@
 import { NintendoDSRom } from "../nds/rom";
+import { readU32 } from "../nds/binary";
 import { decompressCode } from "../nds/codeCompression";
 import type { ProjectState } from "./projectStore";
 
@@ -258,7 +259,22 @@ function overlaySource(
   const original = originalOverlays.get(overlayId);
   const data = project.overlays[overlayId] ?? original?.data;
   if (!data || !original) return undefined;
-  return { data, ramAddress: original.ramAddress, label: `Overlay ${overlayId}` };
+  // Staged patches can prepend bytes and change an overlay's load address.
+  // Pair the current bytes with the table that will be used when exporting.
+  const table = project.patches?.arm9OverlayTable;
+  let ramAddress = original.ramAddress;
+  if (table) {
+    let entry: number | undefined;
+    for (let offset = 0; offset + 32 <= table.length; offset += 32) {
+      if (readU32(table, offset) === overlayId) {
+        entry = offset;
+        break;
+      }
+    }
+    if (entry === undefined) return undefined;
+    ramAddress = readU32(table, entry + 4);
+  }
+  return { data, ramAddress, label: `Overlay ${overlayId}` };
 }
 
 function moduleLabel(signature: PwanCompatibilitySignature): string {

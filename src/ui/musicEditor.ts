@@ -8,6 +8,7 @@ import {
 import { detectBundledBgmToggleDll } from "../pokeweb/pmcModel";
 import {
   getNativeStreamReplacementConfigs,
+  getStandaloneStreamConfigs,
   getStreamedBgmConfigs,
   type NativeStreamReplacementConfig,
   type ProjectState,
@@ -25,9 +26,11 @@ import {
   decodeNativeSdatStreamPcm,
   detectStreamedBgmStatus,
   installNativeStreamReplacement,
+  installStandaloneStream,
   installStreamedBgm,
   listNativeSdatStreams,
   removeNativeStreamReplacement,
+  removeLastStandaloneStream,
   removeStreamedBgm,
   streamedBgmEncodingLabel,
   updateStreamedBgmRuntime,
@@ -68,6 +71,16 @@ type StreamedBgmDraft = {
   nativeReferenceSearch?: string;
   nativeReferenceCategory?: NativeStreamReferenceCategory;
   nativeInitialized?: boolean;
+  standalonePcm?: StereoPcm;
+  standaloneSourceName?: string;
+  standaloneName: string;
+  standalonePreviewUrl?: string;
+  standaloneEncoding: StreamedBgmEncoding;
+  standaloneLoop: boolean;
+  standaloneTrimStartSeconds: number;
+  standaloneTrimEndSeconds?: number;
+  standaloneLoopStartSeconds: number;
+  standaloneMessage?: string;
   busy?: boolean;
 };
 
@@ -206,6 +219,11 @@ function getStreamedBgmDraft(project: ProjectState): StreamedBgmDraft {
       nativeTrimStartSeconds: nativeInstalled?.sourceTrimStartSeconds ?? 0,
       nativeLoopStartSeconds: nativeInstalled ? nativeInstalled.loopStartSample / nativeInstalled.sampleRate : 0,
       nativeLoopEndSeconds: nativeInstalled?.sourceTrimEndSeconds ?? (nativeInstalled ? nativeInstalled.loopEndSample / nativeInstalled.sampleRate : undefined),
+      standaloneName: "",
+      standaloneEncoding: "adpcm",
+      standaloneLoop: true,
+      standaloneTrimStartSeconds: 0,
+      standaloneLoopStartSeconds: 0,
     };
     streamedBgmDrafts.set(project, draft);
   }
@@ -334,7 +352,8 @@ export function renderMusicEditor(project: ProjectState, root: HTMLElement, onDi
             <div class="code-injection-note" id="streamed-bgm-note">${escapeHtml(draft.message ?? (config ? (configTargetIsBgm ? `${config.sourceName} is installed. Removing it restores only the verified replacement data.` : `This older installation targets non-BGM sequence ${config.targetSequenceId} (${config.targetSequenceSymbol ?? "unknown"}). Choose a SEQ_BGM target, import the audio again, and reconfigure it before testing.`) : draft.hydrating ? "Loading SDAT background-music sequence names…" : "Choose a SEQ_BGM target and import MP3 or WAV audio. Full-track looping is the default."))}</div>
           </div>
         </section>
-        ${renderNativeStreamPanel(draft, configs, nativeConfigs, supported)}
+        ${renderStandaloneStreamPanel(project, draft, supported)}
+        ${renderNativeStreamPanel(draft, configs, nativeConfigs, supported, new Set(getStandaloneStreamConfigs(project).map(entry => entry.streamId)))}
         <section class="code-injection-panel music-editor-panel music-editor-installed-panel" aria-labelledby="installed-music-title">
           <h2 id="installed-music-title">Installed replacements (${configs.length})</h2>
           <p>Select a target to import new audio for it, or remove it individually. Other replacements are retained. Size estimates exclude small archive/runtime overhead.</p>
@@ -367,15 +386,43 @@ export function renderInstalledMusicRows(configs: readonly StreamedBgmConfig[]):
   </tr>`).join("");
 }
 
+function renderStandaloneStreamPanel(project: ProjectState, draft: StreamedBgmDraft, supported: boolean): string {
+  const tracks = getStandaloneStreamConfigs(project);
+  const duration = draft.standalonePcm ? draft.standalonePcm.left.length / draft.standalonePcm.sampleRate : undefined;
+  return `<section class="code-injection-panel music-editor-panel" aria-labelledby="standalone-stream-title">
+    <h2 id="standalone-stream-title">Standalone streamed songs</h2>
+    <p>Add a stream without replacing any game music. The Save Menu installer can play any track listed here.</p>
+    <div class="code-injection-actions streamed-bgm-controls">
+      <label>Track name<input id="standalone-stream-name" type="text" maxlength="80" value="${escapeHtml(draft.standaloneName)}" ${supported ? "" : "disabled"} /></label>
+      <label>Audio file<input id="standalone-stream-file" type="file" accept="audio/mpeg,audio/wav,.mp3,.wav" ${supported ? "" : "disabled"} /></label>
+      ${draft.standalonePreviewUrl ? `<div class="music-import-preview"><strong>Imported track preview</strong><audio controls preload="metadata" src="${escapeHtml(draft.standalonePreviewUrl)}"></audio></div>` : ""}
+      <label>Storage encoding<select id="standalone-stream-encoding" ${supported ? "" : "disabled"}>${renderStreamedBgmEncodingOptions(draft.standaloneEncoding)}</select></label>
+      <label class="streamed-bgm-shortcut"><input id="standalone-stream-loop" type="checkbox" ${draft.standaloneLoop ? "checked" : ""} ${supported ? "" : "disabled"} /> Loop when the track reaches its end</label>
+      <div class="streamed-bgm-loop-grid">
+        <label>Keep from (seconds)<input id="standalone-stream-trim-start" type="number" min="0" step="0.001" value="${draft.standaloneTrimStartSeconds.toFixed(3)}" ${supported ? "" : "disabled"} /></label>
+        <label>Keep until (seconds)<input id="standalone-stream-trim-end" type="number" min="0" step="0.001" value="${draft.standaloneTrimEndSeconds?.toFixed(3) ?? duration?.toFixed(3) ?? ""}" placeholder="Full track" ${supported ? "" : "disabled"} /></label>
+      </div>
+      <label>Loop start in cropped track (seconds)<input id="standalone-stream-loop-start" type="number" min="0" step="0.001" value="${draft.standaloneLoopStartSeconds.toFixed(3)}" ${supported && draft.standaloneLoop ? "" : "disabled"} /></label>
+      <div class="music-editor-buttons">
+        <button class="btn -primary" id="add-standalone-stream-btn" type="button" ${supported && draft.standalonePcm ? "" : "disabled"}>Add Standalone Song</button>
+        <button class="btn -default" id="remove-last-standalone-stream-btn" type="button" ${tracks.length ? "" : "disabled"}>Remove Newest Song</button>
+      </div>
+      <div class="code-injection-note" id="standalone-stream-note" aria-live="polite">${escapeHtml(draft.standaloneMessage ?? "Each song gets a native stream ID. Existing game tracks stay unchanged.")}</div>
+    </div>
+    ${tracks.length ? `<div class="music-reference-scroll" tabindex="0" role="region" aria-label="Standalone songs"><table class="music-reference-table"><thead><tr><th scope="col">Stream ID</th><th scope="col">Name / source</th><th scope="col">Size</th></tr></thead><tbody>${tracks.map(track => `<tr><td>${track.streamId}</td><td>${escapeHtml(track.name)}<small>${escapeHtml(track.sourceName)}</small></td><td>${(track.encodedBytes / 0x10_0000).toFixed(2)} MiB</td></tr>`).join("")}</tbody></table></div>` : ""}
+  </section>`;
+}
+
 function renderNativeStreamPanel(
   draft: StreamedBgmDraft,
   mappings: readonly StreamedBgmConfig[],
   configs: readonly NativeStreamReplacementConfig[],
   supported: boolean,
+  standaloneIds: Set<number>,
 ): string {
   if (!supported) return "";
   const streams = draft.nativeStreams ?? [];
-  const managedStreamIds = new Set(mappings.map((mapping) => mapping.streamId));
+  const managedStreamIds = new Set([...mappings.map((mapping) => mapping.streamId), ...standaloneIds]);
   const editableStreams = streams.filter((stream) => !managedStreamIds.has(stream.id));
   const selected = editableStreams.find((stream) => stream.id === draft.nativeStreamId);
   const config = configs.find((entry) => entry.streamId === draft.nativeStreamId);
@@ -496,7 +543,7 @@ function renderMusicReferencePanel(draft: StreamedBgmDraft, supported: boolean):
 }
 
 function installMusicEditorInteractions(project: ProjectState, root: HTMLElement, onDirty: () => void, draft: StreamedBgmDraft): void {
-  const runEdit = async (operation: () => Promise<void>, messageTarget: "sequence" | "native" = "sequence") => {
+  const runEdit = async (operation: () => Promise<void>, messageTarget: "sequence" | "native" | "standalone" = "sequence") => {
     if (draft.busy) return;
     draft.busy = true;
     root.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement>("input, button, select").forEach((element) => { element.disabled = true; });
@@ -507,6 +554,7 @@ function installMusicEditorInteractions(project: ProjectState, root: HTMLElement
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (messageTarget === "native") draft.nativeMessage = message;
+      else if (messageTarget === "standalone") draft.standaloneMessage = message;
       else draft.message = message;
     } finally {
       draft.busy = false;
@@ -569,11 +617,66 @@ function installMusicEditorInteractions(project: ProjectState, root: HTMLElement
   const nativeReferenceTabs = root.querySelectorAll<HTMLButtonElement>("[data-native-reference-category]");
   const nativeReferenceRows = root.querySelector<HTMLTableSectionElement>("#native-reference-rows");
   const nativeReferenceStatus = root.querySelector<HTMLElement>("#native-reference-status");
+  const standaloneName = root.querySelector<HTMLInputElement>("#standalone-stream-name");
+  const standaloneFile = root.querySelector<HTMLInputElement>("#standalone-stream-file");
+  const standaloneEncoding = root.querySelector<HTMLSelectElement>("#standalone-stream-encoding");
+  const standaloneLoop = root.querySelector<HTMLInputElement>("#standalone-stream-loop");
+  const standaloneTrimStart = root.querySelector<HTMLInputElement>("#standalone-stream-trim-start");
+  const standaloneTrimEnd = root.querySelector<HTMLInputElement>("#standalone-stream-trim-end");
+  const standaloneLoopStart = root.querySelector<HTMLInputElement>("#standalone-stream-loop-start");
+  const standaloneNote = root.querySelector<HTMLElement>("#standalone-stream-note");
+  const syncStandaloneInputs = () => {
+    draft.standaloneName = standaloneName?.value ?? draft.standaloneName;
+    draft.standaloneEncoding = standaloneEncoding?.value === "pcm16" ? "pcm16" : "adpcm";
+    draft.standaloneLoop = standaloneLoop?.checked ?? true;
+    draft.standaloneTrimStartSeconds = Number(standaloneTrimStart?.value ?? 0);
+    draft.standaloneTrimEndSeconds = standaloneTrimEnd?.value ? Number(standaloneTrimEnd.value) : undefined;
+    draft.standaloneLoopStartSeconds = Number(standaloneLoopStart?.value ?? 0);
+  };
+  standaloneLoop?.addEventListener("change", () => { syncStandaloneInputs(); if (standaloneLoopStart) standaloneLoopStart.disabled = !draft.standaloneLoop; });
+  standaloneFile?.addEventListener("change", async () => {
+    const file = standaloneFile.files?.[0];
+    if (!file) return;
+    await runEdit(async () => {
+      syncStandaloneInputs();
+      if (standaloneNote) standaloneNote.textContent = `Decoding and resampling ${file.name}…`;
+      const pcm = await decodeAudioFile(file);
+      if (draft.standalonePreviewUrl) URL.revokeObjectURL(draft.standalonePreviewUrl);
+      draft.standalonePcm = pcm;
+      draft.standaloneSourceName = file.name;
+      draft.standalonePreviewUrl = URL.createObjectURL(file);
+      if (!draft.standaloneName) draft.standaloneName = file.name.replace(/\.[^.]+$/u, "");
+      draft.standaloneTrimStartSeconds = 0;
+      draft.standaloneTrimEndSeconds = pcm.left.length / pcm.sampleRate;
+      draft.standaloneLoopStartSeconds = 0;
+      draft.standaloneMessage = `${file.name} decoded. Set the track name and add it to the ROM.`;
+    }, "standalone");
+  });
+  root.querySelector<HTMLButtonElement>("#add-standalone-stream-btn")?.addEventListener("click", async () => {
+    await runEdit(async () => {
+      syncStandaloneInputs();
+      if (!draft.standalonePcm || !draft.standaloneSourceName) throw new Error("Import an MP3 or WAV file first.");
+      if (standaloneNote) standaloneNote.textContent = "Encoding and appending the standalone stream…";
+      const installed = await installStandaloneStream(project, {
+        name: draft.standaloneName, sourceName: draft.standaloneSourceName, pcm: draft.standalonePcm,
+        encoding: draft.standaloneEncoding, loop: draft.standaloneLoop,
+        trimStartSeconds: draft.standaloneTrimStartSeconds, trimEndSeconds: draft.standaloneTrimEndSeconds,
+        loopStartSeconds: draft.standaloneLoopStartSeconds,
+      });
+      draft.standaloneMessage = `${installed.name} added as stream ${installed.streamId}. Select it in the Save Menu installer.`;
+    }, "standalone");
+  });
+  root.querySelector<HTMLButtonElement>("#remove-last-standalone-stream-btn")?.addEventListener("click", async () => {
+    await runEdit(async () => {
+      await removeLastStandaloneStream(project);
+      draft.standaloneMessage = "Newest standalone song removed. Earlier song IDs are unchanged.";
+    }, "standalone");
+  });
 
   const nativeReferenceEntries = buildNativeStreamReference(draft.nativeStreams ?? [], getStreamedBgmConfigs(project));
   const applyNativeTarget = (streamId: number) => {
     const stream = draft.nativeStreams?.find((entry) => entry.id === streamId);
-    if (!stream) return;
+    if (!stream || getStandaloneStreamConfigs(project).some((entry) => entry.streamId === streamId)) return;
     const changed = draft.nativeStreamId !== streamId;
     const installed = getNativeStreamReplacementConfigs(project).find((entry) => entry.streamId === streamId);
     draft.nativeStreamId = streamId;

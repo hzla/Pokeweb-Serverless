@@ -1,7 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getTrainerRecord, type TrainerRecord } from "../pokeweb/trainerModel";
 import type { ProjectState } from "../pokeweb/projectStore";
-import { renderTrainerPanel, renderTrainerRow } from "../ui/trainerEditor";
+import { getTrainerTestBattleTeamText, renderTrainerPanel, renderTrainerRow } from "../ui/trainerEditor";
 
 vi.mock("../pokeweb/trainerModel", async (original) => ({
   ...await original<typeof import("../pokeweb/trainerModel")>(),
@@ -77,5 +77,33 @@ describe("lazy trainer editors", () => {
       expect(image).toContain('decoding="async"');
       expect(image).not.toMatch(/\ssrc=/u);
     }
+  });
+});
+
+describe("quick-launch test team selection", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const teamProject = { session: { baseVersion: "W2", romName: "custom-white-2" } } as ProjectState;
+
+  it("uses the current textarea, including edits not yet stored and an explicitly empty value", () => {
+    const getItem = vi.fn(() => "old team");
+    vi.stubGlobal("localStorage", { getItem });
+    for (const value of ["Dewott\nLevel: 35", ""]) {
+      const root = { querySelector: () => ({ value }) } as unknown as ParentNode;
+      expect(getTrainerTestBattleTeamText(teamProject, root)).toBe(value);
+    }
+    expect(getItem).not.toHaveBeenCalled();
+  });
+
+  it("uses the same ROM's saved team after navigating away from Trainers", () => {
+    const getItem = vi.fn((key: string) => key === "pokeweb.testBattle.teamText.W2.custom-white-2" ? "Dewott" : null);
+    vi.stubGlobal("localStorage", { getItem });
+    const root = { querySelector: () => null } as unknown as ParentNode;
+    expect(getTrainerTestBattleTeamText(teamProject, root)).toBe("Dewott");
+    expect(getTrainerTestBattleTeamText({ session: { baseVersion: "B2", romName: "another-rom" } } as ProjectState, root)).toBe("");
+  });
+
+  it("allows quick launch when browser storage is unavailable", () => {
+    vi.stubGlobal("localStorage", { getItem: () => { throw new Error("Storage unavailable"); } });
+    expect(getTrainerTestBattleTeamText(teamProject)).toBe("");
   });
 });

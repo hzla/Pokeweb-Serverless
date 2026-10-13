@@ -79,7 +79,7 @@ import { renderStarterEditor } from "./ui/starterEditor";
 import { renderTmEditor } from "./ui/tmEditor";
 import { renderTutorMoveEditor } from "./ui/tutorMoveEditor";
 import { renderTypeChartEditor } from "./ui/typeChartEditor";
-import { renderTrainerEditor, stopTrainerImageRendering } from "./ui/trainerEditor";
+import { getTrainerTestBattleTeamText, renderTrainerEditor, stopTrainerImageRendering } from "./ui/trainerEditor";
 import { renderTrainerSpriteEditor, stopTrainerSpriteEditorPlayback } from "./ui/trainerSpriteEditor";
 import { renderPlayerTrainerBackSpritePreview, stopPlayerTrainerBackSpritePlayback } from "./ui/playerTrainerBackSpritePreview";
 import { renderTrainerMusicEditor, stopTrainerMusicEditorPlayback } from "./ui/trainerMusicEditor";
@@ -1509,11 +1509,12 @@ async function launchQuickLaunch(): Promise<void> {
   if (!hasExportBase) throw new Error("This saved project does not include the original ROM bytes. Please load the ROM again before exporting.");
 
   const activeProject = project;
+  const playerTeamText = getTrainerTestBattleTeamText(activeProject, document);
   const emulator = openTestBattleEmulator();
   const baseName = activeProject.session.romName || "pokeweb";
   try {
     await saveActiveProject(activeProject);
-    const { romBytes, saveBytes } = await buildQuickLaunchDownloads(activeProject);
+    const { romBytes, saveBytes } = await buildQuickLaunchDownloads(activeProject, { playerTeamText });
     await emulator.launch({
       romName: `${baseName}-quick-launch.nds`,
       saveName: `${baseName}-quick-launch.dsv`,

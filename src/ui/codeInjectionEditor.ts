@@ -52,7 +52,7 @@ import { CGEAR_QUICK_ACTIONS_VERSION, getCGearQuickActionsStatus, installCGearQu
 import { getLearnsetViewerStatus, installLearnsetViewer, uninstallLearnsetViewer } from "../pokeweb/learnsetViewerModel";
 import { getSummaryStatViewerStatus, installSummaryStatViewer, uninstallSummaryStatViewer, SUMMARY_STAT_VIEWER_VERSION } from "../pokeweb/summaryStatViewerModel";
 import { getSummaryTypeIconsStatus, installSummaryTypeIcons, uninstallSummaryTypeIcons, SUMMARY_TYPE_ICONS_VERSION } from "../pokeweb/summaryTypeIconsModel";
-import { getSaveMenuStatus, installSaveMenu, SAVE_MENU_VERSION } from "../pokeweb/saveMenuModel";
+import { getSaveMenuSettings, getSaveMenuStatus, installSaveMenu, SAVE_MENU_VERSION, type SaveMenuSettings } from "../pokeweb/saveMenuModel";
 import { canUseLocalRomBridge } from "../pokeweb/localRomBridge";
 import { getInfiniteCandyStatus, installInfiniteCandy } from "../pokeweb/infiniteCandyModel";
 import { getLevelCapsStatus, installLevelCaps } from "../pokeweb/levelCapsModel";
@@ -65,7 +65,7 @@ import {
   type PwanCompatibilityReport,
 } from "../pokeweb/pwanCompatibilityModel";
 import { loadActiveRomBytes } from "../pokeweb/persistence";
-import type { ProjectState } from "../pokeweb/projectStore";
+import { getStandaloneStreamConfigs, type ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 
 const pwanCompatibilityHydrationProjects = new WeakSet<ProjectState>();
@@ -123,6 +123,8 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const summaryStatStatus = getSummaryStatViewerStatus(project);
   const summaryTypeStatus = canUseLocalRomBridge() ? getSummaryTypeIconsStatus(project) : undefined;
   const saveMenuStatus = getSaveMenuStatus(project);
+  const saveMenuSettings = getSaveMenuSettings(project);
+  const standaloneSongs = getStandaloneStreamConfigs(project);
   const battleHudStatus = getBattleTypeHudStatus(project);
   const moveEffectivenessStatus = getMoveEffectivenessStatus(project);
   const moveColors = moveEffectivenessStatus.colors ?? DEFAULT_MOVE_HIGHLIGHT_COLORS;
@@ -404,6 +406,20 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-facts"><div><span>ROM</span><strong>English Black 2 / White 2</strong></div><div><span>Version</span><strong>${SAVE_MENU_VERSION}</strong></div></div>
           <p>${escapeHtml(saveMenuStatus.message)}</p>
           <div class="code-injection-actions">
+            <label>Menu song
+              <select id="save-menu-song" ${saveMenuStatus.supported ? "" : "disabled"}>
+                <option value="relic-song" ${saveMenuSettings.music === "relic-song" ? "selected" : ""}>Relic Song (native sequence)</option>
+                ${standaloneSongs.map(song => `<option value="stream:${song.streamId}" ${saveMenuSettings.music === "stream" && saveMenuSettings.streamId === song.streamId ? "selected" : ""}>${escapeHtml(song.name)} · stream ${song.streamId}</option>`).join("")}
+              </select>
+              <small>Use Music → Standalone streamed songs to add a track without replacing game music.</small>
+            </label>
+            <label>Song tempo (BPM)<input id="save-menu-bpm" type="number" min="30" max="300" step="1" value="${saveMenuSettings.bpm}" ${saveMenuStatus.supported ? "" : "disabled"} /></label>
+            <label>Sprite pose changes per beat
+              <select id="save-menu-steps-per-beat" ${saveMenuStatus.supported ? "" : "disabled"}>
+                ${([1, 2, 4] as const).map(steps => `<option value="${steps}" ${saveMenuSettings.stepsPerBeat === steps ? "selected" : ""}>${steps}</option>`).join("")}
+              </select>
+              <small>The native song follows its sequence clock. Streamed songs use BPM to pace both walking and party icons.</small>
+            </label>
             <button class="btn -primary" id="install-save-menu-btn" type="button" ${saveMenuStatus.supported ? "" : "disabled"}>${saveMenuStatus.updateAvailable ? "Update Save Menu" : saveMenuStatus.installed ? "Reinstall Save Menu" : "Install Save Menu"}</button>
             <div class="code-injection-note" id="save-menu-note" aria-live="polite"></div>
           </div>
@@ -1262,7 +1278,14 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     button.disabled = true;
     if (note) note.textContent = "Checking menu compatibility and staging the save menu…";
     try {
-      await installSaveMenu(project); onDirty(); renderCodeInjectionEditor(project, root, onDirty);
+      const song = root.querySelector<HTMLSelectElement>("#save-menu-song")?.value ?? "relic-song";
+      const settings: SaveMenuSettings = {
+        music: song.startsWith("stream:") ? "stream" : "relic-song",
+        ...(song.startsWith("stream:") ? { streamId: Number(song.slice(7)) } : {}),
+        bpm: Number(root.querySelector<HTMLInputElement>("#save-menu-bpm")?.value ?? 150),
+        stepsPerBeat: Number(root.querySelector<HTMLSelectElement>("#save-menu-steps-per-beat")?.value ?? 2) as 1 | 2 | 4,
+      };
+      await installSaveMenu(project, settings); onDirty(); renderCodeInjectionEditor(project, root, onDirty);
       const updated = root.querySelector<HTMLElement>("#save-menu-note");
       if (updated) updated.textContent = "Save menu staged. Export the ROM to use it.";
     } catch (error) {

@@ -217,16 +217,20 @@ export async function buildTestBattleDownloads(project: ProjectState, trainerId:
 
 /**
  * Builds a normal overworld launch from the matching bundled test-battle save.
- * The temporary ROM gets the same startup preparation as Test Battle, but no
- * overworld, trainer, or save data is patched.
+ * The temporary ROM gets the same startup preparation as Test Battle. A supplied
+ * Showdown team replaces the launch save's party before it is wrapped as a DSV.
  */
-export async function buildQuickLaunchDownloads(project: ProjectState): Promise<TestBattleDownload> {
+export async function buildQuickLaunchDownloads(project: ProjectState, options: TestBattleBuildOptions = {}): Promise<TestBattleDownload> {
   const config = getTestBattleConfigForProject(project);
   const [romBytes, loadedSave] = await Promise.all([exportTestBattleBaseRom(project), loadTestBattleSave(config)]);
-  return { romBytes, saveBytes: bundleTestBattleSaveForQuickLaunch(loadedSave.rawSaveBytes) };
+  const playerTeamText = options.playerTeamText?.trim() ?? "";
+  const saveBytes = playerTeamText
+    ? patchTestBattleSavePlayerParty(loadedSave.rawSaveBytes, project, playerTeamText, config.baseRom)
+    : loadedSave.rawSaveBytes;
+  return { romBytes, saveBytes: bundleTestBattleSaveForQuickLaunch(saveBytes) };
 }
 
-/** Wrap the unmodified bundled save in the format consumed by the emulator. */
+/** Wrap the launch save in the format consumed by the emulator. */
 export function bundleTestBattleSaveForQuickLaunch(rawSaveBytes: Uint8Array): Uint8Array {
   return toDesmumeDsv(rawSaveBytes);
 }

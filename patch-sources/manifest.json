@@ -761,11 +761,11 @@
       "artifacts": [
         {
           "name": "PokewebPwanMiscB2.dll",
-          "sha256": "87e92755dc2411ae1a89dcff86857d3dbc5db0bbc3f6bab52f382a89fff78fc8"
+          "sha256": "870df7361826cbee9d3f15e02e25373062e9774a7ec68116d5e4bc783c6bac29"
         },
         {
           "name": "PokewebPwanMiscW2.dll",
-          "sha256": "f5fab7c75bfcb91c84684c3bc771d4354f9438e0b6de1b6bf60c97372fc3b0f6"
+          "sha256": "5f58058a3831f58974ebd3ba27690c6772e5c398086a55085b556c0796b1c2e6"
         }
       ],
       "note": "Sources are grouped by DLL family. Shared implementation files are deliberately copied into each family. B2 build-time address substitutions remain in the canonical build recipe; these copies are not an independent build tree.",
@@ -798,7 +798,7 @@
             "path": "src/pwan_animation/w2u_nonbattle_mcss.cpp"
           },
           "kind": "source",
-          "sha256": "a9f7339f872d499f9bbd41fd3be922c1ca4927741db197549a98f49f249f7e13",
+          "sha256": "7d989fc7321f2fa36f2ae9100fff57d430a35da2cd1bc00ae10560cf15c4ae38",
           "normalized": false
         },
         {
@@ -808,7 +808,7 @@
             "path": "src/pwan_animation/w2u_egg_hatch_anim.cpp"
           },
           "kind": "source",
-          "sha256": "51d316e22d4757903a3184d8a8752dee8ebc513ef04275639bb5eab6bff63863",
+          "sha256": "022937ad1bcc0ae261f71fec005a03f4bf62ae659d55e1259c5195a6ab71f39c",
           "normalized": false
         },
         {
@@ -818,7 +818,7 @@
             "path": "src/pwan_animation/w2u_evolution_anim.cpp"
           },
           "kind": "source",
-          "sha256": "abbbc88d434b0dd8f8c9be427cd1614722a3a2a20be69c6ff31ed001b4f8bb39",
+          "sha256": "ad4ee1e5d6c25a83e23f2d615c0770800b39b9ae5d2b843e9de4b1511ff851a7",
           "normalized": false
         },
         {

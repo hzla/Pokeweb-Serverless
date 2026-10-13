@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { NarcName } from "../pokeweb/constants";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import { materializeProjectEdits } from "../pokeweb/projectMaterialize";
+import { undoActionChange } from "../pokeweb/actionUndo";
 import {
   appendPokemonEggMove,
   appendPokemonLearnsetMove,
@@ -13,6 +14,7 @@ import {
   evolutionSlotCount,
   getPokemonCount,
   getPokemonExportRecord,
+  getPokemonAutofills,
   getPokemonMachineCompatibilityRoster,
   getPokemonRecord,
   getPokemonTutorCompatibilityRoster,
@@ -124,6 +126,51 @@ describe("pokemonModel", () => {
     record = getPokemonRecord(project, 1);
     expect(move.rawValue).toBe(2);
     expect(record.evolutions[0]).toMatchObject({ method: "After Learning Specific Move", param: "Vine Whip", paramRaw: 2 });
+  });
+
+  it("distinguishes Samurott and its appended Hisui form even when their ROM names are identical", () => {
+    const project = makeSamurottProject();
+    const options = getPokemonAutofills(project).evolution_targets;
+    const samurottOptions = options.filter((name) => name.startsWith("Samurott"));
+    expect(samurottOptions).toEqual(["Samurott #503", "Samurott-Hisui #710"]);
+    expect(options).not.toContain("Pokemon 709 #709");
+
+    for (const input of [samurottOptions[1], "Samurott-Hisui", "710", "#710"]) {
+      const result = updatePokemonField(project, 502, "evolution", "target_0", input);
+      expect(result).toEqual({ value: "Samurott-Hisui", rawValue: 710 });
+      expect(getPokemonRecord(project, 502).evolutions[0]).toMatchObject({ targetId: 710, target: "Samurott-Hisui" });
+    }
+    materializeProjectEdits(project);
+    expect(readInt(project.narcs.evolutions!.rawFiles[502], 4, 2)).toBe(710);
+    project.narcs.evolutions!.records.clear();
+    expect(getPokemonRecord(project, 502).evolutions[0]).toMatchObject({ targetId: 710, target: "Samurott-Hisui" });
+
+    for (const input of [samurottOptions[0], "Samurott", "503"]) {
+      expect(updatePokemonField(project, 502, "evolution", "target_0", input)).toEqual({ value: "Samurott", rawValue: 503 });
+    }
+  });
+
+  it("offers form targets without appended names and rejects invalid target IDs without changing the evolution", () => {
+    const project = makeSamurottProject();
+    project.texts.banks.pokedex!.length = 650;
+    expect(getPokemonAutofills(project).evolution_targets).toContain("Samurott-Hisui #710");
+    updatePokemonField(project, 502, "evolution", "target_0", "710");
+    for (const input of ["709", "#709", "711", "Samurott #65536", "-1", "710.5", ""]) {
+      expect(() => updatePokemonField(project, 502, "evolution", "target_0", input)).toThrow();
+      expect(getPokemonRecord(project, 502).evolutions[0].targetId).toBe(710);
+    }
+  });
+
+  it("keeps the exact original form target in the changelog so undo restores it", () => {
+    const project = makeSamurottProject();
+    project.narcs.evolutions!.rawFiles[502][4] = 710 & 0xff;
+    project.narcs.evolutions!.rawFiles[502][5] = 710 >>> 8;
+    updatePokemonField(project, 502, "evolution", "target_0", "503");
+    const entry = project.actionChangelog!.entries.find((change) => change.key === "pokemon:502:evolutions:target_0")!;
+    expect(entry).toMatchObject({ before: "Samurott-Hisui #710", after: "Samurott #503" });
+    undoActionChange(project, entry);
+    expect(getPokemonRecord(project, 502).evolutions[0].targetId).toBe(710);
+    expect(project.actionChangelog!.entries).not.toContain(entry);
   });
 
   it("toggles TM/HM compatibility bits without changing TM move names", () => {
@@ -425,6 +472,23 @@ function makeProject(options: { white2Upgrade?: boolean; learnsetEntryCount?: nu
     formats,
     trpokInfo: [],
   };
+}
+
+function makeSamurottProject(): ProjectState {
+  const project = makeProject();
+  const personal = project.narcs.personal!;
+  personal.rawFiles = Array.from({ length: 711 }, () => packRows(project.formats.personal!, [{ num_forms: 1 }]));
+  personal.rawFiles[503] = packRows(project.formats.personal!, [{ num_forms: 2, form_id: 710 }]);
+  personal.rawFiles[709] = new Uint8Array(1370);
+  personal.fileCount = personal.rawFiles.length;
+  project.texts.banks.pokedex = Array.from({ length: 711 }, (_unused, id) => `Pokemon ${id}`);
+  project.texts.banks.pokedex[502] = "Dewott";
+  project.texts.banks.pokedex[503] = "Samurott";
+  project.texts.banks.pokedex[710] = "Samurott";
+  const evolutions = project.narcs.evolutions!;
+  evolutions.rawFiles = Array.from({ length: 711 }, () => new Uint8Array(42));
+  evolutions.fileCount = evolutions.rawFiles.length;
+  return project;
 }
 
 function learnsetRow(count: number): Record<string, number> {

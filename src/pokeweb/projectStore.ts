@@ -148,6 +148,20 @@ export type NativeStreamReplacementConfig = {
   sourceTrimEndSeconds?: number;
 };
 
+export type StandaloneStreamConfig = {
+  streamId: number;
+  streamFileId: number;
+  name: string;
+  sourceName: string;
+  encoding: "pcm16" | "adpcm";
+  sampleRate: 32728;
+  sampleCount: number;
+  loopStartSample: number;
+  loopEndSample: number;
+  encodedBytes: number;
+  audioSha256: string;
+};
+
 /** Read old saved projects without mutating them until a transaction commits. */
 export function getStreamedBgmConfigs(project: Pick<ProjectState, "codeInjection">): StreamedBgmConfig[] {
   return project.codeInjection?.streamedBgms ?? (project.codeInjection?.streamedBgm ? [project.codeInjection.streamedBgm] : []);
@@ -155,6 +169,10 @@ export function getStreamedBgmConfigs(project: Pick<ProjectState, "codeInjection
 
 export function getNativeStreamReplacementConfigs(project: Pick<ProjectState, "codeInjection">): NativeStreamReplacementConfig[] {
   return project.codeInjection?.nativeStreamReplacements ?? [];
+}
+
+export function getStandaloneStreamConfigs(project: Pick<ProjectState, "codeInjection">): StandaloneStreamConfig[] {
+  return project.codeInjection?.standaloneStreams ?? [];
 }
 
 export type CodeInjectionState = {
@@ -177,6 +195,8 @@ export type CodeInjectionState = {
   streamedBgm?: StreamedBgmConfig;
   streamedBgms?: StreamedBgmConfig[];
   nativeStreamReplacements?: NativeStreamReplacementConfig[];
+  standaloneStreams?: StandaloneStreamConfig[];
+  saveMenuSettings?: { music: "relic-song" | "stream"; streamId?: number; bpm: number; stepsPerBeat: 1 | 2 | 4 };
   battleLog?: {
     ancestryPath: string;
     ancestryFileId?: number;

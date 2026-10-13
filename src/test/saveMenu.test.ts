@@ -46,7 +46,7 @@ describe("bundled save-menu resource contract", () => {
     const info = manifest.modules[version], bytes = readFileSync(new URL(`../assets/codeinjection/${info.fileName}`, import.meta.url));
     expect(hash(bytes)).toBe(info.sha256); expect(info.recognizedSha256).toContain(info.sha256);
     const module = parseRpm(bytes, { allowedMagics: ["DLXF"] });
-    expect(module.metadata.PMCGameID).toBe(version); expect(module.metadata.PMCVersion).toBe("0.3.5");
+    expect(module.metadata.PMCGameID).toBe(version); expect(module.metadata.PMCVersion).toBe("0.3.6");
     let nameHash = 0x811c9dc5;
     for (const byte of new TextEncoder().encode("OriginalSaveMenuMain")) nameHash = Math.imul(nameHash ^ byte, 0x01000193) >>> 0;
     const original = module.symbols.find(symbol => symbol.nameHash === nameHash);
@@ -67,6 +67,8 @@ describe("bundled save-menu resource contract", () => {
     expect(manifest.recall.staggerFrames).toBe(2); expect(manifest.recall.direction).toBe("right-to-left");
     expect(manifest.jump.playerPose).toBe(1); expect(manifest.jump.sound).toBe(1374);
     expect(manifest.automaticCgearYes).toBe(true);
+    expect(manifest.music).toEqual({ sequence: 0x0446, ticksPerBeat: 48, ticksPerSpriteStep: 24, restartAtEnd: true });
+    expect(manifest.games.W2.soundSequence.sha256).toBe(manifest.games.B2.soundSequence.sha256);
     expect(manifest.style.background.archive).toBe("a/0/7/5");
     expect(manifest.style.selectorGlow.periodFrames).toBe(64);
   });

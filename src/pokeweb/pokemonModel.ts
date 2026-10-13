@@ -5,6 +5,7 @@ import { CASCADE_AI_FIELDS, hasCascadePersonalData, preserveCascadePersonalMigra
 import { EGG_GROUPS, EVO_METHODS, GROWTHS, typeNamesForProject, type NarcName } from "./constants";
 import { usesExpandedBw2Data } from "./black2UpgradeModel";
 import { PERSONAL_ABILITY_MAX_ID } from "./personalAbilityPacking";
+import { pokemonSpeciesLabel, pokemonSpeciesLabelWithId } from "./pokemonLabels";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
 import { getTmNames, machineCountsForProject } from "./tmModel";
 import { getTutorMoveCompatibilityGroups } from "./tutorMoveModel";
@@ -633,9 +634,11 @@ export function updatePokemonField(
     return result;
   }
 
-  const before = record.readable[field];
+  const isEvolutionTarget = field.startsWith("target_");
+  const before = isEvolutionTarget ? pokemonSpeciesLabelWithId(project, record.raw[field] ?? 0) : record.readable[field];
   const result = updateEvolutionField(project, record.raw, record.readable, field, inputValue);
-  recordFieldChange(project, "evolutions", pokemonChangelogSubject(project, speciesId), pokemonFieldLabel(field), before, result.value, {
+  const after = isEvolutionTarget ? pokemonSpeciesLabelWithId(project, result.rawValue) : result.value;
+  recordFieldChange(project, "evolutions", pokemonChangelogSubject(project, speciesId), pokemonFieldLabel(field), before, after, {
     key: `pokemon:${speciesId}:evolutions:${field}`,
   });
   markDirty(project, "evolutions", speciesId);
@@ -669,6 +672,7 @@ export function getPokemonAutofills(project: ProjectState): Record<string, strin
     egg_groups: EGG_GROUPS,
     growth_rates: GROWTHS.slice(0, 6),
     evo_methods: EVO_METHODS,
+    evolution_targets: pokemonEvolutionTargetIds(project).map((speciesId) => pokemonSpeciesLabelWithId(project, speciesId)),
     pokemon_names: pokemonNameAutofills(project),
     move_names: project.texts.banks.moves ?? [],
   };
@@ -740,7 +744,7 @@ function getEvolutions(project: ProjectState, id: number): EvolutionSlot[] {
       paramRaw,
       paramAutofill: evolutionParamAutofillKey(methodId),
       targetId,
-      target: pokemonDisplayName(project, targetId),
+      target: pokemonSpeciesLabel(project, targetId),
     };
   });
 }
@@ -900,6 +904,31 @@ function pokemonDisplayName(project: ProjectState, speciesId: number): string | 
   return cascadeWhitePersonalName(project, speciesId) ?? project.texts.banks.pokedex?.[speciesId] ?? `Pokemon ${speciesId}`;
 }
 
+function pokemonEvolutionTargetIds(project: ProjectState): number[] {
+  const count = Math.min(0x10000, Math.max(project.texts.banks.pokedex?.length ?? 0, getPokemonCount(project)));
+  return Array.from({ length: count }, (_unused, speciesId) => speciesId)
+    .filter((speciesId) => isPokemonReferenceId(project, speciesId));
+}
+
+function findPokemonEvolutionTargetId(project: ProjectState, inputValue: string): number {
+  const input = inputValue.trim();
+  // Form name entries can copy the base name. Carry the personal ID in each
+  // suggestion so selecting a form never resolves back to its base species.
+  const explicitId = /^(?:.*\s)?#(\d+)$/u.exec(input)?.[1] ?? (/^\d+$/u.test(input) ? input : undefined);
+  const ids = pokemonEvolutionTargetIds(project);
+  if (explicitId !== undefined) {
+    const speciesId = Number(explicitId);
+    if (ids.includes(speciesId)) return speciesId;
+    throw new Error(`Unknown Pokemon species ID: ${explicitId}`);
+  }
+  if (!input) throw new Error("Enter a Pokemon name or species ID");
+  const normalizedInput = normalizeName(input);
+  const matches = ids.filter((speciesId) => normalizeName(pokemonSpeciesLabel(project, speciesId)) === normalizedInput);
+  if (matches.length === 1) return matches[0];
+  if (matches.length > 1) throw new Error(`Ambiguous Pokemon: ${input}. Select a target with its species ID.`);
+  return findPokemonValueIndex(project, input);
+}
+
 function findPokemonValueIndex(project: ProjectState, inputValue: string): number {
   const count = Math.max(project.texts.banks.pokedex?.length ?? 0, getPokemonCount(project));
   const numeric = Number(inputValue.trim());
@@ -951,9 +980,9 @@ function updateEvolutionField(project: ProjectState, raw: RawRecord, readable: R
   }
 
   if (field.startsWith("target_")) {
-    const rawValue = findPokemonValueIndex(project, inputValue);
+    const rawValue = findPokemonEvolutionTargetId(project, inputValue);
     raw[field] = rawValue;
-    readable[field] = pokemonDisplayName(project, rawValue);
+    readable[field] = pokemonSpeciesLabel(project, rawValue);
     return { value: readable[field], rawValue };
   }
 

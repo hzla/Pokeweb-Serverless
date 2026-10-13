@@ -17,6 +17,7 @@ WORKSPACE = APP.parent
 ROOTS = {
     'pokeweb': APP,
     'w2u-runtime': Path(os.environ.get('W2U_RUNTIME_ROOT', WORKSPACE.parent / 'White2Upgrade-Original-pokeweb')),
+    'w2u-integration': Path(os.environ.get('W2U_INTEGRATION_ROOT', WORKSPACE.parent / 'White2Upgrade-w2-integration')),
     'weather-runtime': Path(os.environ.get('WEATHER_RUNTIME_ROOT', WORKSPACE / 'White2Upgrade')),
     'pmc': Path(os.environ.get('PMC_SOURCE_ROOT', WORKSPACE / 'PMC')),
 }

@@ -1,5 +1,5 @@
 {
-  "version": "0.3.5",
+  "version": "0.3.7",
   "automaticCgearYes": true,
   "games": {
     "W2": {
@@ -42,6 +42,42 @@
         }
       ],
       "functions": [
+        {
+          "address": 33578485,
+          "bytes": "38b5051c0c1c00f001f9281c211cfff7"
+        },
+        {
+          "address": 33578569,
+          "bytes": "08b5fff723ff66f0a7f808bd10b5041c"
+        },
+        {
+          "address": 33578581,
+          "bytes": "10b5041c00f0e8f8fff784fd211c65f0"
+        },
+        {
+          "address": 33578709,
+          "bytes": "10b500f0a9f8fff745fd0a4c0022211c"
+        },
+        {
+          "address": 33578765,
+          "bytes": "08b500f08df8fff723fd002803d0fff7"
+        },
+        {
+          "address": 33578921,
+          "bytes": "08b5fff7bffc002801d1002008bdfff7"
+        },
+        {
+          "address": 33583189,
+          "bytes": "70b5051c0c4800684168002905d08168"
+        },
+        {
+          "address": 33583249,
+          "bytes": "0248034b006800211847c0469c0f1402"
+        },
+        {
+          "address": 33583269,
+          "bytes": "08b50548006866f055fe002801d00120"
+        },
         {
           "address": 33593537,
           "bytes": "c0797047c1727047c07a704781737047"
@@ -195,8 +231,16 @@
         "a/0/8/5",
         "a/0/0/7",
         "a/0/4/8",
-        "a/0/7/5"
-      ]
+        "a/0/7/5",
+        "swan_sound_data.sdat"
+      ],
+      "soundSequence": {
+        "path": "swan_sound_data.sdat",
+        "id": 1094,
+        "symbol": "SEQ_BGM_E_INISHIE",
+        "bankId": 1085,
+        "sha256": "4f3da938e014964c34cc2585c5e37fdebc4808b90eb180325bb7692c9c9d832a"
+      }
     },
     "B2": {
       "gameCode": "IREO",
@@ -238,6 +282,42 @@
         }
       ],
       "functions": [
+        {
+          "address": 33578485,
+          "bytes": "38b5051c0c1c00f001f9281c211cfff7"
+        },
+        {
+          "address": 33578569,
+          "bytes": "08b5fff723ff66f091f808bd10b5041c"
+        },
+        {
+          "address": 33578581,
+          "bytes": "10b5041c00f0e8f8fff784fd211c65f0"
+        },
+        {
+          "address": 33578709,
+          "bytes": "10b500f0a9f8fff745fd0a4c0022211c"
+        },
+        {
+          "address": 33578765,
+          "bytes": "08b500f08df8fff723fd002803d0fff7"
+        },
+        {
+          "address": 33578921,
+          "bytes": "08b5fff7bffc002801d1002008bdfff7"
+        },
+        {
+          "address": 33583189,
+          "bytes": "70b5051c0c4800684168002905d08168"
+        },
+        {
+          "address": 33583249,
+          "bytes": "0248034b006800211847c0465c0f1402"
+        },
+        {
+          "address": 33583269,
+          "bytes": "08b50548006866f03ffe002801d00120"
+        },
         {
           "address": 33593537,
           "bytes": "c0797047c1727047c07a704781737047"
@@ -391,8 +471,16 @@
         "a/0/8/5",
         "a/0/0/7",
         "a/0/4/8",
-        "a/0/7/5"
-      ]
+        "a/0/7/5",
+        "swan_sound_data.sdat"
+      ],
+      "soundSequence": {
+        "path": "swan_sound_data.sdat",
+        "id": 1094,
+        "symbol": "SEQ_BGM_E_INISHIE",
+        "bankId": 1085,
+        "sha256": "4f3da938e014964c34cc2585c5e37fdebc4808b90eb180325bb7692c9c9d832a"
+      }
     }
   },
   "map": {
@@ -403,10 +491,12 @@
   "modules": {
     "B2": {
       "fileName": "SaveMenuB2.dll",
-      "sha256": "f854da725486af7ec8f122dc9d2f8d491fa36911a7c5e075497a7659edf972ed",
+      "sha256": "ba3052a31158716c9fd3e69e571064cc56f5a2d0e102f1f64e27eccf261432d6",
       "recognizedSha256": [
-        "f854da725486af7ec8f122dc9d2f8d491fa36911a7c5e075497a7659edf972ed",
+        "ba3052a31158716c9fd3e69e571064cc56f5a2d0e102f1f64e27eccf261432d6",
         "b10a7823382e76070759a5cb544bdd33fa4cfc45be038ea427802cfd16435119",
+        "9fd0b72ddef222ca3b01d94cac40e47923e89098de67df21fbbbba6cb859d969",
+        "f854da725486af7ec8f122dc9d2f8d491fa36911a7c5e075497a7659edf972ed",
         "e10e629ede81bf90f4b18e7ba5dc6648a71eadf7a8ab1ab86b359b01ce20cd79",
         "41479147e105ded4fb64d222cf61feadc96db362d992ea560e0669e08ba47d0d",
         "dc35b0ed7a08fda3f781b901643dfb50293230ee038477da8e3ddb5d6c0b5234",
@@ -420,14 +510,16 @@
         "2fc5f90395c162534c1778afb6a2225a859f1051dc80664e52f468f33ce5bc81",
         "4a24fb178b52d4daa2167477c090170eeea3735fbb91d924896b6965ac3ad1d8"
       ],
-      "expandedSize": 43616
+      "expandedSize": 44768
     },
     "W2": {
       "fileName": "SaveMenuW2.dll",
-      "sha256": "52d4cba6b93a00ec964ff8a6b852adaef08cc59694ce1defc3653490b2764841",
+      "sha256": "fba9e8a1b421f259b8a6b10fa88726fcf8c935396933206ede40a12ae49c5a65",
       "recognizedSha256": [
-        "52d4cba6b93a00ec964ff8a6b852adaef08cc59694ce1defc3653490b2764841",
+        "fba9e8a1b421f259b8a6b10fa88726fcf8c935396933206ede40a12ae49c5a65",
         "aa0d2ca5e81172d92362b7b32b9603f42d4e50900b55cf001a83aefa3d5312e9",
+        "5464dc3f3a48b047357622c5e0d8c7cacf60ee85e113cf86d209153563a4c23a",
+        "52d4cba6b93a00ec964ff8a6b852adaef08cc59694ce1defc3653490b2764841",
         "91b3f553e40bc16f753aae4ed634cd3be4f024c7c620001c9004f576fb1e2898",
         "f53f162a239675c4e262303c27c4e934924e1325418756b2f88e9886d9ecbe38",
         "1e6206b1d1944d92199d855a0297385847e0ea715cb96f0989a22289a3f63315",
@@ -440,8 +532,16 @@
         "898e7aa4ce65c2b08091428b084eb1ab8a99af34d37805e734e41cc046cef60c",
         "b78b1ba6c838325fd70f8a5ac90a68343968321df018c33716cb95d980c7d5f8"
       ],
-      "expandedSize": 43600
+      "expandedSize": 44528
     }
+  },
+  "music": {
+    "sequence": 1094,
+    "ticksPerBeat": 48,
+    "ticksPerSpriteStep": 24,
+    "restartAtEnd": true,
+    "configPath": "ui/save-menu/settings.bin",
+    "streamedAudio": true
   },
   "style": {
     "background": {
@@ -518,5 +618,10 @@
     "totalFrames": 42,
     "playerPose": 1,
     "sound": 1374
+  },
+  "transition": {
+    "framesPerLogicalFrame": 2,
+    "actualZoomFrames": 80,
+    "actualJumpFrames": 84
   }
 }

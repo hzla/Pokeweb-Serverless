@@ -60,7 +60,7 @@ export function renderTrainerEditor(
   onOpenPlayerBackSprite?: () => void,
 ): void {
   const trainerNaturePatchStatus = detectSpecifyTrainerNaturesPatch(project);
-  const savedTestBattleTeamText = readSavedTestBattleTeamText(project);
+  const savedTestBattleTeamText = getTrainerTestBattleTeamText(project);
   const enrichedTrainerLocations = autoEnrichTrainerLocations(project);
   const trainerMoreContent = [
     renderW2uSyncButton(project, ["trainers"]),
@@ -415,7 +415,9 @@ function testBattleBoxStorageKey(project: ProjectState): string {
   return `${TEST_BATTLE_BOX_STORAGE_PREFIX}.${project.session.baseVersion}.${project.session.romName}`;
 }
 
-function readSavedTestBattleTeamText(project: ProjectState): string {
+export function getTrainerTestBattleTeamText(project: ProjectState, root?: ParentNode): string {
+  const input = root?.querySelector<HTMLTextAreaElement>("#test-battle-team-import");
+  if (input) return input.value;
   if (typeof localStorage === "undefined") return "";
   try {
     return localStorage.getItem(testBattleTeamStorageKey(project)) ?? "";

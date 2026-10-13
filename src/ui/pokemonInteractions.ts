@@ -588,6 +588,9 @@ function installEditableFields(root: HTMLElement, project: ProjectState, options
     field.addEventListener("mousedown", () => {
       initialValue = field.textContent?.trim() ?? "";
     });
+    field.addEventListener("focus", () => {
+      initialValue = field.textContent?.trim() ?? "";
+    });
     field.addEventListener("click", () => selectText(field));
     field.addEventListener("keypress", (event) => {
       if (event.key === "Enter") {
@@ -745,10 +748,13 @@ function updateEggMoveField(project: ProjectState, speciesId: number, fieldName:
 function syncVisualFieldState(field: HTMLElement, result: ReturnType<typeof updatePokemonField>): void {
   const evolutionTarget = field.dataset.narc === "evolution" ? /^target_(\d+)$/u.exec(field.dataset.fieldName ?? "") : undefined;
   if (evolutionTarget) {
-    const indicator = field
-      .closest<HTMLElement>(".pokemon-card.filterable")
-      ?.querySelector<HTMLElement>(`[data-evolution-target-id='${evolutionTarget[1]}']`);
-    if (indicator) indicator.textContent = `Species ID ${result.rawValue}`;
+    field.closest<HTMLElement>(".pokemon-card.filterable")
+      ?.querySelectorAll<HTMLElement>(pokemonEditableFieldSelector("evolution", `target_${evolutionTarget[1]}`))
+      .forEach((targetField) => {
+        targetField.textContent = String(targetField.classList.contains("evolution-target-id-input") ? result.rawValue : result.value);
+        targetField.classList.remove("invalid");
+        targetField.style.border = "";
+      });
   }
 
   if (field.classList.contains("pokemon-type")) {

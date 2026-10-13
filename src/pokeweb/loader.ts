@@ -29,6 +29,7 @@ import { normalizeEncounterFormReferences } from "./encounterModel";
 import { parseHeaders } from "./headerModel";
 import { MOVE_EFFECT_HANDLER_TABLE_LENGTH, moveEffectHandlerOverlayId, moveEffectHandlerTableOffset } from "./moveEffectHandlerModel";
 import { detectPmcInstallFromRom } from "./pmcModel";
+import { decodeStandaloneStreamManifest, STANDALONE_STREAM_MANIFEST_PATH } from "./standaloneStreamManifest";
 import { hydratePwanAnimationsFromRom } from "./pwanAnimationModel";
 import { hydrateW2AnimFromRom } from "./w2animAnimationModel";
 import { hydrateKoMoveLearnsetFromRom } from "./koMoveLearnsetModel";
@@ -116,6 +117,25 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
   };
   if (isGen5BaseRom(version.baseRom)) {
     project.codeInjection = detectPmcInstallFromRom(rom);
+    const standaloneManifestId = rom.filenames.idOf(STANDALONE_STREAM_MANIFEST_PATH);
+    if (standaloneManifestId !== undefined) {
+      try { project.codeInjection!.standaloneStreams = decodeStandaloneStreamManifest(rom.files[standaloneManifestId]); }
+      catch { /* The Music editor validates and reports an incompatible manifest before writing. */ }
+    }
+    const menuSettingsId = rom.filenames.idOf("ui/save-menu/settings.bin");
+    if (menuSettingsId !== undefined) {
+      const settings = rom.files[menuSettingsId];
+      if (settings?.length === 16 && String.fromCharCode(...settings.subarray(0, 4)) === "SMNU") {
+        const view = new DataView(settings.buffer, settings.byteOffset, settings.byteLength);
+        const mode = view.getUint16(6, true), bpm = view.getUint16(10, true), steps = view.getUint16(12, true);
+        if (view.getUint16(4, true) === 1 && mode <= 1 && bpm >= 30 && bpm <= 300 && (steps === 1 || steps === 2 || steps === 4)) {
+          project.codeInjection!.saveMenuSettings = {
+            music: mode ? "stream" : "relic-song", ...(mode ? { streamId: view.getUint16(8, true) } : {}),
+            bpm, stepsPerBeat: steps,
+          };
+        }
+      }
+    }
     hydrateCustomUi(project, rom);
     hydrateCGearButtons(project, rom);
     hydrateCascadePersonalSources(project, rom);

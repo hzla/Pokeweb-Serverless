@@ -159,6 +159,11 @@ describe("pwanLibraryModel", () => {
     expect(megaCharizardX?.icon?.sourceArchiveIndex).toBe(3024);
     expect(litten?.icon?.sourceArchiveIndex).toBe(1910);
     expect(loaded.iconsByEntryId.get(megaCharizardX!.id)?.male).not.toEqual(loaded.iconsByEntryId.get(litten!.id)?.male);
+    const samurott = manifest.entries.find(entry => entry.key === 'REGIONAL_HISUI_SAMUROTT')!;
+    const garchompZ = manifest.entries.find(entry => entry.key === 'MEGA_ZA_GARCHOMP_Z')!;
+    expect(samurott.icon?.sourcePng).toBe('essentials_pngs/Icons/SAMUROTT_1.png');
+    expect(samurott.icon?.sourceArchiveIndex).toBeUndefined();
+    expect(digest(loaded.iconsByEntryId.get(samurott.id)!.male)).not.toBe(digest(loaded.iconsByEntryId.get(garchompZ.id)!.male));
     expect(manifest.entries.filter((entry) => entry.hasFront !== entry.hasBack)).toHaveLength(9);
     expect(new Set(manifest.entries.map(entry => `${entry.speciesId}:${entry.formIndex}`)).size).toBe(596);
     expect(manifest.entries.find(entry => entry.speciesId === 718 && entry.formIndex === 1)?.name).toBe('Zygarde 10%');

@@ -42,6 +42,7 @@ export type PwanLibraryEntry = {
     femalePaletteId: number;
     sourceArchiveIndex?: number;
     sourcePaletteKey?: number;
+    sourcePng?: string;
   };
 };
 
