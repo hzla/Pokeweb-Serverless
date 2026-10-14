@@ -1,0 +1,2374 @@
+{
+  "version": "0.1.0-bw1",
+  "archivePath": "party-tools/ui.narc",
+  "games": {
+    "B": {
+      "idCode": "IRBO",
+      "revision": 0,
+      "dsAccepted": true,
+      "signatures": [
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33576608,
+          "expectedHex": "38b5051c04480c1c0069131c006a291c221c2bf07aeb38bd94a10a0201480069",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33754796,
+          "expectedHex": "0010a0e1002091e528c09fe5340092e5010050e10800910534008205050091e9",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33579492,
+          "expectedHex": "0021014bc9431847a5610002004b1847a56100020349c0000818034b001d0021",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33587048,
+          "expectedHex": "08b5fff7c5ff002801d0012008bd002008bd000018b4002300280ad01c1c0029",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33652252,
+          "expectedHex": "70b5051c0c1c161c00f074ff281c211c321c00f0c1ff041c281c00f099ff201c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33652288,
+          "expectedHex": "70b5051c0c1c161c00f062ff012804d1281c211c321c01f057fa281c00f086ff",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33654148,
+          "expectedHex": "10b5141c172201f081fb211c01f008fb10bd0000004b1847a185010208b57021",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33663512,
+          "expectedHex": "40687047f8b5071c0025fff7f9ff061c0024002e0ddd381c211c00f079f84c21",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33663784,
+          "expectedHex": "dc2208304a4380187047000008b5fff7f7ff002802d000f0ebf808bd002008bd",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33670892,
+          "expectedHex": "81880022028041804261026170470000f8b5084f0e1c151c041c00930799381c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33670948,
+          "expectedHex": "f8b50b4f0e1c151c041c00930799381c321c2b1c00f066f806a90989381c00f0",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33751876,
+          "expectedHex": "08402de934209fe534109fe5b830d2e1010000e0030050e10100a023be00c221",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33751948,
+          "expectedHex": "08402de938209fe538109fe5b830d2e1010000e0030050e10100a023be00c221",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33769024,
+          "expectedHex": "002090e50010e0e3010052e104009005010050010100a0030000a0131eff2fe1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33752884,
+          "expectedHex": "f0412de90080a0e10170a0e10260a0e10350a0e152feffeb0040b0e10700001a",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33753008,
+          "expectedHex": "10402de90040a0e19b0000eb0400a0e167feffeb1080bde808402de999feffeb",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33774880,
+          "expectedHex": "38402de90050a0e10140a0e13cfdffeb0510a0e10420a0e1e6ffffeb3880bde8",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33776348,
+          "expectedHex": "08402de9cffbffebf4ffffeb0880bde810402de90040a0e1c8fbffeb3d10d4e5",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33776396,
+          "expectedHex": "08402de9c3fbffebf4ffffeb0880bde810402de90040a0e1bcfbffeb3d10d4e5",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33822252,
+          "expectedHex": "10209fe52c10a0e3002092e5902121e0080091e51eff2fe1446a140210209fe5",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33823596,
+          "expectedHex": "1c109fe50120a0e3003091e51200a0e1b610d3e10008a0e1200881e1b600c3e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33838960,
+          "expectedHex": "0c0090e51eff2fe10900d0e51eff2fe10310c0e51eff2fe10410c0e51eff2fe1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33839024,
+          "expectedHex": "38402de90050a0e10040a0e364e0a0e385c0a0e10100a0e12c309fe50420a0e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33839112,
+          "expectedHex": "08c09fe50010a0e3041080e51cff2fe1b00703020020a0e30c109fe5b220c0e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33839396,
+          "expectedHex": "10402de90030a0e35c209fe5b230c0e1b0c0d2e1b030d1e10c0053e10e00000a",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33853852,
+          "expectedHex": "30402de90cd04de20050a0e30040a0e10520a0e10c10a0e3bc54c4e161be00eb",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33854008,
+          "expectedHex": "10402de90040a0e10ebe00eb0400a0e1589dffeb1080bde8f0402de90cd04de2",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33854032,
+          "expectedHex": "f0402de90cd04de20050a0e1be34d5e10170a0e10240a0e1070053e10400008a",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33860592,
+          "expectedHex": "00402de90cd04de200e0a0e300e08de5b0c1dde104e08de508c08de5010000eb",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33861028,
+          "expectedHex": "1810a0e338209fe5900103e0000092e5100190e5031080e0140091e50201c0e3",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33861100,
+          "expectedHex": "f0412de90160a0e11810a0e3bc709fe5900104e0000097e50180a0e3100190e5",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33861416,
+          "expectedHex": "f0472de9a0409fe50060a0e1000094e50250a0e1417f80e2b821d7e10340a0e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33861592,
+          "expectedHex": "10402de91410a0e348209fe5900101e0000092e5142190e5010092e7014082e0",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33861888,
+          "expectedHex": "f8472de904d04de2b4409fe5b4509fe50280a0e10070a0e300a0a0e11860a0e3",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33862092,
+          "expectedHex": "70402de90050a0e1990200ebbc00d5e10040a0e3000050e30b0000dae460a0e3",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33859488,
+          "expectedHex": "f8472de91cd04de214319fe50080a0e1000093e50170a0e1413f80e2b411d3e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33859796,
+          "expectedHex": "38402de9ec509fe50040a0e1000095e50c0190e5040380e02c0080e252a7ffeb",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33860048,
+          "expectedHex": "f8402de9b4609fe50050a0e1000096e50170a0e30c0190e50140a0e10710a0e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33862292,
+          "expectedHex": "f0402de92cd04de27c409fe501c0a0e1001094e518e0a0e3105191e5147191e5",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33862580,
+          "expectedHex": "10402de90040a0e1080094e50410a0e1990500eb680084e24c0700eb0400a0e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33862620,
+          "expectedHex": "602090e5811fa0e10123c2e3a11282e1601080e51eff2fe1600090e58002a0e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33863980,
+          "expectedHex": "602090e5811fa0e10224c2e3211382e1601080e51eff2fe1600090e50003a0e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 34048172,
+          "expectedHex": "0020a0e3231c82e3082080e5042080e5002080e51c2080e5182080e50c1080e5",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 34049048,
+          "expectedHex": "04c09fe50120a0e31cff2fe1fc89070200c09fe51cff2fe1948a070200c09fe5",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33630572,
+          "expectedHex": "6b218900405870471b21090140587047692109014058704771218900405c7047",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33637096,
+          "expectedHex": "38b50c1c00f04cf800280cd0e30f62070578d21a1d21ca41991801228a40291c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33862660,
+          "expectedHex": "38402de908d04de20150a0e10210a0e104208de20040a0e1d40600ebf030d5e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33628404,
+          "expectedHex": "c0697047c069014b1847c046a52701028069704781617047006a704701627047",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "91",
+          "address": 35350028,
+          "expectedHex": "f8b584b00a24051ca4012859006864f6fdf90006070e7ef6d0ef0022a8600920",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "91",
+          "address": 35350552,
+          "expectedHex": "70b5051c68687af646eb281c03f02ef901280cd14224a400285905f007fb201d",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "91",
+          "address": 35350768,
+          "expectedHex": "f0b583b0041c217b15295bd849187944c988090409148f442a00460052005200",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "91",
+          "address": 35359372,
+          "expectedHex": "10b5041c00f018f8e07b042802d1201c00f08af9e07b042801d00220a0730a20",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "91",
+          "address": 35355844,
+          "expectedHex": "f8b50a25041cad016259111c63310978012902d113202073f8bd516b192900d9",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "91",
+          "address": 35366512,
+          "expectedHex": "08b5031c0a20800118581b88406801224df64cfc08bd000008b5031c0a208001",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "91",
+          "address": 35370984,
+          "expectedHex": "f0b583b04d27051cbf000c1ce859111c8af662eb061ce06a00280ed02988343f",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "91",
+          "address": 35371560,
+          "expectedHex": "10b50c1c606889f6a0ee0f2188f692e86468201c89f67aec201c89f698ec201c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "91",
+          "address": 35369472,
+          "expectedHex": "f0b583b00c1c0090207994462a4a4100575c2a4a1d1c565cc20fc107891a1f20",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "91",
+          "address": 35368864,
+          "expectedHex": "70b582b0051c161c0c1c012e2a7b1ed1fd321206120e012a00d808e0fef762fd",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "91",
+          "address": 35369664,
+          "expectedHex": "38b50c1c051c206a8af652ea002188f646ec281c211c0022fff704fc38bd0000",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "91",
+          "address": 35369040,
+          "expectedHex": "38b582b0141c0d1c032c0ad1281c00f079fa032805d128794200062000900420",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "10",
+          "address": 34998932,
+          "expectedHex": "f8b584b0051ca86901910068171c1e1cb1f626fb0290332000010090734b0420",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "10",
+          "address": 34999432,
+          "expectedHex": "cb6b8269d362021ccb6b60321370c26e012a06d1c86b082801d1012070470020",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "10",
+          "address": 35001872,
+          "expectedHex": "10b5041ca0690068b0f66cfda06e032803d10220e060042010bd042803d10020",
+          "patchSize": 0
+        },
+        {
+          "label": "PaInit",
+          "module": "91",
+          "address": 35349762,
+          "expectedHex": "00f083f8",
+          "patchSize": 4,
+          "patchType": "THUMB_BRANCH_LINK"
+        },
+        {
+          "label": "PaEnd",
+          "module": "91",
+          "address": 35349822,
+          "expectedHex": "00f06bf9",
+          "patchSize": 4,
+          "patchType": "THUMB_BRANCH_LINK"
+        },
+        {
+          "label": "PaTick",
+          "module": "91",
+          "address": 35350008,
+          "expectedHex": "00f07af9",
+          "patchSize": 4,
+          "patchType": "THUMB_BRANCH_LINK"
+        },
+        {
+          "label": "PaIdle",
+          "module": "91",
+          "address": 35357684,
+          "expectedHex": "00f04afb",
+          "patchSize": 4,
+          "patchType": "THUMB_BRANCH_LINK"
+        },
+        {
+          "label": "PaPrompt",
+          "module": "91",
+          "address": 35355654,
+          "expectedHex": "03f0effd",
+          "patchSize": 4,
+          "patchType": "THUMB_BRANCH_LINK"
+        },
+        {
+          "label": "PaSubtract",
+          "module": "91",
+          "address": 35356136,
+          "expectedHex": "02f042fc",
+          "patchSize": 4,
+          "patchType": "THUMB_BRANCH_LINK"
+        },
+        {
+          "label": "PaRequest",
+          "module": "10",
+          "address": 35066580,
+          "expectedHex": "950a1602",
+          "patchSize": 4,
+          "patchType": "FULL_COPY"
+        },
+        {
+          "label": "PaPartyReturn",
+          "module": "10",
+          "address": 35066584,
+          "expectedHex": "890c1602",
+          "patchSize": 4,
+          "patchType": "FULL_COPY"
+        },
+        {
+          "label": "PaEvolutionReturn",
+          "module": "10",
+          "address": 35066824,
+          "expectedHex": "11161602",
+          "patchSize": 4,
+          "patchType": "FULL_COPY"
+        },
+        {
+          "label": "Saved flag bounds",
+          "module": "ARM9",
+          "address": 33637256,
+          "expectedHex": "002901d1002070470122920391420bd2ca085b2189008a4201db002070479f218900401880187047891a8810400f0818c110082901db00207047014840187047",
+          "patchSize": 0
+        },
+        {
+          "label": "Saved flag range",
+          "module": "ARM9",
+          "address": 33637272,
+          "expectedHex": "ca085b2189008a4201db002070479f2189004018",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Party request layout",
+          "module": "91",
+          "address": 35350028,
+          "expectedHex": "f8b584b00a24051ca4012859006864f6fdf90006070e7ef6d0ef0022a860092017210923e9632a73aa73ea62aa63286368636a612a61fc33ea540923f733ea540923f933ea521723f933ea52fd3113236a5440011b012a50181cea50b8302a50181c28382a50181c24382a50181c18382a50201c1c382a50201c30382a50201c08382a5028594833633002700120a8626a62801e91006918c850511c09060a0e172af7d30a2080012858406b192801d1012000e00020e8610a2080012958486b182803d103204863012000e00020a8610a2080012958486b1a2802d10120486300e000200a242862a4012959486b06280bd1081c46300088002806d1443108886af6d0fd295946310880281c00f03afb281c00f0bbfd281c00f05efd3948002402905b300290374801905b300190354803905b300390bc420fd20a2080012858211c006864f6eaf9021ca0002e18281c211c03f09fff019906e0a0002e18281c211c04f055f8029970500398305804f05ffe052804dc2348285c411c21482954601c0006040e062cd5d328884e239b000090ea580833eb580020012171f6dafb952189006850281c00f072fc281c03f063f9012802d1281c06f082fa1248291c08224ef667ff6860281c04f0ddfe152424012851281c05f053f9211d6850281c00f054ff03208bf6bce902208bf6b8e907208bf6b6e92988012086f6a2ed012004b0f8bd05010000656d1b0270b5051c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native field request owner",
+          "module": "10",
+          "address": 34998932,
+          "expectedHex": "f8b584b0051ca86901910068171c1e1cb1f626fb0290332000010090734b042098210122cff63cee041c0298b1f638ff2a1c231c4c32206003ca1c3303c303ca03c3106818600298b1f626ff60600298a8f682faa0600298abf696ffa06100206063a869211cc06a4631e06300200880211cff205e31039008700298b1f648fe008820860298b1f633ff211c5f310870019805280cd10020e063052060630398211cd3304431039008800120e86699e0002f02d10020e06394e0022f3cd1201cb16b44300180706b032807d0042805d0012803d0122801d00020e063706b122829d800187844c08800040014874446002400320038003a003e004200460046004600460046002e00460046004600460046003800f06a022864d1002002e01020fce7092060635de0ffe70a20f6e70520f4e70620f2e7f4e7062f28d1b07c002801d001284ed1707b02281cd1a86e062804d108206063686e206501e00720606362352988201c44300180201cb18a46300180b07c002804d1717c201c4830017030e0ff21f9e700206063f07b93e7092f1fd1174f381cd3f64cef301c63f0e6f8061c381cd3f610efa86e002801d10b2004e0022816d1012e06d10c206063281c60300078e06308e0002060356063287871e70a2f06d10520606362352988201c44300180201c04b0f8bdc0467829170288000000",
+          "patchSize": 0
+        },
+        {
+          "label": "Native selector fade",
+          "module": "91",
+          "address": 35351332,
+          "expectedHex": "f8b58ab0009000994030a03160226024cbf694ef60210098a031405c002857d0211c0098a031405c211ca031421e0098a0344254015d062903d90c20401a0006010e002003904d00039800224101009846183e2040020690022a01d3042a2bd95700f019403001883e2000010840c004030e0698084080120006040e1f2008400006000e40191f2800dd1f2000065919000e1f2900dd1f2109066319090e1f2b00dd1f231b061b0e49019b020843191c0143f019a0300180501c0006020e102acad30398401c0006000e03900328bbd3574807a90288ca8042880a8180884881544802880a8042884a808088888000985149006900280cd10098435a012080021a188001824203db3f2080021a1a02e001e0032292030098425247490098405a001181004548415e012000030918c80f08184410002002900298002341010098401801903e20400284463e204002049008a859000230405a07ad695a3e252d010540ed042f0e3e252d010d40ed042d0eed1b65432d132d062d161f22059502406546284080120006050e04981206084080120006000e401b60430013000606161f2008400006120e000e801a604300130006001610181f2801dd1f2002e0002800da00200006010e059838181f2801dd1f2002e0002800da00200006aa19000e1f2a01dd1f2202e0002a00da00221206120e4001084392020243019859004018a4300280581c0006030e032ba0d30298401c0006000e029003288dd3009a0f20a032c02160230092aaf6aaef0ab0f8bdfceb1b0204ec1b0202010000381b0a02",
+          "patchSize": 0
+        },
+        {
+          "label": "Native glyph and palette allocation",
+          "module": "91",
+          "address": 35353240,
+          "expectedHex": "f8b588b0051c29884c2091f628ef0021009129880022002301910621041c92f658ec2020009028881a2636010190201c00210022331c92f64cec00200090019028880f2103220290201c002392f6b8e90020009001902888142103220290201c002392f6fcea00200090019028880c2102220290201c002392f6a2e92888331c443b0090201c12210022eb1892f6e6ed311c48396850002000902888052104220190201c0023042792f612ec00200090019028880e2107220290201c002392f680e90020009001902888132107220290201c002392f6c2ea00200090032001902888391c00220290201c002393f648ec311c2839685028880b2100220090201c002393f696e9311c083968502888082100220090201c002393f68ae9311f68502b88201c17211a2293f6b2ed311c143168502b88201c1621192293f6aaed311c18316850201c91f62cef2988072091f686ee071c64f626fc011c2888c02303930090381c0022c02393f674ecc021d031685064f619fc049064f650fc021c2b880499381c93f684ed311c30316850381c91f606ef70f6daf8298891f660ee071c70f6f4f8011c202000902888c02300220190201ca03392f68ceb70f6e9f8011c0020009001902888012200230290201c92f6f6e870f6e0f8011c0020009001902888012200230290201c92f638ea202000900b200190012000210022402389f68cef70f65df9011c002000900120019028880022a0230290381ca02493f6b0eba021ec316850022070f64cf9011c2888002200230090381c93f6fae80399f0316850022070f640f90590022070f63ef9021c2b880599381c93f61aed311c2c31685070f68bf8011c00200090032001902888a02300220290381c803393f680eba021dc31685070f67bf8011c2888002200230090381c93f6cce8a851022070f671f80690022070f66ff8021c2b880699381c93f6eeec0399fc31685070f69ef8011c00200090012001902888002260230290381c93f654eb60218900685070f68ff8011c2888002200230090381c93f6a0e80399e4316850022070f683f80790022070f681f8021c2b880799381c93f6c0ec07218901685070f680f8011c00200090012001902888002280230290381c93f626ebe834285170f672f8011c2888002200230090381c93f672e80399ec3168500220039170f665f8041c022070f663f8021c2b88381c211c93f692ec2836a851381c91f614ee40350348291c6022cbf622ea08b0f8bdc0000005f8b55626",
+          "patchSize": 0
+        },
+        {
+          "label": "Compressed palette registration flag-only size field",
+          "module": "ARM9",
+          "address": 33873640,
+          "expectedHex": "f8472de90cd04de21840a0e3910405e00090a0e130609de50c0099e5020c56e3054080e0020c46220008a02100a0a0330280a0e12068a02104108de20800a0e10370a0e101a0a023e75200eb08108de20800a0e1d55200eb000050e30cd08d02f887bd080400a0e11f5600eb0700a0e10010a0e394feffeb000050e30e00000a31cb00eb0080a0e100005ae30000000ac3c900eb00408de508009de504109de50620a0e10130a0e3ed5700eb00005ae30100000a0800a0e194c800eb0700a0e10110a0e380feffeb000050e30e00000a2dcb00eb0070a0e100005ae30000000aafc900eb00408de508009de504109de50620a0e10230a0e3d95700eb00005ae30100000a0700a0e111ca00eb0c0099e5051080e0140091e50201c0e3140081e50cd08de2f887bde8",
+          "patchSize": 0
+        },
+        {
+          "label": "Native medicine continuation",
+          "module": "91",
+          "address": 35355844,
+          "expectedHex": "f8b50a25041cad016259111c63310978012902d113202073f8bd516b192900d944e249187944c988090409148f44320032007c046c047c04440016037c047c0470017c047c047c047c04ac027c0436017c0432007c047c043200320032007c04320001f0a9f9002088f642ee201c00f025faf8bd4432118804f01efa012806d1201c01f099f9201c00f018faf8bd6159238844310988a06b0022002706f00af8012842d1201c391c04f0f0fa061c63592088191c4431009009881b8ea06b3a1c06f096fa022e0bd1e16a201c89006218162109015158a26b3b1c03f02ffa1be0132e01d00d2e0bd1e16a201c89006218162109015158a26b002303f01ffa08e0e16a201c8900621816210901515803f075fad8484ef604fa0a2189016158201c4431098802f042fcf8bd605944300188281cae38814212d1a16b201c05f05eff01280cd1a16b201c05f0a4ff60590a2101640e20207303201c3d6051f8bd201c04f072faf8bd44321288a16b01f0e0fe00280ed06159201c4431098802f016fc13202073e16a6059c163605908210164f8bdb94b201c5121012201f093fcf8bda06b0621002206275ff6d6ff061c67d160594430008869f677fa012807d113202073e16a6059c16360590764f8bd60590a2101646259a16b44321288201c02f0bffbe16a16268900611836018959201c03f004fa311c10396158201c03f05cfd311c10396158a36b201c002203f064fd6359103e4433a1591b88201c0122012603f062fd6259a16b44321288201c04f0abf96259a16b44321288201c04f0c2f9a16b201c05f076fe01280cd1a16b201c05f092fe894b201c5621321c01f032fc1c3d665105e0844b201c5621321c01f029fc152109016158201c03f025fdf8bd3004000c69f610fa012809d160590a210164794b201c3921012201f013fcf8bd15252d016159201c03f006fd6159a36b201c002203f010fd33046159201c01221b0c03f019fd6e4b201c3a21002201f0f9fb6159201c03f0f7fcf8bda06b0621002206275ff638ff002825d16259238890685c321288002151f648f8061ca06ba721321c5ff63aff301c78f6f0eb6259a06b44321288391c5ff630ff6259002190685c32128851f61ff8534b201c6221012201f0c7fbf8bd4f4b201c6321012201f0c0fbf8bdd26ba16b1206120e01f059fd032800d9afe000187844c08800040014874406005a009800dc00152660590a2101643601a159201c03f09dfca159a36b201c002203f0a7fc6359a15946331b88201c012203f0b7fc374b201c2921012201f08ffba159201c03f08dfca16b201c02f09dfaa16b201c02f0c5faf8bd15263601a159201c03f076fca159a36b201c002203f080fc6359a15946331b88201c012203f090fc264b201c2021002201f068fba159201c03f066fcf8bd152660590a2101643601a159201c03f054fca159a36b201c002203f05efc6359a15946331b88201c012203f06efc124b201c2a21012201f046fba159201c03f044fcf8bd152660590a2101643601a159201c03f032fca159a36b201c002203f03cfc6359a15946331b88201c012203f04cfc014b09e06f0500003d9e1b02e5a41b0299a01b02b19e1b02201c2b21012201f019fba159201c03f017fcf8bd13202073e06a0021d06360590164f8bd201c00f083ff201c00f002f8",
+          "patchSize": 0
+        },
+        {
+          "label": "Native selector sound",
+          "module": "91",
+          "address": 35360164,
+          "expectedHex": "48050000",
+          "patchSize": 0
+        },
+        {
+          "label": "Sprite system pointer",
+          "module": "ARM9",
+          "address": 33861588,
+          "expectedHex": "746a1402",
+          "patchSize": 0
+        },
+        {
+          "label": "Native item icon table",
+          "module": "ARM9",
+          "address": 34204616,
+          "expectedHex": "21002200",
+          "patchSize": 0
+        }
+      ],
+      "apis": [
+        {
+          "reference": "0x20056fc",
+          "entry": 33576609,
+          "mode": "Thumb",
+          "module": "ARM9",
+          "expectedHex": "38b5051c04480c1c0069131c006a291c221c2bf07aeb38bd94a10a0201480069"
+        },
+        {
+          "reference": "0x203a6d4",
+          "entry": 33754796,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "0010a0e1002091e528c09fe5340092e5010050e10800910534008205050091e9"
+        },
+        {
+          "reference": "0x2006254",
+          "entry": 33579493,
+          "mode": "Thumb",
+          "module": "ARM9",
+          "expectedHex": "0021014bc9431847a5610002004b1847a56100020349c0000818034b001d0021"
+        },
+        {
+          "reference": "0x2008474",
+          "entry": 33587049,
+          "mode": "Thumb",
+          "module": "ARM9",
+          "expectedHex": "08b5fff7c5ff002801d0012008bd002008bd000018b4002300280ad01c1c0029"
+        },
+        {
+          "reference": "0x201cd24",
+          "entry": 33652253,
+          "mode": "Thumb",
+          "module": "ARM9",
+          "expectedHex": "70b5051c0c1c161c00f074ff281c211c321c00f0c1ff041c281c00f099ff201c"
+        },
+        {
+          "reference": "0x201cd48",
+          "entry": 33652289,
+          "mode": "Thumb",
+          "module": "ARM9",
+          "expectedHex": "70b5051c0c1c161c00f062ff012804d1281c211c321c01f057fa281c00f086ff"
+        },
+        {
+          "reference": "0x201d5e0",
+          "entry": 33654149,
+          "mode": "Thumb",
+          "module": "ARM9",
+          "expectedHex": "10b5141c172201f081fb211c01f008fb10bd0000004b1847a185010208b57021"
+        },
+        {
+          "reference": "0x201fe24",
+          "entry": 33663513,
+          "mode": "Thumb",
+          "module": "ARM9",
+          "expectedHex": "40687047f8b5071c0025fff7f9ff061c0024002e0ddd381c211c00f079f84c21"
+        },
+        {
+          "reference": "0x201ff34",
+          "entry": 33663785,
+          "mode": "Thumb",
+          "module": "ARM9",
+          "expectedHex": "dc2208304a4380187047000008b5fff7f7ff002802d000f0ebf808bd002008bd"
+        },
+        {
+          "reference": "0x2021c70",
+          "entry": 33670893,
+          "mode": "Thumb",
+          "module": "ARM9",
+          "expectedHex": "81880022028041804261026170470000f8b5084f0e1c151c041c00930799381c"
+        },
+        {
+          "reference": "0x2021ca8",
+          "entry": 33670949,
+          "mode": "Thumb",
+          "module": "ARM9",
+          "expectedHex": "f8b50b4f0e1c151c041c00930799381c321c2b1c00f066f806a90989381c00f0"
+        },
+        {
+          "reference": "0x2039f8c",
+          "entry": 33751876,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "08402de934209fe534109fe5b830d2e1010000e0030050e10100a023be00c221"
+        },
+        {
+          "reference": "0x2039fbc",
+          "entry": 33751948,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "08402de938209fe538109fe5b830d2e1010000e0030050e10100a023be00c221"
+        },
+        {
+          "reference": "0x203cb14",
+          "entry": 33769024,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "002090e50010e0e3010052e104009005010050010100a0030000a0131eff2fe1"
+        },
+        {
+          "reference": "0x203a228",
+          "entry": 33752884,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "f0412de90080a0e10170a0e10260a0e10350a0e152feffeb0040b0e10700001a"
+        },
+        {
+          "reference": "0x203a278",
+          "entry": 33753008,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "10402de90040a0e19b0000eb0400a0e167feffeb1080bde808402de999feffeb"
+        },
+        {
+          "reference": "0x203dab0",
+          "entry": 33774880,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "38402de90050a0e10140a0e13cfdffeb0510a0e10420a0e1e6ffffeb3880bde8"
+        },
+        {
+          "reference": "0x203df28",
+          "entry": 33776348,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "08402de9cffbffebf4ffffeb0880bde810402de90040a0e1c8fbffeb3d10d4e5"
+        },
+        {
+          "reference": "0x203df4c",
+          "entry": 33776396,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "08402de9c3fbffebf4ffffeb0880bde810402de90040a0e1bcfbffeb3d10d4e5"
+        },
+        {
+          "reference": "0x2045840",
+          "entry": 33822252,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "10209fe52c10a0e3002092e5902121e0080091e51eff2fe1446a140210209fe5"
+        },
+        {
+          "reference": "0x2045ba8",
+          "entry": 33823596,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "1c109fe50120a0e3003091e51200a0e1b610d3e10008a0e1200881e1b600c3e1"
+        },
+        {
+          "reference": "0x2048520",
+          "entry": 33838960,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "0c0090e51eff2fe10900d0e51eff2fe10310c0e51eff2fe10410c0e51eff2fe1"
+        },
+        {
+          "reference": "0x204855c",
+          "entry": 33839024,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "38402de90050a0e10040a0e364e0a0e385c0a0e10100a0e12c309fe50420a0e1"
+        },
+        {
+          "reference": "0x2048590",
+          "entry": 33839112,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "08c09fe50010a0e3041080e51cff2fe1b00703020020a0e30c109fe5b220c0e1"
+        },
+        {
+          "reference": "0x2048640",
+          "entry": 33839396,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "10402de90030a0e35c209fe5b230c0e1b0c0d2e1b030d1e10c0053e10e00000a"
+        },
+        {
+          "reference": "0x204aac8",
+          "entry": 33853852,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "30402de90cd04de20050a0e30040a0e10520a0e10c10a0e3bc54c4e161be00eb"
+        },
+        {
+          "reference": "0x204ab38",
+          "entry": 33854008,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "10402de90040a0e10ebe00eb0400a0e1589dffeb1080bde8f0402de90cd04de2"
+        },
+        {
+          "reference": "0x204ab48",
+          "entry": 33854032,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "f0402de90cd04de20050a0e1be34d5e10170a0e10240a0e1070053e10400008a"
+        },
+        {
+          "reference": "0x204bbcc",
+          "entry": 33860592,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "00402de90cd04de200e0a0e300e08de5b0c1dde104e08de508c08de5010000eb"
+        },
+        {
+          "reference": "0x204bcfc",
+          "entry": 33861028,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "1810a0e338209fe5900103e0000092e5100190e5031080e0140091e50201c0e3"
+        },
+        {
+          "reference": "0x204bd3c",
+          "entry": 33861100,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "f0412de90160a0e11810a0e3bc709fe5900104e0000097e50180a0e3100190e5"
+        },
+        {
+          "reference": "0x204be0c",
+          "entry": 33861416,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "f0472de9a0409fe50060a0e1000094e50250a0e1417f80e2b821d7e10340a0e1"
+        },
+        {
+          "reference": "0x204be90",
+          "entry": 33861592,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "10402de91410a0e348209fe5900101e0000092e5142190e5010092e7014082e0"
+        },
+        {
+          "reference": "0x204bf48",
+          "entry": 33861888,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "f8472de904d04de2b4409fe5b4509fe50280a0e10070a0e300a0a0e11860a0e3"
+        },
+        {
+          "reference": "0x204bfc4",
+          "entry": 33862092,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "70402de90050a0e1990200ebbc00d5e10040a0e3000050e30b0000dae460a0e3"
+        },
+        {
+          "reference": "0x204b8e8",
+          "entry": 33859488,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "f8472de91cd04de214319fe50080a0e1000093e50170a0e1413f80e2b411d3e1"
+        },
+        {
+          "reference": "0x204b9b8",
+          "entry": 33859796,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "38402de9ec509fe50040a0e1000095e50c0190e5040380e02c0080e252a7ffeb"
+        },
+        {
+          "reference": "0x204ba6c",
+          "entry": 33860048,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "f8402de9b4609fe50050a0e1000096e50170a0e30c0190e50140a0e10710a0e1"
+        },
+        {
+          "reference": "0x204c06c",
+          "entry": 33862292,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "f0402de92cd04de27c409fe501c0a0e1001094e518e0a0e3105191e5147191e5"
+        },
+        {
+          "reference": "0x204c134",
+          "entry": 33862580,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "10402de90040a0e1080094e50410a0e1990500eb680084e24c0700eb0400a0e1"
+        },
+        {
+          "reference": "0x204c150",
+          "entry": 33862620,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "602090e5811fa0e10123c2e3a11282e1601080e51eff2fe1600090e58002a0e1"
+        },
+        {
+          "reference": "0x204c54c",
+          "entry": 33863980,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "602090e5811fa0e10224c2e3211382e1601080e51eff2fe1600090e50003a0e1"
+        },
+        {
+          "reference": "0x2070ca8",
+          "entry": 34048172,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "0020a0e3231c82e3082080e5042080e5002080e51c2080e5182080e50c1080e5"
+        },
+        {
+          "reference": "0x2070ecc",
+          "entry": 34049048,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "04c09fe50120a0e31cff2fe1fc89070200c09fe51cff2fe1948a070200c09fe5"
+        },
+        {
+          "reference": "0x2017394",
+          "entry": 33630573,
+          "mode": "Thumb",
+          "module": "ARM9",
+          "expectedHex": "6b218900405870471b21090140587047692109014058704771218900405c7047"
+        },
+        {
+          "reference": "0x20191d8",
+          "entry": 33637097,
+          "mode": "Thumb",
+          "module": "ARM9",
+          "expectedHex": "38b50c1c00f04cf800280cd0e30f62070578d21a1d21ca41991801228a40291c"
+        },
+        {
+          "reference": "0x204c16c",
+          "entry": 33862660,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "38402de908d04de20150a0e10210a0e104208de20040a0e1d40600ebf030d5e1"
+        },
+        {
+          "reference": "0x20120f4",
+          "entry": 33628405,
+          "mode": "Thumb",
+          "module": "ARM9",
+          "expectedHex": "c0697047c069014b1847c046a52701028069704781617047006a704701627047"
+        },
+        {
+          "reference": "0x2199bc8",
+          "entry": 35350029,
+          "mode": "Thumb",
+          "module": "91",
+          "expectedHex": "f8b584b00a24051ca4012859006864f6fdf90006070e7ef6d0ef0022a8600920"
+        },
+        {
+          "reference": "0x2199de8",
+          "entry": 35350553,
+          "mode": "Thumb",
+          "module": "91",
+          "expectedHex": "70b5051c68687af646eb281c03f02ef901280cd14224a400285905f007fb201d"
+        },
+        {
+          "reference": "0x2199ed0",
+          "entry": 35350769,
+          "mode": "Thumb",
+          "module": "91",
+          "expectedHex": "f0b583b0041c217b15295bd849187944c988090409148f442a00460052005200"
+        },
+        {
+          "reference": "0x219bb48",
+          "entry": 35359373,
+          "mode": "Thumb",
+          "module": "91",
+          "expectedHex": "10b5041c00f018f8e07b042802d1201c00f08af9e07b042801d00220a0730a20"
+        },
+        {
+          "reference": "0x219b30c",
+          "entry": 35355845,
+          "mode": "Thumb",
+          "module": "91",
+          "expectedHex": "f8b50a25041cad016259111c63310978012902d113202073f8bd516b192900d9"
+        },
+        {
+          "reference": "0x219e688",
+          "entry": 35366513,
+          "mode": "Thumb",
+          "module": "91",
+          "expectedHex": "08b5031c0a20800118581b88406801224df64cfc08bd000008b5031c0a208001"
+        },
+        {
+          "reference": "0x219f880",
+          "entry": 35370985,
+          "mode": "Thumb",
+          "module": "91",
+          "expectedHex": "f0b583b04d27051cbf000c1ce859111c8af662eb061ce06a00280ed02988343f"
+        },
+        {
+          "reference": "0x219fac4",
+          "entry": 35371561,
+          "mode": "Thumb",
+          "module": "91",
+          "expectedHex": "10b50c1c606889f6a0ee0f2188f692e86468201c89f67aec201c89f698ec201c"
+        },
+        {
+          "reference": "0x219f290",
+          "entry": 35369473,
+          "mode": "Thumb",
+          "module": "91",
+          "expectedHex": "f0b583b00c1c0090207994462a4a4100575c2a4a1d1c565cc20fc107891a1f20"
+        },
+        {
+          "reference": "0x219f008",
+          "entry": 35368865,
+          "mode": "Thumb",
+          "module": "91",
+          "expectedHex": "70b582b0051c161c0c1c012e2a7b1ed1fd321206120e012a00d808e0fef762fd"
+        },
+        {
+          "reference": "0x219f350",
+          "entry": 35369665,
+          "mode": "Thumb",
+          "module": "91",
+          "expectedHex": "38b50c1c051c206a8af652ea002188f646ec281c211c0022fff704fc38bd0000"
+        },
+        {
+          "reference": "0x219f0e0",
+          "entry": 35369041,
+          "mode": "Thumb",
+          "module": "91",
+          "expectedHex": "38b582b0141c0d1c032c0ad1281c00f079fa032805d128794200062000900420"
+        },
+        {
+          "reference": "0x215b818",
+          "entry": 34998933,
+          "mode": "Thumb",
+          "module": "10",
+          "expectedHex": "f8b584b0051ca86901910068171c1e1cb1f626fb0290332000010090734b0420"
+        },
+        {
+          "reference": "0x215ba0c",
+          "entry": 34999433,
+          "mode": "Thumb",
+          "module": "10",
+          "expectedHex": "cb6b8269d362021ccb6b60321370c26e012a06d1c86b082801d1012070470020"
+        },
+        {
+          "reference": "0x215c3e4",
+          "entry": 35001873,
+          "mode": "Thumb",
+          "module": "10",
+          "expectedHex": "10b5041ca0690068b0f66cfda06e032803d10220e060042010bd042803d10020"
+        }
+      ],
+      "layout": {
+        "Request": 640,
+        "Slot": 44,
+        "Pokemon": 56,
+        "Message": 312,
+        "Prompt": 336,
+        "Plates": 352,
+        "CancelFirst": 484,
+        "CancelLast": 484,
+        "Mode": 52,
+        "Selected": 60,
+        "Result": 64,
+        "Item": 68,
+        "SelectorColor": 168,
+        "MaxSaveFlag": 2911,
+        "DecideSound": 1356,
+        "MoveSound": 1352,
+        "RecoverySound": 1391,
+        "CompressedPaletteHandle": 400,
+        "CompressedPaletteStart": 192,
+        "CompressedPaletteSize": 96
+      },
+      "resources": [
+        {
+          "path": "a/0/7/6",
+          "member": 0,
+          "sha256": "6777fefcfcef84d2c299636f5c6a427fc82a7f826290ec4e2894c637957e07f7"
+        },
+        {
+          "path": "a/0/7/6",
+          "member": 6,
+          "sha256": "75ecc89a0990eebdb814af18830f48d68bc77125cbc1769439e3d534740bec3d"
+        },
+        {
+          "path": "a/0/7/6",
+          "member": 7,
+          "sha256": "d2cc703dcda30cd18e0c1044c58bf600a3622621c92c227dc36b70dc1f99c25d"
+        },
+        {
+          "path": "a/0/7/6",
+          "member": 10,
+          "sha256": "4c752d981043ce4873b95d8b975839664cd573882ec83adb6ad146d325e597cd"
+        },
+        {
+          "path": "a/0/7/6",
+          "member": 12,
+          "sha256": "c8ecf5b9b25c744c091d478bbeaea0b132f091402d4b1251d314523e29b95a5c"
+        },
+        {
+          "path": "a/0/7/6",
+          "member": 13,
+          "sha256": "773d9f6739bfffe9c89b75a0151f3ffd60ef1fb39ada93b74640a9f427887cae"
+        },
+        {
+          "path": "a/0/7/6",
+          "member": 21,
+          "sha256": "2cd54e4122c597121dc7c1df62c4b9c96c985ab200e1c7e6c87fcdf923e0d03d"
+        },
+        {
+          "path": "a/0/7/6",
+          "member": 24,
+          "sha256": "49d7bb5f6af6acbdf42fc87d1d8147207d9cf67c7b687408b3452b389bb40bcb"
+        },
+        {
+          "path": "a/0/8/3",
+          "member": 0,
+          "sha256": "75b1f4dacfe3848525ca96e868f6bd03bbf62ddc604ce39a2d8015749edbcb73"
+        },
+        {
+          "path": "a/0/8/3",
+          "member": 2,
+          "sha256": "0236d2747f0607d7e9dff01c5b6beb50db00a7bbd2dadeb72ed461bd9616f986"
+        },
+        {
+          "path": "a/0/8/3",
+          "member": 4,
+          "sha256": "5d558cca3486fc97387c67fc8ce5a52d61f420c59afb3340187cd30f9938ab12"
+        },
+        {
+          "path": "a/0/8/3",
+          "member": 11,
+          "sha256": "10c48c6f06d4e0fe76ec8df5c7de4efac7074590ce7d5e14295f7c8ab41209cd"
+        },
+        {
+          "path": "a/0/8/3",
+          "member": 12,
+          "sha256": "39d21b1391d2b5c1d366e10b921e73121dc0a5c893a8729e210f5380702dfda1"
+        },
+        {
+          "path": "a/0/2/5",
+          "member": 33,
+          "sha256": "f43b8596836ebd6edf0228ca72e4941c6dea49fd53210e9871f9843f6a79bfc4"
+        },
+        {
+          "path": "a/0/2/5",
+          "member": 34,
+          "sha256": "1fc64aa617b5ade7849fac592cfe09e2c4a11eef9dc12f1ebed2d8ae6983f068"
+        },
+        {
+          "path": "a/0/2/5",
+          "member": 90,
+          "sha256": "399f513e7d9bcefb2bf5d070e5e903f79ed0eb10405a8a156914323d472e7446"
+        },
+        {
+          "path": "a/0/2/5",
+          "member": 91,
+          "sha256": "cc2d0a2c0c162e5339027fe8ba3f4344e512dc1ec96e1bad4a06cfbf10910627"
+        },
+        {
+          "path": "a/0/2/5",
+          "member": 827,
+          "sha256": "276442cc04dd7c6d062875930cbe914b7353d1cf9053f8b2f06add51ebac5542"
+        },
+        {
+          "path": "a/0/2/5",
+          "member": 828,
+          "sha256": "0856ba9e360046fe2eb104ab87b0386f645ee56012b813149f5b7ae36060cbda"
+        }
+      ],
+      "segments": {
+        "ARM9": "f9cb027e4de3b4388c2ac02ae7e22aee8bf9bd25e9e7325bdf3265fec0370e92",
+        "10": "003fdef42c2584b5448ff223360bf2fecb1a2bf6d36ed63a429fd1033779fda7",
+        "91": "813d39b2dd3fb1fd972f496a686201182d823e32e6a38c2d1452752b72f82f17"
+      },
+      "archiveFileName": "partyQuickActionsB.narc",
+      "archiveSha256": "5d8710ce413cea76d05911c5bd9c2d1138c7d88c9665907375a582b5898def4e",
+      "graphicsFingerprints": [
+        "86383c72",
+        "41739f66",
+        "2664f6d5",
+        "4f35b0fc",
+        "92805a9a",
+        "6eeed89c",
+        "6433a22f",
+        "5ef4bcf3",
+        "6d62976b",
+        "87ab0d18",
+        "e755180c",
+        "233a7573"
+      ],
+      "fileName": "PartyQuickActionsB.dll",
+      "sha256": "a79fab75c5eebaad03aa1bb87c681362f30dd8932a0dde79088e3ec391be2b9a",
+      "codeFingerprint": "07325a2c",
+      "bssSize": 508
+    },
+    "W": {
+      "idCode": "IRAO",
+      "revision": 0,
+      "dsAccepted": true,
+      "signatures": [
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33576608,
+          "expectedHex": "38b5051c04480c1c0069131c006a291c221c2bf086eb38bdb4a10a0201480069",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33754820,
+          "expectedHex": "0010a0e1002091e528c09fe5340092e5010050e10800910534008205050091e9",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33579492,
+          "expectedHex": "0021014bc9431847a5610002004b1847a56100020349c0000818034b001d0021",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33587048,
+          "expectedHex": "08b5fff7c5ff002801d0012008bd002008bd000018b4002300280ad01c1c0029",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33652280,
+          "expectedHex": "70b5051c0c1c161c00f074ff281c211c321c00f0c1ff041c281c00f099ff201c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33652316,
+          "expectedHex": "70b5051c0c1c161c00f062ff012804d1281c211c321c01f057fa281c00f086ff",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33654176,
+          "expectedHex": "10b5141c172201f081fb211c01f008fb10bd0000004b1847bd85010208b57021",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33663540,
+          "expectedHex": "40687047f8b5071c0025fff7f9ff061c0024002e0ddd381c211c00f079f84c21",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33663812,
+          "expectedHex": "dc2208304a4380187047000008b5fff7f7ff002802d000f0ebf808bd002008bd",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33670920,
+          "expectedHex": "81880022028041804261026170470000f8b5084f0e1c151c041c00930799381c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33670976,
+          "expectedHex": "f8b50b4f0e1c151c041c00930799381c321c2b1c00f066f806a90989381c00f0",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33751900,
+          "expectedHex": "08402de934209fe534109fe5b830d2e1010000e0030050e10100a023be00c221",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33751972,
+          "expectedHex": "08402de938209fe538109fe5b830d2e1010000e0030050e10100a023be00c221",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33769048,
+          "expectedHex": "002090e50010e0e3010052e104009005010050010100a0030000a0131eff2fe1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33752908,
+          "expectedHex": "f0412de90080a0e10170a0e10260a0e10350a0e152feffeb0040b0e10700001a",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33753032,
+          "expectedHex": "10402de90040a0e19b0000eb0400a0e167feffeb1080bde808402de999feffeb",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33774904,
+          "expectedHex": "38402de90050a0e10140a0e13cfdffeb0510a0e10420a0e1e6ffffeb3880bde8",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33776372,
+          "expectedHex": "08402de9cffbffebf4ffffeb0880bde810402de90040a0e1c8fbffeb3d10d4e5",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33776420,
+          "expectedHex": "08402de9c3fbffebf4ffffeb0880bde810402de90040a0e1bcfbffeb3d10d4e5",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33822276,
+          "expectedHex": "10209fe52c10a0e3002092e5902121e0080091e51eff2fe1646a140210209fe5",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33823620,
+          "expectedHex": "1c109fe50120a0e3003091e51200a0e1b610d3e10008a0e1200881e1b600c3e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33838984,
+          "expectedHex": "0c0090e51eff2fe10900d0e51eff2fe10310c0e51eff2fe10410c0e51eff2fe1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33839048,
+          "expectedHex": "38402de90050a0e10040a0e364e0a0e385c0a0e10100a0e12c309fe50420a0e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33839136,
+          "expectedHex": "08c09fe50010a0e3041080e51cff2fe1c80703020020a0e30c109fe5b220c0e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33839420,
+          "expectedHex": "10402de90030a0e35c209fe5b230c0e1b0c0d2e1b030d1e10c0053e10e00000a",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33853876,
+          "expectedHex": "30402de90cd04de20050a0e30040a0e10520a0e10c10a0e3bc54c4e161be00eb",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33854032,
+          "expectedHex": "10402de90040a0e10ebe00eb0400a0e1589dffeb1080bde8f0402de90cd04de2",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33854056,
+          "expectedHex": "f0402de90cd04de20050a0e1be34d5e10170a0e10240a0e1070053e10400008a",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33860616,
+          "expectedHex": "00402de90cd04de200e0a0e300e08de5b0c1dde104e08de508c08de5010000eb",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33861052,
+          "expectedHex": "1810a0e338209fe5900103e0000092e5100190e5031080e0140091e50201c0e3",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33861124,
+          "expectedHex": "f0412de90160a0e11810a0e3bc709fe5900104e0000097e50180a0e3100190e5",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33861440,
+          "expectedHex": "f0472de9a0409fe50060a0e1000094e50250a0e1417f80e2b821d7e10340a0e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33861616,
+          "expectedHex": "10402de91410a0e348209fe5900101e0000092e5142190e5010092e7014082e0",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33861912,
+          "expectedHex": "f8472de904d04de2b4409fe5b4509fe50280a0e10070a0e300a0a0e11860a0e3",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33862116,
+          "expectedHex": "70402de90050a0e1990200ebbc00d5e10040a0e3000050e30b0000dae460a0e3",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33859512,
+          "expectedHex": "f8472de91cd04de214319fe50080a0e1000093e50170a0e1413f80e2b411d3e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33859820,
+          "expectedHex": "38402de9ec509fe50040a0e1000095e50c0190e5040380e02c0080e252a7ffeb",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33860072,
+          "expectedHex": "f8402de9b4609fe50050a0e1000096e50170a0e30c0190e50140a0e10710a0e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33862316,
+          "expectedHex": "f0402de92cd04de27c409fe501c0a0e1001094e518e0a0e3105191e5147191e5",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33862604,
+          "expectedHex": "10402de90040a0e1080094e50410a0e1990500eb680084e24c0700eb0400a0e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33862644,
+          "expectedHex": "602090e5811fa0e10123c2e3a11282e1601080e51eff2fe1600090e58002a0e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33864004,
+          "expectedHex": "602090e5811fa0e10224c2e3211382e1601080e51eff2fe1600090e50003a0e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 34048196,
+          "expectedHex": "0020a0e3231c82e3082080e5042080e5002080e51c2080e5182080e50c1080e5",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 34049072,
+          "expectedHex": "04c09fe50120a0e31cff2fe1148a070200c09fe51cff2fe1ac8a070200c09fe5",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33630572,
+          "expectedHex": "6b218900405870471b21090140587047692109014058704771218900405c7047",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33637124,
+          "expectedHex": "38b50c1c00f04cf800280cd0e30f62070578d21a1d21ca41991801228a40291c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33862684,
+          "expectedHex": "38402de908d04de20150a0e10210a0e104208de20040a0e1d40600ebf030d5e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33628404,
+          "expectedHex": "c0697047c069014b1847c046a52701028069704781617047006a704701627047",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "91",
+          "address": 35350060,
+          "expectedHex": "f8b584b00a24051ca4012859006864f6fbf90006070e7ef6ccef0022a8600920",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "91",
+          "address": 35350584,
+          "expectedHex": "70b5051c68687af642eb281c03f02ef901280cd14224a400285905f007fb201d",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "91",
+          "address": 35350800,
+          "expectedHex": "f0b583b0041c217b15295bd849187944c988090409148f442a00460052005200",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "91",
+          "address": 35359404,
+          "expectedHex": "10b5041c00f018f8e07b042802d1201c00f08af9e07b042801d00220a0730a20",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "91",
+          "address": 35355876,
+          "expectedHex": "f8b50a25041cad016259111c63310978012902d113202073f8bd516b192900d9",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "91",
+          "address": 35366544,
+          "expectedHex": "08b5031c0a20800118581b88406801224df63cfc08bd000008b5031c0a208001",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "91",
+          "address": 35371016,
+          "expectedHex": "f0b583b04d27051cbf000c1ce859111c8af65eeb061ce06a00280ed02988343f",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "91",
+          "address": 35371592,
+          "expectedHex": "10b50c1c606889f69cee0f2188f68ee86468201c89f676ec201c89f694ec201c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "91",
+          "address": 35369504,
+          "expectedHex": "f0b583b00c1c0090207994462a4a4100575c2a4a1d1c565cc20fc107891a1f20",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "91",
+          "address": 35368896,
+          "expectedHex": "70b582b0051c161c0c1c012e2a7b1ed1fd321206120e012a00d808e0fef762fd",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "91",
+          "address": 35369696,
+          "expectedHex": "38b50c1c051c206a8af64eea002188f642ec281c211c0022fff704fc38bd0000",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "91",
+          "address": 35369072,
+          "expectedHex": "38b582b0141c0d1c032c0ad1281c00f079fa032805d128794200062000900420",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "10",
+          "address": 34998964,
+          "expectedHex": "f8b584b0051ca86901910068171c1e1cb1f616fb0290332000010090734b0420",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "10",
+          "address": 34999464,
+          "expectedHex": "cb6b8269d362021ccb6b60321370c26e012a06d1c86b082801d1012070470020",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API",
+          "module": "10",
+          "address": 35001904,
+          "expectedHex": "10b5041ca0690068b0f65cfda06e032803d10220e060042010bd042803d10020",
+          "patchSize": 0
+        },
+        {
+          "label": "PaInit",
+          "module": "91",
+          "address": 35349794,
+          "expectedHex": "00f083f8",
+          "patchSize": 4,
+          "patchType": "THUMB_BRANCH_LINK"
+        },
+        {
+          "label": "PaEnd",
+          "module": "91",
+          "address": 35349854,
+          "expectedHex": "00f06bf9",
+          "patchSize": 4,
+          "patchType": "THUMB_BRANCH_LINK"
+        },
+        {
+          "label": "PaTick",
+          "module": "91",
+          "address": 35350040,
+          "expectedHex": "00f07af9",
+          "patchSize": 4,
+          "patchType": "THUMB_BRANCH_LINK"
+        },
+        {
+          "label": "PaIdle",
+          "module": "91",
+          "address": 35357716,
+          "expectedHex": "00f04afb",
+          "patchSize": 4,
+          "patchType": "THUMB_BRANCH_LINK"
+        },
+        {
+          "label": "PaPrompt",
+          "module": "91",
+          "address": 35355686,
+          "expectedHex": "03f0effd",
+          "patchSize": 4,
+          "patchType": "THUMB_BRANCH_LINK"
+        },
+        {
+          "label": "PaSubtract",
+          "module": "91",
+          "address": 35356168,
+          "expectedHex": "02f042fc",
+          "patchSize": 4,
+          "patchType": "THUMB_BRANCH_LINK"
+        },
+        {
+          "label": "PaRequest",
+          "module": "10",
+          "address": 35066612,
+          "expectedHex": "b50a1602",
+          "patchSize": 4,
+          "patchType": "FULL_COPY"
+        },
+        {
+          "label": "PaPartyReturn",
+          "module": "10",
+          "address": 35066616,
+          "expectedHex": "a90c1602",
+          "patchSize": 4,
+          "patchType": "FULL_COPY"
+        },
+        {
+          "label": "PaEvolutionReturn",
+          "module": "10",
+          "address": 35066856,
+          "expectedHex": "31161602",
+          "patchSize": 4,
+          "patchType": "FULL_COPY"
+        },
+        {
+          "label": "Saved flag bounds",
+          "module": "ARM9",
+          "address": 33637284,
+          "expectedHex": "002901d1002070470122920391420bd2ca085b2189008a4201db002070479f218900401880187047891a8810400f0818c110082901db00207047014840187047",
+          "patchSize": 0
+        },
+        {
+          "label": "Saved flag range",
+          "module": "ARM9",
+          "address": 33637300,
+          "expectedHex": "ca085b2189008a4201db002070479f2189004018",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Party request layout",
+          "module": "91",
+          "address": 35350060,
+          "expectedHex": "f8b584b00a24051ca4012859006864f6fbf90006070e7ef6ccef0022a860092017210923e9632a73aa73ea62aa63286368636a612a61fc33ea540923f733ea540923f933ea521723f933ea52fd3113236a5440011b012a50181cea50b8302a50181c28382a50181c24382a50181c18382a50201c1c382a50201c30382a50201c08382a5028594833633002700120a8626a62801e91006918c850511c09060a0e172af7d30a2080012858406b192801d1012000e00020e8610a2080012958486b182803d103204863012000e00020a8610a2080012958486b1a2802d10120486300e000200a242862a4012959486b06280bd1081c46300088002806d1443108886af6cefd295946310880281c00f03afb281c00f0bbfd281c00f05efd3948002402905b300290374801905b300190354803905b300390bc420fd20a2080012858211c006864f6e8f9021ca0002e18281c211c03f09fff019906e0a0002e18281c211c04f055f8029970500398305804f05ffe052804dc2348285c411c21482954601c0006040e062cd5d328884e239b000090ea580833eb580020012171f6d6fb952189006850281c00f072fc281c03f063f9012802d1281c06f082fa1248291c08224ef657ff6860281c04f0ddfe152424012851281c05f053f9211d6850281c00f054ff03208bf6b8e902208bf6b4e907208bf6b2e92988012086f69eed012004b0f8bd05010000856d1b0270b5051c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native field request owner",
+          "module": "10",
+          "address": 34998964,
+          "expectedHex": "f8b584b0051ca86901910068171c1e1cb1f616fb0290332000010090734b042098210122cff638ee041c0298b1f628ff2a1c231c4c32206003ca1c3303c303ca03c3106818600298b1f616ff60600298a8f672faa0600298abf686ffa06100206063a869211cc06a4631e06300200880211cff205e31039008700298b1f638fe008820860298b1f623ff211c5f310870019805280cd10020e063052060630398211cd3304431039008800120e86699e0002f02d10020e06394e0022f3cd1201cb16b44300180706b032807d0042805d0012803d0122801d00020e063706b122829d800187844c08800040014874446002400320038003a003e004200460046004600460046002e00460046004600460046003800f06a022864d1002002e01020fce7092060635de0ffe70a20f6e70520f4e70620f2e7f4e7062f28d1b07c002801d001284ed1707b02281cd1a86e062804d108206063686e206501e00720606362352988201c44300180201cb18a46300180b07c002804d1717c201c4830017030e0ff21f9e700206063f07b93e7092f1fd1174f381cd3f648ef301c63f0e6f8061c381cd3f60cefa86e002801d10b2004e0022816d1012e06d10c206063281c60300078e06308e0002060356063287871e70a2f06d10520606362352988201c44300180201c04b0f8bdc0469829170288000000",
+          "patchSize": 0
+        },
+        {
+          "label": "Native selector fade",
+          "module": "91",
+          "address": 35351364,
+          "expectedHex": "f8b58ab0009000994030a03160226024cbf690ef60210098a031405c002857d0211c0098a031405c211ca031421e0098a0344254015d062903d90c20401a0006010e002003904d00039800224101009846183e2040020690022a01d3042a2bd95700f019403001883e2000010840c004030e0698084080120006040e1f2008400006000e40191f2800dd1f2000065919000e1f2900dd1f2109066319090e1f2b00dd1f231b061b0e49019b020843191c0143f019a0300180501c0006020e102acad30398401c0006000e03900328bbd3574807a90288ca8042880a8180884881544802880a8042884a808088888000985149006900280cd10098435a012080021a188001824203db3f2080021a1a02e001e0032292030098425247490098405a001181004548415e012000030918c80f08184410002002900298002341010098401801903e20400284463e204002049008a859000230405a07ad695a3e252d010540ed042f0e3e252d010d40ed042d0eed1b65432d132d062d161f22059502406546284080120006050e04981206084080120006000e401b60430013000606161f2008400006120e000e801a604300130006001610181f2801dd1f2002e0002800da00200006010e059838181f2801dd1f2002e0002800da00200006aa19000e1f2a01dd1f2202e0002a00da00221206120e4001084392020243019859004018a4300280581c0006030e032ba0d30298401c0006000e029003288dd3009a0f20a032c02160230092aaf6a6ef0ab0f8bd1cec1b0224ec1b0202010000501b0a02",
+          "patchSize": 0
+        },
+        {
+          "label": "Native glyph and palette allocation",
+          "module": "91",
+          "address": 35353272,
+          "expectedHex": "f8b588b0051c29884c2091f624ef0021009129880022002301910621041c92f654ec2020009028881a2636010190201c00210022331c92f648ec00200090019028880f2103220290201c002392f6b4e90020009001902888142103220290201c002392f6f8ea00200090019028880c2102220290201c002392f69ee92888331c443b0090201c12210022eb1892f6e2ed311c48396850002000902888052104220190201c0023042792f60eec00200090019028880e2107220290201c002392f67ce90020009001902888132107220290201c002392f6beea00200090032001902888391c00220290201c002393f644ec311c2839685028880b2100220090201c002393f692e9311c083968502888082100220090201c002393f686e9311f68502b88201c17211a2293f6aeed311c143168502b88201c1621192293f6a6ed311c18316850201c91f628ef2988072091f682ee071c64f624fc011c2888c02303930090381c0022c02393f670ecc021d031685064f617fc049064f64efc021c2b880499381c93f680ed311c30316850381c91f602ef70f6d6f8298891f65cee071c70f6f0f8011c202000902888c02300220190201ca03392f688eb70f6e5f8011c0020009001902888012200230290201c92f6f2e870f6dcf8011c0020009001902888012200230290201c92f634ea202000900b200190012000210022402389f688ef70f659f9011c002000900120019028880022a0230290381ca02493f6aceba021ec316850022070f648f9011c2888002200230090381c93f6f6e80399f0316850022070f63cf90590022070f63af9021c2b880599381c93f616ed311c2c31685070f687f8011c00200090032001902888a02300220290381c803393f67ceba021dc31685070f677f8011c2888002200230090381c93f6c8e8a851022070f66df80690022070f66bf8021c2b880699381c93f6eaec0399fc31685070f69af8011c00200090012001902888002260230290381c93f650eb60218900685070f68bf8011c2888002200230090381c93f69ce80399e4316850022070f67ff80790022070f67df8021c2b880799381c93f6bcec07218901685070f67cf8011c00200090012001902888002280230290381c93f622ebe834285170f66ef8011c2888002200230090381c93f66ee80399ec3168500220039170f661f8041c022070f65ff8021c2b88381c211c93f68eec2836a851381c91f610ee40350348291c6022cbf61eea08b0f8bdc0000005f8b55626",
+          "patchSize": 0
+        },
+        {
+          "label": "Compressed palette registration flag-only size field",
+          "module": "ARM9",
+          "address": 33873664,
+          "expectedHex": "f8472de90cd04de21840a0e3910405e00090a0e130609de50c0099e5020c56e3054080e0020c46220008a02100a0a0330280a0e12068a02104108de20800a0e10370a0e101a0a023e75200eb08108de20800a0e1d55200eb000050e30cd08d02f887bd080400a0e11f5600eb0700a0e10010a0e394feffeb000050e30e00000a31cb00eb0080a0e100005ae30000000ac3c900eb00408de508009de504109de50620a0e10130a0e3ed5700eb00005ae30100000a0800a0e194c800eb0700a0e10110a0e380feffeb000050e30e00000a2dcb00eb0070a0e100005ae30000000aafc900eb00408de508009de504109de50620a0e10230a0e3d95700eb00005ae30100000a0700a0e111ca00eb0c0099e5051080e0140091e50201c0e3140081e50cd08de2f887bde8",
+          "patchSize": 0
+        },
+        {
+          "label": "Native medicine continuation",
+          "module": "91",
+          "address": 35355876,
+          "expectedHex": "f8b50a25041cad016259111c63310978012902d113202073f8bd516b192900d944e249187944c988090409148f44320032007c046c047c04440016037c047c0470017c047c047c047c04ac027c0436017c0432007c047c043200320032007c04320001f0a9f9002088f63eee201c00f025faf8bd4432118804f01efa012806d1201c01f099f9201c00f018faf8bd6159238844310988a06b0022002706f00af8012842d1201c391c04f0f0fa061c63592088191c4431009009881b8ea06b3a1c06f096fa022e0bd1e16a201c89006218162109015158a26b3b1c03f02ffa1be0132e01d00d2e0bd1e16a201c89006218162109015158a26b002303f01ffa08e0e16a201c8900621816210901515803f075fad8484ef6f4f90a2189016158201c4431098802f042fcf8bd605944300188281cae38814212d1a16b201c05f05eff01280cd1a16b201c05f0a4ff60590a2101640e20207303201c3d6051f8bd201c04f072faf8bd44321288a16b01f0e0fe00280ed06159201c4431098802f016fc13202073e16a6059c163605908210164f8bdb94b201c5121012201f093fcf8bda06b0621002206275ff6d4ff061c67d160594430008869f675fa012807d113202073e16a6059c16360590764f8bd60590a2101646259a16b44321288201c02f0bffbe16a16268900611836018959201c03f004fa311c10396158201c03f05cfd311c10396158a36b201c002203f064fd6359103e4433a1591b88201c0122012603f062fd6259a16b44321288201c04f0abf96259a16b44321288201c04f0c2f9a16b201c05f076fe01280cd1a16b201c05f092fe894b201c5621321c01f032fc1c3d665105e0844b201c5621321c01f029fc152109016158201c03f025fdf8bd3004000c69f60efa012809d160590a210164794b201c3921012201f013fcf8bd15252d016159201c03f006fd6159a36b201c002203f010fd33046159201c01221b0c03f019fd6e4b201c3a21002201f0f9fb6159201c03f0f7fcf8bda06b0621002206275ff636ff002825d16259238890685c321288002151f638f8061ca06ba721321c5ff638ff301c78f6eceb6259a06b44321288391c5ff62eff6259002190685c32128851f60ff8534b201c6221012201f0c7fbf8bd4f4b201c6321012201f0c0fbf8bdd26ba16b1206120e01f059fd032800d9afe000187844c08800040014874406005a009800dc00152660590a2101643601a159201c03f09dfca159a36b201c002203f0a7fc6359a15946331b88201c012203f0b7fc374b201c2921012201f08ffba159201c03f08dfca16b201c02f09dfaa16b201c02f0c5faf8bd15263601a159201c03f076fca159a36b201c002203f080fc6359a15946331b88201c012203f090fc264b201c2021002201f068fba159201c03f066fcf8bd152660590a2101643601a159201c03f054fca159a36b201c002203f05efc6359a15946331b88201c012203f06efc124b201c2a21012201f046fba159201c03f044fcf8bd152660590a2101643601a159201c03f032fca159a36b201c002203f03cfc6359a15946331b88201c012203f04cfc014b09e06f0500005d9e1b0205a51b02b9a01b02d19e1b02201c2b21012201f019fba159201c03f017fcf8bd13202073e06a0021d06360590164f8bd201c00f083ff201c00f002f8",
+          "patchSize": 0
+        },
+        {
+          "label": "Native selector sound",
+          "module": "91",
+          "address": 35360196,
+          "expectedHex": "48050000",
+          "patchSize": 0
+        },
+        {
+          "label": "Sprite system pointer",
+          "module": "ARM9",
+          "address": 33861612,
+          "expectedHex": "946a1402",
+          "patchSize": 0
+        },
+        {
+          "label": "Native item icon table",
+          "module": "ARM9",
+          "address": 34204640,
+          "expectedHex": "21002200",
+          "patchSize": 0
+        }
+      ],
+      "apis": [
+        {
+          "reference": "0x20056fc",
+          "entry": 33576609,
+          "mode": "Thumb",
+          "module": "ARM9",
+          "expectedHex": "38b5051c04480c1c0069131c006a291c221c2bf086eb38bdb4a10a0201480069"
+        },
+        {
+          "reference": "0x203a6d4",
+          "entry": 33754820,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "0010a0e1002091e528c09fe5340092e5010050e10800910534008205050091e9"
+        },
+        {
+          "reference": "0x2006254",
+          "entry": 33579493,
+          "mode": "Thumb",
+          "module": "ARM9",
+          "expectedHex": "0021014bc9431847a5610002004b1847a56100020349c0000818034b001d0021"
+        },
+        {
+          "reference": "0x2008474",
+          "entry": 33587049,
+          "mode": "Thumb",
+          "module": "ARM9",
+          "expectedHex": "08b5fff7c5ff002801d0012008bd002008bd000018b4002300280ad01c1c0029"
+        },
+        {
+          "reference": "0x201cd24",
+          "entry": 33652281,
+          "mode": "Thumb",
+          "module": "ARM9",
+          "expectedHex": "70b5051c0c1c161c00f074ff281c211c321c00f0c1ff041c281c00f099ff201c"
+        },
+        {
+          "reference": "0x201cd48",
+          "entry": 33652317,
+          "mode": "Thumb",
+          "module": "ARM9",
+          "expectedHex": "70b5051c0c1c161c00f062ff012804d1281c211c321c01f057fa281c00f086ff"
+        },
+        {
+          "reference": "0x201d5e0",
+          "entry": 33654177,
+          "mode": "Thumb",
+          "module": "ARM9",
+          "expectedHex": "10b5141c172201f081fb211c01f008fb10bd0000004b1847bd85010208b57021"
+        },
+        {
+          "reference": "0x201fe24",
+          "entry": 33663541,
+          "mode": "Thumb",
+          "module": "ARM9",
+          "expectedHex": "40687047f8b5071c0025fff7f9ff061c0024002e0ddd381c211c00f079f84c21"
+        },
+        {
+          "reference": "0x201ff34",
+          "entry": 33663813,
+          "mode": "Thumb",
+          "module": "ARM9",
+          "expectedHex": "dc2208304a4380187047000008b5fff7f7ff002802d000f0ebf808bd002008bd"
+        },
+        {
+          "reference": "0x2021c70",
+          "entry": 33670921,
+          "mode": "Thumb",
+          "module": "ARM9",
+          "expectedHex": "81880022028041804261026170470000f8b5084f0e1c151c041c00930799381c"
+        },
+        {
+          "reference": "0x2021ca8",
+          "entry": 33670977,
+          "mode": "Thumb",
+          "module": "ARM9",
+          "expectedHex": "f8b50b4f0e1c151c041c00930799381c321c2b1c00f066f806a90989381c00f0"
+        },
+        {
+          "reference": "0x2039f8c",
+          "entry": 33751900,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "08402de934209fe534109fe5b830d2e1010000e0030050e10100a023be00c221"
+        },
+        {
+          "reference": "0x2039fbc",
+          "entry": 33751972,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "08402de938209fe538109fe5b830d2e1010000e0030050e10100a023be00c221"
+        },
+        {
+          "reference": "0x203cb14",
+          "entry": 33769048,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "002090e50010e0e3010052e104009005010050010100a0030000a0131eff2fe1"
+        },
+        {
+          "reference": "0x203a228",
+          "entry": 33752908,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "f0412de90080a0e10170a0e10260a0e10350a0e152feffeb0040b0e10700001a"
+        },
+        {
+          "reference": "0x203a278",
+          "entry": 33753032,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "10402de90040a0e19b0000eb0400a0e167feffeb1080bde808402de999feffeb"
+        },
+        {
+          "reference": "0x203dab0",
+          "entry": 33774904,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "38402de90050a0e10140a0e13cfdffeb0510a0e10420a0e1e6ffffeb3880bde8"
+        },
+        {
+          "reference": "0x203df28",
+          "entry": 33776372,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "08402de9cffbffebf4ffffeb0880bde810402de90040a0e1c8fbffeb3d10d4e5"
+        },
+        {
+          "reference": "0x203df4c",
+          "entry": 33776420,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "08402de9c3fbffebf4ffffeb0880bde810402de90040a0e1bcfbffeb3d10d4e5"
+        },
+        {
+          "reference": "0x2045840",
+          "entry": 33822276,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "10209fe52c10a0e3002092e5902121e0080091e51eff2fe1646a140210209fe5"
+        },
+        {
+          "reference": "0x2045ba8",
+          "entry": 33823620,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "1c109fe50120a0e3003091e51200a0e1b610d3e10008a0e1200881e1b600c3e1"
+        },
+        {
+          "reference": "0x2048520",
+          "entry": 33838984,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "0c0090e51eff2fe10900d0e51eff2fe10310c0e51eff2fe10410c0e51eff2fe1"
+        },
+        {
+          "reference": "0x204855c",
+          "entry": 33839048,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "38402de90050a0e10040a0e364e0a0e385c0a0e10100a0e12c309fe50420a0e1"
+        },
+        {
+          "reference": "0x2048590",
+          "entry": 33839136,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "08c09fe50010a0e3041080e51cff2fe1c80703020020a0e30c109fe5b220c0e1"
+        },
+        {
+          "reference": "0x2048640",
+          "entry": 33839420,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "10402de90030a0e35c209fe5b230c0e1b0c0d2e1b030d1e10c0053e10e00000a"
+        },
+        {
+          "reference": "0x204aac8",
+          "entry": 33853876,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "30402de90cd04de20050a0e30040a0e10520a0e10c10a0e3bc54c4e161be00eb"
+        },
+        {
+          "reference": "0x204ab38",
+          "entry": 33854032,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "10402de90040a0e10ebe00eb0400a0e1589dffeb1080bde8f0402de90cd04de2"
+        },
+        {
+          "reference": "0x204ab48",
+          "entry": 33854056,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "f0402de90cd04de20050a0e1be34d5e10170a0e10240a0e1070053e10400008a"
+        },
+        {
+          "reference": "0x204bbcc",
+          "entry": 33860616,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "00402de90cd04de200e0a0e300e08de5b0c1dde104e08de508c08de5010000eb"
+        },
+        {
+          "reference": "0x204bcfc",
+          "entry": 33861052,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "1810a0e338209fe5900103e0000092e5100190e5031080e0140091e50201c0e3"
+        },
+        {
+          "reference": "0x204bd3c",
+          "entry": 33861124,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "f0412de90160a0e11810a0e3bc709fe5900104e0000097e50180a0e3100190e5"
+        },
+        {
+          "reference": "0x204be0c",
+          "entry": 33861440,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "f0472de9a0409fe50060a0e1000094e50250a0e1417f80e2b821d7e10340a0e1"
+        },
+        {
+          "reference": "0x204be90",
+          "entry": 33861616,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "10402de91410a0e348209fe5900101e0000092e5142190e5010092e7014082e0"
+        },
+        {
+          "reference": "0x204bf48",
+          "entry": 33861912,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "f8472de904d04de2b4409fe5b4509fe50280a0e10070a0e300a0a0e11860a0e3"
+        },
+        {
+          "reference": "0x204bfc4",
+          "entry": 33862116,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "70402de90050a0e1990200ebbc00d5e10040a0e3000050e30b0000dae460a0e3"
+        },
+        {
+          "reference": "0x204b8e8",
+          "entry": 33859512,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "f8472de91cd04de214319fe50080a0e1000093e50170a0e1413f80e2b411d3e1"
+        },
+        {
+          "reference": "0x204b9b8",
+          "entry": 33859820,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "38402de9ec509fe50040a0e1000095e50c0190e5040380e02c0080e252a7ffeb"
+        },
+        {
+          "reference": "0x204ba6c",
+          "entry": 33860072,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "f8402de9b4609fe50050a0e1000096e50170a0e30c0190e50140a0e10710a0e1"
+        },
+        {
+          "reference": "0x204c06c",
+          "entry": 33862316,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "f0402de92cd04de27c409fe501c0a0e1001094e518e0a0e3105191e5147191e5"
+        },
+        {
+          "reference": "0x204c134",
+          "entry": 33862604,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "10402de90040a0e1080094e50410a0e1990500eb680084e24c0700eb0400a0e1"
+        },
+        {
+          "reference": "0x204c150",
+          "entry": 33862644,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "602090e5811fa0e10123c2e3a11282e1601080e51eff2fe1600090e58002a0e1"
+        },
+        {
+          "reference": "0x204c54c",
+          "entry": 33864004,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "602090e5811fa0e10224c2e3211382e1601080e51eff2fe1600090e50003a0e1"
+        },
+        {
+          "reference": "0x2070ca8",
+          "entry": 34048196,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "0020a0e3231c82e3082080e5042080e5002080e51c2080e5182080e50c1080e5"
+        },
+        {
+          "reference": "0x2070ecc",
+          "entry": 34049072,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "04c09fe50120a0e31cff2fe1148a070200c09fe51cff2fe1ac8a070200c09fe5"
+        },
+        {
+          "reference": "0x2017394",
+          "entry": 33630573,
+          "mode": "Thumb",
+          "module": "ARM9",
+          "expectedHex": "6b218900405870471b21090140587047692109014058704771218900405c7047"
+        },
+        {
+          "reference": "0x20191d8",
+          "entry": 33637125,
+          "mode": "Thumb",
+          "module": "ARM9",
+          "expectedHex": "38b50c1c00f04cf800280cd0e30f62070578d21a1d21ca41991801228a40291c"
+        },
+        {
+          "reference": "0x204c16c",
+          "entry": 33862684,
+          "mode": "ARM",
+          "module": "ARM9",
+          "expectedHex": "38402de908d04de20150a0e10210a0e104208de20040a0e1d40600ebf030d5e1"
+        },
+        {
+          "reference": "0x20120f4",
+          "entry": 33628405,
+          "mode": "Thumb",
+          "module": "ARM9",
+          "expectedHex": "c0697047c069014b1847c046a52701028069704781617047006a704701627047"
+        },
+        {
+          "reference": "0x2199bc8",
+          "entry": 35350061,
+          "mode": "Thumb",
+          "module": "91",
+          "expectedHex": "f8b584b00a24051ca4012859006864f6fbf90006070e7ef6ccef0022a8600920"
+        },
+        {
+          "reference": "0x2199de8",
+          "entry": 35350585,
+          "mode": "Thumb",
+          "module": "91",
+          "expectedHex": "70b5051c68687af642eb281c03f02ef901280cd14224a400285905f007fb201d"
+        },
+        {
+          "reference": "0x2199ed0",
+          "entry": 35350801,
+          "mode": "Thumb",
+          "module": "91",
+          "expectedHex": "f0b583b0041c217b15295bd849187944c988090409148f442a00460052005200"
+        },
+        {
+          "reference": "0x219bb48",
+          "entry": 35359405,
+          "mode": "Thumb",
+          "module": "91",
+          "expectedHex": "10b5041c00f018f8e07b042802d1201c00f08af9e07b042801d00220a0730a20"
+        },
+        {
+          "reference": "0x219b30c",
+          "entry": 35355877,
+          "mode": "Thumb",
+          "module": "91",
+          "expectedHex": "f8b50a25041cad016259111c63310978012902d113202073f8bd516b192900d9"
+        },
+        {
+          "reference": "0x219e688",
+          "entry": 35366545,
+          "mode": "Thumb",
+          "module": "91",
+          "expectedHex": "08b5031c0a20800118581b88406801224df63cfc08bd000008b5031c0a208001"
+        },
+        {
+          "reference": "0x219f880",
+          "entry": 35371017,
+          "mode": "Thumb",
+          "module": "91",
+          "expectedHex": "f0b583b04d27051cbf000c1ce859111c8af65eeb061ce06a00280ed02988343f"
+        },
+        {
+          "reference": "0x219fac4",
+          "entry": 35371593,
+          "mode": "Thumb",
+          "module": "91",
+          "expectedHex": "10b50c1c606889f69cee0f2188f68ee86468201c89f676ec201c89f694ec201c"
+        },
+        {
+          "reference": "0x219f290",
+          "entry": 35369505,
+          "mode": "Thumb",
+          "module": "91",
+          "expectedHex": "f0b583b00c1c0090207994462a4a4100575c2a4a1d1c565cc20fc107891a1f20"
+        },
+        {
+          "reference": "0x219f008",
+          "entry": 35368897,
+          "mode": "Thumb",
+          "module": "91",
+          "expectedHex": "70b582b0051c161c0c1c012e2a7b1ed1fd321206120e012a00d808e0fef762fd"
+        },
+        {
+          "reference": "0x219f350",
+          "entry": 35369697,
+          "mode": "Thumb",
+          "module": "91",
+          "expectedHex": "38b50c1c051c206a8af64eea002188f642ec281c211c0022fff704fc38bd0000"
+        },
+        {
+          "reference": "0x219f0e0",
+          "entry": 35369073,
+          "mode": "Thumb",
+          "module": "91",
+          "expectedHex": "38b582b0141c0d1c032c0ad1281c00f079fa032805d128794200062000900420"
+        },
+        {
+          "reference": "0x215b818",
+          "entry": 34998965,
+          "mode": "Thumb",
+          "module": "10",
+          "expectedHex": "f8b584b0051ca86901910068171c1e1cb1f616fb0290332000010090734b0420"
+        },
+        {
+          "reference": "0x215ba0c",
+          "entry": 34999465,
+          "mode": "Thumb",
+          "module": "10",
+          "expectedHex": "cb6b8269d362021ccb6b60321370c26e012a06d1c86b082801d1012070470020"
+        },
+        {
+          "reference": "0x215c3e4",
+          "entry": 35001905,
+          "mode": "Thumb",
+          "module": "10",
+          "expectedHex": "10b5041ca0690068b0f65cfda06e032803d10220e060042010bd042803d10020"
+        }
+      ],
+      "layout": {
+        "Request": 640,
+        "Slot": 44,
+        "Pokemon": 56,
+        "Message": 312,
+        "Prompt": 336,
+        "Plates": 352,
+        "CancelFirst": 484,
+        "CancelLast": 484,
+        "Mode": 52,
+        "Selected": 60,
+        "Result": 64,
+        "Item": 68,
+        "SelectorColor": 168,
+        "MaxSaveFlag": 2911,
+        "DecideSound": 1356,
+        "MoveSound": 1352,
+        "RecoverySound": 1391,
+        "CompressedPaletteHandle": 400,
+        "CompressedPaletteStart": 192,
+        "CompressedPaletteSize": 96
+      },
+      "resources": [
+        {
+          "path": "a/0/7/6",
+          "member": 0,
+          "sha256": "6777fefcfcef84d2c299636f5c6a427fc82a7f826290ec4e2894c637957e07f7"
+        },
+        {
+          "path": "a/0/7/6",
+          "member": 6,
+          "sha256": "75ecc89a0990eebdb814af18830f48d68bc77125cbc1769439e3d534740bec3d"
+        },
+        {
+          "path": "a/0/7/6",
+          "member": 7,
+          "sha256": "d2cc703dcda30cd18e0c1044c58bf600a3622621c92c227dc36b70dc1f99c25d"
+        },
+        {
+          "path": "a/0/7/6",
+          "member": 10,
+          "sha256": "4c752d981043ce4873b95d8b975839664cd573882ec83adb6ad146d325e597cd"
+        },
+        {
+          "path": "a/0/7/6",
+          "member": 12,
+          "sha256": "c8ecf5b9b25c744c091d478bbeaea0b132f091402d4b1251d314523e29b95a5c"
+        },
+        {
+          "path": "a/0/7/6",
+          "member": 13,
+          "sha256": "773d9f6739bfffe9c89b75a0151f3ffd60ef1fb39ada93b74640a9f427887cae"
+        },
+        {
+          "path": "a/0/7/6",
+          "member": 21,
+          "sha256": "2cd54e4122c597121dc7c1df62c4b9c96c985ab200e1c7e6c87fcdf923e0d03d"
+        },
+        {
+          "path": "a/0/7/6",
+          "member": 24,
+          "sha256": "49d7bb5f6af6acbdf42fc87d1d8147207d9cf67c7b687408b3452b389bb40bcb"
+        },
+        {
+          "path": "a/0/8/3",
+          "member": 0,
+          "sha256": "75b1f4dacfe3848525ca96e868f6bd03bbf62ddc604ce39a2d8015749edbcb73"
+        },
+        {
+          "path": "a/0/8/3",
+          "member": 2,
+          "sha256": "0236d2747f0607d7e9dff01c5b6beb50db00a7bbd2dadeb72ed461bd9616f986"
+        },
+        {
+          "path": "a/0/8/3",
+          "member": 4,
+          "sha256": "5d558cca3486fc97387c67fc8ce5a52d61f420c59afb3340187cd30f9938ab12"
+        },
+        {
+          "path": "a/0/8/3",
+          "member": 11,
+          "sha256": "10c48c6f06d4e0fe76ec8df5c7de4efac7074590ce7d5e14295f7c8ab41209cd"
+        },
+        {
+          "path": "a/0/8/3",
+          "member": 12,
+          "sha256": "39d21b1391d2b5c1d366e10b921e73121dc0a5c893a8729e210f5380702dfda1"
+        },
+        {
+          "path": "a/0/2/5",
+          "member": 33,
+          "sha256": "f43b8596836ebd6edf0228ca72e4941c6dea49fd53210e9871f9843f6a79bfc4"
+        },
+        {
+          "path": "a/0/2/5",
+          "member": 34,
+          "sha256": "1fc64aa617b5ade7849fac592cfe09e2c4a11eef9dc12f1ebed2d8ae6983f068"
+        },
+        {
+          "path": "a/0/2/5",
+          "member": 90,
+          "sha256": "399f513e7d9bcefb2bf5d070e5e903f79ed0eb10405a8a156914323d472e7446"
+        },
+        {
+          "path": "a/0/2/5",
+          "member": 91,
+          "sha256": "cc2d0a2c0c162e5339027fe8ba3f4344e512dc1ec96e1bad4a06cfbf10910627"
+        },
+        {
+          "path": "a/0/2/5",
+          "member": 827,
+          "sha256": "276442cc04dd7c6d062875930cbe914b7353d1cf9053f8b2f06add51ebac5542"
+        },
+        {
+          "path": "a/0/2/5",
+          "member": 828,
+          "sha256": "0856ba9e360046fe2eb104ab87b0386f645ee56012b813149f5b7ae36060cbda"
+        }
+      ],
+      "segments": {
+        "ARM9": "2d36e7e501fee340e6af419492fb6e0648b8d75e872c718b450c2526dd1a681e",
+        "10": "232353df8f9865a141bd81a254526d503b1e27e27cdea13460353e279bc01b51",
+        "91": "687ee398636c612b1fbdaeb891af3810ce4e46838e56d7803ed3af63c6ef6b80"
+      },
+      "archiveFileName": "partyQuickActionsW.narc",
+      "archiveSha256": "5d8710ce413cea76d05911c5bd9c2d1138c7d88c9665907375a582b5898def4e",
+      "graphicsFingerprints": [
+        "86383c72",
+        "41739f66",
+        "2664f6d5",
+        "4f35b0fc",
+        "92805a9a",
+        "6eeed89c",
+        "6433a22f",
+        "5ef4bcf3",
+        "6d62976b",
+        "87ab0d18",
+        "e755180c",
+        "233a7573"
+      ],
+      "fileName": "PartyQuickActionsW.dll",
+      "sha256": "68ba0c3e89607ed8fdb0b6110aaddd3be3a2800084a4212f72ea86cf80ad336b",
+      "codeFingerprint": "b1c6ec72",
+      "bssSize": 508
+    }
+  }
+}

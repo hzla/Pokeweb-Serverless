@@ -20,5 +20,14 @@ def generate():
         f'#define FWS_SAFE_FINISHERS 0x{sum(1<<i for i in indices):08x}u',
         'static const uint16_t fws_safe_commands[]={']
  lines += [' '+','.join(f'0x{n:04x}' for n in commands[i:i+12])+',' for i in range(0,len(commands),12)]
- (HERE/'scene-policy.h').write_text('\n'.join(lines+['};','']))
+ lines+=['};']
+ audio=json.loads((HERE/'audio-event-policy.json').read_text())
+ callbacks=[entry['callback'] for entry in audio['events']]
+ if audio['schemaVersion']!=1 or callbacks!=sorted(set(callbacks)) or any(not n&1 for n in callbacks):
+  raise ValueError('Invalid native audio event policy')
+ if any(code not in commands for code in audio['pureAudioOpcodes']):
+  raise ValueError('Pure audio command missing from opcode allowlist')
+ lines+=['#ifdef FW_STOCK','static const uint32_t fws_audio_callbacks[]={',
+         ' '+','.join(f'0x{n:08x}u' for n in callbacks),'};','#endif','']
+ (HERE/'scene-policy.h').write_text('\n'.join(lines))
 if __name__=='__main__':generate()

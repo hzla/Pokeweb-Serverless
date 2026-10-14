@@ -18,12 +18,8 @@ import {
   moveCategoryNamesForProject,
   typeNamesForProject,
 } from "./constants";
-import type { FieldSpec, NarcFormatMap } from "./formats";
-import type { HeaderCollection } from "./headerModel";
-import type { GrottoOddsState } from "./martGrottoModel";
-import type { ActionChangelogState } from "./actionChangelog";
+import type { FieldSpec } from "./formats";
 import type { TextEntry } from "./text";
-import type { TmState } from "./tmModel";
 import { parseGen4EventFile } from "./gen4EventModel";
 import { parseGen4MapFile } from "./gen4MapModel";
 import { parseGen4MatrixFile } from "./gen4MatrixModel";
@@ -54,7 +50,8 @@ export type NarcStore = {
   parseError?: string;
 };
 
-export type SessionSettings = {
+/** ROM identity and project choices; these are durable, despite the old name. */
+export type ProjectSettings = {
   romName: string;
   generation?: "gen4" | "gen5";
   baseVersion: BaseVersion;
@@ -63,6 +60,7 @@ export type SessionSettings = {
   fileIds: Partial<Record<NarcName, number>>;
   blacklist: NarcName[];
 };
+export type SessionSettings = ProjectSettings;
 
 export type TextState = {
   banks: Partial<Record<string, string[]>>;
@@ -154,6 +152,7 @@ export type StandaloneStreamConfig = {
   name: string;
   sourceName: string;
   encoding: "pcm16" | "adpcm";
+  loop: boolean;
   sampleRate: 32728;
   sampleCount: number;
   loopStartSample: number;
@@ -196,7 +195,7 @@ export type CodeInjectionState = {
   streamedBgms?: StreamedBgmConfig[];
   nativeStreamReplacements?: NativeStreamReplacementConfig[];
   standaloneStreams?: StandaloneStreamConfig[];
-  saveMenuSettings?: { music: "relic-song" | "stream"; streamId?: number; bpm: number; stepsPerBeat: 1 | 2 | 4 };
+  saveMenuSettings?: { music: "relic-song" | "stream" | "off"; streamId?: number; bpm: number; stepsPerBeat: 1 | 2 | 4; versionLabel?: string };
   battleLog?: {
     ancestryPath: string;
     ancestryFileId?: number;
@@ -371,54 +370,9 @@ export type PatchState = {
   };
 };
 
-export type ProjectState = {
-  bw2ScriptRuntimeContext?: import("./bw2ScriptOverlayContext").Bw2ScriptRuntimeContext;
-  bw2ScriptEditor?: import("./bw2ScriptModel").Bw2ScriptEditorState;
-  cgearButtons?: import("../cgearButtons/document").Project;
-  customUi?: import("../customUi/document").Project;
-  originalRomBytes?: Uint8Array;
-  session: SessionSettings;
-  romInfo: {
-    title: string;
-    idCode: string;
-    fileName: string;
-    size: number;
-    /** SHA-256 of the exact input, computed for US Black 2 upgrade eligibility; otherwise omitted. */
-    sourceSha256?: string;
-  };
-  arm9: Uint8Array;
-  arm9Compressed?: boolean;
-  arm9Dirty?: boolean;
-  rigAtlas?: {
-    width: number;
-    height: number;
-    expanded: boolean;
-  };
-  overlays: Partial<Record<number, Uint8Array>>;
-  narcs: Partial<Record<NarcName, NarcStore>>;
-  texts: TextState;
-  formats: NarcFormatMap;
-  trpokInfo: Array<{ template: number; numPokemon: number }>;
-  headers?: HeaderCollection;
-  grottoOdds?: GrottoOddsState;
-  tms?: TmState;
-  docs?: DocGeneratorState;
-  map3dAreaEdits?: Map3dAreaEditState;
-  fileSystem?: FileSystemEditState;
-  /** Small ROM-backed archive retained when autosave releases originalRomBytes. */
-  koMoveLearnsetSource?: { fileId: number; bytes: Uint8Array };
-  trainerLocationTables?: import("./trainerLocationModel").TrainerLocationTables;
-  /** Cascade DLLs and migration markers retained when autosave releases the ROM. */
-  cascadePersonalSources?: Record<string, { fileId: number; bytes: Uint8Array }>;
-  codeInjection?: CodeInjectionState;
-  overworldWeather?: OverworldWeatherState;
-  pwanAnimations?: PwanAnimationState;
-  w2animAnimations?: W2AnimAnimationState;
-  trainerPwanAnimations?: TrainerPwanAnimationState;
-  starters?: StarterState;
-  patches?: PatchState;
-  actionChangelog?: ActionChangelogState;
-};
+/** Compatibility name for the live editing session; persisted data uses ProjectDocument. */
+export type ProjectState = import("./projectSession").ProjectSession;
+export type { ProjectSession } from "./projectSession";
 
 export function createNarcStore(name: NarcName, sourcePath: string, fileId: number, narc: NARC): NarcStore {
   return {

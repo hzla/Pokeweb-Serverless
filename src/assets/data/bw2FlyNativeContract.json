@@ -1,0 +1,46 @@
+{
+  "B2": {
+    "ranges": [
+      {
+        "module": "33",
+        "address": 35096840,
+        "size": 88,
+        "sha256": "957b9d4254cd9f90eced69a336d3eb9afeba5f9fe53ae0cbdc04e99ef79e6730"
+      },
+      {
+        "module": "144",
+        "address": 35250324,
+        "size": 48,
+        "sha256": "efe208d8434b59540a41072cb650e600c6d20d9644d7d27553d4a38342cf57b6"
+      },
+      {
+        "module": "ARM9",
+        "address": 33657032,
+        "size": 96,
+        "sha256": "7657256f58749e3c0fa776ba6256e5339b3d435c4becca845bf3cc7d22995cdc"
+      }
+    ]
+  },
+  "W2": {
+    "ranges": [
+      {
+        "module": "33",
+        "address": 35096904,
+        "size": 88,
+        "sha256": "715acc872fb4908d0d54d16a51139c574b10a7b0ff58a564216f065f07858aee"
+      },
+      {
+        "module": "144",
+        "address": 35250388,
+        "size": 48,
+        "sha256": "efe208d8434b59540a41072cb650e600c6d20d9644d7d27553d4a38342cf57b6"
+      },
+      {
+        "module": "ARM9",
+        "address": 33657076,
+        "size": 96,
+        "sha256": "da3ed915b02943fc22e8fd8ca0ca17e7b0c24ab340bd2a5a30127a7ed36e1e1b"
+      }
+    ]
+  }
+}

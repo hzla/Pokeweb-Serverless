@@ -5,6 +5,7 @@ template<class T> T& at(void* p,u32 n) { return *reinterpret_cast<T*>(static_cas
 template<class F> F api(u32 w2) { return reinterpret_cast<F>(nativeAddress(w2)|1); }
 template<class F> F ov(u32 w2) { return reinterpret_cast<F>(overlayAddress(w2)|1); }
 constexpr u32 INVALID=0xffffffff;
+extern "C" u32 PokewebBgmMute(u32 request);
 struct Subscreen { u32 mode,next,state;u16 heap,pad;u32 result;void* field;void* callback;void* callbackData;void* work; };
 struct Point { u8 x,y; };
 struct MapRequest {
@@ -27,3 +28,5 @@ extern "C" int QaButtonHit(void*);
 extern "C" int QaTownMapReturn(void*,void*);
 extern "C" u32 QaRepelStep(void*,void*);
 extern "C" u32 QaRepelDepleted(void*,void*);
+extern "C" u32 QaPhenomenonInterval(void*,void*);
+extern "C" u32 QaPhenomenonChance(u32);

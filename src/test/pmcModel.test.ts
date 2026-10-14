@@ -809,7 +809,7 @@ describe("PMC installer", () => {
     ] as const) {
       expect(readAscii(dll, 0, 4)).toBe("DLXF");
       const rpm = parseRpm(dll, { allowedMagics: ["DLXF"] });
-      expect(rpm.metadata).toMatchObject({ PMCGameID: version, PMCModulePriority: 4, PMCVersion: "3.0.0" });
+      expect(rpm.metadata).toMatchObject({ PMCGameID: version, PMCModulePriority: 4, PMCVersion: "3.0.1" });
       expect(rpm.bssSize).toBe(0x24);
       expect(externalHooks(dll)).toEqual([
         "ARM9:2005336:THUMB_BRANCH_LINK",
@@ -855,7 +855,7 @@ describe("PMC installer", () => {
           fileName: `BgmToggle${version}.dll`,
           target: "patches",
           gameId: version,
-          version: "3.0.0",
+          version: "3.0.1",
         });
         expect(getPmcInstallStatus(project)).toMatchObject({ installed: true, gameId: version });
         expect(detectBundledBgmToggleDll(project)).toBe("patched");
@@ -883,7 +883,7 @@ describe("PMC installer", () => {
           shadowFileId: 5197,
           streamFileId: 5198,
         });
-        expect(parseRpm(configured, { allowedMagics: ["DLXF"] }).metadata).toMatchObject({ PMCGameID: version, PMCVersion: "3.0.0" });
+        expect(parseRpm(configured, { allowedMagics: ["DLXF"] }).metadata).toMatchObject({ PMCGameID: version, PMCVersion: "3.0.1" });
         expect(readBgmRuntimeConfig(configured)).toMatchObject({
           shortcutEnabled: true,
           streamedBgmEnabled: true,

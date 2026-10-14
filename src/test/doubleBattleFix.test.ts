@@ -4,7 +4,7 @@ import contract from "../../runtime/double-battle-fix/black1-contract.json";
 import { writeU32 } from "../nds/binary";
 import { Folder } from "../nds/fnt";
 import { NintendoDSRom } from "../nds/rom";
-import { detectBundledDoubleBattleFixDll, stageBundledDoubleBattleFixDll, stageCodeInjectionDll } from "../pokeweb/pmcModel";
+import { detectBundledDoubleBattleFixDll, getPmcInstallStatus, stageBundledDoubleBattleFixDll, stageCodeInjectionDll } from "../pokeweb/pmcModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { parseRpm, writeRpm } from "../pokeweb/rpm";
 
@@ -22,13 +22,25 @@ describe("Black 1 double battle fix", () => {
     ]);
   });
 
-  it("requires PMC before fetching or staging a DLL", async () => {
+  it("automatically installs PMC before staging the requested fix", async () => {
     const project = makeProject();
     delete project.codeInjection;
-    const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
-    await expect(stageBundledDoubleBattleFixDll(project)).rejects.toThrow(/Install PMC/u);
-    expect(fetch).not.toHaveBeenCalled();
-    expect(project.fileSystem).toBeUndefined();
+    for (const [address, hex] of [[0x200512a, "00f097f9"], [0x2034b7c, "b81101eb"], [0x2034a50, "181201eb"], [0x2078ea8, "ed000000"]] as const) {
+      project.arm9.set(Buffer.from(hex, "hex"), address - 0x02004000);
+    }
+    project.arm9[0x2078d77 - 0x02004000] = 10;
+    vi.stubGlobal("fetch", vi.fn(async (url: URL) => new Response(new Uint8Array(readFileSync(new URL(`../assets/codeinjection/${url.pathname.split("/").pop()}`, import.meta.url))))));
+    await expect(stageBundledDoubleBattleFixDll(project)).resolves.toMatchObject({ path: "patches/DoubleBattleFixB.dll" });
+    expect(getPmcInstallStatus(project)).toMatchObject({ installed: true, overlayId: 237 });
+    expect(project.fileSystem?.additions?.["patches/DoubleBattleFixB.dll"]).toEqual(dll);
+  });
+
+  it("leaves PMC uninstalled if the patch asset cannot be fetched", async () => {
+    const project = makeProject(); delete project.codeInjection;
+    const before = structuredClone(project);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 503 })));
+    await expect(stageBundledDoubleBattleFixDll(project)).rejects.toThrow(/Could not load/u);
+    expect(project).toEqual(before);
   });
 
   it("stages the Black asset once and recognizes repeat installation", async () => {
@@ -119,7 +131,7 @@ function stubAsset(): void {
 function makeProject(): ProjectState {
   const rom = new NintendoDSRom(new Uint8Array(0x200));
   rom.data.set(new TextEncoder().encode("IRBO"), 12);
-  rom.arm9 = new Uint8Array(0x80000);
+  rom.arm9 = new Uint8Array(0xa0000);
   rom.arm9RamAddress = 0x02004000;
   writeU32(rom.data, 0x28, rom.arm9RamAddress);
   rom.arm7 = new Uint8Array(4);

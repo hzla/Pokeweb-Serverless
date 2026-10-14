@@ -1,0 +1,8 @@
+[
+  {"frame": 60, "buttons": 64},
+  {"frame": 300, "touch": [55, 45]},
+  {"frame": 900, "buttons": 64},
+  {"frame": 1140, "touch": [55, 45]},
+  {"frame": 1740, "buttons": 64},
+  {"frame": 1980, "touch": [55, 45]}
+]

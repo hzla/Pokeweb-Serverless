@@ -1,3 +1,4 @@
+import { renderInlineStatus } from "./inlineStatus";
 import type { ProjectState, PwanAnimationOverride, PwanOverrideSide, PwanPaletteSource } from "../pokeweb/projectStore";
 import { isW2AnimProject, w2animArchiveSummary } from "../pokeweb/w2animAnimationModel";
 import { detectAnimationAssets } from "../pokeweb/animationAssetModel";
@@ -1807,7 +1808,7 @@ function renderPwanImportForm(project: ProjectState, speciesOptions: string, opt
 function renderPwanImportStatus(override: PwanAnimationOverride): string {
   return `
     <div class="pwan-import-status">
-      <strong>GIF import active</strong>
+      ${renderInlineStatus("GIF import active", { tone: "success" })}
       <span>Front: ${override.front ? `${escapeHtml(override.front.sourceFileName)} (${override.front.frameCount} frames)` : "Native"}</span>
       <span>Back: ${override.back ? `${escapeHtml(override.back.sourceFileName)} (${override.back.frameCount} frames)` : "Native"}</span>
     </div>

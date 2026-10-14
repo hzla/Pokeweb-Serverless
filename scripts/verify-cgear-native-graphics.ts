@@ -11,7 +11,7 @@ if(!paths.length)throw new Error("Pass one or more clean English B2/W2 ROM filen
 for(const path of paths) {
   const rom=new NintendoDSRom(new Uint8Array(readFileSync(path)),{fileData:"view"}),native=new NARC(rom.files[rom.filenames.idOf("a/2/8/7")!]);
   const source=originalGraphics(native),packed=packNativeGraphics(source),decorated=buttonGraphics(source,native,true,true),budget=spriteBudget(decorated,native,8),count=readU16(source.files[1],24);
-  const selector=new Set([31,32,33,34,36,37]),save=new Set([22,25]);
+  const selector=new Set([31,32,33,34,36,37]),save=new Set([22,25,23,26]);
   for(let gender=0;gender<2;gender++)for(let i=0;i<count;i++) {
     const a=source.files[1].slice(),b=packed.files[1].slice();writeU32(a,32,16);writeU32(b,32,16);
     const before=parseNitroCellImage("before",source.files[0],native.files[14+gender],a,i,256),after=parseNitroCellImage("after",packed.files[0],native.files[14+gender],b,i,256);
@@ -21,7 +21,8 @@ for(const path of paths) {
     // The owned pressed selector uses the same native palette bank as other
     // pressed controls. Its circle artwork remains unchanged.
     if(i===37){const at=48+count*16+readU32(a,48+i*16+4);for(const off of [4,10])writeU16(a,at+off,(readU16(a,at+off)&0x0fff)|0x1000);}
-    const controlReference=i===37?parseNitroCellImage("pressed",source.files[0],native.files[14+gender],a,i,256):before;
+    if(i===26){const at=48+count*16+readU32(a,48+i*16+4),normal=48+count*16+readU32(a,48+23*16+4);for(const off of [4,10])writeU16(a,at+off,(readU16(a,at+off)&0x0fff)|(readU16(a,normal+off)&0xf000));}
+    const controlReference=i===37||i===26?parseNitroCellImage("owned palette",source.files[0],native.files[14+gender],a,i,256):before;
     for(let y=0;y<256;y++)for(let x=0;x<256;x++){
       if(x>=120&&x<136&&((selector.has(i)&&y>=124&&y<141)||(save.has(i)&&y>=120&&y<136)))continue;
       const p=(y*256+x)*4;
@@ -36,5 +37,5 @@ for(const path of paths) {
   assert(oam<=128,`Native effects plus eight buttons exceed 128 OAM: ${oam}`);
   const circle=nativeButtonCircle(native,source);assert.equal(circle[16*32+1],1);assert.equal(circle[16*32+2],1);assert.equal(circle[16*32+3],1);
   for(const [x,y] of [[4,4],[27,4],[4,27],[27,27]])assert.equal(circle[y*32+x],0,"Diagonal ring protrusion");
-  console.log(rom.idCode,`worst-case ${budget.oam}/128 OAM;`,`${count*2} lossless cell images identical; selector/save edits confined to glyphs and native pressed palette; native bright ring decoded; ${budget.bytes}/${budget.capacity} sprite bytes`);
+  console.log(rom.idCode,`worst-case ${budget.oam}/128 OAM;`,`${count*2} lossless cell images identical; selector/save/music edits confined to glyphs and native pressed palette; native bright ring decoded; ${budget.bytes}/${budget.capacity} sprite bytes`);
 }

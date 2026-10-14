@@ -27,6 +27,8 @@ runtime/double-battle-fix/build/
 runtime/porta-pc/build/
 runtime/battle-harness/build/
 runtime/cgear-quick-actions/build/
+runtime/autosave/build/
+runtime/fly-destinations/build/
 __pycache__/
 
 # Machine-local agent working notes belong outside this repository.
@@ -42,6 +44,8 @@ src/test/local/
 
 # Optional local maintenance, generation, and verification entry points.
 /scripts/*
+!/scripts/verify-fly-destinations.ts
+!/scripts/generate-cgear-button-defaults-bw1.ts
 # Vite imports the local bridge; TypeScript/tests import the shared tooling.
 !/scripts/w2u-local-bridge.js
 !/scripts/lib/
@@ -79,6 +83,9 @@ src/test/local/
 
 !/scripts/generate-cgear-button-defaults.ts
 !/scripts/verify-cgear-native-graphics.ts
+!/scripts/benchmark-edit-commits.ts
+!/scripts/run-edit-benchmark.mjs
+!/scripts/edit-benchmark.html
 !/scripts/audit-white2-italian-translation.ts
 !/scripts/build-white2-italian-translation.ts
 !/scripts/verify-white2-italian-patches.ts
@@ -89,3 +96,13 @@ src/test/local/
 
 !/scripts/generate-white2-script-summaries.ts
 !/scripts/verify-white2-script-summaries.ts
+
+# Local BW1 Infinite Candy compiler intermediates.
+runtime/infinite-candy/build/InfiniteCandyB.o
+runtime/infinite-candy/build/InfiniteCandyB.s
+runtime/infinite-candy/build/InfiniteCandyW.o
+runtime/infinite-candy/build/InfiniteCandyW.s
+runtime/infinite-candy/build/metadata-B.yml
+runtime/infinite-candy/build/metadata-W.yml
+runtime/infinite-candy/build/symbols-B.yml
+runtime/infinite-candy/build/symbols-W.yml

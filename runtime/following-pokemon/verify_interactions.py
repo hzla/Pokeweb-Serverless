@@ -40,21 +40,27 @@ def call(name,args=()):
 F=0x02200000;P=0x02203000;A=P+0x100;SYS=P+0x200;FIELD=0x02204000;GAME=0x02205000;SNAP=0x02206000;BG=0x02207000;EVENT=0x02208000;STRING=EVENT+0x100;FOREIGN=EVENT+0x200
 scene=0x02209000;bill=scene+0x100;mat=scene+0x200;bl=scene+0x300;fieldbl=scene+0x400;indices=scene+0x500
 GAMEDATA=0x0220a000;PARTY=GAMEDATA+0x100;BAG=GAMEDATA+0x200;MON=GAMEDATA+0x300;BLOCK_C=MON+0x48;SAVE_OPTIONS=GAMEDATA+0x600
-def gift_archive():
+def gift_archive(bounds=None):
  name=[*map(ord,'Master Ball'),0xffff];message=[0xfff0,*map(ord,' found a '),0xfff3,ord('!'),0xffff]
- member=bytearray(16+28+(len(name)+len(message))*2);name_at=44;text_at=name_at+len(name)*2
- struct.pack_into('<IHHI',member,0,0x49545746,1,1,len(member))
+ stride=36 if bounds is not None else 28
+ member=bytearray(16+stride+(len(name)+len(message))*2);name_at=16+stride;text_at=name_at+len(name)*2
+ struct.pack_into('<IHHI',member,0,0x49545746,2 if bounds is not None else 1,1,len(member))
  struct.pack_into('<HHHBBBBBBBBIHIHH',member,16,427,151,1,0,255,255,0,0,0,0,1,name_at,len(name),text_at,len(message),0)
+ if bounds is not None:
+  struct.pack_into("<H4h",member,42,15,*bounds)
  for at,words in ((name_at,name),(text_at,message)):
   for i,word in enumerate(words):struct.pack_into('<H',member,at+i*2,word)
  struct.pack_into('<I',member,12,zlib.crc32(member[16:])&0xffffffff)
  narc=ndspy.narc.NARC();narc.files=[bytes(member)];return narc.save()
-def context_archive(before=0,after=0,abi=2):
+def context_archive(before=0,after=0,abi=2,bounds=None):
  words=[0xfff0,*map(ord,' likes this place.'),0xffff]
- member=bytearray(36+2*len(words))
+ stride=28 if bounds is not None else 20;start=16+stride
+ if bounds is not None:abi=3
+ member=bytearray(start+2*len(words))
  struct.pack_into('<IHHI',member,0,0x44435746,abi,1,len(member))
- struct.pack_into('<HH8BIHBB',member,16,427,0,255,255,0,0,0,0,100,before,36,len(words),after,0)
- for i,word in enumerate(words):struct.pack_into('<H',member,36+i*2,word)
+ struct.pack_into('<HH8BIHBB',member,16,427,0,255,255,0,0,0,0,100,before,start,len(words),after,15 if bounds is not None else 0)
+ if bounds is not None:struct.pack_into("<4h",member,36,*bounds)
+ for i,word in enumerate(words):struct.pack_into('<H',member,start+i*2,word)
  struct.pack_into('<I',member,12,zlib.crc32(member[16:])&0xffffffff)
  narc=ndspy.narc.NARC();narc.files=[bytes(member)];return narc.save()
 assets={"rom:/following/interactions.bin":(HERE.parents[1]/'src/assets/following/interactions.bin').read_bytes(),"rom:/following/emotes.narc":(HERE.parents[1]/'src/assets/following/interaction-emotes.narc').read_bytes(),"rom:/following/contextual-items.narc":gift_archive()}
@@ -171,10 +177,10 @@ def setup(direction=0,species=25,zone=0,reset_mon=True):
  uc.mem_write(F,bytes(1856));put(F,2);put(F+20,1);put(F+24,A)
  uc.mem_write(P,bytes(0x300));put(P,1|8192);put(P+148,P+0x600);put(A,1|128|256|32768);put(P+136,SYS);put(A+136,SYS);put(A+140,addr('fwfield_moves'));half(P+24,direction)
  x,z=10*65536,10*65536;ax=x+(-65536 if direction==2 else 65536 if direction==3 else 0);az=z+(-65536 if direction==0 else 65536 if direction==1 else 0)
- uc.mem_write(P+68,struct.pack('<iii',x,0,z));uc.mem_write(A+68,struct.pack('<iii',ax,0,az));uc.mem_write(A+60,struct.pack('<hhh',ax//65536,0,az//65536))
+ uc.mem_write(P+60,struct.pack('<hhh',10,0,10));uc.mem_write(P+68,struct.pack('<iii',x,0,z));uc.mem_write(A+68,struct.pack('<iii',ax,0,az));uc.mem_write(A+60,struct.pack('<hhh',ax//65536,0,az//65536))
  for i,(sx,sz) in enumerate([(ax,az),(x,z)]):uc.mem_write(F+52+i*28,struct.pack('<iiiIIHHBBH',sx,0,sz,1,1,0,0,0,3,1))
  half(F+52+64*28+6,2);put(FIELD+8,GAMEDATA);put(FIELD+0x94,P+0x400);put(FIELD+0x148,0);put(GAME+0x18,0)
- uc.mem_write(SNAP,struct.pack('<H4BHH2xIIIH4B12H9H',species,0,0,0,0,100,100,123,456,0,zone,100,direction^1,0,0,*([ord('P'),ord('i'),ord('k'),ord('a')]+[65535]*8),*([ord('U')]+[65535]*8)))
+ uc.mem_write(SNAP,struct.pack('<H4BHH2xIIIH4B12H9H2h',species,0,0,0,0,100,100,123,456,0,zone,100,direction^1,0,0,*([ord('P'),ord('i'),ord('k'),ord('a')]+[65535]*8),*([ord('U')]+[65535]*8),-32768,32767))
  if reset_mon:uc.mem_write(MON,bytes(0x100));put(MON,123);half(MON+4,2)
  put(BG+0x15c,BG+0x200);put(BG+0xfc,0)
  put(SYS+0x28,fieldbl);put(fieldbl+4,bl);put(bl+4,scene);put(bl+0x18,indices);half(bl+0x1c,1);put(indices,0)
@@ -446,6 +452,37 @@ assets[context_path]=context_archive(13,0);setup(0,25,427);assert begin()
 assert u32(addr('FollowingTalkDebug')+16)!=0x8000;call('fwt_cancel');balanced()
 assets.pop(context_path)
 print('Context animations passed: every motion before/after text, legacy text-only, exact window/cry order, grounded hop suppression, prefix/suffix cancellation and safe fallback; native services mocked.')
+# Inclusive bounds use the player's current matrix tile, never follower pose,
+# elevation or stale selection snapshot. The follower is deliberately outside.
+context_path='rom:/following/contextual-dialogues.narc';item_path='rom:/following/contextual-items.narc'
+original_items=assets[item_path];bounds=(-2,0,714,716);bound_cases=0
+for isgift in (False,True):
+ assets[item_path]=gift_archive(bounds) if isgift else original_items
+ if not isgift:assets[context_path]=context_archive(2,12,bounds=bounds)
+ for direction in range(4):
+  for x,y in ((-2,714),(-2,716),(0,714),(0,716),(-1,715),(-3,715),(1,715),(-1,713),(-1,717)):
+   setup(direction,151 if isgift else 25,427)
+   uc.mem_write(P+60,struct.pack('<3h',x,99,y))
+   # World pose stays within dialogue reach; logical coordinates drive bounds.
+   bag_adds.clear();assert begin()==EVENT
+   expected=-2<=x<=0 and 714<=y<=716;selected=u32(addr('FollowingTalkDebug')+16)
+   assert (selected== (0x4000 if isgift else 0x8000))==expected,(isgift,direction,x,y,selected)
+   assert bag_adds==([(1,1)] if expected and isgift else [])
+   assert bool(struct.unpack('<H',uc.mem_read(BLOCK_C+0x1e,2))[0]&1)==(expected and isgift)
+   if not isgift and direction==0 and (x,y)==(-2,714):
+    for frame in range(500):
+     held=pressed=1 if stage()==6 and frame%3==0 else 0
+     if tick():break
+    else:raise AssertionError('Bounded prefix/text/suffix conversation stuck')
+   else:call('fwt_cancel')
+   balanced();bound_cases+=1
+ if isgift:
+  setup(0,151,427);uc.mem_write(P+60,struct.pack('<3h',-1,0,715));bag_adds.clear();assert begin()==EVENT;call('fwt_cancel');balanced()
+  setup(0,151,427,False);uc.mem_write(P+60,struct.pack('<3h',-1,0,715));assert begin()==EVENT
+  assert u32(addr('FollowingTalkDebug')+16)!=0x4000 and bag_adds==[(1,1)];call('fwt_cancel');balanced()
+ assets.pop(context_path,None)
+assets[item_path]=original_items
+print(f'Tile-bound interactions passed: {bound_cases} player/follower coordinate and inclusive edge/outside cases, four facings, matrix Y distinct from elevation, bounded animations and unchanged one-time gift claims; native services mocked.')
 call('fwt_unload');setup();fail='data';assert not begin();balanced()
 print(f'Packaged interaction checks passed: ABI, priority veneers, four-direction reach, {cross_facing_cases} independent-facing corner cases and safety rejections, {len(reactions)} randomly selected rules, {CYCLES} simulated conversations, all 9 interruption stages, nested event ownership and resource failures. Native services mocked; no DS game run.')
 

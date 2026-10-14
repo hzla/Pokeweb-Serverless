@@ -74,6 +74,27 @@ THUMB_BRANCH_LINK_NNS_SndArcStrmSetupPlayer_0x50:
 .Lapply_stream_done:
     pop {r4, pc}
 
+// Shared ABI: 0 queries, 1 toggles; returns 0 audible / 1 muted.
+// Both the C-Gear control and key shortcut use the same resident state.
+.global PokewebBgmMute
+.type PokewebBgmMute, %function
+.thumb_func
+PokewebBgmMute:
+    push {r3, lr}
+    cmp r0, #1
+    bne .Lmute_query
+    ldr r1, =.Lmusic_disabled
+    ldr r0, [r1]
+    movs r2, #1
+    eors r0, r2
+    str r0, [r1]
+    bl .Lapply_bgm_mute
+.Lmute_query:
+    ldr r0, =.Lmusic_disabled
+    ldr r0, [r0]
+    pop {r3, pc}
+.size PokewebBgmMute, .-PokewebBgmMute
+
 .type .Lapply_bgm_mute, %function
 .thumb_func
 .Lapply_bgm_mute:
@@ -211,12 +232,8 @@ THUMB_BRANCH_LINK_GameUpdate_0xE:
     bne .Lupdate_stream
     movs r0, #1
     str r0, [r1]
-    ldr r1, =.Lmusic_disabled
-    ldr r0, [r1]
-    movs r2, #1
-    eors r0, r2
-    str r0, [r1]
-    bl .Lapply_bgm_mute
+    movs r0, #1
+    bl PokewebBgmMute
     b .Lupdate_stream
 .Lrelease_combo:
     ldr r1, =.Lcombo_latched

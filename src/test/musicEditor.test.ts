@@ -3,15 +3,48 @@ import type { NitroSdat, NitroSequenceInfo } from "../pokeweb/nitroSound";
 import type { NativeSdatStream } from "../pokeweb/streamedBgmModel";
 import {
   buildNativeStreamReference,
+  filterBw1MusicSequences,
   filterNativeStreamReference,
   listMusicEditorSequences,
+  nextMusicEditorTab,
   renderInstalledMusicRows,
+  renderMusicEditorTabs,
   renderNativeStreamReferenceRows,
   renderStreamedBgmEncodingOptions,
 } from "../ui/musicEditor";
 import type { StreamedBgmConfig } from "../pokeweb/projectStore";
 
 describe("Music editor sequence list", () => {
+  it("shows one selected editing tab and supports keyboard navigation across all three workflows", () => {
+    const html = renderMusicEditorTabs("streamed");
+    expect(html).toContain('aria-controls="music-editor-panel-bgm"');
+    expect(html).toContain('aria-controls="music-editor-panel-streamed"');
+    expect(html).toContain('aria-controls="music-editor-panel-standalone"');
+    expect(html).toContain('data-music-editor-tab="bgm">BGM Replacements</button>');
+    expect(html).toContain('data-music-editor-tab="streamed">Streamed Replacements</button>');
+    expect(html).toContain('data-music-editor-tab="standalone">Standalone</button>');
+    expect(html.match(/aria-selected="true"/g)).toHaveLength(1);
+    expect(html.match(/tabindex="0"/g)).toHaveLength(1);
+    expect(nextMusicEditorTab("standalone", "ArrowRight")).toBe("bgm");
+    expect(nextMusicEditorTab("bgm", "ArrowLeft")).toBe("standalone");
+    expect(nextMusicEditorTab("streamed", "Home")).toBe("bgm");
+    expect(nextMusicEditorTab("bgm", "End")).toBe("standalone");
+  });
+
+  it("shows BW1's actual BGM symbols and skips the empty native-stream tab", () => {
+    const bw1Tabs = ["bgm", "standalone"] as const;
+    const html = renderMusicEditorTabs("standalone", bw1Tabs);
+    expect(html).toContain('data-music-editor-tab="standalone"');
+    expect(html).not.toContain('data-music-editor-tab="streamed"');
+    expect(nextMusicEditorTab("bgm", "ArrowRight", bw1Tabs)).toBe("standalone");
+    expect(nextMusicEditorTab("standalone", "ArrowRight", bw1Tabs)).toBe("bgm");
+    expect(filterBw1MusicSequences([
+      { id: 1003, symbol: "SEQ_BGM_TITLE" },
+      { id: 1128, symbol: "SEQ_BGM_VS_NORAPOKE" },
+    ], "vs_nora")).toEqual([{ id: 1128, symbol: "SEQ_BGM_VS_NORAPOKE" }]);
+    expect(filterBw1MusicSequences([{ id: 1003, symbol: "SEQ_BGM_TITLE" }], "1003")).toHaveLength(1);
+  });
+
   it("creates a dense selector list from an SDAT with empty sequence slots", () => {
     const sequenceInfos: NitroSdat["sequenceInfos"] = new Array(1130);
     sequenceInfos[1] = sequence(1, "SEQ_PV001");
@@ -72,6 +105,11 @@ describe("Music editor sequence list", () => {
     expect(filterNativeStreamReference(entries, "", "title")).toEqual([entries[0]]);
   });
 
+  it("does not label BW1's first added stream as the retail title stream", () => {
+    const entries = buildNativeStreamReference([nativeStream(0, "STRM_0", 3874)], []);
+    expect(entries[0]).toMatchObject({ category: "other", title: "STRM_0" });
+  });
+
   it("makes direct streams selectable while leaving sequence-managed streams read-only", () => {
     const entries = buildNativeStreamReference([
       nativeStream(0, "STRM_TITLE", 5196),
@@ -84,6 +122,18 @@ describe("Music editor sequence list", () => {
     expect(html).not.toContain('data-native-stream-reference-id="1"');
     expect(html).toContain("Managed by BGM sequence 1128");
     expect(html).toContain("STRM_TITLE");
+  });
+
+  it("shows standalone songs as custom streams without offering direct replacement", () => {
+    const entries = buildNativeStreamReference([nativeStream(0, "STRM_TITLE", 1), nativeStream(1, "STRM_1", 3)], [], [{
+      streamId: 1, streamFileId: 3, name: "Menu Song", sourceName: "song.wav", encoding: "adpcm", loop: true,
+      sampleRate: 32728, sampleCount: 32728, loopStartSample: 0, loopEndSample: 32728,
+      encodedBytes: 32768, audioSha256: "a".repeat(64),
+    }]);
+    expect(entries[1]).toMatchObject({ category: "custom", title: "Menu Song", managedStandalone: true });
+    const html = renderNativeStreamReferenceRows(entries, 0);
+    expect(html).toContain("Managed as a standalone song");
+    expect(html).not.toContain('data-native-stream-reference-id="1"');
   });
 });
 

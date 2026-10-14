@@ -1,8 +1,13 @@
 using u8=unsigned char;using u16=unsigned short;using u32=unsigned int;using s16=short;
-#include "profiles.generated.h"
+#include "adapter.h"
 template<class T>T& at(void* p,u32 n){return *reinterpret_cast<T*>(static_cast<u8*>(p)+n);}
+#if defined(GAME_B) || defined(GAME_W)
+template<class F>F api(u32 a){return reinterpret_cast<F>(nativeEntry(a));}
+template<class F>F ov(u32 a){return reinterpret_cast<F>(overlayEntry(a));}
+#else
 template<class F>F api(u32 a){return reinterpret_cast<F>(nativeAddress(a)|1);}
 template<class F>F ov(u32 a){return reinterpret_cast<F>(overlayAddress(a)|1);}
+#endif
 constexpr u32 INVALID=0xffffffff;
 struct Session {u32 magic;void* work;void* unit;void* actors[8];u32 chars[8],palette,animation;void* art[8];void* task;u8 held,edge,hp,slot,candy,visible,pressed,error;u16 repeat;u8 dirty,nativePrompt;u16 oldItem;u32 oldMode;void* request;u16 frame[92];u8 frameSaved,frameHidden,hasCandy,nav,navItem,reserved,border,confirm;void* confirmText;u16 colors[48];void* restoreActor;void* restoreArt;u32 restoreChar;u32 sectionFlags[5];u16 mask;u8 visibleCount,layoutReady,layoutChanged;} session;
 static_assert(__builtin_offsetof(Session,hp)==122);
@@ -23,21 +28,29 @@ u32 centerX(u32 i){u32 n=0;for(u32 p=0;p<order(i);p++)if(available(button(p)))n+
 void navBorder(bool on);
 void confirmClose(void* w,bool accept);
 void* evolutionOwner;
+#if defined(GAME_B) || defined(GAME_W)
+// A medicine action may outlive the Party work through Summary or Evolution.
+// Keep its native item until the field callback has copied the request, then
+// follow the same owner into the next request. Never retain freed Party work.
+void* medicineOwner;
+u32 medicineStage,medicineMode;
+u16 medicineItem;
+#endif
 void* flagRequest;
 void* flagWork;
 void* fallbackWork;
 void clear(void* p,u32 n){for(u32 i=0;i<n;i++)at<u8>(p,i)=0;}
-void* request(void* w){return at<void*>(w,0x28c);}
-bool eligible(void* w){return w&&at<u32>(request(w),0x44)==0;}
+void* request(void* w){return at<void*>(w,Profile::Request);}
+bool eligible(void* w){return w&&at<u32>(request(w),Profile::Mode)==0;}
 bool ownsCandy(void* w){void* bag=at<void*>(request(w),4);return bag&&api<u32(*)(void*,u32,u32,u32)>(0x2008474)(bag,622,1,at<u16>(w,0));}
 u32 get(void* p,u32 f){return api<u32(*)(void*,u32,void*)>(0x201cd24)(p,f,nullptr);}
 void* selected(void* w,u32 slot){void* p=at<void*>(request(w),0);if(slot>=6||slot>=api<u32(*)(void*)>(0x201fe24)(p))return nullptr;void* mon=api<void*(*)(void*,u32)>(0x201ff34)(p,slot);return get(mon,76)?nullptr:mon;}
-void hideCancel(void* w){for(u32 offset=0x1e8;offset<=0x1ec;offset+=4){void* actor=at<void*>(w,offset);if(actor)api<void(*)(void*,u32)>(0x204c150)(actor,0);}}
-void sound(){api<void(*)(u32)>(0x2006254)(1356);}
-void moveSound(){api<void(*)(u32)>(0x2006254)(1352);}
+void hideCancel(void* w){for(u32 offset=Profile::CancelFirst;offset<=Profile::CancelLast;offset+=4){void* actor=at<void*>(w,offset);if(actor)api<void(*)(void*,u32)>(0x204c150)(actor,0);}}
+void sound(){api<void(*)(u32)>(0x2006254)(Profile::DecideSound);}
+void moveSound(){api<void(*)(u32)>(0x2006254)(Profile::MoveSound);}
 void promptHidden(void* w,bool hide){
  if(session.work!=w||hide==bool(session.frameHidden))return;
- void* prompt=at<void*>(w,0x154);if(!prompt)return;
+ void* prompt=at<void*>(w,Profile::Prompt);if(!prompt)return;
  void* window=at<void*>(prompt,4);if(!window)return;
  // This verified 256px BG0 map owns the prompt's 23x4 tile rectangle.
  // Edit its native RAM buffer and queue its normal VBlank screen upload.
@@ -51,9 +64,9 @@ void promptHidden(void* w,bool hide){
  session.frameSaved=1;session.frameHidden=hide;api<void(*)(u32)>(0x2045ba8)(0);
 }
 void blank(void* w,void* prompt){if(!prompt||!at<void*>(prompt,4))return;api<void(*)(void*)>(0x2021c70)(at<void*>(prompt,40));at<u32>(prompt,36)=0;ov<void(*)(void*,void*)>(0x219fac4)(w,prompt);if(session.work==w){session.frameHidden=0;session.nativePrompt=0;}}
-void restoreCandy(){if(!session.candy||!session.request)return;at<u32>(session.request,0x44)=session.oldMode;at<u16>(session.request,0x54)=session.oldItem;session.candy=0;}
+void restoreCandy(){if(!session.candy||!session.request)return;at<u32>(session.request,Profile::Mode)=session.oldMode;at<u16>(session.request,Profile::Item)=session.oldItem;session.candy=0;}
 void dispose(){
- if(session.confirmText){if(session.work)api<void(*)(void*)>(0x2021c70)(at<void*>(at<void*>(session.work,0x154),40));api<void(*)(void*)>(0x2048590)(session.confirmText);session.confirmText=nullptr;}
+ if(session.confirmText){if(session.work)api<void(*)(void*)>(0x2021c70)(at<void*>(at<void*>(session.work,Profile::Prompt),40));api<void(*)(void*)>(0x2048590)(session.confirmText);session.confirmText=nullptr;}
  if(session.work)promptHidden(session.work,false);
  if(session.task)api<void(*)(void*)>(0x203a6d4)(session.task);
  session.task=nullptr;
@@ -68,7 +81,7 @@ void upload(void*,void*){
  // Reuse the native selector's animated teal shade, including its 64-frame
  // sine fade. Persistent data goes through the native palette upload queue.
  // Only unused selector entries change; the HP underline keeps its own color.
- u16 color=session.nav&&session.border!=255?at<u16>(session.work,0xac):0x7fe0;
+ u16 color=session.nav&&session.border!=255?at<u16>(session.work,Profile::SelectorColor):0x7fe0;
  if(session.palette!=INVALID&&(session.colors[15]!=color||session.colors[25]!=color||session.colors[47]!=color)){
   session.colors[15]=session.colors[25]=session.colors[47]=color;
   struct Palette{u32 format,extended,size;void* data;}p={3,0,96,session.colors};
@@ -93,7 +106,7 @@ bool configuredOn(void* w,void* c){
  u32 version=at<u32>(c,4),size=at<u32>(c,8);
  if((version!=2||size!=24)&&(version!=3||size!=44))return false;
  u32 sum=0x51415050^1,flags=version==3?6:1;bool owned=false;
- for(u32 i=0;i<flags;i++){u32 flag=at<u32>(c,16+i*4);if(flag>3059)return false;sum^=flag;owned|=flag!=0;}
+ for(u32 i=0;i<flags;i++){u32 flag=at<u32>(c,16+i*4);if(flag>Profile::MaxSaveFlag)return false;sum^=flag;owned|=flag!=0;}
  if(at<u32>(c,size-4)!=sum)return false;
  if(!owned)return true;
  // Capture EventWork from GameData while the native field application builds
@@ -120,7 +133,19 @@ void refreshLayout(void* w){
  for(u32 i=0;i<BUTTONS;i++)if(actor(i)){const s16 xy[2]={static_cast<s16>(centerX(i)),180};api<void(*)(void*,const s16*,u32)>(0x204c16c)(actor(i),xy,0);}
 }
 bool enabledArchive(void* w){u32 heap=at<u16>(w,0);void* h=api<void*(*)(u32,u32,u32,const char*,u32)>(0x203a228)(heap,80,1,"party-tools",0);if(!h)return false;api<void(*)(void*)>(0x2070ca8)(h);if(!api<u32(*)(void*,const char*)>(0x2070ecc)(h,"rom:/party-tools/ui.narc")){api<void(*)(void*)>(0x203a278)(h);return false;}api<void(*)(void*)>(0x204aac8)(h);void* c=api<void*(*)(void*,u32,u32)>(0x204ab48)(h,0,heap);bool on=configuredOn(w,c);if(c)api<void(*)(void*)>(0x203a278)(c);api<void(*)(void*)>(0x204ab38)(h);return on;}
-bool capacity(u32 heap){void* sys=*reinterpret_cast<void**>(nativeAddress(0x214197c));if(!sys)return false;u32 free=0;void* chars=at<void*>(sys,0x10c);for(u32 i=0;i<at<u16>(sys,0x118);i++)if(at<u32>(chars,i*64+60)&0x80000000)free++;if(free<BUTTONS)return false;void* palettes=at<void*>(sys,0x110);bool pal=false;for(u32 i=0;i<at<u16>(sys,0x11a);i++){u32 size=at<u32>(palettes,i*24+20),start=at<u32>(palettes,i*24+12);if(size&0x80000000)pal=true;else if(start!=INVALID&&start<512&&start+(size?size:32)>416)return false;}void* anim=at<void*>(sys,0x114);bool animation=false;for(u32 i=0;i<at<u16>(sys,0x11c);i++)if(at<u32>(anim,i*20+16))animation=true;return pal&&animation&&api<u32(*)(u32)>(0x2039f8c)(heap)>=18432&&api<u32(*)(u32)>(0x2039fbc)(heap)>=8192;}
+#if defined(GAME_B) || defined(GAME_W)
+bool capacity(void* w,u32 heap){
+#else
+bool capacity(u32 heap){
+#endif
+ void* sys=*reinterpret_cast<void**>(nativeAddress(0x214197c));if(!sys)return false;u32 free=0;void* chars=at<void*>(sys,0x10c);for(u32 i=0;i<at<u16>(sys,0x118);i++)if(at<u32>(chars,i*64+60)&0x80000000)free++;if(free<BUTTONS)return false;void* palettes=at<void*>(sys,0x110);bool pal=false;for(u32 i=0;i<at<u16>(sys,0x11a);i++){u32 size=at<u32>(palettes,i*24+20),start=at<u32>(palettes,i*24+12);if(size&0x80000000)pal=true;else{
+#if defined(GAME_B) || defined(GAME_W)
+ // The native compressed registration sets only the free bit, leaving the
+ // lower size bits undefined. This owned native handle spans banks 6–8.
+ if(i==at<u32>(w,Profile::CompressedPaletteHandle)){if(start!=Profile::CompressedPaletteStart)return false;size=Profile::CompressedPaletteSize;}
+#endif
+ if(start!=INVALID&&start<512&&start+(size?size:32)>416)return false;
+}}void* anim=at<void*>(sys,0x114);bool animation=false;for(u32 i=0;i<at<u16>(sys,0x11c);i++)if(at<u32>(anim,i*20+16))animation=true;return pal&&animation&&api<u32(*)(u32)>(0x2039f8c)(heap)>=18432&&api<u32(*)(u32)>(0x2039fbc)(heap)>=8192;}
 void attach(void* w){
  // BSS starts zero before the first initialization; never free handle zero then.
  if(session.magic==0x53504150)dispose();else{clear(&session,sizeof(session));session.palette=session.animation=INVALID;for(u32 i=0;i<BUTTONS;i++)character(i)=INVALID;}
@@ -134,7 +159,11 @@ void attach(void* w){
  if(on&&at<u32>(config,4)==3)for(u32 i=0;i<5;i++)session.sectionFlags[i]=at<u32>(config,20+i*4);
  if(config)api<void(*)(void*)>(0x203a278)(config);
  if(on)refreshLayout(w);
+ #if defined(GAME_B) || defined(GAME_W)
+ if(on&&!capacity(w,heap))on=false;
+#else
  if(on&&!capacity(heap))on=false;
+#endif
  if(on){
   void* colors=api<void*(*)(void*,u32,u32)>(0x204ab48)(h,1,heap);
   on=colors&&at<u32>(colors,0)==0x4e434c52&&at<u32>(colors,32)==96&&at<u32>(colors,36)==16;
@@ -152,28 +181,72 @@ void attach(void* w){
  }
  api<void(*)(void*)>(0x204ab38)(h);
  if(on){session.dirty=1;session.task=api<void*(*)(void*,void*,u32)>(0x20056fc)(reinterpret_cast<void*>(upload),nullptr,2);on=session.task;}
- if(!on){dispose();return;}session.error=0;blank(w,at<void*>(w,0x154));promptHidden(w,true);hideCancel(w);
+ if(!on){dispose();return;}session.error=0;blank(w,at<void*>(w,Profile::Prompt));promptHidden(w,true);hideCancel(w);
 }
-void redraw(void* w,u32 slot){void* t=at<void*>(w,0x164+slot*4);void* mon=selected(w,slot);if(!t||!mon)return;u16 hp=get(mon,160);at<u16>(t,6)=at<u16>(t,8)=hp;ov<void(*)(void*,void*)>(0x219f350)(w,t);ov<void(*)(void*,void*,u32)>(0x219f0e0)(w,t,hp?0:6);}
+void redraw(void* w,u32 slot){
+ void* t=at<void*>(w,Profile::Plates+slot*4);void* mon=selected(w,slot);if(!t||!mon)return;
+ u16 hp=get(mon,160);at<u16>(t,6)=at<u16>(t,8)=hp;ov<void(*)(void*,void*)>(0x219f350)(w,t);
+#if defined(GAME_B) || defined(GAME_W)
+ // BW1's palette indices differ. Its native selector chooses both the living
+ // and fainted colors and keeps the selected card's animated border intact.
+ ov<void(*)(void*,void*,u32)>(0x219f008)(w,t,slot==at<u32>(w,Profile::Slot));
+#else
+ ov<void(*)(void*,void*,u32)>(0x219f0e0)(w,t,hp?0:6);
+#endif
+}
 void candy(void* w,void* mon,u32 slot){
  if(!ownsCandy(w)||get(mon,158)>=100)return;
  promptHidden(w,false);
- session.request=request(w);session.oldMode=at<u32>(session.request,0x44);session.oldItem=at<u16>(session.request,0x54);session.candy=1;
- at<u32>(session.request,0x44)=5;at<u16>(session.request,0x54)=622;at<u32>(session.request,0x4c)=slot;at<void*>(w,0x3c)=mon;
+ session.request=request(w);session.oldMode=at<u32>(session.request,Profile::Mode);session.oldItem=at<u16>(session.request,Profile::Item);session.candy=1;
+ at<u32>(session.request,Profile::Mode)=5;at<u16>(session.request,Profile::Item)=622;at<u32>(session.request,Profile::Selected)=slot;at<void*>(w,Profile::Pokemon)=mon;
  // Enter the native medicine route after its selection check. It owns level
  // changes, stats, friendship, learned moves, messages and evolution checks.
  ov<void(*)(void*)>(0x219b30c)(w);
 }
-extern "C" u32 PaInit(void* w){u32 r=ov<u32(*)(void*)>(0x2199bc8)(w);if(r){attach(w);fallbackWork=eligible(w)&&session.work!=w?w:nullptr;if(fallbackWork)ov<void(*)(void*,void*,u32)>(0x219f880)(w,at<void*>(w,0x154),9);}return r;}
+extern "C" u32 PaInit(void* w){u32 r=ov<u32(*)(void*)>(0x2199bc8)(w);if(r){attach(w);fallbackWork=eligible(w)&&session.work!=w?w:nullptr;if(fallbackWork)ov<void(*)(void*,void*,u32)>(0x219f880)(w,at<void*>(w,Profile::Prompt),9);}return r;}
+#if defined(GAME_B) || defined(GAME_W)
+// BW1 builds the request in the field overlay. Capture its native GameData
+// owner after construction, including requests returning from move selection.
+extern "C" void* PaRequest(void* field,u32 mode,u32 previous,const void* data){
+ void* r=ov<void*(*)(void*,u32,u32,const void*)>(0x215b818)(field,mode,previous,data);
+ void* game=api<void*(*)(void*)>(0x20120f4)(at<void*>(at<void*>(field,0x18),0));
+ flagRequest=r;flagWork=r&&game?api<void*(*)(void*)>(0x2017394)(game):nullptr;
+ if(medicineOwner==field&&medicineStage>=2){
+  if(medicineStage==3&&r){at<u32>(r,Profile::Mode)=medicineMode;at<u16>(r,Profile::Item)=medicineItem;medicineOwner=nullptr;medicineStage=0;}
+  else{medicineOwner=r;medicineStage=r?1:0;}
+ }
+ return r;
+}
+#else
 extern "C" void* PaRequest(void* game,u32 mode,void* party,u32 heap){void* r=api<void*(*)(void*,u32,void*,u32)>(0x2034c80)(game,mode,party,heap);flagRequest=r;flagWork=r?api<void*(*)(void*)>(0x2017394)(game):nullptr;return r;}
-extern "C" u32 PaEnd(void* w){if(session.work==w){if(session.candy&&(at<u32>(request(w),0x50)==5||at<u32>(request(w),0x50)==9))evolutionOwner=request(w);restoreCandy();dispose();}if(flagRequest==request(w)){flagRequest=nullptr;flagWork=nullptr;}if(fallbackWork==w)fallbackWork=nullptr;return ov<u32(*)(void*)>(0x2199de8)(w);}
+#endif
+extern "C" u32 PaEnd(void* w){if(session.work==w){if(session.candy&&(at<u32>(request(w),Profile::Result)==5||at<u32>(request(w),Profile::Result)==9)){
+#if defined(GAME_B) || defined(GAME_W)
+ medicineOwner=request(w);medicineStage=1;medicineMode=session.oldMode;medicineItem=session.oldItem;session.candy=0;
+#else
+ evolutionOwner=request(w);
+#endif
+ }restoreCandy();dispose();}
+#if defined(GAME_B) || defined(GAME_W)
+ if(medicineOwner==request(w)&&medicineStage==1&&at<u32>(request(w),Profile::Result)!=5&&at<u32>(request(w),Profile::Result)!=9){medicineOwner=nullptr;medicineStage=0;}
+#endif
+ if(flagRequest==request(w)){flagRequest=nullptr;flagWork=nullptr;}if(fallbackWork==w)fallbackWork=nullptr;return ov<u32(*)(void*)>(0x2199de8)(w);}
 extern "C" void PaPrompt(void* w,void* p,u32 message){if(fallbackWork!=w&&eligible(w)&&message==9&&enabledArchive(w))blank(w,p);else{if(session.work==w)session.nativePrompt=1;promptHidden(w,false);ov<void(*)(void*,void*,u32)>(0x219f880)(w,p,message);}}
 extern "C" void PaSubtract(void* w,u32 item){if(session.work!=w||!session.candy)ov<void(*)(void*,u32)>(0x219e688)(w,item);}
 extern "C" u32 PaTick(void* w){
  if(session.work==w){session.layoutChanged=0;u32 x=0,y=0;bool down=api<u32(*)(u32*,u32*)>(0x203dab0)(&x,&y);session.edge=down&&!session.held;session.held=down;if(eligible(w))refreshLayout(w);session.visible=eligible(w)&&at<u8>(w,12)==2&&at<u8>(w,14)==1&&!session.confirm;
-  if(session.candy&&at<u8>(w,12)==2){restoreCandy();at<u32>(request(w),0x50)=0;blank(w,at<void*>(w,0x154));session.visible=1;}
+  if(session.candy&&at<u8>(w,12)==2){restoreCandy();at<u32>(request(w),Profile::Result)=0;blank(w,at<void*>(w,Profile::Prompt));session.visible=1;}
  }
- u32 r=ov<u32(*)(void*)>(0x2199ed0)(w);if(session.work==w){session.visible=eligible(w)&&at<u8>(w,12)==2&&at<u8>(w,14)==1&&!session.confirm;promptHidden(w,eligible(w)&&!session.candy&&!session.confirm&&!session.nativePrompt);hideCancel(w);}return r;
+ u32 r=ov<u32(*)(void*)>(0x2199ed0)(w);
+#if defined(GAME_B) || defined(GAME_W)
+ if(medicineOwner==request(w)&&medicineStage==1&&at<u8>(w,12)==2){
+  at<u32>(request(w),Profile::Mode)=medicineMode;at<u16>(request(w),Profile::Item)=medicineItem;at<u32>(request(w),Profile::Result)=0;
+  medicineOwner=nullptr;medicineStage=0;attach(w);
+  fallbackWork=session.work!=w?w:nullptr;
+  if(fallbackWork)ov<void(*)(void*,void*,u32)>(0x219f880)(w,at<void*>(w,Profile::Prompt),9);
+ }
+#endif
+ if(session.work==w){session.visible=eligible(w)&&at<u8>(w,12)==2&&at<u8>(w,14)==1&&!session.confirm;promptHidden(w,eligible(w)&&!session.candy&&!session.confirm&&!session.nativePrompt&&Profile::hideSelectionFrame(at<u8>(w,12)));hideCancel(w);}return r;
 }
 void pixel(void* art,u32 x,u32 y,u32 value){u32 offset=((y/8)*4+x/8)*32+(y%8)*4+x%8/2;u8& p=at<u8>(art,offset);u32 shift=(x%2)*4;p=(p&~(15<<shift))|(value<<shift);}
 void navBorder(bool on){
@@ -188,10 +261,10 @@ void navBorder(bool on){
 void navExit(){session.nav=0;navBorder(false);}
 u32 nextExp(void* mon){u32 level=get(mon,158);return level<100?api<u32(*)(u32,u32,u32)>(0x201d5e0)(get(mon,5),get(mon,111),level+1):0;}
 void printOwned(void* w,const u16* chars){
- void* p=at<void*>(w,0x154);blank(w,p);
+ void* p=at<void*>(w,Profile::Prompt);blank(w,p);
  api<void(*)(void*,const u16*)>(0x2048640)(session.confirmText,chars);
  void* bitmap=api<void*(*)(void*)>(0x2048520)(at<void*>(p,4));
- api<void(*)(void*,void*,u32,u32,void*,void*,u32)>(0x2021ca8)(at<void*>(p,40),bitmap,1,1,session.confirmText,at<void*>(w,0x13c),0x440);at<u32>(p,36)=1;
+ api<void(*)(void*,void*,u32,u32,void*,void*,u32)>(0x2021ca8)(at<void*>(p,40),bitmap,1,1,session.confirmText,at<void*>(w,Profile::Message),0x440);at<u32>(p,36)=1;
 }
 void fullRestore(void* w);
 void confirmClose(void* w,bool accept){
@@ -204,10 +277,10 @@ void confirmClose(void* w,bool accept){
   const char* suffix="'s xp was edged!";for(u32 i=0;suffix[i];i++)chars[n++]=suffix[i];chars[n]=0xffff;
   session.confirm=2;printOwned(w,chars);sound();return;
  }}
- void* p=at<void*>(w,0x154);blank(w,p);if(session.confirmText)api<void(*)(void*)>(0x2048590)(session.confirmText);session.confirmText=nullptr;session.confirm=0;session.visible=1;promptHidden(w,true);if(heal)fullRestore(w);else sound();
+ void* p=at<void*>(w,Profile::Prompt);blank(w,p);if(session.confirmText)api<void(*)(void*)>(0x2048590)(session.confirmText);session.confirmText=nullptr;session.confirm=0;session.visible=1;promptHidden(w,true);if(heal)fullRestore(w);else sound();
 }
 bool openConfirm(void* w,u32 slot,const char* label,u32 state){
- void* p=at<void*>(w,0x154);if(!p||!at<void*>(p,4))return false;
+ void* p=at<void*>(w,Profile::Prompt);if(!p||!at<void*>(p,4))return false;
  // A native, owned string remains alive until the printer is reset on cancel,
  // confirmation or shutdown. Opening a question never changes party data.
  void* text=api<void*(*)(u32,u32)>(0x204855c)(32,at<u16>(w,0));if(!text)return false;
@@ -224,18 +297,23 @@ void fullRestore(void* w){
   void* mon=selected(w,i);if(!mon||!get(mon,160))continue;
   api<void(*)(void*,u32,u32)>(0x201cd48)(mon,160,get(mon,161));
   api<void(*)(void*,u32,u32)>(0x201cd48)(mon,157,0);
-  void* tile=at<void*>(w,0x164+i*4);if(tile){ov<void(*)(void*,void*,void*,u32)>(0x219f290)(w,tile,mon,0);ov<void(*)(void*,void*,u32)>(0x219f008)(w,tile,i==at<u32>(w,0x30));}
+  void* tile=at<void*>(w,Profile::Plates+i*4);if(tile){ov<void(*)(void*,void*,void*,u32)>(0x219f290)(w,tile,mon,0);ov<void(*)(void*,void*,u32)>(0x219f008)(w,tile,i==at<u32>(w,Profile::Slot));}
  }
- api<void(*)(u32)>(0x2006254)(1391);
+ api<void(*)(u32)>(0x2006254)(Profile::RecoverySound);
 }
 void activate(void* w,u32 hit){
  if(!available(hit))return;
- if(hit==RESTORE){u32 slot=session.hp||session.nav?session.slot:at<u32>(w,0x30);hpMode(false);if(openConfirm(w,slot,"Heal Party? A:Yes B:No",3))sound();return;}
- u32 slot=session.hp||session.nav?session.slot:at<u32>(w,0x30);void* mon=selected(w,slot);if(!mon)return;
+ if(hit==RESTORE){u32 slot=session.hp||session.nav?session.slot:at<u32>(w,Profile::Slot);hpMode(false);if(openConfirm(w,slot,"Heal Party? A:Yes B:No",3))sound();return;}
+ u32 slot=session.hp||session.nav?session.slot:at<u32>(w,Profile::Slot);void* mon=selected(w,slot);if(!mon)return;
  if(hit==0&&!ownsCandy(w))return;
  sound();if(hit==0)candy(w,mon,slot);else if(hit==1){session.slot=slot;hpMode(!session.hp);}else if(hit==2){hpMode(false);xp(w,mon,slot);}else {
-  hpMode(false);const u32 statuses[5]={2,5,4,3,1};u32 status=statuses[hit-3];bool remove=get(mon,157)==status;
-  if(remove||get(mon,160)){api<void(*)(void*,u32,u32)>(0x201cd48)(mon,157,remove?0:status);ov<void(*)(void*,void*,void*,u32)>(0x219f290)(w,at<void*>(w,0x164+slot*4),mon,0);ov<void(*)(void*,void*,u32)>(0x219f008)(w,at<void*>(w,0x164+slot*4),1);}
+  hpMode(false);
+#if defined(GAME_B) || defined(GAME_W)
+  u32 status=Profile::StatusMasks[hit-3];bool remove=Profile::matchesStatus(get(mon,157),hit-3);
+#else
+  const u32 statuses[5]={2,5,4,3,1};u32 status=statuses[hit-3];bool remove=get(mon,157)==status;
+#endif
+  if(remove||get(mon,160)){api<void(*)(void*,u32,u32)>(0x201cd48)(mon,157,remove?0:status);ov<void(*)(void*,void*,void*,u32)>(0x219f290)(w,at<void*>(w,Profile::Plates+slot*4),mon,0);ov<void(*)(void*,void*,u32)>(0x219f008)(w,at<void*>(w,Profile::Plates+slot*4),1);}
  }
 }
 extern "C" void PaIdle(void* w){
@@ -246,11 +324,11 @@ extern "C" void PaIdle(void* w){
  // The native Cancel and checkmark sprites are removed; their old touch area
  // cannot become an invisible way to cancel the party screen.
  if(!session.confirm&&down&&y>=168&&y<192&&x>=184&&x<228)return;
- if(session.confirm){at<u32>(w,0x30)=session.slot;if(session.confirm==2){if((pressed&3)||(session.edge&&down&&y>=168&&y<192))confirmClose(w,false);}else if(pressed&2)confirmClose(w,false);else if(pressed&1)confirmClose(w,true);else if(session.edge&&down&&y>=168&&y<192){u32 yes=session.confirm==3?74:54,no=session.confirm==3?106:90;if(x>=yes&&x<no)confirmClose(w,true);else if(x>=no&&x<184)confirmClose(w,false);}return;}
- if(pressed&0x200){hpMode(false);if(session.nav)navExit();else{if(!session.visibleCount)return;session.nav=1;session.slot=at<u32>(w,0x30);u32 p=0;while(!available(button(p)))p++;session.navItem=button(p);navBorder(true);}sound();return;}
- if(session.nav){at<u32>(w,0x30)=session.slot;if(pressed&2){hpMode(false);navExit();sound();return;}navBorder(true);}
+ if(session.confirm){at<u32>(w,Profile::Slot)=session.slot;if(session.confirm==2){if((pressed&3)||(session.edge&&down&&y>=168&&y<192))confirmClose(w,false);}else if(pressed&2)confirmClose(w,false);else if(pressed&1)confirmClose(w,true);else if(session.edge&&down&&y>=168&&y<192){u32 yes=session.confirm==3?74:54,no=session.confirm==3?106:90;if(x>=yes&&x<no)confirmClose(w,true);else if(x>=no&&x<184)confirmClose(w,false);}return;}
+ if(pressed&0x200){hpMode(false);if(session.nav)navExit();else{if(!session.visibleCount)return;session.nav=1;session.slot=at<u32>(w,Profile::Slot);u32 p=0;while(!available(button(p)))p++;session.navItem=button(p);navBorder(true);}sound();return;}
+ if(session.nav){at<u32>(w,Profile::Slot)=session.slot;if(pressed&2){hpMode(false);navExit();sound();return;}navBorder(true);}
  if(session.hp){
-  at<u32>(w,0x30)=session.slot;
+  at<u32>(w,Profile::Slot)=session.slot;
   if((pressed&3)||(session.edge&&hit==1)){hpMode(false);sound();return;}
   if(session.edge&&hit>=2)hpMode(false);
   else {
@@ -271,5 +349,19 @@ extern "C" void PaIdle(void* w){
  }
  ov<void(*)(void*)>(0x219bb48)(w);
 }
-extern "C" u32 PaPartyReturn(void* w,void* data){if(evolutionOwner==data)evolutionOwner=w;return ov<u32(*)(void*,void*)>(0x215ba0c)(w,data);}
-extern "C" u32 PaEvolutionReturn(void* w){u32 r=ov<u32(*)(void*)>(0x215c3e4)(w);if(evolutionOwner==w){evolutionOwner=nullptr;at<u32>(w,4)=0;at<u32>(w,12)=0;return 4;}return r;}
+extern "C" u32 PaPartyReturn(void* w,void* data){
+#if defined(GAME_B) || defined(GAME_W)
+ if(medicineOwner==data&&medicineStage==1){medicineOwner=w;medicineStage=2;}
+#else
+ if(evolutionOwner==data)evolutionOwner=w;
+#endif
+ return ov<u32(*)(void*,void*)>(0x215ba0c)(w,data);
+}
+extern "C" u32 PaEvolutionReturn(void* w){u32 r=ov<u32(*)(void*)>(0x215c3e4)(w);
+#if defined(GAME_B) || defined(GAME_W)
+ if(medicineOwner==w&&medicineStage==2){medicineStage=3;at<u32>(w,4)=0;at<u32>(w,12)=0;return 4;}
+#else
+ if(evolutionOwner==w){evolutionOwner=nullptr;at<u32>(w,4)=0;at<u32>(w,12)=0;return 4;}
+#endif
+ return r;
+}

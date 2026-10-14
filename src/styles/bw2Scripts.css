@@ -38,9 +38,27 @@
 .bw2-script-source-pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
 .bw2-script-source-pane .bw2-script-code { flex: 1; height: auto; }
 .bw2-script-code[hidden] { display: none; }
-.bw2-script-tabs { display: flex; gap: 6px; }
-.bw2-script-tabs button { padding: 7px 14px; border: 1px solid #54586e; border-radius: 4px; background: #21232e; color: #adb3c6; cursor: pointer; font: inherit; font-size: 13px; }
-.bw2-script-tabs button[aria-selected="true"] { color: #f2f2f2; border-color: #bd93f9; background: #bd93f926; }
+.bw2-script-tabs {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid #44475a;
+}
+.bw2-script-tabs button {
+  padding: 7px 14px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #d6d7e2;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  border-bottom: 3px solid transparent;
+}
+.bw2-script-tabs button[aria-selected="true"] {
+  color: #f2f2f2;
+  border-color: #bd93f9;
+  background: transparent;
+}
 .bw2-script-texts { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid #44475a; border-radius: 6px; background: #21232e; overflow: hidden; }
 .bw2-script-texts[hidden], .bw2-script-message[hidden] { display: none; }
 .bw2-text-toolbar { display: grid; gap: 6px; }

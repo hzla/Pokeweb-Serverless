@@ -1,0 +1,13 @@
+[
+  {
+    "version": "0.1.0-test",
+    "games": {
+      "W2": {
+        "sha256": "040bdff0eb82a4dac7b10996b106ac1036f2c17d6d647d87fbf9c65343fff470"
+      },
+      "B2": {
+        "sha256": "2a04051610ea2a529e40ad3df8ba589c2e7b5cf65996f420ffc4b3c3fd07ffa4"
+      }
+    }
+  }
+]

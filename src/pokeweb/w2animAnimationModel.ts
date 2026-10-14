@@ -56,11 +56,16 @@ export function hydrateW2AnimFromRom(project: ProjectState, rom: NintendoDSRom):
   const fileId = rom.filenames.idOf(W2ANIM_PATH);
   if (fileId === undefined) return false;
   if (project.session.baseVersion !== "W2" || rom.idCode !== "IRDO") throw new Error("w2anim authoring supports the US White 2 integration layout only");
-  const bytes = rom.files[fileId]!;
+  const source = rom.files[fileId]!;
+  // A ROM-backed view would pin (and serialize) the entire source buffer.
+  // Both the archive and its parsed cache must own only this file's bytes.
+  const bytes = source.buffer.byteLength === source.byteLength ? source : source.slice();
   const value = parseW2Anim(bytes);
   parsed.set(bytes, value); backend.set(project.originalRomBytes ?? bytes, true);
   if (!project.w2animAnimations) project.w2animAnimations = { fileId, sourceBytes: bytes, editorOriginals: {}, editorTargets: {} };
   else if (!project.w2animAnimations.sourceBytes.length) project.w2animAnimations.sourceBytes = bytes;
+  else if (project.w2animAnimations.sourceBytes.buffer.byteLength !== project.w2animAnimations.sourceBytes.byteLength)
+    project.w2animAnimations.sourceBytes = project.w2animAnimations.sourceBytes.slice();
   project.pwanAnimations ??= { overrides: [], dirty: false };
   project.trainerPwanAnimations ??= { overrides: [], dirty: false };
   return true;

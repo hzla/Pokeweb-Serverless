@@ -9,9 +9,9 @@ import collections,csv,json,ndspy.narc
 h=r.h;uc=h.uc
 h.SYS=0x0220a000 # Separate the actor system from the expanded four-actor pool.
 ov=r.rom.loadArm9Overlays([12])[12];uc.mem_write(ov.ramAddress,bytes(ov.data))
-EVENTS=PACKAGE_BUILD/'PokewebFollowingEventsW2.dll';EBASE=0x022c0000
+EVENTS=PACKAGE_BUILD/f'PokewebFollowingEvents{MODULE_SUFFIX}.dll';EBASE=0x022c0000
 ex=load_dependencies(uc,EBASE,0x022d0000)
-install_hooks(uc,PACKAGE_BUILD/'PokewebFollowingCoreW2.dll',0x022d0000,ex)
+install_hooks(uc,PACKAGE_BUILD/f'PokewebFollowingCore{MODULE_SUFFIX}.dll',0x022d0000,ex)
 install_hooks(uc,EVENTS,EBASE,ex)
 install_hooks(uc,h.DLL,h.BASE,ex)
 NPC=h.A+256;ENTITY=0x0220b000;VM=0x0220c000;ENV=VM+0x100;PARAM=VM+0x200;WORK=VM+0x300;PROGRAM=VM+0x400
@@ -201,6 +201,76 @@ setup();event();opcode(0xab)
 uc.mem_write(h.FOREIGN+32,struct.pack('<HHII',278,0,0,ENV))
 event(h.FOREIGN,0x02008009,h.EVENT);recalled(2)
 
+# All pure audio commands were already admitted at the opcode layer. Execute
+# every native music/fanfare constructor and callback too: their child event
+# used to trip the separate callback guard. Audio mixing/heap allocation are
+# spies; real callback phases, waiting, forwarding and scene guards execute.
+if game_code==b'IRDO' and os.environ.get('FOLLOWING_PROFILE','stock')=='stock':
+ audio_policy=json.loads((HERE/'audio-event-policy.json').read_text())
+ pure_audio=tuple(audio_policy['pureAudioOpcodes'])
+ assert all(h.call('fws_safe_opcode',[code]) for code in pure_audio)
+ for entry in audio_policy['events']:
+  for pointer,key in ((entry['callback'],'callbackExpectedHex'),(entry['constructor'],'constructorExpectedHex')):
+   expected=bytes.fromhex(entry[key]);assert bytes(uc.mem_read(pointer&~1,len(expected)))==expected
+ AUDIO_FIELDWORK=0x0220f000;AUDIO_CONTEXT=0x0220f400
+ audio_active=False;audio_running=0;audio_created=[];audio_controls=[]
+ def audio_native(u,pc,size,user):
+  if not audio_active:return
+  if pc==0x02016cb4:
+   assert (reg(0),reg(1),reg(3))==(h.GAME,0,16)
+   audio_created.append(reg(2))
+   uc.mem_write(h.FOREIGN,struct.pack('<5I',h.u32(h.GAME+0x18),reg(2),0,h.FOREIGN+32,h.GAME))
+   uc.mem_write(h.FOREIGN+32,bytes(16));ret(h.FOREIGN)
+  elif pc==0x0202eca8:
+   assert reg(0)==AUDIO_CONTEXT
+   audio_controls.append((reg(1),reg(2),reg(3),h.u32(h.F+24)));ret()
+  elif pc==0x0202ec68:
+   assert reg(0)==AUDIO_CONTEXT;ret(audio_running)
+ uc.hook_add(UC_HOOK_CODE,audio_native)
+ h.native_addresses.discard(0x02016cb4)
+ expect_recall=os.environ.get('FOLLOWING_AUDIO_EXPECT_RECALL')=='1'
+ audio_cases=0
+ for entry in audio_policy['events']:
+  for root in (False,True):
+   snap=setup()
+   if not root:event();opcode(entry['opcodes'][0])
+   h.put(h.GAME+0x1c,AUDIO_FIELDWORK);h.put(AUDIO_FIELDWORK+0x1b4,AUDIO_CONTEXT)
+   audio_active=True;before=len(audio_created);controls=len(audio_controls)
+   args=[h.GAME,1401,6,0] if entry['name']=='change-map' else [h.GAME,1401,6]
+   assert h.call(entry['constructor'],args)==h.FOREIGN
+   assert audio_created[before:]==[entry['callback']] and h.u32(h.FOREIGN+36)==AUDIO_CONTEXT
+   h.put(h.GAME+0x18,h.FOREIGN);h.call(0x02016a88,[h.GAME]);h.call('fws_poll')
+   if expect_recall:
+    recalled(2);assert len(audio_controls)==controls
+   else:
+    kept(snap);audio_running=1
+    done=h.call(0x02016cf8,[h.FOREIGN]);kept(snap)
+    if not done and entry['name'] in ('push','pop','play','play-ex','play-push'):
+     assert h.call(0x02016cf8,[h.FOREIGN])==0;kept(snap)
+    if not done:
+     audio_running=0
+     for _ in range(4):
+      done=h.call(0x02016cf8,[h.FOREIGN]);kept(snap)
+      if done:break
+     assert done
+    assert len(audio_controls)>controls and all(v[3]==h.A for v in audio_controls[controls:])
+    h.call(0x02016d08,[h.FOREIGN]);h.put(h.GAME+0x18,0 if root else h.EVENT)
+    if root:
+     uc.mem_write(h.GAME+0x35,b'\0');assert h.call('fws_poll')==4;kept(snap)
+    else:finish();kept(snap)
+   audio_cases+=1;audio_active=False
+ h.native_addresses.add(0x02016cb4)
+ # A known audio address cannot borrow another game's sound work or hide
+ # an unrelated ancestor event. These are ownership failures, not audio use.
+ for bad in ('sound','work','game','parent'):
+  snap=setup();event();h.put(h.GAME+0x1c,AUDIO_FIELDWORK);h.put(AUDIO_FIELDWORK+0x1b4,AUDIO_CONTEXT)
+  h.put(h.FOREIGN+36,AUDIO_CONTEXT+4 if bad=='sound' else AUDIO_CONTEXT)
+  if bad=='parent':h.put(h.EVENT+4,0x02008009)
+  uc.mem_write(h.FOREIGN,struct.pack('<5I',h.EVENT,0x0202fa9d,0,0 if bad=='work' else h.FOREIGN+32,0 if bad=='game' else h.GAME))
+  h.put(h.GAME+0x18,h.FOREIGN);h.call('fws_poll');recalled(2)
+ print(f'Audio checks passed: {len(pure_audio)} pure audio opcodes, {audio_cases} native constructor/callback root/child cases; '+
+       ('old callback recalls reproduced.' if expect_recall else 'waiting, completion, sound forwarding and retained actor/pose/trail; ownership rejection intact.'))
+
 # Exact US PC opcodes; 12D/12E/12F no longer receive PC exceptions.
 # 14C is harmless user-work cleanup, but must not preserve a PC pose.
 snap=setup();event();opcode(0x14c);kept(snap);assert not h.call('fws_take_restore',[VEC])
@@ -374,22 +444,28 @@ snap=setup();event();actor_pos(10,8);h.call(0x02166ec8,[NPC,9]);recalled(4);asse
 snap=setup();event();actor_pos(10,8,2);h.call(0x02166ec8,[NPC,9]);kept(snap)
 for code in (8,0x2c,0x34,0x43):
  setup();event();h.call(0x02166ec8,[h.P,code]);recalled(3)
-for code in range(0x54,0x5c):
- snap=setup();event();h.put(h.GAME+0x18,0)
- h.put(h.P,h.u32(h.P)|2) # initialized retail player uses world-step path
- h.call(0x02166ec8,[h.P,code]);kept(snap)
+if os.environ.get('FOLLOWING_VARIANT','full')=='full':
+ for code in range(0x54,0x5c):
+  snap=setup();event();h.put(h.GAME+0x18,0)
+  h.put(h.P,h.u32(h.P)|2) # initialized retail player uses world-step path
+  h.call(0x02166ec8,[h.P,code]);kept(snap)
+  uc.mem_write(VEC,struct.pack('<iii',11*65536,0,10*65536))
+  h.call(0x02167348,[h.P,VEC]);kept(snap)
+  # A later live event cannot inherit the event-end running exemption.
+  event();h.call(0x02166ec8,[h.P,code]);recalled(3)
+ snap=setup();event();h.put(h.GAME+0x18,0);h.put(h.P,h.u32(h.P)|2)
+ h.call(0x02166ec8,[h.P,0x58]);kept(snap)
+ uc.mem_write(VEC,struct.pack('<iii',13*65536,0,10*65536))
+ h.call(0x02167348,[h.P,VEC]);recalled(3) # teleport-scale step
+ setup();event();h.put(h.GAME+0x18,0);h.put(h.P,h.u32(h.P)|2)
+ h.call(0x02166ec8,[h.P,0x58])
  uc.mem_write(VEC,struct.pack('<iii',11*65536,0,10*65536))
- h.call(0x02167348,[h.P,VEC]);kept(snap)
- # A later live event cannot inherit the event-end running exemption.
- event();h.call(0x02166ec8,[h.P,code]);recalled(3)
-snap=setup();event();h.put(h.GAME+0x18,0);h.put(h.P,h.u32(h.P)|2)
-h.call(0x02166ec8,[h.P,0x58]);kept(snap)
-uc.mem_write(VEC,struct.pack('<iii',13*65536,0,10*65536))
-h.call(0x02167348,[h.P,VEC]);recalled(3) # teleport-scale step
-setup();event();h.put(h.GAME+0x18,0);h.put(h.P,h.u32(h.P)|2)
-h.call(0x02166ec8,[h.P,0x58])
-uc.mem_write(VEC,struct.pack('<iii',11*65536,0,10*65536))
-h.call(0x02167c0c,[h.P,VEC,0]);recalled(3) # direct placement
+ h.call(0x02167c0c,[h.P,VEC,0]);recalled(3) # direct placement
+else:
+ # The no-live-event running exemption is a pre-existing full-only policy.
+ for code in range(0x54,0x5c):
+  setup();event();h.put(h.GAME+0x18,0);h.put(h.P,h.u32(h.P)|2)
+  h.call(0x02166ec8,[h.P,code]);recalled(3)
 setup();event();h.call(0x02166ec8,[NPC,0xc0]);recalled(7)
 
 # Common field-event setup pauses autonomous actor movement. A dormant queued
@@ -436,7 +512,7 @@ for conflict in ('id','pool','space','safe'):
 snap=setup();event();h.call(0x02166980,[NPC]);kept(snap)
 setup();event();before=len(r.deletes);h.call(0x02166980,[h.A]);recalled(11);assert len(r.deletes)==before+1
 setup();event();h.half(ENTITY,0xf0)
-efuncs=elf_functions(PACKAGE_BUILD/'PokewebFollowingEventsW2.elf')[1]
+efuncs=elf_functions(PACKAGE_BUILD/f'PokewebFollowingEvents{MODULE_SUFFIX}.elf')[1]
 args=[h.SYS,0,0,0]+list(struct.unpack('<9I',uc.mem_read(ENTITY,36)))
 assert h.call(EBASE+efuncs['THUMB_BRANCH_LINK_12_0x02166836'][0],args)==h.A;recalled(5)
 setup();event();uc.mem_write(VEC,struct.pack('<iii',0,0,0));before=len(observed);h.call(0x02167c0c,[h.A,VEC,0]);recalled(5)

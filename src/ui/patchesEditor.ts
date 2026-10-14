@@ -1,3 +1,4 @@
+import { renderInlineStatus } from "./inlineStatus";
 import {
   addFairyTypeSupport,
   addMoveExpansion,
@@ -47,7 +48,7 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
           <p>Imports three AI ability slots and raw Hidden Ability Chance values from this ROM’s injected tables into the Pokémon personal editor. Gameplay use of these personal fields requires a Cascade runtime update.</p>
         </div>
         <div class="patch-card__meta">
-          <span class="patch-badge ${cascadeStatus.installed ? "-ok" : cascadeStatus.canMigrate ? "" : "-warn"}">${cascadeStatus.installed ? "Migrated" : cascadeStatus.canMigrate ? "Ready" : "Unavailable"}</span>
+          ${renderInlineStatus(cascadeStatus.installed ? "Migrated" : cascadeStatus.canMigrate ? "Ready" : "Unavailable", { className: "patch-badge" })}
           <span>Cascade White</span>
         </div>
       </div>
@@ -66,9 +67,7 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
               <p>Lets the move deleter and move replacement screens forget HM moves in Black / White.</p>
             </div>
             <div class="patch-card__meta">
-              <span class="patch-badge ${hmStatus === "patched" ? "-ok" : hmStatus === "unknown" ? "-warn" : ""}">
-                ${hmStatusLabel(hmStatus)}
-              </span>
+              ${renderInlineStatus(hmStatusLabel(hmStatus), { className: "patch-badge" })}
               <span>BW</span>
             </div>
           </div>
@@ -88,9 +87,7 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
               <p>Adds Fairy as a battle type and updates the supporting battle, move, Pokémon, and text data used by the ROM.</p>
             </div>
             <div class="patch-card__meta">
-              <span class="patch-badge ${fairyStatus === "patched" ? "-ok" : ""}">
-                ${fairyStatusLabel(fairyStatus)}
-              </span>
+              ${renderInlineStatus(fairyStatusLabel(fairyStatus), { className: "patch-badge" })}
               <span>${project.session.baseVersion}</span>
             </div>
           </div>
@@ -114,9 +111,7 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
               <p>Lets trainer Pokémon use the Nature field from the trainer editor through a PMC runtime while preserving vanilla behavior when set to Auto.</p>
             </div>
             <div class="patch-card__meta">
-              <span class="patch-badge ${trainerNatureStatus === "patched" ? "-ok" : trainerNatureStatus === "unknown" || trainerNatureStatus === "legacy" ? "-warn" : ""}">
-                ${trainerNatureStatusLabel(trainerNatureStatus)}
-              </span>
+              ${renderInlineStatus(trainerNatureStatusLabel(trainerNatureStatus), { className: "patch-badge" })}
               <span>${project.session.baseVersion}</span>
             </div>
           </div>
@@ -136,9 +131,7 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
               <p>Reorders Platinum ground-item scripts so script 7000 + the in-game item ID selects that item, while preserving existing pickups.</p>
             </div>
             <div class="patch-card__meta">
-              <span class="patch-badge ${itemStandardizationStatus === "patched" ? "-ok" : itemStandardizationStatus === "unknown" ? "-warn" : ""}">
-                ${itemStandardizationStatusLabel(itemStandardizationStatus)}
-              </span>
+              ${renderInlineStatus(itemStandardizationStatusLabel(itemStandardizationStatus), { className: "patch-badge" })}
               <span>Pt</span>
             </div>
           </div>
@@ -161,9 +154,7 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
               ${project.session.fairy ? "" : "<p>Fairy-type definitions are installed as Normal unless Fairy Type Support is already active.</p>"}
             </div>
             <div class="patch-card__meta">
-              <span class="patch-badge ${moveExpansionStatus === "patched" ? "-ok" : moveExpansionStatus === "unknown" ? "-warn" : ""}">
-                ${moveExpansionStatusLabel(moveExpansionStatus)}
-              </span>
+              ${renderInlineStatus(moveExpansionStatusLabel(moveExpansionStatus), { className: "patch-badge" })}
               <span>${project.session.baseRom === "BW2" ? "BW2" : "BW"}</span>
             </div>
           </div>
@@ -192,9 +183,7 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
               <p>Cave dust-cloud item rewards will skip the gem reward branch. Evolution stones and Everstone remain available.</p>
             </div>
             <div class="patch-card__meta">
-              <span class="patch-badge ${gemStatus === "patched" ? "-ok" : gemStatus === "unknown" ? "-warn" : ""}">
-                ${dustStatusLabel(gemStatus)}
-              </span>
+              ${renderInlineStatus(dustStatusLabel(gemStatus), { className: "patch-badge" })}
               <span>${project.session.baseRom === "BW2" ? "BW2" : "BW"}</span>
             </div>
           </div>
@@ -209,9 +198,7 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
               <p>Cave dust clouds will always attempt a wild encounter instead of rolling for an item reward.</p>
             </div>
             <div class="patch-card__meta">
-              <span class="patch-badge ${itemStatus === "patched" ? "-ok" : itemStatus === "unknown" ? "-warn" : ""}">
-                ${dustStatusLabel(itemStatus)}
-              </span>
+              ${renderInlineStatus(dustStatusLabel(itemStatus), { className: "patch-badge" })}
               <span>${project.session.baseRom === "BW2" ? "BW2" : "BW"}</span>
             </div>
           </div>

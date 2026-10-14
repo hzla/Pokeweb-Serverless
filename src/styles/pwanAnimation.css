@@ -4,12 +4,12 @@
   padding: 72px 24px 24px;
   width: 100%;
   color: #eef2fb;
-  background: #171b26;
+  background: #282a36;
   --pwan-accent: #1abc9c;
-  --pwan-accent-hover: rgb(26 188 156 / 14%);
+  --pwan-accent-hover: #44475a;
   --pwan-border: #44475a;
-  --pwan-panel: #242638;
-  --pwan-panel-strong: #282d3b;
+  --pwan-panel: #383a59;
+  --pwan-panel-strong: #383a59;
   --pwan-muted: #aeb4c6;
 }
 
@@ -18,14 +18,14 @@
 }
 
 .pwan-page .btn {
-  background: transparent;
-  border: 1px solid rgb(26 188 156 / 72%);
-  color: #dffcf6;
+  background: #383a59;
+  border: 1px solid #55586d;
+  color: #f2f2f2;
 }
 
 .pwan-page .btn:hover {
-  background: var(--pwan-accent-hover);
-  border-color: var(--pwan-accent);
+  background: #44475a;
+  border-color: #777b8f;
   color: #f8ffff;
 }
 
@@ -67,16 +67,19 @@
   gap: 12px;
   min-width: min(680px, 55vw);
   padding: 14px;
+  border: 0;
+  background: transparent;
+  border-bottom: 1px solid #44475a;
 }
 
 .pwan-runtime.-ready {
-  border-color: rgb(26 188 156 / 58%);
-  background: rgb(26 188 156 / 10%);
+  background: transparent;
+  border-left: 3px solid #50fa7b;
 }
 
 .pwan-runtime.-pending {
-  border-color: rgb(255 184 108 / 62%);
-  background: rgb(255 184 108 / 10%);
+  background: transparent;
+  border-left: 3px solid #ffb86c;
 }
 
 .pwan-runtime span,
@@ -791,11 +794,11 @@
   min-height: 116px;
   justify-items: center;
   align-content: center;
-  border: 1px dashed rgb(26 188 156 / 58%);
+  border: 1px dashed #777b8f;
   border-radius: 6px;
   padding: 14px;
-  background: rgb(26 188 156 / 7%);
-  color: #dffcf6;
+  background: #282a36;
+  color: #d6d7e2;
   cursor: pointer;
   text-align: center;
   transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
@@ -803,9 +806,8 @@
 
 .pwan-gif-dropzone:hover,
 .pwan-gif-dropzone.-dragging {
-  border-color: var(--pwan-accent);
-  background: var(--pwan-accent-hover);
-  box-shadow: inset 0 0 0 1px rgb(26 188 156 / 30%);
+  border-color: #bd93f9;
+  background: #383a59;
 }
 
 .pwan-gif-dropzone.-busy {
@@ -927,11 +929,11 @@
   flex-wrap: wrap;
   gap: 8px 14px;
   margin: -2px 0 12px;
-  border: 1px solid rgb(26 188 156 / 44%);
-  border-radius: 6px;
-  padding: 9px 10px;
-  background: rgb(26 188 156 / 10%);
-  color: #dffcf6;
+  border: 0;
+  border-radius: 0;
+  padding: 9px 0;
+  background: transparent;
+  color: #d6d7e2;
   font-size: 13px;
 }
 
@@ -1118,12 +1120,13 @@
 .pwan-archive-summary {
   display: grid;
   gap: 4px;
-  border: 1px solid #3b4254;
-  border-radius: 6px;
-  padding: 10px;
-  background: rgb(56 58 89 / 72%);
+  border: 0;
+  border-radius: 0;
+  padding: 10px 0;
+  background: transparent;
   color: var(--pwan-muted);
   font-size: 13px;
+  border-top: 1px solid #44475a;
 }
 
 .pwan-archive-summary strong {
@@ -1131,9 +1134,11 @@
 }
 
 .pwan-archive-summary.-error {
-  border-color: rgb(255 85 85 / 56%);
-  background: rgb(255 85 85 / 10%);
-  color: #ffb4b4;
+  border-color: #44475a;
+  background: transparent;
+  color: #f2f2f2;
+  border-left: 3px solid #ff8585;
+  padding-left: 10px;
 }
 
 @media (max-width: 980px) {
@@ -1182,3 +1187,7 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.pwan-page .btn.-primary { background: #1abc9c; border-color: #1abc9c; color: #101216; }
+.pwan-warning { background: #282a36; border: 0; border-left: 3px solid #ffb86c; border-radius: 0; color: #d6d7e2; }
+.pwan-empty { background: transparent; border: 0; color: #d6d7e2; }

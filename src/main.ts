@@ -1,4 +1,5 @@
 import "./styles/cgearButtons.css";
+import { ProjectDocumentError } from "./pokeweb/projectDocument";
 import { defaults as defaultCGearButtons } from "./cgearButtons/document";
 import { renderCGearButtonsEditor, stopCGearButtonsEditor } from "./ui/cgearButtonsEditor";
 import "./styles/customUi.css";
@@ -31,10 +32,14 @@ import "./styles/moveBackgrounds.css";
 import "./styles/battleBackgrounds.css";
 import "./styles/headerBattleEnvironments.css";
 import "./styles/overworldWeather.css";
+import "./styles/flyDestinations.css";
+import { renderFlyDestinationEditor } from "./ui/flyDestinationEditor";
+import { loadFlyDestinationEditorData } from "./pokeweb/flyDestinationModel";
 import "./styles/randomizer.css";
 import "./styles/trainerMusic.css";
 import "./styles/musicEditor.css";
 import "./styles/titleScreen.css";
+import "./styles/inlineStatus.css";
 
 import { MANDATORY_NARCS, SELECTABLE_NARCS, isGen4Project, isGen5Project, type NarcName } from "./pokeweb/constants";
 import { NARC } from "./nds/narc";
@@ -42,6 +47,7 @@ import { NintendoDSRom } from "./nds/rom";
 import { generateChangelogFromRomFiles, type ChangelogResult } from "./pokeweb/changelogModel";
 import { ensureActionChangelog, renderActionChangelogText, resetActionChangelog } from "./pokeweb/actionChangelog";
 import { exportModifiedRom } from "./pokeweb/exportRom";
+import { projectEditSession } from "./pokeweb/editSession";
 import { parseHeaders } from "./pokeweb/headerModel";
 import { installIntegrationConsoleApi } from "./pokeweb/integrationConsole";
 import { canUseLocalRomBridge, pickLocalRomFile, readDevRomFile, readLocalRomFile, readStoredLocalRomPath, rememberLocalRomPath, type LocalRomFile } from "./pokeweb/localRomBridge";
@@ -111,6 +117,7 @@ type AppRoute =
   | "music"
   | "patches"
   | "headers"
+  | "flyDestinations"
   | "weather"
   | "weatherGraphics"
   | "overworlds"
@@ -213,6 +220,7 @@ const APP_ROUTES: AppRoute[] = [
   "music",
   "patches",
   "headers",
+  "flyDestinations",
   "weather",
   "weatherGraphics",
   "overworlds",
@@ -259,6 +267,7 @@ const EDITOR_REQUIREMENTS: Record<
 > = {
   bw2Scripts: ["scripts"],
   headers: ["headers", "message_texts"],
+  flyDestinations: ["headers", "message_texts"],
   weather: ["headers", "message_texts"],
   weatherGraphics: [],
   buildings: [],
@@ -295,6 +304,7 @@ const EDITOR_REQUIREMENTS: Record<
 
 const NARC_LABELS: Partial<Record<NarcName, string>> = {
   headers: "Headers",
+  town_map: "Town Map / Fly Destinations",
   message_texts: "Message Text",
   story_texts: "Story Text",
   scripts: "Scripts",
@@ -401,7 +411,41 @@ let newProjectInFlight = false;
 let refreshRomRequestInFlight = false;
 let romExportInProgress = false;
 let quickLaunchInFlight = false;
-const scheduleSave = debounceProjectSave();
+let subscribedProject: ProjectState | undefined;
+let unsubscribeProjectEdits: (() => void) | undefined;
+let autosaveError: string | undefined;
+const scheduleSave = debounceProjectSave(350, {
+  onError: (error, savedProject) => {
+    if (project !== savedProject) return;
+    autosaveError = errorMessage(error);
+    renderDirtyIndicator();
+  },
+  onSaved: (savedProject) => {
+    if (project !== savedProject || !autosaveError) return;
+    autosaveError = undefined;
+    renderDirtyIndicator();
+  },
+});
+
+function syncProjectEditSubscription(): void {
+  if (subscribedProject === project) return;
+  unsubscribeProjectEdits?.();
+  subscribedProject = project;
+  autosaveError = undefined;
+  const current = project;
+  unsubscribeProjectEdits = current ? projectEditSession(current).subscribe(() => {
+    if (project !== current) return;
+    dirty = true;
+    scheduleSave(current);
+    renderDirtyIndicator();
+  }) : undefined;
+}
+
+async function finishActiveProjectSaves(): Promise<void> {
+  if (!project) return;
+  await scheduleSave.flush(project);
+  scheduleSave.cancel(project);
+}
 
 installIntegrationConsoleApi(
   () => project,
@@ -445,9 +489,10 @@ async function boot(): Promise<void> {
       project = await loadActiveProject();
       hasExportBase = project ? await activeRomMatchesProject(project) : await hasActiveRomBytes();
       if (!project && hasExportBase) project = await restoreProjectFromCachedRom();
-    } catch {
-      project = await restoreProjectFromCachedRom();
-      hasExportBase = Boolean(project);
+    } catch (error) {
+      // Never overwrite an unreadable/newer saved document with a clean ROM.
+      renderProjectRestoreError(error);
+      return;
     }
   }
   if (project && hasExportBase) {
@@ -524,6 +569,17 @@ async function restoreProjectFromCachedRom(): Promise<ProjectState | undefined> 
   }
 }
 
+function renderProjectRestoreError(error: unknown): void {
+  const message = error instanceof ProjectDocumentError ? error.message : `Could not restore your saved project: ${errorMessage(error)}`;
+  appRoot.innerHTML = `<section class="upload-page"><div class="upload-panel">
+    <h1>Saved project could not be opened</h1>
+    <p role="alert">${escapeHtml(message)}</p>
+    <p>Your stored project has been preserved. Retry after resolving the problem.</p>
+    <button class="btn -default" id="retry-project-restore" type="button">Retry</button>
+  </div></section>`;
+  appRoot.querySelector("#retry-project-restore")?.addEventListener("click", () => { window.location.reload(); });
+}
+
 window.addEventListener("popstate", (event) => {
   const nextState = routeStateFromHistory(event.state) ?? routeStateFromUrl() ?? routeStateFromStorage();
   applyRouteState(nextState, { fromHistory: true });
@@ -549,6 +605,7 @@ function checkCurrentSourceRom(): void {
 }
 
 function renderApp(): void {
+  syncProjectEditSubscription();
   const previousContent = document.getElementById("content-container");
   if (previousContent) stopTrainerImageRendering(previousContent);
   stopTitleScreenEditor();
@@ -571,6 +628,16 @@ function renderApp(): void {
   if (!content) throw new Error("Missing content container");
 
   attachNav();
+  content.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const link = target.closest<HTMLAnchorElement>("a[data-route]");
+    const nextRoute = link?.dataset.route;
+    if (!link || !content.contains(link) || !nextRoute || !isAppRoute(nextRoute)) return;
+    event.preventDefault();
+    navigate(nextRoute);
+  });
+  renderDirtyIndicator();
   checkCurrentSourceRom();
   if (!project || route === "upload") {
     renderUpload(content);
@@ -597,6 +664,23 @@ function renderApp(): void {
       dirty = true;
       scheduleSave(project!);
       renderDirtyIndicator();
+    });
+    return;
+  }
+
+  if (route === "flyDestinations") {
+    const currentProject = project;
+    content.innerHTML = `<div class="fly-editor"><h1>Fly Destinations</h1><p>Loading areas…</p></div>`;
+    void loadFlyDestinationEditorData(currentProject).then(() => {
+      if (project !== currentProject || route !== "flyDestinations") return;
+      renderFlyDestinationEditor(currentProject, content, () => {
+        dirty = true;
+        scheduleSave(currentProject);
+        renderDirtyIndicator();
+      });
+    }).catch(error => {
+      if (project === currentProject && route === "flyDestinations")
+        content.innerHTML = `<div class="fly-editor"><h1>Fly Destinations</h1><p>${escapeHtml(error instanceof Error ? error.message : "Areas could not be loaded.")}</p></div>`;
     });
     return;
   }
@@ -1080,6 +1164,7 @@ function renderNav(): string {
     <div id="header">
       <div class="header-left">
         ${navItem("headers", "Headers & Overworlds")}
+        ${project.session.baseRom === "BW2" ? navItem("flyDestinations", "Fly Destinations") : ""}
         ${renderMapsMenu()}
         ${project.session.baseRom === "BW2" ? renderWeatherMenu() : ""}
         ${navItem("pokemon", "Pokemon")}
@@ -1318,8 +1403,10 @@ async function handleNewProjectClick(): Promise<void> {
   }
   newProjectInFlight = true;
   try {
+    await finishActiveProjectSaves();
     await clearActiveProject();
     project = undefined;
+    syncProjectEditSubscription();
     dirty = false;
     hasExportBase = false;
     missingRomReturnRoute = undefined;
@@ -1355,6 +1442,7 @@ async function refreshRomFromLocalPath(button: HTMLButtonElement): Promise<void>
   const progressOverlay = showRomLoadProgressOverlay(romPath.split(/[\\/]/u).pop() ?? "local ROM");
   const updateProgress = (message: string) => progressOverlay.setStage(message);
   try {
+    await finishActiveProjectSaves();
     updateProgress("Reading ROM file");
     const localRom = await readLocalRomFile(romPath);
     await waitForNextPaint();
@@ -1392,6 +1480,7 @@ async function downloadRom(frostCompatibility = false): Promise<void> {
       link.textContent = "Building...";
     }
     exportLinks.forEach((item) => item.classList.add("disabled"));
+    await scheduleSave.flush(project);
     const warnings: string[] = [];
     const bytes = await exportModifiedRom(project, { frostCompatibility, onWarning: (warning) => warnings.push(warning.message), onFrostWarning: (warning) => warnings.push(warning.message) });
     if (bytes.length === 0) throw new Error("Export produced an empty ROM. No file was written.");
@@ -1473,7 +1562,7 @@ async function launchTitleScreenPreview(): Promise<void> {
   const activeProject = project;
   const emulator = openTitleScreenEmulator();
   try {
-    await saveActiveProject(activeProject);
+    await scheduleSave.flush(activeProject);
     const romBytes = await exportModifiedRom(activeProject, { preserveOriginalLength: true });
     await emulator.launch({ romName: `${activeProject.session.romName.replace(/\.nds$/i, "")}-title-preview.nds`, romBytes });
   } catch (error) { emulator.close(); throw error; }
@@ -1486,7 +1575,7 @@ async function launchTestBattle(trainerId: number, showdownText = ""): Promise<v
   const emulator = openTestBattleEmulator();
   const baseName = project.session.romName || "pokeweb";
   try {
-    await saveActiveProject(project);
+    await scheduleSave.flush(project);
     const { romBytes, saveBytes } = await buildTestBattleDownloads(project, trainerId, { playerTeamText: showdownText });
     await emulator.launch({
       romName: `${baseName}-test-battle-trainer-${trainerId}.nds`,
@@ -1513,7 +1602,7 @@ async function launchQuickLaunch(): Promise<void> {
   const emulator = openTestBattleEmulator();
   const baseName = activeProject.session.romName || "pokeweb";
   try {
-    await saveActiveProject(activeProject);
+    await scheduleSave.flush(activeProject);
     const { romBytes, saveBytes } = await buildQuickLaunchDownloads(activeProject, { playerTeamText });
     await emulator.launch({
       romName: `${baseName}-quick-launch.nds`,
@@ -1538,7 +1627,7 @@ async function launchOverworldTestWarp(selection: OverworldTestWarpSelection): P
   const emulator = openTestBattleEmulator();
   const name = `${activeProject.session.romName || "pokeweb"}-test-warp-${selection.overworldId}-${selection.x}-${selection.y}`;
   try {
-    await saveActiveProject(activeProject);
+    await scheduleSave.flush(activeProject);
     const { romBytes, saveBytes } = await buildOverworldTestWarpDownloads(activeProject, selection);
     await emulator.launch({
       romName: `${name}.nds`,
@@ -1562,7 +1651,7 @@ async function launchMoveTestBattle(moveId: number, scriptText: string): Promise
   const emulator = openTestBattleEmulator();
   const baseName = project.session.romName || "pokeweb";
   try {
-    await saveActiveProject(project);
+    await scheduleSave.flush(project);
     const { romBytes, saveBytes } = await buildMoveTestBattleDownloads(project, moveId, { moveAnimationScriptText: scriptText });
     await emulator.launch({
       romName: `${baseName}-test-move-${moveId}.nds`,
@@ -1917,6 +2006,7 @@ function renderUpload(root: HTMLElement): void {
       updateUploadStatus("Starting ROM load");
       await waitForNextPaint();
       const selectedNarcs = getSelectedNarcs(root);
+      await finishActiveProjectSaves();
       project = await loadProjectFromRomFile(file, { fairy: fairyInput?.checked ?? false, selectedNarcs }, updateUploadStatus);
       resetActionChangelog(project);
       dirty = false;
@@ -1955,7 +2045,9 @@ function renderUpload(root: HTMLElement): void {
     }
 
     try {
+      await finishActiveProjectSaves();
       project = undefined;
+      syncProjectEditSubscription();
       dirty = false;
       hasExportBase = false;
       await clearActiveProject();
@@ -2044,6 +2136,7 @@ async function loadLocalRomIntoEditor(
     updateUploadStatus("Starting ROM load");
     await waitForNextPaint();
     const selectedNarcs = getSelectedNarcs(root);
+    await finishActiveProjectSaves();
     project = await loadProjectFromRomBytes(localRom.bytes, localRom.fileName, { fairy: fairyInput?.checked ?? false, selectedNarcs }, updateUploadStatus);
     rememberLocalRomPath(localRom.path);
     hydrateProject(project);
@@ -2101,6 +2194,7 @@ function renderNarcLoadSection(section: NarcLoadSection, mandatoryNarcs: Set<Nar
 }
 
 function hydrateProject(nextProject: ProjectState | undefined): void {
+  syncProjectEditSubscription();
   if (!nextProject) return;
   ensureActionChangelog(nextProject);
   nextProject.fileSystem ??= { replacements: {} };
@@ -2171,7 +2265,7 @@ function loadedNarcNames(currentProject: ProjectState): NarcName[] {
 }
 
 function hasAnyRomChanges(currentProject: ProjectState): boolean {
-  if (currentProject.cgearButtons && JSON.stringify(currentProject.cgearButtons.document) !== JSON.stringify(currentProject.cgearButtons.applied ?? defaultCGearButtons())) return true;
+  if (currentProject.cgearButtons && JSON.stringify(currentProject.cgearButtons.document) !== JSON.stringify(currentProject.cgearButtons.applied ?? defaultCGearButtons(currentProject.session.baseRom === "BW" ? "BW" : "BW2"))) return true;
   if (dirty || currentProject.arm9Dirty || currentProject.tms?.dirty) return true;
   if ((currentProject.actionChangelog?.entries.length ?? 0) > 0) return true;
   if (Object.values(currentProject.narcs).some((store) => (store?.dirty.size ?? 0) > 0)) return true;
@@ -2187,7 +2281,7 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
   if (!project) return false;
   if (nextRoute === "bw2Scripts") return canUseLocalRomBridge() && hasExportBase && project.session.baseRom === "BW2" && !isGen4Project(project) && Boolean(project.narcs.scripts);
   if (nextRoute === "changelog") return true;
-  if (nextRoute === "cgearButtons") return project.session.baseRom === "BW2" && hasExportBase;
+  if (nextRoute === "cgearButtons") return (project.session.baseRom === "BW" || project.session.baseRom === "BW2") && hasExportBase;
   if (nextRoute === "customUi") return hasExportBase;
   if (nextRoute === "titleScreen") return project.session.baseRom === "BW2" && hasExportBase;
   if (nextRoute === "trainerMusic") return isGen5Project(project);
@@ -2203,6 +2297,7 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
   if (nextRoute === "maps3d") return Boolean(project.headers && hasExportBase);
   if (nextRoute === "buildings") return isGen5Project(project) && hasExportBase;
   if (nextRoute === "weather") return project.session.baseRom === "BW2" && EDITOR_REQUIREMENTS.weather.every((name) => project?.narcs[name]);
+  if (nextRoute === "flyDestinations") return project.session.baseRom === "BW2" && hasExportBase && Boolean(project.narcs.headers);
   if (nextRoute === "weatherGraphics") return project.session.baseRom === "BW2" && hasExportBase;
   if (nextRoute === "trainerSprites") return (project.session.baseRom === "BW" || project.session.baseRom === "BW2") && Boolean(project.narcs.trdata);
   if (nextRoute === "playerBackSprite") return project.session.baseRom === "BW2" && hasExportBase;
@@ -2616,7 +2711,13 @@ function setChangelogBusy(root: HTMLElement, busy: boolean): void {
 function renderDirtyIndicator(): void {
   const headerStatus = appRoot.querySelector<HTMLElement>("#header-status");
   if (headerStatus) {
-    headerStatus.innerHTML = dirty ? renderDirtyIndicatorLink() : "";
+    headerStatus.innerHTML = (dirty ? renderDirtyIndicatorLink() : "") + (autosaveError
+      ? `<span role="alert">Autosave failed: ${escapeHtml(autosaveError)} <button type="button" data-retry-autosave>Retry</button></span>` : "");
+    headerStatus.querySelector<HTMLButtonElement>("[data-retry-autosave]")?.addEventListener("click", () => {
+      if (!project) return;
+      const current = project;
+      void scheduleSave.flush(current).catch(error => { if (project === current) { autosaveError = errorMessage(error); renderDirtyIndicator(); } });
+    });
     headerStatus.querySelector<HTMLAnchorElement>("[data-route='changelog']")?.addEventListener("click", (event) => {
       event.preventDefault();
       navigate("changelog");
@@ -2628,5 +2729,5 @@ function renderDirtyIndicator(): void {
 }
 
 function renderDirtyIndicatorLink(): string {
-  return `<a class="dirty-indicator" href="${routeUrl("changelog")}" data-route="changelog">View Changelog</a>`;
+  return `<a class="dirty-indicator" href="${routeUrl("changelog")}" data-route="changelog"><span class="dirty-indicator__marker" aria-hidden="true">•</span>View Changelog</a>`;
 }

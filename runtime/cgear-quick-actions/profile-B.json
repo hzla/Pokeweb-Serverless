@@ -1,0 +1,1133 @@
+{
+  "idCode": "IRBO",
+  "revision": 0,
+  "fileName": "CGearQuickActionsB.dll",
+  "signatures": [
+    {
+      "label": "Native Game",
+      "module": "ARM9",
+      "address": 33628404,
+      "expectedHex": "c0697047c069014b1847c046a52701028069704781617047006a704701627047",
+      "patchSize": 0
+    },
+    {
+      "label": "Native Field",
+      "module": "ARM9",
+      "address": 33628428,
+      "expectedHex": "006a704701627047006a002801d0012070470020704700003030017070470000",
+      "patchSize": 0
+    },
+    {
+      "label": "Native Save",
+      "module": "ARM9",
+      "address": 33631932,
+      "expectedHex": "0068704700687047014940187047c046ec0500001a2189014018704701494058",
+      "patchSize": 0
+    },
+    {
+      "label": "Native Etc",
+      "module": "ARM9",
+      "address": 33615176,
+      "expectedHex": "014b44211847c046cd71000238b5051c0c1c291c80310b680020002b19d98100",
+      "patchSize": 0
+    },
+    {
+      "label": "Native Bag",
+      "module": "ARM9",
+      "address": 33630508,
+      "expectedHex": "19210901405870476521890040587047672189004058704708b5fff72dff2030",
+      "patchSize": 0
+    },
+    {
+      "label": "Native Party",
+      "module": "ARM9",
+      "address": 33630516,
+      "expectedHex": "6521890040587047672189004058704708b5fff72dff203008bd000044222430",
+      "patchSize": 0
+    },
+    {
+      "label": "Native Player",
+      "module": "ARM9",
+      "address": 33630116,
+      "expectedHex": "4521890040187047752292008218080110187047014b03211847c046ad270102",
+      "patchSize": 0
+    },
+    {
+      "label": "Native PlayerForm",
+      "module": "ARM9",
+      "address": 33631016,
+      "expectedHex": "006c70470164704781837047808b70476e218900405870470149405c7047c046",
+      "patchSize": 0
+    },
+    {
+      "label": "Native Flags",
+      "module": "ARM9",
+      "address": 33630572,
+      "expectedHex": "6b218900405870471b21090140587047692109014058704771218900405c7047",
+      "patchSize": 0
+    },
+    {
+      "label": "Native EncounterState",
+      "module": "ARM9",
+      "address": 33630776,
+      "expectedHex": "014940587047c046e40500006f218900405870476f2292008150704701494058",
+      "patchSize": 0
+    },
+    {
+      "label": "Native Misc",
+      "module": "ARM9",
+      "address": 33632008,
+      "expectedHex": "0068014b1847c046f1c000020068014b1847c046c99e0002014940587047c046",
+      "patchSize": 0
+    },
+    {
+      "label": "Native Badge",
+      "module": "ARM9",
+      "address": 33604148,
+      "expectedHex": "436801228a40191c0120114200d1002070470000012243688a40191c11434160",
+      "patchSize": 0
+    },
+    {
+      "label": "Native SubscreenMode",
+      "module": "ARM9",
+      "address": 33630648,
+      "expectedHex": "014a81547047c046c60100000149405c7047c046c7010000014a81547047c046",
+      "patchSize": 0
+    },
+    {
+      "label": "Native EventCreate",
+      "module": "ARM9",
+      "address": 33628864,
+      "expectedHex": "f8b582b0051c019337200e1c171c00900b4b0420142101221ef02cea041c2660",
+      "patchSize": 0
+    },
+    {
+      "label": "Native EventChild",
+      "module": "ARM9",
+      "address": 33629044,
+      "expectedHex": "08600069004b18470921010270b5061c301cfff7bdfe051c01d1002070bdfff7",
+      "patchSize": 0
+    },
+    {
+      "label": "Native EventSystem",
+      "module": "ARM9",
+      "address": 33629412,
+      "expectedHex": "00697047c06870470830704700687047f8b582b00190ad2100916b217d4b0901",
+      "patchSize": 0
+    },
+    {
+      "label": "Native EventData",
+      "module": "ARM9",
+      "address": 33629416,
+      "expectedHex": "c06870470830704700687047f8b582b00190ad2100916b217d4b090101221ef0",
+      "patchSize": 0
+    },
+    {
+      "label": "Native Random",
+      "module": "ARM9",
+      "address": 33576744,
+      "expectedHex": "38b5051c0a480469a068e1682268636896f08cec2269636910184b4120606360",
+      "patchSize": 0
+    },
+    {
+      "label": "Native RepelStep",
+      "module": "ARM9",
+      "address": 33609060,
+      "expectedHex": "011c3131097800290cd0011c313109784a1e011c31310a7031300078002801d1",
+      "patchSize": 0
+    },
+    {
+      "label": "Native RepelDepleted",
+      "module": "ARM9",
+      "address": 33609100,
+      "expectedHex": "31300078002801d1012070470020704718b581b0502100040091074b000c8021",
+      "patchSize": 0
+    },
+    {
+      "label": "Native Touch",
+      "module": "ARM9",
+      "address": 33774776,
+      "expectedHex": "38402de90050a0e10140a0e156fdffeb0510a0e10420a0e1e6ffffeb3880bde8",
+      "patchSize": 0
+    },
+    {
+      "label": "Native BackgroundVisible",
+      "module": "ARM9",
+      "address": 33817992,
+      "expectedHex": "08402de9070050e300f18f900880bde8060000ea080000ea0a0000ea0c0000ea",
+      "patchSize": 0
+    },
+    {
+      "label": "Native SubPlanes",
+      "module": "ARM9",
+      "address": 33830388,
+      "expectedHex": "18109fe518209fe5000081e5001092e51f1cc1e3000481e1000082e51eff2fe1",
+      "patchSize": 0
+    },
+    {
+      "label": "Native NativeButtonInput",
+      "module": "ARM9",
+      "address": 33889416,
+      "expectedHex": "f84f2de90070a0e30090a0e10760a0e1e68fffeb0040b0e12a00000a000099e5",
+      "patchSize": 0
+    },
+    {
+      "label": "Native ActorPalette",
+      "module": "ARM9",
+      "address": 33863412,
+      "expectedHex": "603090e5011ea0e10f3ac3e3211883e10211c1e3821f81e1601080e51eff2fe1",
+      "patchSize": 0
+    },
+    {
+      "label": "Native NetworkPosition",
+      "module": "ARM9",
+      "address": 33806476,
+      "expectedHex": "08402de90008a0e10118a0e12008a0e12118a0e141e6ffeb88feffeb0880bde8",
+      "patchSize": 0
+    },
+    {
+      "label": "Native ArchiveSize",
+      "module": "ARM9",
+      "address": 33854420,
+      "expectedHex": "30402de90cd04de20050a0e1be34d5e10140a0e1040053e10400008a48009fe5",
+      "patchSize": 0
+    },
+    {
+      "label": "Native Init",
+      "module": "21",
+      "address": 35262440,
+      "expectedHex": "f8b5051c6869e7f747fe041c71f67ef871f660ff68f608f9061c124893f65eed",
+      "patchSize": 0
+    },
+    {
+      "label": "Native Update",
+      "module": "21",
+      "address": 35262688,
+      "expectedHex": "f8b5051c0e1c21d06869e7f7c9fd041c71f600f871f6e2fe68f68af8071c201c",
+      "patchSize": 0
+    },
+    {
+      "label": "Native Exit",
+      "module": "21",
+      "address": 35262656,
+      "expectedHex": "08b5006a51f05efc014893f6c8ec08bd1d000000006a014b1847c04681291f02",
+      "patchSize": 0
+    },
+    {
+      "label": "Native Event",
+      "module": "21",
+      "address": 35262776,
+      "expectedHex": "021c106a004b1847d9291f0238b5051c0b4893f6bcec6869e7f796fd70f6ceff",
+      "patchSize": 0
+    },
+    {
+      "label": "Native NoGearInit",
+      "module": "21",
+      "address": 35262788,
+      "expectedHex": "38b5051c0b4893f6bcec6869e7f796fd70f6ceff71f6b0fe68f658f8041c6869",
+      "patchSize": 0
+    },
+    {
+      "label": "Native GearDispose",
+      "module": "29",
+      "address": 35596000,
+      "expectedHex": "38b5041ce0691ff627fd051c06d065f777ff022802d1281c65f78cff8725ad00",
+      "patchSize": 0
+    },
+    {
+      "label": "Native GearTouch",
+      "module": "29",
+      "address": 35592024,
+      "expectedHex": "f0b585b0041c60480e1c205c002803d1062e01d0002e04d18525ad0060590028",
+      "patchSize": 0
+    },
+    {
+      "label": "Native GearIdle",
+      "module": "29",
+      "address": 35594624,
+      "expectedHex": "10b5041c7f2080002158002902d0001d205888477f20002180002150001d2150",
+      "patchSize": 0
+    },
+    {
+      "label": "Native GearSleep",
+      "module": "29",
+      "address": 35597736,
+      "expectedHex": "0649425c002a01d001207047491c405c002801d001207047002070475c040000",
+      "patchSize": 0
+    },
+    {
+      "label": "Native FieldHeap",
+      "module": "21",
+      "address": 35163268,
+      "expectedHex": "00887047b430006870470000b830006870470000806c7047d830008870470000",
+      "patchSize": 0
+    },
+    {
+      "label": "Native FieldMessage",
+      "module": "21",
+      "address": 35163220,
+      "expectedHex": "806a704700697047c06b70474069704780697047c0697047006a70474068014b",
+      "patchSize": 0
+    },
+    {
+      "label": "Native FieldEncounter",
+      "module": "21",
+      "address": 35163368,
+      "expectedHex": "903000687047000042218900405800687047000008b54221890042581368054a",
+      "patchSize": 0
+    },
+    {
+      "label": "Native FieldController",
+      "module": "21",
+      "address": 35163388,
+      "expectedHex": "08b54221890042581368054ad25c022a04d1091d40581ef055f8021c101c08bd",
+      "patchSize": 0
+    },
+    {
+      "label": "Native Phenomenon",
+      "module": "21",
+      "address": 35301388,
+      "expectedHex": "f8b584b0051ca8682c6968f60ff9061c002d5fd0e86800285cd0c0790006c00f",
+      "patchSize": 0
+    },
+    {
+      "label": "Native PhenomenonInterval",
+      "module": "21",
+      "address": 35302340,
+      "expectedHex": "031cc2680020c0430c33824201d2501c186004481a68085a824201d301207047",
+      "patchSize": 0
+    },
+    {
+      "label": "Native Script",
+      "module": "10",
+      "address": 34965352,
+      "expectedHex": "38b50d1c141c00210091191c2a1c231c00f0d2f838bd0000f8b51c1c071c0d1c",
+      "patchSize": 0
+    },
+    {
+      "label": "Native Application",
+      "module": "10",
+      "address": 34998108,
+      "expectedHex": "f8b582b0051c0f1c2868a9681c4a7423b1f6a8fd061cb1f6b9fe041c00217422",
+      "patchSize": 0
+    },
+    {
+      "label": "Native TownMapReturn",
+      "module": "10",
+      "address": 35000960,
+      "expectedHex": "8369da68072a0bd14868002802d0012802d003e0002070470120704701207047",
+      "patchSize": 0
+    },
+    {
+      "label": "Native ItemCheck",
+      "module": "10",
+      "address": 35013828,
+      "expectedHex": "70b5051c081c141cadf612fe061caef667f9021c0548a9004358002b01d10120",
+      "patchSize": 0
+    },
+    {
+      "label": "Native ItemEvent",
+      "module": "10",
+      "address": 35013876,
+      "expectedHex": "08b5031c101c024adb00d258904708bd0415170270b5151c281c0c1caef6dafa",
+      "patchSize": 0
+    },
+    {
+      "label": "Native FlyInit",
+      "module": "10",
+      "address": 34990144,
+      "expectedHex": "f8b58ab00c1c051c201c0021142224f7bee9281c2af022fa2080281c2af010fa",
+      "patchSize": 0
+    },
+    {
+      "label": "Native FlyCheck",
+      "module": "10",
+      "address": 34991212,
+      "expectedHex": "08b5042100f048fa002801d0002008bd012008bd08b5052100f03efa002801d0",
+      "patchSize": 0
+    },
+    {
+      "label": "Native FlyUse",
+      "module": "10",
+      "address": 34990648,
+      "expectedHex": "38b5031c141c0d1c201c191c00f038fb021c01d1002038bd281c211c904738bd",
+      "patchSize": 0
+    },
+    {
+      "label": "Native Report",
+      "module": "10",
+      "address": 35035832,
+      "expectedHex": "f8b50d1c2968041c14297dd849187944c988090409148f4428003a00c600d000",
+      "patchSize": 0
+    },
+    {
+      "label": "Native SubscreenChange",
+      "module": "21",
+      "address": 35262256,
+      "expectedHex": "10b5041cfff7d6ff60600120a06010bd70b5051cfff7ceff2968041c0a1c1c26",
+      "patchSize": 0
+    },
+    {
+      "label": "Native SubscreenReady",
+      "module": "21",
+      "address": 35262164,
+      "expectedHex": "8068002801d10120704700207047000070b5041c0d1c1fd16069e7f7c7fe71f6",
+      "patchSize": 0
+    },
+    {
+      "label": "Native VBlank",
+      "module": "ARM9",
+      "address": 33576608,
+      "expectedHex": "38b5051c04480c1c0069131c006a291c221c2bf07aeb38bd94a10a0201480069",
+      "patchSize": 0
+    },
+    {
+      "label": "Native Sound",
+      "module": "ARM9",
+      "address": 33579492,
+      "expectedHex": "0021014bc9431847a5610002004b1847a56100020349c0000818034b001d0021",
+      "patchSize": 0
+    },
+    {
+      "label": "Native HasItem",
+      "module": "ARM9",
+      "address": 33587048,
+      "expectedHex": "08b5fff7c5ff002801d0012008bd002008bd000018b4002300280ad01c1c0029",
+      "patchSize": 0
+    },
+    {
+      "label": "Native Flag",
+      "module": "ARM9",
+      "address": 33637096,
+      "expectedHex": "38b50c1c00f04cf800280cd0e30f62070578d21a1d21ca41991801228a40291c",
+      "patchSize": 0
+    },
+    {
+      "label": "Native GetMon",
+      "module": "ARM9",
+      "address": 33663784,
+      "expectedHex": "dc2208304a4380187047000008b5fff7f7ff002802d000f0ebf808bd002008bd",
+      "patchSize": 0
+    },
+    {
+      "label": "Native PartyCount",
+      "module": "ARM9",
+      "address": 33663512,
+      "expectedHex": "40687047f8b5071c0025fff7f9ff061c0024002e0ddd381c211c00f079f84c21",
+      "patchSize": 0
+    },
+    {
+      "label": "Native MonGet",
+      "module": "ARM9",
+      "address": 33652252,
+      "expectedHex": "70b5051c0c1c161c00f074ff281c211c321c00f0c1ff041c281c00f099ff201c",
+      "patchSize": 0
+    },
+    {
+      "label": "Native HeapFree",
+      "module": "ARM9",
+      "address": 33751876,
+      "expectedHex": "08402de934209fe534109fe5b830d2e1010000e0030050e10100a023be00c221",
+      "patchSize": 0
+    },
+    {
+      "label": "Native HeapLargest",
+      "module": "ARM9",
+      "address": 33751948,
+      "expectedHex": "08402de938209fe538109fe5b830d2e1010000e0030050e10100a023be00c221",
+      "patchSize": 0
+    },
+    {
+      "label": "Native Alloc",
+      "module": "ARM9",
+      "address": 33752884,
+      "expectedHex": "f0412de90080a0e10170a0e10260a0e10350a0e152feffeb0040b0e10700001a",
+      "patchSize": 0
+    },
+    {
+      "label": "Native Free",
+      "module": "ARM9",
+      "address": 33753008,
+      "expectedHex": "10402de90040a0e19b0000eb0400a0e167feffeb1080bde808402de999feffeb",
+      "patchSize": 0
+    },
+    {
+      "label": "Native TaskDelete",
+      "module": "ARM9",
+      "address": 33754796,
+      "expectedHex": "0010a0e1002091e528c09fe5340092e5010050e10800910534008205050091e9",
+      "patchSize": 0
+    },
+    {
+      "label": "Native VramInvalid",
+      "module": "ARM9",
+      "address": 33769024,
+      "expectedHex": "002090e50010e0e3010052e104009005010050010100a0030000a0131eff2fe1",
+      "patchSize": 0
+    },
+    {
+      "label": "Native Keys",
+      "module": "ARM9",
+      "address": 33776396,
+      "expectedHex": "08402de9c3fbffebf4ffffeb0880bde810402de90040a0e1bcfbffeb3d10d4e5",
+      "patchSize": 0
+    },
+    {
+      "label": "Native ArchiveInit",
+      "module": "ARM9",
+      "address": 33853852,
+      "expectedHex": "30402de90cd04de20050a0e30040a0e10520a0e10c10a0e3bc54c4e161be00eb",
+      "patchSize": 0
+    },
+    {
+      "label": "Native ArchiveClose",
+      "module": "ARM9",
+      "address": 33854008,
+      "expectedHex": "10402de90040a0e10ebe00eb0400a0e1589dffeb1080bde8f0402de90cd04de2",
+      "patchSize": 0
+    },
+    {
+      "label": "Native ArchiveRead",
+      "module": "ARM9",
+      "address": 33854032,
+      "expectedHex": "f0402de90cd04de20050a0e1be34d5e10170a0e10240a0e1070053e10400008a",
+      "patchSize": 0
+    },
+    {
+      "label": "Native PaletteLoad",
+      "module": "ARM9",
+      "address": 33860592,
+      "expectedHex": "00402de90cd04de200e0a0e300e08de5b0c1dde104e08de508c08de5010000eb",
+      "patchSize": 0
+    },
+    {
+      "label": "Native PaletteDelete",
+      "module": "ARM9",
+      "address": 33861028,
+      "expectedHex": "1810a0e338209fe5900103e0000092e5100190e5031080e0140091e50201c0e3",
+      "patchSize": 0
+    },
+    {
+      "label": "Native PaletteUpload",
+      "module": "ARM9",
+      "address": 33861100,
+      "expectedHex": "f0412de90160a0e11810a0e3bc709fe5900104e0000097e50180a0e3100190e5",
+      "patchSize": 0
+    },
+    {
+      "label": "Native AnimationLoad",
+      "module": "ARM9",
+      "address": 33861416,
+      "expectedHex": "f0472de9a0409fe50060a0e1000094e50250a0e1417f80e2b821d7e10340a0e1",
+      "patchSize": 0
+    },
+    {
+      "label": "Native AnimationDelete",
+      "module": "ARM9",
+      "address": 33861592,
+      "expectedHex": "10402de91410a0e348209fe5900101e0000092e5142190e5010092e7014082e0",
+      "patchSize": 0
+    },
+    {
+      "label": "Native UnitCreate",
+      "module": "ARM9",
+      "address": 33861888,
+      "expectedHex": "f8472de904d04de2b4409fe5b4509fe50280a0e10070a0e300a0a0e11860a0e3",
+      "patchSize": 0
+    },
+    {
+      "label": "Native CharCreate",
+      "module": "ARM9",
+      "address": 33859488,
+      "expectedHex": "f8472de91cd04de214319fe50080a0e1000093e50170a0e1413f80e2b411d3e1",
+      "patchSize": 0
+    },
+    {
+      "label": "Native CharDelete",
+      "module": "ARM9",
+      "address": 33859796,
+      "expectedHex": "38402de9ec509fe50040a0e1000095e50c0190e5040380e02c0080e252a7ffeb",
+      "patchSize": 0
+    },
+    {
+      "label": "Native CharUpload",
+      "module": "ARM9",
+      "address": 33860048,
+      "expectedHex": "f8402de9b4609fe50050a0e1000096e50170a0e30c0190e50140a0e10710a0e1",
+      "patchSize": 0
+    },
+    {
+      "label": "Native ActorCreate",
+      "module": "ARM9",
+      "address": 33862292,
+      "expectedHex": "f0402de92cd04de27c409fe501c0a0e1001094e518e0a0e3105191e5147191e5",
+      "patchSize": 0
+    },
+    {
+      "label": "Native ActorDelete",
+      "module": "ARM9",
+      "address": 33862580,
+      "expectedHex": "10402de90040a0e1080094e50410a0e1990500eb680084e24c0700eb0400a0e1",
+      "patchSize": 0
+    },
+    {
+      "label": "Native ActorVisible",
+      "module": "ARM9",
+      "address": 33862620,
+      "expectedHex": "602090e5811fa0e10123c2e3a11282e1601080e51eff2fe1600090e58002a0e1",
+      "patchSize": 0
+    },
+    {
+      "label": "Native ActorPlace",
+      "module": "ARM9",
+      "address": 33862660,
+      "expectedHex": "38402de908d04de20150a0e10210a0e104208de20040a0e1d40600ebf030d5e1",
+      "patchSize": 0
+    },
+    {
+      "label": "Native ActorAnimate",
+      "module": "ARM9",
+      "address": 33863980,
+      "expectedHex": "602090e5811fa0e10224c2e3211382e1601080e51eff2fe1600090e50003a0e1",
+      "patchSize": 0
+    },
+    {
+      "label": "Native FileInit",
+      "module": "ARM9",
+      "address": 34048172,
+      "expectedHex": "0020a0e3231c82e3082080e5042080e5002080e51c2080e5182080e50c1080e5",
+      "patchSize": 0
+    },
+    {
+      "label": "Native FileOpen",
+      "module": "ARM9",
+      "address": 34049048,
+      "expectedHex": "04c09fe50120a0e31cff2fe1fc89070200c09fe51cff2fe1948a070200c09fe5",
+      "patchSize": 0
+    },
+    {
+      "label": "Reserved save block size",
+      "module": "ARM9",
+      "address": 33615160,
+      "expectedHex": "fc207047",
+      "patchSize": 0
+    },
+    {
+      "label": "Reserved save block getter",
+      "module": "ARM9",
+      "address": 33615176,
+      "expectedHex": "014b44211847c046cd710002",
+      "patchSize": 0
+    },
+    {
+      "label": "QaInput",
+      "module": "29",
+      "address": 35594550,
+      "expectedHex": "5ff6a8ed",
+      "patchSize": 4
+    },
+    {
+      "label": "QaGearUnit",
+      "module": "29",
+      "address": 35593746,
+      "expectedHex": "59f676e9",
+      "patchSize": 4
+    },
+    {
+      "label": "QaGearEnd",
+      "module": "29",
+      "address": 35596680,
+      "expectedHex": "fff7aafe",
+      "patchSize": 4
+    },
+    {
+      "label": "QaGearEnd",
+      "module": "29",
+      "address": 35596720,
+      "expectedHex": "fff796fe",
+      "patchSize": 4
+    },
+    {
+      "label": "QaRepelStep",
+      "module": "21",
+      "address": 35171420,
+      "expectedHex": "82f682fc",
+      "patchSize": 4
+    },
+    {
+      "label": "QaRepelDepleted",
+      "module": "21",
+      "address": 35296288,
+      "expectedHex": "64f6b4f8",
+      "patchSize": 4
+    },
+    {
+      "label": "QaPhenomenonInterval",
+      "module": "21",
+      "address": 35301540,
+      "expectedHex": "00f08ef9",
+      "patchSize": 4
+    },
+    {
+      "label": "QaPhenomenonChance",
+      "module": "21",
+      "address": 35301552,
+      "expectedHex": "5af63aff",
+      "patchSize": 4
+    },
+    {
+      "label": "QaCGearInit",
+      "module": "21",
+      "address": 35489580,
+      "expectedHex": "e90f1a02",
+      "patchSize": 4
+    },
+    {
+      "label": "QaCGearUpdate",
+      "module": "21",
+      "address": 35489584,
+      "expectedHex": "e1101a02",
+      "patchSize": 4
+    },
+    {
+      "label": "QaCGearEvent",
+      "module": "21",
+      "address": 35489592,
+      "expectedHex": "39111a02",
+      "patchSize": 4
+    },
+    {
+      "label": "QaCGearExit",
+      "module": "21",
+      "address": 35489596,
+      "expectedHex": "c1101a02",
+      "patchSize": 4
+    },
+    {
+      "label": "QaNoGearInit",
+      "module": "21",
+      "address": 35489720,
+      "expectedHex": "45111a02",
+      "patchSize": 4
+    },
+    {
+      "label": "QaTownMapReturn",
+      "module": "10",
+      "address": 35066752,
+      "expectedHex": "81121602",
+      "patchSize": 4
+    },
+    {
+      "label": "Subscreen visibility cache synchronization",
+      "module": "ARM9",
+      "address": 33830388,
+      "expectedHex": "18109fe518209fe5000081e5001092e51f1cc1e3000481e1000082e51eff2fe1486a140200100004",
+      "patchSize": 0
+    },
+    {
+      "label": "Application request ownership",
+      "module": "10",
+      "address": 34998108,
+      "expectedHex": "f8b582b0051c0f1c2868a9681c4a7423b1f6a8fd061cb1f6b9fe041c0021742222f726ea2780211ca561042020616661e86860316060e868a060e868e06000200870211c62310880a066a169c8690090086a0190201c4a698b69203000f036f9a269201c06ca343003f05cfea0694c344068211cfef736f8301c02b0f8bdc046e1071602f0b583b00f1c051c3868141c0d2872d8",
+      "patchSize": 0
+    },
+    {
+      "label": "Native field item dispatch",
+      "module": "10",
+      "address": 35067100,
+      "expectedHex": "094516020000000000000000654516028d4516029d451602c14516020000000000000000c1451602554616020000000079461602ff000000954e18020300000069601c02ff000000115d1c0205000000c546160209000000",
+      "patchSize": 0
+    },
+    {
+      "label": "C-Gear work layout",
+      "module": "29",
+      "address": 35595548,
+      "expectedHex": "f8b582b0051c70201e1ca88164482962aa61ee6101242c54301c00271ff608fe5f49891d68545e487021c01d2c548524a4002f51201d2f501e2056f6ceed686204203ef6a8eb011c5648574b0090702001223ef6e2e8011c201c0838295004203ef69eeb103c28510898002804d04d4a281c4e49121d06e0281cfdf77ffe494a4b49281cd21dfdf7a9fc281cfff73cf80899281cfff71afc286a16f6a3fd002804d0281c311cfff703ff071c281c391cfff716f8281cfef71bfa70202ef69eff2124012124010191012128512ff67cfc271c503f285903213a1c70232ef6b0ff285901213a1c70232ef6aaff2859032100223b1c2ff660f82859012100223b1c2ff65af82b49281c695cfef7c5fb28592ff690fb2848291c012213f633f8211c083968502548291c42f6e4ec2448291c42f6f8ec0c34281c291900f0dbfb281cfff73cfb281cfff78dfc089800280ed1301c1ff633fd002801d0002001900199281c00f061fd281c00f07efb02e0281cfff7b4fd812080002858002801d03ef646eb301c1ff64afd041c06d065f79aff022802d1201c65f7afff02b0f8bdc04654040000b810000054351f02f9211f0281211f025a04000009251f02c1241f02fd241f02",
+      "patchSize": 0
+    },
+    {
+      "label": "Native phenomenon generator",
+      "module": "21",
+      "address": 35301388,
+      "expectedHex": "f8b584b0051ca8682c6968f60ff9061c002d5fd0e86800285cd0c0790006c00f58d0a86868f6a0f8071c2868002851d0002f4fd0def72cfa00902868def734faf8f712fc01a9c3f71bf80199039a381caff7f4f900283dd00199039a381caff7b3f91d4a0099914234d0904232d0814230d1a86868f642fb002161f6d5fc002828d02868def734fa002823d1707f0007000f1fd1301c211c00f08ef9002819d0fa2080005af63aff0c49625a0a215143884204d3301c00f093f904b0f8bd281c211c00f001faa088002803d0281c211c00f0aafa04b0f8bdffff0000ba0500000169014b1847c046a1af1a02004b184755af1a0210b580680c1c68f697f8417f0907090f01d10020",
+      "patchSize": 0
+    },
+    {
+      "label": "Native PC script mapping",
+      "module": "10",
+      "address": 35062484,
+      "expectedHex": "6a277327640303003a01",
+      "patchSize": 0
+    },
+    {
+      "label": "Native script VM ownership and instruction pointer",
+      "module": "10",
+      "address": 34966524,
+      "expectedHex": "f0b58fb001900292149803930d1c00f0d1f8061c029806aca0820398e08214980d960c900e9501990ba801f099fc059001200002208140271d48678109901d4808a900680a900198b8f6eafa0599051cb8f60efb06a8009006ab0298039907aa023300f037f80490a088019900f086f8e862002e07d12288413fba4203d06188059801f06ffde96a281cb8f6f9fa04986969800008186861281cb8f659fb696908186861281c00f0c9f8281c0fb0f0bd2c061702d8051702",
+      "patchSize": 0
+    }
+  ],
+  "functions": {
+    "Game": {
+      "module": "ARM9",
+      "entry": 33628405
+    },
+    "Field": {
+      "module": "ARM9",
+      "entry": 33628429
+    },
+    "Save": {
+      "module": "ARM9",
+      "entry": 33631933
+    },
+    "Etc": {
+      "module": "ARM9",
+      "entry": 33615177
+    },
+    "Bag": {
+      "module": "ARM9",
+      "entry": 33630509
+    },
+    "Party": {
+      "module": "ARM9",
+      "entry": 33630517
+    },
+    "Player": {
+      "module": "ARM9",
+      "entry": 33630117
+    },
+    "PlayerForm": {
+      "module": "ARM9",
+      "entry": 33631017
+    },
+    "Flags": {
+      "module": "ARM9",
+      "entry": 33630573
+    },
+    "EncounterState": {
+      "module": "ARM9",
+      "entry": 33630777
+    },
+    "Misc": {
+      "module": "ARM9",
+      "entry": 33632009
+    },
+    "Badge": {
+      "module": "ARM9",
+      "entry": 33604149
+    },
+    "SubscreenMode": {
+      "module": "ARM9",
+      "entry": 33630649
+    },
+    "EventCreate": {
+      "module": "ARM9",
+      "entry": 33628865
+    },
+    "EventChild": {
+      "module": "ARM9",
+      "entry": 33629045
+    },
+    "EventSystem": {
+      "module": "ARM9",
+      "entry": 33629413
+    },
+    "EventData": {
+      "module": "ARM9",
+      "entry": 33629417
+    },
+    "Random": {
+      "module": "ARM9",
+      "entry": 33576745
+    },
+    "RepelStep": {
+      "module": "ARM9",
+      "entry": 33609061
+    },
+    "RepelDepleted": {
+      "module": "ARM9",
+      "entry": 33609101
+    },
+    "Touch": {
+      "module": "ARM9",
+      "entry": 33774776
+    },
+    "BackgroundVisible": {
+      "module": "ARM9",
+      "entry": 33817992
+    },
+    "SubPlanes": {
+      "module": "ARM9",
+      "entry": 33830388
+    },
+    "NativeButtonInput": {
+      "module": "ARM9",
+      "entry": 33889416
+    },
+    "ActorPalette": {
+      "module": "ARM9",
+      "entry": 33863412
+    },
+    "NetworkPosition": {
+      "module": "ARM9",
+      "entry": 33806476
+    },
+    "ArchiveSize": {
+      "module": "ARM9",
+      "entry": 33854420
+    },
+    "Init": {
+      "module": "21",
+      "entry": 35262441
+    },
+    "Update": {
+      "module": "21",
+      "entry": 35262689
+    },
+    "Exit": {
+      "module": "21",
+      "entry": 35262657
+    },
+    "Event": {
+      "module": "21",
+      "entry": 35262777
+    },
+    "NoGearInit": {
+      "module": "21",
+      "entry": 35262789
+    },
+    "GearDispose": {
+      "module": "29",
+      "entry": 35596001
+    },
+    "GearTouch": {
+      "module": "29",
+      "entry": 35592025
+    },
+    "GearIdle": {
+      "module": "29",
+      "entry": 35594625
+    },
+    "GearSleep": {
+      "module": "29",
+      "entry": 35597737
+    },
+    "FieldHeap": {
+      "module": "21",
+      "entry": 35163269
+    },
+    "FieldMessage": {
+      "module": "21",
+      "entry": 35163221
+    },
+    "FieldEncounter": {
+      "module": "21",
+      "entry": 35163369
+    },
+    "FieldController": {
+      "module": "21",
+      "entry": 35163389
+    },
+    "Phenomenon": {
+      "module": "21",
+      "entry": 35301389
+    },
+    "PhenomenonInterval": {
+      "module": "21",
+      "entry": 35302341
+    },
+    "Script": {
+      "module": "10",
+      "entry": 34965353
+    },
+    "Application": {
+      "module": "10",
+      "entry": 34998109
+    },
+    "TownMapReturn": {
+      "module": "10",
+      "entry": 35000961
+    },
+    "ItemCheck": {
+      "module": "10",
+      "entry": 35013829
+    },
+    "ItemEvent": {
+      "module": "10",
+      "entry": 35013877
+    },
+    "FlyInit": {
+      "module": "10",
+      "entry": 34990145
+    },
+    "FlyCheck": {
+      "module": "10",
+      "entry": 34991213
+    },
+    "FlyUse": {
+      "module": "10",
+      "entry": 34990649
+    },
+    "Report": {
+      "module": "10",
+      "entry": 35035833
+    },
+    "SubscreenChange": {
+      "module": "21",
+      "entry": 35262257
+    },
+    "SubscreenReady": {
+      "module": "21",
+      "entry": 35262165
+    },
+    "VBlank": {
+      "module": "ARM9",
+      "entry": 33576609
+    },
+    "Sound": {
+      "module": "ARM9",
+      "entry": 33579493
+    },
+    "HasItem": {
+      "module": "ARM9",
+      "entry": 33587049
+    },
+    "Flag": {
+      "module": "ARM9",
+      "entry": 33637097
+    },
+    "GetMon": {
+      "module": "ARM9",
+      "entry": 33663785
+    },
+    "PartyCount": {
+      "module": "ARM9",
+      "entry": 33663513
+    },
+    "MonGet": {
+      "module": "ARM9",
+      "entry": 33652253
+    },
+    "HeapFree": {
+      "module": "ARM9",
+      "entry": 33751876
+    },
+    "HeapLargest": {
+      "module": "ARM9",
+      "entry": 33751948
+    },
+    "Alloc": {
+      "module": "ARM9",
+      "entry": 33752884
+    },
+    "Free": {
+      "module": "ARM9",
+      "entry": 33753008
+    },
+    "TaskDelete": {
+      "module": "ARM9",
+      "entry": 33754796
+    },
+    "VramInvalid": {
+      "module": "ARM9",
+      "entry": 33769024
+    },
+    "Keys": {
+      "module": "ARM9",
+      "entry": 33776396
+    },
+    "ArchiveInit": {
+      "module": "ARM9",
+      "entry": 33853852
+    },
+    "ArchiveClose": {
+      "module": "ARM9",
+      "entry": 33854008
+    },
+    "ArchiveRead": {
+      "module": "ARM9",
+      "entry": 33854032
+    },
+    "PaletteLoad": {
+      "module": "ARM9",
+      "entry": 33860592
+    },
+    "PaletteDelete": {
+      "module": "ARM9",
+      "entry": 33861028
+    },
+    "PaletteUpload": {
+      "module": "ARM9",
+      "entry": 33861100
+    },
+    "AnimationLoad": {
+      "module": "ARM9",
+      "entry": 33861416
+    },
+    "AnimationDelete": {
+      "module": "ARM9",
+      "entry": 33861592
+    },
+    "UnitCreate": {
+      "module": "ARM9",
+      "entry": 33861888
+    },
+    "CharCreate": {
+      "module": "ARM9",
+      "entry": 33859488
+    },
+    "CharDelete": {
+      "module": "ARM9",
+      "entry": 33859796
+    },
+    "CharUpload": {
+      "module": "ARM9",
+      "entry": 33860048
+    },
+    "ActorCreate": {
+      "module": "ARM9",
+      "entry": 33862292
+    },
+    "ActorDelete": {
+      "module": "ARM9",
+      "entry": 33862580
+    },
+    "ActorVisible": {
+      "module": "ARM9",
+      "entry": 33862620
+    },
+    "ActorPlace": {
+      "module": "ARM9",
+      "entry": 33862660
+    },
+    "ActorAnimate": {
+      "module": "ARM9",
+      "entry": 33863980
+    },
+    "FileInit": {
+      "module": "ARM9",
+      "entry": 34048172
+    },
+    "FileOpen": {
+      "module": "ARM9",
+      "entry": 34049048
+    }
+  },
+  "nativeArchive": "a/0/3/0",
+  "maxSaveFlag": 2911,
+  "saveRecord": {
+    "block": 68,
+    "offset": 164,
+    "size": 48
+  },
+  "sourceHashes": {
+    "ARM9": "f9cb027e4de3b4388c2ac02ae7e22aee8bf9bd25e9e7325bdf3265fec0370e92",
+    "10": "003fdef42c2584b5448ff223360bf2fecb1a2bf6d36ed63a429fd1033779fda7",
+    "21": "cbfa569a15e15f56efcc151fdaa1b407434baedc24054316e63ec50ae356705a",
+    "29": "0169b68fe5dabcfc9eb7bd5a96f635c3cc0010227c06ee87fe7407e3a56b4018"
+  },
+  "nativeGraphicsFingerprint": "51a00fbe",
+  "sha256": "1aa938a8a7e375f770cc854cb34e93724c7d930d0181e903d050ba7b075a3631",
+  "codeFingerprint": "5fd28d07",
+  "bssSize": 948
+}

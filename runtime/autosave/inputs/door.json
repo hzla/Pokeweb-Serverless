@@ -1,0 +1,1 @@
+{"name":"door","frames":2100,"expect":{"transitions":1,"completed":1,"zone":438},"inputs":[{"frame":900,"buttons":8,"duration":330}],"captures":[899,1250,1450,1550,1800]}

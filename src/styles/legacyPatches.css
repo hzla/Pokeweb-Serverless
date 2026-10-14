@@ -43,7 +43,7 @@
 .patch-card {
   background: #383a59;
   border: 1px solid #44475a;
-  border-radius: 8px;
+  border-radius: 6px;
   margin-bottom: 18px;
   max-width: 900px;
   padding: 18px;
@@ -81,6 +81,7 @@
 .patch-card__actions .btn.-default {
   background: #1abc9c;
   color: #101216;
+  border-color: #1abc9c;
 }
 
 .patch-card__actions .btn:disabled {
@@ -100,29 +101,6 @@
   accent-color: #1abc9c;
   height: 16px;
   width: 16px;
-}
-
-.patch-badge {
-  background: rgb(255 184 108 / 14%);
-  border: 1px solid rgb(255 184 108 / 45%);
-  border-radius: 999px;
-  color: #ffb86c;
-  flex: 0 0 auto;
-  font-size: 12px;
-  font-weight: 700;
-  padding: 5px 10px;
-}
-
-.patch-badge.-ok {
-  background: rgb(80 250 123 / 12%);
-  border-color: rgb(80 250 123 / 45%);
-  color: #50fa7b;
-}
-
-.patch-badge.-warn {
-  background: rgb(255 184 108 / 14%);
-  border-color: rgb(255 184 108 / 45%);
-  color: #ffb86c;
 }
 
 .patch-status {

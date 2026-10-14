@@ -1,11 +1,9 @@
 .randomizer-page {
   --randomizer-accent: #50fa7b;
   --randomizer-accent-strong: #1abc9c;
-  --randomizer-card: #34364f;
-  --randomizer-line: #4b4e69;
-  background:
-    radial-gradient(circle at 75% 0%, rgb(189 147 249 / 10%), transparent 34rem),
-    #282a36;
+  --randomizer-card: #383a59;
+  --randomizer-line: #44475a;
+  background: #282a36;
   color: #f2f2f2;
   display: grid;
   flex: 1 1 auto;
@@ -17,7 +15,7 @@
 
 .randomizer-sidebar {
   align-self: start;
-  background: rgb(40 42 54 / 94%);
+  background: #282a36;
   border-right: 1px solid #44475a;
   box-sizing: border-box;
   min-height: calc(100vh - 40px);
@@ -26,18 +24,10 @@
   top: 40px;
 }
 
-.randomizer-kicker {
-  color: #bd93f9;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
 .randomizer-sidebar h1 {
   font-size: 30px;
   line-height: 1;
-  margin: 8px 0 10px;
+  margin: 0 0 10px;
 }
 
 .randomizer-sidebar > p {
@@ -119,8 +109,9 @@
 }
 
 .randomizer-data-summary strong {
-  color: var(--randomizer-accent);
+  color: #f2f2f2;
   font-size: 12px;
+  font-weight: 500;
 }
 
 .randomizer-data-summary strong.-missing {
@@ -135,8 +126,9 @@
 .randomizer-run.btn.-default {
   background: var(--randomizer-accent-strong);
   color: #101216;
-  font-weight: 750;
+  font-weight: 500;
   min-height: 46px;
+  border-color: var(--randomizer-accent-strong);
 }
 
 .randomizer-run:disabled {
@@ -194,20 +186,20 @@
 }
 
 .randomizer-card {
-  background: linear-gradient(145deg, rgb(56 58 89 / 96%), rgb(47 49 72 / 96%));
-  border: 1px solid var(--randomizer-line);
-  border-radius: 10px;
-  box-shadow: 0 14px 28px rgb(0 0 0 / 10%);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   margin: 0;
   min-width: 0;
-  padding: 20px;
+  padding: 20px 0;
+  border-top: 1px solid var(--randomizer-line);
 }
 
 .randomizer-card legend {
   color: #f8f8f2;
   font-size: 19px;
-  font-weight: 720;
-  padding: 0 9px;
+  font-weight: 500;
+  padding: 0 14px 0 0;
 }
 
 .randomizer-card > p {
@@ -223,13 +215,14 @@
 }
 
 .randomizer-unavailable {
-  background: rgb(255 184 108 / 9%);
-  border: 1px solid rgb(255 184 108 / 32%);
-  border-radius: 6px;
-  color: #ffb86c;
+  background: #282a36;
+  border: 0;
+  border-radius: 0;
+  color: #d6d7e2;
   font-size: 12px;
   margin-bottom: 16px;
   padding: 9px 11px;
+  border-left: 3px solid #ffb86c;
 }
 
 .randomizer-grid {
@@ -284,15 +277,16 @@
 }
 
 .randomizer-alert {
-  border-radius: 8px;
+  border-radius: 0;
   font-size: 13px;
   padding: 14px 16px;
 }
 
 .randomizer-alert.-error {
-  background: rgb(255 85 85 / 10%);
-  border: 1px solid rgb(255 85 85 / 40%);
-  color: #ff7777;
+  background: #282a36;
+  border: 0;
+  color: #f2f2f2;
+  border-left: 3px solid #ff8585;
 }
 
 @media (max-width: 820px) {

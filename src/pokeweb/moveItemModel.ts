@@ -1,10 +1,10 @@
 import effectsText from "../assets/data/effects.txt?raw";
 import resultEffectsText from "../assets/data/result_effects.txt?raw";
-import { recordFieldChange } from "./actionChangelog";
+import { projectEditSession, type PreparedEdit } from "./editSession";
 import { EFFECT_CATEGORIES, PROPERTIES, STATS, STATUSES, TARGETS, moveCategoryNamesForProject, typeNamesForProject } from "./constants";
-import { copyMoveAnimationScript } from "./moveAnimationModel";
+import { prepareMoveAnimationCopy } from "./moveAnimationModel";
 import { getMoveExpansionSourceMoveId, MOVE_EXPANSION_FIRST_USABLE_ID, usesFrostMoveExpansionLayout } from "./moveExpansionPatch";
-import { decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
+import { decodeRecord, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
 
 // Line index is the ROM's AISeqNo (0-337). Keep every slot, including unused ones,
 // and keep labels unique ignoring case: text selection resolves them back to IDs.
@@ -244,7 +244,12 @@ export function getMoveAutofills(project?: ProjectState): Record<string, string[
 }
 
 export function updateMoveField(project: ProjectState, moveId: number, field: string, inputValue: string | boolean): FieldUpdateResult {
-  const record = getMoveRecord(project, moveId);
+  return projectEditSession(project).commit(prepareMoveField(project, moveId, field, inputValue));
+}
+
+export function prepareMoveField(project: ProjectState, moveId: number, field: string, inputValue: string | boolean): PreparedEdit<FieldUpdateResult> {
+  const current = getMoveRecord(project, moveId);
+  const record = { id: moveId, raw: { ...current.raw }, readable: { ...current.readable } };
   const originalField = field;
   const before = record.readable[field];
   const value = typeof inputValue === "boolean" ? inputValue : inputValue.trim();
@@ -291,9 +296,7 @@ export function updateMoveField(project: ProjectState, moveId: number, field: st
     record.raw.hits = rawValue;
     record.readable.min_hits = minHits;
     record.readable.max_hits = maxHits;
-    recordFieldChange(project, "moves", moveName(project, moveId), moveFieldLabel(originalField), before, next, { key: `move:${moveId}:${originalField}` });
-    markDirty(project, "moves", moveId);
-    return { value: next, rawValue };
+    return prepareMoveRecordEdit(project, moveId, record, originalField, before, next, rawValue);
   } else if ((PROPERTIES as readonly string[]).includes(field)) {
     record.readable[field] = value ? 1 : 0;
     rawValue = packProperties(record.readable);
@@ -305,10 +308,12 @@ export function updateMoveField(project: ProjectState, moveId: number, field: st
     displayValue = readableValue;
   } else if (field === "animation") {
     rawValue = parseInteger(String(value), 0, 65535, field);
-    copyMoveAnimationScript(project, moveId, rawValue);
-    record.readable.animation = rawValue;
-    recordFieldChange(project, "moves", moveName(project, moveId), "animation", before, rawValue, { key: `move:${moveId}:animation` });
-    return { value: rawValue, rawValue };
+    const animation = prepareMoveAnimationCopy(project, moveId, rawValue);
+    const result = { value: rawValue, rawValue };
+    if (!animation.binaries?.length) return { result };
+    const change = prepareMoveRecordEdit(project, moveId, record, originalField, before, rawValue, rawValue);
+    return { ...animation, result, records: [{ name: "moves", id: moveId, readable: { animation: rawValue }, dirty: false }],
+      changelog: [...(animation.changelog ?? []), ...(change.changelog ?? [])] };
   } else {
     const max = moveIntegerMax(field);
     if (max === undefined) throw new Error(`Unsupported move field: ${field}`);
@@ -318,54 +323,49 @@ export function updateMoveField(project: ProjectState, moveId: number, field: st
 
   record.raw[field] = rawValue;
   syncMoveReadable(project, record.raw, record.readable, moveId);
-  recordFieldChange(project, "moves", moveName(project, moveId), moveFieldLabel(originalField), before, displayValue, { key: `move:${moveId}:${originalField}` });
-  markDirty(project, "moves", moveId);
-  return { value: displayValue, rawValue };
+  return prepareMoveRecordEdit(project, moveId, record, originalField, before, displayValue, rawValue);
+}
+
+
+function prepareMoveRecordEdit(project: ProjectState, moveId: number, record: MoveRecord, field: string, before: unknown, value: string | number, rawValue: number): PreparedEdit<FieldUpdateResult> {
+  return {
+    result: { value, rawValue },
+    records: [{ name: "moves", id: moveId, raw: record.raw, readable: record.readable }],
+    changelog: [{ kind: "field", domain: "moves", subject: moveName(project, moveId), label: moveFieldLabel(field), before, after: value, key: `move:${moveId}:${field}` }],
+  };
 }
 
 export function updateMoveEffectId(project: ProjectState, moveId: number, inputValue: string): FieldUpdateResult {
-  const record = getMoveRecord(project, moveId);
-  const before = record.readable.effect;
   const rawValue = parseInteger(inputValue.trim(), 0, EFFECTS.length - 1, "effect id");
-  const displayValue = EFFECTS[rawValue];
-  record.raw.effect = rawValue;
-  syncMoveReadable(project, record.raw, record.readable, moveId);
-  recordFieldChange(project, "moves", moveName(project, moveId), moveFieldLabel("effect"), before, displayValue, { key: `move:${moveId}:effect` });
-  markDirty(project, "moves", moveId);
-  return { value: displayValue, rawValue };
+  return updateMoveField(project, moveId, "effect", EFFECTS[rawValue]);
 }
 
 export function updateItemField(project: ProjectState, itemId: number, field: string, inputValue: string): FieldUpdateResult {
-  const record = getItemRecord(project, itemId);
-  const before = record.readable[field];
   const max = itemIntegerMax(field);
   if (max === undefined) throw new Error(`Unsupported item field: ${field}`);
   const value = parseInteger(inputValue.trim(), 0, max, field);
-  record.raw[field] = value;
-  record.readable[field] = value;
-  recordFieldChange(project, "items", itemName(project, itemId), itemFieldLabel(field), before, value, { key: `item:${itemId}:${field}` });
-  markDirty(project, "items", itemId);
-  return { value, rawValue: value };
+  return commitItemField(project, itemId, field, value, itemFieldLabel(field));
 }
 
 export function updateItemPackedField(project: ProjectState, itemId: number, field: string, partKey: string, inputValue: string | boolean): FieldUpdateResult {
-  const record = getItemRecord(project, itemId);
-  const before = record.readable[field];
   const part = ITEM_PACKED_FIELDS[field]?.find((item) => item.key === partKey);
   const max = itemIntegerMax(field);
   if (!part || max === undefined) throw new Error(`Unsupported item packed field: ${field}.${partKey}`);
-
   const partMax = (1 << part.size) - 1;
   const nextPartValue = part.kind === "checkbox" ? (inputValue ? 1 : 0) : parseInteger(String(inputValue).trim(), 0, partMax, partKey);
-  const current = Number(record.raw[field] ?? 0);
+  const record = getItemRecord(project, itemId);
   const mask = partMax << part.offset;
-  const rawValue = (current & ~mask) | (nextPartValue << part.offset);
+  const rawValue = (Number(record.raw[field] ?? 0) & ~mask) | (nextPartValue << part.offset);
+  return commitItemField(project, itemId, field, rawValue, `${itemFieldLabel(field)} ${partKey.replace(/_/gu, " ")}`);
+}
 
-  record.raw[field] = rawValue;
-  record.readable[field] = rawValue;
-  recordFieldChange(project, "items", itemName(project, itemId), `${itemFieldLabel(field)} ${partKey.replace(/_/gu, " ")}`, before, rawValue, { key: `item:${itemId}:${field}:${partKey}` });
-  markDirty(project, "items", itemId);
-  return { value: rawValue, rawValue };
+function commitItemField(project: ProjectState, itemId: number, field: string, value: number, label: string): FieldUpdateResult {
+  const record = getItemRecord(project, itemId);
+  return projectEditSession(project).commit({
+    result: { value, rawValue: value },
+    records: [{ name: "items", id: itemId, raw: { [field]: value }, readable: { [field]: value } }],
+    changelog: [{ kind: "field", domain: "items", subject: itemName(project, itemId), label, before: record.readable[field], after: value, key: `item:${itemId}:${field}` }],
+  });
 }
 
 export function moveMatchesSearch(record: MoveRecord, searchText: string, categories: Set<string>, types: Set<string>): boolean {

@@ -197,24 +197,27 @@ button.header-item {
 }
 
 .btn {
-  transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
-  border: none;
+  transition: filter 120ms ease, background-color 120ms ease;
+  border: 1px solid #55586d;
   border-radius: 3px;
   cursor: pointer;
   display: inline-block;
   font-family: Rubik, sans-serif;
   font-size: 13px;
   font-weight: 500;
-  letter-spacing: 0.5px;
+  letter-spacing: 0;
   line-height: 1.25;
   padding: 10px 15px;
   text-decoration: none;
-  text-transform: uppercase;
+  text-transform: none;
+  background: #383a59;
+  color: #f2f2f2;
 }
 
 .btn.-default {
   background: #bd93f9;
-  color: #f2f2f2;
+  color: #282a36;
+  border-color: #bd93f9;
 }
 
 .debug-toggle {
@@ -299,3 +302,8 @@ button.header-item {
     display: block;
   }
 }
+
+.btn.-primary { background: #1abc9c; border-color: #1abc9c; color: #101216; }
+.btn:hover:not(:disabled) { filter: brightness(1.1); }
+.btn:focus-visible { outline: 2px solid #bd93f9; outline-offset: 3px; }
+.btn:disabled { cursor: not-allowed; opacity: 0.55; }

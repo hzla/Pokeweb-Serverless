@@ -1,3 +1,5 @@
+import { renderInlineStatus } from "./inlineStatus";
+import { installCodeInjectionPatch } from "../pokeweb/codeInjectionInstall";
 import { getPartyQuickActionsStatus, installPartyQuickActions, disablePartyQuickActions, parsePartyToolbarHideFlag, PARTY_TOOLBAR_SECTIONS } from "../pokeweb/partyQuickActionsModel";
 import {
   detectBundledFormEvolutionDll,
@@ -10,6 +12,7 @@ import {
   installBundledBgmToggleDll,
   installBundledPmc,
   listCodeInjectionDlls,
+  prepareBw2FormEvolutionCodeInjection,
   stageBundledDoubleBattleFixDll,
   stageCodeInjectionDll,
   type CodeInjectionDllTarget,
@@ -49,10 +52,11 @@ import {
 } from "../pokeweb/tagBattleStabilizationModel";
 import { getPortaPcStatus, installPortaPc, uninstallPortaPc } from "../pokeweb/portaPcModel";
 import { CGEAR_QUICK_ACTIONS_VERSION, getCGearQuickActionsStatus, installCGearQuickActions, disableCGearQuickActions, removeCGearQuickActions } from "../pokeweb/cgearQuickActionsModel";
+import { CGEAR_QUICK_ACTIONS_BW1_VERSION } from "../pokeweb/cgearQuickActionsBw1Model";
 import { getLearnsetViewerStatus, installLearnsetViewer, uninstallLearnsetViewer } from "../pokeweb/learnsetViewerModel";
 import { getSummaryStatViewerStatus, installSummaryStatViewer, uninstallSummaryStatViewer, SUMMARY_STAT_VIEWER_VERSION } from "../pokeweb/summaryStatViewerModel";
 import { getSummaryTypeIconsStatus, installSummaryTypeIcons, uninstallSummaryTypeIcons, SUMMARY_TYPE_ICONS_VERSION } from "../pokeweb/summaryTypeIconsModel";
-import { getSaveMenuSettings, getSaveMenuStatus, installSaveMenu, SAVE_MENU_VERSION, type SaveMenuSettings } from "../pokeweb/saveMenuModel";
+import { getSaveMenuSettings, getSaveMenuStatus, installSaveMenu, SAVE_MENU_VERSION, SAVE_MENU_VERSION_LABEL_MAX_LENGTH, type SaveMenuSettings } from "../pokeweb/saveMenuModel";
 import { canUseLocalRomBridge } from "../pokeweb/localRomBridge";
 import { getInfiniteCandyStatus, installInfiniteCandy } from "../pokeweb/infiniteCandyModel";
 import { getLevelCapsStatus, installLevelCaps } from "../pokeweb/levelCapsModel";
@@ -68,7 +72,7 @@ import { loadActiveRomBytes } from "../pokeweb/persistence";
 import { getStandaloneStreamConfigs, type ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 
-const pwanCompatibilityHydrationProjects = new WeakSet<ProjectState>();
+const codeInjectionHydrationProjects = new WeakSet<ProjectState>();
 const typeIconLettersPreview = new URL("../assets/codeinjection/type-icons-letters-preview.png", import.meta.url).href;
 const typeIconCircularPreview = new URL("../assets/codeinjection/type-icons-circular-preview.png", import.meta.url).href;
 const typeIconSolidPreview = new URL("../assets/codeinjection/type-icons-solid-preview.png", import.meta.url).href;
@@ -91,11 +95,12 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     `data-code-injection-supported="${supported}"${!supported && !showUnsupported ? " hidden" : ""}`;
   const emptyCategoryMessage = `<div class="code-injection-empty" data-code-injection-empty hidden>No supported patches in this category. Enable “Show unsupported patches” in the sidebar to view all patches.</div>`;
   const status = getPmcInstallStatus(project);
+  const install = <T>(stage: (candidate: ProjectState) => T | Promise<T>) => installCodeInjectionPatch(project, stage);
   const modules = listCodeInjectionDlls(project);
   const formEvolutionStatus = detectBundledFormEvolutionDll(project);
   const formEvolutionInstalled = formEvolutionStatus === "patched";
   const doubleBattleFixStatus = detectBundledDoubleBattleFixDll(project);
-  const doubleBattleFixSupported = status.installed && doubleBattleFixStatus !== "unsupported";
+  const doubleBattleFixSupported = status.supported && doubleBattleFixStatus !== "unsupported";
   const bgmToggleStatus = detectBundledBgmToggleDll(project);
   const bgmToggleSupported = bgmToggleStatus !== "unsupported";
   const infiniteCandyStatus = getInfiniteCandyStatus(project);
@@ -106,7 +111,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     return `<section class="code-injection-panel" ${patchVisibility(state.supported)}>
       <div class="code-injection-panel__header"><div>
         <h2>${escapeHtml(patch.title)}</h2><p>${escapeHtml(patch.description)}</p>
-      </div><span class="code-injection-status ${state.installed ? "-installed" : state.compatible ? "" : "-error"}">${state.installed ? "Installed" : state.compatible ? "Ready" : state.supported ? "Incompatible" : "Unsupported"}</span></div>
+      </div>${renderInlineStatus(state.installed ? "Installed" : state.compatible ? "Ready" : state.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}</div>
       <div class="code-injection-facts"><div><span>ROM</span><strong>US White 2</strong></div><div><span>Version</span><strong>0.1.0 alpha</strong></div></div>
       <p>${escapeHtml(state.message)}</p>
       <div class="code-injection-actions">
@@ -151,11 +156,10 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const menuEvolutionStatus = getMenuEvolutionInstallStatus(project);
   const menuEvolutionCanInstall = menuEvolutionStatus.supported
     && menuEvolutionStatus.compatible
-    && menuEvolutionStatus.dependencyInstalled
-    && battleLogStatus.upToDate;
+    && battleLogStatus.supported && battleLogStatus.compatible;
   const menuEvolutionCanUninstall = menuEvolutionStatus.installed && canUninstallMenuEvolution(project);
-  if (shouldHydrateRomBytesForPwanCompatibility(project, pwanCompatibility)) {
-    void hydrateRomBytesForPwanCompatibility(project, root, onDirty);
+  if (status.supported && !project.originalRomBytes && !codeInjectionHydrationProjects.has(project)) {
+    void hydrateRomBytesForCodeInjection(project, root, onDirty);
   }
   const battleUiCards = [
     { id: "battle-hud", title: "Type Icons", status: battleHudStatus,
@@ -166,9 +170,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         <section class="code-injection-panel" ${patchVisibility(card.status.supported)}>
           <div class="code-injection-panel__header">
             <div><h2>${card.title}</h2><p>${card.description}</p></div>
-            <span class="code-injection-status ${card.status.installed && !card.status.updateAvailable ? "-installed" : card.status.compatible ? "" : "-error"}">
-              ${card.status.legacyCombined ? "Combined Patch Present" : card.status.updateAvailable ? "Update Available" : card.status.installed ? "Installed" : card.status.compatible ? "Ready" : "Unsupported / Incompatible"}
-            </span>
+            ${renderInlineStatus(card.status.legacyCombined ? "Combined Patch Present" : card.status.updateAvailable ? "Update Available" : card.status.installed ? "Installed" : card.status.compatible ? "Ready" : card.status.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
             <div><span>ROM</span><strong>English Black 2 / White 2</strong></div>
@@ -230,9 +232,9 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-panel__header">
             <div>
               <h2>PMC Runtime</h2>
-              <p>Shared runtime for the patch installers on this page.</p>
+              <p>Shared runtime for the patch installers on this page. Required dependencies are installed automatically.</p>
             </div>
-            <span class="code-injection-status ${status.installed ? "-installed" : ""}">${status.installed ? "Installed" : "Not Installed"}</span>
+            ${renderInlineStatus(status.installed ? "Installed" : "Not Installed", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
             <div><span>Version</span><strong>${status.installed && status.version ? escapeHtml(status.version) : "—"}</strong></div>
@@ -244,10 +246,10 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         </section>
         <section class="code-injection-sidebar__modules">
           <h2>Installed DLLs</h2>
-          <p>${status.installed ? "DLLs found under patches/ and lib/." : "Install PMC first, then add built patch DLLs."}</p>
+          <p>${status.installed ? "DLLs found under patches/ and lib/." : "Add built patch DLLs. PMC is installed automatically if needed."}</p>
           <div class="code-injection-actions">
-            <button class="btn -primary" data-dll-target="patches" type="button" ${status.installed ? "" : "disabled"}>Add Patch DLL</button>
-            <button class="btn -default" data-dll-target="lib" type="button" ${status.installed ? "" : "disabled"}>Add Library DLL</button>
+            <button class="btn -primary" data-dll-target="patches" type="button" ${status.supported ? "" : "disabled"}>Add Patch DLL</button>
+            <button class="btn -default" data-dll-target="lib" type="button" ${status.supported ? "" : "disabled"}>Add Library DLL</button>
             <input id="code-injection-dll-input" type="file" accept=".dll" hidden />
             <div class="code-injection-note" id="dll-install-note" aria-live="polite"></div>
           </div>
@@ -279,9 +281,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               <h2>PWAN GIF Support</h2>
               <p>Installs PMC and the bundled PWAN runtime needed for Pokemon-scoped GIF imports.</p>
             </div>
-            <span class="code-injection-status ${pwanRuntimeInstalled ? "-installed" : pwanCanInstall ? "" : "-error"}">
-              ${pwanRuntimeInstalled ? "Installed" : pwanLegacyInstalled ? "Upgrade" : pwanCanInstall ? "Ready" : pwanCompatibility.supportedBase ? "Incompatible" : "Unsupported"}
-            </span>
+            ${renderInlineStatus(pwanRuntimeInstalled ? "Installed" : pwanLegacyInstalled ? "Upgrade" : pwanCanInstall ? "Ready" : pwanCompatibility.supportedBase ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
             <div><span>Runtime</span><strong>Full split</strong></div>
@@ -307,9 +307,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               <h2>Trainer PWAN GIF Support</h2>
               <p>Installs the independent battle-intro runtime used by PWAN GIFs in the Trainer Class Sprite Editor.</p>
             </div>
-            <span class="code-injection-status ${trainerPwanInstalled ? "-installed" : trainerPwanCanInstall ? "" : "-error"}">
-              ${trainerPwanInstalled ? "Installed" : trainerPwanCanInstall ? "Ready" : trainerPwanStatus.supported ? "Incompatible" : "Unsupported"}
-            </span>
+            ${renderInlineStatus(trainerPwanInstalled ? "Installed" : trainerPwanCanInstall ? "Ready" : trainerPwanStatus.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
             <div><span>Sprites</span><strong>Front trainers</strong></div>
@@ -332,9 +330,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               <h2>Overworld Weather Runtime</h2>
               <p>Installs a resident 64-entry field-weather dispatcher and a data-driven registry so IDs 15–63 can clone stock behavior without per-effect code patches.</p>
             </div>
-            <span class="code-injection-status ${weatherRuntimeInstalled ? "-installed" : weatherRuntimeSupported ? "" : "-error"}">
-              ${weatherRuntimeInstalled ? "Installed" : weatherRuntimeSupported ? "Ready" : "Unsupported"}
-            </span>
+            ${renderInlineStatus(weatherRuntimeInstalled ? "Installed" : weatherRuntimeSupported ? "Ready" : "Unsupported", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
             <div><span>ROM</span><strong>US White 2 (IRDO)</strong></div>
@@ -357,9 +353,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               <h2>Trainer Battle Log</h2>
               <p>Records trainer-battle teams and KO attribution. Installing overwrites Pal Pad/Wi-Fi data in save blocks 29–31. Updating cannot repair previously damaged records.</p>
             </div>
-            <span class="code-injection-status ${battleLogStatus.upToDate ? "-installed" : battleLogCanInstall ? "" : "-error"}">
-              ${
-                battleLogStatus.updateAvailable
+            ${renderInlineStatus(battleLogStatus.updateAvailable
                   ? "Update Available"
                   : battleLogStatus.upToDate
                     ? "Installed"
@@ -367,9 +361,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
                       ? "Ready"
                       : battleLogStatus.supported
                         ? "Incompatible"
-                        : "Unsupported"
-              }
-            </span>
+                        : "Unsupported", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
             <div><span>ROM</span><strong>US ${escapeHtml(battleLogDisplayName(project.session.baseVersion) ?? project.session.baseVersion)}</strong></div>
@@ -402,25 +394,31 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-panel__header"><div>
             <h2>Black 2 / White 2 Save Menu</h2>
             <p>An animated save card and native Unova map. Continue recalls the party from right to left while the player raises a Poké Ball, then jumps across both screens onto the location marker. The C-Gear question is answered Yes automatically.</p>
-          </div><span class="code-injection-status ${saveMenuStatus.installed && !saveMenuStatus.updateAvailable ? "-installed" : saveMenuStatus.supported ? "" : "-error"}">${saveMenuStatus.updateAvailable ? "Update Available" : saveMenuStatus.installed ? "Installed" : saveMenuStatus.supported ? "Ready" : "Unsupported"}</span></div>
+          </div>${renderInlineStatus(saveMenuStatus.updateAvailable ? "Update Available" : saveMenuStatus.installed ? "Installed" : !saveMenuStatus.supported ? "Unsupported" : saveMenuStatus.dependencyPresent ? "Ready" : "Requires Following Pokémon", { className: "code-injection-status" })}</div>
           <div class="code-injection-facts"><div><span>ROM</span><strong>English Black 2 / White 2</strong></div><div><span>Version</span><strong>${SAVE_MENU_VERSION}</strong></div></div>
           <p>${escapeHtml(saveMenuStatus.message)}</p>
-          <div class="code-injection-actions">
+          ${saveMenuStatus.supported ? `<p><a class="btn -default" href="#followingPokemon" data-route="followingPokemon">${saveMenuStatus.dependencyPresent ? "Open Following Pokémon" : "Install Following Pokémon"}</a></p>` : ""}
+          <p>L/R make the left/right three Pokémon Hop; Y/X make alternating party slots Hop. Hold Select with L to spin slots 1–3, R for slots 4–6, Y for slots 1/3/5, or X for slots 2/4/6 using their follower sprites. The player raises the matching hand, and walking stays on the music beat.</p>
+          <div class="code-injection-actions code-injection-settings">
+            <label>ROM version label<input id="save-menu-version-label" type="text" maxlength="${SAVE_MENU_VERSION_LABEL_MAX_LENGTH}" value="${escapeHtml(saveMenuSettings.versionLabel ?? "")}" placeholder="v1.0" ${saveMenuStatus.supported ? "" : "disabled"} />
+              <small>Optional text in the save card header. Up to 30 letters, numbers, spaces, or . , ! ? -.</small>
+            </label>
             <label>Menu song
               <select id="save-menu-song" ${saveMenuStatus.supported ? "" : "disabled"}>
                 <option value="relic-song" ${saveMenuSettings.music === "relic-song" ? "selected" : ""}>Relic Song (native sequence)</option>
-                ${standaloneSongs.map(song => `<option value="stream:${song.streamId}" ${saveMenuSettings.music === "stream" && saveMenuSettings.streamId === song.streamId ? "selected" : ""}>${escapeHtml(song.name)} · stream ${song.streamId}</option>`).join("")}
+                <option value="off" ${saveMenuSettings.music === "off" ? "selected" : ""}>Off (no save-menu music)</option>
+                ${standaloneSongs.map(song => `<option value="stream:${song.streamId}" ${song.loop ? "" : "disabled"} ${saveMenuSettings.music === "stream" && saveMenuSettings.streamId === song.streamId ? "selected" : ""}>${escapeHtml(song.name)} · stream ${song.streamId}${song.loop ? "" : " (not looping)"}</option>`).join("")}
               </select>
               <small>Use Music → Standalone streamed songs to add a track without replacing game music.</small>
             </label>
-            <label>Song tempo (BPM)<input id="save-menu-bpm" type="number" min="30" max="300" step="1" value="${saveMenuSettings.bpm}" ${saveMenuStatus.supported ? "" : "disabled"} /></label>
+            <label>Stream tempo (BPM)<input id="save-menu-bpm" type="number" min="30" max="300" step="1" value="${saveMenuSettings.bpm}" ${saveMenuStatus.supported ? "" : "disabled"} /></label>
             <label>Sprite pose changes per beat
               <select id="save-menu-steps-per-beat" ${saveMenuStatus.supported ? "" : "disabled"}>
                 ${([1, 2, 4] as const).map(steps => `<option value="${steps}" ${saveMenuSettings.stepsPerBeat === steps ? "selected" : ""}>${steps}</option>`).join("")}
               </select>
-              <small>The native song follows its sequence clock. Streamed songs use BPM to pace both walking and party icons.</small>
+              <small>The native song follows its sequence clock. Streams use BPM. With music off, sprites change poses every eight frames.</small>
             </label>
-            <button class="btn -primary" id="install-save-menu-btn" type="button" ${saveMenuStatus.supported ? "" : "disabled"}>${saveMenuStatus.updateAvailable ? "Update Save Menu" : saveMenuStatus.installed ? "Reinstall Save Menu" : "Install Save Menu"}</button>
+            <button class="btn -primary" id="install-save-menu-btn" type="button" ${saveMenuStatus.supported && saveMenuStatus.dependencyPresent ? "" : "disabled"}>${saveMenuStatus.updateAvailable ? "Update Save Menu" : saveMenuStatus.installed ? "Reinstall Save Menu" : "Install Save Menu"}</button>
             <div class="code-injection-note" id="save-menu-note" aria-live="polite"></div>
           </div>
         </section>
@@ -428,7 +426,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-panel__header"><div>
             <h2>Summary IV/EV Viewer</h2>
             <p>View stored IVs and optional EVs in the native Pokémon Summary using Left/Right or the bar-chart tab. The normal HP bar and other Summary controls are preserved.</p>
-          </div><span class="code-injection-status ${summaryStatStatus.installed ? "-installed" : summaryStatStatus.compatible ? "" : "-error"}">${summaryStatStatus.updateAvailable ? "Update Available" : summaryStatStatus.installed ? "Installed" : summaryStatStatus.compatible ? "Ready" : summaryStatStatus.supported ? "Incompatible" : "Unsupported"}</span></div>
+          </div>${renderInlineStatus(summaryStatStatus.updateAvailable ? "Update Available" : summaryStatStatus.installed ? "Installed" : summaryStatStatus.compatible ? "Ready" : summaryStatStatus.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}</div>
           <div class="code-injection-facts"><div><span>ROM</span><strong>English US Black 2 / White 2</strong></div><div><span>Version</span><strong>${SUMMARY_STAT_VIEWER_VERSION}</strong></div></div>
           <p>${escapeHtml(summaryStatStatus.message)}</p>
           <label><input type="checkbox" id="summary-stat-evs" ${summaryStatStatus.options.includeEvs ? "checked" : ""} ${summaryStatStatus.compatible ? "" : "disabled"}> Include EV view</label>
@@ -443,7 +441,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-panel__header"><div>
             <h2>Summary Type Icons</h2>
             <p>Decorated badges for the 17 original BW2 types on the information page only. Places Type first, Name second, and Dex No. third. Other screens retain their original icons.</p>
-          </div><span class="code-injection-status ${summaryTypeStatus.installed ? "-installed" : summaryTypeStatus.compatible ? "" : "-error"}">${summaryTypeStatus.installed ? "Installed" : summaryTypeStatus.compatible ? "Ready" : summaryTypeStatus.supported ? "Incompatible" : "Unsupported"}</span></div>
+          </div>${renderInlineStatus(summaryTypeStatus.installed ? "Installed" : summaryTypeStatus.compatible ? "Ready" : summaryTypeStatus.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}</div>
           <div class="code-injection-facts"><div><span>ROM</span><strong>English US Black 2 / White 2</strong></div><div><span>Version</span><strong>${SUMMARY_TYPE_ICONS_VERSION}</strong></div></div>
           <img src="${summaryTypeIconsPreview}" alt="Decorated type icons in native BW2 colors" style="max-width:100%;image-rendering:pixelated" />
           <p>${escapeHtml(summaryTypeStatus.message)}</p>
@@ -457,30 +455,24 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-panel__header">
             <div>
               <h2>${MENU_EVOLUTION_TITLE}</h2>
-              <p>Adds EVOLVE and RELEARN party commands, post-battle KO evolution, and immediate KO-threshold moves. Requires Trainer Battle Log.</p>
+              <p>Adds EVOLVE and RELEARN party commands, post-battle KO evolution, and immediate KO-threshold moves. Installs or updates the required Trainer Battle Log automatically.</p>
             </div>
-            <span class="code-injection-status ${menuEvolutionStatus.upToDate ? "-installed" : menuEvolutionCanInstall ? "" : "-error"}">
-              ${
-                menuEvolutionStatus.updateAvailable
+            ${renderInlineStatus(menuEvolutionStatus.updateAvailable
                   ? "Update Available"
                   : menuEvolutionStatus.upToDate
                   ? "Installed"
                   : !menuEvolutionStatus.supported
                     ? "Unsupported"
-                    : !menuEvolutionStatus.dependencyInstalled
-                      ? "Dependency Missing"
-                      : menuEvolutionStatus.compatible
+                    : menuEvolutionCanInstall
                         ? "Ready"
-                        : "Incompatible"
-              }
-            </span>
+                        : "Incompatible", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
             <div><span>ROM</span><strong>US ${escapeHtml(menuEvolutionDisplayName(project.session.baseVersion) ?? project.session.baseVersion)}</strong></div>
             <div><span>Methods</span><strong>Level, KOs, Battles, Used</strong></div>
             <div><span>KO Moves</span><strong>32 per Pokémon</strong></div>
             <div><span>Relearn</span><strong>Current level + earned KOs</strong></div>
-            <div><span>Battle Counters</span><strong>${menuEvolutionStatus.dependencyInstalled ? "Installed" : "Required"}</strong></div>
+            <div><span>Trainer Battle Log</span><strong>${battleLogStatus.upToDate ? "Installed" : battleLogStatus.compatible ? battleLogStatus.installed ? "Will Update" : "Will Install" : "Incompatible"}</strong></div>
             <div><span>PMC</span><strong>${menuEvolutionStatus.pmcInstalled ? "Installed" : "Will Install"}</strong></div>
             <div><span>Hook Checks</span><strong>${menuEvolutionStatus.checked ? `${menuEvolutionStatus.passed}/${menuEvolutionStatus.checks.length}` : "On install"}</strong></div>
           </div>
@@ -519,9 +511,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               <h2>Learnset Viewer</h2>
               <p>Adds a standalone LEARNSET party command. D-pad Right/Left switches party Pokémon, skipping Eggs; L/R browses the evolution family and loads the highlighted species' info and learnset. Only its icon animates. A pages evolution requirements; final evolutions also show their predecessor's requirements. Hidden abilities are purple. The lower screen lists all level-up moves with levels and base max PP. Read-only: browsing never evolves Pokémon or teaches moves; no KO moves, and RELEARN is unchanged.</p>
             </div>
-            <span class="code-injection-status ${learnsetStatus.installed && !learnsetStatus.updateAvailable ? "-installed" : learnsetStatus.compatible ? "" : "-error"}">
-              ${learnsetStatus.partial ? "Incomplete" : learnsetStatus.updateAvailable ? "Update Available" : learnsetStatus.installed ? "Installed" : learnsetStatus.compatible ? "Ready" : "Unsupported / Incompatible"}
-            </span>
+            ${renderInlineStatus(learnsetStatus.partial ? "Incomplete" : learnsetStatus.updateAvailable ? "Update Available" : learnsetStatus.installed ? "Installed" : learnsetStatus.compatible ? "Ready" : learnsetStatus.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
             <div><span>ROM</span><strong>US W2 / B2 · vanilla or Upgrade</strong></div>
@@ -548,9 +538,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               <h2>Background Music Toggle</h2>
               <p>Press L + R + Select to mute or unmute background music in the overworld and battles. Sound effects, cries, and scripted game pauses are unchanged.</p>
             </div>
-            <span class="code-injection-status ${bgmToggleStatus === "patched" ? "-installed" : bgmToggleStatus === "unsupported" ? "-error" : ""}">
-              ${bgmToggleStatus === "patched" ? "Installed" : bgmToggleStatus === "unsupported" ? "Unsupported" : "Ready"}
-            </span>
+            ${renderInlineStatus(bgmToggleStatus === "patched" ? "Installed" : bgmToggleStatus === "unsupported" ? "Unsupported" : "Ready", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
             <div><span>ROM</span><strong>US Black 2 / White 2</strong></div>
@@ -573,9 +561,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               <h2>Infinite Rare Candy</h2>
               <p>Adds a reusable level-up item to Key Items. Grant item 622 through an event or save editor; installation does not add it to existing saves.</p>
             </div>
-            <span class="code-injection-status ${infiniteCandyStatus.installed ? "-installed" : infiniteCandyStatus.compatible ? "" : "-error"}">
-              ${infiniteCandyStatus.installed ? "Installed" : infiniteCandyStatus.compatible ? "Ready" : infiniteCandyStatus.supported ? "Incompatible" : "Unsupported"}
-            </span>
+            ${renderInlineStatus(infiniteCandyStatus.installed ? "Installed" : infiniteCandyStatus.compatible ? "Ready" : infiniteCandyStatus.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
             <div><span>ROM</span><strong>US Black 2 / White 2</strong></div>
@@ -597,9 +583,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               <h2>Hard Level Caps</h2>
               <p>Caps battle EXP and Day Care growth at the level set by <code>EventWorks.Set(16415, level)</code>. Infinite Candy respects the cap; regular Rare Candy can still reach level 100.</p>
             </div>
-            <span class="code-injection-status ${levelCapsStatus.installed ? "-installed" : levelCapsStatus.compatible ? "" : "-error"}">
-              ${levelCapsStatus.installed ? "Installed" : levelCapsStatus.compatible ? "Ready" : levelCapsStatus.supported ? "Incompatible" : "Unsupported"}
-            </span>
+            ${renderInlineStatus(levelCapsStatus.installed ? "Installed" : levelCapsStatus.compatible ? "Ready" : levelCapsStatus.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
             <div><span>ROM</span><strong>US Black 2 / White 2</strong></div>
@@ -621,16 +605,14 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               <h2>Single-NPC Double Battle Fix</h2>
               <p>${
                 doubleBattleFixStatus !== "unsupported"
-                  ? "Fixes common-script trainers changed from Singles to Doubles. Available for US Black 1 and Black 2 / White 2; install PMC first."
+                  ? "Fixes common-script trainers changed from Singles to Doubles. Available for US Black 1 and Black 2 / White 2. PMC is installed automatically if needed."
                   : "A White 1 build of this patch is not bundled yet."
               }</p>
             </div>
-            <span class="code-injection-status ${doubleBattleFixStatus === "patched" ? "-installed" : ""}">
-              ${doubleBattleFixStatus === "patched" ? "Installed" : doubleBattleFixStatus === "unsupported" ? "Unsupported" : "Not Installed"}
-            </span>
+            ${renderInlineStatus(doubleBattleFixStatus === "patched" ? "Installed" : doubleBattleFixStatus === "unsupported" ? "Unsupported" : "Not Installed", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-actions">
-            <button class="btn -primary" id="install-double-battle-fix-btn" type="button" ${doubleBattleFixSupported ? "" : "disabled"} title="${status.installed ? "Install the bundled double battle fix." : "Install PMC first."}">
+            <button class="btn -primary" id="install-double-battle-fix-btn" type="button" ${doubleBattleFixSupported ? "" : "disabled"} title="Install the bundled double battle fix and any missing dependencies.">
               Install Double Battle Fix
             </button>
             <div class="code-injection-note" id="double-battle-fix-note" aria-live="polite"></div>
@@ -647,9 +629,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               <h2>Tag Battle Stabilization</h2>
               <p>Allows tag battles with more than the vanilla limit of six opposing Pokemon, such as two opponents with four Pokemon each. Runs one trainer's AI at a time to reduce script memory use and prevent the related battle-start hang.</p>
             </div>
-            <span class="code-injection-status ${!tagBattleStatus.supported || !tagBattleStatus.compatible ? "-error" : tagBattleStatus.installed ? "-installed" : ""}">
-              ${!tagBattleStatus.supported ? "Unsupported" : !tagBattleStatus.compatible ? "Incompatible" : tagBattleStatus.installed ? "Installed" : "Ready"}
-            </span>
+            ${renderInlineStatus(!tagBattleStatus.supported ? "Unsupported" : !tagBattleStatus.compatible ? "Incompatible" : tagBattleStatus.installed ? "Installed" : "Ready", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
             <div><span>Supported ROM</span><strong>US White 2</strong></div>
@@ -671,13 +651,11 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-panel__header"><div>
             <h2>C-Gear Quick Actions</h2>
             <a class="btn -primary" href="#cgearButtons" data-route="cgearButtons">Configure Buttons</a>
-            <p>REPEL, PC, BIKE and MAP touch shortcuts. Available after obtaining C-Gear, including with wireless off. Use the wrench to rearrange them and the C-Gear logo to change their inner designs.</p>
-          </div><span class="code-injection-status ${!quickActionsStatus.compatible ? "-error" : quickActionsStatus.enabled ? "-installed" : ""}">
-            ${!quickActionsStatus.supported ? "Unsupported" : !quickActionsStatus.compatible ? "Incompatible" : quickActionsStatus.enabled ? "Enabled" : quickActionsStatus.installed ? "Disabled" : "Ready"}
-          </span></div>
-          <div class="code-injection-facts"><div><span>Games</span><strong>English Black 2 / White 2</strong></div>
-            <div><span>Dependency</span><strong>PMC only</strong></div><div><span>Release</span><strong>${escapeHtml(CGEAR_QUICK_ACTIONS_VERSION)} development</strong></div></div>
-          <img src="${new URL("../assets/codeinjection/cgearQuickActionsPreview.png", import.meta.url).href}" alt="Button layout: green REPEL on the left, orange PC on the right, magenta BIKE below left and purple MAP below right." width="256" height="192" style="max-width:100%;width:384px;height:auto;image-rendering:pixelated" />
+            <p>REPEL, PC, BIKE, MAP, PARTY and BAG touch shortcuts, with up to eight editable buttons. Available after obtaining C-Gear, including with wireless off. Use the wrench to rearrange them and the upper-right button to browse backgrounds.</p>
+          </div>${renderInlineStatus(!quickActionsStatus.supported ? "Unsupported" : !quickActionsStatus.compatible ? "Incompatible" : quickActionsStatus.enabled ? "Enabled" : quickActionsStatus.installed ? "Disabled" : "Ready", { className: "code-injection-status" })}</div>
+          <div class="code-injection-facts"><div><span>Games</span><strong>English Black / White / Black 2 / White 2</strong></div>
+            <div><span>Dependency</span><strong>PMC only</strong></div><div><span>Release</span><strong>${escapeHtml(project.session.baseRom==="BW"?CGEAR_QUICK_ACTIONS_BW1_VERSION:CGEAR_QUICK_ACTIONS_VERSION)} development</strong></div></div>
+          <img src="${project.session.baseRom==="BW"?new URL("../assets/codeinjection/cgearQuickActionsBw1Preview.png", import.meta.url).href:new URL("../assets/codeinjection/cgearQuickActionsPreview.png", import.meta.url).href}" alt="Editable C-Gear action button layout." width="256" height="192" style="max-width:100%;width:384px;height:auto;image-rendering:pixelated" />
           <p>${escapeHtml(quickActionsStatus.message)}</p>
           <p>Configure up to eight buttons, their labels, colors, starting positions, native key-item actions, and optional save-flag visibility. Changes are applied together from the button editor.</p>
           <div class="code-injection-actions">
@@ -693,9 +671,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               <h2>Porta PC</h2>
               <p>Press Start while exploring to open the in-game PC and access your Pokemon boxes. Supports grid and rail maps, including Castelia City. Uses the normal PC menu and gives other field events priority.</p>
             </div>
-            <span class="code-injection-status ${!portaPcStatus.supported || !portaPcStatus.compatible ? "-error" : portaPcStatus.installed && !portaPcStatus.updateAvailable ? "-installed" : ""}">
-              ${!portaPcStatus.supported ? "Unsupported" : !portaPcStatus.compatible ? "Incompatible" : portaPcStatus.updateAvailable ? "Update Available" : portaPcStatus.installed ? "Installed" : "Ready"}
-            </span>
+            ${renderInlineStatus(!portaPcStatus.supported ? "Unsupported" : !portaPcStatus.compatible ? "Incompatible" : portaPcStatus.updateAvailable ? "Update Available" : portaPcStatus.installed ? "Installed" : "Ready", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
             <div><span>Button</span><strong>Start</strong></div>
@@ -719,15 +695,13 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               <h2>Added-Form Evolution Support</h2>
               <p>Allows evolution NARC targets to reference appended personal-form IDs while storing the evolved Pokemon as a safe base species and form.</p>
             </div>
-            <span class="code-injection-status ${formEvolutionInstalled ? "-installed" : ""}">
-              ${formEvolutionInstalled ? "Installed" : formEvolutionStatus === "unsupported" ? "Unsupported" : "Not Installed"}
-            </span>
+            ${renderInlineStatus(formEvolutionInstalled ? "Installed" : formEvolutionStatus === "unsupported" ? "Unsupported" : "Not Installed", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
             <div><span>Runtime</span><strong>${formEvolutionStatus === "unsupported" ? "B2/W2 only" : `FormEvolution${escapeHtml(project.session.baseVersion)}.dll`}</strong></div>
             <div><span>Module Path</span><strong>${formEvolutionInstalled ? `patches/FormEvolution${escapeHtml(project.session.baseVersion)}.dll` : "Pending"}</strong></div>
-            <div><span>Installation</span><strong>Automatic with Add Form</strong></div>
-            <div><span>PMC</span><strong>${status.installed ? "Installed" : "Pending"}</strong></div>
+            <div><span>Installation</span><strong>Installer or Add Form</strong></div>
+            <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
           </div>
           <div class="code-injection-note">
             ${
@@ -735,8 +709,12 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
                 ? "The bundled form-evolution DLL is active in this project and will be included in the exported ROM."
                 : formEvolutionStatus === "unsupported"
                   ? "The bundled form-evolution runtime currently supports Black 2 and White 2."
-                  : "Use Add Form in the Pokemon editor to install PMC and the matching bundled runtime automatically."
+                  : "Install here or use Add Form in the Pokemon editor. PMC is installed automatically if needed."
             }
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-form-evolution-btn" type="button" ${formEvolutionStatus === "unpatched" ? "" : "disabled"}>${formEvolutionInstalled ? "Installed" : "Install Added-Form Evolution Support"}</button>
+            <div class="code-injection-note" id="form-evolution-note" aria-live="polite"></div>
           </div>
         </section>
         </section>
@@ -835,7 +813,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       weatherRuntimeButton.disabled = true;
       weatherRuntimeButton.textContent = "Installing...";
       if (weatherRuntimeNote) weatherRuntimeNote.textContent = status.installed ? "Staging the weather DLL and PWTH registry." : "Installing PMC, then staging the weather DLL and PWTH registry.";
-      const result = await installBundledOverworldWeatherRuntime(project);
+      const result = await install(candidate => installBundledOverworldWeatherRuntime(candidate));
       onDirty();
       renderCodeInjectionEditor(project, root, onDirty);
       const refreshedNote = root.querySelector<HTMLDivElement>("#weather-runtime-note");
@@ -862,7 +840,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       if (pwanNote) {
         pwanNote.textContent = status.installed ? "Staging the bundled PWAN runtime DLLs." : "Installing PMC and staging the bundled PWAN runtime DLLs.";
       }
-      await installPwanRuntime(project);
+      await install(candidate => installPwanRuntime(candidate));
       onDirty();
       renderCodeInjectionEditor(project, root, onDirty);
       const refreshedNote = root.querySelector<HTMLDivElement>("#pwan-runtime-note");
@@ -902,7 +880,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       trainerPwanButton.disabled = true;
       trainerPwanButton.textContent = "Installing...";
       if (trainerPwanNote) trainerPwanNote.textContent = "Installing PMC if needed and staging the trainer PWAN runtime.";
-      await installTrainerPwanRuntime(project);
+      await install(candidate => installTrainerPwanRuntime(candidate));
       onDirty();
       renderCodeInjectionEditor(project, root, onDirty);
     } catch (error) {
@@ -929,7 +907,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       doubleBattleButton.disabled = true;
       doubleBattleButton.textContent = "Installing...";
       if (doubleBattleNote) doubleBattleNote.textContent = "Loading and staging the bundled double battle patch DLL.";
-      const result = await stageBundledDoubleBattleFixDll(project);
+      const result = await install(candidate => stageBundledDoubleBattleFixDll(candidate));
       onDirty();
       renderCodeInjectionEditor(project, root, onDirty);
       const refreshedNote = root.querySelector<HTMLDivElement>("#double-battle-fix-note");
@@ -941,6 +919,20 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     }
   });
 
+  root.querySelector<HTMLButtonElement>("#install-form-evolution-btn")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget as HTMLButtonElement;
+    button.disabled = true;
+    try {
+      await install(candidate => prepareBw2FormEvolutionCodeInjection(candidate));
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+    } catch (error) {
+      button.disabled = false;
+      const note = root.querySelector("#form-evolution-note");
+      if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+
   for (const id of Object.keys(TESTING_PATCHES) as TestingPatchId[]) {
     const button = root.querySelector<HTMLButtonElement>(`#install-${id}-btn`);
     button?.addEventListener("click", async () => {
@@ -948,7 +940,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       const note = root.querySelector<HTMLDivElement>(`#${id}-note`);
       if (note) note.textContent = "Checking compatibility and installing...";
       try {
-        await installTestingPatch(project, id);
+        await install(candidate => installTestingPatch(candidate, id));
         onDirty();
         renderCodeInjectionEditor(project, root, onDirty);
       } catch (error) {
@@ -976,7 +968,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       bgmToggleButton.disabled = true;
       bgmToggleButton.textContent = "Installing...";
       if (bgmToggleNote) bgmToggleNote.textContent = status.installed ? "Staging the background-music toggle DLL." : "Installing PMC, then staging the background-music toggle DLL.";
-      const result = await installBundledBgmToggleDll(project);
+      const result = await install(candidate => installBundledBgmToggleDll(candidate));
       onDirty();
       renderCodeInjectionEditor(project, root, onDirty);
       const refreshedNote = root.querySelector<HTMLDivElement>("#bgm-toggle-note");
@@ -994,7 +986,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     infiniteCandyButton.disabled = true;
     if (note) note.textContent = "Checking item 622 and installing the patch...";
     try {
-      await installInfiniteCandy(project);
+      await install(candidate => installInfiniteCandy(candidate));
       onDirty();
       renderCodeInjectionEditor(project, root, onDirty);
     } catch (error) {
@@ -1009,7 +1001,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     levelCapsButton.disabled = true;
     if (note) note.textContent = "Checking battle, Day Care, and item hooks...";
     try {
-      await installLevelCaps(project);
+      await install(candidate => installLevelCaps(candidate));
       onDirty();
       renderCodeInjectionEditor(project, root, onDirty);
     } catch (error) {
@@ -1025,7 +1017,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       tagBattleButton.disabled = true;
       tagBattleButton.textContent = "Installing...";
       if (tagBattleNote) tagBattleNote.textContent = "Checking battle AI compatibility and installing Tag Battle Stabilization.";
-      await installTagBattleStabilization(project);
+      await install(candidate => installTagBattleStabilization(candidate));
       onDirty();
       renderCodeInjectionEditor(project, root, onDirty);
       const refreshedNote = root.querySelector<HTMLDivElement>("#tag-battle-stabilization-note");
@@ -1049,7 +1041,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   });
 
   for (const [id, action] of [
-    ["install", () => installCGearQuickActions(project)],
+    ["install", () => install(candidate => installCGearQuickActions(candidate))],
     ["disable", () => disableCGearQuickActions(project)],
     ["remove", () => removeCGearQuickActions(project)],
   ] as const) {
@@ -1074,7 +1066,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       portaPcButton.disabled = true;
       portaPcButton.textContent = "Installing...";
       if (portaPcNote) portaPcNote.textContent = "Checking field compatibility and installing Porta PC.";
-      await installPortaPc(project);
+      await install(candidate => installPortaPc(candidate));
       onDirty();
       renderCodeInjectionEditor(project, root, onDirty);
       const refreshedNote = root.querySelector<HTMLDivElement>("#porta-pc-note");
@@ -1108,8 +1100,11 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       if (battleLogNote) {
         battleLogNote.textContent = `${updating ? "Updating" : "Installing"} the split battle-log runtimes, checking ROM hooks, retiring Pal Pad save handling, and generating species ancestry.`;
       }
-      const result = await installBattleLog(project);
-      if (refreshMenuEvolution) await installMenuEvolution(project);
+      const result = await install(async candidate => {
+        const result = await installBattleLog(candidate);
+        if (refreshMenuEvolution) await installMenuEvolution(candidate);
+        return result;
+      });
       onDirty();
       renderCodeInjectionEditor(project, root, onDirty);
       const refreshedNote = root.querySelector<HTMLDivElement>("#battle-log-note");
@@ -1147,12 +1142,12 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     const button = root.querySelector<HTMLButtonElement>("#install-party-tools-btn")!;
     button.disabled = true;
     try {
-      const hideFlag = parsePartyToolbarHideFlag(root.querySelector<HTMLInputElement>("#party-tools-hide-flag")?.value ?? "");
+      const hideFlag = parsePartyToolbarHideFlag(root.querySelector<HTMLInputElement>("#party-tools-hide-flag")?.value ?? "", project.session.baseVersion);
       const sectionHideFlags = Object.fromEntries(PARTY_TOOLBAR_SECTIONS.map(({ id, label }) => {
-        try { return [id, parsePartyToolbarHideFlag(root.querySelector<HTMLInputElement>(`#party-tools-${id}-hide-flag`)?.value ?? "")]; }
+        try { return [id, parsePartyToolbarHideFlag(root.querySelector<HTMLInputElement>(`#party-tools-${id}-hide-flag`)?.value ?? "", project.session.baseVersion)]; }
         catch (error) { throw new Error(`${label}: ${(error as Error).message}`); }
       }));
-      await installPartyQuickActions(project, { hideFlag, sectionHideFlags }); onDirty(); renderCodeInjectionEditor(project, root, onDirty);
+      await install(candidate => installPartyQuickActions(candidate, { hideFlag, sectionHideFlags })); onDirty(); renderCodeInjectionEditor(project, root, onDirty);
     }
     catch (error) { button.disabled = false; const note = root.querySelector("#party-tools-status"); if (note) note.textContent = error instanceof Error ? error.message : String(error); }
   });
@@ -1169,9 +1164,9 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       menuEvolutionButton.disabled = true;
       menuEvolutionButton.textContent = "Installing...";
       if (menuEvolutionNote) {
-        menuEvolutionNote.textContent = "Checking BW2 hooks, configuring EVOLVE and RELEARN, preparing the KO learnset NARC, and staging the enhanced companion DLL.";
+        menuEvolutionNote.textContent = "Checking hooks, installing required dependencies, and configuring EVOLVE and RELEARN.";
       }
-      const result = await installMenuEvolution(project);
+      const result = await install(candidate => installMenuEvolution(candidate));
       onDirty();
       renderCodeInjectionEditor(project, root, onDirty);
       const refreshedNote = root.querySelector<HTMLDivElement>("#menu-evolution-note");
@@ -1206,11 +1201,11 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   });
 
   const input = root.querySelector<HTMLInputElement>("#code-injection-dll-input");
-  for (const [id, install, uninstall] of [
+  for (const [id, installAction, uninstall] of [
     ["battle-hud", installBattleTypeHud, uninstallBattleTypeHud],
     ["move-effectiveness", installMoveEffectiveness, uninstallMoveEffectiveness],
   ] as const) {
-    for (const [verb, action] of [["install", install], ["uninstall", uninstall]] as const) {
+    for (const [verb, action] of [["install", installAction], ["uninstall", uninstall]] as const) {
       const button = root.querySelector<HTMLButtonElement>(`#${verb}-${id}-btn`);
       button?.addEventListener("click", async () => {
         const note = root.querySelector<HTMLDivElement>(`#${id}-note`);
@@ -1220,10 +1215,10 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           if (id === "move-effectiveness" && verb === "install") {
             const colors = Object.fromEntries([...root.querySelectorAll<HTMLInputElement>("[data-move-highlight-color]")]
               .map(input => [input.dataset.moveHighlightColor!, input.value])) as MoveHighlightColors;
-            await installMoveEffectiveness(project, colors);
+            await install(candidate => installMoveEffectiveness(candidate, colors));
           } else if (id === "battle-hud" && verb === "install") {
             const variant = (root.querySelector<HTMLSelectElement>("#type-icon-variant")?.value ?? "letters") as TypeIconVariant;
-            await installBattleTypeHud(project, variant);
+            await install(candidate => installBattleTypeHud(candidate, variant));
           } else await action(project);
           onDirty(); renderCodeInjectionEditor(project, root, onDirty);
         }
@@ -1253,7 +1248,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     });
   });
   for (const [selector, action] of [
-    ["#install-learnset-viewer-btn", () => installLearnsetViewer(project)],
+    ["#install-learnset-viewer-btn", () => install(candidate => installLearnsetViewer(candidate))],
     ["#uninstall-learnset-viewer-btn", () => uninstallLearnsetViewer(project)],
   ] as const) {
     const button = root.querySelector<HTMLButtonElement>(selector);
@@ -1280,12 +1275,13 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     try {
       const song = root.querySelector<HTMLSelectElement>("#save-menu-song")?.value ?? "relic-song";
       const settings: SaveMenuSettings = {
-        music: song.startsWith("stream:") ? "stream" : "relic-song",
+        music: song.startsWith("stream:") ? "stream" : song === "off" ? "off" : "relic-song",
         ...(song.startsWith("stream:") ? { streamId: Number(song.slice(7)) } : {}),
         bpm: Number(root.querySelector<HTMLInputElement>("#save-menu-bpm")?.value ?? 150),
         stepsPerBeat: Number(root.querySelector<HTMLSelectElement>("#save-menu-steps-per-beat")?.value ?? 2) as 1 | 2 | 4,
+        versionLabel: root.querySelector<HTMLInputElement>("#save-menu-version-label")?.value.trim() ?? "",
       };
-      await installSaveMenu(project, settings); onDirty(); renderCodeInjectionEditor(project, root, onDirty);
+      await install(candidate => installSaveMenu(candidate, settings)); onDirty(); renderCodeInjectionEditor(project, root, onDirty);
       const updated = root.querySelector<HTMLElement>("#save-menu-note");
       if (updated) updated.textContent = "Save menu staged. Export the ROM to use it.";
     } catch (error) {
@@ -1294,7 +1290,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     }
   });
   for (const [selector, action] of [
-    ["#install-summary-stat-btn", () => installSummaryStatViewer(project, { includeEvs: root.querySelector<HTMLInputElement>("#summary-stat-evs")?.checked ?? true })],
+    ["#install-summary-stat-btn", () => install(candidate => installSummaryStatViewer(candidate, { includeEvs: root.querySelector<HTMLInputElement>("#summary-stat-evs")?.checked ?? true }))],
     ["#uninstall-summary-stat-btn", () => uninstallSummaryStatViewer(project)],
   ] as const) {
     const button = root.querySelector<HTMLButtonElement>(selector);
@@ -1314,7 +1310,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   }
   let selectedTarget: CodeInjectionDllTarget = "patches";
   for (const [selector, action] of [
-    ["#install-summary-types-btn", () => installSummaryTypeIcons(project)],
+    ["#install-summary-types-btn", () => install(candidate => installSummaryTypeIcons(candidate))],
     ["#uninstall-summary-types-btn", () => uninstallSummaryTypeIcons(project)],
   ] as const) {
     const button = root.querySelector<HTMLButtonElement>(selector);
@@ -1345,7 +1341,8 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     const file = input.files?.[0];
     if (!file) return;
     try {
-      const result = stageCodeInjectionDll(project, file.name, new Uint8Array(await file.arrayBuffer()), selectedTarget);
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const result = await install(candidate => stageCodeInjectionDll(candidate, file.name, bytes, selectedTarget));
       onDirty();
       renderCodeInjectionEditor(project, root, onDirty);
       const refreshedNote = root.querySelector<HTMLDivElement>("#dll-install-note");
@@ -1385,12 +1382,8 @@ function renderPwanCompatibilityRow(check: PwanCompatibilityCheck): string {
   `;
 }
 
-function shouldHydrateRomBytesForPwanCompatibility(project: ProjectState, report: PwanCompatibilityReport): boolean {
-  return report.supportedBase && !project.originalRomBytes && report.missing > 0 && !pwanCompatibilityHydrationProjects.has(project);
-}
-
-async function hydrateRomBytesForPwanCompatibility(project: ProjectState, root: HTMLElement, onDirty: () => void): Promise<void> {
-  pwanCompatibilityHydrationProjects.add(project);
+async function hydrateRomBytesForCodeInjection(project: ProjectState, root: HTMLElement, onDirty: () => void): Promise<void> {
+  codeInjectionHydrationProjects.add(project);
   try {
     const bytes = await loadActiveRomBytes();
     if (!bytes || project.originalRomBytes) return;
@@ -1398,5 +1391,7 @@ async function hydrateRomBytesForPwanCompatibility(project: ProjectState, root: 
     if (root.isConnected) renderCodeInjectionEditor(project, root, onDirty);
   } catch {
     // The page can still report the missing regions; export/install paths will surface storage errors separately.
+  } finally {
+    codeInjectionHydrationProjects.delete(project);
   }
 }

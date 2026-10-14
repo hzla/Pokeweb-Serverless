@@ -8,6 +8,15 @@ from build import BUILD,TOOLS,APIS,NATIVE,untile
 W=0x02200000;REQ=W+0x400;PARTY=W+0x600;MON=W+0x800;PROMPT=W+0x1100;WINDOW=W+0x1200;MAP=W+0x1800;STOP=0x023f8000;STACK=0x023f0000
 class Harness:
  def __init__(self,game):
+  self.bw1=game in ('B','W');self.flagOffset=0x27c if self.bw1 else 0x35e;self.maxFlag=2911 if self.bw1 else 3059
+  if self.bw1:
+   from configure_bw1 import BINDINGS,OVERLAY_BINDINGS,SYSTEM,LAYOUT
+   index=0 if game=='B'else 1;self.bindings={ref:pair[index]for ref,pair in {**BINDINGS,**OVERLAY_BINDINGS}.items()};self.systemAddress=SYSTEM[game]
+   # Regression inputs use the BW2 names for fields; only the fixture accessor
+   # translates them. The compiled runtime reads the actual BW1 layout.
+   self.workOffsets={0x28c:0x280,0x30:0x2c,0x3c:0x38,0x13c:0x138,0x154:0x150,0x1e8:0x1e4,0x1ec:0x1e4,0xac:0xa8}
+   self.workOffsets.update({0x164+i*4:0x160+i*4 for i in range(6)})
+   self.requestOffsets={0x44:0x34,0x4c:0x3c,0x50:0x40,0x54:0x44}
   self.u=Uc(UC_ARCH_ARM,UC_MODE_THUMB);self.u.ctl_set_cpu_model(UC_CPU_ARM_946);self.u.mem_map(0x02000000,0x400000);self.game=game;self.delta=64 if game=='B2' else 0;self.armdelta=44 if game=='B2' else 0
   elf=BUILD/f'{game}-test.elf';subprocess.run([str(TOOLS/'arm-none-eabi-g++'),'-nostdlib','-Wl,-Ttext=0x02300020,-Tbss=0x02320000,-ePaInit',str(BUILD/f'PartyQuickActions{game}.o'),'-o',str(elf)],check=True)
   with elf.open('rb') as f:
@@ -18,10 +27,14 @@ class Harness:
   self.session=self.symbols['session'];self.functions={};self.touch=None;self.keys=self.pressed=0;self.native=0;self.subtractions=0;self.effects=0;self.redraws=0;self.partyCount=6;self.values={5:501,111:0,8:8000,76:0,158:20,160:10,161:20,157:0};self.alloc=0x02240000;self.owned=set();self.fail=False;self.enabled=True;self.failAt=0;self.allocCount=0;self.heapFree=65536;self.heapLargest=32768;self.vramFail=False;self.charHandles=set();self.palHandles=set();self.animHandles=set();self.uploads=0
   self.put(W,23,2);self.put(W+0x28c,REQ);self.put(REQ,PARTY);self.put(W+0x30,0);self.put(W+12,2,1);self.put(W+14,1,1)
   self.put(W+0x154,PROMPT);self.put(PROMPT+4,WINDOW)
-  self.put(REQ+4,W+0x1400);self.hasCandy=True;self.actorVisibility={};self.actorPositions={};self.put(W+0x1e8,W+0x1500);self.put(W+0x1ec,W+0x1600)
+  self.put(REQ+4,W+0x1400);self.hasCandy=True;self.actorVisibility={};self.actorPositions={};self.put(W+0x1e8,W+0x1500);self.put(W+0x1ec,W+0x1600) if not self.bw1 else None
   for at,value in [(2,0),(3,1),(4,21),(7,21),(8,2)]:self.put(WINDOW+at,value,1)
   self.u.mem_write(MAP,struct.pack('<1024H',*range(1,1025)));self.mapUploads=0
-  def add(a,f):self.functions[a-(self.delta if a>=0x2150000 else self.armdelta if a>=0x20191d8 else 0)]=f
+  def add(a,f):
+   if self.bw1:
+    if a not in self.bindings:return
+    self.functions[self.bindings[a]&~1]=f
+   else:self.functions[a-(self.delta if a>=0x2150000 else self.armdelta if a>=0x20191d8 else 0)]=f
   for a in APIS+NATIVE:add(a,lambda x:0)
   add(0x2199bc8,lambda x:1);add(0x2199ed0,lambda x:0);add(0x2199de8,lambda x:1);add(0x219bb48,self.original)
   self.sounds=[];self.paletteUploads=[];self.printed=[];self.nickname='Oshawott'
@@ -30,6 +43,10 @@ class Harness:
   self.flagWork=W+0x3000
   add(0x20191d8,self.flag);add(0x219f880,self.prompt)
   add(0x2017394,lambda x:self.flagWork);add(0x2034c80,lambda x:REQ)
+  if self.bw1:
+   add(0x215b818,lambda x:REQ);add(0x20120f4,lambda x:W+0x3700)
+   for field in [W+0x3400,W+0x3500]:self.put(field+0x18,W+0x3600)
+   self.put(W+0x3600,W+0x3700)
   for i in range(6):self.put(W+0x164+i*4,W+0x2600+i*80)
   add(0x2006254,lambda x:self.sounds.append(x[0]));add(0x2048640,self.text)
   add(0x201fe24,lambda x:self.partyCount);add(0x201ff34,lambda x:MON+x[1]*220);add(0x201cd24,self.get);add(0x201cd48,self.set)
@@ -53,10 +70,16 @@ class Harness:
   add(0x204c06c,self.createActor);add(0x204c134,self.free)
   add(0x20056fc,lambda x:self.allocate([0,32]));add(0x203a6d4,self.free);add(0x204ba6c,self.upload)
   add(0x2045840,lambda x:MAP);add(0x2045ba8,self.queueMap)
-  self.archive=ndspy.narc.NARC((BUILD.parents[2]/'src/assets/codeinjection/partyQuickActions.narc').read_bytes())
+  self.archive=ndspy.narc.NARC((BUILD.parents[2]/f'src/assets/codeinjection/partyQuickActions{game if self.bw1 else ""}.narc').read_bytes())
   self.u.hook_add(UC_HOOK_CODE,self.hook)
- def put(self,p,n,size=4):self.u.mem_write(p,n.to_bytes(size,'little'))
- def val(self,p,size=4):return int.from_bytes(self.u.mem_read(p,size),'little')
+ def fixtureAddress(self,p):
+  if self.bw1:
+   if p==0x214197c:return self.systemAddress
+   if W<=p<W+0x300:return W+self.workOffsets.get(p-W,p-W)
+   if REQ<=p<REQ+0xa0:return REQ+self.requestOffsets.get(p-REQ,p-REQ)
+  return p
+ def put(self,p,n,size=4):self.u.mem_write(self.fixtureAddress(p),n.to_bytes(size,'little'))
+ def val(self,p,size=4):return int.from_bytes(self.u.mem_read(self.fixtureAddress(p),size),'little')
  def hook(self,u,a,n,_):
   if a==STOP:u.emu_stop();return
   if a in self.functions:
@@ -64,8 +87,8 @@ class Harness:
  def original(self,a):self.native+=1
  def prompt(self,a):self.nativePrompts+=1
  def flag(self,a):
-  assert a[0]==self.flagWork and 1<=a[1]<=3059
-  self.flagReads.append(a[1]);return bool(self.val(self.flagWork+0x35e+(a[1]>>3),1)&(1<<(a[1]&7)))
+  assert a[0]==self.flagWork and 1<=a[1]<=self.maxFlag
+  self.flagReads.append(a[1]);return bool(self.val(self.flagWork+self.flagOffset+(a[1]>>3),1)&(1<<(a[1]&7)))
  def ownsCandy(self,a):assert a==[W+0x1400,622,1,23];return self.hasCandy
  def showActor(self,a):self.actorVisibility[a[0]]=bool(a[1])
  def createActor(self,a):
@@ -128,8 +151,8 @@ class Harness:
   for r in saved:self.u.reg_write(r,0x5000+r)
   self.u.reg_write(UC_ARM_REG_SP,STACK);self.u.reg_write(UC_ARM_REG_LR,STOP|1)
   for r,a in zip([UC_ARM_REG_R0,UC_ARM_REG_R1,UC_ARM_REG_R2,UC_ARM_REG_R3],args):self.u.reg_write(r,a)
-  self.u.emu_start(self.symbols[name]|1,STOP,count=100000)
-  assert self.u.reg_read(UC_ARM_REG_PC)==STOP and self.u.reg_read(UC_ARM_REG_SP)==STACK,(name,'stack/termination')
+  self.u.emu_start(self.symbols[name]|1,STOP,count=getattr(self,'instructionLimit',100000))
+  assert self.u.reg_read(UC_ARM_REG_PC)==STOP and self.u.reg_read(UC_ARM_REG_SP)==STACK,(name,'stack/termination',hex(self.u.reg_read(UC_ARM_REG_PC)))
   for r in saved:assert self.u.reg_read(r)==0x5000+r,(name,'register',r)
   return self.u.reg_read(UC_ARM_REG_R0)
  def seed(self):
@@ -148,8 +171,8 @@ class Harness:
     rank=sum(bool(mask&(1<<j))for j in order[:order.index(i)])
     self.touch=(13+20*rank if mask&(1<<i) else 183,touch[1])
   self.call('PaIdle',W)
-def main():
- for g in ['W2','B2']:
+def main(games=('W2','B2')):
+ for g in games:
   h=Harness(g);h.seed();h.frame((40,180));assert h.val(h.session+122,1)==1
   for y in range(32):
    for x in range(32):assert h.val(MAP+(y*32+x)*2,2)==(0 if 20<=y<24 and x<23 else y*32+x+1)
@@ -165,14 +188,14 @@ def main():
   for _ in range(40):h.frame(None,0x10)
   assert h.values[160]==20
   h.frame(None,1,1);assert h.val(h.session+122,1)==0
-  for x,n in zip([84,106,128,150,172],[2,5,4,3,1]):
+  for x,n in zip([84,106,128,150,172],[3,8,16,32,64]if h.bw1 else[2,5,4,3,1]):
    h.frame();h.frame((x,180));assert h.values[157]==n
    h.frame();h.frame((x,180));assert h.values[157]==0,'second status tap must clear it'
    for _ in range(20):h.frame((x,180));assert h.values[157]==0,'held status touch must not reapply it'
   # A different status replaces the existing condition. A status tap also
   # leaves HP mode and targets its locked slot, without changing HP again.
-  h.frame();h.frame((84,180));h.frame();h.frame((106,180));assert h.values[157]==5
-  for x,n in zip([84,106,128,150,172],[2,5,4,3,1]):
+  h.frame();h.frame((84,180));h.frame();h.frame((106,180));assert h.values[157]==(8 if h.bw1 else 5)
+  for x,n in zip([84,106,128,150,172],[3,8,16,32,64]if h.bw1 else[2,5,4,3,1]):
    for current,expected in [(0,n),(n,0)]:
     h.values[157]=current;h.frame();h.frame((40,180));assert h.val(h.session+122,1)==1
     hp=h.values[160];h.put(W+0x30,3);h.frame();h.frame((x,180),0x10,0x10)
@@ -200,7 +223,7 @@ def main():
   h.frame(None,0x20,0x20);assert h.values[160]==19
   h.frame(None,1,1);assert h.val(h.session+122,1)==0
   h.frame(None,0x10,0x10);h.frame(None,1,1);assert h.val(h.session+335,1)==1
-  h.frame(None,2,2);h.frame(None,0x10,0x10);h.frame(None,1,1);assert h.values[157]==2
+  h.frame(None,2,2);h.frame(None,0x10,0x10);h.frame(None,1,1);assert h.values[157]==(3 if h.bw1 else 2)
   h.frame(None,1,1);assert h.values[157]==0
   h.frame(None,2,2);assert h.val(h.session+331,1)==0
   h.hasCandy=False;h.frame();h.frame(None,0x200,0x200);assert h.val(h.session+332,1)==8
@@ -227,7 +250,7 @@ def main():
   for _ in range(20):h.frame((84,180))
   assert h.redraws==before
   assert h.actorVisibility[W+0x1500] is False
-  assert h.actorVisibility[W+0x1600] is False
+  if not h.bw1:assert h.actorVisibility[W+0x1600] is False
   before=h.native;h.frame((190,180));assert h.native==before,'removed checkmark touch must be inert'
   before=h.native;h.frame((214,180));assert h.native==before,'removed Cancel touch must be inert'
   before=h.native;h.frame((230,180));assert h.native==before+1
@@ -240,8 +263,8 @@ def main():
    h.fail=fail;h.call('PaEnd',W);h.call('PaInit',W);assert not h.owned;h.frame();h.call('PaEnd',W);assert not h.owned
   # Optional saved flag gates initialization and the prompt suppression. It is
   # read-only, leaves native Cancel/input intact, and is rechecked on entry.
-  for flag in [1,0x5ee,3059]:
-   f=Harness(g);f.hideFlag=flag;assert f.call('PaRequest',W+0x3500,0,PARTY,4)==REQ;pos=f.flagWork+0x35e+(flag>>3)
+  for flag in [1,0x5ee,h.maxFlag]:
+   f=Harness(g);f.hideFlag=flag;assert f.call('PaRequest',W+0x3500,0,PARTY,4)==REQ;pos=f.flagWork+f.flagOffset+(flag>>3)
    f.put(pos,255,1);before=bytes(f.u.mem_read(f.flagWork,0x4e0))
    f.call('PaPrompt',W,PROMPT,9);assert f.nativePrompts==1
    f.call('PaInit',W);assert not f.val(f.session+4) and not (f.owned or f.charHandles or f.palHandles or f.animHandles)
@@ -252,10 +275,10 @@ def main():
    f.call('PaEnd',W);assert bytes(f.u.mem_read(f.flagWork,0x4e0))==before and not f.owned
    assert not f.val(f.symbols['flagWork']) and not f.val(f.symbols['flagRequest']),'request references must clear at native teardown'
   for version in [1,2]:
-   f=Harness(g);f.configVersion=version;f.put(f.flagWork+0x35e,255,1);f.call('PaInit',W)
+   f=Harness(g);f.configVersion=version;f.put(f.flagWork+f.flagOffset,255,1);f.call('PaInit',W)
    assert f.val(f.session+4)==W and not f.flagReads,'default/legacy configuration must remain on without a flag'
    f.call('PaEnd',W);assert not f.owned
-  f=Harness(g);f.hideFlag=3060;f.call('PaInit',W);assert not f.val(f.session+4) and not f.flagReads and not f.owned
+  f=Harness(g);f.hideFlag=f.maxFlag+1;f.call('PaInit',W);assert not f.val(f.session+4) and not f.flagReads and not f.owned
   f=Harness(g);f.hideFlag=1;f.call('PaInit',W);assert not f.val(f.session+4) and not f.owned,'uncaptured request must retain vanilla controls'
   f.call('PaRequest',W+0x3500,0,PARTY,4);f.put(f.symbols['flagWork'],0);f.call('PaInit',W);assert not f.val(f.session+4) and not f.owned,'missing save work must retain vanilla controls'
   # Real allocation paths, scheduled uploads, all partial-failure cleanup points.
@@ -302,8 +325,9 @@ def main():
   assert a.paletteUploads[-1]==basePal and a.val(a.session+334,1)==255
   assert all(bytes(a.u.mem_read(a.art(i),512))==original[i] for i in range(9))
   # Fade-in and fade-out must keep the blank native frame hidden.
-  for fsm in [1,3,2]:
-   a.put(W+12,fsm,1);a.frame();assert a.val(a.session+329,1)==1
+  for fsm in [1,3,2,19,20,21]:
+   a.put(W+12,fsm,1);a.frame();assert a.val(a.session+329,1)==(not a.bw1 or fsm!=3)
+  a.put(W+12,2,1);a.frame()
   a.fail=True;a.frame((62,180));assert a.val(a.session+335,1)==0 and a.values[8]==8000;a.fail=False
   a.frame();a.frame((62,180));assert a.val(a.session+335,1)==1
   a.call('PaEnd',W);assert not (a.owned or a.charHandles or a.palHandles or a.animHandles),'confirmation shutdown leaked'
@@ -366,11 +390,11 @@ def main():
   assert h.val(h.session+4)==W
   order=[0,8,1,2,3,4,5,6,7];groups=[[0],[8],[1],[2],[3,4,5,6,7]]
   def toggle(index,on):
-   flag=h.sectionFlags[index];p=h.flagWork+0x35e+(flag>>3);bit=1<<(flag&7);value=h.val(p,1)
+   flag=h.sectionFlags[index];p=h.flagWork+h.flagOffset+(flag>>3);bit=1<<(flag&7);value=h.val(p,1)
    h.put(p,(value|bit)if on else(value&~bit),1)
   for pattern in range(32):
    for i in range(5):toggle(i,bool(pattern&(1<<i)))
-   flags=bytes(h.u.mem_read(h.flagWork+0x35e,383));h.frame(raw=True);h.call('_Z6uploadPvS_',0,0)
+   flags=bytes(h.u.mem_read(h.flagWork+h.flagOffset,383));h.frame(raw=True);h.call('_Z6uploadPvS_',0,0)
    hidden=[button for i,group in enumerate(groups)if pattern&(1<<i)for button in group]
    shown=[i for i in order if i not in hidden]
    assert h.val(h.session+470,1)==len(shown) and h.val(h.session+468,2)==sum(1<<i for i in shown)
@@ -385,7 +409,7 @@ def main():
     for i in shown[1:]+shown[:1]:h.frame(None,0x10,0x10,raw=True);assert h.val(h.session+332,1)==i
     h.frame(None,2,2,raw=True)
    else:assert not h.val(h.session+331,1),'all-hidden toolbar must not enter navigation'
-   assert bytes(h.u.mem_read(h.flagWork+0x35e,383))==flags,'section actions modified save flags or adjacent bits'
+   assert bytes(h.u.mem_read(h.flagWork+h.flagOffset,383))==flags,'section actions modified save flags or adjacent bits'
   for i in range(5):toggle(i,False)
   h.hasCandy=False;h.frame(raw=True);h.call('_Z6uploadPvS_',0,0)
   assert h.val(h.session+470,1)==8 and h.actorPositions[h.actor(8)]==(13,180) and h.actorPositions[h.actor(1)]==(33,180),'missing Candy left a gap'
@@ -402,10 +426,30 @@ def main():
   h.frame(raw=True);h.frame(None,0x200,0x200,raw=True);assert h.val(h.session+332,1)==8
   toggle(1,True);h.frame(raw=True);assert h.val(h.session+332,1)==1,'navigation failed to follow the next visible item'
   h.call('PaEnd',W);assert not(h.owned or h.charHandles or h.palHandles or h.animHandles),'section toolbar leaked resources'
-  h=Harness(g);h.sectionFlags=[0,0,0,0,3059];h.call('PaInit',W)
+  h=Harness(g);h.sectionFlags=[0,0,0,0,h.maxFlag];h.call('PaInit',W)
   assert not h.val(h.session+4) and not h.owned and h.nativePrompts,'section flags without request ownership must retain native UI'
   h=Harness(g);h.seed();h.frame((18,180));h.put(REQ+0x50,5);h.call('PaEnd',W)
   field=W+0x1000;h.call('PaPartyReturn',field,REQ);assert h.call('PaEvolutionReturn',field)==4 and h.val(field+4)==0 and h.val(field+12)==0
+  if h.bw1:
+   h=Harness(g);sys=h.val(0x214197c);palettes=h.val(sys+0x110);h.put(W+0x190,1)
+   h.put(palettes+24+12,192);h.put(palettes+24+20,0x11d0fde4)
+   h.call('PaInit',W);assert h.val(h.session+4)==W,'undefined compressed-palette size blocked valid native Party resources'
+   h.call('PaEnd',W);assert not h.owned
+   h=Harness(g);sys=h.val(0x214197c);palettes=h.val(sys+0x110);h.put(W+0x190,1)
+   h.put(palettes+24+12,416);h.put(palettes+24+20,0x11d0fde4)
+   h.call('PaInit',W);assert not h.val(h.session+4) and not h.owned,'unexpected compressed-palette placement must retain native UI'
+   h=Harness(g);h.seed();h.frame((18,180));h.put(REQ+0x50,5);h.call('PaEnd',W)
+   assert h.val(REQ+0x44)==5 and h.val(REQ+0x54,2)==622,'native continuation lost its medicine item'
+   field=W+0x3400;h.call('PaPartyReturn',field,REQ)
+   h.put(REQ+0x44,16);h.call('PaRequest',field,0,0,0);h.put(W+12,7,1);h.call('PaTick',W)
+   assert not h.val(h.session+4),'restricted move-return state showed the toolbar'
+   h.put(W+12,2,1);h.call('PaTick',W)
+   assert h.val(REQ+0x44)==0 and h.val(REQ+0x54,2)==0 and h.val(h.session+4)==W,'toolbar failed to reconstruct after native medicine completion'
+   h.frame();h.frame((18,180));h.put(REQ+0x50,9);h.call('PaEnd',W);h.call('PaPartyReturn',field,REQ)
+   assert h.call('PaEvolutionReturn',field)==4
+   h.put(REQ+0x44,5);h.call('PaRequest',field,0,0,0)
+   assert h.val(REQ+0x44)==0 and h.val(REQ+0x54,2)==0,'evolution return did not restore ordinary field Party mode'
+   h.call('PaInit',W);h.call('PaEnd',W);assert not h.owned
   prior=ndspy.narc.NARC((BUILD.parents[2]/'src/test/fixtures/party-quick-actions-v0.1.2/partyQuickActions.narc').read_bytes())
   def colors(arc,i):
    count=struct.unpack_from('<H',arc.files[2],24)[0];bank=struct.unpack_from('<H',arc.files[2],52+count*16+i*8)[0]>>12
@@ -414,7 +458,7 @@ def main():
   def occupied(rows):
    points=[(x,y,c)for y,row in enumerate(rows)for x,c in enumerate(row)if c is not None];xmin=min(x for x,y,c in points);ymin=min(y for x,y,c in points)
    return {(x-xmin,y-ymin):c for x,y,c in points}
-  assert all(occupied(colors(prior,i))==occupied(colors(a.archive,i)) for i in range(8)),'palette remapping changed native graphics'
+  if not a.bw1:assert all(occupied(colors(prior,i))==occupied(colors(a.archive,i)) for i in range(8)),'palette remapping changed native graphics'
   restore=occupied(colors(a.archive,8));assert max(x for x,y in restore)<16 and max(y for x,y in restore)<16,'Full Restore must fit 16px'
   print(g,'register/stack, HP bounds/repeat/lock, Heal Team confirmation/cancellation/held-input/allocation failure preserving fainted/Egg/all-fainted members and count bounds, native recovery sound, status apply/clear and HP-mode exit, XP confirmation/cancel/level guard and nickname success message, L/A navigation with native move sound and one-pixel native-color fade, fixed icon/HP colors, whole/section save-flag gating across 32 layouts with packed touch targets, hidden-action/nav suppression, live-mode cancellation, native input/prompt fallback and unchanged adjacent bits, fade-frame suppression, held touch, Candy/evolution ownership, nine uploads, repeated allocation/cleanup, palette conflicts and failure paths passed')
 if __name__=='__main__':main()

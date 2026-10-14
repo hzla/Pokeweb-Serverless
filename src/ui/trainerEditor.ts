@@ -1,3 +1,4 @@
+import { renderInlineStatus } from "./inlineStatus";
 import addIcon from "../assets/svgs/add.svg?raw";
 import { publicAsset } from "../assetUrl";
 import { trainerAbilitySlotMax } from "../pokeweb/cascadeWhiteModel";
@@ -61,7 +62,7 @@ export function renderTrainerEditor(
 ): void {
   const trainerNaturePatchStatus = detectSpecifyTrainerNaturesPatch(project);
   const savedTestBattleTeamText = getTrainerTestBattleTeamText(project);
-  const enrichedTrainerLocations = autoEnrichTrainerLocations(project);
+  autoEnrichTrainerLocations(project);
   const trainerMoreContent = [
     renderW2uSyncButton(project, ["trainers"]),
     renderTrainerScriptArchivePanel(project),
@@ -116,7 +117,6 @@ export function renderTrainerEditor(
     </div>
   `;
 
-  if (enrichedTrainerLocations) onDirty?.();
   installTrainerSpriteRendering(project, root);
   installTrainerPokemonIconRendering(project, root);
   installTrainerScriptArchiveControl(project, root, onDirty, onTestBattle, onOpenTrainerSprite, onOpenPlayerBackSprite);
@@ -482,17 +482,13 @@ function renderTrainerCard(project: ProjectState, trainer: TrainerRecord): strin
   `;
 }
 
-function autoEnrichTrainerLocations(project: ProjectState): boolean {
-  if (!isGen5Project(project) || !project.narcs.headers || !project.narcs.overworlds) return false;
-  const before = JSON.stringify([project.docs?.trainerLocations ?? {}, project.docs?.trainerDiffs ?? {}, project.docs?.trainerLocationSources ?? {}]);
+function autoEnrichTrainerLocations(project: ProjectState): void {
+  if (!isGen5Project(project) || !project.narcs.headers || !project.narcs.overworlds) return;
   try {
     enrichTrainerLocations(project);
   } catch (error) {
     console.warn("Failed to enrich trainer locations", error);
-    return false;
   }
-  const after = JSON.stringify([project.docs?.trainerLocations ?? {}, project.docs?.trainerDiffs ?? {}, project.docs?.trainerLocationSources ?? {}]);
-  return before !== after;
 }
 
 function renderTrainerLocation(project: ProjectState, trainerId: number): string {
@@ -709,13 +705,12 @@ function renderTrainerPokemon(project: ProjectState, trainer: TrainerRecord, pok
 function renderTrainerScriptArchivePanel(project: ProjectState): string {
   const status = getTrainerScriptArchiveStatus(project);
   if (!status.ok && status.reason === "unsupported") return "";
-  const badgeClass = trainerScriptArchiveBadgeClass(status);
   const disabled = status.ok && status.canExpand ? "" : "disabled";
   return `
     <div class="trainer-script-panel">
       <div class="filter-title">Global Scripts</div>
       <div class="trainer-script-status">
-        <span class="patch-badge ${badgeClass}">${escapeHtml(trainerScriptArchiveStatusLabel(status))}</span>
+        ${renderInlineStatus(trainerScriptArchiveStatusLabel(status), { className: "patch-badge" })}
         <span>${status.ok ? `file ${status.scriptFileId}` : escapeHtml(project.session.baseVersion)}</span>
       </div>
       <div class="trainer-script-detail">${escapeHtml(formatTrainerScriptArchiveDetail(status))}</div>
@@ -726,13 +721,12 @@ function renderTrainerScriptArchivePanel(project: ProjectState): string {
 
 function renderTrainerNaturePatchPanel(project: ProjectState, status: ReturnType<typeof detectSpecifyTrainerNaturesPatch>): string {
   if (status === "unsupported") return "";
-  const badgeClass = status === "patched" ? "-ok" : status === "unknown" || status === "legacy" ? "-warn" : "";
   const buttonDisabled = status === "patched" ? "disabled" : "";
   return `
     <div class="trainer-nature-patch-panel">
       <div class="filter-title">Natures</div>
       <div class="trainer-nature-patch-status">
-        <span class="patch-badge ${badgeClass}">${escapeHtml(trainerNatureStatusLabel(status))}</span>
+        ${renderInlineStatus(trainerNatureStatusLabel(status), { className: "patch-badge" })}
         <span>${escapeHtml(project.session.baseVersion)}</span>
       </div>
       <button class="btn -default trainer-nature-patch-btn" id="trainer-nature-patch-btn" type="button" ${buttonDisabled}>${escapeHtml(trainerNatureButtonLabel(status))}</button>
@@ -807,11 +801,6 @@ function trainerScriptArchiveStatusLabel(status: TrainerScriptArchiveStatus): st
   return "Ready";
 }
 
-function trainerScriptArchiveBadgeClass(status: TrainerScriptArchiveStatus): string {
-  if (!status.ok) return "-warn";
-  if (status.needsExpansion || status.helperTrainerIds.length || status.outOfRangeTrainerIds.length) return "-warn";
-  return "-ok";
-}
 
 function trainerNatureStatusLabel(status: ReturnType<typeof detectSpecifyTrainerNaturesPatch>): string {
   if (status === "patched") return "Applied";

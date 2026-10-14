@@ -2,8 +2,7 @@ import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
-import { writeU32 } from "../nds/binary";
-import { KO_MOVE_LEARNSET_PATH } from "../pokeweb/koMoveLearnsetModel";
+import { makePaddedRom } from "./fixtures/projectRom";
 import { exportModifiedRom } from "../pokeweb/exportRom";
 import { loadProjectFromRomBytes } from "../pokeweb/loader";
 import { activeRomMatchesProject, loadActiveProject, loadActiveRomBytes, loadActiveRomMetadata, reconnectActiveRom, saveActiveProject, saveActiveRomBytes } from "../pokeweb/persistence";
@@ -16,7 +15,8 @@ beforeEach(() => {
   // Only the storage boundary is substituted; parsing, snapshotting,
   // hydration, and export use their real implementations.
   const db = {
-    transaction: (name: string) => ({
+    transaction: (name: string) => {
+      const transaction = {
       objectStore: () => ({
         put: (value: unknown, key: IDBValidKey) => {
           stores[name].set(key, structuredClone(value));
@@ -25,7 +25,10 @@ beforeEach(() => {
         get: (key: IDBValidKey) => successfulRequest(structuredClone(stores[name].get(key))),
         count: (key: IDBValidKey) => successfulRequest(Number(stores[name].has(key))),
       }),
-    }),
+      } as unknown as IDBTransaction;
+      setTimeout(() => transaction.oncomplete?.(new Event("complete")), 0);
+      return transaction;
+    },
     close: () => {},
   };
   vi.stubGlobal("indexedDB", { open: () => successfulRequest(db) });
@@ -103,6 +106,23 @@ describe("ROM import and persistence without rebuilding", () => {
     expect(save).not.toHaveBeenCalled();
     expect(await loadActiveRomBytes()).toEqual(source);
     expect(await loadActiveRomMetadata()).toEqual(metadata);
+  });
+
+  it("migrates legacy embedded-source saves without losing edits or trusting serialized runtime caches", async () => {
+    const source = makePaddedRom();
+    const legacy = await loadProjectFromRomBytes(source, "legacy.nds", { selectedNarcs: [...selectedNarcs] });
+    legacy.narcs.personal!.rawFiles[1][0] = 99;
+    legacy.narcs.personal!.dirty.add(1);
+    legacy.bw2ScriptRuntimeContext = { fieldRamAddress: 0, fieldBytes: Uint8Array.of(6), overlays: {} };
+    stores.projects.set("active", structuredClone(legacy));
+    const restored = (await loadActiveProject())!;
+    expect(await loadActiveRomBytes()).toEqual(source);
+    expect(restored.originalRomBytes).toBeUndefined();
+    expect(restored.bw2ScriptRuntimeContext).toBeUndefined();
+    expect(restored.narcs.personal!.rawFiles[1][0]).toBe(99);
+    expect(stores.projects.get("active")).toMatchObject({ format: "pokeweb.project", version: 1 });
+    const exported = new NintendoDSRom(await exportModifiedRom(restored));
+    expect(new NARC(exported.getFileByName("a/0/1/6")).files[1][0]).toBe(99);
   });
 
   it("reattaches a missing ROM without discarding saved edits", async () => {
@@ -266,42 +286,4 @@ function successfulRequest<T>(result: T): IDBRequest<T> {
   const request = { result } as IDBRequest<T>;
   queueMicrotask(() => request.onsuccess?.(new Event("success")));
   return request;
-}
-
-function makePaddedRom(idCode = "IRDO"): Uint8Array {
-  const header = new Uint8Array(0x4000);
-  header.set(new TextEncoder().encode(idCode), 12);
-  const rom = new NintendoDSRom(header);
-  rom.arm9 = new Uint8Array(64);
-  const emptyNarc = new NARC().save();
-  const headers = new NARC();
-  headers.files = [new Uint8Array(48)];
-  const personal = new NARC();
-  personal.files = [45, 60].map((hp) => {
-    const bytes = new Uint8Array(0x4c);
-    bytes[0] = hp;
-    return bytes;
-  });
-  // Two small retained overlay sources exercise hydration from borrowed ROM files.
-  rom.arm9OverlayTable = new Uint8Array(64);
-  [89, 12].forEach((id, index) => {
-    writeU32(rom.arm9OverlayTable, index * 32, id);
-    writeU32(rom.arm9OverlayTable, index * 32 + 4, 0x02100000);
-    writeU32(rom.arm9OverlayTable, index * 32 + 8, 64);
-    writeU32(rom.arm9OverlayTable, index * 32 + 24, 7 + index);
-  });
-  const compact = rom.save({ addedFiles: [
-    { path: "unchanged.bin", bytes: Uint8Array.of(7, 8, 9) },
-    { path: "a/0/0/2", bytes: emptyNarc },
-    { path: "a/0/0/3", bytes: emptyNarc },
-    { path: "a/0/1/2", bytes: headers.save() },
-    { path: "a/0/1/6", bytes: personal.save() },
-    { path: "a/2/0/6", bytes: headers.save() },
-    { path: KO_MOVE_LEARNSET_PATH, bytes: emptyNarc },
-    { path: "overlay/overlay_0089.bin", bytes: new Uint8Array(64) },
-    { path: "overlay/overlay_0012.bin", bytes: new Uint8Array(64) },
-  ] });
-  const padded = new Uint8Array(compact.length + 0x4000).fill(0xff);
-  padded.set(compact);
-  return padded;
 }

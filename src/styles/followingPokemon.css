@@ -10,13 +10,13 @@
 
 .following-editor-hero {
   align-items: start;
-  background: linear-gradient(135deg, rgb(68 71 102 / 94%), rgb(49 51 75 / 94%));
-  border: 1px solid rgb(189 147 249 / 42%);
-  border-radius: 12px;
-  box-shadow: 0 14px 30px rgb(0 0 0 / 18%);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   display: grid;
   grid-template-columns: 1fr;
-  padding: 24px 26px;
+  padding: 0 0 20px;
+  border-bottom: 1px solid #44475a;
 }
 
 .following-editor-hero h2,
@@ -36,56 +36,44 @@
   margin: 8px 0 0;
 }
 
-.following-editor-kicker {
-  color: #bd93f9;
-  display: block;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  margin-bottom: 7px;
-  text-transform: uppercase;
-}
-
 .following-editor-runtime-actions {
-  background: rgb(40 42 54 / 70%);
-  border: 1px solid rgb(98 114 164 / 38%);
-  border-radius: 0 0 10px 10px;
-  margin: 0 12px 24px;
-  padding: 13px 14px;
+  background: transparent;
+  border: 0;
+  margin: 0 0 24px;
+  padding: 12px 0;
 }
 
 .following-riding-option {
   align-items: center;
-  background: rgb(40 42 54 / 70%);
+  background: transparent;
   color: #eef0f8;
   display: flex;
-  font-weight: 700;
+  font-weight: 500;
   gap: 9px;
-  margin: 12px 12px 0;
-  padding: 12px 14px 4px;
+  margin: 12px 0 0;
+  padding: 8px 0 4px;
 }
 
 .following-riding-option input { accent-color: #bd93f9; margin: 0; }
 
 .following-riding-option + [data-fw-riding-status] {
-  background: rgb(40 42 54 / 70%);
+  background: transparent;
   color: #d6d7e2;
   font-size: 13px;
-  margin: 0 12px;
-  padding: 0 14px 12px;
+  margin: 0;
+  padding: 0 0 8px;
 }
 
 .following-interaction-workspace {
-  background: #303244;
-  border: 1px solid rgb(98 114 164 / 48%);
-  border-radius: 12px;
-  box-shadow: 0 10px 24px rgb(0 0 0 / 14%);
+  background: #383a59;
+  border: 1px solid #44475a;
+  border-radius: 6px;
   overflow: hidden;
 }
 
 .following-aggregate-toolbar {
   align-items: end;
-  background: linear-gradient(135deg, rgb(68 71 102 / 52%), rgb(48 50 68 / 72%));
+  background: transparent;
   display: grid;
   gap: 8px 18px;
   grid-template-columns: minmax(240px, 420px) minmax(240px, 1fr);
@@ -177,15 +165,16 @@
   border-radius: 0;
   box-shadow: none;
   margin: 0;
+  padding: 22px;
 }
 
 .following-editor-section {
-  background: #303244;
-  border: 1px solid rgb(98 114 164 / 48%);
-  border-radius: 12px;
-  box-shadow: 0 10px 24px rgb(0 0 0 / 14%);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   margin-top: 22px;
-  padding: 22px;
+  padding: 22px 0;
+  border-top: 1px solid #44475a;
 }
 
 .following-section-heading {
@@ -211,13 +200,14 @@
 }
 
 .following-rule-card {
-  background: #282a36;
-  border: 1px solid rgb(98 114 164 / 62%);
-  border-radius: 9px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   margin: 0;
   min-width: 0;
   overflow: hidden;
   padding: 0;
+  border-bottom: 1px solid #44475a;
 }
 
 .following-rule-summary {
@@ -236,7 +226,7 @@
 }
 
 .following-rule-summary:hover {
-  background: rgb(98 114 164 / 14%);
+  background: #44475a;
 }
 
 .following-rule-summary:focus-visible {
@@ -245,8 +235,8 @@
 }
 
 .following-rule-card[open] > .following-rule-summary {
-  background: rgb(68 71 102 / 48%);
-  border-bottom: 1px solid rgb(98 114 164 / 42%);
+  background: #282a36;
+  border-bottom: 1px solid #44475a;
 }
 
 .following-rule-editor {
@@ -255,9 +245,9 @@
 
 .following-rule-sprite {
   align-items: center;
-  background: radial-gradient(circle, rgb(98 114 164 / 38%), rgb(40 42 54 / 20%));
-  border: 1px solid rgb(98 114 164 / 46%);
-  border-radius: 8px;
+  background: #282a36;
+  border: 0;
+  border-radius: 4px;
   display: flex;
   flex: 0 0 60px;
   height: 60px;
@@ -337,10 +327,6 @@
   margin: 0;
 }
 
-.following-aggregate-heading .following-editor-kicker {
-  margin-bottom: 4px;
-}
-
 .following-aggregate-columns {
   display: grid;
   gap: 22px;
@@ -360,23 +346,24 @@
 
 .following-aggregate-entry {
   appearance: none;
-  background: #282a36;
-  border: 1px solid rgb(98 114 164 / 55%);
-  border-radius: 7px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   color: #aeb2c7;
   cursor: pointer;
   display: grid;
   font: inherit;
   gap: 4px;
-  padding: 12px 14px;
+  padding: 12px 0;
   text-align: left;
   transition: background-color 120ms ease, border-color 120ms ease;
   width: 100%;
+  border-bottom: 1px solid #44475a;
 }
 
 .following-aggregate-entry:hover {
-  background: rgb(68 71 102 / 72%);
-  border-color: rgb(189 147 249 / 58%);
+  background: #44475a;
+  border-color: #44475a;
 }
 
 .following-aggregate-entry:focus-visible {
@@ -402,13 +389,12 @@
 }
 
 .following-aggregate-none {
-  background: rgb(40 42 54 / 55%);
-  border: 1px dashed rgb(98 114 164 / 46%);
-  border-radius: 7px;
+  background: transparent;
+  border: 0;
   color: #9fa3b8 !important;
   font-size: 12px;
   margin: 0 !important;
-  padding: 14px;
+  padding: 8px 0;
 }
 
 .following-rule-grid {
@@ -501,13 +487,13 @@
 }
 
 .following-remove-button {
-  background: rgb(255 85 85 / 10%);
-  border: 1px solid rgb(255 85 85 / 42%);
+  background: transparent;
+  border: 1px solid #55586d;
   color: #ff9a9a;
 }
 
 .following-remove-button:hover {
-  background: rgb(255 85 85 / 20%);
+  background: #44475a;
 }
 
 .following-section-actions {
@@ -524,40 +510,28 @@
 
 .following-section-actions .btn.following-save-confirmed,
 .following-section-actions .btn.following-save-confirmed:disabled {
-  animation: following-save-pulse 420ms ease-out;
   background: #50d890;
   border-color: #7aefb1;
   color: #14271d;
   opacity: 1;
 }
 
-@keyframes following-save-pulse {
-  0% { box-shadow: 0 0 0 0 rgb(80 216 144 / 55%); transform: scale(1); }
-  45% { box-shadow: 0 0 0 7px rgb(80 216 144 / 18%); transform: scale(1.035); }
-  100% { box-shadow: 0 0 0 10px rgb(80 216 144 / 0%); transform: scale(1); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .following-section-actions .btn.following-save-confirmed,
-  .following-section-actions .btn.following-save-confirmed:disabled {
-    animation: none;
-  }
-}
-
 .following-pokemon-editor > [data-fw-assets] {
-  background: #303244;
-  border: 1px solid rgb(98 114 164 / 48%);
-  border-radius: 12px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   margin-top: 22px;
-  padding: 22px;
+  padding: 22px 0;
+  border-top: 1px solid #44475a;
 }
 
 .following-position-editor {
-  background: #282b3a;
-  border: 1px solid rgb(189 147 249 / 38%);
-  border-radius: 12px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   margin-top: 26px;
-  padding: clamp(16px, 2vw, 26px);
+  padding: 22px 0;
+  border-top: 1px solid #44475a;
 }
 
 .following-position-editor h3 { font-size: 22px; margin: 5px 0 8px; }
@@ -710,3 +684,5 @@
     flex-direction: column;
   }
 }
+
+.following-pokemon-editor > [data-fw-assets]:empty { display: none; }

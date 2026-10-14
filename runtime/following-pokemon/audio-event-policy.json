@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "profile": "stock White 2 IRDO revision 0",
+  "scope": "Pure audio event callbacks retain the follower; movement, warp, battle and unrelated child-event guards remain independent.",
+  "fieldWorkOffset": 28,
+  "soundContextOffset": 436,
+  "workSoundContextOffset": 4,
+  "workSize": 16,
+  "events": [
+    {
+      "name": "push",
+      "callback": 33749009,
+      "constructor": 33749077,
+      "opcodes": [
+        161
+      ],
+      "callbackExpectedHex": "18b581b00c1c2168131c5868002904d001290cd002290fd011e000220092db890321fff739fa2068401c206007e0fff713fa002803d1f6e701b0012018bd002001b018bd",
+      "constructorExpectedHex": "f8b5041c0d1ce7f73df9071c084a201c00211023e7f724fa061ce7f735fb041c381ce7f711fe6060e581301cf8bdc04611f80202"
+    },
+    {
+      "name": "pop",
+      "callback": 33749129,
+      "constructor": 33749201,
+      "opcodes": [
+        162
+      ],
+      "callbackExpectedHex": "18b581b00c1c2168131c5868002904d001290dd0022910d012e0998900220091db890421fff7fcf92068401c206007e0fff7d6f9002803d1f6e701b0012018bd002001b018bd0000",
+      "constructorExpectedHex": "f8b5041c0d1c161ce7f7fef80090094a201c00211023e7f7e5f9071ce7f7f6fa041c0098e7f7d2fd6060a681e581381cf8bdc04689f80202"
+    },
+    {
+      "name": "fanfare",
+      "callback": 33749661,
+      "constructor": 33749729,
+      "opcodes": [
+        169
+      ],
+      "callbackExpectedHex": "f8b50d1c2868161c7468002802d0012813d014e000270097201c032100220623fff7f4f80097b268201c07210023fff7edf82868401c286001e00120f8bd0020f8bd0000",
+      "constructorExpectedHex": "f8b5041c0d1ce6f7f7ff071c094a201c00211023e7f7def8061ce7f7eff9041c381ce7f7cbfc6060a5600020e081301cf8bdc0469dfa0202"
+    },
+    {
+      "name": "change-map",
+      "callback": 33749785,
+      "constructor": 33749841,
+      "opcodes": [
+        158,
+        568
+      ],
+      "callbackExpectedHex": "18b581b00c1c2168131c5868002902d001290bd00de0998900919a68db890521fff7b6f82068401c206002e001b0012018bd002001b018bd",
+      "constructorExpectedHex": "f8b582b0041c0d1c161c1f1ce6f7bcff00900a4a201c00211023e7f7a3f80190e7f7b4f9041c0098e7f790fc6060a560a7810198e68102b0f8bdc04619fb0202"
+    },
+    {
+      "name": "play",
+      "callback": 33749993,
+      "constructor": 33750069,
+      "opcodes": [
+        144,
+        152,
+        633
+      ],
+      "callbackExpectedHex": "f8b50d1c2868161c7468002802d0012813d019e000270097201c022100220623fff74ef80097b268201c07210023fff747f82868401c286006e0201cfff720f8002801d10120f8bd0020f8bd",
+      "constructorExpectedHex": "f8b5041c0d1ce6f74dff071c084a201c00211023e7f734f8061ce7f745f9041c381ce7f721fc6060a560301cf8bdc046e9fb0202"
+    },
+    {
+      "name": "play-ex",
+      "callback": 33750121,
+      "constructor": 33750197,
+      "opcodes": [
+        565
+      ],
+      "callbackExpectedHex": "f8b50d1c2868141c6668002802d0012813d019e000270097e389301c02210022fff70ef80097a268301c07210023fff707f82868401c286006e0301cfef7e0ff002801d10120f8bd0020f8bd",
+      "constructorExpectedHex": "f8b5041c0d1c161ce6f70cff0090094a201c00211023e6f7f3ff071ce7f704f9041c0098e7f7e0fb6060a560e681381cf8bdc04669fc0202"
+    },
+    {
+      "name": "fade",
+      "callback": 33750253,
+      "constructor": 33750309,
+      "opcodes": [
+        581,
+        582
+      ],
+      "callbackExpectedHex": "38b50868131c5c68002810d100250095db89201c02210022fef7d0ff054a201c072100230095fef7c9ff012038bd002038bdc046e9030000",
+      "constructorExpectedHex": "f8b5041c0d1ce6f7d5fe071c084a201c00211023e6f7bcff061ce7f7cdf8041c381ce7f7a9fb6060e581301cf8bdc046edfc0202"
+    },
+    {
+      "name": "play-push",
+      "callback": 33750361,
+      "constructor": 33750437,
+      "opcodes": [
+        139,
+        143,
+        159
+      ],
+      "callbackExpectedHex": "f8b50d1c2868161c7468002802d0012813d019e000270097201c032100220623fef796ff0097b268201c07210023fef78fff2868401c286006e0201cfef768ff002801d10120f8bd0020f8bd",
+      "constructorExpectedHex": "f8b5041c0d1ce6f795fe071c084a201c00211023e6f77cff061ce7f78df8041c381ce7f769fb6060a560301cf8bdc04659fd0202"
+    }
+  ],
+  "pureAudioOpcodes": [
+    139,
+    143,
+    144,
+    152,
+    155,
+    158,
+    159,
+    160,
+    161,
+    162,
+    163,
+    164,
+    165,
+    166,
+    167,
+    168,
+    169,
+    170,
+    171,
+    172,
+    565,
+    568,
+    570,
+    581,
+    582,
+    588,
+    633,
+    699
+  ]
+}

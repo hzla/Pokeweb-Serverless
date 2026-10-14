@@ -303,7 +303,6 @@ export function attachMoveInteractions(root: HTMLElement, project: ProjectState,
       try {
         const result = updateMoveField(project, moveId, "category", category.dataset.value);
         syncMoveRow(card, result, "category");
-        options.onDirty?.();
       } catch {
         category.classList.add("invalid");
       }
@@ -315,7 +314,6 @@ export function attachMoveInteractions(root: HTMLElement, project: ProjectState,
       const next = !prop.classList.contains("-active");
       updateMoveField(project, moveId, prop.dataset.fieldName, next);
       prop.classList.toggle("-active", next);
-      options.onDirty?.();
       return;
     }
 
@@ -1146,7 +1144,7 @@ function installMoveEditableFields(root: HTMLElement, project: ProjectState, opt
       return true;
     }, () => initialValue, (value) => {
       initialValue = value;
-    }, options.onDirty);
+    });
   });
 
   root.querySelectorAll<HTMLInputElement>(".move-effect-id-input").forEach((input) => {
@@ -1178,7 +1176,6 @@ function installMoveEditableFields(root: HTMLElement, project: ProjectState, opt
         if (commit()) {
           input.classList.remove("invalid");
           initialValue = input.value.trim();
-          options.onDirty?.();
         }
       } catch {
         input.value = initialValue;
@@ -1203,7 +1200,7 @@ function installItemEditableFields(root: HTMLElement, project: ProjectState, opt
       return true;
     }, () => initialValue, (value) => {
       initialValue = value;
-    }, options.onDirty);
+    });
   });
 
   root.querySelectorAll<HTMLElement>("[contenteditable='true'][data-narc='item-part']").forEach((field) => {
@@ -1221,7 +1218,7 @@ function installItemEditableFields(root: HTMLElement, project: ProjectState, opt
       return true;
     }, () => initialValue, (value) => {
       initialValue = value;
-    }, options.onDirty);
+    });
   });
 
   root.querySelectorAll<HTMLInputElement>(".item-flag-checkbox").forEach((checkbox) => {
@@ -1237,7 +1234,6 @@ function installItemEditableFields(root: HTMLElement, project: ProjectState, opt
         const result = updateItemPackedField(project, itemId, fieldName, partKey, checkbox.checked);
         syncItemPackedEditor(card, fieldName, result.rawValue);
         checkbox.classList.remove("invalid");
-        options.onDirty?.();
       } catch {
         checkbox.checked = !checkbox.checked;
         checkbox.classList.add("invalid");

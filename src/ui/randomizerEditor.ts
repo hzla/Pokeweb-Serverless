@@ -26,7 +26,6 @@ export function renderRandomizerEditor(project: ProjectState, root: HTMLElement,
   root.innerHTML = `
     <div class="randomizer-page">
       <aside class="randomizer-sidebar">
-        <div class="randomizer-kicker">Gen 5 tools</div>
         <h1>Randomizer</h1>
         <p>Seeded, data-driven randomization using the records currently loaded from this ROM.</p>
 

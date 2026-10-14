@@ -117,6 +117,18 @@ int fws_battle_entry(void){return scene.battleSetup&&!scene.recalled&&battle_cha
 static int safe_callback(void *event,uintptr_t callback){
  if(battle_chain(event))return 1;
  void *work=PTR(event,12);
+#ifdef FW_STOCK
+ /* Pure native audio events own a 16-byte sound work, not actors or graphics.
+  * Recognize every constructor used by the music/fanfare script commands,
+  * including root events and children of cleanup/menu supervisors. The live
+  * game's sound context must match; parent callbacks are still inspected. */
+ for(unsigned i=0;i<sizeof(fws_audio_callbacks)/sizeof(fws_audio_callbacks[0]);++i){
+  if(callback!=fws_audio_callbacks[i])continue;
+  void *fieldWork=PTR(scene.game,0x1c);
+  void *sound=fieldWork?PTR(fieldWork,0x1b4):0;
+  return work&&sound&&PTR(event,16)==scene.game&&PTR(work,4)==sound;
+ }
+#endif
  /* Native menu and its replacement screen event are separately identified.
     Never trust a recycled event address or an arbitrary child application. */
  if(callback==0x0215a8b5u)return work&&PTR(work,8)==scene.game&&PTR(work,12)==scene.field;

@@ -84,22 +84,35 @@ __attribute__((visibility("hidden"))) uint64_t __aeabi_uidivmod(uint32_t n,uint3
 }
 __attribute__((visibility("hidden"))) uint32_t __aeabi_uidiv(uint32_t n,uint32_t d){return (uint32_t)__aeabi_uidivmod(n,d);}
 
+/* Four independently optional signed matrix tile bounds. Absent values are
+ * canonical zero; edges are inclusive and combined with all other conditions. */
+static int tile_bounds_valid(const uint8_t *b,unsigned mask){
+ if(mask&~15u)return 0;
+ for(unsigned i=0;i<4;++i)if(!(mask&(1u<<i))&&fwr_u16(b+i*2))return 0;
+ return ((mask&3)!=3||(int16_t)fwr_u16(b)<=(int16_t)fwr_u16(b+2))&&
+        ((mask&12)!=12||(int16_t)fwr_u16(b+4)<=(int16_t)fwr_u16(b+6));
+}
+static int tile_bounds_match(const uint8_t *b,unsigned mask,const FwrSnapshot *p){
+ return (!(mask&1)||p->tileX>=(int16_t)fwr_u16(b))&&(!(mask&2)||p->tileX<=(int16_t)fwr_u16(b+2))&&
+        (!(mask&4)||p->tileY>=(int16_t)fwr_u16(b+4))&&(!(mask&8)||p->tileY<=(int16_t)fwr_u16(b+6));
+}
+
 /* Contextual dialogue is a single-member NARC.  The rule member remains in ROM
  * and is validated before it can influence field input or message rendering. */
 int fwr_context_validate(FwrContext *out,const void *buffer,unsigned size){
  const uint8_t *b;unsigned len;*out=(FwrContext){0};
  if(!narc_member(buffer,size,&b,&len))return 0;
- if(len<16||fwr_u32(b)!=0x44435746||(fwr_u16(b+4)!=1&&fwr_u16(b+4)!=2)||fwr_u32(b+8)!=len||fwr_crc(b+16,len-16)!=fwr_u32(b+12))return 0;
- unsigned count=fwr_u16(b+6);if(16+count*20>len)return 0;
- for(unsigned i=0;i<count;++i){const uint8_t *r=b+16+i*20;unsigned text=fwr_u32(r+12),words=fwr_u16(r+16);
-  if(r[6]>5||r[7]>10||r[8]>8||r[9]>4||!r[10]||r[10]>100||r[11]>FWR_CONTEXT_MOTIONS||r[18]>FWR_CONTEXT_MOTIONS||r[19]||(fwr_u16(b+4)==1&&(r[11]||r[18]))||!words||words>FWR_TEXT_CAPACITY||text&1||text<16+count*20||text>len||words*2>len-text||fwr_u16(b+text+(words-1)*2)!=0xffff)return 0;
+ if(len<16||fwr_u32(b)!=0x44435746||(fwr_u16(b+4)<1||fwr_u16(b+4)>3)||fwr_u32(b+8)!=len||fwr_crc(b+16,len-16)!=fwr_u32(b+12))return 0;
+ unsigned abi=fwr_u16(b+4),stride=abi==3?28:20,count=fwr_u16(b+6);if(16+count*stride>len)return 0;
+ for(unsigned i=0;i<count;++i){const uint8_t *r=b+16+i*stride;unsigned text=fwr_u32(r+12),words=fwr_u16(r+16);
+  if(r[6]>5||r[7]>10||r[8]>8||r[9]>4||!r[10]||r[10]>100||r[11]>FWR_CONTEXT_MOTIONS||r[18]>FWR_CONTEXT_MOTIONS||(abi==3?!tile_bounds_valid(r+20,r[19]):r[19])||(abi==1&&(r[11]||r[18]))||!words||words>FWR_TEXT_CAPACITY||text&1||text<16+count*stride||text>len||words*2>len-text||fwr_u16(b+text+(words-1)*2)!=0xffff)return 0;
   for(unsigned j=0;j+1<words;++j){unsigned c=fwr_u16(b+text+j*2);if(!c||c==0xffff||(c>=0xf000&&c!=0xfff0&&c!=0xfff1&&c!=0xfff2&&c!=0xfffe))return 0;}
  }
- *out=(FwrContext){.bytes=b,.length=len,.ruleCount=count};return 1;
+ *out=(FwrContext){.bytes=b,.length=len,.ruleCount=count,.ruleBytes=stride};return 1;
 }
 int fwr_context_step(const FwrContext *d,unsigned rule,unsigned step,FwrStep *out){
  if(!d||!d->bytes||rule>=d->ruleCount)return 0;
- const uint8_t *r=d->bytes+16+rule*20;
+ const uint8_t *r=d->bytes+16+rule*d->ruleBytes;
  unsigned before=r[11],after=r[18],action=0;
  if(before){if(!step)action=before;else --step;}
  if(!action){
@@ -113,14 +126,14 @@ int fwr_context_choose(const FwrContext *d,const FwrSnapshot *p,uint32_t *rng){
  if(!d||!d->bytes||p->pokemon.egg||!p->pokemon.species||p->pokemon.species>FW_MAX_SPECIES)return -1;
  unsigned hp=fwr_hp(p),status=fwr_status(p->status);if(!hp||p->direction>3)return -1;
  static const uint8_t dir[4]={3,4,2,1};
- for(unsigned i=0;i<d->ruleCount;++i){const uint8_t *r=d->bytes+16+i*20;unsigned zone=fwr_u16(r),species=fwr_u16(r+2),roll=random_next(rng)%100;
-  if(roll>=r[10]||(zone&&zone!=p->zone)||(species&&species!=p->pokemon.species)||(r[4]!=255&&r[4]!=p->pokemon.form)||(r[5]!=255&&r[5]!=p->type1&&r[5]!=p->type2)||(r[6]&&r[6]!=hp)||!fwr_friend(r[7],p->friendship)||(r[8]&&!(r[8]==7?status!=1:r[8]==status))||(r[9]&&r[9]!=dir[p->direction]))continue;
+ for(unsigned i=0;i<d->ruleCount;++i){const uint8_t *r=d->bytes+16+i*d->ruleBytes;unsigned zone=fwr_u16(r),species=fwr_u16(r+2),roll=random_next(rng)%100;
+  if((d->ruleBytes==28&&!tile_bounds_match(r+20,r[19],p))||roll>=r[10]||(zone&&zone!=p->zone)||(species&&species!=p->pokemon.species)||(r[4]!=255&&r[4]!=p->pokemon.form)||(r[5]!=255&&r[5]!=p->type1&&r[5]!=p->type2)||(r[6]&&r[6]!=hp)||!fwr_friend(r[7],p->friendship)||(r[8]&&!(r[8]==7?status!=1:r[8]==status))||(r[9]&&r[9]!=dir[p->direction]))continue;
   return (int)i;
  }return -1;
 }
 unsigned fwr_context_text(const FwrContext *d,unsigned rule,const FwrSnapshot *p,uint16_t *out,unsigned cap){
  if(!d||!d->bytes||rule>=d->ruleCount||!cap)return 0;
- const uint8_t *r=d->bytes+16+rule*20;unsigned off=fwr_u32(r+12),words=fwr_u16(r+16),n=0;
+ const uint8_t *r=d->bytes+16+rule*d->ruleBytes;unsigned off=fwr_u32(r+12),words=fwr_u16(r+16),n=0;
  for(unsigned i=0;i<words;++i){unsigned c=fwr_u16(d->bytes+off+i*2);if(c==0xffff)break;
   if(c==0xfff0||c==0xfff1){const uint16_t *name=c==0xfff0?p->nickname:p->playerName;unsigned max=c==0xfff0?11:8;for(unsigned j=0;j<max&&name[j]&&name[j]!=0xffff;++j){if(n+1>=cap)return 0;out[n++]=name[j];}}
   else if(c==0xfff2){ /* Location labels are intentionally numeric until a name table is authored. */ if(n+6>=cap)return 0;out[n++]='Z';out[n++]='o';out[n++]='n';out[n++]='e';out[n++]=' ';unsigned z=p->zone; if(z>9999)z=9999;unsigned div=1000;int seen=0;while(div){unsigned q=z/div;if(q||seen||div==1){out[n++]=(uint16_t)('0'+q);seen=1;}z%=div;div/=10;}}
@@ -130,14 +143,14 @@ unsigned fwr_context_text(const FwrContext *d,unsigned rule,const FwrSnapshot *p
 
 int fwr_items_validate(FwrItems *out,const void *buffer,unsigned size){
  const uint8_t *b;unsigned len,count,floor;*out=(FwrItems){0};
- if(!narc_member(buffer,size,&b,&len)||len<16||fwr_u32(b)!=0x49545746||fwr_u16(b+4)!=1||fwr_u32(b+8)!=len||fwr_crc(b+16,len-16)!=fwr_u32(b+12))return 0;
- count=fwr_u16(b+6);floor=16+count*28;if(floor>len)return 0;
- for(unsigned i=0;i<count;++i){const uint8_t*r=b+16+i*28;unsigned name=fwr_u32(r+14),nw=fwr_u16(r+18),text=fwr_u32(r+20),tw=fwr_u16(r+24);
-  if(r[6]>9||!fwr_u16(r+4)||!r[13]||(r[7]!=255&&!fwr_u16(r+2))||(r[8]>31&&r[8]!=255)||r[9]>5||r[10]>10||r[11]>8||r[12]>4||fwr_u16(r+26)||!nw||nw>192||!tw||tw>192||name%2||text%2||name<floor||text<floor||name+nw*2>len||text+tw*2>len||fwr_u16(b+name+nw*2-2)!=0xffff||fwr_u16(b+text+tw*2-2)!=0xffff)return 0;
+ if(!narc_member(buffer,size,&b,&len)||len<16||fwr_u32(b)!=0x49545746||(fwr_u16(b+4)!=1&&fwr_u16(b+4)!=2)||fwr_u32(b+8)!=len||fwr_crc(b+16,len-16)!=fwr_u32(b+12))return 0;
+ unsigned stride=fwr_u16(b+4)==2?36:28;count=fwr_u16(b+6);floor=16+count*stride;if(floor>len)return 0;
+ for(unsigned i=0;i<count;++i){const uint8_t*r=b+16+i*stride;unsigned name=fwr_u32(r+14),nw=fwr_u16(r+18),text=fwr_u32(r+20),tw=fwr_u16(r+24);
+  if(r[6]>9||!fwr_u16(r+4)||!r[13]||(r[7]!=255&&!fwr_u16(r+2))||(r[8]>31&&r[8]!=255)||r[9]>5||r[10]>10||r[11]>8||r[12]>4||(stride==36?!tile_bounds_valid(r+28,fwr_u16(r+26)):fwr_u16(r+26))||!nw||nw>192||!tw||tw>192||name%2||text%2||name<floor||text<floor||name+nw*2>len||text+tw*2>len||fwr_u16(b+name+nw*2-2)!=0xffff||fwr_u16(b+text+tw*2-2)!=0xffff)return 0;
   for(unsigned j=0;j+1<nw;++j){unsigned c=fwr_u16(b+name+j*2);if(!c||c==0xffff||c>=0xf000)return 0;}
   for(unsigned j=0;j+1<tw;++j){unsigned c=fwr_u16(b+text+j*2);if(!c||c==0xffff||(c>=0xf000&&c!=0xfff0&&c!=0xfff1&&c!=0xfff2&&c!=0xfff3&&c!=0xfffe))return 0;}
  }
- *out=(FwrItems){b,len,(uint16_t)count};return 1;
+ *out=(FwrItems){.bytes=b,.length=len,.ruleCount=(uint16_t)count,.ruleBytes=stride};return 1;
 }
 static int fwr_item_match(const uint8_t *r,const FwrSnapshot *p){
  unsigned hp=fwr_hp(p),status=fwr_status(p->status);static const uint8_t dir[4]={3,4,2,1};
@@ -148,18 +161,18 @@ static int fwr_item_match(const uint8_t *r,const FwrSnapshot *p){
 }
 int fwr_item_choose(const FwrItems*d,const FwrSnapshot*p,uint16_t claims,FwrItemChoice*out){
  if(!d||!d->bytes||!out)return 0;
- for(unsigned i=0;i<d->ruleCount;++i){const uint8_t*r=d->bytes+16+i*28;if(!(claims&(1u<<r[6]))&&fwr_item_match(r,p)){*out=(FwrItemChoice){r[6],r[13],fwr_u16(r+4),i};return 1;}}
+ for(unsigned i=0;i<d->ruleCount;++i){const uint8_t*r=d->bytes+16+i*d->ruleBytes;if(!(claims&(1u<<r[6]))&&(d->ruleBytes!=36||tile_bounds_match(r+28,fwr_u16(r+26),p))&&fwr_item_match(r,p)){*out=(FwrItemChoice){r[6],r[13],fwr_u16(r+4),i};return 1;}}
  return 0;
 }
 static unsigned fwr_item_copy(const FwrItems*d,unsigned rule,unsigned offset,unsigned words,uint16_t*out,unsigned cap){
  if(!d||rule>=d->ruleCount||!out||!cap)return 0;
- const uint8_t*r=d->bytes+16+rule*28;const uint8_t*t=d->bytes+fwr_u32(r+offset);unsigned n=0;
+ const uint8_t*r=d->bytes+16+rule*d->ruleBytes;const uint8_t*t=d->bytes+fwr_u32(r+offset);unsigned n=0;
  for(unsigned i=0;i<fwr_u16(r+words);++i){unsigned c=fwr_u16(t+i*2);if(c==0xffff)break;if(n+1>=cap)return 0;out[n++]=(uint16_t)c;}out[n]=0xffff;return n;
 }
 unsigned fwr_item_name(const FwrItems*d,unsigned rule,uint16_t*out,unsigned cap){return fwr_item_copy(d,rule,14,18,out,cap);}
 unsigned fwr_item_text(const FwrItems*d,unsigned rule,const FwrSnapshot*p,uint16_t*out,unsigned cap){
  if(!d||rule>=d->ruleCount||!p||!out||!cap)return 0;
- const uint8_t*r=d->bytes+16+rule*28;const uint8_t*t=d->bytes+fwr_u32(r+20);uint16_t name[192];unsigned n=0;if(!fwr_item_name(d,rule,name,192))return 0;
+ const uint8_t*r=d->bytes+16+rule*d->ruleBytes;const uint8_t*t=d->bytes+fwr_u32(r+20);uint16_t name[192];unsigned n=0;if(!fwr_item_name(d,rule,name,192))return 0;
  for(unsigned i=0;i<fwr_u16(r+24);++i){unsigned c=fwr_u16(t+i*2);if(c==0xffff)break;const uint16_t *word=0;unsigned max=0;if(c==0xfff0){word=p->nickname;max=11;}else if(c==0xfff1){word=p->playerName;max=8;}else if(c==0xfff3){word=name;max=191;}if(word){for(unsigned j=0;j<max&&word[j]&&word[j]!=0xffff;++j){if(n+1>=cap)return 0;out[n++]=word[j];}}else if(c==0xfff2){if(n+6>=cap)return 0;out[n++]='Z';out[n++]='o';out[n++]='n';out[n++]='e';out[n++]=' ';unsigned z=p->zone;if(z>9999)z=9999;unsigned div=1000;int seen=0;while(div){unsigned q=z/div;if(q||seen||div==1){out[n++]=(uint16_t)('0'+q);seen=1;}z%=div;div/=10;}}else{if(n+1>=cap)return 0;out[n++]=(uint16_t)c;}}
  out[n]=0xffff;return n;
 }

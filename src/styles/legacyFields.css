@@ -199,10 +199,10 @@
 }
 
 .header-detail-open-link {
-  background: rgba(26, 188, 156, 0.14);
-  border: 1px solid rgba(26, 188, 156, 0.28);
+  background: #383a59;
+  border: 1px solid #55586d;
   border-radius: 4px;
-  color: #1abc9c;
+  color: #f2f2f2;
   flex: 0 0 auto;
   font-size: 12px;
   line-height: 18px;
@@ -211,7 +211,7 @@
 }
 
 .header-detail-open-link:hover {
-  background: rgba(26, 188, 156, 0.22);
+  background: #44475a;
 }
 
 .header-detail-value {
@@ -413,3 +413,5 @@ div.-active svg * {
     grid-template-columns: minmax(0, 1fr) minmax(48px, max-content);
   }
 }
+
+.header-detail-open-link:focus-visible { outline: 2px solid #bd93f9; outline-offset: 2px; }

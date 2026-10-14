@@ -1,0 +1,104 @@
+{
+  "version": "0.1.0-bw1",
+  "itemDataHex": "00000000000000003f020100010000000005000000001c00000000000000000503020000",
+  "games": {
+    "B": {
+      "idCode": "IRBO",
+      "revision": 0,
+      "dsAccepted": true,
+      "fileName": "InfiniteCandyB.dll",
+      "sha256": "3db03c4e3eb7e765f325d4c55d47cb6b4b240a8603c1dbf84531e1545afb91af",
+      "codeFingerprint": "d6c21fbc",
+      "subItem": 35366512,
+      "partyOverlay": 91,
+      "iconTable": 34204524,
+      "retailItemDataHex": "00000000000000003f0200000000000b0000000000000000000000000000000000000000",
+      "nameBank": 54,
+      "descriptionBank": 53,
+      "retailIconFingerprints": [
+        "4ffcab15",
+        "a2acc6cc"
+      ],
+      "nativeItemParameters": {
+        "3": 1,
+        "4": 0,
+        "5": 4,
+        "6": 1,
+        "7": 0,
+        "14": 1,
+        "16": 0,
+        "28": 1,
+        "29": 0
+      },
+      "signatures": [
+        {
+          "module": "91",
+          "address": 35366512,
+          "expectedHex": "08b5031c0a208001",
+          "patchSize": 8
+        },
+        {
+          "module": "ARM9",
+          "address": 33689620,
+          "expectedHex": "08b5112947d84a187a44d28812041214974422002a002e0032003a0042004a004e00520056005a005e0062006a00720076007a007e0001880a20484308bd8078",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33586972,
+          "expectedHex": "f0b583b0061c0f1c151c1c1cfff7e6ff0290002802d103b00020f0bd4188491b418002994888002801d1002008800094301c391c02aa01abfff70aff0298019900f07cf8012003b0",
+          "patchSize": 0
+        }
+      ]
+    },
+    "W": {
+      "idCode": "IRAO",
+      "revision": 0,
+      "dsAccepted": true,
+      "fileName": "InfiniteCandyW.dll",
+      "sha256": "2ec1cb3214f10f0180342b3d91cde3dbc5a04be7cfca454c733885b69aa8c09e",
+      "codeFingerprint": "d6c21fbc",
+      "subItem": 35366544,
+      "partyOverlay": 91,
+      "iconTable": 34204548,
+      "retailItemDataHex": "00000000000000003f0200000000000b0000000000000000000000000000000000000000",
+      "nameBank": 54,
+      "descriptionBank": 53,
+      "retailIconFingerprints": [
+        "4ffcab15",
+        "a2acc6cc"
+      ],
+      "nativeItemParameters": {
+        "3": 1,
+        "4": 0,
+        "5": 4,
+        "6": 1,
+        "7": 0,
+        "14": 1,
+        "16": 0,
+        "28": 1,
+        "29": 0
+      },
+      "signatures": [
+        {
+          "module": "91",
+          "address": 35366544,
+          "expectedHex": "08b5031c0a208001",
+          "patchSize": 8
+        },
+        {
+          "module": "ARM9",
+          "address": 33689648,
+          "expectedHex": "08b5112947d84a187a44d28812041214974422002a002e0032003a0042004a004e00520056005a005e0062006a00720076007a007e0001880a20484308bd8078",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33586972,
+          "expectedHex": "f0b583b0061c0f1c151c1c1cfff7e6ff0290002802d103b00020f0bd4188491b418002994888002801d1002008800094301c391c02aa01abfff70aff0298019900f07cf8012003b0",
+          "patchSize": 0
+        }
+      ]
+    }
+  }
+}

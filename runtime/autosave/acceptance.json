@@ -1,0 +1,122 @@
+{
+  "version": "0.1.1-test",
+  "saveStepsPerTick": 8,
+  "games": {
+    "B2": {
+      "runtimeSha256": "65afab7f52a67681ad10bfc6acdf74151ef53c722d29b69896a39c78899e42cb",
+      "romBytes": 294568960,
+      "scenarios": {
+        "door": {
+          "transitions": 1,
+          "completed": 1,
+          "zone": 438,
+          "partyBytesPreserved": true,
+          "positionPartyAndTableCrcs": "passed"
+        },
+        "seamless": {
+          "transitions": 2,
+          "completed": 2,
+          "zone": 437,
+          "partyBytesPreserved": true,
+          "positionPartyAndTableCrcs": "passed"
+        },
+        "menus": {
+          "transitions": 0,
+          "completed": 0,
+          "zone": 427,
+          "partyBytesPreserved": true,
+          "positionPartyAndTableCrcs": "passed"
+        },
+        "reload": {
+          "transitions": 0,
+          "completed": 0,
+          "zone": 438,
+          "partyBytesPreserved": true,
+          "positionPartyAndTableCrcs": "passed"
+        },
+        "same-header": {
+          "transitions": 1,
+          "completed": 1,
+          "zone": 427,
+          "partyBytesPreserved": true,
+          "positionPartyAndTableCrcs": "passed"
+        }
+      },
+      "firstWriteEmulatedSeconds": 4.33,
+      "savingIndicatorEmulatedSeconds": 4.43,
+      "comparison": {
+        "baselineVersion": "0.1.0-test",
+        "oneStepSeconds": 6.45,
+        "eightStepSeconds": 4.33,
+        "durationReductionPercent": 32.9
+      }
+    },
+    "W2": {
+      "runtimeSha256": "690757b8c19e8501d1bb10d822c55efc5ffb330d7b1f3881beba7fbeb6ac4465",
+      "romBytes": 294044672,
+      "scenarios": {
+        "door": {
+          "transitions": 1,
+          "completed": 1,
+          "zone": 438,
+          "partyBytesPreserved": true,
+          "positionPartyAndTableCrcs": "passed"
+        },
+        "seamless": {
+          "transitions": 2,
+          "completed": 2,
+          "zone": 437,
+          "partyBytesPreserved": true,
+          "positionPartyAndTableCrcs": "passed"
+        },
+        "menus": {
+          "transitions": 0,
+          "completed": 0,
+          "zone": 427,
+          "partyBytesPreserved": true,
+          "positionPartyAndTableCrcs": "passed"
+        },
+        "reload": {
+          "transitions": 0,
+          "completed": 0,
+          "zone": 438,
+          "partyBytesPreserved": true,
+          "positionPartyAndTableCrcs": "passed"
+        },
+        "same-header": {
+          "transitions": 1,
+          "completed": 1,
+          "zone": 427,
+          "partyBytesPreserved": true,
+          "positionPartyAndTableCrcs": "passed"
+        }
+      },
+      "firstWriteEmulatedSeconds": 4.2,
+      "savingIndicatorEmulatedSeconds": 4.3,
+      "comparison": {
+        "baselineVersion": "0.1.0-test",
+        "oneStepSeconds": 6.32,
+        "eightStepSeconds": 4.2,
+        "durationReductionPercent": 33.5
+      }
+    }
+  },
+  "automated": {
+    "installerTests": 10,
+    "pmcRegressionTests": 53,
+    "compiledHarnesses": [
+      "B2",
+      "W2"
+    ],
+    "productionBuild": "passed"
+  },
+  "pending": [
+    "Hardware and DSi-mode acceptance",
+    "Exhaustive story/communication-area coverage",
+    "Interrupted-write/power-loss testing",
+    "Broad ROM-hack and companion-matrix acceptance"
+  ],
+  "additionalEmulatorChecks": {
+    "W2 current C-Gear Quick Actions": "passed"
+  }
+}

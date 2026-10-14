@@ -4,22 +4,24 @@ from pathlib import Path
 import ndspy.rom,ndspy.codeCompression
 HERE=Path(__file__).resolve().parent;REPO=HERE.parents[1];WS=REPO.parent;BUILD=HERE/'build';ASSETS=REPO/'src/assets/codeinjection'
 TOOLS=Path(os.environ.get('ARM_TOOLCHAIN_BIN',WS/'toolchains/arm-gnu-toolchain-14.2.rel1-darwin-arm64-arm-none-eabi/bin'))
-JAR=Path(os.environ.get('RPM_TOOL_JAR',WS/'White2Upgrade/CTRMap.jar'));VERSION='0.3.5'
+JAR=Path(os.environ.get('RPM_TOOL_JAR',WS/'White2Upgrade/CTRMap.jar'));VERSION='0.3.8'
 # Every native import is an explicit US address. No reference source is a build
 # dependency. Verified early getters share addresses; the saved flag helper
 # and the later imported helpers differ by 44.
 APIS=[0x2042f58,0x20098d0,0x2026e90,0x20450ac,0x204534c,0x2045080,0x2045698,0x2044fbc,0x20056fc,0x2006254,0x2008474,0x2008ddc,0x20098c0,0x2009918,0x200ddb8,0x200dde0,
+ 0x200c97c,0x2013878,0x20174a4,0x2017974,
  0x2016ad8,0x2016af0,0x2016cb4,0x2016d68,0x2016ed8,0x2016edc,0x20171f4,0x2017354,0x201735c,0x2017394,0x20175a4,0x20175e4,0x2017934,0x20191d8,
  0x201cd24,0x201fe24,0x201ff34,0x2039f8c,0x2039fbc,0x203a228,0x203a278,0x203a6d4,0x203cb14,0x203da74,0x203dab0,0x203df4c,
  0x204aac8,0x204ab38,0x204ab48,0x204ac38,0x204b8e8,0x204b9b8,0x204ba6c,0x204bbcc,0x204bcfc,
- 0x204bd3c,0x204be0c,0x204be90,0x204bf48,0x204c06c,0x204c134,0x204c150,0x204c16c,0x204c530,0x204c54c,0x2070ca8,0x2070ecc]
+ 0x204bd3c,0x204be0c,0x204be90,0x204bf48,0x204c06c,0x204c134,0x204c150,0x204c16c,0x204c4e4,0x204c530,0x204c54c,0x2070ca8,0x2070ecc]
 NATIVE={12:[0x21536ac,0x2159270,0x2159460,0x21596c4,0x2163b78,0x215b4c8,0x215c038,0x215eff4,0x215f024],
- 36:[0x21804d0,0x21983dc,0x21984ac,0x2180500,0x218130c,0x21983ec,0x2198564,0x219863c,0x219865c,0x21986b4,0x21986c0],
+ 36:[0x21804d0,0x2180564,0x2180578,0x21a16e8,0x21a20ac,0x21a24ac,0x21983dc,0x21984ac,0x2180500,0x218130c,0x21983ec,0x2198564,0x219863c,0x219865c,0x21986b4,0x21986c0],
  79:[0x21eb730,0x21eb748,0x21eb894,0x21ec808,0x21ec9cc,0x21ed2e0]}
 CALLS=[('QaInput',79,0x21ec980,0x21eb894,''),('QaButtonHit',79,0x21eb8c8,0x21eb748,''),
  ('QaGearUnit',79,0x21ec740,0x204bf48,''),
  ('QaGearEnd',79,0x21ece42,0x21ec808,''),
- ('QaRepelStep',36,0x21824bc,0x200ddb8,'adds r1,r7,#0'),('QaRepelDepleted',36,0x21a0b2c,0x200dde0,'adds r1,r4,#0')]
+ ('QaRepelStep',36,0x21824bc,0x200ddb8,'adds r1,r7,#0'),('QaRepelDepleted',36,0x21a0b2c,0x200dde0,'adds r1,r4,#0'),
+ ('QaPhenomenonInterval',36,0x21a2164,0x21a24ac,''),('QaPhenomenonChance',36,0x21a2170,0x2013878,'')]
 WORDS=[('QaCGearInit',36,0x21cfa10,0x2198565),('QaCGearUpdate',36,0x21cfa14,0x219865d),
  ('QaCGearEvent',36,0x21cfa1c,0x21986b5),('QaCGearExit',36,0x21cfa20,0x219863d),
  ('QaNoGearInit',36,0x21cfa9c,0x21986c1),('QaTownMapReturn',12,0x216cca4,0x215c039)]
@@ -87,9 +89,13 @@ def main():
             # PC-relative loads/BLs may encode different offsets while the ABI
             # remains the same. Preserve independent signatures for each game.
             if game=='W2':reference[a]=b
+        for a in [0x2005336,0x2005e02,0x2005e62,0x2005eb0,0x2005fa2,0x206dc84-(44 if game=='B2' else 0)]:signature('Shared music runtime hook','ARM9',a,4)
         assert struct.unpack('<I',signature('Native graphics system pointer','ARM9',0x204b9a8-(44 if game=='B2' else 0),4))[0]==(0x214193c if game=='B2' else 0x214197c)
         for mod,addresses in NATIVE.items():
             for a in addresses:signature('Native field ABI',mod,a-delta,12)
+        signature('Native phenomenon generator',36,0x21a20ac-delta,0x108)
+        signature('Native phenomenon tile search',36,0x21a25c4-delta,0x168)
+        signature('Native phenomenon effect setup',36,0x21a272c-delta,0xa0)
         signature('Native save request layout',12,0x215c538-delta,80)
         signature('Native script event/VM ownership layout',12,0x2153864-delta,0x58)
         signature('Native script VM entry/data layout',12,0x2153bec-delta,0x68)
@@ -131,7 +137,7 @@ def main():
             '-I',BUILD,'-c',HERE/'quick_actions.cpp','-o',BUILD/f'{stem}.o')
         run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',source,'-o',BUILD/f'{stem}Hooks.o')
         elf=BUILD/f'{stem}.elf';run(TOOLS/'arm-none-eabi-g++','-nostdlib','-Wl,-r',BUILD/f'{stem}.o',BUILD/f'{stem}Hooks.o','-o',elf)
-        assert not subprocess.check_output([str(TOOLS/'arm-none-eabi-nm'),'-u',str(elf)]).strip()
+        assert subprocess.check_output([str(TOOLS/'arm-none-eabi-nm'),'-u',str(elf)]).decode().split()==['U','PokewebBgmMute']
         meta=BUILD/'metadata.yml';meta.write_text(f'PMCGameID: {game}\nPMCModulePriority: 4\nPMCVersion: {VERSION}\n')
         esdb=BUILD/'symbols.yml';esdb.write_text('Segments:\n  - ID: 0\n    Name: ARM9\n    Type: EXECUTABLE\nSymbols: []\n')
         dll=ASSETS/f'{stem}.dll';run('java','-cp',JAR,'rpm.cli.RPMTool','-i',elf,'--fourcc','DLXF','-o',dll,'--esdb',esdb,'--meta',meta,'--generate-relocations','--strip')

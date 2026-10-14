@@ -23,6 +23,54 @@ static unsigned make_items(unsigned count){
  for(unsigned i=0;i<count;++i){unsigned char*r=bad+16+i*28;unsigned name=floor+i*4,text=name+2;put16(r+4,i+1);r[6]=(unsigned char)(i%10);r[7]=255;r[8]=255;r[13]=1;put32(r+14,name);put16(r+18,1);put32(r+20,text);put16(r+24,1);put16(bad+name,0xffff);put16(bad+text,0xffff);}
  repair(size);return wrap_narc(size);
 }
+static unsigned make_bounded(unsigned gift,unsigned mask){
+ unsigned stride=gift?36:28,floor=16+2*stride,size=floor+8;
+ memset(bad,0,size);put32(bad,gift?0x49545746:0x44435746);put16(bad+4,gift?2:3);put16(bad+6,2);put32(bad+8,size);
+ for(unsigned i=0;i<2;++i){unsigned char*r=bad+16+i*stride;
+  if(gift){put16(r+4,50+i);r[6]=(unsigned char)i;r[7]=r[8]=255;r[13]=2;put32(r+14,floor+i*4);put16(r+18,2);put32(r+20,floor+i*4);put16(r+24,2);}
+  else{r[4]=r[5]=255;r[10]=100;r[11]=2;r[18]=12;put32(r+12,floor+i*4);put16(r+16,2);}
+  put16(bad+floor+i*4,'A'+i);put16(bad+floor+i*4+2,0xffff);
+ }
+ unsigned char*r=bad+16,*b=r+(gift?28:20);r[gift?26:19]=(unsigned char)mask;
+ for(unsigned i=0;i<4;++i)put16(b+i*2,(mask&(1u<<i))?(unsigned)(int[]){-1,1,0,2}[i]:0);
+ repair(size);return wrap_narc(size);
+}
+static void test_bounds(void){
+ FwrSnapshot s={.pokemon={.species=25,.hp=100,.max_hp=100},.zone=42,.friendship=100,.direction=0};
+ FwrContext ctx;FwrItems items;FwrItemChoice gift;FwrStep step;uint16_t text[192];uint32_t rng=946;
+ for(unsigned mask=0;mask<16;++mask)for(unsigned isgift=0;isgift<2;++isgift){
+  unsigned size=make_bounded(isgift,mask);
+  if(isgift)assert(fwr_items_validate(&items,bad,size));else assert(fwr_context_validate(&ctx,bad,size));
+  for(int x=-2;x<=2;++x)for(int y=-1;y<=3;++y){s.tileX=(int16_t)x;s.tileY=(int16_t)y;
+   unsigned expected=((mask&1)&&x< -1)||((mask&2)&&x>1)||((mask&4)&&y<0)||((mask&8)&&y>2)?1:0;
+   if(isgift){assert(fwr_item_choose(&items,&s,0,&gift)&&gift.rule==expected);assert(fwr_item_name(&items,gift.rule,text,192)==1&&text[0]=='A'+expected);assert(fwr_item_text(&items,gift.rule,&s,text,192)==1);assert(fwr_item_choose(&items,&s,1,&gift)&&gift.rule==1);assert(!fwr_item_choose(&items,&s,3,&gift));}
+   else{assert(fwr_context_choose(&ctx,&s,&rng)==(int)expected);assert(fwr_context_text(&ctx,expected,&s,text,192)==1&&text[0]=='A'+expected);assert(fwr_context_step(&ctx,expected,0,&step)&&step.action==2);assert(fwr_context_step(&ctx,expected,2,&step)&&step.action==12);}
+  }
+  /* Bounds AND existing selectors; an unbounded second row remains eligible. */
+  s.tileX=s.tileY=0;unsigned char*r=bad+60+16;put16(r,43);
+  put32(bad+60+12,fwr_crc(bad+60+16,size-60-16));
+  if(isgift){assert(fwr_items_validate(&items,bad,size));assert(fwr_item_choose(&items,&s,0,&gift)&&gift.rule==1);}
+  else{assert(fwr_context_validate(&ctx,bad,size));assert(fwr_context_choose(&ctx,&s,&rng)==1);}
+ }
+ for(unsigned isgift=0;isgift<2;++isgift){
+  unsigned size=make_bounded(isgift,15);unsigned char*r=bad+76,*b=r+(isgift?28:20);
+  put16(b,32768);put16(b+2,32768);put16(b+4,32767);put16(b+6,32767);put32(bad+72,fwr_crc(bad+76,size-76));
+  s.tileX=-32768;s.tileY=32767;
+  if(isgift){assert(fwr_items_validate(&items,bad,size));assert(fwr_item_choose(&items,&s,0,&gift)&&gift.rule==0);}
+  else{assert(fwr_context_validate(&ctx,bad,size));assert(fwr_context_choose(&ctx,&s,&rng)==0);}
+  s.tileX=-32767;
+  if(isgift)assert(fwr_item_choose(&items,&s,0,&gift)&&gift.rule==1);else assert(fwr_context_choose(&ctx,&s,&rng)==1);
+ }
+ for(unsigned isgift=0;isgift<2;++isgift)for(unsigned corrupt=0;corrupt<4;++corrupt){
+  unsigned size=make_bounded(isgift,15);unsigned char*r=bad+76,*b=r+(isgift?28:20);
+  if(corrupt==0)r[isgift?26:19]=16;
+  if(corrupt==1)r[isgift?26:19]=0;
+  if(corrupt==2)put16(b,2);
+  if(corrupt==3)put16(b+4,3);
+  put32(bad+72,fwr_crc(bad+76,size-76));
+  if(isgift)assert(!fwr_items_validate(&items,bad,size));else assert(!fwr_context_validate(&ctx,bad,size));
+ }
+}
 int main(int argc,char **argv){
  assert(argc==4);FILE *file=fopen(argv[1],"rb");assert(file);unsigned n=(unsigned)fread(bytes,1,sizeof(bytes),file);fclose(file);FwrData d,x;
  assert(fwr_validate(&d,bytes,n));assert(d.ruleCount==34&&d.messageCount==27&&d.motionCount==12&&d.bubbleCount==7);
@@ -74,5 +122,6 @@ int main(int argc,char **argv){
  memcpy(bad,bytes,n);memset(bad+n,0,sizeof(bad)-n);
  unsigned full=sizeof(bad);for(unsigned j=0;j<4;++j)bad[8+j]=(uint8_t)(full>>(8*j));repair(full);
  assert(fwr_validate(&x,bad,full));assert(!fwr_validate(&x,bad,full+1));
- puts("Reaction tests passed: every rule reached, all HP/status/friendship boundaries, all species, capacity-bounded reusable-slot gift rules, 27 bounded substitutions, 12 motions, corruption and animation bounds.");
+ test_bounds();
+ puts("Reaction tests passed: inclusive tile bounds in both formats, all 16 presence masks, legacy stride, ordered fallback and claim slots; every rule reached, all HP/status/friendship boundaries, all species, capacity-bounded reusable-slot gift rules, 27 bounded substitutions, 12 motions, corruption and animation bounds.");
 }

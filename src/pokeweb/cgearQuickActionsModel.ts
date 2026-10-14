@@ -11,8 +11,10 @@ import { addRomFile, getRomFileBytes } from "./fileSystemModel";
 import { loadActiveRomBytes } from "./persistence";
 import { adoptExistingPmcInstall, canRemoveStagedCodeInjectionDll, getPmcInstallStatus, installPmcBytes,
   listCodeInjectionDlls, loadBundledPmcBytes, removeStagedCodeInjectionDll, stageCodeInjectionDll,
+  installBundledBgmToggleDll, assertBundledBgmRuntimeCompatibility,
   type CodeInjectionDllInstallResult } from "./pmcModel";
 import type { ProjectState } from "./projectStore";
+import { getBw1CGearStatus, installBw1CGear, disableBw1CGear, removeBw1CGear } from "./cgearQuickActionsBw1Model";
 import { parseRpm, type RpmModule } from "./rpm";
 
 type Version = "B2" | "W2";
@@ -41,8 +43,8 @@ function recognized(rpm: RpmModule, version: Version): boolean {
   const p = found.profile;
   if (rpm.baseAddress || rpm.bssSize !== p.bssSize || rpm.metadata.PMCGameID !== version
     || rpm.metadata.PMCModulePriority !== 4
-    || rpm.symbols.some(s => s.attributes & 2) || fingerprint(rpm.code) !== p.codeFingerprint) return false;
-  const expected = p.signatures.filter(s => s.patchSize).map(s => `${s.module}:${s.address}:${s.label.startsWith("QaRepel") || ["QaInput", "QaButtonHit", "QaGearUnit", "QaGearEnd"].includes(s.label) ? "THUMB_BRANCH_LINK" : "FULL_COPY"}`).sort();
+    || rpm.symbols.some(s => (s.attributes & 2) && s.address!==parseInt(fingerprint(new TextEncoder().encode("PokewebBgmMute")),16)) || fingerprint(rpm.code) !== p.codeFingerprint) return false;
+  const expected = p.signatures.filter(s => s.patchSize).map(s => `${s.module}:${s.address}:${s.label.startsWith("QaRepel") || s.label.startsWith("QaPhenomenon") || ["QaInput", "QaButtonHit", "QaGearUnit", "QaGearEnd"].includes(s.label) ? "THUMB_BRANCH_LINK" : "FULL_COPY"}`).sort();
   const actual = rpm.relocations.filter(r => r.target.module !== "base").map(r => `${r.target.module}:${r.target.address}:${r.target.type}`).sort();
   return expected.join("|") === actual.join("|");
 }
@@ -85,10 +87,13 @@ function nativePatterns(project:ProjectState,rom:NintendoDSRom):Uint8Array {
   return out;
 }
 function conflicts(rpm: RpmModule, profile: Profile): boolean {
+  const sharedMusic=rpm.metadata.PMCGameID===(profile.idCode==="IRDO"?"W2":"B2")
+    && ["3.0.0","3.0.1"].includes(String(rpm.metadata.PMCVersion))
+    && rpm.symbols.some(s=>s.nameHash===0x59ce771e&&(s.attributes&1)&&s.size===32);
   return rpm.relocations.some(({ target, sourceSymbolIndex }) => {
     const size = target.type === "FULL_COPY" ? rpm.symbols[sourceSymbolIndex]?.size ?? 0
       : target.type === "THUMB_BRANCH_SAFESTACK" ? 16 : target.type === "THUMB_BRANCH" ? 12 : 4;
-    return profile.signatures.some(s => s.module === target.module
+    return profile.signatures.some(s => !(sharedMusic&&s.label==="Shared music runtime hook") && s.module === target.module
       && target.address < s.address + s.expectedHex.length / 2 && target.address + size > s.address);
   });
 }
@@ -117,6 +122,7 @@ function checkCGearPaletteSpace(project: ProjectState, rom: NintendoDSRom): void
   }
 }
 export function getCGearQuickActionsStatus(project: ProjectState): CGearQuickActionsStatus {
+  if(project.session.baseRom==="BW")return getBw1CGearStatus(project);
   const state: CGearQuickActionsStatus = { supported: false, compatible: false, installed: false, enabled: false,
     pmcInstalled: getPmcInstallStatus(project).installed, updateAvailable: false, canRemove: false, pcHideFlag:manifest.defaultPcHideFlag,
     message: "C-Gear Quick Actions supports English US Black 2 and White 2 revision 0." };
@@ -152,6 +158,7 @@ export function getCGearQuickActionsStatus(project: ProjectState): CGearQuickAct
   } else if (state.installed) return { ...state, message: "Quick Actions runtime has no private graphics archive. Restore the archive before updating." };
   if (!rom) return { ...state, message: "Reload the ROM to verify native C-Gear hooks before installation." };
   try {
+    assertBundledBgmRuntimeCompatibility(project,project.originalRomBytes!);
     checkCGearPaletteSpace(project,rom);
     nativePatterns(project,rom);
     const overlays = loadOverlayTable(project.patches?.arm9OverlayTable ?? rom.arm9OverlayTable,
@@ -187,6 +194,7 @@ function stageArchive(project: ProjectState, rom: NintendoDSRom, bytes: Uint8Arr
   else addRomFile(project, manifest.archivePath, bytes);
 }
 export async function installCGearQuickActions(project: ProjectState, options:CGearQuickActionsOptions={}): Promise<CodeInjectionDllInstallResult> {
+  if(project.session.baseRom==="BW")return installBw1CGear(project,options);
   const romBytes = project.originalRomBytes ?? await loadActiveRomBytes();
   if (!romBytes) throw new Error("Reload the ROM before installing Quick Actions.");
   const input = { ...project, originalRomBytes: romBytes }, status = getCGearQuickActionsStatus(input);
@@ -214,6 +222,7 @@ export async function installCGearQuickActions(project: ProjectState, options:CG
   const staged = cloneInstallState(input);
   adoptExistingPmcInstall(staged, romBytes);
   if (!getPmcInstallStatus(staged).installed) installPmcBytes(staged, await loadBundledPmcBytes(v), romBytes);
+  await installBundledBgmToggleDll(staged,{preserveShortcut:true});
   const result = stageCodeInjectionDll(staged, status.dllPath?.split("/").pop() ?? profile.fileName, dll, "patches", romBytes);
   const backup=new NARC(new NARC(compiled.archive).files[14]);
   const prior=bytesAt(input,rom,manifest.archivePath),priorArc=prior&&new NARC(prior);
@@ -228,6 +237,7 @@ export async function installCGearQuickActions(project: ProjectState, options:CG
   return result;
 }
 export function disableCGearQuickActions(project: ProjectState): void {
+  if(project.session.baseRom==="BW"){disableBw1CGear(project);return;}
   const status = getCGearQuickActionsStatus(project);
   if (!status.installed || !status.compatible || !project.originalRomBytes) throw new Error(status.message);
   const rom = new NintendoDSRom(project.originalRomBytes, { fileData: "view" });
@@ -239,6 +249,7 @@ export function disableCGearQuickActions(project: ProjectState): void {
   recordGenericChange(project, "code_injection", "C-Gear Quick Actions disabled; saved preferences remain dormant.", "C-Gear Quick Actions", { key: "code-injection:cgear-quick-actions" });
 }
 export function removeCGearQuickActions(project: ProjectState): void {
+  if(project.session.baseRom==="BW"){removeBw1CGear(project);return;}
   const status = getCGearQuickActionsStatus(project);
   if (!status.canRemove || !status.dllPath) throw new Error("Only a Quick Actions runtime staged in this project can be removed. Use Disable for an exported installation.");
   if(project.originalRomBytes){const rom=new NintendoDSRom(project.originalRomBytes,{fileData:"view"}),prior=bytesAt(project,rom,manifest.archivePath);if(prior)restoreNativeButtonGraphics(project,rom,prior);}

@@ -1,5 +1,6 @@
 import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { recordGenericChange } from "./actionChangelog";
+import { equalBytes, projectEditSession, type PreparedEdit } from "./editSession";
 import type { NarcName } from "./constants";
 import {
   getMoveAnimationCommandAliases,
@@ -306,19 +307,23 @@ export function updateMoveAnimationScript(project: ProjectState, moveId: number,
 }
 
 export function copyMoveAnimationScript(project: ProjectState, moveId: number, sourceAnimationId: number): void {
+  projectEditSession(project).commit(prepareMoveAnimationCopy(project, moveId, sourceAnimationId));
+}
+
+export function prepareMoveAnimationCopy(project: ProjectState, moveId: number, sourceAnimationId: number): PreparedEdit<void> {
   if (!Number.isInteger(sourceAnimationId) || sourceAnimationId < 0) throw new Error("Animation ID must be a non-negative integer");
   const sourceStore = project.narcs.move_animations;
   if (!sourceStore) throw new Error("Move animation NARC is not loaded");
   const source = sourceStore.rawFiles[sourceAnimationId];
   if (!source) throw new Error(`Move animation ${sourceAnimationId} does not exist`);
-
   const target = resolveAnimationTarget(project, moveId, true);
-  target.store.rawFiles[target.index] = source.slice();
-  target.store.records.delete(target.index);
-  markDirty(project, target.storeName, target.index);
-  recordGenericChange(project, "move_animations", `Move animation script ${moveId} copied from animation ${sourceAnimationId}.`, moveAnimationSubject(project, moveId), {
-    key: `move-animation-copy:${moveId}`,
-  });
+  if (equalBytes(source, target.store.rawFiles[target.index])) return { result: undefined };
+  return {
+    result: undefined,
+    binaries: [{ name: target.storeName, id: target.index, bytes: source.slice() }],
+    changelog: [{ kind: "generic", domain: "move_animations", subject: moveAnimationSubject(project, moveId),
+      text: `Move animation script ${moveId} copied from animation ${sourceAnimationId}.`, key: `move-animation-copy:${moveId}` }],
+  };
 }
 
 function moveAnimationSubject(project: ProjectState, moveId: number): string {

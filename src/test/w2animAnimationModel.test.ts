@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { NintendoDSRom } from "../nds/rom";
+import { NARC } from "../nds/narc";
+import { hydrateNarcRawFiles } from "../pokeweb/persistence";
 import { writeU16, writeU32 } from "../nds/binary";
 import { findPwanOverrideForSpecies, getPwanRuntimeStatus, installPwanRuntime, materializePwanAnimations, pwanOverrideSideFromCompileResult, upsertPwanOverrideSide } from "../pokeweb/pwanAnimationModel";
 import { compilePwanAnimationFrames, pwanTimeline } from "../pokeweb/pwanCompiler";
@@ -9,6 +11,9 @@ import { decodeW2AnimFrame, parseW2Anim, encodeW2AnimMani, materializeW2AnimArch
 import { hydrateW2AnimFromRom, materializeW2AnimAnimations, w2animEditorToLinear, w2animLinearToEditor } from "../pokeweb/w2animAnimationModel";
 import { streamFixture } from "./w2animFixture";
 import { detectAnimationAssets } from "../pokeweb/animationAssetModel";
+import { createProjectDocument } from "../pokeweb/projectDocument";
+import { openProjectSession } from "../pokeweb/projectSession";
+import { makeEditProject } from "./fixtures/editProject";
 import { loadPokemonBattleSpriteAnimation } from "../pokeweb/pokemonBattleSpriteAnimation";
 import { w2animArchiveSummary, w2animPokemonPreviewPalette } from "../pokeweb/w2animAnimationModel";
 
@@ -32,6 +37,50 @@ function projectFixture(): { project: ProjectState; rom: NintendoDSRom } {
 }
 
 describe("w2anim authoring bridge", () => {
+  it("detaches archive and parser caches from a large ROM-backed view", () => {
+    const { project, rom } = projectFixture();
+    const archive = streamFixture(), source = new Uint8Array(2 * 1024 * 1024);
+    const view = source.subarray(128, 128 + archive.length); view.set(archive);
+    rom.files[7] = view; delete project.w2animAnimations;
+    hydrateW2AnimFromRom(project, rom);
+    const owned = project.w2animAnimations!.sourceBytes;
+    expect(owned.buffer).not.toBe(source.buffer);
+    expect(owned.buffer.byteLength).toBe(archive.length);
+    view.fill(0);
+    expect(owned).toEqual(archive);
+    expect(w2animArchiveSummary(project)).toEqual({ pokemonSheets: 2, trainerSheets: 1, manifests: 2 });
+  });
+
+  it("compacts reconstructible source bytes while retaining animation drafts, baselines, and export changes", async () => {
+    const { project: animation, rom } = projectFixture(), base = makeEditProject();
+    const project: ProjectState = { ...base, ...animation, session: { ...base.session, ...animation.session },
+      romInfo: { ...base.romInfo, ...animation.romInfo }, narcs: { ...base.narcs, ...animation.narcs } };
+    Object.assign(project.narcs.pokemon_sprites!, { name: "pokemon_sprites", fileId: 8, sourcePath: "sprites" });
+    Object.assign(project.narcs.trainer_sprites!, { name: "trainer_sprites", fileId: 9, sourcePath: "trainers" });
+    const side = findPwanOverrideForSpecies(project, 1)!.front!;
+    side.pwanBytes[side.pwanBytes.length - 1] = 0x55; project.pwanAnimations!.dirty = true;
+    const compact = createProjectDocument(project, true);
+    expect(compact.w2animAnimations!.sourceBytes).toHaveLength(0);
+    expect(compact.w2animAnimations!.editorOriginals).toBe(project.w2animAnimations!.editorOriginals);
+    const sprites = new NARC(); sprites.files = project.narcs.pokemon_sprites!.rawFiles;
+    const reopened = openProjectSession(structuredClone(compact));
+    expect(reopened.pwanAnimations).toEqual(project.pwanAnimations);
+    const spriteStore = reopened.narcs.pokemon_sprites!;
+    spriteStore.rawFiles = hydrateNarcRawFiles(spriteStore.rawFiles, spriteStore.dirty, spriteStore.fileCount, new NARC(sprites.save()).files);
+    hydrateW2AnimFromRom(reopened, rom);
+    await materializeW2AnimAnimations(reopened, rom);
+    const exported = parseW2Anim(reopened.fileSystem!.replacements[7]!);
+    const mani = exported.manis.get(exported.entries[0]!.maniOffset)!;
+    const framesAt = new DataView(side.pwanBytes.buffer).getUint32(36, true);
+    expect(decodeW2AnimFrame(exported, mani, 1)).toEqual(w2animEditorToLinear(side.pwanBytes.subarray(framesAt + 4608, framesAt + 9216)));
+    expect(exported.entries[0]!.maniOffset).toBe(exported.entries[1]!.maniOffset);
+    expect(reopened.narcs.pokemon_sprites!.dirty).toEqual(new Set([22, 23]));
+    const recovery = createProjectDocument(project, false);
+    expect(recovery.w2animAnimations!.sourceBytes).toBe(project.w2animAnimations!.sourceBytes);
+    project.fileSystem = { replacements: {}, additions: { "w2anim/streams.bin": project.w2animAnimations!.sourceBytes } };
+    expect(createProjectDocument(project, true).w2animAnimations!.sourceBytes).toBe(project.w2animAnimations!.sourceBytes);
+  });
+
   it("detects stream assets independently of the PWAN authoring bridge and previews them lazily", () => {
     const { project } = projectFixture();
     expect(project.pwanAnimations!.overrides).toEqual([]);

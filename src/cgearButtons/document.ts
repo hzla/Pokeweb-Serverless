@@ -1,6 +1,6 @@
 import { defaultSkins } from "./skins";
 export const MAX_BUTTONS = 8;
-export type ActionId = "repel" | "pc" | "bike" | "mapFly" | "map" | "dowsing" | "rod" | "recorder" | "palPad" | "xtransceiver" | "medals" | "gracidea" | "splicers" | "revealGlass" | "bag" | "party";
+export type ActionId = "repel" | "pc" | "bike" | "mapFly" | "map" | "dowsing" | "rod" | "recorder" | "palPad" | "xtransceiver" | "medals" | "gracidea" | "splicers" | "revealGlass" | "bag" | "party" | "pokeradar";
 export type Button = { id: number; label: string; color: string; x: number; y: number; action: ActionId; flag?: { id: number; when: "set" | "clear" } };
 export type Skin = { id: number; name: string; data: string };
 export type SkinCollection = { nextId: number; defaultId: number; entries: Skin[] };
@@ -24,15 +24,23 @@ export const actions: readonly Action[] = [
   { id:"revealGlass", code:14, name:"Reveal Glass — select Pokémon", label:"FORM", item:638, group:30, check:255, kind:"application", call:0 },
   { id:"bag", code:15, name:"Bag — native item menu", label:"BAG", item:0, check:255, kind:"application", call:2 },
   { id:"party", code:16, name:"Party — native Pokémon menu", label:"PARTY", item:0, check:255, kind:"application", call:0 },
+  { id:"pokeradar", code:17, name:"Pokéradar — generate a nearby phenomenon", label:"RADAR", item:0, check:255, kind:"field" },
 ];
-export const actionFor = (id: string) => actions.find(a => a.id === id);
+/** BW1 has no usable Xtransceiver or BW2 transformation/Medal Box route. */
+export function actionsFor(game: "BW" | "BW2" = "BW2"): readonly Action[] {
+  if (game === "BW2") return actions;
+  return actions.filter(a => !["xtransceiver", "medals", "splicers", "revealGlass"].includes(a.id))
+    .map(a => ({ ...a, ...(a.id === "palPad" ? { check: 2, call: 8 } : a.id === "recorder" ? { call: 11 }
+      : a.id === "map" || a.id === "mapFly" ? { call: 7 } : {}) }));
+}
+export const actionFor = (id: string, game: "BW" | "BW2" = "BW2") => actionsFor(game).find(a => a.id === id);
 export const colors = ["#18d878", "#f87800", "#d830f8", "#c068f0", "#00c8d8", "#f8d840", "#f86078", "#b8e0f8"];
-export function defaults(): Document {
-  return { version:1, nextId:7, hideCommunicationButtons:true, skins:defaultSkins(), buttons:[
+export function defaults(game: "BW" | "BW2" = "BW2"): Document {
+  return { version:1, nextId:7, hideCommunicationButtons:true, skins:game === "BW" ? {nextId:1,defaultId:0,entries:[]} : defaultSkins(), buttons:[
     {id:1,label:"REPEL",color:colors[0],x:60,y:116,action:"repel"},
     {id:2,label:"PC",color:"#ff637b",x:68,y:60,action:"pc",flag:{id:1517,when:"clear"}},
     {id:3,label:"BIKE",color:colors[2],x:88,y:152,action:"bike"},
-    {id:4,label:"MAP",color:colors[3],x:172,y:152,action:"mapFly"},
+    {id:4,label:"MAP",color:colors[3],x:game==="BW"?140:172,y:152,action:"mapFly"},
     {id:5,label:"PARTY",color:"#29c5f7",x:188,y:60,action:"party"},
     {id:6,label:"BAG",color:colors[1],x:196,y:116,action:"bag"},
   ] };

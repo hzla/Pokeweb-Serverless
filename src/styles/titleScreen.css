@@ -1,10 +1,9 @@
 .title-editor { max-width: 1500px; margin: 0 auto; padding: 52px 26px 26px; color: #dddfe5; }
 .title-page-header, .title-section-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
-.title-editor h1 { font-size: 28px; margin: 6px 0 8px; }
+.title-editor h1 { font-size: 28px; margin: 0 0 8px; }
 .title-editor h2 { font-size: 18px; margin: 0 0 12px; }
 .title-editor h3 { font-size: 15px; margin: 22px 0 12px; }
 .title-editor p { line-height: 1.6; margin: 6px 0 14px; }
-.title-eyebrow { color: #ef9494; font-size: 12px; text-transform: uppercase; letter-spacing: .1em; }
 .title-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .title-editor .btn { cursor: pointer; white-space: nowrap; }
 .title-editor button:disabled { opacity: .5; cursor: wait; }

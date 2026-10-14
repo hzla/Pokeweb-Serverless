@@ -20,9 +20,9 @@ describe("C-Gear button compiler and editor state", () => {
     d.hideCommunicationButtons=false;r=compile(d,a);expect(new NARC(r.archive!).files[0][45]).toBe(0);expect(recoverCGearButtons(r.archive!).applied!.hideCommunicationButtons).toBe(false);
     const metadata=JSON.parse(new TextDecoder().decode(arc.files[13]));metadata.applied.hideCommunicationButtons=false;arc.files[13]=new TextEncoder().encode(JSON.stringify(metadata));expect(()=>validateButtonArchive(arc.save())).toThrow(/Communication/);
   });
-  it("replaces only selector and power glyphs while preserving native circles",()=>{
+  it("replaces selector, save and music glyphs while preserving native circles",()=>{
     const a=buttonTestAssets(),original=originalGraphics(a.native),packed=buttonGraphics(original,a.native,true,true),cells=packed.files[1],start=48,oam=start+39*16;
-    const decorated=new Set([22,25,31,32,33,34,36,37]);
+    const decorated=new Set([22,25,23,26,31,32,33,34,36,37]);
     for(let i=0;i<38;i++){const at=oam+new DataView(cells.buffer).getUint32(start+i*16+4,true);expect(readU16(cells,start+i*16)).toBe(2);expect(readU16(cells,at+6)).toBe(0x4f0);expect(readU16(cells,at+8)).toBe(0x81f0);if(decorated.has(i))expect(readU16(cells,at+4)&1023).not.toBe(readU16(cells,at+10)&1023);}
     const tileAt=readU16(cells,oam+new DataView(cells.buffer).getUint32(start+31*16+4,true)+4)&1023,data=packed.files[0].subarray(48+tileAt*32,48+tileAt*32+64);
     const pixel=(x:number,y:number)=>(data[Math.floor(x/8)*32+y*4+Math.floor(x%8/2)]>>(x%2*4))&15;
@@ -36,8 +36,18 @@ describe("C-Gear button compiler and editor state", () => {
       const at=oam+new DataView(cells.buffer).getUint32(start+i*16+4,true),tile=readU16(cells,at+4)&1023;
       const disk=packed.files[0].subarray(48+tile*32,48+tile*32+128),values=Array.from(disk).flatMap(v=>[v&15,v>>4]);
       expect(new Set(values)).toEqual(new Set([0,3]));
-      expect(values.filter(v=>v===3).length).toBeGreaterThan(50);
     }
+    const glyph=(i:number)=>{const at=oam+new DataView(cells.buffer).getUint32(start+i*16+4,true),tile=readU16(cells,at+4)&1023,data=packed.files[0].subarray(48+tile*32,48+tile*32+128);return Array.from({length:256},(_,p)=>(data[(Math.floor(p/16/8)*2+Math.floor(p%16/8))*32+(Math.floor(p/16)%8)*4+Math.floor(p%8/2)]>>(p%2*4))&15);};
+    const save=glyph(22),ink=save.flatMap((v,i)=>v?[i]:[]);
+    expect([Math.min(...ink.map(i=>i%16)),Math.max(...ink.map(i=>i%16)),Math.min(...ink.map(i=>Math.floor(i/16))),Math.max(...ink.map(i=>Math.floor(i/16)))]).toEqual([3,12,3,12]);
+    expect(save[12*16+8]).toBe(3);
+    expect(glyph(23)).not.toEqual(glyph(26));
+    expect(glyph(23)[2*16+2]).toBe(0);expect(glyph(26)[2*16+2]).toBe(3);
+    const result=compile(defaults(),a),arc=new NARC(result.archive!);
+    expect(arc.files[0][46]).toBe(1);
+    expect(JSON.parse(new TextDecoder().decode(arc.files[13])).nativeGraphics.muteControl).toBe(true);
+    arc.files[0][46]=0;const h=arc.files[0];writeU32(h,28,(() => {let n=0x811c9dc5;for(const b of [...h.subarray(0,28),...h.subarray(32)])n=Math.imul(n^b,0x1000193)>>>0;return n;})());
+    expect(()=>validateButtonArchive(arc.save())).toThrow(/Music control/);
   });
   it("uses the native bright ring for PC and Party without changing captions or exceeding a 32px sprite",()=>{
     const a=buttonTestAssets(),d=defaults();
@@ -86,6 +96,13 @@ describe("C-Gear button compiler and editor state", () => {
     const d=defaults();d.buttons=[newButton(d,action.id)];
     const r=compile(d,buttonTestAssets());expect(r.archive).toBeDefined();
     const h=new NARC(r.archive!).files[0];expect(h[34]).toBe(action.code);expect(readU16(h,36)).toBe(action.item);
+  });
+  it("compiles Pokéradar without an item requirement and preserves its saved visibility flag",()=>{
+    const d=defaults(),button=newButton(d,"pokeradar");button.flag={id:42,when:"clear"};d.buttons.push(button);
+    const r=compile(d,buttonTestAssets());expect(r.archive).toBeDefined();
+    const h=new NARC(r.archive!).files[0],at=32+(d.buttons.length-1)*16;
+    expect(h[at+2]).toBe(17);expect(readU16(h,at+4)).toBe(0);expect(h[at+12]).toBe(255);
+    expect(recoverCGearButtons(r.archive!).document).toEqual(d);
   });
   it("reports illegal coordinates, duplicate IDs, long labels, missing glyphs, and unsupported handlers",()=>{
     const d=defaults(),a=buttonTestAssets();d.buttons[0].x=15;d.buttons[1].id=1;

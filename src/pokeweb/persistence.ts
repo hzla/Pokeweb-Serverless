@@ -1,5 +1,8 @@
 import type { ProjectState } from "./projectStore";
-import { materializeProjectEdits } from "./projectMaterialize";
+import { ProjectSaveQueue, createProjectSaveScheduler, type ProjectSaveScheduler } from "./projectSaveScheduler";
+import { createProjectDocument, readProjectDocument, type ProjectDocument } from "./projectDocument";
+import { openProjectSession, refreshProjectSessionIndexes } from "./projectSession";
+import { cacheBw2ScriptRuntimeContext } from "./bw2ScriptOverlayContext";
 import { decompressCode } from "../nds/codeCompression";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
@@ -30,55 +33,74 @@ export type ActiveRomMetadata = {
   sourceSha256?: string;
 };
 
-export async function saveActiveProject(project: ProjectState): Promise<void> {
-  if (project.originalRomBytes) {
-    await saveActiveRomBytes(project.originalRomBytes, activeRomMetadataFromProject(project));
-    delete project.originalRomBytes;
+const projectSaveQueue = new ProjectSaveQueue<ProjectState>(persistActiveProject);
+
+export function saveActiveProject(project: ProjectState): Promise<void> {
+  return projectSaveQueue.save(project);
+}
+
+async function persistActiveProject(project: ProjectState): Promise<void> {
+  const source = project.originalRomBytes;
+  if (source) {
+    await saveActiveRomBytes(source, activeRomMetadataFromProject(project));
+    if (project.originalRomBytes === source) delete project.originalRomBytes;
   }
-  materializeProjectEdits(project);
-  const snapshot = persistableProject(project, await activeRomMatchesProject(project));
+  const compact = await activeRomMatchesProject(project);
   const db = await openDb();
-  await requestToPromise(db.transaction(PROJECT_STORE_NAME, "readwrite").objectStore(PROJECT_STORE_NAME).put(snapshot, ACTIVE_PROJECT_KEY));
-  db.close();
+  try {
+    // No await between snapshot construction and put: IndexedDB serializes now.
+    const snapshot = persistableProject(project, compact);
+    const transaction = db.transaction(PROJECT_STORE_NAME, "readwrite");
+    const complete = transactionToPromise(transaction);
+    await Promise.all([
+      requestToPromise(transaction.objectStore(PROJECT_STORE_NAME).put(snapshot, ACTIVE_PROJECT_KEY)), complete,
+    ]);
+  } finally { db.close(); }
 }
 
 export async function loadActiveProject(): Promise<ProjectState | undefined> {
   const db = await openDb();
-  const project = await requestToPromise<ProjectState | undefined>(
-    db.transaction(PROJECT_STORE_NAME, "readonly").objectStore(PROJECT_STORE_NAME).get(ACTIVE_PROJECT_KEY),
-  );
-  db.close();
-  let migratedOriginalRomBytes = false;
-  if (project?.originalRomBytes) {
-    await saveActiveRomBytes(project.originalRomBytes, activeRomMetadataFromProject(project));
-    delete project.originalRomBytes;
-    migratedOriginalRomBytes = true;
+  let stored: unknown;
+  try {
+    stored = await requestToPromise<unknown>(
+      db.transaction(PROJECT_STORE_NAME, "readonly").objectStore(PROJECT_STORE_NAME).get(ACTIVE_PROJECT_KEY),
+    );
+  } finally { db.close(); }
+  if (stored === undefined) return undefined;
+  const { document, originalRomBytes } = readProjectDocument(stored);
+  const project = openProjectSession(document);
+  if (originalRomBytes) {
+    await saveActiveRomBytes(originalRomBytes, activeRomMetadataFromProject(project));
   }
-  if (project) await hydratePersistedProject(project);
-  if (project && migratedOriginalRomBytes) await saveActiveProject(project);
+  await hydratePersistedProject(project, originalRomBytes);
+  refreshProjectSessionIndexes(project);
+  if (originalRomBytes) await saveActiveProject(project);
   return project;
 }
 
 export async function clearActiveProject(): Promise<void> {
   const db = await openDb();
-  const transaction = db.transaction([PROJECT_STORE_NAME, ROM_STORE_NAME], "readwrite");
-  await Promise.all([
-    requestToPromise(transaction.objectStore(PROJECT_STORE_NAME).delete(ACTIVE_PROJECT_KEY)),
-    requestToPromise(transaction.objectStore(ROM_STORE_NAME).delete(ACTIVE_ROM_KEY)),
-    requestToPromise(transaction.objectStore(ROM_STORE_NAME).delete(ACTIVE_ROM_METADATA_KEY)),
-  ]);
-  db.close();
+  try {
+    const transaction = db.transaction([PROJECT_STORE_NAME, ROM_STORE_NAME], "readwrite");
+    const complete = transactionToPromise(transaction);
+    await Promise.all([
+      requestToPromise(transaction.objectStore(PROJECT_STORE_NAME).delete(ACTIVE_PROJECT_KEY)),
+      requestToPromise(transaction.objectStore(ROM_STORE_NAME).delete(ACTIVE_ROM_KEY)),
+      requestToPromise(transaction.objectStore(ROM_STORE_NAME).delete(ACTIVE_ROM_METADATA_KEY)), complete,
+    ]);
+  } finally { db.close(); }
 }
 
 export async function saveActiveRomBytes(bytes: Uint8Array, metadata?: ActiveRomMetadata): Promise<void> {
   const db = await openDb();
-  const transaction = db.transaction(ROM_STORE_NAME, "readwrite");
-  const store = transaction.objectStore(ROM_STORE_NAME);
-  // Persist the export base as-is. ROM rebuilding/compaction belongs to export.
-  const requests = [requestToPromise(store.put(bytes, ACTIVE_ROM_KEY))];
-  if (metadata) requests.push(requestToPromise(store.put(metadata, ACTIVE_ROM_METADATA_KEY)));
-  await Promise.all(requests);
-  db.close();
+  try {
+    const transaction = db.transaction(ROM_STORE_NAME, "readwrite");
+    const complete = transactionToPromise(transaction);
+    const store = transaction.objectStore(ROM_STORE_NAME);
+    const requests = [requestToPromise(store.put(bytes, ACTIVE_ROM_KEY)), complete];
+    if (metadata) requests.push(requestToPromise(store.put(metadata, ACTIVE_ROM_METADATA_KEY)));
+    await Promise.all(requests);
+  } finally { db.close(); }
 }
 
 /** Reattach a missing export base without discarding the saved project's edits. */
@@ -93,7 +115,8 @@ export async function reconnectActiveRom(project: ProjectState, bytes: Uint8Arra
     if (hash !== project.romInfo.sourceSha256) throw new Error("The selected ROM differs from this project's source ROM.");
   }
   await saveActiveRomBytes(bytes, activeRomMetadataFromProject(project));
-  await hydratePersistedProject(project);
+  await hydratePersistedProject(project, bytes);
+  refreshProjectSessionIndexes(project);
 }
 
 export function compactRomBytes(bytes: Uint8Array): Uint8Array {
@@ -141,14 +164,11 @@ export async function activeRomMatchesProject(project: ProjectState): Promise<bo
   }
 }
 
-export function debounceProjectSave(delayMs = 350): (project: ProjectState) => void {
-  let timer: number | undefined;
-  return (project: ProjectState) => {
-    if (timer !== undefined) window.clearTimeout(timer);
-    timer = window.setTimeout(() => {
-      void saveActiveProject(project);
-    }, delayMs);
-  };
+export function debounceProjectSave(
+  delayMs = 350,
+  callbacks: { onError?: (error: unknown, project: ProjectState) => void; onSaved?: (project: ProjectState) => void } = {},
+): ProjectSaveScheduler<ProjectState> {
+  return createProjectSaveScheduler(saveActiveProject, { delayMs, ...callbacks });
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -171,35 +191,27 @@ function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
   });
 }
 
-function persistableProject(project: ProjectState, compactRawFiles: boolean): ProjectState {
-  const snapshot = structuredClone(project);
-  delete snapshot.originalRomBytes;
-  delete snapshot.headers;
-  delete snapshot.grottoOdds;
-  delete snapshot.texts.messageTexts;
-  delete snapshot.texts.storyTexts;
-  if (compactRawFiles && !snapshot.tms?.dirty && !snapshot.arm9Dirty) snapshot.arm9 = new Uint8Array();
-  if (compactRawFiles) {
-    const dirtyPatchOverlayIds = new Set(snapshot.patches?.dirtyOverlayIds ?? []);
-    snapshot.overlays = Object.fromEntries(
-      Object.entries(snapshot.overlays).filter(([overlayId]) => dirtyPatchOverlayIds.has(Number(overlayId))),
-    );
-  }
-  for (const store of Object.values(snapshot.narcs)) {
-    if (!store) continue;
-    store.records = new Map();
-    if (compactRawFiles) {
-      store.rawFiles = store.rawFiles.map((file, index) => (store.dirty.has(index) ? file : new Uint8Array()));
-    }
-  }
-  return snapshot;
+/** Build only the persisted shape; the storage boundary owns serialization. */
+export function persistableProject(project: ProjectState, compactRawFiles: boolean): ProjectDocument {
+  return createProjectDocument(project, compactRawFiles);
 }
 
-async function hydratePersistedProject(project: ProjectState): Promise<void> {
+function transactionToPromise(transaction: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    transaction.oncomplete = () => resolve();
+    transaction.onabort = () => reject(transaction.error ?? new Error("IndexedDB transaction aborted"));
+    transaction.onerror = () => reject(transaction.error ?? new Error("IndexedDB transaction failed"));
+  });
+}
+
+async function hydratePersistedProject(project: ProjectState, availableSource?: Uint8Array): Promise<void> {
   if (!await activeRomMatchesProject(project)) return;
-  const romBytes = await loadActiveRomBytes();
+  const romBytes = availableSource ?? await loadActiveRomBytes();
   if (!romBytes) return;
   const rom = new NintendoDSRom(romBytes, { fileData: "view" });
+  // Recovery context belongs to an unavailable source. Rebuild it from the
+  // verified source now, including for legacy saves that serialized caches.
+  delete project.bw2ScriptRuntimeContext;
   const w2anim = hydrateW2AnimFromRom(project, rom);
   hydrateCascadePersonalSources(project, rom);
   hydrateKoMoveLearnsetFromRom(project, rom);
@@ -248,6 +260,7 @@ async function hydratePersistedProject(project: ProjectState): Promise<void> {
   hydrateOverlayBackedStore(project, "tutor_moves", BW2_TUTOR_MOVE_OVERLAY_ID);
   hydrateOverlayBackedStore(project, "move_effects_table", moveEffectOverlayId);
   hydrateOverlayBackedStore(project, "type_chart", chartOverlayId);
+  if (project.narcs.scripts) cacheBw2ScriptRuntimeContext(project, rom);
 }
 
 export function hydrateMissingOverlays(project: ProjectState, rom: NintendoDSRom, overlayIds: number[]): void {
@@ -266,9 +279,11 @@ export function hydrateNarcRawFiles(
   const fileCount = Math.max(persistedFileCount, persistedFiles.length, originalFiles.length);
   return Array.from({ length: fileCount }, (_unused, index) => {
     const persisted = persistedFiles[index];
-    if (dirtyFileIds.has(index)) return persisted?.slice() ?? new Uint8Array();
-    if (persisted?.length) return persisted.slice();
-    return originalFiles[index]?.slice() ?? new Uint8Array();
+    // The caller transfers ownership of deserialized and freshly parsed bytes.
+    // NARC already owns each member; copying again doubles restore allocations.
+    if (dirtyFileIds.has(index)) return persisted ?? new Uint8Array();
+    if (persisted?.length) return persisted;
+    return originalFiles[index] ?? new Uint8Array();
   });
 }
 

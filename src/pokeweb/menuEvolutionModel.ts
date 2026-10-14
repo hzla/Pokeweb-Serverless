@@ -16,7 +16,8 @@ import {
 import type { ProjectState } from "./projectStore";
 import { addTextEntries, commitTextBank, getTextBank, parseTextEntryId } from "./textModel";
 import { ensureKoMoveLearnsetNarc, hasKoMoveLearnset, hydrateKoMoveLearnsetFromRom } from "./koMoveLearnsetModel";
-import { getBattleLogInstallStatus } from "./battleLogModel";
+import { getBattleLogInstallStatus, installBattleLog } from "./battleLogModel";
+import { loadCodeInjectionNarcs } from "./codeInjectionInstall";
 import { parseRpm, type RpmModule } from "./rpm";
 
 // The US B2/W2 party overlay loads message NARC member 178.  The Japanese
@@ -398,18 +399,24 @@ async function installMenuEvolutionStaged(project: ProjectState): Promise<MenuEv
     throw new Error(`${MENU_EVOLUTION_TITLE} supports verified US Black, White, Black 2 and White 2 profiles.`);
   }
   if (isBw1(project.session.baseVersion) && !bw1Accepted()) throw new Error("BW1 Enhanced Party Menu candidates await DS gameplay and visual acceptance in both Black and White.");
-  if (!hasMenuEvolutionBattleCounterDependency(project)) {
-    throw new Error(`Install the battle log first; ${layout.counterDllPath} is required by ${MENU_EVOLUTION_TITLE}.`);
-  }
-  const battleLogStatus = getBattleLogInstallStatus(project);
-  if (!battleLogStatus.upToDate || battleLogStatus.bundledRuntimeVersion < layout.requiredBattleLogRuntimeVersion) {
-    throw new Error(`Update the battle log before installing ${MENU_EVOLUTION_TITLE}; immediate KO moves require runtime version ${layout.requiredBattleLogRuntimeVersion}.`);
-  }
-
   const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
   if (!romBytes) throw new Error(`Reload the ROM before installing ${MENU_EVOLUTION_TITLE}.`);
+  project.originalRomBytes = romBytes;
   const compatibility = detectMenuEvolutionCompatibility(project, romBytes);
   if (!compatibility.compatible) throw new Error(compatibility.message);
+  const battleLogStatus = getBattleLogInstallStatus(project);
+  if (!battleLogStatus.supported || !battleLogStatus.compatible) {
+    throw new Error(`Required Trainer Battle Log is incompatible: ${battleLogStatus.message}`);
+  }
+  if (!battleLogStatus.upToDate || !hasMenuEvolutionBattleCounterDependency(project)
+    || battleLogStatus.bundledRuntimeVersion < layout.requiredBattleLogRuntimeVersion) {
+    await installBattleLog(project);
+  }
+  const dependency = getBattleLogInstallStatus(project);
+  if (!dependency.upToDate || dependency.bundledRuntimeVersion < layout.requiredBattleLogRuntimeVersion) {
+    throw new Error(`Required Trainer Battle Log does not provide runtime version ${layout.requiredBattleLogRuntimeVersion}.`);
+  }
+  loadCodeInjectionNarcs(project, new NintendoDSRom(romBytes, { fileData: "view" }), ["message_texts", "learnsets"]);
   // Autosave releases project.originalRomBytes; use the resolved IndexedDB
   // source here instead of treating an installed KO archive as a new file.
   hydrateKoMoveLearnsetFromRom(project, new NintendoDSRom(romBytes));

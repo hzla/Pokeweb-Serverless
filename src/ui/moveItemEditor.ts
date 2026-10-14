@@ -176,8 +176,8 @@ export function renderMoveAnimationPage(
       <main class="pokemon-list pokemon-move-list spreadsheet move-animation-page" id="moves">
         <div class="move-animation-page-header">
           <div>
-            <div class="move-animation-page-kicker">Move ${escapeHtml(String(moveId))}</div>
             <h2>Move Animation</h2>
+            <p class="move-animation-page-meta">Move ${escapeHtml(String(moveId))}</p>
           </div>
         </div>
         <div class="move-animation-editor show-flex">
@@ -238,8 +238,8 @@ export function renderMoveAnimationPage(
     <main class="pokemon-list pokemon-move-list spreadsheet move-animation-page" id="moves">
       <div class="move-animation-page-header">
         <div>
-          <div class="move-animation-page-kicker">Move ${moveId}${renderMoveAnimationTargetLabel(animationTarget)}</div>
           <h2>${escapeHtml(moveName)} Animation</h2>
+          <p class="move-animation-page-meta">Move ${moveId}${renderMoveAnimationTargetLabel(animationTarget)}</p>
         </div>
       </div>
       <div class="move-animation-editor show-flex"></div>

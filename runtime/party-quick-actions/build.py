@@ -31,17 +31,24 @@ def tile(p):
    for y in range(8):
     for x in range(0,8,2):out.append(p[ty*8+y][tx*8+x]|p[ty*8+y][tx*8+x+1]<<4)
  return out
-def art(rom):
- items=ndspy.narc.NARC(rom.files[rom.filenames.idOf('a/0/2/5')]);party=ndspy.narc.NARC(rom.files[rom.filenames.idOf('a/0/8/2')])
+def art(rom,common_path='a/0/8/2',icon_table=None):
+ items=ndspy.narc.NARC(rom.files[rom.filenames.idOf('a/0/2/5')]);party=ndspy.narc.NARC(rom.files[rom.filenames.idOf(common_path)])
  candy=untile(items.files[90][48:],32);hp=untile(party.files[2][48:],72);badges=untile(party.files[12][48:1072],32)
  # Collect the exact native HP and status colors. Unused Candy colors later
  # hold HP/XP so the fixed HP underline stays separate from the selector fade.
  hpPal=struct.unpack_from('<16H',party.files[0],40);statusPal=struct.unpack_from('<16H',party.files[11],40);merged=[0]
+ bw1=common_path=='a/0/8/3';hpColors=[0]if bw1 else merged
  def color(index,palette):
   if not index:return 0
   value=palette[index]
   if value not in merged[1:]:merged.append(value)
   return merged.index(value,1)
+ def hpColor(index):
+  if not bw1:return color(index,hpPal)
+  if not index:return 0
+  value=hpPal[index]
+  if value not in hpColors[1:]:hpColors.append(value)
+  return hpColors.index(value,1)
  banks=[]
  for i in range(8):
   p=[[0]*32 for _ in range(32)]
@@ -52,7 +59,7 @@ def art(rom):
   else:
    if i in (1,2):
     for y in range(8):
-     for x in range(16):p[y+12][x+8]=color(hp[y][x],hpPal)
+     for x in range(16):p[y+12][x+8]=hpColor(hp[y][x])
     if i==2:
      # Preserve the native P and draw the X using the same five-row italic
      # slant, white foreground, gray shading and dark outline.
@@ -62,15 +69,16 @@ def art(rom):
      points={(x+1+(4-y)//2,y+13) for y,row in enumerate(glyph) for x,v in enumerate(row) if v=="1"}
      for x,y in points:
       for dx,dy in [(-1,0),(1,0),(0,-1),(0,1)]:
-       if (x+dx,y+dy) not in points:p[y+dy][x+dx+8]=color(4,hpPal)
-     for x,y in points:p[y][x+8]=color(1,hpPal)
+       if (x+dx,y+dy) not in points:p[y+dy][x+dx+8]=hpColor(13 if bw1 else 4)
+     for x,y in points:p[y][x+8]=hpColor(5 if bw1 else 1)
    else:
     # Retail cells: Pokerus, PAR, FRZ, SLP, PSN, BRN, FNT, Pokerus.
     row=[3,4,5,2,1][i-3]
     for y in range(6):
      for x in range(19):p[y+13][x+7]=color(badges[row*8+y][x+1],statusPal)
   banks.append(bytes(tile(p)))
- assert len(merged)==15,'Native toolbar palette exceeds one bank'
+ assert len(merged)<=15,'Native toolbar palette exceeds one bank'
+ while len(merged)<15:merged.append(0)
  merged.append(0x7fe0)
  candyPal=list(struct.unpack_from('<16H',items.files[91],40))
  used={v for row in untile(banks[0],32) for v in row if v}
@@ -83,7 +91,7 @@ def art(rom):
   for row in p:
    for x,v in enumerate(row):
     if not v:continue
-    color=merged[v]
+    color=hpColors[v]
     if color not in remap:
      same=next((n for n in used if candyPal[n]==color),None)
      if same is None:
@@ -95,7 +103,7 @@ def art(rom):
  # Resolve Full Restore's retail item icon mapping in each game and preserve
  # every sampled native color. Fit its occupied bounds into 16x16, with aspect
  # ratio and nearest-neighbor pixels intact.
- a=ndspy.codeCompression.decompress(rom.arm9);table=0x2090d7c-(44 if rom.idCode==b'IREO' else 0)-rom.arm9RamAddress
+ a=ndspy.codeCompression.decompress(rom.arm9);table=(icon_table if icon_table is not None else 0x2090d7c-(44 if rom.idCode==b'IREO' else 0))-rom.arm9RamAddress
  restoreChar,restorePalette=struct.unpack_from('<HH',a,table+23*4)
  assert (restoreChar,restorePalette)==(33,34)
  restore=untile(items.files[restoreChar][48:],32);points=[(x,y)for y,row in enumerate(restore)for x,v in enumerate(row)if v]

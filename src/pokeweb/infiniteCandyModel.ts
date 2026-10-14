@@ -14,6 +14,8 @@ import {
 import { markDirty, type ProjectState } from "./projectStore";
 import { parseRpm, type RpmModule } from "./rpm";
 import { getTextBank, parseTextEntryId, updateTextEntry } from "./textModel";
+import bw1Manifest from "../assets/codeinjection/infiniteCandyBw1Manifest.json";
+import { loadCodeInjectionNarcs } from "./codeInjectionInstall";
 
 export const INFINITE_CANDY_ITEM_ID = 622;
 export const INFINITE_CANDY_NAME = "Infinite Candy";
@@ -28,15 +30,25 @@ const RETAIL_ITEM_DATA_HEX = "00000000000000001f020000000000ff000000000000000000
 const ITEM_DATA = fromHex(ITEM_DATA_HEX);
 
 const LAYOUTS = {
+  B: {
+    ...bw1Manifest.games.B, openParty: 0, pocketTable: 0, openOverlay: 10,
+    bw1: true, url: new URL("../assets/codeinjection/InfiniteCandyB.dll", import.meta.url),
+  },
+  W: {
+    ...bw1Manifest.games.W, openParty: 0, pocketTable: 0, openOverlay: 10,
+    bw1: true, url: new URL("../assets/codeinjection/InfiniteCandyW.dll", import.meta.url),
+  },
   B2: {
     idCode: "IREO", fileName: "InfiniteCandyB2.dll",
     url: new URL("../assets/codeinjection/InfiniteCandyB2.dll", import.meta.url),
     openParty: 0x0215b86c, subItem: 0x0219e648, pocketTable: 0x0208f4d0, iconTable: 0x02090d50,
+    openOverlay: 12, partyOverlay: 165, descriptionBank: 63, nameBank: 64, bw1: false,
   },
   W2: {
     idCode: "IRDO", fileName: "InfiniteCandyW2.dll",
     url: new URL("../assets/codeinjection/InfiniteCandyW2.dll", import.meta.url),
     openParty: 0x0215b8ac, subItem: 0x0219e688, pocketTable: 0x0208f4fc, iconTable: 0x02090d7c,
+    openOverlay: 12, partyOverlay: 165, descriptionBank: 63, nameBank: 64, bw1: false,
   },
 } as const;
 type Version = keyof typeof LAYOUTS;
@@ -52,12 +64,16 @@ export type InfiniteCandyStatus = {
 export function getInfiniteCandyStatus(project: ProjectState): InfiniteCandyStatus {
   const unsupported = (message: string): InfiniteCandyStatus => ({ supported: false, compatible: false, installed: false, message });
   const version = project.session.baseVersion;
-  if (project.session.baseRom !== "BW2" || (version !== "B2" && version !== "W2")) {
-    return unsupported("Infinite Candy supports US Black 2 and White 2 only.");
+  if ((project.session.baseRom !== "BW2" && project.session.baseRom !== "BW") || (version !== "B2" && version !== "W2" && version !== "B" && version !== "W")) {
+    return unsupported("Infinite Candy supports US Black, White, Black 2 and White 2 revision 0.");
   }
   const layout = LAYOUTS[version];
+  if ((project.session.baseRom === "BW") !== layout.bw1) return unsupported("ROM family does not match the project version.");
+  if (layout.bw1 && (!bw1Manifest.games.B.dsAccepted || !bw1Manifest.games.W.dsAccepted)) {
+    return unsupported("BW1 Infinite Candy awaits gameplay acceptance in both Black and White.");
+  }
   if (project.romInfo.idCode !== layout.idCode) {
-    return unsupported("Infinite Candy requires a US Black 2 or White 2 ROM.");
+    return unsupported("Infinite Candy requires the audited US revision-0 ROM for this game.");
   }
   if (detectWhite2UpgradeDlls(project) || detectBlack2UpgradeDlls(project)) {
     return unsupported("Item 622 is reserved by the installed BW2 upgrade patch.");
@@ -66,51 +82,66 @@ export function getInfiniteCandyStatus(project: ProjectState): InfiniteCandyStat
   const modules = listCodeInjectionDlls(project).filter((module) => module.target === "patches");
   const ownPath = `patches/${layout.fileName}`;
   const installed = modules.some((module) => module.path.toLowerCase() === ownPath.toLowerCase());
+  if ((!project.narcs.items || !project.narcs.message_texts) && project.originalRomBytes) {
+    project = { ...project, narcs: { ...project.narcs }, texts: structuredClone(project.texts) };
+    try {
+      loadCodeInjectionNarcs(project, new NintendoDSRom(project.originalRomBytes!, { fileData: "view" }), ["items", "message_texts"]);
+    } catch (error) {
+      return { supported: true, compatible: false, installed, message: error instanceof Error ? error.message : String(error) };
+    }
+  }
   const store = project.narcs.items;
   const item = store?.rawFiles[INFINITE_CANDY_ITEM_ID];
   if (!item || !project.narcs.message_texts) {
-    return { supported: true, compatible: false, installed, message: "Load the BW2 item and message archives before installing Infinite Candy." };
+    return { supported: true, compatible: false, installed, message: "Load the item and message archives before installing Infinite Candy." };
   }
   const itemHex = toHex(item);
-  if (itemHex !== RETAIL_ITEM_DATA_HEX && itemHex !== ITEM_DATA_HEX) {
+  if (itemHex !== (layout.bw1 ? layout.retailItemDataHex : RETAIL_ITEM_DATA_HEX) && itemHex !== ITEM_DATA_HEX) {
     return { supported: true, compatible: false, installed, message: "Item 622 already contains custom data; Infinite Candy will not overwrite it." };
   }
   try {
-    textEntryIndex(project, 63, INFINITE_CANDY_ITEM_ID);
-    textEntryIndex(project, 64, INFINITE_CANDY_ITEM_ID);
+    textEntryIndex(project, layout.descriptionBank, INFINITE_CANDY_ITEM_ID);
+    textEntryIndex(project, layout.nameBank, INFINITE_CANDY_ITEM_ID);
   } catch {
-    return { supported: true, compatible: false, installed, message: "Item 622 name or description is missing from the BW2 message banks." };
+    return { supported: true, compatible: false, installed, message: "Item 622 name or description is missing from the item message banks." };
   }
 
   if (project.originalRomBytes) {
     try {
       const rom = new NintendoDSRom(project.originalRomBytes);
-      if (rom.idCode !== layout.idCode) {
+      if (rom.idCode !== layout.idCode || rom.data[0x1e] !== 0) {
         return { supported: true, compatible: false, installed, message: "The loaded ROM does not match the project version." };
       }
       const arm9 = project.arm9.length ? project.arm9 : decompressCode(rom.arm9);
       const overlays = loadOverlayTable(project.patches?.arm9OverlayTable ?? rom.arm9OverlayTable,
-        (_id, fileId) => getRomFileBytes(project, rom, fileId), new Set([12, 165]));
-      const openPartyBytes = project.overlays[12] ?? overlays.get(12)?.data;
-      const subItemBytes = project.overlays[165] ?? overlays.get(165)?.data;
+        (_id, fileId) => getRomFileBytes(project, rom, fileId), new Set([layout.openOverlay, layout.partyOverlay]));
+      const openPartyBytes = project.overlays[layout.openOverlay] ?? overlays.get(layout.openOverlay)?.data;
+      const subItemBytes = project.overlays[layout.partyOverlay] ?? overlays.get(layout.partyOverlay)?.data;
       if (!openPartyBytes || !subItemBytes
-        || toHex(openPartyBytes.subarray(layout.openParty - overlays.get(12)!.ramAddress, layout.openParty - overlays.get(12)!.ramAddress + 4)) !== "ac308742"
-        || toHex(subItemBytes.subarray(layout.subItem - overlays.get(165)!.ramAddress, layout.subItem - overlays.get(165)!.ramAddress + 8)) !== "08b5031ca3208000") {
-        return { supported: true, compatible: false, installed, message: "The party item hooks differ from the audited US BW2 code." };
+        || (!layout.bw1 && toHex(openPartyBytes.subarray(layout.openParty - overlays.get(layout.openOverlay)!.ramAddress, layout.openParty - overlays.get(layout.openOverlay)!.ramAddress + 4)) !== "ac308742")
+        || toHex(subItemBytes.subarray(layout.subItem - overlays.get(layout.partyOverlay)!.ramAddress, layout.subItem - overlays.get(layout.partyOverlay)!.ramAddress + 8)) !== (layout.bw1 ? "08b5031c0a208001" : "08b5031ca3208000")) {
+        return { supported: true, compatible: false, installed, message: "The party item hooks differ from the audited US code." };
       }
-      if (arm9[layout.pocketTable - rom.arm9RamAddress + INFINITE_CANDY_ITEM_ID] !== 4) {
+      if (!layout.bw1 && arm9[layout.pocketTable - rom.arm9RamAddress + INFINITE_CANDY_ITEM_ID] !== 4) {
         return { supported: true, compatible: false, installed, message: "Item 622 no longer maps to the Key Items pocket." };
+      }
+      if (layout.bw1) for (const signature of layout.signatures) {
+        const data = signature.module === "ARM9" ? arm9 : subItemBytes;
+        const base = signature.module === "ARM9" ? rom.arm9RamAddress : overlays.get(layout.partyOverlay)!.ramAddress;
+        if (toHex(data.subarray(signature.address - base, signature.address - base + signature.expectedHex.length / 2)) !== signature.expectedHex) {
+          throw new Error("The BW1 medicine or native item-consumption code differs from the verified profile.");
+        }
       }
       const iconTableOffset = layout.iconTable - rom.arm9RamAddress;
       if (readU16(arm9, iconTableOffset + 50 * 4) !== 90
         || readU16(arm9, iconTableOffset + 50 * 4 + 2) !== 91
         || readU16(arm9, iconTableOffset + INFINITE_CANDY_ITEM_ID * 4) !== 827
         || readU16(arm9, iconTableOffset + INFINITE_CANDY_ITEM_ID * 4 + 2) !== 828) {
-        return { supported: true, compatible: false, installed, message: "Item 622's icon slots differ from the audited BW2 mapping." };
+        return { supported: true, compatible: false, installed, message: "Item 622's icon slots differ from the audited native mapping." };
       }
       const iconNarcId = rom.filenames.idOf("a/0/2/5");
       if (iconNarcId === undefined) {
-        return { supported: true, compatible: false, installed, message: "The BW2 item icon archive is missing." };
+        return { supported: true, compatible: false, installed, message: "The item icon archive is missing." };
       }
       const iconNarc = new NARC(getRomFileBytes(project, rom, iconNarcId));
       if (!iconNarc.files[90] || !iconNarc.files[91] || !iconNarc.files[827] || !iconNarc.files[828]
@@ -131,7 +162,7 @@ export function getInfiniteCandyStatus(project: ProjectState): InfiniteCandyStat
         }
       }
     } catch {
-      return { supported: true, compatible: false, installed, message: "Could not verify the BW2 party code and item pocket table." };
+      return { supported: true, compatible: false, installed, message: "Could not verify the native party code and item mapping." };
     }
   }
 
@@ -143,8 +174,20 @@ export function getInfiniteCandyStatus(project: ProjectState): InfiniteCandyStat
 }
 
 export async function installInfiniteCandy(project: ProjectState): Promise<CodeInjectionDllInstallResult> {
+  const staged: ProjectState = { ...project, arm9: project.arm9.slice(), overlays: structuredClone(project.overlays),
+    narcs: structuredClone(project.narcs), texts: structuredClone(project.texts), fileSystem: structuredClone(project.fileSystem),
+    codeInjection: structuredClone(project.codeInjection), patches: structuredClone(project.patches), actionChangelog: structuredClone(project.actionChangelog) };
+  const result = await stageInfiniteCandy(staged);
+  Object.assign(project, { originalRomBytes: staged.originalRomBytes, arm9: staged.arm9, arm9Dirty: staged.arm9Dirty,
+    overlays: staged.overlays, narcs: staged.narcs, texts: staged.texts, fileSystem: staged.fileSystem,
+    codeInjection: staged.codeInjection, patches: staged.patches, actionChangelog: staged.actionChangelog });
+  return result;
+}
+
+async function stageInfiniteCandy(project: ProjectState): Promise<CodeInjectionDllInstallResult> {
   project.originalRomBytes ??= await loadActiveRomBytes();
   if (!project.originalRomBytes) throw new Error("Reload the ROM before installing Infinite Candy.");
+  loadCodeInjectionNarcs(project, new NintendoDSRom(project.originalRomBytes, { fileData: "view" }), ["items", "message_texts"]);
   const status = getInfiniteCandyStatus(project);
   if (!status.supported || !status.compatible) throw new Error(status.message);
   const version = project.session.baseVersion as Version;
@@ -153,7 +196,7 @@ export async function installInfiniteCandy(project: ProjectState): Promise<CodeI
   if (!response.ok) throw new Error(`Could not load Infinite Candy (${response.status}).`);
   const bytes = new Uint8Array(await response.arrayBuffer());
   if (!isOwnRuntime(parseRpm(bytes, { allowedMagics: ["DLXF"] }), version)) {
-    throw new Error("The bundled Infinite Candy DLL does not match its BW2 hook contract.");
+    throw new Error("The bundled Infinite Candy DLL does not match its game hook contract.");
   }
   if (!getPmcInstallStatus(project).installed) await installBundledPmc(project);
   const result = stageCodeInjectionDll(project, layout.fileName, bytes);
@@ -166,8 +209,8 @@ export async function installInfiniteCandy(project: ProjectState): Promise<CodeI
   itemStore.rawFiles[INFINITE_CANDY_ITEM_ID] = ITEM_DATA.slice();
   itemStore.records.delete(INFINITE_CANDY_ITEM_ID);
   markDirty(project, "items", INFINITE_CANDY_ITEM_ID);
-  updateTextEntry(project, "message_texts", 63, textEntryIndex(project, 63, INFINITE_CANDY_ITEM_ID), INFINITE_CANDY_DESCRIPTION);
-  updateTextEntry(project, "message_texts", 64, textEntryIndex(project, 64, INFINITE_CANDY_ITEM_ID), INFINITE_CANDY_NAME);
+  updateTextEntry(project, "message_texts", layout.descriptionBank, textEntryIndex(project, layout.descriptionBank, INFINITE_CANDY_ITEM_ID), INFINITE_CANDY_DESCRIPTION);
+  updateTextEntry(project, "message_texts", layout.nameBank, textEntryIndex(project, layout.nameBank, INFINITE_CANDY_ITEM_ID), INFINITE_CANDY_NAME);
   recordGenericChange(project, "code_injection", "Infinite Candy installed in Key Items at item 622; party use retains the item.", "Infinite Candy", {
     key: "code-injection:infinite-candy",
   });
@@ -191,6 +234,10 @@ function codeInjectionModuleBytes(project: ProjectState, rom: NintendoDSRom, pat
 function isOwnRuntime(rpm: RpmModule, version: Version): boolean {
   const layout = LAYOUTS[version];
   const targets = rpm.relocations.map(({ target }) => `${target.type}:${target.module}:${target.address}`).sort();
+  if (layout.bw1) return rpm.metadata.PMCGameID === version && rpm.metadata.PMCVersion === bw1Manifest.version
+    && rpm.metadata.PMCModulePriority === 4 && rpm.bssSize === 0 && !rpm.baseAddress
+    && fnv1a(rpm.code).toString(16).padStart(8, "0") === layout.codeFingerprint
+    && targets.join("|") === [`THUMB_BRANCH_LINK:base:${0x16}`, `THUMB_BRANCH:91:${layout.subItem}`].sort().join("|");
   return rpm.metadata.PMCGameID === version && rpm.metadata.PMCVersion === "1.0.0"
     && rpm.metadata.PMCModulePriority === 4 && rpm.bssSize === 0 && rpm.relocations.length === 3
     && targets.join("|") === [
@@ -202,8 +249,8 @@ function overlapsCandyHooks(rpm: RpmModule, layout: Layout): boolean {
   return rpm.relocations.some(({ target, sourceSymbolIndex }) => {
     const size = target.type === "FULL_COPY" ? rpm.symbols[sourceSymbolIndex]?.size ?? 0
       : target.type === "THUMB_BRANCH_SAFESTACK" ? 16 : target.type === "THUMB_BRANCH" ? 8 : 4;
-    return (target.module === "12" && target.address < layout.openParty + 4 && target.address + size > layout.openParty)
-      || (target.module === "165" && target.address < layout.subItem + 8 && target.address + size > layout.subItem);
+    return (!layout.bw1 && target.module === String(layout.openOverlay) && target.address < layout.openParty + 4 && target.address + size > layout.openParty)
+      || (target.module === String(layout.partyOverlay) && target.address < layout.subItem + 8 && target.address + size > layout.subItem);
   });
 }
 

@@ -1,0 +1,57 @@
+{
+  "name": "menus",
+  "frames": 3000,
+  "inputs": [
+    {
+      "frame": 900,
+      "buttons": 512
+    },
+    {
+      "frame": 1100,
+      "touch": [
+        48,
+        55
+      ]
+    },
+    {
+      "frame": 1500,
+      "buttons": 64
+    },
+    {
+      "frame": 1700,
+      "buttons": 64
+    },
+    {
+      "frame": 1900,
+      "buttons": 512
+    },
+    {
+      "frame": 2100,
+      "touch": [
+        48,
+        105
+      ]
+    },
+    {
+      "frame": 2500,
+      "buttons": 64
+    },
+    {
+      "frame": 2800,
+      "buttons": 64
+    }
+  ],
+  "captures": [
+    1000,
+    1250,
+    1600,
+    2000,
+    2300,
+    2700
+  ],
+  "expect": {
+    "transitions": 0,
+    "completed": 0,
+    "zone": 427
+  }
+}

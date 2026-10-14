@@ -1,4 +1,5 @@
 import { hydrateCGearButtons } from "./cgearButtonsModel";
+import { hydrateFlyDestinationsFromRom } from "./flyDestinationModel";
 import { cacheBw2ScriptRuntimeContext } from "./bw2ScriptOverlayContext";
 import { hydrateCustomUi } from "./customUiModel";
 import { readU16 } from "../nds/binary";
@@ -37,7 +38,8 @@ import { hydrateTrainerLocationTables } from "./trainerLocationModel";
 import { hydrateCascadePersonalSources } from "./cascadeWhitePersonalModel";
 import { hydrateBattleLogInstallMetadata } from "./battleLogModel";
 import { detectWhite2ExpandedRigAtlasPatchState } from "./expandedRigAtlasPatch";
-import { createFileStore, createNarcStore, decodeRecord, type ProjectState } from "./projectStore";
+import { createFileStore, createNarcStore, type ProjectState } from "./projectStore";
+import { refreshProjectSessionIndexes } from "./projectSession";
 import { getStarterOverlayIds } from "./starterModel";
 import { cleanDisplayText, decodeGen4TextBank, decodeGen5TextBank, type TextEntry } from "./text";
 import {
@@ -125,13 +127,25 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
     const menuSettingsId = rom.filenames.idOf("ui/save-menu/settings.bin");
     if (menuSettingsId !== undefined) {
       const settings = rom.files[menuSettingsId];
-      if (settings?.length === 16 && String.fromCharCode(...settings.subarray(0, 4)) === "SMNU") {
+      if (settings && (settings.length === 16 || settings.length === 48)
+        && String.fromCharCode(...settings.subarray(0, 4)) === "SMNU") {
         const view = new DataView(settings.buffer, settings.byteOffset, settings.byteLength);
         const mode = view.getUint16(6, true), bpm = view.getUint16(10, true), steps = view.getUint16(12, true);
-        if (view.getUint16(4, true) === 1 && mode <= 1 && bpm >= 30 && bpm <= 300 && (steps === 1 || steps === 2 || steps === 4)) {
+        const format = view.getUint16(4, true);
+        const label = format === 2 ? settings.subarray(16, 48) : new Uint8Array();
+        const terminator = format === 2 ? label.indexOf(0) : 0;
+        const versionLabel = format === 2 && terminator >= 0 ? new TextDecoder().decode(label.subarray(0, terminator)) : "";
+        const validLabel = format === 1 || (terminator >= 0 && terminator <= 30
+          && label.subarray(terminator).every(byte => byte === 0)
+          && /^[A-Za-z0-9 .,!?-]*$/u.test(versionLabel) && versionLabel === versionLabel.trim());
+        if (format === (settings.length === 16 ? 1 : 2) && validLabel
+          && mode <= 2 && (mode !== 2 || view.getUint16(8, true) === 0)
+          && bpm >= 30 && bpm <= 300 && (steps === 1 || steps === 2 || steps === 4)
+          && view.getUint16(14, true) === 48 / steps) {
           project.codeInjection!.saveMenuSettings = {
-            music: mode ? "stream" : "relic-song", ...(mode ? { streamId: view.getUint16(8, true) } : {}),
-            bpm, stepsPerBeat: steps,
+            music: mode === 2 ? "off" : mode === 1 ? "stream" : "relic-song",
+            ...(mode === 1 ? { streamId: view.getUint16(8, true) } : {}),
+            bpm, stepsPerBeat: steps, ...(versionLabel ? { versionLabel } : {}),
           };
         }
       }
@@ -143,6 +157,7 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
     if (!hydrateW2AnimFromRom(project, rom)) hydratePwanAnimationsFromRom(project, rom);
     hydrateKoMoveLearnsetFromRom(project, rom);
     hydrateTrainerLocationTables(project, rom);
+    hydrateFlyDestinationsFromRom(project, rom);
   }
 
   const selectedNarcs = new Set<NarcName>(options.selectedNarcs ?? []);
@@ -376,13 +391,5 @@ function extractOverlays(rom: NintendoDSRom, project: ProjectState, selectedNarc
 }
 
 function indexTrpokInfo(project: ProjectState): void {
-  const trdata = project.narcs.trdata;
-  if (!trdata) return;
-  project.trpokInfo = trdata.rawFiles.map((_bytes, id) => {
-    const record = decodeRecord(project, "trdata", id);
-    return {
-      template: Number(record.raw?.template ?? 0),
-      numPokemon: Number(record.raw?.num_pokemon ?? 0),
-    };
-  });
+  refreshProjectSessionIndexes(project);
 }

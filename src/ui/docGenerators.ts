@@ -165,7 +165,6 @@ export function renderDocGenerators(project: ProjectState, root: HTMLElement, op
     runAction(status, "Generating text docs", () => {
       const title = syncTitle() || project.session.romName;
       downloadFile(generateTextDocsDownload(project, title));
-      options.onDirty?.();
       return "Downloaded text docs zip.";
     });
   });
@@ -174,7 +173,6 @@ export function renderDocGenerators(project: ProjectState, root: HTMLElement, op
     try {
       if (status) status.textContent = "Finding trainer locations";
       const result = enrichTrainerLocations(project);
-      options.onDirty?.();
       renderDocGenerators(project, root, options);
       const nextStatus = root.querySelector<HTMLElement>("#doc-status");
       if (nextStatus) nextStatus.textContent = result.message;
@@ -187,7 +185,6 @@ export function renderDocGenerators(project: ProjectState, root: HTMLElement, op
     try {
       if (status) status.textContent = "Finding item locations";
       const result = enrichItemLocations(project);
-      options.onDirty?.();
       renderDocGenerators(project, root, options);
       const nextStatus = root.querySelector<HTMLElement>("#doc-status");
       if (nextStatus) nextStatus.textContent = result.message;

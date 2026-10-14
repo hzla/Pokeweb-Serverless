@@ -22,6 +22,7 @@ export function decodeStandaloneStreamManifest(bytes: Uint8Array): StandaloneStr
       || typeof stream.name !== "string" || !stream.name.trim() || stream.name.length > 80
       || typeof stream.sourceName !== "string" || stream.sourceName.length > 256
       || (stream.encoding !== "pcm16" && stream.encoding !== "adpcm")
+      || typeof stream.loop !== "boolean"
       || stream.sampleRate !== 32728 || !Number.isInteger(stream.sampleCount)
       || !Number.isInteger(stream.loopStartSample) || !Number.isInteger(stream.loopEndSample)
       || !Number.isInteger(stream.encodedBytes) || typeof stream.audioSha256 !== "string"

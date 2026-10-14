@@ -10,7 +10,7 @@ import { NintendoDSRom } from "../nds/rom";
 import { exportModifiedRom } from "../pokeweb/exportRom";
 import { getPartyQuickActionsStatus, installPartyQuickActions, disablePartyQuickActions, parsePartyToolbarHideFlag } from "../pokeweb/partyQuickActionsModel";
 import { listCodeInjectionDlls } from "../pokeweb/pmcModel";
-import { getInfiniteCandyStatus } from "../pokeweb/infiniteCandyModel";
+import { getInfiniteCandyStatus, installInfiniteCandy } from "../pokeweb/infiniteCandyModel";
 import { encodeGen5TextBank } from "../pokeweb/text";
 import type { ProjectState } from "../pokeweb/projectStore";
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
@@ -62,6 +62,13 @@ function project(v: "W2" | "B2", bytes?: Uint8Array): ProjectState {
 }
 for (const v of ["B2", "W2"] as const)
     describe(`Party toolbar ${v}`, () => {
+        it("offers and installs Candy without preloaded editor archives", async () => {
+            const p = project(v), before = structuredClone(p); assets();
+            expect(getInfiniteCandyStatus(p)).toMatchObject({ compatible: true, installed: false });
+            deepStrictEqual(structuredClone(p), before);
+            await installInfiniteCandy(p);
+            expect(getInfiniteCandyStatus(p)).toMatchObject({ compatible: true, installed: true });
+        });
         it("defaults to on without a flag, persists a chosen flag through updates/export, and clears it explicitly", async () => {
             const p = project(v); assets(); await installPartyQuickActions(p);
             expect(getPartyQuickActionsStatus(p)).toMatchObject({ enabled: true, hideFlag: null });

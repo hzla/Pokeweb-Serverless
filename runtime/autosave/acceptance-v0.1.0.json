@@ -1,0 +1,107 @@
+{
+  "version": "0.1.0-test",
+  "games": {
+    "B2": {
+      "runtimeSha256": "2a04051610ea2a529e40ad3df8ba589c2e7b5cf65996f420ffc4b3c3fd07ffa4",
+      "romBytes": 294568960,
+      "scenarios": {
+        "door": {
+          "transitions": 1,
+          "completed": 1,
+          "zone": 438,
+          "partyBytesPreserved": true,
+          "positionPartyAndTableCrcs": "passed"
+        },
+        "seamless": {
+          "transitions": 2,
+          "completed": 2,
+          "zone": 437,
+          "partyBytesPreserved": true,
+          "positionPartyAndTableCrcs": "passed"
+        },
+        "menus": {
+          "transitions": 0,
+          "completed": 0,
+          "zone": 427,
+          "partyBytesPreserved": true,
+          "positionPartyAndTableCrcs": "passed"
+        },
+        "reload": {
+          "transitions": 0,
+          "completed": 0,
+          "zone": 438,
+          "partyBytesPreserved": true,
+          "positionPartyAndTableCrcs": "passed"
+        },
+        "same-header": {
+          "transitions": 1,
+          "completed": 1,
+          "zone": 427,
+          "partyBytesPreserved": true,
+          "positionPartyAndTableCrcs": "passed"
+        }
+      },
+      "firstWriteEmulatedSeconds": 6.45
+    },
+    "W2": {
+      "runtimeSha256": "040bdff0eb82a4dac7b10996b106ac1036f2c17d6d647d87fbf9c65343fff470",
+      "romBytes": 294044672,
+      "scenarios": {
+        "door": {
+          "transitions": 1,
+          "completed": 1,
+          "zone": 438,
+          "partyBytesPreserved": true,
+          "positionPartyAndTableCrcs": "passed"
+        },
+        "seamless": {
+          "transitions": 2,
+          "completed": 2,
+          "zone": 437,
+          "partyBytesPreserved": true,
+          "positionPartyAndTableCrcs": "passed"
+        },
+        "menus": {
+          "transitions": 0,
+          "completed": 0,
+          "zone": 427,
+          "partyBytesPreserved": true,
+          "positionPartyAndTableCrcs": "passed"
+        },
+        "reload": {
+          "transitions": 0,
+          "completed": 0,
+          "zone": 438,
+          "partyBytesPreserved": true,
+          "positionPartyAndTableCrcs": "passed"
+        },
+        "same-header": {
+          "transitions": 1,
+          "completed": 1,
+          "zone": 427,
+          "partyBytesPreserved": true,
+          "positionPartyAndTableCrcs": "passed"
+        }
+      },
+      "firstWriteEmulatedSeconds": 6.32
+    }
+  },
+  "automated": {
+    "installerTests": 8,
+    "pmcRegressionTests": 53,
+    "compiledHarnesses": [
+      "B2",
+      "W2"
+    ],
+    "productionBuild": "passed"
+  },
+  "pending": [
+    "Hardware and DSi-mode acceptance",
+    "Exhaustive story/communication-area coverage",
+    "Interrupted-write/power-loss testing",
+    "Broad ROM-hack and companion-matrix acceptance"
+  ],
+  "additionalEmulatorChecks": {
+    "W2 current C-Gear Quick Actions": "passed"
+  }
+}

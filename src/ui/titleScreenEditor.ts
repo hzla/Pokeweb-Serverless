@@ -43,7 +43,7 @@ export function renderTitleScreenEditor(project: ProjectState, root: HTMLElement
     sceneRenderer?.dispose(); sceneRenderer = undefined;
     cancelAnimationFrame(animationRequest);
     root.innerHTML = `<main class="title-editor">
-      <header class="title-page-header"><div><span class="title-eyebrow">${document.version === "B2" ? "Black 2" : "White 2"} · Title assets</span><h1>Title Screen</h1><p>Inspect the title, exchange native assets, and preview your changes in game.</p></div>
+      <header class="title-page-header"><div><h1>Title Screen</h1><p>Inspect the ${document.version === "B2" ? "Black 2" : "White 2"} title, exchange native assets, and preview your changes in game.</p></div>
         <div class="title-toolbar"><button class="btn -default" data-action="export-bundle">Export bundle</button><button class="btn -default" data-action="import-bundle">Import bundle</button><button class="btn -primary" data-action="preview-game">Preview in game ↗</button></div>
       </header>
       <div class="title-status ${isError ? "-error" : ""}" role="status" aria-live="polite">${escapeHtml(status)}</div>

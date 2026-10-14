@@ -172,14 +172,6 @@
   padding-bottom: 16px;
 }
 
-.battle-background-header span {
-  color: #50c3a5;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
 .battle-background-header h1 {
   color: #f4f5fb;
   font-size: clamp(26px, 3vw, 42px);
@@ -187,13 +179,13 @@
 }
 
 .battle-background-header code {
-  background: #1c202c;
-  border: 1px solid #394052;
-  border-radius: 4px;
-  color: #8be9fd;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: #d6d7e2;
   font-size: 11px;
   margin-bottom: 5px;
-  padding: 6px 8px;
+  padding: 0;
 }
 
 .battle-background-header-badges {
@@ -204,35 +196,32 @@
 }
 
 .battle-background-header-badges .battle-background-shape-badge {
-  border: 1px solid #42695f;
-  border-radius: 999px;
-  color: #77d8be;
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  padding: 5px 8px;
-  text-transform: uppercase;
+  border: 0;
+  border-radius: 0;
+  color: #d6d7e2;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+  padding: 0;
+  text-transform: none;
 }
 
 .battle-background-header-badges .battle-background-shape-badge.-non-standard {
-  border-color: #7f6436;
   color: #ffcb6b;
 }
 
 .battle-background-header-badges .battle-background-shape-badge.-unknown {
-  border-color: #596078;
   color: #aeb7ca;
 }
 
 .battle-background-header-badges .battle-background-shape-badge.-platform {
-  border-color: #477488;
   color: #8be9fd;
 }
 
 .battle-background-preview-card {
   background: #292d3b;
   border: 1px solid #42485b;
-  border-radius: 10px;
-  box-shadow: 0 14px 36px rgb(0 0 0 / 20%);
+  border-radius: 6px;
   display: grid;
   gap: 12px;
   min-width: 0;

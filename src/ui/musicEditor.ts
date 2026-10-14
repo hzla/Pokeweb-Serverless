@@ -12,6 +12,7 @@ import {
   getStreamedBgmConfigs,
   type NativeStreamReplacementConfig,
   type ProjectState,
+  type StandaloneStreamConfig,
   type StreamedBgmConfig,
 } from "../pokeweb/projectStore";
 import {
@@ -41,6 +42,7 @@ import {
 import { escapeHtml } from "./dom";
 
 type StreamedBgmDraft = {
+  activeTab: MusicEditorTab;
   sequences?: Array<{ id: number; symbol: string }>;
   nativeStreams?: NativeSdatStream[];
   hydrating?: boolean;
@@ -84,6 +86,28 @@ type StreamedBgmDraft = {
   busy?: boolean;
 };
 
+const MUSIC_EDITOR_TABS = ["bgm", "streamed", "standalone"] as const;
+export type MusicEditorTab = typeof MUSIC_EDITOR_TABS[number];
+const MUSIC_EDITOR_TAB_LABELS: Record<MusicEditorTab, string> = {
+  bgm: "BGM Replacements",
+  streamed: "Streamed Replacements",
+  standalone: "Standalone",
+};
+
+export function renderMusicEditorTabs(activeTab: MusicEditorTab, availableTabs: readonly MusicEditorTab[] = MUSIC_EDITOR_TABS): string {
+  return availableTabs.map((tab) => `<button type="button" id="music-editor-tab-${tab}" class="music-editor-tab ${activeTab === tab ? "-active" : ""}" role="tab" aria-controls="music-editor-panel-${tab}" aria-selected="${activeTab === tab}" tabindex="${activeTab === tab ? "0" : "-1"}" data-music-editor-tab="${tab}">${MUSIC_EDITOR_TAB_LABELS[tab]}</button>`).join("");
+}
+
+export function nextMusicEditorTab(current: MusicEditorTab, key: string, availableTabs: readonly MusicEditorTab[] = MUSIC_EDITOR_TABS): MusicEditorTab | undefined {
+  const index = availableTabs.indexOf(current);
+  if (index < 0 || !availableTabs.length) return undefined;
+  if (key === "ArrowRight") return availableTabs[(index + 1) % availableTabs.length];
+  if (key === "ArrowLeft") return availableTabs[(index + availableTabs.length - 1) % availableTabs.length];
+  if (key === "Home") return availableTabs[0];
+  if (key === "End") return availableTabs[availableTabs.length - 1];
+  return undefined;
+}
+
 export const NATIVE_STREAM_REFERENCE_CATEGORIES = {
   title: "Title & opening",
   custom: "Custom replacements",
@@ -98,6 +122,7 @@ export type NativeStreamReferenceEntry = {
   title: string;
   description: string;
   managedSequenceId?: number;
+  managedStandalone?: boolean;
 };
 
 const streamedBgmDrafts = new WeakMap<ProjectState, StreamedBgmDraft>();
@@ -146,6 +171,7 @@ export function renderStreamedBgmEncodingOptions(selected: StreamedBgmEncoding):
 export function buildNativeStreamReference(
   streams: readonly NativeSdatStream[],
   mappings: readonly StreamedBgmConfig[],
+  standalone: readonly StandaloneStreamConfig[] = [],
 ): NativeStreamReferenceEntry[] {
   return streams.map((stream) => {
     const mapping = mappings.find((entry) => entry.streamId === stream.id);
@@ -158,7 +184,13 @@ export function buildNativeStreamReference(
         managedSequenceId: mapping.targetSequenceId,
       };
     }
-    if (stream.id === 0 || stream.symbol === "STRM_TITLE") {
+    const custom = standalone.find((entry) => entry.streamId === stream.id);
+    if (custom) return {
+      stream, category: "custom", title: custom.name,
+      description: `Standalone song · ${custom.sourceName}`,
+      managedStandalone: true,
+    };
+    if (stream.symbol === "STRM_TITLE") {
       return {
         stream,
         category: "title",
@@ -193,9 +225,9 @@ export function renderNativeStreamReferenceRows(entries: readonly NativeStreamRe
   if (!entries.length) return `<tr><td colspan="3" class="music-reference-empty">No matching streams in this category.</td></tr>`;
   return entries.map((entry) => `<tr>
     <th scope="row"><strong>${escapeHtml(entry.title)}</strong><small>${escapeHtml(NATIVE_STREAM_REFERENCE_CATEGORIES[entry.category])}</small></th>
-    <td>${entry.managedSequenceId === undefined
+    <td>${entry.managedSequenceId === undefined && !entry.managedStandalone
       ? `<button type="button" class="music-reference-id" data-native-stream-reference-id="${entry.stream.id}" aria-pressed="${entry.stream.id === selectedId}" aria-label="Select stream ${entry.stream.id}, ${escapeHtml(entry.title)}"><strong>${entry.stream.id}</strong></button>`
-      : `<strong>${entry.stream.id}</strong><small>Managed by BGM sequence ${entry.managedSequenceId}</small>`}
+      : `<strong>${entry.stream.id}</strong><small>${entry.managedStandalone ? "Managed as a standalone song" : `Managed by BGM sequence ${entry.managedSequenceId}`}</small>`}
       <code>${escapeHtml(entry.stream.symbol)}</code></td>
     <td>${escapeHtml(entry.description)}<small>${entry.stream.channels} ch · ${entry.stream.sampleRate.toLocaleString()} Hz · ${entry.stream.encoding.toUpperCase()} · ${(entry.stream.encodedBytes / 0x10_0000).toFixed(2)} MiB</small></td>
   </tr>`).join("");
@@ -207,6 +239,7 @@ function getStreamedBgmDraft(project: ProjectState): StreamedBgmDraft {
     const installed = getStreamedBgmConfigs(project)[0];
     const nativeInstalled = getNativeStreamReplacementConfigs(project)[0];
     draft = {
+      activeTab: "bgm",
       targetSequenceId: installed?.targetSequenceId ?? 0,
       encoding: installed?.encoding ?? (installed ? "pcm16" : "adpcm"),
       trimStartSeconds: installed?.sourceTrimStartSeconds ?? 0,
@@ -231,7 +264,7 @@ function getStreamedBgmDraft(project: ProjectState): StreamedBgmDraft {
 }
 
 function hydrateSequenceList(project: ProjectState, root: HTMLElement, onDirty: () => void, draft: StreamedBgmDraft): void {
-  if (draft.hydrating || draft.sequences || project.session.baseRom !== "BW2") return;
+  if (draft.hydrating || draft.sequences || (project.session.baseRom !== "BW" && project.session.baseRom !== "BW2")) return;
   draft.hydrating = true;
   const hadStreamedState = Boolean(project.codeInjection?.streamedBgms);
   void Promise.all([loadNitroSdatFromProject(project), detectStreamedBgmStatus(project)])
@@ -291,7 +324,13 @@ export function renderMusicEditor(project: ProjectState, root: HTMLElement, onDi
   const nativeConfigs = getNativeStreamReplacementConfigs(project);
   const config = configs.find((entry) => entry.targetSequenceId === draft.targetSequenceId);
   const configTargetIsBgm = !config || Boolean(config.targetSequenceSymbol?.startsWith("SEQ_BGM_"));
+  const bw1 = project.session.baseRom === "BW" && (project.session.baseVersion === "B" || project.session.baseVersion === "W");
   const supported = project.session.baseRom === "BW2" && (project.session.baseVersion === "B2" || project.session.baseVersion === "W2");
+  const archiveSupported = bw1 || supported;
+  const managedStreamIds = new Set([...configs.map((entry) => entry.streamId), ...getStandaloneStreamConfigs(project).map((entry) => entry.streamId)]);
+  const hasEditableNativeStream = Boolean(draft.nativeStreams?.some((entry) => !managedStreamIds.has(entry.id)));
+  const availableTabs: readonly MusicEditorTab[] = bw1 && !hasEditableNativeStream ? ["bgm", "standalone"] : MUSIC_EDITOR_TABS;
+  if (!availableTabs.includes(draft.activeTab)) draft.activeTab = "bgm";
   const duration = draft.pcm ? draft.pcm.left.length / draft.pcm.sampleRate : undefined;
   const loopEnd = draft.loopEndSeconds ?? duration;
   const plannedEncoding = draft.encoding;
@@ -300,9 +339,8 @@ export function renderMusicEditor(project: ProjectState, root: HTMLElement, onDi
   root.innerHTML = `
     <section class="music-editor-page">
       <aside class="music-editor-sidebar">
-        <div class="music-editor-kicker">Gen 5 sound editor</div>
         <h1>Music</h1>
-        <p>Import mixed audio for Black 2 or White 2 sequence-driven BGM and native streamed tracks.</p>
+        <p>Import mixed audio for ${bw1 ? "Black or White" : "Black 2 or White 2"} music and custom streamed tracks.</p>
         <div class="music-editor-sidebar__summary">
           <span>Installed replacements</span>
           <strong>${configs.length + nativeConfigs.length} track${configs.length + nativeConfigs.length === 1 ? "" : "s"}</strong>
@@ -310,6 +348,11 @@ export function renderMusicEditor(project: ProjectState, root: HTMLElement, onDi
         </div>
       </aside>
       <main class="music-editor-main">
+        <div class="music-editor-workspace">
+          <div class="music-editor-tabs" role="tablist" aria-label="Music editor sections">
+            ${renderMusicEditorTabs(draft.activeTab, availableTabs)}
+          </div>
+          <div id="music-editor-panel-bgm" class="music-editor-tab-panel" role="tabpanel" aria-labelledby="music-editor-tab-bgm" ${draft.activeTab === "bgm" ? "" : "hidden"}>
         <section class="code-injection-panel music-editor-panel music-editor-primary-panel">
           <h2>Streamed BGM Replacement</h2>
           <div class="code-injection-actions streamed-bgm-controls">
@@ -332,7 +375,7 @@ export function renderMusicEditor(project: ProjectState, root: HTMLElement, onDi
               <select id="streamed-bgm-encoding" ${supported ? "" : "disabled"}>
                 ${renderStreamedBgmEncodingOptions(plannedEncoding)}
               </select>
-              <small class="streamed-bgm-encoding-help">Saved separately for this target. Both formats play at 32,728 Hz through BW2's native stream player.</small>
+              <small class="streamed-bgm-encoding-help">Saved separately for this target. Both formats use stereo playback at 32,728 Hz.</small>
             </label>
             <div class="streamed-bgm-crop">
               <strong>Crop imported audio</strong>
@@ -349,11 +392,9 @@ export function renderMusicEditor(project: ProjectState, root: HTMLElement, onDi
               <button class="btn" id="update-streamed-bgm-runtime-btn" type="button" ${supported && configs.length ? "" : "disabled"}>Update Music Runtime</button>
               <button class="btn -default" id="remove-streamed-bgm-btn" type="button" ${config ? "" : "disabled"}>Remove Selected Replacement</button>
             </div>
-            <div class="code-injection-note" id="streamed-bgm-note">${escapeHtml(draft.message ?? (config ? (configTargetIsBgm ? `${config.sourceName} is installed. Removing it restores only the verified replacement data.` : `This older installation targets non-BGM sequence ${config.targetSequenceId} (${config.targetSequenceSymbol ?? "unknown"}). Choose a SEQ_BGM target, import the audio again, and reconfigure it before testing.`) : draft.hydrating ? "Loading SDAT background-music sequence names…" : "Choose a SEQ_BGM target and import MP3 or WAV audio. Full-track looping is the default."))}</div>
+            <div class="code-injection-note" id="streamed-bgm-note">${escapeHtml(draft.message ?? (bw1 ? "BW1 BGM replacement needs a verified playback runtime before installation can be enabled." : config ? (configTargetIsBgm ? `${config.sourceName} is installed. Removing it restores only the verified replacement data.` : `This older installation targets non-BGM sequence ${config.targetSequenceId} (${config.targetSequenceSymbol ?? "unknown"}). Choose a SEQ_BGM target, import the audio again, and reconfigure it before testing.`) : draft.hydrating ? "Loading SDAT background-music sequence names…" : "Choose a SEQ_BGM target and import MP3 or WAV audio. Full-track looping is the default."))}</div>
           </div>
         </section>
-        ${renderStandaloneStreamPanel(project, draft, supported)}
-        ${renderNativeStreamPanel(draft, configs, nativeConfigs, supported, new Set(getStandaloneStreamConfigs(project).map(entry => entry.streamId)))}
         <section class="code-injection-panel music-editor-panel music-editor-installed-panel" aria-labelledby="installed-music-title">
           <h2 id="installed-music-title">Installed replacements (${configs.length})</h2>
           <p>Select a target to import new audio for it, or remove it individually. Other replacements are retained. Size estimates exclude small archive/runtime overhead.</p>
@@ -365,7 +406,15 @@ export function renderMusicEditor(project: ProjectState, root: HTMLElement, onDi
           </div>
           ${configs.length > 1 ? `<button class="btn -default" id="remove-all-streamed-bgm-btn" type="button">Remove All Replacements</button>` : ""}
         </section>
-        ${renderMusicReferencePanel(draft, supported)}
+          </div>
+          <div id="music-editor-panel-streamed" class="music-editor-tab-panel" role="tabpanel" aria-labelledby="music-editor-tab-streamed" ${draft.activeTab === "streamed" ? "" : "hidden"}>
+            ${renderNativeStreamPanel(project, draft, configs, nativeConfigs, archiveSupported && (!bw1 || hasEditableNativeStream), new Set(getStandaloneStreamConfigs(project).map(entry => entry.streamId))) || '<section class="code-injection-panel music-editor-panel"><h2>Streamed Replacements</h2><p>No eligible native streams are available in this ROM.</p></section>'}
+          </div>
+          <div id="music-editor-panel-standalone" class="music-editor-tab-panel" role="tabpanel" aria-labelledby="music-editor-tab-standalone" ${draft.activeTab === "standalone" ? "" : "hidden"}>
+            ${renderStandaloneStreamPanel(project, draft, archiveSupported)}
+          </div>
+        </div>
+        ${bw1 ? renderBw1MusicReferencePanel(draft) : renderMusicReferencePanel(draft, supported)}
       </main>
     </section>
   `;
@@ -391,7 +440,7 @@ function renderStandaloneStreamPanel(project: ProjectState, draft: StreamedBgmDr
   const duration = draft.standalonePcm ? draft.standalonePcm.left.length / draft.standalonePcm.sampleRate : undefined;
   return `<section class="code-injection-panel music-editor-panel" aria-labelledby="standalone-stream-title">
     <h2 id="standalone-stream-title">Standalone streamed songs</h2>
-    <p>Add a stream without replacing any game music. The Save Menu installer can play any track listed here.</p>
+    <p>Add a stream without replacing any game music. Custom game features can reference its stream ID.</p>
     <div class="code-injection-actions streamed-bgm-controls">
       <label>Track name<input id="standalone-stream-name" type="text" maxlength="80" value="${escapeHtml(draft.standaloneName)}" ${supported ? "" : "disabled"} /></label>
       <label>Audio file<input id="standalone-stream-file" type="file" accept="audio/mpeg,audio/wav,.mp3,.wav" ${supported ? "" : "disabled"} /></label>
@@ -414,6 +463,7 @@ function renderStandaloneStreamPanel(project: ProjectState, draft: StreamedBgmDr
 }
 
 function renderNativeStreamPanel(
+  project: ProjectState,
   draft: StreamedBgmDraft,
   mappings: readonly StreamedBgmConfig[],
   configs: readonly NativeStreamReplacementConfig[],
@@ -428,13 +478,13 @@ function renderNativeStreamPanel(
   const config = configs.find((entry) => entry.streamId === draft.nativeStreamId);
   const duration = draft.nativePcm ? draft.nativePcm.left.length / draft.nativePcm.sampleRate : undefined;
   const end = draft.nativeLoopEndSeconds ?? duration;
-  const referenceEntries = buildNativeStreamReference(streams, mappings);
-  const category = draft.nativeReferenceCategory ?? "title";
+  const referenceEntries = buildNativeStreamReference(streams, mappings, getStandaloneStreamConfigs(project));
+  const category = draft.nativeReferenceCategory ?? (project.session.baseRom === "BW" ? "all" : "title");
   const matches = filterNativeStreamReference(referenceEntries, draft.nativeReferenceSearch ?? "", category);
   const categoryLabel = category === "all" ? "All streams" : NATIVE_STREAM_REFERENCE_CATEGORIES[category];
   return `<section class="code-injection-panel music-editor-panel music-editor-native-panel" aria-labelledby="native-stream-title">
     <h2 id="native-stream-title">Native streamed music</h2>
-    <p>Replace an existing SDAT STRM directly. This uses BW2's built-in stream player; no sequence redirect, DLL hook, or gameplay replacement buffer is added.</p>
+    <p>Replace an existing SDAT STRM directly. This does not add a sequence redirect or gameplay replacement buffer; the ROM must already contain code that plays this stream.</p>
     <div class="code-injection-actions streamed-bgm-controls">
       <label>Target stream
         <select id="native-stream-target" ${editableStreams.length ? "" : "disabled"}>
@@ -486,7 +536,7 @@ function renderNativeStreamPanel(
       <p id="native-reference-status" role="status">${matches.length} ${categoryLabel.toLocaleLowerCase()} entries</p>
       <div class="music-reference-scroll native-stream-reference-scroll" tabindex="0" role="tabpanel" aria-label="${escapeHtml(categoryLabel)} stream ID reference table">
         <table class="music-reference-table native-stream-reference-table">
-          <caption>Black 2 / White 2 · ${escapeHtml(categoryLabel)}</caption>
+          <caption>${project.session.baseRom === "BW" ? "Black / White" : "Black 2 / White 2"} · ${escapeHtml(categoryLabel)}</caption>
           <thead><tr><th scope="col">Use</th><th scope="col">Stream ID</th><th scope="col">Location / notes</th></tr></thead>
           <tbody id="native-reference-rows">${draft.hydrating ? `<tr><td colspan="3" class="music-reference-empty">Loading SDAT streams…</td></tr>` : renderNativeStreamReferenceRows(matches, draft.nativeStreamId)}</tbody>
         </table>
@@ -542,7 +592,62 @@ function renderMusicReferencePanel(draft: StreamedBgmDraft, supported: boolean):
     </section>`;
 }
 
+export function filterBw1MusicSequences(sequences: readonly { id: number; symbol: string }[], search: string): Array<{ id: number; symbol: string }> {
+  const query = search.trim().toLocaleLowerCase();
+  return sequences.filter((entry) => !query || String(entry.id).includes(query) || entry.symbol.toLocaleLowerCase().includes(query));
+}
+
+function renderBw1MusicReferenceRows(sequences: readonly { id: number; symbol: string }[]): string {
+  if (!sequences.length) return '<tr><td colspan="2" class="music-reference-empty">No matching BGM sequences.</td></tr>';
+  return sequences.map((entry) => `<tr><th scope="row">${entry.id}</th><td><code>${escapeHtml(entry.symbol)}</code></td></tr>`).join("");
+}
+
+function renderBw1MusicReferencePanel(draft: StreamedBgmDraft): string {
+  const matches = filterBw1MusicSequences(draft.sequences ?? [], draft.referenceSearch ?? "");
+  return `<section class="code-injection-panel music-editor-panel music-reference-panel" aria-labelledby="music-reference-title">
+    <h2 id="music-reference-title">Black / White BGM sequence IDs</h2>
+    <p>These names and IDs come from this ROM's sound archive. A name alone does not establish every place the game uses a track.</p>
+    <div class="music-reference-filters"><label>Search sequence ID or symbol
+      <input id="music-reference-search" type="search" placeholder="Try SEQ_BGM_VS or 1003" value="${escapeHtml(draft.referenceSearch ?? "")}" />
+    </label></div>
+    <p id="music-reference-status" role="status">${draft.hydrating ? "Loading music IDs…" : `${matches.length} BGM sequences`}</p>
+    <div id="music-reference-table-panel" class="music-reference-scroll" tabindex="0" aria-label="Black / White BGM sequence IDs">
+      <table class="music-reference-table"><caption>Black / White · SDAT BGM sequences</caption>
+        <thead><tr><th scope="col">ID</th><th scope="col">Sequence symbol</th></tr></thead>
+        <tbody id="music-reference-rows">${draft.hydrating ? '<tr><td colspan="2" class="music-reference-empty">Loading SDAT sequence names…</td></tr>' : renderBw1MusicReferenceRows(matches)}</tbody>
+      </table>
+    </div>
+  </section>`;
+}
+
 function installMusicEditorInteractions(project: ProjectState, root: HTMLElement, onDirty: () => void, draft: StreamedBgmDraft): void {
+  const editorTabs = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-music-editor-tab]"));
+  const availableTabs = editorTabs.map((button) => button.dataset.musicEditorTab as MusicEditorTab);
+  const selectEditorTab = (tab: MusicEditorTab) => {
+    if (!availableTabs.includes(tab)) return;
+    draft.activeTab = tab;
+    editorTabs.forEach((button) => {
+      const active = button.dataset.musicEditorTab === tab;
+      button.classList.toggle("-active", active);
+      button.setAttribute("aria-selected", String(active));
+      button.tabIndex = active ? 0 : -1;
+    });
+    MUSIC_EDITOR_TABS.forEach((name) => {
+      const panel = root.querySelector<HTMLElement>(`#music-editor-panel-${name}`);
+      if (panel) panel.hidden = name !== tab;
+    });
+  };
+  editorTabs.forEach((button, index) => {
+    const tab = availableTabs[index]!;
+    button.addEventListener("click", () => selectEditorTab(tab));
+    button.addEventListener("keydown", (event) => {
+      const next = nextMusicEditorTab(tab, event.key, availableTabs);
+      if (!next) return;
+      event.preventDefault();
+      selectEditorTab(next);
+      editorTabs.find((item) => item.dataset.musicEditorTab === next)?.focus();
+    });
+  });
   const runEdit = async (operation: () => Promise<void>, messageTarget: "sequence" | "native" | "standalone" = "sequence") => {
     if (draft.busy) return;
     draft.busy = true;
@@ -595,7 +700,8 @@ function installMusicEditorInteractions(project: ProjectState, root: HTMLElement
   const note = root.querySelector<HTMLDivElement>("#streamed-bgm-note");
   const currentBgmPreviewButton = root.querySelector<HTMLButtonElement>("#preview-current-bgm-btn");
   const importedBgmPreview = root.querySelector<HTMLAudioElement>("#streamed-bgm-preview");
-  const referenceEntries = buildMusicReference(draft.sequences ?? []);
+  const bw1 = project.session.baseRom === "BW";
+  const referenceEntries = bw1 ? [] : buildMusicReference(draft.sequences ?? []);
   const referenceSearch = root.querySelector<HTMLInputElement>("#music-reference-search");
   const referenceTabs = root.querySelectorAll<HTMLButtonElement>("[data-music-reference-category]");
   const referenceRows = root.querySelector<HTMLTableSectionElement>("#music-reference-rows");
@@ -673,7 +779,7 @@ function installMusicEditorInteractions(project: ProjectState, root: HTMLElement
     }, "standalone");
   });
 
-  const nativeReferenceEntries = buildNativeStreamReference(draft.nativeStreams ?? [], getStreamedBgmConfigs(project));
+  const nativeReferenceEntries = buildNativeStreamReference(draft.nativeStreams ?? [], getStreamedBgmConfigs(project), getStandaloneStreamConfigs(project));
   const applyNativeTarget = (streamId: number) => {
     const stream = draft.nativeStreams?.find((entry) => entry.id === streamId);
     if (!stream || getStandaloneStreamConfigs(project).some((entry) => entry.streamId === streamId)) return;
@@ -832,6 +938,12 @@ function installMusicEditorInteractions(project: ProjectState, root: HTMLElement
   };
   const filterReference = () => {
     draft.referenceSearch = referenceSearch?.value ?? "";
+    if (bw1) {
+      const matches = filterBw1MusicSequences(draft.sequences ?? [], draft.referenceSearch);
+      if (referenceRows) referenceRows.innerHTML = renderBw1MusicReferenceRows(matches);
+      if (referenceStatus) referenceStatus.textContent = `${matches.length} BGM sequences`;
+      return;
+    }
     const category = selectedReferenceCategory();
     const matches = filterMusicReference(referenceEntries, draft.referenceSearch, category);
     if (referenceRows) referenceRows.innerHTML = renderMusicReferenceRows(matches, draft.targetSequenceId);
@@ -853,6 +965,7 @@ function installMusicEditorInteractions(project: ProjectState, root: HTMLElement
     if (!sequence) return;
     targetInput.value = `${sequence.id} — ${sequence.symbol}`;
     updateInputs();
+    selectEditorTab("bgm");
     if (referenceStatus) referenceStatus.textContent = `Selected ${sequence.id} — ${sequence.symbol}. Import audio and use Add / Update Selected Replacement above to apply it.`;
   });
 

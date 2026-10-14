@@ -10,6 +10,7 @@
 .sprite-sidebar,
 .sprite-editor-page {
   --sprite-sidebar-width: 360px;
+  --sprite-accent-hover: #44475a;
 }
 
 .sprite-sidebar.-collapsed {
@@ -71,27 +72,27 @@
 
 .sprite-sidebar .btn,
 .sprite-editor-page .btn {
-  background: transparent;
-  border: 1px solid rgb(26 188 156 / 72%);
-  color: #dffcf6;
+  background: #383a59;
+  border: 1px solid #55586d;
+  color: #f2f2f2;
 }
 
 .sprite-sidebar .btn:hover,
 .sprite-editor-page .btn:hover {
-  background: var(--sprite-accent-hover);
-  border-color: var(--sprite-accent);
+  background: #44475a;
+  border-color: #777b8f;
   color: #f8ffff;
 }
 
 .sprite-editor-page .btn.sprite-remove-btn {
-  background: #ff5555;
-  border: 0;
-  border-radius: 5px;
-  color: #f1f1f1;
+  background: #383a59;
+  border: 1px solid #55586d;
+  border-radius: 3px;
+  color: #ff8585;
 }
 
 .sprite-editor-page .btn.sprite-remove-btn:hover {
-  background: #e64545;
+  background: #44475a;
 }
 
 .sprite-sidebar .btn,
@@ -364,38 +365,42 @@
 
 .sprite-form-tabs {
   background: #242638;
-  border: 1px solid #44475a;
-  border-radius: 5px;
+  border: 0;
+  border-radius: 0;
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  padding: 3px;
+  padding: 0;
+  border-bottom: 1px solid #44475a;
 }
 
 .sprite-form-tabs .btn {
   background: transparent;
-  border: 1px solid rgb(248 255 255 / 35%);
-  color: #f8ffff;
+  border: 0;
+  color: #d6d7e2;
   flex: 1 1 auto;
   min-height: 28px;
   padding: 6px 9px;
   width: auto;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
 }
 
 .sprite-form-tabs .btn.-active {
-  background: #f8ffff;
-  border-color: #f8ffff;
-  color: #242638;
+  background: transparent;
+  border-color: #bd93f9;
+  color: #f2f2f2;
 }
 
 .sprite-form-tabs .btn:hover {
-  background: rgb(248 255 255 / 14%);
-  border-color: rgb(248 255 255 / 70%);
+  background: transparent;
+  border-color: #777b8f;
 }
 
 .sprite-form-tabs .btn.-active:hover {
-  background: #f8ffff;
-  color: #242638;
+  background: transparent;
+  color: #f2f2f2;
+  border-color: #bd93f9;
 }
 
 .sprite-sidebar-group {
@@ -446,8 +451,8 @@
 
 .sprite-bundle-drop:hover,
 .sprite-bundle-drop.-dragging {
-  background: rgb(26 188 156 / 10%);
-  border-color: var(--sprite-accent);
+  background: #383a59;
+  border-color: #bd93f9;
 }
 
 .sprite-bundle-drop.-dragging span {
@@ -527,13 +532,13 @@
 
 .gif-flipbook-stats div,
 .gif-flipbook-stats p {
-  background: rgb(8 10 16 / 28%);
-  border: 1px solid #3b4254;
-  border-radius: 4px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   display: grid;
   gap: 3px;
   margin: 0;
-  padding: 8px;
+  padding: 8px 0;
 }
 
 .gif-flipbook-stats span {
@@ -685,11 +690,12 @@
 
 .sprite-preview-tabs {
   background: #242638;
-  border: 1px solid #44475a;
-  border-radius: 5px;
+  border: 0;
+  border-radius: 0;
   display: flex;
   gap: 4px;
-  padding: 3px;
+  padding: 0;
+  border-bottom: 1px solid #44475a;
 }
 
 .sprite-preview-tabs .btn {
@@ -697,11 +703,15 @@
   color: #c9c9d3;
   min-height: 28px;
   padding: 6px 12px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  font-weight: 500;
 }
 
 .sprite-preview-tabs .btn.-active {
-  background: rgb(26 188 156 / 12%);
-  border-color: var(--sprite-accent);
+  background: transparent;
+  border-color: #bd93f9;
   color: #f8ffff;
 }
 
@@ -1015,9 +1025,9 @@
 }
 
 .sprite-editor-page .animation-workbench .pwan-import-status {
-  background: rgb(26 188 156 / 12%);
-  border-color: rgb(26 188 156 / 56%);
-  color: #c9fff3;
+  background: transparent;
+  color: #d6d7e2;
+  border: 0;
 }
 
 .sprite-editor-page .animation-workbench .pwan-import-status strong {
@@ -1030,14 +1040,14 @@
 }
 
 .sprite-editor-page .animation-workbench .pwan-form button {
-  background: transparent;
-  border-color: rgb(26 188 156 / 72%);
-  color: #dffcf6;
+  background: #383a59;
+  border-color: #55586d;
+  color: #f2f2f2;
 }
 
 .sprite-editor-page .animation-workbench .pwan-form button:hover {
-  background: var(--sprite-accent-hover);
-  border-color: var(--sprite-accent);
+  background: #44475a;
+  border-color: #777b8f;
   color: #f8ffff;
 }
 
@@ -1350,9 +1360,9 @@
 
 .animation-icon-btn {
   align-items: center;
-  background: rgb(18 22 32 / 72%);
-  border: 1px solid rgb(238 242 251 / 22%);
-  border-radius: 5px;
+  background: #383a59;
+  border: 1px solid #55586d;
+  border-radius: 3px;
   color: #f8ffff;
   cursor: pointer;
   display: flex;
@@ -1363,8 +1373,8 @@
 }
 
 .animation-icon-btn:hover {
-  background: rgb(26 188 156 / 14%);
-  border-color: var(--sprite-accent);
+  background: #44475a;
+  border-color: #777b8f;
 }
 
 .animation-icon {
@@ -1564,3 +1574,5 @@
     width: auto;
   }
 }
+
+.sprite-sidebar .btn.-primary, .sprite-editor-page .btn.-primary { background: #1abc9c; border-color: #1abc9c; color: #101216; }

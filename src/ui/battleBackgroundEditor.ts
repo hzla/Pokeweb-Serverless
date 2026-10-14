@@ -426,7 +426,7 @@ function renderBackgroundHeader(variant: BattleBackgroundVariant): string {
   const shapeLabel = variant.shapeKind === "standard" ? "Standard field mesh" : variant.shapeKind === "non-standard" ? "Non-standard mesh" : "Unclassified mesh";
   return `
     <header class="battle-background-header">
-      <div><span>Nitro 3D field environment</span><h1>${escapeHtml(backgroundVariantLabel(variant))}</h1></div>
+      <div><h1>${escapeHtml(backgroundVariantLabel(variant))}</h1></div>
       <div class="battle-background-header-badges">
         <span class="battle-background-shape-badge -${variant.shapeKind}">${escapeHtml(shapeLabel)}</span>
         <code>BMD0 · ${variant.resourceId}</code>
@@ -438,7 +438,7 @@ function renderBackgroundHeader(variant: BattleBackgroundVariant): string {
 function renderPlatformHeader(variant: BattlePlatformVariant): string {
   return `
     <header class="battle-background-header">
-      <div><span>Nitro 3D battle platform</span><h1>${escapeHtml(platformVariantLabel(variant))}</h1></div>
+      <div><h1>${escapeHtml(platformVariantLabel(variant))}</h1></div>
       <div class="battle-background-header-badges">
         <span class="battle-background-shape-badge -platform">Single-model preview</span>
         <code>BMD0 · ${variant.resourceId}</code>

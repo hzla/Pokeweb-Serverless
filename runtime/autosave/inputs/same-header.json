@@ -1,0 +1,1 @@
+{"name":"same-header","sameHeaderWarp":true,"frames":1850,"expect":{"transitions":1,"completed":1,"zone":427},"inputs":[{"frame":900,"buttons":4,"duration":25}],"captures":[899,1100,1300,1500]}

@@ -35,8 +35,8 @@ export function nativeButtonCircle(native:NARC,original=originalGraphics(native)
   circleCache.set(original,result);return result;
 }
 
-/** Replace selector/power glyphs while retaining their native circles and palettes. */
-export function buttonGraphics(original:NARC,native?:NARC,selector=false,saveControl=false,style:1|2|3=3):NARC {
+/** Replace owned control glyphs while retaining native circles and palettes. */
+export function buttonGraphics(original:NARC,native?:NARC,selector=false,saveControl=false,style:1|2|3|4|5=5):NARC {
   if(!selector&&!saveControl)return packNativeGraphics(original);
   const indices=[31,32,33,34,36,37];
   if(native&&selector){
@@ -46,8 +46,9 @@ export function buttonGraphics(original:NARC,native?:NARC,selector=false,saveCon
   }
   const key=Number(selector)|Number(saveControl)<<1|style<<2,cache=decoratedCache.get(original)??new Map<number,NARC>(),cached=cache.get(key);if(cached)return cached;decoratedCache.set(original,cache);
   const [characters,cells]=original.files,start=24+readU32(cells,28),oam=start+readU16(cells,24)*16;
-  const feedback=selector&&style===3,glyphBytes=feedback?128:64;
-  const char=new Uint8Array(characters.length+glyphBytes+(saveControl?128:0));char.set(characters);
+  const muteControl=style>=4&&saveControl;
+  const feedback=selector&&style>=3,glyphBytes=feedback?128:64;
+  const char=new Uint8Array(characters.length+glyphBytes+(saveControl?128:0)+(muteControl?(style===5?256:128):0));char.set(characters);
   const glyph=new Uint8Array(16*8);
   for(let y=0;y<7;y++)for(const offset of [2,8])for(let w=0;w<2;w++)glyph[y*16+offset+3-Math.abs(3-y)+w]=7;
   for(let y=0;y<8;y++)for(let x=0;x<16;x+=2)char[characters.length+Math.floor(x/8)*32+y*4+(x%8)/2]=glyph[y*16+x]|glyph[y*16+x+1]<<4;
@@ -70,11 +71,28 @@ export function buttonGraphics(original:NARC,native?:NARC,selector=false,saveCon
     // index; the circle supplies the theme fill. Retain the two
     // older variants so recognized installations can be updated/restored.
     const disk=["111111111000","110000010100","110000010110","110000010111","110000000111","111111111111","111111111111","110000000011","110000000011","110000000011","110000000011","111111111111"];
-    for(let y=0;y<16;y++)for(let x=0;x<16;x+=2){const pixel=(px:number)=>y>=2&&y<14&&px>=2&&px<14&&disk[y-2][px-2]==="1"?(style===1?7:style===2?1:3):0;char[characters.length+glyphBytes+(Math.floor(y/8)*2+Math.floor(x/8))*32+(y%8)*4+(x%8)/2]=pixel(x)|pixel(x+1)<<4;}
+    const size=style===5?10:12,pad=(16-size)/2;
+    for(let y=0;y<16;y++)for(let x=0;x<16;x+=2){const pixel=(px:number)=>y>=pad&&y<pad+size&&px>=pad&&px<pad+size&&disk[Math.floor((y-pad+.5)*12/size)][Math.floor((px-pad+.5)*12/size)]==="1"?(style===1?7:style===2?1:3):0;char[characters.length+glyphBytes+(Math.floor(y/8)*2+Math.floor(x/8))*32+(y%8)*4+(x%8)/2]=pixel(x)|pixel(x+1)<<4;}
     for(const i of [22,25]){
       const entry=start+i*16,at=oam+readU32(cell,entry+4);
       if(i>=readU16(cell,24)||readU16(cell,entry)!==2||readU16(cell,at)!==0xf8||readU16(cell,at+2)!==0x41f8)throw new Error("The ROM changed the native power-control cell; restore compatible graphics.");
       writeU16(cell,at+4,(readU16(cell,at+4)&0xfc00)|(tile+glyphBytes/32));
+    }
+  }
+  if(muteControl){
+    if(native&&[8,9].flatMap(i=>parsePokemonAnimation(native.files[18]).sequences[i]?.frames.map(f=>f.cellIndex)??[]).join(",")!=="23,26,23,26,23")throw new Error("The ROM changed the native help-control animation; restore compatible graphics.");
+    const note=["000000110000","000000111100","000000111110","000000110110","000000110010","000000110000","000000110000","000111110000","001111110000","011111100000","011111000000","001110000000"];
+    // A thin diagonal with a one-pixel gap where it crosses the note keeps
+    // the slash legible at native resolution, using only native detail ink.
+    const mask=(x:number,y:number)=>x===y||(note[y]?.[x]==="1"&&Math.abs(x-y)>1);
+    const base=characters.length+glyphBytes+128;
+    const ox=style===5?2:1,oy=style===5?2:3;
+    for(let frame=0;frame<(style===5?2:1);frame++)for(let y=0;y<16;y++)for(let x=0;x<16;x+=2){const pixel=(px:number)=>y>=oy&&y<oy+12&&px>=ox&&px<ox+12&&(style===5&&frame===0?note[y-oy][px-ox]==="1":mask(px-ox,y-oy))?3:0;char[base+frame*128+(Math.floor(y/8)*2+Math.floor(x/8))*32+(y%8)*4+(x%8)/2]=pixel(x)|pixel(x+1)<<4;}
+    for(const i of [23,26]){
+      const entry=start+i*16,at=oam+readU32(cell,entry+4);
+      if(i>=readU16(cell,24)||readU16(cell,entry)!==2||readU16(cell,at)!==0xf8||readU16(cell,at+2)!==0x41f8)throw new Error("The ROM changed the native help-control cell; restore compatible graphics.");
+      writeU16(cell,at+4,(readU16(cell,at+4)&0xfc00)|(tile+glyphBytes/32+4+(style===5&&i===26?4:0)));
+      if(style===5&&i===26){const normal=oam+readU32(cell,start+23*16+4);for(const off of [4,10])writeU16(cell,at+off,(readU16(cell,at+off)&0x0fff)|(readU16(cell,normal+off)&0xf000));}
     }
   }
   const changed=new NARC();changed.files=[char,cell];const packed=packNativeGraphics(changed);cache.set(key,packed);return packed;

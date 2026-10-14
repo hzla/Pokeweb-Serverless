@@ -223,8 +223,8 @@ describe("BW2 Menu Evolution", () => {
       }));
       try {
         const project = await loadProjectFromRomBytes(new Uint8Array(readFileSync(fixture)), filename, { selectedNarcs: ["message_texts", "evolutions", "learnsets"] });
-        await installBattleLog(project);
         await installMenuEvolution(project);
+        expect(getBattleLogInstallStatus(project)).toMatchObject({ installed: true, upToDate: true });
         appendPokemonKoMove(project, 6);
         updatePokemonKoMoveField(project, 6, "move_id_0", "126");
         updatePokemonKoMoveField(project, 6, "ko_count_0", "1");

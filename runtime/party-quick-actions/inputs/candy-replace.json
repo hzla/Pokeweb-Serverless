@@ -1,0 +1,41 @@
+[
+  {
+    "frame": 60,
+    "buttons": 128
+  },
+  {
+    "frame": 180,
+    "buttons": 128
+  },
+  {
+    "frame": 300,
+    "buttons": 128
+  },
+  {
+    "frame": 900,
+    "touch": [
+      94,
+      26
+    ]
+  },
+  {
+    "frame": 1000,
+    "buttons": 128
+  },
+  {
+    "frame": 1260,
+    "buttons": 128
+  },
+  {
+    "frame": 1380,
+    "buttons": 128
+  },
+  {
+    "frame": 1500,
+    "buttons": 128
+  },
+  {
+    "frame": 1640,
+    "buttons": 128
+  }
+]

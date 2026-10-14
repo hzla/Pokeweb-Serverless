@@ -68,7 +68,7 @@ export function createFollowerPositionEditor(args: {
   let landRiderFrames: PreviewFrame[][] = [], surfFrames: PreviewFrame[][] = [];
   let landDefault: number[] = [], timer: ReturnType<typeof setInterval> | undefined;
   const section = document.createElement("section"); section.className = "following-position-editor";
-  section.innerHTML = `<header><div><span class="following-editor-kicker">Appearance positioning</span><h3>${args.allowRiding ? "Walking gap &amp; rider placement" : "Walking gap"}</h3>
+  section.innerHTML = `<header><div><h3>${args.allowRiding ? "Walking gap &amp; rider placement" : "Walking gap"}</h3>
     <p>Edit one appearance at a time. The four previews animate together as values change; the game camera may show a slightly different pixel scale.</p></div>
     <div class="following-position-nav"><span data-position-current></span><div>
       <button class="btn" type="button" data-position-prev>← Previous</button>

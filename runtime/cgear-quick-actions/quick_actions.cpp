@@ -13,6 +13,7 @@ struct Session {
     u16 skinIds[64],skinMembers[64];u32 skinHashes[64];
     u16 currentSkin,wantedSkin,defaultSkin;u8 skinCount,skinCaptured,skinRequest,skinUpload;
     void* skinOriginal;void* skinBuffer;u8 hideCommunication,saveControl,networkMoved,skinFeedback;
+    u8 muteControl,muteState;
 } session;
 static_assert(__builtin_offsetof(Session,hideCommunication)==1400);
 static_assert(__builtin_offsetof(Session,skinFeedback)==1403);
@@ -20,6 +21,7 @@ static_assert(__builtin_offsetof(Session,skinFeedback)==1403);
 // hooks must not depend on whether the touch-screen sprites are visible.
 bool enabled,repelPresent;
 MapRequest* ownedMap;
+void* radarWork;
 
 u32 clamp(u32 n,u32 lo,u32 hi) { return n<lo?lo:n>hi?hi:n; }
 void clear(void* p,u32 n) { for(u32 i=0;i<n;i++) at<u8>(p,i)=0; }
@@ -46,11 +48,34 @@ bool show(u32 i,Subscreen* s) {
     }
     return true;
 }
+void* radarEncounter(Subscreen* s) {
+    void* enc=ov<void*(*)(void*)>(0x2180564)(s->field);
+    if(!enc || at<void*>(enc,0)!=s->field || !at<void*>(enc,12) || !at<void*>(enc,16)) return nullptr;
+    if(!ov<u32(*)(void*,u32)>(0x21a16e8)(enc,2)) return nullptr;
+    if(ov<u32(*)(void*)>(0x2180578)(s->field)!=0) return nullptr;
+    if(!api<u32(*)(void*,u32)>(0x200c97c)(api<void*(*)(void*)>(0x2017974)(game(s)),0)) return nullptr;
+    void* state=api<void*(*)(void*)>(0x20174a4)(game(s));
+    // Never replace an existing phenomenon or its native task.
+    if(!state || (at<u8>(state,0x25)&15)) return nullptr;
+    return enc;
+}
+void pokeradar(Subscreen* s) {
+    void* enc=radarEncounter(s);if(!enc) return;
+    void* state=api<void*(*)(void*)>(0x20174a4)(game(s));
+    radarWork=at<void*>(enc,16);
+    // Retail searches a random half of the nearby block and can reject an
+    // occupied candidate. Retry a bounded number of times in this press.
+    // The native routine retains badge, grid, zone and terrain restrictions.
+    for(u32 tries=0;tries<32 && !(at<u8>(state,0x25)&15);tries++)
+        ov<void(*)(void*)>(0x21a20ac)(enc);
+    radarWork=nullptr;
+}
 bool canUse(u32 i,Subscreen* s) {
     const auto& b=session.buttons[i];
     if(!show(i,s)) return false;
     if(b.check!=255 && ov<u32(*)(u32,void*,void*)>(0x215eff4)(b.check,system(s),s->field)!=0) return false;
     if(((b.action>=12 && b.action<=14) || b.action==16) && !count(game(s))) return false;
+    if(b.action==17 && !radarEncounter(s)) return false;
     return true;
 }
 int flyMember(void* field,void* g) {
@@ -86,7 +111,7 @@ u16 crc(const u8* p,u32 n) {
 }
 u32 fingerprint(const u8* p,u32 n,u32 h=0x811c9dc5){for(u32 i=0;i<n;i++)h=(h^p[i])*0x1000193;return h;}
 bool config(void* h,u16 heap) {
-    session.count=0;repelPresent=false;session.hideCommunication=session.saveControl=0;
+    session.count=0;repelPresent=false;session.hideCommunication=session.saveControl=session.muteControl=0;
     void* m=read(h,0,heap,160);if(!m) return false;
     bool ok=at<u32>(m,0)==0x41475143 && (at<u16>(m,4)==6||at<u16>(m,4)==7) && at<u16>(m,6)==160
         && at<u32>(m,8)==1 && at<u32>(m,12)==0x41475142 && at<u8>(m,20)<=8;
@@ -94,6 +119,8 @@ bool config(void* h,u16 heap) {
     if(hash!=at<u32>(m,28)) ok=false;
     if(ok) {
         session.saveControl=at<u16>(m,4)==7;session.hideCommunication=session.saveControl?at<u8>(m,45):0;
+        session.muteControl=session.saveControl?at<u8>(m,46):0;
+        if(session.muteControl>1)ok=false;
         if(session.hideCommunication>1)ok=false;
         session.skinCount=at<u8>(m,21);session.defaultSkin=at<u16>(m,22);
         if(session.skinCount>64)ok=false;
@@ -116,7 +143,7 @@ bool config(void* h,u16 heap) {
             for(u32 n=0;n<16;n++)at<u8>(&session.buttons[i],n)=at<u8>(m,32+i*16+n);
             const auto& b=session.buttons[i];
             if(i<session.count) {
-                if(!b.id || b.action<1 || b.action>16 || b.flagMode>2 || (b.flagMode && (!b.flag||b.flag>3059))
+                if(!b.id || b.action<1 || b.action>17 || b.flagMode>2 || (b.flagMode && (!b.flag||b.flag>3059))
                     || b.x<16 || b.x>240 || b.y<16 || b.y>176 || (b.check!=255 && b.check>11)) ok=false;
                 for(u32 j=0;j<i;j++)if(session.buttons[j].id==b.id)ok=false;
                 if(b.action==1)repelPresent=true;
@@ -386,6 +413,18 @@ void refresh(Subscreen* s,u32 active) {
         visible(at<void*>(s->work,0x90),true);
         if(session.hideCommunication){visible(at<void*>(s->work,0x6c+10*4),false);for(u32 i=13;i<=19;i++)visible(at<void*>(s->work,0x6c+i*4),false);}
         if(session.saveControl)visible(at<void*>(s->work,0x6c+7*4),true);
+        if(session.muteControl){
+            session.muteState=PokewebBgmMute(0);
+            void* music=at<void*>(s->work,0x6c+8*4);
+            visible(music,true);
+            if(music){
+                // Help has a single normal frame; choose the appropriate
+                // sequence and freeze its first cell instead of frame 1.
+                api<void(*)(void*,u16)>(0x204c4e4)(music,session.muteState?9:8);
+                api<void(*)(void*,u32)>(0x204c54c)(music,1);
+                api<void(*)(void*,u16)>(0x204c530)(music,0);
+            }
+        }
     }
     u32 keys=api<u32(*)()>(0x203df4c)();
     if(edit && (keys&0x300)==0x300) {
@@ -530,6 +569,8 @@ extern "C" void QaInput(void* w) {
     }
     if(session.held) {if(!down) {session.held=0;session.pressed=0xff;}return;}
     if(api<u32(*)()>(0x203da74)()) {
+        int mx=static_cast<int>(x)-215,my=static_cast<int>(y)-163;
+        if(session.muteControl&&mx*mx+my*my<=100){session.held=1;session.pending=at<u8>(w,0x2fe)?0:254;return;}
         int px=static_cast<int>(x)-200,py=static_cast<int>(y)-180;
         if(session.saveControl&&px*px+py*py<=100){session.held=1;session.pending=at<u8>(w,0x2fe)?0:255;return;}
         int sx=static_cast<int>(x)-208,sy=static_cast<int>(y)-18;
@@ -568,6 +609,7 @@ extern "C" int QaButtonHit(void* w) {
     if(enabled && (edit||wrench||logo)) at<u8>(w,0x30b)=1;
     int result=ov<int(*)(void*)>(0x21eb748)(w);at<u8>(w,0x30b)=power;
     if(enabled&&session.saveControl&&result==5)return -1;
+    if(enabled&&session.muteControl&&result==6)return -1;
     if(enabled&&session.hideCommunication&&((result>=0&&result<=2)||result==8))return -1;
     return result;
 }
@@ -575,6 +617,7 @@ extern "C" void* QaCGearEvent(Subscreen* s,u32 available) {
     void* native=ov<void*(*)(Subscreen*,u32)>(0x21986b4)(s,available);
     u32 action=session.pending;session.pending=0;
     if(native||!available||!action||!safe(s)||at<u8>(s->work,0x2fe)) return native;
+    if(action==254&&session.muteControl){session.muteState=PokewebBgmMute(1);api<void(*)(u32)>(0x2006254)(1356);return nullptr;}
     if(action==255&&session.saveControl){
         void* event=api<void*(*)(void*,void*,void*,u32)>(0x2016cb4)(system(s),nullptr,reinterpret_cast<void*>(saveEvent),sizeof(SaveWork));
         if(event){auto* w=api<SaveWork*(*)(void*)>(0x2016edc)(event);clear(w,sizeof(*w));w->control=save(game(s));w->sys=system(s);w->field=s->field;w->message=ov<void*(*)(void*)>(0x21804d0)(s->field);w->heap=s->heap;w->returnMode=s->mode;w->sub=s;}
@@ -590,6 +633,7 @@ extern "C" void* QaCGearEvent(Subscreen* s,u32 available) {
         return nullptr;
     }
     if(action==2) return storageEvent(sys,s->heap);
+    if(action==17) {api<void(*)(u32)>(0x2006254)(1356);pokeradar(s);return nullptr;}
     if(action==3||action==6||action==7) return ov<void*(*)(u32,void*,void*)>(0x215f024)(action==3?0:action==6?5:4,sys,s->field);
     void* event=api<void*(*)(void*,void*,void*,u32)>(0x2016cb4)(sys,nullptr,reinterpret_cast<void*>(flyEvent),sizeof(FlyWork));
     if(event) {
@@ -613,4 +657,12 @@ extern "C" u32 QaRepelStep(void* encounter,void* g) {
 extern "C" u32 QaRepelDepleted(void* encounter,void* g) {
     if(repel(g) && count(g)) return 0;
     return api<u32(*)(void*)>(0x200dde0)(encounter);
+}
+extern "C" u32 QaPhenomenonInterval(void* state,void* effect) {
+    if(radarWork && radarWork==effect) return 1;
+    return ov<u32(*)(void*,void*)>(0x21a24ac)(state,effect);
+}
+extern "C" u32 QaPhenomenonChance(u32 chance) {
+    // Called only at the native spawn-probability site. Other RNG stays native.
+    return radarWork?100:api<u32(*)(u32)>(0x2013878)(chance);
 }

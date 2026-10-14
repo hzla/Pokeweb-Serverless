@@ -142,7 +142,6 @@ function renderLoadingState(background: ReferencedMoveBackground): string {
     <section class="move-background-viewer" data-move-background-id="${background.backgroundId}">
       <header class="move-background-header">
         <div>
-          <span>Move animation asset</span>
           <h1>Background ${background.backgroundId}</h1>
         </div>
         <div class="move-background-header-reference">${referenceCountLabel(background.references.length)}</div>
@@ -183,7 +182,7 @@ async function hydrateSelectedBackground(
     if (!viewer.isConnected || viewer.dataset.loadToken !== String(loadToken)) return;
     viewer.innerHTML = `
       <header class="move-background-header">
-        <div><span>Move animation asset</span><h1>Background ${selected.backgroundId}</h1></div>
+        <div><h1>Background ${selected.backgroundId}</h1></div>
       </header>
       <div class="move-background-error">${escapeHtml(error instanceof Error ? error.message : String(error))}</div>
     `;
@@ -198,7 +197,6 @@ function renderLoadedBackground(
   return `
     <header class="move-background-header">
       <div>
-        <span>Move animation asset</span>
         <h1>Background ${backgroundReference.backgroundId}</h1>
       </div>
       <div class="move-background-header-reference">${referenceCountLabel(backgroundReference.references.length)}</div>

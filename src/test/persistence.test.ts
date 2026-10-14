@@ -35,6 +35,9 @@ describe("NARC persistence hydration", () => {
     expect(hydrated[2]).toEqual(new Uint8Array());
     expect(hydrated[3]).toEqual(Uint8Array.of(4));
     expect(hydrated[4]).toEqual(new Uint8Array());
+    expect(hydrated[0]).toBe(original[0]);
+    expect(hydrated[1]).toBe(persisted[1]);
+    expect(hydrated[4]).toBe(persisted[4]);
   });
 
   it("uses the persisted archive length even when the saved fileCount is stale", () => {

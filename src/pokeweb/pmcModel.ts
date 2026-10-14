@@ -352,13 +352,22 @@ export function installPmcBytes(project: ProjectState, rpmBytes: Uint8Array, rom
 }
 
 export async function stageBundledDoubleBattleFixDll(project: ProjectState): Promise<CodeInjectionDllInstallResult> {
+  const staged: ProjectState = { ...project, arm9: project.arm9.slice(), overlays: structuredClone(project.overlays),
+    fileSystem: structuredClone(project.fileSystem), codeInjection: structuredClone(project.codeInjection),
+    patches: structuredClone(project.patches), actionChangelog: structuredClone(project.actionChangelog) };
+  const result = await installDoubleBattleFixStaged(staged);
+  Object.assign(project, { arm9: staged.arm9, arm9Dirty: staged.arm9Dirty, overlays: staged.overlays,
+    fileSystem: staged.fileSystem, codeInjection: staged.codeInjection, patches: staged.patches, actionChangelog: staged.actionChangelog });
+  return result;
+}
+
+async function installDoubleBattleFixStaged(project: ProjectState): Promise<CodeInjectionDllInstallResult> {
   const version = project.session.baseVersion;
   if (!((project.session.baseRom === "BW" && version === "B")
     || (project.session.baseRom === "BW2" && (version === "B2" || version === "W2")))) {
     throw new Error(`No bundled double battle fix is available for ${project.session.baseVersion}.`);
   }
-  if (!getPmcInstallStatus(project).installed) throw new Error("Install PMC before adding the double battle fix.");
-  const romBytes = project.originalRomBytes ?? (version === "B" ? await loadActiveRomBytes() : undefined);
+  const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
   if (version === "B") {
     if (!romBytes) throw new Error("Reload the ROM before installing the Black 1 double battle fix.");
     assertBlack1DoubleBattleFixCompatible(project, romBytes);
@@ -382,6 +391,10 @@ export async function stageBundledDoubleBattleFixDll(project: ProjectState): Pro
     if (existing && (existing.length !== bytes.length || existing.some((byte, index) => byte !== bytes[index]))) {
       throw new Error("An unrecognized DoubleBattleFixB.dll is already present. Remove it before installing the bundled patch.");
     }
+  }
+  if (!getPmcInstallStatus(project).installed) {
+    if (romBytes) adoptExistingPmcInstall(project, romBytes);
+    if (!getPmcInstallStatus(project).installed) await installBundledPmc(project);
   }
   const result = stageCodeInjectionDll(project, fileName, bytes, "patches", romBytes);
   recordGenericChange(project, "code_injection", `${fileName} staged for single-NPC double trainer battles.`, "Double Battle Fix", {
@@ -529,7 +542,7 @@ export async function prepareBw2FormEvolutionCodeInjection(project: ProjectState
   return result;
 }
 
-export async function installBundledBgmToggleDll(project: ProjectState): Promise<CodeInjectionDllInstallResult> {
+export async function installBundledBgmToggleDll(project: ProjectState, options: { preserveShortcut?: boolean } = {}): Promise<CodeInjectionDllInstallResult> {
   if (project.session.baseRom !== "BW2" || (project.session.baseVersion !== "B2" && project.session.baseVersion !== "W2")) {
     throw new Error("The bundled background-music toggle requires a US Black 2 or White 2 ROM.");
   }
@@ -553,16 +566,17 @@ export async function installBundledBgmToggleDll(project: ProjectState): Promise
   const importedConfig = existingRuntime ? readBgmRuntimeConfig(existingRuntime) : undefined;
   if (existingRuntime && !importedConfig) throw new Error("The installed music runtime has an unreadable configuration; cannot safely replace it.");
   const mappings = streamed.length ? streamed : importedConfig?.mappings ?? [];
+  const shortcutEnabled = options.preserveShortcut ? importedConfig?.shortcutEnabled ?? true : true;
   const bytes = await configureBundledBgmRuntime(version, {
-    shortcutEnabled: true,
+    shortcutEnabled,
     mappings,
   });
   const result = stageCodeInjectionDll(project, fileName, bytes, "patches", romBytes);
-  streamed.forEach((mapping) => { mapping.toggleEnabled = true; });
+  streamed.forEach((mapping) => { mapping.toggleEnabled = shortcutEnabled; });
   recordGenericChange(
     project,
     "code_injection",
-    `${fileName} staged to mute or unmute the native background-music channel with L + R + Select.`,
+    `${fileName} staged for shared background-music controls${shortcutEnabled ? " and L + R + Select" : ""}.`,
     "Background Music Toggle",
     { key: "code-injection:bgm-toggle" },
   );
@@ -869,11 +883,24 @@ export function stageCodeInjectionDll(
 
 export function canRemoveStagedCodeInjectionDll(project: ProjectState, path: string): boolean {
   const normalized = path.replace(/^\/+|\\/gu, "/");
-  return Object.keys(project.fileSystem?.additions ?? {}).some((candidate) => candidate.toLowerCase() === normalized.toLowerCase());
+  return !bgmMuteConsumer(project,normalized) && Object.keys(project.fileSystem?.additions ?? {}).some((candidate) => candidate.toLowerCase() === normalized.toLowerCase());
+}
+
+function bgmMuteConsumer(project:ProjectState,path:string):string|undefined {
+  if(!/^patches\/BgmToggle[WB]2\.dll$/iu.test(path))return;
+  const rom=project.originalRomBytes?new NintendoDSRom(project.originalRomBytes,{fileData:"view"}):undefined;
+  for(const entry of listCodeInjectionDlls(project)){
+    if(!/^CGearQuickActions[WB]2\.dll$/iu.test(entry.fileName))continue;
+    const added=Object.keys(project.fileSystem?.additions??{}).find(p=>p.toLowerCase()===entry.path.toLowerCase());
+    const id=rom?.filenames.idOf(entry.path),bytes=added?project.fileSystem!.additions![added]:id!==undefined?getRomFileBytes(project,rom!,id):undefined;
+    if(bytes&&parseRpm(bytes,{allowedMagics:["DLXF"]}).symbols.some(s=>(s.attributes&2)&&s.address===0x55872599))return entry.fileName;
+  }
 }
 
 export function removeStagedCodeInjectionDll(project: ProjectState, path: string): void {
   const normalized = path.replace(/^\/+|\\/gu, "/");
+  const consumer=bgmMuteConsumer(project,normalized);
+  if(consumer)throw new Error(`${consumer} requires this shared music runtime. Remove the staged C-Gear runtime first.`);
   const stagedPath = Object.keys(project.fileSystem?.additions ?? {}).find(
     (candidate) => candidate.toLowerCase() === normalized.toLowerCase(),
   );

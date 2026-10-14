@@ -1,0 +1,24 @@
+.inline-status {
+  align-items: baseline;
+  color: #d6d7e2;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 400;
+  gap: 6px;
+  line-height: 1.4;
+  max-width: 100%;
+}
+
+.inline-status__marker {
+  color: #aeb2c7;
+  flex: 0 0 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.inline-status[data-tone="success"] > .inline-status__marker { color: #50fa7b; }
+.inline-status[data-tone="warning"] > .inline-status__marker { color: #ffb86c; }
+.inline-status[data-tone="error"] > .inline-status__marker { color: #ff8585; }
+.inline-status[data-tone="busy"] > .inline-status__marker { color: #8be9fd; }
+.inline-status__label { overflow-wrap: anywhere; }

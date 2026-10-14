@@ -7,15 +7,18 @@ import { readU16 } from "../nds/binary";
 import { annotateBw2VanillaScript, matchBw2VanillaScriptSummary, bw2VanillaScriptSummaryCandidate } from "./bw2ScriptSummaries";
 import { planBw2ScriptEntryReferences, verifyBw2EmbeddedEntryReferences } from "./bw2ScriptEntryReferences";
 
-export type Bw2ScriptEditorState = {
-  selectedFileId?: number;
-  drafts: Record<number, { source: string; appliedSource?: string; entryMapping?: number[]; entryMappingSignature?: string; imported?: {
+/** Source and its verification baseline are user work, including unapplied drafts. */
+export type Bw2ScriptDraft = { source: string; appliedSource?: string; entryMapping?: number[]; entryMappingSignature?: string; imported?: {
     baselineSource: string;
     baselineBytes: Uint8Array;
     expectedCurrentBytes: Uint8Array;
     overlayId?: number;
     overlayContext?: "map" | "shared";
-  } }>;
+  } };
+
+export type Bw2ScriptEditorState = {
+  selectedFileId?: number;
+  drafts: Record<number, Bw2ScriptDraft>;
 };
 
 export type Bw2ScriptApplyOptions = { entryMapping?: number[] };

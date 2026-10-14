@@ -1,5 +1,5 @@
 {
-  "version": "0.3.7",
+  "version": "0.3.12",
   "automaticCgearYes": true,
   "games": {
     "W2": {
@@ -67,16 +67,24 @@
           "bytes": "08b5fff7bffc002801d1002008bdfff7"
         },
         {
-          "address": 33583189,
-          "bytes": "70b5051c0c4800684168002905d08168"
+          "address": 33578213,
+          "bytes": "014800697047c04664db090204480168"
         },
         {
-          "address": 33583249,
-          "bytes": "0248034b006800211847c0469c0f1402"
+          "address": 34003821,
+          "bytes": "f8b582b00090294801910168002904d0"
         },
         {
-          "address": 33583269,
-          "bytes": "08b50548006866f055fe002801d00120"
+          "address": 34004241,
+          "bytes": "10b5041cfff7d4ff002801d1002010bd"
+        },
+        {
+          "address": 34004269,
+          "bytes": "08b50268002a02d0006800f017fa08bd"
+        },
+        {
+          "address": 34004313,
+          "bytes": "10b50168002901d1002010bd04685a20"
         },
         {
           "address": 33593537,
@@ -151,6 +159,10 @@
           "bytes": "70b5051c0c1c161c01f050f8281c211c"
         },
         {
+          "address": 33672665,
+          "bytes": "004b1847e1cd010238b5051c07210022"
+        },
+        {
           "address": 33689537,
           "bytes": "f8b582b0051c6f000e1c141c0837002b"
         },
@@ -173,6 +185,10 @@
         {
           "address": 33808169,
           "bytes": "08b5fff7ebf9fff7efff08bd10b5041c"
+        },
+        {
+          "address": 33808205,
+          "bytes": "08b5fff7d9f9fff7efff08bd10b5041c"
         }
       ],
       "inputGlobals": [
@@ -193,8 +209,18 @@
       "artMembers": [
         {
           "path": "a/0/4/8",
+          "member": 212,
+          "sha256": "624db7d39d5e8f61488a8eb565157d3f63ecb8d4211d833b6ccb6f75bf2bd5b9"
+        },
+        {
+          "path": "a/0/4/8",
           "member": 215,
           "sha256": "68e894e3ffa9873f78ea6cd6415678832222c703608bc21568d1137d270070b8"
+        },
+        {
+          "path": "a/0/4/8",
+          "member": 221,
+          "sha256": "775b7dda62fbd05638bc204dae197d91d9ea9335f9869a87cc3c58c2d79e7d00"
         },
         {
           "path": "a/0/4/8",
@@ -307,16 +333,24 @@
           "bytes": "08b5fff7bffc002801d1002008bdfff7"
         },
         {
-          "address": 33583189,
-          "bytes": "70b5051c0c4800684168002905d08168"
+          "address": 33578213,
+          "bytes": "014800697047c04624db090204480168"
         },
         {
-          "address": 33583249,
-          "bytes": "0248034b006800211847c0465c0f1402"
+          "address": 34003777,
+          "bytes": "f8b582b00090294801910168002904d0"
         },
         {
-          "address": 33583269,
-          "bytes": "08b50548006866f03ffe002801d00120"
+          "address": 34004197,
+          "bytes": "10b5041cfff7d4ff002801d1002010bd"
+        },
+        {
+          "address": 34004225,
+          "bytes": "08b50268002a02d0006800f017fa08bd"
+        },
+        {
+          "address": 34004269,
+          "bytes": "10b50168002901d1002010bd04685a20"
         },
         {
           "address": 33593537,
@@ -391,6 +425,10 @@
           "bytes": "70b5051c0c1c161c01f050f8281c211c"
         },
         {
+          "address": 33672621,
+          "bytes": "004b1847b5cd010238b5051c07210022"
+        },
+        {
           "address": 33689493,
           "bytes": "f8b582b0051c6f000e1c141c0837002b"
         },
@@ -413,6 +451,10 @@
         {
           "address": 33808125,
           "bytes": "08b5fff7ebf9fff7efff08bd10b5041c"
+        },
+        {
+          "address": 33808161,
+          "bytes": "08b5fff7d9f9fff7efff08bd10b5041c"
         }
       ],
       "inputGlobals": [
@@ -433,8 +475,18 @@
       "artMembers": [
         {
           "path": "a/0/4/8",
+          "member": 212,
+          "sha256": "624db7d39d5e8f61488a8eb565157d3f63ecb8d4211d833b6ccb6f75bf2bd5b9"
+        },
+        {
+          "path": "a/0/4/8",
           "member": 215,
           "sha256": "68e894e3ffa9873f78ea6cd6415678832222c703608bc21568d1137d270070b8"
+        },
+        {
+          "path": "a/0/4/8",
+          "member": 221,
+          "sha256": "775b7dda62fbd05638bc204dae197d91d9ea9335f9869a87cc3c58c2d79e7d00"
         },
         {
           "path": "a/0/4/8",
@@ -491,10 +543,16 @@
   "modules": {
     "B2": {
       "fileName": "SaveMenuB2.dll",
-      "sha256": "ba3052a31158716c9fd3e69e571064cc56f5a2d0e102f1f64e27eccf261432d6",
+      "sha256": "27ac23ebb5468fcf1bcfd25bd3329dca49a81334d272a044cd74c4041543b953",
       "recognizedSha256": [
-        "ba3052a31158716c9fd3e69e571064cc56f5a2d0e102f1f64e27eccf261432d6",
+        "27ac23ebb5468fcf1bcfd25bd3329dca49a81334d272a044cd74c4041543b953",
         "b10a7823382e76070759a5cb544bdd33fa4cfc45be038ea427802cfd16435119",
+        "13b798ad61e2592dd30e5ceb340bc92a27d2b222456d1e63612e6b8f2e029ae6",
+        "e0322c200d90aaf47d8c8fcb62f1f20baaa7fe063bfc838f1861e34b5e57c3af",
+        "c42bcbf1678ff3c60fd04bb1f0fa83df853a94c30f976bad991b4f26fc1cb10f",
+        "3c596e8725eeb11dababfc49a7b5ea0487e1bfa4575656c59eb23e9ea9fdea69",
+        "ae40e605244b1081cd7b271e7d1b2b98d44e9156392b5eeaea6eda3a7f0188d0",
+        "ba3052a31158716c9fd3e69e571064cc56f5a2d0e102f1f64e27eccf261432d6",
         "9fd0b72ddef222ca3b01d94cac40e47923e89098de67df21fbbbba6cb859d969",
         "f854da725486af7ec8f122dc9d2f8d491fa36911a7c5e075497a7659edf972ed",
         "e10e629ede81bf90f4b18e7ba5dc6648a71eadf7a8ab1ab86b359b01ce20cd79",
@@ -510,14 +568,20 @@
         "2fc5f90395c162534c1778afb6a2225a859f1051dc80664e52f468f33ce5bc81",
         "4a24fb178b52d4daa2167477c090170eeea3735fbb91d924896b6965ac3ad1d8"
       ],
-      "expandedSize": 44768
+      "expandedSize": 53696
     },
     "W2": {
       "fileName": "SaveMenuW2.dll",
-      "sha256": "fba9e8a1b421f259b8a6b10fa88726fcf8c935396933206ede40a12ae49c5a65",
+      "sha256": "dcd47328ca02047b010a9f2cc4cb7997f9e97768bd3f6165188809283ffcd6b7",
       "recognizedSha256": [
-        "fba9e8a1b421f259b8a6b10fa88726fcf8c935396933206ede40a12ae49c5a65",
+        "dcd47328ca02047b010a9f2cc4cb7997f9e97768bd3f6165188809283ffcd6b7",
         "aa0d2ca5e81172d92362b7b32b9603f42d4e50900b55cf001a83aefa3d5312e9",
+        "f14a6327e96d7ea45b9edba70d72557fa57ae321e4c49d173f627e83615d3994",
+        "8e8316f23a976b3edb26b0eca126457862ac15f7bac87be512d62da314916477",
+        "e29945322d1509e10a0038b5294c6845ffae7c3a1b276085eeb61ae14845e261",
+        "f9a64d960baa73ebe440a8c97728998ce0c041cbe097b29439fc92b1fc8b4626",
+        "17010b2c0a95017570e9f6b9e770d1dc073d93b09c3991a61451696e2e6cd01e",
+        "fba9e8a1b421f259b8a6b10fa88726fcf8c935396933206ede40a12ae49c5a65",
         "5464dc3f3a48b047357622c5e0d8c7cacf60ee85e113cf86d209153563a4c23a",
         "52d4cba6b93a00ec964ff8a6b852adaef08cc59694ce1defc3653490b2764841",
         "91b3f553e40bc16f753aae4ed634cd3be4f024c7c620001c9004f576fb1e2898",
@@ -532,7 +596,7 @@
         "898e7aa4ce65c2b08091428b084eb1ab8a99af34d37805e734e41cc046cef60c",
         "b78b1ba6c838325fd70f8a5ac90a68343968321df018c33716cb95d980c7d5f8"
       ],
-      "expandedSize": 44528
+      "expandedSize": 53536
     }
   },
   "music": {
@@ -609,6 +673,55 @@
     ],
     "poseFrames": 2,
     "holdUntilRecallEnds": true
+  },
+  "partyHop": {
+    "buttons": {
+      "L": "slots 1\u20133",
+      "R": "slots 4\u20136",
+      "Y": "slots 1, 3, 5",
+      "X": "slots 2, 4, 6"
+    },
+    "motionHeights": [
+      0,
+      5,
+      8,
+      9,
+      9,
+      9,
+      8,
+      5,
+      0
+    ],
+    "sound": false,
+    "playerArt": {
+      "archive": "a/0/4/8",
+      "maleMember": 212,
+      "femaleMember": 221,
+      "frame": 1,
+      "leftMirrored": true
+    },
+    "walkCadenceUnchanged": true
+  },
+  "partySpin": {
+    "modifier": "Select",
+    "groups": {
+      "L": "slots 1\u20133",
+      "R": "slots 4\u20136",
+      "Y": "slots 1, 3, 5",
+      "X": "slots 2, 4, 6"
+    },
+    "directions": [
+      "down",
+      "left",
+      "up",
+      "right"
+    ],
+    "framesPerDirection": 3,
+    "footPhase": "shared walking cadence",
+    "registryPath": "following/runtime-registry.bin",
+    "artPath": "a/0/4/8",
+    "defaultDirection": "down",
+    "requiresFollowerPatch": true
   },
   "jump": {
     "startZoomStep": 14,

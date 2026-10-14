@@ -1,6 +1,6 @@
 .trainer-music-page {
-  background: #242635;
-  color: #eef2fb;
+  background: #282a36;
+  color: #f2f2f2;
   min-height: 100vh;
   padding: 68px 28px 36px;
   width: 100%;
@@ -28,7 +28,6 @@
 .trainer-music-state-card h1 {
   font-size: clamp(28px, 3vw, 42px);
   line-height: 1.05;
-  margin-top: 4px;
 }
 
 .trainer-music-page-header p {
@@ -38,49 +37,40 @@
   max-width: 760px;
 }
 
-.trainer-music-kicker {
-  color: #8be9fd;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
 .trainer-music-page-summary {
   display: flex;
   flex: 0 0 auto;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 8px 20px;
   justify-content: flex-end;
 }
 
 .trainer-music-page-summary span {
-  background: #303346;
-  border: 1px solid #44485e;
-  border-radius: 6px;
   color: #b9c0d2;
-  display: grid;
-  font-size: 11px;
-  gap: 2px;
-  min-width: 100px;
-  padding: 9px 12px;
-  text-align: center;
+  display: inline-flex;
+  font-size: 12px;
+  gap: 5px;
+  padding: 0;
+  text-align: left;
+  align-items: baseline;
 }
 
 .trainer-music-page-summary strong {
   color: #f8f8f2;
-  font-size: 18px;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .trainer-music-warning {
-  background: rgb(255 184 77 / 10%);
-  border: 1px solid rgb(255 184 77 / 48%);
-  border-radius: 7px;
+  background: #282a36;
+  border: 0;
+  border-radius: 0;
   display: grid;
   gap: 4px;
   margin: 0 auto 18px;
   max-width: 1480px;
   padding: 11px 14px;
+  border-left: 3px solid #ffb86c;
 }
 
 .trainer-music-tabs {
@@ -120,7 +110,7 @@
 }
 
 .trainer-music-warning span {
-  color: #d7c8b2;
+  color: #d6d7e2;
   font-size: 13px;
   line-height: 1.45;
 }
@@ -144,10 +134,9 @@
 .trainer-music-card,
 .trainer-music-assignments,
 .trainer-music-state-card {
-  background: #303346;
-  border: 1px solid #44485e;
-  border-radius: 9px;
-  box-shadow: 0 10px 24px rgb(0 0 0 / 15%);
+  background: #383a59;
+  border: 1px solid #44475a;
+  border-radius: 6px;
 }
 
 .trainer-music-card {
@@ -159,45 +148,21 @@
   display: flex;
   gap: 12px;
   justify-content: space-between;
+  flex-wrap: wrap;
 }
 
 .trainer-music-card-heading > div > span {
   color: #aeb6c7;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .trainer-music-card-heading h2 {
   font-size: 22px;
   line-height: 1.2;
   margin-top: 4px;
-}
-
-.trainer-music-badge {
-  border: 1px solid;
-  border-radius: 999px;
-  display: inline-flex;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  padding: 4px 7px;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.trainer-music-badge.-supported {
-  background: rgb(80 250 123 / 9%);
-  border-color: rgb(80 250 123 / 42%);
-  color: #8fffa9;
-}
-
-.trainer-music-badge.-unsupported,
-.trainer-music-badge.-fallback {
-  background: rgb(255 184 77 / 9%);
-  border-color: rgb(255 184 77 / 42%);
-  color: #ffd69a;
 }
 
 .trainer-music-metadata {
@@ -216,8 +181,8 @@
 
 .trainer-music-metadata dt {
   color: #aeb6c7;
-  font-size: 11px;
-  text-transform: uppercase;
+  font-size: 12px;
+  text-transform: none;
 }
 
 .trainer-music-metadata dd {
@@ -272,8 +237,9 @@
 }
 
 .trainer-music-status.-error {
-  background: rgb(255 85 85 / 10%);
+  background: transparent;
   color: #ffb3b3;
+  border-left: 3px solid #ff8585;
 }
 
 .trainer-music-help-card h3 {
@@ -458,7 +424,8 @@
 }
 
 .trainer-music-state-card.-error {
-  border-color: rgb(255 85 85 / 50%);
+  border-color: #44475a;
+  border-left: 3px solid #ff8585;
 }
 
 @media (max-width: 1050px) {
@@ -510,3 +477,6 @@
     padding-bottom: 0;
   }
 }
+
+.trainer-music-help-card { background: transparent; border: 0; border-top: 1px solid #44475a; padding: 14px 0 0; }
+.trainer-music-export-actions .btn, .trainer-music-row-play.btn { background: #383a59; border-color: #55586d; color: #f2f2f2; }

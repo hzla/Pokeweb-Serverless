@@ -6,9 +6,9 @@
 #define FWR_CONTEXT_CAPACITY 4096u
 #define FWR_CONTEXT_MOTIONS 12u
 typedef struct { const uint8_t *bytes; uint32_t length,rules,motions,messages,bubbles,emoteBytes,emoteCrc; uint16_t ruleCount,motionCount,messageCount,bubbleCount; } FwrData;
-typedef struct { FwPokemon pokemon; uint32_t status; uint16_t zone; uint8_t friendship,direction,type1,type2; uint16_t nickname[12],playerName[9]; } FwrSnapshot;
-typedef struct { const uint8_t *bytes; uint32_t length; uint16_t ruleCount; } FwrContext;
-typedef struct { const uint8_t *bytes; uint32_t length; uint16_t ruleCount; } FwrItems;
+typedef struct { FwPokemon pokemon; uint32_t status; uint16_t zone; uint8_t friendship,direction,type1,type2; uint16_t nickname[12],playerName[9]; int16_t tileX,tileY; } FwrSnapshot;
+typedef struct { const uint8_t *bytes; uint32_t length; uint16_t ruleCount,ruleBytes; } FwrContext;
+typedef struct { const uint8_t *bytes; uint32_t length; uint16_t ruleCount,ruleBytes; } FwrItems;
 typedef struct { uint8_t slot,quantity; uint16_t item; unsigned rule; } FwrItemChoice;
 typedef struct { uint16_t action,message,cry; uint8_t bubble,wait; } FwrStep;
 uint16_t fwr_u16(const uint8_t *p);

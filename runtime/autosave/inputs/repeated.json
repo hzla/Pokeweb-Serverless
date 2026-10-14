@@ -1,0 +1,42 @@
+{
+  "name": "repeated",
+  "frames": 3900,
+  "inputs": [
+    {
+      "frame": 900,
+      "buttons": 8,
+      "duration": 330
+    },
+    {
+      "frame": 2050,
+      "buttons": 512
+    },
+    {
+      "frame": 2200,
+      "buttons": 64
+    },
+    {
+      "frame": 2500,
+      "buttons": 4,
+      "duration": 65
+    },
+    {
+      "frame": 3250,
+      "buttons": 8,
+      "duration": 65
+    }
+  ],
+  "captures": [
+    2100,
+    2300,
+    2700,
+    2900,
+    3450,
+    3700
+  ],
+  "expect": {
+    "transitions": 3,
+    "completed": 3,
+    "zone": 438
+  }
+}

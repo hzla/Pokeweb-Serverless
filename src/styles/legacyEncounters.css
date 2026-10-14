@@ -23,14 +23,13 @@
 }
 
 .encounter-sync-status {
-  border-radius: 6px;
   color: #cfcfd8;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 400;
   line-height: 1.35;
   margin-top: 10px;
-  min-height: 36px;
-  padding: 8px;
+  min-height: 20px;
+  padding: 4px 0;
 }
 
 .encounter-sync-status:empty {
@@ -38,18 +37,20 @@
 }
 
 .encounter-sync-status.-busy {
-  background: rgba(139, 233, 253, 0.14);
+  background: transparent;
   color: #8be9fd;
 }
 
 .encounter-sync-status.-success {
-  background: rgba(26, 188, 156, 0.18);
+  background: transparent;
   color: #7ee7cf;
 }
 
 .encounter-sync-status.-error {
-  background: rgba(255, 85, 85, 0.18);
+  background: transparent;
   color: #ffb3b3;
+  border-left: 3px solid #ff8585;
+  padding-left: 10px;
 }
 
 .encounter-locations {
@@ -72,8 +73,8 @@
 
 .encounter-wild-group {
   appearance: none;
-  border: 1px solid rgba(242, 242, 242, 0.12);
-  border-radius: 8px;
+  border: 0;
+  border-radius: 3px;
   color: inherit;
   cursor: pointer;
   font: inherit;
@@ -81,16 +82,18 @@
   padding: 10px 12px;
   text-align: left;
   width: 50%;
+  background: #282a36;
+  border-left: 3px solid #777b8f;
 }
 
 .encounter-wild-group.-grass {
-  background: rgba(46, 204, 113, 0.08);
-  border-color: rgba(46, 204, 113, 0.82);
+  background: #282a36;
+  border-color: #2ecc71;
 }
 
 .encounter-wild-group.-water {
-  background: rgba(52, 152, 219, 0.08);
-  border-color: rgba(52, 152, 219, 0.82);
+  background: #282a36;
+  border-color: #3498db;
 }
 
 .encounter-wild-group:hover,
@@ -101,13 +104,13 @@
 
 .encounter-wild-group.-grass:hover,
 .encounter-wild-group.-grass:focus-visible {
-  background: rgba(46, 204, 113, 0.16);
+  background: #383a59;
   box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.25);
 }
 
 .encounter-wild-group.-water:hover,
 .encounter-wild-group.-water:focus-visible {
-  background: rgba(52, 152, 219, 0.16);
+  background: #383a59;
   box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.25);
 }
 

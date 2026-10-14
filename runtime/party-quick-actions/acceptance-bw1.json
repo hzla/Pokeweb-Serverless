@@ -1,0 +1,149 @@
+{
+  "version": "0.1.0-bw1",
+  "hardwareAccepted": false,
+  "dsiAccepted": false,
+  "games": {
+    "B": {
+      "toolbarSha256": "a79fab75c5eebaad03aa1bb87c681362f30dd8932a0dde79088e3ec391be2b9a",
+      "candySha256": "3db03c4e3eb7e765f325d4c55d47cb6b4b240a8603c1dbf84531e1545afb91af",
+      "archiveSha256": "5d8710ce413cea76d05911c5bd9c2d1138c7d88c9665907375a582b5898def4e",
+      "runs": [
+        {
+          "run": "B-final-hp",
+          "romSha256": "378e36305dbb4281cb07fce198d3d2e284a95302195f85f84da68e684ba1c9e6"
+        },
+        {
+          "run": "B-final-heal",
+          "romSha256": "378e36305dbb4281cb07fce198d3d2e284a95302195f85f84da68e684ba1c9e6"
+        },
+        {
+          "run": "B-final-status",
+          "romSha256": "378e36305dbb4281cb07fce198d3d2e284a95302195f85f84da68e684ba1c9e6"
+        },
+        {
+          "run": "B-final-xp",
+          "romSha256": "378e36305dbb4281cb07fce198d3d2e284a95302195f85f84da68e684ba1c9e6"
+        },
+        {
+          "run": "B-final-candy",
+          "romSha256": "f3cc2c8b488912d82500763e5329d52e70034f9d3621dddad5d3a556f8ab6abe"
+        },
+        {
+          "run": "B-final-candy-replace",
+          "romSha256": "f3cc2c8b488912d82500763e5329d52e70034f9d3621dddad5d3a556f8ab6abe"
+        },
+        {
+          "run": "B-final-cancel",
+          "romSha256": "f3cc2c8b488912d82500763e5329d52e70034f9d3621dddad5d3a556f8ab6abe"
+        },
+        {
+          "run": "B-final-hidden",
+          "romSha256": "792eae3d5d4bf43c64d5378971d473fc6e3120b6499287557a962c1182c54d5f"
+        },
+        {
+          "run": "B-final-all-hidden",
+          "romSha256": "c86af79ae62994f4f4b6c3a4d4780ad2f6d976cb95b67ebbf72618ad7d2b4ce3"
+        },
+        {
+          "run": "B-final-no-candy",
+          "romSha256": "f3cc2c8b488912d82500763e5329d52e70034f9d3621dddad5d3a556f8ab6abe"
+        },
+        {
+          "run": "B-final-packed-clean",
+          "romSha256": "c86af79ae62994f4f4b6c3a4d4780ad2f6d976cb95b67ebbf72618ad7d2b4ce3"
+        },
+        {
+          "run": "B-final-bag-accepted",
+          "romSha256": "f3cc2c8b488912d82500763e5329d52e70034f9d3621dddad5d3a556f8ab6abe"
+        },
+        {
+          "run": "B-final-saved",
+          "romSha256": "378e36305dbb4281cb07fce198d3d2e284a95302195f85f84da68e684ba1c9e6"
+        },
+        {
+          "run": "B-final-cold-verified",
+          "romSha256": "378e36305dbb4281cb07fce198d3d2e284a95302195f85f84da68e684ba1c9e6"
+        },
+        {
+          "run": "B-final-repeat",
+          "romSha256": "378e36305dbb4281cb07fce198d3d2e284a95302195f85f84da68e684ba1c9e6"
+        }
+      ],
+      "passed": true
+    },
+    "W": {
+      "toolbarSha256": "68ba0c3e89607ed8fdb0b6110aaddd3be3a2800084a4212f72ea86cf80ad336b",
+      "candySha256": "2ec1cb3214f10f0180342b3d91cde3dbc5a04be7cfca454c733885b69aa8c09e",
+      "archiveSha256": "5d8710ce413cea76d05911c5bd9c2d1138c7d88c9665907375a582b5898def4e",
+      "runs": [
+        {
+          "run": "W-final-hp",
+          "romSha256": "9dcc910d972ae12ed87cb2b7516302cbe2ae6aad55115309e8f313f56a3aaa59"
+        },
+        {
+          "run": "W-final-heal",
+          "romSha256": "9dcc910d972ae12ed87cb2b7516302cbe2ae6aad55115309e8f313f56a3aaa59"
+        },
+        {
+          "run": "W-final-status",
+          "romSha256": "9dcc910d972ae12ed87cb2b7516302cbe2ae6aad55115309e8f313f56a3aaa59"
+        },
+        {
+          "run": "W-final-xp",
+          "romSha256": "9dcc910d972ae12ed87cb2b7516302cbe2ae6aad55115309e8f313f56a3aaa59"
+        },
+        {
+          "run": "W-final-candy",
+          "romSha256": "f6feae72ac269403b244f93558f96bfc24372285e848c12bd7331f9e0508920a"
+        },
+        {
+          "run": "W-final-candy-replace",
+          "romSha256": "f6feae72ac269403b244f93558f96bfc24372285e848c12bd7331f9e0508920a"
+        },
+        {
+          "run": "W-final-cancel",
+          "romSha256": "f6feae72ac269403b244f93558f96bfc24372285e848c12bd7331f9e0508920a"
+        },
+        {
+          "run": "W-final-hidden",
+          "romSha256": "b4273d435f36da45f5ebddf56831a2d16caadeb47f97fcd757078cfe01c538ff"
+        },
+        {
+          "run": "W-final-all-hidden",
+          "romSha256": "7957080f2f716178258a1b54082467542c618dd7f32411a2ec8a8ed724167db6"
+        },
+        {
+          "run": "W-final-no-candy",
+          "romSha256": "f6feae72ac269403b244f93558f96bfc24372285e848c12bd7331f9e0508920a"
+        },
+        {
+          "run": "W-final-packed-clean",
+          "romSha256": "7957080f2f716178258a1b54082467542c618dd7f32411a2ec8a8ed724167db6"
+        },
+        {
+          "run": "W-final-bag-accepted",
+          "romSha256": "f6feae72ac269403b244f93558f96bfc24372285e848c12bd7331f9e0508920a"
+        },
+        {
+          "run": "W-final-saved",
+          "romSha256": "9dcc910d972ae12ed87cb2b7516302cbe2ae6aad55115309e8f313f56a3aaa59"
+        },
+        {
+          "run": "W-final-cold-verified",
+          "romSha256": "9dcc910d972ae12ed87cb2b7516302cbe2ae6aad55115309e8f313f56a3aaa59"
+        },
+        {
+          "run": "W-final-repeat",
+          "romSha256": "9dcc910d972ae12ed87cb2b7516302cbe2ae6aad55115309e8f313f56a3aaa59"
+        }
+      ],
+      "passed": true
+    }
+  },
+  "compiledHarnesses": [
+    "Black and White runtime: all 32 section masks, input/ownership/failure/cleanup",
+    "Black and White retail PK5: all 32 block orders, encrypted/plain states",
+    "Infinite Candy: retail ordinary consumption retained",
+    "Black 2 and White 2 compiled regressions; shipped binaries unchanged"
+  ]
+}

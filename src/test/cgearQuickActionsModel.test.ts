@@ -7,7 +7,7 @@ import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { exportModifiedRom } from "../pokeweb/exportRom";
 import { getCGearQuickActionsStatus, installCGearQuickActions, disableCGearQuickActions, removeCGearQuickActions } from "../pokeweb/cgearQuickActionsModel";
-import { detectPmcInstallFromRom, listCodeInjectionDlls, stageCodeInjectionDll } from "../pokeweb/pmcModel";
+import { detectPmcInstallFromRom, listCodeInjectionDlls, stageCodeInjectionDll, configureBundledBgmRuntime, readBgmRuntimeConfig, removeStagedCodeInjectionDll, canRemoveStagedCodeInjectionDll } from "../pokeweb/pmcModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { parseRpm, writeRpm } from "../pokeweb/rpm";
 import { buttonFont, buttonItems, buttonNative } from "./cgearButtonsFixture";
@@ -49,11 +49,60 @@ function makeProject(v: Version, bytes?: Uint8Array): ProjectState {
     romInfo:{title:"test",idCode:r.idCode,fileName:"test.nds",size:bytes.length},arm9:r.arm9,overlays:{},narcs:{},texts:{banks:{}},formats:{},trpokInfo:[],codeInjection:detectPmcInstallFromRom(r)};
 }
 describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
-  it.each([1,2] as const)('updates graphics version %s and restores native graphics on disable',async version=>{
+  it('upgrades 0.3.6 graphics and shares mute without changing music mappings or shortcut preference',async()=>{
+    const p=makeProject(v);assets();await installCGearQuickActions(p);
+    const mapping={targetSequenceId:1,streamId:2,originalSequenceFileId:3,shadowFileId:4,streamFileId:5};
+    stageCodeInjectionDll(p,`BgmToggle${v}.dll`,await configureBundledBgmRuntime(v,{shortcutEnabled:false,mappings:[mapping]}));
+    const arc=new NARC(p.fileSystem!.additions![manifest.archivePath]),backup=new NARC(arc.files[14]),oldGraphics=buttonGraphics(backup,undefined,true,true,3),metadata=JSON.parse(new TextDecoder().decode(arc.files[13]));metadata.nativeGraphics.version=3;delete metadata.nativeGraphics.muteControl;metadata.nativeGraphics.packedFingerprint=fingerprint(oldGraphics.save());arc.files[13]=new TextEncoder().encode(JSON.stringify(metadata));arc.files[0][46]=0;const h=arc.files[0];writeU32(h,28,fingerprint(new Uint8Array([...h.subarray(0,28),...h.subarray(32)])));const old=arc.save();
+    p.fileSystem!.additions![manifest.archivePath]=old;
+    p.fileSystem!.additions![`patches/CGearQuickActions${v}.dll`]=new Uint8Array(readFileSync(new URL(`./fixtures/cgear-quick-actions-v0.3.6/CGearQuickActions${v}.dll`,import.meta.url)));
+    p.cgearButtons=recoverCGearButtons(old);const design=structuredClone(p.cgearButtons.document);
+    const r=new NintendoDSRom(p.originalRomBytes!),id=r.fileId('a/2/8/7'),native=new NARC(p.fileSystem!.replacements[id]),prior=buttonGraphics(backup,undefined,true,true,3);
+    native.files[16]=prior.files[0];native.files[17]=prior.files[1];p.fileSystem!.replacements[id]=native.save();
+    expect(getCGearQuickActionsStatus(p)).toMatchObject({compatible:true,updateAvailable:true});
+    await installCGearQuickActions(p);expect(p.cgearButtons.document).toEqual(design);
+    const music=p.fileSystem!.additions![`patches/BgmToggle${v}.dll`];
+    expect(readBgmRuntimeConfig(music)).toMatchObject({shortcutEnabled:false,mappings:[mapping]});
+    const rpm=parseRpm(music,{allowedMagics:['DLXF']});expect(rpm.symbols.some(s=>s.nameHash===0x55872599&&(s.attributes&1))).toBe(true);
+    expect(new NARC(p.fileSystem!.additions![manifest.archivePath]).files[0][46]).toBe(1);
+    expect(getCGearQuickActionsStatus(p)).toMatchObject({compatible:true,updateAvailable:false});
+    expect(canRemoveStagedCodeInjectionDll(p,`patches/BgmToggle${v}.dll`)).toBe(false);
+    expect(()=>removeStagedCodeInjectionDll(p,`patches/BgmToggle${v}.dll`)).toThrow(/shared music runtime/);
+    disableCGearQuickActions(p);expect(p.fileSystem!.additions![`patches/BgmToggle${v}.dll`]).toEqual(music);
+  });
+  it('updates the previous runtime and persists an authored Pokéradar button through export',async()=>{
+    const p=makeProject(v);assets();await installCGearQuickActions(p);
+    const path=`patches/CGearQuickActions${v}.dll`;
+    p.fileSystem!.additions![path]=new Uint8Array(readFileSync(new URL(`./fixtures/cgear-quick-actions-v0.3.5/CGearQuickActions${v}.dll`,import.meta.url)));
+    expect(getCGearQuickActionsStatus(p)).toMatchObject({ installed:true,compatible:true,updateAvailable:true });
+    const d=ensureCGearButtons(p).document;d.buttons.push(newButton(d,"pokeradar"));
+    await installCGearQuickActions(p);
+    expect(getCGearQuickActionsStatus(p)).toMatchObject({ installed:true,compatible:true,updateAvailable:false });
+    const reopened=makeProject(v,await exportModifiedRom(p));
+    expect(reopened.cgearButtons).toBeUndefined(); // Recovery is lazy for this small fixture loader.
+    expect(getCGearQuickActionsStatus(reopened)).toMatchObject({ installed:true,compatible:true,updateAvailable:false });
+    expect(reopened.cgearButtons!.document).toEqual(d);
+  });
+
+  it('rejects incompatible native phenomenon code and overlapping hooks atomically',async()=>{
+    const p=makeProject(v);assets();await installCGearQuickActions(p);
+    const signature=manifest.games[v].signatures.find(s=>s.label==='QaPhenomenonInterval')!;
+    const rom=new NintendoDSRom(p.originalRomBytes!),overlay=rom.loadArm9Overlays([36]).get(36)!;
+    p.overlays[36]=overlay.data.slice();p.overlays[36]![signature.address-overlay.ramAddress]^=1;
+    const before=structuredClone(p.fileSystem);
+    expect(getCGearQuickActionsStatus(p).compatible).toBe(false);
+    await expect(installCGearQuickActions(p)).rejects.toThrow();expect(p.fileSystem).toEqual(before);
+    delete p.overlays[36];
+    const own=p.fileSystem!.additions![`patches/CGearQuickActions${v}.dll`],other=parseRpm(own,{allowedMagics:['DLXF']});
+    other.relocations=other.relocations.filter(r=>r.target.module==='36'&&r.target.address===signature.address);
+    stageCodeInjectionDll(p,'OtherPhenomenon.dll',writeRpm(other,{ident:'DLXF'}));
+    expect(getCGearQuickActionsStatus(p)).toMatchObject({compatible:false,message:expect.stringContaining('Conflicting')});
+  });
+  it.each([1,2,3,4] as const)('updates graphics version %s and restores native graphics on disable',async version=>{
     const p=makeProject(v);assets();await installCGearQuickActions(p);
     const arc=new NARC(p.fileSystem!.additions![manifest.archivePath]),backup=new NARC(arc.files[14]);
     const old=buttonGraphics(backup,undefined,true,true,version),metadata=JSON.parse(new TextDecoder().decode(arc.files[13]));
-    if(version===1)delete metadata.nativeGraphics.version;else metadata.nativeGraphics.version=version;
+    if(version<4){delete metadata.nativeGraphics.muteControl;arc.files[0][46]=0;}const h=arc.files[0];writeU32(h,28,fingerprint(new Uint8Array([...h.subarray(0,28),...h.subarray(32)])));if(version===1)delete metadata.nativeGraphics.version;else metadata.nativeGraphics.version=version;
     metadata.nativeGraphics.packedFingerprint=fingerprint(old.save());
     arc.files[13]=new TextEncoder().encode(JSON.stringify(metadata));p.fileSystem!.additions![manifest.archivePath]=arc.save();
     const rom=new NintendoDSRom(p.originalRomBytes!),id=rom.fileId('a/2/8/7'),native=new NARC(p.fileSystem!.replacements[id]);

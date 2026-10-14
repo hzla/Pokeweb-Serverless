@@ -1,0 +1,482 @@
+{
+  "version": "0.1.1-test",
+  "experimental": true,
+  "saveStepsPerTick": 8,
+  "previousVersions": [
+    {
+      "version": "0.1.0-test",
+      "games": {
+        "W2": {
+          "sha256": "040bdff0eb82a4dac7b10996b106ac1036f2c17d6d647d87fbf9c65343fff470"
+        },
+        "B2": {
+          "sha256": "2a04051610ea2a529e40ad3df8ba589c2e7b5cf65996f420ffc4b3c3fd07ffa4"
+        }
+      }
+    }
+  ],
+  "games": {
+    "W2": {
+      "idCode": "IRDO",
+      "fileName": "MapAutosaveW2.dll",
+      "sha256": "690757b8c19e8501d1bb10d822c55efc5ffb330d7b1f3881beba7fbeb6ac4465",
+      "signatures": [
+        {
+          "module": "ARM9",
+          "address": 33647344,
+          "expectedHex": "006a7047",
+          "patchSize": 0
+        },
+        {
+          "module": "12",
+          "address": 34945576,
+          "expectedHex": "08b504220123fff7d1ff08bd",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35127042,
+          "expectedHex": "d3f791fd",
+          "patchSize": 4
+        },
+        {
+          "module": "ARM9",
+          "address": 33650512,
+          "expectedHex": "70b5051cfff74efd041c2868211cf1f793fb2868211cf1f7d1fb281cfff70efe",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33650736,
+          "expectedHex": "fff78eff",
+          "patchSize": 4
+        },
+        {
+          "module": "ARM9",
+          "address": 33584236,
+          "expectedHex": "10b5041cfff7f6ff012806d1201cfff7f5ff012801d1012010bd0020",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33592736,
+          "expectedHex": "014b01221847c0465d950002f8b50f1c051c381cfff778ff",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33647232,
+          "expectedHex": "016142617047",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33647796,
+          "expectedHex": "f8b582b0051c019337200e1c171c00900b4b04201421012223f0acfa041c266067600020a0603b2000900199044b0420012223f09ffae0602561201c02b0f8bd",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33648348,
+          "expectedHex": "c0687047",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33649556,
+          "expectedHex": "6b218900",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33650732,
+          "expectedHex": "10b5041cfff78efffbf7d4f80720012180012154022025f01dfd2068eff7b0fd10bd0000",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33650768,
+          "expectedHex": "38b5051ceef732fa012801d1002038bd2868eff7affd041ca01e012808d8022025f01afdfbf7c0f80720002180012954201c38bd",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33650876,
+          "expectedHex": "07218901405c7047",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33650996,
+          "expectedHex": "00687047",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33651092,
+          "expectedHex": "0068014b",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33716984,
+          "expectedHex": "03488089002801d10120704700207047e417140210b5134c",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33791932,
+          "expectedHex": "08b50949084009490a89904202d30120c88107e00022ca81",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33850716,
+          "expectedHex": "38b5051c64200090081c6900064b0a3100220024f1f75afe044941600580044944800988018138bd10af0902ecd2f8b60caf0902",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33850768,
+          "expectedHex": "014b00214160184779a203020021418001490988018170470caf0902",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33850944,
+          "expectedHex": "30b4002242800e4c0a8823889a4210d0058842886d1eaa42",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35127162,
+          "expectedHex": "96f681fd",
+          "patchSize": 4
+        },
+        {
+          "module": "36",
+          "address": 35127276,
+          "expectedHex": "00f0a8fd",
+          "patchSize": 4
+        },
+        {
+          "module": "36",
+          "address": 35130176,
+          "expectedHex": "70b5051c00f02cf8012809d1281c00f049f8012804d1281c00f06cf8012070bda86896f66dfb061cdcf7aaf9002811d1094c0a48218808402080a86896f616fce835021c2988301cdcf78af92188e00a08432080002070bd04020004ff7fffff",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35133596,
+          "expectedHex": "f8b582b0051c0e1c95f624f9041cfef75bfe071c20f086fc281c311c01aa00abfff72efe061c20d00198002802d0381c20f072fc201cfef763fe33f063fc201cfef728fe009919f08bf9201cfef722fe19f094f9201cfff72dfd002801d06df009fc281c211c00f009fb301c02b0f8bd",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35133708,
+          "expectedHex": "f0b593b0051c0c1c95f604f9071caaf681fa061c03a8291c221c00f0f5f9002e16d190f6cbfb00280cd0a6f6dff8002805d0281c211c38f0ddfe13b0f0bd13b00020f0bd281c211cfcf7fefa13b0f0bd301ceff7c1fb01280ad1301ceff7c2fb002802d1",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35134056,
+          "expectedHex": "70b5051c00f018f8061c12d0281c95f63bf8041cfef78efd33f08efb201cfff763fc002801d06df03ffb281c211c00f03ffa301c70bd",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35134704,
+          "expectedHex": "38b50c1c051c201cfef73efc002804d1281c211cfff7cafd38bd281c211cfff7abfe38bd",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35159100,
+          "expectedHex": "30b583b00e24c48006ac25880095a4880194c4880294fff7adff03b030bd0000",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35159132,
+          "expectedHex": "10b5041c206802f021fd6068fff7fefe201cb2f603fb10bd",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35159180,
+          "expectedHex": "08b54068fff716ff08bd",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35159216,
+          "expectedHex": "4068014b1847c0464d7b1802",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35226588,
+          "expectedHex": "8068002801d101207047002070470000",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35235288,
+          "expectedHex": "10b5041c2068e5f7cbff002803d1a06802f026fa10bde06802f056fd10bd",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35235576,
+          "expectedHex": "4068014b1847c04619b01902",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35258884,
+          "expectedHex": "f8b5151c071c2804000c0e1c002478f635fc002805d12804000c78f63bfc002801d0012426e02804000c78f65dfc002801d004241ee0381c77f6d2f9002801d0052417e00c4f301c391c78f6c3ff002801d103240ee0301c791c78f6bbff002801d1022406e02804000c78f647fc002800d00624201cf8bd61090000",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35455112,
+          "expectedHex": "01000000020000000300000004000000050000000600000000000000010000000200000003000000040000000600000007000000000000000100000003000000040000000500000006000000070000000000000003000000040000000500000006000000070000000700000000000000010000000200000003000000040000000600000007000000000000000100000002000000030000000400000006000000070000000000000001000000020000000400000005000000060000000800000000000000",
+          "patchSize": 0
+        }
+      ],
+      "codeBytes": 1196,
+      "bssBytes": 20
+    },
+    "B2": {
+      "idCode": "IREO",
+      "fileName": "MapAutosaveB2.dll",
+      "sha256": "65afab7f52a67681ad10bfc6acdf74151ef53c722d29b69896a39c78899e42cb",
+      "signatures": [
+        {
+          "module": "ARM9",
+          "address": 33647344,
+          "expectedHex": "006a7047",
+          "patchSize": 0
+        },
+        {
+          "module": "12",
+          "address": 34945512,
+          "expectedHex": "08b504220123fff7d1ff08bd",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35126978,
+          "expectedHex": "d3f791fd",
+          "patchSize": 4
+        },
+        {
+          "module": "ARM9",
+          "address": 33650512,
+          "expectedHex": "70b5051cfff74efd041c2868211cf1f793fb2868211cf1f7d1fb281cfff70efe",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33650736,
+          "expectedHex": "fff78eff",
+          "patchSize": 4
+        },
+        {
+          "module": "ARM9",
+          "address": 33584236,
+          "expectedHex": "10b5041cfff7f6ff012806d1201cfff7f5ff012801d1012010bd0020",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33592736,
+          "expectedHex": "014b01221847c0465d950002f8b50f1c051c381cfff778ff",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33647232,
+          "expectedHex": "016142617047",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33647796,
+          "expectedHex": "f8b582b0051c019337200e1c171c00900b4b04201421012223f096fa041c266067600020a0603b2000900199044b0420012223f089fae0602561201c02b0f8bd",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33648348,
+          "expectedHex": "c0687047",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33649556,
+          "expectedHex": "6b218900",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33650732,
+          "expectedHex": "10b5041cfff78efffbf7d4f80720012180012154022025f007fd2068eff7b0fd10bd0000",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33650768,
+          "expectedHex": "38b5051ceef732fa012801d1002038bd2868eff7affd041ca01e012808d8022025f004fdfbf7c0f80720002180012954201c38bd",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33650876,
+          "expectedHex": "07218901405c7047",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33650996,
+          "expectedHex": "00687047",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33651092,
+          "expectedHex": "0068014b",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33716940,
+          "expectedHex": "03488089002801d10120704700207047a417140210b5134c",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33791888,
+          "expectedHex": "08b50949084009490a89904202d30120c88107e00022ca81",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33850672,
+          "expectedHex": "38b5051c64200090081c6900064b0a3100220024f1f75afe044941600580044944800988018138bdd0ae0902ecd2f8b6ccae0902",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33850724,
+          "expectedHex": "014b0021416018474da20302002141800149098801817047ccae0902",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33850900,
+          "expectedHex": "30b4002242800e4c0a8823889a4210d0058842886d1eaa42",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35127098,
+          "expectedHex": "96f6a1fd",
+          "patchSize": 4
+        },
+        {
+          "module": "36",
+          "address": 35127212,
+          "expectedHex": "00f0a8fd",
+          "patchSize": 4
+        },
+        {
+          "module": "36",
+          "address": 35130112,
+          "expectedHex": "70b5051c00f02cf8012809d1281c00f049f8012804d1281c00f06cf8012070bda86896f68dfb061cdcf7aaf9002811d1094c0a48218808402080a86896f636fce835021c2988301cdcf78af92188e00a08432080002070bd04020004ff7fffff",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35133532,
+          "expectedHex": "f8b582b0051c0e1c95f644f9041cfef75bfe071c20f086fc281c311c01aa00abfff72efe061c20d00198002802d0381c20f072fc201cfef763fe33f067fc201cfef728fe009919f08bf9201cfef722fe19f094f9201cfff72dfd002801d06df009fc281c211c00f009fb301c02b0f8bd",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35133644,
+          "expectedHex": "f0b593b0051c0c1c95f624f9071caaf68bfa061c03a8291c221c00f0f5f9002e16d190f6ebfb00280cd0a6f6e9f8002805d0281c211c38f0e1fe13b0f0bd13b00020f0bd281c211cfcf7fefa13b0f0bd301ceff7c1fb01280ad1301ceff7c2fb002802d1",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35133992,
+          "expectedHex": "70b5051c00f018f8061c12d0281c95f65bf8041cfef78efd33f092fb201cfff763fc002801d06df03ffb281c211c00f03ffa301c70bd",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35134640,
+          "expectedHex": "38b50c1c051c201cfef73efc002804d1281c211cfff7cafd38bd281c211cfff7abfe38bd",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35159036,
+          "expectedHex": "30b583b00e24c48006ac25880095a4880194c4880294fff7adff03b030bd0000",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35159068,
+          "expectedHex": "10b5041c206802f021fd6068fff7fefe201cb2f60dfb10bd",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35159116,
+          "expectedHex": "08b54068fff716ff08bd",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35159152,
+          "expectedHex": "4068014b1847c0460d7b1802",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35226524,
+          "expectedHex": "8068002801d101207047002070470000",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35235224,
+          "expectedHex": "10b5041c2068e5f7cbff002803d1a06802f026fa10bde06802f056fd10bd",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35235512,
+          "expectedHex": "4068014b1847c046d9af1902",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35258820,
+          "expectedHex": "f8b5151c071c2804000c0e1c002478f63ffc002805d12804000c78f645fc002801d0012426e02804000c78f667fc002801d004241ee0381c77f6f2f9002801d0052417e00c4f301c391c78f6cdff002801d103240ee0301c791c78f6c5ff002801d1022406e02804000c78f651fc002800d00624201cf8bd61090000",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35455060,
+          "expectedHex": "01000000020000000300000004000000050000000600000000000000010000000200000003000000040000000600000007000000000000000100000003000000040000000500000006000000070000000000000003000000040000000500000006000000070000000700000000000000010000000200000003000000040000000600000007000000000000000100000002000000030000000400000006000000070000000000000001000000020000000400000005000000060000000800000000000000",
+          "patchSize": 0
+        }
+      ],
+      "codeBytes": 1296,
+      "bssBytes": 20
+    }
+  }
+}

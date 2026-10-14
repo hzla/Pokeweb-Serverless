@@ -430,15 +430,15 @@
 
 .encounter-roll-grass-percent {
   align-items: center;
-  background: rgba(80, 250, 123, 0.055);
-  border: 1px solid rgba(80, 250, 123, 0.2);
-  border-radius: 5px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   color: #cfd0da;
   display: flex;
   font-size: 11px;
   justify-content: space-between;
   min-height: 34px;
-  padding: 0 10px;
+  padding: 0;
 }
 
 .encounter-roll-grass-percent strong {
@@ -460,44 +460,39 @@
 
 .encounter-roll-evolution-item {
   align-items: center;
-  background: rgba(31, 32, 41, 0.72);
-  border: 1px solid #55586d;
-  border-radius: 999px;
-  color: #bfc1cc;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: #d6d7e2;
   cursor: pointer;
   display: inline-flex;
-  font-size: 11px;
+  font-size: 12px;
   gap: 5px;
   min-height: 28px;
-  padding: 2px 9px 2px 6px;
+  padding: 4px 6px;
 }
 
 .encounter-roll-evolution-item:hover,
 .encounter-roll-evolution-item:focus-within {
-  border-color: #bd93f9;
+  background: #383a59;
 }
 
 .encounter-roll-evolution-item:has(input:checked) {
-  background: rgba(80, 250, 123, 0.14);
-  border-color: #50fa7b;
-  box-shadow: 0 0 0 1px rgba(80, 250, 123, 0.18);
-  color: #effff3;
+  background: transparent;
+  color: #f2f2f2;
 }
 
 .encounter-roll-evolution-item.-all {
-  border-color: rgba(189, 147, 249, 0.75);
-  color: #eadcff;
-  font-weight: 750;
+  color: #f2f2f2;
+  font-weight: 500;
 }
 
 .encounter-roll-evolution-item.-all:has(input:checked) {
-  background: rgba(189, 147, 249, 0.2);
-  border-color: #bd93f9;
-  box-shadow: 0 0 0 1px rgba(189, 147, 249, 0.22);
+  background: transparent;
 }
 
 .encounter-roll-evolution-item input {
-  accent-color: #50fa7b;
+  accent-color: #bd93f9;
   margin: 0;
 }
 
@@ -830,9 +825,10 @@
 
 .trainer-rom-sprite-link:hover,
 .trainer-rom-sprite-link:focus-visible {
-  background: rgb(26 188 156 / 10%);
-  border-color: #1abc9c;
-  outline: none;
+  background: #383a59;
+  border-color: #bd93f9;
+  outline: 2px solid #bd93f9;
+  outline-offset: 2px;
 }
 
 .trainer-class {
@@ -1760,9 +1756,10 @@ button.field-btn:disabled {
 
 .facility-setids .facility-set-sprite:hover,
 .facility-setids .facility-set-sprite:focus-visible {
-  background: rgba(26, 188, 156, 0.14);
-  border-color: #1abc9c;
-  outline: none;
+  background: #383a59;
+  border-color: #bd93f9;
+  outline: 2px solid #bd93f9;
+  outline-offset: 2px;
 }
 
 .facility-setids .facility-set-sprite.-missing {

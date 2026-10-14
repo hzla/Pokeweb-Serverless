@@ -20,7 +20,7 @@ VARIANT=os.environ.get('FOLLOWING_VARIANT','full')
 if VARIANT not in ('base','full'):raise ValueError('FOLLOWING_VARIANT must be base or full')
 BUILD=ROOT_BUILD/'base' if VARIANT=='base' else ROOT_BUILD
 os.environ['FOLLOWING_BUILD_DIR']=str(BUILD)
-VERSION='0.7.44-alpha' if UPGRADE else '0.6.49-alpha' if ITALY else '0.6.91-alpha' if PROFILE=='stock' else '0.6.48-alpha'
+VERSION='0.7.44-alpha' if UPGRADE else '0.6.49-alpha' if ITALY else '0.6.93-alpha' if PROFILE=='stock' else '0.6.48-alpha'
 SUFFIX=('B2' if BLACK2 else 'W2I' if ITALY else 'W2')+('Base' if VARIANT=='base' else '')
 CONTRACT=HERE/('black2-contract.json' if BLACK2 else 'italy-contract.json' if ITALY else 'contract.json')
 os.environ['FOLLOWING_MODULE_SUFFIX']=SUFFIX
@@ -39,6 +39,8 @@ def build(rom, publish=False):
         subprocess.run([os.environ.get('PYTHON','python3'),str(HERE/'build.py'),str(rom)],env=env,check=True)
     if publish and int(os.environ.get('FOLLOWING_TEST_CYCLES','100'))<100:
         raise ValueError('Publishing requires at least 100 conversation/scene test cycles')
+    if publish and os.environ.get('FOLLOWING_AUDIO_EXPECT_RECALL')=='1':
+        raise ValueError('Publishing cannot use the old audio-recall regression expectation')
     BUILD.mkdir(parents=True,exist_ok=True)
     if UPGRADE:
         import hashlib
@@ -189,6 +191,7 @@ def build(rom, publish=False):
     run(os.environ.get('PYTHON','python3'),HERE/'verify_anchor.py')
     # Stock full runs these through continuity; base needs its own reach gate.
     if UPGRADE or (PROFILE=='stock' and VARIANT=='base'): run(os.environ.get('PYTHON','python3'),HERE/'verify_interactions.py')
+    if PROFILE=='stock' and VARIANT=='base': run(os.environ.get('PYTHON','python3'),HERE/'verify_scenes.py',rom)
     if VARIANT=='full' and ITALY: run(os.environ.get('PYTHON','python3'),HERE/'verify_profile_runtime.py','white2italy',rom)
     elif VARIANT=='full' and BLACK2: run(os.environ.get('PYTHON','python3'),HERE/'verify_profile_runtime.py','black2',rom)
     elif VARIANT=='full' and not BLACK2 and not ITALY and not UPGRADE: run(os.environ.get('PYTHON','python3'),HERE/'verify_continuity.py',rom)
@@ -262,7 +265,7 @@ def build(rom, publish=False):
             previous_versions=dedupe_versions([{**old_current,**old_runtime['variants']['base'],'variant':'base'}]+previous_versions)
         full_fingerprint={'fieldSha256':hashlib.sha256(field_dll.read_bytes()).hexdigest(),'eventsSha256':hashlib.sha256(events_dll.read_bytes()).hexdigest(),'eventsAbi':6}
         base_fingerprint={'fieldSha256':hashlib.sha256(base_field.read_bytes()).hexdigest(),'eventsSha256':hashlib.sha256(base_events.read_bytes()).hexdigest(),'eventsAbi':4}
-        (assets/'runtime.json').write_text(json.dumps({'version':VERSION,'dialogueAnimations':True,**full_fingerprint,'variants':{'base':base_fingerprint,'full':full_fingerprint},'coreSha256':hashlib.sha256(output.read_bytes()).hexdigest(),'coreAbi':3,'battleModuleSha256':hashlib.sha256(battle_dll.read_bytes()).hexdigest(),'optionsModuleSha256':hashlib.sha256(options_dll.read_bytes()).hexdigest(),'previousVersions':previous_versions},indent=2)+'\n')
+        (assets/'runtime.json').write_text(json.dumps({'version':VERSION,'dialogueAnimations':True,'tileBounds':True,**full_fingerprint,'variants':{'base':base_fingerprint,'full':full_fingerprint},'coreSha256':hashlib.sha256(output.read_bytes()).hexdigest(),'coreAbi':3,'battleModuleSha256':hashlib.sha256(battle_dll.read_bytes()).hexdigest(),'optionsModuleSha256':hashlib.sha256(options_dll.read_bytes()).hexdigest(),'previousVersions':previous_versions},indent=2)+'\n')
     if publish and UPGRADE:
         manifest=json.loads((assets/'runtime.json').read_text())
         manifest['previousVersions']=dedupe_versions(([old_current] if old_current else [])+(old_runtime.get('previousVersions',[]) if old_runtime else [])+[json.loads((HERE/'upgrade-0.7.6-receipt.json').read_text()),json.loads((HERE/'upgrade-0.7.5-receipt.json').read_text()),json.loads((HERE/'upgrade-0.7.4-receipt.json').read_text()),json.loads((HERE/'upgrade-0.7.3-receipt.json').read_text()),json.loads((HERE/'upgrade-0.7.2-receipt.json').read_text()),json.loads((HERE/'upgrade-0.7.1-receipt.json').read_text())])

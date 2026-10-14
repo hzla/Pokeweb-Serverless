@@ -22,7 +22,6 @@
 
 .music-editor-sidebar h1 {
   font-size: 24px;
-  margin-top: 4px;
 }
 
 .music-editor-sidebar p {
@@ -32,22 +31,13 @@
   margin-top: 8px;
 }
 
-.music-editor-kicker {
-  color: #69d6bd;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .music-editor-sidebar__summary {
-  background: #383a59;
-  border: 1px solid #44475a;
-  border-radius: 8px;
+  border: 0;
   display: grid;
   gap: 6px;
   margin-top: 24px;
-  padding: 14px;
+  padding: 14px 0 0;
+  border-top: 1px solid #44475a;
 }
 
 .music-editor-sidebar__summary span,
@@ -57,8 +47,9 @@
 }
 
 .music-editor-sidebar__summary strong {
-  color: #69d6bd;
+  color: #f2f2f2;
   overflow-wrap: anywhere;
+  font-weight: 500;
 }
 
 .music-editor-main {
@@ -66,9 +57,7 @@
   display: grid;
   gap: 18px;
   grid-template-areas:
-    "editor"
-    "native"
-    "installed"
+    "workspace"
     "reference";
   grid-template-columns: minmax(0, 1fr);
   min-width: 0;
@@ -80,9 +69,58 @@
   max-width: 900px;
 }
 
-.music-editor-primary-panel { grid-area: editor; }
-.music-editor-native-panel { grid-area: native; }
-.music-editor-installed-panel { grid-area: installed; }
+.music-editor-workspace {
+  grid-area: workspace;
+  max-width: 900px;
+  min-width: 0;
+}
+
+.music-editor-tabs {
+  border-bottom: 1px solid #44475a;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-top: 2px;
+}
+
+.music-editor-tab {
+  background: transparent;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  color: #d6d7e2;
+  cursor: pointer;
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 14px;
+  white-space: nowrap;
+}
+
+.music-editor-tab:hover {
+  color: #bd93f9;
+}
+.music-editor-tab.-active {
+  background: transparent;
+  border-color: #bd93f9;
+  color: #f2f2f2;
+  margin-bottom: 0;
+}
+.music-editor-tab:focus-visible {
+  outline: 2px solid #bd93f9;
+  outline-offset: -2px;
+}
+
+.music-editor-tab-panel {
+  align-content: start;
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+  padding-top: 18px;
+}
+.music-editor-tab-panel[hidden] { display: none; }
+
 .music-reference-panel { grid-area: reference; }
 
 .streamed-bgm-controls {
@@ -335,13 +373,12 @@
   .music-editor-main {
     align-items: start;
     grid-template-areas:
-      "editor reference"
-      "native reference"
-      "installed reference";
+      "workspace reference";
     grid-template-columns: minmax(400px, 0.8fr) minmax(600px, 1.2fr);
   }
 
-  .music-editor-panel {
+  .music-editor-panel,
+  .music-editor-workspace {
     max-width: none;
   }
 

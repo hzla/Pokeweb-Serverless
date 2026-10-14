@@ -23,7 +23,8 @@ if(actionId&&!selectedAction)throw new Error("Unknown action");
 const input=process.argv[2];if(!input) throw new Error("Pass clean B2/W2 ROM.");
 const scenarioArg=process.argv.indexOf('--scenario');
 const scenario=scenarioArg<0?'default':process.argv[scenarioArg+1];
-const out=new URL(`./build/emulator-${input.toLowerCase().includes("black")?"B2":"W2"}-${scenario}${actionId?`-${actionId}`:""}${process.argv.includes("--power-on")?"-on":"-off"}${process.argv.includes("--eight")?"-eight":""}/`,import.meta.url);await mkdir(out,{recursive:true});
+const radarSuffix=['--radar-zone','--radar-x','--radar-z'].map(name=>{const i=process.argv.indexOf(name);return i<0?'':`-${name.slice(8)}${Number(process.argv[i+1])}`;}).join('');
+const out=new URL(`./build/emulator-${input.toLowerCase().includes("black")?"B2":"W2"}-${scenario}${actionId?`-${actionId}`:""}${process.argv.includes("--power-on")?"-on":"-off"}${process.argv.includes("--eight")?"-eight":""}${radarSuffix}/`,import.meta.url);await mkdir(out,{recursive:true});
 globalThis.fetch=(async(v:RequestInfo|URL)=>new Response(new Uint8Array(await readFile(v instanceof URL?v:new URL(v instanceof Request?v.url:String(v)))))) as typeof fetch;
 const project=await loadProjectFromRomBytes(new Uint8Array(await readFile(input)),"quick-actions.nds",{selectedNarcs:[]});
 const design=ensureCGearButtons(project).document;
@@ -41,9 +42,26 @@ const fixtureArg=process.argv.indexOf('--fixture-copy');
 const saveBytes=fixtureArg<0?patchTestBattleSavePlayerFirstMove(patchTestBattleSaveBadges(downloads.saveBytes,getTestBattleConfigForProject(project)),project,process.argv.includes('--no-fly')?0:19):new Uint8Array(await readFile(process.argv[fixtureArg+1]));
 function crc(b:Uint8Array) {let c=0xffff;for(const v of b) {c^=v<<8;for(let n=0;n<8;n++) c=c&0x8000?(c<<1)^0x1021:c<<1;c&=0xffff;}return c;}
 const fixture=Buffer.from(saveBytes.buffer,saveBytes.byteOffset,saveBytes.length);
+const radarZoneArg=process.argv.indexOf('--radar-zone');
+const radarZone=radarZoneArg<0?undefined:Number(process.argv[radarZoneArg+1]);
+const radarHeaders=radarZone===undefined?undefined:new NARC(compiledRom.files[compiledRom.fileId('a/0/1/2')]).files[0];
+const numericOption=(name:string,fallback:number)=>{const i=process.argv.indexOf(name);return i<0?fallback:Number(process.argv[i+1]);};
 // Enable obtained status only in the isolated fixture. The original bundled
 // fixture and every user's save stay untouched. Fix native block checksums.
 for(const half of [0,0x26000]) {
+  if(radarZone!==undefined){
+    if(!Number.isInteger(radarZone)||radarZone<0||!radarHeaders||radarZone*48+48>radarHeaders.length)throw new Error('Invalid radar fixture zone');
+    const header=Buffer.from(radarHeaders),row=radarZone*48;
+    const x=numericOption('--radar-x',header.readInt32LE(row+36)),y=header.readInt32LE(row+40),z=numericOption('--radar-z',header.readInt32LE(row+44));
+    fixture.writeUInt32LE(radarZone,half+0x19580);fixture.fill(0,half+0x19584,half+0x19590);
+    fixture.writeUInt16LE(x,half+0x19586);fixture.writeUInt16LE(y,half+0x1958a);fixture.writeUInt16LE(z,half+0x1958e);
+    // Continue uses the start LOCATION to load its matrix, then PLAYERWORK_SAVE
+    // for the avatar. Keep both records in the same zone and tile.
+    const start=half+0x19500;fixture.fill(0,start,start+28);fixture.writeUInt32LE(1,start);
+    fixture.writeUInt16LE(radarZone,start+4);fixture.writeInt16LE(-1,start+6);fixture.writeInt16LE(2,start+8);
+    for(const [at,value]of [[start+16,(x+.5)*65536],[start+20,y*65536],[start+24,(z+.5)*65536],[half+0x19584,(x+.5)*65536],[half+0x19588,y*65536],[half+0x1958c,(z+.5)*65536]])fixture.writeUInt32LE(value,at);
+    const positionCrc=crc(fixture.subarray(half+0x19500,half+0x195a8));fixture.writeUInt16LE(positionCrc,half+0x195aa);fixture.writeUInt16LE(positionCrc,half+0x25f38);
+  }
   for(const id of [442,...process.argv.includes('--bicycle')?[450]:[],...process.argv.includes('--eight')?[471,447,627,465]:[],...selectedAction?.item?[selectedAction.item]:[]]) {
     let slot=-1;
     for(let n=0;n<83;n++) {const at=half+0x18400+310*4+n*4,current=fixture.readUInt16LE(at);if(current===id){slot=at;break;}if(current===0 && slot<0)slot=at;}
@@ -88,8 +106,10 @@ const extras:Record<string,Input[]>={
   travel:[{frame:1000,touch:[172,152]},{frame:1200,buttons:128},{frame:1280,buttons:128},{frame:1400,buttons:128},{frame:1700,buttons:128},{frame:1820,buttons:128}],
   map:[{frame:1000,touch:[172,152]},{frame:1400,buttons:64}],
   bike:[{frame:1000,touch:[88,152]},{frame:1250,touch:[88,152]}],
+  mute:[{frame:1000,touch:[215,163],duration:35},{frame:1350,touch:[172,152]},{frame:1700,buttons:64},{frame:1900,buttons:64},{frame:2200,touch:[215,163]}],
   save:[{frame:850,touch:[60,116]},{frame:1000,buttons:512},{frame:1250,touch:[64,140]},{frame:1370,buttons:128},{frame:1490,buttons:128},{frame:1610,buttons:128},{frame:1800,buttons:128},{frame:1900,buttons:128}],
   action:[{frame:1000,touch:[60,116]},...Array.from({length:7},(_,i)=>({frame:1250+i*150,buttons:64}))],
+  radar:[{frame:1000,touch:[60,116],duration:30},{frame:1150,touch:[60,116]}],
   skins:Array.from({length:18},(_,i)=>({frame:1000+i*80,touch:[208,18] as [number,number],duration:i===0?35:4})),
   skinFeedback:[{frame:1000,touch:[208,18],duration:35},{frame:1100,touch:[208,18]},{frame:1200,touch:[60,116]}],
   layout:[{frame:1000,touch:[228,144]},{frame:1040,touch:[160,88]},{frame:1044,touch:[224,112],duration:28},{frame:1150,buttons:3072,duration:60},{frame:1300,touch:[60,116]},{frame:1304,touch:[80,128],duration:24},{frame:1450,touch:[228,144]}],
@@ -108,6 +128,13 @@ if(!(scenario in extras))throw new Error('Unknown emulator scenario');
 const inputOffset=process.argv.includes("--power-on")?0:300;
 const frameCount=Number(process.env.QUICK_ACTIONS_FRAMES ?? 2600)+inputOffset;
 let lastSession=-1;let bikeMounted=false,bikeDismounted=false;
+let radarSpawn:unknown;
+function phenomenon(m:Buffer){
+  const s=locateSession(m);if(s<0)throw new Error('Radar lost the C-Gear session');
+  const sub=m.readUInt32LE(s+4)-0x2000000,field=m.readUInt32LE(sub+20)-0x2000000,game=m.readUInt32LE(field+8)-0x2000000;
+  const state=m.readUInt32LE(game+0x220)-0x2000000,enc=m.readUInt32LE(field+0x98)-0x2000000,effect=m.readUInt32LE(enc+16)-0x2000000;
+  return {valid:!!(m[state+0x25]&15),zone:m.readUInt16LE(state+0x18),x:m.readInt16LE(state+0x1a),y:m.readInt16LE(state+0x1c),z:m.readInt16LE(state+0x1e),type:m[state+0x24],task:m.readUInt32LE(effect+0x5b4)};
+}
 for(let frame=0;frame<frameCount;frame++) {
   const activeFrame=frame-inputOffset;
   // Quick-launch boots native wireless on. Use its original power event solely
@@ -118,7 +145,21 @@ for(let frame=0;frame<frameCount;frame++) {
   const touch=extra?.touch ?? (scenario!=='default'?null:frame>=850&&frame<854 ? [60,116] : frame>=910&&frame<914 ? [60,116] : frame>=970&&frame<974 ? [228,144] : frame>=1020&&frame<1024 ? [60,116] : frame>=1024&&frame<1040 ? [70,120] : frame>=1080&&frame<1084 ? [228,144] : frame>=1120&&frame<1124 ? [196,176] : frame>=1400&&frame<1404 ? [205,62] : frame>=1500&&frame<1504 ? [228,144] : frame>=1560&&frame<1564 ? [228,144] : frame>=1650&&frame<1654 ? [196,116] : frame>=2250&&frame<2254 ? [172,152] : null);
   const buttons=extra?.buttons ?? (scenario!=='default'?0:frame>=1220&&frame<1224||frame>=1400&&frame<1404?128:frame>=2020&&frame<2024||frame>=2080&&frame<2084||frame>=2140&&frame<2144||frame>=2450&&frame<2454?64:0);
   core._runFrame(1,buttons,touch?1:0,touch?.[0]??0,touch?.[1]??0);
+  if(scenario==='mute'&&[999,1040,1100,1300,2100,2240].includes(activeFrame)){
+    const m=ram(),s=locateSession(m);if(s<0||!m[s+160])throw new Error('Mute lost C-Gear');
+    const expected=activeFrame>=1000&&activeFrame<2200?1:0;
+    if(m[s+1404]!==1||m[s+1405]!==expected)throw new Error(`Mute state ${m[s+1405]} at ${activeFrame}; expected ${expected}`);
+    const sub=m.readUInt32LE(s+4)-0x02000000,work=m.readUInt32LE(sub+32)-0x02000000,actor=m.readUInt32LE(work+0x8c)-0x02000000;
+    if(m.readUInt16LE(actor+0x5a)!==(expected?9:8)||!(m.readUInt32LE(actor+0x60)&0x02000000))throw new Error(`Music icon did not hold its ${expected?'muted':'audible'} animation`);
+    console.log('mute',activeFrame,m[s+1405]);
+  }
   if(fatal.length)throw new Error(`Frame ${frame}: ${fatal.join('; ')}`);
+  if(scenario==='radar'&&[999,1004,1040,1200].includes(activeFrame)){
+    const info=phenomenon(ram());console.log('phenomenon',activeFrame,JSON.stringify(info));
+    if(activeFrame===999&&info.valid)throw new Error('Radar fixture already has a phenomenon before pressing');
+    if(activeFrame===1004){if(!info.valid)throw new Error('Radar did not generate an immediate phenomenon');radarSpawn=info;}
+    if(activeFrame>1004&&JSON.stringify(info)!==JSON.stringify(radarSpawn))throw new Error('Held/repeated Radar changed the existing phenomenon');
+  }
   if(scenario==='layout' && [1080,1215,1340].includes(activeFrame)) {
     const m=ram(),s=locateSession(m);if(s<0)throw new Error('Layout lost native session');
     const i=activeFrame===1340?0:7,expected=activeFrame===1080?[225,113]:activeFrame===1215?[160,88]:[81,129];
@@ -148,7 +189,7 @@ for(let frame=0;frame<frameCount;frame++) {
     if(activeFrame>1000 && activeFrame<1250 && riding===1)bikeMounted=true;
     if(activeFrame>1250 && riding===0)bikeDismounted=true;
   }
-  if(frame%120===0||frame===frameCount-1||[849,854,914,974,1041,1085,1150,1250,1399,1520,1580,1800,2240,2350,2599,3950].includes(frame)||scenario==='pcDirect'&&[1100,1400,1700,2250,3800].includes(activeFrame)||scenario==='skinFeedback'&&[999,1004,1016,1040,1104,1140,1240].includes(activeFrame)) {
+  if(frame%120===0||frame===frameCount-1||[849,854,914,974,1041,1085,1150,1250,1399,1520,1580,1800,2240,2350,2599,3950].includes(frame)||scenario==='pcDirect'&&[1100,1400,1700,2250,3800].includes(activeFrame)||scenario==='skinFeedback'&&[999,1004,1016,1040,1104,1140,1240].includes(activeFrame)||scenario==='mute'&&[999,1041,1085,2240].includes(activeFrame)) {
     const png=new PNG({width:256,height:384}),fb=core._getSymbol(4)>>>0;png.data=Buffer.from(core.HEAPU8.subarray(fb,fb+256*384*4));
     await writeFile(new URL(`frame-${frame}.png`,out),PNG.sync.write(png));
     const m=ram();let cgear=-1;
@@ -157,7 +198,7 @@ for(let frame=0;frame<frameCount;frame++) {
     const session=locateSession(m);
     const row={frame,error:session>=0?m[session+735]:null,buttonCount:session>=0?m[session+733]:null,visible:session>=0?m[session+160]:null,cgear,power:cgear>=0?m[cgear+0x30b]:null,edit:cgear>=0?m[cgear+0x2fe]:null,design:cgear>=0?m[cgear+0x300]:null,riding:game>=0&&game<0x400000-0x158?m.readUInt32LE(game+0x154):null,repelActive:session>=0&&(m[session+136]>>4)===1};trace.push(row);console.log(JSON.stringify(row));
     if(scenario==='pc' && [1150,3950].includes(frame) && (session<0 || !m[session+160]))throw new Error('PC dialog hid custom buttons');
-    if(['idle','pc','pcDirect','map','travel','bike','gates','action','skins','skinFeedback','saveIcon','party'].includes(scenario) && frame===frameCount-1) {
+    if(['idle','pc','pcDirect','map','travel','bike','gates','action','radar','skins','skinFeedback','saveIcon','party','mute'].includes(scenario) && frame===frameCount-1) {
       if(cgear<0 || session<0 || !m[session+160])throw new Error('Custom buttons did not return with C-Gear');
       if(Boolean(row.power)!==process.argv.includes('--power-on'))throw new Error('C-Gear power state does not match this test');
       if(scenario==='skins' && m.readUInt16LE(session+1380)!==2)throw new Error('Selected skin did not survive PC and MAP return');

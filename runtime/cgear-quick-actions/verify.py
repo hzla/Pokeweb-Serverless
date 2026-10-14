@@ -2,13 +2,13 @@
 
 This is a CPU/ownership harness, not evidence of DS graphics or travel behavior.
 """
-import json,struct,subprocess
+import json,struct,subprocess,re
 from pathlib import Path
 import ndspy.rom,ndspy.codeCompression,ndspy.narc
 from elftools.elf.elffile import ELFFile
 from unicorn import Uc,UC_ARCH_ARM,UC_MODE_THUMB,UC_HOOK_CODE
 from unicorn.arm_const import *
-from build import HERE,WS,BUILD,TOOLS,APIS,NATIVE
+from build import HERE,WS,BUILD,TOOLS,APIS,NATIVE,CALLS
 REGS=[UC_ARM_REG_R0,UC_ARM_REG_R1,UC_ARM_REG_R2,UC_ARM_REG_R3]
 SAVED=[UC_ARM_REG_R4,UC_ARM_REG_R5,UC_ARM_REG_R6,UC_ARM_REG_R7,UC_ARM_REG_R8,UC_ARM_REG_R9,UC_ARM_REG_R10,UC_ARM_REG_R11]
 STOP=0x023f8000;STACK=0x023f0000;SUB=0x02280000;FIELD=SUB+0x100;SYSTEM=SUB+0x200;GAME=SUB+0x300;CONFIG=SUB+0x400;CGEAR=SUB+0x500;PARTY=SUB+0x600;WORK=SUB+0x1000;CLSYS=SUB+0x2000
@@ -20,12 +20,20 @@ class Harness:
     self.uc.mem_write(rom.arm9RamAddress,bytes(ndspy.codeCompression.decompress(rom.arm9)))
     for o in rom.loadArm9Overlays(NATIVE.keys()).values():self.uc.mem_write(o.ramAddress,bytes(o.data))
     elf=BUILD/f'{game}-harness.elf'
-    subprocess.run([str(TOOLS/'arm-none-eabi-g++'),'-nostdlib','-Wl,-Ttext=0x02300020,-Tbss=0x02320000,-eQaCGearInit',str(BUILD/f'CGearQuickActions{game}.o'),'-o',str(elf)],check=True)
+    bgm=HERE.parent/'bgm-toggle'
+    definitions=[f'-Wl,--defsym={name}={address}' for name,address in re.findall(r'Name: (\S+)\s+Segment: 0\s+Address: (0x\w+)',(bgm/f'symbols_{game.lower()}.yml').read_text())]
+    subprocess.run([str(TOOLS/'arm-none-eabi-g++'),'-nostdlib','-Wl,-Ttext=0x02300020,-Tbss=0x02320000,-eQaCGearInit',str(BUILD/f'CGearQuickActions{game}.o'),str(bgm/'build/BgmToggle.elf'),*definitions,'-o',str(elf)],check=True)
     with elf.open('rb') as f:
       e=ELFFile(f)
       for p in e.iter_segments():
         if p['p_type']=='PT_LOAD':self.uc.mem_write(p['p_vaddr'],p.data()+bytes(p['p_memsz']-p['p_filesz']))
       self.symbols={s.name:s['st_value'] for s in e.get_section_by_name('.symtab').iter_symbols()}
+    # Execute the retail generator through the same two call-site adapters as
+    # the shipped DLL, rather than replacing the generator with a test stub.
+    for label,module,address,target,prep in CALLS:
+      if not label.startswith('QaPhenomenon'):continue
+      site=address-self.delta;offset=(self.symbols[label]&~1)-site-4
+      self.uc.mem_write(site,struct.pack('<HH',0xf000|((offset>>12)&2047),0xf800|((offset>>1)&2047)))
     self.functions={};self.calls=[];self.heap=0x02200000;self.allocations={};self.fail=0;self.attempts=0
     self.touch=None;self.trigger=False;self.event=0;self.busy=False;self.allowed=True;self.bikeOwned=True;self.mapOwned=True;self.flyAllowed=True;self.eggs=set();self.moves={0:[19]};self.sounds=[];self.chars=set();self.actorSet=set();self.inVblank=False;self.uploads=[];self.vblank=0
     self.write(SUB,struct.pack('<IIIHHIIIIII',0,0,0,45,0,0,FIELD,0,0,WORK,0));self.put(FIELD+4,SYSTEM);self.put(FIELD+8,GAME)
@@ -67,7 +75,7 @@ class Harness:
     self.spriteCapacity=4480 # Verified retail repack with feedback leaves this many Sub OBJ bytes.
     self.actorVisibility={}
     add(0x204c01c,lambda a:0);add(0x204c044,lambda a:0);add(0x204c54c,lambda a:0);add(0x204c150,lambda a:self.actorVisibility.update({a[0]:bool(a[1])}));add(0x204c16c,lambda a:0)
-    self.selectorFrames=[];self.put(WORK+0x80,SUB+0xa0a0)
+    self.musicSequences=[];add(0x204c4e4,lambda a:self.musicSequences.append(a[:2]));self.selectorFrames=[];self.put(WORK+0x80,SUB+0xa0a0)
     add(0x204c530,lambda a:self.selectorFrames.append(a[:2]))
     add(0x21ec808,self.workEnd)
     add(0x20056fc,self.task);add(0x203a6d4,lambda a:self.free(a[0]));add(0x204ba6c,self.upload);add(0x204bd3c,self.paletteUpload)
@@ -76,6 +84,9 @@ class Harness:
     add(0x2045080,lambda a:self.write(0x06207800,self.uc.mem_read(a[1],a[2])));add(0x2045698,lambda a:0);add(0x2044fbc,lambda a:0)
     self.networkPositions=[];add(0x2042f58,lambda a:self.networkPositions.append(a[:2]))
     self.nativeTouch=7;self.saveDone=False;self.saveResult=2;self.saveSteps=[];self.subReady=True
+    self.bgmVolumes=[]
+    add(0x2005f94,lambda a:self.bgmVolumes.append(a[:2]))
+    add(0x2005c18,lambda a:0)
     add(0x21804d0,lambda a:FIELD+0x400);add(0x21984ac,self.subChange);add(0x21983dc,lambda a:int(self.subReady));add(0x2163b78,self.saveMain)
     self.fadeObjBytes=None
     add(0x2026e90,self.fadePaletteSet);add(0x21eb730,lambda a:0)
@@ -83,6 +94,25 @@ class Harness:
     add(0x2006254,lambda a:self.sounds.append(a[0]));add(0x21536ac,self.scriptCreate);add(0x215f024,lambda a:0x022f2000)
     add(0x2016cb4,self.eventCreate);add(0x215b4c8,self.mapCreate);add(0x2016d68,lambda a:self.children.append((a[0],a[1])))
     add(0x2180500,lambda a:45);add(0x2159460,self.flyCreate);add(0x2017994,lambda a:GAME+0x800);add(0x20095a0,lambda a:self.record.append(a[1]))
+    self.encounter=SUB+0x9000;self.encounterState=SUB+0x9100;self.encounterData=SUB+0x9200;self.effect=SUB+0x9300
+    self.write(self.encounter,struct.pack('<IIIII',FIELD,SYSTEM,GAME,self.encounterData,self.effect))
+    self.write(self.effect+0x5b8,struct.pack('<HH',50,10))
+    self.radarAllowed=True;self.radarBadge=True;self.radarGrid=True;self.radarTiles=True;self.radarSelections=0;self.radarAttempts=0;self.radarFlags=[]
+    add(0x2180564,lambda a:self.encounter);add(0x2180578,lambda a:0 if self.radarGrid else 1)
+    add(0x20174a4,lambda a:self.encounterState);add(0x2017974,lambda a:GAME)
+    add(0x200c97c,lambda a:int(self.radarBadge));add(0x21a16e8,lambda a:int(self.radarAllowed))
+    add(0x201739c,lambda a:GAME);add(0x2180518,lambda a:45);add(0x2180530,lambda a:FIELD)
+    add(0x219a6e0,lambda a:FIELD);add(0x2167338,lambda a:self.write(a[1],bytes(12)))
+    add(0x2154b84,lambda a:1);add(0x2154b30,lambda a:45)
+    add(0x201385c,lambda a:a[0]);add(0x2013878,lambda a:a[0]);add(0x2005784,lambda a:999)
+    def radarSearch(a):
+      assert a[:2]==[self.encounter,self.effect]
+      self.radarAttempts+=1;self.radarFlags.append(a[2]);self.write(self.effect+4,struct.pack('<H',int(self.radarTiles)))
+    def radarSetup(a):
+      assert a[:2]==[self.encounter,self.effect]
+      if self.radarSelections:self.radarSelections-=1
+      else:self.write(self.encounterState+0x25,bytes([self.byte(self.encounterState+0x25)|1]))
+    add(0x21a25c4,radarSearch);add(0x21a272c,radarSetup)
     self.uc.hook_add(UC_HOOK_CODE,self.intercept)
  def arm(self,a):return (0x214193c if self.game=='B2' else a) if a==0x214197c else a-(self.armdelta if a>=0x20191d8 else 0)
  def ov(self,a):return a-self.delta
@@ -539,8 +569,30 @@ for game in ('W2','B2'):
  for i in [10,13,14,15,16,17,18,19]:assert not h.actorVisibility[SUB+0xa000+i*32]
  assert h.actorVisibility[SUB+0xa000+7*32] and h.actorVisibility[SUB+0xa000+9*32]
  h.write(WORK+0x30b,b'\1')
- for i in [0,1,2,8,5]:h.nativeTouch=i;assert h.call('QaButtonHit',WORK)==0xffffffff
- for i in [6,7,9,10]:h.nativeTouch=i;assert h.call('QaButtonHit',WORK)==i
+ for i in [0,1,2,8,5,6]:h.nativeTouch=i;assert h.call('QaButtonHit',WORK)==0xffffffff
+ for i in [7,9,10]:h.nativeTouch=i;assert h.call('QaButtonHit',WORK)==i
+ # The fixed music control shares real compiled state with the keyboard
+ # shortcut, consumes help touches, and never acquires event/heap resources.
+ h.write(WORK+0x30b,b'\0');baseline=dict(h.allocations);opts=bytes(h.uc.mem_read(CONFIG,4))
+ assert h.call('PokewebBgmMute',0)==0
+ h.press(215,163);assert h.call('QaCGearEvent',SUB,1)==0 and h.call('PokewebBgmMute',0)==1
+ assert h.bgmVolumes[-1]==[0xffff,0] and h.sounds==[1356]
+ h.call('QaCGearUpdate',SUB,1);assert h.musicSequences[-1]==[SUB+0xa000+8*32,9]
+ for _ in range(5):h.call('QaInput',WORK);h.call('QaCGearEvent',SUB,1)
+ assert h.call('PokewebBgmMute',0)==1 and len(h.bgmVolumes)==1 and h.sounds==[1356]
+ h.release();h.keys=0x304;h.call('THUMB_BRANCH_LINK_GameUpdate_0xE');assert h.call('PokewebBgmMute',0)==0
+ assert h.bgmVolumes[-1]==[0xffff,127]
+ h.call('THUMB_BRANCH_LINK_GameUpdate_0xE');assert len(h.bgmVolumes)==2
+ h.keys=0;h.call('THUMB_BRANCH_LINK_GameUpdate_0xE')
+ h.press(215,163);h.event=0x022f3000;assert h.call('QaCGearEvent',SUB,1)==h.event;h.event=0;h.release()
+ assert h.call('QaCGearEvent',SUB,1)==0 and h.call('PokewebBgmMute',0)==0
+ h.write(WORK+0x2fe,b'\1');h.press(215,163);h.call('QaCGearEvent',SUB,1);h.release();h.write(WORK+0x2fe,b'\0')
+ assert h.call('PokewebBgmMute',0)==0
+ h.press(215,163);h.call('QaCGearEvent',SUB,0);h.release();assert h.call('PokewebBgmMute',0)==0
+ h.press(215,163);h.call('QaCGearEvent',SUB,1);h.release();h.call('QaCGearUpdate',SUB,1)
+ assert h.call('PokewebBgmMute',0)==1 and h.allocations==baseline and bytes(h.uc.mem_read(CONFIG,4))==opts
+ assert h.sounds==[1356,1356],'Blocked/edit/held mute presses played sound'
+ h.call('PokewebBgmMute',1);h.call('QaCGearUpdate',SUB,1);assert h.musicSequences[-1]==[SUB+0xa000+8*32,8];h.write(WORK+0x30b,b'\1')
  h.press(200,180);event=h.call('QaCGearEvent',SUB,1);assert event;callback=h.word(event+4)
  for _ in range(5):h.call('QaInput',WORK);assert h.call('QaCGearEvent',SUB,1)==0
  h.release();h.call('QaCGearExit',SUB)
@@ -555,3 +607,44 @@ for game in ('W2','B2'):
  h.press(200,180);h.event=0x022f3000;assert h.call('QaCGearEvent',SUB,1)==h.event;h.event=0;h.release();assert h.call('QaCGearEvent',SUB,1)==0
  h.fail=h.attempts+1;h.press(200,180);assert not h.call('QaCGearEvent',SUB,1);h.release();h.call('QaCGearExit',SUB);assert not h.allocations
  print(game,'hidden native actors/touches, fixed Save priority/hold, native save request lifetime/cancel return, network selector cleanup and blocked/allocation failure passed')
+
+# Pokéradar: real retail eligibility, timer and chance flow; isolated terrain
+# search/effect tasks. Full tile/visual behavior is checked in the DS emulator.
+for game in ('W2','B2'):
+ for terrain,offset,flags in [('grass',2,1),('water',4,2),('fishing',6,2),('mixed',2,3)]:
+  h=Harness(game);h.configure([(17,17,0,0,255,60,116,0,0)])
+  h.write(h.encounterData+offset,b'\x01')
+  if terrain=='mixed':h.write(h.encounterData+4,b'\x01')
+  h.radarSelections=2
+  h.call('QaCGearInit',SUB);h.call('QaCGearUpdate',SUB,1)
+  before=dict(h.allocations);h.press(60,116);assert h.call('QaCGearEvent',SUB,1)==0
+  assert h.sounds==[1356],'Radar did not use the Party menu opening sound'
+  assert h.byte(h.encounterState+0x25)&15 and h.radarAttempts==3 and h.radarFlags==[flags]*3
+  assert h.allocations==before,'Radar acquired an unowned request/allocation'
+  for _ in range(8):h.call('QaInput',WORK);h.call('QaCGearEvent',SUB,1)
+  assert h.radarAttempts==3,'Held radar press retriggered'
+  assert h.sounds==[1356],'Held radar press repeated its sound'
+  h.release();h.call('QaCGearUpdate',SUB,1);h.press(60,116);h.call('QaCGearEvent',SUB,1);h.release()
+  assert h.radarAttempts==3,'Radar replaced an existing phenomenon'
+  assert h.sounds==[1356],'Unavailable radar press played a sound'
+  h.write(h.encounterState+0x25,b'\0');h.call('QaCGearUpdate',SUB,1)
+  h.press(60,116);h.event=0x022f3000;assert h.call('QaCGearEvent',SUB,1)==h.event;h.event=0;h.release()
+  assert h.call('QaCGearEvent',SUB,1)==0 and h.radarAttempts==3,'Blocked radar press queued later'
+  # The overrides are strictly scoped to the accepted button call.
+  h.put(h.encounterState+0x14,0)
+  assert h.call('QaPhenomenonInterval',h.encounterState,h.effect)==0
+  assert h.word(h.encounterState+0x14)==1
+  assert h.call('QaPhenomenonChance',7)==7
+  h.call('QaCGearExit',SUB);assert not h.allocations
+ for blocked in ('data','badge','grid','tiles','occupied','empty'):
+  h=Harness(game);h.configure([(17,17,0,0,255,60,116,0,0)])
+  if blocked!='empty':h.write(h.encounterData+2,b'\x01')
+  h.radarAllowed=blocked!='data';h.radarBadge=blocked!='badge';h.radarGrid=blocked!='grid'
+  h.radarTiles=blocked!='tiles';h.radarSelections=100 if blocked=='occupied' else 0
+  h.call('QaCGearInit',SUB);h.call('QaCGearUpdate',SUB,1)
+  h.press(60,116);assert h.call('QaCGearEvent',SUB,1)==0;h.release()
+  assert not h.byte(h.encounterState+0x25)&15
+  assert h.radarAttempts==(32 if blocked in ('tiles','occupied') else 0),(game,blocked,h.radarAttempts)
+  assert not h.word(h.symbols['_ZN12_GLOBAL__N_19radarWorkE'])
+  h.call('QaCGearExit',SUB);assert not h.allocations
+ print(game,'Pokéradar retail eligibility/timer/chance, terrain flags, immediate bounded placement, existing phenomenon, held/blocked presses and normal-spawn restoration passed')

@@ -39,16 +39,18 @@ for (const game of ["B", "W"] as const) describe.runIf(existsSync(paths[game]))(
     }
     return p;
   };
-  it("keeps both release gates and revision checks, rejects missing/outdated dependencies", async () => {
+  it("keeps release and revision gates and repairs missing dependencies", async () => {
     const p = await fixture(); manifest.games.W.dsAccepted = false;
     expect(detectMenuEvolutionCompatibility(p).supported).toBe(false);
     await expect(installMenuEvolution(p)).rejects.toThrow("acceptance");
     manifest.games.W.dsAccepted = true; expect(detectMenuEvolutionCompatibility(p).compatible).toBe(true);
     p.originalRomBytes![0x1e] = 1; expect(detectMenuEvolutionCompatibility(p).supported).toBe(false); p.originalRomBytes![0x1e] = 0;
-    vi.spyOn(battleLog, "getBattleLogInstallStatus").mockReturnValue({ upToDate: true, bundledRuntimeVersion: 7 } as ReturnType<typeof battleLog.getBattleLogInstallStatus>);
+    vi.spyOn(battleLog, "getBattleLogInstallStatus").mockReturnValue({ ...battleLog.getBattleLogInstallStatus(p), upToDate: true, bundledRuntimeVersion: 7 });
     await expect(installMenuEvolution(p)).rejects.toThrow("runtime version 8");
     vi.restoreAllMocks();
-    p.codeInjection!.modules = []; p.fileSystem!.additions = {}; await expect(installMenuEvolution(p)).rejects.toThrow("Install the battle log first");
+    p.codeInjection!.modules = []; p.fileSystem!.additions = {};
+    await installMenuEvolution(p);
+    expect(battleLog.getBattleLogInstallStatus(p)).toMatchObject({ upToDate: true, runtimeVersion: 8 });
   });
   it("preserves private text, KO edits, configured IDs, and FAT entries across updates and reopen", async () => {
     const p = await fixture(), result = await installMenuEvolution(p);
@@ -89,9 +91,8 @@ for (const game of ["B", "W"] as const) describe.runIf(existsSync(paths[game]))(
     vi.spyOn(pmc, "stageCodeInjectionDll").mockImplementation(() => { throw new Error("Dependency staging rejected"); });
     await expect(battleLog.installBattleLog(p)).rejects.toThrow("Dependency staging rejected");
     expect(snapshot(p)).toBe(before);
-    vi.restoreAllMocks(); await battleLog.installBattleLog(p);
+    vi.restoreAllMocks(); await installMenuEvolution(p);
     expect(battleLog.getBattleLogInstallStatus(p)).toMatchObject({ installed: true, upToDate: true, runtimeVersion: 8 });
-    await installMenuEvolution(p);
     expect(battleLog.canUninstallBattleLog(p)).toBe(false);
     expect(() => battleLog.uninstallBattleLog(p)).toThrow("Uninstall Enhanced Party Menu");
   }, 30000);
@@ -111,11 +112,16 @@ for (const game of ["B", "W"] as const) describe.runIf(existsSync(paths[game]))(
     expect(battleLog.detectBattleLogCompatibility(p).checks.some(c => !c.matched && c.label === "Native KO move learning")).toBe(true);
   }, 30000);
   it("rolls back PMC, text, KO source and all staged files on failure", async () => {
-    const p = await fixture(), before = snapshot(p);
+    const p = await loadProjectFromRomBytes(new Uint8Array(readFileSync(paths[game])), "fixture.nds", { selectedNarcs: [] });
+    const before = snapshot(p);
     vi.stubGlobal("fetch", vi.fn(async () => new Response("unavailable", { status: 500 })));
     await expect(installMenuEvolution(p)).rejects.toThrow("Could not load"); expect(snapshot(p)).toBe(before);
-    vi.stubGlobal("fetch", vi.fn(async (url: URL) => new Response(asset(url.pathname.split("/").pop()!).slice())));
-    vi.spyOn(pmc, "stageCodeInjectionDll").mockImplementation(() => { throw new Error("Staging rejected"); });
+    vi.stubGlobal("fetch", vi.fn(async (url: URL | string) => new Response(asset(new URL(String(url), "https://pokeweb.invalid").pathname.split("/").pop()!).slice())));
+    const stage = pmc.stageCodeInjectionDll;
+    vi.spyOn(pmc, "stageCodeInjectionDll").mockImplementation((...args) => {
+      if (args[1].startsWith("MenuEvolution")) throw new Error("Staging rejected");
+      return stage(...args);
+    });
     await expect(installMenuEvolution(p)).rejects.toThrow("Staging rejected"); expect(snapshot(p)).toBe(before);
   }, 30000);
   it.runIf(Boolean(process.env.BW1_MENU_VALIDATION_OUTPUT))("exports a normal-installer runtime-8 gameplay candidate", async () => {

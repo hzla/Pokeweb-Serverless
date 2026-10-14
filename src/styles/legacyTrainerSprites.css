@@ -155,29 +155,31 @@
 }
 
 .trainer-gif-status {
-  background: rgb(26 188 156 / 9%);
-  border: 1px solid rgb(26 188 156 / 32%);
-  border-radius: 5px;
-  color: #c9fff3;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: #d6d7e2;
   font-size: 13px;
   line-height: 1.4;
-  padding: 9px 11px;
+  padding: 8px 0;
 }
 
 .trainer-gif-status.-error {
-  background: rgb(255 85 85 / 9%);
-  border-color: rgb(255 85 85 / 48%);
-  color: #ffb7b7;
+  background: transparent;
+  color: #f2f2f2;
+  border-left: 3px solid #ff8585;
+  padding-left: 10px;
 }
 
 .trainer-gif-shared-warning {
-  background: rgb(255 184 77 / 10%);
-  border: 1px solid rgb(255 184 77 / 50%);
-  border-radius: 6px;
+  background: #282a36;
+  border: 0;
+  border-radius: 0;
   display: grid;
   gap: 4px;
   max-width: 1040px;
   padding: 10px 12px;
+  border-left: 3px solid #ffb86c;
 }
 
 .trainer-gif-shared-warning strong {
@@ -185,7 +187,7 @@
 }
 
 .trainer-gif-shared-warning span {
-  color: #e4d4b8;
+  color: #d6d7e2;
   font-size: 12px;
   line-height: 1.4;
 }

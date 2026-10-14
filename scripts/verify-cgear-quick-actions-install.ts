@@ -23,6 +23,9 @@ if(process.argv.includes('--companions')) {
   await installLearnsetViewer(project);await installSummaryStatViewer(project);await installPortaPc(project);
 }
 assert(getCGearQuickActionsStatus(project).compatible,getCGearQuickActionsStatus(project).message);
+if(process.argv.includes('--pokeradar')){
+  const d=ensureCGearButtons(project).document;d.buttons.push(newButton(d,'pokeradar'));
+}
 if(process.argv.includes("--eight")) {
   const d=ensureCGearButtons(project).document;let added=0;
   while(d.buttons.length<8)d.buttons.push(newButton(d,(process.argv.includes('--bag-party')?["dowsing","rod","bag","party"]:["dowsing","rod","medals","recorder"])[added++%4] as "dowsing"));

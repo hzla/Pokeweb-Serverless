@@ -19,10 +19,14 @@ import {
   encodePcm16Strm,
   estimateStreamedBgmBytes,
   installNativeStreamReplacement,
+  installStandaloneStream,
+  appendStandaloneSdatStream,
   installStreamedBgmInSdat,
   installStreamedBgm,
   listNativeSdatStreams,
   removeNativeStreamReplacement,
+  removeLastStandaloneStream,
+  removeFinalStandaloneSdatStream,
   replaceNativeSdatStream,
   removeStreamedBgm,
   rebuildStreamedBgmMappings,
@@ -215,7 +219,7 @@ describe("BW2 streamed BGM SDAT transaction", () => {
       expect(project.fileSystem!.replacements[0]).toBe(sdat);
       expect(sdat).toEqual(original);
       const runtime = project.fileSystem!.additions![`patches/BgmToggle${version}.dll`]!;
-      expect(parseRpm(runtime, { allowedMagics: ["DLXF"] }).metadata.PMCVersion).toBe("3.0.0");
+      expect(parseRpm(runtime, { allowedMagics: ["DLXF"] }).metadata.PMCVersion).toBe("3.0.1");
       expect(readBgmRuntimeConfig(runtime)).toMatchObject({
         shortcutEnabled: before.toggleEnabled,
         streamedBgmEnabled: true,
@@ -291,6 +295,34 @@ describe("multiple streamed BGM replacements", () => {
     vi.stubGlobal("fetch", async (url: URL) => new Response(readFileSync(new URL(`../assets/codeinjection/${url.pathname.split("/").pop()}`, import.meta.url))));
   });
   afterEach(() => vi.unstubAllGlobals());
+
+  it("appends standalone music without redirecting sequences and preserves it through BGM edits", async () => {
+    const original = makeSdat();
+    const encoded = encodeAdpcmStrm(pcm).bytes;
+    const appended = appendStandaloneSdatStream(original, encoded);
+    expect(sdatSequenceFileId(appended.bytes, 0)).toBe(sdatSequenceFileId(original, 0));
+    expect(listNativeSdatStreams(appended.bytes)).toHaveLength(2);
+    expect(removeFinalStandaloneSdatStream(appended.bytes, appended.streamId, appended.streamFileId)).toEqual(original);
+
+    const project = makeRuntimeUpdateProject("W2");
+    const bgmHash = project.codeInjection!.streamedBgm!.audioSha256;
+    const installed = await installStandaloneStream(project, {
+      name: "Menu Theme", sourceName: "menu.wav", pcm, encoding: "adpcm", loop: true,
+    });
+    expect(installed.streamId).toBe(1);
+    expect(project.codeInjection!.standaloneStreams?.[0]).toMatchObject({ name: "Menu Theme", streamId: 1 });
+    expect(project.codeInjection!.streamedBgms?.[0]?.audioSha256).toBe(bgmHash);
+    expect(listNativeSdatStreams(project.fileSystem!.replacements[0]!)).toHaveLength(3);
+    expect(project.fileSystem!.additions!["ui/streamed-music/library.json"]).toBeDefined();
+    await installStreamedBgm(project, { sourceName: "another.wav", pcm, targetSequenceId: 0, shortcutEnabled: true });
+    expect(project.codeInjection!.standaloneStreams?.[0]?.streamId).toBe(1);
+    expect(listNativeSdatStreams(project.fileSystem!.replacements[0]!)).toHaveLength(4);
+    await removeStreamedBgm(project, 0);
+    expect(project.codeInjection!.standaloneStreams?.[0]?.audioSha256).toBe(installed.audioSha256);
+    await removeLastStandaloneStream(project);
+    expect(project.codeInjection!.standaloneStreams).toEqual([]);
+    expect(project.codeInjection!.streamedBgms?.[0]?.audioSha256).toBe(bgmHash);
+  });
 
   it.each(["B2", "W2"] as const)("migrates %s single-track state, adds tracks, updates just one, and removes the middle then all", async (version) => {
     const project = makeRuntimeUpdateProject(version);

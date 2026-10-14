@@ -1,11 +1,12 @@
 import manifest from "../assets/codeinjection/partyQuickActionsManifest.json";
+import bw1Manifest from "../assets/codeinjection/partyQuickActionsBw1Manifest.json";
 import previous from "../../runtime/party-quick-actions/previous.json";
 import previous11 from "../../runtime/party-quick-actions/previous-0.1.1.json";
 import previous12 from "../../runtime/party-quick-actions/previous-0.1.2.json";
 import previous13 from "../../runtime/party-quick-actions/previous-0.1.3.json";
 import previous14 from "../../runtime/party-quick-actions/previous-0.1.4.json";
 import previous15 from "../../runtime/party-quick-actions/previous-0.1.5.json";
-import { readU32, writeU32 } from "../nds/binary";
+import { readU16, readU32, writeU32 } from "../nds/binary";
 import { loadOverlayTable } from "../nds/code";
 import { decompressCode } from "../nds/codeCompression";
 import { NARC } from "../nds/narc";
@@ -17,8 +18,15 @@ import { getInfiniteCandyStatus, installInfiniteCandy } from "./infiniteCandyMod
 import { adoptExistingPmcInstall, getPmcInstallStatus, installPmcBytes, listCodeInjectionDlls, loadBundledPmcBytes, stageCodeInjectionDll } from "./pmcModel";
 import { createNarcStore, type ProjectState } from "./projectStore";
 import { parseRpm, type RpmModule } from "./rpm";
-type Version = "B2" | "W2";
+type Version = "B" | "W" | "B2" | "W2";
+type Profile = {
+  idCode: string; fileName: string; sha256: string; codeFingerprint: string; bssSize: number;
+  signatures: { label: string; module: string; address: number; expectedHex: string; patchSize: number; patchType?: string }[];
+  archiveSha256?: string; graphicsFingerprints?: string[];
+};
+type Bundle = { version: string; archivePath: string; archiveSha256?: string; graphicsFingerprints?: string[]; games: Partial<Record<Version, Profile>> };
 export const PARTY_QUICK_ACTIONS_VERSION = manifest.version;
+export const PARTY_QUICK_ACTIONS_BW1_VERSION = bw1Manifest.version;
 export const PARTY_QUICK_ACTIONS_MAX_SAVE_FLAG = 3059;
 export const PARTY_TOOLBAR_SECTIONS = [
   { id: "candy", label: "Candy" }, { id: "heal", label: "Heal" }, { id: "hp", label: "HP" },
@@ -41,9 +49,13 @@ export type PartyQuickActionsStatus = {
   dllPath?: string;
   message: string;
 };
-const urls = { W2: new URL("../assets/codeinjection/PartyQuickActionsW2.dll", import.meta.url), B2: new URL("../assets/codeinjection/PartyQuickActionsB2.dll", import.meta.url) };
+const urls = { B: new URL("../assets/codeinjection/PartyQuickActionsB.dll", import.meta.url), W: new URL("../assets/codeinjection/PartyQuickActionsW.dll", import.meta.url), W2: new URL("../assets/codeinjection/PartyQuickActionsW2.dll", import.meta.url), B2: new URL("../assets/codeinjection/PartyQuickActionsB2.dll", import.meta.url) };
 const archiveUrl = new URL("../assets/codeinjection/partyQuickActions.narc", import.meta.url);
-const bundles = [manifest, previous, previous11, previous12, previous13, previous14, previous15];
+const archiveUrls = { B: new URL("../assets/codeinjection/partyQuickActionsB.narc", import.meta.url), W: new URL("../assets/codeinjection/partyQuickActionsW.narc", import.meta.url), B2: archiveUrl, W2: archiveUrl };
+const bundles: Bundle[] = [manifest, previous, previous11, previous12, previous13, previous14, previous15, bw1Manifest];
+const currentBundle = (version: Version): Bundle => version === "B" || version === "W" ? bw1Manifest : manifest;
+const graphics = (bundle: Bundle, version: Version) => bundle.games[version]?.graphicsFingerprints ?? bundle.graphicsFingerprints ?? [];
+export const getPartyToolbarMaxSaveFlag = (version: string) => version === "B" || version === "W" ? 2911 : PARTY_QUICK_ACTIONS_MAX_SAVE_FLAG;
 const hex = (b: Uint8Array) => Array.from(b, n => n.toString(16).padStart(2, "0")).join("");
 const hash = async (b: Uint8Array) => hex(new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array(b))));
 function fingerprint(bytes: Uint8Array) {
@@ -52,12 +64,13 @@ function fingerprint(bytes: Uint8Array) {
   return hash.toString(16).padStart(8, "0");
 }
 
-function matchesModule(module: RpmModule, version: Version, bundle: typeof manifest) {
+function matchesModule(module: RpmModule, version: Version, bundle: Bundle) {
   const profile = bundle.games[version];
+  if (!profile) return false;
   const hooks = module.relocations.filter(({ target }) => target.module !== "base")
     .map(({ target }) => `${target.module}:${target.address}:${target.type}`).sort();
   const expected = profile.signatures.filter(s => s.patchSize)
-    .map(s => `${s.module}:${s.address}:${s.label.endsWith("Return") ? "FULL_COPY" : "THUMB_BRANCH_LINK"}`).sort();
+    .map(s => `${s.module}:${s.address}:${s.patchType ?? (s.label.endsWith("Return") ? "FULL_COPY" : "THUMB_BRANCH_LINK")}`).sort();
   return module.metadata.PMCGameID === version && module.metadata.PMCVersion === bundle.version
     && module.metadata.PMCModulePriority === 4 && !module.baseAddress
     && module.bssSize === profile.bssSize && fingerprint(module.code) === profile.codeFingerprint
@@ -74,6 +87,20 @@ function bytesAt(project: ProjectState, rom: NintendoDSRom, path: string) {
   const id = rom.filenames.idOf(path);
   return id === undefined ? undefined : getRomFileBytes(project, rom, id);
 }
+function verifyBw1CompressedPalette(project: ProjectState, rom: NintendoDSRom) {
+  const id = rom.filenames.idOf("a/0/0/7");
+  if (id === undefined) throw new Error("The native Pokémon icon archive is missing.");
+  const palette = new NARC(getRomFileBytes(project, rom, id)).files[0];
+  // BW1's compressed palette registration does not initialize its size field.
+  // Verify the resource's three banks before using the audited native span.
+  if (!palette || palette.length < 158 || hex(palette.subarray(0, 4)) !== "524c434e"
+    || hex(palette.subarray(16, 20)) !== "54544c50" || readU32(palette, 20) !== 120
+    || readU32(palette, 24) !== 3 || readU32(palette, 28) !== 0 || readU32(palette, 32) !== 96
+    || readU32(palette, 36) !== 16 || hex(palette.subarray(136, 140)) !== "504d4350"
+    || readU16(palette, 144) !== 3 || readU32(palette, 148) !== 8
+    || [152, 154, 156].some(at => readU16(palette, at) > 2))
+    throw new Error("The compressed Pokémon icon palette must retain the native three-bank layout.");
+}
 function loadCandyArchives(project: ProjectState, rom: NintendoDSRom) {
   for (const [name, path] of [["items", "a/0/2/4"], ["message_texts", "a/0/0/2"]] as const) {
     if (project.narcs[name]) continue;
@@ -83,19 +110,20 @@ function loadCandyArchives(project: ProjectState, rom: NintendoDSRom) {
   }
 }
 
-export function parsePartyToolbarHideFlag(value: string): number | null {
+export function parsePartyToolbarHideFlag(value: string, version: string = "W2"): number | null {
   const text = value.trim();
   if (!text) return null;
   if (!/^(?:\d+|0x[\da-f]+)$/iu.test(text)) throw new Error("Enter a save flag in decimal or hexadecimal, or leave it blank.");
   const flag = Number(text);
-  validateHideFlag(flag);
+  validateHideFlag(flag, version);
   return flag;
 }
-function validateHideFlag(flag: number | null) {
-  if (flag !== null && (!Number.isInteger(flag) || flag < 1 || flag > PARTY_QUICK_ACTIONS_MAX_SAVE_FLAG))
-    throw new Error(`Toolbar hide flag must be a saved flag from 1 to ${PARTY_QUICK_ACTIONS_MAX_SAVE_FLAG}, or blank.`);
+function validateHideFlag(flag: number | null, version: string) {
+  const max = getPartyToolbarMaxSaveFlag(version);
+  if (flag !== null && (!Number.isInteger(flag) || flag < 1 || flag > max))
+    throw new Error(`Toolbar hide flag must be a saved flag from 1 to ${max}, or blank.`);
 }
-function configuration(bytes: Uint8Array) {
+function configuration(bytes: Uint8Array, version: Version) {
   const archive = new NARC(bytes), header = archive.files[0];
   const legacy = header?.length === 20 && readU32(header, 4) === 1 && readU32(header, 8) === 20;
   const wholeFlag = header?.length === 24 && readU32(header, 4) === 2 && readU32(header, 8) === 24;
@@ -105,24 +133,30 @@ function configuration(bytes: Uint8Array) {
   if (sections) PARTY_TOOLBAR_SECTIONS.forEach(({ id }, i) => { sectionHideFlags[id] = readU32(header, 20 + i * 4) || null; });
   const flags = [flag, ...Object.values(sectionHideFlags).map(value => value ?? 0)];
   const sum = flags.reduce((checksum, value) => checksum ^ value, 0x51415050 ^ (header ? readU32(header, 12) : 0));
-  if (!bundles.some(bundle => archive.files.length === bundle.graphicsFingerprints.length + 1) || !header || (!legacy && !wholeFlag && !sections)
-      || readU32(header, 0) !== 0x51415050 || readU32(header, 12) > 1 || flags.some(value => value > PARTY_QUICK_ACTIONS_MAX_SAVE_FLAG)
+  if (!bundles.some(bundle => bundle.games[version] && archive.files.length === graphics(bundle, version).length + 1) || !header || (!legacy && !wholeFlag && !sections)
+      || readU32(header, 0) !== 0x51415050 || readU32(header, 12) > 1 || flags.some(value => value > getPartyToolbarMaxSaveFlag(version))
       || readU32(header, sections ? 40 : wholeFlag ? 20 : 16) !== sum) {
     throw new Error("Unrecognized Party toolbar archive. Restore its private graphics archive.");
   }
-  if (!bundles.some(bundle => archive.files.length === bundle.graphicsFingerprints.length + 1 && archive.files.slice(1).every((file, index) => fingerprint(file) === bundle.graphicsFingerprints[index]))) {
+  if (!bundles.some(bundle => bundle.games[version] && archive.files.length === graphics(bundle, version).length + 1 && archive.files.slice(1).every((file, index) => fingerprint(file) === graphics(bundle, version)[index]))) {
     throw new Error("Party toolbar graphics are altered or incomplete. Restore the private graphics archive.");
   }
   return { enabled: !!readU32(header, 12), hideFlag: flag || null, sectionHideFlags };
 }
 
 export function getPartyQuickActionsStatus(p: ProjectState): PartyQuickActionsStatus {
-  const state: PartyQuickActionsStatus = { supported: false, compatible: false, installed: false, enabled: false, updateAvailable: false, candyInstalled: false, candyCompatible: false, hideFlag: null, sectionHideFlags: emptySectionFlags(), message: "Party toolbar supports English Black 2 and White 2 revision 0." };
+  const state: PartyQuickActionsStatus = { supported: false, compatible: false, installed: false, enabled: false, updateAvailable: false, candyInstalled: false, candyCompatible: false, hideFlag: null, sectionHideFlags: emptySectionFlags(), message: "Party toolbar supports US Black, White, Black 2 and White 2 revision 0." };
   const v = p.session.baseVersion;
-  if (p.session.baseRom !== "BW2" || (v !== "B2" && v !== "W2") || !p.originalRomBytes)
+  if ((p.session.baseRom !== "BW2" && p.session.baseRom !== "BW") || (v !== "B2" && v !== "W2" && v !== "B" && v !== "W") || !p.originalRomBytes)
     return state;
+  const bw1 = v === "B" || v === "W";
+  if ((p.session.baseRom === "BW") !== bw1) return state;
+  if (bw1 && (!bw1Manifest.games.B.dsAccepted || !bw1Manifest.games.W.dsAccepted)) {
+    state.message = "BW1 Party Toolbar awaits gameplay acceptance in both Black and White.";
+    return state;
+  }
   try {
-    const r = new NintendoDSRom(p.originalRomBytes, { fileData: "view" }), profile = manifest.games[v];
+    const bundle = currentBundle(v), r = new NintendoDSRom(p.originalRomBytes, { fileData: "view" }), profile = bundle.games[v]!;
     if (r.idCode !== profile.idCode || r.data[0x1e])
       return state;
     state.supported = true;
@@ -139,9 +173,9 @@ export function getPartyQuickActionsStatus(p: ProjectState): PartyQuickActionsSt
           throw new Error("Duplicate Party toolbar modules. Remove the duplicate before installing.");
         state.installed = true;
         state.dllPath = entry.path;
-        state.updateAvailable = !matchesModule(rpm, v, manifest);
+        state.updateAvailable = !matchesModule(rpm, v, bundle);
       }
-      else if (/^PartyQuickActions[WB]2\.dll$/iu.test(entry.fileName) || rpm?.relocations.some(({ target, sourceSymbolIndex }) => {
+      else if (/^PartyQuickActions[WB]2?\.dll$/iu.test(entry.fileName) || rpm?.relocations.some(({ target, sourceSymbolIndex }) => {
         const size = target.type === "FULL_COPY" ? rpm!.symbols[sourceSymbolIndex]?.size ?? 0 : target.type === "THUMB_BRANCH" ? 12 : target.type === "THUMB_BRANCH_SAFESTACK" ? 16 : 4;
         return profile.signatures.filter(s => s.patchSize).some(s => s.module === target.module && target.address < s.address + s.patchSize && target.address + size > s.address);
       }))
@@ -149,12 +183,12 @@ export function getPartyQuickActionsStatus(p: ProjectState): PartyQuickActionsSt
     }
     const archive = bytesAt(p, r, manifest.archivePath);
     if (archive) {
-      Object.assign(state, configuration(archive));
-      if (state.installed && new NARC(archive).files.slice(1).some((file, index) => fingerprint(file) !== manifest.graphicsFingerprints[index])) state.updateAvailable = true;
+      Object.assign(state, configuration(archive, v));
+      if (state.installed && new NARC(archive).files.slice(1).some((file, index) => fingerprint(file) !== graphics(bundle, v)[index])) state.updateAvailable = true;
     }
     else if (state.installed)
       throw new Error("Party toolbar graphics archive is missing.");
-    const overlays = loadOverlayTable(p.patches?.arm9OverlayTable ?? r.arm9OverlayTable, (_id, fileId) => getRomFileBytes(p, r, fileId), new Set([12, 165]));
+    const overlays = loadOverlayTable(p.patches?.arm9OverlayTable ?? r.arm9OverlayTable, (_id, fileId) => getRomFileBytes(p, r, fileId), new Set(bw1 ? [10, 91] : [12, 165]));
     const arm = p.arm9.length ? p.arm9 : decompressCode(r.arm9);
     for (const s of profile.signatures) {
       const o = overlays.get(Number(s.module)), base = s.module === "ARM9" ? r.arm9RamAddress : o?.ramAddress;
@@ -163,6 +197,7 @@ export function getPartyQuickActionsStatus(p: ProjectState): PartyQuickActionsSt
       if (data.some(b => !b || offset < 0 || hex(b.subarray(offset, offset + s.expectedHex.length / 2)) !== s.expectedHex))
         throw new Error(`Unrecognized ${s.label} in ${s.module} at 0x${s.address.toString(16)}. Restore the native hook or use a compatible build.`);
     }
+    if (bw1) verifyBw1CompressedPalette(p, r);
     state.compatible = true;
     // Status reads can lazily decode item text without changing the project.
     const dependencyProject = { ...p, narcs: { ...p.narcs }, texts: { ...p.texts, banks: { ...p.texts.banks } } };
@@ -193,10 +228,10 @@ function stageArchive(project: ProjectState, rom: NintendoDSRom, bytes: Uint8Arr
 }
 
 export async function installPartyQuickActions(p: ProjectState, options: PartyQuickActionsOptions = {}) {
-  if (options.hideFlag !== undefined) validateHideFlag(options.hideFlag);
+  if (options.hideFlag !== undefined) validateHideFlag(options.hideFlag, p.session.baseVersion);
   for (const [id, flag] of Object.entries(options.sectionHideFlags ?? {})) {
     if (!PARTY_TOOLBAR_SECTIONS.some(section => section.id === id)) throw new Error(`Unknown toolbar section: ${id}.`);
-    if (flag !== undefined) validateHideFlag(flag);
+    if (flag !== undefined) validateHideFlag(flag, p.session.baseVersion);
   }
   const romBytes = p.originalRomBytes ?? await loadActiveRomBytes();
   if (!romBytes)
@@ -204,12 +239,12 @@ export async function installPartyQuickActions(p: ProjectState, options: PartyQu
   const input = { ...p, originalRomBytes: romBytes }, s = getPartyQuickActionsStatus(input);
   if (!s.supported || !s.compatible || !s.candyCompatible)
     throw new Error(s.message);
-  const v = p.session.baseVersion as Version, r = new NintendoDSRom(romBytes, { fileData: "view" }), profile = manifest.games[v];
-  const [dr, ar] = await Promise.all([fetch(urls[v]), fetch(archiveUrl)]);
+  const v = p.session.baseVersion as Version, r = new NintendoDSRom(romBytes, { fileData: "view" }), bundle = currentBundle(v), profile = bundle.games[v]!;
+  const [dr, ar] = await Promise.all([fetch(urls[v]), fetch(archiveUrls[v])]);
   if (!dr.ok || !ar.ok)
     throw new Error("Could not load the bundled Party toolbar.");
   const [dll, archive] = await Promise.all([dr.arrayBuffer().then(b => new Uint8Array(b)), ar.arrayBuffer().then(b => new Uint8Array(b))]);
-  if (await hash(dll) !== profile.sha256 || await hash(archive) !== manifest.archiveSha256 || !recognized(parseRpm(dll, { allowedMagics: ["DLXF"] }), v) || !configuration(archive).enabled)
+  if (await hash(dll) !== profile.sha256 || await hash(archive) !== (profile.archiveSha256 ?? bundle.archiveSha256) || !recognized(parseRpm(dll, { allowedMagics: ["DLXF"] }), v) || !configuration(archive, v).enabled)
     throw new Error("Party toolbar bundle failed its integrity check.");
   const configuredArchive = new NARC(archive), hideFlag = (options.hideFlag === undefined ? s.hideFlag : options.hideFlag) ?? 0;
   const sectionHideFlags = { ...s.sectionHideFlags };

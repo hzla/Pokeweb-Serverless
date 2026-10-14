@@ -1,3 +1,4 @@
+import { renderInlineStatus } from "./inlineStatus";
 import { downloadBytes } from "../pokeweb/fileSystemModel";
 import {
   encodeNitroPcmWav,
@@ -436,7 +437,6 @@ function renderEditorShell(model: TrainerMusicModel, battleModel: TrainerBattleM
     <div class="trainer-music-page">
       <header class="trainer-music-page-header">
         <div>
-          <div class="trainer-music-kicker">Gen 5 sound editor</div>
           <h1>Trainer Music</h1>
           <p>Preview, export, and reassign both trainer approach themes and the music used when trainer battles begin.</p>
         </div>
@@ -504,7 +504,7 @@ function renderSelectedTrack(
           <span>Selected ${activeTab === "approach" ? "approach" : "battle"} theme</span>
           <h2>${escapeHtml(label)}</h2>
         </div>
-        <span class="trainer-music-badge ${supported ? "-supported" : "-unsupported"}">${supported ? "Assignable" : "Unsupported"}</span>
+        ${renderInlineStatus(supported ? "Assignable" : "Unsupported", { className: "trainer-music-badge" })}
       </div>
       <dl class="trainer-music-metadata">
         <div><dt>Sequence</dt><dd>${sequenceId}</dd></div>
@@ -540,7 +540,7 @@ function renderAssignmentRow(
   const available = sequenceId !== undefined && Boolean(model.sdat.sequenceInfos[sequenceId]);
   const themeLabel = trainerMusicTrackLabel(model, sequenceId);
   const fallback = assignment.fallback
-    ? `<span class="trainer-music-badge -fallback" title="${escapeHtml(assignment.readOnlyReason || "Uses the Black/White fallback")}">Fallback</span>`
+    ? `${renderInlineStatus("Fallback", { className: "trainer-music-badge", title: assignment.readOnlyReason || "Uses the Black/White fallback" })}`
     : "";
   const themeControl = sequenceId === undefined
     ? `<span class="trainer-music-unavailable">Unavailable</span>`
@@ -593,7 +593,7 @@ function renderBattleAssignmentRow(
   const available = sequenceId !== undefined && Boolean(model.sdat.sequenceInfos[sequenceId]);
   const themeLabel = trainerBattleMusicTrackLabel(model, sequenceId);
   const fallback = assignment.fallback
-    ? `<span class="trainer-music-badge -fallback">Fallback</span>`
+    ? `${renderInlineStatus("Fallback", { className: "trainer-music-badge" })}`
     : "";
   const themeControl = sequenceId === undefined
     ? `<span class="trainer-music-unavailable">Unavailable</span>`
@@ -640,7 +640,7 @@ function renderBattleAssignmentControl(model: TrainerBattleMusicModel, assignmen
 function renderLoadingState(): string {
   return `
     <div class="trainer-music-page trainer-music-state">
-      <div class="trainer-music-state-card"><div class="trainer-music-kicker">Gen 5 sound editor</div><h1>Trainer Music</h1><p>Loading the ROM sound archive and trainer-class assignments…</p></div>
+      <div class="trainer-music-state-card"><h1>Trainer Music</h1><p>Loading the ROM sound archive and trainer-class assignments…</p></div>
     </div>
   `;
 }
@@ -648,7 +648,7 @@ function renderLoadingState(): string {
 function renderLoadError(message: string): string {
   return `
     <div class="trainer-music-page trainer-music-state">
-      <div class="trainer-music-state-card -error"><div class="trainer-music-kicker">Trainer Music unavailable</div><h1>Could not load sound data</h1><p>${escapeHtml(message)}</p><p>Reload the original ROM if this saved project no longer includes its SDAT.</p></div>
+      <div class="trainer-music-state-card -error"><h1>Could not load Trainer Music</h1><p>${escapeHtml(message)}</p><p>Reload the original ROM if this saved project no longer includes its SDAT.</p></div>
     </div>
   `;
 }

@@ -11,7 +11,7 @@ import {
   type MastersheetWarning,
 } from "../pokeweb/mastersheetModel";
 import type { ProjectState } from "../pokeweb/projectStore";
-import { ensureDocs, type TextDownloadFile } from "../pokeweb/docGeneratorModel";
+import type { TextDownloadFile } from "../pokeweb/docGeneratorModel";
 import { escapeHtml } from "./dom";
 import { renderMasterData, renderMastersheetToc } from "./mastersheetRenderer";
 
@@ -67,11 +67,7 @@ export function renderMastersheetEditor(project: ProjectState, root: HTMLElement
     enrichmentAttempted = true;
     if (!project.narcs.headers || !project.narcs.overworlds) return;
     try {
-      const docs = ensureDocs(project);
-      const before = JSON.stringify({ trainerLocations: docs.trainerLocations, trainerDiffs: docs.trainerDiffs });
       enrichmentStatus = enrichMastersheetTrainerLocations(project);
-      const after = JSON.stringify({ trainerLocations: docs.trainerLocations, trainerDiffs: docs.trainerDiffs });
-      if (before !== after) options.onDirty?.();
     } catch (error) {
       enrichmentStatus = error instanceof Error ? error.message : String(error);
     }

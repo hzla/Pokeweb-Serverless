@@ -7,9 +7,9 @@
 .header-battle-dialog-controls select,
 .header-battle-mapping-row select {
   background: #282a36;
-  border: 1px solid rgba(26, 188, 156, 0.42);
+  border: 1px solid #55586d;
   border-radius: 5px;
-  color: #1abc9c;
+  color: #f2f2f2;
   font: inherit;
   min-width: 0;
   padding: 6px 8px;
@@ -25,14 +25,15 @@
 }
 
 .header-battle-environment {
-  background: linear-gradient(145deg, rgba(68, 71, 90, 0.55), rgba(40, 42, 54, 0.78));
-  border: 1px solid rgba(26, 188, 156, 0.2);
-  border-radius: 8px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   display: grid;
   gap: 10px;
   margin-top: 4px;
   min-width: 0;
-  padding: 12px;
+  padding: 12px 0;
+  border-top: 1px solid #44475a;
 }
 
 .header-battle-environment-loading,
@@ -90,13 +91,13 @@
 
 .header-battle-resolution > div {
   align-items: center;
-  background: rgba(40, 42, 54, 0.56);
-  border-radius: 5px;
+  background: transparent;
+  border-radius: 0;
   display: grid;
   gap: 8px;
   grid-template-columns: 70px 24px minmax(0, 1fr);
   min-height: 30px;
-  padding: 4px 8px;
+  padding: 4px 0;
 }
 
 .header-battle-resolution span {
@@ -127,13 +128,17 @@
 }
 
 .header-battle-shared-warning {
-  background: rgba(255, 184, 108, 0.12);
-  border: 1px solid rgba(255, 184, 108, 0.24);
+  background: #282a36;
+  border: 0;
+  border-left: 3px solid #ffb86c;
+  border-radius: 0;
 }
 
 .header-battle-validation-warning {
-  background: rgba(255, 85, 85, 0.1);
-  border: 1px solid rgba(255, 85, 85, 0.2);
+  background: #282a36;
+  border: 0;
+  border-left: 3px solid #ff8585;
+  border-radius: 0;
 }
 
 .header-battle-environment-actions {
@@ -245,13 +250,15 @@
 }
 
 .header-battle-dialog-notice.-custom {
-  background: rgba(255, 184, 108, 0.1);
-  color: #ffcf9c;
+  background: #282a36;
+  color: #d6d7e2;
+  border-left: 3px solid #ffb86c;
 }
 
 .header-battle-dialog-notice.-shared {
-  background: rgba(255, 85, 85, 0.08);
-  color: #ffb2b2;
+  background: #282a36;
+  color: #d6d7e2;
+  border-left: 3px solid #ff8585;
 }
 
 .header-battle-dialog-controls {
@@ -423,11 +430,12 @@
 }
 
 .header-battle-dialog-validation details {
-  background: rgba(255, 184, 108, 0.08);
-  border-radius: 5px;
+  background: transparent;
+  border-radius: 0;
   max-height: 120px;
   overflow: auto;
   padding: 7px;
+  border-left: 3px solid #ffb86c;
 }
 
 .header-battle-dialog-validation p {

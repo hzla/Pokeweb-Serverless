@@ -1,7 +1,17 @@
 .cui-editor { --cui-preview-width: 512px; box-sizing: border-box; width: 100%; max-width: calc(var(--cui-preview-width) + 630px); min-width: 0; margin-inline: auto; padding: 24px 20px; color: var(--text-color, #e6ebf0); }
 .cui-header h1 { margin: 0; font-size: 24px; }
 .cui-header p, .cui-status { font-size: 13px; }
-.cui-preview-notice { margin-block: 12px; padding: 12px 14px; border: 1px solid #80683e; border-left: 3px solid #dcab58; border-radius: 6px; background: #302c23; color: #f0e4cc; font-size: 13px; line-height: 1.5; }
+.cui-preview-notice {
+  margin-block: 12px;
+  padding: 12px 14px;
+  border: 0;
+  border-left: 3px solid #ffb86c;
+  border-radius: 0;
+  background: #282a36;
+  color: #d6d7e2;
+  font-size: 13px;
+  line-height: 1.5;
+}
 .cui-preview-notice strong { color: #f3ce8f; }
 .cui-preview-notice p { margin: 4px 0 0; }
 .cui-toolbar, .cui-actions, .cui-toolbar-group { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -19,11 +29,25 @@
 .cui-editor button { cursor: pointer; }
 .cui-editor button:hover:not(:disabled) { border-color: #9aa8ba; filter: brightness(1.12); }
 .cui-editor button:disabled { opacity: .45; cursor: default; }
-.cui-editor button.-selected { border-color: #57caff; background: #25485c; }
+.cui-editor button.-selected {
+  border-color: #bd93f9;
+  background: #383a59;
+}
 .cui-editor button:focus-visible, .cui-editor canvas:focus-visible, .cui-editor select:focus-visible, .cui-editor input:focus-visible { outline: 2px solid #57caff; outline-offset: 2px; }
-.cui-editor .cui-button-primary { background: #215572; border-color: #4f9dc5; }
-.cui-editor .cui-button-add { background: #253a37; border-color: #45655b; }
-.cui-editor .cui-button-delete { background: #3b2a31; border-color: #76505a; }
+.cui-editor .cui-button-primary {
+  background: #1abc9c;
+  border-color: #1abc9c;
+  color: #101216;
+}
+.cui-editor .cui-button-add {
+  background: #303744;
+  border-color: #555f6c;
+}
+.cui-editor .cui-button-delete {
+  background: #303744;
+  border-color: #555f6c;
+  color: #ff808d;
+}
 .cui-button-icon { display: inline-block; width: 14px; margin-right: 6px; font-size: 17px; font-weight: 700; line-height: 12px; vertical-align: -1px; }
 .cui-button-add .cui-button-icon { color: #94dfbc; }
 .cui-button-delete .cui-button-icon { color: #ff808d; }
@@ -57,7 +81,13 @@
 .cui-editor dialog textarea { display: block; max-width: 80vw; font-family: monospace; margin-bottom: 10px; }
 .cui-stage canvas.-active-screen { box-shadow: 0 0 0 2px #57caff; }
 .cui-editor.-interactable .cui-stage canvas { box-shadow: 0 0 0 1px #65717e; }
-.cui-capability { padding: 8px; border-left: 3px solid #dcab58; background: #302c23; font-size: 12px; line-height: 1.5; }
+.cui-capability {
+  padding: 8px;
+  border-left: 3px solid #ffb86c;
+  background: #282a36;
+  font-size: 12px;
+  line-height: 1.5;
+}
 .cui-access-panel { font-size: 12px; line-height: 1.5; }
 .cui-access-note { color: #afb9c7; }
 .cui-access-cards { display: flex; flex-direction: column; }

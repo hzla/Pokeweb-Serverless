@@ -2,6 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { renderCodeInjectionEditor } from "../ui/codeInjectionEditor";
 import { MENU_EVOLUTION_TITLE } from "../pokeweb/menuEvolutionModel";
+import * as menuEvolution from "../pokeweb/menuEvolutionModel";
+import * as battleLog from "../pokeweb/battleLogModel";
+
+afterEach(() => vi.restoreAllMocks());
 
 function makeProject(version: "W2" | "B2" | "B" | "W", pmcInstalled = false): ProjectState {
   const idCode = { W2: "IRDO", B2: "IREO", B: "IRBO", W: "IRAO" }[version];
@@ -23,6 +27,24 @@ function renderFixture(version: "W2" | "B2" | "B" | "W", pmcInstalled = false): 
   renderCodeInjectionEditor(project, root as unknown as HTMLElement, () => {});
   return root.innerHTML;
 }
+
+describe("save-menu version label", () => {
+  it("uses v1.0 on a new project and links to the Following Pokémon installer", () => {
+    const html = renderFixture("W2");
+    expect(html).toContain('id="save-menu-version-label"');
+    expect(html).toContain('value="v1.0"');
+    expect(html).toContain('href="#followingPokemon" data-route="followingPokemon">Install Following Pokémon</a>');
+  });
+  it("shows the optional header-label field with its current value", () => {
+    const project = makeProject("W2");
+    project.codeInjection = { saveMenuSettings: { music: "relic-song", bpm: 153, stepsPerBeat: 2, versionLabel: "v1.3" } };
+    const root = { innerHTML: "", querySelector: () => null, querySelectorAll: () => [] };
+    renderCodeInjectionEditor(project, root as unknown as HTMLElement, () => {});
+    expect(root.innerHTML).toContain('id="save-menu-version-label"');
+    expect(root.innerHTML).toContain('value="v1.3"');
+    expect(root.innerHTML).toContain('maxlength="30"');
+  });
+});
 
 describe("local summary-type-icons installer", () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -87,7 +109,7 @@ describe("unsupported patch visibility", () => {
     expect(cards.find(card => card.includes("<h2>Trainer Battle Log</h2>")))
       .toContain('data-code-injection-supported="true"');
     expect(cards.find(card => card.includes("<h2>C-Gear Quick Actions</h2>")))
-      .toContain('data-code-injection-supported="false"');
+      .toContain('data-code-injection-supported="true"');
     expect(html.slice(html.indexOf("<aside"), html.indexOf("</aside>")))
       .toContain('id="show-unsupported-patches"');
     expect(html).not.toMatch(/id="show-unsupported-patches" checked/u);
@@ -147,6 +169,38 @@ describe("unsupported patch visibility", () => {
 });
 
 describe("code-injection patch categories", () => {
+  it.each([false, true])("allows Enhanced Party Menu when Battle Log is compatible (already installed: %s)", installed => {
+    const project = makeProject("W2");
+    vi.spyOn(menuEvolution, "getMenuEvolutionInstallStatus").mockReturnValue({
+      ...menuEvolution.getMenuEvolutionInstallStatus(project), supported: true, compatible: true, dependencyInstalled: installed,
+    });
+    vi.spyOn(battleLog, "getBattleLogInstallStatus").mockReturnValue({
+      ...battleLog.getBattleLogInstallStatus(project), supported: true, compatible: true, installed, upToDate: false,
+    });
+    const html = renderFixture("W2");
+    expect(html).not.toMatch(/id="install-menu-evolution-btn"[^>]*disabled/u);
+    expect(html).toContain(installed ? "Will Update" : "Will Install");
+    expect(html).not.toContain("Dependency Missing");
+  });
+
+  it("blocks Enhanced Party Menu when its Battle Log dependency is incompatible", () => {
+    const project = makeProject("W2");
+    vi.spyOn(menuEvolution, "getMenuEvolutionInstallStatus").mockReturnValue({
+      ...menuEvolution.getMenuEvolutionInstallStatus(project), supported: true, compatible: true,
+    });
+    vi.spyOn(battleLog, "getBattleLogInstallStatus").mockReturnValue({
+      ...battleLog.getBattleLogInstallStatus(project), supported: true, compatible: false,
+    });
+    expect(renderFixture("W2")).toMatch(/id="install-menu-evolution-btn"[^>]*disabled/u);
+  });
+
+  it("offers form support and DLL uploads without first installing PMC", () => {
+    const html = renderFixture("W2");
+    expect(html).not.toMatch(/id="install-form-evolution-btn"[^>]*disabled/u);
+    expect(html).not.toMatch(/data-dll-target="(?:patches|lib)"[^>]*disabled/u);
+    expect(renderFixture("W")).toMatch(/id="install-form-evolution-btn"[^>]*disabled/u);
+  });
+
   it.each(["B2", "W2"] as const)("shows the concise toolbar description and optional hide flag on %s", version => {
     const html = renderFixture(version);
     expect(html).toContain("Party Toolbar: Leveling, Edging, Pre-dmg, Pre-status, Heal Team<br>Press L to access or use Touch screen");
@@ -156,11 +210,11 @@ describe("code-injection patch categories", () => {
     for (const id of ["candy", "heal", "hp", "exp", "statuses"]) expect(html).toContain(`id="party-tools-${id}-hide-flag" type="text" value=""`);
     expect(html).not.toContain("Full Restore needs no item.");
   });
-  it("enables Black 1 doubles only after PMC is installed and leaves White 1 unavailable", () => {
+  it("enables Black 1 doubles without PMC and leaves White 1 unavailable", () => {
     const card = (version: "B" | "W", installed: boolean) => renderFixture(version, installed)
       .match(/<section class="code-injection-panel"[^>]*>[\s\S]*?<\/section>/g)!
       .find(html => html.includes("<h2>Single-NPC Double Battle Fix</h2>"))!;
-    expect(card("B", false)).toMatch(/id="install-double-battle-fix-btn"[^>]*disabled/u);
+    expect(card("B", false)).not.toMatch(/id="install-double-battle-fix-btn"[^>]*disabled/u);
     expect(card("B", true)).not.toMatch(/id="install-double-battle-fix-btn"[^>]*disabled/u);
     expect(card("B", true)).toContain("US Black 1");
     expect(card("W", true)).toContain("Unsupported");
@@ -210,7 +264,7 @@ describe("code-injection patch categories", () => {
     expect(html).not.toContain("Prebuilt DLL upload will use the ROM filesystem support added for /patches and /lib.");
     expect(html).not.toContain("Patch DLLs are staged in patches/. Library DLLs are staged in lib/.");
     const actionNotes = [...html.matchAll(/<div class="code-injection-note" id="[^"]+-note" aria-live="polite">([\s\S]*?)<\/div>/g)];
-    expect(actionNotes).toHaveLength(22);
+    expect(actionNotes).toHaveLength(23);
     expect(actionNotes.every((match) => match[1] === "")).toBe(true);
   });
 });

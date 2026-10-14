@@ -222,6 +222,8 @@ void *fwt_begin(FwFollower *f,Actor *player,Actor *actor,void *field,void *game,
  if(talk.active||needRelease||!load()||!fwt_reach(f,player,actor,field)||PTR(game,0x18))return 0;
  if(CALL(0x0203a2d5,unsigned(*)(unsigned))(4)<16384)return 0;
  FwrSnapshot current=*snapshot;
+ /* Actor grid is matrix-wide; native grid Y is height, Z is map tile Y. */
+ current.tileX=player->grid[0];current.tileY=player->grid[2];
  int dx=player->world.x-actor->world.x,dz=player->world.z-actor->world.z;
  unsigned face=abs32(dx)>abs32(dz)?(dx<0?2u:3u):(dz<0?0u:1u);
  current.direction=(uint8_t)face;

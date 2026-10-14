@@ -1,0 +1,318 @@
+{
+  "0.1.0-bw1": {
+    "games": {
+      "B": {
+        "bssSize": 940,
+        "codeFingerprint": "af607f7e",
+        "sha256": "bbb7fd6dacda2d914b84166c5e6872e78d8e39b1cd7781b0aa4581cffaf73c8f",
+        "hooks": [
+          {
+            "module": "29",
+            "address": 35594550,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "29",
+            "address": 35593746,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "29",
+            "address": 35596680,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "29",
+            "address": 35596720,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "21",
+            "address": 35171420,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "21",
+            "address": 35296288,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "21",
+            "address": 35301540,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "21",
+            "address": 35301552,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "21",
+            "address": 35489580,
+            "type": "FULL_COPY"
+          },
+          {
+            "module": "21",
+            "address": 35489584,
+            "type": "FULL_COPY"
+          },
+          {
+            "module": "21",
+            "address": 35489592,
+            "type": "FULL_COPY"
+          },
+          {
+            "module": "21",
+            "address": 35489596,
+            "type": "FULL_COPY"
+          },
+          {
+            "module": "21",
+            "address": 35489720,
+            "type": "FULL_COPY"
+          },
+          {
+            "module": "10",
+            "address": 35066752,
+            "type": "FULL_COPY"
+          }
+        ]
+      },
+      "W": {
+        "bssSize": 940,
+        "codeFingerprint": "a559ce07",
+        "sha256": "9fab663a554efa43d8d7998909cc5433765783f7a84799dfe1ac3a320eb7931e",
+        "hooks": [
+          {
+            "module": "29",
+            "address": 35594582,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "29",
+            "address": 35593778,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "29",
+            "address": 35596712,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "29",
+            "address": 35596752,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "21",
+            "address": 35171452,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "21",
+            "address": 35296320,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "21",
+            "address": 35301572,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "21",
+            "address": 35301584,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "21",
+            "address": 35489604,
+            "type": "FULL_COPY"
+          },
+          {
+            "module": "21",
+            "address": 35489608,
+            "type": "FULL_COPY"
+          },
+          {
+            "module": "21",
+            "address": 35489616,
+            "type": "FULL_COPY"
+          },
+          {
+            "module": "21",
+            "address": 35489620,
+            "type": "FULL_COPY"
+          },
+          {
+            "module": "21",
+            "address": 35489744,
+            "type": "FULL_COPY"
+          },
+          {
+            "module": "10",
+            "address": 35066784,
+            "type": "FULL_COPY"
+          }
+        ]
+      }
+    }
+  },
+  "0.1.1-bw1": {
+    "games": {
+      "B": {
+        "bssSize": 944,
+        "codeFingerprint": "fee22fec",
+        "sha256": "4bc67153c1b578ab01bd54d6508a53283afd986c6b92d6f274e38ffae44a05d7",
+        "hooks": [
+          {
+            "module": "29",
+            "address": 35594550,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "29",
+            "address": 35593746,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "29",
+            "address": 35596680,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "29",
+            "address": 35596720,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "21",
+            "address": 35171420,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "21",
+            "address": 35296288,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "21",
+            "address": 35301540,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "21",
+            "address": 35301552,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "21",
+            "address": 35489580,
+            "type": "FULL_COPY"
+          },
+          {
+            "module": "21",
+            "address": 35489584,
+            "type": "FULL_COPY"
+          },
+          {
+            "module": "21",
+            "address": 35489592,
+            "type": "FULL_COPY"
+          },
+          {
+            "module": "21",
+            "address": 35489596,
+            "type": "FULL_COPY"
+          },
+          {
+            "module": "21",
+            "address": 35489720,
+            "type": "FULL_COPY"
+          },
+          {
+            "module": "10",
+            "address": 35066752,
+            "type": "FULL_COPY"
+          }
+        ]
+      },
+      "W": {
+        "bssSize": 944,
+        "codeFingerprint": "34f0d0d6",
+        "sha256": "3128199dea3ed2d068c281b20769a0c6c31e53a84ee821a1a835fb8eea161505",
+        "hooks": [
+          {
+            "module": "29",
+            "address": 35594582,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "29",
+            "address": 35593778,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "29",
+            "address": 35596712,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "29",
+            "address": 35596752,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "21",
+            "address": 35171452,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "21",
+            "address": 35296320,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "21",
+            "address": 35301572,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "21",
+            "address": 35301584,
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "module": "21",
+            "address": 35489604,
+            "type": "FULL_COPY"
+          },
+          {
+            "module": "21",
+            "address": 35489608,
+            "type": "FULL_COPY"
+          },
+          {
+            "module": "21",
+            "address": 35489616,
+            "type": "FULL_COPY"
+          },
+          {
+            "module": "21",
+            "address": 35489620,
+            "type": "FULL_COPY"
+          },
+          {
+            "module": "21",
+            "address": 35489744,
+            "type": "FULL_COPY"
+          },
+          {
+            "module": "10",
+            "address": 35066784,
+            "type": "FULL_COPY"
+          }
+        ]
+      }
+    }
+  }
+}
