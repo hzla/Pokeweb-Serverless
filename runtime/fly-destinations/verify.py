@@ -72,23 +72,6 @@ def fly_case(prepared, selected, override, rail=False):
         assert struct.unpack('<iii', result[16:28]) == tuple(n * 65536 for n in (expected or (430, 0, 491)))
 
 
-def marker_case(prepared, kind, flyable, parameter, expected):
-    u, symbols = cpu(prepared)
-    place, table = WORK, WORK + 0x100
-    data = bytearray(68)
-    struct.pack_into('<II', data, 4, table, 0)
-    struct.pack_into('<9i', data, 12, *range(100, 109))
-    struct.pack_into('<I', data, 60, flyable)
-    u.mem_write(place, bytes(data))
-    row = bytearray(54); struct.pack_into('<H', row, 22, kind); struct.pack_into('<H', row, 26, 432)
-    u.mem_write(table, bytes(row))
-    u.reg_write(UC_ARM_REG_R0, place); u.reg_write(UC_ARM_REG_R1, parameter)
-    u.hook_add(UC_HOOK_CODE, lambda emu, address, *_: emu.emu_stop() if address == STOP else None)
-    u.emu_start(symbols['Fly_PlaceParameter'] | 1, STOP, count=1000)
-    assert u.reg_read(UC_ARM_REG_R0) == expected
-    assert bytes(u.mem_read(table, 54)) == bytes(row)
-
-
 def main():
     count = 0
     for version in ('B2', 'W2'):
@@ -98,9 +81,7 @@ def main():
             fly_case(prepared, zone, overrides); count += 1
         fly_case(prepared, 28, {28: (3, 20, -2)}, True); count += 1
         fly_case(prepared, 28, {}, True); count += 1
-        for args in [(1, 1, 11, 3), (1, 0, 11, 1), (0, 1, 11, 0), (1, 1, 12, 1), (1, 1, 2, 100), (1, 1, 10, 108), (1, 1, 13, 432)]:
-            marker_case(prepared, *args); count += 1
-    print(f'{count} ARM946 cases passed: independent Route 4/Join Avenue, unchanged defaults, rail ABI and conditional route markers. Native loader calls are controlled stubs; this is not gameplay testing.')
+    print(f'{count} ARM946 cases passed: independent Route 4/Join Avenue, unchanged defaults, rail ABI; Town Map visuals are unhooked. Native loader calls are controlled stubs; this is not gameplay testing.')
 
 
 if __name__ == '__main__':

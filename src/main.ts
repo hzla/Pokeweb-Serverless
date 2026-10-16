@@ -19,6 +19,10 @@ import "./styles/legacyOverworlds.css";
 import "./styles/legacyDocGenerators.css";
 import "./styles/legacyMastersheet.css";
 import "./styles/legacyMap3d.css";
+import "./styles/matrixEditor.css";
+import { renderMatrixEditor, stopMatrixEditor } from "./ui/matrixEditor";
+import { canUseMatrixEditor, loadMatrixEditorData } from "./pokeweb/matrixModel";
+import type { Map3dMatrixCell } from "./pokeweb/map3dModel";
 import "./styles/legacyPokemonSprites.css";
 import "./styles/legacyStarters.css";
 import "./styles/fileSystem.css";
@@ -33,7 +37,8 @@ import "./styles/battleBackgrounds.css";
 import "./styles/headerBattleEnvironments.css";
 import "./styles/overworldWeather.css";
 import "./styles/flyDestinations.css";
-import { renderFlyDestinationEditor } from "./ui/flyDestinationEditor";
+import { renderFlyDestinationEditor, stopFlyDestinationEditor } from "./ui/flyDestinationEditor";
+import { attachNavigationDropdowns } from "./ui/navigationDropdowns";
 import { loadFlyDestinationEditorData } from "./pokeweb/flyDestinationModel";
 import "./styles/randomizer.css";
 import "./styles/trainerMusic.css";
@@ -122,6 +127,7 @@ type AppRoute =
   | "weatherGraphics"
   | "overworlds"
   | "maps3d"
+  | "matrixEditor"
   | "buildings"
   | "pokemon"
   | "pokemonSprites"
@@ -158,7 +164,12 @@ type AppRoute =
   | "debugNarcs";
 type AppHistoryState = {
   route: AppRoute;
+  matrixHeaderId?: number;
   overworldId?: number;
+  overworldHeaderId?: number;
+  mapZoneId?: number;
+  mapId?: number;
+  mapMatrixCell?: Map3dMatrixCell;
   moveAnimationMoveId?: number;
   pokemonSpriteSpeciesId?: number;
   pokemonSpriteFormIndex?: number;
@@ -225,6 +236,7 @@ const APP_ROUTES: AppRoute[] = [
   "weatherGraphics",
   "overworlds",
   "maps3d",
+  "matrixEditor",
   "buildings",
   "pokemon",
   "pokemonSprites",
@@ -272,6 +284,7 @@ const EDITOR_REQUIREMENTS: Record<
   weatherGraphics: [],
   buildings: [],
   overworlds: ["headers", "matrix", "maps", "overworlds"],
+  matrixEditor: ["headers"],
   pokemon: ["personal", "learnsets", "evolutions", "moves", "items"],
   pokemonSprites: ["personal", "pokemon_sprites", "pokemon_icons"],
   animatedSprites: ["personal", "pokemon_sprites"],
@@ -399,6 +412,11 @@ const defaultDocumentTitle = document.title;
 let project: ProjectState | undefined;
 let route: AppRoute = "upload";
 let activeOverworldId: number | undefined;
+let activeOverworldHeaderId: number | undefined;
+let activeMapZoneId: number | undefined;
+let activeMatrixHeaderId: number | undefined;
+let activeMapId: number | undefined;
+let activeMapMatrixCell: Map3dMatrixCell | undefined;
 let activeMoveAnimationMoveId: number | undefined;
 let activePokemonSpriteSpeciesId: number | undefined;
 let activePokemonSpriteFormIndex = 0;
@@ -500,6 +518,11 @@ async function boot(): Promise<void> {
   }
   const initialState = routeStateFromUrl() ?? routeStateFromStorage();
   activeOverworldId = initialState.overworldId;
+  activeOverworldHeaderId = initialState.overworldHeaderId;
+  activeMapZoneId = initialState.mapZoneId;
+  activeMatrixHeaderId = initialState.matrixHeaderId;
+  activeMapId = initialState.mapId;
+  activeMapMatrixCell = initialState.mapMatrixCell;
   activeMoveAnimationMoveId = initialState.moveAnimationMoveId;
   activePokemonSpriteSpeciesId = initialState.pokemonSpriteSpeciesId;
   activePokemonSpriteFormIndex = initialState.pokemonSpriteFormIndex ?? 0;
@@ -612,6 +635,8 @@ function renderApp(): void {
   stopCustomUiEditor();
   stopCGearButtonsEditor();
   stopBw2ScriptEditor();
+  stopFlyDestinationEditor();
+  stopMatrixEditor();
   stopTrainerSpriteEditorPlayback();
   stopPlayerTrainerBackSpritePlayback();
   stopTrainerMusicEditorPlayback();
@@ -654,6 +679,7 @@ function renderApp(): void {
         renderDirtyIndicator();
       },
       canVisit("overworlds") ? openOverworld : undefined,
+      canVisit("matrixEditor") ? headerId => applyRouteState({ route: "matrixEditor", matrixHeaderId: headerId }) : undefined,
     );
     content.querySelector<HTMLButtonElement>("#debug-narcs-btn")?.addEventListener("click", () => navigate("debugNarcs"));
     return;
@@ -782,6 +808,7 @@ function renderApp(): void {
       },
       () => navigate("headers"),
       launchOverworldTestWarp,
+      activeOverworldHeaderId === undefined ? undefined : activeOverworldHeaderId + 1,
     );
     return;
   }
@@ -800,6 +827,31 @@ function renderApp(): void {
     return;
   }
 
+  if (route === "matrixEditor") {
+    const currentProject = project;
+    content.innerHTML = `<div class="matrix-editor"><h1>Matrix Editor</h1><p>Loading matrices…</p></div>`;
+    void loadMatrixEditorData(currentProject).then(async () => {
+      try { await loadMatrixEditorData(currentProject, { seasons: true }); }
+      catch (error) { if (currentProject.narcs.map_replace) currentProject.narcs.map_replace.parseError = error instanceof Error ? error.message : "Reconnect the source ROM for seasonal assignments."; }
+      if (project !== currentProject || route !== "matrixEditor") return;
+      renderMatrixEditor(currentProject, content, () => {
+        dirty = true;
+        scheduleSave(currentProject);
+        renderDirtyIndicator();
+      }, {
+        openMap: (mapZoneId, mapId, mapMatrixCell) => applyRouteState({ route: "maps3d", mapZoneId, mapId, mapMatrixCell }),
+        openOverworld: async (overworldId, overworldHeaderId) => {
+          await loadMatrixEditorData(currentProject, { overworlds: true });
+          if (project === currentProject && route === "matrixEditor") applyRouteState({ route: "overworlds", overworldId, overworldHeaderId });
+        },
+      }, activeMatrixHeaderId === undefined ? {} : { headerId: activeMatrixHeaderId, matrixId: Number(currentProject.headers?.rows[activeMatrixHeaderId + 1]?.matrix_id ?? 0), seasons: true });
+    }).catch(error => {
+      if (project === currentProject && route === "matrixEditor")
+        content.innerHTML = `<div class="matrix-editor"><h1>Matrix Editor</h1><p>${escapeHtml(error instanceof Error ? error.message : "Matrices could not be loaded.")}</p></div>`;
+    });
+    return;
+  }
+
   if (route === "maps3d") {
     content.innerHTML = `<div class="pokemon-filter map3d-sidebar"><div class="filter-title">Maps 3D</div><div class="map3d-status">Loading viewer...</div></div>`;
     void import("./ui/map3dEditor").then(({ renderMap3dEditor }) => {
@@ -808,7 +860,7 @@ function renderApp(): void {
           dirty = true;
           scheduleSave(project!);
           renderDirtyIndicator();
-        });
+        }, activeMapZoneId === undefined && !activeMapMatrixCell ? undefined : { zoneId: activeMapZoneId, mapId: activeMapId, matrixCell: activeMapMatrixCell });
       }
     }).catch((error) => {
       if (route === "maps3d") renderMap3dEditorLoadError(content, error);
@@ -1163,8 +1215,7 @@ function renderNav(): string {
   return `
     <div id="header">
       <div class="header-left">
-        ${navItem("headers", "Headers & Overworlds")}
-        ${project.session.baseRom === "BW2" ? navItem("flyDestinations", "Fly Destinations") : ""}
+        ${renderHeadersMenu()}
         ${renderMapsMenu()}
         ${project.session.baseRom === "BW2" ? renderWeatherMenu() : ""}
         ${navItem("pokemon", "Pokemon")}
@@ -1195,6 +1246,14 @@ function renderNav(): string {
       </div>
     </div>
   `;
+}
+
+function renderHeadersMenu(): string {
+  const active = route === "headers" || route === "overworlds" || route === "flyDestinations" || route === "matrixEditor";
+  return `<div class="header-more ${active ? "-active" : ""}">
+    <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Headers &amp; Overworlds</button>
+    <div class="header-more-menu">${navItem("headers", "Headers")}${navItem("overworlds", "Overworlds", 0)}${project && isGen5Project(project) ? navItem("matrixEditor", "Matrix Editor") : ""}${project?.session.baseRom === "BW2" ? navItem("flyDestinations", "Fly Destinations") : ""}</div>
+  </div>`;
 }
 
 function renderMapsMenu(): string {
@@ -1339,15 +1398,15 @@ function attachNav(): void {
         void handleNewProjectClick();
         return;
       }
+      if (nextRoute === "overworlds" && link.dataset.overworldId !== undefined) {
+        openOverworld(Number(link.dataset.overworldId));
+        return;
+      }
       navigate(nextRoute);
     });
   });
 
-  appRoot.querySelectorAll<HTMLButtonElement>(".header-more-trigger").forEach((trigger) => trigger.addEventListener("click", (event) => {
-    event.preventDefault();
-    const menu = (event.currentTarget as HTMLElement).closest(".header-more");
-    menu?.classList.toggle("-open");
-  }));
+  attachNavigationDropdowns(appRoot);
 
   appRoot.querySelector<HTMLDivElement>("#header")?.addEventListener("click", () => {
     if (window.screen.width <= 1180) {
@@ -2292,9 +2351,13 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
   if (nextRoute === "fileSystem") return hasExportBase;
   if (nextRoute === "codeInjection") return hasExportBase && (project.session.baseRom === "BW" || project.session.baseRom === "BW2");
   if (nextRoute === "followingPokemon") return hasExportBase && project.session.baseRom === "BW2" && (project.session.baseVersion === "B2" || project.session.baseVersion === "W2");
-  if (nextRoute === "music") return hasExportBase && project.session.baseRom === "BW2" && (project.session.baseVersion === "B2" || project.session.baseVersion === "W2");
+  if (nextRoute === "music") return hasExportBase && (
+    (project.session.baseRom === "BW" && (project.session.baseVersion === "B" || project.session.baseVersion === "W"))
+    || (project.session.baseRom === "BW2" && (project.session.baseVersion === "B2" || project.session.baseVersion === "W2"))
+  );
   if (nextRoute === "patches") return hasExportBase && (project.session.baseRom === "BW" || project.session.baseRom === "BW2");
   if (nextRoute === "maps3d") return Boolean(project.headers && hasExportBase);
+  if (nextRoute === "matrixEditor") return canUseMatrixEditor(project, hasExportBase);
   if (nextRoute === "buildings") return isGen5Project(project) && hasExportBase;
   if (nextRoute === "weather") return project.session.baseRom === "BW2" && EDITOR_REQUIREMENTS.weather.every((name) => project?.narcs[name]);
   if (nextRoute === "flyDestinations") return project.session.baseRom === "BW2" && hasExportBase && Boolean(project.narcs.headers);
@@ -2337,7 +2400,7 @@ function mastersheetRequirements(): NarcName[] {
   return ["personal", "learnsets", "moves", "items", "trdata", "trpok", "encounters"];
 }
 
-function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds" | "pokemonSprites">, label: string): string {
+function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds" | "pokemonSprites">, label: string, overworldId?: number): string {
   const enabled = canVisit(nextRoute);
   const requirements =
     nextRoute === "docGenerators"
@@ -2368,7 +2431,7 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
     : nextRoute === "followingPokemon"
       ? ` title="${project?.session.baseRom === "BW2" ? "Reload the ROM before opening Following Pokémon" : "Following Pokémon supports Black 2 and White 2 projects"}"`
     : nextRoute === "music"
-      ? ` title="${project?.session.baseRom === "BW2" ? "Reload the ROM before opening Music" : "Music replacement supports US Black 2 and White 2"}"`
+      ? ` title="${project?.session.baseRom === "BW" || project?.session.baseRom === "BW2" ? "Reload the ROM before opening Music" : "Music replacement supports US Black, White, Black 2 and White 2"}"`
     : nextRoute === "patches"
       ? ` title="Reload the ROM before opening Patches"`
       : nextRoute === "maps3d"
@@ -2392,10 +2455,9 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
           : ` title="Missing: ${requirements.filter((name) => !project?.narcs[name]).join(", ")}"`;
   const active =
     route === nextRoute ||
-    (nextRoute === "headers" && route === "overworlds") ||
     (nextRoute === "moves" && route === "moveAnimation") ||
     (nextRoute === "trainers" && (route === "trainerSprites" || route === "playerBackSprite"));
-  return `<a class="header-item ${active ? "-active" : ""} ${enabled ? "" : "disabled"}" href="${routeUrl(nextRoute)}" ${enabled ? `data-route="${nextRoute}"` : ""}${missing}>${label}</a>`;
+  return `<a class="header-item ${active ? "-active" : ""} ${enabled ? "" : "disabled"}" href="${routeUrl(nextRoute, overworldId ?? activeOverworldId)}" ${enabled ? `data-route="${nextRoute}"${overworldId !== undefined ? ` data-overworld-id="${overworldId}"` : ""}` : ""}${missing}>${label}</a>`;
 }
 
 function safeRoute(nextRoute: AppRoute): AppRoute {
@@ -2426,6 +2488,11 @@ function applyRouteState(nextState: AppHistoryState, options: { replace?: boolea
   if (requestedRoute === "grottoOdds" && !canVisit("grottos")) return;
 
   activeOverworldId = nextState.overworldId;
+  activeOverworldHeaderId = nextState.overworldHeaderId;
+  activeMapZoneId = nextState.mapZoneId;
+  activeMatrixHeaderId = nextState.matrixHeaderId;
+  activeMapId = nextState.mapId;
+  activeMapMatrixCell = nextState.mapMatrixCell;
   activeMoveAnimationMoveId = nextState.moveAnimationMoveId;
   activePokemonSpriteSpeciesId = nextState.pokemonSpriteSpeciesId;
   activePokemonSpriteFormIndex = nextState.pokemonSpriteFormIndex ?? 0;
@@ -2460,13 +2527,19 @@ function syncBrowserHistory(replace: boolean): void {
     state.pokemonSpriteFormIndex,
     state.trainerSpriteClassId,
     state.pwanAnimationSpeciesId,
+    state.mapZoneId,
+    state.mapId,
+    state.overworldHeaderId,
+    state.mapMatrixCell,
   );
   if (replace) window.history.replaceState(state, "", url);
   else window.history.pushState(state, "", url);
 }
 
 function currentHistoryState(): AppHistoryState {
-  if (route === "overworlds") return { route, overworldId: activeOverworldId };
+  if (route === "matrixEditor") return { route, matrixHeaderId: activeMatrixHeaderId };
+  if (route === "overworlds") return { route, overworldId: activeOverworldId, overworldHeaderId: activeOverworldHeaderId };
+  if (route === "maps3d") return { route, mapZoneId: activeMapZoneId, mapId: activeMapId, mapMatrixCell: activeMapMatrixCell };
   if (route === "moveAnimation") return { route, moveAnimationMoveId: activeMoveAnimationMoveId };
   if (route === "pokemonSprites") return { route, pokemonSpriteSpeciesId: activePokemonSpriteSpeciesId, pokemonSpriteFormIndex: activePokemonSpriteFormIndex };
   if (route === "trainerSprites") return { route, trainerSpriteClassId: activeTrainerSpriteClassId };
@@ -2482,8 +2555,15 @@ function routeUrl(
   pokemonSpriteFormIndex = activePokemonSpriteFormIndex,
   trainerSpriteClassId = activeTrainerSpriteClassId,
   pwanAnimationSpeciesId = activePwanAnimationSpeciesId,
+  mapZoneId?: number,
+  mapId?: number,
+  overworldHeaderId?: number,
+  mapMatrixCell?: Map3dMatrixCell,
 ): string {
-  if (nextRoute === "overworlds" && overworldId !== undefined) return `#overworlds/${overworldId}`;
+  if (nextRoute === "matrixEditor" && activeMatrixHeaderId !== undefined) return `#matrixEditor/header/${activeMatrixHeaderId}`;
+  if (nextRoute === "overworlds" && overworldId !== undefined) return `#overworlds/${overworldId}${overworldHeaderId === undefined ? "" : `/${overworldHeaderId}`}`;
+  if (nextRoute === "maps3d" && mapMatrixCell) return `#maps3d/matrix/${mapMatrixCell.matrixId}/${mapMatrixCell.x}/${mapMatrixCell.y}`;
+  if (nextRoute === "maps3d" && mapZoneId !== undefined) return `#maps3d/${mapZoneId}${mapId === undefined ? "" : `/${mapId}`}`;
   if (nextRoute === "moveAnimation" && moveAnimationMoveId !== undefined) return `#moveAnimation/${moveAnimationMoveId}`;
   if (nextRoute === "pokemonSprites" && pokemonSpriteSpeciesId !== undefined) {
     return `#pokemonSprites/${pokemonSpriteSpeciesId}/${pokemonSpriteFormIndex}`;
@@ -2497,14 +2577,19 @@ function routeUrl(
 function routeStateFromUrl(): AppHistoryState | undefined {
   const hash = window.location.hash.replace(/^#/u, "");
   if (!hash) return undefined;
-  const [rawRouteName, idText, extraText] = hash.split("/");
+  const [rawRouteName, idText, extraText, xText, yText] = hash.split("/");
   const routeName = rawRouteName === "scriptedpkmn" ? "starters" : rawRouteName;
   if (!isAppRoute(routeName)) return undefined;
   const id = idText === undefined ? undefined : Number(idText);
   const formIndex = extraText === undefined ? undefined : Number(extraText);
   return {
     route: routeName,
+    matrixHeaderId: routeName === "matrixEditor" && idText === "header" && Number.isSafeInteger(formIndex) && formIndex! >= 0 ? formIndex : undefined,
     overworldId: routeName === "overworlds" && Number.isSafeInteger(id) ? id : undefined,
+    overworldHeaderId: routeName === "overworlds" && Number.isSafeInteger(formIndex) && formIndex! >= 0 ? formIndex : undefined,
+    mapZoneId: routeName === "maps3d" && Number.isSafeInteger(id) && id! >= 0 ? id : undefined,
+    mapId: routeName === "maps3d" && idText !== "matrix" && Number.isSafeInteger(formIndex) && formIndex! >= 0 ? formIndex : undefined,
+    mapMatrixCell: routeName === "maps3d" && idText === "matrix" ? validMapMatrixCell({ matrixId: Number(extraText), x: Number(xText), y: Number(yText) }) : undefined,
     moveAnimationMoveId: routeName === "moveAnimation" && Number.isSafeInteger(id) ? id : undefined,
     pokemonSpriteSpeciesId: routeName === "pokemonSprites" && Number.isSafeInteger(id) ? id : undefined,
     pokemonSpriteFormIndex: routeName === "pokemonSprites" && Number.isSafeInteger(formIndex) ? formIndex : undefined,
@@ -2538,13 +2623,25 @@ function routeStateFromHistory(value: unknown): AppHistoryState | undefined {
   if (!isAppRoute(maybe.route)) return undefined;
   return {
     route: maybe.route,
+    matrixHeaderId: Number.isSafeInteger(maybe.matrixHeaderId) && maybe.matrixHeaderId! >= 0 ? maybe.matrixHeaderId : undefined,
     overworldId: Number.isSafeInteger(maybe.overworldId) ? maybe.overworldId : undefined,
+    overworldHeaderId: Number.isSafeInteger(maybe.overworldHeaderId) && maybe.overworldHeaderId! >= 0 ? maybe.overworldHeaderId : undefined,
+    mapZoneId: Number.isSafeInteger(maybe.mapZoneId) && maybe.mapZoneId! >= 0 ? maybe.mapZoneId : undefined,
+    mapId: Number.isSafeInteger(maybe.mapId) && maybe.mapId! >= 0 ? maybe.mapId : undefined,
+    mapMatrixCell: validMapMatrixCell(maybe.mapMatrixCell),
     moveAnimationMoveId: Number.isSafeInteger(maybe.moveAnimationMoveId) ? maybe.moveAnimationMoveId : undefined,
     pokemonSpriteSpeciesId: Number.isSafeInteger(maybe.pokemonSpriteSpeciesId) ? maybe.pokemonSpriteSpeciesId : undefined,
     pokemonSpriteFormIndex: Number.isSafeInteger(maybe.pokemonSpriteFormIndex) ? maybe.pokemonSpriteFormIndex : undefined,
     trainerSpriteClassId: Number.isSafeInteger(maybe.trainerSpriteClassId) ? maybe.trainerSpriteClassId : undefined,
     pwanAnimationSpeciesId: Number.isSafeInteger(maybe.pwanAnimationSpeciesId) ? maybe.pwanAnimationSpeciesId : undefined,
   };
+}
+
+function validMapMatrixCell(value: unknown): Map3dMatrixCell | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const cell = value as Map3dMatrixCell;
+  return [cell.matrixId, cell.x, cell.y].every(id => Number.isSafeInteger(id) && id >= 0)
+    ? { matrixId: cell.matrixId, x: cell.x, y: cell.y } : undefined;
 }
 
 function isAppRoute(value: unknown): value is AppRoute {

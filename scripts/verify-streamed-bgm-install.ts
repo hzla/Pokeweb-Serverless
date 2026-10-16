@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { NintendoDSRom } from "../src/nds/rom";
 import { parseNitroSdat } from "../src/pokeweb/nitroSound";
-import type { ProjectState } from "../src/pokeweb/projectStore";
+import { loadProjectFromRomBytes } from "../src/pokeweb/loader";
 import {
   appendStandaloneSdatStream,
   encodeAdpcmStrm,
@@ -17,6 +17,7 @@ import {
   STREAMED_BGM_SAMPLE_RATE,
 } from "../src/pokeweb/streamedBgmModel";
 
+globalThis.fetch = (async (input: RequestInfo | URL) => new Response(new Uint8Array(readFileSync(input instanceof URL ? input : new URL(input instanceof Request ? input.url : String(input)))))) as typeof fetch;
 const paths = process.argv.slice(2);
 if (paths.length === 0) throw new Error("Pass one or more US Black / White / Black 2 / White 2 ROM paths.");
 
@@ -69,12 +70,7 @@ for (const path of paths) {
   if (!Buffer.from(removedStandalone).equals(Buffer.from(original))) throw new Error(`${path}: standalone uninstall was not byte-exact.`);
   if (rom.idCode === "IRBO" || rom.idCode === "IRAO") {
     const version = rom.idCode === "IRBO" ? "B" : "W";
-    const project = {
-      originalRomBytes: romBytes,
-      session: { romName: `Verify ${version}`, baseRom: "BW", baseVersion: version },
-      romInfo: { idCode: rom.idCode },
-      arm9: new Uint8Array(), overlays: {}, narcs: {}, fileSystem: { replacements: {} }, codeInjection: {},
-    } as unknown as ProjectState;
+    const project = await loadProjectFromRomBytes(romBytes, `Verify-${version}.nds`, { selectedNarcs: [] });
     const installedTrack = await installStandaloneStream(project, {
       name: "Verification song", sourceName: "generated.wav", pcm: {
         sampleRate: STREAMED_BGM_SAMPLE_RATE,

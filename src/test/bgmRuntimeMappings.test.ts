@@ -4,7 +4,7 @@ import { readU32, writeU16, writeU32 } from "../nds/binary";
 import { configureBundledBgmRuntime, readBgmRuntimeConfig, type BgmRuntimeMapping } from "../pokeweb/pmcModel";
 import { parseRpm, setRpmBaseAddress, updateRpmCodeImageForBase, writeRpm } from "../pokeweb/rpm";
 
-const dll = (version: "B2" | "W2") => new Uint8Array(readFileSync(new URL(`../assets/codeinjection/BgmToggle${version}.dll`, import.meta.url)));
+const dll = (version: "B" | "W" | "B2" | "W2") => new Uint8Array(readFileSync(new URL(`../assets/codeinjection/BgmToggle${version}.dll`, import.meta.url)));
 const mappings: BgmRuntimeMapping[] = Array.from({ length: 161 }, (_, index) => ({
   targetSequenceId: 1000 + index, streamId: index + 1, originalSequenceFileId: 100 + index,
   shadowFileId: 5000 + index * 2, streamFileId: 5001 + index * 2,
@@ -12,10 +12,10 @@ const mappings: BgmRuntimeMapping[] = Array.from({ length: 161 }, (_, index) => 
 const configSymbol = (rpm: ReturnType<typeof parseRpm>) => rpm.symbols.find((symbol) => symbol.nameHash === 0x59ce771e)!;
 
 describe("variable-length BGM runtime configuration", () => {
-  beforeEach(() => vi.stubGlobal("fetch", async (url: URL) => new Response(dll(url.pathname.includes("B2") ? "B2" : "W2"))));
+  beforeEach(() => vi.stubGlobal("fetch", async (url: URL) => new Response(new Uint8Array(readFileSync(url)))));
   afterEach(() => vi.unstubAllGlobals());
 
-  it.each(["B2", "W2"] as const)("round-trips 161 %s mappings, materializes BSS, and preserves all relocation addresses", async (version) => {
+  it.each(["B", "W", "B2", "W2"] as const)("round-trips 161 %s mappings, materializes BSS, and preserves all relocation addresses", async (version) => {
     const original = parseRpm(dll(version), { allowedMagics: ["DLXF"] });
     const configured = await configureBundledBgmRuntime(version, { shortcutEnabled: true, mappings: [...mappings].reverse() });
     expect(readBgmRuntimeConfig(configured)).toMatchObject({ abiVersion: 2, shortcutEnabled: true, mappings });
@@ -35,6 +35,13 @@ describe("variable-length BGM runtime configuration", () => {
       const at = relocation.target.address & ~1;
       expect(rpm.code.slice(at, at + 4)).toEqual(original.code.slice(at, at + 4));
     }
+  });
+
+  it.each(["B", "W"] as const)("supports stream zero in the %s player while retaining BW2 title protection", async (version) => {
+    const zero = { ...mappings[0]!, streamId: 0 };
+    const configured = await configureBundledBgmRuntime(version, { shortcutEnabled: false, mappings: [zero] });
+    expect(readBgmRuntimeConfig(configured)?.mappings).toEqual([zero]);
+    await expect(configureBundledBgmRuntime("W2", { shortcutEnabled: false, mappings: [zero] })).rejects.toThrow(/duplicate/u);
   });
 
   it("detects legacy ABI 1 mappings for migration", () => {

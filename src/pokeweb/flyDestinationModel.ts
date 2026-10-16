@@ -18,12 +18,12 @@ const FLAGS = visitFlags as Record<string, number>;
 const LAYOUTS = {
   B2: { idCode: "IREO", fileName: "FlyDestinationsB2.dll", url: new URL("../assets/codeinjection/FlyDestinationsB2.dll", import.meta.url),
     hooks: [{ overlay: 33, address: 0x02178956, bytes: "a0f6b7fb", type: "THUMB_BRANCH_LINK" },
-      { overlay: 144, address: 0x0219d4ae, bytes: "0a361681", type: "FULL_COPY" },
-      { overlay: 144, address: 0x0219e094, bytes: "08b50a1c031c022a", type: "THUMB_BRANCH" }] },
+      { overlay: 144, address: 0x0219d4ae, bytes: "0a361681", type: "FULL_COPY" }],
+    legacyMarkerHook: { overlay: 144, address: 0x0219e094, bytes: "08b50a1c031c022a", type: "THUMB_BRANCH" } },
   W2: { idCode: "IRDO", fileName: "FlyDestinationsW2.dll", url: new URL("../assets/codeinjection/FlyDestinationsW2.dll", import.meta.url),
     hooks: [{ overlay: 33, address: 0x02178996, bytes: "a0f6adfb", type: "THUMB_BRANCH_LINK" },
-      { overlay: 144, address: 0x0219d4ee, bytes: "0a361681", type: "FULL_COPY" },
-      { overlay: 144, address: 0x0219e0d4, bytes: "08b50a1c031c022a", type: "THUMB_BRANCH" }] },
+      { overlay: 144, address: 0x0219d4ee, bytes: "0a361681", type: "FULL_COPY" }],
+    legacyMarkerHook: { overlay: 144, address: 0x0219e0d4, bytes: "08b50a1c031c022a", type: "THUMB_BRANCH" } },
 } as const;
 type Version = keyof typeof LAYOUTS;
 
@@ -51,6 +51,12 @@ export async function loadFlyDestinationEditorData(project: ProjectState): Promi
   hydrateFlyDestinationsFromRomIfNeeded(project, rom);
 }
 
+/** Resolve the same version-specific header used by the native Fly spawn loader. */
+export function resolveFlyLandingZone(project: ProjectState, landingZone: number): number {
+  if (project.session.baseVersion !== "W2") return landingZone;
+  return landingZone === 326 ? 551 : landingZone === 294 ? 295 : landingZone === 0 ? 424 : landingZone;
+}
+
 export function getFlyDestinations(project: ProjectState): FlyDestination[] {
   const store = project.narcs.town_map;
   const bytes = store?.rawFiles[0];
@@ -61,9 +67,7 @@ export function getFlyDestinations(project: ProjectState): FlyDestination[] {
     const offset = index * STRIDE;
     const zone = view.getUint16(offset, true);
     const landingZone = zone === 490 ? 326 : zone;
-    const effectiveZone = project.session.baseVersion === "W2"
-      ? landingZone === 326 ? 551 : landingZone === 294 ? 295 : landingZone === 0 ? 424 : landingZone
-      : landingZone;
+    const effectiveZone = resolveFlyLandingZone(project, landingZone);
     const header = project.headers!.rows[zone + 1];
     const landingHeader = project.headers!.rows[effectiveZone + 1];
     if (!header || !landingHeader) throw new Error(`Town Map area ${zone} has no matching map header.`);
@@ -147,8 +151,9 @@ export function readFlyDestinationRuntime(bytes: Uint8Array, version: Version): 
 function assertOwnRuntime(rpm: RpmModule, version: Version): void {
   const actual = rpm.relocations.filter(({ target }) => target.module !== "base")
     .map(({ target }) => `${target.type}:${target.module}:${target.address}`).sort().join("|");
-  const expected = LAYOUTS[version].hooks.map(h => `${h.type}:${h.overlay}:${h.address}`).sort().join("|");
-  if (rpm.metadata.PMCGameID !== version || rpm.metadata.PMCVersion !== "1.0.0"
+  const hooks = rpm.metadata.PMCVersion === "1.0.0" ? [...LAYOUTS[version].hooks, LAYOUTS[version].legacyMarkerHook] : LAYOUTS[version].hooks;
+  const expected = hooks.map(h => `${h.type}:${h.overlay}:${h.address}`).sort().join("|");
+  if (rpm.metadata.PMCGameID !== version || (rpm.metadata.PMCVersion !== "1.0.0" && rpm.metadata.PMCVersion !== "1.0.1")
     || rpm.metadata.PMCModulePriority !== 4 || rpm.bssSize !== 0 || actual !== expected)
     throw new Error("Fly destination DLL does not match the supported game and hook contract.");
   configSymbol(rpm);
@@ -213,7 +218,10 @@ export function getFlyDestinationStatus(project: ProjectState): FlyDestinationSt
           return fail(`${module.fileName} already changes a Fly destination hook.`, true, Boolean(own));
       }
     }
-    return { supported: true, compatible: true, installed: Boolean(own), message: own ? "Fly destination settings are included when you export the ROM." : "Changes will be included when you export the ROM." };
+    const legacy = own && parseRpm(own, { allowedMagics: ["DLXF"] }).metadata.PMCVersion === "1.0.0";
+    return { supported: true, compatible: true, installed: Boolean(own), message: legacy
+      ? "Apply a destination to update Fly support and restore the original Town Map markers, then export the ROM."
+      : own ? "Fly destination settings are included when you export the ROM." : "Changes will be included when you export the ROM." };
   } catch (error) { return fail(error instanceof Error ? error.message : "Could not check Fly destination support."); }
 }
 

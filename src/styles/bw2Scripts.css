@@ -119,6 +119,10 @@
 .bw2-map-entities .overworld-item.bw2-command-actor { border: 2px solid #ff2424; box-shadow: 0 0 0 3px #fff, 0 0 18px #ff2424; z-index: 6; }
 .bw2-map-entities .overworld-item.bw2-command-actor:not(.selected) { outline: 4px dashed #ff2424; outline-offset: 3px; }
 .bw2-map-entities .overworld-item { font-size: 10px; }
+.bw2-map-landing { position: absolute; transform: translate(-50%, -50%); border: 2px solid #8be9fd; background: #8be9fd44; box-shadow: 0 0 0 2px #181a23, 0 0 12px #8be9fd; z-index: 10; pointer-events: none; }
+.bw2-map-landing::before, .bw2-map-landing::after { content: ""; position: absolute; background: #8be9fd; }
+.bw2-map-landing::before { width: 2px; height: calc(100% + 12px); left: calc(50% - 1px); top: -6px; }
+.bw2-map-landing::after { height: 2px; width: calc(100% + 12px); top: calc(50% - 1px); left: -6px; }
 .bw2-map-message { padding: 12px; margin: 0; font-size: 13px; line-height: 1.5; color: #adb3c6; }
 .bw2-map-loading { position: absolute; bottom: 0; left: 0; right: 0; background: #181a23dc; pointer-events: none; }
 .bw2-map-loading[hidden] { display: none; }

@@ -8,6 +8,8 @@ import type { NarcRecord, NarcStore, ProjectState, RawRecord } from "./projectSt
 import { materializeGen4EventFile } from "./gen4EventModel";
 import { materializeGen4MapFile } from "./gen4MapModel";
 import { materializeGen4MatrixFile } from "./gen4MatrixModel";
+import { materializeGen5MatrixFile } from "./gen5MatrixModel";
+import { materializeMapReplacementFile } from "./seasonalMatrixModel";
 import { packedPersonalFieldValue } from "./personalAbilityPacking";
 
 export function materializeProjectEdits(project: ProjectState): void {
@@ -17,6 +19,11 @@ export function materializeProjectEdits(project: ProjectState): void {
   for (const store of Object.values(project.narcs)) {
     if (!store || store.dirty.size === 0) continue;
     if (store.name === "headers" || store.name === "grotto_odds") continue;
+    if (store.name === "map_replace") {
+      const record = store.records.get(0);
+      if (record?.raw) { const bytes = materializeMapReplacementFile(record.raw); store.rawFiles[0] = bytes; record.bytes = bytes; }
+      continue;
+    }
     if (store.name === "overworlds") {
       if (isGen4Project(project)) materializeGen4EventFiles(store);
       else materializeOverworlds(store);
@@ -27,8 +34,8 @@ export function materializeProjectEdits(project: ProjectState): void {
       else materializeMaps(store);
       continue;
     }
-    if (store.name === "matrix" && isGen4Project(project)) {
-      materializeGen4Matrices(store);
+    if (store.name === "matrix") {
+      materializeMatrices(store, isGen4Project(project));
       continue;
     }
     if (store.name === "trpok") {
@@ -243,12 +250,12 @@ function copyWithLength(original: Uint8Array, length: number): Uint8Array {
   return out;
 }
 
-function materializeGen4Matrices(store: NarcStore): void {
+function materializeMatrices(store: NarcStore, gen4: boolean): void {
   for (const id of store.dirty) {
     const record = store.records.get(id);
     if (!record?.raw) continue;
     const original = store.rawFiles[id] ?? record.bytes ?? new Uint8Array();
-    const out = materializeGen4MatrixFile(record.raw, original);
+    const out = gen4 ? materializeGen4MatrixFile(record.raw, original) : materializeGen5MatrixFile(record.raw, original);
     store.rawFiles[id] = out;
     updateRecordBytes(store, id, out, record);
   }

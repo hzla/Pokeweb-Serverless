@@ -62,6 +62,11 @@ describe("BW2 Fly destinations", () => {
     const bytes = new Uint8Array(readFileSync(new URL(`../assets/codeinjection/FlyDestinations${version}.dll`, import.meta.url)));
     const state = { overrides: { 326: { x: 432, y: -1, z: 490 }, 490: { x: 430, y: 0, z: 491 }, 28: { x: 3, y: 7, z: -2 } } };
     const configured = configureFlyDestinationRuntime(bytes, version, state);
+    const runtime = parseRpm(configured, { allowedMagics: ["DLXF"] });
+    expect(runtime.metadata.PMCVersion).toBe("1.0.1");
+    expect(runtime.relocations.filter(r => r.target.module !== "base").map(r => [r.target.module, r.target.type]).sort()).toEqual([
+      ["144", "FULL_COPY"], ["33", "THUMB_BRANCH_LINK"],
+    ]);
     expect(readFlyDestinationRuntime(configured, version)).toEqual(state);
     expect(parseRpm(configured, { allowedMagics: ["DLXF"] }).relocations).toEqual(parseRpm(bytes, { allowedMagics: ["DLXF"] }).relocations);
     const altered = parseRpm(configured, { allowedMagics: ["DLXF"] });
@@ -69,6 +74,15 @@ describe("BW2 Fly destinations", () => {
     expect(() => readFlyDestinationRuntime(writeRpm(altered, { ident: "DLXF" }), version)).toThrow("hook contract");
     expect(() => configureFlyDestinationRuntime(bytes, version, { overrides: { 326: { x: 32768, y: 0, z: 0 } } })).toThrow("invalid landing coordinate");
     expect(() => configureFlyDestinationRuntime(bytes, version, { overrides: { 615: { x: 1, y: 0, z: 1 } } })).toThrow("invalid area ID");
+  });
+
+  it.each(["B2", "W2"] as const)("keeps existing %s landing settings readable for the update that preserves map visuals", version => {
+    const legacy = new Uint8Array(readFileSync(new URL(`./fixtures/fly-destinations-v1.0.0/${version}.dll`, import.meta.url)));
+    const state = { overrides: { 326: { x: 433, y: 0, z: 489 }, 490: { x: 430, y: 0, z: 491 } } };
+    const configured = configureFlyDestinationRuntime(legacy, version, state);
+    expect(readFlyDestinationRuntime(configured, version)).toEqual(state);
+    const current = new Uint8Array(readFileSync(new URL(`../assets/codeinjection/FlyDestinations${version}.dll`, import.meta.url)));
+    expect(readFlyDestinationRuntime(configureFlyDestinationRuntime(current, version, readFlyDestinationRuntime(configured, version)), version)).toEqual(state);
   });
 
   it("blocks unsupported game families and malformed Town Map counts", () => {

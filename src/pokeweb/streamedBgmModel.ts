@@ -192,15 +192,31 @@ function parseSdat(bytes: Uint8Array): SdatParts {
     if (start < fileOffset + 0x0c || start + length > fileOffset + fileLength) throw new Error(`SDAT file ${id} is outside the FILE block.`);
     files.push(bytes.subarray(start, start + length));
   }
+  const info = bytes.slice(infoOffset, infoOffset + infoLength);
+  let firstFileAlignment = count && readU32(bytes, fatOffset + 0x0c) % SDAT_FIRST_FILE_ALIGNMENT === 0
+    ? SDAT_FIRST_FILE_ALIGNMENT : SDAT_FILE_ALIGNMENT;
+  // An edited 32-byte layout may coincidentally land on a 128-byte boundary.
+  // Preserve the original rule in our own padded stream records across edits
+  // and export/reimport; native records are never modified to store this tag.
+  const streams = infoTableOffset(info, 7);
+  let ownedAlignment: number | undefined;
+  for (let id = 0; id < readU32(info, streams); id++) {
+    const record = readU32(info, streams + 4 + id * 4);
+    if (!record || record + 12 > info.length) continue;
+    const tag = readU32(info, record + 8);
+    if ((tag & 0xffffff00) !== 0x50575300 || ![32, 128].includes(tag & 255)) continue;
+    if (ownedAlignment !== undefined && ownedAlignment !== (tag & 255)) throw new Error("Managed streams disagree about the SDAT layout.");
+    ownedAlignment = tag & 255;
+  }
+  firstFileAlignment = ownedAlignment ?? firstFileAlignment;
   return {
     header: bytes.slice(0, SDAT_HEADER_SIZE),
     symb: symbOffset && symbLength ? bytes.slice(symbOffset, symbOffset + symbLength) : undefined,
-    info: bytes.slice(infoOffset, infoOffset + infoLength),
+    info,
     files,
     // Retail BW1 starts at a 32-byte boundary; BW2 uses 128 bytes. Keep the
     // source layout so installing and removing owned streams round-trips.
-    firstFileAlignment: count && readU32(bytes, fatOffset + 0x0c) % SDAT_FIRST_FILE_ALIGNMENT === 0
-      ? SDAT_FIRST_FILE_ALIGNMENT : SDAT_FILE_ALIGNMENT,
+    firstFileAlignment,
   };
 }
 
@@ -242,8 +258,48 @@ function adjustInfoOffsets(info: Uint8Array, editOffset: number, delta: number):
   }
 }
 
-function appendStreamInfo(infoBytes: Uint8Array, fileId: number): { info: Uint8Array; streamId: number } {
-  let info: Uint8Array = infoBytes.slice();
+// BW1 ships with no stream players. Keep ownership in reserved record bytes so
+// exported ROMs remain reversible without relying on browser project metadata.
+const MANAGED_STREAM_PLAYER = new Uint8Array([2, 0, 6, ...new Array<number>(14).fill(255), ...new TextEncoder().encode("PWSTRM1")]);
+
+function ensureStreamPlayer(infoBytes: Uint8Array, migrateExisting = false): Uint8Array {
+  const table = infoTableOffset(infoBytes, 6);
+  if (readU32(infoBytes, table)) return infoBytes.slice();
+  if (!migrateExisting && readU32(infoBytes, infoTableOffset(infoBytes, 7))) return infoBytes.slice();
+  let info = replaceRange(infoBytes, table + 4, 0, new Uint8Array(4));
+  adjustInfoOffsets(info, table + 4, 4);
+  // Insert before stream records, including those from an older archive-only
+  // BW1 installation. Last-in-first-out stream removal then remains valid.
+  const streams = infoTableOffset(info, 7);
+  let record = info.length;
+  for (let i = 0; i < readU32(info, streams); i++) {
+    const offset = readU32(info, streams + 4 + i * 4);
+    if (offset) record = Math.min(record, offset);
+  }
+  info = replaceRange(info, record, 0, MANAGED_STREAM_PLAYER);
+  adjustInfoOffsets(info, record, MANAGED_STREAM_PLAYER.length);
+  writeU32(info, table, 1);
+  writeU32(info, table + 4, record);
+  writeU32(info, 4, info.length);
+  return info;
+}
+
+function removeUnusedManagedStreamPlayer(info: Uint8Array): Uint8Array {
+  const table = infoTableOffset(info, 6);
+  if (readU32(info, table) !== 1 || readU32(info, infoTableOffset(info, 7))) return info;
+  const record = readU32(info, table + 4);
+  if (record + MANAGED_STREAM_PLAYER.length !== info.length
+    || MANAGED_STREAM_PLAYER.some((value, index) => info[record + index] !== value)) return info;
+  info = replaceRange(info, record, MANAGED_STREAM_PLAYER.length, new Uint8Array());
+  info = replaceRange(info, table + 4, 4, new Uint8Array());
+  writeU32(info, table, 0);
+  adjustInfoOffsets(info, table + 4, -4);
+  writeU32(info, 4, info.length);
+  return info;
+}
+
+function appendStreamInfo(infoBytes: Uint8Array, fileId: number, firstFileAlignment: number): { info: Uint8Array; streamId: number } {
+  let info: Uint8Array = ensureStreamPlayer(infoBytes);
   const table = infoTableOffset(info, 7);
   const count = readU32(info, table);
   const slot = table + 4 + count * 4;
@@ -257,6 +313,7 @@ function appendStreamInfo(infoBytes: Uint8Array, fileId: number): { info: Uint8A
   record[5] = 64;
   record[6] = 0;
   record[7] = 0;
+  writeU32(record, 8, 0x50575300 | firstFileAlignment);
   info = concatBytes([info, record]);
   writeU32(info, table, count + 1);
   writeU32(info, table + 4 + count * 4, recordOffset);
@@ -278,7 +335,7 @@ function removeStreamInfo(infoBytes: Uint8Array, streamId: number, streamFileId:
   writeU32(info, table, count - 1);
   adjustInfoOffsets(info, slot, -4);
   writeU32(info, 4, info.length);
-  return info;
+  return removeUnusedManagedStreamPlayer(info);
 }
 
 function rebuildSdat(parts: SdatParts): Uint8Array {
@@ -767,7 +824,7 @@ export function appendStandaloneSdatStream(sdatBytes: Uint8Array, strmBytes: Uin
     throw new Error("The sound archive has exhausted its native 16-bit stream or file IDs.");
   }
   const streamFileId = parts.files.length;
-  const appended = appendStreamInfo(parts.info, streamFileId);
+  const appended = appendStreamInfo(parts.info, streamFileId, parts.firstFileAlignment);
   parts.info = appended.info;
   parts.files.push(strmBytes);
   return { bytes: rebuildSdat(parts), streamId: appended.streamId, streamFileId };
@@ -796,7 +853,7 @@ function appendMapping(parts: SdatParts, targetSequenceId: number, strmBytes: Ui
   if (!parts.files[originalSequenceFileId]) throw new Error("The selected sequence has no original SDAT file.");
   const shadowFileId = parts.files.length;
   const streamFileId = shadowFileId + 1;
-  const appended = appendStreamInfo(parts.info, streamFileId);
+  const appended = appendStreamInfo(parts.info, streamFileId, parts.firstFileAlignment);
   writeU16(appended.info, infoRecordOffset(appended.info, 0, targetSequenceId), shadowFileId);
   parts.info = appended.info;
   parts.files.push(createSilentShadowSseq(), strmBytes);
@@ -922,11 +979,23 @@ export function sdatStreamFileId(sdatBytes: Uint8Array, streamId: number): numbe
   return readU16(parts.info, infoRecordOffset(parts.info, 7, streamId));
 }
 
-function runtimeFileName(version: "B2" | "W2"): string {
+function musicRuntimeVersion(version: Gen5MusicVersion): number {
+  return version === "B" || version === "W" ? 4 : STREAMED_BGM_RUNTIME_VERSION;
+}
+
+function prepareBw1StreamPlayer(bytes: Uint8Array, version: Gen5MusicVersion): Uint8Array {
+  if (version !== "B" && version !== "W") return bytes;
+  const parts = parseSdat(bytes);
+  if (!readU32(parts.info, infoTableOffset(parts.info, 7)) || readU32(parts.info, infoTableOffset(parts.info, 6))) return bytes;
+  parts.info = ensureStreamPlayer(parts.info, true);
+  return rebuildSdat(parts);
+}
+
+function runtimeFileName(version: Gen5MusicVersion): string {
   return `BgmToggle${version}.dll`;
 }
 
-function runtimePath(version: "B2" | "W2"): string {
+function runtimePath(version: Gen5MusicVersion): string {
   return `patches/${runtimeFileName(version)}`;
 }
 
@@ -942,7 +1011,7 @@ function requireSupportedProject(project: ProjectState, rom: NintendoDSRom): Gen
   return version as Gen5MusicVersion;
 }
 
-function findRuntimeBytes(project: ProjectState, rom: NintendoDSRom, version: "B2" | "W2"): Uint8Array | undefined {
+function findRuntimeBytes(project: ProjectState, rom: NintendoDSRom, version: Gen5MusicVersion): Uint8Array | undefined {
   const path = runtimePath(version);
   const addition = Object.entries(project.fileSystem?.additions ?? {}).find(([candidate]) => candidate.toLowerCase() === path.toLowerCase())?.[1];
   if (addition) return addition;
@@ -967,12 +1036,8 @@ async function projectRomForArchive(project: ProjectState): Promise<{ bytes: Uin
   return { bytes, rom, version: requireSupportedProject(project, rom) };
 }
 
-async function projectRom(project: ProjectState): Promise<{ bytes: Uint8Array; rom: NintendoDSRom; version: "B2" | "W2" }> {
-  const result = await projectRomForArchive(project);
-  if (result.version !== "B2" && result.version !== "W2") {
-    throw new Error("BW1 BGM replacement requires a verified Black/White stream playback runtime.");
-  }
-  return { ...result, version: result.version };
+async function projectRom(project: ProjectState): Promise<{ bytes: Uint8Array; rom: NintendoDSRom; version: Gen5MusicVersion }> {
+  return projectRomForArchive(project);
 }
 
 function assertRomCapacity(project: ProjectState, rom: NintendoDSRom, oldSdatSize: number, newSdatSize: number, runtimeSize: number): void {
@@ -1070,7 +1135,7 @@ function commitStandaloneStreams(project: ProjectState, rom: NintendoDSRom, conf
 
 /** Detect both legacy ABI 1 ROMs and variable-length ABI 2 tables without
  * changing project state before the caller's transaction has succeeded. */
-async function readInstalledMusic(project: ProjectState, rom: NintendoDSRom, version: "B2" | "W2", sdatBytes: Uint8Array): Promise<{ configs: StreamedBgmConfig[]; shortcutEnabled: boolean }> {
+async function readInstalledMusic(project: ProjectState, rom: NintendoDSRom, version: Gen5MusicVersion, sdatBytes: Uint8Array): Promise<{ configs: StreamedBgmConfig[]; shortcutEnabled: boolean }> {
   const runtime = findRuntimeBytes(project, rom, version);
   const runtimeConfig = runtime ? readBgmRuntimeConfig(runtime) : undefined;
   if (runtime && !runtimeConfig) throw new Error("The installed music runtime configuration is corrupt or unsupported.");
@@ -1091,7 +1156,7 @@ async function readInstalledMusic(project: ProjectState, rom: NintendoDSRom, ver
     if (previous && previous.audioSha256 !== audioSha256) throw new Error(`Installed audio for sequence ${mapping.targetSequenceId} has changed outside the Music editor.`);
     configs.push({
       ...runtimeArchiveConfig(mapping),
-      runtimeVersion: previous?.runtimeVersion ?? (runtimeConfig?.abiVersion === 2 ? 3 : 2),
+      runtimeVersion: previous?.runtimeVersion ?? (runtimeConfig?.abiVersion === 2 ? musicRuntimeVersion(version) : 2),
       targetSequenceSymbol: previous?.targetSequenceSymbol,
       sourceName: previous?.sourceName ?? "Imported ROM stream",
       encoding: strm[0x18] === 2 ? "adpcm" : "pcm16",
@@ -1147,13 +1212,15 @@ export async function installNativeStreamReplacement(
   input: NativeStreamInstallInput,
 ): Promise<NativeStreamReplacementConfig> {
   return musicTransaction(project, async (draft) => {
-    const { rom } = await projectRomForArchive(draft);
+    const { rom, version } = await projectRomForArchive(draft);
     const sdat = await loadNitroSdatFromProject(draft);
     if (sdat.sourceFileId === undefined) throw new Error("The active SDAT has no NitroFS file ID.");
-    if (getStreamedBgmConfigs(draft).some((mapping) => mapping.streamId === input.streamId)) {
+    const installed = await readInstalledMusic(draft, rom, version, sdat.bytes);
+    const standalone = await readStandaloneStreams(draft, rom, sdat.bytes);
+    if (installed.configs.some((mapping) => mapping.streamId === input.streamId)) {
       throw new Error("This stream belongs to a sequence replacement. Update that track from Installed replacements instead.");
     }
-    if (getStandaloneStreamConfigs(draft).some((entry) => entry.streamId === input.streamId)) {
+    if (standalone.some((entry) => entry.streamId === input.streamId)) {
       throw new Error("This is a standalone song. It is managed by the Standalone streamed songs panel.");
     }
     const current = nativeStreamBytes(sdat.bytes, input.streamId);
@@ -1265,10 +1332,8 @@ export async function installStandaloneStream(project: ProjectState, input: Stan
     if (sdat.sourceFileId === undefined) throw new Error("The active SDAT has no NitroFS file ID.");
     const standalone = await readStandaloneStreams(draft, rom, sdat.bytes);
     if (standalone.some((entry) => entry.name.toLowerCase() === name.toLowerCase())) throw new Error("A standalone track already has that name.");
-    const { configs: bgms, shortcutEnabled } = version === "B" || version === "W"
-      ? { configs: [] as StreamedBgmConfig[], shortcutEnabled: false }
-      : await readInstalledMusic(draft, rom, version, sdat.bytes);
-    if (bgms.length) assertBundledBgmRuntimeCompatibility(draft, romBytes);
+    const { configs: bgms, shortcutEnabled } = await readInstalledMusic(draft, rom, version, sdat.bytes);
+    if (bgms.length || version === "B" || version === "W") assertBundledBgmRuntimeCompatibility(draft, romBytes);
     const cropped = cropImportedAudio(input.pcm, input.trimStartSeconds, input.trimEndSeconds, undefined);
     const loopStartSeconds = input.loop === false ? 0 : input.loopStartSeconds ?? 0;
     if (!Number.isFinite(loopStartSeconds) || loopStartSeconds < 0 || loopStartSeconds >= cropped.pcm.left.length / cropped.pcm.sampleRate) {
@@ -1281,10 +1346,10 @@ export async function installStandaloneStream(project: ProjectState, input: Stan
       : encodeAdpcmStrm(cropped.pcm, loopStartSample, loopEndSample, input.loop !== false);
     const retainedBgms = bgms.map((entry) => ({ targetSequenceId: entry.targetSequenceId, bytes: sdat.files[entry.streamFileId]!.data }));
     const cleared = bgms.length ? rebuildStreamedBgmMappings(sdat.bytes, bgms, []).bytes : sdat.bytes;
-    const added = appendStandaloneSdatStream(cleared, encoded.bytes);
+    const added = appendStandaloneSdatStream(prepareBw1StreamPlayer(cleared, version), encoded.bytes);
     const rebuilt = bgms.length ? rebuildStreamedBgmMappings(added.bytes, [], retainedBgms) : { bytes: added.bytes, mappings: [] };
-    const oldRuntime = bgms.length && (version === "B2" || version === "W2") ? findRuntimeBytes(draft, rom, version) : undefined;
-    const runtime = bgms.length && (version === "B2" || version === "W2") ? await configureBundledBgmRuntime(version, { shortcutEnabled, mappings: rebuilt.mappings }) : undefined;
+    const oldRuntime = (bgms.length || version === "B" || version === "W") ? findRuntimeBytes(draft, rom, version) : undefined;
+    const runtime = (bgms.length || version === "B" || version === "W") ? await configureBundledBgmRuntime(version, { shortcutEnabled, mappings: rebuilt.mappings }) : undefined;
     assertRomCapacity(draft, rom, sdat.bytes.length, rebuilt.bytes.length, (runtime?.length ?? 0) - (oldRuntime?.length ?? 0));
     const config: StandaloneStreamConfig = {
       name, sourceName: input.sourceName, streamId: added.streamId, streamFileId: added.streamFileId,
@@ -1293,7 +1358,10 @@ export async function installStandaloneStream(project: ProjectState, input: Stan
       loopEndSample: encoded.loopEndSample, encodedBytes: encoded.bytes.length,
       audioSha256: await sha256Hex(encoded.bytes),
     };
-    if (runtime && (version === "B2" || version === "W2")) stageCodeInjectionDll(draft, runtimeFileName(version), runtime, "patches", romBytes);
+    if (runtime) {
+      if (!getPmcInstallStatus(draft).installed) await installBundledPmc(draft);
+      stageCodeInjectionDll(draft, runtimeFileName(version), runtime, "patches", romBytes);
+    }
     replaceRomFile(draft, rom, sdat.sourceFileId, rebuilt.bytes);
     commitStandaloneStreams(draft, rom, [...standalone, config]);
     if (bgms.length) commitMusicState(draft, rebuilt.mappings.map((mapping) => ({
@@ -1325,16 +1393,17 @@ export async function removeLastStandaloneStream(project: ProjectState): Promise
       && readU16(settings, 6) === 1 && readU16(settings, 8) === last.streamId) {
       throw new Error("Select another song in the Save Menu editor before removing this stream.");
     }
-    const { configs: bgms, shortcutEnabled } = version === "B" || version === "W"
-      ? { configs: [] as StreamedBgmConfig[], shortcutEnabled: false }
-      : await readInstalledMusic(draft, rom, version, sdat.bytes);
-    if (bgms.length) assertBundledBgmRuntimeCompatibility(draft, romBytes);
+    const { configs: bgms, shortcutEnabled } = await readInstalledMusic(draft, rom, version, sdat.bytes);
+    if (bgms.length || version === "B" || version === "W") assertBundledBgmRuntimeCompatibility(draft, romBytes);
     const retainedBgms = bgms.map((entry) => ({ targetSequenceId: entry.targetSequenceId, bytes: sdat.files[entry.streamFileId]!.data }));
     const cleared = bgms.length ? rebuildStreamedBgmMappings(sdat.bytes, bgms, []).bytes : sdat.bytes;
     const removed = removeFinalStandaloneSdatStream(cleared, last.streamId, last.streamFileId);
     const rebuilt = bgms.length ? rebuildStreamedBgmMappings(removed, [], retainedBgms) : { bytes: removed, mappings: [] };
-    const runtime = bgms.length && (version === "B2" || version === "W2") ? await configureBundledBgmRuntime(version, { shortcutEnabled, mappings: rebuilt.mappings }) : undefined;
-    if (runtime && (version === "B2" || version === "W2")) stageCodeInjectionDll(draft, runtimeFileName(version), runtime, "patches", romBytes);
+    const runtime = (bgms.length || version === "B" || version === "W") ? await configureBundledBgmRuntime(version, { shortcutEnabled, mappings: rebuilt.mappings }) : undefined;
+    if (runtime) {
+      if (!getPmcInstallStatus(draft).installed) await installBundledPmc(draft);
+      stageCodeInjectionDll(draft, runtimeFileName(version), runtime, "patches", romBytes);
+    }
     replaceRomFile(draft, rom, sdat.sourceFileId, rebuilt.bytes);
     commitStandaloneStreams(draft, rom, standalone.slice(0, -1));
     if (bgms.length) commitMusicState(draft, rebuilt.mappings.map((mapping) => ({
@@ -1379,13 +1448,13 @@ async function installStreamedBgmTransaction(project: ProjectState, input: Strea
     bytes: mapping.targetSequenceId === input.targetSequenceId ? encoded.bytes : sdat.files[mapping.streamFileId]!.data,
   }));
   if (!updating) replacements.push({ targetSequenceId: input.targetSequenceId, bytes: encoded.bytes });
-  const archive = rebuildStreamedBgmMappings(sdat.bytes, current, replacements);
+  const archive = rebuildStreamedBgmMappings(prepareBw1StreamPlayer(sdat.bytes, version), current, replacements);
   const mapping = archive.mappings.find((entry) => entry.targetSequenceId === input.targetSequenceId)!;
   const runtime = await configureBundledBgmRuntime(version, { shortcutEnabled: input.shortcutEnabled, mappings: archive.mappings });
   assertRomCapacity(project, rom, sdat.bytes.length, archive.bytes.length, runtime.length - (currentRuntime?.length ?? 0));
   const audioHash = await sha256Hex(encoded.bytes);
   const state: StreamedBgmConfig = {
-    runtimeVersion: STREAMED_BGM_RUNTIME_VERSION,
+    runtimeVersion: musicRuntimeVersion(version),
     ...mapping,
     targetSequenceSymbol: targetSymbol,
     sourceName: input.sourceName,
@@ -1403,7 +1472,7 @@ async function installStreamedBgmTransaction(project: ProjectState, input: Strea
   };
   const states = archive.mappings.map((entry) => ({
     ...(entry.targetSequenceId === input.targetSequenceId ? state : current.find((old) => old.targetSequenceId === entry.targetSequenceId)!),
-    ...entry, runtimeVersion: STREAMED_BGM_RUNTIME_VERSION, toggleEnabled: input.shortcutEnabled,
+    ...entry, runtimeVersion: musicRuntimeVersion(version), toggleEnabled: input.shortcutEnabled,
   }));
 
   // Validation, conversion, archive construction, runtime configuration, and
@@ -1438,7 +1507,7 @@ async function removeStreamedBgmTransaction(project: ProjectState, targetSequenc
     targetSequenceId: mapping.targetSequenceId, bytes: sdat.files[mapping.streamFileId]!.data,
   })));
   let disabledRuntime: Uint8Array | undefined;
-  if (retained.length || shortcutEnabled || rom.filenames.idOf(runtimePath(version)) !== undefined) {
+  if (retained.length || (await readStandaloneStreams(project, rom, sdat.bytes)).length || shortcutEnabled || rom.filenames.idOf(runtimePath(version)) !== undefined) {
     disabledRuntime = await configureBundledBgmRuntime(version, {
       shortcutEnabled,
       mappings: archive.mappings,
@@ -1454,7 +1523,7 @@ async function removeStreamedBgmTransaction(project: ProjectState, targetSequenc
   replaceRomFile(project, rom, sdat.sourceFileId, archive.bytes);
   commitMusicState(project, archive.mappings.map((mapping) => ({
     ...retained.find((entry) => entry.targetSequenceId === mapping.targetSequenceId)!, ...mapping,
-    runtimeVersion: STREAMED_BGM_RUNTIME_VERSION,
+    runtimeVersion: musicRuntimeVersion(version),
   })));
   invalidateNitroSdatCache(project);
   recordGenericChange(project, "code_injection", `${targetSequenceId === undefined ? "All replaced sequences" : `Sequence ${targetSequenceId}`} restored to original SDAT files; ${retained.length} replacement(s) remain.`, "Streamed BGM Replacement", {
@@ -1469,10 +1538,17 @@ export async function updateStreamedBgmRuntime(project: ProjectState): Promise<v
     assertBundledBgmRuntimeCompatibility(draft, bytes);
     const sdat = await loadNitroSdatFromProject(draft);
     const { configs, shortcutEnabled } = await readInstalledMusic(draft, rom, version, sdat.bytes);
-    if (!configs.length) throw new Error("Install a music replacement before updating its runtime.");
+    const standalone = await readStandaloneStreams(draft, rom, sdat.bytes);
+    if (!configs.length && !standalone.length) throw new Error("Install a music replacement or standalone song before updating its runtime.");
+    const archive = prepareBw1StreamPlayer(sdat.bytes, version);
+    if (archive !== sdat.bytes) {
+      if (sdat.sourceFileId === undefined) throw new Error("The active SDAT has no NitroFS file ID.");
+      replaceRomFile(draft, rom, sdat.sourceFileId, archive);
+    }
     const runtime = await configureBundledBgmRuntime(version, { shortcutEnabled, mappings: configs });
+    if (!getPmcInstallStatus(draft).installed) await installBundledPmc(draft);
     stageCodeInjectionDll(draft, runtimeFileName(version), runtime, "patches", bytes);
-    commitMusicState(draft, configs.map((entry) => ({ ...entry, runtimeVersion: STREAMED_BGM_RUNTIME_VERSION })));
+    commitMusicState(draft, configs.map((entry) => ({ ...entry, runtimeVersion: musicRuntimeVersion(version) })));
     recordGenericChange(draft, "code_injection", "Updated the streamed-music runtime without changing any audio or loops.", "Music Runtime Update", {
       key: "code-injection:streamed-bgm-runtime",
     });
@@ -1480,8 +1556,8 @@ export async function updateStreamedBgmRuntime(project: ProjectState): Promise<v
 }
 
 export async function detectStreamedBgmStatus(project: ProjectState): Promise<StreamedBgmStatus> {
-  if (project.session.baseRom !== "BW2" || (project.session.baseVersion !== "B2" && project.session.baseVersion !== "W2")) {
-    return { installed: false, supported: false, message: "Streamed BGM replacement supports US Black 2 and White 2." };
+  if (!["B", "W", "B2", "W2"].includes(project.session.baseVersion)) {
+    return { installed: false, supported: false, message: "Streamed BGM replacement supports US Black, White, Black 2 and White 2." };
   }
   const { rom, version } = await projectRom(project);
   const sdat = await loadNitroSdatFromProject(project);

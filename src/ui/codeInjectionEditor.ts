@@ -541,7 +541,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             ${renderInlineStatus(bgmToggleStatus === "patched" ? "Installed" : bgmToggleStatus === "unsupported" ? "Unsupported" : "Ready", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
-            <div><span>ROM</span><strong>US Black 2 / White 2</strong></div>
+            <div><span>ROM</span><strong>US Black / White / Black 2 / White 2</strong></div>
             <div><span>Shortcut</span><strong>L + R + Select</strong></div>
             <div><span>Scope</span><strong>Overworld + Battles</strong></div>
             <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>

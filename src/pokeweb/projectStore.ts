@@ -23,6 +23,8 @@ import type { TextEntry } from "./text";
 import { parseGen4EventFile } from "./gen4EventModel";
 import { parseGen4MapFile } from "./gen4MapModel";
 import { parseGen4MatrixFile } from "./gen4MatrixModel";
+import { parseGen5MatrixFile } from "./gen5MatrixModel";
+import { parseMapReplacementFile } from "./seasonalMatrixModel";
 import { unpackExpandedPersonalAbilities } from "./personalAbilityPacking";
 import { enrichCascadePersonalRecord } from "./cascadeWhitePersonalModel";
 
@@ -452,7 +454,8 @@ function parseRawRecord(name: NarcName, bytes: Uint8Array, project: ProjectState
   if (name === "maps" && isGen4Project(project)) return parseGen4MapFile(bytes, project.session.baseRom);
   if (name === "maps") return parseMap(bytes);
   if (name === "matrix" && isGen4Project(project)) return parseGen4MatrixFile(bytes);
-  if (name === "matrix") return parseMatrix(bytes);
+  if (name === "matrix") return parseGen5MatrixFile(bytes);
+  if (name === "map_replace") return parseMapReplacementFile(bytes);
   if (name === "overworlds" && isGen4Project(project)) return parseGen4EventFile(bytes);
   if (name === "overworlds") return parseOverworlds(bytes);
   if (name === "trtext_table") return parseSingleFileTable(bytes, 4, ["trainer_id", "text_type"]);
@@ -709,23 +712,6 @@ function parseMap(bytes: Uint8Array): RawRecord {
       offset += 2;
       if (layer === 2 || layer === 3) raw[`layer_${layer}_${n}`] = tile;
     }
-  }
-  return raw;
-}
-
-function parseMatrix(bytes: Uint8Array): RawRecord {
-  const raw: RawRecord = {};
-  raw.width = readInt(bytes, 4, 2);
-  raw.height = readInt(bytes, 6, 2);
-  let offset = 8;
-  const count = raw.width * raw.height;
-  for (let n = 0; n < count; n += 1) {
-    raw[`map_${n}`] = readInt(bytes, offset, 4);
-    offset += 4;
-  }
-  for (let n = 0; offset + 4 <= bytes.length && n < count; n += 1) {
-    raw[`header_${n}`] = readInt(bytes, offset, 4);
-    offset += 4;
   }
   return raw;
 }

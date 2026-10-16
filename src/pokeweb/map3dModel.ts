@@ -8,6 +8,10 @@ import type { HeaderRow } from "./headerModel";
 import { parseHeaders, updateHeaderField } from "./headerModel";
 import { createNarcStore, markDirty, type ProjectState } from "./projectStore";
 import { getRomFileBytes } from "./fileSystemModel";
+import { getMatrixBytes, loadMatrixEditorData, resolveMatrixCellGraphicsHeader as resolveMap3dMatrixCellHeader } from "./matrixModel";
+export { resolveMatrixCellGraphicsHeader as resolveMap3dMatrixCellHeader } from "./matrixModel";
+import { parseGen5MatrixFile } from "./gen5MatrixModel";
+import { getMapReplacementBytes, replacementRules, resolveSeasonalMatrix, seasonalAreaId } from "./seasonalMatrixModel";
 
 const MATRIX_PATH = "a/0/0/9";
 const MAP_CHUNKS_PATH = "a/0/0/8";
@@ -46,8 +50,16 @@ const MMDL_BILLBOARD_SIZES = [
 
 export type Map3dSeason = "spring" | "summer" | "autumn" | "winter";
 
+export type Map3dMatrixCell = { matrixId: number; x: number; y: number };
+
 export type Map3dLoadOptions = {
   season?: Map3dSeason;
+  /** Transient thumbnail loads need only the resulting image, not a retained scene. */
+  cache?: boolean;
+  /** Load exactly this matrix cell, using a nearby header only for graphics resources. */
+  matrixCell?: Map3dMatrixCell;
+  /** Render a draft assignment without changing a matrix or its shared header. */
+  previewMap?: { mapId: number; headerId: number };
 };
 
 export type Map3dZoneSummary = {
@@ -237,6 +249,7 @@ export type Map3dNpcMovement = {
 
 export type Map3dSceneData = {
   zoneId: number;
+  matrixCell?: Map3dMatrixCell;
   label: string;
   season: Map3dSeason;
   matrixId: number;
@@ -471,10 +484,12 @@ class Map3dLoader {
       this.zoneCache.clear();
     }
     const season = options.season ?? "spring";
-    const cacheKey = `${project.session.baseRom}:${zoneId}:${season}:${project.narcs.maps?.revision ?? 0}`;
+    const cell = options.matrixCell;
+    if (options.cache === false || options.previewMap) return this.loadZoneUncached(project, zoneId, season, cell, onProgress, options.previewMap);
+    const cacheKey = `${project.session.baseRom}:${zoneId}:${season}:${cell ? `${cell.matrixId},${cell.x},${cell.y}` : "zone"}:${project.narcs.maps?.revision ?? 0}:${project.narcs.matrix?.revision ?? 0}:${project.narcs.headers?.revision ?? 0}:${project.narcs.map_replace?.revision ?? 0}`;
     const cached = this.zoneCache.get(cacheKey);
     if (cached) return cached;
-    const promise = this.loadZoneUncached(project, zoneId, season, onProgress);
+    const promise = this.loadZoneUncached(project, zoneId, season, cell, onProgress);
     this.zoneCache.set(cacheKey, promise);
     return promise;
   }
@@ -538,26 +553,39 @@ class Map3dLoader {
     }
   }
 
-  private async loadZoneUncached(project: ProjectState, zoneId: number, season: Map3dSeason, onProgress?: (message: string) => void): Promise<Map3dSceneData> {
+  private async loadZoneUncached(project: ProjectState, zoneId: number, season: Map3dSeason, matrixCell?: Map3dMatrixCell, onProgress?: (message: string) => void, previewMap?: Map3dLoadOptions["previewMap"]): Promise<Map3dSceneData> {
     onProgress?.("Reading ROM archives");
+    await loadMatrixEditorData(project);
     const archives = await this.getArchives(project);
     if (!project.narcs.maps) {
       const store = createNarcStore("maps", MAP_CHUNKS_PATH, archives.chunksFileId, archives.chunks);
       store.rawFiles = archives.chunks.files.slice();
       project.narcs.maps = store;
     }
+    let cellMatrix: MatrixData | undefined;
+    if (matrixCell) {
+      if (!Number.isSafeInteger(matrixCell.matrixId) || matrixCell.matrixId < 0) throw new Error("Invalid matrix index.");
+      cellMatrix = parseMapMatrix(getMatrixBytes(project, matrixCell.matrixId, archives.matrix.files[matrixCell.matrixId]));
+      if (!project.headers) project.headers = parseHeaders(project);
+      zoneId = previewMap?.headerId ?? resolveMap3dMatrixCellHeader(cellMatrix, matrixCell, Object.values(project.headers.rows)).index;
+    }
     const row = getHeaderRow(project, zoneId);
-    const sourceMatrixId = Number(row.matrix_id ?? 0);
+    const sourceMatrixId = matrixCell?.matrixId ?? Number(row.matrix_id ?? 0);
     const sourceAreaId = Number(row.texture_id ?? 0);
-    const replacementTable = parseMapReplaceTable(archives.mapReplace);
-    const seasonIndex = seasonToIndex(season);
-    const seasonal = areaHasSeasons(archives.baseRom, sourceAreaId);
-    const matrixId = resolveMapReplacement(replacementTable, sourceMatrixId, seasonIndex) ?? sourceMatrixId;
-    const areaId = seasonal ? sourceAreaId + seasonIndex : sourceAreaId;
+    const resolved = previewMap ? undefined : resolveSeasonalMatrix(project, sourceMatrixId, season, getMapReplacementBytes(project, archives.mapReplace));
+    const matrixId = resolved?.id ?? sourceMatrixId;
+    const areaId = seasonalAreaId(archives.baseRom, sourceAreaId, season);
     const area = applyAreaEdit(project, areaId, parseAreaHeader(archives.areaTable, areaId));
-    const matrixBytes = archives.matrix.files[matrixId];
+    const matrixBytes = getMatrixBytes(project, matrixId, archives.matrix.files[matrixId]);
     if (!matrixBytes) throw new Error(`Matrix ${matrixId} is missing`);
-    const matrix = parseMapMatrix(matrixBytes);
+    const originalMatrix = parseMapMatrix(matrixBytes);
+    const matrix: MatrixData = resolved ? { width: resolved.width, height: resolved.height, hasZones: resolved.hasHeaders,
+      chunkIds: resolved.cells.map(cell => cell.mapId | 0), zoneIds: resolved.hasHeaders ? resolved.cells.map(cell => (cell.headerId ?? 0xffffffff) | 0) : [] } : originalMatrix;
+    if (previewMap) {
+      if (!matrixCell || !Number.isSafeInteger(previewMap.mapId) || !project.narcs.maps.rawFiles[previewMap.mapId]?.length) throw new Error("Invalid preview map assignment.");
+      if (matrixCell.x >= matrix.width || matrixCell.y >= matrix.height) throw new Error("Preview cell is outside this matrix.");
+    }
+    const matrixZoneId = resolveMapMatrixZoneId(matrix, zoneId, Number(row.parent_map_id));
     const texturePackBytes = archives.textures.files[area.texturesId];
     if (!texturePackBytes) throw new Error(`Map texture pack ${area.texturesId} is missing`);
 
@@ -570,10 +598,10 @@ class Map3dLoader {
     for (let y = 0; y < matrix.height; y += 1) {
       for (let x = 0; x < matrix.width; x += 1) {
         const index = y * matrix.width + x;
-        const sourceChunkId = matrix.chunkIds[index] ?? -1;
-        if (sourceChunkId < 0) continue;
-        if (matrix.hasZones && matrix.zoneIds[index] !== zoneId) continue;
-        const chunkId = resolveChunkReplacement(replacementTable, matrixId, sourceChunkId, seasonIndex) ?? sourceChunkId;
+        const sourceChunkId = previewMap?.mapId ?? originalMatrix.chunkIds[index] ?? -1;
+        const chunkId = previewMap?.mapId ?? matrix.chunkIds[index] ?? -1;
+        if (chunkId < 0) continue;
+        if (matrixCell ? x !== matrixCell.x || y !== matrixCell.y : matrix.hasZones && matrix.zoneIds[index] !== matrixZoneId) continue;
         const chunkContainer = project.narcs.maps.rawFiles[chunkId]?.length ? project.narcs.maps.rawFiles[chunkId] : archives.chunks.files[chunkId];
         if (!chunkContainer) {
           warnings.push(`Chunk ${chunkId} is missing`);
@@ -611,13 +639,14 @@ class Map3dLoader {
     onProgress?.("Decoding building models");
     const { buildings, buildingModels } = loadBuildingsForZone(archives, area, areaId, chunks, chunkContainers, warnings);
     onProgress?.("Loading entity overlays");
-    const entityData = loadEntityData(archives, row, warnings);
+    const entityData = matrixCell ? { overlays: [], npcs: [] } : loadEntityData(archives, row, warnings);
     onProgress?.("Decoding NPC models");
     const npcModels = loadNpcModels(archives, entityData.npcs, warnings);
 
     return {
       zoneId,
-      label: zoneLabel(row),
+      ...(matrixCell ? { matrixCell: { ...matrixCell } } : {}),
+      label: matrixCell ? `Map ${previewMap?.mapId ?? matrix.chunkIds[matrixCell.y * matrix.width + matrixCell.x]} · Matrix ${matrixId} (${matrixCell.x}, ${matrixCell.y})` : zoneLabel(row),
       season,
       matrixId,
       sourceMatrixId,
@@ -626,7 +655,7 @@ class Map3dLoader {
       textureId: area.texturesId,
       buildingsId: resolveBuildingsId(archives.baseRom, areaId, area),
       areaMetadata: area,
-      seasonal,
+      seasonal: seasonalAreaId(archives.baseRom, sourceAreaId, "winter") !== sourceAreaId,
       chunkSpan: CHUNK_SPAN,
       chunkCount: chunks.length,
       textureCount: textureResources.textures.length,
@@ -802,26 +831,21 @@ export function packGameFreakContainer(signature: string, files: Uint8Array[]): 
 }
 
 export function parseMapMatrix(data: Uint8Array): MatrixData {
-  if (data.length < 8) throw new Error("Map matrix is too small");
-  const hasZones = readU32(data, 0) === 1;
-  const width = readU16(data, 4);
-  const height = readU16(data, 6);
+  const raw = parseGen5MatrixFile(data);
+  const hasZones = raw.matrix_flags === 1;
+  const width = raw.width;
+  const height = raw.height;
   const count = width * height;
-  let offset = 8;
-  if (offset + count * 4 > data.length) throw new Error("Map matrix chunk table is truncated");
-  const chunkIds = Array.from({ length: count }, () => {
-    const value = readS32(data, offset);
-    offset += 4;
-    return value;
-  });
-  const zoneIds = hasZones
-    ? Array.from({ length: count }, () => {
-        const value = readS32(data, offset);
-        offset += 4;
-        return value;
-      })
-    : [];
+  // Preserve the viewer's signed representation of the empty sentinel.
+  const chunkIds = Array.from({ length: count }, (_, index) => raw[`map_${index}`] | 0);
+  const zoneIds = hasZones ? Array.from({ length: count }, (_, index) => raw[`header_${index}`] | 0) : [];
   return { hasZones, width, height, chunkIds, zoneIds };
+}
+
+/** Version-specific headers can retain their logical zone ID in the matrix. */
+export function resolveMapMatrixZoneId(matrix: Pick<MatrixData, "hasZones" | "zoneIds">, zoneId: number, parentZoneId?: number): number {
+  if (!matrix.hasZones || matrix.zoneIds.includes(zoneId)) return zoneId;
+  return parentZoneId !== undefined && matrix.zoneIds.includes(parentZoneId) ? parentZoneId : zoneId;
 }
 
 export function parseVMapTerrain(data: Uint8Array, chunkId = 0): Map3dPermissionChunk {
@@ -881,36 +905,7 @@ function map3dFieldLabel(field: string | number | symbol): string {
 }
 
 export function parseMapReplaceTable(data: Uint8Array): MapReplaceEntry[] {
-  const count = Math.floor(data.length / 0x10);
-  return Array.from({ length: count }, (_value, index) => {
-    const offset = index * 0x10;
-    return {
-      matrixId: readU16(data, offset),
-      typeIsMatrix: (data[offset + 2] ?? 0) !== 0,
-      condition: data[offset + 3] ?? 0xff,
-      replacements: Array.from({ length: 5 }, (_replacement, replacementIndex) => readU16(data, offset + 4 + replacementIndex * 2)),
-    };
-  });
-}
-
-function seasonToIndex(season: Map3dSeason): number {
-  return { spring: 0, summer: 1, autumn: 2, winter: 3 }[season];
-}
-
-function areaHasSeasons(baseRom: BaseRom, areaId: number): boolean {
-  return baseRom === "BW2" ? areaId >= 2 && areaId < 282 : areaId >= 2 && areaId < 210;
-}
-
-function resolveMapReplacement(entries: MapReplaceEntry[], matrixId: number, seasonIndex: number): number | undefined {
-  const entry = entries.find((candidate) => candidate.typeIsMatrix && candidate.condition === 0 && candidate.matrixId === matrixId);
-  return entry?.replacements[seasonIndex];
-}
-
-function resolveChunkReplacement(entries: MapReplaceEntry[], matrixId: number, chunkId: number, seasonIndex: number): number | undefined {
-  const entry = entries.find(
-    (candidate) => !candidate.typeIsMatrix && candidate.condition === 0 && candidate.matrixId === matrixId && candidate.replacements[0] === chunkId,
-  );
-  return entry?.replacements[seasonIndex];
+  return replacementRules(data).map(rule => ({ matrixId: rule.matrixId, typeIsMatrix: rule.patchType === 1, condition: rule.condition, replacements: rule.values.slice(0, 5) }));
 }
 
 export function readNitroResources(data: Uint8Array): NitroResources {

@@ -60,24 +60,3 @@ void Fly_LoadSpawn(FlySpawn *spawn, uint16_t selected_zone) {
         break;
     }
 }
-
-typedef struct {
-    void *sprite;
-    const uint16_t *data;
-    uint32_t index;
-    int32_t scaled[9];
-    uint8_t inactive_animation, active_animation, padding[2];
-    int32_t scale;
-    uint32_t arrived, flyable, hidden;
-} FlyPlace;
-
-_Static_assert(offsetof(FlyPlace, flyable) == 60, "place ABI");
-
-int32_t Fly_PlaceParameter(const FlyPlace *place, uint32_t parameter) {
-    if (parameter >= 2 && parameter <= 10) return place->scaled[parameter - 2];
-    if (parameter == 12) return (int32_t)place->flyable;
-    uint16_t value = place->data[place->index * 27 + parameter];
-    /* A visited, enabled route gets the existing small-area marker. */
-    if (parameter == 11 && value == 1 && place->flyable) return 3;
-    return value;
-}

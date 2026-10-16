@@ -102,8 +102,9 @@ export function renderOverworldEditor(
   onDirty?: () => void,
   onBack?: () => void,
   onTestWarp?: (selection: OverworldTestWarpSelection) => Promise<void>,
+  headerRowId?: number,
 ): void {
-  let scene = getOverworldScene(project, overworldId);
+  let scene = getOverworldScene(project, overworldId, headerRowId);
   const isGen4 = isGen4Project(project);
   const tileLayerLabels = isGen4 ? { flag: "Type", movement: "Collision" } : { flag: "Flag", movement: "Movement" };
   let activeKind: OverworldEntityKind = "npc";
@@ -249,7 +250,7 @@ export function renderOverworldEditor(
 
   const reloadScene = () => {
     const previousZoneId = associatedMapZoneId(scene);
-    scene = getOverworldScene(project, overworldId);
+    scene = getOverworldScene(project, overworldId, headerRowId);
     selectedTile = selectedTile ? tileAt(scene, selectedTile) : undefined;
     reconcileActiveCell();
     selectedEntity = normalizeVisibleSelection(selectedEntity, activeKind);
@@ -874,7 +875,7 @@ export function renderOverworldEditor(
           lastX = x;
           lastY = y;
           moveOverworldEntity(project, overworldId, kind, index, x, y);
-          scene = getOverworldScene(project, overworldId);
+          scene = getOverworldScene(project, overworldId, headerRowId);
           renderEntityOverlay();
           fillSidebar();
         };
@@ -1660,7 +1661,7 @@ function permissionGridBounds(scene: OverworldScene): { x: number; y: number; wi
 }
 
 function mapRenderCacheKey(project: ProjectState, overworldId: number, zoneId: number): string {
-  return `${MAP_RENDER_CACHE_VERSION}:${project.session.baseVersion}:${project.session.romName}:${overworldId}:${zoneId}:${MAP_VIEW_SEASON}`;
+  return `${MAP_RENDER_CACHE_VERSION}:${project.session.baseVersion}:${project.session.romName}:${overworldId}:${zoneId}:${MAP_VIEW_SEASON}:${project.narcs.maps?.revision ?? 0}:${project.narcs.matrix?.revision ?? 0}:${project.narcs.headers?.revision ?? 0}:${project.narcs.map_replace?.revision ?? 0}`;
 }
 
 function associatedMapZoneId(scene: OverworldScene): number {

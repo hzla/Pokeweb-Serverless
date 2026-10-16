@@ -24,6 +24,11 @@
 .fly-note { border-left: 3px solid #8be9fd; padding: 12px 16px; background: #394051; line-height: 1.5; }
 .fly-result { min-height: 24px; color: #a9e9bd; line-height: 1.5; }
 .fly-result.-error { color: #ffb3bd; }
+.fly-map-preview { margin: 20px 0; }
+.fly-map-preview .bw2-map-stage { flex: none; height: 360px; }
+.fly-map-preview .bw2-map-tools { flex-wrap: wrap; }
+.fly-map-preview .bw2-map-heading p { color: #b8bccd; font-size: 12px; margin: 0; }
+.fly-map-preview .bw2-map-tools button:disabled { cursor: default; }
 .fly-editor button:disabled { cursor: wait; opacity: .55; }
 @media (max-width: 800px) { .fly-editor-layout { grid-template-columns: 1fr; } #fly-areas { max-height: 260px; } .fly-editor, .fly-detail { padding: 16px; } .fly-flag-input { flex-wrap: wrap; } }
 @media (max-width: 450px) { .fly-coordinates { grid-template-columns: 1fr; } }

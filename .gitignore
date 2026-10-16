@@ -45,6 +45,8 @@ src/test/local/
 # Optional local maintenance, generation, and verification entry points.
 /scripts/*
 !/scripts/verify-fly-destinations.ts
+!/scripts/verify-bw1-stream-decoder.ts
+!/scripts/verify-bw1-music-project.ts
 !/scripts/generate-cgear-button-defaults-bw1.ts
 # Vite imports the local bridge; TypeScript/tests import the shared tooling.
 !/scripts/w2u-local-bridge.js
@@ -96,6 +98,8 @@ src/test/local/
 
 !/scripts/generate-white2-script-summaries.ts
 !/scripts/verify-white2-script-summaries.ts
+!/scripts/verify-matrix-editor.ts
+!/scripts/verify-seasonal-matrices.ts
 
 # Local BW1 Infinite Candy compiler intermediates.
 runtime/infinite-candy/build/InfiniteCandyB.o
@@ -106,3 +110,8 @@ runtime/infinite-candy/build/metadata-B.yml
 runtime/infinite-candy/build/metadata-W.yml
 runtime/infinite-candy/build/symbols-B.yml
 runtime/infinite-candy/build/symbols-W.yml
+
+# Local BW1 streamed-music builds and emulator captures
+runtime/bgm-toggle/build/bw1*/
+runtime/bgm-toggle/build/emulator-*/
+runtime/bgm-toggle/build/decoder-tests/

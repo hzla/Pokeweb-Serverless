@@ -16,6 +16,7 @@ import {
   type Map3dSceneData,
   type Map3dSeason,
   type Map3dZoneMetadata,
+  type Map3dMatrixCell,
 } from "../pokeweb/map3dModel";
 import { isGen4Project } from "../pokeweb/constants";
 import { buildGen4Map3dScene, ensureGen4Map3dResources, saveGen4Map3dPermissionEdits } from "../pokeweb/gen4Map3dModel";
@@ -126,13 +127,15 @@ type Map3dLayerSettings = {
   showMovementPreview: boolean;
 };
 
-export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void): void {
+export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void, initialTarget?: { zoneId?: number; mapId?: number; matrixCell?: Map3dMatrixCell }): void {
   let zones = getMap3dZones(project);
   const rememberedView = readRememberedMap3dView(project, zones.map((zone) => zone.zoneId));
   const layerSettings = readMap3dLayerSettings(project);
-  const initialZone = rememberedView?.zoneId ?? zones[0]?.zoneId ?? 0;
+  const requestedZone = zones.find(zone => zone.zoneId === initialTarget?.zoneId);
+  const initialZone = requestedZone?.zoneId ?? rememberedView?.zoneId ?? zones[0]?.zoneId ?? 0;
   let activeZone = initialZone;
-  let activeSeason: Map3dSeason = rememberedView?.season ?? "spring";
+  let activeMatrixCell = isGen4Project(project) ? undefined : initialTarget?.matrixCell;
+  let activeSeason: Map3dSeason = requestedZone || activeMatrixCell ? "spring" : rememberedView?.season ?? "spring";
   let state: RendererState | undefined;
   let loadToken = 0;
   let activeData: Map3dSceneData | undefined;
@@ -149,9 +152,11 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
       <section id="map3d-import-review" class="map3d-building-inspector" aria-label="Review map import" hidden></section>
       <input class="filter-input" id="map3d-search" type="text" placeholder="Search zones" />
       <select class="filter-input map3d-zone-select" id="map3d-zone">
-        ${zones.map((zone) => `<option value="${zone.zoneId}" ${zone.zoneId === activeZone ? "selected" : ""}>${escapeHtml(zone.label)}</option>`).join("")}
+        ${matrixCellOption()}
+        ${zones.map((zone) => `<option value="${zone.zoneId}" ${!activeMatrixCell && zone.zoneId === activeZone ? "selected" : ""}>${escapeHtml(zone.label)}</option>`).join("")}
       </select>
       <button class="ow-tool map3d-load-button" id="map3d-load" type="button">Load Map</button>
+      <div class="map3d-metadata-note" id="map3d-opened-map" hidden></div>
       <label class="map3d-field">
         <span>Season</span>
         <select class="filter-input" id="map3d-season">
@@ -414,9 +419,10 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     try {
       const data = await loadMap3dEditorZone(project, zoneId, activeSeason, (message) => {
         if (token === loadToken) setStatus(message);
-      });
+      }, activeMatrixCell);
       if (token !== loadToken) return;
       activeData = data;
+      activeZone = data.zoneId;
       dirtyPermissionEdits.clear();
       state ??= createRenderer(canvasWrap);
       state.onBuildingPick = selectBuilding;
@@ -425,11 +431,24 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
         if (permissionPaint?.checked) applyPermissionBrush();
       };
       renderSceneData(state, data);
+      const openedMap = root.querySelector<HTMLElement>("#map3d-opened-map")!;
+      openedMap.hidden = !data.matrixCell && (zoneId !== initialTarget?.zoneId || initialTarget?.mapId === undefined);
+      if (data.matrixCell) {
+        openedMap.textContent = `${data.label} · Unassigned header`;
+        openedMap.title = `Graphics resources: header ${data.zoneId}, area ${data.areaId}`;
+        refreshZoneSelect(search?.value ?? "");
+      } else if (!openedMap.hidden) {
+        const chunk = data.chunks.find(chunk => chunk.sourceChunkId === initialTarget!.mapId)
+          ?? data.chunks.find(chunk => chunk.chunkId === initialTarget!.mapId);
+        openedMap.textContent = chunk ? `Map ${initialTarget!.mapId} · Header ${zoneId}` : `Map ${initialTarget!.mapId} is not present in this header’s current matrix.`;
+        if (chunk) { state.target.set(chunk.worldX, chunk.worldY ?? 0, chunk.worldZ); state.distance = Math.max(200, data.chunkSpan * 1.5); }
+      }
       buildingInspector.setData(data);
-      writeMetadataForm(getMap3dZoneMetadata(project, zoneId), data);
+      root.querySelector<HTMLElement>(".map3d-metadata-editor")!.hidden = Boolean(data.matrixCell);
+      if (!data.matrixCell) writeMetadataForm(getMap3dZoneMetadata(project, zoneId), data);
       renderMap3dDiagnostics(warningsHost, data);
       applyCurrentLayerSettings(false);
-      rememberMap3dView(project, zoneId, activeSeason);
+      if (!data.matrixCell) rememberMap3dView(project, zoneId, activeSeason);
       setStatus(data.label);
       if (exportButton) exportButton.disabled = exporting;
       refreshImportButtons();
@@ -452,11 +471,12 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   };
 
   select.addEventListener("change", () => {
-    activeZone = Number(select.value);
+    if (select.value !== "matrix-cell") activeZone = Number(select.value);
   });
 
   loadButton?.addEventListener("click", () => {
-    void load(Number(select.value));
+    if (select.value !== "matrix-cell") { activeMatrixCell = undefined; refreshZoneSelect(search?.value ?? ""); }
+    void load(activeZone);
   });
 
   exportButton?.addEventListener("click", async () => {
@@ -634,7 +654,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   });
 
   metadataSave?.addEventListener("click", () => {
-    if (!activeData) {
+    if (!activeData || activeData.matrixCell) {
       setStatus("Load a map before editing metadata.");
       return;
     }
@@ -826,15 +846,21 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
 
   function refreshZoneSelect(queryText: string): void {
     const query = queryText.trim().toLowerCase();
-    zoneSelect.innerHTML = zones
+    zoneSelect.innerHTML = matrixCellOption() + zones
       .filter((zone) => zone.label.toLowerCase().includes(query) || String(zone.zoneId).includes(query))
-      .map((zone) => `<option value="${zone.zoneId}" ${zone.zoneId === activeZone ? "selected" : ""}>${escapeHtml(zone.label)}</option>`)
+      .map((zone) => `<option value="${zone.zoneId}" ${!activeMatrixCell && zone.zoneId === activeZone ? "selected" : ""}>${escapeHtml(zone.label)}</option>`)
       .join("");
+  }
+
+  function matrixCellOption(): string {
+    if (!activeMatrixCell) return "";
+    const label = activeData?.matrixCell ? activeData.label : `Matrix ${activeMatrixCell.matrixId} (${activeMatrixCell.x}, ${activeMatrixCell.y})`;
+    return `<option value="matrix-cell" selected>${escapeHtml(label)} · Unassigned header</option>`;
   }
 }
 
-async function loadMap3dEditorZone(project: ProjectState, zoneId: number, season: Map3dSeason, onProgress?: (message: string) => void): Promise<Map3dSceneData> {
-  if (!isGen4Project(project)) return loadMap3dZone(project, zoneId, { season }, onProgress);
+async function loadMap3dEditorZone(project: ProjectState, zoneId: number, season: Map3dSeason, onProgress?: (message: string) => void, matrixCell?: Map3dMatrixCell): Promise<Map3dSceneData> {
+  if (!isGen4Project(project)) return loadMap3dZone(project, zoneId, { season, matrixCell }, onProgress);
   onProgress?.("Reading Gen 4 map archives");
   await ensureGen4Map3dResources(project);
   const metadata = getMap3dZoneMetadata(project, zoneId);

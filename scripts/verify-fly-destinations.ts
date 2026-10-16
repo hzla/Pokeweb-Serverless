@@ -9,6 +9,7 @@ import { applyFlyDestinationEdit, getFlyDestinations, getFlyDestinationStatus } 
 import { createProjectDocument } from "../src/pokeweb/projectDocument";
 import { openProjectSession } from "../src/pokeweb/projectSession";
 import { stageCodeInjectionDll } from "../src/pokeweb/pmcModel";
+import { parseRpm } from "../src/pokeweb/rpm";
 
 const [sourcePath, outputPath] = process.argv.slice(2);
 if (!sourcePath || (outputPath && resolve(sourcePath) === resolve(outputPath))) throw new Error("Use a source ROM and an optional separate output path.");
@@ -23,6 +24,7 @@ const status = getFlyDestinationStatus(project);
 if (!status.compatible) throw new Error(status.message);
 const entries = getFlyDestinations(project), route = entries.find(e => e.zone === 326)!, join = entries.find(e => e.zone === 490)!;
 const originalHeaders = project.narcs.headers!.rawFiles[0].slice();
+const originalTownMap = project.narcs.town_map!.rawFiles[0].slice();
 const routeEdit = { enabled: true, visitFlag: 2501, x: 432, y: 0, z: 491 };
 await applyFlyDestinationEdit(project, route.index, routeEdit);
 await applyFlyDestinationEdit(project, join.index, { ...join.landing, enabled: false, visitFlag: join.visitFlag });
@@ -47,7 +49,16 @@ if (!getFlyDestinationStatus(reopened).compatible || !getFlyDestinationStatus(re
   throw new Error("Reimport did not recognize its Fly runtime.");
 const bytes = new NARC(rom.files[rom.filenames.idOf("a/0/8/5")!]).files[0];
 if (bytes.length !== 85 * 54) throw new Error("Town Map count changed.");
-const layout = original.idCode === "IRDO" ? { base: 0x0219cec0, hook: 0x0219e0d4, version: "W2" } : { base: 0x0219ce80, hook: 0x0219e094, version: "B2" };
+for (let offset = 0; offset < bytes.length; offset++) {
+  const row = Math.floor(offset / 54), fieldByte = offset % 54;
+  if ((row === route.index || row === join.index) && [24, 25, 30, 31].includes(fieldByte)) continue;
+  if (bytes[offset] !== originalTownMap[offset]) throw new Error("Town Map visuals or selection regions changed.");
+}
+const layout = original.idCode === "IRDO" ? { base: 0x0219cec0, hook: 0x0219d4ee, version: "W2" } : { base: 0x0219ce80, hook: 0x0219d4ae, version: "B2" };
+const runtime = parseRpm(rom.files[rom.filenames.idOf(`patches/FlyDestinations${layout.version}.dll`)!], { allowedMagics: ["DLXF"] });
+const hooks = runtime.relocations.filter(({ target }) => target.module !== "base");
+if (runtime.metadata.PMCVersion !== "1.0.1" || hooks.length !== 2 || hooks.some(({ target }) => target.module === "144" && target.type !== "FULL_COPY"))
+  throw new Error("Fly runtime changes Town Map visual code.");
 const originalOverlay = rom.loadArm9Overlays([144]).get(144)!.data;
 reopened.overlays[144] = originalOverlay.slice();
 reopened.overlays[144]![layout.hook - layout.base] ^= 1;
@@ -56,6 +67,6 @@ delete reopened.overlays[144];
 const conflicting = new Uint8Array(await readFile(new URL(`../src/assets/codeinjection/FlyDestinations${layout.version}.dll`, import.meta.url)));
 stageCodeInjectionDll(reopened, "ConflictingFly.dll", conflicting);
 if (getFlyDestinationStatus(reopened).compatible) throw new Error("An overlapping DLL was accepted.");
-console.log(`${original.idCode}: install, repeated edits, project save, ROM export/reimport, independent arrivals and unchanged headers/overlays passed.`);
+console.log(`${original.idCode}: install, repeated edits, project save, ROM export/reimport, independent arrivals and unchanged headers/overlays/Town Map visuals/hit regions passed.`);
 console.log(`${original.idCode}: changed native code and overlapping DLL were rejected.`);
 if (outputPath) { await writeFile(outputPath, output, { flag: "wx" }); console.log(`Created ${outputPath}`); }

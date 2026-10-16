@@ -24,6 +24,7 @@ export type NarcName =
   | "exterior_building_models"
   | "interior_building_models"
   | "matrix"
+  | "map_replace"
   | "overworlds"
   | "ow_sprites"
   | "learnsets"

@@ -17,6 +17,7 @@ export type MapGlbManifest = {
   zoneId: number;
   season: string;
   matrixId: number;
+  matrixCell?: { matrixId: number; x: number; y: number };
   areaId: number;
   areaMetadata: string;
   bundleKind: "exterior" | "interior";

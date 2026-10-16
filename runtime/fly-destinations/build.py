@@ -10,8 +10,8 @@ TOOLS = Path(os.environ.get('ARM_TOOLCHAIN_BIN', REPO.parent / 'toolchains/arm-g
 JAR = Path(os.environ.get('RPM_TOOL_JAR', REPO.parent / 'White2Upgrade/CTRMap.jar'))
 BUILD = HERE / 'build'
 VERSIONS = {
-    'B2': (0x020190c9, 0x02178956, 0x0219d4ae, 0x0219e094),
-    'W2': (0x020190f5, 0x02178996, 0x0219d4ee, 0x0219e0d4),
+    'B2': (0x020190c9, 0x02178956, 0x0219d4ae),
+    'W2': (0x020190f5, 0x02178996, 0x0219d4ee),
 }
 
 
@@ -21,13 +21,13 @@ def run(*args):
 
 def main():
     BUILD.mkdir(exist_ok=True)
-    for version, (loader, call, remap, parameter) in VERSIONS.items():
+    for version, (loader, call, remap) in VERSIONS.items():
         segments = 'Segments:\n  - ID: 0\n    Name: ARM9\n    Type: EXECUTABLE\n'
         segments += '  - ID: 1\n    Name: 33\n    Type: OVERLAY\n  - ID: 2\n    Name: 144\n    Type: OVERLAY\n'
         esdb = BUILD / f'symbols_{version}.yml'
         esdb.write_text(segments + f'Symbols:\n  - Name: LoadZoneSpawnInfoCheckRail\n    Segment: 0\n    Address: 0x{loader:x}\n')
         metadata = BUILD / f'metadata_{version}.yml'
-        metadata.write_text(f'PMCGameID: {version}\nPMCModulePriority: 4\nPMCVersion: 1.0.0\n' + segments)
+        metadata.write_text(f'PMCGameID: {version}\nPMCModulePriority: 4\nPMCVersion: 1.0.1\n' + segments)
         assembly = BUILD / f'hooks_{version}.s'
         assembly.write_text(f'''.syntax unified
 .cpu arm946e-s
@@ -42,14 +42,6 @@ THUMB_BRANCH_LINK_33_0x{call:x}:
     bl Fly_LoadSpawn
     pop {{r3, pc}}
 .size THUMB_BRANCH_LINK_33_0x{call:x}, .-THUMB_BRANCH_LINK_33_0x{call:x}
-.global THUMB_BRANCH_144_0x{parameter:x}
-.type THUMB_BRANCH_144_0x{parameter:x}, %function
-.thumb_func
-THUMB_BRANCH_144_0x{parameter:x}:
-    push {{r3, lr}}
-    bl Fly_PlaceParameter
-    pop {{r3, pc}}
-.size THUMB_BRANCH_144_0x{parameter:x}, .-THUMB_BRANCH_144_0x{parameter:x}
 .balign 4
 .global FULL_COPY_144_0x{remap:x}
 .type FULL_COPY_144_0x{remap:x}, %object
@@ -71,11 +63,11 @@ FULL_COPY_144_0x{remap:x}:
         dump = subprocess.check_output(['java', '-cp', str(JAR), 'rpm.cli.RPMDump', '--fourcc', 'DLXF', '-i', str(output)]).decode()
         targets = {(kind, segment, int(address, 16)) for kind, segment, address in
                    re.findall(r'Target: (\S+) @ (\S+) :: (0x[0-9a-f]+)', dump) if segment != 'base'}
-        expected = {('THUMB_BRANCH_LINK', '33', call), ('THUMB_BRANCH', '144', parameter), ('FULL_COPY', '144', remap)}
+        expected = {('THUMB_BRANCH_LINK', '33', call), ('FULL_COPY', '144', remap)}
         if targets != expected or 'Import symbol' in dump or 'FlyDestinationConfig' not in dump:
             raise RuntimeError(f'{version}: invalid packaged hooks/config: {targets}')
         (BUILD / f'{version}.dump.txt').write_text(dump)
-        print(f'{output.name}: {output.stat().st_size} bytes; three hooks verified')
+        print(f'{output.name}: {output.stat().st_size} bytes; two hooks verified; Town Map visuals unhooked')
 
 
 if __name__ == '__main__':

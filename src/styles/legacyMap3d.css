@@ -171,6 +171,10 @@
   padding: 10px;
 }
 
+.map3d-metadata-editor[hidden] {
+  display: none;
+}
+
 .map3d-metadata-note {
   color: #cbd5e1;
   font-size: 12px;

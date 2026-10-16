@@ -5,6 +5,8 @@ import {
   packGameFreakContainer,
   parseAreaHeader,
   parseMapMatrix,
+  resolveMapMatrixZoneId,
+  resolveMap3dMatrixCellHeader,
   parseChunkBuildings,
   parseNitroRenderOpsForTest,
   readNitroObjectMatrixForTest,
@@ -17,6 +19,7 @@ import {
 } from "../pokeweb/map3dModel";
 import { writeU16, writeU32 } from "../nds/binary";
 import type { ProjectState } from "../pokeweb/projectStore";
+import { makeMatrixProject } from "./fixtures/matrixProject";
 
 describe("map3dModel", () => {
   it("extracts files from a Game Freak container", () => {
@@ -91,6 +94,26 @@ describe("map3dModel", () => {
       patAnimeIdx: 7,
       isExterior: true,
     });
+  });
+
+  it("renders version-specific headers using their logical matrix zone without mixing areas", () => {
+    const route4 = { hasZones: true, zoneIds: [62, 326, 326, 329] };
+    expect(resolveMapMatrixZoneId(route4, 551, 326)).toBe(326);
+    expect(resolveMapMatrixZoneId(route4, 326, 326)).toBe(326);
+    expect(resolveMapMatrixZoneId({ hasZones: true, zoneIds: [551, 326] }, 551, 326)).toBe(551);
+    expect(resolveMapMatrixZoneId(route4, 999, 998)).toBe(999);
+    expect(resolveMapMatrixZoneId({ hasZones: false, zoneIds: [] }, 551, 326)).toBe(551);
+  });
+
+  it("uses the nearest linked header only as graphics context for a map-only cell, with native zero-based IDs", () => {
+    const headers = Object.values(makeMatrixProject().headers!.rows);
+    const matrix = { hasZones: true, width: 4, height: 1, chunkIds: [0, 1, 2, 3], zoneIds: [0, -1, -1, 2] };
+    expect(resolveMap3dMatrixCellHeader(matrix, { matrixId: 0, x: 1, y: 0 }, headers).index).toBe(0);
+    expect(resolveMap3dMatrixCellHeader(matrix, { matrixId: 0, x: 2, y: 0 }, headers).index).toBe(2);
+    expect(resolveMap3dMatrixCellHeader({ ...matrix, zoneIds: [0, -1, 1, 2] }, { matrixId: 0, x: 2, y: 0 }, headers).index).toBe(2);
+    expect(() => resolveMap3dMatrixCellHeader(matrix, { matrixId: 0, x: 4, y: 0 }, headers)).toThrow("outside");
+    expect(() => resolveMap3dMatrixCellHeader({ ...matrix, chunkIds: [-1, 1, 2, 3] }, { matrixId: 0, x: 0, y: 0 }, headers)).toThrow("no map");
+    expect(() => resolveMap3dMatrixCellHeader(matrix, { matrixId: 9, x: 1, y: 0 }, headers)).toThrow("Link a header");
   });
 
   it("writes and stores edited area metadata", () => {

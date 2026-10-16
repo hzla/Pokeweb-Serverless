@@ -2,6 +2,38 @@
 
 The Maps editor is a 3D map viewer and metadata/permission editor. It lets you inspect map zones, switch seasons, view buildings/NPC/entity overlays, and edit collision/permission tiles.
 
+## Matrix Editor (Black/White and Black 2/White 2)
+
+Open **Headers & Overworlds → Matrix Editor** to view a colored grid of map chunks and header assignments. It starts at matrix **0**; use **Matrix index** to select another entry. Missing matrix/map archives load from the connected source ROM without loading graphics.
+
+Matrix **0** starts with its color-coded grid. Its **Thumbnails** switch enables experimental top-down previews; switch it off to restore the colors and cancel pending previews. Other matrices show thumbnails automatically. With the source ROM connected, previews include terrain and buildings in spring. Visible populated cells load one at a time at **128 × 128** resolution, and cells sharing a map ID and graphics area reuse the same image. The editor retains enough cached images for a full supported grid, including while the switch is off. Previews refresh after map, matrix, header, or graphics-resource edits. Empty cells stay blank; cells whose graphics cannot load keep their normal color.
+
+Grid cells show only the native, zero-based header number. Cells without an assigned header have no text; map IDs remain in the inspector and tooltips. Locations containing “Cave” or “Mountain” in their names, plus cells assigned map 395, are brown with white labels. Route 18, Route 21, and Undella Bay are blue with white labels. Cells assigned maps 106, 250, 251, 258, 259, 261, 262, 267–271, 342, 379, 389–392, or 396 use the same blue, except when assigned a Cave or Mountain header, which stays brown. Other headers named `Route …` are pale yellow with dark labels; cities and towns share Mistralton City's original color. Unassigned map chunks containing native tree materials are green, identified from material names without rendering graphics. Other headers keep their individual colors. Dashed cells have no map. Cells with neither a map nor a header are solid black without labels and remain selectable. The grid starts at the full first-column width and scrolls vertically when needed. **Fit** shows the whole matrix. Zoom in for larger header numbers or hover for coordinates, header/map IDs, and location names. Missing references have an orange border.
+
+Double-click a cell, or focus it and press **F2**, to edit its header number directly in the grid. Press **Enter** to apply the header ID; a blank entry or **Empty** clears only the header. **Escape** or clicking away cancels the draft. Inline editing requires a per-cell header table and uses normal validation and autosave.
+
+Click a cell, or Shift-click another cell to select a rectangle. Enter a **Map ID**, **Header ID**, or both and click **Apply**. Blank fields stay unchanged, including mixed values; use **Empty** to clear an assignment. Decimal and hexadecimal IDs are also accepted. Existing invalid references remain inspectable when their field is unchanged. **Clear cells** clears both assignments where a header table exists.
+
+The second column contains the selected assignments and shortcuts. **Open map …** opens the linked header in the Map Editor and frames that chunk. A cell with a map but an Empty header opens just that chunk at its matrix coordinates, without borrowing another header's events or NPCs. Its preview uses the nearest assigned, linked header for graphics resources; hover over the map label to see that resource context. Zone metadata stays hidden because the cell has no assigned header. **Open overworld …** opens the overworld assigned to the applied header, keeping that header's context when the file is shared. The referencing-header list occupies the third column on desktop.
+
+Most matrices have no per-cell header table. Their **Header Reference** list shows headers whose Matrix ID selects that matrix; it does not imply stored cell assignments. **Add header table** requires choosing an initial header for populated cells. Empty cells stay unassigned.
+
+Assigning a header to a cell does not change that header’s Matrix ID. The inspector shows mismatches and offers **Point header … to matrix …** as a separate action. This changes the shared header for all its uses. Existing seasonal replacements and version-specific header relationships still apply.
+
+**Resize** keeps surviving cells at the same coordinates from the top-left origin and fills new cells with Empty. The crop preview counts populated cells that would be removed; removing any requires confirmation. **New matrix** creates a blank 1 × 1 entry with per-cell headers by default. **Duplicate** copies the current matrix. Both append an index without renumbering existing matrices; assign map chunks and explicitly link a header to use a new matrix in game.
+
+Applied changes use normal autosave and ROM export and refresh map previews. The editor uses a conservative **900-cell limit**. It does not expand engine capacity, create map/header assets, or move event and warp coordinates. Larger existing matrices can be inspected but not edited. Gen 4 projects continue using the existing map tools.
+
+### Seasonal assignments
+
+Select a populated cell and open **Seasons**. The inspector shows its spring, summer, autumn, and winter previews. **Spring** is the base map ID; enter existing map IDs for the other seasons and choose **Apply seasons**. Draft values update previews without saving. Amber borders highlight every cell in the current matrix using that base map, and the affected-cell count includes repeated assignments. For a selection containing different maps, choose the base map to edit. **Remove rule** restores the base assignment for all seasons.
+
+Use **Whole matrix** scope for replacements that load another matrix. Enter matrix indexes instead of map IDs; previews show the resulting grids. A replacement matrix may have different dimensions. Event and warp coordinates remain unchanged, so check them separately when changing layouts.
+
+In the Header Editor, expand a header and choose **Open seasons** beside its Matrix ID. This opens the current matrix, selects cells assigned that native header ID, and opens seasonal controls. Headerless matrices retain the chosen header as their graphics context.
+
+Seasonal rules live in the first member of `a/0/1/0`. The editor preserves nonseasonal conditions, entry order, and all six native replacement values; only the first four values of seasonal rules are edited. Matching duplicate seasonal entries update together. New rules append without renumbering matrices. Rules are previewed in stored order, including map substitutions after a whole-matrix replacement. Previews do not simulate version- or story-dependent conditions. Seasonal texture resources still follow the header's graphics area; this panel edits map/matrix substitutions, not texture packs or seasonal music. Changes use the existing project document, autosave, and ROM export paths. A matching source ROM is needed to load missing seasonal data and graphics.
+
 ## Required Data
 
 | Data | Why it is needed |

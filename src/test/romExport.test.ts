@@ -13,8 +13,37 @@ import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
 import { createNarcStore } from "../pokeweb/projectStore";
 import { addMap3dBuilding, deleteMap3dBuilding, extractGameFreakContainer, packGameFreakContainer, parseChunkBuildings, updateMap3dBuilding, type Map3dSceneData } from "../pokeweb/map3dModel";
 import { TYPE_CHART_FAIRY_TYPE_COUNT, TYPE_CHART_ROMFS_PATH, createRomFsTypeChartStore } from "../pokeweb/typeChartModel";
+import { makeMatrixProject } from "./fixtures/matrixProject";
+import { applyMatrixCellEdit, createMatrix, duplicateMatrix, getMatrixSnapshot, linkHeaderToMatrix, resizeMatrix } from "../pokeweb/matrixModel";
 
 describe("ROM export", () => {
+  it.each(["BW", "BW2"] as const)("exports %s matrix edits, appended entries, and explicit header links", async baseRom => {
+    const project = makeMatrixProject(baseRom);
+    const files = ["matrix", "headers", "maps"].map(name => {
+      const narc = new NARC(); narc.files = project.narcs[name as "matrix" | "headers" | "maps"]!.rawFiles; return narc.save();
+    });
+    project.originalRomBytes = makeRom(files);
+    project.arm9 = Uint8Array.of(1, 2, 3, 4);
+    const untouched = project.narcs.matrix!.rawFiles[1].slice();
+    applyMatrixCellEdit(project, 0, [0], { headerId: 2, mapId: 7 });
+    resizeMatrix(project, 0, 4, 2);
+    const duplicate = duplicateMatrix(project, 0), created = createMatrix(project);
+    linkHeaderToMatrix(project, created, 2);
+    const exported = new NintendoDSRom(await exportModifiedRom(project));
+    const reopened = makeMatrixProject(baseRom);
+    for (const name of ["matrix", "headers", "maps"] as const) {
+      const fileId = reopened.narcs[name]!.fileId;
+      reopened.narcs[name] = createNarcStore(name, name, fileId, new NARC(exported.files[fileId]));
+    }
+    reopened.headers = parseHeaders(reopened);
+    expect(reopened.narcs.matrix!.fileCount).toBe(4);
+    expect(getMatrixSnapshot(reopened, 0)).toMatchObject({ width: 4, height: 2 });
+    expect(getMatrixSnapshot(reopened, 0).cells[0]).toMatchObject({ headerId: 2, mapId: 7 });
+    expect(reopened.narcs.matrix!.rawFiles[duplicate]).toEqual(reopened.narcs.matrix!.rawFiles[0]);
+    expect(reopened.narcs.matrix!.rawFiles[1]).toEqual(untouched);
+    expect(reopened.headers.rows[3].matrix_id).toBe(created);
+  });
+
   it("exports added/deleted buildings with resized container offsets and a valid empty table", async () => {
     const maps = new NARC();
     maps.files = [packGameFreakContainer("WB", [Uint8Array.of(9), Uint8Array.of(8), new Uint8Array(4), Uint8Array.of(7)])];

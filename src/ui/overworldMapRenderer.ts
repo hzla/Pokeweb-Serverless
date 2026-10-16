@@ -110,14 +110,32 @@ export function renderOverworldMapTopDown(data: Map3dSceneData): OverworldMapRen
   throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
+/** One reusable context for queued still images; no animation loop or retained geometry. */
+export function createOverworldMapThumbnailRenderer(size = 512) {
+  const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, preserveDrawingBuffer: true });
+  return {
+    render(data: Map3dSceneData): string {
+      const bounds = getOverworldMapWorldBounds(data);
+      let lastError: unknown;
+      for (const style of (hasTexturedGeometry(data) ? ["textured", "solid"] : ["solid"]) as OverworldMapRenderStyle[]) {
+        try { return renderOverworldMapTopDownAtSize(data, bounds, size, [], style, renderer).canvas.toDataURL("image/png"); }
+        catch (error) { lastError = error; }
+      }
+      throw lastError;
+    },
+    dispose(): void { renderer.dispose(); renderer.forceContextLoss(); },
+  };
+}
+
 function renderOverworldMapTopDownAtSize(
   data: Map3dSceneData,
   matrixBounds: OverworldMapWorldBounds,
   maxDimension: number,
   warnings: string[],
   style: OverworldMapRenderStyle,
+  sharedRenderer?: THREE.WebGLRenderer,
 ): OverworldMapRender {
-  const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, preserveDrawingBuffer: true });
+  const renderer = sharedRenderer ?? new THREE.WebGLRenderer({ antialias: false, alpha: false, preserveDrawingBuffer: true });
   renderer.setPixelRatio(1);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.setClearColor(0x282a36, 1);
@@ -182,7 +200,7 @@ function renderOverworldMapTopDownAtSize(
       warnings,
     };
   } finally {
-    renderer.dispose();
+    if (!sharedRenderer) renderer.dispose();
     clearGroup(group);
     for (const texture of textureCache.values()) texture.dispose();
   }

@@ -91,6 +91,10 @@ button.header-item {
   position: relative;
 }
 
+.header-more-trigger {
+  white-space: nowrap;
+}
+
 .header-more-menu {
   background: #282a36;
   box-shadow: 0 8px 18px rgb(0 0 0 / 24%);
@@ -120,6 +124,11 @@ button.header-item {
 
 .header-left .header-more-menu .header-item {
   margin: 0;
+}
+
+.header-left > .header-more:first-child .header-more-menu {
+  left: 0;
+  right: auto;
 }
 
 #content-container {

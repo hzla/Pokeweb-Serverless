@@ -124,6 +124,22 @@ describe.skipIf(!existsSync(romPath))("BW2 full map GLB import", () => {
     expect(project.narcs.maps!.dirty.size).toBe(0);
     expect(project.narcs.exterior_building_models).toBeUndefined();
   });
+  it("round-trips an unassigned matrix cell and keeps converted previews limited to that cell", async () => {
+    const { project } = await setup(), matrixCell = { matrixId: 0, x: 15, y: 2 };
+    const data = await loadMap3dZone(project, 0, { matrixCell });
+    expect(data.chunks.map(chunk => chunk.sourceChunkId)).toEqual([104]);
+    expect(data.entities).toEqual([]); expect(data.npcModels).toEqual([]);
+    const bytes = new Uint8Array((await exportMapGlbForImport(project, data)).bytes);
+    expect((await prepareMapGlbImport(project, data, bytes)).patches).toHaveLength(0);
+    const file = unpack(bytes); alterGeometry(file, roots(file, "terrain")[0]);
+    const result = await prepareMapGlbImport(project, data, pack(file));
+    expect(result.terrainModels).toBe(1);
+    expect(result.patches.map(patch => [patch.archive.name, patch.index])).toEqual([["maps", 104]]);
+    expect(result.converted.matrixCell).toEqual(matrixCell);
+    expect(result.converted.chunks.map(chunk => chunk.sourceChunkId)).toEqual([104]);
+    expect(result.converted.entities).toEqual([]); expect(result.converted.npcModels).toEqual([]);
+    expect(project.narcs.maps!.dirty.size).toBe(0);
+  });
   it("imports White Forest after removing animated leaves while preserving their unused native material records", async () => {
     const { project } = await setup(), data = await loadMap3dZone(project, 424, { season: "spring" });
     const bytes = new Uint8Array((await exportMapGlbForImport(project, data)).bytes);

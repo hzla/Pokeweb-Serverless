@@ -325,7 +325,7 @@ export function renderMusicEditor(project: ProjectState, root: HTMLElement, onDi
   const config = configs.find((entry) => entry.targetSequenceId === draft.targetSequenceId);
   const configTargetIsBgm = !config || Boolean(config.targetSequenceSymbol?.startsWith("SEQ_BGM_"));
   const bw1 = project.session.baseRom === "BW" && (project.session.baseVersion === "B" || project.session.baseVersion === "W");
-  const supported = project.session.baseRom === "BW2" && (project.session.baseVersion === "B2" || project.session.baseVersion === "W2");
+  const supported = bw1 || (project.session.baseRom === "BW2" && (project.session.baseVersion === "B2" || project.session.baseVersion === "W2"));
   const archiveSupported = bw1 || supported;
   const managedStreamIds = new Set([...configs.map((entry) => entry.streamId), ...getStandaloneStreamConfigs(project).map((entry) => entry.streamId)]);
   const hasEditableNativeStream = Boolean(draft.nativeStreams?.some((entry) => !managedStreamIds.has(entry.id)));
@@ -389,10 +389,10 @@ export function renderMusicEditor(project: ProjectState, root: HTMLElement, onDi
             <label class="streamed-bgm-shortcut"><input id="streamed-bgm-shortcut" type="checkbox" ${draft.shortcutEnabled ? "checked" : ""} ${supported ? "" : "disabled"} /> Enable L + R + Select music mute (global; saved on import)</label>
             <div class="music-editor-buttons">
               <button class="btn -primary" id="install-streamed-bgm-btn" type="button" ${supported && draft.pcm ? "" : "disabled"}>${config ? "Update Selected Replacement" : "Add Replacement"}</button>
-              <button class="btn" id="update-streamed-bgm-runtime-btn" type="button" ${supported && configs.length ? "" : "disabled"}>Update Music Runtime</button>
+              <button class="btn" id="update-streamed-bgm-runtime-btn" type="button" ${supported && (configs.length || (bw1 && getStandaloneStreamConfigs(project).length)) ? "" : "disabled"}>Update Music Runtime</button>
               <button class="btn -default" id="remove-streamed-bgm-btn" type="button" ${config ? "" : "disabled"}>Remove Selected Replacement</button>
             </div>
-            <div class="code-injection-note" id="streamed-bgm-note">${escapeHtml(draft.message ?? (bw1 ? "BW1 BGM replacement needs a verified playback runtime before installation can be enabled." : config ? (configTargetIsBgm ? `${config.sourceName} is installed. Removing it restores only the verified replacement data.` : `This older installation targets non-BGM sequence ${config.targetSequenceId} (${config.targetSequenceSymbol ?? "unknown"}). Choose a SEQ_BGM target, import the audio again, and reconfigure it before testing.`) : draft.hydrating ? "Loading SDAT background-music sequence names…" : "Choose a SEQ_BGM target and import MP3 or WAV audio. Full-track looping is the default."))}</div>
+            <div class="code-injection-note" id="streamed-bgm-note">${escapeHtml(draft.message ?? (config ? (configTargetIsBgm ? `${config.sourceName} is installed. Removing it restores only the verified replacement data.` : `This older installation targets non-BGM sequence ${config.targetSequenceId} (${config.targetSequenceSymbol ?? "unknown"}). Choose a SEQ_BGM target, import the audio again, and reconfigure it before testing.`) : draft.hydrating ? "Loading SDAT background-music sequence names…" : "Choose a SEQ_BGM target and import MP3 or WAV audio. Full-track looping is the default."))}</div>
           </div>
         </section>
         <section class="code-injection-panel music-editor-panel music-editor-installed-panel" aria-labelledby="installed-music-title">

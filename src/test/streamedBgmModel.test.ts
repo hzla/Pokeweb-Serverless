@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import bgmBw1Manifest from "../assets/codeinjection/bgmBw1Manifest.json";
+import { encodeStandaloneStreamManifest, STANDALONE_STREAM_MANIFEST_PATH } from "../pokeweb/standaloneStreamManifest";
 import { Audio as NitroFsAudio, BufferReader } from "nitro-fs";
 import { readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { NintendoDSRom } from "../nds/rom";
@@ -201,6 +203,58 @@ describe("BW2 streamed BGM encoding", () => {
     expect(readAscii(sseq, 0x10, 4)).toBe("DATA");
     expect(readU32(sseq, 8)).toBe(sseq.length);
     expect([...sseq.subarray(0x1c)]).toEqual([0x80, 0xff, 0xff, 0x7f, 0x94, 0, 0, 0]);
+  });
+});
+
+describe("BW1 zero-stream archives", () => {
+  it.each(["B", "W"] as const)("upgrades legacy %s standalone archives and installs their missing player", async (version) => {
+    const header = new Uint8Array(0x200);
+    header.set(new TextEncoder().encode(version === "B" ? "IRBO" : "IRAO"), 12);
+    writeU32(header, 0x28, 0x02000000);
+    const rom = new NintendoDSRom(header), sdat = makeSdat();
+    const originalRomBytes = rom.save({ addedFiles: [{ path: "wb_sound_data.sdat", bytes: sdat }] });
+    const arm9 = new Uint8Array(0x90000);
+    for (const check of [...bgmBw1Manifest.games[version].hooks, ...bgmBw1Manifest.games[version].bindings]) arm9.set(check.bytes, (check.address & ~1) - 0x02000000);
+    const bytes = parseNitroSdat(sdat, "legacy").files[1]!.data;
+    const song = { name: "Legacy song", sourceName: "old.wav", streamId: 0, streamFileId: 1,
+      encoding: "pcm16" as const, loop: true, sampleRate: 32728 as const, sampleCount: 8, loopStartSample: 0, loopEndSample: 8,
+      encodedBytes: bytes.length, audioSha256: createHash("sha256").update(bytes).digest("hex") };
+    const project = { originalRomBytes, arm9, overlays: {}, narcs: {},
+      session: { baseRom: "BW", baseVersion: version, romName: "legacy" }, romInfo: { idCode: version === "B" ? "IRBO" : "IRAO" },
+      fileSystem: { replacements: {}, additions: { [STANDALONE_STREAM_MANIFEST_PATH]: encodeStandaloneStreamManifest([song]) } },
+      codeInjection: { pmc: { overlayId: 237, overlayPath: "overlay/overlay_0237.bin" }, standaloneStreams: [song] },
+    } as unknown as ProjectState;
+    vi.stubGlobal("fetch", async (url: URL) => new Response(readFileSync(url)));
+    try {
+      await updateStreamedBgmRuntime(project);
+      const updated = project.fileSystem!.replacements[0]!;
+      expect(parseNitroSdat(updated, "updated").files[1]!.data).toEqual(bytes);
+      const info = readU32(updated, 24), table = info + readU32(updated, info + 32);
+      expect(readU32(updated, table)).toBe(1);
+      expect(readBgmRuntimeConfig(project.fileSystem!.additions![`patches/BgmToggle${version}.dll`]!)?.mappings).toEqual([]);
+      await removeLastStandaloneStream(project);
+      expect(sdatStreamCount(project.fileSystem!.replacements[0]!)).toBe(0);
+    } finally { vi.unstubAllGlobals(); }
+  });
+
+  it("owns and removes the first stream player, preserves standalone ID 0, and restores all original bytes", () => {
+    const original = makeSdat(8, false);
+    const pcm = { sampleRate: STREAMED_BGM_SAMPLE_RATE, left: new Float32Array(2001), right: new Float32Array(2001) };
+    const stream = encodeAdpcmStrm(pcm).bytes;
+    const standalone = appendStandaloneSdatStream(original, stream);
+    expect(standalone.streamId).toBe(0);
+    const info = readU32(standalone.bytes, 24), table = info + readU32(standalone.bytes, info + 32);
+    expect(readU32(standalone.bytes, table)).toBe(1);
+    const record = info + readU32(standalone.bytes, table + 4);
+    expect([...standalone.bytes.subarray(record, record + 3)]).toEqual([2, 0, 6]);
+    const installed = rebuildStreamedBgmMappings(standalone.bytes, [], [1, 3, 6].map(targetSequenceId => ({ targetSequenceId, bytes: stream })));
+    const reduced = rebuildStreamedBgmMappings(installed.bytes, installed.mappings, [{ targetSequenceId: 6, bytes: stream }]);
+    const cleared = rebuildStreamedBgmMappings(reduced.bytes, reduced.mappings, []).bytes;
+    expect(cleared).toEqual(standalone.bytes);
+    expect(removeFinalStandaloneSdatStream(cleared, 0, standalone.streamFileId)).toEqual(original);
+    const bgm = installStreamedBgmInSdat(original, 1, stream);
+    expect(bgm.streamId).toBe(0);
+    expect(removeStreamedBgmFromSdat(bgm.bytes, bgm)).toEqual(original);
   });
 });
 
@@ -543,8 +597,8 @@ function align(value: number, boundary: number): number {
   return Math.ceil(value / boundary) * boundary;
 }
 
-function makeSdat(sequenceCount = 4): Uint8Array {
-  const counts = [sequenceCount, 0, 0, 0, 0, 0, 0, 1];
+function makeSdat(sequenceCount = 4, nativeStream = true): Uint8Array {
+  const counts = [sequenceCount, 0, 0, 0, 0, 0, 0, nativeStream ? 1 : 0];
   const infoHeaderSize = 0x28;
   const tableOffsets: number[] = [];
   let cursor = infoHeaderSize;
@@ -555,7 +609,7 @@ function makeSdat(sequenceCount = 4): Uint8Array {
   const sequencesStart = cursor;
   cursor += sequenceCount * 12;
   const stream0 = cursor;
-  cursor += 12;
+  if (nativeStream) cursor += 12;
   const info = new Uint8Array(cursor);
   info.set(new TextEncoder().encode("INFO"), 0);
   writeU32(info, 4, info.length);
@@ -567,12 +621,15 @@ function makeSdat(sequenceCount = 4): Uint8Array {
     writeU32(info, tableOffsets[0]! + 4 + id * 4, sequencesStart + id * 12);
     writeU16(info, sequencesStart + id * 12, 0);
   }
+  if (nativeStream) {
   writeU32(info, tableOffsets[7]! + 4, stream0);
   writeU16(info, stream0, 1);
   info[stream0 + 4] = 127;
   info[stream0 + 5] = 64;
+  }
 
   const files = [createSilentShadowSseq(), encodePcm16Strm({ sampleRate: STREAMED_BGM_SAMPLE_RATE, left: new Float32Array(8), right: new Float32Array(8) }).bytes];
+  if (!nativeStream) files.pop();
   const names = Array.from({ length: sequenceCount }, (_, id) => new TextEncoder().encode(`SEQ_BGM_TEST_${id}\0`));
   const namesStart = 0x28 + 4 + sequenceCount * 4 + 4;
   const symb = new Uint8Array(align(namesStart + names.reduce((sum, bytes) => sum + bytes.length, 0), 4));

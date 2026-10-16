@@ -144,6 +144,7 @@ export function domainTitle(domain: string): string {
     ingame_trades: "In-game Trades",
     maps: "Maps",
     matrix: "Matrices",
+    map_replace: "Seasonal Assignments",
     overworlds: "Overworld Files",
     maps3d: "3D Maps",
     move_animations: "Move Animations",

@@ -17,6 +17,7 @@ import { materialRecords } from "./nitroResourceWriter";
 import { GlbMaterialCompiler } from "./glbMaterialImport";
 import { appendNitroTextures } from "./nitroTextureWriter";
 import { sameStaticGeometry } from "./staticMeshCompare";
+import { getMatrixBytes } from "./matrixModel";
 
 type StoreName = "maps" | "exterior_building_models" | "interior_building_models" | "map_textures" | "exterior_building_textures" | "interior_building_textures";
 type Archive = { name: StoreName; path: string; fileId: number; narc: NARC };
@@ -48,7 +49,8 @@ function stable(value: any): string {
   return JSON.stringify(value);
 }
 function context(project: ProjectState, data: Map3dSceneData) {
-  return stable({ header: getMap3dZoneMetadata(project, data.zoneId), areaEdits: project.map3dAreaEdits ?? {} });
+  return stable({ header: getMap3dZoneMetadata(project, data.zoneId), areaEdits: project.map3dAreaEdits ?? {},
+    ...(data.matrixCell ? { matrixCell: data.matrixCell, matrix: [...getMatrixBytes(project, data.matrixCell.matrixId)] } : {}) });
 }
 async function sources(project: ProjectState, data: Map3dSceneData) {
   requireValue(project.session.baseRom === "BW2", "Full map import currently supports Black 2 and White 2.");
@@ -83,7 +85,7 @@ async function manifest(source: Sources, data: Map3dSceneData): Promise<MapGlbMa
   const bundle = source.buildings.narc.files[data.buildingsId];
   requireValue(bundle, "The map's building bundle is missing.");
   return { version: 1, game: `${source.rom.idCode}:${source.rom.data[0x1e]}`, zoneId: data.zoneId, season: data.season,
-    matrixId: data.matrixId, areaId: data.areaId, areaMetadata: stable(data.areaMetadata), bundleKind: source.kind,
+    matrixId: data.matrixId, ...(data.matrixCell ? { matrixCell: data.matrixCell } : {}), areaId: data.areaId, areaMetadata: stable(data.areaMetadata), bundleKind: source.kind,
     bundleId: data.buildingsId, chunks, bundleHash: await modelAssetHash(bundle),
     textures: { terrainId: data.textureId, terrainHash: await modelAssetHash(source.terrainTextures.narc.files[data.textureId]), buildingHash: await modelAssetHash(source.buildingTextures.narc.files[data.buildingsId]) },
     terrain: data.chunks.map(c => ({ id: `terrain:${c.matrixX}:${c.matrixY}:${c.chunkId}`, kind: "terrain", exported: hasGeometry(c.primitives),
@@ -338,7 +340,7 @@ export async function prepareMapGlbImport(project: ProjectState, data: Map3dScen
   if (result.patches.length) {
     const previewProject = { ...project, narcs: { ...project.narcs } };
     for (const [name, store] of patchedStores(project, result.patches, false)) previewProject.narcs[name] = store;
-    result.converted = await loadMap3dZone(previewProject, data.zoneId, { season: data.season });
+    result.converted = await loadMap3dZone(previewProject, data.zoneId, { season: data.season, matrixCell: data.matrixCell });
     requireValue(result.converted.chunks.length === data.chunks.length, "Converted map failed terrain validation.");
     requireValue(result.converted.buildings.length === data.buildings.length + result.added - result.deleted, "Converted map failed building placement validation.");
     const validateTextures = (primitives: Map3dPrimitive[], template: Uint8Array) => {

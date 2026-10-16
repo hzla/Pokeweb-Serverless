@@ -170,7 +170,7 @@ function headerDetailSectionsFor(project: ProjectState): HeaderDetailSection[] {
   ];
 }
 
-export function renderHeaderEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void, onOpenOverworld?: (overworldId: number) => void): void {
+export function renderHeaderEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void, onOpenOverworld?: (overworldId: number) => void, onOpenSeasons?: (headerId: number) => void): void {
   if (!project.headers) throw new Error("Header data has not been parsed");
 
   root.innerHTML = `
@@ -192,12 +192,17 @@ export function renderHeaderEditor(project: ProjectState, root: HTMLElement, onD
           <div class="hdr-encounters">Encounter</div>
         </div>
       </div>
-      ${renderRows(project, Boolean(onOpenOverworld))}
+      ${renderRows(project, Boolean(onOpenOverworld), Boolean(onOpenSeasons) && !isGen4Project(project))}
     </div>
   `;
 
   attachHeaderInteractions(root, project, { onDirty });
   if (!isGen4Project(project)) initializeHeaderBattleEnvironmentEditors(root, project, onDirty);
+  root.querySelectorAll<HTMLElement>("[data-open-matrix-seasons]").forEach(link => link.addEventListener("click", event => {
+    event.preventDefault();
+    const id = Number(link.dataset.openMatrixSeasons);
+    if (Number.isSafeInteger(id) && id >= 0) onOpenSeasons?.(id);
+  }));
   root.querySelectorAll<HTMLElement>("[data-open-overworld]").forEach((link) => {
     link.addEventListener("click", (event) => {
       event.preventDefault();
@@ -207,18 +212,18 @@ export function renderHeaderEditor(project: ProjectState, root: HTMLElement, onD
   });
 }
 
-function renderRows(project: ProjectState, canOpenOverworld: boolean): string {
+function renderRows(project: ProjectState, canOpenOverworld: boolean, canOpenSeasons: boolean): string {
   const headers = project.headers;
   if (!headers) return "";
   const rows: string[] = [];
   for (let rowId = 1; rowId <= headers.count; rowId += 1) {
     const row = headers.rows[rowId];
-    rows.push(renderRow(project, rowId, row, canOpenOverworld));
+    rows.push(renderRow(project, rowId, row, canOpenOverworld, canOpenSeasons));
   }
   return rows.join("");
 }
 
-function renderRow(project: ProjectState, rowId: number, row: HeaderRow, canOpenOverworld: boolean): string {
+function renderRow(project: ProjectState, rowId: number, row: HeaderRow, canOpenOverworld: boolean, canOpenSeasons: boolean): string {
   return `
     <div class="expanded-field filterable" data-index="${rowId}">
       <div class="expanded-field-main">
@@ -232,25 +237,25 @@ function renderRow(project: ProjectState, rowId: number, row: HeaderRow, canOpen
       </div>
       <div class="expanded-card-content expanded-header">
         <div class="header-detail-grid">
-          ${headerDetailSectionsFor(project).map((section) => renderHeaderDetailSection(rowId, row, section.title, section.items, canOpenOverworld)).join("")}
+          ${headerDetailSectionsFor(project).map((section) => renderHeaderDetailSection(rowId, row, section.title, section.items, canOpenOverworld, canOpenSeasons)).join("")}
         </div>
       </div>
     </div>
   `;
 }
 
-function renderHeaderDetailSection(rowId: number, row: HeaderRow, title: string, items: readonly HeaderDetailItem[], canOpenOverworld: boolean): string {
+function renderHeaderDetailSection(rowId: number, row: HeaderRow, title: string, items: readonly HeaderDetailItem[], canOpenOverworld: boolean, canOpenSeasons: boolean): string {
   return `
     <section class="header-detail-section">
       <div class="header-detail-section-title">${escapeHtml(title)}</div>
       <div class="header-detail-section-fields">
-        ${items.map((item) => renderHeaderDetailItem(rowId, row, item, canOpenOverworld)).join("")}
+        ${items.map((item) => renderHeaderDetailItem(rowId, row, item, canOpenOverworld, canOpenSeasons)).join("")}
       </div>
     </section>
   `;
 }
 
-function renderHeaderDetailItem(rowId: number, row: HeaderRow, item: HeaderDetailItem, canOpenOverworld: boolean): string {
+function renderHeaderDetailItem(rowId: number, row: HeaderRow, item: HeaderDetailItem, canOpenOverworld: boolean, canOpenSeasons: boolean): string {
   if (item.kind === "battleEnvironment") return renderHeaderBattleEnvironmentCard(rowId, row);
   if (item.kind === "packed") return renderHeaderPackedField(row, item.field);
 
@@ -260,7 +265,7 @@ function renderHeaderDetailItem(rowId: number, row: HeaderRow, item: HeaderDetai
   const openLink =
     item.openOverworld && canOpenOverworld
       ? `<a class="header-detail-open-link" href="#" data-open-overworld="${Number(value)}">Open</a>`
-      : "";
+      : item.field === "matrix_id" && canOpenSeasons ? `<a class="header-detail-open-link" href="#matrixEditor/header/${row.index}" data-open-matrix-seasons="${row.index}">Open seasons</a>` : "";
   return `
     <div class="header-detail-field">
       <label class="header-detail-label">
