@@ -1,0 +1,575 @@
+{
+  "version": "0.1.0",
+  "games": {
+    "W2": {
+      "idCode": "IRDO",
+      "fileName": "NuzlockeStyleEncountersW2.dll",
+      "sha256": "d7879bae85160b66055aa9afd1f8d4ca9f231f331ccafd8c5a79a86f23205539",
+      "hooks": [
+        {
+          "label": "NuzlockeGenerate",
+          "module": "36",
+          "address": 35261600,
+          "expectedHex": "fff7c8ff",
+          "patchSize": 4
+        },
+        {
+          "label": "NuzlockeProbability",
+          "module": "36",
+          "address": 35264044,
+          "expectedHex": "fff7deff",
+          "patchSize": 4
+        },
+        {
+          "label": "NuzlockeProbability",
+          "module": "36",
+          "address": 35264076,
+          "expectedHex": "fff7ceff",
+          "patchSize": 4
+        },
+        {
+          "label": "NuzlockeProbability",
+          "module": "36",
+          "address": 35264108,
+          "expectedHex": "fff7beff",
+          "patchSize": 4
+        },
+        {
+          "label": "NuzlockePreferred",
+          "module": "36",
+          "address": 35263630,
+          "expectedHex": "fff779ff",
+          "patchSize": 4
+        },
+        {
+          "label": "Filtered uniform provider",
+          "module": "36",
+          "address": 35455332,
+          "expectedHex": "79161a02",
+          "patchSize": 4
+        }
+      ],
+      "signatures": [
+        {
+          "label": "NuzlockeGenerate",
+          "module": "36",
+          "address": 35261600,
+          "expectedHex": "fff7c8ff",
+          "patchSize": 4
+        },
+        {
+          "label": "NuzlockeProbability",
+          "module": "36",
+          "address": 35264044,
+          "expectedHex": "fff7deff",
+          "patchSize": 4
+        },
+        {
+          "label": "NuzlockeProbability",
+          "module": "36",
+          "address": 35264076,
+          "expectedHex": "fff7ceff",
+          "patchSize": 4
+        },
+        {
+          "label": "NuzlockeProbability",
+          "module": "36",
+          "address": 35264108,
+          "expectedHex": "fff7beff",
+          "patchSize": 4
+        },
+        {
+          "label": "NuzlockePreferred",
+          "module": "36",
+          "address": 35263630,
+          "expectedHex": "fff779ff",
+          "patchSize": 4
+        },
+        {
+          "label": "Native slot provider table",
+          "module": "36",
+          "address": 35455320,
+          "expectedHex": "19161a0239161a0259161a0279161a02",
+          "patchSize": 0
+        },
+        {
+          "label": "Filtered uniform provider",
+          "module": "36",
+          "address": 35455332,
+          "expectedHex": "79161a02",
+          "patchSize": 4
+        },
+        {
+          "label": "Native encounter generation/Repel",
+          "module": "36",
+          "address": 35261492,
+          "expectedHex": "f8b582b0051c687d0091019200240026002814dd1420211c4143019847180099281c3a1c00f00afc3979281c00f096fa002800d1641c687d761c8642eadb201c02b0f8bdf8b58cb0051c0c1c161c002000a930221f1cd7f6fcec281c211c321c00ab00f0effa201c00a93a1cfff7c8ff0cb0f8bd",
+          "patchSize": 0
+        },
+        {
+          "label": "Native table/forms/type preference",
+          "module": "36",
+          "address": 35263096,
+          "expectedHex": "f0b583b0002502900f1c009300260195fff7beff002802d003b0387df0bdb868072800dbbe60b86806282fd800187844c0880004001487440c0014001c00240030003c004800029c0c2608341ee0029c0c2638341ae0029c0c26683416e0029c012001900526983410e0029c012001900526ac340ae0029c022001900526c03404e0029c022001900526d434019800993861201cb2003e75d7f61ceb301c03b0f0bd0000f8b5051c0c1ce978a87814220027081a00040614201c0021d7f64eea002e00da3e1c642064f602fa711cecf6a6eaa8782022002640182071288800214005400d20807df6f3fd29880006000e0904c90e1f2903d164f608fa6071f8bd814201db6671f8bd6171f8bdf8b586b00090007d0e1c171c00250024002826dda0000290305a0104c90e1f291ad04005400d06227df6ccfd0006000e019002980722315a48050904400dc90e7df6c0fd0006010e0198b84201d0b94202d103a844556d1c0098641c007d8442",
+          "patchSize": 0
+        },
+        {
+          "label": "Native preferred/weighted selection",
+          "module": "36",
+          "address": 35263600,
+          "expectedHex": "f8b5051c171caa6a0c1cd304ff26db0f01d0082203e09204d20f03d00c22fff779ff061cff2e07d12969287d8a000849895888470006060eb0002018391cfff735ff281c211c3a1cfff7a2fff8bdc04658011d02",
+          "patchSize": 0
+        },
+        {
+          "label": "Native probability providers",
+          "module": "36",
+          "address": 35263980,
+          "expectedHex": "70b5061c64200d1c002464f6c5f80022002d08ddb15c6418a04201d2101c70bd521caa42f6db681e70bd000010b5041c002072f65ff90c21034a41435018211cfff7deff10bdc04690011d0210b5041c002072f64ff981004018034a211c1018fff7ceff10bdc04668011d0210b5041c002072f63ff981004018034a211c1018fff7beff10bdc0467c011d02004b184785570002",
+          "patchSize": 0
+        },
+        {
+          "label": "Native read-only service",
+          "module": "ARM9",
+          "address": 33576776,
+          "expectedHex": "38b5051c0c484469a068e16822686368",
+          "patchSize": 0
+        },
+        {
+          "label": "Native read-only service",
+          "module": "ARM9",
+          "address": 33576836,
+          "expectedHex": "38b5051c0a484469a068e16822686368",
+          "patchSize": 0
+        },
+        {
+          "label": "Native read-only service",
+          "module": "ARM9",
+          "address": 33608068,
+          "expectedHex": "014b36211847c0464974000208b50af0",
+          "patchSize": 0
+        },
+        {
+          "label": "Native read-only service",
+          "module": "ARM9",
+          "address": 33609312,
+          "expectedHex": "38b50d1c041c281cfff710fc002801d0",
+          "patchSize": 0
+        },
+        {
+          "label": "Native read-only service",
+          "module": "ARM9",
+          "address": 33650996,
+          "expectedHex": "00687047006870478a21890040187047",
+          "patchSize": 0
+        },
+        {
+          "label": "Native read-only service",
+          "module": "ARM9",
+          "address": 33791432,
+          "expectedHex": "f8b582b0051c022080030f1c284202d0",
+          "patchSize": 0
+        },
+        {
+          "label": "Native read-only service",
+          "module": "ARM9",
+          "address": 33792632,
+          "expectedHex": "10b5041c00f0caf8201cfff7e9fd10bd",
+          "patchSize": 0
+        },
+        {
+          "label": "Native read-only service",
+          "module": "ARM9",
+          "address": 34016424,
+          "expectedHex": "2321002209021143826042600260c261",
+          "patchSize": 0
+        },
+        {
+          "label": "Native read-only service",
+          "module": "ARM9",
+          "address": 34016972,
+          "expectedHex": "014b01221847c046950d0702004b1847",
+          "patchSize": 0
+        },
+        {
+          "label": "Native read-only service",
+          "module": "ARM9",
+          "address": 34016748,
+          "expectedHex": "38b582b0002401a9051c019401f052f8",
+          "patchSize": 0
+        },
+        {
+          "label": "Native read-only service",
+          "module": "ARM9",
+          "address": 34016852,
+          "expectedHex": "08b582b000ab0361009101920e210122",
+          "patchSize": 0
+        },
+        {
+          "label": "Native read-only service",
+          "module": "ARM9",
+          "address": 34016876,
+          "expectedHex": "38b582b0051c00ab2b61009101920021",
+          "patchSize": 0
+        },
+        {
+          "label": "Native read-only service",
+          "module": "ARM9",
+          "address": 34016736,
+          "expectedHex": "014b0821012218478105070238b582b0",
+          "patchSize": 0
+        },
+        {
+          "label": "Native caught-bit lookup",
+          "module": "ARM9",
+          "address": 33609312,
+          "expectedHex": "38b50d1c041c281cfff710fc002801d0002038bd681e0004030c0721194001228a40d9106118097a0120114200d10020",
+          "patchSize": 0
+        },
+        {
+          "label": "Native slot weights",
+          "module": "36",
+          "address": 35455376,
+          "expectedHex": "14140a0a0a0a0505040401010a0a0a0a0a0a0a0a05050505050505050a0a0a0a0a0a0a0a0101040405050a0a0a0a1414",
+          "patchSize": 0
+        },
+        {
+          "label": "Native slot weights",
+          "module": "36",
+          "address": 35455336,
+          "expectedHex": "3c1e050401321e0a0505281e0a0a0a1e140a1414",
+          "patchSize": 0
+        },
+        {
+          "label": "Native slot weights",
+          "module": "36",
+          "address": 35455356,
+          "expectedHex": "28280f040128230f05051e1e140a0a1414141414",
+          "patchSize": 0
+        }
+      ],
+      "codeHex": "70b51c00030070331b7805001600002b01d1002070bd036d8b42fad35b1aa342f7d30022064b98470028f2d0054b2200310028009847201a43425841eae7c046550e07026d0e0702f0b585b01d000aab03921a78036d0c008b4241d35b1aab423ed3002a11d003000600070080227133019360366437d200aa4210d22b002100039afff7bdff05b0f0bd060007008022194b6836c31801936c375201ece73368a3420fd839680291e11a8c4602998c4508d85b181b1bab4204d30023ab4211d10120e0e73460036d1b1b934200d913003b60019a3168fff793ff0028edd138600020d0e732680199a21ac9188a5c0399ca540133e2e7c0467104000010b5040070342378002b01d0024b98470023237010bdc046e10d0702f0b5040000260d0087b0fff7ebff20004c4be666a66666662666e665a66566659847494b2900200098470200531e9a41230070331a70b04204d100230193019807b0f0bd414b20009847414b20652c389842f2d802ad10232a0031002000fff743ff0028e9d028003a4fb8473a4b9842e3d103a8b847394b984202d0384b9842dbd104a8b847236d9842d6d1a9891029d3d1eb89032bd0d12a0020000933fff723ff0028c9d02800b8472e4b9842c4d103a8b84780222b890600591e636552019142bad2db000c338342b6d8236d103b8342b2d3103608232a0031002000fff703ff0028a9d02800b8471f4b9842a4d1184f03a8b84707289fd9236d9b1b98429bd8861908232a0031002000fff7ecfe0190002800d190e72800b847134b984200d08ae703a8b847072800d885e7226d931b984200d080e733000833d21aa365e2657ce7a90c0702cd0e0702ed0d0702d4ff1f00710900004e415243feff0001fffe01004254414642544e46474d4946f0b587b01f000cab1b7805000393836d0292002b03d10024200007b0f0bd436d8b42f8d90123c90000931c31073304aafff7c6fe0028eed0104c04a8a047060005a8a0478642e6d8eb6d8342e3d38642e1d0039b841b002b01d1bc42dbd8bc4200d93c000023a96d28000093029a23007118fff7a5fe0028cdd0cde771090000014b024a985c7047300a000006200000f0b5b44ca5440690039100280cd000290ad0b14bb14a04939d5c002d54d0b04b049ad35c002b05d1002738009f239b009d44f0bdab4b049ad75c002ff4d00698a94b98470028efd0a84b9847061eebd08022a74b920000211ea898479e4b04938023049a9b01d55880231b019d4200d91d000124ac4200d280e1039b00211a000132ff32197001339342fbd101240726ac42cad22104974b0498090c98471eaac308d35c3040c340012213420ad022000121324091400a000399e308c95c0a430399ca540134e3e701208b498b4b9847061ea9d02900884a854b984730008849fff78efe059000284bd1002305933000fff778fe059b002b73d0774b784a9b5c002b6ed000215022794b0aa898477d4b0aa898477c497d4b0aa89847002860d004227b4b09a90aa898470024042806d1784b09a89847784bc41863425c41774b0aa89847002c4cd030007549fff758fe049000284dd1002304933000fff742fe049b002b00d08ae000273000fff73afe6c4b30009847584b5a4a9f54574a9f545be71eacc0232200290030000095fff7effe1428a9d120005e4fb847624b9842a3d1a388012ba0d1e388142b9dd120a8b8470500012898d821a8b8470400012893d822a8b8472b006340db4398428cd10122414b154014404149544a5d549c5485e70123049a3d49300053524d4b98471ae78023726d38499b01ca5000239a421ad101278023344c9b01e3589f42a4d201231ead00932a00390030002033fff7a7fe212897d1612306aa9b18db7f0593012b05d80137e5e758000b520133dee7ad8b002df6d080239b01e3589d42f1d2059a5b1b013a9a42ecd800243b041b0c07932a191204324b120c1b48079998472300059a023301349342f2d3dae730002c49fff7bdfd071e00d16de7726d012a00d869e78021104b89015b589a4200d962e701250ee00023290000933000c0331eaafff75dfe1eac0490059000283bd100270135736d9d4200d34ee7002fead14ae7c04684fdffff300a00000420000005200000072000003579010285d10002330900008909000074140000c99d0302cc090000a90c0702ea090000cd0e07026d0e070271090000bcb3a7b9e10d0702150a000079a203024e555a4506200000ad090000220a0000059b052bc0d92388002b10d0a2881849531e1b041b0c8b4209d8802315489b01c3589a4203d22904134b090c9847059b0634063b0593059a049b9b1a049a9a42ded8a2e7210030000c4b984700280dd021040b4b090c074898470723c2081840063b83401ea9885c03438b54013465e6fe070000300a0000ad09000061d6000289090000f0b50024067dc5b0731e05000091019203af03940b2b2cd80068284b04a998478446a04225d020003988be70009f009a83009a5cfb185b7802af1b0213435a05120e0932ff32d2190727013aff3a12783b40da4001231a4204d08340644619430904090c01308642e0d8002c01d003ab198003ac2388002b0fd1114a176802e00f4b1f6823000e4c28002360019a00990c4b9847276045b0f0bd0122a1788a40013a1204120c9342ead1074b9847030000208342efd12380dfe7c04639030000382a0000350c1a02290300001a4b70b51b6804000d00002b02d09a788a4204d029002000154b984770bd1e880023012218009d4215d10028f2d0114b98470121030000208542efd03200c2400a4206d10a00002c00d0225c9342e5d39b1a0130f0e73100d940114204d11100002c00d0e15c40180133dce7382a0000ed151a0285570002164b70b51b680400002b02d09a78824203d02000124b984770bd1d880023012118009c4211d10028f3d00e4b98470122030000208442efd02900c140114202d1002be9d0013b0130f4e72a00da400a405642724101338018e3e7c046382a000079161a02495700021d4bf0b51e6800239db08c4605ad9e4203d11a4b98471db0f0bdc15c595501332c2bfad100231c00b17899420bd8134b28002c7510a998470300ff209c42ead902aad05ce7e730880121d8400127014038420fd102a89f00035538006044019010afa0003818019f7f5c475401310429f9d101340133d7e7382a000085131a02002310b5934200d110bdcc5cc4540133f8e703008218934200d1704719700133f9e70000004b1847f5060000004b1847c1070000004b1847c1070000004b1847c1070000004b1847a1080000390800004278037812021a438378c0781b041343000618437047000003000a0010b510005200d25a8242fad14a009c189a5a8a4200d110bd11002080f6e70000f8b5064f04001600b847310005002000b847854201d043001d53f8bd89090000726f6d3a2f6e757a6c6f636b652f656e636f756e746572732e6e61726300726f6d3a2f706174636865732f4e757a6c6f636b655374796c65456e636f756e7465727357322e646c6c00726f6d3a2f612f302f312f3600726f6d3a2f612f302f312f390000",
+      "bss": 8204,
+      "relocations": [
+        "36:21a0ca0:THUMB_BRANCH_LINK:924:3:1",
+        "36:21a148e:THUMB_BRANCH_LINK:944:3:1",
+        "36:21a162c:THUMB_BRANCH_LINK:92c:3:1",
+        "36:21a164c:THUMB_BRANCH_LINK:934:3:1",
+        "36:21a166c:THUMB_BRANCH_LINK:93c:3:1",
+        "36:21d0164:FULL_COPY:94c:1:1",
+        "base:26c:OFFSET:950:3:0",
+        "base:304:OFFSET:950:3:0",
+        "base:310:OFFSET:a10:1:0",
+        "base:5f0:OFFSET:a10:1:0",
+        "base:608:OFFSET:912:3:0",
+        "base:60c:OFFSET:968:3:0",
+        "base:618:OFFSET:9ac:1:0",
+        "base:620:OFFSET:9ca:1:0",
+        "base:62c:OFFSET:950:3:0",
+        "base:638:OFFSET:9f5:1:0",
+        "base:648:OFFSET:98c:3:0",
+        "base:64c:OFFSET:a02:1:0",
+        "base:6c4:OFFSET:a10:1:0",
+        "base:6c8:OFFSET:98c:3:0",
+        "base:6d0:OFFSET:968:3:0",
+        "base:790:OFFSET:318:3:0",
+        "base:794:OFFSET:2a18:1:1",
+        "base:79c:OFFSET:308:3:0",
+        "base:80c:OFFSET:2a18:1:1",
+        "base:874:OFFSET:2a18:1:1",
+        "base:8f8:OFFSET:2a18:1:1",
+        "base:928:OFFSET:6d4:3:0",
+        "base:930:OFFSET:7a0:3:0",
+        "base:938:OFFSET:7a0:3:0",
+        "base:940:OFFSET:7a0:3:0",
+        "base:948:OFFSET:880:3:0",
+        "base:94c:OFFSET:818:3:0",
+        "base:9a8:OFFSET:968:3:0"
+      ]
+    },
+    "B2": {
+      "idCode": "IREO",
+      "fileName": "NuzlockeStyleEncountersB2.dll",
+      "sha256": "d5a1052478f9522f845686449c4cb1c7e4d8b1e04e6f86fff2631ddf68807496",
+      "hooks": [
+        {
+          "label": "NuzlockeGenerate",
+          "module": "36",
+          "address": 35261536,
+          "expectedHex": "fff7c8ff",
+          "patchSize": 4
+        },
+        {
+          "label": "NuzlockeProbability",
+          "module": "36",
+          "address": 35263980,
+          "expectedHex": "fff7deff",
+          "patchSize": 4
+        },
+        {
+          "label": "NuzlockeProbability",
+          "module": "36",
+          "address": 35264012,
+          "expectedHex": "fff7ceff",
+          "patchSize": 4
+        },
+        {
+          "label": "NuzlockeProbability",
+          "module": "36",
+          "address": 35264044,
+          "expectedHex": "fff7beff",
+          "patchSize": 4
+        },
+        {
+          "label": "NuzlockePreferred",
+          "module": "36",
+          "address": 35263566,
+          "expectedHex": "fff779ff",
+          "patchSize": 4
+        },
+        {
+          "label": "Filtered uniform provider",
+          "module": "36",
+          "address": 35455280,
+          "expectedHex": "39161a02",
+          "patchSize": 4
+        }
+      ],
+      "signatures": [
+        {
+          "label": "NuzlockeGenerate",
+          "module": "36",
+          "address": 35261536,
+          "expectedHex": "fff7c8ff",
+          "patchSize": 4
+        },
+        {
+          "label": "NuzlockeProbability",
+          "module": "36",
+          "address": 35263980,
+          "expectedHex": "fff7deff",
+          "patchSize": 4
+        },
+        {
+          "label": "NuzlockeProbability",
+          "module": "36",
+          "address": 35264012,
+          "expectedHex": "fff7ceff",
+          "patchSize": 4
+        },
+        {
+          "label": "NuzlockeProbability",
+          "module": "36",
+          "address": 35264044,
+          "expectedHex": "fff7beff",
+          "patchSize": 4
+        },
+        {
+          "label": "NuzlockePreferred",
+          "module": "36",
+          "address": 35263566,
+          "expectedHex": "fff779ff",
+          "patchSize": 4
+        },
+        {
+          "label": "Native slot provider table",
+          "module": "36",
+          "address": 35455268,
+          "expectedHex": "d9151a02f9151a0219161a0239161a02",
+          "patchSize": 0
+        },
+        {
+          "label": "Filtered uniform provider",
+          "module": "36",
+          "address": 35455280,
+          "expectedHex": "39161a02",
+          "patchSize": 4
+        },
+        {
+          "label": "Native encounter generation/Repel",
+          "module": "36",
+          "address": 35261428,
+          "expectedHex": "f8b582b0051c687d0091019200240026002814dd1420211c4143019847180099281c3a1c00f00afc3979281c00f096fa002800d1641c687d761c8642eadb201c02b0f8bdf8b58cb0051c0c1c161c002000a930221f1cd7f606ed281c211c321c00ab00f0effa201c00a93a1cfff7c8ff0cb0f8bd",
+          "patchSize": 0
+        },
+        {
+          "label": "Native table/forms/type preference",
+          "module": "36",
+          "address": 35263032,
+          "expectedHex": "f0b583b0002502900f1c009300260195fff7beff002802d003b0387df0bdb868072800dbbe60b86806282fd800187844c0880004001487440c0014001c00240030003c004800029c0c2608341ee0029c0c2638341ae0029c0c26683416e0029c012001900526983410e0029c012001900526ac340ae0029c022001900526c03404e0029c022001900526d434019800993861201cb2003e75d7f626eb301c03b0f0bd0000f8b5051c0c1ce978a87814220027081a00040614201c0021d7f658ea002e00da3e1c642064f622fa711cecf6b0eaa8782022002640182071288800214005400d20807df6fdfd29880006000e0904c90e1f2903d164f628fa6071f8bd814201db6671f8bd6171f8bdf8b586b00090007d0e1c171c00250024002826dda0000290305a0104c90e1f291ad04005400d06227df6d6fd0006000e019002980722315a48050904400dc90e7df6cafd0006010e0198b84201d0b94202d103a844556d1c0098641c007d8442",
+          "patchSize": 0
+        },
+        {
+          "label": "Native preferred/weighted selection",
+          "module": "36",
+          "address": 35263536,
+          "expectedHex": "f8b5051c171caa6a0c1cd304ff26db0f01d0082203e09204d20f03d00c22fff779ff061cff2e07d12969287d8a000849895888470006060eb0002018391cfff735ff281c211c3a1cfff7a2fff8bdc04624011d02",
+          "patchSize": 0
+        },
+        {
+          "label": "Native probability providers",
+          "module": "36",
+          "address": 35263916,
+          "expectedHex": "70b5061c64200d1c002464f6e5f80022002d08ddb15c6418a04201d2101c70bd521caa42f6db681e70bd000010b5041c002072f67ff90c21034a41435018211cfff7deff10bdc0465c011d0210b5041c002072f66ff981004018034a211c1018fff7ceff10bdc04634011d0210b5041c002072f65ff981004018034a211c1018fff7beff10bdc04648011d02004b184785570002",
+          "patchSize": 0
+        },
+        {
+          "label": "Native read-only service",
+          "module": "ARM9",
+          "address": 33576776,
+          "expectedHex": "38b5051c0c484469a068e16822686368",
+          "patchSize": 0
+        },
+        {
+          "label": "Native read-only service",
+          "module": "ARM9",
+          "address": 33576836,
+          "expectedHex": "38b5051c0a484469a068e16822686368",
+          "patchSize": 0
+        },
+        {
+          "label": "Native read-only service",
+          "module": "ARM9",
+          "address": 33608068,
+          "expectedHex": "014b36211847c0464974000208b50af0",
+          "patchSize": 0
+        },
+        {
+          "label": "Native read-only service",
+          "module": "ARM9",
+          "address": 33609312,
+          "expectedHex": "38b50d1c041c281cfff710fc002801d0",
+          "patchSize": 0
+        },
+        {
+          "label": "Native read-only service",
+          "module": "ARM9",
+          "address": 33650996,
+          "expectedHex": "00687047006870478a21890040187047",
+          "patchSize": 0
+        },
+        {
+          "label": "Native read-only service",
+          "module": "ARM9",
+          "address": 33791388,
+          "expectedHex": "f8b582b0051c022080030f1c284202d0",
+          "patchSize": 0
+        },
+        {
+          "label": "Native read-only service",
+          "module": "ARM9",
+          "address": 33792588,
+          "expectedHex": "10b5041c00f0caf8201cfff7e9fd10bd",
+          "patchSize": 0
+        },
+        {
+          "label": "Native read-only service",
+          "module": "ARM9",
+          "address": 34016380,
+          "expectedHex": "2321002209021143826042600260c261",
+          "patchSize": 0
+        },
+        {
+          "label": "Native read-only service",
+          "module": "ARM9",
+          "address": 34016928,
+          "expectedHex": "014b01221847c046690d0702004b1847",
+          "patchSize": 0
+        },
+        {
+          "label": "Native read-only service",
+          "module": "ARM9",
+          "address": 34016704,
+          "expectedHex": "38b582b0002401a9051c019401f052f8",
+          "patchSize": 0
+        },
+        {
+          "label": "Native read-only service",
+          "module": "ARM9",
+          "address": 34016808,
+          "expectedHex": "08b582b000ab0361009101920e210122",
+          "patchSize": 0
+        },
+        {
+          "label": "Native read-only service",
+          "module": "ARM9",
+          "address": 34016832,
+          "expectedHex": "38b582b0051c00ab2b61009101920021",
+          "patchSize": 0
+        },
+        {
+          "label": "Native read-only service",
+          "module": "ARM9",
+          "address": 34016692,
+          "expectedHex": "014b0821012218475505070238b582b0",
+          "patchSize": 0
+        },
+        {
+          "label": "Native caught-bit lookup",
+          "module": "ARM9",
+          "address": 33609312,
+          "expectedHex": "38b50d1c041c281cfff710fc002801d0002038bd681e0004030c0721194001228a40d9106118097a0120114200d10020",
+          "patchSize": 0
+        },
+        {
+          "label": "Native slot weights",
+          "module": "36",
+          "address": 35455324,
+          "expectedHex": "14140a0a0a0a0505040401010a0a0a0a0a0a0a0a05050505050505050a0a0a0a0a0a0a0a0101040405050a0a0a0a1414",
+          "patchSize": 0
+        },
+        {
+          "label": "Native slot weights",
+          "module": "36",
+          "address": 35455284,
+          "expectedHex": "3c1e050401321e0a0505281e0a0a0a1e140a1414",
+          "patchSize": 0
+        },
+        {
+          "label": "Native slot weights",
+          "module": "36",
+          "address": 35455304,
+          "expectedHex": "28280f040128230f05051e1e140a0a1414141414",
+          "patchSize": 0
+        }
+      ],
+      "codeHex": "70b51c00030070331b7805001600002b01d1002070bd036d8b42fad35b1aa342f7d30022064b98470028f2d0054b2200310028009847201a43425841eae7c046290e0702410e0702f0b585b01d000aab03921a78036d0c008b4241d35b1aab423ed3002a11d003000600070080227133019360366437d200aa4210d22b002100039afff7bdff05b0f0bd060007008022194b6836c31801936c375201ece73368a3420fd839680291e11a8c4602998c4508d85b181b1bab4204d30023ab4211d10120e0e73460036d1b1b934200d913003b60019a3168fff793ff0028edd138600020d0e732680199a21ac9188a5c0399ca540133e2e7c0467104000010b5040070342378002b01d0024b98470023237010bdc046b50d0702f0b5040000260d0087b0fff7ebff20004c4be666a66666662666e665a66566659847494b2900200098470200531e9a41230070331a70b04204d100230193019807b0f0bd414b20009847414b20652c389842f2d802ad10232a0031002000fff743ff0028e9d028003a4fb8473a4b9842e3d103a8b847394b984202d0384b9842dbd104a8b847236d9842d6d1a9891029d3d1eb89032bd0d12a0020000933fff723ff0028c9d02800b8472e4b9842c4d103a8b84780222b890600591e636552019142bad2db000c338342b6d8236d103b8342b2d3103608232a0031002000fff703ff0028a9d02800b8471f4b9842a4d1184f03a8b84707289fd9236d9b1b98429bd8861908232a0031002000fff7ecfe0190002800d190e72800b847134b984200d08ae703a8b847072800d885e7226d931b984200d080e733000833d21aa365e2657ce77d0c0702a10e0702c10d0702d4ff1f00710900004e415243feff0001fffe01004254414642544e46474d4946f0b587b01f000cab1b7805000393836d0292002b03d10024200007b0f0bd436d8b42f8d90123c90000931c31073304aafff7c6fe0028eed0104c04a8a047060005a8a0478642e6d8eb6d8342e3d38642e1d0039b841b002b01d1bc42dbd8bc4200d93c000023a96d28000093029a23007118fff7a5fe0028cdd0cde771090000014b024a985c7047300a000006200000f0b5b44ca5440690039100280cd000290ad0b14bb14a04939d5c002d54d0b04b049ad35c002b05d1002738009f239b009d44f0bdab4b049ad75c002ff4d00698a94b98470028efd0a84b9847061eebd08022a74b920000211ea898479e4b04938023049a9b01d55880231b019d4200d91d000124ac4200d280e1039b00211a000132ff32197001339342fbd101240726ac42cad22104974b0498090c98471eaac308d35c3040c340012213420ad022000121324091400a000399e308c95c0a430399ca540134e3e701208b498b4b9847061ea9d02900884a854b984730008849fff78efe059000284bd1002305933000fff778fe059b002b73d0774b784a9b5c002b6ed000215022794b0aa898477d4b0aa898477c497d4b0aa89847002860d004227b4b09a90aa898470024042806d1784b09a89847784bc41863425c41774b0aa89847002c4cd030007549fff758fe049000284dd1002304933000fff742fe049b002b00d08ae000273000fff73afe6c4b30009847584b5a4a9f54574a9f545be71eacc0232200290030000095fff7effe1428a9d120005e4fb847624b9842a3d1a388012ba0d1e388142b9dd120a8b8470500012898d821a8b8470400012893d822a8b8472b006340db4398428cd10122414b154014404149544a5d549c5485e70123049a3d49300053524d4b98471ae78023726d38499b01ca5000239a421ad101278023344c9b01e3589f42a4d201231ead00932a00390030002033fff7a7fe212897d1612306aa9b18db7f0593012b05d80137e5e758000b520133dee7ad8b002df6d080239b01e3589d42f1d2059a5b1b013a9a42ecd800243b041b0c07932a191204324b120c1b48079998472300059a023301349342f2d3dae730002c49fff7bdfd071e00d16de7726d012a00d869e78021104b89015b589a4200d962e701250ee00023290000933000c0331eaafff75dfe1eac0490059000283bd100270135736d9d4200d34ee7002fead14ae7c04684fdffff300a00000420000005200000072000003579010285d100023309000089090000741400009d9d0302cc0900007d0c0702ea090000a10e0702410e070271090000bcb3a7b9b50d0702150a00004da203024e555a4506200000ad090000220a0000059b052bc0d92388002b10d0a2881849531e1b041b0c8b4209d8802315489b01c3589a4203d22904134b090c9847059b0634063b0593059a049b9b1a049a9a42ded8a2e7210030000c4b984700280dd021040b4b090c074898470723c2081840063b83401ea9885c03438b54013465e6fe070000300a0000ad09000061d6000289090000f0b50024067dc5b0731e05000091019203af03940b2b2cd80068284b04a998478446a04225d020003988be70009f009a83009a5cfb185b7802af1b0213435a05120e0932ff32d2190727013aff3a12783b40da4001231a4204d08340644619430904090c01308642e0d8002c01d003ab198003ac2388002b0fd1114a176802e00f4b1f6823000e4c28002360019a00990c4b9847276045b0f0bd0122a1788a40013a1204120c9342ead1074b9847030000208342efd12380dfe7c04639030000382a0000f50b1a02290300001a4b70b51b6804000d00002b02d09a788a4204d029002000154b984770bd1e880023012218009d4215d10028f2d0114b98470121030000208542efd03200c2400a4206d10a00002c00d0225c9342e5d39b1a0130f0e73100d940114204d11100002c00d0e15c40180133dce7382a0000ad151a0285570002164b70b51b680400002b02d09a78824203d02000124b984770bd1d880023012118009c4211d10028f3d00e4b98470122030000208442efd02900c140114202d1002be9d0013b0130f4e72a00da400a405642724101338018e3e7c046382a000039161a02495700021d4bf0b51e6800239db08c4605ad9e4203d11a4b98471db0f0bdc15c595501332c2bfad100231c00b17899420bd8134b28002c7510a998470300ff209c42ead902aad05ce7e730880121d8400127014038420fd102a89f00035538006044019010afa0003818019f7f5c475401310429f9d101340133d7e7382a000045131a02002310b5934200d110bdcc5cc4540133f8e703008218934200d1704719700133f9e70000004b1847f5060000004b1847c1070000004b1847c1070000004b1847c1070000004b1847a1080000390800004278037812021a438378c0781b041343000618437047000003000a0010b510005200d25a8242fad14a009c189a5a8a4200d110bd11002080f6e70000f8b5064f04001600b847310005002000b847854201d043001d53f8bd89090000726f6d3a2f6e757a6c6f636b652f656e636f756e746572732e6e61726300726f6d3a2f706174636865732f4e757a6c6f636b655374796c65456e636f756e7465727342322e646c6c00726f6d3a2f612f302f312f3600726f6d3a2f612f302f312f390000",
+      "bss": 8204,
+      "relocations": [
+        "36:21a0c60:THUMB_BRANCH_LINK:924:3:1",
+        "36:21a144e:THUMB_BRANCH_LINK:944:3:1",
+        "36:21a15ec:THUMB_BRANCH_LINK:92c:3:1",
+        "36:21a160c:THUMB_BRANCH_LINK:934:3:1",
+        "36:21a162c:THUMB_BRANCH_LINK:93c:3:1",
+        "36:21d0130:FULL_COPY:94c:1:1",
+        "base:26c:OFFSET:950:3:0",
+        "base:304:OFFSET:950:3:0",
+        "base:310:OFFSET:a10:1:0",
+        "base:5f0:OFFSET:a10:1:0",
+        "base:608:OFFSET:912:3:0",
+        "base:60c:OFFSET:968:3:0",
+        "base:618:OFFSET:9ac:1:0",
+        "base:620:OFFSET:9ca:1:0",
+        "base:62c:OFFSET:950:3:0",
+        "base:638:OFFSET:9f5:1:0",
+        "base:648:OFFSET:98c:3:0",
+        "base:64c:OFFSET:a02:1:0",
+        "base:6c4:OFFSET:a10:1:0",
+        "base:6c8:OFFSET:98c:3:0",
+        "base:6d0:OFFSET:968:3:0",
+        "base:790:OFFSET:318:3:0",
+        "base:794:OFFSET:2a18:1:1",
+        "base:79c:OFFSET:308:3:0",
+        "base:80c:OFFSET:2a18:1:1",
+        "base:874:OFFSET:2a18:1:1",
+        "base:8f8:OFFSET:2a18:1:1",
+        "base:928:OFFSET:6d4:3:0",
+        "base:930:OFFSET:7a0:3:0",
+        "base:938:OFFSET:7a0:3:0",
+        "base:940:OFFSET:7a0:3:0",
+        "base:948:OFFSET:880:3:0",
+        "base:94c:OFFSET:818:3:0",
+        "base:9a8:OFFSET:968:3:0"
+      ]
+    }
+  }
+}

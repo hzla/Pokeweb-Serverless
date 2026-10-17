@@ -1,5 +1,8 @@
 #include "runtime.h"
+#include "../pokenav/logic.h"
+#include "../nuzlocke-encounters/runtime.h"
 #include "pc.generated.h"
+#include "dial.generated.h"
 
 namespace {
 struct ButtonConfig {u16 id;u8 action,flagMode;u16 item,alternate,flag;u8 x,y,check,pad[3];};
@@ -14,12 +17,15 @@ struct Session {
     u16 currentSkin,wantedSkin,defaultSkin;u8 skinCount,skinCaptured,skinRequest,skinUpload;
     void* skinOriginal;void* skinBuffer;u8 hideCommunication,saveControl,networkMoved,skinFeedback;
     u8 muteControl,muteState;
+    u8 dialControl,dialCaptured,markerUploaded,skinSound,preparedSound,appliedSound;
+    u16 dialAngle; s16 dialAccum,markerX,markerY;u16 preparedSkin,dialTarget;
+    void* marker;u32 markerChars;
 } session;
 static_assert(__builtin_offsetof(Session,hideCommunication)==1400);
 static_assert(__builtin_offsetof(Session,skinFeedback)==1403);
 // Archive state is also read on the no-C-Gear initialization path: encounter
 // hooks must not depend on whether the touch-screen sprites are visible.
-bool enabled,repelPresent;
+bool enabled,repelPresent,pokenavEnabled;
 MapRequest* ownedMap;
 void* radarWork;
 
@@ -76,6 +82,7 @@ bool canUse(u32 i,Subscreen* s) {
     if(b.check!=255 && ov<u32(*)(u32,void*,void*)>(0x215eff4)(b.check,system(s),s->field)!=0) return false;
     if(((b.action>=12 && b.action<=14) || b.action==16) && !count(game(s))) return false;
     if(b.action==17 && !radarEncounter(s)) return false;
+    if(b.action==18 && !pokenavEnabled)return false;
     return true;
 }
 int flyMember(void* field,void* g) {
@@ -91,12 +98,12 @@ int flyMember(void* field,void* g) {
     }
     return -1;
 }
-void* archive(u16 heap) {
+void* archive(u16 heap,const char* path="rom:/quick-actions/ui.narc") {
     // Native ARCHANDLE contains FSFile (72 bytes), archive offset and counts.
     void* h=api<void*(*)(u32,u32,u32,const char*,u32)>(0x203a228)(heap,80,1,"quick-actions",0);
     if(!h) return nullptr;
     api<void(*)(void*)>(0x2070ca8)(h);
-    if(!api<u32(*)(void*,const char*)>(0x2070ecc)(h,"rom:/quick-actions/ui.narc")) {
+    if(!api<u32(*)(void*,const char*)>(0x2070ecc)(h,path)) {
         api<void(*)(void*)>(0x203a278)(h);return nullptr;
     }
     api<void(*)(void*)>(0x204aac8)(h);return h;
@@ -111,7 +118,7 @@ u16 crc(const u8* p,u32 n) {
 }
 u32 fingerprint(const u8* p,u32 n,u32 h=0x811c9dc5){for(u32 i=0;i<n;i++)h=(h^p[i])*0x1000193;return h;}
 bool config(void* h,u16 heap) {
-    session.count=0;repelPresent=false;session.hideCommunication=session.saveControl=session.muteControl=0;
+    session.count=0;repelPresent=false;session.hideCommunication=session.saveControl=session.muteControl=session.dialControl=0;
     void* m=read(h,0,heap,160);if(!m) return false;
     bool ok=at<u32>(m,0)==0x41475143 && (at<u16>(m,4)==6||at<u16>(m,4)==7) && at<u16>(m,6)==160
         && at<u32>(m,8)==1 && at<u32>(m,12)==0x41475142 && at<u8>(m,20)<=8;
@@ -119,6 +126,7 @@ bool config(void* h,u16 heap) {
     if(hash!=at<u32>(m,28)) ok=false;
     if(ok) {
         session.saveControl=at<u16>(m,4)==7;session.hideCommunication=session.saveControl?at<u8>(m,45):0;
+        session.dialControl=session.saveControl&&at<u8>(m,47)==1;
         session.muteControl=session.saveControl?at<u8>(m,46):0;
         if(session.muteControl>1)ok=false;
         if(session.hideCommunication>1)ok=false;
@@ -143,7 +151,7 @@ bool config(void* h,u16 heap) {
             for(u32 n=0;n<16;n++)at<u8>(&session.buttons[i],n)=at<u8>(m,32+i*16+n);
             const auto& b=session.buttons[i];
             if(i<session.count) {
-                if(!b.id || b.action<1 || b.action>17 || b.flagMode>2 || (b.flagMode && (!b.flag||b.flag>3059))
+                if(!b.id || b.action<1 || b.action>18 || b.flagMode>2 || (b.flagMode && (!b.flag||b.flag>3059))
                     || b.x<16 || b.x>240 || b.y<16 || b.y>176 || (b.check!=255 && b.check>11)) ok=false;
                 for(u32 j=0;j<i;j++)if(session.buttons[j].id==b.id)ok=false;
                 if(b.action==1)repelPresent=true;
@@ -181,12 +189,43 @@ void place(u32 i) {
     s16 xy[2]={session.positions[i].x,session.positions[i].y};
     api<void(*)(void*,const s16*,u32)>(0x204c16c)(session.actors[i],xy,0);
 }
+void placeActor(void* actor,s16 x,s16 y){s16 p[2]={x,y};if(actor)api<void(*)(void*,const s16*,u32)>(0x204c16c)(actor,p,0);}
+int absolute(int v){return v<0?-v:v;}
+u32 divide(u32 n,u32 d){u32 q=0,b=1;while(d<=n/2){d<<=1;b<<=1;}for(;b;b>>=1,d>>=1)if(n>=d){n-=d;q|=b;}return q;}
+int ratio(int n,u32 d){return n<0?-int(divide(-n,d)):int(divide(n,d));}
+int angleAt(int x,int y){
+    x-=dial::centerX;y-=dial::centerY;int ax=absolute(x),ay=absolute(y),hi=ax>ay?ax:ay,lo=ax<ay?ax:ay;
+    if(!hi)return 0;
+    int a=dial::angles[divide(lo*128+hi/2,hi)],first=ax>=ay?a:9000-a;
+    return y>=0?(x>=0?first:18000-first):(x<0?18000+first:(first?36000-first:0));
+}
+bool onDial(int x,int y){int dx=x-dial::centerX,dy=y-dial::centerY,d=dx*dx+dy*dy;return d>=dial::innerRadius*dial::innerRadius&&d<=dial::outerRadius*dial::outerRadius;}
+void moveMarker(int x,int y){
+    int dx=x-dial::centerX,dy=y-dial::centerY,d=dx*dx+dy*dy,r=1;
+    while((r+1)*(r+1)<=d)++r;
+    session.markerX=dial::centerX+ratio(dx*dial::markerRadius,r);session.markerY=dial::centerY+ratio(dy*dial::markerRadius,r);
+    placeActor(session.marker,session.markerX,session.markerY);
+}
+void cancelDial(){
+    if(session.dialCaptured){session.held=1;session.wantedSkin=session.skinUpload?session.preparedSkin:session.currentSkin;session.skinRequest=session.skinSound=0;}
+    session.dialCaptured=0;visible(session.marker,false);
+}
+void stepSkin(int direction){
+    int i=-1;for(u32 n=0;n<session.skinCount;n++)if(session.skinIds[n]==session.dialTarget)i=n;
+    i+=direction;if(i>=int(session.skinCount))i=-1;if(i< -1)i=session.skinCount-1;
+    session.dialTarget=i<0?0:session.skinIds[i];session.wantedSkin=session.dialTarget;session.skinRequest=1;session.skinSound=1;
+}
 void dispose() {
     if(!session.sub && !session.unit) return;
     if(session.networkMoved)api<void(*)(u32,u32)>(0x2042f58)(200,10);
     session.networkMoved=0;session.skinFeedback=0;session.visible=0;session.pending=0;session.drag=0xff;
+    session.dialCaptured=session.skinSound=session.preparedSound=session.appliedSound=session.markerUploaded=0;
     if(session.task) api<void(*)(void*)>(0x203a6d4)(session.task);
     session.task=nullptr;
+    if(session.marker)api<void(*)(void*)>(0x204c134)(session.marker);
+    session.marker=nullptr;
+    if(session.markerChars!=INVALID)api<void(*)(u32)>(0x204b9b8)(session.markerChars);
+    session.markerChars=INVALID;
     // Stop uploads, remove owned actors from the native unit, then free banks.
     for(u32 i=0;i<session.count;i++) if(session.actors[i]) api<void(*)(void*)>(0x204c134)(session.actors[i]);
     session.unit=nullptr;
@@ -211,6 +250,8 @@ void dispose() {
 void prepareSkin(){
     if(!session.skinRequest||!session.skinCaptured||session.skinUpload)return;
     session.skinRequest=0;
+    session.preparedSkin=session.wantedSkin;session.preparedSound=session.skinSound;session.skinSound=0;
+    if(session.dialControl&&session.preparedSound&&session.preparedSkin==session.currentSkin){session.preparedSound=0;return;}
     if(session.skinBuffer)api<void(*)(void*)>(0x203a278)(session.skinBuffer);
     session.skinBuffer=nullptr;
     if(session.wantedSkin){
@@ -219,7 +260,7 @@ void prepareSkin(){
         void* b=h?read(h,session.skinMembers[i],session.sub->heap,0x2600):nullptr;closeArchive(h);
         bool good=b && fingerprint(static_cast<u8*>(b),0x2600)==session.skinHashes[i];
         if(good){for(u32 n=0;n<16;n++)if(at<u16>(b,0x1fe0+n*2)&0x8000)good=false;for(u32 n=0;n<768;n++)if((at<u16>(b,0x2000+n*2)&1023)>=255 || (at<u16>(b,0x2000+n*2)&0xf000))good=false;}
-        if(!good){if(b)api<void(*)(void*)>(0x203a278)(b);session.wantedSkin=session.currentSkin;return;}
+        if(!good){if(b)api<void(*)(void*)>(0x203a278)(b);session.wantedSkin=session.dialTarget=session.currentSkin;session.preparedSound=0;return;}
         session.skinBuffer=b;
     }
     session.skinUpload=1;
@@ -229,7 +270,7 @@ bool freeResources() {
     void* chars=at<void*>(sys,0x10c);void* anim=at<void*>(sys,0x114);
     u32 free=0;u16 n=at<u16>(sys,0x118);
     for(u32 i=0;i<n;i++) if(at<u32>(chars,i*64+60)&0x80000000) free++;
-    if(free<session.count) return false;
+    if(free<session.count+(session.dialControl&&session.skinCount?1u:0u)) return false;
     void* palettes=at<void*>(sys,0x110);n=at<u16>(sys,0x11a);bool freePalette=false;
     for(u32 i=0;i<n;i++) if(at<u32>(palettes,i*24+20)&0x80000000) freePalette=true;
     if(!freePalette) return false;
@@ -252,7 +293,7 @@ void upload(void*,void*) {
         session.skinCaptured=1;
     }
     if(session.visible && session.skinUpload){
-        void* b=session.wantedSkin?session.skinBuffer:session.skinOriginal;
+        void* b=session.preparedSkin?session.skinBuffer:session.skinOriginal;
         if(b){
             api<void(*)(u32,const void*,u32,u32)>(0x20450ac)(5,b,0x1fe0,0);
             void* colors=static_cast<u8*>(b)+0x1fe0;
@@ -262,9 +303,11 @@ void upload(void*,void*) {
             api<void(*)(u32,u32,u32,u32,u32,u32)>(0x2045698)(5,0,0,32,24,13);
             api<void(*)(u32)>(0x2044fbc)(5);
             ov<void(*)(void*)>(0x21eb730)(session.sub->work);
-            session.currentSkin=session.wantedSkin;savePositions(game(session.sub));
+            bool changed=session.currentSkin!=session.preparedSkin;session.currentSkin=session.preparedSkin;savePositions(game(session.sub));
+            if(changed&&session.preparedSound)session.appliedSound=1;
         }
         session.skinUpload=0;
+        session.preparedSound=0;
     }
     // Native C-Gear initialization is asynchronous and first uploads a full
     // palette bank. Restore our unused slots after that upload, through the
@@ -307,10 +350,18 @@ void upload(void*,void*) {
         }
         visible(session.actors[i],session.visible && session.shown[i]);
     }
+    if(session.marker){
+        if(!session.markerUploaded){
+            auto* pixels=static_cast<u8*>(session.uploadBuffer)+4096;clear(pixels,128);
+            for(int y=0;y<8;y++)for(int x=0;x<8;x++){int d=absolute(x-3)+absolute(y-3);u8 ink=d>3?0:d==3?12:11;pixels[y*4+x/2]|=ink<<((x&1)*4);}
+            Character c={0xffff,0xffff,3,16,0,128,pixels};api<void(*)(u32,const void*)>(0x204ba6c)(session.markerChars,&c);session.markerUploaded=1;
+        }
+        visible(session.marker,session.visible&&session.dialCaptured);
+    }
 }
 void attach(Subscreen* s) {
     dispose();session.error=1;session.magic=0x53415143;session.sub=s;session.drag=0xff;session.pressed=0xff;session.frame=0;session.held=0;session.dim=0;
-    session.animation=session.palette=INVALID;
+    session.animation=session.palette=session.markerChars=INVALID;
     for(u32 i=0;i<8;i++) session.chars[i]=INVALID;
     void* h=archive(s->heap);enabled=h && config(h,s->heap);
     if(!enabled || !freeResources() || api<u32(*)(u32)>(0x2039f8c)(s->heap)<65536
@@ -322,18 +373,18 @@ void attach(Subscreen* s) {
     api<void(*)(void*)>(0x203a278)(palette);
     session.error=3;session.patterns=read(h,12,s->heap,5120);
     if(!session.patterns) {closeArchive(h);dispose();return;}
-    session.error=4;session.uploadBuffer=api<void*(*)(u32,u32,u32,const char*,u32)>(0x203a228)(s->heap,4096,1,"quick-actions",0);
+    session.error=4;session.uploadBuffer=api<void*(*)(u32,u32,u32,const char*,u32)>(0x203a228)(s->heap,session.dialControl?4224:4096,1,"quick-actions",0);
     if(!session.uploadBuffer) {closeArchive(h);dispose();return;}
     session.error=5;session.palette=api<u32(*)(void*,u32,u32,u32,u32)>(0x204bbcc)(h,1,1,224,s->heap);
     session.animation=api<u32(*)(void*,u32,u32,u32)>(0x204be0c)(h,2,3,s->heap);
     if(session.palette==INVALID || session.animation==INVALID) {closeArchive(h);dispose();return;}
     session.error=6;session.unit=at<void*>(s->work,0x34);
     if(!session.unit) {closeArchive(h);dispose();return;}
-    // Native owns the render unit. The creation hook adds up to eight slots, leaving
-    // its original 84 slots available. Remove our actors before native exit.
+    // Native owns the render unit. Add up to eight buttons plus a dial marker,
+    // leaving its original 84 slots available. Remove ours before native exit.
     void* actors=at<void*>(session.unit,0);u32 freeActors=0;
     for(u32 i=0;i<at<u16>(session.unit,12);i++) if(!at<u32>(actors,i*228)) freeActors++;
-    if(freeActors<session.count) {closeArchive(h);dispose();return;}
+    if(freeActors<session.count+(session.dialControl&&session.skinCount?1u:0u)) {closeArchive(h);dispose();return;}
     for(u32 reverse=session.count;reverse>0;reverse--) {
         u32 i=reverse-1;
         session.error=8+i;session.graphics[i]=read(h,i+4,s->heap,2048);
@@ -348,6 +399,16 @@ void attach(Subscreen* s) {
         if(!session.actors[i]) {closeArchive(h);dispose();return;}
         api<void(*)(void*,u32)>(0x204c54c)(session.actors[i],1);
         visible(session.actors[i],false);session.uploaded[i]=0xff;session.desired[i]=0;
+    }
+    if(session.dialControl&&session.skinCount){
+        session.markerChars=api<u32(*)(u32,u32,u32)>(0x204b8e8)(128,1,s->heap);
+        if(session.markerChars==INVALID){closeArchive(h);dispose();return;}
+        void* sys=*reinterpret_cast<void**>(nativeAddress(0x214197c));void* resource=static_cast<u8*>(at<void*>(sys,0x10c))+session.markerChars*64;
+        if(api<u32(*)(void*)>(0x203cb14)(static_cast<u8*>(resource)+0x34)){closeArchive(h);dispose();return;}
+        struct MarkerData{s16 x,y;u16 sequence;u8 priority,bg;} data={dial::decalX,dial::decalY,8,0,0};
+        session.marker=api<void*(*)(void*,u32,u32,u32,const void*,u32,u32)>(0x204c06c)(session.unit,session.markerChars,session.palette,session.animation,&data,0,s->heap);
+        if(!session.marker){closeArchive(h);dispose();return;}
+        api<void(*)(void*,u32)>(0x204c54c)(session.marker,1);visible(session.marker,false);
     }
     closeArchive(h);
     if(session.skinCount){session.skinOriginal=api<void*(*)(u32,u32,u32,const char*,u32)>(0x203a228)(s->heap,0x2600,1,"quick-actions-skin",0);if(!session.skinOriginal){dispose();return;}}
@@ -368,7 +429,7 @@ int hit(u32 x,u32 y) {
     int wx=static_cast<int>(x)-228,wy=static_cast<int>(y)-144;
     int sx=static_cast<int>(x)-208,sy=static_cast<int>(y)-18;
     int px=static_cast<int>(x)-200,py=static_cast<int>(y)-180;
-    if((session.saveControl&&px*px+py*py<=100) || wx*wx+wy*wy<=100 || (x>=104&&x<=152&&y<=24) || (session.skinCount && sx*sx+sy*sy<=256))return -1;
+    if((session.saveControl&&px*px+py*py<=100) || wx*wx+wy*wy<=100 || (x>=104&&x<=152&&y<=24) || (!session.dialControl&&session.skinCount && sx*sx+sy*sy<=256))return -1;
     for(u32 n=session.count;n>0;n--) {
         u32 i=n-1;
         if(!session.shown[i]) continue;
@@ -382,18 +443,26 @@ void refresh(Subscreen* s,u32 active) {
     // Keep the overlay on that screen during Bike and PC dialogs; hiding it
     // belongs to the display lifecycle, independently of input permission.
     session.active=active;session.visible=drawable(s);
-    if(!active || !safe(s)) {session.pending=0;session.pressed=0xff;session.drag=0xff;session.skinFeedback=0;}
-    bool moveNetwork=session.visible&&session.saveControl&&session.skinCount;
+    if(!active || !safe(s)) {cancelDial();session.pending=0;session.pressed=0xff;session.drag=0xff;session.skinFeedback=0;}
+    bool moveNetwork=session.visible&&session.saveControl&&(session.skinCount||session.dialControl);
     if(moveNetwork!=!!session.networkMoved){api<void(*)(u32,u32)>(0x2042f58)(moveNetwork?256:200,moveNetwork?192:10);session.networkMoved=moveNetwork;}
     if(!session.unit) return;
     void* g=game(s);bool edit=at<u8>(s->work,0x2fe);
     if(edit || !session.visible)session.skinFeedback=0;
-    if(session.visible && session.skinCount){
+    if(edit)cancelDial();
+    if(session.dialControl){
+        // Four time digits, the clock's circular backing, and the old selector.
+        // Native updates may show these again, so hide them before each render.
+        for(u32 i=0;i<6;i++)visible(at<void*>(s->work,0x6c+i*4),false);
+    }
+    if(session.visible && session.skinCount && !session.dialControl){
         // The retained ACT_NETWORK_BG has two frames in native sequence 5.
         // Override its network-status frame after native update; use the owned
         // pressed glyph briefly even when the stylus has already been released.
         void* selector=at<void*>(s->work,0x80);
-        if(selector)api<void(*)(void*,u16)>(0x204c530)(selector,session.skinFeedback?1:0);
+        if(selector){
+            api<void(*)(void*,u16)>(0x204c530)(selector,(session.dialControl?session.dialCaptured:session.skinFeedback)?1:0);
+        }
         if(session.skinFeedback)session.skinFeedback--;
     }
     if(session.visible) {
@@ -461,6 +530,46 @@ int saveEvent(void* event,u32*) {
     return w->finished&&ov<u32(*)(Subscreen*)>(0x21983dc)(w->sub);
 }
 struct FlyWork {MapRequest map;u32 member,action,item;};
+struct NavWork {MapRequest map;pokenav::Launch request;};
+int navEvent(void* event,u32* sequence){
+    auto* w=api<NavWork*(*)(void*)>(0x2016edc)(event);
+    if(!*sequence){
+        void* sys=api<void*(*)(void*)>(0x2016ed8)(event);void* field=api<void*(*)(void*)>(0x2016af0)(sys);
+        if(!field)return 1;
+        w->map.system=sys;w->map.field=field;w->map.call=0;w->map.data=&w->request;
+        void* child=ov<void*(*)(MapRequest*,u32)>(0x215b4c8)(&w->map,ov<u32(*)(void*)>(0x2180500)(field));
+        if(!child)return 1;
+        api<void(*)(void*,void*)>(0x2016d68)(event,child);*sequence=1;return 0;
+    }
+    return 1;
+}
+bool navConfigured(u16 heap){
+    pokenavEnabled=false;bool present=false;for(u32 i=0;i<session.count;++i)if(session.buttons[i].action==18)present=true;
+    if(!present)return false;
+    void* h=archive(heap,"rom:/pokenav/ui.narc");if(!h)return false;
+    void* b=read(h,0,heap,16);bool ok=b&&at<u32>(b,0)==pokenav::Magic&&at<u16>(b,4)==1&&at<u16>(b,6)==16&&at<u32>(b,8)==1&&at<u32>(b,12)==0xfffffffe;
+    if(b){api<void(*)(void*)>(0x203a278)(b);}
+    closeArchive(h);return ok;
+}
+void* navLaunch(Subscreen* s){
+    void* event=api<void*(*)(void*,void*,void*,u32)>(0x2016cb4)(system(s),nullptr,reinterpret_cast<void*>(navEvent),sizeof(NavWork));if(!event)return nullptr;
+    auto* w=api<NavWork*(*)(void*)>(0x2016edc)(event);clear(w,sizeof(*w));auto* r=&w->request;r->magic=pokenav::Magic;r->version=pokenav::Abi;r->size=sizeof(*r);
+    r->zone=ov<u32(*)(void*)>(0x2180518)(s->field);
+    void* enc=ov<void*(*)(void*)>(0x2180564)(s->field);const u8* data=enc&&at<void*>(enc,0)==s->field?at<const u8*>(enc,12):nullptr;
+    if(data&&(data[7]&128)){r->valid=1;for(u32 i=0;i<232;++i)r->tables[i]=data[i];}
+    u8 excluded[nuzlocke::MaskBytes];
+    if(r->valid&&nuzlocke::snapshot(game(s),excluded)){
+        r->reserved=1|(nuzlocke::preventAll()?2:0);u32 physical=0;
+        for(u32 method=0;method<7;++method)for(u32 slot=0;slot<(method<3?12u:5u);++slot,++physical){
+            const u32 at=(method<3?8+method*48:152+(method-3)*20)+slot*4;
+            if(nuzlocke::bit(excluded,nuzlocke::half(r->tables+at)&2047))r->dupes[physical>>3]|=u8(1u<<(physical&7));
+        }
+    }
+    void* headers=archive(s->heap,"rom:/a/0/1/2");if(headers){const u32 size=api<u32(*)(void*,u32)>(0x204ac38)(headers,0);u8 row[48];const u32 at=u32(r->zone)*48;
+        if(at<=size&&48<=size-at){api<void(*)(void*,u32,u32,u32,void*)>(0x204ac84)(headers,0,at,48,row);r->placeName=row[26]|((row[27]&3)<<8);}closeArchive(headers);}
+    api<void(*)(u32)>(0x2006254)(1356);return event;
+}
+
 void* storageEvent(void* sys,u16 heap) {
     void* event=ov<void*(*)(void*,u32,void*,u32)>(0x21536ac)(sys,10090,nullptr,heap);
     if(!event) return nullptr;
@@ -524,13 +633,13 @@ int flyEvent(void* event,u32* sequence) {
 }
 extern "C" void QaCGearInit(Subscreen* s) {
     dispose();session.sub=s;session.attempted=0;session.held=0;session.pending=0;
-    session.palette=session.animation=INVALID;
+    session.palette=session.animation=session.markerChars=INVALID;
     for(u32 i=0;i<8;i++) session.chars[i]=INVALID;
-    void* h=archive(s->heap);enabled=h && config(h,s->heap);closeArchive(h);
+    void* h=archive(s->heap);enabled=h && config(h,s->heap);closeArchive(h);pokenavEnabled=enabled&&navConfigured(s->heap);
     ov<void(*)(Subscreen*)>(0x2198564)(s);
 }
 extern "C" void* QaGearUnit(u32 count,u32 priority,u32 heap) {
-    return api<void*(*)(u32,u32,u32)>(0x204bf48)(count+(enabled?session.count:0),priority,heap);
+    return api<void*(*)(u32,u32,u32)>(0x204bf48)(count+(enabled?session.count+(session.dialControl&&session.skinCount?1:0):0),priority,heap);
 }
 extern "C" void QaGearEnd(void* work) {
     // Native applications can rebuild C-Gear without changing its subscreen
@@ -543,7 +652,7 @@ extern "C" void QaCGearExit(Subscreen* s) {
     dispose();ov<void(*)(Subscreen*)>(0x219863c)(s);
 }
 extern "C" void QaNoGearInit(Subscreen* s) {
-    void* h=archive(s->heap);enabled=h && config(h,s->heap);closeArchive(h);
+    void* h=archive(s->heap);enabled=h && config(h,s->heap);closeArchive(h);pokenavEnabled=enabled&&navConfigured(s->heap);
     ov<void(*)(Subscreen*)>(0x21986c0)(s);
 }
 extern "C" void QaCGearUpdate(Subscreen* s,u32 active) {
@@ -555,12 +664,29 @@ extern "C" void QaCGearUpdate(Subscreen* s,u32 active) {
         session.attempted=1;attach(s);
     }
     refresh(s,active);
+    if(session.appliedSound){session.appliedSound=0;api<void(*)(u32)>(0x2006254)(1356);}
     if(active && safe(s))prepareSkin();
 }
 extern "C" void QaInput(void* w) {
     Subscreen* s=session.sub;
-    if(!session.active||!safe(s)||s->work!=w) {session.pending=0;ov<void(*)(void*)>(0x21eb894)(w);return;}
+    if(!session.active||!safe(s)||s->work!=w) {cancelDial();session.pending=0;ov<void(*)(void*)>(0x21eb894)(w);return;}
     u32 x=0,y=0;bool down=api<u32(*)(u32*,u32*)>(0x203dab0)(&x,&y);
+    if(session.dialCaptured){
+        if(!down){session.dialCaptured=session.held=0;visible(session.marker,false);return;}
+        if(at<u8>(w,0x2fe)){cancelDial();return;}
+        int angle=angleAt(x,y),delta=angle-session.dialAngle;
+        if(delta>18000)delta-=36000;
+        if(delta< -18000)delta+=36000;
+        session.dialAngle=angle;
+        int dx=int(x)-dial::centerX,dy=int(y)-dial::centerY;
+        if(dx*dx+dy*dy>=6400&&absolute(delta)<=9000){
+            int movement=session.dialAccum+delta;
+            while(movement>=dial::step){stepSkin(1);movement-=dial::step;}
+            while(movement<=-dial::step){stepSkin(-1);movement+=dial::step;}
+            session.dialAccum=movement;moveMarker(x,y);
+        }
+        return;
+    }
     if(session.drag<session.count) {
         if(down) {
             auto& p=session.positions[session.drag];p.x=clamp(x,16,240);p.y=clamp(y,16,176);place(session.drag);
@@ -574,7 +700,7 @@ extern "C" void QaInput(void* w) {
         int px=static_cast<int>(x)-200,py=static_cast<int>(y)-180;
         if(session.saveControl&&px*px+py*py<=100){session.held=1;session.pending=at<u8>(w,0x2fe)?0:255;return;}
         int sx=static_cast<int>(x)-208,sy=static_cast<int>(y)-18;
-        if(session.skinCount && !at<u8>(w,0x2fe) && sx*sx+sy*sy<=256){
+        if(!session.dialControl&&session.skinCount && !at<u8>(w,0x2fe) && sx*sx+sy*sy<=256){
             session.held=1;session.pending=0;
             if(!session.skinRequest && !session.skinUpload){
                 u32 i=0;while(i<session.skinCount&&session.skinIds[i]!=session.currentSkin)i++;
@@ -595,10 +721,19 @@ extern "C" void QaInput(void* w) {
             else if(session.available[i]) session.pending=i+1;
             return; // Disabled buttons also own their circular touch.
         }
+        int mx0=int(x)-215,my0=int(y)-163,px0=int(x)-200,py0=int(y)-180;
+        bool reserved=dx*dx+dy*dy<=100||(x>=104&&x<=152&&y<=24)||(!session.dialControl&&x>=31&&x<=65&&y<=35)
+            ||(session.muteControl&&mx0*mx0+my0*my0<=100)||(session.saveControl&&px0*px0+py0*py0<=100);
+        if(session.dialControl&&session.skinCount&&!at<u8>(w,0x2fe)&&!reserved&&onDial(x,y)&&QaButtonHit(w)<0){
+            session.pending=0;session.held=1;session.dialCaptured=1;session.dialAngle=angleAt(x,y);session.dialAccum=0;
+            session.dialTarget=session.skinRequest?session.wantedSkin:session.skinUpload?session.preparedSkin:session.currentSkin;
+            moveMarker(x,y);visible(session.marker,true);return;
+        }
     }
     ov<void(*)(void*)>(0x21eb894)(w);
 }
 extern "C" int QaButtonHit(void* w) {
+    if(enabled&&session.dialCaptured)return -1;
     // Input only: allow the wrench, pattern toggle and panel drags with wireless off.
     // Never make the C-Gear state machine believe wireless has been enabled.
     u8 power=at<u8>(w,0x30b);bool edit=at<u8>(w,0x2fe);u32 x=0,y=0;
@@ -608,6 +743,7 @@ extern "C" int QaButtonHit(void* w) {
     bool logo=x>=104 && x<=152 && y<=24;
     if(enabled && (edit||wrench||logo)) at<u8>(w,0x30b)=1;
     int result=ov<int(*)(void*)>(0x21eb748)(w);at<u8>(w,0x30b)=power;
+    if(enabled&&session.dialControl&&(result==3||result==4))return -1;
     if(enabled&&session.saveControl&&result==5)return -1;
     if(enabled&&session.muteControl&&result==6)return -1;
     if(enabled&&session.hideCommunication&&((result>=0&&result<=2)||result==8))return -1;
@@ -632,6 +768,7 @@ extern "C" void* QaCGearEvent(Subscreen* s,u32 available) {
         if(*p&0x1000) api<void(*)(u32)>(0x2006254)(1996);
         return nullptr;
     }
+    if(action==18)return navLaunch(s);
     if(action==2) return storageEvent(sys,s->heap);
     if(action==17) {api<void(*)(u32)>(0x2006254)(1356);pokeradar(s);return nullptr;}
     if(action==3||action==6||action==7) return ov<void*(*)(u32,void*,void*)>(0x215f024)(action==3?0:action==6?5:4,sys,s->field);

@@ -39,7 +39,7 @@ for game,ovdelta,delta in ([("B",0,0),("W",0,0)] if bw1 else [("W2",0,0),("B2",0
     symbols={}
     for group,base in [("Menu",0x2300000),("Viewer",0x2310000)]:
         source=BUILD/f"Learnset{group}{game}.elf";linked=source.with_suffix(".linked.elf")
-        subprocess.run([str(TOOLS/"arm-none-eabi-ld"),"-Ttext",hex(base),"-Tdata",hex(base+0x8000),"-e","Learnset"+("MenuCreate" if group=="Menu" else "ViewerInit"),str(source),"-o",str(linked)],check=True,capture_output=True)
+        subprocess.run([str(TOOLS/"arm-none-eabi-ld"),"-Ttext",hex(base),"-Tdata",hex(0x2330000 if group=="Menu" else 0x2340000),"-e","Learnset"+("MenuCreate" if group=="Menu" else "ViewerInit"),str(source),"-o",str(linked)],check=True,capture_output=True)
         with linked.open("rb") as stream:
             elf=ELFFile(stream)
             for section in elf.iter_sections():

@@ -16,6 +16,8 @@ Use this map to choose a search scope. It describes the current working tree, no
 | Battle boot tooling | `runtime/battle-harness/README.md`, `src/pokeweb/battleHarness.ts` | `src/test/battleHarness.test.ts`, `scripts/build-battle-harness.ts`, `scripts/test-battle-harness-headless.py`; mechanic regressions live in the sibling White2Upgrade-Original-pokeweb repository's `tests/battle/` |
 | Following Pokémon | `runtime/following-pokemon/README.md`, `runtime/following-pokemon/build.py` | `src/pokeweb/followingPokemonProject.ts`, `src/test/followingPokemon*.test.ts` |
 | LEARNSET and battle HUD | their `runtime/<feature>/README.md` | `src/assets/codeinjection/` and matching installer tests |
+| BW2 Nuzlocke Style Encounters | `runtime/nuzlocke-encounters/`, `src/pokeweb/nuzlockeEncountersModel.ts` | native overlay-36 filtering; optional Pokenav integration; `scripts/verify-nuzlocke-encounters.ts`, `src/test/nuzlockeEncounters.test.ts` |
+| BW2 Pokenav | `runtime/pokenav/`, `src/pokeweb/pokenavModel.ts` | shared `runtime/learnset-viewer/`, C-Gear action 18; `src/test/pokenav.test.ts`, `scripts/verify-pokenav-install.ts` |
 | C-Gear button editor | `src/cgearButtons/`, `src/ui/cgearButtonsEditor.ts` | `src/pokeweb/cgearButtonsModel.ts`, `src/pokeweb/cgearQuickActionsModel.ts`, `runtime/cgear-quick-actions/README.md` |
 | Asset conversion and visual references | relevant importer under `runtime/` or `scripts/` | `public/images/`, `move-animation-reference/`, `docs/` only as needed |
 | Source provenance | `patch-sources/README.md`, `patch-sources/manifest.json` | canonical origin recorded in the manifest |

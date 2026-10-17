@@ -1,5 +1,10 @@
 #include "info.h"
 #include "info_logic.h"
+#if !defined(GAME_B) && !defined(GAME_W)
+#include "../pokenav/view.h"
+#include "../pokenav/style.h"
+#include "../pokenav/text.h"
+#endif
 #include "info_messages.generated.h"
 #if defined(GAME_B) || defined(GAME_W)
 #include "info_background_bw1.generated.h"
@@ -9,13 +14,20 @@
 
 
 namespace {
-// Only the overlay-258 module owns this state; no field/menu heap growth.
+// The viewer owns this state. Optional encounter caches use the parent
+// application heap and are released before native application teardown.
 constexpr u32 Heap=79, TextCapacity=256;
 struct Page { u16 offset; u8 option; bool incoming; };
 struct DisplayChain { Chain chain; InfoNode nodes[3]; };
 struct IconKey { u16 species,form,gender; };
+#if !defined(GAME_B) && !defined(GAME_W)
+struct CachedFile {u8* data;u32 size;bool attempted;};
+struct ArchiveMeta {u32 size,count,image,imageSize;};
+struct SessionData {CachedFile files[2],banks[6];ArchiveMeta metadata[4];u32 retained;};
+#endif
 struct InfoView {
     void* work;
+    InfoContext context; bool encounter;
     u16 selectedName[64], title[96], partyCue[12], requirements[8][TextCapacity];
     u16 targets[8][64], labels[6][16], status[64];
     u16 statsUnavailable[64];
@@ -34,6 +46,9 @@ struct InfoState : InfoView {
     u8 icons[3][1024]; u16 palettes[3][16];
     IconKey iconKeys[3]; bool iconsValid[3];
     InfoNode* graph; u32 graphCount; bool graphReady;
+#if !defined(GAME_B) && !defined(GAME_W)
+    SessionData* data;
+#endif
 };
 InfoState* state;
 u32 customRegions=63;
@@ -46,16 +61,27 @@ struct Archive {
     // hacked archive's payload size. Allocation failure uses the bounded reader.
     struct Cache { u32 fatAt,fatLength,dataAt,dataLength; u8 fat[1024],data[4096]; };
     Cache* cache=nullptr;
+    const u8* ram=nullptr;
     bool read(u32 offset,void* out,u32 length) {
+        if(ram){if(offset>size||length>size-offset)return false;auto* dest=static_cast<u8*>(out);for(u32 i=0;i<length;++i)dest[i]=ram[offset+i];return true;}
         return opened && offset<=size && length<=size-offset
             && native<u32(*)(void*,u32,u32)>(0x2070e55,0x2070e29)(file,offset,0)
             && native<int(*)(void*,void*,u32)>(0x2070e6d,0x2070e41)(file,out,length)==int(length);
     }
     bool open(const char* path) {
+#if !defined(GAME_B) && !defined(GAME_W)
+        SessionData* saved=state&&state->encounter?state->data:nullptr;u32 slot=4;
+        const char* paths[]={"a/0/1/6","a/0/1/9","a/0/0/2","a/0/0/7"};
+        for(u32 i=0;i<4;++i){u32 n=0;while(paths[i][n]&&paths[i][n]==path[n])++n;if(!paths[i][n]&&!path[n]){slot=i;break;}}
+        if(saved&&slot<2&&saved->files[slot].data){ram=saved->files[slot].data;const auto& m=saved->metadata[slot];size=m.size;count=m.count;image=m.image;imageSize=m.imageSize;return true;}
+#endif
         native<void(*)(void*)>(0x2070ca9,0x2070c7d)(file);
         opened=native<u32(*)(void*,const char*)>(0x2070ecd,0x2070ea1)(file,path)!=0;
         if(!opened)return false;
         size=native<u32(*)(void*)>(0x2070ded,0x2070dc1)(file);
+#if !defined(GAME_B) && !defined(GAME_W)
+        if(saved&&slot<4&&saved->metadata[slot].size==size){const auto& m=saved->metadata[slot];count=m.count;image=m.image;imageSize=m.imageSize;return true;}
+#endif
         u8 h[16];
         if(!read(0,h,16) || read32(h)!=0x4352414e || read32(h+4)!=0x0100fffe
             || read32(h+8)!=size || read16(h+12)!=16 || read16(h+14)!=3)return false;
@@ -68,7 +94,18 @@ struct Archive {
         if(names<8 || names>size-offset)return false;
         offset+=names;
         if(!read(offset,h,8) || read32(h)!=0x46494d47 || read32(h+4)<8 || read32(h+4)!=size-offset)return false;
-        image=offset+8; imageSize=size-image;return true;
+        image=offset+8; imageSize=size-image;
+#if !defined(GAME_B) && !defined(GAME_W)
+        if(saved&&slot<4){saved->metadata[slot]={size,count,image,imageSize};
+            if(slot<2&&!saved->files[slot].attempted){auto& f=saved->files[slot];f.attempted=true;
+                if(size<=98304&&saved->retained+size<=196608){f.data=static_cast<u8*>(alloc(1,size));
+                    if(f.data&&read(0,f.data,size)){f.size=size;saved->retained+=size;ram=f.data;}
+                    else{release(f.data);f.data=nullptr;}
+                }
+            }
+        }
+#endif
+        return true;
     }
     void buffer() {cache=static_cast<Cache*>(alloc(Heap,sizeof(Cache)));if(cache)*cache={};}
     void unbuffer() {release(cache);cache=nullptr;}
@@ -96,6 +133,7 @@ struct Archive {
         const u32 length=end-begin<capacity?end-begin:capacity;
         return cachedRead(image+begin,out,length,false)?length:0;
     }
+    u32 memberSize(u32 id){u8 h[8];if(!image||id>=count||!read(28+8*id,h,8))return 0;const u32 begin=read32(h),end=read32(h+4);return begin<=end&&end<=imageSize?end-begin:0;}
     ~Archive(){unbuffer();if(opened)native<u32(*)(void*)>(0x2070de1,0x2070db5)(file);}
 };
 
@@ -133,6 +171,9 @@ void put(const u16* text,int x,int y,u32 color=0x3c40) {
     native<void(*)(void*,int,int,void*,void*,u32)>(0x2021d55,0x2021d29)(bmp(),x,y,buffer,at<void*>(state->work,0x60),color);
 }
 u32 measure(const u16* text) {
+#if !defined(GAME_B) && !defined(GAME_W)
+    if(state->encounter&&pokenav::ui::available())return pokenav::ui::measureFont(state->work,bmp(),text);
+#endif
     void* buffer=at<void*>(state->work,0x4c);stringSet(buffer,text);
     return native<u32(*)(void*,void*,u32)>(0x20228b5,0x2022889)(buffer,at<void*>(state->work,0x60),0);
 }
@@ -146,6 +187,22 @@ void ellipsis(u16* text,u32 width) {
     }while(true);
 }
 void headerTypes() {
+#if !defined(GAME_B) && !defined(GAME_W)
+    if(state->encounter&&pokenav::ui::available()){
+        ellipsis(state->title,122);
+        const u32 left=203-(state->typeCount*32+(state->typeCount?state->typeCount-1:0)*2);
+        for(u32 i=0;i<2;++i){void* actor=at<void*>(state->work,0x124+4*i);
+            if(i<state->typeCount){const short position[]={short(left+16+i*34),15};
+                native<void(*)(void*,const short*)>(0x204c23d,0x204c211)(actor,position);
+                const u32 palette=native<u32(*)(u32)>(0x202d815,0x202d7e9)(state->types[i]);
+                native<void(*)(void*,u32,u32)>(0x204c3a5,0x204c379)(actor,palette,1);
+                at<volatile u32>(state->work,0x140+i*8)=state->types[i];at<volatile u32>(state->work,0x144+i*8)=1;
+            }else at<volatile u32>(state->work,0x144+i*8)=0;
+            native<void(*)(void*,u32)>(0x204c151,0x204c125)(actor,i<state->typeCount&&(customRegions&1));
+        }
+        return;
+    }
+#endif
     const u32 width=state->partyCue[0]==End?240:232-measure(state->partyCue);
     const u32 badges=state->typeCount?4+state->typeCount*32+(state->typeCount-1)*2:0;
     ellipsis(state->title,width-badges);
@@ -172,6 +229,18 @@ void headerTypes() {
 bool bankString(Messages& messages,u32 bank,u32 id,u16* out,u32 capacity) {
     bank=messageBank(bank);
     out[0]=End;
+#if !defined(GAME_B) && !defined(GAME_W)
+    if(state&&state->encounter&&state->data){auto& saved=*state->data;const u16 ids[]={401,90,64,403,487,374};u32 slot=0;while(slot<6&&ids[slot]!=bank)++slot;
+        if(slot<6){auto& f=saved.banks[slot];if(!f.attempted){f.attempted=true;const u32 size=messages.memberSize(bank);
+                if(size&&size<=32768&&saved.retained+size<=196608){f.data=static_cast<u8*>(alloc(1,size));
+                    if(f.data&&messages.member(bank,f.data,size)==size){f.size=size;saved.retained+=size;}
+                    else{release(f.data);f.data=nullptr;}
+                }
+            }
+            if(f.data&&pokenav::cachedText(f.data,f.size,id,out,capacity))return true;
+        }
+    }
+#endif
     void* handle=messages.handle(bank,id);
     if(!handle)return false;
     void* text=message(handle,id);
@@ -248,7 +317,7 @@ void load(Request* request) {
     // Physical party slot, not evolution-page position. Invalid/legacy context
     // simply omits the cue; the field-owned request is never changed here.
     state->partyCue[0]=End;
-    const u32 count=partyCount(request->party);
+    const u32 count=state->encounter?0:partyCount(request->party);
     if(count && count<=6 && request->partySlot<count) {
         u16* cue=state->partyCue;u32 n=0;
         if(count>1){cue[n++]='<';cue[n++]=' ';}
@@ -256,11 +325,12 @@ void load(Request* request) {
         if(count>1){cue[n++]=' ';cue[n++]='>';}
         cue[n]=End;
     }
+    if(state->encounter){u32 n=decimal(state->partyCue,state->context.chance);state->partyCue[n++]='%';state->partyCue[n]=End;}
     Archive personal,evolutions;Messages messages;
     const bool msgOk=messages.open("a/0/0/2");
-    const auto identity=viewIdentity(request);
+    const auto identity=state->encounter?state->context.identity:viewIdentity(request);
     const u32 species=identity.species,form=identity.form;
-    state->gender=species==pokemonGet(request->tutor.pokemon,5) && form==pokemonGet(request->tutor.pokemon,0x6f)
+    state->gender=!state->encounter && request->tutor.pokemon && species==pokemonGet(request->tutor.pokemon,5) && form==pokemonGet(request->tutor.pokemon,0x6f)
         ? pokemonGet(request->tutor.pokemon,0x6e) : 0;
     u16 name[64],format[128];speciesName(messages,species,name,64);
     copyText(state->selectedName,64,name);
@@ -465,10 +535,16 @@ bool drawIconPixels(u8* data) {
     }
     return changed;
 }
+#if !defined(GAME_B) && !defined(GAME_W)
+void animatePokenav();
+#endif
 void animateIcons() {
     if(!(customRegions&4))return;
     if(++state->iconTicks<IconFrameTicks)return;
     state->iconTicks=0;state->iconFrame^=1;
+#if !defined(GAME_B) && !defined(GAME_W)
+    if(state->encounter&&pokenav::ui::available()){animatePokenav();return;}
+#endif
     u8* data=pixels();
     if(data && drawIconPixels(data)) {
         // Native bitmap-character upload only. Keep the existing CPU tilemap,
@@ -572,7 +648,13 @@ void customLoad(Request* request) {
         || read32(program+8)!=32 || read32(program+12)>63 || !(read32(program+12)&32))return;
     customRegions=read32(program+12);
 }
+#if !defined(GAME_B) && !defined(GAME_W)
+#include "../pokenav/info_style.h"
+#endif
 void render() {
+#if !defined(GAME_B) && !defined(GAME_W)
+    if(state->encounter&&pokenav::ui::available()){renderPokenav();return;}
+#endif
     u8* data=pixels();
     if(!data)return;
     // A full opaque BG2 panel covers retail BG3; disable BG3 so transparent
@@ -654,12 +736,21 @@ void render() {
 }
 }
 
-void infoInit(void* work,Request* request) {
+void infoInit(void* work,Request* request){infoInit(work,request,nullptr);}
+void infoInit(void* work,Request* request,const InfoContext* context) {
     infoEnd();
     for(u32 offset=0x124;offset<=0x134;offset+=4)
         native<void(*)(void*,u32)>(0x204c151,0x204c125)(at<void*>(work,offset),0);
     state=static_cast<InfoState*>(alloc(Heap,sizeof(InfoState)));
     if(!state) {
+#if !defined(GAME_B) && !defined(GAME_W)
+        if(context&&pokenav::ui::available()){
+            using namespace pokenav::ui;
+            void* bitmap=native<void*(*)(void*)>(0x2048521,0x20484f5)(at<void*>(work,0x38));
+            auto s=begin(work,bitmap,0);plate(s,4,3,247,24);
+            label(s,"Info unavailable.",11,7,SummaryWhite);finish(s);return;
+        }
+#endif
         // Even an exhausted info allocation leaves a readable, dismissible
         // screen. Native tutor windows already exist and own their buffers.
         void* window=at<void*>(work,0x38);
@@ -675,7 +766,10 @@ void infoInit(void* work,Request* request) {
         native<void(*)(u32)>(0x2045ba9,0x2045b7d)(2);
         return;
     }
-    *state={};state->work=work;
+    *state={};state->work=work;state->encounter=context!=nullptr;if(context)state->context=*context;
+#if !defined(GAME_B) && !defined(GAME_W)
+    if(context){state->data=static_cast<SessionData*>(alloc(1,sizeof(SessionData)));if(state->data)*state->data={};}
+#endif
     load(request);customLoad(request);headerTypes();render();
 }
 void infoInput(void* work) {
@@ -689,11 +783,17 @@ void infoInput(void* work) {
     // L/R selects a different species; it never changes the real party Pokemon.
     render();
 }
-void infoReload(void* work,Request* request) {
-    if(!state || state->work!=work)return;
+void infoReload(void* work,Request* request){infoReload(work,request,nullptr);}
+void infoReload(void* work,Request* request,const InfoContext* context) {
+    if(!state || state->work!=work){infoInit(work,request,context);return;}
+    if(context&&state->encounter&&state->context.identity.species==context->identity.species&&state->context.identity.form==context->identity.form){
+        if(state->context.chance==context->chance&&state->context.land==context->land)return;
+        state->context=*context;u32 n=decimal(state->partyCue,context->chance);state->partyCue[n++]='%';state->partyCue[n]=End;
+        render();return;
+    }
     // Keep the existing application/windows/VRAM alive. Loading touches only
     // CPU state; the old screen stays visible until buffered uploads are ready.
-    static_cast<InfoView&>(*state)={};state->work=work;
+    static_cast<InfoView&>(*state)={};state->work=work;state->encounter=context!=nullptr;if(context)state->context=*context;
     load(request);headerTypes();render();
 }
 bool infoNavigate(void* work,Request* request,bool forward) {
@@ -703,11 +803,78 @@ bool infoNavigate(void* work,Request* request,bool forward) {
     request->nextView=next;request->nextSlot=BrowseFamily;
     return true;
 }
-void infoEnd() {customRegions=63;InfoState* old=state;state=nullptr;if(old)release(old->graph);release(old);}
+void infoEnd() {customRegions=63;InfoState* old=state;state=nullptr;if(old){release(old->graph);
+#if !defined(GAME_B) && !defined(GAME_W)
+    if(old->data){for(auto& f:old->data->files)release(f.data);for(auto& f:old->data->banks)release(f.data);release(old->data);}
+#endif
+    }release(old);}
+
+void infoEmpty(void* work) {
+#if !defined(GAME_B) && !defined(GAME_W)
+    if(pokenav::ui::available()&&state&&state->work==work){static_cast<InfoView&>(*state)={};state->work=work;state->encounter=true;}
+    else
+#endif
+    infoEnd();
+    for(u32 i=0;i<2;++i){
+        at<volatile u32>(work,0x144+i*8)=0;
+        if(at<void*>(work,0x124+i*4))native<void(*)(void*,u32)>(0x204c151,0x204c125)(at<void*>(work,0x124+i*4),0);
+    }
+#if !defined(GAME_B) && !defined(GAME_W)
+    if(pokenav::ui::available()){
+        using namespace pokenav::ui;void* win=at<void*>(work,0x38);auto s=begin(work,native<void*(*)(void*)>(0x2048521,0x20484f5)(win),0);
+        plate(s,4,3,247,24);label(s,"Encounter info",11,7);label(s,"No encounters",11,43,MutedText);finish(s);return;
+    }
+#endif
+    void* window=at<void*>(work,0x38);void* bitmap=native<void*(*)(void*)>(0x2048521,0x20484f5)(window);
+    u8* data=native<u8*(*)(void*)>(0x2046f21,0x2046ef5)(bitmap);if(data)background(data);
+    u16 text[32];asciiText(text,32,"No encounters.");void* buffer=at<void*>(work,0x4c);stringSet(buffer,text);
+    native<void(*)(void*,int,int,void*,void*,u32)>(0x2021d55,0x2021d29)(bitmap,8,48,buffer,at<void*>(work,0x60),StatInk);
+    native<void(*)(void*)>(0x2048271,0x2048245)(window);native<void(*)(void*)>(0x2048299,0x204826d)(window);
+    paletteMap();
+    native<void(*)(u32)>(0x2045ba9,0x2045b7d)(2);
+}
+bool infoIcon(u16 species,u16 form,u8* out,u8* palette) {
+    Archive arc;if(!arc.open("a/0/0/7"))return false;
+    const u32 id=native<u32(*)(u32,u32,u32,u32)>(0x2020fc1,0x2020f95)(species,form,0,0);
+    const u32 bank=native<u32(*)(u32,u32,u32,u32)>(0x2021061,0x2021035)(species,form,0,0);
+    u8 data[1072];if(bank>=3||arc.member(id,data,sizeof(data))!=sizeof(data)||read32(data)!=0x4e434752||read32(data+40)!=1024)return false;
+    for(u32 i=0;i<1024;++i){out[i]=data[48+i];}
+    *palette=u8(bank);return true;
+}
+void infoIcons(const ViewIdentity* identities,u32 count,u8* out,u8* palettes,bool* valid){
+    Archive arc;const bool opened=arc.open("a/0/0/7");if(opened)arc.buffer();
+    for(u32 i=0;i<count;++i){
+        valid[i]=false;if(!opened)continue;
+        const auto& key=identities[i];
+        const u32 id=native<u32(*)(u32,u32,u32,u32)>(0x2020fc1,0x2020f95)(key.species,key.form,0,0);
+        const u32 bank=native<u32(*)(u32,u32,u32,u32)>(0x2021061,0x2021035)(key.species,key.form,0,0);
+        u8 data[560];if(bank>=3||arc.member(id,data,sizeof(data),true)!=sizeof(data)||read32(data)!=0x4e434752||read32(data+40)!=1024)continue;
+        for(u32 j=0;j<512;++j)out[i*512+j]=data[48+j];
+        palettes[i]=u8(bank);valid[i]=true;
+    }
+}
+bool infoIconPalettes(u16* colors) {
+    Archive arc;u8 data[136];
+    // The NCLR member also contains a palette-index chunk after its colors.
+    // Read the bounded color prefix, rather than rejecting that valid tail.
+    if(!arc.open("a/0/0/7")||arc.member(0,data,sizeof(data),true)!=sizeof(data)
+        ||read32(data)!=0x4e434c52||read32(data+16)!=0x504c5454||read32(data+32)<96)return false;
+    for(u32 i=0;i<48;++i)colors[i]=read16(data+40+i*2);
+    return true;
+}
+void infoName(u32 bank,u32 id,u16* out,u32 capacity){
+    asciiText(out,capacity,"");Archive arc;u8 header[4];
+    if(!arc.open("a/0/0/2")||arc.member(bank,header,4,true)!=4||id>=read16(header+2))return;
+    void* handle=messageOpen(bank,Heap);if(!handle)return;
+    void* value=message(handle,id);if(value){copyText(out,capacity,stringText(value));stringFree(value);}messageClose(handle);
+}
 
 // Only called at the tutor's window-creation call site. Keep valid tiny
 // windows for unused upper slots so the original destruction loop is intact.
 extern "C" void* LearnsetWindow(u32 frame,u32 x,u32 y,u32 width,u32 height,u32 palette,u32 direction) {
+#if !defined(GAME_B) && !defined(GAME_W)
+    if(pokenavActive())return pokenavWindow(frame,x,y,width,height,palette,direction);
+#endif
     if(LearnsetIsActive() && frame==2 && width>1) {
         if(y==0){x=0;y=0;width=32;height=24;palette=14;}
         else {x=0;y=24;width=1;height=1;}

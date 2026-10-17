@@ -47,7 +47,7 @@ def calls(data, base, target):
 
 BUILD.mkdir(parents=True, exist_ok=True)
 ASSETS.mkdir(parents=True, exist_ok=True)
-VERSION = "1.5.0"
+VERSION = "1.8.0"
 write_info_messages(BUILD)
 # PMC's priority-chain array has five entries (0..PMC_PATCH=4). Priority 5
 # writes past it and never reaches the overlay activation chain.
@@ -63,6 +63,13 @@ for game,filename,delta in [("W2","cleanwhite2.nds",0),("B2","cleanblack2.nds",0
     overlays=rom.loadArm9Overlays([12,165,258])
     arm9=ndspy.codeCompression.decompress(rom.arm9)
     arm_delta=0 if game=='W2' else 0x2c
+    import sys
+    sys.path.insert(0,str(HERE.parent/'pokenav'))
+    from assets import header as pokenav_header
+    style=pokenav_header(rom,arm9,overlays[165],delta)
+    if game=='W2':pokenav_style=style
+    else:assert style==pokenav_style, 'Both US games must use the same native Pokenav selector/footer art'
+    (BUILD/'pokenav_style.generated.h').write_text(style)
     # Summary-screen page changes (Left/Right), not Pokemon changes (Up/Down).
     # These are evidence checks only: no dependency on or hook into overlay 207.
     summary=rom.loadArm9Overlays([207])[207]
@@ -142,6 +149,9 @@ for game,filename,delta in [("W2","cleanwhite2.nds",0),("B2","cleanblack2.nds",0
                  ".balign 4",f".global Original{label}",f".type Original{label},%function",".thumb_func",f"Original{label}:",
                  body,"ldr r3,1f","bx r3",f"1: .word 0x{addr+9:x}",f".size Original{label},.-Original{label}"]
         signature(label,ovl,addr,16,"FULL_COPY",8)
+    signature("Pokenav native field request layout",12,0x215b4de-delta,0x68)
+    signature("Pokenav native application completion",12,0x215b6e4-delta,0x10)
+    signature("Pokenav native field return cleanup",12,0x215b758-delta,0x50)
     viewer=[".syntax unified", ".thumb"]
     ov=overlays[258]
     for target,label in [(0x219a7f0,"DrawLine"),(0x219b994,"Confirm"),(0x219b6c8,"EnterButton"),
@@ -158,6 +168,13 @@ for game,filename,delta in [("W2","cleanwhite2.nds",0),("B2","cleanblack2.nds",0
                "push {r3}","ldr r3,1f","mov ip,r3","pop {r3}","bx ip",".balign 4",
                "1: .word LearnsetScreen",f".size {symbol},.-{symbol}"]
     signature("Private lower background",258,address,4,"THUMB_BRANCH_LINK",4)
+    address=0x2199c2e-delta
+    assert address in calls(ov.data,ov.ramAddress,0x20279e0-arm_delta)
+    symbol=f"THUMB_BRANCH_LINK_258_0x{address:x}"
+    viewer += [".balign 4",f".global {symbol}",f".type {symbol},%function",".thumb_func",symbol+":",
+               "push {r3}","ldr r3,1f","mov ip,r3","pop {r3}","bx ip",".balign 4",
+               "1: .word LearnsetOpeningFade",f".size {symbol},.-{symbol}"]
+    signature("Pokenav completed-screen presentation",258,address,4,"THUMB_BRANCH_LINK",4)
     address=0x2199fe4-delta
     symbol=f"THUMB_BRANCH_LINK_258_0x{address:x}"
     viewer += [".balign 4",f".global {symbol}",f".type {symbol},%function",".thumb_func",symbol+":",
@@ -198,10 +215,10 @@ for game,filename,delta in [("W2","cleanwhite2.nds",0),("B2","cleanblack2.nds",0
         (BUILD/f"{group}{game}.s").write_text("\n".join(asm)+"\n")
         objects=[]
         sources=[SOURCE/f"{group.lower()}.cpp",SOURCE/"config.cpp",SOURCE/"memory.cpp"]
-        if group=='Viewer':sources.append(SOURCE/'info.cpp')
+        if group=='Viewer':sources.extend([SOURCE/'info.cpp', HERE.parent/'pokenav/view.cpp',HERE.parent/'pokenav/style.cpp'])
         for source in sources:
             obj=BUILD/f"{source.stem}{group}{game}.o"; objects.append(obj)
-            run(TOOLS/"arm-none-eabi-g++","-std=c++17","-mthumb","-march=armv5t","-mlong-calls","-Os","-Wall","-Wextra","-Werror",
+            run(TOOLS/"arm-none-eabi-g++","-std=c++17","-mthumb","-march=armv5t","-mlong-calls","-O2" if source.name=='style.cpp' else "-Os","-Wall","-Wextra","-Werror",
                 "-fno-exceptions","-fno-rtti","-fno-unwind-tables","-fno-asynchronous-unwind-tables","-ffreestanding","-fno-builtin",
                 "-fvisibility=hidden",f"-DGAME_{game}","-I",BUILD,"-I",SOURCE,"-c",source,"-o",obj)
         hook=BUILD/f"{group}{game}.o"; objects.append(hook)

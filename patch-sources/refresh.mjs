@@ -248,9 +248,42 @@ const additions = [
     ],
   },
   {
+    name: 'cgear-quick-actions', title: 'C-Gear Buttons and Quick Actions',
+    artifacts: ['CGearQuickActionsB2.dll', 'CGearQuickActionsW2.dll', 'CGearQuickActionsB.dll', 'CGearQuickActionsW.dll'],
+    note: 'Separate BW2 and BW1 profiles and builders. BW2 0.5.3 uses the outer-rim skin dial with 12-degree steps and a moving marker while hiding the digital clock and chevron decal; shared geometry and compiled graphics are inventoried here. It retains the optional Nuzlocke snapshot provider to the Pokenav application action; its shared viewer sources are inventoried separately. Source availability does not establish historical binary reproducibility or hardware acceptance.',
+    extra: [
+      ...fs.readdirSync(path.join(app, 'src/cgearButtons')).filter(name => /\.(ts|json)$/.test(name)).map(name => file('cgear-quick-actions', `integration/buttons/${name}`, 'support-only', `src/cgearButtons/${name}`)),
+      file('cgear-quick-actions', 'integration/cgearButtonsEditor.ts', 'support-only', 'src/ui/cgearButtonsEditor.ts'),
+      file('cgear-quick-actions', 'tests/cgearDial.test.ts', 'test', 'src/test/cgearDial.test.ts'),
+      file('cgear-quick-actions', 'integration/cgearQuickActionsModel.ts', 'support-only', 'src/pokeweb/cgearQuickActionsModel.ts'),
+      file('cgear-quick-actions', 'integration/cgearButtonsModel.ts', 'support-only', 'src/pokeweb/cgearButtonsModel.ts'),
+      file('cgear-quick-actions', 'metadata/cgearQuickActionsManifest.json', 'metadata', 'src/assets/codeinjection/cgearQuickActionsManifest.json'),
+    ],
+  },
+  {
+    name: 'nuzlocke-encounters', title: 'BW2 Nuzlocke Style Encounters',
+    artifacts: ['NuzlockeStyleEncountersB2.dll', 'NuzlockeStyleEncountersW2.dll'],
+    note: 'Version 0.1.0 filters ever-caught ROM evolution families from native wild slots with conditional weights. All-dupe methods prevent encounters by default. Pokenav integration is optional; it grays dupes and normalizes base chances. Native CPU checks, installer round trips and copied-save emulator evidence are distinct; physical hardware acceptance is not claimed.',
+    extra: [
+      file('nuzlocke-encounters', 'integration/nuzlockeEncountersModel.ts', 'support-only', 'src/pokeweb/nuzlockeEncountersModel.ts'),
+      file('nuzlocke-encounters', 'tests/nuzlockeEncounters.test.ts', 'test', 'src/test/nuzlockeEncounters.test.ts'),
+      file('nuzlocke-encounters', 'tests/verify-nuzlocke-encounters.ts', 'test', 'scripts/verify-nuzlocke-encounters.ts'),
+      file('nuzlocke-encounters', 'metadata/nuzlockeEncountersManifest.json', 'metadata', 'src/assets/codeinjection/nuzlockeEncountersManifest.json'),
+    ],
+  },
+  {
+    name: 'pokenav', title: 'BW2 Pokenav encounter browser', artifacts: [],
+    note: 'Pokenav 0.3.0 is linked into the BW2 Learnset 1.8.0 companions and launched by C-Gear Quick Actions 0.5.0; it has no independent DLL. Current map/season tables, grouped species/forms, combined slot chances and a read-only information panel. Both screens share angled panels, a scrolling grid, the native toolbar selector pulse and native X/return footer art. Bounded caches and incremental rendering prioritize input feedback ahead of the preview. Version 0.3.0 adds optional gray dupe icons, normalized chances and a backward-compatible version-2 request. The existing styling includes Summary white/gray primary text, compact muted labels, shoulder-button method switching and complete-screen presentation at entry. Emulator, CPU and installer checks are distinct evidence; no live hardware acceptance is implied.',
+    extra: [
+      file('pokenav', 'integration/pokenavModel.ts', 'support-only', 'src/pokeweb/pokenavModel.ts'),
+      file('pokenav', 'tests/pokenav.test.ts', 'test', 'src/test/pokenav.test.ts'),
+      file('pokenav', 'tests/verify-pokenav-install.ts', 'test', 'scripts/verify-pokenav-install.ts'),
+    ],
+  },
+  {
     name: 'learnset-viewer', title: 'Standalone LEARNSET party-menu viewer',
     artifacts: ['LearnsetMenuB2.dll', 'LearnsetMenuW2.dll', 'LearnsetViewerB2.dll', 'LearnsetViewerW2.dll', 'LearnsetMenuB.dll', 'LearnsetMenuW.dll', 'LearnsetViewerB.dll', 'LearnsetViewerW.dll'],
-    note: `BW2 version ${learnset.version}, with separately compiled US revision-0 B/W ${learnset.games.B.version} companions using independent native profiles and overlays 10/91/173. ${bw1Status(learnset.games)} Shared read-only party/family navigation, session-owned graph/icons, native fonts/type resources and private text are retained. The installer validates fingerprints/native bindings/resources, rejects conflicts, commits PMC/text/both DLLs atomically, and preserves configured IDs and edited private text across update/reinstall/export/reopen. Compiled native-mode DS/extended-memory fixtures do not establish live DSi acceptance or native heap capacity. Canonical sources remain in Pokeweb runtime/learnset-viewer.`,
+    note: `BW2 version ${learnset.version}, with separately compiled US revision-0 B/W ${learnset.games.B.version} companions using independent native profiles and overlays 10/91/173. ${bw1Status(learnset.games)} Shared read-only party/family navigation, session-owned graph/icons, native fonts/type resources and private text are retained. The installer validates fingerprints/native bindings/resources, rejects conflicts, commits PMC/text/both DLLs atomically, and preserves configured IDs and edited private text across update/reinstall/export/reopen. Compiled native-mode DS/extended-memory fixtures do not establish live DSi acceptance or native heap capacity. BW2 also hosts the Pokenav application mode and its explicit species/chance context; those sources are in runtime/pokenav. Canonical sources remain in Pokeweb runtime/learnset-viewer.`,
     extra: [
       file('learnset-viewer', 'metadata/learnsetViewerManifest.json', 'metadata', 'src/assets/codeinjection/learnsetViewerManifest.json'),
       file('learnset-viewer', 'integration/learnsetViewerModel.ts', 'support-only', 'src/pokeweb/learnsetViewerModel.ts'),

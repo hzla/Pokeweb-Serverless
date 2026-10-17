@@ -3,6 +3,7 @@ import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { NARC } from "../nds/narc";
 import { originalGraphics, buttonGraphics, spriteBudget, nativeButtonCircle } from "./nativeGraphics";
 import { circles } from "./circles";
+import { dial } from "./dial";
 import { actionFor, type Document, type Project } from "./document";
 import { defaultSkins, skinBytes, validateSkins } from "./skins";
 import { bw1Panels, compileBw1, composeBw1Button, indexedPixels, bw1ButtonPixels, bw1PoseColours } from "./bw1Graphics";
@@ -39,7 +40,7 @@ export function validate(doc:Document,assets:Assets):Diagnostic[] {
     const maxFlag=assets.game==="BW"?2911:3059;
     if(b.flag&&(!Number.isInteger(b.flag.id)||b.flag.id<1||b.flag.id>maxFlag||!["set","clear"].includes(b.flag.when)))error(`Visibility requires a saved flag from 1–${maxFlag} and a set/clear condition.`,b.id);
     if(doc.buttons.some(c=>c.id!==b.id&&(b.x-c.x)**2+(b.y-c.y)**2<1024))out.push({severity:"warning",button:b.id,message:"Overlaps another custom button; the front button receives touch."});
-    const controls=assets.game==="BW"?[[174,170,8],[198,170,8],[222,170,8],[218,14,12],[48,22,17],[128,22,32]]:[...(doc.hideCommunicationButtons?[]:[[68,60,16],[188,60,16],[128,164,18],[36,158,16]]),[228,144,12],[216,160,10],[200,176,10],[208,18,17],[48,18,17],[128,14,24]];
+    const controls=assets.game==="BW"?[[174,170,8],[198,170,8],[222,170,8],[218,14,12],[48,22,17],[128,22,32]]:[...(doc.hideCommunicationButtons?[]:[[68,60,16],[188,60,16],[128,164,18],[36,158,16]]),[228,144,12],[216,160,10],[200,176,10],[128,14,24]];
     if(controls.some(([x,y,r])=>(b.x-x)**2+(b.y-y)**2<(r+16)**2))out.push({severity:"warning",button:b.id,message:"May overlap a native control; wrench and pattern-toggle input retain priority."});
     if(assets.game==="BW"&&labelWidth>0&&(b.x+18+labelWidth>=256||b.y<21))out.push({severity:"warning",button:b.id,message:"The native callout label extends beyond the screen at this position."});
   }if(doc.buttons.some(b=>b.id>=doc.nextId))error("Next button ID must be greater than existing IDs.");return out;
@@ -58,9 +59,9 @@ export function patterns(assets:Assets):Uint8Array {
 export function compile(doc:Document,assets:Assets,enabled=true,source?:Project):{diagnostics:Diagnostic[];archive?:Uint8Array;nativeGraphics?:NARC;budget?:{bytes:number;capacity:number;oam:number}} {
   const diagnostics=validate(doc,assets);if(diagnostics.some(d=>d.severity==="error"))return {diagnostics};
   try{
-    const actorCount=8;
+    const actorCount=9;
     if(assets.game==="BW")return {diagnostics,...compileBw1(doc,assets,enabled,source,caption,fingerprint)};
-    const original=assets.originalGraphics??originalGraphics(assets.native), packed=buttonGraphics(original,assets.native,true,true),budget=spriteBudget(packed,assets.native,doc.buttons.length);
+    const original=assets.originalGraphics??originalGraphics(assets.native), packed=buttonGraphics(original,assets.native,true,true,6),budget=spriteBudget(packed,assets.native,doc.buttons.length,128);
     if(budget.bytes>budget.capacity)throw new Error("The C-Gear sprite resources exceed native VRAM capacity.");
     const skins=doc.skins??defaultSkins();
     const catalog=new Uint8Array(16+skins.entries.length*8);writeU32(catalog,0,0x534e4b53);writeU16(catalog,4,1);writeU16(catalog,6,skins.entries.length);
@@ -70,10 +71,18 @@ export function compile(doc:Document,assets:Assets,enabled=true,source?:Project)
     const pal=new Uint8Array(16+paletteBytes);writeU32(pal,0,3);writeU32(pal,8,paletteBytes);writeU32(pal,12,16);
     const oamAt=24+actorCount*16,framesAt=24+actorCount*16,indicesAt=24+actorCount*24;
     const cells=new Uint8Array(24+actorCount*24);writeU16(cells,0,actorCount);writeU16(cells,2,1);writeU32(cells,4,24);
-    const anim=new Uint8Array(24+actorCount*28);writeU16(anim,0,actorCount);writeU16(anim,2,8);writeU32(anim,4,24);writeU32(anim,8,framesAt);writeU32(anim,12,indicesAt);
+    const anim=new Uint8Array(24+actorCount*28);writeU16(anim,0,actorCount);writeU16(anim,2,actorCount);writeU32(anim,4,24);writeU32(anim,8,framesAt);writeU32(anim,12,indicesAt);
     const banks:Uint8Array[]=[];
     for(let i=0;i<actorCount;i++){
       const b=i<8?doc.buttons[i]:undefined,a=b&&actionFor(b.action,assets.game)!,at=32+i*16;
+      if(i===8){
+        const c=24+i*16,o=oamAt+i*8,s=24+i*16;
+        writeU16(cells,c,1);writeU16(cells,c+2,0x0808);writeU32(cells,c+4,i*8);
+        writeU16(cells,c+8,3);writeU16(cells,c+10,3);writeU16(cells,c+12,65532);writeU16(cells,c+14,65532);
+        writeU16(cells,o,252);writeU16(cells,o+2,508);writeU16(cells,o+4,0);
+        writeU16(anim,s,1);writeU32(anim,s+4,0x10000);writeU32(anim,s+8,1);writeU32(anim,s+12,i*8);
+        writeU32(anim,framesAt+i*8,i*4);writeU16(anim,framesAt+4+i*8,1);writeU16(anim,indicesAt+i*4,i);continue;
+      }
       if(b&&a){writeU16(header,at,b.id);header[at+2]=a.code;header[at+3]=b.flag?(b.flag.when==="set"?1:2):0;writeU16(header,at+4,a.item);writeU16(header,at+6,a.alternate??0);writeU16(header,at+8,b.flag?.id??0);header[at+10]=b.x;header[at+11]=b.y;header[at+12]=a.check;}
       const paletteIndex=Math.min(i,8);
       for(let j=0;j<16;j++)writeU16(pal,16+paletteIndex*32+j*2,readU16(assets.native.files[14],104+j*2));
@@ -90,11 +99,12 @@ export function compile(doc:Document,assets:Assets,enabled=true,source?:Project)
         bank.set(tile(pixels),pose*512);
       }banks.push(bank);
     }
-    header[45]=+!!doc.hideCommunicationButtons;
+    header[45]=+!!doc.hideCommunicationButtons;header[47]=1;
+    for(const [index,color]of [[10,dial.ink],[11,dial.markerInk],[12,dial.shadowInk]])writeU16(pal,16+index*2,color);
     const p=patterns(assets),graphics=[nitro("RLCN","TTLP",pal),nitro("RECN","KBEC",cells),nitro("RNAN","KNBA",anim),...banks];writeU32(header,16,fingerprint(p));writeU32(header,24,fingerprint(concat(graphics)));writeU32(header,28,fingerprint(concat([header.subarray(0,28),header.subarray(32)])));
     header[46]=1;
     writeU32(header,28,fingerprint(new Uint8Array([...header.subarray(0,28),...header.subarray(32)])));
-    const arc=new NARC();arc.files=[header,...graphics,p,new TextEncoder().encode(JSON.stringify({...source??{document:doc,applied:doc,enabled},skinCatalogFingerprint:fingerprint(catalog),nativeGraphics:{version:5,backupFingerprint:fingerprint(original.save()),packedFingerprint:fingerprint(packed.save()),skinSelector:true,saveControl:true,muteControl:true}})),original.save(),catalog,...skinFiles];return {diagnostics,archive:arc.save(),nativeGraphics:packed,budget};
+    const arc=new NARC();arc.files=[header,...graphics,p,new TextEncoder().encode(JSON.stringify({...source??{document:doc,applied:doc,enabled},skinCatalogFingerprint:fingerprint(catalog),nativeGraphics:{version:6,backupFingerprint:fingerprint(original.save()),packedFingerprint:fingerprint(packed.save()),skinSelector:true,skinDial:true,saveControl:true,muteControl:true}})),original.save(),catalog,...skinFiles];return {diagnostics,archive:arc.save(),nativeGraphics:packed,budget};
   }catch(e){return {diagnostics:[...diagnostics,{severity:"error",message:(e as Error).message}]};}
 }
 export function preview(archive:Uint8Array,index:number,pose=0,design=0,theme=0,gender=0,native?:NARC):Image {

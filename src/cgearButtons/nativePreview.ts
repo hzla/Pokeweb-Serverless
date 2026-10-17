@@ -6,11 +6,14 @@ import { parsePokemonAnimation } from "../pokeweb/pokemonSpriteModel";
 import { blank, blit } from "../customUi/raster";
 import type { Image } from "../customUi/assets";
 import { skinPreview } from "./skins";
+import { dial } from "./dial";
 
 /** Decode the native layers and controls; no substitute browser fonts or icons. */
 export function nativePreview(native: NARC, theme = 0, gender = 0, design = 0, power = true, skin?:Uint8Array,hideCommunication=false,graphics?:NARC,muted=false): Image {
   const f = native.files.slice();if(graphics){f[16]=graphics.files[0];f[17]=graphics.files[1];}
   const bgPalette = f[4 + gender].slice(), objPalette = f[14 + gender].slice();
+  const skinDial=!!graphics&&readU16(f[17],48+31*16)===1;
+  if(skinDial)for(const [index,color]of [[10,dial.ink],[11,dial.markerInk],[12,dial.shadowInk]])writeU16(objPalette,40+7*32+index*2,color);
   const ring = f[6], ringAt = 40 + (theme + gender * 6) * 32;
   bgPalette.set(f[7].subarray(ringAt, ringAt + 32), 40);
   for (let i = 0; i < 5; i++) for (let j = 0; j < 3; j++)
@@ -49,7 +52,8 @@ export function nativePreview(native: NARC, theme = 0, gender = 0, design = 0, p
     if (decoded.warnings.length) throw new Error(decoded.warnings.join("; "));
     blit(image, { width: 256, height: 256, pixels: decoded.rgba }, { x: x + frame.x - 128, y: y + frame.y - 128, width: 256, height: 256 });
   }
-  sprite(1, 48, 18); for(const x of [33,39,47,53])sprite(0,x,14); sprite(5, 208, 18); sprite(21, 128, 10);
+  if(!skinDial){sprite(1,48,18);for(const x of [33,39,47,53])sprite(0,x,14);sprite(5,208,18);}
+  sprite(21,128,10);
   sprite(6, 200, 180); sprite(muted?9:8, 215, 163); sprite(10, 228, 144);
   if(!hideCommunication)sprite(power ? 12 : 14, 35, 160); sprite(3, 128, 96); sprite(power ? 16 : 17, 128, 86);
   // Rings sit behind their pattern/label plates in native OAM order.

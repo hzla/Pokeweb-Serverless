@@ -3,6 +3,7 @@
 This is a CPU/ownership harness, not evidence of DS graphics or travel behavior.
 """
 import json,struct,subprocess,re
+from functools import lru_cache
 from pathlib import Path
 import ndspy.rom,ndspy.codeCompression,ndspy.narc
 from elftools.elf.elffile import ELFFile
@@ -12,17 +13,21 @@ from build import HERE,WS,BUILD,TOOLS,APIS,NATIVE,CALLS
 REGS=[UC_ARM_REG_R0,UC_ARM_REG_R1,UC_ARM_REG_R2,UC_ARM_REG_R3]
 SAVED=[UC_ARM_REG_R4,UC_ARM_REG_R5,UC_ARM_REG_R6,UC_ARM_REG_R7,UC_ARM_REG_R8,UC_ARM_REG_R9,UC_ARM_REG_R10,UC_ARM_REG_R11]
 STOP=0x023f8000;STACK=0x023f0000;SUB=0x02280000;FIELD=SUB+0x100;SYSTEM=SUB+0x200;GAME=SUB+0x300;CONFIG=SUB+0x400;CGEAR=SUB+0x500;PARTY=SUB+0x600;WORK=SUB+0x1000;CLSYS=SUB+0x2000
+@lru_cache(maxsize=2)
+def retailImages(game):
+ rom=ndspy.rom.NintendoDSRom.fromFile(WS/('cleanblack2.nds' if game=='B2' else 'cleanwhite2.nds'))
+ return (rom.arm9RamAddress,bytes(ndspy.codeCompression.decompress(rom.arm9)),tuple((o.ramAddress,bytes(o.data)) for o in rom.loadArm9Overlays(NATIVE.keys()).values()),bytes(ndspy.narc.NARC(rom.files[rom.filenames.idOf('a/0/5/6')]).files[1244]))
 class Harness:
  def __init__(self,game):
     self.game=game;self.delta=64 if game=='B2' else 0;self.armdelta=44 if game=='B2' else 0
     self.uc=Uc(UC_ARCH_ARM,UC_MODE_THUMB);self.uc.ctl_set_cpu_model(UC_CPU_ARM_946);self.uc.mem_map(0x02000000,0x400000);self.uc.mem_map(0x05000000,0x1000);self.uc.mem_map(0x06200000,0x10000)
-    rom=ndspy.rom.NintendoDSRom.fromFile(WS/('cleanblack2.nds' if game=='B2' else 'cleanwhite2.nds'))
-    self.uc.mem_write(rom.arm9RamAddress,bytes(ndspy.codeCompression.decompress(rom.arm9)))
-    for o in rom.loadArm9Overlays(NATIVE.keys()).values():self.uc.mem_write(o.ramAddress,bytes(o.data))
+    armAddress,armBytes,overlays,pcScript=retailImages(game)
+    self.uc.mem_write(armAddress,armBytes)
+    for address,data in overlays:self.uc.mem_write(address,data)
     elf=BUILD/f'{game}-harness.elf'
     bgm=HERE.parent/'bgm-toggle'
     definitions=[f'-Wl,--defsym={name}={address}' for name,address in re.findall(r'Name: (\S+)\s+Segment: 0\s+Address: (0x\w+)',(bgm/f'symbols_{game.lower()}.yml').read_text())]
-    subprocess.run([str(TOOLS/'arm-none-eabi-g++'),'-nostdlib','-Wl,-Ttext=0x02300020,-Tbss=0x02320000,-eQaCGearInit',str(BUILD/f'CGearQuickActions{game}.o'),str(bgm/'build/BgmToggle.elf'),*definitions,'-o',str(elf)],check=True)
+    subprocess.run([str(TOOLS/'arm-none-eabi-g++'),'-nostdlib','-Wl,-Ttext=0x02300020,-Tbss=0x02320000,-eQaCGearInit',str(BUILD/f'CGearQuickActions{game}.o'),str(BUILD/f'runtime{game}.o'),str(BUILD/f'memory{game}.o'),str(bgm/'build/BgmToggle.elf'),*definitions,'-o',str(elf)],check=True)
     with elf.open('rb') as f:
       e=ELFFile(f)
       for p in e.iter_segments():
@@ -35,7 +40,7 @@ class Harness:
       site=address-self.delta;offset=(self.symbols[label]&~1)-site-4
       self.uc.mem_write(site,struct.pack('<HH',0xf000|((offset>>12)&2047),0xf800|((offset>>1)&2047)))
     self.functions={};self.calls=[];self.heap=0x02200000;self.allocations={};self.fail=0;self.attempts=0
-    self.touch=None;self.trigger=False;self.event=0;self.busy=False;self.allowed=True;self.bikeOwned=True;self.mapOwned=True;self.flyAllowed=True;self.eggs=set();self.moves={0:[19]};self.sounds=[];self.chars=set();self.actorSet=set();self.inVblank=False;self.uploads=[];self.vblank=0
+    self.touch=None;self.trigger=False;self.event=0;self.busy=False;self.allowed=True;self.bikeOwned=True;self.mapOwned=True;self.flyAllowed=True;self.eggs=set();self.moves={0:[19]};self.sounds=[];self.chars=set();self.charSizes={};self.actorSet=set();self.inVblank=False;self.uploads=[];self.vblank=0
     self.write(SUB,struct.pack('<IIIHHIIIIII',0,0,0,45,0,0,FIELD,0,0,WORK,0));self.put(FIELD+4,SYSTEM);self.put(FIELD+8,GAME)
     self.put(GAME,CONFIG);self.put(GAME+0x10,PARTY);self.put(WORK,self.ov(0x21ec9cc)|1);self.put(WORK+0x10,SYSTEM);self.put(WORK+0x14,GAME)
     self.flagWork=SUB+0x8000;self.put(GAME+0x1ac,self.flagWork)
@@ -73,8 +78,8 @@ class Harness:
     add(0x204bf48,lambda a:CLSYS+0x2000);add(0x204c134,self.actorDelete)
     add(0x204b8e8,self.char);add(0x204b9b8,self.charDelete);add(0x204c06c,self.actor)
     self.spriteCapacity=4480 # Verified retail repack with feedback leaves this many Sub OBJ bytes.
-    self.actorVisibility={}
-    add(0x204c01c,lambda a:0);add(0x204c044,lambda a:0);add(0x204c54c,lambda a:0);add(0x204c150,lambda a:self.actorVisibility.update({a[0]:bool(a[1])}));add(0x204c16c,lambda a:0)
+    self.actorVisibility={};self.actorPositions={}
+    add(0x204c01c,lambda a:0);add(0x204c044,lambda a:0);add(0x204c54c,lambda a:0);add(0x204c150,lambda a:self.actorVisibility.update({a[0]:bool(a[1])}));add(0x204c16c,lambda a:self.actorPositions.update({a[0]:struct.unpack('<hh',self.uc.mem_read(a[1],4))}))
     self.musicSequences=[];add(0x204c4e4,lambda a:self.musicSequences.append(a[:2]));self.selectorFrames=[];self.put(WORK+0x80,SUB+0xa0a0)
     add(0x204c530,lambda a:self.selectorFrames.append(a[:2]))
     add(0x21ec808,self.workEnd)
@@ -90,7 +95,7 @@ class Harness:
     add(0x21804d0,lambda a:FIELD+0x400);add(0x21984ac,self.subChange);add(0x21983dc,lambda a:int(self.subReady));add(0x2163b78,self.saveMain)
     self.fadeObjBytes=None
     add(0x2026e90,self.fadePaletteSet);add(0x21eb730,lambda a:0)
-    self.pcScript=bytes(ndspy.narc.NARC(rom.files[rom.filenames.idOf('a/0/5/6')]).files[1244]);self.pcOwned={}
+    self.pcScript=pcScript;self.pcOwned={}
     add(0x2006254,lambda a:self.sounds.append(a[0]));add(0x21536ac,self.scriptCreate);add(0x215f024,lambda a:0x022f2000)
     add(0x2016cb4,self.eventCreate);add(0x215b4c8,self.mapCreate);add(0x2016d68,lambda a:self.children.append((a[0],a[1])))
     add(0x2180500,lambda a:45);add(0x2159460,self.flyCreate);add(0x2017994,lambda a:GAME+0x800);add(0x20095a0,lambda a:self.record.append(a[1]))
@@ -136,8 +141,8 @@ class Harness:
     return p
  def char(self,a):
     i=next(i for i in range(16) if i not in self.chars);self.chars.add(i)
-    self.put(CLSYS+0x400+i*64+60,512);self.write(CLSYS+0x400+i*64+52,struct.pack('<II',0xffffffff,512*i if len(self.chars)*512<=self.spriteCapacity else 0xffffffff));return i
- def charDelete(self,a):assert a[0] in self.chars;self.chars.remove(a[0]);self.put(CLSYS+0x400+a[0]*64+60,0x80000000);return 0
+    used=sum(self.charSizes.values());self.charSizes[i]=a[0];self.put(CLSYS+0x400+i*64+60,a[0]);self.write(CLSYS+0x400+i*64+52,struct.pack('<II',0xffffffff,used if used+a[0]<=self.spriteCapacity else 0xffffffff));return i
+ def charDelete(self,a):assert a[0] in self.chars;self.chars.remove(a[0]);del self.charSizes[a[0]];self.put(CLSYS+0x400+a[0]*64+60,0x80000000);return 0
  def actor(self,a):p=self.allocate(32);self.actorSet.add(p) if p else None;return p
  def actorDelete(self,a):self.actorSet.remove(a[0]);return self.free(a[0])
  def unitDelete(self,a):
@@ -150,7 +155,7 @@ class Harness:
  def upload(self,a):
     assert self.inVblank,'Upload outside VBlank'
     source=self.word(a[1]+20);size=self.word(a[1]+16)
-    assert size==512 and any(p<=source and source+size<=p+n for p,n in self.allocations.items()),'DMA source is not retained main-RAM allocation'
+    assert size==self.charSizes[a[0]] and size in (128,512) and any(p<=source and source+size<=p+n for p,n in self.allocations.items()),'DMA source is not retained main-RAM allocation'
     self.uploads.append((a[0],bytes(self.uc.mem_read(source,size))));return 0
  def skinCharUpload(self,a):
     assert self.inVblank and a[0]==5 and a[2]==0x1fe0 and a[3]==0
@@ -559,6 +564,69 @@ for game in ('W2','B2'):
  assert h.uc.mem_read(originalPointer+0x1fe0,32)==colors,'Original skin captured a faded palette'
  h.call('QaCGearExit',SUB);assert not h.allocations
  print(game,'15-skin cycle, pressed feedback/expiry, once-per-press menu sound, original picture, VBlank/main-RAM uploads, hold suppression, silent blocked/wrench input and reload, saved selection, corrupt-read recovery and cleanup passed')
+
+# Continuous BW2 rim dial, including in-flight upload identity and cancellation.
+import math
+for game in ('W2','B2'):
+ def point(degrees):return (128+round(125*math.cos(math.radians(degrees))),96+round(125*math.sin(math.radians(degrees))))
+ def setup(buttons=None,capacity=4288):
+    h=Harness(game)
+    if buttons is not None:h.configure(buttons)
+    header=bytearray(h.arc.files[0]);struct.pack_into('<H',header,4,7);header[45]=header[47]=1;h.arc.files[0]=header;h.rehash();h.nativeTouch=-1;h.spriteCapacity=capacity
+    for i in range(6):h.put(WORK+0x6c+i*4,SUB+0xa000+i*32)
+    h.call('QaCGearInit',SUB);h.call('QaCGearUpdate',SUB,1)
+    return h
+ def tick(h):
+    h.call('QaCGearUpdate',SUB,1);h.inVblank=True;h.call(h.vblank);h.inVblank=False
+ def settle(h):tick(h);tick(h)
+ def move(h,a):h.touch=point(a);h.call('QaInput',WORK)
+ def saved(h):return struct.unpack('<H',h.uc.mem_read(CGEAR+16,2))[0]&4095
+ def marker(h):
+    custom={h.word(h.session()+12+i*4)for i in range(h.byte(h.session()+733))}
+    return next(iter(h.actorSet-custom))
+ h=setup();settle(h);m=marker(h);assert len(h.actorSet)==5 and not h.actorVisibility[m]
+ assert all(not h.actorVisibility[SUB+0xa000+i*32] for i in range(6)),'Clock or decal actor remained visible'
+ h.nativeTouch=3;assert h.call('QaButtonHit',WORK)==0xffffffff,'Hidden clock retained touch input';h.nativeTouch=-1
+ h.press(208,18);settle(h);h.release();assert not h.skinUploads and not h.sounds,'Removed selector still activated'
+ h.press(*point(-140));assert h.actorVisibility[m],'Former clock area blocked rim capture';h.release()
+ h.press(*point(0));assert h.actorVisibility[m];h.nativeTouch=7;assert h.call('QaButtonHit',WORK)==0xffffffff,'Captured rim drag reached native controls';h.nativeTouch=-1
+ move(h,11);settle(h);assert not h.skinUploads
+ move(h,13);settle(h);assert saved(h)==1 and h.skinUploads[-1]==h.arc.files[16] and h.sounds==[1356]
+ for _ in range(6):h.call('QaInput',WORK);settle(h)
+ assert len(h.skinUploads)==1 and len(h.sounds)==1,'Held stationary dial repeated'
+ h.release();assert not h.actorVisibility[m]
+ h.press(*point(0));move(h,-13);settle(h);assert saved(h)==0
+ h.release();h.press(*point(0));move(h,-13);settle(h);assert saved(h)==15
+ h.release();h.press(*point(-13));move(h,.6);settle(h);assert saved(h)==0,'Zero wrap jumped/reversed'
+ h.release()
+ # A second request arrives after preparation but before the first upload.
+ h.press(*point(0));move(h,13);h.call('QaCGearUpdate',SUB,1);move(h,27)
+ h.inVblank=True;h.call(h.vblank);h.inVblank=False
+ assert saved(h)==1 and h.skinUploads[-1]==h.arc.files[16],'Prepared pixels and saved ID diverged'
+ settle(h);assert saved(h)==2 and h.skinUploads[-1]==h.arc.files[17]
+ x,y=h.actorPositions[m];assert abs(math.hypot(x-128,y-96)-125)<2
+ h.release()
+ # A native event cancels an unprepared target and suppresses held touches.
+ before=len(h.skinUploads);h.press(*point(0));move(h,13);h.busy=True;tick(h)
+ assert not h.actorVisibility[m];h.busy=False;settle(h);assert len(h.skinUploads)==before
+ move(h,27);settle(h);assert len(h.skinUploads)==before
+ h.release();h.write(WORK+0x2fe,b'\1');h.press(*point(0));move(h,27);settle(h);h.release();assert len(h.skinUploads)==before
+ h.write(WORK+0x2fe,b'\0');h.call('QaCGearExit',SUB);assert not h.allocations and not h.chars and not h.actorSet
+ # Shown unavailable custom controls retain their touches above the rim.
+ custom=list(DEFAULT);custom[2]=(3,3,450,0,0,240,96,0,0)
+ h=setup(custom);h.bikeOwned=True;h.useBlocked={0};settle(h);h.press(240,96);move(h,13);settle(h)
+ assert not h.actorVisibility[marker(h)] and not h.skinUploads;h.release();h.call('QaCGearExit',SUB)
+ # All eight actions plus marker fit; finite VRAM failure restores ownership.
+ h=setup(DEFAULT+EXTRA);settle(h);assert len(h.actorSet)==9 and len(h.chars)==9
+ h.call('QaGearUnit',84,0,45);assert h.calls[-1][1][0]==93
+ h.call('QaCGearExit',SUB);assert not h.allocations and not h.chars and not h.actorSet
+ h=setup(DEFAULT+EXTRA,4096);assert not h.actorSet and not h.chars,'Marker VRAM failure retained button resources'
+ h.call('QaCGearExit',SUB);assert not h.allocations
+ for failure in range(1,26):
+    h=Harness(game);header=bytearray(h.arc.files[0]);struct.pack_into('<H',header,4,7);header[47]=1;h.arc.files[0]=header;h.rehash();h.fail=failure
+    h.call('QaCGearInit',SUB);h.call('QaCGearUpdate',SUB,1);h.call('QaCGearExit',SUB)
+    assert not h.allocations and not h.chars and not h.actorSet,('dial allocation cleanup',failure)
+ print(game,'dial 12-degree CW/CCW, wrapping, stationary hold, marker, upload coalescing/identity, blocked/wrench cancellation, custom priority, nine resources and allocation cleanup passed')
 
 # New native control replacements, hidden communication input, Save ownership.
 for game in ('W2','B2'):

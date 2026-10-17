@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import manifest from "../assets/codeinjection/cgearQuickActionsManifest.json";
-import { writeU32 } from "../nds/binary";
+import { writeU16, writeU32 } from "../nds/binary";
 import { Folder } from "../nds/fnt";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
@@ -48,12 +48,22 @@ function makeProject(v: Version, bytes?: Uint8Array): ProjectState {
   return {originalRomBytes:bytes,session:{romName:"test",baseVersion:v,baseRom:"BW2",fairy:false,fileIds:{},blacklist:[]},
     romInfo:{title:"test",idCode:r.idCode,fileName:"test.nds",size:bytes.length},arm9:r.arm9,overlays:{},narcs:{},texts:{banks:{}},formats:{},trpokInfo:[],codeInjection:detectPmcInstallFromRom(r)};
 }
+// Actual pre-dial archives contain eight cell/animation sequences.
+function legacyControls(arc:NARC){
+  const cells=arc.files[2],anim=arc.files[3],c=new Uint8Array(240),a=new Uint8Array(272);
+  c.set(cells.subarray(0,176));c.set(cells.subarray(192,256),176);writeU16(c,24,8);writeU32(c,8,c.length);writeU32(c,20,c.length-16);
+  a.set(anim.subarray(0,176));a.set(anim.subarray(192,256),176);a.set(anim.subarray(264,296),240);
+  writeU16(a,24,8);writeU16(a,26,8);writeU32(a,32,152);writeU32(a,36,216);writeU32(a,8,a.length);writeU32(a,20,a.length-16);
+  arc.files[2]=c;arc.files[3]=a;arc.files[0][47]=0;
+  const metadata=JSON.parse(new TextDecoder().decode(arc.files[13]));delete metadata.nativeGraphics.skinDial;arc.files[13]=new TextEncoder().encode(JSON.stringify(metadata));
+  writeU32(arc.files[0],24,fingerprint(new Uint8Array(arc.files.slice(1,12).flatMap(b=>Array.from(b)))));
+}
 describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
   it('upgrades 0.3.6 graphics and shares mute without changing music mappings or shortcut preference',async()=>{
     const p=makeProject(v);assets();await installCGearQuickActions(p);
     const mapping={targetSequenceId:1,streamId:2,originalSequenceFileId:3,shadowFileId:4,streamFileId:5};
     stageCodeInjectionDll(p,`BgmToggle${v}.dll`,await configureBundledBgmRuntime(v,{shortcutEnabled:false,mappings:[mapping]}));
-    const arc=new NARC(p.fileSystem!.additions![manifest.archivePath]),backup=new NARC(arc.files[14]),oldGraphics=buttonGraphics(backup,undefined,true,true,3),metadata=JSON.parse(new TextDecoder().decode(arc.files[13]));metadata.nativeGraphics.version=3;delete metadata.nativeGraphics.muteControl;metadata.nativeGraphics.packedFingerprint=fingerprint(oldGraphics.save());arc.files[13]=new TextEncoder().encode(JSON.stringify(metadata));arc.files[0][46]=0;const h=arc.files[0];writeU32(h,28,fingerprint(new Uint8Array([...h.subarray(0,28),...h.subarray(32)])));const old=arc.save();
+    const arc=new NARC(p.fileSystem!.additions![manifest.archivePath]);legacyControls(arc);const backup=new NARC(arc.files[14]),oldGraphics=buttonGraphics(backup,undefined,true,true,3),metadata=JSON.parse(new TextDecoder().decode(arc.files[13]));metadata.nativeGraphics.version=3;delete metadata.nativeGraphics.muteControl;metadata.nativeGraphics.packedFingerprint=fingerprint(oldGraphics.save());arc.files[13]=new TextEncoder().encode(JSON.stringify(metadata));arc.files[0][46]=0;const h=arc.files[0];writeU32(h,28,fingerprint(new Uint8Array([...h.subarray(0,28),...h.subarray(32)])));const old=arc.save();
     p.fileSystem!.additions![manifest.archivePath]=old;
     p.fileSystem!.additions![`patches/CGearQuickActions${v}.dll`]=new Uint8Array(readFileSync(new URL(`./fixtures/cgear-quick-actions-v0.3.6/CGearQuickActions${v}.dll`,import.meta.url)));
     p.cgearButtons=recoverCGearButtons(old);const design=structuredClone(p.cgearButtons.document);
@@ -98,9 +108,9 @@ describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
     stageCodeInjectionDll(p,'OtherPhenomenon.dll',writeRpm(other,{ident:'DLXF'}));
     expect(getCGearQuickActionsStatus(p)).toMatchObject({compatible:false,message:expect.stringContaining('Conflicting')});
   });
-  it.each([1,2,3,4] as const)('updates graphics version %s and restores native graphics on disable',async version=>{
+  it.each([1,2,3,4,5] as const)('updates graphics version %s and restores native graphics on disable',async version=>{
     const p=makeProject(v);assets();await installCGearQuickActions(p);
-    const arc=new NARC(p.fileSystem!.additions![manifest.archivePath]),backup=new NARC(arc.files[14]);
+    const arc=new NARC(p.fileSystem!.additions![manifest.archivePath]);legacyControls(arc);const backup=new NARC(arc.files[14]);
     const old=buttonGraphics(backup,undefined,true,true,version),metadata=JSON.parse(new TextDecoder().decode(arc.files[13]));
     if(version<4){delete metadata.nativeGraphics.muteControl;arc.files[0][46]=0;}const h=arc.files[0];writeU32(h,28,fingerprint(new Uint8Array([...h.subarray(0,28),...h.subarray(32)])));if(version===1)delete metadata.nativeGraphics.version;else metadata.nativeGraphics.version=version;
     metadata.nativeGraphics.packedFingerprint=fingerprint(old.save());

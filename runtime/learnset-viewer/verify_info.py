@@ -20,7 +20,7 @@ TOOLS=HERE.parents[2]/'toolchains/arm-gnu-toolchain-14.2.rel1-darwin-arm64-arm-n
 REGS=[UC_ARM_REG_R0,UC_ARM_REG_R1,UC_ARM_REG_R2,UC_ARM_REG_R3,UC_ARM_REG_R4,UC_ARM_REG_R5,UC_ARM_REG_R6,UC_ARM_REG_R7]
 WORK, REQUEST, BITMAP, PIXELS, MAP, BUFFER, STOP, STACK=0x02300000,0x02301000,0x02302000,0x02310000,0x02318000,0x02319000,0x02ef0000,0x02ff0000
 MESSAGES=json.loads((HERE/'info_messages.json').read_text())
-INFO_BYTES=10392
+INFO_BYTES=10392 if '--bw1' in sys.argv else 10404
 GRAPH_NODE_BYTES=10
 
 def decode_bank(data):
@@ -41,9 +41,9 @@ def decode_bank(data):
     return out
 
 class Font:
-    def __init__(self,rom):
+    def __init__(self,rom,member=0):
         # The US tutor initializes font archive 23, member 0 (large).
-        self.raw=ndspy.narc.NARC(rom.getFileByName('a/0/2/3')).files[0]
+        self.raw=ndspy.narc.NARC(rom.getFileByName('a/0/2/3')).files[member]
         self.glyph,_,self.mapping=struct.unpack_from('<III',self.raw,32)
         self.w,self.h,self.size=struct.unpack_from('<BBH',self.raw,self.glyph)
         self.cache={}
@@ -90,7 +90,7 @@ class Harness:
         tutor_overlay=173 if self.bw1 else 258
         overlay=self.rom.loadArm9Overlays([tutor_overlay])[tutor_overlay]
         self.c.mem_write(overlay.ramAddress,bytes(overlay.data))
-        linked=BUILD/f'info-{game}.elf'
+        linked=BUILD/f'{os.environ.get("LEARNSET_INFO_LINK_PREFIX","info")}-{game}.elf'
         subprocess.run([str(TOOLS/'arm-none-eabi-ld'),'-Ttext','0x02e00000','-Tdata','0x02e80000','-e','LearnsetWindow',str(BUILD/f'LearnsetViewer{game}.elf'),'-o',str(linked)],check=True,capture_output=True)
         with linked.open('rb') as stream:
             elf=ELFFile(stream);self.symbols={s.name:s['st_value'] for s in elf.get_section_by_name('.symtab').iter_symbols() if s.name and s['st_shndx']!='SHN_UNDEF'}
@@ -106,7 +106,7 @@ class Harness:
         self.stub(0x2048590,lambda:(self.free(self.r(0)),self.ret()))
         self.stub(0x204871c,lambda:self.ret(self.r(0)))
         self.stub(0x2048640,lambda:(self.strings.__setitem__(self.r(0),self.text(self.r(1))),self.ret()))
-        self.stub(0x20228b4,lambda:self.ret(self.font.text(self.strings[self.r(0)])[0]))
+        self.stub(0x20228b4,lambda:self.ret(getattr(self,'fonts',{}).get(self.r(1),self.font).text(self.strings[self.r(0)])[0]))
         self.stub(0x2021d54,self.draw)
         self.stub(0x2048520,lambda:self.ret(BITMAP))
         self.stub(0x2047168,lambda:(self.c.mem_write(PIXELS,bytes([self.r(1)*17])*24576),self.ret()))
@@ -207,7 +207,7 @@ class Harness:
         for i in range(4,8):self.c.reg_write(REGS[i],0x11110000+i)
         for i,n in enumerate(args[4:]):self.w32(STACK+4*i,n)
         self.c.reg_write(UC_ARM_REG_SP,STACK);self.c.reg_write(UC_ARM_REG_LR,STOP|1)
-        self.c.emu_start(address if self.bw1 and isinstance(name,int) else address|1,STOP,count=12000000)
+        self.c.emu_start(address if self.bw1 and isinstance(name,int) else address|1,STOP,count=getattr(self,'instruction_limit',12000000))
         assert self.c.reg_read(UC_ARM_REG_PC)==STOP,(name,hex(self.c.reg_read(UC_ARM_REG_PC)))
         assert self.c.reg_read(UC_ARM_REG_SP)==STACK
         assert [self.r(i) for i in range(4,8)]==[0x11110000+i for i in range(4,8)]
@@ -244,9 +244,10 @@ class Harness:
         self.ret({31:struct.unpack_from('<H',d,30)[0],32:d[32],35:0}.get(self.r(2),0))
     def draw(self):
         text=self.strings[self.r(3)];x=self.r(1);y=self.r(2)
-        width,glyph=self.font.text(text)
+        font=getattr(self,'fonts',{}).get(struct.unpack('<I',self.c.mem_read(self.c.reg_read(UC_ARM_REG_SP),4))[0],self.font)
+        width,glyph=font.text(text)
         assert x<256 and x+width<=256 and y+15<=192,(x,y,text,width)
-        if y>=136:assert y in (140,156,172),('evolution text baseline',x,y,text)
+        if y>=136 and not getattr(self,'styled',False):assert y in (140,156,172),('evolution text baseline',x,y,text)
         self.draws.append((x,y,text))
         color=struct.unpack('<I',self.c.mem_read(self.c.reg_read(UC_ARM_REG_SP)+4,4))[0]
         self.colors.append((x,y,text,color))
@@ -514,6 +515,39 @@ def rom_name(h,name):
 reports={}
 for game in (['B','W'] if '--bw1' in sys.argv else ['W2','B2']) if __name__=='__main__' else []:
     h=Harness(game)
+    if '--pokenav-only' in sys.argv:
+        context=0x2306000
+        expected=ndspy.narc.NARC(h.files['a/0/0/7']).files[0][40:136]
+        assert len(ndspy.narc.NARC(h.files['a/0/0/7']).files[0])>136, 'Exercise the native NCLR palette-index tail'
+        assert h.call('_Z16infoIconPalettesPt',context)==1
+        assert bytes(h.c.mem_read(context,96))==expected, 'Three native icon palettes must be read despite the NCLR tail'
+        assert not h.opened and not h.allocations
+        references={'palettes':list(struct.unpack('<48H',expected)),'icons':{}}
+        for species in [1,25,133,172]:
+            icon=context+128;bank=icon+1024
+            assert h.call(next(n for n in h.symbols if n.startswith('_Z8infoIcon')),species,0,icon,bank)
+            references['icons'][str(species)]={'bank':h.c.mem_read(bank,1)[0],'pixels':bytes(h.c.mem_read(icon,512)).hex()}
+        reference_dir=HERE.parent/'pokenav/build';reference_dir.mkdir(exist_ok=True)
+        (reference_dir/f'icon-reference-{game}.json').write_text(json.dumps(references))
+        for chance in [1,30,100]:
+            h.reset();h.species=25;h.c.mem_write(context,struct.pack('<HHBB',25,0,chance,0))
+            before=bytes(h.c.mem_read(REQUEST,260))
+            h.call('_Z8infoInitPvP7RequestPK11InfoContext',WORK,REQUEST,context)
+            header=[t for x,y,t in h.draws if y==4]
+            assert header==['PIKACHU',str(chance)+'%'],header
+            assert bytes(h.c.mem_read(REQUEST,260))==before
+            assert any(h.c.mem_read(0x2300a00+0x60,4)), 'Expected a native type badge before clearing'
+            h.draws=[];h.call('_Z9infoEmptyPv',WORK)
+            assert [t for x,y,t in h.draws]==['No encounters.']
+            assert h.colors[-1][3]==0x19c0, 'Empty preview uses dark text on the pale panel'
+            assert not h.allocations and not h.opened
+            for i in range(2):
+                assert not h.u16(WORK+0x144+i*8)
+                assert not struct.unpack('<I',h.c.mem_read(0x2300a00+i*0x100+0x60,4))[0]&(1<<26)
+            h.end()
+        reports[game]={'pokenavHeaderAndEmptyPreview':'passed','liveGameTest':False}
+        print(game,'explicit encounter header 1%/30%/100%, unchanged request, and cleared empty preview/type badges passed',flush=True)
+        continue
     if '--custom-ui-only' in sys.argv:
         h.species=30;h.start()
         baseline=(bytes(h.c.mem_read(PIXELS,24576)),bytes(h.c.mem_read(MAP,2048)),bytes(h.c.mem_read(0x5000000,512)))
@@ -918,5 +952,5 @@ for game in (['B','W'] if '--bw1' in sys.argv else ['W2','B2']) if __name__=='__
     h.end() # Cache allocation failure safely falls back to uncached reads.
     reports[game]={'peakInstrumentedInfoHeapBytes':max(peaks),'openingIO':opening_io,'menuLifetimeUnchanged':True,'compiledInfoTests':'passed','liveGameTest':False}
     print(game,'compiled info: matching pale stats/inset, dark ability text and purple hidden abilities, selected-only frame/unclipped icons, party cue, charcoal footer/teal fin, ROM data, branching/paging, cycles, failure and cleanup passed',flush=True)
-report='custom-ui-native-verification.json' if '--custom-ui-only' in sys.argv else 'info-cache-verification.json' if '--cache-only' in sys.argv else 'info-header-verification.json' if '--header-only' in sys.argv else 'info-terminal-verification.json' if '--terminal-only' in sys.argv else 'info-navigation-verification.json' if '--navigation-only' in sys.argv else 'info-io.json' if '--io-only' in sys.argv else 'info-layout-verification.json' if '--layout-only' in sys.argv else 'info-verification.json'
+report='pokenav-info-verification.json' if '--pokenav-only' in sys.argv else 'custom-ui-native-verification.json' if '--custom-ui-only' in sys.argv else 'info-cache-verification.json' if '--cache-only' in sys.argv else 'info-header-verification.json' if '--header-only' in sys.argv else 'info-terminal-verification.json' if '--terminal-only' in sys.argv else 'info-navigation-verification.json' if '--navigation-only' in sys.argv else 'info-io.json' if '--io-only' in sys.argv else 'info-layout-verification.json' if '--layout-only' in sys.argv else 'info-verification.json'
 if __name__=='__main__':(BUILD/('bw1-'+report if '--bw1' in sys.argv else report)).write_text(json.dumps(reports,indent=2)+'\n')

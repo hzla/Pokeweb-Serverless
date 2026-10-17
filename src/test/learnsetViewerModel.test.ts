@@ -27,10 +27,10 @@ describe("standalone LEARNSET companions", () => {
       expect(getLearnsetViewerStatus(project)).toMatchObject({ installed: false, partial: false, compatible: true, canUninstall: false });
     });
     it(`${version}: stripped pair has only intended overlay dependencies, no dynamic imports or constructors`, () => {
-      for (const [group, expected, count] of [["Menu", ["12", "165"], 3], ["Viewer", ["258"], 25]] as const) {
+      for (const [group, expected, count] of [["Menu", ["12", "165"], 3], ["Viewer", ["258"], 26]] as const) {
         const bytes = assets[`Learnset${group}${version}`]!;
         const rpm = parseRpm(bytes, { allowedMagics: ["DLXF"] });
-        expect(rpm.metadata).toMatchObject({ PMCGameID: version, PMCVersion: "1.5.0", PMCModulePriority: 4 });
+        expect(rpm.metadata).toMatchObject({ PMCGameID: version, PMCVersion: manifest.version, PMCModulePriority: 4 });
         // The actual PMC activation loop visits only chains 0..4. Merely
         // matching our own manifest does not prove a DLL will load.
         expect(Number(rpm.metadata.PMCModulePriority)).toBeGreaterThanOrEqual(0);

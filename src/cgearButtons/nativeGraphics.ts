@@ -36,7 +36,7 @@ export function nativeButtonCircle(native:NARC,original=originalGraphics(native)
 }
 
 /** Replace owned control glyphs while retaining native circles and palettes. */
-export function buttonGraphics(original:NARC,native?:NARC,selector=false,saveControl=false,style:1|2|3|4|5=5):NARC {
+export function buttonGraphics(original:NARC,native?:NARC,selector=false,saveControl=false,style:1|2|3|4|5|6=5):NARC {
   if(!selector&&!saveControl)return packNativeGraphics(original);
   const indices=[31,32,33,34,36,37];
   if(native&&selector){
@@ -47,12 +47,23 @@ export function buttonGraphics(original:NARC,native?:NARC,selector=false,saveCon
   const key=Number(selector)|Number(saveControl)<<1|style<<2,cache=decoratedCache.get(original)??new Map<number,NARC>(),cached=cache.get(key);if(cached)return cached;decoratedCache.set(original,cache);
   const [characters,cells]=original.files,start=24+readU32(cells,28),oam=start+readU16(cells,24)*16;
   const muteControl=style>=4&&saveControl;
-  const feedback=selector&&style>=3,glyphBytes=feedback?128:64;
-  const char=new Uint8Array(characters.length+glyphBytes+(saveControl?128:0)+(muteControl?(style===5?256:128):0));char.set(characters);
+  const feedback=selector&&style>=3,glyphBytes=style===6?512:feedback?128:64;
+  const char=new Uint8Array(characters.length+glyphBytes+(saveControl?128:0)+(muteControl?(style>=5?256:128):0));char.set(characters);
   const glyph=new Uint8Array(16*8);
   for(let y=0;y<7;y++)for(const offset of [2,8])for(let w=0;w<2;w++)glyph[y*16+offset+3-Math.abs(3-y)+w]=7;
   for(let y=0;y<8;y++)for(let x=0;x<16;x+=2)char[characters.length+Math.floor(x/8)*32+y*4+(x%8)/2]=glyph[y*16+x]|glyph[y*16+x+1]<<4;
   if(feedback)for(let i=0;i<64;i++){const v=char[characters.length+i];char[characters.length+64+i]=(v&15?3:0)|(v>>4?48:0);}
+  if(style===6){
+    // A faint tangent-facing decal on the upper-right rim. Its palette is
+    // owned bank 7; the former circular network control is removed below.
+    char.fill(0,characters.length,characters.length+glyphBytes);
+    const angle=65*Math.PI/180,cos=Math.cos(angle),sin=Math.sin(angle);
+    for(let frame=0;frame<2;frame++)for(let y=0;y<32;y++)for(let x=0;x<16;x++){
+      const sx=Math.round(cos*(x-7.5)+sin*(y-15.5)+9),sy=Math.round(-sin*(x-7.5)+cos*(y-15.5)+2);
+      const ink=sy>=0&&sy<5&&[0,4,8,12,16].some(o=>sx===o+2-Math.abs(2-sy))?10+frame:0;
+      const at=characters.length+frame*256+((y>>3)*2+(x>>3))*32+(y&7)*4+((x&7)>>1);char[at]|=ink<<((x&1)*4);
+    }
+  }
   writeU32(char,8,char.length);writeU32(char,20,char.length-16);writeU32(char,40,char.length-48);
   const cell=cells.slice(),tile=(characters.length-48)/32;
   for(const i of selector?indices:[]){
@@ -64,6 +75,7 @@ export function buttonGraphics(original:NARC,native?:NARC,selector=false,saveCon
     const pressed=feedback&&i===37;
     writeU16(cell,at,pressed?0x40fd:0x40fc);writeU16(cell,at+4,(readU16(cell,at+4)&0xfc00)|(tile+(pressed?2:0)));
     if(pressed)for(const offset of [4,10])writeU16(cell,at+offset,(readU16(cell,at+offset)&0x0fff)|0x1000);
+    if(style===6){writeU16(cell,entry,1);writeU16(cell,at,0x80f0);writeU16(cell,at+2,0x81f8);writeU16(cell,at+4,0x7000|tile+(pressed?8:0));}
   }
   if(saveControl){
     if(native&&[6,7].flatMap(i=>parsePokemonAnimation(native.files[18]).sequences[i]?.frames.map(f=>f.cellIndex)??[]).join(",")!=="22,25,22,25,22")throw new Error("The ROM changed the native power-control animation; restore compatible graphics.");
@@ -71,7 +83,7 @@ export function buttonGraphics(original:NARC,native?:NARC,selector=false,saveCon
     // index; the circle supplies the theme fill. Retain the two
     // older variants so recognized installations can be updated/restored.
     const disk=["111111111000","110000010100","110000010110","110000010111","110000000111","111111111111","111111111111","110000000011","110000000011","110000000011","110000000011","111111111111"];
-    const size=style===5?10:12,pad=(16-size)/2;
+    const size=style>=5?10:12,pad=(16-size)/2;
     for(let y=0;y<16;y++)for(let x=0;x<16;x+=2){const pixel=(px:number)=>y>=pad&&y<pad+size&&px>=pad&&px<pad+size&&disk[Math.floor((y-pad+.5)*12/size)][Math.floor((px-pad+.5)*12/size)]==="1"?(style===1?7:style===2?1:3):0;char[characters.length+glyphBytes+(Math.floor(y/8)*2+Math.floor(x/8))*32+(y%8)*4+(x%8)/2]=pixel(x)|pixel(x+1)<<4;}
     for(const i of [22,25]){
       const entry=start+i*16,at=oam+readU32(cell,entry+4);
@@ -86,13 +98,13 @@ export function buttonGraphics(original:NARC,native?:NARC,selector=false,saveCon
     // the slash legible at native resolution, using only native detail ink.
     const mask=(x:number,y:number)=>x===y||(note[y]?.[x]==="1"&&Math.abs(x-y)>1);
     const base=characters.length+glyphBytes+128;
-    const ox=style===5?2:1,oy=style===5?2:3;
-    for(let frame=0;frame<(style===5?2:1);frame++)for(let y=0;y<16;y++)for(let x=0;x<16;x+=2){const pixel=(px:number)=>y>=oy&&y<oy+12&&px>=ox&&px<ox+12&&(style===5&&frame===0?note[y-oy][px-ox]==="1":mask(px-ox,y-oy))?3:0;char[base+frame*128+(Math.floor(y/8)*2+Math.floor(x/8))*32+(y%8)*4+(x%8)/2]=pixel(x)|pixel(x+1)<<4;}
+    const ox=style>=5?2:1,oy=style>=5?2:3;
+    for(let frame=0;frame<(style>=5?2:1);frame++)for(let y=0;y<16;y++)for(let x=0;x<16;x+=2){const pixel=(px:number)=>y>=oy&&y<oy+12&&px>=ox&&px<ox+12&&(style>=5&&frame===0?note[y-oy][px-ox]==="1":mask(px-ox,y-oy))?3:0;char[base+frame*128+(Math.floor(y/8)*2+Math.floor(x/8))*32+(y%8)*4+(x%8)/2]=pixel(x)|pixel(x+1)<<4;}
     for(const i of [23,26]){
       const entry=start+i*16,at=oam+readU32(cell,entry+4);
       if(i>=readU16(cell,24)||readU16(cell,entry)!==2||readU16(cell,at)!==0xf8||readU16(cell,at+2)!==0x41f8)throw new Error("The ROM changed the native help-control cell; restore compatible graphics.");
-      writeU16(cell,at+4,(readU16(cell,at+4)&0xfc00)|(tile+glyphBytes/32+4+(style===5&&i===26?4:0)));
-      if(style===5&&i===26){const normal=oam+readU32(cell,start+23*16+4);for(const off of [4,10])writeU16(cell,at+off,(readU16(cell,at+off)&0x0fff)|(readU16(cell,normal+off)&0xf000));}
+      writeU16(cell,at+4,(readU16(cell,at+4)&0xfc00)|(tile+glyphBytes/32+4+(style>=5&&i===26?4:0)));
+      if(style>=5&&i===26){const normal=oam+readU32(cell,start+23*16+4);for(const off of [4,10])writeU16(cell,at+off,(readU16(cell,at+off)&0x0fff)|(readU16(cell,normal+off)&0xf000));}
     }
   }
   const changed=new NARC();changed.files=[char,cell];const packed=packNativeGraphics(changed);cache.set(key,packed);return packed;
@@ -142,9 +154,9 @@ export function packNativeGraphics(original:NARC):NARC {
   groups.forEach((g,i)=>{writeU16(cell,start+i*16,g.length);writeU32(cell,start+i*16+4,pos-oam);for(const p of g){writeU16(cell,pos,p.a);writeU16(cell,pos+2,p.b);writeU16(cell,pos+4,(p.c&0xfc00)|indices.get(p)!);pos+=6;}});
   const result=new NARC();result.files=[char,cell];packedCache.set(original,result);return result;
 }
-export function spriteBudget(packed:NARC,native:NARC,buttons:number):{bytes:number;capacity:number;oam:number} {
+export function spriteBudget(packed:NARC,native:NARC,buttons:number,markerBytes=0):{bytes:number;capacity:number;oam:number} {
   const patternBytes=Math.max(...native.files.slice(19,29).map(b=>readU32(b,40)));
-  const bytes=512+readU32(packed.files[0],40)+patternBytes+buttons*512;
+  const bytes=512+readU32(packed.files[0],40)+patternBytes+buttons*512+markerBytes;
   if(bytes>16384)throw new Error(`C-Gear sprites need ${bytes} bytes; this ROM has 16384. Reduce buttons or restore compatible native graphics.`);
   const common=parsePokemonAnimation(native.files[18]).sequences,panel=parsePokemonAnimation(native.files[30]).sequences;
   const maximum=(groups:number[][],seq:typeof common,cells:Uint8Array)=>groups.reduce((n,g)=>n+Math.max(...g.flatMap(i=>{
@@ -152,7 +164,7 @@ export function spriteBudget(packed:NARC,native:NARC,buttons:number):{bytes:numb
     return s.frames.map(f=>{if(f.cellIndex>=readU16(cells,24))throw new Error("Native C-Gear animation references a missing cell.");return readU16(cells,48+f.cellIndex*16);});
   })),0);
   const groups=[[0],[0],[0],[0],[1,2],[4,5],[21],[6,7],[8,9],[10,11],[12,13,14,15],[3],[16,17,18,19,20],[22,25],[23,26],[24,27]];
-  const oam=maximum(groups,common,packed.files[1])+maximum([[0],[1],[2]],panel,native.files[29])+5*maximum([[28,29,30]],common,packed.files[1])+buttons+1;
+  const oam=maximum(groups,common,packed.files[1])+maximum([[0],[1],[2]],panel,native.files[29])+5*maximum([[28,29,30]],common,packed.files[1])+buttons+1+(markerBytes?1:0);
   if(oam>128)throw new Error(`C-Gear needs ${oam} OAM entries; the native limit is 128. Restore compatible native graphics.`);
   return {bytes,capacity:16384,oam};
 }

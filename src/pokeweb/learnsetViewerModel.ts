@@ -14,7 +14,7 @@ import type { ProjectState } from "./projectStore";
 import { parseRpm, type RpmModule } from "./rpm";
 import { addTextEntries, commitTextBank, getTextBank, parseTextEntryId } from "./textModel";
 
-export const LEARNSET_VIEWER_VERSION = "1.5.0";
+export const LEARNSET_VIEWER_VERSION = "1.8.0";
 export const LEARNSET_INFO_MESSAGES = infoMessages;
 const URLS = {
   W2: [new URL("../assets/codeinjection/LearnsetMenuW2.dll", import.meta.url), new URL("../assets/codeinjection/LearnsetViewerW2.dll", import.meta.url)],
@@ -180,6 +180,7 @@ export function getLearnsetViewerStatus(project: ProjectState, bytes = project.o
   status.partial = installed.length === 1;
   status.canUninstall = installed.length > 0 && installed.every(m => canRemoveStagedCodeInjectionDll(project, m.path));
   if (sharedMenu && readCustomUiConfig(sharedMenu)?.enabled) status.canUninstall = false;
+  if (pokenavDependency(project, rom)) status.canUninstall = false;
   const pmc = getPmcInstallStatus(project);
   if (pmc.installed && pmc.overlayId !== (isBw1(version) ? 237 : 344)) return { ...status,
     message: "Unsupported PMC loader placement. Reload the original ROM and reinstall Learnset Viewer; updating the DLLs cannot repair this previously exported loader." };
@@ -250,7 +251,7 @@ function ensureMessage(project: ProjectState, bankId: number, value: string): nu
   commitTextBank(project, "message_texts", bankId);
   return id;
 }
-export async function installLearnsetViewer(project: ProjectState): Promise<LearnsetMessageIds> {
+export async function installLearnsetViewer(project: ProjectState, options: { enableCommand?: boolean } = {}): Promise<LearnsetMessageIds> {
   const romBytes = project.originalRomBytes ?? await loadActiveRomBytes();
   if (!romBytes) throw new Error("Reload the ROM before installing Learnset Viewer.");
   const staged: ProjectState = { ...project, originalRomBytes: romBytes, arm9: project.arm9.slice(),
@@ -311,7 +312,7 @@ export async function installLearnsetViewer(project: ProjectState): Promise<Lear
   const infoMessageIds = infoMessages.map(([, text], i) => reuse(oldInfo?.[i], viewerBank, text!));
   paths.forEach((path, i) => {
     let configured = configureLearnsetViewerDll(modules[i]!, ids);
-    if (custom?.enabled && custom.validMenu) configured = configureCustomUi(configured, true, custom.menu, true);
+    if (custom?.validMenu || options.enableCommand === false) configured = configureCustomUi(configured, custom?.enabled ?? false, custom?.validMenu ? custom.menu : ids.menu, options.enableCommand ?? true);
     stageCodeInjectionDll(staged, path.split("/").pop()!, i === 1 ? configureLearnsetInfoDll(configured, infoMessageIds) : configured, "patches", romBytes);
   });
   staged.codeInjection ??= {};
@@ -322,7 +323,14 @@ export async function installLearnsetViewer(project: ProjectState): Promise<Lear
     codeInjection: staged.codeInjection, patches: staged.patches, actionChangelog: staged.actionChangelog });
   return ids;
 }
+function pokenavDependency(project: ProjectState, rom?: NintendoDSRom): boolean {
+  const bytes = moduleBytes(project, rom, "pokenav/ui.narc");
+  if (!bytes) return false;
+  try { return new NARC(bytes).files[0]?.[8] === 1; } catch { return true; }
+}
 export function uninstallLearnsetViewer(project: ProjectState): void {
+  const rom = project.originalRomBytes ? new NintendoDSRom(project.originalRomBytes, { fileData: "view" }) : undefined;
+  if (pokenavDependency(project, rom)) throw new Error("Pokenav shares these runtime modules. Disable Pokenav before removing the shared runtime.");
   if (project.customUi?.installation?.enabled) throw new Error("Custom UI shares these runtime modules. Disable Custom UI before removing the shared runtime.");
   const status = getLearnsetViewerStatus(project);
   if (!status.canUninstall) throw new Error("Only staged Learnset companions can be removed. DLLs built into the loaded ROM cannot yet be deleted.");

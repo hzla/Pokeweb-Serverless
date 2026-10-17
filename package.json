@@ -149,7 +149,13 @@
     "party-menu:verify-bw1": "python3 runtime/enhanced-party-menu/verify_bw1.py",
     "party-menu:bundle-bw1-candidates": "python3 runtime/enhanced-party-menu/bundle_bw1_candidates.py",
     "party-menu:prepare-bw1-validation": "vite-node runtime/enhanced-party-menu/prepare_bw1_validation.ts",
-    "bw1ui:check": "python3 runtime/verify_bw1_release.py"
+    "bw1ui:check": "python3 runtime/verify_bw1_release.py",
+    "pokenav:build": "python3 runtime/learnset-viewer/build.py && python3 runtime/cgear-quick-actions/build.py",
+    "pokenav:verify": "python3 runtime/pokenav/verify.py && python3 runtime/learnset-viewer/verify_info.py --pokenav-only && python3 runtime/pokenav/verify_style.py && python3 runtime/pokenav/verify_text.py",
+    "pokenav:verify-rom": "vite-node scripts/verify-pokenav-install.ts",
+    "nuzlocke:build": "python3 runtime/nuzlocke-encounters/build.py",
+    "nuzlocke:verify": "python3 runtime/nuzlocke-encounters/verify.py",
+    "nuzlocke:verify-rom": "vite-node scripts/verify-nuzlocke-encounters.ts"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.2",

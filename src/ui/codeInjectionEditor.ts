@@ -53,6 +53,8 @@ import {
 import { getPortaPcStatus, installPortaPc, uninstallPortaPc } from "../pokeweb/portaPcModel";
 import { CGEAR_QUICK_ACTIONS_VERSION, getCGearQuickActionsStatus, installCGearQuickActions, disableCGearQuickActions, removeCGearQuickActions } from "../pokeweb/cgearQuickActionsModel";
 import { CGEAR_QUICK_ACTIONS_BW1_VERSION } from "../pokeweb/cgearQuickActionsBw1Model";
+import { getPokenavStatus, installPokenav, disablePokenav } from "../pokeweb/pokenavModel";
+import { getNuzlockeEncountersStatus,installNuzlockeEncounters,disableNuzlockeEncounters } from "../pokeweb/nuzlockeEncountersModel";
 import { getLearnsetViewerStatus, installLearnsetViewer, uninstallLearnsetViewer } from "../pokeweb/learnsetViewerModel";
 import { getSummaryStatViewerStatus, installSummaryStatViewer, uninstallSummaryStatViewer, SUMMARY_STAT_VIEWER_VERSION } from "../pokeweb/summaryStatViewerModel";
 import { getSummaryTypeIconsStatus, installSummaryTypeIcons, uninstallSummaryTypeIcons, SUMMARY_TYPE_ICONS_VERSION } from "../pokeweb/summaryTypeIconsModel";
@@ -125,6 +127,8 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const portaPcStatus = getPortaPcStatus(project);
   const quickActionsStatus = getCGearQuickActionsStatus(project);
   const learnsetStatus = getLearnsetViewerStatus(project);
+  const pokenavStatus = getPokenavStatus(project);
+  const nuzlockeStatus = getNuzlockeEncountersStatus(project);
   const summaryStatStatus = getSummaryStatViewerStatus(project);
   const summaryTypeStatus = canUseLocalRomBridge() ? getSummaryTypeIconsStatus(project) : undefined;
   const saveMenuStatus = getSaveMenuStatus(project);
@@ -651,7 +655,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-panel__header"><div>
             <h2>C-Gear Quick Actions</h2>
             <a class="btn -primary" href="#cgearButtons" data-route="cgearButtons">Configure Buttons</a>
-            <p>REPEL, PC, BIKE, MAP, PARTY and BAG touch shortcuts, with up to eight editable buttons. Available after obtaining C-Gear, including with wireless off. Use the wrench to rearrange them and the upper-right button to browse backgrounds.</p>
+            <p>REPEL, PC, BIKE, MAP, PARTY and BAG touch shortcuts, with up to eight editable buttons. Available after obtaining C-Gear, including with wireless off. Use the wrench to rearrange them. ${project.session.baseRom==="BW"?"Tap the upper-right button to browse native backgrounds.":"Drag the outer rim to browse skins: clockwise next, counterclockwise previous, every 12°."}</p>
           </div>${renderInlineStatus(!quickActionsStatus.supported ? "Unsupported" : !quickActionsStatus.compatible ? "Incompatible" : quickActionsStatus.enabled ? "Enabled" : quickActionsStatus.installed ? "Disabled" : "Ready", { className: "code-injection-status" })}</div>
           <div class="code-injection-facts"><div><span>Games</span><strong>English Black / White / Black 2 / White 2</strong></div>
             <div><span>Dependency</span><strong>PMC only</strong></div><div><span>Release</span><strong>${escapeHtml(project.session.baseRom==="BW"?CGEAR_QUICK_ACTIONS_BW1_VERSION:CGEAR_QUICK_ACTIONS_VERSION)} development</strong></div></div>
@@ -663,6 +667,36 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <button class="btn -default" id="disable-cgear-quick-actions-btn" type="button" ${quickActionsStatus.compatible && quickActionsStatus.enabled ? "" : "disabled"}>Disable</button>
             <button class="btn -default" id="remove-cgear-quick-actions-btn" type="button" ${quickActionsStatus.canRemove ? "" : "disabled"} title="Exported installations can be disabled; only newly staged modules can be removed.">Remove staged patch</button>
             <div class="code-injection-note" id="cgear-quick-actions-note" aria-live="polite"></div>
+          </div>
+        </section>
+        <section class="code-injection-panel" ${patchVisibility(pokenavStatus.supported)}>
+          <div class="code-injection-panel__header"><div><h2>Pokenav</h2>
+            <p>Browse the current area's seasonal Surf, Rod, and Grass encounters from a custom C-Gear button. The top screen shows species information and the selected Pokémon's combined encounter chance. All species are revealed.</p></div>
+            ${renderInlineStatus(pokenavStatus.updateAvailable ? "Update Available" : pokenavStatus.enabled ? "Enabled" : pokenavStatus.installed ? "Disabled" : pokenavStatus.compatible ? "Ready" : "Incompatible", { className: "code-injection-status" })}
+          </div>
+          <p>${escapeHtml(pokenavStatus.message)}</p>
+          <div class="code-injection-actions">
+            <a class="btn -default" href="#cgearButtons" data-route="cgearButtons">Configure Buttons</a>
+            <button class="btn -primary" id="install-pokenav-btn" type="button" ${pokenavStatus.compatible ? "" : "disabled"}>${pokenavStatus.updateAvailable ? "Update" : pokenavStatus.installed ? "Enable / Reinstall" : "Install"}</button>
+            <button class="btn -default" id="disable-pokenav-btn" type="button" ${pokenavStatus.compatible && pokenavStatus.enabled ? "" : "disabled"}>Disable</button>
+            <div class="code-injection-note" id="pokenav-note" aria-live="polite"></div>
+          </div>
+        </section>
+        <section class="code-injection-panel" ${patchVisibility(nuzlockeStatus.supported)}>
+          <div class="code-injection-panel__header"><div><h2>Nuzlocke Style Encounters</h2>
+            <p>Exclude evolution families already registered as caught, including released Pokémon. Remaining slots keep their relative chances. Pokenav shows dupes in gray and adjusts its displayed percentages; Pokenav is optional.</p></div>
+            ${renderInlineStatus(nuzlockeStatus.updateAvailable ? "Update Available" : nuzlockeStatus.enabled && nuzlockeStatus.installed ? "Enabled" : nuzlockeStatus.installed ? "Disabled" : nuzlockeStatus.compatible ? "Ready" : "Incompatible", { className: "code-injection-status" })}
+          </div>
+          <p>${escapeHtml(nuzlockeStatus.message)}</p>
+          <label>If every slot is a dupe <select id="nuzlocke-exhausted-select" ${nuzlockeStatus.supported ? "" : "disabled"}>
+            <option value="allow" ${nuzlockeStatus.allowExhausted ? "selected" : ""}>Allow the original encounters</option>
+            <option value="prevent" ${!nuzlockeStatus.allowExhausted ? "selected" : ""}>Prevent encounters for that method</option>
+          </select></label>
+          <p>Settings apply with Install / Update. Export and cold boot the ROM to use them. Static, roaming and scripted Pokémon retain their existing rules.</p>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-nuzlocke-encounters-btn" type="button" ${nuzlockeStatus.compatible ? "" : "disabled"}>${nuzlockeStatus.updateAvailable ? "Update" : nuzlockeStatus.installed ? "Enable / Reinstall" : "Install"}</button>
+            <button class="btn -default" id="disable-nuzlocke-encounters-btn" type="button" ${nuzlockeStatus.compatible && nuzlockeStatus.enabled && nuzlockeStatus.installed ? "" : "disabled"}>Disable</button>
+            <div class="code-injection-note" id="nuzlocke-encounters-note" aria-live="polite"></div>
           </div>
         </section>
         <section class="code-injection-panel" ${patchVisibility(portaPcStatus.supported)}>
@@ -1056,6 +1090,24 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       } catch (error) {
         button.disabled = false;if (note) note.textContent = error instanceof Error ? error.message : String(error);
       }
+    });
+  }
+  for (const [id, action] of [["install", installPokenav], ["disable", disablePokenav]] as const) {
+    root.querySelector<HTMLButtonElement>(`#${id}-pokenav-btn`)?.addEventListener("click", async event => {
+      const button = event.currentTarget as HTMLButtonElement, note = root.querySelector<HTMLDivElement>("#pokenav-note"); button.disabled = true;
+      try { if (note) note.textContent = "Checking and staging Pokenav…"; await action(project); onDirty(); renderCodeInjectionEditor(project, root, onDirty); }
+      catch (error) { button.disabled = false; if (note) note.textContent = error instanceof Error ? error.message : String(error); }
+    });
+  }
+  for(const id of ["install","disable"] as const){
+    root.querySelector<HTMLButtonElement>(`#${id}-nuzlocke-encounters-btn`)?.addEventListener("click",async()=>{
+      const note=root.querySelector<HTMLElement>("#nuzlocke-encounters-note");
+      try{
+        if(note)note.textContent="Checking and staging Nuzlocke Style Encounters…";
+        if(id==="install")await installNuzlockeEncounters(project,{allowExhausted:root.querySelector<HTMLSelectElement>("#nuzlocke-exhausted-select")?.value!=="prevent"});
+        else await disableNuzlockeEncounters(project);
+        onDirty();renderCodeInjectionEditor(project,root,onDirty);
+      }catch(error){if(note)note.textContent=error instanceof Error?error.message:String(error);}
     });
   }
   const portaPcButton = root.querySelector<HTMLButtonElement>("#install-porta-pc-btn");

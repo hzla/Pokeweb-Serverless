@@ -31,7 +31,7 @@ export function privateArchive(project:ProjectState,rom:NintendoDSRom):Uint8Arra
 export function installedNativeButtonGraphics(bytes:Uint8Array):NARC {
   const arc=new NARC(bytes),metadata=JSON.parse(new TextDecoder().decode(arc.files[13])),g=metadata.nativeGraphics;
   if([8,9].includes(readU16(arc.files[0],4))){if(g?.version!==(readU16(arc.files[0],4)===9?5:4)||g.backupFingerprint!==fingerprint(arc.files[14])||g.packedFingerprint!==g.backupFingerprint)throw new Error("BW1 C-Gear graphics backup failed its integrity check.");return new NARC(arc.files[14]);}
-  if(g?.version!==undefined&&![1,2,3,4,5].includes(g.version))throw new Error("Unrecognized native C-Gear graphics version.");
+  if(g?.version!==undefined&&![1,2,3,4,5,6].includes(g.version))throw new Error("Unrecognized native C-Gear graphics version.");
   const backup=new NARC(arc.files[14]),packed=g?.skinSelector?buttonGraphics(backup,undefined,true,g.saveControl===true,g.version??1):packNativeGraphics(backup);
   if(g?.backupFingerprint!==fingerprint(arc.files[14])||g?.packedFingerprint!==fingerprint(packed.save()))throw new Error("Native C-Gear graphics backup failed its integrity check.");
   return packed;
@@ -61,7 +61,7 @@ export function validateButtonArchive(bytes:Uint8Array):boolean {
   const arc=new NARC(bytes),h=arc.files[0];const v=h&&readU16(h,4),bw1=v===8||v===9;if(!h||![5,6,7,8,9].includes(v)||arc.files.length!==(bw1?17:v>=6?16+h[21]:15)||h?.length!==160||readU16(h,6)!==160||readU32(h,0)!==0x41475143||readU32(h,8)>1||readU32(h,12)!==(0x41475143^readU32(h,8))||h[20]>8)throw new Error("Unrecognized configurable C-Gear archive.");
   const joined=(parts:Uint8Array[])=>{const b=new Uint8Array(parts.reduce((n,p)=>n+p.length,0));let at=0;for(const p of parts){b.set(p,at);at+=p.length;}return b;};
   if(fingerprint(joined([h.subarray(0,28),h.subarray(32)]))!==readU32(h,28)||fingerprint(joined(bw1?[...arc.files.slice(1,12),arc.files[16]]:arc.files.slice(1,12)))!==readU32(h,24)||arc.files[12].length!==5120||fingerprint(arc.files[12])!==readU32(h,16))throw new Error("C-Gear configuration or graphics failed its integrity check.");
-  if(arc.files[1].length!==(bw1?328:296)||arc.files[2].length!==(v===9?512:bw1?288:240)||arc.files[3].length!==(bw1?328:272)||arc.files.slice(4,12).some(b=>b.length!==(v===9?1024:2048))||(bw1&&arc.files[16].length!==(v===9?512:4096)))throw new Error("Invalid eight-button sprite resources.");
+  if(arc.files[1].length!==(bw1?328:296)||arc.files[2].length!==(v===9?512:bw1?288:h[47]?264:240)||arc.files[3].length!==(bw1?328:h[47]?300:272)||arc.files.slice(4,12).some(b=>b.length!==(v===9?1024:2048))||(bw1&&arc.files[16].length!==(v===9?512:4096)))throw new Error("Invalid eight-button sprite resources.");
   const metadata=JSON.parse(new TextDecoder().decode(arc.files[13]));
   installedNativeButtonGraphics(bytes);
   const state=recoverCGearButtons(bytes),buttons=state.applied?.buttons??[];
@@ -74,7 +74,8 @@ export function validateButtonArchive(bytes:Uint8Array):boolean {
       fingerprint(arc.files[16+i])!==readU32(catalog,20+i*8)||fingerprint(skinBytes(skins.entries[i].data))!==readU32(catalog,20+i*8))throw new Error("C-Gear skin failed its integrity check.");
   }
   if(v===7&&(h[45]>1||!!h[45]!==!!state.applied?.hideCommunicationButtons||metadata.nativeGraphics?.skinSelector!==true||metadata.nativeGraphics?.saveControl!==true))throw new Error("Communication controls do not match the applied design.");
-  if(v===7&&(h[46]>1||!!h[46]!==!!metadata.nativeGraphics?.muteControl||!!h[46]!== [4,5].includes(metadata.nativeGraphics?.version)))throw new Error("Music control does not match its native graphics.");
+  if(v===7&&(h[46]>1||!!h[46]!==!!metadata.nativeGraphics?.muteControl||!!h[46]!== [4,5,6].includes(metadata.nativeGraphics?.version)))throw new Error("Music control does not match its native graphics.");
+  if(v===7&&(h[47]>1||!!h[47]!==!!metadata.nativeGraphics?.skinDial||!!h[47]!== (metadata.nativeGraphics?.version===6)))throw new Error("Skin dial does not match its native graphics.");
   if(buttons.length!==h[20])throw new Error("Editable metadata does not match the applied buttons.");
   const ids=new Set<number>();
   for(let i=0;i<h[20];i++) {

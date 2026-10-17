@@ -30,6 +30,9 @@ for(const path of paths) {
       assert.equal(controls.rgba[p+1],controlReference.rgba[p+1]);assert.equal(controls.rgba[p+2],controlReference.rgba[p+2]);assert.equal(controls.rgba[p+3],controlReference.rgba[p+3]);
     }
   }
+  const rim=buttonGraphics(source,native,true,true,6),dialBudget=spriteBudget(rim,native,8,128);
+  for(const i of selector){const cells=rim.files[1],first=24+readU32(cells,28),at=first+readU16(cells,24)*16+readU32(cells,first+i*16+4);assert.equal(readU16(cells,first+i*16),1);assert.equal(readU16(cells,at+4)>>>12,7);}
+  console.log(rom.idCode,`dial plus eight buttons: ${dialBudget.bytes}/${dialBudget.capacity} sprite bytes, ${dialBudget.oam}/128 OAM`);
   const common=parsePokemonAnimation(native.files[18]).sequences,panel=parsePokemonAnimation(native.files[30]).sequences;
   const maxima=(groups:number[][],seq:typeof common,cells:Uint8Array)=>groups.reduce((n,g)=>n+Math.max(...g.flatMap(i=>seq[i].frames.map(f=>readU16(cells,48+f.cellIndex*16)))),0);
   const base=[[0],[0],[0],[0],[1,2],[4,5],[21],[6,7],[8,9],[10,11],[12,13,14,15],[3],[16,17,18,19,20],[22,25],[23,26],[24,27]];

@@ -1,4 +1,7 @@
 #include "runtime.h"
+#if !defined(GAME_B) && !defined(GAME_W)
+#include "../pokenav/logic.h"
+#endif
 #ifdef LEARNSET_BW1_TRACE
 extern "C" { __attribute__((used,section(".learnset_trace"))) volatile struct {
     char magic[8]; u32 words[15];
@@ -28,6 +31,13 @@ u32 viewerEnd(void* proc, int* seq, void* data, void* work) {
     return session && session->viewerStarted ? viewerTable()->end(proc,seq,data,work) : 1;
 }
 const ProcTable callbacks = {viewerInit,viewerMain,viewerEnd};
+#if !defined(GAME_B) && !defined(GAME_W)
+u32 navInit(void* proc,int* seq,void* data,void* work){auto* r=static_cast<pokenav::Launch*>(data);auto init=viewerTable()->init;if(!init||init==native<Proc>(0x2199901,0x21998c1)){r->finished=1;return 1;}return init(proc,seq,data,work);}
+u32 navMain(void* proc,int* seq,void* data,void* work){return static_cast<pokenav::Launch*>(data)->started?viewerTable()->main(proc,seq,data,work):1;}
+u32 navEnd(void* proc,int* seq,void* data,void* work){return static_cast<pokenav::Launch*>(data)->started?viewerTable()->end(proc,seq,data,work):1;}
+const ProcTable navCallbacks={navInit,navMain,navEnd};
+#endif
+
 void reopen(void* work,int* seq) {
     at<u32>(work,4)=0; at<u32>(work,8)=0; at<u32>(work,12)=0; at<u32>(work,16)=4;
     *seq=11;
@@ -102,6 +112,20 @@ extern "C" void LearnsetMenuSelect(void* work) {
     OriginalMenuSelect(work);
 }
 extern "C" u32 LearnsetDispatch(void* event,int* seq,void* work) {
+#if !defined(GAME_B) && !defined(GAME_W)
+    // Native field application owns fades, field suspension and reconstruction.
+    // Its party route supplies the lifecycle, while this tagged request supplies
+    // the read-only Pokenav application instead of constructing a party menu.
+    void* map=at<void*>(work,0x18);const u32 data=map?at<u32>(map,20):0;
+    auto* nav=reinterpret_cast<pokenav::Launch*>(data);
+    if(map&&at<u32>(map,16)==0&&data>=0x02000000&&data<0x03000000&&nav->magic==pokenav::Magic){
+        const bool valid=pokenav::validLaunch(nav);
+        if(*seq==11&&valid){at<void*>(work,0x1c)=nullptr;native<void(*)(void*,u32,const void*,void*)>(0x2016a99,0x2016a99)(at<void*>(map,0),TutorOverlay,&navCallbacks,nav);*seq=12;return 0;}
+        if(*seq==13||(*seq==11&&!valid)){nav->finished=1;at<u32>(work,16)=1;native<void(*)(u32,void*)>(0x215b759,0x215b719)(1,static_cast<u8*>(map)+40);native<void(*)(void*)>(0x215b795,0x215b755)(work);at<void*>(work,0x1c)=nullptr;*seq=8;return 0;}
+        return OriginalDispatch(event,seq,work);
+    }
+#endif
+
     void* partyData=at<void*>(work,0x1c);
     const bool field=at<u32>(work,4)==0 && partyData && at<u32>(partyData,RequestModeOffset)==0;
     if (*seq==13 && session && sessionOwner==work) {

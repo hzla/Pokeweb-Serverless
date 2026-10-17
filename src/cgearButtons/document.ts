@@ -1,6 +1,6 @@
 import { defaultSkins } from "./skins";
 export const MAX_BUTTONS = 8;
-export type ActionId = "repel" | "pc" | "bike" | "mapFly" | "map" | "dowsing" | "rod" | "recorder" | "palPad" | "xtransceiver" | "medals" | "gracidea" | "splicers" | "revealGlass" | "bag" | "party" | "pokeradar";
+export type ActionId = "repel" | "pc" | "bike" | "mapFly" | "map" | "dowsing" | "rod" | "recorder" | "palPad" | "xtransceiver" | "medals" | "gracidea" | "splicers" | "revealGlass" | "bag" | "party" | "pokeradar" | "pokenav";
 export type Button = { id: number; label: string; color: string; x: number; y: number; action: ActionId; flag?: { id: number; when: "set" | "clear" } };
 export type Skin = { id: number; name: string; data: string };
 export type SkinCollection = { nextId: number; defaultId: number; entries: Skin[] };
@@ -25,11 +25,12 @@ export const actions: readonly Action[] = [
   { id:"bag", code:15, name:"Bag — native item menu", label:"BAG", item:0, check:255, kind:"application", call:2 },
   { id:"party", code:16, name:"Party — native Pokémon menu", label:"PARTY", item:0, check:255, kind:"application", call:0 },
   { id:"pokeradar", code:17, name:"Pokéradar — generate a nearby phenomenon", label:"RADAR", item:0, check:255, kind:"field" },
+  { id:"pokenav", code:18, name:"Pokenav — current area encounters", label:"NAV", item:0, check:255, kind:"application" },
 ];
 /** BW1 has no usable Xtransceiver or BW2 transformation/Medal Box route. */
 export function actionsFor(game: "BW" | "BW2" = "BW2"): readonly Action[] {
   if (game === "BW2") return actions;
-  return actions.filter(a => !["xtransceiver", "medals", "splicers", "revealGlass"].includes(a.id))
+  return actions.filter(a => !["xtransceiver", "medals", "splicers", "revealGlass", "pokenav"].includes(a.id))
     .map(a => ({ ...a, ...(a.id === "palPad" ? { check: 2, call: 8 } : a.id === "recorder" ? { call: 11 }
       : a.id === "map" || a.id === "mapFly" ? { call: 7 } : {}) }));
 }

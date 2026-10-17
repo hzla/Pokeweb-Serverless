@@ -1,5 +1,17 @@
 #include "runtime.h"
 #include "info.h"
+#if !defined(GAME_B) && !defined(GAME_W)
+#include "../pokenav/view.h"
+#include "../pokenav/style.h"
+#else
+inline bool pokenavActive(){return false;}
+inline bool pokenavBegin(void*,Request**){return false;}
+inline void pokenavInit(void*){}
+inline bool pokenavInput(void*){return false;}
+inline void pokenavFrame(void*){}
+inline void pokenavEnd(){}
+inline void pokenavStop(){}
+#endif
 extern "C" void LearnsetDetails(void*,u32);
 namespace {
 Request* active;
@@ -65,9 +77,24 @@ bool refreshFamily(void* work) {
 }
 }
 extern "C" bool LearnsetIsActive() { return active!=nullptr; }
+#if !defined(GAME_B) && !defined(GAME_W)
+extern "C" void LearnsetOpeningFade(u32 mode,u32 main,u32 sub,u32 color,u32 duration,u32 timing,u32 heap){
+    // The retail fade restores cached palettes and reveals the tutor's own
+    // windows. Pokenav presents both completed surfaces together instead.
+    // Keep the original fade for party/native tutors and the fallback UI.
+    if(pokenavActive()&&pokenav::ui::available())return;
+    native<void(*)(u32,u32,u32,u32,u32,u32,u32)>(0x20279e1,0x20279b5)(mode,main,sub,color,duration,timing,heap);
+}
+#endif
 extern "C" u32 LearnsetViewerInit(void* proc,int* seq,void* data,void* work) {
     infoEnd();
     active=0;
+#if !defined(GAME_B) && !defined(GAME_W)
+    if(data && at<u32>(data,0)==pokenav::Magic){
+        if(pokenavBegin(data,&active))return native<Proc>(0x2199901,0x21998c1)(proc,seq,active,work);
+        auto* invalid=static_cast<pokenav::Launch*>(data);invalid->started=0;invalid->finished=1;return 1;
+    }
+#endif
     TutorData* tutor=static_cast<TutorData*>(data);
     if (tutor && tutor->mode==0xfe) {
         Request* request=static_cast<Request*>(data);
@@ -82,6 +109,17 @@ extern "C" u32 LearnsetViewerInit(void* proc,int* seq,void* data,void* work) {
     return native<Proc>(0x2199901,0x21998c1)(proc,seq,data,work);
 }
 extern "C" u32 LearnsetViewerMain(void* proc,int* seq,void* data,void* work) {
+    if(pokenavActive() && ours(work)) {
+        // Retail's opening fade restores its cached tutor BG palettes. Repaint
+        // our icon banks only after that fade has reached the input state.
+        if(*seq==1)pokenavFrame(work);
+        for(u32 offset=0x104;offset<=0x138;offset+=4)if(offset!=0x124&&offset!=0x128&&at<void*>(work,offset))visible(at<void*>(work,offset),false);
+        if(*seq==1){
+            if(pokenavInput(work))*seq=8;
+            else{int idle=16;native<Proc>(0x2199975,0x2199935)(proc,&idle,active,work);return 0;}
+        }
+        return native<Proc>(0x2199975,0x2199935)(proc,seq,active,work);
+    }
     if (ours(work)) {
         // Defense in depth: never enter learn, replace, yes/no, or summary
         // states, even if a future input hook accidentally returns one.
@@ -109,12 +147,14 @@ extern "C" u32 LearnsetViewerMain(void* proc,int* seq,void* data,void* work) {
 }
 extern "C" u32 LearnsetViewerEnd(void* proc,int* seq,void* data,void* work) {
     infoEnd();
+    if(pokenavActive()){pokenavStop();const u32 result=native<Proc>(0x2199a51,0x2199a11)(proc,seq,active,work);pokenavEnd();active=nullptr;return result;}
     const u32 result=native<Proc>(0x2199a51,0x2199a11)(proc,seq,data,work);
     if (active && data==active) active->viewerStarted=0;
     active=0;
     return result;
 }
 extern "C" void LearnsetDrawLine(void* work,u8 scroll,u8 pos) {
+    if(pokenavActive())return;
     if (!ours(work)) {
         native<void(*)(void*,u8,u8)>(0x219a7f1,0x219a7b1)(work,scroll,pos); return;
     }
@@ -145,9 +185,11 @@ extern "C" int LearnsetConfirm(void* work) {
     return native<int(*)(void*)>(0x219b995,0x219b955)(work);
 }
 extern "C" void LearnsetEnterButton(void* work,u32 flag) {
+    if(pokenavActive())return;
     native<void(*)(void*,u32)>(0x219b6c9,0x219b689)(work,ours(work)?0:flag);
 }
 extern "C" void LearnsetDetails(void* work,u32 move) {
+    if(pokenavActive())return;
     if (ours(work) && !active->list.count) move=0xfffffffe;
     native<void(*)(void*,u32)>(0x219a9d9,0x219a999)(work,move);
     if (!ours(work) || active->list.count) return;
@@ -159,12 +201,14 @@ extern "C" void LearnsetDetails(void* work,u32 move) {
     if(text) { draw(work,6,0,0,text,0x440); flush(at<void*>(work,0x1c)); stringFree(text); }
 }
 extern "C" void LearnsetTypeIcons(void* work) {
+    if(pokenavActive())return;
     if (!ours(work) || active->list.count) {
         native<void(*)(void*)>(0x219b181,0x219b141)(work); return;
     }
     for(u32 i=0;i<4;++i) visible(at<void*>(work,0x114+i*4),false);
 }
 extern "C" void LearnsetFixedText(void* work) {
+    if(pokenavActive()){pokenavInit(work);return;}
     if (!ours(work)) {native<void(*)(void*)>(0x219a4c5,0x219a485)(work);return;}
     // Preserve the two original lower labels, but do not execute the native
     // upper writes into our intentionally reduced unused upper windows.
@@ -177,7 +221,7 @@ extern "C" void LearnsetFixedText(void* work) {
 
 extern "C" void LearnsetScreen(void* arc,u32 member,u32 frame,u32 offset,u32 length,u32 compressed,u32 heap) {
     auto original=native<void(*)(void*,u32,u32,u32,u32,u32,u32)>(0x204af7d,0x204af51);
-    if (!active || member!=2 || frame!=7) { original(arc,member,frame,offset,length,compressed,heap); return; }
+    if (pokenavActive() || !active || member!=2 || frame!=7) { original(arc,member,frame,offset,length,compressed,heap); return; }
     void* screen=0;
     void* allocation=native<void*(*)(void*,u32,u32,void**,u32)>(0x204b359,0x204b32d)(arc,member,compressed,&screen,heap);
     if (!allocation || !screen || at<u16>(screen,0)!=256 || at<u32>(screen,8)!=2048) {

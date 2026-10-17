@@ -82,6 +82,8 @@ src/test/local/
 /src/assets/pwan/library/pwan.narc
 !/scripts/verify-black1-double-battle-fix.ts
 !/scripts/verify-cgear-quick-actions-install.ts
+!/scripts/verify-pokenav-install.ts
+!/scripts/verify-nuzlocke-encounters.ts
 
 !/scripts/generate-cgear-button-defaults.ts
 !/scripts/verify-cgear-native-graphics.ts

@@ -1,5 +1,6 @@
 import { buttonAssets, ensureCGearButtons, hydrateCGearButtons, validateButtonArchive, disableButtonArchive, stageNativeButtonGraphics, restoreNativeButtonGraphics, installedNativeButtonGraphics } from "./cgearButtonsModel";
 import { compile } from "../cgearButtons/compiler";
+import { originalGraphics, sameGraphics, packNativeGraphics } from "../cgearButtons/nativeGraphics";
 import manifest from "../assets/codeinjection/cgearQuickActionsManifest.json";
 import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { loadOverlayTable } from "../nds/code";
@@ -101,6 +102,10 @@ function checkCGearPaletteSpace(project: ProjectState, rom: NintendoDSRom): void
   const id=rom.filenames.idOf("a/2/8/7");
   if(id===undefined) throw new Error("The native C-Gear graphics archive is missing.");
   const arc=new NARC(getRomFileBytes(project,rom,id));
+  const prior=bytesAt(project,rom,manifest.archivePath);
+  // Only the hash-checked owned common pair may reference the dial's bank 7.
+  const owned=prior&&new NARC(prior).files[14]&&sameGraphics(originalGraphics(arc),installedNativeButtonGraphics(prior));
+  if(prior&&!owned){const backup=new NARC(new NARC(prior).files[14]);if(!sameGraphics(originalGraphics(arc),backup)&&!sameGraphics(originalGraphics(arc),packNativeGraphics(backup)))throw new Error("Native C-Gear graphics changed after installation. Restore the owned graphics before updating or disabling.");}
   // Native actor palette offsets may add one for a dim appearance. Banks
   // 0..6 remain native; custom actors use 7..14; the network icon keeps 15.
   for(const member of [17,29]) {
@@ -111,7 +116,7 @@ function checkCGearPaletteSpace(project: ProjectState, rom: NintendoDSRom): void
     for(let c=0;c<count;c++) {
       const n=readU16(b,first+c*stride),at=oam+readU32(b,first+c*stride+4);
       if(at+n*6>b.length) throw new Error("Invalid native C-Gear OAM layout.");
-      for(let j=0;j<n;j++) if(readU16(b,at+j*6)&0x2000 || readU16(b,at+j*6+4)>>>12>5)
+      for(let j=0;j<n;j++) if(readU16(b,at+j*6)&0x2000 || (readU16(b,at+j*6+4)>>>12>5&&!(owned&&member===17&&[31,32,33,34,36,37].includes(c)&&readU16(b,at+j*6+4)>>>12===7)))
         throw new Error("Custom C-Gear graphics already use the palette space required for Quick Actions. Restore compatible C-Gear graphics before installing.");
     }
   }
@@ -220,6 +225,10 @@ export async function installCGearQuickActions(project: ProjectState, options:CG
   if (await hash(dll) !== profile.sha256 || await hash(graphics) !== manifest.archiveSha256
     || !recognized(parseRpm(dll, { allowedMagics: ["DLXF"] }), v) || !archiveState(graphics)) throw new Error("Quick Actions bundle failed its integrity check.");
   const staged = cloneInstallState(input);
+  if (state.document.buttons.some(b => b.action === "pokenav")) {
+    staged.narcs = structuredClone(project.narcs); staged.texts = structuredClone(project.texts);
+    await (await import("./pokenavModel")).stagePokenavRuntime(staged);
+  }
   adoptExistingPmcInstall(staged, romBytes);
   if (!getPmcInstallStatus(staged).installed) installPmcBytes(staged, await loadBundledPmcBytes(v), romBytes);
   await installBundledBgmToggleDll(staged,{preserveShortcut:true});
@@ -232,7 +241,7 @@ export async function installCGearQuickActions(project: ProjectState, options:CG
   if(JSON.stringify(project.cgearButtons?.document)!==before)throw new Error("The button design changed while staging. Apply again.");
   project.cgearButtons=state;
   Object.assign(project, { originalRomBytes: romBytes, arm9: staged.arm9, arm9Dirty: staged.arm9Dirty,
-    overlays: staged.overlays, fileSystem: staged.fileSystem, codeInjection: staged.codeInjection,
+    overlays: staged.overlays, narcs: staged.narcs, texts: staged.texts, fileSystem: staged.fileSystem, codeInjection: staged.codeInjection,
     patches: staged.patches, actionChangelog: staged.actionChangelog });
   return result;
 }
