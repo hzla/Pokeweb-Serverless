@@ -37,6 +37,7 @@ describe("follower asset transactions",()=>{
     project.fileSystem!.additions![FOLLOWER_RUNTIME_REGISTRY_PATH]=encodeFollowerRegistry(workspace.registry);
     const archive=new NARC();archive.files=[new Uint8Array(4+1009*28)];
     const at=4+1008*28+7;
+    archive.files[0][at+2]=13;
     archive.files[0][at]=1;
     project.fileSystem!.additions![FOLLOWER_DESCRIPTOR_PATH]=archive.save();
     expect(followerBillboardRepairPending(project,rom)).toBe(true);
@@ -48,6 +49,14 @@ describe("follower asset transactions",()=>{
     expect(followerBillboardRepairPending(project,rom)).toBe(true);
     archive.files[0][at]=2;
     project.fileSystem!.additions![FOLLOWER_DESCRIPTOR_PATH]=archive.save();
+    expect(followerBillboardRepairPending(project,rom)).toBe(false);
+    // A six-frame sheet with eight-frame native animation reads stale VRAM
+    // for right-facing frames 6/7, especially after an eight-frame follower.
+    archive.files[0][at+2]=14;
+    project.fileSystem!.additions![FOLLOWER_DESCRIPTOR_PATH]=archive.save();
+    expect(followerBillboardRepairPending(project,rom)).toBe(true);
+    workspace.registry.entries[0].animationProfile="pokemon-asymmetric";
+    project.fileSystem!.additions![FOLLOWER_RUNTIME_REGISTRY_PATH]=encodeFollowerRegistry(workspace.registry);
     expect(followerBillboardRepairPending(project,rom)).toBe(false);
   });
   it("previews bundled external resources before installation and rejects altered bundles",()=>{

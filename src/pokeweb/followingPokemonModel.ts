@@ -73,6 +73,10 @@ export function followerBillboardDrawMode(size: number): 0 | 2 {
   if (size !== 32 && size !== 64) throw new Error("Unsupported follower frame size.");
   return size === 64 ? 2 : 0;
 }
+/** Descriptor byte 9 selects six poses with mirrored right, or eight independent poses. */
+export function followerAnimationSelector(profile: FollowerAnimationProfile): 13 | 14 {
+  return profile === "pokemon-asymmetric" ? 14 : 13;
+}
 export function validateFollowerRegistry(registry: FollowerRegistry): void {
   if (registry.runtimeAbi !== FOLLOWING_ABI) throw new Error("Unsupported follower runtime ABI.");
   integer(registry.descriptorCount, FOLLOWING_STOCK_ROWS, FOLLOWING_STOCK_ROWS + FOLLOWING_MAX_ASSETS, "descriptor count");

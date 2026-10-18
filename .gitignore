@@ -46,6 +46,7 @@ src/test/local/
 /scripts/*
 !/scripts/verify-following-artwork.ts
 !/scripts/build-following-dewott-artwork-rom.ts
+!/scripts/repair-following-artwork-rom.ts
 !/scripts/verify-fly-destinations.ts
 !/scripts/verify-bw1-stream-decoder.ts
 !/scripts/verify-bw1-music-project.ts

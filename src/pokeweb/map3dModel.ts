@@ -2006,6 +2006,11 @@ function runGpuCommands(
       primitive.usedNormals = true;
       nextVertex = {
         ...nextVertex,
+        // NORMAL replaces the current vertex color with a lighting result on DS.
+        // Static previews use neutral lighting for normal-only meshes; use the
+        // same multiplier here instead of carrying a previous COLOR (often a
+        // black baked shadow) into the lit section of a mixed display list.
+        color: [1, 1, 1],
         normal: [
           readPackedFx32(params[0], 0, 10, 1, 0, 9),
           readPackedFx32(params[0], 10, 20, 1, 0, 9),

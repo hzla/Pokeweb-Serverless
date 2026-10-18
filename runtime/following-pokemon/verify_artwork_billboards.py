@@ -79,4 +79,28 @@ for mode, pixels in ((0, 32), (1, 16), (2, 64)):
     results.append({"mode": mode, "quadScale": list(scales), "textureFramePixels": list(materials[-1])})
 
 assert results[1]["textureFramePixels"] != [32, 32]  # Captured cropped-import regression.
-print(json.dumps({"game": rom.idCode.decode(), "nativeFrameModes": results, "gameEmulatorRun": False}, indent=2))
+
+# Execute the native animation update with real descriptor-selected tables.
+# Reuse the same slot/quad across layout changes, as happens during L/R cycling.
+animation_results = []
+BL, SCENE, SLOTS, MATERIALS, QUAD = [SCRATCH + n for n in (0x1000, 0x1100, 0x1200, 0x1300, 0x1400)]
+put(BL + 4, SCENE); put(BL + 12, MATERIALS); put(SCENE + 8, QUAD)
+for selector, frame_count in ((14, 8), (13, 6), (14, 8), (13, 6)):
+    call(0x02194650 + delta, [selector])
+    animation_table = struct.unpack("<I", uc.mem_read(uc.reg_read(UC_ARM_REG_R0), 4))[0]
+    for face in range(4):
+        uc.mem_write(SLOTS, bytes(40)); put(SLOTS + 8, animation_table); put(SLOTS + 24, 1)
+        uc.mem_write(SLOTS + 14, struct.pack("<H", face))
+        seen = set()
+        for tick in range(64):
+            call(0x0204f50c + arm_delta, [BL, SLOTS])
+            frame = struct.unpack("<H", uc.mem_read(QUAD + 16, 2))[0]
+            flags = struct.unpack("<H", uc.mem_read(QUAD + 24, 2))[0]
+            assert frame < frame_count, (selector, face, tick, frame)
+            assert bool(flags & 0x400) == (frame_count == 6 and face == 3)
+            seen.add(frame)
+        expected = {4, 5} if frame_count == 6 and face == 3 else {face * 2, face * 2 + 1}
+        assert seen == expected, (selector, face, seen)
+        animation_results.append({"selector": selector, "face": face, "frames": sorted(seen), "mirror": frame_count == 6 and face == 3})
+print(json.dumps({"game": rom.idCode.decode(), "nativeFrameModes": results,
+                  "nativeAnimationLayouts": animation_results, "gameEmulatorRun": False}, indent=2))

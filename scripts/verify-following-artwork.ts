@@ -7,7 +7,7 @@ import { NintendoDSRom } from "../src/nds/rom";
 import { loadProjectFromRomBytes } from "../src/pokeweb/loader";
 import { exportModifiedRom } from "../src/pokeweb/exportRom";
 import { buildFollowerCatalog, decodeFollowerRegistry, encodeFollowerRegistry, followerCrc32, encodeFollowerFrames, followerKey,
-  readFollowerStockAppearances, encodeFollowerLandAnchors, validateFollowerLandAnchors, followerBillboardDrawMode } from "../src/pokeweb/followingPokemonModel";
+  readFollowerStockAppearances, encodeFollowerLandAnchors, validateFollowerLandAnchors, followerBillboardDrawMode, followerAnimationSelector } from "../src/pokeweb/followingPokemonModel";
 import { prepareFollowerWorkspace, followerRom, followerProfile, readFollowingFile, readFollowerWorkspace,
   readFollowerAsset, replaceFollowerAssets, installFollowerAlpha, readFollowerAlphaInstall,
   followerArtworkPending, followerBundledArtworkPending, followerBillboardRepairPending, followerArtworkReplacementAvailable, FOLLOWER_MANIFEST_PATH, FOLLOWER_DESCRIPTOR_PATH,
@@ -169,6 +169,35 @@ const repairedPreview = readFollowerWorkspace(reopened, reopenedRom)!;
 complete(repairedPreview, new NARC(readFollowingFile(reopened, reopenedRom, FOLLOWER_RESOURCE_PATH)!).files, key);
 assert.deepEqual(readFollowerAsset(reopened, reopenedRom, repairedPreview, repairedPreview.registry.entries.find(entry => followerKey(entry.key) === key)!), art32);
 const beforeArtArm9 = sha(reopened.arm9);
+// Exercise both directions of a layout change, at both supported frame sizes.
+// Six-frame right uses mirrored left; eight-frame right must use its own poses.
+for (const size of [32, 64] as const) for (const count of [8, 6] as const) {
+  const desc = new NARC(originalDescriptors).files[0], row = size === 32 ? 378 : 616;
+  const source = new DataView(desc.buffer, desc.byteOffset, desc.byteLength).getUint16(4 + row * 28 + 16, true);
+  const template = count === 6 ? nativeFiles[source] : new Uint8Array(await readFile(new URL(`../src/assets/following/template-${size}-8.btx`, import.meta.url)));
+  const rgba = new Uint8Array(size * size * 4); rgba.set([255, 0, 0, 255], (3 * size + 3) * 4);
+  const art = encodeFollowerFrames(Array.from({length: count}, () => ({width: size, height: size, rgba})), template);
+  const profile = count === 6 ? "pokemon-mirrored" : "pokemon-asymmetric";
+  replaceFollowerAssets(reopened, reopenedRom, [{key: chosen.key, bytes: art, profile, source: "png", label: `${size}-pixel ${count}-pose regression`}]);
+  await installFollowerAlpha(reopened, reopenedRom);
+  const active = decodeFollowerRegistry(readFollowingFile(reopened, reopenedRom, FOLLOWER_RUNTIME_REGISTRY_PATH)!).entries.find(entry => followerKey(entry.key) === key)!;
+  const member = new NARC(readFollowingFile(reopened, reopenedRom, FOLLOWER_DESCRIPTOR_PATH)!).files[0], at = 4 + active.descriptorRow * 28;
+  assert.equal(member[at + 9], count === 6 ? 13 : 14);
+  assert.equal(active.animationProfile, profile);
+  // A recognized old export can have correct pixels and size, but the other
+  // layout's animation selector. Repair it without replacing any BTX bytes.
+  member[at + 9] = count === 6 ? 14 : 13;
+  const archive = new NARC(readFollowingFile(reopened, reopenedRom, FOLLOWER_DESCRIPTOR_PATH)!); archive.files[0] = member;
+  const wrong = archive.save(), resourceBefore = readFollowingFile(reopened, reopenedRom, FOLLOWER_RESOURCE_PATH)!.slice();
+  const receipt = (await readFollowerAlphaInstall(reopened, reopenedRom))!;
+  reopened.fileSystem!.replacements[reopenedRom.filenames.idOf(FOLLOWER_DESCRIPTOR_PATH)!] = wrong;
+  reopened.fileSystem!.replacements[reopenedRom.filenames.idOf(FOLLOWER_INSTALL_PATH)!] = new TextEncoder().encode(JSON.stringify({...receipt, descriptorsSha256: sha(wrong)}));
+  assert.equal(followerArtworkPending(reopened, reopenedRom), false);
+  assert.equal(followerBillboardRepairPending(reopened, reopenedRom), true);
+  await installFollowerAlpha(reopened, reopenedRom);
+  assert.equal(followerBillboardRepairPending(reopened, reopenedRom), false);
+  assert.deepEqual(readFollowingFile(reopened, reopenedRom, FOLLOWER_RESOURCE_PATH), resourceBefore);
+}
 replaceFollowerAssets(reopened, reopenedRom, [{ key: chosen.key, bytes: art64, profile: "pokemon-asymmetric", source: "png", label: "64-pixel regression artwork" }]);
 assert.equal(followerArtworkPending(reopened, reopenedRom), true);
 await installFollowerAlpha(reopened, reopenedRom);
@@ -183,7 +212,10 @@ const resultFiles = new NARC(finalRom.getFileByName(FOLLOWER_RESOURCE_PATH)).fil
 assert.equal(result.size, 64); assert.deepEqual(resultFiles[result.resourceId], art64);
 assert.equal(result.placeholder, false);
 const descriptors = new NARC(finalRom.getFileByName(FOLLOWER_DESCRIPTOR_PATH)).files[0], view = new DataView(descriptors.buffer, descriptors.byteOffset, descriptors.byteLength);
-for (const entry of installed.entries) assert.equal(descriptors[4 + entry.descriptorRow * 28 + 7], followerBillboardDrawMode(entry.size), followerKey(entry.key));
+for (const entry of installed.entries) {
+  assert.equal(descriptors[4 + entry.descriptorRow * 28 + 7], followerBillboardDrawMode(entry.size), followerKey(entry.key));
+  assert.equal(descriptors[4 + entry.descriptorRow * 28 + 9], followerAnimationSelector(entry.animationProfile), followerKey(entry.key));
+}
 assert.deepEqual(descriptors.subarray(4, 4 + 1008 * 28), new NARC(originalDescriptors).files[0].subarray(4));
 assert.equal(view.getUint16(4 + result.descriptorRow * 28 + 16, true), result.resourceId);
 assert.equal(descriptors[4 + result.descriptorRow * 28 + 7], 2);
@@ -198,6 +230,7 @@ const report = { profile, variant: state.variant, version: state.version, specie
   preparedBulbasaurSubstitutions: prepared.registry.entries.filter(entry => entry.placeholderReason?.includes("Bulbasaur")).length,
   legacyWorkspaceMigration: true, legacyInstalledCatalogRepair: true, customImportsAndPositioningPreserved: true, stalePreviewReconciled: true,
   custom32And64PixelArtworkInstalled: true, cropped32PixelFrameRepaired: true, allOwnedFrameModesVerified: true,
+  sixAndEightPoseLayoutChangesAndRepairsVerified: true,
   nativeResourcesAndFileIdsPreserved: true, unchangedFieldDll: true,
   exportReopen: true, emulatorRun: false };
 await mkdir("runtime/following-pokemon/build", { recursive: true });

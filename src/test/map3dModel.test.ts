@@ -325,6 +325,44 @@ describe("map3dModel", () => {
     ]);
   });
 
+  it("replaces a direct black color when NORMAL resumes lighting, while preserving later direct shadows", () => {
+    const commands = makeGpuCommands([
+      { opcodes: [0x40, 0x20, 0x23, 0x23], params: [0, 0, vtx16(0, 0), vtx16(0, 0), vtx16(1, 0), vtx16(0, 0)] },
+      { opcodes: [0x23, 0x21, 0x23, 0x23], params: [vtx16(0, 1), vtx16(0, 0), 0x1ff << 10, vtx16(2, 0), vtx16(0, 0), vtx16(3, 0), vtx16(0, 0)] },
+      { opcodes: [0x23, 0x20, 0x23, 0x23], params: [vtx16(2, 1), vtx16(0, 0), 0, vtx16(4, 0), vtx16(0, 0), vtx16(5, 0), vtx16(0, 0)] },
+      { opcodes: [0x23, 0x41, 0, 0], params: [vtx16(4, 1), vtx16(0, 0)] },
+    ]);
+    const [primitive] = buildModelPrimitives({
+      textures: [], palettes: [], models: [{
+        renderOps: [{ kind: "bindMaterial", material: 0 }, { kind: "draw", piece: 0 }],
+        pieces: [{ commands }], materials: [makeTestMaterial("mixed_plaza")], objects: [], upScale: 1, downScale: 1,
+      }],
+    } as never, []);
+
+    expect(Array.from(primitive.colors ?? [])).toEqual([
+      ...Array(9).fill(0), ...Array(9).fill(1), ...Array(9).fill(0),
+    ]);
+    expect(primitive.normals).toBeDefined();
+    expect(primitive.indices).toHaveLength(9);
+  });
+
+  it("keeps normal-only meshes on the same neutral preview multiplier as the lit parts of mixed meshes", () => {
+    const commands = makeGpuCommands([
+      { opcodes: [0x40, 0x21, 0x23, 0x23], params: [0, 0x1ff << 10, vtx16(0, 0), vtx16(0, 0), vtx16(1, 0), vtx16(0, 0)] },
+      { opcodes: [0x23, 0x41, 0, 0], params: [vtx16(0, 1), vtx16(0, 0)] },
+    ]);
+    const [primitive] = buildModelPrimitives({
+      textures: [], palettes: [], models: [{
+        renderOps: [{ kind: "bindMaterial", material: 0 }, { kind: "draw", piece: 0 }],
+        pieces: [{ commands }], materials: [{ ...makeTestMaterial("normal_only"), diffuse: [.8, .8, .8], defaultVertexColor: true }],
+        objects: [], upScale: 1, downScale: 1,
+      }],
+    } as never, []);
+    expect(primitive.colors).toBeUndefined();
+    expect(primitive.normals).toBeDefined();
+    expect(primitive.indices).toHaveLength(3);
+  });
+
   it("preserves Platform 06 matrix-stack commands and compact node transforms", () => {
     const ops = parseNitroRenderOpsForTest(Uint8Array.of(
       0x26, 0, 0, 0, 0,
