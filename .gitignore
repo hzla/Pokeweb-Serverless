@@ -44,10 +44,14 @@ src/test/local/
 
 # Optional local maintenance, generation, and verification entry points.
 /scripts/*
+!/scripts/verify-following-artwork.ts
+!/scripts/build-following-dewott-artwork-rom.ts
 !/scripts/verify-fly-destinations.ts
 !/scripts/verify-bw1-stream-decoder.ts
 !/scripts/verify-bw1-music-project.ts
 !/scripts/generate-cgear-button-defaults-bw1.ts
+!/scripts/build-cgear-button-example.ts
+!/scripts/build-cgear-button-guide.ts
 # Vite imports the local bridge; TypeScript/tests import the shared tooling.
 !/scripts/w2u-local-bridge.js
 !/scripts/lib/

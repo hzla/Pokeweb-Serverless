@@ -1,5 +1,5 @@
 {
-  "version": "0.1.2-bw1",
+  "version": "0.1.3-bw1",
   "archivePath": "quick-actions/ui.narc",
   "archiveSha256": "25d75659e50284c060db72cb2aacac04671c2df26048eaedd5cd3e7e6dead23e",
   "defaultPcHideFlag": 1517,
@@ -247,6 +247,164 @@
           "bssSize": 944,
           "codeFingerprint": "34f0d0d6",
           "sha256": "3128199dea3ed2d068c281b20769a0c6c31e53a84ee821a1a835fb8eea161505",
+          "hooks": [
+            {
+              "module": "29",
+              "address": 35594582,
+              "type": "THUMB_BRANCH_LINK"
+            },
+            {
+              "module": "29",
+              "address": 35593778,
+              "type": "THUMB_BRANCH_LINK"
+            },
+            {
+              "module": "29",
+              "address": 35596712,
+              "type": "THUMB_BRANCH_LINK"
+            },
+            {
+              "module": "29",
+              "address": 35596752,
+              "type": "THUMB_BRANCH_LINK"
+            },
+            {
+              "module": "21",
+              "address": 35171452,
+              "type": "THUMB_BRANCH_LINK"
+            },
+            {
+              "module": "21",
+              "address": 35296320,
+              "type": "THUMB_BRANCH_LINK"
+            },
+            {
+              "module": "21",
+              "address": 35301572,
+              "type": "THUMB_BRANCH_LINK"
+            },
+            {
+              "module": "21",
+              "address": 35301584,
+              "type": "THUMB_BRANCH_LINK"
+            },
+            {
+              "module": "21",
+              "address": 35489604,
+              "type": "FULL_COPY"
+            },
+            {
+              "module": "21",
+              "address": 35489608,
+              "type": "FULL_COPY"
+            },
+            {
+              "module": "21",
+              "address": 35489616,
+              "type": "FULL_COPY"
+            },
+            {
+              "module": "21",
+              "address": 35489620,
+              "type": "FULL_COPY"
+            },
+            {
+              "module": "21",
+              "address": 35489744,
+              "type": "FULL_COPY"
+            },
+            {
+              "module": "10",
+              "address": 35066784,
+              "type": "FULL_COPY"
+            }
+          ]
+        }
+      }
+    },
+    "0.1.2-bw1": {
+      "games": {
+        "B": {
+          "bssSize": 948,
+          "codeFingerprint": "5fd28d07",
+          "sha256": "1aa938a8a7e375f770cc854cb34e93724c7d930d0181e903d050ba7b075a3631",
+          "hooks": [
+            {
+              "module": "29",
+              "address": 35594550,
+              "type": "THUMB_BRANCH_LINK"
+            },
+            {
+              "module": "29",
+              "address": 35593746,
+              "type": "THUMB_BRANCH_LINK"
+            },
+            {
+              "module": "29",
+              "address": 35596680,
+              "type": "THUMB_BRANCH_LINK"
+            },
+            {
+              "module": "29",
+              "address": 35596720,
+              "type": "THUMB_BRANCH_LINK"
+            },
+            {
+              "module": "21",
+              "address": 35171420,
+              "type": "THUMB_BRANCH_LINK"
+            },
+            {
+              "module": "21",
+              "address": 35296288,
+              "type": "THUMB_BRANCH_LINK"
+            },
+            {
+              "module": "21",
+              "address": 35301540,
+              "type": "THUMB_BRANCH_LINK"
+            },
+            {
+              "module": "21",
+              "address": 35301552,
+              "type": "THUMB_BRANCH_LINK"
+            },
+            {
+              "module": "21",
+              "address": 35489580,
+              "type": "FULL_COPY"
+            },
+            {
+              "module": "21",
+              "address": 35489584,
+              "type": "FULL_COPY"
+            },
+            {
+              "module": "21",
+              "address": 35489592,
+              "type": "FULL_COPY"
+            },
+            {
+              "module": "21",
+              "address": 35489596,
+              "type": "FULL_COPY"
+            },
+            {
+              "module": "21",
+              "address": 35489720,
+              "type": "FULL_COPY"
+            },
+            {
+              "module": "10",
+              "address": 35066752,
+              "type": "FULL_COPY"
+            }
+          ]
+        },
+        "W": {
+          "bssSize": 948,
+          "codeFingerprint": "e350e929",
+          "sha256": "ace11ce067d27fe5d258ca7dd189191fec3c128e1ceaa735451d79d140ddb7f4",
           "hooks": [
             {
               "module": "29",
@@ -1453,8 +1611,8 @@
         "29": "0169b68fe5dabcfc9eb7bd5a96f635c3cc0010227c06ee87fe7407e3a56b4018"
       },
       "nativeGraphicsFingerprint": "51a00fbe",
-      "sha256": "1aa938a8a7e375f770cc854cb34e93724c7d930d0181e903d050ba7b075a3631",
-      "codeFingerprint": "5fd28d07",
+      "sha256": "2d561f1ed9d0f213538df7fc9a1467d71b47e4f6e9509032e267a90f56c0938c",
+      "codeFingerprint": "00cde297",
       "bssSize": 948
     },
     "W": {
@@ -2586,8 +2744,8 @@
         "29": "544234a977f528dbbad0c7ea735a6ee59f71800a5db503a86eb31505b3bed6cc"
       },
       "nativeGraphicsFingerprint": "51a00fbe",
-      "sha256": "ace11ce067d27fe5d258ca7dd189191fec3c128e1ceaa735451d79d140ddb7f4",
-      "codeFingerprint": "e350e929",
+      "sha256": "d67c6328efd3bcd065db64ec21764467d10ce2b068289e0cbc9e5762b9d2bd91",
+      "codeFingerprint": "341bb095",
       "bssSize": 948
     }
   },

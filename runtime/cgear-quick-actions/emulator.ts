@@ -6,7 +6,7 @@ import vm from "node:vm";
 import { PNG } from "pngjs";
 import { loadProjectFromRomBytes } from "../../src/pokeweb/loader";
 import { buildQuickLaunchDownloads, getTestBattleConfigForProject, patchTestBattleSaveBadges } from "../../src/pokeweb/testBattle";
-import { patchTestBattleSavePlayerFirstMove } from "../../src/pokeweb/testBattleTeam";
+import { patchTestBattleSavePlayerFirstMove, patchTestBattleSavePlayerParty, decryptPk5Party } from "../../src/pokeweb/testBattleTeam";
 import { installCGearQuickActions, CGEAR_QUICK_ACTIONS_DEFAULT_PC_HIDE_FLAG } from "../../src/pokeweb/cgearQuickActionsModel";
 import { ensureCGearButtons } from "../../src/pokeweb/cgearButtonsModel";
 import { actionFor, newButton, type ActionId } from "../../src/cgearButtons/document";
@@ -62,7 +62,13 @@ const downloads=await buildQuickLaunchDownloads(project),romBytes=downloads.romB
 const compiledRom=new NintendoDSRom(romBytes,{fileData:"view"}),compiledArchive=new NARC(compiledRom.files[compiledRom.fileId("quick-actions/ui.narc")]);
 if(process.env.QUICK_ACTIONS_DEBUG){const r=new NintendoDSRom(romBytes,{fileData:"view"}),a=new NARC(r.files[r.fileId("quick-actions/ui.narc")]);console.log('ROM button header',Buffer.from(a.files[0]).toString('hex'));}
 const fixtureArg=process.argv.indexOf('--fixture-copy');
-const saveBytes=fixtureArg<0?patchTestBattleSavePlayerFirstMove(patchTestBattleSaveBadges(downloads.saveBytes,getTestBattleConfigForProject(project)),project,process.argv.includes('--no-fly')?0:19):new Uint8Array(await readFile(process.argv[fixtureArg+1]));
+const baseFixture=patchTestBattleSaveBadges(downloads.saveBytes,getTestBattleConfigForProject(project));
+const hmNoFly=selectedAction?.id==='mapFlyHm'&&process.argv.includes('--no-fly');
+const saveBytes=fixtureArg<0?(hmNoFly?patchTestBattleSavePlayerParty(baseFixture,project,'Oshawott\nLevel: 20\n- Tackle\n\nPikachu\nLevel: 15\n- Tackle'):patchTestBattleSavePlayerFirstMove(baseFixture,project,process.argv.includes('--no-fly')?0:19)):new Uint8Array(await readFile(process.argv[fixtureArg+1]));
+if(hmNoFly){
+  const moves=Array.from({length:saveBytes[0x18e04]},(_,i)=>{const at=0x18e08+i*220,b=decryptPk5Party(saveBytes.subarray(at,at+220));return Array.from({length:4},(_,n)=>b[0x28+n*2]|b[0x29+n*2]<<8);});
+  if(moves.flat().includes(19))throw new Error('HM Fly fixture still contains a Fly user');console.log('Verified HM Fly fixture party has no Fly:',JSON.stringify(moves));
+}
 function crc(b:Uint8Array) {let c=0xffff;for(const v of b) {c^=v<<8;for(let n=0;n<8;n++) c=c&0x8000?(c<<1)^0x1021:c<<1;c&=0xffff;}return c;}
 const fixture=Buffer.from(saveBytes.buffer,saveBytes.byteOffset,saveBytes.length);
 const radarZoneArg=process.argv.indexOf('--radar-zone');
@@ -85,11 +91,18 @@ for(const half of [0,0x26000]) {
     for(const [at,value]of [[start+16,(x+.5)*65536],[start+20,y*65536],[start+24,(z+.5)*65536],[half+0x19584,(x+.5)*65536],[half+0x19588,y*65536],[half+0x1958c,(z+.5)*65536]])fixture.writeUInt32LE(value,at);
     const positionCrc=crc(fixture.subarray(half+0x19500,half+0x195a8));fixture.writeUInt16LE(positionCrc,half+0x195aa);fixture.writeUInt16LE(positionCrc,half+0x25f38);
   }
-  for(const id of [442,...process.argv.includes('--bicycle')?[450]:[],...process.argv.includes('--eight')?[471,447,627,465]:[],...selectedAction?.item?[selectedAction.item]:[]]) {
+  for(const id of [442,...process.argv.includes('--bicycle')?[450]:[],...process.argv.includes('--eight')?[471,447,627,465]:[],...selectedAction?.item&&selectedAction.item!==421?[selectedAction.item]:[]]) {
     let slot=-1;
     for(let n=0;n<83;n++) {const at=half+0x18400+310*4+n*4,current=fixture.readUInt16LE(at);if(current===id){slot=at;break;}if(current===0 && slot<0)slot=at;}
     if(slot<0)throw new Error('No empty key-item fixture slot');const remove=id===442&&process.argv.includes('--no-map');
     fixture.writeUInt16LE(remove?0:id,slot);fixture.writeUInt16LE(remove?0:1,slot+2);
+  }
+  if(selectedAction?.id==='mapFlyHm') {
+    // HM02 belongs to the native TM/HM pocket, not the key-item pocket.
+    let slot=-1;
+    for(let n=0;n<109;n++){const at=half+0x18400+0x624+n*4,current=fixture.readUInt16LE(at);if(current===421){slot=at;break;}if(!current&&slot<0)slot=at;}
+    if(slot<0)throw new Error('No empty TM/HM fixture slot');
+    const owned=!process.argv.includes('--no-hm');fixture.writeUInt16LE(owned?421:0,slot);fixture.writeUInt16LE(owned?1:0,slot+2);
   }
   const bagCrc=crc(fixture.subarray(half+0x18400,half+0x18dec));fixture.writeUInt16LE(bagCrc,half+0x18dee);fixture.writeUInt16LE(bagCrc,half+0x25f32);
   const flag=CGEAR_QUICK_ACTIONS_DEFAULT_PC_HIDE_FLAG,at=half+0x1ff00+0x35e+(flag>>3);
@@ -147,6 +160,7 @@ const extras:Record<string,Input[]>={
   reload:[],gates:[]
 };
 if(scenario==='skins')extras.skins.push(...extras.pc.map(v=>({...v,frame:v.frame+1600})),...extras.map.map(v=>({...v,frame:v.frame+3500})));
+if(selectedAction?.id==='mapFlyHm'&&scenario==='travel')extras.travel[0].touch=[60,116];
 if(scenario==='layout')extras.layout.push(...extras.save.filter(v=>v.frame>=1000).map(v=>({...v,frame:v.frame+600})));
 if(actionId==='dowsing')extras.action.push({frame:1650,touch:[244,180]});
 if(actionId==='recorder')extras.action.push({frame:1200,touch:[128,130]},{frame:1650,touch:[128,150]});
@@ -336,7 +350,7 @@ for(let frame=0;frame<frameCount;frame++) {
           for(const [x,y] of [[4,4],[27,4],[4,27],[27,27]])if(pixels[y*32+x])throw new Error(`Button ${i} has a diagonal ring protrusion in its uploaded graphics`);
         }
       }
-      const shown=[true,!process.argv.includes('--hide-pc'),process.argv.includes('--bicycle'),!process.argv.includes('--no-map')];
+      const shown=[selectedAction?.id==='mapFlyHm'?!process.argv.includes('--no-hm'):true,!process.argv.includes('--hide-pc'),process.argv.includes('--bicycle'),!process.argv.includes('--no-map')];
       for(let i=0;i<design.buttons.length;i++)if(Boolean(m[session+725+i])!==(i<4?shown[i]:true))throw new Error(`Incorrect visibility gate for button ${i}`);
       // Validate every rendered caption locally, including unavailable poses.
       // Actor visibility alone misses native fade buffers overwriting palettes.

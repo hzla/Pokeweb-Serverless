@@ -41,9 +41,13 @@ for(const half of [0,0x24000]){
   for(const [at,value]of [[start+16,(x+.5)*65536],[start+20,y*65536],[start+24,(z+.5)*65536],[half+0x19584,(x+.5)*65536],[half+0x19588,y*65536],[half+0x1958c,(z+.5)*65536]])fixture.writeUInt32LE(value,at);
   const sum=crc(fixture.subarray(start,start+0x9c));fixture.writeUInt16LE(sum,start+0x9e);fixture.writeUInt16LE(sum,half+0x23f38);
  }
- for(const id of [442,450,447,471,465,437,...choice.item?[choice.item]:[]]){
+ for(const id of [442,450,447,471,465,437,...choice.item&&choice.item!==421?[choice.item]:[]]){
   let slot=-1;for(let i=0;i<83;i++){const at=half+0x18400+0x4d8+i*4,current=fixture.readUInt16LE(at);if(current===id){slot=at;break;}if(!current&&slot<0)slot=at;}
   if(slot<0)throw new Error("Fixture key-item pocket full.");fixture.writeUInt16LE(id,slot);fixture.writeUInt16LE(1,slot+2);
+ }
+ if(choice.id==='mapFlyHm'){
+  let slot=-1;for(let n=0;n<101;n++){const at=half+0x18400+0x624+n*4,current=fixture.readUInt16LE(at);if(current===421){slot=at;break;}if(!current&&slot<0)slot=at;}
+  if(slot<0)throw new Error('Fixture TM/HM pocket full.');const owned=!process.argv.includes('--no-hm');fixture.writeUInt16LE(owned?421:0,slot);fixture.writeUInt16LE(owned?1:0,slot+2);
  }
  const bag=crc(fixture.subarray(half+0x18400,half+0x18dc0));fixture.writeUInt16LE(bag,half+0x18dc2);fixture.writeUInt16LE(bag,half+0x23f32);
  const flag=1517,at=half+0x20100+0x27c+(flag>>3);fixture[at]&=~(1<<(flag&7));

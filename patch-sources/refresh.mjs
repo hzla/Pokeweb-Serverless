@@ -80,6 +80,7 @@ function runtimeFiles(group) {
     .map(entry => {
       const kind = /\.(md|txt)$/.test(entry.name) ? 'documentation'
         : /\.(json|yml)$/.test(entry.name) ? 'metadata'
+        : entry.name === 'native_addresses.h' ? 'source'
         : /^(verify|test|native|compatibility_tests)/.test(entry.name) ? 'test'
         : /\.(py|ts|cjs|java)$/.test(entry.name) ? 'build-tool' : 'source';
       // Keep the bookkeeping README separate from the original runtime notes.
@@ -250,11 +251,17 @@ const additions = [
   {
     name: 'cgear-quick-actions', title: 'C-Gear Buttons and Quick Actions',
     artifacts: ['CGearQuickActionsB2.dll', 'CGearQuickActionsW2.dll', 'CGearQuickActionsB.dll', 'CGearQuickActionsW.dll'],
-    note: 'Separate BW2 and BW1 profiles and builders. BW2 0.5.3 uses the outer-rim skin dial with 12-degree steps and a moving marker while hiding the digital clock and chevron decal; shared geometry and compiled graphics are inventoried here. It retains the optional Nuzlocke snapshot provider to the Pokenav application action; its shared viewer sources are inventoried separately. Source availability does not establish historical binary reproducibility or hardware acceptance.',
+    note: 'Separate BW2 0.5.4 and BW1 0.1.3-bw1 profiles and builders add HM02-gated native Fly without a learned-move requirement. BW2 retains the outer-rim 12-degree skin dial and moving marker while hiding the digital clock and chevron decal; shared geometry and compiled graphics are inventoried here. It retains the optional Nuzlocke snapshot provider to the Pokenav application action; its shared viewer sources are inventoried separately. Source availability does not establish historical binary reproducibility or hardware acceptance.',
     extra: [
+      ...fs.readdirSync(path.join(app, 'runtime/cgear-quick-actions/bw2')).filter(name => name.endsWith('.inc')).sort().map(name => file('cgear-quick-actions', `bw2/${name}`)),
+      file('cgear-quick-actions', '.clang-format', 'metadata'),
+      file('cgear-quick-actions', 'guide/build-cgear-button-example.ts', 'build-tool', 'scripts/build-cgear-button-example.ts'),
+      file('cgear-quick-actions', 'guide/build-cgear-button-guide.ts', 'build-tool', 'scripts/build-cgear-button-guide.ts'),
+      ...['index.html', 'guide.css', 'guide.js', 'example-design.json'].map(name => file('cgear-quick-actions', `guide/${name}`, 'documentation', `docs/cgear-buttons/${name}`)),
       ...fs.readdirSync(path.join(app, 'src/cgearButtons')).filter(name => /\.(ts|json)$/.test(name)).map(name => file('cgear-quick-actions', `integration/buttons/${name}`, 'support-only', `src/cgearButtons/${name}`)),
       file('cgear-quick-actions', 'integration/cgearButtonsEditor.ts', 'support-only', 'src/ui/cgearButtonsEditor.ts'),
       file('cgear-quick-actions', 'tests/cgearDial.test.ts', 'test', 'src/test/cgearDial.test.ts'),
+      ...['cgearButtons', 'cgearQuickActionsModel', 'cgearQuickActionsBw1'].map(name => file('cgear-quick-actions', `tests/${name}.test.ts`, 'test', `src/test/${name}.test.ts`)),
       file('cgear-quick-actions', 'integration/cgearQuickActionsModel.ts', 'support-only', 'src/pokeweb/cgearQuickActionsModel.ts'),
       file('cgear-quick-actions', 'integration/cgearButtonsModel.ts', 'support-only', 'src/pokeweb/cgearButtonsModel.ts'),
       file('cgear-quick-actions', 'metadata/cgearQuickActionsManifest.json', 'metadata', 'src/assets/codeinjection/cgearQuickActionsManifest.json'),

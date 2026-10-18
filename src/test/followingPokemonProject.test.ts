@@ -7,7 +7,7 @@ import { NintendoDSRom } from "../nds/rom";
 import { Folder } from "../nds/fnt";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { stageCodeInjectionDll } from "../pokeweb/pmcModel";
-import { FOLLOWER_MANIFEST_PATH, FOLLOWER_REGISTRY_PATH, readFollowerWorkspace, replaceFollowerAssets, readFollowerAsset, checkFollowerCompatibility, followerModuleHookConflicts, type FollowerAssetWorkspace, type FollowerRom } from "../pokeweb/followingPokemonProject";
+import { FOLLOWER_MANIFEST_PATH, FOLLOWER_REGISTRY_PATH, FOLLOWER_BUNDLED_ASSETS_PATH, readFollowerWorkspace, replaceFollowerAssets, readFollowerAsset, checkFollowerCompatibility, followerModuleHookConflicts, followerArtworkReplacementAvailable, type FollowerAssetWorkspace, type FollowerRom } from "../pokeweb/followingPokemonProject";
 import { parseRpm, writeRpm, type RpmModule } from "../pokeweb/rpm";
 import { deriveFollowerGrounding, encodeFollowerFrames, followerGroundingPixels, followerKey } from "../pokeweb/followingPokemonModel";
 import contract from "../../runtime/following-pokemon/contract.json";
@@ -31,6 +31,47 @@ function fixture(){
   const rom=new NintendoDSRom(new Uint8Array(512));return {project,rom,workspace};
 }
 describe("follower asset transactions",()=>{
+  it("previews bundled external resources before installation and rejects altered bundles",()=>{
+    const {project,rom,workspace}=fixture();
+    const bundle=new NARC();bundle.files=[bytes];const data=bundle.save();
+    workspace.bundledResources={path:FOLLOWER_BUNDLED_ASSETS_PATH,firstResourceId:975,crc32:followerCrc32(data)};
+    workspace.registry.resourceCount=976;workspace.registry.entries[0].resourceId=975;
+    workspace.registry.entries[0].animationProfile="pokemon-asymmetric";
+    project.fileSystem!.additions![FOLLOWER_BUNDLED_ASSETS_PATH]=data;
+    project.fileSystem!.additions![FOLLOWER_MANIFEST_PATH]=new TextEncoder().encode(JSON.stringify(workspace));
+    const loaded=readFollowerWorkspace(project,rom)!;
+    expect(readFollowerAsset(project,rom,loaded,loaded.registry.entries[0])).toEqual(bytes);
+    data[100]^=1;
+    expect(()=>readFollowerAsset(project,rom,loaded,loaded.registry.entries[0])).toThrow(/edited outside/);
+    workspace.bundledResources.path="unrelated.bin";
+    project.fileSystem!.additions![FOLLOWER_MANIFEST_PATH]=new TextEncoder().encode(JSON.stringify(workspace));
+    expect(()=>readFollowerWorkspace(project,rom)).toThrow(/bundled follower/);
+  });
+  it("reconciles stale retail placeholders with installed artwork while preserving positioning",()=>{
+    const {project,rom,workspace}=fixture();workspace.registry.entries[0].directionalGaps=[1,2,3,4];
+    project.fileSystem!.additions![FOLLOWER_MANIFEST_PATH]=new TextEncoder().encode(JSON.stringify(workspace));
+    const installed=structuredClone(workspace.registry);installed.resourceCount=976;
+    Object.assign(installed.entries[0],{resourceId:975,placeholder:false,placeholderReason:undefined});
+    project.fileSystem!.additions![FOLLOWER_RUNTIME_REGISTRY_PATH]=encodeFollowerRegistry(installed);
+    project.fileSystem!.additions![FOLLOWER_INSTALL_PATH]=new TextEncoder().encode(JSON.stringify({removed:false}));
+    const result=readFollowerWorkspace(project,rom)!;
+    expect(result.registry.entries[0].resourceId).toBe(975);
+    expect(result.registry.entries[0].placeholder).toBe(false);
+    expect(result.registry.entries[0].directionalGaps).toEqual([1,2,3,4]);
+    expect(result.registry.resourceCount).toBe(976);
+  });
+  it("enables artwork application for both stock BW2 games and excludes external runtimes",async()=>{
+    const {project,rom}=fixture();
+    for(const idCode of ["IRDO","IREO"]){
+      Object.assign(rom,{idCode});
+      expect(await followerArtworkReplacementAvailable(project,rom as unknown as FollowerRom)).toBe(true);
+      project.fileSystem!.additions![FOLLOWER_INSTALL_PATH]=new TextEncoder().encode(JSON.stringify({externalRuntime:{}}));
+      expect(await followerArtworkReplacementAvailable(project,rom as unknown as FollowerRom)).toBe(false);
+      delete project.fileSystem!.additions![FOLLOWER_INSTALL_PATH];
+    }
+    Object.assign(rom,{idCode:"IRDI"});
+    expect(await followerArtworkReplacementAvailable(project,rom as unknown as FollowerRom)).toBe(false);
+  });
   it("recognizes historical owned Upgrade workspaces without accepting arbitrary targets",()=>{
     const {project,rom,workspace}=fixture();
     for(const target of [upgradeContract.sourceRomSha256,...upgradeContract.previousSourceRomSha256]) {

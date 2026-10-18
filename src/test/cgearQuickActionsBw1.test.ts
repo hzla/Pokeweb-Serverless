@@ -118,7 +118,7 @@ describe.each(["B","W"]as const)("BW1 C-Gear %s",game=>{
   expect(getCGearQuickActionsStatus(p)).toMatchObject({compatible:false,message:expect.stringContaining("Conflicting")});
   const q=project(game);await installCGearQuickActions(q);const arc=new NARC(q.fileSystem!.additions![manifest.archivePath]);arc.files[16][0]^=1;q.fileSystem!.additions![manifest.archivePath]=arc.save();expect(getCGearQuickActionsStatus(q)).toMatchObject({compatible:false,message:expect.stringContaining("integrity")});
  });
- it.each(["0.1.0","0.1.1"])("upgrades the exact %s runtime while preserving authored source and IDs",async version=>{
+ it.each(["0.1.0","0.1.1","0.1.2"])("upgrades the exact %s runtime while preserving authored source and IDs",async version=>{
   const p=project(game);assets();await installCGearQuickActions(p);
   p.fileSystem!.additions![`patches/CGearQuickActions${game}.dll`]=new Uint8Array(readFileSync(new URL(`./fixtures/cgear-quick-actions-bw1-v${version}/${game}.dll`,import.meta.url)));
   p.fileSystem!.additions![manifest.archivePath]=new Uint8Array(readFileSync(new URL(`./fixtures/cgear-quick-actions-bw1-v${version}/ui.narc`,import.meta.url)));
@@ -128,5 +128,13 @@ describe.each(["B","W"]as const)("BW1 C-Gear %s",game=>{
   await installCGearQuickActions(p);
   expect(p.cgearButtons!.document).toEqual(doc);expect(p.cgearButtons!.applied).toEqual(doc);
   expect(getCGearQuickActionsStatus(p)).toMatchObject({compatible:true,updateAvailable:false});
+ });
+ it("installs HM02 Fly and retains its action, stable ID and visibility flag through export",async()=>{
+  const p=project(game);assets();const b=ensureCGearButtons(p).document.buttons[3];b.action="mapFlyHm";b.flag={id:200,when:"clear"};
+  await installCGearQuickActions(p);const reopened=project(game,await exportModifiedRom(p));
+  expect(getCGearQuickActionsStatus(reopened)).toMatchObject({installed:true,enabled:true,compatible:true});
+  expect(reopened.cgearButtons!.applied!.buttons[3]).toMatchObject({id:4,action:"mapFlyHm",flag:{id:200,when:"clear"}});
+  const rom=new NintendoDSRom(reopened.originalRomBytes!),arc=new NARC(rom.files[rom.fileId(manifest.archivePath)]);
+  expect(arc.files[0][32+3*16+2]).toBe(19);expect(readU16(arc.files[0],32+3*16+4)).toBe(421);
  });
 });

@@ -86,7 +86,7 @@ const row = (positionedEntry.descriptorRow - 1008) * 12;
 if (rows.land.subarray(row, row + 4).some((value, index) => value !== index + 1) ||
  rows.surf[0] !== 1 || rows.surf[1] !== 255) throw new Error("Authored land/Surf positioning was not retained");
 console.log("Appearance positioning edit/export/reopen passed for land and Surf rows.");
-if (profile === "stock") {
+if (profile === "stock" || profile === "black2") {
  const workspace = positionedWorkspace;
  const entry = workspace.registry.entries.find(candidate => candidate.size === 32);
  if (!entry) throw new Error("Stock catalog has no 32-pixel appearance to replace");
@@ -106,5 +106,5 @@ if (profile === "stock") {
   new DataView(artDescriptor.buffer, artDescriptor.byteOffset, artDescriptor.byteLength).getUint32(0, true));
  const artProject = await loadProjectFromRomBytes(artRomBytes, "replaced-art.nds", { selectedNarcs: [] });
  if (!(await readFollowerAlphaInstall(artProject))?.enabled) throw new Error("Art replacement receipt failed after reopen");
- console.log("Stock artwork replacement/recomputed land anchors/export/reopen passed.");
+ console.log("BW2 artwork replacement/recomputed land anchors/export/reopen passed.");
 }

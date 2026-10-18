@@ -108,6 +108,19 @@ describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
     stageCodeInjectionDll(p,'OtherPhenomenon.dll',writeRpm(other,{ident:'DLXF'}));
     expect(getCGearQuickActionsStatus(p)).toMatchObject({compatible:false,message:expect.stringContaining('Conflicting')});
   });
+  it('updates the 0.5.3 runtime to HM02 Fly and retains its design through export',async()=>{
+    const p=makeProject(v);assets();await installCGearQuickActions(p);
+    const path=`patches/CGearQuickActions${v}.dll`;
+    p.fileSystem!.additions![path]=new Uint8Array(readFileSync(new URL(`./fixtures/cgear-quick-actions-v0.5.3/CGearQuickActions${v}.dll`,import.meta.url)));
+    expect(getCGearQuickActionsStatus(p)).toMatchObject({installed:true,compatible:true,updateAvailable:true});
+    const button=ensureCGearButtons(p).document.buttons[3];button.action="mapFlyHm";button.flag={id:200,when:"clear"};
+    await installCGearQuickActions(p);
+    const reopened=makeProject(v,await exportModifiedRom(p));
+    expect(getCGearQuickActionsStatus(reopened)).toMatchObject({installed:true,compatible:true,enabled:true,updateAvailable:false});
+    expect(reopened.cgearButtons!.applied!.buttons[3]).toMatchObject({id:4,action:"mapFlyHm",flag:{id:200,when:"clear"}});
+    const rom=new NintendoDSRom(reopened.originalRomBytes!),arc=new NARC(rom.files[rom.fileId(manifest.archivePath)]);
+    expect(arc.files[0][32+3*16+2]).toBe(19);expect(arc.files[0][32+3*16+4]).toBe(421&255);
+  });
   it.each([1,2,3,4,5] as const)('updates graphics version %s and restores native graphics on disable',async version=>{
     const p=makeProject(v);assets();await installCGearQuickActions(p);
     const arc=new NARC(p.fileSystem!.additions![manifest.archivePath]);legacyControls(arc);const backup=new NARC(arc.files[14]);

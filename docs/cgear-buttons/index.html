@@ -1,0 +1,2129 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      name="description"
+      content="A practical beginner guide to drawing custom BW2 C-Gear buttons, handling touch input, and launching native Repel, PC and Party behavior with PMC."
+    />
+    <title>Custom C-Gear buttons · Pokeweb Guides</title>
+    <link rel="stylesheet" href="guide.css" />
+    <script src="guide.js" defer></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to the guide</a>
+    <header class="topbar">
+      <a class="brand" href="#main" aria-label="Pokeweb Guides home"
+        ><svg viewBox="0 0 28 28" aria-hidden="true">
+          <rect x="5" y="2" width="18" height="24" rx="3" />
+          <path d="M8 5h12v7H8zM8 16h12v6H8zM3 14h22" /></svg
+        >Pokeweb <span>Guides</span></a
+      >
+      <nav aria-label="Guide navigation">
+        <a class="current" href="#overview">Generation V</a
+        ><a href="#source-tour">Runtime sources</a
+        ><a href="https://ds-pokemon-hacking.github.io/docs/category/guides-1"
+          >DS hacking wiki ↗</a
+        >
+      </nav>
+      <div class="header-tools">
+        <button
+          id="theme-toggle"
+          type="button"
+          aria-label="Switch to dark theme"
+        >
+          ◐</button
+        ><label class="search"
+          ><span class="sr-only">Find a section in this guide</span
+          ><input
+            id="section-search"
+            type="search"
+            placeholder="Find a section…"
+            autocomplete="off"
+        /></label>
+        <div id="search-results" class="search-results" hidden></div>
+        <button
+          id="mobile-menu"
+          type="button"
+          aria-controls="sidebar"
+          aria-expanded="false"
+        >
+          ☰ <span class="sr-only">Toggle chapters</span>
+        </button>
+      </div>
+    </header>
+    <div class="layout">
+      <aside id="sidebar" class="sidebar" aria-label="Chapters">
+        <p class="nav-title">Generation V <span>⌄</span></p>
+        <p class="nav-group">CUSTOM INTERFACES</p>
+        <a class="guide-name active" href="#overview">Custom C-Gear buttons</a>
+        <nav id="chapter-nav">
+          <a href="#overview">Before you start</a
+          ><a href="#mental-model">1. The moving parts</a
+          ><a href="#first-build">2. Build the three-button lesson</a
+          ><a href="#cpp-primer">3. Just enough C++</a
+          ><a href="#graphics">4. Give a button its pixels</a
+          ><a href="#lifecycle">5. Join the native lifecycle</a
+          ><a href="#input">6. Turn a tap into a request</a
+          ><a href="#repel">7. Connect REPEL</a><a href="#pc">8. Connect PC</a
+          ><a href="#party">9. Connect PARTY</a
+          ><a href="#another-item">10. Add another key item</a
+          ><a href="#saving">11. Keep the player's layout</a
+          ><a href="#build-test">12. Build, install and test</a>
+          <p class="nav-group">REFERENCE</p>
+          <a href="#source-tour">Where the code lives</a
+          ><a href="#bw1">Black / White differences</a
+          ><a href="#troubleshooting">Troubleshooting</a
+          ><a href="#next">The advanced follow-up</a
+          ><a href="#sources">Sources and verification</a>
+        </nav>
+        <div class="sidebar-note">
+          <strong>Follow the real code.</strong>
+          <p>
+            Source panels are generated directly from the implementation.
+          </p>
+          <a href="example-design.json" download
+            >Download the lesson design ↓</a
+          >
+        </div>
+      </aside>
+      <main id="main" tabindex="-1">
+        <nav class="breadcrumbs" aria-label="Breadcrumb">
+          <a href="#main">⌂</a><span>›</span><span>Generation V</span
+          ><span>›</span><span>Custom interfaces</span>
+        </nav>
+        <div class="tags">
+          <span>Black 2</span><span>White 2</span><span>PMC</span
+          ><span>Beginner</span>
+        </div>
+        <div class="jump">
+          <a
+            class="back"
+            href="https://ds-pokemon-hacking.github.io/docs/category/guides-1"
+            >← Gen 5 guides</a
+          ><label
+            ><span class="sr-only">Jump to a chapter</span
+            ><select id="jump">
+              <option value="">Jump to a chapter…</option>
+            </select></label
+          >
+        </div>
+        <h1>Custom C-Gear buttons</h1>
+        <p class="lede">
+          Draw a button. Recognize a tap. Ask the game to do something it
+          already knows how to do.
+        </p>
+        <p class="byline">
+          A worked Pokeweb example · BW2 runtime
+          <span data-runtime-version>0.5.4</span> · Updated 17 October 2026
+        </p>
+
+        <section id="overview">
+          <h2>
+            Before you start
+            <a
+              class="anchor"
+              href="#overview"
+              aria-label="Link to Before you start"
+              >#</a
+            >
+          </h2>
+          <p>
+            This guide builds three custom buttons: <strong>REPEL</strong>,
+            <strong>PC</strong> and <strong>PARTY</strong>. You will follow a
+            complete reference implementation from its graphics archive to its
+            native game events, then change a design and produce a separately
+            named ROM. No AI assistant or browser button editor is needed to
+            follow the lesson.
+          </p>
+          <p>
+            You should already have PMC code injection set up, understand
+            variables, conditions and functions, and recognize files such as
+            NARCs and overlays. You do <em>not</em> need to know C++ yet;
+            chapter 3 explains the small amount used in the examples.
+          </p>
+          <aside class="admonition">
+            <strong>Choose the right game profile</strong>
+            <p>
+              The main walkthrough targets English US revision-0 Black 2
+              (<code>IREO</code>) and White 2 (<code>IRDO</code>). A compatible
+              hack must preserve the checked interfaces. Black/White use a
+              separate adapter; their addresses, graphics and request structures
+              cannot be substituted into this walkthrough.
+            </p>
+          </aside>
+          <h3>What you will have at the end</h3>
+          <ul>
+            <li>
+              A compiled three-button design and a test ROM made from your own
+              input ROM.
+            </li>
+            <li>
+              A clear route through drawing, touch ownership, native events and
+              cleanup.
+            </li>
+            <li>
+              A way to add a button for another <em>already supported</em> key
+              item.
+            </li>
+          </ul>
+          <p>
+            The reference package also contains skins, a 12° skin dial,
+            visibility flags and other actions. You do not need to implement
+            those features to understand a button. We keep their production code
+            intact so the lesson uses the same tested lifecycle as the actual
+            patch.
+          </p>
+        </section>
+
+        <section id="mental-model">
+          <h2>
+            1. The moving parts
+            <a
+              class="anchor"
+              href="#mental-model"
+              aria-label="Link to The moving parts"
+              >#</a
+            >
+          </h2>
+          <p>
+            A C-Gear button has three separate jobs. Its
+            <strong>artwork</strong> determines the pixels you see. Its
+            <strong>hit test</strong> decides whether it owns a touch. Its
+            <strong>action adapter</strong> translates that press into a native
+            game event or a saved toggle.
+          </p>
+          <div
+            class="flow"
+            role="img"
+            aria-label="Button design compiles into an archive. The runtime draws sprites and checks touch input. A queued request is handed to the native field event system, which opens the native behavior and returns to C-Gear."
+          >
+            <div>
+              <small>AUTHOR</small><b>Design + pixels</b
+              ><span>label, color, action, position</span>
+            </div>
+            <span class="flow-arrow">→</span>
+            <div>
+              <small>COMPILE</small><b>Private NARC</b
+              ><span>configuration + sprite data</span>
+            </div>
+            <span class="flow-arrow">→</span>
+            <div>
+              <small>RUNTIME</small><b>Draw + hit-test</b
+              ><span>one pending request</span>
+            </div>
+            <span class="flow-arrow">→</span>
+            <div>
+              <small>GAME</small><b>Native event</b
+              ><span>open, finish, return</span>
+            </div>
+          </div>
+          <p>
+            We attach sprites to the native C-Gear's existing render unit. We
+            intercept selected lifecycle and input calls, let the original game
+            code run where required, and add our work around it. We do not
+            replace the entire bottom-screen engine.
+          </p>
+          <h3>Try the handoff</h3>
+          <p>
+            The illustration below uses decoded button art. It simulates the
+            request handoff; it does not run a ROM or emulate the PC or Party
+            menu.
+          </p>
+          <div class="demo">
+            <div class="demo-screen" aria-label="Illustrated C-Gear buttons">
+              <div class="demo-logo">C-GEAR <small>ILLUSTRATION</small></div>
+              <button
+                type="button"
+                class="demo-button demo-pc"
+                data-action="pc"
+                aria-label="Try the PC request"
+              >
+                <img
+                  src="assets/pc-normal.png"
+                  width="64"
+                  height="64"
+                  alt="PC"
+                /></button
+              ><button
+                type="button"
+                class="demo-button demo-party"
+                data-action="party"
+                aria-label="Try the Party request"
+              >
+                <img
+                  src="assets/party-normal.png"
+                  width="64"
+                  height="64"
+                  alt="PARTY"
+                /></button
+              ><button
+                type="button"
+                class="demo-button demo-repel"
+                data-action="repel"
+                aria-label="Try the Repel toggle"
+              >
+                <img
+                  src="assets/repel-normal.png"
+                  width="64"
+                  height="64"
+                  alt="REPEL"
+                />
+              </button>
+            </div>
+            <div class="demo-explanation">
+              <p class="eyebrow">FOLLOW ONE PRESS</p>
+              <label class="checkbox"
+                ><input id="demo-busy" type="checkbox" /> The native game is
+                busy</label
+              >
+              <p id="demo-status" role="status" aria-live="polite">
+                Choose a button to see its route.
+              </p>
+              <ol id="demo-trace">
+                <li>Artwork and touch targets are ready.</li>
+              </ol>
+              <button id="demo-reset" class="small-button" type="button">
+                Reset illustration
+              </button>
+            </div>
+          </div>
+          <p>
+            Notice the difference: REPEL changes a preference and affects later
+            encounters. PC returns a native script event. PARTY creates an owned
+            parent event and lets a native child application do the menu work.
+          </p>
+        </section>
+
+        <section id="first-build">
+          <h2>
+            2. Build the three-button lesson
+            <a
+              class="anchor"
+              href="#first-build"
+              aria-label="Link to Build the lesson"
+              >#</a
+            >
+          </h2>
+          <p>
+            Start with a known working result, then read how it is built. The
+            lesson uses the complete source in this repository as scaffolding.
+            It is a source-based build exercise, not a claim that the short
+            teaching snippets alone form a complete replacement runtime.
+          </p>
+          <h3>Prepare the tools</h3>
+          <p>
+            From the Pokeweb repository root, install its locked Node
+            dependencies and the Python build dependencies. Use the ARM GNU
+            toolchain's <code>arm-none-eabi</code> programs and a compatible
+            CTRMap/RPMTool JAR. Java runs RPMTool; Node runs the graphics
+            compiler; Python checks the retail bindings and drives the native
+            build.
+          </p>
+          <div class="codeplate">
+            <div class="codebar">
+              <span>Shell · repository root</span
+              ><button type="button" data-copy>Copy</button>
+            </div>
+            <pre><code>npm ci
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install ndspy pyelftools unicorn
+
+export ARM_TOOLCHAIN_BIN="$PWD/toolchain/bin"
+export RPM_TOOL_JAR="$PWD/tools/CTRMap.jar"
+export QUICK_ACTIONS_W2_ROM="$PWD/roms/white2-us-rev0.nds"
+export QUICK_ACTIONS_B2_ROM="$PWD/roms/black2-us-rev0.nds"
+
+npm run cgear:build</code></pre>
+          </div>
+          <p>
+            Point those four variables at your own files; the displayed
+            locations are examples. This reference builder checks
+            <strong>both</strong> retail inputs and builds independent B2/W2
+            DLLs. It expects unmodified US revision-0 ROMs as binding
+            references, even when your eventual input is a compatible hack. Its
+            generated files appear in
+            <code>runtime/cgear-quick-actions/build/</code>; the built-in assets
+            appear in <code>src/assets/codeinjection/</code>.
+          </p>
+          <p>
+            The full build links a small optional integration helper and imports
+            the shared music runtime. Keep those dependencies from this
+            checkout. Our lesson does not open Pokenav, enable encounter
+            filtering, or require you to understand those optional integrations.
+          </p>
+          <h3>Write the design</h3>
+          <p>
+            Open
+            <a href="example-design.json"
+              ><code>docs/cgear-buttons/example-design.json</code></a
+            >. Each button gets a stable ID, label, outline color, center and
+            action name. IDs are identities, not array positions or native event
+            IDs; using IDs 1, 2 and 5 keeps the corresponding default buttons'
+            identities.
+          </p>
+          <div class="codeplate">
+            <div class="codebar">
+              <span>JSON · complete lesson design</span
+              ><button type="button" data-copy>Copy</button>
+            </div>
+            <pre><code data-file="example-design.json">{
+  "version": 1,
+  "nextId": 6,
+  "hideCommunicationButtons": true,
+  "buttons": [
+    { "id": 1, "label": "REPEL", "color": "#18d878", "x": 60, "y": 116, "action": "repel" },
+    { "id": 2, "label": "PC", "color": "#ff637b", "x": 68, "y": 60, "action": "pc" },
+    { "id": 5, "label": "PARTY", "color": "#29c5f7", "x": 188, "y": 60, "action": "party" }
+  ]
+}</code></pre>
+          </div>
+          <p>
+            These actions have no required bag item. PC's usual optional hide
+            flag is deliberately omitted from this first lesson. The compiler
+            supplies the normal bundled skin catalog when the design does not
+            specify one.
+          </p>
+          <h3>Produce a ROM</h3>
+          <div class="codeplate">
+            <div class="codebar">
+              <span>Shell · White 2 example</span
+              ><button type="button" data-copy>Copy</button>
+            </div>
+            <pre><code>npx vite-node scripts/build-cgear-button-example.ts \
+  roms/white2-us-rev0.nds \
+  --design docs/cgear-buttons/example-design.json \
+  --output output/white2-cgear-lesson.nds \
+  --resources output/white2-cgear-lesson-resources</code></pre>
+          </div>
+          <p>
+            For Black 2, change the input and output filenames to your Black 2
+            files; the installer chooses the game profile. The command compiles
+            your design, stages compatible dependencies, and exports a new ROM.
+            Existing output filenames are rejected. Your input ROM and saves are
+            not overwritten.
+          </p>
+          <p>
+            The resources directory contains inspection copies of the private
+            NARC, modified native C-Gear NARC, C-Gear DLL and shared music DLL.
+            The exported ROM is the complete installed result. The inspection
+            files alone do not replace PMC setup, dependency checks or hook
+            conflict checks.
+          </p>
+          <aside class="admonition success">
+            <strong>Checkpoint</strong>
+            <p>
+              Cold-boot the new ROM with a copied ordinary save in which C-Gear
+              has been obtained. You should see REPEL, PC and PARTY. A loaded
+              emulator state restores its old runtime, so it is not a reliable
+              test of a new build.
+            </p>
+          </aside>
+        </section>
+
+        <section id="cpp-primer">
+          <h2>
+            3. Just enough C++
+            <a
+              class="anchor"
+              href="#cpp-primer"
+              aria-label="Link to Just enough C++"
+              >#</a
+            >
+          </h2>
+          <p>
+            The native runtime is freestanding C++17: it runs inside the game
+            without a normal desktop C++ library. Most of the code is structs,
+            integer calculations and function calls.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Notation</th>
+                  <th>Read it as</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>u8 / u16 / u32</code></td>
+                  <td>
+                    Unsigned 8-, 16- and 32-bit integers. Width matters in
+                    binary records.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>Subscreen* subscreen</code></td>
+                  <td>
+                    A pointer to a native subscreen object, not a copy of the
+                    object.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>subscreen-&gt;heap</code></td>
+                  <td>Read the heap field through that pointer.</td>
+                </tr>
+                <tr>
+                  <td><code>&amp;request / *pointer</code></td>
+                  <td>
+                    Get an object's address / access the value at an address.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>nullptr</code></td>
+                  <td>No object or no event.</td>
+                </tr>
+                <tr>
+                  <td><code>struct</code></td>
+                  <td>
+                    A group of fields. Native request layouts must keep the
+                    correct order and size.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>extern "C"</code></td>
+                  <td>
+                    Keep a predictable exported name for PMC's hook symbols.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>#define CG_PLAY_SOUND …</code></td>
+                  <td>
+                    A named address alias. The compiler sees the same number
+                    after preprocessing.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            For example, this is a real wrapper from
+            <code>game_state.inc</code>:
+          </p>
+          <div class="codeplate">
+            <div class="codebar">
+              <span>C++ · native Party count</span
+              ><button type="button" data-copy>Copy</button>
+            </div>
+            <pre><code data-file="../../runtime/cgear-quick-actions/bw2/game_state.inc" data-symbol="count">u32 count(void* gameData) {
+    return api&lt;u32 (*)(void*)&gt;(CG_PARTY_COUNT)(party(gameData));
+}</code></pre>
+          </div>
+          <p>
+            <code>u32 (*)(void*)</code> describes a function that takes one
+            pointer and returns a 32-bit integer.
+            <code>api&lt;…&gt;</code> turns a checked game address into that
+            callable function type. <code>party(gameData)</code> supplies the
+            pointer to the native Party object.
+          </p>
+          <p>
+            <code>api()</code> resolves the verified ARM9 profile;
+            <code>ov()</code> resolves a verified overlay address. In this BW2
+            adapter they set the Thumb address bit. Neither helper discovers a
+            function's signature or loads an absent overlay. A wrong type,
+            calling mode or overlay can crash even if the number looks
+            reasonable.
+          </p>
+          <p>
+            <code>at&lt;u8&gt;(pointer, offset)</code> reads a known byte field
+            at a byte offset; <code>at&lt;u32&gt;</code> accesses four bytes. It
+            is our small replacement for missing native structure declarations.
+            Offset knowledge lives at the adapter boundary—do not invent offsets
+            when adding a button.
+          </p>
+          <aside class="admonition">
+            <strong>One source file, several readable sections</strong>
+            <p>
+              The <code>.inc</code> files are included by
+              <code>quick_actions.cpp</code>, in order, and compiled together
+              once. Do not compile each <code>.inc</code> separately. This
+              organization preserves the existing private function names, native
+              layouts and initialization order.
+            </p>
+          </aside>
+        </section>
+
+        <section id="graphics">
+          <h2>
+            4. Give a button its pixels
+            <a class="anchor" href="#graphics" aria-label="Link to Graphics"
+              >#</a
+            >
+          </h2>
+          <p>
+            The buttons are <strong>sprites</strong>, also called actors in this
+            code. The compiler draws them programmatically from indexed pixels.
+            Text comes from decoded native glyphs, reduced to five pixels high,
+            with black lettering, a colored outline and an outer black border.
+            PC and PARTY use a ring sampled from the native artwork.
+          </p>
+          <div class="pixel-facts">
+            <div><b>32 × 32</b><span>pixels per button</span></div>
+            <div><b>4 bpp</b><span>two pixels per byte</span></div>
+            <div><b>512 bytes</b><span>one visible sprite pose</span></div>
+            <div>
+              <b>4 poses</b><span>normal · active · pressed · unavailable</span>
+            </div>
+          </div>
+          <p>
+            A 32×32 image contains sixteen 8×8 tiles. At four bits per pixel,
+            each tile is 32 bytes. The DS expects those tiles in tile order, not
+            a flat desktop-image row order. Here is the complete packer used by
+            the compiler:
+          </p>
+          <details class="source-details">
+            <summary>Read the actual pixel-to-tile function</summary>
+            <div class="codeplate">
+              <div class="codebar">
+                <a href="../../src/cgearButtons/compiler.ts"
+                  >compiler.ts · tile()</a
+                ><button type="button" data-copy>Copy</button>
+              </div>
+              <pre><code data-file="../../src/cgearButtons/compiler.ts" data-symbol="tile">export function tile(pixels: Uint8Array): Uint8Array {
+  const out = new Uint8Array(512);
+  let at = 0;
+  for (let ty = 0; ty &lt; 4; ty++)
+    for (let tx = 0; tx &lt; 4; tx++)
+      for (let y = 0; y &lt; 8; y++)
+        for (let x = 0; x &lt; 8; x += 2)
+          out[at++] =
+            pixels[(ty * 8 + y) * 32 + tx * 8 + x] |
+            (pixels[(ty * 8 + y) * 32 + tx * 8 + x + 1] &lt;&lt; 4);
+  return out;
+}</code></pre>
+            </div>
+          </details>
+          <h3>Know which resource does which job</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Resource</th>
+                  <th>Purpose</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Character pixels</td>
+                  <td>
+                    Which palette index each sprite pixel uses. The private
+                    archive stores raw four-pose banks for runtime composition.
+                  </td>
+                </tr>
+                <tr>
+                  <td>NCLR palette</td>
+                  <td>
+                    Converts those indices to DS colors. A transparent pixel is
+                    an index/OBJ rule, not a desktop alpha byte.
+                  </td>
+                </tr>
+                <tr>
+                  <td>NCER cells</td>
+                  <td>
+                    Describes sprite size, placement relative to its center,
+                    tile reference and palette bank.
+                  </td>
+                </tr>
+                <tr>
+                  <td>NANR animation</td>
+                  <td>
+                    Selects a cell for an actor. These custom actors hold a
+                    frame while the runtime uploads the required pose.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            The private archive is <code>quick-actions/ui.narc</code>. Members
+            1–3 hold palette/cell/animation resources, 4–11 hold eight four-pose
+            banks, and member 12 holds ten native interior patterns. Member 0 is
+            configuration; member 13 is editable metadata; member 14 backs up
+            the original native character/cell pair. Later members contain the
+            skin catalog and skin data.
+          </p>
+          <p>
+            The native BW2 C-Gear archive is <code>a/2/8/7</code>. We modify
+            <strong>members 16 and 17</strong>, backing up their originals. The
+            compiler losslessly repacks native sprite data to make room, then
+            applies the owned control artwork changes. Unrelated native
+            backgrounds and palettes stay in their original members.
+          </p>
+          <p>
+            Palette banks <strong>7–14</strong> belong to the eight custom
+            buttons; bank 15 stays available to the native network resources.
+            Eight visible poses need 4 KiB of sprite characters and 256 bytes of
+            palettes. Their four-pose source banks take 16 KiB in CPU memory.
+            The dial marker reserves another 128 sprite bytes. The compiler
+            checks total sprite/OAM capacity for the loaded ROM.
+          </p>
+          <p>
+            To change a button from a circle to a square, start in
+            <code>circles.ts</code> and the pose-generation code in
+            <code>compiler.ts</code>. PC/PARTY also have a special native-ring
+            path there. Change the hit shape in <code>hit()</code> and the
+            editor preview's hit test to match the new artwork. Changing only
+            the pixels leaves a circular clickable region.
+          </p>
+        </section>
+
+        <section id="lifecycle">
+          <h2>
+            5. Join the native lifecycle
+            <a class="anchor" href="#lifecycle" aria-label="Link to Lifecycle"
+              >#</a
+            >
+          </h2>
+          <p>
+            A hook redirects a particular game call or callback to our function.
+            A hook address is a <strong>RAM address in a named module</strong>,
+            not a byte offset in the ROM file. PMC's relocation records identify
+            the module so an address reused by another overlay is not patched
+            accidentally.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Our hook</th>
+                  <th>What we add</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>QaCGearInit</code></td>
+                  <td>
+                    Read the configuration; run native C-Gear initialization.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>QaGearUnit</code></td>
+                  <td>
+                    Reserve extra actor slots while retaining the original 84.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>QaCGearUpdate</code></td>
+                  <td>
+                    Run native update, attach resources once ready, update our
+                    state.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>QaInput / QaButtonHit</code></td>
+                  <td>Resolve touch priority and capture a pending request.</td>
+                </tr>
+                <tr>
+                  <td><code>QaCGearEvent</code></td>
+                  <td>
+                    Give native events priority, then dispatch our accepted
+                    request.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>QaGearEnd / QaCGearExit</code></td>
+                  <td>
+                    Release our actors and retained buffers before native
+                    teardown.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            <code>build.py</code> checks the original instructions, emits the
+            hook stubs, compiles the C++ and converts the relocatable ELF to a
+            PMC DLL. For a call-site hook, its generated symbol has a name such
+            as <code>THUMB_BRANCH_LINK_79_0x21ec980</code>. Callback-pointer
+            replacements use <code>FULL_COPY</code> entries. The exact register
+            preparation and original call targets are part of the checked
+            builder.
+          </p>
+          <details class="source-details">
+            <summary>See the current B2/W2 hook locations</summary>
+            <p>
+              Generated from the bundled profiles. These are specific to the
+              checked games, not a table for other revisions.
+            </p>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Hook</th>
+                    <th>Module</th>
+                    <th>White 2</th>
+                    <th>Black 2</th>
+                  </tr>
+                </thead>
+                <tbody data-hook-table>
+<tr><td><code>QaCGearInit</code></td><td>36</td><td><code>0x21cfa10</code></td><td><code>0x21cf9dc</code></td></tr>
+<tr><td><code>QaCGearUpdate</code></td><td>36</td><td><code>0x21cfa14</code></td><td><code>0x21cf9e0</code></td></tr>
+<tr><td><code>QaGearUnit</code></td><td>79</td><td><code>0x21ec740</code></td><td><code>0x21ec700</code></td></tr>
+<tr><td><code>QaInput</code></td><td>79</td><td><code>0x21ec980</code></td><td><code>0x21ec940</code></td></tr>
+<tr><td><code>QaButtonHit</code></td><td>79</td><td><code>0x21eb8c8</code></td><td><code>0x21eb888</code></td></tr>
+<tr><td><code>QaCGearEvent</code></td><td>36</td><td><code>0x21cfa1c</code></td><td><code>0x21cf9e8</code></td></tr>
+<tr><td><code>QaGearEnd</code></td><td>79</td><td><code>0x21ece42</code></td><td><code>0x21ece02</code></td></tr>
+<tr><td><code>QaCGearExit</code></td><td>36</td><td><code>0x21cfa20</code></td><td><code>0x21cf9ec</code></td></tr>
+<tr><td><code>QaRepelStep</code></td><td>36</td><td><code>0x21824bc</code></td><td><code>0x218247c</code></td></tr>
+<tr><td><code>QaRepelDepleted</code></td><td>36</td><td><code>0x21a0b2c</code></td><td><code>0x21a0aec</code></td></tr>
+</tbody>
+              </table>
+            </div>
+          </details>
+          <h3>Draw at the right time</h3>
+          <p>
+            <code>attach()</code> borrows the native sprite unit and allocates
+            our actors, character handles, palette and animation handles. A
+            scheduled display task runs <code>upload()</code>. It composes the
+            requested pose and native interior pattern into a retained main-RAM
+            buffer, then calls the native upload routines.
+          </p>
+          <p>
+            Keep the upload source alive until the display system has consumed
+            it. A local stack array may live in DTCM, which the DS DMA engine
+            cannot read. The runtime therefore owns an upload buffer; it does
+            not pass temporary stack pixels to DMA.
+          </p>
+          <p>
+            Cleanup runs for both full C-Gear exit and inner screen
+            reconstruction. A Party/PC return can rebuild the native C-Gear work
+            without replacing the outer subscreen object. Releasing our actors
+            before native destruction prevents stale pointers and duplicate
+            sprites.
+          </p>
+          <details class="source-details">
+            <summary>Read the real initialization and update hooks</summary>
+            <div class="codeplate">
+              <div class="codebar">
+                <span>C++ · QaCGearInit()</span
+                ><button type="button" data-copy>Copy</button>
+              </div>
+              <pre><code data-file="../../runtime/cgear-quick-actions/bw2/hooks.inc" data-symbol="QaCGearInit">extern "C" void QaCGearInit(Subscreen* subscreen) {
+    dispose();
+    session.sub = subscreen;
+    session.attempted = 0;
+    session.held = 0;
+    session.pending = 0;
+    session.palette = session.animation = session.markerChars = INVALID;
+    for (u32 i = 0; i &lt; 8; i++)
+        session.chars[i] = INVALID;
+    void* archiveHandle = archive(subscreen-&gt;heap);
+    enabled = archiveHandle &amp;&amp; config(archiveHandle, subscreen-&gt;heap);
+    closeArchive(archiveHandle);
+    pokenavEnabled = enabled &amp;&amp; navConfigured(subscreen-&gt;heap);
+    ov&lt;void (*)(Subscreen*)&gt;(CG_CGEAR_INIT)(subscreen);
+}</code></pre>
+            </div>
+            <div class="codeplate">
+              <div class="codebar">
+                <span>C++ · QaCGearUpdate()</span
+                ><button type="button" data-copy>Copy</button>
+              </div>
+              <pre><code data-file="../../runtime/cgear-quick-actions/bw2/hooks.inc" data-symbol="QaCGearUpdate">extern "C" void QaCGearUpdate(Subscreen* subscreen, u32 active) {
+    session.active = active;
+    ov&lt;void (*)(Subscreen*, u32)&gt;(CG_CGEAR_UPDATE)(subscreen, active);
+    // Let all native graphics finish allocating before taking spare capacity.
+    // A failed attempt remains invisible and is never retried every frame.
+    if (enabled &amp;&amp; !session.attempted &amp;&amp; subscreen == session.sub &amp;&amp; subscreen-&gt;work &amp;&amp;
+        at&lt;u32&gt;(subscreen-&gt;work, 0) == (overlayAddress(CG_CGEAR_IDLE_CALLBACK) | 1)) {
+        session.attempted = 1;
+        attach(subscreen);
+    }
+    refresh(subscreen, active);
+    if (session.appliedSound) {
+        session.appliedSound = 0;
+        api&lt;void (*)(u32)&gt;(CG_PLAY_SOUND)(CG_SOUND_MENU);
+    }
+    if (active &amp;&amp; safe(subscreen))
+        prepareSkin();
+}</code></pre>
+            </div>
+          </details>
+        </section>
+
+        <section id="input">
+          <h2>
+            6. Turn a tap into a request
+            <a class="anchor" href="#input" aria-label="Link to Touch input"
+              >#</a
+            >
+          </h2>
+          <p>
+            Do not open a native menu directly from the drawing function. The
+            input hook records which button was pressed, and the field event
+            hook later checks whether the game can accept that action.
+          </p>
+          <div class="codeplate">
+            <div class="codebar">
+              <span>Pseudocode · teaching outline, not paste-ready C++</span
+              ><button type="button" data-copy>Copy</button>
+            </div>
+            <pre><code>on_touch_update:
+    if the world is blocked: discard the request
+    if a held press is already captured: wait for release
+    if this is a new press:
+        let priority native controls keep their touches
+        find the topmost visible custom button
+        capture its touch, even if it is unavailable
+        if it is available: pending = button_array_index + 1
+
+on_field_event_request:
+    ask the original game for its event first
+    take pending, then clear it immediately
+    if native wins or the world is blocked: discard our request
+    recheck visibility and availability
+    dispatch the selected button's action</code></pre>
+          </div>
+          <p>
+            <code>pending</code> is a <strong>button slot plus one</strong>, not
+            an action ID. Zero means no request. Once the slot is resolved, the
+            dispatcher reads <code>button.action</code>. Several buttons may
+            therefore share the same action without confusing their positions or
+            identities.
+          </p>
+          <p>
+            For circular buttons, <code>hit()</code> checks
+            <code>dx*dx + dy*dy &lt;= 16*16</code>. It searches from the front
+            of the visible layer order back toward the rear. The wrench and
+            native pattern control keep priority. A hidden button releases its
+            touch region; a visible unavailable button keeps its region and uses
+            a dim pose.
+          </p>
+          <p>
+            Holding the stylus must not launch a new event every update. The
+            <code>held</code> latch remains set until release. Wrench dragging
+            and the skin dial also capture a gesture, so moving over another
+            button cannot trigger it mid-drag.
+          </p>
+          <details class="source-details">
+            <summary>Read hit-testing and the complete input hook</summary>
+            <div class="codeplate">
+              <div class="codebar">
+                <span>C++ · hit()</span
+                ><button type="button" data-copy>Copy</button>
+              </div>
+              <pre><code data-file="../../runtime/cgear-quick-actions/bw2/update.inc" data-symbol="hit">int hit(u32 x, u32 y) {
+    int wx = static_cast&lt;int&gt;(x) - 228, wy = static_cast&lt;int&gt;(y) - 144;
+    int sx = static_cast&lt;int&gt;(x) - 208, sy = static_cast&lt;int&gt;(y) - 18;
+    int px = static_cast&lt;int&gt;(x) - 200, py = static_cast&lt;int&gt;(y) - 180;
+    if ((session.saveControl &amp;&amp; px * px + py * py &lt;= 100) || wx * wx + wy * wy &lt;= 100 ||
+        (x &gt;= 104 &amp;&amp; x &lt;= 152 &amp;&amp; y &lt;= 24) ||
+        (!session.dialControl &amp;&amp; session.skinCount &amp;&amp; sx * sx + sy * sy &lt;= 256))
+        return -1;
+    for (u32 n = session.count; n &gt; 0; n--) {
+        u32 i = n - 1;
+        if (!session.shown[i])
+            continue;
+        int dx = static_cast&lt;int&gt;(x) - session.positions[i].x,
+            dy = static_cast&lt;int&gt;(y) - session.positions[i].y;
+        if (dx * dx + dy * dy &lt;= 256)
+            return static_cast&lt;int&gt;(i);
+    }
+    return -1;
+}</code></pre>
+            </div>
+            <div class="codeplate">
+              <div class="codebar">
+                <span>C++ · QaInput()</span
+                ><button type="button" data-copy>Copy</button>
+              </div>
+              <pre><code data-file="../../runtime/cgear-quick-actions/bw2/hooks.inc" data-symbol="QaInput">extern "C" void QaInput(void* gearWork) {
+    Subscreen* subscreen = session.sub;
+    if (!session.active || !safe(subscreen) || subscreen-&gt;work != gearWork) {
+        cancelDial();
+        session.pending = 0;
+        ov&lt;void (*)(void*)&gt;(CG_CGEAR_INPUT)(gearWork);
+        return;
+    }
+    u32 x = 0, y = 0;
+    bool down = api&lt;u32 (*)(u32*, u32*)&gt;(CG_GET_STYLUS_POSITION)(&amp;x, &amp;y);
+    if (session.dialCaptured) {
+        if (!down) {
+            session.dialCaptured = session.held = 0;
+            visible(session.marker, false);
+            return;
+        }
+        if (at&lt;u8&gt;(gearWork, 0x2fe)) {
+            cancelDial();
+            return;
+        }
+        int angle = angleAt(x, y), delta = angle - session.dialAngle;
+        if (delta &gt; 18000)
+            delta -= 36000;
+        if (delta &lt; -18000)
+            delta += 36000;
+        session.dialAngle = angle;
+        int dx = int(x) - dial::centerX, dy = int(y) - dial::centerY;
+        if (dx * dx + dy * dy &gt;= 6400 &amp;&amp; absolute(delta) &lt;= 9000) {
+            int movement = session.dialAccum + delta;
+            while (movement &gt;= dial::step) {
+                stepSkin(1);
+                movement -= dial::step;
+            }
+            while (movement &lt;= -dial::step) {
+                stepSkin(-1);
+                movement += dial::step;
+            }
+            session.dialAccum = movement;
+            moveMarker(x, y);
+        }
+        return;
+    }
+    if (session.drag &lt; session.count) {
+        if (down) {
+            auto&amp; p = session.positions[session.drag];
+            p.x = clamp(x, 16, 240);
+            p.y = clamp(y, 16, 176);
+            place(session.drag);
+        } else {
+            savePositions(game(subscreen));
+            session.drag = 0xff;
+            session.pressed = 0xff;
+        }
+        return;
+    }
+    if (session.held) {
+        if (!down) {
+            session.held = 0;
+            session.pressed = 0xff;
+        }
+        return;
+    }
+    if (api&lt;u32 (*)()&gt;(CG_STYLUS_JUST_PRESSED)()) {
+        int mx = static_cast&lt;int&gt;(x) - 215, my = static_cast&lt;int&gt;(y) - 163;
+        if (session.muteControl &amp;&amp; mx * mx + my * my &lt;= 100) {
+            session.held = 1;
+            session.pending = at&lt;u8&gt;(gearWork, 0x2fe) ? 0 : 254;
+            return;
+        }
+        int px = static_cast&lt;int&gt;(x) - 200, py = static_cast&lt;int&gt;(y) - 180;
+        if (session.saveControl &amp;&amp; px * px + py * py &lt;= 100) {
+            session.held = 1;
+            session.pending = at&lt;u8&gt;(gearWork, 0x2fe) ? 0 : 255;
+            return;
+        }
+        int sx = static_cast&lt;int&gt;(x) - 208, sy = static_cast&lt;int&gt;(y) - 18;
+        if (!session.dialControl &amp;&amp; session.skinCount &amp;&amp; !at&lt;u8&gt;(gearWork, 0x2fe) &amp;&amp;
+            sx * sx + sy * sy &lt;= 256) {
+            session.held = 1;
+            session.pending = 0;
+            if (!session.skinRequest &amp;&amp; !session.skinUpload) {
+                u32 i = 0;
+                while (i &lt; session.skinCount &amp;&amp; session.skinIds[i] != session.currentSkin)
+                    i++;
+                session.wantedSkin = session.currentSkin == 0    ? session.skinIds[0]
+                                     : i + 1 &lt; session.skinCount ? session.skinIds[i + 1]
+                                                                 : 0;
+                session.skinRequest = 1;
+                session.skinFeedback = 6; // Six 30 Hz updates: a 200 ms pressed flash.
+                api&lt;void (*)(u32)&gt;(CG_PLAY_SOUND)(CG_SOUND_MENU);
+            }
+            return;
+        }
+        // Keep the fixed wrench reachable even if a saved/custom button is
+        // positioned over it. Native editing/exit always owns this region.
+        int dx = static_cast&lt;int&gt;(x) - 228, dy = static_cast&lt;int&gt;(y) - 144;
+        int i = dx * dx + dy * dy &lt;= 100 ? -1 : hit(x, y);
+        if (i &gt;= 0) {
+            session.held = 1;
+            session.pressed = i;
+            if (at&lt;u8&gt;(gearWork, 0x2fe))
+                session.drag = i;
+            else if (session.available[i])
+                session.pending = i + 1;
+            return; // Disabled buttons also own their circular touch.
+        }
+        int mx0 = int(x) - 215, my0 = int(y) - 163, px0 = int(x) - 200, py0 = int(y) - 180;
+        bool reserved = dx * dx + dy * dy &lt;= 100 || (x &gt;= 104 &amp;&amp; x &lt;= 152 &amp;&amp; y &lt;= 24) ||
+                        (!session.dialControl &amp;&amp; x &gt;= 31 &amp;&amp; x &lt;= 65 &amp;&amp; y &lt;= 35) ||
+                        (session.muteControl &amp;&amp; mx0 * mx0 + my0 * my0 &lt;= 100) ||
+                        (session.saveControl &amp;&amp; px0 * px0 + py0 * py0 &lt;= 100);
+        if (session.dialControl &amp;&amp; session.skinCount &amp;&amp; !at&lt;u8&gt;(gearWork, 0x2fe) &amp;&amp; !reserved &amp;&amp;
+            onDial(x, y) &amp;&amp; QaButtonHit(gearWork) &lt; 0) {
+            session.pending = 0;
+            session.held = 1;
+            session.dialCaptured = 1;
+            session.dialAngle = angleAt(x, y);
+            session.dialAccum = 0;
+            session.dialTarget = session.skinRequest  ? session.wantedSkin
+                                 : session.skinUpload ? session.preparedSkin
+                                                      : session.currentSkin;
+            moveMarker(x, y);
+            visible(session.marker, true);
+            return;
+        }
+    }
+    ov&lt;void (*)(void*)&gt;(CG_CGEAR_INPUT)(gearWork);
+}</code></pre>
+            </div>
+          </details>
+        </section>
+
+        <section id="repel">
+          <h2>
+            7. Connect REPEL
+            <a class="anchor" href="#repel" aria-label="Link to Repel">#</a>
+          </h2>
+          <p>
+            Our unlimited Repel action is a toggle, not an application launch.
+            The dispatcher flips Options bit 12 using
+            <code>CG_REPEL_OPTION_MASK</code> and plays the spray sound only
+            when the toggle becomes enabled. The other Options bits are
+            preserved.
+          </p>
+          <p>
+            Changing a bit does not automatically alter encounters. Two
+            additional call-site hooks connect that preference to the native
+            encounter system:
+          </p>
+          <div class="codeplate">
+            <div class="codebar">
+              <span>C++ · saved preference + native encounter hooks</span
+              ><button type="button" data-copy>Copy</button>
+            </div>
+            <pre><code data-file="../../runtime/cgear-quick-actions/bw2/game_state.inc" data-symbol="repel">bool repel(void* gameData) {
+    return enabled &amp;&amp; repelPresent &amp;&amp; (*options(gameData) &amp; CG_REPEL_OPTION_MASK);
+}</code></pre>
+            <pre><code data-file="../../runtime/cgear-quick-actions/bw2/hooks.inc" data-symbol="QaRepelStep">extern "C" u32 QaRepelStep(void* encounter, void* gameData) {
+    if (repel(gameData))
+        return 0;
+    return api&lt;u32 (*)(void*)&gt;(CG_REPEL_STEP)(encounter);
+}</code></pre>
+            <pre><code data-file="../../runtime/cgear-quick-actions/bw2/hooks.inc" data-symbol="QaRepelDepleted">extern "C" u32 QaRepelDepleted(void* encounter, void* gameData) {
+    if (repel(gameData) &amp;&amp; count(gameData))
+        return 0;
+    return api&lt;u32 (*)(void*)&gt;(CG_REPEL_DEPLETED)(encounter);
+}</code></pre>
+          </div>
+          <p>
+            The first hook pauses the ordinary step countdown while unlimited
+            Repel is enabled. The second supplies the non-depleted result to the
+            existing encounter path when appropriate. The game's surrounding
+            encounter logic still applies its native lead-level filtering.
+            Ordinary Repel items and their remaining steps are retained and
+            resume when the unlimited toggle is turned off.
+          </p>
+          <p>
+            <code>enabled &amp;&amp; repelPresent</code> matters. If the patch
+            is disabled or every Repel button is removed, the saved preference
+            becomes dormant. It is not silently deleted, and loading a save does
+            not replay the spray sound.
+          </p>
+          <aside class="admonition success">
+            <strong>What makes this example different</strong>
+            <p>
+              PC and PARTY reuse a native event constructor. REPEL requires a
+              saved preference <em>and</em> encounter hooks. A touch callback
+              alone cannot provide its effect.
+            </p>
+          </aside>
+        </section>
+
+        <section id="pc">
+          <h2>
+            8. Connect PC
+            <a class="anchor" href="#pc" aria-label="Link to PC">#</a>
+          </h2>
+          <p>
+            PC enters native field script <code>10090</code>. The native script
+            event creates its own script/VM storage and manages the storage
+            menus, windows and cleanup. We return that event to the field
+            system; we do not draw a lookalike PC window ourselves.
+          </p>
+          <p>
+            The current implementation also skips the introductory PC messages.
+            It first checks the copied script's fingerprint, then changes the
+            entry code of <strong>this invocation's private VM copy</strong>.
+            Ordinary PCs and the separate Porta PC shortcut keep their original
+            script.
+          </p>
+          <details class="source-details" open>
+            <summary>Read the complete PC adapter</summary>
+            <div class="codeplate">
+              <div class="codebar">
+                <a href="../../runtime/cgear-quick-actions/bw2/requests.inc"
+                  >requests.inc · storageEvent()</a
+                ><button type="button" data-copy>Copy</button>
+              </div>
+              <pre><code data-file="../../runtime/cgear-quick-actions/bw2/requests.inc" data-symbol="storageEvent">void* storageEvent(void* sys, u16 heap) {
+    void* event = ov&lt;void* (*)(void*, u32, void*, u32)&gt;(CG_CREATE_SCRIPT_EVENT)(
+        sys, CG_STORAGE_SCRIPT_ID, nullptr, heap);
+    if (!event)
+        return nullptr;
+    // The native constructor has already created an independently allocated
+    // script and VM. Change only this invocation's entry code; its native
+    // event retains ownership and frees the script, VM and windows normally.
+    void* work = api&lt;void* (*)(void*)&gt;(CG_EVENT_WORK)(event);
+    void* scripts = at&lt;void*&gt;(work, 4);
+    void* vm = at&lt;void*&gt;(scripts, 4);
+    auto* code = at&lt;u8*&gt;(vm, 56);
+    if (code &amp;&amp; at&lt;u8*&gt;(vm, 32) == code + 30 &amp;&amp;
+        fingerprint(code, PC_SCRIPT_SIZE) == PC_SCRIPT_HASH) {
+        // Field start, initialize logout state, call the unchanged storage
+        // choice loop, quick PC shutdown, then ordinary field-event cleanup.
+        static constexpr u16 entry[] = {0x2e,  0x28, 0x8020, 0,      0x28, 0x8021, 1,   0x04,
+                                        0x2bc, 0,    0x132,  0x8021, 0x30, 0x2f,   0x02};
+        for (u32 i = 0; i &lt; sizeof(entry) / 2; i++)
+            at&lt;u16&gt;(code, 30 + i * 2) = entry[i];
+        api&lt;void (*)(u32)&gt;(CG_PLAY_SOUND)(CG_SOUND_PC);
+    }
+    return event;
+}</code></pre>
+            </div>
+          </details>
+          <p>
+            Read this in three parts: create the native event; locate its owned
+            VM/script; patch only a recognized entry and play the PC access
+            sound. The <code>entry[]</code> values are
+            <strong>script instructions</strong>, not ARM function addresses.
+            The source's size/hash check is what makes that specific edit
+            conditional on a known script.
+          </p>
+          <p>
+            The installer checks the native script in <code>a/0/5/6</code>,
+            member 1244, for designs using PC. If a hack has replaced it, do not
+            force our instruction offsets into the new script. Use a compatible
+            adapter or remove PC from that design.
+          </p>
+          <p>
+            Cancellation remains a native event outcome. When a native
+            application destroys and rebuilds the C-Gear's inner screen,
+            <code>QaGearEnd()</code> releases our actors before that teardown,
+            and the later update attaches them again.
+          </p>
+        </section>
+
+        <section id="party">
+          <h2>
+            9. Connect PARTY
+            <a class="anchor" href="#party" aria-label="Link to Party">#</a>
+          </h2>
+          <p>
+            PARTY uses the native field-menu application path. The important
+            part is <strong>ownership</strong>: the request must outlive the
+            function that opens the menu. A stack-local request goes away too
+            early.
+          </p>
+          <ol>
+            <li>
+              <code>QaCGearEvent()</code> allocates a parent event with a
+              <code>FlyWork</code> work block, clears that block, and records
+              action <code>CG_ACTION_PARTY</code>.
+            </li>
+            <li>
+              <code>flyEvent()</code> fills its embedded
+              <code>MapRequest</code>. For PARTY, native application call
+              <code>0</code> selects the Party route.
+            </li>
+            <li>
+              The native child application borrows that request while it runs.
+              <code>CG_EVENT_CALL_CHILD</code> makes the parent wait for the
+              child to finish.
+            </li>
+            <li>
+              On return, the parent examines the native result. Field skills or
+              item-related follow-up events are handed back to the appropriate
+              native constructors.
+            </li>
+            <li>
+              When the event finishes, native event ownership releases its work.
+              C-Gear reconstructs through its ordinary lifecycle.
+            </li>
+          </ol>
+          <div class="admonition">
+            <strong>Three numbers with different meanings</strong>
+            <p>
+              The button's stable ID might be <code>5</code>. Its custom action
+              code is <code>16</code>. The native Party application call is
+              <code>0</code>. They belong to three different systems; do not use
+              one in place of another.
+            </p>
+          </div>
+          <p>
+            The same owned request adapter also handles BAG, Town Map and
+            several usable key items. Its historical name
+            <code>FlyWork</code>/<code>flyEvent</code> remains to preserve
+            existing linkage, but it now covers these native application
+            requests. The native Party menu remains responsible for party
+            selection, Summary, cancellation and field-skill selection.
+          </p>
+          <details class="source-details">
+            <summary>
+              Read the complete dispatcher and owned application adapter
+            </summary>
+            <div class="codeplate">
+              <div class="codebar">
+                <span>C++ · QaCGearEvent()</span
+                ><button type="button" data-copy>Copy</button>
+              </div>
+              <pre><code data-file="../../runtime/cgear-quick-actions/bw2/hooks.inc" data-symbol="QaCGearEvent">extern "C" void* QaCGearEvent(Subscreen* subscreen, u32 available) {
+    void* native = ov&lt;void* (*)(Subscreen*, u32)&gt;(CG_CGEAR_GET_EVENT)(subscreen, available);
+    u32 action = session.pending;
+    session.pending = 0;
+    if (native || !available || !action || !safe(subscreen) || at&lt;u8&gt;(subscreen-&gt;work, 0x2fe))
+        return native;
+    if (action == 254 &amp;&amp; session.muteControl) {
+        session.muteState = PokewebBgmMute(1);
+        api&lt;void (*)(u32)&gt;(CG_PLAY_SOUND)(CG_SOUND_MENU);
+        return nullptr;
+    }
+    if (action == 255 &amp;&amp; session.saveControl) {
+        void* event = api&lt;void* (*)(void*, void*, void*, u32)&gt;(CG_EVENT_CREATE)(
+            system(subscreen), nullptr, reinterpret_cast&lt;void*&gt;(saveEvent), sizeof(SaveWork));
+        if (event) {
+            auto* requestWork = api&lt;SaveWork* (*)(void*)&gt;(CG_EVENT_WORK)(event);
+            clear(requestWork, sizeof(*requestWork));
+            requestWork-&gt;control = save(game(subscreen));
+            requestWork-&gt;sys = system(subscreen);
+            requestWork-&gt;field = subscreen-&gt;field;
+            requestWork-&gt;message = ov&lt;void* (*)(void*)&gt;(CG_FIELD_MESSAGE_WINDOW)(subscreen-&gt;field);
+            requestWork-&gt;heap = subscreen-&gt;heap;
+            requestWork-&gt;returnMode = subscreen-&gt;mode;
+            requestWork-&gt;sub = subscreen;
+        }
+        return event;
+    }
+    if (action &gt; session.count || !show(action - 1, subscreen))
+        return nullptr;
+    void* gameData = game(subscreen);
+    void* sys = system(subscreen);
+    const auto&amp; button = session.buttons[action - 1];
+    action = button.action;
+    if (!canUse(static_cast&lt;u32&gt;(&amp;button - session.buttons), subscreen))
+        return nullptr;
+    if (action == CG_ACTION_REPEL) {
+        u16* p = options(gameData);
+        *p ^= CG_REPEL_OPTION_MASK;
+        if (*p &amp; CG_REPEL_OPTION_MASK)
+            api&lt;void (*)(u32)&gt;(CG_PLAY_SOUND)(CG_SOUND_REPEL);
+        return nullptr;
+    }
+    if (action == CG_ACTION_POKENAV)
+        return navLaunch(subscreen);
+    if (action == CG_ACTION_PC)
+        return storageEvent(sys, subscreen-&gt;heap);
+    if (action == CG_ACTION_POKERADAR) {
+        api&lt;void (*)(u32)&gt;(CG_PLAY_SOUND)(CG_SOUND_MENU);
+        pokeradar(subscreen);
+        return nullptr;
+    }
+    if (action == CG_ACTION_BICYCLE || action == CG_ACTION_DOWSING || action == CG_ACTION_SUPER_ROD)
+        return ov&lt;void* (*)(u32, void*, void*)&gt;(CG_CREATE_KEY_ITEM_EVENT)(
+            action == CG_ACTION_BICYCLE   ? 0
+            : action == CG_ACTION_DOWSING ? 5
+                                          : 4,
+            sys, subscreen-&gt;field);
+    void* event = api&lt;void* (*)(void*, void*, void*, u32)&gt;(CG_EVENT_CREATE)(
+        sys, nullptr, reinterpret_cast&lt;void*&gt;(flyEvent), sizeof(FlyWork));
+    if (event) {
+        auto* requestWork = api&lt;FlyWork* (*)(void*)&gt;(CG_EVENT_WORK)(event);
+        clear(requestWork, sizeof(*requestWork));
+        requestWork-&gt;action = action;
+        requestWork-&gt;item = button.alternate &amp;&amp; item(gameData, button.alternate, subscreen-&gt;heap)
+                                ? button.alternate
+                                : button.item;
+        if (isFlyMapAction(action) || action == CG_ACTION_TOWN_MAP || action == CG_ACTION_BAG ||
+            action == CG_ACTION_PARTY)
+            api&lt;void (*)(u32)&gt;(CG_PLAY_SOUND)(CG_SOUND_MENU);
+    }
+    return event;
+}</code></pre>
+            </div>
+            <div class="codeplate">
+              <div class="codebar">
+                <span>C++ · flyEvent()</span
+                ><button type="button" data-copy>Copy</button>
+              </div>
+              <pre><code data-file="../../runtime/cgear-quick-actions/bw2/requests.inc" data-symbol="flyEvent">int flyEvent(void* event, u32* sequence) {
+    auto* requestWork = api&lt;FlyWork* (*)(void*)&gt;(CG_EVENT_WORK)(event);
+    void* sys = api&lt;void* (*)(void*)&gt;(CG_EVENT_SYSTEM)(event);
+    void* field = api&lt;void* (*)(void*)&gt;(CG_SYSTEM_FIELD)(sys);
+    void* gameData = api&lt;void* (*)(void*)&gt;(CG_SYSTEM_GAME_DATA)(sys);
+    if (*sequence == 0) {
+        if (!field)
+            return 1;
+        u32 action = requestWork-&gt;action, itemId = requestWork-&gt;item;
+        bool hmFly = action == CG_ACTION_HM_FLY;
+        bool hmOwned =
+            !hmFly || item(gameData, CG_FLY_HM_ITEM_ID, ov&lt;u32 (*)(void*)&gt;(CG_FIELD_HEAP)(field));
+        int member = isFlyMapAction(action) &amp;&amp; hmOwned ? flyMember(field, gameData, !hmFly) : -1;
+        clear(requestWork, sizeof(*requestWork));
+        requestWork-&gt;member = member;
+        requestWork-&gt;action = action;
+        requestWork-&gt;item = itemId;
+        bool formItem = action &gt;= CG_ACTION_GRACIDEA &amp;&amp; action &lt;= CG_ACTION_REVEAL_GLASS;
+        requestWork-&gt;map.system = sys;
+        requestWork-&gt;map.field = field;
+        requestWork-&gt;map.call = action == CG_ACTION_RECORDER              ? 12
+                                : action == CG_ACTION_PAL_PAD             ? 9
+                                : action == CG_ACTION_XTRANSCEIVER        ? 13
+                                : action == CG_ACTION_MEDAL_BOX           ? 14
+                                : action == CG_ACTION_BAG                 ? 2
+                                : (formItem || action == CG_ACTION_PARTY) ? 0
+                                                                          : 8;
+        requestWork-&gt;map.user = requestWork;
+        requestWork-&gt;map.data = reinterpret_cast&lt;void*&gt;(formItem ? itemId : 0xffffffff);
+        ownedMap = &amp;requestWork-&gt;map;
+        void* child = ov&lt;void* (*)(MapRequest*, u32)&gt;(CG_CREATE_MENU_APPLICATION)(
+            &amp;requestWork-&gt;map, ov&lt;u32 (*)(void*)&gt;(CG_FIELD_HEAP)(field));
+        if (!child) {
+            ownedMap = nullptr;
+            return 1;
+        }
+        // The child's initial application is already Town Map. PARTY origin
+        // selects the native Fly map and native Fly return result, bypassing
+        // an unnecessary party menu. Request storage belongs to this event.
+        if (member &gt;= 0) {
+            requestWork-&gt;map.call = 0;
+            at&lt;u8&gt;(api&lt;void* (*)(void*)&gt;(CG_EVENT_WORK)(child), 0x68) = member;
+        }
+        api&lt;void (*)(void*, void*)&gt;(CG_EVENT_CALL_CHILD)(event, child);
+        *sequence = 1;
+        return 0;
+    }
+    ownedMap = nullptr;
+    if (*sequence == 1 &amp;&amp;
+        (isFlyMapAction(requestWork-&gt;action) || requestWork-&gt;action == CG_ACTION_BAG ||
+         requestWork-&gt;action == CG_ACTION_PARTY) &amp;&amp;
+        requestWork-&gt;map.result == 2 &amp;&amp; field) {
+        FlyCheck check;
+        ov&lt;void (*)(void*, FlyCheck*)&gt;(CG_BUILD_FIELD_MOVE_CHECK)(field, &amp;check);
+        bool flyMap = isFlyMapAction(requestWork-&gt;action);
+        u32 skill = flyMap ? 4 : requestWork-&gt;map.selection;
+        if (flyMap &amp;&amp;
+            (requestWork-&gt;member == INVALID || ov&lt;u32 (*)(FlyCheck*)&gt;(CG_CHECK_FLY_USE)(&amp;check)))
+            return 1;
+        // Recheck the HM after the native map returns; never consume or grant it.
+        if (requestWork-&gt;action == CG_ACTION_HM_FLY &amp;&amp;
+            !item(gameData, CG_FLY_HM_ITEM_ID, ov&lt;u32 (*)(void*)&gt;(CG_FIELD_HEAP)(field)))
+            return 1;
+        UseHeader header = {
+            static_cast&lt;u16&gt;(flyMap ? requestWork-&gt;member : requestWork-&gt;map.pokemon),
+            static_cast&lt;u16&gt;(skill), requestWork-&gt;map.zone};
+        void* child = ov&lt;void* (*)(u32, UseHeader*, FlyCheck*)&gt;(CG_CREATE_FIELD_MOVE_EVENT)(
+            skill, &amp;header, &amp;check);
+        if (child) {
+            api&lt;void (*)(void*, void*)&gt;(CG_EVENT_CALL_CHILD)(event, child);
+            *sequence = 2;
+            return 0;
+        }
+    }
+    if (*sequence == 1 &amp;&amp;
+        (requestWork-&gt;action == CG_ACTION_BAG || requestWork-&gt;action == CG_ACTION_PARTY) &amp;&amp;
+        requestWork-&gt;map.result == 3 &amp;&amp; field) {
+        void* child = ov&lt;void* (*)(u32, void*, void*)&gt;(CG_CREATE_KEY_ITEM_EVENT)(
+            requestWork-&gt;map.selection, sys, field);
+        if (child) {
+            api&lt;void (*)(void*, void*)&gt;(CG_EVENT_CALL_CHILD)(event, child);
+            *sequence = 2;
+            return 0;
+        }
+    }
+    return 1;
+}</code></pre>
+            </div>
+          </details>
+          <p>
+            Both PARTY and BAG play the native menu selection sound (1356) on an
+            accepted launch. PARTY is unavailable for an empty party. Existing
+            menu enhancements can still operate because the native menu is the
+            one being opened.
+          </p>
+        </section>
+
+        <section id="another-item">
+          <h2>
+            10. Add another key item
+            <a
+              class="anchor"
+              href="#another-item"
+              aria-label="Link to Another key item"
+              >#</a
+            >
+          </h2>
+          <p>
+            Try adding Bicycle to your lesson. This is an existing native
+            adapter, so you only need a new button definition. Add this object
+            to the design's <code>buttons</code> array and set
+            <code>nextId</code> to 7:
+          </p>
+          <div class="codeplate">
+            <div class="codebar">
+              <span>JSON · add one button</span
+              ><button type="button" data-copy>Copy</button>
+            </div>
+            <pre><code>{ "id": 6, "label": "BIKE", "color": "#d830f8",
+  "x": 88, "y": 152, "action": "bike" }</code></pre>
+          </div>
+          <p>
+            Rebuild to a <em>new</em> output filename. The catalog in
+            <code>document.ts</code> maps <code>"bike"</code> to the custom
+            Bicycle code, required item 450 and the verified native eligibility
+            route. <code>show()</code> hides the button if the bag does not
+            contain Bicycle. The dispatcher calls the native field event for
+            mounting/dismounting.
+          </p>
+          <p>
+            For another supported field item, select its existing action name
+            and let the catalog/compiler provide the correct item and handler
+            references. Do not assign an arbitrary address or script number in
+            the design JSON.
+          </p>
+          <p>
+            To use Fly without teaching it to a Pokémon, select
+            <code>"mapFlyHm"</code>. This separate adapter requires HM02
+            (item 421) in the TM/HM pocket and retains native Fly location,
+            destination and confirmation checks. It uses a non-Egg for the
+            animation without changing its moves. The original
+            <code>"mapFly"</code> still requires an eligible Fly user and Town Map.
+          </p>
+          <h3>If the action does not exist yet</h3>
+          <p>
+            Adding artwork is only the first step. Audit the item's native
+            handler and eligibility route in <em>both</em> games, add the action
+            to the catalog and native validation, and adapt the appropriate
+            event or application request with its native completion behavior.
+            Add any new imports and byte checks to the builder's game profiles.
+            A story item with no usable field action cannot become a working
+            key-item button just by pointing at its bag record.
+          </p>
+          <p>
+            This guide's native menu patterns are the starting point. A new
+            custom screen needs its own request and screen implementation; that
+            is the advanced follow-up, not an address field added to this
+            editor.
+          </p>
+          <details class="source-details">
+            <summary>
+              Read the actual visibility and availability checks
+            </summary>
+            <div class="codeplate">
+              <div class="codebar">
+                <span>C++ · show()</span
+                ><button type="button" data-copy>Copy</button>
+              </div>
+              <pre><code data-file="../../runtime/cgear-quick-actions/bw2/game_state.inc" data-symbol="show">bool show(u32 i, Subscreen* subscreen) {
+    void* gameData = game(subscreen);
+    const auto&amp; b = session.buttons[i];
+    if (b.item &amp;&amp; !item(gameData, b.item, subscreen-&gt;heap) &amp;&amp;
+        (!b.alternate || !item(gameData, b.alternate, subscreen-&gt;heap)))
+        return false;
+    if (b.flagMode) {
+        bool set = api&lt;u32 (*)(void*, u16)&gt;(CG_GET_SAVE_FLAG)(
+            api&lt;void* (*)(void*)&gt;(CG_GET_FLAG_WORK)(gameData), b.flag);
+        if (set != (b.flagMode == 1))
+            return false;
+    }
+    return true;
+}</code></pre>
+            </div>
+            <div class="codeplate">
+              <div class="codebar">
+                <span>C++ · canUse()</span
+                ><button type="button" data-copy>Copy</button>
+              </div>
+              <pre><code data-file="../../runtime/cgear-quick-actions/bw2/game_state.inc" data-symbol="canUse">bool canUse(u32 i, Subscreen* subscreen) {
+    const auto&amp; b = session.buttons[i];
+    if (!show(i, subscreen))
+        return false;
+    if (b.check != 255 &amp;&amp; ov&lt;u32 (*)(u32, void*, void*)&gt;(CG_CHECK_KEY_ITEM_USE)(
+                              b.check, system(subscreen), subscreen-&gt;field) != 0)
+        return false;
+    if (((b.action &gt;= CG_ACTION_GRACIDEA &amp;&amp; b.action &lt;= CG_ACTION_REVEAL_GLASS) ||
+         b.action == CG_ACTION_PARTY) &amp;&amp;
+        !count(game(subscreen)))
+        return false;
+    if (b.action == CG_ACTION_POKERADAR &amp;&amp; !radarEncounter(subscreen))
+        return false;
+    if (b.action == CG_ACTION_POKENAV &amp;&amp; !pokenavEnabled)
+        return false;
+    return true;
+}</code></pre>
+            </div>
+          </details>
+        </section>
+
+        <section id="saving">
+          <h2>
+            11. Keep the player's layout
+            <a class="anchor" href="#saving" aria-label="Link to Save data"
+              >#</a
+            >
+          </h2>
+          <p>
+            Configured coordinates are defaults. The player can rearrange
+            buttons in native wrench mode, so the runtime stores each saved
+            position against its <strong>stable button ID</strong>. Reordering a
+            list or changing a label does not move that button in an existing
+            save.
+          </p>
+          <p>
+            BW2 uses a checked 36-byte record in reserved C-Gear bytes 16–51: a
+            marker containing the selected skin ID, eight
+            <code>{id, x, y}</code> records and a CRC16. Native bytes 0–15 are
+            retained. The record is written into the game's save data in RAM and
+            reaches the cartridge/save file through normal native saving.
+          </p>
+          <p>
+            Hold L + R for one second in wrench mode to reset only the custom
+            positions to configured defaults, once per hold. If you change
+            defaults while testing on a save with an existing layout, use that
+            reset before deciding the new coordinates were ignored.
+          </p>
+          <h3>Visibility flags are read-only</h3>
+          <p>
+            An optional flag can further restrict visibility. For example, add
+            <code>"flag": { "id": 1517, "when": "clear" }</code> to show a
+            button only while that saved flag is clear.
+            <code>"set"</code> requires it to be set instead. The runtime and
+            installer never toggle these visibility flags.
+          </p>
+          <p>
+            The default PC design uses hide flag <code>0x05ED</code> (1517),
+            verified unused in the checked retail script/entity data. A hack can
+            repurpose it, so choose a flag your own project leaves unused. BW2
+            accepts saved flag IDs 1–3059; these bounds are not the BW1 bounds.
+          </p>
+        </section>
+
+        <section id="build-test">
+          <h2>
+            12. Build, install and test
+            <a
+              class="anchor"
+              href="#build-test"
+              aria-label="Link to Build and test"
+              >#</a
+            >
+          </h2>
+          <p>
+            Rebuild native code only when C++/bindings change. A new label,
+            color, coordinate or existing action can be compiled into archive
+            data without rebuilding the ARM module. The lesson CLI compiles the
+            supplied design and uses the already bundled native DLL.
+          </p>
+          <p>
+            The complete path is:
+            <strong>C++ → ARM objects → relocatable ELF → PMC DLL</strong>,
+            alongside
+            <strong
+              >design + native assets → private NARC + packed native sprite
+              pair</strong
+            >. The installer stages the DLL, data and shared music dependency
+            together. It rejects conflicting hooks and incompatible native
+            resources before committing the staged configuration.
+          </p>
+          <p>
+            If you inspect the four exported resources in CTRMap, their paths
+            are:
+          </p>
+          <ul>
+            <li>
+              <code>patches/CGearQuickActionsW2.dll</code> or the B2 variant:
+              native hooks and behavior.
+            </li>
+            <li>
+              <code>patches/BgmToggleW2.dll</code> or the B2 variant: the
+              imported shared music API.
+            </li>
+            <li>
+              <code>quick-actions/ui.narc</code>: configuration and owned
+              sprite/skin resources.
+            </li>
+            <li>
+              <code>a/2/8/7</code>: native archive with only its owned
+              character/cell pair replaced.
+            </li>
+          </ul>
+          <p>
+            For a manual PMC project, all matching assets and dependencies must
+            be staged together and the framework must recognize that DLL's RPM
+            format. Do not mix an old four-button DLL with a new archive. For
+            the lesson, use the CLI's complete exported ROM so the production
+            installer performs the compatibility work.
+          </p>
+          <div class="codeplate">
+            <div class="codebar">
+              <span>Shell · focused verification</span
+              ><button type="button" data-copy>Copy</button>
+            </div>
+            <pre><code>npm run cgear:verify
+npx vitest run src/test/cgearButtons.test.ts \
+  src/test/cgearDial.test.ts src/test/cgearQuickActionsModel.test.ts
+npm run build</code></pre>
+          </div>
+          <p>
+            The CPU harness uses native-call stubs and selected retail routines;
+            it checks ownership and calling conventions, not the complete
+            display. Use emulator gameplay for the visible result.
+          </p>
+          <fieldset class="acceptance">
+            <legend>Your lesson's gameplay checks</legend>
+            <label
+              ><input type="checkbox" /> Cold boot shows all three labels; no
+              clock/decal returns.</label
+            ><label
+              ><input type="checkbox" /> One tap activates once; a held touch
+              does not repeatedly open a menu.</label
+            ><label
+              ><input type="checkbox" /> Native events block actions without
+              queuing a surprise launch later.</label
+            ><label
+              ><input type="checkbox" /> REPEL toggles, preserves normal Repel
+              steps and survives normal saving.</label
+            ><label
+              ><input type="checkbox" /> PC opens, cancels and returns without
+              hiding or duplicating buttons.</label
+            ><label
+              ><input type="checkbox" /> PARTY opens; cancellation and a menu
+              round trip return cleanly.</label
+            ><label
+              ><input type="checkbox" /> Wrench positions save/reload by ID, and
+              L + R resets them.</label
+            ><label
+              ><input type="checkbox" /> Test wireless on/off and repeat
+              entry/exit before accepting a build.</label
+            >
+          </fieldset>
+          <p class="small">
+            These checkboxes are a reader's checklist, not an automatic test
+            result. DS emulator success does not establish physical DS or DSi
+            acceptance.
+          </p>
+        </section>
+
+        <section id="source-tour">
+          <h2>
+            Where the code lives
+            <a
+              class="anchor"
+              href="#source-tour"
+              aria-label="Link to Source tour"
+              >#</a
+            >
+          </h2>
+          <p>
+            Start with the small
+            <a href="../../runtime/cgear-quick-actions/quick_actions.cpp"
+              ><code>quick_actions.cpp</code></a
+            >
+            include list. The private sections appear in declaration order.
+            Short helper names such as <code>show()</code>,
+            <code>safe()</code> and <code>dispose()</code> retain their original
+            linkage; the file headings and comments explain their roles.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Read this</th>
+                  <th>To understand</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <a href="../../runtime/cgear-quick-actions/runtime.h"
+                      ><code>runtime.h</code></a
+                    >
+                  </td>
+                  <td>Native structure layouts and typed call helpers.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="../../runtime/cgear-quick-actions/native_addresses.h"
+                      ><code>native_addresses.h</code></a
+                    >
+                  </td>
+                  <td>
+                    Named address aliases, custom action codes and sounds.
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <a href="../../runtime/cgear-quick-actions/bw2/session.inc"
+                      ><code>bw2/session.inc</code></a
+                    >
+                  </td>
+                  <td>The 16-byte button record and session ownership.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="../../runtime/cgear-quick-actions/bw2/game_state.inc"
+                      ><code>bw2/game_state.inc</code></a
+                    >
+                  </td>
+                  <td>
+                    Bag/flag visibility, availability, Repel and field
+                    prerequisites.
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="../../runtime/cgear-quick-actions/bw2/configuration.inc"
+                      ><code>bw2/configuration.inc</code></a
+                    >
+                  </td>
+                  <td>Archive integrity and stable-ID layout persistence.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="../../runtime/cgear-quick-actions/bw2/actors_and_dial.inc"
+                      ><code>bw2/actors_and_dial.inc</code></a
+                    >
+                  </td>
+                  <td>Actor placement and integer dial geometry.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="../../runtime/cgear-quick-actions/bw2/resources.inc"
+                      ><code>bw2/resources.inc</code></a
+                    >
+                  </td>
+                  <td>
+                    Allocation, scheduled uploads, cleanup, and
+                    <code>drawable()</code>/<code>safe()</code> guards.
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <a href="../../runtime/cgear-quick-actions/bw2/update.inc"
+                      ><code>bw2/update.inc</code></a
+                    >
+                  </td>
+                  <td>
+                    Hit testing, visible poses, native colors and wrench reset.
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <a href="../../runtime/cgear-quick-actions/bw2/requests.inc"
+                      ><code>bw2/requests.inc</code></a
+                    >
+                  </td>
+                  <td>
+                    PC and owned native applications; optional custom-screen
+                    bridge.
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <a href="../../runtime/cgear-quick-actions/bw2/hooks.inc"
+                      ><code>bw2/hooks.inc</code></a
+                    >
+                  </td>
+                  <td>
+                    The exported lifecycle, input, dispatch and encounter hooks.
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <a href="../../src/cgearButtons/compiler.ts"
+                      ><code>src/cgearButtons/compiler.ts</code></a
+                    >
+                  </td>
+                  <td>
+                    Labels, poses, tile packing and private NARC compilation.
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <a href="../../src/cgearButtons/document.ts"
+                      ><code>document.ts</code></a
+                    >
+                    /
+                    <a href="../../src/cgearButtons/nativeGraphics.ts"
+                      ><code>nativeGraphics.ts</code></a
+                    >
+                  </td>
+                  <td>
+                    Action catalog, stable IDs and native sprite capacity.
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <a href="../../runtime/cgear-quick-actions/build.py"
+                      ><code>build.py</code></a
+                    >
+                    /
+                    <a href="../../src/pokeweb/cgearQuickActionsModel.ts"
+                      ><code>cgearQuickActionsModel.ts</code></a
+                    >
+                  </td>
+                  <td>
+                    Native binding checks, DLL generation and atomic
+                    installation.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="bw1">
+          <h2>
+            Black / White differences
+            <a class="anchor" href="#bw1" aria-label="Link to BW1 differences"
+              >#</a
+            >
+          </h2>
+          <p>
+            The ideas carry over; the binary adapter does not. The separate US
+            revision-0 Black/White implementation is in
+            <a href="../../runtime/cgear-quick-actions/bw1.cpp"
+              ><code>bw1.cpp</code></a
+            >, with profiles produced by <code>configure_bw1.py</code> and
+            <code>build_bw1.py</code>.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>BW2 walkthrough</th>
+                  <th>BW1 adapter</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th>Game IDs</th>
+                  <td>IREO / IRDO</td>
+                  <td>IRBO / IRAO</td>
+                </tr>
+                <tr>
+                  <th>C-Gear archive</th>
+                  <td><code>a/2/8/7</code></td>
+                  <td><code>a/0/3/0</code></td>
+                </tr>
+                <tr>
+                  <th>Menu request size</th>
+                  <td>68 bytes</td>
+                  <td>64 bytes</td>
+                </tr>
+                <tr>
+                  <th>Native calls</th>
+                  <td>
+                    <code>api()</code>/<code>ov()</code>, checked B2/W2 profiles
+                  </td>
+                  <td>
+                    <code>Native::…</code>, independently bound B/W profiles and
+                    calling modes
+                  </td>
+                </tr>
+                <tr>
+                  <th>Artwork</th>
+                  <td>Small custom circular sprites and native patterns</td>
+                  <td>Native skin-aware panel/circle/callout presentation</td>
+                </tr>
+                <tr>
+                  <th>Controls</th>
+                  <td>Skin dial, music and Save replacements</td>
+                  <td>Native small controls and Power; no Save replacement</td>
+                </tr>
+                <tr>
+                  <th>Persistence</th>
+                  <td>Reserved 36-byte C-Gear tail; Repel Options bit</td>
+                  <td>
+                    A different checked 48-byte record; separate
+                    integrity/ownership rules
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            Do not apply the BW2 offset or Repel bit instructions to BW1. Follow
+            its saved-record accessors and generated profile. The beginner
+            lesson CLI deliberately rejects BW1 so it cannot produce a
+            misleading half-port.
+          </p>
+        </section>
+
+        <section id="troubleshooting">
+          <h2>
+            Troubleshooting
+            <a
+              class="anchor"
+              href="#troubleshooting"
+              aria-label="Link to Troubleshooting"
+              >#</a
+            >
+          </h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Symptom</th>
+                  <th>Check first</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Nothing appears</td>
+                  <td>
+                    C-Gear obtained state, enabled archive, the runtime DLL
+                    path, required shared music DLL, and allocation/error state.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Art is scrambled</td>
+                  <td>
+                    4bpp tile order, NCER size/tile reference, palette bank,
+                    native repacking, and that DLL/archive formats match.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Button is missing</td>
+                  <td>
+                    Required item and optional visibility flag. An invisible
+                    button is different from a dim unavailable button.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Button launches repeatedly</td>
+                  <td>
+                    A held press is not latched until release, or pending was
+                    not cleared before dispatch.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Click works but return crashes</td>
+                  <td>
+                    Request storage went out of scope, the parent did not wait
+                    for its child, or screen cleanup retained stale actors.
+                  </td>
+                </tr>
+                <tr>
+                  <td>New coordinates are ignored</td>
+                  <td>
+                    An existing saved layout owns those stable IDs. Use the
+                    wrench reset, or test with a copied save without that
+                    layout.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Changes are absent after rebuilding</td>
+                  <td>
+                    The lesson uses bundled DLLs: run the native builder after
+                    C++ edits. Cold boot the correct exported ROM instead of
+                    loading an old emulator state.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Native signature/conflict check fails</td>
+                  <td>
+                    Exact game/revision and another patch's hook ownership. Read
+                    the reported mismatch; do not bypass checks to force an
+                    address.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="next">
+          <h2>
+            The advanced follow-up
+            <a
+              class="anchor"
+              href="#next"
+              aria-label="Link to Advanced follow-up"
+              >#</a
+            >
+          </h2>
+          <p>
+            A custom screen such as Pokenav needs more than a new action code:
+            its own launch contract, screen initialization, native input
+            handling, graphics/text resources, transition ownership and
+            teardown. A later guide can follow <code>navLaunch()</code>/<code
+              >navEvent()</code
+            >
+            into that screen.
+          </p>
+          <p>
+            This page ends at native behaviors. You now have the same three
+            boundaries the advanced guide will extend:
+            <strong
+              >draw the control, own the touch, and hand off a request with a
+              valid lifetime.</strong
+            >
+          </p>
+        </section>
+
+        <section id="sources">
+          <h2>
+            Sources and verification
+            <a class="anchor" href="#sources" aria-label="Link to Sources">#</a>
+          </h2>
+          <p>
+            The implementation facts and live source panels come from this
+            repository's C-Gear compiler, native adapters, build profiles and
+            <a href="../../runtime/cgear-quick-actions/acceptance.md"
+              >acceptance record</a
+            >. The current native code is the reference implementation; the
+            clearly labeled pseudocode is only an explanation.
+          </p>
+          <p>
+            The documentation layout is inspired by the
+            <a
+              href="https://github.com/ds-pokemon-hacking/ds-pokemon-hacking.github.io"
+              >DS Pokémon Hacking guides</a
+            >: a chapter sidebar, readable article, section navigation, code
+            blocks and compatibility notes. This is an independent Pokeweb
+            example, not an official wiki contribution.
+          </p>
+          <ul>
+            <li>
+              <a
+                href="https://ds-pokemon-hacking.github.io/docs/generation-v/guides/bw_b2w2-code_injection/"
+                >Code Injection (Generation V)</a
+              >
+              — background on PMC relocation names, ARM/Thumb calls and building
+              a DLL.
+            </li>
+            <li>
+              <a href="https://github.com/ds-pokemon-hacking/PMC"
+                >PMC source and releases</a
+              >
+              — the code-injection framework.
+            </li>
+            <li>
+              <a href="../../scripts/build-cgear-button-example.ts"
+                >The complete lesson build command</a
+              >
+              — production compiler/installer integration used in chapter 2.
+            </li>
+          </ul>
+          <p class="small">
+            To refresh source panels and decoded button images after editing the
+            implementation:
+            <code>npx vite-node scripts/build-cgear-button-guide.ts</code>. To
+            check them without writing: append <code>--check</code>.
+          </p>
+        </section>
+        <footer class="article-footer">
+          <span>End of the beginner guide</span
+          ><a href="#overview">Back to the beginning ↑</a>
+        </footer>
+      </main>
+      <aside class="on-this-page" aria-label="On this page">
+        <p>ON THIS PAGE</p>
+        <nav id="page-toc"></nav>
+      </aside>
+    </div>
+    <noscript
+      ><div class="noscript">
+        The complete guide and source panels work without JavaScript. Enable it
+        for the illustration, theme switch, copy buttons and section search.
+      </div></noscript
+    >
+  </body>
+</html>

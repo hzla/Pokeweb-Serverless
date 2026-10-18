@@ -2,7 +2,7 @@ import { unzipSync, zipSync } from "fflate";
 import { decodeRecord, type ProjectState } from "../pokeweb/projectStore";
 import { NARC } from "../nds/narc";
 import { downloadBytes, getRomFileBytes } from "../pokeweb/fileSystemModel";
-import { checkFollowerCompatibility, installFollowerAlpha, removeFollowerAlpha, readFollowerAlphaInstall, setFollowerAlphaEnabled, followerRom, followerProfile, prepareFollowerWorkspace, readFollowerAsset, readFollowerWorkspace, replaceFollowerAssets, followerArtworkPending, followerRuntimeVersion, readFollowerDialogueRules, writeFollowerDialogueRules, followerDialogueAnimationsAvailable, followerTileBoundsAvailable, readFollowerItemRules, writeFollowerItemRules, FOLLOWER_RUNTIME_REGISTRY_PATH, type FollowerAssetWorkspace, type FollowerRom, type FollowerAlphaInstall } from "../pokeweb/followingPokemonProject";
+import { checkFollowerCompatibility, installFollowerAlpha, removeFollowerAlpha, readFollowerAlphaInstall, setFollowerAlphaEnabled, followerRom, followerProfile, prepareFollowerWorkspace, readFollowerAsset, readFollowerWorkspace, replaceFollowerAssets, followerArtworkPending, followerBundledArtworkPending, followerArtworkReplacementAvailable, followerRuntimeVersion, readFollowerDialogueRules, writeFollowerDialogueRules, followerDialogueAnimationsAvailable, followerTileBoundsAvailable, readFollowerItemRules, writeFollowerItemRules, FOLLOWER_RUNTIME_REGISTRY_PATH, type FollowerAssetWorkspace, type FollowerRom, type FollowerAlphaInstall } from "../pokeweb/followingPokemonProject";
 import { typeNamesForProject } from "../pokeweb/constants";
 import { getPokemonPersonalIds } from "../pokeweb/pokemonModel";
 import { findPokemonBaseSpeciesId, findPokemonPersonalFormOwner, pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
@@ -139,7 +139,7 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
       ${FOLLOWER_OVERWORLD_CREDITS.map(([category, creators]) => `<p><strong>${escapeHtml(category)}</strong> — ${escapeHtml(creators)}</p>`).join("")}</footer>`;
   root.append(panel);
   let rom: FollowerRom | undefined, workspace: FollowerAssetWorkspace | undefined, previewWorkspace: FollowerAssetWorkspace | undefined, selected = "", stock: Uint8Array[] | undefined;
-  let positionEnabled = false;
+  let positionEnabled = false, artworkReplacementAvailable = false;
   let timer: ReturnType<typeof setInterval> | undefined;
   const error = panel.querySelector<HTMLElement>("[data-fw-error]")!;
   const prepare = panel.querySelector<HTMLButtonElement>("[data-fw-prepare]")!;
@@ -401,9 +401,11 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
     positionEditor?.destroy(); positionEditor = undefined;
     prepare.textContent = "Asset workspace prepared"; prepare.disabled = true;
     const count = workspace.registry.entries.filter(e => e.placeholder).length;
-    assets.innerHTML = `<p>Editable catalog (bundled art is installed; custom replacements are not yet used by the runtime): ${workspace.registry.entries.length} appearances · ${count} placeholders · ${Object.keys(workspace.imports).length} replacements</p>
+    assets.innerHTML = `<p>Editable catalog: ${workspace.registry.entries.length} appearances · ${count} fallback appearances · ${Object.keys(workspace.imports).length} replacements</p>
+      <p>Bundled artwork fills the species missing from the retail game. Fallback appearances include shiny variants using normal colors and forms sharing base artwork.</p>
+      <p>${artworkReplacementAvailable ? "After replacing graphics, click Apply follower artwork (or install the follower system), then export the ROM and cold boot the game." : "Applying custom replacements is not yet supported for this ROM profile or externally managed runtime."}</p>
       <label>Species number <input data-fw-filter type="number" min="1" max="1023" placeholder="All species" style="width:8rem"></label>
-      <label><input data-fw-missing type="checkbox"> Placeholders only</label>
+      <label><input data-fw-missing type="checkbox"> Fallback artwork only</label>
       <select data-fw-select aria-label="Follower appearance" style="display:block;max-width:100%;margin:0.75rem 0"></select>
       <p data-fw-detail></p><div data-fw-preview style="display:flex;gap:1rem;flex-wrap:wrap"></div>
       <label><input type="checkbox" data-fw-walking checked> Walk animation</label>
@@ -533,9 +535,12 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
     riding.disabled = !state.removed;
     ridingStatus.textContent = state.removed ? "Choose the package to reinstall." : riding.checked ? "Riding and custom Surf installed. Remove and reinstall to change." : "Grounded followers installed. Remove and reinstall to change.";
     if (state.externalRuntime) ridingStatus.textContent = "External runtime. Dialogue, gifts and positioning are editable; installation is managed outside Pokeweb.";
-    const importedArtwork = state.profile === "stock" && !!rom && followerArtworkPending(project, rom);
-    install.disabled = !!state.externalRuntime || (state.version === runtimeVersion && !state.removed && !importedArtwork);
-    install.textContent = state.externalRuntime ? `External: ${state.externalRuntime.label}` : state.removed ? "Reinstall follower alpha" : importedArtwork && state.version === runtimeVersion ? "Apply follower artwork" : install.disabled ? `Installed ${state.version}` : `Update ${state.version} to ${runtimeVersion}`;
+    artworkReplacementAvailable = await followerArtworkReplacementAvailable(project, rom);
+    if (rom) workspace = readFollowerWorkspace(project, rom);
+    const importedArtwork = artworkReplacementAvailable && !!rom && followerArtworkPending(project, rom);
+    const missingBundledArtwork = !!rom && followerBundledArtworkPending(project, rom);
+    install.disabled = !!state.externalRuntime || (state.version === runtimeVersion && !state.removed && !importedArtwork && !missingBundledArtwork);
+    install.textContent = state.externalRuntime ? `External: ${state.externalRuntime.label}` : state.removed ? "Reinstall follower alpha" : importedArtwork && state.version === runtimeVersion ? "Apply follower artwork" : missingBundledArtwork && state.version === runtimeVersion ? "Install bundled artwork" : install.disabled ? `Installed ${state.version}` : `Update ${state.version} to ${runtimeVersion}`;
     toggle.hidden = !!state.removed || !!state.externalRuntime; remove.hidden = !!state.removed || !!state.externalRuntime; toggle.textContent = enabled ? "Disable following" : "Enable following";
     loadRuntimePreviewWorkspace();
     await renderDialogues(); await renderItems();
@@ -575,7 +580,13 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
   void (async () => {
     try {
       rom = await followerRom(project); positionEnabled = true;
+      artworkReplacementAvailable = await followerArtworkReplacementAvailable(project, rom);
       workspace = readFollowerWorkspace(project, rom);
+      if (workspace) {
+        const beforePreparation = project.fileSystem;
+        workspace = await prepareFollowerWorkspace(project, rom);
+        if (project.fileSystem !== beforePreparation) onDirty();
+      }
       loadRuntimePreviewWorkspace();
       if (!panel.isConnected) return;
       if (workspace) renderAssets();

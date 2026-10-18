@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { compile, preview, tile, untile, validate } from "../cgearButtons/compiler";
-import { actions, defaults, legacyDefaults, newButton } from "../cgearButtons/document";
+import { actions, actionsFor, defaults, legacyDefaults, newButton } from "../cgearButtons/document";
 import { EditorHistory } from "../cgearButtons/editorState";
 import { NARC } from "../nds/narc";
 import { readU16, writeU16, writeU32 } from "../nds/binary";
@@ -103,6 +103,15 @@ describe("C-Gear button compiler and editor state", () => {
     const h=new NARC(r.archive!).files[0],at=32+(d.buttons.length-1)*16;
     expect(h[at+2]).toBe(17);expect(readU16(h,at+4)).toBe(0);expect(h[at+12]).toBe(255);
     expect(recoverCGearButtons(r.archive!).document).toEqual(d);
+  });
+  it("offers HM02 Fly separately and compiles its item/flag gating without changing defaults",()=>{
+    const d=defaults(),a=buttonTestAssets(),b=newButton(d,"mapFlyHm");b.flag={id:42,when:"clear"};
+    d.buttons=[b];const r=compile(d,a);expect(r.archive).toBeDefined();
+    const h=new NARC(r.archive!).files[0];expect(h[34]).toBe(19);expect(readU16(h,36)).toBe(421);expect(h[44]).toBe(1);
+    expect(recoverCGearButtons(r.archive!).document).toEqual(d);expect(validateButtonArchive(r.archive!)).toBe(true);
+    expect(actionsFor("BW").find(a=>a.id==="mapFlyHm")).toMatchObject({item:421,group:6,call:7,check:1});
+    expect(defaults().buttons[3].action).toBe("mapFly");
+    a.itemGroups.set(421,0);expect(compile(d,a).diagnostics).toContainEqual(expect.objectContaining({severity:"error",message:expect.stringContaining("field handler")}));
   });
   it("reports illegal coordinates, duplicate IDs, long labels, missing glyphs, and unsupported handlers",()=>{
     const d=defaults(),a=buttonTestAssets();d.buttons[0].x=15;d.buttons[1].id=1;

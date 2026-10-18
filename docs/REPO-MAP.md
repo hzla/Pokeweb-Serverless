@@ -19,6 +19,7 @@ Use this map to choose a search scope. It describes the current working tree, no
 | BW2 Nuzlocke Style Encounters | `runtime/nuzlocke-encounters/`, `src/pokeweb/nuzlockeEncountersModel.ts` | native overlay-36 filtering; optional Pokenav integration; `scripts/verify-nuzlocke-encounters.ts`, `src/test/nuzlockeEncounters.test.ts` |
 | BW2 Pokenav | `runtime/pokenav/`, `src/pokeweb/pokenavModel.ts` | shared `runtime/learnset-viewer/`, C-Gear action 18; `src/test/pokenav.test.ts`, `scripts/verify-pokenav-install.ts` |
 | C-Gear button editor | `src/cgearButtons/`, `src/ui/cgearButtonsEditor.ts` | `src/pokeweb/cgearButtonsModel.ts`, `src/pokeweb/cgearQuickActionsModel.ts`, `runtime/cgear-quick-actions/README.md` |
+| C-Gear runtime and beginner guide | `runtime/cgear-quick-actions/quick_actions.cpp`, `bw2/*.inc`, `native_addresses.h`; separate `bw1.cpp` | `docs/cgear-buttons/index.html`; `scripts/build-cgear-button-example.ts` builds the lesson, `scripts/build-cgear-button-guide.ts` refreshes source panels and decoded artwork |
 | Asset conversion and visual references | relevant importer under `runtime/` or `scripts/` | `public/images/`, `move-animation-reference/`, `docs/` only as needed |
 | Source provenance | `patch-sources/README.md`, `patch-sources/manifest.json` | canonical origin recorded in the manifest |
 

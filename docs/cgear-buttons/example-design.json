@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "nextId": 6,
+  "hideCommunicationButtons": true,
+  "buttons": [
+    { "id": 1, "label": "REPEL", "color": "#18d878", "x": 60, "y": 116, "action": "repel" },
+    { "id": 2, "label": "PC", "color": "#ff637b", "x": 68, "y": 60, "action": "pc" },
+    { "id": 5, "label": "PARTY", "color": "#29c5f7", "x": 188, "y": 60, "action": "party" }
+  ]
+}

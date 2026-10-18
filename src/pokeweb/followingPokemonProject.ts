@@ -39,6 +39,7 @@ import { FOLLOWER_POSITIONING_PATH, encodeFollowerPositioningNarc, decodeFollowe
 
 export const FOLLOWER_MANIFEST_PATH = "following/assets.json";
 export const FOLLOWER_REGISTRY_PATH = "following/registry.bin";
+export const FOLLOWER_BUNDLED_ASSETS_PATH = "following/bundled-assets.narc";
 export const FOLLOWER_RUNTIME_REGISTRY_PATH = "following/runtime-registry.bin";
 export const FOLLOWER_CORE_DLL_PATH = "patches/PokewebFollowingCoreW2.dll";
 export const FOLLOWER_OPTIONS_DLL_PATH = "patches/PokewebFollowingOptionsW2.dll";
@@ -54,6 +55,7 @@ export type FollowerAssetWorkspace = {
   targetSha256: string;
   registry: FollowerRegistry;
   imports: Record<string, { path: string; crc32: number }>;
+  bundledResources?: { path: string; firstResourceId: number; crc32: number };
   surfAdjustments?: FollowerSurfAdjustments;
 };
 export type FollowerCompatibility = { compatible: boolean; message: string; checks: Array<{ name: string; passed: boolean }>; installation?: FollowerAlphaInstall };
@@ -290,7 +292,36 @@ export function readFollowerWorkspace(project: ProjectState, rom: FollowerFiles)
   for (const [key, item] of Object.entries(value.imports)) {
     if (!value.registry.entries.some(e => followerKey(e.key) === key) || item.path !== `following/asset-${key.replaceAll(":", "-")}.btx` || !Number.isInteger(item.crc32)) throw new Error("Invalid follower import reference.");
   }
+  const bundle = value.bundledResources;
+  if (bundle && (bundle.path !== FOLLOWER_BUNDLED_ASSETS_PATH || bundle.firstResourceId !== 975 || !Number.isInteger(bundle.crc32)))
+    throw new Error("Invalid bundled follower resource reference.");
+  const receipt = readFollowingFile(project, rom, FOLLOWER_INSTALL_PATH);
+  const installed = readFollowingFile(project, rom, FOLLOWER_RUNTIME_REGISTRY_PATH);
+  if (receipt && installed && !JSON.parse(new TextDecoder().decode(receipt)).removed)
+    return workspaceWithInstalledRegistry(value, decodeFollowerRegistry(installed));
   return value;
+}
+/** Installed rows supersede retail placeholders. Keep pending imports and
+ * explicit positioning edits while taking resource IDs from the actual ROM. */
+function workspaceWithInstalledRegistry(workspace: FollowerAssetWorkspace, registry: FollowerRegistry): FollowerAssetWorkspace {
+  const result = structuredClone(workspace), authored = new Map(workspace.registry.entries.map(entry => [followerKey(entry.key), entry]));
+  result.registry = structuredClone(registry); delete result.bundledResources;
+  for (const entry of result.registry.entries) {
+    const key = followerKey(entry.key), source = authored.get(key);
+    if (!source) continue;
+    if (workspace.imports[key]) {
+      Object.assign(entry, { size: source.size, animationProfile: source.animationProfile, placeholder: source.placeholder,
+        placeholderReason: source.placeholderReason, source: source.source, sourceLabel: source.sourceLabel });
+    } else if (source.resourceId === entry.resourceId && source.placeholder === entry.placeholder) {
+      entry.source = source.source; entry.sourceLabel = source.sourceLabel; entry.placeholderReason = source.placeholderReason;
+    }
+    if (source.directionalGaps) entry.directionalGaps = [...source.directionalGaps];
+    if (source.riderAdjustments) entry.riderAdjustments = structuredClone(source.riderAdjustments);
+  }
+  if (Object.keys(result.imports).some(key => !result.registry.entries.some(entry => followerKey(entry.key) === key)))
+    throw new Error("An imported follower appearance is missing from the installed catalog.");
+  validateFollowerRegistry(result.registry);
+  return result;
 }
 function commitWorkspace(project: ProjectState, rom: FollowerFiles, workspace: FollowerAssetWorkspace, resources: Record<string, Uint8Array>, description: string): void {
   // Validate and serialize everything before publishing the new filesystem maps.
@@ -307,7 +338,7 @@ function commitWorkspace(project: ProjectState, rom: FollowerFiles, workspace: F
 export async function prepareFollowerWorkspace(project: ProjectState, rom?: FollowerRom): Promise<FollowerAssetWorkspace> {
   rom ??= await followerRom(project);
   const existing = readFollowerWorkspace(project, rom);
-  if (existing) return existing;
+  if (existing && (existing.bundledResources || readFollowingFile(project, rom, FOLLOWER_RUNTIME_REGISTRY_PATH))) return existing;
   const compatibility = await checkFollowerCompatibility(project, rom);
   if (!compatibility.compatible && !compatibility.installation?.externalRuntime) throw new Error(compatibility.message);
   const archive = (path: string) => {
@@ -333,9 +364,20 @@ export async function prepareFollowerWorkspace(project: ProjectState, rom?: Foll
   const resources = new NARC(archive("a/0/4/8")).files;
   const descriptors = new NARC(archive("a/0/4/7")).files;
   if (descriptors.length !== 1 || resources.length !== 975) throw new Error("Unsupported overworld archive layout.");
-  const registry = buildFollowerCatalog(new NARC(archive("a/0/1/6")).files, readFollowerStockAppearances(archive("a/2/0/8")), descriptors[0], resources, profile === "white2upgrade" ? 1023 : 649);
-  const workspace: FollowerAssetWorkspace = { schemaVersion: 1, targetSha256: targetFor(profile), registry, imports: {} };
-  commitWorkspace(project, rom, workspace, {}, `Prepared ${registry.entries.length} follower appearances with explicit missing-art placeholders.`);
+  const response = await fetch(gen5ResourcesUrl);
+  if (!response.ok) throw new Error("Could not load bundled Gen 5 follower artwork.");
+  const gen5 = new Uint8Array(await response.arrayBuffer());
+  if (await followerRomSha256(gen5) !== gen5Manifest.archiveSha256) throw new Error("Gen 5 follower bundle fingerprint mismatch.");
+  const later = profile === "white2upgrade" ? new Uint8Array(await (await fetch(laterResourcesUrl)).arrayBuffer()) : undefined;
+  if (later && await followerRomSha256(later) !== laterManifest.archiveSha256) throw new Error("Later-generation follower bundle fingerprint mismatch.");
+  const built = buildGen5FollowerArchives(archive("a/0/1/6"), archive("a/2/0/8"), archive(FOLLOWER_DESCRIPTOR_PATH), archive(FOLLOWER_RESOURCE_PATH), gen5, gen5Manifest, later);
+  const bundled = new NARC(gen5);
+  if (later) bundled.files.push(...new NARC(later).files);
+  const bundleBytes = bundled.save();
+  const workspace: FollowerAssetWorkspace = existing ? workspaceWithInstalledRegistry(existing, built.registry)
+    : { schemaVersion: 1, targetSha256: targetFor(profile), registry: built.registry, imports: {} };
+  workspace.bundledResources = { path: FOLLOWER_BUNDLED_ASSETS_PATH, firstResourceId: resources.length, crc32: followerCrc32(bundleBytes) };
+  commitWorkspace(project, rom, workspace, { [FOLLOWER_BUNDLED_ASSETS_PATH]: bundleBytes }, `Prepared ${workspace.registry.entries.length} follower appearances with bundled artwork.`);
   return workspace;
 }
 export function replaceFollowerAssets(project: ProjectState, rom: FollowerFiles,
@@ -410,6 +452,14 @@ export function readFollowerAsset(project: ProjectState, rom: FollowerFiles, wor
     const bytes = readFollowingFile(project, rom, imported.path);
     if (!bytes || followerCrc32(bytes) !== imported.crc32) throw new Error("Follower asset is missing or was edited outside its manifest.");
     validateFollowerResource(bytes, entry.animationProfile); return bytes;
+  }
+  const bundle = workspace.bundledResources;
+  if (bundle && entry.resourceId >= bundle.firstResourceId) {
+    const bytes = readFollowingFile(project, rom, bundle.path);
+    if (!bytes || followerCrc32(bytes) !== bundle.crc32) throw new Error("Bundled follower artwork is missing or was edited outside its manifest.");
+    const resource = new NARC(bytes).files[entry.resourceId - bundle.firstResourceId];
+    if (!resource) throw new Error("Missing bundled follower resource.");
+    validateFollowerResource(resource, entry.animationProfile); return resource;
   }
   const id = rom.filenames.idOf("a/0/4/8");
   if (id === undefined) throw new Error("Missing native model resources.");
@@ -537,6 +587,7 @@ const battleModules = {
   white2upgrade: new URL("../assets/following/white2upgrade/PokewebFollowingBattleW2.dll", import.meta.url),
 } as const;
 const gen5ResourcesUrl = new URL("../assets/following/gen5-followers.narc", import.meta.url);
+const gen5AppearanceByKey = new Map(gen5Manifest.appearances.map(entry => [`${entry.species}:${entry.form}:${entry.gender}:${Number(entry.shiny)}`, entry]));
 const interactionsUrl = new URL("../assets/following/interactions.bin", import.meta.url);
 const italyInteractionsUrl = new URL("../assets/following/white2italy/interactions.bin", import.meta.url);
 const emotesUrl = new URL("../assets/following/interaction-emotes.narc", import.meta.url);
@@ -835,6 +886,22 @@ export function followerArtworkPending(project: ProjectState, rom: FollowerFiles
   }
   return false;
 }
+function needsBundledGen5Artwork(entry: FollowerAssetEntry, imports: FollowerAssetWorkspace["imports"]): boolean {
+  const key = followerKey(entry.key);
+  return entry.key.species >= 494 && entry.key.species <= 649 && entry.placeholder && entry.resourceId < 975 && !imports[key] && gen5AppearanceByKey.has(key);
+}
+export function followerBundledArtworkPending(project: ProjectState, rom: FollowerFiles): boolean {
+  const bytes = readFollowingFile(project, rom, FOLLOWER_RUNTIME_REGISTRY_PATH);
+  if (!bytes) return false;
+  const imports = readFollowerWorkspace(project, rom)?.imports ?? {};
+  return decodeFollowerRegistry(bytes).entries.some(entry => needsBundledGen5Artwork(entry, imports));
+}
+export async function followerArtworkReplacementAvailable(project: ProjectState, rom?: FollowerRom): Promise<boolean> {
+  rom ??= await followerRom(project);
+  const profile = await followerProfile(project, rom);
+  const receipt = readFollowingFile(project, rom, FOLLOWER_INSTALL_PATH);
+  return (profile === "stock" || profile === "black2") && !(receipt && JSON.parse(new TextDecoder().decode(receipt)).externalRuntime);
+}
 export async function installFollowerAlpha(project: ProjectState, rom?: FollowerRom, options?: { riding?: boolean }): Promise<FollowerAlphaInstall> {
   const sourceRomBytes = project.originalRomBytes ?? await loadActiveRomBytes();
   if (!sourceRomBytes) throw new Error("Reload the project's ROM before installing the follower.");
@@ -850,8 +917,9 @@ export async function installFollowerAlpha(project: ProjectState, rom?: Follower
   if (!report.compatible) throw new Error(report.message);
   const fingerprint = runtimeManifest.variants?.[variant];
   if (!fingerprint) throw new Error(`Bundled ${variant} follower package is unavailable.`);
-  const pendingArtwork = profile === "stock" && followerArtworkPending(project, rom);
-  if (existing?.version === runtimeManifest.version && existing.moduleSha256 === fingerprint.fieldSha256 && !existing.removed && !pendingArtwork) { if (!existing.enabled) return setFollowerAlphaEnabled(project, true, rom); return existing; }
+  const pendingArtwork = (profile === "stock" || profile === "black2") && followerArtworkPending(project, rom);
+  const pendingBundledArtwork = followerBundledArtworkPending(project, rom);
+  if (existing?.version === runtimeManifest.version && existing.moduleSha256 === fingerprint.fieldSha256 && !existing.removed && !pendingArtwork && !pendingBundledArtwork) { if (!existing.enabled) return setFollowerAlphaEnabled(project, true, rom); return existing; }
   const authoredDialogues = readFollowingFile(project, rom, FOLLOWER_DIALOGUE_NARC_PATH);
   const authoredItems = readFollowingFile(project, rom, FOLLOWER_ITEM_NARC_PATH);
   if (!runtimeManifest.tileBounds && ((authoredDialogues && decodeFollowerDialogueNarc(authoredDialogues).some(followerHasTileBounds)) || (authoredItems && decodeFollowerItemNarc(authoredItems).some(followerHasTileBounds)))) throw new Error("The bundled follower runtime does not support the authored tile bounds.");
@@ -965,12 +1033,27 @@ export async function installFollowerAlpha(project: ProjectState, rom?: Follower
       assetWorkspace = { schemaVersion: 1, targetSha256: targetFor(profile), registry: built.registry, imports: {} };
     if (existing && !existing.enabled) new DataView(config.buffer).setUint32(4, 0, true);
   }
-  if (pendingArtwork) {
-    const workspace = readFollowerWorkspace(project, rom)!;
+  if (pendingArtwork || pendingBundledArtwork) {
+    const workspace = readFollowerWorkspace(project, rom);
     const decoded = decodeFollowerRegistry(registry), resourceArchive = new NARC(resources), descriptorArchive = new NARC(descriptors);
-    for (const [key, imported] of Object.entries(workspace.imports)) {
+    if (pendingBundledArtwork) {
+      const bundled = new NARC(gen5Bytes), imports = workspace?.imports ?? {};
+      for (const entry of decoded.entries) {
+        if (!needsBundledGen5Artwork(entry, imports)) continue;
+        const source = gen5AppearanceByKey.get(followerKey(entry.key))!, bytes = bundled.files[source.member];
+        let resourceId = resourceArchive.files.findIndex(file => file.length === bytes.length && file.every((value, index) => value === bytes[index]));
+        if (resourceId < 0) { resourceId = resourceArchive.files.length; resourceArchive.files.push(bytes.slice()); }
+        if (resourceId > 65534) throw new Error("Follower resource archive is full.");
+        Object.assign(entry, { resourceId, size: source.size, animationProfile: source.profile,
+          placeholder: false, placeholderReason: undefined, source: "hg-engine", sourceLabel: `Bundled Gen 5 overworld ${gen5Manifest.resources[source.member].gfx}` });
+        const at = 4 + entry.descriptorRow * 28;
+        new DataView(descriptorArchive.files[0].buffer, descriptorArchive.files[0].byteOffset, descriptorArchive.files[0].byteLength).setUint16(at + 16, resourceId, true);
+        descriptorArchive.files[0][at + 7] = source.size === 64 ? 2 : 1;
+      }
+    }
+    for (const [key, imported] of Object.entries(pendingArtwork ? workspace!.imports : {})) {
       const target = decoded.entries.find(entry => followerKey(entry.key) === key);
-      const authored = workspace.registry.entries.find(entry => followerKey(entry.key) === key);
+      const authored = workspace!.registry.entries.find(entry => followerKey(entry.key) === key);
       const bytes = readFollowingFile(project, rom, imported.path);
       if (!target || !authored || !bytes || followerCrc32(bytes) !== imported.crc32) throw new Error(`Invalid follower replacement ${key}.`);
       validateFollowerResource(bytes, authored.animationProfile);
@@ -999,6 +1082,8 @@ export async function installFollowerAlpha(project: ProjectState, rom?: Follower
     new DataView(registry.buffer).setUint32(24, followerCrc32(registry), true);
     config = encodeFollowerNativeConfig(registry, decoded.descriptorCount, decoded.resourceCount);
   }
+  const authoredWorkspace = assetWorkspace ?? readFollowerWorkspace(project, rom);
+  if (authoredWorkspace) assetWorkspace = workspaceWithInstalledRegistry(authoredWorkspace, decodeFollowerRegistry(registry));
   const landAnchors = variant === "full" ? encodeFollowerLandAnchors(decodeFollowerRegistry(registry), new NARC(resources).files, registry) : undefined;
   if (landAnchors) {
     const descriptorMember = new NARC(descriptors).files[0];
