@@ -32,7 +32,7 @@ import { refreshDecodedTextState } from "./loader";
 import type { ProjectState } from "./projectStore";
 import { getPmcInstallStatus, installBundledPmc, listCodeInjectionDlls, stageCodeInjectionDll } from "./pmcModel";
 import { parseRpm, writeRpm, type RpmModule } from "./rpm";
-import { buildFollowerCatalog, deriveFollowerGrounding, deriveFollowerSpacing, encodeFollowerLandAnchors, validateFollowerLandAnchors, followerSideGap, decodeFollowerRegistry, encodeFollowerRegistry, followerCrc32, followerKey, readFollowerStockAppearances, validateFollowerRegistry, validateFollowerResource,
+import { buildFollowerCatalog, deriveFollowerGrounding, deriveFollowerSpacing, encodeFollowerLandAnchors, validateFollowerLandAnchors, followerSideGap, followerBillboardDrawMode, decodeFollowerRegistry, encodeFollowerRegistry, followerCrc32, followerKey, readFollowerStockAppearances, validateFollowerRegistry, validateFollowerResource,
   type FollowerAppearanceKey, type FollowerAssetEntry, type FollowerRegistry } from "./followingPokemonModel";
 import { FOLLOWER_POSITIONING_PATH, encodeFollowerPositioningNarc, decodeFollowerPositioningNarc,
   validateSurfAdjustments, type FollowerRiderAdjustments, type FollowerSurfAdjustments } from "./followingPokemonPositioning";
@@ -896,6 +896,14 @@ export function followerBundledArtworkPending(project: ProjectState, rom: Follow
   const imports = readFollowerWorkspace(project, rom)?.imports ?? {};
   return decodeFollowerRegistry(bytes).entries.some(entry => needsBundledGen5Artwork(entry, imports));
 }
+/** Repair earlier imports that selected a 16-pixel native frame for 32-pixel artwork. */
+export function followerBillboardRepairPending(project: ProjectState, rom: FollowerFiles): boolean {
+  const registry = readFollowingFile(project, rom, FOLLOWER_RUNTIME_REGISTRY_PATH);
+  const descriptors = readFollowingFile(project, rom, FOLLOWER_DESCRIPTOR_PATH);
+  if (!registry || !descriptors) return false;
+  const member = new NARC(descriptors).files[0];
+  return decodeFollowerRegistry(registry).entries.some(entry => member[4 + entry.descriptorRow * 28 + 7] !== followerBillboardDrawMode(entry.size));
+}
 export async function followerArtworkReplacementAvailable(project: ProjectState, rom?: FollowerRom): Promise<boolean> {
   rom ??= await followerRom(project);
   const profile = await followerProfile(project, rom);
@@ -919,7 +927,8 @@ export async function installFollowerAlpha(project: ProjectState, rom?: Follower
   if (!fingerprint) throw new Error(`Bundled ${variant} follower package is unavailable.`);
   const pendingArtwork = (profile === "stock" || profile === "black2") && followerArtworkPending(project, rom);
   const pendingBundledArtwork = followerBundledArtworkPending(project, rom);
-  if (existing?.version === runtimeManifest.version && existing.moduleSha256 === fingerprint.fieldSha256 && !existing.removed && !pendingArtwork && !pendingBundledArtwork) { if (!existing.enabled) return setFollowerAlphaEnabled(project, true, rom); return existing; }
+  const pendingBillboardRepair = followerBillboardRepairPending(project, rom);
+  if (existing?.version === runtimeManifest.version && existing.moduleSha256 === fingerprint.fieldSha256 && !existing.removed && !pendingArtwork && !pendingBundledArtwork && !pendingBillboardRepair) { if (!existing.enabled) return setFollowerAlphaEnabled(project, true, rom); return existing; }
   const authoredDialogues = readFollowingFile(project, rom, FOLLOWER_DIALOGUE_NARC_PATH);
   const authoredItems = readFollowingFile(project, rom, FOLLOWER_ITEM_NARC_PATH);
   if (!runtimeManifest.tileBounds && ((authoredDialogues && decodeFollowerDialogueNarc(authoredDialogues).some(followerHasTileBounds)) || (authoredItems && decodeFollowerItemNarc(authoredItems).some(followerHasTileBounds)))) throw new Error("The bundled follower runtime does not support the authored tile bounds.");
@@ -1048,7 +1057,7 @@ export async function installFollowerAlpha(project: ProjectState, rom?: Follower
           placeholder: false, placeholderReason: undefined, source: "hg-engine", sourceLabel: `Bundled Gen 5 overworld ${gen5Manifest.resources[source.member].gfx}` });
         const at = 4 + entry.descriptorRow * 28;
         new DataView(descriptorArchive.files[0].buffer, descriptorArchive.files[0].byteOffset, descriptorArchive.files[0].byteLength).setUint16(at + 16, resourceId, true);
-        descriptorArchive.files[0][at + 7] = source.size === 64 ? 2 : 1;
+        descriptorArchive.files[0][at + 7] = followerBillboardDrawMode(source.size);
       }
     }
     for (const [key, imported] of Object.entries(pendingArtwork ? workspace!.imports : {})) {
@@ -1058,17 +1067,19 @@ export async function installFollowerAlpha(project: ProjectState, rom?: Follower
       if (!target || !authored || !bytes || followerCrc32(bytes) !== imported.crc32) throw new Error(`Invalid follower replacement ${key}.`);
       validateFollowerResource(bytes, authored.animationProfile);
       const installed = resourceArchive.files[target.resourceId];
-      if (installed?.length === bytes.length && installed.every((byte, index) => byte === bytes[index])) continue;
-      const resourceId = resourceArchive.files.length;
-      if (resourceId > 65534) throw new Error("Follower resource archive is full.");
-      resourceArchive.files.push(bytes.slice());
+      let resourceId = target.resourceId;
+      if (installed?.length !== bytes.length || installed.some((byte, index) => byte !== bytes[index])) {
+        resourceId = resourceArchive.files.length;
+        if (resourceId > 65534) throw new Error("Follower resource archive is full.");
+        resourceArchive.files.push(bytes.slice());
+      }
       target.resourceId = resourceId; target.size = authored.size; target.animationProfile = authored.animationProfile;
       target.placeholder = authored.placeholder; target.placeholderReason = authored.placeholderReason;
       target.source = authored.source; target.sourceLabel = authored.sourceLabel;
       const row = 4 + target.descriptorRow * 28;
       const view = new DataView(descriptorArchive.files[0].buffer, descriptorArchive.files[0].byteOffset, descriptorArchive.files[0].byteLength);
       view.setUint16(row + 16, resourceId, true);
-      descriptorArchive.files[0][row + 7] = authored.size === 64 ? 2 : 1;
+      descriptorArchive.files[0][row + 7] = followerBillboardDrawMode(authored.size);
     }
     decoded.resourceCount = resourceArchive.files.length;
     deriveFollowerSpacing(decoded, resourceArchive.files);
@@ -1081,6 +1092,14 @@ export async function installFollowerAlpha(project: ProjectState, rom?: Follower
     new DataView(registry.buffer).setUint32(24, 0, true);
     new DataView(registry.buffer).setUint32(24, followerCrc32(registry), true);
     config = encodeFollowerNativeConfig(registry, decoded.descriptorCount, decoded.resourceCount);
+  }
+  // Normalize only follower-owned rows. Existing imported BTX bytes can already
+  // match exactly while their native frame selector still needs this repair.
+  {
+    const archive = new NARC(descriptors);
+    for (const entry of decodeFollowerRegistry(registry).entries)
+      archive.files[0][4 + entry.descriptorRow * 28 + 7] = followerBillboardDrawMode(entry.size);
+    descriptors = archive.save();
   }
   const authoredWorkspace = assetWorkspace ?? readFollowerWorkspace(project, rom);
   if (authoredWorkspace) assetWorkspace = workspaceWithInstalledRegistry(authoredWorkspace, decodeFollowerRegistry(registry));

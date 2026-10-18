@@ -7,10 +7,10 @@ import { NintendoDSRom } from "../src/nds/rom";
 import { loadProjectFromRomBytes } from "../src/pokeweb/loader";
 import { exportModifiedRom } from "../src/pokeweb/exportRom";
 import { buildFollowerCatalog, decodeFollowerRegistry, encodeFollowerRegistry, followerCrc32, encodeFollowerFrames, followerKey,
-  readFollowerStockAppearances, encodeFollowerLandAnchors, validateFollowerLandAnchors } from "../src/pokeweb/followingPokemonModel";
+  readFollowerStockAppearances, encodeFollowerLandAnchors, validateFollowerLandAnchors, followerBillboardDrawMode } from "../src/pokeweb/followingPokemonModel";
 import { prepareFollowerWorkspace, followerRom, followerProfile, readFollowingFile, readFollowerWorkspace,
   readFollowerAsset, replaceFollowerAssets, installFollowerAlpha, readFollowerAlphaInstall,
-  followerArtworkPending, followerBundledArtworkPending, followerArtworkReplacementAvailable, FOLLOWER_MANIFEST_PATH, FOLLOWER_DESCRIPTOR_PATH,
+  followerArtworkPending, followerBundledArtworkPending, followerBillboardRepairPending, followerArtworkReplacementAvailable, FOLLOWER_MANIFEST_PATH, FOLLOWER_DESCRIPTOR_PATH,
   FOLLOWER_RESOURCE_PATH, FOLLOWER_RUNTIME_REGISTRY_PATH, FOLLOWER_NATIVE_PATH, FOLLOWER_INSTALL_PATH, FOLLOWER_LAND_ANCHORS_PATH, FOLLOWER_SURF_REGISTRY_PATH, type FollowerAssetWorkspace } from "../src/pokeweb/followingPokemonProject";
 import { encodeFollowerPositioningNarc, FOLLOWER_POSITIONING_PATH } from "../src/pokeweb/followingPokemonPositioning";
 import gen5Manifest from "../src/assets/following/gen5-followers.json";
@@ -78,6 +78,24 @@ assert.equal(followerArtworkPending(project, rom), false);
 const installedWorkspace = readFollowerWorkspace(project, rom)!;
 assert.equal(installedWorkspace.bundledResources, undefined);
 complete(installedWorkspace, new NARC(readFollowingFile(project, rom, FOLLOWER_RESOURCE_PATH)!).files, key);
+// Earlier imports stored correct 32×32 pixels but selected the native 16×16
+// frame. Model an owned affected export: matching BTX must still be repairable.
+const cropDescriptors = new NARC(readFollowingFile(project, rom, FOLLOWER_DESCRIPTOR_PATH)!);
+const customEntry = installedWorkspace.registry.entries.find(entry => followerKey(entry.key) === key)!;
+const cropAt = 4 + customEntry.descriptorRow * 28 + 7;
+assert.equal(cropDescriptors.files[0][cropAt], 0);
+cropDescriptors.files[0][cropAt] = 1;
+const croppedBytes = cropDescriptors.save(), beforeRepairResources = readFollowingFile(project, rom, FOLLOWER_RESOURCE_PATH)!.slice();
+project.fileSystem!.replacements[rom.filenames.idOf(FOLLOWER_DESCRIPTOR_PATH)!] = croppedBytes;
+project.fileSystem!.additions![FOLLOWER_INSTALL_PATH] = new TextEncoder().encode(JSON.stringify({ ...state, descriptorsSha256: sha(croppedBytes) }));
+assert.equal(followerArtworkPending(project, rom), false);
+assert.equal(followerBillboardRepairPending(project, rom), true);
+await installFollowerAlpha(project, rom);
+assert.equal(followerBillboardRepairPending(project, rom), false);
+assert.deepEqual(readFollowingFile(project, rom, FOLLOWER_RESOURCE_PATH), beforeRepairResources);
+assert.equal(new NARC(readFollowingFile(project, rom, FOLLOWER_DESCRIPTOR_PATH)!).files[0][cropAt], 0);
+const cropRepairedFiles = project.fileSystem;
+await installFollowerAlpha(project, rom); assert.equal(project.fileSystem, cropRepairedFiles);
 // Model a recognized old installation that still points Gen 5 fallback rows
 // into retail resources, with valid ownership/config checksums.
 function bindingFiles(registryBytes: Uint8Array): Record<string, Uint8Array> {
@@ -97,7 +115,7 @@ for (const entry of oldInstalled.entries) {
   entry.resourceId = original.resourceId; entry.size = original.size; entry.animationProfile = original.animationProfile;
   entry.placeholder = original.placeholder; entry.placeholderReason = original.placeholderReason;
   descriptorView.setUint16(4 + entry.descriptorRow * 28 + 16, entry.resourceId, true);
-  oldDescriptors.files[0][4 + entry.descriptorRow * 28 + 7] = entry.size === 64 ? 2 : 1;
+  oldDescriptors.files[0][4 + entry.descriptorRow * 28 + 7] = followerBillboardDrawMode(entry.size);
 }
 const oldRegistryBytes = encodeFollowerRegistry(oldInstalled), oldDescriptorBytes = oldDescriptors.save();
 const oldConfig = readFollowingFile(project, rom, FOLLOWER_NATIVE_PATH)!.slice(), configView = new DataView(oldConfig.buffer);
@@ -165,6 +183,8 @@ const resultFiles = new NARC(finalRom.getFileByName(FOLLOWER_RESOURCE_PATH)).fil
 assert.equal(result.size, 64); assert.deepEqual(resultFiles[result.resourceId], art64);
 assert.equal(result.placeholder, false);
 const descriptors = new NARC(finalRom.getFileByName(FOLLOWER_DESCRIPTOR_PATH)).files[0], view = new DataView(descriptors.buffer, descriptors.byteOffset, descriptors.byteLength);
+for (const entry of installed.entries) assert.equal(descriptors[4 + entry.descriptorRow * 28 + 7], followerBillboardDrawMode(entry.size), followerKey(entry.key));
+assert.deepEqual(descriptors.subarray(4, 4 + 1008 * 28), new NARC(originalDescriptors).files[0].subarray(4));
 assert.equal(view.getUint16(4 + result.descriptorRow * 28 + 16, true), result.resourceId);
 assert.equal(descriptors[4 + result.descriptorRow * 28 + 7], 2);
 if (riding) validateFollowerLandAnchors(finalRom.getFileByName(FOLLOWER_LAND_ANCHORS_PATH), registryBytes, installed.descriptorCount);
@@ -177,7 +197,8 @@ const report = { profile, variant: state.variant, version: state.version, specie
   nativeBulbasaurSubstitutions: legacy.entries.filter(entry => entry.placeholderReason?.includes("Bulbasaur")).length,
   preparedBulbasaurSubstitutions: prepared.registry.entries.filter(entry => entry.placeholderReason?.includes("Bulbasaur")).length,
   legacyWorkspaceMigration: true, legacyInstalledCatalogRepair: true, customImportsAndPositioningPreserved: true, stalePreviewReconciled: true,
-  custom32And64PixelArtworkInstalled: true, nativeResourcesAndFileIdsPreserved: true, unchangedFieldDll: true,
+  custom32And64PixelArtworkInstalled: true, cropped32PixelFrameRepaired: true, allOwnedFrameModesVerified: true,
+  nativeResourcesAndFileIdsPreserved: true, unchangedFieldDll: true,
   exportReopen: true, emulatorRun: false };
 await mkdir("runtime/following-pokemon/build", { recursive: true });
 await writeFile(`runtime/following-pokemon/build/artwork-${profile}-${state.variant}.json`, JSON.stringify(report, null, 2) + "\n");

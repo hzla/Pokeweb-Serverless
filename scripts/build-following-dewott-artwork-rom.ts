@@ -10,7 +10,7 @@ import { readU16, readU32 } from "../src/nds/binary";
 import { encodeFollowerFrames, followerFramesFromSheet, followerKey, decodeFollowerRegistry } from "../src/pokeweb/followingPokemonModel";
 import { prepareFollowerWorkspace, followerRom, followerProfile, replaceFollowerAssets,
   installFollowerAlpha, followerArtworkPending, readFollowerAlphaInstall, FOLLOWER_RESOURCE_PATH,
-  FOLLOWER_RUNTIME_REGISTRY_PATH } from "../src/pokeweb/followingPokemonProject";
+  FOLLOWER_RUNTIME_REGISTRY_PATH, FOLLOWER_DESCRIPTOR_PATH, followerBillboardRepairPending } from "../src/pokeweb/followingPokemonProject";
 
 const [input, output, saveSource] = process.argv.slice(2);
 if (!input || !output?.endsWith(".nds")) throw new Error("Pass a clean stock BW2 ROM, a new versioned output .nds path, and an optional matching ordinary save.");
@@ -30,7 +30,7 @@ const frames = followerFramesFromSheet({ width: png.width, height: png.height, r
 const template = new Uint8Array(await readFile(new URL("../src/assets/following/template-32-8.btx", import.meta.url)));
 const bytes = encodeFollowerFrames(frames, template), entries = workspace.registry.entries.filter(entry => entry.key.species === 502);
 assert.equal(entries.length, 4); // Male/female and normal/shiny in the stock personal data.
-replaceFollowerAssets(project, rom, entries.map(entry => ({ key: entry.key, bytes, profile: "pokemon-asymmetric", source: "png", label: "Supplied Dewott import test" })));
+replaceFollowerAssets(project, rom, entries.map(entry => ({ key: entry.key, bytes, profile: "pokemon-asymmetric", source: "png", label: "Supplied Brionne sheet over Dewott" })));
 assert.equal(followerArtworkPending(project, rom), true);
 const state = await installFollowerAlpha(project, rom);
 assert.equal(followerArtworkPending(project, rom), false);
@@ -39,7 +39,12 @@ const reopened = await loadProjectFromRomBytes(exported, "dewott-replacement.nds
 assert.equal((await readFollowerAlphaInstall(reopened))?.moduleSha256, state.moduleSha256);
 const resources = new NARC(exportedRom.getFileByName(FOLLOWER_RESOURCE_PATH)).files;
 const registry = decodeFollowerRegistry(exportedRom.getFileByName(FOLLOWER_RUNTIME_REGISTRY_PATH));
-for (const entry of registry.entries.filter(entry => entry.key.species === 502)) assert.deepEqual(resources[entry.resourceId], bytes, followerKey(entry.key));
+const descriptors = new NARC(exportedRom.getFileByName(FOLLOWER_DESCRIPTOR_PATH)).files[0];
+for (const entry of registry.entries.filter(entry => entry.key.species === 502)) {
+  assert.deepEqual(resources[entry.resourceId], bytes, followerKey(entry.key));
+  assert.equal(descriptors[4 + entry.descriptorRow * 28 + 7], 0, "Full native 32×32 frame window");
+}
+assert.equal(followerBillboardRepairPending(reopened, exportedRom), false);
 assert.equal(registry.entries.filter(entry => entry.key.species >= 494 && entry.placeholder).length, 0);
 let save: Uint8Array | undefined;
 if (saveSource) {
@@ -60,4 +65,4 @@ await writeFile(output, exported, { flag: "wx" });
 if (save) await writeFile(output.slice(0, -4) + ".sav", save, { flag: "wx" });
 console.log(JSON.stringify({ rom: output, profile, version: state.version, variant: state.variant,
   replacedAppearanceKeys: entries.map(entry => followerKey(entry.key)), frameCount: frames.length,
-  frameSize: 32, opaqueColors: 12, exportReopenVerified: true, emulatorRun: false, saveSource }, null, 2));
+  frameSize: 32, nativeFrameMode: 0, opaqueColors: 12, exportReopenVerified: true, emulatorRun: false, saveSource }, null, 2));

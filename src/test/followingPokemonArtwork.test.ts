@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { PNG } from "pngjs";
 import { encodeFollowerFrames, followerFramesFromSheet, followerPreview, validateFollowerResource } from "../pokeweb/followingPokemonModel";
 
-describe("supplied Dewott replacement sheet", () => {
+describe("supplied Brionne sheet replacing Dewott", () => {
   it("imports all eight poses with transparency and the original DS palette", () => {
     const png = PNG.sync.read(readFileSync(new URL("./fixtures/follower-dewott-replacement.png", import.meta.url)));
     expect([png.width, png.height]).toEqual([64, 128]);

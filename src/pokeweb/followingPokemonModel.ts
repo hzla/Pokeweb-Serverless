@@ -67,6 +67,12 @@ export function stockFollowerRow(code: number): number {
   return 10;
 }
 export function followerDescriptorOffset(row: number): number { integer(row, 0, 0xffff, "descriptor row"); return 4 + row * 28; }
+/** Retail descriptor byte 7 selects both quad size and texture-frame bounds.
+ * Mode 1 is 16×16; full 32×32 and 64×64 frames require modes 0 and 2. */
+export function followerBillboardDrawMode(size: number): 0 | 2 {
+  if (size !== 32 && size !== 64) throw new Error("Unsupported follower frame size.");
+  return size === 64 ? 2 : 0;
+}
 export function validateFollowerRegistry(registry: FollowerRegistry): void {
   if (registry.runtimeAbi !== FOLLOWING_ABI) throw new Error("Unsupported follower runtime ABI.");
   integer(registry.descriptorCount, FOLLOWING_STOCK_ROWS, FOLLOWING_STOCK_ROWS + FOLLOWING_MAX_ASSETS, "descriptor count");

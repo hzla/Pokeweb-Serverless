@@ -7,7 +7,7 @@ import { NintendoDSRom } from "../nds/rom";
 import { Folder } from "../nds/fnt";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { stageCodeInjectionDll } from "../pokeweb/pmcModel";
-import { FOLLOWER_MANIFEST_PATH, FOLLOWER_REGISTRY_PATH, FOLLOWER_BUNDLED_ASSETS_PATH, readFollowerWorkspace, replaceFollowerAssets, readFollowerAsset, checkFollowerCompatibility, followerModuleHookConflicts, followerArtworkReplacementAvailable, type FollowerAssetWorkspace, type FollowerRom } from "../pokeweb/followingPokemonProject";
+import { FOLLOWER_MANIFEST_PATH, FOLLOWER_REGISTRY_PATH, FOLLOWER_BUNDLED_ASSETS_PATH, followerBillboardRepairPending, readFollowerWorkspace, replaceFollowerAssets, readFollowerAsset, checkFollowerCompatibility, followerModuleHookConflicts, followerArtworkReplacementAvailable, type FollowerAssetWorkspace, type FollowerRom } from "../pokeweb/followingPokemonProject";
 import { parseRpm, writeRpm, type RpmModule } from "../pokeweb/rpm";
 import { deriveFollowerGrounding, encodeFollowerFrames, followerGroundingPixels, followerKey } from "../pokeweb/followingPokemonModel";
 import contract from "../../runtime/following-pokemon/contract.json";
@@ -31,6 +31,25 @@ function fixture(){
   const rom=new NintendoDSRom(new Uint8Array(512));return {project,rom,workspace};
 }
 describe("follower asset transactions",()=>{
+  it("detects cropped native frames even without an editor workspace or pending texture changes",()=>{
+    const {project,rom,workspace}=fixture();
+    delete project.fileSystem!.additions![FOLLOWER_MANIFEST_PATH];
+    project.fileSystem!.additions![FOLLOWER_RUNTIME_REGISTRY_PATH]=encodeFollowerRegistry(workspace.registry);
+    const archive=new NARC();archive.files=[new Uint8Array(4+1009*28)];
+    const at=4+1008*28+7;
+    archive.files[0][at]=1;
+    project.fileSystem!.additions![FOLLOWER_DESCRIPTOR_PATH]=archive.save();
+    expect(followerBillboardRepairPending(project,rom)).toBe(true);
+    archive.files[0][at]=0;
+    project.fileSystem!.additions![FOLLOWER_DESCRIPTOR_PATH]=archive.save();
+    expect(followerBillboardRepairPending(project,rom)).toBe(false);
+    workspace.registry.entries[0].size=64;
+    project.fileSystem!.additions![FOLLOWER_RUNTIME_REGISTRY_PATH]=encodeFollowerRegistry(workspace.registry);
+    expect(followerBillboardRepairPending(project,rom)).toBe(true);
+    archive.files[0][at]=2;
+    project.fileSystem!.additions![FOLLOWER_DESCRIPTOR_PATH]=archive.save();
+    expect(followerBillboardRepairPending(project,rom)).toBe(false);
+  });
   it("previews bundled external resources before installation and rejects altered bundles",()=>{
     const {project,rom,workspace}=fixture();
     const bundle=new NARC();bundle.files=[bytes];const data=bundle.save();

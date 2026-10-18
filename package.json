@@ -126,6 +126,7 @@
     "following:verify-core": "python3 runtime/following-pokemon/verify_runtime.py",
     "following:verify-assets": "vite-node scripts/verify-following-assets.ts",
     "following:verify-artwork": "vite-node scripts/verify-following-artwork.ts",
+    "following:verify-artwork-native": "python3 runtime/following-pokemon/verify_artwork_billboards.py",
     "following:verify-grounding": "vite-node scripts/verify-following-grounding.ts",
     "following:import": "python3 runtime/following-pokemon/import_assets.py",
     "following:import-gen5": "python3 runtime/following-pokemon/import_gen5_assets.py",
