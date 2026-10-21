@@ -104,6 +104,19 @@ function readAccessor(glb: ReturnType<typeof readGlb>, id: number): number[] {
 }
 
 describe("map Blender export", () => {
+  it("excludes reference-only neighboring terrain and props from the editable map export", async () => {
+    const data = mapData();
+    data.neighboringScenery = {
+      chunks: [{ ...data.chunks[0], chunkId: 999, worldX: 50000 }],
+      buildings: [{ ...data.buildings[0], uid: 443, worldX: 50000 }],
+    };
+    const result = await exportMap3dGlb(data);
+    const { json } = readGlb(result.bytes);
+    expect(result.chunkCount).toBe(1);
+    expect(result.buildingCount).toBe(1);
+    expect(JSON.stringify(json.nodes)).not.toContain('50000');
+    expect(JSON.stringify(json.nodes)).not.toContain('999');
+  });
   it("exports terrain and rotated buildings in local tile units with reversible coordinates and source IDs", async () => {
     const data = mapData();
     const originalPositions = [...data.chunks[0].primitives[0].positions];

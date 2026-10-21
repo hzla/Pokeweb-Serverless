@@ -1,5 +1,7 @@
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
+import { readNitroTextureAnimation } from "./nitroAnimation";
+import { readMapTexturePatterns, readNitroTexturePatterns, sampleTexturePattern, textureAnimationFrame, type MapTextureAnimation } from "./mapTextureAnimation";
 import { concatBytes, readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
 import { loadActiveRomBytes } from "./persistence";
@@ -18,6 +20,8 @@ const MAP_CHUNKS_PATH = "a/0/0/8";
 const MAP_REPLACE_PATH = "a/0/1/0";
 const AREA_TABLE_PATH = "a/0/1/3";
 const MAP_TEXTURES_PATH = "a/0/1/4";
+const MAP_SRT_PATH = "a/0/6/8";
+const MAP_PAT_PATH = "a/0/6/9";
 const MMODEL_INDEX_BW_PATH = "a/0/4/8";
 const MMODEL_INDEX_BW2_PATH = "a/0/4/7";
 const MMODEL_RES_BW_PATH = "a/0/4/9";
@@ -54,6 +58,8 @@ export type Map3dMatrixCell = { matrixId: number; x: number; y: number };
 
 export type Map3dLoadOptions = {
   season?: Map3dSeason;
+  /** Read-only surrounding terrain/props, using the active area's resource bank. */
+  includeNeighbors?: boolean;
   /** Transient thumbnail loads need only the resulting image, not a retained scene. */
   cache?: boolean;
   /** Load exactly this matrix cell, using a nearby header only for graphics resources. */
@@ -121,6 +127,8 @@ export type Map3dPrimitive = {
   colors?: Float32Array;
   normals?: Float32Array;
   indices: Uint16Array;
+  /** Preview data only: never bake a sampled frame into editable/exported buffers. */
+  textureAnimation?: MapTextureAnimation;
 };
 
 export type Map3dChunk = {
@@ -269,6 +277,7 @@ export type Map3dSceneData = {
   npcModelCount: number;
   permissionTileCount: number;
   chunks: Map3dChunk[];
+  neighboringScenery?: { chunks: Map3dChunk[]; buildings: Map3dBuilding[] };
   buildings: Map3dBuilding[];
   buildingModels?: Array<{ uid: number; primitives: Map3dPrimitive[] }>;
   buildingDiagnostics?: Map3dBuildingDiagnostic[];
@@ -285,6 +294,8 @@ type LazyArchives = {
   mapReplace: Uint8Array;
   areaTable: Uint8Array;
   textures: NARC;
+  textureSrt: NARC;
+  texturePat: NARC;
   npcRegistry: Uint8Array;
   moveModelResources: NARC;
   entities: NARC;
@@ -301,6 +312,22 @@ type MatrixData = {
   chunkIds: number[];
   zoneIds: number[];
 };
+
+/** One populated cell of context around the selected header; never the entire world matrix. */
+export function neighboringMatrixCells(matrix: MatrixData, zoneId: number): Set<number> {
+  const result = new Set<number>();
+  if (!matrix.hasZones) return result;
+  for (let i = 0; i < matrix.width * matrix.height; i += 1) {
+    if (matrix.zoneIds[i] !== zoneId || matrix.chunkIds[i] < 0 || matrix.chunkIds[i] === 0xffffffff) continue;
+    const x = i % matrix.width, y = Math.floor(i / matrix.width);
+    for (let yy = Math.max(0, y - 1); yy <= Math.min(matrix.height - 1, y + 1); yy += 1)
+      for (let xx = Math.max(0, x - 1); xx <= Math.min(matrix.width - 1, x + 1); xx += 1) {
+        const n = yy * matrix.width + xx;
+        if (matrix.zoneIds[n] !== zoneId && matrix.chunkIds[n] >= 0 && matrix.chunkIds[n] !== 0xffffffff) result.add(n);
+      }
+  }
+  return result;
+}
 
 type AreaHeader3d = Map3dAreaMetadata;
 
@@ -448,6 +475,7 @@ type RenderOp =
 type Vertex = {
   position: [number, number, number];
   uv: [number, number];
+  rawUv: [number, number];
   color: [number, number, number];
   normal: [number, number, number];
 };
@@ -464,6 +492,13 @@ type BuildPrimitive = {
 type BuildModelOptions = {
   recoverSkippedPieces?: boolean;
   includeHiddenMaterials?: boolean;
+  textureAnimations?: TextureAnimationSet;
+};
+
+type TextureAnimationSet = {
+  srt?: ReturnType<typeof readNitroTextureAnimation>;
+  patterns: Map<string, { frameCount: number; keys: Array<{ frame: number; texture: DecodedTexture }> }>;
+  materialPatterns?: Map<string, { frameCount: number; keys: Array<{ frame: number; texture: DecodedTexture }> }>;
 };
 
 type InfoBlockItem<T> = {
@@ -485,11 +520,11 @@ class Map3dLoader {
     }
     const season = options.season ?? "spring";
     const cell = options.matrixCell;
-    if (options.cache === false || options.previewMap) return this.loadZoneUncached(project, zoneId, season, cell, onProgress, options.previewMap);
-    const cacheKey = `${project.session.baseRom}:${zoneId}:${season}:${cell ? `${cell.matrixId},${cell.x},${cell.y}` : "zone"}:${project.narcs.maps?.revision ?? 0}:${project.narcs.matrix?.revision ?? 0}:${project.narcs.headers?.revision ?? 0}:${project.narcs.map_replace?.revision ?? 0}`;
+    if (options.cache === false || options.previewMap) return this.loadZoneUncached(project, zoneId, season, cell, onProgress, options.previewMap, options.includeNeighbors);
+    const cacheKey = `${project.session.baseRom}:${zoneId}:${season}:${cell ? `${cell.matrixId},${cell.x},${cell.y}` : "zone"}:${options.includeNeighbors ? "neighbors" : "isolated"}:${project.narcs.maps?.revision ?? 0}:${project.narcs.matrix?.revision ?? 0}:${project.narcs.headers?.revision ?? 0}:${project.narcs.map_replace?.revision ?? 0}`;
     const cached = this.zoneCache.get(cacheKey);
     if (cached) return cached;
-    const promise = this.loadZoneUncached(project, zoneId, season, cell, onProgress);
+    const promise = this.loadZoneUncached(project, zoneId, season, cell, onProgress, undefined, options.includeNeighbors);
     this.zoneCache.set(cacheKey, promise);
     return promise;
   }
@@ -553,7 +588,7 @@ class Map3dLoader {
     }
   }
 
-  private async loadZoneUncached(project: ProjectState, zoneId: number, season: Map3dSeason, matrixCell?: Map3dMatrixCell, onProgress?: (message: string) => void, previewMap?: Map3dLoadOptions["previewMap"]): Promise<Map3dSceneData> {
+  private async loadZoneUncached(project: ProjectState, zoneId: number, season: Map3dSeason, matrixCell?: Map3dMatrixCell, onProgress?: (message: string) => void, previewMap?: Map3dLoadOptions["previewMap"], includeNeighbors = false): Promise<Map3dSceneData> {
     onProgress?.("Reading ROM archives");
     await loadMatrixEditorData(project);
     const archives = await this.getArchives(project);
@@ -592,8 +627,12 @@ class Map3dLoader {
     onProgress?.("Decoding map textures");
     const textureResources = readNitroResources(texturePackBytes);
     const chunks: Map3dChunk[] = [];
+    const contextChunks: Map3dChunk[] = [];
+    const contextCells = includeNeighbors && matrix.hasZones && !matrixCell && !previewMap
+      ? neighboringMatrixCells(matrix, matrixZoneId) : new Set<number>();
     const chunkContainers = new Map<number, Uint8Array[]>();
     const warnings: string[] = [];
+    const textureAnimations = loadAreaTextureAnimations(archives, area, warnings);
 
     for (let y = 0; y < matrix.height; y += 1) {
       for (let x = 0; x < matrix.width; x += 1) {
@@ -601,7 +640,8 @@ class Map3dLoader {
         const sourceChunkId = previewMap?.mapId ?? originalMatrix.chunkIds[index] ?? -1;
         const chunkId = previewMap?.mapId ?? matrix.chunkIds[index] ?? -1;
         if (chunkId < 0) continue;
-        if (matrixCell ? x !== matrixCell.x || y !== matrixCell.y : matrix.hasZones && matrix.zoneIds[index] !== matrixZoneId) continue;
+        const primary = matrixCell ? x === matrixCell.x && y === matrixCell.y : !matrix.hasZones || matrix.zoneIds[index] === matrixZoneId;
+        if (!primary && !contextCells.has(index)) continue;
         const chunkContainer = project.narcs.maps.rawFiles[chunkId]?.length ? project.narcs.maps.rawFiles[chunkId] : archives.chunks.files[chunkId];
         if (!chunkContainer) {
           warnings.push(`Chunk ${chunkId} is missing`);
@@ -619,14 +659,14 @@ class Map3dLoader {
           const modelResources = readNitroResources(nsbmd);
           const resources = combineResources(modelResources, textureResources);
           const permissions = chunkFiles.files[1] ? safeParseVMapTerrain(chunkFiles.files[1], chunkId, warnings) : undefined;
-          chunks.push({
+          (primary ? chunks : contextChunks).push({
             chunkId,
             sourceChunkId,
             matrixX: x,
             matrixY: y,
             worldX: x * CHUNK_SPAN + CHUNK_SPAN / 2,
             worldZ: y * CHUNK_SPAN + CHUNK_SPAN / 2,
-            primitives: buildModelPrimitives(resources, warnings),
+            primitives: buildModelPrimitives(resources, warnings, { textureAnimations }),
             permissions,
           });
         } catch (error) {
@@ -638,6 +678,8 @@ class Map3dLoader {
 
     onProgress?.("Decoding building models");
     const { buildings, buildingModels } = loadBuildingsForZone(archives, area, areaId, chunks, chunkContainers, warnings);
+    const contextBuildings = contextChunks.length
+      ? loadBuildingsForZone(archives, area, areaId, contextChunks, chunkContainers, warnings).buildings : [];
     onProgress?.("Loading entity overlays");
     const entityData = matrixCell ? { overlays: [], npcs: [] } : loadEntityData(archives, row, warnings);
     onProgress?.("Decoding NPC models");
@@ -664,6 +706,7 @@ class Map3dLoader {
       npcModelCount: npcModels.length,
       permissionTileCount: chunks.reduce((sum, chunk) => sum + (chunk.permissions?.tiles.length ?? 0), 0),
       chunks,
+      ...(contextChunks.length ? { neighboringScenery: { chunks: contextChunks, buildings: contextBuildings } } : {}),
       buildings,
       buildingModels,
       entities: entityData.overlays,
@@ -960,6 +1003,8 @@ async function loadArchives(project: ProjectState): Promise<LazyArchives> {
     mapReplace: firstFile(new NARC(rom.getFileByName(MAP_REPLACE_PATH))) ?? new Uint8Array(),
     areaTable: rom.getFileByName(AREA_TABLE_PATH),
     textures: currentArchive(MAP_TEXTURES_PATH),
+    textureSrt: currentArchive(MAP_SRT_PATH),
+    texturePat: currentArchive(MAP_PAT_PATH),
     npcRegistry: firstFile(new NARC(rom.getFileByName(baseRom === "BW2" ? MMODEL_INDEX_BW2_PATH : MMODEL_INDEX_BW_PATH))) ?? new Uint8Array(),
     moveModelResources: new NARC(rom.getFileByName(baseRom === "BW2" ? MMODEL_RES_BW2_PATH : MMODEL_RES_BW_PATH)),
     entities: new NARC(rom.getFileByName(baseRom === "BW2" ? ZONE_ENTITIES_BW2_PATH : ZONE_ENTITIES_BW_PATH)),
@@ -1003,6 +1048,105 @@ function combineResources(model: NitroResources, textures: NitroResources): Nitr
   };
 }
 
+function cachedTextureSrt(bytes: Uint8Array): ReturnType<typeof readNitroTextureAnimation> {
+  const animation = readNitroTextureAnimation(bytes);
+  let last = -1, values = animation.sample(0);
+  return { frameCount: animation.frameCount, sample(frame) {
+    const f = textureAnimationFrame(frame, animation.frameCount);
+    if (f !== last) { values = animation.sample(f); last = f; }
+    return values;
+  } };
+}
+
+function loadAreaTextureAnimations(archives: LazyArchives, area: AreaHeader3d, warnings: string[]): TextureAnimationSet {
+  const result: TextureAnimationSet = { patterns: new Map() };
+  if (area.srtAnimeIdx !== 255) try {
+    const bytes = archives.textureSrt.files[area.srtAnimeIdx];
+    if (!bytes) throw new Error("Missing resource");
+    result.srt = cachedTextureSrt(bytes);
+  } catch (error) { warnings.push(`Map texture transform ${area.srtAnimeIdx}: ${error instanceof Error ? error.message : String(error)}`); }
+  if (area.patAnimeIdx !== 255) try {
+    const bytes = archives.texturePat.files[area.patAnimeIdx];
+    if (!bytes) throw new Error("Missing resource");
+    for (const group of readMapTexturePatterns(bytes)) {
+      const resources = readNitroResources(group.textureBytes);
+      const images = new Map<string, DecodedTexture>();
+      const keys = group.keys.map(key => {
+        const imageKey = `${key.textureIndex}/${key.paletteIndex}`;
+        const existing = images.get(imageKey);
+        if (existing) return { frame: key.frame, texture: existing };
+        const source = resources.textures[key.textureIndex], palette = resources.palettes[key.paletteIndex];
+        if (!source || (source.params.requiresPalette() && !palette)) throw new Error("Missing pattern texture/palette");
+        const texture = decodeTexture(source, palette);
+        if (!texture) throw new Error("Unable to decode pattern texture");
+        texture.name = `map_pat_${area.patAnimeIdx}_${source.name}/${palette?.name ?? ""}`;
+        images.set(imageKey, texture);
+        return { frame: key.frame, texture };
+      });
+      // Each group replaces its first texture's VRAM contents (hana01.1 etc.).
+      // The first timing key may select a later image, e.g. sea_simi.4.
+      const target = resources.textures[Math.min(...group.keys.map(key => key.textureIndex))].name;
+      result.patterns.set(target, { frameCount: group.frameCount, keys });
+    }
+  } catch (error) { warnings.push(`Map texture pattern ${area.patAnimeIdx}: ${error instanceof Error ? error.message : String(error)}`); }
+  return result;
+}
+
+function loadPropTextureAnimations(metadata: Uint8Array, resources: NitroResources, uid: number, warnings: string[]): TextureAnimationSet {
+  const result: TextureAnimationSet = { patterns: new Map(), materialPatterns: new Map() };
+  if (metadata.length < 36) return result;
+  for (const field of [20, 24, 28, 32]) {
+    const relative = readU32(metadata, field);
+    if (relative === 0xffffffff) continue;
+    const start = 16 + relative;
+    if (start < 36 || start + 16 > metadata.length) { warnings.push(`Building ${uid}: Invalid animation offset`); continue; }
+    const stamp = readAscii(metadata, start, 4);
+    if (stamp !== "BTA0" && stamp !== "BTP0") continue;
+    try {
+      const length = readU32(metadata, start + 8);
+      if (length < 20 || start + length > metadata.length) throw new Error("Truncated animation");
+      const bytes = metadata.subarray(start, start + length);
+      // Prop variants may hold multiple clips; preview the first texture clip
+      // of each kind rather than combining mutually exclusive variants.
+      if (stamp === "BTA0" && !result.srt) result.srt = cachedTextureSrt(bytes);
+      if (stamp === "BTP0" && !result.materialPatterns!.size) {
+        const clip = readNitroTexturePatterns(bytes)[0];
+        for (const track of clip?.tracks ?? []) {
+          const original = resources.models.flatMap(m => m.materials).find(m => m.name === track.name);
+          if (!original) continue;
+          const images = new Map<string, DecodedTexture>();
+          const keys = track.keys.map(key => {
+            const imageKey = `${key.textureName ?? original.textureName}/${key.paletteName ?? original.paletteName}`;
+            const existing = images.get(imageKey);
+            if (existing) return { frame: key.frame, texture: existing };
+            const source = resources.textures.find(t => t.name === (key.textureName ?? original.textureName));
+            const palette = resources.palettes.find(p => p.name === (key.paletteName ?? original.paletteName));
+            if (!source || (source.params.requiresPalette() && !palette)) throw new Error("Missing prop pattern texture/palette");
+            const texture = decodeTexture(source, palette);
+            if (!texture) throw new Error("Unable to decode prop pattern texture");
+            texture.name = `prop_pat_${uid}_${source.name}/${palette?.name ?? ""}`;
+            images.set(imageKey, texture);
+            return { frame: key.frame, texture };
+          });
+          result.materialPatterns!.set(track.name, { frameCount: clip.frameCount, keys });
+        }
+      }
+    } catch (error) { warnings.push(`Building ${uid} texture animation: ${error instanceof Error ? error.message : String(error)}`); }
+  }
+  return result;
+}
+
+function animationForMaterial(material: NitroMaterial | undefined, set?: TextureAnimationSet): MapTextureAnimation | undefined {
+  if (!material || !set) return undefined;
+  const srt = set.srt?.sample(0).has(material.name) ? set.srt : undefined;
+  const pattern = set.materialPatterns?.get(material.name) ?? set.patterns.get(material.textureName ?? "");
+  if (!srt && !pattern) return undefined;
+  return {
+    frameCount: Math.max(srt?.frameCount ?? 1, pattern?.frameCount ?? 1),
+    sample: frame => ({ srt: srt?.sample(frame).get(material.name), texture: pattern ? sampleTexturePattern(pattern.keys, frame, pattern.frameCount).texture : undefined }),
+  };
+}
+
 function loadBuildingsForZone(
   archives: LazyArchives,
   area: AreaHeader3d,
@@ -1038,9 +1182,10 @@ function loadBuildingsForZone(
       const uid = readU16(meta, 0);
       try {
         const modelResources = readNitroResources(modelBytes);
+        const resources = combineResources(modelResources, textureResources);
         resourcesByUid.set(uid, {
           uid,
-          primitives: buildModelPrimitives(combineResources(modelResources, textureResources), warnings),
+          primitives: buildModelPrimitives(resources, warnings, { textureAnimations: loadPropTextureAnimations(meta, resources, uid, warnings) }),
         });
       } catch (error) {
         warnings.push(`Building ${uid}: ${error instanceof Error ? error.message : String(error)}`);
@@ -1489,6 +1634,17 @@ export function parseNpcRegistry(data: Uint8Array): NpcRegistryEntry[] {
   });
 }
 
+/** Decode the player's walking billboard from the active ROM resources. */
+export function loadMap3dPlayerSprite(project: ProjectState, rom: NintendoDSRom, gender: "male" | "female" = "male"): Map3dNpcSpriteFrames | undefined {
+  const registry = new NARC(getRomFileBytes(project, rom, rom.fileId(MMODEL_INDEX_BW2_PATH))).files[0];
+  const entry = parseNpcRegistry(registry)[gender === "male" ? 1 : 4];
+  if (!entry) return undefined;
+  const resourceId = entry.resourceIndices[0];
+  const bytes = new NARC(getRomFileBytes(project, rom, rom.fileId(MMODEL_RES_BW2_PATH))).files[resourceId];
+  if (!bytes || readAscii(bytes, 0, 4) !== "BTX0") return undefined;
+  return buildNpcSpriteFrames(readNitroResources(bytes), entry, resourceId, [], { up: 0, down: 1, left: 2, right: 3 });
+}
+
 function loadNpcModelResource(
   archives: LazyArchives,
   entry: NpcRegistryEntry,
@@ -1517,7 +1673,7 @@ function loadNpcModelResource(
   return { modelType: "model", primitives: [] };
 }
 
-function buildNpcSpriteFrames(resources: NitroResources, entry: NpcRegistryEntry, resourceId: number, warnings: string[]): Map3dNpcSpriteFrames | undefined {
+function buildNpcSpriteFrames(resources: NitroResources, entry: NpcRegistryEntry, resourceId: number, warnings: string[], directionCodes = NPC_SPRITE_DIRECTION_CODES): Map3dNpcSpriteFrames | undefined {
   const palette = resources.palettes[0];
   if (resources.textures.length === 0 || (resources.textures.some((texture) => texture.params.requiresPalette()) && !palette)) {
     warnings.push(`NPC sprite ${entry.uid} is missing texture or palette data`);
@@ -1526,7 +1682,7 @@ function buildNpcSpriteFrames(resources: NitroResources, entry: NpcRegistryEntry
   const [width, height] = MMDL_BILLBOARD_SIZES[Math.min(entry.billboardSize, MMDL_BILLBOARD_SIZES.length - 1)] ?? MMDL_BILLBOARD_SIZES[0];
   const frameCount = Math.max(1, npcSpriteFrameCount(entry.spriteControllerType));
   const framesByDirection: Map3dNpcSpriteFrames["framesByDirection"] = {};
-  for (const [direction, gameDirection] of Object.entries(NPC_SPRITE_DIRECTION_CODES) as Array<[Map3dNpcSpriteDirection, number]>) {
+  for (const [direction, gameDirection] of Object.entries(directionCodes) as Array<[Map3dNpcSpriteDirection, number]>) {
     const frames: DecodedTexture[] = [];
     for (let frame = 0; frame < frameCount; frame += 1) {
       const texture = resources.textures[npcSpriteTextureIndex(entry.spriteControllerType, gameDirection, frame)] ?? resources.textures[npcSpriteTextureIndex(entry.spriteControllerType, gameDirection, 0)] ?? resources.textures[0];
@@ -1828,6 +1984,10 @@ export function buildModelPrimitives(resources: NitroResources, warnings: string
         resolvedTexture && (!resolvedTexture.params.requiresPalette() || resolvedPalette)
           ? decodeTexture(resolvedTexture, resolvedPalette)
           : undefined;
+      const textureAnimation = animationForMaterial(material, options.textureAnimations);
+      if (textureAnimation && options.textureAnimations?.srt?.sample(0).has(material?.name ?? "")) {
+        textureAnimation.rawUvs = new Float32Array(primitive.vertices.flatMap(vertex => vertex.rawUv));
+      }
       out.push({
         material: {
           name: material?.name ?? "material",
@@ -1844,6 +2004,7 @@ export function buildModelPrimitives(resources: NitroResources, warnings: string
         colors: primitive.usedColors ? new Float32Array(primitive.vertices.flatMap((vertex) => vertex.color)) : undefined,
         normals: primitive.usedNormals ? new Float32Array(primitive.vertices.flatMap((vertex) => vertex.normal)) : undefined,
         indices: new Uint16Array(primitive.indices),
+        ...(textureAnimation ? { textureAnimation } : {}),
       });
     }
   }
@@ -1955,6 +2116,7 @@ function runGpuCommands(
   let nextVertex: Vertex = {
     position: [0, 0, 0],
     uv: [0, 0],
+    rawUv: [0, 0],
     color: material?.defaultVertexColor ? material.diffuse : [1, 1, 1],
     normal: [0, 0, 0],
   };
@@ -1998,7 +2160,10 @@ function runGpuCommands(
       primStart = primitive.vertices.length;
     } else if (opcode === 0x22) {
       primitive.usedTexcoords = true;
-      nextVertex = { ...nextVertex, uv: materialUv(material, params[0]) };
+      nextVertex = { ...nextVertex, uv: materialUv(material, params[0]), rawUv: [
+        readPackedFx16(params[0], 0, 16, 1, 11, 4) / (material?.width || 1),
+        readPackedFx16(params[0], 16, 32, 1, 11, 4) / (material?.height || 1),
+      ] };
     } else if (opcode === 0x20) {
       primitive.usedColors = true;
       nextVertex = { ...nextVertex, color: rgb555(params[0] & 0x7fff) };

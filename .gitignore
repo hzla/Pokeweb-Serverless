@@ -47,7 +47,11 @@ src/test/local/
 !/scripts/verify-following-artwork.ts
 !/scripts/build-following-dewott-artwork-rom.ts
 !/scripts/repair-following-artwork-rom.ts
+!/scripts/build-following-coordinate-rom.ts
 !/scripts/verify-fly-destinations.ts
+!/scripts/verify-field-camera.ts
+!/scripts/verify-field-camera-lookup.py
+!/scripts/verify-field-camera-emulator.ts
 !/scripts/verify-bw1-stream-decoder.ts
 !/scripts/verify-bw1-music-project.ts
 !/scripts/generate-cgear-button-defaults-bw1.ts
@@ -122,3 +126,7 @@ runtime/infinite-candy/build/symbols-W.yml
 runtime/bgm-toggle/build/bw1*/
 runtime/bgm-toggle/build/emulator-*/
 runtime/bgm-toggle/build/decoder-tests/
+
+# Shared System Shop compiler bindings used by the native build.
+!/scripts/generate-system-shop-bindings.ts
+!/scripts/verify-system-shop-demo.ts

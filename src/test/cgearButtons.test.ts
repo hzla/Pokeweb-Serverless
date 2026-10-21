@@ -104,6 +104,18 @@ describe("C-Gear button compiler and editor state", () => {
     expect(h[at+2]).toBe(17);expect(readU16(h,at+4)).toBe(0);expect(h[at+12]).toBe(255);
     expect(recoverCGearButtons(r.archive!).document).toEqual(d);
   });
+  it("offers System Shop only in BW2, retaining code 20, optional flags and the six defaults",()=>{
+    expect(actionsFor('BW').some(a=>a.id==='systemShop')).toBe(false);
+    expect(defaults().buttons).toHaveLength(6);expect(defaults().buttons.some(b=>b.action==='systemShop')).toBe(false);
+    const d=defaults(),b=newButton(d,'systemShop');expect(b).toMatchObject({label:'SHOP',action:'systemShop'});expect(b.flag).toBeUndefined();
+    b.flag={id:123,when:'set'};d.buttons.push(b);
+    const r=compile(d,buttonTestAssets());expect(r.archive).toBeDefined();expect(validateButtonArchive(r.archive!)).toBe(true);
+    const h=new NARC(r.archive!).files[0],at=32+6*16;
+    expect(h[at+2]).toBe(20);expect(readU16(h,at+4)).toBe(0);expect(h[at+12]).toBe(255);
+    expect(recoverCGearButtons(r.archive!).document).toEqual(d);
+    d.buttons.push(newButton(d,'systemShop'));expect(compile(d,buttonTestAssets()).archive).toBeDefined();
+    d.buttons.push(newButton(d,'systemShop'));expect(compile(d,buttonTestAssets()).archive).toBeUndefined();
+  });
   it("offers HM02 Fly separately and compiles its item/flag gating without changing defaults",()=>{
     const d=defaults(),a=buttonTestAssets(),b=newButton(d,"mapFlyHm");b.flag={id:42,when:"clear"};
     d.buttons=[b];const r=compile(d,a);expect(r.archive).toBeDefined();

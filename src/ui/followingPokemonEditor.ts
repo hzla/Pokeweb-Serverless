@@ -13,6 +13,8 @@ import { FOLLOWER_DIRECTIONS, decodeFollowerRegistry, encodeFollowerFrames, foll
 import { parseHeaders } from "../pokeweb/headerModel";
 import { escapeHtml } from "./dom";
 import { createFollowerPositionEditor } from "./followingPokemonPositionEditor";
+import { installBw2DialoguePreview, type Bw2DialoguePreview } from "./bw2DialoguePreview";
+import { installFollowerZonePicker } from "./followingPokemonZonePicker";
 
 const templates = {
   32: new URL("../assets/following/template-32-8.btx", import.meta.url),
@@ -39,10 +41,10 @@ export function followerDialogueAnimationOptions(value?: FollowerDialogueAnimati
 }
 export function followerTileBoundsFields(rule: FollowerTileBounds, prefix: "d" | "i", available: boolean, needsUpdate = false): string {
   const labels = { minX: "Min X", maxX: "Max X", minY: "Min Y", maxY: "Max Y" };
-  return `<p class="following-rule-subtitle following-span-full">Player tile bounds (optional)</p>${FOLLOWER_TILE_BOUND_KEYS.map(key =>
-    `<label class="following-field"><span>${labels[key]}</span><input data-${prefix}-${key} type="number" min="-32768" max="32767" step="1" value="${rule[key] ?? ""}" placeholder="Unrestricted"${available ? "" : " disabled"}></label>`).join("")}<p class="following-span-full"><small>${available
-      ? `Inclusive edges. Blank fields are unrestricted. Use matrix tile coordinates from raw NPC X/Y fields; X increases right, Y increases down. The map preview subtracts the zone origin.${needsUpdate ? " Update the installed follower runtime before using tile bounds." : ""}`
-      : "Tile bounds are not yet included in this profile’s bundled runtime."}</small></p>`;
+  return `<div class="following-rule-bounds following-span-full"><p class="following-rule-subtitle">Player tile bounds <small>Global matrix coordinates · optional</small></p><div class="following-bounds-row">${FOLLOWER_TILE_BOUND_KEYS.map(key =>
+    `<label class="following-field"><span>${labels[key]}</span><input data-${prefix}-${key} type="number" min="-32768" max="32767" step="1" value="${rule[key] ?? ""}" placeholder="Any"${available ? "" : " disabled"}></label>`).join("")}<button type="button" class="btn" data-fw-open-zone>Open in Events ↗</button></div><p class="following-rule-hint"><small>${available
+      ? `Inclusive edges. Blank fields are unrestricted. Use the Global X/Y shown when selecting a tile in Events → Permissions. Local preview coordinates omit the zone origin. X increases right, Y increases down.${needsUpdate ? " Update the installed follower runtime before using tile bounds." : ""}`
+      : "Tile bounds are not yet included in this profile’s bundled runtime."}</small></p></div>`;
 }
 function readTileBounds(root: Element, prefix: "d" | "i"): FollowerTileBounds {
   return Object.fromEntries(FOLLOWER_TILE_BOUND_KEYS.flatMap(key => {
@@ -57,14 +59,55 @@ const referencedId = (value: string): number | undefined => {
 const normalizedName = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]+/gu, "");
 function speciesDisplayValue(project: ProjectState, id: number): string { return `${pokemonSpeciesLabel(project, id)} #${id}`; }
 function itemDisplayValue(project: ProjectState, id: number): string { return `${project.texts.banks.items?.[id] ?? `Item ${id}`} #${id}`; }
-export function followerZoneLabel(project: ProjectState, zone: number): string {
-  if (zone === 0) return "Any zone";
+function followerZoneHeader(project: ProjectState, zone: number) {
   if (!project.headers && project.narcs.headers && project.formats.headers) {
     try { project.headers = parseHeaders(project); } catch { /* Zone ID remains useful when header data is unavailable. */ }
   }
-  const row = project.headers?.rows[zone + 1] ?? Object.values(project.headers?.rows ?? {}).find(value => value.index === zone);
+  return project.headers?.rows[zone + 1] ?? Object.values(project.headers?.rows ?? {}).find(value => value.index === zone);
+}
+export function followerZoneLabel(project: ProjectState, zone: number): string {
+  if (zone === 0) return "Any zone";
+  const row = followerZoneHeader(project, zone);
   const name = row?.location_name?.trim();
   return name && name !== "Unknown Location" ? `${name} · Zone ${zone}` : `Zone ${zone}`;
+}
+export function followerZoneChoices(project: ProjectState): Array<{ zone: number; name: string; label: string }> {
+  followerZoneHeader(project, 0); // Load headers once, including projects restored without parsed headers.
+  return Object.values(project.headers?.rows ?? {}).filter(row => Number.isInteger(row.index) && row.index > 0 && row.index <= 65535)
+    .sort((a, b) => a.index - b.index)
+    .map(row => ({ zone: row.index, name: row.location_name?.trim() ?? "", label: followerZoneLabel(project, row.index) }));
+}
+export function parseFollowerZoneValue(project: ProjectState, value: string): number {
+  const text = value.trim();
+  if (!text || text.toLowerCase() === "any zone") return 0;
+  const numeric = /^(?:Zone\s+)?(\d+)$/iu.exec(text);
+  if (numeric) {
+    const zone = Number(numeric[1]);
+    if (zone <= 65535) return zone;
+    throw new Error("Zone ID must be an integer from 0 to 65535.");
+  }
+  const choices = followerZoneChoices(project), wanted = text.toLocaleLowerCase();
+  const selected = choices.find(choice => choice.label.toLocaleLowerCase() === wanted);
+  if (selected) return selected.zone;
+  const matches = choices.filter(choice => choice.name.toLocaleLowerCase() === wanted);
+  if (matches.length === 1) return matches[0].zone;
+  if (matches.length > 1) throw new Error(`Several zones use “${text}”. Choose a suggestion with a Zone ID.`);
+  throw new Error("Choose an area suggestion or enter a Zone ID from 0 to 65535.");
+}
+/** Follower messages only expand these tokens and actual newlines. Escape
+ * literal glyphs so the shared script preview cannot interpret VAR or \\n. */
+export function followerDialoguePreviewText(text: string, nickname: string, player: string, zone: number): string {
+  const examples: Record<string, string> = { nickname: nickname.slice(0, 11), player: player.slice(0, 8), location: `Zone ${Math.min(zone, 9999)}` };
+  return text.replace(/\{(nickname|player|location)\}/gu, (_, token: string) => examples[token]).split("")
+    .map(char => char === "\n" ? "\n" : `\\x${char.charCodeAt(0).toString(16).padStart(4, "0")}`).join("");
+}
+export function followerZoneOverworldRoute(project: ProjectState, zone: number): string | undefined {
+  if (!Number.isInteger(zone) || zone <= 0 || zone > 65535) return;
+  const row = followerZoneHeader(project, zone), id = Number(row?.overworlds_id ?? row?.map_id);
+  if (!Number.isInteger(id) || id < 0 || id > 65535) return;
+  // The route keeps the zero-based header ID so shared event files open in
+  // the selected zone, rather than the first zone referencing that file.
+  return `#overworlds/${id}/${zone}`;
 }
 export function followerRuleAppliesToSpecies(rule: FollowerDialogueRule | FollowerItemRule, species: number, speciesTypes: ReadonlySet<number>): boolean {
   return (rule.species === undefined || rule.species === species) && (rule.type === undefined || speciesTypes.has(rule.type));
@@ -120,6 +163,7 @@ function cancelSaveFeedback(button: HTMLButtonElement, normalLabel: string): voi
 export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLElement, onDirty: () => void): void {
   const aggregateSpeciesIds = getPokemonPersonalIds(project).filter(id => id > 0 && id <= 1023 && !findPokemonPersonalFormOwner(project, id));
   const aggregateSpeciesOptions = aggregateSpeciesIds.map(id => `<option value="${escapeHtml(speciesDisplayValue(project, id))}"></option>`).join("");
+  const zoneChoices = followerZoneChoices(project);
   const panel = document.createElement("section"); panel.className = "code-injection-card following-pokemon-editor";
   panel.innerHTML = `<header class="following-editor-hero"><div><h2>Following Pokémon</h2></div></header>
     <label class="following-riding-option"><input type="checkbox" data-fw-riding> Riding and custom Surf</label><p data-fw-riding-status>Grounded followers only. Choose before installing.</p>
@@ -150,6 +194,42 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
   const remove = panel.querySelector<HTMLButtonElement>("[data-fw-remove]")!;
   let enabled = false;
   let animationsNeedUpdate = false, tileBoundsNeedUpdate = false;
+  const dialoguePreviews = new Map<HTMLElement, Bw2DialoguePreview>();
+  function locationFields(rule: FollowerDialogueRule | FollowerItemRule, prefix: "d" | "i", index: number, typeOptions: string): string {
+    const zoneId = `follower-zone-${prefix}-${index}`;
+    return `<div class="following-location-row following-span-full">
+      <div class="following-field"><label for="${zoneId}">Area name or Zone ID</label><div class="following-zone-picker"><input id="${zoneId}" data-${prefix}-zone type="text" value="${rule.zone ? escapeHtml(followerZoneLabel(project, rule.zone)) : ""}" placeholder="Any zone · search name or ID" autocomplete="off" aria-describedby="${zoneId}-help"><div id="${zoneId}-options" class="following-zone-options" role="listbox" aria-label="Matching zones" hidden></div></div><small id="${zoneId}-help" data-fw-zone-help>Blank or 0 matches any zone.</small></div>
+      <label class="following-field"><span>Species</span><input data-${prefix}-species type="text" list="follower-${prefix === "d" ? "dialogue" : "gift"}-species" value="${rule.species === undefined ? "" : escapeHtml(speciesDisplayValue(project, rule.species))}" placeholder="Any species" autocomplete="off"></label>
+      <label class="following-field following-form-field"><span>Form</span><input data-${prefix}-form type="number" min="0" max="255" step="1" value="${rule.form ?? ""}" placeholder="Any"></label>
+      <label class="following-field"><span>Type</span><select data-${prefix}-type>${typeOptions}</select></label></div>`;
+  }
+  function bindZoneShortcut(root: HTMLElement, zone: HTMLInputElement): void {
+    installFollowerZonePicker(zone, root.querySelector<HTMLElement>(".following-zone-options")!, zoneChoices);
+    const button = root.querySelector<HTMLButtonElement>("[data-fw-open-zone]")!;
+    const refresh = () => {
+      let id: number | undefined, message = "";
+      try { id = parseFollowerZoneValue(project, zone.value); } catch (reason) { message = reason instanceof Error ? reason.message : String(reason); }
+      zone.setCustomValidity(message);
+      const label = id === undefined ? "Choose a zone" : followerZoneLabel(project, id);
+      root.querySelector<HTMLElement>("[data-fw-zone-preview]")!.textContent = label;
+      root.querySelector<HTMLElement>("[data-fw-zone-help]")!.textContent = message || (id ? `${label} · Type a name or ID to change.` : "Blank or 0 matches any zone.");
+      button.disabled = id === undefined || !followerZoneOverworldRoute(project, id);
+      button.title = button.disabled ? "Choose a nonzero Zone ID with an event map." : `Open ${label} in a new tab`;
+    };
+    zone.addEventListener("input", refresh);
+    zone.addEventListener("change", () => {
+      try { const id = parseFollowerZoneValue(project, zone.value); zone.value = id ? followerZoneLabel(project, id) : ""; } catch { /* Keep the search and its validation message until a zone is chosen. */ }
+      refresh();
+    });
+    button.addEventListener("click", () => {
+      if (!zone.checkValidity()) { zone.reportValidity(); return; }
+      const route = followerZoneOverworldRoute(project, parseFollowerZoneValue(project, zone.value));
+      if (!route) return;
+      const url = new URL(window.location.href); url.hash = route;
+      window.open(url.href, "_blank", "noopener");
+    });
+    refresh();
+  }
   const assets = panel.querySelector<HTMLElement>("[data-fw-assets]")!;
   const dialogues = panel.querySelector<HTMLElement>("[data-fw-dialogues]")!;
   const items = panel.querySelector<HTMLElement>("[data-fw-items]")!;
@@ -273,32 +353,51 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
     const row = (rule: FollowerDialogueRule, index: number) => `<details class="following-rule-card following-dialogue-rule" data-fw-dialogue-rule="${index}">${ruleSummary(rule.text, rule.zone, rule.species)}
       <div class="following-rule-editor"><div class="following-rule-grid">
         <p class="following-rule-subtitle following-span-full">Location and Pokémon</p>
-        <label class="following-field"><span>Zone ID</span><input data-d-zone type="number" min="0" max="65535" value="${rule.zone}" required><small data-fw-zone-help>${escapeHtml(followerZoneLabel(project, rule.zone))}</small></label>
-        <label class="following-field"><span>Species</span><input data-d-species type="text" list="follower-dialogue-species" value="${rule.species === undefined ? "" : escapeHtml(speciesDisplayValue(project, rule.species))}" placeholder="Any species" autocomplete="off"></label>
-        <label class="following-field"><span>Form</span><input data-d-form type="number" min="0" max="255" value="${rule.form ?? ""}" placeholder="Any form"></label>
-        <label class="following-field"><span>Type</span><select data-d-type>${typeOptions}</select></label>
+        ${locationFields(rule, "d", index, typeOptions)}
         ${followerTileBoundsFields(rule, "d", boundsAvailable, tileBoundsNeedUpdate)}
         <p class="following-rule-subtitle following-span-full">Optional conditions</p>
+        <div class="following-conditions-row following-span-full">
         <label class="following-field"><span>HP</span><select data-d-hp>${conditionOptions(rule.hp, hpConditions)}</select></label>
         <label class="following-field"><span>Friendship</span><select data-d-friendship>${conditionOptions(rule.friendship, friendshipConditions)}</select></label>
         <label class="following-field"><span>Status</span><select data-d-status>${conditionOptions(rule.status, statusConditions)}</select></label>
         <label class="following-field"><span>Direction</span><select data-d-facing>${conditionOptions(rule.facing, facingConditions)}</select></label>
         <label class="following-field"><span>Trigger chance</span><div class="following-input-suffix"><input data-d-chance type="number" min="1" max="100" value="${rule.chance ?? 100}"><span>%</span></div></label>
-        <label class="following-field following-span-full"><span>Before dialogue</span><select data-d-before${animationsAvailable ? "" : " disabled"}>${followerDialogueAnimationOptions(rule.beforeAnimation)}</select></label>
-        <label class="following-field following-span-full"><span>Dialogue text</span><textarea data-d-text rows="3" maxlength="191">${escapeHtml(rule.text)}</textarea><small>Tokens: {nickname}, {player}, {location}</small></label>
-        <label class="following-field following-span-full"><span>After dialogue</span><select data-d-after${animationsAvailable ? "" : " disabled"}>${followerDialogueAnimationOptions(rule.afterAnimation)}</select><small>${animationsAvailable ? `Plays after the dialogue is dismissed. Motions use their original cry cues; Diglett and Dugtrio stay grounded.${animationsNeedUpdate ? " Update the installed follower runtime before using animations." : ""}` : "Dialogue animations are not yet included in this profile’s bundled runtime."}</small></label>
+        </div><div class="following-animation-row following-span-full">
+        <label class="following-field"><span>Before dialogue</span><select data-d-before${animationsAvailable ? "" : " disabled"}>${followerDialogueAnimationOptions(rule.beforeAnimation)}</select><small>Motions include their original cry cues; Diglett and Dugtrio stay grounded.</small></label>
+        <label class="following-field"><span>After dialogue</span><select data-d-after${animationsAvailable ? "" : " disabled"}>${followerDialogueAnimationOptions(rule.afterAnimation)}</select><small>${animationsAvailable ? `Plays after dismissal.${animationsNeedUpdate ? " Update the installed follower runtime before using animations." : ""}` : "Dialogue animations are not yet included in this profile’s bundled runtime."}</small></label>
+        </div><div class="following-dialogue-text-row following-span-full">
+        <label class="following-field"><span>Dialogue text</span><textarea data-d-text rows="4" maxlength="191">${escapeHtml(rule.text)}</textarea><small>Tokens: {nickname}, {player}, {location}. Use line breaks to fit the two-line box.</small></label>
+        <section class="following-dialogue-preview" aria-label="Dialogue text preview"><h4>In-game preview</h4><p class="following-preview-examples" data-fw-preview-examples></p><div class="bw2-dialogue-preview" data-fw-dialogue-preview></div></section>
+        </div>
       </div><div class="following-rule-footer"><span>Dialogue rule ${index + 1} · Rules are checked from top to bottom.</span><button class="btn following-remove-button" type="button" data-d-remove>Remove rule</button></div></div></details>`;
-    dialogues.innerHTML = `<section class="following-editor-section"><div class="following-section-heading"><div><h3>Conditional dialogue</h3><p>Show special dialogue in a location or for a matching Pokémon. If no rule matches, the normal HGSS-style reaction is used.</p></div></div><datalist id="follower-dialogue-species">${speciesOptions}</datalist><div class="following-rule-list" data-d-rules>${rules.map(row).join("")}</div><div class="following-section-actions code-injection-actions"><button type="button" class="btn" data-d-add>Add dialogue rule</button><button type="button" class="btn -primary" data-d-save>Save dialogue</button></div><p class="following-save-status" data-d-status role="status"></p></section>`;
+    dialoguePreviews.forEach(preview => preview.destroy()); dialoguePreviews.clear();
+    dialogues.innerHTML = `<section class="following-editor-section"><div class="following-section-heading"><div><h3>Conditional dialogue</h3><p>Show special dialogue in a location or for a matching Pokémon. If no rule matches, the normal HGSS-style reaction is used.</p></div></div><datalist id="follower-dialogue-species">${speciesOptions}</datalist><div class="following-rule-list" data-d-rules>${rules.map(row).join("")}</div><div class="following-section-actions code-injection-actions"><button type="button" class="btn" data-d-add>Add dialogue rule</button><button type="button" class="btn -primary" data-d-save>Save dialogue</button></div><p class="following-save-status" data-d-save-status role="status"></p></section>`;
     const selectType = (root: Element, value?: number) => { const select = root.querySelector<HTMLSelectElement>("[data-d-type]")!; select.value = value === undefined ? "" : String(value); };
-    dialogues.querySelectorAll<HTMLElement>("[data-fw-dialogue-rule]").forEach((root, index) => {
+    dialogues.querySelectorAll<HTMLDetailsElement>("[data-fw-dialogue-rule]").forEach((root, index) => {
       selectType(root, rules[index].type);
       const species = root.querySelector<HTMLInputElement>("[data-d-species]")!;
       const form = root.querySelector<HTMLInputElement>("[data-d-form]")!;
       const zone = root.querySelector<HTMLInputElement>("[data-d-zone]")!;
+      bindZoneShortcut(root, zone);
       const text = root.querySelector<HTMLTextAreaElement>("[data-d-text]")!;
+      const previewRoot = root.querySelector<HTMLElement>("[data-fw-dialogue-preview]")!;
+      let sampleNickname = "Pikachu", sampleZone = rules[index].zone || 1;
+      const refreshPreview = () => {
+        try { sampleNickname = species.value.trim() ? pokemonSpeciesLabel(project, parseSpeciesValue(project, species.value)).slice(0, 11) : "Pikachu"; } catch { sampleNickname = "Pikachu"; }
+        try { sampleZone = parseFollowerZoneValue(project, zone.value) || 1; } catch { /* Keep the last selected zone while searching. */ }
+        root.querySelector<HTMLElement>("[data-fw-preview-examples]")!.textContent = `Example names: ${sampleNickname} / Player · {location}: Zone ${Math.min(sampleZone, 9999)}`;
+        dialoguePreviews.get(root)?.refresh();
+      };
+      root.addEventListener("toggle", () => {
+        if (!root.isConnected || !root.open) { dialoguePreviews.get(root)?.destroy(); dialoguePreviews.delete(root); return; }
+        if (!dialoguePreviews.has(root)) dialoguePreviews.set(root, installBw2DialoguePreview(project, previewRoot, () => followerDialoguePreviewText(text.value, sampleNickname, "Player", sampleZone), () => ({}), { zoom: 2 }));
+        refreshPreview(); dialoguePreviews.get(root)!.show();
+      });
+      root.addEventListener("input", refreshPreview);
+      root.addEventListener("change", refreshPreview);
+      refreshPreview();
       drawRuleSprite(root, rules[index].species, rules[index].form);
       const refreshSprite = () => { try { drawRuleSprite(root, species.value.trim() ? parseSpeciesValue(project, species.value) : undefined, form.value.trim() ? Number(form.value) : undefined); } catch { drawRuleSprite(root); } };
-      zone.addEventListener("input", () => { const label = followerZoneLabel(project, Number(zone.value) || 0); root.querySelector<HTMLElement>("[data-fw-zone-preview]")!.textContent = label; root.querySelector<HTMLElement>("[data-fw-zone-help]")!.textContent = label; });
       text.addEventListener("input", () => { root.querySelector<HTMLElement>("[data-fw-rule-primary]")!.textContent = text.value || "Empty dialogue"; });
       form.addEventListener("input", refreshSprite);
       species.addEventListener("change", () => {
@@ -311,14 +410,14 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
       const num = (selector: string) => { const value = root.querySelector<HTMLInputElement | HTMLSelectElement>(selector)!.value.trim(); return value ? Number(value) : undefined; };
       const typeValue = root.querySelector<HTMLSelectElement>("[data-d-type]")!.value;
       const species = root.querySelector<HTMLInputElement>("[data-d-species]")!.value.trim();
-      return { ...readTileBounds(root, "d"), zone: Number(root.querySelector<HTMLInputElement>("[data-d-zone]")!.value), ...(species ? { species: parseSpeciesValue(project, species) } : {}), ...(num("[data-d-form]") !== undefined ? { form: num("[data-d-form]") } : {}), ...(typeValue ? { type: Number(typeValue) } : {}), ...(num("[data-d-hp]") !== undefined ? { hp: num("[data-d-hp]") } : {}), ...(num("[data-d-friendship]") !== undefined ? { friendship: num("[data-d-friendship]") } : {}), ...(num("[data-d-status]") !== undefined ? { status: num("[data-d-status]") } : {}), ...(num("[data-d-facing]") !== undefined ? { facing: num("[data-d-facing]") } : {}), chance: Number(root.querySelector<HTMLInputElement>("[data-d-chance]")!.value), ...(num("[data-d-before]") !== undefined ? { beforeAnimation: num("[data-d-before]") as FollowerDialogueAnimation } : {}), ...(num("[data-d-after]") !== undefined ? { afterAnimation: num("[data-d-after]") as FollowerDialogueAnimation } : {}), text: root.querySelector<HTMLTextAreaElement>("[data-d-text]")!.value };
+      return { ...readTileBounds(root, "d"), zone: parseFollowerZoneValue(project, root.querySelector<HTMLInputElement>("[data-d-zone]")!.value), ...(species ? { species: parseSpeciesValue(project, species) } : {}), ...(num("[data-d-form]") !== undefined ? { form: num("[data-d-form]") } : {}), ...(typeValue ? { type: Number(typeValue) } : {}), ...(num("[data-d-hp]") !== undefined ? { hp: num("[data-d-hp]") } : {}), ...(num("[data-d-friendship]") !== undefined ? { friendship: num("[data-d-friendship]") } : {}), ...(num("[data-d-status]") !== undefined ? { status: num("[data-d-status]") } : {}), ...(num("[data-d-facing]") !== undefined ? { facing: num("[data-d-facing]") } : {}), chance: Number(root.querySelector<HTMLInputElement>("[data-d-chance]")!.value), ...(num("[data-d-before]") !== undefined ? { beforeAnimation: num("[data-d-before]") as FollowerDialogueAnimation } : {}), ...(num("[data-d-after]") !== undefined ? { afterAnimation: num("[data-d-after]") as FollowerDialogueAnimation } : {}), text: root.querySelector<HTMLTextAreaElement>("[data-d-text]")!.value };
     });
     const decode = decodeDialogueRules;
     dialogues.querySelector("[data-d-add]")!.addEventListener("click", () => { try { dialogueDraft = decode(); dialogueDraft.push({ zone: 0, text: "{nickname} is looking around." }); error.textContent = ""; void renderDialogues(); } catch (reason) { fail(reason); } });
     dialogues.querySelectorAll("[data-d-remove]").forEach((button, index) => button.addEventListener("click", () => { try { dialogueDraft = decode(); dialogueDraft.splice(index, 1); error.textContent = ""; void renderDialogues(); } catch (reason) { fail(reason); } }));
     dialogues.querySelector("[data-d-save]")!.addEventListener("click", async event => {
       const button = event.currentTarget as HTMLButtonElement;
-      const status = dialogues.querySelector<HTMLElement>("[data-d-status]")!;
+      const status = dialogues.querySelector<HTMLElement>("[data-d-save-status]")!;
       beginSaveFeedback(button);
       try { const edited = decode(); await writeFollowerDialogueRules(project, edited, rom); dialogueDraft = edited; onDirty(); status.textContent = `Saved ${edited.length} conditional dialogue ${edited.length === 1 ? "rule" : "rules"}. Export and restart the game.`; finishSaveFeedback(button, "Save dialogue"); }
       catch (reason) { cancelSaveFeedback(button, "Save dialogue"); fail(reason); status.textContent = reason instanceof Error ? reason.message : String(reason); }
@@ -340,10 +439,7 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
         <label class="following-field"><span>Quantity</span><input data-i-quantity type="number" min="1" max="99" value="${rule.quantity}" required></label>
         <label class="following-field following-field-wide"><span>Name shown in dialogue</span><input data-i-name maxlength="191" value="${escapeHtml(rule.itemName)}" required></label>
         <p class="following-rule-subtitle following-span-full">When this gift applies</p>
-        <label class="following-field"><span>Zone ID</span><input data-i-zone type="number" min="0" max="65535" value="${rule.zone}" required><small data-fw-zone-help>${escapeHtml(followerZoneLabel(project, rule.zone))}</small></label>
-        <label class="following-field"><span>Species</span><input data-i-species type="text" list="follower-gift-species" value="${rule.species === undefined ? "" : escapeHtml(speciesDisplayValue(project, rule.species))}" placeholder="Any species" autocomplete="off"></label>
-        <label class="following-field"><span>Form</span><input data-i-form type="number" min="0" max="255" value="${rule.form ?? ""}" placeholder="Any form"></label>
-        <label class="following-field"><span>Type</span><select data-i-type>${typesHtml}</select></label>
+        ${locationFields(rule, "i", i, typesHtml)}
         ${followerTileBoundsFields(rule, "i", boundsAvailable, tileBoundsNeedUpdate)}
         <label class="following-field"><span>HP</span><select data-i-hp>${conditionOptions(rule.hp, hpConditions)}</select></label>
         <label class="following-field"><span>Friendship</span><select data-i-friendship>${conditionOptions(rule.friendship, friendshipConditions)}</select></label>
@@ -351,15 +447,15 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
         <label class="following-field"><span>Direction</span><select data-i-facing>${conditionOptions(rule.facing, facingConditions)}</select></label>
         <label class="following-field following-span-full"><span>Success message</span><textarea data-i-text rows="3" maxlength="191">${escapeHtml(rule.text)}</textarea><small>Tokens: {nickname}, {player}, {location}, {item}</small></label>
       </div><div class="following-rule-footer"><span>Gift rule ${i + 1} · Claim slot ${rule.slot} · The first matching unclaimed gift wins.</span><button type="button" class="btn following-remove-button" data-i-remove>Remove gift</button></div></div></details>`;
-    items.innerHTML = `<section class="following-editor-section"><div class="following-section-heading"><div><h3>Follower gifts</h3><p>Create one-time rewards given when the player talks to a matching follower. Each Pokémon remembers ten claim slots. Add as many ordered location and Pokémon rules as fit in the compact archive, and reuse slots across rules.</p></div></div><datalist id="follower-gift-species">${speciesOptions}</datalist><datalist id="follower-items">${Array.from({length: Math.max(project.narcs.items?.fileCount ?? 0, project.texts.banks.items?.length ?? 0)}, (_, id) => id > 0 ? `<option value="${escapeHtml(itemDisplayValue(project, id))}"></option>` : "").join("")}</datalist><div class="following-rule-list" data-i-rules>${rules.map(row).join("")}</div><div class="following-section-actions code-injection-actions"><button type="button" class="btn" data-i-add>Add gift rule</button><button type="button" class="btn -primary" data-i-save>Save gifts</button></div><p class="following-save-status" data-i-status role="status"></p></section>`;
+    items.innerHTML = `<section class="following-editor-section"><div class="following-section-heading"><div><h3>Follower gifts</h3><p>Create one-time rewards given when the player talks to a matching follower. Each Pokémon remembers ten claim slots. Add as many ordered location and Pokémon rules as fit in the compact archive, and reuse slots across rules.</p></div></div><datalist id="follower-gift-species">${speciesOptions}</datalist><datalist id="follower-items">${Array.from({length: Math.max(project.narcs.items?.fileCount ?? 0, project.texts.banks.items?.length ?? 0)}, (_, id) => id > 0 ? `<option value="${escapeHtml(itemDisplayValue(project, id))}"></option>` : "").join("")}</datalist><div class="following-rule-list" data-i-rules>${rules.map(row).join("")}</div><div class="following-section-actions code-injection-actions"><button type="button" class="btn" data-i-add>Add gift rule</button><button type="button" class="btn -primary" data-i-save>Save gifts</button></div><p class="following-save-status" data-i-save-status role="status"></p></section>`;
     items.querySelectorAll<HTMLElement>("[data-fw-item-rule]").forEach((root, i) => {
       root.querySelector<HTMLSelectElement>("[data-i-type]")!.value = rules[i].type === undefined ? "" : String(rules[i].type);
       const species = root.querySelector<HTMLInputElement>("[data-i-species]")!;
       const form = root.querySelector<HTMLInputElement>("[data-i-form]")!;
       const zone = root.querySelector<HTMLInputElement>("[data-i-zone]")!;
+      bindZoneShortcut(root, zone);
       drawRuleSprite(root, rules[i].species, rules[i].form);
       const refreshSprite = () => { try { drawRuleSprite(root, species.value.trim() ? parseSpeciesValue(project, species.value) : undefined, form.value.trim() ? Number(form.value) : undefined); } catch { drawRuleSprite(root); } };
-      zone.addEventListener("input", () => { const label = followerZoneLabel(project, Number(zone.value) || 0); root.querySelector<HTMLElement>("[data-fw-zone-preview]")!.textContent = label; root.querySelector<HTMLElement>("[data-fw-zone-help]")!.textContent = label; });
       form.addEventListener("input", refreshSprite);
       species.addEventListener("change", () => {
         if (!species.value.trim()) { refreshSprite(); return; }
@@ -381,7 +477,7 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
       const optional = (selector: string) => { const value = root.querySelector<HTMLInputElement | HTMLSelectElement>(selector)!.value.trim(); return value ? Number(value) : undefined; };
       const type = root.querySelector<HTMLSelectElement>("[data-i-type]")!.value;
       const species = root.querySelector<HTMLInputElement>("[data-i-species]")!.value.trim();
-      return { ...readTileBounds(root, "i"), slot: Number(root.querySelector<HTMLSelectElement>("[data-i-slot]")!.value), itemId: parseItemValue(project, root.querySelector<HTMLInputElement>("[data-i-item]")!.value), quantity: Number(root.querySelector<HTMLInputElement>("[data-i-quantity]")!.value), itemName: root.querySelector<HTMLInputElement>("[data-i-name]")!.value, text: root.querySelector<HTMLTextAreaElement>("[data-i-text]")!.value, zone: Number(root.querySelector<HTMLInputElement>("[data-i-zone]")!.value), ...(species ? {species: parseSpeciesValue(project, species)} : {}), ...(optional("[data-i-form]") !== undefined ? {form: optional("[data-i-form]")} : {}), ...(type ? {type:Number(type)} : {}), ...(optional("[data-i-hp]") !== undefined ? {hp:optional("[data-i-hp]")} : {}), ...(optional("[data-i-friendship]") !== undefined ? {friendship:optional("[data-i-friendship]")} : {}), ...(optional("[data-i-status]") !== undefined ? {status:optional("[data-i-status]")} : {}), ...(optional("[data-i-facing]") !== undefined ? {facing:optional("[data-i-facing]")} : {}) };
+      return { ...readTileBounds(root, "i"), slot: Number(root.querySelector<HTMLSelectElement>("[data-i-slot]")!.value), itemId: parseItemValue(project, root.querySelector<HTMLInputElement>("[data-i-item]")!.value), quantity: Number(root.querySelector<HTMLInputElement>("[data-i-quantity]")!.value), itemName: root.querySelector<HTMLInputElement>("[data-i-name]")!.value, text: root.querySelector<HTMLTextAreaElement>("[data-i-text]")!.value, zone: parseFollowerZoneValue(project, root.querySelector<HTMLInputElement>("[data-i-zone]")!.value), ...(species ? {species: parseSpeciesValue(project, species)} : {}), ...(optional("[data-i-form]") !== undefined ? {form: optional("[data-i-form]")} : {}), ...(type ? {type:Number(type)} : {}), ...(optional("[data-i-hp]") !== undefined ? {hp:optional("[data-i-hp]")} : {}), ...(optional("[data-i-friendship]") !== undefined ? {friendship:optional("[data-i-friendship]")} : {}), ...(optional("[data-i-status]") !== undefined ? {status:optional("[data-i-status]")} : {}), ...(optional("[data-i-facing]") !== undefined ? {facing:optional("[data-i-facing]")} : {}) };
     });
     const decode = decodeItemRules;
     items.querySelector("[data-i-add]")!.addEventListener("click", () => { try { itemDraft = decode(); itemDraft.push({slot: 0, itemId:1, quantity:1, itemName:project.texts.banks.items?.[1] ?? "Item", zone:0, text:"{nickname} found a {item}!"}); error.textContent = ""; void renderItems(); } catch (reason) { fail(reason); } });

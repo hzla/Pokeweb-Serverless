@@ -17,13 +17,14 @@ import { adoptExistingPmcInstall, canRemoveStagedCodeInjectionDll, getPmcInstall
 import type { ProjectState } from "./projectStore";
 import { getBw1CGearStatus, installBw1CGear, disableBw1CGear, removeBw1CGear } from "./cgearQuickActionsBw1Model";
 import { parseRpm, type RpmModule } from "./rpm";
+import { ensureSystemShops, hydrateSystemShops, stageSystemShops } from "./systemShopsModel";
 
 type Version = "B2" | "W2";
 type Profile = typeof manifest.games.W2;
 export const CGEAR_QUICK_ACTIONS_VERSION = manifest.version;
 export const CGEAR_QUICK_ACTIONS_ARCHIVE = manifest.archivePath;
 export const CGEAR_QUICK_ACTIONS_DEFAULT_PC_HIDE_FLAG = manifest.defaultPcHideFlag;
-export type CGearQuickActionsOptions = { pcHideFlag?: number };
+export type CGearQuickActionsOptions = { pcHideFlag?: number; applySystemShops?: boolean };
 export type CGearQuickActionsStatus = {
   supported: boolean; compatible: boolean; installed: boolean; enabled: boolean;
   pmcInstalled: boolean; updateAvailable: boolean; canRemove: boolean; pcHideFlag: number; dllPath?: string; message: string;
@@ -45,7 +46,7 @@ function recognized(rpm: RpmModule, version: Version): boolean {
   if (rpm.baseAddress || rpm.bssSize !== p.bssSize || rpm.metadata.PMCGameID !== version
     || rpm.metadata.PMCModulePriority !== 4
     || rpm.symbols.some(s => (s.attributes & 2) && s.address!==parseInt(fingerprint(new TextEncoder().encode("PokewebBgmMute")),16)) || fingerprint(rpm.code) !== p.codeFingerprint) return false;
-  const expected = p.signatures.filter(s => s.patchSize).map(s => `${s.module}:${s.address}:${s.label.startsWith("QaRepel") || s.label.startsWith("QaPhenomenon") || ["QaInput", "QaButtonHit", "QaGearUnit", "QaGearEnd"].includes(s.label) ? "THUMB_BRANCH_LINK" : "FULL_COPY"}`).sort();
+  const expected = p.signatures.filter(s => s.patchSize).map(s => `${s.module}:${s.address}:${s.label.startsWith("QaRepel") || s.label.startsWith("QaPhenomenon") || s.label.startsWith("QaShop") && !["QaShopChoiceAdd","QaShopBuyCommand","QaShopRowPrice","QaShopTmRowPrice"].includes(s.label) || ["QaInput", "QaButtonHit", "QaGearUnit", "QaGearEnd"].includes(s.label) ? "THUMB_BRANCH_LINK" : "FULL_COPY"}`).sort();
   const actual = rpm.relocations.filter(r => r.target.module !== "base").map(r => `${r.target.module}:${r.target.address}:${r.target.type}`).sort();
   return expected.join("|") === actual.join("|");
 }
@@ -163,6 +164,7 @@ export function getCGearQuickActionsStatus(project: ProjectState): CGearQuickAct
   } else if (state.installed) return { ...state, message: "Quick Actions runtime has no private graphics archive. Restore the archive before updating." };
   if (!rom) return { ...state, message: "Reload the ROM to verify native C-Gear hooks before installation." };
   try {
+    hydrateSystemShops(project,rom);
     assertBundledBgmRuntimeCompatibility(project,project.originalRomBytes!);
     checkCGearPaletteSpace(project,rom);
     nativePatterns(project,rom);
@@ -198,6 +200,33 @@ function stageArchive(project: ProjectState, rom: NintendoDSRom, bytes: Uint8Arr
   else if (id !== undefined) {project.fileSystem ??= { replacements: {} };project.fileSystem.replacements[id] = bytes;}
   else addRomFile(project, manifest.archivePath, bytes);
 }
+function validateSystemShopResources(project: ProjectState, rom: NintendoDSRom): void {
+  const archive = (path: string) => {
+    const id = rom.filenames.idOf(path);
+    if (id === undefined) throw new Error(`System Shop requires native archive ${path}.`);
+    return new NARC(getRomFileBytes(project, rom, id));
+  };
+  const expected = manifest.shopScript;
+  const script = archive(expected.archive).files[expected.member];
+  if (!script || script.length !== expected.length || fingerprint(script) !== expected.fingerprint)
+    throw new Error("The native shop script has unrecognized changes. Restore a compatible script, or remove System Shop before applying.");
+  // Do not fingerprint authored stock or prices: native code reads both on
+  // each opening. Reject truncated/invalid inventories before staging instead.
+  const stock = archive(manifest.shopInventory.archive);
+  const counts = archive(manifest.shopInventory.countsArchive).files[0];
+  const items = archive("a/0/2/4");
+  for (const row of new Set(manifest.shopInventory.badgeRows)) {
+    const data = stock.files[row], count = counts?.[row];
+    // Retail stores at most 45 item/price records before its UI fields.
+    if (!count || count > 45 || !data || data.length !== count * 2)
+      throw new Error(`System Shop general-store stock ${row} does not match its native item count.`);
+    for (let i = 0; i < count; i++) {
+      const item = readU16(data, i * 2);
+      if (!item || !items.files[item]?.length)
+        throw new Error(`System Shop general-store stock ${row} contains an invalid item (${item}).`);
+    }
+  }
+}
 export async function installCGearQuickActions(project: ProjectState, options:CGearQuickActionsOptions={}): Promise<CodeInjectionDllInstallResult> {
   if(project.session.baseRom==="BW")return installBw1CGear(project,options);
   const romBytes = project.originalRomBytes ?? await loadActiveRomBytes();
@@ -206,18 +235,22 @@ export async function installCGearQuickActions(project: ProjectState, options:CG
   if (!status.supported || !status.compatible) throw new Error(status.message);
   const rom = new NintendoDSRom(romBytes, { fileData: "view" });
   hydrateCGearButtons(project,rom);
+  hydrateSystemShops(project,rom);
   const state=structuredClone(ensureCGearButtons(project));
   if(options.pcHideFlag!==undefined){validatePCFlag(options.pcHideFlag);const pc=state.document.buttons.find(b=>b.action==="pc");if(pc)pc.flag={id:options.pcHideFlag,when:"clear"};}
   const before=JSON.stringify(project.cgearButtons?.document);
   state.applied=structuredClone(state.document);state.enabled=true;
   const compiled=compile(state.document,buttonAssets(project,rom),true,state);
   if(!compiled.archive)throw new Error(compiled.diagnostics.filter(d=>d.severity==="error").map(d=>d.message).join("\n"));
+  if(state.document.buttons.some(b=>b.action==="systemShop"))ensureSystemShops(project);
+  const shopsBefore=JSON.stringify(project.systemShops);
   if(state.document.buttons.some(b=>b.action==="pc")) {
     const p=manifest.pcScript,id=rom.filenames.idOf(p.archive);
     const script=id===undefined?undefined:new NARC(getRomFileBytes(project,rom,id)).files[p.member];
     if(!script || script.length!==p.length || fingerprint(script)!==p.fingerprint)
       throw new Error("The PC storage script has unrecognized changes. Restore a compatible native PC script, or remove PC from the button design before applying.");
   }
+  if (state.document.buttons.some(b => b.action === "systemShop")) validateSystemShopResources(project, rom);
   const v = input.session.baseVersion as Version, profile = manifest.games[v];
   const [dllResponse, archiveResponse] = await Promise.all([fetch(urls[v]), fetch(graphicsUrl)]);
   if (!dllResponse.ok || !archiveResponse.ok) throw new Error("Could not load the bundled Quick Actions files.");
@@ -225,6 +258,12 @@ export async function installCGearQuickActions(project: ProjectState, options:CG
   if (await hash(dll) !== profile.sha256 || await hash(graphics) !== manifest.archiveSha256
     || !recognized(parseRpm(dll, { allowedMagics: ["DLXF"] }), v) || !archiveState(graphics)) throw new Error("Quick Actions bundle failed its integrity check.");
   const staged = cloneInstallState(input);
+  let shops = project.systemShops && structuredClone(project.systemShops);
+  if (state.document.buttons.some(b => b.action === "systemShop") || shops) {
+    shops ??= structuredClone(ensureSystemShops(project));
+    if (options.applySystemShops) shops.applied=structuredClone(shops.document);
+    stageSystemShops(staged,rom,shops);
+  }
   if (state.document.buttons.some(b => b.action === "pokenav")) {
     staged.narcs = structuredClone(project.narcs); staged.texts = structuredClone(project.texts);
     await (await import("./pokenavModel")).stagePokenavRuntime(staged);
@@ -239,7 +278,9 @@ export async function installCGearQuickActions(project: ProjectState, options:CG
   stageArchive(staged, rom, compiled.archive);
   recordGenericChange(staged, "code_injection", `C-Gear Buttons applied: ${state.document.buttons.map(b=>b.label).join(", ") || "no buttons"}.`, "C-Gear Buttons", { key: "code-injection:cgear-quick-actions" });
   if(JSON.stringify(project.cgearButtons?.document)!==before)throw new Error("The button design changed while staging. Apply again.");
+  if(JSON.stringify(project.systemShops)!==shopsBefore)throw new Error("The shop design changed while staging. Apply again.");
   project.cgearButtons=state;
+  if(shops)project.systemShops=shops;
   Object.assign(project, { originalRomBytes: romBytes, arm9: staged.arm9, arm9Dirty: staged.arm9Dirty,
     overlays: staged.overlays, narcs: staged.narcs, texts: staged.texts, fileSystem: staged.fileSystem, codeInjection: staged.codeInjection,
     patches: staged.patches, actionChangelog: staged.actionChangelog });

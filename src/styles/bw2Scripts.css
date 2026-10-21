@@ -30,7 +30,7 @@
 #bw2-draft-state { color: #adb3c6; font-size: 12px; }
 #bw2-source-section { min-width: 0; max-width: 260px; padding: 7px; background: #181a23; color: #f2f2f2; border: 1px solid #54586e; border-radius: 4px; font-size: 12px; }
 .bw2-script-compile-actions { display: flex; gap: 8px; }
-.bw2-script-compile-actions #bw2-apply { background: #8be9c1; color: #182a23; border-color: #8be9c1; }
+.bw2-script-compile-actions #bw2-apply { background: #8be9c1; color: #f1f1f1; border-color: #8be9c1; }
 .bw2-script-page .btn { cursor: pointer; }
 .bw2-script-page .btn:disabled { cursor: not-allowed; opacity: 0.45; }
 .bw2-script-split { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; flex: 1; min-height: 0; }

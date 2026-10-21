@@ -10,7 +10,7 @@
 .cgear-editor .btn{background:#303744;color:#e5eaf0;border:1px solid #566171;border-radius:5px;padding:10px 12px;font:inherit;text-transform:none;cursor:pointer}.cgear-editor .btn:hover:not(:disabled){background:#3a485a}.cgear-editor .btn.-primary{
   background: #1abc9c;
   border-color: #1abc9c;
-  color: #101216;
+  color: #f1f1f1;
 }.cgear-editor .btn:disabled{opacity:.4;cursor:default}.cgear-editor input:not([type=checkbox]),.cgear-editor select{background:#303744;color:#e5eaf0;border:1px solid #566171;border-radius:4px;padding:7px;font:inherit;min-height:34px}.cgear-editor input[type=color]{padding:3px;height:36px}.cgear-editor input[type=checkbox]{accent-color:#64b9d3;width:17px;height:17px}.cgear-editor button:focus-visible,.cgear-editor input:focus-visible,.cgear-editor select:focus-visible,.cgear-editor canvas:focus-visible{outline:2px solid #87d6e9;outline-offset:2px}.cgear-preview-controls label:first-child{flex-direction:row;align-items:center}/* Keep action colors independent of shared legacy button styles. */
 .cgear-editor .btn.cgear-add{
   background: #303744;

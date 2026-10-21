@@ -1,4 +1,6 @@
 import "./styles/cgearButtons.css";
+import "./styles/systemShops.css";
+import { renderSystemShopsEditor } from "./ui/systemShopsEditor";
 import { ProjectDocumentError } from "./pokeweb/projectDocument";
 import { defaults as defaultCGearButtons } from "./cgearButtons/document";
 import { renderCGearButtonsEditor, stopCGearButtonsEditor } from "./ui/cgearButtonsEditor";
@@ -150,6 +152,7 @@ type AppRoute =
   | "moveBackgrounds"
   | "titleScreen"
   | "cgearButtons"
+  | "systemShops"
   | "customUi"
   | "battleBackgrounds"
   | "randomizer"
@@ -260,6 +263,7 @@ const APP_ROUTES: AppRoute[] = [
   "titleScreen",
   "customUi",
   "cgearButtons",
+  "systemShops",
   "battleBackgrounds",
   "randomizer",
   "marts",
@@ -308,6 +312,7 @@ const EDITOR_REQUIREMENTS: Record<
   titleScreen: [],
   customUi: [],
   cgearButtons: [],
+  systemShops: [],
   randomizer: [],
   marts: ["marts", "mart_counts"],
   grottos: ["grottos", "grotto_odds"],
@@ -681,7 +686,6 @@ function renderApp(): void {
       canVisit("overworlds") ? openOverworld : undefined,
       canVisit("matrixEditor") ? headerId => applyRouteState({ route: "matrixEditor", matrixHeaderId: headerId }) : undefined,
     );
-    content.querySelector<HTMLButtonElement>("#debug-narcs-btn")?.addEventListener("click", () => navigate("debugNarcs"));
     return;
   }
 
@@ -1069,6 +1073,10 @@ function renderApp(): void {
     void renderCGearButtonsEditor(project, content, () => { dirty = true; scheduleSave(project!); renderDirtyIndicator(); });
     return;
   }
+  if (route === "systemShops") {
+    void renderSystemShopsEditor(project,content,()=>{dirty=true;scheduleSave(project!);renderDirtyIndicator();});
+    return;
+  }
 
   if (route === "customUi") {
     void renderCustomUiEditor(project, content, () => { dirty = true; scheduleSave(project!); renderDirtyIndicator(); });
@@ -1280,7 +1288,6 @@ function renderMoreMenu(): string {
     ["changelog", "Changelog"],
     ["patches", "Patches"],
     ["fileSystem", "File System"],
-    ["customUi", "Custom UI"],
     ["cgearButtons", "C-Gear Buttons"],
   ];
   if (project?.session.baseRom === "BW2") moreRoutes.splice(4, 0, ["titleScreen", "Title Screen"]);
@@ -1345,13 +1352,14 @@ function renderEncountersMenu(): string {
 
 function renderItemsMenu(): string {
   const martsAvailable = project?.session.baseRom === "BW2";
-  const active = route === "items" || (martsAvailable && route === "marts");
+  const active = route === "items" || (martsAvailable && (route === "marts" || route === "systemShops"));
   return `
     <div class="header-more ${active ? "-active" : ""}">
       <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Items</button>
       <div class="header-more-menu">
         ${navItem("items", "Item Data")}
         ${martsAvailable ? navItem("marts", "Marts") : ""}
+        ${martsAvailable ? navItem("systemShops", "C-Gear Shops") : ""}
       </div>
     </div>
   `;
@@ -2324,6 +2332,7 @@ function loadedNarcNames(currentProject: ProjectState): NarcName[] {
 }
 
 function hasAnyRomChanges(currentProject: ProjectState): boolean {
+  if(currentProject.systemShops&&JSON.stringify(currentProject.systemShops.document)!==JSON.stringify(currentProject.systemShops.applied))return true;
   if (currentProject.cgearButtons && JSON.stringify(currentProject.cgearButtons.document) !== JSON.stringify(currentProject.cgearButtons.applied ?? defaultCGearButtons(currentProject.session.baseRom === "BW" ? "BW" : "BW2"))) return true;
   if (dirty || currentProject.arm9Dirty || currentProject.tms?.dirty) return true;
   if ((currentProject.actionChangelog?.entries.length ?? 0) > 0) return true;
@@ -2341,7 +2350,8 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
   if (nextRoute === "bw2Scripts") return canUseLocalRomBridge() && hasExportBase && project.session.baseRom === "BW2" && !isGen4Project(project) && Boolean(project.narcs.scripts);
   if (nextRoute === "changelog") return true;
   if (nextRoute === "cgearButtons") return (project.session.baseRom === "BW" || project.session.baseRom === "BW2") && hasExportBase;
-  if (nextRoute === "customUi") return hasExportBase;
+  if (nextRoute === "systemShops") return project.session.baseRom === "BW2" && hasExportBase;
+  if (nextRoute === "customUi") return false;
   if (nextRoute === "titleScreen") return project.session.baseRom === "BW2" && hasExportBase;
   if (nextRoute === "trainerMusic") return isGen5Project(project);
   if (nextRoute === "docGenerators") return true;

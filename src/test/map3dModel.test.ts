@@ -15,6 +15,7 @@ import {
   parseVMapTerrain,
   parseZoneEntities,
   updateMap3dAreaMetadata,
+  neighboringMatrixCells,
   writeAreaHeader,
 } from "../pokeweb/map3dModel";
 import { writeU16, writeU32 } from "../nds/binary";
@@ -22,6 +23,19 @@ import type { ProjectState } from "../pokeweb/projectStore";
 import { makeMatrixProject } from "./fixtures/matrixProject";
 
 describe("map3dModel", () => {
+  it("finds only populated adjacent scenery outside the selected header", () => {
+    const matrix = { width: 3, height: 2, hasZones: true,
+      chunkIds: [279, 280, -1, 281, 282, 283], zoneIds: [427, 427, -1, 437, 437, 439] };
+    expect([...neighboringMatrixCells(matrix, 427)].sort()).toEqual([3, 4, 5]);
+    expect([...neighboringMatrixCells({ ...matrix, hasZones: false }, 427)]).toEqual([]);
+    expect([...neighboringMatrixCells(matrix, 999)]).toEqual([]);
+  });
+
+  it("does not wrap neighboring cells across matrix edges or include unsigned empty cells", () => {
+    const matrix = { width: 3, height: 2, hasZones: true,
+      chunkIds: [1, 2, 3, 4, 0xffffffff, 6], zoneIds: [7, 8, 8, 8, -1, 8] };
+    expect([...neighboringMatrixCells(matrix, 7)].sort()).toEqual([1, 3]);
+  });
   it("extracts files from a Game Freak container", () => {
     const first = Uint8Array.of(1, 2, 3);
     const second = Uint8Array.of(4, 5);

@@ -116,7 +116,7 @@
         </p>
         <p class="byline">
           A worked Pokeweb example · BW2 runtime
-          <span data-runtime-version>0.5.4</span> · Updated 17 October 2026
+          <span data-runtime-version>0.5.6</span> · Updated 17 October 2026
         </p>
 
         <section id="overview">
@@ -1304,6 +1304,8 @@ on_field_event_request:
         return navLaunch(subscreen);
     if (action == CG_ACTION_PC)
         return storageEvent(sys, subscreen-&gt;heap);
+    if (action == CG_ACTION_SYSTEM_SHOP)
+        return shopLaunch(subscreen);
     if (action == CG_ACTION_POKERADAR) {
         api&lt;void (*)(u32)&gt;(CG_PLAY_SOUND)(CG_SOUND_MENU);
         pokeradar(subscreen);

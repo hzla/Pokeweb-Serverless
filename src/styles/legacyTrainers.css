@@ -258,7 +258,7 @@
   background: #bd93f9;
   border: 2px solid #282a36;
   border-radius: 50%;
-  color: #1f2029;
+  color: #f1f1f1;
   content: "✓";
   display: flex;
   font-size: 9px;
@@ -725,7 +725,7 @@
 .encounter-roll-submit:not(:disabled) {
   background: #bd93f9;
   border-color: #bd93f9;
-  color: #20212a;
+  color: #f1f1f1;
   font-weight: 800;
 }
 

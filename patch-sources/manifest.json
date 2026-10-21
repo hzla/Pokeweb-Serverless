@@ -3076,11 +3076,11 @@
       "artifacts": [
         {
           "name": "BgmToggleB2.dll",
-          "sha256": "eddb5a525bdb1f957fa4c92c85fe895477da669f47f056b98f7ff64d7d51cb02"
+          "sha256": "9e229a839269430fb49dcb1ae9d0adeb95f7715160bbb88d679324fcceda9e02"
         },
         {
           "name": "BgmToggleW2.dll",
-          "sha256": "69c05b1922fe03ca88d0d3b7ee05597b4e0796355aea28b78f29408bdf3783dd"
+          "sha256": "5b15a7096fd740cfc20fc1532189b6e80fcf89e98518fcee8156eff005e08e8e"
         }
       ],
       "note": "Shared US Black 2 / White 2 runtime 3.0.0 for a volume-mute shortcut and a variable-length table of native SDAT stream replacements. ABI 1 single-track migration, per-track updates/removal, and export/reimport are supported. Uses one guarded 32 KiB native output buffer, 4 KiB low-memory fallback, and native heap rollback. The installer retains its 512 MiB export safety limit. Multi-track gameplay verification is pending; host and archive checks do not certify playback.",
@@ -3093,7 +3093,17 @@
             "path": "runtime/bgm-toggle/BgmToggle.s"
           },
           "kind": "source",
-          "sha256": "a41f4cd2c8fc1098236489adcdff749ef8d194b9ebd02c83e6d5f4f56d31ac8d",
+          "sha256": "27159d77500a6345d1347747b9ee8006124180a04189c9ba6c52d546b02fa7c3",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/build_bw1.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/bgm-toggle/build_bw1.py"
+          },
+          "kind": "build-tool",
+          "sha256": "df223d786fa39ca6a8e0dde99fe42a78af183766ec728e7ba0263e224a69dbee",
           "normalized": false
         },
         {
@@ -3104,6 +3114,66 @@
           },
           "kind": "build-tool",
           "sha256": "1ff826b22a6bf10d708dc20a1cddd91fe98b81ec23f129f3846fa9237bb3e5ee",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/bw1_divide.c",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/bgm-toggle/bw1_divide.c"
+          },
+          "kind": "source",
+          "sha256": "4e09e97a26d8fe95c744f701494729061b7c194e34d28745d078e72bda7cbb87",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/bw1_native.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/bgm-toggle/bw1_native.json"
+          },
+          "kind": "metadata",
+          "sha256": "ee662e25ac46041aa0174263d8dee7e4912fc7aa5466d81b65f3265121fe4357",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/bw1_player.c",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/bgm-toggle/bw1_player.c"
+          },
+          "kind": "source",
+          "sha256": "1c441bfb0feba4335061461b089196f9177ee89b059e6c9a666e8e2520199978",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/bw1_stream_core.c",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/bgm-toggle/bw1_stream_core.c"
+          },
+          "kind": "source",
+          "sha256": "3645ee9979542d9cef3e6b4f96067881c4762058d88013460890c432020e6eb4",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/bw1_stream_core.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/bgm-toggle/bw1_stream_core.h"
+          },
+          "kind": "source",
+          "sha256": "32efb6b92e519c4d0531fff05e8438fb36df83b78a1b8670c657eaf4c017e157",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/emulator_bw1.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/bgm-toggle/emulator_bw1.ts"
+          },
+          "kind": "build-tool",
+          "sha256": "b734c4e0d8d23c2d622e5dae1a9733438dc30f143dd29cf6fc652cba9cc1c47f",
           "normalized": false
         },
         {
@@ -3123,7 +3193,7 @@
             "path": "runtime/bgm-toggle/metadata_b2.yml"
           },
           "kind": "metadata",
-          "sha256": "a6af79a93e3d8f2a50838bf6edf54ee2f16016ca29b9de087a2d9a74a51fe93c",
+          "sha256": "28f85a4b6ba44eb464890076826bccb82ee8fae1a8d20a3be1707fe19590363c",
           "normalized": false
         },
         {
@@ -3133,7 +3203,7 @@
             "path": "runtime/bgm-toggle/metadata_w2.yml"
           },
           "kind": "metadata",
-          "sha256": "dcfeb0969ce10de8413af44860d1836922af40fcf30ebccf4f8f89901e721e53",
+          "sha256": "b6856b67df967b5d879af1431b608306c401690442ec93a6237f9d65a190e7b8",
           "normalized": false
         },
         {
@@ -3143,7 +3213,7 @@
             "path": "runtime/bgm-toggle/README.md"
           },
           "kind": "documentation",
-          "sha256": "8f4670f606d2c37a60af176cc991f03571ba71a298928138aa4fdefad4808bed",
+          "sha256": "9ebe005b6dd3641f3ba0b363e015cc5b308dac18b091820859c8767a7269ea83",
           "normalized": false
         },
         {
@@ -3187,6 +3257,26 @@
           "normalized": false
         },
         {
+          "path": "bgm-toggle/test_bw1_core.c",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/bgm-toggle/test_bw1_core.c"
+          },
+          "kind": "test",
+          "sha256": "adb91c2d1ff3fbcf141bbed4927c37c8e5cbf871967f800908ff1b81cad7af1f",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/test_bw1_driver.c",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/bgm-toggle/test_bw1_driver.c"
+          },
+          "kind": "test",
+          "sha256": "813995c1f7fa6ff6e1e3a2c08489349b761f27f0028e6a3a13b1059337bd6eea",
+          "normalized": false
+        },
+        {
           "path": "bgm-toggle/test_mapping.c",
           "origin": {
             "repository": "pokeweb",
@@ -3217,6 +3307,26 @@
           "normalized": false
         },
         {
+          "path": "bgm-toggle/VALIDATION-BW1.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/bgm-toggle/VALIDATION-BW1.md"
+          },
+          "kind": "documentation",
+          "sha256": "6cd704e917ef0da9191f50be83cd32020b575d5096406eb8c9d97e3bcd34849b",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/verify_bw1_audio.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/bgm-toggle/verify_bw1_audio.py"
+          },
+          "kind": "test",
+          "sha256": "b04fa6ab000988a0ad027f1648bf221b3f920b7e52dbf6308b7003711a4f59be",
+          "normalized": false
+        },
+        {
           "path": "bgm-toggle/verify.py",
           "origin": {
             "repository": "pokeweb",
@@ -3233,7 +3343,7 @@
             "path": "src/pokeweb/pmcModel.ts"
           },
           "kind": "support-only",
-          "sha256": "db722923b03091d472560eb8f09432a5aeeb2a1561441c08a15e205c69b599a3",
+          "sha256": "2b725ea33157021c86e11959f2826db171975b99c6bd987fcea4301fd6c68d43",
           "normalized": false
         },
         {
@@ -3243,7 +3353,7 @@
             "path": "src/pokeweb/streamedBgmModel.ts"
           },
           "kind": "support-only",
-          "sha256": "91b6ef6a4b880fca363e14625efe483351af47eca2875eb26d503e411fc94e3e",
+          "sha256": "98be19d6a178158933b1040e5eb6f34bbd158a726619c1542b931c035678e3cb",
           "normalized": false
         },
         {
@@ -3263,7 +3373,7 @@
             "path": "src/ui/musicEditor.ts"
           },
           "kind": "support-only",
-          "sha256": "d86fefcc61fd433595c46b18fcf3315bcbc83915c2dfb0e0a8fb992555455273",
+          "sha256": "cc0f333c8b41f27ad6aa733ea4170c76e637e9ed08db802d33a837e54797e5d4",
           "normalized": false
         },
         {
@@ -3283,7 +3393,7 @@
             "path": "src/styles/musicEditor.css"
           },
           "kind": "support-only",
-          "sha256": "e61fbcc7c303432bd1f4e833d8bfa52c48f8f2ba7fba4ba2d49afbbdb107278a",
+          "sha256": "76c981dbc017555676b8554f4f33256d95f3cfa33bbf7a2b404b07eb8e6ab51d",
           "normalized": false
         },
         {
@@ -3293,7 +3403,7 @@
             "path": "src/pokeweb/projectStore.ts"
           },
           "kind": "support-only",
-          "sha256": "f43f3bb1ec2764aa86127b7ee1463643420a8ed8275f29aa93c48d670394e539",
+          "sha256": "be8407d2bf8c2c62c241eabdb3ca3b3ada233b0c99412033d06241cb509ec6d0",
           "normalized": false
         },
         {
@@ -3303,7 +3413,7 @@
             "path": "src/ui/codeInjectionEditor.ts"
           },
           "kind": "support-only",
-          "sha256": "5dec03d1166ee35b38c68596f32f33dfca07cd8194c04853d55b9e8a77122588",
+          "sha256": "164f29c52fea553b8e0c7f99361301bac292302dc6b64f6d2083779610805850",
           "normalized": false
         },
         {
@@ -3313,7 +3423,7 @@
             "path": "src/styles/codeInjection.css"
           },
           "kind": "support-only",
-          "sha256": "eea872153db349f5479f14f25e391c081030c14da3b802630c6cb5594dfdbe13",
+          "sha256": "8a1cb228661eab3a2edceff962a4b54da231d810333419fc18a34be9f6cdcd03",
           "normalized": false
         },
         {
@@ -3323,7 +3433,7 @@
             "path": "package.json"
           },
           "kind": "build-tool",
-          "sha256": "0617c50ea84a51bcec1cb51a326e7832e715f60eb37b95626b776f7da04ec8f2",
+          "sha256": "154917f94aa70810ed7a61ee006bd56347afba5d6a32fbb160b30892630fa674",
           "normalized": false
         },
         {
@@ -3333,7 +3443,7 @@
             "path": "src/test/pmcModel.test.ts"
           },
           "kind": "test",
-          "sha256": "70bfcb89da6da95b1c6d22d26e770615252dadb044373231d7da44b9667b76f4",
+          "sha256": "000c338edf6e58c69f6630970890f33263b8cd4ef84bfb1e9d49363bab6b53db",
           "normalized": false
         },
         {
@@ -3343,7 +3453,7 @@
             "path": "src/test/streamedBgmModel.test.ts"
           },
           "kind": "test",
-          "sha256": "35bf4d778e5825b2ee011b19c482842577551da199ab0b7d6c64ca40dc46cbde",
+          "sha256": "08d999b3be243459f5826346157fc5d8c4ad8981fb1022603b98dcfb864ad65d",
           "normalized": false
         },
         {
@@ -3353,7 +3463,7 @@
             "path": "src/test/bgmRuntimeMappings.test.ts"
           },
           "kind": "test",
-          "sha256": "cc6a5f33e1ec67762a3e17e93b9bcd5fe790f7f69240c0619f5c99ff22dd9652",
+          "sha256": "cf55abf399de937e06c2d8f17364116d021682daa9329f2cef14baca88bf2f47",
           "normalized": false
         },
         {
@@ -3363,7 +3473,7 @@
             "path": "src/test/musicEditor.test.ts"
           },
           "kind": "test",
-          "sha256": "ef75dec57f33f7a3751f96b113b60b627791c0a645511731654b653923eeba69",
+          "sha256": "4bb2b8863961af6d1c2905feb6f6b193e315f522e5a77a8dc41b4b2d01280cc3",
           "normalized": false
         },
         {
@@ -3383,7 +3493,7 @@
             "path": "src/test/romExport.test.ts"
           },
           "kind": "test",
-          "sha256": "c9f76c614007ea1b116ef5827312874e95603b4f53a9c96df8d47ac04ecd7966",
+          "sha256": "103d6ea47e903bc936c673ec54d034d3355ad524d1328a816c8af1901b0ce745",
           "normalized": false
         },
         {
@@ -3393,7 +3503,7 @@
             "path": "scripts/verify-streamed-bgm-install.ts"
           },
           "kind": "test",
-          "sha256": "2a6643654152b9639c2ef504a632c90aed27a8843929f06ef46d087f2cb13e27",
+          "sha256": "9f7def0a150917ad8d01bb2357d15796c485b70af6ca66ea1f31085e6ffbc758",
           "normalized": false
         }
       ]
@@ -6702,11 +6812,11 @@
       "artifacts": [
         {
           "name": "CGearQuickActionsB2.dll",
-          "sha256": "4a377466c08d99c7676d8649b6bc685840b7c1c6d051461cd74482fae952f5f6"
+          "sha256": "e58e0f086a9e2723e970bb2134edd3c51117a780d77bd995b4d0797b327fc051"
         },
         {
           "name": "CGearQuickActionsW2.dll",
-          "sha256": "05955e0e00d764af8f2a2d1a002aa83fa00d478001a1afffab6c2e0359b90b86"
+          "sha256": "6684889ef2d98fbb2948861e59444048a9e1172d46c6994471729deefd2082e2"
         },
         {
           "name": "CGearQuickActionsB.dll",
@@ -6717,7 +6827,7 @@
           "sha256": "d67c6328efd3bcd065db64ec21764467d10ce2b068289e0cbc9e5762b9d2bd91"
         }
       ],
-      "note": "Separate BW2 0.5.4 and BW1 0.1.3-bw1 profiles and builders add HM02-gated native Fly without a learned-move requirement. BW2 retains the outer-rim 12-degree skin dial and moving marker while hiding the digital clock and chevron decal; shared geometry and compiled graphics are inventoried here. It retains the optional Nuzlocke snapshot provider to the Pokenav application action; its shared viewer sources are inventoried separately. Source availability does not establish historical binary reproducibility or hardware acceptance.",
+      "note": "BW2 0.5.5 adds the optional System Shop picker, native Pokémart, separate custom shop definitions, per-item prices, stackable-item currencies, native TM rendering and a currency icon/balance panel. BW1 remains 0.1.3-bw1 without System Shop. Both retain HM02-gated native Fly without a learned-move requirement. BW2 retains the outer-rim 12-degree skin dial and moving marker while hiding the digital clock and chevron decal; shared geometry and compiled graphics are inventoried here. It retains the optional Nuzlocke snapshot provider to the Pokenav application action; its shared viewer sources are inventoried separately. Source availability does not establish historical binary reproducibility or hardware acceptance.",
       "status": "source-available",
       "files": [
         {
@@ -6737,7 +6847,7 @@
             "path": "runtime/cgear-quick-actions/acceptance.md"
           },
           "kind": "documentation",
-          "sha256": "a829d3d191259d4c6d787ac0cad98d09e28beeff9666e5f6c6ec8b5cc1944fc5",
+          "sha256": "6c5f9f0de888bdb7e119a05be717143282a6f9c42d9c473285868906bd5815b2",
           "normalized": false
         },
         {
@@ -6757,7 +6867,7 @@
             "path": "runtime/cgear-quick-actions/build.py"
           },
           "kind": "build-tool",
-          "sha256": "0f5490165406fbd575282a0e891de6ba731d793f1f9d2aa2f4d26f8d190a82d0",
+          "sha256": "f1e80febed475c832b01e2e9fab1fa40ee521af34055e206f25016db58595da6",
           "normalized": false
         },
         {
@@ -6827,7 +6937,7 @@
             "path": "runtime/cgear-quick-actions/emulator.ts"
           },
           "kind": "build-tool",
-          "sha256": "0ec8b7b35dc6b831a962b9e2282829b838db39109d91f6efaeb71e7bfd31fbd4",
+          "sha256": "4c07cf234f5db1015766b5e5694a60ec5d6b3a3a4e98cdd09a2a7f8dc5444831",
           "normalized": false
         },
         {
@@ -6847,7 +6957,7 @@
             "path": "runtime/cgear-quick-actions/native_addresses.h"
           },
           "kind": "source",
-          "sha256": "b3d4790cd85bdca210a8860b62aa5810437aa24df0a8a7b01727cfa02a89cd16",
+          "sha256": "aba125b7471df481d8448e5080090f4bbc2e928f9bfdfa254430624572317cde",
           "normalized": false
         },
         {
@@ -6867,7 +6977,7 @@
             "path": "runtime/cgear-quick-actions/previous.json"
           },
           "kind": "metadata",
-          "sha256": "28a54757cb6b333888bf3a58fb214a463ae4a42ec82895a3fc75d46dbd18055e",
+          "sha256": "368879c9d93ef0f87e82c541ade84548ed221f9a71d2dcfa9fa2d0278c3b001e",
           "normalized": false
         },
         {
@@ -6897,7 +7007,7 @@
             "path": "runtime/cgear-quick-actions/quick_actions.cpp"
           },
           "kind": "source",
-          "sha256": "d66cd8f9f857d7efe3ca01c35ef8248b20b7397596f5450148b08aaca2098a59",
+          "sha256": "fc2ec2f45c6b228f39be2fe8ff069f63ae1154b0d1dd0912d5cf2cd5f89bb4e9",
           "normalized": false
         },
         {
@@ -6907,7 +7017,7 @@
             "path": "runtime/cgear-quick-actions/README.md"
           },
           "kind": "documentation",
-          "sha256": "1252d92c83555bf45e0e7f16a499f2faa1168f9b9e4ea7acbd0e69752ad717df",
+          "sha256": "1e2e90ff15c7c3b88f005c68dc5a026dc077a033b764b6be19ecccda844e9832",
           "normalized": false
         },
         {
@@ -6931,6 +7041,16 @@
           "normalized": false
         },
         {
+          "path": "cgear-quick-actions/SYSTEM-SHOPS.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/cgear-quick-actions/SYSTEM-SHOPS.md"
+          },
+          "kind": "documentation",
+          "sha256": "659d58c970da2e64984d8d5f60e209fe2173ac8f10fba3702941cca15fc5006d",
+          "normalized": false
+        },
+        {
           "path": "cgear-quick-actions/verify_bw1.py",
           "origin": {
             "repository": "pokeweb",
@@ -6947,7 +7067,7 @@
             "path": "runtime/cgear-quick-actions/verify.py"
           },
           "kind": "test",
-          "sha256": "ad6ebdfde15ff8d4c184fa869f7c791e3f2badc76123b1923ff6334a291b81a6",
+          "sha256": "9a3d7321382b622888da9411a0b914f42ef41c7966c2a2a44ec5d6504a82147e",
           "normalized": false
         },
         {
@@ -6967,7 +7087,7 @@
             "path": "runtime/cgear-quick-actions/bw2/configuration.inc"
           },
           "kind": "source",
-          "sha256": "4fa234506058eae8707b93477865976d8c7698d3f312c99fdbb14e76d734d092",
+          "sha256": "05907d6582aeacfe2e4cacce0cde677a17e3451bbc7c39d0bdbb1282512beb20",
           "normalized": false
         },
         {
@@ -6987,7 +7107,7 @@
             "path": "runtime/cgear-quick-actions/bw2/hooks.inc"
           },
           "kind": "source",
-          "sha256": "4038c7fe980c76b9e2f6883357f3f3527f9e16cb49e0420aa978b7dfa10824ee",
+          "sha256": "543115ace0990ec5c6d2d86f0257f89724f172286fe8ce5444c89d8caf6f5f4f",
           "normalized": false
         },
         {
@@ -7018,6 +7138,16 @@
           },
           "kind": "source",
           "sha256": "1eda86e60f9939ce4d577776eb8ca8b4e3e1a668e75a008ce08b9cc3aa3d38f1",
+          "normalized": false
+        },
+        {
+          "path": "cgear-quick-actions/bw2/shop.inc",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/cgear-quick-actions/bw2/shop.inc"
+          },
+          "kind": "source",
+          "sha256": "89a00f536d15280d13b20582ddfe6605bccdae60a98df819b1dea88140ff5cce",
           "normalized": false
         },
         {
@@ -7067,7 +7197,7 @@
             "path": "docs/cgear-buttons/index.html"
           },
           "kind": "documentation",
-          "sha256": "fd056f078f7d5c3c2f91fae7846d50e55ab92a72255f6d63e5962281465748ab",
+          "sha256": "1bd18bd498fe27f30fc71fc93ea91734bb16d38a6c917c6414f57f5c355fc31d",
           "normalized": false
         },
         {
@@ -7157,7 +7287,7 @@
             "path": "src/cgearButtons/document.ts"
           },
           "kind": "support-only",
-          "sha256": "79acba62495d4f76bea5c5c97886e942f3734d01a977d8ada20feebb92ce77a0",
+          "sha256": "57281cb418127de09ae2db8154e7c7452cda3ef797de46e16c4d053ed16490f7",
           "normalized": false
         },
         {
@@ -7217,7 +7347,7 @@
             "path": "src/ui/cgearButtonsEditor.ts"
           },
           "kind": "support-only",
-          "sha256": "2b0b32c82c92a2afbae390e9a7d37cd43329c7a8b11b611f20cd1bb4e437aaff",
+          "sha256": "c6f2440f48605f45fd15f8014f3ab5edd26f3a93b73c8dc1a694c4bb8bf17c6e",
           "normalized": false
         },
         {
@@ -7237,7 +7367,7 @@
             "path": "src/test/cgearButtons.test.ts"
           },
           "kind": "test",
-          "sha256": "a9cb8901c1c3fff1a18a568560c7365d76eea28317126571a57c09a58abf5cb7",
+          "sha256": "4518e5020773a996d59b5528a9f122e3c5725c81272858e5d33bf86e42ee416c",
           "normalized": false
         },
         {
@@ -7247,7 +7377,7 @@
             "path": "src/test/cgearQuickActionsModel.test.ts"
           },
           "kind": "test",
-          "sha256": "c453005c8602d23c6dbc453d17beda7235025474c0d232ed9db01ed2971712e2",
+          "sha256": "118fcc66e0f157fb895d88f15e2e039dde1afaa25d6ea2f6cf7b780caaf069ff",
           "normalized": false
         },
         {
@@ -7267,7 +7397,7 @@
             "path": "src/pokeweb/cgearQuickActionsModel.ts"
           },
           "kind": "support-only",
-          "sha256": "4a139c72aad4396b935a8013d056e01fa432033a2a7f6e234933e1cd0528de62",
+          "sha256": "ab4a8f22e9ac473061ed02e3c8a2373a774abc3d07aa3bc2cff43f95cc04d470",
           "normalized": false
         },
         {
@@ -7281,13 +7411,113 @@
           "normalized": false
         },
         {
+          "path": "cgear-quick-actions/build/generate-system-shop-bindings.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "scripts/generate-system-shop-bindings.ts"
+          },
+          "kind": "build-tool",
+          "sha256": "296ffb8a436ad48f9610db6a93930e19a0444d3d9f1234301d0c204492e0c7dd",
+          "normalized": false
+        },
+        {
+          "path": "cgear-quick-actions/tests/verify-system-shop-demo.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "scripts/verify-system-shop-demo.ts"
+          },
+          "kind": "test",
+          "sha256": "bb2f40e1a24e4564270aaba1dcbd3ea89042c2287e84dcabd73e595de48b6b4c",
+          "normalized": false
+        },
+        {
+          "path": "cgear-quick-actions/integration/shops/compiler.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/systemShops/compiler.ts"
+          },
+          "kind": "support-only",
+          "sha256": "a4755987b5553fc190b6d4c62fea717b5a3c01624f37142695f7421975c464d7",
+          "normalized": false
+        },
+        {
+          "path": "cgear-quick-actions/integration/shops/document.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/systemShops/document.ts"
+          },
+          "kind": "support-only",
+          "sha256": "75253529f0e751d4be1875f9cf83ff1d00d28395b37e211326b9bf6594842857",
+          "normalized": false
+        },
+        {
+          "path": "cgear-quick-actions/integration/shops/graphics.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/systemShops/graphics.ts"
+          },
+          "kind": "support-only",
+          "sha256": "b1ff6905fed4a9f8e358c424daa24399e0fdf126aa1a9b062d77ff8874d85e8c",
+          "normalized": false
+        },
+        {
+          "path": "cgear-quick-actions/integration/systemShopsModel.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/systemShopsModel.ts"
+          },
+          "kind": "support-only",
+          "sha256": "0bd6784e36865303aac255a00fee4bf6c2f2bed484534e99046536757f610347",
+          "normalized": false
+        },
+        {
+          "path": "cgear-quick-actions/integration/systemShopsEditor.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/ui/systemShopsEditor.ts"
+          },
+          "kind": "support-only",
+          "sha256": "9ae6cd0e887e3b791c415a876c6a949af23e729acf7f3810e510adc508de7536",
+          "normalized": false
+        },
+        {
+          "path": "cgear-quick-actions/integration/tmModel.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/tmModel.ts"
+          },
+          "kind": "support-only",
+          "sha256": "01ea54aaab2519cb779577907905a60843d620af3caf38f781d72af703511dd6",
+          "normalized": false
+        },
+        {
+          "path": "cgear-quick-actions/integration/systemShops.css",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/styles/systemShops.css"
+          },
+          "kind": "support-only",
+          "sha256": "9ace14f047e0443179b8d882bd90c6eeb3e75528c29b946186ccaba124ef1955",
+          "normalized": false
+        },
+        {
+          "path": "cgear-quick-actions/tests/systemShops.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/systemShops.test.ts"
+          },
+          "kind": "test",
+          "sha256": "136772ccadcc203bdd93dadae751c2171ee997a4c49d859338b5dada15f096be",
+          "normalized": false
+        },
+        {
           "path": "cgear-quick-actions/metadata/cgearQuickActionsManifest.json",
           "origin": {
             "repository": "pokeweb",
             "path": "src/assets/codeinjection/cgearQuickActionsManifest.json"
           },
           "kind": "metadata",
-          "sha256": "2102d47183f7b6ea26c1c4ac4b2c6a73b76c80f2b619866ec879fa4f6b0b4bc1",
+          "sha256": "2fddb80c8161e48d6ec6eae850aa379b2b3a831a114a89808a8afe49be74e9c4",
           "normalized": false
         }
       ]

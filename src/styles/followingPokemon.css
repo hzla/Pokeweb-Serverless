@@ -240,6 +240,7 @@
 }
 
 .following-rule-editor {
+  container-type: inline-size;
   padding: 18px;
 }
 
@@ -423,6 +424,7 @@
 }
 
 .following-field {
+  align-content: start;
   color: #eef0f8;
   display: grid;
   font-size: 12px;
@@ -474,6 +476,159 @@
   display: grid;
   gap: 7px;
   grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.following-location-row,
+.following-conditions-row,
+.following-animation-row,
+.following-dialogue-text-row {
+  align-items: start;
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.following-location-row {
+  grid-template-columns: minmax(200px, 2fr) minmax(160px, 1.5fr) 84px minmax(120px, 1fr);
+}
+
+.following-zone-picker {
+  min-width: 0;
+  position: relative;
+}
+
+.following-zone-options {
+  background: #f7f7fb;
+  border: 1px solid #b9bbca;
+  border-radius: 5px;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 30%);
+  color: #20222d;
+  font-weight: 500;
+  left: 0;
+  max-height: 264px;
+  overflow-y: auto;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 5;
+}
+
+.following-zone-options [role="option"],
+.following-zone-empty {
+  padding: 9px 10px;
+}
+
+.following-zone-options [role="option"] {
+  cursor: pointer;
+}
+
+.following-zone-options [role="option"]:hover,
+.following-zone-options [aria-selected="true"] {
+  background: #e0d1f6;
+}
+
+.following-conditions-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) 104px;
+}
+
+.following-animation-row,
+.following-dialogue-text-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.following-bounds-row {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.following-bounds-row .following-field {
+  width: 100px;
+}
+
+.following-bounds-row .btn {
+  font-size: 12px;
+  min-height: 36px;
+}
+
+.following-rule-subtitle small {
+  color: #9fa3b8;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: normal;
+  margin-left: 8px;
+  text-transform: none;
+}
+
+.following-rule-hint,
+.following-dialogue-preview .bw2-text-context,
+.following-preview-examples {
+  color: #adb0c4 !important;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.following-dialogue-preview {
+  background: #282a36;
+  border: 1px solid #44475a;
+  border-radius: 5px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.following-dialogue-preview h4 {
+  color: #eef0f8;
+  font-size: 12px;
+  margin: 0;
+}
+
+.following-dialogue-preview .following-preview-examples {
+  margin: 5px 0 10px;
+}
+
+.following-dialogue-preview .bw2-dialogue-stage canvas {
+  max-width: 100%;
+}
+
+.following-dialogue-preview .bw2-text-context,
+.following-dialogue-preview .bw2-text-context p {
+  margin: 0;
+}
+
+@container (max-width: 740px) {
+  .following-location-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .following-form-field {
+    max-width: 84px;
+  }
+
+  .following-conditions-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .following-conditions-row > :last-child {
+    max-width: 104px;
+  }
+
+  .following-dialogue-text-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@container (max-width: 380px) {
+  .following-location-row,
+  .following-animation-row {
+    grid-template-columns: 1fr;
+  }
+
+  .following-conditions-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .following-rule-footer {
@@ -542,7 +697,7 @@
 .following-position-nav > div { display: flex; flex-wrap: wrap; gap: 8px; }
 .following-position-modes { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
 .following-position-modes .btn { border-color: #686d89; }
-.following-position-modes .is-active { background: #bd93f9; border-color: #bd93f9; color: #20222d; }
+.following-position-modes .is-active { background: #bd93f9; border-color: #bd93f9; color: #f1f1f1; }
 .following-position-options { align-items: end; display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 16px; }
 .following-position-options label { color: #e8e8f0; display: grid; font-size: 12px; font-weight: 700; gap: 6px; min-width: 170px; }
 .following-position-options [data-position-surf-select] { flex: 1 1 300px; }

@@ -1,6 +1,6 @@
 # C-Gear Buttons and Quick Actions
 
-Development package 0.5.4 for English US White 2 (`IRDO`) and Black 2 (`IREO`), revision 0, and compatible derivatives preserving the verified native interfaces. The installer stages PMC and the shared music runtime automatically, retaining existing replacement tracks and shortcut settings.
+Development package 0.5.6 for English US White 2 (`IRDO`) and Black 2 (`IREO`), revision 0, and compatible derivatives preserving the verified native interfaces. The installer stages PMC and the shared music runtime automatically, retaining existing replacement tracks and shortcut settings.
 
 English US revision-0 Black and White also have a separate functional release
 **0.1.3-bw1**. See [BW1 C-Gear Buttons](BW1.md) for its native backgrounds,
@@ -32,6 +32,7 @@ readable sections **once, in order**. Do not compile the `.inc` files separately
 | `bw2/resources.inc` | Allocation, scheduled uploads, display readiness and cleanup |
 | `bw2/update.inc` | Per-frame refresh and custom hit testing |
 | `bw2/requests.inc` | Owned native Save, PC, Party/Bag/Map and optional Pokenav events |
+| `bw2/shop.inc` | Owned C-Gear Shops picker, native inventory/rendering, atomic currency payments and balance icon |
 | `bw2/hooks.inc` | Exported lifecycle, input, dispatch and encounter hooks |
 
 `bw1.cpp` is the separate Black/White adapter. The graphics compiler lives in
@@ -198,3 +199,26 @@ npm run build
 The CPU harness executes compiled Thumb code with native-call stubs and selected retail parsers. Emulator tests use copied fixture data; input ROMs and user saves are never written. Local screenshots, RAM traces and fixture copies live in ignored `build/`. See [acceptance record](acceptance.md) for tested scope and remaining gameplay checks. Cold boot test ROMs with copied ordinary saves; old emulator states restore old runtime code.
 
 BW2 0.5.0 includes the optional Nuzlocke Style Encounters snapshot provider for Pokenav 0.3.0. It reads the installed feature's configuration and native caught records at entry; C-Gear alone does not filter encounters or enable the Nuzlocke patch.
+
+## C-Gear Shops (BW2)
+
+Assign **C-Gear Shops** to an optional **SHOP** button. It opens a native picker
+containing **Pokémart**, your named custom shops and Cancel. The six-button
+preset is unchanged; SHOP uses one of the eight available slots.
+
+Use **Items → C-Gear Shops** to add up to sixteen shops with up to 45 items each.
+Each shop uses Poké Dollars or one stackable non-key item. Costs belong to the
+shop definition, independently of button appearance and the ROM's ordinary item
+prices. TM/HM item choices include their currently assigned move names.
+Exiting a Buy list returns to the shop picker; Cancel leaves the picker for the overworld.
+Drafts autosave and export separately from the last applied configuration.
+**Apply Changes** compiles shop data and stages the C-Gear runtime atomically.
+
+Native TM move names, owned indicators and purchase checks are retained, including
+mixed TM/ordinary stock. Item-currency shops show their loaded-ROM currency name,
+a downscaled currency icon on the left and the balance on the right. Pokémart
+reads native badge tiers and the ROM's current stock and prices on every opening.
+Ordinary NPC shops keep their normal behavior.
+
+See [C-Gear Shops implementation and acceptance](SYSTEM-SHOPS.md) for the archive,
+ownership/payment design, reproducible checks and remaining hardware checks.

@@ -1,6 +1,25 @@
+extern "C" void* QaShopUnit(u32 count,u32 engine,u32 heap) { return shopUnit(count,engine,heap); }
+extern "C" void QaShopGraphics(void* request) { shopGraphics(request); }
+extern "C" void QaShopGraphicsEnd(void* request) { shopGraphicsEnd(request); }
+extern "C" void QaShopBalanceText(void* pixels,u32 x,u32 y,void* text,u32 font,u32 color) { shopBalanceText(pixels,x,y,text,font,color); }
+extern "C" void QaShopLabel(void* request, u32 row, u32 mode, u32 item, void* names) { shopLabel(request, row, mode, item, names); }
+extern "C" void QaShopSelect(void* request) { shopSelect(request); }
+extern "C" void QaShopRowPrice(void* list, u32 row, u32 y) { shopRowPrice(list, row, y, false); }
+extern "C" void QaShopTmRowPrice(void* list, u32 row, u32 y) { shopRowPrice(list, row, y, true); }
 // PMC entry points. Native lifecycle calls still run; input only records an
 // action request, and QaCGearEvent dispatches it when the field is available.
 // Included outside the private namespace so exported hook names stay intact.
+
+extern "C" int QaShopChoiceAdd(void* vm, void* runtime) { return shopChoiceAdd(vm, runtime); }
+extern "C" int QaShopBuyCommand(void* vm, void* runtime) { return shopBuyCommand(vm, runtime); }
+extern "C" void* QaShopStockFile(u32 arc, u32 member, u32 heap) { return shopStockFile(arc, member, heap); }
+extern "C" u32 QaShopPrice(void* data) { return shopPrice(data); }
+extern "C" void* QaShopMessageBank(u32 mode, u32 arc, u32 member, u32 heap) { return shopMessageBank(mode, arc, member, heap); }
+extern "C" u32 QaShopBalance(void* request) { return shopBalance(request); }
+extern "C" u32 QaShopMoney(void* trainer) { return shopMoney(trainer); }
+extern "C" void QaShopPay(void* request, u32 cost) { shopPay(request, cost); }
+extern "C" u32 QaShopAdd(void* bag, u32 item, u32 quantity, u32 heap) { return shopAdd(bag, item, quantity, heap); }
+extern "C" int QaShopTick(void* sys, void* request, u32 shop, u32 mode) { return shopTick(sys, request, shop, mode); }
 
 // Lifecycle: read our archive, then run native C-Gear initialization unchanged.
 extern "C" void QaCGearInit(Subscreen* subscreen) {
@@ -267,6 +286,8 @@ extern "C" void* QaCGearEvent(Subscreen* subscreen, u32 available) {
         return navLaunch(subscreen);
     if (action == CG_ACTION_PC)
         return storageEvent(sys, subscreen->heap);
+    if (action == CG_ACTION_SYSTEM_SHOP)
+        return shopLaunch(subscreen);
     if (action == CG_ACTION_POKERADAR) {
         api<void (*)(u32)>(CG_PLAY_SOUND)(CG_SOUND_MENU);
         pokeradar(subscreen);

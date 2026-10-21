@@ -519,7 +519,7 @@ export function renderOverworldEditor(
     if (testWarpControls) testWarpControls.hidden = !selectedTile;
     if (permissionSelected) {
       permissionSelected.textContent = selectedTile
-        ? `Map ${selectedTile.mapId} tile ${selectedTile.index} @ ${selectedTile.x}, ${selectedTile.y} / class ${selectedTile.layer2} / flags ${formatHex16(selectedTile.layer3)}`
+        ? `Map ${selectedTile.mapId} tile ${selectedTile.index} / Local X ${selectedTile.x}, Y ${selectedTile.y} / Global X ${selectedTile.x + scene.translateX}, Y ${selectedTile.y + scene.translateY} (matrix) / class ${selectedTile.layer2} / flags ${formatHex16(selectedTile.layer3)}`
         : "Select a tile to sample its class and flags.";
     }
     if (permissionFlagValue) permissionFlagValue.textContent = `Calculated flags: ${formatHex16(permissionBrush.flags)}`;

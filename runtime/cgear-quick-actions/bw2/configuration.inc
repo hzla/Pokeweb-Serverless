@@ -96,7 +96,7 @@ bool config(void* archiveHandle, u16 heap) {
                 at<u8>(&session.buttons[i], n) = at<u8>(m, 32 + i * 16 + n);
             const auto& b = session.buttons[i];
             if (i < session.count) {
-                if (!b.id || b.action < CG_ACTION_REPEL || b.action > CG_ACTION_HM_FLY ||
+                if (!b.id || b.action < CG_ACTION_REPEL || b.action > CG_ACTION_SYSTEM_SHOP ||
                     b.flagMode > 2 || (b.flagMode && (!b.flag || b.flag > 3059)) || b.x < 16 ||
                     b.x > 240 || b.y < 16 || b.y > 176 || (b.check != 255 && b.check > 11))
                     ok = false;

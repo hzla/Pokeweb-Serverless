@@ -394,3 +394,31 @@ The eight-button preset is REPEL, PC, BIKE, MAP, FIND, ROD, BAG and PARTY. Learn
 - Check menus, battles, cutscenes, communication screens and special field modes. Blocked touches must not launch later.
 - Verify full gameplay coexistence with Following Pokémon, Learnset, Summary enhancements, enhanced party menus and Porta PC. Installation and selected native menu round trips are checked, not every companion behavior.
 - Check disable/export/reopen and unknown hook/resource conflicts in the intended hack. Choose a saved flag that hack leaves unused.
+
+
+## BW2 0.5.5 C-Gear Shops extension
+
+The optional SHOP action now opens Pokémart plus authored custom shops. Shop
+source, currency/icon graphics and per-item prices are separate from button
+appearance and retain draft/applied versions. The six-button preset and BW1
+binaries remain unchanged. See [C-Gear Shops acceptance and implementation](SYSTEM-SHOPS.md)
+for the scoped native adapters, atomic payment rules and verification boundaries.
+
+## BW2 0.5.6 shop return loop
+
+Exiting an owned Buy screen reopens the native shop picker. Cancel leaves the
+picker for the overworld. Completed shops release their message sources, reset
+stock/price/payment state, and recreate the picker text object. Failed return
+allocation unwinds the session. Ordinary NPC shops retain their original route.
+The installer recognizes 0.5.5 and recovers its version-1 one-shot picker archive;
+updates compile the loop without changing shop definitions or unapplied drafts.
+
+Checked in the DS emulator with White 2 wireless on and Black 2 wireless off:
+TM shop purchase → picker → Pokémart → picker → TM shop purchase → picker →
+Cancel → fresh SHOP activation → Cancel. Both runs bought TM01 and TM02 for
+exactly three Heart Scales (500 → 497), kept 10,000 Poké Dollars, restored native
+Pokémart stock/prices, and retained the currency icon's compiled colors on reopen.
+Screenshots confirm the returned picker and final overworld. The compiled CPU
+harnesses also exercise seven alternating shop sessions and failed return-menu
+allocation with complete owned-resource cleanup. Live hardware timing remains
+unverified.
