@@ -225,13 +225,8 @@ button.header-item {
 
 .btn.-default {
   background: #bd93f9;
-  color: #282a36;
+  color: #f1f1f1;
   border-color: #bd93f9;
-}
-
-.debug-toggle {
-  margin-top: 20px;
-  background: #44475a !important;
 }
 
 @media only screen and (max-width: 1180px) {
@@ -312,7 +307,7 @@ button.header-item {
   }
 }
 
-.btn.-primary { background: #1abc9c; border-color: #1abc9c; color: #101216; }
+.btn.-primary { background: #1abc9c; border-color: #1abc9c; color: #f1f1f1; }
 .btn:hover:not(:disabled) { filter: brightness(1.1); }
 .btn:focus-visible { outline: 2px solid #bd93f9; outline-offset: 3px; }
 .btn:disabled { cursor: not-allowed; opacity: 0.55; }

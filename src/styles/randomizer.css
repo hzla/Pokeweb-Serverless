@@ -125,7 +125,7 @@
 
 .randomizer-run.btn.-default {
   background: var(--randomizer-accent-strong);
-  color: #101216;
+  color: #f1f1f1;
   font-weight: 500;
   min-height: 46px;
   border-color: var(--randomizer-accent-strong);

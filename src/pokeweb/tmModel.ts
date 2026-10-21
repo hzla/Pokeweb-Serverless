@@ -304,7 +304,7 @@ function findMoveId(project: ProjectState, input: string): number {
   return index;
 }
 
-function tmFieldItemId(field: string): number | undefined {
+export function tmFieldItemId(field: string): number | undefined {
   const tm = /^tm_(\d+)$/u.exec(field);
   if (tm) {
     const number = Number(tm[1]);

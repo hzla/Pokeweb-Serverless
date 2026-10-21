@@ -15,6 +15,10 @@ import { ensureCGearButtons, hasUnappliedButtons, recoverCGearButtons } from "..
 import { newButton } from "../cgearButtons/document";
 import { buttonGraphics } from "../cgearButtons/nativeGraphics";
 import { fingerprint } from "../cgearButtons/compiler";
+import { ensureSystemShops, hydrateSystemShops } from "../pokeweb/systemShopsModel";
+import { tmTestShop } from "../systemShops/document";
+import { recover as recoverShops, ARCHIVE as SHOP_ARCHIVE } from "../systemShops/compiler";
+import { encodeGen5TextBank } from "../pokeweb/text";
 type Version = "W2" | "B2";
 afterEach(() => vi.unstubAllGlobals());
 function assets() {
@@ -34,13 +38,26 @@ function makeProject(v: Version, bytes?: Uint8Array): ProjectState {
       for(const s of signatures) r.files[mod].set(Buffer.from(s.expectedHex,"hex"),s.address-base);
     }
     for(const s of manifest.games[v].signatures.filter(s=>s.module==="ARM9")) r.arm9.set(Buffer.from(s.expectedHex,"hex"),s.address-r.arm9RamAddress);
+    const iconPointer=new DataView(r.arm9.buffer).getUint32(0x202672c-(v==='B2'?44:0)-r.arm9RamAddress,true)-r.arm9RamAddress;
+    for(let item=0;item<639;item++){writeU16(r.arm9,iconPointer+item*4,0);writeU16(r.arm9,iconPointer+item*4+2,1);}
+    const icons=new NARC(),iconArt=new Uint8Array(560),iconPalette=new Uint8Array(72);
+    iconArt.set(new TextEncoder().encode('RGCN'));writeU32(iconArt,40,512);iconArt.fill(0x11,48);iconPalette.set(new TextEncoder().encode('RLCN'));icons.files=[iconArt,iconPalette];
+    const pocketPointer=new DataView(r.arm9.buffer).getUint32(0x20088f8-r.arm9RamAddress,true)-r.arm9RamAddress;
+    r.arm9.fill(0,pocketPointer,pocketPointer+639);r.arm9[pocketPointer+450]=4;
+    for(let id=328;id<=425;id++)r.arm9[pocketPointer+id]=2;
     const font = new NARC();font.files=[new Uint8Array(4),buttonFont()];
-    const scripts=new NARC();scripts.files=Array.from({length:1245},()=>new Uint8Array());
+    const scripts=new NARC();scripts.files=Array.from({length:1248},()=>new Uint8Array());
     scripts.files[1244]=new Uint8Array(readFileSync(new URL("./fixtures/cgear-pc-script.bin",import.meta.url)));
-    r.files.push(buttonNative().save(),font.save(),buttonItems().save(),scripts.save());
-    const a=new Folder(),two=new Folder(),zero=new Folder(),eight=new Folder({files:["7"],firstId:344});
-    zero.folders.push(["2",new Folder({files:["3","4"],firstId:345})]);
-    zero.folders.push(["5",new Folder({files:["6"],firstId:347})]);
+    scripts.files[1247]=new Uint8Array(readFileSync(new URL("./fixtures/cgear-shop-script.bin",import.meta.url)));
+    const stock=new NARC(),counts=new NARC();stock.files=Array.from({length:6},()=>new Uint8Array([4,0,17,0]));counts.files=[new Uint8Array(6).fill(2)];
+    const names=new NARC(),messages=new NARC();names.files=Array.from({length:65},()=>new Uint8Array());messages.files=Array.from({length:614},()=>new Uint8Array());
+    names.files[64]=encodeGen5TextBank(Array.from({length:639},(_,i)=>[`0_${i}`,i===93?'Heart Scale':`Item ${i}`,0]));
+    messages.files[613]=encodeGen5TextBank(Array.from({length:35},(_,i)=>[`0_${i}`,`Text ${i}`,0]));
+    r.files.push(buttonNative().save(),stock.save(),counts.save(),font.save(),buttonItems().save(),icons.save(),scripts.save(),names.save(),messages.save());
+    const a=new Folder(),two=new Folder(),zero=new Folder(),eight=new Folder({files:["7","2","3"],firstId:344});
+    zero.folders.push(["2",new Folder({files:["3","4","5"],firstId:347})]);
+    zero.folders.push(["5",new Folder({files:["6"],firstId:350})]);
+    zero.folders.push(["0",new Folder({files:["2","3"],firstId:351})]);
     two.folders.push(["8",eight]);a.folders.push(["2",two],["0",zero]);r.filenames.folders.push(["a",a]);
     bytes = r.save({filenames:r.filenames});
   }
@@ -59,6 +76,77 @@ function legacyControls(arc:NARC){
   writeU32(arc.files[0],24,fingerprint(new Uint8Array(arc.files.slice(1,12).flatMap(b=>Array.from(b)))));
 }
 describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
+  it.each(['0.5.4','0.5.5'])('upgrades %s and preserves an optional System Shop through apply, export, disable and re-enable',async previousVersion=>{
+    const p=makeProject(v);assets();await installCGearQuickActions(p);
+    const path=`patches/CGearQuickActions${v}.dll`;
+    p.fileSystem!.additions![path]=new Uint8Array(readFileSync(new URL(`./fixtures/cgear-quick-actions-v${previousVersion}/CGearQuickActions${v}.dll`,import.meta.url)));
+    if(previousVersion==='0.5.5')p.fileSystem!.additions![SHOP_ARCHIVE]=new Uint8Array(readFileSync(new URL('./fixtures/cgear-quick-actions-v0.5.5/shops.narc',import.meta.url)));
+    expect(getCGearQuickActionsStatus(p)).toMatchObject({installed:true,compatible:true,updateAvailable:true});
+    const d=ensureCGearButtons(p).document,b=newButton(d,"systemShop");b.flag={id:42,when:"clear"};d.buttons.push(b);
+    expect(d.buttons).toHaveLength(7);await installCGearQuickActions(p);
+    expect(getCGearQuickActionsStatus(p)).toMatchObject({compatible:true,updateAvailable:false});
+    const reopened=makeProject(v,await exportModifiedRom(p));
+    expect(getCGearQuickActionsStatus(reopened)).toMatchObject({installed:true,compatible:true,enabled:true});
+    expect(reopened.cgearButtons!.document).toEqual(d);
+    disableCGearQuickActions(reopened);await installCGearQuickActions(reopened);
+    expect(reopened.cgearButtons!.applied).toEqual(d);
+  });
+  it('applies custom currency shops atomically and preserves drafts through ROM export/reopening',async()=>{
+    const p=makeProject(v);assets();const buttons=ensureCGearButtons(p).document;buttons.buttons.push(newButton(buttons,'systemShop'));
+    const state=ensureSystemShops(p);state.document.shops.push(tmTestShop(state.document));
+    await installCGearQuickActions(p,{applySystemShops:true});
+    expect(state.applied).toBeUndefined(); // Staging replaces the state only on success.
+    expect(p.systemShops!.applied).toEqual(p.systemShops!.document);
+    p.systemShops!.document.shops[0].inventory[0].cost=25;
+    const applied=structuredClone(p.systemShops!.applied);
+    await installCGearQuickActions(p);
+    expect(p.systemShops!.applied).toEqual(applied);
+    const exported=await exportModifiedRom(p),reopened=makeProject(v,exported),rom=new NintendoDSRom(exported);
+    await installCGearQuickActions(reopened);
+    hydrateSystemShops(reopened,rom);
+    expect(reopened.systemShops).toEqual(p.systemShops);
+    expect(recoverShops(rom.files[rom.fileId(SHOP_ARCHIVE)]).applied).toEqual(applied);
+    const before={fs:structuredClone(p.fileSystem),arm:p.arm9.slice(),applied:structuredClone(p.systemShops!.applied)};
+    p.systemShops!.document.shops[0].currency=450;
+    await expect(installCGearQuickActions(p,{applySystemShops:true})).rejects.toThrow(/stackable/);
+    expect(p.fileSystem).toEqual(before.fs);expect(p.arm9).toEqual(before.arm);expect(p.systemShops!.applied).toEqual(before.applied);
+    p.systemShops!.document.shops[0].currency=93;
+    await installCGearQuickActions(p,{applySystemShops:true});
+    expect(p.systemShops!.applied!.shops[0].inventory[0].cost).toBe(25);
+    disableCGearQuickActions(p);await installCGearQuickActions(p);
+    expect(p.systemShops!.applied!.shops[0].inventory[0].cost).toBe(25);
+    const archive=p.fileSystem!.additions![SHOP_ARCHIVE];archive[archive.length-1]^=1;
+    expect(getCGearQuickActionsStatus(p).compatible).toBe(false);
+    const damaged=archive.slice();
+    await expect(installCGearQuickActions(p)).rejects.toThrow();
+    expect(p.fileSystem!.additions![SHOP_ARCHIVE]).toEqual(damaged);
+  });
+  it('accepts authored general-store stock and prices without replacing them',async()=>{
+    const p=makeProject(v);assets();const r=new NintendoDSRom(p.originalRomBytes!);
+    const stockId=r.fileId('a/2/8/2'),itemsId=r.fileId('a/0/2/4');
+    const stock=new NARC(r.files[stockId]),items=new NARC(r.files[itemsId]);
+    writeU16(stock.files[0],0,18);writeU16(items.files[18],0,73);
+    p.fileSystem={replacements:{[stockId]:stock.save(),[itemsId]:items.save()},additions:{}};
+    const before=structuredClone(p.fileSystem.replacements);
+    const d=ensureCGearButtons(p).document;d.buttons.push(newButton(d,'systemShop'));
+    await installCGearQuickActions(p);
+    for(const id of [stockId,itemsId])expect(p.fileSystem!.replacements[id]).toEqual(before[id]);
+  });
+  it.each(['script','counts','item','native'] as const)('rejects incompatible shop %s atomically',async(kind)=>{
+    const p=makeProject(v);assets();await installCGearQuickActions(p);
+    const r=new NintendoDSRom(p.originalRomBytes!),d=ensureCGearButtons(p).document;d.buttons.push(newButton(d,'systemShop'));
+    if(kind==='native'){
+      const s=manifest.games[v].signatures.find(s=>s.label==='Native Buy state machine and cleanup')!,o=r.loadArm9Overlays([36]).get(36)!;
+      p.overlays[36]=o.data.slice();p.overlays[36]![s.address-o.ramAddress]^=1;
+    }else{
+      const id=r.fileId(kind==='script'?'a/0/5/6':kind==='counts'?'a/2/8/3':'a/2/8/2'),a=new NARC(r.files[id]);
+      if(kind==='script')a.files[1247][24]^=1;else if(kind==='counts')a.files[0][0]=255;else writeU16(a.files[0],0,65535);
+      p.fileSystem!.replacements[id]=a.save();
+    }
+    const before={fs:structuredClone(p.fileSystem),applied:structuredClone(p.cgearButtons!.applied),arm:p.arm9.slice()};
+    await expect(installCGearQuickActions(p)).rejects.toThrow();
+    expect(p.fileSystem).toEqual(before.fs);expect(p.cgearButtons!.applied).toEqual(before.applied);expect(p.arm9).toEqual(before.arm);
+  });
   it('upgrades 0.3.6 graphics and shares mute without changing music mappings or shortcut preference',async()=>{
     const p=makeProject(v);assets();await installCGearQuickActions(p);
     const mapping={targetSequenceId:1,streamId:2,originalSequenceFileId:3,shadowFileId:4,streamFileId:5};

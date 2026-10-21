@@ -13,6 +13,14 @@ import { makeEditProject } from "./fixtures/editProject";
 import type { BaseRom, BaseVersion } from "../pokeweb/constants";
 
 describe("project document and editing session boundary", () => {
+  it("retains applied System Shops and pending drafts through autosave documents",()=>{
+    const project=makeEditProject();
+    project.systemShops={document:{version:1,nextId:2,shops:[{id:1,name:'TM Shop',currency:93,inventory:[{item:328,cost:9}]}]},applied:{version:1,nextId:2,shops:[{id:1,name:'TM Shop',currency:93,inventory:[{item:328,cost:1}]}]}};
+    const session=openProjectSession(structuredClone(createProjectDocument(project,false)));
+    expect(session.systemShops).toEqual(project.systemShops);
+    expect(session.systemShops!.document.shops[0].inventory[0].cost).toBe(9);
+    expect(session.systemShops!.applied!.shops[0].inventory[0].cost).toBe(1);
+  });
   it("excludes runtime fields at the root and within archives before serialization", () => {
     const project = makeEditProject();
     getMoveRecord(project, 1);

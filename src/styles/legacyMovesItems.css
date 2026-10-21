@@ -1295,7 +1295,7 @@
 #moves .move-animation-toolbar .script-btn {
   background: #50c3a5;
   border: 0;
-  color: #282a36;
+  color: #f1f1f1;
   cursor: pointer;
   font-size: 16px;
   min-height: 38px;
@@ -1801,7 +1801,7 @@
 #moves .move-spa-editor-header .script-btn {
   background: #50c3a5;
   border: 0;
-  color: #282a36;
+  color: #f1f1f1;
   cursor: pointer;
   font: inherit;
   font-size: 16px;
@@ -2497,7 +2497,7 @@
   border: 0;
   border-radius: 4px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
-  color: #10131c;
+  color: #f1f1f1;
   cursor: pointer;
   font-size: 12px;
   font-weight: 700;
@@ -2550,7 +2550,7 @@
 .move-command-color-actions .move-command-color-apply {
   background: #50c3a5;
   border-color: #50c3a5;
-  color: #10131c;
+  color: #f1f1f1;
   font-weight: 700;
 }
 

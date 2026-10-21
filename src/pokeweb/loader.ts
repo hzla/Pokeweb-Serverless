@@ -1,4 +1,5 @@
 import { hydrateCGearButtons } from "./cgearButtonsModel";
+import { hydrateSystemShops } from "./systemShopsModel";
 import { hydrateFlyDestinationsFromRom } from "./flyDestinationModel";
 import { cacheBw2ScriptRuntimeContext } from "./bw2ScriptOverlayContext";
 import { hydrateCustomUi } from "./customUiModel";
@@ -152,6 +153,8 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
     }
     hydrateCustomUi(project, rom);
     hydrateCGearButtons(project, rom);
+    try { hydrateSystemShops(project, rom); }
+    catch { /* Installation status reports a damaged owned shop archive. */ }
     hydrateCascadePersonalSources(project, rom);
     hydrateBattleLogInstallMetadata(project, rom);
     if (!hydrateW2AnimFromRom(project, rom)) hydratePwanAnimationsFromRom(project, rom);

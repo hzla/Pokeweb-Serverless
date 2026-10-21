@@ -49,6 +49,7 @@ def retailImages(game):
             for o in rom.loadArm9Overlays(NATIVE.keys()).values()
         ),
         bytes(ndspy.narc.NARC(rom.files[rom.filenames.idOf("a/0/5/6")]).files[1244]),
+        bytes(ndspy.narc.NARC(rom.files[rom.filenames.idOf("a/0/5/6")]).files[1247]),
     )
 
 
@@ -62,7 +63,7 @@ class Harness:
         self.uc.mem_map(0x02000000, 0x400000)
         self.uc.mem_map(0x05000000, 0x1000)
         self.uc.mem_map(0x06200000, 0x10000)
-        armAddress, armBytes, overlays, pcScript = retailImages(game)
+        armAddress, armBytes, overlays, pcScript, shopScript = retailImages(game)
         self.uc.mem_write(armAddress, armBytes)
         for address, data in overlays:
             self.uc.mem_write(address, data)
@@ -320,7 +321,16 @@ class Harness:
         add(0x2026E90, self.fadePaletteSet)
         add(0x21EB730, lambda a: 0)
         self.pcScript = pcScript
+        self.shopScript = shopScript
         self.pcOwned = {}
+        self.fileArcs = {}
+        self.functions[self.arm(0x2070ECC)] = self.fileOpen
+        self.functions[self.arm(0x204AC38)] = lambda a: len(self.fileArcs.get(a[0], self.arc).files[a[1]])
+        self.functions[self.arm(0x204AB38)] = self.archiveClose
+        add(0x2048828, lambda a: self.allocate(28))
+        add(0x2048800, lambda a: self.free(a[0]))
+        add(0x21551C4, lambda a: self.shopProcess)
+
         add(0x2006254, lambda a: self.sounds.append(a[0]))
         add(0x21536AC, self.scriptCreate)
         add(0x215F024, lambda a: 0x022F2000)
@@ -431,8 +441,18 @@ class Harness:
             return 1
         return 0
 
+    def fileOpen(self, a):
+        name = bytes(self.uc.mem_read(a[1], 128)).split(b"\0")[0]
+        if name == b"rom:/system-shops/shops.narc":
+            self.fileArcs[a[0]] = self.shopArc
+        return 1
+
+    def archiveClose(self, a):
+        self.fileArcs.pop(a[0], None)
+        return self.free(a[0])
+
     def read(self, a):
-        b = self.arc.files[a[1]]
+        b = self.fileArcs.get(a[0], self.arc).files[a[1]]
         p = self.allocate(len(b))
         if p:
             self.write(p, b)
@@ -569,12 +589,13 @@ class Harness:
         return child
 
     def scriptCreate(self, a):
-        assert a == [SYSTEM, 10090, 0, 45]
+        assert a in ([SYSTEM, 10090, 0, 45], [SYSTEM, 10110, 0, 45]), a
+        source = self.shopScript if a[1] == 10110 else self.pcScript
         e = self.eventCreate([SYSTEM, 0, 0, 8])
         if not e:
             return 0
         owned = []
-        for n in [28, 60, len(self.pcScript)]:
+        for n in [28, 60, len(source)]:
             p = self.allocate(n)
             if not p:
                 for p in owned:
@@ -583,11 +604,19 @@ class Harness:
                 return 0
             owned.append(p)
         scripts, vm, code = owned
-        self.write(code, self.pcScript)
+        self.write(code, source)
         self.put(self.word(e + 12) + 4, scripts)
         self.put(scripts + 4, vm)
-        self.put(vm + 32, code + 30)
+        self.put(vm + 32, code + (24 if a[1] == 10110 else 30))
         self.put(vm + 56, code)
+        process = self.allocate(64)
+        if not process:
+            for p in owned: self.free(p)
+            self.eventDelete(e)
+            return 0
+        owned.append(process)
+        self.put(self.word(e + 12), process)
+        self.shopProcess = process
         self.pcOwned[e] = owned
         return e
 
@@ -616,7 +645,9 @@ class Harness:
         return self.saveResult
 
     def eventDelete(self, e):
-        for p in self.pcOwned.pop(e, []):
+        owned = self.pcOwned.pop(e, [])
+        if owned: owned[2] = self.word(owned[1] + 56)
+        for p in owned:
             self.free(p)
         self.free(self.word(e + 12))
         self.free(e)
@@ -645,7 +676,7 @@ class Harness:
             self.uc.reg_write(r, v)
         self.uc.reg_write(UC_ARM_REG_SP, STACK)
         self.uc.reg_write(UC_ARM_REG_LR, STOP | 1)
-        self.uc.emu_start(address | 1, STOP, count=200000)
+        self.uc.emu_start(address | 1, STOP, count=getattr(self, "instructionLimit", 200000))
         assert self.uc.reg_read(UC_ARM_REG_PC) == STOP, (
             "Did not return",
             name,
@@ -1969,3 +2000,223 @@ for game in ("W2", "B2"):
         game,
         "HM02 ownership, no-move Fly, native return/restrictions, held input and owned-request cleanup passed",
     )
+
+# System Shop: trusted picker, parent lifetime, private messages and atomic payment.
+subprocess.run(["npx", "vite-node", "scripts/generate-system-shop-bindings.ts", "--fixtures"], cwd=HERE.parents[1], check=True)
+for game in ("W2", "B2"):
+    h = Harness(game)
+    h.heapFree = h.heapLargest = 0x80000
+    h.shopArc = ndspy.narc.NARC((BUILD / "shop-fixture-1.narc").read_bytes())
+    h.configure([(20, 20, 0, 0, 255, 60, 116, 2, 42)])
+    h.call("QaCGearInit", SUB)
+    h.call("QaCGearUpdate", SUB, 1)
+    baseline = dict(h.allocations)
+    h.call(h.arm(0x2019204), h.flagWork, 42)
+    h.press(60, 116)
+    assert not h.call("QaCGearEvent", SUB, 1)
+    h.release()
+    h.call(h.arm(0x201922C), h.flagWork, 42)
+
+    def launch():
+        h.press(60, 116)
+        e = h.call("QaCGearEvent", SUB, 1)
+        assert e and not h.call("QaCGearEvent", SUB, 1)
+        h.release()
+        assert h.call(h.word(e + 4), e, e + 8) == 0
+        child = h.children[-1][1]
+        vm = h.pcOwned[child][1]
+        code = h.word(vm + 56)
+        assert bytes(h.uc.mem_read(code, len(h.shopArc.files[2]))) == h.shopArc.files[2]
+        assert h.word(vm + 32) == code + struct.unpack_from("<I", h.shopArc.files[2])[0] + 4
+        return e, child
+
+    def finish(e, child):
+        h.eventDelete(child)
+        assert h.call(h.word(e + 4), e, e + 8) == 1
+        h.eventDelete(e)
+        assert h.allocations == baseline
+
+    for count in [0, 1, 16, 1]:
+        h.shopArc = ndspy.narc.NARC((BUILD / f"shop-fixture-{count}.narc").read_bytes())
+        e, child = launch()
+        assert h.sounds[-1] == 1356
+        finish(e, child)
+
+    # Native priority and discarded touches, then checked owned allocations.
+    h.event = 0x022f3000
+    h.press(60, 116)
+    assert h.call("QaCGearEvent", SUB, 1) == h.event
+    h.event = 0
+    h.release()
+    assert not h.call("QaCGearEvent", SUB, 1)
+    for free, largest in [(1024, 0x80000), (0x80000, 1024)]:
+        h.heapFree, h.heapLargest = free, largest
+        h.press(60, 116)
+        assert not h.call("QaCGearEvent", SUB, 1)
+        h.release()
+        assert h.allocations == baseline
+    h.heapFree = h.heapLargest = 0x80000
+    for fail in range(1, 14):
+        h.fail = h.attempts + fail
+        h.press(60, 116)
+        e = h.call("QaCGearEvent", SUB, 1)
+        h.release()
+        if e:
+            done = h.call(h.word(e + 4), e, e + 8)
+            if not done:
+                child = h.children[-1][1]
+                h.eventDelete(child)
+                assert h.call(h.word(e + 4), e, e + 8) == 1
+            h.eventDelete(e)
+        assert h.allocations == baseline
+    h.fail = 0
+    original = h.shopScript
+    h.shopScript = original[:60] + bytes([original[60] ^ 1]) + original[61:]
+    sounds = len(h.sounds)
+    h.press(60, 116)
+    e = h.call("QaCGearEvent", SUB, 1)
+    h.release()
+    assert h.call(h.word(e + 4), e, e + 8) == 0
+    child = h.children[-1][1]
+    assert h.uc.mem_read(h.word(h.pcOwned[child][1] + 56) + 24, 2) == b"\x02\x00"
+    assert len(h.sounds) == sounds
+    finish(e, child)
+    h.shopScript = original
+
+    # Choice ownership and a constructed native request. UI scheduling stays
+    # stubbed; bag reads/add/remove execute the retail ARM9 implementation.
+    e, child = launch()
+    native, trainer, bag, runtime, scriptState, choice = [SUB + n for n in [0x10000, 0x11000, 0x12000, 0x14000, 0x14100, 0x14200]]
+    h.put(runtime + 32, scriptState)
+    menu = scriptState + 0x34
+    h.functions[h.ov(0x21A85BC)] = lambda a: 0
+    h.call("QaShopChoiceAdd", 0, runtime)
+    menuText = h.word(menu + 20)
+    assert menuText in h.allocations and h.word(menu + 16) == 1
+    h.free(menuText)  # Native list cleanup releases the adopted object.
+    h.put(choice, 1)
+    reopen = choice + 4
+    h.functions[h.ov(0x2153F60)] = lambda a: choice if a[1] == 0x802a else reopen
+    h.functions[h.ov(0x21ABBB0)] = lambda a: h.put(h.shopProcess + 0x3c, native - 8)
+    h.call("QaShopBuyCommand", 0, runtime)
+    owned = []
+    for arc in [0x11b, 0x11a]:
+        p = h.call("QaShopStockFile", arc, 0, 21)
+        assert p in h.allocations
+        owned.append(p)
+    assert h.uc.mem_read(owned[0], 6) == bytes([20] * 6)
+    assert struct.unpack("<20H", h.uc.mem_read(owned[1], 40)) == tuple(range(328, 348))
+    for i in range(20): assert h.call("QaShopPrice", 0) == i + 1
+    h.write(native, bytes(0x2a4))
+    h.write(native + 4, struct.pack("<H", 21))
+    h.put(native + 12, trainer)
+    h.put(native + 16, bag)
+    h.put(trainer, 10000)
+    h.write(bag, bytes(0x9ec))
+    h.instructionLimit = 3000000
+    assert h.call(h.arm(0x2008268), bag, 93, 50, 21) == 1
+    h.functions[h.ov(0x21AD08C)] = lambda a: 0
+    h.write(native + 0x224, struct.pack("<H", 328))
+    h.write(native + 0x230, struct.pack("<H", 1))
+    assert h.call("QaShopBalance", native) == 50
+    h.call("QaShopPay", native, 1)
+    assert h.call("QaShopBalance", native) == 49
+    assert h.call("QaShopAdd", bag, 328, 1, 21) == 1
+    assert h.call(h.arm(0x2008538), bag, 93, 21) == 49
+    assert h.call(h.arm(0x2008538), bag, 328, 21) == 1
+    assert h.word(trainer) == 10000
+    before = bytes(h.uc.mem_read(bag, 0x9ec))
+    h.call("QaShopPay", native, 1)
+    assert h.call("QaShopAdd", bag, 328, 1, 21) == 0 # Owned TM.
+    assert bytes(h.uc.mem_read(bag, 0x9ec)) == before
+    h.write(native + 0x224, struct.pack("<H", 329))
+    h.call("QaShopPay", native, 999)
+    assert h.call("QaShopAdd", bag, 329, 1, 21) == 0
+    assert bytes(h.uc.mem_read(bag, 0x9ec)) == before
+    # Failure after payment removal restores the entire bag, including ordering.
+    originalAdd = h.functions.get(h.arm(0x2008268))
+    h.functions[h.arm(0x2008268)] = lambda a: 0
+    h.call("QaShopPay", native, 2)
+    assert h.call("QaShopAdd", bag, 329, 1, 21) == 0
+    assert bytes(h.uc.mem_read(bag, 0x9ec)) == before
+    h.functions.pop(h.arm(0x2008268))
+    h.call("QaShopPay", native, 2)
+    assert h.call("QaShopAdd", bag, 329, 1, 21) == 1
+    assert h.call(h.arm(0x2008538), bag, 93, 21) == 47
+    assert h.word(trainer) == 10000
+    # Scoped per-item TM renderer/selection; ordinary NPC routes fall through.
+    selections, labels, prices = [], [], []
+    h.functions[h.ov(0x21AC110)] = lambda a: selections.append(h.byte(a[0] + 0x18a))
+    h.functions[h.ov(0x21AC6A0)] = lambda a: labels.append(a[2])
+    h.functions[h.arm(0x2026548)] = lambda a: native
+    h.functions[h.ov(0x21AD510)] = lambda a: prices.append(0)
+    h.functions[h.ov(0x21AD5A0)] = lambda a: prices.append(1)
+    h.write(native + 0x188, struct.pack("<H", 2))
+    for i, item in enumerate([17, 330]):
+        h.write(native + 0x224, struct.pack("<H", item))
+        h.write(native + 0x20 + 8 * i, struct.pack("<H", item))
+        h.call("QaShopSelect", native)
+        # Five-argument wrapper checked separately by emulator; the CPU ABI
+        # utility supplies four register args only, with zeroed stack fifth.
+        h.call("QaShopLabel", native, i, 0, item)
+        h.call("QaShopRowPrice", 0, i, 0)
+    assert selections == labels == prices == [0, 1]
+    # The currency icon borrows the native item animation, owns one extra actor,
+    # character and palette, and retains its queued source through destruction.
+    wallet, unit = SUB + 0x15000, SUB + 0x15100
+    h.put(native + 0x190, wallet); h.put(native + 0x1e4, unit); h.put(native + 0x21c, 3)
+    h.write(wallet + 3, bytes([1, 3]))
+    h.functions[h.ov(0x21ACEA4)] = lambda a: 0
+    h.functions[h.ov(0x21ACEE0)] = lambda a: 0
+    paletteDestinations = []
+    def iconPalette(a):
+        paletteDestinations.append((a[2], a[3]))
+        return 3
+    h.functions[h.arm(0x204BBE4)] = iconPalette
+    sources, positions = [], []
+    h.functions[h.arm(0x204BA6C)] = lambda a: sources.append(h.word(a[1] + 20))
+    oldActor = h.functions[h.arm(0x204C06C)]
+    def iconActor(a):
+        positions.append(struct.unpack("<hh", h.uc.mem_read(h.word(h.uc.reg_read(UC_ARM_REG_SP)), 4)))
+        return oldActor(a)
+    h.functions[h.arm(0x204C06C)] = iconActor
+    iconBaseline = dict(h.allocations)
+    h.call("QaShopGraphics", native)
+    assert positions == [(18, 32)] and len(sources) == 1 and sources[0] in h.allocations
+    assert paletteDestinations == [(0, 64)] # Main OBJ bank 2, separate from the selected item.
+    h.call("QaShopGraphicsEnd", native)
+    assert h.allocations == iconBaseline
+    for failure in range(1, 5):
+        h.fail = h.attempts + failure
+        h.call("QaShopGraphics", native)
+        h.call("QaShopGraphicsEnd", native)
+        assert h.allocations == iconBaseline
+    h.fail = 0
+    for p in owned: h.free(p)
+    # Exit back to the same picker, alternating custom and ordinary shops.
+    # Prices/payment state reset on each return; the parent owns no stale bank.
+    h.functions[h.ov(0x21AC3B0)] = lambda a: 1
+    for selection in [0, 1, 0, 1, 1, 0, 1]:
+        assert h.call("QaShopTick", 0, native, 255, 0) == 1
+        assert h.word(reopen) & 0xffff == 1
+        h.put(menu + 16, 0) # Native menu initialization after previous cleanup.
+        h.call("QaShopChoiceAdd", 0, runtime)
+        adoptedText = h.word(menu + 20)
+        assert adoptedText in h.allocations
+        h.free(adoptedText)
+        h.put(choice, selection)
+        h.call("QaShopBuyCommand", 0, runtime)
+        assert h.word(reopen) & 0xffff == 0
+        if selection:
+            assert h.call("QaShopPrice", 0) == 1
+            assert h.call("QaShopBalance", native) == 47
+    # An allocation failure while rebuilding the picker exits cleanly instead
+    # of displaying an unrelated native text bank or retaining a locked field.
+    h.fail = h.attempts + 1
+    assert h.call("QaShopTick", 0, native, 255, 0) == 1
+    assert h.word(reopen) & 0xffff == 0
+    h.fail = 0
+    finish(e, child)
+    h.call("QaCGearExit", SUB)
+    assert not h.allocations
+    print(game, "System Shop picker/ownership, visibility/priority, allocation cleanup, native TM bag/payment rollback and mixed renderers passed")

@@ -161,7 +161,7 @@ canvas {
 }
 
 #pokeweb-pause[aria-pressed="true"] {
-  color: #071313;
+  color: #f1f1f1;
   border-color: rgba(45, 212, 191, 0.82);
   background: #2dd4bf;
 }

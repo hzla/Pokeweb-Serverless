@@ -19,6 +19,7 @@ export type ProjectSession = {
   bw2ScriptRuntimeContext?: import("./bw2ScriptOverlayContext").Bw2ScriptRuntimeContext;
   bw2ScriptEditor?: import("./bw2ScriptModel").Bw2ScriptEditorState;
   cgearButtons?: import("../cgearButtons/document").Project;
+  systemShops?: import("../systemShops/document").Project;
   customUi?: import("../customUi/document").Project;
   originalRomBytes?: Uint8Array;
   /** Compatibility field name for durable project settings. */
@@ -93,7 +94,7 @@ export function openProjectSession(document: ProjectDocument): ProjectSession {
     docs: document.docs ? { ...document.docs, trainerLocations: {}, trainerDiffs: {},
       itemLocations: {}, groundItemScriptMap: {} } : undefined,
     bw2ScriptEditor: document.scriptDrafts ? { drafts: document.scriptDrafts } : undefined,
-    cgearButtons: document.cgearButtons, customUi: document.customUi,
+    cgearButtons: document.cgearButtons, systemShops: document.systemShops, customUi: document.customUi,
     map3dAreaEdits: document.map3dAreaEdits, fileSystem: document.fileSystem,
     codeInjection: document.codeInjection, overworldWeather: document.overworldWeather,
     pwanAnimations: document.pwanAnimations, w2animAnimations,

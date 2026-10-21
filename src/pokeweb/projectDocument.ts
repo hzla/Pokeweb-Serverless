@@ -52,6 +52,7 @@ export type ProjectDocument = {
   docs?: Pick<DocGeneratorState, "romTitle" | "mastersheetMarkdown" | "mastersheetHighlights">;
   scriptDrafts?: Record<number, Bw2ScriptDraft>;
   cgearButtons?: import("../cgearButtons/document").Project;
+  systemShops?: import("../systemShops/document").Project;
   customUi?: import("../customUi/document").Project;
   map3dAreaEdits?: Map3dAreaEditState;
   fileSystem?: FileSystemEditState;
@@ -106,7 +107,7 @@ export function createProjectDocument(project: ProjectSession, hasMatchingSource
     docs: project.docs ? { romTitle: project.docs.romTitle, mastersheetMarkdown: project.docs.mastersheetMarkdown,
       mastersheetHighlights: project.docs.mastersheetHighlights } : undefined,
     scriptDrafts: project.bw2ScriptEditor?.drafts,
-    cgearButtons: project.cgearButtons, customUi: project.customUi,
+    cgearButtons: project.cgearButtons, systemShops: project.systemShops, customUi: project.customUi,
     map3dAreaEdits: project.map3dAreaEdits, fileSystem: project.fileSystem,
     codeInjection: project.codeInjection, overworldWeather: project.overworldWeather,
     pwanAnimations: project.pwanAnimations,

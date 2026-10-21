@@ -467,3 +467,38 @@
   white-space: normal;
   font-size: 12px;
 }
+
+.map3d-camera-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.map3d-camera-actions button { flex: 1; min-height: 30px; }
+.map3d-camera-endpoint { border-top: 1px solid #454b62; padding-top: 6px; }
+.map3d-camera-endpoint summary { margin-bottom: 6px; }
+.map3d-camera-status { color: #ffd382; font-size: 12px; overflow-wrap: anywhere; }
+.map3d-camera-location { display: grid; gap: 5px; max-width: 300px; padding: 10px; border: 1px solid #65efff; border-radius: 5px; background: rgb(22 37 46 / 94%); color: #e8fcff; font-size: 12px; line-height: 1.4; }
+.map3d-camera-location[hidden] { display: none; }
+.map3d-camera-location strong { color: #65efff; font-size: 13px; }
+.map3d-camera-location [data-camera-location-cell] { color: #c4d5dc; font-size: 11px; }
+.map3d-camera-location button { justify-self: start; margin-top: 3px; }
+.map3d-camera-snapped .map3d-controls { display: none; }
+
+/* The tool panels scroll independently from the map picker and tab strip. */
+.map3d-tabbed-sidebar { width: clamp(340px, 28vw, 420px); box-sizing: border-box; overflow: hidden; padding: 14px; }
+.map3d-tabbed-sidebar > * { margin-bottom: 0; }
+.map3d-map-picker { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; flex: 0 0 auto; min-width: 0; }
+.map3d-map-picker > * { min-width: 0; width: 100%; box-sizing: border-box; }
+.map3d-map-picker .filter-title { margin: 0; padding-bottom: 6px; text-align: left; }
+.map3d-season-buttons { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+.map3d-season-buttons button { min-width: 0; border: 1px solid #454b62; border-radius: 4px; padding: 8px 2px; background: #252a39; color: #cbd5e1; font: inherit; font-size: 12px; cursor: pointer; }
+.map3d-season-buttons button[aria-pressed="true"] { color: #fff; background: #34534f; border-color: #48c9b0; }
+.map3d-season-buttons button:focus-visible { outline: 2px solid #48c9b0; outline-offset: 2px; }
+.map3d-sidebar-tabs { display: flex; flex-wrap: wrap; gap: 5px; flex: 0 0 auto; }
+.map3d-sidebar-tabs button { flex: 1 0 auto; border: 1px solid #454b62; border-radius: 4px; padding: 8px 10px; background: #252a39; color: #cbd5e1; font: inherit; font-size: 12px; cursor: pointer; }
+.map3d-sidebar-tabs button[aria-selected="true"] { color: #fff; background: #34534f; border-color: #48c9b0; }
+.map3d-sidebar-tabs button:focus-visible { outline: 2px solid #48c9b0; outline-offset: 2px; }
+.map3d-tab-panels { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding-bottom: 16px; }
+.map3d-tab-panel { display: grid; gap: 12px; }
+.map3d-tab-panel[hidden] { display: none; }
+.map3d-tabbed-sidebar + .map3d-view { margin-left: clamp(340px, 28vw, 420px); width: calc(100% - clamp(340px, 28vw, 420px)); }
+@media only screen and (max-width: 1180px) {
+  .map3d-tabbed-sidebar { width: 100%; max-height: 64vh; overflow: hidden; }
+  .map3d-tabbed-sidebar + .map3d-view { width: 100%; margin-left: 0; }
+}

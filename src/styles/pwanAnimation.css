@@ -1188,6 +1188,6 @@
   }
 }
 
-.pwan-page .btn.-primary { background: #1abc9c; border-color: #1abc9c; color: #101216; }
+.pwan-page .btn.-primary { background: #1abc9c; border-color: #1abc9c; color: #f1f1f1; }
 .pwan-warning { background: #282a36; border: 0; border-left: 3px solid #ffb86c; border-radius: 0; color: #d6d7e2; }
 .pwan-empty { background: transparent; border: 0; color: #d6d7e2; }

@@ -16,11 +16,14 @@ TOOLS = Path(
     )
 )
 JAR = Path(os.environ.get("RPM_TOOL_JAR", WS / "White2Upgrade/CTRMap.jar"))
-VERSION = "0.5.4"
+VERSION = "0.5.6"
 # Every native import is an explicit US address. No reference source is a build
 # dependency. Verified early getters share addresses; the saved flag helper
 # and the later imported helpers differ by 44.
 APIS = [
+    0x2048828, 0x2048800, 0x2048788, 0x204A960, 0x20136C0,
+    0x204BBE4, 0x2026548, 0x2026AC0, 0x20228B4, 0x2021D54,
+    0x200C9BC, 0x2008538, 0x2008238, 0x2008268, 0x200842C, 0x20095A0,
     0x2016A98,
     0x204AC84,
     0x2042F58,
@@ -101,6 +104,7 @@ APIS = [
 ]
 NATIVE = {
     12: [
+        0x21551C4, 0x2153F60,
         0x21536AC,
         0x2159270,
         0x2159460,
@@ -112,6 +116,8 @@ NATIVE = {
         0x215F024,
     ],
     36: [
+        0x21A85BC, 0x21ABBB0, 0x21AC0D4, 0x21AC374, 0x21AD08C,
+        0x21ACEA4, 0x21ACEE0, 0x21AC3B0, 0x21AD724, 0x21AC6A0, 0x21AC110, 0x21AD510, 0x21AD5A0,
         0x2180518,
         0x21804D0,
         0x2180564,
@@ -133,6 +139,22 @@ NATIVE = {
     79: [0x21EB730, 0x21EB748, 0x21EB894, 0x21EC808, 0x21EC9CC, 0x21ED2E0],
 }
 CALLS = [
+    ("QaShopUnit", 36, 0x21ACEAE, 0x204BF48, ""),
+    ("QaShopGraphics", 36, 0x21AC058, 0x21ACEA4, ""),
+    ("QaShopGraphicsEnd", 36, 0x21AC5FE, 0x21ACEE0, ""),
+    ("QaShopBalanceText", 36, 0x21AD16E, 0x2021D54, ""),
+    ("QaShopStockFile", 36, 0x21AC794, 0x204A960, ""),
+    ("QaShopStockFile", 36, 0x21AC7BC, 0x204A960, ""),
+    ("QaShopLabel", 36, 0x21AC80A, 0x21AC6A0, ""),
+    ("QaShopSelect", 36, 0x21AC2F8, 0x21AC110, ""),
+    ("QaShopPrice", 36, 0x21AC81E, 0x20136C0, ""),
+    ("QaShopMessageBank", 36, 0x21ACA64, 0x2048788, ""),
+    ("QaShopBalance", 36, 0x21AC114, 0x21AC0D4, ""),
+    ("QaShopBalance", 36, 0x21AC214, 0x21AC0D4, ""),
+    ("QaShopMoney", 36, 0x21AD126, 0x200C9BC, ""),
+    ("QaShopPay", 36, 0x21AC562, 0x21AC374, ""),
+    ("QaShopAdd", 36, 0x21AC576, 0x2008268, ""),
+    ("QaShopTick", 36, 0x21ABE1E, 0x21AC3B0, ""),
     ("QaInput", 79, 0x21EC980, 0x21EB894, ""),
     ("QaButtonHit", 79, 0x21EB8C8, 0x21EB748, ""),
     ("QaGearUnit", 79, 0x21EC740, 0x204BF48, ""),
@@ -143,6 +165,10 @@ CALLS = [
     ("QaPhenomenonChance", 36, 0x21A2170, 0x2013878, ""),
 ]
 WORDS = [
+    ("QaShopRowPrice", 36, 0x21AD4BC, 0x21AD511),
+    ("QaShopTmRowPrice", 36, 0x21AD4C0, 0x21AD5A1),
+    ("QaShopChoiceAdd", 12, 0x216B834, 0x21A85BD),
+    ("QaShopBuyCommand", 12, 0x216BA9C, 0x21ABBB1),
     ("QaCGearInit", 36, 0x21CFA10, 0x2198565),
     ("QaCGearUpdate", 36, 0x21CFA14, 0x219865D),
     ("QaCGearEvent", 36, 0x21CFA1C, 0x21986B5),
@@ -179,6 +205,7 @@ def bl_target(b, a):
 
 def main():
     BUILD.mkdir(exist_ok=True)
+    run(REPO / "node_modules/.bin/vite-node", REPO / "scripts/generate-system-shop-bindings.ts")
     dial = json.loads((REPO / "src/cgearButtons/dial.json").read_text())
     (BUILD / "dial.generated.h").write_text(
         "#pragma once\nnamespace dial {\n"
@@ -233,6 +260,27 @@ def main():
     }
     (BUILD / "pc.generated.h").write_text(
         f"#pragma once\nconstexpr u32 PC_SCRIPT_SIZE={len(script)},PC_SCRIPT_HASH=0x{pc_hash:x};\n"
+    )
+    shop = (
+        __import__("ndspy.narc", fromlist=["NARC"])
+        .NARC(graphics_rom.files[graphics_rom.filenames.idOf("a/0/5/6")])
+        .files[1247]
+    )
+    assert hashlib.sha256(shop).hexdigest() == "a6e348ad83826cc5ddb07e851122a52e597fdfac393ff8deca1503b4a27eece0"
+    shop_hash = 0x811C9DC5
+    for b in shop:
+        shop_hash = ((shop_hash ^ b) * 0x1000193) & 0xFFFFFFFF
+    manifest["shopScript"] = {
+        "archive": "a/0/5/6", "member": 1247, "length": len(shop),
+        "entry": 24, "fingerprint": f"{shop_hash:08x}",
+    }
+    manifest["shopInventory"] = {
+        "archive": "a/2/8/2", "countsArchive": "a/2/8/3",
+        "badgeRows": [0, 1, 1, 2, 2, 3, 3, 4, 5],
+    }
+    (BUILD / "shop.generated.h").write_text(
+        f"#pragma once\nconstexpr u32 SHOP_SCRIPT_SIZE={len(shop)},"
+        f"SHOP_SCRIPT_ENTRY=24,SHOP_SCRIPT_HASH=0x{shop_hash:x};\n"
     )
     profiles = [
         "#pragma once",
@@ -319,7 +367,7 @@ def main():
                 f".size {sym},.-{sym}",
             ]
         for label, mod, a, value in WORDS:
-            a -= 52 if game == "B2" and mod == 36 else delta
+            a -= 52 if game == "B2" and mod == 36 and not label.startswith("QaShop") else delta
             expected = value - delta
             assert struct.unpack("<I", signature(label, mod, a, 4, 4))[0] == expected, (
                 game,
@@ -381,6 +429,30 @@ def main():
             .files[1244]
         )
         assert pc == script, f"{game} native storage script differs"
+        native_shop = __import__("ndspy.narc", fromlist=["NARC"]).NARC(
+            rom.files[rom.filenames.idOf("a/0/5/6")]
+        ).files[1247]
+        assert native_shop == shop, f"{game} native shop script differs"
+        assert signature("Native shop script archive mapping", 12, 0x216B172 - delta, 10) == struct.pack("<5H", 10110, 10119, 1247, 3, 614)
+        assert signature("Native Buy script command", 12, 0x216BA9C - delta, 4) == struct.pack("<I", 0x21ABBB1 - delta)
+        signature("Native shop constructor, owned context and completion", 36, 0x21ABBB0 - delta, 0x3DC)
+        signature("Native shop initialization and purchase checks", 36, 0x21ABF8C - delta, 0x424)
+        signature("Native Buy state machine and cleanup", 36, 0x21AC3B0 - delta, 0x3B4)
+        signature("Native shop stock loading", 36, 0x21AC764 - delta, 0x258)
+        signature("Native shop resource ownership", 36, 0x21ACA54 - delta, 0xE4)
+        assert signature("Native general-store badge tiers", 36, 0x21D0970 - (52 if game == "B2" else 0), 9) == bytes(manifest["shopInventory"]["badgeRows"])
+        signature("Native event allocation and destruction layout", "ARM9", 0x2016CB4, 0x6C)
+        signature("Native badge count and money access", "ARM9", 0x200C9A0, 0x40)
+        signature("Native item price accessor", "ARM9", 0x20136C0, 0x18)
+        signature("Native shop item-data loading", "ARM9", 0x202681C - (44 if game == "B2" else 0), 0x30)
+        signature("Native item icon table pointer", "ARM9", 0x202672C - (44 if game == "B2" else 0), 4)
+        signature("Native bag pocket getter and pointer", "ARM9", 0x20088F0, 12)
+        signature("Native bag add/remove ownership", "ARM9", 0x2008238, 0x240)
+        signature("Native TM name, move and owned renderer", 36, 0x21AC678 - delta, 0xEC)
+        signature("Native shop balance/price renderers", 36, 0x21AD08C - delta, 0x610)
+        signature("Native shop message formatting", 36, 0x21AD724 - delta, 0x1E0)
+        signature("Native text object ownership", "ARM9", 0x2048788 - (44 if game == "B2" else 0), 0x24C)
+        signature("Native field choice ownership", 12, 0x215534C - delta, 0xE8)
         assert (
             bl_target(
                 signature("Native menu selection sound", 36, 0x219FE14 - delta, 4),

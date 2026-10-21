@@ -179,7 +179,6 @@ export function renderHeaderEditor(project: ProjectState, root: HTMLElement, onD
       <input class="filter-input" id="search-text"/>
       <button class="btn -default" id="search-text-btn" type="button">Search</button>
       ${project.session.baseRom === "BW2" ? `<a class="btn -default" href="#flyDestinations" data-route="flyDestinations">Fly Destinations</a>` : ""}
-      <button class="btn -default debug-toggle" id="debug-narcs-btn" type="button">Debug NARCs</button>
     </div>
     <div class="pokemon-list spreadsheet" id="headers">
       <div class="expanded-field field-header">

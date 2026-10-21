@@ -6,6 +6,8 @@
 #include "../pokenav/logic.h"
 #include "../nuzlocke-encounters/runtime.h"
 #include "pc.generated.h"
+#include "shop.generated.h"
+#include "shop_picker.generated.h"
 #include "dial.generated.h"
 
 namespace {
@@ -16,6 +18,7 @@ namespace {
 #include "bw2/resources.inc"
 #include "bw2/update.inc"
 #include "bw2/requests.inc"
+#include "bw2/shop.inc"
 } // namespace
 
 #include "bw2/hooks.inc"

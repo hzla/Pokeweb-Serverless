@@ -462,7 +462,7 @@
 .header-battle-environment-dialog > footer .btn.-active {
   background: #1abc9c;
   border-color: #1abc9c;
-  color: #10131b;
+  color: #f1f1f1;
 }
 
 @media (max-width: 1000px) {

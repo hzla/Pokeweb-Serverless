@@ -19,7 +19,8 @@ export type ActionId =
   | "bag"
   | "party"
   | "pokeradar"
-  | "pokenav";
+  | "pokenav"
+  | "systemShop";
 export type Button = {
   id: number;
   label: string;
@@ -262,6 +263,15 @@ export const actions: readonly Action[] = [
     check: 255,
     kind: "application",
   },
+  {
+    id: "systemShop",
+    code: 20,
+    name: "C-Gear Shops",
+    label: "SHOP",
+    item: 0,
+    check: 255,
+    kind: "script",
+  },
 ];
 /** BW1 has no usable Xtransceiver or BW2 transformation/Medal Box route. */
 export function actionsFor(game: "BW" | "BW2" = "BW2"): readonly Action[] {
@@ -275,6 +285,7 @@ export function actionsFor(game: "BW" | "BW2" = "BW2"): readonly Action[] {
           "splicers",
           "revealGlass",
           "pokenav",
+          "systemShop",
         ].includes(a.id),
     )
     .map((a) => ({

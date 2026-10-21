@@ -251,7 +251,7 @@ const additions = [
   {
     name: 'cgear-quick-actions', title: 'C-Gear Buttons and Quick Actions',
     artifacts: ['CGearQuickActionsB2.dll', 'CGearQuickActionsW2.dll', 'CGearQuickActionsB.dll', 'CGearQuickActionsW.dll'],
-    note: 'Separate BW2 0.5.4 and BW1 0.1.3-bw1 profiles and builders add HM02-gated native Fly without a learned-move requirement. BW2 retains the outer-rim 12-degree skin dial and moving marker while hiding the digital clock and chevron decal; shared geometry and compiled graphics are inventoried here. It retains the optional Nuzlocke snapshot provider to the Pokenav application action; its shared viewer sources are inventoried separately. Source availability does not establish historical binary reproducibility or hardware acceptance.',
+    note: 'BW2 0.5.5 adds the optional System Shop picker, native Pokémart, separate custom shop definitions, per-item prices, stackable-item currencies, native TM rendering and a currency icon/balance panel. BW1 remains 0.1.3-bw1 without System Shop. Both retain HM02-gated native Fly without a learned-move requirement. BW2 retains the outer-rim 12-degree skin dial and moving marker while hiding the digital clock and chevron decal; shared geometry and compiled graphics are inventoried here. It retains the optional Nuzlocke snapshot provider to the Pokenav application action; its shared viewer sources are inventoried separately. Source availability does not establish historical binary reproducibility or hardware acceptance.',
     extra: [
       ...fs.readdirSync(path.join(app, 'runtime/cgear-quick-actions/bw2')).filter(name => name.endsWith('.inc')).sort().map(name => file('cgear-quick-actions', `bw2/${name}`)),
       file('cgear-quick-actions', '.clang-format', 'metadata'),
@@ -264,6 +264,14 @@ const additions = [
       ...['cgearButtons', 'cgearQuickActionsModel', 'cgearQuickActionsBw1'].map(name => file('cgear-quick-actions', `tests/${name}.test.ts`, 'test', `src/test/${name}.test.ts`)),
       file('cgear-quick-actions', 'integration/cgearQuickActionsModel.ts', 'support-only', 'src/pokeweb/cgearQuickActionsModel.ts'),
       file('cgear-quick-actions', 'integration/cgearButtonsModel.ts', 'support-only', 'src/pokeweb/cgearButtonsModel.ts'),
+      file('cgear-quick-actions', 'build/generate-system-shop-bindings.ts', 'build-tool', 'scripts/generate-system-shop-bindings.ts'),
+      file('cgear-quick-actions', 'tests/verify-system-shop-demo.ts', 'test', 'scripts/verify-system-shop-demo.ts'),
+      ...fs.readdirSync(path.join(app, 'src/systemShops')).filter(name => name.endsWith('.ts')).map(name => file('cgear-quick-actions', `integration/shops/${name}`, 'support-only', `src/systemShops/${name}`)),
+      file('cgear-quick-actions', 'integration/systemShopsModel.ts', 'support-only', 'src/pokeweb/systemShopsModel.ts'),
+      file('cgear-quick-actions', 'integration/systemShopsEditor.ts', 'support-only', 'src/ui/systemShopsEditor.ts'),
+      file('cgear-quick-actions', 'integration/tmModel.ts', 'support-only', 'src/pokeweb/tmModel.ts'),
+      file('cgear-quick-actions', 'integration/systemShops.css', 'support-only', 'src/styles/systemShops.css'),
+      file('cgear-quick-actions', 'tests/systemShops.test.ts', 'test', 'src/test/systemShops.test.ts'),
       file('cgear-quick-actions', 'metadata/cgearQuickActionsManifest.json', 'metadata', 'src/assets/codeinjection/cgearQuickActionsManifest.json'),
     ],
   },

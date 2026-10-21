@@ -5,6 +5,9 @@ import { createRequire } from "node:module";
 import vm from "node:vm";
 import { PNG } from "pngjs";
 import { loadProjectFromRomBytes } from "../../src/pokeweb/loader";
+import { replaceRomFile } from "../../src/pokeweb/fileSystemModel";
+import { ensureSystemShops } from "../../src/pokeweb/systemShopsModel";
+import { tmTestShop } from "../../src/systemShops/document";
 import { buildQuickLaunchDownloads, getTestBattleConfigForProject, patchTestBattleSaveBadges } from "../../src/pokeweb/testBattle";
 import { patchTestBattleSavePlayerFirstMove, patchTestBattleSavePlayerParty, decryptPk5Party } from "../../src/pokeweb/testBattleTeam";
 import { installCGearQuickActions, CGEAR_QUICK_ACTIONS_DEFAULT_PC_HIDE_FLAG } from "../../src/pokeweb/cgearQuickActionsModel";
@@ -27,12 +30,13 @@ const input=process.argv[2];if(!input) throw new Error("Pass clean B2/W2 ROM.");
 const scenarioArg=process.argv.indexOf('--scenario');
 const scenario=scenarioArg<0?'default':process.argv[scenarioArg+1];
 const radarSuffix=['--radar-zone','--radar-x','--radar-z'].map(name=>{const i=process.argv.indexOf(name);return i<0?'':`-${name.slice(8)}${Number(process.argv[i+1])}`;}).join('');
-const out=new URL(`./build/emulator-${input.toLowerCase().includes("black")?"B2":"W2"}-${scenario}${actionId?`-${actionId}`:""}${process.argv.includes("--power-on")?"-on":"-off"}${process.argv.includes("--eight")?"-eight":""}${radarSuffix}/`,import.meta.url);await mkdir(out,{recursive:true});
+const out=new URL(`./build/emulator-${input.toLowerCase().includes("black")?"B2":"W2"}-${scenario}${actionId?`-${actionId}`:""}${process.argv.includes("--power-on")?"-on":"-off"}${process.argv.includes("--eight")?"-eight":""}${radarSuffix}${process.argv.includes("--append-shop")?"-seven":""}/`,import.meta.url);await mkdir(out,{recursive:true});
 globalThis.fetch=(async(v:RequestInfo|URL)=>new Response(new Uint8Array(await readFile(v instanceof URL?v:new URL(v instanceof Request?v.url:String(v)))))) as typeof fetch;
 const project=await loadProjectFromRomBytes(new Uint8Array(await readFile(input)),"quick-actions.nds",{selectedNarcs:[]});
 const design=ensureCGearButtons(project).document;
 const pcPoint=[design.buttons[1].x,design.buttons[1].y] as [number,number];
-if(selectedAction)Object.assign(design.buttons[0],{label:selectedAction.label,action:selectedAction.id,flag:undefined});
+if(selectedAction&&!process.argv.includes('--append-shop'))Object.assign(design.buttons[0],{label:selectedAction.label,action:selectedAction.id,flag:undefined});
+if(process.argv.includes('--append-shop')){const b=newButton(design,'systemShop');b.x=128;b.y=96;design.buttons.push(b);}
 if(process.argv.includes('--eight')){let added=0;while(design.buttons.length<8)design.buttons.push(newButton(design,["dowsing","rod","medals","recorder"][added++%4] as ActionId));}
 if(process.argv.includes('--enhanced'))await installMenuEvolution(project);
 if(process.argv.includes('--companions')) {
@@ -57,9 +61,26 @@ if(process.argv.includes('--pokenav-fixture')) {
 if(process.argv.includes('--pokenav-empty-map')){
   updateHeaderField(project,428,'enc_data_id','65535');
 }
-await installCGearQuickActions(project);
+if(process.argv.includes('--tm-shop')){
+  const state=ensureSystemShops(project);state.document.shops.push(tmTestShop(state.document));
+  if(process.argv.includes('--mixed-shop'))state.document.shops[0].inventory=[{item:328,cost:1},{item:4,cost:3}];
+}
+if (process.argv.includes('--shop-edits')) {
+  const r = new NintendoDSRom(project.originalRomBytes!, {fileData:'view'});
+  const stockId = r.fileId('a/2/8/2'), itemId = r.fileId('a/0/2/4');
+  const stock = new NARC(r.files[stockId]), items = new NARC(r.files[itemId]);
+  for (let row=0;row<6;row++) stock.files[row].set([11,0]);
+  items.files[11].set([37,0]); // Native price units: 37 × 10 = 370 Poké Dollars.
+  replaceRomFile(project,r,stockId,stock.save());
+  replaceRomFile(project,r,itemId,items.save());
+}
+await installCGearQuickActions(project,{applySystemShops:process.argv.includes('--tm-shop')});
 const downloads=await buildQuickLaunchDownloads(project),romBytes=downloads.romBytes;
 const compiledRom=new NintendoDSRom(romBytes,{fileData:"view"}),compiledArchive=new NARC(compiledRom.files[compiledRom.fileId("quick-actions/ui.narc")]);
+if(process.argv.includes('--shop-edits')){
+  const stock=new NARC(compiledRom.files[compiledRom.fileId('a/2/8/2')]),items=new NARC(compiledRom.files[compiledRom.fileId('a/0/2/4')]);
+  if(stock.files[0][0]!==11||items.files[11][0]!==37)throw new Error('Authored shop edits were not exported');
+}
 if(process.env.QUICK_ACTIONS_DEBUG){const r=new NintendoDSRom(romBytes,{fileData:"view"}),a=new NARC(r.files[r.fileId("quick-actions/ui.narc")]);console.log('ROM button header',Buffer.from(a.files[0]).toString('hex'));}
 const fixtureArg=process.argv.indexOf('--fixture-copy');
 const baseFixture=patchTestBattleSaveBadges(downloads.saveBytes,getTestBattleConfigForProject(project));
@@ -78,6 +99,12 @@ const numericOption=(name:string,fallback:number)=>{const i=process.argv.indexOf
 // Enable obtained status only in the isolated fixture. The original bundled
 // fixture and every user's save stay untouched. Fix native block checksums.
 for(const half of [0,0x26000]) {
+  if (scenario.startsWith('shop') && !['shopReload','shopTMReload'].includes(scenario)) {
+    fixture.writeUInt32LE(scenario==='shopPoor'?0:10000, half+0x21100);
+    fixture.writeUInt32LE(0, half+0x21104);
+    const miscCrc=crc(fixture.subarray(half+0x21100,half+0x211f0));
+    fixture.writeUInt16LE(miscCrc,half+0x211f2);fixture.writeUInt16LE(miscCrc,half+0x25f68);
+  }
   if(radarZone!==undefined){
     if(!Number.isInteger(radarZone)||radarZone<0||!radarHeaders||radarZone*48+48>radarHeaders.length)throw new Error('Invalid radar fixture zone');
     const header=Buffer.from(radarHeaders),row=radarZone*48;
@@ -103,6 +130,17 @@ for(const half of [0,0x26000]) {
     for(let n=0;n<109;n++){const at=half+0x18400+0x624+n*4,current=fixture.readUInt16LE(at);if(current===421){slot=at;break;}if(!current&&slot<0)slot=at;}
     if(slot<0)throw new Error('No empty TM/HM fixture slot');
     const owned=!process.argv.includes('--no-hm');fixture.writeUInt16LE(owned?421:0,slot);fixture.writeUInt16LE(owned?1:0,slot+2);
+  }
+  if(process.argv.includes('--tm-shop')&&scenario!=='shopTMReload'){
+    const base=half+0x18400;
+    let slot=-1;
+    for(let p=base;p<base+310*4;p+=4){const id=fixture.readUInt16LE(p);if(id===93){slot=p;break;}if(!id&&slot<0)slot=p;}
+    if(slot<0)throw new Error('No Heart Scale fixture slot');
+    fixture.writeUInt16LE(93,slot);fixture.writeUInt16LE(process.argv.includes('--no-currency')?0:500,slot+2);
+    const remaining=[];
+    for(let n=0;n<109;n++){const p=base+0x624+n*4,id=fixture.readUInt16LE(p);if(id&&!(id>=328&&id<348))remaining.push([id,fixture.readUInt16LE(p+2)]);}
+    fixture.fill(0,base+0x624,base+0x624+109*4);
+    remaining.forEach(([id,count],i)=>{fixture.writeUInt16LE(id,base+0x624+i*4);fixture.writeUInt16LE(count,base+0x626+i*4);});
   }
   const bagCrc=crc(fixture.subarray(half+0x18400,half+0x18dec));fixture.writeUInt16LE(bagCrc,half+0x18dee);fixture.writeUInt16LE(bagCrc,half+0x25f32);
   const flag=CGEAR_QUICK_ACTIONS_DEFAULT_PC_HIDE_FLAG,at=half+0x1ff00+0x35e+(flag>>3);
@@ -159,6 +197,49 @@ const extras:Record<string,Input[]>={
   party:[{frame:1000,touch:[188,60]}, {frame:1450,buttons:64}, {frame:1800,touch:[188,60]}, {frame:2250,buttons:64}],
   reload:[],gates:[]
 };
+extras.shopBadges = Array.from({length:9},(_,badge)=>[
+  {frame:1000+badge*500,touch:[60,116] as [number,number],duration:24},
+  {frame:1250+badge*500,buttons:64},
+  {frame:1380+badge*500,buttons:64},
+]).flat();
+extras.shopBuy = [
+  {frame:1000,touch:[60,116],duration:24},
+  ...[1120,1230,1360,1490,1700,1820,1940,2060].map(frame=>({frame,buttons:128})),
+  {frame:2150,buttons:128}, {frame:2300,buttons:128},
+  {frame:2450,buttons:64}, {frame:2600,buttons:64},
+];
+extras.shopSave = [...extras.shopBuy,{frame:3000,touch:[200,180]},...[3300,3420,3640,3860,4080,4300,4520].map(frame=>({frame,buttons:128}))];
+extras.shopReload = [{frame:1000,touch:[60,116]},{frame:1250,buttons:64}];
+extras.shopPicker = [{frame:1000,touch:[60,116]},{frame:1250,buttons:64}];
+extras.shopTM = [{frame:1000,touch:[60,116]},{frame:1120,buttons:4},{frame:1180,buttons:128},{frame:1450,buttons:64}];
+extras.shopTMReload = [...extras.shopTM];
+extras.shopTMBuy = [
+  {frame:1000,touch:[60,116]}, {frame:1120,buttons:4}, {frame:1180,buttons:128},
+  ...[1400,1530,1740,1900,2100,2300].map(frame=>({frame,buttons:128})),
+  {frame:2440,buttons:4}, {frame:2500,buttons:128}, {frame:2640,buttons:64},
+  {frame:2800,buttons:64}, {frame:2920,buttons:64},
+];
+extras.shopTMMixed = [...extras.shopTMBuy.filter(v=>v.frame<=2500),...[2640,2760,2920,3080].map(frame=>({frame,buttons:128})),{frame:3240,buttons:64},{frame:3360,buttons:64}];
+extras.shopTMSave = [...extras.shopTMBuy,{frame:3200,touch:[200,180]},...[3500,3620,3840,4060,4280,4500,4720].map(frame=>({frame,buttons:128}))];
+extras.shopTMPoor = [{frame:1000,touch:[60,116]},{frame:1120,buttons:4},{frame:1180,buttons:128},{frame:1400,buttons:128},{frame:1600,buttons:128},{frame:1800,buttons:64}];
+extras.shopTMSwitch = [
+  {frame:1000,touch:[60,116]}, {frame:1120,buttons:4}, {frame:1180,buttons:128},
+  ...[1400,1530,1740].map(frame=>({frame,buttons:128})),
+  {frame:1900,buttons:64}, {frame:2160,buttons:64},
+  {frame:2500,buttons:128}, {frame:2900,buttons:64},
+  {frame:3300,buttons:4}, {frame:3360,buttons:128}, {frame:3600,buttons:4},
+  ...[3660,3790,4000].map(frame=>({frame,buttons:128})),
+  {frame:4160,buttons:64}, {frame:4420,buttons:64}, {frame:5000,buttons:64},
+  {frame:5300,touch:[60,116]}, {frame:5500,buttons:64},
+];
+for(const [name,inputs] of Object.entries(extras))if(name.startsWith('shop')&&!name.startsWith('shopTM')&&name!=='shopPicker'){
+  const picks=inputs.filter(input=>!!input.touch&&input.touch[0]===60&&input.touch[1]===116).map(input=>({frame:input.frame+60,buttons:128}));
+  inputs.push(...picks);
+}
+extras.shopPoor = [{frame:1000,touch:[60,116]}, {frame:1060,buttons:128}, {frame:1120,buttons:128}, {frame:1250,buttons:128}, {frame:1400,buttons:64}];
+extras.shopFull = [...extras.shopPoor];
+extras.shopCancel = [{frame:1000,touch:[60,116]}, {frame:1060,buttons:128}, {frame:1120,buttons:128}, {frame:1250,buttons:64}, {frame:1400,buttons:64}];
+if(process.argv.includes('--append-shop')&&scenario.startsWith('shop'))for(const input of extras[scenario])if(input.touch?.[0]===60&&input.touch[1]===116)input.touch=[128,96];
 if(scenario==='skins')extras.skins.push(...extras.pc.map(v=>({...v,frame:v.frame+1600})),...extras.map.map(v=>({...v,frame:v.frame+3500})));
 if(selectedAction?.id==='mapFlyHm'&&scenario==='travel')extras.travel[0].touch=[60,116];
 if(scenario==='layout')extras.layout.push(...extras.save.filter(v=>v.frame>=1000).map(v=>({...v,frame:v.frame+600})));
@@ -169,7 +250,7 @@ if(process.argv.includes('--repeat')) {
 }
 if(!(scenario in extras))throw new Error('Unknown emulator scenario');
 const inputOffset=process.argv.includes("--power-on")?0:300;
-const frameCount=Number(process.env.QUICK_ACTIONS_FRAMES ?? 2600)+inputOffset;
+const frameCount=numericOption("--frames",Number(process.env.QUICK_ACTIONS_FRAMES ?? 2600))+inputOffset;
 let lastSession=-1;let bikeMounted=false,bikeDismounted=false;
 let radarSpawn:unknown;
 function phenomenon(m:Buffer){
@@ -200,8 +281,66 @@ function navState(m:Buffer){
  }
  throw new Error('Pokenav species info/percentage is missing');
 }
+// Native shop observations are confined to copied emulator fixtures.
+let shopTrainer=-1, shopBag=-1, shopFirst=-1, shopQuantity=0, shopMoney=0;
+function shopRequest(m:Buffer):number {
+  const s=locateSession(m);
+  if(s<0)return -1;
+  const sub=m.readUInt32LE(s+4)-0x2000000,field=m.readUInt32LE(sub+20)-0x2000000;
+  const game=m.readUInt32LE(field+8)-0x2000000,bag=m.readUInt32LE(game+0x190);
+  for(let p=8;p<m.length-0x2a4;p+=4)
+    if(m.readUInt16LE(p+4)===21&&m.readUInt32LE(p+16)===bag&&m[p-8]===4&&m[p-6]===255&&m.readUInt16LE(p+0x188)>0&&m.readUInt16LE(p+0x188)<=45){
+      shopTrainer=m.readUInt32LE(p+12)-0x2000000;shopBag=bag-0x2000000;return p;
+    }
+  return -1;
+}
+function bagQuantity(m:Buffer,item:number):number {
+  let total=0;
+  for(let p=shopBag+(item>=328&&item<=425?0x624:0);p<shopBag+(item>=328&&item<=425?0x624+109*4:310*4);p+=4)if(m.readUInt16LE(p)===item)total+=m.readUInt16LE(p+2);
+  return total;
+}
+function checkCurrencyIcon(m:Buffer,request:number) {
+  const archive=new NARC(compiledRom.files[compiledRom.fileId('system-shops/shops.narc')]);
+  const count=archive.files[0][8],art=untile(archive.files[4+count]),palette=archive.files[5+count];
+  const wallet=m.readUInt32LE(request+0x190)-0x2000000;
+  const left=m[wallet+3]*8+10-16,top=m[wallet+4]*8+8-16,fb=core._getSymbol(4)>>>0;
+  let compared=0;
+  for(let y=0;y<32;y++)for(let x=0;x<32;x++){
+    const ink=art[y*32+x];if(!ink)continue;
+    const color=palette[40+ink*2]|palette[41+ink*2]<<8,pixel=fb+((top+y)*256+left+x)*4;
+    for(let channel=0;channel<3;channel++){
+      const value=(color>>(channel*5))&31,expected=(value<<3)|(value>>2);
+      if(Math.abs(core.HEAPU8[pixel+channel]-expected)>1)throw new Error(`Currency palette mismatch at ${x},${y}, channel ${channel}`);
+    }
+    compared++;
+  }
+  if(compared<30)throw new Error('Currency icon color comparison was empty');
+  console.log('native currency colors',compared,'opaque pixels matched');
+}
+const shopStock=new NARC(compiledRom.files[compiledRom.fileId('a/2/8/2')]);
+const shopItems=new NARC(compiledRom.files[compiledRom.fileId('a/0/2/4')]);
+const badgeRows=[0,1,1,2,2,3,3,4,5];
+function checkShopStock(m:Buffer,badges:number) {
+  const request=shopRequest(m);
+  if(request<0)throw new Error(`Native Buy list did not open for ${badges} badges`);
+  const expected=Buffer.from(shopStock.files[badgeRows[badges]]),count=m.readUInt16LE(request+0x188);
+  if(count!==expected.length/2)throw new Error(`Native stock count ${count} for ${badges} badges`);
+  const rows=[];
+  for(let i=0;i<count;i++){
+    const item=m.readUInt16LE(request+0x20+i*8),price=m.readUInt32LE(request+0x24+i*8);
+    const wanted=expected.readUInt16LE(i*2),wantedPrice=(shopItems.files[wanted][0]|shopItems.files[wanted][1]<<8)*10;
+    if(item!==wanted||price!==wantedPrice)throw new Error(`Native stock/price mismatch at badge ${badges}, row ${i}: ${item}/${price}, wanted ${wanted}/${wantedPrice}`);
+    rows.push({item,price});
+  }
+  console.log('shop stock',badges,JSON.stringify(rows));
+  return request;
+}
 for(let frame=0;frame<frameCount;frame++) {
   const activeFrame=frame-inputOffset;
+  if(scenario==='shopBadges'&&activeFrame>=1499&&(activeFrame-999)%500===0){
+    if(shopTrainer<0)throw new Error('Shop trainer context was not captured');
+    ram().writeUInt32LE((1<<((activeFrame-999)/500))-1,shopTrainer+4);
+  }
   if(scenario==='pokenav'&&activeFrame===999){
     const m=ram(),session=locateSession(m);if(session<0)throw new Error('Missing field fixture');const sub=m.readUInt32LE(session+4)-0x2000000,field=m.readUInt32LE(sub+20)-0x2000000,game=m.readUInt32LE(field+8)-0x2000000;
     partyOffset=m.readUInt32LE(game+0x194)-0x2000000;
@@ -217,6 +356,78 @@ for(let frame=0;frame<frameCount;frame++) {
   const touch=extra?.touch ?? (scenario!=='default'?null:frame>=850&&frame<854 ? [60,116] : frame>=910&&frame<914 ? [60,116] : frame>=970&&frame<974 ? [228,144] : frame>=1020&&frame<1024 ? [60,116] : frame>=1024&&frame<1040 ? [70,120] : frame>=1080&&frame<1084 ? [228,144] : frame>=1120&&frame<1124 ? [196,176] : frame>=1400&&frame<1404 ? [205,62] : frame>=1500&&frame<1504 ? [228,144] : frame>=1560&&frame<1564 ? [228,144] : frame>=1650&&frame<1654 ? [196,116] : frame>=2250&&frame<2254 ? [172,152] : null);
   const buttons=extra?.buttons ?? (scenario!=='default'?0:frame>=1220&&frame<1224||frame>=1400&&frame<1404?128:frame>=2020&&frame<2024||frame>=2080&&frame<2084||frame>=2140&&frame<2144||frame>=2450&&frame<2454?64:0);
   core._runFrame(1,buttons,touch?1:0,touch?.[0]??0,touch?.[1]??0);
+  if(scenario.startsWith('shop')){
+    const m=ram();
+    if(scenario==='shopBadges'&&activeFrame>=1120&&(activeFrame-1120)%500===0&&activeFrame<=5120)
+      checkShopStock(m,(activeFrame-1120)/500);
+    if(!scenario.startsWith('shopTM')&&!['shopBadges','shopPicker'].includes(scenario)&&activeFrame===1110){
+      const request=checkShopStock(m,0);shopFirst=m.readUInt16LE(request+0x20);
+      if(scenario==='shopFull'){
+        let slot=-1;
+        for(let p=shopBag;p<shopBag+310*4;p+=4){const id=m.readUInt16LE(p);if(id===shopFirst){slot=p;break;}if(!id&&slot<0)slot=p;}
+        if(slot<0)throw new Error('No fixture slot for full-stack test');
+        m.writeUInt16LE(shopFirst,slot);m.writeUInt16LE(999,slot+2);
+      }
+      shopQuantity=bagQuantity(m,shopFirst);shopMoney=m.readUInt32LE(shopTrainer);
+    }
+    if(!scenario.startsWith('shopTM')&&!['shopBadges','shopPicker'].includes(scenario)&&[1160,1280,1410,1530,1640,2100].includes(activeFrame)){
+      const request=shopRequest(m);
+      console.log('shop purchase',activeFrame,JSON.stringify({request,phase:request<0?-1:m.readUInt32LE(request),money:m.readUInt32LE(shopTrainer),quantity:bagQuantity(m,shopFirst)}));
+    }
+    if(scenario.startsWith('shopTM')&&activeFrame===1340){
+      const request=shopRequest(m);
+      if(request<0||m.readUInt16LE(request+0x188)!==(scenario==='shopTMMixed'?2:20)||m[request+0x18a]!==1)throw new Error('Native TM shop did not open in TM mode');
+      if(scenario==='shopTMMixed')shopQuantity=bagQuantity(m,4);
+      else for(let i=0;i<20;i++)if(m.readUInt16LE(request+0x20+i*8)!==328+i||m.readUInt32LE(request+0x24+i*8)!==i+1)throw new Error('TM shop inventory/cost mismatch');
+      if(scenario==='shopTMReload'&&(bagQuantity(m,93)!==499||bagQuantity(m,328)!==1||m.readUInt32LE(shopTrainer)!==10000))throw new Error('Cold reload lost item-currency purchase');
+      console.log('native TM shop ready',JSON.stringify({request,currency:bagQuantity(m,93),money:m.readUInt32LE(shopTrainer)}));
+      checkCurrencyIcon(m,request);
+      if(process.env.QUICK_ACTIONS_DEBUG){
+        console.log('wallet window',m.subarray(m.readUInt32LE(request+0x190)-0x2000000,m.readUInt32LE(request+0x190)-0x2000000+24).toString('hex'));
+        let c=-1;while((c=m.indexOf(Buffer.from('SSHP'),c+1))>=0){const pointer=Buffer.alloc(4);pointer.writeUInt32LE(c+0x2000000);let w=-1;while((w=m.indexOf(pointer,w+1))>=0)if(w>=4&&m.readUInt16LE(w-4)===45&&m.readUInt32LE(w+24)===request+0x2000000)console.log('shop work',w-4,m.subarray(w-4,w+76).toString('hex'));}
+        await writeFile(new URL('ram-1340.bin',out),m);
+      }
+    }
+    if(scenario==='shopTMSwitch'){
+      if(activeFrame===2720)checkShopStock(m,0);
+      if([2400,3120,4700].includes(activeFrame)){
+        if(shopRequest(m)>=0)throw new Error('Shop request survived return to picker');
+        console.log('shop picker returned',activeFrame);
+      }
+      if(activeFrame===3500){
+        const request=shopRequest(m);
+        if(request<0||m.readUInt16LE(request+0x188)!==20||m.readUInt32LE(request+0x24)!==1||m.readUInt32LE(request+0x2c)!==2||bagQuantity(m,93)!==499)throw new Error('Reopened custom shop retained stale stock/prices/currency');
+        checkCurrencyIcon(m,request);
+        console.log('custom shop reopened after Pokémart');
+      }
+      if(activeFrame===4500&&(bagQuantity(m,93)!==497||bagQuantity(m,328)!==1||bagQuantity(m,329)!==1||m.readUInt32LE(shopTrainer)!==10000))throw new Error('Second shop session did not charge the correct item currency');
+    }
+    if(scenario.startsWith('shopTM')&&[1700,2000,2400,2700,3050,3500].includes(activeFrame)){
+      const request=shopRequest(m);console.log('TM transaction',activeFrame,JSON.stringify({request,phase:request<0?-1:m.readUInt32LE(request),scales:bagQuantity(m,93),tm1:bagQuantity(m,328),tm2:bagQuantity(m,329),balls:bagQuantity(m,4),money:m.readUInt32LE(shopTrainer)}));
+      if(activeFrame===2700&&request>=0&&scenario!=='shopTMSwitch')checkCurrencyIcon(m,request);
+      if(scenario==='shopTMMixed'&&activeFrame===3500&&(bagQuantity(m,93)!==496||bagQuantity(m,328)!==1||bagQuantity(m,4)!==shopQuantity+1||m.readUInt32LE(shopTrainer)!==10000||request>=0))throw new Error('Mixed TM/ordinary stock purchase did not charge its exact item-currency cost');
+      if(['shopTMBuy','shopTMSave'].includes(scenario)&&activeFrame===3050){
+        if(bagQuantity(m,93)!==499||bagQuantity(m,328)!==1||bagQuantity(m,329)!==0||m.readUInt32LE(shopTrainer)!==10000||request>=0)throw new Error('TM purchase/owned/cancel/return did not preserve exact currency and inventory');
+      }
+      if(scenario==='shopTMPoor'&&activeFrame===2000&&(bagQuantity(m,93)!==0||bagQuantity(m,328)!==0||m.readUInt32LE(shopTrainer)!==10000||request>=0))throw new Error('Insufficient item currency changed inventory/payment or blocked exit');
+    }
+    if(['shopBuy','shopSave'].includes(scenario)&&activeFrame===2100){
+      const price=(shopItems.files[shopFirst][0]|shopItems.files[shopFirst][1]<<8)*10;
+      if(bagQuantity(m,shopFirst)!==shopQuantity+2||m.readUInt32LE(shopTrainer)!==shopMoney-price*2)throw new Error('Repeated purchases did not apply native quantity/payment exactly');
+    }
+    if(['shopPoor','shopFull','shopCancel'].includes(scenario)&&activeFrame===1590)
+      if(m.readUInt32LE(shopTrainer)!==shopMoney||bagQuantity(m,shopFirst)!==shopQuantity)throw new Error('Failed/cancelled purchase changed money or inventory');
+    if(scenario==='shopReload'&&activeFrame===1110){
+      const expectedMoney=fixture.readUInt32LE(0x21100);
+      let expectedQuantity=0;for(let p=0x18400;p<0x18400+310*4;p+=4)if(fixture.readUInt16LE(p)===shopFirst)expectedQuantity+=fixture.readUInt16LE(p+2);
+      if(shopMoney!==expectedMoney||shopQuantity!==expectedQuantity)throw new Error('Cold reload lost native shop money/inventory');
+      console.log('shop cold reload',JSON.stringify({money:shopMoney,item:shopFirst,quantity:shopQuantity}));
+    }
+    if((scenario==='shopBadges'&&activeFrame>=1400&&(activeFrame-1400)%500===0)||['shopPoor','shopFull','shopCancel','shopReload'].includes(scenario)&&activeFrame===1590||['shopBuy','shopSave'].includes(scenario)&&activeFrame===2750){
+      if(shopRequest(m)>=0)throw new Error(`Native shop did not release its request at ${activeFrame}`);
+      console.log('shop returned',activeFrame);
+    }
+  }
   if(process.env.QUICK_ACTIONS_DEBUG&&[1150,1599].includes(activeFrame)){await writeFile(new URL(`ram-${activeFrame}.bin`,out),ram());const length=core._saveState(0);await writeFile(new URL(`debug-${activeFrame}.dst`,out),Buffer.from(core.HEAPU8.buffer,core._stateGetPointer(0),length));}
   if(scenario==='mute'&&[999,1040,1100,1300,2100,2240].includes(activeFrame)){
     const m=ram(),s=locateSession(m);if(s<0||!m[s+160])throw new Error('Mute lost C-Gear');
@@ -337,7 +548,7 @@ for(let frame=0;frame<frameCount;frame++) {
     const session=locateSession(m);
     const row={frame,error:session>=0?m[session+735]:null,buttonCount:session>=0?m[session+733]:null,visible:session>=0?m[session+160]:null,cgear,power:cgear>=0?m[cgear+0x30b]:null,edit:cgear>=0?m[cgear+0x2fe]:null,design:cgear>=0?m[cgear+0x300]:null,riding:game>=0&&game<0x400000-0x158?m.readUInt32LE(game+0x154):null,repelActive:session>=0&&(m[session+136]>>4)===1};trace.push(row);console.log(JSON.stringify(row));
     if(scenario==='pc' && [1150,3950].includes(frame) && (session<0 || !m[session+160]))throw new Error('PC dialog hid custom buttons');
-    if(['idle','pc','pcDirect','map','travel','bike','gates','action','radar','skins','skinFeedback','dial','saveIcon','party','mute','pokenav','pokenavEmpty','pokenavPartial'].includes(scenario) && frame===frameCount-1) {
+    if((scenario.startsWith('shop')||['idle','pc','pcDirect','map','travel','bike','gates','action','radar','skins','skinFeedback','dial','saveIcon','party','mute','pokenav','pokenavEmpty','pokenavPartial'].includes(scenario)) && frame===frameCount-1) {
       if(cgear<0 || session<0 || !m[session+160])throw new Error('Custom buttons did not return with C-Gear');
       if(Boolean(row.power)!==process.argv.includes('--power-on'))throw new Error('C-Gear power state does not match this test');
       if(scenario==='skins' && m.readUInt16LE(session+1380)!==2)throw new Error('Selected skin did not survive PC and MAP return');
@@ -376,9 +587,35 @@ if(scenario==='bike' && (!bikeMounted||!bikeDismounted))throw new Error('Bike di
 if(scenario==='pokenav'&&partyBefore&&!ram().subarray(partyOffset,partyOffset+1328).equals(partyBefore))throw new Error('Party changed after Pokenav exit');
 const writeRom=process.argv.indexOf('--write-rom');if(writeRom>=0){const output=process.argv[writeRom+1];await writeFile(output,romBytes,{flag:'wx'});await writeFile(output.replace(/\.nds$/iu,'.sav'),saveBytes.subarray(0,524288),{flag:'wx'});}
 await writeFile(new URL("trace.json",out),JSON.stringify(trace,null,2));console.log(fileURLToPath(out));
-if(scenario==='save'||scenario==='layout'||scenario==='saveIcon') {
+if(scenario==='save'||scenario==='layout'||scenario==='saveIcon'||scenario==='shopSave'||scenario==='shopTMSave') {
  const size=core._savGetSize(),ptr=core._savGetPointer(size)>>>0,saved=Buffer.from(core.HEAPU8.subarray(ptr,ptr+size));
  await writeFile(new URL('saved-fixture.dsv',out),saved);
+ if(scenario==='shopTMSave'){
+   let found=false;
+   for(const half of [0,0x26000]){
+     let scales=0,tm1=0;for(let p=half+0x18400;p<half+0x18dec;p+=4){if(saved.readUInt16LE(p)===93)scales+=saved.readUInt16LE(p+2);if(saved.readUInt16LE(p)===328)tm1+=saved.readUInt16LE(p+2);}
+     if(scales!==499||tm1!==1||saved.readUInt32LE(half+0x21100)!==10000)continue;
+     if(crc(saved.subarray(half+0x18400,half+0x18dec))!==saved.readUInt16LE(half+0x18dee))throw new Error('TM shop save bag checksum is invalid');
+     found=true;
+   }
+   if(!found)throw new Error('TM currency and ownership did not survive native saving');
+   console.log('TM native saving passed');
+ }
+ if(scenario==='shopSave'){
+   let found=false;
+   const price=(shopItems.files[shopFirst][0]|shopItems.files[shopFirst][1]<<8)*10;
+   for(const half of [0,0x26000]){
+     if(saved.readUInt32LE(half+0x21100)!==shopMoney-price*2)continue;
+     const bytes=saved.subarray(half+0x21100,half+0x211f0);
+     if(crc(bytes)!==saved.readUInt16LE(half+0x211f2))throw new Error('Native shop save money block checksum is invalid');
+     if(crc(saved.subarray(half+0x18400,half+0x18dec))!==saved.readUInt16LE(half+0x18dee))throw new Error('Native shop save bag checksum is invalid');
+     let count=0;for(let p=half+0x18400;p<half+0x18400+310*4;p+=4)if(saved.readUInt16LE(p)===shopFirst)count+=saved.readUInt16LE(p+2);
+     if(count!==shopQuantity+2)throw new Error('Native shop save lost purchased items');
+     found=true;
+   }
+   if(!found)throw new Error('Native saving did not retain shop payments');
+   console.log('shop native save checksums and purchase totals passed');
+ }
  console.log('saved Options bits',saved.readUInt16LE(0x19400).toString(16),saved.readUInt16LE(0x26000+0x19400).toString(16));
  if(scenario==='saveIcon'){let found=false;for(const half of [0,0x26000])if(saved.readUInt16LE(half+0x1c038)===0xa000&&(saved.readUInt16LE(half+0x19400)&0x1000))found=true;if(!found)throw new Error('Save icon did not persist the custom layout and Repel preference');}
  if(scenario==='layout') {

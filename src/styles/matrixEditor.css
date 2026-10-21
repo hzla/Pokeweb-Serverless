@@ -29,7 +29,7 @@
 .matrix-thumbnail-toggle input:checked + .matrix-switch-track { background: #1abc9c; }
 .matrix-thumbnail-toggle input:checked + .matrix-switch-track::after { transform: translateX(14px); }
 .matrix-thumbnail-toggle input:focus-visible + .matrix-switch-track { outline: 2px solid #8be9fd; outline-offset: 2px; }
-.matrix-tools [data-matrix-action="seasons"][aria-pressed="true"] { background: #1abc9c; color: #19222e; }
+.matrix-tools [data-matrix-action="seasons"][aria-pressed="true"] { background: #1abc9c; color: #f1f1f1; }
 .matrix-cell.-season-affected { border: 2px solid #ffb86c; }
 .matrix-seasons[hidden] { display: none; }
 .matrix-inspector:has(.matrix-seasons:not([hidden])) #matrix-apply-form,
