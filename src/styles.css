@@ -224,6 +224,47 @@ img[src*="pokesprite/"] {
   margin-bottom: 0;
 }
 
+.home-about {
+  line-height: 1.6;
+}
+
+.home-about h2 {
+  margin: 0 0 16px;
+  font-size: 24px;
+}
+
+.home-about h3 {
+  margin: 24px 0 10px;
+  font-size: 18px;
+}
+
+.home-about p,
+.home-about ul {
+  max-width: 90ch;
+}
+
+.home-about ul {
+  padding-left: 22px;
+}
+
+.home-about li + li {
+  margin-top: 8px;
+}
+
+.home-about a {
+  color: #8be9fd;
+  text-decoration: underline;
+}
+
+.home-about a:focus-visible {
+  outline: 2px solid #8be9fd;
+  outline-offset: 3px;
+}
+
+.home-about p:last-child {
+  margin-bottom: 0;
+}
+
 .upload-dropzone {
   display: grid;
   gap: 12px;
@@ -880,6 +921,25 @@ img[src*="pokesprite/"] {
   margin-top: 20px;
   padding-top: 18px;
   border-top: 1px solid #44475a;
+}
+
+.narc-picker > summary {
+  cursor: pointer;
+}
+
+.narc-picker > summary h2 {
+  display: inline;
+  font-size: 22px;
+  margin: 0;
+}
+
+.narc-picker > summary:focus-visible {
+  outline: 2px solid #8be9fd;
+  outline-offset: 4px;
+}
+
+.narc-picker[open] > summary {
+  margin-bottom: 14px;
 }
 
 .narc-picker__header {

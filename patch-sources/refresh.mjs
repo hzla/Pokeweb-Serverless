@@ -89,6 +89,16 @@ function runtimeFiles(group) {
 }
 const additions = [
   {
+    name:'field-environment',title:'White 2 live field environment and tree growth',artifacts:['cutscenes/field-environment-runtime.json'],
+    note:'Original Aspertia field adapter, serialized seasonal clocks and shared-material tree growth. Native transfer and camera dispatch redirects exist only while the field module is loaded. Emulator evidence and hardware acceptance are separate.',
+    extra:[...['fieldEnvironmentRuntime','fieldEnvironmentAssets','fieldEnvironmentClock','fieldTreeGrowth','fieldScene','fieldSceneNpcs','fieldSceneDialogue','fieldSceneTest'].map(n=>file('field-environment',`integration/${n}.ts`,'source',`src/pokeweb/${n}.ts`)),...['fieldSceneEffects','fieldEnvironment','fieldEnvironmentClock','fieldSceneDialogue'].map(n=>file('field-environment',`tests/${n}.test.ts`,'test',`src/test/${n}.test.ts`)),file('field-environment','tests/verify-field-tour-melonds.py','test','scripts/verify-field-tour-melonds.py'),file('field-environment','documentation/field-scenes.md','documentation','docs/cutscenes/field-scenes.md')],
+  },
+  {
+    name:'field-season',title:'White 2 saved seasonal override',artifacts:['cutscenes/FieldSeasonW2.dll','cutscenes/field-season-runtime.json'],
+    note:'Original resident calendar hook using reserved saved work 0x41AE. It preserves the native Save menu and applies a chosen season after a cold restart; it does not advance the RTC.',
+    extra:[file('field-season','integration/fieldSeasonPersistence.ts','source','src/pokeweb/fieldSeasonPersistence.ts')],
+  },
+  {
     name: 'bw1-ui-release', title: 'BW1 Graphical/UI release acceptance', runtime: false, artifacts: [],
     note: 'Shared tested-profile and exact-artifact DS acceptance ledger, bundler guard and verifier. Changed bindings, DLLs or party-menu dependencies require fresh acceptance. This is DS-mode emulator evidence, not live DSi or a general heap-capacity claim.',
     extra: [
@@ -194,6 +204,27 @@ const additions = [
     ],
   },
   {
+    name: 'trainer-field-conditions', title: 'Trainer battle field conditions',
+    artifacts: ['TrainerFieldConditionsB2.dll', 'TrainerFieldConditionsW2.dll'],
+    note: 'Original US revision-0 Black 2 / White 2 PMC runtimes, version 0.1.1. Opening animations are followed by native condition messages; exact 0.1.0 modules can update without losing authored settings. Permanent native conditions are set once before entry abilities; explicit removal and replacement use native battle handling. BW1 and other regions/revisions remain unavailable. Native binding audits, CPU and ROM roundtrip checks accompany DLL-hashed DS singles receipts in both games covering all 30 opening animation/message pairs, ten-turn persistence, Brick Break removal and Drought replacement; other formats have CPU checks. The Black 2 gameplay input included an existing C-Gear add-on; no separate clean Black 2 gameplay run is claimed.',
+    extra: [
+      file('trainer-field-conditions', 'integration/trainerFieldConditionsModel.ts', 'source', 'src/pokeweb/trainerFieldConditionsModel.ts'),
+      file('trainer-field-conditions', 'integration/trainerFieldConditions.ts', 'source', 'src/ui/trainerFieldConditions.ts'),
+      file('trainer-field-conditions', 'integration/trainerEditor.ts', 'support-only', 'src/ui/trainerEditor.ts'),
+      file('trainer-field-conditions', 'integration/trainerModel.ts', 'support-only', 'src/pokeweb/trainerModel.ts'),
+      file('trainer-field-conditions', 'integration/codeInjectionEditor.ts', 'support-only', 'src/ui/codeInjectionEditor.ts'),
+      file('trainer-field-conditions', 'tests/trainerFieldConditions.test.ts', 'test', 'src/test/trainerFieldConditions.test.ts'),
+      file('trainer-field-conditions', 'tests/trainerModel.test.ts', 'test', 'src/test/trainerModel.test.ts'),
+      file('trainer-field-conditions', 'tests/verify-trainer-field-conditions.ts', 'test', 'scripts/verify-trainer-field-conditions.ts'),
+      file('trainer-field-conditions', 'metadata/trainerFieldConditionsManifest.json', 'metadata', 'src/assets/codeinjection/trainerFieldConditionsManifest.json'),
+      file('trainer-field-conditions', 'metadata/trainerFieldConditionsB2Manifest.json', 'metadata', 'src/assets/codeinjection/trainerFieldConditionsB2Manifest.json'),
+      file('trainer-field-conditions', 'metadata/trainerFieldConditionsPrevious.json', 'metadata', 'src/assets/codeinjection/trainerFieldConditionsPrevious.json'),
+      file('trainer-field-conditions', 'tests/battle-harness/boot.c', 'support-only', 'runtime/battle-harness/boot.c'),
+      file('trainer-field-conditions', 'tests/battle-harness/boot.s', 'support-only', 'runtime/battle-harness/boot.s'),
+      file('trainer-field-conditions', 'tests/battle-harness/symbols.yml', 'support-only', 'runtime/battle-harness/symbols.yml'),
+    ],
+  },
+  {
     name: 'trainer-nature', title: 'Specified trainer Pokémon natures',
     artifacts: ['TrainerNatureB2.dll', 'TrainerNatureW2.dll'],
     note: 'Version 1.2.0 PMC modules for US Black 2 and White 2. Includes the build source, both address/metadata profiles, installer and legacy ARM9 migration logic, and an export/reimport verification script.',
@@ -251,7 +282,7 @@ const additions = [
   {
     name: 'cgear-quick-actions', title: 'C-Gear Buttons and Quick Actions',
     artifacts: ['CGearQuickActionsB2.dll', 'CGearQuickActionsW2.dll', 'CGearQuickActionsB.dll', 'CGearQuickActionsW.dll'],
-    note: 'BW2 0.5.5 adds the optional System Shop picker, native Pokémart, separate custom shop definitions, per-item prices, stackable-item currencies, native TM rendering and a currency icon/balance panel. BW1 remains 0.1.3-bw1 without System Shop. Both retain HM02-gated native Fly without a learned-move requirement. BW2 retains the outer-rim 12-degree skin dial and moving marker while hiding the digital clock and chevron decal; shared geometry and compiled graphics are inventoried here. It retains the optional Nuzlocke snapshot provider to the Pokenav application action; its shared viewer sources are inventoried separately. Source availability does not establish historical binary reproducibility or hardware acceptance.',
+    note: 'BW2 0.5.7 includes the optional System Shop picker, native Pokémart, custom inventories/prices, stackable-item currencies, native TM rendering, currency balance icon and optional per-item badge/save-flag conditions. Inventory defaults remain unrestricted, and visible stock/prices share a stable row map. BW1 remains 0.1.3-bw1 without System Shop. Both retain HM02-gated native Fly without a learned-move requirement. BW2 retains the outer-rim 12-degree skin dial and moving marker while hiding the digital clock and chevron decal; shared geometry and compiled graphics are inventoried here. It retains the optional Nuzlocke snapshot provider to the Pokenav application action; its shared viewer sources are inventoried separately. Bundle hashes/versions are tested together. Source availability does not establish hardware acceptance.',
     extra: [
       ...fs.readdirSync(path.join(app, 'runtime/cgear-quick-actions/bw2')).filter(name => name.endsWith('.inc')).sort().map(name => file('cgear-quick-actions', `bw2/${name}`)),
       file('cgear-quick-actions', '.clang-format', 'metadata'),
@@ -272,6 +303,8 @@ const additions = [
       file('cgear-quick-actions', 'integration/tmModel.ts', 'support-only', 'src/pokeweb/tmModel.ts'),
       file('cgear-quick-actions', 'integration/systemShops.css', 'support-only', 'src/styles/systemShops.css'),
       file('cgear-quick-actions', 'tests/systemShops.test.ts', 'test', 'src/test/systemShops.test.ts'),
+      file('cgear-quick-actions', 'tests/cgearBundle.test.ts', 'test', 'src/test/cgearBundle.test.ts'),
+      file('cgear-quick-actions', 'tests/verify-cgear-quick-actions-install.ts', 'test', 'scripts/verify-cgear-quick-actions-install.ts'),
       file('cgear-quick-actions', 'metadata/cgearQuickActionsManifest.json', 'metadata', 'src/assets/codeinjection/cgearQuickActionsManifest.json'),
     ],
   },

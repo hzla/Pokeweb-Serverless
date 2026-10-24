@@ -129,6 +129,7 @@ export type Map3dPrimitive = {
   indices: Uint16Array;
   /** Preview data only: never bake a sampled frame into editable/exported buffers. */
   textureAnimation?: MapTextureAnimation;
+  geometryAnimation?:{sample(frame:number):Float32Array};
 };
 
 export type Map3dChunk = {
@@ -239,6 +240,8 @@ export type Map3dNpcModel = {
 export type Map3dNpcSpriteDirection = "up" | "down" | "left" | "right";
 
 export type Map3dNpcSpriteFrames = {
+  controllerType?: number;
+  nativeTextures?: Array<DecodedTexture | undefined>;
   width: number;
   height: number;
   framesByDirection: Partial<Record<Map3dNpcSpriteDirection, DecodedTexture[]>>;
@@ -1147,6 +1150,14 @@ function animationForMaterial(material: NitroMaterial | undefined, set?: Texture
   };
 }
 
+/** Some W2 chunks insert a second permission section before placements. */
+export function mapBuildingMember(files: Uint8Array[]): number {
+  const candidate = files[2];
+  if (candidate && candidate.length >= 4 && 4 + readU32(candidate, 0) * 16 <= candidate.length) return 2;
+  if (candidate && files.length === 4 && candidate.length >= 8196 && readU16(candidate, 0) === 32 && readU16(candidate, 2) === 32) return 3;
+  return 2;
+}
+
 function loadBuildingsForZone(
   archives: LazyArchives,
   area: AreaHeader3d,
@@ -1199,7 +1210,7 @@ function loadBuildingsForZone(
   const buildings: Map3dBuilding[] = [];
   for (const chunk of chunks) {
     const chunkFiles = chunkContainers.get(chunk.chunkId);
-    const placementsBytes = chunkFiles?.[2] ?? chunkFiles?.at(-1);
+    const placementsBytes = chunkFiles?.[mapBuildingMember(chunkFiles)];
     if (!placementsBytes) continue;
     for (const [placementIndex, placement] of parseChunkBuildings(placementsBytes, warnings, chunk.chunkId).entries()) {
       const resource = resourcesByUid.get(placement.modelUid);
@@ -1248,12 +1259,12 @@ function editableBuildingTable(project: ProjectState, chunkId: number) {
   const bytes = store?.rawFiles[chunkId];
   if (!store || !bytes?.length) throw new Error("Reload the map before editing its buildings.");
   const container = extractGameFreakContainer(bytes);
-  const placements = container.files[2];
-  const start = readU32(bytes, 12);
+  const memberIndex = mapBuildingMember(container.files), placements = container.files[memberIndex];
+  const start = readU32(bytes, 4 + memberIndex * 4);
   if (!placements || placements.length < 4 || start < 4 + (container.files.length + 1) * 4) throw new Error("The chunk has no valid building placement table.");
   const count = readU32(placements, 0);
   if (4 + count * 16 > placements.length) throw new Error("The building placement table is truncated.");
-  return { store, bytes, start, count, memberCount: container.files.length };
+  return { store, bytes, start, count, memberIndex, memberCount: container.files.length };
 }
 
 function buildingFixedPoint(value: number): number {
@@ -1277,8 +1288,8 @@ function spliceBuildingRecord(table: ReturnType<typeof editableBuildingTable>, i
   if (record) out.set(record, offset);
   out.set(table.bytes.subarray(offset + (adding ? 0 : 16)), offset + (adding ? 16 : 0));
   writeU32(out, table.start, table.count + (adding ? 1 : -1));
-  // Member 2 grows/shrinks; its start and all preceding members stay fixed.
-  for (let member = 3; member <= table.memberCount; member += 1) {
+  // The placement member grows/shrinks; preceding members stay fixed.
+  for (let member = table.memberIndex + 1; member <= table.memberCount; member += 1) {
     writeU32(out, 4 + member * 4, readU32(table.bytes, 4 + member * 4) + delta);
   }
   return out;
@@ -1357,8 +1368,8 @@ export function updateMap3dBuilding(project: ProjectState, data: Map3dSceneData,
   const bytes = store?.rawFiles[building.chunkId];
   if (!store || !bytes?.length) throw new Error("Reload the map before editing its buildings.");
   const container = extractGameFreakContainer(bytes);
-  const placements = container.files[2];
-  const start = readU32(bytes, 12);
+  const memberIndex = mapBuildingMember(container.files), placements = container.files[memberIndex];
+  const start = readU32(bytes, 4 + memberIndex * 4);
   if (!placements || start < 4 + (container.files.length + 1) * 4) throw new Error("The chunk has no valid building placement table.");
   const warnings: string[] = [];
   const before = parseChunkBuildings(placements, warnings, building.chunkId)[building.placementIndex!];
@@ -1636,13 +1647,14 @@ export function parseNpcRegistry(data: Uint8Array): NpcRegistryEntry[] {
 
 /** Decode the player's walking billboard from the active ROM resources. */
 export function loadMap3dPlayerSprite(project: ProjectState, rom: NintendoDSRom, gender: "male" | "female" = "male"): Map3dNpcSpriteFrames | undefined {
-  const registry = new NARC(getRomFileBytes(project, rom, rom.fileId(MMODEL_INDEX_BW2_PATH))).files[0];
-  const entry = parseNpcRegistry(registry)[gender === "male" ? 1 : 4];
+  const bw2=project.session.baseRom==='BW2';
+  const registry = new NARC(getRomFileBytes(project, rom, rom.fileId(bw2?MMODEL_INDEX_BW2_PATH:MMODEL_INDEX_BW_PATH))).files[0];
+  const entry = parseNpcRegistry(registry)[gender === "male" ? bw2?232:1 : bw2?240:4];
   if (!entry) return undefined;
   const resourceId = entry.resourceIndices[0];
-  const bytes = new NARC(getRomFileBytes(project, rom, rom.fileId(MMODEL_RES_BW2_PATH))).files[resourceId];
+  const bytes = new NARC(getRomFileBytes(project, rom, rom.fileId(bw2?MMODEL_RES_BW2_PATH:MMODEL_RES_BW_PATH))).files[resourceId];
   if (!bytes || readAscii(bytes, 0, 4) !== "BTX0") return undefined;
-  return buildNpcSpriteFrames(readNitroResources(bytes), entry, resourceId, [], { up: 0, down: 1, left: 2, right: 3 });
+  return buildNpcSpriteFrames(readNitroResources(bytes), entry, resourceId, [], { up: 0, down: 1, left: 2, right: 3 },true);
 }
 
 function loadNpcModelResource(
@@ -1673,7 +1685,7 @@ function loadNpcModelResource(
   return { modelType: "model", primitives: [] };
 }
 
-function buildNpcSpriteFrames(resources: NitroResources, entry: NpcRegistryEntry, resourceId: number, warnings: string[], directionCodes = NPC_SPRITE_DIRECTION_CODES): Map3dNpcSpriteFrames | undefined {
+export function buildNpcSpriteFrames(resources: NitroResources, entry: NpcRegistryEntry, resourceId: number, warnings: string[], directionCodes = NPC_SPRITE_DIRECTION_CODES,includeNativeTextures=false): Map3dNpcSpriteFrames | undefined {
   const palette = resources.palettes[0];
   if (resources.textures.length === 0 || (resources.textures.some((texture) => texture.params.requiresPalette()) && !palette)) {
     warnings.push(`NPC sprite ${entry.uid} is missing texture or palette data`);
@@ -1697,7 +1709,7 @@ function buildNpcSpriteFrames(resources: NitroResources, entry: NpcRegistryEntry
     if (frames.length > 0) framesByDirection[direction] = frames;
   }
   if (Object.keys(framesByDirection).length === 0) return undefined;
-  return { width, height, framesByDirection };
+  return { width, height, framesByDirection,controllerType:entry.spriteControllerType,...(includeNativeTextures?{nativeTextures:resources.textures.map(texture=>decodeTexture(texture,palette))}:{} ) };
 }
 
 function buildNpcSpritePrimitive(spriteFrames: Map3dNpcSpriteFrames, faceDirection: number): Map3dPrimitive[] {
@@ -2303,7 +2315,7 @@ function renderParamLength(opcode: number, data: Uint8Array, cursor: number): nu
   return 0;
 }
 
-function decodeTexture(texture: NitroTexture, palette?: NitroPalette): DecodedTexture | undefined {
+export function decodeTexture(texture: NitroTexture, palette?: NitroPalette): DecodedTexture | undefined {
   const width = texture.params.width();
   const height = texture.params.height();
   const rgba = new Uint8Array(width * height * 4);

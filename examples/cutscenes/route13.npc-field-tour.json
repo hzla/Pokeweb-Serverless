@@ -1,0 +1,149 @@
+{
+  "format": "pokeweb.field-scene",
+  "version": 1,
+  "target": "W2-US",
+  "fps": 30,
+  "id": "route13.npc-field-tour",
+  "name": "Route 13 \u00b7 NPC field tour",
+  "zoneId": 370,
+  "entry": {
+    "tileX": 697,
+    "tileZ": 239,
+    "facing": "down"
+  },
+  "steps": [
+    {
+      "id": "coast",
+      "type": "camera.move",
+      "durationFrames": 120,
+      "target": [
+        11128,
+        -76,
+        3720
+      ],
+      "pitch": 53.2177734375,
+      "yaw": 0,
+      "distance": 237
+    },
+    {
+      "id": "pause",
+      "type": "wait",
+      "durationFrames": 30
+    },
+    {
+      "id": "entrance-view",
+      "type": "camera.move",
+      "durationFrames": 120,
+      "target": [
+        11160,
+        -76,
+        3992
+      ],
+      "pitch": 53.2177734375,
+      "yaw": 0,
+      "distance": 237
+    },
+    {
+      "id": "player-entrance",
+      "type": "player.walk",
+      "direction": "down",
+      "tiles": 10
+    },
+    {
+      "id": "cross-left",
+      "type": "wait",
+      "durationFrames": 12
+    },
+    {
+      "id": "cross-right",
+      "type": "wait",
+      "durationFrames": 12
+    },
+    {
+      "id": "handoff",
+      "type": "control.return",
+      "durationFrames": 60
+    }
+  ],
+  "actors": [
+    {
+      "id": "guide",
+      "name": "Coast guide",
+      "overworldId": 232,
+      "entry": {
+        "tileX": 698,
+        "tileZ": 244,
+        "facing": "left"
+      },
+      "endBehavior": "stay",
+      "actions": [
+        {
+          "id": "guide-greet",
+          "stepId": "coast",
+          "type": "face",
+          "direction": "left"
+        },
+        {
+          "id": "guide-step",
+          "stepId": "pause",
+          "type": "walk",
+          "direction": "down",
+          "tiles": 1
+        },
+        {
+          "id": "guide-walk",
+          "stepId": "player-entrance",
+          "type": "walk",
+          "direction": "down",
+          "tiles": 4
+        },
+        {
+          "id": "guide-turn",
+          "stepId": "cross-left",
+          "type": "face",
+          "direction": "right"
+        },
+        {
+          "id": "guide-end",
+          "stepId": "handoff",
+          "type": "face",
+          "direction": "left"
+        }
+      ]
+    },
+    {
+      "id": "visitor",
+      "name": "Coastal visitor",
+      "overworldId": 94,
+      "entry": {
+        "tileX": 700,
+        "tileZ": 242,
+        "facing": "up"
+      },
+      "endBehavior": "remove",
+      "actions": [
+        {
+          "id": "visitor-up",
+          "stepId": "coast",
+          "type": "walk",
+          "direction": "up",
+          "tiles": 1
+        },
+        {
+          "id": "visitor-left",
+          "stepId": "cross-left",
+          "type": "walk",
+          "direction": "left",
+          "tiles": 1
+        },
+        {
+          "id": "visitor-right",
+          "stepId": "cross-right",
+          "type": "walk",
+          "direction": "right",
+          "tiles": 1
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+import fs from "node:fs/promises";
+import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { NintendoDSRom } from "../src/nds/rom";
+import { NARC } from "../src/nds/narc";
+import { loadProjectFromRomBytes } from "../src/pokeweb/loader";
+import { loadNativeCutsceneLibrary, openNativeCutscene, nativeSceneGroups, compileNativeCutscene, saveNativeCutsceneCamera } from "../src/pokeweb/nativeCutsceneModel";
+import { createAspertiaCutsceneClone } from "../src/pokeweb/nativeCutsceneClone";
+import { exportModifiedRom } from "../src/pokeweb/exportRom";
+import { nativeCameraPose, writeNativeCameraPose } from "../src/pokeweb/nativeCameraTrack";
+import { readNativeObject, stageNativeObjectPositions } from "../src/pokeweb/nativeObjectMovement";
+import { readNativeCutsceneLayout } from "../src/pokeweb/nativeCutsceneRegistry";
+import { createProjectDocument } from "../src/pokeweb/projectDocument";
+import { openProjectSession } from "../src/pokeweb/projectSession";
+const input = process.argv[2]; if (!input) throw new Error("Pass a clean US W2 ROM.");
+const hash = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
+const sourceBytes = new Uint8Array(await fs.readFile(input)), sourceHash = hash(sourceBytes);
+const project = await loadProjectFromRomBytes(sourceBytes, "clone-verification.nds", { selectedNarcs: ["headers"] });
+const library = await loadNativeCutsceneLibrary(project), original = openNativeCutscene(project, library, 5), source = library.rom;
+const before = new NARC(source.files[library.fileId]), overlayBefore = library.overlayBytes.slice();
+const created = createAspertiaCutsceneClone(project, library), doc = created.document;
+assert.equal(doc.definition.id, 27); assert.equal(library.definitions.length, 27); assert.notEqual(doc.definition.cameraId, original.definition.cameraId);
+assert.equal(hash(doc.camera.bytes), hash(original.camera.bytes)); assert.deepEqual(doc.definition.cues, original.definition.cues); assert.deepEqual(doc.definition.endCues, original.definition.endCues);
+for (let season = 0; season < 4; season++) for (let day = 0; day < 5; day++) {
+  const a = nativeSceneGroups(original, season, day), b = nativeSceneGroups(doc, season, day);
+  assert.equal(a.length, b.length);
+  for (let i = 0; i < a.length; i++) for (let j = 0; j < a[i].length; j++) { assert.notEqual(a[i][j], b[i][j]); assert.equal(hash(original.files[a[i][j]]), hash(doc.files[b[i][j]])); }
+  const scene = compileNativeCutscene(doc, season, day);
+  for (const frame of [0, 60, 500, 999]) { scene.sample(frame); for (const model of scene.models) for (const p of model.primitives) assert(p.positions.every(Number.isFinite)); }
+}
+const pose = nativeCameraPose(doc.camera, 60); pose.position[0] += .5; writeNativeCameraPose(doc.camera, 60, pose);
+doc.definition.cues[0].args[0] += 1; doc.definition.startFade.duration += 1;
+const petals = nativeSceneGroups(doc)[5], stamp = (id: number) => String.fromCharCode(...doc.files[id].subarray(0, 4));
+const modelId = petals.find(id => stamp(id) === "BMD0")!, animationId = petals.find(id => stamp(id) === "BCA0")!, object = readNativeObject(doc.files[modelId], doc.files[animationId]);
+const p = object.animation.sample(60)[1].translation; stageNativeObjectPositions(doc, modelId, animationId, 1, new Map([[60, [p[0] + .25, p[1], p[2]]]]));
+saveNativeCutsceneCamera(project, doc);
+const again = openNativeCutscene(project, library, 5); assert.equal(hash(again.camera.bytes), hash(original.camera.bytes)); assert.deepEqual(again.definition.cues, original.definition.cues); assert.deepEqual(again.definition.startFade, original.definition.startFade);
+const document = structuredClone(createProjectDocument(project, true)), reopenedSession = openProjectSession(document);
+assert(reopenedSession.patches!.dirtyOverlayIds.includes(293)); assert.equal(readNativeCutsceneLayout(reopenedSession.overlays[293]!).count, 28);
+assert.equal(hash(reopenedSession.fileSystem!.replacements[library.fileId]), hash(project.fileSystem!.replacements[library.fileId]));
+const output = await exportModifiedRom(project, { forDsi: false }), exported = new NintendoDSRom(output, { fileData: "view" });
+const reopened = await loadProjectFromRomBytes(output, "clone-reopened.nds", { selectedNarcs: ["headers"] }), reopenedLibrary = await loadNativeCutsceneLibrary(reopened), custom = openNativeCutscene(reopened, reopenedLibrary, 27);
+assert.equal(hash(custom.camera.bytes), hash(doc.camera.bytes)); assert.deepEqual(custom.definition.cues, doc.definition.cues); assert.deepEqual(custom.definition.startFade, doc.definition.startFade);
+const after = new NARC(exported.getFileByName("a/1/5/8"));
+for (let id = 0; id < before.files.length; id++) assert.equal(hash(before.files[id]), hash(after.files[id]), `Original member ${id} changed.`);
+const overlayId = source.loadArm9Overlays([293]).get(293)!.fileId, allowed = new Set([overlayId, library.fileId]);
+for (let id = 0; id < source.files.length; id++) if (!allowed.has(id)) assert.equal(hash(source.files[id]), hash(exported.files[id]), `Unrelated file ${id} changed.`);
+assert.equal(hash(source.arm9), hash(exported.arm9)); assert.equal(hash(sourceBytes), sourceHash);
+const editedOverlay = project.overlays[293]!;
+for (let id = 1; id <= 26; id++) assert.deepEqual(openNativeCutscene(reopened, reopenedLibrary, id).definition, openNativeCutscene({ ...project, overlays: { 293: overlayBefore }, fileSystem: undefined }, { ...library, overlayBytes: overlayBefore }, id).definition);
+assert.equal(readNativeCutsceneLayout(editedOverlay).count, 28);
+console.log(JSON.stringify({ passed: true, stockSequencesPreserved: 26, stockMembersPreserved: before.files.length, privateMembers: created.assetMap.size, newCameraMember: doc.definition.cameraId, overlaySize: editedOverlay.length, variantsChecked: 20, exportReopened: true, projectPersistence: true, privateCameraMovementCuesAndFades: true }));

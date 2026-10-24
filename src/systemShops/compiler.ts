@@ -6,15 +6,34 @@ import { fingerprint } from "../cgearButtons/compiler";
 import {
   MAX_SHOPS,
   MAX_STOCK,
+  MAX_SAVE_FLAG,
   defaults,
   type Document,
   type Project,
+  type StockCondition,
 } from "./document";
 
 import { currencyGraphics } from "./graphics";
 
 export const ARCHIVE = "system-shops/shops.narc";
 export const RECORD_SIZE = 64 + MAX_STOCK * 8;
+export const ARCHIVE_VERSION = 2;
+export function validCondition(condition: StockCondition | undefined): boolean {
+  if (condition === undefined) return true;
+  if (!condition || typeof condition !== "object") return false;
+  const badges = condition.badges === undefined ? 0 : condition.badges;
+  const flag = condition.flag;
+  return Number.isInteger(badges) && badges >= 0 && badges <= 8 &&
+    (flag === undefined || (!!flag && Number.isInteger(flag.id) && flag.id >= 1 &&
+      flag.id <= MAX_SAVE_FLAG && (flag.state === "set" || flag.state === "clear")));
+}
+/** 18 combinations per flag: nine badge counts, each with a set/clear bit.
+ * Zero retains the legacy unconditional row. Fits all saved flags in 16 bits. */
+export function encodeCondition(condition?: StockCondition): number {
+  if (!validCondition(condition)) throw new Error("Invalid inventory unlock condition.");
+  return (condition?.flag?.id ?? 0) * 18 + (condition?.badges ?? 0) * 2 +
+    (condition?.flag?.state === "clear" ? 1 : 0);
+}
 export type Assets = {
   names: Map<number, string>;
   items: Uint8Array[];
@@ -67,6 +86,8 @@ export function validate(document: Document, assets: Assets): string[] {
       errors.push(`${shop.name}: use 1–${MAX_STOCK} inventory entries.`);
     const stock = new Set<number>();
     for (const row of shop.inventory) {
+      if (!validCondition(row.condition))
+        errors.push(`${shop.name}: unlocks need 0–8 badges and a saved flag from 1 to 0x0BF3.`);
       if (
         !Number.isInteger(row.item) ||
         row.item < 1 ||
@@ -154,7 +175,7 @@ export function compile(state: Project, assets: Assets): Uint8Array {
     ),
   );
   writeU32(config, 0, 0x50485353);
-  writeU16(config, 4, 1);
+  writeU16(config, 4, ARCHIVE_VERSION);
   writeU16(config, 6, RECORD_SIZE);
   writeU16(config, 8, document.shops.length);
   for (const [i, shop] of document.shops.entries()) {
@@ -166,6 +187,7 @@ export function compile(state: Project, assets: Assets): Uint8Array {
       writeU16(config, at + 8 + n * 2, char.charCodeAt(0));
     for (const [n, row] of shop.inventory.entries()) {
       writeU16(config, at + 64 + n * 8, row.item);
+      writeU16(config, at + 66 + n * 8, encodeCondition(row.condition));
       writeU32(config, at + 68 + n * 8, row.cost);
     }
   }
@@ -224,7 +246,7 @@ export function recover(bytes: Uint8Array): Project {
   const trustedPickers = [pickerScript(count), compilePicker(count, false)];
   if (
     readU32(h, 0) !== 0x50485353 ||
-    readU16(h, 4) !== 1 ||
+    ![1, ARCHIVE_VERSION].includes(readU16(h, 4)) ||
     readU16(h, 6) !== RECORD_SIZE ||
     count > MAX_SHOPS ||
     h.length !== 32 + count * RECORD_SIZE ||
@@ -297,7 +319,10 @@ export function recover(bytes: Uint8Array): Project {
       ),
     );
     for (const [n, row] of shop.inventory.entries()) {
+      if (readU16(h, 4) === 1 && encodeCondition(row.condition) !== 0)
+        throw new Error("Legacy shops cannot contain unlock conditions.");
       writeU16(expectedRecords, at + 64 + n * 8, row.item);
+      writeU16(expectedRecords, at + 66 + n * 8, encodeCondition(row.condition));
       writeU32(expectedRecords, at + 68 + n * 8, row.cost);
     }
   }

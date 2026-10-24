@@ -8,6 +8,8 @@ import { exportModifiedRom } from "../src/pokeweb/exportRom";
 import { getCGearQuickActionsStatus, installCGearQuickActions, disableCGearQuickActions, removeCGearQuickActions } from "../src/pokeweb/cgearQuickActionsModel";
 import { ensureCGearButtons, hasUnappliedButtons } from "../src/pokeweb/cgearButtonsModel";
 import { newButton } from "../src/cgearButtons/document";
+import { ensureSystemShops } from "../src/pokeweb/systemShopsModel";
+import { tmTestShop } from "../src/systemShops/document";
 import { installLearnsetViewer, getLearnsetViewerStatus } from "../src/pokeweb/learnsetViewerModel";
 import { installSummaryStatViewer, getSummaryStatViewerStatus } from "../src/pokeweb/summaryStatViewerModel";
 import { installPortaPc, getPortaPcStatus } from "../src/pokeweb/portaPcModel";
@@ -26,11 +28,18 @@ assert(getCGearQuickActionsStatus(project).compatible,getCGearQuickActionsStatus
 if(process.argv.includes('--pokeradar')){
   const d=ensureCGearButtons(project).document;d.buttons.push(newButton(d,'pokeradar'));
 }
+if(process.argv.includes('--shops')) {
+  const buttons=ensureCGearButtons(project).document;
+  buttons.buttons.push(newButton(buttons,'systemShop'));
+  const document=ensureSystemShops(project).document,shop=tmTestShop(document);
+  shop.inventory[1].condition={badges:2,flag:{id:3000,state:'set'}};
+  document.shops.push(shop);
+}
 if(process.argv.includes("--eight")) {
   const d=ensureCGearButtons(project).document;let added=0;
   while(d.buttons.length<8)d.buttons.push(newButton(d,(process.argv.includes('--bag-party')?["dowsing","rod","bag","party"]:["dowsing","rod","medals","recorder"])[added++%4] as "dowsing"));
 }
-await installCGearQuickActions(project);await installCGearQuickActions(project);
+await installCGearQuickActions(project,{applySystemShops:process.argv.includes('--shops')});await installCGearQuickActions(project);
 disableCGearQuickActions(project);assert(!getCGearQuickActionsStatus(project).enabled);
 if(getCGearQuickActionsStatus(project).canRemove) {removeCGearQuickActions(project);assert(!getCGearQuickActionsStatus(project).installed);}
 await installCGearQuickActions(project);
@@ -39,6 +48,7 @@ for(const id of [12,36,79]) assert.deepEqual(exported.loadArm9Overlays([id]).get
 const reopened=await loadProjectFromRomBytes(output,"quick-actions-test.nds",{selectedNarcs:[]});
 assert(getCGearQuickActionsStatus(reopened).installed && getCGearQuickActionsStatus(reopened).enabled);
 assert.deepEqual(reopened.cgearButtons,project.cgearButtons);assert(!hasUnappliedButtons(reopened));
+if(process.argv.includes('--shops'))assert.deepEqual(reopened.systemShops,project.systemShops);
 if(process.argv.includes('--companions')) {
   for(const status of [getLearnsetViewerStatus(reopened),getSummaryStatViewerStatus(reopened),getPortaPcStatus(reopened)])assert(status.installed && status.compatible,status.message);
 }

@@ -7,7 +7,7 @@ import { modelAssetHash, readStaticGlb, transformStaticMeshes, type StaticGlbNod
 import { assertMaterialAnimatedBuilding, replaceBuildingModelMember } from "./buildingImportModel";
 import { invalidateBuildingLibrary, loadBuildingLibrary } from "./buildingLibraryModel";
 import { getRomFileBytes } from "./fileSystemModel";
-import { extractGameFreakContainer, getMap3dZoneMetadata, invalidateMap3dAssets, loadMap3dZone, type Map3dPrimitive, type Map3dSceneData } from "./map3dModel";
+import { extractGameFreakContainer, mapBuildingMember, getMap3dZoneMetadata, invalidateMap3dAssets, loadMap3dZone, type Map3dPrimitive, type Map3dSceneData } from "./map3dModel";
 import { exportMap3dGlb } from "./map3dExport";
 import type { MapGlbManifest } from "./mapGlbContract";
 import { writeStaticNitroModel, type StaticModelMesh } from "./nitroModelWriter";
@@ -303,7 +303,7 @@ export async function prepareMapGlbImport(project: ProjectState, data: Map3dScen
   if (terrainEdits.size) result.notes.push("Terrain replacements also affect other maps or seasons that reference these same chunk resources.");
   for (const [key, placement] of changes) if (placement && placement.chunkId !== Number(key.split(":")[0])) additions.push(placement);
   for (const id of new Set([...data.chunks.map(c => c.chunkId)])) {
-    const bytes = chunkBytes(id), member = extractGameFreakContainer(bytes).files[2];
+    const bytes = chunkBytes(id), members = extractGameFreakContainer(bytes).files, placementMember = mapBuildingMember(members), member = members[placementMember];
     if (!member) { requireValue(!additions.some(p => p.chunkId === id), `Chunk ${id} has no building placement table.`); continue; }
     const count = readU32(member, 0);
     requireValue(4 + count * 16 <= member.length, `Chunk ${id} has a truncated placement table.`);
@@ -325,7 +325,7 @@ export async function prepareMapGlbImport(project: ProjectState, data: Map3dScen
       slots += 1 + (entry && readU16(entry.metadataBytes, 4) < 512 ? 1 : 0);
     }
     requireValue(slots <= 32, `Chunk ${id} needs ${slots} building slots; BW2 supports 32. Remove buildings or move them to another chunk.`);
-    chunkUpdates.set(id, replaceMember(bytes, 2, replacement));
+    chunkUpdates.set(id, replaceMember(bytes, placementMember, replacement));
   }
   const terrainTextureBytes = appendNitroTextures(source.terrainTextures.narc.files[data.textureId], [...terrainMaterials.textures.values()]);
   const buildingTextureBytes = appendNitroTextures(source.buildingTextures.narc.files[data.buildingsId], [...buildingMaterials.textures.values()]);

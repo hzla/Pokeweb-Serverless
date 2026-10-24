@@ -85,6 +85,7 @@ type RendererState = {
   pitch: number;
   distance: number;
   target: THREE.Vector3;
+  onCameraUpdate?: () => void;
   currentData?: Map3dSceneData;
   selectedPermission?: PermissionSelection;
   onPermissionPick?: (selection: PermissionSelection) => void;
@@ -294,6 +295,11 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
           ${project.session.baseRom === "BW2" ? '<button class="ow-tool" id="map3d-import" type="button" disabled>Import edited map GLB</button><button class="ow-tool" id="map3d-import-undo" type="button" disabled>Undo map import</button><input id="map3d-import-file" type="file" accept=".glb" hidden />' : ''}
         </div>
         <div class="map3d-export-status" id="map3d-export-status" role="status" aria-live="polite"></div>
+        <details class="map3d-controls map3d-camera-readout" open>
+          <summary>Live camera</summary>
+          <output id="map3d-camera-values" aria-live="off" style="display:block;white-space:pre-wrap;font:12px monospace"></output>
+          <button class="ow-tool" id="map3d-copy-camera" type="button">Copy camera coordinates</button>
+        </details>
         <div class="map3d-controls">
           <strong>Controls</strong>
           <div>Drag: rotate</div>
@@ -312,6 +318,12 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   const select = root.querySelector<HTMLSelectElement>("#map3d-zone");
   const exportButton = root.querySelector<HTMLButtonElement>("#map3d-export");
   const exportStatus = root.querySelector<HTMLDivElement>("#map3d-export-status");
+  const cameraValues=root.querySelector<HTMLOutputElement>('#map3d-camera-values')!;
+  function cameraCoordinates(){if(!state)return;const c=state.camera,p=state.cameraPose,t=p?new THREE.Vector3(p.target.x,p.target.y,p.target.z):state.target,delta=c.position.clone().sub(t),round=(v:number)=>Math.round(v*10000)/10000;
+    return {zoneId:state.currentData?.zoneId,mode:p?'game camera':'free view',position:c.position.toArray().map(round),target:t.toArray().map(round),pitch:round(Math.atan2(delta.y,Math.hypot(delta.x,delta.z))*180/Math.PI),yaw:round((Math.atan2(delta.x,delta.z)*180/Math.PI+360)%360),distance:round(delta.length()),fov:round(c.fov),aspect:round(c.aspect)};
+  }
+  function updateCameraReadout(){const p=cameraCoordinates();if(!p)return;const text=`Position X/Y/Z: ${p.position.join(', ')}\nLook at X/Y/Z: ${p.target.join(', ')}\nPitch ${p.pitch}° · Yaw ${p.yaw}° · Distance ${p.distance}\nFOV ${p.fov}° · Aspect ${p.aspect}`;if(cameraValues.textContent!==text)cameraValues.textContent=text;}
+  root.querySelector<HTMLButtonElement>('#map3d-copy-camera')!.addEventListener('click',()=>{const p=cameraCoordinates();if(!p)return;const text=JSON.stringify(p,null,2),field=document.createElement('textarea');field.value=text;field.style.cssText='position:fixed;left:-10000px;top:0';root.append(field);field.select();const copied=document.execCommand('copy');field.remove();if(copied)setStatus('Camera coordinates copied.');else void navigator.clipboard.writeText(text).then(()=>setStatus('Camera coordinates copied.')).catch(()=>setStatus('Unable to copy. The live camera coordinates remain visible above.'));});
   const importButton = root.querySelector<HTMLButtonElement>("#map3d-import");
   const importUndo = root.querySelector<HTMLButtonElement>("#map3d-import-undo");
   const importFile = root.querySelector<HTMLInputElement>("#map3d-import-file");
@@ -462,7 +474,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
       activeData = data;
       activeZone = data.zoneId;
       dirtyPermissionEdits.clear();
-      state ??= createRenderer(canvasWrap);
+      state ??= createRenderer(canvasWrap);state.onCameraUpdate=updateCameraReadout;
       state.permissionPicking = sidebarTabs.active === "view" || sidebarTabs.active === "collisions";
       state.onBuildingPick = selectBuilding;
       state.onPermissionPick = (selection) => {
@@ -1133,6 +1145,7 @@ function createRenderer(container: HTMLElement): RendererState {
     }
     resize();
     updateCamera();
+    state.onCameraUpdate?.();
     updateNpcMovementPreview(state, performance.now());
     if (state.texturePreview.update(performance.now())) state.onTextureFrame?.();
     renderer.render(scene, camera);

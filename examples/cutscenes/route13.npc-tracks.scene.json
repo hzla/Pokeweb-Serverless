@@ -1,0 +1,191 @@
+{
+  "format": "pokeweb.cutscene",
+  "version": 2,
+  "id": "route13.overworld-walkers",
+  "name": "Route 13 \u00b7 coastal walkers",
+  "target": "W2-US",
+  "fps": 30,
+  "frameCount": 300,
+  "stage": {
+    "kind": "map",
+    "zoneId": 370,
+    "season": "spring"
+  },
+  "camera": [
+    {
+      "id": "camera-1",
+      "frame": 0,
+      "position": [
+        11040,
+        128,
+        4480
+      ],
+      "rotationDegrees": [
+        -48,
+        0,
+        0
+      ],
+      "easing": "smoothstep",
+      "fov": 40
+    },
+    {
+      "id": "camera-2",
+      "frame": 150,
+      "position": [
+        11040,
+        128,
+        4224
+      ],
+      "rotationDegrees": [
+        -48,
+        0,
+        0
+      ],
+      "easing": "smoothstep",
+      "fov": 40
+    },
+    {
+      "id": "camera-3",
+      "frame": 299,
+      "position": [
+        11040,
+        144,
+        3968
+      ],
+      "rotationDegrees": [
+        -48,
+        0,
+        0
+      ],
+      "easing": "smoothstep",
+      "fov": 40
+    }
+  ],
+  "events": [
+    {
+      "id": "opening",
+      "type": "screen.fade",
+      "frame": 0,
+      "screens": "both",
+      "durationFrames": 15,
+      "from": "black",
+      "to": "clear"
+    },
+    {
+      "id": "closing",
+      "type": "screen.fade",
+      "frame": 285,
+      "screens": "both",
+      "durationFrames": 15,
+      "from": "clear",
+      "to": "black"
+    }
+  ],
+  "exit": {
+    "restoreCamera": true,
+    "restoreMusic": true,
+    "restorePlayerControl": true
+  },
+  "actors": [
+    {
+      "id": "hero",
+      "name": "Coastal walker",
+      "overworldId": 1,
+      "frameStep": 8,
+      "keys": [
+        {
+          "id": "hero-start",
+          "frame": 0,
+          "position": [
+            11000,
+            0,
+            4128
+          ],
+          "facing": "up",
+          "action": "idle",
+          "easing": "linear"
+        },
+        {
+          "id": "hero-walk",
+          "frame": 75,
+          "position": [
+            11000,
+            0,
+            4128
+          ],
+          "facing": "up",
+          "action": "walk",
+          "easing": "linear"
+        },
+        {
+          "id": "hero-stop",
+          "frame": 165,
+          "position": [
+            11000,
+            0,
+            4080
+          ],
+          "facing": "down",
+          "action": "idle",
+          "easing": "linear"
+        },
+        {
+          "id": "hero-turn",
+          "frame": 230,
+          "position": [
+            11000,
+            0,
+            4080
+          ],
+          "facing": "left",
+          "action": "idle",
+          "easing": "linear"
+        }
+      ]
+    },
+    {
+      "id": "companion",
+      "name": "Companion",
+      "overworldId": 4,
+      "frameStep": 8,
+      "keys": [
+        {
+          "id": "companion-start",
+          "frame": 0,
+          "position": [
+            11040,
+            0,
+            4128
+          ],
+          "facing": "down",
+          "action": "idle",
+          "easing": "linear"
+        },
+        {
+          "id": "companion-walk",
+          "frame": 140,
+          "position": [
+            11040,
+            0,
+            4128
+          ],
+          "facing": "up",
+          "action": "walk",
+          "easing": "linear"
+        },
+        {
+          "id": "companion-stop",
+          "frame": 230,
+          "position": [
+            11040,
+            0,
+            4096
+          ],
+          "facing": "right",
+          "action": "idle",
+          "easing": "linear"
+        }
+      ]
+    }
+  ]
+}

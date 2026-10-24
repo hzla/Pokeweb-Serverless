@@ -465,6 +465,13 @@ export function replaceNativeSdatStream(sdatBytes: Uint8Array, streamId: number,
 /** Decode a bounded preview of an SDAT stream without materializing the full track. */
 export function decodeNativeSdatStreamPcm(sdatBytes: Uint8Array, streamId: number, maxSeconds = 15): StereoPcm {
   const { descriptor, bytes } = nativeStreamBytes(sdatBytes, streamId);
+  return decodeStrmPcm(bytes,maxSeconds,`Stream ${streamId}`);
+}
+
+/** Decode an imported standalone clip without building a temporary SDAT. */
+export function decodeStrmPcm(bytes:Uint8Array,maxSeconds=600,streamId:string|number='clip'):StereoPcm {
+  requireMagic(bytes,0,'STRM');requireRange(bytes,0,STRM_HEADER_SIZE,'Stream header');
+  const descriptor={channels:bytes[0x1a],sampleRate:readU16(bytes,0x1c),sampleCount:readU32(bytes,0x24)};
   if (descriptor.channels < 1 || descriptor.channels > 2) {
     throw new Error(`Preview supports mono or stereo streams; stream ${streamId} has ${descriptor.channels} channels.`);
   }

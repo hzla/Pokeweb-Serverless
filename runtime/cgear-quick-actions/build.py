@@ -16,7 +16,7 @@ TOOLS = Path(
     )
 )
 JAR = Path(os.environ.get("RPM_TOOL_JAR", WS / "White2Upgrade/CTRMap.jar"))
-VERSION = "0.5.6"
+VERSION = "0.5.7"
 # Every native import is an explicit US address. No reference source is a build
 # dependency. Verified early getters share addresses; the saved flag helper
 # and the later imported helpers differ by 44.

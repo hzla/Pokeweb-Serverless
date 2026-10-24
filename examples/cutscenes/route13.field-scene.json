@@ -1,0 +1,58 @@
+{
+  "format": "pokeweb.field-scene",
+  "version": 1,
+  "target": "W2-US",
+  "fps": 30,
+  "id": "route13.field-tour",
+  "name": "Route 13 · live player tour",
+  "zoneId": 370,
+  "entry": {
+    "tileX": 697,
+    "tileZ": 239,
+    "facing": "down"
+  },
+  "steps": [
+    {
+      "id": "coast",
+      "type": "camera.move",
+      "durationFrames": 120,
+      "target": [
+        11128,
+        -76,
+        3720
+      ],
+      "pitch": 53.2177734375,
+      "yaw": 0,
+      "distance": 237
+    },
+    {
+      "id": "pause",
+      "type": "wait",
+      "durationFrames": 30
+    },
+    {
+      "id": "entrance-view",
+      "type": "camera.move",
+      "durationFrames": 120,
+      "target": [
+        11160,
+        -76,
+        3992
+      ],
+      "pitch": 53.2177734375,
+      "yaw": 0,
+      "distance": 237
+    },
+    {
+      "id": "player-entrance",
+      "type": "player.walk",
+      "direction": "down",
+      "tiles": 10
+    },
+    {
+      "id": "handoff",
+      "type": "control.return",
+      "durationFrames": 60
+    }
+  ]
+}

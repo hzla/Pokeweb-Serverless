@@ -100,7 +100,7 @@ describe("unsupported patch visibility", () => {
   it.each(["B", "W"] as const)("hides unsupported patches on %s while keeping supported patches and PMC visible", version => {
     const html = renderFixture(version);
     const cards = html.match(/<section class="code-injection-panel"[^>]*>[\s\S]*?<\/section>/g)!;
-    expect(cards).toHaveLength(23);
+    expect(cards).toHaveLength(25);
     for (const card of cards) {
       const opening = card.slice(0, card.indexOf(">"));
       expect(opening).toContain("data-code-injection-supported=");
@@ -251,9 +251,9 @@ describe("code-injection patch categories", () => {
     expect(headings(panels[2])).toEqual(["Instant Fast Text", "Background Music Toggle"]);
     expect(headings(panels[3])).toEqual([
       "Infinite Rare Candy", "Hard Level Caps", "Single-NPC Double Battle Fix",
-      "Tag Battle Stabilization", "C-Gear Quick Actions", "Pokenav", "Nuzlocke Style Encounters", "Porta PC", "Added-Form Evolution Support",
+      "Trainer Field Conditions", "Tag Battle Stabilization", "C-Gear Quick Actions", "Pokenav", "Nuzlocke Style Encounters", "Porta PC", "Added-Form Evolution Support",
     ]);
-    expect(headings(panels[4])).toEqual(["Walk Through Walls", "Instant Battle Victory"]);
+    expect(headings(panels[4])).toEqual(["Debug Save Flag", "Walk Through Walls", "Instant Battle Victory"]);
     expect(html).toContain(">Debug Helpers</button>");
     expect(html.slice(html.indexOf("<aside"), html.indexOf("</aside>"))).toContain("<h2>PMC Runtime</h2>");
     expect(html.slice(html.indexOf("<main"), html.indexOf("</main>"))).not.toContain("<h2>PMC Runtime</h2>");

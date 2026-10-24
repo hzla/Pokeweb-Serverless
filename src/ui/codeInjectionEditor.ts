@@ -1,3 +1,6 @@
+import { getTrainerFieldConditionsStatus } from "../pokeweb/trainerFieldConditionsModel";
+import { attachTrainerFieldInstaller, renderTrainerFieldInstaller } from "./trainerFieldConditions";
+import { getDebugSaveFlagStatus, installDebugSaveFlag, parseDebugSaveFlag } from "../pokeweb/debugSaveFlagModel";
 import { renderInlineStatus } from "./inlineStatus";
 import { installCodeInjectionPatch } from "../pokeweb/codeInjectionInstall";
 import { getPartyQuickActionsStatus, installPartyQuickActions, disablePartyQuickActions, parsePartyToolbarHideFlag, PARTY_TOOLBAR_SECTIONS } from "../pokeweb/partyQuickActionsModel";
@@ -107,6 +110,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const bgmToggleSupported = bgmToggleStatus !== "unsupported";
   const infiniteCandyStatus = getInfiniteCandyStatus(project);
   const levelCapsStatus = getLevelCapsStatus(project);
+  const debugFlag = getDebugSaveFlagStatus(project);
   const testingPatchCard = (id: TestingPatchId) => {
     const patch = TESTING_PATCHES[id];
     const state = getTestingPatchStatus(project, id);
@@ -122,6 +126,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         <div class="code-injection-note" id="${id}-note" aria-live="polite"></div>
       </div></section>`;
   };
+  const trainerFieldStatus = getTrainerFieldConditionsStatus(project);
   const tagBattleStatus = getTagBattleStabilizationStatus(project);
   const tagBattleCanInstall = tagBattleStatus.supported && tagBattleStatus.compatible && !tagBattleStatus.installed;
   const portaPcStatus = getPortaPcStatus(project);
@@ -627,6 +632,12 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <strong>Papaya</strong>
           </div>
         </section>
+        <section class="code-injection-panel" ${patchVisibility(trainerFieldStatus.supported)}>
+          <div class="code-injection-panel__header"><div><h2>Trainer Field Conditions</h2>
+          </div></div>
+          <div class="code-injection-facts"><div><span>ROM</span><strong>English US Black 2 / White 2</strong></div><div><span>Dependency</span><strong>PMC only</strong></div></div>
+          ${renderTrainerFieldInstaller(trainerFieldStatus)}
+        </section>
         <section class="code-injection-panel" ${patchVisibility(tagBattleStatus.supported)}>
           <div class="code-injection-panel__header">
             <div>
@@ -753,6 +764,12 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         </section>
         </section>
         <section class="code-injection-tab-panel" id="code-injection-panel-debug-helpers" role="tabpanel" aria-labelledby="code-injection-tab-debug-helpers" tabindex="0" ${activeTab === "debug-helpers" ? "" : "hidden"}>
+          <section class="code-injection-panel" ${patchVisibility(debugFlag.supported)}>
+            <div class="code-injection-panel-header"><div><h2>Debug Save Flag</h2><p>L + R + Y toggles the configured saved flag once per hold in the neutral overworld. Blank disables the shortcut.</p></div></div>
+            <label>Save flag <input id="debug-save-flag" type="text" value="${debugFlag.flag ? `0x${debugFlag.flag.toString(16).toUpperCase()}` : ""}" placeholder="None" spellcheck="false" ${debugFlag.supported ? "" : "disabled"}></label>
+            <p>${escapeHtml(debugFlag.message)}</p>
+            <div class="code-injection-actions"><button class="btn -primary" id="install-debug-save-flag-btn" ${debugFlag.compatible ? "" : "disabled"}>${debugFlag.installed ? "Apply Changes" : "Install"}</button><div id="debug-save-flag-note" role="status"></div></div>
+          </section>
           ${testingPatchCard("walk-through-walls")}
           ${testingPatchCard("instant-victory")}
         </section>
@@ -810,6 +827,10 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     });
   });
 
+  attachTrainerFieldInstaller(project, root, () => {
+    onDirty?.();
+    renderCodeInjectionEditor(project, root, onDirty);
+  });
   const button = root.querySelector<HTMLButtonElement>("#install-pmc-btn");
   const note = root.querySelector<HTMLDivElement>("#pmc-install-note");
   button?.addEventListener("click", async () => {
@@ -967,6 +988,19 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     }
   });
 
+  root.querySelector<HTMLButtonElement>("#install-debug-save-flag-btn")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget as HTMLButtonElement;
+    button.disabled = true;
+    try {
+      const flag = parseDebugSaveFlag(root.querySelector<HTMLInputElement>("#debug-save-flag")?.value ?? "");
+      await install(candidate => installDebugSaveFlag(candidate, flag));
+      onDirty(); renderCodeInjectionEditor(project, root, onDirty);
+    } catch (error) {
+      button.disabled = false;
+      const note = root.querySelector("#debug-save-flag-note");
+      if (note) note.textContent = (error as Error).message;
+    }
+  });
   for (const id of Object.keys(TESTING_PATCHES) as TestingPatchId[]) {
     const button = root.querySelector<HTMLButtonElement>(`#install-${id}-btn`);
     button?.addEventListener("click", async () => {

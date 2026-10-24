@@ -13,11 +13,43 @@
     </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Edit Pokémon Black, White, Black 2 and White 2 in your browser with Pokeweb. Customize trainer teams, wild encounters, Pokémon data, moves and more." />
+    <link rel="canonical" href="https://hzla.github.io/Pokeweb-Serverless/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Pokeweb" />
+    <meta property="og:title" content="Pokeweb – Gen 5 Pokémon ROM Editor" />
+    <meta property="og:description" content="Make your own Gen 5 Pokémon ROM hack. Edit trainers, encounters, Pokémon, moves and more in your browser." />
+    <meta property="og:url" content="https://hzla.github.io/Pokeweb-Serverless/" />
     <link rel="icon" type="image/png" href="/favicon.png" />
-    <title>Pokeweb Serverless</title>
+    <title>Pokeweb – Gen 5 Pokémon ROM Editor</title>
   </head>
   <body>
-    <main id="app"></main>
+    <main id="app">
+      <section id="home-panel-about" class="home-tab-panel" role="tabpanel" aria-labelledby="home-tab-about" data-home-panel="about" hidden>
+        <div class="upload-panel home-about">
+          <h2>About Pokeweb</h2>
+          <p>Pokeweb is a browser-based Generation 5 Pokémon ROM editor for Pokémon Black, White, Black 2, and White 2. It edits game data from a user-selected <code>.nds</code> file and exports a modified ROM.</p>
+
+          <h3>Editing tools</h3>
+          <ul>
+            <li><strong>Pokémon:</strong> base stats, types, abilities, learnsets, evolutions, TM compatibility, sprites, and animations.</li>
+            <li><strong>Trainers:</strong> teams, levels, moves, held items, battle types, and AI settings.</li>
+            <li><strong>Encounters:</strong> wild Pokémon, levels, seasonal encounter tables, and encounter rates.</li>
+            <li><strong>Moves and items:</strong> move properties, TM assignments, item data, move animation scripts, and particle resources.</li>
+            <li><strong>Maps and text:</strong> map headers, overworld NPCs, warps, 3D map inspection, collision editing, and story and message text banks.</li>
+            <li><strong>Documentation:</strong> ROM comparisons, PDF and text changelogs, and data exports for Dynamic Calc and Dynamic Dex.</li>
+          </ul>
+
+          <h3>Game support</h3>
+          <p>Core data editing supports Black, White, Black 2, and White 2 when the required game data is loaded. Hidden Grotto and battle-facility editors are for Black 2 and White 2. Code patches and animation expansions have separate game, region, and ROM requirements; support for one game does not imply support for the others.</p>
+
+          <h3>Loading and saving</h3>
+          <p>Open <strong>NARCs to Load</strong> to select the game data available to the editors. Loading fewer data groups reduces memory use. Project data is saved in browser storage; use <strong>Export ROM</strong> to download the edited ROM. Keep a backup of the original file and test exported ROMs in an emulator.</p>
+
+          <p><a href="https://github.com/hzla/Pokeweb-Serverless" target="_blank" rel="noopener noreferrer">Source code</a> · <a href="https://github.com/hzla/Pokeweb-Serverless/tree/master/wiki" target="_blank" rel="noopener noreferrer">Editor documentation</a></p>
+        </div>
+      </section>
+    </main>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

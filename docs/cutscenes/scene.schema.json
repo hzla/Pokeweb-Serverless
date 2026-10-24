@@ -1,0 +1,831 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pokeweb W2 cutscene timeline version 2",
+  "description": "Implemented W2-US camera, NPC and event source. Runtime validation also checks unique IDs/frames, duration bounds, speaker references, text layout and stage compatibility. Map stages compile into private native sequences. Optional skeletal tracks target existing native-template rigs and clips. Resource binding, clip bounds and nonsingular scales are checked against the loaded ROM.",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "pokeweb.cutscene"
+    },
+    "version": {
+      "const": 2
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "target": {
+      "const": "W2-US"
+    },
+    "fps": {
+      "const": 30
+    },
+    "frameCount": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535
+    },
+    "stage": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "map"
+            },
+            "zoneId": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "season": {
+              "enum": [
+                "spring",
+                "summer",
+                "autumn",
+                "winter"
+              ]
+            },
+            "bounds": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "west",
+                "north",
+                "width",
+                "height"
+              ],
+              "properties": {
+                "west": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2048,
+                  "multipleOf": 32
+                },
+                "north": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2048,
+                  "multipleOf": 32
+                },
+                "width": {
+                  "type": "integer",
+                  "minimum": 32,
+                  "maximum": 2048,
+                  "multipleOf": 32
+                },
+                "height": {
+                  "type": "integer",
+                  "minimum": 32,
+                  "maximum": 2048,
+                  "multipleOf": 32
+                }
+              },
+              "description": "Optional complete matrix-cell scope in tiles. East/south must remain within 2048."
+            },
+            "includeNeighbors": {
+              "type": "boolean",
+              "default": false,
+              "description": "Include neighboring scenery cells and props within stage bounds, including panorama backdrops."
+            }
+          },
+          "required": [
+            "kind",
+            "zoneId",
+            "season"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "native-template"
+            },
+            "sequenceId": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 63
+            }
+          },
+          "required": [
+            "kind",
+            "sequenceId"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "camera": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 65535,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+          },
+          "frame": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65534
+          },
+          "position": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "type": "number",
+              "exclusiveMinimum": -524288,
+              "exclusiveMaximum": 524288
+            }
+          },
+          "rotationDegrees": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "type": "number",
+              "exclusiveMinimum": -524288,
+              "exclusiveMaximum": 524288
+            }
+          },
+          "easing": {
+            "enum": [
+              "linear",
+              "smoothstep",
+              "hold"
+            ]
+          },
+          "fov": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 178
+          }
+        },
+        "required": [
+          "id",
+          "frame",
+          "position",
+          "rotationDegrees",
+          "easing",
+          "fov"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "events": {
+      "type": "array",
+      "maxItems": 1023,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+              },
+              "type": {
+                "const": "music.play"
+              },
+              "frame": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65534
+              },
+              "assetId": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "frame",
+              "assetId"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+              },
+              "type": {
+                "const": "music.stop"
+              },
+              "frame": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65534
+              },
+              "fadeFrames": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "frame",
+              "fadeFrames"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+              },
+              "type": {
+                "const": "sound.play"
+              },
+              "frame": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65534
+              },
+              "assetId": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              },
+              "volume": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 127
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "frame",
+              "assetId",
+              "volume"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+              },
+              "type": {
+                "const": "screen.fade"
+              },
+              "frame": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65534
+              },
+              "screens": {
+                "enum": [
+                  "top",
+                  "bottom",
+                  "both"
+                ]
+              },
+              "durationFrames": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              },
+              "from": {
+                "enum": [
+                  "clear",
+                  "black",
+                  "white"
+                ]
+              },
+              "to": {
+                "enum": [
+                  "clear",
+                  "black",
+                  "white"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "frame",
+              "screens",
+              "durationFrames",
+              "from",
+              "to"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+              },
+              "type": {
+                "const": "native.cue"
+              },
+              "frame": {
+                "type": "integer",
+                "minimum": -1,
+                "maximum": 65535
+              },
+              "opcode": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 18
+              },
+              "args": {
+                "type": "array",
+                "minItems": 8,
+                "maxItems": 8,
+                "items": {
+                  "type": "integer",
+                  "minimum": -2147483648,
+                  "maximum": 2147483647
+                }
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "frame",
+              "opcode",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+              },
+              "type": {
+                "const": "dialogue"
+              },
+              "frame": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65534
+              },
+              "speakerId": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+                  }
+                ],
+                "description": "Existing NPC track ID, or null for narration. The track name is printed as the speaker."
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512,
+                "description": "Plain Western text and actual line breaks; no native control codes. Wraps at 24 characters to at most four lines including the speaker."
+              },
+              "waitForInput": {
+                "type": "boolean",
+                "description": "True holds camera, NPCs and material animation until a fresh A/B press. False displays timed text while playback continues."
+              },
+              "durationFrames": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535,
+                "description": "Display duration at 30 fps for timed text. Retained but ignored when waitForInput is true."
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "frame",
+              "speakerId",
+              "text",
+              "waitForInput",
+              "durationFrames"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+              },
+              "type": {
+                "const": "dialogue.choice"
+              },
+              "frame": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65534
+              },
+              "speakerId": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+                  }
+                ],
+                "description": "Existing NPC track ID, or null for narration. The track name is printed as the speaker."
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512,
+                "description": "Prompt and speaker plus responses must fit six wrapped native lines."
+              },
+              "choices": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 3,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+                    },
+                    "text": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 22
+                    },
+                    "targetFrame": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 65533
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "text",
+                    "targetFrame"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "frame",
+              "speakerId",
+              "text",
+              "choices"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+              },
+              "type": {
+                "const": "timeline.jump"
+              },
+              "frame": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65534
+              },
+              "targetFrame": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65533,
+                "description": "A later sample before the final camera frame. Skipped events do not execute."
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "frame",
+              "targetFrame"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "exit": {
+      "type": "object",
+      "properties": {
+        "restoreCamera": {
+          "const": true
+        },
+        "restoreMusic": {
+          "const": true
+        },
+        "restorePlayerControl": {
+          "const": true
+        }
+      },
+      "required": [
+        "restoreCamera",
+        "restoreMusic",
+        "restorePlayerControl"
+      ],
+      "additionalProperties": false
+    },
+    "actors": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "overworldId",
+          "frameStep",
+          "keys"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "overworldId": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535
+          },
+          "frameStep": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 120
+          },
+          "keys": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 65535,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "frame",
+                "position",
+                "facing",
+                "action",
+                "easing"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+                },
+                "frame": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65534
+                },
+                "position": {
+                  "type": "array",
+                  "minItems": 3,
+                  "maxItems": 3,
+                  "items": {
+                    "type": "number",
+                    "exclusiveMinimum": -524288,
+                    "exclusiveMaximum": 524288
+                  }
+                },
+                "facing": {
+                  "enum": [
+                    "up",
+                    "down",
+                    "left",
+                    "right"
+                  ]
+                },
+                "action": {
+                  "enum": [
+                    "idle",
+                    "walk"
+                  ]
+                },
+                "easing": {
+                  "enum": [
+                    "linear",
+                    "smoothstep",
+                    "hold"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "targetSeason",
+        "startFrame",
+        "endFrame",
+        "dayCycles"
+      ],
+      "properties": {
+        "targetSeason": {
+          "enum": [
+            "spring",
+            "summer",
+            "autumn",
+            "winter"
+          ]
+        },
+        "startFrame": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65533
+        },
+        "endFrame": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65534
+        },
+        "dayCycles": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32
+        },
+        "ambientSpeed": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 16,
+          "default": 1,
+          "description": "Texture-only playback rate during the transition. Phase remains continuous at both boundaries; camera and environment clocks retain their timing."
+        }
+      },
+      "description": "Map stages only. Visual time/season animation; end must exceed start and fit within the scene. Export additionally validates matching seasonal surfaces and resource budgets."
+    },
+    "skeletal": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "modelId",
+          "animationId",
+          "jointIndex",
+          "channels",
+          "keys"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "modelId": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535
+          },
+          "animationId": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535
+          },
+          "jointIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          },
+          "channels": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "translation",
+                "rotation",
+                "scale"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 3,
+            "uniqueItems": true
+          },
+          "keys": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "frame",
+                "translation",
+                "rotationDegrees",
+                "scale",
+                "easing"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+                },
+                "frame": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65534
+                },
+                "translation": {
+                  "type": "array",
+                  "items": {
+                    "type": "number",
+                    "exclusiveMinimum": -524288,
+                    "exclusiveMaximum": 524288
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                },
+                "rotationDegrees": {
+                  "type": "array",
+                  "items": {
+                    "type": "number",
+                    "exclusiveMinimum": -524288,
+                    "exclusiveMaximum": 524288
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                },
+                "scale": {
+                  "type": "array",
+                  "items": {
+                    "type": "number",
+                    "exclusiveMinimum": -524288,
+                    "exclusiveMaximum": 524288
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                },
+                "easing": {
+                  "enum": [
+                    "linear",
+                    "smoothstep",
+                    "hold"
+                  ]
+                }
+              }
+            },
+            "minItems": 1,
+            "maxItems": 65535
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "format",
+    "version",
+    "id",
+    "name",
+    "target",
+    "fps",
+    "frameCount",
+    "stage",
+    "camera",
+    "events",
+    "exit"
+  ],
+  "additionalProperties": false
+}

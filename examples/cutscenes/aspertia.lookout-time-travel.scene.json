@@ -1,0 +1,103 @@
+{
+  "format": "pokeweb.cutscene",
+  "version": 2,
+  "id": "aspertia.lookout-time-travel",
+  "name": "Aspertia lookout \u00b7 summer to autumn time travel",
+  "target": "W2-US",
+  "fps": 30,
+  "frameCount": 721,
+  "stage": {
+    "kind": "map",
+    "zoneId": 427,
+    "season": "summer",
+    "bounds": {
+      "west": 32,
+      "north": 672,
+      "width": 64,
+      "height": 64
+    },
+    "includeNeighbors": true
+  },
+  "environment": {
+    "targetSeason": "autumn",
+    "startFrame": 60,
+    "endFrame": 660,
+    "dayCycles": 8,
+    "ambientSpeed": 4
+  },
+  "camera": [
+    {
+      "id": "close",
+      "frame": 0,
+      "position": [
+        568,
+        279.33885,
+        11530.492
+      ],
+      "rotationDegrees": [
+        -20.12589,
+        0,
+        0
+      ],
+      "easing": "smoothstep",
+      "fov": 40
+    },
+    {
+      "id": "wide",
+      "frame": 90,
+      "position": [
+        568.0,
+        308.77348,
+        11610.8134
+      ],
+      "rotationDegrees": [
+        -20.12589,
+        0,
+        0
+      ],
+      "easing": "hold",
+      "fov": 40
+    },
+    {
+      "id": "autumn-hold",
+      "frame": 720,
+      "position": [
+        568.0,
+        308.77348,
+        11610.8134
+      ],
+      "rotationDegrees": [
+        -20.12589,
+        0,
+        0
+      ],
+      "easing": "hold",
+      "fov": 40
+    }
+  ],
+  "events": [
+    {
+      "id": "opening",
+      "type": "screen.fade",
+      "frame": 0,
+      "screens": "both",
+      "durationFrames": 15,
+      "from": "black",
+      "to": "clear"
+    },
+    {
+      "id": "closing",
+      "type": "screen.fade",
+      "frame": 705,
+      "screens": "both",
+      "durationFrames": 15,
+      "from": "clear",
+      "to": "black"
+    }
+  ],
+  "exit": {
+    "restoreCamera": true,
+    "restoreMusic": true,
+    "restorePlayerControl": true
+  }
+}

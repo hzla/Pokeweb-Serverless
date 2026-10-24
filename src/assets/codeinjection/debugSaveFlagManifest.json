@@ -1,0 +1,215 @@
+{
+  "version": "0.1.0",
+  "games": {
+    "W2": {
+      "idCode": "IRDO",
+      "fileName": "DebugSaveFlagW2.dll",
+      "configOffset": 360,
+      "codeHex": "f7b5444b0c0007009847b022010012010500414b1140914203d000221a702800febd00201a780090824205d1ba6a0a4011004a1e9141009101221a70374a38499688d38810688842e9d1012be7d1731e34491b041b0c8b42e1d8334b926873409a42dcd1bb6a314a1340bb62304b9847304b984703003c3018331a682b490a4004c39842f9d1009b0d40002bc7d0a768002fc4d0636a0093002bc0d0230094331b680193002bbad02300d0331b68012bb5d1fc34636d002bb1d138001e4b98470028acd11d4b98470028a8d000981c4b98470028a3d001981a4b9847002801d003289cd13800184b98473100174b0400984743425841272243429343144a20009b1801223100134398471248124b984785e7c0464ddf0302940100008801000044464c47f20b000044464d47fff7ffff05d3030201d30302bd780102f97a0202dd831902f9a6190295730102d99101022c9201024c0500005562000228002100004b18472100000044464c470000000044464c47",
+      "bss": 4,
+      "signatures": [
+        {
+          "module": "36",
+          "address": 35134794,
+          "hex": "bcf6fff8",
+          "patchSize": 4
+        },
+        {
+          "module": "36",
+          "address": 35134740,
+          "hex": "70b50e1c141c00214022051cf6f658ed201cfef7ebfb2880301c6e6094f6d2fea86095f683fae860201cfef7ebfb2882bcf6f0f8a862",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33808204,
+          "hex": "08b5fff7d9f9fff7efff08bd10b5041cfff7d0f93d342178",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33805060,
+          "hex": "08b50448",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33805056,
+          "hex": "00687047",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33649556,
+          "hex": "6b218900",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33657304,
+          "hex": "38b50c1c00f04cf800280cd0e30f62070578d21a1d21ca41991801228a40291c0120114200d1002038bd0000",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33657348,
+          "hex": "38b50c1c00f036f800280cd0e50f63075b1b1d22d341ea18012393401a060178120e1143017038bd",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33657388,
+          "hex": "38b50c1c00f022f800280ed0e50f63075b1b1d22d341ea1801239340ff225a4012060178120e1140",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33657464,
+          "hex": "002901d10020704701229203914209d2ca080a498a4201db002070470849401880187047891a8810400f0818c110082901db002070470348401870477f010000",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33650876,
+          "hex": "07218901405c7047",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33716984,
+          "hex": "03488089002801d10120704700207047e417140210b5134c",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35226588,
+          "hex": "8068002801d101207047002070470000",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35235576,
+          "hex": "4068014b1847c04619b01902",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33579604,
+          "hex": "0021014bc943184715620002004b1847156200020349c000",
+          "patchSize": 0
+        }
+      ],
+      "relocations": [
+        "36:2181d4a:THUMB_BRANCH_LINK:15c:3:1",
+        "base:118:OFFSET:174:1:0",
+        "base:11c:OFFSET:168:1:0",
+        "base:164:OFFSET:0:3:1"
+      ]
+    },
+    "B2": {
+      "idCode": "IREO",
+      "fileName": "DebugSaveFlagB2.dll",
+      "configOffset": 360,
+      "codeHex": "f7b5444b0c0007009847b022010012010500414b1140914203d000221a702800febd00201a780090824205d1ba6a0a4011004a1e9141009101221a70374a38499688d38810688842e9d1012be7d1731e34491b041b0c8b42e1d8334b926873409a42dcd1bb6a314a1340bb62304b9847304b984703003c3018331a682b490a4004c38342f9d1009b0d40002bc7d0a768002fc4d0636a0093002bc0d0230094331b680193002bbad02300d0331b68012bb5d1fc34636d002bb1d138001e4b98470028acd11d4b98470028a8d000981c4b98470028a3d001981a4b9847002801d003289cd13800184b98473100174b0400984743425841272243429343144a20009b1801223100134398471248124b984785e7c04621df0302940100008801000044464c47f20b000044464d47fff7ffffd9d20302d5d20302bd780102cd7a02029d831902b9a6190295730102ad910102009201024c0500005562000228002100004b18472100000044464c470000000044464c47",
+      "bss": 4,
+      "signatures": [
+        {
+          "module": "36",
+          "address": 35134730,
+          "hex": "bcf609f9",
+          "patchSize": 4
+        },
+        {
+          "module": "36",
+          "address": 35134676,
+          "hex": "70b50e1c141c00214022051cf6f662ed201cfef7ebfb2880301c6e6094f6f2fea86095f6a3fae860201cfef7ebfb2882bcf6faf8a862",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33808160,
+          "hex": "08b5fff7d9f9fff7efff08bd10b5041cfff7d0f93d342178",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33805016,
+          "hex": "08b50448",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33805012,
+          "hex": "00687047",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33649556,
+          "hex": "6b218900",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33657260,
+          "hex": "38b50c1c00f04cf800280cd0e30f62070578d21a1d21ca41991801228a40291c0120114200d1002038bd0000",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33657304,
+          "hex": "38b50c1c00f036f800280cd0e50f63075b1b1d22d341ea18012393401a060178120e1143017038bd",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33657344,
+          "hex": "38b50c1c00f022f800280ed0e50f63075b1b1d22d341ea1801239340ff225a4012060178120e1140",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33657420,
+          "hex": "002901d10020704701229203914209d2ca080a498a4201db002070470849401880187047891a8810400f0818c110082901db002070470348401870477f010000",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33650876,
+          "hex": "07218901405c7047",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33716940,
+          "hex": "03488089002801d10120704700207047a417140210b5134c",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35226524,
+          "hex": "8068002801d101207047002070470000",
+          "patchSize": 0
+        },
+        {
+          "module": "36",
+          "address": 35235512,
+          "hex": "4068014b1847c046d9af1902",
+          "patchSize": 0
+        },
+        {
+          "module": "ARM9",
+          "address": 33579604,
+          "hex": "0021014bc943184715620002004b1847156200020349c000",
+          "patchSize": 0
+        }
+      ],
+      "relocations": [
+        "36:2181d0a:THUMB_BRANCH_LINK:15c:3:1",
+        "base:118:OFFSET:174:1:0",
+        "base:11c:OFFSET:168:1:0",
+        "base:164:OFFSET:0:3:1"
+      ]
+    }
+  }
+}

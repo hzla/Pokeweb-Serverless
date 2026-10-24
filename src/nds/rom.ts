@@ -75,19 +75,21 @@ export class NintendoDSRom {
     const arm7Length = readU32(this.data, 0x3c);
     const bannerOffset = readU32(this.data, 0x68);
 
-    this.arm9 = this.data.slice(arm9Offset, arm9Offset + arm9Length);
-    this.arm7 = this.data.slice(arm7Offset, arm7Offset + arm7Length);
-    this.arm9OverlayTable = this.data.slice(arm9OverlayOffset, arm9OverlayOffset + arm9OverlayLength);
-    this.arm7OverlayTable = this.data.slice(arm7OverlayOffset, arm7OverlayOffset + arm7OverlayLength);
-    this.fntData = this.data.slice(fntOffset, fntOffset + fntLength);
+    // Buffer.slice() borrows memory. Own editable sections for every ByteLike input.
+    const copy = (start: number, end: number) => new Uint8Array(this.data.subarray(start, end));
+    this.arm9 = copy(arm9Offset, arm9Offset + arm9Length);
+    this.arm7 = copy(arm7Offset, arm7Offset + arm7Length);
+    this.arm9OverlayTable = copy(arm9OverlayOffset, arm9OverlayOffset + arm9OverlayLength);
+    this.arm7OverlayTable = copy(arm7OverlayOffset, arm7OverlayOffset + arm7OverlayLength);
+    this.fntData = copy(fntOffset, fntOffset + fntLength);
     this.filenames = fntLength > 0 ? loadFnt(this.fntData) : new Folder();
-    this.banner = bannerOffset > 0 ? this.data.slice(bannerOffset, bannerOffset + bannerLength(this.data, bannerOffset)) : new Uint8Array();
+    this.banner = bannerOffset > 0 ? copy(bannerOffset, bannerOffset + bannerLength(this.data, bannerOffset)) : new Uint8Array();
 
     this.files = [];
     for (let offset = fatOffset; offset + 8 <= fatOffset + fatLength; offset += 8) {
       const start = readU32(this.data, offset);
       const end = readU32(this.data, offset + 4);
-      this.files.push(options.fileData === "view" ? this.data.subarray(start, end) : this.data.slice(start, end));
+      this.files.push(options.fileData === "view" ? this.data.subarray(start, end) : copy(start, end));
     }
   }
 

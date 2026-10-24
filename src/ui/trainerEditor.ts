@@ -1,3 +1,5 @@
+import { getTrainerFieldConditionsStatus } from "../pokeweb/trainerFieldConditionsModel";
+import { attachTrainerFieldInstaller, attachTrainerFieldSettings, renderTrainerFieldInstaller, renderTrainerFieldSettings } from "./trainerFieldConditions";
 import { renderInlineStatus } from "./inlineStatus";
 import addIcon from "../assets/svgs/add.svg?raw";
 import { publicAsset } from "../assetUrl";
@@ -60,6 +62,7 @@ export function renderTrainerEditor(
   onOpenTrainerSprite?: (trainerClassId: number) => void,
   onOpenPlayerBackSprite?: () => void,
 ): void {
+  const trainerFieldStatus = getTrainerFieldConditionsStatus(project);
   const trainerNaturePatchStatus = detectSpecifyTrainerNaturesPatch(project);
   const savedTestBattleTeamText = getTrainerTestBattleTeamText(project);
   autoEnrichTrainerLocations(project);
@@ -94,6 +97,7 @@ export function renderTrainerEditor(
           </div>
         ` : ""}
       </div>
+      ${project.session.baseRom === "BW2" ? renderTrainerFieldInstaller(trainerFieldStatus, true) : ""}
       ${trainerMoreContent ? `
         <details class="trainer-more-section">
           <summary>More</summary>
@@ -129,6 +133,11 @@ export function renderTrainerEditor(
     renderRow: (trainerId) => renderTrainerRow(project, trainerId),
     renderPanel: (trainerId, panel) => renderTrainerPanel(project, trainerId, panel),
   });
+  attachTrainerFieldInstaller(project, root, () => {
+    onDirty?.();
+    renderTrainerEditor(project, root, onDirty, onTestBattle, onOpenTrainerSprite, onOpenPlayerBackSprite);
+  });
+  attachTrainerFieldSettings(project, root, onDirty);
   attachW2uSyncButton(root, project);
   root.querySelector("#player-back-sprite-open")?.addEventListener("click", () => onOpenPlayerBackSprite?.());
   installTestBattleTeamPersistence(project, root);
@@ -445,7 +454,7 @@ export function renderTrainerRow(project: ProjectState, trainerId: number): stri
 
 export function renderTrainerPanel(project: ProjectState, trainerId: number, panel: TrainerPanel): string {
   const trainer = getTrainerRecord(project, trainerId, { includeTexts: panel === "trainer" });
-  if (panel === "trainer") return renderExpandedTrainer(trainer);
+  if (panel === "trainer") return renderExpandedTrainer(project, trainer);
   const pokemon = trainer.party.find((pok) => pok.slot === panel);
   return pokemon ? renderTrainerPokemon(project, trainer, pokemon, detectSpecifyTrainerNaturesPatch(project) === "patched") : "";
 }
@@ -633,7 +642,7 @@ function installTrainerPokemonIconRendering(project: ProjectState, root: HTMLEle
   });
 }
 
-function renderExpandedTrainer(trainer: TrainerRecord): string {
+function renderExpandedTrainer(project: ProjectState, trainer: TrainerRecord): string {
   return `
     <div class="expanded-card-content expanded-trainer">
       <div class="expanded-left">
@@ -650,6 +659,7 @@ function renderExpandedTrainer(trainer: TrainerRecord): string {
       <div class="expanded-right trainer-ai" data-narc="trdata">
         ${TRAINER_AIS.map((ai) => `<div class="choosable-text choosable-prop ${Number(trainer.readable[ai]) > 0 ? "-active" : ""}" data-field-name="${escapeHtml(ai)}" title="Right click to set for all trainers">${escapeHtml(ai)}</div>`).join("")}
       </div>
+      ${renderTrainerFieldSettings(project, trainer.id)}
       ${renderTrainerTexts(trainer)}
     </div>
   `;

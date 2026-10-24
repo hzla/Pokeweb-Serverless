@@ -1011,14 +1011,13 @@ export function trainerPokemonExportAbility(project: ProjectState, pok: TrainerP
   const resolvedSlot = Number(pok.resolvedAbilitySlot ?? pok.abilitySlot ?? 0);
   if (resolvedSlot > 3) return titleizeAbility(cascadeWhiteTrainerAbilityName(project, pok.speciesId, resolvedSlot, pok.form) ?? pok.abilityName);
   const baseName = resolvedBaseName ?? pokemonExportName(project, pok.speciesId);
-  if (pok.form <= 0 || TRAINER_FORM_ABILITY_EXCLUSIONS.has(baseName)) return titleizeAbility(pok.abilityName);
-
-  const altPersonalId = trainerAltFormPersonalId(project, pok.speciesId, pok.form);
-  if (altPersonalId === undefined) return titleizeAbility(pok.abilityName);
-
-  const altRecord = safePokemonSummaryRecord(project, altPersonalId);
-  const slot = Math.min(Math.max(Number(pok.resolvedAbilitySlot ?? pok.abilitySlot ?? 1), 1), 3);
-  const ability = altRecord?.personal[`ability_${slot}`];
+  const altPersonalId = TRAINER_FORM_ABILITY_EXCLUSIONS.has(baseName) ? undefined : trainerAltFormPersonalId(project, pok.speciesId, pok.form);
+  const record = safePokemonSummaryRecord(project, altPersonalId ?? pok.speciesId % 1024);
+  const slot = Math.min(Math.max(resolvedSlot, 1), 3);
+  let ability = record?.personal[`ability_${slot}`];
+  // Empty ordinary slots use the first ability of the selected personal form.
+  // Check the raw ID too: ROMs can label ability zero as "EMPTY" or " -".
+  if (Number(record?.rawPersonal[`ability_${slot}`] ?? 0) === 0 || isEmptyExportValue(ability)) ability = record?.personal.ability_1;
   return isEmptyExportValue(ability) ? titleizeAbility(pok.abilityName) : titleizeAbility(ability);
 }
 

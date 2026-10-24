@@ -4,7 +4,7 @@ import { NARC } from "../nds/narc";
 import { materializeProjectEdits } from "../pokeweb/projectMaterialize";
 import { hydrateNarcRawFiles } from "../pokeweb/persistence";
 import { createNarcStore, type ProjectState } from "../pokeweb/projectStore";
-import { addMap3dBuilding, deleteMap3dBuilding, extractGameFreakContainer, packGameFreakContainer, parseChunkBuildings, updateMap3dBuilding, type Map3dBuildingField, type Map3dSceneData } from "../pokeweb/map3dModel";
+import { addMap3dBuilding, deleteMap3dBuilding, extractGameFreakContainer, packGameFreakContainer, mapBuildingMember, parseChunkBuildings, updateMap3dBuilding, type Map3dBuildingField, type Map3dSceneData } from "../pokeweb/map3dModel";
 
 function fixture() {
   const placements = new Uint8Array(4 + 2 * 16);
@@ -47,6 +47,22 @@ function fixture() {
 
 describe("BW/BW2 building placement edits", () => {
   const newBuilding = { chunkIndex: 1, uid: 258, worldX: 800, worldY: 16, worldZ: 1296, rotationY: 90 };
+
+  it("edits seasonal four-section chunks without treating the second permissions member as placements", () => {
+    const {project,data,store,bytes}=fixture(),files=extractGameFreakContainer(bytes).files;
+    const seasonal=new Uint8Array(8196);writeU16(seasonal,0,32);writeU16(seasonal,2,32);
+    store.rawFiles[0]=packGameFreakContainer("WB",[files[0],files[1],seasonal,files[2]]);
+    expect(mapBuildingMember([files[0],files[1],seasonal,files[2]])).toBe(3);
+    expect(mapBuildingMember(files)).toBe(2); // An opaque trailing member remains opaque.
+    updateMap3dBuilding(project,data,0,"worldY",48);
+    addMap3dBuilding(project,data,newBuilding);
+    const after=extractGameFreakContainer(store.rawFiles[0]).files;
+    expect(after[2]).toEqual(seasonal);expect(parseChunkBuildings(after[3],[],0)).toHaveLength(3);
+    expect(parseChunkBuildings(after[3],[],0)[0].y).toBe(48);
+    deleteMap3dBuilding(project,data,0);
+    const deleted=extractGameFreakContainer(store.rawFiles[0]).files;
+    expect(deleted[2]).toEqual(seasonal);expect(parseChunkBuildings(deleted[3],[],0)).toHaveLength(2);
+  });
 
   it("adds a native record and previews every instance of its chunk at the correct origin", () => {
     const { project, data, store, bytes, parsed } = fixture();

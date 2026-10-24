@@ -1,3 +1,4 @@
+import { isDebugSaveFlagRuntime } from "./debugSaveFlagModel";
 import { loadOverlayTable } from "../nds/code";
 import { decompressCode } from "../nds/codeCompression";
 import { NintendoDSRom } from "../nds/rom";
@@ -71,6 +72,10 @@ export function getTestingPatchStatus(project: ProjectState, id: TestingPatchId)
     if (rpm && isTestingPatchRuntime(rpm, id)) {
       if (entry.target !== "patches") return { ...status, message: `Move ${entry.path} to patches before installing.` };
       installed.push(entry.path);
+    } else if (id === "walk-through-walls" && rpm && isDebugSaveFlagRuntime(rpm, "W2")) {
+      // Independently checked adjacent BL sites in FieldInputSnapshot. The
+      // debug adapter preserves r4/r5 and consumes only its own Y shortcut.
+      continue;
     } else if (entry.fileName.toLowerCase() === patch.fileName.toLowerCase() || (rpm && rpm.relocations.some(({ target: t, sourceSymbolIndex }) => {
       const size = t.type === "FULL_COPY" ? rpm!.symbols[sourceSymbolIndex]?.size ?? 0
         : t.type === "THUMB_BRANCH_SAFESTACK" ? 16 : t.type === "THUMB_BRANCH" ? 8 : 4;

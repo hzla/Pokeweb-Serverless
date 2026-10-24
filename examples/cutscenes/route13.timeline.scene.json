@@ -1,0 +1,89 @@
+{
+  "format": "pokeweb.cutscene",
+  "version": 2,
+  "id": "route13.shoreline-introduction",
+  "name": "Route 13 coastal flyover",
+  "target": "W2-US",
+  "fps": 30,
+  "frameCount": 300,
+  "stage": {
+    "kind": "map",
+    "zoneId": 370,
+    "season": "spring"
+  },
+  "camera": [
+    {
+      "id": "camera-1",
+      "frame": 0,
+      "position": [
+        11040,
+        128,
+        4480
+      ],
+      "rotationDegrees": [
+        -48,
+        0,
+        0
+      ],
+      "easing": "smoothstep",
+      "fov": 40
+    },
+    {
+      "id": "camera-2",
+      "frame": 150,
+      "position": [
+        11040,
+        128,
+        4224
+      ],
+      "rotationDegrees": [
+        -48,
+        0,
+        0
+      ],
+      "easing": "smoothstep",
+      "fov": 40
+    },
+    {
+      "id": "camera-3",
+      "frame": 299,
+      "position": [
+        11040,
+        144,
+        3968
+      ],
+      "rotationDegrees": [
+        -48,
+        0,
+        0
+      ],
+      "easing": "smoothstep",
+      "fov": 40
+    }
+  ],
+  "events": [
+    {
+      "id": "opening",
+      "type": "screen.fade",
+      "frame": 0,
+      "screens": "both",
+      "durationFrames": 15,
+      "from": "black",
+      "to": "clear"
+    },
+    {
+      "id": "closing",
+      "type": "screen.fade",
+      "frame": 285,
+      "screens": "both",
+      "durationFrames": 15,
+      "from": "clear",
+      "to": "black"
+    }
+  ],
+  "exit": {
+    "restoreCamera": true,
+    "restoreMusic": true,
+    "restorePlayerControl": true
+  }
+}

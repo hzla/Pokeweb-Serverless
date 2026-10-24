@@ -1,0 +1,539 @@
+{
+  "format": "pokeweb.field-scene",
+  "version": 1,
+  "target": "W2-US",
+  "fps": 30,
+  "id": "aspertia.dialga-time-travel",
+  "name": "Aspertia lookout \u00b7 Dialga and the passing seasons",
+  "zoneId": 427,
+  "entry": {
+    "tileX": 35,
+    "tileZ": 709,
+    "facing": "up"
+  },
+  "returnCamera": "entry",
+  "environment": {
+    "sourceSeason": "summer",
+    "targetSeason": "autumn",
+    "startFrame": 151,
+    "endFrame": 901,
+    "dayCycles": 16,
+    "ambientSpeed": 16,
+    "retainSeason": true,
+    "seasonCycles": 2,
+    "tempo": {
+      "accelerateFraction": 0.3,
+      "decelerateFraction": 0.14,
+      "boost": {
+        "startFrame": 716,
+        "durationFrames": 45,
+        "multiplier": 2
+      }
+    },
+    "persistSeason": true
+  },
+  "steps": [
+    {
+      "id": "dialga-cry",
+      "type": "pokemon.cry",
+      "species": 483,
+      "form": 0
+    },
+    {
+      "id": "roar-shake",
+      "type": "camera.shake",
+      "amplitudeX": 2,
+      "amplitudeY": 1,
+      "periodFrames": 6,
+      "cycles": 10
+    },
+    {
+      "id": "roar-message",
+      "type": "dialogue",
+      "speakerId": "dialga",
+      "text": "Dialga uses Roar of Time!",
+      "waitForInput": false,
+      "durationFrames": 90,
+      "window": "narration"
+    },
+    {
+      "id": "lookout",
+      "type": "camera.move",
+      "durationFrames": 1,
+      "target": [
+        568,
+        144,
+        11352
+      ],
+      "pitch": 35.936279296875,
+      "yaw": 0,
+      "distance": 223
+    },
+    {
+      "id": "zoom-out",
+      "type": "camera.move",
+      "durationFrames": 89,
+      "target": [
+        568,
+        144,
+        11352
+      ],
+      "pitch": 35.936279296875,
+      "yaw": 0,
+      "distance": 323.35
+    },
+    {
+      "id": "passing-days-first",
+      "type": "wait",
+      "durationFrames": 344
+    },
+    {
+      "id": "tree-cutaway",
+      "type": "camera.move",
+      "durationFrames": 1,
+      "target": [
+        415.29464,
+        78.9063,
+        11192.54926
+      ],
+      "pitch": 38.676087656,
+      "yaw": 0,
+      "distance": 226.041770155,
+      "fov": 40
+    },
+    {
+      "id": "years-flash",
+      "type": "dialogue",
+      "speakerId": "player",
+      "text": "Years flash by...",
+      "waitForInput": false,
+      "durationFrames": 90,
+      "camera": {
+        "durationFrames": 90,
+        "target": [
+          530.2115,
+          78.9063,
+          11196.0628
+        ],
+        "pitch": 38.589268533,
+        "yaw": 0,
+        "distance": 225.928246763,
+        "fov": 40
+      },
+      "window": "narration"
+    },
+    {
+      "id": "lookout-cutback",
+      "type": "camera.move",
+      "durationFrames": 1,
+      "target": [
+        568,
+        144,
+        11352
+      ],
+      "pitch": 35.936279296875,
+      "yaw": 0,
+      "distance": 323.35
+    },
+    {
+      "id": "passing-days-last",
+      "type": "wait",
+      "durationFrames": 224
+    },
+    {
+      "id": "autumn-hold",
+      "type": "wait",
+      "durationFrames": 30
+    },
+    {
+      "id": "handoff",
+      "type": "control.return",
+      "durationFrames": 90
+    }
+  ],
+  "actors": [
+    {
+      "id": "dialga",
+      "name": "Dialga",
+      "overworldId": 4632,
+      "entry": {
+        "tileX": 37,
+        "tileZ": 709,
+        "facing": "up"
+      },
+      "endBehavior": "stay",
+      "actions": [],
+      "placement": "map"
+    }
+  ],
+  "music": {
+    "path": "field-tours/audio/aspertia.dialga-time-travel.strm",
+    "sourceName": "Dialga time travel \u00b7 9\u201338 seconds",
+    "startSeconds": 9,
+    "endSeconds": 38,
+    "durationFrames": 870
+  },
+  "trees": [
+    {
+      "id": "growing-tree-1",
+      "position": [
+        568,
+        101.0,
+        10768
+      ],
+      "startFrame": 211,
+      "endFrame": 391
+    },
+    {
+      "id": "growing-tree-7",
+      "position": [
+        616,
+        101.0,
+        10832
+      ],
+      "startFrame": 215,
+      "endFrame": 395
+    },
+    {
+      "id": "growing-tree-13",
+      "position": [
+        904,
+        101.0,
+        10816
+      ],
+      "startFrame": 219,
+      "endFrame": 399
+    },
+    {
+      "id": "growing-tree-19",
+      "position": [
+        536,
+        101.0,
+        10784
+      ],
+      "startFrame": 223,
+      "endFrame": 403
+    },
+    {
+      "id": "growing-tree-25",
+      "position": [
+        536,
+        101.0,
+        11088
+      ],
+      "startFrame": 227,
+      "endFrame": 407
+    },
+    {
+      "id": "growing-tree-31",
+      "position": [
+        168,
+        101.0,
+        11120
+      ],
+      "startFrame": 231,
+      "endFrame": 411
+    },
+    {
+      "id": "growing-tree-2",
+      "position": [
+        424,
+        101.0,
+        10816
+      ],
+      "startFrame": 290,
+      "endFrame": 470
+    },
+    {
+      "id": "growing-tree-8",
+      "position": [
+        168,
+        101.0,
+        10784
+      ],
+      "startFrame": 294,
+      "endFrame": 474
+    },
+    {
+      "id": "growing-tree-14",
+      "position": [
+        424,
+        101.0,
+        10768
+      ],
+      "startFrame": 298,
+      "endFrame": 478
+    },
+    {
+      "id": "growing-tree-20",
+      "position": [
+        232,
+        101.0,
+        10784
+      ],
+      "startFrame": 302,
+      "endFrame": 482
+    },
+    {
+      "id": "growing-tree-26",
+      "position": [
+        392,
+        101.0,
+        11024
+      ],
+      "startFrame": 306,
+      "endFrame": 486
+    },
+    {
+      "id": "growing-tree-32",
+      "position": [
+        504,
+        101.0,
+        11040
+      ],
+      "startFrame": 310,
+      "endFrame": 490
+    },
+    {
+      "id": "growing-tree-3",
+      "position": [
+        728,
+        101.0,
+        10768
+      ],
+      "startFrame": 369,
+      "endFrame": 549
+    },
+    {
+      "id": "growing-tree-9",
+      "position": [
+        840,
+        101.0,
+        10768
+      ],
+      "startFrame": 373,
+      "endFrame": 553
+    },
+    {
+      "id": "growing-tree-15",
+      "position": [
+        616,
+        101.0,
+        10784
+      ],
+      "startFrame": 377,
+      "endFrame": 557
+    },
+    {
+      "id": "growing-tree-21",
+      "position": [
+        888,
+        101.0,
+        10768
+      ],
+      "startFrame": 381,
+      "endFrame": 561
+    },
+    {
+      "id": "growing-tree-27",
+      "position": [
+        792,
+        21.0,
+        11104
+      ],
+      "startFrame": 385,
+      "endFrame": 565
+    },
+    {
+      "id": "growing-tree-33",
+      "position": [
+        344,
+        101.0,
+        11040
+      ],
+      "startFrame": 389,
+      "endFrame": 569
+    },
+    {
+      "id": "growing-tree-4",
+      "position": [
+        840,
+        101.0,
+        10848
+      ],
+      "startFrame": 448,
+      "endFrame": 628
+    },
+    {
+      "id": "growing-tree-10",
+      "position": [
+        488,
+        101.0,
+        10768
+      ],
+      "startFrame": 452,
+      "endFrame": 632
+    },
+    {
+      "id": "growing-tree-16",
+      "position": [
+        792,
+        101.0,
+        10784
+      ],
+      "startFrame": 456,
+      "endFrame": 636
+    },
+    {
+      "id": "growing-tree-22",
+      "position": [
+        504,
+        101.0,
+        10800
+      ],
+      "startFrame": 460,
+      "endFrame": 640
+    },
+    {
+      "id": "growing-tree-28",
+      "position": [
+        264,
+        101.0,
+        11088
+      ],
+      "startFrame": 464,
+      "endFrame": 644
+    },
+    {
+      "id": "growing-tree-34",
+      "position": [
+        952,
+        21.0,
+        11152
+      ],
+      "startFrame": 468,
+      "endFrame": 648
+    },
+    {
+      "id": "growing-tree-5",
+      "position": [
+        280,
+        101.0,
+        10768
+      ],
+      "startFrame": 527,
+      "endFrame": 707
+    },
+    {
+      "id": "growing-tree-11",
+      "position": [
+        360,
+        101.0,
+        10768
+      ],
+      "startFrame": 531,
+      "endFrame": 711
+    },
+    {
+      "id": "growing-tree-17",
+      "position": [
+        568,
+        101.0,
+        10800
+      ],
+      "startFrame": 535,
+      "endFrame": 715
+    },
+    {
+      "id": "growing-tree-23",
+      "position": [
+        392,
+        101.0,
+        10784
+      ],
+      "startFrame": 539,
+      "endFrame": 719
+    },
+    {
+      "id": "growing-tree-29",
+      "position": [
+        952,
+        21.0,
+        11104
+      ],
+      "startFrame": 543,
+      "endFrame": 723
+    },
+    {
+      "id": "growing-tree-35",
+      "position": [
+        1000,
+        21.0,
+        11072
+      ],
+      "startFrame": 547,
+      "endFrame": 727
+    },
+    {
+      "id": "growing-tree-6",
+      "position": [
+        952,
+        101.0,
+        10768
+      ],
+      "startFrame": 606,
+      "endFrame": 786
+    },
+    {
+      "id": "growing-tree-12",
+      "position": [
+        536,
+        101.0,
+        10816
+      ],
+      "startFrame": 610,
+      "endFrame": 790
+    },
+    {
+      "id": "growing-tree-18",
+      "position": [
+        472,
+        101.0,
+        10800
+      ],
+      "startFrame": 614,
+      "endFrame": 794
+    },
+    {
+      "id": "growing-tree-24",
+      "position": [
+        456,
+        101.0,
+        10768
+      ],
+      "startFrame": 618,
+      "endFrame": 798
+    },
+    {
+      "id": "growing-tree-30",
+      "position": [
+        1000,
+        21.0,
+        11184
+      ],
+      "startFrame": 622,
+      "endFrame": 802
+    },
+    {
+      "id": "growing-tree-36",
+      "position": [
+        232,
+        101.0,
+        11120
+      ],
+      "startFrame": 626,
+      "endFrame": 806
+    }
+  ],
+  "ageHumanNpcs": true
+}

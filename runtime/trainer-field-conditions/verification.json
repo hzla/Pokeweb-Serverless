@@ -1,0 +1,1568 @@
+{
+  "version": "0.1.1",
+  "profiles": {
+    "W2": {
+      "version": "0.1.1",
+      "profile": "US White 2 revision 0",
+      "dllSha256": "534b98af613fdcea731b27e155e50b5fa2b98f1ff058f2d4844c5e8a3f5698b8",
+      "dllBytes": 1648,
+      "cpu": {
+        "game": "W2",
+        "checks": [
+          "format 0: native messages follow each animation before entry abilities; correct side variants and actor IDs; native serialization and adapter ABI",
+          "format 1: native messages follow each animation before entry abilities; correct side variants and actor IDs; native serialization and adapter ABI",
+          "format 2: native messages follow each animation before entry abilities; correct side variants and actor IDs; native serialization and adapter ABI",
+          "format 3: native messages follow each animation before entry abilities; correct side variants and actor IDs; native serialization and adapter ABI",
+          "100 native turn checks: permanent field/side/weather; explicit removal persists; later timed effects expire",
+          "wild/facility/online/demo/communication passthrough",
+          "missing/malformed/out-of-range data fails closed without battle mutations",
+          "default records preserve battle weather; explicit clear removes existing weather",
+          "Opening cues/messages: one per hazard regardless of layers; missing sides; active actor IDs; native activation return value"
+        ],
+        "result": "passed",
+        "scope": "ARM CPU integration; file/display/event boundaries stubbed; no DS visual acceptance"
+      },
+      "dsGameplay": {
+        "game": "W2",
+        "passed": true,
+        "openingAnimations": [
+          {
+            "frame": 724,
+            "from": 0,
+            "to": 0,
+            "move": 433
+          },
+          {
+            "frame": 1050,
+            "from": 1,
+            "to": 0,
+            "move": 191
+          },
+          {
+            "frame": 1363,
+            "from": 1,
+            "to": 1,
+            "move": 115
+          },
+          {
+            "frame": 1689,
+            "from": 1,
+            "to": 1,
+            "move": 113
+          },
+          {
+            "frame": 2095,
+            "from": 1,
+            "to": 1,
+            "move": 219
+          },
+          {
+            "frame": 2439,
+            "from": 1,
+            "to": 1,
+            "move": 366
+          },
+          {
+            "frame": 2778,
+            "from": 1,
+            "to": 1,
+            "move": 381
+          },
+          {
+            "frame": 3134,
+            "from": 0,
+            "to": 1,
+            "move": 390
+          }
+        ],
+        "openingMessages": [
+          {
+            "frame": 898,
+            "id": 857,
+            "bank": 18,
+            "args": [
+              0
+            ]
+          },
+          {
+            "frame": 1175,
+            "id": 148,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 1515,
+            "id": 125,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 1895,
+            "id": 129,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 2253,
+            "id": 133,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 2600,
+            "id": 141,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 2922,
+            "id": 145,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 3260,
+            "id": 153,
+            "bank": 19,
+            "args": []
+          }
+        ],
+        "weatherCues": [
+          {
+            "frame": 465,
+            "weather": 2
+          }
+        ],
+        "initial": {
+          "weather": 2,
+          "weatherTurns": 255,
+          "trickRoom": 1,
+          "trickRoomActive": 1,
+          "reflect": 1,
+          "lightScreen": 1,
+          "safeguard": 1,
+          "tailwind": 1,
+          "luckyChant": 1,
+          "spikes": 3,
+          "toxicSpikes": 2
+        },
+        "afterTenTurns": {
+          "weather": 2,
+          "weatherTurns": 255,
+          "trickRoom": 1,
+          "trickRoomActive": 1,
+          "reflect": 1,
+          "lightScreen": 1,
+          "safeguard": 1,
+          "tailwind": 1,
+          "luckyChant": 1,
+          "spikes": 3,
+          "toxicSpikes": 2
+        },
+        "afterBrickBreak": {
+          "weather": 2,
+          "weatherTurns": 255,
+          "trickRoom": 1,
+          "trickRoomActive": 1,
+          "reflect": 0,
+          "lightScreen": 0,
+          "safeguard": 1,
+          "tailwind": 1,
+          "luckyChant": 1,
+          "spikes": 3,
+          "toxicSpikes": 2
+        },
+        "later": {
+          "weather": 2,
+          "weatherTurns": 255,
+          "trickRoom": 1,
+          "trickRoomActive": 1,
+          "reflect": 0,
+          "lightScreen": 0,
+          "safeguard": 1,
+          "tailwind": 1,
+          "luckyChant": 1,
+          "spikes": 3,
+          "toxicSpikes": 2
+        },
+        "commandTurns": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12
+        ],
+        "nativeScreenRemovals": [
+          [
+            1,
+            0
+          ],
+          [
+            1,
+            1
+          ]
+        ],
+        "scope": "Cold-boot DS-mode gameplay on prepared W2 fixture; no hardware or DSi claim"
+      },
+      "dsDrought": {
+        "game": "W2",
+        "passed": true,
+        "initial": {
+          "weather": 1,
+          "weatherTurns": 255,
+          "trickRoom": 1,
+          "trickRoomActive": 1,
+          "reflect": 1,
+          "lightScreen": 1,
+          "safeguard": 1,
+          "tailwind": 1,
+          "luckyChant": 1,
+          "spikes": 3,
+          "toxicSpikes": 2
+        },
+        "openingAnimations": [
+          {
+            "frame": 725,
+            "from": 0,
+            "to": 0,
+            "move": 433
+          },
+          {
+            "frame": 1047,
+            "from": 1,
+            "to": 0,
+            "move": 191
+          },
+          {
+            "frame": 1360,
+            "from": 1,
+            "to": 1,
+            "move": 115
+          },
+          {
+            "frame": 1686,
+            "from": 1,
+            "to": 1,
+            "move": 113
+          },
+          {
+            "frame": 2092,
+            "from": 1,
+            "to": 1,
+            "move": 219
+          },
+          {
+            "frame": 2436,
+            "from": 1,
+            "to": 1,
+            "move": 366
+          },
+          {
+            "frame": 2775,
+            "from": 1,
+            "to": 1,
+            "move": 381
+          },
+          {
+            "frame": 3131,
+            "from": 0,
+            "to": 1,
+            "move": 390
+          }
+        ],
+        "openingMessages": [
+          {
+            "frame": 899,
+            "id": 857,
+            "bank": 18,
+            "args": [
+              0
+            ]
+          },
+          {
+            "frame": 1172,
+            "id": 148,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 1512,
+            "id": 125,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 1892,
+            "id": 129,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 2250,
+            "id": 133,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 2597,
+            "id": 141,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 2919,
+            "id": 145,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 3257,
+            "id": 153,
+            "bank": 19,
+            "args": []
+          }
+        ],
+        "weatherCues": [
+          {
+            "frame": 466,
+            "weather": 2
+          },
+          {
+            "frame": 3704,
+            "weather": 1
+          }
+        ],
+        "scope": "Actual native client commands and rendered-message requests before the first command menu in DS-mode melonDS"
+      },
+      "inputKind": "US White 2 revision 0 derived from vanilla input, updated from 0.1.0",
+      "romRoundtrip": {
+        "passed": true,
+        "updateFrom": "0.1.0",
+        "configPreserved": true,
+        "exportReload": true,
+        "importedEditing": true,
+        "clone": true,
+        "reinstall": true,
+        "conflictRejection": true
+      },
+      "dsAllConditionsOpening": {
+        "game": "W2",
+        "passed": true,
+        "initial": {
+          "weather": 2,
+          "weatherTurns": 255,
+          "trickRoom": 1,
+          "trickRoomActive": 1,
+          "reflect": 1,
+          "lightScreen": 1,
+          "safeguard": 1,
+          "tailwind": 1,
+          "luckyChant": 1,
+          "spikes": 3,
+          "toxicSpikes": 2
+        },
+        "openingAnimations": [
+          {
+            "frame": 724,
+            "from": 0,
+            "to": 0,
+            "move": 433
+          },
+          {
+            "frame": 1050,
+            "from": 0,
+            "to": 0,
+            "move": 356
+          },
+          {
+            "frame": 1333,
+            "from": 0,
+            "to": 0,
+            "move": 346
+          },
+          {
+            "frame": 1654,
+            "from": 0,
+            "to": 0,
+            "move": 300
+          },
+          {
+            "frame": 2014,
+            "from": 0,
+            "to": 0,
+            "move": 472
+          },
+          {
+            "frame": 2445,
+            "from": 0,
+            "to": 0,
+            "move": 478
+          },
+          {
+            "frame": 2862,
+            "from": 0,
+            "to": 0,
+            "move": 115
+          },
+          {
+            "frame": 3172,
+            "from": 0,
+            "to": 0,
+            "move": 113
+          },
+          {
+            "frame": 3563,
+            "from": 0,
+            "to": 0,
+            "move": 219
+          },
+          {
+            "frame": 3898,
+            "from": 0,
+            "to": 0,
+            "move": 54
+          },
+          {
+            "frame": 4268,
+            "from": 0,
+            "to": 0,
+            "move": 366
+          },
+          {
+            "frame": 4594,
+            "from": 0,
+            "to": 0,
+            "move": 381
+          },
+          {
+            "frame": 4935,
+            "from": 1,
+            "to": 0,
+            "move": 191
+          },
+          {
+            "frame": 5248,
+            "from": 1,
+            "to": 0,
+            "move": 390
+          },
+          {
+            "frame": 5576,
+            "from": 1,
+            "to": 0,
+            "move": 446
+          },
+          {
+            "frame": 5900,
+            "from": 1,
+            "to": 0,
+            "move": 518
+          },
+          {
+            "frame": 6251,
+            "from": 1,
+            "to": 0,
+            "move": 519
+          },
+          {
+            "frame": 6597,
+            "from": 1,
+            "to": 0,
+            "move": 520
+          },
+          {
+            "frame": 6931,
+            "from": 1,
+            "to": 1,
+            "move": 115
+          },
+          {
+            "frame": 7257,
+            "from": 1,
+            "to": 1,
+            "move": 113
+          },
+          {
+            "frame": 7663,
+            "from": 1,
+            "to": 1,
+            "move": 219
+          },
+          {
+            "frame": 8007,
+            "from": 1,
+            "to": 1,
+            "move": 54
+          },
+          {
+            "frame": 8387,
+            "from": 1,
+            "to": 1,
+            "move": 366
+          },
+          {
+            "frame": 8723,
+            "from": 1,
+            "to": 1,
+            "move": 381
+          },
+          {
+            "frame": 9083,
+            "from": 0,
+            "to": 1,
+            "move": 191
+          },
+          {
+            "frame": 9418,
+            "from": 0,
+            "to": 1,
+            "move": 390
+          },
+          {
+            "frame": 9756,
+            "from": 0,
+            "to": 1,
+            "move": 446
+          },
+          {
+            "frame": 10090,
+            "from": 0,
+            "to": 1,
+            "move": 518
+          },
+          {
+            "frame": 10451,
+            "from": 0,
+            "to": 1,
+            "move": 519
+          },
+          {
+            "frame": 10807,
+            "from": 0,
+            "to": 1,
+            "move": 520
+          }
+        ],
+        "openingMessages": [
+          {
+            "frame": 898,
+            "id": 857,
+            "bank": 18,
+            "args": [
+              0
+            ]
+          },
+          {
+            "frame": 1202,
+            "id": 117,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 1511,
+            "id": 114,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 1857,
+            "id": 115,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 2203,
+            "id": 178,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 2624,
+            "id": 180,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 3014,
+            "id": 124,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 3379,
+            "id": 128,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 3722,
+            "id": 132,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 4112,
+            "id": 136,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 4426,
+            "id": 140,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 4739,
+            "id": 144,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 5060,
+            "id": 148,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 5374,
+            "id": 152,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 5714,
+            "id": 156,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 6063,
+            "id": 164,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 6441,
+            "id": 168,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 6784,
+            "id": 172,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 7083,
+            "id": 125,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 7463,
+            "id": 129,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 7821,
+            "id": 133,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 8221,
+            "id": 137,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 8545,
+            "id": 141,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 8871,
+            "id": 145,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 9210,
+            "id": 149,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 9544,
+            "id": 153,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 9892,
+            "id": 157,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 10253,
+            "id": 165,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 10641,
+            "id": 169,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 10996,
+            "id": 173,
+            "bank": 19,
+            "args": []
+          }
+        ],
+        "weatherCues": [
+          {
+            "frame": 465,
+            "weather": 2
+          }
+        ],
+        "scope": "Actual native client commands and rendered-message requests before the first command menu in DS-mode melonDS"
+      },
+      "visualChecks": {
+        "spikesText": true,
+        "opposingReflectText": true,
+        "screenshots": {
+          "opening-message-148.png": "22ab0f83ba8d1b144a8ff0a6f3860787f4312a3f1059878b3780aa33316a9cb5",
+          "opening-message-125.png": "4888e1f2971ecb7050ae4a65ec3e774ae8bc9f182967929df7e0bb0c854229e4"
+        }
+      }
+    },
+    "B2": {
+      "version": "0.1.1",
+      "profile": "US Black 2 revision 0",
+      "inputKind": "Local US Black 2 revision-0 test image with an existing C-Gear add-on, updated from 0.1.0; no separate clean Black 2 gameplay run",
+      "dllSha256": "f479ef41690acff664412783f4c498f80ddb95133754b32e884d2effec5f217e",
+      "dllBytes": 1648,
+      "cpu": {
+        "game": "B2",
+        "checks": [
+          "format 0: native messages follow each animation before entry abilities; correct side variants and actor IDs; native serialization and adapter ABI",
+          "format 1: native messages follow each animation before entry abilities; correct side variants and actor IDs; native serialization and adapter ABI",
+          "format 2: native messages follow each animation before entry abilities; correct side variants and actor IDs; native serialization and adapter ABI",
+          "format 3: native messages follow each animation before entry abilities; correct side variants and actor IDs; native serialization and adapter ABI",
+          "100 native turn checks: permanent field/side/weather; explicit removal persists; later timed effects expire",
+          "wild/facility/online/demo/communication passthrough",
+          "missing/malformed/out-of-range data fails closed without battle mutations",
+          "default records preserve battle weather; explicit clear removes existing weather",
+          "Opening cues/messages: one per hazard regardless of layers; missing sides; active actor IDs; native activation return value"
+        ],
+        "result": "passed",
+        "scope": "ARM CPU integration; file/display/event boundaries stubbed; no DS visual acceptance"
+      },
+      "dsGameplay": {
+        "game": "B2",
+        "passed": true,
+        "openingAnimations": [
+          {
+            "frame": 728,
+            "from": 0,
+            "to": 0,
+            "move": 433
+          },
+          {
+            "frame": 1054,
+            "from": 1,
+            "to": 0,
+            "move": 191
+          },
+          {
+            "frame": 1367,
+            "from": 1,
+            "to": 1,
+            "move": 115
+          },
+          {
+            "frame": 1693,
+            "from": 1,
+            "to": 1,
+            "move": 113
+          },
+          {
+            "frame": 2099,
+            "from": 1,
+            "to": 1,
+            "move": 219
+          },
+          {
+            "frame": 2443,
+            "from": 1,
+            "to": 1,
+            "move": 366
+          },
+          {
+            "frame": 2779,
+            "from": 1,
+            "to": 1,
+            "move": 381
+          },
+          {
+            "frame": 3135,
+            "from": 0,
+            "to": 1,
+            "move": 390
+          }
+        ],
+        "openingMessages": [
+          {
+            "frame": 902,
+            "id": 857,
+            "bank": 18,
+            "args": [
+              0
+            ]
+          },
+          {
+            "frame": 1179,
+            "id": 148,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 1519,
+            "id": 125,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 1899,
+            "id": 129,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 2257,
+            "id": 133,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 2601,
+            "id": 141,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 2923,
+            "id": 145,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 3261,
+            "id": 153,
+            "bank": 19,
+            "args": []
+          }
+        ],
+        "weatherCues": [
+          {
+            "frame": 469,
+            "weather": 2
+          }
+        ],
+        "initial": {
+          "weather": 2,
+          "weatherTurns": 255,
+          "trickRoom": 1,
+          "trickRoomActive": 1,
+          "reflect": 1,
+          "lightScreen": 1,
+          "safeguard": 1,
+          "tailwind": 1,
+          "luckyChant": 1,
+          "spikes": 3,
+          "toxicSpikes": 2
+        },
+        "afterTenTurns": {
+          "weather": 2,
+          "weatherTurns": 255,
+          "trickRoom": 1,
+          "trickRoomActive": 1,
+          "reflect": 1,
+          "lightScreen": 1,
+          "safeguard": 1,
+          "tailwind": 1,
+          "luckyChant": 1,
+          "spikes": 3,
+          "toxicSpikes": 2
+        },
+        "afterBrickBreak": {
+          "weather": 2,
+          "weatherTurns": 255,
+          "trickRoom": 1,
+          "trickRoomActive": 1,
+          "reflect": 0,
+          "lightScreen": 0,
+          "safeguard": 1,
+          "tailwind": 1,
+          "luckyChant": 1,
+          "spikes": 3,
+          "toxicSpikes": 2
+        },
+        "later": {
+          "weather": 2,
+          "weatherTurns": 255,
+          "trickRoom": 1,
+          "trickRoomActive": 1,
+          "reflect": 0,
+          "lightScreen": 0,
+          "safeguard": 1,
+          "tailwind": 1,
+          "luckyChant": 1,
+          "spikes": 3,
+          "toxicSpikes": 2
+        },
+        "commandTurns": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12
+        ],
+        "nativeScreenRemovals": [
+          [
+            1,
+            0
+          ],
+          [
+            1,
+            1
+          ]
+        ],
+        "scope": "Cold-boot DS-mode gameplay on prepared B2 fixture; no hardware or DSi claim"
+      },
+      "dsDrought": {
+        "game": "B2",
+        "passed": true,
+        "initial": {
+          "weather": 1,
+          "weatherTurns": 255,
+          "trickRoom": 1,
+          "trickRoomActive": 1,
+          "reflect": 1,
+          "lightScreen": 1,
+          "safeguard": 1,
+          "tailwind": 1,
+          "luckyChant": 1,
+          "spikes": 3,
+          "toxicSpikes": 2
+        },
+        "openingAnimations": [
+          {
+            "frame": 729,
+            "from": 0,
+            "to": 0,
+            "move": 433
+          },
+          {
+            "frame": 1056,
+            "from": 1,
+            "to": 0,
+            "move": 191
+          },
+          {
+            "frame": 1369,
+            "from": 1,
+            "to": 1,
+            "move": 115
+          },
+          {
+            "frame": 1695,
+            "from": 1,
+            "to": 1,
+            "move": 113
+          },
+          {
+            "frame": 2106,
+            "from": 1,
+            "to": 1,
+            "move": 219
+          },
+          {
+            "frame": 2450,
+            "from": 1,
+            "to": 1,
+            "move": 366
+          },
+          {
+            "frame": 2786,
+            "from": 1,
+            "to": 1,
+            "move": 381
+          },
+          {
+            "frame": 3142,
+            "from": 0,
+            "to": 1,
+            "move": 390
+          }
+        ],
+        "openingMessages": [
+          {
+            "frame": 908,
+            "id": 857,
+            "bank": 18,
+            "args": [
+              0
+            ]
+          },
+          {
+            "frame": 1181,
+            "id": 148,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 1521,
+            "id": 125,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 1906,
+            "id": 129,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 2264,
+            "id": 133,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 2608,
+            "id": 141,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 2930,
+            "id": 145,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 3268,
+            "id": 153,
+            "bank": 19,
+            "args": []
+          }
+        ],
+        "weatherCues": [
+          {
+            "frame": 470,
+            "weather": 2
+          },
+          {
+            "frame": 3715,
+            "weather": 1
+          }
+        ],
+        "scope": "Actual native client commands and rendered-message requests before the first command menu in DS-mode melonDS"
+      },
+      "romRoundtrip": {
+        "passed": true,
+        "updateFrom": "0.1.0",
+        "configPreserved": true,
+        "exportReload": true,
+        "importedEditing": true,
+        "clone": true,
+        "reinstall": true,
+        "conflictRejection": true
+      },
+      "dsAllConditionsOpening": {
+        "game": "B2",
+        "passed": true,
+        "initial": {
+          "weather": 2,
+          "weatherTurns": 255,
+          "trickRoom": 1,
+          "trickRoomActive": 1,
+          "reflect": 1,
+          "lightScreen": 1,
+          "safeguard": 1,
+          "tailwind": 1,
+          "luckyChant": 1,
+          "spikes": 3,
+          "toxicSpikes": 2
+        },
+        "openingAnimations": [
+          {
+            "frame": 728,
+            "from": 0,
+            "to": 0,
+            "move": 433
+          },
+          {
+            "frame": 1054,
+            "from": 0,
+            "to": 0,
+            "move": 356
+          },
+          {
+            "frame": 1337,
+            "from": 0,
+            "to": 0,
+            "move": 346
+          },
+          {
+            "frame": 1653,
+            "from": 0,
+            "to": 0,
+            "move": 300
+          },
+          {
+            "frame": 2014,
+            "from": 0,
+            "to": 0,
+            "move": 472
+          },
+          {
+            "frame": 2445,
+            "from": 0,
+            "to": 0,
+            "move": 478
+          },
+          {
+            "frame": 2862,
+            "from": 0,
+            "to": 0,
+            "move": 115
+          },
+          {
+            "frame": 3172,
+            "from": 0,
+            "to": 0,
+            "move": 113
+          },
+          {
+            "frame": 3565,
+            "from": 0,
+            "to": 0,
+            "move": 219
+          },
+          {
+            "frame": 3900,
+            "from": 0,
+            "to": 0,
+            "move": 54
+          },
+          {
+            "frame": 4276,
+            "from": 0,
+            "to": 0,
+            "move": 366
+          },
+          {
+            "frame": 4602,
+            "from": 0,
+            "to": 0,
+            "move": 381
+          },
+          {
+            "frame": 4943,
+            "from": 1,
+            "to": 0,
+            "move": 191
+          },
+          {
+            "frame": 5256,
+            "from": 1,
+            "to": 0,
+            "move": 390
+          },
+          {
+            "frame": 5584,
+            "from": 1,
+            "to": 0,
+            "move": 446
+          },
+          {
+            "frame": 5906,
+            "from": 1,
+            "to": 0,
+            "move": 518
+          },
+          {
+            "frame": 6257,
+            "from": 1,
+            "to": 0,
+            "move": 519
+          },
+          {
+            "frame": 6603,
+            "from": 1,
+            "to": 0,
+            "move": 520
+          },
+          {
+            "frame": 6937,
+            "from": 1,
+            "to": 1,
+            "move": 115
+          },
+          {
+            "frame": 7267,
+            "from": 1,
+            "to": 1,
+            "move": 113
+          },
+          {
+            "frame": 7673,
+            "from": 1,
+            "to": 1,
+            "move": 219
+          },
+          {
+            "frame": 8017,
+            "from": 1,
+            "to": 1,
+            "move": 54
+          },
+          {
+            "frame": 8397,
+            "from": 1,
+            "to": 1,
+            "move": 366
+          },
+          {
+            "frame": 8736,
+            "from": 1,
+            "to": 1,
+            "move": 381
+          },
+          {
+            "frame": 9096,
+            "from": 0,
+            "to": 1,
+            "move": 191
+          },
+          {
+            "frame": 9433,
+            "from": 0,
+            "to": 1,
+            "move": 390
+          },
+          {
+            "frame": 9771,
+            "from": 0,
+            "to": 1,
+            "move": 446
+          },
+          {
+            "frame": 10122,
+            "from": 0,
+            "to": 1,
+            "move": 518
+          },
+          {
+            "frame": 10483,
+            "from": 0,
+            "to": 1,
+            "move": 519
+          },
+          {
+            "frame": 10839,
+            "from": 0,
+            "to": 1,
+            "move": 520
+          }
+        ],
+        "openingMessages": [
+          {
+            "frame": 902,
+            "id": 857,
+            "bank": 18,
+            "args": [
+              0
+            ]
+          },
+          {
+            "frame": 1206,
+            "id": 117,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 1510,
+            "id": 114,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 1857,
+            "id": 115,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 2203,
+            "id": 178,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 2624,
+            "id": 180,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 3014,
+            "id": 124,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 3381,
+            "id": 128,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 3724,
+            "id": 132,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 4120,
+            "id": 136,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 4434,
+            "id": 140,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 4747,
+            "id": 144,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 5068,
+            "id": 148,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 5382,
+            "id": 152,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 5720,
+            "id": 156,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 6069,
+            "id": 164,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 6447,
+            "id": 168,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 6790,
+            "id": 172,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 7093,
+            "id": 125,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 7473,
+            "id": 129,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 7831,
+            "id": 133,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 8231,
+            "id": 137,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 8558,
+            "id": 141,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 8884,
+            "id": 145,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 9225,
+            "id": 149,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 9559,
+            "id": 153,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 9924,
+            "id": 157,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 10285,
+            "id": 165,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 10673,
+            "id": 169,
+            "bank": 19,
+            "args": []
+          },
+          {
+            "frame": 11026,
+            "id": 173,
+            "bank": 19,
+            "args": []
+          }
+        ],
+        "weatherCues": [
+          {
+            "frame": 469,
+            "weather": 2
+          }
+        ],
+        "scope": "Actual native client commands and rendered-message requests before the first command menu in DS-mode melonDS"
+      },
+      "visualChecks": {
+        "spikesText": true,
+        "opposingReflectText": true,
+        "screenshots": {
+          "opening-message-148.png": "b30629063f5e5acc60951522bb8a8157590ead4419d136cc4223bf6bae9b3b5d",
+          "opening-message-125.png": "499169ef2466a4957ad5a8c3a617adbd433de66d141e2fe7d61994db6e29de9f"
+        }
+      }
+    }
+  },
+  "nativeAudit": {
+    "result": "passed",
+    "profiles": [
+      "IRDO rev0",
+      "IREO rev0"
+    ],
+    "nativeBindings": [
+      "Opening field-status call",
+      "Opening ability activation call",
+      "First-turn setup and entry order",
+      "Field status accessor",
+      "Native animation queue",
+      "Native message queue",
+      "Native active position lookup",
+      "Native slot to position mapping",
+      "Native side classification",
+      "Native entry ability activation",
+      "Permanent condition",
+      "Timed condition",
+      "Field effect API",
+      "Weather query",
+      "Weather change API",
+      "Side effect API",
+      "Field expiration",
+      "Side expiration",
+      "Native file service",
+      "Native file service",
+      "Native file service",
+      "Native file service",
+      "Native file service",
+      "Native file service"
+    ],
+    "scope": "Exact selected native code/data slices; only audited ARM9 and overlay-167 pointer relocations differ"
+  },
+  "limitations": [
+    "DS gameplay in both games was singles; doubles, triples and rotation have native CPU integration checks.",
+    "Black 2 gameplay input included an existing C-Gear add-on; no separate clean Black 2 run.",
+    "No physical hardware or DSi acceptance.",
+    "BW1 and other regions/revisions have no verified profile.",
+    "Gen 6+ terrains and Aurora Veil are outside this native Gen 5 profile."
+  ],
+  "appChecks": {
+    "passed": true,
+    "vitestFiles": 9,
+    "vitestTests": 178,
+    "build": true,
+    "romRoundtripProfiles": [
+      "W2",
+      "B2"
+    ],
+    "updateFrom010Profiles": [
+      "W2",
+      "B2"
+    ],
+    "sourceReleaseEditingProfiles": [
+      "W2",
+      "B2"
+    ],
+    "foreignProfileDllRejection": true,
+    "modifiedLegacyDllRejection": true
+  }
+}

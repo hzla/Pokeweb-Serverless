@@ -1,0 +1,267 @@
+{
+  "format": "pokeweb.cutscene",
+  "version": 2,
+  "id": "route13.response-branches",
+  "name": "Route 13 \u00b7 choose a path",
+  "target": "W2-US",
+  "fps": 30,
+  "frameCount": 420,
+  "stage": {
+    "kind": "map",
+    "zoneId": 370,
+    "season": "spring"
+  },
+  "camera": [
+    {
+      "id": "camera-1",
+      "frame": 0,
+      "position": [
+        11040,
+        128,
+        4256
+      ],
+      "rotationDegrees": [
+        -48,
+        0,
+        0
+      ],
+      "easing": "smoothstep",
+      "fov": 40
+    },
+    {
+      "id": "camera-2",
+      "frame": 210,
+      "position": [
+        11040,
+        128,
+        4256
+      ],
+      "rotationDegrees": [
+        -48,
+        0,
+        0
+      ],
+      "easing": "smoothstep",
+      "fov": 40
+    },
+    {
+      "id": "camera-3",
+      "frame": 419,
+      "position": [
+        11040,
+        128,
+        4256
+      ],
+      "rotationDegrees": [
+        -48,
+        0,
+        0
+      ],
+      "easing": "smoothstep",
+      "fov": 40
+    }
+  ],
+  "events": [
+    {
+      "id": "opening",
+      "type": "screen.fade",
+      "frame": 0,
+      "screens": "both",
+      "durationFrames": 15,
+      "from": "black",
+      "to": "clear"
+    },
+    {
+      "id": "route-choice",
+      "type": "dialogue.choice",
+      "frame": 90,
+      "speakerId": "hero",
+      "text": "Where should we go?",
+      "choices": [
+        {
+          "id": "beach-response",
+          "text": "Explore the beach",
+          "targetFrame": 120
+        },
+        {
+          "id": "cliff-response",
+          "text": "Take the high path",
+          "targetFrame": 240
+        }
+      ]
+    },
+    {
+      "id": "beach-reaction",
+      "type": "dialogue",
+      "frame": 120,
+      "speakerId": "companion",
+      "text": "The beach it is!",
+      "waitForInput": true,
+      "durationFrames": 90
+    },
+    {
+      "id": "beach-join",
+      "type": "timeline.jump",
+      "frame": 210,
+      "targetFrame": 360
+    },
+    {
+      "id": "cliff-reaction",
+      "type": "dialogue",
+      "frame": 240,
+      "speakerId": "companion",
+      "text": "Let us take the high path.",
+      "waitForInput": true,
+      "durationFrames": 90
+    },
+    {
+      "id": "shared-ending",
+      "type": "dialogue",
+      "frame": 360,
+      "speakerId": "hero",
+      "text": "Ready when you are.",
+      "waitForInput": true,
+      "durationFrames": 90
+    },
+    {
+      "id": "closing",
+      "type": "screen.fade",
+      "frame": 405,
+      "durationFrames": 15,
+      "screens": "both",
+      "from": "clear",
+      "to": "black"
+    }
+  ],
+  "exit": {
+    "restoreCamera": true,
+    "restoreMusic": true,
+    "restorePlayerControl": true
+  },
+  "actors": [
+    {
+      "id": "hero",
+      "name": "Coastal walker",
+      "overworldId": 1,
+      "frameStep": 8,
+      "keys": [
+        {
+          "id": "hero-hold",
+          "frame": 0,
+          "position": [
+            11000,
+            0,
+            4128
+          ],
+          "facing": "right",
+          "action": "idle",
+          "easing": "hold"
+        }
+      ]
+    },
+    {
+      "id": "companion",
+      "name": "Companion",
+      "overworldId": 4,
+      "frameStep": 8,
+      "keys": [
+        {
+          "id": "companion-path-0",
+          "frame": 0,
+          "position": [
+            11040,
+            0,
+            4128
+          ],
+          "facing": "left",
+          "action": "idle",
+          "easing": "hold"
+        },
+        {
+          "id": "companion-path-1",
+          "frame": 120,
+          "position": [
+            11040,
+            0,
+            4128
+          ],
+          "facing": "right",
+          "action": "walk",
+          "easing": "linear"
+        },
+        {
+          "id": "companion-path-2",
+          "frame": 165,
+          "position": [
+            11064,
+            0,
+            4128
+          ],
+          "facing": "left",
+          "action": "walk",
+          "easing": "linear"
+        },
+        {
+          "id": "companion-path-3",
+          "frame": 200,
+          "position": [
+            11040,
+            0,
+            4128
+          ],
+          "facing": "left",
+          "action": "idle",
+          "easing": "hold"
+        },
+        {
+          "id": "companion-path-4",
+          "frame": 240,
+          "position": [
+            11040,
+            0,
+            4128
+          ],
+          "facing": "up",
+          "action": "walk",
+          "easing": "linear"
+        },
+        {
+          "id": "companion-path-5",
+          "frame": 285,
+          "position": [
+            11040,
+            0,
+            4104
+          ],
+          "facing": "down",
+          "action": "walk",
+          "easing": "linear"
+        },
+        {
+          "id": "companion-path-6",
+          "frame": 330,
+          "position": [
+            11040,
+            0,
+            4128
+          ],
+          "facing": "left",
+          "action": "idle",
+          "easing": "hold"
+        },
+        {
+          "id": "companion-path-7",
+          "frame": 360,
+          "position": [
+            11040,
+            0,
+            4128
+          ],
+          "facing": "left",
+          "action": "idle",
+          "easing": "hold"
+        }
+      ]
+    }
+  ]
+}

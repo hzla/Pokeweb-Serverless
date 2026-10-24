@@ -3,6 +3,7 @@ import { align, ensure, nitroBlocks, readDictionary, writeDictionary, writeNitro
 
 export type ImportTexture = { name: string; width: number; height: number; rgba: Uint8Array };
 export type EncodedTexture = { name: string; width: number; height: number; params: number; pixels: Uint8Array; palette: Uint8Array; quantized: boolean };
+export type EncodedPalette = {name:string;bytes:Uint8Array};
 const rgb = (v: number) => [v & 31, (v >>> 5) & 31, (v >>> 10) & 31];
 /** Weighted median-cut in the DS's native RGB555 color space. */
 function paletteColors(histogram: Map<number, number>, limit: number): number[] {
@@ -62,8 +63,8 @@ export function encodeNitroTexture(image: ImportTexture): EncodedTexture {
 }
 
 /** Append textures without changing any existing palette addresses, compressed data, or animation names. */
-export function appendNitroTextures(template: Uint8Array, images: EncodedTexture[]): Uint8Array {
-  if (!images.length) return template;
+export function appendNitroTextures(template: Uint8Array, images: EncodedTexture[],extraPalettes:EncodedPalette[]=[]): Uint8Array {
+  if (!images.length&&!extraPalettes.length) return template;
   const blocks = nitroBlocks(template), index = blocks.findIndex(b => readAscii(b, 0, 4) === "TEX0"); ensure(index >= 0, "Missing texture block.");
   const old = blocks[index], textures = readDictionary(old, readU16(old, 14)), palettes = readDictionary(old, readU16(old, 52));
   const bank = (offset: number, size: number) => { const start = readU32(old, offset), length = readU16(old, size) * 8; ensure(start + length <= old.length, "Invalid texture bank."); return old.slice(start, start + length); };
@@ -88,6 +89,11 @@ export function appendNitroTextures(template: Uint8Array, images: EncodedTexture
     writeU16(pal, 0, paletteLength / 8);
     textures.push({ name: image.name, data: tex }); palettes.push({ name: image.name, data: pal });
     texData.push(image.pixels); paletteData.push(image.palette); texLength += image.pixels.length; paletteLength += image.palette.length;
+  }
+  for(const palette of extraPalettes){
+    ensure(!palettes.some(p=>p.name===palette.name)&&palette.bytes.length%8===0,'Invalid or duplicate extra palette.');
+    const padding=align(paletteLength,16)-paletteLength;if(padding){paletteData.push(new Uint8Array(padding));paletteLength+=padding;}
+    const pal=new Uint8Array(4);writeU16(pal,0,paletteLength/8);palettes.push({name:palette.name,data:pal});paletteData.push(palette.bytes);paletteLength+=palette.bytes.length;
   }
   ensure(texLength + compressed.length * 1.5 <= 256 * 1024 && paletteLength <= 32 * 1024, "Imported textures exceed the DS texture/palette memory budget. Reduce texture sizes or colors.");
   const td = writeDictionary(textures, 8), pd = writeDictionary(palettes, 4);

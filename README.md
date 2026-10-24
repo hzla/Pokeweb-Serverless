@@ -57,6 +57,8 @@ npm run dev
 
 Then open the local Vite URL, load a `.nds`, choose the NARC groups you want available, make edits, and use `Export` to build the modified ROM.
 
+See the [workflow guides and references](docs/README.md) for detailed editing instructions and compatibility limits.
+
 ## Credits
 
 Should users choose to install from the animated sprite library, or move animation expansion library, relevant credits are listed on the install pages.

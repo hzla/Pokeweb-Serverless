@@ -1,0 +1,101 @@
+{
+  "format": "pokeweb.cutscene",
+  "version": 2,
+  "id": "route13.time-travel",
+  "name": "Route 13 \u00b7 spring to winter time travel",
+  "target": "W2-US",
+  "fps": 30,
+  "frameCount": 721,
+  "stage": {
+    "kind": "map",
+    "zoneId": 370,
+    "season": "spring",
+    "bounds": {
+      "west": 672,
+      "north": 192,
+      "width": 32,
+      "height": 32
+    }
+  },
+  "environment": {
+    "targetSeason": "winter",
+    "startFrame": 60,
+    "endFrame": 660,
+    "dayCycles": 8
+  },
+  "camera": [
+    {
+      "id": "close",
+      "frame": 0,
+      "position": [
+        11104,
+        164.47771,
+        3393.50583
+      ],
+      "rotationDegrees": [
+        -65,
+        0,
+        0
+      ],
+      "easing": "smoothstep",
+      "fov": 40
+    },
+    {
+      "id": "wide",
+      "frame": 90,
+      "position": [
+        11008,
+        295.89234,
+        3454.78548
+      ],
+      "rotationDegrees": [
+        -65,
+        0,
+        0
+      ],
+      "easing": "hold",
+      "fov": 40
+    },
+    {
+      "id": "winter-hold",
+      "frame": 720,
+      "position": [
+        11008,
+        295.89234,
+        3454.78548
+      ],
+      "rotationDegrees": [
+        -65,
+        0,
+        0
+      ],
+      "easing": "hold",
+      "fov": 40
+    }
+  ],
+  "events": [
+    {
+      "id": "opening",
+      "type": "screen.fade",
+      "frame": 0,
+      "screens": "both",
+      "durationFrames": 15,
+      "from": "black",
+      "to": "clear"
+    },
+    {
+      "id": "closing",
+      "type": "screen.fade",
+      "frame": 705,
+      "screens": "both",
+      "durationFrames": 15,
+      "from": "clear",
+      "to": "black"
+    }
+  ],
+  "exit": {
+    "restoreCamera": true,
+    "restoreMusic": true,
+    "restorePlayerControl": true
+  }
+}

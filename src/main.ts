@@ -1,3 +1,5 @@
+import "./styles/flagReference.css";
+import { renderFlagReference } from "./ui/flagReference";
 import "./styles/cgearButtons.css";
 import "./styles/systemShops.css";
 import { renderSystemShopsEditor } from "./ui/systemShopsEditor";
@@ -21,6 +23,8 @@ import "./styles/legacyOverworlds.css";
 import "./styles/legacyDocGenerators.css";
 import "./styles/legacyMastersheet.css";
 import "./styles/legacyMap3d.css";
+import "./styles/nativeCutscene.css";
+import "./styles/cutsceneTimeline.css";
 import "./styles/matrixEditor.css";
 import { renderMatrixEditor, stopMatrixEditor } from "./ui/matrixEditor";
 import { canUseMatrixEditor, loadMatrixEditorData } from "./pokeweb/matrixModel";
@@ -129,6 +133,8 @@ type AppRoute =
   | "weatherGraphics"
   | "overworlds"
   | "maps3d"
+  | "cutscenes"
+  | "field-scenes"
   | "matrixEditor"
   | "buildings"
   | "pokemon"
@@ -153,6 +159,7 @@ type AppRoute =
   | "titleScreen"
   | "cgearButtons"
   | "systemShops"
+  | "flagReference"
   | "customUi"
   | "battleBackgrounds"
   | "randomizer"
@@ -173,6 +180,8 @@ type AppHistoryState = {
   mapZoneId?: number;
   mapId?: number;
   mapMatrixCell?: Map3dMatrixCell;
+  cutsceneSequenceId?: number;
+  cutsceneSceneId?: string;
   moveAnimationMoveId?: number;
   pokemonSpriteSpeciesId?: number;
   pokemonSpriteFormIndex?: number;
@@ -239,6 +248,8 @@ const APP_ROUTES: AppRoute[] = [
   "weatherGraphics",
   "overworlds",
   "maps3d",
+  "cutscenes",
+  "field-scenes",
   "matrixEditor",
   "buildings",
   "pokemon",
@@ -264,6 +275,7 @@ const APP_ROUTES: AppRoute[] = [
   "customUi",
   "cgearButtons",
   "systemShops",
+  "flagReference",
   "battleBackgrounds",
   "randomizer",
   "marts",
@@ -287,6 +299,8 @@ const EDITOR_REQUIREMENTS: Record<
   weather: ["headers", "message_texts"],
   weatherGraphics: [],
   buildings: [],
+  cutscenes: [],
+  "field-scenes": [],
   overworlds: ["headers", "matrix", "maps", "overworlds"],
   matrixEditor: ["headers"],
   pokemon: ["personal", "learnsets", "evolutions", "moves", "items"],
@@ -313,6 +327,7 @@ const EDITOR_REQUIREMENTS: Record<
   customUi: [],
   cgearButtons: [],
   systemShops: [],
+  flagReference: [],
   randomizer: [],
   marts: ["marts", "mart_counts"],
   grottos: ["grottos", "grotto_odds"],
@@ -412,6 +427,8 @@ const NARC_LOAD_SECTIONS: NarcLoadSection[] = [
 const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw new Error("Missing app element");
 const appRoot = app;
+// Reuse the initial HTML so About is available to crawlers without lazy loading.
+const aboutPanelMarkup = appRoot.querySelector<HTMLElement>("#home-panel-about")?.outerHTML ?? "";
 const defaultDocumentTitle = document.title;
 
 let project: ProjectState | undefined;
@@ -419,6 +436,8 @@ let route: AppRoute = "upload";
 let activeOverworldId: number | undefined;
 let activeOverworldHeaderId: number | undefined;
 let activeMapZoneId: number | undefined;
+let activeCutsceneSequenceId: number | undefined;
+let activeCutsceneSceneId: string | undefined;
 let activeMatrixHeaderId: number | undefined;
 let activeMapId: number | undefined;
 let activeMapMatrixCell: Map3dMatrixCell | undefined;
@@ -525,6 +544,8 @@ async function boot(): Promise<void> {
   activeOverworldId = initialState.overworldId;
   activeOverworldHeaderId = initialState.overworldHeaderId;
   activeMapZoneId = initialState.mapZoneId;
+  activeCutsceneSequenceId = initialState.cutsceneSequenceId;
+  activeCutsceneSceneId = initialState.cutsceneSceneId;
   activeMatrixHeaderId = initialState.matrixHeaderId;
   activeMapId = initialState.mapId;
   activeMapMatrixCell = initialState.mapMatrixCell;
@@ -817,6 +838,42 @@ function renderApp(): void {
     return;
   }
 
+  if (route === "field-scenes") {
+    const currentProject = project;
+    content.innerHTML = '<p role="status">Loading field tours…</p>';
+    void import('./ui/fieldSceneEditor').then(async ({ renderFieldSceneEditor }) => {
+      if (route === 'field-scenes' && project === currentProject) await renderFieldSceneEditor(currentProject, content, () => {
+        dirty = true; scheduleSave(currentProject); renderDirtyIndicator();
+      });
+    }).catch(error => {
+      if (route === 'field-scenes' && project === currentProject) content.innerHTML = `<p role="alert">${escapeHtml(error instanceof Error ? error.message : String(error))}</p>`;
+    });
+    return;
+  }
+
+  if (route === "cutscenes") {
+    const currentProject = project;
+    content.innerHTML = `<div class="cutscene-editor"><p role="status">Loading native cutscenes…</p></div>`;
+    void import("./ui/cutsceneTimelineEditor").then(async ({ renderCutsceneWorkspace }) => {
+      if (route === "cutscenes" && project === currentProject) await renderCutsceneWorkspace(currentProject, content, () => {
+        dirty = true;
+        scheduleSave(currentProject);
+        renderDirtyIndicator();
+      }, { sequenceId: activeCutsceneSequenceId, sceneId: activeCutsceneSceneId, onSceneChange: id => {
+        activeCutsceneSceneId = id;
+        if (id) activeCutsceneSequenceId = undefined;
+        syncBrowserHistory(true);
+      }, onSequenceChange: id => {
+        activeCutsceneSequenceId = id;
+        activeCutsceneSceneId = undefined;
+        syncBrowserHistory(true);
+      } });
+    }).catch(error => {
+      if (route === "cutscenes" && project === currentProject) content.innerHTML = `<div class="cutscene-editor"><p role="alert">${escapeHtml(error instanceof Error ? error.message : String(error))}</p></div>`;
+    });
+    return;
+  }
+
   if (route === "buildings") {
     content.innerHTML = `<div class="pokemon-filter map3d-sidebar"><div class="filter-title">Buildings</div><div class="map3d-status">Loading viewer...</div></div>`;
     void import("./ui/buildingEditor").then(({ renderBuildingEditor }) => {
@@ -1073,6 +1130,10 @@ function renderApp(): void {
     void renderCGearButtonsEditor(project, content, () => { dirty = true; scheduleSave(project!); renderDirtyIndicator(); });
     return;
   }
+  if (route === "flagReference") {
+    renderFlagReference(project, content);
+    return;
+  }
   if (route === "systemShops") {
     void renderSystemShopsEditor(project,content,()=>{dirty=true;scheduleSave(project!);renderDirtyIndicator();});
     return;
@@ -1265,10 +1326,10 @@ function renderHeadersMenu(): string {
 }
 
 function renderMapsMenu(): string {
-  const active = route === "maps3d" || route === "buildings";
+  const active = route === "maps3d" || route === "buildings" || route === "cutscenes" || route === "field-scenes";
   return `<div class="header-more ${active ? "-active" : ""}">
     <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Maps</button>
-    <div class="header-more-menu">${navItem("maps3d", "Map Editor")}${navItem("buildings", "Buildings")}</div>
+    <div class="header-more-menu">${navItem("maps3d", "Map Editor")}${navItem("buildings", "Buildings")}${canUseLocalRomBridge() ? navItem("cutscenes", "Cutscenes") + navItem("field-scenes", "Field tours") : ""}</div>
   </div>`;
 }
 
@@ -1289,6 +1350,7 @@ function renderMoreMenu(): string {
     ["patches", "Patches"],
     ["fileSystem", "File System"],
     ["cgearButtons", "C-Gear Buttons"],
+    ["flagReference", "Flag Reference"],
   ];
   if (project?.session.baseRom === "BW2") moreRoutes.splice(4, 0, ["titleScreen", "Title Screen"]);
   const active = moreRoutes.some(([moreRoute]) => route === moreRoute);
@@ -1887,6 +1949,7 @@ function renderUpload(root: HTMLElement): void {
           <button id="home-tab-repair" class="home-tab" type="button" role="tab" aria-selected="false" aria-controls="home-panel-repair" tabindex="-1" data-home-tab="repair">Repair</button>
           <button id="home-tab-translation" class="home-tab" type="button" role="tab" aria-selected="false" aria-controls="home-panel-translation" tabindex="-1" data-home-tab="translation">Translation</button>
           <button id="home-tab-changelog" class="home-tab" type="button" role="tab" aria-selected="false" aria-controls="home-panel-changelog" tabindex="-1" data-home-tab="changelog">Changelog Generator</button>
+          <button id="home-tab-about" class="home-tab" type="button" role="tab" aria-selected="false" aria-controls="home-panel-about" tabindex="-1" data-home-tab="about">About</button>
           <button id="home-tab-ai-use-disclaimer" class="home-tab" type="button" role="tab" aria-selected="false" aria-controls="home-panel-ai-use-disclaimer" tabindex="-1" data-home-tab="ai-use-disclaimer">AI Use Disclaimer</button>
         </nav>
         <section id="home-panel-upload" class="home-tab-panel" role="tabpanel" aria-labelledby="home-tab-upload" data-home-panel="upload">
@@ -1901,17 +1964,15 @@ function renderUpload(root: HTMLElement): void {
             <input id="fairy-input" type="checkbox" />
             <span>Fairy ROM offsets</span>
           </label>
-          <div class="narc-picker">
+          <details class="narc-picker">
+            <summary><h2>NARCs to Load</h2></summary>
             <div class="narc-picker__header">
-              <div>
-                <h2>NARCs to Load</h2>
-              </div>
               <button class="btn -default" id="minimal-narcs-btn" type="button">Core Only</button>
             </div>
             <div class="narc-picker__sections">
               ${narcSections.map((section) => renderNarcLoadSection(section, mandatoryNarcs)).join("")}
             </div>
-          </div>
+          </details>
           <div class="upload-status" id="status"></div>
         </div>
         </section>
@@ -1939,6 +2000,7 @@ function renderUpload(root: HTMLElement): void {
         <section id="home-panel-changelog" class="home-tab-panel" role="tabpanel" aria-labelledby="home-tab-changelog" data-home-panel="changelog" hidden>
           ${renderChangelogGenerator()}
         </section>
+        ${aboutPanelMarkup}
         <section id="home-panel-ai-use-disclaimer" class="home-tab-panel" role="tabpanel" aria-labelledby="home-tab-ai-use-disclaimer" data-home-panel="ai-use-disclaimer" hidden>
           <div class="upload-panel ai-use-disclaimer">
             <p><a href="https://github.com/hzla/Pokeweb" target="_blank" rel="noopener noreferrer">Pokeweb</a> was originally written in 2021 by hand by Hzla which included editors for</p>
@@ -2350,6 +2412,7 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
   if (nextRoute === "bw2Scripts") return canUseLocalRomBridge() && hasExportBase && project.session.baseRom === "BW2" && !isGen4Project(project) && Boolean(project.narcs.scripts);
   if (nextRoute === "changelog") return true;
   if (nextRoute === "cgearButtons") return (project.session.baseRom === "BW" || project.session.baseRom === "BW2") && hasExportBase;
+  if (nextRoute === "flagReference") return project.session.baseRom === "BW" || project.session.baseRom === "BW2";
   if (nextRoute === "systemShops") return project.session.baseRom === "BW2" && hasExportBase;
   if (nextRoute === "customUi") return false;
   if (nextRoute === "titleScreen") return project.session.baseRom === "BW2" && hasExportBase;
@@ -2369,6 +2432,7 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
   if (nextRoute === "maps3d") return Boolean(project.headers && hasExportBase);
   if (nextRoute === "matrixEditor") return canUseMatrixEditor(project, hasExportBase);
   if (nextRoute === "buildings") return isGen5Project(project) && hasExportBase;
+  if (nextRoute === "cutscenes" || nextRoute === "field-scenes") return project.session.baseVersion === "W2" && project.romInfo.idCode === "IRDO" && hasExportBase;
   if (nextRoute === "weather") return project.session.baseRom === "BW2" && EDITOR_REQUIREMENTS.weather.every((name) => project?.narcs[name]);
   if (nextRoute === "flyDestinations") return project.session.baseRom === "BW2" && hasExportBase && Boolean(project.narcs.headers);
   if (nextRoute === "weatherGraphics") return project.session.baseRom === "BW2" && hasExportBase;
@@ -2444,6 +2508,8 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
       ? ` title="${project?.session.baseRom === "BW" || project?.session.baseRom === "BW2" ? "Reload the ROM before opening Music" : "Music replacement supports US Black, White, Black 2 and White 2"}"`
     : nextRoute === "patches"
       ? ` title="Reload the ROM before opening Patches"`
+    : nextRoute === "cutscenes" || nextRoute === "field-scenes"
+      ? ` title="Native cutscenes currently require a US White 2 source ROM"`
       : nextRoute === "maps3d"
         ? ` title="${project?.headers ? "Reload the ROM before opening Maps 3D" : "Missing parsed headers"}"`
       : nextRoute === "buildings"
@@ -2500,6 +2566,8 @@ function applyRouteState(nextState: AppHistoryState, options: { replace?: boolea
   activeOverworldId = nextState.overworldId;
   activeOverworldHeaderId = nextState.overworldHeaderId;
   activeMapZoneId = nextState.mapZoneId;
+  activeCutsceneSequenceId = nextState.cutsceneSequenceId;
+  activeCutsceneSceneId = nextState.cutsceneSceneId;
   activeMatrixHeaderId = nextState.matrixHeaderId;
   activeMapId = nextState.mapId;
   activeMapMatrixCell = nextState.mapMatrixCell;
@@ -2541,6 +2609,8 @@ function syncBrowserHistory(replace: boolean): void {
     state.mapId,
     state.overworldHeaderId,
     state.mapMatrixCell,
+    state.cutsceneSequenceId,
+    state.cutsceneSceneId,
   );
   if (replace) window.history.replaceState(state, "", url);
   else window.history.pushState(state, "", url);
@@ -2550,6 +2620,7 @@ function currentHistoryState(): AppHistoryState {
   if (route === "matrixEditor") return { route, matrixHeaderId: activeMatrixHeaderId };
   if (route === "overworlds") return { route, overworldId: activeOverworldId, overworldHeaderId: activeOverworldHeaderId };
   if (route === "maps3d") return { route, mapZoneId: activeMapZoneId, mapId: activeMapId, mapMatrixCell: activeMapMatrixCell };
+  if (route === "cutscenes") return { route, cutsceneSequenceId: activeCutsceneSequenceId, cutsceneSceneId: activeCutsceneSceneId };
   if (route === "moveAnimation") return { route, moveAnimationMoveId: activeMoveAnimationMoveId };
   if (route === "pokemonSprites") return { route, pokemonSpriteSpeciesId: activePokemonSpriteSpeciesId, pokemonSpriteFormIndex: activePokemonSpriteFormIndex };
   if (route === "trainerSprites") return { route, trainerSpriteClassId: activeTrainerSpriteClassId };
@@ -2569,8 +2640,12 @@ function routeUrl(
   mapId?: number,
   overworldHeaderId?: number,
   mapMatrixCell?: Map3dMatrixCell,
+  cutsceneSequenceId?: number,
+  cutsceneSceneId?: string,
 ): string {
   if (nextRoute === "matrixEditor" && activeMatrixHeaderId !== undefined) return `#matrixEditor/header/${activeMatrixHeaderId}`;
+  if (nextRoute === "cutscenes" && cutsceneSceneId) return `#cutscenes/scene/${encodeURIComponent(cutsceneSceneId)}`;
+  if (nextRoute === "cutscenes" && cutsceneSequenceId !== undefined) return `#cutscenes/${cutsceneSequenceId}`;
   if (nextRoute === "overworlds" && overworldId !== undefined) return `#overworlds/${overworldId}${overworldHeaderId === undefined ? "" : `/${overworldHeaderId}`}`;
   if (nextRoute === "maps3d" && mapMatrixCell) return `#maps3d/matrix/${mapMatrixCell.matrixId}/${mapMatrixCell.x}/${mapMatrixCell.y}`;
   if (nextRoute === "maps3d" && mapZoneId !== undefined) return `#maps3d/${mapZoneId}${mapId === undefined ? "" : `/${mapId}`}`;
@@ -2594,6 +2669,8 @@ function routeStateFromUrl(): AppHistoryState | undefined {
   const formIndex = extraText === undefined ? undefined : Number(extraText);
   return {
     route: routeName,
+    cutsceneSequenceId: routeName === "cutscenes" && Number.isSafeInteger(id) && id! > 0 ? id : undefined,
+    cutsceneSceneId: routeName === "cutscenes" && idText === "scene" && extraText && /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(extraText) ? extraText : undefined,
     matrixHeaderId: routeName === "matrixEditor" && idText === "header" && Number.isSafeInteger(formIndex) && formIndex! >= 0 ? formIndex : undefined,
     overworldId: routeName === "overworlds" && Number.isSafeInteger(id) ? id : undefined,
     overworldHeaderId: routeName === "overworlds" && Number.isSafeInteger(formIndex) && formIndex! >= 0 ? formIndex : undefined,
@@ -2633,6 +2710,8 @@ function routeStateFromHistory(value: unknown): AppHistoryState | undefined {
   if (!isAppRoute(maybe.route)) return undefined;
   return {
     route: maybe.route,
+    cutsceneSequenceId: Number.isSafeInteger(maybe.cutsceneSequenceId) && maybe.cutsceneSequenceId! > 0 ? maybe.cutsceneSequenceId : undefined,
+    cutsceneSceneId: typeof maybe.cutsceneSceneId === "string" && /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(maybe.cutsceneSceneId) ? maybe.cutsceneSceneId : undefined,
     matrixHeaderId: Number.isSafeInteger(maybe.matrixHeaderId) && maybe.matrixHeaderId! >= 0 ? maybe.matrixHeaderId : undefined,
     overworldId: Number.isSafeInteger(maybe.overworldId) ? maybe.overworldId : undefined,
     overworldHeaderId: Number.isSafeInteger(maybe.overworldHeaderId) && maybe.overworldHeaderId! >= 0 ? maybe.overworldHeaderId : undefined,

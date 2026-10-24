@@ -1,0 +1,30 @@
+{
+  "trainerId": 2,
+  "battleType": "Singles",
+  "trainer": {
+    "ai": 0,
+    "team": [
+      {
+        "speciesId": 208,
+        "level": 100,
+        "moves": [
+          150
+        ]
+      }
+    ]
+  },
+  "player": {
+    "team": [
+      {
+        "speciesId": 129,
+        "level": 50,
+        "moves": [
+          150,
+          280,
+          240,
+          433
+        ]
+      }
+    ]
+  }
+}

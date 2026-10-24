@@ -1,0 +1,204 @@
+{
+  "version": "0.1.1",
+  "idCode": "IREO",
+  "fileName": "TrainerFieldConditionsB2.dll",
+  "hooks": [
+    {
+      "label": "Opening field-status call",
+      "module": "167",
+      "address": 35255706,
+      "expectedHex": "fcf7e1fc",
+      "patchSize": 4
+    },
+    {
+      "label": "Opening ability activation call",
+      "module": "167",
+      "address": 35255880,
+      "expectedHex": "01f02eff",
+      "patchSize": 4
+    }
+  ],
+  "signatures": [
+    {
+      "label": "Opening field-status call",
+      "module": "167",
+      "address": 35255706,
+      "expectedHex": "fcf7e1fc",
+      "patchSize": 4
+    },
+    {
+      "label": "Opening ability activation call",
+      "module": "167",
+      "address": 35255880,
+      "expectedHex": "01f02eff",
+      "patchSize": 4
+    },
+    {
+      "label": "First-turn setup and entry order",
+      "module": "167",
+      "address": 35255688,
+      "expectedHex": "f0b583b0061cf16800200860009048607068fcf7e1fc017a002907d0301cff2208f036f8002801d00120009000200190019930680906090efff75cfe041c39d0607a0025002818d901980006070e29066068090efdf782ff00280ad01bf0c0fe002806d12a06120e301c391c131c01f0cffe607a6d1c8542e9d37068fcf7bcfb032817d1019800250006000e029029066068090efdf762ff071c08d01bf0a0fe002804d1706802993a1cfcf7b5fc6d1c032decd30198401c01900428b8d3301c01f02eff002801d001200090009803b0f0bd",
+      "patchSize": 0
+    },
+    {
+      "label": "Field status accessor",
+      "module": "167",
+      "address": 35241824,
+      "expectedHex": "006808307047",
+      "patchSize": 0
+    },
+    {
+      "label": "Native animation queue",
+      "module": "167",
+      "address": 35329076,
+      "expectedHex": "0fb4f8b5071c07990e480025425c0f2007a9161c0640032081430c1d002e08d90948241d211f0b68a9006d1c4350b542f7d30799044b381cfff790fbf8bc08bc04b01847506e1d0224b01d02f8b5051c16480f1c",
+      "patchSize": 0
+    },
+    {
+      "label": "Native message queue",
+      "module": "167",
+      "address": 35329488,
+      "expectedHex": "0fb4f8b507aa03218a43111d0c1d211f096807af09040d0c3978061cfff734fa301c291cfff730fa38785c2807d1241d211f0968301c0904090cfff725fa074f241d201f0568301c291cfff77dfabd42f6d1f8bc08bc04b01847c0460000ffff",
+      "patchSize": 0
+    },
+    {
+      "label": "Native active position lookup",
+      "module": "167",
+      "address": 35306320,
+      "expectedHex": "031c0a1c58689968004b1847f9c51902",
+      "patchSize": 0
+    },
+    {
+      "label": "Native slot to position mapping",
+      "module": "167",
+      "address": 35243512,
+      "expectedHex": "f8b5171c051c381c0e1cfff7b7ff041c301c211c3a1c00f097fd021c07d41206281c211c120efff71bff062800d10620f8bd",
+      "patchSize": 0
+    },
+    {
+      "label": "Native side classification",
+      "module": "167",
+      "address": 35246876,
+      "expectedHex": "0c2801d2002000e001200006000e7047",
+      "patchSize": 0
+    },
+    {
+      "label": "Native entry ability activation",
+      "module": "167",
+      "address": 35263656,
+      "expectedHex": "f0b583b0414f051c00200090e81900f0",
+      "patchSize": 0
+    },
+    {
+      "label": "Permanent condition",
+      "module": "167",
+      "address": 35447296,
+      "expectedHex": "08b481b00021072081430120084301b008bc7047",
+      "patchSize": 0
+    },
+    {
+      "label": "Timed condition",
+      "module": "167",
+      "address": 35447168,
+      "expectedHex": "08b481b0002207218a4302210a43054980061140c00d01430348084001b008bc7047c04607feffffff0100fe",
+      "patchSize": 0
+    },
+    {
+      "label": "Field effect API",
+      "module": "167",
+      "address": 35478004,
+      "expectedHex": "0fb408b503aa011c04481268012300f08df808bc08bc04b01847c046e8d81d02",
+      "patchSize": 0
+    },
+    {
+      "label": "Weather query",
+      "module": "167",
+      "address": 35477936,
+      "expectedHex": "0148024b1847c046e8d81d02d55a1d02",
+      "patchSize": 0
+    },
+    {
+      "label": "Weather change API",
+      "module": "167",
+      "address": 35288680,
+      "expectedHex": "70b50c1c161c051c201c311c2ef0acf9e8683f21221c331c09f0d8fe281c211c00f002f870bd0000",
+      "patchSize": 0
+    },
+    {
+      "label": "Side effect API",
+      "module": "169",
+      "address": 109677584,
+      "expectedHex": "0fb4f0b585b003900d1c0398e0214143244a280151180c18e068234f00260c21331c4b43f958fa188d4231d1002823d11e4904a8c95888470399022200910190049829040004000c02900220090c0023002600f02df80c9a0621051c00f030f80120e0600c98a660606005b02560281cf0bc08bc04b018479168884208d2e06805b0401ce0602068f0bc08bc04b01847761c0e2ec3d3002005b0f0bc08bc04b01847c04660e9890608d989060cd98906",
+      "patchSize": 0
+    },
+    {
+      "label": "Field expiration",
+      "module": "167",
+      "address": 35478948,
+      "expectedHex": "f8b5061c0f1c00920124301c211c00f02df800281dd0a0003518281c28300068f8f7bafa002814d0a96c491ca96481420fd3a868002803d000f010f80020a860301c211cfff7befd002f02d00099201cb847641c082cd8d3f8bdc0467847c04600c09fe51cff2fe181808906",
+      "patchSize": 0
+    },
+    {
+      "label": "Side expiration",
+      "module": "169",
+      "address": 109677908,
+      "expectedHex": "f8b584b000900020019102900298e0214143194a0006000e002456180390072720013518e86800281bd068684007400f022816d1a868401ca8606968c905890e88420ed30020e8606868b8436860286800f014f8002028600398019a009b211c9847641c0e2cdbd30298401c02900228ccd304b0f8bdc046",
+      "patchSize": 0
+    },
+    {
+      "label": "Native file service",
+      "module": "ARM9",
+      "address": 34016380,
+      "expectedHex": "232100220902114382604260",
+      "patchSize": 0
+    },
+    {
+      "label": "Native file service",
+      "module": "ARM9",
+      "address": 34016928,
+      "expectedHex": "014b01221847c046690d0702",
+      "patchSize": 0
+    },
+    {
+      "label": "Native file service",
+      "module": "ARM9",
+      "address": 34016832,
+      "expectedHex": "38b582b0051c00ab2b610091",
+      "patchSize": 0
+    },
+    {
+      "label": "Native file service",
+      "module": "ARM9",
+      "address": 34016704,
+      "expectedHex": "38b582b0002401a9051c0194",
+      "patchSize": 0
+    },
+    {
+      "label": "Native file service",
+      "module": "ARM9",
+      "address": 34016808,
+      "expectedHex": "08b582b000ab036100910192",
+      "patchSize": 0
+    },
+    {
+      "label": "Native file service",
+      "module": "ARM9",
+      "address": 34016692,
+      "expectedHex": "014b08210122184755050702",
+      "patchSize": 0
+    }
+  ],
+  "codeHex": "4278037812021a438378c0781b041343000618437047f0b59bb03f4b070006a80c0098473d493e4b06a89847002802d100201bb0f0bd02ad10222900394b06a89847102831d00025374b06a89847002deed02378052bebd86378002be8d1e378a2781b021343f6229343e1d1637922791b0213432d4a1342dad1e379a1791b020b43180010401342d2d1237a032bcfd8637a022bccd8a37a032bc9d80222e37a9a4240410006000ec3e72800fff7a8ff1f4b9842c7d1ab88012bc4d1ee880c2ec1d105a8fff79cff01900028bbd104a8fff796ff8023421e05005b029a42b2d2b842b0d9134b06a8984775431035a842a9d131007943019a0f4b103106a898470028a0d0074b0c22210006a898470c3805006b425d4197e77d0c07026c040000a10e0702410e0702b50d0702c0c6ffff50574643c10d0702290e0702f0b5056889b02b002800083301910393fff758ff0400012854d16b1cde7f002e50d1e86c00284dd005affff74bff3900fff753ff002845d03b78002b0cd05a1e2a74012b08d1284b9847002804d0ff2231000198254b9847254b984701267d8801902b00e340334203d020000199214b98470134082cf4d100240126bb880293062c0ed0072c0ad0029de5403540013d09d32100019a184b00209847f7e77d7af5e73d7af3e701340e2ce9d100240126fb880293062c08d1bd7a013d0dd201340e2cf7d1039809b0f0bd072c03d0029de5403540f1e7fd7aefe721003000019a054b9847e9e7c046b1591d0269761a0201e21c02f5591d02118c8906f0b5436893b01d6807002800fff7dcfe079001283cd16b1cdc7f002c38d1e86c002835d0fff7d0fe0fa9fff7d8fe00282ed006230b930c9312330bae0d930e930b23a342ad416d42ad007359052b08d9210038004b4b9847052802d80dab7051ec500134182cebd10b9d052d15d97568052d12d900250fab0593ab000baa9b580693052b3fd9059b02330593012d38d138003d4b984713b0f0bd06abdb8c079c0593059b0122e340134226d063000693364b6200d35a002b1fd000220093029201922b002a003021f868314eb0470d9b172b00d90e9b2f4a61008a5af8682e4e012c07d1172b05d82c49013400915b21b047d6e75a21294bb0470134082cd0d1b8e7079db9e70024059b9b880893062c04d1059b1b7a5a1e934105e0072c2dd0089b0122e3401340002b23d0630009931b4b6200d15a00291cd0069a052c07d901236b409b000baa9a58052a00d9069a00230091029301933021069bf8680c4eb047104b6200d25a5a210c4bf8680a4e5219b04701340e2cc9d184e7059b5b7ac9e7c04651bb1a02a9141a021404000035141b0224040000d1151b020000ffff34040000500400003100024b1847c046014b18475d010000590200000000b101640100005a012c01d801de01000059037500000072007300b200b40073007100db0036006e017d01bf008601be01000000000602070208027c008000840088008c009000940098009c0000000000a400a800ac00726f6d3a2f626174746c652f747261696e65722d6669656c64732e62696e0000",
+  "bss": 0,
+  "relocations": [
+    "167:219f59a:THUMB_BRANCH_LINK:3e0:3:1",
+    "167:219f648:THUMB_BRANCH_LINK:3e8:3:1",
+    "base:11c:OFFSET:44c:1:0",
+    "base:3c4:OFFSET:3f4:1:0",
+    "base:3cc:OFFSET:404:1:1",
+    "base:3d8:OFFSET:414:1:1",
+    "base:3dc:OFFSET:430:1:1",
+    "base:3ec:OFFSET:13c:3:1",
+    "base:3f0:OFFSET:238:3:1"
+  ]
+}

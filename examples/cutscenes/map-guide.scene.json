@@ -1,0 +1,179 @@
+{
+  "format": "pokeweb.cutscene",
+  "version": 1,
+  "id": "aspertia.guide-introduction",
+  "name": "Map camera and guide blocking",
+  "target": "W2-US",
+  "backend": "field-script",
+  "fps": 60,
+  "frameCount": 600,
+  "stage": {
+    "kind": "map",
+    "zoneId": 427
+  },
+  "anchors": {
+    "camera-start": {
+      "space": "matrix-tiles",
+      "zoneId": 427,
+      "tileX": 48,
+      "tileZ": 720,
+      "height": {
+        "mode": "terrain",
+        "offsetWorldY": 128
+      }
+    },
+    "camera-east": {
+      "space": "matrix-tiles",
+      "zoneId": 427,
+      "tileX": 52,
+      "tileZ": 720,
+      "height": {
+        "mode": "terrain",
+        "offsetWorldY": 128
+      }
+    },
+    "point-y": {
+      "space": "matrix-tiles",
+      "zoneId": 427,
+      "tileX": 52,
+      "tileZ": 724,
+      "height": {
+        "mode": "terrain",
+        "offsetWorldY": 112
+      }
+    },
+    "guide-start": {
+      "space": "matrix-tiles",
+      "zoneId": 427,
+      "tileX": 48,
+      "tileZ": 720,
+      "height": {
+        "mode": "terrain",
+        "offsetWorldY": 0
+      }
+    },
+    "guide-stop": {
+      "space": "matrix-tiles",
+      "zoneId": 427,
+      "tileX": 52,
+      "tileZ": 720,
+      "height": {
+        "mode": "terrain",
+        "offsetWorldY": 0
+      }
+    }
+  },
+  "actors": [
+    {
+      "id": "guide",
+      "name": "Guide NPC",
+      "source": {
+        "kind": "map-npc",
+        "actorKey": "npc.guide"
+      },
+      "at": "guide-start",
+      "facing": "south"
+    }
+  ],
+  "camera": [
+    {
+      "id": "pan-east",
+      "name": "Pan east toward the guide",
+      "startFrame": 0,
+      "endFrame": 240,
+      "transition": "cut",
+      "from": {
+        "position": "camera-start",
+        "lookAt": "guide-start"
+      },
+      "to": {
+        "position": "camera-east",
+        "lookAt": "guide-stop"
+      },
+      "easing": "smoothstep"
+    },
+    {
+      "id": "move-to-y",
+      "name": "Move to point Y",
+      "startFrame": 240,
+      "endFrame": 480,
+      "transition": "continuous",
+      "from": {
+        "position": "camera-east",
+        "lookAt": "guide-stop"
+      },
+      "to": {
+        "position": "point-y",
+        "lookAt": "guide-stop"
+      },
+      "easing": "smoothstep"
+    },
+    {
+      "id": "closing-hold",
+      "name": "Hold for the closing beat",
+      "startFrame": 480,
+      "endFrame": 600,
+      "transition": "continuous",
+      "from": {
+        "position": "point-y",
+        "lookAt": "guide-stop"
+      },
+      "to": {
+        "position": "point-y",
+        "lookAt": "guide-stop"
+      },
+      "easing": "hold"
+    }
+  ],
+  "actions": [
+    {
+      "id": "guide-walk",
+      "actor": "guide",
+      "type": "walk",
+      "startFrame": 60,
+      "endFrame": 300,
+      "path": [
+        "guide-start",
+        "guide-stop"
+      ],
+      "gaitKey": "gait.walk"
+    },
+    {
+      "id": "guide-face",
+      "actor": "guide",
+      "type": "face",
+      "frame": 300,
+      "direction": "south"
+    },
+    {
+      "id": "guide-reaction",
+      "actor": "guide",
+      "type": "play",
+      "startFrame": 300,
+      "endFrame": 360,
+      "actionKey": "reaction.exclamation",
+      "loop": false
+    }
+  ],
+  "events": [
+    {
+      "id": "opening",
+      "type": "screen.fade",
+      "frame": 0,
+      "screens": "both",
+      "durationFrames": 30,
+      "from": "black",
+      "to": "clear"
+    }
+  ],
+  "exit": {
+    "restoreCamera": true,
+    "restoreMusic": true,
+    "restorePlayerControl": true,
+    "actors": "restore"
+  },
+  "trigger": {
+    "kind": "manual"
+  },
+  "notes": "Design example with illustrative coordinates and unresolved npc.guide/gait.walk/reaction.exclamation catalog aliases. These points are not a certified walkable route or an assertion of the map center. Resolve the actor, terrain heights, timing and camera operations before compiling. A fixed native walking pace may not fit this requested duration; the semantic validator must report the mismatch rather than speeding up movement arbitrarily."
+}

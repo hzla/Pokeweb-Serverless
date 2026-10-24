@@ -1,0 +1,1195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "White 2 live field scene, version 1",
+  "description": "Ordered W2 field actions and optional parallel NPC tracks. Prelude cries, shakes, dialogue and holds can precede the first camera move. Environment, tree and actor frame/coordinate checks run during export. The stream duration matches the camera tour after the prelude. STRM bytes are a separate project asset.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "version",
+    "target",
+    "fps",
+    "id",
+    "name",
+    "zoneId",
+    "entry",
+    "steps"
+  ],
+  "properties": {
+    "format": {
+      "const": "pokeweb.field-scene"
+    },
+    "version": {
+      "const": 1
+    },
+    "target": {
+      "const": "W2-US"
+    },
+    "fps": {
+      "const": 30
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "zoneId": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 32767
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tileX",
+        "tileZ",
+        "facing"
+      ],
+      "properties": {
+        "tileX": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2047
+        },
+        "tileZ": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2047
+        },
+        "facing": {
+          "enum": [
+            "up",
+            "down",
+            "left",
+            "right"
+          ]
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 128,
+      "prefixItems": [
+        {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "type",
+                "durationFrames",
+                "target",
+                "pitch",
+                "yaw",
+                "distance"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+                },
+                "type": {
+                  "const": "camera.move"
+                },
+                "durationFrames": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1800
+                },
+                "target": {
+                  "type": "array",
+                  "minItems": 3,
+                  "maxItems": 3,
+                  "items": {
+                    "type": "number",
+                    "exclusiveMinimum": -32768,
+                    "exclusiveMaximum": 32768
+                  }
+                },
+                "pitch": {
+                  "type": "number",
+                  "minimum": 0,
+                  "exclusiveMaximum": 360
+                },
+                "yaw": {
+                  "type": "number",
+                  "minimum": 0,
+                  "exclusiveMaximum": 360
+                },
+                "distance": {
+                  "type": "number",
+                  "minimum": 16,
+                  "maximum": 2048
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "type",
+                "durationFrames"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+                },
+                "type": {
+                  "const": "wait"
+                },
+                "durationFrames": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1800
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "type",
+                "speakerId",
+                "text",
+                "waitForInput"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+                },
+                "type": {
+                  "const": "dialogue"
+                },
+                "speakerId": {
+                  "type": "string",
+                  "description": "player or an existing actors[].id",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "description": "Plain Western text; wrapped to 24 characters, two lines per page, at most twelve pages. Native control codes are rejected."
+                },
+                "waitForInput": {
+                  "const": true
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "type",
+                "speakerId",
+                "text",
+                "waitForInput",
+                "durationFrames"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+                },
+                "type": {
+                  "const": "dialogue"
+                },
+                "speakerId": {
+                  "type": "string",
+                  "description": "player or an existing actors[].id",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "description": "Plain Western text; wrapped to 24 characters, two lines per page, at most twelve pages. Native control codes are rejected."
+                },
+                "waitForInput": {
+                  "const": false
+                },
+                "durationFrames": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1800,
+                  "description": "Hold per page after native text printing completes, at 30 Hz."
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "type",
+                "species",
+                "form"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+                },
+                "type": {
+                  "const": "pokemon.cry"
+                },
+                "species": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 649
+                },
+                "form": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 31
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "type",
+                "amplitudeX",
+                "amplitudeY",
+                "periodFrames",
+                "cycles"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+                },
+                "type": {
+                  "const": "camera.shake"
+                },
+                "amplitudeX": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 32
+                },
+                "amplitudeY": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 32
+                },
+                "periodFrames": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 60
+                },
+                "cycles": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 60
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "type",
+              "durationFrames",
+              "target",
+              "pitch",
+              "yaw",
+              "distance"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+              },
+              "type": {
+                "const": "camera.move"
+              },
+              "durationFrames": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1800
+              },
+              "target": {
+                "type": "array",
+                "minItems": 3,
+                "maxItems": 3,
+                "items": {
+                  "type": "number",
+                  "exclusiveMinimum": -32768,
+                  "exclusiveMaximum": 32768
+                }
+              },
+              "pitch": {
+                "type": "number",
+                "minimum": 0,
+                "exclusiveMaximum": 360
+              },
+              "yaw": {
+                "type": "number",
+                "minimum": 0,
+                "exclusiveMaximum": 360
+              },
+              "distance": {
+                "type": "number",
+                "minimum": 16,
+                "maximum": 2048
+              },
+              "fov": {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 100
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "type",
+              "durationFrames"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+              },
+              "type": {
+                "const": "wait"
+              },
+              "durationFrames": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1800
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "type",
+              "direction",
+              "tiles"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+              },
+              "type": {
+                "const": "player.walk"
+              },
+              "direction": {
+                "enum": [
+                  "up",
+                  "down",
+                  "left",
+                  "right"
+                ]
+              },
+              "tiles": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 32
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "type",
+              "direction"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+              },
+              "type": {
+                "const": "player.face"
+              },
+              "direction": {
+                "enum": [
+                  "up",
+                  "down",
+                  "left",
+                  "right"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "type",
+              "durationFrames"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+              },
+              "type": {
+                "const": "control.return"
+              },
+              "durationFrames": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1800
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "type",
+              "speakerId",
+              "text",
+              "waitForInput"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+              },
+              "type": {
+                "const": "dialogue"
+              },
+              "speakerId": {
+                "type": "string",
+                "description": "player or an existing actors[].id",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512,
+                "description": "Plain Western text; wrapped to 24 characters, two lines per page, at most twelve pages. Native control codes are rejected."
+              },
+              "waitForInput": {
+                "const": true
+              },
+              "camera": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "target",
+                  "pitch",
+                  "yaw",
+                  "distance",
+                  "durationFrames"
+                ],
+                "properties": {
+                  "durationFrames": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1800
+                  },
+                  "target": {
+                    "type": "array",
+                    "minItems": 3,
+                    "maxItems": 3,
+                    "items": {
+                      "type": "number",
+                      "exclusiveMinimum": -32768,
+                      "exclusiveMaximum": 32768
+                    }
+                  },
+                  "pitch": {
+                    "type": "number",
+                    "minimum": 0,
+                    "exclusiveMaximum": 360
+                  },
+                  "yaw": {
+                    "type": "number",
+                    "minimum": 0,
+                    "exclusiveMaximum": 360
+                  },
+                  "distance": {
+                    "type": "number",
+                    "minimum": 16,
+                    "maximum": 2048
+                  },
+                  "fov": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 100
+                  }
+                }
+              },
+              "window": {
+                "type": "string",
+                "enum": [
+                  "dialogue",
+                  "narration"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "type",
+              "speakerId",
+              "text",
+              "waitForInput",
+              "durationFrames"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+              },
+              "type": {
+                "const": "dialogue"
+              },
+              "speakerId": {
+                "type": "string",
+                "description": "player or an existing actors[].id",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512,
+                "description": "Plain Western text; wrapped to 24 characters, two lines per page, at most twelve pages. Native control codes are rejected."
+              },
+              "waitForInput": {
+                "const": false
+              },
+              "durationFrames": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1800,
+                "description": "Hold per page after native text printing completes, at 30 Hz."
+              },
+              "camera": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "target",
+                  "pitch",
+                  "yaw",
+                  "distance",
+                  "durationFrames"
+                ],
+                "properties": {
+                  "durationFrames": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1800
+                  },
+                  "target": {
+                    "type": "array",
+                    "minItems": 3,
+                    "maxItems": 3,
+                    "items": {
+                      "type": "number",
+                      "exclusiveMinimum": -32768,
+                      "exclusiveMaximum": 32768
+                    }
+                  },
+                  "pitch": {
+                    "type": "number",
+                    "minimum": 0,
+                    "exclusiveMaximum": 360
+                  },
+                  "yaw": {
+                    "type": "number",
+                    "minimum": 0,
+                    "exclusiveMaximum": 360
+                  },
+                  "distance": {
+                    "type": "number",
+                    "minimum": 16,
+                    "maximum": 2048
+                  },
+                  "fov": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 100
+                  }
+                }
+              },
+              "window": {
+                "type": "string",
+                "enum": [
+                  "dialogue",
+                  "narration"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "type",
+              "species",
+              "form"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+              },
+              "type": {
+                "const": "pokemon.cry"
+              },
+              "species": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 649
+              },
+              "form": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 31
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "type",
+              "amplitudeX",
+              "amplitudeY",
+              "periodFrames",
+              "cycles"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+              },
+              "type": {
+                "const": "camera.shake"
+              },
+              "amplitudeX": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 32
+              },
+              "amplitudeY": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 32
+              },
+              "periodFrames": {
+                "type": "integer",
+                "minimum": 2,
+                "maximum": 60
+              },
+              "cycles": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 60
+              }
+            }
+          }
+        ]
+      },
+      "contains": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "type",
+          "durationFrames"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+          },
+          "type": {
+            "const": "control.return"
+          },
+          "durationFrames": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1800
+          }
+        }
+      },
+      "minContains": 1,
+      "maxContains": 1,
+      "allOf": [
+        {
+          "contains": {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "const": "camera.move"
+              }
+            }
+          },
+          "minContains": 1
+        }
+      ]
+    },
+    "actors": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "overworldId",
+          "entry",
+          "endBehavior",
+          "actions"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "overworldId": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 16383
+          },
+          "entry": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "tileX",
+              "tileZ",
+              "facing"
+            ],
+            "properties": {
+              "tileX": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 2047
+              },
+              "tileZ": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 2047
+              },
+              "facing": {
+                "enum": [
+                  "up",
+                  "down",
+                  "left",
+                  "right"
+                ]
+              }
+            }
+          },
+          "endBehavior": {
+            "enum": [
+              "stay",
+              "remove"
+            ]
+          },
+          "actions": {
+            "type": "array",
+            "maxItems": 128,
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "stepId",
+                    "type",
+                    "direction",
+                    "tiles"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+                    },
+                    "stepId": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+                    },
+                    "type": {
+                      "const": "walk"
+                    },
+                    "direction": {
+                      "enum": [
+                        "up",
+                        "down",
+                        "left",
+                        "right"
+                      ]
+                    },
+                    "tiles": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 32
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "stepId",
+                    "type",
+                    "direction"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+                    },
+                    "stepId": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+                    },
+                    "type": {
+                      "const": "face"
+                    },
+                    "direction": {
+                      "enum": [
+                        "up",
+                        "down",
+                        "left",
+                        "right"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "placement": {
+            "type": "string",
+            "enum": [
+              "tour",
+              "map"
+            ],
+            "description": "Map overworlds load with the zone and stay after the tour; tour actors are created at playback."
+          }
+        }
+      }
+    },
+    "returnCamera": {
+      "enum": [
+        "gameplay",
+        "entry"
+      ],
+      "default": "gameplay",
+      "description": "Entry pose requires a stationary player endpoint."
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceSeason",
+        "targetSeason",
+        "startFrame",
+        "endFrame",
+        "dayCycles",
+        "ambientSpeed",
+        "retainSeason"
+      ],
+      "properties": {
+        "sourceSeason": {
+          "enum": [
+            "spring",
+            "summer",
+            "autumn",
+            "winter"
+          ]
+        },
+        "targetSeason": {
+          "enum": [
+            "spring",
+            "summer",
+            "autumn",
+            "winter"
+          ]
+        },
+        "startFrame": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 17998
+        },
+        "endFrame": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 17999
+        },
+        "dayCycles": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32
+        },
+        "ambientSpeed": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 16
+        },
+        "retainSeason": {
+          "const": true
+        },
+        "seasonCycles": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8,
+          "description": "Complete four-season laps followed by the forward transition to targetSeason. Omit for a direct blend."
+        },
+        "persistSeason": {
+          "type": "boolean",
+          "default": false
+        },
+        "tempo": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "accelerateFraction",
+            "decelerateFraction"
+          ],
+          "properties": {
+            "accelerateFraction": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 0.5
+            },
+            "decelerateFraction": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 0.5
+            },
+            "boost": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "startFrame",
+                "durationFrames",
+                "multiplier"
+              ],
+              "properties": {
+                "startFrame": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 17998
+                },
+                "durationFrames": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1800
+                },
+                "multiplier": {
+                  "type": "number",
+                  "exclusiveMinimum": 1,
+                  "maximum": 32
+                }
+              },
+              "description": "Second acceleration, inside the initial cruise and before braking. Combined speed must not exceed 32\u00d7."
+            }
+          }
+        }
+      }
+    },
+    "music": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sourceName",
+        "startSeconds",
+        "endSeconds",
+        "durationFrames"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^field-tours/audio/[a-zA-Z0-9._-]+\\.strm$"
+        },
+        "sourceName": {
+          "type": "string",
+          "maxLength": 255
+        },
+        "startSeconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "endSeconds": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "durationFrames": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 18000
+        }
+      }
+    },
+    "trees": {
+      "type": "array",
+      "maxItems": 36,
+      "description": "Aspertia environment prototype. Native tree copies share existing seasonal materials and grow from 2% to full size. Frames include the prelude; export validates their bounds.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "position",
+          "startFrame",
+          "endFrame"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$"
+          },
+          "position": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "type": "number",
+              "exclusiveMinimum": -32768,
+              "exclusiveMaximum": 32768
+            }
+          },
+          "startFrame": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 17998
+          },
+          "endFrame": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 18000
+          }
+        }
+      }
+    },
+    "ageHumanNpcs": {
+      "type": "boolean",
+      "description": "Temporarily replace Aspertia human NPC appearances with native elders after the transition. No persistent aging flag."
+    }
+  },
+  "dependentRequired": {
+    "trees": [
+      "environment"
+    ]
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "trees"
+        ]
+      },
+      "then": {
+        "properties": {
+          "zoneId": {
+            "const": 427
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "environment"
+        ]
+      },
+      "then": {
+        "properties": {
+          "steps": {
+            "items": {
+              "if": {
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "const": "dialogue"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "waitForInput": {
+                    "const": false
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "ageHumanNpcs"
+        ],
+        "properties": {
+          "ageHumanNpcs": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "environment"
+        ],
+        "properties": {
+          "zoneId": {
+            "const": 427
+          }
+        }
+      }
+    }
+  ]
+}

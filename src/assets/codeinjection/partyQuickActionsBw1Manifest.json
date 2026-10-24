@@ -1161,9 +1161,9 @@
         }
       ],
       "segments": {
-        "ARM9": "f9cb027e4de3b4388c2ac02ae7e22aee8bf9bd25e9e7325bdf3265fec0370e92",
         "10": "003fdef42c2584b5448ff223360bf2fecb1a2bf6d36ed63a429fd1033779fda7",
-        "91": "813d39b2dd3fb1fd972f496a686201182d823e32e6a38c2d1452752b72f82f17"
+        "91": "813d39b2dd3fb1fd972f496a686201182d823e32e6a38c2d1452752b72f82f17",
+        "ARM9": "f9cb027e4de3b4388c2ac02ae7e22aee8bf9bd25e9e7325bdf3265fec0370e92"
       },
       "archiveFileName": "partyQuickActionsB.narc",
       "archiveSha256": "5d8710ce413cea76d05911c5bd9c2d1138c7d88c9665907375a582b5898def4e",
@@ -2345,9 +2345,9 @@
         }
       ],
       "segments": {
-        "ARM9": "2d36e7e501fee340e6af419492fb6e0648b8d75e872c718b450c2526dd1a681e",
         "10": "232353df8f9865a141bd81a254526d503b1e27e27cdea13460353e279bc01b51",
-        "91": "687ee398636c612b1fbdaeb891af3810ce4e46838e56d7803ed3af63c6ef6b80"
+        "91": "687ee398636c612b1fbdaeb891af3810ce4e46838e56d7803ed3af63c6ef6b80",
+        "ARM9": "2d36e7e501fee340e6af419492fb6e0648b8d75e872c718b450c2526dd1a681e"
       },
       "archiveFileName": "partyQuickActionsW.narc",
       "archiveSha256": "5d8710ce413cea76d05911c5bd9c2d1138c7d88c9665907375a582b5898def4e",

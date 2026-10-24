@@ -1,0 +1,36 @@
+.cutscene-editor { display: flex; width: 100%; height: calc(100vh - 94px); min-height: 520px; gap: 16px; padding: 16px; box-sizing: border-box; color: #e8edf5; }
+.cutscene-sidebar { flex: 0 0 360px; overflow: auto; padding: 18px; background: #292d3b; border: 1px solid #404659; border-radius: 10px; }
+.cutscene-editor [hidden] { display: none !important; }
+.cutscene-sidebar > [data-panel] { padding-right: 5px; }
+.cutscene-tabs { display: flex; gap: 5px; margin: 10px 0; position: sticky; top: -18px; z-index: 2; background: #292d3b; padding: 8px 0; }
+.cutscene-tabs button { flex: 1; }
+.cutscene-tabs [aria-selected="true"] { background: #27574f; border-color: #4ec6ad; }
+.cutscene-save { border-top: 1px solid #414657; padding-top: 5px; }
+.cutscene-save .cutscene-status { font-size: 11px; margin-bottom: 0; }
+.cutscene-reserved { display: none !important; }
+.cutscene-editor select[size] { min-height: 130px; }
+.cutscene-eyebrow { font-size: 10px; letter-spacing: .12em; color: #5dd9c6; }
+.cutscene-sidebar h1 { font-size: 25px; margin: 6px 0; }.cutscene-sidebar h2 { font-size: 15px; margin: 0 0 8px; }
+.cutscene-sidebar h3 { font-size: 12px; margin: 12px 0 0; color: #b8c4d6; }
+.cutscene-sidebar p { font-size: 12px; color: #b8c4d6; line-height: 1.55; margin: 6px 0 12px; }
+.cutscene-sidebar section { margin: 18px 0; padding-top: 16px; border-top: 1px solid #414657; }
+.cutscene-editor button, .cutscene-editor input, .cutscene-editor select { font: inherit; color: inherit; background: #353b50; border: 1px solid #4c536a; border-radius: 5px; min-width: 0; }
+.cutscene-editor button { cursor: pointer; padding: 8px 10px; font-size: 12px; line-height: 1.3; }
+.cutscene-editor button:hover:not(:disabled) { border-color: #6ce5d0; }.cutscene-editor button:disabled { opacity: .4; cursor: default; }
+.cutscene-editor [aria-pressed="true"], .cutscene-editor .cutscene-primary { background: #27574f; border-color: #4ec6ad; }
+.cutscene-editor label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: #c7d2e3; margin: 8px 0; }
+.cutscene-editor input, .cutscene-editor select { padding: 8px; width: 100%; box-sizing: border-box; background: #202532; }
+.cutscene-seasons, .cutscene-view-switch, .cutscene-actions { display: flex; gap: 6px; margin: 8px 0; align-items: center; }
+.cutscene-seasons button, .cutscene-view-switch button, .cutscene-sidebar .cutscene-actions button { flex: 1; }
+.cutscene-vector { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.cutscene-range { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; align-items: end; }.cutscene-range button { margin-bottom: 8px; }
+.cutscene-stage { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; background: #171b24; border-radius: 10px; border: 1px solid #373e50; overflow: hidden; }
+.cutscene-viewport { flex: 1; min-height: 200px; position: relative; overflow: hidden; }.cutscene-viewport canvas { display: block; width: 100%; height: 100%; outline-color: #4ec6ad; }.cutscene-fade { position: absolute; pointer-events: none; }
+.cutscene-view-help { font-size: 11px; color: #b1c0d4; padding: 8px 14px; }.cutscene-transport { padding: 8px 16px 14px; background: #262c3b; border-top: 1px solid #41495b; }
+.cutscene-preview-scope { padding: 0 14px 8px; color: #8999b1; font-size: 10px; }
+.cutscene-transport input[type="range"] { padding: 0; accent-color: #4ec6ad; cursor: pointer; }.cutscene-transport select { width: 74px; margin-left: auto; }.cutscene-editor .cutscene-loop { flex-direction: row; align-items: center; margin: 0 10px; }.cutscene-loop input { width: auto; }
+.cutscene-time { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; color: #b8c4d6; }.cutscene-time label { flex-direction: row; align-items: center; margin-bottom: 0; }.cutscene-time input { width: 78px; }
+.cutscene-status { border-left: 2px solid #4ec6ad; padding: 8px; }.cutscene-status.error { border-color: #ff897f; color: #ffb1a9; }.cutscene-sidebar details { font-size: 12px; }.cutscene-sidebar summary { cursor: pointer; margin: 12px 0; }.cutscene-cues { padding-left: 18px; }.cutscene-cues li { margin-bottom: 8px; }.cutscene-cues small { display: block; color: #96a6c0; margin-top: 4px; }
+@media (max-width: 1050px) { .cutscene-editor { gap: 8px; padding: 8px; }.cutscene-sidebar { flex-basis: 310px; padding: 12px; } }
+@media (max-width: 760px) { .cutscene-editor { flex-direction: column-reverse; height: auto; min-height: 0; }.cutscene-stage { flex: none; height: 440px; }.cutscene-sidebar { flex: none; overflow: visible; } }
+@media (max-width: 760px) { .cutscene-sidebar > [data-panel] { overflow: visible; flex: none; } }

@@ -1,3 +1,4 @@
+import { TRAINER_FIELD_CONDITIONS_PATH } from "../pokeweb/trainerFieldConditionsModel";
 import { describe, expect, it } from "vitest";
 import type { NarcName } from "../pokeweb/constants";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
@@ -33,6 +34,16 @@ const SHOWDOWN_IMPORT_TEXT = [
 ].join("\n");
 
 describe("trainerModel", () => {
+  it("rejects a damaged field table before appending a cloned trainer", () => {
+    const project = makeProject(0);
+    project.fileSystem = { replacements: {}, additions: { [TRAINER_FIELD_CONDITIONS_PATH]: new Uint8Array([0]) } };
+    const trainers = project.narcs.trdata!.fileCount, parties = project.narcs.trpok!.fileCount;
+    expect(() => addTrainer(project, 1)).toThrow("Unrecognized trainer field conditions table");
+    expect(project.narcs.trdata!.fileCount).toBe(trainers);
+    expect(project.narcs.trdata!.rawFiles).toHaveLength(trainers);
+    expect(project.narcs.trpok!.fileCount).toBe(parties);
+    expect(project.narcs.trpok!.rawFiles).toHaveLength(parties);
+  });
   it("uses the trainer form index for Pokemon sprite fallbacks", () => {
     expect(trainerPokemonSpriteSlug("Rotom", 0)).toBe("rotom");
     expect(trainerPokemonSpriteSlug("Rotom", 1)).toBe("rotom-heat");

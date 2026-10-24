@@ -21,6 +21,8 @@ export type ProjectSession = {
   cgearButtons?: import("../cgearButtons/document").Project;
   systemShops?: import("../systemShops/document").Project;
   customUi?: import("../customUi/document").Project;
+  cutsceneAuthoring?: import("./cutsceneScene").CutsceneAuthoringState;
+  fieldScenes?: import("./fieldScene").FieldSceneAuthoring;
   originalRomBytes?: Uint8Array;
   /** Compatibility field name for durable project settings. */
   session: ProjectSettings;
@@ -95,6 +97,8 @@ export function openProjectSession(document: ProjectDocument): ProjectSession {
       itemLocations: {}, groundItemScriptMap: {} } : undefined,
     bw2ScriptEditor: document.scriptDrafts ? { drafts: document.scriptDrafts } : undefined,
     cgearButtons: document.cgearButtons, systemShops: document.systemShops, customUi: document.customUi,
+    cutsceneAuthoring: document.cutsceneAuthoring,
+    fieldScenes: document.fieldScenes,
     map3dAreaEdits: document.map3dAreaEdits, fileSystem: document.fileSystem,
     codeInjection: document.codeInjection, overworldWeather: document.overworldWeather,
     pwanAnimations: document.pwanAnimations, w2animAnimations,

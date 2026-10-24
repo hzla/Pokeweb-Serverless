@@ -1,3 +1,4 @@
+import { hydrateTrainerFieldConditionsSources } from "./trainerFieldConditionsModel";
 import type { ProjectState } from "./projectStore";
 import { ProjectSaveQueue, createProjectSaveScheduler, type ProjectSaveScheduler } from "./projectSaveScheduler";
 import { createProjectDocument, readProjectDocument, type ProjectDocument } from "./projectDocument";
@@ -216,6 +217,7 @@ async function hydratePersistedProject(project: ProjectState, availableSource?: 
   hydrateCascadePersonalSources(project, rom);
   hydrateKoMoveLearnsetFromRom(project, rom);
   hydrateTrainerLocationTables(project, rom);
+  hydrateTrainerFieldConditionsSources(project, rom);
   if (project.arm9.length === 0) project.arm9 = decompressCode(rom.arm9);
   hydrateBattleLogInstallMetadata(project, rom);
   if (!w2anim && !project.pwanAnimations?.dirty && !project.trainerPwanAnimations?.dirty &&

@@ -350,10 +350,6 @@
         }
       ],
       "segments": {
-        "ARM9": {
-          "address": 33570816,
-          "sha256": "f9cb027e4de3b4388c2ac02ae7e22aee8bf9bd25e9e7325bdf3265fec0370e92"
-        },
         "10": {
           "address": 34951520,
           "sha256": "003fdef42c2584b5448ff223360bf2fecb1a2bf6d36ed63a429fd1033779fda7"
@@ -369,6 +365,10 @@
         "173": {
           "address": 35348736,
           "sha256": "25fe454d4f2b4aef73ba7ecf490f5b6e674076d610ec8d4e2c33e0117a6217b9"
+        },
+        "ARM9": {
+          "address": 33570816,
+          "sha256": "f9cb027e4de3b4388c2ac02ae7e22aee8bf9bd25e9e7325bdf3265fec0370e92"
         }
       },
       "layout": {
@@ -1071,10 +1071,6 @@
         }
       ],
       "segments": {
-        "ARM9": {
-          "address": 33570816,
-          "sha256": "2d36e7e501fee340e6af419492fb6e0648b8d75e872c718b450c2526dd1a681e"
-        },
         "10": {
           "address": 34951552,
           "sha256": "232353df8f9865a141bd81a254526d503b1e27e27cdea13460353e279bc01b51"
@@ -1090,6 +1086,10 @@
         "173": {
           "address": 35348768,
           "sha256": "fbd4eba75b18d613416750b9d9f1dfb04b1eada945281fdfda3acd636a383b9a"
+        },
+        "ARM9": {
+          "address": 33570816,
+          "sha256": "2d36e7e501fee340e6af419492fb6e0648b8d75e872c718b450c2526dd1a681e"
         }
       },
       "layout": {

@@ -1,0 +1,760 @@
+{
+  "version": 2,
+  "sources": {
+    "BW": {
+      "name": "PKHeX",
+      "url": "https://raw.githubusercontent.com/kwsch/PKHeX/13110adfd738c1f99c82689b4943168a8dc8e2f0/PKHeX.Core/Resources/text/script/gen5/flags_bw_en.txt",
+      "sha256": "159985c4c389dd151dab8690189661d5d750d55cc8bf38d6ae8ca64ce7d043f9",
+      "entries": 51
+    },
+    "BW2": {
+      "name": "PKHeX",
+      "url": "https://raw.githubusercontent.com/kwsch/PKHeX/13110adfd738c1f99c82689b4943168a8dc8e2f0/PKHeX.Core/Resources/text/script/gen5/flags_b2w2_en.txt",
+      "sha256": "a7885915c0c2e4e9d6583040599391210a2b284d7c0f54187b51201aefbf9b95",
+      "entries": 71
+    }
+  },
+  "games": {
+    "BW": [
+      {
+        "id": 115,
+        "category": "system",
+        "label": "Trading Functionality Enabled (Pokecenter)",
+        "source": "public-notes"
+      },
+      {
+        "id": 145,
+        "category": "story",
+        "label": "Received Cover/Plume Fossil from Backpacker (Relic Castle)",
+        "source": "public-notes"
+      },
+      {
+        "id": 148,
+        "category": "gifts",
+        "label": "In-Game Trade Petilil (B)/Cottonee (W) (Nacrene City)",
+        "source": "public-notes"
+      },
+      {
+        "id": 166,
+        "category": "pokemon",
+        "label": "Cobalion Captured",
+        "source": "public-notes"
+      },
+      {
+        "id": 167,
+        "category": "pokemon",
+        "label": "Terrakion Captured",
+        "source": "public-notes"
+      },
+      {
+        "id": 168,
+        "category": "pokemon",
+        "label": "Virizion Captured",
+        "source": "public-notes"
+      },
+      {
+        "id": 280,
+        "category": "gifts",
+        "label": "In-Game Trade Minccino for Basculin (Driftveil City)",
+        "source": "public-notes"
+      },
+      {
+        "id": 307,
+        "category": "pokemon",
+        "label": "Reshiram/Zekrom Captured",
+        "source": "public-notes"
+      },
+      {
+        "id": 313,
+        "category": "pokemon",
+        "label": "Landorus Captured",
+        "source": "public-notes"
+      },
+      {
+        "id": 315,
+        "category": "gifts",
+        "label": "Received Larvesta Egg Gift (Route 18)",
+        "source": "public-notes"
+      },
+      {
+        "id": 338,
+        "category": "pokemon",
+        "label": "Kyurem Captured",
+        "source": "public-notes"
+      },
+      {
+        "id": 339,
+        "category": "gifts",
+        "label": "Purchased Magikarp (Marvelous Bridge)",
+        "source": "public-notes"
+      },
+      {
+        "id": 347,
+        "category": "gifts",
+        "label": "In-Game Trade Boldore for Emolga (Route 7)",
+        "source": "public-notes"
+      },
+      {
+        "id": 348,
+        "category": "pokemon",
+        "label": "Volcarona Captured",
+        "source": "public-notes"
+      },
+      {
+        "id": 352,
+        "category": "trainers",
+        "label": "Battled Youngster Kyle (Driftveil City)",
+        "source": "public-notes",
+        "group": "trainers"
+      },
+      {
+        "id": 355,
+        "category": "trainers",
+        "label": "Can Battle Lass Dye (Nacrene City)",
+        "source": "public-notes",
+        "group": "trainers"
+      },
+      {
+        "id": 360,
+        "category": "gifts",
+        "label": "In-Game Trade Ditto for Rotom (Route 15)",
+        "source": "public-notes"
+      },
+      {
+        "id": 649,
+        "category": "pokemon",
+        "label": "Cobalion Disappeared",
+        "source": "public-notes"
+      },
+      {
+        "id": 650,
+        "category": "pokemon",
+        "label": "Terrakion Disappeared",
+        "source": "public-notes"
+      },
+      {
+        "id": 651,
+        "category": "pokemon",
+        "label": "Virizion Disappeared",
+        "source": "public-notes"
+      },
+      {
+        "id": 652,
+        "category": "story",
+        "label": "Obstacle (Victory Road) Cleared",
+        "source": "public-notes"
+      },
+      {
+        "id": 653,
+        "category": "story",
+        "label": "Obstacle (Pinwheel Forest) Cleared",
+        "source": "public-notes"
+      },
+      {
+        "id": 661,
+        "category": "pokemon",
+        "label": "Reshiram/Zekrom (N's Castle) Disappeared",
+        "source": "public-notes"
+      },
+      {
+        "id": 663,
+        "category": "pokemon",
+        "label": "Darmanitan (middle-left) disappeared from Desert Resort",
+        "source": "public-notes"
+      },
+      {
+        "id": 664,
+        "category": "pokemon",
+        "label": "Darmanitan (bottom-left) disappeared from Desert Resort",
+        "source": "public-notes"
+      },
+      {
+        "id": 665,
+        "category": "pokemon",
+        "label": "Darmanitan (top-left) disappeared from Desert Resort",
+        "source": "public-notes"
+      },
+      {
+        "id": 666,
+        "category": "pokemon",
+        "label": "Darmanitan (middle-right) disappeared from Desert Resort",
+        "source": "public-notes"
+      },
+      {
+        "id": 667,
+        "category": "pokemon",
+        "label": "Darmanitan (top-right) disappeared from Desert Resort",
+        "source": "public-notes"
+      },
+      {
+        "id": 669,
+        "category": "pokemon",
+        "label": "Team Plasma Guide (Pokémon League Pokémon Center) Disappeared",
+        "source": "public-notes"
+      },
+      {
+        "id": 683,
+        "category": "facilities",
+        "label": "Battle Subway: does not possess super single trophy",
+        "source": "public-notes"
+      },
+      {
+        "id": 684,
+        "category": "facilities",
+        "label": "Battle Subway: does not possess super double trophy",
+        "source": "public-notes"
+      },
+      {
+        "id": 685,
+        "category": "facilities",
+        "label": "Battle Subway: does not possess super multi trophy",
+        "source": "public-notes"
+      },
+      {
+        "id": 729,
+        "category": "story",
+        "label": "Zorua as little boy (1) disappeared from GAME FREAK building 1F (Zorua event)",
+        "source": "public-notes"
+      },
+      {
+        "id": 730,
+        "category": "story",
+        "label": "Girl disappeared from GAME FREAK building 1F (Zorua event)",
+        "source": "public-notes"
+      },
+      {
+        "id": 731,
+        "category": "story",
+        "label": "Zorua (2) disappeared from GAME FREAK building 1F (Zorua event)",
+        "source": "public-notes"
+      },
+      {
+        "id": 766,
+        "category": "pokemon",
+        "label": "Reshiram/Zekrom (Dragonspiral Tower) Disappeared",
+        "source": "public-notes"
+      },
+      {
+        "id": 767,
+        "category": "pokemon",
+        "label": "Route 6 Foongus Disappeared (1)",
+        "source": "public-notes"
+      },
+      {
+        "id": 768,
+        "category": "pokemon",
+        "label": "Route 6 Foongus Disappeared (2)",
+        "source": "public-notes"
+      },
+      {
+        "id": 769,
+        "category": "pokemon",
+        "label": "Route 10 Amoonguss Disappeared (1)",
+        "source": "public-notes"
+      },
+      {
+        "id": 770,
+        "category": "pokemon",
+        "label": "Route 10 Amoonguss Disappeared (2)",
+        "source": "public-notes"
+      },
+      {
+        "id": 771,
+        "category": "pokemon",
+        "label": "Route 10 Foongus Disappeared (1)",
+        "source": "public-notes"
+      },
+      {
+        "id": 772,
+        "category": "pokemon",
+        "label": "Route 10 Foongus Disappeared (2)",
+        "source": "public-notes"
+      },
+      {
+        "id": 801,
+        "category": "pokemon",
+        "label": "Kyurem Disappeared",
+        "source": "public-notes"
+      },
+      {
+        "id": 810,
+        "category": "pokemon",
+        "label": "Volcarona Disappeared",
+        "source": "public-notes"
+      },
+      {
+        "id": 1372,
+        "category": "items",
+        "label": "Found Relic Crown (Abyssal Ruins 4F)",
+        "source": "public-notes",
+        "group": "items"
+      },
+      {
+        "id": 1937,
+        "category": "trainers",
+        "label": "Battled Lass Dye (Nacrene City)",
+        "source": "public-notes",
+        "group": "trainers"
+      },
+      {
+        "id": 2400,
+        "category": "story",
+        "label": "Defeated Ghetsis (First game clear)",
+        "source": "public-notes"
+      },
+      {
+        "id": 2403,
+        "category": "system",
+        "label": "Has Running Shoes",
+        "source": "public-notes"
+      },
+      {
+        "id": 2748,
+        "category": "daily",
+        "label": "Dreamyard Musharna Disappeared (Friday)",
+        "source": "public-notes"
+      },
+      {
+        "id": 2754,
+        "category": "daily",
+        "label": "Rode Royal Unova (Today)",
+        "source": "public-notes"
+      },
+      {
+        "id": 2762,
+        "category": "daily",
+        "label": "Received a Fossil from Twist Mountain Worker (Today)",
+        "source": "public-notes"
+      }
+    ],
+    "BW2": [
+      {
+        "id": 106,
+        "category": "system",
+        "label": "Trading Functionality Enabled (PokeCenter)",
+        "source": "public-notes"
+      },
+      {
+        "id": 234,
+        "category": "pokemon",
+        "label": "Reshiram/Zekrom Captured",
+        "source": "public-notes"
+      },
+      {
+        "id": 249,
+        "category": "pokemon",
+        "label": "Kyurem Captured",
+        "source": "public-notes"
+      },
+      {
+        "id": 250,
+        "category": "gifts",
+        "label": "Purchased Magikarp",
+        "source": "public-notes"
+      },
+      {
+        "id": 256,
+        "category": "gifts",
+        "label": "Traded for Gigalith on Route 7",
+        "source": "public-notes"
+      },
+      {
+        "id": 259,
+        "category": "gifts",
+        "label": "Traded for Rotom on Route 15",
+        "source": "public-notes"
+      },
+      {
+        "id": 289,
+        "category": "gifts",
+        "label": "Received N's Zorua (1/2)",
+        "source": "public-notes"
+      },
+      {
+        "id": 300,
+        "category": "pokemon",
+        "label": "Virizion (Rematch, Level +20)",
+        "source": "public-notes"
+      },
+      {
+        "id": 301,
+        "category": "pokemon",
+        "label": "Virizion Captured",
+        "source": "public-notes"
+      },
+      {
+        "id": 302,
+        "category": "pokemon",
+        "label": "Cobalion (Rematch, Level +20)",
+        "source": "public-notes"
+      },
+      {
+        "id": 303,
+        "category": "pokemon",
+        "label": "Cobalion Captured",
+        "source": "public-notes"
+      },
+      {
+        "id": 329,
+        "category": "pokemon",
+        "label": "Terrakion (Rematch, Level +20)",
+        "source": "public-notes"
+      },
+      {
+        "id": 330,
+        "category": "pokemon",
+        "label": "Terrakion Captured",
+        "source": "public-notes"
+      },
+      {
+        "id": 374,
+        "category": "pokemon",
+        "label": "Latios/Latias Captured",
+        "source": "public-notes"
+      },
+      {
+        "id": 379,
+        "category": "pokemon",
+        "label": "Cresselia Captured",
+        "source": "public-notes"
+      },
+      {
+        "id": 380,
+        "category": "pokemon",
+        "label": "Heatran Captured",
+        "source": "public-notes"
+      },
+      {
+        "id": 394,
+        "category": "gifts",
+        "label": "Received Eevee Gift",
+        "source": "public-notes"
+      },
+      {
+        "id": 396,
+        "category": "pokemon",
+        "label": "Uxie Captured",
+        "source": "public-notes"
+      },
+      {
+        "id": 397,
+        "category": "pokemon",
+        "label": "Mesprit Captured",
+        "source": "public-notes"
+      },
+      {
+        "id": 398,
+        "category": "pokemon",
+        "label": "Azelf Captured",
+        "source": "public-notes"
+      },
+      {
+        "id": 399,
+        "category": "pokemon",
+        "label": "Regirock Captured",
+        "source": "public-notes"
+      },
+      {
+        "id": 400,
+        "category": "pokemon",
+        "label": "Regice Captured",
+        "source": "public-notes"
+      },
+      {
+        "id": 401,
+        "category": "pokemon",
+        "label": "Registeel Captured",
+        "source": "public-notes"
+      },
+      {
+        "id": 402,
+        "category": "pokemon",
+        "label": "Regigigas Captured",
+        "source": "public-notes"
+      },
+      {
+        "id": 403,
+        "category": "pokemon",
+        "label": "Volcarona Captured (Level 35/65)",
+        "source": "public-notes"
+      },
+      {
+        "id": 404,
+        "category": "pokemon",
+        "label": "Volcarona Defeated (Level 35)",
+        "source": "public-notes"
+      },
+      {
+        "id": 405,
+        "category": "gifts",
+        "label": "Traded for Tangrowth in Humilau City",
+        "source": "public-notes"
+      },
+      {
+        "id": 412,
+        "category": "gifts",
+        "label": "Traded for Petilil/Cottonee on Route 4",
+        "source": "public-notes"
+      },
+      {
+        "id": 420,
+        "category": "pokemon",
+        "label": "Shiny Haxorus (Nature Preserve) Captured",
+        "source": "public-notes"
+      },
+      {
+        "id": 426,
+        "category": "gifts",
+        "label": "Received Deerling Gift",
+        "source": "public-notes"
+      },
+      {
+        "id": 431,
+        "category": "gifts",
+        "label": "Traded for Ambipom in Accumula Town",
+        "source": "public-notes"
+      },
+      {
+        "id": 432,
+        "category": "gifts",
+        "label": "Traded for Alakazam in Accumula Town",
+        "source": "public-notes"
+      },
+      {
+        "id": 433,
+        "category": "gifts",
+        "label": "Battled Lass Diana 1st Time (Can Trade for Alakazam)",
+        "source": "public-notes"
+      },
+      {
+        "id": 434,
+        "category": "story",
+        "label": "Battled Lass Diana 2nd Time",
+        "source": "public-notes"
+      },
+      {
+        "id": 437,
+        "category": "gifts",
+        "label": "Received Happiny Egg Gift",
+        "source": "public-notes"
+      },
+      {
+        "id": 445,
+        "category": "gifts",
+        "label": "Chose Cover/Plume Fossil from Lenora",
+        "source": "public-notes"
+      },
+      {
+        "id": 667,
+        "category": "pokemon",
+        "label": "Reshiram/Zekrom Disappeared",
+        "source": "public-notes"
+      },
+      {
+        "id": 714,
+        "category": "gifts",
+        "label": "Received N's Zorua (2/2)",
+        "source": "public-notes"
+      },
+      {
+        "id": 801,
+        "category": "pokemon",
+        "label": "Virizion Disappeared",
+        "source": "public-notes"
+      },
+      {
+        "id": 802,
+        "category": "pokemon",
+        "label": "Cobalion Disappeared",
+        "source": "public-notes"
+      },
+      {
+        "id": 810,
+        "category": "pokemon",
+        "label": "Terrakion Disappeared",
+        "source": "public-notes"
+      },
+      {
+        "id": 868,
+        "category": "pokemon",
+        "label": "Seaside Cave Crustle Disappeared",
+        "source": "public-notes"
+      },
+      {
+        "id": 897,
+        "category": "pokemon",
+        "label": "Cresselia Disappeared",
+        "source": "public-notes"
+      },
+      {
+        "id": 900,
+        "category": "pokemon",
+        "label": "Heatran Disappeared",
+        "source": "public-notes"
+      },
+      {
+        "id": 918,
+        "category": "pokemon",
+        "label": "Uxie Disappeared",
+        "source": "public-notes"
+      },
+      {
+        "id": 919,
+        "category": "pokemon",
+        "label": "Mesprit Disappeared",
+        "source": "public-notes"
+      },
+      {
+        "id": 920,
+        "category": "pokemon",
+        "label": "Azelf Disappeared",
+        "source": "public-notes"
+      },
+      {
+        "id": 921,
+        "category": "pokemon",
+        "label": "Regice Disappeared",
+        "source": "public-notes"
+      },
+      {
+        "id": 922,
+        "category": "pokemon",
+        "label": "Regirock Disappeared",
+        "source": "public-notes"
+      },
+      {
+        "id": 923,
+        "category": "pokemon",
+        "label": "Registeel Disappeared",
+        "source": "public-notes"
+      },
+      {
+        "id": 924,
+        "category": "pokemon",
+        "label": "Regigigas Disappeared",
+        "source": "public-notes"
+      },
+      {
+        "id": 928,
+        "category": "pokemon",
+        "label": "Volcarona Disappeared",
+        "source": "public-notes"
+      },
+      {
+        "id": 929,
+        "category": "pokemon",
+        "label": "Route 6 Foongus Disappeared (1)",
+        "source": "public-notes"
+      },
+      {
+        "id": 930,
+        "category": "pokemon",
+        "label": "Route 6 Foongus Disappeared (2)",
+        "source": "public-notes"
+      },
+      {
+        "id": 931,
+        "category": "pokemon",
+        "label": "Route 6 Foongus Disappeared (3)",
+        "source": "public-notes"
+      },
+      {
+        "id": 932,
+        "category": "pokemon",
+        "label": "Route 7 Foongus Disappeared (1)",
+        "source": "public-notes"
+      },
+      {
+        "id": 933,
+        "category": "pokemon",
+        "label": "Route 7 Foongus Disappeared (2)",
+        "source": "public-notes"
+      },
+      {
+        "id": 946,
+        "category": "pokemon",
+        "label": "Shiny Haxorus (Nature Preserve) Disappeared",
+        "source": "public-notes"
+      },
+      {
+        "id": 979,
+        "category": "story",
+        "label": "Zinzolin Disappeared from Undella Town",
+        "source": "public-notes"
+      },
+      {
+        "id": 996,
+        "category": "gifts",
+        "label": "Benga with Shiny Gible/Dratini Gift disappeared from Alder's house",
+        "source": "public-notes"
+      },
+      {
+        "id": 1004,
+        "category": "pokemon",
+        "label": "Kyurem Disappeared",
+        "source": "public-notes"
+      },
+      {
+        "id": 1469,
+        "category": "items",
+        "label": "Found Relic Crown (Abyssal Ruins 4F)",
+        "source": "public-notes",
+        "group": "items"
+      },
+      {
+        "id": 2400,
+        "category": "story",
+        "label": "Entered Hall of Fame",
+        "source": "public-notes"
+      },
+      {
+        "id": 2403,
+        "category": "system",
+        "label": "Has Running Shoes",
+        "source": "public-notes"
+      },
+      {
+        "id": 2442,
+        "category": "pokemon",
+        "label": "N's Pokémon in the Wild",
+        "source": "public-notes"
+      },
+      {
+        "id": 2464,
+        "category": "story",
+        "label": "Visited Abyssal Ruins",
+        "source": "public-notes"
+      },
+      {
+        "id": 2744,
+        "category": "daily",
+        "label": "Rode Royal Unova (Today)",
+        "source": "public-notes"
+      },
+      {
+        "id": 2747,
+        "category": "daily",
+        "label": "Received a Fossil from Twist Mountain Worker (Today)",
+        "source": "public-notes"
+      },
+      {
+        "id": 2774,
+        "category": "daily",
+        "label": "Weekly Mandibuzz/Braviary on Route 4 Disappeared",
+        "source": "public-notes"
+      },
+      {
+        "id": 2775,
+        "category": "daily",
+        "label": "Weekly Jellicent in Undella Bay Disappeared",
+        "source": "public-notes"
+      },
+      {
+        "id": 2793,
+        "category": "daily",
+        "label": "Rematched Colress (Today)",
+        "source": "public-notes"
+      }
+    ]
+  }
+}

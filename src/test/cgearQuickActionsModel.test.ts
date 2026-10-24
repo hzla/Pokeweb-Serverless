@@ -76,11 +76,11 @@ function legacyControls(arc:NARC){
   writeU32(arc.files[0],24,fingerprint(new Uint8Array(arc.files.slice(1,12).flatMap(b=>Array.from(b)))));
 }
 describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
-  it.each(['0.5.4','0.5.5'])('upgrades %s and preserves an optional System Shop through apply, export, disable and re-enable',async previousVersion=>{
+  it.each(['0.5.4','0.5.5','0.5.6'])('upgrades %s and preserves an optional System Shop through apply, export, disable and re-enable',async previousVersion=>{
     const p=makeProject(v);assets();await installCGearQuickActions(p);
     const path=`patches/CGearQuickActions${v}.dll`;
     p.fileSystem!.additions![path]=new Uint8Array(readFileSync(new URL(`./fixtures/cgear-quick-actions-v${previousVersion}/CGearQuickActions${v}.dll`,import.meta.url)));
-    if(previousVersion==='0.5.5')p.fileSystem!.additions![SHOP_ARCHIVE]=new Uint8Array(readFileSync(new URL('./fixtures/cgear-quick-actions-v0.5.5/shops.narc',import.meta.url)));
+    if(previousVersion==='0.5.5'||previousVersion==='0.5.6')p.fileSystem!.additions![SHOP_ARCHIVE]=new Uint8Array(readFileSync(new URL('./fixtures/cgear-quick-actions-v0.5.5/shops.narc',import.meta.url)));
     expect(getCGearQuickActionsStatus(p)).toMatchObject({installed:true,compatible:true,updateAvailable:true});
     const d=ensureCGearButtons(p).document,b=newButton(d,"systemShop");b.flag={id:42,when:"clear"};d.buttons.push(b);
     expect(d.buttons).toHaveLength(7);await installCGearQuickActions(p);
@@ -94,10 +94,12 @@ describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
   it('applies custom currency shops atomically and preserves drafts through ROM export/reopening',async()=>{
     const p=makeProject(v);assets();const buttons=ensureCGearButtons(p).document;buttons.buttons.push(newButton(buttons,'systemShop'));
     const state=ensureSystemShops(p);state.document.shops.push(tmTestShop(state.document));
+    state.document.shops[0].inventory[1].condition={badges:2,flag:{id:3000,state:"set"}};
     await installCGearQuickActions(p,{applySystemShops:true});
     expect(state.applied).toBeUndefined(); // Staging replaces the state only on success.
     expect(p.systemShops!.applied).toEqual(p.systemShops!.document);
     p.systemShops!.document.shops[0].inventory[0].cost=25;
+    p.systemShops!.document.shops[0].inventory[1].condition!.flag!.state="clear";
     const applied=structuredClone(p.systemShops!.applied);
     await installCGearQuickActions(p);
     expect(p.systemShops!.applied).toEqual(applied);
@@ -293,7 +295,7 @@ describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
     const p = makeProject(v);assets();await installCGearQuickActions(p);disableCGearQuickActions(p);
     const before = structuredClone({arm:p.arm9,files:p.fileSystem,modules:p.codeInjection,changes:p.actionChangelog});
     vi.stubGlobal("fetch",vi.fn(async()=>new Response(new Uint8Array([1,2]))));
-    await expect(installCGearQuickActions(p)).rejects.toThrow();
+    await expect(installCGearQuickActions(p)).rejects.toThrow(`${manifest.games[v].fileName} does not match version ${manifest.version}`);
     expect({arm:p.arm9,files:p.fileSystem,modules:p.codeInjection,changes:p.actionChangelog}).toEqual(before);
   });
   it("rejects modified native code with its exact location", async () => {

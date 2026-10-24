@@ -28,6 +28,7 @@ runtime/porta-pc/build/
 runtime/battle-harness/build/
 runtime/cgear-quick-actions/build/
 runtime/autosave/build/
+runtime/cutscene-dialogue/build/
 runtime/fly-destinations/build/
 __pycache__/
 
@@ -51,6 +52,12 @@ src/test/local/
 !/scripts/verify-fly-destinations.ts
 !/scripts/verify-field-camera.ts
 !/scripts/verify-field-camera-lookup.py
+!/scripts/verify-field-camera-emulator.ts
+!/scripts/verify-field-camera.ts
+!/scripts/verify-field-camera-lookup.py
+!/scripts/verify-field-camera-emulator.ts
+!/scripts/verify-field-camera-lookup.py
+!/scripts/verify-field-camera-emulator.ts
 !/scripts/verify-field-camera-emulator.ts
 !/scripts/verify-bw1-stream-decoder.ts
 !/scripts/verify-bw1-music-project.ts
@@ -111,6 +118,12 @@ src/test/local/
 !/scripts/verify-white2-script-summaries.ts
 !/scripts/verify-matrix-editor.ts
 !/scripts/verify-seasonal-matrices.ts
+!/scripts/verify-native-cutscene.ts
+!/scripts/verify-native-skeletal.ts
+!/scripts/build-native-cutscene-test.ts
+!/scripts/verify-native-cutscene-emulator.ts
+!/scripts/verify-native-cutscene-clone.ts
+!/scripts/verify-cutscene-timeline.ts
 
 # Local BW1 Infinite Candy compiler intermediates.
 runtime/infinite-candy/build/InfiniteCandyB.o
@@ -130,3 +143,28 @@ runtime/bgm-toggle/build/decoder-tests/
 # Shared System Shop compiler bindings used by the native build.
 !/scripts/generate-system-shop-bindings.ts
 !/scripts/verify-system-shop-demo.ts
+
+!/scripts/build-map-cutscene-test.ts
+
+!/scripts/verify-map-cutscene-materials.ts
+
+!/scripts/verify-map-cutscene-material-motion.ts
+!/scripts/verify-cutscene-npc-export.ts
+!/scripts/verify-cutscene-npc-motion.ts
+!/scripts/verify-cutscene-dialogue-emulator.ts
+!/scripts/verify-cutscene-environment.ts
+!/scripts/verify-aspertia-time-travel.ts
+!/scripts/verify-cutscene-branches-emulator.ts
+!/scripts/build-field-scene-test.ts
+!/scripts/verify-field-scene-emulator.ts
+!/scripts/verify-field-sprite-motion.ts
+!/scripts/verify-field-npc-tracks.ts
+!/scripts/verify-field-dialogue.ts
+!/scripts/verify-field-environment.ts
+runtime/field-environment/build/
+
+runtime/field-season/build/
+
+!/scripts/verify-skeletal-timeline.ts
+/runtime/trainer-field-conditions/build/
+!/scripts/verify-trainer-field-conditions.ts

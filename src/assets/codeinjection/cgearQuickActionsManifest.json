@@ -1,6 +1,6 @@
 {
   "graphicsFingerprint": "2309c921",
-  "version": "0.5.6",
+  "version": "0.5.7",
   "defaultPcHideFlag": 1517,
   "maxSaveFlag": 3059,
   "archivePath": "quick-actions/ui.narc",
@@ -39077,6 +39077,3336 @@
         }
       },
       "graphicsFingerprint": "2309c921"
+    },
+    {
+      "version": "0.5.6",
+      "games": {
+        "W2": {
+          "idCode": "IRDO",
+          "revision": 0,
+          "fileName": "CGearQuickActionsW2.dll",
+          "sha256": "6684889ef2d98fbb2948861e59444048a9e1172d46c6994471729deefd2082e2",
+          "codeFingerprint": "2661d4bd",
+          "bssSize": 9648,
+          "signatures": [
+            {
+              "label": "QaShopUnit",
+              "module": "36",
+              "address": 35311278,
+              "expectedHex": "9ff64bf8",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopGraphics",
+              "module": "36",
+              "address": 35307608,
+              "expectedHex": "00f024ff",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopGraphicsEnd",
+              "module": "36",
+              "address": 35309054,
+              "expectedHex": "00f06ffc",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopBalanceText",
+              "module": "36",
+              "address": 35311982,
+              "expectedHex": "74f6f1fd",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopStockFile",
+              "module": "36",
+              "address": 35309460,
+              "expectedHex": "9ef6e4f8",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopStockFile",
+              "module": "36",
+              "address": 35309500,
+              "expectedHex": "9ef6d0f8",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopLabel",
+              "module": "36",
+              "address": 35309578,
+              "expectedHex": "fff749ff",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopSelect",
+              "module": "36",
+              "address": 35308280,
+              "expectedHex": "fff70aff",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopPrice",
+              "module": "36",
+              "address": 35309598,
+              "expectedHex": "66f64fff",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopMessageBank",
+              "module": "36",
+              "address": 35310180,
+              "expectedHex": "9bf690fe",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopBalance",
+              "module": "36",
+              "address": 35307796,
+              "expectedHex": "fff7deff",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopBalance",
+              "module": "36",
+              "address": 35308052,
+              "expectedHex": "fff75eff",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopMoney",
+              "module": "36",
+              "address": 35311910,
+              "expectedHex": "5ff649fc",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopPay",
+              "module": "36",
+              "address": 35308898,
+              "expectedHex": "fff707ff",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopAdd",
+              "module": "36",
+              "address": 35308918,
+              "expectedHex": "5bf677fe",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopTick",
+              "module": "36",
+              "address": 35307038,
+              "expectedHex": "00f0c7fa",
+              "patchSize": 4
+            },
+            {
+              "label": "QaInput",
+              "module": "79",
+              "address": 35572096,
+              "expectedHex": "fef788ff",
+              "patchSize": 4
+            },
+            {
+              "label": "QaButtonHit",
+              "module": "79",
+              "address": 35567816,
+              "expectedHex": "fff73eff",
+              "patchSize": 4
+            },
+            {
+              "label": "QaGearUnit",
+              "module": "79",
+              "address": 35571520,
+              "expectedHex": "5ff602fc",
+              "patchSize": 4
+            },
+            {
+              "label": "QaGearEnd",
+              "module": "79",
+              "address": 35573314,
+              "expectedHex": "fff7e1fc",
+              "patchSize": 4
+            },
+            {
+              "label": "QaRepelStep",
+              "module": "36",
+              "address": 35136700,
+              "expectedHex": "8bf67cfc",
+              "patchSize": 4
+            },
+            {
+              "label": "QaRepelDepleted",
+              "module": "36",
+              "address": 35261228,
+              "expectedHex": "6df658f9",
+              "patchSize": 4
+            },
+            {
+              "label": "QaPhenomenonInterval",
+              "module": "36",
+              "address": 35266916,
+              "expectedHex": "00f0a2f9",
+              "patchSize": 4
+            },
+            {
+              "label": "QaPhenomenonChance",
+              "module": "36",
+              "address": 35266928,
+              "expectedHex": "71f682fb",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopRowPrice",
+              "module": "36",
+              "address": 35312828,
+              "expectedHex": "11d51a02",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopTmRowPrice",
+              "module": "36",
+              "address": 35312832,
+              "expectedHex": "a1d51a02",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopChoiceAdd",
+              "module": "12",
+              "address": 35043380,
+              "expectedHex": "bd851a02",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopBuyCommand",
+              "module": "12",
+              "address": 35043996,
+              "expectedHex": "b1bb1a02",
+              "patchSize": 4
+            },
+            {
+              "label": "QaCGearInit",
+              "module": "36",
+              "address": 35453456,
+              "expectedHex": "65851902",
+              "patchSize": 4
+            },
+            {
+              "label": "QaCGearUpdate",
+              "module": "36",
+              "address": 35453460,
+              "expectedHex": "5d861902",
+              "patchSize": 4
+            },
+            {
+              "label": "QaCGearEvent",
+              "module": "36",
+              "address": 35453468,
+              "expectedHex": "b5861902",
+              "patchSize": 4
+            },
+            {
+              "label": "QaCGearExit",
+              "module": "36",
+              "address": 35453472,
+              "expectedHex": "3d861902",
+              "patchSize": 4
+            },
+            {
+              "label": "QaNoGearInit",
+              "module": "36",
+              "address": 35453596,
+              "expectedHex": "c1861902",
+              "patchSize": 4
+            },
+            {
+              "label": "QaTownMapReturn",
+              "module": "12",
+              "address": 35048612,
+              "expectedHex": "39c01502",
+              "patchSize": 4
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33851432,
+              "expectedHex": "f8b5061c0d1ca620",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33851392,
+              "expectedHex": "10b5041c60690028",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33851272,
+              "expectedHex": "f8b582b0061c0192",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33859936,
+              "expectedHex": "08b500230093fff7",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33633984,
+              "expectedHex": "08b505490a79302a",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33864676,
+              "expectedHex": "f8b584b00f1c2149",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33711432,
+              "expectedHex": "806970474a300170",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33712832,
+              "expectedHex": "52218900884202d3",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33695924,
+              "expectedHex": "f8b50d1c161c0024",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33693012,
+              "expectedHex": "f8b51f1c051c381c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33606076,
+              "expectedHex": "00687047074a9142",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33588536,
+              "expectedHex": "08b50122fff7d4fe",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33587768,
+              "expectedHex": "08b5fff7ddff0028",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33587816,
+              "expectedHex": "08b5fff7efff0028",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33588268,
+              "expectedHex": "70b582b0051c0e1c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33592736,
+              "expectedHex": "014b01221847c046",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33647256,
+              "expectedHex": "08b5806823f08aff",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33860740,
+              "expectedHex": "f8b582b0051c4e30",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33828696,
+              "expectedHex": "08b500040904000c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33593552,
+              "expectedHex": "807b704781817047",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33713808,
+              "expectedHex": "f8b5051c06a80788",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33837228,
+              "expectedHex": "38b5084c25682c24",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33837900,
+              "expectedHex": "f8b50d1c141c061c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33837184,
+              "expectedHex": "08b5002300f002f8",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33838744,
+              "expectedHex": "f0b585b000912c21",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33836988,
+              "expectedHex": "08b52c21021c4a43",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33576700,
+              "expectedHex": "38b5051c04480c1c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33579604,
+              "expectedHex": "0021014bc9431847",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33588340,
+              "expectedHex": "08b5fff737ff0028",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33590748,
+              "expectedHex": "014b1b211847c046",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33593536,
+              "expectedHex": "c0797047c1727047",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33593624,
+              "expectedHex": "08b52021fdf794fd",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33611192,
+              "expectedHex": "011c2d3109780029",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33611232,
+              "expectedHex": "2d300078002801d1",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33606012,
+              "expectedHex": "436801228a40191c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33634424,
+              "expectedHex": "07494a7b302a09d0",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33649828,
+              "expectedHex": "2221090140587047",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33651060,
+              "expectedHex": "0068014b1847c046",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33647320,
+              "expectedHex": "c0697047c069014b",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33647344,
+              "expectedHex": "006a704701627047",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33647796,
+              "expectedHex": "f8b582b0051c0193",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33647976,
+              "expectedHex": "08600069004b1847",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33648344,
+              "expectedHex": "00697047c0687047",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33648348,
+              "expectedHex": "c068704708307047",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33649140,
+              "expectedHex": "4521890040187047",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33649492,
+              "expectedHex": "1921090140587047",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33649500,
+              "expectedHex": "6521890040587047",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33649556,
+              "expectedHex": "6b21890040587047",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33650084,
+              "expectedHex": "006c704701647047",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33650148,
+              "expectedHex": "0149405c7047c046",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33650996,
+              "expectedHex": "0068704700687047",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33657304,
+              "expectedHex": "38b50c1c00f04cf8",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33672484,
+              "expectedHex": "70b5051c0c1c161c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33685028,
+              "expectedHex": "40687047f8b5071c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33685300,
+              "expectedHex": "dc2208304a438018",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33791884,
+              "expectedHex": "08b5094908400949",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33791932,
+              "expectedHex": "08b5094908400949",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33792552,
+              "expectedHex": "f8b5061c0d1c171c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33792632,
+              "expectedHex": "10b5041c00f0caf8",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33793748,
+              "expectedHex": "011c0a68506b8842",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33803028,
+              "expectedHex": "00210268c9438a42",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33806964,
+              "expectedHex": "08b5fff745fcfff7",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33807024,
+              "expectedHex": "38b5051c0c1cfff7",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33808204,
+              "expectedHex": "08b5fff7d9f9fff7",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33860296,
+              "expectedHex": "30b583b0051c291c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33860408,
+              "expectedHex": "10b5041c26f050f9",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33860424,
+              "expectedHex": "78b583b0051c4e30",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33860664,
+              "expectedHex": "30b583b0051c4e30",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33863912,
+              "expectedHex": "f0b589b0071c2e48",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33864120,
+              "expectedHex": "70b52a4c85014326",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33864300,
+              "expectedHex": "f8b51c4e84014327",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33864652,
+              "expectedHex": "18b583b000240094",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33864956,
+              "expectedHex": "78b40d4d011c1820",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33865020,
+              "expectedHex": "f8b50d1c5601002a",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33865228,
+              "expectedHex": "f8b584b000901e48",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33865360,
+              "expectedHex": "10b50c490a684521",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33865544,
+              "expectedHex": "f8b582b0061c0192",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33865836,
+              "expectedHex": "f8b58cb003901420",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33866036,
+              "expectedHex": "10b5041ca068211c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33866064,
+              "expectedHex": "036e034ac9071a40",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33866092,
+              "expectedHex": "38b582b00c1c111c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33866980,
+              "expectedHex": "10b5041c221c5a32",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33867056,
+              "expectedHex": "014b68301847c046",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33867084,
+              "expectedHex": "036e034ac9071a40",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 34016424,
+              "expectedHex": "2321002209021143",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 34016972,
+              "expectedHex": "014b01221847c046",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33608068,
+              "expectedHex": "014b36211847c046",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33609312,
+              "expectedHex": "38b50d1c041c281c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33791432,
+              "expectedHex": "f8b582b0051c0220",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 34016748,
+              "expectedHex": "38b582b0002401a9",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 34016852,
+              "expectedHex": "08b582b000ab0361",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 34016876,
+              "expectedHex": "38b582b0051c00ab",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 34016736,
+              "expectedHex": "014b082101221847",
+              "patchSize": 0
+            },
+            {
+              "label": "Shared music runtime hook",
+              "module": "ARM9",
+              "address": 33575734,
+              "expectedHex": "00f06ffc",
+              "patchSize": 0
+            },
+            {
+              "label": "Shared music runtime hook",
+              "module": "ARM9",
+              "address": 33578498,
+              "expectedHex": "fff7c9ff",
+              "patchSize": 0
+            },
+            {
+              "label": "Shared music runtime hook",
+              "module": "ARM9",
+              "address": 33578594,
+              "expectedHex": "65f0d1ff",
+              "patchSize": 0
+            },
+            {
+              "label": "Shared music runtime hook",
+              "module": "ARM9",
+              "address": 33578672,
+              "expectedHex": "65f0eeff",
+              "patchSize": 0
+            },
+            {
+              "label": "Shared music runtime hook",
+              "module": "ARM9",
+              "address": 33578914,
+              "expectedHex": "65f0a3ff",
+              "patchSize": 0
+            },
+            {
+              "label": "Shared music runtime hook",
+              "module": "ARM9",
+              "address": 34004100,
+              "expectedHex": "fff740fa",
+              "patchSize": 0
+            },
+            {
+              "label": "Native graphics system pointer",
+              "module": "ARM9",
+              "address": 33864104,
+              "expectedHex": "7c191402",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "12",
+              "address": 34951620,
+              "expectedHex": "006a00687047000008b5fff7",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "12",
+              "address": 34946912,
+              "expectedHex": "02229203891a7c3049004018",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "12",
+              "address": 34944684,
+              "expectedHex": "38b50d1c141c00210091191c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "12",
+              "address": 34968176,
+              "expectedHex": "f8b58ab00c1c051c201c0021",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "12",
+              "address": 34968672,
+              "expectedHex": "38b5031c141c0d1c201c191c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "12",
+              "address": 34969284,
+              "expectedHex": "10b50421041c00f067fa0028",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "12",
+              "address": 35011448,
+              "expectedHex": "f8b50d1c2968041c14297dd8",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "12",
+              "address": 34976968,
+              "expectedHex": "f8b582b0051c0f1c2868a968",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "12",
+              "address": 34979896,
+              "expectedHex": "08b583691a69082a0bd14868",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "12",
+              "address": 34992116,
+              "expectedHex": "70b5051c081c141cb7f66cfd",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "12",
+              "address": 34992164,
+              "expectedHex": "08b5031c101c024adb00d258",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35292604,
+              "expectedHex": "f8b584b00f1c041c381cacf7",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35306416,
+              "expectedHex": "f8b584b001900c1ca8f7cafe",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35307732,
+              "expectedHex": "08b50c49021c505c022809d1",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35308404,
+              "expectedHex": "38b5051c0c480c1c285c0028",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35311756,
+              "expectedHex": "f0b583b0424d041c605d0228",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35311268,
+              "expectedHex": "38b5051caa88052001219ff6",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35311328,
+              "expectedHex": "38b58724051ca40028599ef6",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35308464,
+              "expectedHex": "78b581b00c1c25780d2d00d9",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35313444,
+              "expectedHex": "f8b58ab0051c161c07912869",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35309216,
+              "expectedHex": "f8b582b0051c0c1c1f1c022a",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35307792,
+              "expectedHex": "f8b5041cfff7deff8925ad00",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35312912,
+              "expectedHex": "f8b584b00e1c039279f616f8",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35313056,
+              "expectedHex": "f8b584b00c1c039278f6ceff",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35128600,
+              "expectedHex": "e83000887047000047218900",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35128528,
+              "expectedHex": "806a704700697047406c7047",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35128676,
+              "expectedHex": "983000687047000046218900",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35128696,
+              "expectedHex": "08b54621890042581368054a",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35264232,
+              "expectedHex": "10b5041c06d0e068002803d0",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35266732,
+              "expectedHex": "f0b585b0051ca868002675f6",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35267756,
+              "expectedHex": "10b50a4a041c8a5a41690020",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35226588,
+              "expectedHex": "8068002801d1012070470020",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35226796,
+              "expectedHex": "10b5041cfff7ceff60600120",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35128576,
+              "expectedHex": "00887047c430006870470000",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35132172,
+              "expectedHex": "4068014b1847c046bd6a0102",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35226604,
+              "expectedHex": "70b540690d1c161ce8f790f8",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35226980,
+              "expectedHex": "f8b5051c6869e7f7c7ff041c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35227196,
+              "expectedHex": "08b5006a54f0b8fc0148a4f6",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35227228,
+              "expectedHex": "f8b5051c0e1c21d06869e7f7",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35227316,
+              "expectedHex": "021c106a004b184709d01e02",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35227328,
+              "expectedHex": "38b5051c0b48a4f6b7fb6869",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "79",
+              "address": 35567408,
+              "expectedHex": "08b50a200090034802211e22",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "79",
+              "address": 35567432,
+              "expectedHex": "f0b58db0071c0024a60001a8",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "79",
+              "address": 35567764,
+              "expectedHex": "78b581b0041c01f021fd0028",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "79",
+              "address": 35571720,
+              "expectedHex": "10b5041cfff7ccffa06b5ff6",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "79",
+              "address": 35572172,
+              "expectedHex": "10b5041ce4300168002903d0",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "79",
+              "address": 35574496,
+              "expectedHex": "0649425c002a01d001207047",
+              "patchSize": 0
+            },
+            {
+              "label": "Pokenav PK5 shell decrypt flags",
+              "module": "ARM9",
+              "address": 33672388,
+              "expectedHex": "10b5021c918800248807c00f09d1022008439080101cd28808308021012402f011f8201c10bd000038b5051caa8800249007c00f012811d101290fd102208243281c083080210124aa8002f021f8e880281cea880830802101f0f4ff201c38bd",
+              "patchSize": 0
+            },
+            {
+              "label": "Pokenav encounter owner/data layout",
+              "module": "36",
+              "address": 35264128,
+              "expectedHex": "78b581b0051cdef73bff672100910f4b14210122061c98f6c7fd041c2560281cdef72cff606075f617faa06075f6c8fdbbf75efce060301c00f0b0fc011c201c216100f0c3fc201c01b078bdc44f1d02",
+              "patchSize": 0
+            },
+            {
+              "label": "Pokenav active seasonal encounter buffer",
+              "module": "12",
+              "address": 34983792,
+              "expectedHex": "38307047",
+              "patchSize": 0
+            },
+            {
+              "label": "Pokenav seasonal table loader",
+              "module": "12",
+              "address": 34967852,
+              "expectedHex": "f8b50e1c171c0021e822051c1c1c1ff74ceb381cbff6fcfd071c1148874201d10020f8bd301c391cf1f670fde82134f79ceb012803d0042801d00020f8bd012800d10024e823221c0095301c391c5a43f1f682fde97980200843e8710120f8bdff1f000018b581b02d210091054b28210122e1f643f8ff21041c00f03df8201c01b018bd80e21602004b184779a2030270b50e1c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native phenomenon generator",
+              "module": "36",
+              "address": 35266732,
+              "expectedHex": "f0b585b0051ca868002675f6f5f90090281c0221fff712fb00286fd0a8682f6975f666f9041c2868002867d0002c65d0def71cfa01902868def724faf8f7fafa02a9c5f723f90299049a201cb2f744fd002853d00299049a201cb2f713fd284a019991424ad0904248d0814246d1a86875f62afc311c6af62bfc00283ed02868def724fa002839d1e9688878002801d0012006430879002802d18879002801d002200643002e29d00098253000780007000f23d10098391c00f0a2f900281dd01048385a71f682fb041cfa20800063f603fb0a216143884204d3009800f0a8f905b0f0bd281c391c321c00f015fab888002803d0281c391c00f0c2fa05b0f0bdffff0000ba050000",
+              "patchSize": 0
+            },
+            {
+              "label": "Native phenomenon tile search",
+              "module": "36",
+              "address": 35268036,
+              "expectedHex": "f0b591b0041c0092206804ae0d1cddf79fff5b22071c281d00211201d6f6f8e800200f90381ce2f71ff903900399381ce2f750fe002800d191e0201c291c08aafff76eff2220305e01900001002809dd01980004eaf6c2ee011c3f200006ebf68eec07e001980004eaf6b8ee3f210906ebf69cedebf61eea02218903401810902020315e0801002808dd0804eaf6a6ee011c3f200006ebf672ec06e00804eaf69eee3f210906ebf682edebf604ea02218903401802902620315e019888424edc029820210e9004a8445e2421405e844235dc01980004060c0399381c0eaa04abe2f7e4fd069800f0d5fb1e490a5c0099114217d0aa880c21514369180872a9880c200c22484328184481a9880c2048432818c681a988081c401ca8804a430798a918086101200e99000408180e90601c0004041404a92420085e8442ccdd01201099000408181090019804a9401c0004001401902620095e01988842b0dd11b0f0bdc04606031d02",
+              "patchSize": 0
+            },
+            {
+              "label": "Native phenomenon effect setup",
+              "module": "36",
+              "address": 35268396,
+              "expectedHex": "f8b582b00f1c061cb88863f625f80004020c391c0c20083150430c18b06874f6abfe051c0190a06818350111c812000d08180013a0803068ddf71cff6188e288a36814f00ff8002828d100200090022104220623615ea25ee35e301c00f020f800281bd160886880a088a880e088e880a068a860207828733068ddf7b7fe2880697b0f2081430120084368730198fff78ffe301c391c2a1c00f082f802b0f8bd",
+              "patchSize": 0
+            },
+            {
+              "label": "Native save request layout",
+              "module": "12",
+              "address": 34981176,
+              "expectedHex": "f8b582b0171c0e1c0093104a00212023051cbaf6b3fb0190baf6c4fc00212022041c1cf73ce90098e06027826560a660281cbaf6b5fabbf6e1f920600898a06109986061019802b0f8bdc04689c51502",
+              "patchSize": 0
+            },
+            {
+              "label": "Native script event/VM ownership layout",
+              "module": "12",
+              "address": 34945124,
+              "expectedHex": "f0b583b0161c0293134a00210823051cc3f61efa071cc3f62ffb041c0420fff761ff60600898291c00900020019004203a1c331c00f0b8fa0299206000f040fb281cfff7b5ff011c2068321c00f018f8381c03b0f0bdc046",
+              "patchSize": 0
+            },
+            {
+              "label": "Native script VM entry/data layout",
+              "module": "12",
+              "address": 34946028,
+              "expectedHex": "a088019900f08af8a863002f07d12288413eb24203d06188059801f093fba96b281cc1f67ffe0498296a800008182862281cc1f6f1fe296a08182862281c00f0cdf8281c12b0f8bd78b5160224b5160210b5041cc1f6ccfe01f096faa06be6f615fb201cc1f652fe",
+              "patchSize": 0
+            },
+            {
+              "label": "Native PC script archive mapping",
+              "module": "12",
+              "address": 35041680,
+              "expectedHex": "6a277327dc040300df01",
+              "patchSize": 0
+            },
+            {
+              "label": "Native shop script archive mapping",
+              "module": "12",
+              "address": 35041650,
+              "expectedHex": "7e278727df0403006602",
+              "patchSize": 0
+            },
+            {
+              "label": "Native Buy script command",
+              "module": "12",
+              "address": 35043996,
+              "expectedHex": "b1bb1a02",
+              "patchSize": 0
+            },
+            {
+              "label": "Native shop constructor, owned context and completion",
+              "module": "36",
+              "address": 35306416,
+              "expectedHex": "f8b584b001900c1ca8f7cafe051c0198211ca8f7b1fe201ca9f7f0fa071c6af683ff061c381c6af68bff071c201ca9f7f1faa8f7aff90290381cd4f771fc03904048ab27bf0000903f4b0420391c01228ef612fb041c029804600398dbf7e6fe2061301c6bf6aefe60611520a081301c6bf698fba061301c6bf684fe39215bf60bfc2062301c6bf6adfee061301c6bf679fe64f611fb6062281cef3810281fd800187844c08800040014874428002800280028002a002a002a002a00280028002800280032003200260024002000a5700ae0fce7fbe7fae70020703fe051f6e72806000ea070e070281cf338032810d800187844c08800040014874410000c000800060005e0012104e00221fce70321fae700218f208000215001980b4969f6dbfefe2d0bd0fd2d09d0f62d07d0f52d05d0f42d03d0f32d01d0b4f73bfa012004b0f8bd250100000c521d0291bd1a02f8b592b0141c051c201c0e1cdaf7b6fd6860201c00210027daf7acfd201cdbf7f7f8301cd4f704fceef7c8fc00ae051c201c311cdaf73efb201c03a9daf722fb201cdaf7ebfa0c200e496843039a09580c97511803910c49049a09580d97511804910a49059a0858311c1018059001201190201c0a220e970f971097dbf730f912b0f8bd540a1d02580a1d025c0a1d02f8b58eb00d1c281ca9f714fa0090a8f7d1f8061c3468281ca9f700fa071c6af69ffe0190d4f78efb2178051c092952d849187944c988090409148f441200180022002e00460068009000bc00c8001201daf7c6fc79e0daf7e3fc00283bd174e00199201c2a1cfff783ff6ee0dbf7befa002830d12078401c207000202072def7e3fbafe0a278211ce378381c083100f0c7fa00281fd0912080002058012801d108209ee051e0514e08ab1a1c03ce03c303ce03c303ce03c3111c281c0822dbf7d3f82078401c2070002060708ae0dbf78dfa002800d085e0281cdaf75dfa6168281cdaf7fffc281cdaf754fc281cdbf75ff80120def7a8fb27e030688ef6f4f90eb00120f8bd0098a8f722f8aa25ad00061c60190590a81c20180690291f2a1c6c3a615aa258381c07ab01f0cffe603d615b04a82e4ac1812e49381c05ab6af6e7ff011c301c6af647ff2078401c48e0381c6af6f9fd6bf655fa2749051c6df6e7f92549061c281c491c6df6e1f922490290281c891c6df6dbf91f490390281cc91c6df6d5f99225ad00625b02990a80291c6231625a03990a80291c183961580180281c6030205a002817d0291c5c312a1c0c3a615aa258381c04ab01f086fe04a862350378605b012201218240181c104201d0022002e0318001e0002030800720207000200eb0f8bdc046840a1d02f5e61602140000000c400000",
+              "patchSize": 0
+            },
+            {
+              "label": "Native shop initialization and purchase checks",
+              "module": "36",
+              "address": 35307404,
+              "expectedHex": "f8b50c1c161c1f1c6af6a0fd00906bf6e7f9394d00206055201c311c00f054fd061cef3810283fd800187844c08800040014874454005400540054005e005e005e005e0054005400540054007200720044003400200000986bf6c6fc60f6dafc031c201c311c3a1c22e0201c002100f03ffc0121681c21541ce00121681c2154201c615500f034fc14e0201c311c00f07ffc0fe00221681c21546155aa356159201c00f0a9fc05e0201c311c3a1c002300f092fb114d201c615d00f023f8201c00f074fd201c00f077ff201c00f024ff201c01f015f8201c01f0c4f9681e205c022807d1a9356159201c4a000449895a00f02efef8bdc0468a0100008b0100005e091d0238b5041c022904d11b252d0160591f210ae0012904d11b252d0160590d2103e01b252d0160590c219cf67efc0c3560511b252d0160590e219cf676fc1835605138bd000008b50c49021c505c022809d1a931515810694b0008499288c95a5cf623fa08bd012803d1906962f62bf908bdd06860f65bfc08bd8b0100005e091d02f8b5041cfff7deff8925ad00061c615ba28820695cf608fa071c615ba388206901225cf681f800280ad1625b201c0a21002301f0effa0c20207004206070f8bd281d2058864212d2281c9938205c002802d1201c032101e0201c1021625b002301f0d8fa0c20207004206070f8bd86420cd34000864209d29a3d615d201c01f035fb0c20207005206070f8bd1b4d615d00292bd12a1c9a32a25a201c0421002301f0b8fa0c2020700220291c60709e316158301ce1f666eb291ca2316050632802d96320a23560518925ad00605b5cf633fb291c08316158c91981420dd9605b5cf62afbc01b08356051f8bd201c01f0fdfa0c20207006206070f8bd8a01000010b5041cfff75eff8a229200a15888420ed20c32a258201c53000a4a2021d25a012301f077fa0c2020700420607010bd9e3aa15c201c01f0d9fa0c2020700620607010bd5e091d0270b57624051ca400285975f6e9fc002848d0201c5a30285a002813d1201c44382e58301c9bf6f8ff301c9cf609f8301c9cf63af998f696fe201c5a30285a5a34401c28537324a400285979f615fb0021c943884226d0491e884202d10d20287070bdc1006b181a8c211c58316a52211c5a6a5c3140006a502918201c7630095a201cd0302952201c01216430413c2952285d022803d1281cfff78eff70bd281cfff70aff70bd000038b51e25041c2d01605976f669f8022804d1605976f670f8607838bd002810d191f614fe0121084204d191f60ffe022108421ad01e2000012058002176f666f813e0012811d191f6effd0121084204d191f6eafd0221084207d01e200001205876f642f8024859f675ff207838bdc0464705000038b5051c0c480c1c285c002805d1e86860f62efb6869162106e02104a869090c61f6ccff68692221221c5df6ddf8686915215df6fbf838bd8b010000",
+              "patchSize": 0
+            },
+            {
+              "label": "Native Buy state machine and cleanup",
+              "module": "36",
+              "address": 35308464,
+              "expectedHex": "78b581b00c1c25780d2d00d930e16d197d44ed882d042d14af441a0026002e00580060009a00e20016016601b801d001e60122022a02fff7d1fd2078401c207016e1201cfff730ff12e18925ad00615b201c00f0d1fe291c0c312a1d615aa258201c00f05fff303d605901219ff698fe0320e4e7201c01f07dfbe0e7002001f0f1fb6525ad0060599bf62eff281c0c3020589bf629ff0120012699f6adfb281c6030205800219ff67bfe3835605979f601fb2670dce0012001f0d4fb6525ad0060599bf611ff281c6030205800219ff667fea0880121092200907948002379f63df8291c18316050281c0a38205c012804d09035615b201c00f07efe17e0012001f0b0fb6525ad0060599bf6edfe281c6030205800219ff643fea0880121092200906748002379f619f818356051072085e76b25ad00605979f6baf80021c943884200d194e0002817d1223d605d022801d1092000e008202070012001f082fb7325ad00605979f6a5fa383d60599bf6bbfe012099f640fb7ae0491e884277d15be0504859f68efe23200001205e0123012800dc00238925ad00625b201c092101f0e8f8291d6258291c0c31615e201c5143fff707ff201c00f090fd615b0c35625ba38820695bf677fe0c2020700b2060704de089229200a25a201c2121002301f0c8f80c2020700a20f1e78f20012180002150011c1839615a001d21520d201de789208000225a042a16d10c30205e0a2812db201c0f21002301f0abf8a38820690c2101220c255bf646fe60691f215cf6deff25700420cae70420ffe6201cfff786fefbe6201c01f088f8201c00f06ffc201c00f02cfd201c00f0e3fa201c00f018fa201c00f05ffa01b0012078bd7626b600a05975f61ffa301f205ca559002812d0301c083820589bf671ff011c281c75f601fb002807d1301c083820589bf60efe0021301f21547725ad0060598ef6def860598ef6dbf8002001b078bd58091d0255060000f8b5051c28880e1c7af61efa071c0024002e06dde000285a7af616fa641cb442f8db381cf8bd0000f8b582b0051c0c1c1f1c022a1cd16e26b600a85901213a1c77f60aff311c321c08310c32a8596958aa5878f63ff9301c10382958e00008360818ab88a959221c78f692fc02b0f8bd012a2cd16e260220b60000900120321c0190713aa8590021ba1a022377f620ff3804000c7af600fa021ca859012177f6dbfe311c321c08310c32a8596958aa5878f610f9301c10382958e00008360818ab88a959221c78f663fc02b0f8bda8883a1c231c00906a2080002958e0000818089978f645fc02b0f8bd0000",
+              "patchSize": 0
+            },
+            {
+              "label": "Native shop stock loading",
+              "module": "36",
+              "address": 35309412,
+              "expectedHex": "f0b587b0051c0193ab880e1c171c00200221402240249cf605f8aa883b4bdb341a405b1c1a4312040490201c0021120c9ef6e4f80390ff2e03d1354901980c5c00e0bc1daa88314b324e1a405b1c1a431204301c211c120c9ef6d0f8029000887af67cf9002802d001207036a8550398a988005d0590401c78f6d6fb6a218900685005980024069100281ddd081c1e38069002986100465a0498069a0090aa5c281c211c331cfff749ffe0002f183e84aa88301c002179f6ffff66f64fff78620598641c8442e4db6226b600ac53a95b281c2030fff71effa8880b230b220090301c20302958e00028360818a9590d3b78f6c8fb02988df60dfd03988df60afd04989bf6cbff07b0f0bdc046ff7f000070091d021a010000f0b585b0061cb3880f1c00200221402200249bf67bff02901f48b90045581f48b188c05d0390401c78f672fb6a218900705003980491002818dd081c1e380490e700e81901900298049a0090b25ceb5b301c211cfff7e6fee95bf019641c018401994968416203988442e9db622189007452b0880b230d3b0090081c203032582831e000101871580b2278f66ffb02989bf678ff05b0f0bda0511d024c091d02f8b50d1c061c00270024f72d04dbfa2d02dcf069391c01e0f069012163f69cfc0e4b00218a009a58904200db0c1c491c0629f7d30a490023da00885a854203d108488018275c02e05b1c082bf4d3301c291c3a1c0823fff7f7fef8bdf4091d029c0a1d029e0a1d02f0b587b0051cab880e1c00200221402200249bf6f7fe02902748b1004058a98801902648875d781c78f6eefa6a21890003916850002f29dd",
+              "patchSize": 0
+            },
+            {
+              "label": "Native shop resource ownership",
+              "module": "36",
+              "address": 35310164,
+              "expectedHex": "f8b5051c1e4cab880f1c00200321221c9bf690fe211cb5396850ab88002002213f229bf687fe211cb1396850221cab8800200221d33a9bf67dfe211c2d396850a88877f6b3fb211cad396850a988c820c8269bf659fdc821f8316850a88820222023011c8df67efe893c2851c820e83028581d219bf676fffc36a851381cf8bd6502000038b57724051ca40028598df6c1fe201c2438285877f6d8fb201c183828589bf64bfd201c1c3828589bf646fd201c143828589bf641fd201c203828589bf63cfd201c2c3828589bf66ffe201c283828589bf66afe5c3428599bf666fe38bd0000",
+              "patchSize": 0
+            },
+            {
+              "label": "Native general-store badge tiers",
+              "module": "36",
+              "address": 35457392,
+              "expectedHex": "000101020203030405",
+              "patchSize": 0
+            },
+            {
+              "label": "Native event allocation and destruction layout",
+              "module": "ARM9",
+              "address": 33647796,
+              "expectedHex": "f8b582b0051c019337200e1c171c00900b4b04201421012223f0acfa041c266067600020a0603b2000900199044b0420012223f09ffae0602561201c02b0f8bd5ca3090208b5011cc26843680831984708bd000010b5041ce068002801d023f0b1fa201c23f0aefa10bd0000",
+              "patchSize": 0
+            },
+            {
+              "label": "Native badge count and money access",
+              "module": "ARM9",
+              "address": 33606048,
+              "expectedHex": "43680022002b06d00120191c014200d0521c5b08f9d1101c7047000000687047074a914201d9026002e0026851180160026803498a4200d9016000687047c046",
+              "patchSize": 0
+            },
+            {
+              "label": "Native item price accessor",
+              "module": "ARM9",
+              "address": 33633984,
+              "expectedHex": "08b505490a79302a04d0098b484364217af0e0e808bdc046",
+              "patchSize": 0
+            },
+            {
+              "label": "Native shop item-data loading",
+              "module": "ARM9",
+              "address": 33712156,
+              "expectedHex": "38b50a4b141c1c405a1c224312040d1c0021120cfff79cff041c291c00f008f8051c201c13f01afd281c38bdff7f0000",
+              "patchSize": 0
+            },
+            {
+              "label": "Native item icon table pointer",
+              "module": "ARM9",
+              "address": 33711916,
+              "expectedHex": "7c0d0902",
+              "patchSize": 0
+            },
+            {
+              "label": "Native bag pocket getter and pointer",
+              "module": "ARM9",
+              "address": 33589488,
+              "expectedHex": "0149085c7047c046fcf40802",
+              "patchSize": 0
+            },
+            {
+              "label": "Native bag add/remove ownership",
+              "module": "ARM9",
+              "address": 33587768,
+              "expectedHex": "08b5fff7ddff002801d0012008bd002008bd000038b50d1c141cfff7d1ff002801d1002038bd058041880919418038bd08b5fff7efff002801d0012008bd002008bd000070b582b0051c0e1cfff7e2ff041c02d102b0002070bd281c311c01aa00abfff76bff2188281c00f09df90198009900f0edf8011c019800f073f9012002b070bd78b4002600290dd9b500445ba24206d140194188994206d2002078bc7047761c8e42f1d3002078bc7047000038b582b0141c01aa00ab0d1cfff73eff019800992a1c231cfff7dcff02b038bd30b4cd0fcc064911890041180748641b1b22d4412c190122a24008580123104200d10023181c30bc7047c0469809000038b5051c0c1cfff7e3ff002809d0281c211c00f03df80006000e062801d0012038bd002038bd0000f8b50e1c051c7411002e26d0002a12d1f70ff306db1b1b22d34100210120fa18c9430b1c904043400c48a1002a18505818405050f8bd00f017f806280dd0f20ff106891a1b20c1415018012383400348a1002a18505818435050f8bd98090000004b18476183000270b50e1c051c301c00f08efa041c281c311c221c00f006f8002800d10624201c70bd000010b582b00c1c111c01aa00abfff780fe009b0021002b0fd9019a8800105a844202d102b0012010bd002802d102b0002010bd491c9942f0d3002002b010bd000070b582b0051c0e1c141cfff757ff0190002802d102b0002070bd4188091b418001994888002801d100200880281c311c01aa00abfff788fe0198009900f006f9012002b070bd000008b5fff7",
+              "patchSize": 0
+            },
+            {
+              "label": "Native TM name, move and owned renderer",
+              "module": "36",
+              "address": 35309176,
+              "expectedHex": "f8b5051c28880e1c7af61efa071c0024002e06dde000285a7af616fa641cb442f8db381cf8bd0000f8b582b0051c0c1c1f1c022a1cd16e26b600a85901213a1c77f60aff311c321c08310c32a8596958aa5878f63ff9301c10382958e00008360818ab88a959221c78f692fc02b0f8bd012a2cd16e260220b60000900120321c0190713aa8590021ba1a022377f620ff3804000c7af600fa021ca859012177f6dbfe311c321c08310c32a8596958aa5878f610f9301c10382958e00008360818ab88a959221c78f663fc02b0f8bda8883a1c231c00906a2080002958e0000818089978f645fc02b0f8bd0000",
+              "patchSize": 0
+            },
+            {
+              "label": "Native shop balance/price renderers",
+              "module": "36",
+              "address": 35311756,
+              "expectedHex": "f0b583b0424d041c605d02281ed1281c2530205822219bf689fc071ca1880a209bf656fa291ca9316158061c4a0039492069895aa2885bf639fa021c012000902d35019060590021032330e0012817d1281c2530205816219bf668fc071ca1880a209bf635fa061ca06961f62df9021c012000902d35019060590021042316e0281c2530205815219bf650fc071ca1880a209bf61dfa061ce0685ff649fc021c012000902d35019060590021072377f605fa6e25ad006059311c3a1c77f600fc281c283820589bf6e5f9002102909af605f8a068002100900f48002201900298331c74f6f1fd283d6459201c9bf67af8201c9bf68bf8201c9bf6bcf997f618ff301c9bf6fff9381c9bf6fcf903b0f0bd8b0100005e091d024f3c0000f8b584b01b250291041c2d01605917219bf6fefb071ca18814209bf6cbf9183d061c60590221e4220923e42577f66afea288206902995bf6abf9021c0020009001200190e420d43020580021032377f6a7f9e420d4302058311c3a1c77f6a2fbe420b43020589bf687f90f21039099f6a7ffa068002100900d48002201900398331c74f693fdb4356459201c9bf61cf8201c9bf62df8201c9bf65ef997f6bafe301c9bf6a1f9381c9bf69ef904b0f8bd4f040000f8b582b01a24051c240128590e1c9bf659f90021071c99f679ff201cde3086421ad8201c1638285c022801d1983400e014342859311c9bf691fb041ca86800210090f12080010190381c0022231c74f653fd201c9bf66ef91a2000012c58201c9af6d8ff201c9af6e9ff201c9bf61af997f676fe02b0f8bdf8b586b01b26051c36010f1ca859182102929bf667fb311c2539695c0490a8598a003c4989589bf65dfb0390a98814209bf62af9041c301c143828589bf606f90f21059099f626ff143ea8590221e4220923e42677f6c0fd0020009001200190e420d430285800213a1c022377f602f9e420d4302858049a211c77f6fdfaa868002100902448002201900598231c74f6f7fc012000900190e420d430029a285800217a43072377f6e5f8e420d4302858039a211c77f6e0faa736a85d0028a86805d10090144823210190059804e0009011481d21019005980022231c74f6d0fc672080002d58281c9af658ff281c9af669ff281c9bf69af897f6f6fd201c9bf6ddf803989bf6daf804989bf6d7f806b0f8bdc04668091d024f040000f0b58db0051c6a20800029581e3800912d490191285c002801d0022801d12b4800e02b4802906a24a400285977f636fe00a988810720c88100270f744f748f74cb7c0f22082093431843c874ce7cf023c0209e433043c874087dd02690430875087d984330430875ca8a072080238243ca82ca8a78208243ca82ca8a154810401843c882ca8a14481040c882c88a1a021043c88206950c2088831020c883201c28302818089730340990285900210a90a86800220b900c97ab8800a878f636f9fc36a8510db0f0bd8dd61a0211d51a02a1d51a027ffeffffff81ffff18b583b0082b0edc0798009006a800890190081c11041a04069b0914121474f633fc03b018bd069c12040094079c1b04019406ac248912141b14029474f6cefb03b018bdf8b584b00e1c039279f616f8051c0120c043864238d000206e24f200009001210191a400aa182859526a052377f604f8211c0831221d28596958aa5877f6fef9201c08302858a968002275f6abf9061c201c243828589af6dbff99f6dbfc071c201c243828589af6d3ff011c201c0830285820340090a868ba1b0190034802902859039bfff79aff04b0f8bda0310000f8b584b00c1c039278f6ceff051c0120c043844265d0e600a919098cab882869012201275af656ff002823d07224a4002859a968002275f66df9061c201c343828589af69dff99f69dfc071c201c343828589af695ff011c285910340090a868ba1b0190204802902859039bfff75eff04b0f8bd00976e240197a400aa192859526a391c052376f68fff211c0831221d28596958aa5877f689f9201c08302858a968002275f636f9061c201c243828589af666ff99f666fc071c201c243828589af65eff011c201c0830285820340090a868ba1b0190044802902859039bfff725ff04b0f8bdc046a0310000f8b582b0041c0f1c78f658ff00a9051c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native shop message formatting",
+              "module": "36",
+              "address": 35313444,
+              "expectedHex": "f8b58ab0051c161c07912869311c08935bf6e2f86927bf000990e8599af6eefe0f2199f60ffde8590021e4220923e42477f6aafb00200090e420d4302858089b0021321c76f6d0fee420d4302858099a012176f6d3ffe420cc30285807999bf619f9061ce420e421d430dc3128586958321c77f6d9f8301c9af6f8fe6af614faa968e42300910190e420f8302858dc33029000200390a8880021002204900c4805900c480690e859eb5874f677fdfc342851ec59201c9af649fd201c9af65afd201c9af68bfe97f6e7fb0ab0f8bdc046ffff000021d71a0208b5214bc15c022908d11a1c9a329e33825ac3581e2100f0f3f808bd012915d1591c415c012908d11a1c9a329e33825ac358082100f0b0f808bd1a1c9a329e33825ac358072100f0a7f808bd591c415c01290cd1191ca631415a1a1c9a3200919e33825ac358062100f060f808bd191ca631415a1a1c9a3200919e33825ac358052100f053f808bd8a01000010b5041c9af648fe0f2199f669fc201c0021e422092377f605fb10bd78b587b01b24051c240128599bf682f8061c201c211c0830103128586958321c77f642f8301c9af661fe6af67df9a968231c00910190201c2c302858002102900391a8881033002204900d480590201c06910c382858eb5874f6e0fc211c3031",
+              "patchSize": 0
+            },
+            {
+              "label": "Native text object ownership",
+              "module": "ARM9",
+              "address": 33851272,
+              "expectedHex": "f8b582b0061c01921d1c68200f1c0090184b281c1c210022f1f742fd041c2583381c291c02f056f96061019902f0c4fa011c2161e676228b606900f089f9206000f0e2f9a076e07e002802d1002060600ce07b2000902168208b4968054b0022f1f71efd6060201c00f09cf9201c02b0f8bdc0461caf090210b5041c606900280ad02068f1f734fd6068002801d0f1f72ffd606902f08cf9201cf1f729fd10bdf8b5061c0d1ca62000900b4b281c1c2100220027f1f7f4fc041c2583676127610120e0762660301c00f09ef9a076201c00f068f9201cf8bd1caf0902f8b584b0051c0e1c2968019249888e4204d3101cfff790fe04b0f8bd00f076f9e87e002815d1aa7e2b68296992009a18d26868698a18f100091d511802f07efa2a1c68690821083202f070fa2c1c083403e06868011df0000c18e87e00282dd1a0881d4b002240000290d6200090298b1a480140401c084300040299000cf1f7a1fc0390002820d0ab7e2f6829699b00fb18db682268c9186869511802f04efa68690299039a02f041faa28801980399fff7d6fe0398f1f7adfc06e06a68216801985118a288fff7cbfe0198311c00f007f804b0f8bdc0461caf0902ff7f000070b5051c0e1cfff76bfe041c281cfff7e3fe611c321c00f005f8011c281cfff761fe70bd70b5051c0c1c161cfff7d6fe0f49f21c514309040a0c0023002c15d90e2636032988514029802988814201d1181c70bd111c3140d2044913120c114309045b1cad1c0a0ca342ebd3201c70bd8329000070b5051c0c1c00f0d7f8e87e002815d1aa7e2b68296992009a18d268",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field choice ownership",
+              "module": "12",
+              "address": 34952012,
+              "expectedHex": "f0b583b00092051c01932c6a0f1c02943434201c0021a022a02623f736ea0298211c878600982031608001988022a08008a80088a0710998e0710a98a0600b98e0600c986061002023f776e96069002809d1012020612b88fa3600200321321cf3f6ecf960612988202032f0c5fda06103b0f0bdf8b584b0051c00912c6a1949101c3434019202930a9e0b9f884217d0a069cff655fe0390202821d2606901993a1cf3f639fae068311c3a1ccff6a8fa2988301cf3f6e6f80399890061180862606900993a1cf3f627fae068311c3a1ccff696fa2b88a069029a311c32f0aefd04b0f8bdffff0000",
+              "patchSize": 0
+            },
+            {
+              "label": "Native menu selection sound",
+              "module": "36",
+              "address": 35257876,
+              "expectedHex": "66f61efa",
+              "patchSize": 0
+            },
+            {
+              "label": "Native menu selection sound ID",
+              "module": "36",
+              "address": 35258000,
+              "expectedHex": "4c050000",
+              "patchSize": 0
+            },
+            {
+              "label": "Native save prompt state machine",
+              "module": "12",
+              "address": 35011448,
+              "expectedHex": "f8b50d1c2968041c14297dd849187944c988090409148f4428003a00c600d000e2001801520164017001ae01fe0172029202a002b602c402d002f002040308033003a0681cf0c4fc072134f073fc0120286082e1a0681cf0bbfc34f003fc012852d1a0681cf0b4fc34f0b0ff01284bd19f200090208aba4b502100220026d6f617fbe061238a00200321d022e4f6c0fde16948600220218a0002e4f6a3fce16901228861208a0423011cd6f6c9fde16901220860238a0f200121caf6cdfde169c861208abdf6c2fee1694861e069c664201c00f069f9201c00f09efa0220b7e7022100f08df90320b2e700f013fa00280ad1201c00f0d8fa0420a9e700f0f2fa002802d0012812d027e12068a3f6f2fb012805d1201c082100f072f90e2097e7e06901218068c1f63bf9052090e711208ee76068b2f614ffb3f670fe0121a5f673fca0681cf044fc34f046ffa0681cf03ffc34f059ff012802d1201c0a2101e0201c042100f0f8f9062071e700f034fa012858d1201c00f0d3fa072068e700f0fdfa01284fd1082062e700f00bfb002849d0a1f605fd218a0f2210230091e1698968d1f689fce1694864a0681cf010fc34f018ff201c00f005fb6068b2f6d0feb3f678fd092043e76068b2f6c9feb3f683fd032827d800187844c0880004001487447601760106000a000a2030e7a0681cf0eefb34f002ff201c00f0f1fa201c00f0aafa201c072100f0faf8e069406cd1f656fd0d201be7a0681cf0d9fb34f0e7fe012800d098e04e48a2f657fa201c00f0d6fa201c00f08ffa208ac0f624fa061ce06905214068e4f6fafd071c6068b2f686feb3f6cefa021c301c0021c0f6fdfbe169301c89693a1cc0f6b3fd381ce4f6d2fb301cc0f657fa201c00f0ccf8e069406cd1f61cfd0b20e1e600f076fa012862d1201c00f085fa00285dd0201c00f038f9002858d10c20d1e62d48a2f64dfa002851d11020cae600f05ffa01284bd1201c00f06efa002846d00e202860201c00f01ff900283fd10f20b8e6daf667f80321084238d00ae0daf661f80321084201d013202860e169c86c962801d31320a5e6401cc86427e000f02df8a0681cf05efb012134f00dfb122098e60120f8bd00f021f8a0690a2801d0042804d1a0681cf04dfba16903e0a0681cf048fb002134f0f7fa142082e6a0681cf040fb218a34f031fb0020f8bd0220f8bdc046",
+              "patchSize": 0
+            },
+            {
+              "label": "Native save message getter",
+              "module": "36",
+              "address": 35128528,
+              "expectedHex": "806a7047",
+              "patchSize": 0
+            },
+            {
+              "label": "Native deferred subscreen change",
+              "module": "36",
+              "address": 35226796,
+              "expectedHex": "10b5041cfff7ceff60600120a06010bd",
+              "patchSize": 0
+            },
+            {
+              "label": "Native key-item event dispatch table",
+              "module": "12",
+              "address": 35048996,
+              "expectedHex": "e9f11502000000000df21502ff000000e9dc17020300000005861702ff000000cd9217020500000059f2150209000000",
+              "patchSize": 0
+            },
+            {
+              "label": "Native key-item eligibility table",
+              "module": "12",
+              "address": 35049044,
+              "expectedHex": "39f015020000000000000000b1f01502edf0150209f1150249f11502000000000000000049f1150249f1150249f11502",
+              "patchSize": 0
+            },
+            {
+              "label": "C-Gear save block size",
+              "module": "ARM9",
+              "address": 33593488,
+              "expectedHex": "38b5051c",
+              "patchSize": 0
+            },
+            {
+              "label": "C-Gear decal loader and palette routing",
+              "module": "79",
+              "address": 35572372,
+              "expectedHex": "f0b583b0061c2d480a24a40200902c4b7020211c002200274df6bcfb051c70692af63eff042170222b1c029000941af64dfd012838d12621281c090257f6dafa041c02981cf61eff1cf6fcfe84422bd1281c20f6b9f9002826d01a4c0520291c221c0023012758f6d7fa1a2329190520202420221b0158f61ffc2102062205206918120258f6b2fa182000900d200190052000210022202358f6b4fd052058f643fa301cfef7fafd029804211af64efd281c4df697fb381c03b0f0bd8c0f000088da1e02e01f0000",
+              "patchSize": 0
+            },
+            {
+              "label": "C-Gear decal VRAM layout",
+              "module": "79",
+              "address": 35567292,
+              "expectedHex": "194e03ab1a1c03ce03c303ce03c303ce03c303ce03c3111c05203a1c59f65ef80520012159f6f0fa0520012159f68cfa009501950520391c3a1c3b1c029459f699ff052059f65cfc084a09481780503a11680840106023b0f0bdc04664d91e0284d91e0224d91e0244d91e0250100004",
+              "patchSize": 0
+            },
+            {
+              "label": "C-Gear display-only upper-right touch circle",
+              "module": "79",
+              "address": 35567764,
+              "expectedHex": "78b581b0041c01f021fd002821d142208000205800281cd15f48205c002804d0201cfff7a5ff01b078bd52f6d9f800280fd0201cfff73eff051c0020c0438542",
+              "patchSize": 0
+            },
+            {
+              "label": "C-Gear native panel actor layout",
+              "module": "79",
+              "address": 35568556,
+              "expectedHex": "49000d3189004018c06e111c",
+              "patchSize": 0
+            },
+            {
+              "label": "C-Gear touch control IDs",
+              "module": "79",
+              "address": 35567432,
+              "expectedHex": "f0b58db0071c0024a60001a88519381c211c00aa00f026fafe2101a8815500a90020085e641c68700220085ea8701420e870032ce8db0c4804a9202220248df6e2e8ff2109a8017301a852f651f9213ca04205d00549795c002903d1052801d00020c0430db0f0bdadd81e020b030000",
+              "patchSize": 0
+            },
+            {
+              "label": "Native selector actor/frame setter",
+              "module": "79",
+              "address": 35572078,
+              "expectedHex": "2104281c090c5ff6dcfd",
+              "patchSize": 0
+            },
+            {
+              "label": "Native selector actor index",
+              "module": "79",
+              "address": 35572014,
+              "expectedHex": "80352d688ef6",
+              "patchSize": 0
+            },
+            {
+              "label": "C-Gear network icon position",
+              "module": "79",
+              "address": 35566954,
+              "expectedHex": "57f6f5fc",
+              "patchSize": 0
+            },
+            {
+              "label": "C-Gear ring colour layout",
+              "module": "79",
+              "address": 35566564,
+              "expectedHex": "632080002018069012212a1ca8194a43069940018918381812228df6",
+              "patchSize": 0
+            },
+            {
+              "label": "C-Gear delayed dimming layout",
+              "module": "79",
+              "address": 35574416,
+              "expectedHex": "38b53124051c2401295d00290fd0611c695c4a1c611c6a54695c082907d300f017f8011c281cfdf7a1ff0020285538bd",
+              "patchSize": 0
+            },
+            {
+              "label": "C-Gear dimming colours",
+              "module": "79",
+              "address": 35575860,
+              "expectedHex": "41042304",
+              "patchSize": 0
+            },
+            {
+              "label": "C-Gear save initialization",
+              "module": "ARM9",
+              "address": 33593488,
+              "expectedHex": "38b5051cfff7faff021c281c002100246ef098ef201c2855641c062cfbdb0c202872152068720920a87238bd",
+              "patchSize": 0
+            },
+            {
+              "label": "C-Gear save accessors",
+              "module": "ARM9",
+              "address": 33593532,
+              "expectedHex": "c1717047c0797047c1727047c07a704781737047807b70478181704780897047062902d2062a00d242547047062901d300207047405c7047032901da4018027270470000032901db002070474018007a70470000817170478079704708b52021fdf794fd283008bd",
+              "patchSize": 0
+            },
+            {
+              "label": "Options initialization and accessors",
+              "module": "ARM9",
+              "address": 33589696,
+              "expectedHex": "10b5041c002104226ff004ef21880f2081430120014321802288302140028a432280228840218a432280228880218a4322802288054911402180218808432080218803480840208010bdc046fffefffffffbffff00880007000f704703880f22090493430a0c0f21114019430180704700888006800f70470904090c890703883022890e934319430180704700880006c00f70470904090cc90703888022090e934319430180704700884006c00f70470904090cc90703884022490e93431943018070470088c005c00f70470904090cc9070388054ac90d1a40114301800088034bc005c00f0006000e1847fffeffffa58b04020088034bc005c00f0006000e1847c046a58b040200888005c00f70470904090cc9070388024a890d1a40114301807047fffdffff00884005c00f70470904090cc9070388024a490d1a40114301807047",
+              "patchSize": 0
+            },
+            {
+              "label": "Saved event flag accessor layout",
+              "module": "ARM9",
+              "address": 33657464,
+              "expectedHex": "002901d10020704701229203914209d2ca080a498a4201db002070470849401880187047891a8810400f0818c110082901db002070470348401870477f0100005e030000",
+              "patchSize": 0
+            },
+            {
+              "label": "Native trainer flag range",
+              "module": "12",
+              "address": 34951288,
+              "expectedHex": "5f2212018918",
+              "patchSize": 0
+            }
+          ]
+        },
+        "B2": {
+          "idCode": "IREO",
+          "revision": 0,
+          "fileName": "CGearQuickActionsB2.dll",
+          "sha256": "e58e0f086a9e2723e970bb2134edd3c51117a780d77bd995b4d0797b327fc051",
+          "codeFingerprint": "abade177",
+          "bssSize": 9652,
+          "signatures": [
+            {
+              "label": "QaShopUnit",
+              "module": "36",
+              "address": 35311214,
+              "expectedHex": "9ff655f8",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopGraphics",
+              "module": "36",
+              "address": 35307544,
+              "expectedHex": "00f024ff",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopGraphicsEnd",
+              "module": "36",
+              "address": 35308990,
+              "expectedHex": "00f06ffc",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopBalanceText",
+              "module": "36",
+              "address": 35311918,
+              "expectedHex": "74f6fbfd",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopStockFile",
+              "module": "36",
+              "address": 35309396,
+              "expectedHex": "9ef6eef8",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopStockFile",
+              "module": "36",
+              "address": 35309436,
+              "expectedHex": "9ef6daf8",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopLabel",
+              "module": "36",
+              "address": 35309514,
+              "expectedHex": "fff749ff",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopSelect",
+              "module": "36",
+              "address": 35308216,
+              "expectedHex": "fff70aff",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopPrice",
+              "module": "36",
+              "address": 35309534,
+              "expectedHex": "66f66fff",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopMessageBank",
+              "module": "36",
+              "address": 35310116,
+              "expectedHex": "9bf69afe",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopBalance",
+              "module": "36",
+              "address": 35307732,
+              "expectedHex": "fff7deff",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopBalance",
+              "module": "36",
+              "address": 35307988,
+              "expectedHex": "fff75eff",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopMoney",
+              "module": "36",
+              "address": 35311846,
+              "expectedHex": "5ff669fc",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopPay",
+              "module": "36",
+              "address": 35308834,
+              "expectedHex": "fff707ff",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopAdd",
+              "module": "36",
+              "address": 35308854,
+              "expectedHex": "5bf697fe",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopTick",
+              "module": "36",
+              "address": 35306974,
+              "expectedHex": "00f0c7fa",
+              "patchSize": 4
+            },
+            {
+              "label": "QaInput",
+              "module": "79",
+              "address": 35572032,
+              "expectedHex": "fef788ff",
+              "patchSize": 4
+            },
+            {
+              "label": "QaButtonHit",
+              "module": "79",
+              "address": 35567752,
+              "expectedHex": "fff73eff",
+              "patchSize": 4
+            },
+            {
+              "label": "QaGearUnit",
+              "module": "79",
+              "address": 35571456,
+              "expectedHex": "5ff60cfc",
+              "patchSize": 4
+            },
+            {
+              "label": "QaGearEnd",
+              "module": "79",
+              "address": 35573250,
+              "expectedHex": "fff7e1fc",
+              "patchSize": 4
+            },
+            {
+              "label": "QaRepelStep",
+              "module": "36",
+              "address": 35136636,
+              "expectedHex": "8bf69cfc",
+              "patchSize": 4
+            },
+            {
+              "label": "QaRepelDepleted",
+              "module": "36",
+              "address": 35261164,
+              "expectedHex": "6df678f9",
+              "patchSize": 4
+            },
+            {
+              "label": "QaPhenomenonInterval",
+              "module": "36",
+              "address": 35266852,
+              "expectedHex": "00f0a2f9",
+              "patchSize": 4
+            },
+            {
+              "label": "QaPhenomenonChance",
+              "module": "36",
+              "address": 35266864,
+              "expectedHex": "71f6a2fb",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopRowPrice",
+              "module": "36",
+              "address": 35312764,
+              "expectedHex": "d1d41a02",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopTmRowPrice",
+              "module": "36",
+              "address": 35312768,
+              "expectedHex": "61d51a02",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopChoiceAdd",
+              "module": "12",
+              "address": 35043316,
+              "expectedHex": "7d851a02",
+              "patchSize": 4
+            },
+            {
+              "label": "QaShopBuyCommand",
+              "module": "12",
+              "address": 35043932,
+              "expectedHex": "71bb1a02",
+              "patchSize": 4
+            },
+            {
+              "label": "QaCGearInit",
+              "module": "36",
+              "address": 35453404,
+              "expectedHex": "25851902",
+              "patchSize": 4
+            },
+            {
+              "label": "QaCGearUpdate",
+              "module": "36",
+              "address": 35453408,
+              "expectedHex": "1d861902",
+              "patchSize": 4
+            },
+            {
+              "label": "QaCGearEvent",
+              "module": "36",
+              "address": 35453416,
+              "expectedHex": "75861902",
+              "patchSize": 4
+            },
+            {
+              "label": "QaCGearExit",
+              "module": "36",
+              "address": 35453420,
+              "expectedHex": "fd851902",
+              "patchSize": 4
+            },
+            {
+              "label": "QaNoGearInit",
+              "module": "36",
+              "address": 35453544,
+              "expectedHex": "81861902",
+              "patchSize": 4
+            },
+            {
+              "label": "QaTownMapReturn",
+              "module": "12",
+              "address": 35048548,
+              "expectedHex": "f9bf1502",
+              "patchSize": 4
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33851388,
+              "expectedHex": "f8b5061c0d1ca620",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33851348,
+              "expectedHex": "10b5041c60690028",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33851228,
+              "expectedHex": "f8b582b0061c0192",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33859892,
+              "expectedHex": "08b500230093fff7",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33633984,
+              "expectedHex": "08b505490a79302a",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33864632,
+              "expectedHex": "f8b584b00f1c2149",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33711388,
+              "expectedHex": "806970474a300170",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33712788,
+              "expectedHex": "52218900884202d3",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33695880,
+              "expectedHex": "f8b50d1c161c0024",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33692968,
+              "expectedHex": "f8b51f1c051c381c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33606076,
+              "expectedHex": "00687047074a9142",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33588536,
+              "expectedHex": "08b50122fff7d4fe",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33587768,
+              "expectedHex": "08b5fff7ddff0028",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33587816,
+              "expectedHex": "08b5fff7efff0028",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33588268,
+              "expectedHex": "70b582b0051c0e1c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33592736,
+              "expectedHex": "014b01221847c046",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33647256,
+              "expectedHex": "08b5806823f074ff",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33860696,
+              "expectedHex": "f8b582b0051c4e30",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33828652,
+              "expectedHex": "08b500040904000c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33593552,
+              "expectedHex": "807b704781817047",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33713764,
+              "expectedHex": "f8b5051c06a80788",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33837184,
+              "expectedHex": "38b5084c25682c24",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33837856,
+              "expectedHex": "f8b50d1c141c061c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33837140,
+              "expectedHex": "08b5002300f002f8",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33838700,
+              "expectedHex": "f0b585b000912c21",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33836944,
+              "expectedHex": "08b52c21021c4a43",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33576700,
+              "expectedHex": "38b5051c04480c1c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33579604,
+              "expectedHex": "0021014bc9431847",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33588340,
+              "expectedHex": "08b5fff737ff0028",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33590748,
+              "expectedHex": "014b1b211847c046",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33593536,
+              "expectedHex": "c0797047c1727047",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33593624,
+              "expectedHex": "08b52021fdf794fd",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33611192,
+              "expectedHex": "011c2d3109780029",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33611232,
+              "expectedHex": "2d300078002801d1",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33606012,
+              "expectedHex": "436801228a40191c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33634424,
+              "expectedHex": "07494a7b302a09d0",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33649828,
+              "expectedHex": "2221090140587047",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33651060,
+              "expectedHex": "0068014b1847c046",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33647320,
+              "expectedHex": "c0697047c069014b",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33647344,
+              "expectedHex": "006a704701627047",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33647796,
+              "expectedHex": "f8b582b0051c0193",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33647976,
+              "expectedHex": "08600069004b1847",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33648344,
+              "expectedHex": "00697047c0687047",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33648348,
+              "expectedHex": "c068704708307047",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33649140,
+              "expectedHex": "4521890040187047",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33649492,
+              "expectedHex": "1921090140587047",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33649500,
+              "expectedHex": "6521890040587047",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33649556,
+              "expectedHex": "6b21890040587047",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33650084,
+              "expectedHex": "006c704701647047",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33650148,
+              "expectedHex": "0149405c7047c046",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33650996,
+              "expectedHex": "0068704700687047",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33657260,
+              "expectedHex": "38b50c1c00f04cf8",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33672440,
+              "expectedHex": "70b5051c0c1c161c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33684984,
+              "expectedHex": "40687047f8b5071c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33685256,
+              "expectedHex": "dc2208304a438018",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33791840,
+              "expectedHex": "08b5094908400949",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33791888,
+              "expectedHex": "08b5094908400949",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33792508,
+              "expectedHex": "f8b5061c0d1c171c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33792588,
+              "expectedHex": "10b5041c00f0caf8",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33793704,
+              "expectedHex": "011c0a68506b8842",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33802984,
+              "expectedHex": "00210268c9438a42",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33806920,
+              "expectedHex": "08b5fff745fcfff7",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33806980,
+              "expectedHex": "38b5051c0c1cfff7",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33808160,
+              "expectedHex": "08b5fff7d9f9fff7",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33860252,
+              "expectedHex": "30b583b0051c291c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33860364,
+              "expectedHex": "10b5041c26f050f9",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33860380,
+              "expectedHex": "78b583b0051c4e30",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33860620,
+              "expectedHex": "30b583b0051c4e30",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33863868,
+              "expectedHex": "f0b589b0071c2e48",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33864076,
+              "expectedHex": "70b52a4c85014326",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33864256,
+              "expectedHex": "f8b51c4e84014327",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33864608,
+              "expectedHex": "18b583b000240094",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33864912,
+              "expectedHex": "78b40d4d011c1820",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33864976,
+              "expectedHex": "f8b50d1c5601002a",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33865184,
+              "expectedHex": "f8b584b000901e48",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33865316,
+              "expectedHex": "10b50c490a684521",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33865500,
+              "expectedHex": "f8b582b0061c0192",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33865792,
+              "expectedHex": "f8b58cb003901420",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33865992,
+              "expectedHex": "10b5041ca068211c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33866020,
+              "expectedHex": "036e034ac9071a40",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33866048,
+              "expectedHex": "38b582b00c1c111c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33866936,
+              "expectedHex": "10b5041c221c5a32",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33867012,
+              "expectedHex": "014b68301847c046",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33867040,
+              "expectedHex": "036e034ac9071a40",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 34016380,
+              "expectedHex": "2321002209021143",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 34016928,
+              "expectedHex": "014b01221847c046",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33608068,
+              "expectedHex": "014b36211847c046",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33609312,
+              "expectedHex": "38b50d1c041c281c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 33791388,
+              "expectedHex": "f8b582b0051c0220",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 34016704,
+              "expectedHex": "38b582b0002401a9",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 34016808,
+              "expectedHex": "08b582b000ab0361",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 34016832,
+              "expectedHex": "38b582b0051c00ab",
+              "patchSize": 0
+            },
+            {
+              "label": "Native API",
+              "module": "ARM9",
+              "address": 34016692,
+              "expectedHex": "014b082101221847",
+              "patchSize": 0
+            },
+            {
+              "label": "Shared music runtime hook",
+              "module": "ARM9",
+              "address": 33575734,
+              "expectedHex": "00f06ffc",
+              "patchSize": 0
+            },
+            {
+              "label": "Shared music runtime hook",
+              "module": "ARM9",
+              "address": 33578498,
+              "expectedHex": "fff7c9ff",
+              "patchSize": 0
+            },
+            {
+              "label": "Shared music runtime hook",
+              "module": "ARM9",
+              "address": 33578594,
+              "expectedHex": "65f0bbff",
+              "patchSize": 0
+            },
+            {
+              "label": "Shared music runtime hook",
+              "module": "ARM9",
+              "address": 33578672,
+              "expectedHex": "65f0d8ff",
+              "patchSize": 0
+            },
+            {
+              "label": "Shared music runtime hook",
+              "module": "ARM9",
+              "address": 33578914,
+              "expectedHex": "65f08dff",
+              "patchSize": 0
+            },
+            {
+              "label": "Shared music runtime hook",
+              "module": "ARM9",
+              "address": 34004056,
+              "expectedHex": "fff740fa",
+              "patchSize": 0
+            },
+            {
+              "label": "Native graphics system pointer",
+              "module": "ARM9",
+              "address": 33864060,
+              "expectedHex": "3c191402",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "12",
+              "address": 34951556,
+              "expectedHex": "006a00687047000008b5fff7",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "12",
+              "address": 34946848,
+              "expectedHex": "02229203891a7c3049004018",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "12",
+              "address": 34944620,
+              "expectedHex": "38b50d1c141c00210091191c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "12",
+              "address": 34968112,
+              "expectedHex": "f8b58ab00c1c051c201c0021",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "12",
+              "address": 34968608,
+              "expectedHex": "38b5031c141c0d1c201c191c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "12",
+              "address": 34969220,
+              "expectedHex": "10b50421041c00f067fa0028",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "12",
+              "address": 35011384,
+              "expectedHex": "f8b50d1c2968041c14297dd8",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "12",
+              "address": 34976904,
+              "expectedHex": "f8b582b0051c0f1c2868a968",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "12",
+              "address": 34979832,
+              "expectedHex": "08b583691a69082a0bd14868",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "12",
+              "address": 34992052,
+              "expectedHex": "70b5051c081c141cb7f68cfd",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "12",
+              "address": 34992100,
+              "expectedHex": "08b5031c101c024adb00d258",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35292540,
+              "expectedHex": "f8b584b00f1c041c381cacf7",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35306352,
+              "expectedHex": "f8b584b001900c1ca8f7cafe",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35307668,
+              "expectedHex": "08b50c49021c505c022809d1",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35308340,
+              "expectedHex": "38b5051c0c480c1c285c0028",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35311692,
+              "expectedHex": "f0b583b0424d041c605d0228",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35311204,
+              "expectedHex": "38b5051caa88052001219ff6",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35311264,
+              "expectedHex": "38b58724051ca40028599ef6",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35308400,
+              "expectedHex": "78b581b00c1c25780d2d00d9",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35313380,
+              "expectedHex": "f8b58ab0051c161c07912869",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35309152,
+              "expectedHex": "f8b582b0051c0c1c1f1c022a",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35307728,
+              "expectedHex": "f8b5041cfff7deff8925ad00",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35312848,
+              "expectedHex": "f8b584b00e1c039279f620f8",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35312992,
+              "expectedHex": "f8b584b00c1c039278f6d8ff",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35128536,
+              "expectedHex": "e83000887047000047218900",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35128464,
+              "expectedHex": "806a704700697047406c7047",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35128612,
+              "expectedHex": "983000687047000046218900",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35128632,
+              "expectedHex": "08b54621890042581368054a",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35264168,
+              "expectedHex": "10b5041c06d0e068002803d0",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35266668,
+              "expectedHex": "f0b585b0051ca868002675f6",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35267692,
+              "expectedHex": "10b50a4a041c8a5a41690020",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35226524,
+              "expectedHex": "8068002801d1012070470020",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35226732,
+              "expectedHex": "10b5041cfff7ceff60600120",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35128512,
+              "expectedHex": "00887047c430006870470000",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35132108,
+              "expectedHex": "4068014b1847c046bd6a0102",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35226540,
+              "expectedHex": "70b540690d1c161ce8f790f8",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35226916,
+              "expectedHex": "f8b5051c6869e7f7c7ff041c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35227132,
+              "expectedHex": "08b5006a54f0b8fc0148a4f6",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35227164,
+              "expectedHex": "f8b5051c0e1c21d06869e7f7",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35227252,
+              "expectedHex": "021c106a004b1847c9cf1e02",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "36",
+              "address": 35227264,
+              "expectedHex": "38b5051c0b48a4f6c1fb6869",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "79",
+              "address": 35567344,
+              "expectedHex": "08b50a200090034802211e22",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "79",
+              "address": 35567368,
+              "expectedHex": "f0b58db0071c0024a60001a8",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "79",
+              "address": 35567700,
+              "expectedHex": "78b581b0041c01f021fd0028",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "79",
+              "address": 35571656,
+              "expectedHex": "10b5041cfff7ccffa06b5ff6",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "79",
+              "address": 35572108,
+              "expectedHex": "10b5041ce4300168002903d0",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field ABI",
+              "module": "79",
+              "address": 35574432,
+              "expectedHex": "0649425c002a01d001207047",
+              "patchSize": 0
+            },
+            {
+              "label": "Pokenav PK5 shell decrypt flags",
+              "module": "ARM9",
+              "address": 33672344,
+              "expectedHex": "10b5021c918800248807c00f09d1022008439080101cd28808308021012402f011f8201c10bd000038b5051caa8800249007c00f012811d101290fd102208243281c083080210124aa8002f021f8e880281cea880830802101f0f4ff201c38bd",
+              "patchSize": 0
+            },
+            {
+              "label": "Pokenav encounter owner/data layout",
+              "module": "36",
+              "address": 35264064,
+              "expectedHex": "78b581b0051cdef73bff672100910f4b14210122061c98f6d1fd041c2560281cdef72cff606075f637faa06075f6e8fdbbf75efce060301c00f0b0fc011c201c216100f0c3fc201c01b078bd844f1d02",
+              "patchSize": 0
+            },
+            {
+              "label": "Pokenav active seasonal encounter buffer",
+              "module": "12",
+              "address": 34983728,
+              "expectedHex": "38307047",
+              "patchSize": 0
+            },
+            {
+              "label": "Pokenav seasonal table loader",
+              "module": "12",
+              "address": 34967788,
+              "expectedHex": "f8b50e1c171c0021e822051c1c1c1ff756eb381cbff606fe071c1148874201d10020f8bd301c391cf1f67afde82134f7a6eb012803d0042801d00020f8bd012800d10024e823221c0095301c391c5a43f1f68cfde97980200843e8710120f8bdff1f000018b581b02d210091054b28210122e1f64df8ff21041c00f03df8201c01b018bd40e21602004b18474da2030270b50e1c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native phenomenon generator",
+              "module": "36",
+              "address": 35266668,
+              "expectedHex": "f0b585b0051ca868002675f615fa0090281c0221fff712fb00286fd0a8682f6975f686f9041c2868002867d0002c65d0def71cfa01902868def724faf8f7fafa02a9c5f723f90299049a201cb2f744fd002853d00299049a201cb2f713fd284a019991424ad0904248d0814246d1a86875f64afc311c6af64bfc00283ed02868def724fa002839d1e9688878002801d0012006430879002802d18879002801d002200643002e29d00098253000780007000f23d10098391c00f0a2f900281dd01048385a71f6a2fb041cfa20800063f623fb0a216143884204d3009800f0a8f905b0f0bd281c391c321c00f015fab888002803d0281c391c00f0c2fa05b0f0bdffff0000ba050000",
+              "patchSize": 0
+            },
+            {
+              "label": "Native phenomenon tile search",
+              "module": "36",
+              "address": 35267972,
+              "expectedHex": "f0b591b0041c0092206804ae0d1cddf79fff5b22071c281d00211201d6f602e900200f90381ce2f71ff903900399381ce2f750fe002800d191e0201c291c08aafff76eff2220305e01900001002809dd01980004eaf6ccee011c3f200006ebf698ec07e001980004eaf6c2ee3f210906ebf6a6edebf628ea02218903401810902020315e0801002808dd0804eaf6b0ee011c3f200006ebf67cec06e00804eaf6a8ee3f210906ebf68cedebf60eea02218903401802902620315e019888424edc029820210e9004a8445e2421405e844235dc01980004060c0399381c0eaa04abe2f7e4fd069800f0d5fb1e490a5c0099114217d0aa880c21514369180872a9880c200c22484328184481a9880c2048432818c681a988081c401ca8804a430798a918086101200e99000408180e90601c0004041404a92420085e8442ccdd01201099000408181090019804a9401c0004001401902620095e01988842b0dd11b0f0bdc046d2021d02",
+              "patchSize": 0
+            },
+            {
+              "label": "Native phenomenon effect setup",
+              "module": "36",
+              "address": 35268332,
+              "expectedHex": "f8b582b00f1c061cb88863f645f80004020c391c0c20083150430c18b06874f6cbfe051c0190a06818350111c812000d08180013a0803068ddf71cff6188e288a36814f013f8002828d100200090022104220623615ea25ee35e301c00f020f800281bd160886880a088a880e088e880a068a860207828733068ddf7b7fe2880697b0f2081430120084368730198fff78ffe301c391c2a1c00f082f802b0f8bd",
+              "patchSize": 0
+            },
+            {
+              "label": "Native save request layout",
+              "module": "12",
+              "address": 34981112,
+              "expectedHex": "f8b582b0171c0e1c0093104a00212023051cbaf6d3fb0190baf6e4fc00212022041c1cf746e90098e06027826560a660281cbaf6d5fabbf601fa20600898a06109986061019802b0f8bdc04649c51502",
+              "patchSize": 0
+            },
+            {
+              "label": "Native script event/VM ownership layout",
+              "module": "12",
+              "address": 34945060,
+              "expectedHex": "f0b583b0161c0293134a00210823051cc3f63efa071cc3f64ffb041c0420fff761ff60600898291c00900020019004203a1c331c00f0b8fa0299206000f040fb281cfff7b5ff011c2068321c00f018f8381c03b0f0bdc046",
+              "patchSize": 0
+            },
+            {
+              "label": "Native script VM entry/data layout",
+              "module": "12",
+              "address": 34945964,
+              "expectedHex": "a088019900f08af8a863002f07d12288413eb24203d06188059801f093fba96b281cc1f69ffe0498296a800008182862281cc1f611ff296a08182862281c00f0cdf8281c12b0f8bd38b51602e4b4160210b5041cc1f6ecfe01f096faa06be6f61ffb201cc1f672fe",
+              "patchSize": 0
+            },
+            {
+              "label": "Native PC script archive mapping",
+              "module": "12",
+              "address": 35041616,
+              "expectedHex": "6a277327dc040300df01",
+              "patchSize": 0
+            },
+            {
+              "label": "Native shop script archive mapping",
+              "module": "12",
+              "address": 35041586,
+              "expectedHex": "7e278727df0403006602",
+              "patchSize": 0
+            },
+            {
+              "label": "Native Buy script command",
+              "module": "12",
+              "address": 35043932,
+              "expectedHex": "71bb1a02",
+              "patchSize": 0
+            },
+            {
+              "label": "Native shop constructor, owned context and completion",
+              "module": "36",
+              "address": 35306352,
+              "expectedHex": "f8b584b001900c1ca8f7cafe051c0198211ca8f7b1fe201ca9f7f0fa071c6af6a3ff061c381c6af6abff071c201ca9f7f1faa8f7aff90290381cd4f771fc03904048ab27bf0000903f4b0420391c01228ef61cfb041c029804600398dbf7e6fe2061301c6bf6cefe60611520a081301c6bf6b8fba061301c6bf6a4fe39215bf62bfc2062301c6bf6cdfee061301c6bf699fe64f631fb6062281cef3810281fd800187844c08800040014874428002800280028002a002a002a002a00280028002800280032003200260024002000a5700ae0fce7fbe7fae70020703fe051f6e72806000ea070e070281cf338032810d800187844c08800040014874410000c000800060005e0012104e00221fce70321fae700218f208000215001980b4969f6fbfefe2d0bd0fd2d09d0f62d07d0f52d05d0f42d03d0f32d01d0b4f73bfa012004b0f8bd25010000cc511d0251bd1a02f8b592b0141c051c201c0e1cdaf7b6fd6860201c00210027daf7acfd201cdbf7f7f8301cd4f704fceef7c8fc00ae051c201c311cdaf73efb201c03a9daf722fb201cdaf7ebfa0c200e496843039a09580c97511803910c49049a09580d97511804910a49059a0858311c1018059001201190201c0a220e970f971097dbf730f912b0f8bd200a1d02240a1d02280a1d02f8b58eb00d1c281ca9f714fa0090a8f7d1f8061c3468281ca9f700fa071c6af6bffe0190d4f78efb2178051c092952d849187944c988090409148f441200180022002e00460068009000bc00c8001201daf7c6fc79e0daf7e3fc00283bd174e00199201c2a1cfff783ff6ee0dbf7befa002830d12078401c207000202072def7e3fbafe0a278211ce378381c083100f0c7fa00281fd0912080002058012801d108209ee051e0514e08ab1a1c03ce03c303ce03c303ce03c3111c281c0822dbf7d3f82078401c2070002060708ae0dbf78dfa002800d085e0281cdaf75dfa6168281cdaf7fffc281cdaf754fc281cdbf75ff80120def7a8fb27e030688ef6fef90eb00120f8bd0098a8f722f8aa25ad00061c60190590a81c20180690291f2a1c6c3a615aa258381c07ab01f0cffe603d615b04a82e4ac1812e49381c05ab6bf607f8011c301c6af667ff2078401c48e0381c6af619fe6bf675fa2749051c6df6f1f92549061c281c491c6df6ebf922490290281c891c6df6e5f91f490390281cc91c6df6dff99225ad00625b02990a80291c6231625a03990a80291c183961580180281c6030205a002817d0291c5c312a1c0c3a615aa258381c04ab01f086fe04a862350378605b012201218240181c104201d0022002e0318001e0002030800720207000200eb0f8bdc046500a1d02b5e61602140000000c400000",
+              "patchSize": 0
+            },
+            {
+              "label": "Native shop initialization and purchase checks",
+              "module": "36",
+              "address": 35307340,
+              "expectedHex": "f8b50c1c161c1f1c6af6c0fd00906bf607fa394d00206055201c311c00f054fd061cef3810283fd800187844c08800040014874454005400540054005e005e005e005e0054005400540054007200720044003400200000986bf6e6fc60f6fafc031c201c311c3a1c22e0201c002100f03ffc0121681c21541ce00121681c2154201c615500f034fc14e0201c311c00f07ffc0fe00221681c21546155aa356159201c00f0a9fc05e0201c311c3a1c002300f092fb114d201c615d00f023f8201c00f074fd201c00f077ff201c00f024ff201c01f015f8201c01f0c4f9681e205c022807d1a9356159201c4a000449895a00f02efef8bdc0468a0100008b0100002a091d0238b5041c022904d11b252d0160591f210ae0012904d11b252d0160590d2103e01b252d0160590c219cf688fc0c3560511b252d0160590e219cf680fc1835605138bd000008b50c49021c505c022809d1a931515810694b0008499288c95a5cf643fa08bd012803d1906962f64bf908bdd06860f67bfc08bd8b0100002a091d02f8b5041cfff7deff8925ad00061c615ba28820695cf628fa071c615ba388206901225cf6a1f800280ad1625b201c0a21002301f0effa0c20207004206070f8bd281d2058864212d2281c9938205c002802d1201c032101e0201c1021625b002301f0d8fa0c20207004206070f8bd86420cd34000864209d29a3d615d201c01f035fb0c20207005206070f8bd1b4d615d00292bd12a1c9a32a25a201c0421002301f0b8fa0c2020700220291c60709e316158301ce1f670eb291ca2316050632802d96320a23560518925ad00605b5cf653fb291c08316158c91981420dd9605b5cf64afbc01b08356051f8bd201c01f0fdfa0c20207006206070f8bd8a01000010b5041cfff75eff8a229200a15888420ed20c32a258201c53000a4a2021d25a012301f077fa0c2020700420607010bd9e3aa15c201c01f0d9fa0c2020700620607010bd2a091d0270b57624051ca400285975f6f3fc002848d0201c5a30285a002813d1201c44382e58301c9cf602f8301c9cf613f8301c9cf644f998f6a0fe201c5a30285a5a34401c28537324a400285979f61ffb0021c943884226d0491e884202d10d20287070bdc1006b181a8c211c58316a52211c5a6a5c3140006a502918201c7630095a201cd0302952201c01216430413c2952285d022803d1281cfff78eff70bd281cfff70aff70bd000038b51e25041c2d01605976f673f8022804d1605976f67af8607838bd002810d191f61efe0121084204d191f619fe022108421ad01e2000012058002176f670f813e0012811d191f6f9fd0121084204d191f6f4fd0221084207d01e200001205876f64cf8024859f695ff207838bdc0464705000038b5051c0c480c1c285c002805d1e86860f64efb6869162106e02104a869090c61f6ecff68692221221c5df6fdf8686915215df61bf938bd8b010000",
+              "patchSize": 0
+            },
+            {
+              "label": "Native Buy state machine and cleanup",
+              "module": "36",
+              "address": 35308400,
+              "expectedHex": "78b581b00c1c25780d2d00d930e16d197d44ed882d042d14af441a0026002e00580060009a00e20016016601b801d001e60122022a02fff7d1fd2078401c207016e1201cfff730ff12e18925ad00615b201c00f0d1fe291c0c312a1d615aa258201c00f05fff303d605901219ff6a2fe0320e4e7201c01f07dfbe0e7002001f0f1fb6525ad0060599bf638ff281c0c3020589bf633ff0120012699f6b7fb281c6030205800219ff685fe3835605979f60bfb2670dce0012001f0d4fb6525ad0060599bf61bff281c6030205800219ff671fea0880121092200907948002379f647f8291c18316050281c0a38205c012804d09035615b201c00f07efe17e0012001f0b0fb6525ad0060599bf6f7fe281c6030205800219ff64dfea0880121092200906748002379f623f818356051072085e76b25ad00605979f6c4f80021c943884200d194e0002817d1223d605d022801d1092000e008202070012001f082fb7325ad00605979f6affa383d60599bf6c5fe012099f64afb7ae0491e884277d15be0504859f6aefe23200001205e0123012800dc00238925ad00625b201c092101f0e8f8291d6258291c0c31615e201c5143fff707ff201c00f090fd615b0c35625ba38820695bf697fe0c2020700b2060704de089229200a25a201c2121002301f0c8f80c2020700a20f1e78f20012180002150011c1839615a001d21520d201de789208000225a042a16d10c30205e0a2812db201c0f21002301f0abf8a38820690c2101220c255bf666fe60691f215cf6feff25700420cae70420ffe6201cfff786fefbe6201c01f088f8201c00f06ffc201c00f02cfd201c00f0e3fa201c00f018fa201c00f05ffa01b0012078bd7626b600a05975f629fa301f205ca559002812d0301c083820589bf67bff011c281c75f60bfb002807d1301c083820589bf618fe0021301f21547725ad0060598ef6e8f860598ef6e5f8002001b078bd24091d0255060000f8b5051c28880e1c7af628fa071c0024002e06dde000285a7af620fa641cb442f8db381cf8bd0000f8b582b0051c0c1c1f1c022a1cd16e26b600a85901213a1c77f614ff311c321c08310c32a8596958aa5878f649f9301c10382958e00008360818ab88a959221c78f69cfc02b0f8bd012a2cd16e260220b60000900120321c0190713aa8590021ba1a022377f62aff3804000c7af60afa021ca859012177f6e5fe311c321c08310c32a8596958aa5878f61af9301c10382958e00008360818ab88a959221c78f66dfc02b0f8bda8883a1c231c00906a2080002958e0000818089978f64ffc02b0f8bd0000",
+              "patchSize": 0
+            },
+            {
+              "label": "Native shop stock loading",
+              "module": "36",
+              "address": 35309348,
+              "expectedHex": "f0b587b0051c0193ab880e1c171c00200221402240249cf60ff8aa883b4bdb341a405b1c1a4312040490201c0021120c9ef6eef80390ff2e03d1354901980c5c00e0bc1daa88314b324e1a405b1c1a431204301c211c120c9ef6daf8029000887af686f9002802d001207036a8550398a988005d0590401c78f6e0fb6a218900685005980024069100281ddd081c1e38069002986100465a0498069a0090aa5c281c211c331cfff749ffe0002f183e84aa88301c00217af609f866f66fff78620598641c8442e4db6226b600ac53a95b281c2030fff71effa8880b230b220090301c20302958e00028360818a9590d3b78f6d2fb02988df617fd03988df614fd04989bf6d5ff07b0f0bdc046ff7f00003c091d021a010000f0b585b0061cb3880f1c00200221402200249bf685ff02901f48b90045581f48b188c05d0390401c78f67cfb6a218900705003980491002818dd081c1e380490e700e81901900298049a0090b25ceb5b301c211cfff7e6fee95bf019641c018401994968416203988442e9db622189007452b0880b230d3b0090081c203032582831e000101871580b2278f679fb02989bf682ff05b0f0bd60511d0218091d02f8b50d1c061c00270024f72d04dbfa2d02dcf069391c01e0f069012163f6bcfc0e4b00218a009a58904200db0c1c491c0629f7d30a490023da00885a854203d108488018275c02e05b1c082bf4d3301c291c3a1c0823fff7f7fef8bdc0091d02680a1d026a0a1d02f0b587b0051cab880e1c00200221402200249bf601ff02902748b1004058a98801902648875d781c78f6f8fa6a21890003916850002f29dd",
+              "patchSize": 0
+            },
+            {
+              "label": "Native shop resource ownership",
+              "module": "36",
+              "address": 35310100,
+              "expectedHex": "f8b5051c1e4cab880f1c00200321221c9bf69afe211cb5396850ab88002002213f229bf691fe211cb1396850221cab8800200221d33a9bf687fe211c2d396850a88877f6bdfb211cad396850a988c820c8269bf663fdc821f8316850a88820222023011c8df688fe893c2851c820e83028581d219bf680fffc36a851381cf8bd6502000038b57724051ca40028598df6cbfe201c2438285877f6e2fb201c183828589bf655fd201c1c3828589bf650fd201c143828589bf64bfd201c203828589bf646fd201c2c3828589bf679fe201c283828589bf674fe5c3428599bf670fe38bd0000",
+              "patchSize": 0
+            },
+            {
+              "label": "Native general-store badge tiers",
+              "module": "36",
+              "address": 35457340,
+              "expectedHex": "000101020203030405",
+              "patchSize": 0
+            },
+            {
+              "label": "Native event allocation and destruction layout",
+              "module": "ARM9",
+              "address": 33647796,
+              "expectedHex": "f8b582b0051c019337200e1c171c00900b4b04201421012223f096fa041c266067600020a0603b2000900199044b0420012223f089fae0602561201c02b0f8bd1ca3090208b5011cc26843680831984708bd000010b5041ce068002801d023f09bfa201c23f098fa10bd0000",
+              "patchSize": 0
+            },
+            {
+              "label": "Native badge count and money access",
+              "module": "ARM9",
+              "address": 33606048,
+              "expectedHex": "43680022002b06d00120191c014200d0521c5b08f9d1101c7047000000687047074a914201d9026002e0026851180160026803498a4200d9016000687047c046",
+              "patchSize": 0
+            },
+            {
+              "label": "Native item price accessor",
+              "module": "ARM9",
+              "address": 33633984,
+              "expectedHex": "08b505490a79302a04d0098b484364217af0cae808bdc046",
+              "patchSize": 0
+            },
+            {
+              "label": "Native shop item-data loading",
+              "module": "ARM9",
+              "address": 33712112,
+              "expectedHex": "38b50a4b141c1c405a1c224312040d1c0021120cfff79cff041c291c00f008f8051c201c13f01afd281c38bdff7f0000",
+              "patchSize": 0
+            },
+            {
+              "label": "Native item icon table pointer",
+              "module": "ARM9",
+              "address": 33711872,
+              "expectedHex": "500d0902",
+              "patchSize": 0
+            },
+            {
+              "label": "Native bag pocket getter and pointer",
+              "module": "ARM9",
+              "address": 33589488,
+              "expectedHex": "0149085c7047c046d0f40802",
+              "patchSize": 0
+            },
+            {
+              "label": "Native bag add/remove ownership",
+              "module": "ARM9",
+              "address": 33587768,
+              "expectedHex": "08b5fff7ddff002801d0012008bd002008bd000038b50d1c141cfff7d1ff002801d1002038bd058041880919418038bd08b5fff7efff002801d0012008bd002008bd000070b582b0051c0e1cfff7e2ff041c02d102b0002070bd281c311c01aa00abfff76bff2188281c00f09df90198009900f0edf8011c019800f073f9012002b070bd78b4002600290dd9b500445ba24206d140194188994206d2002078bc7047761c8e42f1d3002078bc7047000038b582b0141c01aa00ab0d1cfff73eff019800992a1c231cfff7dcff02b038bd30b4cd0fcc064911890041180748641b1b22d4412c190122a24008580123104200d10023181c30bc7047c0469809000038b5051c0c1cfff7e3ff002809d0281c211c00f03df80006000e062801d0012038bd002038bd0000f8b50e1c051c7411002e26d0002a12d1f70ff306db1b1b22d34100210120fa18c9430b1c904043400c48a1002a18505818405050f8bd00f017f806280dd0f20ff106891a1b20c1415018012383400348a1002a18505818435050f8bd98090000004b18476183000270b50e1c051c301c00f08efa041c281c311c221c00f006f8002800d10624201c70bd000010b582b00c1c111c01aa00abfff780fe009b0021002b0fd9019a8800105a844202d102b0012010bd002802d102b0002010bd491c9942f0d3002002b010bd000070b582b0051c0e1c141cfff757ff0190002802d102b0002070bd4188091b418001994888002801d100200880281c311c01aa00abfff788fe0198009900f006f9012002b070bd000008b5fff7",
+              "patchSize": 0
+            },
+            {
+              "label": "Native TM name, move and owned renderer",
+              "module": "36",
+              "address": 35309112,
+              "expectedHex": "f8b5051c28880e1c7af628fa071c0024002e06dde000285a7af620fa641cb442f8db381cf8bd0000f8b582b0051c0c1c1f1c022a1cd16e26b600a85901213a1c77f614ff311c321c08310c32a8596958aa5878f649f9301c10382958e00008360818ab88a959221c78f69cfc02b0f8bd012a2cd16e260220b60000900120321c0190713aa8590021ba1a022377f62aff3804000c7af60afa021ca859012177f6e5fe311c321c08310c32a8596958aa5878f61af9301c10382958e00008360818ab88a959221c78f66dfc02b0f8bda8883a1c231c00906a2080002958e0000818089978f64ffc02b0f8bd0000",
+              "patchSize": 0
+            },
+            {
+              "label": "Native shop balance/price renderers",
+              "module": "36",
+              "address": 35311692,
+              "expectedHex": "f0b583b0424d041c605d02281ed1281c2530205822219bf693fc071ca1880a209bf660fa291ca9316158061c4a0039492069895aa2885bf659fa021c012000902d35019060590021032330e0012817d1281c2530205816219bf672fc071ca1880a209bf63ffa061ca06961f64df9021c012000902d35019060590021042316e0281c2530205815219bf65afc071ca1880a209bf627fa061ce0685ff669fc021c012000902d35019060590021072377f60ffa6e25ad006059311c3a1c77f60afc281c283820589bf6eff9002102909af60ff8a068002100900f48002201900298331c74f6fbfd283d6459201c9bf684f8201c9bf695f8201c9bf6c6f997f622ff301c9bf609fa381c9bf606fa03b0f0bd8b0100002a091d024f3c0000f8b584b01b250291041c2d01605917219bf608fc071ca18814209bf6d5f9183d061c60590221e4220923e42577f674fea288206902995bf6cbf9021c0020009001200190e420d43020580021032377f6b1f9e420d4302058311c3a1c77f6acfbe420b43020589bf691f90f21039099f6b1ffa068002100900d48002201900398331c74f69dfdb4356459201c9bf626f8201c9bf637f8201c9bf668f997f6c4fe301c9bf6abf9381c9bf6a8f904b0f8bd4f040000f8b582b01a24051c240128590e1c9bf663f90021071c99f683ff201cde3086421ad8201c1638285c022801d1983400e014342859311c9bf69bfb041ca86800210090f12080010190381c0022231c74f65dfd201c9bf678f91a2000012c58201c9af6e2ff201c9af6f3ff201c9bf624f997f680fe02b0f8bdf8b586b01b26051c36010f1ca859182102929bf671fb311c2539695c0490a8598a003c4989589bf667fb0390a98814209bf634f9041c301c143828589bf610f90f21059099f630ff143ea8590221e4220923e42677f6cafd0020009001200190e420d430285800213a1c022377f60cf9e420d4302858049a211c77f607fba868002100902448002201900598231c74f601fd012000900190e420d430029a285800217a43072377f6eff8e420d4302858039a211c77f6eafaa736a85d0028a86805d10090144823210190059804e0009011481d21019005980022231c74f6dafc672080002d58281c9af662ff281c9af673ff281c9bf6a4f897f600fe201c9bf6e7f803989bf6e4f804989bf6e1f806b0f8bdc04634091d024f040000f0b58db0051c6a20800029581e3800912d490191285c002801d0022801d12b4800e02b4802906a24a400285977f640fe00a988810720c88100270f744f748f74cb7c0f22082093431843c874ce7cf023c0209e433043c874087dd02690430875087d984330430875ca8a072080238243ca82ca8a78208243ca82ca8a154810401843c882ca8a14481040c882c88a1a021043c88206950c2088831020c883201c28302818089730340990285900210a90a86800220b900c97ab8800a878f640f9fc36a8510db0f0bd4dd61a02d1d41a0261d51a027ffeffffff81ffff18b583b0082b0edc0798009006a800890190081c11041a04069b0914121474f63dfc03b018bd069c12040094079c1b04019406ac248912141b14029474f6d8fb03b018bdf8b584b00e1c039279f620f8051c0120c043864238d000206e24f200009001210191a400aa182859526a052377f60ef8211c0831221d28596958aa5877f608fa201c08302858a968002275f6b5f9061c201c243828589af6e5ff99f6e5fc071c201c243828589af6ddff011c201c0830285820340090a868ba1b0190034802902859039bfff79aff04b0f8bda0310000f8b584b00c1c039278f6d8ff051c0120c043844265d0e600a919098cab882869012201275af676ff002823d07224a4002859a968002275f677f9061c201c343828589af6a7ff99f6a7fc071c201c343828589af69fff011c285910340090a868ba1b0190204802902859039bfff75eff04b0f8bd00976e240197a400aa192859526a391c052376f699ff211c0831221d28596958aa5877f693f9201c08302858a968002275f640f9061c201c243828589af670ff99f670fc071c201c243828589af668ff011c201c0830285820340090a868ba1b0190044802902859039bfff725ff04b0f8bdc046a0310000f8b582b0041c0f1c78f662ff00a9051c",
+              "patchSize": 0
+            },
+            {
+              "label": "Native shop message formatting",
+              "module": "36",
+              "address": 35313380,
+              "expectedHex": "f8b58ab0051c161c07912869311c08935bf602f96927bf000990e8599af6f8fe0f2199f619fde8590021e4220923e42477f6b4fb00200090e420d4302858089b0021321c76f6dafee420d4302858099a012176f6ddffe420cc30285807999bf623f9061ce420e421d430dc3128586958321c77f6e3f8301c9af602ff6af634faa968e42300910190e420f8302858dc33029000200390a8880021002204900c4805900c480690e859eb5874f681fdfc342851ec59201c9af653fd201c9af664fd201c9af695fe97f6f1fb0ab0f8bdc046ffff0000e1d61a0208b5214bc15c022908d11a1c9a329e33825ac3581e2100f0f3f808bd012915d1591c415c012908d11a1c9a329e33825ac358082100f0b0f808bd1a1c9a329e33825ac358072100f0a7f808bd591c415c01290cd1191ca631415a1a1c9a3200919e33825ac358062100f060f808bd191ca631415a1a1c9a3200919e33825ac358052100f053f808bd8a01000010b5041c9af652fe0f2199f673fc201c0021e422092377f60ffb10bd78b587b01b24051c240128599bf68cf8061c201c211c0830103128586958321c77f64cf8301c9af66bfe6af69df9a968231c00910190201c2c302858002102900391a8881033002204900d480590201c06910c382858eb5874f6eafc211c3031",
+              "patchSize": 0
+            },
+            {
+              "label": "Native text object ownership",
+              "module": "ARM9",
+              "address": 33851228,
+              "expectedHex": "f8b582b0061c01921d1c68200f1c0090184b281c1c210022f1f742fd041c2583381c291c02f056f96061019902f0c4fa011c2161e676228b606900f089f9206000f0e2f9a076e07e002802d1002060600ce07b2000902168208b4968054b0022f1f71efd6060201c00f09cf9201c02b0f8bdc046dcae090210b5041c606900280ad02068f1f734fd6068002801d0f1f72ffd606902f08cf9201cf1f729fd10bdf8b5061c0d1ca62000900b4b281c1c2100220027f1f7f4fc041c2583676127610120e0762660301c00f09ef9a076201c00f068f9201cf8bddcae0902f8b584b0051c0e1c2968019249888e4204d3101cfff790fe04b0f8bd00f076f9e87e002815d1aa7e2b68296992009a18d26868698a18f100091d511802f07efa2a1c68690821083202f070fa2c1c083403e06868011df0000c18e87e00282dd1a0881d4b002240000290d6200090298b1a480140401c084300040299000cf1f7a1fc0390002820d0ab7e2f6829699b00fb18db682268c9186869511802f04efa68690299039a02f041faa28801980399fff7d6fe0398f1f7adfc06e06a68216801985118a288fff7cbfe0198311c00f007f804b0f8bdc046dcae0902ff7f000070b5051c0e1cfff76bfe041c281cfff7e3fe611c321c00f005f8011c281cfff761fe70bd70b5051c0c1c161cfff7d6fe0f49f21c514309040a0c0023002c15d90e2636032988514029802988814201d1181c70bd111c3140d2044913120c114309045b1cad1c0a0ca342ebd3201c70bd8329000070b5051c0c1c00f0d7f8e87e002815d1aa7e2b68296992009a18d268",
+              "patchSize": 0
+            },
+            {
+              "label": "Native field choice ownership",
+              "module": "12",
+              "address": 34951948,
+              "expectedHex": "f0b583b00092051c01932c6a0f1c02943434201c0021a022a02623f740ea0298211c878600982031608001988022a08008a80088a0710998e0710a98a0600b98e0600c986061002023f780e96069002809d1012020612b88fa3600200321321cf3f6f6f960612988202032f0c5fda06103b0f0bdf8b584b0051c00912c6a1949101c3434019202930a9e0b9f884217d0a069cff65ffe0390202821d2606901993a1cf3f643fae068311c3a1ccff6b2fa2988301cf3f6f0f80399890061180862606900993a1cf3f631fae068311c3a1ccff6a0fa2b88a069029a311c32f0aefd04b0f8bdffff0000",
+              "patchSize": 0
+            },
+            {
+              "label": "Native menu selection sound",
+              "module": "36",
+              "address": 35257812,
+              "expectedHex": "66f63efa",
+              "patchSize": 0
+            },
+            {
+              "label": "Native menu selection sound ID",
+              "module": "36",
+              "address": 35257936,
+              "expectedHex": "4c050000",
+              "patchSize": 0
+            },
+            {
+              "label": "Native save prompt state machine",
+              "module": "12",
+              "address": 35011384,
+              "expectedHex": "f8b50d1c2968041c14297dd849187944c988090409148f4428003a00c600d000e2001801520164017001ae01fe0172029202a002b602c402d002f002040308033003a0681cf0c4fc072134f073fc0120286082e1a0681cf0bbfc34f003fc012852d1a0681cf0b4fc34f0b0ff01284bd19f200090208aba4b502100220026d6f621fbe061238a00200321d022e4f6cafde16948600220218a0002e4f6adfce16901228861208a0423011cd6f6d3fde16901220860238a0f200121caf6d7fde169c861208abdf6ccfee1694861e069c664201c00f069f9201c00f09efa0220b7e7022100f08df90320b2e700f013fa00280ad1201c00f0d8fa0420a9e700f0f2fa002802d0012812d027e12068a3f612fc012805d1201c082100f072f90e2097e7e06901218068c1f645f9052090e711208ee76068b2f634ffb3f690fe0121a5f693fca0681cf044fc34f046ffa0681cf03ffc34f059ff012802d1201c0a2101e0201c042100f0f8f9062071e700f034fa012858d1201c00f0d3fa072068e700f0fdfa01284fd1082062e700f00bfb002849d0a1f625fd218a0f2210230091e1698968d1f693fce1694864a0681cf010fc34f018ff201c00f005fb6068b2f6f0feb3f698fd092043e76068b2f6e9feb3f6a3fd032827d800187844c0880004001487447601760106000a000a2030e7a0681cf0eefb34f002ff201c00f0f1fa201c00f0aafa201c072100f0faf8e069406cd1f660fd0d201be7a0681cf0d9fb34f0e7fe012800d098e04e48a2f677fa201c00f0d6fa201c00f08ffa208ac0f62efa061ce06905214068e4f604fe071c6068b2f6a6feb3f6eefa021c301c0021c0f607fce169301c89693a1cc0f6bdfd381ce4f6dcfb301cc0f661fa201c00f0ccf8e069406cd1f626fd0b20e1e600f076fa012862d1201c00f085fa00285dd0201c00f038f9002858d10c20d1e62d48a2f66dfa002851d11020cae600f05ffa01284bd1201c00f06efa002846d00e202860201c00f01ff900283fd10f20b8e6daf671f80321084238d00ae0daf66bf80321084201d013202860e169c86c962801d31320a5e6401cc86427e000f02df8a0681cf05efb012134f00dfb122098e60120f8bd00f021f8a0690a2801d0042804d1a0681cf04dfba16903e0a0681cf048fb002134f0f7fa142082e6a0681cf040fb218a34f031fb0020f8bd0220f8bdc046",
+              "patchSize": 0
+            },
+            {
+              "label": "Native save message getter",
+              "module": "36",
+              "address": 35128464,
+              "expectedHex": "806a7047",
+              "patchSize": 0
+            },
+            {
+              "label": "Native deferred subscreen change",
+              "module": "36",
+              "address": 35226732,
+              "expectedHex": "10b5041cfff7ceff60600120a06010bd",
+              "patchSize": 0
+            },
+            {
+              "label": "Native key-item event dispatch table",
+              "module": "12",
+              "address": 35048932,
+              "expectedHex": "a9f1150200000000cdf11502ff000000a9dc170203000000c5851702ff0000008d9217020500000019f2150209000000",
+              "patchSize": 0
+            },
+            {
+              "label": "Native key-item eligibility table",
+              "module": "12",
+              "address": 35048980,
+              "expectedHex": "f9ef1502000000000000000071f01502adf01502c9f0150209f11502000000000000000009f1150209f1150209f11502",
+              "patchSize": 0
+            },
+            {
+              "label": "C-Gear save block size",
+              "module": "ARM9",
+              "address": 33593488,
+              "expectedHex": "38b5051c",
+              "patchSize": 0
+            },
+            {
+              "label": "C-Gear decal loader and palette routing",
+              "module": "79",
+              "address": 35572308,
+              "expectedHex": "f0b583b0061c2d480a24a40200902c4b7020211c002200274df6c6fb051c70692af65eff042170222b1c029000941af66dfd012838d12621281c090257f6e4fa041c02981cf63eff1cf61cff84422bd1281c20f6d9f9002826d01a4c0520291c221c0023012758f6e1fa1a2329190520202420221b0158f629fc2102062205206918120258f6bcfa182000900d200190052000210022202358f6befd052058f64dfa301cfef7fafd029804211af66efd281c4df6a1fb381c03b0f0bd8c0f000048da1e02e01f0000",
+              "patchSize": 0
+            },
+            {
+              "label": "C-Gear decal VRAM layout",
+              "module": "79",
+              "address": 35567228,
+              "expectedHex": "194e03ab1a1c03ce03c303ce03c303ce03c303ce03c3111c05203a1c59f668f80520012159f6fafa0520012159f696fa009501950520391c3a1c3b1c029459f6a3ff052059f666fc084a09481780503a11680840106023b0f0bdc04624d91e0244d91e02e4d81e0204d91e0250100004",
+              "patchSize": 0
+            },
+            {
+              "label": "C-Gear display-only upper-right touch circle",
+              "module": "79",
+              "address": 35567700,
+              "expectedHex": "78b581b0041c01f021fd002821d142208000205800281cd15f48205c002804d0201cfff7a5ff01b078bd52f6e3f800280fd0201cfff73eff051c0020c0438542",
+              "patchSize": 0
+            },
+            {
+              "label": "C-Gear native panel actor layout",
+              "module": "79",
+              "address": 35568492,
+              "expectedHex": "49000d3189004018c06e111c",
+              "patchSize": 0
+            },
+            {
+              "label": "C-Gear touch control IDs",
+              "module": "79",
+              "address": 35567368,
+              "expectedHex": "f0b58db0071c0024a60001a88519381c211c00aa00f026fafe2101a8815500a90020085e641c68700220085ea8701420e870032ce8db0c4804a9202220248df6ece8ff2109a8017301a852f65bf9213ca04205d00549795c002903d1052801d00020c0430db0f0bd6dd81e020b030000",
+              "patchSize": 0
+            },
+            {
+              "label": "Native selector actor/frame setter",
+              "module": "79",
+              "address": 35572014,
+              "expectedHex": "2104281c090c5ff6e6fd",
+              "patchSize": 0
+            },
+            {
+              "label": "Native selector actor index",
+              "module": "79",
+              "address": 35571950,
+              "expectedHex": "80352d688ef6",
+              "patchSize": 0
+            },
+            {
+              "label": "C-Gear network icon position",
+              "module": "79",
+              "address": 35566890,
+              "expectedHex": "57f6fffc",
+              "patchSize": 0
+            },
+            {
+              "label": "C-Gear ring colour layout",
+              "module": "79",
+              "address": 35566500,
+              "expectedHex": "632080002018069012212a1ca8194a43069940018918381812228df6",
+              "patchSize": 0
+            },
+            {
+              "label": "C-Gear delayed dimming layout",
+              "module": "79",
+              "address": 35574352,
+              "expectedHex": "38b53124051c2401295d00290fd0611c695c4a1c611c6a54695c082907d300f017f8011c281cfdf7a1ff0020285538bd",
+              "patchSize": 0
+            },
+            {
+              "label": "C-Gear dimming colours",
+              "module": "79",
+              "address": 35575796,
+              "expectedHex": "41042304",
+              "patchSize": 0
+            },
+            {
+              "label": "C-Gear save initialization",
+              "module": "ARM9",
+              "address": 33593488,
+              "expectedHex": "38b5051cfff7faff021c281c002100246ef082ef201c2855641c062cfbdb0c202872152068720920a87238bd",
+              "patchSize": 0
+            },
+            {
+              "label": "C-Gear save accessors",
+              "module": "ARM9",
+              "address": 33593532,
+              "expectedHex": "c1717047c0797047c1727047c07a704781737047807b70478181704780897047062902d2062a00d242547047062901d300207047405c7047032901da4018027270470000032901db002070474018007a70470000817170478079704708b52021fdf794fd283008bd",
+              "patchSize": 0
+            },
+            {
+              "label": "Options initialization and accessors",
+              "module": "ARM9",
+              "address": 33589696,
+              "expectedHex": "10b5041c002104226ff0eeee21880f2081430120014321802288302140028a432280228840218a432280228880218a4322802288054911402180218808432080218803480840208010bdc046fffefffffffbffff00880007000f704703880f22090493430a0c0f21114019430180704700888006800f70470904090c890703883022890e934319430180704700880006c00f70470904090cc90703888022090e934319430180704700884006c00f70470904090cc90703884022490e93431943018070470088c005c00f70470904090cc9070388054ac90d1a40114301800088034bc005c00f0006000e1847fffeffff798b04020088034bc005c00f0006000e1847c046798b040200888005c00f70470904090cc9070388024a890d1a40114301807047fffdffff00884005c00f70470904090cc9070388024a490d1a40114301807047",
+              "patchSize": 0
+            },
+            {
+              "label": "Saved event flag accessor layout",
+              "module": "ARM9",
+              "address": 33657420,
+              "expectedHex": "002901d10020704701229203914209d2ca080a498a4201db002070470849401880187047891a8810400f0818c110082901db002070470348401870477f0100005e030000",
+              "patchSize": 0
+            },
+            {
+              "label": "Native trainer flag range",
+              "module": "12",
+              "address": 34951224,
+              "expectedHex": "5f2212018918",
+              "patchSize": 0
+            }
+          ]
+        }
+      },
+      "graphicsFingerprint": "2309c921"
     }
   ],
   "games": {
@@ -39084,8 +42414,8 @@
       "idCode": "IRDO",
       "revision": 0,
       "fileName": "CGearQuickActionsW2.dll",
-      "sha256": "6684889ef2d98fbb2948861e59444048a9e1172d46c6994471729deefd2082e2",
-      "codeFingerprint": "2661d4bd",
+      "sha256": "2020b233565fcd11319b0dfbc72b17fb458115d0601df5037d1583f2f34cd88b",
+      "codeFingerprint": "9a2bc37c",
       "bssSize": 9648,
       "signatures": [
         {
@@ -40746,8 +44076,8 @@
       "idCode": "IREO",
       "revision": 0,
       "fileName": "CGearQuickActionsB2.dll",
-      "sha256": "e58e0f086a9e2723e970bb2134edd3c51117a780d77bd995b4d0797b327fc051",
-      "codeFingerprint": "abade177",
+      "sha256": "361443a8c0990644d448b66615925070b8cf9373a93fdce3f2cc397179b381bb",
+      "codeFingerprint": "0d72e575",
       "bssSize": 9652,
       "signatures": [
         {

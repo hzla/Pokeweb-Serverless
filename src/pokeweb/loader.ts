@@ -1,3 +1,4 @@
+import { hydrateTrainerFieldConditionsSources } from "./trainerFieldConditionsModel";
 import { hydrateCGearButtons } from "./cgearButtonsModel";
 import { hydrateSystemShops } from "./systemShopsModel";
 import { hydrateFlyDestinationsFromRom } from "./flyDestinationModel";
@@ -160,6 +161,7 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
     if (!hydrateW2AnimFromRom(project, rom)) hydratePwanAnimationsFromRom(project, rom);
     hydrateKoMoveLearnsetFromRom(project, rom);
     hydrateTrainerLocationTables(project, rom);
+    hydrateTrainerFieldConditionsSources(project, rom);
     hydrateFlyDestinationsFromRom(project, rom);
   }
 

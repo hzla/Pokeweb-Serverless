@@ -502,3 +502,6 @@
   .map3d-tabbed-sidebar { width: 100%; max-height: 64vh; overflow: hidden; }
   .map3d-tabbed-sidebar + .map3d-view { width: 100%; margin-left: 0; }
 }
+
+.map3d-toolbar .map3d-camera-readout { max-width: 360px; }
+.map3d-camera-snapped .map3d-camera-readout { display: block; }

@@ -255,8 +255,12 @@ export async function installCGearQuickActions(project: ProjectState, options:CG
   const [dllResponse, archiveResponse] = await Promise.all([fetch(urls[v]), fetch(graphicsUrl)]);
   if (!dllResponse.ok || !archiveResponse.ok) throw new Error("Could not load the bundled Quick Actions files.");
   const [dll, graphics] = await Promise.all([dllResponse.arrayBuffer().then(b => new Uint8Array(b)), archiveResponse.arrayBuffer().then(b => new Uint8Array(b))]);
-  if (await hash(dll) !== profile.sha256 || await hash(graphics) !== manifest.archiveSha256
-    || !recognized(parseRpm(dll, { allowedMagics: ["DLXF"] }), v) || !archiveState(graphics)) throw new Error("Quick Actions bundle failed its integrity check.");
+  if (await hash(dll) !== profile.sha256)
+    throw new Error(`Quick Actions bundle failed its integrity check: ${profile.fileName} does not match version ${manifest.version}. Restore or rebuild the bundled C-Gear files together.`);
+  if (await hash(graphics) !== manifest.archiveSha256)
+    throw new Error(`Quick Actions bundle failed its integrity check: cgearQuickActions.narc does not match version ${manifest.version}. Restore or rebuild the bundled C-Gear files together.`);
+  if (!recognized(parseRpm(dll, { allowedMagics: ["DLXF"] }), v) || !archiveState(graphics))
+    throw new Error("Quick Actions bundle failed its integrity check.");
   const staged = cloneInstallState(input);
   let shops = project.systemShops && structuredClone(project.systemShops);
   if (state.document.buttons.some(b => b.action === "systemShop") || shops) {

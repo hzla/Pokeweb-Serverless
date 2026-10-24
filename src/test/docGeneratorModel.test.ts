@@ -617,6 +617,38 @@ describe("docGeneratorModel", () => {
     expect(calcPayload.formatted_sets.Deoxys).toBeUndefined();
   });
 
+  it.each([2, 3])("defaults empty trainer ability slot %i to each form's first ability", (slot) => {
+    const project = makeProject();
+    project.texts.banks.abilities![0] = " -";
+    // The base and alternate form deliberately have different first abilities.
+    project.narcs.trpok!.rawFiles[7][1] = slot * 16;
+    project.narcs.trpok!.rawFiles[7][9] = slot * 16;
+
+    const file = generateCalcDownload(project, "Volt White Plus");
+    const payload = JSON.parse(file.contents.replace(/^backup_data = /u, "").replace(/;\n$/u, ""));
+    expect(payload.formatted_sets.Bulbasaur["Lvl 42 Ace Trainer Dan - Black City"].ability).toBe("Overgrow");
+    expect(payload.formatted_sets["Deoxys-Attack"]["Lvl 43 Ace Trainer Dan - Black City"].ability).toBe("Pressure");
+
+    const bridge = generateCalcBridgePayload(project, "Volt White Plus");
+    expect(JSON.parse(bridge.scriptText.replace(/^var backup_data = /u, "").replace(/;$/u, ""))).toEqual(payload);
+    expect(project.narcs.personal!.dirty.size).toBe(0);
+    expect(project.narcs.trpok!.dirty.size).toBe(0);
+    expect(project.narcs.trpok!.rawFiles[7][1]).toBe(slot * 16);
+    expect(project.narcs.trpok!.rawFiles[7][9]).toBe(slot * 16);
+  });
+
+  it.each([2, 3])("preserves populated trainer ability slot %i and defaults inherited empty slots", (slot) => {
+    const project = makeProject();
+    project.texts.banks.abilities![0] = "EMPTY";
+    updatePokemonField(project, 1, "personal", `ability_${slot}`, "2");
+    project.narcs.trpok!.rawFiles[7][1] = slot * 16;
+    project.narcs.trpok!.rawFiles[7][9] = 0; // Inherit the previous Pokemon's ability slot.
+
+    const payload = JSON.parse(generateCalcDownload(project, "Volt White Plus").contents.replace(/^backup_data = /u, "").replace(/;\n$/u, ""));
+    expect(payload.formatted_sets.Bulbasaur["Lvl 42 Ace Trainer Dan - Black City"].ability).toBe("Pressure");
+    expect(payload.formatted_sets["Deoxys-Attack"]["Lvl 43 Ace Trainer Dan - Black City"].ability).toBe("Pressure");
+  });
+
   it("invalidates cached form relationships after personal data changes", () => {
     const project = makeProject();
     expect(trainerPokemonExportName(project, trainerSlot(5, 0))).toBe("Deoxys-Attack");

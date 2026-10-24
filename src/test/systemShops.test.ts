@@ -7,6 +7,7 @@ import {
   canUseCurrency,
   pickerScript,
   RECORD_SIZE,
+  encodeCondition,
   type Assets,
 } from "../systemShops/compiler";
 import {
@@ -56,7 +57,8 @@ describe("System Shops source and compiler", () => {
     expect(recover(upgraded.save())).toEqual(state);
     expect(upgraded.files[2]).toEqual(pickerScript(1));
     expect(upgraded.files[2]).not.toEqual(old.files[2]);
-    expect(upgraded.files[0][4]).toBe(old.files[0][4]);
+    expect(upgraded.files[0][4]).toBe(2);
+    expect(old.files[0][4]).toBe(1);
   });
   it("uses one shop currency and encodes all twenty TM costs without modifying ROM prices", () => {
     const document = defaults(),
@@ -189,4 +191,45 @@ describe("System Shops source and compiler", () => {
       expect(() => recover(arc.save())).toThrow();
     },
   );
+});
+
+
+describe("inventory unlock conditions", () => {
+  it("preserves unconditional stock and recovers independent drafts and applied conditions", () => {
+    const document = defaults(); document.shops.push(tmTestShop(document));
+    document.shops[0].inventory[1].condition = { badges: 1 };
+    document.shops[0].inventory[3].condition = { badges: 2, flag: {id:42,state:"set"} };
+    document.shops[0].inventory[5].condition = { flag: {id:3059,state:"clear"} };
+    const applied = structuredClone(document);
+    document.shops[0].inventory[3].condition!.flag!.id = NaN;
+    const arc = new NARC(compile({document,applied},assets()));
+    expect(readU16(arc.files[0],4)).toBe(2);
+    expect(readU16(arc.files[0],98)).toBe(0);
+    expect(readU16(arc.files[0],98+8)).toBe(2);
+    expect(readU16(arc.files[0],98+3*8)).toBe(42*18+4);
+    expect(readU16(arc.files[0],98+5*8)).toBe(3059*18+1);
+    const recovered = recover(arc.save());
+    expect(recovered.applied).toEqual(applied);
+    expect(recovered.document.shops[0].inventory[3].condition!.flag!.id).toBeNull();
+    expect(validate(recovered.document,assets())).not.toHaveLength(0);
+  });
+  it("uses a unique bounded encoding for every supported combination", () => {
+    const encodings = new Set<number>();
+    for (let flag=0;flag<=3059;flag++) for (let badges=0;badges<=8;badges++) {
+      for (const state of flag ? ["set","clear"] as const : ["set"] as const) {
+        const value=encodeCondition({badges,...(flag?{flag:{id:flag,state}}:{})});
+        expect(value).toBeLessThan(65536);
+        expect(encodings.has(value)).toBe(false); encodings.add(value);
+      }
+    }
+  });
+  it.each([
+    {badges:-1},{badges:9},{badges:1.5},{flag:{id:0,state:"set"}},
+    {flag:{id:3060,state:"clear"}},{flag:{id:42,state:"other"}},
+  ])("rejects invalid applied conditions %j", condition => {
+    const document=defaults();document.shops.push(newShop(document));
+    document.shops[0].inventory[0].condition=condition as never;
+    expect(validate(document,assets()).join(" ")).toContain("unlocks");
+    expect(()=>compile({document,applied:document},assets())).toThrow(/unlocks/);
+  });
 });

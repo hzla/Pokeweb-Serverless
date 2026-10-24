@@ -2087,10 +2087,13 @@ for game in ("W2", "B2"):
     # stubbed; bag reads/add/remove execute the retail ARM9 implementation.
     e, child = launch()
     native, trainer, bag, runtime, scriptState, choice = [SUB + n for n in [0x10000, 0x11000, 0x12000, 0x14000, 0x14100, 0x14200]]
+    testVm, operands = SUB + 0x14400, SUB + 0x14480
+    h.put(testVm + 32, operands)
+    h.write(operands, struct.pack("<3H", 0, 65535, 0))
     h.put(runtime + 32, scriptState)
     menu = scriptState + 0x34
     h.functions[h.ov(0x21A85BC)] = lambda a: 0
-    h.call("QaShopChoiceAdd", 0, runtime)
+    h.call("QaShopChoiceAdd", testVm, runtime)
     menuText = h.word(menu + 20)
     assert menuText in h.allocations and h.word(menu + 16) == 1
     h.free(menuText)  # Native list cleanup releases the adopted object.
@@ -2098,7 +2101,7 @@ for game in ("W2", "B2"):
     reopen = choice + 4
     h.functions[h.ov(0x2153F60)] = lambda a: choice if a[1] == 0x802a else reopen
     h.functions[h.ov(0x21ABBB0)] = lambda a: h.put(h.shopProcess + 0x3c, native - 8)
-    h.call("QaShopBuyCommand", 0, runtime)
+    h.call("QaShopBuyCommand", testVm, runtime)
     owned = []
     for arc in [0x11b, 0x11a]:
         p = h.call("QaShopStockFile", arc, 0, 21)
@@ -2200,12 +2203,12 @@ for game in ("W2", "B2"):
         assert h.call("QaShopTick", 0, native, 255, 0) == 1
         assert h.word(reopen) & 0xffff == 1
         h.put(menu + 16, 0) # Native menu initialization after previous cleanup.
-        h.call("QaShopChoiceAdd", 0, runtime)
+        h.call("QaShopChoiceAdd", testVm, runtime)
         adoptedText = h.word(menu + 20)
         assert adoptedText in h.allocations
         h.free(adoptedText)
         h.put(choice, selection)
-        h.call("QaShopBuyCommand", 0, runtime)
+        h.call("QaShopBuyCommand", testVm, runtime)
         assert h.word(reopen) & 0xffff == 0
         if selection:
             assert h.call("QaShopPrice", 0) == 1
@@ -2220,3 +2223,59 @@ for game in ("W2", "B2"):
     h.call("QaCGearExit", SUB)
     assert not h.allocations
     print(game, "System Shop picker/ownership, visibility/priority, allocation cleanup, native TM bag/payment rollback and mixed renderers passed")
+
+
+# Condition filtering snapshots visible source indices so hidden rows never
+# shift a different item's price onto a visible item. Execute actual badge and
+# saved-flag readers from each game; native UI scheduling remains stubbed.
+for game in ("W2", "B2"):
+    h = Harness(game)
+    h.heapFree = h.heapLargest = 0x80000
+    h.shopArc = ndspy.narc.NARC((BUILD / "shop-fixture-conditions.narc").read_bytes())
+    h.configure([(20, 20, 0, 0, 255, 60, 116, 0, 0)])
+    h.call("QaCGearInit", SUB); h.call("QaCGearUpdate", SUB, 1)
+    baseline = dict(h.allocations)
+    del h.functions[h.arm(0x200c97c)] # Use the retail trainer badge bit reader.
+    native, runtime, scriptState, choice, testVm, operands = [SUB+n for n in [0x10000,0x14000,0x14100,0x14200,0x14400,0x14480]]
+    h.put(runtime+32, scriptState)
+    menu = scriptState+0x34
+    h.functions[h.ov(0x2153f60)] = lambda a: choice if a[1]==0x802a else choice+4
+    h.functions[h.ov(0x21abbb0)] = lambda a: h.put(h.shopProcess+0x3c,native-8)
+    h.functions[h.ov(0x21ac3b0)] = lambda a: 1
+    calls=[]
+    h.functions[h.ov(0x21a85bc)] = lambda a: calls.append(1) or 0
+    for badges in range(9):
+        h.put(GAME+4,(1<<badges)-1)
+        for setFlag in (False,True):
+            h.call(h.arm(0x2019204 if setFlag else 0x201922c),h.flagWork,42)
+            flagsBefore=bytes(h.uc.mem_read(h.flagWork,0x800))
+            h.press(60,116);event=h.call("QaCGearEvent",SUB,1);h.release()
+            assert event and h.call(h.word(event+4),event,event+8)==0
+            child=h.children[-1][1]
+            expected=[i for i in range(20) if i%9<=badges and (i%3==2 or (i%3==0)==setFlag)]
+            h.put(testVm+32,operands);h.write(operands,struct.pack("<3H",1,65535,1))
+            before=len(calls);h.put(menu+16,0)
+            h.call("QaShopChoiceAdd",testVm,runtime)
+            assert len(calls)-before==int(bool(expected))
+            assert h.word(testVm+32)==operands+(0 if expected else 6)
+            h.free(h.word(menu+20));h.put(menu+16,0)
+            h.put(choice,1);h.put(testVm+32,operands)
+            h.call("QaShopBuyCommand",testVm,runtime)
+            if not expected:
+                assert h.word(testVm+32)==operands+4 and h.word(choice+4)==1
+            else:
+                stock=h.call("QaShopStockFile",0x11a,0,21);counts=h.call("QaShopStockFile",0x11b,0,21)
+                assert list(struct.unpack("<"+str(len(expected))+"H",h.uc.mem_read(stock,len(expected)*2)))==[328+i for i in expected]
+                assert h.uc.mem_read(counts,6)==bytes([len(expected)]*6)
+                # A condition change after opening cannot change this session's
+                # ordering/prices. It takes effect only on the next opening.
+                h.call(h.arm(0x201922c if setFlag else 0x2019204),h.flagWork,42)
+                assert [h.call("QaShopPrice",0) for _ in expected]==[i+1 for i in expected]
+                h.call(h.arm(0x2019204 if setFlag else 0x201922c),h.flagWork,42)
+                h.free(stock);h.free(counts)
+                assert h.call("QaShopTick",0,native,255,0)==1
+            assert bytes(h.uc.mem_read(h.flagWork,0x800))==flagsBefore
+            h.eventDelete(child);assert h.call(h.word(event+4),event,event+8)==1;h.eventDelete(event)
+            assert h.allocations==baseline
+    h.call("QaCGearExit",SUB);assert not h.allocations
+    print(game,"all 0–8 badge counts, set/clear conditions, combined requirements, stable price mapping, empty-shop omission and read-only flag checks passed")

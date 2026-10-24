@@ -69,8 +69,10 @@ Constraints:
 
 ## Local References
 
-- `Pokeweb-Serverless/move-animation-reference/move-animation-reference.md`
-- `Pokeweb-Serverless/docs/spa-editing-reference.md`
-- `docs/move-animation-workflow-review.md`
-- `docs/move-animation-tooling-improvements.md`
-- `Pokeweb-Serverless/docs/move-animation-editor/`
+- [Donor animation index](../../move-animation-reference/move-animation-reference.md)
+- [AI move animation workflow](../ai-move-animation-workflows.md)
+- [SPA editing reference](../spa-editing-reference.md)
+- [Editor guide](README.md)
+- [Workflow guides](workflow-guides.md)
+- [Command reference](command-reference.md)
+- [Preview support and limits](preview-support.md)

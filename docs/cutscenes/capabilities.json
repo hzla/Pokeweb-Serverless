@@ -1,0 +1,195 @@
+{
+  "format": "pokeweb.cutscene-capabilities",
+  "version": 1,
+  "target": "W2-US",
+  "status": "partial",
+  "description": "Version 2 JSON camera/event/NPC/dialogue authoring and map-stage W2 conversion with native material animation and private sequence allocation are implemented. Route 13 supplies the initial map and NPC fixtures. A separate field-scene backend supports live-map camera tours and actual-player and parallel native NPC walking/facing plus paged NPC/player dialogue with timed or A/B holds and seamless control return; Route 13 is verified.",
+  "sourceContract": "scene.schema.json",
+  "features": [
+    {
+      "id": "native.import",
+      "existingSupport": "Native cameras import losslessly into persisted version-2 JSON keyframes with playback cues and fades.",
+      "authoringStatus": "partial",
+      "needs": [
+        "General semantic actor import",
+        "Broader template-to-custom allocation"
+      ]
+    },
+    {
+      "id": "camera.shots",
+      "existingSupport": "Version-2 camera keyframes, deterministic interpolation, drag/retime, explicit error-bounded reduction and dense native camera compilation are implemented.",
+      "authoringStatus": "partial",
+      "needs": [
+        "Version-1 shot/anchor migration",
+        "Look-at and actor-follow camera tracks",
+        "Calibrated native FOV/projection conversion"
+      ]
+    },
+    {
+      "id": "actor.overworldTracks",
+      "authoringStatus": "implemented",
+      "existingSupport": "Map-stage NPC tracks load W2 overworld sprite registry IDs, place feet in matrix world coordinates, interpolate independent position keys, and select cardinal facing plus idle/walk animation. Export packages a private billboard model, root joint animation and texture/palette animation per NPC.",
+      "needs": [
+        "3D overworld models",
+        "Spawn/despawn and visibility keys",
+        "Additional gestures, skeletal action clips",
+        "Semantic actor import from native scenes"
+      ]
+    },
+    {
+      "id": "actor.skeletalTransforms",
+      "existingSupport": "Native details exposes translation, local XYZ rotation and scale on any joint in an existing skeletal clip, including identity/bind-pose joints. Linear/smooth ranges use shortest-arc quaternion rotation and selectable channels. The native writer preserves untouched compressed channel samples, rebuilds packed rotation pools and inverse scales, and supports project/ROM export with no new executable adapter. Version-2 skeletal tracks expose per-joint lanes and keyframe retiming, plus clickable skeletons and local rotation/scale gizmos in the timeline preview. GUI and JSON use the same native compiler. Project baselines make key/track removal and reapplication reversible; private sequence 27 exports edited clips.",
+      "authoringStatus": "implemented",
+      "needs": [
+        "New rig creation and mesh skinning",
+        "Action-clip retargeting and composition",
+        "New clip binding and duration editing"
+      ]
+    },
+    {
+      "id": "actor.walk.native",
+      "existingSupport": "Existing skeletal clips play and support per-joint translation, rotation and scale editing; semantic walk/reaction clip composition remains separate.",
+      "authoringStatus": "research",
+      "needs": [
+        "Compatible walk clip catalog",
+        "Root and pose animation composition"
+      ]
+    },
+    {
+      "id": "actor.walk.field",
+      "existingSupport": "Field tours place up to eight transient standard-human overworld actors. Per-block walk/facing tracks run alongside camera/player movement using native actor creation and movement lists, with group barriers, controller-specific pose previews and stay/remove cleanup. Route 13 verifies all four walking directions, concurrent player/NPC motion and control return.",
+      "authoringStatus": "partial",
+      "needs": [
+        "Other sprite controllers and 3D models",
+        "Additional gaits/gestures",
+        "Sub-block key timing",
+        "Actor occupancy and terrain-script simulation",
+        "Exact global VM/graphics scheduling"
+      ]
+    },
+    {
+      "id": "actor.overworld.native",
+      "existingSupport": "Existing native camera-facing geometry can be rendered.",
+      "authoringStatus": "research",
+      "needs": [
+        "Overworld sprite direction/action extraction",
+        "Native billboard model and texture-pattern generation",
+        "Ground and scale calibration"
+      ]
+    },
+    {
+      "id": "stage.map.native",
+      "existingSupport": "Map-stage Apply packages terrain/props, texture frames and native NSBTA/NSBTP tracks with a shared map/camera transform. Route 13 includes 33 transform and 16 texture/palette tracks. Static bindings upgrade in place; model, animation, texture/palette and heap budgets are checked.",
+      "authoringStatus": "partial",
+      "needs": [
+        "Runtime coverage beyond the Route 13 sample",
+        "Camera-dependent aggregate polygon validation"
+      ]
+    },
+    {
+      "id": "events.native",
+      "existingSupport": "Add/remove/retime playback events; typed audio/fades and raw commands lower to variable lists for private sequence 27 and converted map scenes, preserving end commands. Native opcode zero is omitted because its dispatch slot is null.",
+      "authoringStatus": "partial",
+      "needs": [
+        "Named asset catalogs",
+        "Additional typed events"
+      ]
+    },
+    {
+      "id": "camera.field",
+      "existingSupport": "Field camera regions can be edited; the field command catalog contains event-camera instructions. Ordered field-tour camera actions are now compiled and verified on Route 13, with visual/JSON editing and a mandatory gameplay-camera return.",
+      "authoringStatus": "research",
+      "needs": [
+        "Verify event-camera operand meanings",
+        "Continuous movement and easing semantics",
+        "Acquisition and restoration of camera control"
+      ]
+    },
+    {
+      "id": "native.registry",
+      "existingSupport": "Versioned registry preserves 1–26 and private clone 27, allocates map scenes at subsequent IDs up to 63, and reuses private assets/metadata on reapply.",
+      "authoringStatus": "partial",
+      "needs": [
+        "Broader memory/resource budget validation"
+      ]
+    },
+    {
+      "id": "scene.trigger",
+      "existingSupport": "The isolated fixture calls the selected installed sequence through 0x0154, closes/reopens the field, clears the field fade and restores music/control for replay. Its raw save is unchanged.",
+      "authoringStatus": "partial",
+      "needs": [
+        "General story trigger and event/entry binding",
+        "Dynamic parameter semantics beyond the tested literal path"
+      ]
+    },
+    {
+      "id": "language.edits",
+      "existingSupport": "GUI and assistants share strict version-2 JSON, stable IDs, revision checks, undo/redo and an exportable map context. No in-app model service is installed.",
+      "authoringStatus": "partial",
+      "needs": [
+        "Optional in-app language endpoint"
+      ]
+    },
+    {
+      "id": "dialogue.native",
+      "authoringStatus": "implemented",
+      "existingSupport": "Map timelines have typed dialogue events with an NPC track speaker or narration, timed display or a scene-clock hold until a fresh A/B press. Private message banks and an audited native text callback adapter are exported. Browser Continue/Enter follows the same scene-time rule. Two or three response choices, forward timeline jumps and branch joins are supported in preview and W2 with a version-2 runtime adapter.",
+      "limits": [
+        "W2-US map stages only",
+        "Plain Western text, at most four wrapped lines including the speaker; one page per event",
+        "No overlapping windows or wait events during active screen fades",
+        "No portraits or voice tracks",
+        "Music and active sound effects continue while scene animation is held"
+      ]
+    },
+    {
+      "id": "scene.branches",
+      "authoringStatus": "implemented",
+      "existingSupport": "Typed dialogue.choice events hold for a response and jump the camera/model/material clock plus native command cursor to its forward target. timeline.jump rejoins a shared section. Skipped commands do not execute. Private message banks include one cursor variant per response.",
+      "limits": [
+        "Map stages only; two or three one-line responses",
+        "Forward targets before the final camera sample; no loops",
+        "No overlapping control events or landing inside active fades/timed text",
+        "Native W2 export injects a runtime adapter; the stock native cutscene command list has no implemented choice/jump operation",
+        "Changes to dialogue do not persist story variables or flags"
+      ]
+    },
+    {
+      "id": "dialogue.field",
+      "authoringStatus": "implemented",
+      "existingSupport": "Field dialogue blocks select a transient NPC or the actual player as speaker. Private story-text banks and native actor-message instructions print explicit two-line pages, wait for fresh A/B input or hold for a timed duration after printing, and close before camera/actor movement resumes. Browser playback holds source time while ambient materials continue. No dialogue runtime injection is used. Route 13 verifies four rendered pages, held-input rejection and final control return.",
+      "limits": [
+        "W2-US; plain Western text, 512 characters, twelve two-line pages per block",
+        "Dialogue holds camera and actor movement; NPC actions cannot anchor to a dialogue block",
+        "Preview displays complete pages immediately; native printing and VM scheduling add runtime",
+        "Field choices/branches, portraits and voice are not implemented"
+      ]
+    },
+    {
+      "id": "scene.fieldHandoff",
+      "authoringStatus": "partial",
+      "existingSupport": "Separate pokeweb.field-scene v1 JSON/GUI editor compiles native field camera init/unbind/move/wait, actual player and parallel NPC walking/facing, paged native dialogue, final-position gameplay camera return and unlock. Route 13 is verified frame by frame. Test export uses an initial warp and unchanged save; no scene runtime injection.",
+      "needs": [
+        "Field choices/branches",
+        "Doorway choreography",
+        "Skip/cancel cleanup",
+        "Dynamic camera-region handoff calibration",
+        "Broader map and hardware validation"
+      ]
+    },
+    {
+      "id": "environment.timeTravel",
+      "authoringStatus": "partial",
+      "existingSupport": "Aspertia live field tours blend all four native seasonal artworks, ramp day/night and ambient material animation speed up and down, play a cropped native STRM, and restore the real player without an ending fade. The optional saved calendar policy retains autumn across normal Save and cold restart. GUI and JSON share this source.",
+      "limits": [
+        "W2-US Aspertia environment export, ending in autumn; matching seasonal geometry and memory budgets required",
+        "32 RGB555 blend levels; binary coverage uses an ordered dissolve and translucent layers use native alpha precision",
+        "Authored day/night tint is a visual effect; it does not advance the RTC, encounters or seasonal scripts",
+        "Dialogue holds cannot share the live environment clock in this prototype",
+        "Dialga companion is a standing north-facing native actor; walking and general Pokémon animation controllers remain unsupported",
+        "Save/cold-restart and 4600-frame playback checked in the headless DS core; melonDS and hardware acceptance remain user checks"
+      ]
+    }
+  ],
+  "fieldSourceContract": "field-scene.schema.json"
+}

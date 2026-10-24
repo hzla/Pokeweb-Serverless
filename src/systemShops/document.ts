@@ -1,11 +1,18 @@
 export const MAX_SHOPS = 16;
 export const MAX_STOCK = 45;
+export const MAX_SAVE_FLAG = 0xbf3;
+export type StockCondition = {
+  /** At least this many native trainer badges, from zero through eight. */
+  badges?: number;
+  flag?: { id: number; state: "set" | "clear" };
+};
+export type StockEntry = { item: number; cost: number; condition?: StockCondition };
 export type Shop = {
   id: number;
   name: string;
   /** Zero means Poké Dollars; another ID means that stackable bag item. */
   currency: number;
-  inventory: { item: number; cost: number }[];
+  inventory: StockEntry[];
 };
 export type Document = { version: 1; nextId: number; shops: Shop[] };
 export type Project = { document: Document; applied?: Document };

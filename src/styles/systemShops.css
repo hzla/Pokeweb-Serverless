@@ -1,5 +1,5 @@
 .system-shops {
-  max-width: 1150px;
+  max-width: 1400px;
   margin: 30px auto;
   padding: 0 24px;
   color: #e3e8ef;
@@ -173,3 +173,13 @@
     display: grid;
   }
 }
+
+.system-shops td:nth-child(3) { width: 100px; }
+.system-shops td:nth-child(4) { width: 215px; }
+.ss-flag { display: flex; gap: 6px; }
+.ss-flag input { min-width: 85px; }
+.ss-flag select { width: 85px; flex-shrink: 0; }
+.ss-layout article { overflow-x: auto; }
+.system-shops table { min-width: 640px; }
+
+.system-shops input[aria-invalid="true"] { border-color: #ff5555; }

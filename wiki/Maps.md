@@ -4,6 +4,8 @@ The Maps editor is a 3D map viewer and metadata/permission editor. It lets you i
 
 Selecting a zone loads it immediately. The four **Spring**, **Summer**, **Autumn**, and **Winter** buttons switch the loaded season; the active season is highlighted. The wider sidebar keeps these controls above five tool tabs: **View** for layers and animation, **Camera**, **Buildings**, **Map settings** for header/area metadata, and **Collisions**. Each panel scrolls independently. Switching away from Camera ends camera navigation, and leaving Collisions disables painting on click.
 
+Selecting a zone loads it immediately. The four **Spring**, **Summer**, **Autumn**, and **Winter** buttons switch the loaded season; the active season is highlighted. The wider sidebar keeps these controls above five tool tabs: **View** for layers and animation, **Camera**, **Buildings**, **Map settings** for header/area metadata, and **Collisions**. Each panel scrolls independently. Switching away from Camera ends camera navigation, and leaving Collisions disables painting on click.
+
 ## Matrix Editor (Black/White and Black 2/White 2)
 
 Open **Headers & Overworlds → Matrix Editor** to view a colored grid of map chunks and header assignments. It starts at matrix **0**; use **Matrix index** to select another entry. Missing matrix/map archives load from the connected source ROM without loading graphics.
@@ -170,11 +172,31 @@ For a first example, load **Zone 427: Aspertia City**, enable **Show camera regi
 
 Bounds use global matrix tile coordinates: 32 tiles per chunk and 16 world units per tile. Regions test X/Z independently of player height. **Region overlay height** only positions the editor overlay; it does not change the ROM. North-to-south interpolation requires a width of at least two tiles because a native width word of one selects horizontal interpolation. West-to-east regions may be one tile wide.
 
-Choose **Pick camera coordinate**, click terrain, then **Snap camera**. Alternatively enter tile X/Z and player height in world units. The preview combines the header's default preset, the first matching rectangular region and supported rectangular camera bounds, with a 4:3 viewport. Terrain picking estimates height from visible geometry; correct it manually for bridges, caves or overlapping surfaces. Enable **Neighboring scenery** when the view needs surrounding terrain or backdrops. **Free view**, Reset View, Top Down, dragging or scrolling return to normal navigation.
+Click **Snap camera** to show the player and start arrow-key walking immediately; no separate mouse-tool selection is required. The map receives keyboard focus automatically. The initial coordinate is chosen from open, non-water permission tiles with a flat visible surface near the first chunk's center, with a centered fallback when none is available. To choose another position, use **Pick camera coordinate**, click terrain, then **Snap camera**, or enter tile X/Z and player height in world units. The preview combines the header's default preset, the first matching rectangular region and supported rectangular camera bounds, with a 4:3 viewport. Terrain picking estimates height from visible geometry; correct it manually for bridges, caves or overlapping surfaces. Enable **Neighboring scenery** when the view needs surrounding terrain or backdrops. **Free view**, Escape, Reset View, Top Down, Shift-drag or scrolling return to normal navigation.
 
 Choose **Walk camera**, then click a terrain tile to snap immediately. Arrow keys move the preview player one tile at a time and recalculate the camera. A male or female player billboard marks the position and facing. **Follow terrain height** chooses the nearest surface to the current height; disable it to use a fixed player height. Click again to move to another visible tile. Escape or **Free view** exits. Walking stays inside the loaded zone and does not enforce collisions, trigger events, use warps or load adjoining zones.
 
+The selected camera tile has a cyan outline and a gold ring at the exact preview position. A readout on the map shows tile X/Z, player height, zone, matrix chunk and coordinates within that chunk, with an arrow-key reminder while snapped. **Locate on map** opens an overhead view centered on the marker; **Return to camera** resumes walking from that point. The marker remains visible in free view until another map is loaded or the Camera tab is closed.
+
 The selected camera tile has a cyan outline and a gold ring at the exact preview position, including when using **Snap camera** without walking. A readout on the map shows tile X/Z, player height, zone, matrix chunk and coordinates within that chunk. **Locate on map** opens an overhead view centered on the marker; **Return to camera** resumes the snapped view and restores walking when it was active. The marker remains visible in free view until another map is loaded or the Camera tab is closed.
+
+The preview evaluates steady-state camera positions; it does not run camera scripts, rails, entry/exit transitions or movement history. Unsupported region shapes, calculation functions and boundary types cannot be previewed. One authored stationary pose on Route 19 was compared numerically with the emulator's native camera position, with less than 0.34 world units of position error. This limited check does not establish pixel-accurate screen framing. Default presets and native boundary files are read-only in this version.
+
+Region edits use normal project autosave and ROM export. Unknown record bytes and unsupported shapes are retained. Shared native members are isolated on edit. Camera overlays and the preview player are excluded from map GLB exports.
+
+Regions can be created on any owning W2 zone header, including maps without an original camera binding. The first save on an unbound zone expands the camera archive to provide a slot per zone and replaces a verified 48-byte ARM9 lookup routine. Original archive members retain their indices and contents; existing bindings are copied into the new slots. This removes the original 32-member lookup limit without appending ARM9 data or relocating memory. Empty slots retain the game's existing camera fallback, including rail handling; deleting the last region restores that fallback. Native zone substitutions still apply. Only recognized US White 2 executable layouts can be modified; unsupported layouts fail before saving.
+
+## White 2 camera regions and coordinate preview
+
+The **Map camera · White 2** panel supports US White 2 with the verified native camera lookup layout. Other games show an unsupported message. An unassigned matrix cell needs an owning header before its camera can be edited.
+
+For a first example, load **Zone 427: Aspertia City**, enable **Show camera regions**, select a region and choose **Frame region**. **Select / move / resize region** lets you drag inside the rectangle to move it or drag a gold corner to resize it. **Draw rectangle** creates a new region. Releasing the pointer saves the edit; Escape cancels the active drag. Shift-drag still pans. Numeric bounds and start/end camera settings save with **Apply region**. Undo/redo covers camera edits during the current map session. Higher priority moves a region earlier in the native list; the first containing region wins.
+
+Bounds use global matrix tile coordinates: 32 tiles per chunk and 16 world units per tile. Regions test X/Z independently of player height. **Region overlay height** only positions the editor overlay; it does not change the ROM. North-to-south interpolation requires a width of at least two tiles because a native width word of one selects horizontal interpolation. West-to-east regions may be one tile wide.
+
+Choose **Pick camera coordinate**, click terrain, then **Snap camera**. Alternatively enter tile X/Z and player height in world units. The preview combines the header's default preset, the first matching rectangular region and supported rectangular camera bounds, with a 4:3 viewport. Terrain picking estimates height from visible geometry; correct it manually for bridges, caves or overlapping surfaces. Enable **Neighboring scenery** when the view needs surrounding terrain or backdrops. **Free view**, Reset View, Top Down, dragging or scrolling return to normal navigation.
+
+Choose **Walk camera**, then click a terrain tile to snap immediately. Arrow keys move the preview player one tile at a time and recalculate the camera. A male or female player billboard marks the position and facing. **Follow terrain height** chooses the nearest surface to the current height; disable it to use a fixed player height. Click again to move to another visible tile. Escape or **Free view** exits. Walking stays inside the loaded zone and does not enforce collisions, trigger events, use warps or load adjoining zones.
 
 The preview evaluates steady-state camera positions; it does not run camera scripts, rails, entry/exit transitions or movement history. Unsupported region shapes, calculation functions and boundary types cannot be previewed. One authored stationary pose on Route 19 was compared numerically with the emulator's native camera position, with less than 0.34 world units of position error. This limited check does not establish pixel-accurate screen framing. Default presets and native boundary files are read-only in this version.
 
@@ -197,6 +219,7 @@ Map rendering depends on original ROM bytes. Older browser-saved projects may ne
 
 ## Related Pages
 
+- [Native cutscenes](Cutscenes) — preview White 2 sequences and edit cameras, animated object positions, fades and timed commands.
 - [Headers](Headers)
 - [Overworlds](Overworlds)
 - [Encounters](Encounters)

@@ -1605,10 +1605,10 @@
         "size": 48
       },
       "sourceHashes": {
-        "ARM9": "f9cb027e4de3b4388c2ac02ae7e22aee8bf9bd25e9e7325bdf3265fec0370e92",
         "10": "003fdef42c2584b5448ff223360bf2fecb1a2bf6d36ed63a429fd1033779fda7",
         "21": "cbfa569a15e15f56efcc151fdaa1b407434baedc24054316e63ec50ae356705a",
-        "29": "0169b68fe5dabcfc9eb7bd5a96f635c3cc0010227c06ee87fe7407e3a56b4018"
+        "29": "0169b68fe5dabcfc9eb7bd5a96f635c3cc0010227c06ee87fe7407e3a56b4018",
+        "ARM9": "f9cb027e4de3b4388c2ac02ae7e22aee8bf9bd25e9e7325bdf3265fec0370e92"
       },
       "nativeGraphicsFingerprint": "51a00fbe",
       "sha256": "2d561f1ed9d0f213538df7fc9a1467d71b47e4f6e9509032e267a90f56c0938c",
@@ -2738,10 +2738,10 @@
         "size": 48
       },
       "sourceHashes": {
-        "ARM9": "2d36e7e501fee340e6af419492fb6e0648b8d75e872c718b450c2526dd1a681e",
         "10": "232353df8f9865a141bd81a254526d503b1e27e27cdea13460353e279bc01b51",
         "21": "6e7f676a1ce931eae1d76de6978a081944f65dfa54f546e2914c52b43cf92ff4",
-        "29": "544234a977f528dbbad0c7ea735a6ee59f71800a5db503a86eb31505b3bed6cc"
+        "29": "544234a977f528dbbad0c7ea735a6ee59f71800a5db503a86eb31505b3bed6cc",
+        "ARM9": "2d36e7e501fee340e6af419492fb6e0648b8d75e872c718b450c2526dd1a681e"
       },
       "nativeGraphicsFingerprint": "51a00fbe",
       "sha256": "d67c6328efd3bcd065db64ec21764467d10ce2b068289e0cbc9e5762b9d2bd91",

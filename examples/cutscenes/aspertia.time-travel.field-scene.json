@@ -1,0 +1,67 @@
+{
+  "format": "pokeweb.field-scene",
+  "version": 1,
+  "target": "W2-US",
+  "fps": 30,
+  "id": "aspertia.time-travel.field-tour",
+  "name": "Aspertia lookout · live summer to autumn",
+  "zoneId": 427,
+  "entry": {
+    "tileX": 35,
+    "tileZ": 709,
+    "facing": "up"
+  },
+  "returnCamera": "entry",
+  "environment": {
+    "sourceSeason": "summer",
+    "targetSeason": "autumn",
+    "startFrame": 60,
+    "endFrame": 660,
+    "dayCycles": 8,
+    "ambientSpeed": 4,
+    "retainSeason": true
+  },
+  "steps": [
+    {
+      "id": "lookout",
+      "type": "camera.move",
+      "durationFrames": 1,
+      "target": [
+        568,
+        144,
+        11352
+      ],
+      "pitch": 35.936279296875,
+      "yaw": 0,
+      "distance": 223
+    },
+    {
+      "id": "zoom-out",
+      "type": "camera.move",
+      "durationFrames": 89,
+      "target": [
+        568,
+        144,
+        11352
+      ],
+      "pitch": 35.936279296875,
+      "yaw": 0,
+      "distance": 323.35
+    },
+    {
+      "id": "passing-days",
+      "type": "wait",
+      "durationFrames": 570
+    },
+    {
+      "id": "autumn-hold",
+      "type": "wait",
+      "durationFrames": 30
+    },
+    {
+      "id": "handoff",
+      "type": "control.return",
+      "durationFrames": 60
+    }
+  ]
+}

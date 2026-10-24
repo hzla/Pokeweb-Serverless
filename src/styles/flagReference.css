@@ -1,0 +1,26 @@
+.flag-reference { max-width: 1320px; margin: 28px auto; padding: 0 24px; color: #f1f1f1; }
+.flag-reference header { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+.flag-reference h1 { font-size: 28px; margin: 0; }
+.flag-reference h1 small { display: block; font-size: 14px; color: #a6b5c9; font-weight: normal; margin-top: 8px; }
+.flag-reference input[type=search] { min-width: 300px; flex: 1; max-width: 460px; background: #202631; border: 1px solid #63718a; border-radius: 6px; padding: 12px; color: #f1f1f1; font: inherit; }
+.flag-reference nav { display: flex; gap: 6px; flex-wrap: wrap; margin: 24px 0 18px; }
+.flag-reference nav button { background: #2c3442; border: 1px solid #46505e; border-radius: 5px; padding: 9px 13px; color: #f1f1f1; font: inherit; cursor: pointer; }
+.flag-reference nav button[aria-selected=true] { background: #65508d; border-color: #bd93f9; }
+.flag-reference button:focus-visible { outline: 2px solid #8be9fd; outline-offset: 2px; }
+.flag-filters { display: flex; gap: 24px; justify-content: space-between; flex-wrap: wrap; }
+.flag-reference .flag-note, .flag-reference footer { color: #a6b5c9; font-size: 13px; line-height: 1.6; }
+.flag-reference footer { margin: 24px 0; }
+.flag-reference table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+.flag-reference td, .flag-reference th { padding: 12px; border-bottom: 1px solid #46505e; text-align: left; vertical-align: top; }
+.flag-reference th { color: #a6b5c9; font-size: 13px; }
+.flag-reference td:first-child { width: 110px; white-space: nowrap; }
+.flag-reference td:last-child { width: 28%; }
+.flag-reference td small, .flag-reference td code { display: block; color: #a6b5c9; margin-top: 5px; font-size: 12px; }
+.flag-reference .flag-id { border: 0; background: transparent; color: #8be9fd; font: 15px monospace; padding: 0; cursor: copy; }
+.flag-reference summary { cursor: pointer; }
+.flag-reference .flag-family { background: #202631; border: 1px solid #46505e; border-radius: 6px; padding: 14px; margin: 12px 0; }
+.flag-reference .flag-badges { padding: 12px 18px; background: #202631; border-radius: 6px; }
+.flag-reference .flag-badges h2 { font-size: 20px; }
+.flag-reference .flag-badges p { color: #a6b5c9; line-height: 1.5; }
+.flag-reference li { margin: 5px 0; font-size: 12px; }
+@media(max-width:700px) { .flag-reference { padding: 0 12px; } .flag-reference input[type=search] { min-width: 0; width: 100%; } #flag-results { overflow-x: auto; } .flag-reference table { min-width: 600px; } }

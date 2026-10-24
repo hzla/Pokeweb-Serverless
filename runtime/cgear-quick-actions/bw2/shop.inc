@@ -6,6 +6,9 @@ struct ShopWork {
     u8 *config, *script, *menu, *messages;
     void *menuText, *process, *native, *stock, *counts;
     u32 selection, priceIndex, pendingCost, pendingItem, pendingQuantity, failed;
+    void* gameData; // Borrowed from the parent field; valid for this event.
+    u8 visibleRows[45];
+    u16 visibleCount;
     void* icon;
     u8* iconArt;
     u32 iconChar, iconPalette;
@@ -28,6 +31,61 @@ u8* shopRecord() {
     return activeShop && activeShop->selection && activeShop->selection <= activeShop->count
                ? activeShop->config + 32 + (activeShop->selection - 1) * ShopRecordSize
                : nullptr;
+}
+// Row condition = flag * 18 + minimumBadges * 2 + clearBit.
+// Retail badge ownership lives in trainer data, separately from event flags.
+u32 shopConditionFlag(u32 encoded) {
+    // ARM946 has no division instruction. Bounded binary division avoids a
+    // new libgcc dependency and always takes twelve iterations.
+    u32 flag = 0;
+    for (u32 bit = 2048; bit; bit >>= 1) {
+        if (encoded >= bit * 18) {
+            encoded -= bit * 18;
+            flag |= bit;
+        }
+    }
+    return flag;
+}
+bool shopRowAvailable(ShopWork* work, u8* row) {
+    u32 encoded = at<u16>(row, 2), flag = shopConditionFlag(encoded);
+    u32 badges = (encoded - flag * 18) >> 1;
+    if (flag > 0xbf3 || (!flag && (encoded & 1)))
+        return false;
+    if (badges) {
+        void* trainer = api<void* (*)(void*)>(CG_GET_TRAINER_DATA)(work->gameData);
+        u32 owned = 0;
+        for (u32 i = 0; i < 8; ++i)
+            owned += api<u32 (*)(void*, u32)>(CG_HAS_BADGE)(trainer, i) != 0;
+        if (owned < badges)
+            return false;
+    }
+    if (flag) {
+        void* flags = api<void* (*)(void*)>(CG_GET_FLAG_WORK)(work->gameData);
+        bool set = api<u32 (*)(void*, u16)>(CG_GET_SAVE_FLAG)(flags, flag) != 0;
+        if (set == bool(encoded & 1))
+            return false;
+    }
+    return true;
+}
+u32 shopVisibleRows(ShopWork* work, u32 selection, u8* rows = nullptr) {
+    if (!selection || selection > work->count)
+        return 0;
+    u8* record = work->config + 32 + (selection - 1) * ShopRecordSize;
+    u32 count = 0;
+    for (u32 i = 0; i < at<u16>(record, 4); ++i) {
+        if (!shopRowAvailable(work, record + 64 + i * 8))
+            continue;
+        if (rows)
+            rows[count] = i;
+        ++count;
+    }
+    return count;
+}
+// A skipped command still owns its operands. Leaving the VM at those operands
+// would execute them as opcodes. Only our checked picker reaches these helpers.
+int shopSkipOperands(void* vm, u32 bytes) {
+    at<u8*>(vm, 32) += bytes;
+    return 0;
 }
 bool customShop(void* request) {
     return shopRecord() && activeShop->native == request;
@@ -61,9 +119,22 @@ bool shopLoad(ShopWork* work) {
     if (ok) {
         auto* h = work->config;
         work->count = at<u16>(h, 8);
-        ok = at<u32>(h, 0) == 0x50485353 && at<u16>(h, 4) == 1 && at<u16>(h, 6) == ShopRecordSize &&
+        ok = at<u32>(h, 0) == 0x50485353 && (at<u16>(h, 4) == 1 || at<u16>(h, 4) == 2) && at<u16>(h, 6) == ShopRecordSize &&
              work->count <= 16 && size == 32 + work->count * ShopRecordSize &&
              at<u32>(h, 16) == size && fingerprint(h + 32, size - 32) == at<u32>(h, 12);
+    }
+    if (ok) {
+        for (u32 i = 0; i < work->count && ok; ++i) {
+            u8* record = work->config + 32 + i * ShopRecordSize;
+            u32 count = at<u16>(record, 4);
+            ok = count > 0 && count <= 45;
+            for (u32 n = 0; n < count && ok; ++n) {
+                u32 encoded = at<u16>(record, 66 + n * 8);
+                u32 flag = shopConditionFlag(encoded);
+                ok = flag <= 0xbf3 && (flag || !(encoded & 1)) &&
+                     (at<u16>(work->config, 4) == 2 || !encoded);
+            }
+        }
     }
     if (ok) {
         work->script = shopRead(arc, 2, work->heap, 1024, &size);
@@ -137,6 +208,7 @@ void* shopLaunch(Subscreen* subscreen) {
     clear(work, sizeof(*work));
     work->iconChar = work->iconPalette = INVALID;
     work->heap = subscreen->heap;
+    work->gameData = game(subscreen);
     at<void*>(event, 4) = reinterpret_cast<void*>(shopEvent);
     at<void*>(event, 12) = work;
     at<void*>(event, 16) = system(subscreen);
@@ -154,6 +226,13 @@ int shopChoiceAdd(void* vm, void* runtime) {
         at<u32>(menu, 16) = 1; // Menu cleanup now owns this text object.
         activeShop->menuText = nullptr;
     }
+    if (ownedShopScript(runtime)) {
+        u32 selection = at<u16>(at<void*>(vm, 32), 4);
+        // Keep stable native menu values while omitting shops with no stock.
+        if (selection && selection <= activeShop->count &&
+            !shopVisibleRows(activeShop, selection))
+            return shopSkipOperands(vm, 6);
+    }
     return ov<int (*)(void*, void*)>(CG_NATIVE_CHOICE_ADD)(vm, runtime);
 }
 int shopBuyCommand(void* vm, void* runtime) {
@@ -165,24 +244,34 @@ int shopBuyCommand(void* vm, void* runtime) {
     *ov<u16* (*)(void*, u32)>(CG_SCRIPT_WORK)(work->process, 0x802c) = 0;
     work->selection = *ov<u16* (*)(void*, u32)>(CG_SCRIPT_WORK)(work->process, 0x802a);
     if (work->selection > work->count)
-        return 0;
+        return shopSkipOperands(vm, 4);
     if (u8* record = shopRecord()) {
-        u32 count = at<u16>(record, 4);
-        if (!count || count > 45 || !shopCapacity(work->heap))
-            return 0;
+        work->visibleCount = shopVisibleRows(work, work->selection, work->visibleRows);
+        u32 count = work->visibleCount;
+        if (!count) {
+            // Conditions may have changed since building the picker. Reopen it
+            // rather than constructing a native shop with an empty stock list.
+            work->selection = 0;
+            work->menuText = api<void* (*)(void*, u32)>(CG_TEXT_FROM_BUFFER)(work->menu, 4);
+            *ov<u16* (*)(void*, u32)>(CG_SCRIPT_WORK)(work->process, 0x802c) =
+                work->menuText ? 1 : 0;
+            return shopSkipOperands(vm, 4);
+        }
+        if (!shopCapacity(work->heap))
+            return shopSkipOperands(vm, 4);
         void* arc = archive(work->heap, "rom:/system-shops/shops.narc");
         u32 size = 0;
         if (arc)
             work->messages = shopRead(arc, 3 + work->selection, work->heap, 16384, &size);
         closeArchive(arc);
         if (!work->messages || fingerprint(work->messages, size) != at<u32>(record, 56))
-            return 0;
+            return shopSkipOperands(vm, 4);
         work->stock = api<void* (*)(u32, u32, u32)>(CG_HEAP_ALLOCATE)(work->heap, count * 2, 1);
         work->counts = api<void* (*)(u32, u32, u32)>(CG_HEAP_ALLOCATE)(work->heap, 6, 1);
         if (!work->stock || !work->counts)
-            return 0;
+            return shopSkipOperands(vm, 4);
         for (u32 i = 0; i < count; ++i)
-            at<u16>(work->stock, i * 2) = at<u16>(record, 64 + i * 8);
+            at<u16>(work->stock, i * 2) = at<u16>(record, 64 + work->visibleRows[i] * 8);
         for (u32 i = 0; i < 6; ++i)
             at<u8>(work->counts, i) = count;
     }
@@ -203,8 +292,8 @@ void* shopStockFile(u32 archiveId, u32 member, u32 heap) {
 }
 u32 shopPrice(void* itemData) {
     u8* record = shopRecord();
-    if (record && activeShop->native && activeShop->priceIndex < at<u16>(record, 4))
-        return at<u32>(record, 68 + activeShop->priceIndex++ * 8);
+    if (record && activeShop->native && activeShop->priceIndex < activeShop->visibleCount)
+        return at<u32>(record, 68 + activeShop->visibleRows[activeShop->priceIndex++] * 8);
     return api<u32 (*)(void*)>(CG_ITEM_PRICE)(itemData);
 }
 void* shopMessageBank(u32 mode, u32 archiveId, u32 member, u32 heap) {
@@ -293,6 +382,7 @@ int shopTick(void* sys, void* request, u32 shopId, u32 mode) {
         work->messages = nullptr;
         work->stock = work->counts = nullptr;
         work->selection = work->priceIndex = work->pendingCost = 0;
+        work->visibleCount = 0;
         work->pendingItem = work->pendingQuantity = work->failed = 0;
         work->menuText = api<void* (*)(void*, u32)>(CG_TEXT_FROM_BUFFER)(work->menu, 4);
         *ov<u16* (*)(void*, u32)>(CG_SCRIPT_WORK)(work->process, 0x802c) =

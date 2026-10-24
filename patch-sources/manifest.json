@@ -6812,11 +6812,11 @@
       "artifacts": [
         {
           "name": "CGearQuickActionsB2.dll",
-          "sha256": "e58e0f086a9e2723e970bb2134edd3c51117a780d77bd995b4d0797b327fc051"
+          "sha256": "361443a8c0990644d448b66615925070b8cf9373a93fdce3f2cc397179b381bb"
         },
         {
           "name": "CGearQuickActionsW2.dll",
-          "sha256": "6684889ef2d98fbb2948861e59444048a9e1172d46c6994471729deefd2082e2"
+          "sha256": "2020b233565fcd11319b0dfbc72b17fb458115d0601df5037d1583f2f34cd88b"
         },
         {
           "name": "CGearQuickActionsB.dll",
@@ -6827,7 +6827,7 @@
           "sha256": "d67c6328efd3bcd065db64ec21764467d10ce2b068289e0cbc9e5762b9d2bd91"
         }
       ],
-      "note": "BW2 0.5.5 adds the optional System Shop picker, native Pokémart, separate custom shop definitions, per-item prices, stackable-item currencies, native TM rendering and a currency icon/balance panel. BW1 remains 0.1.3-bw1 without System Shop. Both retain HM02-gated native Fly without a learned-move requirement. BW2 retains the outer-rim 12-degree skin dial and moving marker while hiding the digital clock and chevron decal; shared geometry and compiled graphics are inventoried here. It retains the optional Nuzlocke snapshot provider to the Pokenav application action; its shared viewer sources are inventoried separately. Source availability does not establish historical binary reproducibility or hardware acceptance.",
+      "note": "BW2 0.5.7 includes the optional System Shop picker, native Pokémart, custom inventories/prices, stackable-item currencies, native TM rendering, currency balance icon and optional per-item badge/save-flag conditions. Inventory defaults remain unrestricted, and visible stock/prices share a stable row map. BW1 remains 0.1.3-bw1 without System Shop. Both retain HM02-gated native Fly without a learned-move requirement. BW2 retains the outer-rim 12-degree skin dial and moving marker while hiding the digital clock and chevron decal; shared geometry and compiled graphics are inventoried here. It retains the optional Nuzlocke snapshot provider to the Pokenav application action; its shared viewer sources are inventoried separately. Bundle hashes/versions are tested together. Source availability does not establish hardware acceptance.",
       "status": "source-available",
       "files": [
         {
@@ -6867,7 +6867,7 @@
             "path": "runtime/cgear-quick-actions/build.py"
           },
           "kind": "build-tool",
-          "sha256": "f1e80febed475c832b01e2e9fab1fa40ee521af34055e206f25016db58595da6",
+          "sha256": "19393a3235e5dc25f9a36a162e06961bef9f3752308ded0b52563a65a419ef88",
           "normalized": false
         },
         {
@@ -6977,7 +6977,7 @@
             "path": "runtime/cgear-quick-actions/previous.json"
           },
           "kind": "metadata",
-          "sha256": "368879c9d93ef0f87e82c541ade84548ed221f9a71d2dcfa9fa2d0278c3b001e",
+          "sha256": "a7bb9616621a35d00be4dd1582d71fb38025222877772fa0e7059635832aca76",
           "normalized": false
         },
         {
@@ -7017,7 +7017,7 @@
             "path": "runtime/cgear-quick-actions/README.md"
           },
           "kind": "documentation",
-          "sha256": "1e2e90ff15c7c3b88f005c68dc5a026dc077a033b764b6be19ecccda844e9832",
+          "sha256": "8e838ad3c4bcf606162639e06345194d53d2abaafbe4cda8da20397827690980",
           "normalized": false
         },
         {
@@ -7047,7 +7047,7 @@
             "path": "runtime/cgear-quick-actions/SYSTEM-SHOPS.md"
           },
           "kind": "documentation",
-          "sha256": "659d58c970da2e64984d8d5f60e209fe2173ac8f10fba3702941cca15fc5006d",
+          "sha256": "153806aaaf2fa0ea95e358b1208520af509a9751170af097935347978ade19fd",
           "normalized": false
         },
         {
@@ -7067,7 +7067,7 @@
             "path": "runtime/cgear-quick-actions/verify.py"
           },
           "kind": "test",
-          "sha256": "9a3d7321382b622888da9411a0b914f42ef41c7966c2a2a44ec5d6504a82147e",
+          "sha256": "eee305615dd6031dff781daf6b2174862e7e24d988f1c177acb90dda33359ad7",
           "normalized": false
         },
         {
@@ -7147,7 +7147,7 @@
             "path": "runtime/cgear-quick-actions/bw2/shop.inc"
           },
           "kind": "source",
-          "sha256": "89a00f536d15280d13b20582ddfe6605bccdae60a98df819b1dea88140ff5cce",
+          "sha256": "fea0bbff32665631ade4198f5a979af5709e6473db081c6a262794f39ed5bd7c",
           "normalized": false
         },
         {
@@ -7197,7 +7197,7 @@
             "path": "docs/cgear-buttons/index.html"
           },
           "kind": "documentation",
-          "sha256": "1bd18bd498fe27f30fc71fc93ea91734bb16d38a6c917c6414f57f5c355fc31d",
+          "sha256": "471cada68b7d18b2fc62e97adae57e55176ce524534785e7c6a8af87ab623c89",
           "normalized": false
         },
         {
@@ -7377,7 +7377,7 @@
             "path": "src/test/cgearQuickActionsModel.test.ts"
           },
           "kind": "test",
-          "sha256": "118fcc66e0f157fb895d88f15e2e039dde1afaa25d6ea2f6cf7b780caaf069ff",
+          "sha256": "6c8f7d5dd8c71ce7229459812e1d898afa743106ea551d0ec7b6f40512322a53",
           "normalized": false
         },
         {
@@ -7397,7 +7397,7 @@
             "path": "src/pokeweb/cgearQuickActionsModel.ts"
           },
           "kind": "support-only",
-          "sha256": "ab4a8f22e9ac473061ed02e3c8a2373a774abc3d07aa3bc2cff43f95cc04d470",
+          "sha256": "0e020e7d5c439dce720df42df29f603f5f37a50d6c83703351e6cd3a1d5708cb",
           "normalized": false
         },
         {
@@ -7417,7 +7417,7 @@
             "path": "scripts/generate-system-shop-bindings.ts"
           },
           "kind": "build-tool",
-          "sha256": "296ffb8a436ad48f9610db6a93930e19a0444d3d9f1234301d0c204492e0c7dd",
+          "sha256": "6151d558d9deeddba52f6a3736103169882ed37bbb9bcfa5c0a4d76016a93d46",
           "normalized": false
         },
         {
@@ -7437,7 +7437,7 @@
             "path": "src/systemShops/compiler.ts"
           },
           "kind": "support-only",
-          "sha256": "a4755987b5553fc190b6d4c62fea717b5a3c01624f37142695f7421975c464d7",
+          "sha256": "9e1c2bef16405d8b5d3ce19e0499e628118786067dfb379b32189c0061c29552",
           "normalized": false
         },
         {
@@ -7447,7 +7447,7 @@
             "path": "src/systemShops/document.ts"
           },
           "kind": "support-only",
-          "sha256": "75253529f0e751d4be1875f9cf83ff1d00d28395b37e211326b9bf6594842857",
+          "sha256": "ba6c7b2a9840717c538d118abe60f8df2bb01fe12727150a24f6ae58ce48be70",
           "normalized": false
         },
         {
@@ -7477,7 +7477,7 @@
             "path": "src/ui/systemShopsEditor.ts"
           },
           "kind": "support-only",
-          "sha256": "9ae6cd0e887e3b791c415a876c6a949af23e729acf7f3810e510adc508de7536",
+          "sha256": "38c5c2516e24336796642813f2381c0d43e1206aae5fde583d1dd507b3c9dc12",
           "normalized": false
         },
         {
@@ -7497,7 +7497,7 @@
             "path": "src/styles/systemShops.css"
           },
           "kind": "support-only",
-          "sha256": "9ace14f047e0443179b8d882bd90c6eeb3e75528c29b946186ccaba124ef1955",
+          "sha256": "260a887fcb7002528afde2e9c586c43cc6bdfe14042ee2d070f80b80af8882e7",
           "normalized": false
         },
         {
@@ -7507,7 +7507,27 @@
             "path": "src/test/systemShops.test.ts"
           },
           "kind": "test",
-          "sha256": "136772ccadcc203bdd93dadae751c2171ee997a4c49d859338b5dada15f096be",
+          "sha256": "be2a390f1c78e422bb1267d10052f9f50a73ffcdc39fb47829919e5499ab4832",
+          "normalized": false
+        },
+        {
+          "path": "cgear-quick-actions/tests/cgearBundle.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/cgearBundle.test.ts"
+          },
+          "kind": "test",
+          "sha256": "d5fc285026adff55301ff440b242ff34a2a958af7112aa902eb9d3d607762e76",
+          "normalized": false
+        },
+        {
+          "path": "cgear-quick-actions/tests/verify-cgear-quick-actions-install.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "scripts/verify-cgear-quick-actions-install.ts"
+          },
+          "kind": "test",
+          "sha256": "cab23ec660c485f643eb33f1f1505453f20337400432dc47c5dcf2cd04c8d387",
           "normalized": false
         },
         {
@@ -7517,7 +7537,7 @@
             "path": "src/assets/codeinjection/cgearQuickActionsManifest.json"
           },
           "kind": "metadata",
-          "sha256": "2fddb80c8161e48d6ec6eae850aa379b2b3a831a114a89808a8afe49be74e9c4",
+          "sha256": "b680268ce86514f52ebd996e1a23d94e0f6339acd6551a4f0bfd642d686c6ced",
           "normalized": false
         }
       ]
@@ -7895,6 +7915,546 @@
           },
           "kind": "metadata",
           "sha256": "72d76d03ff1d9bcb67ae61ef6c1477343317c6eb1f2f417ef7b6966b3417cbc3",
+          "normalized": false
+        }
+      ]
+    },
+    {
+      "name": "field-environment",
+      "title": "White 2 live field environment and tree growth",
+      "artifacts": [
+        {
+          "name": "cutscenes/field-environment-runtime.json",
+          "sha256": "7fba6cef2bfd8453b5555e7507ca067e772c486ec2e3d68a14c8166fe27c4e95"
+        }
+      ],
+      "note": "Original Aspertia field adapter, serialized seasonal clocks and shared-material tree growth. Native transfer and camera dispatch redirects exist only while the field module is loaded. Emulator evidence and hardware acceptance are separate.",
+      "status": "source-available",
+      "files": [
+        {
+          "path": "field-environment/build.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/field-environment/build.py"
+          },
+          "kind": "build-tool",
+          "sha256": "405ab65e75f269aa9a6731eb041d84a2a334073819e5698aff774a6e260d55fa",
+          "normalized": false
+        },
+        {
+          "path": "field-environment/environment.c",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/field-environment/environment.c"
+          },
+          "kind": "source",
+          "sha256": "76a69571a6843b98d2f2a6c602ea8baf9e1272923dc6a8e75af08ec2816c160b",
+          "normalized": false
+        },
+        {
+          "path": "field-environment/runtime-notes.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/field-environment/README.md"
+          },
+          "kind": "documentation",
+          "sha256": "b4f42057b28bc2e56fb243fa96b0ce831225912a9675ab1c27eb62f839ccd05a",
+          "normalized": false
+        },
+        {
+          "path": "field-environment/integration/fieldEnvironmentRuntime.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/fieldEnvironmentRuntime.ts"
+          },
+          "kind": "source",
+          "sha256": "7443343196b59abb3fa5642d3ddb14834af0d5e3fed8c2c18ec07f9c5b314f08",
+          "normalized": false
+        },
+        {
+          "path": "field-environment/integration/fieldEnvironmentAssets.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/fieldEnvironmentAssets.ts"
+          },
+          "kind": "source",
+          "sha256": "9d33215544e23c9f6af55f9068ce2a29c38d331c5f3bdff568608d78a009988f",
+          "normalized": false
+        },
+        {
+          "path": "field-environment/integration/fieldEnvironmentClock.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/fieldEnvironmentClock.ts"
+          },
+          "kind": "source",
+          "sha256": "43e276ce89050064c03e480a4285b69d0915048c5ef7b9eb8b03592cd80ff006",
+          "normalized": false
+        },
+        {
+          "path": "field-environment/integration/fieldTreeGrowth.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/fieldTreeGrowth.ts"
+          },
+          "kind": "source",
+          "sha256": "1f814ca8182b4167d6235281fc26f8ddc7af6e049a83587927b3a45e79266bee",
+          "normalized": false
+        },
+        {
+          "path": "field-environment/integration/fieldScene.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/fieldScene.ts"
+          },
+          "kind": "source",
+          "sha256": "7bda2750f747fdd386f74178b00ae0764993d72ab5fe7fc7537ff017e672cdd8",
+          "normalized": false
+        },
+        {
+          "path": "field-environment/integration/fieldSceneNpcs.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/fieldSceneNpcs.ts"
+          },
+          "kind": "source",
+          "sha256": "0abec2e1260e990c626f3f9dd2b5703ecc2dc94cb7585b0ce6c11e4f47deafbf",
+          "normalized": false
+        },
+        {
+          "path": "field-environment/integration/fieldSceneDialogue.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/fieldSceneDialogue.ts"
+          },
+          "kind": "source",
+          "sha256": "a823331febeab74c0c47d26b42c046d71fe655bfc360b133693de0e28f3d1a8e",
+          "normalized": false
+        },
+        {
+          "path": "field-environment/integration/fieldSceneTest.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/fieldSceneTest.ts"
+          },
+          "kind": "source",
+          "sha256": "9647c9d92a4a3d885db46c7ddacf8bd348017bc7de1e16ef7d93076416b3e14e",
+          "normalized": false
+        },
+        {
+          "path": "field-environment/tests/fieldSceneEffects.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/fieldSceneEffects.test.ts"
+          },
+          "kind": "test",
+          "sha256": "e7e61cc9f71660885327df8936375002198f0873cc12a8aecc6cd1c47a514c89",
+          "normalized": false
+        },
+        {
+          "path": "field-environment/tests/fieldEnvironment.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/fieldEnvironment.test.ts"
+          },
+          "kind": "test",
+          "sha256": "f82c5b426271efab81949ecaaf77dfa9df456dc8fe4fcf82dac862db427aa293",
+          "normalized": false
+        },
+        {
+          "path": "field-environment/tests/fieldEnvironmentClock.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/fieldEnvironmentClock.test.ts"
+          },
+          "kind": "test",
+          "sha256": "e925791f51145def1a0ccaf326be2de7f8ff8cebf124c64b9a330a76061996a0",
+          "normalized": false
+        },
+        {
+          "path": "field-environment/tests/fieldSceneDialogue.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/fieldSceneDialogue.test.ts"
+          },
+          "kind": "test",
+          "sha256": "5394535d968f607b24a16d100adea20269ff58e4c6638227b3e2e9d038189f81",
+          "normalized": false
+        },
+        {
+          "path": "field-environment/tests/verify-field-tour-melonds.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "scripts/verify-field-tour-melonds.py"
+          },
+          "kind": "test",
+          "sha256": "0dd128620671f666b9296a745cb51dfe57a54965b257ee6b56ead0c3790b7088",
+          "normalized": false
+        },
+        {
+          "path": "field-environment/documentation/field-scenes.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "docs/cutscenes/field-scenes.md"
+          },
+          "kind": "documentation",
+          "sha256": "3737644f4fa28c2ccee55f4c5908ccb1007863356e0e3e60fd82fdde1e0395c8",
+          "normalized": false
+        }
+      ]
+    },
+    {
+      "name": "field-season",
+      "title": "White 2 saved seasonal override",
+      "artifacts": [
+        {
+          "name": "cutscenes/FieldSeasonW2.dll",
+          "sha256": "834bf39e3f5ac6d43b1cd45213ee719caded8b4256036825619f432dc6710a7c"
+        },
+        {
+          "name": "cutscenes/field-season-runtime.json",
+          "sha256": "231120ae6d5b10e2f17bb4eb5d9c1f7faffe3b98e117d40c34bd6138042a3867"
+        }
+      ],
+      "note": "Original resident calendar hook using reserved saved work 0x41AE. It preserves the native Save menu and applies a chosen season after a cold restart; it does not advance the RTC.",
+      "status": "source-available",
+      "files": [
+        {
+          "path": "field-season/build.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/field-season/build.py"
+          },
+          "kind": "build-tool",
+          "sha256": "16657415be35ff988f5ba5f2d6ce92442db8d99313a8a0d93df5bb03c45c6032",
+          "normalized": false
+        },
+        {
+          "path": "field-season/calendar.cpp",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/field-season/calendar.cpp"
+          },
+          "kind": "source",
+          "sha256": "ec987d04589553c6d6dda95ad9911963c44831728c7ab1c017f9b5627aa2a865",
+          "normalized": false
+        },
+        {
+          "path": "field-season/runtime-notes.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/field-season/README.md"
+          },
+          "kind": "documentation",
+          "sha256": "492d96bc68be5e5a463b1864bf4e287882983a63e07e8a444f3cc151971159cb",
+          "normalized": false
+        },
+        {
+          "path": "field-season/integration/fieldSeasonPersistence.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/fieldSeasonPersistence.ts"
+          },
+          "kind": "source",
+          "sha256": "407b60013e2ca11abe44b3ab8a226d3a6699a4306c7fd77e89c476a15fc71bb1",
+          "normalized": false
+        }
+      ]
+    },
+    {
+      "name": "trainer-field-conditions",
+      "title": "Trainer battle field conditions",
+      "artifacts": [
+        {
+          "name": "TrainerFieldConditionsB2.dll",
+          "sha256": "f479ef41690acff664412783f4c498f80ddb95133754b32e884d2effec5f217e"
+        },
+        {
+          "name": "TrainerFieldConditionsW2.dll",
+          "sha256": "534b98af613fdcea731b27e155e50b5fa2b98f1ff058f2d4844c5e8a3f5698b8"
+        }
+      ],
+      "note": "Original US revision-0 Black 2 / White 2 PMC runtimes, version 0.1.1. Opening animations are followed by native condition messages; exact 0.1.0 modules can update without losing authored settings. Permanent native conditions are set once before entry abilities; explicit removal and replacement use native battle handling. BW1 and other regions/revisions remain unavailable. Native binding audits, CPU and ROM roundtrip checks accompany DLL-hashed DS singles receipts in both games covering all 30 opening animation/message pairs, ten-turn persistence, Brick Break removal and Drought replacement; other formats have CPU checks. The Black 2 gameplay input included an existing C-Gear add-on; no separate clean Black 2 gameplay run is claimed.",
+      "status": "source-available",
+      "files": [
+        {
+          "path": "trainer-field-conditions/audit.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/trainer-field-conditions/audit.py"
+          },
+          "kind": "build-tool",
+          "sha256": "a0caa91af7345d837e7e531a9d52e1fc0b7aa5f2d9f8eb7c65d8f52b4eba8a85",
+          "normalized": false
+        },
+        {
+          "path": "trainer-field-conditions/build.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/trainer-field-conditions/build.py"
+          },
+          "kind": "build-tool",
+          "sha256": "7cf7359359e74487f68236537f2c470ea4d9e8f0ba6f8c36211f40c59c1c03e3",
+          "normalized": false
+        },
+        {
+          "path": "trainer-field-conditions/drought-fixture.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/trainer-field-conditions/drought-fixture.json"
+          },
+          "kind": "metadata",
+          "sha256": "f7e50bd410af4a08819abafeb4bf0cf75be17b4606b1ecf6927b87ba56a869e9",
+          "normalized": false
+        },
+        {
+          "path": "trainer-field-conditions/emulator-fixture.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/trainer-field-conditions/emulator-fixture.json"
+          },
+          "kind": "metadata",
+          "sha256": "dbca5947aa1e6b85d59f1ed81b448803c26027129cbbfb89c691cff2edae9174",
+          "normalized": false
+        },
+        {
+          "path": "trainer-field-conditions/emulator.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/trainer-field-conditions/emulator.py"
+          },
+          "kind": "build-tool",
+          "sha256": "cb66c8ac99292ff3b539f302f4d9db01611c9894addc851047484d0f0b60b548",
+          "normalized": false
+        },
+        {
+          "path": "trainer-field-conditions/fixture.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/trainer-field-conditions/fixture.py"
+          },
+          "kind": "build-tool",
+          "sha256": "1c593df24f1c8170b7192c5f1f45a31b2cb9a6ba671928bb2385ca2ac834a326",
+          "normalized": false
+        },
+        {
+          "path": "trainer-field-conditions/fixture.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/trainer-field-conditions/fixture.ts"
+          },
+          "kind": "build-tool",
+          "sha256": "d5e4a8de0aa13e4746dc55b91b013766be49ab7bda33b8f1342f760d46d24f25",
+          "normalized": false
+        },
+        {
+          "path": "trainer-field-conditions/hook.s",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/trainer-field-conditions/hook.s"
+          },
+          "kind": "source",
+          "sha256": "12f6bf1c7706e3d428b0a89bcb9513f0917c7336bd4fc237e3646d9409d88b9c",
+          "normalized": false
+        },
+        {
+          "path": "trainer-field-conditions/inspect.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/trainer-field-conditions/inspect.ts"
+          },
+          "kind": "build-tool",
+          "sha256": "769decc9006e18362ad63847c1ebe5947224008ba6d6fc4a13a130b762b61a75",
+          "normalized": false
+        },
+        {
+          "path": "trainer-field-conditions/profiles.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/trainer-field-conditions/profiles.py"
+          },
+          "kind": "build-tool",
+          "sha256": "e00aa1b0e4a2c99ce0f0cf1e5674f4c0afbed4539b437c3103565346b7380c0e",
+          "normalized": false
+        },
+        {
+          "path": "trainer-field-conditions/runtime-notes.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/trainer-field-conditions/README.md"
+          },
+          "kind": "documentation",
+          "sha256": "701e33aec44863b149c27003f747135080f5be76136ad2d3bdacb79ad5df3042",
+          "normalized": false
+        },
+        {
+          "path": "trainer-field-conditions/runtime.cpp",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/trainer-field-conditions/runtime.cpp"
+          },
+          "kind": "source",
+          "sha256": "2ef375539a0e4fd9d391dae7d348b089add43dcd827d2bd13799f0b7391de602",
+          "normalized": false
+        },
+        {
+          "path": "trainer-field-conditions/verification.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/trainer-field-conditions/verification.json"
+          },
+          "kind": "metadata",
+          "sha256": "e032115b0cad1d8b355de60b97efb4698581ae89b14f8ccf32975b4d1a7481af",
+          "normalized": false
+        },
+        {
+          "path": "trainer-field-conditions/verify.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/trainer-field-conditions/verify.py"
+          },
+          "kind": "test",
+          "sha256": "932d0d3770c085bee919bae0e342c670bf04869c19c37c304672112702c22d6c",
+          "normalized": false
+        },
+        {
+          "path": "trainer-field-conditions/integration/trainerFieldConditionsModel.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/trainerFieldConditionsModel.ts"
+          },
+          "kind": "source",
+          "sha256": "bdf442257439cb115a0d073d4d43136736a9005dc7f4e60f7821b360f6be6b27",
+          "normalized": false
+        },
+        {
+          "path": "trainer-field-conditions/integration/trainerFieldConditions.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/ui/trainerFieldConditions.ts"
+          },
+          "kind": "source",
+          "sha256": "bd63c8e2ea3a0938fe696d40d786e541d7304f57a94f956ff070911d78835722",
+          "normalized": false
+        },
+        {
+          "path": "trainer-field-conditions/integration/trainerEditor.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/ui/trainerEditor.ts"
+          },
+          "kind": "support-only",
+          "sha256": "fe08179b5716a1fd40b6375cd6911463b24985cda402e60f7e0e7c404a4ea1ab",
+          "normalized": false
+        },
+        {
+          "path": "trainer-field-conditions/integration/trainerModel.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/trainerModel.ts"
+          },
+          "kind": "support-only",
+          "sha256": "577b4340f0eb43a19273ddd0632661688a81b6726311aa3aa6e17ababc5d0ef3",
+          "normalized": false
+        },
+        {
+          "path": "trainer-field-conditions/integration/codeInjectionEditor.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/ui/codeInjectionEditor.ts"
+          },
+          "kind": "support-only",
+          "sha256": "8cc051ec7ef3ac71da89cbffa87c46a76a655f8b49ebadffa88efc8dc82e1355",
+          "normalized": false
+        },
+        {
+          "path": "trainer-field-conditions/tests/trainerFieldConditions.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/trainerFieldConditions.test.ts"
+          },
+          "kind": "test",
+          "sha256": "01839b86128b2689c5c229cdb57cf780b01c6f23ce4f9eaa3025f30d2d4bc947",
+          "normalized": false
+        },
+        {
+          "path": "trainer-field-conditions/tests/trainerModel.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/trainerModel.test.ts"
+          },
+          "kind": "test",
+          "sha256": "9656d9cc84f6dbbbc1c9e8f2ddaa01d05e6c07ec997d40fd933d5313303d8e25",
+          "normalized": false
+        },
+        {
+          "path": "trainer-field-conditions/tests/verify-trainer-field-conditions.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "scripts/verify-trainer-field-conditions.ts"
+          },
+          "kind": "test",
+          "sha256": "d1c67e6364f694ba4dfb7149ac1250d4321bc12cd12e53c822a872d450862c9c",
+          "normalized": false
+        },
+        {
+          "path": "trainer-field-conditions/metadata/trainerFieldConditionsManifest.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/assets/codeinjection/trainerFieldConditionsManifest.json"
+          },
+          "kind": "metadata",
+          "sha256": "a3a44eb07ea729ad9b93241ac083d3083b377cb572857e5affb5cc722cf9db8d",
+          "normalized": false
+        },
+        {
+          "path": "trainer-field-conditions/metadata/trainerFieldConditionsB2Manifest.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/assets/codeinjection/trainerFieldConditionsB2Manifest.json"
+          },
+          "kind": "metadata",
+          "sha256": "c0575c2b66a74b03a9b38e9c8f7856df72d009d20189d0caed5d854ebd8ce5d0",
+          "normalized": false
+        },
+        {
+          "path": "trainer-field-conditions/metadata/trainerFieldConditionsPrevious.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/assets/codeinjection/trainerFieldConditionsPrevious.json"
+          },
+          "kind": "metadata",
+          "sha256": "01b27ad9e86ed50ef69a19eefb8696763a3b05882210be842c730f171fb3b64a",
+          "normalized": false
+        },
+        {
+          "path": "trainer-field-conditions/tests/battle-harness/boot.c",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-harness/boot.c"
+          },
+          "kind": "support-only",
+          "sha256": "4059695f4811b2629b6224fd6b7772eeee9d3518cb7a1415f63b694214d79e2b",
+          "normalized": false
+        },
+        {
+          "path": "trainer-field-conditions/tests/battle-harness/boot.s",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-harness/boot.s"
+          },
+          "kind": "support-only",
+          "sha256": "d2d808b434c3b4aead834c3deabd59584947be4c6aacedf714af7cd27c6d7a87",
+          "normalized": false
+        },
+        {
+          "path": "trainer-field-conditions/tests/battle-harness/symbols.yml",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-harness/symbols.yml"
+          },
+          "kind": "support-only",
+          "sha256": "2628e6b555ab4e3456c28fc56f0e4a4b059d06274831de6cf580c5dd8f795d4e",
           "normalized": false
         }
       ]

@@ -1,0 +1,176 @@
+{
+  "format": "pokeweb.cutscene",
+  "version": 1,
+  "id": "aspertia.custom-pan",
+  "name": "Aspertia custom camera study",
+  "target": "W2-US",
+  "backend": "native-sequence",
+  "fps": 30,
+  "frameCount": 1000,
+  "stage": {
+    "kind": "native-template",
+    "sequenceId": 5
+  },
+  "anchors": {
+    "camera-start": {
+      "space": "scene",
+      "position": [
+        -17,
+        31,
+        -20
+      ]
+    },
+    "camera-east": {
+      "space": "scene",
+      "position": [
+        -13,
+        31,
+        -20
+      ]
+    },
+    "camera-overlook": {
+      "space": "scene",
+      "position": [
+        -9.56982421875,
+        32.805419921875,
+        51.271240234375
+      ]
+    }
+  },
+  "actors": [],
+  "camera": [
+    {
+      "id": "opening-hold",
+      "name": "Hold the opening composition",
+      "startFrame": 0,
+      "endFrame": 120,
+      "transition": "cut",
+      "from": {
+        "position": "camera-start",
+        "rotationDegrees": [
+          -15.789794921875,
+          0,
+          0
+        ]
+      },
+      "to": {
+        "position": "camera-start",
+        "rotationDegrees": [
+          -15.789794921875,
+          0,
+          0
+        ]
+      },
+      "easing": "hold"
+    },
+    {
+      "id": "east-pan",
+      "name": "Move four scene units along positive X",
+      "startFrame": 120,
+      "endFrame": 360,
+      "transition": "continuous",
+      "from": {
+        "position": "camera-start",
+        "rotationDegrees": [
+          -15.789794921875,
+          0,
+          0
+        ]
+      },
+      "to": {
+        "position": "camera-east",
+        "rotationDegrees": [
+          -15.789794921875,
+          0,
+          0
+        ]
+      },
+      "easing": "smoothstep"
+    },
+    {
+      "id": "overlook",
+      "name": "Move to the overlook composition",
+      "startFrame": 360,
+      "endFrame": 900,
+      "transition": "continuous",
+      "from": {
+        "position": "camera-east",
+        "rotationDegrees": [
+          -15.789794921875,
+          0,
+          0
+        ]
+      },
+      "to": {
+        "position": "camera-overlook",
+        "rotationDegrees": [
+          -47.89892578125,
+          0,
+          0
+        ]
+      },
+      "easing": "smoothstep"
+    },
+    {
+      "id": "ending-hold",
+      "name": "Hold for the closing fade",
+      "startFrame": 900,
+      "endFrame": 1000,
+      "transition": "continuous",
+      "from": {
+        "position": "camera-overlook",
+        "rotationDegrees": [
+          -47.89892578125,
+          0,
+          0
+        ]
+      },
+      "to": {
+        "position": "camera-overlook",
+        "rotationDegrees": [
+          -47.89892578125,
+          0,
+          0
+        ]
+      },
+      "easing": "hold"
+    }
+  ],
+  "actions": [],
+  "events": [
+    {
+      "id": "fade-in",
+      "type": "screen.fade",
+      "frame": 0,
+      "screens": "both",
+      "durationFrames": 30,
+      "from": "white",
+      "to": "clear"
+    },
+    {
+      "id": "music",
+      "type": "music.play",
+      "frame": 0,
+      "assetKey": "music.aspertia-intro"
+    },
+    {
+      "id": "fade-out",
+      "type": "screen.fade",
+      "frame": 940,
+      "screens": "both",
+      "durationFrames": 60,
+      "from": "clear",
+      "to": "black"
+    }
+  ],
+  "exit": {
+    "restoreCamera": true,
+    "restoreMusic": true,
+    "restorePlayerControl": true,
+    "actors": "restore"
+  },
+  "trigger": {
+    "kind": "manual"
+  },
+  "notes": "Draft contract example, not currently importable or exportable. The compiler should clone template resources with copy-on-write ownership and replace its event timeline with these events. Empty actors means inherit template objects and animations. The east-pan is a scene-space translation, not a verified map-east movement. Resolve music.aspertia-intro against the project catalog (native sequence 5 currently uses music ID 1102)."
+}

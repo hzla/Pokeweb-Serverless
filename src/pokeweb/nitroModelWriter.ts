@@ -40,7 +40,7 @@ function fixed16(value: number, fractionalBits: number, label: string): number {
  * One shape per existing material lets us reuse the native name-search trees exactly.
  * No SDK executable or SDK implementation is bundled with this writer.
  */
-export function writeStaticNitroModel(template: Uint8Array, editedMeshes: StaticModelMesh[]): Uint8Array {
+export function writeStaticNitroModel(template: Uint8Array, editedMeshes: StaticModelMesh[], options?:{coordinateScale?:number;onVertex?(mesh:StaticModelMesh,index:number,byteOffset:number,scale:number):void}): Uint8Array {
   requireValue(readAscii(template, 0, 4) === "BMD0", "The selected asset is not an NSBMD model.");
   const resources = readNitroResources(template);
   requireValue(resources.models.length === 1, "This first importer supports single-model buildings only.");
@@ -135,14 +135,16 @@ export function writeStaticNitroModel(template: Uint8Array, editedMeshes: Static
   const submittedVertices = faces.flat().reduce((n, face) => n + face.length, 0);
   const quadCount = faces.flat().filter(face => face.length === 4).length;
   requireValue(polygons <= 2048 && submittedVertices <= 6144, "This model exceeds the DS geometry limit (2,048 polygons / 6,144 submitted vertices after quad reconstruction). Reduce its geometry.");
-  const scale = powerScale(maxCoordinate);
+  const scale = options?.coordinateScale??powerScale(maxCoordinate);
+  requireValue(Number.isInteger(Math.log2(scale))&&scale>=powerScale(maxCoordinate),'Invalid static vertex scale.');
   requireValue(scale <= 4096, "The building is too large for this static converter.");
   const materialBytes = original.slice(matOffset, shpOffset);
   const shapeDict = writeDictionary(materials.map((_m, i) => ({ name: `pw_shape_${i}`, data: new Uint8Array(4) })), 4);
   const displayLists: Uint8Array[] = [];
+  const vertexLinks:Array<{mesh:StaticModelMesh;index:number;material:number;offset:number}>=[];
   const shapeFlags: number[] = [];
   for (const [materialId, material] of materials.entries()) {
-    const commands: { opcode: number; params: number[] }[] = [];
+    const commands: { opcode: number; params: number[];vertex?:{mesh:StaticModelMesh;index:number} }[] = [];
     const emit = (opcode: number, ...params: number[]) => commands.push({ opcode, params });
     let mode: number | undefined;
     let flags = 0;
@@ -167,6 +169,7 @@ export function writeStaticNitroModel(template: Uint8Array, editedMeshes: Static
         }
         const p = [0, 1, 2].map(a => fixed16(mesh.positions[index * 3 + a] / scale, 12, "Vertex"));
         emit(0x23, (p[0] | (p[1] << 16)) >>> 0, p[2]);
+        commands.at(-1)!.vertex={mesh,index};
       }
     }
     if (mode !== undefined) emit(0x41);
@@ -174,7 +177,7 @@ export function writeStaticNitroModel(template: Uint8Array, editedMeshes: Static
     for (let i = 0; i < commands.length; i += 4) {
       const group = commands.slice(i, i + 4);
       words.push(group.reduce((word, c, j) => word | (c.opcode << (j * 8)), 0));
-      for (const command of group) words.push(...command.params);
+      for (const command of group){if(command.vertex)vertexLinks.push({...command.vertex,material:materialId,offset:words.length*4});words.push(...command.params);}
     }
     const bytes = new Uint8Array(words.length * 4);
     words.forEach((word, i) => writeU32(bytes, i * 4, word));
@@ -231,5 +234,6 @@ export function writeStaticNitroModel(template: Uint8Array, editedMeshes: Static
   result.set(template.subarray(0, 16)); writeU32(result, 8, result.length); writeU16(result, 12, 16);
   let offset = headerSize;
   blocks.forEach((block, i) => { writeU32(result, 16 + i * 4, offset); result.set(block, offset); offset += align4(block.length); });
+  if(options?.onVertex){const base=readU32(result,16+mdlIndex*4)+8+modelDict.length+newShapeOffset+shapeDict.length+shapeHeaders.length;const offsets:number[]=[];let at=base;for(const list of displayLists){offsets.push(at);at+=list.length;}for(const link of vertexLinks)options.onVertex(link.mesh,link.index,offsets[link.material]+link.offset,scale);}
   return result;
 }

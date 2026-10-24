@@ -11,9 +11,10 @@ import { getTmEntries, tmFieldItemId } from "../pokeweb/tmModel";
 import {
   MAX_SHOPS,
   MAX_STOCK,
+  MAX_SAVE_FLAG,
   newShop,
 } from "../systemShops/document";
-import { canUseCurrency, validate } from "../systemShops/compiler";
+import { canUseCurrency, validate, validCondition } from "../systemShops/compiler";
 import { escapeHtml as esc } from "./dom";
 
 export async function renderSystemShopsEditor(
@@ -81,12 +82,12 @@ export async function renderSystemShopsEditor(
                 .join(
                   "",
                 )}</select></label><button class="ss-delete" id="ss-delete-shop">× Delete Shop</button></div>
-        <table><thead><tr><th>Item</th><th>Cost</th><th></th></tr></thead><tbody>${shop.inventory.map((row, i) => `<tr><td><input data-ss-item="${i}" list="ss-item-options" value="${esc(labels.get(row.item) ?? String(row.item))}" aria-label="Inventory item ${i + 1}"></td><td><input data-ss-cost="${i}" type="number" min="1" max="${shop.currency ? 999 : 9999999}" step="1" value="${row.cost}" aria-label="Cost ${i + 1}"></td><td><button class="ss-delete" data-ss-remove="${i}" aria-label="Remove item ${i + 1}">×</button></td></tr>`).join("")}</tbody></table>
+        <table><thead><tr><th>Item</th><th>Cost</th><th>Min. badges</th><th>Save flag</th><th></th></tr></thead><tbody>${shop.inventory.map((row, i) => `<tr><td><input data-ss-item="${i}" list="ss-item-options" value="${esc(labels.get(row.item) ?? String(row.item))}" aria-label="Inventory item ${i + 1}"></td><td><input data-ss-cost="${i}" type="number" min="1" max="${shop.currency ? 999 : 9999999}" step="1" value="${row.cost}" aria-label="Cost ${i + 1}"></td><td><select data-ss-badges="${i}" aria-label="Minimum badges ${i + 1}">${Array.from({length:9},(_,n)=>`<option value="${n}" ${(row.condition?.badges ?? 0) === n ? "selected" : ""}>${n === 0 ? "None" : n}</option>`).join("")}</select></td><td><div class="ss-flag"><input data-ss-flag="${i}" value="${row.condition?.flag ? esc(Number.isInteger(row.condition.flag.id) ? `0x${row.condition.flag.id.toString(16).toUpperCase()}` : "") : ""}" placeholder="None" aria-label="Save flag ${i + 1}" spellcheck="false"><select data-ss-flag-state="${i}" aria-label="Flag condition ${i + 1}" ${row.condition?.flag ? "" : "disabled"}><option value="set" ${row.condition?.flag?.state !== "clear" ? "selected" : ""}>Set</option><option value="clear" ${row.condition?.flag?.state === "clear" ? "selected" : ""}>Clear</option></select></div></td><td><button class="ss-delete" data-ss-remove="${i}" aria-label="Remove item ${i + 1}">×</button></td></tr>`).join("")}</tbody></table>
         <button class="ss-add" id="ss-add-item" ${shop.inventory.length >= MAX_STOCK ? "disabled" : ""}>+ Add Item</button><span class="ss-count">${shop.inventory.length} / ${MAX_STOCK} items</span>
         <datalist id="ss-item-options">${[...labels.values()].map((label) => `<option value="${esc(label)}"></option>`).join("")}</datalist>`
             : "<h2>Custom inventory</h2>"
         }
-        ${errors.length ? `<ul class="ss-errors">${errors.map((error) => `<li>${esc(error)}</li>`).join("")}</ul>` : ""}</article></div></fieldset>
+        <div class="ss-validation">${errors.length ? `<ul class="ss-errors">${errors.map((error) => `<li>${esc(error)}</li>`).join("")}</ul>` : ""}</div></article></div></fieldset>
         </section>`;
       root.querySelectorAll<HTMLButtonElement>("[data-shop]").forEach(
         (button) =>
@@ -145,6 +146,50 @@ export async function renderSystemShopsEditor(
               changed();
             }),
         );
+        function pruneCondition(index: number) {
+          const row = shop!.inventory[index];
+          if (!row.condition?.badges && !row.condition?.flag) delete row.condition;
+        }
+        root.querySelectorAll<HTMLSelectElement>("[data-ss-badges]").forEach(input => {
+          input.onchange = () => {
+            const index = Number(input.dataset.ssBadges), row = shop.inventory[index];
+            (row.condition ??= {}).badges = Number(input.value);
+            pruneCondition(index);
+            changed();
+          };
+        });
+        root.querySelectorAll<HTMLInputElement>("[data-ss-flag]").forEach(input => {
+          const updateFlag = () => {
+            const index = Number(input.dataset.ssFlag), row = shop.inventory[index];
+            if (input.value.trim()) {
+              (row.condition ??= {}).flag = { id: Number(input.value), state: row.condition?.flag?.state ?? "set" };
+            } else if (row.condition) delete row.condition.flag;
+            pruneCondition(index);
+          };
+          input.oninput = () => {
+            updateFlag();
+            // Keep focus while typing a partial hexadecimal number. The draft
+            // autosaves immediately; compilation still requires a valid flag.
+            const stateSelect = root.querySelector<HTMLSelectElement>(`[data-ss-flag-state="${input.dataset.ssFlag}"]`)!;
+            stateSelect.disabled = !shop.inventory[Number(input.dataset.ssFlag)].condition?.flag;
+            const errors = validate(document, assets);
+            root.querySelector<HTMLButtonElement>(".ss-apply")!.disabled = !!busy || errors.length > 0;
+            root.querySelector(".ss-validation")!.innerHTML = errors.length ? `<ul class="ss-errors">${errors.map(error => `<li>${esc(error)}</li>`).join("")}</ul>` : "";
+            input.setAttribute("aria-invalid", String(!validCondition(shop.inventory[Number(input.dataset.ssFlag)].condition)));
+            message = "";
+            root.querySelector(".ss-status")!.textContent = "Unapplied changes";
+            onDirty();
+          };
+          input.onchange = () => { updateFlag(); changed(); };
+          input.title = `Saved flag: 1–${MAX_SAVE_FLAG} (decimal or hex)`;
+        });
+        root.querySelectorAll<HTMLSelectElement>("[data-ss-flag-state]").forEach(input => {
+          input.onchange = () => {
+            const row = shop.inventory[Number(input.dataset.ssFlagState)];
+            if (row.condition?.flag) row.condition.flag.state = input.value as "set" | "clear";
+            changed();
+          };
+        });
         root.querySelectorAll<HTMLButtonElement>("[data-ss-remove]").forEach(
           (button) =>
             (button.onclick = () => {

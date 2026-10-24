@@ -6,6 +6,15 @@ import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 
 describe("ROM file views", () => {
+  it.each(["copy", "view"] as const)("owns editable sections of Node Buffer inputs in %s mode", fileData => {
+    const source = Buffer.from(makeRom()), before = Buffer.from(source);
+    const rom = new NintendoDSRom(source, { fileData });
+    for (const section of [rom.arm9, rom.arm7, rom.arm9OverlayTable, rom.fntData, rom.banner]) {
+      expect(section.buffer).not.toBe(source.buffer); section.fill(0x77);
+    }
+    if (fileData === "copy") { rom.files[0].fill(0x88); expect(rom.files[0].buffer).not.toBe(source.buffer); }
+    expect(source).toEqual(before);
+  });
   it("keeps file copies as the default for existing mutable callers", () => {
     const source = makeRom();
     const before = source.slice();

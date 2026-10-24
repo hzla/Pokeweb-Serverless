@@ -157,7 +157,11 @@
     "pokenav:verify-rom": "vite-node scripts/verify-pokenav-install.ts",
     "nuzlocke:build": "python3 runtime/nuzlocke-encounters/build.py",
     "nuzlocke:verify": "python3 runtime/nuzlocke-encounters/verify.py",
-    "nuzlocke:verify-rom": "vite-node scripts/verify-nuzlocke-encounters.ts"
+    "nuzlocke:verify-rom": "vite-node scripts/verify-nuzlocke-encounters.ts",
+    "trainerfields:build": "python3 runtime/trainer-field-conditions/build.py",
+    "trainerfields:verify": "python3 runtime/trainer-field-conditions/audit.py && python3 runtime/trainer-field-conditions/verify.py --game W2 && python3 runtime/trainer-field-conditions/verify.py --game B2",
+    "trainerfields:verify-rom": "vite-node scripts/verify-trainer-field-conditions.ts",
+    "trainerfields:emulator": "python3 runtime/trainer-field-conditions/emulator.py"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.2",
