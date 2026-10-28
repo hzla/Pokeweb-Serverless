@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { writeU32 } from "../nds/binary";
+import { writeU16, writeU32 } from "../nds/binary";
 import { classifyBattleBackgroundTextureNames, parseBattleBackgroundVariants } from "../pokeweb/battleBackgroundModel";
 
 function nitro(stamp: string): Uint8Array {
@@ -7,34 +7,27 @@ function nitro(stamp: string): Uint8Array {
 }
 
 describe("battle background catalog", () => {
-  it("resolves White 2's packed resource IDs and deduplicates repeated seasonal models", () => {
-    const table = new Uint8Array(64);
-    table.fill(0xff);
-    writeU32(table, 0, (75 << 16) | 74);
-    writeU32(table, 4, (75 << 16) | 74);
-    writeU32(table, 8, 0xffff0000 | 76);
-    const graphics = Array.from({ length: 77 }, () => nitro("BCA0"));
-    graphics[74] = nitro("BMD0");
-    graphics[75] = nitro("BMD0");
-    graphics[76] = nitro("BMD0");
-
-    expect(parseBattleBackgroundVariants(table, graphics, "IRDO")).toEqual([
-      { tableIndex: 0, seasonIndex: 0, seasonName: "Spring", resourceId: 75, variantCount: 2, shapeKind: "unknown" },
-      { tableIndex: 0, seasonIndex: 2, seasonName: "Autumn", resourceId: 76, variantCount: 2, shapeKind: "unknown" },
+  it("reads four native halfword seasons and ignores the four special variant slots", () => {
+    const table = new Uint8Array(64).fill(0xff);
+    [74, 75, 74, 76, 77, 77, 77, 77].forEach((id, i) => writeU16(table, i * 2, id));
+    const graphics = Array.from({ length: 78 }, () => nitro("BCA0"));
+    for (const id of [74, 75, 76, 77]) graphics[id] = nitro("BMD0");
+    for (const game of ["IRDO", "IREO"]) expect(parseBattleBackgroundVariants(table, graphics, game)).toEqual([
+      { tableIndex: 0, seasonIndex: 0, seasonName: "Spring", resourceId: 74, variantCount: 3, shapeKind: "unknown" },
+      { tableIndex: 0, seasonIndex: 1, seasonName: "Summer", resourceId: 75, variantCount: 3, shapeKind: "unknown" },
+      { tableIndex: 0, seasonIndex: 3, seasonName: "Winter", resourceId: 76, variantCount: 3, shapeKind: "unknown" },
     ]);
   });
 
-  it("chooses the low half of paired model IDs for Black 2", () => {
-    const table = new Uint8Array(64);
-    table.fill(0xff);
-    writeU32(table, 0, (75 << 16) | 74);
-    const graphics = Array.from({ length: 76 }, () => nitro("BCA0"));
-    graphics[74] = nitro("BMD0");
-    graphics[75] = nitro("BMD0");
+  it("does not resolve missing native seasons to graphics member zero", () => {
+    const table = new Uint8Array(64).fill(0xff);
+    expect(parseBattleBackgroundVariants(table, [nitro("BMD0")], "IRDO")).toEqual([]);
+  });
 
-    expect(parseBattleBackgroundVariants(table, graphics, "IREO")).toEqual([
-      { tableIndex: 0, seasonIndex: 0, seasonName: "Spring", resourceId: 74, variantCount: 1, shapeKind: "unknown" },
-    ]);
+  it("retains the existing BW1 packed-resource decoding", () => {
+    const table = new Uint8Array(64).fill(0xff);
+    writeU32(table, 0, (2 << 16) | 1);
+    expect(parseBattleBackgroundVariants(table, [nitro("XXXX"), nitro("BMD0"), nitro("BMD0")], "IRAO")[0].resourceId).toBe(2);
   });
 
   it("classifies the canonical field material family separately from custom scene meshes", () => {

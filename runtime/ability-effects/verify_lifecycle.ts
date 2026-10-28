@@ -1,0 +1,33 @@
+/** Exercise changes and fail-closed validation against the actual exported ROM. */
+import assert from "node:assert/strict";
+import { readFile,writeFile } from "node:fs/promises";
+import { getPokemonSummaryRecord } from "../../src/pokeweb/pokemonModel";
+import { battleRuntimeResolver } from "../../src/pokeweb/battleRuntimeBindings";
+import { NintendoDSRom } from "../../src/nds/rom";
+import { loadProjectFromRomBytes } from "../../src/pokeweb/loader";
+import { clearAbilityRules,configureAbilityRuleSets,createCustomAbility,inspectAbilityEffects,ABILITY_EFFECTS_DLL_PATH } from "../../src/pokeweb/abilityEffectsModel";
+import { parseRpm,writeRpm } from "../../src/pokeweb/rpm";
+import { setRomFileReplacement } from "../../src/pokeweb/fileSystemModel";
+import { exportModifiedRom } from "../../src/pokeweb/exportRom";
+import type { AbilityRuleSet } from "../../src/pokeweb/abilityRules";
+const [directory]=process.argv.slice(2);if(!directory)throw new Error("Usage: EVIDENCE_DIRECTORY");
+globalThis.fetch=(async(request:RequestInfo|URL)=>{const url=new URL(request instanceof Request?request.url:String(request));if(url.protocol!=="file:")throw new Error("Only local bundled assets permitted.");return new Response(new Uint8Array(await readFile(url)));})as typeof fetch;
+const input=new Uint8Array(await readFile(`${directory}/abilities-100.nds`)),load=(b:Uint8Array)=>loadProjectFromRomBytes(b,"ability-lifecycle.nds",{selectedNarcs:["personal","message_texts"]});
+let project=await load(input);const rules=inspectAbilityEffects(project).rules;assert.equal(rules.size,100);
+const rom=new NintendoDSRom(input,{fileData:"view"}),fileId=rom.fileId(ABILITY_EFFECTS_DLL_PATH),rpm=parseRpm(rom.files[fileId],{allowedMagics:["DLXF"]});
+const namesOverlay=rom.loadArm9Overlays([167]).get(167)!,nameLoader=battleRuntimeResolver(namesOverlay.data,namesOverlay.ramAddress,project.arm9,rom.arm9RamAddress).resolve("loadAbilityNameToStrbuf").address;
+const manifest=JSON.parse(await readFile(`${directory}/cases.json`,"utf8"));manifest.nameLoader=nameLoader;await writeFile(`${directory}/cases.json`,JSON.stringify(manifest,null,2)+"\n");
+clearAbilityRules(project,1);clearAbilityRules(project,194);const retained=inspectAbilityEffects(project);assert.equal(retained.rules.size,98);for(const[id,rule]of retained.rules)assert.deepEqual(rule,rules.get(id));
+for(const[name,store]of Object.entries(project.narcs))if(!store?.dirty.size)delete project.narcs[name as keyof typeof project.narcs];
+project=await load(await exportModifiedRom(project,{forDsi:false}));assert.equal(inspectAbilityEffects(project).rules.size,98);assert.equal(project.texts.banks.abilities?.[194],"Slush Rush");
+for(const id of rules.keys())clearAbilityRules(project,id);assert.deepEqual(project.fileSystem?.replacements[fileId],Uint8Array.of(80,87,65,82));
+project=await load(input);rpm.code[0]^=1;setRomFileReplacement(project,fileId,writeRpm(rpm,{ident:"DLXF"}));assert.equal(inspectAbilityEffects(project).editable,false);
+await assert.rejects(configureAbilityRuleSets(project,[{abilityId:165,rules:rules.get(165)!}]),/modified/u);
+project=await load(input);await assert.rejects(createCustomAbility(project,"Overflow"),/255/u);
+const before=project.texts.banks.abilities?.[165];for(const name of ["", "SixteenLettersXXY", "Bad\\nName"]){await assert.rejects(configureAbilityRuleSets(project,[{abilityId:165,name,rules:rules.get(165)!}]));assert.equal(project.texts.banks.abilities?.[165],before);}
+for(const id of [0,256])await assert.rejects(configureAbilityRuleSets(project,[{abilityId:id,rules:rules.get(165)!}]));
+project=await load(input);getPokemonSummaryRecord(project,1);
+await configureAbilityRuleSets(project,[{abilityId:255,name:"BoundaryPrime",rules:rules.get(255)!}]);
+assert.equal(project.narcs.personal!.records.get(1)!.readable!.ability_3,"BoundaryPrime");
+await writeFile(`${directory}/lifecycle.json`,JSON.stringify({initialRules:100,remainingRulesPreserved:98,individualRemoval:true,nativeRestoration:true,removalExportReload:true,lastRuleRetiresDll:true,namesRetained:true,modifiedModuleRejected:true,invalidNamesAtomic:true,ids0And256Rejected:true,limit255Enforced:true,renamingRefreshesPokemon:true},null,2)+"\n");
+console.log("Ability removal, retirement, corruption rejection, name atomicity and 255-ID limit passed.");

@@ -26,7 +26,7 @@ export function decodeBattleModelScene(bytes: Uint8Array, resourceId: number): B
   }
   const warnings: string[] = [];
   const resources = readNitroResources(bytes);
-  const primitives = buildModelPrimitives(resources, warnings, { recoverSkippedPieces: true });
+  const primitives = buildModelPrimitives(resources, warnings, { recoverSkippedPieces: true, nativeTransforms: true });
   const textures = buildNitroTexturePreviews(resources);
   if (primitives.length === 0) throw new Error(`Battle graphics resource ${resourceId} contains no renderable model geometry.`);
   return buildBattleModelScene(

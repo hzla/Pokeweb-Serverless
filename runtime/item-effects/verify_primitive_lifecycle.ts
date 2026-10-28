@@ -1,0 +1,51 @@
+/** Check v4 removal, corruption rejection and v3 migration on actual exports. */
+import assert from "node:assert/strict";
+import { readFile, writeFile } from "node:fs/promises";
+import { NintendoDSRom } from "../../src/nds/rom";
+import { loadProjectFromRomBytes } from "../../src/pokeweb/loader";
+import { assignItemEffect, clearItemRules, configureItemRuleSets, inspectItemEffect, ITEM_EFFECTS_DLL_PATH } from "../../src/pokeweb/itemEffectsModel";
+import { exportModifiedRom } from "../../src/pokeweb/exportRom";
+import { parseRpm, writeRpm } from "../../src/pokeweb/rpm";
+import { setRomFileReplacement } from "../../src/pokeweb/fileSystemModel";
+import type { ItemRuleSet } from "../../src/pokeweb/itemRules";
+const [directory, legacyPath] = process.argv.slice(2);
+if (!legacyPath) throw new Error("Usage: EVIDENCE_DIRECTORY LEGACY_V3.nds");
+globalThis.fetch = (async (request: RequestInfo | URL) => {
+  const url = new URL(request instanceof Request ? request.url : String(request));
+  if (url.protocol !== "file:") throw new Error("Only local bundled assets are permitted.");
+  return new Response(new Uint8Array(await readFile(url)));
+}) as typeof fetch;
+const input = new Uint8Array(await readFile(`${directory}/primitives-100.nds`));
+const load = (bytes: Uint8Array) => loadProjectFromRomBytes(bytes, "primitive-lifecycle.nds", { selectedNarcs: ["items"] });
+const registry = (bytes: Uint8Array) => {
+  const rom = new NintendoDSRom(bytes, { fileData: "view" }), fileId = rom.fileId(ITEM_EFFECTS_DLL_PATH);
+  return { fileId, rpm: parseRpm(rom.files[fileId], { allowedMagics: ["DLXF"] }) };
+};
+let project = await load(input);
+const { fileId, rpm } = registry(input), entries = new Map<number, ItemRuleSet>(JSON.parse(String(rpm.metadata.PokewebItemRules)));
+assert.equal(entries.size, 100); assert.equal(rpm.metadata.PMCVersion, "4.0.0");
+clearItemRules(project, 85); assert.equal(inspectItemEffect(project, 85).rules, undefined);
+assignItemEffect(project, 298, 275); assert.equal(inspectItemEffect(project, 298).profileId, 275);
+for (const [id, rule] of entries) if (![85, 298].includes(id)) assert.deepEqual(inspectItemEffect(project, id).rules, rule);
+for (const name of Object.keys(project.narcs)) delete project.narcs[name as keyof typeof project.narcs];
+const removed = await exportModifiedRom(project, { forDsi: false }); project = await load(removed);
+assert.equal(inspectItemEffect(project, 85).rules, undefined); assert.equal(inspectItemEffect(project, 298).profileId, 275);
+for (const id of entries.keys()) clearItemRules(project, id);
+assert.deepEqual(project.fileSystem?.replacements[fileId], Uint8Array.of(0x50, 0x57, 0x49, 0x52));
+project = await load(input); rpm.code[0] ^= 1;
+setRomFileReplacement(project, fileId, writeRpm(rpm, { ident: "DLXF" }));
+assert.equal(inspectItemEffect(project, 85).editable, false);
+await assert.rejects(configureItemRuleSets(project, [{ itemId: 85, rules: entries.get(85)! }]), /modified/u);
+const legacy = new Uint8Array(await readFile(legacyPath)); project = await load(legacy);
+const previous = registry(legacy).rpm; assert.equal(previous.metadata.PMCVersion, "3.0.0");
+const oldEntries = new Map<number, ItemRuleSet>(JSON.parse(String(previous.metadata.PokewebItemRules)));
+for (const [id, rule] of oldEntries) assert.deepEqual(inspectItemEffect(project, id).rules, rule);
+const changed = { ...oldEntries.get(85)!, effects: [{ kind: "statStage" as const, value: 2, stat: 1, trigger: "entry" as const, target: "holder" as const, chance: 100 }] };
+await configureItemRuleSets(project, [{ itemId: 85, rules: changed }]);
+for (const name of Object.keys(project.narcs)) delete project.narcs[name as keyof typeof project.narcs];
+const migrated = await exportModifiedRom(project, { forDsi: false }); project = await load(migrated);
+assert.equal(registry(migrated).rpm.metadata.PMCVersion, "4.0.0");
+for (const [id, rule] of oldEntries) assert.deepEqual(inspectItemEffect(project, id).rules, id === 85 ? changed : rule);
+await writeFile(`${directory}/lifecycle.json`, JSON.stringify({ editedItems: 100, slotlessRemoval: true, nativeRestoration: true, remainingRulesPreserved: 98, removalExportReload: true,
+  lastRuleRetiresDll: true, modifiedModuleRejected: true, v3Migration: true, migratedRuleCount: oldEntries.size, unchangedLegacyRules: oldEntries.size - 1 }, null, 2) + "\n");
+console.log("V4 lifecycle and 100-rule v3 migration passed.");

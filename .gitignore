@@ -22,6 +22,7 @@ generated/
 work/
 analysis/
 runtime/form-evolution/build/
+runtime/item-effects/build/
 runtime/tag-battle-stabilization/build/
 runtime/double-battle-fix/build/
 runtime/porta-pc/build/
@@ -45,6 +46,8 @@ src/test/local/
 
 # Optional local maintenance, generation, and verification entry points.
 /scripts/*
+!/scripts/generate-item-effect-profiles.py
+!/scripts/verify-item-effects.ts
 !/scripts/verify-following-artwork.ts
 !/scripts/build-following-dewott-artwork-rom.ts
 !/scripts/repair-following-artwork-rom.ts
@@ -69,6 +72,8 @@ src/test/local/
 !/scripts/lib/
 !/scripts/build-battle-harness.ts
 !/scripts/test-battle-harness-headless.py
+!/scripts/verify-battle-environment.ts
+!/scripts/verify-battle-environment-emulator.py
 !/scripts/run-upgrade-battle-tests.py
 !/scripts/compile-bw2-script.ts
 !/scripts/decompile-bw2-script.ts
@@ -168,3 +173,7 @@ runtime/field-season/build/
 !/scripts/verify-skeletal-timeline.ts
 /runtime/trainer-field-conditions/build/
 !/scripts/verify-trainer-field-conditions.ts
+
+/runtime/ability-effects/build/
+
+!/scripts/verify-map-camera-test.ts

@@ -291,7 +291,7 @@ function openEnvironmentDialog(
     const messages = [...validation.errors.map((message) => ({ message, kind: "error" })), ...validation.warnings.map((message) => ({ message, kind: "warning" }))];
     host.innerHTML = messages.length
       ? `<details><summary>${messages.length} validation message${messages.length === 1 ? "" : "s"}</summary>${messages.map(({ message, kind }) => `<p class="-${kind}">${escapeHtml(message)}</p>`).join("")}</details>`
-      : `<span class="-valid">All 17 terrain mappings reference available table entries.</span>`;
+      : `<span class="-valid">All 20 terrain mappings reference available table entries.</span>`;
     return validation;
   };
 

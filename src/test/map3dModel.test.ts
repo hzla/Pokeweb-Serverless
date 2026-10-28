@@ -339,6 +339,44 @@ describe("map3dModel", () => {
     ]);
   });
 
+  it("preserves native battle transform units without changing the shared map coordinate convention", () => {
+    const commands = makeGpuCommands([
+      { opcodes: [0x1b, 0x1c, 0x40, 0x23], params: [fx32(1.5), fx32(1), fx32(2.5), fx32(2), fx32(3), fx32(-1), 0, vtx16(0, 0), 0] },
+      { opcodes: [0x23, 0x23, 0x41, 0], params: [vtx16(1, 0), 0, vtx16(0, 1), 0] },
+    ]);
+    // The model's posScale compresses vertex storage. It is not a divisor for
+    // dimensionless display-list scales or native translations. The node has
+    // already been decoded into the map convention (native translation / 4).
+    const matrix = [1, 0, 0, 2, 0, 1, 0, 1, 0, 0, 1, -3, 0, 0, 0, 1];
+    const resources = { textures: [], palettes: [], models: [{
+      renderOps: [{ kind: "mulObject", object: 0 }, { kind: "scaleUp" }, { kind: "bindMaterial", material: 0 }, { kind: "draw", piece: 0 }],
+      pieces: [{ commands }], materials: [makeTestMaterial("custom_factory")], objects: [{ matrix }], upScale: 4, downScale: .25,
+    }] } as never;
+    const [native] = buildModelPrimitives(resources, [], { nativeTransforms: true });
+    expect(Array.from(native.positions)).toEqual([20, 16, -22, 26, 16, -22, 20, 20, -22]);
+    const [map] = buildModelPrimitives(resources, []);
+    expect(Array.from(map.positions)).toEqual([2.75, 1.75, -3.625, 4.25, 1.75, -3.625, 2.75, 2.75, -3.625]);
+    expect(matrix).toEqual([1, 0, 0, 2, 0, 1, 0, 1, 0, 0, 1, -3, 0, 0, 0, 1]);
+  });
+
+  it("retains native display-list matrices between pieces until an SBC matrix restore", () => {
+    const triangle = makeGpuCommands([
+      { opcodes: [0x40, 0x23, 0x23, 0x23], params: [0, vtx16(0, 0), 0, vtx16(1, 0), 0, vtx16(0, 1), 0] },
+      { opcodes: [0x41, 0, 0, 0], params: [] },
+    ]);
+    const scaleThenTriangle = new Uint8Array(16 + triangle.length);
+    scaleThenTriangle.set([0x1b, 0, 0, 0]);
+    [2, 3, 4].forEach((n, i) => writeU32(scaleThenTriangle, 4 + i * 4, fx32(n)));
+    scaleThenTriangle.set(triangle, 16);
+    const primitives = buildModelPrimitives({ textures: [], palettes: [], models: [{
+      renderOps: [{ kind: "store", stack: 0 }, { kind: "draw", piece: 0 }, { kind: "draw", piece: 1 }, { kind: "load", stack: 0 }, { kind: "draw", piece: 1 }],
+      pieces: [{ commands: scaleThenTriangle }, { commands: triangle }], materials: [makeTestMaterial("factory")], objects: [], upScale: 4, downScale: .25,
+    }] } as never, [], { nativeTransforms: true });
+    expect(Array.from(primitives[0].positions)).toEqual([0, 0, 0, 2, 0, 0, 0, 3, 0]);
+    expect(primitives[1].positions).toEqual(primitives[0].positions);
+    expect(Array.from(primitives[2].positions)).toEqual([0, 0, 0, 1, 0, 0, 0, 1, 0]);
+  });
+
   it("replaces a direct black color when NORMAL resumes lighting, while preserving later direct shadows", () => {
     const commands = makeGpuCommands([
       { opcodes: [0x40, 0x20, 0x23, 0x23], params: [0, 0, vtx16(0, 0), vtx16(0, 0), vtx16(1, 0), vtx16(0, 0)] },

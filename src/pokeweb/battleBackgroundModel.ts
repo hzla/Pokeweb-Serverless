@@ -1,4 +1,4 @@
-import { readAscii, readU32 } from "../nds/binary";
+import { readAscii, readU16, readU32 } from "../nds/binary";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { getRomFileBytes } from "./fileSystemModel";
@@ -48,33 +48,7 @@ export async function loadBattleBackgroundCatalog(project: ProjectState): Promis
   const backgroundRows = table.narc.files[1];
   if (!backgroundRows) throw new Error("The battle-background table does not contain its field-model lookup file.");
   const tableEntryCount = Math.floor(backgroundRows.length / BACKGROUND_TABLE_RECORD_BYTES);
-  const variants: BattleBackgroundVariant[] = [];
-  const shapeByResource = new Map<number, BattleBackgroundShapeKind>();
-
-  for (let tableIndex = 0; tableIndex < tableEntryCount; tableIndex += 1) {
-    const rowOffset = tableIndex * BACKGROUND_TABLE_RECORD_BYTES;
-    const rowVariants: BattleBackgroundVariant[] = [];
-    for (let seasonIndex = 0; seasonIndex < SEASON_NAMES.length; seasonIndex += 1) {
-      const packedId = readU32(backgroundRows, rowOffset + seasonIndex * 4);
-      const resourceId = resolveBattleResourceId(packedId, graphics.files, rom.idCode, "BMD0");
-      if (resourceId === undefined) continue;
-      const shapeKind = shapeByResource.get(resourceId) ?? classifyBattleBackgroundResource(graphics.files[resourceId]);
-      shapeByResource.set(resourceId, shapeKind);
-      rowVariants.push({
-        tableIndex,
-        seasonIndex,
-        seasonName: SEASON_NAMES[seasonIndex],
-        resourceId,
-        variantCount: 0,
-        shapeKind,
-      });
-    }
-    const uniqueVariants = rowVariants.filter(
-      (variant, index) => rowVariants.findIndex((candidate) => candidate.resourceId === variant.resourceId) === index,
-    );
-    for (const variant of uniqueVariants) variant.variantCount = uniqueVariants.length;
-    variants.push(...uniqueVariants);
-  }
+  const variants = parseBattleBackgroundVariants(backgroundRows, graphics.files, rom.idCode);
 
   if (variants.length === 0) throw new Error("No NSBMD field models were referenced by the battle-background table.");
   return {
@@ -112,7 +86,11 @@ export function parseBattleBackgroundVariants(
     const rowOffset = tableIndex * BACKGROUND_TABLE_RECORD_BYTES;
     const rowVariants: BattleBackgroundVariant[] = [];
     for (let seasonIndex = 0; seasonIndex < SEASON_NAMES.length; seasonIndex += 1) {
-      const resourceId = resolveBattleResourceId(readU32(backgroundRows, rowOffset + seasonIndex * 4), graphics.files, idCode, "BMD0");
+      const nativeBw2 = /^IR[DE]/u.test(idCode);
+      const id = readU16(backgroundRows, rowOffset + seasonIndex * 2);
+      const resourceId = nativeBw2
+        ? (id !== 0xffff && isModel(graphics.files[id]) ? id : undefined)
+        : resolveBattleResourceId(readU32(backgroundRows, rowOffset + seasonIndex * 4), graphics.files, idCode, "BMD0");
       if (resourceId === undefined) continue;
       const shapeKind = shapeByResource.get(resourceId) ?? classifyBattleBackgroundResource(graphics.files[resourceId]);
       shapeByResource.set(resourceId, shapeKind);
@@ -137,7 +115,7 @@ export async function loadBattleEnvironmentArchives(project: ProjectState): Prom
 async function loadProjectRom(project: ProjectState): Promise<NintendoDSRom> {
   const bytes = project.originalRomBytes ?? (await loadActiveRomBytes());
   if (!bytes) throw new Error("Reload the ROM before opening Battle Backgrounds.");
-  return new NintendoDSRom(bytes);
+  return new NintendoDSRom(bytes, { fileData: "view" });
 }
 
 function findBattleBackgroundTable(

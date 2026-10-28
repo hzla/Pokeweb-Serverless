@@ -24,6 +24,7 @@ export type BattleEnvironmentZoneSpec = {
   season: boolean;
   backgrounds: number[];
   platforms: number[];
+  reserved?: number[];
 };
 
 export type BattleEnvironmentEditorData = {
@@ -60,6 +61,7 @@ export function parseBattleEnvironmentZoneSpecs(bytes: Uint8Array): BattleEnviro
     rows.push({
       timeZone: bytes[offset] === 1,
       season: bytes[offset + 1] === 1,
+      reserved: Array.from(bytes.subarray(offset + 42, offset + 44)),
       backgrounds: Array.from(bytes.subarray(offset + 2, offset + 2 + BATTLE_ZONE_SPEC_ATTRIBUTE_COUNT)),
       platforms: Array.from(
         bytes.subarray(
@@ -84,6 +86,7 @@ export function serializeBattleEnvironmentZoneSpecs(rows: readonly BattleEnviron
     bytes[offset + 1] = row.season ? 1 : 0;
     bytes.set(row.backgrounds, offset + 2);
     bytes.set(row.platforms, offset + 2 + BATTLE_ZONE_SPEC_ATTRIBUTE_COUNT);
+    bytes.set(row.reserved ?? [0, 0], offset + 42);
   });
   return bytes;
 }
@@ -94,6 +97,7 @@ export function cloneBattleEnvironmentZoneSpec(row: BattleEnvironmentZoneSpec): 
     season: row.season,
     backgrounds: [...row.backgrounds],
     platforms: [...row.platforms],
+    reserved: row.reserved?.slice(),
   };
 }
 
@@ -190,6 +194,7 @@ function commitBattleEnvironmentRows(project: ProjectState, data: BattleEnvironm
 }
 
 function assertZoneSpecShape(row: BattleEnvironmentZoneSpec): void {
+  if (row.reserved && (row.reserved.length !== 2 || row.reserved.some(n => !Number.isInteger(n) || n < 0 || n > 255))) throw new Error("Battle environment reserved values must be two bytes.");
   if (row.backgrounds.length !== BATTLE_ZONE_SPEC_ATTRIBUTE_COUNT || row.platforms.length !== BATTLE_ZONE_SPEC_ATTRIBUTE_COUNT) {
     throw new Error(`Every battle environment type must define ${BATTLE_ZONE_SPEC_ATTRIBUTE_COUNT} background and platform mappings.`);
   }

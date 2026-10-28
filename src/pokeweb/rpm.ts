@@ -553,6 +553,7 @@ function buildStringTable(rpm: RpmModule): { bytes: Uint8Array; offsetOf: (value
     if (!value || offsets.has(value)) return;
     offsets.set(value, cursor);
     const bytes = asciiBytes(value);
+    if (cursor + bytes.length + 1 > 65536) throw new Error("RPM string table exceeds its 16-bit offset limit.");
     parts.push(bytes, Uint8Array.of(0));
     cursor += bytes.length + 1;
   };

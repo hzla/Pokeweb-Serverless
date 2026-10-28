@@ -29,6 +29,8 @@ import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 import { createMap3dBuildingInspector, pickMap3dBuilding } from "./map3dBuildingInspector";
 import type { MapGlbImport } from "../pokeweb/mapGlbImport";
+import { openTestBattleEmulator } from '../pokeweb/testBattleEmulatorLauncher';
+import type { MapCameraTestPosition } from '../pokeweb/mapCameraTest';
 
 const PERMISSION_TILE_SIZE = 16;
 const MAP3D_VIEW_STORAGE_KEY = "pokeweb.maps3d.lastView";
@@ -483,7 +485,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
         if (permissionPaint?.checked) applyPermissionBrush();
       };
       renderSceneData(state, data);
-      state.fieldCamera ??= new Map3dCameraEditor(project, root.querySelector<HTMLElement>("#map3d-camera-inspector")!, state, onDirty);
+      state.fieldCamera ??= new Map3dCameraEditor(project, root.querySelector<HTMLElement>("#map3d-camera-inspector")!, state, onDirty,project.session.baseVersion==='W2'&&project.romInfo.idCode==='IRDO'?testInGame:undefined);
       state.fieldCamera.setActive(sidebarTabs.active === "camera");
       void state.fieldCamera.load(data);
       state.onTextureFrame = refreshTextureControls;
@@ -539,6 +541,22 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     }
     void load(activeZone);
   });
+  async function testInGame(position:MapCameraTestPosition){
+    const data=activeData;
+    if(!data||data.zoneId!==position.zoneId)throw new Error('Reload the map and snap camera again.');
+    if(importing||pendingImport)throw new Error('Apply or cancel the map import before testing.');
+    if(dirtyPermissionEdits.size)throw new Error('Save permission edits before testing.');
+    const emulator=openTestBattleEmulator({mode:'field'});
+    if(exportStatus)exportStatus.textContent='Preparing game test…';
+    try{
+      const {resolveMapCameraTestPosition,buildMapCameraTestDownloads}=await import('../pokeweb/mapCameraTest');
+      const destination=resolveMapCameraTestPosition(data,{x:position.tileX*16+8,y:position.height,z:position.tileZ*16+8},position.facing);
+      const result=await buildMapCameraTestDownloads(project,destination);
+      const name=`${project.session.romName||'White2'}-map-test-${destination.zoneId}-${destination.tileX}-${destination.tileZ}`;
+      await emulator.launch({romName:`${name}.nds`,saveName:`${name}.dsv`,trainerId:0,testLabel:`Zone ${destination.zoneId} · Tile ${destination.tileX}, ${destination.tileZ} — Continue, then press Down`,romBytes:result.romBytes,saveBytes:result.dsvBytes});
+      if(exportStatus&&activeData===data)exportStatus.textContent=`Continue, then press Down → Zone ${destination.zoneId} · Tile ${destination.tileX}, ${destination.tileZ}`;
+    }catch(error){emulator.close();if(exportStatus&&activeData===data)exportStatus.textContent=`Game test failed: ${error instanceof Error?error.message:String(error)}`;throw error;}
+  }
   root.querySelector<HTMLInputElement>("#map3d-show-neighbors")?.addEventListener("change", (event) => {
     includeNeighbors = (event.target as HTMLInputElement).checked;
     void load(activeZone);

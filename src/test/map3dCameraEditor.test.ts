@@ -4,6 +4,7 @@ import { Map3dCameraEditor } from "../ui/map3dCameraEditor";
 import type { FieldCameraDocument } from "../pokeweb/fieldCameraModel";
 import type { Map3dSceneData } from "../pokeweb/map3dModel";
 import type { ProjectState } from "../pokeweb/projectStore";
+import type { MapCameraTestPosition } from '../pokeweb/mapCameraTest';
 
 // Exercise the real camera actions and captured key handlers without a WebGL renderer.
 class Node {
@@ -29,7 +30,7 @@ class Node {
   }
 }
 
-function fixture() {
+function fixture(test?: (position:MapCameraTestPosition)=>Promise<void>) {
   const hud = new Node(); vi.stubGlobal("document", { createElement: () => hud });
   // Form rendering is covered in-browser; keep the fields stable for action/key regression checks.
   vi.spyOn(Map3dCameraEditor.prototype as unknown as { render(): void }, "render").mockImplementation(() => {});
@@ -41,7 +42,7 @@ function fixture() {
   floor.rotation.x = -Math.PI / 2; floor.position.set(768, 0, 11520); terrainGroup.add(floor); scene.add(terrainGroup);
   const state = { scene, terrainGroup, renderer: { domElement: canvas }, camera: new THREE.PerspectiveCamera(),
     target: new THREE.Vector3(), distance: 1400, yaw: 0, pitch: 0.9 } as unknown as ConstructorParameters<typeof Map3dCameraEditor>[2];
-  const editor = new Map3dCameraEditor({} as ProjectState, host as unknown as HTMLElement, state);
+  const editor = new Map3dCameraEditor({} as ProjectState, host as unknown as HTMLElement, state,undefined,test);
   const actions = editor as unknown as { action(name: string): void; doc: FieldCameraDocument; data: Map3dSceneData; player: THREE.Sprite };
   actions.doc = { zoneId: 427, presetId: 0, regions: [], boundaries: [], layout: { kind: "native" }, sharedZones: [], baseline: new Uint8Array(),
     rom: {} as FieldCameraDocument["rom"], preset: {
@@ -55,6 +56,16 @@ function fixture() {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("Snap camera navigation", () => {
+  it('tests the latest snapped tile/facing, prevents duplicate launches, and disables testing in free view',async()=>{
+    let finish!:()=>void;const launch=vi.fn((_position:MapCameraTestPosition)=>new Promise<void>(resolve=>finish=resolve)),f=fixture(launch),button=f.hud.querySelector('[data-camera-test]') as unknown as HTMLButtonElement;
+    f.actions.action('preview');expect(button.disabled).toBe(false);
+    f.canvas.emit('keydown','ArrowRight');f.hud.querySelector('[data-camera-test]').emit('click');
+    expect(launch).toHaveBeenCalledWith(expect.objectContaining({zoneId:427,tileX:49,tileZ:720,facing:'right'}));expect(launch.mock.calls[0][0].height).toBeCloseTo(0);expect(button.disabled).toBe(true);
+    f.hud.querySelector('[data-camera-test]').emit('click');expect(launch).toHaveBeenCalledTimes(1);
+    finish();await Promise.resolve();await Promise.resolve();expect(button.disabled).toBe(false);
+    f.editor.freeView();expect(button.disabled).toBe(true);f.hud.querySelector('[data-camera-test]').emit('click');expect(launch).toHaveBeenCalledTimes(1);
+    f.editor.dispose();
+  });
   it("starts walking, shows the player and focuses the canvas; arrows retain the camera pose without reaching free-view panning", () => {
     const f = fixture(); f.actions.action("preview");
     expect(f.canvas.focus).toHaveBeenCalled(); expect(f.player.visible).toBe(true);

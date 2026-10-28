@@ -23,8 +23,8 @@ describe("battle environment location usage", () => {
     zoneSpecRows[typeThree + 2] = 5;
     zoneSpecRows[typeThree + 3] = 5;
     zoneSpecRows[typeThree + 4] = 7;
-    zoneSpecRows[typeThree + 19] = 6;
-    zoneSpecRows[typeThree + 20] = 8;
+    zoneSpecRows[typeThree + 22] = 6;
+    zoneSpecRows[typeThree + 23] = 8;
     const headers: HeaderCollection = {
       count: 2,
       rows: {

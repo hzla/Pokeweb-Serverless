@@ -423,3 +423,5 @@ body.title-preview #desmond-player { inset: 126px 0 100px; container-type: size;
   body.title-preview #desmond-player { top: 210px; }
   body.title-preview #pokeweb-controls { top: 96px; }
 }
+
+.field-preview #pokeweb-opponent-stats { display:none; }

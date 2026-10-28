@@ -1,3 +1,4 @@
+import { renderAbilityEditor } from "./ui/abilityEditor";
 import "./styles/flagReference.css";
 import { renderFlagReference } from "./ui/flagReference";
 import "./styles/cgearButtons.css";
@@ -87,6 +88,7 @@ import { renderItemEditor, renderMoveAnimationPage, renderMoveEditor } from "./u
 import { renderMoveEffectHandlerEditor } from "./ui/moveEffectHandlerEditor";
 import { renderMoveBackgroundEditor } from "./ui/moveBackgroundEditor";
 import { renderBattleBackgroundEditor } from "./ui/battleBackgroundEditor";
+import { buildBattleEnvironmentTestDownloads, type BattleEnvironmentTestSelection } from "./pokeweb/battleEnvironmentTest";
 import { renderTitleScreenEditor, stopTitleScreenEditor } from "./ui/titleScreenEditor";
 import { renderPokemonEditor } from "./ui/pokemonEditor";
 import { renderPokemonSpriteEditor } from "./ui/pokemonSpriteEditor";
@@ -151,6 +153,7 @@ type AppRoute =
   | "moves"
   | "moveAnimation"
   | "items"
+  | "abilities"
   | "tms"
   | "tutorMoves"
   | "types"
@@ -266,6 +269,7 @@ const APP_ROUTES: AppRoute[] = [
   "moves",
   "moveAnimation",
   "items",
+  "abilities",
   "tms",
   "tutorMoves",
   "types",
@@ -318,6 +322,7 @@ const EDITOR_REQUIREMENTS: Record<
   moves: ["moves"],
   moveAnimation: ["moves"],
   items: ["items"],
+  abilities: ["personal", "message_texts"],
   tms: ["moves"],
   types: [],
   moveEffectHandlers: ["moves"],
@@ -1076,6 +1081,11 @@ function renderApp(): void {
     return;
   }
 
+  if (route === "abilities") {
+    renderAbilityEditor(project, content, () => { dirty = true; scheduleSave(project!); renderDirtyIndicator(); });
+    return;
+  }
+
   if (route === "items") {
     renderItemEditor(project, content, () => {
       dirty = true;
@@ -1153,7 +1163,10 @@ function renderApp(): void {
   }
 
   if (route === "battleBackgrounds") {
-    renderBattleBackgroundEditor(project, content);
+    renderBattleBackgroundEditor(project, content, {
+      onDirty: () => { dirty = true; scheduleSave(project!); renderDirtyIndicator(); },
+      onTest: launchBattleEnvironmentTest,
+    });
     return;
   }
 
@@ -1287,7 +1300,7 @@ function renderNav(): string {
         ${renderHeadersMenu()}
         ${renderMapsMenu()}
         ${project.session.baseRom === "BW2" ? renderWeatherMenu() : ""}
-        ${navItem("pokemon", "Pokemon")}
+        ${renderPokemonMenu()}
         ${navItem("followingPokemon", "Following Pokémon")}
         ${renderTrainersMenu()}
         ${renderEncountersMenu()}
@@ -1326,10 +1339,10 @@ function renderHeadersMenu(): string {
 }
 
 function renderMapsMenu(): string {
-  const active = route === "maps3d" || route === "buildings" || route === "cutscenes" || route === "field-scenes";
+  const active = route === "maps3d" || route === "buildings" || route === "cutscenes" || route === "field-scenes" || route === "battleBackgrounds";
   return `<div class="header-more ${active ? "-active" : ""}">
     <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Maps</button>
-    <div class="header-more-menu">${navItem("maps3d", "Map Editor")}${navItem("buildings", "Buildings")}${canUseLocalRomBridge() ? navItem("cutscenes", "Cutscenes") + navItem("field-scenes", "Field tours") : ""}</div>
+    <div class="header-more-menu">${navItem("maps3d", "Map Editor")}${navItem("buildings", "Buildings")}${navItem("battleBackgrounds", "Battle Backgrounds")}${canUseLocalRomBridge() ? navItem("cutscenes", "Cutscenes") + navItem("field-scenes", "Field tours") : ""}</div>
   </div>`;
 }
 
@@ -1344,7 +1357,6 @@ function renderMoreMenu(): string {
     ["randomizer", "Randomizer"],
     ["starters", "Scripted PKMN"],
     ["types", "Type Chart"],
-    ["battleBackgrounds", "Battle Backgrounds"],
     ["music", "Music"],
     ["changelog", "Changelog"],
     ["patches", "Patches"],
@@ -1352,7 +1364,7 @@ function renderMoreMenu(): string {
     ["cgearButtons", "C-Gear Buttons"],
     ["flagReference", "Flag Reference"],
   ];
-  if (project?.session.baseRom === "BW2") moreRoutes.splice(4, 0, ["titleScreen", "Title Screen"]);
+  if (project?.session.baseRom === "BW2") moreRoutes.splice(3, 0, ["titleScreen", "Title Screen"]);
   const active = moreRoutes.some(([moreRoute]) => route === moreRoute);
   return `
     <div class="header-more ${active ? "-active" : ""}">
@@ -1410,6 +1422,15 @@ function renderEncountersMenu(): string {
       </div>
     </div>
   `;
+}
+
+function renderPokemonMenu(): string {
+  if (project?.session.baseRom !== "BW2") return navItem("pokemon", "Pokemon");
+  const active = route === "pokemon" || route === "abilities";
+  return `<div class="header-more ${active ? "-active" : ""}">
+    <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Pokemon</button>
+    <div class="header-more-menu">${navItem("pokemon", "Pokemon Data")}${navItem("abilities", "Abilities")}</div>
+  </div>`;
 }
 
 function renderItemsMenu(): string {
@@ -1694,6 +1715,23 @@ async function launchTitleScreenPreview(): Promise<void> {
     await scheduleSave.flush(activeProject);
     const romBytes = await exportModifiedRom(activeProject, { preserveOriginalLength: true });
     await emulator.launch({ romName: `${activeProject.session.romName.replace(/\.nds$/i, "")}-title-preview.nds`, romBytes });
+  } catch (error) { emulator.close(); throw error; }
+}
+
+async function launchBattleEnvironmentTest(selection: BattleEnvironmentTestSelection): Promise<void> {
+  if (!project) return;
+  if (!hasExportBase) throw new Error("Reload the ROM before testing a battle environment.");
+  const activeProject = project;
+  const emulator = openTestBattleEmulator();
+  try {
+    await scheduleSave.flush(activeProject);
+    const { romBytes, saveBytes } = await buildBattleEnvironmentTestDownloads(activeProject, selection);
+    const name = `${activeProject.session.romName.replace(/\.nds$/i, "")}-battle-bg-${selection.backgroundIndex}`;
+    await emulator.launch({ romName: `${name}.nds`, saveName: `${name}.dsv`,
+      trainerId: selection.trainerId, opponentTrainerId: selection.trainerId,
+      pokemonNames: activeProject.texts.banks.pokedex?.slice() ?? [],
+      testLabel: `Background ${selection.backgroundIndex} · ${selection.platformIndex === undefined ? "Automatic platform" : `Platform ${selection.platformIndex}`} · Trainer ${selection.trainerId}`,
+      romBytes, saveBytes });
   } catch (error) { emulator.close(); throw error; }
 }
 
@@ -2442,6 +2480,7 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
     const status = getPwanRuntimeStatus(project);
     return Boolean(project.narcs.personal) && status.supported && status.installed;
   }
+  if (nextRoute === "abilities") return project.session.baseRom === "BW2" && Boolean(project.narcs.personal && project.narcs.message_texts);
   if (nextRoute === "types") {
     return (project.session.baseRom === "BW" || project.session.baseRom === "BW2") && Boolean(project.narcs.type_chart || project.overlays[typeChartOverlayId(project)]);
   }

@@ -14,20 +14,21 @@ function zoneSpec(overrides: Partial<BattleEnvironmentZoneSpec> = {}): BattleEnv
   return {
     timeZone: true,
     season: false,
-    backgrounds: Array.from({ length: 17 }, (_unused, index) => index % 3),
-    platforms: Array.from({ length: 17 }, (_unused, index) => (index + 1) % 3),
+    backgrounds: Array.from({ length: 20 }, (_unused, index) => index % 3),
+    platforms: Array.from({ length: 20 }, (_unused, index) => (index + 1) % 3),
+    reserved: [0x30, 0x30],
     ...overrides,
   };
 }
 
 describe("battle environment editor model", () => {
-  it("round-trips the retail 36-byte zone-spec layout and ignores incomplete trailing data", () => {
+  it("round-trips the retail 44-byte zone-spec layout and ignores incomplete trailing data", () => {
     const first = zoneSpec();
     const second = zoneSpec({
       timeZone: false,
       season: true,
-      backgrounds: Array(17).fill(7),
-      platforms: Array(17).fill(9),
+      backgrounds: Array(20).fill(7),
+      platforms: Array(20).fill(9),
     });
 
     const encoded = serializeBattleEnvironmentZoneSpecs([first, second]);
@@ -52,7 +53,7 @@ describe("battle environment editor model", () => {
   });
 
   it("validates table bounds separately from missing renderable models", () => {
-    const valid = zoneSpec({ backgrounds: Array(17).fill(1), platforms: Array(17).fill(2) });
+    const valid = zoneSpec({ backgrounds: Array(20).fill(1), platforms: Array(20).fill(2) });
     const warning = validateBattleEnvironmentZoneSpec(
       valid,
       { tableEntryCount: 3, variants: [] },

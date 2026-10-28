@@ -5,6 +5,7 @@ import { loadMap3dPlayerSprite, type Map3dSceneData, type Map3dNpcSpriteFrames }
 import { CAMERA_WALK_KEYS, cameraWalkStart, cameraWalkTileCenter, cameraWalkStep, type CameraWalkDirection } from "./map3dCameraWalk";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
+import type { MapCameraTestPosition } from '../pokeweb/mapCameraTest';
 
 type CameraView = {
   scene: THREE.Scene; renderer: THREE.WebGLRenderer; camera: THREE.PerspectiveCamera; terrainGroup: THREE.Group;
@@ -47,15 +48,16 @@ export class Map3dCameraEditor {
   private notice = "";
   private disposed = false;
   private listeners = new AbortController();
+  private testing = false;
 
-  constructor(private project: ProjectState, private host: HTMLElement, private state: CameraView, private onDirty?: () => void) {
+  constructor(private project: ProjectState, private host: HTMLElement, private state: CameraView, private onDirty?: () => void, private onTestInGame?: (position:MapCameraTestPosition)=>Promise<void>) {
     state.scene.add(this.overlay);
     this.overlay.name = "editor-camera-regions";
     const canvas = state.renderer.domElement, options = { capture: true, signal: this.listeners.signal };
     this.locationHud.className = "map3d-camera-location";
     this.locationHud.hidden = true;
     this.locationHud.setAttribute("aria-label", "Camera preview position");
-    this.locationHud.innerHTML = `<strong data-camera-location-title></strong><span data-camera-location-coordinates role="status"></span><span data-camera-location-cell></span><span data-camera-location-help></span><button class="ow-tool" type="button">Locate on map</button>`;
+    this.locationHud.innerHTML = `<strong data-camera-location-title></strong><span data-camera-location-coordinates role="status"></span><span data-camera-location-cell></span><span data-camera-location-help></span><button class="ow-tool" type="button">Locate on map</button>${onTestInGame?'<button class="ow-tool" data-camera-test type="button" disabled>Test in game</button>':''}`;
     const toolbar = canvas.closest(".map3d-view")?.querySelector(".map3d-toolbar");
     if (toolbar) toolbar.insertBefore(this.locationHud, toolbar.querySelector(".map3d-controls"));
     else canvas.parentElement?.append(this.locationHud);
@@ -70,6 +72,7 @@ export class Map3dCameraEditor {
         this.preview(); this.render(); canvas.focus({ preventScroll: true });
       }
     }));
+    if(onTestInGame)this.locationHud.querySelector('[data-camera-test]')!.addEventListener('click',()=>{void this.testInGame();});
     canvas.addEventListener("pointerdown", this.pointerDown, options);
     canvas.addEventListener("pointermove", this.pointerMove, options);
     canvas.addEventListener("pointerup", this.pointerUp, options);
@@ -80,6 +83,14 @@ export class Map3dCameraEditor {
   }
 
   freeView(): void { this.leavePreview(); }
+  private async testInGame():Promise<void>{
+    if(!this.onTestInGame||this.testing||!this.active||!this.doc||!this.data||!this.state.cameraPose||!this.pointSelected)return;
+    const token=this.token,position:MapCameraTestPosition={zoneId:this.doc.zoneId,tileX:Math.floor(this.point.x/16),tileZ:Math.floor(this.point.z/16),height:this.point.y,facing:this.facing};
+    this.testing=true;this.updateLocation();
+    try{await this.onTestInGame(position);if(token===this.token&&!this.disposed)this.notice='Continue, then press Down to warp.';}
+    catch(error){if(token===this.token&&!this.disposed)this.notice=error instanceof Error?error.message:String(error);}
+    finally{this.testing=false;if(!this.disposed){this.updateLocation();this.render();}}
+  }
   setActive(active: boolean): void {
     if (this.active === active) return;
     this.active = active;
@@ -419,6 +430,8 @@ export class Map3dCameraEditor {
     ring.rotation.x = -Math.PI / 2; ring.position.set(this.point.x, y + 0.1, this.point.z); ring.renderOrder = 103; this.overlay.add(ring);
   }
   private updateLocation(): void {
+    const test=this.onTestInGame?this.locationHud.querySelector<HTMLButtonElement>('[data-camera-test]'):undefined;
+    if(test){test.disabled=this.testing||!this.active||!this.doc||!this.pointSelected||!this.state.cameraPose;test.textContent=this.testing?'Preparing test…':'Test in game';test.title=this.state.cameraPose?'Continue the bundled save, then press Down.':'Snap camera to select the test destination.';}
     this.locationHud.closest(".map3d-view")?.classList.toggle("map3d-camera-snapped", Boolean(this.active && this.state.cameraPose));
     this.locationHud.hidden = !this.active || !this.doc || !this.pointSelected;
     if (this.locationHud.hidden) return;

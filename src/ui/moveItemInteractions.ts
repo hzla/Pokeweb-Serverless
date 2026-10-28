@@ -44,6 +44,7 @@ import { installMoveAnimationCodeEditor, type MoveAnimationCommandReference } fr
 import { installMoveAnimationDocsPanel, type MoveAnimationDocsPanelController } from "./moveAnimationDocsPanel";
 import { installMoveSpaEditor, type MoveSpaEditorController } from "./moveSpaEditor";
 import { getMoveListFilters } from "./moveListFilters";
+import { installItemEffects, renderItemEffects } from "./itemEffectsEditor";
 
 export type MoveAnimationEditorOptions = {
   onDirty?: () => void;
@@ -1095,12 +1096,15 @@ export function attachItemInteractions(root: HTMLElement, project: ProjectState,
     if (!card.querySelector(".expanded-item")) {
       card.insertAdjacentHTML("beforeend", options.renderExpanded(itemId));
       installItemEditableFields(card, project, options);
+      installItemEffects(card, project, options.onDirty);
     }
     togglePanel(card, ".expanded-item", icon);
+    icon.setAttribute("aria-expanded", String(card.querySelector(".expanded-item")?.classList.contains("show-flex") ?? false));
     stripeRows(root);
   });
 
   installItemEditableFields(root, project, options);
+  installItemEffects(root, project, options.onDirty);
   runFilter();
 }
 
@@ -1197,6 +1201,11 @@ function installItemEditableFields(root: HTMLElement, project: ProjectState, opt
       if (!card || !Number.isInteger(itemId) || !fieldName) return false;
       const result = updateItemField(project, itemId, fieldName, field.textContent?.trim() ?? "");
       field.textContent = String(result.value);
+      if (fieldName === "gain_values") {
+        const native = card.querySelector(".item-native-effects");
+        if (native) { native.outerHTML = renderItemEffects(project, itemId); installItemEffects(card, project, options.onDirty); }
+      }
+      options.onDirty?.();
       return true;
     }, () => initialValue, (value) => {
       initialValue = value;
@@ -1215,6 +1224,7 @@ function installItemEditableFields(root: HTMLElement, project: ProjectState, opt
       if (!card || !Number.isInteger(itemId) || !fieldName || !partKey) return false;
       const result = updateItemPackedField(project, itemId, fieldName, partKey, field.textContent?.trim() ?? "");
       syncItemPackedEditor(card, fieldName, result.rawValue);
+      options.onDirty?.();
       return true;
     }, () => initialValue, (value) => {
       initialValue = value;
@@ -1233,6 +1243,7 @@ function installItemEditableFields(root: HTMLElement, project: ProjectState, opt
       try {
         const result = updateItemPackedField(project, itemId, fieldName, partKey, checkbox.checked);
         syncItemPackedEditor(card, fieldName, result.rawValue);
+        options.onDirty?.();
         checkbox.classList.remove("invalid");
       } catch {
         checkbox.checked = !checkbox.checked;

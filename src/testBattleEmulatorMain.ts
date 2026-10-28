@@ -80,10 +80,11 @@ type TestBattleEmulatorSettings = {
 };
 
 const TITLE_PREVIEW = new URLSearchParams(window.location.search).get("mode") === "title";
+const FIELD_PREVIEW = new URLSearchParams(window.location.search).get("mode") === "field";
 const DESMOND_INITIAL_MEMORY = 1024 * 1024 * 1024;
 const DESMOND_ASSET_VERSION = "test-battle-desmond-2026-09-23-direct-rom";
-const TEST_BATTLE_EMULATOR_SETTINGS_STORAGE_KEY = TITLE_PREVIEW ? "pokeweb.titleEmulator.settings.v1" : "pokeweb.testBattleEmulator.settings.v1";
-const DEFAULT_TEST_BATTLE_SPEED_MULTIPLIER = TITLE_PREVIEW ? 1 : 4;
+const TEST_BATTLE_EMULATOR_SETTINGS_STORAGE_KEY = TITLE_PREVIEW ? "pokeweb.titleEmulator.settings.v1" : FIELD_PREVIEW ? "pokeweb.fieldEmulator.settings.v1" : "pokeweb.testBattleEmulator.settings.v1";
+const DEFAULT_TEST_BATTLE_SPEED_MULTIPLIER = TITLE_PREVIEW || FIELD_PREVIEW ? 1 : 4;
 const MIN_TEST_BATTLE_SPEED_MULTIPLIER = 0.05;
 const MAX_TEST_BATTLE_SPEED_MULTIPLIER = 8;
 const DEFAULT_TEST_BATTLE_AUDIO_VOLUME = 0;
@@ -157,7 +158,8 @@ if (TITLE_PREVIEW) {
   help.textContent = "The game boots normally. Enter = Start. Skip the opening movie to reach the title. Reopen Preview in game after editing assets.";
   document.body.append(help);
 }
-setStatus(TITLE_PREVIEW ? "Waiting for title ROM…" : "Waiting for battle data...");
+if(FIELD_PREVIEW){document.title='Pokeweb Map Test';document.body.classList.add('field-preview');const heading=status?.querySelector('strong');if(heading)heading.textContent='Map test';}
+setStatus(TITLE_PREVIEW ? "Waiting for title ROM…" : FIELD_PREVIEW ? "Waiting for map test…" : "Waiting for battle data...");
 shieldControlsFromEmulatorInput();
 installScreenSizeControl();
 installSpeedControl();
@@ -180,13 +182,13 @@ function installMessageListener(): void {
   });
 
   window.setTimeout(() => {
-    if (!started) setError(TITLE_PREVIEW ? "No title ROM arrived. Close this tab and try Preview in game again." : "No battle data arrived. Close this tab and try Test Battle again.");
+    if (!started) setError(TITLE_PREVIEW ? "No title ROM arrived. Close this tab and try Preview in game again." : FIELD_PREVIEW ? "No map test arrived. Close this tab and try Test in game again." : "No battle data arrived. Close this tab and try Test Battle again.");
   }, 60000);
 }
 
 function startReadyPings(): void {
   if (!window.opener) {
-    setError(TITLE_PREVIEW ? "Open this page from the Title Screen editor’s Preview in game button." : "This page must be opened from the Pokeweb Test Battle button.");
+    setError(TITLE_PREVIEW ? "Open this page from the Title Screen editor’s Preview in game button." : FIELD_PREVIEW ? "Open this page from the map editor’s Test in game button." : "This page must be opened from the Pokeweb Test Battle button.");
     return;
   }
   notifyReady();
@@ -755,7 +757,7 @@ function readMainMemoryView(): Uint8Array | undefined {
 }
 
 function refreshOpponentPanel(force = false): void {
-  if (TITLE_PREVIEW) return;
+  if (TITLE_PREVIEW || FIELD_PREVIEW) return;
   const now = performance.now();
   if (!force && now - lastOpponentStatsPollAt < OPPONENT_STATS_POLL_INTERVAL_MS) return;
   lastOpponentStatsPollAt = now;

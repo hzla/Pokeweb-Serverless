@@ -17,7 +17,7 @@ type ReadyMessage = {
 const READY_TIMEOUT_MS = 15000;
 const TEST_BATTLE_EMULATOR_VERSION = "test-battle-desmond-2026-09-23-direct-rom";
 
-export function openTestBattleEmulator(options: { mode?: "title" } = {}): { launch: (payload: TestBattleEmulatorPayload) => Promise<void>; close: () => void } {
+export function openTestBattleEmulator(options: { mode?: "title" | "field" } = {}): { launch: (payload: TestBattleEmulatorPayload) => Promise<void>; close: () => void } {
   const sessionId = createSessionId();
   const url = new URL("test-battle-emulator.html", window.location.href);
   url.searchParams.set("pokeweb", TEST_BATTLE_EMULATOR_VERSION);

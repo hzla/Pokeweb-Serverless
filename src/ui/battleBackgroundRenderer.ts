@@ -1,12 +1,16 @@
 import * as THREE from "three";
 import type { DecodedTexture, Map3dPrimitive } from "../pokeweb/map3dModel";
 import type { BattleModelScene } from "../pokeweb/battleModelScene";
+import type { BattleCameraPose } from "../pokeweb/battleCameraModel";
+import type { BattleScenePlatform } from "../pokeweb/battleSceneModel";
 
 const BATTLE_CAMERA_POSITION = new THREE.Vector3(6.7, 6.7, 17.3);
 const BATTLE_CAMERA_TARGET = new THREE.Vector3(0, 2.6, 0);
 
 export type BattleBackgroundRenderer = {
   resetBattleCamera: () => void;
+  setBattleCamera: (pose: BattleCameraPose) => void;
+  getCameraPose: () => BattleCameraPose;
   fitModel: () => void;
   dispose: () => void;
 };
@@ -15,6 +19,22 @@ export type BattleModelThreeObject = {
   group: THREE.Group;
   dispose: () => void;
 };
+
+type BattleRendererOptions = { nativeColors?: boolean; platforms?: BattleScenePlatform[]; onInteract?: () => void; onPoseChange?: (pose: BattleCameraPose) => void };
+
+export function createBattleSceneThreeObject(background: BattleModelScene, platforms: BattleScenePlatform[], options: { nativeColors?: boolean } = {}): BattleModelThreeObject {
+  const group = new THREE.Group(), models = [createBattleModelThreeObject(background, options)];
+  models[0].group.name = "Battle background";
+  group.add(models[0].group);
+  platforms.forEach((platform, side) => {
+    const model = createBattleModelThreeObject(platform.model, options);
+    model.group.name = side ? "Opponent platform" : "Player platform";
+    model.group.position.set(platform.position.x, platform.position.y, platform.position.z);
+    model.group.scale.setScalar(platform.scale);
+    group.add(model.group); models.push(model);
+  });
+  return { group, dispose: () => { for (const model of models) model.dispose(); group.clear(); } };
+}
 
 export function createBattleModelThreeObject(data: Pick<BattleModelScene, "primitives">, options: { nativeColors?: boolean } = {}): BattleModelThreeObject {
   const group = new THREE.Group();
@@ -29,7 +49,7 @@ export function createBattleModelThreeObject(data: Pick<BattleModelScene, "primi
   };
 }
 
-export function mountBattleBackgroundRenderer(host: HTMLElement, data: BattleModelScene, options: { nativeColors?: boolean } = {}): BattleBackgroundRenderer {
+export function mountBattleBackgroundRenderer(host: HTMLElement, data: BattleModelScene, options: BattleRendererOptions = {}): BattleBackgroundRenderer {
   const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false });
   renderer.outputColorSpace = options.nativeColors ? THREE.LinearSRGBColorSpace : THREE.SRGBColorSpace;
   renderer.setClearColor(options.nativeColors ? new THREE.Color(0x20 / 255, 0x24 / 255, 0x31 / 255) : 0x202431, 1);
@@ -39,7 +59,8 @@ export function mountBattleBackgroundRenderer(host: HTMLElement, data: BattleMod
   host.replaceChildren(renderer.domElement);
 
   const scene = new THREE.Scene();
-  const model = createBattleModelThreeObject(data, options);
+  const model = createBattleSceneThreeObject(data, options.platforms ?? [], options);
+  if (options.platforms?.length) renderer.domElement.setAttribute("aria-label", "Battle scene with background, player platform and opponent platform");
   scene.add(model.group);
 
   const camera = new THREE.PerspectiveCamera(26, 4 / 3, 0.25, 2048);
@@ -48,9 +69,14 @@ export function mountBattleBackgroundRenderer(host: HTMLElement, data: BattleMod
   let pitch = 0;
   let distance = 1;
   let dragging = false;
+  let panning = false;
   let lastX = 0;
   let lastY = 0;
   let disposed = false;
+  let battlePose: BattleCameraPose = {
+    position: { x: BATTLE_CAMERA_POSITION.x, y: BATTLE_CAMERA_POSITION.y, z: BATTLE_CAMERA_POSITION.z },
+    target: { x: BATTLE_CAMERA_TARGET.x, y: BATTLE_CAMERA_TARGET.y, z: BATTLE_CAMERA_TARGET.z },
+  };
 
   const render = () => {
     if (!disposed) renderer.render(scene, camera);
@@ -72,11 +98,12 @@ export function mountBattleBackgroundRenderer(host: HTMLElement, data: BattleMod
     );
     camera.lookAt(target);
     render();
+    options.onPoseChange?.({ position: { x: camera.position.x, y: camera.position.y, z: camera.position.z }, target: { x: target.x, y: target.y, z: target.z } });
   };
 
   const resetBattleCamera = () => {
-    target.copy(BATTLE_CAMERA_TARGET);
-    camera.position.copy(BATTLE_CAMERA_POSITION);
+    target.set(battlePose.target.x, battlePose.target.y, battlePose.target.z);
+    camera.position.set(battlePose.position.x, battlePose.position.y, battlePose.position.z);
     camera.near = 0.25;
     camera.far = 2048;
     camera.lookAt(target);
@@ -86,7 +113,8 @@ export function mountBattleBackgroundRenderer(host: HTMLElement, data: BattleMod
   };
 
   const fitModel = () => {
-    const bounds = data.bounds;
+    const box = new THREE.Box3().setFromObject(model.group);
+    const bounds = box.isEmpty() ? data.bounds : { minX: box.min.x, minY: box.min.y, minZ: box.min.z, maxX: box.max.x, maxY: box.max.y, maxZ: box.max.z };
     target.set(
       (bounds.minX + bounds.maxX) / 2,
       (bounds.minY + bounds.maxY) / 2,
@@ -122,7 +150,10 @@ export function mountBattleBackgroundRenderer(host: HTMLElement, data: BattleMod
   };
 
   const onPointerDown = (event: PointerEvent) => {
+    options.onInteract?.();
     dragging = true;
+    panning = event.shiftKey || event.button !== 0;
+    renderer.domElement.focus({ preventScroll: true });
     lastX = event.clientX;
     lastY = event.clientY;
     renderer.domElement.setPointerCapture(event.pointerId);
@@ -133,8 +164,14 @@ export function mountBattleBackgroundRenderer(host: HTMLElement, data: BattleMod
     const dy = event.clientY - lastY;
     lastX = event.clientX;
     lastY = event.clientY;
-    yaw -= dx * 0.008;
-    pitch = THREE.MathUtils.clamp(pitch + dy * 0.006, -Math.PI * 0.47, Math.PI * 0.47);
+    if (panning) {
+      const scale = 2 * distance * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / Math.max(1, host.clientHeight);
+      target.addScaledVector(new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw)), -dx * scale);
+      target.addScaledVector(new THREE.Vector3(-Math.sin(yaw) * Math.sin(pitch), Math.cos(pitch), -Math.cos(yaw) * Math.sin(pitch)), dy * scale);
+    } else {
+      yaw -= dx * 0.008;
+      pitch = THREE.MathUtils.clamp(pitch + dy * 0.006, -Math.PI * 0.47, Math.PI * 0.47);
+    }
     applyOrbit();
   };
   const onPointerUp = (event: PointerEvent) => {
@@ -143,13 +180,27 @@ export function mountBattleBackgroundRenderer(host: HTMLElement, data: BattleMod
   };
   const onWheel = (event: WheelEvent) => {
     event.preventDefault();
+    options.onInteract?.();
     distance = THREE.MathUtils.clamp(distance * Math.exp(event.deltaY * 0.001), 0.5, 4000);
     applyOrbit();
   };
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key === "r" || event.key === "R") resetBattleCamera();
-    if (event.key === "f" || event.key === "F") fitModel();
+    if (event.key === "f" || event.key === "F") { options.onInteract?.(); fitModel(); }
+    const key = event.key.toLowerCase(), speed = Math.max(0.05, distance * (event.shiftKey ? 0.12 : 0.03));
+    if (["w", "a", "s", "d", "q", "e", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
+      event.preventDefault(); event.stopPropagation(); options.onInteract?.();
+      const forward = target.clone().sub(camera.position).normalize(), right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
+      if (key === "w" || key === "arrowup") target.addScaledVector(forward, speed);
+      if (key === "s" || key === "arrowdown") target.addScaledVector(forward, -speed);
+      if (key === "a" || key === "arrowleft") target.addScaledVector(right, -speed);
+      if (key === "d" || key === "arrowright") target.addScaledVector(right, speed);
+      if (key === "q") target.y -= speed;
+      if (key === "e") target.y += speed;
+      applyOrbit();
+    }
   };
+  const onContextMenu = (event: Event) => event.preventDefault();
 
   renderer.domElement.addEventListener("pointerdown", onPointerDown);
   renderer.domElement.addEventListener("pointermove", onPointerMove);
@@ -157,6 +208,7 @@ export function mountBattleBackgroundRenderer(host: HTMLElement, data: BattleMod
   renderer.domElement.addEventListener("pointercancel", onPointerUp);
   renderer.domElement.addEventListener("wheel", onWheel, { passive: false });
   renderer.domElement.addEventListener("keydown", onKeyDown);
+  renderer.domElement.addEventListener("contextmenu", onContextMenu);
   const resizeObserver = new ResizeObserver(resize);
   resizeObserver.observe(host);
   const removalObserver = new MutationObserver(() => {
@@ -175,13 +227,18 @@ export function mountBattleBackgroundRenderer(host: HTMLElement, data: BattleMod
     renderer.domElement.removeEventListener("pointercancel", onPointerUp);
     renderer.domElement.removeEventListener("wheel", onWheel);
     renderer.domElement.removeEventListener("keydown", onKeyDown);
+    renderer.domElement.removeEventListener("contextmenu", onContextMenu);
     model.dispose();
     renderer.dispose();
   };
 
   resetBattleCamera();
   resize();
-  return { resetBattleCamera, fitModel, dispose };
+  return {
+    resetBattleCamera, fitModel, dispose,
+    setBattleCamera: pose => { battlePose = structuredClone(pose); resetBattleCamera(); },
+    getCameraPose: () => ({ position: { x: camera.position.x, y: camera.position.y, z: camera.position.z }, target: { x: target.x, y: target.y, z: target.z } }),
+  };
 }
 
 function addPrimitive(group: THREE.Group, primitive: Map3dPrimitive, textureCache: Map<string, THREE.DataTexture>, nativeColors: boolean): void {
@@ -199,7 +256,7 @@ function addPrimitive(group: THREE.Group, primitive: Map3dPrimitive, textureCach
     transparent: primitive.material.alpha < 1 || Boolean(texture),
     opacity: primitive.material.alpha,
     alphaTest: texture ? 0.05 : 0,
-    map: texture,
+    map: texture ?? null,
     side: THREE.DoubleSide,
     depthWrite: primitive.material.alpha >= 1,
   });

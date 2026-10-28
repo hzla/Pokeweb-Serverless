@@ -1,4 +1,6 @@
+import { hydrateAbilityEffectsSource } from "./abilityEffectsModel";
 import { hydrateTrainerFieldConditionsSources } from "./trainerFieldConditionsModel";
+import { hydrateItemEffectsSource } from "./itemEffectsModel";
 import type { ProjectState } from "./projectStore";
 import { ProjectSaveQueue, createProjectSaveScheduler, type ProjectSaveScheduler } from "./projectSaveScheduler";
 import { createProjectDocument, readProjectDocument, type ProjectDocument } from "./projectDocument";
@@ -218,6 +220,8 @@ async function hydratePersistedProject(project: ProjectState, availableSource?: 
   hydrateKoMoveLearnsetFromRom(project, rom);
   hydrateTrainerLocationTables(project, rom);
   hydrateTrainerFieldConditionsSources(project, rom);
+  hydrateItemEffectsSource(project, rom);
+  hydrateAbilityEffectsSource(project, rom);
   if (project.arm9.length === 0) project.arm9 = decompressCode(rom.arm9);
   hydrateBattleLogInstallMetadata(project, rom);
   if (!w2anim && !project.pwanAnimations?.dirty && !project.trainerPwanAnimations?.dirty &&
@@ -247,6 +251,7 @@ async function hydratePersistedProject(project: ProjectState, availableSource?: 
   }
 
   const overlayIds: number[] = [];
+  if (project.session.baseRom === "BW2" && (project.narcs.items || project.narcs.personal)) overlayIds.push(167);
   const moveEffectOverlayId = moveEffectHandlerOverlayId(project);
   const chartOverlayId = typeChartOverlayId(project);
   if (project.narcs.grotto_odds || project.overlays[36]?.length === 0) overlayIds.push(36);

@@ -14,11 +14,11 @@ function stageRecord(): Uint8Array {
 }
 
 function writeResource(record: Uint8Array, resourceRow: number, season: number, value: number): void {
-  writeU32(record, 4 + (resourceRow * 4 + season) * 4, value);
+  writeU32(record, 2 + (resourceRow * 4 + season) * 4, value);
 }
 
 describe("battle platform catalog", () => {
-  it("parses complete 68-byte records, edge color, and animation resources", () => {
+  it("parses complete 66-byte records, edge color, and animation resources", () => {
     const table = stageRecord();
     writeU16(table, 0, 0x421f);
     writeResource(table, 0, 0, (5 << 16) | 4);
@@ -40,10 +40,11 @@ describe("battle platform catalog", () => {
         tableIndex: 0,
         seasonIndex: 0,
         seasonName: "Spring",
-        resourceId: 5,
-        nsbcaResourceId: 7,
-        nsbtaResourceId: 9,
-        nsbmaResourceId: 11,
+        resourceId: 4,
+        opponentResourceId: 5,
+        nsbcaResourceId: 6,
+        nsbtaResourceId: 8,
+        nsbmaResourceId: 10,
         edgeColor: 0x421f,
         variantCount: 1,
         modelFallback: false,
@@ -51,7 +52,7 @@ describe("battle platform catalog", () => {
     ]);
   });
 
-  it("chooses the low half of paired platform and animation IDs for Black 2", () => {
+  it("previews the player resource from paired player/opponent IDs", () => {
     const table = stageRecord();
     writeResource(table, 0, 0, (5 << 16) | 4);
     writeResource(table, 1, 0, (7 << 16) | 6);
@@ -66,7 +67,7 @@ describe("battle platform catalog", () => {
     ]);
   });
 
-  it("falls back to Spring for seasonal animation-only slots and deduplicates repeated model variants", () => {
+  it("falls back to the complete Spring resource set when a seasonal model is absent", () => {
     const table = stageRecord();
     writeResource(table, 0, 0, 0);
     writeResource(table, 0, 2, 0);
@@ -79,30 +80,26 @@ describe("battle platform catalog", () => {
         seasonIndex: 0,
         seasonName: "Spring",
         resourceId: 0,
+        opponentResourceId: 0,
         nsbcaResourceId: undefined,
         nsbtaResourceId: undefined,
         nsbmaResourceId: undefined,
         edgeColor: 0xffff,
-        variantCount: 2,
+        variantCount: 1,
         modelFallback: false,
-      },
-      {
-        tableIndex: 0,
-        seasonIndex: 3,
-        seasonName: "Winter",
-        resourceId: 0,
-        nsbcaResourceId: 1,
-        nsbtaResourceId: undefined,
-        nsbmaResourceId: undefined,
-        edgeColor: 0xffff,
-        variantCount: 2,
-        modelFallback: true,
       },
     ]);
   });
 
   it("rejects data that does not contain one complete stage record", () => {
     expect(parseBattlePlatformVariants(new Uint8Array(BATTLE_PLATFORM_RECORD_BYTES - 1), [nitro("BMD0")], "IRDO")).toEqual([]);
+  });
+  it("retains a season when only the opponent platform differs", () => {
+    const table = stageRecord();
+    writeResource(table, 0, 0, (1 << 16) | 0);
+    writeResource(table, 0, 1, (2 << 16) | 0);
+    const variants = parseBattlePlatformVariants(table, [nitro("BMD0"), nitro("BMD0"), nitro("BMD0")], "IRDO");
+    expect(variants.map(v => [v.seasonIndex, v.resourceId, v.opponentResourceId, v.variantCount])).toEqual([[0, 0, 1, 2], [1, 0, 2, 2]]);
   });
 
   it("keeps complete stage records when the table has a trailing partial record", () => {

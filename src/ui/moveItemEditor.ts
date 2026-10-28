@@ -28,6 +28,7 @@ import { getMoveTextInfo, hasMoveTextBanks, type MoveTextInfo, type MoveTextLine
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 import { attachItemInteractions, attachMoveInteractions, installMoveAnimationEditor, renderMoveAnimationEditor } from "./moveItemInteractions";
+import { renderItemEffects } from "./itemEffectsEditor";
 import { attachW2uSyncButton, renderW2uSyncButton } from "./w2uLocalSync";
 import { publicAsset } from "../assetUrl";
 import { pokemonPersonalDisplayIds, pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
@@ -318,7 +319,7 @@ export function renderItemEditor(project: ProjectState, root: HTMLElement, onDir
 
   attachItemInteractions(root, project, {
     onDirty,
-    renderExpanded: (itemId) => renderItemExpanded(getItemRecord(project, itemId)),
+    renderExpanded: (itemId) => renderItemExpanded(getItemRecord(project, itemId), project),
   });
 }
 
@@ -444,15 +445,16 @@ function renderItemRow(item: ItemRecord): string {
         <div class="item-id">${item.id}</div>
         <div class="item-name">${escapeHtml(String(item.readable.name ?? `Item ${item.id}`))}</div>
         ${editable("item", "market_value", item.readable.market_value, "item-value", { type: "int-65535" })}
-        <div class="move-info expand-action expand-item svg no-fill" data-expand="item">${miscDataIcon}</div>
+        <button type="button" class="move-info expand-action expand-item svg no-fill" data-expand="item" aria-label="Edit ${escapeHtml(String(item.readable.name ?? `Item ${item.id}`))}" aria-expanded="false">${miscDataIcon}</button>
       </div>
     </div>
   `;
 }
 
-function renderItemExpanded(item: ItemRecord): string {
+function renderItemExpanded(item: ItemRecord, project: ProjectState): string {
   return `
     <div class="expanded-card-content expanded-item">
+      ${renderItemEffects(project, item.id)}
       <div class="item-detail-grid">
         ${ITEM_DETAIL_SECTIONS.map((section) => renderItemDetailSection(item, section.title, section.fields)).join("")}
       </div>

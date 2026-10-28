@@ -2,8 +2,8 @@ import { getHeaderPackedValue, parseHeaders, type HeaderCollection } from "./hea
 import { loadBattleEnvironmentArchives } from "./battleBackgroundModel";
 import type { ProjectState } from "./projectStore";
 
-export const BATTLE_ZONE_SPEC_RECORD_BYTES = 36;
-export const BATTLE_ZONE_SPEC_ATTRIBUTE_COUNT = 17;
+export const BATTLE_ZONE_SPEC_RECORD_BYTES = 44;
+export const BATTLE_ZONE_SPEC_ATTRIBUTE_COUNT = 20;
 
 export const BATTLE_BACKGROUND_TYPE_NAMES = [
   "Grass",
@@ -45,6 +45,9 @@ export const BATTLE_BACKGROUND_ATTRIBUTE_NAMES = [
   "Indoor encounter",
   "Palace",
   "Sage",
+  "Terrain 17",
+  "Terrain 18",
+  "Terrain 19",
 ] as const;
 
 export type BattleEnvironmentUsageRoute = {

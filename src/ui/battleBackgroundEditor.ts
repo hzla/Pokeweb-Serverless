@@ -17,19 +17,23 @@ import {
   type BattlePlatformVariant,
 } from "../pokeweb/battlePlatformModel";
 import type { ProjectState } from "../pokeweb/projectStore";
+import { loadBattleCamera } from "../pokeweb/battleCameraModel";
+import { BattleEnvironmentControls, type BattleBackgroundEditorOptions } from "./battleEnvironmentControls";
+import { battleSceneRule, loadBattleSceneSource, loadCombinedBattleScene, type BattleScene } from "../pokeweb/battleSceneModel";
+import { BattleSceneView } from "./battleSceneView";
 import { escapeHtml } from "./dom";
 import { mountBattleBackgroundRenderer, type BattleBackgroundRenderer } from "./battleBackgroundRenderer";
 
-type BattleViewerTab = "backgrounds" | "platforms";
+type BattleViewerTab = "scene" | "backgrounds" | "platforms";
 
 type CatalogLoadResult<T> =
   | { catalog: T; error?: undefined }
   | { catalog?: undefined; error: string };
 
-export function renderBattleBackgroundEditor(project: ProjectState, root: HTMLElement): void {
+export function renderBattleBackgroundEditor(project: ProjectState, root: HTMLElement, options: BattleBackgroundEditorOptions = {}): void {
   let renderer: BattleBackgroundRenderer | undefined;
   let loadToken = 0;
-  let activeTab: BattleViewerTab = "backgrounds";
+  let activeTab: BattleViewerTab = "scene";
   root.innerHTML = `
     <aside class="pokemon-filter battle-background-sidebar">
       <div class="filter-title">Battle Backgrounds</div>
@@ -45,11 +49,36 @@ export function renderBattleBackgroundEditor(project: ProjectState, root: HTMLEl
     settleCatalogLoad(loadBattleBackgroundCatalog(project)),
     settleCatalogLoad(loadBattlePlatformCatalog(project)),
     settleCatalogLoad(loadBattleEnvironmentUsage(project)),
+    settleCatalogLoad(loadBattleCamera(project)),
+    settleCatalogLoad(loadBattleSceneSource(project)),
   ])
-    .then(([backgroundResult, platformResult, usageResult]) => {
+    .then(([backgroundResult, platformResult, usageResult, cameraResult, sceneResult]) => {
       if (!root.isConnected) return;
-      let selectedBackground = backgroundResult.catalog?.variants[0];
-      let selectedPlatform = platformResult.catalog?.variants[0];
+      let view: BattleSceneView;
+      const controls = new BattleEnvironmentControls(project, backgroundResult.catalog, platformResult.catalog,
+        cameraResult.catalog, cameraResult.error, () => renderer, options, () => view.usePlacement());
+      view = new BattleSceneView(() => renderer, () => controls.placementPose, () => controls.defaultPose,
+        () => controls.cameraPresets, () => sceneResult.catalog?.programs ?? new Map(), () => battleSceneRule(project, controls.trainer));
+
+      const loadScene = () => {
+        const content = root.querySelector<HTMLElement>(".battle-background-content")!;
+        content.innerHTML = '<section class="battle-background-empty"><h1>Battle scene</h1><p>Loading background and both platforms…</p></section>';
+        const token = ++loadToken;
+        void Promise.resolve().then(() => {
+          if (!sceneResult.catalog || !controls.background) throw new Error(sceneResult.error ?? "Choose an available background.");
+          return loadCombinedBattleScene(project, sceneResult.catalog, controls.background, controls.platform, controls.trainer);
+        }).then(scene => {
+          if (token !== loadToken || !content.isConnected) return;
+          content.innerHTML = renderCombinedScene(scene, controls.background!.tableIndex);
+          renderer = mountBattleBackgroundRenderer(content.querySelector<HTMLElement>("#battle-scene-canvas")!, scene.background, { platforms: scene.platforms, onInteract: () => view.free(), onPoseChange: pose => view.moved(pose) });
+          view.mount(content.querySelector<HTMLElement>("[data-battle-scene-views]")!);
+          content.querySelector("#battle-scene-reset")?.addEventListener("click", () => view.usePlacement());
+          content.querySelector("#battle-scene-fit")?.addEventListener("click", () => { view.free(); renderer?.fitModel(); view.beforeSceneChange(); });
+          view.refresh();
+        }).catch(error => {
+          if (token === loadToken && content.isConnected) content.innerHTML = `<section class="battle-background-empty -error"><h1>Battle scene unavailable</h1><p>${escapeHtml(errorMessage(error))}</p></section>`;
+        });
+      };
 
       const loadBackground = (
         editorRoot: HTMLElement,
@@ -69,6 +98,7 @@ export function renderBattleBackgroundEditor(project: ProjectState, root: HTMLEl
             content.innerHTML = renderBackgroundLoaded(variant, scene, catalog);
             drawTexturePreviews(content, scene);
             renderer = mountSceneRenderer(content, scene, "background");
+            controls.previewCamera();
           })
           .catch((error) => {
             if (token !== loadToken || !content.isConnected) return;
@@ -94,6 +124,7 @@ export function renderBattleBackgroundEditor(project: ProjectState, root: HTMLEl
             content.innerHTML = renderPlatformLoaded(variant, scene, catalog);
             drawTexturePreviews(content, scene);
             renderer = mountSceneRenderer(content, scene, "platform");
+            controls.previewCamera();
           })
           .catch((error) => {
             if (token !== loadToken || !content.isConnected) return;
@@ -102,60 +133,33 @@ export function renderBattleBackgroundEditor(project: ProjectState, root: HTMLEl
       };
 
       const showTab = (tab: BattleViewerTab) => {
+        view.beforeSceneChange();
         activeTab = tab;
         renderer?.dispose();
         renderer = undefined;
         loadToken += 1;
-        if (activeTab === "backgrounds") {
-          const backgroundCatalog = backgroundResult.catalog;
-          const fallbackBackground = backgroundCatalog?.variants[0];
-          if (!backgroundCatalog || !fallbackBackground) {
-            root.innerHTML = renderCatalogUnavailablePage(
-              activeTab,
-              "Battle backgrounds unavailable",
-              backgroundResult.error ?? "The battle-background table does not contain any renderable entries.",
-            );
-            bindTabs(root, showTab);
-            return;
-          }
-          selectedBackground ??= fallbackBackground;
-          root.innerHTML = renderBackgroundPage(backgroundCatalog, selectedBackground, activeTab);
-          bindTabs(root, showTab);
-          const select = root.querySelector<HTMLSelectElement>("#battle-background-select");
-          const loadSelected = () => {
-            selectedBackground =
-              backgroundCatalog.variants.find((variant) => backgroundVariantKey(variant) === select?.value) ?? fallbackBackground;
-            updateSidebarLocationUsage(root, "background", selectedBackground.tableIndex, usageResult.catalog, usageResult.error);
-            loadBackground(root, project, backgroundCatalog, selectedBackground);
-          };
-          select?.addEventListener("change", loadSelected);
-          loadSelected();
-          return;
-        }
-
-        const platformCatalog = platformResult.catalog;
-        const fallbackPlatform = platformCatalog?.variants[0];
-        if (!platformCatalog || !fallbackPlatform) {
-          root.innerHTML = renderCatalogUnavailablePage(
-            activeTab,
-            "Battle platforms unavailable",
-            platformResult.error ?? "The stage table does not contain any renderable platform entries.",
-          );
-          bindTabs(root, showTab);
-          return;
-        }
-        selectedPlatform ??= fallbackPlatform;
-        root.innerHTML = renderPlatformPage(platformCatalog, selectedPlatform, activeTab);
+        root.innerHTML = `
+          <aside class="pokemon-filter battle-background-sidebar">
+            <div class="filter-title">Battle Backgrounds</div>${renderTabs(activeTab)}
+            <div class="battle-environment-controls-host"></div>
+            <div class="battle-environment-usage-sidebar-host"></div>
+          </aside>
+          <main class="pokemon-list battle-background-content"></main>`;
         bindTabs(root, showTab);
-        const select = root.querySelector<HTMLSelectElement>("#battle-platform-select");
-        const loadSelected = () => {
-          selectedPlatform =
-            platformCatalog.variants.find((variant) => platformVariantKey(variant) === select?.value) ?? fallbackPlatform;
-          updateSidebarLocationUsage(root, "platform", selectedPlatform.tableIndex, usageResult.catalog, usageResult.error);
-          loadPlatform(root, project, platformCatalog, selectedPlatform);
-        };
-        select?.addEventListener("change", loadSelected);
-        loadSelected();
+        controls.mount(root.querySelector<HTMLElement>(".battle-environment-controls-host")!, () => showTab(activeTab));
+        const content = root.querySelector<HTMLElement>(".battle-background-content")!;
+        if (activeTab === "scene") {
+          if (controls.background) updateSidebarLocationUsage(root, "background", controls.background.tableIndex, usageResult.catalog, usageResult.error);
+          loadScene();
+        } else if (activeTab === "backgrounds") {
+          if (backgroundResult.catalog && controls.background) {
+            updateSidebarLocationUsage(root, "background", controls.background.tableIndex, usageResult.catalog, usageResult.error);
+            loadBackground(root, project, backgroundResult.catalog, controls.background);
+          } else content.innerHTML = `<section class="battle-background-empty -error"><h1>Battle backgrounds unavailable</h1><p>${escapeHtml(backgroundResult.error ?? "No renderable backgrounds.")}</p></section>`;
+        } else if (platformResult.catalog && controls.platform) {
+          updateSidebarLocationUsage(root, "platform", controls.platform.tableIndex, usageResult.catalog, usageResult.error);
+          loadPlatform(root, project, platformResult.catalog, controls.platform);
+        } else content.innerHTML = `<section class="battle-background-empty"><h1>Automatic platform</h1><p>${escapeHtml(platformResult.error ?? "Choose a platform to preview it.")}</p></section>`;
       };
 
       showTab(activeTab);
@@ -173,7 +177,7 @@ export function renderBattleBackgroundEditor(project: ProjectState, root: HTMLEl
 
 function bindTabs(root: HTMLElement, showTab: (tab: BattleViewerTab) => void): void {
   for (const button of root.querySelectorAll<HTMLButtonElement>("[data-battle-viewer-tab]")) {
-    button.addEventListener("click", () => showTab(button.dataset.battleViewerTab === "platforms" ? "platforms" : "backgrounds"));
+    button.addEventListener("click", () => showTab(button.dataset.battleViewerTab as BattleViewerTab));
   }
 }
 
@@ -189,21 +193,10 @@ function mountSceneRenderer(content: HTMLElement, scene: BattleModelScene, prefi
 function renderTabs(activeTab: BattleViewerTab): string {
   return `
     <div class="battle-background-tabs" role="tablist" aria-label="Battle background viewer">
+      <button type="button" role="tab" data-battle-viewer-tab="scene" aria-selected="${activeTab === "scene"}" class="${activeTab === "scene" ? "-active" : ""}">Scene</button>
       <button type="button" role="tab" data-battle-viewer-tab="backgrounds" aria-selected="${activeTab === "backgrounds"}" class="${activeTab === "backgrounds" ? "-active" : ""}">Backgrounds</button>
       <button type="button" role="tab" data-battle-viewer-tab="platforms" aria-selected="${activeTab === "platforms"}" class="${activeTab === "platforms" ? "-active" : ""}">Battle Platforms</button>
     </div>
-  `;
-}
-
-function renderCatalogUnavailablePage(activeTab: BattleViewerTab, title: string, message: string): string {
-  return `
-    <aside class="pokemon-filter battle-background-sidebar">
-      <div class="filter-title">Battle Backgrounds</div>
-      ${renderTabs(activeTab)}
-    </aside>
-    <main class="pokemon-list battle-background-content">
-      <section class="battle-background-empty -error"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(message)}</p><p>The other catalog can still be viewed from its tab.</p></section>
-    </main>
   `;
 }
 
@@ -216,72 +209,6 @@ export function settleCatalogLoad<T>(promise: Promise<T>): Promise<CatalogLoadRe
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
-}
-
-function renderBackgroundPage(catalog: BattleBackgroundCatalog, selected: BattleBackgroundVariant, activeTab: BattleViewerTab): string {
-  const nonStandardIds = [...new Set(catalog.variants.filter((variant) => variant.shapeKind === "non-standard").map((variant) => variant.tableIndex))].sort(
-    (left, right) => left - right,
-  );
-  return `
-    <aside class="pokemon-filter battle-background-sidebar">
-      <div class="filter-title">Battle Backgrounds</div>
-      ${renderTabs(activeTab)}
-      <label class="battle-background-selector" for="battle-background-select">
-        <span>Background</span>
-        <select class="filter-input" id="battle-background-select">
-          ${catalog.variants.map((variant) => `<option value="${backgroundVariantKey(variant)}" ${backgroundVariantKey(variant) === backgroundVariantKey(selected) ? "selected" : ""}>${escapeHtml(`${backgroundVariantLabel(variant)}${variant.shapeKind === "non-standard" ? " · custom mesh" : ""}`)}</option>`).join("")}
-        </select>
-      </label>
-      <div class="battle-background-catalog-summary">
-        <strong>${catalog.tableEntryCount}</strong>
-        <span>background table entries</span>
-        <small>${catalog.variants.length} renderable model variant${catalog.variants.length === 1 ? "" : "s"} · ${catalog.graphicsEntryCount} battle assets</small>
-      </div>
-      <div class="battle-environment-usage-sidebar-host"></div>
-      <section class="battle-background-shape-summary">
-        <div class="battle-background-sidebar-title">Non-standard field meshes</div>
-        <strong>${escapeHtml(formatIndexRanges(nonStandardIds))}</strong>
-        <p>These entries use location-specific geometry instead of the regular <code>batt_field</code>/<code>batt_fd</code> arena family.</p>
-      </section>
-      <section class="battle-background-format-note">
-        <div class="battle-background-sidebar-title">How the game stores these</div>
-        <p>Each environment is an NSBMD model with embedded Nitro textures. The table can also reference NSBCA, NSBTA, and NSBMA animation resources.</p>
-        <p>Battle platforms remain separate stage models and are not baked into this preview.</p>
-      </section>
-    </aside>
-    <main class="pokemon-list battle-background-content">${renderBackgroundLoading(selected)}</main>
-  `;
-}
-
-function renderPlatformPage(catalog: BattlePlatformCatalog, selected: BattlePlatformVariant, activeTab: BattleViewerTab): string {
-  const omitted = catalog.tableEntryCount - catalog.renderableEntryCount;
-  return `
-    <aside class="pokemon-filter battle-background-sidebar">
-      <div class="filter-title">Battle Backgrounds</div>
-      ${renderTabs(activeTab)}
-      <label class="battle-background-selector" for="battle-platform-select">
-        <span>Platform</span>
-        <select class="filter-input" id="battle-platform-select">
-          ${catalog.variants.map((variant) => `<option value="${platformVariantKey(variant)}" ${platformVariantKey(variant) === platformVariantKey(selected) ? "selected" : ""}>${escapeHtml(platformVariantLabel(variant))}</option>`).join("")}
-        </select>
-      </label>
-      <div class="battle-background-catalog-summary -platforms">
-        <strong>${catalog.renderableEntryCount}</strong>
-        <span>renderable platform entries</span>
-        <small>${catalog.variants.length} distinct seasonal variant${catalog.variants.length === 1 ? "" : "s"} · ${catalog.tableEntryCount} table entries${omitted > 0 ? ` · ${omitted} without a renderable NSBMD` : ""}</small>
-      </div>
-      <div class="battle-environment-usage-sidebar-host"></div>
-      <section class="battle-platform-object-note">
-        <div class="battle-background-sidebar-title">One resource, two objects</div>
-        <p>The game creates player-side and opponent-side platform objects from the selected stage resource. This viewer shows one model.</p>
-      </section>
-      <section class="battle-background-format-note">
-        <div class="battle-background-sidebar-title">Rotation battles</div>
-        <p>Rotation battles use the special <code>batt_st_vs3</code> model and animation instead of the normal stage-table selection shown here.</p>
-      </section>
-    </aside>
-    <main class="pokemon-list battle-background-content">${renderPlatformLoading(selected)}</main>
-  `;
 }
 
 function renderBackgroundLoading(variant: BattleBackgroundVariant): string {
@@ -327,11 +254,11 @@ function renderPlatformLoaded(
     <section class="battle-background-viewer">
       ${renderPlatformHeader(variant)}
       ${renderPreviewCard("platform")}
-      <div class="battle-platform-preview-note">Single-model preview: the game positions separate player-side and opponent-side objects from this same stage resource.</div>
       <div class="battle-background-metadata">
         ${metadataItem("Platform table index", String(variant.tableIndex))}
         ${metadataItem("Season", `${variant.seasonName}${variant.modelFallback ? " · Spring model fallback" : ""}`)}
-        ${metadataItem("NSBMD member", String(scene.resourceId))}
+        ${metadataItem("Player model", String(scene.resourceId))}
+        ${variant.opponentResourceId === undefined ? "" : metadataItem("Opponent model", String(variant.opponentResourceId))}
         ${metadataItem("Geometry", geometryLabel(scene))}
         ${metadataItem("Textures", String(scene.textureCount))}
         ${metadataItem("Model bounds", boundsLabel(scene.bounds))}
@@ -399,19 +326,30 @@ function renderLocationUsageCard(usage: BattleEnvironmentLocationUsage): string 
   `;
 }
 
-function renderPreviewCard(prefix: "background" | "platform"): string {
+function renderPreviewCard(prefix: "background" | "platform" | "scene"): string {
   return `
     <article class="battle-background-preview-card">
       <div class="battle-background-toolbar">
-        <div><strong>Interactive 3D Preview</strong><span>Drag to orbit · scroll to zoom · R resets · F fits</span></div>
+        <div><strong>Interactive 3D Preview</strong>${prefix === "scene" ? "" : "<span>Drag to orbit · scroll to zoom · R resets · F fits</span>"}</div>
         <div class="battle-background-toolbar-actions">
-          <button class="btn -default" id="battle-${prefix}-reset" type="button">Battle Camera</button>
-          <button class="btn -default" id="battle-${prefix}-fit" type="button">Fit Model</button>
+          <button class="btn -default" id="battle-${prefix}-reset" type="button">${prefix === "scene" ? "Reset view" : "Battle Camera"}</button>
+          <button class="btn -default" id="battle-${prefix}-fit" type="button">${prefix === "scene" ? "Fit scene" : "Fit Model"}</button>
         </div>
       </div>
+      ${prefix === "scene" ? '<div data-battle-scene-views></div>' : ""}
       <div class="battle-background-canvas" id="battle-${prefix}-canvas"></div>
     </article>
   `;
+}
+
+function renderCombinedScene(scene: BattleScene, backgroundIndex: number): string {
+  const formats = ["Singles", "Doubles", "Triples", "Rotation"];
+  return `<section class="battle-background-viewer -scene">
+    <header class="battle-background-header"><div><h1>Battle scene</h1></div><div class="battle-background-header-badges"><span>Background ${backgroundIndex}</span><span>${scene.rule === 3 ? "Rotation platforms" : `Platform ${scene.platformIndex}`}</span><span>${formats[scene.rule] ?? "Singles"}</span></div></header>
+    ${renderPreviewCard("scene")}
+    <div class="battle-background-metadata">${metadataItem("Background resource", String(scene.background.resourceId))}${metadataItem("Player platform", String(scene.platforms[0].model.resourceId))}${metadataItem("Opponent platform", String(scene.platforms[1].model.resourceId))}${metadataItem("Platform season", ["Spring", "Summer", "Autumn", "Winter"][scene.platformSeason])}</div>
+    ${renderWarnings(scene.background)}
+  </section>`;
 }
 
 function renderBackgroundError(variant: BattleBackgroundVariant, message: string): string {
@@ -519,14 +457,6 @@ function platformVariantLabel(variant: BattlePlatformVariant): string {
   return variant.variantCount > 1 ? `Platform ${entry} · ${variant.seasonName}` : `Platform ${entry}`;
 }
 
-function backgroundVariantKey(variant: BattleBackgroundVariant): string {
-  return `${variant.tableIndex}:${variant.seasonIndex}:${variant.resourceId}`;
-}
-
-function platformVariantKey(variant: BattlePlatformVariant): string {
-  return `${variant.tableIndex}:${variant.seasonIndex}:${variant.resourceId}`;
-}
-
 function metadataItem(label: string, value: string): string {
   return `<div class="battle-background-metadata-item"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
 }
@@ -565,22 +495,4 @@ function textureFormatLabel(format: number): string {
 function formatBytes(value: number): string {
   if (value < 1024) return `${value} B`;
   return `${(value / 1024).toFixed(value >= 10 * 1024 ? 0 : 1)} KiB`;
-}
-
-function formatIndexRanges(indexes: number[]): string {
-  if (indexes.length === 0) return "None detected";
-  const ranges: string[] = [];
-  let start = indexes[0] ?? 0;
-  let end = start;
-  for (const index of indexes.slice(1)) {
-    if (index === end + 1) {
-      end = index;
-      continue;
-    }
-    ranges.push(start === end ? String(start) : `${start}–${end}`);
-    start = index;
-    end = index;
-  }
-  ranges.push(start === end ? String(start) : `${start}–${end}`);
-  return ranges.join(", ");
 }

@@ -17,13 +17,97 @@ The Item editor edits item price and packed behavior fields for use, held effect
 | Name | Item name from text data. Edit item names in [Texts](Texts). | `Potion` |
 | Market Value | Buy/sell price-related value. Range `0-65535`. | `300` |
 
+## Native Held Battle Effects (BW2)
+
+Open an item's details to edit its **Held battle effect**. US revision-0 Black 2
+and White 2 are supported when the native table and callbacks are recognized.
+The editor discovers the assignment table, follows its actual pointers and uses
+the overlay's recorded load address. Recognizable shifted layouts are supported;
+unknown or conflicting code disables native edits.
+
+- **Handler assignment** selects an existing native handler set.
+- Leftovers exposes its maximum-HP healing divisor: `16` heals 1/16, `8` heals 1/8.
+- Choice Band, Specs and Scarf expose their native multipliers in steps of `0.125`.
+- Supported item-data parameters have meaningful labels, such as **Power bonus (%)**.
+- **Type-restricted healing** replaces this item's battle effect with healing for
+  one holder type. Other types receive no healing or damage. This installs a
+  shared PMC callback and uses the receiving item's healing divisor. All edited
+  items use one `ItemEffects.dll`, with separate type settings per item. It does
+  not modify Black Sludge or retain the item's old power boost. Existing
+  per-item healing DLLs migrate into the shared module on the next edit.
+- **Custom effects** combines adjustable effects, nested **All (AND)** / **Any
+  (OR)** condition groups, and **Consume on first successful effect**. Press
+  **Apply custom effects** to install the draft and verify its ROM bytes.
+
+The custom library includes adjustable stat and damage multipliers, healing,
+status infliction, stat-stage changes, recoil, critical stages, accuracy, move
+typing, move locking and escape from trapping. Status, stat-stage and recoil
+actions have trigger, target and chance controls. Repeated stat-stage primitives
+can change different stats on the same item. A rule contains up to 16 effects.
+
+**Load item preset** starts from an existing in-battle item effect. Choice presets
+split the stat multiplier and move lock into separate editable primitives.
+There are also 169 composable **Native item behaviors**, covering berries,
+flinching, survival, switching reactions, weather/screen/trapping duration,
+weight, immunities, species-dependent bonuses and other native battle mechanics.
+Native behaviors keep their original timing, intrinsic conditions and species
+restrictions. **Parameter → Original** reads the donor item's parameter from the
+loaded ROM; **Custom** overrides that number only for this primitive. Some native
+behaviors ignore that parameter. Use the adjustable primitives to change hardcoded
+values such as Choice multipliers, critical stages, status or stage changes.
+
+Conditions check holder HP, type, weather, species or status, and the current
+move's type or category. Combine them with nested **All (AND)** / **Any (OR)**
+groups. HP supports `<`, `≤`, `>` and `≥`; other checks support **Is** / **Is not**.
+For example, combine `Attack ×2.5` and `Lock into the selected move` with
+`HP <50% AND (Rock OR Sun)`. The shared condition tree gates every effect;
+native behaviors also retain their own activation checks. Move conditions apply
+only in events where the game supplies that information.
+
+Healing runs at turn end. The consumable option applies to the whole item and
+uses native item-use work after activation. Failed conditions, full HP or Heal
+Block for healing, and rejected status/stage changes retain the item. AI and
+preview calculations cannot consume it. Once consumed, the remaining effects
+stop. Native behaviors retain their intrinsic one-shot state and cooldowns. A reusable
+berry or gem that permits reactivation uses subsequent native triggers; recovery
+does not continuously repeat while the game is idle. This toggle
+is separate from the raw bag-use **Consumed On Use** field. Effects are evaluated
+in their listed order; a consumable item stops queuing further effects once one
+has requested activation.
+
+Custom rules also work on items without an original battle handler. Choosing
+**No battle effect** removes their rules; choosing a native assignment restores
+that handler for an item with a native slot. The editor changes battle behavior;
+it does not change which bag items can normally be given to Pokémon. Drive and
+Plate presets include move typing for Techno Blast and Judgment. These rules do
+not replace form changes or species abilities such as Multitype.
+
+All configurations share one `ItemEffects.dll`. Native callback/helper copies
+are shared across items, with separate state for each primitive. The editor
+bounds loaded code/data plus state to 64 KiB and verifies native bindings and
+the complete module again on reopen. Existing version-3 rules migrate on the
+next edit. EXP, EV, prize money, friendship, breeding, evolution, contests and
+field encounter effects are outside this in-battle library.
+
+Native code values belong to shared handlers. If multiple items use that handler,
+the editor lists them beside the control. Item-data parameters are per item.
+Assignments preserve the receiving item's other data, including its raw Held
+Effect ID. Original handlers can retain item/species restrictions and supporting
+data requirements; copying a handler does not rewrite those conditions.
+
+**Native verification → Recheck ROM** validates the current assignment and native
+signatures. Export the ROM to keep changes. The [native verification guide](../runtime/item-effects/README.md)
+describes export/reload, isolated callback checks, and 100-item native battle
+validation in melonDS. The [custom-rule validation receipt](../runtime/item-effects/RULES-VALIDATION.md)
+records the mix/match editor's separate battle coverage.
+
 ## Overview Fields
 
 | Field | Meaning | Example |
 | --- | --- | --- |
 | Item Type | General item type/category byte. Use donor items. | `1` |
 | Sort Order ID | Ordering value used in item lists. | `25` |
-| Battle Effect Param | Parameter used by the battle-use effect. | `0`, `20` |
+| Battle Effect Param | Held-effect parameter; its meaning depends on the native handler. Some handlers ignore it. | `0`, `20` |
 | Natural Gift Power | Natural Gift power flag/value exposed by the format. | `0`, `1` |
 
 ## Use Routing Fields

@@ -493,6 +493,8 @@ type BuildPrimitive = {
 };
 
 type BuildModelOptions = {
+  /** Preserve DS node translations and display-list transforms in battle/world units. */
+  nativeTransforms?: boolean;
   recoverSkippedPieces?: boolean;
   includeHiddenMaterials?: boolean;
   textureAnimations?: TextureAnimationSet;
@@ -2062,6 +2064,15 @@ function isHiddenNitroMaterial(material: NitroMaterial | undefined): boolean {
 }
 
 function buildModel(model: NitroModel, warnings: string[], options: BuildModelOptions): BuildPrimitive[] {
+  const coordinateScale = options.nativeTransforms ? 1 : model.upScale || 1;
+  const objectMatrices = model.objects.map(object => {
+    if (!options.nativeTransforms) return object.matrix;
+    // The shared map decoder normalizes node translations by posScale. Battle
+    // rendering needs the original translations; POSSCALE scales vertices later.
+    const matrix = object.matrix.slice() as Mat4;
+    for (const index of [3, 7, 11]) matrix[index] *= model.upScale || 1;
+    return matrix;
+  });
   const gpu = {
     matrix: matIdentity(),
     stack: Array.from({ length: 32 }, () => matIdentity()),
@@ -2077,14 +2088,15 @@ function buildModel(model: NitroModel, warnings: string[], options: BuildModelOp
       // animation loaded, the static bind-pose result is identity in model space.
       gpu.matrix = matIdentity();
       gpu.stack[op.stack] = gpu.matrix;
-    } else if (op.kind === "mulObject") gpu.matrix = matMul(gpu.matrix, model.objects[op.object]?.matrix ?? matIdentity());
+    } else if (op.kind === "mulObject") gpu.matrix = matMul(gpu.matrix, objectMatrices[op.object] ?? matIdentity());
     else if (op.kind === "scaleUp") gpu.matrix = matMul(gpu.matrix, matScale(model.upScale, model.upScale, model.upScale));
     else if (op.kind === "scaleDown") gpu.matrix = matMul(gpu.matrix, matScale(model.downScale, model.downScale, model.downScale));
     else if (op.kind === "bindMaterial") gpu.material = op.material;
     else if (op.kind === "draw") {
       const piece = model.pieces[op.piece];
       if (!piece) continue;
-      const primitive = runGpuCommands(piece.commands, gpu.matrix, gpu.stack, model.materials[gpu.material], gpu.material, model.upScale || 1, warnings);
+      const primitive = runGpuCommands(piece.commands, gpu.matrix, gpu.stack, model.materials[gpu.material], gpu.material, coordinateScale, warnings);
+      if (options.nativeTransforms) gpu.matrix = primitive.finalMatrix;
       primitives.push(primitive);
       if (primitive.vertices.length > 0 && primitive.indices.length > 0) drawnPieces.add(op.piece);
     }
@@ -2092,21 +2104,21 @@ function buildModel(model: NitroModel, warnings: string[], options: BuildModelOp
   if (!primitives.some((primitive) => primitive.vertices.length > 0 && primitive.indices.length > 0) && model.pieces.length > 0) {
     warnings.push("Model render ops produced no geometry; drawing all polygons once.");
     model.pieces.forEach((piece, pieceIndex) => {
-      primitives.push(drawUnreferencedPiece(model, piece, pieceIndex, gpu.stack, warnings));
+      primitives.push(drawUnreferencedPiece(model, piece, pieceIndex, gpu.stack, warnings, coordinateScale));
     });
   } else if (options.recoverSkippedPieces && drawnPieces.size < model.pieces.length) {
     const missingPieces = model.pieces.map((_piece, pieceIndex) => pieceIndex).filter((pieceIndex) => !drawnPieces.has(pieceIndex));
     if (missingPieces.length > 0) {
       warnings.push(`Model render ops skipped ${missingPieces.length} polygon piece${missingPieces.length === 1 ? "" : "s"}; drawing unmatched pieces once.`);
-      for (const pieceIndex of missingPieces) primitives.push(drawUnreferencedPiece(model, model.pieces[pieceIndex], pieceIndex, gpu.stack, warnings));
+      for (const pieceIndex of missingPieces) primitives.push(drawUnreferencedPiece(model, model.pieces[pieceIndex], pieceIndex, gpu.stack, warnings, coordinateScale));
     }
   }
   return primitives;
 }
 
-function drawUnreferencedPiece(model: NitroModel, piece: NitroPiece | undefined, pieceIndex: number, matrixStack: Mat4[], warnings: string[]): BuildPrimitive {
+function drawUnreferencedPiece(model: NitroModel, piece: NitroPiece | undefined, pieceIndex: number, matrixStack: Mat4[], warnings: string[], coordinateScale: number): BuildPrimitive {
   const materialId = Math.min(pieceIndex, Math.max(0, model.materials.length - 1));
-  return runGpuCommands(piece?.commands ?? new Uint8Array(), matIdentity(), matrixStack, model.materials[materialId], materialId, model.upScale || 1, warnings);
+  return runGpuCommands(piece?.commands ?? new Uint8Array(), matIdentity(), matrixStack, model.materials[materialId], materialId, coordinateScale, warnings);
 }
 
 function runGpuCommands(
@@ -2117,7 +2129,7 @@ function runGpuCommands(
   materialId: number,
   modelScale: number,
   warnings: string[],
-): BuildPrimitive {
+): BuildPrimitive & { finalMatrix: Mat4 } {
   const primitive: BuildPrimitive = { materialId, usedTexcoords: false, usedColors: false, usedNormals: false, vertices: [], indices: [] };
   let currentMatrix = matrix;
   let opcodeCursor: number[] = [];
@@ -2223,7 +2235,7 @@ function runGpuCommands(
     }
   }
   endPrim();
-  return primitive;
+  return { ...primitive, finalMatrix: currentMatrix };
 }
 
 function gpuMatrixFromParams(params: number[], columns: number, rows: number): Mat4 {
