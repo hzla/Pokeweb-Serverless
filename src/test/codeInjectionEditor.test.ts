@@ -4,8 +4,35 @@ import { renderCodeInjectionEditor } from "../ui/codeInjectionEditor";
 import { MENU_EVOLUTION_TITLE } from "../pokeweb/menuEvolutionModel";
 import * as menuEvolution from "../pokeweb/menuEvolutionModel";
 import * as battleLog from "../pokeweb/battleLogModel";
+import * as candyModel from "../pokeweb/infiniteCandyModel";
 
 afterEach(() => vi.restoreAllMocks());
+
+describe("Infinite Candy item selection", () => {
+  it("updates compatibility and the install button when the selected ID changes", () => {
+    vi.spyOn(candyModel, "getInfiniteCandyStatus").mockImplementation((_project, itemId = 622) => ({
+      supported: true, compatible: itemId === 113, installed: false, itemId, message: itemId === 113 ? "Ready" : "Occupied item slot",
+    }));
+    const handlers = new Map<string, () => void>();
+    const input = { valueAsNumber: 113, addEventListener: (name: string, action: () => void) => handlers.set(name, action) };
+    const button = { disabled: true, addEventListener: () => {} }, note = { textContent: "" }, badge = { innerHTML: "" };
+    const nodes: Record<string, unknown> = { "#infinite-candy-item-id": input, "#install-infinite-candy-btn": button,
+      "#infinite-candy-note": note, "#infinite-candy-status": badge };
+    const root = { innerHTML: "", querySelector: (selector: string) => nodes[selector] ?? null, querySelectorAll: () => [] };
+    renderCodeInjectionEditor(makeProject("W2"), root as unknown as HTMLElement, () => {});
+    expect(root.innerHTML).toContain('id="infinite-candy-item-id" type="number"');
+    handlers.get("input")!();
+    expect(button.disabled).toBe(false); expect(note.textContent).toBe(""); expect(badge.innerHTML).toContain("Ready");
+    input.valueAsNumber = 50; handlers.get("input")!();
+    expect(button.disabled).toBe(true); expect(note.textContent).toBe("Occupied item slot");
+  });
+  it("retains and locks the installed item ID on reopening the editor", () => {
+    vi.spyOn(candyModel, "getInstalledInfiniteCandyItemId").mockReturnValue(113);
+    vi.spyOn(candyModel, "getInfiniteCandyStatus").mockReturnValue({ supported: true, compatible: true, installed: true, itemId: 113, message: "Installed" });
+    const html = renderFixture("W2");
+    expect(html).toMatch(/id="infinite-candy-item-id"[^>]*value="113"[^>]*readonly/u);
+  });
+});
 
 function makeProject(version: "W2" | "B2" | "B" | "W", pmcInstalled = false): ProjectState {
   const idCode = { W2: "IRDO", B2: "IREO", B: "IRBO", W: "IRAO" }[version];
@@ -246,7 +273,7 @@ describe("code-injection patch categories", () => {
       "PWAN GIF Support", "Trainer PWAN GIF Support", "Overworld Weather Runtime", "Trainer Battle Log",
     ]);
     expect(headings(panels[1])).toEqual([
-      "Black 2 / White 2 Save Menu", "Summary IV/EV Viewer", "Enhanced Party Menu and Battle Log Integration", "Type Icons", "Learnset Viewer", "Move Effectiveness Preview",
+      "Summary IV/EV Viewer", "Enhanced Party Menu and Battle Log Integration", "Type Icons", "Learnset Viewer", "Move Effectiveness Preview", "Interactive Save Menu",
     ]);
     expect(headings(panels[2])).toEqual(["Instant Fast Text", "Background Music Toggle"]);
     expect(headings(panels[3])).toEqual([
@@ -265,6 +292,7 @@ describe("code-injection patch categories", () => {
     expect(html).not.toContain("Patch DLLs are staged in patches/. Library DLLs are staged in lib/.");
     const actionNotes = [...html.matchAll(/<div class="code-injection-note" id="[^"]+-note" aria-live="polite">([\s\S]*?)<\/div>/g)];
     expect(actionNotes).toHaveLength(25);
-    expect(actionNotes.every((match) => match[1] === "")).toBe(true);
+    expect(actionNotes.filter(match => !match[0].includes('id="infinite-candy-note"')).every(match => match[1] === "")).toBe(true);
+    expect(actionNotes.find(match => match[0].includes('id="infinite-candy-note"'))?.[1]).not.toBe("");
   });
 });

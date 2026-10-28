@@ -63,7 +63,7 @@ import { getSummaryStatViewerStatus, installSummaryStatViewer, uninstallSummaryS
 import { getSummaryTypeIconsStatus, installSummaryTypeIcons, uninstallSummaryTypeIcons, SUMMARY_TYPE_ICONS_VERSION } from "../pokeweb/summaryTypeIconsModel";
 import { getSaveMenuSettings, getSaveMenuStatus, installSaveMenu, SAVE_MENU_VERSION, SAVE_MENU_VERSION_LABEL_MAX_LENGTH, type SaveMenuSettings } from "../pokeweb/saveMenuModel";
 import { canUseLocalRomBridge } from "../pokeweb/localRomBridge";
-import { getInfiniteCandyStatus, installInfiniteCandy } from "../pokeweb/infiniteCandyModel";
+import { getInfiniteCandyStatus, getInstalledInfiniteCandyItemId, installInfiniteCandy } from "../pokeweb/infiniteCandyModel";
 import { getLevelCapsStatus, installLevelCaps } from "../pokeweb/levelCapsModel";
 import { TESTING_PATCHES, getTestingPatchStatus, installTestingPatch, uninstallTestingPatch, type TestingPatchId } from "../pokeweb/testingPatchesModel";
 import { getBattleTypeHudStatus, installBattleTypeHud, uninstallBattleTypeHud, getMoveEffectivenessStatus, installMoveEffectiveness, uninstallMoveEffectiveness, DEFAULT_MOVE_HIGHLIGHT_COLORS, type MoveHighlightColors, type TypeIconVariant } from "../pokeweb/battleTypeHudModel";
@@ -93,6 +93,8 @@ type CodeInjectionTab = (typeof codeInjectionTabs)[number]["id"];
 const activeCodeInjectionTabs = new WeakMap<HTMLElement, CodeInjectionTab>();
 const showUnsupportedCodeInjectionPatches = new WeakMap<ProjectState, boolean>();
 
+const pendingCandyItemIds = new WeakMap<ProjectState, number>();
+
 export function renderCodeInjectionEditor(project: ProjectState, root: HTMLElement, onDirty: () => void): void {
   const activeTab = activeCodeInjectionTabs.get(root) ?? "infrastructure";
   const showUnsupported = showUnsupportedCodeInjectionPatches.get(project) ?? project.session.baseRom !== "BW";
@@ -108,7 +110,8 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const doubleBattleFixSupported = status.supported && doubleBattleFixStatus !== "unsupported";
   const bgmToggleStatus = detectBundledBgmToggleDll(project);
   const bgmToggleSupported = bgmToggleStatus !== "unsupported";
-  const infiniteCandyStatus = getInfiniteCandyStatus(project);
+  const infiniteCandyItemId = pendingCandyItemIds.get(project) ?? getInstalledInfiniteCandyItemId(project) ?? 622;
+  const infiniteCandyStatus = getInfiniteCandyStatus(project, infiniteCandyItemId);
   const levelCapsStatus = getLevelCapsStatus(project);
   const debugFlag = getDebugSaveFlagStatus(project);
   const testingPatchCard = (id: TestingPatchId) => {
@@ -186,6 +189,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div><span>Dependency</span><strong>PMC only</strong></div>
           </div>
           ${card.id === "battle-hud" ? `<div class="type-icon-variant-picker">
+            <div class="code-injection-facts"><div><span>Graphics profile</span><strong>${battleHudStatus.graphicsProfile === "redux" ? "Redux" : "Original"}</strong></div></div>
             <div class="type-icon-variant-previews" aria-label="Type icon variation previews">
               <figure class="type-icon-variant-preview ${(battleHudStatus.iconVariant ?? "letters") === "letters" ? "is-selected" : ""}" data-type-icon-variant-card="letters">
                 <figcaption>Hexagonal letters</figcaption>
@@ -399,38 +403,6 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         </section>
         </section>
         <section class="code-injection-tab-panel" id="code-injection-panel-graphics" role="tabpanel" aria-labelledby="code-injection-tab-graphics" tabindex="0" ${activeTab === "graphics" ? "" : "hidden"}>
-        <section class="code-injection-panel" ${patchVisibility(saveMenuStatus.supported)}>
-          <div class="code-injection-panel__header"><div>
-            <h2>Black 2 / White 2 Save Menu</h2>
-            <p>An animated save card and native Unova map. Continue recalls the party from right to left while the player raises a Poké Ball, then jumps across both screens onto the location marker. The C-Gear question is answered Yes automatically.</p>
-          </div>${renderInlineStatus(saveMenuStatus.updateAvailable ? "Update Available" : saveMenuStatus.installed ? "Installed" : !saveMenuStatus.supported ? "Unsupported" : saveMenuStatus.dependencyPresent ? "Ready" : "Requires Following Pokémon", { className: "code-injection-status" })}</div>
-          <div class="code-injection-facts"><div><span>ROM</span><strong>English Black 2 / White 2</strong></div><div><span>Version</span><strong>${SAVE_MENU_VERSION}</strong></div></div>
-          <p>${escapeHtml(saveMenuStatus.message)}</p>
-          ${saveMenuStatus.supported ? `<p><a class="btn -default" href="#followingPokemon" data-route="followingPokemon">${saveMenuStatus.dependencyPresent ? "Open Following Pokémon" : "Install Following Pokémon"}</a></p>` : ""}
-          <p>L/R make the left/right three Pokémon Hop; Y/X make alternating party slots Hop. Hold Select with L to spin slots 1–3, R for slots 4–6, Y for slots 1/3/5, or X for slots 2/4/6 using their follower sprites. The player raises the matching hand, and walking stays on the music beat.</p>
-          <div class="code-injection-actions code-injection-settings">
-            <label>ROM version label<input id="save-menu-version-label" type="text" maxlength="${SAVE_MENU_VERSION_LABEL_MAX_LENGTH}" value="${escapeHtml(saveMenuSettings.versionLabel ?? "")}" placeholder="v1.0" ${saveMenuStatus.supported ? "" : "disabled"} />
-              <small>Optional text in the save card header. Up to 30 letters, numbers, spaces, or . , ! ? -.</small>
-            </label>
-            <label>Menu song
-              <select id="save-menu-song" ${saveMenuStatus.supported ? "" : "disabled"}>
-                <option value="relic-song" ${saveMenuSettings.music === "relic-song" ? "selected" : ""}>Relic Song (native sequence)</option>
-                <option value="off" ${saveMenuSettings.music === "off" ? "selected" : ""}>Off (no save-menu music)</option>
-                ${standaloneSongs.map(song => `<option value="stream:${song.streamId}" ${song.loop ? "" : "disabled"} ${saveMenuSettings.music === "stream" && saveMenuSettings.streamId === song.streamId ? "selected" : ""}>${escapeHtml(song.name)} · stream ${song.streamId}${song.loop ? "" : " (not looping)"}</option>`).join("")}
-              </select>
-              <small>Use Music → Standalone streamed songs to add a track without replacing game music.</small>
-            </label>
-            <label>Stream tempo (BPM)<input id="save-menu-bpm" type="number" min="30" max="300" step="1" value="${saveMenuSettings.bpm}" ${saveMenuStatus.supported ? "" : "disabled"} /></label>
-            <label>Sprite pose changes per beat
-              <select id="save-menu-steps-per-beat" ${saveMenuStatus.supported ? "" : "disabled"}>
-                ${([1, 2, 4] as const).map(steps => `<option value="${steps}" ${saveMenuSettings.stepsPerBeat === steps ? "selected" : ""}>${steps}</option>`).join("")}
-              </select>
-              <small>The native song follows its sequence clock. Streams use BPM. With music off, sprites change poses every eight frames.</small>
-            </label>
-            <button class="btn -primary" id="install-save-menu-btn" type="button" ${saveMenuStatus.supported && saveMenuStatus.dependencyPresent ? "" : "disabled"}>${saveMenuStatus.updateAvailable ? "Update Save Menu" : saveMenuStatus.installed ? "Reinstall Save Menu" : "Install Save Menu"}</button>
-            <div class="code-injection-note" id="save-menu-note" aria-live="polite"></div>
-          </div>
-        </section>
         <section class="code-injection-panel" ${patchVisibility(summaryStatStatus.supported)}>
           <div class="code-injection-panel__header"><div>
             <h2>Summary IV/EV Viewer</h2>
@@ -538,6 +510,38 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           </div>
         </section>
         ${battleUiCards[1] ?? ""}
+        <section class="code-injection-panel" ${patchVisibility(saveMenuStatus.supported)}>
+          <div class="code-injection-panel__header"><div>
+            <h2>Interactive Save Menu</h2>
+            <p>An animated save card and native Unova map. Continue recalls the party from right to left while the player raises a Poké Ball, then jumps across both screens onto the location marker. The C-Gear question is answered Yes automatically.</p>
+          </div>${renderInlineStatus(saveMenuStatus.updateAvailable ? "Update Available" : saveMenuStatus.installed ? "Installed" : !saveMenuStatus.supported ? "Unsupported" : saveMenuStatus.dependencyPresent ? "Ready" : "Requires Following Pokémon", { className: "code-injection-status" })}</div>
+          <div class="code-injection-facts"><div><span>ROM</span><strong>English Black 2 / White 2</strong></div><div><span>Version</span><strong>${SAVE_MENU_VERSION}</strong></div></div>
+          <p>${escapeHtml(saveMenuStatus.message)}</p>
+          ${saveMenuStatus.supported ? `<p><a class="btn -default" href="#followingPokemon" data-route="followingPokemon">${saveMenuStatus.dependencyPresent ? "Open Following Pokémon" : "Install Following Pokémon"}</a></p>` : ""}
+          <p>L/R make the left/right three Pokémon Hop; Y/X make alternating party slots Hop. Hold Select with L to spin slots 1–3, R for slots 4–6, Y for slots 1/3/5, or X for slots 2/4/6 using their follower sprites. The player raises the matching hand, and walking stays on the music beat.</p>
+          <div class="code-injection-actions code-injection-settings">
+            <label>ROM version label<input id="save-menu-version-label" type="text" maxlength="${SAVE_MENU_VERSION_LABEL_MAX_LENGTH}" value="${escapeHtml(saveMenuSettings.versionLabel ?? "")}" placeholder="v1.0" ${saveMenuStatus.supported ? "" : "disabled"} />
+              <small>Optional text in the save card header. Up to 30 letters, numbers, spaces, or . , ! ? -.</small>
+            </label>
+            <label>Menu song
+              <select id="save-menu-song" ${saveMenuStatus.supported ? "" : "disabled"}>
+                <option value="relic-song" ${saveMenuSettings.music === "relic-song" ? "selected" : ""}>Relic Song (native sequence)</option>
+                <option value="off" ${saveMenuSettings.music === "off" ? "selected" : ""}>Off (no save-menu music)</option>
+                ${standaloneSongs.map(song => `<option value="stream:${song.streamId}" ${song.loop ? "" : "disabled"} ${saveMenuSettings.music === "stream" && saveMenuSettings.streamId === song.streamId ? "selected" : ""}>${escapeHtml(song.name)} · stream ${song.streamId}${song.loop ? "" : " (not looping)"}</option>`).join("")}
+              </select>
+              <small>Use Music → Standalone streamed songs to add a track without replacing game music.</small>
+            </label>
+            <label>Stream tempo (BPM)<input id="save-menu-bpm" type="number" min="30" max="300" step="1" value="${saveMenuSettings.bpm}" ${saveMenuStatus.supported ? "" : "disabled"} /></label>
+            <label>Sprite pose changes per beat
+              <select id="save-menu-steps-per-beat" ${saveMenuStatus.supported ? "" : "disabled"}>
+                ${([1, 2, 4] as const).map(steps => `<option value="${steps}" ${saveMenuSettings.stepsPerBeat === steps ? "selected" : ""}>${steps}</option>`).join("")}
+              </select>
+              <small>The native song follows its sequence clock. Streams use BPM. With music off, sprites change poses every eight frames.</small>
+            </label>
+            <button class="btn -primary" id="install-save-menu-btn" type="button" ${saveMenuStatus.supported && saveMenuStatus.dependencyPresent ? "" : "disabled"}>${saveMenuStatus.updateAvailable ? "Update Interactive Save Menu" : saveMenuStatus.installed ? "Reinstall Interactive Save Menu" : "Install Interactive Save Menu"}</button>
+            <div class="code-injection-note" id="save-menu-note" aria-live="polite"></div>
+          </div>
+        </section>
         </section>
         <section class="code-injection-tab-panel" id="code-injection-panel-quality-of-life" role="tabpanel" aria-labelledby="code-injection-tab-quality-of-life" tabindex="0" ${activeTab === "quality-of-life" ? "" : "hidden"}>
         ${testingPatchCard("instant-fast-text")}
@@ -568,13 +572,13 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-panel__header">
             <div>
               <h2>Infinite Rare Candy</h2>
-              <p>Adds a reusable level-up item to Key Items. Grant item 622 through an event or save editor; installation does not add it to existing saves.</p>
+              <p>Adds a reusable level-up item to Key Items. Grant the selected item through an event or save editor.</p>
             </div>
-            ${renderInlineStatus(infiniteCandyStatus.installed ? "Installed" : infiniteCandyStatus.compatible ? "Ready" : infiniteCandyStatus.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}
+            <span id="infinite-candy-status">${renderInlineStatus(infiniteCandyStatus.installed ? "Installed" : infiniteCandyStatus.compatible ? "Ready" : infiniteCandyStatus.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}</span>
           </div>
           <div class="code-injection-facts">
             <div><span>ROM</span><strong>US Black 2 / White 2</strong></div>
-            <div><span>Item ID</span><strong>622</strong></div>
+            <label><span>Item ID</span><input id="infinite-candy-item-id" type="number" min="1" max="638" step="1" value="${infiniteCandyItemId}" aria-label="Infinite Candy item ID" aria-describedby="infinite-candy-note" ${project.session.baseRom === "BW" || infiniteCandyStatus.installed ? "readonly" : ""}></label>
             <div><span>Bag</span><strong>Key Items</strong></div>
             <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
           </div>
@@ -582,7 +586,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <button class="btn -primary" id="install-infinite-candy-btn" type="button" ${infiniteCandyStatus.compatible ? "" : "disabled"}>
               ${infiniteCandyStatus.installed ? "Reinstall Infinite Candy" : "Install Infinite Candy"}
             </button>
-            <div class="code-injection-note" id="infinite-candy-note" aria-live="polite"></div>
+            <div class="code-injection-note" id="infinite-candy-note" aria-live="polite">${infiniteCandyStatus.compatible ? "" : escapeHtml(infiniteCandyStatus.message)}</div>
             <div class="code-injection-credits">Item behavior adapted from PW2Code by Dararo.</div>
           </div>
         </section>
@@ -669,7 +673,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <p>REPEL, PC, BIKE, MAP, PARTY and BAG touch shortcuts, with up to eight editable buttons. Available after obtaining C-Gear, including with wireless off. Use the wrench to rearrange them. ${project.session.baseRom==="BW"?"Tap the upper-right button to browse native backgrounds.":"Drag the outer rim to browse skins: clockwise next, counterclockwise previous, every 12°."}</p>
           </div>${renderInlineStatus(!quickActionsStatus.supported ? "Unsupported" : !quickActionsStatus.compatible ? "Incompatible" : quickActionsStatus.enabled ? "Enabled" : quickActionsStatus.installed ? "Disabled" : "Ready", { className: "code-injection-status" })}</div>
           <div class="code-injection-facts"><div><span>Games</span><strong>English Black / White / Black 2 / White 2</strong></div>
-            <div><span>Dependency</span><strong>PMC only</strong></div><div><span>Release</span><strong>${escapeHtml(project.session.baseRom==="BW"?CGEAR_QUICK_ACTIONS_BW1_VERSION:CGEAR_QUICK_ACTIONS_VERSION)} development</strong></div></div>
+            <div><span>Dependency</span><strong>PMC only</strong></div>${quickActionsStatus.romProfile === "redux" ? '<div><span>ROM profile</span><strong>Redux</strong></div>' : ""}<div><span>Release</span><strong>${escapeHtml(project.session.baseRom==="BW"?CGEAR_QUICK_ACTIONS_BW1_VERSION:quickActionsStatus.runtimeVersion??CGEAR_QUICK_ACTIONS_VERSION)} development</strong></div></div>
           <img src="${project.session.baseRom==="BW"?new URL("../assets/codeinjection/cgearQuickActionsBw1Preview.png", import.meta.url).href:new URL("../assets/codeinjection/cgearQuickActionsPreview.png", import.meta.url).href}" alt="Editable C-Gear action button layout." width="256" height="192" style="max-width:100%;width:384px;height:auto;image-rendering:pixelated" />
           <p>${escapeHtml(quickActionsStatus.message)}</p>
           <p>Configure up to eight buttons, their labels, colors, starting positions, native key-item actions, and optional save-flag visibility. Changes are applied together from the button editor.</p>
@@ -1049,16 +1053,30 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   });
 
   const infiniteCandyButton = root.querySelector<HTMLButtonElement>("#install-infinite-candy-btn");
+  const candyItemInput = root.querySelector<HTMLInputElement>("#infinite-candy-item-id");
+  candyItemInput?.addEventListener("input", () => {
+    const itemId = candyItemInput.valueAsNumber;
+    if (Number.isInteger(itemId)) pendingCandyItemIds.set(project, itemId);
+    const selected = getInfiniteCandyStatus(project, itemId);
+    if (infiniteCandyButton) infiniteCandyButton.disabled = !selected.compatible;
+    const note = root.querySelector<HTMLDivElement>("#infinite-candy-note");
+    if (note) note.textContent = selected.compatible ? "" : selected.message;
+    const badge = root.querySelector<HTMLElement>("#infinite-candy-status");
+    if (badge) badge.innerHTML = renderInlineStatus(selected.installed ? "Installed" : selected.compatible ? "Ready" : "Incompatible", { className: "code-injection-status" });
+  });
   infiniteCandyButton?.addEventListener("click", async () => {
     const note = root.querySelector<HTMLDivElement>("#infinite-candy-note");
     infiniteCandyButton.disabled = true;
-    if (note) note.textContent = "Checking item 622 and installing the patch...";
+    const itemId = candyItemInput?.valueAsNumber ?? infiniteCandyItemId;
+    if (candyItemInput) candyItemInput.disabled = true;
+    if (note) note.textContent = `Checking item ${itemId} and installing the patch...`;
     try {
-      await install(candidate => installInfiniteCandy(candidate));
+      await install(candidate => installInfiniteCandy(candidate, itemId));
       onDirty();
       renderCodeInjectionEditor(project, root, onDirty);
     } catch (error) {
       infiniteCandyButton.disabled = false;
+      if (candyItemInput) candyItemInput.disabled = false;
       if (note) note.textContent = error instanceof Error ? error.message : String(error);
     }
   });

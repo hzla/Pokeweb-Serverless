@@ -1,0 +1,186 @@
+{
+  "id": "redux",
+  "label": "Redux",
+  "game": "W2",
+  "romCode": "IRDO",
+  "revision": 0,
+  "graphicsArchive": "a/0/1/1",
+  "resources": {
+    "430": {
+      "nativeSha256": "77b18c0c6cdbdfda1de37845e7401e9b7ea87705a3acd2da1a4ae341b965c642",
+      "nativeFingerprint": "ee4e9f59"
+    },
+    "431": {
+      "nativeSha256": "3054920f4d9b63e281628d51679698517634491e69c47358a80b3d7bd226321d",
+      "nativeFingerprint": "ac55af2a"
+    },
+    "432": {
+      "nativeSha256": "b28abadf3cc7a755b8fa0b8b23daecd56aa67c1013e5e73a4adc72cd2a9a9306",
+      "nativeFingerprint": "a3b085e7"
+    },
+    "433": {
+      "nativeSha256": "e158bcffb696ee8e8a3419d3dc29a8e869fcf4935b82b286035ec3aa4ae6b2b1",
+      "nativeFingerprint": "3379b53f"
+    },
+    "434": {
+      "nativeSha256": "8a26148c74f22dc08019be15abe63a64a055845d3b3b1233b7692d14966c58fe",
+      "nativeFingerprint": "261fbba1"
+    },
+    "435": {
+      "nativeSha256": "6fc79ae6d7610dfe6482d7e63f5366878e8b78c6d639fccea3130a9f53f314ac",
+      "nativeFingerprint": "33e21a56"
+    },
+    "436": {
+      "nativeSha256": "d2750024dc32683ec89d035bbca8b8f17c91fe9aaa217c5b6f7e79b7f48da38f",
+      "nativeFingerprint": "7cbe5eb0"
+    },
+    "437": {
+      "nativeSha256": "30249884bd91f10bc9d4e13e7b1495f09991b6f488405a0cdbb61cfb402d10ca",
+      "nativeFingerprint": "455efdb7"
+    },
+    "438": {
+      "nativeSha256": "3bf8674607749f82755179071ab87ac4de473a3c3f3b100c7a356bdc120c47d9",
+      "nativeFingerprint": "48fe4306",
+      "expandedSha256": "001bf555633f2b09a8af997044b7af4636e08b35735eaa4a4454a32a58e10587",
+      "expandedFingerprint": "08980e4d"
+    },
+    "439": {
+      "nativeSha256": "d2750024dc32683ec89d035bbca8b8f17c91fe9aaa217c5b6f7e79b7f48da38f",
+      "nativeFingerprint": "7cbe5eb0",
+      "expandedSha256": "ee07f9db03f666018907f14adb753a1c2d3334304b12fa434959f516a3befa6e",
+      "expandedFingerprint": "7e7a280a"
+    },
+    "440": {
+      "nativeSha256": "30249884bd91f10bc9d4e13e7b1495f09991b6f488405a0cdbb61cfb402d10ca",
+      "nativeFingerprint": "455efdb7"
+    },
+    "441": {
+      "nativeSha256": "4c346c13a6602a760fb006c519c5f5717c4c1aeaab0152548de8057b111bb4b7",
+      "nativeFingerprint": "eda20d18"
+    },
+    "442": {
+      "nativeSha256": "5917653e4ef44c039f050f380617078b2b2df7eae6e72c1874b15eb3910de5e1",
+      "nativeFingerprint": "f900db2f"
+    },
+    "443": {
+      "nativeSha256": "30249884bd91f10bc9d4e13e7b1495f09991b6f488405a0cdbb61cfb402d10ca",
+      "nativeFingerprint": "455efdb7"
+    },
+    "444": {
+      "nativeSha256": "6ac2a2cdb7f528319e522359d010377cd5cf61796262fa3392de02fef0d6614f",
+      "nativeFingerprint": "68b6c85f"
+    },
+    "445": {
+      "nativeSha256": "d2750024dc32683ec89d035bbca8b8f17c91fe9aaa217c5b6f7e79b7f48da38f",
+      "nativeFingerprint": "7cbe5eb0"
+    },
+    "446": {
+      "nativeSha256": "30249884bd91f10bc9d4e13e7b1495f09991b6f488405a0cdbb61cfb402d10ca",
+      "nativeFingerprint": "455efdb7"
+    },
+    "456": {
+      "nativeSha256": "7a727094dc51596f08cca831257a39098cf19ce9558c331e5caee6fb5f6f8fce",
+      "nativeFingerprint": "a1418273"
+    },
+    "457": {
+      "nativeSha256": "29c984e5697870d196c69d2a99ffff5925afc8f0b8a62057d3d7d0f3f51cd09f",
+      "nativeFingerprint": "dc7d5b8f"
+    },
+    "458": {
+      "nativeSha256": "30249884bd91f10bc9d4e13e7b1495f09991b6f488405a0cdbb61cfb402d10ca",
+      "nativeFingerprint": "455efdb7"
+    }
+  },
+  "panelExpansion": {
+    "438": {
+      "originalSha256": "3bf8674607749f82755179071ab87ac4de473a3c3f3b100c7a356bdc120c47d9",
+      "patchedSha256": "001bf555633f2b09a8af997044b7af4636e08b35735eaa4a4454a32a58e10587",
+      "edits": [
+        {
+          "offset": 8,
+          "old": "34080000",
+          "new": "30090000"
+        },
+        {
+          "offset": 20,
+          "old": "24080000",
+          "new": "20090000"
+        },
+        {
+          "offset": 40,
+          "old": "00080000",
+          "new": "00090000"
+        },
+        {
+          "offset": 2096,
+          "old": "",
+          "new": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        }
+      ],
+      "previous": []
+    },
+    "439": {
+      "originalSha256": "d2750024dc32683ec89d035bbca8b8f17c91fe9aaa217c5b6f7e79b7f48da38f",
+      "patchedSha256": "ee07f9db03f666018907f14adb753a1c2d3334304b12fa434959f516a3befa6e",
+      "edits": [
+        {
+          "offset": 8,
+          "old": "67000000",
+          "new": "6f000000"
+        },
+        {
+          "offset": 20,
+          "old": "34000000",
+          "new": "3c000000"
+        },
+        {
+          "offset": 48,
+          "old": "0200",
+          "new": "0300"
+        },
+        {
+          "offset": 50,
+          "old": "1100",
+          "new": "1500"
+        },
+        {
+          "offset": 68,
+          "old": "",
+          "new": "f440bc8120000000"
+        }
+      ],
+      "previous": [
+        {
+          "patchedSha256": "d2a0453433e548b2979d0a3df3b9c7fe54e3c6050eaa80d7d44aec6651637c91",
+          "edits": [
+            {
+              "offset": 8,
+              "old": "67000000",
+              "new": "6f000000"
+            },
+            {
+              "offset": 20,
+              "old": "34000000",
+              "new": "3c000000"
+            },
+            {
+              "offset": 48,
+              "old": "0200",
+              "new": "0300"
+            },
+            {
+              "offset": 50,
+              "old": "1100",
+              "new": "1500"
+            },
+            {
+              "offset": 68,
+              "old": "",
+              "new": "f440b08120000000"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

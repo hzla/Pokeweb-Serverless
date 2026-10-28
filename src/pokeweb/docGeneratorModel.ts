@@ -20,7 +20,8 @@ import { cascadeWhitePersonalName, cascadeWhiteTrainerAbilityName } from "./casc
 import { getEncounterCount, getEncounterRecord } from "./encounterModel";
 import { parseGen5ScriptEncounters, type Gen5ScriptEncounter } from "./gen5ScriptEncounterModel";
 import { gen5ResolvedScriptOperands, gen5ScriptCommandOffsets, type ScriptWalkOptions } from "./gen5ScriptCommands";
-import { indirectTrainerContext, parseIndirectTrainerScripts } from "./trainerLocationModel";
+import { indirectTrainerContext, parseIndirectTrainerScripts, trainerMapEventContext } from "./trainerLocationModel";
+import { inferTrainerBattleWeather } from "./trainerBattleWeatherModel";
 import { parseHeaders } from "./headerModel";
 import { getMartCount, getMartRecord } from "./martGrottoModel";
 import { getItemCount, getItemRecord, getMoveCount, getMoveRecord } from "./moveItemModel";
@@ -472,6 +473,9 @@ export function enrichTrainerLocations(project: ProjectState): EnrichmentResult 
   docs.trainerDiffs = {};
   if (!project.headers) project.headers = parseHeaders(project);
 
+  const mapEvents = trainerMapEventContext(project);
+  const indirectContext = indirectTrainerContext(project);
+
   const overworlds = project.narcs.overworlds;
   let count = 0;
   for (let overworldId = 0; overworldId < (overworlds?.fileCount ?? 0); overworldId += 1) {
@@ -481,7 +485,10 @@ export function enrichTrainerLocations(project: ProjectState): EnrichmentResult 
     const location = locationForOverworld(project, overworldId);
     const diff = difficultyForOverworld(project, overworldId);
     const npcCount = Number(raw.npc_count ?? 0);
+    const row = Object.values(project.headers.rows).find((candidate) => Number(candidate.overworlds_id ?? candidate.map_id) === overworldId);
+    const events = row ? mapEvents(row, indirectContext.field?.zoneOverlays[row.index]) : undefined;
     for (let npc = 0; npc < npcCount; npc += 1) {
+      if (events && !events.activeNpc(npc)) continue;
       const scriptId = Number(raw[`npc_${npc}_script_id`] ?? 0);
       if (!((scriptId > 3000 && scriptId < 4000) || (scriptId > 5000 && scriptId < 6000))) continue;
       const trainerId = scriptId % 1000;
@@ -490,7 +497,7 @@ export function enrichTrainerLocations(project: ProjectState): EnrichmentResult 
     }
   }
 
-  const scriptCount = enrichTrainerLocationsFromScripts(project, docs);
+  const scriptCount = enrichTrainerLocationsFromScripts(project, docs, mapEvents, indirectContext);
   return {
     count: count + scriptCount,
     message: `Found ${Object.keys(docs.trainerLocations).length} trainers across ${count} overworld NPCs and ${scriptCount} script trainer references.`,
@@ -550,13 +557,16 @@ export function parseTrainerBattleScripts(
   maxTrainerId = 65535,
   baseRom: BaseRom = "BW2",
   options: ScriptWalkOptions = {},
+  role: "all" | "opponents" | "partners" = "all",
 ): number[] {
   const trainerIds: number[] = [];
-  const operands = gen5ResolvedScriptOperands(bytes, baseRom, {
+  const commandOperands: Record<number, number[]> = role === "partners" ? (baseRom === "BW2" ? { 0x86: [2] } : {}) : {
     0x85: [2, 4],
-    0x86: [2, 4, 6],
+    // BW2 multi battles read ally, opponent 1, opponent 2, flags.
+    0x86: baseRom === "BW2" && role === "opponents" ? [4, 6] : [2, 4, 6],
     0x94: [2, 4],
-  }, options);
+  };
+  const operands = gen5ResolvedScriptOperands(bytes, baseRom, commandOperands, options);
   for (const operand of operands) addTrainerIds(trainerIds, maxTrainerId, operand.values);
   return unique(trainerIds);
 }
@@ -1502,7 +1512,8 @@ function addMartDexSources(project: ProjectState, out: Record<string, Record<str
 function buildFormattedTrainerSets(project: ProjectState, itemName: (value: unknown) => string): Record<string, Record<string, unknown>> {
   if (!project.narcs.trdata || !project.narcs.trpok || !project.narcs.personal) return {};
   const docs = ensureDocs(project);
-  if (Object.keys(docs.trainerDiffs).length === 0 && project.narcs.headers && project.narcs.overworlds) enrichTrainerLocations(project);
+  if (project.narcs.headers && project.narcs.overworlds) enrichTrainerLocations(project);
+  const weather = inferTrainerBattleWeather(project);
   const formatted: Record<string, Record<string, unknown>> = {};
   const nameCounts: Record<string, number> = {};
   for (let trainerId = 0; trainerId < getTrainerCount(project); trainerId += 1) {
@@ -1525,6 +1536,7 @@ function buildFormattedTrainerSets(project: ProjectState, itemName: (value: unkn
         // reordered trainer tables cannot be renumbered by export iteration.
         tr_id: trainer.id,
         diff: docs.trainerDiffs[String(trainerId)] ?? 0,
+        ...(weather[trainerId] ? { weather: weather[trainerId] } : {}),
         ivs: { hp: iv, at: iv, df: iv, sa: iv, sd: iv, sp: iv },
         battle_type: trainer.readable.battle_type_1,
         reward_item: itemName(trainer.readable.reward_item),
@@ -1617,12 +1629,11 @@ function scriptStarts(bytes: Uint8Array): number[] {
   return starts;
 }
 
-function enrichTrainerLocationsFromScripts(project: ProjectState, docs: DocGeneratorState): number {
+function enrichTrainerLocationsFromScripts(project: ProjectState, docs: DocGeneratorState, mapEvents: ReturnType<typeof trainerMapEventContext>, indirectContext: ReturnType<typeof indirectTrainerContext>): number {
   const scripts = project.narcs.scripts;
   if (!scripts || !project.headers) return 0;
 
   const maxTrainerId = project.narcs.trdata?.fileCount ? project.narcs.trdata.fileCount - 1 : 65535;
-  const indirectContext = indirectTrainerContext(project);
   let count = 0;
   for (let rowId = 1; rowId <= project.headers.count; rowId += 1) {
     const row = project.headers.rows[rowId];
@@ -1637,13 +1648,21 @@ function enrichTrainerLocationsFromScripts(project: ProjectState, docs: DocGener
       ? overworldId
       : undefined;
     const overlayId = indirectContext.field?.zoneOverlays[rowId - 1];
-    const trainerIds = trainerIdsFromScriptTree(project, scriptId, maxTrainerId, indirectContext, overlayId);
+    const events = mapEvents(row, overlayId);
+    const trainerIds = trainerIdsFromScriptTree(project, scriptId, maxTrainerId, indirectContext, overlayId, events.entryIndices);
+    const unadjusted = trainerIdsFromScriptTree(project, scriptId, maxTrainerId, indirectContext, overlayId, events.entryIndices, new Set(), "partners");
     if (overlayId === 61 && indirectContext.dungeon) {
       const pool = location === "Black Tower" ? indirectContext.dungeon.black : indirectContext.dungeon.white;
-      addTrainerIds(trainerIds, maxTrainerId, [...pool, 660, 661]);
+      // The dungeon constructs its own battle setup and bypasses the standard
+      // field difficulty adjustment, even when the map header has a delta.
+      addTrainerIds(unadjusted, maxTrainerId, [...pool, 660, 661]);
     }
     for (const trainerId of unique(trainerIds)) {
       addTrainerSource(docs, trainerId, location, diff, validOverworldId);
+      count += 1;
+    }
+    for (const trainerId of unique(unadjusted)) {
+      addTrainerSource(docs, trainerId, location, 0, validOverworldId);
       count += 1;
     }
   }
@@ -1661,7 +1680,9 @@ function enrichTrainerLocationsFromScripts(project: ProjectState, docs: DocGener
     const diff = Number(row?.difficulty_level_adjustment ?? 0);
     const overlayId = headerRowId ? indirectContext.field?.zoneOverlays[headerRowId - 1] : undefined;
     const npcCount = Number(record.raw.npc_count ?? 0);
+    const events = row ? mapEvents(row, overlayId) : undefined;
     for (let npc = 0; npc < npcCount; npc += 1) {
+      if (events && !events.activeNpc(npc)) continue;
       const eventScriptId = Number(record.raw[`npc_${npc}_script_id`] ?? -1);
       const range = indirectContext.field?.globals.find((candidate) => eventScriptId >= candidate.start && eventScriptId <= candidate.end);
       if (!range) continue;
@@ -1675,6 +1696,11 @@ function enrichTrainerLocationsFromScripts(project: ProjectState, docs: DocGener
       );
       for (const trainerId of trainerIds) {
         addTrainerSource(docs, trainerId, location, diff, overworldId);
+        count += 1;
+      }
+      const partners = trainerIdsFromScriptTree(project, range.fileId, maxTrainerId, indirectContext, overlayId, [eventScriptId - range.start], new Set(), "partners");
+      for (const trainerId of partners) {
+        addTrainerSource(docs, trainerId, location, 0, overworldId);
         count += 1;
       }
     }
@@ -1697,6 +1723,7 @@ function trainerIdsFromScriptTree(
   overlayId?: number,
   entryIndices?: readonly number[],
   visited = new Set<string>(),
+  role: "opponents" | "partners" = "opponents",
 ): number[] {
   const scripts = project.narcs.scripts;
   const bytes = scripts?.rawFiles[scriptId];
@@ -1705,10 +1732,10 @@ function trainerIdsFromScriptTree(
   if (visited.has(key)) return [];
   visited.add(key);
   const options: ScriptWalkOptions = { overlayId, entryIndices };
-  const trainerIds = parseTrainerBattleScripts(bytes, maxTrainerId, project.session.baseRom, options);
+  const trainerIds = parseTrainerBattleScripts(bytes, maxTrainerId, project.session.baseRom, options, role);
   if (project.session.baseRom === "BW2") {
-    addTrainerIds(trainerIds, maxTrainerId, parseIndirectTrainerScripts(bytes, indirectContext, options));
-    if (indirectContext.field?.wheelScriptFileIds.includes(scriptId)) {
+    addTrainerIds(trainerIds, maxTrainerId, parseIndirectTrainerScripts(bytes, indirectContext, options, role));
+    if (role === "opponents" && indirectContext.field?.wheelScriptFileIds.includes(scriptId)) {
       addTrainerIds(trainerIds, maxTrainerId, indirectContext.field.wheel);
     }
     for (const offset of gen5ScriptCommandOffsets(bytes, "BW2", options)) {
@@ -1724,6 +1751,7 @@ function trainerIdsFromScriptTree(
         overlayId,
         [target - range.start],
         visited,
+        role,
       ));
     }
   }

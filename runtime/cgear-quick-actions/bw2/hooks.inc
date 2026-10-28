@@ -276,9 +276,13 @@ extern "C" void* QaCGearEvent(Subscreen* subscreen, u32 available) {
     if (!canUse(static_cast<u32>(&button - session.buttons), subscreen))
         return nullptr;
     if (action == CG_ACTION_REPEL) {
+#ifdef CGEAR_REDUX
+        if (toggleRepel(gameData))
+#else
         u16* p = options(gameData);
         *p ^= CG_REPEL_OPTION_MASK;
         if (*p & CG_REPEL_OPTION_MASK)
+#endif
             api<void (*)(u32)>(CG_PLAY_SOUND)(CG_SOUND_REPEL);
         return nullptr;
     }

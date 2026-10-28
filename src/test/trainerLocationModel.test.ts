@@ -45,6 +45,8 @@ describe("indirect trainer locations", () => {
     expect(parseIndirectTrainerScripts(script(0x2a, 0x8003, 4, 0x1c, 10535), context)).toEqual([]);
     expect(parseIndirectTrainerScripts(script(0x250, 13, 7, 1, 4, 10538), emptyContext)).toEqual([4]);
     expect(parseIndirectTrainerScripts(script(0x250, 13, 7, 1, 0x8003, 10538), emptyContext)).toEqual([]);
+    expect(parseIndirectTrainerScripts(script(...setup), context, {}, "opponents")).toEqual([]);
+    expect(parseIndirectTrainerScripts(script(...setup), context, {}, "partners")).toEqual([4]);
   });
 
   it("finds edited Royal Unova trainer IDs while rejecting incomplete or unrelated tables", () => {

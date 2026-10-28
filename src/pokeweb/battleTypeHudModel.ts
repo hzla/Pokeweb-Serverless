@@ -1,4 +1,5 @@
 import manifestData from "../assets/codeinjection/battleTypeHudManifest.json";
+import reduxManifest from "../assets/codeinjection/battleTypeHudReduxManifest.json";
 import { readU32, writeU16 } from "../nds/binary";
 import { loadOverlayTable } from "../nds/code";
 import { decompressCode } from "../nds/codeCompression";
@@ -34,6 +35,33 @@ const ICON_URLS = {
   circular: { B2: new URL("../assets/codeinjection/TypeIconsCircularB2.dll", import.meta.url), W2: new URL("../assets/codeinjection/TypeIconsCircularW2.dll", import.meta.url), B: new URL("../assets/codeinjection/TypeIconsCircularB.dll", import.meta.url), W: new URL("../assets/codeinjection/TypeIconsCircularW.dll", import.meta.url) },
   solid: { B2: new URL("../assets/codeinjection/TypeIconsSolidB2.dll", import.meta.url), W2: new URL("../assets/codeinjection/TypeIconsSolidW2.dll", import.meta.url), B: new URL("../assets/codeinjection/TypeIconsSolidB.dll", import.meta.url), W: new URL("../assets/codeinjection/TypeIconsSolidW.dll", import.meta.url) },
 };
+const REDUX_ICON_URLS = {
+  letters: new URL("../assets/codeinjection/TypeIconsReduxW2.dll", import.meta.url),
+  circular: new URL("../assets/codeinjection/TypeIconsCircularReduxW2.dll", import.meta.url),
+  solid: new URL("../assets/codeinjection/TypeIconsSolidReduxW2.dll", import.meta.url),
+};
+type ReduxResource = { nativeSha256: string; nativeFingerprint: string; expandedSha256?: string; expandedFingerprint?: string };
+const reduxResources: Record<string, ReduxResource> = reduxManifest.resources;
+function fingerprint(bytes: Uint8Array): string {
+  let value = 0x811c9dc5;
+  for (const byte of bytes) value = Math.imul(value ^ byte, 0x01000193) >>> 0;
+  return value.toString(16).padStart(8, "0");
+}
+/** Fast profile selection only; installation still verifies every full SHA-256. */
+function hasReduxGraphics(project: ProjectState, rom: NintendoDSRom): boolean {
+  try {
+    const id = rom.filenames.idOf(reduxManifest.graphicsArchive);
+    if (id === undefined) return false;
+    const archive = new NARC(getRomFileBytes(project, rom, id));
+    return Object.entries(reduxResources).every(([member, resource]) => {
+      const packed = archive.files[Number(member)];
+      if (!packed) return false;
+      const raw = packed[0] === 0x10 || packed[0] === 0x11 ? decompressNitro(packed) : packed;
+      const digest = fingerprint(raw);
+      return digest === resource.nativeFingerprint || digest === resource.expandedFingerprint;
+    });
+  } catch { return false; }
+}
 const title = (kind: Component) => kind === "icons" ? "Type Icons" : "Move Effectiveness Preview";
 const profileFor = (v: Version, kind: Component) => kind === "icons" ? manifest.games[v] : manifest.moveGames[v];
 export const BATTLE_TYPE_HUD_VERSION = manifest.version;
@@ -66,7 +94,7 @@ function matchesCode(rpm: RpmModule, build: ConfigurableBuild & { codeHex: strin
 }
 export type BattleTypeHudStatus = { supported: boolean; compatible: boolean; checked: boolean; installed: boolean;
   updateAvailable: boolean; canUninstall: boolean; pmcInstalled: boolean; message: string; dllPath?: string; legacyCombined?: boolean;
-  colors?: MoveHighlightColors; iconVariant?: TypeIconVariant };
+  colors?: MoveHighlightColors; iconVariant?: TypeIconVariant; graphicsProfile?: "retail" | "redux" };
 const hex = (bytes: Uint8Array) => Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
 const hash = async (bytes: Uint8Array) => hex(new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array(bytes))));
 function hookSize(rpm: RpmModule, r: RpmModule["relocations"][number]) {
@@ -75,7 +103,8 @@ function hookSize(rpm: RpmModule, r: RpmModule["relocations"][number]) {
 }
 function knownBuild(rpm: RpmModule, version: Version, kind: Component): string | undefined {
   if (rpm.metadata.PMCGameID !== version || rpm.symbols.some(s => s.attributes & 2)) return;
-  const builds = profileFor(version, kind)?.builds;
+  const builds = kind === "icons" && version === "W2" ? { ...profileFor(version, kind)?.builds, ...reduxManifest.games.W2.builds as unknown as Record<string, Build> }
+    : profileFor(version, kind)?.builds;
   if (!builds || ((version === "B" || version === "W") && (rpm.metadata.PMCModulePriority !== 3 || rpm.baseAddress !== 0))) return;
   return Object.entries(builds).find(([v, build]) => rpm.metadata.PMCVersion === v && matchesCode(rpm, build)
     && rpm.relocations.length === build.relocations.length && build.relocations.every(r => rpm.relocations.filter(actual => {
@@ -86,6 +115,10 @@ function knownBuild(rpm: RpmModule, version: Version, kind: Component): string |
 }
 function iconVariantForBuild(version: Version, build: string): TypeIconVariant | undefined {
   const variants = manifest.games[version].variants;
+  if (version === "W2") {
+    const reduxVariant = (Object.entries(reduxManifest.games.W2.variants) as [TypeIconVariant, { version: string }][]).find(([, value]) => value.version === build);
+    if (reduxVariant) return reduxVariant[0];
+  }
   const current = (Object.entries(variants) as [TypeIconVariant, { version: string }][]).find(([, value]) => value.version === build)?.[0];
   if (current) return current;
   if (/^0\.3\.\d+-solid$/u.test(build)) return "solid";
@@ -108,6 +141,8 @@ function getStatus(project: ProjectState, kind: Component, bytes = project.origi
     return { ...status, message: `BW1 ${title(kind)} is awaiting DS gameplay and visual acceptance in Black and White.` };
   }
   status.supported = true;
+  if (kind === "icons") status.graphicsProfile = v === "W2" && rom && hasReduxGraphics(project, rom) ? "redux" : "retail";
+  const variants = status.graphicsProfile === "redux" ? reduxManifest.games.W2.variants : manifest.games[v].variants;
   for (const entry of listCodeInjectionDlls(project)) {
     const added = Object.keys(project.fileSystem?.additions ?? {}).find(p => p.toLowerCase() === entry.path.toLowerCase());
     const id = rom?.filenames.idOf(entry.path);
@@ -124,9 +159,12 @@ function getStatus(project: ProjectState, kind: Component, bytes = project.origi
       status.installed = true; status.dllPath = entry.path; status.legacyCombined = iconBuild === "0.2.0";
       if (kind === "icons" && iconBuild) status.iconVariant = iconVariantForBuild(v, iconBuild);
       status.updateAvailable = kind === "icons"
-        ? !Object.values(manifest.games[v].variants).some(variant => variant.version === build)
+        ? !Object.values(variants).some(variant => variant.version === build)
         : build !== profile.version;
       status.canUninstall = !status.legacyCombined && canRemoveStagedCodeInjectionDll(project, entry.path);
+      if (kind === "icons" && v === "W2" && Object.hasOwn(reduxManifest.games.W2.builds, build) && status.graphicsProfile !== "redux") {
+        return { ...status, canUninstall: false, message: "The installed Redux DLL requires its verified graphics profile. Reload matching artwork before updating or removing it." };
+      }
       if (kind === "moves" && moveBuild) {
         const installed = manifest.moveGames[v]?.builds[moveBuild];
         if (installed?.colorOffset !== undefined) status.colors = readColors(rpm.code, installed.colorOffset);
@@ -162,7 +200,7 @@ function getStatus(project: ProjectState, kind: Component, bytes = project.origi
   status.message = status.legacyCombined ? `The combined patch is installed. Replace it with ${title(kind)} only, then install the other patch separately if wanted.`
     : status.updateAvailable ? `A ${title(kind)} update is available.`
     : status.installed ? kind === "icons" && status.iconVariant
-      ? `${title(kind)} (${manifest.games[v].variants[status.iconVariant].label}) is installed.`
+      ? `${title(kind)} (${variants[status.iconVariant].label}) is installed.`
       : `${title(kind)} is installed.`
       : `${title(kind)} installs independently. PMC is installed automatically if needed.`;
   return status;
@@ -174,6 +212,8 @@ async function installHud(project: ProjectState, kind: Component, colors?: MoveH
   const status = getStatus(project, kind, bytes);
   if (!status.supported || !status.compatible) throw new Error(status.message);
   const v = project.session.baseVersion as Version; const profile = profileFor(v, kind)!;
+  const redux = kind === "icons" && status.graphicsProfile === "redux";
+  const variants = redux ? reduxManifest.games.W2.variants : manifest.games[v].variants;
   const panelEdits: { fileId: number; member: number; bytes: Uint8Array }[] = [];
   // Check native assets and the new DLL before staging PMC or changing files.
   if (Object.keys(profile.resources).length) {
@@ -186,13 +226,16 @@ async function installHud(project: ProjectState, kind: Component, colors?: MoveH
       const raw = packed[0] === 0x10 || packed[0] === 0x11 ? decompressNitro(packed) : packed;
       const digest = await hash(raw);
       const key = member as keyof typeof battleTypeHudPanelExpansion;
-      const expansion = battleTypeHudPanelExpansion[key];
+      const reduxChange = reduxManifest.panelExpansion[key as keyof typeof reduxManifest.panelExpansion];
+      const expansion = redux ? reduxChange : battleTypeHudPanelExpansion[key];
       const localized = v === "W2" || v === "B2" ? localizedAssetVariant(v, profile.graphicsArchive, Number(member), digest) : undefined;
       const isLocalized = !!localized && (digest === localized.nativeSha256 || digest === localized.expandedSha256);
       const expandedHash = isLocalized ? localized?.expandedSha256 : expansion?.patchedSha256;
-      if (digest !== expected && digest !== expansion?.patchedSha256 && !expansion?.previous.some(v => v.patchedSha256 === digest) && !isLocalized) throw new Error(`Unsupported Battle HUD graphics/palette member ${member}.`);
+      const accepted = redux ? digest === reduxResources[member]?.nativeSha256 || digest === reduxResources[member]?.expandedSha256
+        : digest === expected || digest === expansion?.patchedSha256 || battleTypeHudPanelExpansion[key]?.previous.some(v => v.patchedSha256 === digest) || isLocalized;
+      if (!accepted) throw new Error(`Unsupported Battle HUD graphics/palette member ${member}.`);
       if (expansion && digest !== expandedHash) {
-        const expanded = transformBattleTypeHudPanel(raw, key);
+        const expanded = transformBattleTypeHudPanel(raw, key, false, expansion);
         if (await hash(expanded) !== expandedHash) throw new Error(`Type Icons panel expansion failed verification for member ${member}.`);
         panelEdits.push({ fileId: id, member: Number(member), bytes: expanded });
       }
@@ -201,13 +244,13 @@ async function installHud(project: ProjectState, kind: Component, colors?: MoveH
   if (await hash(bytes) === "8279bed45bde3d0f9e0309d29d4246fd695a5c5d6fa55346c401c0bbc7043b50") {
     throw new Error("This Cascade build has insufficient PMC space. Use a non-Cascade ROM or the creator's optimized build.");
   }
-  const assetUrl = kind === "icons" ? ICON_URLS[iconVariant][v] : URLS.moves[v];
+  const assetUrl = kind === "icons" ? redux ? REDUX_ICON_URLS[iconVariant] : ICON_URLS[iconVariant][v] : URLS.moves[v];
   if (!assetUrl) throw new Error(`No ${title(kind)} build is available for ${v}.`);
   const response = await fetch(assetUrl);
   if (!response.ok) throw new Error(`Could not load Battle HUD (${response.status}).`);
   const dll = new Uint8Array(await response.arrayBuffer());
-  const expectedVersion = kind === "icons" ? manifest.games[v].variants[iconVariant].version : profile.version;
-  const expectedHash = kind === "icons" ? manifest.games[v].variants[iconVariant].dllSha256 : profile.dllSha256;
+  const expectedVersion = kind === "icons" ? variants[iconVariant].version : profile.version;
+  const expectedHash = kind === "icons" ? variants[iconVariant].dllSha256 : profile.dllSha256;
   if (await hash(dll) !== expectedHash || knownBuild(parseRpm(dll, { allowedMagics: ["DLXF"] }), v, kind) !== expectedVersion) throw new Error("The bundled Battle HUD DLL failed verification.");
   if (kind === "moves") {
     const build = (profile.builds as Record<string, ConfigurableBuild>)[profile.version];
@@ -227,7 +270,7 @@ async function installHud(project: ProjectState, kind: Component, colors?: MoveH
   const result = stageCodeInjectionDll(staged, name, dll, "patches", bytes);
   const rom = new NintendoDSRom(bytes);
   for (const edit of panelEdits) replaceNarcFile(staged, rom, edit.fileId, edit.member, edit.bytes);
-  const detail = kind === "icons" ? ` (${manifest.games[v].variants[iconVariant].label})` : "";
+  const detail = kind === "icons" ? ` (${variants[iconVariant].label}${redux ? "; Redux" : ""})` : "";
   recordGenericChange(staged, "code_injection", `${title(kind)}${detail} installed.`, title(kind), { key: `code-injection:${kind}` });
   Object.assign(project, { originalRomBytes: bytes, arm9: staged.arm9, arm9Dirty: staged.arm9Dirty, overlays: staged.overlays,
     fileSystem: staged.fileSystem, codeInjection: staged.codeInjection, patches: staged.patches, actionChangelog: staged.actionChangelog });
@@ -244,15 +287,17 @@ function uninstallHud(project: ProjectState, kind: Component): void {
   const fileId = profile && rom?.filenames.idOf(profile.graphicsArchive);
   if (rom && fileId !== undefined) {
     const archive = new NARC(getRomFileBytes(project, rom, fileId));
+    const changes = status.graphicsProfile === "redux" ? reduxManifest.panelExpansion : battleTypeHudPanelExpansion;
     for (const member of Object.keys(profile!.resources) as (keyof typeof battleTypeHudPanelExpansion)[]) {
-      if (!battleTypeHudPanelExpansion[member]) continue;
+      const change = changes[member as keyof typeof changes];
+      if (!change) continue;
       const packed = archive.files[Number(member)];
       if (!packed) continue;
       const raw = packed[0] === 0x10 || packed[0] === 0x11 ? decompressNitro(packed) : packed;
       // Original resources require no restoration (including earlier DLLs).
-      const changed = battleTypeHudPanelExpansion[member].edits[0]!;
+      const changed = change.edits[0]!;
       if (hex(raw.subarray(changed.offset, changed.offset + changed.new.length / 2)) !== changed.new) continue;
-      restored.push({ member: Number(member), bytes: transformBattleTypeHudPanel(raw, member, true) });
+      restored.push({ member: Number(member), bytes: transformBattleTypeHudPanel(raw, member, true, change) });
     }
   }
   removeStagedCodeInjectionDll(project, status.dllPath);

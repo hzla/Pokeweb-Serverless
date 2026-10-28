@@ -136,6 +136,11 @@ void* storageEvent(void* sys, u16 heap) {
         sys, CG_STORAGE_SCRIPT_ID, nullptr, heap);
     if (!event)
         return nullptr;
+#ifdef CGEAR_REDUX
+    // Redux's PC script has sixteen entries and additional menu functions.
+    // Launch its original entry and leave the VM's private copy unchanged.
+    return event;
+#else
     // The native constructor has already created an independently allocated
     // script and VM. Change only this invocation's entry code; its native
     // event retains ownership and frees the script, VM and windows normally.
@@ -154,6 +159,7 @@ void* storageEvent(void* sys, u16 heap) {
         api<void (*)(u32)>(CG_PLAY_SOUND)(CG_SOUND_PC);
     }
     return event;
+#endif
 }
 int flyEvent(void* event, u32* sequence) {
     auto* requestWork = api<FlyWork* (*)(void*)>(CG_EVENT_WORK)(event);

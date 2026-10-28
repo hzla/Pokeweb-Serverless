@@ -1,5 +1,7 @@
 """Build the US BW2 Infinite Candy PMC DLLs."""
 import os
+import json
+import sys
 from pathlib import Path
 import subprocess
 
@@ -16,6 +18,20 @@ BUILD = HERE / "build"
 
 def run(*args):
     subprocess.run([str(arg) for arg in args], check=True)
+
+
+def write_manifest():
+    sys.path.insert(0, str(REPO / "runtime/battle-type-hud"))
+    from rpm_read import read_rpm
+    manifest = {"games": {}}
+    for game in ("B2", "W2"):
+        rpm = read_rpm((REPO / f"src/assets/codeinjection/InfiniteCandy{game}.dll").read_bytes())
+        offsets = [i for i in range(0, len(rpm["code"]) - 3, 4)
+                   if rpm["code"][i:i + 4] == (622).to_bytes(4, "little")]
+        assert len(offsets) == 2, "Both item-ID literals must be identified."
+        manifest["games"][game] = dict(codeHex=rpm["code"].hex(), itemIdOffsets=offsets,
+                                       relocations=rpm["relocations"], symbols=rpm["symbols"])
+    (REPO / "src/assets/codeinjection/infiniteCandyBw2Manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
 
 
 def main():
@@ -38,6 +54,7 @@ def main():
             raise RuntimeError(f"{output.name}: missing native BagSave_SubItem import")
         (BUILD / f"InfiniteCandy{version.upper()}.dump.txt").write_text(dump)
         print(f"{output.name}: {output.stat().st_size} bytes")
+    write_manifest()
 
 
 if __name__ == "__main__":

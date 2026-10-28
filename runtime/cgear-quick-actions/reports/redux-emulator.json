@@ -1,0 +1,15 @@
+{
+  "game": "W2",
+  "profile": "redux",
+  "dllSha256": "bb8ae95c6a6b2ce2ed0674a447aa295c59c4fddd6fdb99b29be5e1f563eace43",
+  "wireless": false,
+  "repelToggleCycles": 2,
+  "pokenavOpenCloseCycles": 2,
+  "partyUnchanged": true,
+  "pcOpenedAndReturned": true,
+  "nativePcRepelSharesState": true,
+  "pokenavAfterPc": true,
+  "runtimeFailure": 0,
+  "frame": 3934,
+  "passed": true
+}

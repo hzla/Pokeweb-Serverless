@@ -1,0 +1,79 @@
+{
+  "game": "W2",
+  "profile": "redux",
+  "scope": "Singles cold-boot smoke test using generated trainer battle and bundled test save; no candy Bag-flow test.",
+  "builds": {
+    "letters": {
+      "dllSha256": "07aa78245490460b98d71dffb4aa39e9636c57500cd41773d9bbba3d74c51040",
+      "frame": 520,
+      "failure": 0,
+      "bindings": 2,
+      "records": [
+        {
+          "position": 0,
+          "status": 0,
+          "painted": true,
+          "valid": true,
+          "types": 2319
+        },
+        {
+          "position": 1,
+          "status": 0,
+          "painted": true,
+          "valid": true,
+          "types": 3844
+        }
+      ],
+      "coldBoot": true,
+      "enemyPainted": true
+    },
+    "circular": {
+      "dllSha256": "d516cdde65ea410f9101d480f9be49df3851900b8ed73925f968a93a3e2ac609",
+      "frame": 520,
+      "failure": 0,
+      "bindings": 2,
+      "records": [
+        {
+          "position": 0,
+          "status": 0,
+          "painted": true,
+          "valid": true,
+          "types": 2319
+        },
+        {
+          "position": 1,
+          "status": 0,
+          "painted": true,
+          "valid": true,
+          "types": 3844
+        }
+      ],
+      "coldBoot": true,
+      "enemyPainted": true
+    },
+    "solid": {
+      "dllSha256": "a9d1e9299627feea0dcc2204366604e8db3646dcb44929fbc797feab9d7150dd",
+      "frame": 520,
+      "failure": 0,
+      "bindings": 2,
+      "records": [
+        {
+          "position": 0,
+          "status": 0,
+          "painted": true,
+          "valid": true,
+          "types": 2319
+        },
+        {
+          "position": 1,
+          "status": 0,
+          "painted": true,
+          "valid": true,
+          "types": 3844
+        }
+      ],
+      "coldBoot": true,
+      "enemyPainted": true
+    }
+  }
+}

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import manifest from "../assets/codeinjection/battleTypeHudManifest.json";
+import reduxManifest from "../assets/codeinjection/battleTypeHudReduxManifest.json";
 import { writeU32 } from "../nds/binary";
 import { Folder } from "../nds/fnt";
 import { NARC } from "../nds/narc";
@@ -20,6 +21,16 @@ vi.mock("../assets/codeinjection/battleTypeHudManifest.json", async (original) =
   for (const [name, game] of Object.entries(copy.games)) if (name.endsWith("2")) game.resources = { "430": createHash("sha256").update("PLTT").digest("hex") } as typeof game.resources;
   return { default: copy };
 });
+vi.mock("../assets/codeinjection/battleTypeHudReduxManifest.json", async original => {
+  const value = await original<{ default: typeof reduxManifest }>(), copy = structuredClone(value.default);
+  const { createHash } = await import("node:crypto");
+  const raw = new TextEncoder().encode("REDUX_PLTT");
+  let fingerprint = 0x811c9dc5;
+  for (const byte of raw) fingerprint = Math.imul(fingerprint ^ byte, 0x01000193) >>> 0;
+  copy.resources = { "430": { nativeSha256: createHash("sha256").update(raw).digest("hex"), nativeFingerprint: fingerprint.toString(16).padStart(8, "0") } } as typeof copy.resources;
+  copy.panelExpansion = {} as typeof copy.panelExpansion;
+  return { default: copy };
+});
 const acceptance = { B: manifest.games.B.dsAccepted, W: manifest.games.W.dsAccepted };
 const moveAcceptance = { B: manifest.moveGames.B.dsAccepted, W: manifest.moveGames.W.dsAccepted };
 afterEach(() => {
@@ -33,6 +44,53 @@ function assets() {
   vi.stubGlobal("fetch", vi.fn(async (url: URL) => new Response(new Uint8Array(readFileSync(url)))));
 }
 describe("Battle HUD bundled installer", () => {
+  it("selects Redux DLLs automatically, switches styles in place and recognizes exports", async () => {
+    const p = project("W2"); assets();
+    const archive = new NARC(new NintendoDSRom(p.originalRomBytes!).getFileByName("a/0/1/1"));
+    archive.files[430] = new TextEncoder().encode("REDUX_PLTT");
+    p.fileSystem = { replacements: { 344: archive.save() } };
+    for (const [variant, suffix] of [["letters", ""], ["circular", "Circular"], ["solid", "Solid"]] as const) {
+      await installBattleTypeHud(p, variant);
+      expect(getBattleTypeHudStatus(p)).toMatchObject({ installed: true, compatible: true, graphicsProfile: "redux", iconVariant: variant, updateAvailable: false });
+      const exported = new NintendoDSRom(await exportModifiedRom(p));
+      expect(exported.getFileByName("patches/TypeIconsW2.dll")).toEqual(new Uint8Array(readFileSync(new URL(`../assets/codeinjection/TypeIcons${suffix}ReduxW2.dll`, import.meta.url))));
+      expect(getBattleTypeHudStatus(project("W2", exported.data))).toMatchObject({ graphicsProfile: "redux", installed: true, iconVariant: variant, updateAvailable: false });
+      expect(Object.keys(p.fileSystem!.additions!).filter(path => path.endsWith(".dll"))).toEqual(["patches/TypeIconsW2.dll"]);
+    }
+    uninstallBattleTypeHud(p);
+    expect(getBattleTypeHudStatus(p)).toMatchObject({ installed: false, graphicsProfile: "redux" });
+  });
+  it("updates a retail DLL to Redux when the matching panel profile is present", async () => {
+    const p = project("W2"); assets(); await installBattleTypeHud(p);
+    const archive = new NARC(new NintendoDSRom(p.originalRomBytes!).getFileByName("a/0/1/1"));
+    archive.files[430] = new TextEncoder().encode("REDUX_PLTT");
+    p.fileSystem!.replacements![344] = archive.save();
+    expect(getBattleTypeHudStatus(p)).toMatchObject({ installed: true, graphicsProfile: "redux", updateAvailable: true });
+    await installBattleTypeHud(p);
+    expect(getBattleTypeHudStatus(p).updateAvailable).toBe(false);
+  });
+  it("rejects altered Redux resources before staging PMC or a DLL", async () => {
+    const p = project("W2"); assets();
+    const archive = new NARC(new NintendoDSRom(p.originalRomBytes!).getFileByName("a/0/1/1"));
+    archive.files[430] = new TextEncoder().encode("REDUX_PLTT!");
+    p.fileSystem = { replacements: { 344: archive.save() } };
+    const before = structuredClone(p);
+    await expect(installBattleTypeHud(p)).rejects.toThrow(/member 430/u);
+    expect(p).toEqual(before);
+  });
+  it("blocks Redux updates and removal if the installed artwork has changed", async () => {
+    const p = project("W2"); assets();
+    const archive = new NARC(new NintendoDSRom(p.originalRomBytes!).getFileByName("a/0/1/1"));
+    archive.files[430] = new TextEncoder().encode("REDUX_PLTT");
+    p.fileSystem = { replacements: { 344: archive.save() } };
+    await installBattleTypeHud(p);
+    archive.files[430] = new TextEncoder().encode("ALTERED"); p.fileSystem!.replacements![344] = archive.save();
+    const before = structuredClone(p);
+    expect(getBattleTypeHudStatus(p)).toMatchObject({ compatible: false, canUninstall: false, installed: true });
+    expect(() => uninstallBattleTypeHud(p)).toThrow();
+    await expect(installBattleTypeHud(p)).rejects.toThrow(/verified graphics/u);
+    expect(p).toEqual(before);
+  });
   it.each(["B2", "W2"] as const)("installs, exports, reimports and recognizes %s without duplicate hooks", async v => {
     const p = project(v); assets();
     expect(getBattleTypeHudStatus(p)).toMatchObject({ compatible: true, checked: true, installed: false });

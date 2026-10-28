@@ -51,7 +51,7 @@ function project(v: "W2" | "B2", bytes?: Uint8Array): ProjectState {
         const itemNarc = new NARC(); itemNarc.files = Array.from({ length: 623 }, () => new Uint8Array(36));
         itemNarc.files[622] = new Uint8Array(Buffer.from("00000000000000001f020000000000ff0000000000000000000000000000000000000000", "hex"));
         const texts = new NARC(); texts.files = Array.from({ length: 65 }, () => encodeGen5TextBank([["0_0", "", 0]]));
-        for (const bank of [63, 64]) texts.files[bank] = encodeGen5TextBank(Array.from({ length: 623 }, (_, id) => [`0_${id}`, `Item ${id}`, 0]));
+        for (const bank of [63, 64]) texts.files[bank] = encodeGen5TextBank(Array.from({ length: 623 }, (_, id) => [`0_${id}`, id === 622 ? "???" : `Item ${id}`, 0]));
         r.files[0] = texts.save(); r.files[1] = itemNarc.save();
         r.files[2] = new Uint8Array(readFileSync(new URL("./fixtures/party-quick-actions-dependency-icons.narc", import.meta.url)));
         for (const [path, id] of [["a/0/0/2", 0], ["a/0/2/4", 1], ["a/0/2/5", 2]] as const) r.filenames = addFilePath(r.filenames, path, id);

@@ -1,8 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { battleTypeHudPanelExpansion as changes, transformBattleTypeHudPanel } from "../pokeweb/battleTypeHudResources";
 import { readU32 } from "../nds/binary";
+import redux from "../assets/codeinjection/battleTypeHudReduxManifest.json";
 
 describe("Type Icons player sprite expansion", () => {
+  it("preserves Redux pixels and restores its original nonstandard header exactly", () => {
+    const change = redux.panelExpansion["438"], raw = new Uint8Array(2096).fill(0x55);
+    for (const edit of change.edits) raw.set(Buffer.from(edit.old, "hex"), edit.offset);
+    const expanded = transformBattleTypeHudPanel(raw, "438", false, change);
+    expect(readU32(expanded, 8)).toBe(2352);
+    expect(expanded.slice(48, 2096)).toEqual(raw.slice(48));
+    expect(expanded.slice(2096)).toEqual(new Uint8Array(256));
+    expect(transformBattleTypeHudPanel(expanded, "438", true, change)).toEqual(raw);
+    expect(transformBattleTypeHudPanel(expanded, "438", false, change)).toEqual(expanded);
+  });
   it.each(["438", "439"] as const)("expands and restores %s without changing any existing pixels or drawing pieces", member => {
     const original = new Uint8Array(member === "438" ? 2096 : 103);
     // Synthetic art, with the verified native header fields at each edit.

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import manifest from "../assets/codeinjection/cgearQuickActionsManifest.json";
+import redux from "../assets/codeinjection/cgearQuickActionsReduxManifest.json";
 import { writeU16, writeU32 } from "../nds/binary";
 import { Folder } from "../nds/fnt";
 import { NARC } from "../nds/narc";
@@ -9,6 +10,7 @@ import { exportModifiedRom } from "../pokeweb/exportRom";
 import { getCGearQuickActionsStatus, installCGearQuickActions, disableCGearQuickActions, removeCGearQuickActions } from "../pokeweb/cgearQuickActionsModel";
 import { detectPmcInstallFromRom, listCodeInjectionDlls, stageCodeInjectionDll, configureBundledBgmRuntime, readBgmRuntimeConfig, removeStagedCodeInjectionDll, canRemoveStagedCodeInjectionDll } from "../pokeweb/pmcModel";
 import type { ProjectState } from "../pokeweb/projectStore";
+import { isReduxRepel } from "../pokeweb/cgearReduxModel";
 import { parseRpm, writeRpm } from "../pokeweb/rpm";
 import { buttonFont, buttonItems, buttonNative } from "./cgearButtonsFixture";
 import { ensureCGearButtons, hasUnappliedButtons, recoverCGearButtons } from "../pokeweb/cgearButtonsModel";
@@ -65,6 +67,75 @@ function makeProject(v: Version, bytes?: Uint8Array): ProjectState {
   return {originalRomBytes:bytes,session:{romName:"test",baseVersion:v,baseRom:"BW2",fairy:false,fileIds:{},blacklist:[]},
     romInfo:{title:"test",idCode:r.idCode,fileName:"test.nds",size:bytes.length},arm9:r.arm9,overlays:{},narcs:{},texts:{banks:{}},formats:{},trpokInfo:[],codeInjection:detectPmcInstallFromRom(r)};
 }
+function reduxProject(): ProjectState {
+  const p = makeProject("W2"), rom = new NintendoDSRom(p.originalRomBytes!);
+  const overlay = rom.loadArm9Overlays([36]).get(36)!, code = overlay.data.slice();
+  const changed = redux.games.W2.signatures.find(s => s.label === "Native phenomenon generator")!;
+  code.set(Buffer.from(changed.expectedHex, "hex"), changed.address - overlay.ramAddress);
+  const scripts = new NARC(rom.getFileByName(redux.pcScript.archive));
+  scripts.files[redux.pcScript.member] = new Uint8Array(readFileSync(new URL("./fixtures/cgear-redux-pc-script.bin", import.meta.url)));
+  p.overlays[36] = code;
+  p.fileSystem = { replacements: { [overlay.fileId]: code, [rom.fileId(redux.pcScript.archive)]: scripts.save() },
+    additions: { "patches/ToggleRepel.dll": new Uint8Array(readFileSync(new URL("./fixtures/cgear-redux-toggle-repel.dll", import.meta.url))) } };
+  return p;
+}
+
+describe("White 2 Redux C-Gear adapter", () => {
+  it("selects the adapter automatically and preserves Redux code, PC script and repel DLL through export/reimport", async () => {
+    const p = reduxProject(); assets();
+    const rom = new NintendoDSRom(p.originalRomBytes!), scriptsId = rom.fileId(redux.pcScript.archive);
+    const beforeCode = p.overlays[36]!.slice(), beforeScripts = p.fileSystem!.replacements[scriptsId]!.slice();
+    const repel = p.fileSystem!.additions!["patches/ToggleRepel.dll"].slice();
+    expect(getCGearQuickActionsStatus(p)).toMatchObject({ compatible: true, romProfile: "redux", runtimeVersion: redux.version });
+    await installCGearQuickActions(p);
+    expect(getCGearQuickActionsStatus(p)).toMatchObject({ installed: true, enabled: true, compatible: true, updateAvailable: false });
+    const dll = p.fileSystem!.additions!["patches/CGearQuickActionsW2.dll"];
+    expect(dll).toEqual(new Uint8Array(readFileSync(new URL("../assets/codeinjection/CGearQuickActionsReduxW2.dll", import.meta.url))));
+    expect(parseRpm(dll, { allowedMagics: ["DLXF"] }).relocations.some(r => r.target.module === "36" && [0x21824bc, 0x21a0b2c].includes(r.target.address))).toBe(false);
+    const exported = new NintendoDSRom(await exportModifiedRom(p));
+    expect(exported.getFileByName("patches/ToggleRepel.dll")).toEqual(repel);
+    expect(exported.loadArm9Overlays([36]).get(36)!.data).toEqual(beforeCode);
+    expect(exported.getFileByName(redux.pcScript.archive)).toEqual(beforeScripts);
+    const reopened = makeProject("W2", exported.data);
+    expect(getCGearQuickActionsStatus(reopened)).toMatchObject({ compatible: true, installed: true, enabled: true, updateAvailable: false, romProfile: "redux" });
+    await installCGearQuickActions(reopened);
+    expect(reopened.fileSystem?.additions?.["patches/CGearQuickActionsW2.dll"]).toBeUndefined();
+    disableCGearQuickActions(p); expect(getCGearQuickActionsStatus(p).enabled).toBe(false);
+    expect(p.fileSystem!.additions!["patches/ToggleRepel.dll"]).toEqual(repel);
+    await installCGearQuickActions(p); removeCGearQuickActions(p);
+    expect(p.fileSystem!.additions!["patches/ToggleRepel.dll"]).toEqual(repel);
+    expect(getCGearQuickActionsStatus(p)).toMatchObject({ installed: false, compatible: true, romProfile: "redux" });
+  });
+  it("accepts the audited repel implementation by content and rejects changed instructions, imports and duplicate owners", async () => {
+    const p = reduxProject(), path = "patches/ToggleRepel.dll", original = p.fileSystem!.additions![path]; assets();
+    const rpm = parseRpm(original, { allowedMagics: ["DLXF"] }); expect(isReduxRepel(rpm)).toBe(true);
+    rpm.code[0] ^= 1; expect(isReduxRepel(rpm)).toBe(false);
+    p.fileSystem!.additions![path] = writeRpm(rpm, { ident: "DLXF" });
+    await expect(installCGearQuickActions(p)).rejects.toThrow(/Conflicting/u);
+    const changedImport = parseRpm(original, { allowedMagics: ["DLXF"] }); changedImport.symbols[3]!.address ^= 2;
+    expect(isReduxRepel(changedImport)).toBe(false);
+    p.fileSystem!.additions![path] = original;
+    p.fileSystem!.additions!["patches/Duplicate.dll"] = original;
+    await expect(installCGearQuickActions(p)).rejects.toThrow(/Conflicting/u);
+  });
+  it("blocks unknown Redux encounter branches, foreign hooks and altered PC scripts", async () => {
+    const p = reduxProject(); assets(); const rom = new NintendoDSRom(p.originalRomBytes!), ov = rom.loadArm9Overlays([36]).get(36)!;
+    p.overlays[36]![0x21a216a - ov.ramAddress] ^= 1;
+    await expect(installCGearQuickActions(p)).rejects.toThrow(/phenomenon generator/u);
+    const q = reduxProject(), qr = new NintendoDSRom(q.originalRomBytes!), id = qr.fileId(redux.pcScript.archive);
+    const script = new NARC(q.fileSystem!.replacements[id]!); script.files[1244]![100] ^= 1; q.fileSystem!.replacements[id] = script.save();
+    await expect(installCGearQuickActions(q)).rejects.toThrow(/PC storage script/u);
+    const r = reduxProject(), foreign = parseRpm(r.fileSystem!.additions!["patches/ToggleRepel.dll"], { allowedMagics: ["DLXF"] });
+    foreign.code[2] ^= 1; r.fileSystem!.additions!["patches/Foreign.dll"] = writeRpm(foreign, { ident: "DLXF" });
+    await expect(installCGearQuickActions(r)).rejects.toThrow(/Conflicting/u);
+  });
+  it("requires the matching repel owner when updating an installed Redux adapter", async () => {
+    const p = reduxProject(); assets(); await installCGearQuickActions(p);
+    delete p.fileSystem!.additions!["patches/ToggleRepel.dll"];
+    expect(getCGearQuickActionsStatus(p)).toMatchObject({ compatible: false, installed: true, message: expect.stringContaining("matching Redux repel") });
+    await expect(installCGearQuickActions(p)).rejects.toThrow(/matching Redux repel/u);
+  });
+});
 // Actual pre-dial archives contain eight cell/animation sequences.
 function legacyControls(arc:NARC){
   const cells=arc.files[2],anim=arc.files[3],c=new Uint8Array(240),a=new Uint8Array(272);

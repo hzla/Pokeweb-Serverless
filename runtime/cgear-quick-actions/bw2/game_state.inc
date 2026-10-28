@@ -17,7 +17,7 @@ void* system(Subscreen* subscreen) {
 void* save(void* gameData) {
     return api<void* (*)(void*)>(CG_GET_SAVE_DATA)(gameData);
 }
-u16* options(void* gameData) {
+[[maybe_unused]] u16* options(void* gameData) {
     return api<u16* (*)(void*)>(CG_GET_OPTIONS)(save(gameData));
 }
 void* cgearSave(void* gameData) {
@@ -30,8 +30,24 @@ u32 count(void* gameData) {
     return api<u32 (*)(void*)>(CG_PARTY_COUNT)(party(gameData));
 }
 bool repel(void* gameData) {
+#ifdef CGEAR_REDUX
+    // Redux's PC/script toggle owns this flag and its encounter hook. Reflect
+    // that same state rather than introducing a second saved preference.
+    return api<u32 (*)(void*, u16)>(CG_GET_SAVE_FLAG)(
+        api<void* (*)(void*)>(CG_GET_FLAG_WORK)(gameData), 0x0bf7);
+#else
     return enabled && repelPresent && (*options(gameData) & CG_REPEL_OPTION_MASK);
+#endif
 }
+#ifdef CGEAR_REDUX
+bool toggleRepel(void* gameData) {
+    void* work = api<void* (*)(void*)>(CG_GET_FLAG_WORK)(gameData);
+    u8* byte = api<u8* (*)(void*, u16)>(0x2019278)(work, 0x0bf7);
+    if (byte)
+        *byte ^= 1u << (0x0bf7 & 7);
+    return repel(gameData);
+}
+#endif
 bool cycling(void* gameData) {
     return api<u32 (*)(void*)>(CG_GET_TRAVEL_MODE)(
                api<void* (*)(void*)>(CG_GET_PLAYER_STATE)(gameData)) == 1;

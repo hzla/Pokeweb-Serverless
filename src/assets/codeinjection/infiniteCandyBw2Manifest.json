@@ -1,0 +1,104 @@
+{
+  "games": {
+    "B2": {
+      "codeHex": "0248874201d00248874270477e0200006e02000008b5074a914209d00300a320800018581b884068012208f0eff908bd002008bd6e020000",
+      "itemIdOffsets": [
+        16,
+        52
+      ],
+      "relocations": [
+        {
+          "address": 42,
+          "symbol": 0,
+          "module": "base",
+          "type": "THUMB_BRANCH_LINK"
+        },
+        {
+          "address": 34977900,
+          "symbol": 2,
+          "module": "12",
+          "type": "THUMB_BRANCH_LINK"
+        },
+        {
+          "address": 35251784,
+          "symbol": 1,
+          "module": "165",
+          "type": "THUMB_BRANCH"
+        }
+      ],
+      "symbols": [
+        {
+          "name": null,
+          "size": 0,
+          "address": 33588268,
+          "type": 3,
+          "attributes": 4
+        },
+        {
+          "name": null,
+          "size": 32,
+          "address": 20,
+          "type": 3,
+          "attributes": 1
+        },
+        {
+          "name": null,
+          "size": 12,
+          "address": 0,
+          "type": 3,
+          "attributes": 1
+        }
+      ]
+    },
+    "W2": {
+      "codeHex": "0248874201d00248874270477e0200006e02000008b5074a914209d00300a320800018581b884068012208f0eff908bd002008bd6e020000",
+      "itemIdOffsets": [
+        16,
+        52
+      ],
+      "relocations": [
+        {
+          "address": 42,
+          "symbol": 0,
+          "module": "base",
+          "type": "THUMB_BRANCH_LINK"
+        },
+        {
+          "address": 34977964,
+          "symbol": 2,
+          "module": "12",
+          "type": "THUMB_BRANCH_LINK"
+        },
+        {
+          "address": 35251848,
+          "symbol": 1,
+          "module": "165",
+          "type": "THUMB_BRANCH"
+        }
+      ],
+      "symbols": [
+        {
+          "name": null,
+          "size": 0,
+          "address": 33588268,
+          "type": 3,
+          "attributes": 4
+        },
+        {
+          "name": null,
+          "size": 32,
+          "address": 20,
+          "type": 3,
+          "attributes": 1
+        },
+        {
+          "name": null,
+          "size": 12,
+          "address": 0,
+          "type": 3,
+          "attributes": 1
+        }
+      ]
+    }
+  }
+}

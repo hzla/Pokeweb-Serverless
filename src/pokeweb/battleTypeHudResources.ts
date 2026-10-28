@@ -2,10 +2,11 @@ import expansion from "../assets/codeinjection/battleTypeHudPanelExpansion.json"
 
 export const battleTypeHudPanelExpansion = expansion;
 type Edit = { offset: number; old: string; new: string };
+export type BattleTypeHudPanelChange = { edits: Edit[]; previous: { edits: Edit[] }[] };
 
 /** Checked structural edits; the installer also verifies complete resource hashes. */
-export function transformBattleTypeHudPanel(raw: Uint8Array, member: keyof typeof expansion, undo = false): Uint8Array {
-  const change = expansion[member];
+export function transformBattleTypeHudPanel(raw: Uint8Array, member: keyof typeof expansion, undo = false,
+  change: BattleTypeHudPanelChange = expansion[member]): Uint8Array {
   const bytes = (hex: string) => Uint8Array.from(hex.match(/../gu) ?? [], value => Number.parseInt(value, 16));
   const apply = (source: Uint8Array, edits: Edit[], reverse: boolean): Uint8Array => {
     let data = source.slice();

@@ -1084,7 +1084,14 @@ on_field_event_request:
               ><button type="button" data-copy>Copy</button>
             </div>
             <pre><code data-file="../../runtime/cgear-quick-actions/bw2/game_state.inc" data-symbol="repel">bool repel(void* gameData) {
+#ifdef CGEAR_REDUX
+    // Redux's PC/script toggle owns this flag and its encounter hook. Reflect
+    // that same state rather than introducing a second saved preference.
+    return api&lt;u32 (*)(void*, u16)&gt;(CG_GET_SAVE_FLAG)(
+        api&lt;void* (*)(void*)&gt;(CG_GET_FLAG_WORK)(gameData), 0x0bf7);
+#else
     return enabled &amp;&amp; repelPresent &amp;&amp; (*options(gameData) &amp; CG_REPEL_OPTION_MASK);
+#endif
 }</code></pre>
             <pre><code data-file="../../runtime/cgear-quick-actions/bw2/hooks.inc" data-symbol="QaRepelStep">extern "C" u32 QaRepelStep(void* encounter, void* gameData) {
     if (repel(gameData))
@@ -1152,6 +1159,11 @@ on_field_event_request:
         sys, CG_STORAGE_SCRIPT_ID, nullptr, heap);
     if (!event)
         return nullptr;
+#ifdef CGEAR_REDUX
+    // Redux's PC script has sixteen entries and additional menu functions.
+    // Launch its original entry and leave the VM's private copy unchanged.
+    return event;
+#else
     // The native constructor has already created an independently allocated
     // script and VM. Change only this invocation's entry code; its native
     // event retains ownership and frees the script, VM and windows normally.
@@ -1170,6 +1182,7 @@ on_field_event_request:
         api&lt;void (*)(u32)&gt;(CG_PLAY_SOUND)(CG_SOUND_PC);
     }
     return event;
+#endif
 }</code></pre>
             </div>
           </details>
@@ -1294,9 +1307,13 @@ on_field_event_request:
     if (!canUse(static_cast&lt;u32&gt;(&amp;button - session.buttons), subscreen))
         return nullptr;
     if (action == CG_ACTION_REPEL) {
+#ifdef CGEAR_REDUX
+        if (toggleRepel(gameData))
+#else
         u16* p = options(gameData);
         *p ^= CG_REPEL_OPTION_MASK;
         if (*p &amp; CG_REPEL_OPTION_MASK)
+#endif
             api&lt;void (*)(u32)&gt;(CG_PLAY_SOUND)(CG_SOUND_REPEL);
         return nullptr;
     }

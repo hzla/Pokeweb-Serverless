@@ -10,6 +10,7 @@ import {
 } from "./pmcModel";
 import { type ProjectState } from "./projectStore";
 import { parseRpm, type RpmModule } from "./rpm";
+import { getInstalledInfiniteCandyItemId } from "./infiniteCandyModel";
 
 export const LEVEL_CAP_WORK_VARIABLE = 16415;
 
@@ -54,6 +55,10 @@ export function getLevelCapsStatus(project: ProjectState): LevelCapsStatus {
     return unsupported("Hard Level Caps supports US Black 2 and White 2 only.");
   }
   const layout = LAYOUTS[version];
+  const candyItemId = getInstalledInfiniteCandyItemId(project);
+  if (candyItemId !== undefined && candyItemId !== 622) {
+    return { supported: true, compatible: false, installed: false, message: "This Hard Level Caps build requires Infinite Candy at item 622." };
+  }
   if (project.romInfo.idCode !== layout.idCode) {
     return unsupported("Hard Level Caps requires a US Black 2 or White 2 ROM.");
   }

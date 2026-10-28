@@ -47,34 +47,38 @@ def machine(code):
     return uc
 
 
-for version in ("B2", "W2"):
-    code = code_from_dll(version)
-    for item_id in (638, 622, 50, 777):
-        uc = machine(code)
-        uc.reg_write(UC_ARM_REG_R7, item_id)
-        uc.emu_start(CODE | 1, STOP, count=30)
-        assert uc.reg_read(UC_ARM_REG_PC) == STOP
-        assert bool(uc.reg_read(UC_ARM_REG_CPSR) & (1 << 30)) == (item_id in (638, 622))
+for selected_id in (113, 426, 622, 637):
+    for version in ("B2", "W2"):
+        code = code_from_dll(version)
+        for offset in (16, 52):
+            assert struct.unpack_from("<I", code, offset)[0] == 622
+            struct.pack_into("<I", code, offset, selected_id)
+        for item_id in set((638, selected_id, 622, 50, 777)):
+            uc = machine(code)
+            uc.reg_write(UC_ARM_REG_R7, item_id)
+            uc.emu_start(CODE | 1, STOP, count=30)
+            assert uc.reg_read(UC_ARM_REG_PC) == STOP
+            assert bool(uc.reg_read(UC_ARM_REG_CPSR) & (1 << 30)) == (item_id in (638, selected_id))
 
-    for item_id in (622, 50, 1):
-        uc = machine(code)
-        uc.mem_write(POKELIST, struct.pack("<H", 0x34))
-        uc.mem_write(POKELIST + 0x28c, struct.pack("<I", PARTY))
-        uc.mem_write(PARTY + 4, struct.pack("<I", BAG))
-        uc.reg_write(UC_ARM_REG_R0, POKELIST)
-        uc.reg_write(UC_ARM_REG_R1, item_id)
-        calls = []
+        for item_id in set((selected_id, 622, 50, 1)):
+            uc = machine(code)
+            uc.mem_write(POKELIST, struct.pack("<H", 0x34))
+            uc.mem_write(POKELIST + 0x28c, struct.pack("<I", PARTY))
+            uc.mem_write(PARTY + 4, struct.pack("<I", BAG))
+            uc.reg_write(UC_ARM_REG_R0, POKELIST)
+            uc.reg_write(UC_ARM_REG_R1, item_id)
+            calls = []
 
-        def intercept(emu, address, _size, _user):
-            if address != SUB_ITEM:
-                return
-            calls.append(tuple(emu.reg_read(reg) for reg in (UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3)))
-            emu.reg_write(UC_ARM_REG_R0, 1)
-            emu.reg_write(UC_ARM_REG_PC, emu.reg_read(UC_ARM_REG_LR))
+            def intercept(emu, address, _size, _user):
+                if address != SUB_ITEM:
+                    return
+                calls.append(tuple(emu.reg_read(reg) for reg in (UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3)))
+                emu.reg_write(UC_ARM_REG_R0, 1)
+                emu.reg_write(UC_ARM_REG_PC, emu.reg_read(UC_ARM_REG_LR))
 
-        uc.hook_add(UC_HOOK_CODE, intercept)
-        uc.emu_start((CODE + 0x14) | 1, STOP, count=60)
-        assert uc.reg_read(UC_ARM_REG_PC) == STOP
-        assert calls == ([] if item_id == 622 else [(BAG, item_id, 1, 0x34)])
-        assert uc.reg_read(UC_ARM_REG_R0) == (0 if item_id == 622 else 1)
-    print(f"{version}: party routing and reusable item hook passed")
+            uc.hook_add(UC_HOOK_CODE, intercept)
+            uc.emu_start((CODE + 0x14) | 1, STOP, count=60)
+            assert uc.reg_read(UC_ARM_REG_PC) == STOP
+            assert calls == ([] if item_id == selected_id else [(BAG, item_id, 1, 0x34)])
+            assert uc.reg_read(UC_ARM_REG_R0) == (0 if item_id == selected_id else 1)
+        print(f"{version}: item {selected_id} party routing and reusable item hook passed")

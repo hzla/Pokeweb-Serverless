@@ -2,6 +2,7 @@ import { buttonAssets, ensureCGearButtons, hydrateCGearButtons, validateButtonAr
 import { compile } from "../cgearButtons/compiler";
 import { originalGraphics, sameGraphics, packNativeGraphics } from "../cgearButtons/nativeGraphics";
 import manifest from "../assets/codeinjection/cgearQuickActionsManifest.json";
+import reduxManifest from "../assets/codeinjection/cgearQuickActionsReduxManifest.json";
 import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { loadOverlayTable } from "../nds/code";
 import { decompressCode } from "../nds/codeCompression";
@@ -18,6 +19,7 @@ import type { ProjectState } from "./projectStore";
 import { getBw1CGearStatus, installBw1CGear, disableBw1CGear, removeBw1CGear } from "./cgearQuickActionsBw1Model";
 import { parseRpm, type RpmModule } from "./rpm";
 import { ensureSystemShops, hydrateSystemShops, stageSystemShops } from "./systemShopsModel";
+import { findReduxRepel, isReduxRepel } from "./cgearReduxModel";
 
 type Version = "B2" | "W2";
 type Profile = typeof manifest.games.W2;
@@ -28,10 +30,13 @@ export type CGearQuickActionsOptions = { pcHideFlag?: number; applySystemShops?:
 export type CGearQuickActionsStatus = {
   supported: boolean; compatible: boolean; installed: boolean; enabled: boolean;
   pmcInstalled: boolean; updateAvailable: boolean; canRemove: boolean; pcHideFlag: number; dllPath?: string; message: string;
+  romProfile?: "retail" | "redux";
+  runtimeVersion?: string;
 };
 const urls = { W2: new URL("../assets/codeinjection/CGearQuickActionsW2.dll", import.meta.url),
   B2: new URL("../assets/codeinjection/CGearQuickActionsB2.dll", import.meta.url) };
 const graphicsUrl = new URL("../assets/codeinjection/cgearQuickActions.narc", import.meta.url);
+const reduxUrl = new URL("../assets/codeinjection/CGearQuickActionsReduxW2.dll", import.meta.url);
 const hex = (b: Uint8Array) => Array.from(b, v => v.toString(16).padStart(2, "0")).join("");
 const hash = async (b: Uint8Array) => hex(new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array(b))));
 function fingerprint(b: Uint8Array): string {
@@ -39,7 +44,8 @@ function fingerprint(b: Uint8Array): string {
   return h.toString(16).padStart(8, "0");
 }
 function recognized(rpm: RpmModule, version: Version): boolean {
-  const candidates=[{version:manifest.version,profile:manifest.games[version]},...manifest.previousVersions.map(p=>({version:p.version,profile:p.games[version]}))];
+  const candidates=[{version:manifest.version,profile:manifest.games[version]},...manifest.previousVersions.map(p=>({version:p.version,profile:p.games[version]})),
+    ...(version === "W2" ? [{ version: reduxManifest.version, profile: reduxManifest.games.W2 }] : [])];
   const found=candidates.find(c=>rpm.metadata.PMCVersion===c.version && rpm.bssSize===c.profile.bssSize && fingerprint(rpm.code)===c.profile.codeFingerprint);
   if(!found)return false;
   const p = found.profile;
@@ -137,14 +143,23 @@ export function getCGearQuickActionsStatus(project: ProjectState): CGearQuickAct
   let rom: NintendoDSRom | undefined;
   try {if (project.originalRomBytes) rom = new NintendoDSRom(project.originalRomBytes, { fileData: "view" });}
   catch {return { ...state, message: "Reload the ROM to check C-Gear compatibility." };}
-  const profile = manifest.games[v];
+  const redux = v === "W2" && rom ? findReduxRepel(project, rom) : undefined;
+  const profile: Profile = redux ? reduxManifest.games.W2 : manifest.games[v];
+  const targetVersion = redux ? reduxManifest.version : manifest.version;
   if ((rom?.idCode ?? project.romInfo.idCode) !== profile.idCode || (rom && rom.data[0x1e] !== 0)) return state;
   state.supported = true;
+  state.romProfile = redux ? "redux" : "retail";
+  state.runtimeVersion = targetVersion;
   const owned: string[] = [];
   for (const entry of listCodeInjectionDlls(project)) {
     let rpm: RpmModule | undefined;
     try {const b = bytesAt(project, rom, entry.path);if (b) rpm = parseRpm(b, { allowedMagics: ["DLXF"] });} catch { /* Names still checked below. */ }
-    if (entry.target === "patches" && rpm && recognized(rpm, v)) {owned.push(entry.path);state.updateAvailable=rpm.metadata.PMCVersion!==manifest.version;}
+    if (redux && entry.target === "patches" && entry.path === redux.path && rpm && isReduxRepel(rpm)) continue;
+    if (entry.target === "patches" && rpm && recognized(rpm, v)) {
+      if (rpm.metadata.PMCVersion === reduxManifest.version && !redux) return { ...state, installed: true,
+        message: "The Redux C-Gear adapter requires its matching Redux repel runtime. Restore that runtime before updating." };
+      owned.push(entry.path);state.updateAvailable=rpm.metadata.PMCVersion!==targetVersion;
+    }
     else if ((rpm && conflicts(rpm, profile)) || /^CGearQuickActions[WB]2\.dll$/iu.test(entry.fileName)) {
       return { ...state, message: `Conflicting C-Gear, encounter, or field action code in ${entry.path}. Remove that conflicting module or use a compatible version.` };
     }
@@ -181,8 +196,9 @@ export function getCGearQuickActionsStatus(project: ProjectState): CGearQuickAct
     }
   } catch (e) {return { ...state, message: e instanceof Error ? e.message : "Could not read native C-Gear resources. Reload the ROM before installing." };}
   state.compatible = true;
-  state.message = state.updateAvailable ? `Quick Actions update ${manifest.version} is available. Choose Update / Enable to install the fixes.`
+  state.message = state.updateAvailable ? `Quick Actions update ${targetVersion} is available. Choose Update / Enable to install the fixes.`
     : state.installed ? state.enabled ? "Quick Actions is enabled. The wrench also rearranges custom buttons, including with wireless off."
+    : redux ? "Quick Actions is disabled. Redux's own Repel toggle remains available."
     : "Quick Actions is disabled. Saved Repel and button positions remain dormant."
     : "Native hooks match. PMC is the only dependency. This is a development build awaiting the full gameplay acceptance checklist.";
   return state;
@@ -234,6 +250,11 @@ export async function installCGearQuickActions(project: ProjectState, options:CG
   const input = { ...project, originalRomBytes: romBytes }, status = getCGearQuickActionsStatus(input);
   if (!status.supported || !status.compatible) throw new Error(status.message);
   const rom = new NintendoDSRom(romBytes, { fileData: "view" });
+  const redux = status.romProfile === "redux";
+  if (redux) {
+    const source = findReduxRepel(input, rom);
+    if (!source || await hash(source.bytes) !== reduxManifest.repelModule.sha256) throw new Error("The Redux repel runtime failed its integrity check.");
+  }
   hydrateCGearButtons(project,rom);
   hydrateSystemShops(project,rom);
   const state=structuredClone(ensureCGearButtons(project));
@@ -245,14 +266,14 @@ export async function installCGearQuickActions(project: ProjectState, options:CG
   if(state.document.buttons.some(b=>b.action==="systemShop"))ensureSystemShops(project);
   const shopsBefore=JSON.stringify(project.systemShops);
   if(state.document.buttons.some(b=>b.action==="pc")) {
-    const p=manifest.pcScript,id=rom.filenames.idOf(p.archive);
+    const p=redux ? reduxManifest.pcScript : manifest.pcScript,id=rom.filenames.idOf(p.archive);
     const script=id===undefined?undefined:new NARC(getRomFileBytes(project,rom,id)).files[p.member];
-    if(!script || script.length!==p.length || fingerprint(script)!==p.fingerprint)
+    if(!script || script.length!==p.length || fingerprint(script)!==p.fingerprint || (redux && await hash(script) !== reduxManifest.pcScript.sha256))
       throw new Error("The PC storage script has unrecognized changes. Restore a compatible native PC script, or remove PC from the button design before applying.");
   }
   if (state.document.buttons.some(b => b.action === "systemShop")) validateSystemShopResources(project, rom);
-  const v = input.session.baseVersion as Version, profile = manifest.games[v];
-  const [dllResponse, archiveResponse] = await Promise.all([fetch(urls[v]), fetch(graphicsUrl)]);
+  const v = input.session.baseVersion as Version, profile: Profile = redux ? reduxManifest.games.W2 : manifest.games[v];
+  const [dllResponse, archiveResponse] = await Promise.all([fetch(redux ? reduxUrl : urls[v]), fetch(graphicsUrl)]);
   if (!dllResponse.ok || !archiveResponse.ok) throw new Error("Could not load the bundled Quick Actions files.");
   const [dll, graphics] = await Promise.all([dllResponse.arrayBuffer().then(b => new Uint8Array(b)), archiveResponse.arrayBuffer().then(b => new Uint8Array(b))]);
   if (await hash(dll) !== profile.sha256)

@@ -1,10 +1,17 @@
 #include "hud_common.h"
+#ifdef BATTLE_HUD_REDUX
+#define PanelBackground RetailPanelBackground
+#endif
 #ifdef ICON_VARIANT_CIRCULAR
 #include "assets-circular.h"
 #elif defined(ICON_VARIANT_SOLID)
 #include "assets-solid.h"
 #else
 #include "assets.h"
+#endif
+#ifdef BATTLE_HUD_REDUX
+#undef PanelBackground
+#include "redux-background.h"
 #endif
 
 namespace {

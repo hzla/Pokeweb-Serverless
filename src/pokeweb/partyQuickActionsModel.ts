@@ -204,9 +204,11 @@ export function getPartyQuickActionsStatus(p: ProjectState): PartyQuickActionsSt
     loadCandyArchives(dependencyProject, r);
     const candy = getInfiniteCandyStatus(dependencyProject);
     state.candyInstalled = candy.installed;
-    state.candyCompatible = candy.supported && candy.compatible;
+    state.candyCompatible = candy.supported && candy.compatible && candy.itemId === 622;
     if (state.installed && !candy.installed) state.updateAvailable = true;
-    state.message = !state.candyCompatible ? `Requires Infinite Rare Candy: ${candy.message}` : state.updateAvailable ? "Party toolbar update available." : state.installed ? (state.enabled ? "Party toolbar enabled. Candy requires Infinite Candy in Key Items; tap a status again to clear it." : "Party toolbar disabled.") : "Native hooks match. Installs Infinite Rare Candy and PMC when needed.";
+    state.message = !state.candyCompatible ? candy.itemId !== undefined && candy.itemId !== 622
+      ? "This Party Toolbar build requires Infinite Candy at item 622."
+      : `Requires Infinite Rare Candy: ${candy.message}` : state.updateAvailable ? "Party toolbar update available." : state.installed ? (state.enabled ? "Party toolbar enabled. Candy requires Infinite Candy in Key Items; tap a status again to clear it." : "Party toolbar disabled.") : "Native hooks match. Installs Infinite Rare Candy and PMC when needed.";
   }
   catch (e) {
     state.message = (e as Error).message;

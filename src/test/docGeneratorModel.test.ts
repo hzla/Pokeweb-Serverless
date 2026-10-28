@@ -341,6 +341,107 @@ describe("docGeneratorModel", () => {
     expect(payload.formatted_sets.Bulbasaur["Lvl 42 Ace Trainer Dan - Black City"].diff).toBe(3);
   });
 
+  it("uses the active battle's map instead of a parked duplicate with a larger delta", () => {
+    const project = makeParkedTrainerProject();
+    project.docs!.trainerDiffs[7] = 7; // A saved project's old enrichment must not survive export.
+    const payload = JSON.parse(generateCalcDownload(project, "test").contents.slice(14, -2));
+    expect(project.docs?.trainerLocationSources?.[7]).toEqual([{ location: "Inside", overworldId: 1 }]);
+    expect(payload.formatted_sets.Bulbasaur["Lvl 42 Ace Trainer Dan - Inside"]).toMatchObject({ level: 42, diff: 0 });
+  });
+
+  it("filters parked standard trainer NPCs and works with retained matrix archives", () => {
+    const project = makeParkedTrainerProject();
+    const raw = decodeRecord(project, "overworlds", 0).raw!;
+    raw.npc_0_script_id = 3007;
+    project.narcs.scripts!.rawFiles[3] = new Uint8Array();
+    const archive = new NARC();
+    archive.files = project.narcs.matrix!.rawFiles;
+    project.trainerLocationTables = { matrix: { fileId: 42, bytes: archive.save() } };
+    delete project.narcs.matrix;
+    enrichTrainerLocations(project);
+    expect(project.docs?.trainerDiffs[7]).toBe(0);
+    expect(project.docs?.trainerLocationSources?.[7]).toEqual([{ location: "Inside", overworldId: 1 }]);
+  });
+
+  it("retains a shared entry used by an active NPC and actors placed by scripts", () => {
+    const project = makeParkedTrainerProject();
+    const raw = decodeRecord(project, "overworlds", 0).raw!;
+    raw.npc_count = 2;
+    raw.npc_1_overworld_id = 1;
+    raw.npc_1_script_id = 1;
+    raw.npc_1_x_cord = 0;
+    raw.npc_1_y_cord = 0;
+    enrichTrainerLocations(project);
+    expect(project.docs?.trainerDiffs[7]).toBe(4);
+
+    raw.npc_count = 1;
+    for (const placement of [[0x6d, 0, 0, 0, 0, 0], [0x24f, 0, 0, 0, 0, 0, 0]]) {
+      project.narcs.scripts!.rawFiles[3] = simpleTrainerScript([...placement, 0x85, 7, 0, 0]);
+      enrichTrainerLocations(project);
+      expect(project.docs?.trainerDiffs[7]).toBe(4);
+    }
+  });
+
+  it("keeps parent-zone variants and falls back conservatively without matrix data", () => {
+    const project = makeParkedTrainerProject();
+    const row = project.headers!.rows[1];
+    row.index = 2;
+    row.parent_map_id = 0;
+    const raw = decodeRecord(project, "overworlds", 0).raw!;
+    raw.npc_0_x_cord = 0;
+    enrichTrainerLocations(project);
+    expect(project.docs?.trainerDiffs[7]).toBe(4);
+
+    raw.npc_0_x_cord = 64;
+    delete project.narcs.matrix;
+    enrichTrainerLocations(project);
+    expect(project.docs?.trainerDiffs[7]).toBe(4);
+  });
+
+  it("does not give multi-battle allies the opponents' Challenge Mode delta", () => {
+    const project = makeProject();
+    project.narcs.overworlds = makeStore("overworlds", [new Uint8Array(8)], 1);
+    project.narcs.scripts!.rawFiles[3] = simpleTrainerScript([0x86, 7, 6, 5, 0]);
+    enrichTrainerLocations(project);
+    expect(project.docs?.trainerDiffs).toEqual({ 7: 0, 6: 3, 5: 3 });
+  });
+
+  it("exports weather set before the actual battle without changing party levels", () => {
+    const project = makeParkedTrainerProject();
+    project.narcs.scripts!.rawFiles[4] = simpleTrainerScript([0x136, 2, 3, 0x85, 7, 0, 0]);
+    const payload = JSON.parse(generateCalcDownload(project, "test").contents.slice(14, -2));
+    expect(payload.formatted_sets.Bulbasaur["Lvl 42 Ace Trainer Dan - Inside"]).toMatchObject({ level: 42, diff: 0, weather: "Rain" });
+  });
+
+  it("ignores unbound old battle entries when inferring scripted weather", () => {
+    const project = makeParkedTrainerProject();
+    const first = simpleTrainerScript([0x85, 7, 0, 0]).subarray(6);
+    const second = simpleTrainerScript([0x136, 12, 3, 0x85, 7, 0, 0]).subarray(6);
+    const bytes = new Uint8Array(10 + first.length + second.length);
+    writeInt(bytes, 0, 4, 6);
+    writeInt(bytes, 4, 4, 2 + first.length);
+    writeInt(bytes, 8, 2, 0xfd13);
+    bytes.set(first, 10); bytes.set(second, 10 + first.length);
+    project.narcs.scripts!.rawFiles[4] = bytes;
+    decodeRecord(project, "overworlds", 1).raw!.npc_0_script_id = 2;
+    const payload = JSON.parse(generateCalcDownload(project, "test").contents.slice(14, -2));
+    expect(payload.formatted_sets.Bulbasaur["Lvl 42 Ace Trainer Dan - Inside"].weather).toBe("Sand");
+  });
+
+  it("exports constant calendar weather and omits weather that varies by date", () => {
+    const project = makeParkedTrainerProject();
+    const calendar = new NARC();
+    calendar.files = [new Uint8Array(366).fill(2), new Uint8Array(6)];
+    writeInt(calendar.files[1]!, 0, 2, 1);
+    writeInt(calendar.files[1]!, 2, 2, 1); // The active indoor map's zone ID.
+    project.trainerLocationTables = { weatherCalendar: { fileId: 42, bytes: calendar.save() } };
+    const exportSet = () => JSON.parse(generateCalcDownload(project, "test").contents.slice(14, -2)).formatted_sets.Bulbasaur["Lvl 42 Ace Trainer Dan - Inside"];
+    expect(exportSet().weather).toBe("Rain");
+    calendar.files[0]![0] = 0;
+    project.fileSystem = { replacements: { 42: calendar.save() } } as ProjectState["fileSystem"];
+    expect(exportSet().weather).toBeUndefined();
+  });
+
   it("keeps one-based Pokemon and move replacement maps aligned with vanilla names", () => {
     const project = makeProject();
     project.texts.banks.pokedex = ["None", "Bulbasaur", "Saplingasaur", "Venusaur", "Charmander"];
@@ -1183,6 +1284,39 @@ function makeOddAlignedTrainerBattleScriptBytes(): Uint8Array {
   writeInt(out, 21, 2, 0);
   writeInt(out, 23, 2, 0x0002);
   return out;
+}
+
+function simpleTrainerScript(words: number[]): Uint8Array {
+  const out = new Uint8Array(8 + words.length * 2);
+  writeInt(out, 0, 4, 2);
+  [0xfd13, ...words, 0x02].forEach((word, i) => writeInt(out, 4 + i * 2, 2, word));
+  return out;
+}
+
+function makeParkedTrainerProject(): ProjectState {
+  const project = makeProject();
+  project.headers = { count: 2, rows: {
+    1: { index: 0, matrix_id: 0, script_id: 3, overworlds_id: 0, difficulty_level_adjustment: 4, location_name: "Outside" },
+    2: { index: 1, matrix_id: 1, script_id: 4, overworlds_id: 1, difficulty_level_adjustment: 0, location_name: "Inside" },
+  } };
+  project.narcs.overworlds = makeStore("overworlds", [makeOverworldBytes(), makeOverworldBytes()], 2);
+  for (const id of [0, 1]) {
+    const raw = decodeRecord(project, "overworlds", id).raw!;
+    raw.npc_count = 1;
+    raw.npc_0_script_id = 1;
+    raw.npc_0_overworld_id = 0;
+    raw.npc_0_x_cord = id === 0 ? 64 : 0;
+    raw.npc_0_y_cord = 0;
+  }
+  const outside = new Uint8Array(16), inside = new Uint8Array(12);
+  writeInt(outside, 0, 4, 1); // Header table; this cell belongs to zone 0.
+  for (const matrix of [outside, inside]) {
+    writeInt(matrix, 4, 2, 1); writeInt(matrix, 6, 2, 1); writeInt(matrix, 8, 4, 10);
+  }
+  project.narcs.matrix = makeStore("matrix", [outside, inside], 2);
+  project.narcs.scripts!.rawFiles[3] = simpleTrainerScript([0x85, 7, 0, 0]);
+  project.narcs.scripts!.rawFiles[4] = simpleTrainerScript([0x85, 7, 0, 0]);
+  return project;
 }
 
 function makeOverworldBytes(): Uint8Array {

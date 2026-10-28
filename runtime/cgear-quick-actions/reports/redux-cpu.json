@@ -1,0 +1,17 @@
+{
+  "game": "W2",
+  "profile": "redux",
+  "dllSha256": "bb8ae95c6a6b2ce2ed0674a447aa295c59c4fddd6fdb99b29be5e1f563eace43",
+  "passed": true,
+  "sharedRepelFlag": 3063,
+  "toggleCycles": 4,
+  "originalReduxHookExecuted": true,
+  "unrelatedFlagBitsPreserved": true,
+  "optionsUnchanged": true,
+  "pcOpenCloseCycles": 10,
+  "entireReduxPcScriptPreserved": true,
+  "allocationsReleased": true,
+  "abiRegistersAndStack": true,
+  "ownsRepelHooks": false,
+  "gameplayTested": false
+}

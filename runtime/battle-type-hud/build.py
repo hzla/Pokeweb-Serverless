@@ -13,7 +13,15 @@ def main():
     parser.add_argument('--bw1',action='store_true',help='Build BW1 Type Icons; bundling checks the DS acceptance ledger.')
     parser.add_argument('--bw1-moves',action='store_true',help='Build BW1 Move Effectiveness; bundling checks the DS acceptance ledger.')
     parser.add_argument('--bw1-moves-trace',action='store_true',help='Build private target-selection diagnostic DLLs; never bundle.')
+    parser.add_argument('--redux',action='store_true',help='Build and bundle the checked White 2 Redux graphics profile.')
+    parser.add_argument('--redux-rom',type=Path,help='Prepare the Redux profile from a local US White 2 ROM, then build it.')
     options=parser.parse_args()
+    redux=options.redux or options.redux_rom is not None
+    if redux:
+        assert not (options.bw1 or options.bw1_moves or options.bw1_moves_trace), 'Redux targets White 2 only.'
+        from redux_profile import prepare, bundle
+        if options.redux_rom: prepare(options.redux_rom)
+        assert (HERE/'redux-profile.json').exists(), 'Prepare the Redux graphics profile first.'
     build=HERE/'build';build.mkdir(exist_ok=True)
     run('javac','-cp',JAR,'-d',build,HERE/'Compact.java')
     reports={}
@@ -23,6 +31,8 @@ def main():
         ('TypeIconsSolid','battle_type_hud.cpp',364,17,'ICON_VARIANT_SOLID','0.3.24-solid'),
         ('MoveEffectiveness','move_effectiveness.cpp',20,5,None,'0.4.1'),
     )
+    if redux:
+        modules=tuple((*m[:-1],m[-1]+'-redux') for m in modules if m[0].startswith('TypeIcons'))
     if options.bw1:
         modules=tuple((module,'battle_type_hud_bw1.cpp',796,hooks,variant,
                        '0.1.3-bw1'+('-circular' if variant=='ICON_VARIANT_CIRCULAR' else '-solid' if variant else '')+'-candidate')
@@ -35,12 +45,13 @@ def main():
                   '0.1.1-bw1-moves-trace' if options.bw1_moves_trace else '0.1.1-bw1-moves-candidate'),)
     bw1=options.bw1 or options.bw1_moves or options.bw1_moves_trace
     games=('B','W') if bw1 else ('B2','W2')
+    if redux: games=('W2',)
     overlay='94' if bw1 else '168'
     esdb=build/'esdb-bw1.yml' if bw1 else HERE/'esdb.yml'
     if bw1:esdb.write_text('Segments:\n  - ID: 0\n    Name: "94"\n    Type: OVERLAY\nSymbols: []\n')
     for game,module,source,state_size,hook_count,variant_define,version in [(g,*m) for g in games for m in modules]:
         assert (build/f'addresses-{game}.h').exists(), 'Run configure.py first'
-        name=module+game
+        name=module+('Redux' if redux else '')+game
         obj=build/(name+'.o');elf=build/(name+'.elf')
         compile_args=[TOOLS/'arm-none-eabi-g++','-std=c++14','-mthumb','-march=armv5t',
             '-mno-thumb-interwork','-mno-long-calls','-Os','-Wall','-Wextra','-Werror',
@@ -48,6 +59,7 @@ def main():
             '-fno-unwind-tables','-fno-asynchronous-unwind-tables','-DGAME_'+game,
             '-c',HERE/source,'-o',obj]
         if variant_define: compile_args.insert(-4,'-D'+variant_define)
+        if redux: compile_args.insert(-4,'-DBATTLE_HUD_REDUX')
         run(*compile_args)
         run(TOOLS/'arm-none-eabi-ld','-r',obj,'-o',elf)
         assert not subprocess.check_output([str(TOOLS/'arm-none-eabi-nm'),'-u',str(elf)]).strip()
@@ -95,7 +107,8 @@ def main():
                 reports[dll.name].update(ds_gameplay_accepted=False,dsi_gameplay_accepted=False)
         (build/(name+'.disassembly.txt')).write_bytes(subprocess.check_output(
             [str(TOOLS/'arm-none-eabi-objdump'),'-dr',str(elf)]))
-    report_name='memory-report-bw1-moves-trace.json' if options.bw1_moves_trace else 'memory-report-bw1-moves.json' if options.bw1_moves else 'memory-report-bw1.json' if options.bw1 else 'memory-report.json'
+    report_name='memory-report-redux.json' if redux else 'memory-report-bw1-moves-trace.json' if options.bw1_moves_trace else 'memory-report-bw1-moves.json' if options.bw1_moves else 'memory-report-bw1.json' if options.bw1 else 'memory-report.json'
     (build/report_name).write_text(json.dumps(reports,indent=2)+'\n')
+    if redux: bundle()
     print(json.dumps(reports,indent=2))
 if __name__=='__main__': main()
