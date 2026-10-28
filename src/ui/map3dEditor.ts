@@ -29,6 +29,7 @@ import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 import { createMap3dBuildingInspector, pickMap3dBuilding } from "./map3dBuildingInspector";
 import type { MapGlbImport } from "../pokeweb/mapGlbImport";
+import type { Gen5MapImport } from "../pokeweb/gen5MapImport";
 import { openTestBattleEmulator } from '../pokeweb/testBattleEmulatorLauncher';
 import type { MapCameraTestPosition } from '../pokeweb/mapCameraTest';
 
@@ -157,6 +158,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   let importing = false;
   let pendingImport: MapGlbImport | undefined;
   let lastImport: MapGlbImport | undefined;
+  let lastNativeImport: Gen5MapImport | undefined;
   const lockedControls = new Map<HTMLInputElement | HTMLSelectElement | HTMLButtonElement, boolean>();
   const dirtyPermissionEdits = new Map<string, Map3dPermissionEdit>();
 
@@ -294,7 +296,8 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
           <button class="ow-tool" id="map3d-reset" type="button">Reset View</button>
           <button class="ow-tool" id="map3d-topdown" type="button">Top Down</button>
           <button class="ow-tool" id="map3d-export" type="button" disabled title="Export the loaded map and season, including terrain, buildings, and textures">Export for Blender (.glb)</button>
-          ${project.session.baseRom === "BW2" ? '<button class="ow-tool" id="map3d-import" type="button" disabled>Import edited map GLB</button><button class="ow-tool" id="map3d-import-undo" type="button" disabled>Undo map import</button><input id="map3d-import-file" type="file" accept=".glb" hidden />' : ''}
+          ${project.session.baseRom === "BW2" ? '<button class="ow-tool" id="map3d-import" type="button" disabled>Import edited map GLB</button><input id="map3d-import-file" type="file" accept=".glb" hidden />' : ''}
+          ${isGen4Project(project) ? '' : '<button class="ow-tool" id="map3d-native-import" type="button" disabled>Import DS Map Studio map</button><button class="ow-tool" id="map3d-import-undo" type="button" disabled>Undo map import</button>'}
         </div>
         <div class="map3d-export-status" id="map3d-export-status" role="status" aria-live="polite"></div>
         <details class="map3d-controls map3d-camera-readout" open>
@@ -327,6 +330,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   function updateCameraReadout(){const p=cameraCoordinates();if(!p)return;const text=`Position X/Y/Z: ${p.position.join(', ')}\nLook at X/Y/Z: ${p.target.join(', ')}\nPitch ${p.pitch}° · Yaw ${p.yaw}° · Distance ${p.distance}\nFOV ${p.fov}° · Aspect ${p.aspect}`;if(cameraValues.textContent!==text)cameraValues.textContent=text;}
   root.querySelector<HTMLButtonElement>('#map3d-copy-camera')!.addEventListener('click',()=>{const p=cameraCoordinates();if(!p)return;const text=JSON.stringify(p,null,2),field=document.createElement('textarea');field.value=text;field.style.cssText='position:fixed;left:-10000px;top:0';root.append(field);field.select();const copied=document.execCommand('copy');field.remove();if(copied)setStatus('Camera coordinates copied.');else void navigator.clipboard.writeText(text).then(()=>setStatus('Camera coordinates copied.')).catch(()=>setStatus('Unable to copy. The live camera coordinates remain visible above.'));});
   const importButton = root.querySelector<HTMLButtonElement>("#map3d-import");
+  const nativeImportButton = root.querySelector<HTMLButtonElement>("#map3d-native-import");
   const importUndo = root.querySelector<HTMLButtonElement>("#map3d-import-undo");
   const importFile = root.querySelector<HTMLInputElement>("#map3d-import-file");
   const importReview = root.querySelector<HTMLElement>("#map3d-import-review")!;
@@ -465,6 +469,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     }
     if (exportButton) exportButton.disabled = true;
     if (importButton) importButton.disabled = true;
+    if (nativeImportButton) nativeImportButton.disabled = true;
     if (importUndo) importUndo.disabled = true;
     if (exportStatus) exportStatus.textContent = "";
     setStatus("Loading map assets...");
@@ -603,7 +608,8 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
 
   function refreshImportButtons() {
     if (importButton) importButton.disabled = !activeData || importing || exporting || !!pendingImport;
-    if (importUndo) importUndo.disabled = !activeData || importing || !!pendingImport || lastImport?.original.zoneId !== activeZone || lastImport.original.season !== activeSeason;
+    if (nativeImportButton) nativeImportButton.disabled = !activeData || importing || exporting || !!pendingImport;
+    if (importUndo) importUndo.disabled = !activeData || importing || !!pendingImport || (!lastNativeImport && (lastImport?.original.zoneId !== activeZone || lastImport.original.season !== activeSeason));
     if (exportButton) exportButton.disabled = !activeData || importing || exporting || !!pendingImport;
   }
   function clearImportReview() {
@@ -618,6 +624,35 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     buildingInspector.setData(undefined, "Apply or cancel the map import to resume placement editing.");
     applyCurrentLayerSettings(false);
   }
+  nativeImportButton?.addEventListener("click", async () => {
+    if (!activeData || importing || exporting || pendingImport) return;
+    if (dirtyPermissionEdits.size) { if (exportStatus) exportStatus.textContent = "Save permission edits before importing a map."; return; }
+    const data = activeData, locks = new Map<HTMLInputElement | HTMLSelectElement | HTMLButtonElement, boolean>();
+    importing = true; refreshImportButtons();
+    try {
+      const { openGen5MapImportDialog } = await import("./gen5MapImportDialog");
+      await openGen5MapImportDialog(project, root, { matrixId: data.sourceMatrixId, x: data.matrixCell?.x ?? data.chunks[0]?.matrixX ?? 0,
+        y: data.matrixCell?.y ?? data.chunks[0]?.matrixY ?? 0, headerId: data.zoneId, season: data.season }, {
+        lock(locked) {
+          importing = locked;
+          if (locked) for (const control of root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>(".map3d-sidebar input, .map3d-sidebar select, .map3d-sidebar button, .map3d-toolbar button")) {
+            locks.set(control, control.disabled); control.disabled = true;
+          }
+          else { for (const [control, disabled] of locks) control.disabled = disabled; locks.clear(); }
+          refreshImportButtons();
+        },
+        preview: showImportPreview,
+        restore() { if (state && activeData) { renderSceneData(state, activeData); buildingInspector.setData(activeData); applyCurrentLayerSettings(false); } },
+        async applied(result) {
+          lastNativeImport = result; lastImport = undefined; activeMatrixCell = undefined; activeSeason = result.target.season;
+          if (select) select.value = String(result.target.headerId);
+          for (const choice of seasonButtons) choice.setAttribute("aria-pressed", String(choice.dataset.map3dSeason === activeSeason));
+          onDirty?.(); await load(result.target.headerId);
+          if (exportStatus) exportStatus.textContent = "DS Map Studio import applied. Export the ROM to test it in-game.";
+        },
+      });
+    } catch (error) { importing = false; refreshImportButtons(); if (exportStatus) exportStatus.textContent = `Import failed: ${error instanceof Error ? error.message : String(error)}`; }
+  });
   importButton?.addEventListener("click", () => {
     if (dirtyPermissionEdits.size) { if (exportStatus) exportStatus.textContent = "Save permission edits before importing a map."; return; }
     if (activeData && !importing && !pendingImport) importFile?.click();
@@ -660,17 +695,18 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     importing = true; refreshImportButtons();
     try {
       await (await import("../pokeweb/mapGlbImport")).applyMapGlbImport(project, result);
-      lastImport = result; onDirty?.(); clearImportReview(); await load(activeZone);
+      lastImport = result; lastNativeImport = undefined; onDirty?.(); clearImportReview(); await load(activeZone);
       if (exportStatus) exportStatus.textContent = "Map import applied. Export the ROM to test it in-game. Undo map import is available while this editor stays open.";
     } catch (error) { if (exportStatus) exportStatus.textContent = `Apply failed: ${error instanceof Error ? error.message : error}`; }
     finally { importing = false; refreshImportButtons(); }
   });
   importUndo?.addEventListener("click", async () => {
-    if (!lastImport || importing || pendingImport) return;
+    if ((!lastImport && !lastNativeImport) || importing || pendingImport) return;
     if (dirtyPermissionEdits.size) { if (exportStatus) exportStatus.textContent = "Save permission edits before undoing the map import."; return; }
     importing = true; refreshImportButtons();
     try {
-      await (await import("../pokeweb/mapGlbImport")).applyMapGlbImport(project, lastImport, true);
+      if (lastNativeImport) { await (await import("../pokeweb/gen5MapImport")).undoGen5MapImport(project, lastNativeImport); lastNativeImport = undefined; }
+      else await (await import("../pokeweb/mapGlbImport")).applyMapGlbImport(project, lastImport!, true);
       lastImport = undefined; onDirty?.(); await load(activeZone);
       if (exportStatus) exportStatus.textContent = "Restored all resources from before the map import.";
     } catch (error) { if (exportStatus) exportStatus.textContent = `Undo failed: ${error instanceof Error ? error.message : error}`; }

@@ -46,6 +46,10 @@ src/test/local/
 
 # Optional local maintenance, generation, and verification entry points.
 /scripts/*
+!/scripts/verify-gen5-map-import.ts
+!/scripts/verify-gen5-map-import-emulator.ts
+!/scripts/verify-map-studio.ts
+!/scripts/verify-map-studio-emulator.ts
 !/scripts/generate-item-effect-profiles.py
 !/scripts/verify-item-effects.ts
 !/scripts/verify-following-artwork.ts

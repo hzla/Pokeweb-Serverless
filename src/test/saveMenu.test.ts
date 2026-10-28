@@ -32,7 +32,7 @@ describe("save-menu installer", () => {
     expect(getSaveMenuStatus(input).supported).toBe(true);
     expect(getSaveMenuStatus(input).dependencyPresent).toBe(false);
     renderCodeInjectionEditor(input, root as unknown as HTMLElement, () => {});
-    expect(root.innerHTML).toContain("Black 2 / White 2 Save Menu");
+    expect(root.innerHTML).toContain("Interactive Save Menu");
     expect(root.innerHTML).toContain("Install and enable Following Pokémon");
     expect(root.innerHTML).toContain('id="install-save-menu-btn"');
     expect(root.innerHTML).toContain('id="save-menu-song"');

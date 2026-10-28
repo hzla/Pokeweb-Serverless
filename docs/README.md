@@ -6,6 +6,7 @@ Check each guide for its supported games and revisions. Browser previews and str
 
 ## Maps and overworlds
 
+- [Map Studio: project authoring and Gen 5 insertion (localhost)](map-studio.md)
 - [Export maps for Blender](map-blender-export.md)
 - [Import edited maps from Blender (BW2)](map-glb-import.md)
 - [Browse building models](building-library.md)

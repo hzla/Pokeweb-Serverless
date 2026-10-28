@@ -1156,7 +1156,7 @@ function animationForMaterial(material: NitroMaterial | undefined, set?: Texture
 export function mapBuildingMember(files: Uint8Array[]): number {
   const candidate = files[2];
   if (candidate && candidate.length >= 4 && 4 + readU32(candidate, 0) * 16 <= candidate.length) return 2;
-  if (candidate && files.length === 4 && candidate.length >= 8196 && readU16(candidate, 0) === 32 && readU16(candidate, 2) === 32) return 3;
+  if (candidate && files.length >= 4 && candidate.length >= 8196 && readU16(candidate, 0) === 32 && readU16(candidate, 2) === 32) return 3;
   return 2;
 }
 

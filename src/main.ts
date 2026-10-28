@@ -30,6 +30,7 @@ import "./styles/matrixEditor.css";
 import { renderMatrixEditor, stopMatrixEditor } from "./ui/matrixEditor";
 import { canUseMatrixEditor, loadMatrixEditorData } from "./pokeweb/matrixModel";
 import type { Map3dMatrixCell } from "./pokeweb/map3dModel";
+import { canOpenMapStudio } from "./pokeweb/mapStudioAccess";
 import "./styles/legacyPokemonSprites.css";
 import "./styles/legacyStarters.css";
 import "./styles/fileSystem.css";
@@ -135,6 +136,7 @@ type AppRoute =
   | "weatherGraphics"
   | "overworlds"
   | "maps3d"
+  | "mapStudio"
   | "cutscenes"
   | "field-scenes"
   | "matrixEditor"
@@ -251,6 +253,7 @@ const APP_ROUTES: AppRoute[] = [
   "weatherGraphics",
   "overworlds",
   "maps3d",
+  "mapStudio",
   "cutscenes",
   "field-scenes",
   "matrixEditor",
@@ -307,6 +310,7 @@ const EDITOR_REQUIREMENTS: Record<
   "field-scenes": [],
   overworlds: ["headers", "matrix", "maps", "overworlds"],
   matrixEditor: ["headers"],
+  mapStudio: [],
   pokemon: ["personal", "learnsets", "evolutions", "moves", "items"],
   pokemonSprites: ["personal", "pokemon_sprites", "pokemon_icons"],
   animatedSprites: ["personal", "pokemon_sprites"],
@@ -658,7 +662,9 @@ function checkCurrentSourceRom(): void {
   }).catch(showRecovery);
 }
 
+let stopMapStudioView: (() => void) | undefined;
 function renderApp(): void {
+  stopMapStudioView?.(); stopMapStudioView = undefined;
   syncProjectEditSubscription();
   const previousContent = document.getElementById("content-container");
   if (previousContent) stopTrainerImageRendering(previousContent);
@@ -695,6 +701,17 @@ function renderApp(): void {
   });
   renderDirtyIndicator();
   checkCurrentSourceRom();
+  if (route === "mapStudio" && canOpenMapStudio()) {
+    const currentProject = project;
+    void import("./ui/mapStudioEditor").then(({ renderMapStudio }) => {
+      if (route !== "mapStudio" || project !== currentProject || !content.isConnected || !canOpenMapStudio()) return;
+      stopMapStudioView = renderMapStudio(content, currentProject, () => {
+        if (!currentProject || currentProject !== project) return;
+        dirty = true; scheduleSave(currentProject); renderDirtyIndicator();
+      });
+    }).catch(error => { if (route === "mapStudio" && content.isConnected) content.textContent = `Map Studio could not load: ${errorMessage(error)}`; });
+    return;
+  }
   if (!project || route === "upload") {
     renderUpload(content);
     return;
@@ -1339,10 +1356,10 @@ function renderHeadersMenu(): string {
 }
 
 function renderMapsMenu(): string {
-  const active = route === "maps3d" || route === "buildings" || route === "cutscenes" || route === "field-scenes" || route === "battleBackgrounds";
+  const active = route === "mapStudio" || route === "maps3d" || route === "buildings" || route === "cutscenes" || route === "field-scenes" || route === "battleBackgrounds";
   return `<div class="header-more ${active ? "-active" : ""}">
     <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Maps</button>
-    <div class="header-more-menu">${navItem("maps3d", "Map Editor")}${navItem("buildings", "Buildings")}${navItem("battleBackgrounds", "Battle Backgrounds")}${canUseLocalRomBridge() ? navItem("cutscenes", "Cutscenes") + navItem("field-scenes", "Field tours") : ""}</div>
+    <div class="header-more-menu">${navItem("maps3d", "Map Editor")}${canOpenMapStudio() ? navItem("mapStudio", "Map Studio") : ""}${navItem("buildings", "Buildings")}${navItem("battleBackgrounds", "Battle Backgrounds")}${canUseLocalRomBridge() ? navItem("cutscenes", "Cutscenes") + navItem("field-scenes", "Field tours") : ""}</div>
   </div>`;
 }
 
@@ -2446,6 +2463,7 @@ function hasAnyRomChanges(currentProject: ProjectState): boolean {
 }
 
 function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds">): boolean {
+  if (nextRoute === "mapStudio") return canOpenMapStudio();
   if (!project) return false;
   if (nextRoute === "bw2Scripts") return canUseLocalRomBridge() && hasExportBase && project.session.baseRom === "BW2" && !isGen4Project(project) && Boolean(project.narcs.scripts);
   if (nextRoute === "changelog") return true;
@@ -2576,6 +2594,7 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
 }
 
 function safeRoute(nextRoute: AppRoute): AppRoute {
+  if (nextRoute === "mapStudio") return canOpenMapStudio() ? nextRoute : "upload";
   if (!project || nextRoute === "upload" || nextRoute === "debugNarcs") return nextRoute;
   if (nextRoute === "grottoOdds") return canVisit("grottos") ? nextRoute : safeRoute("grottos");
   if (nextRoute === "overworlds" && activeOverworldId === undefined) return safeRoute("headers");

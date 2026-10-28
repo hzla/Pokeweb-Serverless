@@ -505,3 +505,24 @@
 
 .map3d-toolbar .map3d-camera-readout { max-width: 360px; }
 .map3d-camera-snapped .map3d-camera-readout { display: block; }
+.map3d-native-import {
+  position: fixed;
+  inset: 60px 20px auto auto;
+  z-index: 10000;
+  margin: 0;
+  width: min(560px, calc(100vw - 48px));
+  max-height: calc(100vh - 100px);
+  overflow: auto;
+  color: inherit;
+  background: var(--bg-panel, #20242c);
+  border: 1px solid var(--border-color, #536070);
+  border-radius: 8px;
+  padding: 20px;
+}
+.map3d-native-import::backdrop { background: #0009; }
+.map3d-native-import fieldset { margin: 12px 0; border: 1px solid #687280; border-radius: 4px; }
+.map3d-native-import .map3d-field { margin: 8px 0; }
+.map3d-native-import input[type="file"] { max-width: 100%; }
+.map3d-native-import output { font-size: 12px; }
+.map3d-native-import [data-native-status] { margin: 12px 0; }
+.map3d-native-import .map3d-building-actions { position: sticky; bottom: -20px; padding: 12px 0; background: var(--bg-panel, #20242c); }
