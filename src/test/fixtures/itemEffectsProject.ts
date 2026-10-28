@@ -1,5 +1,6 @@
 import recipeBindings from "../../assets/data/abilityRecipeBindings.json";
 import abilityBindings from "../../assets/data/abilityBindings.json";
+import clientBindings from "../../assets/data/abilityClientBindings.json";
 import { hydrateAbilityEffectsSource } from "../../pokeweb/abilityEffectsModel";
 import profiles from "../../assets/data/itemEffectProfiles.json";
 import native from "../../assets/data/itemNativeBindings.json";
@@ -16,7 +17,7 @@ export function makeItemEffectsProject(shift = 0, relocateBy = 0, extended = fal
   const base = 0x02190000 - shift + relocateBy;
   const data = new Uint8Array((ability ? 0x80000 : 0x20000) + shift), offsets = new Map<string, number>();
   let cursor = 0x100 + shift;
-  const catalog = extended ? { ...bindings.functions, ...native.functions, ...(ability ? {...abilityBindings.functions,...recipeBindings.functions} : {}) } : profiles.functions;
+  const catalog = extended ? { ...bindings.functions, ...native.functions, ...(ability ? {...abilityBindings.functions,...recipeBindings.functions,...clientBindings.functions} : {}) } : profiles.functions;
   const armOffsets = new Map<string, number>(), arm9 = new Uint8Array(0x10000);
   let armCursor = 0x100;
   for (const [name, signature] of Object.entries(catalog)) {

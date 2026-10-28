@@ -87,7 +87,7 @@ describe("native terrain compilation", () => {
   });
   it("writes native quad strips with six submitted vertices for two quads and preserves their winding", () => {
     const ws = studioFixture(), template = compileStudioChunk(ws, 0, 0).model;
-    const model = writeStaticNitroModel(template, [{ materialName: "ms_mat_0", positions: new Float32Array([0,0,0, 0,0,1, 1,0,1, 1,0,0, 2,0,1, 2,0,0]), uvs: new Float32Array([0,0, 0,1, 1,1, 1,0, 2,1, 2,0]), indices: new Uint32Array([0,1,2, 0,2,3, 3,2,4, 3,4,5]) }], { stripify: true });
+    const model = writeStaticNitroModel(template, [{ materialName: "ms_mat_0", positions: new Float32Array([0,0,0, 0,0,1, 1,0,1, 1,0,0, 2,0,1, 2,0,0]), uvs: new Float32Array([0,0, 0,1, 1,1, 1,0, 2,1, 2,0]), colors: new Float32Array(18).fill(1), indices: new Uint32Array([0,1,2, 0,2,3, 3,2,4, 3,4,5]) }], { stripify: true });
     const mdl = nitroBlocks(model)[0], offset = readU32(readDictionary(mdl, 8)[0].data, 0);
     expect(readU16(mdl, offset + 36)).toBe(6); expect(readU16(mdl, offset + 38)).toBe(2);
     const warnings: string[] = [], primitives = buildModelPrimitives(readNitroResources(model), warnings);

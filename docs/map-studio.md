@@ -16,7 +16,31 @@ Gen 4 and Gen 5 authoring projects can be loaded. All nine tile and height layer
 - Layer checkboxes control visibility; the neighboring layer buttons select the editing layer. Middle drag pans, right drag rotates, and scrolling zooms.
 - Search filters the entire tile library. Large palettes display tiles in batches, with thumbnails generated only for visible entries.
 
-**Save project bundle** downloads a ZIP containing the updated PDSMAP and unchanged source assets. Extract the bundle to open it in desktop PDSMS. **Save PDSMAP only** downloads the map grids separately. Browser drafts use a separate Map Studio database; they are not embedded in the ROM project's ordinary autosave.
+**Save project bundle** downloads a ZIP containing the updated project and its assets. Extract the bundle to open it in desktop PDSMS. **Save PDSMAP only** downloads the map grids separately. Browser drafts use a separate Map Studio database; they are not embedded in the ROM project's ordinary autosave.
+
+## Import reusable tilesets
+
+Choose **Import tileset** in the tile palette or File menu and select a tileset pack ZIP, or a PDSTS file together with its textures and optional metadata. A tileset pack adds tiles to the current project without replacing painted cells. With no project open, importing creates an empty map for the selected game. Choose a library and category above the palette to browse its tiles; search also matches category names.
+
+Imported libraries are saved in Map Studio's browser storage and listed when reopening the editor. Their ZIP bytes are read and parsed only when selected for a project. Saving the project bundle includes its imported geometry, images and metadata, so reopening it does not require the original tileset ZIP. Painting undo remains valid after importing a library. Reimporting the same pack does not duplicate tiles.
+
+To make a portable pack from a local tileset folder or an archive containing multiple tileset ZIPs, run `npx vite-node scripts/build-map-studio-tileset.ts <source> <external-output.zip> --name "Library name"`. The converter combines PDSTS geometry, remaps material and smart-grid references, keeps source palette metadata and namespaces texture paths. Generated packs must stay outside the application repository; they are never bundled with hosted Pokeweb.
+
+### Visual tile arrangements
+
+The palette defaults to **Layouts → Top**. Matching corners, edges and centers appear in joined 3×3 plots, with inner corners alongside. The editor recovers populated PDSMS smart grids and detects additional complete patterns from authored palette slots and source-sheet order. Ambiguous tiles remain available under **Unarranged tiles** or **Tiles**. **3D** changes the preview angle for inspecting cliffs and other raised geometry.
+
+Choose the pencil beside a layout to arrange it, or **New layout** to make one. Select a cell and then a tile, or drag cells to swap them. Layouts can have 1–16 columns and rows, and the arrangement dialog has its own Undo/Redo. Clicking a tile in the normal palette still selects the paint brush.
+
+Layout edits are included in project bundles and browser drafts. When a library is selected, its edited arrangements are also remembered for future maps in this browser. Portable tileset packs store arrangements in a `.pdsts.layouts.json` sidecar; material IDs, geometry, texture bytes and painted map cells are unaffected. Arrangement detection runs in the Map Studio worker, and previews are drawn only as they become visible.
+
+### Smart brushes
+
+Choose **Brush** beside a 3×3 terrain layout, then drag on the map. The brush automatically connects matching terrain at the current height and layer, placing outer edges and inward corners around bends, junctions and holes. Adjacent chunks join at their shared boundary. **E** or Shift-drag erases the selected brush and repairs its neighbors; **B** or selecting an individual tile returns to single-tile painting. **G** reactivates the last smart brush. Picking an existing smart-painted tile also selects its brush and height.
+
+The four **Inner corners** slots are arranged as a hole, with the missing region meeting in the middle. Add them in **Arrange tiles** when a layout lacks pieces needed for inward turns. The eight outer cells must be filled with 1×1 pieces; an empty center is supported for outlines and cliffs over terrain on another layer. An incomplete or unsupported layout reports the missing piece instead of partially applying the stroke.
+
+One stroke, including all repaired neighbors, is one Undo/Redo command. Layers, separate brush layouts and height levels stay distinct. Narrow paths and complex junctions combine clipped quarters of the source geometry; cliffs retain their vertices, materials, UVs, overhangs and height. Mixed global/local UVs are baked using the cell position and the source material's repeat or mirror period. Generated variants are cached on demand, saved in the PDSTS tileset, and inserted through the existing Gen 5 compiler. Use **Save project bundle** after smart painting to include the generated geometry and `.pdsmap.smart.json` ownership/cache sidecar; PDSMAP-only saving is disabled when generated tiles are present.
 
 ## Insert into a Gen 5 ROM
 

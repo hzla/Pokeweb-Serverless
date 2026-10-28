@@ -17,6 +17,7 @@ export class StudioViewport {
   private loading = new Map<number, Promise<void>>();
   private version = 0;
   private bitmaps: ImageBitmap[] = [];
+  private thumbnailTarget?: THREE.WebGLRenderTarget;
   private frame = 0;
   private stopped = false;
   private resize: ResizeObserver;
@@ -59,12 +60,12 @@ export class StudioViewport {
       this.loading.set(index, task); return task;
     }));
   }
-  private group(meshes: StudioMesh[]) {
+  private group(meshes: StudioMesh[], wireframe = this.wire) {
     const group = new THREE.Group();
     for (const data of meshes) {
       const geometry = new THREE.BufferGeometry(); geometry.setAttribute("position", new THREE.Float32BufferAttribute(data.positions, 3)); geometry.setAttribute("uv", new THREE.Float32BufferAttribute(data.uvs.map(v => Number.isFinite(v) ? v : 0), 2)); geometry.setAttribute("color", new THREE.Float32BufferAttribute(data.colors, 3)); geometry.setIndex(data.indices); geometry.computeVertexNormals();
       const source = this.workspace.tileset.materials[data.material], map = this.textures.get(data.material);
-      const material = new THREE.MeshBasicMaterial({ map, color: map ? 0xffffff : 0xdb87c5, vertexColors: true, side: THREE.DoubleSide, wireframe: this.wire, transparent: source.alpha < 31, opacity: source.alpha / 31, alphaTest: 0.01, polygonOffset: true, polygonOffsetFactor: 0.05 });
+      const material = new THREE.MeshBasicMaterial({ map: map ?? null, color: map ? 0xffffff : 0xdb87c5, vertexColors: true, side: THREE.DoubleSide, wireframe, transparent: source.alpha < 31, opacity: source.alpha / 31, alphaTest: 0.01, polygonOffset: true, polygonOffsetFactor: 0.05 });
       group.add(new THREE.Mesh(geometry, material));
     }
     return group;
@@ -82,7 +83,7 @@ export class StudioViewport {
       }
       const geometry = new THREE.BufferGeometry(); geometry.setAttribute("position", new THREE.BufferAttribute(p.positions, 3)); geometry.setIndex(new THREE.BufferAttribute(p.indices, 1));
       if (p.uvs) geometry.setAttribute("uv", new THREE.BufferAttribute(p.uvs, 2)); if (p.colors) geometry.setAttribute("color", new THREE.BufferAttribute(p.colors, 3));
-      const material = new THREE.MeshBasicMaterial({ map, color: new THREE.Color(...p.material.diffuse), vertexColors: !!p.colors, side: THREE.DoubleSide, alphaTest: 0.01, transparent: p.material.alpha < 1, opacity: p.material.alpha, wireframe: this.wire });
+      const material = new THREE.MeshBasicMaterial({ map: map ?? null, color: new THREE.Color(...p.material.diffuse), vertexColors: !!p.colors, side: THREE.DoubleSide, alphaTest: 0.01, transparent: p.material.alpha < 1, opacity: p.material.alpha, wireframe: this.wire });
       this.buildings.add(new THREE.Mesh(geometry, material));
     }
     this.requestRender();
@@ -119,18 +120,34 @@ export class StudioViewport {
     const point = this.ray.intersectObject(this.content, true)[0]?.point ?? this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -height), new THREE.Vector3());
     if (!point) return; const x = Math.floor(point.x + 16), y = Math.floor(point.z + 16); return x >= 0 && x < 32 && y >= 0 && y < 32 ? { x, y } : undefined;
   }
-  async thumbnail(tile: number, canvas: HTMLCanvasElement) {
+  async thumbnail(tile: number, canvas: HTMLCanvasElement, projection: "top" | "3d" = "top") {
     if (this.stopped) return;
     const meshes = studioMeshes(this.workspace, this.workspace.map.chunks[0], undefined, tile); await this.loadTextures(meshes.map(m => m.material)); if (this.stopped) return;
-    const group = this.group(meshes), bounds = new THREE.Box3().setFromObject(group), center = bounds.getCenter(new THREE.Vector3()), size = bounds.getSize(new THREE.Vector3()), span = Math.max(size.x, size.y, size.z, 1);
-    const camera = new THREE.OrthographicCamera(-span * 0.8, span * 0.8, span * 0.8, -span * 0.8, 0.01, 10000); camera.position.copy(center).add(new THREE.Vector3(1, 1.6, 1.8).multiplyScalar(span * 3)); camera.lookAt(center);
-    const scene = new THREE.Scene(); scene.add(group); this.renderer.setSize(72, 72); this.renderer.render(scene, camera);
-    canvas.getContext("2d")?.drawImage(this.canvas, 0, 0, canvas.width, canvas.height); this.disposeGroup(group); this.size();
+    const group = this.group(meshes, false), bounds = new THREE.Box3().setFromObject(group), center = bounds.getCenter(new THREE.Vector3()), size = bounds.getSize(new THREE.Vector3()), span = Math.max(size.x, size.y, size.z, 1);
+    const footprint = this.workspace.tileset.tiles[tile], topSpan = Math.max(footprint.width, footprint.height);
+    const half = projection === "top" ? topSpan / 2 : span * 0.8;
+    const camera = new THREE.OrthographicCamera(-half, half, half, -half, 0.01, 10000);
+    if (projection === "top") {
+      // A shared footprint and north-up camera keep neighboring previews joined.
+      const target = new THREE.Vector3(footprint.width / 2, center.y, footprint.height / 2);
+      camera.up.set(0, 0, -1); camera.position.copy(target).add(new THREE.Vector3(0, Math.max(span, 1) * 3, 0)); camera.lookAt(target);
+    } else { camera.position.copy(center).add(new THREE.Vector3(1, 1.6, 1.8).multiplyScalar(span * 3)); camera.lookAt(center); }
+    const scene = new THREE.Scene(); scene.add(group);
+    // Reuse the context without resizing or drawing over the terrain viewport.
+    this.thumbnailTarget ??= new THREE.WebGLRenderTarget(canvas.width, canvas.height, { depthBuffer: true });
+    this.thumbnailTarget.texture.colorSpace = THREE.SRGBColorSpace; this.thumbnailTarget.setSize(canvas.width, canvas.height);
+    const previous = this.renderer.getRenderTarget(), pixels = new Uint8Array(canvas.width * canvas.height * 4);
+    try { this.renderer.setRenderTarget(this.thumbnailTarget); this.renderer.render(scene, camera); this.renderer.readRenderTargetPixels(this.thumbnailTarget, 0, 0, canvas.width, canvas.height, pixels); }
+    finally { this.renderer.setRenderTarget(previous); this.disposeGroup(group); }
+    const output = new ImageData(canvas.width, canvas.height), row = canvas.width * 4;
+    for (let y = 0; y < canvas.height; y++) output.data.set(pixels.subarray((canvas.height - 1 - y) * row, (canvas.height - y) * row), y * row);
+    canvas.getContext("2d")?.putImageData(output, 0, 0);
+    canvas.dataset.rendered = "true";
   }
   dispose() {
     this.stopped = true; cancelAnimationFrame(this.frame); this.resize.disconnect(); this.controls.removeEventListener("change", this.onChange); this.controls.dispose();
     this.disposeGroup(this.content); this.grid.geometry.dispose(); (this.grid.material as THREE.Material).dispose(); this.textures.forEach(t => t.dispose()); this.textures.clear(); this.loading.clear(); this.bitmaps.forEach(b => b.close()); this.bitmaps = [];
     this.disposeGroup(this.buildings); this.buildingTextures.forEach(t => t.dispose()); this.buildingTextures.clear();
-    this.renderer.dispose(); this.renderer.forceContextLoss(); this.canvas.remove();
+    this.thumbnailTarget?.dispose(); this.thumbnailTarget = undefined; this.renderer.dispose(); this.renderer.forceContextLoss(); this.canvas.remove();
   }
 }

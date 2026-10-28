@@ -23,6 +23,9 @@ PUBLIC const volatile u8 *AbilityRuleData=(const volatile u8 *)1;
 #define CHECK(p,k) FN(30,u32(*)(void*,u32))(p,k)
 static u32 bypassProbe;
 static u32 nativeWork[32][16][7];
+#ifdef ABILITY_CLIENT_TRAPS
+static void *clientFlow;
+#endif
 static u16 half(const volatile u8 *p){return p[0]|(u16)(p[1]<<8);}
 static void put16(u8*p,u16 v){p[0]=v;p[1]=v>>8;}
 static void put32(u8*p,u32 v){for(u32 n=0;n<4;++n)p[n]=v>>(n*8);}
@@ -50,6 +53,9 @@ static u32 active(const volatile u8*r,void*f,void*mon){
  return top==1&&stack[0];
 }
 static u32 typeMatch(void*mon,u32 type){return FN(5,u32(*)(u32,u32))(FN(4,u32(*)(void*))(mon),type);}
+#ifdef ABILITY_CLIENT_TRAPS
+#include "client_traps.c"
+#endif
 static u32 trigger(const volatile u8*e,void*f,u8 owner,u32 event){
  (void)f;
  u32 which=e[4];s32 x;
@@ -117,6 +123,9 @@ static void healing(void*item,void*f,u8 owner,const volatile u8*r,u32 event){
  popup(f,2,owner);u8*p=PUSH(f,5,owner);put16(p+4,amount);p[6]=owner;POP(f,p);popup(f,3,owner);
 }
 static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
+#ifdef ABILITY_CLIENT_TRAPS
+ if(!preview(f))clientFlow=f;
+#endif
  (void)w;const volatile u8*r=record(SUB(item));
 #ifdef ABILITY_RECIPES
  if(r&&7-(*(u32*)((u8*)item+0x14)>>24)==5)recipeObserve(f,owner,r,event);

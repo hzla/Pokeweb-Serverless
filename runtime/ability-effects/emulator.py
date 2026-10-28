@@ -16,6 +16,7 @@ def main():
    rom=copies[spec['rom']];shutil.copyfile(a.evidence/'saves'/f"{spec['label']}.sav",rom.with_suffix('.sav'))
    emu=MelonDS();flow=0;code=0;menus=[];multipliers=[];rewrites=[];errors=[];hooks=[];minimum={};healing=[];names=[];name_frame=0;name_captured=False;name_followups=set();native_chances=[];callback_priorities=[];damage_reactions=[];side_table=0;pending_damage=None;screen_removals=[];callback_owner=None;focus_work=[];move_end_items=[]
    result={'case':spec['label'],'abilityId':spec['abilityId'],'passed':False,'romSha256':manifest['romHashes'][spec['rom']]}
+   counter_callers=[];type_queries=[];client_traps=[];pending_client_trap=None
    def heap(fragment):
     address=next(value for name,value in manifest['pmcSymbols'].items()if fragment in name);value=emu.memory.read_long(address)
     if not 0x02000000<=value<0x02400000:return None
@@ -39,6 +40,7 @@ def main():
      if menus and menus[-1]['turn']==turn:return
      main=emu.memory.read_long(flow+4);player=emu.memory.read_long(main+0xcc);enemy=emu.memory.read_long(main+0xcc+0x1c)
      state={'turn':turn,'frame':emu.frame_count,'hp':emu.memory.read_short(player+0x10),'maxHp':emu.memory.read_short(player+0xe),'item':emu.memory.read_short(player+0x12),'enemyHp':emu.memory.read_short(enemy+0x10),'enemyMaxHp':emu.memory.read_short(enemy+0xe),'ability':emu.memory.read_short(player+0x13c),'enemyAbility':emu.memory.read_short(enemy+0x13c),'stages':list(emu.memory.unsigned[player+0xfc:player+0x103]),'enemyStages':list(emu.memory.unsigned[enemy+0xfc:enemy+0x103]),'conditions':[emu.memory.read_long(player+0x1c+n*4)for n in range(36)],'enemyConditions':[emu.memory.read_long(enemy+0x1c+n*4)for n in range(36)]}
+     state['types']=[emu.memory.read_byte(player+0xf8),emu.memory.read_byte(player+0xf9)]
      state['focus']=bool(emu.memory.read_byte(player+0x156)&2)
      if'partyHpByTurn'in spec['checks']:state['partyHp']=[emu.memory.read_short(emu.memory.read_long(main+0xcc+slot*4)+0x10)for slot in range(len(spec['checks']['partyHpByTurn'][0]))]
      state['weather']=emu.memory.read_byte(manifest['weatherAddress'])if manifest.get('weatherAddress')else None
@@ -85,6 +87,9 @@ def main():
       assert ours==1;result['loader']={'totalPatchRecords':len(states),'abilityPatchRecords':ours,'liveRuleCount':manifest['editedAbilities']}
       for event in['38','3b','47','13']:
        if f'AbilityEvent_{event}'in manifest['symbols']:hooks.append(emu.memory.register_exec(code+manifest['symbols'][f'AbilityEvent_{event}'],recipe_callback))
+      if manifest.get('clientTrapStores'):
+       hooks.append(emu.memory.register_exec(code+manifest['symbols']['AbilityClientTrapped'],client_trapped))
+       for offset in manifest['clientTrapStores'].values():hooks.append(emu.memory.register_exec(code+offset,client_trap_store))
       if'AbilityEvent_88'in manifest['symbols']:hooks.append(emu.memory.register_exec(code+manifest['symbols']['AbilityEvent_88'],move_end))
       if manifest.get('priorityRuntime'):hooks.append(emu.memory.register_exec(code+manifest['symbols']['AbilityEvent_4b'],contact_callback))
      menus.append(state)
@@ -131,17 +136,69 @@ def main():
      field={0x38:'effectiveness',0x32:'damage',0x45:'critical',0x46:'substitute'}.get(key)
      if field:pending_damage[field]=regs.r1
      if key==0x46:damage_reactions.append(pending_damage);pending_damage=None
+   def counter_import(cpu,address):
+    try:
+     hi=emu.memory.read_short(address+2);lo=emu.memory.read_short(address+4)
+     assert emu.memory.read_short(address)==0xb500 and hi&0xf800==0xf000 and lo&0xf800==0xf800,'Counter entry hook missing'
+     delta=((hi&0x7ff)<<12)|((lo&0x7ff)<<1)
+     if delta&0x400000:delta-=0x800000
+     destination=address+6+delta;prefix=bytes.fromhex(manifest['counterPrefix'])
+     assert bytes(emu.memory.unsigned[destination:destination+len(prefix)])==prefix,'Counter entry differs'
+     counter_callers.append(emu.memory.register_arm9.lr&~1)
+    except Exception as error:errors.append(error)
+   def client_trapped(cpu,address):
+    nonlocal pending_client_trap
+    regs=emu.memory.register_arm9;lr=regs.lr&~1;trapper=regs.r2;ability=regs.r3;returned_hook=None
+    observation={'frame':emu.frame_count,'trapperPtr':trapper,'abilityPtr':ability,'trapper':None,'ability':None};pending_client_trap=observation
+    def returned(cpu,address):
+     nonlocal pending_client_trap
+     observation['result']=emu.memory.register_arm9.r0;client_traps.append(observation);pending_client_trap=None
+     returned_hook.remove()
+    returned_hook=emu.memory.register_exec(lr,returned);hooks.append(returned_hook)
+   def client_trap_store(cpu,address):
+    # The bus memory API bypasses ARM9 DTCM. Observe executed store operands
+    # instead of reading mirrored main RAM at the stack's output addresses.
+    if pending_client_trap is None:return
+    regs=emu.memory.register_arm9
+    if address==code+manifest['clientTrapStores']['trapper']:
+     assert emu.memory.read_short(address)==0x7013 and regs.r2==pending_client_trap['trapperPtr']
+     pending_client_trap['trapper']=regs.r3&255
+    else:
+     assert emu.memory.read_short(address)==0x801e and regs.r3==pending_client_trap['abilityPtr']
+     pending_client_trap['ability']=regs.r6&65535
+   def type_query(cpu,address):
+    query={'type':emu.memory.register_arm9.r1,'caller':emu.memory.register_arm9.lr&~1};type_queries.append(query)
+    returned_hook=None
+    def returned(cpu,address):
+     query['result']=emu.memory.register_arm9.r0
+     returned_hook.remove()
+    if 0x02000000<=query['caller']<0x02400000:
+     returned_hook=emu.memory.register_exec(query['caller'],returned);hooks.append(returned_hook)
+   if manifest.get('counterHook'):hooks.append(emu.memory.register_exec(manifest['counterHook'],counter_import))
+   if manifest.get('typeQuery'):hooks.append(emu.memory.register_exec(manifest['typeQuery'],type_query))
    if manifest.get('damageReactionHook'):hooks.append(emu.memory.register_exec(manifest['damageReactionHook'],damaged))
    if manifest.get('eventConstHook'):hooks.append(emu.memory.register_exec(manifest['eventConstHook'],event_const))
    if manifest.get('nativeChanceHook'):hooks.append(emu.memory.register_exec(manifest['nativeChanceHook'],rolled))
    if manifest.get('nameLoader'):hooks.append(emu.memory.register_exec(manifest['nameLoader'],named))
    hooks.append(emu.memory.register_exec(manifest['api']['BattleHandler_PopWork'],popped))
-   hooks += [emu.memory.register_exec(0x0219f5da,opening),emu.memory.register_exec(0x021cef18,command),emu.memory.register_exec(manifest['api']['BattleEventVar_MulValue'],multiplied),emu.memory.register_exec(manifest['api']['BattleEventVar_RewriteValue'],rewritten),emu.memory.register_exec(manifest['api']['BattleHandler_PushWork'],pushed)]
+   hooks += [emu.memory.register_exec(manifest.get('openingHook',0x0219f5da),opening),emu.memory.register_exec(manifest.get('commandHook',0x021cef18),command),emu.memory.register_exec(manifest['api']['BattleEventVar_MulValue'],multiplied),emu.memory.register_exec(manifest['api']['BattleEventVar_RewriteValue'],rewritten),emu.memory.register_exec(manifest['api']['BattleHandler_PushWork'],pushed)]
    try:
     emu.open(rom)
     for _ in range(a.max_frames):
-     if menus:emu.input.keypad_update(1 if emu.frame_count%12<3 else 0)
+     if menus or manifest.get('manualLaunch'):
+      # The normal BW2 test save faces away from its NPC, which stands south.
+      key=128 if manifest.get('manualLaunch')and 600<=emu.frame_count<602 else 1 if emu.frame_count%12<3 else 0
+      emu.input.keypad_update(key)
+     if menus and 'trapType'in spec['checks']:
+      age=emu.frame_count-menus[0]['frame'];emu.input.touch_release()
+      emu.input.keypad_update(0)
+      if 120<=age<124:emu.input.touch_set_pos(210,165)
+      if 260<=age<264:emu.input.touch_set_pos(180,40)
+      if 340<=age<344:emu.input.touch_set_pos(165,74)
      emu.cycle()
+     if manifest.get('manualLaunch')and emu.frame_count%1200==0 and not menus:
+      emu.screenshot().save(a.evidence/f"{spec['label']}-launch-{emu.frame_count}.png")
+      print(f"LAUNCH {spec['label']}: frame {emu.frame_count}, battle flow {hex(flow)}",flush=True)
      if name_frame and not name_captured and emu.frame_count>=name_frame:
       emu.screenshot().save(a.evidence/f"{spec['label']}-ability-name.png");name_captured=True
      if spec['checks'].get('name') and name_frame:
@@ -149,10 +206,20 @@ def main():
        if delay not in name_followups and emu.frame_count>=name_frame+delay:
         emu.screenshot().save(a.evidence/f"{spec['label']}-ability-name-{delay+14}.png");name_followups.add(delay)
      if errors:raise errors[0]
-     if emu.frame_count%30==0:sample()
-     if len(menus)>=spec.get("menuCount",3):break
+     # The battle loader's symbol addresses can be occupied by field overlays
+     # before overlay 167 loads. Sample only after its live registry is checked.
+     if menus and emu.frame_count%30==0:sample()
+     trapped='trapType'not in spec['checks']or bool(menus and emu.frame_count-menus[0]['frame']>=500 and any(q['result']==0 and q['ability']==spec.get('enemyAbility') and q['frame']>=menus[0]['frame']+120 for q in client_traps))
+     if len(menus)>=spec.get("menuCount",3)and trapped:break
     emu.input.keypad_update(0);assert len(menus)>=spec.get('menuCount',3),f'No completed turns: {menus}'
     c=spec['checks'];hp=[s['hp']for s in menus]
+    owned_counter_calls=sum(code<=caller<code+manifest['codeBytes']for caller in counter_callers)
+    if c.get('counterImport'):assert owned_counter_calls,'No ability-to-counter import call observed'
+    if c.get('counterPresent'):assert counter_callers,'No installed counter entry call observed'
+    if'playerTypesAfterFirstTurn'in c:assert all(state['types']==c['playerTypesAfterFirstTurn']for state in menus[1:]),menus
+    if'trapType'in c:
+     assert any(query.get('result')==1 and query['type']==c['trapType']and code<=query['caller']<code+manifest['codeBytes']for query in type_queries),type_queries
+     assert any(q['result']==0 and q['ability']==spec.get('enemyAbility') and q['frame']>=menus[0]['frame']+120 for q in client_traps),client_traps
     if c.get('someHolderSuppressed'):assert all(state['conditions'][16]or state.get('allyConditions',[0]*36)[16]for state in menus[1:]),menus
     if c.get('noSuppressedMultipliers'):assert all(v.get('owner')is not None and not v['suppressed']for v in multipliers if v['value']==5325),multipliers
     if'playerFocusByTurn'in c:assert[state['focus']for state in menus]==c['playerFocusByTurn'],menus
@@ -221,10 +288,10 @@ def main():
        assert actual==expected,(ability,actual,expected,s)
      if c.get('suppressed'):assert not callback_priorities,callback_priorities
      elif spec.get('move')==33 and spec['abilityId']!=143:assert {4,5}.issubset({v['priority']for v in callback_priorities}),callback_priorities
-    result.update(passed=True,menus=menus,multipliers=multipliers,rewrites=rewrites,healing=healing,names=names,nativeChances=native_chances,callbackPriorities=callback_priorities,damageReactions=damage_reactions,focusWork=focus_work,moveEndItems=move_end_items,screenRemovals=screen_removals,minimumObservedFree=minimum)
+    result.update(passed=True,menus=menus,multipliers=multipliers,rewrites=rewrites,healing=healing,names=names,nativeChances=native_chances,callbackPriorities=callback_priorities,damageReactions=damage_reactions,focusWork=focus_work,moveEndItems=move_end_items,screenRemovals=screen_removals,minimumObservedFree=minimum,counterCalls=len(counter_callers),abilityCounterCalls=owned_counter_calls,typeQueries=type_queries,clientTraps=client_traps)
     emu.run_frames(20);emu.screenshot().save(a.evidence/f"{spec['label']}.png");(a.evidence/f"{spec['label']}-result.json").write_text(json.dumps(result,indent=2)+'\n');results.append(result);print(f"PASS {spec['label']}: HP {hp}; abilities {[s['ability']for s in menus]}",flush=True)
    except Exception as error:
-    result.update(error=repr(error),menus=menus,multipliers=multipliers,rewrites=rewrites,minimumObservedFree=minimum,pc=hex(emu.memory.register_arm9.pc),damageReactions=damage_reactions,focusWork=focus_work,moveEndItems=move_end_items);emu.screenshot().save(a.evidence/f"{spec['label']}-failure.png");(a.evidence/f"{spec['label']}-failure.json").write_text(json.dumps(result,indent=2)+'\n');results.append(result);print(f"FAIL {spec['label']}: {error!r}",flush=True)
+    result.update(error=repr(error),menus=menus,multipliers=multipliers,rewrites=rewrites,minimumObservedFree=minimum,pc=hex(emu.memory.register_arm9.pc),damageReactions=damage_reactions,focusWork=focus_work,moveEndItems=move_end_items,typeQueries=type_queries,clientTraps=client_traps);emu.screenshot().save(a.evidence/f"{spec['label']}-failure.png");(a.evidence/f"{spec['label']}-failure.json").write_text(json.dumps(result,indent=2)+'\n');results.append(result);print(f"FAIL {spec['label']}: {error!r}",flush=True)
     if not a.keep_going:raise
    finally:emu.destroy()
  (a.evidence/f'emulator-{a.start}-{len(results)}.json').write_text(json.dumps({'passed':sum(r['passed']for r in results),'cases':results,'scope':'DS-mode melonDS cold boots; native engine; keypad input; read-only hooks'},indent=2)+'\n')

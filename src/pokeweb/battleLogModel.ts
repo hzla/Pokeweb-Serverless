@@ -828,6 +828,16 @@ function effectiveRomPathBytes(project: ProjectState, path: string): Uint8Array 
   }
 }
 
+/** Only the reviewed BW2 counter RPC preserves ordinary IsFainted calls. */
+export function isVerifiedBattleCounterImport(version: string, path: string, bytes: Uint8Array, address: number): boolean {
+  if (version !== "B2" && version !== "W2") return false;
+  const layout = BATTLE_LOG_LAYOUTS[version];
+  const hook = layout.hooks.find(entry => entry.label === "Individual PK5 counter RPC")!;
+  return path.toLowerCase() === layout.counterDllPath.toLowerCase()
+    && address === hook.address
+    && matchesRuntimeFingerprint(bytes, layout.runtimeFingerprints.counters);
+}
+
 function matchesRuntimeFingerprint(bytes: Uint8Array, expected: RuntimeFingerprint): boolean {
   if (bytes.length !== expected.length) return false;
   let hash = 0x811c9dc5;

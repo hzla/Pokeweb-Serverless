@@ -45,7 +45,7 @@ export function nativeAbilityProfile(kind: string): NativeAbilityProfile | undef
 export function linkNativeAbilities(rpm: RpmModule, rules: ReadonlyMap<number, AbilityRuleSet>, dataOffset: number, resolve: (name: string) => {
     address: number;
     code: Uint8Array;
-}, check: (name: string, address: number, size: number) => void): void {
+}, check: (name: string, address: number, size: number, copied?: boolean) => void): void {
     const append = (bytes: Uint8Array, type: "FUNCTION_THM" | "SECTION") => { const at = (rpm.code.length + 3) & ~3, next = new Uint8Array(at + bytes.length); next.set(rpm.code); next.set(bytes, at); rpm.code = next; rpm.symbols.push({ name: null, address: at, size: bytes.length, type, attributes: 0 }); return rpm.symbols.length - 1; };
     const copies = new Map<string, number>();
     function editedSites(effect: AbilityRuleEffect, profile: NativeAbilityProfile) {
@@ -62,7 +62,7 @@ export function linkNativeAbilities(rpm: RpmModule, rules: ReadonlyMap<number, A
         if (copies.has(key))
             return copies.get(key)!;
         const source = resolve(name);
-        check(name, source.address, source.code.length);
+        check(name, source.address, source.code.length, true);
         const code = source.code.slice(), s = BATTLE_RUNTIME_SIGNATURES[name];
         const edits = editedSites(effect, profile).filter(e => e.site.handler === name);
         // A relative branch outside the copied function needs a dedicated adapter.
@@ -132,10 +132,10 @@ export function linkNativeAbilities(rpm: RpmModule, rules: ReadonlyMap<number, A
             const target = call.tail ? readU32(source.code, call.offset) & ~1 : battleBranchTarget(source.code, call.offset, source.address), dependency = resolve(call.target);
             if (target !== dependency.address)
                 throw new Error(`Changed native ability call: ${call.target}`);
-            check(call.target, target, dependency.code.length);
+            check(call.target, target, dependency.code.length, ownDependency);
             let dependencySymbol: number;
             if (ownDependency) dependencySymbol = copy(call.target, effect, profile);
-            else { rpm.symbols.push({ name: null, address: target, size: 0, type: "FUNCTION_THM", attributes: 4 }); dependencySymbol = rpm.symbols.length - 1; }
+            else { rpm.symbols.push({ name: null, address: target, size: 0, type: BATTLE_RUNTIME_SIGNATURES[call.target].thumb === false ? "FUNCTION_ARM" : "FUNCTION_THM", attributes: 4 }); dependencySymbol = rpm.symbols.length - 1; }
             const percentage = callEdits.find(e => e.site.mode === "hpPercent");
             if (percentage) dependencySymbol = append(abilityHpPercentAdapter(percentage.value, percentage.site.minimum ?? 0), "FUNCTION_THM");
             else if(callEdits.some(e=>e.site.mode==="hpAtLeast"))dependencySymbol=append(abilityHpAtLeastAdapter(callEdits[0].value),"FUNCTION_THM");

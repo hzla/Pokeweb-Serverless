@@ -8,11 +8,11 @@ const [input, overlaySymbols, armSymbols, output] = process.argv.slice(2);
 if (!output) throw new Error("Usage: ROM.nds OVERLAY_SYMBOLS ARM9_SYMBOLS OUTPUT.json");
 const rom = new NintendoDSRom(new Uint8Array(await readFile(input)), { fileData: "view" });
 const overlay = rom.loadArm9Overlays([167]).get(167)!;
-type Symbol = { address: number; size: number; module: string };
+type Symbol = { address: number; size: number; module: string; thumb: boolean };
 const symbols = new Map<string, Symbol>();
 for (const [path, module] of [[overlaySymbols, "167"], [armSymbols, "ARM9"]]) {
-  for (const m of (await readFile(path, "utf8")).matchAll(/^(\w+) kind:function\(thumb,size=(0x[\da-f]+)\) addr:(0x[\da-f]+)/gmu))
-    symbols.set(m[1], { address: Number(m[3]), size: Number(m[2]), module });
+  for (const m of (await readFile(path, "utf8")).matchAll(/^(\w+) kind:function\((thumb|arm),size=(0x[\da-f]+)\) addr:(0x[\da-f]+)/gmu))
+    symbols.set(m[1], { address: Number(m[4]), size: Number(m[3]), module, thumb: m[2] === "thumb" });
 }
 const reverse = new Map([...symbols].map(([name, s]) => [s.address, name]));
 const dispatcher=symbols.get("AbilityEvent_AddItem")!;
@@ -58,11 +58,14 @@ for (const name of names) {
   const s = symbols.get(name); if (!s) throw new Error(`Missing symbol: ${name}`);
   const data = s.module === "167" ? overlay.data : decompressCode(rom.arm9), base = s.module === "167" ? overlay.ramAddress : rom.arm9RamAddress;
   const bytes = data.slice(s.address-base, s.address-base+s.size), mask = new Uint8Array(bytes.length).fill(255), calls: Array<{offset:number;target:string}> = [];
-  for (let at=0;at+4<=bytes.length;at+=2) {
+  if (s.thumb) for (let at=0;at+4<=bytes.length;at+=2) {
     const hi=readU16(bytes,at),lo=readU16(bytes,at+2);
-    if ((hi&0xf800)===0xf000 && (lo&0xf800)===0xf800) {
+    if ((hi&0xf800)===0xf000 && [0xf800,0xe800].includes(lo&0xf800)) {
       let d=(hi&0x7ff)<<12|(lo&0x7ff)<<1;if(d&0x400000)d-=0x800000;
-      const target=reverse.get(s.address+at+4+d); if(!target)throw new Error(`Unknown call in ${name}`);
+      // BLX enters ARM code at a word-aligned address. Its displacement changes
+      // between B2 and W2 just like an ordinary Thumb BL.
+      let address=s.address+at+4+d;if((lo&0xf800)===0xe800)address&=~3;
+      const target=reverse.get(address); if(!target)throw new Error(`Unknown call in ${name}`);
       calls.push({offset:at,target});mask.fill(0,at,at+4);at+=2;
     }
   }
@@ -77,7 +80,14 @@ for (const name of names) {
    }
   }
   if (["AbilityEvent_AddItem", "HandlerMoldBreakerSkipCheck", ...ownedHelpers, ...profiles.flatMap(p=>p.events.map(e=>e.handler))].includes(name)) for (const call of calls) if (!names.includes(call.target)) names.push(call.target);
-  functions[name]={hex:Buffer.from(bytes).toString("hex"),mask:Buffer.from(mask).toString("hex"),calls,module:s.module,...(tails.length?{tails}:{})};
+  const variants:Array<{hex:string;mask:string}>=[];
+  const typeGuard=name==="HandlerColorChange"?0x36:name==="DoesMonHaveType"?0x06:undefined;
+  if(typeGuard!==undefined){
+    if(readU16(bytes,typeGuard)!==(name==="HandlerColorChange"?0x2e11:0x2c11)||bytes[typeGuard+3]!==0xd0)throw new Error(`Unrecognized type-range check in ${name}`);
+    const fairy=bytes.slice();fairy[typeGuard]=18;fairy[typeGuard+3]=0xda;
+    variants.push({hex:Buffer.from(fairy).toString("hex"),mask:Buffer.from(mask).toString("hex")});
+  }
+  functions[name]={hex:Buffer.from(bytes).toString("hex"),mask:Buffer.from(mask).toString("hex"),calls,module:s.module,...(variants.length?{variants}:{}),...(!s.thumb?{thumb:false}:{}),...(tails.length?{tails}:{})};
 }
 const code=overlay.data.slice(dispatcher.address-overlay.ramAddress,dispatcher.address-overlay.ramAddress+dispatcher.size);
 const tableRefs:Array<{offset:number;column:number}>=[];

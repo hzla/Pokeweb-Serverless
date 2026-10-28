@@ -1,7 +1,8 @@
 import { studioAssert, type StudioChunk, type StudioWorkspace } from "./mapStudioFormats";
 
-export type StudioTool = "paint" | "erase" | "fill" | "pick" | "height" | "pan";
-type CellChange = { chunk: number; layer: number; index: number; tile: number; height: number; nextTile: number; nextHeight: number };
+export type StudioTool = "paint" | "smart" | "erase" | "fill" | "pick" | "height" | "pan";
+type CellChange = { chunk: number; layer: number; index: number; tile: number; height: number; brush?: string; nextTile: number; nextHeight: number; nextBrush?: string };
+export const studioCellKey = (chunk: number, layer: number, index: number) => `${chunk}:${layer}:${index}`;
 /** A drag is one command. Store changed cells, never snapshots of the entire map. */
 export class StudioHistory {
   private past: CellChange[][] = [];
@@ -12,21 +13,23 @@ export class StudioHistory {
   get canUndo() { return this.past.length > 0; }
   get canRedo() { return this.future.length > 0; }
   get painting() { return this.stroke.size > 0; }
-  set(chunkIndex: number, layer: number, index: number, tile: number, height: number) {
+  set(chunkIndex: number, layer: number, index: number, tile: number, height: number, brush?: string) {
     const chunk = this.workspace.map.chunks[chunkIndex];
     studioAssert(chunk && layer >= 0 && layer < 9 && index >= 0 && index < 1024, "Invalid paint destination.");
     studioAssert(Number.isInteger(height) && height >= -128 && height <= 127, "Use a whole-number height from −128 to 127.");
     studioAssert(Number.isInteger(tile) && tile >= -1 && tile < this.workspace.tileset.tiles.length, "Choose an available tile.");
-    if (chunk.tiles[layer][index] === tile && chunk.heights[layer][index] === height) return;
-    const key = `${chunkIndex}:${layer}:${index}`;
-    const change = this.stroke.get(key) ?? { chunk: chunkIndex, layer, index, tile: chunk.tiles[layer][index], height: chunk.heights[layer][index], nextTile: tile, nextHeight: height };
-    change.nextTile = tile; change.nextHeight = height; this.stroke.set(key, change);
+    const key = studioCellKey(chunkIndex, layer, index), oldBrush = this.workspace.smart?.cells[key];
+    if (chunk.tiles[layer][index] === tile && chunk.heights[layer][index] === height && oldBrush === brush) return;
+    const change = this.stroke.get(key) ?? { chunk: chunkIndex, layer, index, tile: chunk.tiles[layer][index], height: chunk.heights[layer][index], brush: oldBrush, nextTile: tile, nextHeight: height, nextBrush: brush };
+    change.nextTile = tile; change.nextHeight = height; change.nextBrush = brush; this.stroke.set(key, change);
     chunk.tiles[layer][index] = tile; chunk.heights[layer][index] = height;
+    if (brush) { this.workspace.smart ??= { cells: Object.create(null), variants: Object.create(null) }; this.workspace.smart.cells[key] = brush; }
+    else if (this.workspace.smart) delete this.workspace.smart.cells[key];
   }
   paint(chunkIndex: number, layer: number, x: number, y: number, tile: number, height: number, tool: StudioTool) {
     if (x < 0 || y < 0 || x >= 32 || y >= 32) return;
     const chunk = this.workspace.map.chunks[chunkIndex], index = y * 32 + x;
-    if (tool === "height") { if (chunk.tiles[layer][index] >= 0) this.set(chunkIndex, layer, index, chunk.tiles[layer][index], height); return; }
+    if (tool === "height") { if (chunk.tiles[layer][index] >= 0) this.set(chunkIndex, layer, index, chunk.tiles[layer][index], height, this.workspace.smart?.cells[studioCellKey(chunkIndex, layer, index)]); return; }
     if (tool === "erase") { this.set(chunkIndex, layer, index, -1, 0); return; }
     if (tool === "fill") {
       const previous = chunk.tiles[layer][index], oldHeight = chunk.heights[layer][index];
@@ -45,16 +48,22 @@ export class StudioHistory {
     for (let dy = 0; dy < stamp.height; dy++) for (let dx = 0; dx < stamp.width; dx++) this.set(chunkIndex, layer, (y + dy) * 32 + x + dx, dx === 0 && dy === 0 ? tile : -1, height);
   }
   finish() {
-    const changes = [...this.stroke.values()].filter(c => c.tile !== c.nextTile || c.height !== c.nextHeight); this.stroke.clear();
+    const changes = [...this.stroke.values()].filter(c => c.tile !== c.nextTile || c.height !== c.nextHeight || c.brush !== c.nextBrush); this.stroke.clear();
     if (!changes.length) return false;
     this.past.push(changes); if (this.past.length > 100) this.past.shift(); this.future = []; this.revision++; return true;
   }
   private restore(changes: CellChange[], forward: boolean) {
-    for (const c of changes) { const chunk = this.workspace.map.chunks[c.chunk]; chunk.tiles[c.layer][c.index] = forward ? c.nextTile : c.tile; chunk.heights[c.layer][c.index] = forward ? c.nextHeight : c.height; }
+    for (const c of changes) {
+      const chunk = this.workspace.map.chunks[c.chunk], key = studioCellKey(c.chunk, c.layer, c.index), brush = forward ? c.nextBrush : c.brush;
+      chunk.tiles[c.layer][c.index] = forward ? c.nextTile : c.tile; chunk.heights[c.layer][c.index] = forward ? c.nextHeight : c.height;
+      if (brush) { this.workspace.smart ??= { cells: Object.create(null), variants: Object.create(null) }; this.workspace.smart.cells[key] = brush; }
+      else if (this.workspace.smart) delete this.workspace.smart.cells[key];
+    }
     this.revision++;
   }
   undo() { this.finish(); const changes = this.past.pop(); if (!changes) return false; this.restore(changes, false); this.future.push(changes); return true; }
   redo() { const changes = this.future.pop(); if (!changes) return false; this.restore(changes, true); this.past.push(changes); return true; }
+  cancelStroke() { const revision = this.revision; this.restore([...this.stroke.values()], false); this.revision = revision; this.stroke.clear(); }
 }
 
 export type StudioMesh = { material: number; positions: number[]; uvs: number[]; colors: number[]; indices: number[] };

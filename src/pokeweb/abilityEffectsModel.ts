@@ -5,9 +5,10 @@ import {recipeAbilityEffect} from "./abilityRecipeEffects";
 import template from "../assets/data/abilityRuleRuntime.json";
 import priorityTemplate from "../assets/data/abilityRuleRuntimePriority.json";
 import libraryTemplate from "../assets/data/abilityRuleRuntimeLibrary.json";
+import clientTemplate from "../assets/data/abilityRuleRuntimeClient.json";
 import { libraryAbilityEffect } from "./abilityLibraryEffects";
 import { NintendoDSRom } from "../nds/rom";
-import { readU32, writeU32 } from "../nds/binary";
+import { readU32, writeU16, writeU32 } from "../nds/binary";
 import { battleRuntimeResolver, battleBranchTarget, BATTLE_RUNTIME_SIGNATURES } from "./battleRuntimeBindings";
 import { validateAbilityRule, encodeAbilityRules, EMPTY_ABILITY_RULE, type AbilityRuleSet } from "./abilityRules";
 import { installCodeInjectionPatch } from "./codeInjectionInstall";
@@ -16,6 +17,8 @@ import { parseRpm, writeRpm, type RpmModule } from "./rpm";
 import { ensureFileSystemState, setRomFileReplacement } from "./fileSystemModel";
 import { addTextEntries, getTextBank, updateTextEntry } from "./textModel";
 import { recordFieldChange } from "./actionChangelog";
+import { isVerifiedBattleCounterImport } from "./battleLogModel";
+import { detectSpecifyTrainerNaturesPatch, specifyTrainerNatures } from "./romPatchModel";
 import type { ProjectState } from "./projectStore";
 export const ABILITY_EFFECTS_DLL_PATH = "patches/AbilityEffects.dll";
 const retired = Uint8Array.of(80, 87, 65, 82);
@@ -102,7 +105,7 @@ function context(project: ProjectState) {
     return { project, source, overlay, resolver, dispatcher, files, availableNative };
 }
 type Context = ReturnType<typeof context>;
-function assertUnhooked(c: Context, name: string, address: number, size: number): void {
+function assertUnhooked(c: Context, name: string, address: number, size: number, copied = false): void {
     const module = BATTLE_RUNTIME_SIGNATURES[name].module;
     for (const [path, bytes] of c.files) {
         if (path === ABILITY_EFFECTS_DLL_PATH)
@@ -118,13 +121,19 @@ function assertUnhooked(c: Context, name: string, address: number, size: number)
             if (r.target.module !== (module === "ARM9" ? "0" : module))
                 continue;
             const start = r.target.address & ~1, count = r.target.type === "FULL_COPY" ? rpm.symbols[r.sourceSymbolIndex]?.size ?? 0 : r.target.type === "OFFSET" ? 4 : 16;
-            if (start < address + size && start + count > address)
-                throw new Error(`Conflicting ability service hook: ${path}.`);
+            if (start < address + size && start + count > address) {
+                // Import the installed RPC's transparent ordinary-call path. A
+                // copied body would bypass it; another hook would overwrite it.
+                if (!copied && name === "IsFainted" && module === "167" && start === address
+                    && r.target.type === "THUMB_BRANCH"
+                    && isVerifiedBattleCounterImport(c.project.session.baseVersion, path, bytes, address)) continue;
+                throw new Error(`Conflicting ability service hook: ${path} (${name}).`);
+            }
         }
     }
 }
 export const ABILITY_RULE_API = ["BattleEventVar_GetValue", "BattleEventVar_MulValue", "GetBattleMon", "GetBattleMonStat", "GetPokeType", "PokeTypePair_IsMatch", "ServerEvent_GetWeather", "BtlServerFlow_IsSimulating", "BtlServerFlow_CheckMatchup", "BattleHandler_PushWork", "BattleHandler_PopWork", "BattleHandler_StrSetup", "BattleHandler_AddArg", "BattleEventItem_GetSubID", "BattleEvent_AddItem", "GetMonID", "RawBattleMonStat", "PML_MoveGetCategory", null, null, "BattleHandler_PushRun", null, null, "IsStatChangeValid", "BtlCalc_MakeStatusCondition", "MakeConditionBadlyPoisoned", "BattleEventVar_GetValueIfExist", "RollEffectChance", "BattleEventVar_RewriteValue", "GetBattleMonSpecies", "CheckCondition", "getMoveFlag", "BattleEvent_CheckSkip"] as const;
-function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, previewHook = false): RpmModule {
+function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, previewHook = false, clientHooks = true): RpmModule {
     for (const rule of entries.values())
         for (const e of rule.effects) {
             const p = nativeAbilityProfile(e.kind);
@@ -134,7 +143,8 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
     const priority = [...entries.values()].some(r=>r.effects.some(e=>nativeAbilityProfile(e.kind)?.priority===4));
     const library = [...entries.values()].some(r=>r.effects.some(e=>libraryAbilityEffect(e.kind)));
     const recipes=[...entries.values()].some(r=>r.effects.some(e=>recipeAbilityEffect(e.kind)));
-    const selectedTemplate = recipes ? recipeTemplate : library ? libraryTemplate : priority ? priorityTemplate : template;
+    const traps = clientHooks && [...entries.values()].some(r => r.effects.some(e => e.kind === "nativeAbility:42"));
+    const selectedTemplate = traps ? clientTemplate : recipes ? recipeTemplate : library ? libraryTemplate : priority ? priorityTemplate : template;
     const rpm = structuredClone(selectedTemplate) as unknown as RpmModule;
     rpm.code = Uint8Array.from(selectedTemplate.code);
     const bssBase = (rpm.code.length + 3) & ~3, bss = rpm.symbols.filter(s => !(s.attributes & 4) && s.address >= bssBase);
@@ -147,7 +157,7 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
     if(library||recipes)for(const[index,name]of [[34,"BtlCalc_GetEffectivenessCategory"],[35,"PML_MoveGetParam"]] as const){const service=c.resolver.resolve(name);assertUnhooked(c,name,service.address,service.code.length);writeU32(rpm.code,api+index*4,service.address|1);}
     for (const [name, index, wrapper] of [["AbilityEvent_AddItem", 18, "AbilityDispatch"], ["HandlerMoldBreakerSkipCheck", 19, "AbilityMoldSkip"]] as const) {
         const { address, code } = c.resolver.resolve(name);
-        assertUnhooked(c, name, address, code.length);
+        assertUnhooked(c, name, address, code.length, true);
         const symbol = append(code, "FUNCTION_THM"), at = rpm.symbols[symbol].address;
         rpm.relocations.push({ target: { module: "base", address: api + index * 4, type: "OFFSET" }, sourceSymbolIndex: symbol }, { target: { module: "167", address, type: name === "HandlerMoldBreakerSkipCheck" && !previewHook ? "THUMB_BRANCH_SAFESTACK" : "THUMB_BRANCH" }, sourceSymbolIndex: rpm.symbols.indexOf(named(wrapper)) });
         for (const call of BATTLE_RUNTIME_SIGNATURES[name].calls) {
@@ -161,7 +171,7 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
     }
     if(priority){
         const remove=c.resolver.resolve("AbilityEvent_RemoveItem"),swap=c.resolver.resolve("AbilityEvent_Swap");
-        assertUnhooked(c,"AbilityEvent_RemoveItem",remove.address,remove.code.length);assertUnhooked(c,"AbilityEvent_Swap",swap.address,swap.code.length);
+        assertUnhooked(c,"AbilityEvent_RemoveItem",remove.address,remove.code.length);assertUnhooked(c,"AbilityEvent_Swap",swap.address,swap.code.length,true);
         writeU32(rpm.code,api+33*4,remove.address|1);
         rpm.relocations.push({target:{module:"167",address:swap.address,type:"THUMB_BRANCH"},sourceSymbolIndex:rpm.symbols.indexOf(named("AbilitySwap"))});
     }
@@ -170,7 +180,7 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
         const services=[null,null,null,null,null,null,"BattleEvent_CallHandlers","BattleEventVar_Push","BattleEventVar_Pop","BattleEventVar_SetConstValue","IsAllyMonID","BtlServerFlow_IsMonInBattle","BtlServerFlow_IsSideEffectSet","GetSideFromMonID","PML_ItemIsBerry","CommonAbilityCureStatusCore","GetFieldWeather","MakeConditionPermanentTurnsParam","GetBattleMonHeldItem","BtlServerFlow_IsTargetOutOfRange","IsSubstituteActive","GetAdditionalConditionFlag",null];
         services.forEach((name,i)=>{if(!name)return;const service=c.resolver.resolve(name);assertUnhooked(c,name,service.address,service.code.length);writeU32(rpm.code,recipeApi+i*4,service.address|1);});
         for(const[name,index,wrapper]of [["BattleEvent_CallHandlersCore",22,"AbilityRecipeHandlers"],["BattleEvent_Init",0,"AbilityRecipeInit"],["ServerEvent_GetMoveParam",1,"AbilityRecipeMoveParam"],["ServerEvent_CheckCritical",2,"AbilityRecipeCritical"],["ServerControl_CheckMoveEffectiveness",3,"AbilityRecipeEffectiveness"],["ServerControl_ChangeHeldItem",4,"AbilityRecipeChangeItem"],["BattleHandler_ForceUseItem",5,"AbilityRecipeForceItem"]]as const){
-            const{address,code}=c.resolver.resolve(name);assertUnhooked(c,name,address,code.length);const symbol=append(code,"FUNCTION_THM"),at=rpm.symbols[symbol].address;
+            const{address,code}=c.resolver.resolve(name);assertUnhooked(c,name,address,code.length,true);const symbol=append(code,"FUNCTION_THM"),at=rpm.symbols[symbol].address;
             rpm.relocations.push({target:{module:"base",address:recipeApi+index*4,type:"OFFSET"},sourceSymbolIndex:symbol},{target:{module:"167",address,type:name==="ServerControl_CheckMoveEffectiveness"?"THUMB_BRANCH_SAFESTACK":"THUMB_BRANCH"},sourceSymbolIndex:rpm.symbols.indexOf(named(wrapper))});
             for(const call of BATTLE_RUNTIME_SIGNATURES[name].calls){
                 const target=battleBranchTarget(code,call.offset,address);if(!c.resolver.matches(call.target,target))throw new Error(`Unrecognized recipe dependency: ${call.target}`);
@@ -184,10 +194,33 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
     }
     const data = append(encodeAbilityRules(entries), "SECTION");
     rpm.relocations.push({ target: { module: "base", address: named("AbilityRuleData").address, type: "OFFSET" }, sourceSymbolIndex: data });
-    linkNativeAbilities(rpm, entries, rpm.symbols[data].address, c.resolver.resolve, (name, address, size) => assertUnhooked(c, name, address, size));
+    linkNativeAbilities(rpm, entries, rpm.symbols[data].address, c.resolver.resolve, (name, address, size, copied) => assertUnhooked(c, name, address, size, copied));
+    if (traps) {
+        const original = c.resolver.resolve("IsMonTrapped");
+        assertUnhooked(c, "IsMonTrapped", original.address, original.code.length, true);
+        const prefix = [0xf0, 0xb5, 0x85, 0xb0, 0x0e, 0x1c, 0x05, 0x1c];
+        if (!prefix.every((v, i) => original.code[i] === v)) throw new Error("Unrecognized client trapping prologue.");
+        // Run the untouched native remainder at its original address. Its first
+        // eight bytes have no PC-relative instructions; r4 is assigned locally.
+        const gateway = new Uint8Array(16); gateway.set(original.code.subarray(0, 8));
+        writeU16(gateway, 8, 0x4c00); writeU16(gateway, 10, 0x4720); writeU32(gateway, 12, (original.address + 8) | 1);
+        const symbol = append(gateway, "FUNCTION_THM"), clientApi = named("AbilityClientApi").address;
+        rpm.relocations.push({ target: { module: "base", address: clientApi, type: "OFFSET" }, sourceSymbolIndex: symbol },
+            { target: { module: "167", address: original.address, type: "THUMB_BRANCH" }, sourceSymbolIndex: rpm.symbols.indexOf(named("AbilityClientTrapped")) });
+        for (const [i, name] of ["MonIDToBattlePos", "ExpandPosFlagsToMonIDs", "GetPokeParam", "DoesMonHaveType"].entries()) {
+            const service = c.resolver.resolve(name); assertUnhooked(c, name, service.address, service.code.length);
+            writeU32(rpm.code, clientApi + (i + 1) * 4, service.address | 1);
+        }
+        const table = named("AbilityClientTrapTypes").address;
+        for (const [id, rule] of entries) {
+            const effect = rule.effects.find(e => e.kind === "nativeAbility:42");
+            if (effect) rpm.code[table + id] = (effect.parameters?.trapType ?? 8) + 1;
+        }
+    }
     const shift = ((rpm.code.length + 3) & ~3) - bssBase;
     bss.forEach(s => s.address += shift);
     rpm.metadata = { PMCGameID: c.project.session.baseVersion, PMCVersion: "1.0.0", PMCModulePriority: 4, PokewebAbilityEffects: "rules", PokewebAbilityRules: JSON.stringify([...entries].sort(([a], [b]) => a - b)) };
+    if (traps) rpm.metadata.PokewebAbilityClientTraps = 1;
     const serialized = writeRpm(rpm, { ident: "DLXF" });
     if (rpm.code.length + rpm.bssSize > 65536 || serialized.length + rpm.code.length + rpm.bssSize > 112 * 1024)
         throw new Error("Ability effects exceed the shared DLL memory budget. Reduce rule complexity.");
@@ -219,7 +252,8 @@ function readRules(c: Context): Map<number, AbilityRuleSet> {
             throw new Error("Invalid ability registry entry.");
         rules.set(entry[0], validateAbilityRule(entry[1]));
     }
-    if (!same(bytes, writeRpm(moduleFor(c, rules), { ident: "DLXF" })) && !same(bytes, writeRpm(moduleFor(c, rules, true), { ident: "DLXF" })))
+    const clientHooks = rpm.metadata.PokewebAbilityClientTraps === 1;
+    if (!same(bytes, writeRpm(moduleFor(c, rules, false, clientHooks), { ident: "DLXF" })) && !same(bytes, writeRpm(moduleFor(c, rules, true, clientHooks), { ident: "DLXF" })))
         throw new Error("The shared ability effects DLL has been modified.");
     verified.set(c.project, { overlay: c.overlay.slice(), arm9: c.project.arm9.slice(), base: c.source.base, bytes: bytes.slice(), files: new Map([...c.files].map(([p, b]) => [p, b.slice()])), rules: structuredClone(rules) });
     return rules;
@@ -238,6 +272,16 @@ export function inspectAbilityEffects(project: ProjectState): {
     catch (error) {
         return { editable: false, message: error instanceof Error ? error.message : String(error), rules: new Map() };
     }
+}
+/** Native item queries may import the canonical ability-aware client service. */
+export function isVerifiedAbilityClientTrapImport(project: ProjectState, path: string, address: number, size: number): boolean {
+    if (path !== ABILITY_EFFECTS_DLL_PATH) return false;
+    try {
+        const c = context(project), bytes = c.files.get(path);
+        if (!bytes || parseRpm(bytes, { allowedMagics: ["DLXF"] }).metadata.PokewebAbilityClientTraps !== 1) return false;
+        const service = c.resolver.resolve("IsMonTrapped");
+        return service.address === address && service.code.length === size && readRules(c).size > 0;
+    } catch { return false; }
 }
 export function buildAbilityRuleModule(project: ProjectState, entries: ReadonlyMap<number, AbilityRuleSet>): RpmModule {
     const checked = new Map([...entries].map(([id, r]) => [id, validateAbilityRule(r)]));
@@ -286,8 +330,11 @@ export async function configureAbilityRuleSets(project: ProjectState, edits: rea
         return { ...edit, name, rules: canonical };
     });
     moduleFor(c, rules);
-    await installCodeInjectionPatch(project, staged => {
-        stageCodeInjectionDll(staged, "AbilityEffects.dll", writeRpm(moduleFor({ ...c, project: staged }, rules), { ident: "DLXF" }));
+    await installCodeInjectionPatch(project, async staged => {
+        // The legacy inline helper shares memory with the live DLL loader.
+        // Preserve the installed feature through its verified PMC migration.
+        if (detectSpecifyTrainerNaturesPatch(staged) === "legacy") await specifyTrainerNatures(staged);
+        stageCodeInjectionDll(staged, "AbilityEffects.dll", writeRpm(moduleFor(context(staged), rules), { ident: "DLXF" }));
         for (const edit of checked) {
             if (edit.name)
                 setName(staged, edit.abilityId, edit.name);

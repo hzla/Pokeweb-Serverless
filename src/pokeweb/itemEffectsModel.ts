@@ -12,6 +12,8 @@ import type { ProjectState } from "./projectStore";
 import { buildRuleRuntime, ITEM_RULE_API } from "./itemRuleRuntime";
 import { validateItemRule, type ItemRuleSet } from "./itemRules";
 import { ITEM_NATIVE_FUNCTIONS, nativeItemBranchTarget, type NativeItemResolver } from "./itemNativeRuntime";
+import { isVerifiedAbilityClientTrapImport } from "./abilityEffectsModel";
+import { isVerifiedBattleCounterImport } from "./battleLogModel";
 
 type Profile = typeof profiles.rows[number];
 type NativeEvent = { event: number; address: number; offset: number };
@@ -243,7 +245,7 @@ function patchFiles(c: Context): Map<string, Uint8Array> {
   for (const [path, bytes] of Object.entries(c.project.fileSystem?.additions ?? {})) if (path.toLowerCase().endsWith(".dll")) result.set(path, bytes);
   return result;
 }
-function assertNoConflict(c: Context, address: number, size: number, except: readonly string[] = []): void {
+function assertNoConflict(c: Context, address: number, size: number, except: readonly string[] = [], importedService?: string): void {
   for (const [path, bytes] of patchFiles(c)) {
     if (except.includes(path)) continue;
     let rpm: RpmModule;
@@ -252,7 +254,13 @@ function assertNoConflict(c: Context, address: number, size: number, except: rea
       if (relocation.target.module !== "167") continue;
       const start = relocation.target.address & ~1, count = relocation.target.type === "FULL_COPY" ? rpm.symbols[relocation.sourceSymbolIndex]?.size ?? 0
         : relocation.target.type === "OFFSET" ? 4 : 16;
-      if (start < address + size && start + count > address) throw new Error(`Conflicting native item hook: ${path}.`);
+      if (start < address + size && start + count > address) {
+        if (start === address && relocation.target.type === "THUMB_BRANCH") {
+          if (importedService === "IsMonTrapped" && isVerifiedAbilityClientTrapImport(c.project, path, address, size)) continue;
+          if (importedService === "IsFainted" && isVerifiedBattleCounterImport(c.project.session.baseVersion, path, bytes, address)) continue;
+        }
+        throw new Error(`Conflicting native item hook: ${path}.`);
+      }
     }
   }
 }
@@ -497,7 +505,7 @@ function nativeRuleResolver(c: Context): NativeItemResolver {
     }
     const code = body(name, address);
     if (!code) throw new Error(`Unrecognized native effect dependency: ${name}`);
-    if (entry.module === "167") assertNoConflict(c, address, code.length, [ITEM_EFFECTS_DLL_PATH]);
+    if (entry.module === "167") assertNoConflict(c, address, code.length, [ITEM_EFFECTS_DLL_PATH], entry.clone ? undefined : name);
     return { address, code };
   };
 }

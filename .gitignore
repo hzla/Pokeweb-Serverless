@@ -181,3 +181,6 @@ runtime/field-season/build/
 /runtime/ability-effects/build/
 
 !/scripts/verify-map-camera-test.ts
+!/scripts/build-map-studio-tileset.ts
+!/scripts/verify-map-studio-tilesets.ts
+!/scripts/verify-map-studio-smart-brush.ts
