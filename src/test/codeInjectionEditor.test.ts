@@ -9,6 +9,15 @@ import * as candyModel from "../pokeweb/infiniteCandyModel";
 afterEach(() => vi.restoreAllMocks());
 
 describe("Infinite Candy item selection", () => {
+  it("shows the validated default slot as ready when item 622 is occupied", () => {
+    const status = vi.spyOn(candyModel, "getInfiniteCandyStatus").mockReturnValue({ supported: true, compatible: true,
+      installed: false, itemId: 113, message: "Ready" });
+    const html = renderFixture("W2");
+    expect(status).toHaveBeenCalledWith(expect.anything(), undefined);
+    expect(html).toMatch(/id="infinite-candy-item-id"[^>]*value="113"/u);
+    expect(html).toMatch(/id="infinite-candy-status">[\s\S]*?Ready/u);
+    expect(html).toMatch(/id="install-infinite-candy-btn" type="button"\s*>/u);
+  });
   it("updates compatibility and the install button when the selected ID changes", () => {
     vi.spyOn(candyModel, "getInfiniteCandyStatus").mockImplementation((_project, itemId = 622) => ({
       supported: true, compatible: itemId === 113, installed: false, itemId, message: itemId === 113 ? "Ready" : "Occupied item slot",

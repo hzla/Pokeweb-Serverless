@@ -1,6 +1,33 @@
 import type { StaticModelMesh } from "./nitroModelWriter";
 
 export type StaticVertex = { mesh: StaticModelMesh; index: number };
+export type StaticFaceRun = { mode: number; vertices: StaticVertex[] };
+
+/** Native quad strips share two submitted vertices between neighboring quads. */
+export function stripStaticQuads(faces: StaticVertex[][], key: (vertex: StaticVertex) => string): StaticFaceRun[] {
+  const edges = new Map<string, { face: number; edge: number }[]>(), keys = faces.map(face => face.map(key));
+  keys.forEach((face, i) => { if (face.length === 4) face.forEach((a, j) => { const edge = `${a}|${face[(j + 1) % 4]}`; const list = edges.get(edge) ?? []; list.push({ face: i, edge: j }); edges.set(edge, list); }); });
+  const used = new Set<number>(), runs: StaticFaceRun[] = [];
+  const chain = (seed: number, rotation: number) => {
+    const path = [{ face: seed, edge: rotation }], visited = new Set([seed]);
+    while (path.length < faces.length) {
+      const previous = path.at(-1)!, ids = keys[previous.face], end = (previous.edge + 2) % 4;
+      const next = edges.get(`${ids[(end + 1) % 4]}|${ids[end]}`)?.find(candidate => !used.has(candidate.face) && !visited.has(candidate.face));
+      if (!next) break; path.push(next); visited.add(next.face);
+    }
+    return path;
+  };
+  faces.forEach((face, i) => {
+    if (used.has(i)) return;
+    if (face.length !== 4) { used.add(i); runs.push({ mode: 0, vertices: face }); return; }
+    const path = Array.from({ length: 4 }, (_, rotation) => chain(i, rotation)).sort((a, b) => b.length - a.length)[0];
+    if (path.length === 1) { used.add(i); runs.push({ mode: 1, vertices: face }); return; }
+    const vertices: StaticVertex[] = [];
+    path.forEach(({ face: index, edge }, step) => { const f = faces[index], ordered = [0, 1, 2, 3].map(n => f[(edge + n) % 4]); if (!step) vertices.push(ordered[0], ordered[1]); vertices.push(ordered[3], ordered[2]); used.add(index); });
+    runs.push({ mode: 3, vertices });
+  });
+  return runs;
+}
 
 /** Restore convex, planar quads split by glTF. This avoids doubling DS polygon usage. */
 export function compileStaticFaces(meshes: StaticModelMesh[]): StaticVertex[][] {

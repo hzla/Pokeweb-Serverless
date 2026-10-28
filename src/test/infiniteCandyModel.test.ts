@@ -63,9 +63,9 @@ describe.each(["W2", "B2"] as const)("configurable Infinite Candy %s", game => {
   it("preserves a repurposed 622 and shared icons, and retains the chosen ID through export/reimport", async () => {
     const p = await fixture(game); assets();
     const original = new NintendoDSRom(p.originalRomBytes!), originalIcons = original.getFileByName("a/0/2/5").slice();
-    expect(getInfiniteCandyStatus(p).compatible).toBe(false);
+    expect(getInfiniteCandyStatus(p)).toMatchObject({ compatible: true, installed: false, itemId: 113 });
     expect(getInfiniteCandyStatus(p, 113)).toMatchObject({ compatible: true, installed: false, itemId: 113 });
-    await installInfiniteCandy(p, 113);
+    await installInfiniteCandy(p);
     expect(getInstalledInfiniteCandyItemId(p)).toBe(113);
     expect(getInfiniteCandyStatus(p)).toMatchObject({ compatible: true, installed: true, itemId: 113 });
     expect(getLevelCapsStatus(p)).toMatchObject({ compatible: false, message: expect.stringContaining("622") });
@@ -94,7 +94,24 @@ describe.each(["W2", "B2"] as const)("configurable Infinite Candy %s", game => {
       await expect(installInfiniteCandy(p, id)).rejects.toThrow(); expect(p).toEqual(before);
     }
     p.narcs.items!.rawFiles[113]![2] = 1;
+    expect(getInfiniteCandyStatus(p)).toMatchObject({ compatible: false, itemId: 622 });
     await expect(installInfiniteCandy(p, 113)).rejects.toThrow(/custom data/u);
+  });
+  it("selects the validated alternate with lazy archives and keeps explicit item choices", async () => {
+    const p = await fixture(game); assets();
+    p.narcs = {}; p.texts = { banks: {} };
+    const before = structuredClone(p);
+    expect(getInfiniteCandyStatus(p)).toMatchObject({ compatible: true, installed: false, itemId: 113 });
+    expect(p).toEqual(before);
+    expect(getInfiniteCandyStatus(p, 622)).toMatchObject({ compatible: false, itemId: 622 });
+    await installInfiniteCandy(p, 114);
+    expect(getInfiniteCandyStatus(p)).toMatchObject({ compatible: true, installed: true, itemId: 114 });
+  });
+  it("does not offer an alternate when native hooks are incompatible", async () => {
+    const p = await fixture(game);
+    p.overlays[12] = new Uint8Array([0, 0, 0, 0]);
+    expect(getInfiniteCandyStatus(p).compatible).toBe(false);
+    expect(getInfiniteCandyStatus(p, 113)).toMatchObject({ compatible: false, message: expect.stringContaining("party item hooks") });
   });
   it("verifies both ID literals, immutable code and native import relocations", async () => {
     const p = await fixture(game); assets(); await installInfiniteCandy(p, 113);

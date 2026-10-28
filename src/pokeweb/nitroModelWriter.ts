@@ -1,7 +1,7 @@
 import { concatBytes, readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { buildModelPrimitives, readNitroResources } from "./map3dModel";
 import { writeDictionary, materialRecords } from "./nitroResourceWriter";
-import { compileStaticFaces } from "./nitroGeometryFaces";
+import { compileStaticFaces, stripStaticQuads } from "./nitroGeometryFaces";
 
 export type StaticModelMesh = {
   materialName: string;
@@ -40,7 +40,7 @@ function fixed16(value: number, fractionalBits: number, label: string): number {
  * One shape per existing material lets us reuse the native name-search trees exactly.
  * No SDK executable or SDK implementation is bundled with this writer.
  */
-export function writeStaticNitroModel(template: Uint8Array, editedMeshes: StaticModelMesh[], options?:{coordinateScale?:number;onVertex?(mesh:StaticModelMesh,index:number,byteOffset:number,scale:number):void}): Uint8Array {
+export function writeStaticNitroModel(template: Uint8Array, editedMeshes: StaticModelMesh[], options?:{coordinateScale?:number;stripify?:boolean;onVertex?(mesh:StaticModelMesh,index:number,byteOffset:number,scale:number):void}): Uint8Array {
   requireValue(readAscii(template, 0, 4) === "BMD0", "The selected asset is not an NSBMD model.");
   const resources = readNitroResources(template);
   requireValue(resources.models.length === 1, "This first importer supports single-model buildings only.");
@@ -132,12 +132,19 @@ export function writeStaticNitroModel(template: Uint8Array, editedMeshes: Static
   requireValue(triangles <= 4096, "This model cannot fit the DS limit of 2,048 polygons, even after quad reconstruction.");
   const faces = byMaterial.map(compileStaticFaces);
   const polygons = faces.reduce((n, group) => n + group.length, 0);
-  const submittedVertices = faces.flat().reduce((n, face) => n + face.length, 0);
   const quadCount = faces.flat().filter(face => face.length === 4).length;
-  requireValue(polygons <= 2048 && submittedVertices <= 6144, "This model exceeds the DS geometry limit (2,048 polygons / 6,144 submitted vertices after quad reconstruction). Reduce its geometry.");
   const scale = options?.coordinateScale??powerScale(maxCoordinate);
   requireValue(Number.isInteger(Math.log2(scale))&&scale>=powerScale(maxCoordinate),'Invalid static vertex scale.');
   requireValue(scale <= 4096, "The building is too large for this static converter.");
+  const runs = faces.map((group, materialId) => options?.stripify ? stripStaticQuads(group, ({ mesh, index }) => {
+    const material = materials[materialId];
+    return [Array.from(mesh.positions.slice(index * 3, index * 3 + 3), n => fixed16(n / scale, 12, "Vertex")),
+      mesh.uvs ? [fixed16(mesh.uvs[index * 2] * material.width * (material.flipS ? 2 : 1), 4, "Texture U"), fixed16(mesh.uvs[index * 2 + 1] * material.height * (material.flipT ? 2 : 1), 4, "Texture V")] : [],
+      mesh.colors ? Array.from(mesh.colors.slice(index * 3, index * 3 + 3), n => Math.round(Math.max(0, Math.min(1, n)) * 31)) : [],
+      mesh.normals ? Array.from(mesh.normals.slice(index * 3, index * 3 + 3), n => Math.round(n * 512)) : []].map(a => a.join(",")).join(";");
+  }) : group.map(vertices => ({ mode: vertices.length === 4 ? 1 : 0, vertices })));
+  const submittedVertices = runs.flat().reduce((n, run) => n + run.vertices.length, 0);
+  requireValue(polygons <= 2048 && submittedVertices <= 6144, `This model exceeds the DS geometry limit: ${polygons.toLocaleString("en-US")} / 2,048 polygons and ${submittedVertices.toLocaleString("en-US")} / 6,144 submitted vertices. Reduce its geometry.`);
   const materialBytes = original.slice(matOffset, shpOffset);
   const shapeDict = writeDictionary(materials.map((_m, i) => ({ name: `pw_shape_${i}`, data: new Uint8Array(4) })), 4);
   const displayLists: Uint8Array[] = [];
@@ -148,10 +155,11 @@ export function writeStaticNitroModel(template: Uint8Array, editedMeshes: Static
     const emit = (opcode: number, ...params: number[]) => commands.push({ opcode, params });
     let mode: number | undefined;
     let flags = 0;
-    for (const face of faces[materialId]) {
-      const nextMode = face.length === 4 ? 1 : 0;
+    for (const run of runs[materialId]) {
+      const nextMode = run.mode;
+      if (mode === 3) { emit(0x41); mode = undefined; }
       if (mode !== nextMode) { if (mode !== undefined) emit(0x41); emit(0x40, nextMode); mode = nextMode; }
-      for (const { mesh, index } of face) {
+      for (const { mesh, index } of run.vertices) {
         if (mesh.uvs) {
           flags |= 4;
           const s = fixed16(mesh.uvs[index * 2] * material.width * (material.flipS ? 2 : 1), 4, "Texture U");

@@ -74,7 +74,7 @@ export function gen5ImportProject(game: "BW" | "BW2" = "BW2") {
     { path: game === "BW" ? "a/0/4/9" : "a/0/4/8", bytes: narc([]) },
     { path: game === "BW" ? "a/1/2/5" : "a/1/2/6", bytes: narc([new Uint8Array(8)]) },
     ...[game === "BW" ? "a/1/7/6" : "a/1/7/4", game === "BW" ? "a/1/7/7" : "a/1/7/5"].map(path => ({ path, bytes: narc([mapTextures()]) })),
-    ...[game === "BW" ? "a/2/2/9" : "a/2/2/5", game === "BW" ? "a/2/3/0" : "a/2/2/6"].map(path => ({ path, bytes: narc([]) })),
+    ...[game === "BW" ? "a/2/2/9" : "a/2/2/5", game === "BW" ? "a/2/3/0" : "a/2/2/6"].map(path => ({ path, bytes: narc([packGameFreakContainer("WB", [])]) })),
   ];
   const bytes = raw.save({ addedFiles: entries }), rom = new NintendoDSRom(bytes);
   project.originalRomBytes = bytes; project.arm9 = rom.arm9;

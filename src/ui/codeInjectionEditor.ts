@@ -110,8 +110,8 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const doubleBattleFixSupported = status.supported && doubleBattleFixStatus !== "unsupported";
   const bgmToggleStatus = detectBundledBgmToggleDll(project);
   const bgmToggleSupported = bgmToggleStatus !== "unsupported";
-  const infiniteCandyItemId = pendingCandyItemIds.get(project) ?? getInstalledInfiniteCandyItemId(project) ?? 622;
-  const infiniteCandyStatus = getInfiniteCandyStatus(project, infiniteCandyItemId);
+  const infiniteCandyStatus = getInfiniteCandyStatus(project, pendingCandyItemIds.get(project));
+  const infiniteCandyItemId = infiniteCandyStatus.itemId ?? getInstalledInfiniteCandyItemId(project) ?? 622;
   const levelCapsStatus = getLevelCapsStatus(project);
   const debugFlag = getDebugSaveFlagStatus(project);
   const testingPatchCard = (id: TestingPatchId) => {

@@ -1,4 +1,4 @@
-import { readAscii, readU16, readU32, writeU32 } from "../nds/binary";
+import { readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { addFilePath, cloneFolder } from "../nds/fnt";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
@@ -9,7 +9,7 @@ import { getRomFileBytes } from "./fileSystemModel";
 import { equalMapBytes, mergeGen5MapTextures, readGen5MapBin, validateGen5Permissions, validateMapNitro } from "./gen5MapImportFormats";
 import { GEN5_MATRIX_EMPTY, materializeGen5MatrixFile, parseGen5MatrixFile } from "./gen5MatrixModel";
 import { parseHeaders } from "./headerModel";
-import { buildModelPrimitives, invalidateMap3dAssets, loadMap3dZone, packGameFreakContainer, parseAreaHeader, readNitroResources, type Map3dSceneData } from "./map3dModel";
+import { buildModelPrimitives, extractGameFreakContainer, invalidateMap3dAssets, loadMap3dZone, packGameFreakContainer, parseAreaHeader, readNitroResources, type Map3dSceneData } from "./map3dModel";
 import { getMatrixBytes, getMatrixSnapshot, loadMatrixEditorData, type MatrixSnapshot } from "./matrixModel";
 import { ensure, materialRecords, readDictionary, writeNitroFile } from "./nitroResourceWriter";
 import { loadActiveRomBytes } from "./persistence";
@@ -24,7 +24,14 @@ export type Gen5MapImportInput = {
   model?: Uint8Array;
   textures?: Uint8Array;
   permissions?: Uint8Array;
-  secondaryPermissions?: Uint8Array;
+  /** undefined preserves the destination layer; null explicitly removes it. */
+  secondaryPermissions?: Uint8Array | null;
+  buildings?: {
+    assets: { model: Uint8Array; textures: Uint8Array }[];
+    /** Native game units relative to the chunk center; Z follows the placement table convention. */
+    placements: { asset: number; x: number; y: number; z: number; rotationY: number }[];
+  };
+  notes?: string[];
 };
 export type Gen5MapImportTarget = { matrixId: number; x: number; y: number; headerId: number; season: MatrixSeason };
 type StoreChange = { name: NarcName; before?: NarcStore; after: NarcStore };
@@ -150,8 +157,8 @@ export function stageGen5MapDestination(project: ProjectState, target: Gen5MapIm
 
 export async function prepareGen5MapImport(project: ProjectState, input: Gen5MapImportInput, target: Gen5MapImportTarget): Promise<Gen5MapImport> {
   ensure((project.session.baseRom === "BW" || project.session.baseRom === "BW2") && input.game === project.session.baseRom, "Import exports made for the same game family: BW or BW2.");
-  ensure(input.bin || input.model || input.textures || input.permissions || input.secondaryPermissions, "Choose at least one map component.");
-  ensure(!input.bin || (!input.model && !input.permissions && !input.secondaryPermissions), "Use either a complete BIN or separate model/collision files.");
+  ensure(input.bin || input.model || input.textures || input.permissions || input.secondaryPermissions !== undefined || input.buildings, "Choose at least one map component.");
+  ensure(!input.bin || (!input.model && !input.permissions && input.secondaryPermissions === undefined && !input.buildings), "Use either a complete BIN or separate model/collision files.");
   const source = project.originalRomBytes ?? await loadActiveRomBytes(); ensure(source, "Reconnect the project's source ROM before importing.");
   const rom = new NintendoDSRom(source, { fileData: "view" }), draft = detached(project);
   draft.originalRomBytes = source;
@@ -186,6 +193,7 @@ export async function prepareGen5MapImport(project: ProjectState, input: Gen5Map
     else files[2] = input.secondaryPermissions.slice();
     components.push("Second collision layer");
   }
+  if (input.secondaryPermissions === null && native.placements === 3) { files.splice(2, 1); native.placements = 2; components.push("Removed destination's second collision layer"); }
   const blocks = validateMapNitro(files[0], "BMD0"), embedded = blocks.some(b => readAscii(b, 0, 4) === "TEX0");
   if (input.textures) validateMapNitro(input.textures, "BTX0");
   const textureSource = input.textures ?? (embedded ? files[0] : undefined);
@@ -227,6 +235,64 @@ export async function prepareGen5MapImport(project: ProjectState, input: Gen5Map
   }
   if (textureSource) components.push(input.textures ? "NSBTX textures" : "Embedded textures");
   files[0] = compiled ?? model;
+  if (input.buildings) {
+    ensure(input.buildings.placements.length <= 32, "A chunk supports at most 32 building placements.");
+    const bundles = new Map<string, { name: NarcName; textureName: NarcName; id: number; signature: string; members: Uint8Array[] }>();
+    for (const season of seasons) {
+      const areaId = seasonalAreaId(input.game, Number(header.texture_id), season), area = draft.map3dAreaEdits?.[String(areaId)] ?? parseAreaHeader(areaTable, areaId);
+      const kind = area.isExterior ? "exterior" : "interior", id = input.game === "BW2" ? area.buildingsId : areaId >= 210 ? areaId - 210 : areaId >= 2 ? Math.floor((areaId - 2) / 4) : 0;
+      const name: NarcName = `${kind}_building_models`, textureName: NarcName = `${kind}_building_textures`;
+      for (const [storeName, path] of [[name, input.game === "BW2" ? `a/2/2/${area.isExterior ? 5 : 6}` : area.isExterior ? "a/2/2/9" : "a/2/3/0"],
+        [textureName, `a/1/7/${input.game === "BW2" ? area.isExterior ? 4 : 5 : area.isExterior ? 6 : 7}`]] as [NarcName, string][]) {
+        draft.narcs[storeName] ??= createNarcStore(storeName, path, rom.fileId(path), new NARC(getRomFileBytes(draft, rom, rom.fileId(path))));
+        if (!baseline[storeName]) {
+          const store = draft.narcs[storeName]!; baseline[storeName] = cloneStore(store, true);
+          guards.push({ name: storeName, fileId: store.fileId, path, bytes: store.rawFiles.map(b => b.slice()), filenames: JSON.stringify(store.filenames) });
+        }
+      }
+      const key = `${kind}:${id}`; if (bundles.has(key)) continue;
+      const bundle = draft.narcs[name]!.rawFiles[id]; ensure(bundle && draft.narcs[textureName]!.rawFiles[id], `Destination building bundle ${id} is missing.`);
+      const parsed = bundle.length === 8 && readU16(bundle, 2) === 0 ? { signature: readAscii(bundle, 0, 2), files: [] as Uint8Array[] } : extractGameFreakContainer(bundle); ensure(parsed.files.length % 2 === 0, "Unpaired building bundle members.");
+      bundles.set(key, { name, textureName, id, signature: parsed.signature, members: parsed.files.map(b => b.slice()) });
+    }
+    const uids: number[] = [];
+    for (const asset of input.buildings.assets) {
+      validateMapNitro(asset.model, "BMD0"); validateMapNitro(asset.textures, "BTX0");
+      const variants = [...bundles.values()].map(bundle => {
+        const merged = mergeGen5MapTextures(draft.narcs[bundle.textureName]!.rawFiles[bundle.id], asset.textures, asset.model, true);
+        importedTextures += merged.added; put(draft, bundle.textureName, bundle.id, merged.textures);
+        return { bundle, model: merged.model };
+      });
+      const existing = variants.map(({ bundle, model }) => {
+        const count = bundle.members.length / 2;
+        return Array.from({ length: count }, (_, i) => i).filter(i => equalMapBytes(bundle.members[count + i], model)).map(i => readU16(bundle.members[i], 0));
+      });
+      let uid = existing[0]?.find(n => existing.every(ids => ids.includes(n)));
+      if (uid === undefined) {
+        const used = new Set(variants.flatMap(({ bundle }) => bundle.members.slice(0, bundle.members.length / 2).flatMap(m => [readU16(m, 0), readU16(m, 4)])));
+        uid = Array.from({ length: 512 }, (_, i) => 511 - i).find(n => !used.has(n));
+        ensure(uid !== undefined, "The destination building bundles have no free native UIDs.");
+        for (const { bundle, model } of variants) {
+          const count = bundle.members.length / 2, metadata = new Uint8Array(36); writeU16(metadata, 0, uid); writeU16(metadata, 4, 65535);
+          for (const offset of [20, 24, 28, 32]) writeU32(metadata, offset, 0xffffffff);
+          bundle.members = [...bundle.members.slice(0, count), metadata, ...bundle.members.slice(count), model];
+        }
+      }
+      uids.push(uid);
+    }
+    for (const bundle of bundles.values()) put(draft, bundle.name, bundle.id, packGameFreakContainer(bundle.signature, bundle.members));
+    const table = new Uint8Array(4 + input.buildings.placements.length * 16); writeU32(table, 0, input.buildings.placements.length);
+    for (const [i, placement] of input.buildings.placements.entries()) {
+      const uid = uids[placement.asset]; ensure(uid !== undefined, "Building placement references a missing imported model.");
+      for (const [axis, value] of [placement.x, placement.y, placement.z].entries()) {
+        const fixed = Math.round(value * 4096); ensure(Number.isSafeInteger(fixed) && fixed >= -0x80000000 && fixed <= 0x7fffffff, "Building placement exceeds the native coordinate range."); writeU32(table, 4 + i * 16 + axis * 4, fixed >>> 0);
+      }
+      ensure(Number.isFinite(placement.rotationY), "Invalid building rotation."); writeU16(table, 16 + i * 16, Math.round(placement.rotationY / 360 * 65536) & 65535);
+      table[18 + i * 16] = uid >>> 8; table[19 + i * 16] = uid & 255;
+    }
+    files[native.placements] = table; components.push(`${input.buildings.placements.length} building placements and ${input.buildings.assets.length} models`);
+    invalidateBuildingLibrary(draft);
+  }
   let packed = packGameFreakContainer(native.signature, files);
   const template = input.bin ?? (!newCell ? draft.narcs.maps!.rawFiles[destination.mapId] : undefined);
   if (template) {
@@ -256,6 +322,7 @@ export async function prepareGen5MapImport(project: ProjectState, input: Gen5Map
     }
   }
   const staged = stageGen5MapDestination(draft, target, packed);
+  invalidateMap3dAssets();
   const converted = await loadMap3dZone(draft, target.headerId, { season: target.season, cache: false });
   ensure(converted.chunks.some(c => c.chunkId === staged.mapId && c.matrixX === target.x && c.matrixY === target.y), "Imported map is not visible through the selected header. Repair its matrix header assignment first.");
   const newWarnings = converted.warnings.filter(w => !original.warnings.includes(w)); ensure(!newWarnings.length, `Imported map failed preview validation: ${newWarnings.join("; ")}`);
@@ -267,6 +334,7 @@ export async function prepareGen5MapImport(project: ProjectState, input: Gen5Map
   }
   notes.push(newCell ? "New cell: all seasons." : "Replacement: selected cell and season. Other uses retain their map data.");
   if (input.textures && embedded) notes.push("Selected NSBTX takes precedence over embedded textures.");
+  notes.push(...input.notes ?? []);
   return { target: { ...target }, original, converted, ...staged, importedTextures, components, notes, changes, guards, context: context(project) };
 }
 

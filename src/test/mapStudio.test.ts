@@ -9,6 +9,10 @@ import { readNitroResources, buildModelPrimitives } from "../pokeweb/map3dModel"
 import { validateGen5Permissions, validateMapNitro } from "../pokeweb/gen5MapImportFormats";
 import { studioFixture } from "./fixtures/mapStudio";
 import { distances } from "../pokeweb/mapStudioHeightTables";
+import { optimizeStudioMesh } from "../pokeweb/mapStudioGeometry";
+import { writeStaticNitroModel } from "../pokeweb/nitroModelWriter";
+import { nitroBlocks, readDictionary } from "../pokeweb/nitroResourceWriter";
+import { readU32 } from "../nds/binary";
 
 describe("Map Studio access and performance boundary", () => {
   it("allows only exact loopback hosts", () => {
@@ -74,6 +78,24 @@ describe("painting and undo", () => {
   });
 });
 describe("native terrain compilation", () => {
+  it("merges repeated ground textures while retaining clamped atlas boundaries", () => {
+    const ws = studioFixture(), chunk = ws.map.chunks[0]; chunk.tiles[0][1] = 0;
+    const mesh = studioMeshes(ws, chunk)[0], material = ws.tileset.materials[mesh.material];
+    const optimized = optimizeStudioMesh(mesh, material);
+    expect(optimized.indices).toHaveLength(6); expect(Math.max(...optimized.positions.filter((_, i) => i % 3 === 0)) - Math.min(...optimized.positions.filter((_, i) => i % 3 === 0))).toBe(2);
+    expect(optimizeStudioMesh(mesh, { ...material, repeatU: 1, repeatV: 1 }).indices).toHaveLength(12);
+  });
+  it("writes native quad strips with six submitted vertices for two quads and preserves their winding", () => {
+    const ws = studioFixture(), template = compileStudioChunk(ws, 0, 0).model;
+    const model = writeStaticNitroModel(template, [{ materialName: "ms_mat_0", positions: new Float32Array([0,0,0, 0,0,1, 1,0,1, 1,0,0, 2,0,1, 2,0,0]), uvs: new Float32Array([0,0, 0,1, 1,1, 1,0, 2,1, 2,0]), indices: new Uint32Array([0,1,2, 0,2,3, 3,2,4, 3,4,5]) }], { stripify: true });
+    const mdl = nitroBlocks(model)[0], offset = readU32(readDictionary(mdl, 8)[0].data, 0);
+    expect(readU16(mdl, offset + 36)).toBe(6); expect(readU16(mdl, offset + 38)).toBe(2);
+    const warnings: string[] = [], primitives = buildModelPrimitives(readNitroResources(model), warnings);
+    expect(warnings).toEqual([]); expect(primitives[0].indices).toHaveLength(12);
+    const p = primitives[0]; let area = 0;
+    for (let i = 0; i < p.indices.length; i += 3) { const [a,b,c] = Array.from(p.indices.slice(i,i+3), n => Array.from(p.positions.slice(n*3,n*3+3))); const cross = (b[2]-a[2])*(c[0]-a[0])-(b[0]-a[0])*(c[2]-a[2]); expect(cross).toBeGreaterThan(0); area += cross / 2; }
+    expect(area).toBe(2);
+  });
   it("builds fresh model/material/texture dictionaries and native geometry without a ROM template", () => {
     const ws = studioFixture(), result = compileStudioChunk(ws, 0, 0);
     validateMapNitro(result.model, "BMD0"); validateMapNitro(result.textures, "BTX0"); validateGen5Permissions(result.permissions);

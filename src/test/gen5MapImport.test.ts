@@ -47,6 +47,18 @@ describe("Gen 5 native map formats", () => {
 });
 
 describe.each(["BW", "BW2"] as const)("%s map import", game => {
+  it("stages imported building resources and placements atomically, preserves existing assets and undoes them", async () => {
+    const project = gen5ImportProject(game), original = structuredClone(project), input = { game, model: mapModel(), permissions: mapPermissions(), buildings: {
+      assets: [{ model: mapModel(), textures: mapTextures(0x7c00) }], placements: [{ asset: 0, x: -56, y: 32, z: -64, rotationY: 90 }] } };
+    const result = await prepareGen5MapImport(project, input, target); expect(project).toEqual(original);
+    const building = result.converted.buildings.find(b => b.chunkId === result.mapId)!;
+    expect(building.uid).toBe(511); expect(building.worldY).toBe(32); expect(building.rotationY).toBe(90); expect(building.primitives[0].material.texture).toBeDefined();
+    await applyGen5MapImport(project, result); const after = structuredClone(project.narcs.exterior_building_models!.rawFiles);
+    const again = await prepareGen5MapImport(project, input, target); expect(again.changes.some(c => c.name === "exterior_building_models")).toBe(false);
+    const rom = new NintendoDSRom(await exportModifiedRom(project)); expect(new NARC(rom.getFileByName(game === "BW2" ? "a/2/2/5" : "a/2/2/9")).files).toEqual(after);
+    await undoGen5MapImport(project, result); expect(project.narcs.exterior_building_models!.rawFiles[0]).toEqual(packGameFreakContainer("WB", []));
+    expect(project.narcs.maps!.rawFiles).toEqual(original.narcs.maps!.rawFiles);
+  });
   it("previews without changing the project, preserves opaque data and other seasons, then applies and undoes", async () => {
     const project = gen5ImportProject(game), before = createProjectDocument(project, false), per = mapPermissions(true); writeU16(per, 8, 0x1234);
     const result = await prepareGen5MapImport(project, { game, permissions: per }, target);
@@ -96,6 +108,13 @@ describe.each(["BW", "BW2"] as const)("%s map import", game => {
     await applyGen5MapImport(project, result);
     expect(readGen5MapBin(project.narcs.maps!.rawFiles[result.mapId]).files).toEqual(readGen5MapBin(bin).files);
     expect(result.converted.chunks.find(c => c.chunkId === result.mapId)).toBeDefined();
+  });
+  it("explicitly removes a stale second collision layer while preserving opaque members", async () => {
+    const project = gen5ImportProject(game), first = await prepareGen5MapImport(project, { game, bin: mapBin(true) }, target); await applyGen5MapImport(project, first);
+    const result = await prepareGen5MapImport(project, { game, permissions: mapPermissions(), secondaryPermissions: null }, target);
+    await applyGen5MapImport(project, result); const parsed = readGen5MapBin(project.narcs.maps!.rawFiles[result.mapId]);
+    expect(parsed.placements).toBe(2); expect(parsed.files.at(-1)).toEqual(Uint8Array.of(9,8,7,6));
+    await undoGen5MapImport(project, result); expect(readGen5MapBin(project.narcs.maps!.rawFiles[first.mapId]).placements).toBe(3);
   });
   it("rejects missing building UIDs and model capacity overflow before applying anything", async () => {
     const project = gen5ImportProject(game), files = readGen5MapBin(mapBin()).files, placements = new Uint8Array(20);

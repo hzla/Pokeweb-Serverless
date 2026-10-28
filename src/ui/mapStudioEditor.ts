@@ -30,6 +30,7 @@ export function renderMapStudio(root: HTMLElement, project: ProjectState | undef
   let disposed = false, busy = false, modified = false, frame = 0, saved = false, autosave = 0, database: IDBDatabase | undefined;
   let worker: Worker | undefined, compileWorker: Worker | undefined, sequence = 0, pending: Gen5MapImport | undefined, lastImport: Gen5MapImport | undefined, insertRevision = -1;
   let thumbnailObserver: IntersectionObserver | undefined, thumbnailFrame = 0, targetReady = false, paletteLimit = 128, paletteEpoch = 0;
+  let buildingPreviewChunk = -1, buildingPreviewEpoch = 0;
   let resolveDestination: ((matrix: number, season: string) => MatrixSnapshot) | undefined;
   const visible = Array(9).fill(true) as boolean[], requests = new Map<number, { resolve: (value: any) => void; reject: (error: Error) => void }>();
   const abort = new AbortController(), listen = { signal: abort.signal };
@@ -47,18 +48,19 @@ export function renderMapStudio(root: HTMLElement, project: ProjectState | undef
       <fieldset class="ms-palette"><legend>Tile List</legend><input type="search" data-role="search" placeholder="Search tiles" aria-label="Search tiles" /><div class="ms-tiles"></div><div class="ms-palette-count">No tileset loaded</div></fieldset>
       <aside class="ms-right"><div class="ms-tabs" role="tablist"><button data-tab="matrix" role="tab" aria-selected="true">Matrix</button><button data-tab="tools" role="tab" aria-selected="false">Map Tools</button></div>
       <div class="ms-tab-panel" data-panel="matrix"><div class="ms-fields"><label for="ms-area">Area</label><input id="ms-area" data-role="area" type="number" min="0" max="65535" value="0" disabled /><label for="ms-group">Export Group</label><input id="ms-group" data-role="group" type="number" min="0" max="65535" value="0" disabled /></div><label><input data-role="center" type="checkbox" disabled /> Set as center of Export Group</label><div class="ms-matrix-info"><span>Map matrix</span><span data-role="matrix-size">—</span></div><div class="ms-matrix"></div><div class="ms-fields"><label>Chunk X</label><input data-role="new-x" type="number" value="1" min="-65535" max="65535" /><label>Chunk Y</label><input data-role="new-y" type="number" value="0" min="-65535" max="65535" /></div><button data-ms="add" disabled>Add empty chunk</button></div>
-      <div class="ms-tab-panel" data-panel="tools" hidden><strong>Selected map</strong><div class="ms-help">Left drag paints. Middle drag pans. Right drag rotates. Scroll zooms.</div><label>Walking heights<select data-role="walking" aria-label="Walking height source"><option value="-1">Project PER</option>${Array.from({ length: 9 }, (_, l) => `<option value="${l}" ${l === 0 ? "selected" : ""}>Layer ${l + 1}</option>`).join("")}</select></label><div class="ms-help">Walking layers generate heights and block gaps. Existing PER terrain classes and flags are retained.</div>
+      <div class="ms-tab-panel" data-panel="tools" hidden><strong>Selected map</strong><div class="ms-help">Left drag paints. Middle drag pans. Right drag rotates. Scroll zooms.</div><label>Walking heights<select data-role="walking" aria-label="Walking height source"><option value="-1">Project collision + heights</option>${Array.from({ length: 9 }, (_, l) => `<option value="${l}" ${l === 0 ? "selected" : ""}>Layer ${l + 1}</option>`).join("")}</select></label><button data-ms="building-source" disabled>Load building source ROM…</button><span data-role="building-source-state" class="ms-help"></span>
       <section class="ms-insert"><strong>Insert into ROM</strong><button data-ms="targets" ${project && ["BW", "BW2"].includes(project.session.baseRom) ? "" : "disabled"}>Choose destination…</button><div data-role="destination" hidden><label>Graphics header<select data-role="header" aria-label="Destination header"></select></label><label>Matrix<input data-role="matrix" type="number" readonly aria-label="Destination matrix" /></label><label>Cell X<input data-role="target-x" type="number" min="0" value="0" /></label><label>Cell Y<input data-role="target-y" type="number" min="0" value="0" /></label><label>Season<select data-role="season">${["spring", "summer", "autumn", "winter"].map(s => `<option>${s}</option>`).join("")}</select></label><button data-ms="review" disabled>Review insertion</button></div><div class="ms-review" data-role="review" hidden></div><button data-ms="undo-insert" disabled>Undo ROM insertion</button><span class="ms-help">${project ? `ROM: ${escapeHtml(project.romInfo.fileName ?? project.session.baseVersion)}` : "Load a Gen 5 ROM in Pokeweb to insert terrain."}</span></section></div></aside>
     </div><div class="ms-status"><span class="ms-footer-name">No project</span><span data-role="geometry">0 polygons</span><span data-role="selection">Tile: —</span><span class="ms-message" role="status">Ready</span></div>
-    <input data-role="files" type="file" multiple accept=".zip,.pdsmap,.pdsts,.meta,.per,.png,.jpg,.jpeg" hidden /><input data-role="folder" type="file" webkitdirectory multiple hidden />
+    <input data-role="files" type="file" multiple accept=".zip,.pdsmap,.pdsts,.meta,.per,.bdhc,.bld,.bgs,.png,.jpg,.jpeg" hidden /><input data-role="folder" type="file" webkitdirectory multiple hidden /><input data-role="building-rom" type="file" accept=".nds" hidden />
   </section>`;
   const studio = root.querySelector<HTMLElement>(".map-studio")!, host = studio.querySelector<HTMLElement>(".ms-viewport")!, message = studio.querySelector<HTMLElement>(".ms-message")!;
   const query = <T extends HTMLElement = HTMLElement>(role: string) => studio.querySelector<T>(`[data-role="${role}"]`)!;
+  const actionButton = (action: string) => studio.querySelector<HTMLButtonElement>(`button[data-ms="${action}"]`)!;
   const value = (role: string) => query<HTMLInputElement>(role).value;
   const status = (text: string, error = false) => { if (!disposed) { message.textContent = text; message.title = text; message.dataset.error = String(error); } };
   const setBusy = (state: boolean) => { busy = state; studio.classList.toggle("ms-busy", state); studio.setAttribute("aria-busy", String(state)); };
   const work = (operation: string, args: Record<string, unknown>) => {
-    const selected = operation === "compile"
+    const selected = ["compile", "source", "buildings"].includes(operation)
       ? compileWorker ??= new Worker(new URL("../pokeweb/mapStudioCompileWorker.ts", import.meta.url), { type: "module" })
       : worker ??= new Worker(new URL("../pokeweb/mapStudioWorker.ts", import.meta.url), { type: "module" });
     selected.onmessage = event => { const req = requests.get(event.data.id); if (!req) return; requests.delete(event.data.id); if (event.data.error) req.reject(new Error(event.data.error)); else req.resolve(event.data.result); };
@@ -72,11 +74,11 @@ export function renderMapStudio(root: HTMLElement, project: ProjectState | undef
   }
   if (typeof indexedDB !== "undefined") {
     const request = indexedDB.open("pokeweb-map-studio", 1); request.onupgradeneeded = () => request.result.createObjectStore("drafts");
-    request.onsuccess = () => { if (disposed) { request.result.close(); return; } database = request.result; const get = database.transaction("drafts").objectStore("drafts").get("current"); get.onsuccess = () => { if (!disposed && get.result) { const restore = studio.querySelector<HTMLButtonElement>('[data-role="restore"]'); if (restore) { restore.hidden = false; restore.onclick = () => void mount(get.result); } } }; };
+    request.onsuccess = () => { if (disposed) { request.result.close(); return; } database = request.result; const get = database.transaction("drafts").objectStore("drafts").get("current"); get.onsuccess = () => { if (!disposed && get.result) { const restore = studio.querySelector<HTMLButtonElement>('[data-ms="restore"]'); if (restore) { restore.hidden = false; restore.onclick = () => void mount(get.result); } } }; };
   }
   function refresh() {
-    studio.querySelectorAll<HTMLButtonElement>('[data-ms="save"], [data-ms="save-map"], [data-ms="add"]').forEach(b => b.disabled = !workspace);
-    studio.querySelectorAll<HTMLButtonElement>('[data-ms="insert"]').forEach(b => b.disabled = !workspace || workspace.map.game < 5 || !project || !["BW", "BW2"].includes(project.session.baseRom));
+    studio.querySelectorAll<HTMLButtonElement>('[data-ms="save"], [data-ms="save-map"], [data-ms="add"], [data-ms="building-source"]').forEach(b => b.disabled = !workspace);
+    studio.querySelectorAll<HTMLButtonElement>('[data-ms="insert"]').forEach(b => b.disabled = !workspace || !project || !["BW", "BW2"].includes(project.session.baseRom));
     studio.querySelectorAll<HTMLButtonElement>('[data-ms="undo"]').forEach(b => b.disabled = !history?.canUndo);
     studio.querySelectorAll<HTMLButtonElement>('[data-ms="redo"]').forEach(b => b.disabled = !history?.canRedo);
     studio.querySelectorAll<HTMLButtonElement>("[data-layer]").forEach(b => { b.disabled = !workspace; b.setAttribute("aria-pressed", String(Number(b.dataset.layer) === layer)); });
@@ -96,7 +98,12 @@ export function renderMapStudio(root: HTMLElement, project: ProjectState | undef
   function changed() { modified = true; saved = false; invalidateReview(); clearTimeout(autosave); autosave = window.setTimeout(cacheDraft, 900); refresh(); }
   function renderTerrain() {
     if (!workspace || !viewport || frame) return;
-    frame = requestAnimationFrame(() => { frame = 0; if (disposed || !workspace) return; viewport?.update(chunk, visible); const c = workspace.map.chunks[chunk]; let polygons = 0; for (const grid of c.tiles) for (const id of grid) if (id >= 0) { const t = workspace.tileset.tiles[id]; polygons += t.quads.length + t.triangles.length; } query("geometry").textContent = `${polygons.toLocaleString()} polygons`; });
+    frame = requestAnimationFrame(() => { frame = 0; if (disposed || !workspace) return; viewport?.update(chunk, visible);
+      if (buildingPreviewChunk !== chunk) {
+        buildingPreviewChunk = chunk; const epoch = ++buildingPreviewEpoch; viewport?.setBuildings([]);
+        if (Object.keys(workspace.files).some(p => p.startsWith("mapstudio-buildings/"))) void work("buildings", { workspace, chunk }).then(primitives => { if (!disposed && epoch === buildingPreviewEpoch) viewport?.setBuildings(primitives); }).catch(error => { if (!disposed && epoch === buildingPreviewEpoch) status(String(error), true); });
+      }
+      const c = workspace.map.chunks[chunk]; let polygons = 0; for (const grid of c.tiles) for (const id of grid) if (id >= 0) { const t = workspace.tileset.tiles[id]; polygons += t.quads.length + t.triangles.length; } query("geometry").textContent = `${polygons.toLocaleString()} polygons`; });
   }
   function renderMatrix() {
     if (!workspace) return; const matrix = studio.querySelector<HTMLElement>(".ms-matrix")!, coords = workspace.map.chunks;
@@ -119,8 +126,11 @@ export function renderMapStudio(root: HTMLElement, project: ProjectState | undef
   }
   async function mount(ws: StudioWorkspace) {
     if (disposed) return; thumbnailObserver?.disconnect(); cancelAnimationFrame(thumbnailFrame); viewport?.dispose();
+    buildingPreviewChunk = -1; buildingPreviewEpoch++;
     workspace = ws; history = new StudioHistory(ws); chunk = layer = tile = height = 0; modified = false; targetReady = false; invalidateReview();
     host.querySelector(".ms-empty")?.remove(); query<HTMLSelectElement>("game").value = String(ws.map.game);
+    query<HTMLSelectElement>("walking").value = Object.keys(ws.files).some(p => p.endsWith(".per")) ? "-1" : "0";
+    query("building-source-state").textContent = Object.keys(ws.files).some(p => p.startsWith("mapstudio-buildings/")) ? "Building resources loaded" : "";
     try { viewport = new StudioViewport(host, ws); await viewport.loadTextures(); if (disposed) return; }
     catch (error) { status(`3D preview unavailable: ${error instanceof Error ? error.message : error}`, true); return; }
     host.querySelector<HTMLElement>(".ms-view-label")!.hidden = false; host.querySelector<HTMLElement>(".ms-coords")!.hidden = false;
@@ -172,7 +182,7 @@ export function renderMapStudio(root: HTMLElement, project: ProjectState | undef
     resolveDestination = (matrix, season) => resolveSeasonalMatrix(project, matrix, season as "spring" | "summer" | "autumn" | "winter");
     const headers = Object.values(project.headers!.rows); query<HTMLSelectElement>("header").innerHTML = headers.map(h => `<option value="${h.index}">${h.index}: ${escapeHtml(String(h.location_name || "Map"))}</option>`).join("");
     const preferred = headers.find(h => h.index === 427) ?? headers[0]; if (preferred) query<HTMLSelectElement>("header").value = String(preferred.index);
-    updateTargetHeader(); query("destination").hidden = false; targetReady = true; query<HTMLButtonElement>("review").disabled = !workspace;
+    updateTargetHeader(); query("destination").hidden = false; targetReady = true; actionButton("review").disabled = !workspace;
   }
   function updateTargetHeader() {
     if (!project?.headers) return; const h = Object.values(project.headers.rows).find(row => row.index === Number(value("header"))); if (!h) return;
@@ -184,14 +194,13 @@ export function renderMapStudio(root: HTMLElement, project: ProjectState | undef
   }
   async function reviewInsertion() {
     studioAssert(workspace && history && project, "Open a map project and load a Gen 5 ROM.");
-    studioAssert((workspace.map.game < 7 ? "BW" : "BW2") === project.session.baseRom, "The PDSMS project and ROM must use the same game family.");
     status("Compiling terrain, textures and walking heights…");
-    const input: Gen5MapImportInput = await work("compile", { workspace, chunk, layer: Number(value("walking")) }); if (disposed) return;
+    const input: Gen5MapImportInput = await work("compile", { workspace, chunk, layer: Number(value("walking")), game: project.session.baseRom }); if (disposed) return;
     const { prepareGen5MapImport } = await import("../pokeweb/gen5MapImport");
     pending = await prepareGen5MapImport(project, input, { matrixId: Number(value("matrix")), x: Number(value("target-x")), y: Number(value("target-y")), headerId: Number(value("header")), season: value("season") as "spring" | "summer" | "autumn" | "winter" });
     if (disposed) return; insertRevision = history.revision;
     const review = query("review"); review.hidden = false;
-    review.innerHTML = `${pending.newCell ? "New cell · all seasons" : `Replace cell · ${escapeHtml(value("season"))}`}<br>Map ${pending.mapId} · ${pending.importedTextures} textures<br>Model, collision and walking heights<div class="ms-insert-actions"><button data-ms="apply">Apply to ROM</button><button data-ms="cancel">Cancel</button></div>`;
+    review.innerHTML = `${pending.newCell ? "New cell · all seasons" : `Replace cell · ${escapeHtml(value("season"))}`}<br>Map ${pending.mapId} · ${pending.importedTextures} textures<br>${pending.components.map(escapeHtml).join(" · ")}${pending.notes.map(note => `<p>${escapeHtml(note)}</p>`).join("")}<div class="ms-insert-actions"><button data-ms="apply">Apply to ROM</button><button data-ms="cancel">Cancel</button></div>`;
     status("Native terrain compiled. Review the destination, then Apply to ROM.");
   }
   studio.addEventListener("click", event => {
@@ -204,6 +213,7 @@ export function renderMapStudio(root: HTMLElement, project: ProjectState | undef
     const action = target.dataset.ms; if (!action) return;
     studio.querySelectorAll<HTMLDetailsElement>("details").forEach(d => d.open = false);
     void (async () => {
+      if (action === "building-source") { query<HTMLInputElement>("building-rom").click(); return; }
       if (action === "open") { query<HTMLInputElement>("files").click(); return; }
       if (action === "more-tiles") { paletteLimit += 128; renderPalette(); return; }
       if (action === "folder") { query<HTMLInputElement>("folder").click(); return; }
@@ -233,12 +243,23 @@ export function renderMapStudio(root: HTMLElement, project: ProjectState | undef
       if (action === "cancel") { invalidateReview(); status("ROM insertion canceled"); return; }
       if (action === "apply") {
         studioAssert(pending && history && project && insertRevision === history.revision, "The source map changed. Review insertion again."); setBusy(true);
-        const { applyGen5MapImport } = await import("../pokeweb/gen5MapImport"); await applyGen5MapImport(project, pending); lastImport = pending; invalidateReview(); onRomDirty(); query<HTMLButtonElement>("undo-insert").disabled = false; status("Inserted into ROM project. Export the ROM from Pokeweb to test in game."); return;
+        const { applyGen5MapImport } = await import("../pokeweb/gen5MapImport"); await applyGen5MapImport(project, pending); lastImport = pending; invalidateReview(); onRomDirty(); actionButton("undo-insert").disabled = false; status("Inserted into ROM project. Export the ROM from Pokeweb to test in game."); return;
       }
-      if (action === "undo-insert") { studioAssert(lastImport && project, "No ROM insertion to undo."); setBusy(true); await (await import("../pokeweb/gen5MapImport")).undoGen5MapImport(project, lastImport); lastImport = undefined; query<HTMLButtonElement>("undo-insert").disabled = true; onRomDirty(); status("ROM insertion undone"); }
+      if (action === "undo-insert") { studioAssert(lastImport && project, "No ROM insertion to undo."); setBusy(true); await (await import("../pokeweb/gen5MapImport")).undoGen5MapImport(project, lastImport); lastImport = undefined; actionButton("undo-insert").disabled = true; onRomDirty(); status("ROM insertion undone"); }
     })().catch(error => status(error instanceof Error ? error.message : String(error), true)).finally(() => { if (!disposed) setBusy(false); });
   }, listen);
   for (const role of ["files", "folder"]) query<HTMLInputElement>(role).addEventListener("change", event => { const input = event.target as HTMLInputElement; void openFiles(input.files); input.value = ""; }, listen);
+  query<HTMLInputElement>("building-rom").addEventListener("change", event => {
+    const input = event.target as HTMLInputElement, file = input.files?.[0]; input.value = "";
+    if (!workspace || !file || busy) return;
+    setBusy(true); status("Loading source building models and textures…");
+    void (async () => {
+      const files = await work("source", { workspace, bytes: new Uint8Array(await file.arrayBuffer()) });
+      if (disposed || !workspace) return;
+      Object.assign(workspace.files, files); buildingPreviewChunk = -1; changed(); renderTerrain(); query("building-source-state").textContent = "Building resources loaded";
+      status("Building models and textures loaded. Save the project bundle to keep them.");
+    })().catch(error => status(error instanceof Error ? error.message : String(error), true)).finally(() => { if (!disposed) setBusy(false); });
+  }, listen);
   studio.addEventListener("change", event => {
     const input = event.target as HTMLInputElement;
     if (input.dataset.visible !== undefined) { visible[Number(input.dataset.visible)] = input.checked; renderTerrain(); return; }
@@ -247,7 +268,7 @@ export function renderMapStudio(root: HTMLElement, project: ProjectState | undef
     if (["target-x", "target-y", "season", "walking"].includes(input.dataset.role ?? "")) { invalidateReview(); return; }
     if (workspace && input.dataset.role === "game") { workspace.map.game = Number(input.value); changed(); return; }
     if (workspace && ["area", "group", "center"].includes(input.dataset.role ?? "")) {
-      const c = workspace.map.chunks[chunk]; if (input.dataset.role === "center") { for (const other of workspace.map.chunks) if (other.group === c.group) other.center = false; c.center = input.checked; } else { const n = Number(input.value); if (!Number.isInteger(n) || n < 0 || n > 65535) { refresh(); return; } c[input.dataset.role as "area" | "group"] = n; } changed();
+      const c = workspace.map.chunks[chunk]; if (input.dataset.role === "center") { for (const other of workspace.map.chunks) if (other.group === c.group) other.center = false; c.center = input.checked; } else { const n = Number(input.value); if (!Number.isInteger(n) || n < 0 || n > 65535) { refresh(); return; } c[input.dataset.role as "area" | "group"] = n; } changed(); if (input.dataset.role === "area") { buildingPreviewChunk = -1; renderTerrain(); }
     }
   }, listen);
   query<HTMLInputElement>("search").addEventListener("input", () => { paletteLimit = 128; renderPalette(); }, listen);
@@ -258,7 +279,9 @@ export function renderMapStudio(root: HTMLElement, project: ProjectState | undef
   root.addEventListener("dragover", event => { event.preventDefault(); }, listen);
   root.addEventListener("drop", event => { event.preventDefault(); void openFiles(event.dataTransfer?.files ?? null); }, listen);
   document.addEventListener("keydown", event => {
-    if (disposed || busy || (event.target instanceof HTMLElement && event.target.closest("input,select,textarea,[contenteditable]"))) return;
+    if (disposed || busy) return;
+    const typing = event.target instanceof HTMLElement && event.target.closest("input,select,textarea,[contenteditable]");
+    if (typing && !((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s")) return;
     if (event.ctrlKey || event.metaKey) {
       if (event.key.toLowerCase() === "z") { event.preventDefault(); studio.querySelector<HTMLButtonElement>(`[data-ms="${event.shiftKey ? "redo" : "undo"}"]`)?.click(); }
       else if (event.key.toLowerCase() === "s") { event.preventDefault(); studio.querySelector<HTMLButtonElement>('[data-ms="save"]')?.click(); }

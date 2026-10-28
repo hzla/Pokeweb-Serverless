@@ -168,3 +168,10 @@ export function studioPerName(workspace: StudioWorkspace, chunk: StudioChunk, se
   const minX = Math.min(...workspace.map.chunks.map(c => c.x)), minY = Math.min(...workspace.map.chunks.map(c => c.y));
   return workspace.mapPath.replace(/\.pdsmap$/iu, "") + (secondary ? "2" : "") + `_${String(chunk.x - minX).padStart(2, "0")}_${String(chunk.y - minY).padStart(2, "0")}.per`;
 }
+export function studioSidecar(workspace: StudioWorkspace, chunk: StudioChunk, extension: string): Uint8Array | undefined {
+  const path = studioPerName(workspace, chunk).replace(/\.per$/u, `.${extension}`);
+  if (workspace.files[path]) return workspace.files[path];
+  const matches = Object.keys(workspace.files).filter(p => p.split("/").at(-1)?.toLowerCase() === path.split("/").at(-1)?.toLowerCase());
+  studioAssert(matches.length <= 1, `Ambiguous ${extension.toUpperCase()} sidecar for chunk ${chunk.x}, ${chunk.y}.`);
+  return workspace.files[matches[0]];
+}

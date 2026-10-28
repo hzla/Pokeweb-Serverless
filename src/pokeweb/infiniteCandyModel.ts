@@ -126,17 +126,26 @@ export function getInfiniteCandyStatus(project: ProjectState, selectedItemId?: n
   if (!item || !project.narcs.message_texts) {
     return { supported: true, compatible: false, installed, message: "Load the item and message archives before installing Infinite Candy." };
   }
+  const occupiedSlot = (message: string): InfiniteCandyStatus => {
+    // Keep explicit choices and installed IDs. Only offer the alternate when
+    // its item data, text, native hooks and companion patches all pass.
+    if (selectedItemId === undefined && !installed && !layout.bw1) {
+      const alternate = getInfiniteCandyStatus(project, 113);
+      if (alternate.compatible) return alternate;
+    }
+    return { supported: true, compatible: false, installed, itemId, message };
+  };
   const itemHex = toHex(item);
   if (installedItemId === itemId ? itemHex !== ITEM_DATA_HEX
     : itemId === 622 ? itemHex !== (layout.bw1 ? layout.retailItemDataHex : RETAIL_ITEM_DATA_HEX)
     : item.length !== ITEM_DATA.length || item.some(byte => byte !== 0)) {
-    return { supported: true, compatible: false, installed, itemId, message: `Item ${itemId} already contains custom data; choose an unused slot.` };
+    return occupiedSlot(`Item ${itemId} already contains custom data; choose an unused slot.`);
   }
   try {
     textEntryIndex(project, layout.descriptionBank, itemId);
     const index = textEntryIndex(project, layout.nameBank, itemId);
     if (!layout.bw1 && installedItemId === undefined && !/^(?:\?+|unused|)$/iu.test(getTextBank(project, "message_texts", layout.nameBank)[index]![1].trim())) {
-      return { supported: true, compatible: false, installed, itemId, message: `Item ${itemId} has an existing name; choose an unused slot.` };
+      return occupiedSlot(`Item ${itemId} has an existing name; choose an unused slot.`);
     }
   } catch {
     return { supported: true, compatible: false, installed, message: "Item 622 name or description is missing from the item message banks." };

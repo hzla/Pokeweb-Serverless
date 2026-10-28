@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { findStudioAsset, type StudioWorkspace } from "../pokeweb/mapStudioFormats";
 import { studioMeshes, type StudioMesh } from "../pokeweb/mapStudioModel";
+import type { Map3dPrimitive } from "../pokeweb/map3dModel";
 
 export class StudioViewport {
   private renderer: THREE.WebGLRenderer;
@@ -9,6 +10,8 @@ export class StudioViewport {
   private camera: THREE.PerspectiveCamera | THREE.OrthographicCamera;
   private controls: OrbitControls;
   private content = new THREE.Group();
+  private buildings = new THREE.Group();
+  private buildingTextures = new Set<THREE.Texture>();
   private grid = new THREE.GridHelper(32, 32, 0x89999e, 0xb7c4c8);
   private textures = new Map<number, THREE.Texture>();
   private loading = new Map<number, Promise<void>>();
@@ -25,7 +28,7 @@ export class StudioViewport {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); this.renderer.setClearColor(0x202432);
     this.renderer.domElement.className = "ms-map-canvas"; this.renderer.domElement.setAttribute("aria-label", "Map Studio terrain viewport"); this.host.append(this.renderer.domElement);
-    this.scene.add(this.content, this.grid); this.grid.position.y = -0.025;
+    this.scene.add(this.content, this.buildings, this.grid); this.grid.position.y = -0.025;
     this.camera = this.makeCamera(); this.controls = this.makeControls(); this.fit();
     this.resize = new ResizeObserver(() => this.size()); this.resize.observe(host); this.size();
   }
@@ -48,8 +51,8 @@ export class StudioViewport {
         if (this.stopped) { image.close(); return; }
         this.bitmaps.push(image); const texture = new THREE.Texture(image); texture.colorSpace = THREE.SRGBColorSpace; texture.flipY = false;
         texture.magFilter = THREE.NearestFilter; texture.minFilter = THREE.NearestFilter;
-        texture.wrapS = material.repeatU ? material.repeatU === 2 ? THREE.MirroredRepeatWrapping : THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
-        texture.wrapT = material.repeatV ? material.repeatV === 2 ? THREE.MirroredRepeatWrapping : THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
+        texture.wrapS = material.repeatU === 1 ? THREE.ClampToEdgeWrapping : material.repeatU === 2 ? THREE.MirroredRepeatWrapping : THREE.RepeatWrapping;
+        texture.wrapT = material.repeatV === 1 ? THREE.ClampToEdgeWrapping : material.repeatV === 2 ? THREE.MirroredRepeatWrapping : THREE.RepeatWrapping;
         texture.needsUpdate = true; this.textures.set(index, texture);
       } catch { /* Missing local images are reported by the editor and block insertion. */ }
       })();
@@ -67,6 +70,23 @@ export class StudioViewport {
     return group;
   }
   private disposeGroup(group: THREE.Group) { group.traverse(obj => { if (obj instanceof THREE.Mesh) { obj.geometry.dispose(); (obj.material as THREE.Material).dispose(); } }); group.clear(); }
+  setBuildings(primitives: Map3dPrimitive[]) {
+    this.disposeGroup(this.buildings); this.buildingTextures.forEach(t => t.dispose()); this.buildingTextures.clear();
+    for (const p of primitives) {
+      let map: THREE.DataTexture | undefined;
+      if (p.material.texture) {
+        const image = p.material.texture; map = new THREE.DataTexture(image.rgba, image.width, image.height); map.colorSpace = THREE.SRGBColorSpace;
+        map.wrapS = p.material.repeatS ? p.material.flipS ? THREE.MirroredRepeatWrapping : THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
+        map.wrapT = p.material.repeatT ? p.material.flipT ? THREE.MirroredRepeatWrapping : THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
+        map.magFilter = THREE.NearestFilter; map.minFilter = THREE.NearestFilter; map.needsUpdate = true; this.buildingTextures.add(map);
+      }
+      const geometry = new THREE.BufferGeometry(); geometry.setAttribute("position", new THREE.BufferAttribute(p.positions, 3)); geometry.setIndex(new THREE.BufferAttribute(p.indices, 1));
+      if (p.uvs) geometry.setAttribute("uv", new THREE.BufferAttribute(p.uvs, 2)); if (p.colors) geometry.setAttribute("color", new THREE.BufferAttribute(p.colors, 3));
+      const material = new THREE.MeshBasicMaterial({ map, color: new THREE.Color(...p.material.diffuse), vertexColors: !!p.colors, side: THREE.DoubleSide, alphaTest: 0.01, transparent: p.material.alpha < 1, opacity: p.material.alpha, wireframe: this.wire });
+      this.buildings.add(new THREE.Mesh(geometry, material));
+    }
+    this.requestRender();
+  }
   update(chunkIndex: number, visible: boolean[]) {
     const version = ++this.version, meshes = studioMeshes(this.workspace, this.workspace.map.chunks[chunkIndex], visible);
     this.disposeGroup(this.content); this.content.add(this.group(meshes)); this.requestRender();
@@ -110,6 +130,7 @@ export class StudioViewport {
   dispose() {
     this.stopped = true; cancelAnimationFrame(this.frame); this.resize.disconnect(); this.controls.removeEventListener("change", this.onChange); this.controls.dispose();
     this.disposeGroup(this.content); this.grid.geometry.dispose(); (this.grid.material as THREE.Material).dispose(); this.textures.forEach(t => t.dispose()); this.textures.clear(); this.loading.clear(); this.bitmaps.forEach(b => b.close()); this.bitmaps = [];
+    this.disposeGroup(this.buildings); this.buildingTextures.forEach(t => t.dispose()); this.buildingTextures.clear();
     this.renderer.dispose(); this.renderer.forceContextLoss(); this.canvas.remove();
   }
 }
