@@ -136,6 +136,9 @@ describe("encounterModel", () => {
 
   it("syncs BW2 dex habitat entries from encounter pools", async () => {
     const project = makeProject();
+    const files: Uint8Array[] = Array.from({ length: 135 }, () => new Uint8Array(232));
+    files[1] = project.narcs.encounters!.rawFiles[1];
+    project.narcs.encounters = makeFileStore("encounters", files);
 
     const result = await syncEncountersToDexHabitats(project);
     const habitat = project.narcs.habitats?.rawFiles[34];
@@ -218,7 +221,7 @@ describe("encounterModel", () => {
 
 function makeProject(): ProjectState {
   const formats = getNarcFormats("BW2");
-  const encounters = packRows(formats.encounters!, [
+  const encounters = packRows(formats.encounters!.filter(([, field]) => field.startsWith("spring_")), [
     {},
     {
       spring_grass_rate: 10,
@@ -229,6 +232,7 @@ function makeProject(): ProjectState {
       spring_grass_slot_1_min_level: 6,
       spring_grass_slot_1_max_level: 8,
       spring_surf_slot_0: 2,
+      spring_surf_rate: 20,
       spring_surf_slot_0_min_level: 10,
       spring_surf_slot_0_max_level: 12,
     },

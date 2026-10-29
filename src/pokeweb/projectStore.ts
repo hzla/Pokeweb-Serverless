@@ -473,15 +473,19 @@ function readFormat(bytes: Uint8Array, format: FieldSpec[], name: NarcName): Raw
   let offset = 0;
   const raw: RawRecord = {};
   for (const [size, field] of format) {
-    if (offset + size > bytes.length) break;
+    if (offset + size > bytes.length) {
+      // A compact Gen 5 encounter file has one 232-byte table shared by all
+      // seasons. Zeroes inside a present seasonal table are real values.
+      if (name === "encounters" && !field.startsWith("spring_")) {
+        raw[field] = raw[`spring_${field.split("_").slice(1).join("_")}`] ?? 0;
+        continue;
+      }
+      break;
+    }
     const value = readInt(bytes, offset, size);
     offset += size;
     if (name === "learnsets" && value === 65535) break;
     raw[field] = value;
-    if (name === "encounters" && value === 0 && !field.startsWith("spring_")) {
-      const springField = `spring_${field.split("_").slice(1).join("_")}`;
-      raw[field] = raw[springField] ?? value;
-    }
   }
   return raw;
 }

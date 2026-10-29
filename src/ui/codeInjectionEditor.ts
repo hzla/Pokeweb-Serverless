@@ -1,3 +1,4 @@
+import { typeIconPreview, DEFAULT_TYPE_ICON_BORDER, DEFAULT_BW1_TYPE_ICON_BORDER } from "../pokeweb/typeIconAppearance";
 import { getTrainerFieldConditionsStatus } from "../pokeweb/trainerFieldConditionsModel";
 import { attachTrainerFieldInstaller, renderTrainerFieldInstaller } from "./trainerFieldConditions";
 import { getDebugSaveFlagStatus, installDebugSaveFlag, parseDebugSaveFlag } from "../pokeweb/debugSaveFlagModel";
@@ -78,8 +79,6 @@ import { getStandaloneStreamConfigs, type ProjectState } from "../pokeweb/projec
 import { escapeHtml } from "./dom";
 
 const codeInjectionHydrationProjects = new WeakSet<ProjectState>();
-const typeIconLettersPreview = new URL("../assets/codeinjection/type-icons-letters-preview.png", import.meta.url).href;
-const typeIconCircularPreview = new URL("../assets/codeinjection/type-icons-circular-preview.png", import.meta.url).href;
 const typeIconSolidPreview = new URL("../assets/codeinjection/type-icons-solid-preview.png", import.meta.url).href;
 const summaryTypeIconsPreview = new URL("../assets/codeinjection/summary-type-icons-preview.png", import.meta.url).href;
 const codeInjectionTabs = [
@@ -93,6 +92,7 @@ type CodeInjectionTab = (typeof codeInjectionTabs)[number]["id"];
 const activeCodeInjectionTabs = new WeakMap<HTMLElement, CodeInjectionTab>();
 const showUnsupportedCodeInjectionPatches = new WeakMap<ProjectState, boolean>();
 
+const pendingTypeIcons = new WeakMap<ProjectState, { variant: TypeIconVariant; borderColor: string }>();
 const pendingCandyItemIds = new WeakMap<ProjectState, number>();
 
 export function renderCodeInjectionEditor(project: ProjectState, root: HTMLElement, onDirty: () => void): void {
@@ -143,6 +143,10 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const saveMenuSettings = getSaveMenuSettings(project);
   const standaloneSongs = getStandaloneStreamConfigs(project);
   const battleHudStatus = getBattleTypeHudStatus(project);
+  const typeIconSettings = pendingTypeIcons.get(project) ?? {
+    variant: battleHudStatus.iconVariant ?? "letters",
+    borderColor: battleHudStatus.borderColor ?? (project.session.baseRom === "BW" ? DEFAULT_BW1_TYPE_ICON_BORDER : DEFAULT_TYPE_ICON_BORDER),
+  };
   const moveEffectivenessStatus = getMoveEffectivenessStatus(project);
   const moveColors = moveEffectivenessStatus.colors ?? DEFAULT_MOVE_HIGHLIGHT_COLORS;
   const portaPcCanInstall = portaPcStatus.supported && portaPcStatus.compatible
@@ -190,29 +194,13 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           </div>
           ${card.id === "battle-hud" ? `<div class="type-icon-variant-picker">
             <div class="code-injection-facts"><div><span>Graphics profile</span><strong>${battleHudStatus.graphicsProfile === "redux" ? "Redux" : "Original"}</strong></div></div>
-            <div class="type-icon-variant-previews" aria-label="Type icon variation previews">
-              <figure class="type-icon-variant-preview ${(battleHudStatus.iconVariant ?? "letters") === "letters" ? "is-selected" : ""}" data-type-icon-variant-card="letters">
-                <figcaption>Hexagonal letters</figcaption>
-                <img src="${typeIconLettersPreview}" alt="All 18 lettered hexagonal type icons" loading="lazy">
-              </figure>
-              <figure class="type-icon-variant-preview ${battleHudStatus.iconVariant === "circular" ? "is-selected" : ""}" data-type-icon-variant-card="circular">
-                <figcaption>Circular icons</figcaption>
-                <img src="${typeIconCircularPreview}" alt="All 18 circular symbol type icons" loading="lazy">
-              </figure>
-              <figure class="type-icon-variant-preview ${battleHudStatus.iconVariant === "solid" ? "is-selected" : ""}" data-type-icon-variant-card="solid">
-                <figcaption>Angular HUD wedges</figcaption>
-                <img src="${typeIconSolidPreview}" alt="Angular dual-type HUD wedge examples" loading="lazy">
-              </figure>
+            <div class="type-icon-variant-previews" role="group" aria-label="Type icon style">
+              ${([['letters', 'Hexagonal letters'], ['circular', 'Circular icons'], ['solid', 'Angular HUD wedges']] as const).map(([variant, label]) => `<button type="button" class="type-icon-variant-preview ${typeIconSettings.variant === variant ? "is-selected" : ""}" data-type-icon-variant-card="${variant}" aria-pressed="${typeIconSettings.variant === variant}">
+                <span class="type-icon-variant-caption">${label}</span>
+                <img src="${variant === "solid" ? typeIconSolidPreview : typeIconPreview(variant, typeIconSettings.borderColor)}" alt="${variant === "solid" ? "Angular dual-type HUD wedge examples" : `All 18 ${variant === "letters" ? "lettered hexagonal" : "circular symbol"} type icons`}" loading="lazy">
+              </button>`).join("")}
             </div>
-            <label class="type-icon-variant-toggle">
-              <span>Icon style</span>
-              <select id="type-icon-variant" aria-label="Type icon style">
-                <option value="letters" ${(battleHudStatus.iconVariant ?? "letters") === "letters" ? "selected" : ""}>Hexagonal letters</option>
-                <option value="circular" ${battleHudStatus.iconVariant === "circular" ? "selected" : ""}>Circular icons</option>
-                <option value="solid" ${battleHudStatus.iconVariant === "solid" ? "selected" : ""}>Angular HUD wedges</option>
-              </select>
-            </label>
-            <p class="code-injection-note">Angular wedges fit the HUD's left face while retaining its lower shadow. Monotypes use the dark summary-label shade at their edges; dual types use black-and-color shading so the native HP-bar palette stays intact. Dual types keep a raised black divider; monotypes remain continuous. Reinstalling replaces the active Type Icons DLL in place.</p>
+            <label class="type-icon-border-color" ${typeIconSettings.variant === "solid" ? "hidden" : ""}><span>Border color</span><input id="type-icon-border-color" type="color" value="${escapeHtml(typeIconSettings.borderColor)}" aria-label="Type icon border color"></label>
           </div>` : ""}
           ${card.id === "move-effectiveness" ? `<div class="code-injection-facts">
             ${([
@@ -1321,8 +1309,8 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               .map(input => [input.dataset.moveHighlightColor!, input.value])) as MoveHighlightColors;
             await install(candidate => installMoveEffectiveness(candidate, colors));
           } else if (id === "battle-hud" && verb === "install") {
-            const variant = (root.querySelector<HTMLSelectElement>("#type-icon-variant")?.value ?? "letters") as TypeIconVariant;
-            await install(candidate => installBattleTypeHud(candidate, variant));
+            await install(candidate => installBattleTypeHud(candidate, typeIconSettings.variant, typeIconSettings.variant === "solid" ? undefined : typeIconSettings.borderColor));
+            pendingTypeIcons.delete(project);
           } else await action(project);
           onDirty(); renderCodeInjectionEditor(project, root, onDirty);
         }
@@ -1330,15 +1318,33 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       });
     }
   }
-  const typeIconVariant = root.querySelector<HTMLSelectElement>("#type-icon-variant");
-  const updateTypeIconPreviewSelection = () => {
-    const selected = (typeIconVariant?.value ?? "letters") as TypeIconVariant;
+  const borderInput = root.querySelector<HTMLInputElement>("#type-icon-border-color");
+  const updateTypeIconSelection = () => {
     root.querySelectorAll<HTMLElement>("[data-type-icon-variant-card]").forEach(card => {
-      card.classList.toggle("is-selected", card.dataset.typeIconVariantCard === selected);
+      const selected = card.dataset.typeIconVariantCard === typeIconSettings.variant;
+      card.classList.toggle("is-selected", selected);
+      card.setAttribute("aria-pressed", String(selected));
     });
+    const picker = root.querySelector<HTMLElement>(".type-icon-border-color");
+    if (picker) picker.hidden = typeIconSettings.variant === "solid";
   };
-  typeIconVariant?.addEventListener("change", updateTypeIconPreviewSelection);
-  updateTypeIconPreviewSelection();
+  root.querySelectorAll<HTMLButtonElement>("[data-type-icon-variant-card]").forEach(card => {
+    card.addEventListener("click", () => {
+      typeIconSettings.variant = card.dataset.typeIconVariantCard as TypeIconVariant;
+      pendingTypeIcons.set(project, typeIconSettings); updateTypeIconSelection();
+    });
+  });
+  borderInput?.addEventListener("input", () => {
+    typeIconSettings.borderColor = borderInput.value;
+    pendingTypeIcons.set(project, typeIconSettings);
+    root.querySelectorAll<HTMLElement>("[data-type-icon-variant-card]").forEach(card => {
+      const variant = card.dataset.typeIconVariantCard;
+      if (variant === "letters" || variant === "circular") {
+        const image = card.querySelector<HTMLImageElement>("img");
+        if (image) image.src = typeIconPreview(variant, typeIconSettings.borderColor);
+      }
+    });
+  });
   root.querySelectorAll<HTMLInputElement>("[data-move-highlight-color]").forEach(input => {
     input.addEventListener("input", () => {
       const sample = root.querySelector<HTMLElement>(`[data-move-highlight-sample="${input.dataset.moveHighlightColor}"]`);

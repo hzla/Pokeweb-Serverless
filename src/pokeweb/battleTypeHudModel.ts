@@ -1,4 +1,7 @@
 import manifestData from "../assets/codeinjection/battleTypeHudManifest.json";
+import borderManifest from "../assets/codeinjection/typeIconBorderManifest.json";
+import { addTypeIconBorder, stripTypeIconBorder, typeIconBorderChange } from "./typeIconBorderResources";
+import { typeIconBorderRgb555, typeIconBorderHex, DEFAULT_TYPE_ICON_BORDER, DEFAULT_BW1_TYPE_ICON_BORDER } from "./typeIconAppearance";
 import reduxManifest from "../assets/codeinjection/battleTypeHudReduxManifest.json";
 import { readU32, writeU16 } from "../nds/binary";
 import { loadOverlayTable } from "../nds/code";
@@ -35,6 +38,10 @@ const ICON_URLS = {
   circular: { B2: new URL("../assets/codeinjection/TypeIconsCircularB2.dll", import.meta.url), W2: new URL("../assets/codeinjection/TypeIconsCircularW2.dll", import.meta.url), B: new URL("../assets/codeinjection/TypeIconsCircularB.dll", import.meta.url), W: new URL("../assets/codeinjection/TypeIconsCircularW.dll", import.meta.url) },
   solid: { B2: new URL("../assets/codeinjection/TypeIconsSolidB2.dll", import.meta.url), W2: new URL("../assets/codeinjection/TypeIconsSolidW2.dll", import.meta.url), B: new URL("../assets/codeinjection/TypeIconsSolidB.dll", import.meta.url), W: new URL("../assets/codeinjection/TypeIconsSolidW.dll", import.meta.url) },
 };
+const BORDER_URLS = {
+  B2: { letters: new URL("../assets/codeinjection/TypeIconsBorderB2.dll", import.meta.url), circular: new URL("../assets/codeinjection/TypeIconsBorderCircularB2.dll", import.meta.url) },
+  W2: { letters: new URL("../assets/codeinjection/TypeIconsBorderW2.dll", import.meta.url), circular: new URL("../assets/codeinjection/TypeIconsBorderCircularW2.dll", import.meta.url), "letters-redux": new URL("../assets/codeinjection/TypeIconsBorderReduxW2.dll", import.meta.url), "circular-redux": new URL("../assets/codeinjection/TypeIconsBorderCircularReduxW2.dll", import.meta.url) },
+};
 const REDUX_ICON_URLS = {
   letters: new URL("../assets/codeinjection/TypeIconsReduxW2.dll", import.meta.url),
   circular: new URL("../assets/codeinjection/TypeIconsCircularReduxW2.dll", import.meta.url),
@@ -57,7 +64,7 @@ function hasReduxGraphics(project: ProjectState, rom: NintendoDSRom): boolean {
       const packed = archive.files[Number(member)];
       if (!packed) return false;
       const raw = packed[0] === 0x10 || packed[0] === 0x11 ? decompressNitro(packed) : packed;
-      const digest = fingerprint(raw);
+      const digest = fingerprint(stripTypeIconBorder(raw, member, true));
       return digest === resource.nativeFingerprint || digest === resource.expandedFingerprint;
     });
   } catch { return false; }
@@ -80,9 +87,16 @@ function readColors(code: Uint8Array, offset: number): MoveHighlightColors {
     return [key, `#${rgb.join("")}`];
   })) as MoveHighlightColors;
 }
-type ConfigurableBuild = { colorOffset?: number; bssSize?: number };
+type ConfigurableBuild = { colorOffset?: number; borderColorOffset?: number; bssSize?: number };
 function matchesCode(rpm: RpmModule, build: ConfigurableBuild & { codeHex: string }): boolean {
   if (build.bssSize !== undefined && rpm.bssSize !== build.bssSize) return false;
+  if (build.borderColorOffset !== undefined) {
+    const at = build.borderColorOffset;
+    if (at < 0 || at + 4 > rpm.code.length || readU32(rpm.code, at) > 0x7fff) return false;
+    const code = hex(rpm.code);
+    return code.length === build.codeHex.length && code.slice(0, at * 2) === build.codeHex.slice(0, at * 2)
+      && code.slice((at + 4) * 2) === build.codeHex.slice((at + 4) * 2);
+  }
   if (build.colorOffset === undefined) return hex(rpm.code) === build.codeHex;
   const offset = build.colorOffset;
   if (offset < 0 || offset + 6 > rpm.code.length || COLOR_KEYS.some((_, i) => (rpm.code[offset + i * 2 + 1]! & 0x80) !== 0)) return false;
@@ -94,17 +108,23 @@ function matchesCode(rpm: RpmModule, build: ConfigurableBuild & { codeHex: strin
 }
 export type BattleTypeHudStatus = { supported: boolean; compatible: boolean; checked: boolean; installed: boolean;
   updateAvailable: boolean; canUninstall: boolean; pmcInstalled: boolean; message: string; dllPath?: string; legacyCombined?: boolean;
-  colors?: MoveHighlightColors; iconVariant?: TypeIconVariant; graphicsProfile?: "retail" | "redux" };
+  borderColor?: string; colors?: MoveHighlightColors; iconVariant?: TypeIconVariant; graphicsProfile?: "retail" | "redux" };
 const hex = (bytes: Uint8Array) => Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
 const hash = async (bytes: Uint8Array) => hex(new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array(bytes))));
 function hookSize(rpm: RpmModule, r: RpmModule["relocations"][number]) {
   return r.target.type === "FULL_COPY" ? rpm.symbols[r.sourceSymbolIndex]?.size ?? 0
     : ["OFFSET", "OFFSET_REL31", "THUMB_BRANCH_LINK", "ARM_BRANCH_LINK", "ARM_BRANCH"].includes(r.target.type) ? 4 : 32;
 }
+function borderBuilds(version: Version): Record<string, Build> {
+  if (version === "B" || version === "W") return Object.fromEntries(Object.entries(manifest.games[version].builds).map(([key, value]) =>
+    [key, { ...value, borderColorOffset: borderManifest.bw1[version][key as keyof typeof borderManifest.bw1.B] }]));
+  return Object.fromEntries(Object.values(borderManifest.games[version].variants).map(value => [value.version, value.build as unknown as Build]));
+}
 function knownBuild(rpm: RpmModule, version: Version, kind: Component): string | undefined {
   if (rpm.metadata.PMCGameID !== version || rpm.symbols.some(s => s.attributes & 2)) return;
-  const builds = kind === "icons" && version === "W2" ? { ...profileFor(version, kind)?.builds, ...reduxManifest.games.W2.builds as unknown as Record<string, Build> }
+  const ordinary = kind === "icons" && version === "W2" ? { ...profileFor(version, kind)?.builds, ...reduxManifest.games.W2.builds as unknown as Record<string, Build> }
     : profileFor(version, kind)?.builds;
+  const builds = kind === "icons" ? { ...ordinary, ...borderBuilds(version) } : ordinary;
   if (!builds || ((version === "B" || version === "W") && (rpm.metadata.PMCModulePriority !== 3 || rpm.baseAddress !== 0))) return;
   return Object.entries(builds).find(([v, build]) => rpm.metadata.PMCVersion === v && matchesCode(rpm, build)
     && rpm.relocations.length === build.relocations.length && build.relocations.every(r => rpm.relocations.filter(actual => {
@@ -115,6 +135,10 @@ function knownBuild(rpm: RpmModule, version: Version, kind: Component): string |
 }
 function iconVariantForBuild(version: Version, build: string): TypeIconVariant | undefined {
   const variants = manifest.games[version].variants;
+  if (version === "B2" || version === "W2") {
+    const border = Object.entries(borderManifest.games[version].variants).find(([, value]) => value.version === build);
+    if (border) return border[0].startsWith("letters") ? "letters" : "circular";
+  }
   if (version === "W2") {
     const reduxVariant = (Object.entries(reduxManifest.games.W2.variants) as [TypeIconVariant, { version: string }][]).find(([, value]) => value.version === build);
     if (reduxVariant) return reduxVariant[0];
@@ -143,6 +167,7 @@ function getStatus(project: ProjectState, kind: Component, bytes = project.origi
   status.supported = true;
   if (kind === "icons") status.graphicsProfile = v === "W2" && rom && hasReduxGraphics(project, rom) ? "redux" : "retail";
   const variants = status.graphicsProfile === "redux" ? reduxManifest.games.W2.variants : manifest.games[v].variants;
+  let customBorder = false;
   for (const entry of listCodeInjectionDlls(project)) {
     const added = Object.keys(project.fileSystem?.additions ?? {}).find(p => p.toLowerCase() === entry.path.toLowerCase());
     const id = rom?.filenames.idOf(entry.path);
@@ -157,9 +182,13 @@ function getStatus(project: ProjectState, kind: Component, bytes = project.origi
     if (build) {
       if (status.installed) return { ...status, message: "Multiple Battle HUD DLLs are present. Remove the duplicate before installing." };
       status.installed = true; status.dllPath = entry.path; status.legacyCombined = iconBuild === "0.2.0";
-      if (kind === "icons" && iconBuild) status.iconVariant = iconVariantForBuild(v, iconBuild);
+      if (kind === "icons" && iconBuild) {
+        status.iconVariant = iconVariantForBuild(v, iconBuild);
+        const at = borderBuilds(v)[iconBuild]?.borderColorOffset;
+        if (at !== undefined) { status.borderColor = typeIconBorderHex(readU32(rpm.code, at)); customBorder = v === "B2" || v === "W2"; }
+      }
       status.updateAvailable = kind === "icons"
-        ? !Object.values(variants).some(variant => variant.version === build)
+        ? !Object.values(variants).some(variant => variant.version === build) && !Object.hasOwn(borderBuilds(v), build)
         : build !== profile.version;
       status.canUninstall = !status.legacyCombined && canRemoveStagedCodeInjectionDll(project, entry.path);
       if (kind === "icons" && v === "W2" && Object.hasOwn(reduxManifest.games.W2.builds, build) && status.graphicsProfile !== "redux") {
@@ -183,7 +212,7 @@ function getStatus(project: ProjectState, kind: Component, bytes = project.origi
     try {
       const overlays = loadOverlayTable(project.patches?.arm9OverlayTable ?? rom.arm9OverlayTable,
         (_id, fileId) => getRomFileBytes(project, rom!, fileId), new Set([...profile.signatures.map(s => s.segment), profile.overlay_id].filter(id => id !== 0)));
-      const checks = [...profile.signatures, ...profile.hooks.map(h => ({ ...h, segment: profile.overlay_id }))];
+      const checks = [...profile.signatures, ...(customBorder ? borderManifest.games[v as "B2" | "W2"].signatures : []), ...profile.hooks.map(h => ({ ...h, segment: profile.overlay_id }))];
       for (const s of checks) {
         const overlay = overlays.get(s.segment);
         const base = s.segment === 0 ? rom.arm9RamAddress : overlay?.ramAddress ?? 0;
@@ -205,7 +234,8 @@ function getStatus(project: ProjectState, kind: Component, bytes = project.origi
       : `${title(kind)} installs independently. PMC is installed automatically if needed.`;
   return status;
 }
-async function installHud(project: ProjectState, kind: Component, colors?: MoveHighlightColors, iconVariant: TypeIconVariant = "letters") {
+async function installHud(project: ProjectState, kind: Component, colors?: MoveHighlightColors, iconVariant: TypeIconVariant = "letters", borderColor?: string) {
+  if (borderColor !== undefined) typeIconBorderRgb555(borderColor);
   const chosenColors = colors ? COLOR_KEYS.map(key => moveHighlightRgb555(colors[key])) : undefined;
   const bytes = project.originalRomBytes ?? await loadActiveRomBytes();
   if (!bytes) throw new Error("Reload the ROM before installing Battle HUD.");
@@ -214,6 +244,17 @@ async function installHud(project: ProjectState, kind: Component, colors?: MoveH
   const v = project.session.baseVersion as Version; const profile = profileFor(v, kind)!;
   const redux = kind === "icons" && status.graphicsProfile === "redux";
   const variants = redux ? reduxManifest.games.W2.variants : manifest.games[v].variants;
+  const selectedBorder = iconVariant === "solid" ? undefined : borderColor ?? status.borderColor;
+  const borderKey = iconVariant + (redux ? "-redux" : "");
+  const extra = kind === "icons" && selectedBorder !== undefined && (v === "B2" || v === "W2")
+    ? borderManifest.games[v].variants[borderKey as keyof typeof borderManifest.games.W2.variants] : undefined;
+  if (extra) {
+    const rom = new NintendoDSRom(bytes), arm = project.arm9.length ? project.arm9 : decompressCode(rom.arm9);
+    for (const signature of borderManifest.games[v as "B2" | "W2"].signatures) {
+      const at = signature.address - rom.arm9RamAddress;
+      if (hex(arm.subarray(at, at + signature.bytes.length / 2)) !== signature.bytes) throw new Error(`Type icon border compatibility failed at ${signature.name}.`);
+    }
+  }
   const panelEdits: { fileId: number; member: number; bytes: Uint8Array }[] = [];
   // Check native assets and the new DLL before staging PMC or changing files.
   if (Object.keys(profile.resources).length) {
@@ -223,7 +264,8 @@ async function installHud(project: ProjectState, kind: Component, colors?: MoveH
     for (const [member, expected] of Object.entries(profile.resources)) {
       const packed = archive.files[Number(member)];
       if (!packed) throw new Error(`Unsupported Battle HUD graphics/palette member ${member}.`);
-      const raw = packed[0] === 0x10 || packed[0] === 0x11 ? decompressNitro(packed) : packed;
+      const packedRaw = packed[0] === 0x10 || packed[0] === 0x11 ? decompressNitro(packed) : packed;
+      const raw = (v === "B2" || v === "W2") ? stripTypeIconBorder(packedRaw, member, redux) : packedRaw;
       const digest = await hash(raw);
       const key = member as keyof typeof battleTypeHudPanelExpansion;
       const reduxChange = reduxManifest.panelExpansion[key as keyof typeof reduxManifest.panelExpansion];
@@ -234,24 +276,40 @@ async function installHud(project: ProjectState, kind: Component, colors?: MoveH
       const accepted = redux ? digest === reduxResources[member]?.nativeSha256 || digest === reduxResources[member]?.expandedSha256
         : digest === expected || digest === expansion?.patchedSha256 || battleTypeHudPanelExpansion[key]?.previous.some(v => v.patchedSha256 === digest) || isLocalized;
       if (!accepted) throw new Error(`Unsupported Battle HUD graphics/palette member ${member}.`);
+      let desired = raw;
       if (expansion && digest !== expandedHash) {
         const expanded = transformBattleTypeHudPanel(raw, key, false, expansion);
         if (await hash(expanded) !== expandedHash) throw new Error(`Type Icons panel expansion failed verification for member ${member}.`);
-        panelEdits.push({ fileId: id, member: Number(member), bytes: expanded });
+        desired = expanded;
       }
+      if (extra) {
+        desired = addTypeIconBorder(desired, member, redux);
+        const change = typeIconBorderChange(member, redux);
+        if (change && await hash(desired) !== change.patchedSha256) throw new Error(`Type icon border graphics failed verification for member ${member}.`);
+      }
+      if (hex(desired) !== hex(packedRaw)) panelEdits.push({ fileId: id, member: Number(member), bytes: desired });
     }
   }
   if (await hash(bytes) === "8279bed45bde3d0f9e0309d29d4246fd695a5c5d6fa55346c401c0bbc7043b50") {
     throw new Error("This Cascade build has insufficient PMC space. Use a non-Cascade ROM or the creator's optimized build.");
   }
-  const assetUrl = kind === "icons" ? redux ? REDUX_ICON_URLS[iconVariant] : ICON_URLS[iconVariant][v] : URLS.moves[v];
+  const assetUrl = extra ? BORDER_URLS[v as "B2" | "W2"][borderKey as keyof typeof BORDER_URLS.W2] : kind === "icons" ? redux ? REDUX_ICON_URLS[iconVariant] : ICON_URLS[iconVariant][v] : URLS.moves[v];
   if (!assetUrl) throw new Error(`No ${title(kind)} build is available for ${v}.`);
   const response = await fetch(assetUrl);
   if (!response.ok) throw new Error(`Could not load Battle HUD (${response.status}).`);
   const dll = new Uint8Array(await response.arrayBuffer());
-  const expectedVersion = kind === "icons" ? variants[iconVariant].version : profile.version;
-  const expectedHash = kind === "icons" ? variants[iconVariant].dllSha256 : profile.dllSha256;
+  const expectedVersion = extra?.version ?? (kind === "icons" ? variants[iconVariant].version : profile.version);
+  const expectedHash = extra?.dllSha256 ?? (kind === "icons" ? variants[iconVariant].dllSha256 : profile.dllSha256);
   if (await hash(dll) !== expectedHash || knownBuild(parseRpm(dll, { allowedMagics: ["DLXF"] }), v, kind) !== expectedVersion) throw new Error("The bundled Battle HUD DLL failed verification.");
+  if (kind === "icons" && selectedBorder !== undefined) {
+    const build = borderBuilds(v)[expectedVersion];
+    if (build?.borderColorOffset === undefined) throw new Error("This icon style has no configurable border.");
+    const header = readU32(dll, 8), info = header + readU32(dll, header + 8);
+    const at = readU32(dll, info + 16) + build.borderColorOffset;
+    const color = typeIconBorderRgb555(selectedBorder);
+    writeU16(dll, at, color); writeU16(dll, at + 2, 0);
+    if (knownBuild(parseRpm(dll, { allowedMagics: ["DLXF"] }), v, kind) !== expectedVersion) throw new Error("The customized type-icon DLL failed verification.");
+  }
   if (kind === "moves") {
     const build = (profile.builds as Record<string, ConfigurableBuild>)[profile.version];
     if (build?.colorOffset === undefined) throw new Error("This move-preview build has no verified color table.");
@@ -290,10 +348,14 @@ function uninstallHud(project: ProjectState, kind: Component): void {
     const changes = status.graphicsProfile === "redux" ? reduxManifest.panelExpansion : battleTypeHudPanelExpansion;
     for (const member of Object.keys(profile!.resources) as (keyof typeof battleTypeHudPanelExpansion)[]) {
       const change = changes[member as keyof typeof changes];
-      if (!change) continue;
       const packed = archive.files[Number(member)];
       if (!packed) continue;
-      const raw = packed[0] === 0x10 || packed[0] === 0x11 ? decompressNitro(packed) : packed;
+      const packedRaw = packed[0] === 0x10 || packed[0] === 0x11 ? decompressNitro(packed) : packed;
+      const raw = stripTypeIconBorder(packedRaw, String(member), status.graphicsProfile === "redux");
+      if (!change) {
+        if (hex(raw) !== hex(packedRaw)) restored.push({ member: Number(member), bytes: raw });
+        continue;
+      }
       // Original resources require no restoration (including earlier DLLs).
       const changed = change.edits[0]!;
       if (hex(raw.subarray(changed.offset, changed.offset + changed.new.length / 2)) !== changed.new) continue;
@@ -307,7 +369,7 @@ function uninstallHud(project: ProjectState, kind: Component): void {
 
 export const getBattleTypeHudStatus = (project: ProjectState, bytes = project.originalRomBytes) => getStatus(project, "icons", bytes);
 export const getMoveEffectivenessStatus = (project: ProjectState, bytes = project.originalRomBytes) => getStatus(project, "moves", bytes);
-export const installBattleTypeHud = (project: ProjectState, variant: TypeIconVariant = "letters") => installHud(project, "icons", undefined, variant);
+export const installBattleTypeHud = (project: ProjectState, variant: TypeIconVariant = "letters", borderColor?: string) => installHud(project, "icons", undefined, variant, borderColor);
 export const installMoveEffectiveness = (project: ProjectState, colors?: MoveHighlightColors) => installHud(project, "moves", colors);
 export const uninstallBattleTypeHud = (project: ProjectState) => uninstallHud(project, "icons");
 export const uninstallMoveEffectiveness = (project: ProjectState) => uninstallHud(project, "moves");

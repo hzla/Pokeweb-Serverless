@@ -59,6 +59,7 @@ Check each guide for its supported games and revisions. Browser previews and str
 
 ## ROM compatibility and data tools
 
+- [Validate core Gen 5 data NARCs](rom-data-validation.md)
 - [Repair DSi metadata with a matching clean donor](dsi-rom-repair.md)
 - [Frost export compatibility and large-ROM editing](frost-compatibility.md)
 - [Calculator item names and catalog updates](calc-item-names.md)

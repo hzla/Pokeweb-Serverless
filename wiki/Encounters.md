@@ -66,6 +66,10 @@ The Encounter editor edits wild Pokemon tables. Gen 5 stores separate seasonal t
 
 Slot percentages are fixed by encounter method. To make a Pokemon more common, place it in a higher-percentage slot or repeat it in multiple slots. Encounter Rate controls whether an encounter happens at all; slot percentage controls which Pokemon is chosen after an encounter starts.
 
+BW2 habitat sync uses the native habitat order, including Moor of Icirrus at entry 46 and Icirrus City at entry 52. Both Desert Resort pools belong to Desert Resort. Sync includes only enabled encounter methods and computes seasonal flags separately for land, surfing, and fishing. If a habitat exceeds the 30-species limit or required data is missing, sync stops without changing any habitat entries. These assignments assume the standard BW2 encounter pool IDs.
+
+For a local ROM check, run `node_modules/.bin/vite-node scripts/verify-habitat-sync.ts ROM.nds`. This checks the corrected pool assignments, NARC serialization, and repeat-sync stability without changing the ROM. Optional `--output NEW.nds` creates a separate ROM, verifies that other NitroFS payloads and ARM code are unchanged, and refuses to overwrite an existing file.
+
 ## Related Pages
 
 - [Headers](Headers)

@@ -91,7 +91,7 @@ const GEN4_SPECIES_ONLY_FIELDS = new Set<EncounterKind>([
 ]);
 const BW2_HABITAT_NARC_PATH = "a/2/9/6";
 const BW2_HABITAT_ENCOUNTER_POOLS: readonly number[][] = [
-  [104, 105, 10],
+  [104, 105], // Route 4; pool 10 belongs to Desert Resort.
   [124],
   [134],
   [84, 85, 86],
@@ -99,8 +99,8 @@ const BW2_HABITAT_ENCOUNTER_POOLS: readonly number[][] = [
   [97],
   [27, 28, 29, 30],
   [81, 82, 83],
-  [125],
-  [106],
+  [125], // Route 16 (native habitat 8).
+  [106], // Route 5 (native habitat 9).
   [98],
   [123],
   [132],
@@ -132,18 +132,18 @@ const BW2_HABITAT_ENCOUNTER_POOLS: readonly number[][] = [
   [6, 7],
   [112, 113, 114, 115],
   [130],
-  [11],
+  [10, 11], // Desert Resort entrance and interior.
   [119],
   [133],
   [99],
   [131],
-  [2],
+  [117], // Moor of Icirrus (habitat 46; the native list order differs from encounter order).
   [120],
   [100],
   [108, 109],
   [121],
   [101],
-  [117],
+  [2], // Icirrus City (habitat 52).
   [96],
   [93, 94],
   [126],
@@ -339,14 +339,19 @@ export async function syncEncountersToDexHabitats(project: ProjectState): Promis
   const store = project.narcs.habitats;
   if (!store) throw new Error("Dex Habitat NARC is not loaded.");
 
+  // Prepare every file before changing the archive so a failed sync cannot
+  // leave a mixture of old and new habitat lists.
+  const syncedFiles = BW2_HABITAT_ENCOUNTER_POOLS.map((pools, habitatId) => {
+    const existing = store.rawFiles[habitatId];
+    if (!existing || existing.length < 10) throw new Error(`Dex habitat ${habitatId} has a missing or incomplete header.`);
+    return buildHabitatFile(project, existing, pools, habitatId);
+  });
   let totalSpecies = 0;
-  for (let habitatId = 0; habitatId < BW2_HABITAT_ENCOUNTER_POOLS.length; habitatId += 1) {
-    const existing = store.rawFiles[habitatId] ?? new Uint8Array(10);
-    const synced = buildHabitatFile(project, existing, BW2_HABITAT_ENCOUNTER_POOLS[habitatId]);
+  syncedFiles.forEach((synced, habitatId) => {
     store.rawFiles[habitatId] = synced.bytes;
     store.dirty.add(habitatId);
     totalSpecies += synced.speciesCount;
-  }
+  });
   store.fileCount = Math.max(store.fileCount, BW2_HABITAT_ENCOUNTER_POOLS.length);
   store.records.clear();
   recordGenericChange(project, "habitats", `Dex habitats synced from encounters (${totalSpecies} species across ${BW2_HABITAT_ENCOUNTER_POOLS.length} habitats).`, "Dex habitats", {
@@ -474,24 +479,30 @@ async function ensureDexHabitatStore(project: ProjectState): Promise<void> {
   project.narcs.habitats = createNarcStore("habitats", BW2_HABITAT_NARC_PATH, fileId, new NARC(rom.files[fileId]));
 }
 
-function buildHabitatFile(project: ProjectState, existing: Uint8Array, pools: readonly number[]): { bytes: Uint8Array; speciesCount: number } {
+function buildHabitatFile(project: ProjectState, existing: Uint8Array, pools: readonly number[], habitatId: number): { bytes: Uint8Array; speciesCount: number } {
   const speciesFlags = new Map<number, Uint8Array>();
-  let hasSeasonalDifferences = false;
   for (const pool of pools) {
-    if (pool < 0 || pool >= getEncounterCount(project)) continue;
+    if (pool < 0 || pool >= getEncounterCount(project)) throw new Error(`Dex habitat ${habitatId} requires missing encounter pool ${pool}.`);
+    const bytes = project.narcs.encounters!.rawFiles[pool];
+    if (!bytes || (bytes.length !== 232 && bytes.length !== 928)) {
+      throw new Error(`Dex habitat ${habitatId} requires a complete encounter pool ${pool} (232 or 928 bytes).`);
+    }
     const record = decodeRecord(project, "encounters", pool);
-    if (!record.raw || !record.readable) continue;
-    syncEncounterReadable(project, record.raw, record.readable);
+    if (!record.raw) throw new Error(`Unable to decode encounter pool ${pool} for Dex habitat ${habitatId}.`);
     collectHabitatSpecies(record.raw, speciesFlags);
-    if (encounterHasSeasonalDifferences(record.raw)) hasSeasonalDifferences = true;
   }
 
-  const entries = [...speciesFlags.entries()].slice(0, 30);
-  const header = new Uint8Array(10);
-  header.set(existing.subarray(0, Math.min(10, existing.length)));
-  header[0] = hasSeasonalDifferences ? 1 : 0;
-  header[1] = hasSeasonalDifferences ? 1 : 0;
-  header[2] = hasSeasonalDifferences ? 1 : 0;
+  if (speciesFlags.size > 30) {
+    throw new Error(`Dex habitat ${habitatId} contains ${speciesFlags.size} species; the habitat list supports at most 30. No habitats were changed.`);
+  }
+  const entries = [...speciesFlags.entries()].sort(([a], [b]) => a - b);
+  const header = existing.slice(0, 10);
+  for (let method = 0; method < 3; method += 1) {
+    // Seasonality belongs to the combined species list for each method,
+    // not to slot order, levels, forms, or the existence of seasonal tables.
+    header[method] = entries.some(([, flags]) => ENCOUNTER_SEASONS.some((_, season) => flags[season * 3 + method] !== flags[method])) ? 1 : 0;
+    header[method + 3] = entries.some(([, flags]) => ENCOUNTER_SEASONS.some((_, season) => flags[season * 3 + method] !== 0)) ? 1 : 0;
+  }
   writeU16(header, 8, entries.length);
 
   const out = new Uint8Array(10 + entries.length * 28);
@@ -524,6 +535,7 @@ function addHabitatSpecies(
   slotCount: number,
   flagIndex: number,
 ): void {
+  if (Number(raw[`${season}_${kind}_rate`] ?? 0) <= 0) return;
   for (let slot = 0; slot < slotCount; slot += 1) {
     const species = Number(raw[`${season}_${kind}_slot_${slot}`] ?? 0) % 2048;
     if (species <= 0) continue;
@@ -531,25 +543,6 @@ function addHabitatSpecies(
     flags[flagIndex] = 1;
     speciesFlags.set(species, flags);
   }
-}
-
-function encounterHasSeasonalDifferences(raw: RawRecord): boolean {
-  for (const season of ENCOUNTER_SEASONS) {
-    if (season === "spring") continue;
-    for (const kind of [...ENCOUNTER_GRASS_FIELDS, ...ENCOUNTER_WATER_FIELDS]) {
-      const slotCount = encounterSlotCount(kind);
-      for (let slot = 0; slot < slotCount; slot += 1) {
-        const spring = speciesFromRaw(raw, `spring_${kind}_slot_${slot}`);
-        const seasonal = speciesFromRaw(raw, `${season}_${kind}_slot_${slot}`);
-        if (spring !== seasonal) return true;
-      }
-    }
-  }
-  return false;
-}
-
-function speciesFromRaw(raw: RawRecord, field: string): number {
-  return Number(raw[field] ?? 0) % 2048;
 }
 
 function addUniqueWild(wilds: string[], value: unknown): void {

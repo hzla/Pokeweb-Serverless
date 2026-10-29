@@ -36,6 +36,9 @@ extern "C" { HudState gBattleTypeHud; }
 static_assert(sizeof(HudState)==364, "maximum writable state is 384 bytes");
 
 namespace {
+#ifdef ICON_BORDER_CUSTOM
+unsigned borderBytes(const Record&);u16* borderAttrs(const Record&);bool borderPaint(const Record&);void borderHide(const Record&);void borderRelease(const Record&);
+#endif
 enum Failure { BadPointer=1, BadLayout, BadGraphics, BadPalette, SharedPalette, BadTypes };
 void fail(unsigned why) { if (!gBattleTypeHud.failure) gBattleTypeHud.failure=why; }
 void* panel(void* g, unsigned p) { return static_cast<u8*>(g)+0x40+0x84*p; }
@@ -399,8 +402,16 @@ bool expandedPanel(void* cell);
 bool enemyPanel(void* cell,unsigned layout) {
     void* data=field<void*>(cell,0xa4);
     const unsigned count=layout<2?2:3;
-    if(!ram(data)||field<u16>(data,0)!=count||field<u16>(data,2)!=(count==2?17:21)) return false;
+    if(!ram(data))return false;
+#ifdef ICON_BORDER_CUSTOM
+    if(field<u16>(data,0)!=count+1)return false;
+#else
+    if(field<u16>(data,0)!=count||field<u16>(data,2)!=(count==2?17:21))return false;
+#endif
     void* attrs=field<void*>(data,4);if(!ram(attrs)) return false;
+    #ifdef ICON_BORDER_CUSTOM
+    attrs=static_cast<u8*>(attrs)+6;
+#endif
     static constexpr u16 expected[9]={0x40f0,0xc1c0,0,0x40f0,0xc000,16,0x80f0,0x8040,32};
     for(unsigned i=0;i<count*3;++i) if(field<u16>(attrs,2*i)!=expected[i]) return false;
     return true;
@@ -420,9 +431,17 @@ bool expandedPanel(void* cell) {
     // installed cell before touching any appended graphics. A DLL installed
     // without its matching NCGR/NCER patch therefore fails closed.
     void* data=field<void*>(cell,0xa4);
-    if(!ram(data)||field<u16>(data,0)!=3||field<u16>(data,2)!=21) return false;
+    if(!ram(data))return false;
+#ifdef ICON_BORDER_CUSTOM
+    if(field<u16>(data,0)!=4)return false;
+#else
+    if(field<u16>(data,0)!=3||field<u16>(data,2)!=21)return false;
+#endif
     void* attrs=field<void*>(data,4);
     if(!ram(attrs)) return false;
+    #ifdef ICON_BORDER_CUSTOM
+    attrs=static_cast<u8*>(attrs)+6;
+#endif
     static constexpr u16 expected[9]={0x40f0,0xc1c0,0,0x40f0,0xc000,16,0x40f4,0x81bc,32};
     for(unsigned i=0;i<9;++i) if(field<u16>(attrs,2*i)!=expected[i]) return false;
     return true;
@@ -430,7 +449,14 @@ bool expandedPanel(void* cell) {
 void forget(Record& r) {
     // Never touch a freed/reallocated image. All normal teardown hooks arrive
     // before invalidation and therefore restore both pixels and palette.
-    if(r.gauge && r.valid && identity(r)) { restore(r);undoHeader(r);palette(r,true); }
+    if(r.gauge && r.valid && identity(r)) { restore(r);undoHeader(r);palette(r,true);
+#ifdef ICON_BORDER_CUSTOM
+        borderHide(r);
+#endif
+    }
+#ifdef ICON_BORDER_CUSTOM
+    borderRelease(r);
+#endif
     r.gauge=nullptr; r.valid=0; r.painted=0;
 }
 bool types(Record& r,u16& pair) {
@@ -494,8 +520,17 @@ bool attach(Record& r) {
     const u32 mode=*reinterpret_cast<volatile u32*>(0x04000000);
     if((mode&0x00300010)!=0x00100010 ||
        (*reinterpret_cast<volatile u8*>(0x04000244)&0x87)!=0x82 ||
-       (proxy[1]&31) || proxy[1]>0x10000-words(r)*2) {fail(BadGraphics);return false;}
+       (proxy[1]&31) || proxy[1]>0x10000-
+#ifdef ICON_BORDER_CUSTOM
+       borderBytes(r)-512
+#else
+       words(r)*2
+#endif
+       ) {fail(BadGraphics);return false;}
     r.graphics=reinterpret_cast<volatile u16*>(0x06400000+proxy[1]);
+#ifdef ICON_BORDER_CUSTOM
+    if(!borderAttrs(r)){fail(BadLayout);return false;}
+#endif
     if(!layoutBackground(r)) {fail(BadLayout);return false;}
     const unsigned pi=r.pos<2?r.pos:r.pos-2;
     const u32 id=field<u32>(r.gauge,0x18+pi*4);
@@ -542,7 +577,12 @@ void update(Record& r) {
         ||f->source[r.bank*16+15]!=(pair>>8==(pair&255)?BorderColors[pair&255]:Colors[pair&255]);
 #endif
     const u32 hash=checksum(r);
-    if(pair==r.types && hash==r.hash && r.painted==!r.status && (r.status || !paletteDirty)) return;
+    if(pair==r.types && hash==r.hash && r.painted==!r.status && (r.status || !paletteDirty)) {
+#ifdef ICON_BORDER_CUSTOM
+        if(!borderPaint(r)){fail(SharedPalette);forget(r);}
+#endif
+        return;
+    }
     if(((r.pos&1)||besideName(r))&&(r.background[22]&128)&&
        (nativeHeaderHash(r)&0xffffff)==savedHeaderHash(r)) {
         // A header-only reload can leave the icon pixels intact, while a full
@@ -567,12 +607,19 @@ void update(Record& r) {
                 if(c!=pixel(r,left+x,top+y)) pixel(r,left+x,top+y,c);
             }
     }
+    #ifdef ICON_BORDER_CUSTOM
+    if(!borderPaint(r)){fail(SharedPalette);forget(r);return;}
+#endif
     r.hash=checksum(r);++gBattleTypeHud.redraws;
 }
 void clear(void* g,unsigned p) {
     Record* r=record(p); if(r && r->gauge==g && r->pos==p) forget(*r);
 }
 }
+
+#ifdef ICON_BORDER_CUSTOM
+#include "icon_border.inc"
+#endif
 
 // Use native function pointers rather than ARM9/167 external relocations: PMC
 // unloads this module with overlay 168. Five Add arguments obey the Thumb ABI.
