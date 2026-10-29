@@ -2,7 +2,6 @@
   "format": 1,
   "acceptedOn": "2026-10-08",
   "scope": "DS-mode gameplay and visual checks in the bundled DS emulator; compiled DS/extended-memory checks are separate. Live DSi acceptance pending.",
-  "evidenceDocument": "BW1_UI_RELEASE.md",
   "components": {
     "summary-stat-viewer": {
       "dsChecks": [

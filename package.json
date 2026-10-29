@@ -121,7 +121,6 @@
     "following:verify-italy": "python3 runtime/following-pokemon/verify_italian_binary.py",
     "following:verify-italy-install": "vite-node scripts/verify-following-italy-install.ts",
     "following:verify-italy-upgrade": "vite-node scripts/verify-following-italy-upgrade.ts",
-    "following:docs-italy": "python3 runtime/following-pokemon/generate_italy_docs.py",
     "following:verify-fan-assets": "python3 runtime/following-pokemon/verify_fan_assets.py",
     "following:import-upgrade": "python3 runtime/following-pokemon/import_upgrade_assets.py",
     "following:verify-upgrade": "vite-node scripts/verify-following-white2upgrade.ts",

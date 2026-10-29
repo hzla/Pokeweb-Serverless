@@ -55,5 +55,4 @@ const source=Object.fromEntries(await Promise.all(paths.map(async p=>[p,sha(awai
 const evidence:Record<string,string>={};for(const out of directories)for(const name of(await readdir(out)).filter(p=>/\.json$|\.png$|\.log$/u.test(p)&&p!=="receipt.json"))evidence[`${relative(root,out)}/${name}`]=sha(await readFile(`${out}/${name}`));
 const summary={nativeCases:total,completedTurns:total*2,automatedTests,oneSharedAbilityDll:true,minimumObservedFree:minimum,cohorts};
 await writeFile(`${main}/receipt.json`,JSON.stringify({summary,source,evidence,legacyTemplates},null,2)+"\n");
-const table=cohorts.flatMap(c=>c.cases.map(r=>`| ${r.label}${c.weatherClient?" (client adapter)":""} | ${r.hp.join(" → ")} |`)).join("\n");
 console.log(JSON.stringify({nativeCases:total,completedTurns:total*2,automatedTests,minimumObservedFree:minimum},null,2));

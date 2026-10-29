@@ -96,10 +96,8 @@ Effect ID. Original handlers can retain item/species restrictions and supporting
 data requirements; copying a handler does not rewrite those conditions.
 
 **Native verification → Recheck ROM** validates the current assignment and native
-signatures. Export the ROM to keep changes. The [native verification guide](../runtime/item-effects/README.md)
-describes export/reload, isolated callback checks, and 100-item native battle
-validation in melonDS. The [custom-rule validation receipt](../runtime/item-effects/RULES-VALIDATION.md)
-records the mix/match editor's separate battle coverage.
+signatures. Export the ROM to keep changes. The [item runtime guide](../runtime/item-effects/README.md)
+describes supported effects, compatibility limits, and build/check commands.
 
 ## Overview Fields
 

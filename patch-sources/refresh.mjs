@@ -75,7 +75,7 @@ function file(group, relative, kind = 'source', originPath = `runtime/${group}/$
 }
 function runtimeFiles(group) {
   return fs.readdirSync(path.join(app, 'runtime', group), { withFileTypes: true })
-    .filter(entry => entry.isFile() && /\.(c|cpp|h|py|ts|json|java|yml|md|txt|cjs|s|S)$/.test(entry.name))
+    .filter(entry => entry.isFile() && (entry.name === 'README.md' || (group === 'ruby-patches' && entry.name === 'AUTHORING.md') || !/\.md$/i.test(entry.name)) && /\.(c|cpp|h|py|ts|json|java|yml|md|txt|cjs|s|S)$/.test(entry.name))
     .sort((a, b) => a.name.localeCompare(b.name, 'en'))
     .map(entry => {
       const kind = /\.(md|txt)$/.test(entry.name) ? 'documentation'
@@ -105,7 +105,6 @@ const additions = [
       file('bw1-ui-release', 'bw1_release.py', 'build-tool', 'runtime/bw1_release.py'),
       file('bw1-ui-release', 'verify_bw1_release.py', 'test', 'runtime/verify_bw1_release.py'),
       file('bw1-ui-release', 'bw1-ui-acceptance.json', 'metadata', 'runtime/bw1-ui-acceptance.json'),
-      file('bw1-ui-release', 'BW1_UI_RELEASE.md', 'documentation', 'runtime/BW1_UI_RELEASE.md'),
     ],
   },
   {

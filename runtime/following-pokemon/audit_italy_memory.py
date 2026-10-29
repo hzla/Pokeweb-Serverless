@@ -10,7 +10,9 @@ HERE = Path(__file__).resolve().parent
 
 def generate(rom: Path):
     result = audit("white2italy", rom)
-    (HERE / "ITALY-MEMORY-AUDIT.json").write_text(json.dumps(result, indent=2) + "\n")
+    output = HERE / "build" / "white2italy"
+    output.mkdir(parents=True, exist_ok=True)
+    (output / "memory-audit.json").write_text(json.dumps(result, indent=2) + "\n")
     print(f"Italian packaged fixed payload {result['fixedPayloadBytes']} bytes; no game emulator run.")
 
 

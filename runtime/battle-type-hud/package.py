@@ -14,7 +14,7 @@ def main():
     dsi=json.loads((HERE/'build/dsi-verification.json').read_text())
     dist=HERE/'dist';dist.mkdir(exist_ok=True);files={}
     for path in HERE.iterdir():
-        if path.name!='scanner_test.py' and path.is_file() and path.suffix in ('.md','.py','.cpp','.h','.json','.java','.yml','.txt','.cjs','.ts'):
+        if path.name!='scanner_test.py' and path.is_file() and (path.suffix!='.md' or path.name=='README.md') and path.suffix in ('.md','.py','.cpp','.h','.json','.java','.yml','.txt','.cjs','.ts'):
             files[path.name]=path
     for game in ('B2','W2'):
         files[f'build/addresses-{game}.h']=HERE/'build'/f'addresses-{game}.h'
@@ -54,6 +54,6 @@ def main():
         assert z.testzip() is None
         assert not any(n.endswith(('.nds','.sav','.dsv','.mln','.bin')) for n in z.namelist())
     (dist/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
-    for name in ('README.md','VALIDATION.md','IMMUNITY_FEASIBILITY.md'):shutil.copyfile(HERE/name,dist/name)
+    for name in ('README.md',):shutil.copyfile(HERE/name,dist/name)
     print(json.dumps(dict(zip=str(target),bytes=target.stat().st_size,sha256=sha(target.read_bytes())),indent=2))
 if __name__=='__main__':main()

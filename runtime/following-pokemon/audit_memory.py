@@ -101,6 +101,7 @@ def main():
       'battleResidencyComparison':battle_comparison,'optionsMenuMemory':options_memory,
       'limits':'Fixed payloads exclude loader metadata, allocator overhead, native graphics/UI allocations, stack usage and VRAM. Expanded module sizes are loader image requirements, not measured steady-state heap charges.',
       'implementationStatus':'Field-only registry validation, overlay-scoped Options/events modules and resident ARM9 forwarding and a battle-only singles intro module implemented; automated checks passed, game emulator acceptance pending.'}
- (HERE/'MEMORY-AUDIT.json').write_text(json.dumps(out,indent=2)+'\n')
+ output=HERE/'build';output.mkdir(parents=True,exist_ok=True)
+ (output/'memory-audit.json').write_text(json.dumps(out,indent=2)+'\n')
  print(json.dumps(out,indent=2))
 if __name__=='__main__':main()

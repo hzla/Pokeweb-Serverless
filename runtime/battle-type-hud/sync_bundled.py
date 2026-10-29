@@ -80,7 +80,7 @@ panel_changes.update(json.loads((HERE/'panel-expansion.json').read_text()))
 RUNTIME.mkdir(parents=True,exist_ok=True)
 if HERE!=RUNTIME:
  for path in HERE.iterdir():
-  if path.name!='scanner_test.py' and path.is_file() and path.suffix in ('.py','.cpp','.h','.json','.java','.yml','.md','.txt','.cjs','.ts'):
+  if path.name!='scanner_test.py' and path.is_file() and (path.suffix!='.md' or path.name=='README.md') and path.suffix in ('.py','.cpp','.h','.json','.java','.yml','.md','.txt','.cjs','.ts'):
    if path.name=='make_clean_test_rom.ts':
     (RUNTIME/path.name).write_text(path.read_text().replace('Pokeweb-Serverless/src/','src/'))
    else:shutil.copyfile(path,RUNTIME/path.name)
