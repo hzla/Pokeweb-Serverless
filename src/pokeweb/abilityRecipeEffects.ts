@@ -33,6 +33,7 @@ export const RECIPE_ABILITY_EFFECTS:RecipeAbilityEffect[]=[
  effect("intimidateCounter",151,"Counter an ability’s entry stat drop",1,1,6,1,"stages",1,[{...stat(),label:"Stat to raise"},p("sourceAbility","Source ability",22,1,255,undefined,"ability"),p("sourceStat","Stat drop to block",1,1,7,undefined,"stat")],true),
  effect("windAbsorb",152,"Absorb matching moves and react to Tailwind",1,-6,6,1,"stages",1,[stat(),move,p("tailwind","Boost when Tailwind starts / on entry",1,0,1,{0:"No",1:"Yes"})],true,true),
  effect("moveGuard",153,"Block selected moves from other Pokémon",1,1,1,1,"",1,[move,type,p("category","Move category",0,0,2,undefined,"category"),p("excludeSelf","Holder’s own moves",1,0,1,{0:"Also block",1:"Allow"})],true),
+ effect("weatherGuard",154,"Weather damage immunity",1,1,1,1,"",1,[p("weather","Weather",3,0,4,{0:"All damaging weather",3:"Hail",4:"Sandstorm"},"weather")]),
 ];
 const triggered=RECIPE_ABILITY_EFFECTS.find(e=>e.code===136)!;triggered.parameters.find(p=>p.key==="threshold")!.when={key:"activation",value:2};triggered.parameters.find(p=>p.key==="once")!.when={key:"activation",value:0};for(const key of["moveClass","category"])triggered.parameters.find(p=>p.key===key)!.when={key:"activation",value:[1,2]};triggered.parameters.find(p=>p.key==="type")!.when={key:"moveClass",value:9};
 RECIPE_ABILITY_EFFECTS.find(e=>e.code===140)!.parameters.find(p=>p.key==="copyFocus")!.when={key:"operation",value:0};

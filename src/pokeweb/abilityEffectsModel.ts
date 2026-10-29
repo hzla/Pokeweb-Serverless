@@ -11,6 +11,8 @@ import groupedPriorityTemplate from "../assets/data/abilityRuleRuntimePriorityGr
 import groupedLibraryTemplate from "../assets/data/abilityRuleRuntimeLibraryGrouped.json";
 import groupedRecipeTemplate from "../assets/data/abilityRuleRuntimeRecipesGrouped.json";
 import groupedClientTemplate from "../assets/data/abilityRuleRuntimeClientGrouped.json";
+import weatherRecipeTemplate from "../assets/data/abilityRuleRuntimeRecipesWeather.json";
+import weatherClientTemplate from "../assets/data/abilityRuleRuntimeClientWeather.json";
 import { libraryAbilityEffect } from "./abilityLibraryEffects";
 import { NintendoDSRom } from "../nds/rom";
 import { readU32, writeU16, writeU32 } from "../nds/binary";
@@ -149,7 +151,8 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
     const library = [...entries.values()].some(r=>r.effects.some(e=>libraryAbilityEffect(e.kind)));
     const recipes=[...entries.values()].some(r=>r.effects.some(e=>recipeAbilityEffect(e.kind)));
     const traps = clientHooks && [...entries.values()].some(r => r.effects.some(e => e.kind === "nativeAbility:42"));
-    const selectedTemplate = popupGroups
+    const weatherGuard = [...entries.values()].some(r => r.effects.some(e => e.kind === "abilityRecipe:weatherGuard"));
+    const selectedTemplate = weatherGuard ? traps ? weatherClientTemplate : weatherRecipeTemplate : popupGroups
         ? traps ? groupedClientTemplate : recipes ? groupedRecipeTemplate : library ? groupedLibraryTemplate : priority ? groupedPriorityTemplate : groupedTemplate
         : traps ? clientTemplate : recipes ? recipeTemplate : library ? libraryTemplate : priority ? priorityTemplate : template;
     const rpm = structuredClone(selectedTemplate) as unknown as RpmModule;
@@ -230,6 +233,7 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
     rpm.metadata = { PMCGameID: c.project.session.baseVersion, PMCVersion: "1.0.0", PMCModulePriority: 4, PokewebAbilityEffects: "rules", PokewebAbilityRules: JSON.stringify([...entries].sort(([a], [b]) => a - b)) };
     if (traps) rpm.metadata.PokewebAbilityClientTraps = 1;
     if (popupGroups) rpm.metadata.PokewebAbilityPopupGroups = 1;
+    if (weatherGuard) rpm.metadata.PokewebAbilityWeatherGuard = 1;
     const serialized = writeRpm(rpm, { ident: "DLXF" });
     if (rpm.code.length + rpm.bssSize > 65536 || serialized.length + rpm.code.length + rpm.bssSize > 112 * 1024)
         throw new Error("Ability effects exceed the shared DLL memory budget. Reduce rule complexity.");

@@ -15,6 +15,7 @@ run(sys.executable,HERE/'generate_move_classes.py')
 variants=[('',[],'abilityRuleRuntime.json'),('-priority',['-DABILITY_PRIORITY'],'abilityRuleRuntimePriority.json'),('-library',['-DABILITY_PRIORITY','-DABILITY_LIBRARY'],'abilityRuleRuntimeLibrary.json'),('-recipes',['-DABILITY_PRIORITY','-DABILITY_LIBRARY','-DABILITY_RECIPES'],'abilityRuleRuntimeRecipes.json'),('-client',['-DABILITY_PRIORITY','-DABILITY_LIBRARY','-DABILITY_RECIPES','-DABILITY_CLIENT_TRAPS'],'abilityRuleRuntimeClient.json')]
 # Retain every earlier template for exact validation of existing exported ROMs.
 variants += [(suffix+'-grouped',defines+['-DABILITY_POPUP_GROUPS'],asset.replace('.json','Grouped.json')) for suffix,defines,asset in variants]
+variants += [(suffix+'-weather',defines+['-DABILITY_WEATHER_GUARD'],asset.replace('Grouped.json','Weather.json')) for suffix,defines,asset in variants if suffix in ['-recipes-grouped','-client-grouped']]
 for suffix,defines,asset in variants:
     obj=BUILD/f'rules{suffix}.o'
     run(TOOLS/'arm-none-eabi-gcc','-std=c11','-mthumb','-mcpu=arm946e-s','-Os','-Wall','-Wextra','-Werror','-Wno-parentheses',

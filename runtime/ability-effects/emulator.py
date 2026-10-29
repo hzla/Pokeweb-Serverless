@@ -98,7 +98,7 @@ def main():
        if delta&0x400000:delta-=0x800000
        item_code=site+4+delta-manifest['itemDispatch'];item_records=sum(emu.memory.read_long(n+8)==item_code-32 for n in states);assert item_records==1;result['itemPatchRecords']=item_records
       assert ours==1;result['loader']={'totalPatchRecords':len(states),'abilityPatchRecords':ours,'liveRuleCount':manifest['editedAbilities']}
-      for event in['38','3b','3c','47','13']:
+      for event in['38','3b','3c','47','13','7f']:
        if f'AbilityEvent_{event}'in manifest['symbols']:hooks.append(emu.memory.register_exec(code+manifest['symbols'][f'AbilityEvent_{event}'],recipe_callback))
       if manifest.get('clientTrapStores'):
        hooks.append(emu.memory.register_exec(code+manifest['symbols']['AbilityClientTrapped'],client_trapped))
@@ -113,7 +113,7 @@ def main():
      main=emu.memory.read_long(flow+4);mon=emu.memory.read_long(main+0xcc+(callback_owner if callback_owner is not None and callback_owner<12 else 7+(callback_owner-12 if callback_owner is not None else 0))*4)
      multipliers.append({'turnIndex':len(menus)-1,'key':emu.memory.register_arm9.r0,'value':emu.memory.register_arm9.r1,'owner':callback_owner,'suppressed':bool(emu.memory.read_long(mon+0x1c+16*4))if 0x02000000<=mon<0x02400000 else None})
    def rewritten(cpu,address):
-    if scope():rewrites.append({'turnIndex':len(menus)-1,'key':emu.memory.register_arm9.r0,'value':emu.memory.register_arm9.r1})
+    if scope():rewrites.append({'turnIndex':len(menus)-1,'key':emu.memory.register_arm9.r0,'value':emu.memory.register_arm9.r1,'owner':callback_owner})
    def pushed(cpu,address):
     if scope()and emu.memory.register_arm9.r1==26 and manifest.get('sideTableAddress'):screen_removals.append({'turnIndex':len(menus)-1,'screens':[[emu.memory.read_long(manifest['sideTableAddress']+(side*14+effect)*16+12)for effect in[0,1]]for side in range(2)]})
     if scope()and emu.memory.register_arm9.r1==5:healing.append({'turnIndex':len(menus)-1,'owner':emu.memory.register_arm9.r2})
@@ -300,6 +300,11 @@ def main():
     if c.get('healingObserved'):assert healing,healing
     if c.get('noWeatherDamage'):assert all(s['hp']==spec['maxHp']for s in menus),menus
     if c.get('weatherDamage'):assert menus[2]['hp']<menus[1]['hp']<menus[0]['hp'],menus
+    if c.get('enemyWeatherDamage'):assert menus[2]['enemyHp']<menus[1]['enemyHp']<menus[0]['enemyHp'],menus
+    if c.get('onlyMoveDamage'):
+     hits=[hit for hit in damage_reactions if hit['target']==0]
+     assert len(hits)==len(menus)-1 and all(hit['damage']>0 for hit in hits),damage_reactions
+     for i in range(len(menus)-1):assert menus[i]['hp']-menus[i+1]['hp']==sum(hit['damage']for hit in hits if hit['turnIndex']==i),(menus,damage_reactions)
     if'nativeChance'in c:assert any(v['chance']==c['nativeChance'] and v['owned']==c.get('nativeChanceOwned',True) for v in native_chances),(c,native_chances)
     if c.get('noNativeChance'):assert not any(v['owned'] for v in native_chances),native_chances
     if c.get('priorityGroups'):

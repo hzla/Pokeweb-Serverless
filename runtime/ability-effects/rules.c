@@ -172,6 +172,11 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
 #ifdef ABILITY_RECIPES
   if(kind>=135&&kind<=153){recipeEffect(item,f,owner,e,event,nativeWork[owner][n],used);if(kind==136&&e[1]==0&&e[9]&&onEntry(event,owner)&&!preview(f))mark=1;continue;}
 #endif
+#ifdef ABILITY_WEATHER_GUARD
+  /* Native weather guard event: holder, proposed damage, and weather source.
+   * Cancel only this weather tick; move damage and other residuals are separate. */
+  if(kind==154){if(event==0x7f&&VALUE(2)==owner&&(s32)VALUE(0x32)>0&&(!e[1]||VALUE(0x39)==e[1]))REWRITE(0x41,1);continue;}
+#endif
   if(kind==128&&owner<32){const Event*table=*(const Event*const*)(e+8);
    for(u32 j=0;j<e[14];++j)if(table[j].event==event){u32 saved[7];for(u32 k=0;k<7;++k)saved[k]=nativeWork[owner][n][k];table[j].callback(item,f,owner,nativeWork[owner][n]);if(preview(f))for(u32 k=0;k<7;++k)nativeWork[owner][n][k]=saved[k];break;}
    continue;
