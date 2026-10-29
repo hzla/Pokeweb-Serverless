@@ -12,7 +12,7 @@ describe('expanded standalone ability recipes',()=>{
  it('adds exactly the requested 36 recipes',()=>{
   const extra=ABILITY_IMPORT_LIBRARY.filter(t=>t.rule.effects.some(e=>recipeAbilityEffect(e.kind)));
   expect(extra).toHaveLength(36);expect(extra.map(t=>t.label).sort()).toEqual(['Aerilate','Aroma Veil','Cheek Pouch','Flower Veil','Pixilate','Refrigerate','Sweet Veil','Battery','Beast Boost','Berserk','Galvanize','Innards Out','Liquid Voice','Merciless','Soul-Heart','Cotton Down','Curious Medicine','Dauntless Shield','Intrepid Sword','Pastel Veil','Perish Body','Power Spot','Sand Spit','Screen Cleaner','Steely Spirit','Anger Shell','Costar','Good as Gold','Guard Dog','Hospitality',"Mind's Eye",'Orichalcum Pulse','Supersweet Syrup','Tera Shell','Toxic Debris','Wind Rider'].sort());
-  expect(RECIPE_ABILITY_EFFECTS).toHaveLength(19);expect(new Set(RECIPE_ABILITY_EFFECTS.map(e=>e.code)).size).toBe(19);
+  expect(RECIPE_ABILITY_EFFECTS).toHaveLength(20);expect(new Set(RECIPE_ABILITY_EFFECTS.map(e=>e.code)).size).toBe(20);
  });
  it('keeps distinct triggers, scopes, type conversion and native stat selection editable',()=>{
   expect(abilityImport(184).rule.effects[0]).toMatchObject({kind:'abilityRecipe:convertType',value:1.2,parameters:{type:2}});

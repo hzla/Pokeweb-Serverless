@@ -42,7 +42,9 @@ for(const out of directories){
 assert.equal(total,17);assert.deepEqual(cohorts.map(c=>c.weatherClient),[false,true]);assert.equal(abilityImport(202).rule.effects.length,1);
 const main=directories[0],tests=await readFile(`${main}/tests.log`,"utf8"),pmc=await readFile(`${main}/pmc-tests.log`,"utf8"),production=await readFile(`${main}/production.log`,"utf8");
 const count=(log:string)=>{const m=log.match(/Tests\s+(\d+) passed \(\1\)/u);assert(m);assert(!/FAIL|failed/u.test(log));return Number(m[1]);};
-const automatedTests=count(tests)+count(pmc);assert(production.includes("✓ built in"));
+let committedTests="";try{committedTests=await readFile(`${main}/committed-tests.log`,"utf8");}catch(error){if((error as NodeJS.ErrnoException).code!=="ENOENT")throw error;}
+const automatedTests=committedTests?count(committedTests):count(tests)+count(pmc);assert(production.includes("✓ built in"));
+if(committedTests)assert((await readFile(`${main}/committed-production.log`,"utf8")).includes("✓ built in"));
 const gui=JSON.parse(await readFile(`${main}/gui.json`,"utf8"));assert.equal(gui.state,"Custom effects · Shared DLL");assert.equal(gui.weather,"3");assert.equal(gui.speed,"2");
 const assets=(await readdir(`${root}/src/assets/data`)).filter(p=>/^abilityRuleRuntime.*\.json$/u.test(p));
 const legacyTemplates:Record<string,string>={};
