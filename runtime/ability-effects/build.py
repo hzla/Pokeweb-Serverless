@@ -12,7 +12,10 @@ run(sys.executable,HERE/'generate_move_classes.py')
 
 (BUILD/'rules-meta.yml').write_text('PMCVersion: ability-rules-1\nPMCModulePriority: 4\n')
 (BUILD/'rules-symbols.yml').write_text('Segments:\n  - ID: 0\n    Name: ARM9\n    Type: EXECUTABLE\nSymbols: []\n')
-for suffix,defines,asset in [('',[],'abilityRuleRuntime.json'),('-priority',['-DABILITY_PRIORITY'],'abilityRuleRuntimePriority.json'),('-library',['-DABILITY_PRIORITY','-DABILITY_LIBRARY'],'abilityRuleRuntimeLibrary.json'),('-recipes',['-DABILITY_PRIORITY','-DABILITY_LIBRARY','-DABILITY_RECIPES'],'abilityRuleRuntimeRecipes.json'),('-client',['-DABILITY_PRIORITY','-DABILITY_LIBRARY','-DABILITY_RECIPES','-DABILITY_CLIENT_TRAPS'],'abilityRuleRuntimeClient.json')]:
+variants=[('',[],'abilityRuleRuntime.json'),('-priority',['-DABILITY_PRIORITY'],'abilityRuleRuntimePriority.json'),('-library',['-DABILITY_PRIORITY','-DABILITY_LIBRARY'],'abilityRuleRuntimeLibrary.json'),('-recipes',['-DABILITY_PRIORITY','-DABILITY_LIBRARY','-DABILITY_RECIPES'],'abilityRuleRuntimeRecipes.json'),('-client',['-DABILITY_PRIORITY','-DABILITY_LIBRARY','-DABILITY_RECIPES','-DABILITY_CLIENT_TRAPS'],'abilityRuleRuntimeClient.json')]
+# Retain every earlier template for exact validation of existing exported ROMs.
+variants += [(suffix+'-grouped',defines+['-DABILITY_POPUP_GROUPS'],asset.replace('.json','Grouped.json')) for suffix,defines,asset in variants]
+for suffix,defines,asset in variants:
     obj=BUILD/f'rules{suffix}.o'
     run(TOOLS/'arm-none-eabi-gcc','-std=c11','-mthumb','-mcpu=arm946e-s','-Os','-Wall','-Wextra','-Werror','-Wno-parentheses',
         '-ffreestanding','-fno-builtin','-fno-jump-tables','-fno-unwind-tables','-fno-asynchronous-unwind-tables','-fvisibility=hidden',*defines,'-c',HERE/'rules.c','-o',obj)

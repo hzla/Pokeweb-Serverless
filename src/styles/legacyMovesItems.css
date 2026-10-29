@@ -2859,6 +2859,7 @@
 .ability-page-heading small { opacity: .55; font-size: .65em; }
 .ability-state { font-size: 12px; opacity: .75; }
 .ability-name { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.ability-effects-help { margin: 0 0 4px; color: #aeb7ca; font-size: 14px; line-height: 1.5; }
 .ability-page [data-ability-restore] { margin-top: 20px; }
 .ability-rule-bypass { display: flex !important; flex-direction: row !important; align-items: center; gap: 6px; font-size: 12px; }
 .ability-rule-bypass input { width: auto !important; }

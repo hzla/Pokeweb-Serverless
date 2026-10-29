@@ -9,7 +9,7 @@ from build import HERE, ROOT, TOOLS, JAR, run
 from rpm_read import read_rpm
 from analyze import ROMS
 import ndspy.rom, ndspy.narc, ndspy.codeCompression, ndspy.lz10
-from panel_expansion import apply_edits
+from panel_expansion import apply_edits, transform
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
@@ -83,7 +83,7 @@ def main():
         result['resources'][key]={}
         for member in (435,436,438,439,441,442,444,445):
             raw=bytes(archive.files[member]);raw=ndspy.lz10.decompress(raw) if raw[0]==16 else raw
-            if str(member) in expansion:raw=apply_edits(raw,expansion[str(member)]['edits'])
+            if str(member) in expansion:raw=transform(raw,expansion[str(member)])
             def edit(at,old,new):return dict(offset=at,old=old.hex(),new=new.hex())
             edits=[]
             if raw[:4]==b'RGCN':
@@ -98,7 +98,7 @@ def main():
                     edits.append(edit(at,raw[at:at+2],struct.pack('<H',value)))
                 graphic=member-1
                 packed=bytes(archive.files[graphic]);packed=ndspy.lz10.decompress(packed) if packed[0]==16 else packed
-                if str(graphic) in expansion:packed=apply_edits(packed,expansion[str(graphic)]['edits'])
+                if str(graphic) in expansion:packed=transform(packed,expansion[str(graphic)])
                 tile=(len(packed)-48)//64
                 old=raw[56:16+section];prefix=struct.pack('<HHH',0xc0,0x8000|448,tile)
                 edits.append(edit(56,old,prefix+old+bytes(2)))

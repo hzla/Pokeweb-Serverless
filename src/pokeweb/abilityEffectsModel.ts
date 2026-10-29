@@ -6,6 +6,11 @@ import template from "../assets/data/abilityRuleRuntime.json";
 import priorityTemplate from "../assets/data/abilityRuleRuntimePriority.json";
 import libraryTemplate from "../assets/data/abilityRuleRuntimeLibrary.json";
 import clientTemplate from "../assets/data/abilityRuleRuntimeClient.json";
+import groupedTemplate from "../assets/data/abilityRuleRuntimeGrouped.json";
+import groupedPriorityTemplate from "../assets/data/abilityRuleRuntimePriorityGrouped.json";
+import groupedLibraryTemplate from "../assets/data/abilityRuleRuntimeLibraryGrouped.json";
+import groupedRecipeTemplate from "../assets/data/abilityRuleRuntimeRecipesGrouped.json";
+import groupedClientTemplate from "../assets/data/abilityRuleRuntimeClientGrouped.json";
 import { libraryAbilityEffect } from "./abilityLibraryEffects";
 import { NintendoDSRom } from "../nds/rom";
 import { readU32, writeU16, writeU32 } from "../nds/binary";
@@ -133,7 +138,7 @@ function assertUnhooked(c: Context, name: string, address: number, size: number,
     }
 }
 export const ABILITY_RULE_API = ["BattleEventVar_GetValue", "BattleEventVar_MulValue", "GetBattleMon", "GetBattleMonStat", "GetPokeType", "PokeTypePair_IsMatch", "ServerEvent_GetWeather", "BtlServerFlow_IsSimulating", "BtlServerFlow_CheckMatchup", "BattleHandler_PushWork", "BattleHandler_PopWork", "BattleHandler_StrSetup", "BattleHandler_AddArg", "BattleEventItem_GetSubID", "BattleEvent_AddItem", "GetMonID", "RawBattleMonStat", "PML_MoveGetCategory", null, null, "BattleHandler_PushRun", null, null, "IsStatChangeValid", "BtlCalc_MakeStatusCondition", "MakeConditionBadlyPoisoned", "BattleEventVar_GetValueIfExist", "RollEffectChance", "BattleEventVar_RewriteValue", "GetBattleMonSpecies", "CheckCondition", "getMoveFlag", "BattleEvent_CheckSkip"] as const;
-function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, previewHook = false, clientHooks = true): RpmModule {
+function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, previewHook = false, clientHooks = true, popupGroups = true): RpmModule {
     for (const rule of entries.values())
         for (const e of rule.effects) {
             const p = nativeAbilityProfile(e.kind);
@@ -144,7 +149,9 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
     const library = [...entries.values()].some(r=>r.effects.some(e=>libraryAbilityEffect(e.kind)));
     const recipes=[...entries.values()].some(r=>r.effects.some(e=>recipeAbilityEffect(e.kind)));
     const traps = clientHooks && [...entries.values()].some(r => r.effects.some(e => e.kind === "nativeAbility:42"));
-    const selectedTemplate = traps ? clientTemplate : recipes ? recipeTemplate : library ? libraryTemplate : priority ? priorityTemplate : template;
+    const selectedTemplate = popupGroups
+        ? traps ? groupedClientTemplate : recipes ? groupedRecipeTemplate : library ? groupedLibraryTemplate : priority ? groupedPriorityTemplate : groupedTemplate
+        : traps ? clientTemplate : recipes ? recipeTemplate : library ? libraryTemplate : priority ? priorityTemplate : template;
     const rpm = structuredClone(selectedTemplate) as unknown as RpmModule;
     rpm.code = Uint8Array.from(selectedTemplate.code);
     const bssBase = (rpm.code.length + 3) & ~3, bss = rpm.symbols.filter(s => !(s.attributes & 4) && s.address >= bssBase);
@@ -155,7 +162,8 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
     ABILITY_RULE_API.forEach((name, i) => { if (!name)
         return; const { address, code } = c.resolver.resolve(name); assertUnhooked(c, name, address, code.length); writeU32(rpm.code, api + i * 4, address | 1); });
     if(library||recipes)for(const[index,name]of [[34,"BtlCalc_GetEffectivenessCategory"],[35,"PML_MoveGetParam"]] as const){const service=c.resolver.resolve(name);assertUnhooked(c,name,service.address,service.code.length);writeU32(rpm.code,api+index*4,service.address|1);}
-    for (const [name, index, wrapper] of [["AbilityEvent_AddItem", 18, "AbilityDispatch"], ["HandlerMoldBreakerSkipCheck", 19, "AbilityMoldSkip"]] as const) {
+    const adapters = [["AbilityEvent_AddItem", 18, "AbilityDispatch"], ["HandlerMoldBreakerSkipCheck", 19, "AbilityMoldSkip"], ...(popupGroups ? [["BattleHandler_PushRun", 20, "AbilityPopupRun"]] : [])] as Array<[string, number, string]>;
+    for (const [name, index, wrapper] of adapters) {
         const { address, code } = c.resolver.resolve(name);
         assertUnhooked(c, name, address, code.length, true);
         const symbol = append(code, "FUNCTION_THM"), at = rpm.symbols[symbol].address;
@@ -221,6 +229,7 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
     bss.forEach(s => s.address += shift);
     rpm.metadata = { PMCGameID: c.project.session.baseVersion, PMCVersion: "1.0.0", PMCModulePriority: 4, PokewebAbilityEffects: "rules", PokewebAbilityRules: JSON.stringify([...entries].sort(([a], [b]) => a - b)) };
     if (traps) rpm.metadata.PokewebAbilityClientTraps = 1;
+    if (popupGroups) rpm.metadata.PokewebAbilityPopupGroups = 1;
     const serialized = writeRpm(rpm, { ident: "DLXF" });
     if (rpm.code.length + rpm.bssSize > 65536 || serialized.length + rpm.code.length + rpm.bssSize > 112 * 1024)
         throw new Error("Ability effects exceed the shared DLL memory budget. Reduce rule complexity.");
@@ -253,7 +262,8 @@ function readRules(c: Context): Map<number, AbilityRuleSet> {
         rules.set(entry[0], validateAbilityRule(entry[1]));
     }
     const clientHooks = rpm.metadata.PokewebAbilityClientTraps === 1;
-    if (!same(bytes, writeRpm(moduleFor(c, rules, false, clientHooks), { ident: "DLXF" })) && !same(bytes, writeRpm(moduleFor(c, rules, true, clientHooks), { ident: "DLXF" })))
+    const popupGroups = rpm.metadata.PokewebAbilityPopupGroups === 1;
+    if (!same(bytes, writeRpm(moduleFor(c, rules, false, clientHooks, popupGroups), { ident: "DLXF" })) && !same(bytes, writeRpm(moduleFor(c, rules, true, clientHooks, popupGroups), { ident: "DLXF" })))
         throw new Error("The shared ability effects DLL has been modified.");
     verified.set(c.project, { overlay: c.overlay.slice(), arm9: c.project.arm9.slice(), base: c.source.base, bytes: bytes.slice(), files: new Map([...c.files].map(([p, b]) => [p, b.slice()])), rules: structuredClone(rules) });
     return rules;

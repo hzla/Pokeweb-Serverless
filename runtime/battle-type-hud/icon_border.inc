@@ -1,5 +1,5 @@
-// Optional BW2 outline overlay: one shared, reserved OBJ palette bank. Native
-// HUD palettes stay unchanged; each panel gets one checked 32x32 OAM piece.
+// Optional BW2 outline overlays use a reserved OBJ palette bank per panel.
+// Native HUD palettes stay unchanged; each panel gets one checked 32x32 OAM piece.
 extern "C" { volatile u32 gTypeIconBorderColor = 0x0842; }
 namespace {
 #ifdef GAME_B2
@@ -7,7 +7,7 @@ constexpr u32 BorderContext=0x0214193c, BorderReserve=0x0204d9f5, BorderFree=0x0
 #else
 constexpr u32 BorderContext=0x0214197c, BorderReserve=0x0204da21, BorderFree=0x0204bcfd;
 #endif
-struct BorderState { u16 source[16],transfer[16],hardware[16]; u8 bank,id,users,active; } borderStates[6];
+struct BorderState { u16 source[16],transfer[16],hardware[16]; u8 bank,id,users,active; u16 paintedTypes; u8 paintedStatus; } borderStates[6];
 BorderState& borderFor(const Record& r) { return borderStates[r.pos<2?r.pos:r.pos-2]; }
 unsigned borderBytes(const Record& r) { return r.layout>=2?(r.pos&1?3072:2048):(r.pos&1?2048:2304); }
 bool borderRange(const void* p,unsigned n) {
@@ -25,7 +25,8 @@ bool borderBanks(unsigned& mask,unsigned except=255) {
         void* row=static_cast<u8*>(rows)+24*i;
         if(field<u32>(row,20)&0x80000000)continue;
         const unsigned at=field<u32>(row,12);if(at==0xffffffff)continue;
-        if(at>=512||(at&31))return false;mask|=1u<<(at/32);
+        if(at>=512||(at&31))return false;
+        mask|=1u<<(at/32);
     }
     return true;
 }
@@ -93,9 +94,23 @@ bool borderPaint(const Record& r) {
     const int evy=currentFade(*f,r.bank);if(evy<0){borderHide(r);return true;}
     const unsigned at=16*borderState.bank+1;const u16 color=static_cast<u16>(gTypeIconBorderColor);
     f->source[at]=color;f->transfer[at]=blend(color,f->target,evy);
-    reinterpret_cast<volatile u16*>(0x05000200)[at]=f->transfer[at];
-    volatile u16* image=r.graphics+borderBytes(r)/2;for(unsigned i=0;i<256;++i)image[i]=0;
-    if(r.status){borderHide(r);return true;}
+    if(reinterpret_cast<volatile u16*>(0x05000200)[at]!=f->transfer[at])
+        reinterpret_cast<volatile u16*>(0x05000200)[at]=f->transfer[at];
+    volatile u16* image=r.graphics+borderBytes(r)/2;
+    attrs[1]=0x8000|448;attrs[2]=static_cast<u16>((((borderState.bank-r.bank)&15)<<12)|(borderBytes(r)/64));
+    if(r.status){borderHide(r);borderState.paintedStatus=r.status;return true;}
+#ifdef ICON_VARIANT_CIRCULAR
+    const unsigned tip=4;
+#else
+    const unsigned tip=5;
+#endif
+    const unsigned px=iconLeft(r,0)+tip,py=iconY(r,0)-15;
+    const unsigned atTip=((py/8)*4+px/8)*16+(py&7)*2+(px&7)/4,tipShift=(px&3)*4;
+    // Reloading the checked NCGR resets the appended image to transparent.
+    // Its first outline pixel detects that case without rewriting stable VRAM.
+    attrs[0]=255;
+    if(borderState.paintedTypes==r.types&&!borderState.paintedStatus&&((image[atTip]>>tipShift)&15)==1)return true;
+    for(unsigned i=0;i<256;++i)if(image[i])image[i]=0;
     for(unsigned kind=0;kind<ICON_COUNT(r);++kind)for(unsigned y=0;y<11;++y)for(unsigned x=0;x<12;++x) {
         if(!ICON_INK(r,x,y))continue;
         const unsigned px=iconLeft(r,kind)+x,py=iconY(r,kind)+y-15;
@@ -103,7 +118,7 @@ bool borderPaint(const Record& r) {
         const unsigned c=expected(r,kind,x,y)==2?1:0;
         image[p]=static_cast<u16>((image[p]&~(15u<<shift))|(c<<shift));
     }
-    attrs[0]=255;attrs[1]=0x8000|448;attrs[2]=static_cast<u16>((((borderState.bank-r.bank)&15)<<12)|(borderBytes(r)/64));
+    borderState.paintedTypes=r.types;borderState.paintedStatus=0;
     return true;
 }
 }

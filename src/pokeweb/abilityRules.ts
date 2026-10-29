@@ -13,7 +13,7 @@ export type AbilityRuleSet = {
     conditions: ItemRuleSet["conditions"];
 };
 const supported = new Set(["attack", "specialAttack", "defense", "specialDefense", "speed", "damage", "healPercent", "healFlat", "healDivisor", "status", "statStage", "recoil", "critical", "accuracy", "incomingAccuracy"]);
-export const ABILITY_RULE_EFFECTS = [...ITEM_RULE_EFFECTS.filter(d => supported.has(d.kind)), ...LIBRARY_ABILITY_EFFECTS,...RECIPE_ABILITY_EFFECTS];
+export const ABILITY_RULE_EFFECTS = [...ITEM_RULE_EFFECTS.filter(d => supported.has(d.kind)).map(d => ["attack", "specialAttack", "defense", "specialDefense", "speed"].includes(d.kind) ? {...d, step: .001} : d), ...LIBRARY_ABILITY_EFFECTS,...RECIPE_ABILITY_EFFECTS];
 export const EMPTY_ABILITY_RULE: AbilityRuleSet = { effects: [{ kind: "attack", value: 1.5 }], conditions: { kind: "group", mode: "all", children: [] } };
 export const ABILITY_NATIVE_EFFECTS = NATIVE_ABILITY_PROFILES.map(p => ({ kind: `nativeAbility:${p.id}` as const, label: `Native ability ${p.id}`, value: -1, min: -1, max: 8, step: .125, unit: "×", nativeItem: p.id, parameterLabel: p.multipliers ? "Multiplier" : undefined }));
 export function validateAbilityRule(input: AbilityRuleSet): AbilityRuleSet {
@@ -58,7 +58,7 @@ export function validateAbilityRule(input: AbilityRuleSet): AbilityRuleSet {
         }
         if (!supported.has(effect.kind) || effect.weather !== undefined || effect.parameters !== undefined)
             throw new Error("Choose a supported ability effect.");
-        const canonical = validateItemRule({ effects: [effect as ItemRuleEffect], conditions, consumable: false }).effects[0];
+        const canonical = validateItemRule({ effects: [effect as ItemRuleEffect], conditions, consumable: false }, ABILITY_RULE_EFFECTS).effects[0];
         return { ...canonical, bypassable: effect.bypassable ?? ["defense", "specialDefense", "incomingAccuracy"].includes(effect.kind) };
     });
     const seen = new Set<string>();

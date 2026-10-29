@@ -40,7 +40,7 @@ describe("composable ability rules",()=>{
  it.each([[0,0],[0x1800,0x3000]])("builds native copies at shifted layouts (%i,%i)",(shift,move)=>{
   const {project,base,offsets}=makeItemEffectsProject(shift,move,true,true),before=project.overlays[167]!.slice();
   const rule=validateAbilityRule({effects:[{kind:"nativeAbility:146",value:2.5,weather:3}],conditions:EMPTY_ABILITY_RULE.conditions}),rpm=buildAbilityRuleModule(project,new Map([[255,rule]]));
-  expect(rpm.relocations.filter(r=>r.target.module==="167")).toHaveLength(2);expect(rpm.relocations.filter(r=>r.target.module==="167"&&r.target.type==="THUMB_BRANCH_SAFESTACK")).toHaveLength(1);expect(rpm.bssSize).toBeGreaterThan(14000);
+  expect(rpm.relocations.filter(r=>r.target.module==="167")).toHaveLength(3);expect(rpm.relocations.filter(r=>r.target.module==="167"&&r.target.type==="THUMB_BRANCH_SAFESTACK")).toHaveLength(1);expect(rpm.bssSize).toBeGreaterThan(14000);
   const p=NATIVE_ABILITY_PROFILES.find(p=>p.id===146)!,source=offsets.get("HandlerSandRush")!,copy=rpm.symbols.find(s=>s.type==="FUNCTION_THM"&&!(s.attributes&4)&&s.size===38&&rpm.code[s.address+24]===3)!;
   expect(copy).toBeDefined();expect(rpm.code[copy.address+8]*2**(readU16(rpm.code,copy.address+30)>>6&31)).toBe(10240);expect(project.overlays[167]).toEqual(before);expect(before[source+24]).toBe(4);expect(p.events).toHaveLength(2);
   project.fileSystem={replacements:{},additions:{[ABILITY_EFFECTS_DLL_PATH]:writeRpm(rpm,{ident:"DLXF"})}};
@@ -50,7 +50,7 @@ describe("composable ability rules",()=>{
  });
  it("fits 255 simple edited abilities in one bounded module",()=>{
   const {project}=makeItemEffectsProject(0,0,true,true),rules=new Map(Array.from({length:255},(_,i)=>[i+1,validateAbilityRule(EMPTY_ABILITY_RULE)]));
-  const rpm=buildAbilityRuleModule(project,rules);expect(rpm.relocations.filter(r=>r.target.module==="167")).toHaveLength(2);expect(rpm.code.length+rpm.bssSize).toBeLessThanOrEqual(65536);expect(writeRpm(rpm,{ident:"DLXF"}).length+rpm.code.length+rpm.bssSize).toBeLessThanOrEqual(112*1024);
+  const rpm=buildAbilityRuleModule(project,rules);expect(rpm.relocations.filter(r=>r.target.module==="167")).toHaveLength(3);expect(rpm.code.length+rpm.bssSize).toBeLessThanOrEqual(65536);expect(writeRpm(rpm,{ident:"DLXF"}).length+rpm.code.length+rpm.bssSize).toBeLessThanOrEqual(112*1024);
   expect(JSON.parse(String(rpm.metadata.PokewebAbilityRules))).toHaveLength(255);
  });
  it.each([[0,0],[0x1800,0x3000]])("isolates copied Intimidate's stat from its drop and flag (%i,%i)",(shift,move)=>{

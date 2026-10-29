@@ -1,7 +1,7 @@
 import manifestData from "../assets/codeinjection/battleTypeHudManifest.json";
 import borderManifest from "../assets/codeinjection/typeIconBorderManifest.json";
 import { addTypeIconBorder, stripTypeIconBorder, typeIconBorderChange } from "./typeIconBorderResources";
-import { typeIconBorderRgb555, typeIconBorderHex, DEFAULT_TYPE_ICON_BORDER, DEFAULT_BW1_TYPE_ICON_BORDER } from "./typeIconAppearance";
+import { typeIconBorderRgb555, typeIconBorderHex } from "./typeIconAppearance";
 import reduxManifest from "../assets/codeinjection/battleTypeHudReduxManifest.json";
 import { readU32, writeU16 } from "../nds/binary";
 import { loadOverlayTable } from "../nds/code";
@@ -191,7 +191,7 @@ function getStatus(project: ProjectState, kind: Component, bytes = project.origi
         ? !Object.values(variants).some(variant => variant.version === build) && !Object.hasOwn(borderBuilds(v), build)
         : build !== profile.version;
       status.canUninstall = !status.legacyCombined && canRemoveStagedCodeInjectionDll(project, entry.path);
-      if (kind === "icons" && v === "W2" && Object.hasOwn(reduxManifest.games.W2.builds, build) && status.graphicsProfile !== "redux") {
+      if (kind === "icons" && v === "W2" && (Object.hasOwn(reduxManifest.games.W2.builds, build) || build.endsWith("-redux")) && status.graphicsProfile !== "redux") {
         return { ...status, canUninstall: false, message: "The installed Redux DLL requires its verified graphics profile. Reload matching artwork before updating or removing it." };
       }
       if (kind === "moves" && moveBuild) {
@@ -210,6 +210,18 @@ function getStatus(project: ProjectState, kind: Component, bytes = project.origi
   if (rom) {
     status.checked = true;
     try {
+      if (customBorder) {
+        const id = rom.filenames.idOf(profile.graphicsArchive);
+        if (id === undefined) throw new Error("Missing type-icon border graphics.");
+        const archive = new NARC(getRomFileBytes(project, rom, id));
+        for (const member of Object.keys(borderManifest.resources.retail)) if (Object.hasOwn(profile.resources, member)) {
+          const packed = archive.files[Number(member)];
+          if (!packed) return { ...status, canUninstall: false, message: "Missing type-icon border graphics." };
+          const raw = packed[0] === 16 || packed[0] === 17 ? decompressNitro(packed) : packed;
+          if (stripTypeIconBorder(raw, member, status.graphicsProfile === "redux").length === raw.length)
+            return { ...status, canUninstall: false, message: `Unrecognized type-icon border graphics in member ${member}.` };
+        }
+      }
       const overlays = loadOverlayTable(project.patches?.arm9OverlayTable ?? rom.arm9OverlayTable,
         (_id, fileId) => getRomFileBytes(project, rom!, fileId), new Set([...profile.signatures.map(s => s.segment), profile.overlay_id].filter(id => id !== 0)));
       const checks = [...profile.signatures, ...(customBorder ? borderManifest.games[v as "B2" | "W2"].signatures : []), ...profile.hooks.map(h => ({ ...h, segment: profile.overlay_id }))];
@@ -246,8 +258,8 @@ async function installHud(project: ProjectState, kind: Component, colors?: MoveH
   const variants = redux ? reduxManifest.games.W2.variants : manifest.games[v].variants;
   const selectedBorder = iconVariant === "solid" ? undefined : borderColor ?? status.borderColor;
   const borderKey = iconVariant + (redux ? "-redux" : "");
-  const extra = kind === "icons" && selectedBorder !== undefined && (v === "B2" || v === "W2")
-    ? borderManifest.games[v].variants[borderKey as keyof typeof borderManifest.games.W2.variants] : undefined;
+  const extra = kind === "icons" && selectedBorder !== undefined && typeIconBorderRgb555(selectedBorder) !== 0x0842 && (v === "B2" || v === "W2")
+    ? (borderManifest.games[v].variants as Record<string, typeof borderManifest.games.W2.variants.letters>)[borderKey] : undefined;
   if (extra) {
     const rom = new NintendoDSRom(bytes), arm = project.arm9.length ? project.arm9 : decompressCode(rom.arm9);
     for (const signature of borderManifest.games[v as "B2" | "W2"].signatures) {
@@ -293,7 +305,7 @@ async function installHud(project: ProjectState, kind: Component, colors?: MoveH
   if (await hash(bytes) === "8279bed45bde3d0f9e0309d29d4246fd695a5c5d6fa55346c401c0bbc7043b50") {
     throw new Error("This Cascade build has insufficient PMC space. Use a non-Cascade ROM or the creator's optimized build.");
   }
-  const assetUrl = extra ? BORDER_URLS[v as "B2" | "W2"][borderKey as keyof typeof BORDER_URLS.W2] : kind === "icons" ? redux ? REDUX_ICON_URLS[iconVariant] : ICON_URLS[iconVariant][v] : URLS.moves[v];
+  const assetUrl = extra ? (BORDER_URLS[v as "B2" | "W2"] as Record<string, URL>)[borderKey] : kind === "icons" ? redux ? REDUX_ICON_URLS[iconVariant] : ICON_URLS[iconVariant][v] : URLS.moves[v];
   if (!assetUrl) throw new Error(`No ${title(kind)} build is available for ${v}.`);
   const response = await fetch(assetUrl);
   if (!response.ok) throw new Error(`Could not load Battle HUD (${response.status}).`);
@@ -301,7 +313,7 @@ async function installHud(project: ProjectState, kind: Component, colors?: MoveH
   const expectedVersion = extra?.version ?? (kind === "icons" ? variants[iconVariant].version : profile.version);
   const expectedHash = extra?.dllSha256 ?? (kind === "icons" ? variants[iconVariant].dllSha256 : profile.dllSha256);
   if (await hash(dll) !== expectedHash || knownBuild(parseRpm(dll, { allowedMagics: ["DLXF"] }), v, kind) !== expectedVersion) throw new Error("The bundled Battle HUD DLL failed verification.");
-  if (kind === "icons" && selectedBorder !== undefined) {
+  if (kind === "icons" && selectedBorder !== undefined && (v === "B" || v === "W" || extra)) {
     const build = borderBuilds(v)[expectedVersion];
     if (build?.borderColorOffset === undefined) throw new Error("This icon style has no configurable border.");
     const header = readU32(dll, 8), info = header + readU32(dll, header + 8);

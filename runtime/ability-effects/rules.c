@@ -99,7 +99,25 @@ static u32 bypassed(void*item,void*f,u32 event,const volatile u8*e){
  u32 skipped=FN(32,u32(*)(void*,void*,u32))(f,item,event);
  bypassProbe=previous;*(u16*)((u8*)item+0x38)=original;return skipped;
 }
+#ifdef ABILITY_POPUP_GROUPS
+/* One display interval per callback activation, including copied native effects.
+ * The scope lives on the stack so recursive battle events cannot share it. */
+typedef struct PopupGroup { void *flow; u8 owner,open; struct PopupGroup *previous; } PopupGroup;
+static PopupGroup *popupGroup;
+static void closePopupGroup(PopupGroup*g){if(g->open){FN(20,void(*)(void*,u32,u8))(g->flow,3,g->owner);g->open=0;}}
+PUBLIC void AbilityPopupRun(void*f,u32 command,u8 owner){
+ PopupGroup*g=popupGroup;
+ if(command==2){
+  /* A nested activation must not overlap its parent's display interval. */
+  for(PopupGroup*p=g;p;p=p->previous)if(p!=g||p->flow!=f||p->owner!=owner)closePopupGroup(p);
+  if(g&&g->flow==f&&g->owner==owner){if(g->open)return;g->open=1;}
+ }else if(command==3&&g&&g->flow==f&&g->owner==owner)return;
+ FN(20,void(*)(void*,u32,u8))(f,command,owner);
+}
+static void popup(void*f,u32 command,u8 owner){AbilityPopupRun(f,command,owner);}
+#else
 static void popup(void*f,u32 command,u8 owner){FN(20,void(*)(void*,u32,u8))(f,command,owner);}
+#endif
 #ifdef ABILITY_LIBRARY
 #include "library.c"
 #endif
@@ -131,6 +149,9 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
  if(r&&7-(*(u32*)((u8*)item+0x14)>>24)==5)recipeObserve(f,owner,r,event);
 #endif
  if(!r||!active(r,f,MON(f,owner)))return;
+#ifdef ABILITY_POPUP_GROUPS
+ PopupGroup group={f,owner,0,popupGroup};popupGroup=&group;
+#endif
 #ifdef ABILITY_RECIPES
  u32 ability=SUB(item),used=entryUsed[owner][ability>>5]&(1u<<(ability&31)),mark=0;
 #endif
@@ -173,6 +194,9 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
  if(mark)entryUsed[owner][ability>>5]|=1u<<(ability&31);
 #endif
  if(event==0x77)healing(item,f,owner,r,event);
+#ifdef ABILITY_POPUP_GROUPS
+ closePopupGroup(&group);popupGroup=group.previous;
+#endif
 }
 #define E(n) PUBLIC void AbilityEvent_##n(void*i,void*f,u8 m,u32*w){dispatch(i,f,m,w,0x##n);}
 E(00) E(01) E(02) E(03) E(04) E(05) E(06) E(07) E(08) E(09) E(0a) E(0b) E(0c) E(0d) E(0e) E(0f) E(10) E(11) E(12) E(13) E(14) E(15) E(16) E(17) E(18) E(19) E(1a) E(1b) E(1c) E(1d) E(1e) E(1f) E(20) E(21) E(22) E(23) E(24) E(25) E(26) E(27) E(28) E(29) E(2a) E(2b) E(2c) E(2d) E(2e) E(2f) E(30) E(31) E(32) E(33) E(34) E(35) E(36) E(37) E(38) E(39) E(3a) E(3b) E(3c) E(3d) E(3e) E(3f) E(40) E(41) E(42) E(43) E(44) E(45) E(46) E(47) E(48) E(49) E(4a) E(4b) E(4c) E(4d) E(4e) E(4f) E(50) E(51) E(52) E(53) E(54) E(55) E(56) E(57) E(58) E(59) E(5a) E(5b) E(5c) E(5d) E(5e) E(5f) E(60) E(61) E(62) E(63) E(64) E(65) E(66) E(67) E(68) E(69) E(6a) E(6b) E(6c) E(6d) E(6e) E(6f) E(70) E(71) E(72) E(73) E(74) E(75) E(76) E(77) E(78) E(79) E(7a) E(7b) E(7c) E(7d) E(7e) E(7f) E(80) E(81) E(82) E(83) E(84) E(85) E(86) E(87) E(88) E(89) E(8a) E(8b) E(8c) E(8d) E(8e) E(8f) E(90) E(91) E(92) E(93) E(94) E(95) E(96) E(97) E(98) E(99) E(9a) E(9b) E(9c) E(9d) E(9e) E(9f) E(a0) E(a1) E(a2) E(a3) E(a4) E(a5)

@@ -1,3 +1,5 @@
+import * as typeIcons from "../pokeweb/battleTypeHudModel";
+import { typeIconPreview } from "../pokeweb/typeIconAppearance";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { renderCodeInjectionEditor } from "../ui/codeInjectionEditor";
@@ -7,6 +9,35 @@ import * as battleLog from "../pokeweb/battleLogModel";
 import * as candyModel from "../pokeweb/infiniteCandyModel";
 
 afterEach(() => vi.restoreAllMocks());
+
+describe("Type Icons appearance picker", () => {
+  it("selects styles from preview buttons and recolors both outlined previews", () => {
+    vi.spyOn(typeIcons, "getBattleTypeHudStatus").mockReturnValue({ supported: true, compatible: true, checked: true,
+      installed: false, updateAvailable: false, canUninstall: false, pmcInstalled: false, message: "Ready" });
+    const listeners = new Map<string, () => void>(), picker = { hidden: false };
+    const input = { value: "#d6d6d6", addEventListener: (event: string, fn: () => void) => listeners.set(event, fn) };
+    const cards = ["letters", "circular", "solid"].map(variant => ({
+      dataset: { typeIconVariantCard: variant }, image: { src: "" }, selected: false, pressed: "",
+      classList: { toggle: (_name: string, value: boolean) => { cards.find(c => c.dataset.typeIconVariantCard === variant)!.selected = value; } },
+      setAttribute: (_name: string, value: string) => { cards.find(c => c.dataset.typeIconVariantCard === variant)!.pressed = value; },
+      addEventListener: (_event: string, fn: () => void) => listeners.set(variant, fn),
+      querySelector: (): { src: string } => cards.find(c => c.dataset.typeIconVariantCard === variant)!.image,
+    }));
+    const root = { innerHTML: "", querySelector: (selector: string) => selector === "#type-icon-border-color" ? input : selector === ".type-icon-border-color" ? picker : null,
+      querySelectorAll: (selector: string) => selector === "[data-type-icon-variant-card]" ? cards : [] };
+    const project = makeProject("W2"); renderCodeInjectionEditor(project, root as unknown as HTMLElement, () => {});
+    expect(root.innerHTML).not.toContain('<select id="type-icon-variant"');
+    expect(root.innerHTML).toContain('data-type-icon-variant-card="circular"');
+    listeners.get("circular")!(); expect(cards[1]!.selected).toBe(true); expect(cards[1]!.pressed).toBe("true"); expect(picker.hidden).toBe(false);
+    listeners.get("input")!();
+    expect(cards[0]!.image.src).toBe(typeIconPreview("letters", "#d6d6d6"));
+    expect(cards[1]!.image.src).toBe(typeIconPreview("circular", "#d6d6d6")); expect(cards[2]!.image.src).toBe("");
+    listeners.get("solid")!(); expect(picker.hidden).toBe(true);
+    listeners.get("letters")!(); expect(picker.hidden).toBe(false);
+    renderCodeInjectionEditor(project, root as unknown as HTMLElement, () => {});
+    expect(root.innerHTML).toContain('value="#d6d6d6"');
+  });
+});
 
 describe("Infinite Candy item selection", () => {
   it("shows the validated default slot as ready when item 622 is occupied", () => {

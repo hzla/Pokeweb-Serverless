@@ -63,11 +63,11 @@ export const EMPTY_ITEM_RULE: ItemRuleSet = { effects: [{ kind: "attack", value:
 export const ITEM_RULE_WEATHER = ["Clear", "Sun", "Rain", "Hail", "Sandstorm"];
 
 /** Return a canonical, bounded rule tree suitable for both UI and native code. */
-export function validateItemRule(input: ItemRuleSet): ItemRuleSet {
+export function validateItemRule(input: ItemRuleSet, definitions: readonly ItemRuleEffectDefinition[] = ITEM_RULE_EFFECTS): ItemRuleSet {
   if (!input || !Array.isArray(input.effects) || input.effects.length < 1 || input.effects.length > 16 || typeof input.consumable !== "boolean") throw new Error("Choose one to sixteen effects.");
   const seen = new Set<string>();
   const effects = input.effects.map(effect => {
-    const definition = ITEM_RULE_EFFECTS.find(d => d.kind === effect?.kind);
+    const definition = definitions.find(d => d.kind === effect?.kind);
     if (!definition || !Number.isFinite(effect.value) || effect.value < definition.min || effect.value > definition.max
       || Math.abs(effect.value / definition.step - Math.round(effect.value / definition.step)) > 1e-7) throw new Error("Invalid or duplicate item effect.");
     if (effect.kind === "statStage" && !effect.value) throw new Error("Choose a nonzero stat stage change.");

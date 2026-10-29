@@ -16,7 +16,7 @@ def main():
    rom=copies[spec['rom']];shutil.copyfile(a.evidence/'saves'/f"{spec['label']}.sav",rom.with_suffix('.sav'))
    emu=MelonDS();flow=0;code=0;menus=[];multipliers=[];rewrites=[];errors=[];hooks=[];minimum={};healing=[];names=[];name_frame=0;name_captured=False;name_followups=set();native_chances=[];callback_priorities=[];damage_reactions=[];side_table=0;pending_damage=None;screen_removals=[];callback_owner=None;focus_work=[];move_end_items=[]
    result={'case':spec['label'],'abilityId':spec['abilityId'],'passed':False,'romSha256':manifest['romHashes'][spec['rom']]}
-   counter_callers=[];type_queries=[];client_traps=[];pending_client_trap=None
+   counter_callers=[];type_queries=[];client_traps=[];pending_client_trap=None;popups=[];popup_hooked=False
    def heap(fragment):
     address=next(value for name,value in manifest['pmcSymbols'].items()if fragment in name);value=emu.memory.read_long(address)
     if not 0x02000000<=value<0x02400000:return None
@@ -31,7 +31,20 @@ def main():
      stats=heap(fragment)
      if stats and(name not in minimum or stats['freePayloadBytes']<minimum[name]['freePayloadBytes']):minimum[name]=stats
    def opening(cpu,address):
-    nonlocal flow;flow=emu.memory.register_arm9.r6
+    nonlocal flow,code,popup_hooked;flow=emu.memory.register_arm9.r6
+    if manifest.get('popupGateway')is not None and not popup_hooked:
+     site=manifest['hook']+2;hi=emu.memory.read_short(site);lo=emu.memory.read_short(site+2)
+     assert emu.memory.read_short(manifest['hook'])==0xb500 and hi&0xf800==0xf000 and lo&0xf800==0xf800
+     delta=((hi&0x7ff)<<12)|((lo&0x7ff)<<1)
+     if delta&0x400000:delta-=0x800000
+     code=site+4+delta-manifest['symbols']['AbilityDispatch'];assert 0x02000000<code<0x02400000
+     gateway=emu.memory.read_long(code+manifest['symbols']['AbilityRuleApi']+20*4)&~1
+     assert gateway==code+manifest['popupGateway']
+     hooks.append(emu.memory.register_exec(gateway,popup_run));popup_hooked=True
+   def popup_run(cpu,address):
+    regs=emu.memory.register_arm9
+    if regs.r0==flow and regs.r1 in[2,3]and not emu.memory.read_long(flow+0x774):
+     popups.append({'frame':emu.frame_count,'turnIndex':len(menus),'command':regs.r1,'owner':regs.r2})
    def command(cpu,address):
     nonlocal code,side_table
     try:
@@ -85,7 +98,7 @@ def main():
        if delta&0x400000:delta-=0x800000
        item_code=site+4+delta-manifest['itemDispatch'];item_records=sum(emu.memory.read_long(n+8)==item_code-32 for n in states);assert item_records==1;result['itemPatchRecords']=item_records
       assert ours==1;result['loader']={'totalPatchRecords':len(states),'abilityPatchRecords':ours,'liveRuleCount':manifest['editedAbilities']}
-      for event in['38','3b','47','13']:
+      for event in['38','3b','3c','47','13']:
        if f'AbilityEvent_{event}'in manifest['symbols']:hooks.append(emu.memory.register_exec(code+manifest['symbols'][f'AbilityEvent_{event}'],recipe_callback))
       if manifest.get('clientTrapStores'):
        hooks.append(emu.memory.register_exec(code+manifest['symbols']['AbilityClientTrapped'],client_trapped))
@@ -213,6 +226,15 @@ def main():
      if len(menus)>=spec.get("menuCount",3)and trapped:break
     emu.input.keypad_update(0);assert len(menus)>=spec.get('menuCount',3),f'No completed turns: {menus}'
     c=spec['checks'];hp=[s['hp']for s in menus]
+    if'popupsByTurn'in c:
+     assert popup_hooked,'Native popup gateway was not observed'
+     for command in[2,3]:assert[sum(v['command']==command and v['turnIndex']==i for v in popups)for i in range(len(menus))]==c['popupsByTurn'],popups
+     opened={}
+     for popup in popups:
+      owner=popup['owner']
+      if popup['command']==2:assert not opened.get(owner),popups;opened[owner]=True
+      else:assert opened.get(owner),popups;opened[owner]=False
+     assert not any(opened.values()),popups
     owned_counter_calls=sum(code<=caller<code+manifest['codeBytes']for caller in counter_callers)
     if c.get('counterImport'):assert owned_counter_calls,'No ability-to-counter import call observed'
     if c.get('counterPresent'):assert counter_callers,'No installed counter entry call observed'
@@ -288,10 +310,10 @@ def main():
        assert actual==expected,(ability,actual,expected,s)
      if c.get('suppressed'):assert not callback_priorities,callback_priorities
      elif spec.get('move')==33 and spec['abilityId']!=143:assert {4,5}.issubset({v['priority']for v in callback_priorities}),callback_priorities
-    result.update(passed=True,menus=menus,multipliers=multipliers,rewrites=rewrites,healing=healing,names=names,nativeChances=native_chances,callbackPriorities=callback_priorities,damageReactions=damage_reactions,focusWork=focus_work,moveEndItems=move_end_items,screenRemovals=screen_removals,minimumObservedFree=minimum,counterCalls=len(counter_callers),abilityCounterCalls=owned_counter_calls,typeQueries=type_queries,clientTraps=client_traps)
+    result.update(passed=True,menus=menus,multipliers=multipliers,rewrites=rewrites,healing=healing,names=names,nativeChances=native_chances,callbackPriorities=callback_priorities,damageReactions=damage_reactions,focusWork=focus_work,moveEndItems=move_end_items,screenRemovals=screen_removals,minimumObservedFree=minimum,counterCalls=len(counter_callers),abilityCounterCalls=owned_counter_calls,typeQueries=type_queries,clientTraps=client_traps,popups=popups)
     emu.run_frames(20);emu.screenshot().save(a.evidence/f"{spec['label']}.png");(a.evidence/f"{spec['label']}-result.json").write_text(json.dumps(result,indent=2)+'\n');results.append(result);print(f"PASS {spec['label']}: HP {hp}; abilities {[s['ability']for s in menus]}",flush=True)
    except Exception as error:
-    result.update(error=repr(error),menus=menus,multipliers=multipliers,rewrites=rewrites,minimumObservedFree=minimum,pc=hex(emu.memory.register_arm9.pc),damageReactions=damage_reactions,focusWork=focus_work,moveEndItems=move_end_items,typeQueries=type_queries,clientTraps=client_traps);emu.screenshot().save(a.evidence/f"{spec['label']}-failure.png");(a.evidence/f"{spec['label']}-failure.json").write_text(json.dumps(result,indent=2)+'\n');results.append(result);print(f"FAIL {spec['label']}: {error!r}",flush=True)
+    result.update(error=repr(error),menus=menus,multipliers=multipliers,rewrites=rewrites,minimumObservedFree=minimum,pc=hex(emu.memory.register_arm9.pc),damageReactions=damage_reactions,focusWork=focus_work,moveEndItems=move_end_items,typeQueries=type_queries,clientTraps=client_traps,popups=popups);emu.screenshot().save(a.evidence/f"{spec['label']}-failure.png");(a.evidence/f"{spec['label']}-failure.json").write_text(json.dumps(result,indent=2)+'\n');results.append(result);print(f"FAIL {spec['label']}: {error!r}",flush=True)
     if not a.keep_going:raise
    finally:emu.destroy()
  (a.evidence/f'emulator-{a.start}-{len(results)}.json').write_text(json.dumps({'passed':sum(r['passed']for r in results),'cases':results,'scope':'DS-mode melonDS cold boots; native engine; keypad input; read-only hooks'},indent=2)+'\n')

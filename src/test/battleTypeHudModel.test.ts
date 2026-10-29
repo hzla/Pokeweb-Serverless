@@ -1,3 +1,4 @@
+import borderManifest from "../assets/codeinjection/typeIconBorderManifest.json";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -448,6 +449,53 @@ describe.each(["B", "W"] as const)("BW1 Move Effectiveness candidate %s", { time
     await expect(installMoveEffectiveness(r)).rejects.toThrow(/Other.dll/u);
   });
 });
+describe("custom type icon borders", () => {
+  it.each(["B2", "W2"] as const)("keeps the standard %s renderer for the native border color", async v => {
+    const p = project(v); assets(); await installBattleTypeHud(p, "letters", "#101010");
+    expect(p.fileSystem!.additions![`patches/TypeIcons${v}.dll`]).toEqual(dll(v));
+  });
+  it.each(["B", "W", "B2", "W2"] as const)("retains the %s border through export, reimport, reinstall and style changes", async v => {
+    const p = project(v); assets();
+    await installBattleTypeHud(p, "circular", "#ff0000");
+    expect(getBattleTypeHudStatus(p)).toMatchObject({ compatible: true, installed: true, iconVariant: "circular", borderColor: "#ff0000", updateAvailable: false });
+    const data = p.fileSystem!.additions![`patches/TypeIcons${v}.dll`], rpm = parseRpm(data, { allowedMagics: ["DLXF"] });
+    const build = v === "B" || v === "W" ? manifest.games[v].builds[manifest.games[v].variants.circular.version as keyof typeof manifest.games.B.builds]
+      : borderManifest.games[v].variants.circular.build;
+    const at = v === "B" || v === "W" ? borderManifest.bw1[v][rpm.metadata.PMCVersion as keyof typeof borderManifest.bw1.B] : borderManifest.games[v].variants.circular.build.borderColorOffset;
+    expect(Buffer.from(rpm.code.subarray(0, at)).toString("hex")).toBe(build.codeHex.slice(0, at * 2));
+    expect(Buffer.from(rpm.code.subarray(at + 4)).toString("hex")).toBe(build.codeHex.slice((at + 4) * 2));
+    const reopened = project(v, await exportModifiedRom(p));
+    expect(getBattleTypeHudStatus(reopened)).toMatchObject({ compatible: true, borderColor: "#ff0000", iconVariant: "circular" });
+    await installBattleTypeHud(reopened, "circular");
+    expect(getBattleTypeHudStatus(reopened).borderColor).toBe("#ff0000");
+    await installBattleTypeHud(reopened, "letters");
+    expect(getBattleTypeHudStatus(reopened)).toMatchObject({ compatible: true, borderColor: "#ff0000", iconVariant: "letters" });
+    await installBattleTypeHud(p, "solid", "#ff0000");
+    expect(p.fileSystem!.additions![`patches/TypeIcons${v}.dll`]).toEqual(dll(v, "solid"));
+  });
+  it("retains a custom border with the Redux profile", async () => {
+    const p = project("W2"); assets();
+    const archive = new NARC(new NintendoDSRom(p.originalRomBytes!).getFileByName("a/0/1/1"));
+    archive.files[430] = new TextEncoder().encode("REDUX_PLTT"); p.fileSystem = { replacements: { 344: archive.save() } };
+    await installBattleTypeHud(p, "letters", "#00ff00");
+    expect(getBattleTypeHudStatus(p)).toMatchObject({ graphicsProfile: "redux", compatible: true, borderColor: "#00ff00", updateAvailable: false });
+    const reopened = project("W2", await exportModifiedRom(p));
+    await installBattleTypeHud(reopened, "circular");
+    expect(getBattleTypeHudStatus(reopened)).toMatchObject({ graphicsProfile: "redux", compatible: true, borderColor: "#00ff00", iconVariant: "circular" });
+  });
+  it("rejects invalid colors, altered code and an invalid RGB555 high bit", async () => {
+    const p = project("W2"); assets(); const before = structuredClone(p);
+    await expect(installBattleTypeHud(p, "letters", "red")).rejects.toThrow(/border color/u); expect(p).toEqual(before);
+    await installBattleTypeHud(p, "letters", "#d6d6d6");
+    const path = "patches/TypeIconsW2.dll", original = p.fileSystem!.additions![path];
+    for (const offset of [0, borderManifest.games.W2.variants.letters.build.borderColorOffset + 1]) {
+      const rpm = parseRpm(original, { allowedMagics: ["DLXF"] }); rpm.code[offset]! ^= 0x80;
+      p.fileSystem!.additions![path] = writeRpm(rpm, { ident: "DLXF" });
+      expect(getBattleTypeHudStatus(p).compatible).toBe(false);
+    }
+  });
+});
+
 function project(v: "B" | "W" | "B2" | "W2", bytes?: Uint8Array): ProjectState {
   const profile = manifest.games[v];
   const bw1 = v === "B" || v === "W";
@@ -462,7 +510,7 @@ function project(v: "B" | "W" | "B2" | "W2", bytes?: Uint8Array): ProjectState {
     const overlay = bw1 ? 94 : 168, logic = bw1 ? 93 : 167, logicBase = bw1 ? 0x021b0000 : 0x02199000;
     for (const id of [logic, overlay]) { rom.files[id] = new Uint8Array(0x40000); writeU32(rom.arm9OverlayTable, id * 32 + 4, id === overlay ? profile.overlay_base : logicBase); writeU32(rom.arm9OverlayTable, id * 32 + 8, 0x40000); }
     const moves = manifest.moveGames[v];
-    for (const s of [...profile.signatures, ...(moves?.signatures ?? []), ...profile.hooks.map(h => ({ ...h, segment: overlay })), ...(moves?.hooks.map(h => ({ ...h, segment: overlay })) ?? [])]) {
+    for (const s of [...(!bw1 ? borderManifest.games[v as "B2" | "W2"].signatures : []), ...profile.signatures, ...(moves?.signatures ?? []), ...profile.hooks.map(h => ({ ...h, segment: overlay })), ...(moves?.hooks.map(h => ({ ...h, segment: overlay })) ?? [])]) {
       const base = s.segment === 0 ? 0x02000000 : s.segment === overlay ? profile.overlay_base : logicBase;
       (s.segment === 0 ? rom.arm9 : rom.files[s.segment]!).set(Buffer.from(s.bytes, "hex"), s.address - base);
     }

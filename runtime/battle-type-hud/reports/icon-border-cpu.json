@@ -1,0 +1,90 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "game": "B2",
+      "style": "letters",
+      "passed": true,
+      "typedPanels": 324,
+      "privateBankRestored": true,
+      "nativeHudColorsUnchanged": true,
+      "statusHideAndReturn": true,
+      "fadeAndReturn": true,
+      "stableFramesDoNotWriteGraphics": true,
+      "configuredRgb555": 22197,
+      "abiRegistersAndStack": true,
+      "dllSha256": "945c4d1f2de89bbb7d8ecb79026b4428beff08055a2f21ccac0e3e3c6760e1d5"
+    },
+    {
+      "game": "B2",
+      "style": "circular",
+      "passed": true,
+      "typedPanels": 324,
+      "privateBankRestored": true,
+      "nativeHudColorsUnchanged": true,
+      "statusHideAndReturn": true,
+      "fadeAndReturn": true,
+      "stableFramesDoNotWriteGraphics": true,
+      "configuredRgb555": 22197,
+      "abiRegistersAndStack": true,
+      "dllSha256": "8c8ce47f7b5ecfcf343267dec45fe6b10dd84322b479fc171dbf35ffe3fb8176"
+    },
+    {
+      "game": "W2",
+      "style": "letters",
+      "passed": true,
+      "typedPanels": 324,
+      "privateBankRestored": true,
+      "nativeHudColorsUnchanged": true,
+      "statusHideAndReturn": true,
+      "fadeAndReturn": true,
+      "stableFramesDoNotWriteGraphics": true,
+      "configuredRgb555": 22197,
+      "abiRegistersAndStack": true,
+      "dllSha256": "4d0ec93a82c099237d68c32e82652bca3120cbb6ca08b31aef398048e2e34c4e"
+    },
+    {
+      "game": "W2",
+      "style": "circular",
+      "passed": true,
+      "typedPanels": 324,
+      "privateBankRestored": true,
+      "nativeHudColorsUnchanged": true,
+      "statusHideAndReturn": true,
+      "fadeAndReturn": true,
+      "stableFramesDoNotWriteGraphics": true,
+      "configuredRgb555": 22197,
+      "abiRegistersAndStack": true,
+      "dllSha256": "1f1dfcd58bc46babeedbf78dd81315974eb88b81ee6a4f4caa311348c7f56c45"
+    },
+    {
+      "game": "W2",
+      "style": "letters-redux",
+      "passed": true,
+      "typedPanels": 324,
+      "privateBankRestored": true,
+      "nativeHudColorsUnchanged": true,
+      "statusHideAndReturn": true,
+      "fadeAndReturn": true,
+      "stableFramesDoNotWriteGraphics": true,
+      "configuredRgb555": 22197,
+      "abiRegistersAndStack": true,
+      "dllSha256": "d27e19a713ab800a51a816fb59e1c9c2915a9c73e6820fb612de1a406342bc9b"
+    },
+    {
+      "game": "W2",
+      "style": "circular-redux",
+      "passed": true,
+      "typedPanels": 324,
+      "privateBankRestored": true,
+      "nativeHudColorsUnchanged": true,
+      "statusHideAndReturn": true,
+      "fadeAndReturn": true,
+      "stableFramesDoNotWriteGraphics": true,
+      "configuredRgb555": 22197,
+      "abiRegistersAndStack": true,
+      "dllSha256": "9d624f1928d846b5762215411a89175ae98f38ef5e3d174f5d4b821c03b114c2"
+    }
+  ],
+  "gameplayTested": false
+}

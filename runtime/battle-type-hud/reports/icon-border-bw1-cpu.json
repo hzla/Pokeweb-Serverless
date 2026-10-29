@@ -1,0 +1,27 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "game": "W",
+      "style": "letters",
+      "passed": true,
+      "dllSha256": "a1d274e4f4ec21d2b8f71cba2c0d38dc4695cc859b250000fa93fd97860b1e02",
+      "configuredRgb555": 27482,
+      "nativeGraphicsAndPalettesUnchanged": true,
+      "paletteOwnershipAndCleanup": true,
+      "abiRegistersAndStack": true
+    },
+    {
+      "game": "W",
+      "style": "circular",
+      "passed": true,
+      "dllSha256": "d80f3db5da33ab6500bc5b814c238b48d342c9d420fe0eae6d936e626282fd1c",
+      "configuredRgb555": 27482,
+      "nativeGraphicsAndPalettesUnchanged": true,
+      "paletteOwnershipAndCleanup": true,
+      "abiRegistersAndStack": true
+    }
+  ],
+  "gameplayTested": false,
+  "scope": "White custom-color CPU checks; Black custom-color native execution is not covered by this report."
+}

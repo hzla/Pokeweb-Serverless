@@ -1,0 +1,58 @@
+{
+  "game": "W2",
+  "profile": "redux",
+  "scope": "Singles cold boot using copied trainer battle and bundled save.",
+  "passed": true,
+  "checks": [
+    {
+      "style": "letters",
+      "dllSha256": "5d7243a97f68583a1790ccd8ccc790d28c9c4175e89c31a9a2795d7a6e2d322d",
+      "frame": 610,
+      "passed": true,
+      "nativeReservationVerified": true,
+      "nativeOutlineUnchanged": true,
+      "borderColor": "#d6d6d6",
+      "records": [
+        {
+          "position": 0,
+          "status": 0,
+          "painted": true,
+          "borderPaletteBank": 11,
+          "nativePaletteBank": 0
+        },
+        {
+          "position": 1,
+          "status": 0,
+          "painted": true,
+          "borderPaletteBank": 10,
+          "nativePaletteBank": 1
+        }
+      ]
+    },
+    {
+      "style": "circular",
+      "dllSha256": "87214aadffe8b457829faaec5e6bc5b9de30742089b6a961e6671c0c55e12165",
+      "frame": 610,
+      "passed": true,
+      "nativeReservationVerified": true,
+      "nativeOutlineUnchanged": true,
+      "borderColor": "#d6d6d6",
+      "records": [
+        {
+          "position": 0,
+          "status": 0,
+          "painted": true,
+          "borderPaletteBank": 11,
+          "nativePaletteBank": 0
+        },
+        {
+          "position": 1,
+          "status": 0,
+          "painted": true,
+          "borderPaletteBank": 10,
+          "nativePaletteBank": 1
+        }
+      ]
+    }
+  ]
+}
