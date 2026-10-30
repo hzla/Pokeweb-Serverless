@@ -82,6 +82,20 @@ function reduxProject(): ProjectState {
 }
 
 describe("White 2 Redux C-Gear adapter", () => {
+  it("accepts the current verified Following Pokémon core with the Redux adapter", async () => {
+    const p = reduxProject(); assets();
+    const path = "patches/PokewebFollowingCoreW2.dll";
+    p.fileSystem!.additions![path] = new Uint8Array(readFileSync(new URL("../assets/following/PokewebFollowingCoreW2.dll", import.meta.url)));
+    expect(getCGearQuickActionsStatus(p)).toMatchObject({ compatible: true, romProfile: "redux" });
+    await installCGearQuickActions(p);
+    expect(getCGearQuickActionsStatus(makeProject("W2", await exportModifiedRom(p))))
+      .toMatchObject({ compatible: true, installed: true, romProfile: "redux" });
+  });
+  it("accepts the current White2Upgrade follower core", () => {
+    const p = makeProject("W2");
+    p.fileSystem = { replacements: {}, additions: { "patches/PokewebFollowingCoreW2.dll": new Uint8Array(readFileSync(new URL("../assets/following/white2upgrade/PokewebFollowingCoreW2.dll", import.meta.url))) } };
+    expect(getCGearQuickActionsStatus(p).compatible).toBe(true);
+  });
   it("selects the adapter automatically and preserves Redux code, PC script and repel DLL through export/reimport", async () => {
     const p = reduxProject(); assets();
     const rom = new NintendoDSRom(p.originalRomBytes!), scriptsId = rom.fileId(redux.pcScript.archive);
@@ -148,6 +162,25 @@ function legacyControls(arc:NARC){
   writeU32(arc.files[0],24,fingerprint(new Uint8Array(arc.files.slice(1,12).flatMap(b=>Array.from(b)))));
 }
 describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
+  it("accepts the verified Following Pokémon event hooks but rejects altered or overlapping modules", async () => {
+    const p = makeProject(v); assets();
+    const directory = v === "W2" ? "" : "black2/";
+    const core = new Uint8Array(readFileSync(new URL(`../assets/following/${directory}PokewebFollowingCore${v}.dll`, import.meta.url)));
+    const path = `patches/PokewebFollowingCore${v}.dll`;
+    p.fileSystem = { replacements: {}, additions: { [path]: core } };
+    expect(getCGearQuickActionsStatus(p).compatible).toBe(true);
+    await installCGearQuickActions(p);
+    const reopened = makeProject(v, await exportModifiedRom(p));
+    expect(getCGearQuickActionsStatus(reopened)).toMatchObject({ compatible: true, installed: true, enabled: true });
+    const changed = core.slice(); changed[changed.length - 1] ^= 1;
+    p.fileSystem!.additions![path] = changed;
+    expect(getCGearQuickActionsStatus(p)).toMatchObject({ compatible: false, message: expect.stringContaining("Conflicting") });
+    p.fileSystem!.additions![path] = core;
+    const other = parseRpm(core, { allowedMagics: ["DLXF"] });
+    other.relocations.find(r => r.target.module === "ARM9" && r.target.address === 0x02016cf8)!.target.address = 0x02016cb4;
+    p.fileSystem!.additions!["patches/ForeignEvent.dll"] = writeRpm(other, { ident: "DLXF" });
+    expect(getCGearQuickActionsStatus(p)).toMatchObject({ compatible: false, message: expect.stringContaining("ForeignEvent.dll") });
+  });
   // 0.5.5/0.5.6 share the System Shop hook layout; 0.5.4 predates it.
   it.each([['0.5.4'],['0.5.5','0.5.6']].map(versions=>({versions})))('upgrades $versions and preserves an optional System Shop through apply, export, disable and re-enable',async ({versions})=>{
     const p=makeProject(v);assets();await installCGearQuickActions(p);

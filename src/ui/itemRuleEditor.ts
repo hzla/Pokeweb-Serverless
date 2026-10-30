@@ -135,7 +135,7 @@ export function installItemRuleEditor(container: HTMLElement, project: ProjectSt
   container.addEventListener("change", event => {
     const target = event.target as HTMLElement;
     changed();
-    if(target.matches('[data-rule-native-parameter="moveClass"],[data-rule-native-parameter="activation"],[data-rule-native-parameter="operation"]')&&(libraryAbilityEffect(target.closest<HTMLElement>("[data-rule-effect]")!.dataset.ruleEffectKind!)||recipeAbilityEffect(target.closest<HTMLElement>("[data-rule-effect]")!.dataset.ruleEffectKind!))){replace(readItemRuleForm(container));return;}
+    if(target.matches('[data-rule-native-parameter="moveClass"],[data-rule-native-parameter="activation"],[data-rule-native-parameter="operation"],[data-rule-native-parameter="stat"]')&&(libraryAbilityEffect(target.closest<HTMLElement>("[data-rule-effect]")!.dataset.ruleEffectKind!)||recipeAbilityEffect(target.closest<HTMLElement>("[data-rule-effect]")!.dataset.ruleEffectKind!))){replace(readItemRuleForm(container));return;}
     if (!target.matches("[data-rule-effect-kind], [data-rule-condition-kind], [data-rule-native-original]")) return;
     try {
       const rule = readItemRuleForm(container);

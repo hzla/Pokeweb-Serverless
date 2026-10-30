@@ -25,7 +25,7 @@ export const ABILITY_PRIMITIVE_DESCRIPTIONS: Readonly<Record<string, string>> = 
   "ability:hitStat": "Raise or lower the holder’s or attacker’s chosen stat after the holder takes matching move damage.",
   "ability:priority": "Add priority to the holder’s matching moves. Bonuses from separate matching effects add together.",
   "abilityRecipe:convertType": "Change matching moves to a chosen type and apply a power multiplier. Some moves that choose their own type are excluded.",
-  "abilityRecipe:statAction": "Change selected targets’ stat stages on entry, a damaging hit, an HP threshold crossing or a faint. ‘Highest raw stat’ uses the holder’s stats.",
+  "abilityRecipe:statAction": "Change targets’ stat stages on entry, a damaging hit, an HP threshold crossing, a faint or after using a move. Highest raw stat can use the holder’s or each target’s stats.",
   "abilityRecipe:statusGuard": "Prevent a chosen condition for the holder or allies, optionally curing it too.",
   "abilityRecipe:statGuard": "Prevent selected stat drops for the holder or allies, optionally restricted by their type.",
   "abilityRecipe:allyPower": "Multiply matching allies’ move power, optionally including the holder.",
@@ -53,6 +53,7 @@ export const ABILITY_PRIMITIVE_DESCRIPTIONS: Readonly<Record<string, string>> = 
   "abilityRecipe:priorityGuard": "Block opposing moves at or above a chosen priority, protecting the holder or its whole side.",
   "abilityRecipe:statEcho": "Reflect opposing stat drops or copy opponents’ stat boosts, optionally filtering by stat.",
   "abilityRecipe:transferItem": "Steal an item after dealing damage, or give the holder’s item to an ally after that ally consumes an item.",
+  "abilityRecipe:knockoutSplash": "After the holder knocks out an opponent with move damage, damage that opponent’s surviving active allies by a percentage of the defeated opponent’s or each recipient’s maximum HP.",
 };
 
 export type AbilityPrimitiveReference = {

@@ -16,7 +16,7 @@ def main():
    rom=copies[spec['rom']];shutil.copyfile(a.evidence/'saves'/f"{spec['label']}.sav",rom.with_suffix('.sav'))
    emu=MelonDS();flow=0;code=0;menus=[];multipliers=[];rewrites=[];errors=[];hooks=[];minimum={};healing=[];names=[];name_frame=0;name_captured=False;name_followups=set();native_chances=[];callback_priorities=[];damage_reactions=[];side_table=0;pending_damage=None;screen_removals=[];callback_owner=None;focus_work=[];move_end_items=[];combat_types=[];event_trace=[];native_stab=[]
    result={'case':spec['label'],'abilityId':spec['abilityId'],'passed':False,'romSha256':manifest['romHashes'][spec['rom']]}
-   counter_callers=[];type_queries=[];client_traps=[];pending_client_trap=None;popups=[];popup_hooked=False
+   counter_callers=[];type_queries=[];client_traps=[];pending_client_trap=None;popups=[];popup_hooked=False;indirect_damage=[]
    def heap(fragment):
     address=next(value for name,value in manifest['pmcSymbols'].items()if fragment in name);value=emu.memory.read_long(address)
     if not 0x02000000<=value<0x02400000:return None
@@ -54,6 +54,11 @@ def main():
      main=emu.memory.read_long(flow+4);player=emu.memory.read_long(main+0xcc);enemy=emu.memory.read_long(main+0xcc+0x1c)
      state={'turn':turn,'frame':emu.frame_count,'hp':emu.memory.read_short(player+0x10),'maxHp':emu.memory.read_short(player+0xe),'item':emu.memory.read_short(player+0x12),'enemyHp':emu.memory.read_short(enemy+0x10),'enemyMaxHp':emu.memory.read_short(enemy+0xe),'ability':emu.memory.read_short(player+0x13c),'enemyAbility':emu.memory.read_short(enemy+0x13c),'stages':list(emu.memory.unsigned[player+0xfc:player+0x103]),'enemyStages':list(emu.memory.unsigned[enemy+0xfc:enemy+0x103]),'conditions':[emu.memory.read_long(player+0x1c+n*4)for n in range(36)],'enemyConditions':[emu.memory.read_long(enemy+0x1c+n*4)for n in range(36)]}
      state['types']=[emu.memory.read_byte(player+0xf8),emu.memory.read_byte(player+0xf9)]
+     if'highestTargets'in spec['checks']or'knockoutSplash'in spec['checks']or'noSplash'in spec['checks']:
+      state['rawStats']=[emu.memory.read_short(player+0xee+n*2)for n in range(5)];state['enemyParty']=[]
+      for slot in range(spec.get('enemyCount',1)):
+       mon=emu.memory.read_long(main+0xe8+slot*4);assert 0x02000000<=mon<0x02400000
+       state['enemyParty'].append({'id':emu.memory.read_byte(mon+0x19),'hp':emu.memory.read_short(mon+0x10),'maxHp':emu.memory.read_short(mon+0xe),'rawStats':[emu.memory.read_short(mon+0xee+n*2)for n in range(5)],'stages':list(emu.memory.unsigned[mon+0xfc:mon+0x103])})
      state['focus']=bool(emu.memory.read_byte(player+0x156)&2)
      if'partyHpByTurn'in spec['checks']:state['partyHp']=[emu.memory.read_short(emu.memory.read_long(main+0xcc+slot*4)+0x10)for slot in range(len(spec['checks']['partyHpByTurn'][0]))]
      state['weather']=emu.memory.read_byte(manifest['weatherAddress'])if manifest.get('weatherAddress')else None
@@ -114,7 +119,7 @@ def main():
     for n in range(start,96):
      key=emu.memory.read_short(table+4+n*2)
      if not key:break
-     if key in[2,3,4,0x12,0x16,0x18]:values[hex(key)]=emu.memory.read_long(table+0xc4+n*4)
+     if key in[2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,0x12,0x16,0x18,0x32,0x46]:values[hex(key)]=emu.memory.read_long(table+0xc4+n*4)
     main=emu.memory.read_long(flow+4);mon=emu.memory.read_long(main+0xcc)
     event_trace.append({'event':hex(emu.memory.register_arm9.r1),'values':values,'types':[emu.memory.read_byte(mon+0xf8),emu.memory.read_byte(mon+0xf9)]})
    def scope():return code and menus and code<=(emu.memory.register_arm9.lr&~1)<code+manifest['codeBytes'] and flow and not emu.memory.read_long(flow+0x774)
@@ -131,6 +136,7 @@ def main():
     if flow and menus and not emu.memory.read_long(flow+0x774):
      work=emu.memory.register_arm9.r1
      if 0x02000000<=work<0x02400000 and emu.memory.read_byte(work)in[23,24]:focus_work.append({'turnIndex':len(menus)-1,'command':emu.memory.read_byte(work),'target':emu.memory.read_byte(work+8),'flag':emu.memory.read_long(work+4),'owned':bool(scope())})
+     if 0x02000000<=work<0x02400000 and emu.memory.read_byte(work)==7 and scope():indirect_damage.append({'turnIndex':len(menus)-1,'amount':emu.memory.read_short(work+4),'target':emu.memory.read_byte(work+6)})
    def named(cpu,address):
     nonlocal name_frame
     value=emu.memory.register_arm9.r2;names.append({'abilityId':value,'frame':emu.frame_count})
@@ -321,6 +327,19 @@ def main():
     for key in ['partyStages','enemyPartyStages']:
      if key in c:assert all(s[key]==c[key]for s in menus),menus
     if'playerStagesByTurn'in c:assert[s['stages']for s in menus]==c['playerStagesByTurn'],menus
+    if'highestTargets'in c:
+     assert any(hit['target']==0 and hit['damage']>0 for hit in damage_reactions),damage_reactions
+     for i,state in enumerate(menus):
+      hits=sum(hit['target']==0 and hit['damage']>0 and not hit.get('substitute')and hit['turnIndex']<i for hit in damage_reactions)
+      for target,initial in enumerate(menus[0]['enemyParty']):
+       raw=initial['rawStats']if c['highestTargets']else menus[0]['rawStats'];highest=raw.index(max(raw));expected=[max(0,6-hits)if stat==highest else 6 for stat in range(7)]
+       assert state['enemyParty'][target]['stages']==expected,(menus,damage_reactions)
+    if'knockoutSplash'in c:
+     config=c['knockoutSplash'];i=config.get('turn',0);before=menus[i]['enemyParty'];after={mon['id']:mon for mon in menus[i+1]['enemyParty']};defeated=next(mon for mon in before if mon['id']==12+config.get('defeated',1));recipient=next(mon for mon in before if mon['id']==12+config.get('recipient',0));assert defeated['hp']>0 and after[defeated['id']]['hp']==0,menus
+     amount=max(1,(recipient if config['hpBasis']else defeated)['maxHp']*config['percent']//100)
+     assert recipient['hp']-after[recipient['id']]['hp']==min(recipient['hp'],amount),(menus,indirect_damage)
+     assert indirect_damage==[{'turnIndex':i,'amount':amount,'target':recipient['id']}],indirect_damage
+    if c.get('noSplash'):assert not indirect_damage,indirect_damage
     if'enemyStagesByTurn'in c:assert[s['enemyStages']for s in menus]==c['enemyStagesByTurn'],menus
     if'speedStages'in c:assert[s['stages'][4]for s in menus]==c['speedStages'],menus
     if'enemySpeedStages'in c:assert[s['enemyStages'][4]for s in menus]==c['enemySpeedStages'],menus
@@ -346,10 +365,10 @@ def main():
        assert actual==expected,(ability,actual,expected,s)
      if c.get('suppressed'):assert not callback_priorities,callback_priorities
      elif spec.get('move')==33 and spec['abilityId']!=143:assert {4,5}.issubset({v['priority']for v in callback_priorities}),callback_priorities
-    result.update(passed=True,menus=menus,multipliers=multipliers,rewrites=rewrites,healing=healing,names=names,nativeChances=native_chances,callbackPriorities=callback_priorities,damageReactions=damage_reactions,focusWork=focus_work,moveEndItems=move_end_items,screenRemovals=screen_removals,minimumObservedFree=minimum,counterCalls=len(counter_callers),abilityCounterCalls=owned_counter_calls,typeQueries=type_queries,clientTraps=client_traps,popups=popups,combatTypes=combat_types,eventTrace=event_trace,nativeStab=native_stab)
+    result.update(passed=True,menus=menus,multipliers=multipliers,rewrites=rewrites,healing=healing,names=names,nativeChances=native_chances,callbackPriorities=callback_priorities,damageReactions=damage_reactions,focusWork=focus_work,moveEndItems=move_end_items,screenRemovals=screen_removals,minimumObservedFree=minimum,counterCalls=len(counter_callers),abilityCounterCalls=owned_counter_calls,typeQueries=type_queries,clientTraps=client_traps,popups=popups,combatTypes=combat_types,eventTrace=event_trace,nativeStab=native_stab,indirectDamage=indirect_damage)
     emu.run_frames(20);emu.screenshot().save(a.evidence/f"{spec['label']}.png");(a.evidence/f"{spec['label']}-result.json").write_text(json.dumps(result,indent=2)+'\n');results.append(result);print(f"PASS {spec['label']}: HP {hp}; abilities {[s['ability']for s in menus]}",flush=True)
    except Exception as error:
-    result.update(error=repr(error),menus=menus,multipliers=multipliers,rewrites=rewrites,minimumObservedFree=minimum,pc=hex(emu.memory.register_arm9.pc),damageReactions=damage_reactions,focusWork=focus_work,moveEndItems=move_end_items,typeQueries=type_queries,clientTraps=client_traps,popups=popups,combatTypes=combat_types,eventTrace=event_trace,nativeStab=native_stab);emu.screenshot().save(a.evidence/f"{spec['label']}-failure.png");(a.evidence/f"{spec['label']}-failure.json").write_text(json.dumps(result,indent=2)+'\n');results.append(result);print(f"FAIL {spec['label']}: {error!r}",flush=True)
+    result.update(error=repr(error),menus=menus,multipliers=multipliers,rewrites=rewrites,minimumObservedFree=minimum,pc=hex(emu.memory.register_arm9.pc),damageReactions=damage_reactions,focusWork=focus_work,moveEndItems=move_end_items,typeQueries=type_queries,clientTraps=client_traps,popups=popups,combatTypes=combat_types,eventTrace=event_trace,nativeStab=native_stab,indirectDamage=indirect_damage);emu.screenshot().save(a.evidence/f"{spec['label']}-failure.png");(a.evidence/f"{spec['label']}-failure.json").write_text(json.dumps(result,indent=2)+'\n');results.append(result);print(f"FAIL {spec['label']}: {error!r}",flush=True)
     if not a.keep_going:raise
    finally:emu.destroy()
  (a.evidence/f'emulator-{a.start}-{len(results)}.json').write_text(json.dumps({'passed':sum(r['passed']for r in results),'cases':results,'scope':'DS-mode melonDS cold boots; native engine; keypad input; read-only hooks'},indent=2)+'\n')

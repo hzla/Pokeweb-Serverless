@@ -20,6 +20,10 @@ import { getBw1CGearStatus, installBw1CGear, disableBw1CGear, removeBw1CGear } f
 import { parseRpm, type RpmModule } from "./rpm";
 import { ensureSystemShops, hydrateSystemShops, stageSystemShops } from "./systemShopsModel";
 import { findReduxRepel, isReduxRepel } from "./cgearReduxModel";
+import { sha256Hex } from "../nds/sha256";
+import followingWhite2 from "../assets/following/runtime.json";
+import followingBlack2 from "../assets/following/black2/runtime.json";
+import followingUpgrade from "../assets/following/white2upgrade/runtime.json";
 
 type Version = "B2" | "W2";
 type Profile = typeof manifest.games.W2;
@@ -94,16 +98,25 @@ function nativePatterns(project:ProjectState,rom:NintendoDSRom):Uint8Array {
   }
   return out;
 }
-function conflicts(rpm: RpmModule, profile: Profile): boolean {
+function conflicts(rpm: RpmModule, profile: Profile, followingCore = false): boolean {
   const sharedMusic=rpm.metadata.PMCGameID===(profile.idCode==="IRDO"?"W2":"B2")
     && ["3.0.0","3.0.1"].includes(String(rpm.metadata.PMCVersion))
     && rpm.symbols.some(s=>s.nameHash===0x59ce771e&&(s.attributes&1)&&s.size===32);
   return rpm.relocations.some(({ target, sourceSymbolIndex }) => {
     const size = target.type === "FULL_COPY" ? rpm.symbols[sourceSymbolIndex]?.size ?? 0
       : target.type === "THUMB_BRANCH_SAFESTACK" ? 16 : target.type === "THUMB_BRANCH" ? 12 : 4;
-    return profile.signatures.some(s => !(sharedMusic&&s.label==="Shared music runtime hook") && s.module === target.module
+    // The follower wraps two event functions within this read-only signature;
+    // C-Gear uses the same native event ABI but does not write at those sites.
+    return profile.signatures.some(s => !(sharedMusic&&s.label==="Shared music runtime hook")
+      && !(followingCore && s.label === "Native event allocation and destruction layout" && target.module === "ARM9"
+        && target.type === "FULL_COPY" && size === 8 && [0x02016cf8, 0x02016d08].includes(target.address)) && s.module === target.module
       && target.address < s.address + s.expectedHex.length / 2 && target.address + size > s.address);
   });
+}
+function isVerifiedFollowingCore(path: string, bytes: Uint8Array | undefined, version: Version): boolean {
+  if (!bytes || path !== `patches/PokewebFollowingCore${version}.dll`) return false;
+  const hashes = version === "W2" ? [followingWhite2.coreSha256, followingUpgrade.coreSha256] : [followingBlack2.coreSha256];
+  return hashes.includes(sha256Hex(bytes));
 }
 function checkCGearPaletteSpace(project: ProjectState, rom: NintendoDSRom): void {
   const id=rom.filenames.idOf("a/2/8/7");
@@ -153,14 +166,15 @@ export function getCGearQuickActionsStatus(project: ProjectState): CGearQuickAct
   const owned: string[] = [];
   for (const entry of listCodeInjectionDlls(project)) {
     let rpm: RpmModule | undefined;
-    try {const b = bytesAt(project, rom, entry.path);if (b) rpm = parseRpm(b, { allowedMagics: ["DLXF"] });} catch { /* Names still checked below. */ }
+    let bytes: Uint8Array | undefined;
+    try {bytes = bytesAt(project, rom, entry.path);if (bytes) rpm = parseRpm(bytes, { allowedMagics: ["DLXF"] });} catch { /* Names still checked below. */ }
     if (redux && entry.target === "patches" && entry.path === redux.path && rpm && isReduxRepel(rpm)) continue;
     if (entry.target === "patches" && rpm && recognized(rpm, v)) {
       if (rpm.metadata.PMCVersion === reduxManifest.version && !redux) return { ...state, installed: true,
         message: "The Redux C-Gear adapter requires its matching Redux repel runtime. Restore that runtime before updating." };
       owned.push(entry.path);state.updateAvailable=rpm.metadata.PMCVersion!==targetVersion;
     }
-    else if ((rpm && conflicts(rpm, profile)) || /^CGearQuickActions[WB]2\.dll$/iu.test(entry.fileName)) {
+    else if ((rpm && conflicts(rpm, profile, isVerifiedFollowingCore(entry.path, bytes, v))) || /^CGearQuickActions[WB]2\.dll$/iu.test(entry.fileName)) {
       return { ...state, message: `Conflicting C-Gear, encounter, or field action code in ${entry.path}. Remove that conflicting module or use a compatible version.` };
     }
   }

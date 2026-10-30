@@ -2,6 +2,7 @@
 import type {NativeAbilityParameter} from "./abilityNativeParameters";
 import type {ItemRuleEffectDefinition,ItemRuleEffect} from "./itemRules";
 import {SCOPED_ABILITY_EFFECTS} from "./abilityScopedEffects";
+import {ACTION_ABILITY_EFFECTS} from "./abilityActionEffects";
 const p=(key:string,label:string,original:number,min:number,max:number,labels?:Record<number,string>,kind:NativeAbilityParameter["kind"]="number"):NativeAbilityParameter=>({key,label,original,min,max,step:1,kind,sites:[],...(labels?{labels,choices:Object.keys(labels).map(Number)}:{})});
 const stat=(highest=false)=>p("stat","Stat",1,1,highest?8:7,highest?{1:"Attack",2:"Defense",3:"Sp. Atk",4:"Sp. Def",5:"Speed",6:"Accuracy",7:"Evasion",8:"Highest raw stat"}:undefined,"stat");
 const scope=p("scope","Targets",0,0,4,{0:"Holder",1:"Allies",2:"Opponents",3:"All other Pokémon",4:"Attacker"});
@@ -11,12 +12,12 @@ const guardScope=p("scope","Protect",0,0,1,{0:"Holder",1:"Holder and allies"});
 const protectedType=p("protectedType","Protected Pokémon type",18,0,18,undefined,"type");
 protectedType.labels={18:"Any type"};
 const once=p("once","Entry limit",0,0,1,{0:"Every entry / ability gain",1:"Once per battle"});
-const trigger=p("activation","Trigger",0,0,4,{0:"Entry / ability gain",1:"After taking a hit",2:"HP crosses downward",3:"Another Pokémon faints",4:"After a knockout"});
+const trigger=p("activation","Trigger",0,0,5,{0:"Entry / ability gain",1:"After taking a hit",2:"HP crosses downward",3:"Another Pokémon faints",4:"After a knockout",5:"After using a move"});
 export type RecipeAbilityEffect=ItemRuleEffectDefinition&{code:number;scale:number;parameters:NativeAbilityParameter[];bypassable:boolean;nonzero?:boolean;fixedBypass?:boolean};
 const effect=(kind:string,code:number,label:string,value:number,min:number,max:number,step:number,unit:string,scale:number,parameters:NativeAbilityParameter[],bypassable=false,nonzero=false):RecipeAbilityEffect=>({kind:`abilityRecipe:${kind}`,code,label,value,min,max,step,unit,scale,parameters:parameters.map(p=>({...p})),bypassable,nonzero});
 export const RECIPE_ABILITY_EFFECTS:RecipeAbilityEffect[]=[
  effect("convertType",135,"Convert move type and power",1.2,.125,8,.001,"× power",4096,[{...move,choices:move.choices!.filter(v=>v!==9&&v!==10)},p("sourceType","Original move type",0,0,18,undefined,"type"),p("type","New move type",2,0,17,undefined,"type")]),
- effect("statAction",136,"Triggered stat stages",1,-6,6,1,"stages",1,[trigger,stat(true),scope,p("activationChance","Chance (%)",100,0,100),p("threshold","HP threshold (%)",50,1,100),once,move,type,category,p("adjacent","Range",0,0,1,{0:"All active targets",1:"Adjacent targets"})],false,true),
+ effect("statAction",136,"Triggered stat stages",1,-6,6,1,"stages",1,[trigger,stat(true),scope,p("activationChance","Chance (%)",100,0,100),p("threshold","HP threshold (%)",50,1,100),once,move,type,category,p("adjacent","Range",0,0,1,{0:"All active targets",1:"Adjacent targets"}),p("statSource","Highest stat of",0,0,1,{0:"Holder",1:"Each target"})],false,true),
  effect("statusGuard",137,"Protect against a condition",1,1,1,1,"",1,[p("condition","Condition",1,1,35,{1:"Paralysis",2:"Sleep",3:"Freeze",4:"Burn",5:"Poison / bad poison",6:"Confusion",7:"Infatuation",11:"Taunt",12:"Torment",13:"Disable",14:"Yawn",15:"Heal Block",23:"Encore"}),guardScope,protectedType,p("cure","Automatically cure",0,0,1,{0:"No",1:"Yes"}),p("excludeSelf","Self-inflicted conditions",0,0,1,{0:"Also prevent",1:"Allow"})],true),
  effect("statGuard",138,"Prevent stat drops",1,1,1,1,"",1,[p("stat","Stat",8,1,8,undefined,"stat"),guardScope,protectedType],true),
  effect("allyPower",139,"Ally move power multiplier",1.3,.125,8,.001,"×",4096,[p("scope","Affect",0,0,1,{0:"Allies",1:"Holder and allies"}),move,type,category]),
@@ -36,8 +37,9 @@ export const RECIPE_ABILITY_EFFECTS:RecipeAbilityEffect[]=[
  effect("moveGuard",153,"Block selected moves from other Pokémon",1,1,1,1,"",1,[move,type,p("category","Move category",0,0,2,undefined,"category"),p("excludeSelf","Holder’s own moves",1,0,1,{0:"Also block",1:"Allow"})],true),
  effect("weatherGuard",154,"Weather damage immunity",1,1,1,1,"",1,[p("weather","Weather",3,0,4,{0:"All damaging weather",3:"Hail",4:"Sandstorm"},"weather")]),
  ...SCOPED_ABILITY_EFFECTS,
+ ...ACTION_ABILITY_EFFECTS,
 ];
-const triggered=RECIPE_ABILITY_EFFECTS.find(e=>e.code===136)!;triggered.parameters.find(p=>p.key==="threshold")!.when={key:"activation",value:2};triggered.parameters.find(p=>p.key==="once")!.when={key:"activation",value:0};for(const key of["moveClass","category"])triggered.parameters.find(p=>p.key===key)!.when={key:"activation",value:[1,2]};triggered.parameters.find(p=>p.key==="type")!.when={key:"moveClass",value:9};
+const triggered=RECIPE_ABILITY_EFFECTS.find(e=>e.code===136)!;triggered.parameters.find(p=>p.key==="threshold")!.when={key:"activation",value:2};triggered.parameters.find(p=>p.key==="once")!.when={key:"activation",value:0};for(const key of["moveClass","category"])triggered.parameters.find(p=>p.key===key)!.when={key:"activation",value:[1,2,5]};triggered.parameters.find(p=>p.key==="type")!.when={key:"moveClass",value:9};triggered.parameters.find(p=>p.key==="statSource")!.when={key:"stat",value:8};
 RECIPE_ABILITY_EFFECTS.find(e=>e.code===140)!.parameters.find(p=>p.key==="copyFocus")!.when={key:"operation",value:0};
 const effectiveness=RECIPE_ABILITY_EFFECTS.find(e=>e.code===147)!;effectiveness.valueChoices=[.25,.5,1,2,4];effectiveness.valueLabels={.25:"¼×",.5:"½×",1:"1×",2:"2×",4:"4×"};
 const source=RECIPE_ABILITY_EFFECTS[0].parameters.find(p=>p.key==="sourceType")!;source.labels={18:"Any type"};

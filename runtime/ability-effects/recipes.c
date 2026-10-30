@@ -29,6 +29,10 @@ static void scopedBefore(void*,u32);
 static void scopedAfter(void*,u32);
 static void scopedConsume(void*,u8,u32);
 #endif
+#ifdef ABILITY_ACTIONS
+static void actionObserve(void*,u8,const volatile u8*,u32);
+static u32 actionMoveMatches(const volatile u8*,const u32*);
+#endif
 PUBLIC void AbilityRecipeInit(void){
 #ifdef ABILITY_SCOPED
  scopedInit();
@@ -102,6 +106,9 @@ static void recipeWeather(void*f,u8 owner,const volatile u8*e){
 }
 static void recipeObserve(void*f,u8 owner,const volatile u8*r,u32 event){
  if(owner>=32||preview(f))return;
+#ifdef ABILITY_ACTIONS
+ actionObserve(f,owner,r,event);
+#endif
  const volatile u8*e=effects(r);
  for(u32 n=0;n<r[0];++n,e+=16){u32*w=nativeWork[owner][n];
   if(e[0]==136&&e[1]==2){
@@ -129,12 +136,19 @@ static void recipeEffect(void*item,void*f,u8 owner,const volatile u8*e,u32 event
   if(t==2)fire=event==0x84&&w[1]&&hp&&hp*100<=STAT(MON(f,owner),14)*e[8]&&(hp+w[0])*100>STAT(MON(f,owner),14)*e[8]&&(!e[12]||FN(17,u32(*)(u32))(VALUE(0x12))==e[12])&&recipeMatch(e,10,11,12,VALUE(0x12));
   if(t==3)fire=event==0xa3&&VALUE(2)!=owner&&!STAT(MON(f,VALUE(2)),13);
   if(t==4&&event==0x83&&VALUE(3)==owner){for(u32 n=0;n<VALUE(5)&&n<12;++n)if(!STAT(MON(f,VALUE(6+n)),13))++fire;}
+#ifdef ABILITY_ACTIONS
+  if(t==5&&event==0x4&&VALUE(2)==owner&&w[3]){w[3]=0;fire=actionMoveMatches(e,w);}
+#endif
   if(!fire||preview(f)||!hp&&t!=1)return;
   popup(f,2,owner);
   for(u32 k=0;k<fire;++k)for(u8 id=0;id<24;++id)if(inScope(f,owner,id,e[5])){
    if(e[13]&&RX(19,u32(*)(void*,u8,u8,u16))(f,owner,id,0))continue;
    if(t==0&&e[5]==2&&RX(20,u32(*)(void*))(MON(f,id)))continue;
-   recipeStage(item,f,owner,id,e[4]==8?highest(MON(f,owner)):e[4],signedValue,e[6]);
+   recipeStage(item,f,owner,id,e[4]==8?highest(MON(f,
+#ifdef ABILITY_ACTIONS
+    e[14]?id:
+#endif
+    owner)):e[4],signedValue,e[6]);
   }
   popup(f,3,owner);return;
  }

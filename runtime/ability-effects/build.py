@@ -17,7 +17,9 @@ variants=[('',[],'abilityRuleRuntime.json'),('-priority',['-DABILITY_PRIORITY'],
 variants += [(suffix+'-grouped',defines+['-DABILITY_POPUP_GROUPS'],asset.replace('.json','Grouped.json')) for suffix,defines,asset in variants]
 variants += [(suffix+'-weather',defines+['-DABILITY_WEATHER_GUARD'],asset.replace('Grouped.json','Weather.json')) for suffix,defines,asset in variants if suffix in ['-recipes-grouped','-client-grouped']]
 variants += [(suffix+'-scoped',defines+['-DABILITY_SCOPED'],asset.replace('Weather.json','Scoped.json')) for suffix,defines,asset in variants if suffix in ['-recipes-grouped-weather','-client-grouped-weather']]
+variants += [(suffix+'-actions',defines+['-DABILITY_ACTIONS'],asset.replace('Scoped.json','Actions.json')) for suffix,defines,asset in variants if suffix in ['-recipes-grouped-weather-scoped','-client-grouped-weather-scoped']]
 for suffix,defines,asset in variants:
+    if "--actions-only" in sys.argv and "-DABILITY_ACTIONS" not in defines: continue
     if "--scoped-only" in sys.argv and "-DABILITY_SCOPED" not in defines: continue
     obj=BUILD/f'rules{suffix}.o'
     run(TOOLS/'arm-none-eabi-gcc','-std=c11','-mthumb','-mcpu=arm946e-s','-Os','-Wall','-Wextra','-Werror','-Wno-parentheses',

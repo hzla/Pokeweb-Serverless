@@ -127,6 +127,9 @@ static void popup(void*f,u32 command,u8 owner){FN(20,void(*)(void*,u32,u8))(f,co
 #ifdef ABILITY_SCOPED
 #include "scoped.c"
 #endif
+#ifdef ABILITY_ACTIONS
+#include "actions.c"
+#endif
 static void healing(void*item,void*f,u8 owner,const volatile u8*r,u32 event){
  if(VALUE(2)!=owner||preview(f))return;
  void*mon=MON(f,owner);u32 hp=STAT(mon,13),maximum=STAT(mon,14),amount=0;
@@ -185,6 +188,9 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
 #endif
 #ifdef ABILITY_SCOPED
   if(kind>=155&&kind<=163){scopedEffect(item,f,owner,e,event,nativeWork[owner][n]);continue;}
+#endif
+#ifdef ABILITY_ACTIONS
+  if(kind==164){actionSplash(f,owner,e,event,nativeWork[owner][n]);continue;}
 #endif
   if(kind==128&&owner<32){const Event*table=*(const Event*const*)(e+8);
    for(u32 j=0;j<e[14];++j)if(table[j].event==event){u32 saved[7];for(u32 k=0;k<7;++k)saved[k]=nativeWork[owner][n][k];table[j].callback(item,f,owner,nativeWork[owner][n]);if(preview(f))for(u32 k=0;k<7;++k)nativeWork[owner][n][k]=saved[k];break;}
