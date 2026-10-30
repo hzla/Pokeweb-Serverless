@@ -137,7 +137,7 @@ static void recipeEffect(void*item,void*f,u8 owner,const volatile u8*e,u32 event
   if(t==3)fire=event==0xa3&&VALUE(2)!=owner&&!STAT(MON(f,VALUE(2)),13);
   if(t==4&&event==0x83&&VALUE(3)==owner){for(u32 n=0;n<VALUE(5)&&n<12;++n)if(!STAT(MON(f,VALUE(6+n)),13))++fire;}
 #ifdef ABILITY_ACTIONS
-  if(t==5&&event==0x4&&VALUE(2)==owner&&w[3]){w[3]=0;fire=actionMoveMatches(e,w);}
+  if(t==5&&event==0x4&&VALUE(2)==owner&&w[3]&&!preview(f)){w[3]=0;fire=actionMoveMatches(e,w);}
 #endif
   if(!fire||preview(f)||!hp&&t!=1)return;
   popup(f,2,owner);

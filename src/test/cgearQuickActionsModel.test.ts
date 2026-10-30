@@ -81,6 +81,28 @@ function reduxProject(): ProjectState {
   return p;
 }
 
+describe("White 2 with modified phenomena and stock Repel", () => {
+  it("installs the stock runtime while preserving the audited generator and PC script", async () => {
+    const p = makeProject("W2"), rom = new NintendoDSRom(p.originalRomBytes!); assets();
+    const overlay = rom.loadArm9Overlays([36]).get(36)!, code = overlay.data.slice();
+    const changed = redux.games.W2.signatures.find(s => s.label === "Native phenomenon generator")!;
+    code.set(Buffer.from(changed.expectedHex, "hex"), changed.address - overlay.ramAddress);
+    p.overlays[36] = code;
+    p.fileSystem = { replacements: { [overlay.fileId]: code }, additions: {} };
+    expect(getCGearQuickActionsStatus(p)).toMatchObject({ compatible: true, romProfile: "retail" });
+    await installCGearQuickActions(p);
+    const dll = p.fileSystem!.additions!["patches/CGearQuickActionsW2.dll"];
+    deepStrictEqual(dll, new Uint8Array(readFileSync(new URL("../assets/codeinjection/CGearQuickActionsW2.dll", import.meta.url))));
+    const exported = new NintendoDSRom(await exportModifiedRom(p));
+    deepStrictEqual(exported.loadArm9Overlays([36]).get(36)!.data, code);
+    deepStrictEqual(exported.getFileByName(manifest.pcScript.archive), rom.getFileByName(manifest.pcScript.archive));
+    expect(getCGearQuickActionsStatus(makeProject("W2", exported.data)))
+      .toMatchObject({ compatible: true, installed: true, enabled: true, romProfile: "retail" });
+    p.overlays[36]![0x21a216a - overlay.ramAddress] ^= 1;
+    expect(getCGearQuickActionsStatus(p)).toMatchObject({ compatible: false, message: expect.stringContaining("Native phenomenon generator") });
+  });
+});
+
 describe("White 2 Redux C-Gear adapter", () => {
   it("accepts the current verified Following Pokémon core with the Redux adapter", async () => {
     const p = reduxProject(); assets();

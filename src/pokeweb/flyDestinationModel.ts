@@ -11,6 +11,7 @@ import { markDirty, type ProjectState } from "./projectStore";
 import { parseRpm, writeRpm, type RpmModule } from "./rpm";
 import visitFlags from "../assets/data/bw2FlyVisitFlags.json";
 import nativeContract from "../assets/data/bw2FlyNativeContract.json";
+import townMapContract from "../assets/data/bw2TownMapNativeContract.json";
 
 const COUNT = 85, STRIDE = 54, CONFIG_SIZE = 1372, MAGIC = 0x594c4650;
 const RAIL_ZONES = new Set([28, 249, 214, 209, 211, 66, 241, 242, 243, 244, 36, 464]);
@@ -28,7 +29,7 @@ const LAYOUTS = {
 type Version = keyof typeof LAYOUTS;
 
 export type FlyLanding = { x: number; y: number; z: number };
-export type FlyDestinationState = { overrides: Record<number, FlyLanding> };
+export type FlyDestinationState = { overrides: Record<number, FlyLanding>; townMapCount?: number };
 export type FlyDestination = {
   index: number; zone: number; landingZone: number; name: string; enabled: boolean;
   visitFlag: number; suggestedVisitFlag?: number; hiddenFlag: number;
@@ -60,10 +61,12 @@ export function resolveFlyLandingZone(project: ProjectState, landingZone: number
 export function getFlyDestinations(project: ProjectState): FlyDestination[] {
   const store = project.narcs.town_map;
   const bytes = store?.rawFiles[0];
-  if (!bytes || bytes.length !== COUNT * STRIDE) throw new Error("The existing BW2 Town Map must contain 85 area records.");
+  const count = bytes ? bytes.length / STRIDE : 0;
+  if (!bytes || !Number.isInteger(count) || count < COUNT || count > 128 || count !== COUNT && project.flyDestinations?.townMapCount !== count)
+    throw new Error("The existing BW2 Town Map must contain 85 area records unless its expanded runtime is installed.");
   project.headers ??= parseHeaders(project);
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  return Array.from({ length: COUNT }, (_, index) => {
+  return Array.from({ length: count }, (_, index) => {
     const offset = index * STRIDE;
     const zone = view.getUint16(offset, true);
     const landingZone = zone === 490 ? 326 : zone;
@@ -107,10 +110,12 @@ function validateOverride(zone: number, landing: FlyLanding): void {
 
 function configSymbol(rpm: RpmModule) {
   const symbol = rpm.symbols.find(symbol => symbol.name === "FlyDestinationConfig");
-  if (!symbol || symbol.size !== CONFIG_SIZE || symbol.address + CONFIG_SIZE > rpm.code.length)
+  const capacity = rpm.metadata.PMCVersion === "2.0.0" ? 128 : COUNT;
+  const size = 12 + capacity * 16;
+  if (!symbol || symbol.size !== size || symbol.address + size > rpm.code.length)
     throw new Error("Fly destination configuration is missing or damaged.");
   const view = new DataView(rpm.code.buffer, rpm.code.byteOffset + symbol.address, symbol.size);
-  if (view.getUint32(0, true) !== MAGIC || view.getUint32(4, true) !== 1 || view.getUint32(8, true) !== COUNT)
+  if (view.getUint32(0, true) !== MAGIC || view.getUint32(4, true) !== (capacity === 128 ? 2 : 1) || view.getUint32(8, true) !== capacity)
     throw new Error("Fly destination configuration has an unsupported format.");
   return view;
 }
@@ -119,9 +124,10 @@ export function configureFlyDestinationRuntime(bytes: Uint8Array, version: Versi
   const rpm = parseRpm(bytes, { allowedMagics: ["DLXF"] });
   assertOwnRuntime(rpm, version);
   const view = configSymbol(rpm);
-  new Uint8Array(view.buffer, view.byteOffset + 12, CONFIG_SIZE - 12).fill(0);
+  new Uint8Array(view.buffer, view.byteOffset + 12, view.byteLength - 12).fill(0);
   const entries = Object.entries(state.overrides);
-  if (entries.length > COUNT) throw new Error("Only existing Town Map areas can have Fly overrides.");
+  const capacity = view.getUint32(8, true);
+  if (entries.length > capacity) throw new Error("Only existing Town Map areas can have Fly overrides.");
   entries.forEach(([zone, landing], index) => {
     validateOverride(Number(zone), landing);
     const offset = 12 + index * 16;
@@ -135,7 +141,7 @@ export function readFlyDestinationRuntime(bytes: Uint8Array, version: Version): 
   const rpm = parseRpm(bytes, { allowedMagics: ["DLXF"] });
   assertOwnRuntime(rpm, version);
   const view = configSymbol(rpm), overrides: Record<number, FlyLanding> = {};
-  for (let index = 0; index < COUNT; index++) {
+  for (let index = 0; index < view.getUint32(8, true); index++) {
     const offset = 12 + index * 16;
     const flags = view.getUint16(offset + 2, true);
     if (flags > 1) throw new Error("Fly configuration contains unsupported entry flags.");
@@ -145,6 +151,14 @@ export function readFlyDestinationRuntime(bytes: Uint8Array, version: Version): 
     overrides[zone] = { x: view.getInt32(offset + 4, true), y: view.getInt32(offset + 8, true), z: view.getInt32(offset + 12, true) };
     validateOverride(zone, overrides[zone]);
   }
+  const mapConfig = rpm.symbols.find(s => s.name === "TownMapRuntimeConfig");
+  if (rpm.metadata.PMCVersion === "2.0.0") {
+    if (!mapConfig || mapConfig.size !== 268 || mapConfig.address + mapConfig.size > rpm.code.length) throw new Error("Town Map configuration is missing.");
+    const map = new DataView(rpm.code.buffer, rpm.code.byteOffset + mapConfig.address, mapConfig.size);
+    const townMapCount = map.getUint32(8, true);
+    if (map.getUint32(0, true) !== 0x50414d54 || map.getUint32(4, true) !== 1 || townMapCount < 85 || townMapCount > 128) throw new Error("Invalid Town Map configuration.");
+    return { overrides, townMapCount };
+  }
   return { overrides };
 }
 
@@ -152,19 +166,24 @@ function assertOwnRuntime(rpm: RpmModule, version: Version): void {
   const actual = rpm.relocations.filter(({ target }) => target.module !== "base")
     .map(({ target }) => `${target.type}:${target.module}:${target.address}`).sort().join("|");
   const hooks = rpm.metadata.PMCVersion === "1.0.0" ? [...LAYOUTS[version].hooks, LAYOUTS[version].legacyMarkerHook] : LAYOUTS[version].hooks;
-  const expected = hooks.map(h => `${h.type}:${h.overlay}:${h.address}`).sort().join("|");
-  if (rpm.metadata.PMCGameID !== version || (rpm.metadata.PMCVersion !== "1.0.0" && rpm.metadata.PMCVersion !== "1.0.1")
+  const expected = rpm.metadata.PMCVersion === "2.0.0" ? townMapContract[version].hooks.map(h => `${h.type}:${h.module}:${h.address}`).sort().join("|") : hooks.map(h => `${h.type}:${h.overlay}:${h.address}`).sort().join("|");
+  if (rpm.metadata.PMCGameID !== version || !["1.0.0", "1.0.1", "2.0.0"].includes(String(rpm.metadata.PMCVersion))
     || rpm.metadata.PMCModulePriority !== 4 || rpm.bssSize !== 0 || actual !== expected)
     throw new Error("Fly destination DLL does not match the supported game and hook contract.");
   configSymbol(rpm);
 }
 
 function ownModuleBytes(project: ProjectState, rom: NintendoDSRom, version: Version): Uint8Array | undefined {
+  const mapPath = `patches/TownMap${version}.dll`;
+  const mapAddition = Object.entries(project.fileSystem?.additions ?? {}).find(([p]) => p.toLowerCase() === mapPath.toLowerCase());
+  if (mapAddition) return mapAddition[1];
+  const mapId = rom.filenames.idOf(mapPath);
+  if (mapId !== undefined && !project.fileSystem?.tombstones?.[mapId]) return getRomFileBytes(project, rom, mapId);
   const path = `patches/${LAYOUTS[version].fileName}`;
   const addition = Object.entries(project.fileSystem?.additions ?? {}).find(([p]) => p.toLowerCase() === path.toLowerCase());
   if (addition) return addition[1];
   const fileId = rom.filenames.idOf(path);
-  return fileId === undefined ? undefined : getRomFileBytes(project, rom, fileId);
+  return fileId === undefined || project.fileSystem?.tombstones?.[fileId] ? undefined : getRomFileBytes(project, rom, fileId);
 }
 
 export function hydrateFlyDestinationsFromRom(project: ProjectState, rom: NintendoDSRom): void {
@@ -203,7 +222,7 @@ export function getFlyDestinationStatus(project: ProjectState): FlyDestinationSt
         return fail("The Fly or Town Map code differs from the supported BW2 layout.", true, Boolean(own));
     }
     for (const module of listCodeInjectionDlls(project)) {
-      if (module.path.toLowerCase() === `patches/${layout.fileName}`.toLowerCase()) continue;
+      if (module.path.toLowerCase() === `patches/${layout.fileName}`.toLowerCase() || module.path.toLowerCase() === `patches/TownMap${version}.dll`.toLowerCase()) continue;
       const fileId = rom.filenames.idOf(module.path);
       const bytes = project.fileSystem?.additions?.[module.path] ?? (fileId === undefined ? undefined : getRomFileBytes(project, rom, fileId));
       if (!bytes) throw new Error(`Could not check ${module.fileName}.`);

@@ -78,7 +78,7 @@ const cases: Case[] = [
   { label: "indignation-target-highest", abilityId: 167, playerMoves: [266], ally: mon(1, 50), enemies: [mon(320, 30, 33), mon(95, 30)], battleType: "Doubles", checks: { highestTargets: true, traceEvents: true } },
   { label: "indignation-holder-highest-control", abilityId: 171, playerMoves: [266], ally: mon(1, 50), enemies: [mon(320, 30, 33), mon(95, 30)], battleType: "Doubles", checks: { highestTargets: false } },
   { label: "indignation-clear-body", abilityId: 167, enemies: [mon(320, 30, 33, 29)], checks: { enemyStages: neutral } },
-  { label: "indignation-suppressed", abilityId: 167, playerMoves: [150], enemies: [mon(320, 100, 380)], checks: { enemyStages: neutral, suppressed: true } },
+  { label: "indignation-suppressed", abilityId: 167, playerMoves: [266], ally: mon(1, 50), enemies: [mon(320, 100, 380), mon(95, 30, 33)], battleType: "Doubles", checks: { noDropsAfterHits: true, suppressed: true } },
   { label: "splash-defeated-hp", abilityId: 166, playerMoves: [82], ally: mon(1, 50), enemies: splashTeam, battleType: "Doubles", checks: { knockoutSplash: { percent: 20, hpBasis: 0 }, traceEvents: true } },
   { label: "splash-recipient-hp", abilityId: 168, playerMoves: [82], ally: mon(1, 50), enemies: splashTeam, battleType: "Doubles", checks: { knockoutSplash: { percent: 20, hpBasis: 1 } } },
   { label: "splash-no-knockout", abilityId: 166, playerMoves: [55], ally: mon(1, 50), enemies: [mon(), mon(113, 100)], battleType: "Doubles", checks: { noSplash: true } },
@@ -89,6 +89,7 @@ const cases: Case[] = [
   { label: "splash-swap-gain", abilityId: 50, playerMoves: [285, 82], turnMove: [0, 1], ally: mon(1, 50), enemies: [mon(113, 100), mon(320, 1, 150, 166), mon(321)], battleType: "Doubles", checks: { knockoutSplash: { percent: 20, hpBasis: 0, turn: 1 }, playerAbilities: [50, 166, 166] } },
   { label: "glory-bypasses-sturdy", abilityId: 166, playerMoves: [82], ally: mon(1, 50), enemies: [mon(113, 100), mon(320, 1, 150, 5), mon(321)], battleType: "Doubles", checks: { knockoutSplash: { percent: 20, hpBasis: 0 } } },
   { label: "splash-sturdy-control", abilityId: 168, playerMoves: [82, 150], turnMove: [0, 1], ally: mon(1, 50), enemies: [mon(113, 100), mon(320, 1, 150, 5), mon(321)], battleType: "Doubles", checks: { noSplash: true } },
+  { label: "indignation-raw-stat-tie", abilityId: 167, enemies: [mon(320, 1, 33)], checks: { highestTargets: true, rawStatTie: true } },
 ];
 const seed = rawSaveBytesFromDesmumeDsv(new Uint8Array(await readFile(getTestBattleConfig("BW2").saveUrl))), baseSave = patchTestBattleSavePlayerParty(seed, project, "Bulbasaur\nLevel: 50\n- Splash");
 await prepareBw2TestBattleCodeInjection(project);

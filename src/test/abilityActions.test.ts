@@ -63,4 +63,13 @@ describe("ability action primitives", () => {
     expect(html(pressure)).not.toContain("Highest stat of");
     expect(html(glory)).toContain("Defeated opponent"); expect(html(glory)).toContain("Each receiving ally");
   });
+
+  it("keeps one hundred edited abilities within the shared runtime budget", () => {
+    const { project } = makeItemEffectsProject(0, 0, true, true);
+    const samples = [indignation, glory, pressure], rules = new Map(Array.from({ length: 100 }, (_, index) => [100 + index, samples[index % samples.length]]));
+    const rpm = buildAbilityRuleModule(project, rules), bytes = writeRpm(rpm, { ident: "DLXF" });
+    expect(rpm.code.length + rpm.bssSize).toBeLessThanOrEqual(65536); expect(bytes.length + rpm.code.length + rpm.bssSize).toBeLessThanOrEqual(112 * 1024);
+    project.fileSystem = { replacements: {}, additions: { [ABILITY_EFFECTS_DLL_PATH]: bytes } };
+    expect(inspectAbilityEffects(project).rules).toEqual(rules);
+  });
 });

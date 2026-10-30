@@ -1,0 +1,2554 @@
+{
+  "AppMenuCommon_GetTouchBarAnimFile": [
+    [
+      "ARM9",
+      33740872,
+      "function",
+      "thumb,size=0x4"
+    ]
+  ],
+  "AppMenuCommon_GetTouchBarCellFile": [
+    [
+      "ARM9",
+      33740868,
+      "function",
+      "thumb,size=0x4"
+    ]
+  ],
+  "AppMenuCommon_GetTouchBarCharFile": [
+    [
+      "ARM9",
+      33740864,
+      "function",
+      "thumb,size=0x4"
+    ]
+  ],
+  "AppMenuCommon_GetTouchBarPaletteFile": [
+    [
+      "ARM9",
+      33740860,
+      "function",
+      "thumb,size=0x4"
+    ]
+  ],
+  "AppPrintsysCommon_Init": [
+    [
+      "ARM9",
+      33744548,
+      "function",
+      "thumb,size=0x12"
+    ]
+  ],
+  "AppPrintsysCommon_Update": [
+    [
+      "ARM9",
+      33744568,
+      "function",
+      "thumb,size=0x70"
+    ]
+  ],
+  "BlinkPalAnm_Create": [
+    [
+      "ARM9",
+      33771600,
+      "function",
+      "thumb,size=0x6c"
+    ]
+  ],
+  "BlinkPalAnm_Free": [
+    [
+      "ARM9",
+      33771940,
+      "function",
+      "thumb,size=0x1e"
+    ]
+  ],
+  "BlinkPalAnm_Main": [
+    [
+      "ARM9",
+      33771972,
+      "function",
+      "thumb,size=0x118"
+    ]
+  ],
+  "BlinkPalAnm_SetPalBufferArc": [
+    [
+      "ARM9",
+      33771708,
+      "function",
+      "thumb,size=0x74"
+    ]
+  ],
+  "BlinkPalAnm_SetPalBufferArcTool": [
+    [
+      "ARM9",
+      33771824,
+      "function",
+      "thumb,size=0x74"
+    ]
+  ],
+  "BmpWin_ClearFrame": [
+    [
+      "ARM9",
+      33705752,
+      "function",
+      "thumb,size=0x72"
+    ]
+  ],
+  "BmpWin_ClearScreen": [
+    [
+      "ARM9",
+      33850592,
+      "function",
+      "thumb,size=0x20"
+    ]
+  ],
+  "BmpWin_CreateDynamic": [
+    [
+      "ARM9",
+      33849580,
+      "function",
+      "thumb,size=0x62"
+    ]
+  ],
+  "BmpWin_DrawFrame": [
+    [
+      "ARM9",
+      33705644,
+      "function",
+      "thumb,size=0x60"
+    ]
+  ],
+  "BmpWin_FlushChar": [
+    [
+      "ARM9",
+      33849968,
+      "function",
+      "thumb,size=0x28"
+    ]
+  ],
+  "BmpWin_FlushMap": [
+    [
+      "ARM9",
+      33850008,
+      "function",
+      "thumb,size=0xec"
+    ]
+  ],
+  "BmpWin_Free": [
+    [
+      "ARM9",
+      33849916,
+      "function",
+      "thumb,size=0x34"
+    ]
+  ],
+  "BmpWin_FreeAllocator": [
+    [
+      "ARM9",
+      33849556,
+      "function",
+      "thumb,size=0x18"
+    ]
+  ],
+  "BmpWin_GetBGIndex": [
+    [
+      "ARM9",
+      33850624,
+      "function",
+      "thumb,size=0x4"
+    ]
+  ],
+  "BmpWin_GetBitmap": [
+    [
+      "ARM9",
+      33850656,
+      "function",
+      "thumb,size=0x4"
+    ]
+  ],
+  "BmpWin_GetSizeX": [
+    [
+      "ARM9",
+      33850628,
+      "function",
+      "thumb,size=0x4"
+    ]
+  ],
+  "BmpWin_InitAllocator": [
+    [
+      "ARM9",
+      33849516,
+      "function",
+      "thumb,size=0x28"
+    ]
+  ],
+  "CalcCapsule_HitSphere": [
+    [
+      "ARM9",
+      33883836,
+      "function",
+      "thumb,size=0xce"
+    ]
+  ],
+  "CalcCapsule_Set": [
+    [
+      "ARM9",
+      33884044,
+      "function",
+      "thumb,size=0x22"
+    ]
+  ],
+  "CalcSphere_Set": [
+    [
+      "ARM9",
+      33883812,
+      "function",
+      "thumb,size=0x16"
+    ]
+  ],
+  "ClActRenderer_Create": [
+    [
+      "ARM9",
+      33865416,
+      "function",
+      "thumb,size=0x30"
+    ]
+  ],
+  "ClActRenderer_Delete": [
+    [
+      "ARM9",
+      33865464,
+      "function",
+      "thumb,size=0x10"
+    ]
+  ],
+  "ClActSys_Create": [
+    [
+      "ARM9",
+      33863380,
+      "function",
+      "thumb,size=0xb0"
+    ]
+  ],
+  "ClActSys_Delete": [
+    [
+      "ARM9",
+      33863556,
+      "function",
+      "thumb,size=0x3c"
+    ]
+  ],
+  "ClActSys_Draw": [
+    [
+      "ARM9",
+      33863616,
+      "function",
+      "thumb,size=0x34"
+    ]
+  ],
+  "ClActSys_FreeCellAnims": [
+    [
+      "ARM9",
+      33865360,
+      "function",
+      "thumb,size=0x38"
+    ]
+  ],
+  "ClActSys_FreeChars": [
+    [
+      "ARM9",
+      33864120,
+      "function",
+      "thumb,size=0xb4"
+    ]
+  ],
+  "ClActSys_FreePltt": [
+    [
+      "ARM9",
+      33864956,
+      "function",
+      "thumb,size=0x40"
+    ]
+  ],
+  "ClActSys_LoadCellAnims": [
+    [
+      "ARM9",
+      33865228,
+      "function",
+      "thumb,size=0x84"
+    ]
+  ],
+  "ClActSys_LoadChars": [
+    [
+      "ARM9",
+      33863752,
+      "function",
+      "thumb,size=0xa0"
+    ]
+  ],
+  "ClActSys_LoadPlttEx": [
+    [
+      "ARM9",
+      33864820,
+      "function",
+      "thumb,size=0x88"
+    ]
+  ],
+  "ClActSys_LoadPlttRange": [
+    [
+      "ARM9",
+      33864676,
+      "function",
+      "thumb,size=0x90"
+    ]
+  ],
+  "ClActSys_ReplaceCharData": [
+    [
+      "ARM9",
+      33864300,
+      "function",
+      "thumb,size=0x78"
+    ]
+  ],
+  "ClActSys_VBlank": [
+    [
+      "ARM9",
+      33863668,
+      "function",
+      "thumb,size=0x34"
+    ]
+  ],
+  "ClActSys_WriteCharData": [
+    [
+      "ARM9",
+      33864420,
+      "function",
+      "thumb,size=0xa0"
+    ]
+  ],
+  "ClActUnit_Create": [
+    [
+      "ARM9",
+      33865544,
+      "function",
+      "thumb,size=0x7c"
+    ]
+  ],
+  "ClActUnit_Delete": [
+    [
+      "ARM9",
+      33865668,
+      "function",
+      "thumb,size=0x3a"
+    ]
+  ],
+  "ClActUnit_SetRenderer": [
+    [
+      "ARM9",
+      33865796,
+      "function",
+      "thumb,size=0x10"
+    ]
+  ],
+  "ClActUnit_UseSystemRenderer": [
+    [
+      "ARM9",
+      33865812,
+      "function",
+      "thumb,size=0x18"
+    ]
+  ],
+  "ClActor_Create": [
+    [
+      "ARM9",
+      33865836,
+      "function",
+      "thumb,size=0x64"
+    ]
+  ],
+  "ClActor_Delete": [
+    [
+      "ARM9",
+      33866036,
+      "function",
+      "thumb,size=0x1c"
+    ]
+  ],
+  "ClActor_GetCharIdx": [
+    [
+      "ARM9",
+      33866836,
+      "function",
+      "thumb,size=0x6"
+    ]
+  ],
+  "ClActor_GetSequence": [
+    [
+      "ARM9",
+      33866956,
+      "function",
+      "thumb,size=0x6"
+    ]
+  ],
+  "ClActor_GetSurfacePos": [
+    [
+      "ARM9",
+      33866148,
+      "function",
+      "thumb,size=0x2e"
+    ]
+  ],
+  "ClActor_IsAnimActive": [
+    [
+      "ARM9",
+      33867148,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "ClActor_IsVisible": [
+    [
+      "ARM9",
+      33866084,
+      "function",
+      "thumb,size=0x8"
+    ]
+  ],
+  "ClActor_RestartAnim": [
+    [
+      "ARM9",
+      33867160,
+      "function",
+      "thumb,size=0x18"
+    ]
+  ],
+  "ClActor_SetAffineMode": [
+    [
+      "ARM9",
+      33866352,
+      "function",
+      "thumb,size=0x14"
+    ]
+  ],
+  "ClActor_SetAnimFrame": [
+    [
+      "ARM9",
+      33867056,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "ClActor_SetAnimTime": [
+    [
+      "ARM9",
+      33867008,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "ClActor_SetAutoAnim": [
+    [
+      "ARM9",
+      33867084,
+      "function",
+      "thumb,size=0x14"
+    ]
+  ],
+  "ClActor_SetBgPriority": [
+    [
+      "ARM9",
+      33866900,
+      "function",
+      "thumb,size=0x14"
+    ]
+  ],
+  "ClActor_SetObjMode": [
+    [
+      "ARM9",
+      33866564,
+      "function",
+      "thumb,size=0x58"
+    ]
+  ],
+  "ClActor_SetPalette": [
+    [
+      "ARM9",
+      33866660,
+      "function",
+      "thumb,size=0x24"
+    ]
+  ],
+  "ClActor_SetPriority": [
+    [
+      "ARM9",
+      33866852,
+      "function",
+      "thumb,size=0x24"
+    ]
+  ],
+  "ClActor_SetScale": [
+    [
+      "ARM9",
+      33866396,
+      "function",
+      "thumb,size=0xa"
+    ]
+  ],
+  "ClActor_SetSequence": [
+    [
+      "ARM9",
+      33866932,
+      "function",
+      "thumb,size=0x18"
+    ]
+  ],
+  "ClActor_SetSurfacePos": [
+    [
+      "ARM9",
+      33866092,
+      "function",
+      "thumb,size=0x36"
+    ]
+  ],
+  "ClActor_SetVisible": [
+    [
+      "ARM9",
+      33866064,
+      "function",
+      "thumb,size=0x14"
+    ]
+  ],
+  "ClActor_StartAnim": [
+    [
+      "ARM9",
+      33867116,
+      "function",
+      "thumb,size=0xe"
+    ]
+  ],
+  "ClActor_StopAnim": [
+    [
+      "ARM9",
+      33867132,
+      "function",
+      "thumb,size=0xe"
+    ]
+  ],
+  "EventWork_FlagGet": [
+    [
+      "ARM9",
+      33657304,
+      "function",
+      "thumb,size=0x2a"
+    ]
+  ],
+  "G2x_SetBlendAlpha_": [
+    [
+      "ARM9",
+      34032280,
+      "function",
+      "thumb,size=0x1c"
+    ]
+  ],
+  "GCTX_HIDGetHeldKeys": [
+    [
+      "ARM9",
+      33808204,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "GCTX_HIDGetPressedKeys": [
+    [
+      "ARM9",
+      33808168,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "GCTX_HIDGetTypedKeys": [
+    [
+      "ARM9",
+      33808240,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "GCTX_HIDIsUsingTouch": [
+    [
+      "ARM9",
+      33805696,
+      "function",
+      "thumb,size=0x10"
+    ]
+  ],
+  "GCTX_HIDSetUsingTouch": [
+    [
+      "ARM9",
+      33805712,
+      "function",
+      "thumb,size=0x10"
+    ]
+  ],
+  "GFL_ArcSysCreateFileHandle": [
+    [
+      "ARM9",
+      33860188,
+      "function",
+      "thumb,size=0x30"
+    ]
+  ],
+  "GFL_ArcSysReadHeapNewLZ": [
+    [
+      "ARM9",
+      33862928,
+      "function",
+      "thumb,size=0x8c"
+    ]
+  ],
+  "GFL_ArcToolFree": [
+    [
+      "ARM9",
+      33860408,
+      "function",
+      "thumb,size=0x10"
+    ]
+  ],
+  "GFL_ArcToolReadHeapNewLZGetLen": [
+    [
+      "ARM9",
+      33863228,
+      "function",
+      "thumb,size=0x98"
+    ]
+  ],
+  "GFL_BGSysAdjustBGOriginReq": [
+    [
+      "ARM9",
+      33840844,
+      "function",
+      "thumb,size=0x2c"
+    ]
+  ],
+  "GFL_BGSysClearBG": [
+    [
+      "ARM9",
+      33838900,
+      "function",
+      "thumb,size=0x10"
+    ]
+  ],
+  "GFL_BGSysClearCharCore": [
+    [
+      "ARM9",
+      33837304,
+      "function",
+      "thumb,size=0x4c"
+    ]
+  ],
+  "GFL_BGSysClearScr": [
+    [
+      "ARM9",
+      33838948,
+      "function",
+      "thumb,size=0x2c"
+    ]
+  ],
+  "GFL_BGSysCreate": [
+    [
+      "ARM9",
+      33834192,
+      "function",
+      "thumb,size=0x84"
+    ]
+  ],
+  "GFL_BGSysCreateBG": [
+    [
+      "ARM9",
+      33834904,
+      "function",
+      "thumb,size=0x418"
+    ]
+  ],
+  "GFL_BGSysFillChar": [
+    [
+      "ARM9",
+      33837380,
+      "function",
+      "thumb,size=0x14c"
+    ]
+  ],
+  "GFL_BGSysFree": [
+    [
+      "ARM9",
+      33834324,
+      "function",
+      "thumb,size=0x3c"
+    ]
+  ],
+  "GFL_BGSysFreeCharMemory": [
+    [
+      "ARM9",
+      33834644,
+      "function",
+      "thumb,size=0xa8"
+    ]
+  ],
+  "GFL_BGSysGetBGOffsetY": [
+    [
+      "ARM9",
+      33836704,
+      "function",
+      "thumb,size=0x14"
+    ]
+  ],
+  "GFL_BGSysLoadArcNCGRDynamic": [
+    [
+      "ARM9",
+      33861224,
+      "function",
+      "thumb,size=0x3c"
+    ]
+  ],
+  "GFL_BGSysLoadArcNCGRStatic": [
+    [
+      "ARM9",
+      33861076,
+      "function",
+      "thumb,size=0x20"
+    ]
+  ],
+  "GFL_BGSysLoadNCLRDefault": [
+    [
+      "ARM9",
+      33861860,
+      "function",
+      "thumb,size=0x1a"
+    ]
+  ],
+  "GFL_BGSysMoveBG": [
+    [
+      "ARM9",
+      33836328,
+      "function",
+      "thumb,size=0x164"
+    ]
+  ],
+  "GFL_BGSysMoveBGReq": [
+    [
+      "ARM9",
+      33840712,
+      "function",
+      "thumb,size=0x2c"
+    ]
+  ],
+  "GFL_BGSysQueueScrLoad": [
+    [
+      "ARM9",
+      33840040,
+      "function",
+      "thumb,size=0x18"
+    ]
+  ],
+  "GFL_BGSysReleaseBG": [
+    [
+      "ARM9",
+      33835952,
+      "function",
+      "thumb,size=0x34"
+    ]
+  ],
+  "GFL_BGSysScaleBGReq": [
+    [
+      "ARM9",
+      33840800,
+      "function",
+      "thumb,size=0x2c"
+    ]
+  ],
+  "GFL_BGSysSetBGEnabled": [
+    [
+      "ARM9",
+      33836228,
+      "function",
+      "thumb,size=0x62"
+    ]
+  ],
+  "GFL_BGSysSetBGEnabledA": [
+    [
+      "ARM9",
+      33844520,
+      "function",
+      "thumb,size=0x3c"
+    ]
+  ],
+  "GFL_BGSysSetBGEnabledB": [
+    [
+      "ARM9",
+      33844656,
+      "function",
+      "thumb,size=0x3c"
+    ]
+  ],
+  "GFL_BGSysSetBGPriority": [
+    [
+      "ARM9",
+      33836036,
+      "function",
+      "thumb,size=0xc0"
+    ]
+  ],
+  "GFL_BGSysSetDisplayLayout": [
+    [
+      "ARM9",
+      33844772,
+      "function",
+      "thumb,size=0x18"
+    ]
+  ],
+  "GFL_BGSysSetEnabledBGsA": [
+    [
+      "ARM9",
+      33844580,
+      "function",
+      "thumb,size=0x20"
+    ]
+  ],
+  "GFL_BGSysSetEnabledBGsB": [
+    [
+      "ARM9",
+      33844716,
+      "function",
+      "thumb,size=0x20"
+    ]
+  ],
+  "GFL_BGSysSetLCDConfig": [
+    [
+      "ARM9",
+      33834812,
+      "function",
+      "thumb,size=0x38"
+    ]
+  ],
+  "GFL_BGSysSetScrPaletteNo": [
+    [
+      "ARM9",
+      33838744,
+      "function",
+      "thumb,size=0x9c"
+    ]
+  ],
+  "GFL_BGSysSetVRAMBanks": [
+    [
+      "ARM9",
+      33844332,
+      "function",
+      "thumb,size=0x90"
+    ]
+  ],
+  "GFL_BitmapFill": [
+    [
+      "ARM9",
+      33845608,
+      "function",
+      "thumb,size=0x2a"
+    ]
+  ],
+  "GFL_BitmapFillArea": [
+    [
+      "ARM9",
+      33845540,
+      "function",
+      "thumb,size=0x44"
+    ]
+  ],
+  "GFL_BitmapGetWidth": [
+    [
+      "ARM9",
+      33845028,
+      "function",
+      "thumb,size=0x4"
+    ]
+  ],
+  "GFL_FadeIsRunning": [
+    [
+      "ARM9",
+      33874188,
+      "function",
+      "thumb,size=0x18"
+    ]
+  ],
+  "GFL_FadeSet": [
+    [
+      "ARM9",
+      33874060,
+      "function",
+      "thumb,size=0x80"
+    ]
+  ],
+  "GFL_FontCreate": [
+    [
+      "ARM9",
+      33697156,
+      "function",
+      "thumb,size=0x50"
+    ]
+  ],
+  "GFL_FontFree": [
+    [
+      "ARM9",
+      33697236,
+      "function",
+      "thumb,size=0x16"
+    ]
+  ],
+  "GFL_FontGetBlockWidth": [
+    [
+      "ARM9",
+      33695924,
+      "function",
+      "thumb,size=0x38"
+    ]
+  ],
+  "GFL_G2DIOLoadArcNCLR": [
+    [
+      "ARM9",
+      33861968,
+      "function",
+      "thumb,size=0x34"
+    ]
+  ],
+  "GFL_G2DIOLoadArcNCLRDefault": [
+    [
+      "ARM9",
+      33861888,
+      "function",
+      "thumb,size=0x1a"
+    ]
+  ],
+  "GFL_G2DIOLoadNCLR": [
+    [
+      "ARM9",
+      33861916,
+      "function",
+      "thumb,size=0x34"
+    ]
+  ],
+  "GFL_G2DIOLoadNSCRSync": [
+    [
+      "ARM9",
+      33861596,
+      "function",
+      "thumb,size=0x28"
+    ]
+  ],
+  "GFL_G2DIOReadOBJNCGRArc": [
+    [
+      "ARM9",
+      33862408,
+      "function",
+      "thumb,size=0x28"
+    ]
+  ],
+  "GFL_HIDGetTouchHeldPoint": [
+    [
+      "ARM9",
+      33807024,
+      "function",
+      "thumb,size=0x14"
+    ]
+  ],
+  "GFL_HIDGetTouchPressedPoint": [
+    [
+      "ARM9",
+      33807092,
+      "function",
+      "thumb,size=0x14"
+    ]
+  ],
+  "GFL_HIDGetTouchPressedRect": [
+    [
+      "ARM9",
+      33806904,
+      "function",
+      "thumb,size=0x10"
+    ]
+  ],
+  "GFL_HIDIsTouchPressed": [
+    [
+      "ARM9",
+      33806964,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "GFL_HeapAllocate": [
+    [
+      "ARM9",
+      33792552,
+      "function",
+      "thumb,size=0x50"
+    ]
+  ],
+  "GFL_HeapCreateChild": [
+    [
+      "ARM9",
+      33792392,
+      "function",
+      "thumb,size=0x1c"
+    ]
+  ],
+  "GFL_HeapDelete": [
+    [
+      "ARM9",
+      33792508,
+      "function",
+      "thumb,size=0x2c"
+    ]
+  ],
+  "GFL_HeapFree": [
+    [
+      "ARM9",
+      33792632,
+      "function",
+      "thumb,size=0x10"
+    ]
+  ],
+  "GFL_MsgDataFree": [
+    [
+      "ARM9",
+      33851392,
+      "function",
+      "thumb,size=0x28"
+    ]
+  ],
+  "GFL_MsgDataLoadStrbuf": [
+    [
+      "ARM9",
+      33851492,
+      "function",
+      "thumb,size=0xe0"
+    ]
+  ],
+  "GFL_MsgDataLoadStrbufNew": [
+    [
+      "ARM9",
+      33851832,
+      "function",
+      "thumb,size=0x5c"
+    ]
+  ],
+  "GFL_MsgSysLoadData": [
+    [
+      "ARM9",
+      33851272,
+      "function",
+      "thumb,size=0x78"
+    ]
+  ],
+  "GFL_NetIsInitialized": [
+    [
+      "ARM9",
+      33826740,
+      "function",
+      "thumb,size=0x1a"
+    ]
+  ],
+  "GFL_NetSetIconScreen": [
+    [
+      "ARM9",
+      33827796,
+      "function",
+      "thumb,size=0x1c"
+    ]
+  ],
+  "GFL_OvlLoad": [
+    [
+      "ARM9",
+      33803832,
+      "function",
+      "thumb,size=0x98"
+    ]
+  ],
+  "GFL_OvlUnload": [
+    [
+      "ARM9",
+      33803764,
+      "function",
+      "thumb,size=0x44"
+    ]
+  ],
+  "GFL_ProcInitSubsystem": [
+    [
+      "ARM9",
+      33794840,
+      "function",
+      "thumb,size=0x24"
+    ]
+  ],
+  "GFL_ProcReleaseSubsystem": [
+    [
+      "ARM9",
+      33794876,
+      "function",
+      "thumb,size=0x10"
+    ]
+  ],
+  "GFL_SndBGMIsPlaying": [
+    [
+      "ARM9",
+      33578920,
+      "function",
+      "thumb,size=0x22"
+    ]
+  ],
+  "GFL_SndBGMPlay": [
+    [
+      "ARM9",
+      33578484,
+      "function",
+      "thumb,size=0x14"
+    ]
+  ],
+  "GFL_SndBGMPop": [
+    [
+      "ARM9",
+      33578764,
+      "function",
+      "thumb,size=0x18"
+    ]
+  ],
+  "GFL_SndBGMPush": [
+    [
+      "ARM9",
+      33578708,
+      "function",
+      "thumb,size=0x38"
+    ]
+  ],
+  "GFL_SndPlayerIsActiveAny": [
+    [
+      "ARM9",
+      33579688,
+      "function",
+      "thumb,size=0x1c"
+    ]
+  ],
+  "GFL_SndSEPlay": [
+    [
+      "ARM9",
+      33579604,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "GFL_StrBufCopy": [
+    [
+      "ARM9",
+      33850796,
+      "function",
+      "thumb,size=0x24"
+    ]
+  ],
+  "GFL_StrBufCreate": [
+    [
+      "ARM9",
+      33850716,
+      "function",
+      "thumb,size=0x34"
+    ]
+  ],
+  "GFL_StrBufFree": [
+    [
+      "ARM9",
+      33850768,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "GFL_StrBufLoadString": [
+    [
+      "ARM9",
+      33850944,
+      "function",
+      "thumb,size=0x44"
+    ]
+  ],
+  "GFL_TCBExMgrCreate": [
+    [
+      "ARM9",
+      33793976,
+      "function",
+      "thumb,size=0x68"
+    ]
+  ],
+  "GFL_TCBExMgrFree": [
+    [
+      "ARM9",
+      33794152,
+      "function",
+      "thumb,size=0x12"
+    ]
+  ],
+  "GFL_TCBExMgrUpdate": [
+    [
+      "ARM9",
+      33794080,
+      "function",
+      "thumb,size=0x46"
+    ]
+  ],
+  "GFL_TCBRemove": [
+    [
+      "ARM9",
+      33793748,
+      "function",
+      "thumb,size=0x24"
+    ]
+  ],
+  "GFL_TextRendererDrawToBitmap": [
+    [
+      "ARM9",
+      33692968,
+      "function",
+      "thumb,size=0x2c"
+    ]
+  ],
+  "GFL_TextRndResetColorIndexLUT": [
+    [
+      "ARM9",
+      33698564,
+      "function",
+      "thumb,size=0x10"
+    ]
+  ],
+  "GFL_TextRndUpdateColorIndexLUT": [
+    [
+      "ARM9",
+      33698580,
+      "function",
+      "thumb,size=0x88"
+    ]
+  ],
+  "GFL_VBlankGetTCBMgr": [
+    [
+      "ARM9",
+      33576728,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "GFL_VBlankTCBAdd": [
+    [
+      "ARM9",
+      33576700,
+      "function",
+      "thumb,size=0x1c"
+    ]
+  ],
+  "GFL_WordSetFormatStrbuf": [
+    [
+      "ARM9",
+      33704268,
+      "function",
+      "thumb,size=0xb2"
+    ]
+  ],
+  "GFL_WordSetSystemCreateDefault": [
+    [
+      "ARM9",
+      33702400,
+      "function",
+      "thumb,size=0x10"
+    ]
+  ],
+  "GFL_WordSetSystemFree": [
+    [
+      "ARM9",
+      33702560,
+      "function",
+      "thumb,size=0x4a"
+    ]
+  ],
+  "GSYS_GetGameData": [
+    [
+      "ARM9",
+      33647320,
+      "function",
+      "thumb,size=0x4"
+    ]
+  ],
+  "GXS_LoadBGPltt": [
+    [
+      "ARM9",
+      34035040,
+      "function",
+      "thumb,size=0x6c"
+    ]
+  ],
+  "GX_SetGraphicsMode": [
+    [
+      "ARM9",
+      34031932,
+      "function",
+      "thumb,size=0x4c"
+    ]
+  ],
+  "GXx_SetMasterBrightness_": [
+    [
+      "ARM9",
+      34032028,
+      "function",
+      "thumb,size=0x22"
+    ]
+  ],
+  "GameData_GetEventWork": [
+    [
+      "ARM9",
+      33649556,
+      "function",
+      "thumb,size=0x8"
+    ]
+  ],
+  "GameData_GetJoinAvenuePersonListPtr": [
+    [
+      "ARM9",
+      33651580,
+      "function",
+      "thumb,size=0x8"
+    ]
+  ],
+  "GameData_GetMyCity": [
+    [
+      "ARM9",
+      33649184,
+      "function",
+      "thumb,size=0xa"
+    ]
+  ],
+  "GameData_GetPlayerState": [
+    [
+      "ARM9",
+      33649140,
+      "function",
+      "thumb,size=0x8"
+    ]
+  ],
+  "GameData_GetPokedex": [
+    [
+      "ARM9",
+      33608080,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "GameData_GetSaveControl": [
+    [
+      "ARM9",
+      33650996,
+      "function",
+      "thumb,size=0x4"
+    ]
+  ],
+  "GameData_GetSeason": [
+    [
+      "ARM9",
+      33649580,
+      "function",
+      "thumb,size=0x8"
+    ]
+  ],
+  "GameData_IsShortcutRegistered": [
+    [
+      "ARM9",
+      33650268,
+      "function",
+      "thumb,size=0x14"
+    ]
+  ],
+  "GameData_SetKeyItemRegistration": [
+    [
+      "ARM9",
+      33650244,
+      "function",
+      "thumb,size=0x18"
+    ]
+  ],
+  "IsZoneJoinAvenue": [
+    [
+      "ARM9",
+      33655848,
+      "function",
+      "thumb,size=0x14"
+    ]
+  ],
+  "JoinAvenueEntryList_CountUsed": [
+    [
+      "ARM9",
+      33783556,
+      "function",
+      "thumb,size=0x2c"
+    ]
+  ],
+  "JoinAvenuePersonList_CountUsed": [
+    [
+      "ARM9",
+      33783900,
+      "function",
+      "thumb,size=0x2e"
+    ]
+  ],
+  "JoinAvenue_GetEntryList": [
+    [
+      "ARM9",
+      33620052,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "JoinAvenue_GetInfo": [
+    [
+      "ARM9",
+      33620076,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "JoinAvenue_GetParam": [
+    [
+      "ARM9",
+      33787692,
+      "function",
+      "thumb,size=0x162"
+    ]
+  ],
+  "JoinAvenue_GetPersonList": [
+    [
+      "ARM9",
+      33620048,
+      "function",
+      "thumb,size=0x2"
+    ]
+  ],
+  "KeyCursor_Create": [
+    [
+      "ARM9",
+      33744848,
+      "function",
+      "thumb,size=0x14"
+    ]
+  ],
+  "KeyCursor_Draw": [
+    [
+      "ARM9",
+      33745052,
+      "function",
+      "thumb,size=0x66"
+    ]
+  ],
+  "KeyCursor_Free": [
+    [
+      "ARM9",
+      33744964,
+      "function",
+      "thumb,size=0x12"
+    ]
+  ],
+  "KeyCursor_Update": [
+    [
+      "ARM9",
+      33745156,
+      "function",
+      "thumb,size=0x94"
+    ]
+  ],
+  "LoadSysMsgBox": [
+    [
+      "ARM9",
+      33705260,
+      "function",
+      "thumb,size=0x20"
+    ]
+  ],
+  "LoadZoneSpawnInfoCheckRail": [
+    [
+      "ARM9",
+      33657076,
+      "function",
+      "thumb,size=0x5e"
+    ]
+  ],
+  "MI_CpuFill8": [
+    [
+      "ARM9",
+      34047956,
+      "function",
+      "arm,size=0x94"
+    ]
+  ],
+  "PaletteFade_AllocBuffer": [
+    [
+      "ARM9",
+      33713712,
+      "function",
+      "thumb,size=0x44"
+    ]
+  ],
+  "PaletteFade_Create": [
+    [
+      "ARM9",
+      33713644,
+      "function",
+      "thumb,size=0x28"
+    ]
+  ],
+  "PaletteFade_Free": [
+    [
+      "ARM9",
+      33713684,
+      "function",
+      "thumb,size=0x8"
+    ]
+  ],
+  "PaletteFade_FreeBuffer": [
+    [
+      "ARM9",
+      33713780,
+      "function",
+      "thumb,size=0x1a"
+    ]
+  ],
+  "PaletteFade_GetActiveMask": [
+    [
+      "ARM9",
+      33716140,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "PaletteFade_LoadFromVRAM": [
+    [
+      "ARM9",
+      33714088,
+      "function",
+      "thumb,size=0x54"
+    ]
+  ],
+  "PaletteFade_StartFade": [
+    [
+      "ARM9",
+      33714192,
+      "function",
+      "thumb,size=0x10c"
+    ]
+  ],
+  "PaletteFade_Transfer": [
+    [
+      "ARM9",
+      33715748,
+      "function",
+      "thumb,size=0x188"
+    ]
+  ],
+  "PlayerState_GetZoneID": [
+    [
+      "ARM9",
+      33649988,
+      "function",
+      "thumb,size=0x4"
+    ]
+  ],
+  "PokeDex_GetShownSexRareForm": [
+    [
+      "ARM9",
+      33608648,
+      "function",
+      "thumb,size=0x1a0"
+    ]
+  ],
+  "PokeDex_HasSeenVariant": [
+    [
+      "ARM9",
+      33609940,
+      "function",
+      "thumb,size=0x142"
+    ]
+  ],
+  "PokeDex_IsHabitatListEnabled": [
+    [
+      "ARM9",
+      33608128,
+      "function",
+      "thumb,size=0x8"
+    ]
+  ],
+  "PokeDex_SetLastSpecies": [
+    [
+      "ARM9",
+      33608192,
+      "function",
+      "thumb,size=0x14"
+    ]
+  ],
+  "PokeIcon_GetCellFile_Main": [
+    [
+      "ARM9",
+      33689928,
+      "function",
+      "thumb,size=0x38"
+    ]
+  ],
+  "PokeIcon_GetCellFile_Sub": [
+    [
+      "ARM9",
+      33689984,
+      "function",
+      "thumb,size=0x3c"
+    ]
+  ],
+  "PokeIcon_GetPalette": [
+    [
+      "ARM9",
+      33689696,
+      "function",
+      "thumb,size=0x8c"
+    ]
+  ],
+  "PokeIcon_GetPaletteFile": [
+    [
+      "ARM9",
+      33689920,
+      "function",
+      "thumb,size=0x4"
+    ]
+  ],
+  "PokeParty_GetIconIndex": [
+    [
+      "ARM9",
+      33689536,
+      "function",
+      "thumb,size=0xa0"
+    ]
+  ],
+  "PokedexCommon_StartGlow": [
+    [
+      "302",
+      35315456,
+      "function",
+      "thumb,size=0xa"
+    ]
+  ],
+  "PokedexCommon_StepGlow": [
+    [
+      "302",
+      35315380,
+      "function",
+      "thumb,size=0x4c"
+    ]
+  ],
+  "PokedexDetailBackground_Create": [
+    [
+      "298",
+      35258884,
+      "function",
+      "thumb,size=0x138"
+    ]
+  ],
+  "PokedexDetailBackground_Free": [
+    [
+      "298",
+      35259196,
+      "function",
+      "thumb,size=0x1e"
+    ]
+  ],
+  "PokedexDetailBackground_Update": [
+    [
+      "298",
+      35259228,
+      "function",
+      "thumb,size=0x20"
+    ]
+  ],
+  "PokedexDetailBlend_Create": [
+    [
+      "298",
+      35257864,
+      "function",
+      "thumb,size=0x1c"
+    ]
+  ],
+  "PokedexDetailBlend_Free": [
+    [
+      "298",
+      35257892,
+      "function",
+      "thumb,size=0x8"
+    ]
+  ],
+  "PokedexDetailBlend_InitPlanes": [
+    [
+      "298",
+      35258072,
+      "function",
+      "thumb,size=0x8"
+    ]
+  ],
+  "PokedexDetailBlend_IsActive": [
+    [
+      "298",
+      35257992,
+      "function",
+      "thumb,size=0xe"
+    ]
+  ],
+  "PokedexDetailBlend_SetIn": [
+    [
+      "298",
+      35258036,
+      "function",
+      "thumb,size=0x14"
+    ]
+  ],
+  "PokedexDetailBlend_SetOut": [
+    [
+      "298",
+      35258056,
+      "function",
+      "thumb,size=0x10"
+    ]
+  ],
+  "PokedexDetailBlend_StartIn": [
+    [
+      "298",
+      35258008,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "PokedexDetailBlend_StartOut": [
+    [
+      "298",
+      35258020,
+      "function",
+      "thumb,size=0xe"
+    ]
+  ],
+  "PokedexDetailBlend_Update": [
+    [
+      "298",
+      35257900,
+      "function",
+      "thumb,size=0x5c"
+    ]
+  ],
+  "PokedexDetailCommon_GetCount": [
+    [
+      "298",
+      35257724,
+      "function",
+      "thumb,size=0x4"
+    ]
+  ],
+  "PokedexDetailCommon_GetFont": [
+    [
+      "298",
+      35257708,
+      "function",
+      "thumb,size=0x4"
+    ]
+  ],
+  "PokedexDetailCommon_GetGameData": [
+    [
+      "298",
+      35257700,
+      "function",
+      "thumb,size=0x4"
+    ]
+  ],
+  "PokedexDetailCommon_GetGraphic": [
+    [
+      "298",
+      35257704,
+      "function",
+      "thumb,size=0x4"
+    ]
+  ],
+  "PokedexDetailCommon_GetHeadbar": [
+    [
+      "298",
+      35257720,
+      "function",
+      "thumb,size=0x4"
+    ]
+  ],
+  "PokedexDetailCommon_GetSpecies": [
+    [
+      "298",
+      35257728,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "PokedexDetailCommon_GetTouchbar": [
+    [
+      "298",
+      35257716,
+      "function",
+      "thumb,size=0x4"
+    ]
+  ],
+  "PokedexDetailCommon_GoNext": [
+    [
+      "298",
+      35257740,
+      "function",
+      "thumb,size=0x40"
+    ]
+  ],
+  "PokedexDetailCommon_GoPrev": [
+    [
+      "298",
+      35257804,
+      "function",
+      "thumb,size=0x3a"
+    ]
+  ],
+  "PokedexDetailGraphic_GetClActUnit": [
+    [
+      "298",
+      35260708,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "PokedexDetailHeadbar_Appear": [
+    [
+      "298",
+      35267428,
+      "function",
+      "thumb,size=0x10"
+    ]
+  ],
+  "PokedexDetailHeadbar_Disappear": [
+    [
+      "298",
+      35267444,
+      "function",
+      "thumb,size=0x10"
+    ]
+  ],
+  "PokedexDetailHeadbar_GetState": [
+    [
+      "298",
+      35267424,
+      "function",
+      "thumb,size=0x4"
+    ]
+  ],
+  "PokedexDetailHeadbar_SetTitle": [
+    [
+      "298",
+      35267404,
+      "function",
+      "thumb,size=0x12"
+    ]
+  ],
+  "PokedexDetailPalFade_CreateEx": [
+    [
+      "298",
+      35258144,
+      "function",
+      "thumb,size=0xb0"
+    ]
+  ],
+  "PokedexDetailPalFade_Free": [
+    [
+      "298",
+      35258332,
+      "function",
+      "thumb,size=0x5c"
+    ]
+  ],
+  "PokedexDetailPalFade_IsFading": [
+    [
+      "298",
+      35258504,
+      "function",
+      "thumb,size=0x10"
+    ]
+  ],
+  "PokedexDetailPalFade_ReadPalettes": [
+    [
+      "298",
+      35258648,
+      "function",
+      "thumb,size=0x5c"
+    ]
+  ],
+  "PokedexDetailPalFade_SetHidden": [
+    [
+      "298",
+      35258584,
+      "function",
+      "thumb,size=0x1e"
+    ]
+  ],
+  "PokedexDetailPalFade_StartIn": [
+    [
+      "298",
+      35258520,
+      "function",
+      "thumb,size=0x20"
+    ]
+  ],
+  "PokedexDetailPalFade_StartOut": [
+    [
+      "298",
+      35258552,
+      "function",
+      "thumb,size=0x20"
+    ]
+  ],
+  "PokedexDetailPalFade_Update": [
+    [
+      "298",
+      35258424,
+      "function",
+      "thumb,size=0x44"
+    ]
+  ],
+  "PokedexDetailPalFade_VBlank": [
+    [
+      "298",
+      35258492,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "PokedexDetailProcSys_AllocWork": [
+    [
+      "298",
+      35257580,
+      "function",
+      "thumb,size=0x20"
+    ]
+  ],
+  "PokedexDetailProcSys_FreeWork": [
+    [
+      "298",
+      35257612,
+      "function",
+      "thumb,size=0x10"
+    ]
+  ],
+  "PokedexDetailTouchbar_Appear": [
+    [
+      "298",
+      35263672,
+      "function",
+      "thumb,size=0x14"
+    ]
+  ],
+  "PokedexDetailTouchbar_Disappear": [
+    [
+      "298",
+      35263692,
+      "function",
+      "thumb,size=0x1e"
+    ]
+  ],
+  "PokedexDetailTouchbar_GetCheck": [
+    [
+      "298",
+      35264012,
+      "function",
+      "thumb,size=0x1a"
+    ]
+  ],
+  "PokedexDetailTouchbar_GetState": [
+    [
+      "298",
+      35263668,
+      "function",
+      "thumb,size=0x4"
+    ]
+  ],
+  "PokedexDetailTouchbar_IsMapPlaceTriggered": [
+    [
+      "298",
+      35267016,
+      "function",
+      "thumb,size=0x1a"
+    ]
+  ],
+  "PokedexDetailTouchbar_PushMapPlace": [
+    [
+      "298",
+      35267000,
+      "function",
+      "thumb,size=0x10"
+    ]
+  ],
+  "PokedexDetailTouchbar_SetActive": [
+    [
+      "298",
+      35264040,
+      "function",
+      "thumb,size=0x36"
+    ]
+  ],
+  "PokedexDetailTouchbar_SetBGPriority": [
+    [
+      "298",
+      35264132,
+      "function",
+      "thumb,size=0x38"
+    ]
+  ],
+  "PokedexDetailTouchbar_SetCheck": [
+    [
+      "298",
+      35263988,
+      "function",
+      "thumb,size=0x18"
+    ]
+  ],
+  "PokedexDetailTouchbar_SetMapPlaceActive": [
+    [
+      "298",
+      35266960,
+      "function",
+      "thumb,size=0x14"
+    ]
+  ],
+  "PokedexDetailTouchbar_SetMapPlaceVisible": [
+    [
+      "298",
+      35266980,
+      "function",
+      "thumb,size=0x14"
+    ]
+  ],
+  "PokedexDetailTouchbar_SetPage": [
+    [
+      "298",
+      35263900,
+      "function",
+      "thumb,size=0x30"
+    ]
+  ],
+  "PokedexDetailTouchbar_SetType": [
+    [
+      "298",
+      35263636,
+      "function",
+      "thumb,size=0x1e"
+    ]
+  ],
+  "PokedexDetailTouchbar_SetVisibleAll": [
+    [
+      "298",
+      35263888,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "PokedexDetailTouchbar_Unlock": [
+    [
+      "298",
+      35263876,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "PokedexHabitatSave_GetHabitatField": [
+    [
+      "ARM9",
+      33623236,
+      "function",
+      "thumb,size=0x36"
+    ]
+  ],
+  "PokedexHabitatSave_GetSeason": [
+    [
+      "ARM9",
+      33623432,
+      "function",
+      "thumb,size=0x6"
+    ]
+  ],
+  "PokedexHabitatSave_GetType": [
+    [
+      "ARM9",
+      33623448,
+      "function",
+      "thumb,size=0x6"
+    ]
+  ],
+  "PokedexHabitatSave_GetZone": [
+    [
+      "ARM9",
+      33623416,
+      "function",
+      "thumb,size=0x6"
+    ]
+  ],
+  "PokedexHabitatSave_IsCaughtMessageShown": [
+    [
+      "ARM9",
+      33623464,
+      "function",
+      "thumb,size=0x6"
+    ]
+  ],
+  "PokedexHabitatSave_IsHabitatFlagSet": [
+    [
+      "ARM9",
+      33623292,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "PokedexHabitatSave_IsSeenMessageShown": [
+    [
+      "ARM9",
+      33623456,
+      "function",
+      "thumb,size=0x6"
+    ]
+  ],
+  "PokedexHabitatSave_SetCaughtMessageShown": [
+    [
+      "ARM9",
+      33623480,
+      "function",
+      "thumb,size=0x8"
+    ]
+  ],
+  "PokedexHabitatSave_SetHabitatField": [
+    [
+      "ARM9",
+      33623316,
+      "function",
+      "thumb,size=0x5a"
+    ]
+  ],
+  "PokedexHabitatSave_SetHabitatFlag": [
+    [
+      "ARM9",
+      33623304,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "PokedexHabitatSave_SetSeason": [
+    [
+      "ARM9",
+      33623424,
+      "function",
+      "thumb,size=0x6"
+    ]
+  ],
+  "PokedexHabitatSave_SetSeenMessageShown": [
+    [
+      "ARM9",
+      33623472,
+      "function",
+      "thumb,size=0x8"
+    ]
+  ],
+  "PokedexHabitatSave_SetType": [
+    [
+      "ARM9",
+      33623440,
+      "function",
+      "thumb,size=0x6"
+    ]
+  ],
+  "PokedexHabitatSave_SetZone": [
+    [
+      "ARM9",
+      33623408,
+      "function",
+      "thumb,size=0x6"
+    ]
+  ],
+  "PrintQueue_Clear": [
+    [
+      "ARM9",
+      33692784,
+      "function",
+      "thumb,size=0xe"
+    ]
+  ],
+  "PrintQueue_CreateDefault": [
+    [
+      "ARM9",
+      33692100,
+      "function",
+      "thumb,size=0x10"
+    ]
+  ],
+  "PrintQueue_Free": [
+    [
+      "ARM9",
+      33692228,
+      "function",
+      "thumb,size=0x8"
+    ]
+  ],
+  "PrintQueue_IsBitmapPending": [
+    [
+      "ARM9",
+      33692744,
+      "function",
+      "thumb,size=0x26"
+    ]
+  ],
+  "PrintQueue_Main": [
+    [
+      "ARM9",
+      33692264,
+      "function",
+      "thumb,size=0x1d0"
+    ]
+  ],
+  "PrintQueue_PrintColor": [
+    [
+      "ARM9",
+      33692840,
+      "function",
+      "thumb,size=0x34"
+    ]
+  ],
+  "PrintStream_Create": [
+    [
+      "ARM9",
+      33694356,
+      "function",
+      "thumb,size=0x2a"
+    ]
+  ],
+  "PrintStream_Delete": [
+    [
+      "ARM9",
+      33694712,
+      "function",
+      "thumb,size=0x14"
+    ]
+  ],
+  "PrintStream_GetState": [
+    [
+      "ARM9",
+      33694688,
+      "function",
+      "thumb,size=0x4"
+    ]
+  ],
+  "RecordGet": [
+    [
+      "ARM9",
+      33592748,
+      "function",
+      "thumb,size=0x32"
+    ]
+  ],
+  "SaveControl_GetJoinAvenue": [
+    [
+      "ARM9",
+      33620036,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "SaveControl_GetPokedexHabitatSave": [
+    [
+      "ARM9",
+      33623224,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "TextSpeed_GetCurrentWait": [
+    [
+      "ARM9",
+      33651660,
+      "function",
+      "thumb,size=0x24"
+    ]
+  ],
+  "TouchBar_Create": [
+    [
+      "139",
+      35232480,
+      "function",
+      "thumb,size=0xbc"
+    ]
+  ],
+  "TouchBar_Free": [
+    [
+      "139",
+      35232668,
+      "function",
+      "thumb,size=0x34"
+    ]
+  ],
+  "TouchBar_GetDecided": [
+    [
+      "139",
+      35232840,
+      "function",
+      "thumb,size=0x26"
+    ]
+  ],
+  "TouchBar_IsTouching": [
+    [
+      "139",
+      35232920,
+      "function",
+      "thumb,size=0xe"
+    ]
+  ],
+  "TouchBar_Main": [
+    [
+      "139",
+      35232720,
+      "function",
+      "thumb,size=0x76"
+    ]
+  ],
+  "TouchBar_SetPriority": [
+    [
+      "139",
+      35233056,
+      "function",
+      "thumb,size=0x28"
+    ]
+  ],
+  "TownMapGraphic_Create": [
+    [
+      "144",
+      35255068,
+      "function",
+      "thumb,size=0x50"
+    ]
+  ],
+  "TownMapGraphic_Free": [
+    [
+      "144",
+      35255148,
+      "function",
+      "thumb,size=0x1e"
+    ]
+  ],
+  "TownMapGraphic_GetActor": [
+    [
+      "144",
+      35255224,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "TownMapGraphic_GetBG": [
+    [
+      "144",
+      35255192,
+      "function",
+      "thumb,size=0x14"
+    ]
+  ],
+  "TownMapGraphic_GetRes": [
+    [
+      "144",
+      35255236,
+      "function",
+      "thumb,size=0x2a"
+    ]
+  ],
+  "TownMapGraphic_GetUnit": [
+    [
+      "144",
+      35255212,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "TownMapGraphic_Update": [
+    [
+      "144",
+      35255180,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "TownMap_CheckFlag": [
+    [
+      "12",
+      35000244,
+      "function",
+      "thumb,size=0x80"
+    ]
+  ],
+  "TownMap_GetMapZone": [
+    [
+      "12",
+      35000052,
+      "function",
+      "thumb,size=0xc0"
+    ]
+  ],
+  "UIObjRes_CreateActor": [
+    [
+      "139",
+      35232412,
+      "function",
+      "thumb,size=0x42"
+    ]
+  ],
+  "UIObjRes_Free": [
+    [
+      "139",
+      35232388,
+      "function",
+      "thumb,size=0x18"
+    ]
+  ],
+  "UIObjRes_Load": [
+    [
+      "139",
+      35232264,
+      "function",
+      "thumb,size=0x7a"
+    ]
+  ],
+  "VEC_Mag": [
+    [
+      "ARM9",
+      34029996,
+      "function",
+      "arm,size=0x60"
+    ]
+  ],
+  "VEC_Normalize": [
+    [
+      "ARM9",
+      34030208,
+      "function",
+      "arm,size=0x114"
+    ]
+  ],
+  "VEC_Subtract": [
+    [
+      "ARM9",
+      34029568,
+      "function",
+      "thumb,size=0x1e"
+    ]
+  ],
+  "WordSetNumber": [
+    [
+      "ARM9",
+      33703240,
+      "function",
+      "thumb,size=0x24"
+    ]
+  ],
+  "WordSet_LoadSpeciesName": [
+    [
+      "ARM9",
+      33702908,
+      "function",
+      "thumb,size=0x24"
+    ]
+  ],
+  "ZoneData_GetPlaceNameID": [
+    [
+      "ARM9",
+      33655980,
+      "function",
+      "thumb,size=0x20"
+    ]
+  ],
+  "getAddressOfBeginningOfOccupants": [
+    [
+      "ARM9",
+      33620064,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "getOBJTileMapping_MainEng": [
+    [
+      "ARM9",
+      33690044,
+      "function",
+      "thumb,size=0x38"
+    ]
+  ],
+  "getOBJTileMapping_SubEng": [
+    [
+      "ARM9",
+      33690100,
+      "function",
+      "thumb,size=0x3c"
+    ]
+  ],
+  "getTrainerCardInfoBlkAddress": [
+    [
+      "ARM9",
+      33592328,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "getUINarcIdx": [
+    [
+      "ARM9",
+      33740812,
+      "function",
+      "thumb,size=0x4"
+    ]
+  ],
+  "loadBGScrToVramByFileNoReserveNegAlign": [
+    [
+      "ARM9",
+      33861500,
+      "function",
+      "thumb,size=0x38"
+    ]
+  ],
+  "loadLocationNameToStrbuf": [
+    [
+      "ARM9",
+      33703724,
+      "function",
+      "thumb,size=0xc"
+    ]
+  ],
+  "memcpy": [
+    [
+      "ARM9",
+      34093456,
+      "function",
+      "arm,size=0x20"
+    ]
+  ],
+  "memset": [
+    [
+      "ARM9",
+      34093564,
+      "function",
+      "arm,size=0x14"
+    ]
+  ],
+  "vecfx_mul": [
+    [
+      "ARM9",
+      33884080,
+      "function",
+      "thumb,size=0x26"
+    ]
+  ]
+}

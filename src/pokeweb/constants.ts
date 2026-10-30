@@ -10,6 +10,9 @@ export type VersionInfo = { generation: Generation; baseVersion: BaseVersion; ba
 export type NarcName =
   | "headers"
   | "town_map"
+  | "town_map_graphics"
+  | "town_map_habitat_graphics"
+  | "town_map_species_habitats"
   | "message_texts"
   | "story_texts"
   | "scripts"
@@ -163,6 +166,9 @@ export const BW_NARCS: NarcDefinition[] = [
 
 export const BW2_NARCS: NarcDefinition[] = [
   { path: "a/0/8/5", name: "town_map" },
+  { path: "a/0/8/4", name: "town_map_graphics" },
+  { path: "a/1/5/7", name: "town_map_habitat_graphics" },
+  { path: "a/1/7/6", name: "town_map_species_habitats" },
   { path: "a/0/0/4", name: "pokemon_sprites" },
   { path: "a/0/0/7", name: "pokemon_icons" },
   { path: "a/0/1/6", name: "personal" },

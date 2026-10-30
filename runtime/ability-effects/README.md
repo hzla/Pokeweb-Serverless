@@ -18,6 +18,14 @@ they do not replace the scheduler or global ability-eligibility rules. Protean a
 Libero expose their activation limit, and Mega Launcher covers pulse damage only.
 Heal Pulse healing is unchanged.
 
+**Triggered stat stages** can select the holder's or each target's highest raw
+stat (excluding HP and ignoring stages; ties use Attack, Defense, Sp. Atk, Sp. Def,
+then Speed). **After using a move** fires once after an executed move resolves,
+including status moves and blocked or ineffective moves, but not a flinched turn.
+**Knockout splash damage** targets the defeated opponent's surviving active allies;
+its percentage can use the defeated opponent's or each recipient's maximum HP.
+Only knockouts caused by the holder's move damage count; bench Pokémon are excluded.
+
 All edited abilities share `patches/AbilityEffects.dll`; the browser does not
 compile native code. Applying an edit verifies native signatures, dependencies,
 relocations and hook conflicts before committing the change. Recognized battle

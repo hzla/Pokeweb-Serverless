@@ -54,7 +54,7 @@ def main():
      main=emu.memory.read_long(flow+4);player=emu.memory.read_long(main+0xcc);enemy=emu.memory.read_long(main+0xcc+0x1c)
      state={'turn':turn,'frame':emu.frame_count,'hp':emu.memory.read_short(player+0x10),'maxHp':emu.memory.read_short(player+0xe),'item':emu.memory.read_short(player+0x12),'enemyHp':emu.memory.read_short(enemy+0x10),'enemyMaxHp':emu.memory.read_short(enemy+0xe),'ability':emu.memory.read_short(player+0x13c),'enemyAbility':emu.memory.read_short(enemy+0x13c),'stages':list(emu.memory.unsigned[player+0xfc:player+0x103]),'enemyStages':list(emu.memory.unsigned[enemy+0xfc:enemy+0x103]),'conditions':[emu.memory.read_long(player+0x1c+n*4)for n in range(36)],'enemyConditions':[emu.memory.read_long(enemy+0x1c+n*4)for n in range(36)]}
      state['types']=[emu.memory.read_byte(player+0xf8),emu.memory.read_byte(player+0xf9)]
-     if'highestTargets'in spec['checks']or'knockoutSplash'in spec['checks']or'noSplash'in spec['checks']:
+     if'highestTargets'in spec['checks']or'knockoutSplash'in spec['checks']or'noSplash'in spec['checks']or'noDropsAfterHits'in spec['checks']:
       state['rawStats']=[emu.memory.read_short(player+0xee+n*2)for n in range(5)];state['enemyParty']=[]
       for slot in range(spec.get('enemyCount',1)):
        mon=emu.memory.read_long(main+0xe8+slot*4);assert 0x02000000<=mon<0x02400000
@@ -329,6 +329,7 @@ def main():
     if'playerStagesByTurn'in c:assert[s['stages']for s in menus]==c['playerStagesByTurn'],menus
     if'highestTargets'in c:
      assert any(hit['target']==0 and hit['damage']>0 for hit in damage_reactions),damage_reactions
+     if c.get('rawStatTie'):assert any(mon['rawStats'].count(max(mon['rawStats']))>1 for mon in menus[0]['enemyParty']),menus
      for i,state in enumerate(menus):
       hits=sum(hit['target']==0 and hit['damage']>0 and not hit.get('substitute')and hit['turnIndex']<i for hit in damage_reactions)
       for target,initial in enumerate(menus[0]['enemyParty']):
@@ -340,6 +341,9 @@ def main():
      assert recipient['hp']-after[recipient['id']]['hp']==min(recipient['hp'],amount),(menus,indirect_damage)
      assert indirect_damage==[{'turnIndex':i,'amount':amount,'target':recipient['id']}],indirect_damage
     if c.get('noSplash'):assert not indirect_damage,indirect_damage
+    if c.get('noDropsAfterHits'):
+     assert any(hit['target']==0 and hit['damage']>0 for hit in damage_reactions),damage_reactions
+     assert all(mon['stages']==[6]*7 for state in menus for mon in state['enemyParty']),menus
     if'enemyStagesByTurn'in c:assert[s['enemyStages']for s in menus]==c['enemyStagesByTurn'],menus
     if'speedStages'in c:assert[s['stages'][4]for s in menus]==c['speedStages'],menus
     if'enemySpeedStages'in c:assert[s['enemyStages'][4]for s in menus]==c['enemySpeedStages'],menus

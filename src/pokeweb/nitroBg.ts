@@ -18,6 +18,8 @@ export type NitroBackgroundIndexedData = {
   palette: NitroPaletteData;
   paletteBankOffset: number;
   transparentIndexZero: boolean;
+  /** Extended 8bpp backgrounds select a 256-color bank per screen entry. */
+  extendedPaletteBanks?: boolean;
 };
 
 export type NitroPaletteData = Array<[number, number, number, number]>;
@@ -33,6 +35,7 @@ export type NitroBackgroundPaletteAnimation = {
 export type NitroBackgroundOptions = {
   paletteBankOffset?: number;
   transparentIndexZero?: boolean;
+  extendedPaletteBanks?: boolean;
 };
 
 type ScreenData = {
@@ -65,6 +68,7 @@ export function parseNitroBackground(
     palette,
     paletteBankOffset: options.paletteBankOffset ?? 0,
     transparentIndexZero: Boolean(options.transparentIndexZero),
+    extendedPaletteBanks: options.extendedPaletteBanks ?? (characters.bitsPerPixel === 8 && readU16(screenBytes, findBlock(screenBytes, "NRCS") + 12) === 2),
   };
   const { rgba, hasTransparency } = renderNitroBackgroundRgba(screen.width, screen.height, indexed);
 
@@ -189,7 +193,7 @@ function renderNitroBackgroundRgba(
       const paletteBank = (entry >>> 12) & 0x0f;
       const tile = indexed.tilePixels[tileIndex];
       if (!tile) continue;
-      if (drawTile(rgba, width, tileX * 8, tileY * 8, tile, indexed.bitsPerPixel, indexed.palette, paletteBank, indexed.paletteBankOffset, flipX, flipY, indexed.transparentIndexZero)) {
+      if (drawTile(rgba, width, tileX * 8, tileY * 8, tile, indexed.bitsPerPixel, indexed.palette, paletteBank, indexed.paletteBankOffset, flipX, flipY, indexed.transparentIndexZero, indexed.extendedPaletteBanks)) {
         hasTransparency = true;
       }
     }
@@ -211,6 +215,7 @@ function drawTile(
   flipX: boolean,
   flipY: boolean,
   transparentIndexZero: boolean,
+  extendedPaletteBanks = false,
 ): boolean {
   let transparent = false;
   for (let py = 0; py < 8; py += 1) {
@@ -230,7 +235,7 @@ function drawTile(
       const localPaletteBank = paletteBank >= paletteBankOffset
         ? paletteBank - paletteBankOffset
         : paletteBank;
-      const paletteIndex = bitsPerPixel === 8 ? colorIndex : localPaletteBank * 16 + colorIndex;
+      const paletteIndex = bitsPerPixel === 8 ? (extendedPaletteBanks ? localPaletteBank * 256 : 0) + colorIndex : localPaletteBank * 16 + colorIndex;
       const color = palette[paletteIndex] ?? palette[colorIndex] ?? [0, 0, 0, 0];
       rgba[offset] = color[0];
       rgba[offset + 1] = color[1];

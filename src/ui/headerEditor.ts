@@ -178,7 +178,7 @@ export function renderHeaderEditor(project: ProjectState, root: HTMLElement, onD
       <div class="filter-title">Search Location</div>
       <input class="filter-input" id="search-text"/>
       <button class="btn -default" id="search-text-btn" type="button">Search</button>
-      ${project.session.baseRom === "BW2" ? `<a class="btn -default" href="#flyDestinations" data-route="flyDestinations">Fly Destinations</a>` : ""}
+      ${project.session.baseRom === "BW2" ? `<a class="btn -default" href="#townMap" data-route="townMap">Town Map</a>` : ""}
     </div>
     <div class="pokemon-list spreadsheet" id="headers">
       <div class="expanded-field field-header">

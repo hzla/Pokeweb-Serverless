@@ -204,7 +204,13 @@ export function getCGearQuickActionsStatus(project: ProjectState): CGearQuickAct
       const o = overlays.get(Number(s.module));const base = s.module === "ARM9" ? rom.arm9RamAddress : o?.ramAddress;
       const data = s.module === "ARM9" ? [arm] : [o?.data, project.overlays[Number(s.module)] ?? o?.data];
       const offset = base === undefined ? -1 : s.address - base;
-      if (data.some(b => !b || offset < 0 || hex(b.subarray(offset, offset + s.expectedHex.length / 2)) !== s.expectedHex)) {
+      // Some White 2 hacks use Redux's phenomenon edits without its Repel
+      // module or PC script. Their remaining hooks use the stock runtime.
+      const alternate = !redux && v === "W2" && s.label === "Native phenomenon generator"
+        ? reduxManifest.games.W2.signatures.find(signature => signature.label === s.label)?.expectedHex : undefined;
+      const matches = [s.expectedHex, ...(alternate ? [alternate] : [])].some(expected =>
+        data.every(b => !!b && offset >= 0 && hex(b.subarray(offset, offset + expected.length / 2)) === expected));
+      if (!matches) {
         return { ...state, message: `Unrecognized ${s.label} code in ${s.module === "ARM9" ? "ARM9" : `overlay ${s.module}`} at 0x${s.address.toString(16)}. Restore the native hook or use a compatible build.` };
       }
     }
