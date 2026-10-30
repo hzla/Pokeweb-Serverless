@@ -27,6 +27,47 @@ static int axis(FwPoint d,FwPoint *out){
  int32_t length=(int32_t)root((uint32_t)(d.x*d.x+d.y*d.y+d.z*d.z));
  *out=(FwPoint){divide((int64_t)d.x*4096,length),divide((int64_t)d.y*4096,length),divide((int64_t)d.z*4096,length)};return 1;
 }
+int fwr_animation_plane(const FwPoint *native,int32_t vertical,
+                        const FwrCamera *camera,FwPoint *out){
+ if(!native||!out)return 0;
+ *out=*native;
+ FwPoint view;
+ if(!camera||camera->projection>2||vertical< -8*FW_TILE||vertical>8*FW_TILE||
+    !delta(camera->eye,camera->target,&view,1<<27))return 0;
+ int32_t largest=view.x<0?-view.x:view.x,t=view.y<0?-view.y:view.y;
+ if(t>largest)largest=t;
+ t=view.z<0?-view.z:view.z;if(t>largest)largest=t;
+ if(largest<4096)return 0;
+ /* A common fixed-point scale retains more angular precision than a unit
+  * vector. Three squared components still fit the freestanding divisor. */
+ view.x=divide((int64_t)view.x*16384,largest);
+ view.y=divide((int64_t)view.y*16384,largest);
+ view.z=divide((int64_t)view.z*16384,largest);
+ int32_t length=view.x*view.x+view.y*view.y+view.z*view.z;
+ int64_t projection=(int64_t)vertical*view.y;
+ int64_t x=(int64_t)native->x-divide(projection*view.x,length);
+ int64_t y=(int64_t)native->y-divide(projection*view.y,length);
+ int64_t z=(int64_t)native->z-divide(projection*view.z,length);
+ if(x<INT32_MIN||x>INT32_MAX||y<INT32_MIN||y>INT32_MAX||z<INT32_MIN||z>INT32_MAX)return 0;
+ *out=(FwPoint){(int32_t)x,(int32_t)y,(int32_t)z};return 1;
+}
+int fwr_camera_anchor(const FwPoint *native,const FwPoint *anchor,
+                      const FwrCamera *camera,FwPoint *out){
+ if(!native||!out)return 0;
+ *out=*native;
+ FwPoint forward;
+ if(!anchor||!camera||camera->projection>2||anchor->y||
+    anchor->x< -8*FW_TILE||anchor->x>8*FW_TILE||
+    anchor->z< -8*FW_TILE||anchor->z>8*FW_TILE||
+    !delta(camera->eye,camera->target,&forward,1<<27))return 0;
+ forward.y=0;if(!axis(forward,&forward))return 0;
+ int64_t x=(int64_t)native->x-anchor->x+
+   divide((int64_t)anchor->x*forward.z+(int64_t)anchor->z*forward.x,4096);
+ int64_t z=(int64_t)native->z-anchor->z+
+   divide(-(int64_t)anchor->x*forward.x+(int64_t)anchor->z*forward.z,4096);
+ if(x<INT32_MIN||x>INT32_MAX||z<INT32_MIN||z>INT32_MAX)return 0;
+ *out=(FwPoint){(int32_t)x,native->y,(int32_t)z};return 1;
+}
 static int shift_depth(const FwrPose *native,const FwrCamera *camera,FwPoint direction,
                        int32_t change,FwrPose *out){
  *out=*native;

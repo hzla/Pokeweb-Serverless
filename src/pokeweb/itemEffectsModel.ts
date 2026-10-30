@@ -14,6 +14,7 @@ import { validateItemRule, type ItemRuleSet } from "./itemRules";
 import { ITEM_NATIVE_FUNCTIONS, nativeItemBranchTarget, type NativeItemResolver } from "./itemNativeRuntime";
 import { isVerifiedAbilityClientTrapImport } from "./abilityEffectsModel";
 import { isVerifiedBattleCounterImport } from "./battleLogModel";
+import { detectSpecifyTrainerNaturesPatch, specifyTrainerNatures } from "./romPatchModel";
 
 type Profile = typeof profiles.rows[number];
 type NativeEvent = { event: number; address: number; offset: number };
@@ -428,7 +429,8 @@ export async function configureItemTypeHealingBatch(project: ProjectState, edits
   }
   // Validate the complete module before installing any dependencies or edits.
   sharedHealingModule(c, overrides);
-  await installCodeInjectionPatch(project, staged => {
+  await installCodeInjectionPatch(project, async staged => {
+    if (detectSpecifyTrainerNaturesPatch(staged) === "legacy") await specifyTrainerNatures(staged);
     stageHealingOverrides({ ...c, project: staged }, overrides);
     for (const { itemId, divisor } of edits) updateItemField(staged, itemId, "gain_values", String(divisor));
   });
@@ -618,7 +620,9 @@ export async function configureItemRuleSets(project: ProjectState, edits: readon
     rules.set(edit.itemId, validateItemRule(edit.rules));
   }
   ruleModule(c, rules);
-  await installCodeInjectionPatch(project, staged => {
+  await installCodeInjectionPatch(project, async staged => {
+    // Preserve the recognized nature feature without its loader-memory overlap.
+    if (detectSpecifyTrainerNaturesPatch(staged) === "legacy") await specifyTrainerNatures(staged);
     stageGenericRules({ ...c, project: staged }, rules);
     for (const edit of edits) recordFieldChange(staged, "items", String(getItemRecord(staged, edit.itemId).readable.name), "Custom battle rules", "Previous effect", JSON.stringify(edit.rules), { key: `item-rules:${edit.itemId}` });
   });

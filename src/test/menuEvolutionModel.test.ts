@@ -1,4 +1,6 @@
-import { existsSync, readFileSync } from "node:fs";
+import { romFixtureExists } from "./romFixtures";
+import { deepStrictEqual } from "node:assert";
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { readAscii, readU16 } from "../nds/binary";
 import { NintendoDSRom } from "../nds/rom";
@@ -118,7 +120,7 @@ describe("BW2 Menu Evolution", () => {
   });
 
   it("adds the three counter evolution methods as unsigned integer thresholds", () => {
-    expect(EVO_METHODS.slice(29, 32)).toEqual(["KO Count", "Battle Count", "Battles Used Count"]);
+    deepStrictEqual(EVO_METHODS.slice(29, 32), ["KO Count", "Battle Count", "Battles Used Count"]);
     expect(evolutionParamAutofillKey(29)).toBeUndefined();
     expect(evolutionParamAutofillKey(30)).toBeUndefined();
     expect(evolutionParamAutofillKey(31)).toBeUndefined();
@@ -215,7 +217,7 @@ describe("BW2 Menu Evolution", () => {
 
   for (const [version, filename] of [["B2", "cleanblack2.nds"], ["W2", "cleanwhite2.nds"]] as const) {
     const fixture = new URL(`../../../${filename}`, import.meta.url);
-    it.runIf(existsSync(fixture))(`preserves KO edits through ${version} import, autosave, update, and Test Battle export preparation`, async () => {
+    it.runIf(romFixtureExists(fixture))(`preserves KO edits through ${version} import, autosave, update, and Test Battle export preparation`, async () => {
       vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
         const url = input instanceof URL ? input : new URL(input instanceof Request ? input.url : String(input));
         const name = url.pathname.split("/").pop()!;
@@ -251,7 +253,7 @@ describe("BW2 Menu Evolution", () => {
         const testRom = new NintendoDSRom(testRomBytes);
         expect(testRom.filenames.idOf(`patches/MainMenuSkip${version}.dll`)).toBeDefined();
         expect(testRom.fileId(KO_MOVE_LEARNSET_PATH)).toBe(fileId);
-        expect(testRom.getFileByName(KO_MOVE_LEARNSET_PATH)).toEqual(reloaded.fileSystem!.replacements[fileId]);
+        deepStrictEqual(testRom.getFileByName(KO_MOVE_LEARNSET_PATH), reloaded.fileSystem!.replacements[fileId]);
         expect(reloaded.fileSystem?.additions?.[`patches/MainMenuSkip${version}.dll`]).toBeUndefined();
       } finally {
         vi.unstubAllGlobals();

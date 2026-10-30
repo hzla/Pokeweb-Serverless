@@ -1,4 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
+import { romFixtureExists } from "./romFixtures";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { BaseVersion, NarcName } from "../pokeweb/constants";
 import { loadProjectFromRomBytes } from "../pokeweb/loader";
@@ -8,29 +9,26 @@ import { decodeGen5TextBank, encodeGen5TextBank, type Gen5TextEntry } from "../p
 import { getTextBank } from "../pokeweb/textModel";
 
 describe("pokemonTextModel", () => {
-  it("finds only the species-indexed Info Text name banks in clean BW and BW2 ROMs", async () => {
-    const fixtures = [
-      {
-        fileName: "white.nds",
-        baseRom: "BW",
-        nameBanks: [70, 253, 254, 255, 256, 257, 258, 259, 281, 284],
-        dictionaryBank: 101,
-        dictionaryEntry: 83,
-        storyBank: 122,
-      },
-      {
-        fileName: "cleanwhite2.nds",
-        baseRom: "BW2",
-        nameBanks: [90, 458, 459, 460, 461, 462, 463, 483, 486],
-        dictionaryBank: 114,
-        dictionaryEntry: 83,
-        storyBank: 136,
-      },
-    ] as const;
-
-    for (const fixture of fixtures) {
-      const romUrl = new URL(`../../../${fixture.fileName}`, import.meta.url);
-      if (!existsSync(romUrl)) continue;
+  for (const fixture of [
+    {
+      fileName: "white.nds",
+      baseRom: "BW",
+      nameBanks: [70, 253, 254, 255, 256, 257, 258, 259, 281, 284],
+      dictionaryBank: 101,
+      dictionaryEntry: 83,
+      storyBank: 122,
+    },
+    {
+      fileName: "cleanwhite2.nds",
+      baseRom: "BW2",
+      nameBanks: [90, 458, 459, 460, 461, 462, 463, 483, 486],
+      dictionaryBank: 114,
+      dictionaryEntry: 83,
+      storyBank: 136,
+    },
+  ] as const) {
+    const romUrl = new URL(`../../../${fixture.fileName}`, import.meta.url);
+    it.skipIf(!romFixtureExists(romUrl))(`finds species-indexed Info Text name banks in ${fixture.fileName}`, async () => {
       const project = await loadProjectFromRomBytes(new Uint8Array(readFileSync(romUrl)), fixture.fileName, { selectedNarcs: [] });
       const info = getPokemonTextInfo(project, 1);
       expect(project.session.baseRom).toBe(fixture.baseRom);
@@ -59,8 +57,8 @@ describe("pokemonTextModel", () => {
       }
       expect(getTextBank(project, "message_texts", fixture.dictionaryBank)[fixture.dictionaryEntry][1]).toBe(dictionaryBefore);
       expect(getTextBank(project, "story_texts", fixture.storyBank)[73][1]).toBe(storyBefore);
-    }
-  });
+    });
+  }
 
   it("renames BW2 English entries while leaving non-English names unchanged", () => {
     const project = makeProject("BW2", "W2", 1, "Bulbasaur", [
@@ -178,7 +176,7 @@ function makeProject(
     },
     formats: {},
     trpokInfo: [],
-  };
+  }
 }
 
 function makeBank(count: number, overrides: Record<number, string>): Gen5TextEntry[] {
@@ -199,5 +197,5 @@ function makeStore(name: NarcName, rawFiles: Uint8Array[]): NarcStore {
     rawFiles,
     records: new Map(),
     dirty: new Set(),
-  };
+  }
 }

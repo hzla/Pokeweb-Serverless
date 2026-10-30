@@ -1,4 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
+import { romFixtureExists } from "./romFixtures";
+import { readFileSync } from "node:fs";
 import { unzipSync } from "fflate";
 import { describe, expect, it } from "vitest";
 import { readU16, writeU16, writeU32 } from "../nds/binary";
@@ -153,16 +154,14 @@ describe("trainerMusicModel", () => {
     expect(() => locateTrainerBattleMusicTable(project, ambiguous)).toThrow(/multiple possible/iu);
   });
 
-  it("recognizes canonical tables in available clean Gen 5 ROM fixtures", () => {
-    const fixtures: Array<[string, Gen5Version, number]> = [
-      ["white.nds", "W", 0xa35c8],
-      ["cleanblack.nds", "B", 0xa35a8],
-      ["cleanblack2.nds", "B2", 0x8e394],
-      ["cleanwhite2.nds", "W2", 0x8e3c0],
-    ];
-    for (const [fileName, version, expectedOffset] of fixtures) {
-      const romUrl = new URL(`../../../${fileName}`, import.meta.url);
-      if (!existsSync(romUrl)) continue;
+  for (const [fileName, version, expectedOffset] of [
+    ["white.nds", "W", 0xa35c8],
+    ["cleanblack.nds", "B", 0xa35a8],
+    ["cleanblack2.nds", "B2", 0x8e394],
+    ["cleanwhite2.nds", "W2", 0x8e3c0],
+  ] as const) {
+    const romUrl = new URL(`../../../${fileName}`, import.meta.url);
+    it.skipIf(!romFixtureExists(romUrl))(`recognizes canonical tables in ${fileName}`, () => {
       const rom = new NintendoDSRom(new Uint8Array(readFileSync(romUrl)));
       const project = makeProject(version, 0);
       project.arm9 = decompressCode(rom.arm9);
@@ -190,8 +189,8 @@ describe("trainerMusicModel", () => {
       expect(battleLocation.tableOffset).toBe(
         version === "B" ? 0x538e0 : version === "W" ? 0x538d8 : version === "B2" ? 0x532e4 : 0x532d8,
       );
-    }
-  });
+    });
+  }
 });
 
 function makeProject(version: Gen5Version, arm9Length: number): ProjectState {
@@ -213,7 +212,7 @@ function makeProject(version: Gen5Version, arm9Length: number): ProjectState {
     texts: { banks: { tr_classes: Array.from({ length: baseRom === "BW" ? 105 : 236 }, (_unused, id) => `Class ${id}`) } },
     formats: {},
     trpokInfo: [],
-  };
+  }
 }
 
 function writeBwTable(arm9: Uint8Array, offset: number): void {
@@ -307,5 +306,5 @@ function makeSdat(bw2: boolean): NitroSdat {
     sequenceSymbols,
     bankSymbols: ["BANK_EYE"],
     waveArchiveSymbols: ["WAVE_EYE"],
-  };
+  }
 }

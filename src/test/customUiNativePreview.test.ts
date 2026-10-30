@@ -1,5 +1,6 @@
+import { romFixtureExists } from "./romFixtures";
 import { beforeAll, describe, expect, it } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { NintendoDSRom } from "../nds/rom";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { nativeLearnsetPreset } from "../customUi/nativeCatalog";
@@ -20,7 +21,7 @@ import { addSummaryPage, addStatOverlay } from "../customUi/summaryCatalog";
 // Optional local integration fixtures; retail assets are never bundled with tests.
 for (const [game, name] of [["W2", "cleanwhite2.nds"], ["B2", "cleanblack2.nds"]] as const) {
   const path = process.env[`CUSTOM_UI_${game}_ROM`] ?? new URL(`../../../${name}`, import.meta.url);
-  describe.skipIf(!existsSync(path))(`Native learnset preview (${game} ROM assets)`, () => {
+  describe.skipIf(!romFixtureExists(path))(`Native learnset preview (${game} ROM assets)`, () => {
     const design = nativeLearnsetPreset(), sample = structuredClone(fixtures.full);
     const moves = [
       { name: "Flare Blitz", level: 1, type: "Fire", category: "Physical", power: 120, accuracy: 100, pp: 15, description: "The user cloaks itself in fire and charges\nat the target. The user sustains serious\ndamage and may leave the target burned." },
@@ -131,7 +132,7 @@ for (const [game, name] of [["W2", "cleanwhite2.nds"], ["B2", "cleanblack2.nds"]
 
 for (const [game, name] of [["W2", "cleanwhite2.nds"], ["B2", "cleanblack2.nds"]] as const) {
   const path = process.env[`CUSTOM_UI_${game}_ROM`] ?? new URL(`../../../${name}`, import.meta.url);
-  describe.skipIf(!existsSync(path))(`Summary layout preview (${game} ROM assets)`, () => {
+  describe.skipIf(!romFixtureExists(path))(`Summary layout preview (${game} ROM assets)`, () => {
     it("decodes all four native page backgrounds, previews resized windows and packages EV/IV overlays", () => {
       const rom = new NintendoDSRom(new Uint8Array(readFileSync(path)), { fileData: "view" });
       const project: ProjectState = {
@@ -163,7 +164,7 @@ for (const [game, name] of [["W2", "cleanwhite2.nds"], ["B2", "cleanblack2.nds"]
 
 for (const [game, name] of [["W2", "cleanwhite2.nds"], ["B2", "cleanblack2.nds"]] as const) {
   const path = process.env[`CUSTOM_UI_${game}_ROM`] ?? new URL(`../../../${name}`, import.meta.url);
-  describe.skipIf(!existsSync(path))(`Summary actors and scrolling (${game})`, () => {
+  describe.skipIf(!romFixtureExists(path))(`Summary actors and scrolling (${game})`, () => {
     let assets: Assets, compiled: Compilation, summaryFiles: Uint8Array[];
     const p = newProject(), sample = structuredClone(fixtures.full);
     p.document.screens = []; p.document.launchers = { party: addSummaryPage(p.document, "stats") };

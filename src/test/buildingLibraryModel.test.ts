@@ -1,5 +1,6 @@
+import { romFixtureExists } from "./romFixtures";
 import { describe, expect, it } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { writeU16, writeU32 } from "../nds/binary";
 import { packGameFreakContainer, readNitroModelNames } from "../pokeweb/map3dModel";
@@ -43,7 +44,7 @@ describe("building library index", () => {
 });
 
 const romPath = resolve(process.cwd(), "../cleanwhite2.nds");
-describe.skipIf(!existsSync(romPath))("local BW2 building library", () => {
+describe.skipIf(!romFixtureExists(romPath))("local BW2 building library", () => {
   it("indexes both archives and decodes exterior and interior models with their own textures", async () => {
     const project = { session: { baseRom: "BW2" }, originalRomBytes: new Uint8Array(readFileSync(romPath)) } as ProjectState;
     const library = await loadBuildingLibrary(project);

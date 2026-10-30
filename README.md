@@ -59,6 +59,10 @@ Then open the local Vite URL, load a `.nds`, choose the NARC groups you want ava
 
 See the [workflow guides and references](docs/README.md) for detailed editing instructions and compatibility limits.
 
+## Tests
+
+`npm test` runs the self-contained suite, including synthetic ROM export, save-data, and installer rollback checks. `npm run test:rom` also enables integration checks against local retail ROMs and extracted resources, using one worker and a 30-second default test limit. Missing local fixtures are reported as skipped; retail ROMs are not bundled with the tests. Both commands accept Vitest file filters, for example `npm run test:rom -- src/test/mapGlbImport.test.ts`.
+
 ## Credits
 
 Should users choose to install from the animated sprite library, or move animation expansion library, relevant credits are listed on the install pages.

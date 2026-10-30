@@ -124,6 +124,9 @@ static void popup(void*f,u32 command,u8 owner){FN(20,void(*)(void*,u32,u8))(f,co
 #ifdef ABILITY_RECIPES
 #include "recipes.c"
 #endif
+#ifdef ABILITY_SCOPED
+#include "scoped.c"
+#endif
 static void healing(void*item,void*f,u8 owner,const volatile u8*r,u32 event){
  if(VALUE(2)!=owner||preview(f))return;
  void*mon=MON(f,owner);u32 hp=STAT(mon,13),maximum=STAT(mon,14),amount=0;
@@ -147,6 +150,9 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
  (void)w;const volatile u8*r=record(SUB(item));
 #ifdef ABILITY_RECIPES
  if(r&&7-(*(u32*)((u8*)item+0x14)>>24)==5)recipeObserve(f,owner,r,event);
+#ifdef ABILITY_SCOPED
+ if(r&&7-(*(u32*)((u8*)item+0x14)>>24)==5)scopedObserve(f,owner,r,event);
+#endif
 #endif
  if(!r||!active(r,f,MON(f,owner)))return;
 #ifdef ABILITY_POPUP_GROUPS
@@ -176,6 +182,9 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
   /* Native weather guard event: holder, proposed damage, and weather source.
    * Cancel only this weather tick; move damage and other residuals are separate. */
   if(kind==154){if(event==0x7f&&VALUE(2)==owner&&(s32)VALUE(0x32)>0&&(!e[1]||VALUE(0x39)==e[1]))REWRITE(0x41,1);continue;}
+#endif
+#ifdef ABILITY_SCOPED
+  if(kind>=155&&kind<=163){scopedEffect(item,f,owner,e,event,nativeWork[owner][n]);continue;}
 #endif
   if(kind==128&&owner<32){const Event*table=*(const Event*const*)(e+8);
    for(u32 j=0;j<e[14];++j)if(table[j].event==event){u32 saved[7];for(u32 k=0;k<7;++k)saved[k]=nativeWork[owner][n][k];table[j].callback(item,f,owner,nativeWork[owner][n]);if(preview(f))for(u32 k=0;k<7;++k)nativeWork[owner][n][k]=saved[k];break;}
@@ -208,11 +217,17 @@ E(00) E(01) E(02) E(03) E(04) E(05) E(06) E(07) E(08) E(09) E(0a) E(0b) E(0c) E(
 #ifdef ABILITY_RECIPES
 E(a6)
 #endif
+#ifdef ABILITY_SCOPED
+E(a7)
+#endif
 #undef E
 #define E(n) {0x##n,AbilityEvent_##n},
 PUBLIC const Event AbilityRuleEvents[]={E(00) E(01) E(02) E(03) E(04) E(05) E(06) E(07) E(08) E(09) E(0a) E(0b) E(0c) E(0d) E(0e) E(0f) E(10) E(11) E(12) E(13) E(14) E(15) E(16) E(17) E(18) E(19) E(1a) E(1b) E(1c) E(1d) E(1e) E(1f) E(20) E(21) E(22) E(23) E(24) E(25) E(26) E(27) E(28) E(29) E(2a) E(2b) E(2c) E(2d) E(2e) E(2f) E(30) E(31) E(32) E(33) E(34) E(35) E(36) E(37) E(38) E(39) E(3a) E(3b) E(3c) E(3d) E(3e) E(3f) E(40) E(41) E(42) E(43) E(44) E(45) E(46) E(47) E(48) E(49) E(4a) E(4b) E(4c) E(4d) E(4e) E(4f) E(50) E(51) E(52) E(53) E(54) E(55) E(56) E(57) E(58) E(59) E(5a) E(5b) E(5c) E(5d) E(5e) E(5f) E(60) E(61) E(62) E(63) E(64) E(65) E(66) E(67) E(68) E(69) E(6a) E(6b) E(6c) E(6d) E(6e) E(6f) E(70) E(71) E(72) E(73) E(74) E(75) E(76) E(77) E(78) E(79) E(7a) E(7b) E(7c) E(7d) E(7e) E(7f) E(80) E(81) E(82) E(83) E(84) E(85) E(86) E(87) E(88) E(89) E(8a) E(8b) E(8c) E(8d) E(8e) E(8f) E(90) E(91) E(92) E(93) E(94) E(95) E(96) E(97) E(98) E(99) E(9a) E(9b) E(9c) E(9d) E(9e) E(9f) E(a0) E(a1) E(a2) E(a3) E(a4) E(a5)
 #ifdef ABILITY_RECIPES
 E(a6)
+#endif
+#ifdef ABILITY_SCOPED
+E(a7)
 #endif
 };
 #undef E

@@ -32,7 +32,7 @@ import { refreshDecodedTextState } from "./loader";
 import type { ProjectState } from "./projectStore";
 import { getPmcInstallStatus, installBundledPmc, listCodeInjectionDlls, stageCodeInjectionDll } from "./pmcModel";
 import { parseRpm, writeRpm, type RpmModule } from "./rpm";
-import { buildFollowerCatalog, deriveFollowerGrounding, deriveFollowerSpacing, encodeFollowerLandAnchors, validateFollowerLandAnchors, followerSideGap, followerBillboardDrawMode, followerAnimationSelector, decodeFollowerRegistry, encodeFollowerRegistry, followerCrc32, followerKey, readFollowerStockAppearances, validateFollowerRegistry, validateFollowerResource,
+import { buildFollowerCatalog, deriveFollowerGrounding, deriveFollowerSpacing, encodeFollowerLandAnchors, validateFollowerLandAnchors, followerSideGap, followerBillboardDrawMode, followerAnimationSelector, decodeFollowerRegistry, encodeFollowerRegistry, followerCrc32, followerKey, followerDefaultDirectionalGaps, readFollowerStockAppearances, validateFollowerRegistry, validateFollowerResource,
   type FollowerAppearanceKey, type FollowerAssetEntry, type FollowerRegistry } from "./followingPokemonModel";
 import { FOLLOWER_POSITIONING_PATH, encodeFollowerPositioningNarc, decodeFollowerPositioningNarc,
   validateSurfAdjustments, type FollowerRiderAdjustments, type FollowerSurfAdjustments } from "./followingPokemonPositioning";
@@ -555,7 +555,7 @@ export const FOLLOWER_DLL_B2_PATH = "patches/PokewebFollowingFieldB2.dll";
 export const FOLLOWER_EVENTS_B2_DLL_PATH = "patches/PokewebFollowingEventsB2.dll";
 export const FOLLOWER_RUNTIME_VERSION = stockRuntimeManifest.version;
 export type FollowerExternalRuntime = { schemaVersion: 1; compatibleVersion: string; label: string; sourceRomSha256: string };
-export type FollowerAlphaInstall = { externalRuntime?: FollowerExternalRuntime; schemaVersion: 1 | 2; variant?: FollowerVariant; profile?: FollowerProfile; version: string; dialogueAnimations?: boolean; tileBounds?: boolean; enabled: boolean; targetSha256: string; moduleSha256: string; configCrc32: number; removed?: boolean; effectsSha256?: string; interactionsSha256?: string; emotesSha256?: string; dialoguesSha256?: string; itemsSha256?: string; languageSha256?: string; eventsSha256?: string; eventsAbi?: number; coreSha256?: string; coreAbi?: number; optionsModuleSha256?: string; battleModuleSha256?: string; registrySha256?: string; descriptorsSha256?: string; resourcesSha256?: string; surfSha256?: string; surfRegistrySha256?: string; landRiderSha256?: string; landAnchorsSha256?: string; positioningSha256?: string; optionsTextSha256?: string; optionsOriginalText?: string[] };
+export type FollowerAlphaInstall = { capabilities?: { movementPolicy: "native-v1"; maxDirectionalGap: 20 }; externalRuntime?: FollowerExternalRuntime; schemaVersion: 1 | 2; variant?: FollowerVariant; profile?: FollowerProfile; version: string; dialogueAnimations?: boolean; tileBounds?: boolean; enabled: boolean; targetSha256: string; moduleSha256: string; configCrc32: number; removed?: boolean; effectsSha256?: string; interactionsSha256?: string; emotesSha256?: string; dialoguesSha256?: string; itemsSha256?: string; languageSha256?: string; eventsSha256?: string; eventsAbi?: number; coreSha256?: string; coreAbi?: number; optionsModuleSha256?: string; battleModuleSha256?: string; registrySha256?: string; descriptorsSha256?: string; resourcesSha256?: string; surfSha256?: string; surfRegistrySha256?: string; landRiderSha256?: string; landAnchorsSha256?: string; positioningSha256?: string; optionsTextSha256?: string; optionsOriginalText?: string[] };
 const upgradeFieldUrl = new URL("../assets/following/white2upgrade/PokewebFollowingFieldW2.dll", import.meta.url);
 const upgradeEventsUrl = new URL("../assets/following/white2upgrade/PokewebFollowingEventsW2.dll", import.meta.url);
 const upgradeCoreUrl = new URL("../assets/following/white2upgrade/PokewebFollowingCoreW2.dll", import.meta.url);
@@ -706,6 +706,7 @@ export async function readFollowerAlphaInstall(project: ProjectState, rom?: Foll
   const dll = readFollowingFile(project, rom, modulePaths.field), config = readFollowingFile(project, rom, FOLLOWER_NATIVE_PATH);
   if ((state.profile ?? "stock") !== profile) throw new Error("Follower installation belongs to a different ROM profile.");
   const external = state.externalRuntime;
+  if (state.capabilities && (!external || state.capabilities.movementPolicy !== "native-v1" || state.capabilities.maxDirectionalGap !== 20)) throw new Error("Invalid follower runtime capability.");
   if (external && (external.schemaVersion !== 1 || external.compatibleVersion !== runtimeManifest.version ||
       typeof external.label !== "string" || !external.label.trim() || external.label.length > 128 ||
       !/^[a-f0-9]{64}$/u.test(external.sourceRomSha256) || !/^[a-f0-9]{64}$/u.test(state.moduleSha256) ||
@@ -838,7 +839,7 @@ export async function readFollowerAlphaInstall(project: ProjectState, rom?: Foll
     if (!positioning || !registry || (variant === "full" && !surfRegistry) || !state.positioningSha256 ||
         await followerRomSha256(positioning) !== state.positioningSha256)
       throw new Error("Follower positioning archive has changed or is missing.");
-    decodeFollowerPositioningNarc(positioning, registry, variant === "full" ? surfRegistry : undefined);
+    decodeFollowerPositioningNarc(positioning, registry, variant === "full" ? surfRegistry : undefined, state.capabilities?.maxDirectionalGap);
   }
   const view = new DataView(config.buffer, config.byteOffset, config.byteLength);
   if (extended) {
@@ -1238,4 +1239,68 @@ export async function removeFollowerAlpha(project: ProjectState, rom?: FollowerR
   recordGenericChange(staged, "following_pokemon", "Removed follower runtime hooks; assets and shared PMC retained.", "Following Pokémon", { key: "following-runtime" });
   project.fileSystem = staged.fileSystem; project.codeInjection = staged.codeInjection; project.actionChangelog = staged.actionChangelog;
   project.narcs = staged.narcs; refreshDecodedTextState(project);
+}
+
+/** Offline-only package input. No UI or bundled-runtime selection uses it. */
+export type FollowerCandidatePackage = {
+  schemaVersion: 1; profile: FollowerProfile; variant: FollowerVariant; version: string; compatibleVersion: string;
+  capabilities: { movementPolicy: "native-v1"; maxDirectionalGap: 20; largeFollowersIndoors: false };
+  sourceRomSha256: string; fieldSha256: string; companions: Record<"Core" | "Events" | "Options" | "Battle", { sha256: string }>;
+};
+export async function installFollowerCandidate(project: ProjectState, candidate: FollowerCandidatePackage,
+  fieldModule: Uint8Array): Promise<FollowerAlphaInstall> {
+  const rom = await followerRom(project), profile = await followerProfile(project, rom);
+  if (candidate.schemaVersion !== 1 || candidate.profile !== profile || !["base", "full"].includes(candidate.variant) ||
+      candidate.compatibleVersion !== runtimeFor(profile).version || candidate.capabilities?.movementPolicy !== "native-v1" ||
+      candidate.capabilities.maxDirectionalGap !== 20 || candidate.capabilities.largeFollowersIndoors !== false ||
+      typeof candidate.version !== "string" || !candidate.version || candidate.version.length > 128 ||
+      candidate.sourceRomSha256 !== targetFor(profile) || await followerRomSha256(project.originalRomBytes!) !== candidate.sourceRomSha256 ||
+      await followerRomSha256(fieldModule) !== candidate.fieldSha256)
+    throw new Error("Invalid follower candidate package.");
+  const module = parseRpm(fieldModule, { allowedMagics: ["DLXF"] });
+  if (module.metadata.PMCGameID !== (profile === "black2" ? "B2" : profile === "white2italy" ? "W2I" : "W2"))
+    throw new Error("Candidate field module belongs to a different game.");
+  const prior = await readFollowerAlphaInstall(project, rom);
+  if (prior?.externalRuntime) {
+    if (prior.capabilities?.movementPolicy === "native-v1" && prior.moduleSha256 === candidate.fieldSha256 && prior.variant === candidate.variant) return prior;
+    throw new Error("A different external follower runtime is installed.");
+  }
+  const staged = structuredClone({ ...project, originalRomBytes: undefined }) as ProjectState;
+  staged.originalRomBytes = project.originalRomBytes;
+  const state = await installFollowerAlpha(staged, rom, { riding: candidate.variant === "full" });
+  const companions = { Core: state.coreSha256, Events: state.eventsSha256, Options: state.optionsModuleSha256, Battle: state.battleModuleSha256 };
+  for (const key of ["Core", "Events", "Options", "Battle"] as const)
+    if (!candidate.companions[key] || candidate.companions[key].sha256 !== companions[key])
+      throw new Error(`Candidate ${key} companion is incompatible.`);
+  const registryBytes = readFollowingFile(staged, rom, FOLLOWER_RUNTIME_REGISTRY_PATH)!;
+  const registry = decodeFollowerRegistry(registryBytes), workspace = readFollowerWorkspace(staged, rom);
+  const authored = new Map(workspace?.registry.entries.map(entry => [followerKey(entry.key), entry]));
+  const positioning = new NARC(readFollowingFile(staged, rom, FOLLOWER_POSITIONING_PATH)!);
+  const member = positioning.files[0].slice();
+  for (const entry of registry.entries) {
+    const at = 24 + (entry.descriptorRow - 1008) * 12, source = authored.get(followerKey(entry.key));
+    const legacy = followerDefaultDirectionalGaps(entry);
+    const changed = legacy.some((value, direction) => member[at + direction] !== value);
+    const automatic = Math.min(20, (entry.sideGap ?? 0) + 6 + (entry.size === 64 ? 8 : 0));
+    const gaps = source?.directionalGaps ?? (changed ? Array.from(member.subarray(at, at + 4)) : [automatic, automatic, automatic, automatic]);
+    if (gaps.some(value => !Number.isInteger(value) || value < 0 || value > 20)) throw new Error("Candidate follower gap is invalid.");
+    member.set(gaps, at);
+  }
+  new DataView(member.buffer).setUint32(20, followerCrc32(member.subarray(24)), true);
+  positioning.files[0] = member; const positionBytes = positioning.save();
+  decodeFollowerPositioningNarc(positionBytes, registryBytes,
+    candidate.variant === "full" ? readFollowingFile(staged, rom, FOLLOWER_SURF_REGISTRY_PATH) : undefined, 20);
+  state.externalRuntime = { schemaVersion: 1, compatibleVersion: candidate.compatibleVersion,
+    label: "Native follower behavior candidate", sourceRomSha256: await followerRomSha256(project.originalRomBytes!) };
+  state.version = candidate.version; state.moduleSha256 = candidate.fieldSha256;
+  state.capabilities = { movementPolicy: "native-v1", maxDirectionalGap: 20 };
+  state.positioningSha256 = await followerRomSha256(positionBytes);
+  stageCodeInjectionDll(staged, modulePathsFor(profile).fieldName, fieldModule);
+  stageFollowingFiles(staged, rom, { [FOLLOWER_POSITIONING_PATH]: positionBytes,
+    [FOLLOWER_INSTALL_PATH]: new TextEncoder().encode(JSON.stringify(state, null, 2) + "\n") });
+  await readFollowerAlphaInstall(staged, rom);
+  project.arm9 = staged.arm9; project.arm9Dirty = staged.arm9Dirty; project.overlays = staged.overlays; project.patches = staged.patches;
+  project.fileSystem = staged.fileSystem; project.codeInjection = staged.codeInjection; project.actionChangelog = staged.actionChangelog;
+  project.narcs = staged.narcs;
+  return state;
 }

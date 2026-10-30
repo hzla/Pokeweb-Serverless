@@ -26,6 +26,7 @@ export function validateAbilityRule(input: AbilityRuleSet): AbilityRuleSet {
         const profile = nativeAbilityProfile(effect.kind);
         const library = libraryAbilityEffect(effect.kind)??recipeAbilityEffect(effect.kind);
         if (library) {
+            if("fixedBypass"in library&&library.fixedBypass&&effect.bypassable)throw new Error("Field-wide modifiers do not use Mold Breaker bypass.");
             if(!Number.isFinite(effect.value)||effect.value<library.min||effect.value>library.max||Math.abs(effect.value/library.step-Math.round(effect.value/library.step))>1e-7||(library.code===133||"nonzero"in library&&library.nonzero)&&!effect.value||effect.weather!==undefined||effect.trigger!==undefined||effect.chance!==undefined||effect.stat!==undefined||effect.target!==undefined||effect.move!==undefined)throw new Error("Invalid library ability effect.");
             if(library.code===147&&![.25,.5,1,2,4].includes(effect.value))throw new Error("Choose a native type effectiveness multiplier.");
             const parameters:Record<string,number>={};

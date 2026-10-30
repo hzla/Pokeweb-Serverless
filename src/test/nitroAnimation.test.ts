@@ -1,5 +1,6 @@
+import { romFixtureExists } from "./romFixtures";
 import { describe, expect, it } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   NitroReader, nitroIdentity, nitroIdentityPose, nitroScale, nitroTranslation, nitroTransform,
@@ -126,9 +127,9 @@ describe("texture animation and timeline", () => {
 });
 
 // Optional local integration coverage; no copyrighted resources are bundled with tests.
-// Set BW2_TITLE_RESOURCE_DIR to an extracted title-resource directory to opt in.
+// Run npm run test:rom with BW2_TITLE_RESOURCE_DIR pointing to extracted resources.
 const reference = process.env.BW2_TITLE_RESOURCE_DIR ?? "";
-describe.skipIf(!reference || !existsSync(resolve(reference, "title_w_01.nsbmd")))("original BW2 title resources", () => {
+describe.skipIf(!reference || !romFixtureExists(resolve(reference, "title_w_01.nsbmd")))("original BW2 title resources", () => {
   it.each(["b", "w"])("assembles %s Kyurem at native scale, keeps its eyes attached, and animates in place", (version) => {
     const read = (part: string, extension: string) => new Uint8Array(readFileSync(resolve(reference, `title_${version}_${part}.${extension}`)));
     for (const part of ["01", "02", "03"]) {

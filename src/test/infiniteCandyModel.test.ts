@@ -1,3 +1,4 @@
+import { deepStrictEqual } from "node:assert";
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { writeU16, writeU32, readU16 } from "../nds/binary";
@@ -9,7 +10,10 @@ import { loadProjectFromRomBytes } from "../pokeweb/loader";
 import { exportModifiedRom } from "../pokeweb/exportRom";
 import { getInfiniteCandyStatus, getInstalledInfiniteCandyItemId, installInfiniteCandy } from "../pokeweb/infiniteCandyModel";
 import { getTextBank } from "../pokeweb/textModel";
-import { getLevelCapsStatus } from "../pokeweb/levelCapsModel";
+import { getLevelCapsStatus, installLevelCaps } from "../pokeweb/levelCapsModel";
+import { getLevelCapsRuntime } from "../pokeweb/levelCapsRuntime";
+import { stageCodeInjectionDll } from "../pokeweb/pmcModel";
+import levelCapsManifest from "../assets/codeinjection/levelCapsManifest.json";
 import { parseRpm, writeRpm } from "../pokeweb/rpm";
 import template from "../assets/codeinjection/infiniteCandyBw2Manifest.json";
 import type { ProjectState } from "../pokeweb/projectStore";
@@ -29,6 +33,20 @@ async function fixture(game: "W2" | "B2", custom622 = true): Promise<ProjectStat
     rom.files[id] = new Uint8Array(Buffer.from(hex, "hex"));
     writeU32(rom.arm9OverlayTable, id * 32 + 4, address); writeU32(rom.arm9OverlayTable, id * 32 + 8, rom.files[id].length);
   }
+  // Include the independent Hard Level Caps hooks in the synthetic ROM.
+  const party = rom.files[165]!, expandedParty = new Uint8Array(0x4000); expandedParty.set(party); rom.files[165] = expandedParty;
+  writeU32(rom.arm9OverlayTable, 165 * 32 + 8, expandedParty.length);
+  const battleHooks = [
+    [36, 0x021bd300, white ? 0x021bd52c : 0x021bd4f4, "f8b582b0051ca868"],
+    [36, 0x021bd300, white ? 0x021bd3a8 : 0x021bd370, "00f06af9"],
+    [36, 0x021bd300, white ? 0x021bd6d8 : 0x021bd6a0, "5ff636fb"],
+    [167, 0x021af000, white ? 0x021af0b0 : 0x021af070, white ? "64f69efb" : "64f6befb"],
+  ] as const;
+  for (const id of [36, 167]) { rom.files[id] = new Uint8Array(0x1000); writeU32(rom.arm9OverlayTable, id * 32 + 4, id === 36 ? 0x021bd300 : 0x021af000); writeU32(rom.arm9OverlayTable, id * 32 + 8, 0x1000); }
+  for (const [id, address, hook, data] of battleHooks) rom.files[id]!.set(Buffer.from(data, "hex"), hook - address);
+  // The B2 Day Care commit call has a different BL displacement.
+  if (!white) rom.files[36]!.set(Buffer.from("5ff63cfb", "hex"), 0x021bd6a0 - 0x021bd300);
+  expandedParty.set(Buffer.from("f0b587b0171c1a04", "hex"), 0x3da0);
   const pocket = (white ? 0x0208f4fc : 0x0208f4d0) - base;
   const iconsAt = (white ? 0x02090d7c : 0x02090d50) - base;
   rom.arm9[pocket + 622] = 4;
@@ -58,7 +76,7 @@ describe.each(["W2", "B2"] as const)("configurable Infinite Candy %s", game => {
     const p = await fixture(game, false); assets();
     await installInfiniteCandy(p);
     expect(getInfiniteCandyStatus(p)).toMatchObject({ compatible: true, installed: true, itemId: 622 });
-    expect(p.fileSystem!.additions![`patches/InfiniteCandy${game}.dll`]).toEqual(new Uint8Array(readFileSync(new URL(`../assets/codeinjection/InfiniteCandy${game}.dll`, import.meta.url))));
+    deepStrictEqual(p.fileSystem!.additions![`patches/InfiniteCandy${game}.dll`], new Uint8Array(readFileSync(new URL(`../assets/codeinjection/InfiniteCandy${game}.dll`, import.meta.url))));
   });
   it("preserves a repurposed 622 and shared icons, and retains the chosen ID through export/reimport", async () => {
     const p = await fixture(game); assets();
@@ -68,11 +86,11 @@ describe.each(["W2", "B2"] as const)("configurable Infinite Candy %s", game => {
     await installInfiniteCandy(p);
     expect(getInstalledInfiniteCandyItemId(p)).toBe(113);
     expect(getInfiniteCandyStatus(p)).toMatchObject({ compatible: true, installed: true, itemId: 113 });
-    expect(getLevelCapsStatus(p)).toMatchObject({ compatible: false, message: expect.stringContaining("622") });
+    expect(getLevelCapsStatus(p)).toMatchObject({ compatible: true, candyItemId: 113 });
     const bytes = await exportModifiedRom(p), rom = new NintendoDSRom(bytes);
-    expect(rom.getFileByName("a/0/2/5")).toEqual(originalIcons);
+    deepStrictEqual(rom.getFileByName("a/0/2/5"), originalIcons);
     const before = new NARC(original.getFileByName("a/0/2/4")), after = new NARC(rom.getFileByName("a/0/2/4"));
-    for (let id = 0; id < before.files.length; ++id) if (id !== 113) expect(after.files[id]).toEqual(before.files[id]);
+    for (let id = 0; id < before.files.length; ++id) if (id !== 113) deepStrictEqual(after.files[id], before.files[id]);
     const reopened = await loadProjectFromRomBytes(bytes, "reopened.nds", { selectedNarcs: ["items", "message_texts"] });
     reopened.codeInjection ??= {}; reopened.codeInjection.pmc = p.codeInjection!.pmc;
     expect(getInfiniteCandyStatus(reopened)).toMatchObject({ installed: true, compatible: true, itemId: 113 });
@@ -86,12 +104,12 @@ describe.each(["W2", "B2"] as const)("configurable Infinite Candy %s", game => {
     expect(reopened.fileSystem?.additions?.[`patches/InfiniteCandy${game}.dll`]).toBeUndefined();
     const saved = structuredClone(p);
     await expect(installInfiniteCandy(p, 114)).rejects.toThrow(/already uses item 113/u);
-    expect(p).toEqual(saved);
+    deepStrictEqual(structuredClone(p), saved);
   });
   it("rejects invalid, occupied and damaged slots without changing project state", async () => {
     const p = await fixture(game); assets(); const before = structuredClone(p);
     for (const id of [0, -1, 50, 639, NaN, 113.5, 622]) {
-      await expect(installInfiniteCandy(p, id)).rejects.toThrow(); expect(p).toEqual(before);
+      await expect(installInfiniteCandy(p, id)).rejects.toThrow(); deepStrictEqual(structuredClone(p), before);
     }
     p.narcs.items!.rawFiles[113]![2] = 1;
     expect(getInfiniteCandyStatus(p)).toMatchObject({ compatible: false, itemId: 622 });
@@ -102,7 +120,7 @@ describe.each(["W2", "B2"] as const)("configurable Infinite Candy %s", game => {
     p.narcs = {}; p.texts = { banks: {} };
     const before = structuredClone(p);
     expect(getInfiniteCandyStatus(p)).toMatchObject({ compatible: true, installed: false, itemId: 113 });
-    expect(p).toEqual(before);
+    deepStrictEqual(structuredClone(p), before);
     expect(getInfiniteCandyStatus(p, 622)).toMatchObject({ compatible: false, itemId: 622 });
     await installInfiniteCandy(p, 114);
     expect(getInfiniteCandyStatus(p)).toMatchObject({ compatible: true, installed: true, itemId: 114 });
@@ -112,6 +130,61 @@ describe.each(["W2", "B2"] as const)("configurable Infinite Candy %s", game => {
     p.overlays[12] = new Uint8Array([0, 0, 0, 0]);
     expect(getInfiniteCandyStatus(p).compatible).toBe(false);
     expect(getInfiniteCandyStatus(p, 113)).toMatchObject({ compatible: false, message: expect.stringContaining("party item hooks") });
+  });
+  it.each(["caps first", "candy first"])("keeps item 113 synchronized when installed %s", async order => {
+    const p = await fixture(game); assets();
+    if (order === "caps first") {
+      await installLevelCaps(p); expect(getLevelCapsRuntime(p)?.itemId).toBe(622);
+      await installInfiniteCandy(p, 113);
+    } else { await installInfiniteCandy(p, 113); await installLevelCaps(p); }
+    expect(getLevelCapsRuntime(p)).toMatchObject({ itemId: 113, legacy: false });
+    expect(getLevelCapsStatus(p)).toMatchObject({ installed: true, compatible: true, updateAvailable: false, candyItemId: 113 });
+    expect(getInfiniteCandyStatus(p)).toMatchObject({ installed: true, compatible: true, itemId: 113 });
+    const reopened = await loadProjectFromRomBytes(await exportModifiedRom(p), "reopened.nds", { selectedNarcs: ["items", "message_texts"] });
+    reopened.codeInjection ??= {}; reopened.codeInjection.pmc = p.codeInjection!.pmc;
+    expect(getLevelCapsRuntime(reopened)?.itemId).toBe(113);
+    await installLevelCaps(reopened); await installInfiniteCandy(reopened);
+    expect(getLevelCapsRuntime(reopened)?.itemId).toBe(113);
+    expect(getLevelCapsStatus(reopened)).toMatchObject({ compatible: true, updateAvailable: false });
+  });
+  it("upgrades a verified legacy cap DLL when Candy selects item 113", async () => {
+    const p = await fixture(game); assets();
+    const old = new Uint8Array(readFileSync(new URL(`./fixtures/level-caps-v1/HardLevelCaps${game}.dll`, import.meta.url)));
+    stageCodeInjectionDll(p, `HardLevelCaps${game}.dll`, old);
+    expect(getLevelCapsRuntime(p)).toMatchObject({ itemId: 622, legacy: true });
+    await installInfiniteCandy(p);
+    expect(getLevelCapsRuntime(p)).toMatchObject({ itemId: 113, legacy: false });
+    expect(getLevelCapsStatus(p)).toMatchObject({ installed: true, updateAvailable: false, compatible: true });
+  });
+  it("synchronizes another chosen Candy ID when caps are installed first", async () => {
+    const p = await fixture(game); assets(); await installLevelCaps(p); await installInfiniteCandy(p, 114);
+    expect(getLevelCapsRuntime(p)?.itemId).toBe(114);
+    expect(getInfiniteCandyStatus(p)).toMatchObject({ compatible: true, itemId: 114 });
+  });
+  it("repairs mismatched IDs and rejects modified cap DLLs", async () => {
+    const p = await fixture(game); assets(); await installInfiniteCandy(p, 113); await installLevelCaps(p);
+    const path = `patches/HardLevelCaps${game}.dll`, data = p.fileSystem!.additions![path];
+    const mismatched = parseRpm(data, { allowedMagics: ["DLXF"] });
+    writeU32(mismatched.code, levelCapsManifest.games[game].current.itemIdOffset, 114);
+    p.fileSystem!.additions![path] = writeRpm(mismatched, { ident: "DLXF" });
+    expect(getLevelCapsStatus(p)).toMatchObject({ installed: true, compatible: true, updateAvailable: true });
+    await installLevelCaps(p); expect(getLevelCapsRuntime(p)?.itemId).toBe(113);
+    const corrupt = parseRpm(data, { allowedMagics: ["DLXF"] }); corrupt.code[0] ^= 1;
+    p.fileSystem!.additions![path] = writeRpm(corrupt, { ident: "DLXF" });
+    expect(getLevelCapsStatus(p)).toMatchObject({ installed: true, compatible: false });
+    expect(getInfiniteCandyStatus(p, 113)).toMatchObject({ compatible: false, message: expect.stringContaining("unrecognized") });
+    p.fileSystem!.additions![path] = new Uint8Array([1, 2, 3]);
+    const before = structuredClone(p);
+    expect(getLevelCapsStatus(p)).toMatchObject({ installed: true, compatible: false });
+    await expect(installLevelCaps(p)).rejects.toThrow(/unrecognized/u);
+    deepStrictEqual(structuredClone(p), before);
+  });
+  it("leaves Candy and an existing cap unchanged if cap synchronization fails", async () => {
+    const p = await fixture(game); assets(); await installLevelCaps(p); const before = structuredClone(p);
+    vi.stubGlobal("fetch", async (url: URL) => url.href.includes("HardLevelCaps") ? new Response(null, { status: 404 })
+      : new Response(new Uint8Array(readFileSync(url))));
+    await expect(installInfiniteCandy(p, 113)).rejects.toThrow(/Hard Level Caps \(404\)/u);
+    deepStrictEqual(structuredClone(p), before);
   });
   it("verifies both ID literals, immutable code and native import relocations", async () => {
     const p = await fixture(game); assets(); await installInfiniteCandy(p, 113);
@@ -132,6 +205,6 @@ describe.each(["W2", "B2"] as const)("configurable Infinite Candy %s", game => {
   it("leaves the project unchanged when loading its DLL fails", async () => {
     const p = await fixture(game), before = structuredClone(p);
     vi.stubGlobal("fetch", async () => new Response(null, { status: 404 }));
-    await expect(installInfiniteCandy(p, 113)).rejects.toThrow(/404/u); expect(p).toEqual(before);
+    await expect(installInfiniteCandy(p, 113)).rejects.toThrow(/404/u); deepStrictEqual(structuredClone(p), before);
   });
 });

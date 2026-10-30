@@ -2,7 +2,7 @@
   "format": 1,
   "scope": "4 MiB pointer limits; source review and executable inventory, not game compatibility certification.",
   "sourceFilesScanned": 509,
-  "artifactCount": 122,
+  "artifactCount": 120,
   "sourceCandidates": [
     {
       "repository": "pokeweb",
@@ -626,54 +626,6 @@
       "codeBytes": 10004,
       "bssBytes": 108,
       "boundaryLiteralCandidates": []
-    },
-    {
-      "path": "src/assets/codeinjection/SummaryTypeIconsB2.dll",
-      "sha256": "460d1d2f3c2d83676d1fb3d37e47899162438908e55ddf53858888b8382083ed",
-      "codeBytes": 6516,
-      "bssBytes": 1192,
-      "boundaryLiteralCandidates": [
-        {
-          "offset": 2436,
-          "value": "0x00400000"
-        },
-        {
-          "offset": 4228,
-          "value": "0x00400000"
-        },
-        {
-          "offset": 5508,
-          "value": "0x00400000"
-        },
-        {
-          "offset": 5768,
-          "value": "0x00400000"
-        }
-      ]
-    },
-    {
-      "path": "src/assets/codeinjection/SummaryTypeIconsW2.dll",
-      "sha256": "5211c343b0c5fbb91f8c46cd9c4feb117fd9bc1c2cf67567ae070abff3ea6887",
-      "codeBytes": 6516,
-      "bssBytes": 1192,
-      "boundaryLiteralCandidates": [
-        {
-          "offset": 2436,
-          "value": "0x00400000"
-        },
-        {
-          "offset": 4228,
-          "value": "0x00400000"
-        },
-        {
-          "offset": 5508,
-          "value": "0x00400000"
-        },
-        {
-          "offset": 5768,
-          "value": "0x00400000"
-        }
-      ]
     },
     {
       "path": "src/assets/codeinjection/TagBattleStabilizationW2.dll",

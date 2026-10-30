@@ -8,8 +8,9 @@ BW1 uses its separate fixed-item-622 build.
 
 The patch does not grant the item to an existing save. Give it through an event
 or save editor. Redux may require unused slot 113 because 622 is occupied.
-Hard Level Caps and Party Toolbar currently require 622 and cannot be combined
-with a different selected ID. Upgrade ROMs repurposing the slot are unsupported.
+Hard Level Caps follows the selected Candy ID. Party Toolbar currently requires
+622 and cannot be combined with a different selected ID. Upgrade ROMs
+repurposing the slot are unsupported.
 
 The item data and party-routing/removal approach are adapted from **PW2Code by
 dararo**. Installation edits item data/name/description/icon mappings and stages

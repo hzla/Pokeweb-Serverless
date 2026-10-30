@@ -1,8 +1,10 @@
 """Build Hard Level Caps PMC DLLs for clean US Black 2 and White 2."""
 import os
+import json
 from pathlib import Path
 import re
 import subprocess
+import sys
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
@@ -54,6 +56,10 @@ def run(*args):
 
 def main():
     BUILD.mkdir(exist_ok=True)
+    sys.path.insert(0, str(REPO / "runtime/battle-type-hud"))
+    from rpm_read import read_rpm
+    manifest_path = REPO / "src/assets/codeinjection/levelCapsManifest.json"
+    manifest = json.loads(manifest_path.read_text())
     for version, specific in VERSIONS.items():
         symbols = {**COMMON, **specific}
         esdb = BUILD / f"symbols_{version.lower()}.yml"
@@ -64,7 +70,7 @@ def main():
                         + "".join(f"  - Name: {name}\n    Segment: {segment}\n    Address: 0x{address:08x}\n"
                                   for name, (segment, address) in symbols.items()))
         metadata = BUILD / f"metadata_{version.lower()}.yml"
-        metadata.write_text(f"PMCGameID: {version}\nPMCModulePriority: 4\nPMCVersion: 1.0.0\n"
+        metadata.write_text(f"PMCGameID: {version}\nPMCModulePriority: 4\nPMCVersion: 1.1.0\n"
                             + segments)
         cobj = BUILD / f"level_caps_{version.lower()}.o"
         aobj = BUILD / "hooks.o"
@@ -92,8 +98,16 @@ def main():
                   if segment != "base"}
         if actual != expected or "Import symbol" in dump:
             raise RuntimeError(f"{version}: unexpected hook or unresolved import: {actual}")
+        rpm = read_rpm(output.read_bytes())
+        nm = subprocess.check_output([str(TOOLS / "arm-none-eabi-nm"), "--defined-only", str(elf)], text=True)
+        offset = int(re.search(r"^([0-9a-f]+)\s+\S\s+LevelCaps_CandyItemId$", nm, re.M).group(1), 16)
+        assert rpm["code"][offset:offset + 4] == (622).to_bytes(4, "little")
+        assert all(r["module"] != "base" or not offset <= r["address"] < offset + 4 for r in rpm["relocations"])
+        manifest["games"][version]["current"] = dict(version="1.1.0", codeHex=rpm["code"].hex(),
+            itemIdOffset=offset, relocations=rpm["relocations"], symbols=rpm["symbols"], bssSize=rpm["bss"])
         (BUILD / f"HardLevelCaps{version}.dump.txt").write_text(dump)
         print(f"{output.name}: {output.stat().st_size} bytes")
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
 
 
 if __name__ == "__main__":

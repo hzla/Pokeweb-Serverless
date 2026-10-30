@@ -6,6 +6,11 @@
 #include "registry.h"
 #include "render.h"
 #include "positioning.h"
+#ifdef FW_NATIVE_BEHAVIOR
+#include "native_follow.h"
+#include "native_shadow.h"
+static FwNativeRoute nativeRoute;
+#endif
 #ifdef FW_MOUNT
 #include "land.h"
 #include "transition.h"
@@ -29,6 +34,10 @@ static FwFollower fwfield_follower;
 static ActorSystem *fwfield_owner;
 static Actor *fwfield_player;
 static uint32_t fwfield_tick, fwfield_generation;
+#ifdef FW_NATIVE_BEHAVIOR
+FwFollower *fwfield_route_follower(void){return &fwfield_follower;}
+int fwfield_art_y(const Actor *a){return a&&(uintptr_t)a==fwfield_follower.actor?fwfield_follower.sprite_y:(a?(int8_t)a->descriptor[14]:0);}
+#endif
 static uint16_t fwfield_code;
 static uint8_t fwfield_flying;
 static uint32_t fwfield_registryCrc;
@@ -56,6 +65,12 @@ static Vec fwfield_cyclePose;
 static int16_t fwfield_cycleGrid[3];
 static uint16_t fwfield_cycleFace;
 static uint8_t fwfield_cyclePending;
+#ifdef FW_NATIVE_BEHAVIOR
+/* Ready remains nonzero; the high bit identifies a continuous rail angle
+ * held in cycleFace instead of a cardinal face. No extra cycle storage. */
+#define FW_CYCLE_HEADING 0x80u
+static uint8_t fwfield_cycleReady;
+#endif
 #ifdef FW_ARCEUS_SURF
 static uint32_t fwfield_surfAppearance;
 #endif
@@ -98,11 +113,29 @@ static void move(Actor *a) {
  if(fwfield_follower.state==FW_INTERACTING||fwfield_follower.state==FW_EVENT_PAUSED){a->flags|=PAUSE_ANM;return;}
  FwSample sample={.x=fwfield_player->world.x,.y=fwfield_player->world.y+fwfield_player->drawOffset.y+fwfield_player->externalOffset.y,
  .z=fwfield_player->world.z,.generation=fwfield_generation,.space=1,.rail=0,.connection=0,.direction=(uint8_t)fwfield_player->face,.kind=FW_WORLD,.duration=1}, target;
- int result=fw_trail_push_directional(&fwfield_follower.trail,&sample,&target,fwfield_follower.directional_gap);
+ int result;
+#ifdef FW_NATIVE_BEHAVIOR
+ sample.y=fwfield_player->world.y;fwn_capture_facing(fwfield_player,&sample);
+ nativeRoute.inputValid=1;nativeRoute.inputDirection=(uint8_t)fwfield_player->face;
+ if(!PTR(PTR(fwfield_owner->field,4),0x18))fwn_connection_rebase(&nativeRoute,&fwfield_follower,a,fwfield_player);
+ nativeRoute.zone=fwfield_player->zone;
+ FwPoint current={a->world.x,a->world.y,a->world.z};
+ int exterior=fwn_exterior(fwfield_owner->field);
+ if(exterior>=0&&fwn_large_indoor(a->descriptor[7],exterior)){
+  if(!(a->flags&HIDDEN)&&!fwfx_busy())fwfx_recall(a);
+  a->flags|=HIDDEN;fwfield_follower.state=FW_WAITING;FollowingDebug.visible=0;
+  fw_trail_clear(&fwfield_follower.trail);fwn_route_reset(&nativeRoute);animation_gate(a);return;
+ }
+ result=fwn_route_step(&nativeRoute,&fwfield_follower,&sample,&current,&target);
+ fwn_lighting(a);
+#else
+ result=fw_trail_push_directional(&fwfield_follower.trail,&sample,&target,fwfield_follower.directional_gap);
+#endif
  if(result<0) { a->flags|=HIDDEN; fwfield_follower.state=FW_WAITING; FollowingDebug.visible=0; ++FollowingDebug.resets;animation_gate(a); return; }
  if(fwfield_follower.state==FW_FOLLOWING && !fwfx_hides_actor()){a->flags&=~HIDDEN;FollowingDebug.visible=1;}
  if(result!=1)target=(FwSample){.x=a->world.x,.y=a->world.y,.z=a->world.z,
                                 .direction=(uint8_t)a->face};
+#ifndef FW_NATIVE_BEHAVIOR
  int clamped=0;
  if(fwfield_follower.state==FW_FOLLOWING&&!(a->flags&HIDDEN)&&!fwfx_busy()){
   int64_t ox=(int64_t)a->drawOffset.x+a->externalOffset.x;
@@ -117,6 +150,11 @@ static void move(Actor *a) {
   }
  }
  if(result!=1&&!clamped){animation_gate(a);return;}
+#else
+ if(result!=1)target=(FwSample){.x=a->world.x,.y=a->world.y,.z=a->world.z,.direction=(uint8_t)a->face};
+ if(fwfield_follower.state==FW_FOLLOWING&&!fwfx_busy()&&fwn_idle_pose(&nativeRoute,a,fwfield_player,&target))result=1;
+ if(result!=1){fwn_refresh_facing(a,&nativeRoute);fwn_stationary(a);animation_gate(a);return;}
+#endif
  Vec next={target.x,target.y,target.z};
  if(!fws_step_clear(a,&next)){
   if(result!=1){animation_gate(a);return;}
@@ -124,12 +162,17 @@ static void move(Actor *a) {
   a->flags|=HIDDEN;fwfield_follower.state=FW_WAITING;FollowingDebug.visible=0;
   fw_trail_clear(&fwfield_follower.trail);++FollowingDebug.resets;return;
  }
+#ifdef FW_NATIVE_BEHAVIOR
+ nativeRoute.facingValid=(uint8_t)fwn_has_heading(&target);nativeRoute.facingAngle=target.rail;
+ fwn_commit(a,&target);fwn_lighting(a);
+#else
  a->world=(Vec){target.x,target.y,target.z};
  for(unsigned i=0;i<3;++i) a->previous[i]=a->grid[i];
  a->grid[0]=(int16_t)(target.x/FW_TILE); a->grid[1]=(int16_t)(target.y/FW_TILE); a->grid[2]=(int16_t)(target.z/FW_TILE);
  CALL(0x02167099,void(*)(Actor*,uint32_t))(a,target.direction);
  fwr_anchor(a,target.direction);
  a->moveflags&=~(2048u|4096u);
+#endif
  if(fwfield_follower.state!=FW_FOLLOWING){
 #ifdef FW_MOUNT
   /* Dismount returns through this ordinary trail-spawn path and keeps its
@@ -151,6 +194,9 @@ static int owned(void) {
  return a && fwfield_owner && a>=fwfield_owner->actors && a<fwfield_owner->actors+fwfield_owner->capacity && (a->flags&USE) && a->system==fwfield_owner && a->callbacks==&fwfield_moves;
 }
 static void cleanup_impl(int keepTrail) {
+#ifdef FW_NATIVE_BEHAVIOR
+ fwn_route_reset(&nativeRoute);
+#endif
  fwr_grass_clear();
 #ifdef FW_MOUNT
  fwland_end();fwfield_landCheckAfterPause=0;
@@ -323,9 +369,14 @@ static void cycle_follower(void *game,void *field){
 #endif
  unsigned keys=CALL(0x0203df29,unsigned(*)(void))()&0x300u;
  if(keys!=0x100u && keys!=0x200u)return; /* Both shoulders together have no direction. */
- if(!owned() || fwfield_follower.state!=FW_FOLLOWING || !fwfield_player || fwt_active() || fwfx_busy())return;
+ if(!owned() || !fwfield_player || fwt_active() || fwfx_busy())return;
  Actor *actor=(Actor*)fwfield_follower.actor;
- if(actor->flags&HIDDEN)return;
+#ifdef FW_NATIVE_BEHAVIOR
+ int indoorHidden=fwfield_follower.state==FW_WAITING&&(actor->flags&HIDDEN)&&actor->descriptor[7]==2&&fwn_exterior(field)==0;
+ if((fwfield_follower.state!=FW_FOLLOWING||(actor->flags&HIDDEN))&&!indoorHidden)return;
+#else
+ if(fwfield_follower.state!=FW_FOLLOWING||(actor->flags&HIDDEN))return;
+#endif
  fwfx_prepare(actor);
  if(!fwfx_available())return; /* A switch must have its recall and send-out effects. */
  uint8_t oldFlying=fwfield_flying;
@@ -341,10 +392,27 @@ static void cycle_follower(void *game,void *field){
   fwfield_flying=oldFlying;
   return;
  }
+#ifdef FW_NATIVE_BEHAVIOR
+ fw_trail_remeasure(&fwfield_follower.trail,fwfield_follower.directional_gap);
+ fwn_route_reset(&nativeRoute);
+#endif
  fwfield_cyclePose=actor->world;
  for(unsigned i=0;i<3;++i)fwfield_cycleGrid[i]=actor->grid[i];
  fwfield_cycleFace=actor->face;
+#ifdef FW_NATIVE_BEHAVIOR
+ FwSample positioned;
+ fwfield_cycleReady=(uint8_t)fw_trail_pose(&fwfield_follower.trail,fwfield_follower.directional_gap,FW_TILE,&positioned);
+ if(fwfield_cycleReady){
+  fwfield_cyclePose=(Vec){positioned.x,positioned.y,positioned.z};fwfield_cycleFace=positioned.direction;
+  if(fwn_has_heading(&positioned)){fwfield_cycleReady|=FW_CYCLE_HEADING;fwfield_cycleFace=positioned.rail;}
+  fwfield_cycleGrid[0]=(int16_t)fw_tile(positioned.x);fwfield_cycleGrid[1]=(int16_t)fw_tile(positioned.y);fwfield_cycleGrid[2]=(int16_t)fw_tile(positioned.z);
+ }
+#endif
+#ifdef FW_NATIVE_BEHAVIOR
+ if(!indoorHidden){fwfx_snapshot(actor);fwfx_recall(actor);}
+#else
  fwfx_snapshot(actor);fwfx_recall(actor);
+#endif
  Actor *keep=fwfield_player;
  fwfield_cyclePending=1; /* The native delete callback must retain the route. */
  cleanup_impl(1);fwfield_player=keep;
@@ -359,14 +427,23 @@ static void cycle_track(void){
   .y=fwfield_player->world.y+fwfield_player->drawOffset.y+fwfield_player->externalOffset.y,
   .z=fwfield_player->world.z,.generation=fwfield_generation,.space=1,
   .direction=(uint8_t)fwfield_player->face,.kind=FW_WORLD,.duration=1},target;
+#ifdef FW_NATIVE_BEHAVIOR
+ sample.y=fwfield_player->world.y;fwn_capture_facing(fwfield_player,&sample);
+#endif
  int step=fw_trail_push_directional(&fwfield_follower.trail,&sample,&target,fwfield_follower.directional_gap);
  if(step<0){fwfield_cyclePending=0;return;}
  if(step==1){
+#ifdef FW_NATIVE_BEHAVIOR
+  fwfield_cycleReady=1;
+#endif
   fwfield_cyclePose=(Vec){target.x,target.y,target.z};
   fwfield_cycleGrid[0]=(int16_t)(target.x/FW_TILE);
   fwfield_cycleGrid[1]=(int16_t)(target.y/FW_TILE);
   fwfield_cycleGrid[2]=(int16_t)(target.z/FW_TILE);
   fwfield_cycleFace=target.direction;
+#ifdef FW_NATIVE_BEHAVIOR
+  if(fwn_has_heading(&target)){fwfield_cycleReady|=FW_CYCLE_HEADING;fwfield_cycleFace=target.rail;}
+#endif
  }
 }
 #ifdef FW_ARCEUS_SURF
@@ -422,6 +499,9 @@ static void before(ActorSystem *sys) {
   int keepManual=fwfield_owner&&fwfield_follower.has_selection&&manualSlot>=0;
   fws_detach();cleanup();fwt_unload();fwfx_destroy();fwfield_owner=sys;
   fw_init(&fwfield_follower,++fwfield_generation);
+#ifdef FW_NATIVE_BEHAVIOR
+  fwn_route_reset(&nativeRoute);
+#endif
   if(keepManual){fwfield_follower.selected=manual;fwfield_follower.slot=(int8_t)manualSlot;fwfield_follower.has_selection=1;}
   fwfield_eventsReady=fws_attach(sys,&fwfield_follower,fwfield_generation,scene_recall);
   clear_restore();
@@ -554,11 +634,22 @@ static void before(ActorSystem *sys) {
 #endif
   if(fwfield_cyclePending){
    fwfield_cyclePending=0;
-   if(fws_step_clear(a,&fwfield_cyclePose)){
+   if(
+#ifdef FW_NATIVE_BEHAVIOR
+      fwfield_cycleReady&&!(a->descriptor[7]==2&&fwn_exterior(field)==0)&&
+#endif
+      fws_step_clear(a,&fwfield_cyclePose)){
     a->world=fwfield_cyclePose;
     for(unsigned i=0;i<3;++i)a->grid[i]=a->previous[i]=fwfield_cycleGrid[i];
-    CALL(0x02167099,void(*)(Actor*,uint32_t))(a,fwfield_cycleFace);
-    fwr_anchor(a,fwfield_cycleFace);
+#ifdef FW_NATIVE_BEHAVIOR
+    nativeRoute.facingValid=!!(fwfield_cycleReady&FW_CYCLE_HEADING);
+    nativeRoute.facingAngle=fwfield_cycleFace;
+    if(nativeRoute.facingValid)fwn_refresh_facing(a,&nativeRoute);
+    else CALL(0x02167099,void(*)(Actor*,uint32_t))(a,fwfield_cycleFace);
+    fwr_anchor(a,a->face);
+#else
+    CALL(0x02167099,void(*)(Actor*,uint32_t))(a,fwfield_cycleFace);fwr_anchor(a,fwfield_cycleFace);
+#endif
     fwfx_out(a);
     if(!fwfx_hides_actor())a->flags&=~HIDDEN;
     fwfield_follower.state=FW_FOLLOWING;FollowingDebug.visible=!(a->flags&HIDDEN);
@@ -663,8 +754,14 @@ API void FollowingUpdate(ActorSystem *sys) {
 #ifdef FW_MOUNT
      !fwland_active() &&
 #endif
-     !(a->flags&HIDDEN) && fwfield_player && (fwfield_player->moveflags&SHADOW_SET) &&
-     !(fwfield_player->moveflags&SHADOW_VANISH) && !(a->moveflags&SHADOW_SET)){
+     !(a->flags&HIDDEN) && fwfield_player &&
+#ifdef FW_NATIVE_BEHAVIOR
+     fwn_exterior(sys->field)>=0 &&
+#endif
+#ifndef FW_NATIVE_BEHAVIOR
+     (fwfield_player->moveflags&SHADOW_SET) && !(fwfield_player->moveflags&SHADOW_VANISH) &&
+#endif
+     !(a->moveflags&SHADOW_SET)){
    FollowingShadowDebug.actor=(uint32_t)a;
    FollowingShadowDebug.playerFlags=fwfield_player->moveflags;
    FollowingShadowDebug.actorFlags=a->moveflags;
@@ -682,17 +779,38 @@ API void FollowingDraw(void *system,void *camera,void *light){
   return;
  }
 #endif
-#ifdef FW_ARCEUS_SURF
+#if defined(FW_NATIVE_BEHAVIOR) && !defined(FW_ARCEUS_SURF)
+ fwn_draw(system,camera,light,owned()?(Actor*)fwfield_follower.actor:0,fwfield_follower.sprite_y);
+#elif defined(FW_ARCEUS_SURF)
  fwsurf_draw_scene(system,camera,light,owned()?(Actor*)fwfield_follower.actor:0,fwfield_player,fwfield_follower.sprite_y);
 #else
  fwr_draw(system,camera,light,owned()?(Actor*)fwfield_follower.actor:0,fwfield_player,fwfield_follower.sprite_y);
 #endif
 }
 API void FollowingEffectsDraw(void *system,void *camera,void *light){
- CALL(0x0204f685,void(*)(void*,void*,void*))(system,camera,light);fwfx_draw(camera,light);
+#ifdef FW_NATIVE_BEHAVIOR
+ int walking=1;
+#ifdef FW_MOUNT
+ if(fwland_active())walking=0;
+#endif
+#ifdef FW_ARCEUS_SURF
+ if(fwsurf_active())walking=0;
+#endif
+ fwn_shadow_draw(system,camera,light,walking&&owned()?(Actor*)fwfield_follower.actor:0);
+#else
+ CALL(0x0204f685,void(*)(void*,void*,void*))(system,camera,light);
+#endif
+ fwfx_draw(camera,light);
 }
 API void FollowingTerrainDraw(void *system,void *camera,void *light){
+#ifdef FW_NATIVE_BEHAVIOR
+#ifdef FW_MOUNT
+ if(fwland_active()){fwr_effects_draw(system,camera,light,owned()?(Actor*)fwfield_follower.actor:0);return;}
+#endif
+ CALL(0x0204f685,void(*)(void*,void*,void*))(system,camera,light);
+#else
  fwr_effects_draw(system,camera,light,owned()?(Actor*)fwfield_follower.actor:0);
+#endif
 }
 extern int FollowingOriginalUnload(void*,void*);
 API int FollowingUnload(void *game,void *field) {

@@ -2829,6 +2829,14 @@
       "expectedHex": "70b50c1c051c201ceaf78efc201ceaf7"
     },
     {
+      "opcode": 690,
+      "name": "s02B2_MemoryLinkCheckFlag",
+      "category": "read-only-state",
+      "handler": 35039633,
+      "segment": "12",
+      "expectedHex": "f8b50c1c051c201ceaf714fc201ceaf705fcacf699f8acf6c5ff9cf695fd061c281c211ce9f7ccff071c281c211ce9f7b3ff041c301c391ca6f6e2f820800020f8bd"
+    },
+    {
       "opcode": 696,
       "name": "s02B8_PedometerStart",
       "category": "saved-step-counter",

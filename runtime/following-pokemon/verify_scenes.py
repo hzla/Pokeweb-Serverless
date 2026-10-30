@@ -160,6 +160,30 @@ assert h.call(0x021c7874,[VM,ENV])==0
 assert h.u32(VM+32)==PROGRAM+4 and observed[before:]==[('recent-activity',11,h.A)]
 kept(snapshot);finish();kept(snapshot)
 
+# Route 1's entry scripts 8/9 read Memory Link flag zero before updating script
+# variables. Execute the pinned US handler and its real flag-bit reader. Only
+# save ownership and VM operand/result plumbing are isolated from the game.
+LINK=VM+0xb00;SAVE=VM+0xc00;RESULT=VM+0xd00
+def memory_link_spy(u,pc,size,user):
+ if pc==0x02017934:ret(SAVE)
+ elif pc in (0x02154950,0x02154928):
+  assert reg(0)==VM and reg(1)==ENV
+  cursor=h.u32(VM+32);operand=struct.unpack('<H',uc.mem_read(cursor,2))[0]
+  h.put(VM+32,cursor+2)
+  if pc==0x02154950:ret(operand)
+  else:assert operand==0x8020;ret(RESULT)
+memory_link_hook=uc.hook_add(UC_HOOK_CODE,memory_link_spy)
+for script in (8,9):
+ for flag in (0,1):
+  snapshot=setup();h.half(WORK+4,script);event();opcode(0x2b2);kept(snapshot)
+  uc.mem_write(LINK,bytes(0x80));uc.mem_write(LINK+0x48,bytes([flag]));h.put(SAVE+0x68,LINK)
+  uc.mem_write(PROGRAM+2,struct.pack('<HH',0,0x8020));before=bytes(uc.mem_read(LINK,0x80))
+  assert h.call(0x0216a990,[VM,ENV])==0
+  assert h.u32(VM+32)==PROGRAM+6 and struct.unpack('<H',uc.mem_read(RESULT,2))[0]==flag
+  assert bytes(uc.mem_read(LINK,0x80))==before;kept(snapshot);finish();kept(snapshot)
+uc.hook_del(memory_link_hook)
+print('Route 1 Memory Link query passed: entry scripts 8/9, both flag results, native reader, no save or actor mutation.')
+
 # Real menu callback identity, replacement event, and stale/recycled address.
 # UI services are spies; actual packaged guards execute before every callback.
 SAFE_UI={0x0215a8b4,0x0218b1a8,0x0217993c,0x02179a28,0x02179ac4,0x02019654,0x0201958c,0x0201937c,0x02019400,0x02019478}
@@ -406,6 +430,27 @@ for _ in range(10):
  h.call(0x02016a88,[h.GAME]);r.field_frame();r.retained()
 own_free=False
 
+if h.NATIVE_BEHAVIOR:
+ for code in range(0x69,0x99):
+  snap=setup();event();actor_pos(20,20);h.call(0x02166ec8,[NPC,code]);kept(snap)
+ for code,x,z in ((0x75,10,12),(0x76,10,6),(0x77,13,9),(0x78,7,9)):
+  setup();event();actor_pos(x,z);h.call(0x02166ec8,[NPC,code]);recalled(4)
+ # Traffic relocations do not sweep across the intervening follower tile;
+ # a relocation onto that tile must still recall before committing.
+ snap=setup();event();actor_pos(10,6)
+ uc.mem_write(VEC,struct.pack('<iii',10*65536+32768,0,20*65536+32768))
+ h.call(0x02167348,[NPC,VEC]);kept(snap)
+ setup();event();actor_pos(20,20)
+ uc.mem_write(VEC,struct.pack('<iii',10*65536+32768,0,9*65536+32768))
+ h.call(0x02167348,[NPC,VEC]);recalled(4)
+ # Rail placeholders have no world position yet; after positioning, the real
+ # write guard still detects a conflict even before a cursor is allocated.
+ snap=setup();h.put(NPC,1|8192);h.put(NPC+148,0)
+ uc.mem_write(VEC,struct.pack('<iii',10*65536+32768,0,9*65536+32768))
+ assert h.call('fws_step_clear',[h.A,VEC])==1
+ event();h.call(0x02167348,[NPC,VEC]);recalled(4)
+ print('Native scene additions passed: 48 wall/pedestrian classes, four three-tile collision predictions, traffic relocation destination guards and unpositioned rail actors.')
+
 # Every audited opcode and every unaudited standard/extended value is explicit.
 policy=json.loads((HERE/'event-policy.json').read_text());safe={e['opcode'] for e in policy['commands']}
 for code in range(0x10000):assert bool(h.call('fws_safe_opcode',[code]))==(code in safe)
@@ -444,7 +489,7 @@ snap=setup();event();actor_pos(10,8);h.call(0x02166ec8,[NPC,9]);recalled(4);asse
 snap=setup();event();actor_pos(10,8,2);h.call(0x02166ec8,[NPC,9]);kept(snap)
 for code in (8,0x2c,0x34,0x43):
  setup();event();h.call(0x02166ec8,[h.P,code]);recalled(3)
-if os.environ.get('FOLLOWING_VARIANT','full')=='full':
+if os.environ.get('FOLLOWING_VARIANT','full')=='full' or h.NATIVE_BEHAVIOR:
  for code in range(0x54,0x5c):
   snap=setup();event();h.put(h.GAME+0x18,0)
   h.put(h.P,h.u32(h.P)|2) # initialized retail player uses world-step path

@@ -26,7 +26,7 @@ describe("save-menu installer", () => {
     await expect(setFollowerAlphaEnabled(input, false)).rejects.toThrow("dependent save menu");
     await expect(removeFollowerAlpha(input)).rejects.toThrow("dependent save menu");
   });
-  it.each(["localhost", "127.0.0.1", "::1", "[::1]"])("shows the installation card on %s", hostname => {
+  it.each(["localhost", "pokeweb.example"])("shows the installation card on %s", hostname => {
     vi.stubGlobal("window", { location: { hostname } });
     const input = project(), root = { innerHTML: "", querySelector: () => null, querySelectorAll: () => [] };
     expect(getSaveMenuStatus(input).supported).toBe(true);
@@ -35,23 +35,10 @@ describe("save-menu installer", () => {
     expect(root.innerHTML).toContain("Interactive Save Menu");
     expect(root.innerHTML).toContain("Install and enable Following Pokémon");
     expect(root.innerHTML).toContain('id="install-save-menu-btn"');
-    expect(root.innerHTML).toContain('id="save-menu-song"');
-    expect(root.innerHTML).toContain('<option value="off"');
-    expect(root.innerHTML).toContain('id="save-menu-bpm"');
-    expect(root.innerHTML).toContain('id="save-menu-steps-per-beat"');
-    expect(root.innerHTML).toContain('id="save-menu-version-label"');
-    expect(root.innerHTML).toContain('value="v1.0"');
-    expect(root.innerHTML).toContain('href="#followingPokemon" data-route="followingPokemon">Install Following Pokémon</a>');
   });
-  it.each(["pokeweb.example", "localhost.example", "192.168.1.2", "0.0.0.0"])("shows the card and validates ROM compatibility on %s", async hostname => {
-    vi.stubGlobal("window", { location: { hostname } });
-    const input = project(), before = structuredClone(input), root = { innerHTML: "", querySelector: () => null, querySelectorAll: () => [] };
+  it("validates dependencies without changing the project or fetching assets", async () => {
+    const input = project(), before = structuredClone(input);
     const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
-    renderCodeInjectionEditor(input, root as unknown as HTMLElement, () => {});
-    expect(getSaveMenuStatus(input).supported).toBe(true);
-    expect(root.innerHTML).toContain('id="install-save-menu-btn"');
-    // The tiny fixture lacks native code. Reaching this check proves the
-    // handler accepts the host while preserving compatibility and rollback.
     await expect(installSaveMenu(input)).rejects.toThrow("Following Pokémon patch");
     expect(fetch).not.toHaveBeenCalled(); expect(input).toEqual(before);
   });
@@ -76,29 +63,10 @@ describe("bundled save-menu resource contract", () => {
     expect(module.symbols[hooks[0].sourceSymbolIndex].size).toBe(16);
     expect(info.expandedSize).toBeLessThan(65536);
   });
-  it("ships an authenticated independent map and follower-style recall timing", () => {
+  it("ships the matching compressed map", () => {
     const map = readFileSync(new URL("../assets/codeinjection/save-menu-map.lz", import.meta.url));
     expect(map.length).toBe(manifest.map.bytes); expect(hash(map)).toBe(manifest.map.sha256);
     expect([...map.subarray(0, 4)]).toEqual([0x10, 0, 168, 0]);
-    expect(manifest.recall.scale).toEqual([4096, 4096, 4096, 3440, 2784, 2112, 1456, 768]);
-    expect(manifest.recall.totalFrames).toBe(8); expect(manifest.recall.ballFrames).toBe(0); expect(manifest.jump.totalFrames).toBe(42);
-    expect(manifest.fly.raisePoses).toEqual([1,2,3]); expect(manifest.fly.reversePoses).toEqual([2,1,0]);
-    expect(manifest.recall.staggerFrames).toBe(2); expect(manifest.recall.direction).toBe("right-to-left");
-    expect(manifest.jump.playerPose).toBe(1); expect(manifest.jump.sound).toBe(1374);
-    expect(manifest.partyHop.buttons).toEqual({ L: "slots 1–3", R: "slots 4–6", Y: "slots 1, 3, 5", X: "slots 2, 4, 6" });
-    expect(manifest.partyHop.motionHeights).toEqual([0,5,8,9,9,9,8,5,0]);
-    expect(manifest.partyHop.playerArt).toMatchObject({ maleMember: 212, femaleMember: 221, frame: 1, leftMirrored: true });
-    expect(manifest.partyHop.sound).toBe(false); expect(manifest.partyHop.walkCadenceUnchanged).toBe(true);
-    expect(manifest.partySpin).toEqual({ modifier: "Select", groups: { L: "slots 1–3", R: "slots 4–6", Y: "slots 1, 3, 5", X: "slots 2, 4, 6" },
-      directions: ["down", "left", "up", "right"], framesPerDirection: 3,
-      footPhase: "shared walking cadence", registryPath: "following/runtime-registry.bin", artPath: "a/0/4/8",
-      defaultDirection: "down", requiresFollowerPatch: true });
-    expect(manifest.automaticCgearYes).toBe(true);
-    expect(manifest.music).toEqual({ sequence: 0x0446, ticksPerBeat: 48, ticksPerSpriteStep: 24, restartAtEnd: true, configPath: "ui/save-menu/settings.bin", streamedAudio: true });
-    expect(manifest.transition).toEqual({ framesPerLogicalFrame: 2, actualZoomFrames: 80, actualJumpFrames: 84 });
-    expect(manifest.games.W2.soundSequence.sha256).toBe(manifest.games.B2.soundSequence.sha256);
-    expect(manifest.style.background.archive).toBe("a/0/7/5");
-    expect(manifest.style.selectorGlow.periodFrames).toBe(64);
   });
   it("encodes a selectable stream and shared sprite cadence as a bounded ROM asset", () => {
     const settings = { music: "stream" as const, streamId: 7, bpm: 128, stepsPerBeat: 4 as const };

@@ -1,5 +1,6 @@
 """Execute the packaged ROM positioning reader with bounded native FS spies."""
 import struct
+import os
 
 from unicorn import UC_HOOK_CODE
 from unicorn.arm_const import UC_ARM_REG_LR, UC_ARM_REG_PC, UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3, UC_ARM_REG_SP
@@ -73,6 +74,13 @@ assert call("fwp_surf", 1, 3, output) == 1
 assert bytes(cpu.mem_read(output, 8)) == member[56:64]
 assert call("fwp_land", 0, 2, 0, output) == 0
 assert call("fwp_surf", 3, 3, output) == 0
+if os.environ.get("FOLLOWING_NATIVE_BEHAVIOR")=="1":
+    valid=data
+    altered=bytearray(data);altered[84]=20;data=bytes(altered)
+    assert call("fwp_land",0,2,0x12345678,output)==1
+    altered[84]=21;data=bytes(altered)
+    assert call("fwp_land",0,2,0x12345678,output)==0
+    data=valid
 corrupt = bytearray(data); corrupt[60:64] = b"BAD!"; data = bytes(corrupt)
 assert call("fwp_land", 0, 2, 0x12345678, output) == 0
 assert call("fwp_surf", 1, 3, output) == 0

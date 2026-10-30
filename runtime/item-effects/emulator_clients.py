@@ -30,7 +30,7 @@ with tempfile.TemporaryDirectory(prefix='pokeweb-item-client-') as tmp:
             destination=emu.memory.register_arm9.lr&~1
             pending[destination]={'mon':mon,'frame':emu.frame_count,'item':spec['itemId']}
             if destination not in returns:returns[destination]=emu.memory.register_exec(destination,returned)
-        hooks += [emu.memory.register_exec(0x0219f5da,opening),emu.memory.register_exec(0x021cef18,command),emu.memory.register_exec(spec['hook'],checking)]
+        hooks += [emu.memory.register_exec(manifest.get('openingHook',0x0219f5da),opening),emu.memory.register_exec(manifest.get('commandHook',0x021cef18),command),emu.memory.register_exec(spec['hook'],checking)]
         try:
             emu.open(rom)
             for _ in range(a.max_frames):

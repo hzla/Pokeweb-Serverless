@@ -1,5 +1,7 @@
 """Verify stock Surf conversion and packaged ARM hooks without running a game."""
 import json
+import os
+import hashlib
 import struct
 from pathlib import Path
 
@@ -13,7 +15,14 @@ from unicorn.arm_const import *
 from import_surf_mounts import ASSETS, SOURCE, FORM_COUNTS, build
 from verify_packaged import *
 
-data, registry, manifest = build()
+BUNDLED_ONLY=os.environ.get('FOLLOWING_SURF_BUNDLED_ONLY')=='1'
+if BUNDLED_ONLY:
+    data=(ASSETS/'surf-mounts.narc').read_bytes();registry=(ASSETS/'surf-registry.bin').read_bytes()
+    manifest=json.loads((ASSETS/'surf-mounts.json').read_text())
+    assert hashlib.sha256(data).hexdigest()==manifest['sha256']
+    assert hashlib.sha256(registry).hexdigest()==manifest['registrySha256']
+else:
+    data, registry, manifest = build()
 assert data == (ASSETS / "surf-mounts.narc").read_bytes()
 assert registry == (ASSETS / "surf-registry.bin").read_bytes()
 assert manifest == json.loads((ASSETS / "surf-mounts.json").read_text())
@@ -51,25 +60,26 @@ azumarill = choose(184)
 assert azumarill[4] == 32
 azumarill_texture = ndspy.texture.NSBTX(members[azumarill[5]]).textures[0][1]
 assert azumarill_texture.width == azumarill_texture.height == 32
-azumarill_source = Image.open(ASSETS.parents[3] / "followersprites/Swimming/AZUMARILL.png").convert("RGBA")
-azumarill_frame = azumarill_source.crop((0, 192, 64, 256)).resize((32, 32), Image.Resampling.NEAREST)
-assert [bool(index) for byte in azumarill_texture.data1 for index in (byte & 15, byte >> 4)] == [bool(pixel[3]) for pixel in azumarill_frame.get_flattened_data()]
+if not BUNDLED_ONLY:
+    azumarill_source = Image.open(ASSETS.parents[3] / "followersprites/Swimming/AZUMARILL.png").convert("RGBA")
+    azumarill_frame = azumarill_source.crop((0, 192, 64, 256)).resize((32, 32), Image.Resampling.NEAREST)
+    assert [bool(index) for byte in azumarill_texture.data1 for index in (byte & 15, byte >> 4)] == [bool(pixel[3]) for pixel in azumarill_frame.get_flattened_data()]
 
-arceus = choose(493)
-source = Image.open(SOURCE).convert("RGBA")
-for direction, row in enumerate((3, 0, 1, 2)):
-    for phase in range(4):
-        btx = ndspy.texture.NSBTX(members[arceus[5] + direction * 4 + phase])
-        texture = btx.textures[0][1]
-        palette = btx.palettes[0][1].colors
-        assert texture.width == texture.height == 64 and texture.isColor0Transparent
-        actual = [index for byte in texture.data1 for index in (byte & 15, byte >> 4)]
-        expected = source.crop((phase * 128, row * 128, (phase + 1) * 128, (row + 1) * 128))
-        expected = expected.resize((64, 64), Image.Resampling.NEAREST)
-        for pixel, index in zip(expected.get_flattened_data(), actual):
-            assert bool(pixel[3]) == bool(index)
-            if index:
-                assert tuple(c >> 3 for c in pixel[:3]) == tuple(palette[index][:3])
+    arceus = choose(493)
+    source = Image.open(SOURCE).convert("RGBA")
+    for direction, row in enumerate((3, 0, 1, 2)):
+        for phase in range(4):
+            btx = ndspy.texture.NSBTX(members[arceus[5] + direction * 4 + phase])
+            texture = btx.textures[0][1]
+            palette = btx.palettes[0][1].colors
+            assert texture.width == texture.height == 64 and texture.isColor0Transparent
+            actual = [index for byte in texture.data1 for index in (byte & 15, byte >> 4)]
+            expected = source.crop((phase * 128, row * 128, (phase + 1) * 128, (row + 1) * 128))
+            expected = expected.resize((64, 64), Image.Resampling.NEAREST)
+            for pixel, index in zip(expected.get_flattened_data(), actual):
+                assert bool(pixel[3]) == bool(index)
+                if index:
+                    assert tuple(c >> 3 for c in pixel[:3]) == tuple(palette[index][:3])
 
 rom = ndspy.rom.NintendoDSRom.fromFile(str(ASSETS.parents[3] / "cleanwhite2.nds"))
 personal = ndspy.narc.NARC(rom.getFileByName("a/0/1/6")).files

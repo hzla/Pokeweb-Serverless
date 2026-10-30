@@ -142,4 +142,27 @@ assert h.call(0x0219a610, [h.P, 0x80]) == 9 and not direction_calls
 h.put(h.addr('fwfx') + 44, 0)
 assert h.call(0x0219a610, [h.P, 0x80]) == 3
 assert direction_calls == [(core, 0x80)], direction_calls
+if h.NATIVE_BEHAVIOR:
+    # A replacement spawned while stopped on a curved rail must retain the
+    # historical heading, then present it for the current camera immediately.
+    r.setup();h.half(h.SYS+4,3);h.put(h.SYS+28,h.P-0x100)
+    uc.mem_write(h.P-0x100,bytes(256));uc.mem_write(h.F+48,b'\xff')
+    h.put(h.addr('fwfield_cyclePending'),0);h.put(h.addr('fwfx')+40,1);h.put(h.addr('fwfx')+44,0)
+    camera=h.SNAP+0xc00;h.put(h.SYS+68,camera);h.half(camera,18080)
+    h.half(h.P+24,3);h.half(h.A+24,3)
+    x=z=10*65536
+    uc.mem_write(h.A+68,struct.pack('<iii',x,0,z+65536));uc.mem_write(h.A+60,struct.pack('<3h',10,0,11))
+    for i,sz in enumerate((z+65536,z)):
+        uc.mem_write(h.F+52+i*28,struct.pack('<iiiIIHHBBH',x,0,sz,1,1,0x8000,0xffff,0,3,1))
+    h.put(h.F+52+1792,65536);h.half(h.F+52+1796,0);h.half(h.F+52+1798,2)
+    unchanged=[bytes(uc.mem_read(mon,0x100)) for mon in MONS]
+    frame(0x100)
+    for _ in range(12):frame()
+    assert selected()==26 and h.u32(h.F+24)==h.A
+    assert struct.unpack('<H',uc.mem_read(h.A+24,2))[0]==3
+    for yaw,face in [(23301,3),(32768,1),(18080,3)]:
+        h.half(camera,yaw);frame()
+        assert struct.unpack('<H',uc.mem_read(h.A+24,2))[0]==face,('stationary rail replacement',yaw)
+    assert [bytes(uc.mem_read(mon,0x100)) for mon in MONS]==unchanged
+    print('Rail L/R heading retention and stationary camera refresh passed; native presentation uses the recorded tangent.')
 print('Packaged L/R cycling passed: recall timing, field-movement hold, retail direction forwarding, both wide horizontal facings, and unchanged party data. No DS game run.')

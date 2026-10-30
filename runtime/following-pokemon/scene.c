@@ -3,6 +3,9 @@
 #include "effects.h"
 #include "scene-policy.h"
 #include "battle-entry.h"
+#ifdef FW_NATIVE_BEHAVIOR
+#include "native_route.h"
+#endif
 #ifdef FW_MOUNT
 #include "land.h"
 #endif
@@ -14,7 +17,7 @@ typedef struct {void *vm,*event;} VmToken;
 static struct {
  ActorSystem *sys;Actor *player;FwFollower *f;void *field,*game;
  uint32_t generation,active,recalled,previousState,pcActive,pcFade,boxPreserve;
-#ifdef FW_MOUNT
+#if defined(FW_MOUNT) || defined(FW_NATIVE_BEHAVIOR)
  uint32_t naturalRun;
 #endif
  void *menuRoot,*pcVm,*battleRoot,*battleSetup;void (*recall)(void);
@@ -202,9 +205,15 @@ static void inspect_chain(void){
  }
  if(event)recall(FWS_EVENT_LIMIT,FWE_CALLBACK,event,0);
 }
+static int footprint(const Actor *a,unsigned axis){
+#ifdef FW_NATIVE_BEHAVIOR
+ if(scene.f&&(uintptr_t)a==scene.f->actor)return 1;
+#endif
+ return a->dimensions[axis]?a->dimensions[axis]:1;
+}
 static int min(int a,int b){return a<b?a:b;}
 static int max(int a,int b){return a>b?a:b;}
-#ifdef FW_MOUNT
+#if defined(FW_MOUNT) || defined(FW_NATIVE_BEHAVIOR)
 static int near_step(int32_t next,int32_t current,uint32_t limit){
  uint32_t delta=(uint32_t)next-(uint32_t)current;
  return delta<=limit || (uint32_t)(0u-delta)<=limit;
@@ -220,7 +229,7 @@ static int intersects(const Vec *from,const Vec *to,unsigned width,unsigned dept
  if(fwland_active())return 0;
 #endif
  Actor *f=(Actor*)scene.f->actor;if(!f)return 0;
- int fx=f->grid[0],fz=f->grid[2],fw=max(f->dimensions[0],1),fd=max(f->dimensions[1],1);
+ int fx=f->grid[0],fz=f->grid[2],fw=footprint(f,0),fd=footprint(f,1);
  int x0=from->x/FW_TILE,x1=to->x/FW_TILE,z0=from->z/FW_TILE,z1=to->z/FW_TILE;
  int fy=f->grid[1];
  if(fy<min(from->y/FW_TILE,to->y/FW_TILE)||fy>max(from->y/FW_TILE,to->y/FW_TILE))return 0;
@@ -251,7 +260,7 @@ static void action(Actor *actor,unsigned code){
  if((uintptr_t)actor==scene.f->actor){recall(FWS_ACTOR_ID,FWE_ACTION,actor,code);return;}
  if(code<=3||(code>=0x3c&&code<=0x42)||code==0xfe||code==0xff)return;
  if(actor==scene.player){
-#ifdef FW_MOUNT
+#if defined(FW_MOUNT) || defined(FW_NATIVE_BEHAVIOR)
   /* The native seamless-zone event can finish between event polling and the
      next player action. A held run then begins with no live event while our
      presentation latch is still set. This is ordinary input movement, not a
@@ -273,7 +282,20 @@ static void action(Actor *actor,unsigned code){
   return;
  }
  unsigned distance=1,direction=code&3u;
- int walking=(code>=4&&code<=0x17)||(code>=0x4c&&code<=0x53)||(code>=0x60&&code<=0x63)||(code>=0x9b&&code<=0x9e)||(code>=0xa7&&code<=0xaa);
+#ifdef FW_NATIVE_BEHAVIOR
+ int pedestrian=fwn_pedestrian(code,&direction,&distance);
+ if(pedestrian==2)return; /* actual write hooks guard wall-axis movement */
+#endif
+ int walking=(code>=4&&code<=0x17)||(code>=0x4c&&code<=
+#ifdef FW_NATIVE_BEHAVIOR
+ 0x5b
+#else
+ 0x53
+#endif
+)||(code>=0x60&&code<=0x63)||(code>=0x9b&&code<=0x9e)||(code>=0xa7&&code<=0xaa);
+#ifdef FW_NATIVE_BEHAVIOR
+ if(pedestrian)walking=1;
+#endif
  if(code>=0x34&&code<=0x3b)distance=code>=0x38?2:1;
  else if(!walking){recall(FWS_UNKNOWN_MOVEMENT,FWE_ACTION,actor,code);return;}
  if(code>=0x9b&&code<=0x9e)direction=code-0x9b;
@@ -287,14 +309,21 @@ static void action(Actor *actor,unsigned code){
   return;
  }
  unsigned controller=CALL(0x02180579,unsigned(*)(void*))(scene.field);
+#ifdef FW_NATIVE_BEHAVIOR
+ (void)controller;
+#else
  if(controller!=0){recall(FWS_UNKNOWN_MOVEMENT,FWE_ACTION,actor,code);return;}
+#endif
  Vec previous=actor->world,target=previous;
  for(unsigned step=0;step<distance;++step){
   if(direction<2)target.z+=(direction?1:-1)*FW_TILE;
   else target.x+=(direction==3?1:-1)*FW_TILE;
   int32_t height;
   if(!CALL(0x0215e909,int(*)(Actor*,const Vec*,int32_t*))(actor,&target,&height)){
-   recall(FWS_UNKNOWN_MOVEMENT,FWE_ACTION,actor,code);return;
+#ifndef FW_NATIVE_BEHAVIOR
+   recall(FWS_UNKNOWN_MOVEMENT,FWE_ACTION,actor,code);
+#endif
+   return;
   }
   target.y=height;
   if(intersects(&previous,&target,max(actor->dimensions[0],1),max(actor->dimensions[1],1))){recall(FWS_COLLISION,FWE_ACTION,actor,code);return;}
@@ -304,8 +333,8 @@ static void action(Actor *actor,unsigned code){
 
 /* Native grid volumes extend +X/-Z and reserve both ends of a step. */
 static int grid_overlap(const Actor *a,const Vec *p,const Actor *b,const int16_t *q){
- int aw=max(a->dimensions[0],1),ad=max(a->dimensions[1],1);
- int bw=max(b->dimensions[0],1),bd=max(b->dimensions[1],1);
+ int aw=footprint(a,0),ad=footprint(a,1);
+ int bw=footprint(b,0),bd=footprint(b,1);
  return p->y==q[1]&&p->x<=q[0]+bw-1&&p->x+aw-1>=q[0]
   &&p->z-ad+1<=q[2]&&p->z>=q[2]-bd+1;
 }
@@ -334,11 +363,19 @@ static void ambient_collision(unsigned kind,Actor *actor,FweCollision *q){
 int fws_step_clear(Actor *f,const Vec *target){
  if(!scene.sys||!scene.f||scene.f->actor!=(uintptr_t)f)return 1;
  Vec grid={target->x/FW_TILE,target->y/FW_TILE,target->z/FW_TILE};
+#ifdef FW_NATIVE_BEHAVIOR
+ grid=(Vec){fw_tile(target->x),fw_tile(target->y),fw_tile(target->z)};
+#endif
  for(unsigned i=0;i<scene.sys->capacity;++i){
   Actor *a=&scene.sys->actors[i];
   if(a==f||a==scene.player||a->id==0xff||(a->flags&(1|4|128))!=1)continue;
   if(a->flags&8192){
-   uint32_t *unit=PTR(a,148);if(!unit||!unit[30])return 0;
+   uint32_t *unit=PTR(a,148);
+#ifdef FW_NATIVE_BEHAVIOR
+   if(!unit||!unit[30])continue;
+#else
+   if(!unit||!unit[30])return 0;
+#endif
    void *mapper=PTR(scene.sys,60),*manager=mapper?PTR(mapper,0):0;
    if(!manager)return 0;
    int radius=CALL(0x021b0625,int32_t(*)(void*))(manager)/4;
@@ -370,7 +407,7 @@ void fws_observe(unsigned kind,void *subject,uintptr_t value){
   return;
  }
  if(kind==FWE_CALLBACK){
-#ifdef FW_MOUNT
+#if defined(FW_MOUNT) || defined(FW_NATIVE_BEHAVIOR)
   scene.naturalRun=0;
 #endif
   if(fwt_owns(scene.field)&&subject==PTR(scene.game,0x18))return;
@@ -381,7 +418,7 @@ void fws_observe(unsigned kind,void *subject,uintptr_t value){
   return;
  }
  if(kind==FWE_OPCODE){
-#ifdef FW_MOUNT
+#if defined(FW_MOUNT) || defined(FW_NATIVE_BEHAVIOR)
   scene.naturalRun=0;
 #endif
   pause_scene();FollowingSceneDebug.opcode=value;FollowingSceneDebug.vm=(uintptr_t)subject;
@@ -417,7 +454,12 @@ void fws_observe(unsigned kind,void *subject,uintptr_t value){
   if(entity[0]==((Actor*)scene.f->actor)->id){recall(FWS_ACTOR_ID,kind,subject,entity[0]);return;}
   if(!free){recall(FWS_POOL,kind,subject,entity[0]);return;}
   if(!scene.active)return;
-  if(U32(entity,24)||entity[1]==0xb9){recall(FWS_UNKNOWN_MOVEMENT,kind,subject,entity[0]);return;}
+  if(U32(entity,24)||entity[1]==0xb9){
+#ifndef FW_NATIVE_BEHAVIOR
+   recall(FWS_UNKNOWN_MOVEMENT,kind,subject,entity[0]);
+#endif
+   return;
+  }
   Vec target={(int16_t)entity[14]*FW_TILE+FW_TILE/2,(int32_t)U32(entity,32),(int16_t)entity[15]*FW_TILE+FW_TILE/2};
   /* All pinned stock descriptors fit 3 x 2 tiles; use that conservative
      bound until the new actor's descriptor has been initialized. */
@@ -434,7 +476,11 @@ void fws_observe(unsigned kind,void *subject,uintptr_t value){
     void *mapper=PTR(scene.sys,60),*manager=mapper?PTR(mapper,0):0;
     int radius=manager?CALL(0x021b0625,int32_t(*)(void*))(manager)/4:FW_TILE/4;
     hit=sphere_overlap(target,&((Actor*)scene.f->actor)->world,radius);
-   }else hit=intersects(kind==FWE_WORLD_STEP?&actor->world:target,target,max(actor->dimensions[0],1),max(actor->dimensions[1],1));
+   }else hit=intersects(kind==FWE_WORLD_STEP
+#ifdef FW_NATIVE_BEHAVIOR
+ &&!fwn_reposition((const FwPoint*)&actor->world,(const FwPoint*)target)
+#endif
+ ?&actor->world:target,target,max(actor->dimensions[0],1),max(actor->dimensions[1],1));
    if(hit)recall(FWS_COLLISION,kind,subject,0);
   }
  }
@@ -444,7 +490,7 @@ void fws_observe(unsigned kind,void *subject,uintptr_t value){
   Actor *actor=subject;const Vec *target=(const Vec*)value;
   if(target->x==actor->world.x&&target->y==actor->world.y&&target->z==actor->world.z)return;
   if(actor==scene.player){
-#ifdef FW_MOUNT
+#if defined(FW_MOUNT) || defined(FW_NATIVE_BEHAVIOR)
    if(kind==FWE_WORLD_STEP&&scene.naturalRun&&!PTR(scene.game,0x18)
       &&near_step(target->x,actor->world.x,FW_TILE)
       &&near_step(target->y,actor->world.y,FW_TILE*2)
@@ -453,7 +499,11 @@ void fws_observe(unsigned kind,void *subject,uintptr_t value){
    recall(FWS_PLAYER_MOVEMENT,kind,subject,0);
   }
   else if((uintptr_t)actor==scene.f->actor)recall(FWS_ACTOR_ID,kind,subject,0);
-  else if(intersects(kind==FWE_WORLD_STEP?&actor->world:target,target,max(actor->dimensions[0],1),max(actor->dimensions[1],1)))recall(FWS_COLLISION,kind,subject,0);
+  else if(intersects(kind==FWE_WORLD_STEP
+#ifdef FW_NATIVE_BEHAVIOR
+ &&!fwn_reposition((const FwPoint*)&actor->world,(const FwPoint*)target)
+#endif
+ ?&actor->world:target,target,max(actor->dimensions[0],1),max(actor->dimensions[1],1)))recall(FWS_COLLISION,kind,subject,0);
  }
  if(kind==FWE_DELETE&&(uintptr_t)subject==scene.f->actor)recall(FWS_ACTOR_LOST,kind,subject,0);
 }
@@ -486,7 +536,7 @@ unsigned fws_poll(void){
  if(!scene.sys)return 0;
  if(scene.sys->field!=scene.field||scene.f->generation!=scene.generation){fws_detach();return FWS_INVALID;}
  if(PTR(scene.game,0x18)){
-#ifdef FW_MOUNT
+#if defined(FW_MOUNT) || defined(FW_NATIVE_BEHAVIOR)
   scene.naturalRun=0;
 #endif
   if(!fwt_owns(scene.field))inspect_chain();
@@ -494,7 +544,7 @@ unsigned fws_poll(void){
   unsigned recalled=scene.recalled;
   if(scene.boxPreserve)FollowingEventsAPI.discard();
   scene.active=scene.recalled=scene.pcActive=scene.pcFade=scene.boxPreserve=0;
-#ifdef FW_MOUNT
+#if defined(FW_MOUNT) || defined(FW_NATIVE_BEHAVIOR)
   scene.naturalRun=0;
 #endif
   scene.menuRoot=scene.pcVm=scene.battleRoot=scene.battleSetup=0;

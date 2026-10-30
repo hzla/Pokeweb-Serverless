@@ -1,4 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
+import { romFixtureExists } from "./romFixtures";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { Folder, saveFnt } from "../nds/fnt";
@@ -214,7 +215,7 @@ describe("Platinum item standardization", () => {
 
 const realPlatinumPath = process.env.POKEWEB_PLATINUM_ROM;
 
-it.runIf(Boolean(realPlatinumPath && existsSync(realPlatinumPath)))(
+it.runIf(Boolean(realPlatinumPath && romFixtureExists(realPlatinumPath)))(
   "standardizes and reloads a real Platinum ROM",
   async () => {
     const source = new Uint8Array(readFileSync(realPlatinumPath!));

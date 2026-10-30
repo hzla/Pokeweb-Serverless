@@ -1,4 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
+import { romFixtureExists } from "./romFixtures";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { readAscii } from "../nds/binary";
 import { loadProjectFromRomBytes } from "../pokeweb/loader";
@@ -6,15 +7,12 @@ import { getPokemonCryInfo, importPokemonCryArchive, replaceSdatFile, validatePo
 import { loadNitroSdatFromProject, parseNitroSdat, renderNitroWaveArchivePcm } from "../pokeweb/nitroSound";
 
 describe("pokemonCryModel", () => {
-  it("resolves and decodes indexed cry archives in clean BW and BW2 ROMs", async () => {
-    const fixtures = [
-      { fileName: "white.nds", baseRom: "BW", sdatFileId: 241 },
-      { fileName: "cleanwhite2.nds", baseRom: "BW2", sdatFileId: 346 },
-    ] as const;
-
-    for (const fixture of fixtures) {
-      const romUrl = new URL(`../../../${fixture.fileName}`, import.meta.url);
-      if (!existsSync(romUrl)) continue;
+  for (const fixture of [
+    { fileName: "white.nds", baseRom: "BW", sdatFileId: 241 },
+    { fileName: "cleanwhite2.nds", baseRom: "BW2", sdatFileId: 346 },
+  ] as const) {
+    const romUrl = new URL(`../../../${fixture.fileName}`, import.meta.url);
+    it.skipIf(!romFixtureExists(romUrl))(`resolves and decodes indexed cry archives in ${fixture.fileName}`, async () => {
       const project = await loadProjectFromRomBytes(new Uint8Array(readFileSync(romUrl)), fixture.fileName, { selectedNarcs: [] });
       const bulbasaur = await getPokemonCryInfo(project, 1);
       const oshawott = await getPokemonCryInfo(project, 501);
@@ -30,12 +28,12 @@ describe("pokemonCryModel", () => {
       expect(pcm.length).toBeGreaterThan(100);
       expect(pcm.duration).toBeCloseTo(bulbasaur.duration, 5);
       expect(pcm.left.some((sample) => sample !== 0)).toBe(true);
-    }
-  });
+    });
+  }
 
-  it("imports a different-sized SWAR and reparses the resized SDAT", async () => {
+  it.skipIf(!romFixtureExists(new URL("../../../white.nds", import.meta.url)))("imports a different-sized SWAR and reparses the resized SDAT", async () => {
     const romUrl = new URL("../../../white.nds", import.meta.url);
-    if (!existsSync(romUrl)) return;
+
     const project = await loadProjectFromRomBytes(new Uint8Array(readFileSync(romUrl)), "white.nds", { selectedNarcs: [] });
     const bulbasaur = await getPokemonCryInfo(project, 1);
     const ivysaur = await getPokemonCryInfo(project, 2);

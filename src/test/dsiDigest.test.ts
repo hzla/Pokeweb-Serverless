@@ -1,3 +1,4 @@
+import { deepStrictEqual } from "node:assert";
 import { createHash, createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
@@ -14,24 +15,24 @@ describe("DSi digest hashing", () => {
       const key = bytes(keyLength), hash = new HmacSha1(key);
       for (const length of [0, 1, 55, 56, 63, 64, 65, 119, 120, 127, 128, 1024, 16391]) {
         const data = bytes(length);
-        expect(sha1(data)).toEqual(new Uint8Array(createHash("sha1").update(data).digest()));
+        deepStrictEqual(sha1(data), new Uint8Array(createHash("sha1").update(data).digest()));
         const expected = new Uint8Array(createHmac("sha1", key).update(data).digest());
-        expect(hash.digest(data)).toEqual(expected);
+        deepStrictEqual(hash.digest(data), expected);
         const out = new Uint8Array(28).fill(0xa5);
         hash.digest(data, out, 4);
-        expect(out.subarray(4, 24)).toEqual(expected);
-        expect(out.subarray(0, 4)).toEqual(new Uint8Array(4).fill(0xa5));
-        expect(out.subarray(24)).toEqual(new Uint8Array(4).fill(0xa5));
+        deepStrictEqual(out.subarray(4, 24), expected);
+        deepStrictEqual(out.subarray(0, 4), new Uint8Array(4).fill(0xa5));
+        deepStrictEqual(out.subarray(24), new Uint8Array(4).fill(0xa5));
       }
     }
   });
 
   it("supports output inside the same input buffer", () => {
     const hash = new HmacSha1(FIXTURE_KEY);
-    for (const length of [0, 1, 55, 56, 63, 64, 65, 128, 1024]) expect(hash.digest(bytes(length))).toEqual(fixtureDigest(bytes(length)));
+    for (const length of [0, 1, 55, 56, 63, 64, 65, 128, 1024]) deepStrictEqual(hash.digest(bytes(length)), fixtureDigest(bytes(length)));
     const data = bytes(1024), expected = fixtureDigest(data);
     hash.digest(data, data, 8);
-    expect(data.subarray(8, 28)).toEqual(expected);
+    deepStrictEqual(data.subarray(8, 28), expected);
   });
 });
 
@@ -47,19 +48,19 @@ describe("DSi integrity export", () => {
         addedFiles: length === 0x90000 ? [{ path: "patches/Test.dll", bytes: Uint8Array.of(5, 6, 7) }] : undefined });
       const rom = new NintendoDSRom(current);
       const boundary = readU16(current, 0x92) * 0x80000;
-      expect(current.subarray(boundary)).toEqual(originalTwl);
+      deepStrictEqual(current.subarray(boundary), originalTwl);
       expect(readU32(current, 0x1c0)).toBe(boundary + 0x3000);
       expect(readU32(current, 0x1d0)).toBe(boundary + 0x3600);
       expect(readU32(current, 0x220)).toBe(boundary + 0x3020);
       expect(readU32(current, 0x1e8)).toBe(boundary + 0x3000);
       expect(readU32(current, 0x1ec)).toBe(0x800);
-      expect(current.slice(0x300, 0x328)).toEqual(cryptoMetadata);
-      expect(current.slice(0x33c, 0x3b4)).toEqual(twlHashMetadata);
-      expect(rom.files[0]).toEqual(bytes(length));
-      expect(rom.getFileByName("patches/Test.dll")).toEqual(Uint8Array.of(5, 6, 7));
+      deepStrictEqual(current.slice(0x300, 0x328), cryptoMetadata);
+      deepStrictEqual(current.slice(0x33c, 0x3b4), twlHashMetadata);
+      deepStrictEqual(rom.files[0], bytes(length));
+      deepStrictEqual(rom.getFileByName("patches/Test.dll"), Uint8Array.of(5, 6, 7));
       verifyAllDigests(current);
     }
-    expect(source).toEqual(before);
+    deepStrictEqual(source, before);
   });
 
   it("authenticates changed ARM9/overlay bytes and retains optional trailing padding", () => {
@@ -67,8 +68,8 @@ describe("DSi integrity export", () => {
     const arm9 = rom.arm9.slice(); arm9[30] ^= 0xff;
     const overlayTable = bytes(32);
     const out = rom.save({ arm9, arm9OverlayTable: overlayTable, minimumLength: 0x180000 });
-    expect(new NintendoDSRom(out).arm9).toEqual(arm9);
-    expect(new NintendoDSRom(out).arm9OverlayTable).toEqual(overlayTable);
+    deepStrictEqual(new NintendoDSRom(out).arm9, arm9);
+    deepStrictEqual(new NintendoDSRom(out).arm9OverlayTable, overlayTable);
     expect(out.length).toBe(0x180000);
     verifyAllDigests(out);
     verifyAllDigests(new NintendoDSRom(out).save({ preserveOriginalLength: true }));
@@ -78,7 +79,7 @@ describe("DSi integrity export", () => {
     const source = makeTwlRom("IRDO");
     writeU32(source, 0x210, 0);
     const out = new NintendoDSRom(source).save();
-    expect(out.subarray(readU16(out, 0x92) * 0x80000)).toEqual(source.subarray(0x80000));
+    deepStrictEqual(out.subarray(readU16(out, 0x92) * 0x80000), source.subarray(0x80000));
     expect(readU32(out, 0x210)).toBe(out.length);
     verifyAllDigests(out);
   });
@@ -95,7 +96,7 @@ describe("DSi integrity export", () => {
       const source = makeTwlRom("IREO"); corrupt(source);
       const before = source.slice();
       expect(() => new NintendoDSRom(source).save()).toThrow("Cannot rebuild DSi integrity tables");
-      expect(source).toEqual(before);
+      deepStrictEqual(source, before);
     }
   });
 
@@ -105,7 +106,7 @@ describe("DSi integrity export", () => {
     const ciphertext = encryptNdsSecureArea(source.subarray(0x4000, 0x4800), readU32(source, 0x0c));
     expect(createHash("sha256").update(ciphertext).digest("hex")).toBe("bd46375e5e9a90a3f57a5b87716c94055b8173c442a65e06909a3dd79def6e66");
     let out = new NintendoDSRom(source).save({ files: new Map([[0, bytes(0x90000)]]) });
-    expect(out.slice(0x4000, 0x4800)).toEqual(source.slice(0x4000, 0x4800));
+    deepStrictEqual(out.slice(0x4000, 0x4800), source.slice(0x4000, 0x4800));
     verifyAllDigests(out, ciphertext);
     out = new NintendoDSRom(out).save();
     verifyAllDigests(out, ciphertext);
@@ -113,7 +114,7 @@ describe("DSi integrity export", () => {
     const changedCiphertext = encryptNdsSecureArea(arm9.subarray(0, 0x800), readU32(out, 0x0c));
     expect(createHash("sha256").update(changedCiphertext).digest("hex")).toBe("047d666352db4cfc7fa122204bc96c90e158472bdc29c3a00b0188dad2453350");
     out = rom.save({ arm9 });
-    expect(out.slice(0x4000, 0x4800)).toEqual(arm9.subarray(0, 0x800));
+    deepStrictEqual(out.slice(0x4000, 0x4800), arm9.subarray(0, 0x800));
     verifyAllDigests(out, changedCiphertext);
   });
 
@@ -122,8 +123,8 @@ describe("DSi integrity export", () => {
     writeU32(source, 0x1f8, source.length + 0x200);
     const before = source.slice();
     const out = new NintendoDSRom(source).save({ forDsi: false, files: new Map([[0, bytes(0x1000)]]) });
-    expect(new NintendoDSRom(out).files[0]).toEqual(bytes(0x1000));
-    expect(source).toEqual(before);
+    deepStrictEqual(new NintendoDSRom(out).files[0], bytes(0x1000));
+    deepStrictEqual(source, before);
     expect(() => new NintendoDSRom(source).save()).toThrow("Cannot rebuild DSi integrity tables");
   });
 
@@ -163,10 +164,10 @@ describe("DSi integrity export", () => {
       fileSystem: { replacements: { 0: bytes(0x1800) } },
     };
     const out = await exportModifiedRom(project);
-    expect(new NintendoDSRom(out).files[0]).toEqual(bytes(0x1800));
+    deepStrictEqual(new NintendoDSRom(out).files[0], bytes(0x1800));
     verifyAllDigests(out);
     expect(project.originalRomBytes).toBe(source);
     const repeated = new NintendoDSRom(out).save();
-    expect(repeated).toEqual(out);
+    deepStrictEqual(repeated, out);
   });
 });

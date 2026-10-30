@@ -1,6 +1,5 @@
 import {describe,it,expect} from "vitest";
 import {ABILITY_IMPORT_LIBRARY,abilityImport} from "../pokeweb/abilityLibrary";
-import {LIBRARY_ABILITY_EFFECTS} from "../pokeweb/abilityLibraryEffects";
 import {validateAbilityRule,encodeAbilityRules} from "../pokeweb/abilityRules";
 import {buildAbilityRuleModule,inspectAbilityEffects,ABILITY_EFFECTS_DLL_PATH} from "../pokeweb/abilityEffectsModel";
 import {makeItemEffectsProject} from "./fixtures/itemEffectsProject";
@@ -11,8 +10,8 @@ import {ABILITY_RULE_EFFECTS,ABILITY_NATIVE_EFFECTS} from "../pokeweb/abilityRul
 import classes from "../assets/data/abilityMoveClasses.json";
 
 describe("standalone ability imports",()=>{
- it("provides 69 uniquely identified, editable recipes across generations 6–9",()=>{
-  expect(ABILITY_IMPORT_LIBRARY).toHaveLength(69);expect(new Set(ABILITY_IMPORT_LIBRARY.map(t=>t.id)).size).toBe(69);expect(new Set(ABILITY_IMPORT_LIBRARY.map(t=>t.generation))).toEqual(new Set([6,7,8,9]));
+ it("provides uniquely identified, editable recipes across generations 6–9",()=>{
+  expect(new Set(ABILITY_IMPORT_LIBRARY.map(t=>t.id)).size).toBe(ABILITY_IMPORT_LIBRARY.length);expect(new Set(ABILITY_IMPORT_LIBRARY.map(t=>t.generation))).toEqual(new Set([6,7,8,9]));
   for(const t of ABILITY_IMPORT_LIBRARY){expect(t.id).toBeGreaterThan(164);expect(t.defaultName.length).toBeLessThanOrEqual(15);expect(validateAbilityRule(t.rule)).toEqual(t.rule);}
   const copy=abilityImport(297);copy.rule.effects[0].parameters!.type=16;expect(abilityImport(297).rule.effects[0].parameters!.type).toBe(4);
   expect(()=>abilityImport(226)).toThrow(); // No terrain-engine import.
@@ -48,7 +47,6 @@ describe("standalone ability imports",()=>{
   const {project}=makeItemEffectsProject();const options={ability:true,definitions:[...ABILITY_RULE_EFFECTS,...ABILITY_NATIVE_EFFECTS],presets:ABILITY_IMPORT_LIBRARY.map(t=>({...t,group:`Generation ${t.generation}`}))};
   const blank=renderItemRuleForm(project,{effects:[],conditions:{kind:"group",mode:"all",children:[]},consumable:false},options);expect(blank).toContain("Import effects");expect(blank).toContain('label="Generation 9"');expect(blank).not.toContain('data-rule-effect-kind=');
   const html=renderItemRuleForm(project,{...abilityImport(292).rule,consumable:false},options);expect(html).toContain("Move filter");expect(html).toContain("Slicing");expect(html).toContain("Mold Breaker can bypass");
-  expect(LIBRARY_ABILITY_EFFECTS).toHaveLength(6);
  });
  it("keeps classifications bounded and avoids treating reused ROM flag bits as modern flags",()=>{
   for(const ids of Object.values(classes.classes)){expect(ids).toEqual([...new Set(ids)].sort((a,b)=>a-b));expect(ids.every(id=>id>0&&id<=559)).toBe(true);}

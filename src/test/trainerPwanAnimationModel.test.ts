@@ -1,5 +1,6 @@
+import { romFixtureExists } from "./romFixtures";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { NARC } from "../nds/narc";
 import {
@@ -56,26 +57,28 @@ describe("trainerPwanAnimationModel", () => {
     expect(project.pwanAnimations).toBeUndefined();
   });
 
-  it.each(["cleanwhite2.nds", "cleanblack2.nds"])("grounds the carrier at the native trainer origin in %s", async (fileName) => {
-    const romUrl = new URL(`../../../${fileName}`, import.meta.url);
-    if (!existsSync(romUrl)) return;
-    const project = await loadProjectFromRomBytes(new Uint8Array(readFileSync(romUrl)), fileName, { selectedNarcs: ["trainer_sprites"] });
-    const original = project.narcs.trainer_sprites!.rawFiles.map((file) => file.slice());
-    const carrier = buildTrainerPwanCarrierFiles(project);
-    const unpack = (file: Uint8Array) => file[0] === 0x10 || file[0] === 0x11 ? decompressNitro(file) : file;
-    const [cell] = parseRigCells(unpack(carrier[6]!)).cells;
-    const multiCells = parsePokemonMultiCells(unpack(carrier[4]!)).cells;
-    expect(cell).toMatchObject({ cellX: 0, cellY: 0, width: 96, height: 96, spriteX: -48, spriteY: 96 });
-    for (const multiCell of multiCells) {
-      expect(multiCell.nodes).toHaveLength(1);
-      const node = multiCell.nodes[0]!;
-      expect(node).toMatchObject({ x: 0, y: 0, visible: true });
-      // MCSS adds node coordinates but negates the cell's upward-positive Y.
-      // The old -96 cell Y plus its +144 node put all pixels off-screen.
-      expect([node.x + cell!.spriteX, node.y - cell!.spriteY]).toEqual([-48, -96]);
-    }
-    expect(project.narcs.trainer_sprites!.rawFiles).toEqual(original);
-  });
+  for (const fileName of ["cleanwhite2.nds", "cleanblack2.nds"]) {
+    it.skipIf(!romFixtureExists(new URL(`../../../${fileName}`, import.meta.url)))(`grounds the carrier at the native trainer origin in ${fileName}`, async () => {
+      const romUrl = new URL(`../../../${fileName}`, import.meta.url);
+
+      const project = await loadProjectFromRomBytes(new Uint8Array(readFileSync(romUrl)), fileName, { selectedNarcs: ["trainer_sprites"] });
+      const original = project.narcs.trainer_sprites!.rawFiles.map((file) => file.slice());
+      const carrier = buildTrainerPwanCarrierFiles(project);
+      const unpack = (file: Uint8Array) => file[0] === 0x10 || file[0] === 0x11 ? decompressNitro(file) : file;
+      const [cell] = parseRigCells(unpack(carrier[6]!)).cells;
+      const multiCells = parsePokemonMultiCells(unpack(carrier[4]!)).cells;
+      expect(cell).toMatchObject({ cellX: 0, cellY: 0, width: 96, height: 96, spriteX: -48, spriteY: 96 });
+      for (const multiCell of multiCells) {
+        expect(multiCell.nodes).toHaveLength(1);
+        const node = multiCell.nodes[0]!;
+        expect(node).toMatchObject({ x: 0, y: 0, visible: true });
+        // MCSS adds node coordinates but negates the cell's upward-positive Y.
+        // The old -96 cell Y plus its +144 node put all pixels off-screen.
+        expect([node.x + cell!.spriteX, node.y - cell!.spriteY]).toEqual([-48, -96]);
+      }
+      expect(project.narcs.trainer_sprites!.rawFiles).toEqual(original);
+    });
+  }
 
   it("encodes the versioned PWNT mapping and carrier", () => {
     const config = buildTrainerPwanConfig([makeOverride(17), makeOverride(94)], 188);
@@ -204,9 +207,9 @@ describe("trainerPwanAnimationModel", () => {
     expect(() => parseTrainerPwanArchive(archive)).toThrow(/truncated/u);
   });
 
-  it("appends one carrier without changing native graphics and removes it cleanly", async () => {
+  it.skipIf(!romFixtureExists(new URL("../../../cleanwhite2.nds", import.meta.url)))("appends one carrier without changing native graphics and removes it cleanly", async () => {
     const romUrl = new URL("../../../cleanwhite2.nds", import.meta.url);
-    if (!existsSync(romUrl)) return;
+
     const project = await loadProjectFromRomBytes(new Uint8Array(readFileSync(romUrl)), "cleanwhite2.nds", { selectedNarcs: ["trainer_sprites"] });
     const store = project.narcs.trainer_sprites!;
     const original = store.rawFiles.map((file) => file.slice());
@@ -234,9 +237,9 @@ describe("trainerPwanAnimationModel", () => {
     expect(store.rawFiles).toEqual(original);
   });
 
-  it("does not rematerialize unchanged Pokemon carriers during a trainer-only export", async () => {
+  it.skipIf(!romFixtureExists(new URL("../../../cleanwhite2.nds", import.meta.url)))("does not rematerialize unchanged Pokemon carriers during a trainer-only export", async () => {
     const romUrl = new URL("../../../cleanwhite2.nds", import.meta.url);
-    if (!existsSync(romUrl)) return;
+
     const project = await loadProjectFromRomBytes(new Uint8Array(readFileSync(romUrl)), "cleanwhite2.nds", { selectedNarcs: ["trainer_sprites"] });
     const missingMember = 1097 * 20;
     const sparsePokemonFiles = Array.from({ length: missingMember + 20 }, () => new Uint8Array());
@@ -276,10 +279,9 @@ describe("trainerPwanAnimationModel", () => {
     expect(parseTrainerPwanArchive(exportedArchive)).toMatchObject({ overrides: [{ graphicIndex: 17 }] });
   });
 
-  it("matches the trainer lifecycle hooks in clean White 2 and Black 2 and rejects a changed hook", async () => {
-    for (const [fileName, version] of [["cleanwhite2.nds", "W2"], ["cleanblack2.nds", "B2"]] as const) {
-      const romUrl = new URL(`../../../${fileName}`, import.meta.url);
-      if (!existsSync(romUrl)) continue;
+  for (const [fileName, version] of [["cleanwhite2.nds", "W2"], ["cleanblack2.nds", "B2"]] as const) {
+    const romUrl = new URL(`../../../${fileName}`, import.meta.url);
+    it.skipIf(!romFixtureExists(romUrl))(`matches lifecycle hooks in ${fileName} and rejects a changed hook`, async () => {
       const bytes = new Uint8Array(readFileSync(romUrl));
       const rom = new NintendoDSRom(bytes);
       const project = {
@@ -294,12 +296,12 @@ describe("trainerPwanAnimationModel", () => {
       const hookAddress = version === "W2" ? 0x021e68d2 : 0x021e6892;
       project.overlays[168]![hookAddress - source.ramAddress] ^= 0xff;
       expect(detectTrainerPwanCompatibility(project).compatible).toBe(false);
-    }
-  });
+    });
+  }
 
-  it("installs and removes the standalone trainer DLL without staging Pokémon PWAN modules", async () => {
+  it.skipIf(!romFixtureExists(new URL("../../../cleanwhite2.nds", import.meta.url)))("installs and removes the standalone trainer DLL without staging Pokémon PWAN modules", async () => {
     const romUrl = new URL("../../../cleanwhite2.nds", import.meta.url);
-    if (!existsSync(romUrl)) return;
+
     const project = await loadProjectFromRomBytes(new Uint8Array(readFileSync(romUrl)), "cleanwhite2.nds", { selectedNarcs: ["trainer_sprites"] });
     project.codeInjection = { pmc: { overlayId: 344, overlayPath: "overlay/overlay_0344.bin" } };
     vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {

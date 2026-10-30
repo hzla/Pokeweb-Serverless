@@ -15,12 +15,18 @@ import { createProjectDocument } from "../src/pokeweb/projectDocument";
 import { openProjectSession } from "../src/pokeweb/projectSession";
 import { createNarcStore, type ProjectState } from "../src/pokeweb/projectStore";
 import { updateRpmCodeImageForBase } from "../src/pokeweb/rpm";
+import { detectSpecifyTrainerNaturesPatch } from "../src/pokeweb/romPatchModel";
 
 const path = process.argv[2], evidenceDir = process.argv[3];
 if (!path) throw new Error("Usage: vite-node scripts/verify-item-effects.ts ROM.nds [evidence-directory]");
 const input = new Uint8Array(await readFile(path));
 const hash = (data: Uint8Array) => createHash("sha256").update(data).digest("hex");
 const inputHash = hash(input);
+globalThis.fetch = (async (request: RequestInfo | URL) => {
+  const url = new URL(request instanceof Request ? request.url : String(request));
+  if (url.protocol !== "file:") throw new Error("Only local bundled assets are permitted.");
+  return new Response(new Uint8Array(await readFile(url)));
+}) as typeof fetch;
 function load(bytes: Uint8Array): ProjectState {
   const rom = new NintendoDSRom(bytes, { fileData: "view" });
   assert.ok(["IRDO", "IREO"].includes(rom.idCode));
@@ -37,6 +43,7 @@ function load(bytes: Uint8Array): ProjectState {
   return project;
 }
 const project = load(input);
+const trainerNatureMigrated = detectSpecifyTrainerNaturesPatch(project) === "legacy";
 const original = project.overlays[167]!.slice();
 const inspected = profiles.rows.map(row => inspectItemEffect(project, row.id));
 for (const id of [220, 234, 238, 281]) assert.equal(inspectItemEffect(project, id).editable, true, `Required handler ${id} must be recognized`);
@@ -73,6 +80,7 @@ hydrateItemEffectsSource(restored, new NintendoDSRom(input, { fileData: "view" }
 assert.equal(inspectItemEffect(restored, 238).typeHealing, 5);
 const typedBytes = await exportModifiedRom(restored, { forDsi: false });
 const typed = load(typedBytes);
+if (trainerNatureMigrated) assert.equal(detectSpecifyTrainerNaturesPatch(typed), "patched");
 assert.equal(inspectItemEffect(typed, 238).typeHealing, 5);
 assert.equal(getItemRecord(typed, 238).raw.gain_values, 16);
 assert.equal(inspectItemEffect(typed, 220).controls[0].value, 1.75);
@@ -101,7 +109,7 @@ for (const [id, profileId] of [[234, 234], [220, 220], [281, 281]]) {
 }
 const report = { game: rom.idCode, inputSha256: inputHash, overlayBase: base, recognizedSlots: inspected.filter(state => state.editable).length, unavailable,
   directChangedBytes: directDiff.length, assignmentExportReload: true, parametersExportReload: true,
-  typedHealingExportReload: true, typedHealingRemovalExportReload: true, inputUnchanged: true,
+  typedHealingExportReload: true, typedHealingRemovalExportReload: true, trainerNatureMigrated, inputUnchanged: true,
   native: { base, calls, leftovers: inspectItemEffect(direct, 234).events[1].address, choiceBand: inspectItemEffect(direct, 220).events[2].address,
     typeHealing: nativeModule.baseAddress + 32 + 20 + 1, factory: nativeModule.baseAddress + 32 + 1, moduleBase: nativeModule.baseAddress + 32 } };
 if (evidenceDir) {

@@ -689,7 +689,7 @@ opcode,name,decision,reason
 0x2AF,GameGetDifficulty,allow-added,save-state
 0x2B0,CallUnovaLinkKeyUnlock,defer-field-lifecycle,Starts or configures a field transition or separate scene; recall-free lifetime is not established.
 0x2B1,CMD_2B1,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
-0x2B2,CMD_2B2,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2B2,s02B2_MemoryLinkCheckFlag,allow-read-only-state,US handler reads Memory Link flag and writes a script result; no event child or actor mutation
 0x2B3,CMD_2B3,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
 0x2B4,CMD_2B4,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
 0x2B5,CMD_2B5,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit

@@ -30,6 +30,7 @@ extern uint32_t DayCareSave_GetPkmStatus(void *save, uint32_t slot);
 extern void *DayCareSave_GetPkm(void *save, uint32_t slot);
 extern uint32_t DayCareSave_GetPkmStepCounter(void *save, uint32_t slot);
 extern uint32_t DayCare_CalcNewExp(uint32_t exp, uint32_t steps);
+extern const volatile uint32_t LevelCaps_CandyItemId;
 
 enum {
     PKM_FIELD_SPECIES = 0x05,
@@ -69,11 +70,11 @@ uint32_t LevelCaps_ApplyBattleExp(uint32_t exp, const BattleMonHead *mon, uint32
     return result < room ? result : room;
 }
 
-// PW2Code makes Infinite Candy (622) respect the cap, while regular Rare Candy
+// Infinite Candy respects the cap, while regular Rare Candy
 // (50) remains usable up to level 100. The retail item eligibility logic runs
-// unchanged for every other item and for item 622 below the cap.
+// unchanged for every other item and for the selected item below the cap.
 uint32_t LevelCaps_DenyInfiniteCandy(void *pkm, uint32_t item_id) {
-    return item_id == 622 && PokeParty_GetParam(pkm, PKM_FIELD_LEVEL, 0) >= get_cap();
+    return item_id == LevelCaps_CandyItemId && PokeParty_GetParam(pkm, PKM_FIELD_LEVEL, 0) >= get_cap();
 }
 
 void THUMB_BRANCH_LINK_DayCare_RemovePkm_0x28(void *pkm, uint32_t steps) {

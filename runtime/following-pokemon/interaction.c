@@ -81,13 +81,17 @@ void fwt_cancel(void){
 }
 void fwt_unload(void){fwt_cancel();loaded=0;data=(FwrData){0};context=(FwrContext){0};items=(FwrItems){0};emotesValid=0;}
 static int abs32(int x){return x<0?-x:x;}
-int fwt_reach(FwFollower *f,Actor *p,Actor *a,void *field){
+static int reach_actual(FwFollower *f,Actor *p,Actor *a,void *field){
  if(!f||f->state!=FW_FOLLOWING||!p||!a||(a->flags&4)||fwfx_busy()||p->face>3||f->trail.count<2)return 0;
  int gap=f->directional_gap[p->face];if(gap>(int)FW_MAX_DIRECTIONAL_GAP)return 0;
  int x=a->world.x-p->world.x,z=a->world.z-p->world.z,y=a->world.y-(p->world.y+p->drawOffset.y+p->externalOffset.y);
+#ifdef FW_NATIVE_BEHAVIOR
+ if(abs32(x)>(int)FW_DIALOGUE_REACH(gap)||abs32(z)>(int)FW_DIALOGUE_REACH(gap)||abs32(y)>8*4096)return 0;
+#else
  if(abs32(x)>(int)(p->face>=2?FW_DIALOGUE_REACH(gap):FW_DIALOGUE_REACH(0))||
     abs32(z)>(int)(p->face<2?FW_DIALOGUE_REACH(gap):FW_DIALOGUE_REACH(0))||
     abs32(y)>8*4096)return 0;
+#endif
  unsigned controller=CALL(0x02180579,unsigned(*)(void*))(field);
  int vx=p->face==2?-256:p->face==3?256:0,vz=p->face==0?-256:p->face==1?256:0;
  if(controller){
@@ -110,7 +114,12 @@ int fwt_reach(FwFollower *f,Actor *p,Actor *a,void *field){
  for(unsigned i=0;i<f->trail.count;++i){const FwSample *s=&f->trail.samples[(f->trail.head+i)%FW_TRAIL_CAPACITY];
   if(s->generation!=f->generation||abs32(s->y-a->world.y)>8*4096)return 0;
   int dx=(s->x-p->world.x)/256,dz=(s->z-p->world.z)/256;
-  if(abs32(dx)>512||abs32(dz)>512||abs32(dx*vz-dz*vx)>(int)((unsigned)length/2))return 0;
+#ifdef FW_NATIVE_BEHAVIOR
+  int sampleBound=(int)(FW_DIALOGUE_REACH(gap)+FW_TILE/2)/256;
+#else
+  int sampleBound=512;
+#endif
+  if(abs32(dx)>sampleBound||abs32(dz)>sampleBound||abs32(dx*vz-dz*vx)>(int)((unsigned)length/2))return 0;
  }
  if(!controller){
   int16_t gx,gy,gz;CALL(0x0219aacd,void(*)(void*,void*,void*,void*))(PTR(field,0x94),&gx,&gy,&gz);
@@ -124,6 +133,21 @@ int fwt_reach(FwFollower *f,Actor *p,Actor *a,void *field){
   if(CALL(0x0215e4f1,unsigned(*)(Actor*,unsigned))(p,p->face))return 0;
  }
  return 1;
+}
+int fwt_reach(FwFollower *f,Actor *p,Actor *a,void *field){
+ if(reach_actual(f,p,a,field))return 1;
+#ifdef FW_NATIVE_BEHAVIOR
+ if(!f||!p||!a||p->face>3)return 0;
+ Actor probe=*a;
+ FwPoint pose={a->world.x,a->world.y,a->world.z};
+ FwPoint player={p->world.x,p->world.y+p->drawOffset.y+p->externalOffset.y,p->world.z};
+ FwPoint art={a->drawOffset.x+a->externalOffset.x,a->drawOffset.y+a->externalOffset.y,a->drawOffset.z+a->externalOffset.z};
+ if(!fw_clamp_dialogue_pose(&pose,&player,&art,p->face,f->directional_gap[p->face]))return 0;
+ probe.world=(Vec){pose.x,pose.y,pose.z};probe.grid[0]=(int16_t)fw_tile(pose.x);probe.grid[2]=(int16_t)fw_tile(pose.z);
+ return reach_actual(f,p,&probe,field);
+#else
+ return 0;
+#endif
 }
 static void cry(void){
  if(!talk.cryPending)return;

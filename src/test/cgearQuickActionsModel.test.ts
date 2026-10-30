@@ -1,3 +1,4 @@
+import { deepStrictEqual } from "node:assert";
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import manifest from "../assets/codeinjection/cgearQuickActionsManifest.json";
@@ -93,17 +94,17 @@ describe("White 2 Redux C-Gear adapter", () => {
     expect(dll).toEqual(new Uint8Array(readFileSync(new URL("../assets/codeinjection/CGearQuickActionsReduxW2.dll", import.meta.url))));
     expect(parseRpm(dll, { allowedMagics: ["DLXF"] }).relocations.some(r => r.target.module === "36" && [0x21824bc, 0x21a0b2c].includes(r.target.address))).toBe(false);
     const exported = new NintendoDSRom(await exportModifiedRom(p));
-    expect(exported.getFileByName("patches/ToggleRepel.dll")).toEqual(repel);
+    deepStrictEqual(exported.getFileByName("patches/ToggleRepel.dll"), repel);
     expect(exported.loadArm9Overlays([36]).get(36)!.data).toEqual(beforeCode);
-    expect(exported.getFileByName(redux.pcScript.archive)).toEqual(beforeScripts);
+    deepStrictEqual(exported.getFileByName(redux.pcScript.archive), beforeScripts);
     const reopened = makeProject("W2", exported.data);
     expect(getCGearQuickActionsStatus(reopened)).toMatchObject({ compatible: true, installed: true, enabled: true, updateAvailable: false, romProfile: "redux" });
     await installCGearQuickActions(reopened);
     expect(reopened.fileSystem?.additions?.["patches/CGearQuickActionsW2.dll"]).toBeUndefined();
     disableCGearQuickActions(p); expect(getCGearQuickActionsStatus(p).enabled).toBe(false);
-    expect(p.fileSystem!.additions!["patches/ToggleRepel.dll"]).toEqual(repel);
+    deepStrictEqual(p.fileSystem!.additions!["patches/ToggleRepel.dll"], repel);
     await installCGearQuickActions(p); removeCGearQuickActions(p);
-    expect(p.fileSystem!.additions!["patches/ToggleRepel.dll"]).toEqual(repel);
+    deepStrictEqual(p.fileSystem!.additions!["patches/ToggleRepel.dll"], repel);
     expect(getCGearQuickActionsStatus(p)).toMatchObject({ installed: false, compatible: true, romProfile: "redux" });
   });
   it("accepts the audited repel implementation by content and rejects changed instructions, imports and duplicate owners", async () => {
@@ -147,12 +148,15 @@ function legacyControls(arc:NARC){
   writeU32(arc.files[0],24,fingerprint(new Uint8Array(arc.files.slice(1,12).flatMap(b=>Array.from(b)))));
 }
 describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
-  it.each(['0.5.4','0.5.5','0.5.6'])('upgrades %s and preserves an optional System Shop through apply, export, disable and re-enable',async previousVersion=>{
+  // 0.5.5/0.5.6 share the System Shop hook layout; 0.5.4 predates it.
+  it.each([['0.5.4'],['0.5.5','0.5.6']].map(versions=>({versions})))('upgrades $versions and preserves an optional System Shop through apply, export, disable and re-enable',async ({versions})=>{
     const p=makeProject(v);assets();await installCGearQuickActions(p);
     const path=`patches/CGearQuickActions${v}.dll`;
-    p.fileSystem!.additions![path]=new Uint8Array(readFileSync(new URL(`./fixtures/cgear-quick-actions-v${previousVersion}/CGearQuickActions${v}.dll`,import.meta.url)));
-    if(previousVersion==='0.5.5'||previousVersion==='0.5.6')p.fileSystem!.additions![SHOP_ARCHIVE]=new Uint8Array(readFileSync(new URL('./fixtures/cgear-quick-actions-v0.5.5/shops.narc',import.meta.url)));
-    expect(getCGearQuickActionsStatus(p)).toMatchObject({installed:true,compatible:true,updateAvailable:true});
+    for(const previousVersion of versions){
+      p.fileSystem!.additions![path]=new Uint8Array(readFileSync(new URL(`./fixtures/cgear-quick-actions-v${previousVersion}/CGearQuickActions${v}.dll`,import.meta.url)));
+      if(previousVersion!=='0.5.4')p.fileSystem!.additions![SHOP_ARCHIVE]=new Uint8Array(readFileSync(new URL('./fixtures/cgear-quick-actions-v0.5.5/shops.narc',import.meta.url)));
+      expect(getCGearQuickActionsStatus(p),previousVersion).toMatchObject({installed:true,compatible:true,updateAvailable:true});
+    }
     const d=ensureCGearButtons(p).document,b=newButton(d,"systemShop");b.flag={id:42,when:"clear"};d.buttons.push(b);
     expect(d.buttons).toHaveLength(7);await installCGearQuickActions(p);
     expect(getCGearQuickActionsStatus(p)).toMatchObject({compatible:true,updateAvailable:false});
@@ -178,11 +182,11 @@ describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
     await installCGearQuickActions(reopened);
     hydrateSystemShops(reopened,rom);
     expect(reopened.systemShops).toEqual(p.systemShops);
-    expect(recoverShops(rom.files[rom.fileId(SHOP_ARCHIVE)]).applied).toEqual(applied);
+    deepStrictEqual(recoverShops(rom.files[rom.fileId(SHOP_ARCHIVE)]).applied, applied);
     const before={fs:structuredClone(p.fileSystem),arm:p.arm9.slice(),applied:structuredClone(p.systemShops!.applied)};
     p.systemShops!.document.shops[0].currency=450;
     await expect(installCGearQuickActions(p,{applySystemShops:true})).rejects.toThrow(/stackable/);
-    expect(p.fileSystem).toEqual(before.fs);expect(p.arm9).toEqual(before.arm);expect(p.systemShops!.applied).toEqual(before.applied);
+    deepStrictEqual(p.fileSystem, before.fs);deepStrictEqual(p.arm9, before.arm);expect(p.systemShops!.applied).toEqual(before.applied);
     p.systemShops!.document.shops[0].currency=93;
     await installCGearQuickActions(p,{applySystemShops:true});
     expect(p.systemShops!.applied!.shops[0].inventory[0].cost).toBe(25);
@@ -192,7 +196,7 @@ describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
     expect(getCGearQuickActionsStatus(p).compatible).toBe(false);
     const damaged=archive.slice();
     await expect(installCGearQuickActions(p)).rejects.toThrow();
-    expect(p.fileSystem!.additions![SHOP_ARCHIVE]).toEqual(damaged);
+    deepStrictEqual(p.fileSystem!.additions![SHOP_ARCHIVE], damaged);
   });
   it('accepts authored general-store stock and prices without replacing them',async()=>{
     const p=makeProject(v);assets();const r=new NintendoDSRom(p.originalRomBytes!);
@@ -203,7 +207,7 @@ describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
     const before=structuredClone(p.fileSystem.replacements);
     const d=ensureCGearButtons(p).document;d.buttons.push(newButton(d,'systemShop'));
     await installCGearQuickActions(p);
-    for(const id of [stockId,itemsId])expect(p.fileSystem!.replacements[id]).toEqual(before[id]);
+    for(const id of [stockId,itemsId])deepStrictEqual(p.fileSystem!.replacements[id], before[id]);
   });
   it.each(['script','counts','item','native'] as const)('rejects incompatible shop %s atomically',async(kind)=>{
     const p=makeProject(v);assets();await installCGearQuickActions(p);
@@ -218,7 +222,7 @@ describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
     }
     const before={fs:structuredClone(p.fileSystem),applied:structuredClone(p.cgearButtons!.applied),arm:p.arm9.slice()};
     await expect(installCGearQuickActions(p)).rejects.toThrow();
-    expect(p.fileSystem).toEqual(before.fs);expect(p.cgearButtons!.applied).toEqual(before.applied);expect(p.arm9).toEqual(before.arm);
+    deepStrictEqual(p.fileSystem, before.fs);expect(p.cgearButtons!.applied).toEqual(before.applied);deepStrictEqual(p.arm9, before.arm);
   });
   it('upgrades 0.3.6 graphics and shares mute without changing music mappings or shortcut preference',async()=>{
     const p=makeProject(v);assets();await installCGearQuickActions(p);
@@ -239,7 +243,7 @@ describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
     expect(getCGearQuickActionsStatus(p)).toMatchObject({compatible:true,updateAvailable:false});
     expect(canRemoveStagedCodeInjectionDll(p,`patches/BgmToggle${v}.dll`)).toBe(false);
     expect(()=>removeStagedCodeInjectionDll(p,`patches/BgmToggle${v}.dll`)).toThrow(/shared music runtime/);
-    disableCGearQuickActions(p);expect(p.fileSystem!.additions![`patches/BgmToggle${v}.dll`]).toEqual(music);
+    disableCGearQuickActions(p);deepStrictEqual(p.fileSystem!.additions![`patches/BgmToggle${v}.dll`], music);
   });
   it('updates the previous runtime and persists an authored Pokéradar button through export',async()=>{
     const p=makeProject(v);assets();await installCGearQuickActions(p);
@@ -262,7 +266,7 @@ describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
     p.overlays[36]=overlay.data.slice();p.overlays[36]![signature.address-overlay.ramAddress]^=1;
     const before=structuredClone(p.fileSystem);
     expect(getCGearQuickActionsStatus(p).compatible).toBe(false);
-    await expect(installCGearQuickActions(p)).rejects.toThrow();expect(p.fileSystem).toEqual(before);
+    await expect(installCGearQuickActions(p)).rejects.toThrow();deepStrictEqual(p.fileSystem, before);
     delete p.overlays[36];
     const own=p.fileSystem!.additions![`patches/CGearQuickActions${v}.dll`],other=parseRpm(own,{allowedMagics:['DLXF']});
     other.relocations=other.relocations.filter(r=>r.target.module==='36'&&r.target.address===signature.address);
@@ -295,7 +299,7 @@ describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
     await installCGearQuickActions(p);expect(p.cgearButtons!.document).toEqual(doc);
     const updated=new NARC(p.fileSystem!.replacements[id]);expect(updated.files[16]).not.toEqual(old.files[0]);
     disableCGearQuickActions(p);const restored=new NARC(p.fileSystem!.replacements[id]);
-    expect(restored.files[16]).toEqual(backup.files[0]);expect(restored.files[17]).toEqual(backup.files[1]);
+    deepStrictEqual(restored.files[16], backup.files[0]);deepStrictEqual(restored.files[17], backup.files[1]);
   });
   it('rejects an unknown PC script atomically and allows a design without PC',async()=>{
     const p=makeProject(v);assets();await installCGearQuickActions(p);
@@ -303,7 +307,7 @@ describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
     arc.files[manifest.pcScript.member][30]^=1;p.fileSystem!.replacements[id]=arc.save();
     const before=structuredClone(p.fileSystem),applied=structuredClone(p.cgearButtons!.applied);
     await expect(installCGearQuickActions(p)).rejects.toThrow(/PC storage script.*unrecognized/);
-    expect(p.fileSystem).toEqual(before);expect(p.cgearButtons!.applied).toEqual(applied);
+    deepStrictEqual(p.fileSystem, before);expect(p.cgearButtons!.applied).toEqual(applied);
     p.cgearButtons!.document.buttons=p.cgearButtons!.document.buttons.filter(b=>b.action!=="pc");
     await installCGearQuickActions(p);expect(getCGearQuickActionsStatus(p).enabled).toBe(true);
   });
@@ -317,7 +321,7 @@ describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
     const before=structuredClone(reopened.fileSystem);
     for(const flag of [0,3060,0x4000,1.5,NaN]) {
       await expect(installCGearQuickActions(reopened,{pcHideFlag:flag})).rejects.toThrow(/saved flag/u);
-      expect(reopened.fileSystem).toEqual(before);
+      deepStrictEqual(reopened.fileSystem, before);
     }
   });
   it("recovers eight buttons and separates unapplied drafts from working ROM data",async()=>{
@@ -326,7 +330,7 @@ describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
     await installCGearQuickActions(p);p.cgearButtons!.document.buttons[0].label="TOOLONGTOWORK";
     const applied=structuredClone(p.cgearButtons!.applied),before=structuredClone(p.fileSystem);
     await expect(installCGearQuickActions(p)).rejects.toThrow(/28 foreground/);
-    expect(p.fileSystem).toEqual(before);expect(p.cgearButtons!.applied).toEqual(applied);
+    deepStrictEqual(p.fileSystem, before);expect(p.cgearButtons!.applied).toEqual(applied);
     const reopened=makeProject(v,await exportModifiedRom(p));expect(getCGearQuickActionsStatus(reopened).compatible).toBe(true);
     expect(reopened.cgearButtons!.document.buttons[0].label).toBe("TOOLONGTOWORK");expect(reopened.cgearButtons!.applied).toEqual(applied);
     expect(hasUnappliedButtons(reopened)).toBe(true);
@@ -367,7 +371,7 @@ describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
     const before = structuredClone({arm:p.arm9,files:p.fileSystem,modules:p.codeInjection,changes:p.actionChangelog});
     vi.stubGlobal("fetch",vi.fn(async()=>new Response(new Uint8Array([1,2]))));
     await expect(installCGearQuickActions(p)).rejects.toThrow(`${manifest.games[v].fileName} does not match version ${manifest.version}`);
-    expect({arm:p.arm9,files:p.fileSystem,modules:p.codeInjection,changes:p.actionChangelog}).toEqual(before);
+    deepStrictEqual({arm:p.arm9,files:p.fileSystem,modules:p.codeInjection,changes:p.actionChangelog}, before);
   });
   it("rejects modified native code with its exact location", async () => {
     const p = makeProject(v), s=manifest.games[v].signatures.find(s=>s.module==="ARM9")!;
@@ -400,18 +404,18 @@ describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
     p.fileSystem.replacements[id]=installed.save();await installCGearQuickActions(p);
     disableCGearQuickActions(p);
     const restored=new NARC(p.fileSystem.replacements[id]);
-    expect(restored.files[16]).toEqual(original[16]);expect(restored.files[17]).toEqual(original[17]);
-    for(let i=0;i<native.files.length;i++)if(i!==16&&i!==17)expect(restored.files[i]).toEqual(installed.files[i]);
+    deepStrictEqual(restored.files[16], original[16]);deepStrictEqual(restored.files[17], original[17]);
+    for(let i=0;i<native.files.length;i++)if(i!==16&&i!==17)deepStrictEqual(restored.files[i], installed.files[i]);
     await installCGearQuickActions(p);removeCGearQuickActions(p);
     const removed=new NARC(p.fileSystem.replacements[id]);
-    expect(removed.files[16]).toEqual(original[16]);expect(removed.files[17]).toEqual(original[17]);
-    expect(removed.files[4]).toEqual(installed.files[4]);
+    deepStrictEqual(removed.files[16], original[16]);deepStrictEqual(removed.files[17], original[17]);
+    deepStrictEqual(removed.files[4], installed.files[4]);
   });
   it("rejects an unknown edit to owned sprite data without replacing it",async()=>{
     const p=makeProject(v),r=new NintendoDSRom(p.originalRomBytes!),id=r.fileId("a/2/8/7");assets();await installCGearQuickActions(p);
     const native=new NARC(p.fileSystem!.replacements[id]);native.files[16][12]^=1;
     p.fileSystem!.replacements[id]=native.save();const before=structuredClone(p.fileSystem);
     await expect(installCGearQuickActions(p)).rejects.toThrow(/graphics changed after installation/u);
-    expect(p.fileSystem).toEqual(before);
+    deepStrictEqual(p.fileSystem, before);
   });
 });

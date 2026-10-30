@@ -1,3 +1,4 @@
+import scoped from "../assets/data/abilityScopedBindings.json";
 import recipe from "../assets/data/abilityRecipeBindings.json";
 import native from "../assets/data/itemNativeBindings.json";
 import item from "../assets/data/itemRuleBindings.json";
@@ -16,7 +17,7 @@ type Signature = {
     }>;
     tails?: Array<{offset: number; target: string}>;
 };
-export const BATTLE_RUNTIME_SIGNATURES: Record<string, Signature> = { ...native.functions, ...item.functions, ...ability.functions,...recipe.functions,...client.functions };
+export const BATTLE_RUNTIME_SIGNATURES: Record<string, Signature> = { ...native.functions, ...item.functions, ...ability.functions,...recipe.functions,...client.functions,...scoped.functions };
 const hex = (s: string) => Uint8Array.from(s.match(/../gu) ?? [], v => Number.parseInt(v, 16));
 const patterns = new Map(Object.entries(BATTLE_RUNTIME_SIGNATURES).map(([name,s])=>[name,[s,...s.variants??[]].map(p=>({bytes:hex(p.hex),mask:hex(p.mask)}))]));
 export function battleBranchTarget(code: Uint8Array, at: number, base: number): number {

@@ -23,13 +23,28 @@ static void recipeEvent(void*f,u32 event,u8 owner,u32 item){
  RX(7,void(*)(u32))(0x501);RX(9,void(*)(u32,u32))(2,owner);RX(9,void(*)(u32,u32))(0x2d,item);
  RX(6,void(*)(void*,u32))(f,event);RX(8,void(*)(u32))(0x501);
 }
+#ifdef ABILITY_SCOPED
+static void scopedInit(void);
+static void scopedBefore(void*,u32);
+static void scopedAfter(void*,u32);
+static void scopedConsume(void*,u8,u32);
+#endif
 PUBLIC void AbilityRecipeInit(void){
+#ifdef ABILITY_SCOPED
+ scopedInit();
+#endif
  for(u32 n=0;n<32;++n)for(u32 k=0;k<8;++k)entryUsed[n][k]=0;
  recipeMove=recipeCritical=recipeEffectiveness=0;entrySource=31;RX(0,void(*)(void))();
 }
 PUBLIC void AbilityRecipeHandlers(void*f,u32 event,u32 factor,u32 check){
  u32 previous=entrySource;if(event==0x55||event==0x8a)entrySource=VALUE(2);
+#ifdef ABILITY_SCOPED
+ scopedBefore(f,event);
+#endif
  RX(22,void(*)(void*,u32,u32,u32))(f,event,factor,check);entrySource=previous;
+#ifdef ABILITY_SCOPED
+ scopedAfter(f,event);
+#endif
 }
 PUBLIC void AbilityRecipeMoveParam(void*f,u16 move,void*mon,void*param){
  u32 previous=recipeMove;recipeMove=move;RX(1,void(*)(void*,u16,void*,void*))(f,move,mon,param);recipeMove=previous;
@@ -46,6 +61,9 @@ PUBLIC u32 AbilityRecipeEffectiveness(void*f,void*a,void*t,void*param,u32 flag){
 }
 PUBLIC void AbilityRecipeChangeItem(void*f,void*mon,u16 item,u32 consume){
  u32 old=RX(18,u32(*)(void*))(mon);RX(4,void(*)(void*,void*,u16,u32))(f,mon,item,consume);
+#ifdef ABILITY_SCOPED
+ if(consume&&old&&!RX(18,u32(*)(void*))(mon))scopedConsume(f,FN(15,u32(*)(void*))(mon),old);
+#endif
  if(consume&&RX(14,u32(*)(u32))(old)&&!preview(f))recipeEvent(f,0xa6,FN(15,u32(*)(void*))(mon),old);
 }
 PUBLIC u32 AbilityRecipeForceItem(void*f,u8*param){

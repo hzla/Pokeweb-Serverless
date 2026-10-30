@@ -1,3 +1,5 @@
+import { getLevelCapsRuntime } from "./levelCapsRuntime";
+import { synchronizeLevelCapsForCandy } from "./levelCapsModel";
 import { loadOverlayTable } from "../nds/code";
 import { decompressCode } from "../nds/codeCompression";
 import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
@@ -110,8 +112,14 @@ export function getInfiniteCandyStatus(project: ProjectState, selectedItemId?: n
   if (installedItemId !== undefined && installedItemId !== itemId) {
     return { supported: true, compatible: false, installed, itemId, message: `Infinite Candy already uses item ${installedItemId}. Keep that ID when reinstalling.` };
   }
-  if (itemId !== 622 && modules.some(m => /^(?:HardLevelCaps|PartyQuickActions)(?:B2|W2)\.dll$/iu.test(m.fileName))) {
-    return { supported: true, compatible: false, installed, itemId, message: "The installed Hard Level Caps / Party Toolbar build requires Infinite Candy at item 622." };
+  if (itemId !== 622 && modules.some(m => /^PartyQuickActions(?:B2|W2)\.dll$/iu.test(m.fileName))) {
+    return { supported: true, compatible: false, installed, itemId, message: "The installed Party Toolbar build requires Infinite Candy at item 622." };
+  }
+  const capsModules = modules.filter(m => /^HardLevelCaps(?:B2|W2)\.dll$/iu.test(m.fileName));
+  if (capsModules.length > 1 || (capsModules.length && !getLevelCapsRuntime(project))) {
+    return { supported: true, compatible: false, installed, itemId, message: project.originalRomBytes
+      ? "The installed Hard Level Caps DLL is unrecognized or duplicated."
+      : "Reload the ROM to verify the installed Hard Level Caps DLL." };
   }
   if ((!project.narcs.items || !project.narcs.message_texts) && project.originalRomBytes) {
     project = { ...project, narcs: { ...project.narcs }, texts: structuredClone(project.texts) };
@@ -252,6 +260,7 @@ async function stageInfiniteCandy(project: ProjectState, selectedItemId?: number
     bytes = writeRpm(rpm, { ident: "DLXF" });
     if (!isOwnRuntime(parseRpm(bytes, { allowedMagics: ["DLXF"] }), version)) throw new Error("Infinite Candy configuration failed verification.");
   }
+  await synchronizeLevelCapsForCandy(project, itemId);
   if (!getPmcInstallStatus(project).installed) await installBundledPmc(project);
   const result = stageCodeInjectionDll(project, layout.fileName, bytes);
   const rom = new NintendoDSRom(project.originalRomBytes, { fileData: "view" });

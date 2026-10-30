@@ -61,9 +61,7 @@ import { getPokenavStatus, installPokenav, disablePokenav } from "../pokeweb/pok
 import { getNuzlockeEncountersStatus,installNuzlockeEncounters,disableNuzlockeEncounters } from "../pokeweb/nuzlockeEncountersModel";
 import { getLearnsetViewerStatus, installLearnsetViewer, uninstallLearnsetViewer } from "../pokeweb/learnsetViewerModel";
 import { getSummaryStatViewerStatus, installSummaryStatViewer, uninstallSummaryStatViewer, SUMMARY_STAT_VIEWER_VERSION } from "../pokeweb/summaryStatViewerModel";
-import { getSummaryTypeIconsStatus, installSummaryTypeIcons, uninstallSummaryTypeIcons, SUMMARY_TYPE_ICONS_VERSION } from "../pokeweb/summaryTypeIconsModel";
 import { getSaveMenuSettings, getSaveMenuStatus, installSaveMenu, SAVE_MENU_VERSION, SAVE_MENU_VERSION_LABEL_MAX_LENGTH, type SaveMenuSettings } from "../pokeweb/saveMenuModel";
-import { canUseLocalRomBridge } from "../pokeweb/localRomBridge";
 import { getInfiniteCandyStatus, getInstalledInfiniteCandyItemId, installInfiniteCandy } from "../pokeweb/infiniteCandyModel";
 import { getLevelCapsStatus, installLevelCaps } from "../pokeweb/levelCapsModel";
 import { TESTING_PATCHES, getTestingPatchStatus, installTestingPatch, uninstallTestingPatch, type TestingPatchId } from "../pokeweb/testingPatchesModel";
@@ -80,7 +78,34 @@ import { escapeHtml } from "./dom";
 
 const codeInjectionHydrationProjects = new WeakSet<ProjectState>();
 const typeIconSolidPreview = new URL("../assets/codeinjection/type-icons-solid-preview.png", import.meta.url).href;
-const summaryTypeIconsPreview = new URL("../assets/codeinjection/summary-type-icons-preview.png", import.meta.url).href;
+const patchShowcases = {
+  summary: [
+    [new URL("../assets/codeinjection/showcase/summary-ivs.png", import.meta.url).href, "White 2 Summary IVs with the six stored individual values", 256, 132],
+    [new URL("../assets/codeinjection/showcase/summary-evs.png", import.meta.url).href, "White 2 Summary EVs with the six stored effort values", 256, 132],
+  ],
+  party: [
+    [new URL("../assets/codeinjection/showcase/enhanced-menu.png", import.meta.url).href, "White 2 party commands including EVOLVE and RELEARN", 104, 170],
+    [new URL("../assets/codeinjection/showcase/party-toolbar.png", import.meta.url).href, "Party Toolbar leveling confirmation and HP, experience, healing, and status controls", 256, 77],
+  ],
+  learnset: [
+    [new URL("../assets/codeinjection/showcase/learnset-info.png", import.meta.url).href, "Learnset Viewer base stats, abilities, evolution family, and evolution requirement", 256, 142],
+    [new URL("../assets/codeinjection/showcase/learnset-moves.png", import.meta.url).href, "Learnset Viewer move types, learn levels, and maximum PP", 256, 102],
+  ],
+  moves: [
+    [new URL("../assets/codeinjection/showcase/move-effectiveness.png", import.meta.url).href, "Move names colored for super-effective, resisted, immune, and neutral attacks against Gyarados", 256, 94],
+  ],
+  pokenav: [
+    [new URL("../assets/codeinjection/showcase/pokenav-info.png", import.meta.url).href, "Pokenav species stats, abilities, and Patrat's combined 50% encounter chance", 250, 133],
+    [new URL("../assets/codeinjection/showcase/pokenav-encounters.png", import.meta.url).href, "Pokenav encounter method tabs and Route 19's native Grass encounters", 250, 139],
+  ],
+} as const;
+
+function renderPatchShowcase(kind: keyof typeof patchShowcases): string {
+  return `<div class="code-injection-showcase">${patchShowcases[kind].map(([src, alt, width, height]) =>
+    `<img src="${src}" alt="${escapeHtml(alt)}" width="${width}" height="${height}" loading="lazy" decoding="async">`,
+  ).join("")}</div>`;
+}
+
 const codeInjectionTabs = [
   { id: "infrastructure", label: "Infrastructure and Dependencies" },
   { id: "graphics", label: "Graphical/UI Enhancements" },
@@ -138,7 +163,6 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const pokenavStatus = getPokenavStatus(project);
   const nuzlockeStatus = getNuzlockeEncountersStatus(project);
   const summaryStatStatus = getSummaryStatViewerStatus(project);
-  const summaryTypeStatus = canUseLocalRomBridge() ? getSummaryTypeIconsStatus(project) : undefined;
   const saveMenuStatus = getSaveMenuStatus(project);
   const saveMenuSettings = getSaveMenuSettings(project);
   const standaloneSongs = getStandaloneStreamConfigs(project);
@@ -188,6 +212,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div><h2>${card.title}</h2><p>${card.description}</p></div>
             ${renderInlineStatus(card.status.legacyCombined ? "Combined Patch Present" : card.status.updateAvailable ? "Update Available" : card.status.installed ? "Installed" : card.status.compatible ? "Ready" : card.status.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}
           </div>
+          ${card.id === "move-effectiveness" ? renderPatchShowcase("moves") : ""}
           <div class="code-injection-facts">
             <div><span>ROM</span><strong>English Black 2 / White 2</strong></div>
             <div><span>Dependency</span><strong>PMC only</strong></div>
@@ -280,7 +305,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-panel__header">
             <div>
               <h2>PWAN GIF Support</h2>
-              <p>Installs PMC and the bundled PWAN runtime needed for Pokemon-scoped GIF imports.</p>
+              <p>Allows for importing Pokemon sprite animations as gifs</p>
             </div>
             ${renderInlineStatus(pwanRuntimeInstalled ? "Installed" : pwanLegacyInstalled ? "Upgrade" : pwanCanInstall ? "Ready" : pwanCompatibility.supportedBase ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}
           </div>
@@ -306,7 +331,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-panel__header">
             <div>
               <h2>Trainer PWAN GIF Support</h2>
-              <p>Installs the independent battle-intro runtime used by PWAN GIFs in the Trainer Class Sprite Editor.</p>
+              <p>Allows for importing trainer sprite animations as gifs</p>
             </div>
             ${renderInlineStatus(trainerPwanInstalled ? "Installed" : trainerPwanCanInstall ? "Ready" : trainerPwanStatus.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}
           </div>
@@ -329,7 +354,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-panel__header">
             <div>
               <h2>Overworld Weather Runtime</h2>
-              <p>Installs a resident 64-entry field-weather dispatcher and a data-driven registry so IDs 15–63 can clone stock behavior without per-effect code patches.</p>
+              <p>Expands the weather table to 64 entries</p>
             </div>
             ${renderInlineStatus(weatherRuntimeInstalled ? "Installed" : weatherRuntimeSupported ? "Ready" : "Unsupported", { className: "code-injection-status" })}
           </div>
@@ -352,7 +377,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-panel__header">
             <div>
               <h2>Trainer Battle Log</h2>
-              <p>Records trainer-battle teams and KO attribution. Installing overwrites Pal Pad/Wi-Fi data in save blocks 29–31. Updating cannot repair previously damaged records.</p>
+              <p>Allows for recording of trainer battle history and per-pokemon ko counts. Repurposes save blocks 29-31 (Palpad/Wifi) and edits pokemon struct data. Will break PKHex compatability.</p>
             </div>
             ${renderInlineStatus(battleLogStatus.updateAvailable
                   ? "Update Available"
@@ -394,8 +419,9 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         <section class="code-injection-panel" ${patchVisibility(summaryStatStatus.supported)}>
           <div class="code-injection-panel__header"><div>
             <h2>Summary IV/EV Viewer</h2>
-            <p>View stored IVs and optional EVs in the native Pokémon Summary using Left/Right or the bar-chart tab. The normal HP bar and other Summary controls are preserved.</p>
+            <p>View IVs and optionaly EVs on the summary screen.</p>
           </div>${renderInlineStatus(summaryStatStatus.updateAvailable ? "Update Available" : summaryStatStatus.installed ? "Installed" : summaryStatStatus.compatible ? "Ready" : summaryStatStatus.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}</div>
+          ${renderPatchShowcase("summary")}
           <div class="code-injection-facts"><div><span>ROM</span><strong>English US Black 2 / White 2</strong></div><div><span>Version</span><strong>${SUMMARY_STAT_VIEWER_VERSION}</strong></div></div>
           <p>${escapeHtml(summaryStatStatus.message)}</p>
           <label><input type="checkbox" id="summary-stat-evs" ${summaryStatStatus.options.includeEvs ? "checked" : ""} ${summaryStatStatus.compatible ? "" : "disabled"}> Include EV view</label>
@@ -406,20 +432,6 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div class="code-injection-note" id="summary-stat-note" aria-live="polite"></div>
           </div>
         </section>
-        ${summaryTypeStatus ? `<section class="code-injection-panel" ${patchVisibility(summaryTypeStatus.supported)}>
-          <div class="code-injection-panel__header"><div>
-            <h2>Summary Type Icons</h2>
-            <p>Decorated badges for the 17 original BW2 types on the information page only. Places Type first, Name second, and Dex No. third. Other screens retain their original icons.</p>
-          </div>${renderInlineStatus(summaryTypeStatus.installed ? "Installed" : summaryTypeStatus.compatible ? "Ready" : summaryTypeStatus.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}</div>
-          <div class="code-injection-facts"><div><span>ROM</span><strong>English US Black 2 / White 2</strong></div><div><span>Version</span><strong>${SUMMARY_TYPE_ICONS_VERSION}</strong></div></div>
-          <img src="${summaryTypeIconsPreview}" alt="Decorated type icons in native BW2 colors" style="max-width:100%;image-rendering:pixelated" />
-          <p>${escapeHtml(summaryTypeStatus.message)}</p>
-          <div class="code-injection-actions">
-            <button class="btn -primary" id="install-summary-types-btn" type="button" ${summaryTypeStatus.compatible ? "" : "disabled"}>${summaryTypeStatus.installed ? "Reinstall Summary Type Icons" : "Install Summary Type Icons"}</button>
-            <button class="btn -default" id="uninstall-summary-types-btn" type="button" ${summaryTypeStatus.canUninstall ? "" : "disabled"}>Remove</button>
-            <div class="code-injection-note" id="summary-types-note" aria-live="polite"></div>
-          </div>
-        </section>` : ""}
         <section class="code-injection-panel" ${patchVisibility(menuEvolutionStatus.supported)}>
           <div class="code-injection-panel__header">
             <div>
@@ -436,6 +448,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
                         ? "Ready"
                         : "Incompatible", { className: "code-injection-status" })}
           </div>
+          ${renderPatchShowcase("party")}
           <div class="code-injection-facts">
             <div><span>ROM</span><strong>US ${escapeHtml(menuEvolutionDisplayName(project.session.baseVersion) ?? project.session.baseVersion)}</strong></div>
             <div><span>Methods</span><strong>Level, KOs, Battles, Used</strong></div>
@@ -482,6 +495,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             </div>
             ${renderInlineStatus(learnsetStatus.partial ? "Incomplete" : learnsetStatus.updateAvailable ? "Update Available" : learnsetStatus.installed ? "Installed" : learnsetStatus.compatible ? "Ready" : learnsetStatus.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}
           </div>
+          ${renderPatchShowcase("learnset")}
           <div class="code-injection-facts">
             <div><span>ROM</span><strong>US W2 / B2 · vanilla or Upgrade</strong></div>
             <div><span>Dependency</span><strong>PMC only</strong></div>
@@ -498,6 +512,38 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           </div>
         </section>
         ${battleUiCards[1] ?? ""}
+        <section class="code-injection-panel" ${patchVisibility(quickActionsStatus.supported)}>
+          <div class="code-injection-panel__header"><div>
+            <h2>C-Gear Quick Actions</h2>
+            <a class="btn -primary" href="#cgearButtons" data-route="cgearButtons">Configure Buttons</a>
+            <p>REPEL, PC, BIKE, MAP, PARTY and BAG touch shortcuts, with up to eight editable buttons. Available after obtaining C-Gear, including with wireless off. Use the wrench to rearrange them. ${project.session.baseRom==="BW"?"Tap the upper-right button to browse native backgrounds.":"Drag the outer rim to browse skins: clockwise next, counterclockwise previous, every 12°."}</p>
+          </div>${renderInlineStatus(!quickActionsStatus.supported ? "Unsupported" : !quickActionsStatus.compatible ? "Incompatible" : quickActionsStatus.enabled ? "Enabled" : quickActionsStatus.installed ? "Disabled" : "Ready", { className: "code-injection-status" })}</div>
+          <div class="code-injection-facts"><div><span>Games</span><strong>English Black / White / Black 2 / White 2</strong></div>
+            <div><span>Dependency</span><strong>PMC only</strong></div>${quickActionsStatus.romProfile === "redux" ? '<div><span>ROM profile</span><strong>Redux</strong></div>' : ""}<div><span>Release</span><strong>${escapeHtml(project.session.baseRom==="BW"?CGEAR_QUICK_ACTIONS_BW1_VERSION:quickActionsStatus.runtimeVersion??CGEAR_QUICK_ACTIONS_VERSION)} development</strong></div></div>
+          <img src="${project.session.baseRom==="BW"?new URL("../assets/codeinjection/cgearQuickActionsBw1Preview.png", import.meta.url).href:new URL("../assets/codeinjection/cgearQuickActionsPreview.png", import.meta.url).href}" alt="Editable C-Gear action button layout." width="256" height="192" style="max-width:100%;width:384px;height:auto;image-rendering:pixelated" />
+          <p>${escapeHtml(quickActionsStatus.message)}</p>
+          <p>Configure up to eight buttons, their labels, colors, starting positions, native key-item actions, and optional save-flag visibility. Changes are applied together from the button editor.</p>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-cgear-quick-actions-btn" type="button" ${quickActionsStatus.compatible ? "" : "disabled"}>${quickActionsStatus.installed ? "Update / Enable" : "Install"}</button>
+            <button class="btn -default" id="disable-cgear-quick-actions-btn" type="button" ${quickActionsStatus.compatible && quickActionsStatus.enabled ? "" : "disabled"}>Disable</button>
+            <button class="btn -default" id="remove-cgear-quick-actions-btn" type="button" ${quickActionsStatus.canRemove ? "" : "disabled"} title="Exported installations can be disabled; only newly staged modules can be removed.">Remove staged patch</button>
+            <div class="code-injection-note" id="cgear-quick-actions-note" aria-live="polite"></div>
+          </div>
+        </section>
+        <section class="code-injection-panel" ${patchVisibility(pokenavStatus.supported)}>
+          <div class="code-injection-panel__header"><div><h2>Pokenav</h2>
+            <p>Browse the current area's seasonal Surf, Rod, and Grass encounters from a custom C-Gear button. The top screen shows species information and the selected Pokémon's combined encounter chance. All species are revealed.</p></div>
+            ${renderInlineStatus(pokenavStatus.updateAvailable ? "Update Available" : pokenavStatus.enabled ? "Enabled" : pokenavStatus.installed ? "Disabled" : pokenavStatus.compatible ? "Ready" : "Incompatible", { className: "code-injection-status" })}
+          </div>
+          ${renderPatchShowcase("pokenav")}
+          <p>${escapeHtml(pokenavStatus.message)}</p>
+          <div class="code-injection-actions">
+            <a class="btn -default" href="#cgearButtons" data-route="cgearButtons">Configure Buttons</a>
+            <button class="btn -primary" id="install-pokenav-btn" type="button" ${pokenavStatus.compatible ? "" : "disabled"}>${pokenavStatus.updateAvailable ? "Update" : pokenavStatus.installed ? "Enable / Reinstall" : "Install"}</button>
+            <button class="btn -default" id="disable-pokenav-btn" type="button" ${pokenavStatus.compatible && pokenavStatus.enabled ? "" : "disabled"}>Disable</button>
+            <div class="code-injection-note" id="pokenav-note" aria-live="polite"></div>
+          </div>
+        </section>
         <section class="code-injection-panel" ${patchVisibility(saveMenuStatus.supported)}>
           <div class="code-injection-panel__header"><div>
             <h2>Interactive Save Menu</h2>
@@ -584,7 +630,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               <h2>Hard Level Caps</h2>
               <p>Caps battle EXP and Day Care growth at the level set by <code>EventWorks.Set(16415, level)</code>. Infinite Candy respects the cap; regular Rare Candy can still reach level 100.</p>
             </div>
-            ${renderInlineStatus(levelCapsStatus.installed ? "Installed" : levelCapsStatus.compatible ? "Ready" : levelCapsStatus.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}
+            ${renderInlineStatus(levelCapsStatus.updateAvailable ? "Update Available" : levelCapsStatus.installed ? "Installed" : levelCapsStatus.compatible ? "Ready" : levelCapsStatus.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
             <div><span>ROM</span><strong>US Black 2 / White 2</strong></div>
@@ -594,7 +640,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           </div>
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-level-caps-btn" type="button" ${levelCapsStatus.compatible ? "" : "disabled"}>
-              ${levelCapsStatus.installed ? "Reinstall Hard Level Caps" : "Install Hard Level Caps"}
+              ${levelCapsStatus.updateAvailable ? "Update Hard Level Caps" : levelCapsStatus.installed ? "Reinstall Hard Level Caps" : "Install Hard Level Caps"}
             </button>
             <div class="code-injection-note" id="level-caps-note" aria-live="polite"></div>
             <div class="code-injection-credits">Adapted from PW2Code by Dararo.</div>
@@ -652,37 +698,6 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               Uninstall Tag Battle Stabilization
             </button>
             <div class="code-injection-note" id="tag-battle-stabilization-note" aria-live="polite"></div>
-          </div>
-        </section>
-        <section class="code-injection-panel" ${patchVisibility(quickActionsStatus.supported)}>
-          <div class="code-injection-panel__header"><div>
-            <h2>C-Gear Quick Actions</h2>
-            <a class="btn -primary" href="#cgearButtons" data-route="cgearButtons">Configure Buttons</a>
-            <p>REPEL, PC, BIKE, MAP, PARTY and BAG touch shortcuts, with up to eight editable buttons. Available after obtaining C-Gear, including with wireless off. Use the wrench to rearrange them. ${project.session.baseRom==="BW"?"Tap the upper-right button to browse native backgrounds.":"Drag the outer rim to browse skins: clockwise next, counterclockwise previous, every 12°."}</p>
-          </div>${renderInlineStatus(!quickActionsStatus.supported ? "Unsupported" : !quickActionsStatus.compatible ? "Incompatible" : quickActionsStatus.enabled ? "Enabled" : quickActionsStatus.installed ? "Disabled" : "Ready", { className: "code-injection-status" })}</div>
-          <div class="code-injection-facts"><div><span>Games</span><strong>English Black / White / Black 2 / White 2</strong></div>
-            <div><span>Dependency</span><strong>PMC only</strong></div>${quickActionsStatus.romProfile === "redux" ? '<div><span>ROM profile</span><strong>Redux</strong></div>' : ""}<div><span>Release</span><strong>${escapeHtml(project.session.baseRom==="BW"?CGEAR_QUICK_ACTIONS_BW1_VERSION:quickActionsStatus.runtimeVersion??CGEAR_QUICK_ACTIONS_VERSION)} development</strong></div></div>
-          <img src="${project.session.baseRom==="BW"?new URL("../assets/codeinjection/cgearQuickActionsBw1Preview.png", import.meta.url).href:new URL("../assets/codeinjection/cgearQuickActionsPreview.png", import.meta.url).href}" alt="Editable C-Gear action button layout." width="256" height="192" style="max-width:100%;width:384px;height:auto;image-rendering:pixelated" />
-          <p>${escapeHtml(quickActionsStatus.message)}</p>
-          <p>Configure up to eight buttons, their labels, colors, starting positions, native key-item actions, and optional save-flag visibility. Changes are applied together from the button editor.</p>
-          <div class="code-injection-actions">
-            <button class="btn -primary" id="install-cgear-quick-actions-btn" type="button" ${quickActionsStatus.compatible ? "" : "disabled"}>${quickActionsStatus.installed ? "Update / Enable" : "Install"}</button>
-            <button class="btn -default" id="disable-cgear-quick-actions-btn" type="button" ${quickActionsStatus.compatible && quickActionsStatus.enabled ? "" : "disabled"}>Disable</button>
-            <button class="btn -default" id="remove-cgear-quick-actions-btn" type="button" ${quickActionsStatus.canRemove ? "" : "disabled"} title="Exported installations can be disabled; only newly staged modules can be removed.">Remove staged patch</button>
-            <div class="code-injection-note" id="cgear-quick-actions-note" aria-live="polite"></div>
-          </div>
-        </section>
-        <section class="code-injection-panel" ${patchVisibility(pokenavStatus.supported)}>
-          <div class="code-injection-panel__header"><div><h2>Pokenav</h2>
-            <p>Browse the current area's seasonal Surf, Rod, and Grass encounters from a custom C-Gear button. The top screen shows species information and the selected Pokémon's combined encounter chance. All species are revealed.</p></div>
-            ${renderInlineStatus(pokenavStatus.updateAvailable ? "Update Available" : pokenavStatus.enabled ? "Enabled" : pokenavStatus.installed ? "Disabled" : pokenavStatus.compatible ? "Ready" : "Incompatible", { className: "code-injection-status" })}
-          </div>
-          <p>${escapeHtml(pokenavStatus.message)}</p>
-          <div class="code-injection-actions">
-            <a class="btn -default" href="#cgearButtons" data-route="cgearButtons">Configure Buttons</a>
-            <button class="btn -primary" id="install-pokenav-btn" type="button" ${pokenavStatus.compatible ? "" : "disabled"}>${pokenavStatus.updateAvailable ? "Update" : pokenavStatus.installed ? "Enable / Reinstall" : "Install"}</button>
-            <button class="btn -default" id="disable-pokenav-btn" type="button" ${pokenavStatus.compatible && pokenavStatus.enabled ? "" : "disabled"}>Disable</button>
-            <div class="code-injection-note" id="pokenav-note" aria-live="polite"></div>
           </div>
         </section>
         <section class="code-injection-panel" ${patchVisibility(nuzlockeStatus.supported)}>
@@ -1419,25 +1434,6 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     });
   }
   let selectedTarget: CodeInjectionDllTarget = "patches";
-  for (const [selector, action] of [
-    ["#install-summary-types-btn", () => install(candidate => installSummaryTypeIcons(candidate))],
-    ["#uninstall-summary-types-btn", () => uninstallSummaryTypeIcons(project)],
-  ] as const) {
-    const button = root.querySelector<HTMLButtonElement>(selector);
-    button?.addEventListener("click", async () => {
-      button.disabled = true;
-      const note = root.querySelector<HTMLElement>("#summary-types-note");
-      if (note) note.textContent = "Checking Summary compatibility and staging type icons…";
-      try {
-        await action(); onDirty(); renderCodeInjectionEditor(project, root, onDirty);
-        const updated = root.querySelector<HTMLElement>("#summary-types-note");
-        if (updated) updated.textContent = "Changes staged. Export the ROM to use them.";
-      } catch (error) {
-        button.disabled = false;
-        if (note) note.textContent = error instanceof Error ? error.message : String(error);
-      }
-    });
-  }
   root.querySelectorAll<HTMLButtonElement>("[data-dll-target]").forEach((targetButton) => {
     targetButton.addEventListener("click", () => {
       selectedTarget = targetButton.dataset.dllTarget === "lib" ? "lib" : "patches";

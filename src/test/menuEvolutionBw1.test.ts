@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { romFixtureExists } from "./romFixtures";
+import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { homedir } from "node:os";
 import { pathToFileURL } from "node:url";
@@ -26,7 +27,7 @@ const snapshot = (p: ProjectState) => createHash("sha256").update(serialize({ ar
   overlays: p.overlays, narcs: p.narcs, texts: p.texts, fileSystem: p.fileSystem, codeInjection: p.codeInjection,
   patches: p.patches, actionChangelog: p.actionChangelog, koSource: p.koMoveLearnsetSource })).digest("hex");
 
-for (const game of ["B", "W"] as const) describe.runIf(existsSync(paths[game]))(`BW1 Enhanced Party Menu ${game}`, () => {
+for (const game of ["B", "W"] as const) describe.runIf(romFixtureExists(paths[game]))(`BW1 Enhanced Party Menu ${game}`, () => {
   beforeEach(() => {
     manifest.games.B.dsAccepted = manifest.games.W.dsAccepted = true;
     vi.stubGlobal("crypto", webcrypto);

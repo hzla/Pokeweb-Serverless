@@ -1,3 +1,4 @@
+import { deepStrictEqual } from "node:assert";
 import { describe, expect, it } from "vitest";
 import { readU16, readU32, writeU32 } from "../nds/binary";
 import { NintendoDSRom, crc16 } from "../nds/rom";
@@ -28,17 +29,17 @@ describe("damaged DSi exports", () => {
     expect(out.subarray(0x1c0, 0x208).every((v) => v === 0)).toBe(true);
     expect(readU32(out, 0x210)).toBe(0);
     expect(readU32(out, 0x220)).toBe(0);
-    expect(parsed.files[0]).toEqual(bytes(0x1800));
-    expect(parsed.arm9).toEqual(original.arm9);
-    expect(parsed.arm7).toEqual(original.arm7);
-    expect(parsed.fntData).toEqual(original.fntData);
+    deepStrictEqual(parsed.files[0], bytes(0x1800));
+    deepStrictEqual(parsed.arm9, original.arm9);
+    deepStrictEqual(parsed.arm7, original.arm7);
+    deepStrictEqual(parsed.fntData, original.fntData);
     expect(parsed.save()).toEqual(out);
     expect(readU16(out, 0x92) * 0x80000).toBeGreaterThanOrEqual(readU32(out, 0x80));
     expect(readU16(out, 0x15e)).toBe(crc16(out.subarray(0, 0x15e)));
-    expect(source).toEqual(before);
+    deepStrictEqual(source, before);
     expect(project.originalRomBytes).toBe(source);
     const repaired = await repairDsiRom(out, donor);
-    expect(new NintendoDSRom(repaired.bytes).files[0]).toEqual(bytes(0x1800));
+    deepStrictEqual(new NintendoDSRom(repaired.bytes).files[0], bytes(0x1800));
     verifyAllDigests(repaired.bytes);
   });
 
@@ -54,7 +55,7 @@ describe("damaged DSi exports", () => {
     const out = new NintendoDSRom(source).save({ allowDamagedDsi: true, onWarning: (warning) => warnings.push(warning) });
     expect(warnings[0].code).toBe("damaged-dsi");
     expect(warnings[0].message).toContain("could have caused");
-    expect(new NintendoDSRom(out).arm9).toEqual(new NintendoDSRom(source).arm9);
+    deepStrictEqual(new NintendoDSRom(out).arm9, new NintendoDSRom(source).arm9);
     expect(() => new NintendoDSRom(out).save()).not.toThrow();
   });
 
@@ -86,16 +87,16 @@ describe("donor DSi repair", () => {
     const original = new NintendoDSRom(source), repaired = new NintendoDSRom(result.bytes);
     expect(result.game).toBe(game);
     for (const key of ["arm9", "arm7", "arm9OverlayTable", "arm7OverlayTable", "fntData", "banner"] as const) expect(repaired[key]).toEqual(original[key]);
-    expect(repaired.files).toEqual(original.files);
+    deepStrictEqual(repaired.files, original.files);
     const region = readU16(result.bytes, 0x92) * 0x80000;
-    expect(result.bytes.subarray(region)).toEqual(donor.subarray(0x80000));
+    deepStrictEqual(result.bytes.subarray(region), donor.subarray(0x80000));
     expect(readU32(result.bytes, 0x220)).toBe(region + 0x3020);
-    expect(result.bytes.subarray(0x300, 0x328)).toEqual(donor.subarray(0x300, 0x328));
+    deepStrictEqual(result.bytes.subarray(0x300, 0x328), donor.subarray(0x300, 0x328));
     verifyAllDigests(result.bytes);
     expect(repaired.save()).toEqual(result.bytes);
     expect(progress).toHaveLength(6);
-    expect(source).toEqual(sourceBefore);
-    expect(donor).toEqual(donorBefore);
+    deepStrictEqual(source, sourceBefore);
+    deepStrictEqual(donor, donorBefore);
   });
 
   it.each(games)("restores stripped %s metadata and supports relocated digest configuration", async (code) => {
@@ -104,7 +105,7 @@ describe("donor DSi repair", () => {
     source.fill(0, 0x4900, 0x4940);
     source.fill(0, 0x180, 0x1000);
     const result = await repairDsiRom(source, donor);
-    expect(new NintendoDSRom(result.bytes).arm9).toEqual(new NintendoDSRom(source).arm9);
+    deepStrictEqual(new NintendoDSRom(result.bytes).arm9, new NintendoDSRom(source).arm9);
     verifyAllDigests(result.bytes);
   });
 
@@ -118,13 +119,13 @@ describe("donor DSi repair", () => {
     const before = source.slice(), donorBefore = donor.slice();
     const result = await repairDsiRom(source, donor);
     const repaired = new NintendoDSRom(result.bytes), native = new NintendoDSRom(source);
-    expect(repaired.arm9).toEqual(native.arm9);
-    expect(repaired.arm7).toEqual(native.arm7);
-    expect(repaired.files).toEqual(native.files);
+    deepStrictEqual(repaired.arm9, native.arm9);
+    deepStrictEqual(repaired.arm7, native.arm7);
+    deepStrictEqual(repaired.files, native.files);
     verifyAllDigests(result.bytes);
     expect(repaired.save()).toEqual(result.bytes);
-    expect(source).toEqual(before);
-    expect(donor).toEqual(donorBefore);
+    deepStrictEqual(source, before);
+    deepStrictEqual(donor, donorBefore);
   });
 
   it.each(games)("preserves intact %s DSi data through ordinary export and reload", async (code) => {
@@ -133,7 +134,7 @@ describe("donor DSi repair", () => {
     expect(warnings).toEqual([]);
     verifyAllDigests(out);
     expect(new NintendoDSRom(out).save()).toEqual(out);
-    expect(source).toEqual(before);
+    deepStrictEqual(source, before);
   });
 
   it.each(games)("requires a matching %s donor rather than another game or revision", async (code, game) => {
@@ -141,17 +142,17 @@ describe("donor DSi repair", () => {
     for (const [other] of games.filter(([other]) => other !== code)) {
       const donor = makeTwlRom(other), donorBefore = donor.slice();
       await expect(repairDsiRom(source, donor)).rejects.toThrow(`clean ${game} ROM`);
-      expect(donor).toEqual(donorBefore);
+      deepStrictEqual(donor, donorBefore);
     }
     const revision = source.slice(); revision[0x1e] ^= 1;
     await expect(repairDsiRom(source, revision)).rejects.toThrow("revision");
-    expect(source).toEqual(before);
+    deepStrictEqual(source, before);
   });
 
   it.each(["IRBJ", "IRAJ", "IPKE"])("rejects unsupported %s inputs without changing them", async (code) => {
     const source = makeTwlRom(code), before = source.slice();
     await expect(repairDsiRom(source, source)).rejects.toThrow("supports English");
-    expect(source).toEqual(before);
+    deepStrictEqual(source, before);
   });
 
   it("recovers absent mapping represented by 0/1 placeholders in stripped ROMs", async () => {
@@ -159,7 +160,7 @@ describe("donor DSi repair", () => {
     source.fill(0, 0x180, 0x1000);
     source.fill(1, 0x188, 0x1c0);
     const result = await repairDsiRom(source, donor);
-    expect(result.bytes.subarray(0x180, 0x1c0)).toEqual(donor.subarray(0x180, 0x1c0));
+    deepStrictEqual(result.bytes.subarray(0x180, 0x1c0), donor.subarray(0x180, 0x1c0));
     verifyAllDigests(result.bytes);
   });
 
@@ -177,8 +178,8 @@ describe("donor DSi repair", () => {
     const source = makeTwlRom("IRDO"), donor = source.slice(); corrupt(source);
     const before = source.slice(), donorBefore = donor.slice();
     await expect(repairDsiRom(source, donor)).rejects.toThrow(message);
-    expect(source).toEqual(before);
-    expect(donor).toEqual(donorBefore);
+    deepStrictEqual(source, before);
+    deepStrictEqual(donor, donorBefore);
   });
 
   it.each([

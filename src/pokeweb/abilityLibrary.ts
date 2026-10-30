@@ -82,6 +82,26 @@ add(299,"Hospitality",9,[recipe("healAction",25,{scope:1,adjacent:1})]);
 add(300,"Mind\'s Eye",9,[recipe("statGuard",1,{stat:6}),recipe("ignoreEvasion"),native(113)]);
 add(306,"Supersweet Syrup",9,[recipe("statAction",-1,{stat:7,scope:2,once:1,adjacent:1})]);
 add(308,"Tera Shell",9,[recipe("fullHpEffectiveness",.5,{threshold:100})]);
+// These recipes use native work and read-only observers of existing events.
+add(168,"Protean",6,[recipe("moveUserType")]);
+add(170,"Magician",6,[recipe("transferItem")]);
+add(178,"Mega Launcher (damage only)",6,[power(4,1.5)]);entries.at(-1)!.defaultName="Mega Launcher";
+add(180,"Symbiosis",6,[recipe("transferItem",1,{mode:1})]);
+add(186,"Dark Aura",6,[recipe("fieldPower",1.333333,{type:16})]);
+add(187,"Fairy Aura",6,[recipe("fieldPower",1.333333,{type:17})]);
+add(188,"Aura Break",6,[recipe("auraInvert")]);
+add(198,"Stakeout",7,[recipe("entryTargetStat",2)]);
+add(214,"Queenly Majesty",7,[recipe("priorityGuard")]);
+add(219,"Dazzling",7,[recipe("priorityGuard")]);
+add(236,"Libero",8,[recipe("moveUserType")]);
+add(240,"Mirror Armor",8,[recipe("statEcho",1,{mode:0})]);
+add(284,"Beads of Ruin",9,[recipe("fieldStat",.75,{stat:4})]);
+add(285,"Sword of Ruin",9,[recipe("fieldStat",.75,{stat:2})]);
+add(286,"Tablets of Ruin",9,[recipe("fieldStat",.75,{stat:1})]);
+add(287,"Vessel of Ruin",9,[recipe("fieldStat",.75,{stat:3})]);
+add(290,"Opportunist",9,[recipe("statEcho",1,{mode:1},false)]);
+add(293,"Supreme Overlord",9,[recipe("fallenPower",10)]);
+add(296,"Armor Tail",9,[recipe("priorityGuard")]);
 export const ABILITY_IMPORT_LIBRARY=entries.sort((a,b)=>a.generation-b.generation||a.label.localeCompare(b.label));
 export function abilityImport(id:number):AbilityImport{
  const entry=ABILITY_IMPORT_LIBRARY.find(e=>e.id===id);if(!entry)throw new Error("Choose a supported ability import.");return structuredClone(entry);

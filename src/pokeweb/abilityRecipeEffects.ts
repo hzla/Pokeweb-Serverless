@@ -1,6 +1,7 @@
 /** Editable operations added for the standalone Gen 6–9 recipe catalog. */
 import type {NativeAbilityParameter} from "./abilityNativeParameters";
 import type {ItemRuleEffectDefinition,ItemRuleEffect} from "./itemRules";
+import {SCOPED_ABILITY_EFFECTS} from "./abilityScopedEffects";
 const p=(key:string,label:string,original:number,min:number,max:number,labels?:Record<number,string>,kind:NativeAbilityParameter["kind"]="number"):NativeAbilityParameter=>({key,label,original,min,max,step:1,kind,sites:[],...(labels?{labels,choices:Object.keys(labels).map(Number)}:{})});
 const stat=(highest=false)=>p("stat","Stat",1,1,highest?8:7,highest?{1:"Attack",2:"Defense",3:"Sp. Atk",4:"Sp. Def",5:"Speed",6:"Accuracy",7:"Evasion",8:"Highest raw stat"}:undefined,"stat");
 const scope=p("scope","Targets",0,0,4,{0:"Holder",1:"Allies",2:"Opponents",3:"All other Pokémon",4:"Attacker"});
@@ -11,7 +12,7 @@ const protectedType=p("protectedType","Protected Pokémon type",18,0,18,undefine
 protectedType.labels={18:"Any type"};
 const once=p("once","Entry limit",0,0,1,{0:"Every entry / ability gain",1:"Once per battle"});
 const trigger=p("activation","Trigger",0,0,4,{0:"Entry / ability gain",1:"After taking a hit",2:"HP crosses downward",3:"Another Pokémon faints",4:"After a knockout"});
-export type RecipeAbilityEffect=ItemRuleEffectDefinition&{code:number;scale:number;parameters:NativeAbilityParameter[];bypassable:boolean;nonzero?:boolean};
+export type RecipeAbilityEffect=ItemRuleEffectDefinition&{code:number;scale:number;parameters:NativeAbilityParameter[];bypassable:boolean;nonzero?:boolean;fixedBypass?:boolean};
 const effect=(kind:string,code:number,label:string,value:number,min:number,max:number,step:number,unit:string,scale:number,parameters:NativeAbilityParameter[],bypassable=false,nonzero=false):RecipeAbilityEffect=>({kind:`abilityRecipe:${kind}`,code,label,value,min,max,step,unit,scale,parameters:parameters.map(p=>({...p})),bypassable,nonzero});
 export const RECIPE_ABILITY_EFFECTS:RecipeAbilityEffect[]=[
  effect("convertType",135,"Convert move type and power",1.2,.125,8,.001,"× power",4096,[{...move,choices:move.choices!.filter(v=>v!==9&&v!==10)},p("sourceType","Original move type",0,0,18,undefined,"type"),p("type","New move type",2,0,17,undefined,"type")]),
@@ -34,6 +35,7 @@ export const RECIPE_ABILITY_EFFECTS:RecipeAbilityEffect[]=[
  effect("windAbsorb",152,"Absorb matching moves and react to Tailwind",1,-6,6,1,"stages",1,[stat(),move,p("tailwind","Boost when Tailwind starts / on entry",1,0,1,{0:"No",1:"Yes"})],true,true),
  effect("moveGuard",153,"Block selected moves from other Pokémon",1,1,1,1,"",1,[move,type,p("category","Move category",0,0,2,undefined,"category"),p("excludeSelf","Holder’s own moves",1,0,1,{0:"Also block",1:"Allow"})],true),
  effect("weatherGuard",154,"Weather damage immunity",1,1,1,1,"",1,[p("weather","Weather",3,0,4,{0:"All damaging weather",3:"Hail",4:"Sandstorm"},"weather")]),
+ ...SCOPED_ABILITY_EFFECTS,
 ];
 const triggered=RECIPE_ABILITY_EFFECTS.find(e=>e.code===136)!;triggered.parameters.find(p=>p.key==="threshold")!.when={key:"activation",value:2};triggered.parameters.find(p=>p.key==="once")!.when={key:"activation",value:0};for(const key of["moveClass","category"])triggered.parameters.find(p=>p.key===key)!.when={key:"activation",value:[1,2]};triggered.parameters.find(p=>p.key==="type")!.when={key:"moveClass",value:9};
 RECIPE_ABILITY_EFFECTS.find(e=>e.code===140)!.parameters.find(p=>p.key==="copyFocus")!.when={key:"operation",value:0};

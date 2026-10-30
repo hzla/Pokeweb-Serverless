@@ -1,5 +1,6 @@
+import { romFixtureExists } from "./romFixtures";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { PNG } from "pngjs";
 import { readU16, concatBytes, writeU32 } from "../nds/binary";
@@ -103,7 +104,7 @@ class TestFileReader {
 }
 
 const romPath = resolve(process.cwd(), "../cleanwhite2.nds");
-describe.skipIf(!existsSync(romPath))("BW2 full map GLB import", () => {
+describe.skipIf(!romFixtureExists(romPath))("BW2 full map GLB import", () => {
   let original: Uint8Array, exported: Uint8Array;
   async function setup(): Promise<{ project: ProjectState; data: Map3dSceneData }> {
     const project = await loadProjectFromRomBytes(original, "cleanwhite2.nds", { selectedNarcs: ["maps"] });
@@ -302,7 +303,7 @@ describe.skipIf(!existsSync(romPath))("BW2 full map GLB import", () => {
 });
 
 const blackRomPath = resolve(process.cwd(), "../cleanblack2.nds");
-describe.skipIf(!existsSync(blackRomPath))("Black City material animations", () => {
+describe.skipIf(!romFixtureExists(blackRomPath))("Black City material animations", () => {
   it("retains repeated facade UVs and warns if an edited GLB instead clamps their edges", async () => {
     vi.stubGlobal("ImageData", TestImageData); vi.stubGlobal("OffscreenCanvas", TestCanvas); vi.stubGlobal("FileReader", TestFileReader);
     const quiet = vi.spyOn(console, "warn").mockImplementation(() => {});

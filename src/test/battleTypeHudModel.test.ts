@@ -1,3 +1,4 @@
+import { deepStrictEqual } from "node:assert";
 import borderManifest from "../assets/codeinjection/typeIconBorderManifest.json";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -54,9 +55,9 @@ describe("Battle HUD bundled installer", () => {
       await installBattleTypeHud(p, variant);
       expect(getBattleTypeHudStatus(p)).toMatchObject({ installed: true, compatible: true, graphicsProfile: "redux", iconVariant: variant, updateAvailable: false });
       const exported = new NintendoDSRom(await exportModifiedRom(p));
-      expect(exported.getFileByName("patches/TypeIconsW2.dll")).toEqual(new Uint8Array(readFileSync(new URL(`../assets/codeinjection/TypeIcons${suffix}ReduxW2.dll`, import.meta.url))));
+      deepStrictEqual(exported.getFileByName("patches/TypeIconsW2.dll"), new Uint8Array(readFileSync(new URL(`../assets/codeinjection/TypeIcons${suffix}ReduxW2.dll`, import.meta.url))));
       expect(getBattleTypeHudStatus(project("W2", exported.data))).toMatchObject({ graphicsProfile: "redux", installed: true, iconVariant: variant, updateAvailable: false });
-      expect(Object.keys(p.fileSystem!.additions!).filter(path => path.endsWith(".dll"))).toEqual(["patches/TypeIconsW2.dll"]);
+      deepStrictEqual(Object.keys(p.fileSystem!.additions!).filter(path => path.endsWith(".dll")), ["patches/TypeIconsW2.dll"]);
     }
     uninstallBattleTypeHud(p);
     expect(getBattleTypeHudStatus(p)).toMatchObject({ installed: false, graphicsProfile: "redux" });
@@ -77,7 +78,7 @@ describe("Battle HUD bundled installer", () => {
     p.fileSystem = { replacements: { 344: archive.save() } };
     const before = structuredClone(p);
     await expect(installBattleTypeHud(p)).rejects.toThrow(/member 430/u);
-    expect(p).toEqual(before);
+    deepStrictEqual(p, before);
   });
   it("blocks Redux updates and removal if the installed artwork has changed", async () => {
     const p = project("W2"); assets();
@@ -90,7 +91,7 @@ describe("Battle HUD bundled installer", () => {
     expect(getBattleTypeHudStatus(p)).toMatchObject({ compatible: false, canUninstall: false, installed: true });
     expect(() => uninstallBattleTypeHud(p)).toThrow();
     await expect(installBattleTypeHud(p)).rejects.toThrow(/verified graphics/u);
-    expect(p).toEqual(before);
+    deepStrictEqual(p, before);
   });
   it.each(["B2", "W2"] as const)("installs, exports, reimports and recognizes %s without duplicate hooks", async v => {
     const p = project(v); assets();
@@ -99,7 +100,7 @@ describe("Battle HUD bundled installer", () => {
     expect(getPmcInstallStatus(p).installed).toBe(true);
     expect(getBattleTypeHudStatus(p)).toMatchObject({ installed: true, canUninstall: true, updateAvailable: false });
     const exported = new NintendoDSRom(await exportModifiedRom(p));
-    expect(exported.getFileByName(`patches/TypeIcons${v}.dll`)).toEqual(dll(v));
+    deepStrictEqual(exported.getFileByName(`patches/TypeIcons${v}.dll`), dll(v));
     const reimported = project(v, exported.data);
     expect(getBattleTypeHudStatus(reimported)).toMatchObject({ installed: true, compatible: true, canUninstall: false });
     await installBattleTypeHud(reimported);
@@ -119,18 +120,18 @@ describe("Battle HUD bundled installer", () => {
     const p = project(v); assets();
     await installBattleTypeHud(p, "circular");
     expect(getBattleTypeHudStatus(p)).toMatchObject({ installed: true, compatible: true, updateAvailable: false, iconVariant: "circular" });
-    expect(p.fileSystem!.additions![`patches/TypeIcons${v}.dll`]).toEqual(dll(v, "circular"));
-    expect(Object.keys(p.fileSystem!.additions!).filter(path => path.endsWith(".dll"))).toEqual([`patches/TypeIcons${v}.dll`]);
+    deepStrictEqual(p.fileSystem!.additions![`patches/TypeIcons${v}.dll`], dll(v, "circular"));
+    deepStrictEqual(Object.keys(p.fileSystem!.additions!).filter(path => path.endsWith(".dll")), [`patches/TypeIcons${v}.dll`]);
     const exported = new NintendoDSRom(await exportModifiedRom(p));
     expect(getBattleTypeHudStatus(project(v, exported.data))).toMatchObject({ installed: true, iconVariant: "circular", updateAvailable: false });
     await installBattleTypeHud(p, "solid");
     expect(getBattleTypeHudStatus(p)).toMatchObject({ installed: true, compatible: true, updateAvailable: false, iconVariant: "solid" });
-    expect(p.fileSystem!.additions![`patches/TypeIcons${v}.dll`]).toEqual(dll(v, "solid"));
-    expect(Object.keys(p.fileSystem!.additions!).filter(path => path.endsWith(".dll"))).toEqual([`patches/TypeIcons${v}.dll`]);
+    deepStrictEqual(p.fileSystem!.additions![`patches/TypeIcons${v}.dll`], dll(v, "solid"));
+    deepStrictEqual(Object.keys(p.fileSystem!.additions!).filter(path => path.endsWith(".dll")), [`patches/TypeIcons${v}.dll`]);
     await installBattleTypeHud(p, "letters");
     expect(getBattleTypeHudStatus(p)).toMatchObject({ installed: true, compatible: true, updateAvailable: false, iconVariant: "letters" });
-    expect(p.fileSystem!.additions![`patches/TypeIcons${v}.dll`]).toEqual(dll(v, "letters"));
-    expect(Object.keys(p.fileSystem!.additions!).filter(path => path.endsWith(".dll"))).toEqual([`patches/TypeIcons${v}.dll`]);
+    deepStrictEqual(p.fileSystem!.additions![`patches/TypeIcons${v}.dll`], dll(v, "letters"));
+    deepStrictEqual(Object.keys(p.fileSystem!.additions!).filter(path => path.endsWith(".dll")), [`patches/TypeIcons${v}.dll`]);
   });
   it.each((["B2", "W2"] as const).flatMap(v => (["circular", "solid"] as const).map(variant => [v, variant] as const)))("verifies the distributed %s %s DLL against its manifest", (v, variant) => {
     const bytes = dll(v, variant); const rpm = parseRpm(bytes, { allowedMagics: ["DLXF"] });
@@ -153,7 +154,7 @@ describe("Battle HUD bundled installer", () => {
     stageCodeInjectionDll(p, "MyHud.dll", old);
     expect(getBattleTypeHudStatus(p)).toMatchObject({ installed: true, updateAvailable: true, dllPath: "patches/MyHud.dll" });
     await installBattleTypeHud(p);
-    expect(p.fileSystem?.additions?.["patches/MyHud.dll"]).toEqual(dll("W2"));
+    deepStrictEqual(p.fileSystem?.additions?.["patches/MyHud.dll"], dll("W2"));
     expect(p.fileSystem?.additions?.["patches/TypeIconsW2.dll"]).toBeUndefined();
     expect(getBattleTypeHudStatus(p)).toMatchObject({ installed: true, updateAvailable: false });
   });
@@ -167,7 +168,7 @@ describe("Battle HUD bundled installer", () => {
       iconVariant: "solid", dllPath: "patches/MyTypeIcons.dll" });
     await installBattleTypeHud(imported, getBattleTypeHudStatus(imported).iconVariant);
     const updated = new NintendoDSRom(await exportModifiedRom(imported));
-    expect(updated.getFileByName("patches/MyTypeIcons.dll")).toEqual(dll(v, "solid"));
+    deepStrictEqual(updated.getFileByName("patches/MyTypeIcons.dll"), dll(v, "solid"));
     expect(updated.filenames.idOf(`patches/TypeIcons${v}.dll`)).toBeUndefined();
     expect(getBattleTypeHudStatus(project(v, updated.data))).toMatchObject({ installed: true, updateAvailable: false, iconVariant: "solid" });
   });
@@ -233,7 +234,7 @@ describe("Battle HUD bundled installer", () => {
     const companion = kind === "icons" ? installMoveEffectiveness : installBattleTypeHud;
     await selected(p);
     expect(kind === "icons" ? getMoveEffectivenessStatus(p).installed : getBattleTypeHudStatus(p).installed).toBe(false);
-    expect(Object.keys(p.fileSystem!.additions!).filter(p => p.endsWith(".dll"))).toEqual(["patches/MyCombined.dll"]);
+    deepStrictEqual(Object.keys(p.fileSystem!.additions!).filter(p => p.endsWith(".dll")), ["patches/MyCombined.dll"]);
     await companion(p);
     const rom = new NintendoDSRom(await exportModifiedRom(p)); const reimport = project("W2", rom.data);
     expect(getBattleTypeHudStatus(reimport)).toMatchObject({ installed: true, compatible: true, legacyCombined: false });
@@ -259,13 +260,13 @@ describe("Battle HUD bundled installer", () => {
     expect(changed.length).toBeGreaterThan(0);
     expect(changed.every(i => i >= offset && i < offset + 6)).toBe(true);
     expect(rpm.relocations).toEqual(base.relocations); expect(rpm.symbols).toEqual(base.symbols);
-    expect([...rpm.code.slice(offset, offset + 6)]).toEqual([0xe0, 3, 0, 0x7c, 0x1f, 0x7c]);
+    deepStrictEqual([...rpm.code.slice(offset, offset + 6)], [0xe0, 3, 0, 0x7c, 0x1f, 0x7c]);
     expect(getMoveEffectivenessStatus(p)).toMatchObject({ installed: true, updateAvailable: false, colors });
     const rom = new NintendoDSRom(await exportModifiedRom(p)); const reimport = project(v, rom.data);
     expect(getMoveEffectivenessStatus(reimport)).toMatchObject({ installed: true, compatible: true, colors });
     await installMoveEffectiveness(reimport);
     const again = new NintendoDSRom(await exportModifiedRom(reimport));
-    expect(again.getFileByName(`patches/MoveEffectiveness${v}.dll`)).toEqual(customized);
+    deepStrictEqual(again.getFileByName(`patches/MoveEffectiveness${v}.dll`), customized);
     await installBattleTypeHud(reimport);
     expect(getMoveEffectivenessStatus(reimport).colors).toEqual(colors);
   });
@@ -296,21 +297,28 @@ describe("Battle HUD bundled installer", () => {
     expect(getMoveEffectivenessStatus(p)).toMatchObject({ installed: true, updateAvailable: true });
     await installMoveEffectiveness(p, { superEffective: "#00ff00", notVeryEffective: "#0000ff", immune: "#ff00ff" });
     expect(getMoveEffectivenessStatus(p)).toMatchObject({ installed: true, updateAvailable: false, dllPath: "patches/OldPreview.dll" });
-    expect(p.fileSystem!.additions!["patches/TypeIconsW2.dll"]).toEqual(icons);
+    deepStrictEqual(p.fileSystem!.additions!["patches/TypeIconsW2.dll"], icons);
   });
-  it.each(["0.3.0", "0.3.1", "0.3.2", "0.3.3", "0.3.7", "0.3.8", "0.3.9", "0.3.10", "0.3.11", "0.3.12", "0.3.13", "0.3.14", "0.3.15", "0.3.16"])("updates imported %s icons without touching customized move colors", async version => {
+  // Group by external relocation targets, retaining all four native hook layouts.
+  it.each([
+    ["0.3.0"], ["0.3.1"], ["0.3.2", "0.3.3", "0.3.7"],
+    ["0.3.8", "0.3.9", "0.3.10", "0.3.11", "0.3.12", "0.3.13", "0.3.14", "0.3.15", "0.3.16"],
+  ].map(versions => ({ versions })))("updates imported $versions icons without touching customized move colors", async ({ versions }) => {
     const p = project("W2"); assets();
     const colors = { superEffective: "#00ff00", notVeryEffective: "#0000ff", immune: "#ff00ff" };
     await installMoveEffectiveness(p, colors);
     const moves = p.fileSystem!.additions!["patches/MoveEffectivenessW2.dll"]!.slice();
-    stageCodeInjectionDll(p, "MyIcons.dll", new Uint8Array(readFileSync(new URL(`./fixtures/battle-type-hud/TypeIconsW2-${version}.dll`, import.meta.url))));
+    for (const version of versions) {
+      stageCodeInjectionDll(p, "MyIcons.dll", new Uint8Array(readFileSync(new URL(`./fixtures/battle-type-hud/TypeIconsW2-${version}.dll`, import.meta.url))));
+      expect(getBattleTypeHudStatus(p), version).toMatchObject({ installed: true, compatible: true, updateAvailable: true });
+    }
     const imported = project("W2", await exportModifiedRom(p));
     expect(getBattleTypeHudStatus(imported)).toMatchObject({ installed: true, updateAvailable: true });
     expect(getMoveEffectivenessStatus(imported)).toMatchObject({ updateAvailable: false, colors });
     await installBattleTypeHud(imported);
     const exported = new NintendoDSRom(await exportModifiedRom(imported));
-    expect(exported.getFileByName("patches/MyIcons.dll")).toEqual(dll("W2"));
-    expect(exported.getFileByName("patches/MoveEffectivenessW2.dll")).toEqual(moves);
+    deepStrictEqual(exported.getFileByName("patches/MyIcons.dll"), dll("W2"));
+    deepStrictEqual(exported.getFileByName("patches/MoveEffectivenessW2.dll"), moves);
     expect(getBattleTypeHudStatus(imported)).toMatchObject({ installed: true, updateAvailable: false });
   });
 });
@@ -324,7 +332,7 @@ describe.each(["B", "W"] as const)("BW1 Type Icons candidate %s", { timeout: 200
       manifest.games.B.dsAccepted = b; manifest.games.W.dsAccepted = w;
       const before = structuredClone(p);
       await expect(installBattleTypeHud(p)).rejects.toThrow(/awaiting DS gameplay/u);
-      expect(p).toEqual(before);
+      deepStrictEqual(p, before);
     }
     manifest.games.B.dsAccepted = manifest.games.W.dsAccepted = true;
     p.originalRomBytes![0x1e] = 1;
@@ -343,16 +351,16 @@ describe.each(["B", "W"] as const)("BW1 Type Icons candidate %s", { timeout: 200
     const reopened = project(v, exported.data);
     expect(getBattleTypeHudStatus(reopened)).toMatchObject({ installed: true, compatible: true, iconVariant: variant, canUninstall: false });
     await installBattleTypeHud(reopened, variant);
-    expect(reopened.fileSystem?.replacements[id]).toEqual(dll(v, variant));
+    deepStrictEqual(reopened.fileSystem?.replacements[id], dll(v, variant));
     expect(reopened.fileSystem?.additions?.[`patches/TypeIcons${v}.dll`]).toBeUndefined();
     uninstallBattleTypeHud(p);
     const removed = new NintendoDSRom(await exportModifiedRom(p));
-    expect(new NARC(removed.getFileByName("a/0/1/1")).files).toEqual(oldGraphics.files);
+    deepStrictEqual(new NARC(removed.getFileByName("a/0/1/1")).files, oldGraphics.files);
   });
   it("switches styles in place, recognizes renamed copies and rejects duplicates or overlaps", async () => {
     const p = project(v); assets(); await installBattleTypeHud(p, "circular");
     await installBattleTypeHud(p, "solid"); await installBattleTypeHud(p, "letters");
-    expect(Object.keys(p.fileSystem!.additions!).filter(path => path.endsWith(".dll"))).toEqual([`patches/TypeIcons${v}.dll`]);
+    deepStrictEqual(Object.keys(p.fileSystem!.additions!).filter(path => path.endsWith(".dll")), [`patches/TypeIcons${v}.dll`]);
     uninstallBattleTypeHud(p); stageCodeInjectionDll(p, "Mine.dll", dll(v, "solid"));
     expect((await installBattleTypeHud(p, "solid")).path).toBe("patches/Mine.dll");
     stageCodeInjectionDll(p, "Copy.dll", dll(v));
@@ -368,18 +376,18 @@ describe.each(["B", "W"] as const)("BW1 Type Icons candidate %s", { timeout: 200
       if (url.pathname.includes("PMC_")) throw new Error("PMC failed");
       return new Response(new Uint8Array(readFileSync(url)));
     }));
-    await expect(installBattleTypeHud(p)).rejects.toThrow(/PMC failed/u); expect(p).toEqual(original);
+    await expect(installBattleTypeHud(p)).rejects.toThrow(/PMC failed/u); deepStrictEqual(p, original);
     assets(); const rom = new NintendoDSRom(p.originalRomBytes!);
     rom.arm9OverlayTable = rom.arm9OverlayTable.slice(0, 236 * 32); p.originalRomBytes = rom.save();
     const before = structuredClone(p);
-    await expect(installBattleTypeHud(p)).rejects.toThrow(/overlay 237/u); expect(p).toEqual(before);
+    await expect(installBattleTypeHud(p)).rejects.toThrow(/overlay 237/u); deepStrictEqual(p, before);
     const q = project(v), r = new NintendoDSRom(q.originalRomBytes!), ov = r.loadArm9Overlays([94]).get(94)!;
     q.overlays[94] = ov.data.slice(); q.overlays[94]![manifest.games[v].hooks[0].address - ov.ramAddress] ^= 1;
     await expect(installBattleTypeHud(q)).rejects.toThrow(/compatibility failed/u);
     const damaged = project(v), archive = new NARC(r.getFileByName("a/0/1/1")); archive.files[168][80] ^= 1;
     damaged.fileSystem = { replacements: { [r.fileId("a/0/1/1")]: archive.save() } };
     const untouched = structuredClone(damaged);
-    await expect(installBattleTypeHud(damaged)).rejects.toThrow(/member 168/u); expect(damaged).toEqual(untouched);
+    await expect(installBattleTypeHud(damaged)).rejects.toThrow(/member 168/u); deepStrictEqual(damaged, untouched);
   });
 });
 describe.each(["B", "W"] as const)("BW1 Move Effectiveness candidate %s", { timeout: 20000 }, v => {
@@ -391,7 +399,7 @@ describe.each(["B", "W"] as const)("BW1 Move Effectiveness candidate %s", { time
     for (const [b, w] of [[false, false], [true, false], [false, true]]) {
       manifest.moveGames.B.dsAccepted = b; manifest.moveGames.W.dsAccepted = w;
       await expect(installMoveEffectiveness(p)).rejects.toThrow(/awaiting DS gameplay/u);
-      expect(p).toEqual(before);
+      deepStrictEqual(p, before);
     }
     expect(getBattleTypeHudStatus(p).supported).toBe(iconsSupported);
   });
@@ -403,10 +411,10 @@ describe.each(["B", "W"] as const)("BW1 Move Effectiveness candidate %s", { time
     expect(getMoveEffectivenessStatus(p)).toMatchObject({ compatible: true, installed: true, colors, canUninstall: true });
     const exported = new NintendoDSRom(await exportModifiedRom(p)), path = `patches/MoveEffectiveness${v}.dll`;
     const configured = exported.getFileByName(path), reopened = project(v, exported.data);
-    expect(new NARC(exported.getFileByName("a/0/1/1")).files).toEqual(new NARC(original.getFileByName("a/0/1/1")).files);
+    deepStrictEqual(new NARC(exported.getFileByName("a/0/1/1")).files, new NARC(original.getFileByName("a/0/1/1")).files);
     expect(getMoveEffectivenessStatus(reopened)).toMatchObject({ installed: true, compatible: true, colors, canUninstall: false });
     await installMoveEffectiveness(reopened);
-    expect(reopened.fileSystem?.replacements[exported.fileId(path)]).toEqual(configured);
+    deepStrictEqual(reopened.fileSystem?.replacements[exported.fileId(path)], configured);
     expect(reopened.fileSystem?.additions?.[path]).toBeUndefined();
     expect(getMoveEffectivenessStatus(reopened).colors).toEqual(colors);
     uninstallMoveEffectiveness(p);
@@ -432,10 +440,10 @@ describe.each(["B", "W"] as const)("BW1 Move Effectiveness candidate %s", { time
       if (url.pathname.includes("PMC_")) throw new Error("PMC failed");
       return new Response(new Uint8Array(readFileSync(url)));
     }));
-    await expect(installMoveEffectiveness(p)).rejects.toThrow(/PMC failed/u); expect(p).toEqual(original);
+    await expect(installMoveEffectiveness(p)).rejects.toThrow(/PMC failed/u); deepStrictEqual(p, original);
     assets();
     await expect(installMoveEffectiveness(p, { ...DEFAULT_MOVE_HIGHLIGHT_COLORS, immune: "red" })).rejects.toThrow(/valid/u);
-    expect(p).toEqual(original);
+    deepStrictEqual(p, original);
     const sig = manifest.moveGames[v].signatures.find(s => s.name === "IsDsi")!;
     p.arm9[sig.address - new NintendoDSRom(p.originalRomBytes!).arm9RamAddress] ^= 1;
     await expect(installMoveEffectiveness(p)).rejects.toThrow(/IsDsi/u);
@@ -452,7 +460,7 @@ describe.each(["B", "W"] as const)("BW1 Move Effectiveness candidate %s", { time
 describe("custom type icon borders", () => {
   it.each(["B2", "W2"] as const)("keeps the standard %s renderer for the native border color", async v => {
     const p = project(v); assets(); await installBattleTypeHud(p, "letters", "#101010");
-    expect(p.fileSystem!.additions![`patches/TypeIcons${v}.dll`]).toEqual(dll(v));
+    deepStrictEqual(p.fileSystem!.additions![`patches/TypeIcons${v}.dll`], dll(v));
   });
   it.each(["B", "W", "B2", "W2"] as const)("retains the %s border through export, reimport, reinstall and style changes", async v => {
     const p = project(v); assets();
@@ -471,7 +479,7 @@ describe("custom type icon borders", () => {
     await installBattleTypeHud(reopened, "letters");
     expect(getBattleTypeHudStatus(reopened)).toMatchObject({ compatible: true, borderColor: "#ff0000", iconVariant: "letters" });
     await installBattleTypeHud(p, "solid", "#ff0000");
-    expect(p.fileSystem!.additions![`patches/TypeIcons${v}.dll`]).toEqual(dll(v, "solid"));
+    deepStrictEqual(p.fileSystem!.additions![`patches/TypeIcons${v}.dll`], dll(v, "solid"));
   });
   it("retains a custom border with the Redux profile", async () => {
     const p = project("W2"); assets();
@@ -485,7 +493,7 @@ describe("custom type icon borders", () => {
   });
   it("rejects invalid colors, altered code and an invalid RGB555 high bit", async () => {
     const p = project("W2"); assets(); const before = structuredClone(p);
-    await expect(installBattleTypeHud(p, "letters", "red")).rejects.toThrow(/border color/u); expect(p).toEqual(before);
+    await expect(installBattleTypeHud(p, "letters", "red")).rejects.toThrow(/border color/u); deepStrictEqual(p, before);
     await installBattleTypeHud(p, "letters", "#d6d6d6");
     const path = "patches/TypeIconsW2.dll", original = p.fileSystem!.additions![path];
     for (const offset of [0, borderManifest.games.W2.variants.letters.build.borderColorOffset + 1]) {

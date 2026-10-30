@@ -21,7 +21,7 @@ THUMB_BRANCH_LINK_AddExpAndEVs_0x264:
     pop {r4, r5, r7, pc}
 .size THUMB_BRANCH_LINK_AddExpAndEVs_0x264, .-THUMB_BRANCH_LINK_AddExpAndEVs_0x264
 
-// At the item eligibility entry, guard only item 622, then replay the exact
+// At the item eligibility entry, guard the configured item, then replay the exact
 // eight retail prologue bytes and continue at +8. This preserves all other
 // item behavior and the original Rare Candy exception.
 .global THUMB_BRANCH_PokeList_CanItemWithBattleStatsBeUsed
@@ -48,3 +48,10 @@ THUMB_BRANCH_PokeList_CanItemWithBattleStatsBeUsed:
     bx lr
 .size THUMB_BRANCH_PokeList_CanItemWithBattleStatsBeUsed, .-THUMB_BRANCH_PokeList_CanItemWithBattleStatsBeUsed
 .ltorg
+
+.balign 4
+.global LevelCaps_CandyItemId
+.type LevelCaps_CandyItemId, %object
+LevelCaps_CandyItemId:
+    .word 622
+.size LevelCaps_CandyItemId, 4

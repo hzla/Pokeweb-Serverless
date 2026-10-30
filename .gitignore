@@ -90,7 +90,6 @@ src/test/local/
 !/scripts/verify-bw2-interaction-macros.ts
 !/scripts/generate-bw2-command-layouts.py
 !/scripts/verify-summary-stat-viewer-install.ts
-!/scripts/verify-summary-type-icons-install.ts
 !/scripts/refresh-pwan-assets.ts
 !/scripts/regenerate-pwan-library-icon.ts
 !/scripts/prepare-gmax-megas.ts

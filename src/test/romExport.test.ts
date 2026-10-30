@@ -1,3 +1,4 @@
+import { deepStrictEqual } from "node:assert";
 import { describe, expect, it } from "vitest";
 import { concatBytes, readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { compressCode, decompressCode, isCodeCompressed } from "../nds/codeCompression";
@@ -39,8 +40,8 @@ describe("ROM export", () => {
     expect(reopened.narcs.matrix!.fileCount).toBe(4);
     expect(getMatrixSnapshot(reopened, 0)).toMatchObject({ width: 4, height: 2 });
     expect(getMatrixSnapshot(reopened, 0).cells[0]).toMatchObject({ headerId: 2, mapId: 7 });
-    expect(reopened.narcs.matrix!.rawFiles[duplicate]).toEqual(reopened.narcs.matrix!.rawFiles[0]);
-    expect(reopened.narcs.matrix!.rawFiles[1]).toEqual(untouched);
+    deepStrictEqual(reopened.narcs.matrix!.rawFiles[duplicate], reopened.narcs.matrix!.rawFiles[0]);
+    deepStrictEqual(reopened.narcs.matrix!.rawFiles[1], untouched);
     expect(reopened.headers.rows[3].matrix_id).toBe(created);
   });
 
@@ -84,7 +85,7 @@ describe("ROM export", () => {
     const chunk = new NARC(exported.files[0]).files[0];
     const files = extractGameFreakContainer(chunk).files;
     expect(parseChunkBuildings(files[2], [], 0)).toEqual([{ x: -15.5, y: 80, z: -32, rotationY: 270, modelUid: 1 }]);
-    expect(files.slice(0, 2)).toEqual([Uint8Array.of(9), Uint8Array.of(8)]);
+    deepStrictEqual(files.slice(0, 2), [Uint8Array.of(9), Uint8Array.of(8)]);
   });
 
   it("rebuilds FAT entries with 0x200-aligned replacement files", () => {
@@ -99,8 +100,8 @@ describe("ROM export", () => {
 
     expect(file0Start % 0x200).toBe(0);
     expect(file1Start % 0x200).toBe(0);
-    expect([...parsed.files[0]]).toEqual([1, 2, 3]);
-    expect([...parsed.files[1]]).toEqual([9, 8, 7, 6, 5]);
+    deepStrictEqual([...parsed.files[0]], [1, 2, 3]);
+    deepStrictEqual([...parsed.files[1]], [9, 8, 7, 6, 5]);
   });
 
   it("can prioritize physical file placement without changing logical file IDs", () => {
@@ -110,7 +111,7 @@ describe("ROM export", () => {
     const fatOffset = readU32(saved, 0x48);
 
     expect(readU32(saved, fatOffset + 2 * 8)).toBeLessThan(readU32(saved, fatOffset));
-    expect(parsed.files.map((file) => [...file])).toEqual([[1], [2], [3]]);
+    deepStrictEqual(parsed.files.map((file) => [...file]), [[1], [2], [3]]);
   });
 
   it("appends new named ROM files without shifting existing file IDs", () => {
@@ -120,10 +121,10 @@ describe("ROM export", () => {
     const saved = rom.save({ addedFiles: [{ path: "lib/Patch.dll", bytes: Uint8Array.of(0xaa, 0xbb) }] });
     const parsed = new NintendoDSRom(saved);
 
-    expect([...parsed.files[0]]).toEqual([1]);
-    expect([...parsed.files[1]]).toEqual([2]);
+    deepStrictEqual([...parsed.files[0]], [1]);
+    deepStrictEqual([...parsed.files[1]], [2]);
     expect(parsed.fileId("lib/Patch.dll")).toBe(2);
-    expect([...parsed.getFileByName("lib/Patch.dll")]).toEqual([0xaa, 0xbb]);
+    deepStrictEqual([...parsed.getFileByName("lib/Patch.dll")], [0xaa, 0xbb]);
   });
 
   it("keeps an early startup file early through repeated launch-time rebuilds", () => {
@@ -135,8 +136,8 @@ describe("ROM export", () => {
       const rom = new NintendoDSRom(bytes);
       expect(physicalFileOrder(bytes)).toEqual([2, 0, 1]);
       expect(rom.fileId("file_2")).toBe(2);
-      expect([...rom.files[2]]).toEqual([3]);
-      expect(rom.arm9).toEqual(new NintendoDSRom(original).arm9);
+      deepStrictEqual([...rom.files[2]], [3]);
+      deepStrictEqual(rom.arm9, new NintendoDSRom(original).arm9);
     }
   });
 
@@ -149,7 +150,7 @@ describe("ROM export", () => {
     });
     expect(physicalFileOrder(edited)).toEqual([3, 0, 2, 1, 4]);
     const rom = new NintendoDSRom(edited);
-    expect(rom.files.map((file) => [...file])).toEqual([[1], [4], [2], [3], [5]]);
+    deepStrictEqual(rom.files.map((file) => [...file]), [[1], [4], [2], [3], [5]]);
     expect(rom.fileId("extra.bin")).toBe(4);
     const reprioritized = rom.save({ priorityFileIds: [4, 1, 4] });
     expect(physicalFileOrder(reprioritized)).toEqual([4, 1, 3, 0, 2]);
@@ -165,13 +166,13 @@ describe("ROM export", () => {
     const exported = new NintendoDSRom(await exportModifiedRom(project));
     expect(exported.files).toHaveLength(2);
     expect(exported.fileId("patches/Test.dll")).toBe(1);
-    expect([...exported.files[0]]).toEqual([7]);
-    expect([...exported.files[1]]).toEqual([2, 3]);
+    deepStrictEqual([...exported.files[0]], [7]);
+    deepStrictEqual([...exported.files[1]], [2, 3]);
     expect(await exportModifiedRom(project)).toEqual(exported.data);
 
     project.fileSystem!.replacements[1] = Uint8Array.of(4);
     const replaced = new NintendoDSRom(await exportModifiedRom(project));
-    expect([...replaced.files[1]]).toEqual([4]);
+    deepStrictEqual([...replaced.files[1]], [4]);
   });
 
   it("preserves existing root FNT names when exporting an appended PMC overlay", async () => {
@@ -190,10 +191,10 @@ describe("ROM export", () => {
 
     expect(exported.arm9OverlayTable.length / 32).toBe(1);
     expect(exported.filenames.firstId).toBe(0);
-    expect(exported.filenames.files).toEqual(["legacy-root.bin"]);
+    deepStrictEqual(exported.filenames.files, ["legacy-root.bin"]);
     expect(exported.fileId("legacy-root.bin")).toBe(0);
     expect(exported.fileId(overlayPath)).toBe(1);
-    expect([...exported.files[0]]).toEqual([1]);
+    deepStrictEqual([...exported.files[0]], [1]);
   });
 
   it("exports standalone White2Upgrade type chart files as raw bytes", async () => {
@@ -222,8 +223,8 @@ describe("ROM export", () => {
     const parsed = new NintendoDSRom(compact);
 
     expect(compact.length).toBeLessThan(padded.length);
-    expect([...parsed.files[0]]).toEqual([1, 2, 3]);
-    expect([...parsed.files[1]]).toEqual([4]);
+    deepStrictEqual([...parsed.files[0]], [1, 2, 3]);
+    deepStrictEqual([...parsed.files[1]], [4]);
   });
 
   it("can preserve original ROM length for browser emulator launches", () => {
@@ -237,7 +238,7 @@ describe("ROM export", () => {
 
     expect(saved.length).toBe(padded.length);
     expect(readU32(saved, 0x80)).toBe(padded.length);
-    expect([...parsed.files[1]]).toEqual([9, 8, 7, 6, 5]);
+    deepStrictEqual([...parsed.files[1]], [9, 8, 7, 6, 5]);
   });
 
   it("can pad compact ROMs back to a requested minimum length", () => {
@@ -250,7 +251,7 @@ describe("ROM export", () => {
 
     expect(saved.length).toBe(targetLength);
     expect(readU32(saved, 0x80)).toBe(targetLength);
-    expect([...parsed.files[1]]).toEqual([9, 8, 7, 6, 5]);
+    deepStrictEqual([...parsed.files[1]], [9, 8, 7, 6, 5]);
   });
 
   it("does not synthesize a TWL extended region for legacy unit-code-2 ROMs", async () => {
@@ -283,7 +284,7 @@ describe("ROM export", () => {
     const before = source.slice();
     let exported = await exportModifiedRom(makeProject(source));
     for (let iteration = 0; iteration < 2; iteration += 1) {
-      expect(new NintendoDSRom(exported).files).toEqual([Uint8Array.of(1, 2, 3)]);
+      deepStrictEqual(new NintendoDSRom(exported).files, [Uint8Array.of(1, 2, 3)]);
       expect(readU32(exported, 0x210)).toBe(0);
       expect(readU32(exported, 0x1c0)).toBe(0);
       expect(readU32(exported, 0x1d0)).toBe(0);
@@ -292,7 +293,7 @@ describe("ROM export", () => {
       expect(readU16(exported, 0x15e)).toBe(crc16(exported.subarray(0, 0x15e)));
       exported = new NintendoDSRom(exported).save();
     }
-    expect(source).toEqual(before);
+    deepStrictEqual(source, before);
     expect(() => new NintendoDSRom(source).save({ forDsi: true })).toThrow("unsupported sector or block dimensions");
   });
 
@@ -329,17 +330,17 @@ describe("ROM export", () => {
       const parsed = new NintendoDSRom(bytes);
       expect(parsed.files[0].length).toBe(length);
       expect(parsed.files[0].every((byte) => byte === 0)).toBe(true);
-      expect(parsed.files[1]).toEqual(Uint8Array.of(2, 3));
-      expect(parsed.arm9).toEqual(Uint8Array.of(1, 2, 3, 4));
-      expect(parsed.arm7).toEqual(Uint8Array.of(5, 6, 7, 8));
+      deepStrictEqual(parsed.files[1], Uint8Array.of(2, 3));
+      deepStrictEqual(parsed.arm9, Uint8Array.of(1, 2, 3, 4));
+      deepStrictEqual(parsed.arm7, Uint8Array.of(5, 6, 7, 8));
       expect(bytes.length).toBe(0x200000);
       expect(readU32(bytes, 0x80)).toBe(bytes.length);
       // Do not synthesize a DSi extension or change stripped payload fields.
-      expect(bytes.subarray(0x1c0, 0x1e0)).toEqual(original.subarray(0x1c0, 0x1e0));
+      deepStrictEqual(bytes.subarray(0x1c0, 0x1e0), original.subarray(0x1c0, 0x1e0));
       expect(readU32(bytes, 0x210)).toBe(twlSize);
       expect(readU16(bytes, 0x15e)).toBe(crc16(bytes.subarray(0, 0x15e)));
     }
-    expect(source).toEqual(original);
+    deepStrictEqual(source, original);
   });
 
   it("preserves the reserved region fields for DS-only ROMs", () => {
@@ -383,11 +384,11 @@ describe("ROM export", () => {
         expect(readU32(bytes, fat + id * 8 + 4)).toBeLessThanOrEqual(boundary);
       }
       expect(readU32(bytes, 0x1c0)).toBe(boundary);
-      expect(bytes.slice(boundary, boundary + 4)).toEqual(Uint8Array.of(4, 5, 6, 7));
+      deepStrictEqual(bytes.slice(boundary, boundary + 4), Uint8Array.of(4, 5, 6, 7));
       const arm7i = readU32(bytes, 0x1d0);
       expect(arm7i).toBeGreaterThanOrEqual(boundary + 4);
-      expect(bytes.slice(arm7i, arm7i + 4)).toEqual(Uint8Array.of(8, 9, 10, 11));
-      expect(new NintendoDSRom(bytes).files[1]).toEqual(Uint8Array.of(2, 3));
+      deepStrictEqual(bytes.slice(arm7i, arm7i + 4), Uint8Array.of(8, 9, 10, 11));
+      deepStrictEqual(new NintendoDSRom(bytes).files[1], Uint8Array.of(2, 3));
       expect(readU32(bytes, 0x210)).toBe(bytes.length);
       expect(readU16(bytes, 0x15e)).toBe(crc16(bytes.subarray(0, 0x15e)));
     }
@@ -423,12 +424,12 @@ describe("ROM export", () => {
       expect(readU32(bytes, 0x228)).toBe(second + 0x10);
       expect(readU32(bytes, 0x224)).toBe(0x40);
       expect(readU32(bytes, 0x22c)).toBe(0x80);
-      expect(bytes.slice(first, first + arm9i.length)).toEqual(arm9i);
-      expect(bytes.slice(second, second + arm7i.length)).toEqual(arm7i);
-      expect(bytes.slice(0x300, 0x3b4)).toEqual(before.slice(0x300, 0x3b4));
+      deepStrictEqual(bytes.slice(first, first + arm9i.length), arm9i);
+      deepStrictEqual(bytes.slice(second, second + arm7i.length), arm7i);
+      deepStrictEqual(bytes.slice(0x300, 0x3b4), before.slice(0x300, 0x3b4));
       expect(readU16(bytes, 0x15e)).toBe(crc16(bytes.subarray(0, 0x15e)));
     }
-    expect(source).toEqual(before);
+    deepStrictEqual(source, before);
   });
 
   it("rejects an active DSi encryption range with a stale offset before returning an export", () => {
@@ -443,7 +444,7 @@ describe("ROM export", () => {
     writeU32(source, 0x224, 0x40);
     const before = source.slice();
     expect(() => new NintendoDSRom(source).save()).toThrow("DSi modcrypt area 1: its encryption range is outside a preserved code section");
-    expect(source).toEqual(before);
+    deepStrictEqual(source, before);
 
     source[0x1c] = 1; // Disabled encryption metadata is not interpreted.
     expect(readU32(new NintendoDSRom(source).save(), 0x220)).toBe(0x100000);
@@ -506,11 +507,11 @@ describe("ROM export", () => {
 
     expect(hasEarlyFimgMagic(normalized)).toBe(false);
     expect(readAscii(normalized, fimgOffset, 4)).toBe("GMIF");
-    expect(new NARC(normalized).files.map((file) => [...file])).toEqual([
+    deepStrictEqual(new NARC(normalized).files.map((file) => [...file]), [
       [1, 2, 3],
       [4, 5, 6, 7],
     ]);
-    expect([...exportedRom.files[1]]).toEqual([9]);
+    deepStrictEqual([...exportedRom.files[1]], [9]);
     expect(hasEarlyFimgMagic(exportedRom.getFileByName("extra.narc"))).toBe(false);
   });
 
@@ -542,8 +543,8 @@ describe("ROM export", () => {
     const exportedRom = new NintendoDSRom(exported);
 
     expect(exported.length).toBeGreaterThan(0);
-    expect([...exportedRom.files[0]]).toEqual([...suspicious]);
-    expect([...exportedRom.files[1]]).toEqual([7]);
+    deepStrictEqual([...exportedRom.files[0]], [...suspicious]);
+    deepStrictEqual([...exportedRom.files[1]], [7]);
   });
 
   it("recompresses dirty ARM9 when the source ROM used ARM9 compression", async () => {

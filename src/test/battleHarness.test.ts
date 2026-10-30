@@ -1,3 +1,4 @@
+import { deepStrictEqual } from "node:assert";
 import { describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -56,7 +57,7 @@ describe("automatic battle harness", () => {
     expect(readU16(after.code, config.address + 6)).toBe(trainer);
     expect(readU32(after.code, config.address + 8)).toBe(rule);
     const executable = after.code.slice(); executable.set(before.code.subarray(config.address + 6, config.address + 12), config.address + 6);
-    expect(executable).toEqual(before.code);
+    deepStrictEqual(executable, before.code);
     expect(after.relocations).toEqual(before.relocations);
     expect(after.bssSize).toBe(before.bssSize);
   });
@@ -86,10 +87,10 @@ describe("automatic battle harness", () => {
   it("preserves every save byte by default", () => {
     const { project, save } = fixture();
     const result = patchHarnessSave(save, project, { trainerId: 1 });
-    expect(result).toEqual(save);
+    deepStrictEqual(result, save);
     expect(result).not.toBe(save);
     for (const half of [0, 0x26000]) { writeU32(save, half + 0x18e00, 2); refreshTestBattlePartyChecksums(save, half); }
-    expect(patchHarnessSave(save, project, { trainerId: 1 })).toEqual(save);
+    deepStrictEqual(patchHarnessSave(save, project, { trainerId: 1 }), save);
   });
   it("edits HP/status/zero PP on both redundant halves without changing identity or other slots", () => {
     const { project, save } = fixture();
@@ -99,14 +100,14 @@ describe("automatic battle harness", () => {
       const before = mon(save, 0, half), after = mon(output, 0, half);
       expect(readU16(after, 0x8e)).toBe(0);
       expect(readU32(after, 0x88)).toBe(1);
-      expect(Array.from(after.subarray(0x30, 0x34))).toEqual([0, 0, 0, 0]);
-      expect(after.subarray(0, 6)).toEqual(before.subarray(0, 6));
-      expect(after.subarray(0x48, 0x88)).toEqual(before.subarray(0x48, 0x88));
-      expect(output.subarray(half + 0x18e08 + 220, half + 0x18e08 + 440)).toEqual(save.subarray(half + 0x18e08 + 220, half + 0x18e08 + 440));
+      deepStrictEqual(Array.from(after.subarray(0x30, 0x34)), [0, 0, 0, 0]);
+      deepStrictEqual(after.subarray(0, 6), before.subarray(0, 6));
+      deepStrictEqual(after.subarray(0x48, 0x88), before.subarray(0x48, 0x88));
+      deepStrictEqual(output.subarray(half + 0x18e08 + 220, half + 0x18e08 + 440), save.subarray(half + 0x18e08 + 220, half + 0x18e08 + 440));
       expect(readU16(output, half + 0x19336)).toBe(readU16(output, half + 0x25f34));
     }
-    expect(save).toEqual(original);
-    expect(patchHarnessSave(output, project, { trainerId: 1 })).toEqual(output); // Valid block and PK5 checksums.
+    deepStrictEqual(save, original);
+    deepStrictEqual(patchHarnessSave(output, project, { trainerId: 1 }), output); // Valid block and PK5 checksums.
   });
   it("serializes BW2 status IDs and rejects obsolete bit masks", () => {
     const { project, save } = fixture();
@@ -130,7 +131,7 @@ describe("automatic battle harness", () => {
     expect(readU32(data, 0x88)).toBe(5);
     expect(readU16(data, 0x28)).toBe(2);
     expect(output.subarray(0x18e08 + 220, 0x18e08 + 1320).every(v => v === 0)).toBe(true);
-    expect(patchHarnessSave(output, project, { trainerId: 1 })).toEqual(output);
+    deepStrictEqual(patchHarnessSave(output, project, { trainerId: 1 }), output);
   });
   it("recalculates level/species stats without resetting HP/status or trainer identity", () => {
     const { project, save } = fixture();
@@ -153,7 +154,7 @@ describe("automatic battle harness", () => {
       expect(readPk5Ability(mon(output, 0, half))).toBe(abilityId);
       expect(mon(output, 0, half)[0x42] & 1).toBe(1);
     }
-    expect(patchHarnessSave(output, project, { trainerId: 1 })).toEqual(output);
+    deepStrictEqual(patchHarnessSave(output, project, { trainerId: 1 }), output);
     const hurt = patchHarnessSave(output, project, { trainerId: 1, player: { edits: [{ slot: 0, currentHp: 3 }] } });
     expect(readPk5Ability(mon(hurt))).toBe(abilityId);
     const cleared = patchHarnessSave(hurt, project, { trainerId: 1, player: { edits: [{ slot: 0, abilityId: 2 }] } });
@@ -167,7 +168,7 @@ describe("automatic battle harness", () => {
     const rule = patchHarnessTrainer(project, { trainerId: 1, battleType, trainer: { team, ai: 0x123, trainerClass: 5 } });
     expect(rule).toBe(["Singles", "Doubles", "Triples", "Rotation"].indexOf(battleType));
     materializeProjectEdits(project);
-    expect(project.narcs.trdata!.rawFiles[0]).toEqual(before);
+    deepStrictEqual(project.narcs.trdata!.rawFiles[0], before);
     const data = project.narcs.trdata!.rawFiles[1];
     expect(data[0]).toBe(3);
     expect(data[1]).toBe(5);
@@ -190,7 +191,7 @@ describe("automatic battle harness", () => {
     expect(() => patchHarnessSave(bad, project, { trainerId: 1 })).toThrow(/No valid/);
     const badMon = save.slice(); writeU16(badMon, 0x18e08 + 6, 0);
     // A torn block is excluded before a PK5 can be misinterpreted.
-    expect(patchHarnessSave(badMon, project, { trainerId: 1 })).toEqual(badMon);
+    deepStrictEqual(patchHarnessSave(badMon, project, { trainerId: 1 }), badMon);
   });
   it("requires two living non-Egg player Pokemon for doubles", () => {
     const { project, save } = fixture();
@@ -210,8 +211,8 @@ describe("automatic battle harness", () => {
     ] } });
     expect([...project.narcs.personal!.dirty]).toEqual([1]);
     materializeProjectEdits(project);
-    expect(project.narcs.personal!.rawFiles[0]).toEqual(before[0]);
-    expect(project.narcs.personal!.rawFiles[2]).toEqual(before[2]);
+    deepStrictEqual(project.narcs.personal!.rawFiles[0], before[0]);
+    deepStrictEqual(project.narcs.personal!.rawFiles[2], before[2]);
     const row = project.narcs.personal!.rawFiles[1];
     const allowed = new Set<number>();
     let offset = 0;

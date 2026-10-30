@@ -5,6 +5,14 @@
 typedef struct { FwPoint eye,target; uint32_t projection; } FwrCamera;
 typedef struct { FwPoint position; int32_t sx,sy; } FwrPose;
 typedef struct { FwPoint axis; int32_t before,after,policy; } FwrResult;
+/* Apply vertical animation in the camera-facing billboard plane. Its ground
+ * anchor still determines depth; frame bobbing does not change occlusion. */
+int fwr_animation_plane(const FwPoint *native,int32_t vertical,
+    const FwrCamera *camera,FwPoint *output);
+/* Express a grid-sprite alignment offset in the rail camera's horizontal
+ * basis. The actor and its native grounded shadow are not moved. */
+int fwr_camera_anchor(const FwPoint *native,const FwPoint *anchor,
+    const FwrCamera *camera,FwPoint *output);
 #define FWR_TIE_MARGIN 512 /* 1/8 world unit; a tile is 16 world units. */
 #define FWR_PROP_FOREGROUND_GAP (4 * 4096) /* Clear native Z-buffer quantization. */
 #define FWR_NATIVE_FOREGROUND_GAP (4 * 4096) /* Retain native NPC/player depth. */

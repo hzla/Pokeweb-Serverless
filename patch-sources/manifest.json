@@ -3373,7 +3373,7 @@
             "path": "package.json"
           },
           "kind": "build-tool",
-          "sha256": "7914e513ad5407762afaa91739333909912b1608a0c5bf673d7d443723e665c7",
+          "sha256": "a9b850a6e555cd3aaf81d009649b64fa52dd27d81c621eee173ce930ef884669",
           "normalized": false
         },
         {

@@ -13,6 +13,11 @@ native triggers and intrinsic restrictions; copying a callback does not reproduc
 every ability-ID check elsewhere in the game. Imported recipes may implement
 only the scope named in the picker. Fairy selectors require a Fairy-enabled ROM.
 
+The additional field/history templates use native operations and private tracking;
+they do not replace the scheduler or global ability-eligibility rules. Protean and
+Libero expose their activation limit, and Mega Launcher covers pulse damage only.
+Heal Pulse healing is unchanged.
+
 All edited abilities share `patches/AbilityEffects.dll`; the browser does not
 compile native code. Applying an edit verifies native signatures, dependencies,
 relocations and hook conflicts before committing the change. Recognized battle

@@ -3,6 +3,7 @@ import { createW2uLocalBridgePlugin } from "./scripts/w2u-local-bridge.js";
 
 export default defineConfig(({ mode }) => {
   const isCodexDev = mode === "codex-dev";
+  const isRomTest = mode === "rom";
   return {
     base: process.env.GITHUB_PAGES_BASE || "./",
     plugins: [
@@ -24,9 +25,11 @@ export default defineConfig(({ mode }) => {
     },
     test: {
       include: ["src/test/**/*.test.ts"],
-      // ROM fixtures retain large buffers; bound concurrent memory usage.
-      maxWorkers: 2,
+      // Bound retail ROM memory use with one worker and allow full import/export cycles.
+      maxWorkers: isRomTest ? 1 : 2,
       minWorkers: 1,
+      testTimeout: isRomTest ? 30000 : 5000,
+      hookTimeout: isRomTest ? 30000 : 10000,
     },
   };
 });

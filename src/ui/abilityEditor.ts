@@ -5,6 +5,7 @@ import { inspectAbilityEffects, configureAbilityRuleSets, createCustomAbility, n
 import { ABILITY_NATIVE_EFFECTS, ABILITY_RULE_EFFECTS, ABILITY_RULE_PRESETS, EMPTY_ABILITY_RULE, type AbilityRuleSet } from "../pokeweb/abilityRules";
 import { renderItemRuleForm, installItemRuleEditor, type RuleFormOptions } from "./itemRuleEditor";
 import { escapeHtml } from "./dom";
+import { installAbilityPrimitiveReference } from "./abilityPrimitiveReference";
 
 export const BLANK_ABILITY_DRAFT:AbilityRuleSet={effects:[],conditions:{kind:"group",mode:"all",children:[]}};
 export function renderAbilityEditor(project: ProjectState, root: HTMLElement, onChange: () => void): void {
@@ -22,7 +23,8 @@ export function renderAbilityEditor(project: ProjectState, root: HTMLElement, on
             customDraft=false;onChange();
         },
     };
-    root.innerHTML=`<aside class="pokemon-filter ability-sidebar"><h2>Abilities</h2><button type="button" class="btn -default" data-add-ability>Add ability</button><input type="search" data-ability-search placeholder="Search abilities" aria-label="Search abilities"><div class="ability-list" data-ability-list></div></aside><main class="pokemon-list ability-page" data-ability-panel></main>`;
+    root.innerHTML=`<div class="ability-editor-layout"><aside class="pokemon-filter ability-sidebar"><h2>Abilities</h2><button type="button" class="btn -default" data-add-ability>Add ability</button><input type="search" data-ability-search placeholder="Search abilities" aria-label="Search abilities"><div class="ability-list" data-ability-list></div></aside><main class="pokemon-list ability-page" data-ability-panel></main><aside class="ability-reference" aria-label="Ability primitive reference" data-ability-reference></aside></div>`;
+    const updateReference=installAbilityPrimitiveReference(root.querySelector<HTMLElement>("[data-ability-reference]")!,project);
     function list(){
         const names=project.texts.banks.abilities??[];
         root.querySelector<HTMLElement>("[data-ability-list]")!.innerHTML=names.slice(1,256).flatMap((name,index)=>name&&`${index+1} ${name}`.toLowerCase().includes(query.toLowerCase())?[`<button type="button" class="ability-list-item ${!adding&&selected===index+1?"-active":""}" data-ability-id="${index+1}"><span>${index+1}</span>${escapeHtml(name)}</button>`]:[]).join("");
@@ -31,6 +33,7 @@ export function renderAbilityEditor(project: ProjectState, root: HTMLElement, on
     function panel(){
         list();
         const state=inspectAbilityEffects(project),name=adding?"":project.texts.banks.abilities?.[selected]??`Ability ${selected}`,rule=adding?undefined:state.rules.get(selected);
+        updateReference(state.rules);
         const native:AbilityRuleSet|undefined=!adding&&nativeAbilityProfile(`nativeAbility:${selected}`)?{effects:[{kind:`nativeAbility:${selected}`,value:-1}],conditions:EMPTY_ABILITY_RULE.conditions}:undefined;
         const noTemplate=!adding&&!rule&&!native&&!customDraft;
         const target=root.querySelector<HTMLElement>("[data-ability-panel]")!;

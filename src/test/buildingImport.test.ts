@@ -1,5 +1,6 @@
+import { romFixtureExists } from "./romFixtures";
 import { describe, expect, it } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { concatBytes, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { NARC } from "../nds/narc";
@@ -95,7 +96,7 @@ async function assetGlb(asset: BuildingLibraryAsset, heightDelta = 0) {
 }
 
 const romPath = resolve(process.cwd(), "../cleanwhite2.nds");
-describe.skipIf(!existsSync(romPath))("local BW2 static building conversion", () => {
+describe.skipIf(!romFixtureExists(romPath))("local BW2 static building conversion", () => {
   async function setup() {
     const project = await loadProjectFromRomBytes(new Uint8Array(readFileSync(romPath)), "cleanwhite2.nds", { selectedNarcs: ["maps"] });
     const library = await loadBuildingLibrary(project);

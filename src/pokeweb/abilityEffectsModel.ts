@@ -11,6 +11,9 @@ import groupedPriorityTemplate from "../assets/data/abilityRuleRuntimePriorityGr
 import groupedLibraryTemplate from "../assets/data/abilityRuleRuntimeLibraryGrouped.json";
 import groupedRecipeTemplate from "../assets/data/abilityRuleRuntimeRecipesGrouped.json";
 import groupedClientTemplate from "../assets/data/abilityRuleRuntimeClientGrouped.json";
+import scopedRecipeTemplate from "../assets/data/abilityRuleRuntimeRecipesScoped.json";
+import scopedClientTemplate from "../assets/data/abilityRuleRuntimeClientScoped.json";
+import {SCOPED_ABILITY_EFFECTS} from "./abilityScopedEffects";
 import weatherRecipeTemplate from "../assets/data/abilityRuleRuntimeRecipesWeather.json";
 import weatherClientTemplate from "../assets/data/abilityRuleRuntimeClientWeather.json";
 import { libraryAbilityEffect } from "./abilityLibraryEffects";
@@ -152,7 +155,8 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
     const recipes=[...entries.values()].some(r=>r.effects.some(e=>recipeAbilityEffect(e.kind)));
     const traps = clientHooks && [...entries.values()].some(r => r.effects.some(e => e.kind === "nativeAbility:42"));
     const weatherGuard = [...entries.values()].some(r => r.effects.some(e => e.kind === "abilityRecipe:weatherGuard"));
-    const selectedTemplate = weatherGuard ? traps ? weatherClientTemplate : weatherRecipeTemplate : popupGroups
+    const scoped = [...entries.values()].some(r=>r.effects.some(e=>SCOPED_ABILITY_EFFECTS.some(s=>s.kind===e.kind)));
+    const selectedTemplate = scoped ? traps ? scopedClientTemplate : scopedRecipeTemplate : weatherGuard ? traps ? weatherClientTemplate : weatherRecipeTemplate : popupGroups
         ? traps ? groupedClientTemplate : recipes ? groupedRecipeTemplate : library ? groupedLibraryTemplate : priority ? groupedPriorityTemplate : groupedTemplate
         : traps ? clientTemplate : recipes ? recipeTemplate : library ? libraryTemplate : priority ? priorityTemplate : template;
     const rpm = structuredClone(selectedTemplate) as unknown as RpmModule;
@@ -203,6 +207,10 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
             }
         }
     }
+    if(scoped){
+        const scopedApi=named("AbilityScopedApi").address;
+        ["GetTurnCounter","PokeTypePair_MakeMonotype","IsItemSwapBlocked","IsItemUnremovable","GiratinaArceusGenesectItemCheck","BattleMon_SetType"].forEach((name,i)=>{const service=c.resolver.resolve(name);assertUnhooked(c,name,service.address,service.code.length);writeU32(rpm.code,scopedApi+i*4,service.address|1);});
+    }
     const data = append(encodeAbilityRules(entries), "SECTION");
     rpm.relocations.push({ target: { module: "base", address: named("AbilityRuleData").address, type: "OFFSET" }, sourceSymbolIndex: data });
     linkNativeAbilities(rpm, entries, rpm.symbols[data].address, c.resolver.resolve, (name, address, size, copied) => assertUnhooked(c, name, address, size, copied));
@@ -234,6 +242,7 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
     if (traps) rpm.metadata.PokewebAbilityClientTraps = 1;
     if (popupGroups) rpm.metadata.PokewebAbilityPopupGroups = 1;
     if (weatherGuard) rpm.metadata.PokewebAbilityWeatherGuard = 1;
+    if (scoped) rpm.metadata.PokewebAbilityScoped = 1;
     const serialized = writeRpm(rpm, { ident: "DLXF" });
     if (rpm.code.length + rpm.bssSize > 65536 || serialized.length + rpm.code.length + rpm.bssSize > 112 * 1024)
         throw new Error("Ability effects exceed the shared DLL memory budget. Reduce rule complexity.");

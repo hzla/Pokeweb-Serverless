@@ -1,4 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
+import { romFixtureExists } from "./romFixtures";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { loadProjectFromRomBytes } from "../pokeweb/loader";
 import {
@@ -8,9 +9,8 @@ import {
 
 describe("playerTrainerBackSpriteModel", () => {
   for (const romName of ["cleanblack2.nds", "cleanwhite2.nds"]) {
-    it(`previews both playable appearances without modifying ${romName}`, async () => {
+    it.skipIf(!romFixtureExists(new URL(`../../../${romName}`, import.meta.url)))(`previews both playable appearances without modifying ${romName}`, async () => {
       const romUrl = new URL(`../../../${romName}`, import.meta.url);
-      if (!existsSync(romUrl)) return;
       const bytes = new Uint8Array(readFileSync(romUrl));
       const project = await loadProjectFromRomBytes(bytes, romName, { selectedNarcs: ["trainer_back_sprites"] });
       expect(await ensurePlayerTrainerBackSpriteStore(project)).toBe(true);
@@ -41,9 +41,8 @@ describe("playerTrainerBackSpriteModel", () => {
     });
   }
 
-  it("reports invalid appearances and missing native files", async () => {
+  it.skipIf(!romFixtureExists(new URL("../../../cleanwhite2.nds", import.meta.url)))("reports invalid appearances and missing native files", async () => {
     const romUrl = new URL("../../../cleanwhite2.nds", import.meta.url);
-    if (!existsSync(romUrl)) return;
     const project = await loadProjectFromRomBytes(new Uint8Array(readFileSync(romUrl)), "cleanwhite2.nds", { selectedNarcs: ["trainer_back_sprites"] });
     expect(() => getPlayerTrainerBackSpritePreview(project, 2)).toThrow("Unsupported player appearance");
     project.narcs.trainer_back_sprites!.rawFiles[1] = new Uint8Array();
@@ -54,9 +53,9 @@ describe("playerTrainerBackSpriteModel", () => {
     expect(() => getPlayerTrainerBackSpritePreview(project, 0)).toThrow("archive is not loaded");
   });
 
-  it("lazily loads the archive for a preview without marking it dirty", async () => {
+  it.skipIf(!romFixtureExists(new URL("../../../cleanwhite2.nds", import.meta.url)))("lazily loads the archive for a preview without marking it dirty", async () => {
     const romUrl = new URL("../../../cleanwhite2.nds", import.meta.url);
-    if (!existsSync(romUrl)) return;
+
     const bytes = new Uint8Array(readFileSync(romUrl));
     const project = await loadProjectFromRomBytes(bytes, "cleanwhite2.nds", { selectedNarcs: [] });
     delete project.narcs.trainer_back_sprites;

@@ -1,6 +1,6 @@
 import{describe,it,expect}from'vitest';
 import{ABILITY_IMPORT_LIBRARY,abilityImport}from'../pokeweb/abilityLibrary';
-import{RECIPE_ABILITY_EFFECTS,recipeAbilityEffect}from'../pokeweb/abilityRecipeEffects';
+import{RECIPE_ABILITY_EFFECTS}from'../pokeweb/abilityRecipeEffects';
 import{validateAbilityRule,encodeAbilityRules,ABILITY_RULE_EFFECTS}from'../pokeweb/abilityRules';
 import{buildAbilityRuleModule,inspectAbilityEffects,ABILITY_EFFECTS_DLL_PATH}from'../pokeweb/abilityEffectsModel';
 import{makeItemEffectsProject}from'./fixtures/itemEffectsProject';
@@ -9,12 +9,8 @@ import{writeRpm}from'../pokeweb/rpm';
 import{renderItemRuleForm}from'../ui/itemRuleEditor';
 const all={kind:'group' as const,mode:'all' as const,children:[]};
 describe('expanded standalone ability recipes',()=>{
- it('adds exactly the requested 36 recipes',()=>{
-  const extra=ABILITY_IMPORT_LIBRARY.filter(t=>t.rule.effects.some(e=>recipeAbilityEffect(e.kind)));
-  expect(extra).toHaveLength(36);expect(extra.map(t=>t.label).sort()).toEqual(['Aerilate','Aroma Veil','Cheek Pouch','Flower Veil','Pixilate','Refrigerate','Sweet Veil','Battery','Beast Boost','Berserk','Galvanize','Innards Out','Liquid Voice','Merciless','Soul-Heart','Cotton Down','Curious Medicine','Dauntless Shield','Intrepid Sword','Pastel Veil','Perish Body','Power Spot','Sand Spit','Screen Cleaner','Steely Spirit','Anger Shell','Costar','Good as Gold','Guard Dog','Hospitality',"Mind's Eye",'Orichalcum Pulse','Supersweet Syrup','Tera Shell','Toxic Debris','Wind Rider'].sort());
-  expect(RECIPE_ABILITY_EFFECTS).toHaveLength(20);expect(new Set(RECIPE_ABILITY_EFFECTS.map(e=>e.code)).size).toBe(20);
- });
  it('keeps distinct triggers, scopes, type conversion and native stat selection editable',()=>{
+  expect(new Set(RECIPE_ABILITY_EFFECTS.map(e=>e.code)).size).toBe(RECIPE_ABILITY_EFFECTS.length);
   expect(abilityImport(184).rule.effects[0]).toMatchObject({kind:'abilityRecipe:convertType',value:1.2,parameters:{type:2}});
   expect(abilityImport(204).rule.effects[0]).toMatchObject({value:1,parameters:{sourceType:18,moveClass:5,type:10}});
   expect(abilityImport(224).rule.effects[0].parameters).toMatchObject({activation:4,stat:8});

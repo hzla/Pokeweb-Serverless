@@ -58,15 +58,19 @@ def prepare(version):
     literal = int(re.search(r"^([0-9a-f]{8})\s+\S+\s+R_ARM_ABS32\s+\S+\s+PokeList_CanItemAfterPrologue$",
                             relocations, re.M).group(1), 16)
     struct.pack_into("<I", code, literal, CONTINUE | 1)
+    candy_literal = int(re.search(r"^([0-9a-f]{8})\s+\S+\s+R_ARM_ABS32\s+\S+\s+LevelCaps_CandyItemId$",
+                                  relocations, re.M).group(1), 16)
+    struct.pack_into("<I", code, candy_literal, BASE + symbols["LevelCaps_CandyItemId"])
     return code, symbols, externals
 
 
-def run(version, prepared, entry, cap, level, experience, item=622, gained=100, new_exp=1200, form=0, species=25):
+def run(version, prepared, entry, cap, level, experience, item=622, gained=100, new_exp=1200, form=0, species=25, candy_id=622):
     code, symbols, externals = prepared
     uc = Uc(UC_ARCH_ARM, UC_MODE_THUMB)
     uc.ctl_set_cpu_model(UC_CPU_ARM_946)
     uc.mem_map(0x02000000, 0x400000)
     uc.mem_write(BASE, bytes(code))
+    uc.mem_write(BASE + symbols["LevelCaps_CandyItemId"], struct.pack("<I", candy_id))
     beacon = 0x02141800 if version == "B2" else 0x02141840
     uc.mem_write(beacon, struct.pack("<I", BEACON))
     uc.mem_write(BEACON + 4, struct.pack("<I", GAME))
@@ -170,6 +174,13 @@ for version in ("B2", "W2"):
             assert uc.reg_read(UC_ARM_REG_SP) == STACK - 48
             assert uc.reg_read(UC_ARM_REG_R0) == PKM and uc.reg_read(UC_ARM_REG_R1) == item
             assert uc.reg_read(UC_ARM_REG_R2) == 0x12340000 and uc.reg_read(UC_ARM_REG_R7) == 2
+    for item, level, target in ((113, 30, STOP), (113, 29, CONTINUE), (50, 30, CONTINUE), (622, 30, CONTINUE)):
+        uc, _ = run(version, prepared, "THUMB_BRANCH_PokeList_CanItemWithBattleStatsBeUsed", 30, level, 950, item, candy_id=113)
+        assert uc.reg_read(UC_ARM_REG_PC) == target, (version, item, level)
+        assert uc.reg_read(UC_ARM_REG_R4) == 0x12345678
+    for item, target in ((114, STOP), (113, CONTINUE), (50, CONTINUE)):
+        uc, _ = run(version, prepared, "THUMB_BRANCH_PokeList_CanItemWithBattleStatsBeUsed", 30, 30, 950, item, candy_id=114)
+        assert uc.reg_read(UC_ARM_REG_PC) == target, (version, item, target)
     uc, calls = run(version, prepared, "THUMB_BRANCH_LINK_DayCare_RemovePkm_0x28", 30, 30, 950)
     assert calls == []
     uc, calls = run(version, prepared, "THUMB_BRANCH_LINK_DayCare_RemovePkm_0x28", 30, 29, 950)

@@ -1,4 +1,7 @@
 #include "surf.h"
+#ifdef FW_NATIVE_BEHAVIOR
+#include "native_follow.h"
+#endif
 #include "render.h"
 #include "render_math.h"
 #include "positioning.h"
@@ -306,6 +309,7 @@ void fwsurf_draw(void *system,void *camera,void *light,unsigned afterPlayer){
  FollowingSurfDebug.frame=frame;++FollowingSurfDebug.draws;
 }
 
+int fwsurf_active(void){return surf.active!=0;}
 void fwsurf_draw_scene(void *system,void *camera,void *light,Actor *follower,Actor *player,int sprite_y){
  SurfBillboard *rider=surf.owner&&belongs_to_player_scene(system)?rider_billboard(system):0;
  if(rider){surf.template=*rider;surf.hasTemplate=1;}
@@ -329,7 +333,12 @@ void fwsurf_draw_scene(void *system,void *camera,void *light,Actor *follower,Act
   }
  }
  fwsurf_draw(system,camera,light,0);
+#ifdef FW_NATIVE_BEHAVIOR
+ if(surf.active)fwr_draw(system,camera,light,follower,player,sprite_y);
+ else fwn_draw(system,camera,light,follower,sprite_y);
+#else
  fwr_draw(system,camera,light,follower,player,sprite_y);
+#endif
  fwsurf_draw(system,camera,light,1);
  /* The effect pass, shadows, collision and next frame retain retail state. */
  if(lifted)rider->pos=nativePosition;

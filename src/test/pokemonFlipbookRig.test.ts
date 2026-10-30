@@ -11,9 +11,8 @@ import { parsePokemonAnimationBundle } from "../pokeweb/pokemonSpriteWriters";
 import { decompressNitro, parsePokemonAnimation, parsePokemonCellBank, parsePokemonMultiCells, parseRigCells, type PokemonAnimationFrame, type PokemonCell } from "../pokeweb/pokemonSpriteModel";
 
 describe("pokemonFlipbookRig", () => {
-  it("reads infinite, finite, and absent GIF loop metadata", () => {
+  it.skipIf(!existsSync(new URL("../../node_modules/gifuct-js/demo/dog.gif", import.meta.url)))("reads infinite, finite, and absent GIF loop metadata", () => {
     const gifUrl = new URL("../../node_modules/gifuct-js/demo/dog.gif", import.meta.url);
-    if (!existsSync(gifUrl)) return;
     const infinite = new Uint8Array(readFileSync(gifUrl));
     const netscapeOffset = findBytes(infinite, new TextEncoder().encode("NETSCAPE"));
     expect(netscapeOffset).toBeGreaterThanOrEqual(0);

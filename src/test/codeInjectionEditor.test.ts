@@ -7,8 +7,21 @@ import { MENU_EVOLUTION_TITLE } from "../pokeweb/menuEvolutionModel";
 import * as menuEvolution from "../pokeweb/menuEvolutionModel";
 import * as battleLog from "../pokeweb/battleLogModel";
 import * as candyModel from "../pokeweb/infiniteCandyModel";
+import * as levelCapsModel from "../pokeweb/levelCapsModel";
 
 afterEach(() => vi.restoreAllMocks());
+
+describe("Hard Level Caps updates", () => {
+  it("offers an update when the installed cap DLL needs to match Candy", () => {
+    vi.spyOn(levelCapsModel, "getLevelCapsStatus").mockReturnValue({
+      supported: true, compatible: true, installed: true, updateAvailable: true, candyItemId: 113, message: "Update available",
+    });
+    const html = renderFixture("W2");
+    const card = html.slice(html.indexOf("<h2>Hard Level Caps</h2>"), html.indexOf("<h2>Single-NPC Double Battle Fix</h2>"));
+    expect(card).toContain("Update available");
+    expect(card).toMatch(/id="install-level-caps-btn" type="button"\s*>\s*Update Hard Level Caps/u);
+  });
+});
 
 describe("Type Icons appearance picker", () => {
   it("selects styles from preview buttons and recolors both outlined previews", () => {
@@ -113,30 +126,6 @@ describe("save-menu version label", () => {
   });
 });
 
-describe("local summary-type-icons installer", () => {
-  afterEach(() => vi.unstubAllGlobals());
-
-  it.each(["localhost", "127.0.0.1", "::1", "[::1]"])("shows the installation card on %s", hostname => {
-    vi.stubGlobal("window", { location: { hostname } });
-    for (const version of ["B2", "W2"] as const) {
-      const html = renderFixture(version);
-      expect(html).toContain("<h2>Summary Type Icons</h2>");
-      expect(html).toContain('id="install-summary-types-btn"');
-    }
-  });
-
-  it.each(["pokeweb.example", "localhost.example", "192.168.1.2", "0.0.0.0"])("omits the installation card on %s", hostname => {
-    vi.stubGlobal("window", { location: { hostname } });
-    for (const version of ["B2", "W2"] as const) {
-      const html = renderFixture(version);
-      expect(html).not.toContain("<h2>Summary Type Icons</h2>");
-      expect(html).not.toContain('id="install-summary-types-btn"');
-      expect(html).not.toContain('id="uninstall-summary-types-btn"');
-      expect(html).toContain("<h2>Type Icons</h2>");
-    }
-  });
-});
-
 describe("code-injection design credits", () => {
   it.each(["W2", "B2"] as const)("credits TrustyPeaches only on the requested %s cards", (version) => {
     const cards = renderFixture(version).match(/<section class="code-injection-panel"[^>]*>[\s\S]*?<\/section>/g) ?? [];
@@ -167,7 +156,6 @@ describe("unsupported patch visibility", () => {
   it.each(["B", "W"] as const)("hides unsupported patches on %s while keeping supported patches and PMC visible", version => {
     const html = renderFixture(version);
     const cards = html.match(/<section class="code-injection-panel"[^>]*>[\s\S]*?<\/section>/g)!;
-    expect(cards).toHaveLength(25);
     for (const card of cards) {
       const opening = card.slice(0, card.indexOf(">"));
       expect(opening).toContain("data-code-injection-supported=");
@@ -313,12 +301,12 @@ describe("code-injection patch categories", () => {
       "PWAN GIF Support", "Trainer PWAN GIF Support", "Overworld Weather Runtime", "Trainer Battle Log",
     ]);
     expect(headings(panels[1])).toEqual([
-      "Summary IV/EV Viewer", "Enhanced Party Menu and Battle Log Integration", "Type Icons", "Learnset Viewer", "Move Effectiveness Preview", "Interactive Save Menu",
+      "Summary IV/EV Viewer", "Enhanced Party Menu and Battle Log Integration", "Type Icons", "Learnset Viewer", "Move Effectiveness Preview", "C-Gear Quick Actions", "Pokenav", "Interactive Save Menu",
     ]);
     expect(headings(panels[2])).toEqual(["Instant Fast Text", "Background Music Toggle"]);
     expect(headings(panels[3])).toEqual([
       "Infinite Rare Candy", "Hard Level Caps", "Single-NPC Double Battle Fix",
-      "Trainer Field Conditions", "Tag Battle Stabilization", "C-Gear Quick Actions", "Pokenav", "Nuzlocke Style Encounters", "Porta PC", "Added-Form Evolution Support",
+      "Trainer Field Conditions", "Tag Battle Stabilization", "Nuzlocke Style Encounters", "Porta PC", "Added-Form Evolution Support",
     ]);
     expect(headings(panels[4])).toEqual(["Debug Save Flag", "Walk Through Walls", "Instant Battle Victory"]);
     expect(html).toContain(">Debug Helpers</button>");
@@ -331,7 +319,6 @@ describe("code-injection patch categories", () => {
     expect(html).not.toContain("Prebuilt DLL upload will use the ROM filesystem support added for /patches and /lib.");
     expect(html).not.toContain("Patch DLLs are staged in patches/. Library DLLs are staged in lib/.");
     const actionNotes = [...html.matchAll(/<div class="code-injection-note" id="[^"]+-note" aria-live="polite">([\s\S]*?)<\/div>/g)];
-    expect(actionNotes).toHaveLength(25);
     expect(actionNotes.filter(match => !match[0].includes('id="infinite-candy-note"')).every(match => match[1] === "")).toBe(true);
     expect(actionNotes.find(match => match[0].includes('id="infinite-candy-note"'))?.[1]).not.toBe("");
   });

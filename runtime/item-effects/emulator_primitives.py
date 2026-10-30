@@ -88,14 +88,15 @@ def main():
             def multiplied(cpu,address):
                 if not code or not menus:return
                 lr=emu.memory.register_arm9.lr&~1
-                if code<=lr<code+manifest['codeBytes'] and flow and not emu.memory.read_long(flow+0x774):
+                native=manifest.get('nativeObservationRange',[0,0])
+                if (code<=lr<code+manifest['codeBytes'] or native[0]<=lr<native[1]) and flow and not emu.memory.read_long(flow+0x774):
                     multipliers.append({'frame':emu.frame_count,'turnIndex':len(menus)-1,'key':emu.memory.register_arm9.r0,'value':emu.memory.register_arm9.r1})
             rewrites=[]
             def rewritten(cpu,address):
                 if code and menus and code<=(emu.memory.register_arm9.lr&~1)<code+manifest['codeBytes']:
                     rewrites.append({'turnIndex':len(menus)-1,'key':emu.memory.register_arm9.r0,'value':emu.memory.register_arm9.r1})
             hooks.append(emu.memory.register_exec(manifest['api']['BattleEventVar_RewriteValue'],rewritten))
-            hooks += [emu.memory.register_exec(0x0219f5da,opening),emu.memory.register_exec(0x021cef18,command),
+            hooks += [emu.memory.register_exec(manifest.get('openingHook',0x0219f5da),opening),emu.memory.register_exec(manifest.get('commandHook',0x021cef18),command),
                       emu.memory.register_exec(manifest['api']['BattleEventVar_MulValue'],multiplied)]
             try:
                 emu.open(rom)
@@ -103,13 +104,20 @@ def main():
                     if menus:emu.input.keypad_update(1 if emu.frame_count%12<3 else 0)
                     emu.cycle()
                     if errors:raise errors[0]
-                    if emu.frame_count%30==0:sample()
+                    # Field overlays occupy these addresses before the battle
+                    # loader is linked. Inspect heaps after the registry check.
+                    if menus and emu.frame_count%30==0:sample()
                     if len(menus)>=3:break
                 emu.input.keypad_update(0)
                 assert len(menus)>=3,f'No two completed turns: {menus}'
                 checks=spec.get('checks',{})
                 if checks.get('survive'):assert menus[1]['hp']==1 and menus[2]['hp']==1,menus
                 if checks.get('noDamage'):assert all(state['hp']==spec['maxHp'] for state in menus),menus
+                if checks.get('unchangedHp'):assert all(state['hp']==spec['hp'] for state in menus),menus
+                if 'healingFlat' in checks:assert [state['hp'] for state in menus]==[spec['hp']+checks['healingFlat']*n for n in range(3)],menus
+                if 'enemyDamageDivisor' in checks:
+                    amount=max(1,menus[0]['enemyMaxHp']//checks['enemyDamageDivisor'])
+                    assert [state['enemyHp'] for state in menus]==[menus[0]['enemyHp']-amount*n for n in range(3)],menus
                 if 'initialCondition' in checks:assert menus[0]['conditions'][checks['initialCondition']],menus
                 if 'status' in checks:
                     states=menus[1:3]

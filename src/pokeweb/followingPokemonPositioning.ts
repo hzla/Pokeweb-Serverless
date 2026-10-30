@@ -69,7 +69,8 @@ export function encodeFollowerPositioningNarc(registry: FollowerRegistry, regist
   writeU32(member, 20, followerCrc32(member.subarray(HEADER)));
   const narc = new NARC(); narc.files = [member]; return narc.save();
 }
-export function decodeFollowerPositioningNarc(bytes: Uint8Array, registryBytes: Uint8Array, surfRegistryBytes?: Uint8Array): { land: Uint8Array; surf: Uint8Array } {
+export function decodeFollowerPositioningNarc(bytes: Uint8Array, registryBytes: Uint8Array, surfRegistryBytes?: Uint8Array, maxDirectionalGap = FOLLOWER_MAX_DIRECTIONAL_GAP): { land: Uint8Array; surf: Uint8Array } {
+  if (maxDirectionalGap !== 12 && maxDirectionalGap !== 20) throw new Error("Unsupported follower positioning capability.");
   const narc = new NARC(bytes);
   if (narc.files.length !== 1) throw new Error("Positioning archive needs one member.");
   const member = narc.files[0];
@@ -82,7 +83,7 @@ export function decodeFollowerPositioningNarc(bytes: Uint8Array, registryBytes: 
     throw new Error("Positioning archive does not match the installed artwork.");
   const land = member.slice(HEADER, HEADER + readU16(member, 6) * LAND_STRIDE);
   if (Array.from({ length: readU16(member, 6) }, (_, i) => land.subarray(i * LAND_STRIDE, i * LAND_STRIDE + 4))
-    .some(row => row.some(value => value > FOLLOWER_MAX_DIRECTIONAL_GAP))) throw new Error("Positioning archive has an invalid follower gap.");
+    .some(row => row.some(value => value > maxDirectionalGap))) throw new Error("Positioning archive has an invalid follower gap.");
   const surf = member.slice(HEADER + land.length);
   if (surf.some(byte => signed(byte) < -32 || signed(byte) > 32))
     throw new Error("Positioning archive has an invalid Surf rider adjustment.");

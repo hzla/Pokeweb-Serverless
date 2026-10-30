@@ -5,6 +5,7 @@ from verify_packaged import *
 from unicorn import UC_HOOK_CODE
 import collections,json,os,ndspy.narc,zlib
 CYCLES=int(os.environ.get("FOLLOWING_TEST_CYCLES","100"))
+NATIVE_BEHAVIOR=os.environ.get("FOLLOWING_NATIVE_BEHAVIOR")=="1"
 DLL=PACKAGE_BUILD/f'PokewebFollowingField{MODULE_SUFFIX}.dll';ELF=PACKAGE_BUILD/f'PokewebFollowingField{MODULE_SUFFIX}.elf'
 code,bss,syms,rels,funcs,_=audit(DLL,ELF)
 BASE=0x02300000;STOP=0x02008000;STACK=0x023f0000
@@ -172,6 +173,7 @@ def native(u,pc,size,user):
 uc.hook_add(UC_HOOK_CODE,native)
 def setup(direction=0,species=25,zone=0,reset_mon=True):
  global held,pressed
+ if NATIVE_BEHAVIOR:call('fwn_route_reset',[addr('nativeRoute')])
  assert not call('fwt_active')
  held=pressed=0;call('fwt_poll_input')
  uc.mem_write(F,bytes(1856));put(F,2);put(F+20,1);put(F+24,A)
@@ -273,7 +275,15 @@ for direction in (2,3):
    for i,sx in enumerate((ax,x)):uc.mem_write(F+52+i*28,struct.pack('<iiiIIHHBBH',sx,0,z,1,1,0,0,0,3,1))
    assert call('fwt_reach',[F,P,A,FIELD])==1
    blocked=1;assert not call('fwt_reach',[F,P,A,FIELD]);blocked=0
-  put(A+68,x+sign*(18+side_gap)*4096);assert not call('fwt_reach',[F,P,A,FIELD])
+  put(A+68,x+sign*(18+side_gap)*4096);assert bool(call('fwt_reach',[F,P,A,FIELD])) == NATIVE_BEHAVIOR
+if NATIVE_BEHAVIOR:
+ for direction in range(4):
+  setup(direction);uc.mem_write(F+1852,bytes((20,20,20,20)))
+  cx=cz=10*65536+32768;dx=(-1 if direction==2 else 1 if direction==3 else 0)*36*4096;dz=(-1 if direction==0 else 1 if direction==1 else 0)*36*4096
+  uc.mem_write(P+68,struct.pack('<3i',cx,0,cz));uc.mem_write(A+68,struct.pack('<3i',cx+dx,0,cz+dz));uc.mem_write(A+60,struct.pack('<3h',(cx+dx)//65536,0,(cz+dz)//65536))
+  for i,(sx,sz) in enumerate(((cx+dx,cz+dz),(cx,cz))):uc.mem_write(F+52+i*28,struct.pack('<iiiIIHHBBH',sx,0,sz,1,1,0,0,direction,3,1))
+  assert call('fwt_reach',[F,P,A,FIELD])==1,('native large gap',direction)
+  blocked=1;assert not call('fwt_reach',[F,P,A,FIELD]);blocked=0
 # toofar.mln: the side-gap registry row is 4+6=10; the west-facing follower
 # world actor is 28 units away, one beyond the talk box, though the drawn art
 # is two units nearer. Clamp the actor and art together before native reach.
@@ -283,7 +293,7 @@ uc.mem_write(P+68,struct.pack('<iii',x,0,z));uc.mem_write(A+68,struct.pack('<iii
 uc.mem_write(A+60,struct.pack('<hhh',ax//65536,0,z//65536))
 for i,sx in enumerate((ax,x)):
  uc.mem_write(F+52+i*28,struct.pack('<iiiIIHHBBH',sx,0,z,1,1,0,0,0,3,1))
-assert not call('fwt_reach',[F,P,A,FIELD])
+assert bool(call('fwt_reach',[F,P,A,FIELD])) == NATIVE_BEHAVIOR
 pose=SNAP+0x400;visual=pose+0x10
 uc.mem_write(pose,struct.pack('<3i',ax,0,z));uc.mem_write(visual,struct.pack('<3i',8192,6144,-8192))
 assert call('fw_clamp_dialogue_pose',[pose,P+68,visual,2,10])==1
@@ -291,25 +301,38 @@ fixed=struct.unpack('<3i',uc.mem_read(pose,12));assert fixed[0]==x-27*4096
 uc.mem_write(A+68,struct.pack('<3i',*fixed))
 assert call('fwt_reach',[F,P,A,FIELD])==1
 blocked=1;assert not call('fwt_reach',[F,P,A,FIELD]);blocked=0
-# The installed actor callback must apply that cap while the player stands
-# still, moving the native actor and its billboard anchor together. Reuse the
-# same saved-frame geometry and a stationary two-sample route.
-setup(2);uc.mem_write(F+1852,bytes((0,0,10,10)))
-uc.mem_write(P+68,struct.pack('<3i',x,0,z))
-uc.mem_write(A+68,struct.pack('<3i',ax,0,z))
-uc.mem_write(A+80,struct.pack('<3i',8192,6144,-8192))
-uc.mem_write(A+60,struct.pack('<3h',ax//65536,0,z//65536))
-for i,sx in enumerate((ax,x)):
- uc.mem_write(F+52+i*28,struct.pack('<iiiIIHHBBH',sx,0,z,1,1,0,0,0,3,1))
+# Legacy builds cap the live actor while following. Native candidates only
+# admit a bounded temporary probe during interaction and never move the actor.
+if NATIVE_BEHAVIOR:
+ setup(2);uc.mem_write(F+1852,bytes((0,0,10,10)))
+ uc.mem_write(P+68,struct.pack('<3i',x,0,z));uc.mem_write(A+68,struct.pack('<3i',ax,0,z))
+ uc.mem_write(A+80,struct.pack('<3i',8192,6144,-8192));uc.mem_write(A+60,struct.pack('<3h',ax//65536,0,z//65536))
+ for i,sx in enumerate((ax,x)):uc.mem_write(F+52+i*28,struct.pack('<iiiIIHHBBH',sx,0,z,1,1,0,0,0,3,1))
+ before=bytes(uc.mem_read(A,256));assert call('fwt_reach',[F,P,A,FIELD])==1
+ assert bytes(uc.mem_read(A,256))==before
+ blocked=1;assert not call('fwt_reach',[F,P,A,FIELD]);blocked=0
+else:
+ # The installed actor callback must apply that cap while the player stands
+ # still, moving the native actor and its billboard anchor together. Reuse the
+ # same saved-frame geometry and a stationary two-sample route.
+ setup(2);uc.mem_write(F+1852,bytes((0,0,10,10)))
+ uc.mem_write(P+68,struct.pack('<3i',x,0,z))
+ uc.mem_write(A+68,struct.pack('<3i',ax,0,z))
+ uc.mem_write(A+80,struct.pack('<3i',8192,6144,-8192))
+ uc.mem_write(A+60,struct.pack('<3h',ax//65536,0,z//65536))
+ for i,sx in enumerate((ax,x)):
+  uc.mem_write(F+52+i*28,struct.pack('<iiiIIHHBBH',sx,0,z,1,1,0,0,0,3,1))
+ owner=addr('fwfield_owner');follower=addr('fwfield_follower')
+ put(owner,SYS);put(addr('fwfield_player'),P);put(addr('fwfield_generation'),1)
+ uc.mem_write(follower,bytes(uc.mem_read(F,1856)))
+ assert not call('fwt_reach',[follower,P,A,FIELD])
+ call('move',[A]);assert u32(A+68)==x-27*4096
+ assert u32(A+80)==8192 and u32(A+68)+u32(A+80)==x-25*4096
+ assert call('fwt_reach',[follower,P,A,FIELD])==1
+ call('move',[A]);assert u32(A+68)==x-27*4096
+ put(owner,0);put(addr('fwfield_player'),0)
+
 owner=addr('fwfield_owner');follower=addr('fwfield_follower')
-put(owner,SYS);put(addr('fwfield_player'),P);put(addr('fwfield_generation'),1)
-uc.mem_write(follower,bytes(uc.mem_read(F,1856)))
-assert not call('fwt_reach',[follower,P,A,FIELD])
-call('move',[A]);assert u32(A+68)==x-27*4096
-assert u32(A+80)==8192 and u32(A+68)+u32(A+80)==x-25*4096
-assert call('fwt_reach',[follower,P,A,FIELD])==1
-call('move',[A]);assert u32(A+68)==x-27*4096
-put(owner,0);put(addr('fwfield_player'),0)
 # The new toofar.mln has only eight extra units, so the old >8-only second
 # grid-cell rule rejected it even after the coarse distance clamp.
 setup(2);uc.mem_write(F+1852,bytes((0,0,8,8)))
@@ -321,13 +344,19 @@ for i,sx in enumerate((ax,x+32768)):
  uc.mem_write(F+52+i*28,struct.pack('<iiiIIHHBBH',sx,0,z,1,1,0,0,0,3,1))
 put(owner,SYS);put(addr('fwfield_player'),P);put(addr('fwfield_generation'),1)
 uc.mem_write(follower,bytes(uc.mem_read(F,1856)))
-assert not call('fwt_reach',[follower,P,A,FIELD])
-call('move',[A]);assert u32(A+68)==x+32768-25*4096
+if NATIVE_BEHAVIOR:
+ before=bytes(uc.mem_read(A,256));assert call('fwt_reach',[follower,P,A,FIELD])==1
+ assert bytes(uc.mem_read(A,256))==before
+else:
+ assert not call('fwt_reach',[follower,P,A,FIELD])
+ call('move',[A]);assert u32(A+68)==x+32768-25*4096
 assert call('fwt_reach',[follower,P,A,FIELD])==1
 blocked=1;assert not call('fwt_reach',[follower,P,A,FIELD]);blocked=0
 put(owner,0);put(addr('fwfield_player'),0)
-# Vertical reach does not expand with the lateral spacing.
-setup(0);put(A+76,10*65536-22*4096);assert not call('fwt_reach',[F,P,A,FIELD])
+# Native candidates admit the same bounded temporary forward probe vertically.
+setup(0);put(A+76,10*65536-22*4096)
+assert bool(call('fwt_reach',[F,P,A,FIELD])) == NATIVE_BEHAVIOR
+put(A+76,10*65536-50*4096);assert not call('fwt_reach',[F,P,A,FIELD])
 # Rail keys rotated 90 degrees relative to world compass still address the follower.
 setup(0);controller=2
 uc.mem_write(A+68,struct.pack('<iii',11*65536,0,10*65536))

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { NARC } from "../nds/narc";
 import { readU32, writeU16, writeU32 } from "../nds/binary";
 import { followerCrc32, encodeFollowerRegistry, decodeFollowerRegistry } from "../pokeweb/followingPokemonModel";
 import { decodeFollowerPositioningNarc, encodeFollowerPositioningNarc } from "../pokeweb/followingPokemonPositioning";
@@ -58,6 +59,19 @@ describe("ROM-resident follower positioning", () => {
     registry.entries[0].directionalGaps = [1, 2, 12, 12];
     decoded = decodeFollowerPositioningNarc(encodeFollowerPositioningNarc(registry, encoded, anchors, surf), encoded, surf);
     expect(Array.from(decoded.land.subarray(0, 4))).toEqual([1, 2, 12, 12]);
+  });
+  it("requires an explicit candidate capability for 20-unit gaps", () => {
+    const { registry, encoded } = fixture();
+    const archive = new NARC(encodeFollowerPositioningNarc(registry, encoded));
+    archive.files[0][24] = 20;
+    writeU32(archive.files[0], 20, followerCrc32(archive.files[0].subarray(24)));
+    const bytes = archive.save();
+    expect(() => decodeFollowerPositioningNarc(bytes, encoded)).toThrow(/gap/);
+    expect(decodeFollowerPositioningNarc(bytes, encoded, undefined, 20).land[0]).toBe(20);
+    expect(() => decodeFollowerPositioningNarc(bytes, encoded, undefined, 64)).toThrow(/capability/);
+    archive.files[0][24] = 21;
+    writeU32(archive.files[0], 20, followerCrc32(archive.files[0].subarray(24)));
+    expect(() => decodeFollowerPositioningNarc(archive.save(), encoded, undefined, 20)).toThrow(/gap/);
   });
   it("rejects corrupt payloads, mismatched catalogs, and invalid authored offsets", () => {
     const { registry, encoded, anchors, surf } = fixture();

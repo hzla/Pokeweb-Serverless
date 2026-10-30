@@ -116,12 +116,17 @@ for (const v of ["B2", "W2"] as const)
             await expect(installPartyQuickActions(p)).rejects.toThrow(/Simulated toolbar staging failure/);
             deepStrictEqual(structuredClone(p), before);
         });
-        for (const prior of ["0.1.0", "0.1.1", "0.1.2", "0.1.3", "0.1.4", "0.1.5"]) it(`updates toolbar ${prior} in place after export`, async () => {
+        // One export cycle per graphics/hook/config layout; recognize every release.
+        for (const priors of [["0.1.0", "0.1.1"], ["0.1.2", "0.1.3"], ["0.1.4"], ["0.1.5"]]) it(`updates toolbar layout ${priors[0]} in place after export`, async () => {
             const p = project(v); assets(); await installPartyQuickActions(p);
             const entry = listCodeInjectionDlls(p).find(e => e.fileName.startsWith("PartyQuickActions"))!;
-            const fixture = (name: string) => new Uint8Array(readFileSync(new URL(`./fixtures/party-quick-actions-v${prior}/${name}`, import.meta.url)));
-            p.fileSystem!.additions![entry.path] = fixture(`PartyQuickActions${v}.dll`);
-            p.fileSystem!.additions![manifest.archivePath] = fixture("partyQuickActions.narc");
+            for (const prior of priors) {
+                const fixture = (name: string) => new Uint8Array(readFileSync(new URL(`./fixtures/party-quick-actions-v${prior}/${name}`, import.meta.url)));
+                p.fileSystem!.additions![entry.path] = fixture(`PartyQuickActions${v}.dll`);
+                p.fileSystem!.additions![manifest.archivePath] = fixture("partyQuickActions.narc");
+                expect(getPartyQuickActionsStatus(p), prior).toMatchObject({ installed: true, compatible: true, updateAvailable: true });
+            }
+            const prior = priors[priors.length - 1];
             if (prior === "0.1.5") {
                 const old = new NARC(p.fileSystem!.additions![manifest.archivePath]);
                 writeU32(old.files[0], 16, 0x05ee); writeU32(old.files[0], 20, 0x51415050 ^ 1 ^ 0x05ee);

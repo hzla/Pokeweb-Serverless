@@ -1,5 +1,6 @@
+import { romFixtureExists } from "./romFixtures";
 import { describe, expect, it } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { readU16 } from "../nds/binary";
 import { canOpenMapStudio } from "../pokeweb/mapStudioAccess";
 import { findStudioAsset, newStudioChunk, openStudioWorkspace, parseStudioMap, parseStudioTileset, saveStudioWorkspace, studioPath, writeStudioMap } from "../pokeweb/mapStudioFormats";
@@ -58,7 +59,7 @@ describe("PDSMS project compatibility", () => {
     expect(openStudioWorkspace({ "saved.zip": saveStudioWorkspace(reopened) }).files[ws.tilesetPath]).toEqual(bytes);
   });
   const real = new URL("../../../reference_repos/Pokemon-DS-Map-Studio/src/main/resources/tilesets/Black_-_White/Overworld/BlackWhiteTileset.pdsts", import.meta.url);
-  it.skipIf(!existsSync(real))("opens a real upstream Gen 5 tileset", () => {
+  it.skipIf(!romFixtureExists(real))("opens a real upstream Gen 5 tileset", () => {
     const tiles = parseStudioTileset(new Uint8Array(readFileSync(real))); expect(tiles.tiles.length).toBeGreaterThan(100); expect(tiles.materials.length).toBeGreaterThan(1);
   });
 });

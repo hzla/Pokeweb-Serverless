@@ -18,11 +18,32 @@ expected_hash=contract['sourceRomSha256'] if profile=='white2upgrade' else contr
 assert hashlib.sha256(raw).hexdigest()==expected_hash
 rom=ndspy.rom.NintendoDSRom(raw)
 h.uc.mem_write(rom.arm9RamAddress,bytes(ndspy.codeCompression.decompress(rom.arm9)))
-ov=rom.loadArm9Overlays([36])[36];h.uc.mem_write(ov.ramAddress,bytes(ov.data))
+for ov in rom.loadArm9Overlays([12,36] if h.NATIVE_BEHAVIOR else [36]).values():h.uc.mem_write(ov.ramAddress,bytes(ov.data))
 h.F=h.addr('fwfield_follower')
 deletes=[];updates=[];mode=partner=0
 native={0x0219a6e0,0x0219a704,0x0216a2b4,0x021667b8,0x02166980,0x0201735c,0x0201fe24,0x0201ff34,0x0201cd24,0x0201cdd8}
 def spy(u,pc,size,user):
+ if h.NATIVE_BEHAVIOR and pc in (0x02195ab8,0x02074394,0x02074594):
+  # These conversation fixtures intentionally have a synthetic rail cursor.
+  # Real saved cursors and SDK math execute in the separate rail-facing test.
+  r0=u.reg_read(UC_ARM_REG_R0);r1=u.reg_read(UC_ARM_REG_R1)
+  if pc==0x02195ab8:
+   direction=int.from_bytes(u.mem_read(h.P+24,2),'little')
+   if h.controller:direction=(3,2,0,1)[direction]
+   vector=((0,0,-4096),(0,0,4096),(-4096,0,0),(4096,0,0))[direction]
+   u.mem_write(u.reg_read(h.UC_ARM_REG_R2),h.struct.pack('<3h',*vector))
+  elif pc==0x02074594:
+   signed=lambda x:x if x<0x80000000 else x-0x100000000
+   angle={(0,-4096):0x8000,(0,4096):0,(-4096,0):0xc000,(4096,0):0x4000}[(signed(r0),signed(r1))]
+   u.reg_write(UC_ARM_REG_R0,angle)
+  u.reg_write(UC_ARM_REG_PC,u.reg_read(UC_ARM_REG_LR));return
+ if h.NATIVE_BEHAVIOR and pc==0x021949e4:
+  assert u.reg_read(UC_ARM_REG_R1)==0
+  direction=int.from_bytes(u.mem_read(h.P+24,2),'little')
+  if h.controller:direction=(3,2,0,1)[direction]
+  u.reg_write(UC_ARM_REG_R0,direction);u.reg_write(UC_ARM_REG_PC,u.reg_read(UC_ARM_REG_LR));return
+ if h.NATIVE_BEHAVIOR and pc==0x0215e8e4 and u.reg_read(UC_ARM_REG_R0)==h.A:
+  u.reg_write(UC_ARM_REG_R0,0);u.reg_write(UC_ARM_REG_PC,u.reg_read(UC_ARM_REG_LR));return
  if pc not in native:return
  assert u.reg_read(UC_ARM_REG_SP)%8==0,hex(pc)
  r0=u.reg_read(UC_ARM_REG_R0);r1=u.reg_read(UC_ARM_REG_R1);result=0

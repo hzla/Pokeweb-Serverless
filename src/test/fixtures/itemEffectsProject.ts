@@ -1,3 +1,4 @@
+import scopedBindings from "../../assets/data/abilityScopedBindings.json";
 import recipeBindings from "../../assets/data/abilityRecipeBindings.json";
 import abilityBindings from "../../assets/data/abilityBindings.json";
 import clientBindings from "../../assets/data/abilityClientBindings.json";
@@ -66,6 +67,16 @@ export function makeItemEffectsProject(shift = 0, relocateBy = 0, extended = fal
       profile.events.forEach((event,n)=>{writeU32(data,events+n*8,event.event);writeU32(data,events+n*8+4,base+offsets.get(event.handler)!+1);});writeU32(data,abilityTable+index*8+4,base+factory+1);cursor=events+profile.events.length*8;
     });
     for(const ref of abilityBindings.tableRefs)writeU32(data,offsets.get("AbilityEvent_AddItem")!+ref.offset,base+abilityTable+ref.column);
+  }
+  // Append optional service fixtures after the established native tables so
+  // older sealed DLL fixtures keep their exact synthetic addresses.
+  if(ability&&extended){
+    for(const[name,signature]of Object.entries(scopedBindings.functions)){
+      offsets.set(name,cursor);const code=Uint8Array.from(signature.hex.match(/../gu)!,v=>Number.parseInt(v,16));data.set(code,cursor);cursor=(cursor+code.length+3)&~3;
+    }
+    for(const[name,signature]of Object.entries(scopedBindings.functions))for(const call of signature.calls){
+      const at=offsets.get(name)!,delta=offsets.get(call.target)!-(at+call.offset+4);writeU16(data,at+call.offset,0xf000|(delta>>12)&0x7ff);writeU16(data,at+call.offset+2,0xf800|(delta>>1)&0x7ff);
+    }
   }
   const overlay = data.slice(0, cursor);
   const items = new NARC(); items.files = Array.from({ length: 639 }, () => new Uint8Array(36));

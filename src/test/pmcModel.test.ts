@@ -1,3 +1,4 @@
+import { deepStrictEqual } from "node:assert";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
@@ -79,11 +80,11 @@ describe("PMC installer", () => {
     expect(frost.filenames.firstId).toBe(238);
     expect(frost.files.length).toBe(normal.files.length + 1);
     expect(readU32(frost.arm9OverlayTable, 237 * 32 + 24)).toBe(237);
-    expect(frost.files[237]).toEqual(image);
-    expect(frost.getFileByName("overlay/overlay_0237.bin")).toEqual(image);
+    deepStrictEqual(frost.files[237], image);
+    deepStrictEqual(frost.getFileByName("overlay/overlay_0237.bin"), image);
     expect(frost.fileId("base.bin")).toBe(238);
-    expect(frost.arm9).toEqual(normal.arm9);
-    expect(frost.arm7).toEqual(normal.arm7);
+    deepStrictEqual(frost.arm9, normal.arm9);
+    deepStrictEqual(frost.arm7, normal.arm7);
     expect(detectPmcInstallFromRom(frost)?.pmc?.gameId).toBe(version);
     expect(exportFrostCompatibleRom(exported)).toEqual(exported);
   });
@@ -100,23 +101,23 @@ describe("PMC installer", () => {
     expect(frost.filenames.firstId).toBe(345);
     expect(frost.files.length).toBe(normal.files.length + 1);
     expect(frost.fileId("base.bin")).toBe(345);
-    expect(frost.filenames.files).toEqual(normal.filenames.files);
-    expect(frost.arm9).toEqual(normal.arm9);
-    expect(frost.arm7).toEqual(normal.arm7);
-    expect(duplicateFntFileIds(frost.fntData)).toEqual([]);
+    deepStrictEqual(frost.filenames.files, normal.filenames.files);
+    deepStrictEqual(frost.arm9, normal.arm9);
+    deepStrictEqual(frost.arm7, normal.arm7);
+    deepStrictEqual(duplicateFntFileIds(frost.fntData), []);
     for (let row = 0; row < 345; row += 1) {
       expect(readU32(frost.arm9OverlayTable, row * 32 + 24)).toBe(row);
     }
     const checkPaths = (folder: Folder, prefix = "") => {
       for (const name of folder.files) {
         const path = prefix + name;
-        expect(frost.getFileByName(path)).toEqual(normal.getFileByName(path));
+        deepStrictEqual(frost.getFileByName(path), normal.getFileByName(path));
         expect(frost.fileId(path)).toBe(normal.fileId(path) + 1);
       }
       for (const [name, child] of folder.folders) checkPaths(child, `${prefix}${name}/`);
     };
     checkPaths(normal.filenames);
-    expect(frost.files[344]).toEqual(frost.getFileByName("overlay/overlay_0344.bin"));
+    deepStrictEqual(frost.files[344], frost.getFileByName("overlay/overlay_0344.bin"));
     expect(detectPmcInstallFromRom(frost)?.modules?.some((module) => module.path === `patches/DoubleBattleFix${version}.dll`)).toBe(true);
     expect(exportFrostCompatibleRom(exported)).toEqual(exported);
     const reloaded = makeProject(exported, version);
@@ -235,14 +236,14 @@ describe("PMC installer", () => {
     const fatOffset = readU32(exported, 0x48);
     expect(rom.arm9OverlayTable.length).toBe(345 * 32);
     expect(readU16(rom.fntData, 4)).toBe(344);
-    expect(rom.filenames.files).toEqual(["base.bin"]);
-    expect(duplicateFntFileIds(rom.fntData)).toEqual([]);
+    deepStrictEqual(rom.filenames.files, ["base.bin"]);
+    deepStrictEqual(duplicateFntFileIds(rom.fntData), []);
     expect(readU32(rom.arm9OverlayTable, overlayEntry)).toBe(344);
     expect(readU32(rom.arm9OverlayTable, overlayEntry + 8)).toBe(PMC_OVERLAY_SIZE);
     expect(readU32(rom.arm9OverlayTable, overlayEntry + 12)).toBe(0x5000);
     expect(readU32(rom.arm9OverlayTable, overlayEntry + 24)).toBe(overlayFileId);
     expect(rom.filenames.idOf("base.bin")).toBe(344);
-    expect([...rom.files[344]]).toEqual([344 & 0xff]);
+    deepStrictEqual([...rom.files[344]], [344 & 0xff]);
     expect(overlayFileId).toBeGreaterThan(344);
     expect(readU32(exported, fatOffset + overlayFileId * 8)).toBeLessThan(readU32(exported, fatOffset + 344 * 8));
     expect(new TextDecoder().decode(rom.getFileByName(PMC_OVERLAY_ID_PATH))).toBe("344");
@@ -287,14 +288,14 @@ describe("PMC installer", () => {
       alignFntFirstFileToArm9OverlayCount: true,
     });
     const legacyRom = new NintendoDSRom(legacyBytes);
-    expect(legacyRom.filenames.files).toEqual([]);
+    deepStrictEqual(legacyRom.filenames.files, []);
     expect(legacyRom.filenames.firstId).toBe(345);
 
     const reopenedProject = makeProject(legacyBytes, "W2");
     reopenedProject.codeInjection = undefined;
     const repairedRom = new NintendoDSRom(await exportModifiedRom(reopenedProject));
 
-    expect(repairedRom.filenames.files).toEqual(retailNames);
+    deepStrictEqual(repairedRom.filenames.files, retailNames);
     expect(retailNames.map((name) => repairedRom.fileId(name))).toEqual([344, 345, 346]);
   });
 
@@ -310,7 +311,7 @@ describe("PMC installer", () => {
     // A valid PMC ROM must not be mistaken for the generic Frost FNT mismatch.
     const unchanged = repairRomNarcs(installedBytes);
     expect(unchanged.headerRepair).toBeUndefined();
-    expect(new NintendoDSRom(unchanged.bytes).filenames.files).toEqual(retailNames);
+    deepStrictEqual(new NintendoDSRom(unchanged.bytes).filenames.files, retailNames);
 
     const legacyTable = installedRom.arm9OverlayTable.slice();
     writeU32(legacyTable, overlayEntry + 8, PMC_OVERLAY_RESERVED_SIZE);
@@ -325,7 +326,7 @@ describe("PMC installer", () => {
     expect(result.headerRepair?.reasons).toEqual(["legacy_pmc_overlay_layout", "legacy_pmc_root_fnt"]);
     expect(readU32(repairedRom.arm9OverlayTable, overlayEntry + 8)).toBe(PMC_OVERLAY_SIZE);
     expect(readU32(repairedRom.arm9OverlayTable, overlayEntry + 12)).toBe(0x5000);
-    expect(repairedRom.filenames.files).toEqual(retailNames);
+    deepStrictEqual(repairedRom.filenames.files, retailNames);
     expect(retailNames.map((name) => repairedRom.fileId(name))).toEqual([344, 345, 346]);
     expect(repairRomNarcs(result.bytes).headerRepair).toBeUndefined();
   });
@@ -466,8 +467,8 @@ describe("PMC installer", () => {
 
     stageCodeInjectionDll(project, "Existing.dll", updatedDll, "patches", romBytes);
 
-    expect(project.fileSystem.additions).toEqual({});
-    expect(project.fileSystem.replacements[345]).toEqual(updatedDll);
+    deepStrictEqual(project.fileSystem.additions, {});
+    deepStrictEqual(project.fileSystem.replacements[345], updatedDll);
     expect(project.codeInjection.modules?.map((module) => module.path)).toEqual(["patches/Existing.dll"]);
   });
 
@@ -557,7 +558,7 @@ describe("PMC installer", () => {
     expect(lightSetHook).toBeDefined();
     expect(dispatchLiteralPatches).toHaveLength(5);
     expect(dispatchLiteralPatches.every((symbol) => (symbol.address & 3) === 0)).toBe(true);
-    expect([...runtime.code.subarray(zoneSentinelPatch!.address, zoneSentinelPatch!.address + 4)]).toEqual([0xc0, 0x46, 0xc0, 0x46]);
+    deepStrictEqual([...runtime.code.subarray(zoneSentinelPatch!.address, zoneSentinelPatch!.address + 4)], [0xc0, 0x46, 0xc0, 0x46]);
     expect(readU16(runtime.code, setHook!.address + 18)).toBe(0x0005); // movs r5, r0
     expect(readU16(runtime.code, setHook!.address + 20)).toBe(0x89a8); // ldrh r0, [r5, #12]
     expect(readU16(runtime.code, taskStartHook!.address + 14)).toBe(0x6201); // descriptor is stored before r1 is reused
@@ -635,13 +636,13 @@ describe("PMC installer", () => {
     expect(project.fileSystem?.additions?.["overlay/overlay_0344.bin"]).toBeUndefined();
     expect(project.fileSystem?.replacements?.[legacyRom.fileId(PMC_SYMBOL_PATH)]).toBeUndefined();
     expect(project.arm9Dirty).not.toBe(true);
-    expect(project.fileSystem?.additions?.[`patches/${OVERWORLD_WEATHER_RUNTIME_W2_FILENAME}`]).toEqual(overworldWeatherRuntimeW2);
+    deepStrictEqual(project.fileSystem?.additions?.[`patches/${OVERWORLD_WEATHER_RUNTIME_W2_FILENAME}`], overworldWeatherRuntimeW2);
 
     const exported = new NintendoDSRom(await exportModifiedRom(project));
-    expect(exported.arm9).toEqual(originalArm9);
-    expect(exported.arm9OverlayTable).toEqual(originalOverlayTable);
-    expect(exported.files[namedOverlayId]).toEqual(originalPmcOverlay);
-    expect(exported.getFileByName(PMC_SYMBOL_PATH)).toEqual(originalSymbolFile);
+    deepStrictEqual(exported.arm9, originalArm9);
+    deepStrictEqual(exported.arm9OverlayTable, originalOverlayTable);
+    deepStrictEqual(exported.files[namedOverlayId], originalPmcOverlay);
+    deepStrictEqual(exported.getFileByName(PMC_SYMBOL_PATH), originalSymbolFile);
     expect(exported.filenames.idOf("overlay/overlay_0344.bin")).toBeUndefined();
     expect(readAscii(exported.getFileByName(`patches/${OVERWORLD_WEATHER_RUNTIME_W2_FILENAME}`), 0, 4)).toBe("DLXF");
   });
@@ -671,9 +672,9 @@ describe("PMC installer", () => {
     expect(project.fileSystem?.additions?.[PMC_OVERLAY_ID_PATH]).toBeUndefined();
 
     const exported = new NintendoDSRom(await exportModifiedRom(project));
-    expect(exported.arm9).toEqual(rom.arm9);
-    expect(exported.arm9OverlayTable).toEqual(rom.arm9OverlayTable);
-    expect(exported.files[pmcFileId]).toEqual(rom.files[pmcFileId]);
+    deepStrictEqual(exported.arm9, rom.arm9);
+    deepStrictEqual(exported.arm9OverlayTable, rom.arm9OverlayTable);
+    deepStrictEqual(exported.files[pmcFileId], rom.files[pmcFileId]);
     expect(detectPmcInstallFromRom(exported)?.pmc).toEqual(detectPmcInstallFromRom(rom)?.pmc);
     expect(exported.filenames.idOf(PMC_OVERLAY_ID_PATH)).toBeUndefined();
 
@@ -928,7 +929,7 @@ describe("PMC installer", () => {
         expect(second).toEqual(first);
         expect(getPmcInstallStatus(project)).toMatchObject({ installed: true, gameId: version });
         expect(detectBundledFormEvolutionDll(project)).toBe("patched");
-        expect(project.fileSystem?.additions?.[`patches/FormEvolution${version}.dll`]).toEqual(expectedDll);
+        deepStrictEqual(project.fileSystem?.additions?.[`patches/FormEvolution${version}.dll`], expectedDll);
         expect(listCodeInjectionDlls(project).filter((module) => module.fileName === `FormEvolution${version}.dll`)).toHaveLength(1);
 
         const exportedRom = new NintendoDSRom(await exportModifiedRom(project));
@@ -949,7 +950,7 @@ describe("PMC installer", () => {
       expect(result).toMatchObject({ path: "patches/MainMenuSkipB2.dll", fileName: "MainMenuSkipB2.dll", target: "patches" });
       expect(getPmcInstallStatus(project)).toMatchObject({ installed: true, overlayId: 344, version: "13.2.4", gameId: "B2" });
       expect(detectBundledMainMenuSkipDll(project)).toBe("patched");
-      expect(project.fileSystem?.additions?.["patches/MainMenuSkipB2.dll"]).toEqual(mainMenuSkipB2);
+      deepStrictEqual(project.fileSystem?.additions?.["patches/MainMenuSkipB2.dll"], mainMenuSkipB2);
 
       const exported = new NintendoDSRom(await exportModifiedRom(project));
       expect(readAscii(exported.getFileByName("patches/MainMenuSkipB2.dll"), 0, 4)).toBe("DLXF");

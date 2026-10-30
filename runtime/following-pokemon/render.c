@@ -1,11 +1,26 @@
 #include "render.h"
 #include "render_math.h"
 #include <limits.h>
+#ifdef FW_NATIVE_BEHAVIOR
+#include "native_follow.h"
+#ifdef FW_ARCEUS_SURF
+#include "surf.h"
+#endif
+#endif
+#if defined(FW_NATIVE_BEHAVIOR) && defined(FW_MOUNT)
+#include "land.h"
+#endif
 /* Audited IRDO billboard/camera layouts, also used by the effect snapshots. */
 typedef struct { uint16_t geom,pad; FwPoint position; uint16_t frame; int16_t sx,sy; uint16_t rotation,flags,pad2; } Billboard;
 _Static_assert(sizeof(Billboard)==28,"billboard ABI");
 void fwr_anchor(Actor *a,unsigned face){
  if(!a)return;
+#ifdef FW_NATIVE_BEHAVIOR
+#ifdef FW_MOUNT
+ if(!fwland_active())
+#endif
+ {a->dimensions[4]=a->descriptor[15];return;}
+#endif
  /* Native control Z is added to both the model and its attached shadow. The
   * follower's logical world/grid position and collision remain unchanged. */
  int z=(int8_t)a->descriptor[15]+(face==0?-FWR_NORTH_ANCHOR_Z:face==1?6:0);
@@ -75,7 +90,29 @@ void fwr_effects_draw(void *system,void *camera,void *light,Actor *a){
  CALL(0x0204f685,void(*)(void*,void*,void*))(system,camera,light);
  for(unsigned i=0;i<count;++i)*changed[i]=original[i];
 }
+static Billboard *billboard(void *system,Actor *a);
 int fwr_effect_pose(Actor *actor,const Vec *native,FwrEffectPose *out){
+#ifdef FW_NATIVE_BEHAVIOR
+#ifdef FW_MOUNT
+ if(!fwland_active())
+#endif
+#ifdef FW_ARCEUS_SURF
+ if(!fwsurf_active())
+#endif
+ {
+  extern int fwfield_art_y(const Actor*);
+  if(!actor||!native||!out||!actor->system)return 0;
+  void *fieldBl=PTR(actor->system,0x28),*system=fieldBl?PTR(fieldBl,4):0;
+  Billboard *body=system?billboard(system,actor):0;
+  if(!body)return 0;
+  void *field=((ActorSystem*)actor->system)->field;
+  void *view=field?CALL(0x021804d5,void*(*)(void*))(field):0;
+  void *camera=view?CALL(0x021862f5,void*(*)(void*))(view):0;
+  FwPoint input={native->x,native->y,native->z},position;
+  if(!fwn_body_position(actor,camera,&input,fwfield_art_y(actor),&position))return 0;
+  *out=(FwrEffectPose){{position.x,position.y,position.z},body->sx,body->sy};return 1;
+ }
+#endif
  if(!actor||!native||!out||effectPose.actor!=actor||
     effectPose.resource!=*(uint16_t*)(actor->descriptor+16)||
     effectPose.world.x!=actor->world.x||effectPose.world.y!=actor->world.y||effectPose.world.z!=actor->world.z||
