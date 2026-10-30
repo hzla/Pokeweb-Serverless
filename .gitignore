@@ -185,3 +185,5 @@ runtime/field-season/build/
 !/scripts/build-map-studio-tileset.ts
 !/scripts/verify-map-studio-tilesets.ts
 !/scripts/verify-map-studio-smart-brush.ts
+
+/runtime/town-map/build/

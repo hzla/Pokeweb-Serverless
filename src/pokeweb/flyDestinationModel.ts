@@ -1,13 +1,12 @@
 import { loadOverlayTable } from "../nds/code";
 import { NintendoDSRom } from "../nds/rom";
 import { sha256Hex } from "../nds/sha256";
-import { recordGenericChange } from "./actionChangelog";
 import { getRomFileBytes } from "./fileSystemModel";
 import { parseHeaders } from "./headerModel";
 import { loadActiveRomBytes } from "./persistence";
-import { installCodeInjectionPatch, loadCodeInjectionNarcs } from "./codeInjectionInstall";
-import { listCodeInjectionDlls, stageCodeInjectionDll } from "./pmcModel";
-import { markDirty, type ProjectState } from "./projectStore";
+import { loadCodeInjectionNarcs } from "./codeInjectionInstall";
+import { listCodeInjectionDlls } from "./pmcModel";
+import { type ProjectState } from "./projectStore";
 import { parseRpm, writeRpm, type RpmModule } from "./rpm";
 import visitFlags from "../assets/data/bw2FlyVisitFlags.json";
 import nativeContract from "../assets/data/bw2FlyNativeContract.json";
@@ -255,31 +254,12 @@ export async function applyFlyDestinationEdit(project: ProjectState, index: numb
   validateFlyDestinationEdit(destination, edit);
   const status = getFlyDestinationStatus(project);
   if (!status.compatible) throw new Error(status.message);
-  const version = versionOf(project)!;
-  const response = await fetch(LAYOUTS[version].url);
-  if (!response.ok) throw new Error(`Could not load Fly destination support (${response.status}).`);
-  const runtime = new Uint8Array(await response.arrayBuffer());
-  await installCodeInjectionPatch(project, staged => {
-    const entries = getFlyDestinations(staged);
-    const overrides = { ...staged.flyDestinations?.overrides };
-    // Pin each side of the old shared landing point independently on first edit.
-    for (const zone of [326, 490]) {
-      const entry = entries.find(entry => entry.zone === zone);
-      if (entry && !overrides[zone]) overrides[zone] = { ...entry.landing };
-    }
-    overrides[destination.zone] = { x: edit.x, y: edit.y, z: edit.z };
-    const state = { overrides };
-    const configured = configureFlyDestinationRuntime(runtime, version, state);
-    stageCodeInjectionDll(staged, LAYOUTS[version].fileName, configured);
-    const store = staged.narcs.town_map!;
-    const bytes = store.rawFiles[0].slice();
-    const view = new DataView(bytes.buffer);
-    view.setUint16(index * STRIDE + 24, edit.enabled ? 1 : 0, true);
-    view.setUint16(index * STRIDE + 30, edit.visitFlag, true);
-    store.rawFiles[0] = bytes; store.records.clear(); markDirty(staged, "town_map", 0);
-    staged.flyDestinations = state;
-    recordGenericChange(staged, "fly_destinations", `${destination.name}: Fly ${edit.enabled ? "enabled" : "disabled"}; visit flag ${edit.visitFlag}; landing (${edit.x}, ${edit.y}, ${edit.z}).`, destination.name, { key: `fly:${destination.zone}` });
-  });
+  const { loadTownMapDraft, applyTownMapDraft } = await import("./townMapModel");
+  const draft = await loadTownMapDraft(project);
+  draft.areas[index].fly = edit.enabled ? 1 : 0;
+  draft.areas[index].arrivalFlag = edit.visitFlag;
+  draft.landings[destination.zone] = { x: edit.x, y: edit.y, z: edit.z };
+  await applyTownMapDraft(project, draft, { requireRuntime: true });
 }
 
 function hydrateFlyDestinationsFromRomIfNeeded(project: ProjectState, rom: NintendoDSRom): void {

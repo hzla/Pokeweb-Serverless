@@ -1,4 +1,7 @@
-import { NATIVE_ABILITY_PROFILES, linkNativeAbilities, nativeAbilityProfile } from "./abilityNativeRuntime";
+import { linkNativeAbilities, nativeAbilityProfile } from "./abilityNativeRuntime";
+import blackBindings from "../assets/data/abilityBindingsB1.json";
+import type { NativeAbilityProfile } from "./abilityNativeRuntime";
+import type { BattleRuntimeSignature } from "./battleRuntimeBindings";
 import bindings from "../assets/data/abilityBindings.json";
 import recipeTemplate from "../assets/data/abilityRuleRuntimeRecipes.json";
 import {recipeAbilityEffect} from "./abilityRecipeEffects";
@@ -44,13 +47,17 @@ type Source = {
     ids: Map<string, number>;
 };
 const sources = new WeakMap<ProjectState, Source>();
+export function supportsAbilityEditor(project: ProjectState): boolean {
+    return project.session.baseRom === "BW2" || project.session.baseRom === "BW" && project.session.baseVersion === "B";
+}
 const same = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((v, i) => v === b[i]);
 export function hydrateAbilityEffectsSource(project: ProjectState, rom: NintendoDSRom): void {
-    if (project.session.baseRom !== "BW2")
+    if (!supportsAbilityEditor(project))
         return;
+    const overlayId = project.session.baseRom === "BW" ? 93 : 167;
     const table = project.patches?.arm9OverlayTable ?? rom.arm9OverlayTable;
     for (let at = 0; at + 32 <= table.length; at += 32)
-        if (readU32(table, at) === 167) {
+        if (readU32(table, at) === overlayId) {
             const files = new Map<string, Uint8Array>(), ids = new Map<string, number>();
             for (const directory of ["patches", "lib"])
                 for (const name of rom.filenames.folders.find(([folder]) => folder === directory)?.[1].files ?? []) {
@@ -67,8 +74,13 @@ export function hydrateAbilityEffectsSource(project: ProjectState, rom: Nintendo
         }
 }
 function context(project: ProjectState) {
-    if (project.session.baseRom !== "BW2")
-        throw new Error("Ability effects require Black 2 or White 2.");
+    if (!supportsAbilityEditor(project))
+        throw new Error("Ability effects require US Black, Black 2 or White 2.");
+    const isBlack = project.session.baseRom === "BW";
+    const overlayId = isBlack ? 93 : 167;
+    const catalog = isBlack ? blackBindings : bindings;
+    const profiles = catalog.profiles as NativeAbilityProfile[];
+    const signatures: Record<string, BattleRuntimeSignature> = isBlack ? blackBindings.functions : BATTLE_RUNTIME_SIGNATURES;
     if (!sources.has(project) && project.originalRomBytes)
         hydrateAbilityEffectsSource(project, new NintendoDSRom(project.originalRomBytes, { fileData: "view" }));
     const original = sources.get(project);
@@ -77,25 +89,25 @@ function context(project: ProjectState) {
     const source = { ...original }, table = project.patches?.arm9OverlayTable;
     if (table)
         for (let at = 0; at + 32 <= table.length; at += 32)
-            if (readU32(table, at) === 167)
+            if (readU32(table, at) === overlayId)
                 source.base = readU32(table, at + 4);
-    if (!["IRDO", "IREO"].includes(source.game) || source.revision !== 0)
-        throw new Error("Ability effects currently require a recognized US revision-0 BW2 ROM.");
-    const overlay = project.overlays[167];
+    if (!(isBlack ? ["IRBO"] : ["IRDO", "IREO"]).includes(source.game) || source.revision !== 0)
+        throw new Error("Ability effects currently require a recognized US revision-0 Black, Black 2 or White 2 ROM.");
+    const overlay = project.overlays[overlayId];
     if (!overlay?.length)
         throw new Error("Reload the ROM with Pokémon selected to load the battle overlay.");
-    const resolver = battleRuntimeResolver(overlay, source.base, project.arm9, source.armBase);
+    const resolver = battleRuntimeResolver(overlay, source.base, project.arm9, source.armBase, signatures);
     const dispatcher = resolver.resolve("AbilityEvent_AddItem");
-    const pointers = bindings.tableRefs.map(ref => readU32(dispatcher.code, ref.offset) - ref.column);
+    const pointers = catalog.tableRefs.map(ref => readU32(dispatcher.code, ref.offset) - ref.column);
     if (pointers[0] !== pointers[1])
         throw new Error("Unrecognized native ability assignment table.");
     const at = pointers[0] - source.base;
-    if (at < 0 || at + bindings.rows.length * 8 > overlay.length || !bindings.rows.every((id, i) => readU32(overlay, at + i * 8) === id))
+    if (at < 0 || at + catalog.rows.length * 8 > overlay.length || !catalog.rows.every((id, i) => readU32(overlay, at + i * 8) === id))
         throw new Error("Unrecognized native ability assignment table.");
     const availableNative = new Set<number>();
     const fromHex = (s: string) => Uint8Array.from(s.match(/../gu) ?? [], v => Number.parseInt(v, 16));
-    for (const profile of NATIVE_ABILITY_PROFILES) {
-        const index = bindings.rows.indexOf(profile.id), factory = (readU32(overlay, at + index * 8 + 4) & ~1) - source.base;
+    for (const profile of profiles) {
+        const index = catalog.rows.indexOf(profile.id), factory = (readU32(overlay, at + index * 8 + 4) & ~1) - source.base;
         const expected = fromHex(profile.factoryHex), mask = fromHex(profile.factoryMask);
         if (factory < 0 || factory + expected.length > overlay.length || !expected.every((v, i) => (overlay[factory + i] & mask[i]) === (v & mask[i])))
             continue;
@@ -115,11 +127,11 @@ function context(project: ProjectState) {
     for (const [path, bytes] of Object.entries(project.fileSystem?.additions ?? {}))
         if (path.toLowerCase().endsWith(".dll"))
             files.set(path, bytes);
-    return { project, source, overlay, resolver, dispatcher, files, availableNative };
+    return { project, source, overlay, resolver, dispatcher, files, availableNative, signatures, profiles, overlayModule: String(overlayId) };
 }
 type Context = ReturnType<typeof context>;
 function assertUnhooked(c: Context, name: string, address: number, size: number, copied = false): void {
-    const module = BATTLE_RUNTIME_SIGNATURES[name].module;
+    const module = c.signatures[name].module;
     for (const [path, bytes] of c.files) {
         if (path === ABILITY_EFFECTS_DLL_PATH)
             continue;
@@ -178,12 +190,12 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
         const { address, code } = c.resolver.resolve(name);
         assertUnhooked(c, name, address, code.length, true);
         const symbol = append(code, "FUNCTION_THM"), at = rpm.symbols[symbol].address;
-        rpm.relocations.push({ target: { module: "base", address: api + index * 4, type: "OFFSET" }, sourceSymbolIndex: symbol }, { target: { module: "167", address, type: name === "HandlerMoldBreakerSkipCheck" && !previewHook ? "THUMB_BRANCH_SAFESTACK" : "THUMB_BRANCH" }, sourceSymbolIndex: rpm.symbols.indexOf(named(wrapper)) });
-        for (const call of BATTLE_RUNTIME_SIGNATURES[name].calls) {
+        rpm.relocations.push({ target: { module: "base", address: api + index * 4, type: "OFFSET" }, sourceSymbolIndex: symbol }, { target: { module: c.overlayModule, address, type: name === "HandlerMoldBreakerSkipCheck" && !previewHook ? "THUMB_BRANCH_SAFESTACK" : "THUMB_BRANCH" }, sourceSymbolIndex: rpm.symbols.indexOf(named(wrapper)) });
+        for (const call of c.signatures[name].calls) {
             const target = battleBranchTarget(code, call.offset, address);
             if (!c.resolver.matches(call.target, target))
                 throw new Error(`Unrecognized ability dependency: ${call.target}`);
-            assertUnhooked(c, call.target, target, BATTLE_RUNTIME_SIGNATURES[call.target].hex.length / 2);
+            assertUnhooked(c, call.target, target, c.signatures[call.target].hex.length / 2);
             rpm.symbols.push({ name: null, address: target, size: 0, type: "FUNCTION_THM", attributes: 4 });
             rpm.relocations.push({ target: { module: "base", address: at + call.offset, type: "THUMB_BRANCH_LINK" }, sourceSymbolIndex: rpm.symbols.length - 1 });
         }
@@ -192,7 +204,7 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
         const remove=c.resolver.resolve("AbilityEvent_RemoveItem"),swap=c.resolver.resolve("AbilityEvent_Swap");
         assertUnhooked(c,"AbilityEvent_RemoveItem",remove.address,remove.code.length);assertUnhooked(c,"AbilityEvent_Swap",swap.address,swap.code.length,true);
         writeU32(rpm.code,api+33*4,remove.address|1);
-        rpm.relocations.push({target:{module:"167",address:swap.address,type:"THUMB_BRANCH"},sourceSymbolIndex:rpm.symbols.indexOf(named("AbilitySwap"))});
+        rpm.relocations.push({target:{module:c.overlayModule,address:swap.address,type:"THUMB_BRANCH"},sourceSymbolIndex:rpm.symbols.indexOf(named("AbilitySwap"))});
     }
     if(recipes){
         const recipeApi=named("AbilityRecipeApi").address;
@@ -200,13 +212,13 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
         services.forEach((name,i)=>{if(!name)return;const service=c.resolver.resolve(name);assertUnhooked(c,name,service.address,service.code.length);writeU32(rpm.code,recipeApi+i*4,service.address|1);});
         for(const[name,index,wrapper]of [["BattleEvent_CallHandlersCore",22,"AbilityRecipeHandlers"],["BattleEvent_Init",0,"AbilityRecipeInit"],["ServerEvent_GetMoveParam",1,"AbilityRecipeMoveParam"],["ServerEvent_CheckCritical",2,"AbilityRecipeCritical"],["ServerControl_CheckMoveEffectiveness",3,"AbilityRecipeEffectiveness"],["ServerControl_ChangeHeldItem",4,"AbilityRecipeChangeItem"],["BattleHandler_ForceUseItem",5,"AbilityRecipeForceItem"]]as const){
             const{address,code}=c.resolver.resolve(name);assertUnhooked(c,name,address,code.length,true);const symbol=append(code,"FUNCTION_THM"),at=rpm.symbols[symbol].address;
-            rpm.relocations.push({target:{module:"base",address:recipeApi+index*4,type:"OFFSET"},sourceSymbolIndex:symbol},{target:{module:"167",address,type:name==="ServerControl_CheckMoveEffectiveness"?"THUMB_BRANCH_SAFESTACK":"THUMB_BRANCH"},sourceSymbolIndex:rpm.symbols.indexOf(named(wrapper))});
-            for(const call of BATTLE_RUNTIME_SIGNATURES[name].calls){
+            rpm.relocations.push({target:{module:"base",address:recipeApi+index*4,type:"OFFSET"},sourceSymbolIndex:symbol},{target:{module:c.overlayModule,address,type:name==="ServerControl_CheckMoveEffectiveness"?"THUMB_BRANCH_SAFESTACK":"THUMB_BRANCH"},sourceSymbolIndex:rpm.symbols.indexOf(named(wrapper))});
+            for(const call of c.signatures[name].calls){
                 const target=battleBranchTarget(code,call.offset,address);if(!c.resolver.matches(call.target,target))throw new Error(`Unrecognized recipe dependency: ${call.target}`);
-                assertUnhooked(c,call.target,target,BATTLE_RUNTIME_SIGNATURES[call.target].hex.length/2);
+                assertUnhooked(c,call.target,target,c.signatures[call.target].hex.length/2);
                 let targetSymbol:number;
                 if(name==="ServerEvent_CheckCritical"&&call.target==="BattleEvent_CallHandlers")targetSymbol=rpm.symbols.indexOf(named("AbilityRecipeCriticalHandlers"));
-                else{rpm.symbols.push({name:null,address:target,size:0,type:BATTLE_RUNTIME_SIGNATURES[call.target].thumb===false?"FUNCTION_ARM":"FUNCTION_THM",attributes:4});targetSymbol=rpm.symbols.length-1;}
+                else{rpm.symbols.push({name:null,address:target,size:0,type:c.signatures[call.target].thumb===false?"FUNCTION_ARM":"FUNCTION_THM",attributes:4});targetSymbol=rpm.symbols.length-1;}
                 rpm.relocations.push({target:{module:"base",address:at+call.offset,type:"THUMB_BRANCH_LINK"},sourceSymbolIndex:targetSymbol});
             }
         }
@@ -217,7 +229,7 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
     }
     const data = append(encodeAbilityRules(entries), "SECTION");
     rpm.relocations.push({ target: { module: "base", address: named("AbilityRuleData").address, type: "OFFSET" }, sourceSymbolIndex: data });
-    linkNativeAbilities(rpm, entries, rpm.symbols[data].address, c.resolver.resolve, (name, address, size, copied) => assertUnhooked(c, name, address, size, copied));
+    linkNativeAbilities(rpm, entries, rpm.symbols[data].address, c.resolver.resolve, (name, address, size, copied) => assertUnhooked(c, name, address, size, copied), c.profiles, c.signatures);
     if (traps) {
         const original = c.resolver.resolve("IsMonTrapped");
         assertUnhooked(c, "IsMonTrapped", original.address, original.code.length, true);
@@ -229,7 +241,7 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
         writeU16(gateway, 8, 0x4c00); writeU16(gateway, 10, 0x4720); writeU32(gateway, 12, (original.address + 8) | 1);
         const symbol = append(gateway, "FUNCTION_THM"), clientApi = named("AbilityClientApi").address;
         rpm.relocations.push({ target: { module: "base", address: clientApi, type: "OFFSET" }, sourceSymbolIndex: symbol },
-            { target: { module: "167", address: original.address, type: "THUMB_BRANCH" }, sourceSymbolIndex: rpm.symbols.indexOf(named("AbilityClientTrapped")) });
+            { target: { module: c.overlayModule, address: original.address, type: "THUMB_BRANCH" }, sourceSymbolIndex: rpm.symbols.indexOf(named("AbilityClientTrapped")) });
         for (const [i, name] of ["MonIDToBattlePos", "ExpandPosFlagsToMonIDs", "GetPokeParam", "DoesMonHaveType"].entries()) {
             const service = c.resolver.resolve(name); assertUnhooked(c, name, service.address, service.code.length);
             writeU32(rpm.code, clientApi + (i + 1) * 4, service.address | 1);
@@ -318,14 +330,15 @@ export function buildAbilityRuleModule(project: ProjectState, entries: ReadonlyM
     return moduleFor(context(project), checked);
 }
 function setName(project: ProjectState, id: number, name: string): void {
-    for (const bankId of [487, 374, 375]) {
+    const descriptionBank = project.session.baseRom === "BW" ? 183 : 375;
+    for (const bankId of project.session.baseRom === "BW" ? [285, 182, 183] : [487, 374, 375]) {
         const bank = getTextBank(project, "message_texts", bankId);
         if (!bank.length)
             throw new Error("Ability name text banks are unavailable.");
         if (bank.length <= id)
             addTextEntries(project, "message_texts", bankId, id + 1 - bank.length);
-        if (bankId !== 375 || !bank[id]?.[1])
-            updateTextEntry(project, "message_texts", bankId, id, bankId === 375 ? "Custom battle ability." : name);
+        if (bankId !== descriptionBank || !bank[id]?.[1])
+            updateTextEntry(project, "message_texts", bankId, id, bankId === descriptionBank ? "Custom battle ability." : name);
     }
     for (const record of project.narcs.personal?.records.values() ?? []) {
         if (!record.raw || !record.readable) continue;

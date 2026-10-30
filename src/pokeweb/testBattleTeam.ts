@@ -613,8 +613,8 @@ export function recalculateTestBattlePartyStats(data: Uint8Array, pokemon: Showd
   for (const [index, key] of STAT_KEYS.entries()) writeLe16(data, 0x90 + index * 2, stats[key]);
 }
 
-export function refreshTestBattlePartyChecksums(save: Uint8Array, half: number): void {
-  refreshPartyBlockChecksums(save, getTestBattlePartySaveLayout("BW2"), half);
+export function refreshTestBattlePartyChecksums(save: Uint8Array, half: number, baseRom: BaseRom = "BW2"): void {
+  refreshPartyBlockChecksums(save, getTestBattlePartySaveLayout(baseRom), half);
 }
 
 function speciesName(project: ProjectState, speciesId: number): string {

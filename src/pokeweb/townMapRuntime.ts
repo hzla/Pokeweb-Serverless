@@ -4,7 +4,7 @@ import { sha256Hex } from "../nds/sha256";
 import { configureFlyDestinationRuntime, getFlyDestinations, readFlyDestinationRuntime, validateFlyDestinationEdit, type FlyDestinationState } from "./flyDestinationModel";
 import { getRomFileBytes, ensureFileSystemState } from "./fileSystemModel";
 import { installCodeInjectionPatch, loadCodeInjectionNarcs } from "./codeInjectionInstall";
-import { listCodeInjectionDlls, stageCodeInjectionDll, loadBundledPmcBytes } from "./pmcModel";
+import { listCodeInjectionDlls, stageCodeInjectionDll, loadBundledPmcBytes, readBgmRuntimeConfig, configureBundledBgmRuntime } from "./pmcModel";
 import { decodeRecord, markDirty, type ProjectState } from "./projectStore";
 import { parseRpm, writeRpm, setRpmBaseAddress, updateRpmCodeImageForBase, writeRelocationDataByType } from "./rpm";
 import type { TownMapDraft } from "./townMapModel";
@@ -50,14 +50,14 @@ export async function validateTownMapNativeContract(project: ProjectState, versi
     const offset = range.address - (range.module === "ARM9" ? rom.arm9RamAddress : overlay?.ramAddress ?? 0);
     if (!data || offset < 0 || offset + range.size > data.length) throw new Error("Town Map native binding is outside its module.");
     if (sha256Hex(data.subarray(offset, offset + range.size)) !== range.sha256) {
-      // PMC replaces the overlay loader's entry. Accept only the exact bundled
+      // PMC patches the overlay loader's bundled call site. Accept only the exact bundled
       // replacement, including its active wrapper bytes and all remaining code.
-      const prefix = "pmcPrefixHex" in range ? String(range.pmcPrefixHex) : "";
+      const prefix = "pmcSiteHex" in range ? String(range.pmcSiteHex) : "";
       const pmc = project.codeInjection?.pmc;
       let accepted = false;
       if (range.module === "ARM9" && prefix && pmc?.overlayBaseAddress !== undefined) {
         const pristine = data.slice(offset, offset + range.size);
-        pristine.set(Uint8Array.from(prefix.match(/../gu)!.map(b => parseInt(b, 16))));
+        pristine.set(Uint8Array.from(prefix.match(/../gu)!.map(b => parseInt(b, 16))), "pmcSiteOffset" in range ? Number(range.pmcSiteOffset) : 0);
         if (sha256Hex(pristine) === range.sha256) {
           const bundled = parseRpm(await loadBundledPmcBytes(version)); setRpmBaseAddress(bundled, pmc.overlayBaseAddress); updateRpmCodeImageForBase(bundled);
           const pmcId = rom.filenames.idOf(pmc.overlayPath);
@@ -86,11 +86,19 @@ export async function validateTownMapNativeContract(project: ProjectState, versi
       ?? (fileId === undefined ? undefined : getRomFileBytes(project, rom, fileId));
     if (!bytes) throw new Error(`Could not inspect ${module.fileName}.`);
     const rpm = parseRpm(bytes, { allowedMagics: ["DLXF"] });
+    // The bundled mute wrapper intentionally intercepts shared sound providers
+    // while preserving their ABI. Its exact bytes identify that compatibility.
+    let compatibleProvider = false;
+    if (module.fileName.toLowerCase() === `BgmToggle${version}.dll`.toLowerCase()) {
+      const config = readBgmRuntimeConfig(bytes);
+      if (config) compatibleProvider = equalTownMapBytes(bytes, await configureBundledBgmRuntime(version, config));
+    }
     for (const r of rpm.relocations) {
       if (r.target.module === "base") continue;
       const size = r.target.type === "FULL_COPY" ? rpm.symbols[r.sourceSymbolIndex]?.size ?? 0 : r.target.type === "THUMB_BRANCH_SAFESTACK" ? 16 : r.target.type.endsWith("BRANCH") ? 8 : 4;
-      if (contract[version].hooks.some(h => h.module === r.target.module && r.target.address < h.address + (h.type === "THUMB_BRANCH" ? 8 : 4) && r.target.address + size > h.address))
-        throw new Error(`${module.fileName} already changes a Town Map runtime hook.`);
+      if (contract[version].hooks.some(h => h.module === r.target.module && r.target.address < h.address + (h.type === "THUMB_BRANCH_SAFESTACK" ? 16 : h.type === "THUMB_BRANCH" ? 8 : "size" in h ? Number(h.size) : 4) && r.target.address + size > h.address)
+        || !compatibleProvider && contract[version].ranges.some(range => range.module === r.target.module && r.target.address < range.address + range.size && r.target.address + size > range.address))
+        throw new Error(`${module.fileName} already changes a Town Map native binding.`);
     }
   }
 }
@@ -147,22 +155,26 @@ export function buildTownMapSpeciesHabitats(project: ProjectState, draft: TownMa
   });
 }
 /** Native installation is staged on a detached project and published with the editor transaction. */
-export async function prepareTownMapRuntime(project: ProjectState, draft: TownMapDraft): Promise<void> {
+export async function prepareTownMapRuntime(project: ProjectState, draft: TownMapDraft, force = false): Promise<void> {
   const version = project.session.baseVersion as Version;
   if (version !== "B2" && version !== "W2" || !project.originalRomBytes) throw new Error("Town Map source ROM is unavailable.");
   const rom = new NintendoDSRom(project.originalRomBytes, { fileData: "view" }), own = townMapModuleBytes(project, rom, version);
   const before = new DataView(draft.baseline.areas.buffer, draft.baseline.areas.byteOffset, draft.baseline.areas.byteLength);
   const oldLandings = new Map(getFlyDestinations({ ...project, narcs: { ...project.narcs, town_map: { ...project.narcs.town_map!, rawFiles: [draft.baseline.areas] } } }).map(d => [d.zone, d]));
   const overrides = { ...project.flyDestinations?.overrides };
-  let needed = Boolean(own) || draft.areas.length !== 85;
+  let needed = force || Boolean(own) || draft.areas.length !== 85;
   draft.areas.forEach((a, i) => {
     if (i >= draft.baseline.areas.length / 54 || before.getUint16(i * 54, true) !== a.zone || before.getUint16(i * 54 + 24, true) !== a.fly
-      || before.getUint16(i * 54 + 30, true) !== a.arrivalFlag || a.visibilityFlag === 61443) needed = true;
+      || a.visibilityFlag === 61443) needed = true;
     const old = oldLandings.get(a.zone), landing = draft.landings[a.zone];
     if (landing && (!old || JSON.stringify(landing) !== JSON.stringify(old.landing))) { overrides[a.zone] = landing; needed = true; }
     if (old) validateFlyDestinationEdit(old, { ...(landing ?? old.landing), enabled: Boolean(a.fly), visitFlag: a.arrivalFlag });
   });
   if (!needed) return;
+  if (force) for (const zone of [326, 490]) {
+    const old = oldLandings.get(zone);
+    if (old && !overrides[zone]) overrides[zone] = { ...(draft.landings[zone] ?? old.landing) };
+  }
   const state: FlyDestinationState = { overrides: Object.fromEntries(Object.entries(overrides).filter(([zone]) => draft.areas.some(a => a.zone === Number(zone)))), townMapCount: draft.areas.length };
   if (own) readFlyDestinationRuntime(own, version);
   const response = await fetch(URLS[version]); if (!response.ok) throw new Error(`Could not load Town Map support (${response.status}).`);

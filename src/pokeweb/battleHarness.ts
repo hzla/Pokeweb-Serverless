@@ -219,9 +219,9 @@ function crc(data: Uint8Array): number {
   for (const byte of data) { value ^= byte << 8; for (let i = 0; i < 8; i++) value = ((value << 1) ^ (value & 0x8000 ? 0x1021 : 0)) & 0xffff; }
   return value;
 }
-function validHalves(save: Uint8Array): number[] {
+function validHalves(save: Uint8Array, bw1 = false): number[] {
   if (save.length !== 0x80000) throw new Error("Expected a 512 KiB raw BW2 save (or a .dsv converted to raw)");
-  const halves = [0, 0x26000].filter(half => {
+  const halves = [0, bw1 ? 0x24000 : 0x26000].filter(half => {
     const capacity = readU32(save, half + PARTY), count = readU32(save, half + PARTY + 4);
     return count >= 1 && count <= capacity && capacity <= 6 && crc(save.subarray(half + PARTY, half + PARTY + 0x534)) === readU16(save, half + 0x19336);
   });
@@ -255,7 +255,7 @@ function condition(data: Uint8Array, spec: Partial<HarnessPokemon>): void {
 }
 /** Unspecified party bytes are preserved, including identity, HP, status and PP. */
 export function patchHarnessSave(save: Uint8Array, project: ProjectState, config: HarnessConfig): Uint8Array {
-  const halves = validHalves(save), output = save.slice(), player = config.player;
+  const halves = validHalves(save, project.session.baseRom === "BW"), output = save.slice(), player = config.player;
   for (const half of halves) {
     const count = save[half + PARTY + 4];
     for (let slot = 0; slot < count; slot++) {
@@ -296,7 +296,7 @@ export function patchHarnessSave(save: Uint8Array, project: ProjectState, config
       condition(data, edit);
       output.set(encryptPk5Party(data), offset);
     }
-    if (player?.team || player?.edits?.length) refreshTestBattlePartyChecksums(output, half);
+    if (player?.team || player?.edits?.length) refreshTestBattlePartyChecksums(output, half, project.session.baseRom);
     const finalCount = output[half + PARTY + 4];
     let usable = 0;
     for (let slot = 0; slot < finalCount; slot++) {

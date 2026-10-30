@@ -828,14 +828,14 @@
         "address": 33803788,
         "size": 152,
         "sha256": "8860c6df4c85b211b84cb9e4a0e04e164efcc811921fd89acba42c0e97758314",
-        "pmcPrefixHex": "f8b50027051cff43bd4201d10120f8bd"
+        "pmcSiteOffset": 118,
+        "pmcSiteHex": "34f015fa"
       },
       {
         "module": "ARM9",
         "address": 33803720,
         "size": 68,
-        "sha256": "d2295587f14f96055af465b52a81032ea8aa70fff2b5ec905b5097e29b851071",
-        "pmcPrefixHex": "70b50021051cc9438d421ad000f0def8"
+        "sha256": "d2295587f14f96055af465b52a81032ea8aa70fff2b5ec905b5097e29b851071"
       },
       {
         "module": "ARM9",
@@ -1592,57 +1592,57 @@
       {
         "module": "144",
         "address": 35245696,
-        "type": "THUMB_BRANCH"
+        "type": "THUMB_BRANCH_SAFESTACK"
       },
       {
         "module": "144",
         "address": 35246564,
-        "type": "THUMB_BRANCH"
+        "type": "THUMB_BRANCH_SAFESTACK"
       },
       {
         "module": "144",
         "address": 35246400,
-        "type": "THUMB_BRANCH"
+        "type": "THUMB_BRANCH_SAFESTACK"
       },
       {
         "module": "144",
         "address": 35256124,
-        "type": "THUMB_BRANCH"
+        "type": "THUMB_BRANCH_SAFESTACK"
       },
       {
         "module": "298",
         "address": 35271320,
-        "type": "THUMB_BRANCH"
+        "type": "THUMB_BRANCH_SAFESTACK"
       },
       {
         "module": "298",
         "address": 35271668,
-        "type": "THUMB_BRANCH"
+        "type": "THUMB_BRANCH_SAFESTACK"
       },
       {
         "module": "298",
         "address": 35271880,
-        "type": "THUMB_BRANCH"
+        "type": "THUMB_BRANCH_SAFESTACK"
       },
       {
         "module": "298",
         "address": 35273008,
-        "type": "THUMB_BRANCH"
+        "type": "THUMB_BRANCH_SAFESTACK"
       },
       {
         "module": "303",
         "address": 35257280,
-        "type": "THUMB_BRANCH"
+        "type": "THUMB_BRANCH_SAFESTACK"
       },
       {
         "module": "303",
         "address": 35257328,
-        "type": "THUMB_BRANCH"
+        "type": "THUMB_BRANCH_SAFESTACK"
       },
       {
         "module": "303",
         "address": 35257360,
-        "type": "THUMB_BRANCH"
+        "type": "THUMB_BRANCH_SAFESTACK"
       },
       {
         "module": "33",
@@ -2661,14 +2661,14 @@
         "address": 33803832,
         "size": 152,
         "sha256": "4d0d0f7238143bc3f1b2ff3768d9f7d1e95c2bf29face3809a11a7b388bf39a0",
-        "pmcPrefixHex": "f8b50027051cff43bd4201d10120f8bd"
+        "pmcSiteOffset": 118,
+        "pmcSiteHex": "34f015fa"
       },
       {
         "module": "ARM9",
         "address": 33803764,
         "size": 68,
-        "sha256": "d2295587f14f96055af465b52a81032ea8aa70fff2b5ec905b5097e29b851071",
-        "pmcPrefixHex": "70b50021051cc9438d421ad000f0def8"
+        "sha256": "d2295587f14f96055af465b52a81032ea8aa70fff2b5ec905b5097e29b851071"
       },
       {
         "module": "ARM9",
@@ -3425,57 +3425,57 @@
       {
         "module": "144",
         "address": 35245760,
-        "type": "THUMB_BRANCH"
+        "type": "THUMB_BRANCH_SAFESTACK"
       },
       {
         "module": "144",
         "address": 35246628,
-        "type": "THUMB_BRANCH"
+        "type": "THUMB_BRANCH_SAFESTACK"
       },
       {
         "module": "144",
         "address": 35246464,
-        "type": "THUMB_BRANCH"
+        "type": "THUMB_BRANCH_SAFESTACK"
       },
       {
         "module": "144",
         "address": 35256188,
-        "type": "THUMB_BRANCH"
+        "type": "THUMB_BRANCH_SAFESTACK"
       },
       {
         "module": "298",
         "address": 35271384,
-        "type": "THUMB_BRANCH"
+        "type": "THUMB_BRANCH_SAFESTACK"
       },
       {
         "module": "298",
         "address": 35271732,
-        "type": "THUMB_BRANCH"
+        "type": "THUMB_BRANCH_SAFESTACK"
       },
       {
         "module": "298",
         "address": 35271944,
-        "type": "THUMB_BRANCH"
+        "type": "THUMB_BRANCH_SAFESTACK"
       },
       {
         "module": "298",
         "address": 35273072,
-        "type": "THUMB_BRANCH"
+        "type": "THUMB_BRANCH_SAFESTACK"
       },
       {
         "module": "303",
         "address": 35257344,
-        "type": "THUMB_BRANCH"
+        "type": "THUMB_BRANCH_SAFESTACK"
       },
       {
         "module": "303",
         "address": 35257392,
-        "type": "THUMB_BRANCH"
+        "type": "THUMB_BRANCH_SAFESTACK"
       },
       {
         "module": "303",
         "address": 35257424,
-        "type": "THUMB_BRANCH"
+        "type": "THUMB_BRANCH_SAFESTACK"
       },
       {
         "module": "33",

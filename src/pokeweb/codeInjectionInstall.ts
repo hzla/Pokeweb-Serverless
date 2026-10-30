@@ -20,11 +20,17 @@ export function loadCodeInjectionNarcs(project: ProjectState, rom: NintendoDSRom
   }
 }
 
-/** Stage a page installation and its dependencies together; publish only success. */
-export async function installCodeInjectionPatch<T>(project: ProjectState, install: (staged: ProjectState) => T | Promise<T>): Promise<T> {
+/** Serialize complete editor transactions with native patch installations. */
+export async function withProjectMutationLock<T>(project: ProjectState, action: () => T | Promise<T>): Promise<T> {
   if (installingProjects.has(project)) throw new Error("Another patch is being installed. Wait for it to finish.");
   installingProjects.add(project);
-  try {
+  try { return await action(); }
+  finally { installingProjects.delete(project); }
+}
+
+/** Stage a page installation and its dependencies together; publish only success. */
+export async function installCodeInjectionPatch<T>(project: ProjectState, install: (staged: ProjectState) => T | Promise<T>): Promise<T> {
+  return withProjectMutationLock(project, async () => {
     const keys = ["arm9", "overlays", "narcs", "texts", "fileSystem", "codeInjection", "patches", "actionChangelog",
       "koMoveLearnsetSource", "pwanAnimations", "trainerPwanAnimations", "overworldWeather", "cgearButtons", "customUi", "flyDestinations"] as const;
     // Keep the immutable source ROM shared: cloning it would copy hundreds of MiB.
@@ -41,7 +47,5 @@ export async function installCodeInjectionPatch<T>(project: ProjectState, instal
     project.arm9Dirty = staged.arm9Dirty;
     project.originalRomBytes = staged.originalRomBytes;
     return result;
-  } finally {
-    installingProjects.delete(project);
-  }
+  });
 }

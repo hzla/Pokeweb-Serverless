@@ -350,6 +350,7 @@ function extractOverlays(rom: NintendoDSRom, project: ProjectState, selectedNarc
     ...(project.session.baseRom === "BW2" ? [includeGrottos || includeTutorMoves ? BW2_TUTOR_MOVE_OVERLAY_ID : undefined] : []),
     includeMoves ? moveEffectOverlayId : undefined,
     includeItemEffects ? 167 : undefined,
+    project.session.baseRom === "BW" && project.session.baseVersion === "B" && (includeAll || selectedNarcs.has("personal")) ? 93 : undefined,
     ...(includeStarters ? getStarterOverlayIds(project.session.baseRom) : []),
   ].filter((id): id is number => id !== undefined);
   if (ids.length === 0) return;

@@ -1,6 +1,7 @@
 .fly-editor { padding: 24px; max-width: 1240px; margin: 0 auto; }
 .fly-editor h1 { margin: 0 0 8px; font-size: 26px; }
 .fly-editor header > a { display: inline-block; margin-bottom: 16px; color: #8be9fd; }
+.fly-editor header > a + a { margin-left: 16px; }
 .fly-editor h2 { margin: 0 0 8px; }
 .fly-editor header p, .fly-support, .fly-help, .fly-area-identity { color: #b8bccd; line-height: 1.55; }
 .fly-editor-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 24px; margin-top: 24px; }

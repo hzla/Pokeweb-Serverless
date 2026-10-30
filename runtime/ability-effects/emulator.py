@@ -31,7 +31,7 @@ def main():
      stats=heap(fragment)
      if stats and(name not in minimum or stats['freePayloadBytes']<minimum[name]['freePayloadBytes']):minimum[name]=stats
    def opening(cpu,address):
-    nonlocal flow,code,popup_hooked;flow=emu.memory.register_arm9.r6
+    nonlocal flow,code,popup_hooked;flow=getattr(emu.memory.register_arm9,manifest.get("flowRegister","r6"))
     if manifest.get('popupGateway')is not None and not popup_hooked:
      site=manifest['hook']+2;hi=emu.memory.read_short(site);lo=emu.memory.read_short(site+2)
      assert emu.memory.read_short(manifest['hook'])==0xb500 and hi&0xf800==0xf000 and lo&0xf800==0xf800

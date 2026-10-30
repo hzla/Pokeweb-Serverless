@@ -1,14 +1,21 @@
+import { readFileSync } from "node:fs";
+import { buildPokemonAnimationFile } from "../pokeweb/pokemonSpriteWriters";
+import { parsePokemonAnimation } from "../pokeweb/pokemonSpriteModel";
+import { configureTownMapRuntime } from "../pokeweb/townMapRuntime";
+import { readFlyDestinationRuntime } from "../pokeweb/flyDestinationModel";
+import { parseRpm } from "../pokeweb/rpm";
+import native from "../assets/data/bw2TownMapNativeContract.json";
 import { describe, expect, it } from "vitest";
 import { parseTownMapAreas, writeTownMapAreas, moveTownMapArea, editTownMapText, appendTownMapArea, townMapHit, TownMapHistory, type TownMapDraft } from "../pokeweb/townMapModel";
-import { fillTownMapTiles, repackTownMapResource, unpackTownMapResource } from "../pokeweb/townMapGraphics";
+import { fillTownMapTiles, repackTownMapResource, unpackTownMapResource, townMapBlock, editTownMapAnimationFrame } from "../pokeweb/townMapGraphics";
 import { parseNitroBackground } from "../pokeweb/nitroBg";
-import { writeU16, writeU32 } from "../nds/binary";
+import { readU32, writeU16, writeU32 } from "../nds/binary";
 
 function draft(): TownMapDraft {
   const bytes = new Uint8Array(85 * 54);
   for (let i = 0; i < 85; i++) { writeU16(bytes, i * 54, i); writeU16(bytes, i * 54 + 34, 0); for (let n = 18; n < 24; n++) writeU16(bytes, i * 54 + n * 2, 65535); }
   return { areas: parseTownMapAreas(bytes), graphics: new Map(), habitatGraphics: new Map(), texts: [["0_0", "Shared", 42]], landings: {},
-    baseline: { areas: bytes, graphics: new Map(), habitatGraphics: new Map(), texts: new Uint8Array(), landings: "null" } };
+    baseline: { areas: bytes, graphics: new Map(), habitatGraphics: new Map(), texts: new Uint8Array(), landings: "null", headers: "", cachedTexts: "null" } };
 }
 function resource(stamp: string, block: string, payload: Uint8Array) {
   const out = new Uint8Array(24 + payload.length); out.set(new TextEncoder().encode(stamp)); writeU16(out, 4, 0xfeff); writeU16(out, 6, 0x100); writeU32(out, 8, out.length); writeU16(out, 12, 16); writeU16(out, 14, 1); out.set(new TextEncoder().encode(block), 16); writeU32(out, 20, 8 + payload.length); out.set(payload, 24); return out;
@@ -41,6 +48,12 @@ describe("BW2 Town Map areas", () => {
     const d = draft(), original = structuredClone(d.areas); expect(appendTownMapArea(d, 0, 300)).toBe(85); expect(d.areas.slice(0, 85)).toEqual(original); expect(d.areas[85].fly).toBe(0);
     expect(() => appendTownMapArea(d, 0, 300)).toThrow("already"); while (d.areas.length < 128) appendTownMapArea(d, 0, d.areas.length + 300); expect(() => appendTownMapArea(d, 0, 999)).toThrow("128");
   });
+  it("rolls back a failed edit without making that edit redoable", () => {
+    const d = draft(), h = new TownMapHistory(); h.edit(d, () => { d.areas[0].radius = 10; }); h.undo(d);
+    expect(() => h.edit(d, () => { d.areas[0].radius = 99; throw new Error("rejected"); })).toThrow("rejected");
+    expect(d.areas[0].radius).toBe(0); expect(h.canUndo).toBe(false); expect(h.canRedo).toBe(true);
+    h.redo(d); expect(d.areas[0].radius).toBe(10);
+  });
   it("undoes graphics, areas and text together, then invalidates redo on new work", () => {
     const d = draft(), h = new TownMapHistory(); d.graphics.set(0, Uint8Array.of(1)); h.checkpoint(d); d.areas[0].radius = 12; d.graphics.get(0)![0] = 2; editTownMapText(d, 0, 0, "Changed");
     expect(h.undo(d)).toBe(true); expect(d.areas[0].radius).toBe(0); expect(d.graphics.get(0)![0]).toBe(1); expect(d.texts).toHaveLength(1);
@@ -60,7 +73,43 @@ describe("Town Map graphics", () => {
     const original = Uint8Array.of(kind, 8, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8), data = unpackTownMapResource(original);
     expect(repackTownMapResource(original, data)).toBe(original); data[2] = 99; expect(unpackTownMapResource(repackTownMapResource(original, data))).toEqual(data);
   });
+  it("rejects truncated compressed streams and invalid Nitro block bounds", () => {
+    expect(() => unpackTownMapResource(Uint8Array.of(0x10, 8, 0, 0, 0, 1))).toThrow("Truncated");
+    expect(() => unpackTownMapResource(Uint8Array.of(0x11, 8, 0, 0, 128, 0x20, 0))).toThrow("bounds");
+    const invalid = resource("RGCN", "RAHC", new Uint8Array(24)); writeU32(invalid, 20, 500);
+    expect(() => townMapBlock(invalid, "RAHC")).toThrow("bounds");
+  });
+  it("edits animation timing without rewriting untouched bytes", () => {
+    const frame = { duration: 4, cellIndex: 0, x: 0, y: 0, rotation: 0, xScale: 1, yScale: 1, frameType: "index" as const, valueOffset: 0, sequenceFrameOffset: 0 };
+    const original = buildPokemonAnimationFile([{ index: 0, frameCount: 2, startFrameIndex: 0, motionType: 0, targetType: 1, mode: 2, frames: [frame, { ...frame }] }]);
+    const shared = parsePokemonAnimation(original).sequences[0].frames;
+    writeU32(original, shared[1].sequenceFrameOffset, readU32(original, shared[0].sequenceFrameOffset));
+    const files = new Map([[19, original]]), before = parsePokemonAnimation(original).sequences[0].frames[0];
+    editTownMapAnimationFrame(files, 19, 0, 0, "duration", 5);
+    const after = files.get(19)!; expect(after.length).toBe(original.length);
+    expect([...after].filter((v, i) => v !== original[i])).toEqual([5]);
+    expect(after[before.sequenceFrameOffset + 4]).toBe(5);
+    editTownMapAnimationFrame(files, 19, 0, 0, "cellIndex", 1);
+    const frames = parsePokemonAnimation(files.get(19)!).sequences[0].frames;
+    expect(frames[0].cellIndex).toBe(1); expect(frames[1].cellIndex).toBe(0);
+  });
   it("fills adjacent cells without wrapping across a row edge", () => {
     const e = new Uint16Array(1024).fill(2); e[31] = e[32] = 0; fillTownMapTiles(e, 31, 3); expect(e[31]).toBe(3); expect(e[32]).toBe(0);
+  });
+});
+
+describe("Town Map native configuration", () => {
+  it.each(["B2", "W2"] as const)("configures stock and expanded %s modules with stack-preserving callbacks", version => {
+    const source = new Uint8Array(readFileSync(new URL(`../assets/codeinjection/TownMap${version}.dll`, import.meta.url)));
+    for (const count of [85, 86, 128]) {
+      const d = draft(); d.areas.forEach((a, i) => { a.zone = native[version].stockRecordZones[i]; });
+      while (d.areas.length < count) appendTownMapArea(d, 0, 1000 + d.areas.length);
+      const overrides = { 326: { x: 52, y: 0, z: 88 }, 490: { x: 57, y: 0, z: 89 } };
+      const bytes = configureTownMapRuntime(source, version, d.areas, { overrides, townMapCount: count });
+      expect(readFlyDestinationRuntime(bytes, version)).toEqual({ overrides, townMapCount: count });
+      const rpm = parseRpm(bytes, { allowedMagics: ["DLXF"] });
+      const callbacks = rpm.relocations.filter(r => r.target.module === "298" && r.target.type !== "FULL_COPY");
+      expect(callbacks).toHaveLength(4); expect(callbacks.every(r => r.target.type === "THUMB_BRANCH_SAFESTACK")).toBe(true);
+    }
   });
 });

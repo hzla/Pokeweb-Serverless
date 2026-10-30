@@ -5,7 +5,7 @@ import item from "../assets/data/itemRuleBindings.json";
 import ability from "../assets/data/abilityBindings.json";
 import client from "../assets/data/abilityClientBindings.json";
 import { readU16, readU32 } from "../nds/binary";
-type Signature = {
+export type BattleRuntimeSignature = {
     thumb?: boolean;
     variants?:Array<{hex:string;mask:string}>;
     hex: string;
@@ -17,9 +17,9 @@ type Signature = {
     }>;
     tails?: Array<{offset: number; target: string}>;
 };
-export const BATTLE_RUNTIME_SIGNATURES: Record<string, Signature> = { ...native.functions, ...item.functions, ...ability.functions,...recipe.functions,...client.functions,...scoped.functions };
+export const BATTLE_RUNTIME_SIGNATURES: Record<string, BattleRuntimeSignature> = { ...native.functions, ...item.functions, ...ability.functions,...recipe.functions,...client.functions,...scoped.functions };
 const hex = (s: string) => Uint8Array.from(s.match(/../gu) ?? [], v => Number.parseInt(v, 16));
-const patterns = new Map(Object.entries(BATTLE_RUNTIME_SIGNATURES).map(([name,s])=>[name,[s,...s.variants??[]].map(p=>({bytes:hex(p.hex),mask:hex(p.mask)}))]));
+
 export function battleBranchTarget(code: Uint8Array, at: number, base: number): number {
     const hi = readU16(code, at), lo = readU16(code, at + 2);
     if ((hi & 0xf800) !== 0xf000 || ![0xf800, 0xe800].includes(lo & 0xf800))
@@ -31,9 +31,10 @@ export function battleBranchTarget(code: Uint8Array, at: number, base: number): 
     return (lo & 0xf800) === 0xe800 ? target & ~3 : target;
 }
 /** Resolve moved code through signatures and calls from verified callers. */
-export function battleRuntimeResolver(overlay: Uint8Array, overlayBase: number, arm9: Uint8Array, armBase: number) {
+export function battleRuntimeResolver(overlay: Uint8Array, overlayBase: number, arm9: Uint8Array, armBase: number, signatures: Record<string, BattleRuntimeSignature> = BATTLE_RUNTIME_SIGNATURES) {
+    const patterns = new Map(Object.entries(signatures).map(([name,s])=>[name,[s,...s.variants??[]].map(p=>({bytes:hex(p.hex),mask:hex(p.mask)}))]));
     const found = new Map<string, number>(), scanned = new Map<string, number[]>();
-    const source = (name: string) => BATTLE_RUNTIME_SIGNATURES[name]?.module === "ARM9" ? { bytes: arm9, base: armBase } : { bytes: overlay, base: overlayBase };
+    const source = (name: string) => signatures[name]?.module === "ARM9" ? { bytes: arm9, base: armBase } : { bytes: overlay, base: overlayBase };
     function matches(name: string, address: number): boolean {
         const p = patterns.get(name);
         if (!p)
@@ -61,13 +62,13 @@ export function battleRuntimeResolver(overlay: Uint8Array, overlayBase: number, 
             return;
         found.set(name, address);
         const { bytes, base } = source(name);
-        for (const call of BATTLE_RUNTIME_SIGNATURES[name].calls)
+        for (const call of signatures[name].calls)
             if (patterns.has(call.target)) {
                 const target = battleBranchTarget(bytes, address - base + call.offset, base);
                 if (matches(call.target, target))
                     seed(call.target, target, depth + 1);
             }
-        for (const tail of BATTLE_RUNTIME_SIGNATURES[name].tails ?? []) {
+        for (const tail of signatures[name].tails ?? []) {
             const target = readU32(bytes, address - base + tail.offset) & ~1;
             if (matches(tail.target, target)) seed(tail.target, target, depth + 1);
         }
@@ -81,7 +82,7 @@ export function battleRuntimeResolver(overlay: Uint8Array, overlayBase: number, 
             if (all.length === 1)
                 seed(name, all[0]);
             else {
-                for (const [caller, s] of Object.entries(BATTLE_RUNTIME_SIGNATURES))
+                for (const [caller, s] of Object.entries(signatures))
                     if (s.calls.some(call => call.target === name)) {
                         const options = candidates(caller);
                         if (options.length === 1)

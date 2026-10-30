@@ -1,6 +1,6 @@
 import bindings from "../assets/data/abilityBindings.json";
 import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
-import { battleBranchTarget, BATTLE_RUNTIME_SIGNATURES } from "./battleRuntimeBindings";
+import { battleBranchTarget, BATTLE_RUNTIME_SIGNATURES, type BattleRuntimeSignature } from "./battleRuntimeBindings";
 import type { AbilityRuleEffect, AbilityRuleSet } from "./abilityRules";
 import type { RpmModule } from "./rpm";
 import { abilityArgumentAdapter, abilityHpPercentAdapter, abilityHpAtLeastAdapter, abilityResultMapAdapter, applyAbilityImmediate, type NativeAbilityParameter } from "./abilityNativeParameters";
@@ -45,7 +45,7 @@ export function nativeAbilityProfile(kind: string): NativeAbilityProfile | undef
 export function linkNativeAbilities(rpm: RpmModule, rules: ReadonlyMap<number, AbilityRuleSet>, dataOffset: number, resolve: (name: string) => {
     address: number;
     code: Uint8Array;
-}, check: (name: string, address: number, size: number, copied?: boolean) => void): void {
+}, check: (name: string, address: number, size: number, copied?: boolean) => void, profiles: NativeAbilityProfile[] = NATIVE_ABILITY_PROFILES, signatures: Record<string, BattleRuntimeSignature> = BATTLE_RUNTIME_SIGNATURES): void {
     const append = (bytes: Uint8Array, type: "FUNCTION_THM" | "SECTION") => { const at = (rpm.code.length + 3) & ~3, next = new Uint8Array(at + bytes.length); next.set(rpm.code); next.set(bytes, at); rpm.code = next; rpm.symbols.push({ name: null, address: at, size: bytes.length, type, attributes: 0 }); return rpm.symbols.length - 1; };
     const copies = new Map<string, number>();
     function editedSites(effect: AbilityRuleEffect, profile: NativeAbilityProfile) {
@@ -55,7 +55,7 @@ export function linkNativeAbilities(rpm: RpmModule, rules: ReadonlyMap<number, A
     function needsCopy(name: string, effect: AbilityRuleEffect, profile: NativeAbilityProfile, seen = new Set<string>()): boolean {
         if (seen.has(name)) return false;
         seen.add(name);
-        return editedSites(effect, profile).some(e => e.site.handler === name) || [...(BATTLE_RUNTIME_SIGNATURES[name]?.calls ?? []), ...(BATTLE_RUNTIME_SIGNATURES[name]?.tails ?? [])].some(c => needsCopy(c.target, effect, profile, seen));
+        return editedSites(effect, profile).some(e => e.site.handler === name) || [...(signatures[name]?.calls ?? []), ...(signatures[name]?.tails ?? [])].some(c => needsCopy(c.target, effect, profile, seen));
     }
     function copy(name: string, effect: AbilityRuleEffect, profile: NativeAbilityProfile): number {
         const key = JSON.stringify([name, effect.value, effect.weather ?? -1, effect.chance ?? -1, effect.stat ?? -1, effect.parameters ?? {}]);
@@ -63,7 +63,7 @@ export function linkNativeAbilities(rpm: RpmModule, rules: ReadonlyMap<number, A
             return copies.get(key)!;
         const source = resolve(name);
         check(name, source.address, source.code.length, true);
-        const code = source.code.slice(), s = BATTLE_RUNTIME_SIGNATURES[name];
+        const code = source.code.slice(), s = signatures[name];
         const edits = editedSites(effect, profile).filter(e => e.site.handler === name);
         // A relative branch outside the copied function needs a dedicated adapter.
         let end = code.length;
@@ -135,7 +135,7 @@ export function linkNativeAbilities(rpm: RpmModule, rules: ReadonlyMap<number, A
             check(call.target, target, dependency.code.length, ownDependency);
             let dependencySymbol: number;
             if (ownDependency) dependencySymbol = copy(call.target, effect, profile);
-            else { rpm.symbols.push({ name: null, address: target, size: 0, type: BATTLE_RUNTIME_SIGNATURES[call.target].thumb === false ? "FUNCTION_ARM" : "FUNCTION_THM", attributes: 4 }); dependencySymbol = rpm.symbols.length - 1; }
+            else { rpm.symbols.push({ name: null, address: target, size: 0, type: signatures[call.target].thumb === false ? "FUNCTION_ARM" : "FUNCTION_THM", attributes: 4 }); dependencySymbol = rpm.symbols.length - 1; }
             const percentage = callEdits.find(e => e.site.mode === "hpPercent");
             if (percentage) dependencySymbol = append(abilityHpPercentAdapter(percentage.value, percentage.site.minimum ?? 0), "FUNCTION_THM");
             else if(callEdits.some(e=>e.site.mode==="hpAtLeast"))dependencySymbol=append(abilityHpAtLeastAdapter(callEdits[0].value),"FUNCTION_THM");
@@ -148,7 +148,7 @@ export function linkNativeAbilities(rpm: RpmModule, rules: ReadonlyMap<number, A
     for (const [id, rule] of [...rules].sort(([a], [b]) => a - b)) {
         const at = dataOffset + (rpm.code[dataOffset + id * 2] | rpm.code[dataOffset + id * 2 + 1] << 8), start = at + 4 + rpm.code[at + 1] * 4;
         rule.effects.forEach((effect, index) => {
-            const profile = nativeAbilityProfile(effect.kind);
+            const profile = effect.kind.startsWith("nativeAbility:") ? profiles.find(p => p.id === Number(effect.kind.slice(14))) : undefined;
             if (!profile)
                 return;
             const events = profile.events.filter(e => (profile.eventGates??[]).filter(g=>g.handler===e.handler).every(g=>g.anyOf.some(c=>(effect.parameters?.[c.key]??c.original)===c.equals)));

@@ -1,3 +1,4 @@
+import { supportsAbilityEditor } from "./pokeweb/abilityEffectsModel";
 import { renderAbilityEditor } from "./ui/abilityEditor";
 import "./styles/flagReference.css";
 import { renderFlagReference } from "./ui/flagReference";
@@ -45,6 +46,8 @@ import "./styles/battleBackgrounds.css";
 import "./styles/headerBattleEnvironments.css";
 import "./styles/overworldWeather.css";
 import "./styles/flyDestinations.css";
+import { renderFlyDestinationEditor, stopFlyDestinationEditor } from "./ui/flyDestinationEditor";
+import { loadFlyDestinationEditorData } from "./pokeweb/flyDestinationModel";
 import { attachNavigationDropdowns } from "./ui/navigationDropdowns";
 import "./styles/randomizer.css";
 import "./styles/trainerMusic.css";
@@ -677,6 +680,7 @@ function renderApp(): void {
   stopCGearButtonsEditor();
   stopBw2ScriptEditor();
   stopTownMapView?.(); stopTownMapView = undefined;
+  stopFlyDestinationEditor();
   stopMatrixEditor();
   stopTrainerSpriteEditorPlayback();
   stopPlayerTrainerBackSpritePlayback();
@@ -745,17 +749,34 @@ function renderApp(): void {
     return;
   }
 
-  if (route === "townMap" || route === "flyDestinations") {
+  if (route === "flyDestinations") {
+    const currentProject = project;
+    content.innerHTML = `<div class="fly-editor"><h1>Fly Destinations</h1><p>Loading destinations…</p></div>`;
+    void loadFlyDestinationEditorData(currentProject).then(() => {
+      if (project !== currentProject || route !== "flyDestinations") return;
+      renderFlyDestinationEditor(currentProject, content, () => {
+        dirty = true;
+        scheduleSave(currentProject);
+        renderDirtyIndicator();
+      });
+    }).catch(error => {
+      if (project === currentProject && route === "flyDestinations")
+        content.innerHTML = `<div class="fly-editor"><h1>Fly Destinations</h1><p>${escapeHtml(error instanceof Error ? error.message : "Destinations could not be loaded.")}</p></div>`;
+    });
+    return;
+  }
+
+  if (route === "townMap" && canUseLocalRomBridge()) {
     const currentProject = project;
     const editorRoute = route;
     content.innerHTML = `<div class="town-map-editor"><h1>Town Map</h1><p>Loading editor…</p></div>`;
     void import("./ui/townMapEditor").then(({ renderTownMapEditor }) => {
-      if (project !== currentProject || route !== editorRoute) return;
+      if (project !== currentProject || route !== editorRoute || !canUseLocalRomBridge()) return;
       stopTownMapView = renderTownMapEditor(currentProject, content, () => {
         dirty = true;
         scheduleSave(currentProject);
         renderDirtyIndicator();
-      }, editorRoute === "flyDestinations");
+      });
     }).catch(error => {
       if (project === currentProject && route === editorRoute)
         content.innerHTML = `<div class="town-map-editor"><h1>Town Map</h1><p>${escapeHtml(error instanceof Error ? error.message : "Areas could not be loaded.")}</p></div>`;
@@ -1356,15 +1377,15 @@ function renderHeadersMenu(): string {
   const active = route === "headers" || route === "overworlds" || route === "flyDestinations" || route === "matrixEditor";
   return `<div class="header-more ${active ? "-active" : ""}">
     <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Headers &amp; Overworlds</button>
-    <div class="header-more-menu">${navItem("headers", "Headers")}${navItem("overworlds", "Overworlds", 0)}${project && isGen5Project(project) ? navItem("matrixEditor", "Matrix Editor") : ""}</div>
+    <div class="header-more-menu">${navItem("headers", "Headers")}${navItem("overworlds", "Overworlds", 0)}${project?.session.baseRom === "BW2" ? navItem("flyDestinations", "Fly Destinations") : ""}${project && isGen5Project(project) ? navItem("matrixEditor", "Matrix Editor") : ""}</div>
   </div>`;
 }
 
 function renderMapsMenu(): string {
-  const active = route === "mapStudio" || route === "maps3d" || route === "buildings" || route === "cutscenes" || route === "field-scenes" || route === "battleBackgrounds" || route === "townMap" || route === "flyDestinations";
+  const active = route === "mapStudio" || route === "maps3d" || route === "buildings" || route === "cutscenes" || route === "field-scenes" || route === "battleBackgrounds" || route === "townMap";
   return `<div class="header-more ${active ? "-active" : ""}">
     <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Maps</button>
-    <div class="header-more-menu">${navItem("maps3d", "Map Editor")}${project?.session.baseRom === "BW2" ? navItem("townMap", "Town Map") : ""}${canOpenMapStudio() ? navItem("mapStudio", "Map Studio") : ""}${navItem("buildings", "Buildings")}${navItem("battleBackgrounds", "Battle Backgrounds")}${canUseLocalRomBridge() ? navItem("cutscenes", "Cutscenes") + navItem("field-scenes", "Field tours") : ""}</div>
+    <div class="header-more-menu">${navItem("maps3d", "Map Editor")}${canUseLocalRomBridge() && project?.session.baseRom === "BW2" ? navItem("townMap", "Town Map") : ""}${canOpenMapStudio() ? navItem("mapStudio", "Map Studio") : ""}${navItem("buildings", "Buildings")}${navItem("battleBackgrounds", "Battle Backgrounds")}${canUseLocalRomBridge() ? navItem("cutscenes", "Cutscenes") + navItem("field-scenes", "Field tours") : ""}</div>
   </div>`;
 }
 
@@ -1447,7 +1468,7 @@ function renderEncountersMenu(): string {
 }
 
 function renderPokemonMenu(): string {
-  if (project?.session.baseRom !== "BW2") return navItem("pokemon", "Pokemon");
+  if (!project || !supportsAbilityEditor(project)) return navItem("pokemon", "Pokemon");
   const active = route === "pokemon" || route === "abilities";
   return `<div class="header-more ${active ? "-active" : ""}">
     <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Pokemon</button>
@@ -2495,7 +2516,8 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
   if (nextRoute === "buildings") return isGen5Project(project) && hasExportBase;
   if (nextRoute === "cutscenes" || nextRoute === "field-scenes") return project.session.baseVersion === "W2" && project.romInfo.idCode === "IRDO" && hasExportBase;
   if (nextRoute === "weather") return project.session.baseRom === "BW2" && EDITOR_REQUIREMENTS.weather.every((name) => project?.narcs[name]);
-  if (nextRoute === "flyDestinations" || nextRoute === "townMap") return project.session.baseRom === "BW2" && hasExportBase && Boolean(project.narcs.headers);
+  if (nextRoute === "flyDestinations") return project.session.baseRom === "BW2" && hasExportBase && Boolean(project.narcs.headers);
+  if (nextRoute === "townMap") return canUseLocalRomBridge() && project.session.baseRom === "BW2" && hasExportBase && Boolean(project.narcs.headers);
   if (nextRoute === "weatherGraphics") return project.session.baseRom === "BW2" && hasExportBase;
   if (nextRoute === "trainerSprites") return (project.session.baseRom === "BW" || project.session.baseRom === "BW2") && Boolean(project.narcs.trdata);
   if (nextRoute === "playerBackSprite") return project.session.baseRom === "BW2" && hasExportBase;
@@ -2503,7 +2525,7 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
     const status = getPwanRuntimeStatus(project);
     return Boolean(project.narcs.personal) && status.supported && status.installed;
   }
-  if (nextRoute === "abilities") return project.session.baseRom === "BW2" && Boolean(project.narcs.personal && project.narcs.message_texts);
+  if (nextRoute === "abilities") return supportsAbilityEditor(project) && Boolean(project.narcs.personal && project.narcs.message_texts);
   if (nextRoute === "types") {
     return (project.session.baseRom === "BW" || project.session.baseRom === "BW2") && Boolean(project.narcs.type_chart || project.overlays[typeChartOverlayId(project)]);
   }
@@ -2600,6 +2622,7 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
 
 function safeRoute(nextRoute: AppRoute): AppRoute {
   if (nextRoute === "mapStudio") return canOpenMapStudio() ? nextRoute : "upload";
+  if (nextRoute === "townMap" && !canUseLocalRomBridge()) return project ? safeRoute("headers") : "upload";
   if (!project || nextRoute === "upload" || nextRoute === "debugNarcs") return nextRoute;
   if (nextRoute === "grottoOdds") return canVisit("grottos") ? nextRoute : safeRoute("grottos");
   if (nextRoute === "overworlds" && activeOverworldId === undefined) return safeRoute("headers");

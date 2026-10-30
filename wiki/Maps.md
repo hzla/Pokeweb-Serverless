@@ -6,6 +6,12 @@ Selecting a zone loads it immediately. The four **Spring**, **Summer**, **Autumn
 
 Selecting a zone loads it immediately. The four **Spring**, **Summer**, **Autumn**, and **Winter** buttons switch the loaded season; the active season is highlighted. The wider sidebar keeps these controls above five tool tabs: **View** for layers and animation, **Camera**, **Buildings**, **Map settings** for header/area metadata, and **Collisions**. Each panel scrolls independently. Switching away from Camera ends camera navigation, and leaving Collisions disables painting on click.
 
+## Town Map (BW2)
+
+On localhost, open **Maps → Town Map** to edit native artwork, area markers, cursor positions, capsule touch regions, conditions, descriptions, landmarks and Pokédex highlights. The map, table and inspector share one selection. Changes remain in an undoable draft until **Apply**. New areas reference existing map headers, up to 128 total records on supported US revision-0 Black 2/White 2 layouts.
+
+**Fly Destinations** is a separate editor under **Headers & Overworlds**, with destination-map previews and independent Route 4 / Join Avenue settings. Both editors use the same project data and combined runtime. See the [Town Map guide](../runtime/town-map/README.md) for artwork capacities, runtime installation, native formats and limitations.
+
 ## Import DS Map Studio maps (Gen 5)
 
 For editing PDSMS authoring projects directly, **Maps → Map Studio** is available on localhost. It opens PDSMAP/PDSTS projects and their assets, supports painting, heights, layers, undo/redo and compatible saves, and compiles selected terrain chunks for direct Gen 5 ROM insertion. The workspace uses Pokeweb styling and original SVG icons. Gen 4 projects can be opened for authoring; their gameplay sidecars are not automatically converted. See the [Map Studio guide](../docs/map-studio.md).

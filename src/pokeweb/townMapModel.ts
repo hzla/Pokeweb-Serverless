@@ -1,7 +1,7 @@
 import { readU16, writeU16 } from "../nds/binary";
 import { NintendoDSRom } from "../nds/rom";
 import { loadFlyDestinationEditorData, getFlyDestinations, type FlyLanding } from "./flyDestinationModel";
-import { loadCodeInjectionNarcs } from "./codeInjectionInstall";
+import { loadCodeInjectionNarcs, withProjectMutationLock } from "./codeInjectionInstall";
 import { recordGenericChange } from "./actionChangelog";
 import { parseHeaders } from "./headerModel";
 import { markDirty, type ProjectState, type NarcStore } from "./projectStore";
@@ -31,7 +31,7 @@ export type TownMapArea = {
 export type TownMapDraft = {
   areas: TownMapArea[]; graphics: TownMapGraphicFiles; habitatGraphics: TownMapGraphicFiles; texts: Gen5TextEntry[];
   landings: Record<number, FlyLanding>;
-  baseline: { areas: Uint8Array; graphics: TownMapGraphicFiles; habitatGraphics: TownMapGraphicFiles; texts: Uint8Array; landings: string };
+  baseline: { areas: Uint8Array; graphics: TownMapGraphicFiles; habitatGraphics: TownMapGraphicFiles; texts: Uint8Array; landings: string; headers: string; cachedTexts: string };
 };
 const signed = (v: number) => v >= 32768 ? v - 65536 : v;
 export function parseTownMapAreas(bytes: Uint8Array): TownMapArea[] {
@@ -76,7 +76,7 @@ export async function loadTownMapDraft(project: ProjectState): Promise<TownMapDr
   project.headers ??= parseHeaders(project);
   return { areas: parseTownMapAreas(areas), graphics, habitatGraphics, texts: structuredClone(project.texts.messageTexts?.[TOWN_MAP_TEXT_BANK] ?? decodeGen5TextBank(textBytes)),
     landings: Object.fromEntries(getFlyDestinations(project).map(d => [d.zone, d.landing])),
-    baseline: { areas: areas.slice(), graphics: new Map([...graphics].map(([id, bytes]) => [id, bytes.slice()])), habitatGraphics: new Map([...habitatGraphics].map(([id, bytes]) => [id, bytes.slice()])), texts: textBytes.slice(), landings: JSON.stringify(project.flyDestinations ?? null) } };
+    baseline: { areas: areas.slice(), graphics: new Map([...graphics].map(([id, bytes]) => [id, bytes.slice()])), habitatGraphics: new Map([...habitatGraphics].map(([id, bytes]) => [id, bytes.slice()])), texts: textBytes.slice(), landings: JSON.stringify(project.flyDestinations ?? null), headers: JSON.stringify(project.headers), cachedTexts: JSON.stringify(project.texts.messageTexts?.[TOWN_MAP_TEXT_BANK] ?? null) } };
 }
 export function moveTownMapArea(area: TownMapArea, dx: number, dy: number, linked: boolean, target: "marker" | "cursor" | "hitStart" | "hitEnd" | "habitat" = "marker"): void {
   if (![dx, dy].every(Number.isInteger)) throw new Error("Movement must use whole pixels.");
@@ -120,29 +120,40 @@ export function validateTownMapDraft(project: ProjectState, draft: TownMapDraft)
     if (zones.has(area.zone)) throw new Error(`Map ${area.zone} appears more than once.`); zones.add(area.zone);
     if (!project.headers?.rows[area.zone + 1]) throw new Error(`Area ${index + 1} references missing map header ${area.zone}.`);
     if (area.type > 5) throw new Error(`Area ${index + 1} has an unsupported place type.`);
-    for (const flag of [area.arrivalFlag, area.visibilityFlag])
-      if (!(flag === 65535 || flag >= 1 && flag <= 3059 || flag >= 61440 && flag <= 61442 || flag === 61443 && flag === area.visibilityFlag)) throw new Error(`Area ${index + 1} has an invalid condition.`);
+    for (const [field, flag] of [["arrivalFlag", area.arrivalFlag], ["visibilityFlag", area.visibilityFlag]] as const)
+      if (!(flag === 65535 || flag >= 1 && flag <= 3059 || flag >= 61440 && flag <= 61442 || flag === 61443 && field === "visibilityFlag")) throw new Error(`Area ${index + 1} has an invalid condition.`);
+    if (area.fly && area.visibilityFlag === 61443) throw new Error(`Enable area ${index + 1} in Town Map before enabling Fly.`);
     if (area.fly && area.arrivalFlag === 65535) throw new Error(`Area ${index + 1} needs a visit condition before enabling Fly.`);
     if (area.landmarks.length !== 6 || [area.description, ...area.landmarks].some(id => id !== 65535 && !draft.texts[id])) throw new Error(`Area ${index + 1} references a missing text entry.`);
   });
   TOWN_MAP_LAYERS.forEach(layer => readTownMapLayer(draft.graphics, layer));
   assertTownMapCapacity(townMapCapacity(draft));
-  encodeGen5TextBank(draft.texts);
+  const encoded = encodeGen5TextBank(draft.texts);
+  // The native information panel uses a 255-code-unit string buffer.
+  const decoded = decodeGen5TextBank(encoded);
+  for (const area of draft.areas) for (const id of [area.description, ...area.landmarks]) {
+    if (id !== 65535 && decoded[id]?.[1].replace(/\\n/gu, "\n").length > 254) throw new Error(`Text ${id} exceeds the information panel's 254-character limit.`);
+  }
 }
 function assertBaseline(project: ProjectState, draft: TownMapDraft): void {
   if (!equalTownMapBytes(project.narcs.town_map!.rawFiles[0], draft.baseline.areas)
     || !equalTownMapBytes(project.narcs.message_texts!.rawFiles[TOWN_MAP_TEXT_BANK], draft.baseline.texts)
     || [...draft.baseline.graphics].some(([i, bytes]) => !equalTownMapBytes(project.narcs.town_map_graphics!.rawFiles[i], bytes))
     || [...draft.baseline.habitatGraphics].some(([i, bytes]) => !equalTownMapBytes(project.narcs.town_map_habitat_graphics!.rawFiles[i], bytes))
-    || JSON.stringify(project.flyDestinations ?? null) !== draft.baseline.landings)
+    || JSON.stringify(project.flyDestinations ?? null) !== draft.baseline.landings
+    || JSON.stringify(project.headers) !== draft.baseline.headers
+    || JSON.stringify(project.texts.messageTexts?.[TOWN_MAP_TEXT_BANK] ?? null) !== draft.baseline.cachedTexts)
     throw new Error("Town Map data changed elsewhere. Reload the editor before applying this draft.");
 }
-export async function applyTownMapDraft(project: ProjectState, draft: TownMapDraft): Promise<void> {
+export async function applyTownMapDraft(project: ProjectState, draft: TownMapDraft, options: { requireRuntime?: boolean } = {}): Promise<void> {
+  return withProjectMutationLock(project, () => applyTownMapDraftLocked(project, draft, options.requireRuntime ?? false));
+}
+async function applyTownMapDraftLocked(project: ProjectState, draft: TownMapDraft, requireRuntime: boolean): Promise<void> {
   validateTownMapDraft(project, draft); assertBaseline(project, draft);
   const staged: ProjectState = { ...project, narcs: { ...project.narcs }, texts: structuredClone(project.texts),
     fileSystem: structuredClone(project.fileSystem), codeInjection: structuredClone(project.codeInjection),
     patches: structuredClone(project.patches), overlays: { ...project.overlays }, flyDestinations: structuredClone(project.flyDestinations),
-    actionChangelog: structuredClone(project.actionChangelog) };
+    actionChangelog: structuredClone(project.actionChangelog), headers: structuredClone(project.headers) };
   for (const name of ["town_map", "town_map_graphics", "town_map_habitat_graphics", "message_texts"] as const) {
     const store = project.narcs[name]!;
     staged.narcs[name] = { ...store, rawFiles: [...store.rawFiles], records: new Map(store.records), dirty: new Set(store.dirty) } as NarcStore;
@@ -160,10 +171,17 @@ export async function applyTownMapDraft(project: ProjectState, draft: TownMapDra
     set("message_texts", TOWN_MAP_TEXT_BANK, encodeGen5TextBank(draft.texts));
     if (staged.texts.messageTexts) staged.texts.messageTexts[TOWN_MAP_TEXT_BANK] = structuredClone(draft.texts);
   }
-  await prepareTownMapRuntime(staged, draft);
+  await prepareTownMapRuntime(staged, draft, requireRuntime);
   assertBaseline(project, draft);
   recordGenericChange(staged, "town_map", `Town Map updated (${draft.areas.length} areas).`, "Town Map", { key: "town-map" });
-  for (const key of ["narcs", "texts", "fileSystem", "codeInjection", "patches", "overlays", "flyDestinations", "actionChangelog", "arm9", "arm9Dirty", "originalRomBytes"] as const)
+  for (const name of ["town_map", "town_map_graphics", "town_map_habitat_graphics", "town_map_species_habitats"] as const)
+    if (staged.narcs[name]) project.narcs[name] = staged.narcs[name];
+  if (textChanged) {
+    const live = project.narcs.message_texts!, next = staged.narcs.message_texts!;
+    live.rawFiles[TOWN_MAP_TEXT_BANK] = next.rawFiles[TOWN_MAP_TEXT_BANK]; live.records.delete(TOWN_MAP_TEXT_BANK); markDirty(project, "message_texts", TOWN_MAP_TEXT_BANK);
+    if (project.texts.messageTexts) project.texts.messageTexts[TOWN_MAP_TEXT_BANK] = structuredClone(draft.texts);
+  }
+  for (const key of ["fileSystem", "codeInjection", "patches", "overlays", "flyDestinations", "actionChangelog", "arm9", "arm9Dirty", "originalRomBytes"] as const)
     Object.assign(project, { [key]: staged[key] });
 }
 export type TownMapSnapshot = Pick<TownMapDraft, "areas" | "graphics" | "habitatGraphics" | "texts" | "landings">;
@@ -172,6 +190,11 @@ export class TownMapHistory {
   get canUndo() { return this.past.length > 0; } get canRedo() { return this.future.length > 0; }
   private snapshot(draft: TownMapDraft): TownMapSnapshot { return structuredClone({ areas: draft.areas, graphics: draft.graphics, habitatGraphics: draft.habitatGraphics, texts: draft.texts, landings: draft.landings }); }
   checkpoint(draft: TownMapDraft): void { this.past.push(this.snapshot(draft)); if (this.past.length > 64) this.past.shift(); this.future = []; }
+  edit(draft: TownMapDraft, action: () => void): void {
+    const before = this.snapshot(draft);
+    try { action(); } catch (error) { Object.assign(draft, before); throw error; }
+    this.past.push(before); if (this.past.length > 64) this.past.shift(); this.future = [];
+  }
   undo(draft: TownMapDraft): boolean {
     const value = this.past.pop(); if (!value) return false; this.future.push(this.snapshot(draft)); Object.assign(draft, value); return true;
   }

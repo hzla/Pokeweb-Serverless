@@ -2,26 +2,25 @@ import "../styles/townMap.css";
 import { loadTownMapDraft, applyTownMapDraft, TownMapHistory, TOWN_MAP_TYPES, TOWN_MAP_CONDITIONS,
   appendTownMapArea, editTownMapText, moveTownMapArea, townMapHit, type TownMapDraft, type TownMapArea } from "../pokeweb/townMapModel";
 import { TOWN_MAP_LAYERS, readTownMapLayer, writeTownMapLayer, convertTownMapImage, fillTownMapTiles,
-  unpackTownMapResource, repackTownMapResource, readTownMapTileSet, writeTownMapTileSet, type TownMapImageConversion } from "../pokeweb/townMapGraphics";
+  unpackTownMapResource, editTownMapAnimationFrame, readTownMapTileSet, writeTownMapTileSet, type TownMapImageConversion, type TownMapLayer } from "../pokeweb/townMapGraphics";
 import { renderNitroBackgroundImage, type NitroBackgroundImage } from "../pokeweb/nitroBg";
 import { parseNitroCellEffect, type NitroCellEffect } from "../pokeweb/nitroCell";
 import { parsePokemonAnimation } from "../pokeweb/pokemonSpriteModel";
-import { buildPokemonAnimationFile } from "../pokeweb/pokemonSpriteWriters";
-import { getFlyDestinations, resolveFlyLandingZone, type FlyLanding } from "../pokeweb/flyDestinationModel";
-import { installBw2MapPreview, type Bw2MapPreview } from "./bw2MapPreview";
+import { townMapCapacity } from "../pokeweb/townMapCapacity";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 
 const esc = (v: unknown) => escapeHtml(String(v));
 type Target = "marker" | "cursor" | "hitStart" | "hitEnd" | "habitat";
-export function renderTownMapEditor(project: ProjectState, root: HTMLElement, onDirty: () => void, startFly = false): () => void {
+export function renderTownMapEditor(project: ProjectState, root: HTMLElement, onDirty: () => void): () => void {
   let stopped = false, busy = false, draft: TownMapDraft, selected = 0, layerId = 0, tileId = 0, paletteBank = 0, colorId = 1;
   let tool = "select", target: Target = "marker", linked = true, grid = true, overlays = true, search = "", view = "map", sequence = 0;
-  let inspectorTab = "area";
-  let history = new TownMapHistory(), landingPreview: Bw2MapPreview | undefined, pendingImport: TownMapImageConversion | undefined;
+  const layerCanvases = new Map<number, HTMLCanvasElement>();
+  let inspectorTab = "area", importRequest = 0;
+  let history = new TownMapHistory(), pendingImport: TownMapImageConversion | undefined;
   let effects: NitroCellEffect | undefined, habitatEffect: NitroCellEffect | undefined, tick = 0, timer: ReturnType<typeof setInterval> | undefined;
   root.innerHTML = `<section class="town-map-editor" aria-label="Town Map"><h1>Town Map</h1><p role="status">Loading map…</p></section>`;
-  const cleanup = () => { stopped = true; landingPreview?.destroy(); if (timer) clearInterval(timer); };
+  const cleanup = () => { stopped = true; if (timer) clearInterval(timer); };
   void loadTownMapDraft(project).then(value => { if (stopped) return; draft = value; mount(); }).catch(error => {
     if (!stopped) root.innerHTML = `<section class="town-map-editor"><h1>Town Map</h1><p role="alert">${esc(message(error))}</p></section>`;
   });
@@ -32,11 +31,11 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
     node.textContent = text; node.classList.toggle("-error", error);
   }
   function run(action: () => void) { try { action(); } catch (error) { status(message(error), true); } }
+  function clearImport() { pendingImport = undefined; importRequest++; root.querySelector(".tm-import-host")?.replaceChildren(); }
   function change(action: () => void, inspector = true) {
     if (busy) return;
-    history.checkpoint(draft);
-    try { action(); pendingImport = undefined; refresh(inspector); status("Draft changed"); }
-    catch (error) { history.undo(draft); status(message(error), true); }
+    try { history.edit(draft, action); clearImport(); refresh(inspector); status("Draft changed"); }
+    catch (error) { status(message(error), true); }
   }
   function areaName(a: TownMapArea) { return String(project.headers?.rows[a.zone + 1]?.location_name ?? `Map ${a.zone}`); }
   function files() { return view === "habitat-art" ? draft.habitatGraphics : draft.graphics; }
@@ -58,6 +57,11 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
   function bitmap(image: NitroBackgroundImage) {
     const canvas = document.createElement("canvas"); imageToCanvas(canvas, image.width, image.height, renderNitroBackgroundImage(image)); return canvas;
   }
+  function layerBitmap(layer: TownMapLayer) {
+    let canvas = layerCanvases.get(layer.screen);
+    if (!canvas) { canvas = bitmap(readTownMapLayer(draft.graphics, layer)); layerCanvases.set(layer.screen, canvas); }
+    return canvas;
+  }
   function rebuildEffects() {
     try {
       const ids = spriteIds(), f = files(); effects = parseNitroCellEffect("Town Map", ids.char, ids.pal, ids.cell, ids.anim,
@@ -68,7 +72,7 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
   }
   function mount() {
     root.innerHTML = `<section class="town-map-editor" aria-label="Town Map">
-      <header class="tm-heading"><div><h1>Town Map</h1><span class="tm-count"></span></div><a class="tm-link" href="#headers" data-route="headers">Headers &amp; Overworlds ↗</a></header>
+      <header class="tm-heading"><div><h1>Town Map</h1><span class="tm-count"></span></div><div class="tm-controls"><a class="tm-link" href="#flyDestinations" data-route="flyDestinations">Fly Destinations ↗</a><a class="tm-link" href="#headers" data-route="headers">Headers &amp; Overworlds ↗</a></div></header>
       <div class="tm-toolbar"><button class="btn -default" data-action="import">Import image</button><button class="btn -default" data-action="export">Export layer</button><button class="btn -default" data-action="composite">Export composite</button><input id="tm-file" type="file" accept="image/png,image/bmp,.bmp" hidden />
         <button class="btn -default" data-action="undo">Undo</button><button class="btn -default" data-action="redo">Redo</button><button class="btn -default" data-action="apply">Apply</button><button class="btn -default" data-action="reload">Reload</button></div>
       <div class="tm-message" role="status" aria-live="polite"></div><div class="tm-import-host"></div>
@@ -83,13 +87,13 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
         <div class="tm-pixel-row"><canvas class="tm-pixel" width="8" height="8" aria-label="Selected tile pixel editor"></canvas><div style="flex:1;min-width:150px"><div class="tm-palette" aria-label="Colors"></div><div class="tm-controls"><label>Color <input id="tm-color" type="color" /></label><span class="tm-color-index"></span></div></div></div><div class="tm-animation"></div>
       </div></section></div>
       <div class="tm-data"><section class="tm-panel"><h2>Areas</h2><div class="tm-panel-body"><input class="filter-input tm-search" type="search" aria-label="Find an area" placeholder="Area name or map ID" /><div class="tm-table-wrap tm-areas"></div><div class="tm-controls"><select class="tm-add" id="tm-add-zone" aria-label="New area map header"></select><button data-action="add">Add / duplicate area</button><button data-action="remove">Remove appended area</button></div></div></section>
-      <section class="tm-panel tm-landing"><h2>Fly destinations</h2><div class="tm-table-wrap tm-flights"></div><div class="tm-panel-body tm-fly-form"></div><div class="tm-landing-preview bw2-script-map"></div></section></div>
+      </div>
       <section class="tm-panel tm-inspector"><h2 class="tm-area-title">Area</h2><div class="tm-controls tm-inspector-tabs"><button class="btn -default" data-inspector-tab="area">Area</button><button class="btn -default" data-inspector-tab="text">Description &amp; landmarks</button><button class="btn -default" data-action="disable">Disable area</button></div><div class="tm-panel-body"><div class="tm-fields-host"></div><div class="tm-texts"></div></div></section></div></section>`;
     root.querySelectorAll<HTMLButtonElement>("[data-action]").forEach(button => button.addEventListener("click", () => action(button.dataset.action!)));
     root.querySelectorAll<HTMLButtonElement>("[data-inspector-tab]").forEach(button => button.addEventListener("click", () => { inspectorTab = button.dataset.inspectorTab!; renderInspector(); }));
     const bind = (id: string, listener: (el: HTMLInputElement | HTMLSelectElement) => void) => root.querySelector<HTMLInputElement | HTMLSelectElement>(`#tm-${id}`)!.addEventListener("change", event => run(() => listener(event.target as HTMLInputElement)));
-    bind("view", el => { view = el.value; tileId = paletteBank = sequence = 0; rebuildEffects(); refresh(); });
-    bind("layer", el => { layerId = Number(el.value); tileId = paletteBank = 0; refresh(false); });
+    bind("view", el => { clearImport(); view = el.value; tileId = paletteBank = sequence = 0; rebuildEffects(); refresh(); });
+    bind("layer", el => { clearImport(); layerId = Number(el.value); tileId = paletteBank = 0; refresh(false); });
     bind("bank", el => { paletteBank = Number(el.value); renderTiles(); });
     bind("grid", el => { grid = (el as HTMLInputElement).checked; draw(); });
     bind("overlays", el => { overlays = (el as HTMLInputElement).checked; draw(); });
@@ -105,11 +109,11 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
     root.querySelector<HTMLInputElement>("#tm-file")!.addEventListener("change", event => { const file = (event.target as HTMLInputElement).files?.[0]; if (file) void importImage(file); (event.target as HTMLInputElement).value = ""; });
     installCanvas(); rebuildEffects(); refresh();
     timer = setInterval(() => { if (stopped) return; tick++; if (isSprite() || view === "habitat") draw(); }, 1000 / 30);
-    if (startFly) root.querySelector(".tm-landing")?.scrollIntoView({ block: "nearest" });
   }
   function refresh(inspector = true) {
-    if (stopped) return; selected = Math.max(0, Math.min(selected, draft.areas.length - 1));
-    root.querySelector(".tm-count")!.textContent = `${draft.areas.length} / 128 areas`;
+    if (stopped) return; layerCanvases.clear(); selected = Math.max(0, Math.min(selected, draft.areas.length - 1));
+    const capacity = townMapCapacity(draft);
+    root.querySelector(".tm-count")!.textContent = `${draft.areas.length} / 128 areas · ${capacity.mapActors} / 128 actors · ${capacity.mapSprites} / 124 sprites · ${Math.ceil(capacity.mapHeapBytes / 1024)} / 384 KiB`;
     root.querySelector<HTMLButtonElement>('[data-action="undo"]')!.disabled = !history.canUndo;
     root.querySelector<HTMLButtonElement>('[data-action="redo"]')!.disabled = !history.canRedo;
     root.querySelector<HTMLButtonElement>('[data-action="remove"]')!.disabled = selected < 85;
@@ -123,15 +127,10 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
   function renderTables() {
     const entries = draft.areas.map((area, i) => ({ area, i })).filter(({ area }) => `${areaName(area)} ${area.zone}`.toLowerCase().includes(search.toLowerCase()));
     root.querySelector(".tm-areas")!.innerHTML = `<table class="tm-table"><thead><tr><th>Area</th><th>Map</th><th>Type</th><th>X</th><th>Y</th></tr></thead><tbody>${entries.map(({ area: a, i }) => `<tr data-area="${i}" class="${i === selected ? "-selected" : ""}" tabindex="0" aria-selected="${i === selected}"><td>${esc(areaName(a))}</td><td>${a.zone}</td><td>${esc(TOWN_MAP_TYPES[a.type] ?? a.type)}</td><td>${a.position.x}</td><td>${a.position.y}</td></tr>`).join("")}</tbody></table>`;
-    root.querySelector(".tm-flights")!.innerHTML = `<table class="tm-table"><thead><tr><th>Area</th><th>Fly</th><th>Visit flag</th><th>X</th><th>Y</th><th>Z</th></tr></thead><tbody>${entries.map(({ area: a, i }) => { const p = landing(a); return `<tr data-area="${i}" class="${i === selected ? "-selected" : ""}" tabindex="0" aria-selected="${i === selected}"><td>${esc(areaName(a))}</td><td>${a.fly ? "●" : "—"}</td><td>${a.arrivalFlag === 65535 ? "—" : a.arrivalFlag}</td><td>${p.x}</td><td>${p.y}</td><td>${p.z}</td></tr>`; }).join("")}</tbody></table>`;
     root.querySelectorAll<HTMLElement>("[data-area]").forEach(row => {
       const select = () => { selected = Number(row.dataset.area); renderTables(); renderInspector(); draw(); };
       row.addEventListener("click", select); row.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(); } });
     });
-  }
-  function landing(a: TownMapArea): FlyLanding {
-    const h = project.headers?.rows[resolveFlyLandingZone(project, a.zone === 490 ? 326 : a.zone) + 1];
-    return draft.landings[a.zone] ?? { x: Number(h?.fly_x ?? 0) | 0, y: Number(h?.fly_y ?? 0) | 0, z: Number(h?.fly_z ?? 0) | 0 };
   }
   function getPath(a: TownMapArea, path: string): number { return path.split(".").reduce<unknown>((v, k) => (v as Record<string, unknown>)[k], a) as number; }
   function setPath(a: TownMapArea, path: string, value: number) { const keys = path.split("."), last = keys.pop()!; const obj = keys.reduce<unknown>((v, k) => (v as Record<string, unknown>)[k], a) as Record<string, unknown>; obj[last] = value; }
@@ -153,11 +152,10 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
       <label>Place type<select class="filter-input" data-field="type">${TOWN_MAP_TYPES.map((name, i) => `<option value="${i}" ${a.type === i ? "selected" : ""}>${name}</option>`).join("")}</select></label>${field("Selection radius", "radius")}
       <fieldset><legend>Marker</legend>${field("X", "position.x")}${field("Y", "position.y")}</fieldset><fieldset><legend>Cursor</legend>${field("X", "cursor.x")}${field("Y", "cursor.y")}</fieldset>
       <fieldset><legend>Touch capsule</legend>${field("Start X", "hit.start.x")}${field("Start Y", "hit.start.y")}${field("End X", "hit.end.x")}${field("End Y", "hit.end.y")}${field("Radius", "hit.radius")}</fieldset>
-      <fieldset><legend>Visibility</legend>${condition("Shown when", "visibilityFlag")}</fieldset><fieldset><legend>Pokédex highlight</legend>${field("Animation", "habitat.animation")}${field("X", "habitat.x", -32768, 32767)}${field("Y", "habitat.y", -32768, 32767)}</fieldset></div>
+      <fieldset><legend>Conditions</legend>${condition("Shown when", "visibilityFlag")}${condition("Visited when", "arrivalFlag")}</fieldset><fieldset><legend>Pokédex highlight</legend>${field("Animation", "habitat.animation")}${field("X", "habitat.x", -32768, 32767)}${field("Y", "habitat.y", -32768, 32767)}</fieldset></div>
       <details><summary>Raw fields</summary><div class="tm-fields">${field("Unknown 13", "unknown13")}${field("Unknown 14", "unknown14")}</div></details>`;
     const references = [a.description, ...a.landmarks];
     root.querySelector(".tm-texts")!.innerHTML = `<label class="tm-shared"><input id="tm-shared" type="checkbox" />Edit shared text</label>${references.map((id, slot) => `<label>${slot ? `Landmark ${slot}` : "Description"}<textarea class="filter-input" data-text-slot="${slot}" aria-label="${slot ? `Landmark ${slot}` : "Description"}">${esc((draft.texts[id]?.[1] ?? "").replace(/\\n/gu, "\n"))}</textarea><span>Text ${id === 65535 ? "—" : id}</span></label>`).join("")}`;
-    root.querySelector(".tm-fly-form")!.innerHTML = `<div class="tm-fields"><label class="tm-wide"><span><input id="tm-fly-enabled" type="checkbox" ${a.fly ? "checked" : ""} />Enable Fly</span></label>${condition("Visit condition", "arrivalFlag")}${(["x", "y", "z"] as const).map(axis => `<label>${esc(axis.toUpperCase())}<input class="filter-input" data-landing="${axis}" type="number" step="1" value="${landing(a)[axis]}" /></label>`).join("")}</div>`;
     root.querySelectorAll<HTMLInputElement | HTMLSelectElement>("[data-field]").forEach(input => input.addEventListener("change", () => change(() => {
       const value = Number(input.value); if (!input.value.trim() || !Number.isInteger(value) || !input.checkValidity()) throw new Error("Enter a whole number within the field's range.");
       if (input.dataset.field === "zone" && draft.areas.some((other, i) => i !== selected && other.zone === value)) throw new Error("That header already has a Town Map area.");
@@ -165,23 +163,7 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
     })));
     root.querySelectorAll<HTMLSelectElement>("[data-condition]").forEach(input => input.addEventListener("change", () => change(() => { draft.areas[selected][input.dataset.condition as "arrivalFlag" | "visibilityFlag"] = input.value === "event" ? 1 : Number(input.value); })));
     root.querySelectorAll<HTMLTextAreaElement>("[data-text-slot]").forEach(input => input.addEventListener("change", () => change(() => editTownMapText(draft, selected, Number(input.dataset.textSlot), input.value, root.querySelector<HTMLInputElement>("#tm-shared")!.checked))));
-    root.querySelector<HTMLInputElement>("#tm-fly-enabled")!.addEventListener("change", event => change(() => {
-      const enabled = (event.target as HTMLInputElement).checked; a.fly = Number(enabled);
-      const suggestion = getFlyDestinations(project).find(d => d.zone === a.zone)?.suggestedVisitFlag;
-      if (enabled && a.arrivalFlag === 65535 && suggestion !== undefined) a.arrivalFlag = suggestion;
-    }));
-    root.querySelectorAll<HTMLInputElement>("[data-landing]").forEach(input => input.addEventListener("change", () => change(() => {
-      const value = Number(input.value); if (!input.value.trim() || !Number.isInteger(value)) throw new Error("Landing coordinates must be whole numbers.");
-      draft.landings[a.zone] = { ...landing(a), [input.dataset.landing!]: value };
-    })));
-    landingPreview?.destroy();
-    const zone = resolveFlyLandingZone(project, a.zone === 490 ? 326 : a.zone), h = project.headers?.rows[zone + 1];
-    const destination = getFlyDestinations(project).find(d => d.zone === a.zone), rail = destination?.coordinateKind === "rail";
-    root.querySelectorAll<HTMLInputElement>("[data-landing]").forEach((input, i) => { input.parentElement!.firstChild!.textContent = rail ? ["Rail component", "Position along rail", "Side offset"][i] : ["X", "Y (height)", "Z"][i]; });
-    landingPreview = installBw2MapPreview(project, root.querySelector<HTMLElement>(".tm-landing-preview")!, {
-      choices: h ? [{ headerRowId: zone + 1, zoneId: zone, overworldId: Number(h.overworlds_id ?? h.map_id), label: `${h.location_name} · ${zone}`, header: h }] : [],
-      emptyMessage: "No destination map.", landing: { coordinates: rail ? undefined : landing(a), message: rail ? "Rail component · position · side offset" : `Fly landing · ${zone}` },
-    });
+
   }
   function draw() {
     const canvas = root.querySelector<HTMLCanvasElement>(".tm-map"); if (!canvas || !draft) return;
@@ -192,7 +174,7 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
       return;
     }
     const layers = view === "layer" ? [selectedLayer()] : TOWN_MAP_LAYERS.slice(0, 2);
-    for (const layer of layers) ctx.drawImage(bitmap(readTownMapLayer(draft.graphics, layer)), 0, 0);
+    for (const layer of layers) ctx.drawImage(layerBitmap(layer), 0, 0);
     if (view === "habitat") {
       const a = draft.areas[selected], frames = habitatEffect?.sequences[a.habitat.animation]?.frames, frame = frames?.[tick % (frames?.length || 1)];
       if (frame) { const c = document.createElement("canvas"); imageToCanvas(c, frame.width, frame.height, frame.rgba); ctx.drawImage(c, a.habitat.x - 128, a.habitat.y - 128); }
@@ -218,7 +200,7 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
     imageToCanvas(canvas, width, height, rgba); const ctx = canvas.getContext("2d")!; ctx.strokeStyle = "#ffce62"; ctx.lineWidth = 1; ctx.strokeRect((tileId % 32) * 8 + .5, (tileId >> 5) * 8 + .5, 7, 7);
     const pixel = new Uint8ClampedArray(256); for (let p = 0; p < 64; p++) pixel.set(set.palette[paletteBank * bankSize + set.tiles[tileId][p]] ?? [0, 0, 0, 0], p * 4);
     imageToCanvas(root.querySelector<HTMLCanvasElement>(".tm-pixel")!, 8, 8, pixel);
-    root.querySelector(".tm-tile-count")!.textContent = `${set.tiles.length} tiles · ${set.palette.length} colors`;
+    root.querySelector(".tm-tile-count")!.textContent = `${set.tiles.length}${isSprite() ? "" : ` / ${selectedLayer().maxTiles}`} tiles · ${set.palette.length} colors`;
     root.querySelector(".tm-tile-selected")!.textContent = `Tile ${tileId}`;
     root.querySelector(".tm-palette")!.innerHTML = set.palette.slice(paletteBank * bankSize, (paletteBank + 1) * bankSize).map((c, i) => `<button type="button" style="background:rgb(${c.slice(0, 3).join(",")})" data-color="${i}" class="${i === colorId ? "-selected" : ""}" aria-label="Color ${i}"></button>`).join("");
     const c = set.palette[paletteBank * bankSize + colorId] ?? [0, 0, 0, 255]; root.querySelector<HTMLInputElement>("#tm-color")!.value = `#${c.slice(0, 3).map(n => n.toString(16).padStart(2, "0")).join("")}`;
@@ -232,8 +214,7 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
       panel.querySelector<HTMLSelectElement>("#tm-sequence")!.onchange = event => { sequence = Number((event.target as HTMLSelectElement).value); renderTiles(); draw(); };
       panel.querySelectorAll<HTMLInputElement>("[data-frame]").forEach(input => input.onchange = () => change(() => {
         const value = Number(input.value); if (!input.checkValidity() || !Number.isInteger(value)) throw new Error("Enter a valid frame value.");
-        const f = anim.sequences[sequence].frames[Number(input.dataset.frame)]; f[input.dataset.frameKey as "cellIndex" | "duration"] = value;
-        const original = files().get(ids.anim)!; files().set(ids.anim, repackTownMapResource(original, buildPokemonAnimationFile(anim.sequences))); rebuildEffects();
+        editTownMapAnimationFrame(files(), ids.anim, sequence, Number(input.dataset.frame), input.dataset.frameKey as "cellIndex" | "duration", value); rebuildEffects();
       }, false));
     }
   }
@@ -275,22 +256,27 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
     const endPaint = () => { if (!painting) return; painting = false; rebuildEffects(); refresh(false); status("Draft changed"); }; pixels.addEventListener("pointerup", endPaint); pixels.addEventListener("pointercancel", endPaint);
   }
   async function importImage(file: File) {
+    clearImport();
+    const request = importRequest, layer = selectedLayer();
     try {
       if (file.size > 16 * 1024 * 1024) throw new Error("Image exceeds 16 MiB.");
-      const image = await createImageBitmap(file); if (stopped) { image.close(); return; }
+      const image = await createImageBitmap(file);
+      if (stopped || request !== importRequest) { image.close(); return; }
+      if (image.width !== 256 || image.height !== 256) { image.close(); throw new Error("Use a 256 × 256 image for this native map layer."); }
       const canvas = document.createElement("canvas"); canvas.width = image.width; canvas.height = image.height; canvas.getContext("2d")!.drawImage(image, 0, 0); image.close();
-      pendingImport = convertTownMapImage(readTownMapLayer(draft.graphics, selectedLayer()), canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
-      const host = root.querySelector<HTMLElement>(".tm-import-host")!; host.innerHTML = `<div class="tm-import"><canvas></canvas><div><p>${pendingImport.tiles} tiles · ${pendingImport.paletteBanks} palette banks</p><p>${pendingImport.changedPixels} pixels mapped to existing colors</p><button class="btn -default" id="tm-accept-import">Use image</button><button class="btn -default" id="tm-cancel-import">Cancel</button></div></div>`;
+      pendingImport = convertTownMapImage(readTownMapLayer(draft.graphics, layer), canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height, layer.maxTiles);
+      const host = root.querySelector<HTMLElement>(".tm-import-host")!; host.innerHTML = `<div class="tm-import"><canvas></canvas><div><p>${pendingImport.tiles} / ${layer.maxTiles} tiles · ${pendingImport.paletteBanks} palette banks</p><p>${pendingImport.changedPixels} pixels mapped · palette unchanged</p><button class="btn -default" id="tm-accept-import">Use image</button><button class="btn -default" id="tm-cancel-import">Cancel</button></div></div>`;
       imageToCanvas(host.querySelector("canvas")!, 256, 256, renderNitroBackgroundImage(pendingImport.image));
-      host.querySelector("#tm-accept-import")!.addEventListener("click", () => { const value = pendingImport; if (value) change(() => writeTownMapLayer(draft.graphics, selectedLayer(), value.image), false); host.replaceChildren(); });
-      host.querySelector("#tm-cancel-import")!.addEventListener("click", () => { pendingImport = undefined; host.replaceChildren(); });
-    } catch (error) { status(message(error), true); }
+      host.querySelector("#tm-accept-import")!.addEventListener("click", () => { const value = pendingImport; if (value && request === importRequest) change(() => writeTownMapLayer(draft.graphics, layer, value.image), false); });
+      host.querySelector("#tm-cancel-import")!.addEventListener("click", clearImport);
+    } catch (error) { if (!stopped && request === importRequest) status(message(error), true); }
   }
+
   function download(canvas: HTMLCanvasElement, name: string) { canvas.toBlob(blob => { if (!blob || stopped) return; const url = URL.createObjectURL(blob), a = document.createElement("a"); a.href = url; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }, "image/png"); }
   function action(name: string) {
     if (busy) return;
     run(() => {
-      if (name === "undo" || name === "redo") { history[name](draft); rebuildEffects(); refresh(); return; }
+      if (name === "undo" || name === "redo") { history[name](draft); clearImport(); rebuildEffects(); refresh(); return; }
       if (["left", "right", "up", "down"].includes(name)) { const [x, y] = ({ left: [-1, 0], right: [1, 0], up: [0, -1], down: [0, 1] } as Record<string, number[]>)[name]; change(() => moveTownMapArea(draft.areas[selected], x, y, linked, target)); return; }
       if (name === "add") { const value = root.querySelector<HTMLSelectElement>("#tm-add-zone")!.value; if (value) change(() => { selected = appendTownMapArea(draft, selected, Number(value)); }); return; }
       if (name === "remove") { if (selected >= 85) change(() => { const [a] = draft.areas.splice(selected, 1); delete draft.landings[a.zone]; selected--; }); return; }
@@ -300,9 +286,9 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
       }, false); return; }
       if (name === "import") { root.querySelector<HTMLInputElement>("#tm-file")!.click(); return; }
       if (name === "export") { if (isSprite()) download(root.querySelector<HTMLCanvasElement>(".tm-tiles")!, "town-map-tiles.png"); else download(bitmap(readTownMapLayer(draft.graphics, selectedLayer())), `town-map-layer-${layerId}.png`); return; }
-      if (name === "composite") { const canvas = document.createElement("canvas"); canvas.width = canvas.height = 256; TOWN_MAP_LAYERS.slice(0, 2).forEach(layer => canvas.getContext("2d")!.drawImage(bitmap(readTownMapLayer(draft.graphics, layer)), 0, 0)); download(canvas, "town-map.png"); return; }
+      if (name === "composite") { const canvas = document.createElement("canvas"); canvas.width = canvas.height = 256; TOWN_MAP_LAYERS.slice(0, 2).forEach(layer => canvas.getContext("2d")!.drawImage(layerBitmap(layer), 0, 0)); download(canvas, "town-map.png"); return; }
       if (name === "apply" || name === "reload") {
-        busy = true; root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement | HTMLTextAreaElement>("input, select, button, textarea").forEach(el => el.disabled = true); status(name === "apply" ? "Applying Town Map…" : "Reloading…");
+        clearImport(); busy = true; root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement | HTMLTextAreaElement>("input, select, button, textarea").forEach(el => el.disabled = true); status(name === "apply" ? "Applying Town Map…" : "Reloading…");
         void (async () => {
           try { if (name === "apply") { await applyTownMapDraft(project, draft); onDirty(); } const value = await loadTownMapDraft(project); if (stopped) return; draft = value; history = new TownMapHistory(); rebuildEffects(); status(name === "apply" ? "Applied. Export the ROM to use these changes." : "Reloaded."); }
           catch (error) { if (!stopped) status(message(error), true); }
