@@ -2,8 +2,9 @@ import {describe,it,expect} from "vitest";
 import bindings from "../assets/data/abilityBindingsB1.json";
 import {NATIVE_ABILITY_PROFILES} from "../pokeweb/abilityNativeRuntime";
 import {ABILITY_IMPORT_LIBRARY} from "../pokeweb/abilityLibrary";
-import {buildAbilityRuleModule,inspectAbilityEffects,ABILITY_EFFECTS_DLL_PATH,supportsAbilityEditor} from "../pokeweb/abilityEffectsModel";
+import {hydrateAbilityEffectsSource,buildAbilityRuleModule,inspectAbilityEffects,ABILITY_EFFECTS_DLL_PATH,supportsAbilityEditor} from "../pokeweb/abilityEffectsModel";
 import {validateAbilityRule,EMPTY_ABILITY_RULE} from "../pokeweb/abilityRules";
+import {NintendoDSRom} from "../nds/rom";
 import {writeRpm} from "../pokeweb/rpm";
 import {makeBlackAbilityProject} from "./fixtures/blackAbilityProject";
 
@@ -27,6 +28,7 @@ describe("Black 1 ability profiles",()=>{
  });
  it("rejects White 1, other revisions and modified dispatchers",()=>{
   const{project,locations,base}=makeBlackAbilityProject();project.session.baseVersion="W";expect(supportsAbilityEditor(project)).toBe(false);expect(inspectAbilityEffects(project).editable).toBe(false);
-  project.session.baseVersion="B";project.overlays[93]![locations.get("AbilityEvent_AddItem")!-base]^=1;expect(()=>buildAbilityRuleModule(project,new Map([[1,EMPTY_ABILITY_RULE]]))).toThrow();
+  project.session.baseVersion="B";const bytes=project.originalRomBytes!.slice();bytes[30]=1;hydrateAbilityEffectsSource(project,new NintendoDSRom(bytes,{fileData:"view"}));expect(inspectAbilityEffects(project).editable).toBe(false);hydrateAbilityEffectsSource(project,new NintendoDSRom(project.originalRomBytes!,{fileData:"view"}));
+  project.overlays[93]![locations.get("AbilityEvent_AddItem")!-base]^=1;expect(()=>buildAbilityRuleModule(project,new Map([[1,EMPTY_ABILITY_RULE]]))).toThrow();
  });
 });

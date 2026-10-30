@@ -85,7 +85,7 @@ function context(project: ProjectState) {
         hydrateAbilityEffectsSource(project, new NintendoDSRom(project.originalRomBytes, { fileData: "view" }));
     const original = sources.get(project);
     if (!original)
-        throw new Error("Reload the ROM with Pokémon and Items selected.");
+        throw new Error("Reload the ROM with Pokémon selected.");
     const source = { ...original }, table = project.patches?.arm9OverlayTable;
     if (table)
         for (let at = 0; at + 32 <= table.length; at += 32)

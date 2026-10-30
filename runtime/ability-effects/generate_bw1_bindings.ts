@@ -2,6 +2,7 @@
  * Only symbol names/addresses are read from the reference; bytes come from the ROM.
  * No reference handler source is copied into the runtime. */
 import assert from "node:assert/strict";
+import {createHash} from "node:crypto";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { NintendoDSRom } from "../../src/nds/rom";
 import { decompressCode } from "../../src/nds/codeCompression";
@@ -15,6 +16,8 @@ const [input, reference, output] = process.argv.slice(2);
 assert(input && reference && output, "Usage: ROM.nds REFERENCE_DIRECTORY OUTPUT.json");
 const rom = new NintendoDSRom(new Uint8Array(await readFile(input)), { fileData: "view" });
 assert(["IRBO", "IRAO"].includes(rom.idCode) && rom.data[30] === 0);
+const expectedSha1=rom.idCode==="IRBO"?"26ad0b9967aa279c4a266ee69f52b9b2332399a5":"bc696a0dfb448c7b3a8a206f0f8214411a039208";
+assert.equal(createHash("sha1").update(rom.data).digest("hex"),expectedSha1,"Generate bindings from the clean reference revision only");
 const game = rom.idCode === "IRBO" ? "B" : "W", ov = rom.loadArm9Overlays([93]).get(93)!, arm = decompressCode(rom.arm9);
 type Symbol = { name: string; address: number; size: number; module: string; thumb: boolean };
 const symbols = new Map<string, Symbol>();
@@ -61,12 +64,13 @@ const aliases: Record<string, string> = {
   GetMonID: "BTL_POKEPARAM_GetPokeId", GetBattleMonStat: "BTL_POKEPARAM_GetValue", RawBattleMonStat: "BTL_POKEPARAM_GetStatRaw",
   ServerEvent_GetWeather: "BTL_SERVER_FLOW_GetEffectiveWeather", GetFieldWeather: "BTL_FIELD_GetCountdownValue",
   BtlServerFlow_IsMonInBattle: "BTL_SERVER_FLOW_IsPokeInPosTable",
+  ServerEvent_DamageReaction: "BTL_SERVER_FLOW_DispatchDamageEndEvents",
   ServerEvent_GetMoveParam: "BTL_SERVER_FLOW_GetMoveParam", ServerEvent_CheckCritical: "BTL_SERVER_FLOW_CheckCriticalHit",
   ServerControl_ChangeHeldItem: "BTL_SERVER_FLOW_SetHeldItem", BattleHandler_ForceUseItem: "BTL_SERVER_FLOW_ProcHandExForceItemFactor",
   BtlServerFlow_IsTargetOutOfRange: "BTL_SERVER_FLOW_CheckAllyMoveAutoHitById",
   loadAbilityNameToStrbuf: "WORDSET_SetSlotFromMsgB6",
   IsMonLastInTurnOrder: "HAND_COMMON_IsLastToAct",
-  GetBattleMon: "BTL_SERVER_FLOW_GetPokeParam", GetPokeType: "BTL_POKEPARAM_GetTypes", GetBattleMonSpecies: "BTL_POKEPARAM_GetSpecies",
+  GetBattleMon: "BTL_SERVER_FLOW_GetPokeParam", GetPokeType: "BTL_POKEPARAM_GetTypePair", GetBattleMonSpecies: "BTL_POKEPARAM_GetSpecies",
 };
 // An optional reviewed alias file lets generation stop on unfamiliar names rather
 // than guessing an ABI from a nearby address.

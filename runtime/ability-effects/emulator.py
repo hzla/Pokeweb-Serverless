@@ -31,7 +31,13 @@ def main():
      stats=heap(fragment)
      if stats and(name not in minimum or stats['freePayloadBytes']<minimum[name]['freePayloadBytes']):minimum[name]=stats
    def opening(cpu,address):
-    nonlocal flow,code,popup_hooked;flow=getattr(emu.memory.register_arm9,manifest.get("flowRegister","r6"))
+    nonlocal flow,code,popup_hooked
+    candidate=getattr(emu.memory.register_arm9,manifest.get("flowRegister","r6"))
+    if manifest.get('flowRegister'):
+     if not 0x02000000<=candidate<0x02400000:return
+     main=emu.memory.read_long(candidate+4)
+     if not 0x02000000<=main<0x02400000 or emu.memory.read_long(main+8)!=emu.memory.read_long(candidate):return
+    flow=candidate
     if manifest.get('popupGateway')is not None and not popup_hooked:
      site=manifest['hook']+2;hi=emu.memory.read_short(site);lo=emu.memory.read_short(site+2)
      assert emu.memory.read_short(manifest['hook'])==0xb500 and hi&0xf800==0xf000 and lo&0xf800==0xf800
@@ -256,6 +262,7 @@ def main():
      if len(menus)>=spec.get("menuCount",3)and trapped:break
     emu.input.keypad_update(0);assert len(menus)>=spec.get('menuCount',3),f'No completed turns: {menus}'
     c=spec['checks'];hp=[s['hp']for s in menus]
+    if c.get('abilityPopupAfterFirstMenu'):assert any(v['owner']==0 and v['command']==2 and v['turnIndex']>0 for v in popups),popups
     if'popupsByTurn'in c:
      assert popup_hooked,'Native popup gateway was not observed'
      for command in[2,3]:assert[sum(v['command']==command and v['turnIndex']==i for v in popups)for i in range(len(menus))]==c['popupsByTurn'],popups
@@ -365,7 +372,7 @@ def main():
      for s in menus:
       for ability in [s['ability'],s['enemyAbility']]:
        actual=sorted(v['priority'] for v in s['abilityRegistrations'] if v['id']==ability)
-       expected=[4,5] if 165<=ability<=173 else [4] if ability==143 else [5]
+       expected=[4,5] if ability in c.get("mixedPriorityIds",range(165,174)) else [4] if ability==143 else [5]
        assert actual==expected,(ability,actual,expected,s)
      if c.get('suppressed'):assert not callback_priorities,callback_priorities
      elif spec.get('move')==33 and spec['abilityId']!=143:assert {4,5}.issubset({v['priority']for v in callback_priorities}),callback_priorities
