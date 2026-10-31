@@ -1,7 +1,7 @@
 import { nativeAbilityProfile } from "../pokeweb/abilityNativeRuntime";
 import { ABILITY_IMPORT_LIBRARY, abilityImport } from "../pokeweb/abilityLibrary";
 import type { ProjectState } from "../pokeweb/projectStore";
-import { inspectAbilityEffects, configureAbilityRuleSets, createCustomAbility, nextCustomAbilityId, clearAbilityRules } from "../pokeweb/abilityEffectsModel";
+import { inspectAbilityEffects, configureAbilityRuleSets, createCustomAbility, nextCustomAbilityId, clearAbilityRules, upgradeAbilityRuntime } from "../pokeweb/abilityEffectsModel";
 import { ABILITY_NATIVE_EFFECTS, ABILITY_RULE_EFFECTS, ABILITY_RULE_PRESETS, EMPTY_ABILITY_RULE, type AbilityRuleSet } from "../pokeweb/abilityRules";
 import { renderItemRuleForm, installItemRuleEditor, type RuleFormOptions } from "./itemRuleEditor";
 import { escapeHtml } from "./dom";
@@ -37,10 +37,15 @@ export function renderAbilityEditor(project: ProjectState, root: HTMLElement, on
         const native:AbilityRuleSet|undefined=!adding&&nativeAbilityProfile(`nativeAbility:${selected}`)?{effects:[{kind:`nativeAbility:${selected}`,value:-1}],conditions:EMPTY_ABILITY_RULE.conditions}:undefined;
         const noTemplate=!adding&&!rule&&!native&&!customDraft;
         const target=root.querySelector<HTMLElement>("[data-ability-panel]")!;
-        target.innerHTML=`<div class="ability-page-heading"><h2>${adding?"New ability":escapeHtml(name)} <small>#${selected}</small></h2><span class="ability-state">${!state.editable?"Unavailable":adding||customDraft?"Custom draft":rule?"Custom effects · Shared DLL":noTemplate?"No native template":"Native behavior"}</span></div>
+        target.innerHTML=`<div class="ability-page-heading"><h2>${adding?"New ability":escapeHtml(name)} <small>#${selected}</small></h2><span class="ability-state">${!state.editable?"Unavailable":adding||customDraft?"Custom draft":rule?"Custom effects · Shared DLL":noTemplate?"No native template":"Native behavior"}</span>${state.editable&&state.runtimeVersion===1?`<button type="button" class="btn -default" data-upgrade-ability-runtime>Update ability runtime</button>`:""}</div>
           <label class="ability-name">Name<input data-ability-name aria-label="Ability name" maxlength="15" value="${escapeHtml(name)}" ${state.editable?"":"disabled"}></label>
           ${state.editable?noTemplate?`<button type="button" class="btn -default" data-ability-custom-draft>Create custom effects</button>`:`<div data-ability-rules>${renderItemRuleForm(project,{...structuredClone(adding||customDraft?BLANK_ABILITY_DRAFT:rule??native??BLANK_ABILITY_DRAFT),consumable:false},options)}</div>${rule?`<button type="button" class="btn -default" data-ability-restore>${selected<=164?"Restore native behavior":"Remove custom effects"}</button>`:""}${adding?`<button type="button" class="btn -default" data-ability-cancel>Cancel</button>`:""}`:`<p role="status">${escapeHtml(state.message)}</p>`}`;
         target.querySelector<HTMLButtonElement>("[data-ability-custom-draft]")?.addEventListener("click",()=>{customDraft=true;panel();});
+        target.querySelector<HTMLButtonElement>("[data-upgrade-ability-runtime]")?.addEventListener("click",async event=>{
+            const button=event.currentTarget as HTMLButtonElement;button.disabled=true;button.textContent="Updating runtime…";
+            try{await upgradeAbilityRuntime(project);onChange();button.remove();target.querySelector<HTMLElement>(".ability-state")!.textContent="Ability runtime updated";}
+            catch(error){button.disabled=false;button.textContent="Update ability runtime";target.querySelector<HTMLElement>(".ability-state")!.textContent=error instanceof Error?error.message:String(error);}
+        });
         const form=target.querySelector<HTMLElement>("[data-ability-rules]");
         if(form)installItemRuleEditor(form,project,selected,panel,()=>{},options);
         target.querySelector<HTMLButtonElement>("[data-ability-cancel]")?.addEventListener("click",()=>{adding=false;selected=previous;customDraft=false;panel();});

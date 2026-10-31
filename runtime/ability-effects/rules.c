@@ -9,6 +9,10 @@ typedef struct { u32 event; Callback callback; } Event;
 /* API entries are supplied only after their ROM signatures have been checked. */
 PUBLIC const volatile u32 AbilityRuleApi[43]={0};
 PUBLIC const volatile u8 *AbilityRuleData=(const volatile u8 *)1;
+#ifdef ABILITY_FILTER_EVENTS
+PUBLIC const Event *const volatile AbilityRuleEventTables[256]={0};
+PUBLIC const volatile u8 AbilityRuleEventCounts[256]={0};
+#endif
 #define FN(i,t) ((t)(uintptr_t)AbilityRuleApi[i])
 #define VALUE(k) FN(0,u32(*)(u32))(k)
 #define MUL(v) FN(1,void(*)(u32,u32))(0x35,v)
@@ -34,6 +38,24 @@ static const volatile u8 *effects(const volatile u8*r){return r+4+r[1]*4;}
 static u32 divide(u32 n,u32 d){u32 q=0,r=0;if(!d)return 0;for(int i=31;i>=0;--i){r=(r<<1)|((n>>i)&1);if(r>=d){r-=d;q|=1u<<i;}}return q;}
 static u32 variable(u32 key,s32 *out){return FN(26,u32(*)(u32,s32*))(key,out);}
 static u32 preview(void*f){return SIM(f)||PREVIEW(f);}
+#ifdef ABILITY_FILTER_EVENTS
+#include "conditions.h"
+typedef struct {void*flow,*mon;} ConditionContext;
+static u32 conditionLeaf(const volatile u8*p,void*context){
+ ConditionContext*c=context;void*f=c->flow,*mon=c->mon;
+ u32 result=0,v=half(p+2);s32 x;
+ if(p[0]==1){u32 hp=STAT(mon,13)*100,max=STAT(mon,14)*v;result=p[1]==0?hp<max:p[1]==1?hp<=max:p[1]==2?hp>max:hp>=max;}
+ else if(p[0]==2){u32 pair=FN(4,u32(*)(void*))(mon);result=FN(5,u32(*)(u32,u32))(pair,v)!=0;}
+ else if(p[0]==3)result=FN(6,u32(*)(void*))(f)==v;
+ else if(p[0]==4)result=FN(29,u32(*)(void*))(mon)==v;
+ else if(p[0]==5)result=variable(0x16,&x)&&(u32)x==v;
+ else if(p[0]==6){if(variable(0x1a,&x))result=(u32)x==v;else if(variable(0x12,&x))result=FN(17,u32(*)(u32))(x)==v;}
+ else if(p[0]==7){if(v)result=CHECK(mon,v);else{result=1;for(u32 n=1;n<=5;++n)if(CHECK(mon,n))result=0;}}
+ if(p[0]>=2&&p[0]<128&&p[1])result=!result;
+ return result;
+}
+static u32 active(const volatile u8*r,void*f,void*mon){ConditionContext c={f,mon};return conditionTree(r,conditionLeaf,&c);}
+#else
 static u32 active(const volatile u8*r,void*f,void*mon){
  u8 stack[32];u32 top=0;
  for(u32 i=0;i<r[1];++i){
@@ -52,6 +74,7 @@ static u32 active(const volatile u8*r,void*f,void*mon){
  }
  return top==1&&stack[0];
 }
+#endif
 static u32 typeMatch(void*mon,u32 type){return FN(5,u32(*)(u32,u32))(FN(4,u32(*)(void*))(mon),type);}
 #ifdef ABILITY_CLIENT_TRAPS
 #include "client_traps.c"
@@ -244,7 +267,12 @@ PUBLIC void *AbilityDispatch(void*mon){
  u32 id=STAT(mon,0x10),owner=FN(15,u32(*)(void*))(mon);
  if(record(id)&&owner<32)for(u32 n=0;n<16;++n)for(u32 k=0;k<7;++k)nativeWork[owner][n][k]=0;
  if(record(id)){
-  void*normal=FN(14,void*(*)(u32,u32,u32,u32,u32,const Event*,u32))(4,id,5,FN(16,u32(*)(void*,u32))(mon,12),FN(15,u32(*)(void*))(mon),AbilityRuleEvents,sizeof(AbilityRuleEvents)/sizeof(AbilityRuleEvents[0]));
+  void*normal=FN(14,void*(*)(u32,u32,u32,u32,u32,const Event*,u32))(4,id,5,FN(16,u32(*)(void*,u32))(mon,12),FN(15,u32(*)(void*))(mon),
+#ifdef ABILITY_FILTER_EVENTS
+   AbilityRuleEventTables[id],AbilityRuleEventCounts[id]);
+#else
+   AbilityRuleEvents,sizeof(AbilityRuleEvents)/sizeof(AbilityRuleEvents[0]));
+#endif
 #ifdef ABILITY_PRIORITY
   const volatile u8*r=record(id),*e=effects(r);u32 contact=0;
   for(u32 n=0;n<r[0];++n,e+=16)if(

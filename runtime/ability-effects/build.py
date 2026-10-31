@@ -1,6 +1,6 @@
 """Build the position-relocatable rule template; no ROM input or remote services."""
 from pathlib import Path
-import os,subprocess,sys
+import json,os,subprocess,sys
 HERE=Path(__file__).resolve().parent
 ROOT=HERE.parents[1]
 WORKSPACE=ROOT.parent
@@ -18,7 +18,12 @@ variants += [(suffix+'-grouped',defines+['-DABILITY_POPUP_GROUPS'],asset.replace
 variants += [(suffix+'-weather',defines+['-DABILITY_WEATHER_GUARD'],asset.replace('Grouped.json','Weather.json')) for suffix,defines,asset in variants if suffix in ['-recipes-grouped','-client-grouped']]
 variants += [(suffix+'-scoped',defines+['-DABILITY_SCOPED'],asset.replace('Weather.json','Scoped.json')) for suffix,defines,asset in variants if suffix in ['-recipes-grouped-weather','-client-grouped-weather']]
 variants += [(suffix+'-actions',defines+['-DABILITY_ACTIONS'],asset.replace('Scoped.json','Actions.json')) for suffix,defines,asset in variants if suffix in ['-recipes-grouped-weather-scoped','-client-grouped-weather-scoped']]
-for suffix,defines,asset in variants:
+bundle_path=ROOT/'src/assets/data/abilityRuleRuntimeOptimized.json'
+optimized=json.loads(bundle_path.read_text())if bundle_path.exists()else{}
+variants=[(suffix,defines,asset,False)for suffix,defines,asset in variants]+[(suffix+'-optimized',defines+['-DABILITY_FILTER_EVENTS'],asset,True)for suffix,defines,asset in variants]
+for suffix,defines,asset,fast in variants:
+    if "--optimized-only" in sys.argv and not fast: continue
+    if "--legacy-only" in sys.argv and fast: continue
     if "--actions-only" in sys.argv and "-DABILITY_ACTIONS" not in defines: continue
     if "--scoped-only" in sys.argv and "-DABILITY_SCOPED" not in defines: continue
     obj=BUILD/f'rules{suffix}.o'
@@ -26,4 +31,8 @@ for suffix,defines,asset in variants:
         '-ffreestanding','-fno-builtin','-fno-jump-tables','-fno-unwind-tables','-fno-asynchronous-unwind-tables','-fvisibility=hidden',*defines,'-c',HERE/'rules.c','-o',obj)
     dll=BUILD/f'rules{suffix}-template.dll';dll.unlink(missing_ok=True)
     run('java','-cp',JAR,'rpm.cli.RPMTool','-i',obj,'--fourcc','DLXF','-o',dll,'--esdb',BUILD/'rules-symbols.yml','--meta',BUILD/'rules-meta.yml','--generate-relocations')
-    run(ROOT/'node_modules/.bin/vite-node',HERE/'describe.ts',dll,ROOT/'src/assets/data'/asset)
+    destination=BUILD/('optimized-'+asset)if fast else ROOT/'src/assets/data'/asset
+    run(ROOT/'node_modules/.bin/vite-node',HERE/'describe.ts',dll,destination)
+    if fast: optimized[asset]=json.loads(destination.read_text())
+if "--legacy-only" not in sys.argv:
+    bundle_path.write_text(json.dumps(optimized,separators=(',',':'))+'\n')

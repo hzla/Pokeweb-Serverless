@@ -1,3 +1,5 @@
+import { installMoveRecipeButtons } from "./moveRecipeEditor";
+import { inspectMoveEffects, MOVE_RECIPE_MANAGED_FIELDS, supportsMoveRecipes } from "../pokeweb/moveEffectsModel";
 import miscDataIcon from "../assets/svgs/misc_data.svg?raw";
 import movieIconUrl from "../assets/svgs/movie.png";
 import { PROPERTIES, CATEGORIES, typeNamesForProject } from "../pokeweb/constants";
@@ -137,7 +139,7 @@ export function renderMoveEditor(
           <div class="move-name" data-narc="learnset">Name</div>
           <div class="move-type">Type</div>
           <div class="move-cat" data-field-name="category">Category</div>
-          <div class="move-effect" title="AI sequence used to evaluate this move. Descriptions reflect original Gen 5 behavior; changing this ID alone does not add that battle effect.">AI Effect Handler</div>
+          <div class="move-effect" title="AI sequence used to evaluate this move. Descriptions reflect original Gen 5 behavior; changing this ID alone does not add that battle effect.">AI behavior</div>
           <div class="move-power">Pow</div>
           <div class="move-accuracy">Acc</div>
         </div>
@@ -151,10 +153,11 @@ export function renderMoveEditor(
     onTestMove,
     onOpenMoveAnimation,
     autofills: getMoveAutofills(project),
-    renderExpanded: (moveId) => renderMoveExpanded(getMoveRecord(project, moveId)),
+    renderExpanded: (moveId) => renderMoveExpanded(getMoveRecord(project, moveId), supportsMoveRecipes(project) && inspectMoveEffects(project).rules.has(moveId)),
     renderTextPanel: (moveId) => renderMoveTextPanel(getMoveTextInfo(project, moveId)),
   });
   attachW2uSyncButton(root, project);
+  installMoveRecipeButtons(root, project, onDirty);
 }
 
 export function renderMoveAnimationPage(
@@ -326,7 +329,7 @@ export function renderItemEditor(project: ProjectState, root: HTMLElement, onDir
 function renderMoveRows(project: ProjectState): string {
   const rows: string[] = [];
   const showTextBanks = hasMoveTextBanks(project);
-  for (let id = 0; id < getMoveCount(project); id += 1) rows.push(renderMoveRow(getMoveRecord(project, id), showTextBanks));
+  for (let id = 0; id < getMoveCount(project); id += 1) rows.push(renderMoveRow(getMoveRecord(project, id), showTextBanks, supportsMoveRecipes(project)));
   return rows.join("");
 }
 
@@ -336,7 +339,7 @@ function renderItemRows(project: ProjectState): string {
   return rows.join("");
 }
 
-function renderMoveRow(move: MoveRecord, showTextBanks: boolean): string {
+function renderMoveRow(move: MoveRecord, showTextBanks: boolean, recipes: boolean): string {
   const type = String(move.readable.type ?? "");
   const category = String(move.readable.category ?? "");
   return `
@@ -352,6 +355,7 @@ function renderMoveRow(move: MoveRecord, showTextBanks: boolean): string {
         ${editable("move", "accuracy", move.readable.accuracy, "move-accuracy", { type: "int-101" })}
         <div class="move-info expand-action expand-move svg no-fill" data-expand="move">${miscDataIcon}</div>
         ${showTextBanks ? `<button class="move-info expand-action expand-move-text svg no-fill" data-expand="move-text" type="button" title="Move text banks">${textIcon}</button>` : ""}
+        ${recipes ? `<button class="btn -default move-recipe-toggle" type="button" data-open-move-recipe>Effects</button>` : ""}
         <button class="move-animation-row-toggle" type="button" title="Edit animation and particles"><img src="${movieIconUrl}" alt="Edit animation"></button>
       </div>
     </div>
@@ -370,17 +374,20 @@ function renderMoveEffectField(move: MoveRecord): string {
   `;
 }
 
-function renderMoveExpanded(move: MoveRecord): string {
+function renderMoveExpanded(move: MoveRecord, managed = false): string {
+  const fieldValue = (field: string, options: Parameters<typeof editable>[4]) => managed && MOVE_RECIPE_MANAGED_FIELDS.includes(field)
+    ? `<span class="expanded-field-value" title="Managed in Battle effects">Recipe</span>`
+    : editable("move", field, move.readable[field], "expanded-field-value", options);
   return `
     <div class="expanded-card-content expanded-move">
       <div class="expanded-left">
-        ${MOVE_EFFECT_FIELDS.map(([label, field, autofillOrType]) => expandedField(label, editable("move", field, move.readable[field], "expanded-field-value", inputOptions(autofillOrType)))).join("")}
+        ${MOVE_EFFECT_FIELDS.map(([label, field, autofillOrType]) => expandedField(label, fieldValue(field, inputOptions(autofillOrType)))).join("")}
       </div>
       <div class="expanded-mid">
-        ${MOVE_STAT_FIELDS.map(([label, field, autofillOrType]) => expandedField(label, editable("move", field, move.readable[field], "expanded-field-value", inputOptions(autofillOrType)))).join("")}
+        ${MOVE_STAT_FIELDS.map(([label, field, autofillOrType]) => expandedField(label, fieldValue(field, inputOptions(autofillOrType)))).join("")}
       </div>
       <div class="expanded-right">
-        ${MOVE_MISC_FIELDS.map(([label, field, type]) => expandedField(label, editable("move", field, field === "animation" ? move.readable.animation : move.readable[field], "expanded-field-value ev-field", { type }))).join("")}
+        ${MOVE_MISC_FIELDS.map(([label, field, type]) => expandedField(label, fieldValue(field, { type }))).join("")}
       </div>
       <div class="expanded-row expanded-move-props" data-narc="move">
         ${PROPERTIES.map((prop) => `<div class="move-prop svg ${Number(move.readable[prop]) > 0 ? "-active" : ""}" data-field-name="${escapeHtml(prop)}"><img src="${publicAsset(`svgs/${prop}.svg`)}" alt=""><div class="prop-info">${escapeHtml(titleize(prop.replace(/_/gu, " ")))}</div></div>`).join("")}

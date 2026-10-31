@@ -1,3 +1,4 @@
+import { hydrateMoveEffectsSource } from "./moveEffectsModel";
 import { hydrateAbilityEffectsSource } from "./abilityEffectsModel";
 import { hydrateTrainerFieldConditionsSources } from "./trainerFieldConditionsModel";
 import { hydrateItemEffectsSource } from "./itemEffectsModel";
@@ -52,6 +53,7 @@ import {
   createRomFsTypeChartStore,
   createTypeChartStore,
   detectFairyTypeUsage,
+  detectKnownFairyTypeChartOffset,
   typeChartOverlayId,
 } from "./typeChartModel";
 import { parseTms } from "./tmModel";
@@ -166,6 +168,7 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
     hydrateTrainerFieldConditionsSources(project, rom);
     hydrateItemEffectsSource(project, rom);
     hydrateAbilityEffectsSource(project, rom);
+    hydrateMoveEffectsSource(project, rom);
     hydrateFlyDestinationsFromRom(project, rom);
   }
 
@@ -390,14 +393,17 @@ function extractOverlays(rom: NintendoDSRom, project: ProjectState, selectedNarc
     }
   }
 
-  if (includeMoves) {
+  if (includeMoves || selectedNarcs.has("personal")) {
     const romFsTypeChart = tryCreateRomFsTypeChartStore(rom);
     const typeChartOverlay = project.overlays[typeChartOverlayId(project)];
     if (romFsTypeChart) {
       project.session.fairy = true;
-      project.narcs.type_chart = romFsTypeChart;
-    } else if (typeChartOverlay) {
+      if (includeMoves) project.narcs.type_chart = romFsTypeChart;
+    } else if (typeChartOverlay && includeMoves) {
       project.narcs.type_chart = createTypeChartStore(project, typeChartOverlay);
+    } else if (typeChartOverlay && detectKnownFairyTypeChartOffset(typeChartOverlay, project.session.baseRom) !== undefined) {
+      // Ability selectors also need Fairy detection when Moves was not loaded.
+      project.session.fairy = true;
     }
   }
 }

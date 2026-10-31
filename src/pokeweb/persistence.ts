@@ -1,3 +1,4 @@
+import { hydrateMoveEffectsSource } from "./moveEffectsModel";
 import { hydrateAbilityEffectsSource } from "./abilityEffectsModel";
 import { hydrateTrainerFieldConditionsSources } from "./trainerFieldConditionsModel";
 import { hydrateItemEffectsSource } from "./itemEffectsModel";
@@ -222,6 +223,7 @@ async function hydratePersistedProject(project: ProjectState, availableSource?: 
   hydrateTrainerFieldConditionsSources(project, rom);
   hydrateItemEffectsSource(project, rom);
   hydrateAbilityEffectsSource(project, rom);
+  hydrateMoveEffectsSource(project, rom);
   if (project.arm9.length === 0) project.arm9 = decompressCode(rom.arm9);
   hydrateBattleLogInstallMetadata(project, rom);
   if (!w2anim && !project.pwanAnimations?.dirty && !project.trainerPwanAnimations?.dirty &&

@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { loadProjectFromRomBytes } from "../../src/pokeweb/loader";
 import { loadTownMapDraft, applyTownMapDraft, parseTownMapAreas, writeTownMapAreas, moveTownMapArea, editTownMapText, validateTownMapDraft, appendTownMapArea } from "../../src/pokeweb/townMapModel";
 import { readTownMapLayer, writeTownMapLayer, TOWN_MAP_LAYERS, equalTownMapBytes, convertTownMapImage, readTownMapTileSet, writeTownMapTileSet, unpackTownMapResource, editTownMapAnimationFrame } from "../../src/pokeweb/townMapGraphics";
+import { captureTownMapArtwork, placeTownMapArtwork, townMapArtworkPixels, TOWN_MAP_TRANSPARENT_PIXEL } from "../../src/pokeweb/townMapArtwork";
 import { parsePokemonAnimation } from "../../src/pokeweb/pokemonSpriteModel";
 import { renderNitroBackgroundImage } from "../../src/pokeweb/nitroBg";
 import { createProjectDocument } from "../../src/pokeweb/projectDocument";
@@ -76,6 +77,21 @@ if (args.includes("--artwork")) {
   editTownMapAnimationFrame(draft.graphics, 19, 0, 0, "duration", animation.sequences[0].frames[0].duration);
   draft.areas[0].habitat.x = -12; draft.areas[0].habitat.y = -20;
 }
+let artworkArea: typeof original | undefined;
+if (args.includes("--artwork-selection")) {
+  artworkArea = structuredClone(draft.areas[13]);
+  const clip = captureTownMapArtwork(draft.graphics, TOWN_MAP_LAYERS.slice(0, 2), { x: 0, y: 24, width: 16, height: 16 });
+  placeTownMapArtwork(draft, clip, { x: 8, y: 24 }, { move: true, moveAreas: true });
+  for (const { layer, pixels } of clip.layers) {
+    const afterPixels = townMapArtworkPixels(readTownMapLayer(draft.graphics, layer));
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const ink = pixels[y * 16 + x];
+      if (ink !== TOWN_MAP_TRANSPARENT_PIXEL && afterPixels[(24 + y) * 256 + 8 + x] !== ink) throw new Error("Assembled artwork move changed a native pixel.");
+      if (x < 8 && afterPixels[(24 + y) * 256 + x] !== TOWN_MAP_TRANSPARENT_PIXEL) throw new Error("Assembled artwork move did not clear its source.");
+    }
+  }
+  if (draft.areas[13].position.x !== artworkArea.position.x + 8 || draft.areas[13].hit.start.x !== artworkArea.hit.start.x + 8) throw new Error("Artwork move lost linked area offsets.");
+}
 if (args.includes("--failure-checks")) {
   const snapshot = () => structuredClone({ areas: project.narcs.town_map, graphics: project.narcs.town_map_graphics, messages: project.narcs.message_texts, habitats: project.narcs.town_map_species_habitats,
     fileSystem: project.fileSystem, codeInjection: project.codeInjection, patches: project.patches, flyDestinations: project.flyDestinations, arm9: project.arm9, overlays: project.overlays });
@@ -114,6 +130,14 @@ if (restored.areas[0].position.x !== original.position.x + 1 || restored.texts[r
 const result = await exportModifiedRom(saved), reopened = await loadProjectFromRomBytes(result, "town-map-export.nds", { selectedNarcs: ["headers", "town_map"] });
 const after = await loadTownMapDraft(reopened);
 if (after.areas[0].position.x !== original.position.x + 1 || after.texts[after.areas[0].description][1] !== "A custom Town Map description.") throw new Error("ROM export/reload lost edits.");
+if (artworkArea) {
+  for (const restoredDraft of [restored, after]) {
+    const area = restoredDraft.areas[13];
+    if (area.position.x !== artworkArea.position.x + 8 || area.cursor.x !== artworkArea.cursor.x + 8 || area.hit.end.x !== artworkArea.hit.end.x + 8
+      || JSON.stringify(area.habitat) !== JSON.stringify(artworkArea.habitat)) throw new Error("Project save or ROM export lost artwork-linked handles.");
+  }
+  console.log("Assembled artwork and linked handles survived project save and ROM export/reload.");
+}
 if (after.areas.length !== count || count > 85 && reopened.flyDestinations?.townMapCount !== count) throw new Error("Expanded area count did not survive export/reload.");
 for (const [id, data] of after.graphics) if (!equalTownMapBytes(data, draft.graphics.get(id)!)) throw new Error(`ROM export changed graphics ${id}.`);
 for (const [id, data] of after.habitatGraphics) if (!equalTownMapBytes(data, draft.habitatGraphics.get(id)!)) throw new Error(`ROM export changed habitat graphics ${id}.`);

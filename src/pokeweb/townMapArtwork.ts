@@ -105,7 +105,11 @@ function encodePixels(source: NitroBackgroundImage, pixels: Uint16Array, layer: 
     references[cell] = { tile: match.tile, flags: match.flip | bank << 12 };
   }
   if (indexed.tilePixels.length > layer.maxTiles) {
-    // Reclaim unused slots before rejecting an edit at the native tile limit.
+    // Reclaim unused and equivalent slots before rejecting a native-limit edit.
+    references.forEach(r => {
+      const canonical = registry.get([...indexed.tilePixels[r.tile]].join(","))!;
+      r.tile = canonical.tile; r.flags ^= canonical.flip;
+    });
     const used = [...new Set(references.map(r => r.tile))].sort((a, b) => a - b);
     if (used.length > layer.maxTiles) throw new Error(`${layer.label} would need ${used.length} tiles; its limit is ${layer.maxTiles}.`);
     const remap = new Map(used.map((id, i) => [id, i]));
@@ -120,6 +124,7 @@ function encodePixels(source: NitroBackgroundImage, pixels: Uint16Array, layer: 
 export function placeTownMapArtwork(draft: TownMapDraft, clip: TownMapArtworkClipboard, destination: { x: number; y: number },
   options: { move?: boolean; moveAreas?: boolean; erase?: boolean } = {}): void {
   validateTownMapArtworkRect(clip.source);
+  if (!clip.layers.length || new Set(clip.layers.map(c => c.layer.screen)).size !== clip.layers.length) throw new Error("Choose an artwork layer.");
   const target = { ...clip.source, ...destination }; validateTownMapArtworkRect(target);
   const graphics = new Map(draft.graphics), dx = destination.x - clip.source.x, dy = destination.y - clip.source.y;
   for (const { layer, pixels: copied } of clip.layers) {

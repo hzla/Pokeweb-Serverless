@@ -1,5 +1,8 @@
+import { isVerifiedMoveServiceImport } from "./moveEffectsModel";
 import { linkNativeAbilities, nativeAbilityProfile } from "./abilityNativeRuntime";
 import blackBindings from "../assets/data/abilityBindingsB1.json";
+import optimizedTemplates from "../assets/data/abilityRuleRuntimeOptimized.json";
+import { abilityRuleEvents } from "./abilityEvents";
 import type { NativeAbilityProfile } from "./abilityNativeRuntime";
 import type { BattleRuntimeSignature } from "./battleRuntimeBindings";
 import bindings from "../assets/data/abilityBindings.json";
@@ -38,6 +41,24 @@ import { detectSpecifyTrainerNaturesPatch, specifyTrainerNatures } from "./romPa
 import type { ProjectState } from "./projectStore";
 export const ABILITY_EFFECTS_DLL_PATH = "patches/AbilityEffects.dll";
 const retired = Uint8Array.of(80, 87, 65, 82);
+const optimizedRuntime = new Map<unknown, unknown>([
+    [template, optimizedTemplates["abilityRuleRuntime.json"]],
+    [priorityTemplate, optimizedTemplates["abilityRuleRuntimePriority.json"]],
+    [libraryTemplate, optimizedTemplates["abilityRuleRuntimeLibrary.json"]],
+    [recipeTemplate, optimizedTemplates["abilityRuleRuntimeRecipes.json"]],
+    [clientTemplate, optimizedTemplates["abilityRuleRuntimeClient.json"]],
+    [groupedTemplate, optimizedTemplates["abilityRuleRuntimeGrouped.json"]],
+    [groupedPriorityTemplate, optimizedTemplates["abilityRuleRuntimePriorityGrouped.json"]],
+    [groupedLibraryTemplate, optimizedTemplates["abilityRuleRuntimeLibraryGrouped.json"]],
+    [groupedRecipeTemplate, optimizedTemplates["abilityRuleRuntimeRecipesGrouped.json"]],
+    [groupedClientTemplate, optimizedTemplates["abilityRuleRuntimeClientGrouped.json"]],
+    [weatherRecipeTemplate, optimizedTemplates["abilityRuleRuntimeRecipesWeather.json"]],
+    [weatherClientTemplate, optimizedTemplates["abilityRuleRuntimeClientWeather.json"]],
+    [scopedRecipeTemplate, optimizedTemplates["abilityRuleRuntimeRecipesScoped.json"]],
+    [scopedClientTemplate, optimizedTemplates["abilityRuleRuntimeClientScoped.json"]],
+    [actionRecipeTemplate, optimizedTemplates["abilityRuleRuntimeRecipesActions.json"]],
+    [actionClientTemplate, optimizedTemplates["abilityRuleRuntimeClientActions.json"]],
+]);
 type Source = {
     base: number;
     armBase: number;
@@ -147,6 +168,7 @@ function assertUnhooked(c: Context, name: string, address: number, size: number,
                 continue;
             const start = r.target.address & ~1, count = r.target.type === "FULL_COPY" ? rpm.symbols[r.sourceSymbolIndex]?.size ?? 0 : r.target.type === "OFFSET" ? 4 : 16;
             if (start < address + size && start + count > address) {
+                if (!copied && isVerifiedMoveServiceImport(c.project, path, bytes, name, address)) continue;
                 // Import the installed RPC's transparent ordinary-call path. A
                 // copied body would bypass it; another hook would overwrite it.
                 if (!copied && name === "IsFainted" && module === "167" && start === address
@@ -158,7 +180,7 @@ function assertUnhooked(c: Context, name: string, address: number, size: number,
     }
 }
 export const ABILITY_RULE_API = ["BattleEventVar_GetValue", "BattleEventVar_MulValue", "GetBattleMon", "GetBattleMonStat", "GetPokeType", "PokeTypePair_IsMatch", "ServerEvent_GetWeather", "BtlServerFlow_IsSimulating", "BtlServerFlow_CheckMatchup", "BattleHandler_PushWork", "BattleHandler_PopWork", "BattleHandler_StrSetup", "BattleHandler_AddArg", "BattleEventItem_GetSubID", "BattleEvent_AddItem", "GetMonID", "RawBattleMonStat", "PML_MoveGetCategory", null, null, "BattleHandler_PushRun", null, null, "IsStatChangeValid", "BtlCalc_MakeStatusCondition", "MakeConditionBadlyPoisoned", "BattleEventVar_GetValueIfExist", "RollEffectChance", "BattleEventVar_RewriteValue", "GetBattleMonSpecies", "CheckCondition", "getMoveFlag", "BattleEvent_CheckSkip"] as const;
-function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, previewHook = false, clientHooks = true, popupGroups = true): RpmModule {
+function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, previewHook = false, clientHooks = true, popupGroups = true, optimized = true): RpmModule {
     for (const rule of entries.values())
         for (const e of rule.effects) {
             const p = nativeAbilityProfile(e.kind);
@@ -172,9 +194,11 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
     const weatherGuard = [...entries.values()].some(r => r.effects.some(e => e.kind === "abilityRecipe:weatherGuard"));
     const actions = [...entries.values()].some(r=>r.effects.some(needsAbilityActionRuntime));
     const scoped = actions || [...entries.values()].some(r=>r.effects.some(e=>SCOPED_ABILITY_EFFECTS.some(s=>s.kind===e.kind)));
-    const selectedTemplate = actions ? traps ? actionClientTemplate : actionRecipeTemplate : scoped ? traps ? scopedClientTemplate : scopedRecipeTemplate : weatherGuard ? traps ? weatherClientTemplate : weatherRecipeTemplate : popupGroups
+    const legacyTemplate = actions ? traps ? actionClientTemplate : actionRecipeTemplate : scoped ? traps ? scopedClientTemplate : scopedRecipeTemplate : weatherGuard ? traps ? weatherClientTemplate : weatherRecipeTemplate : popupGroups
         ? traps ? groupedClientTemplate : recipes ? groupedRecipeTemplate : library ? groupedLibraryTemplate : priority ? groupedPriorityTemplate : groupedTemplate
         : traps ? clientTemplate : recipes ? recipeTemplate : library ? libraryTemplate : priority ? priorityTemplate : template;
+    const selectedTemplate = (optimized ? optimizedRuntime.get(legacyTemplate) : legacyTemplate) as typeof template;
+    if (!selectedTemplate) throw new Error("Missing optimized ability runtime.");
     const rpm = structuredClone(selectedTemplate) as unknown as RpmModule;
     rpm.code = Uint8Array.from(selectedTemplate.code);
     const bssBase = (rpm.code.length + 3) & ~3, bss = rpm.symbols.filter(s => !(s.attributes & 4) && s.address >= bssBase);
@@ -230,6 +254,26 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
     const data = append(encodeAbilityRules(entries), "SECTION");
     rpm.relocations.push({ target: { module: "base", address: named("AbilityRuleData").address, type: "OFFSET" }, sourceSymbolIndex: data });
     linkNativeAbilities(rpm, entries, rpm.symbols[data].address, c.resolver.resolve, (name, address, size, copied) => assertUnhooked(c, name, address, size, copied), c.profiles, c.signatures);
+    if (optimized) {
+        const tables = named("AbilityRuleEventTables").address, counts = named("AbilityRuleEventCounts").address;
+        const shared = new Map<string, number>();
+        for (const [id, rule] of [...entries].sort(([a], [b]) => a - b)) {
+            const events = abilityRuleEvents(rule, c.profiles), key = events.join(",");
+            rpm.code[counts + id] = events.length;
+            if (!events.length) continue;
+            let symbol = shared.get(key);
+            if (symbol === undefined) {
+                const table = new Uint8Array(events.length * 8);
+                events.forEach((event, i) => writeU32(table, i * 8, event));
+                symbol = append(table, "SECTION"); shared.set(key, symbol);
+                events.forEach((event, i) => rpm.relocations.push({
+                    target: { module: "base", address: rpm.symbols[symbol!].address + i * 8 + 4, type: "OFFSET" },
+                    sourceSymbolIndex: rpm.symbols.indexOf(named(`AbilityEvent_${event.toString(16).padStart(2, "0")}`)),
+                }));
+            }
+            rpm.relocations.push({ target: { module: "base", address: tables + id * 4, type: "OFFSET" }, sourceSymbolIndex: symbol });
+        }
+    }
     if (traps) {
         const original = c.resolver.resolve("IsMonTrapped");
         assertUnhooked(c, "IsMonTrapped", original.address, original.code.length, true);
@@ -255,6 +299,7 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
     const shift = ((rpm.code.length + 3) & ~3) - bssBase;
     bss.forEach(s => s.address += shift);
     rpm.metadata = { PMCGameID: c.project.session.baseVersion, PMCVersion: "1.0.0", PMCModulePriority: 4, PokewebAbilityEffects: "rules", PokewebAbilityRules: JSON.stringify([...entries].sort(([a], [b]) => a - b)) };
+    if (optimized) rpm.metadata.PokewebAbilityDispatchVersion = 2;
     if (traps) rpm.metadata.PokewebAbilityClientTraps = 1;
     if (popupGroups) rpm.metadata.PokewebAbilityPopupGroups = 1;
     if (weatherGuard) rpm.metadata.PokewebAbilityWeatherGuard = 1;
@@ -293,7 +338,8 @@ function readRules(c: Context): Map<number, AbilityRuleSet> {
     }
     const clientHooks = rpm.metadata.PokewebAbilityClientTraps === 1;
     const popupGroups = rpm.metadata.PokewebAbilityPopupGroups === 1;
-    if (!same(bytes, writeRpm(moduleFor(c, rules, false, clientHooks, popupGroups), { ident: "DLXF" })) && !same(bytes, writeRpm(moduleFor(c, rules, true, clientHooks, popupGroups), { ident: "DLXF" })))
+    const optimized = rpm.metadata.PokewebAbilityDispatchVersion === 2;
+    if (!same(bytes, writeRpm(moduleFor(c, rules, false, clientHooks, popupGroups, optimized), { ident: "DLXF" })) && !same(bytes, writeRpm(moduleFor(c, rules, true, clientHooks, popupGroups, optimized), { ident: "DLXF" })))
         throw new Error("The shared ability effects DLL has been modified.");
     verified.set(c.project, { overlay: c.overlay.slice(), arm9: c.project.arm9.slice(), base: c.source.base, bytes: bytes.slice(), files: new Map([...c.files].map(([p, b]) => [p, b.slice()])), rules: structuredClone(rules) });
     return rules;
@@ -302,16 +348,33 @@ export function inspectAbilityEffects(project: ProjectState): {
     editable: boolean;
     message: string;
     rules: Map<number, AbilityRuleSet>;
+    runtimeVersion?: 1 | 2;
 } {
     try {
         const c = context(project), rules = readRules(c);
         if (!rules.size)
             moduleFor(c, new Map([[1, validateAbilityRule(EMPTY_ABILITY_RULE)]]));
-        return { editable: true, message: rules.size ? "Shared DLL verified" : "Native ability runtime verified", rules };
+        const bytes = c.files.get(ABILITY_EFFECTS_DLL_PATH);
+        const runtimeVersion = rules.size && bytes ? parseRpm(bytes, { allowedMagics: ["DLXF"] }).metadata.PokewebAbilityDispatchVersion === 2 ? 2 : 1 : undefined;
+        return { editable: true, message: rules.size ? "Shared DLL verified" : "Native ability runtime verified", rules, runtimeVersion };
     }
     catch (error) {
         return { editable: false, message: error instanceof Error ? error.message : String(error), rules: new Map() };
     }
+}
+/** Replace only the verified shared runtime; ability data and text stay intact. */
+export async function upgradeAbilityRuntime(project: ProjectState): Promise<boolean> {
+    const state = inspectAbilityEffects(project);
+    if (!state.editable) throw new Error(state.message);
+    if (state.runtimeVersion !== 1) return false;
+    await installCodeInjectionPatch(project, async staged => {
+        if (detectSpecifyTrainerNaturesPatch(staged) === "legacy") await specifyTrainerNatures(staged);
+        const c = context(staged), rules = readRules(c);
+        stageCodeInjectionDll(staged, "AbilityEffects.dll", writeRpm(moduleFor(c, rules), { ident: "DLXF" }));
+        recordFieldChange(staged, "message_texts", "Ability runtime", "Event dispatch", "Previous routines", "Filtered events and short-circuit conditions", { key: "ability-runtime" });
+    });
+    verified.delete(project);
+    return true;
 }
 /** Native item queries may import the canonical ability-aware client service. */
 export function isVerifiedAbilityClientTrapImport(project: ProjectState, path: string, address: number, size: number): boolean {

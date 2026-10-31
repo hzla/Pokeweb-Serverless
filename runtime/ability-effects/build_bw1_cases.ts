@@ -5,6 +5,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { NintendoDSRom } from "../../src/nds/rom";
 import { NARC } from "../../src/nds/narc";
+import {decodeRecord,markDirty} from "../../src/pokeweb/projectStore";
 import { readU16, readU32, writeU16, writeU32 } from "../../src/nds/binary";
 import { loadProjectFromRomBytes } from "../../src/pokeweb/loader";
 import { configureAbilityRuleSets, inspectAbilityEffects, hydrateAbilityEffectsSource, ABILITY_EFFECTS_DLL_PATH, ABILITY_RULE_API, buildAbilityRuleModule } from "../../src/pokeweb/abilityEffectsModel";
@@ -48,7 +49,10 @@ const rules=new Map<number,AbilityRuleSet>([
  [175,{effects:[{kind:"nativeAbility:47",value:.25,parameters:{type1:10,type2:9}}],conditions:all}],
 ]);
 if(process.argv.includes("--client"))rules.set(185,{effects:[{kind:"nativeAbility:42",value:-1,parameters:{trapType:11}}],conditions:all});
-if(process.argv.includes("--stress"))for(let id=1;id<=164&&rules.size<100;id++)if(id!==50&&id!==117&&!rules.has(id))rules.set(id,{effects:[{kind:"healFlat",value:1}],conditions:all});
+const frost=process.argv.includes("--frost");
+if(frost){assert(project.session.fairy,"Expected a Fairy-enabled Black ROM");rules.set(186,imported("Pixilate"));rules.set(187,{effects:[{kind:"nativeAbility:16",value:-1}],conditions:all});rules.set(188,{effects:[{kind:"nativeAbility:42",value:-1,parameters:{trapType:17}}],conditions:all});rules.set(189,{effects:[{kind:"healFlat",value:7}],conditions:{kind:"type",value:17}});rules.set(190,imported("Refrigerate"));rules.set(191,imported("Tera Shell"));}
+rules.set(192,{effects:[{kind:"speed",value:2}],conditions:{kind:"weather",value:3}});
+if(process.argv.includes("--stress"))for(let id=1;id<=164&&rules.size<100;id++)if(id!==13&&id!==50&&id!==117&&!rules.has(id))rules.set(id,{effects:[{kind:"healFlat",value:1}],conditions:all});
 for(const[id,r]of rules)rules.set(id,validateAbilityRule(r));
 // Every imported recipe is linked with Black's native services before fixtures.
 for(const entry of ABILITY_IMPORT_LIBRARY)buildAbilityRuleModule(project,new Map([[255,entry.rule]]));
@@ -71,7 +75,7 @@ let clientTrapStores:Record<string,number>|undefined;
 const clientFunction=dll.symbols.find(s=>s.name==="AbilityClientTrapped");if(clientFunction){const code=Buffer.from(dll.code.subarray(clientFunction.address,clientFunction.address+clientFunction.size));const store=(hex:string,offset:number)=>{const pattern=Buffer.from(hex,"hex"),at=code.indexOf(pattern);assert(at>=0&&code.indexOf(pattern,at+1)===-1);return clientFunction.address+at+offset;};clientTrapStores={trapper:store("08ab1b5d019a1370",6),ability:store("029b002b00d01e800025",6)};}
 const encoded=encodeAbilityRules(rules),nativeOffsets:number[]=[];for(const[id,r]of rules){const at=readU16(encoded,id*2),start=at+4+encoded[at+1]*4;r.effects.forEach((e,i)=>{if(e.kind.startsWith("nativeAbility:"))nativeOffsets.push(start+i*16);});}
 const neutral=[6,6,6,6,6,6,6];const mon=(speciesId=320,level=100,move=150,abilityId=50):HarnessPokemon=>({speciesId,level,moves:[move],abilityId,itemId:0});
-type Case={label:string;abilityId:number;playerMoves?:number[];turnMove?:number[];hp?:number;ally?:HarnessPokemon;enemies?:HarnessPokemon[];battleType?:"Doubles";enemyAbility?:number;menuCount?:number;bench?:HarnessPokemon[];checks:Record<string,unknown>};
+type Case={label:string;playerSpecies?:number;abilityId:number;playerMoves?:number[];turnMove?:number[];hp?:number;ally?:HarnessPokemon;enemies?:HarnessPokemon[];battleType?:"Doubles";enemyAbility?:number;menuCount?:number;bench?:HarnessPokemon[];checks:Record<string,unknown>};
 const cases:Case[]=[
  {label:"entry-grouped",abilityId:165,checks:{stages:[6,7,6,6,5,6,6],popupsByTurn:[1,0,0]}},
  {label:"scare-spatk",abilityId:167,checks:{enemyStages:[6,6,5,6,6,6,6]}},
@@ -99,7 +103,29 @@ const cases:Case[]=[
  {label:"swap-gain",abilityId:50,playerMoves:[285],enemies:[mon(320,100,150,165)],checks:{playerAbilities:[50,165,50]}},
 ];
 cases.push({label:"weather-immunity",abilityId:174,enemies:[mon(320,100,150,117)],checks:{noWeatherDamage:true,stages:[6,6,7,6,6,6,6]}});
+cases.push(
+ {label:"weather-condition-true",abilityId:192,enemies:[mon(320,100,150,117)],checks:{multiplier:8192,weatherDamage:true}},
+ {label:"weather-condition-false",abilityId:192,checks:{noMultiplier:8192,noDamage:true}},
+ {label:"weather-condition-suppressed",abilityId:192,enemies:[mon(320,100,380,117)],checks:{suppressed:true,noMultiplierAfterFirstTurn:8192}},
+ {label:"weather-condition-cloud-nine",abilityId:192,ally:mon(320,100,150,117),enemies:[mon(320,100,150,13),mon(321)],battleType:"Doubles",checks:{noMultiplier:8192,noWeatherDamage:true}}
+);
 if(process.argv.includes("--client"))cases.push({label:"client-magnet-pull",abilityId:50,enemies:[mon(320,100,150,185)],enemyAbility:185,menuCount:1,bench:[mon(4,50)],checks:{trapType:11}});
+if(frost){
+ const personal=decodeRecord(project,"personal",175).raw!;personal.type_1=17;personal.type_2=17;markDirty(project,"personal",175);
+ const move=decodeRecord(project,"moves",1).raw!;move.type=17;markDirty(project,"moves",1);
+ cases.push(
+  {label:"pixilate-fairy-super-effective",abilityId:186,playerMoves:[33],enemies:[mon(147)],checks:{multiplier:4915,outgoingEffectiveness:[4,4]}},
+  {label:"refrigerate-converted",abilityId:190,playerMoves:[33],enemies:[mon(147)],checks:{multiplier:4915,outgoingEffectiveness:[4,4]}},
+  {label:"refrigerate-existing-ice",abilityId:190,playerMoves:[181],enemies:[mon(147)],checks:{noMultiplier:4915,outgoingEffectiveness:[4,4]}},
+  {label:"fairy-immune-dragon",abilityId:50,playerSpecies:175,enemies:[mon(147,100,337)],checks:{noDamage:true}},
+  {label:"fairy-color-change",abilityId:187,enemies:[mon(320,100,1)],checks:{playerTypesAfterFirstTurn:[17,17]}},
+  {label:"fairy-magnet-pull",abilityId:50,playerSpecies:175,enemies:[mon(320,100,150,188)],enemyAbility:188,menuCount:1,bench:[mon(4,50)],checks:{trapType:17}},
+  {label:"fairy-conditions",abilityId:189,playerSpecies:175,hp:10,checks:{heal:7}},
+  {label:"fairy-pixilate-suppression",abilityId:186,playerMoves:[33],enemies:[mon(320,100,380)],checks:{noMultiplier:4915,suppressed:true}},
+  {label:"fairy-pixilate-swap",abilityId:186,playerMoves:[285,33],turnMove:[0,1],checks:{playerAbilities:[186,50,50],noMultiplierAfterFirstTurn:4915}},
+  {label:"fairy-tera-shell",abilityId:191,playerSpecies:175,enemies:[mon(320,30,430)],checks:{effectiveness:[2,4]}}
+ );
+}
 const only=process.argv.find(a=>a.startsWith("--only="))?.slice(7).split(","),hashes:Record<string,string>={},fixtures=[];
 for(const[index,spec]of cases.entries()){
  if(only&&!only.includes(spec.label))continue;
@@ -113,7 +139,7 @@ for(const[index,spec]of cases.entries()){
   archive.files.forEach((bytes,i)=>{if(bytes.length!==before.files[i].length+36)return;const end=8+bytes[4]*20+bytes[5]*36,first=bytes.slice(end-36,end);if(readU16(first,10)!==3002)return;const partner=first.slice();writeU16(partner,0,readU16(first,0)+1);writeU16(partner,28,readU16(first,28)+1);const expanded=new Uint8Array(bytes.length+36);expanded.set(bytes.subarray(0,end));expanded.set(partner,end);expanded.set(bytes.subarray(end),end+36);expanded[5]++;writeU32(expanded,0,readU32(bytes,0)+36);archive.files[i]=expanded;partners++;});
   assert(partners>0,"Double-trainer field partner fixture missing");downloads.romBytes=fixture.save({files:new Map([[fixture.fileId(path),archive.save()]]),preserveOriginalLength:true});
  }
- const save=patchHarnessSave(rawSaveBytesFromDesmumeDsv(downloads.saveBytes),project,parseHarnessConfig({trainerId:2,player:{team:[{speciesId:1,level:50,moves:spec.playerMoves??[150],abilityId:spec.abilityId,itemId:0,...(spec.hp===undefined?{}:{currentHp:spec.hp})},...(spec.ally?[spec.ally]:[]),...(spec.bench??[])]}}));
+ const save=patchHarnessSave(rawSaveBytesFromDesmumeDsv(downloads.saveBytes),project,parseHarnessConfig({trainerId:2,player:{team:[{speciesId:spec.playerSpecies??1,level:50,moves:spec.playerMoves??[150],abilityId:spec.abilityId,itemId:0,...(spec.hp===undefined?{}:{currentHp:spec.hp})},...(spec.ally?[spec.ally]:[]),...(spec.bench??[])]}}));
  if(spec.battleType==="Doubles")for(const half of [0,0x24000]){
   // The bundled save restores field actors, so the partner also needs its own
   // actor record. Preserve the first actor and every unrelated saved actor.
@@ -123,7 +149,7 @@ for(const[index,spec]of cases.entries()){
  }
  const raw=decryptPk5Party(save.subarray(0x18e08,0x18e08+220)),label=`${String(index).padStart(3,"0")}-${spec.label}`,filename=`battle-${sha(new TextEncoder().encode(JSON.stringify([spec.battleType,enemies]))).slice(0,16)}.nds`;
  await writeFile(`${out}/saves/${label}.sav`,save);if(!hashes[filename]){await writeFile(`${out}/${filename}`,downloads.romBytes);hashes[filename]=sha(downloads.romBytes);}
- fixtures.push({...spec,enemyCount:enemies.length,label,speciesId:1,maxHp:readU16(raw,0x90),hp:spec.hp??readU16(raw,0x90),rom:filename});
+ fixtures.push({...spec,enemyCount:enemies.length,label,speciesId:spec.playerSpecies??1,maxHp:readU16(raw,0x90),hp:spec.hp??readU16(raw,0x90),rom:filename});
 }
 await writeFile(`${out}/cases.json`,JSON.stringify({inputSha256:sha(input),exportSha256:sha(exported),reexportSha256:sha(final),projectReload:true,romExportReload:true,importsLinked:ABILITY_IMPORT_LIBRARY.length,editedAbilities:rules.size,codeBytes:dll.code.length,bssBytes:dll.bssSize,serializedBytes:dllBytes.length,nameLoader:resolver.resolve("loadAbilityNameToStrbuf").address,api,symbols,pmcSymbols,popupGateway:dll.symbols[gateway.sourceSymbolIndex].address,hook:resolver.resolve("AbilityEvent_AddItem").address,configHex:Buffer.from(encoded).toString("hex"),nativeOffsets,romHashes:hashes,cases:fixtures,priorityRuntime:true,...(clientTrapStores?{clientTrapStores,typeQuery:resolver.resolve("DoesMonHaveType").address}:{}),damageReactionHook:resolver.resolve("ServerEvent_DamageReaction").address,eventConstHook:resolver.resolve("BattleEventVar_SetConstValue").address,eventList:readU32(resolver.resolve("BattleEvent_SeekItem").code,0x30),manualLaunch:true,openingHook:0x021bbb60,flowRegister:"r0",commandHook:0x021bacac},null,2)+"\n");
 assert.equal(sha(new Uint8Array(await readFile(inputPath))),sha(input));console.log(`${fixtures.length} Black native fixtures; project and ROM reload passed.`);

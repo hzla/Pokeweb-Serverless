@@ -17,6 +17,7 @@ def main():
    emu=MelonDS();flow=0;code=0;menus=[];multipliers=[];rewrites=[];errors=[];hooks=[];minimum={};healing=[];names=[];name_frame=0;name_captured=False;name_followups=set();native_chances=[];callback_priorities=[];damage_reactions=[];side_table=0;pending_damage=None;screen_removals=[];callback_owner=None;focus_work=[];move_end_items=[];combat_types=[];event_trace=[];native_stab=[]
    result={'case':spec['label'],'abilityId':spec['abilityId'],'passed':False,'romSha256':manifest['romHashes'][spec['rom']]}
    counter_callers=[];type_queries=[];client_traps=[];pending_client_trap=None;popups=[];popup_hooked=False;indirect_damage=[]
+   native_observed=any(k in spec['checks']for k in['stabByTurn','combatTypesByTurn','itemAtMoveEndFirstTurn'])and'AbilityRecipeHandlers'in manifest['symbols']
    def heap(fragment):
     address=next(value for name,value in manifest['pmcSymbols'].items()if fragment in name);value=emu.memory.read_long(address)
     if not 0x02000000<=value<0x02400000:return None
@@ -110,12 +111,13 @@ def main():
        item_code=site+4+delta-manifest['itemDispatch'];item_records=sum(emu.memory.read_long(n+8)==item_code-32 for n in states);assert item_records==1;result['itemPatchRecords']=item_records
       assert ours==1;result['loader']={'totalPatchRecords':len(states),'abilityPatchRecords':ours,'liveRuleCount':manifest['editedAbilities']}
       if spec['checks'].get('traceEvents'):hooks.append(emu.memory.register_exec(code+manifest['symbols']['AbilityRecipeHandlers'],trace_event))
+      if native_observed:hooks.append(emu.memory.register_exec(code+manifest['symbols']['AbilityRecipeHandlers'],observe_native_event))
       for event in['41','38','3b','3c','47','13','7f']:
        if f'AbilityEvent_{event}'in manifest['symbols']:hooks.append(emu.memory.register_exec(code+manifest['symbols'][f'AbilityEvent_{event}'],recipe_callback))
       if manifest.get('clientTrapStores'):
        hooks.append(emu.memory.register_exec(code+manifest['symbols']['AbilityClientTrapped'],client_trapped))
        for offset in manifest['clientTrapStores'].values():hooks.append(emu.memory.register_exec(code+offset,client_trap_store))
-      if'AbilityEvent_88'in manifest['symbols']:hooks.append(emu.memory.register_exec(code+manifest['symbols']['AbilityEvent_88'],move_end))
+      if not native_observed and'AbilityEvent_88'in manifest['symbols']:hooks.append(emu.memory.register_exec(code+manifest['symbols']['AbilityEvent_88'],move_end))
       if manifest.get('priorityRuntime'):hooks.append(emu.memory.register_exec(code+manifest['symbols']['AbilityEvent_4b'],contact_callback))
      menus.append(state)
     except Exception as error:errors.append(error)
@@ -128,6 +130,33 @@ def main():
      if key in[2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,0x12,0x16,0x18,0x32,0x46]:values[hex(key)]=emu.memory.read_long(table+0xc4+n*4)
     main=emu.memory.read_long(flow+4);mon=emu.memory.read_long(main+0xcc)
     event_trace.append({'event':hex(emu.memory.register_arm9.r1),'values':values,'types':[emu.memory.read_byte(mon+0xf8),emu.memory.read_byte(mon+0xf9)]})
+   def observe_native_event(cpu,address):
+    # Observe native calculation boundaries independently of ability subscriptions.
+    # Optimized abilities no longer receive unrelated STAB/damage/move-end events.
+    if not flow or not menus or emu.memory.read_long(flow+0x774):return
+    regs=emu.memory.register_arm9;event=regs.r1
+    if regs.r0!=flow or event not in[0x41,0x47,0x88]:return
+    table=emu.memory.read_long(manifest['api']['BattleEventVar_GetValue']+0x2c)
+    def values():
+     start=emu.memory.read_long(table);out={}
+     for n in range(start,96):
+      key=emu.memory.read_short(table+4+n*2)
+      if not key:break
+      out[key]=emu.memory.read_long(table+0xc4+n*4)
+     return out
+    if event==0x41:
+     returned_hook=None
+     def returned(cpu,address):
+      v=values()
+      if v.get(2)==0:native_stab.append({'turnIndex':len(menus)-1,'stab':bool(v.get(0x44)),'multiplier':v.get(0x35)})
+      returned_hook.remove()
+     returned_hook=emu.memory.register_exec(regs.lr&~1,returned);hooks.append(returned_hook)
+    elif event==0x47:
+     mon=emu.memory.read_long(emu.memory.read_long(flow+4)+0xcc)
+     combat_types.append({'turnIndex':len(menus)-1,'owner':values().get(3),'types':[emu.memory.read_byte(mon+0xf8),emu.memory.read_byte(mon+0xf9)]})
+    elif values().get(2)==0:
+     mon=emu.memory.read_long(emu.memory.read_long(flow+4)+0xcc)
+     move_end_items.append({'turnIndex':len(menus)-1,'item':emu.memory.read_short(mon+0x12)})
    def scope():return code and menus and code<=(emu.memory.register_arm9.lr&~1)<code+manifest['codeBytes'] and flow and not emu.memory.read_long(flow+0x774)
    def multiplied(cpu,address):
     if scope():
@@ -156,14 +185,14 @@ def main():
    def recipe_callback(cpu,address):
     nonlocal callback_owner
     callback_owner=emu.memory.register_arm9.r2
-    if flow and menus and address==code+manifest['symbols'].get('AbilityEvent_41',0)and callback_owner==0 and not emu.memory.read_long(flow+0x774):
+    if not native_observed and flow and menus and address==code+manifest['symbols'].get('AbilityEvent_41',0)and callback_owner==0 and not emu.memory.read_long(flow+0x774):
      table=emu.memory.read_long(manifest['api']['BattleEventVar_GetValue']+0x2c);start=emu.memory.read_long(table);values={}
      for n in range(start,96):
       key=emu.memory.read_short(table+4+n*2)
       if not key:break
       values[key]=emu.memory.read_long(table+0xc4+n*4)
      if values.get(2)==0:native_stab.append({'turnIndex':len(menus)-1,'stab':bool(values.get(0x44)),'multiplier':values.get(0x35)})
-    if flow and menus and address==code+manifest['symbols'].get('AbilityEvent_47',0)and not emu.memory.read_long(flow+0x774):
+    if not native_observed and flow and menus and address==code+manifest['symbols'].get('AbilityEvent_47',0)and not emu.memory.read_long(flow+0x774):
      main=emu.memory.read_long(flow+4);mon=emu.memory.read_long(main+0xcc);combat_types.append({'turnIndex':len(menus)-1,'owner':callback_owner,'types':[emu.memory.read_byte(mon+0xf8),emu.memory.read_byte(mon+0xf9)]})
    def contact_callback(cpu,address):
     item=emu.memory.register_arm9.r0
@@ -306,6 +335,7 @@ def main():
     if c.get('berryAfterStage'):assert menus[1]['item']==0 and menus[1]['stages'][2]>menus[0]['stages'][2],menus
     if c.get('allEnemyCritical'):
      hits=[hit for hit in damage_reactions if hit['target']==0];assert len(hits)>=2 and all(hit['critical']for hit in hits),damage_reactions
+    if'outgoingEffectiveness'in c:assert [hit['effectiveness']for hit in damage_reactions if hit['attacker']==0 and hit['target']>=12]==c['outgoingEffectiveness'],damage_reactions
     if'effectiveness'in c:assert [hit['effectiveness']for hit in damage_reactions if hit['target']==0]==c['effectiveness'],damage_reactions
     if'item'in c:assert all(s['item']==c['item']for s in menus),menus
     if c.get('name'):assert any(n['abilityId']==spec['abilityId']for n in names),names

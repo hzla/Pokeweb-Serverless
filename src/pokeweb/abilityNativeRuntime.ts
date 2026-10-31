@@ -42,6 +42,9 @@ export type NativeAbilityProfile = {
 };
 export const NATIVE_ABILITY_PROFILES = bindings.profiles as NativeAbilityProfile[];
 export function nativeAbilityProfile(kind: string): NativeAbilityProfile | undefined { return kind.startsWith("nativeAbility:") ? NATIVE_ABILITY_PROFILES.find(p => p.id === Number(kind.slice(14))) : undefined; }
+export function nativeAbilityEvents(profile: NativeAbilityProfile, effect: AbilityRuleEffect) {
+    return profile.events.filter(e => (profile.eventGates ?? []).filter(g => g.handler === e.handler).every(g => g.anyOf.some(c => (effect.parameters?.[c.key] ?? c.original) === c.equals)));
+}
 export function linkNativeAbilities(rpm: RpmModule, rules: ReadonlyMap<number, AbilityRuleSet>, dataOffset: number, resolve: (name: string) => {
     address: number;
     code: Uint8Array;
@@ -151,7 +154,7 @@ export function linkNativeAbilities(rpm: RpmModule, rules: ReadonlyMap<number, A
             const profile = effect.kind.startsWith("nativeAbility:") ? profiles.find(p => p.id === Number(effect.kind.slice(14))) : undefined;
             if (!profile)
                 return;
-            const events = profile.events.filter(e => (profile.eventGates??[]).filter(g=>g.handler===e.handler).every(g=>g.anyOf.some(c=>(effect.parameters?.[c.key]??c.original)===c.equals)));
+            const events = nativeAbilityEvents(profile, effect);
             const callbacks = events.map(e => copy(e.handler, effect, profile)), table = new Uint8Array(events.length * 8);
             events.forEach((e, i) => writeU32(table, i * 8, e.event));
             const symbol = append(table, "SECTION");

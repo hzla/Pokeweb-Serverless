@@ -1,0 +1,16 @@
+#moves .move-recipe-panel:not([hidden]) { display: block; }
+#moves .move-recipe-panel[hidden] { display: none; }
+.move-recipe-panel { width: 100%; padding: 20px; }
+.move-recipe-layout { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr); gap: 24px; }
+.move-recipe-layout > main, .move-recipe-layout > aside { min-width: 0; }
+.move-recipe-layout label { display: flex; flex-direction: column; gap: 6px; }
+.move-recipe-layout select, .move-recipe-layout input[type="number"] { max-width: 100%; min-width: 90px; padding: 10px; color: inherit; background: #282a36; border: 1px solid #6272a4; border-radius: 4px; }
+.move-recipe-layout .item-rule-effect-fields { align-items: end; }
+.move-recipe-layout .item-rule-effect-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 8px; align-items: center; }
+.move-recipe-layout .item-rule-effect-heading > button { min-width: 38px; }
+.move-recipe-layout .item-rule-preset, .move-recipe-layout > main > label { margin-bottom: 12px; }
+.move-recipe-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 14px 0; }
+.move-recipe-layout [role="status"] { display: block; overflow-wrap: anywhere; }
+.move-recipe-layout .item-rule-condition { flex-wrap: wrap; }
+.move-recipe-toggle { margin: 0 8px; }
+@media (max-width: 1100px) { .move-recipe-layout { grid-template-columns: minmax(0, 1fr); } }

@@ -202,7 +202,7 @@ function typeChartSourcePath(project: ProjectState, offset: number): string {
   return `overlay${typeChartOverlayId(project)}:type_chart@0x${offset.toString(16)}`;
 }
 
-function detectKnownFairyTypeChartOffset(overlay: Uint8Array, baseRom: ProjectState["session"]["baseRom"]): number | undefined {
+export function detectKnownFairyTypeChartOffset(overlay: Uint8Array, baseRom: ProjectState["session"]["baseRom"]): number | undefined {
   const knownOffsets = baseRom === "BW"
     ? [BW_TYPE_CHART_FAIRY_FROST_OFFSET]
     : [TYPE_CHART_FAIRY_FROST_OFFSET, TYPE_CHART_FAIRY_REDUX_OFFSET];

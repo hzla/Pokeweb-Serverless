@@ -766,12 +766,12 @@ function renderApp(): void {
     return;
   }
 
-  if (route === "townMap" && canUseLocalRomBridge()) {
+  if (route === "townMap") {
     const currentProject = project;
     const editorRoute = route;
     content.innerHTML = `<div class="town-map-editor"><h1>Town Map</h1><p>Loading editor…</p></div>`;
     void import("./ui/townMapEditor").then(({ renderTownMapEditor }) => {
-      if (project !== currentProject || route !== editorRoute || !canUseLocalRomBridge()) return;
+      if (project !== currentProject || route !== editorRoute) return;
       stopTownMapView = renderTownMapEditor(currentProject, content, () => {
         dirty = true;
         scheduleSave(currentProject);
@@ -1385,7 +1385,7 @@ function renderMapsMenu(): string {
   const active = route === "mapStudio" || route === "maps3d" || route === "buildings" || route === "cutscenes" || route === "field-scenes" || route === "battleBackgrounds" || route === "townMap";
   return `<div class="header-more ${active ? "-active" : ""}">
     <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Maps</button>
-    <div class="header-more-menu">${navItem("maps3d", "Map Editor")}${canUseLocalRomBridge() && project?.session.baseRom === "BW2" ? navItem("townMap", "Town Map") : ""}${canOpenMapStudio() ? navItem("mapStudio", "Map Studio") : ""}${navItem("buildings", "Buildings")}${navItem("battleBackgrounds", "Battle Backgrounds")}${canUseLocalRomBridge() ? navItem("cutscenes", "Cutscenes") + navItem("field-scenes", "Field tours") : ""}</div>
+    <div class="header-more-menu">${navItem("maps3d", "Map Editor")}${project?.session.baseRom === "BW2" ? navItem("townMap", "Town Map") : ""}${canOpenMapStudio() ? navItem("mapStudio", "Map Studio") : ""}${navItem("buildings", "Buildings")}${navItem("battleBackgrounds", "Battle Backgrounds")}${canUseLocalRomBridge() ? navItem("cutscenes", "Cutscenes") + navItem("field-scenes", "Field tours") : ""}</div>
   </div>`;
 }
 
@@ -2517,7 +2517,7 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
   if (nextRoute === "cutscenes" || nextRoute === "field-scenes") return project.session.baseVersion === "W2" && project.romInfo.idCode === "IRDO" && hasExportBase;
   if (nextRoute === "weather") return project.session.baseRom === "BW2" && EDITOR_REQUIREMENTS.weather.every((name) => project?.narcs[name]);
   if (nextRoute === "flyDestinations") return project.session.baseRom === "BW2" && hasExportBase && Boolean(project.narcs.headers);
-  if (nextRoute === "townMap") return canUseLocalRomBridge() && project.session.baseRom === "BW2" && hasExportBase && Boolean(project.narcs.headers);
+  if (nextRoute === "townMap") return project.session.baseRom === "BW2" && hasExportBase && Boolean(project.narcs.headers);
   if (nextRoute === "weatherGraphics") return project.session.baseRom === "BW2" && hasExportBase;
   if (nextRoute === "trainerSprites") return (project.session.baseRom === "BW" || project.session.baseRom === "BW2") && Boolean(project.narcs.trdata);
   if (nextRoute === "playerBackSprite") return project.session.baseRom === "BW2" && hasExportBase;
@@ -2622,7 +2622,6 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
 
 function safeRoute(nextRoute: AppRoute): AppRoute {
   if (nextRoute === "mapStudio") return canOpenMapStudio() ? nextRoute : "upload";
-  if (nextRoute === "townMap" && !canUseLocalRomBridge()) return project ? safeRoute("headers") : "upload";
   if (!project || nextRoute === "upload" || nextRoute === "debugNarcs") return nextRoute;
   if (nextRoute === "grottoOdds") return canVisit("grottos") ? nextRoute : safeRoute("grottos");
   if (nextRoute === "overworlds" && activeOverworldId === undefined) return safeRoute("headers");

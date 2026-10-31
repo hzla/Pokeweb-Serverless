@@ -1,3 +1,5 @@
+import { inspectMoveEffects, MOVE_RECIPE_MANAGED_FIELDS, supportsMoveRecipes } from "./moveEffectsModel";
+import { validateMoveRuleCategory } from "./moveRules";
 import effectsText from "../assets/data/effects.txt?raw";
 import resultEffectsText from "../assets/data/result_effects.txt?raw";
 import { projectEditSession, type PreparedEdit } from "./editSession";
@@ -248,6 +250,10 @@ export function updateMoveField(project: ProjectState, moveId: number, field: st
 }
 
 export function prepareMoveField(project: ProjectState, moveId: number, field: string, inputValue: string | boolean): PreparedEdit<FieldUpdateResult> {
+  if (supportsMoveRecipes(project) && MOVE_RECIPE_MANAGED_FIELDS.includes(field)) {
+    const state = inspectMoveEffects(project);
+    if (state.rules.has(moveId)) throw Error("Edit this field in Battle effects while a move recipe is applied.");
+  }
   const current = getMoveRecord(project, moveId);
   const record = { id: moveId, raw: { ...current.raw }, readable: { ...current.readable } };
   const originalField = field;
@@ -264,6 +270,7 @@ export function prepareMoveField(project: ProjectState, moveId: number, field: s
     const categories = moveCategoryNamesForProject(project);
     rawValue = findValueIndex(categories, String(value), "category");
     displayValue = categories[rawValue];
+    if(supportsMoveRecipes(project)){const rule=inspectMoveEffects(project).rules.get(moveId);if(rule)validateMoveRuleCategory(rule,rawValue);}
   } else if (field === "effect_category") {
     rawValue = findValueIndex(EFFECT_CATEGORIES, String(value), "effect category");
     displayValue = EFFECT_CATEGORIES[rawValue];

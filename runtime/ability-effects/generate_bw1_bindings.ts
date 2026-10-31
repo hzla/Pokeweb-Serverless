@@ -122,7 +122,7 @@ for (let pass = 0; pass < 10; ++pass) {
 await mkdir(new URL("./build/", import.meta.url), { recursive: true });
 await writeFile(new URL(`./build/bw1-${game}-aliases.json`, import.meta.url), JSON.stringify({ aliases, inferred, missing: Object.keys(BATTLE_RUNTIME_SIGNATURES).filter(name => !aliases[name]) }, null, 2) + "\n");
 const reverse = new Map<string, string>(); for (const [name, target] of Object.entries(aliases)) if (!reverse.has(target)) reverse.set(target, name);
-type Binding = { hex: string; mask: string; module: string; calls: Array<{ offset: number; target: string }>; thumb?: boolean; tails?: Array<{ offset: number; target: string }> };
+type Binding = { variants?:Array<{hex:string;mask:string}>; hex: string; mask: string; module: string; calls: Array<{ offset: number; target: string }>; thumb?: boolean; tails?: Array<{ offset: number; target: string }> };
 const functions: Record<string, Binding> = {};
 const required = new Set([...Object.keys(native.functions), "AbilityEvent_AddItem", "BattleEventVar_GetValue", ...Object.keys(aliases).filter(name => name in BATTLE_RUNTIME_SIGNATURES)]);
 const missing: string[] = [];
@@ -177,5 +177,24 @@ addAbilityParameterCatalog(profiles,functions);
 const unavailable = new Set(Object.entries(functions).filter(([,s])=>!s.hex.length).map(([name])=>name));
 for(const name of unavailable) delete functions[name];
 for(const f of Object.values(functions))f.calls=f.calls.filter(c=>!unavailable.has(c.target));
+// Frost's bundled Black1 Fairy patch retains these function sizes and call
+// sites. Accept only its reviewed instruction edits, preserving the ROM's actual
+// native bytes and table pointers when a handler or gateway is copied.
+if(game==="B"){
+ const edits:Record<string,Array<[number,number,number]>>={
+  HandlerColorChange:[[0x36,0x11,0x12],[0x39,0xd0,0xda]],
+  DoesMonHaveType:[[6,0x11,0x12],[9,0xd0,0xda]],
+  ServerControl_CheckMoveEffectiveness:[[0x12,0x11,0x12],[0x15,0xd1,0xdb]],
+  splitTypeCore:[[28,17,18],[46,17,18],[58,17,18],[62,17,18],[65,0xd1,0xdb],[76,17,18],[79,0xd1,0xdb]],
+  GetTypeEffectiveness:[[0,17,18],[3,0xd0,0xda],[4,17,18],[7,0xd1,0xdb],[12,2,18],[13,1,34],[14,130,66],[15,24,67]],
+  BW1_HAND_WAZA_AddMoveHandler:[[112,2,128]],
+  BW1_BTL_SERVER_FLOW_CalcMoveDamage:[[304,17,18],[307,0xd0,0xda]],
+ };
+ for(const[name,changes]of Object.entries(edits)){
+  const f=functions[name];assert(f,`Missing Frost Fairy binding ${name}`);const bytes=Buffer.from(f.hex,"hex");
+  for(const[offset,original,replacement]of changes){assert.equal(bytes[offset],original,`${name}/${offset}: unexpected instruction`);bytes[offset]=replacement;}
+  f.variants=[{hex:bytes.toString("hex"),mask:f.mask}];
+ }
+}
 await writeFile(output, JSON.stringify({ version: 1, game, functions, profiles, rows: native.rows, tableRefs }) + "\n");
 console.log(`${game}: ${profiles.length} native abilities, ${Object.keys(functions).length} functions; ${missing.length} unresolved names.`);

@@ -8,7 +8,7 @@ Selecting a zone loads it immediately. The four **Spring**, **Summer**, **Autumn
 
 ## Town Map (BW2)
 
-On localhost, open **Maps → Town Map** to edit native artwork, area markers, cursor positions, capsule touch regions, conditions, descriptions, landmarks and Pokédex highlights. The map, table and inspector share one selection. Changes remain in an undoable draft until **Apply**. New areas reference existing map headers, up to 128 total records on supported US revision-0 Black 2/White 2 layouts.
+Open **Maps → Town Map** to edit native artwork, area markers, cursor positions, capsule touch regions, conditions, descriptions, landmarks and Pokédex highlights. The map, table and inspector share one selection. Changes remain in an undoable draft until **Apply**. New areas reference existing map headers, up to 128 total records on supported US revision-0 Black 2/White 2 layouts.
 
 **Fly Destinations** is a separate editor under **Headers & Overworlds**, with destination-map previews and independent Route 4 / Join Avenue settings. Both editors use the same project data and combined runtime. See the [Town Map guide](../runtime/town-map/README.md) for artwork capacities, runtime installation, native formats and limitations.
 

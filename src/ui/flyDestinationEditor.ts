@@ -1,7 +1,6 @@
 import { applyFlyDestinationEdit, getFlyDestinations, getFlyDestinationStatus, resolveFlyLandingZone,
   type FlyDestination, type FlyDestinationEdit } from "../pokeweb/flyDestinationModel";
 import type { ProjectState } from "../pokeweb/projectStore";
-import { canUseLocalRomBridge } from "../pokeweb/localRomBridge";
 import { escapeHtml } from "./dom";
 import { installBw2MapPreview, type Bw2MapPreview } from "./bw2MapPreview";
 
@@ -23,7 +22,7 @@ export function renderFlyDestinationEditor(project: ProjectState, root: HTMLElem
   const drafts = new Map<number, FlyDestinationEdit>();
   let search = "", filter = "all", busy = false;
   root.innerHTML = `<section class="fly-editor">
-    <header><a href="#headers" data-route="headers">Headers &amp; Overworlds</a>${canUseLocalRomBridge() ? `<a href="#townMap" data-route="townMap">Town Map</a>` : ""}<h1>Fly Destinations</h1></header>
+    <header><a href="#headers" data-route="headers">Headers &amp; Overworlds</a><a href="#townMap" data-route="townMap">Town Map</a><h1>Fly Destinations</h1></header>
     <p class="fly-support" role="status">${escapeHtml(status.message)}</p>
     <div class="fly-editor-layout">
       <aside class="fly-area-list">
