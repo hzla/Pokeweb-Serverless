@@ -1,5 +1,5 @@
 import { inspectMoveEffects, MOVE_RECIPE_MANAGED_FIELDS, supportsMoveRecipes } from "./moveEffectsModel";
-import { validateMoveRuleCategory } from "./moveRules";
+import { validateMoveRuleCategory, validateMoveRuleHits } from "./moveRules";
 import effectsText from "../assets/data/effects.txt?raw";
 import resultEffectsText from "../assets/data/result_effects.txt?raw";
 import { projectEditSession, type PreparedEdit } from "./editSession";
@@ -300,6 +300,7 @@ export function prepareMoveField(project: ProjectState, moveId: number, field: s
     const minHits = field === "min_hits" ? next : currentMin;
     const maxHits = field === "max_hits" ? next : currentMax;
     rawValue = (maxHits << 4) | minHits;
+    if(supportsMoveRecipes(project)){const rule=inspectMoveEffects(project).rules.get(moveId);if(rule)validateMoveRuleHits(rule,rawValue);}
     record.raw.hits = rawValue;
     record.readable.min_hits = minHits;
     record.readable.max_hits = maxHits;

@@ -1,3 +1,4 @@
+import { publicAsset } from "./assetUrl";
 import { supportsAbilityEditor } from "./pokeweb/abilityEffectsModel";
 import { renderAbilityEditor } from "./ui/abilityEditor";
 import "./styles/flagReference.css";
@@ -214,6 +215,7 @@ type RomLoadProgressOverlay = {
   finish: (message?: string) => void;
   close: () => void;
 };
+const DISCORD_INVITE_URL = "https://discord.gg/HqhxCgzXEu";
 const ROUTE_KEY = "pokeweb-serverless-route";
 const OVERWORLD_ROUTE_KEY = "pokeweb-serverless-overworld-id";
 const MOVE_ANIMATION_ROUTE_KEY = "pokeweb-serverless-move-animation-id";
@@ -1355,6 +1357,7 @@ function renderNav(): string {
       </div>
       <div class="header-status" id="header-status">${dirty ? renderDirtyIndicatorLink() : ""}</div>
       <div class="header-right">
+        <a class="header-item header-discord" href="${DISCORD_INVITE_URL}" target="_blank" rel="noopener noreferrer" aria-label="Discord" title="Join the Discord"><img src="${publicAsset("svgs/discord.svg")}" width="22" height="22" alt=""></a>
         ${navItem("docGenerators", "Doc Generators")}
         ${navItem("mastersheet", "Mastersheet")}
         ${renderRefreshRomButton()}
@@ -2092,7 +2095,7 @@ function renderUpload(root: HTMLElement): void {
           </div>
         </section>
         <footer class="home-footer">
-          <a class="home-discord-button" href="https://discord.gg/NUchhdqqR" target="_blank" rel="noopener noreferrer">Discord</a>
+          <a class="home-discord-button" href="${DISCORD_INVITE_URL}" target="_blank" rel="noopener noreferrer">Discord</a>
           <p>For Tech Support/Feature Requests/Updates</p>
         </footer>
       </div>

@@ -3,6 +3,7 @@ import { readTownMapLayer, writeTownMapLayer, type TownMapGraphicFiles, type Tow
 import { moveTownMapArea, type TownMapArea, type TownMapDraft } from "./townMapModel";
 
 export type TownMapArtworkRect = { x: number; y: number; width: number; height: number };
+export type TownMapArtworkPatch = { rect: TownMapArtworkRect; pixels: Uint16Array };
 export type TownMapArtworkClipboard = {
   source: TownMapArtworkRect;
   layers: { layer: TownMapLayer; pixels: Uint16Array }[];
@@ -118,6 +119,24 @@ function encodePixels(source: NitroBackgroundImage, pixels: Uint16Array, layer: 
   }
   references.forEach((r, i) => { indexed.entries[i] = r.tile | r.flags; });
   return image;
+}
+
+/** Replace a bounded rectangle, including transparent pixels, on detached resources. */
+export function prepareTownMapArtworkPatch(files: TownMapGraphicFiles, layer: TownMapLayer, patch: TownMapArtworkPatch): { graphics: TownMapGraphicFiles; tiles: number } {
+  validateTownMapArtworkRect(patch.rect);
+  const { x, y, width, height } = patch.rect;
+  if (patch.pixels.length !== width * height) throw new Error("Invalid artwork patch dimensions.");
+  const source = readTownMapLayer(files, layer), pixels = townMapArtworkPixels(source);
+  for (const ink of patch.pixels) if (ink !== TOWN_MAP_TRANSPARENT_PIXEL && (ink >= source.indexed.palette.length || ink % (source.indexed.bitsPerPixel === 8 ? 256 : 16) === 0))
+    throw new Error("Artwork patch references a missing or transparent palette color.");
+  for (let row = 0; row < height; row++) pixels.set(patch.pixels.subarray(row * width, (row + 1) * width), (y + row) * 256 + x);
+  const image = encodePixels(source, pixels, layer), graphics = new Map(files);
+  writeTownMapLayer(graphics, layer, image);
+  return { graphics, tiles: image.indexed.tilePixels.length };
+}
+
+export function applyTownMapArtworkPatch(draft: TownMapDraft, layer: TownMapLayer, patch: TownMapArtworkPatch): void {
+  draft.graphics = prepareTownMapArtworkPatch(draft.graphics, layer, patch).graphics;
 }
 
 /** Graphics and optional area movement publish together, after every layer passes. */

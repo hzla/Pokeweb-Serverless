@@ -1,4 +1,8 @@
 import { MOVE_ALWAYS, newMoveEffect, validateMoveRule, type MoveCondition, type MoveEffect, type MovePhase, type MoveRuleSet, type MoveTarget } from "./moveRules";
+import {MOVE_STAGE2A_CANDIDATES,MOVE_STAGE2A_ENABLED} from "./moveRecipeLibrary2A";
+import {MOVE_STAGE2B_CANDIDATES,MOVE_STAGE2B_ENABLED} from "./moveRecipeLibrary2B";
+import {MOVE_HISTORY_CANDIDATES} from "./moveRecipeLibraryHistory";
+import {MOVE_PERSISTENT_TEMPLATES} from "./moveRecipeLibraryPersistent";
 export type MoveRecipeTemplate = { sourceId: number; label: string; rule: MoveRuleSet };
 const all = (...children: MoveCondition[]): MoveCondition => ({ kind: "group", mode: "all", children });
 const any = (...children: MoveCondition[]): MoveCondition => ({ kind: "group", mode: "any", children });
@@ -46,5 +50,9 @@ export const MOVE_RECIPE_LIBRARY: readonly MoveRecipeTemplate[] = [
   template(879, "Electro Drift", [effect("damage", 1.333333, "damage", "user", superEffective)]),
   template(912, "Hard Press", [effect("hpPower", 100, "power", "target")]),
   template(918, "Upper Hand", [effect("flinch", 100, "hit", "target", MOVE_ALWAYS, undefined, true)], all(any(...[1, 2, 3].map(value => ({ kind: "pendingPriority" as const, value }))))),
+  ...MOVE_STAGE2A_CANDIDATES.filter(t=>MOVE_STAGE2A_ENABLED.includes(t.sourceId)),
+  ...MOVE_STAGE2B_CANDIDATES.filter(t=>MOVE_STAGE2B_ENABLED.includes(t.sourceId)),
+  ...MOVE_HISTORY_CANDIDATES,
+  ...MOVE_PERSISTENT_TEMPLATES,
 ].sort((a, b) => a.label.localeCompare(b.label));
 export const moveRecipeTemplate = (id: number) => MOVE_RECIPE_LIBRARY.find(t => t.sourceId === id);

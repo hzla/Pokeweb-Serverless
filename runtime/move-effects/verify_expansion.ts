@@ -14,7 +14,7 @@ let project=await load(new Uint8Array(await readFile(input)));await installMoveE
 const mappings=MOVE_RECIPE_LIBRARY.map(t=>{const id=Array.from({length:320},(_,n)=>680+n).find(id=>getMoveExpansionSourceMoveId(id)===t.sourceId);assert(id,`Missing source mapping ${t.label}`);return {name:t.label,sourceId:t.sourceId,romId:id};});
 const original=structuredClone(decodeRecord(project,"moves",999).raw!);
 const rules=new Map(Array.from({length:100},(_,n)=>[680+n,MOVE_RECIPE_LIBRARY[n%31].rule]));rules.set(999,MOVE_RECIPE_LIBRARY.find(t=>t.sourceId===912)!.rule);
-for(const[id,rule]of rules){const raw=decodeRecord(project,"moves",id).raw!;raw.category=rule.effects.some(e=>e.phase==="status")?0:1;raw.power=raw.category===0?0:40;markDirty(project,"moves",id);}
+for(const[id,rule]of rules){const raw=decodeRecord(project,"moves",id).raw!;raw.category=rule.effects.some(e=>e.phase==="status")?0:1;raw.power=raw.category===0?0:40;if(rule.effects.some(e=>e.kind==="drainEachHit"))raw.hits=0;markDirty(project,"moves",id);}
 await configureMoveRuleSets(project,[...rules].map(([moveId,rules])=>({moveId,rules})));
 const bytes=await exportModifiedRom(project,{forDsi:false});project=await load(bytes);assert.deepEqual(inspectMoveEffects(project).rules,rules);assert.equal(project.narcs.moves!.fileCount,1000);
 await clearMoveRules(project,999);project=await load(await exportModifiedRom(project,{forDsi:false}));assert.equal(inspectMoveEffects(project).rules.size,100);

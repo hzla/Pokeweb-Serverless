@@ -9,6 +9,7 @@ import { parsePokemonAnimation } from "../pokeweb/pokemonSpriteModel";
 import { townMapCapacity } from "../pokeweb/townMapCapacity";
 import { captureTownMapArtwork, placeTownMapArtwork, townMapArtworkAreas, townMapArtworkRgba,
   type TownMapArtworkClipboard, type TownMapArtworkRect } from "../pokeweb/townMapArtwork";
+import { TownMapPaintTools, townMapPaintControls } from "./townMapPaintTools";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 
@@ -16,7 +17,9 @@ const esc = (v: unknown) => escapeHtml(String(v));
 const MAP_TOOLS = [
   { id: "select", label: "Areas", name: "Area handles", key: "V", icon: '<path d="M12 3v18M3 12h18M8 7l4-4 4 4M8 17l4 4 4-4M7 8l-4 4 4 4M17 8l4 4-4 4"/>' },
   { id: "artwork", label: "Select", name: "Select artwork", key: "S", icon: '<rect x="4" y="4" width="16" height="16" rx="1" stroke-dasharray="3 3"/>' },
-  { id: "paint", label: "Pencil", name: "Paint tiles", key: "B", icon: '<path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15v5Z"/>' },
+  { id: "city", label: "City", name: "Paint city circles", key: "C", icon: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="5"/>' },
+  { id: "route", label: "Route", name: "Draw route line", key: "L", icon: '<path d="m4 18 16-12M4 21 16 12"/><path d="M4 16v5h5M15 3h5v5"/>' },
+  { id: "paint", label: "Tiles", name: "Stamp 8 × 8 tiles", key: "B", icon: '<path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15v5Z"/>' },
   { id: "fill", label: "Fill", name: "Fill tiles", key: "F", icon: '<path d="m5 3 11 11M10 4l9 9-8 8-9-9 8-8ZM3 13h15M21 15s-2 2.6-2 4a2 2 0 0 0 4 0c0-1.4-2-4-2-4Z"/>' },
   { id: "pick", label: "Picker", name: "Pick tile", key: "I", icon: '<path d="m14 4 6 6M13 7l4-4a2.8 2.8 0 0 1 4 4l-4 4M14 8 4 18v3h3L17 11M6 16l2 2"/>' },
 ] as const;
@@ -33,10 +36,11 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
   let zoom = 1, artworkBoth = false, artworkSnap = false, artworkMoveAreas = false;
   let artworkSelection: TownMapArtworkRect | undefined, artworkClipboard: TownMapArtworkClipboard | undefined;
   let artworkGesture: ArtworkGesture | undefined, artworkPaste: ArtworkPreview | undefined;
+  let paintTools: TownMapPaintTools | undefined;
   let history = new TownMapHistory(), pendingImport: TownMapImageConversion | undefined;
   let effects: NitroCellEffect | undefined, habitatEffect: NitroCellEffect | undefined, tick = 0, timer: ReturnType<typeof setInterval> | undefined;
   root.innerHTML = `<section class="town-map-editor" aria-label="Town Map"><h1>Town Map</h1><p role="status">Loading map…</p></section>`;
-  const cleanup = () => { stopped = true; if (timer) clearInterval(timer); };
+  const cleanup = () => { stopped = true; paintTools?.dispose(); if (timer) clearInterval(timer); };
   void loadTownMapDraft(project).then(value => { if (stopped) return; draft = value; mount(); }).catch(error => {
     if (!stopped) root.innerHTML = `<section class="town-map-editor"><h1>Town Map</h1><p role="alert">${esc(message(error))}</p></section>`;
   });
@@ -50,7 +54,7 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
   function clearImport() { pendingImport = undefined; importRequest++; root.querySelector(".tm-import-host")?.replaceChildren(); }
   function change(action: () => void, inspector = true) {
     if (busy) return false;
-    artworkGesture = undefined; artworkPaste = undefined;
+    artworkGesture = undefined; artworkPaste = undefined; paintTools?.clear();
     try { history.edit(draft, action); clearImport(); refresh(inspector); status("Draft changed"); return true; }
     catch (error) { draw(); renderArtworkControls(); status(message(error), true); return false; }
   }
@@ -91,14 +95,17 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
     const preview = artworkPaste; if (!preview) return;
     change(() => { placeTownMapArtwork(draft, preview.clip, preview.destination); artworkSelection = { ...preview.clip.source, ...preview.destination }; });
   }
+  function isPaintTool() { return tool === "city" || tool === "route"; }
   function chooseTool(next: Tool) {
     if (busy || tool === next && !isSprite()) return;
-    clearArtwork(); tool = next;
+    clearArtwork(); paintTools?.clear(); tool = next;
+    if (isPaintTool()) { layerId = 1; tileId = paletteBank = 0; }
     if (tool === "select") { overlays = true; root.querySelector<HTMLInputElement>("#tm-overlays")!.checked = true; }
-    if (isSprite() || tool === "artwork" && (view === "habitat" || layerId === 2)) {
+    if (isSprite() || isPaintTool() && view !== "map" && view !== "layer" || tool === "artwork" && (view === "habitat" || layerId === 2)) {
       view = "layer"; root.querySelector<HTMLSelectElement>("#tm-view")!.value = view; rebuildEffects(); refresh(false);
     }
-    root.querySelector<HTMLCanvasElement>(".tm-map")!.style.cursor = "crosshair"; renderArtworkControls(); draw();
+    paintTools?.activate(tool === "city" || tool === "route" ? tool : undefined);
+    root.querySelector<HTMLCanvasElement>(".tm-map")!.style.cursor = "crosshair"; refresh(false);
   }
   function toolShortcut(event: KeyboardEvent) {
     if (event.ctrlKey || event.metaKey || event.altKey) return false;
@@ -114,12 +121,12 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
     host.querySelector<HTMLElement>(".tm-artwork-readout")!.textContent = artworkPaste ? "Click or Enter to paste · Esc cancels" : rect ? `${rect.width} × ${rect.height} px · ${rect.x}, ${rect.y}` : "Drag to select · drag inside to move";
     for (const name of ["artCopy", "artClear", "artNew"]) host.querySelector<HTMLButtonElement>(`[data-action="${name}"]`)!.disabled = !rect || busy;
     const paste = host.querySelector<HTMLButtonElement>('[data-action="artPaste"]')!; paste.disabled = !canPasteArtwork() || busy; paste.setAttribute("aria-pressed", String(Boolean(artworkPaste)));
-    root.querySelector<HTMLButtonElement>('[data-action="apply"]')!.disabled = busy || Boolean(artworkPaste || artworkGesture);
+    root.querySelector<HTMLButtonElement>('[data-action="apply"]')!.disabled = busy || Boolean(artworkPaste || artworkGesture || paintTools?.pendingRoute);
     root.querySelector<HTMLElement>(".tm-area-controls")!.hidden = tool !== "select" || isSprite();
     root.querySelectorAll<HTMLButtonElement>("[data-tool]").forEach(button => {
       const active = button.dataset.tool === tool; button.setAttribute("aria-pressed", String(active)); button.tabIndex = active ? 0 : -1;
     });
-    root.querySelectorAll<HTMLButtonElement>(".tm-nudge button").forEach(button => { button.disabled = busy || isSprite() || tool !== "select" && tool !== "artwork"; });
+    root.querySelectorAll<HTMLButtonElement>(".tm-nudge button").forEach(button => { button.disabled = busy || isSprite() || (isPaintTool() ? !paintTools?.canNudge : tool !== "select" && tool !== "artwork"); });
     const linked = host.querySelector<HTMLInputElement>("#tm-artwork-handles")!; linked.checked = artworkMoveAreas; linked.disabled = !areas.length || Boolean(artworkPaste) || busy;
     host.querySelector(".tm-artwork-area-count")!.textContent = `Move area handles (${areas.length})`;
     host.querySelectorAll<HTMLButtonElement>("[data-artwork-scope]").forEach(b => { b.disabled = layerId === 2 || busy; b.setAttribute("aria-pressed", String((b.dataset.artworkScope === "both") === artworkBoth)); });
@@ -165,6 +172,7 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
         <div class="tm-toolbox"><div class="tm-tools" role="toolbar" aria-label="Map tools" aria-orientation="horizontal">${MAP_TOOLS.map(t => `<button type="button" data-tool="${t.id}" aria-label="${t.name}" aria-pressed="${tool === t.id}" aria-keyshortcuts="${t.key}" title="${t.name} (${t.key})" tabindex="${tool === t.id ? 0 : -1}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${t.icon}</svg><span>${t.label}</span></button>`).join("")}</div><div class="tm-nudge" role="group" aria-label="Nudge selection"><button type="button" data-action="left" aria-label="Move left" title="Move left">←</button><button type="button" data-action="up" aria-label="Move up" title="Move up">↑</button><button type="button" data-action="down" aria-label="Move down" title="Move down">↓</button><button type="button" data-action="right" aria-label="Move right" title="Move right">→</button></div></div>
         <div class="tm-controls"><div class="tm-segmented" role="group" aria-label="Artwork layer">${TOWN_MAP_LAYERS.map((l, i) => `<button type="button" data-layer="${i}" aria-label="${esc(l.label)}" aria-pressed="${i === layerId}">${["Back", "Front", "Information"][i]}</button>`).join("")}</div></div>
         <div class="tm-artwork-controls" hidden><div class="tm-controls"><div class="tm-segmented" role="group" aria-label="Artwork scope"><button type="button" data-artwork-scope="layer" aria-pressed="true">Active layer</button><button type="button" data-artwork-scope="both" aria-pressed="false">Both map layers</button></div><label><input id="tm-artwork-snap" type="checkbox" />Snap 8 px</label></div><div class="tm-controls"><button class="btn -default" data-action="artCopy" title="Copy artwork (Ctrl/Cmd+C)">Copy</button><button class="btn -default" data-action="artPaste" title="Paste artwork (Ctrl/Cmd+V)">Paste</button><button class="btn -default" data-action="artNew">New selection</button><button class="btn -default" data-action="artClear" title="Clear selected artwork (Delete)">Clear artwork</button></div><div class="tm-controls"><label title="Move the marker, cursor and touch region of areas inside the selection"><input id="tm-artwork-handles" type="checkbox" /><span class="tm-artwork-area-count">Move area handles (0)</span></label><span class="tm-artwork-readout"></span></div></div>
+        ${townMapPaintControls()}
         <div class="tm-viewport"><canvas class="tm-map" width="256" height="256" tabindex="0" aria-label="Town Map editing canvas"></canvas></div>
         <div class="tm-controls tm-area-controls"><label>Move <select id="tm-target" aria-label="Move target"><option value="marker">Marker</option><option value="cursor">Cursor</option><option value="hitStart">Touch start</option><option value="hitEnd">Touch end</option><option value="habitat">Habitat</option></select></label><label title="Keep the marker, cursor and touch region linked"><input id="tm-linked" type="checkbox" checked />Move together</label><span class="tm-readout"></span></div>
 
@@ -177,9 +185,10 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
     root.querySelectorAll<HTMLButtonElement>("[data-action]").forEach(button => button.addEventListener("click", () => action(button.dataset.action!)));
     root.querySelectorAll<HTMLButtonElement>("[data-inspector-tab]").forEach(button => button.addEventListener("click", () => { inspectorTab = button.dataset.inspectorTab!; renderInspector(); }));
     const bind = (id: string, listener: (el: HTMLInputElement | HTMLSelectElement) => void) => root.querySelector<HTMLInputElement | HTMLSelectElement>(`#tm-${id}`)!.addEventListener("change", event => run(() => listener(event.target as HTMLInputElement)));
-    bind("view", el => { clearImport(); clearArtwork(); view = el.value; if (layerId === 2 && (view === "map" || view === "habitat")) layerId = 0; tileId = paletteBank = sequence = 0; rebuildEffects(); refresh(); });
+    bind("view", el => { clearImport(); clearArtwork(); paintTools?.clear(); view = el.value; if (isPaintTool() && view !== "map" && view !== "layer") { tool = "artwork"; paintTools?.activate(undefined); } if (layerId === 2 && (view === "map" || view === "habitat")) layerId = 0; tileId = paletteBank = sequence = 0; rebuildEffects(); refresh(); });
     root.querySelectorAll<HTMLButtonElement>("[data-layer]").forEach(button => button.addEventListener("click", () => run(() => {
-      if (busy) return; clearImport(); clearArtwork(); layerId = Number(button.dataset.layer); tileId = paletteBank = 0;
+      if (busy) return; clearImport(); clearArtwork(); paintTools?.clear(); layerId = Number(button.dataset.layer);
+      if (isPaintTool() && layerId !== 1) { tool = "artwork"; paintTools?.activate(undefined); } tileId = paletteBank = 0;
       if (layerId === 2) { artworkBoth = false; view = "layer"; root.querySelector<HTMLSelectElement>("#tm-view")!.value = view; }
       refresh(false);
     })));
@@ -212,11 +221,17 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
     }, false));
     root.querySelector<HTMLInputElement>(".tm-search")!.addEventListener("input", event => { search = (event.target as HTMLInputElement).value; renderTables(); });
     root.querySelector<HTMLInputElement>("#tm-file")!.addEventListener("change", event => { const file = (event.target as HTMLInputElement).files?.[0]; if (file) void importImage(file); (event.target as HTMLInputElement).value = ""; });
+    paintTools = new TownMapPaintTools(root, {
+      graphics: () => draft.graphics, busy: () => busy, snap: () => artworkSnap,
+      setSnap: snap => { artworkSnap = snap; root.querySelector<HTMLInputElement>("#tm-artwork-snap")!.checked = snap; },
+      commit: graphics => change(() => { draft.graphics = graphics; }, false),
+      update: () => { if (!stopped) { renderArtworkControls(); draw(); } }, status,
+    });
     installCanvas(); rebuildEffects(); refresh();
     timer = setInterval(() => { if (stopped) return; tick++; if (isSprite() || view === "habitat") draw(); }, 1000 / 30);
   }
   function refresh(inspector = true) {
-    if (stopped) return; layerCanvases.clear(); selected = Math.max(0, Math.min(selected, draft.areas.length - 1));
+    if (stopped) return; layerCanvases.clear(); paintTools?.invalidate(); selected = Math.max(0, Math.min(selected, draft.areas.length - 1));
     const capacity = townMapCapacity(draft);
     root.querySelector(".tm-count")!.textContent = `${draft.areas.length} / 128 areas · ${capacity.mapActors} / 128 actors · ${capacity.mapSprites} / 124 sprites · ${Math.ceil(capacity.mapHeapBytes / 1024)} / 384 KiB`;
     root.querySelector<HTMLButtonElement>('[data-action="undo"]')!.disabled = !history.canUndo;
@@ -287,7 +302,7 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
         const layerCtx = working.getContext("2d")!; layerCtx.drawImage(layerBitmap(layer), 0, 0);
         if (artworkGesture?.kind === "move") { const r = preview.clip.source; layerCtx.clearRect(r.x, r.y, r.width, r.height); }
         layerCtx.drawImage(stamp, preview.destination.x, preview.destination.y); ctx.drawImage(working, 0, 0);
-      } else ctx.drawImage(layerBitmap(layer), 0, 0);
+      } else ctx.drawImage(layer.screen === TOWN_MAP_LAYERS[1].screen && isPaintTool() && paintTools?.frontPreview ? paintTools.frontPreview : layerBitmap(layer), 0, 0);
     }
     if (view === "habitat") {
       const a = draft.areas[selected], frames = habitatEffect?.sequences[a.habitat.animation]?.frames, frame = frames?.[tick % (frames?.length || 1)];
@@ -309,6 +324,7 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
       ctx.beginPath(); ctx.arc(a.position.x, a.position.y, chosen ? 2.5 : 1.5, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     });
+    paintTools?.drawGuides(ctx);
     const rect = preview ? { ...preview.clip.source, ...preview.destination } : artworkGesture?.kind === "select" ? artworkGesture.rect : artworkSelection;
     if (rect && tool === "artwork") {
       ctx.save(); ctx.lineWidth = 1; ctx.strokeStyle = "#10151c"; ctx.strokeRect(rect.x + .5, rect.y + .5, Math.max(1, rect.width - 1), Math.max(1, rect.height - 1));
@@ -354,6 +370,7 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
     }
     canvas.addEventListener("pointerdown", event => run(() => {
       if (busy || isSprite() || event.button !== 0) return; const p = pos(event); canvas.focus({ preventScroll: true });
+      if (isPaintTool() && paintTools?.pointerDown(artPos(event), event.pointerId, canvas)) return;
       if (tool === "artwork") {
         const point = artPos(event);
         if (artworkPaste) {
@@ -383,6 +400,7 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
       history.checkpoint(draft); pointer = { id: event.pointerId, ...p, target: view === "habitat" ? "habitat" : dragTarget }; canvas.setPointerCapture(event.pointerId); renderTables(); renderInspector(); draw();
     }));
     canvas.addEventListener("pointermove", event => run(() => { const p = pos(event); root.querySelector(".tm-readout")!.textContent = `${p.x}, ${p.y}`;
+      if (isPaintTool() && paintTools?.pointerMove(artPos(event), event.pointerId)) return;
       if (tool === "artwork") {
         const point = artPos(event), gesture = artworkGesture;
         if (artworkPaste) { artworkPaste.destination = artworkDestination(artworkPaste.clip, point.x - artworkPaste.clip.source.width / 2, point.y - artworkPaste.clip.source.height / 2); draw(); return; }
@@ -397,6 +415,7 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
       if (!pointer || pointer.id !== event.pointerId) return;
       moveTownMapArea(draft.areas[selected], p.x - pointer.x, p.y - pointer.y, linked, pointer.target); pointer.x = p.x; pointer.y = p.y; draw(); }));
     const finish = (event: PointerEvent) => {
+      if (paintTools?.pointerUp(event.pointerId)) return;
       const gesture = artworkGesture;
       if (gesture && gesture.id === event.pointerId) {
         artworkGesture = undefined;
@@ -415,13 +434,15 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
     };
     canvas.addEventListener("pointerup", finish);
     canvas.addEventListener("pointercancel", event => {
+      paintTools?.pointerCancel(event.pointerId);
       artworkGesture = undefined;
       if (pointer?.id === event.pointerId) { pointer = undefined; refresh(); status("Draft changed"); }
       else { renderArtworkControls(); draw(); }
     });
-    canvas.addEventListener("lostpointercapture", () => { if (artworkGesture) { artworkGesture = undefined; renderArtworkControls(); draw(); } });
+    canvas.addEventListener("pointerleave", () => paintTools?.pointerLeave());
+    canvas.addEventListener("lostpointercapture", event => { paintTools?.pointerCancel(event.pointerId); if (artworkGesture) { artworkGesture = undefined; renderArtworkControls(); draw(); } });
     canvas.addEventListener("keydown", event => {
-      if (toolShortcut(event)) return;
+      if (toolShortcut(event) || paintTools?.keyDown(event)) return;
       if (tool === "artwork") {
         const command = event.ctrlKey || event.metaKey, key = event.key.toLowerCase();
         if (command && (key === "c" || key === "v")) { event.preventDefault(); action(key === "c" ? "artCopy" : "artPaste"); return; }
@@ -432,7 +453,8 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
       }
       const delta: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
       if (delta[event.key]) { event.preventDefault(); const [x, y] = delta[event.key], step = event.shiftKey || artworkSnap && tool === "artwork" ? 8 : 1;
-        if (tool === "artwork") {
+        if (isPaintTool()) paintTools?.nudge(x, y, event.shiftKey);
+        else if (tool === "artwork") {
           moveArtwork(x * step, y * step);
         } else if (tool === "select") change(() => moveTownMapArea(draft.areas[selected], x * step, y * step, linked, target));
       }
@@ -441,7 +463,7 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
     let painting = false;
     function paint(event: PointerEvent) { const r = pixels.getBoundingClientRect(), x = Math.floor((event.clientX - r.left) * 8 / r.width), y = Math.floor((event.clientY - r.top) * 8 / r.height); if (x < 0 || x > 7 || y < 0 || y > 7) return;
       const set = tileSet(); set.tiles[tileId][y * 8 + x] = colorId; writeSet(set); renderTiles(); draw(); }
-    pixels.addEventListener("pointerdown", event => run(() => { if (busy) return; history.checkpoint(draft); painting = true; pixels.setPointerCapture(event.pointerId); paint(event); }));
+    pixels.addEventListener("pointerdown", event => run(() => { if (busy) return; paintTools?.clear(); history.checkpoint(draft); painting = true; pixels.setPointerCapture(event.pointerId); paint(event); }));
     pixels.addEventListener("pointermove", event => { if (painting) run(() => paint(event)); });
     const endPaint = () => { if (!painting) return; painting = false; rebuildEffects(); refresh(false); status("Draft changed"); }; pixels.addEventListener("pointerup", endPaint); pixels.addEventListener("pointercancel", endPaint);
   }
@@ -480,10 +502,11 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
         }
         renderArtworkControls(); draw(); canvas.focus({ preventScroll: true }); return;
       }
-      if (name === "undo" || name === "redo") { clearArtwork(); history[name](draft); clearImport(); rebuildEffects(); refresh(); return; }
+      if (name === "undo" || name === "redo") { clearArtwork(); paintTools?.clear(); history[name](draft); clearImport(); rebuildEffects(); refresh(); return; }
       if (["left", "right", "up", "down"].includes(name)) {
         const [x, y] = ({ left: [-1, 0], right: [1, 0], up: [0, -1], down: [0, 1] } as Record<string, number[]>)[name];
-        if (tool === "artwork") moveArtwork(x * (artworkSnap ? 8 : 1), y * (artworkSnap ? 8 : 1));
+        if (isPaintTool()) paintTools?.nudge(x, y);
+        else if (tool === "artwork") moveArtwork(x * (artworkSnap ? 8 : 1), y * (artworkSnap ? 8 : 1));
         else if (tool === "select") change(() => moveTownMapArea(draft.areas[selected], x, y, linked, target)); return;
       }
       if (name === "add") { const value = root.querySelector<HTMLSelectElement>("#tm-add-zone")!.value; if (value) change(() => { selected = appendTownMapArea(draft, selected, Number(value)); }); return; }
@@ -496,7 +519,7 @@ export function renderTownMapEditor(project: ProjectState, root: HTMLElement, on
       if (name === "export") { if (isSprite()) download(root.querySelector<HTMLCanvasElement>(".tm-tiles")!, "town-map-tiles.png"); else download(bitmap(readTownMapLayer(draft.graphics, selectedLayer())), `town-map-layer-${layerId}.png`); return; }
       if (name === "composite") { const canvas = document.createElement("canvas"); canvas.width = canvas.height = 256; TOWN_MAP_LAYERS.slice(0, 2).forEach(layer => canvas.getContext("2d")!.drawImage(layerBitmap(layer), 0, 0)); download(canvas, "town-map.png"); return; }
       if (name === "apply" || name === "reload") {
-        clearArtwork(); clearImport(); busy = true; root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement | HTMLTextAreaElement>("input, select, button, textarea").forEach(el => el.disabled = true); status(name === "apply" ? "Applying Town Map…" : "Reloading…");
+        clearArtwork(); paintTools?.clear(); clearImport(); busy = true; root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement | HTMLTextAreaElement>("input, select, button, textarea").forEach(el => el.disabled = true); status(name === "apply" ? "Applying Town Map…" : "Reloading…");
         void (async () => {
           try { if (name === "apply") { await applyTownMapDraft(project, draft); onDirty(); } const value = await loadTownMapDraft(project); if (stopped) return; draft = value; history = new TownMapHistory(); rebuildEffects(); status(name === "apply" ? "Applied. Export the ROM to use these changes." : "Reloaded."); }
           catch (error) { if (!stopped) status(message(error), true); }

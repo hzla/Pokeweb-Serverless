@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { writeU16, writeU32 } from "../nds/binary";
-import { captureTownMapArtwork, placeTownMapArtwork, townMapArtworkAreas, townMapArtworkPixels, TOWN_MAP_TRANSPARENT_PIXEL } from "../pokeweb/townMapArtwork";
+import { captureTownMapArtwork, placeTownMapArtwork, prepareTownMapArtworkPatch, applyTownMapArtworkPatch, townMapArtworkAreas, townMapArtworkPixels, TOWN_MAP_TRANSPARENT_PIXEL } from "../pokeweb/townMapArtwork";
 import { readTownMapLayer, writeTownMapLayer, type TownMapLayer } from "../pokeweb/townMapGraphics";
 import { parseTownMapAreas, TownMapHistory, type TownMapDraft } from "../pokeweb/townMapModel";
 
@@ -32,6 +32,21 @@ function fixture(): TownMapDraft {
 const pixels = (d: TownMapDraft, layer = front) => townMapArtworkPixels(readTownMapLayer(d.graphics, layer));
 
 describe("assembled Town Map artwork editing", () => {
+  it("prepares a transparent replacement without mutating the live draft", () => {
+    const d = fixture(), before = structuredClone(d), patch = { rect: { x: 0, y: 0, width: 4, height: 8 }, pixels: new Uint16Array(32).fill(clear) };
+    const prepared = prepareTownMapArtworkPatch(d.graphics, front, patch);
+    expect(d).toEqual(before); expect(prepared.tiles).toBeLessThanOrEqual(front.maxTiles);
+    applyTownMapArtworkPatch(d, front, patch);
+    expect(pixels(d)[0]).toBe(clear); expect(pixels(d)[4]).toBe(1);
+    expect(d.areas).toEqual(before.areas); expect(d.graphics.get(back.characters)).toEqual(before.graphics.get(back.characters)); expect(d.graphics.get(0)).toEqual(before.graphics.get(0));
+  });
+
+  it("rejects invalid replacement pixels and capacity failures atomically", () => {
+    const d = fixture(), before = structuredClone(d);
+    expect(() => applyTownMapArtworkPatch(d, front, { rect: { x:0,y:0,width:1,height:1 }, pixels:new Uint16Array([0]) })).toThrow("transparent");
+    expect(() => applyTownMapArtworkPatch(d, { ...front, maxTiles:3 }, { rect: { x:19,y:16,width:5,height:5 }, pixels:new Uint16Array(25).fill(1) })).toThrow("limit");
+    expect(d).toEqual(before);
+  });
   it("captures rendered positions, flips, extended palette banks and transparency", () => {
     const d = fixture(), clip = captureTownMapArtwork(d.graphics, [front], { x: 0, y: 0, width: 24, height: 8 });
     expect([...clip.layers[0].pixels.slice(0, 4)]).toEqual([2, 2, 2, 2]);

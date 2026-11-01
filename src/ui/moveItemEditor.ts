@@ -142,6 +142,7 @@ export function renderMoveEditor(
           <div class="move-effect" title="AI sequence used to evaluate this move. Descriptions reflect original Gen 5 behavior; changing this ID alone does not add that battle effect.">AI behavior</div>
           <div class="move-power">Pow</div>
           <div class="move-accuracy">Acc</div>
+          ${supportsMoveRecipes(project) ? `<button class="btn -default move-recipe-toggle move-header-reserved" type="button" tabindex="-1" aria-hidden="true" disabled>Effects</button>` : ""}
         </div>
       </div>
       ${renderMoveRows(project)}

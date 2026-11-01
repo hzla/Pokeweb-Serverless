@@ -17,9 +17,12 @@ for (const m of sdk.matchAll(/^- Address: (0x[\da-f]+)\n  Name: (\w+)\n/gmu)) {
   if (Number(m[1]) & 1 && !/^(loc_|locret_|off_|dword_|word_|byte_|unk_|def_|jpt_)/u.test(m[2])) symbols.set(m[2], Number(m[1]) & ~1);
 }
 const reverse = new Map([...symbols].map(([n, a]) => [a, n]));
+// The damage calculator also calls an ARM division helper with BLX.
+const armDivision = sdk.match(/^- Address: (0x[\da-f]+)\n  Name: __aeabi_uidivmod\n/mu);
+assert(armDivision); reverse.set(Number(armDivision[1]), "__aeabi_uidivmod");
 const addresses = [...new Set(symbols.values())].sort((a, b) => a - b);
 const functions: Record<string, BattleRuntimeSignature> = {};
-const requested = ["MoveEvent_AddItem", "DoesMoveEventExist", "ServerEvent_CheckFloating", "CheckFieldEffect", "IsAffectedBySheerForce", "sub_21AB1BC"];
+const requested = ["MoveEvent_AddItem", "DoesMoveEventExist", "ServerEvent_CheckFloating", "CheckFieldEffect", "IsAffectedBySheerForce", "sub_21AB1BC", "BattleRandom", "GetBattleMonHeldItem", "PML_ItemIsBerry", "GetSideFromOpposingMonID","GetSideFromMonID","sub_21ABB90","RawBattleMonStat","GetPreviousMoveID","MoveGetID","GetMovePP","HandlerMoldBreakerStart","HandlerMoldBreakerEnd","HandlerBypassSubstitute","ResetSpActPriority","BattleEvent_SeekItem","PokeTypePair_GetType1","PokeTypePair_GetType2","PokeTypePair_Make","GetAdditionalConditionFlag","sub_21A7CB0","sub_21B1474","sub_21AA994","sub_21AAB90","sub_21A4530","IsSubstituteActive","ServerEvent_CalcDamage","sub_21A5534","sub_21A57C4","sub_21AEDEC","ServerEvent_GetAttackPower","CritAtkDefLevel"];
 const codeAt = (address: number, size: number) => {
   const isOverlay = address >= ov.ramAddress && address < ov.ramAddress + ov.data.length;
   const bytes = isOverlay ? ov.data : arm, at = address - (isOverlay ? ov.ramAddress : rom.arm9RamAddress);
@@ -36,7 +39,7 @@ const rows = Array.from({ length: count }, (_, i) => readU32(ov.data, nativeTabl
 assert.equal(new Set(rows).size, count);
 type Getter = { name: string; tableRef: number; events: Array<{ event: number; handler: string }> };
 const getters: Record<number, Getter> = {};
-const needed = new Set([115, 113, 215, 280, 252, 389, 114, 467, 206, 20, 162, 216, 500, 369, 379, 200, 389, 368, 136, 284]);
+const needed = new Set([115, 113, 215, 280, 252, 389, 114, 467, 206, 20, 162, 216, 500, 369, 379, 200, 389, 368, 136, 284,229,282,364,380,73]);
 for (let i = 0; i < count; ++i) {
   if (!needed.has(rows[i])) continue;
   const address = readU32(ov.data, nativeTable + i * 8 + 4) & ~1;
@@ -70,7 +73,7 @@ for (const name of requested) {
   }
   const address = symbols.get(name); assert(address, `Missing SDK service ${name}`);
   const next = addresses.find(a => a > address)!;
-  const size = name === "MoveEvent_AddItem" ? 120 : next - address;
+  const size = name === "MoveEvent_AddItem" ? 120 : name === "sub_21AA994" ? 0xd0 : name === "sub_21AAB90" ? 0x98 : name === "ServerEvent_CalcDamage" ? 0x1e0 : name === "sub_21A5534" ? 0xd8 : name === "sub_21AEDEC" ? 0x60 : name === "ServerEvent_GetAttackPower" ? 0x100 : next - address;
   assert(size > 0 && size < 8192, `Unreviewed size ${name}: ${size}`);
   const { bytes, module } = codeAt(address, size), mask = new Uint8Array(size).fill(255);
   const calls: BattleRuntimeSignature["calls"] = [];
@@ -81,7 +84,7 @@ for (const name of requested) {
       assert(callee, `Unknown call ${name}+${at}: ${target.toString(16)}`);
       mask.fill(0, at, at + 4); calls.push({ offset: at, target: callee });
       // Only a copied gateway requires all its callees to be independently anchored.
-      if (["MoveEvent_AddItem", "sub_21AB1BC"].includes(name) && !requested.includes(callee)) requested.push(callee);
+      if (["MoveEvent_AddItem", "sub_21AB1BC", "sub_21AAB90"].includes(name) && !requested.includes(callee)) requested.push(callee);
       at += 2;
     }
   }
@@ -92,7 +95,35 @@ for (const name of requested) {
     const fairy = bytes.slice(); new DataView(fairy.buffer).setUint32(112, 384, true);
     variants.push({ hex: Buffer.from(fairy).toString("hex"), mask: Buffer.from(mask).toString("hex") });
   }
+  if (name === "sub_21AA994") {
+    assert.deepEqual([...bytes.slice(0x12,0x16)], [0x11,0x28,0x02,0xd1]);
+    const fairy=bytes.slice();fairy[0x12]=0x12;fairy[0x15]=0xdb;
+    variants.push({hex:Buffer.from(fairy).toString("hex"),mask:Buffer.from(mask).toString("hex")});
+  }
+  if (name === "GetTypeEffectiveness") {
+    assert.deepEqual([...bytes.slice(0,16)], [0x11,0x28,0x01,0xd0,0x11,0x29,0x01,0xd1,0x03,0x20,0x70,0x47,0x02,0x01,0x82,0x18]);
+    const fairy=bytes.slice();fairy.set([0x12,0x28,0x01,0xda,0x12,0x29,0x01,0xdb,0x03,0x20,0x70,0x47,0x12,0x22,0x42,0x43]);
+    variants.push({hex:Buffer.from(fairy).toString("hex"),mask:Buffer.from(mask).toString("hex")});
+  }
+  if (name === "ServerEvent_CalcDamage") {
+    assert.deepEqual([...bytes.slice(0x13a,0x13e)], [0x11,0x2a,0x08,0xd0]);
+    const fairy=bytes.slice();fairy[0x13a]=0x12;fairy[0x13d]=0xda;
+    variants.push({hex:Buffer.from(fairy).toString("hex"),mask:Buffer.from(mask).toString("hex")});
+  }
   functions[name] = { hex: Buffer.from(bytes).toString("hex"), mask: Buffer.from(mask).toString("hex"), module, calls, ...(variants.length ? { variants } : {}) };
+}
+// Parameter resolution is shared with the item and ability editors. Anchor the
+// eight native callers instead of replacing the shared service entry point.
+const moveParamSites=[0x21a1a7e,0x21a1b0c,0x21a1b22,0x21a1f76,0x21a2086,0x21ab96e,0x21ab9fc,0x21adb10];
+for(const [index,site] of moveParamSites.entries()){
+  const address=site-16,{bytes,module}=codeAt(address,48),mask=new Uint8Array(bytes.length).fill(255);
+  assert.equal(battleBranchTarget(bytes,16,address),symbols.get("ServerEvent_GetMoveParam"));
+  for(let at=0;at+4<=bytes.length;at+=2){
+    const hi=readU16(bytes,at),lo=readU16(bytes,at+2);
+    if((hi&0xf800)===0xf000&&[0xf800,0xe800].includes(lo&0xf800))mask.fill(0,at,at+4);
+  }
+  for(let at=0;at+4<=bytes.length;at+=2)if((address+at)%4===0&&readU32(bytes,at)>=0x02000000&&readU32(bytes,at)<0x02400000)mask.fill(0,at,at+4);
+  functions[`MoveParamSite${index}`]={hex:Buffer.from(bytes).toString("hex"),mask:Buffer.from(mask).toString("hex"),module,calls:[{offset:16,target:"ServerEvent_GetMoveParam"}]};
 }
 await writeFile(output, JSON.stringify({ version: 1, functions, rows, getters, tableRefs: [{ offset: 108, column: 0 }, { offset: 116, column: 4 }], countRef: 112 }) + "\n");
 console.log(`${Object.keys(functions).length} native move contracts; ${Object.keys(getters).length} reviewed getters.`);

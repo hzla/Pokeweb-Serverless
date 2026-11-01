@@ -42,6 +42,8 @@
 .item-rule-group-tools select { width: auto; }
 .item-rule-consumable { display: flex; align-items: center; gap: 10px; }
 .item-rule-form > button { justify-self: start; }
+.item-rule-form .btn[data-rule-action^="remove-"],
+.ability-page .btn.-remove { background: #b83a48; border-color: #b83a48; color: #fff; }
 @media (max-width: 760px) { .item-rule-condition { grid-template-columns: 1fr 1fr; } .item-rule-group { padding: 9px; } }
 #items .move-info.expand-item { background: transparent; border: 0; color: inherit; display: block; padding: 0; }
 @media (max-width: 640px) { .item-native-control { grid-template-columns: 1fr; } }
@@ -226,6 +228,26 @@
 
 #moves > .move-card > .expanded-field-main {
   min-height: 86px;
+}
+
+/* The action occupies a column in each row, so reserve the same space in the
+   fixed heading and use the same inner padding for both. */
+#moves.pokemon-move-list > .field-header {
+  box-sizing: border-box;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+#moves.pokemon-move-list > .field-header > .expanded-field-main,
+#moves.pokemon-move-list > .move-card > .expanded-field-main {
+  box-sizing: border-box;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+#moves .move-header-reserved {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 #moves .move-info.expand-move {

@@ -15,6 +15,7 @@ import { openProjectSession } from "../../src/pokeweb/projectSession";
 import { decodeRecord,markDirty } from "../../src/pokeweb/projectStore";
 import { createHash } from "node:crypto";
 import { NintendoDSRom } from "../../src/nds/rom";
+import { decodeGen5TextBank } from "../../src/pokeweb/text";
 const [path,out] = process.argv.slice(2); assert(out,"Usage: ROM.nds EXTERNAL_OUTPUT_DIRECTORY"); await mkdir(out,{recursive:true});
 globalThis.fetch=(async(request:RequestInfo|URL)=>{const url=new URL(request instanceof Request?request.url:String(request));if(url.protocol!=="file:")throw Error("Only local bundled assets permitted.");return new Response(new Uint8Array(await readFile(url)));})as typeof fetch;
 const input=new Uint8Array(await readFile(path));
@@ -22,11 +23,12 @@ const load=(bytes:Uint8Array)=>loadProjectFromRomBytes(bytes,"move-validation.nd
 let project=await load(input);
 const state=inspectMoveEffects(project);assert(state.editable,state.message);
 const entries=new Map(Array.from({length:100},(_,i)=>[i+1,MOVE_RECIPE_LIBRARY[i%MOVE_RECIPE_LIBRARY.length].rule]));
-for(const[id,rule]of entries){const raw=decodeRecord(project,"moves",id).raw!;raw.category=rule.effects.some(e=>e.phase==="status")?0:1;raw.power=raw.category===0?0:40;markDirty(project,"moves",id);}
+for(const[id,rule]of entries){const raw=decodeRecord(project,"moves",id).raw!;raw.category=rule.effects.some(e=>e.phase==="status")?0:1;raw.power=raw.category===0?0:40;if(rule.effects.some(e=>e.kind==="drainEachHit"))raw.hits=0;markDirty(project,"moves",id);}
 const before = Array.from({length:100},(_,i)=>structuredClone(decodeRecord(project,"moves",i+1).raw!));
 const rpm=buildMoveRuleModule(project,entries);await writeFile(resolve(out,"MoveEffects.dll"),writeRpm(rpm,{ident:"DLXF"}));
-const rom=new NintendoDSRom(input,{fileData:"view"}),overlay=rom.loadArm9Overlays([167]).get(167)!;
-await writeFile(resolve(out,"overlay167.bin"),overlay.data);
+const overlayId=project.session.baseRom==="BW"?93:167,battleBank=project.session.baseRom==="BW"?14:18;
+const rom=new NintendoDSRom(input,{fileData:"view"}),overlay=rom.loadArm9Overlays([overlayId]).get(overlayId)!;
+await writeFile(resolve(out,`overlay${overlayId}.bin`),overlay.data);
 console.log(JSON.stringify({game:rom.idCode,base:overlay.ramAddress,templates:entries.size,code:rpm.code.length,bss:rpm.bssSize}));
 
 await configureMoveRuleSets(project,[...entries].map(([moveId,rules])=>({moveId,rules})));
@@ -44,6 +46,17 @@ function checkFiles(folder:Folder,prefix=""){
   const id=exported.filenames.idOf(path);assert.notEqual(id,undefined,`Preserved file ${path}`);
   const original=rom.files[folder.firstId+index],actual=exported.files[id!];
   if(!Buffer.from(actual).equals(Buffer.from(original))){
+   if(path==="a/0/0/2"){
+    const before=new NARC(original).files,after=new NARC(actual).files;assert.equal(after.length,before.length);
+    for(let bank=0;bank<before.length;++bank){
+     if(bank!==battleBank){assert.deepEqual(after[bank],before[bank],`Unrelated message bank ${bank}`);continue;}
+     const oldEntries=decodeGen5TextBank(before[bank]),newEntries=new Map(decodeGen5TextBank(after[bank]).map(entry=>[entry[0],entry]));
+     // The third tuple member is the encryption key, which may change on
+     // re-encoding. The ID includes the flags and compression marker.
+     for(const entry of oldEntries)assert.deepEqual(newEntries.get(entry[0])?.slice(0,2),entry.slice(0,2),`Existing battle message ${entry[0]}`);
+    }
+    ++preservedFiles;continue;
+   }
    const repair=repairNarcBytes(original);assert(repair.changed,`Unrelated file changed: ${path}`);
    assert.deepEqual(actual,repair.bytes,`Unexpected archive change: ${path}`);
    assert.deepEqual(new NARC(actual).files,new NARC(original).files,`Unrelated archive payload changed: ${path}`);

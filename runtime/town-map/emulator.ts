@@ -1,4 +1,5 @@
 /** Isolated native smoke runner. Uses a copied bundled fixture, never user saves. */
+import { paintTownMapToolsFixture } from "./paint-tools-fixture";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
@@ -27,6 +28,7 @@ while (draft.areas.length < count) {
   const at = appendTownMapArea(draft, first, free.shift()!.index), a = draft.areas[at];
   a.position.x = 40 + (at - 85) * 4; a.position.y = 72; a.cursor = { ...a.position }; a.hit.start = { ...a.position }; a.hit.end = { ...a.position };
 }
+if (args.includes("--paint-tools")) paintTownMapToolsFixture(draft);
 area.fly = 1; area.arrivalFlag = 2470; draft.landings[area.zone].x += 1;
 editTownMapText(draft, first, 0, "A custom Town Map description.");
 if (!args.includes("--baseline")) await applyTownMapDraft(project, draft);
@@ -53,7 +55,7 @@ for (const half of [0, 0x26000]) {
   const gear = crc(fixture.subarray(half + 0x1c000, half + 0x1c094)); fixture.writeUInt16LE(gear, half + 0x1c096); fixture.writeUInt16LE(gear, half + 0x25f40);
   fixture.writeUInt16LE(crc(fixture.subarray(half + 0x25f00, half + 0x25f94)), half + 0x25fa2);
 }
-const out = new URL(`./build/emulator-${project.session.baseVersion}-${count}${args.includes("--baseline") ? "-baseline" : ""}-${fly ? locked ? "locked" : "fly" : "map"}/`, import.meta.url);
+const out = new URL(`./build/emulator-${project.session.baseVersion}-${count}${args.includes("--baseline") ? "-baseline" : ""}-${fly ? locked ? "locked" : "fly" : "map"}${args.includes("--paint-tools") ? "-paint-tools" : ""}/`, import.meta.url);
 await mkdir(out, { recursive: true });
 const corePath = new URL("../../public/desmond/desmond.js", import.meta.url), source = await readFile(corePath, "utf8");
 let ready!: () => void; const initialized = new Promise<void>(r => { ready = r; }); const fatal: string[] = [];
@@ -78,7 +80,7 @@ function findGame(m: Buffer): number {
   throw new Error("Could not locate the isolated fixture's player state.");
 }
 for (let frame = 0; frame < (args.includes("--pokedex") ? 7200 : 3600); frame++) {
-  const touch = args.includes("--pokedex") && frame >= 4900 && frame < 4904 ? [96, 180] : args.includes("--pokedex") && frame >= 5700 && frame < 5704 ? [244, 180] : args.includes("--pokedex") && frame >= 6200 && frame < 6204 ? [30, 160] : args.includes("--pokedex") && frame >= 3200 && frame < 3204 ? [190, 46] : frame >= 1000 && frame < 1004 ? [60, 116] : !fly && frame >= 1600 && frame < 1604 ? [180, 180] : null;
+  const touch = args.includes("--paint-tools") && frame >= 1500 && frame < 1504 ? [74, 145] : args.includes("--pokedex") && frame >= 4900 && frame < 4904 ? [96, 180] : args.includes("--pokedex") && frame >= 5700 && frame < 5704 ? [244, 180] : args.includes("--pokedex") && frame >= 6200 && frame < 6204 ? [30, 160] : args.includes("--pokedex") && frame >= 3200 && frame < 3204 ? [190, 46] : frame >= 1000 && frame < 1004 ? [60, 116] : !fly && frame >= 1600 && frame < 1604 ? [180, 180] : null;
   const buttons = args.includes("--pokedex") && frame >= 4180 && frame < 4320 ? 4 : args.includes("--pokedex") && (frame >= 4100 && frame < 4104 || frame >= 4400 && frame < 4404 || frame >= 6800 && frame < 6804 || frame >= 7000 && frame < 7004) ? 128 : fly && frame >= 1600 && frame < 1604 ? 128 : frame >= 2400 && frame < 2404 ? 64 : (args.includes("--menu") || args.includes("--pokedex")) && frame >= 3000 && frame < 3004 ? 512 : 0;
   core._runFrame(1, buttons, touch ? 1 : 0, touch?.[0] ?? 0, touch?.[1] ?? 0);
   if ([999, 1400, 1800, 2200, 2800, 3599, 3900, 4400, 5000, 5599, 6000, 6600, 7199].includes(frame)) {

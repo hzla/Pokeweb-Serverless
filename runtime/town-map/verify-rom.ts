@@ -1,3 +1,4 @@
+import { paintTownMapToolsFixture } from "./paint-tools-fixture";
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { loadProjectFromRomBytes } from "../../src/pokeweb/loader";
@@ -77,6 +78,7 @@ if (args.includes("--artwork")) {
   editTownMapAnimationFrame(draft.graphics, 19, 0, 0, "duration", animation.sequences[0].frames[0].duration);
   draft.areas[0].habitat.x = -12; draft.areas[0].habitat.y = -20;
 }
+if (args.includes("--paint-tools")) paintTownMapToolsFixture(draft);
 let artworkArea: typeof original | undefined;
 if (args.includes("--artwork-selection")) {
   artworkArea = structuredClone(draft.areas[13]);
@@ -142,6 +144,7 @@ if (after.areas.length !== count || count > 85 && reopened.flyDestinations?.town
 for (const [id, data] of after.graphics) if (!equalTownMapBytes(data, draft.graphics.get(id)!)) throw new Error(`ROM export changed graphics ${id}.`);
 for (const [id, data] of after.habitatGraphics) if (!equalTownMapBytes(data, draft.habitatGraphics.get(id)!)) throw new Error(`ROM export changed habitat graphics ${id}.`);
 if (args.includes("--artwork") && (after.areas[0].habitat.x !== -12 || after.areas[0].habitat.y !== -20)) throw new Error("Signed habitat coordinates changed.");
+if (args.includes("--paint-tools")) console.log("City stamps, route junctions, shared palette and Back preservation passed project save and ROM export/reload.");
 console.log(`${project.romInfo.idCode}: ${count} areas; area/graphics no-op round trips, linked movement, text edit, project save and ROM export/reload passed.`);
 if (migration && new NintendoDSRom(result, { fileData: "view" }).filenames.idOf(`patches/FlyDestinations${project.session.baseVersion}.dll`) !== undefined) throw new Error("ROM export retained the retired Fly module path.");
 if (output) await writeFile(output, result, { flag: "wx" });
