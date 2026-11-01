@@ -35,6 +35,7 @@ import {
   type MoveAnimationBattleEnvironmentSelection,
 } from "../pokeweb/moveAnimationBattleEnvironment";
 import { updateMoveDescription, updateMoveTextName } from "../pokeweb/moveTextModel";
+import { installLazyDescriptionPreview } from "./lazyDescriptionPreview";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml, scrollRowBelowStickyHeader, selectText } from "./dom";
 import { stripeRows } from "./legacyInteractions";
@@ -890,6 +891,9 @@ function installMoveTextFields(root: HTMLElement, project: ProjectState, options
   root.querySelectorAll<HTMLTextAreaElement>(".move-text-description-input").forEach((textarea) => {
     if (textarea.dataset.moveTextDescriptionInstalled === "true") return;
     textarea.dataset.moveTextDescriptionInstalled = "true";
+    const details = textarea.closest(".expanded-move-texts")?.querySelector<HTMLDetailsElement>("[data-description-preview]");
+    const preview = details ? installLazyDescriptionPreview(project, details, "move", () => textarea.value) : undefined;
+    textarea.addEventListener("input", () => preview?.refresh());
     let initialValue = textarea.value;
     const commit = () => {
       const card = textarea.closest<HTMLElement>(".move-card");
@@ -922,9 +926,12 @@ function refreshMoveTextPanel(card: HTMLElement, project: ProjectState, moveId: 
   const panel = card.querySelector<HTMLElement>(".expanded-move-texts");
   if (!panel || !options.renderTextPanel) return;
   const wasOpen = panel.classList.contains("show-flex");
+  const previewOpen = Boolean(panel.querySelector<HTMLDetailsElement>("[data-description-preview]")?.open);
   panel.outerHTML = options.renderTextPanel(moveId);
   const nextPanel = card.querySelector<HTMLElement>(".expanded-move-texts");
   if (nextPanel && wasOpen) nextPanel.classList.add("show-flex");
+  const details = nextPanel?.querySelector<HTMLDetailsElement>("[data-description-preview]");
+  if (details) details.open = previewOpen;
   if (nextPanel) installMoveTextFields(nextPanel, project, options);
 }
 

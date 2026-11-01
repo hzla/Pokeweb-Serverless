@@ -27,6 +27,7 @@ import {
   type MoveRecord,
 } from "../pokeweb/moveItemModel";
 import { getMoveTextInfo, hasMoveTextBanks, type MoveTextInfo, type MoveTextLine, type MoveTextSection } from "../pokeweb/moveTextModel";
+import { descriptionPreviewMarkup } from "./lazyDescriptionPreview";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 import { attachItemInteractions, attachMoveInteractions, installMoveAnimationEditor, renderMoveAnimationEditor } from "./moveItemInteractions";
@@ -416,6 +417,7 @@ function renderMoveTextPanel(info: MoveTextInfo | undefined): string {
           <span>Description</span>
           <textarea class="move-text-description-input" spellcheck="false">${escapeHtml(info.description)}</textarea>
         </label>
+        ${descriptionPreviewMarkup}
         <div class="move-text-status" aria-live="polite"></div>
       </div>
       <div class="move-text-bank-list">

@@ -1,6 +1,7 @@
 import { moveEffectAllowsChance, MOVE_EFFECT_VALUE_FLAGS, MOVE_STAT_LABELS, MOVE_EFFECT_VALUE_LABELS, moveEffectTargets } from "../pokeweb/moveRules";
 import "../styles/moveRecipes.css";
 import { clearMoveRules, configureMoveRuleSets, inspectMoveEffects, supportsMoveRecipes } from "../pokeweb/moveEffectsModel";
+import { appendMoveRuleTemplate } from "../pokeweb/appendRuleTemplate";
 import {MOVE_STAGE2A_ENABLED} from "../pokeweb/moveRecipeLibrary2A";
 import {MOVE_STAGE2B_ENABLED} from "../pokeweb/moveRecipeLibrary2B";
 import { filterMovePrimitiveReference, movePrimitiveReference } from "../pokeweb/movePrimitiveReference";
@@ -53,7 +54,7 @@ export function installMoveRecipeEditor(project: ProjectState, root: HTMLElement
   let draftDirty=!applied, referenceQuery="";
   const category=decodeRecord(project,"moves",id).raw!.category;
   const makeEffect=(kind=category===0?"statStage":"power")=>{const effect=newMoveEffect(kind);effect.phase=MOVE_PRIMITIVES.find(p=>p.kind===kind)!.phases.find(phase=>movePhaseMatchesCategory(phase,category))??effect.phase;if(effect.phase!=="hit")effect.secondary=false;return effect;};
-  if(!applied)draft.effects=[makeEffect()];
+  if(!applied)draft.effects=[];
   const types = typeNamesForProject(project);
   function at(path: string): MoveCondition {
     const parts = path.split(".");
@@ -121,8 +122,8 @@ export function installMoveRecipeEditor(project: ProjectState, root: HTMLElement
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-move-action]"); if (!button) return;
     event.stopPropagation(); const action = button.dataset.moveAction, path = button.dataset.path;
     try {
-      if(action!=="apply"&&action!=="restore")draftDirty=true;
-      if (action === "import") { const source = Number(root.querySelector<HTMLSelectElement>("[data-move-template]")!.value), imported = moveRecipeTemplate(source); if (!imported) return; draft = structuredClone(imported.rule); feedback = `${imported.label} draft`; }
+      if(action!=="apply"&&action!=="restore"&&action!=="import")draftDirty=true;
+      if (action === "import") { const source = Number(root.querySelector<HTMLSelectElement>("[data-move-template]")!.value), imported = moveRecipeTemplate(source); if (!imported) return; draft = appendMoveRuleTemplate(draft, imported.rule); draftDirty=true; feedback = `${imported.label} template added`; }
       else if (action === "remove-native") delete draft.nativeBase;
       else if (action === "add") draft.effects.push(makeEffect());
       else if (action === "remove") draft.effects.splice(Number(button.dataset.index), 1);
@@ -130,7 +131,7 @@ export function installMoveRecipeEditor(project: ProjectState, root: HTMLElement
       else if ((action === "condition" || action === "group") && path) { const c = at(path); if (c.kind === "group") c.children.push(action === "group" ? { kind: "group", mode: "all", children: [] } : { kind: "hp", subject: "user", comparison: "lte", percent: 50 }); }
       else if (action === "remove-condition" && path) { const parts = path.split("."), parent = at(parts.slice(0, -1).join(".")); if (parent.kind === "group") parent.children.splice(Number(parts.at(-1)), 1); }
       else if (action === "apply") { button.disabled = true; await configureMoveRuleSets(project, [{ moveId: id, rules: validateMoveRule(draft) }]); applied = true;draftDirty=false; root.closest("[data-move-index]")?.querySelector(".expanded-move")?.remove(); feedback = "Applied"; onDirty?.(); }
-      else if (action === "restore") { button.disabled = true; await clearMoveRules(project, id); applied = false;draftDirty=false;root.closest("[data-move-index]")?.querySelector(".expanded-move")?.remove(); draft = {...structuredClone(EMPTY_MOVE_RULE),effects:[makeEffect()]}; feedback = "Native behavior restored"; onDirty?.(); }
+      else if (action === "restore") { button.disabled = true; await clearMoveRules(project, id); applied = false;draftDirty=false;root.closest("[data-move-index]")?.querySelector(".expanded-move")?.remove(); draft = {...structuredClone(EMPTY_MOVE_RULE),effects:[]}; feedback = "Native behavior restored"; onDirty?.(); }
       render();
     } catch (error) { button.disabled = false; root.querySelector<HTMLElement>("[data-move-feedback]")!.textContent = error instanceof Error ? error.message : String(error); }
   });

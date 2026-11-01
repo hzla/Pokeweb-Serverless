@@ -257,10 +257,11 @@ def main():
    hooks += [emu.memory.register_exec(manifest.get('openingHook',0x0219f5da),opening),emu.memory.register_exec(manifest.get('commandHook',0x021cef18),command),emu.memory.register_exec(manifest['api']['BattleEventVar_MulValue'],multiplied),emu.memory.register_exec(manifest['api']['BattleEventVar_RewriteValue'],rewritten),emu.memory.register_exec(manifest['api']['BattleHandler_PushWork'],pushed)]
    try:
     emu.open(rom)
+    boot_frame=emu.frame_count
     for _ in range(a.max_frames):
      if menus or manifest.get('manualLaunch'):
       # The normal BW2 test save faces away from its NPC, which stands south.
-      key=128 if manifest.get('manualLaunch')and 600<=emu.frame_count<602 else 1 if emu.frame_count%12<3 else 0
+      key=128 if manifest.get('manualLaunch')and 600<=emu.frame_count-boot_frame<602 else 1 if emu.frame_count%12<3 else 0
       emu.input.keypad_update(key)
      if menus and spec.get('turnMove'):
       age=emu.frame_count-menus[-1]['frame'];choice=spec['turnMove'][min(len(menus)-1,len(spec['turnMove'])-1)]

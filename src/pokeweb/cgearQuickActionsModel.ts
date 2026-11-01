@@ -10,6 +10,7 @@ import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { recordGenericChange } from "./actionChangelog";
 import { addRomFile, getRomFileBytes } from "./fileSystemModel";
+import { materializeProjectEdits } from "./projectMaterialize";
 import { loadActiveRomBytes } from "./persistence";
 import { adoptExistingPmcInstall, canRemoveStagedCodeInjectionDll, getPmcInstallStatus, installPmcBytes,
   listCodeInjectionDlls, loadBundledPmcBytes, removeStagedCodeInjectionDll, stageCodeInjectionDll,
@@ -237,10 +238,10 @@ function stageArchive(project: ProjectState, rom: NintendoDSRom, bytes: Uint8Arr
   else addRomFile(project, manifest.archivePath, bytes);
 }
 function validateSystemShopResources(project: ProjectState, rom: NintendoDSRom): void {
-  const archive = (path: string) => {
+  const archive = (path: string, source = project) => {
     const id = rom.filenames.idOf(path);
     if (id === undefined) throw new Error(`System Shop requires native archive ${path}.`);
-    return new NARC(getRomFileBytes(project, rom, id));
+    return new NARC(getRomFileBytes(source, rom, id));
   };
   const expected = manifest.shopScript;
   const script = archive(expected.archive).files[expected.member];
@@ -248,13 +249,22 @@ function validateSystemShopResources(project: ProjectState, rom: NintendoDSRom):
     throw new Error("The native shop script has unrecognized changes. Restore a compatible script, or remove System Shop before applying.");
   // Do not fingerprint authored stock or prices: native code reads both on
   // each opening. Reject truncated/invalid inventories before staging instead.
-  const stock = archive(manifest.shopInventory.archive);
+  // The mart editor updates counts immediately but serializes item records on
+  // export. Validate the same bytes export will use, without flushing the live
+  // project or materializing unrelated archives during a failed installation.
+  let stockProject = project;
+  if (project.narcs.marts?.dirty.size) {
+    stockProject = { ...project, narcs: { marts: structuredClone(project.narcs.marts) } };
+    materializeProjectEdits(stockProject);
+  }
+  const stock = archive(manifest.shopInventory.archive, stockProject);
   const counts = archive(manifest.shopInventory.countsArchive).files[0];
   const items = archive("a/0/2/4");
   for (const row of new Set(manifest.shopInventory.badgeRows)) {
     const data = stock.files[row], count = counts?.[row];
-    // Retail stores at most 45 item/price records before its UI fields.
-    if (!count || count > 45 || !data || data.length !== count * 2)
+    // Native shops read count entries; the editor can retain unused slots after
+    // them. Retail stores at most 45 item/price records before its UI fields.
+    if (!count || count > 45 || !data || data.length < count * 2 || data.length % 2)
       throw new Error(`System Shop general-store stock ${row} does not match its native item count.`);
     for (let i = 0; i < count; i++) {
       const item = readU16(data, i * 2);

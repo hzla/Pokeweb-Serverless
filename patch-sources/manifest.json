@@ -3461,7 +3461,7 @@
           "sha256": "fcdd22b9e3a184637500afbe12896d5e976d7066971c1b168c63ac54af3f8bb9"
         }
       ],
-      "note": "Standalone stock-US B2/W2 overlay-168 runtime for front-trainer PWAN animations. It redirects configured graphics to one appended carrier, streams per-instance texture and palette data, and remains independent from the Pok\u00e9mon PWAN DLLs.",
+      "note": "Standalone stock-US B2/W2 overlay-168 runtime for front-trainer PWAN animations. It redirects configured graphics to one appended carrier, streams per-instance texture and palette data, and remains independent from the Pokémon PWAN DLLs.",
       "status": "source-available",
       "files": [
         {
@@ -3628,7 +3628,7 @@
     },
     {
       "name": "trainer-nature",
-      "title": "Specified trainer Pok\u00e9mon natures",
+      "title": "Specified trainer Pokémon natures",
       "artifacts": [
         {
           "name": "TrainerNatureB2.dll",
@@ -3756,7 +3756,7 @@
     },
     {
       "name": "following-pokemon",
-      "title": "Following Pok\u00e9mon",
+      "title": "Following Pokémon",
       "artifacts": [
         {
           "name": "following/PokewebFollowingCoreW2.dll",
@@ -6417,7 +6417,7 @@
           "sha256": "d67c6328efd3bcd065db64ec21764467d10ce2b068289e0cbc9e5762b9d2bd91"
         }
       ],
-      "note": "BW2 0.5.7 includes the optional System Shop picker, native Pok\u00e9mart, custom inventories/prices, stackable-item currencies, native TM rendering, currency balance icon and optional per-item badge/save-flag conditions. Inventory defaults remain unrestricted, and visible stock/prices share a stable row map. BW1 remains 0.1.3-bw1 without System Shop. Both retain HM02-gated native Fly without a learned-move requirement. BW2 retains the outer-rim 12-degree skin dial and moving marker while hiding the digital clock and chevron decal; shared geometry and compiled graphics are inventoried here. It retains the optional Nuzlocke snapshot provider to the Pokenav application action; its shared viewer sources are inventoried separately. Bundle hashes/versions are tested together. Source availability does not establish hardware acceptance.",
+      "note": "BW2 0.5.7 includes the optional System Shop picker, native Pokémart, custom inventories/prices, stackable-item currencies, native TM rendering, currency balance icon and optional per-item badge/save-flag conditions. Inventory defaults remain unrestricted, and visible stock/prices share a stable row map. BW1 remains 0.1.3-bw1 without System Shop. Both retain HM02-gated native Fly without a learned-move requirement. BW2 retains the outer-rim 12-degree skin dial and moving marker while hiding the digital clock and chevron decal; shared geometry and compiled graphics are inventoried here. It retains the optional Nuzlocke snapshot provider to the Pokenav application action; its shared viewer sources are inventoried separately. Bundle hashes/versions are tested together. Source availability does not establish hardware acceptance.",
       "status": "source-available",
       "files": [
         {
@@ -6428,6 +6428,16 @@
           },
           "kind": "build-tool",
           "sha256": "63008f9e095306b4acfdbc7fe4c0da5cb3d7602a716d6c1d4c3d82ab711cce90",
+          "normalized": false
+        },
+        {
+          "path": "cgear-quick-actions/build_redux.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/cgear-quick-actions/build_redux.py"
+          },
+          "kind": "build-tool",
+          "sha256": "f1549822aee9eb690739679ad0c72d76cbbf5e4e510313979c56e6b6cf46c68a",
           "normalized": false
         },
         {
@@ -6521,6 +6531,16 @@
           "normalized": false
         },
         {
+          "path": "cgear-quick-actions/prepare_redux_emulator.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/cgear-quick-actions/prepare_redux_emulator.ts"
+          },
+          "kind": "build-tool",
+          "sha256": "676044f1e74ea1f2723d154a17d300fd6547a3a63f5759eab211ad3c150af4ad",
+          "normalized": false
+        },
+        {
           "path": "cgear-quick-actions/previous-bw1.json",
           "origin": {
             "repository": "pokeweb",
@@ -6577,7 +6597,17 @@
             "path": "runtime/cgear-quick-actions/README.md"
           },
           "kind": "documentation",
-          "sha256": "6d058d966b60df06c4717957a6000066c98c1c43a76e0c3331ec25a6e85506bb",
+          "sha256": "70c550ed0cb49cdefd6b64d4a5945d068f76e3aa0005f705583e9772583c87f5",
+          "normalized": false
+        },
+        {
+          "path": "cgear-quick-actions/redux-profile.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/cgear-quick-actions/redux-profile.json"
+          },
+          "kind": "metadata",
+          "sha256": "58c5552fecb7b640dc908b97327a3f78c960151d790f7d66d7f42ca73884a7b7",
           "normalized": false
         },
         {
@@ -6598,6 +6628,36 @@
           },
           "kind": "test",
           "sha256": "58954663cd4fc322dd1954fe31c89f4075fe1c3cfe2066674532855a69c9b525",
+          "normalized": false
+        },
+        {
+          "path": "cgear-quick-actions/verify_redux_emulator.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/cgear-quick-actions/verify_redux_emulator.py"
+          },
+          "kind": "test",
+          "sha256": "5524a65f5b54b98e1186e07ffe40f98053e8871b5b2cdb9d69fc228525e1bc54",
+          "normalized": false
+        },
+        {
+          "path": "cgear-quick-actions/verify_redux_install.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/cgear-quick-actions/verify_redux_install.ts"
+          },
+          "kind": "test",
+          "sha256": "59d339d38480dd18c03bb448ae77727bd5daf7bef476d2fc77c9c0649e7bd58f",
+          "normalized": false
+        },
+        {
+          "path": "cgear-quick-actions/verify_redux.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/cgear-quick-actions/verify_redux.py"
+          },
+          "kind": "test",
+          "sha256": "eb96de0eef9a6e09e77e939d7c531795c9fcb49f314935249b34611dd18ce446",
           "normalized": false
         },
         {
@@ -6637,7 +6697,7 @@
             "path": "runtime/cgear-quick-actions/bw2/game_state.inc"
           },
           "kind": "source",
-          "sha256": "3ee6076b5b20ec8ae64c69fc310b6e6e9766f3d159375158b4c05772248ac35e",
+          "sha256": "70a8a443c9e034936848a4c5042ce96c71b0ce76d6940008a538aab5b5b2dc99",
           "normalized": false
         },
         {
@@ -6647,7 +6707,7 @@
             "path": "runtime/cgear-quick-actions/bw2/hooks.inc"
           },
           "kind": "source",
-          "sha256": "543115ace0990ec5c6d2d86f0257f89724f172286fe8ce5444c89d8caf6f5f4f",
+          "sha256": "147a4143177cfe410e1ce92d488351b3fd66f7e53b15720e523c5f37dee940d2",
           "normalized": false
         },
         {
@@ -6657,7 +6717,7 @@
             "path": "runtime/cgear-quick-actions/bw2/requests.inc"
           },
           "kind": "source",
-          "sha256": "1431cddb3a50a48fc6e854f3a73e161eeb5aa243b854d7b16b3634421df1616b",
+          "sha256": "cb9f971a0e7e9138663efd02e6a4851ea3d5b473ab7264fc6c99843a5661144a",
           "normalized": false
         },
         {
@@ -6737,7 +6797,7 @@
             "path": "docs/cgear-buttons/index.html"
           },
           "kind": "documentation",
-          "sha256": "471cada68b7d18b2fc62e97adae57e55176ce524534785e7c6a8af87ab623c89",
+          "sha256": "4295178ca77fab5a7a5d1f3348ef6f031801a90083ce96dfe6cca2ae2c3ab428",
           "normalized": false
         },
         {
@@ -6887,7 +6947,7 @@
             "path": "src/ui/cgearButtonsEditor.ts"
           },
           "kind": "support-only",
-          "sha256": "c6f2440f48605f45fd15f8014f3ab5edd26f3a93b73c8dc1a694c4bb8bf17c6e",
+          "sha256": "2a4413bc4b2372158391125b2d1f08ddf47ad926c029f1b3a0ae380f2e662722",
           "normalized": false
         },
         {
@@ -6917,7 +6977,7 @@
             "path": "src/test/cgearQuickActionsModel.test.ts"
           },
           "kind": "test",
-          "sha256": "6c8f7d5dd8c71ce7229459812e1d898afa743106ea551d0ec7b6f40512322a53",
+          "sha256": "ef18569acf6cad8998fbb8788f6c6e3af1630873aaddb8cbc2d07f3c8e95c310",
           "normalized": false
         },
         {
@@ -6937,7 +6997,7 @@
             "path": "src/pokeweb/cgearQuickActionsModel.ts"
           },
           "kind": "support-only",
-          "sha256": "0e020e7d5c439dce720df42df29f603f5f37a50d6c83703351e6cd3a1d5708cb",
+          "sha256": "f70554a29e06d747c7a4d6057c7547dd0fa6426e62c545e1fa47ebeba013d500",
           "normalized": false
         },
         {
@@ -7057,7 +7117,7 @@
             "path": "src/test/cgearBundle.test.ts"
           },
           "kind": "test",
-          "sha256": "d5fc285026adff55301ff440b242ff34a2a958af7112aa902eb9d3d607762e76",
+          "sha256": "821266e21f28bbefbc41285a880ba90684a91f9c869c94174aa184bb2119deb0",
           "normalized": false
         },
         {

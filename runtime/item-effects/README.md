@@ -6,6 +6,12 @@ points; authoritative controls and formats are in `src/pokeweb/itemEffectsModel.
 `itemRules.ts`, `itemRulePresets.ts` and the native profile catalog. BW1 and other
 regions/revisions need separate verified profiles.
 
+New custom drafts start empty. Import Effect Template appends effects to the
+current draft and combines activation conditions with AND, preserving nested OR
+groups. Existing values and the consumable setting are retained. Imports that
+exceed the editor bounds leave the draft unchanged. Apply custom effects commits
+the resulting composition.
+
 Shared native code parameters affect all users of that implementation; item-data
 parameters remain per item. Composed rules support up to 16 effects, native
 callbacks, trigger/target/chance settings and per-effect state. Native behaviors

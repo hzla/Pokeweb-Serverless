@@ -1,4 +1,4 @@
-/** Black revision-0 ability recipes: production export/reload and native fixtures. */
+/** BW1 revision-0 ability recipes: production export/reload and native fixtures. */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -19,13 +19,16 @@ import { parseRpm } from "../../src/pokeweb/rpm";
 import { buildTestBattleDownloads, rawSaveBytesFromDesmumeDsv, getTestBattleConfig, refreshTestBattleSaveBlockChecksum } from "../../src/pokeweb/testBattle";
 import { decryptPk5Party } from "../../src/pokeweb/testBattleTeam";
 import { battleRuntimeResolver } from "../../src/pokeweb/battleRuntimeBindings";
-import bindings from "../../src/assets/data/abilityBindingsB1.json";
+import blackBindings from "../../src/assets/data/abilityBindingsB1.json";
+import whiteBindings from "../../src/assets/data/abilityBindingsW1.json";
 
 const [inputPath, directory] = process.argv.slice(2); assert(directory, "Usage: INPUT.nds NEW_OUTPUT_DIRECTORY [--only=CASE,...]");
 const out = resolve(directory), input = new Uint8Array(await readFile(inputPath)), sha = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
-assert.equal(new NintendoDSRom(input, {fileData:"view"}).idCode,"IRBO");await mkdir(out);await mkdir(`${out}/saves`);
+const inputRom=new NintendoDSRom(input,{fileData:"view"});assert(["IRBO","IRAO"].includes(inputRom.idCode));assert.equal(inputRom.data[30],0);
+const game=inputRom.idCode==="IRAO"?"W":"B",bindings=game==="W"?whiteBindings:blackBindings;
+await mkdir(out);await mkdir(`${out}/saves`);
 globalThis.fetch = (async (request: RequestInfo | URL) => { const url = new URL(request instanceof Request ? request.url : String(request)); assert.equal(url.protocol, "file:"); return new Response(new Uint8Array(await readFile(url))); }) as typeof fetch;
-const load = (bytes: Uint8Array) => loadProjectFromRomBytes(bytes, "ability-black.nds", { selectedNarcs: ["personal", "items", "message_texts", "moves", "trdata", "trpok"] });
+const load = (bytes: Uint8Array) => loadProjectFromRomBytes(bytes, "ability-bw1.nds", { selectedNarcs: ["personal", "items", "message_texts", "moves", "trdata", "trpok"] });
 let project = await load(input);
 const imported=(label:string)=>structuredClone(ABILITY_IMPORT_LIBRARY.find(p=>p.label===label)!.rule);
 const all:AbilityRuleSet["conditions"]={kind:"group",mode:"all",children:[]};
@@ -50,17 +53,17 @@ const rules=new Map<number,AbilityRuleSet>([
 ]);
 if(process.argv.includes("--client"))rules.set(185,{effects:[{kind:"nativeAbility:42",value:-1,parameters:{trapType:11}}],conditions:all});
 const frost=process.argv.includes("--frost");
-if(frost){assert(project.session.fairy,"Expected a Fairy-enabled Black ROM");rules.set(186,imported("Pixilate"));rules.set(187,{effects:[{kind:"nativeAbility:16",value:-1}],conditions:all});rules.set(188,{effects:[{kind:"nativeAbility:42",value:-1,parameters:{trapType:17}}],conditions:all});rules.set(189,{effects:[{kind:"healFlat",value:7}],conditions:{kind:"type",value:17}});rules.set(190,imported("Refrigerate"));rules.set(191,imported("Tera Shell"));}
+if(frost){assert(game==="B"&&project.session.fairy,"Expected the reviewed Fairy-enabled Black ROM");rules.set(186,imported("Pixilate"));rules.set(187,{effects:[{kind:"nativeAbility:16",value:-1}],conditions:all});rules.set(188,{effects:[{kind:"nativeAbility:42",value:-1,parameters:{trapType:17}}],conditions:all});rules.set(189,{effects:[{kind:"healFlat",value:7}],conditions:{kind:"type",value:17}});rules.set(190,imported("Refrigerate"));rules.set(191,imported("Tera Shell"));}
 rules.set(192,{effects:[{kind:"speed",value:2}],conditions:{kind:"weather",value:3}});
 if(process.argv.includes("--stress"))for(let id=1;id<=164&&rules.size<100;id++)if(id!==13&&id!==50&&id!==117&&!rules.has(id))rules.set(id,{effects:[{kind:"healFlat",value:1}],conditions:all});
 for(const[id,r]of rules)rules.set(id,validateAbilityRule(r));
-// Every imported recipe is linked with Black's native services before fixtures.
+// Every imported recipe is linked with this game's native services before fixtures.
 for(const entry of ABILITY_IMPORT_LIBRARY)buildAbilityRuleModule(project,new Map([[255,entry.rule]]));
-await configureAbilityRuleSets(project,[...rules].map(([abilityId,rules])=>({abilityId,rules,name:abilityId===167?"Scare":`Black ${abilityId}`})));
+await configureAbilityRuleSets(project,[...rules].map(([abilityId,rules])=>({abilityId,rules,name:abilityId===167?"Scare":`BW ${abilityId}`})));
 const verify=()=>{const state=inspectAbilityEffects(project);assert(state.editable,state.message);assert.deepEqual(state.rules,rules);};verify();
 project=openProjectSession(createProjectDocument(project,false));project.originalRomBytes=input;hydrateAbilityEffectsSource(project,new NintendoDSRom(input,{fileData:"view"}));verify();
 const trim=()=>{for(const[name,store]of Object.entries(project.narcs))if(!store?.dirty.size)delete project.narcs[name as keyof typeof project.narcs];};
-trim();const exported=await exportModifiedRom(project,{forDsi:false});await writeFile(`${out}/black-abilities.nds`,exported);project=await load(exported);verify();
+trim();const exported=await exportModifiedRom(project,{forDsi:false});await writeFile(`${out}/bw1-abilities.nds`,exported);project=await load(exported);verify();
 // Re-edit an exported custom ID, then restore and verify the same FAT entry.
 await configureAbilityRuleSets(project,[{abilityId:167,rules:{...rules.get(167)!,effects:[{kind:"nativeAbility:22",value:-1,stat:4}]},name:"Scare"}]);
 trim();const reedited=await exportModifiedRom(project,{forDsi:false});project=await load(reedited);assert.equal(inspectAbilityEffects(project).rules.get(167)!.effects[0].stat,4);
@@ -151,5 +154,5 @@ for(const[index,spec]of cases.entries()){
  await writeFile(`${out}/saves/${label}.sav`,save);if(!hashes[filename]){await writeFile(`${out}/${filename}`,downloads.romBytes);hashes[filename]=sha(downloads.romBytes);}
  fixtures.push({...spec,enemyCount:enemies.length,label,speciesId:spec.playerSpecies??1,maxHp:readU16(raw,0x90),hp:spec.hp??readU16(raw,0x90),rom:filename});
 }
-await writeFile(`${out}/cases.json`,JSON.stringify({inputSha256:sha(input),exportSha256:sha(exported),reexportSha256:sha(final),projectReload:true,romExportReload:true,importsLinked:ABILITY_IMPORT_LIBRARY.length,editedAbilities:rules.size,codeBytes:dll.code.length,bssBytes:dll.bssSize,serializedBytes:dllBytes.length,nameLoader:resolver.resolve("loadAbilityNameToStrbuf").address,api,symbols,pmcSymbols,popupGateway:dll.symbols[gateway.sourceSymbolIndex].address,hook:resolver.resolve("AbilityEvent_AddItem").address,configHex:Buffer.from(encoded).toString("hex"),nativeOffsets,romHashes:hashes,cases:fixtures,priorityRuntime:true,...(clientTrapStores?{clientTrapStores,typeQuery:resolver.resolve("DoesMonHaveType").address}:{}),damageReactionHook:resolver.resolve("ServerEvent_DamageReaction").address,eventConstHook:resolver.resolve("BattleEventVar_SetConstValue").address,eventList:readU32(resolver.resolve("BattleEvent_SeekItem").code,0x30),manualLaunch:true,openingHook:0x021bbb60,flowRegister:"r0",commandHook:0x021bacac},null,2)+"\n");
-assert.equal(sha(new Uint8Array(await readFile(inputPath))),sha(input));console.log(`${fixtures.length} Black native fixtures; project and ROM reload passed.`);
+await writeFile(`${out}/cases.json`,JSON.stringify({inputSha256:sha(input),exportSha256:sha(exported),reexportSha256:sha(final),projectReload:true,romExportReload:true,importsLinked:ABILITY_IMPORT_LIBRARY.length,editedAbilities:rules.size,codeBytes:dll.code.length,bssBytes:dll.bssSize,serializedBytes:dllBytes.length,nameLoader:resolver.resolve("loadAbilityNameToStrbuf").address,api,symbols,pmcSymbols,popupGateway:dll.symbols[gateway.sourceSymbolIndex].address,hook:resolver.resolve("AbilityEvent_AddItem").address,configHex:Buffer.from(encoded).toString("hex"),nativeOffsets,romHashes:hashes,cases:fixtures,priorityRuntime:true,...(clientTrapStores?{clientTrapStores,typeQuery:resolver.resolve("DoesMonHaveType").address}:{}),damageReactionHook:resolver.resolve("ServerEvent_DamageReaction").address,eventConstHook:resolver.resolve("BattleEventVar_SetConstValue").address,eventList:readU32(resolver.resolve("BattleEvent_SeekItem").code,0x30),manualLaunch:true,openingHook:game==="W"?0x021bbb80:0x021bbb60,flowRegister:"r0",commandHook:game==="W"?0x021baccc:0x021bacac},null,2)+"\n");
+assert.equal(sha(new Uint8Array(await readFile(inputPath))),sha(input));console.log(`${fixtures.length} ${game} native fixtures; project and ROM reload passed.`);

@@ -24,7 +24,7 @@ export function renderItemEffects(project: ProjectState, itemId: number): string
       <option value="-1" ${selected === -1 ? "selected" : ""}>Type-restricted healing</option>
       <option value="-2" ${selected === -2 ? "selected" : ""}>Custom effects</option>
     </select></label>${controls}
-    <div data-item-rule-editor ${selected === -2 ? "" : "hidden"}>${renderItemRuleForm(project, state.rules ?? structuredClone(EMPTY_ITEM_RULE))}</div>
+    <div data-item-rule-editor ${selected === -2 ? "" : "hidden"}>${renderItemRuleForm(project, state.rules ?? {...structuredClone(EMPTY_ITEM_RULE),effects:[]})}</div>
     <div class="item-type-healing" ${selected === -1 ? "" : "hidden"}>
       <label class="item-native-control"><span>Holder type</span><select data-item-heal-type aria-label="Healing holder type">${typeNamesForProject(project).map((type, id) => `<option value="${id}" ${id === (state.typeHealing ?? 5) ? "selected" : ""}>${escapeHtml(type)}</option>`).join("")}</select></label>
       <label class="item-native-control"><span>Max HP healing divisor</span><input data-item-heal-divisor aria-label="Type healing divisor" type="number" min="1" max="255" value="${state.typeHealing === undefined ? 16 : Number(getItemRecord(project, itemId).raw.gain_values)}"></label>

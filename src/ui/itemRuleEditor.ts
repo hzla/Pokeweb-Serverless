@@ -8,6 +8,7 @@ import { ITEM_RULE_PRESETS, itemRulePreset } from "../pokeweb/itemRulePresets";
 import { getItemRecord } from "../pokeweb/moveItemModel";
 import { escapeHtml } from "./dom";
 import { libraryAbilityEffect } from "../pokeweb/abilityLibraryEffects";
+import { appendItemRuleTemplate } from "../pokeweb/appendRuleTemplate";
 
 export type RuleFormOptions = {
   definitions?: readonly ItemRuleEffectDefinition[];
@@ -73,7 +74,7 @@ export function renderItemRuleForm(project: ProjectState, rule: ItemRuleSet, opt
   const choices=groups.map(name=>`${name?`<optgroup label="${escapeHtml(name)}">`:""}${presets.filter(p=>("group"in p?p.group:undefined)===name).map(p=>option(p.id,p.label,"")).join("")}${name?"</optgroup>":""}`).join("");
   return `<div class="item-rule-form" data-item-rule-form>
     ${options.ability ? `<p class="ability-effects-help">Abilities are made up of “effects”. You can import an effect template from an existing ability below, or click “+ Effect” to manually add a custom effect or the effect of an existing ability. Once an effect is added, you can further adjust its parameters.</p>` : ""}
-    <div class="item-rule-preset"><select data-rule-preset aria-label="${options.ability ? "Import ability effects" : "Item effect preset"}"><option value="">${options.ability?"Import effects…":"Load preset…"}</option>${choices}</select><button type="button" class="btn -default" data-rule-action="preset">${options.ability?"Import Effect Template":"Load preset"}</button></div>
+    <div class="item-rule-preset"><select data-rule-preset aria-label="${options.ability ? "Import ability effects" : "Import item effects"}"><option value="">Import effects…</option>${choices}</select><button type="button" class="btn -default" data-rule-action="preset">Import Effect Template</button></div>
     <div class="item-rule-effects-heading"><strong>Effects</strong><button type="button" class="btn -default" data-rule-action="add-effect" ${rule.effects.length >= 16 ? "disabled" : ""}>+ Effect</button></div>
     <div data-rule-effects>${rule.effects.map((effect, index) => `<div class="item-rule-effect" data-rule-effect data-rule-effect-kind="${effect.kind}" data-rule-index="${index}">
       <div class="item-rule-effect-heading"><select data-rule-effect-kind aria-label="Effect ${index + 1}">${[false, true].map(native => `<optgroup label="${native ? options.ability ? "Copied ability handlers" : "Native item behaviors" : "Adjustable primitives"}">${(options.definitions ?? ITEM_RULE_EFFECTS).filter(d => Boolean(d.nativeItem) === native).map(d => option(d.kind, d.label, effect.kind)).join("")}</optgroup>`).join("")}</select>
@@ -161,7 +162,9 @@ export function installItemRuleEditor(container: HTMLElement, project: ProjectSt
       if (action === "preset") {
         const selected = container.querySelector<HTMLSelectElement>("[data-rule-preset]")!.value;
         if (!selected) return;
-        replace(options.preset ? options.preset(Number(selected)) : itemRulePreset(Number(selected), Boolean(Number(getItemRecord(project, Number(selected)).raw.consumable_flag)))); options.imported?.(Number(selected)); changed(); return;
+        const imported = options.preset ? options.preset(Number(selected)) : itemRulePreset(Number(selected), Boolean(Number(getItemRecord(project, Number(selected)).raw.consumable_flag)));
+        const combined = appendItemRuleTemplate(rule, imported);
+        replace(combined); options.imported?.(Number(selected)); changed(); return;
       }
       if (action === "apply") {
         button.disabled = true;

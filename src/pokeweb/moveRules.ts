@@ -132,7 +132,7 @@ export function newMoveEffect(kind = "power"): MoveEffect {
   const p = movePrimitive(kind); if (!p) throw Error("Unknown move primitive.");
   return { kind, value: p.value, phase: p.phases[0], target: ["flinch","statDrain","cureAndHeal","swapRawStat","stealStages","reducePP","requireHeldItem","allyHealInstead","typeMatchup","residualDamage","residualStat","targetMoveType","mutualTrap","powderReaction","blockMoveFlag","spotlight"].includes(kind) ? "target" : "user", chance: 100, secondary: ["flinch","randomStatus","reducePP"].includes(kind), conditions: structuredClone(MOVE_ALWAYS) };
 }
-export const EMPTY_MOVE_RULE: MoveRuleSet = { conditions: MOVE_ALWAYS, prerequisites: MOVE_ALWAYS, effects: [newMoveEffect()] };
+export const EMPTY_MOVE_RULE: MoveRuleSet = { conditions: structuredClone(MOVE_ALWAYS), prerequisites: structuredClone(MOVE_ALWAYS), effects: [newMoveEffect()] };
 const integer = (v: number, min: number, max: number) => Number.isInteger(v) && v >= min && v <= max;
 export function validateMoveCondition(input: MoveCondition): MoveCondition {
   let nodes = 0;

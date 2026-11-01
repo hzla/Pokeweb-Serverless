@@ -1,9 +1,19 @@
-# Black / BW2 ability effects
+# BW / BW2 ability effects
 
 Use **Pokemon → Abilities** to edit existing abilities or create abilities through
 ID 255. ID 0 is reserved; names are limited to 15 UTF-16 code units. Import a
 template, edit its effects and AND/OR conditions, then apply it. Importing a draft
 does not change the ROM. Removing custom effects preserves the name and ID.
+Imports append effect cards and combine activation conditions with AND while
+preserving nested OR groups and existing edits. An import that exceeds editor
+bounds leaves the draft unchanged.
+
+The Description field edits the ability's Summary text independently of its
+battle effects. New ability descriptions are saved with Apply ability. Open
+**In-game preview** to load the ROM's font and static Summary panel; the preview
+updates while typing and warns about clipped text. It preserves explicit line
+breaks (`\n` or entered newlines) and does not automatically wrap text. Preview
+code and resources load on demand and parsed resources are shared per project.
 
 Rules support up to 16 effects and bounded conditions for HP, type, weather,
 species, status and moves. Templates and their editable controls are defined in
@@ -32,16 +42,17 @@ relocations and hook conflicts before committing the change. Recognized BW2 batt
 counter and trainer-nature adapters are handled by the installer. Unknown patches
 and rewritten native dispatchers are rejected.
 
-Supported profiles are US revision-0 Black, Black 2 and White 2 with compatible
-native interfaces. Black uses overlay 93 and message banks 182/183/285; BW2 uses
+Supported profiles are US revision-0 Black, White, Black 2 and White 2 with
+compatible native interfaces. BW uses overlay 93 and message banks 182/183/285; BW2 uses
 overlay 167 and banks 374/375/487. Black also accepts the reviewed native code
 variants in Frost’s bundled `Black1Fairy.Vpatch` (SHA-256
 `9fd6d01269bada1d8f2195ca26cc33f347de623e18d15d0b90c3033842507f14`),
 including copied Color Change and adjustable Magnet Pull. Fairy is detected from
-the native type chart when loading Pokémon without Moves. White 1 and other
-regions/revisions are not supported. Compatible moved layouts are resolved by
-checked signatures and calls; unrecognized handler bodies or dependencies are rejected. Hardware and
-DSi behavior require independent testing; catalog availability is not complete
+the native type chart when loading Pokémon without Moves. White uses its own
+checked native bindings; the reviewed Frost Fairy variants apply to Black only.
+Other regions/revisions are not supported. Compatible moved layouts are resolved
+by checked signatures and calls; unrecognized handler bodies or dependencies are
+rejected. Hardware and DSi behavior require independent testing; catalog availability is not complete
 gameplay coverage of every recipe or combination.
 
 Definitions are indexed by ability ID. Edited abilities subscribe only to the
@@ -64,11 +75,13 @@ The original templates remain available for strict verification of older exports
 queries with a host C compiler. `verify_runtime_upgrade.ts` accepts an old ROM and
 a new output directory to check migration and export/reload preservation.
 Run `npx vitest run src/test/abilityRules.test.ts src/test/abilityLibrary.test.ts`
-for model checks. Black binding generation takes an explicit clean ROM, reference
+for model checks. BW1 binding generation takes an explicit clean ROM, reference
 symbol directory and output JSON: `npx vite-node runtime/ability-effects/generate_bw1_bindings.ts INPUT.nds REFERENCE OUTPUT.json`. The generator reads names/addresses from reference metadata and code bytes from the ROM.
 `verify_bw1_catalog.ts` checks import/export/reload; `build_bw1_cases.ts` creates
-Black native battle fixtures using the bundled BW save. Native case builders accept an input ROM and a separate output
-directory; `emulator.py` requires local melonDS bindings and a headless library.
+Black or White native battle fixtures using the bundled BW save. Native case
+builders accept an input ROM and a separate output directory; `emulator.py`
+requires local melonDS bindings and a headless library. Use `--no-roms` with
+`verify_bw1_catalog.ts` to run the same round trips without retaining ROM copies.
 
 To prepare a separate Frost Fairy Black base, use
 `npx vite-node runtime/ability-effects/prepare_frost_black.ts CLEAN_BLACK.nds Black1Fairy.Vpatch NEW_OUTPUT.nds`.

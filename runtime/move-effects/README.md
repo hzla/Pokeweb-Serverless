@@ -13,6 +13,15 @@ apply it. Importing does not immediately change the ROM. Effects retain their
 list order within each native timing boundary; arrow buttons reorder cards.
 Activation conditions control effects. Use prerequisites make the move fail.
 Empty condition groups mean always active.
+New custom drafts start empty. Imports append effect cards and combine activation
+conditions and use prerequisites with AND, preserving nested OR groups and
+existing edits. Imports that exceed editor bounds or require a different
+existing native operation leave the draft unchanged.
+
+The move text panel's **In-game preview** loads the ROM's font and static Summary
+panel on demand. It updates while typing, preserves explicit line breaks and
+warns about text outside the three-line description box. Text is not automatically
+wrapped. Preview resources are shared across descriptions in the same project.
 
 Power, accuracy, PP, targeting, hit counts, flags, animation and AI behavior use
 the existing move controls. Importing effects preserves these fields. For

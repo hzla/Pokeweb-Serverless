@@ -1,8 +1,10 @@
 import { isVerifiedMoveFieldSwitchImport, isVerifiedMoveServiceImport } from "./moveEffectsModel";
 import { chainAbilityMoveParam } from "./battleMoveParamChain";
+import { normalizeAbilityDescription, updateAbilityDescription } from "./abilityTextModel";
 import { isVerifiedItemMoveParamFollower, prepareItemMoveParamForAbility } from "./itemEffectsModel";
 import { linkNativeAbilities, nativeAbilityProfile } from "./abilityNativeRuntime";
 import blackBindings from "../assets/data/abilityBindingsB1.json";
+import whiteBindings from "../assets/data/abilityBindingsW1.json";
 import optimizedTemplates from "../assets/data/abilityRuleRuntimeOptimized.json";
 import { abilityRuleEvents } from "./abilityEvents";
 import type { NativeAbilityProfile } from "./abilityNativeRuntime";
@@ -71,7 +73,7 @@ type Source = {
 };
 const sources = new WeakMap<ProjectState, Source>();
 export function supportsAbilityEditor(project: ProjectState): boolean {
-    return project.session.baseRom === "BW2" || project.session.baseRom === "BW" && project.session.baseVersion === "B";
+    return project.session.baseRom === "BW2" || project.session.baseRom === "BW" && ["B", "W"].includes(project.session.baseVersion);
 }
 const same = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((v, i) => v === b[i]);
 export function hydrateAbilityEffectsSource(project: ProjectState, rom: NintendoDSRom): void {
@@ -98,12 +100,12 @@ export function hydrateAbilityEffectsSource(project: ProjectState, rom: Nintendo
 }
 function context(project: ProjectState) {
     if (!supportsAbilityEditor(project))
-        throw new Error("Ability effects require US Black, Black 2 or White 2.");
-    const isBlack = project.session.baseRom === "BW";
-    const overlayId = isBlack ? 93 : 167;
-    const catalog = isBlack ? blackBindings : bindings;
+        throw new Error("Ability effects require US Black, White, Black 2 or White 2.");
+    const isBw1 = project.session.baseRom === "BW";
+    const overlayId = isBw1 ? 93 : 167;
+    const catalog = isBw1 ? project.session.baseVersion === "W" ? whiteBindings : blackBindings : bindings;
     const profiles = catalog.profiles as NativeAbilityProfile[];
-    const signatures: Record<string, BattleRuntimeSignature> = isBlack ? blackBindings.functions : BATTLE_RUNTIME_SIGNATURES;
+    const signatures: Record<string, BattleRuntimeSignature> = isBw1 ? catalog.functions : BATTLE_RUNTIME_SIGNATURES;
     if (!sources.has(project) && project.originalRomBytes)
         hydrateAbilityEffectsSource(project, new NintendoDSRom(project.originalRomBytes, { fileData: "view" }));
     const original = sources.get(project);
@@ -114,8 +116,8 @@ function context(project: ProjectState) {
         for (let at = 0; at + 32 <= table.length; at += 32)
             if (readU32(table, at) === overlayId)
                 source.base = readU32(table, at + 4);
-    if (!(isBlack ? ["IRBO"] : ["IRDO", "IREO"]).includes(source.game) || source.revision !== 0)
-        throw new Error("Ability effects currently require a recognized US revision-0 Black, Black 2 or White 2 ROM.");
+    if (!(isBw1 ? [project.session.baseVersion === "W" ? "IRAO" : "IRBO"] : ["IRDO", "IREO"]).includes(source.game) || source.revision !== 0)
+        throw new Error("Ability effects currently require a recognized US revision-0 Black, White, Black 2 or White 2 ROM.");
     const overlay = project.overlays[overlayId];
     if (!overlay?.length)
         throw new Error("Reload the ROM with Pokémon selected to load the battle overlay.");
@@ -463,6 +465,7 @@ export type AbilityEdit = {
     abilityId: number;
     rules: AbilityRuleSet;
     name?: string;
+    description?: string;
 };
 export async function configureAbilityRuleSets(project: ProjectState, edits: readonly AbilityEdit[]): Promise<void> {
     if (!edits.length)
@@ -478,9 +481,10 @@ export async function configureAbilityRuleSets(project: ProjectState, edits: rea
             throw new Error("Use an ability name of 1–15 characters without text controls.");
         if (!name && !project.texts.banks.abilities?.[id])
             throw new Error("Give the new ability a name.");
+        const description = edit.description === undefined ? undefined : normalizeAbilityDescription(edit.description);
         const canonical = validateAbilityRule(edit.rules);
         rules.set(id, canonical);
-        return { ...edit, name, rules: canonical };
+        return { ...edit, name, description, rules: canonical };
     });
     const needsProvider=[...rules.values()].some(r=>r.effects.some(e=>recipeAbilityEffect(e.kind)));
     const itemPlan:{present:boolean;module?:RpmModule;address?:number}=c.files.has("patches/ItemEffects.dll")?prepareItemMoveParamForAbility(project,needsProvider):{present:false};
@@ -500,6 +504,7 @@ export async function configureAbilityRuleSets(project: ProjectState, edits: rea
         for (const edit of checked) {
             if (edit.name)
                 setName(staged, edit.abilityId, edit.name);
+            if (edit.description !== undefined) updateAbilityDescription(staged, edit.abilityId, edit.description);
             recordFieldChange(staged, "message_texts", edit.name ?? `Ability ${edit.abilityId}`, "Battle effects", "Previous effect", JSON.stringify(edit.rules), { key: `ability-rules:${edit.abilityId}` });
         }
     });
@@ -513,11 +518,11 @@ export function nextCustomAbilityId(project: ProjectState): number | undefined {
             last = id;
     return last < 255 ? last + 1 : undefined;
 }
-export async function createCustomAbility(project: ProjectState, name: string, rules: AbilityRuleSet = EMPTY_ABILITY_RULE): Promise<number> {
+export async function createCustomAbility(project: ProjectState, name: string, rules: AbilityRuleSet = EMPTY_ABILITY_RULE, description?: string): Promise<number> {
     const id = nextCustomAbilityId(project);
     if (id === undefined)
         throw new Error("All 255 ability IDs are in use.");
-    await configureAbilityRuleSets(project, [{ abilityId: id, name, rules }]);
+    await configureAbilityRuleSets(project, [{ abilityId: id, name, rules, description }]);
     return id;
 }
 export function clearAbilityRules(project: ProjectState, id: number): void {

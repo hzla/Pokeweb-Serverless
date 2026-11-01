@@ -27,6 +27,10 @@ include TMs; custom prices do not alter ordinary item data. Draft stock is not
 active until applied. Canonical formats are in `src/cgearButtons/document.ts`
 and `src/systemShops/document.ts`.
 
+The Pokémart option reads the ROM's ordinary shop inventories. Installation
+checks pending mart edits as they will be exported and allows unused trailing
+slots. Active item counts must fit the available data and reference valid items.
+
 Build/check with `npm run cgear:build`, `npm run cgear:verify` and
 `npm run cgear:verify-rom -- /path/input.nds`; use `cgear:build-bw1` and
 `cgear:verify-bw1` for BW1. Redux uses `build_redux.py`. The local

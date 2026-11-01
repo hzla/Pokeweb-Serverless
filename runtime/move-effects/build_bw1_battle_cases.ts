@@ -16,6 +16,7 @@ import {readU16,readU32,writeU16,writeU32} from '../../src/nds/binary';
 import {refreshTestBattleSaveBlockChecksum,getTestBattleConfig} from '../../src/pokeweb/testBattle';
 import {battleRuntimeResolver} from '../../src/pokeweb/battleRuntimeBindings';
 import blackBindings from '../../src/assets/data/abilityBindingsB1.json';
+import whiteBindings from '../../src/assets/data/abilityBindingsW1.json';
 globalThis.fetch=(async(request:RequestInfo|URL)=>{const url=new URL(request instanceof Request?request.url:String(request));if(url.protocol!=='file:')throw Error('Only local bundled assets permitted');return new Response(new Uint8Array(await readFile(url)));})as typeof fetch;
 const [inputPath,out,which='Freeze-Dry',mode='positive']=process.argv.slice(2);assert(out, 'Usage: ROM.nds NEW_OUTPUT_DIRECTORY [TEMPLATE] [MODE]');await mkdir(out);
 const source=new Uint8Array(await readFile(inputPath));let project=await loadProjectFromRomBytes(source,'bw1.nds',{selectedNarcs:['personal','items','moves','message_texts','trdata','trpok']});
@@ -56,7 +57,7 @@ const symbols=Object.fromEntries(dll.symbols.filter(s=>s.name?.startsWith('Move'
 const pmc=parseRpm(rom.files[rom.fileId('codeinjection/RPMSYM-PMC.rpm')]);
 const pmcSymbols=Object.fromEntries(pmc.symbols.filter(s=>s.name&&/g_Modules|g_MainAllocator|g_UserHeapArea/.test(s.name)).map(s=>[s.name!,pmc.baseAddress+32+s.address]));
 let eventList:number|undefined;
-if(doubles){const ov=rom.loadArm9Overlays([93]).get(93)!,resolver=battleRuntimeResolver(ov.data,ov.ramAddress,project.arm9,rom.arm9RamAddress,blackBindings.functions);eventList=readU32(resolver.resolve('BattleEvent_SeekItem').code,0x30);}
+if(doubles){const ov=rom.loadArm9Overlays([93]).get(93)!,resolver=battleRuntimeResolver(ov.data,ov.ramAddress,project.arm9,rom.arm9RamAddress,(rom.idCode==='IRAO'?whiteBindings:blackBindings).functions);eventList=readU32(resolver.resolve('BattleEvent_SeekItem').code,0x30);}
 await writeFile(`${out}/battle.nds`,downloads.romBytes);await writeFile(`${out}/battle.sav`,save);
 await writeFile(`${out}/fixture.json`,JSON.stringify({game:rom.idCode,hook:hook.target.address,symbols,pmcSymbols,doubles,eventList,recipeCount:edits.length,weatherService:readU32(dll.code,symbols.MoveRuleApi+8*4)&~1,codeBytes:dll.code.length,template:which,expected:mode==='inactive'?[2,4]:mode==='neutral'?[3,4]:[4,4]},null,2));
 console.log(JSON.stringify({game:rom.idCode,template:which,exportReload:true,hook:hook.target.address}));

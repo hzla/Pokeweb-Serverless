@@ -3,14 +3,16 @@ import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import manifest from "../assets/codeinjection/cgearQuickActionsManifest.json";
 import redux from "../assets/codeinjection/cgearQuickActionsReduxManifest.json";
-import { writeU16, writeU32 } from "../nds/binary";
+import { readU16, writeU16, writeU32 } from "../nds/binary";
 import { Folder } from "../nds/fnt";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { exportModifiedRom } from "../pokeweb/exportRom";
 import { getCGearQuickActionsStatus, installCGearQuickActions, disableCGearQuickActions, removeCGearQuickActions } from "../pokeweb/cgearQuickActionsModel";
 import { detectPmcInstallFromRom, listCodeInjectionDlls, stageCodeInjectionDll, configureBundledBgmRuntime, readBgmRuntimeConfig, removeStagedCodeInjectionDll, canRemoveStagedCodeInjectionDll } from "../pokeweb/pmcModel";
-import type { ProjectState } from "../pokeweb/projectStore";
+import { createNarcStore, type ProjectState } from "../pokeweb/projectStore";
+import { getNarcFormats } from "../pokeweb/formats";
+import { updateMartField } from "../pokeweb/martGrottoModel";
 import { isReduxRepel } from "../pokeweb/cgearReduxModel";
 import { parseRpm, writeRpm } from "../pokeweb/rpm";
 import { buttonFont, buttonItems, buttonNative } from "./cgearButtonsFixture";
@@ -19,7 +21,7 @@ import { newButton } from "../cgearButtons/document";
 import { buttonGraphics } from "../cgearButtons/nativeGraphics";
 import { fingerprint } from "../cgearButtons/compiler";
 import { ensureSystemShops, hydrateSystemShops } from "../pokeweb/systemShopsModel";
-import { tmTestShop } from "../systemShops/document";
+import { newShop, tmTestShop } from "../systemShops/document";
 import { recover as recoverShops, ARCHIVE as SHOP_ARCHIVE } from "../systemShops/compiler";
 import { encodeGen5TextBank } from "../pokeweb/text";
 type Version = "W2" | "B2";
@@ -67,6 +69,15 @@ function makeProject(v: Version, bytes?: Uint8Array): ProjectState {
   const r = new NintendoDSRom(bytes);
   return {originalRomBytes:bytes,session:{romName:"test",baseVersion:v,baseRom:"BW2",fairy:false,fileIds:{},blacklist:[]},
     romInfo:{title:"test",idCode:r.idCode,fileName:"test.nds",size:bytes.length},arm9:r.arm9,overlays:{},narcs:{},texts:{banks:{}},formats:{},trpokInfo:[],codeInjection:detectPmcInstallFromRom(r)};
+}
+function loadMartEditor(project: ProjectState): void {
+  const rom = new NintendoDSRom(project.originalRomBytes!);
+  for (const [name,path] of [["marts","a/2/8/2"],["mart_counts","a/2/8/3"]] as const) {
+    const id=rom.fileId(path);
+    project.narcs[name]=createNarcStore(name,path,id,new NARC(rom.files[id]));
+  }
+  project.formats.marts=getNarcFormats("BW2").marts;
+  project.texts.banks.items=Array.from({length:639},(_,id)=>id?`Item ${id}`:"None");
 }
 function reduxProject(): ProjectState {
   const p = makeProject("W2"), rom = new NintendoDSRom(p.originalRomBytes!);
@@ -263,6 +274,68 @@ describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
     const d=ensureCGearButtons(p).document;d.buttons.push(newButton(d,'systemShop'));
     await installCGearQuickActions(p);
     for(const id of [stockId,itemsId])deepStrictEqual(p.fileSystem!.replacements[id], before[id]);
+  });
+  it('accepts padded native stock alongside a sixteen-item custom shop',async()=>{
+    const p=makeProject(v);assets();const rom=new NintendoDSRom(p.originalRomBytes!);
+    const id=rom.fileId('a/2/8/2'),stock=new NARC(rom.files[id]);
+    const padded=new Uint8Array(40);padded.set(stock.files[2]);stock.files[2]=padded;
+    p.fileSystem={replacements:{[id]:stock.save()},additions:{}};
+    const before=p.fileSystem.replacements[id].slice();
+    const doc=ensureCGearButtons(p).document;doc.buttons.push(newButton(doc,'systemShop'));
+    const shops=ensureSystemShops(p).document,shop=newShop(shops);
+    shop.name='General Shop';shop.currency=0;
+    const inventory:[number,number,number][]=[
+      [4,5,0],[3,15,1],[2,30,5],[15,50,5],[10,50,5],[17,10,0],[26,30,1],[25,60,3],
+      [24,100,5],[23,120,7],[28,50,1],[29,100,5],[27,40,1],[40,40,1],[41,70,5],[78,55,0],
+    ];
+    shop.inventory=inventory.map(([item,cost,badges])=>({item,cost,...(badges?{condition:{badges}}:{})}));
+    shops.shops.push(shop);
+    await installCGearQuickActions(p,{applySystemShops:true});
+    deepStrictEqual(p.fileSystem.replacements[id],before);
+    expect(p.systemShops!.applied!.shops[0]).toEqual(shop);
+    expect(getCGearQuickActionsStatus(p).enabled).toBe(true);
+  });
+  it('validates pending mart edits and preserves them through export and reopening',async()=>{
+    const p=makeProject(v);assets();loadMartEditor(p);
+    const doc=ensureCGearButtons(p).document;doc.buttons.push(newButton(doc,'systemShop'));
+    updateMartField(p,2,'item_2','Item 18');
+    expect(p.narcs.mart_counts!.rawFiles[0][2]).toBe(3);
+    expect(p.narcs.marts!.rawFiles[2].length).toBe(4); // Not serialized yet.
+    const before=structuredClone(p.narcs);
+    await installCGearQuickActions(p);
+    deepStrictEqual(structuredClone(p.narcs),before); // Validation must not flush unrelated edits.
+    const bytes=await exportModifiedRom(p),rom=new NintendoDSRom(bytes);
+    const stock=new NARC(rom.getFileByName('a/2/8/2')).files[2];
+    expect([0,2,4].map(offset=>readU16(stock,offset))).toEqual([4,17,18]);
+    expect(new NARC(rom.getFileByName('a/2/8/3')).files[0][2]).toBe(3);
+    const reopened=makeProject(v,bytes);
+    await installCGearQuickActions(reopened);
+    loadMartEditor(reopened);updateMartField(reopened,2,'item_2','None');
+    expect(reopened.narcs.mart_counts!.rawFiles[0][2]).toBe(2);
+    const pending=structuredClone(reopened.narcs);
+    await installCGearQuickActions(reopened);
+    deepStrictEqual(structuredClone(reopened.narcs),pending);
+  });
+  it.each(['truncated','odd-length','empty-count'] as const)('still rejects %s stock without staging changes',async(kind)=>{
+    const p=makeProject(v);assets();const rom=new NintendoDSRom(p.originalRomBytes!);
+    const path=kind==='empty-count'?'a/2/8/3':'a/2/8/2',id=rom.fileId(path),arc=new NARC(rom.files[id]);
+    if(kind==='empty-count')arc.files[0][2]=0;
+    else if(kind==='truncated')arc.files[2]=arc.files[2].slice(0,2);
+    else {const data=new Uint8Array(5);data.set(arc.files[2]);arc.files[2]=data;}
+    p.fileSystem={replacements:{[id]:arc.save()},additions:{}};
+    const doc=ensureCGearButtons(p).document;doc.buttons.push(newButton(doc,'systemShop'));
+    const before=structuredClone({fs:p.fileSystem,arm:p.arm9,modules:p.codeInjection});
+    await expect(installCGearQuickActions(p)).rejects.toThrow(/stock 2.*item count/);
+    deepStrictEqual({fs:p.fileSystem,arm:p.arm9,modules:p.codeInjection},before);
+  });
+  it('rejects invalid pending stock without changing the working project',async()=>{
+    const p=makeProject(v);assets();loadMartEditor(p);
+    updateMartField(p,2,'item_0','Item 18');
+    p.narcs.marts!.records.get(2)!.raw!.item_0=65535;
+    const doc=ensureCGearButtons(p).document;doc.buttons.push(newButton(doc,'systemShop'));
+    const before=structuredClone({narcs:p.narcs,fs:p.fileSystem,arm:p.arm9,modules:p.codeInjection});
+    await expect(installCGearQuickActions(p)).rejects.toThrow(/stock 2.*invalid item/);
+    deepStrictEqual(structuredClone({narcs:p.narcs,fs:p.fileSystem,arm:p.arm9,modules:p.codeInjection}),before);
   });
   it.each(['script','counts','item','native'] as const)('rejects incompatible shop %s atomically',async(kind)=>{
     const p=makeProject(v);assets();await installCGearQuickActions(p);
