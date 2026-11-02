@@ -128,7 +128,7 @@ describe("bounded move recipes", () => {
   for(const rows of [[[1,1,0,0]],[[1,0,0]],[[1,0,-1,0]],[[1,0,0,0],[1,0,0,0]]])expect(()=>decodeMoveRecipeBook(JSON.stringify({pool:[EMPTY_MOVE_RULE],rows}),["effect_category","result_effect"])).toThrow();
  });
  it("keeps the catalog complete and separate from ordinary move data", () => {
-  expect(MOVE_RECIPE_LIBRARY).toHaveLength(101); expect(new Set(MOVE_RECIPE_LIBRARY.map(t => t.sourceId)).size).toBe(101);
+  expect(MOVE_RECIPE_LIBRARY).toHaveLength(102); expect(new Set(MOVE_RECIPE_LIBRARY.map(t => t.sourceId)).size).toBe(102);
   expect(moveRecipeTemplate(850)?.rule.effects.map(e => e.parameters?.stat)).toEqual([3,4,undefined]);
   expect(moveRecipeTemplate(565)?.rule.effects[0].value).toBe(2);
   expect(moveRecipeTemplate(846)?.rule.effects.find(e => e.kind === "statStage")).toMatchObject({value:-1,chance:30,parameters:{stat:5}});

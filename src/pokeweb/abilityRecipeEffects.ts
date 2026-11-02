@@ -36,6 +36,7 @@ export const RECIPE_ABILITY_EFFECTS:RecipeAbilityEffect[]=[
  effect("windAbsorb",152,"Absorb matching moves and react to Tailwind",1,-6,6,1,"stages",1,[stat(),move,p("tailwind","Boost when Tailwind starts / on entry",1,0,1,{0:"No",1:"Yes"})],true,true),
  effect("moveGuard",153,"Block selected moves from other Pokémon",1,1,1,1,"",1,[move,type,p("category","Move category",0,0,2,undefined,"category"),p("excludeSelf","Holder’s own moves",1,0,1,{0:"Also block",1:"Allow"})],true),
  effect("weatherGuard",154,"Weather damage immunity",1,1,1,1,"",1,[p("weather","Weather",3,0,4,{0:"All damaging weather",3:"Hail",4:"Sandstorm"},"weather")]),
+ effect("abilityStatGuard",165,"Block stat drops from other abilities",1,1,1,1,"",1,[p("stat","Stat",8,1,8,undefined,"stat")],true),
  ...SCOPED_ABILITY_EFFECTS,
  ...ACTION_ABILITY_EFFECTS,
 ];

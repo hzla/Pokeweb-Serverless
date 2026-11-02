@@ -11,7 +11,13 @@ void*memset(void*dst,int value,unsigned length){volatile u8*p=dst;for(u32 n=0;n<
 #define PUBLIC __attribute__((visibility("default")))
 typedef void (*Callback)(void*,void*,u8,u32*);
 typedef struct { u32 event; Callback callback; } Event;
+#ifdef MOVE_MODERN_KNOCK
+PUBLIC const volatile u32 MoveRuleApi[66]={0};
+/* Per active user, cleared at action boundaries; independent of installed definitions. */
+static u32 knockArmed[24];
+#else
 PUBLIC const volatile u32 MoveRuleApi[64]={0};
+#endif
 PUBLIC const volatile u32 MoveNativeGetters[20]={0};
 PUBLIC const volatile u16 MoveNativeIds[20]={0};
 PUBLIC const volatile u8 *MoveRuleData=(const volatile u8*)1;
@@ -694,12 +700,22 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
  if(half(r+4))nativeEvent(half(r+4),event,item,f,owner,w);
  const volatile u8*global=r+8,*requirements=global+r[1]*8,*effects=requirements+r[2]*8,*scan=effects;
  const u8 events[]={0x37,0x47,0x32,0x1f,0x4b,0x84,0xa0,0x83,0x4d,0x83,0x25,0x46,3,4};u32 needed=event==r[3]&&r[3],window=0,markers=0,itemRequired=0;
- for(u32 n=0;n<r[0];++n){if(scan[0]==41){if(event==3||event==0x4b||event==0x4d)needed=1;}else if(scan[0]==34){if(event==0x30||event==0x31)needed=1;}else if(scan[0]==32){itemRequired=1;if(event==3||event==0x2d||event==0x46)needed=1;}else if(scan[0]==31){markers=1;if(event==3||event==4||(half(scan+10)?event==0x45:event==0x25||event==0x26))needed=1;}else if(scan[0]==27){window=1;if(event==3||event==4)needed=1;}else if(scan[0]==28){if(event==5)needed=1;}else if(scan[0]==10?(event==0x3a||event==0x33):scan[1]<14&&(event==events[scan[1]]||scan[1]==6&&event==0xa1))needed=1;scan+=32+scan[5]*8;}
+#ifdef MOVE_MODERN_KNOCK
+ u32 knock=0;
+#endif
+ for(u32 n=0;n<r[0];++n){
+#ifdef MOVE_MODERN_KNOCK
+ if(scan[0]==59){knock=1;if(event==3||event==4||event==0x37||event==0x83)needed=1;}else
+#endif
+ if(scan[0]==41){if(event==3||event==0x4b||event==0x4d)needed=1;}else if(scan[0]==34){if(event==0x30||event==0x31)needed=1;}else if(scan[0]==32){itemRequired=1;if(event==3||event==0x2d||event==0x46)needed=1;}else if(scan[0]==31){markers=1;if(event==3||event==4||(half(scan+10)?event==0x45:event==0x25||event==0x26))needed=1;}else if(scan[0]==27){window=1;if(event==3||event==4)needed=1;}else if(scan[0]==28){if(event==5)needed=1;}else if(scan[0]==10?(event==0x3a||event==0x33):scan[1]<14&&(event==events[scan[1]]||scan[1]==6&&event==0xa1))needed=1;scan+=32+scan[5]*8;}
  if(!needed)return;
  /* Check the owning battler and actual move before any condition can query weather. */
  s32 actor=-1,actual=-1,target=-1;
  if(!TRY(event==0x1f||event==0x25||event==0x26||event==4?2:3,&actor)||actor!=owner)return;
  if(window&&event==4)FN(48,Callback)(item,f,owner,w);
+#ifdef MOVE_MODERN_KNOCK
+ if(knock&&(event==3||event==4)&&!preview(f))knockArmed[owner]=0;
+#endif
  /* Native AddItem initializes seven work words. Native bases use word zero;
   * word three holds one recoil marker per card, cleared at each sequence. */
  if(markers&&w&&event==3&&!preview(f))w[3]=0;
@@ -711,6 +727,31 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
  if(event==r[3]&&!match(requirements,&x)){SET(event==0x1f?0x22:0x40,event==0x1f?0x1a:1);return;}
  u32 power=0,powerChanged=0;
  for(u32 n=0;n<r[0];++n){const volatile u8*e=effects;effects+=32+e[5]*8;u32 kind=e[0],phase=e[1],v=half(e+6);
+#ifdef MOVE_MODERN_KNOCK
+  if(kind==59){
+   if(event==0x37&&target>=0&&target<24&&match(global,&x)&&match(e+32,&x)){
+    /* Activation belongs to power timing. HP, weather or abilities may change
+     * during the hit; removal still belongs to this same accepted activation. */
+    if(!preview(f))knockArmed[owner]|=1u<<target;
+    if(FN(38,u32(*)(void*))(MON(f,target))&&!FN(60,u32(*)(void*))(MON(f,target))&&!FN(64,u32(*)(void*,u8,u8))(f,owner,(u8)target)&&!FN(65,u32(*)(void*,void*,u32))(f,MON(f,target),0)){
+     if(!powerChanged)power=GET(0x30);powerChanged=1;if(power>65535)power=65535;
+     power=(power*v)>>12;if(power>65535)power=65535;if(!power)power=1;
+    }
+   }
+   if(event==0x83&&!preview(f)){
+    u32 mask=recipients(&x,1)&knockArmed[owner];knockArmed[owner]&=~mask;
+    for(u8 id=0;id<24;++id)if(mask&(1u<<id)){
+     /* A KO still reaches native Knock Off. Do not apply the generic action
+      * helper's living-recipient filter before the native removal checks. */
+     FN(12,void(*)(u32))(0x603);FN(14,void(*)(u32,u32))(3,owner);FN(14,void(*)(u32,u32))(4,id);
+     FN(14,void(*)(u32,u32))(5,1);FN(14,void(*)(u32,u32))(6,id);FN(14,void(*)(u32,u32))(0x12,move);
+     nativeEvent(282,0x83,item,f,owner,w);FN(13,void(*)(u32))(0x603);
+    }
+    x.target=target>=0&&target<24?(u8)target:owner;
+   }
+   continue;
+  }
+#endif
   if(kind==41){
    if(!w||preview(f))continue;
    if(event==3){w[0]=0;continue;}

@@ -1,11 +1,16 @@
 import { defineConfig } from "vite";
+import { fileURLToPath } from "node:url";
 import { createW2uLocalBridgePlugin } from "./scripts/w2u-local-bridge.js";
+import { runtimeReleaseDates } from "./scripts/runtime-release-dates.js";
 
 export default defineConfig(({ mode }) => {
   const isCodexDev = mode === "codex-dev";
   const isRomTest = mode === "rom";
   return {
     base: process.env.GITHUB_PAGES_BASE || "./",
+    define: {
+      __POKEWEB_RUNTIME_RELEASE_DATES__: JSON.stringify(runtimeReleaseDates(fileURLToPath(new URL(".", import.meta.url)))),
+    },
     plugins: [
       createW2uLocalBridgePlugin({
         devRomPath: isCodexDev ? process.env.POKEWEB_DEV_ROM || "../cleanwhite2.nds" : undefined,

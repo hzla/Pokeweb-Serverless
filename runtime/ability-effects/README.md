@@ -125,11 +125,11 @@ renamed types, without relying on Gen 5's native type-name formatter.
 
 Build from the repository root with `python3 runtime/ability-effects/build.py`.
 The original templates remain available for strict verification of older exports;
-the default build updates only the current action-result bundle (`--action-results-only`).
-`--custom-flags-only`, `--messages-only`, `--move-classes-only` and `--optimized-only`
+the default build updates only the current stat-source bundle (`--stat-source-only`).
+`--action-results-only`, `--custom-flags-only`, `--messages-only`, `--move-classes-only` and `--optimized-only`
 rebuild retained bundles for verification of older exports;
 released bundles must remain byte-identical when making a new runtime. Runtime
-version 6 gates timed-action popups and supplies type-specific aura notices.
+version 7 adds ability-source stat-drop prevention. Version 6 gates timed-action popups and supplies type-specific aura notices.
 Version 5 added the custom flag registry and generic filters. Earlier bundles remain
 available for strict verification of existing exports. Version 4 added battle
 explanations, entry notices, expanded classification defaults,
@@ -139,6 +139,14 @@ classification overrides, corrected power ratios and stat popup guards. New modu
 `test_conditions.c` checks the compiled evaluator's truth tables and skipped
 queries with a host C compiler. `python3 runtime/ability-effects/test_move_classes.py`
 checks the compiled classification lookup, stock defaults, clears and expanded IDs.
+`python3 runtime/ability-effects/test_status_actions.py` uses local Python Unicorn
+to check shipped ARM status dispatch, chance rolls, rejection guards and grouped
+popups with isolated native-service doubles. `test_stat_source.py` checks the
+shipped ARM callback-source tracking, stat filters and suppression with the same
+Python dependency and the configured ARM GNU toolchain. For native gameplay, pass
+`--status-popups` to `build_bw1_cases.ts` or `build_scoped_cases.ts` to exercise
+status template failures and activations through the normal battle queue; use
+`--stat-source` for ability-source prevention and its move/item interactions.
 `verify_runtime_upgrade.ts` accepts an old ROM and
 a new output directory to check migration and export/reload preservation.
 Run `npx vitest run src/test/abilityRules.test.ts src/test/abilityLibrary.test.ts`
@@ -166,3 +174,13 @@ with the same melonDS dependencies as `emulator.py`; `--profile` adds read-only
 callback counters. Results report emulated turn frames
 and the interval from scripted input to the first live target-selection event.
 That event is a calculation marker, not the first rendered animation frame.
+
+**Block stat drops from other abilities** prevents the holder’s selected stat (or
+all stats) from falling when another Pokémon’s ability causes the change. It
+works for entry effects and reactions after a hit, adds no retaliatory boost,
+and leaves moves, items and the holder’s own ability effects unchanged. Native
+suppression, swapping and the card’s Mold Breaker setting still apply. One
+blocking notice is shown per source callback activation; a multi-stat activation
+does not repeat either the source ability's popup or the guard's notice. The runtime tracks
+source callbacks on the call stack only when this primitive is installed; it
+does not scan ability definitions or query weather to identify the source.

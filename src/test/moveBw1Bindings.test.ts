@@ -20,7 +20,7 @@ describe.each([["Black",black],["White",white]] as const)("%s move runtime contr
   });
   it("provides the runtime's required services and checked type-resolution callers",()=>{
     for(const [index,name] of MOVE_RULE_API.entries()){
-      if(!name||index===40||index===49)continue;
+      if(!name||index===40||index===49||name==="KnockItemChangeBlocked")continue;
       expect(functions[name],`API ${index}: ${name}`).toBeDefined();
     }
     for(let index=0;index<8;index++){

@@ -14,6 +14,7 @@ import version5 from "../assets/data/moveRuleRuntimeV5.json";
 import version6 from "../assets/data/moveRuleRuntimeV6.json";
 import abilityNativeBindings from "../assets/data/abilityBindings.json";
 import historyTemplate from "../assets/data/moveRuleRuntimeHistory.json";
+import modernKnockTemplate from "../assets/data/moveRuleRuntimeModernKnock.json";
 import persistentTemplate from "../assets/data/moveRuleRuntimePersistent.json";
 import persistentV9 from "../assets/data/moveRuleRuntimePersistentV9.json";
 import sideBindings from "../assets/data/moveSideBindings.json";
@@ -36,7 +37,7 @@ import { hydrateMoveHandlerTableSource } from "./moveEffectHandlerModel";
 import { readNativeMoveRegistry, moveHandlerOverlay, nativeMoveAssignments, moveRegistryDispatcherSignature } from "./nativeMoveRegistry";
 
 export const MOVE_EFFECTS_DLL_PATH = "patches/MoveEffects.dll";
-export const MOVE_RULE_API = ["BattleEventVar_GetValue", "BattleEventVar_GetValueIfExist", "BattleEventVar_RewriteValue", "BattleEventVar_MulValue", "GetBattleMon", "GetBattleMonStat", "GetPokeType", "PokeTypePair_IsMatch", "ServerEvent_GetWeather", "BtlServerFlow_IsSimulating", "BattleHandler_PushWork", "BattleHandler_PopWork", "BattleEventVar_Push", "BattleEventVar_Pop", "BattleEventVar_SetConstValue", "BattleEventVar_SetRewriteOnceValue", "IsAllyMonID", "CheckCondition", "BtlServerFlow_IsMonInBattle", "GetMonID", "GetBattleMonSpecies", "PML_MoveGetCategory", "GetTurnFlag", "RollEffectChance", "IsStatChangeValid", "IsFieldEffectActive", "ServerControl_CheckFloating", "BtlServerFlow_CheckMatchup", "BattleEventVar_SetValue", "BattleEvent_CallHandlers", "BtlCalc_MakeStatusCondition", "BattleEventItem_GetSubID", null, "DoesMoveEventExist", "BattleEvent_AddItem", null, null, "BattleRandom", "GetBattleMonHeldItem", "PML_ItemIsBerry", "GetSideFromOpposingMonID", "GetSideFromMonID", "sub_21ABB90", "RawBattleMonStat", "GetPreviousMoveID", "MoveGetID", "GetMovePP", "HandlerMoldBreakerStart", "HandlerMoldBreakerEnd", "HandlerBypassSubstitute", "PokeTypePair_GetType1", "PokeTypePair_GetType2", "PokeTypePair_Make", "BattleEvent_SeekItem", "ResetSpActPriority", "GetAdditionalConditionFlag", "BattleHandler_StrSetup", "BattleHandler_AddArg", "sub_21A7CB0", "sub_21AAB90", "IsSubstituteActive", "sub_21A57C4", "CritAtkDefLevel", "ServerEvent_GetMoveParam"] as const;
+export const MOVE_RULE_API = ["BattleEventVar_GetValue", "BattleEventVar_GetValueIfExist", "BattleEventVar_RewriteValue", "BattleEventVar_MulValue", "GetBattleMon", "GetBattleMonStat", "GetPokeType", "PokeTypePair_IsMatch", "ServerEvent_GetWeather", "BtlServerFlow_IsSimulating", "BattleHandler_PushWork", "BattleHandler_PopWork", "BattleEventVar_Push", "BattleEventVar_Pop", "BattleEventVar_SetConstValue", "BattleEventVar_SetRewriteOnceValue", "IsAllyMonID", "CheckCondition", "BtlServerFlow_IsMonInBattle", "GetMonID", "GetBattleMonSpecies", "PML_MoveGetCategory", "GetTurnFlag", "RollEffectChance", "IsStatChangeValid", "IsFieldEffectActive", "ServerControl_CheckFloating", "BtlServerFlow_CheckMatchup", "BattleEventVar_SetValue", "BattleEvent_CallHandlers", "BtlCalc_MakeStatusCondition", "BattleEventItem_GetSubID", null, "DoesMoveEventExist", "BattleEvent_AddItem", null, null, "BattleRandom", "GetBattleMonHeldItem", "PML_ItemIsBerry", "GetSideFromOpposingMonID", "GetSideFromMonID", "sub_21ABB90", "RawBattleMonStat", "GetPreviousMoveID", "MoveGetID", "GetMovePP", "HandlerMoldBreakerStart", "HandlerMoldBreakerEnd", "HandlerBypassSubstitute", "PokeTypePair_GetType1", "PokeTypePair_GetType2", "PokeTypePair_Make", "BattleEvent_SeekItem", "ResetSpActPriority", "GetAdditionalConditionFlag", "BattleHandler_StrSetup", "BattleHandler_AddArg", "sub_21A7CB0", "sub_21AAB90", "IsSubstituteActive", "sub_21A57C4", "CritAtkDefLevel", "ServerEvent_GetMoveParam", "IsItemSwapBlocked", "KnockItemChangeBlocked"] as const;
 const signatures = { ...BATTLE_RUNTIME_SIGNATURES, ...bindings.functions } as Record<string, BattleRuntimeSignature>;
 const retired = Uint8Array.of(80, 87, 77, 82);
 type Source = { base: number; armBase: number; game: string; revision: number; files: Map<string, Uint8Array>; ids: Map<string, number> };
@@ -121,6 +122,9 @@ function context(project: ProjectState, requireMoves = true) {
   nativeSignatures.MoveEvent_AddItem=moveRegistryDispatcherSignature(nativeSignatures.MoveEvent_AddItem);
   nativeSignatures.BattleMon_GetCritStage??={...bw1.BattleMon_GetCritStage,module:String(overlayId)};
   nativeSignatures.BtlCalc_RollCritical??={...bw1.BtlCalc_RollCritical,module:String(overlayId)};
+  for(const name of ["IsWildOpponent","BW1_BTL_SERVER_FLOW_GetCompetitor","GetClientIDFromMonID"])nativeSignatures[name]??={...bw1[name],module:String(overlayId)};
+  const itemQuery=bw1.BW1_BTL_SERVER_FLOW_QueryHeldItemChangeBlockedEvent;
+  nativeSignatures.KnockItemChangeBlocked={...itemQuery,module:String(overlayId),hex:project.session.baseRom==="BW2"?itemQuery.hex.slice(0,-8)+"e5320000":itemQuery.hex};
   nativeSignatures.getMoveFlag??=abilityNativeBindings.functions.getMoveFlag as BattleRuntimeSignature;
   nativeSignatures.HistorySelect=(selectBindings as Record<string,BattleRuntimeSignature>)[source.game];
   nativeSignatures.HistoryTransformCaller={...bw1.BW1_BTL_SERVER_FLOW_ProcHandExTransform,module:String(overlayId)};
@@ -234,7 +238,7 @@ function stored(c: Context): Saved {
   const bytes = c.files.get(MOVE_EFFECTS_DLL_PATH);
   if (!bytes || same(bytes, retired)) return { rules: new Map(), originals: new Map() };
   const module = parseRpm(bytes, { allowedMagics: ["DLXF"] });
-  if (![1,2,3,4,5,6,7,8,9,10].includes(Number(module.metadata.PokewebMoveRecipes)) || typeof module.metadata.MoveRecipeBook !== "string") throw Error("The installed move DLL is not a supported recipe module.");
+  if (![1,2,3,4,5,6,7,8,9,10,11].includes(Number(module.metadata.PokewebMoveRecipes)) || typeof module.metadata.MoveRecipeBook !== "string") throw Error("The installed move DLL is not a supported recipe module.");
   const {rules,originals:original} = decodeMoveRecipeBook(module.metadata.MoveRecipeBook, MOVE_RECIPE_MANAGED_FIELDS);
   if(module.metadata.PokewebMoveRecipes===1&&[...rules.values()].some(rule=>!isLegacyRule(rule)))throw Error("The legacy move DLL contains unsupported recipe data.");
   if (!rules.size || rules.size !== original.size) throw Error("Invalid saved move recipes.");
@@ -267,7 +271,7 @@ function stored(c: Context): Saved {
   if(!config||config.address<0||config.address+4>module.code.length)throw Error("The saved move configuration is missing.");
   const encodedTypeCount=module.code[config.address+3];
   if(module.metadata.PokewebMoveRecipes===1?encodedTypeCount!==0:![17,18].includes(encodedTypeCount))throw Error("Invalid saved move type layout.");
-  const variants: RuntimeVariant[] = module.metadata.PokewebMoveRecipes===1 ? ["v1"] : module.metadata.PokewebMoveRecipes===2 ? ["v2a","v2b"] : module.metadata.PokewebMoveRecipes===3 ? ["v3"] : module.metadata.PokewebMoveRecipes===4 ? ["v4"] : module.metadata.PokewebMoveRecipes===5 ? ["v5"] : module.metadata.PokewebMoveRecipes===6 ? ["v6"] : module.metadata.PokewebMoveRecipes===8?["history"]:module.metadata.PokewebMoveRecipes===9?["persistent9"]:module.metadata.PokewebMoveRecipes===10?["persistent"]:["current"];
+  const variants: RuntimeVariant[] = module.metadata.PokewebMoveRecipes===1 ? ["v1"] : module.metadata.PokewebMoveRecipes===2 ? ["v2a","v2b"] : module.metadata.PokewebMoveRecipes===3 ? ["v3"] : module.metadata.PokewebMoveRecipes===4 ? ["v4"] : module.metadata.PokewebMoveRecipes===5 ? ["v5"] : module.metadata.PokewebMoveRecipes===6 ? ["v6"] : module.metadata.PokewebMoveRecipes===8?["history"]:module.metadata.PokewebMoveRecipes===9?["persistent9"]:module.metadata.PokewebMoveRecipes===11?["modernKnock"]:module.metadata.PokewebMoveRecipes===10?["persistent"]:["current"];
   const packedBook=module.metadata.MoveRecipeBook.startsWith("z1:");
   if (!variants.some(variant => same(writeRpm(moduleFor(c, saved, variant, encodedTypeCount,packedBook), { ident: "DLXF" }), bytes))) throw Error("The installed move DLL has unrecognized edits.");
   return saved;
@@ -300,7 +304,7 @@ export function isVerifiedMoveFieldSwitchImport(project:ProjectState,path:string
   }catch{return false;}
 }
 const sameRule = (a: MoveRuleSet, b: MoveRuleSet) => JSON.stringify(a) === JSON.stringify(b);
-type RuntimeVariant = "v1" | "v2a" | "v2b" | "v3" | "v4" | "v5" | "v6" | "current" | "history" | "persistent9" | "persistent";
+type RuntimeVariant = "v1" | "v2a" | "v2b" | "v3" | "v4" | "v5" | "v6" | "current" | "history" | "persistent9" | "persistent" | "modernKnock";
 const historyKinds=new Set(["ateBerry","moveFailed","hitsTaken","partyFaints","statRaised","statLowered","selectedMove"]);
 function hasHistory(rules:ReadonlyMap<number,MoveRuleSet>):boolean {
   const visit=(node:MoveCondition):boolean=>node.kind==="group"?node.children.some(visit):historyKinds.has(node.kind);
@@ -310,11 +314,11 @@ const hasPersistent=(rules:ReadonlyMap<number,MoveRuleSet>)=>{
   const uses=(c:import("./moveRules").MoveCondition):boolean=>c.kind==="group"?c.children.some(uses):c.kind==="persistentFromMove"||c.kind==="adjacent";
   return [...rules.values()].some(r=>uses(r.conditions)||uses(r.prerequisites)||r.effects.some(e=>uses(e.conditions)||e.kind==="tidyField"&&Boolean((e.parameters?.hazards??7)&8)||["vulnerableUntilAction","residualDamage","residualStat","fieldMoveType","targetMoveType","selfTrapBoost","mutualTrap","powderReaction","blockMoveFlag","focusCritical","spotlight","criticalStageBoost","fieldSwitchLock","entryStatHazard","swapSideEffects"].includes(e.kind)));
 };
-function moduleFor(c: Context, saved: Saved, variant: RuntimeVariant=hasPersistent(saved.rules)?"persistent":hasHistory(saved.rules)?"history":"current", savedTypeCount?:number, packedBook=true): RpmModule {
+function moduleFor(c: Context, saved: Saved, variant: RuntimeVariant=[...saved.rules.values()].some(r=>r.effects.some(e=>e.kind==="modernKnockOff"))?"modernKnock":hasPersistent(saved.rules)?"persistent":hasHistory(saved.rules)?"history":"current", savedTypeCount?:number, packedBook=true): RpmModule {
   if (!saved.rules.size) throw Error("Choose at least one move recipe.");
   const rules = new Map([...saved.rules].sort(([a], [b]) => a - b).map(([id, rule]) => [id, validateMoveRule(rule)]));
-  const legacy=variant==="v1",persistent=variant==="persistent"||variant==="persistent9";
-  const runtime=legacy?legacyTemplate:variant==="v2a"?version2a:variant==="v2b"?version2b:variant==="v3"?version3:variant==="v4"?version4:variant==="v5"?version5:variant==="v6"?version6:variant==="persistent"?persistentTemplate:variant==="persistent9"?persistentV9:variant==="history"?historyTemplate:template;
+  const legacy=variant==="v1",persistent=variant==="persistent"||variant==="persistent9"||variant==="modernKnock";
+  const runtime=variant==="modernKnock"?modernKnockTemplate:legacy?legacyTemplate:variant==="v2a"?version2a:variant==="v2b"?version2b:variant==="v3"?version3:variant==="v4"?version4:variant==="v5"?version5:variant==="v6"?version6:variant==="persistent"?persistentTemplate:variant==="persistent9"?persistentV9:variant==="history"?historyTemplate:template;
   const rpm = structuredClone(runtime) as unknown as RpmModule; rpm.code = Uint8Array.from(runtime.code);
   const bssBase = (rpm.code.length + 3) & ~3, bss = rpm.symbols.filter(s => !(s.attributes & 4) && s.address >= bssBase);
   const named = (name: string) => { const symbol = rpm.symbols.find(s => s.name === name); if (!symbol) throw Error(`Missing move runtime symbol ${name}`); return symbol; };
@@ -330,11 +334,27 @@ function moduleFor(c: Context, saved: Saved, variant: RuntimeVariant=hasPersiste
   if (variant!=="history"&&!persistent&&hasHistory(rules)) throw Error("This saved move runtime cannot support battle history.");
   if(!persistent&&hasPersistent(rules))throw Error("This saved move runtime cannot support persistent effects.");
   if(variant==="persistent9"&&[...rules.values()].some(r=>r.effects.some(e=>["entryStatHazard","swapSideEffects"].includes(e.kind)||e.kind==="tidyField"&&Boolean((e.parameters?.hazards??7)&8))))throw Error("This saved move runtime cannot support side-effect recipes.");
+  if(variant!=="modernKnock"&&kinds.has("modernKnockOff"))throw Error("This saved move runtime cannot support modern Knock Off.");
   const latest=variant==="current"||variant==="history"||persistent;
   const modern=variant==="v3"||variant==="v4"||variant==="v5"||variant==="v6"||latest,hasStatDrainMessage=variant==="v4"||variant==="v5"||variant==="v6"||latest,hasTidyVisual=variant==="v5"||variant==="v6"||latest,hasFullMessages=variant==="v6"||latest;
   const messages=hasFullMessages?["requireHeldItem","hazard","reducePP","statDrain","sourceCondition","suppressAbility","heal","cureAndHeal","copyAbility","maxHpRecoil","swapRawStat","changeType",...(latest?["allyHealInstead","drainEachHit"]:[]),...(persistent?["residualDamage","residualStat","selfTrapBoost","mutualTrap","powderReaction","blockMoveFlag","focusCritical","criticalStageBoost","spotlight","fieldSwitchLock","entryStatHazard","swapSideEffects"]:[])]:hasStatDrainMessage?["requireHeldItem","hazard","reducePP","statDrain"]:["requireHeldItem","hazard","reducePP"];
-  const extraApis:Record<number,readonly string[]>={40:[],41:["hazard","entryStatHazard"],42:modern?["sourceCondition","requireHeldItem",...(persistent?["spotlight","condition:adjacent"]:[])]:["sourceCondition"],43:["swapRawStat","attackStat"],44:["reducePP"],45:["reducePP"],46:["reducePP"],47:["ignoreAbilities"],48:["ignoreAbilities"],49:["bypassSubstitute"],50:["changeType"],51:["changeType"],52:["changeType"],53:["tidyField","swapSideEffects"],54:hasTidyVisual?[]:["tidyField"],55:["condition:hidden",...(persistent?["criticalStageBoost"]:[])],56:messages,57:messages,58:["tidyField"],59:["typeMatchup"],60:["bypassSubstitute"],61:["thawTargets"],62:["attackStat"],63:["moveUserType","powderReaction"]};
+  const extraApis:Record<number,readonly string[]>={40:[],41:["hazard","entryStatHazard"],42:modern?["sourceCondition","requireHeldItem",...(persistent?["spotlight","condition:adjacent"]:[])]:["sourceCondition"],43:["swapRawStat","attackStat"],44:["reducePP"],45:["reducePP"],46:["reducePP"],47:["ignoreAbilities"],48:["ignoreAbilities"],49:["bypassSubstitute"],50:["changeType"],51:["changeType"],52:["changeType"],53:["tidyField","swapSideEffects"],54:hasTidyVisual?[]:["tidyField"],55:["condition:hidden",...(persistent?["criticalStageBoost"]:[])],56:messages,57:messages,58:["tidyField"],59:["typeMatchup"],60:["bypassSubstitute","modernKnockOff"],61:["thawTargets"],62:["attackStat"],63:["moveUserType","powderReaction"],64:["modernKnockOff"],65:["modernKnockOff"]};
   MOVE_RULE_API.forEach((name, index) => { if (!name || legacy&&index>=37 || !modern&&index>=56 || !hasTidyVisual&&index>=58 || !latest&&index>=59 || latest&&index===49 || index>=40&&!extraApis[index]?.some(kind=>kinds.has(kind))) return; const service = c.resolver.resolve(name); checkHook(c, name, service.address, service.code.length); writeU32(rpm.code, api + index * 4, service.address | 1); });
+  if(kinds.has("modernKnockOff")){
+    const checked=new Set<string>();
+    const verify=(name:string)=>{
+      if(checked.has(name))return;checked.add(name);
+      const service=c.resolver.resolve(name);checkHook(c,name,service.address,service.code.length);
+      // The checked event entry point delegates to the installed ability adapter.
+      if(name==="BattleEvent_CallHandlers")return;
+      for(const call of c.signatures[name].calls){
+        const target=battleBranchTarget(service.code,call.offset,service.address);
+        if(!c.resolver.matches(call.target,target))throw Error(`Unrecognized Knock Off dependency ${call.target}.`);
+        checkHook(c,call.target,target,c.signatures[call.target].hex.length/2);
+      }
+    };
+    for(const name of ["IsItemSwapBlocked","IsWildOpponent","IsItemUnremovable","KnockItemChangeBlocked","IsSubstituteActive"])verify(name);
+  }
   if(hasTidyVisual&&kinds.has("tidyField")){
     const wrapper=c.resolver.resolve("sub_21A7CB0");
     for(const call of c.signatures.sub_21A7CB0.calls.filter(call=>["GetMonID","ResetSpActPriority","sub_21B1474"].includes(call.target))){
@@ -360,10 +380,10 @@ function moduleFor(c: Context, saved: Saved, variant: RuntimeVariant=hasPersiste
   copyGateway("MoveEvent_AddItem", "MoveDispatch", 32);
   copyGateway("IsAffectedBySheerForce", "MoveSheerForce", 35);
   copyGateway("sub_21AB1BC", "MoveFlinchChance", 36);
-  if(variant==="history"||persistent){
+  if(variant==="history"||persistent&&(variant!=="modernKnock"||hasHistory(rules)||hasPersistent(rules))){
     const historyApi=named("MoveHistoryApi").address;
     if(persistent){writeU32(rpm.code,named("MovePowderCoverBase").address,saved.powderCoverBase??0);writeU32(rpm.code,named("MovePowderDamageBase").address,saved.powderDamageBase??0);writeU32(rpm.code,named("MoveFocusMessageBase").address,saved.focusMessageBase??0);writeU32(rpm.code,named("MoveSpotlightMessageBase").address,saved.spotlightMessageBase??0);writeU32(rpm.code,named("MoveFieldLockMessageBase").address,saved.fieldLockMessageBase??0);}
-    if(variant==="persistent"){
+    if(variant==="persistent"||variant==="modernKnock"){
       writeU32(rpm.code,named("MoveWebStartBase").address,saved.webStartBase??0);writeU32(rpm.code,named("MoveWebHitBase").address,saved.webHitBase??0);
       writeU32(rpm.code,named("MoveWebEndBase").address,saved.webEndBase??0);writeU32(rpm.code,named("MoveCourtChangeBase").address,saved.courtChangeBase??0);
       if(kinds.has("swapSideEffects"))writeU32(rpm.code,named("MoveNativeSideState").address,resolveNativeSideState(c));
@@ -555,7 +575,7 @@ function moduleFor(c: Context, saved: Saved, variant: RuntimeVariant=hasPersiste
       if((hi&0xf800)===0xf000&&(lo&0xf800)===0xf800&&battleBranchTarget(c.overlay,at,c.base)===original.address&&!sites.has(c.base+at))throw Error("Unrecognized native move-parameter caller.");
     }
   }
-  const requiredGetters = [...new Set([...rules.values()].flatMap(r => [...(r.nativeBase ? [r.nativeBase] : []), ...r.effects.flatMap(e=>e.kind==="native"?[e.value]:e.kind==="removeItem"?[282]:[])]))].sort((a, b) => a - b);
+  const requiredGetters = [...new Set([...rules.values()].flatMap(r => [...(r.nativeBase ? [r.nativeBase] : []), ...r.effects.flatMap(e=>e.kind==="native"?[e.value]:["removeItem","modernKnockOff"].includes(e.kind)?[282]:[])]))].sort((a, b) => a - b);
   if (requiredGetters.length > 20) throw Error("Too many native move operations.");
   requiredGetters.forEach((id, index) => {
     const getter = c.getters.get(id); if (!getter) throw Error(`Native move ${id} has unrecognized handlers.`);
@@ -579,7 +599,7 @@ function moduleFor(c: Context, saved: Saved, variant: RuntimeVariant=hasPersiste
     if (id >= c.moveCount) throw Error("The move does not exist in this ROM.");
   }
   const shift = ((rpm.code.length + 3) & ~3) - bssBase; bss.forEach(s => s.address += shift);
-  rpm.metadata = { PMCGameID: c.project.session.baseVersion, PMCVersion: "1.0.0", PMCModulePriority: 4, PokewebMoveRecipes: legacy?1:variant==="persistent"?10:variant==="persistent9"?9:variant==="history"?8:variant==="current"?7:variant==="v6"?6:variant==="v5"?5:variant==="v4"?4:variant==="v3"?3:2, MoveRecipeBook: encodeMoveRecipeBook(rules, saved.originals, MOVE_RECIPE_MANAGED_FIELDS,latest&&packedBook) };
+  rpm.metadata = { PMCGameID: c.project.session.baseVersion, PMCVersion: "1.0.0", PMCModulePriority: 4, PokewebMoveRecipes: legacy?1:variant==="modernKnock"?11:variant==="persistent"?10:variant==="persistent9"?9:variant==="history"?8:variant==="current"?7:variant==="v6"?6:variant==="v5"?5:variant==="v4"?4:variant==="v3"?3:2, MoveRecipeBook: encodeMoveRecipeBook(rules, saved.originals, MOVE_RECIPE_MANAGED_FIELDS,latest&&packedBook) };
   if(modern&&saved.messageBase!==undefined)rpm.metadata.MoveItemMessageBase=saved.messageBase;
   if(hasFullMessages&&saved.swapMessageBase!==undefined)rpm.metadata.MoveSwapMessageBase=saved.swapMessageBase;
   if(hasFullMessages&&saved.typeLossMessageBase!==undefined)rpm.metadata.MoveTypeLossMessageBase=saved.typeLossMessageBase;
@@ -588,10 +608,10 @@ function moduleFor(c: Context, saved: Saved, variant: RuntimeVariant=hasPersiste
   if(persistent&&saved.focusMessageBase!==undefined)rpm.metadata.MoveFocusMessageBase=saved.focusMessageBase;
   if(persistent&&saved.spotlightMessageBase!==undefined)rpm.metadata.MoveSpotlightMessageBase=saved.spotlightMessageBase;
   if(persistent&&saved.fieldLockMessageBase!==undefined)rpm.metadata.MoveFieldLockMessageBase=saved.fieldLockMessageBase;
-  if(variant==="persistent"&&saved.webStartBase!==undefined)rpm.metadata.MoveWebStartBase=saved.webStartBase;
-  if(variant==="persistent"&&saved.webHitBase!==undefined)rpm.metadata.MoveWebHitBase=saved.webHitBase;
-  if(variant==="persistent"&&saved.webEndBase!==undefined)rpm.metadata.MoveWebEndBase=saved.webEndBase;
-  if(variant==="persistent"&&saved.courtChangeBase!==undefined)rpm.metadata.MoveCourtChangeBase=saved.courtChangeBase;
+  if((variant==="persistent"||variant==="modernKnock")&&saved.webStartBase!==undefined)rpm.metadata.MoveWebStartBase=saved.webStartBase;
+  if((variant==="persistent"||variant==="modernKnock")&&saved.webHitBase!==undefined)rpm.metadata.MoveWebHitBase=saved.webHitBase;
+  if((variant==="persistent"||variant==="modernKnock")&&saved.webEndBase!==undefined)rpm.metadata.MoveWebEndBase=saved.webEndBase;
+  if((variant==="persistent"||variant==="modernKnock")&&saved.courtChangeBase!==undefined)rpm.metadata.MoveCourtChangeBase=saved.courtChangeBase;
   const serialized = writeRpm(rpm, { ident: "DLXF" });
   if (rpm.code.length + rpm.bssSize > 49152 || serialized.length + rpm.code.length + rpm.bssSize > 96 * 1024) throw Error("Move recipes exceed the shared DLL memory budget.");
   return rpm;

@@ -97,6 +97,7 @@ export const MOVE_PRIMITIVES: readonly MovePrimitive[] = [
   primitive("fieldSwitchLock",56,"Temporarily prevent switching","Prevent eligible Pokémon from switching or fleeing for a number of turns.",2,1,255,1,1,"turns",["status"]),
   primitive("entryStatHazard",57,"Place an entry stat hazard","Change a grounded Pokémon’s chosen stat stage when it enters the selected side.",-1,-6,6,1,1,"stages",["status"],[parameter("stat","Stat",5,1,7,MOVE_STAT_LABELS),parameter("side","Side",1,0,2,{0:"User’s side",1:"Opposing side",2:"Both sides"})]),
   primitive("swapSideEffects",58,"Exchange side effects","Exchange supported native side effects and entry stat hazards between the two sides.",1,1,1,1,1,"",["status"]),
+  primitive("modernKnockOff",59,"Knock Off with power bonus","Multiply power when native checks allow the recipient’s held item to be removed, then remove it after a successful hit.",1.5,1,8,.001,4096,"× power",["power"]),
 ];
 export const MOVE_STATUS_LABELS: Record<number,string> = {1:"Paralysis",2:"Sleep",3:"Freeze",4:"Burn",5:"Poison",6:"Confusion"};
 export const MOVE_EFFECT_VALUE_FLAGS:Record<string,Record<number,string>>={randomStatus:Object.fromEntries(Object.entries(MOVE_STATUS_LABELS).map(([n,label])=>[1<<(Number(n)-1),label])),stealStages:statFlags};
@@ -113,14 +114,14 @@ export function moveEffectTargets(kind: string): readonly MoveTarget[] {
  if(kind==="criticalStageBoost")return ["user","target","allies"];
  if(["statDrain","cureAndHeal"].includes(kind))return ["target"];
  if(["hazard","copyAbility","ignoreAbilities","bypassSubstitute","tidyField","maxHpRecoil","damageDrain","drainEachHit","entryStatHazard","swapSideEffects"].includes(kind))return ["user"];
- if(["swapRawStat","stealStages","reducePP","requireHeldItem","allyHealInstead","typeMatchup"].includes(kind))return ["target"];
+ if(["swapRawStat","stealStages","reducePP","requireHeldItem","allyHealInstead","typeMatchup","modernKnockOff"].includes(kind))return ["target"];
  return ["user","target","allies","opponents","all"];
 }
 export const MOVE_NATIVE_OPERATIONS = [113, 115, 215,229] as const;
 // Further aliases need their generic-effect data and sequencing reviewed together.
 export const MOVE_NATIVE_BASES = [280,364] as const;
 export const movePrimitive = (kind: string) => MOVE_PRIMITIVES.find(p => p.kind === kind);
-export const moveEffectAllowsChance=(kind:string)=>!["power","historyPower","selectionGate","vulnerableUntilAction","fieldMoveType","damage","accuracy","hpPower","ignoreStages","flinch","hazard","ignoreAbilities","bypassSubstitute","requireHeldItem","damageDrain","allyHealInstead","typeMatchup","damageWeather","thawTargets","ignoreRedirection","attackStat","moveUserType","drainEachHit","entryStatHazard","swapSideEffects"].includes(kind);
+export const moveEffectAllowsChance=(kind:string)=>!["power","historyPower","selectionGate","vulnerableUntilAction","fieldMoveType","damage","accuracy","hpPower","ignoreStages","flinch","hazard","ignoreAbilities","bypassSubstitute","requireHeldItem","damageDrain","allyHealInstead","typeMatchup","damageWeather","thawTargets","ignoreRedirection","attackStat","moveUserType","drainEachHit","entryStatHazard","swapSideEffects","modernKnockOff"].includes(kind);
 export function movePhaseMatchesCategory(phase: MovePhase, category: number): boolean { return phase==="selection" || (category === 0 ? phase === "status" : phase !== "status"); }
 export function validateMoveRuleCategory(rule: MoveRuleSet, category: number): void {
   if (!integer(category,0,2) || category===0 && rule.nativeBase || rule.effects.some(e=>!movePhaseMatchesCategory(e.phase,category))) throw Error("Choose effect timings that match the move’s Status, Physical or Special category.");
@@ -130,7 +131,7 @@ export function validateMoveRuleHits(rule:MoveRuleSet,hits:number):void {
 }
 export function newMoveEffect(kind = "power"): MoveEffect {
   const p = movePrimitive(kind); if (!p) throw Error("Unknown move primitive.");
-  return { kind, value: p.value, phase: p.phases[0], target: ["flinch","statDrain","cureAndHeal","swapRawStat","stealStages","reducePP","requireHeldItem","allyHealInstead","typeMatchup","residualDamage","residualStat","targetMoveType","mutualTrap","powderReaction","blockMoveFlag","spotlight"].includes(kind) ? "target" : "user", chance: 100, secondary: ["flinch","randomStatus","reducePP"].includes(kind), conditions: structuredClone(MOVE_ALWAYS) };
+  return { kind, value: p.value, phase: p.phases[0], target: ["flinch","statDrain","cureAndHeal","swapRawStat","stealStages","reducePP","requireHeldItem","allyHealInstead","typeMatchup","modernKnockOff","residualDamage","residualStat","targetMoveType","mutualTrap","powderReaction","blockMoveFlag","spotlight"].includes(kind) ? "target" : "user", chance: 100, secondary: ["flinch","randomStatus","reducePP"].includes(kind), conditions: structuredClone(MOVE_ALWAYS) };
 }
 export const EMPTY_MOVE_RULE: MoveRuleSet = { conditions: structuredClone(MOVE_ALWAYS), prerequisites: structuredClone(MOVE_ALWAYS), effects: [newMoveEffect()] };
 const integer = (v: number, min: number, max: number) => Number.isInteger(v) && v >= min && v <= max;
@@ -173,7 +174,8 @@ export function validateMoveRule(input: MoveRuleSet): MoveRuleSet {
     if(["entryStatHazard","swapSideEffects"].includes(e.kind)&&(e.secondary||e.chance!==100))throw Error("Side effects cannot be secondary or use an effect-chance roll.");
     if(e.kind!=="damage" && (usesEffectiveness(conditions)||usesEffectiveness(effectConditions)))throw Error("Type effectiveness conditions require a final damage multiplier effect.");
     if (!p.phases.includes(e.phase) || !moveEffectTargets(e.kind).includes(e.target) || !integer(e.chance, 1, 100) || typeof e.secondary !== "boolean") throw Error("Invalid move effect timing, target or chance.");
-    if (["power","historyPower","selectionGate","vulnerableUntilAction","fieldMoveType","damage","accuracy","hpPower","ignoreStages","hazard","ignoreAbilities","bypassSubstitute","requireHeldItem","damageDrain","allyHealInstead","typeMatchup","damageWeather","thawTargets","ignoreRedirection","attackStat","moveUserType"].includes(e.kind) && e.chance !== 100) throw Error("Calculation effects and native windows do not roll an effect chance.");
+    if (["power","historyPower","selectionGate","vulnerableUntilAction","fieldMoveType","damage","accuracy","hpPower","ignoreStages","hazard","ignoreAbilities","bypassSubstitute","requireHeldItem","damageDrain","allyHealInstead","typeMatchup","damageWeather","thawTargets","ignoreRedirection","attackStat","moveUserType","modernKnockOff"].includes(e.kind) && e.chance !== 100) throw Error("Calculation effects and native windows do not roll an effect chance.");
+    if(e.kind==="modernKnockOff"&&(e.secondary||input.nativeBase||input.effects.filter(x=>["modernKnockOff","removeItem"].includes(x.kind)).length!==1))throw Error("Choose one primary Knock Off effect without another item-removal effect or native base.");
     if(e.kind==="residualDamage"&&[e.parameters?.type1??10,e.parameters?.type2??8].some(t=>t>17&&t!==255))throw Error("Choose a supported enhanced type or None.");
     if(e.kind==="mutualTrap"&&e.secondary)throw Error("Mutual trapping is a primary effect.");
     if(e.kind==="residualDamage"&&e.phase!=="hit")throw Error("Recurring effects require a successful hit.");
@@ -183,7 +185,7 @@ export function validateMoveRule(input: MoveRuleSet): MoveRuleSet {
       if(e.secondary||!allowed(conditions)||!allowed(effectConditions)||input.effects.filter(x=>x.kind==="selectionGate").length>1)throw Error("Selection restrictions can inspect only the user's battle history; choose one selection restriction.");
     }
     if(e.kind==="damageDrain"&&(e.secondary||conditions.kind!=="group"||conditions.children.length||effectConditions.kind!=="group"||effectConditions.children.length||input.effects.filter(x=>x.kind==="damageDrain").length>1))throw Error("Native damage drain is unconditional and may appear once per move.");
-    if(e.kind==="drainEachHit"&&(e.secondary||e.chance!==100||input.nativeBase||input.effects.filter(x=>["drainEachHit","damageDrain","ignoreAbilities","requireHeldItem","maxHpRecoil","allyHealInstead","native","removeItem"].includes(x.kind)).length!==1))throw Error("Per-recipient drain needs its own sequence state and cannot share it with another drain, native operation or sequence-state effect.");
+    if(e.kind==="drainEachHit"&&(e.secondary||e.chance!==100||input.nativeBase||input.effects.filter(x=>["drainEachHit","damageDrain","ignoreAbilities","requireHeldItem","maxHpRecoil","allyHealInstead","native","removeItem","modernKnockOff"].includes(x.kind)).length!==1))throw Error("Per-recipient drain needs its own sequence state and cannot share it with another drain, native operation or sequence-state effect.");
     if (e.kind === "flinch" && (e.chance !== 100 || !e.secondary || e.target !== "target")) throw Error("Flinch uses its own percentage and must target move recipients as a secondary effect.");
     if (e.secondary && !["user","target"].includes(e.target)) throw Error("Secondary effects target the user or each move recipient.");
     if (e.secondary && e.phase !== "hit" && !(e.kind==="sourceCondition"&&e.phase==="afterRealHits") && !(e.kind==="hazard"&&e.phase==="hitSide")) throw Error("Secondary effects must use a supported successful-hit boundary.");
@@ -226,7 +228,7 @@ export function checkedMoveEventList(events:Iterable<number>):number[]{
 }
 /** Small per-move event tables prevent condition queries on unrelated battle events. */
 export function moveRecipeEvents(input: MoveRuleSet, legacyV2=false, legacyBypass=false): number[] {
-  const rule = validateMoveRule(input), events = new Set(rule.effects.flatMap(e => ["selectionGate","damageDrain","typeMatchup","damageWeather","thawTargets","ignoreRedirection","attackStat","moveUserType"].includes(e.kind)?[]:e.kind==="drainEachHit"?[3,0x4b,0x4d]:e.kind==="allyHealInstead"?[0x30,0x31]:e.kind === "ignoreStages" ? [0x3a, 0x33] : e.kind==="requireHeldItem"?(legacyV2?[3,0x2d]:[3,0x2d,0x46]):e.kind==="ignoreAbilities"?[3,4]:e.kind==="maxHpRecoil"?[3,4,...((e.parameters?.trigger??0)===0?[0x25,0x26]:[0x45])]:e.kind==="bypassSubstitute"?(legacyBypass?[5]:[]):e.phase === "status" ? [0xa0,0xa1] : [MOVE_PHASE_EVENTS[e.phase]]));
+  const rule = validateMoveRule(input), events = new Set(rule.effects.flatMap(e => ["selectionGate","damageDrain","typeMatchup","damageWeather","thawTargets","ignoreRedirection","attackStat","moveUserType"].includes(e.kind)?[]:e.kind==="modernKnockOff"?[3,4,0x37,0x83]:e.kind==="drainEachHit"?[3,0x4b,0x4d]:e.kind==="allyHealInstead"?[0x30,0x31]:e.kind === "ignoreStages" ? [0x3a, 0x33] : e.kind==="requireHeldItem"?(legacyV2?[3,0x2d]:[3,0x2d,0x46]):e.kind==="ignoreAbilities"?[3,4]:e.kind==="maxHpRecoil"?[3,4,...((e.parameters?.trigger??0)===0?[0x25,0x26]:[0x45])]:e.kind==="bypassSubstitute"?(legacyBypass?[5]:[]):e.phase === "status" ? [0xa0,0xa1] : [MOVE_PHASE_EVENTS[e.phase]]));
   const check = movePrerequisiteEvent(rule.prerequisites); if (check) events.add(check);
   return checkedMoveEventList(events);
 }

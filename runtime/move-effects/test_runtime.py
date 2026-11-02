@@ -33,15 +33,24 @@ class Harness:
     if p['p_type']=='PT_LOAD':self.u.mem_write(p['p_vaddr'],p.data()+bytes(p['p_memsz']-p['p_filesz']))
    self.symbols={s.name:s['st_value'] for s in e.get_section_by_name('.symtab').iter_symbols()}
   self.powerWritten=False;self.vars={3:0,4:1,0x12:1,0x30:40};self.queries=0;self.weather=3;self.acted=False;self.instructions=0;self.native=0;self.calls={};self.work=[];self.popped=[];self.active={0,1,12,13}
+  self.blockedItem=False;self.itemGuard=False;self.knockCalls=0
+  self.apiCount=self.symbols.get("MoveRuleApiEnd",0) or 64
+  with elf.open('rb') as f:self.apiCount=next(s['st_size']//4 for s in ELFFile(f).get_section_by_name('.symtab').iter_symbols() if s.name=='MoveRuleApi')
   self.stats={};self.rawStats={};self.conditions={};self.items={};self.randomValue=0;self.pending=[];self.simulated=False;self.types={};self.species={};self.previous={};self.moves={};self.pps={};self.window=False;self.sideNodes={};self.nativeMatchup=2;self.matchupArguments=[];self.nativeSubstitute=1;self.thawArguments=[]
-  for n in range(64):self.put(self.symbols['MoveRuleApi']+n*4,STUB+n*4+1)
+  for n in range(self.apiCount):self.put(self.symbols['MoveRuleApi']+n*4,STUB+n*4+1)
   self.put(self.symbols['MoveRuleData'],CONFIG)
   self.u.hook_add(UC_HOOK_CODE,self.hook)
  def put(self,p,v):self.u.mem_write(p,struct.pack('<I',v&0xffffffff))
  def hook(self,u,p,size,data):
   self.instructions+=1
   if p==STOP:u.emu_stop();return
-  if STUB<=p<STUB+64*4 and not (p-STUB)%4:
+  if p==STUB+0x400:
+   self.put(u.reg_read(UC_ARM_REG_R0),1);u.reg_write(UC_ARM_REG_R0,FLOW+0x3000);u.reg_write(UC_ARM_REG_PC,u.reg_read(UC_ARM_REG_LR));return
+  if p==STUB+0x404:
+   self.knockCalls+=1
+   if not self.blockedItem and not self.itemGuard:self.items[self.vars[6]]=0
+   u.reg_write(UC_ARM_REG_PC,u.reg_read(UC_ARM_REG_LR));return
+  if STUB<=p<STUB+self.apiCount*4 and not (p-STUB)%4:
    index=(p-STUB)//4;self.calls[index]=self.calls.get(index,0)+1
    a=[u.reg_read(r) for r in [UC_ARM_REG_R0,UC_ARM_REG_R1,UC_ARM_REG_R2,UC_ARM_REG_R3]];value=0
    if index==0:
@@ -123,6 +132,8 @@ class Harness:
    elif index==61:self.thawArguments.append((a[0],bytes(self.u.mem_read(a[1],20)),a[2],a[3]))
    elif index==62:value=777
    elif index==63:self.u.mem_write(a[3]+6,bytes([13]))
+   elif index==64:value=int(self.blockedItem)
+   elif index==65:value=int(self.itemGuard)
    elif index==29:pass
    elif index==12:pass
    elif index==13:pass
@@ -291,3 +302,43 @@ def run():
  h=Harness();h.install(100,weather);n=h.call('MoveDispatch',move=1000);assert h.native==1 and h.queries==0 and n<400
  print(json.dumps({'passed':True,'weatherQueriesForFourActors':4,'queriesForUnrelatedEvents':0,'queriesPerEvaluationWith16Effects':1,'instructionsFor1And100Definitions':counts,'unconfiguredDispatchInstructions':n}))
 if __name__=='__main__':run()
+
+# Modern Knock Off is a composed primary effect, with no per-battle observers.
+if Harness().apiCount>=65:
+ for held,blocked,ratio,wanted in [(0,False,6144,40),(234,False,6144,60),(234,True,6144,40),(234,False,10240,100)]:
+  h=Harness();h.items[1]=held;h.nativeSubstitute=0;h.blockedItem=blocked;h.install(effects=[effect(kind=59,value=ratio,target=1)])
+  h.call('MoveEvent_37');assert h.vars[0x30]==wanted,(held,blocked,ratio,h.vars)
+  assert h.items.get(1,0)==held and h.queries==0
+  h.put(h.symbols['MoveNativeIds'],282);h.put(h.symbols['MoveNativeGetters'],STUB+0x401)
+  h.put(FLOW+0x3000,0x83);h.put(FLOW+0x3004,STUB+0x405)
+  h.vars.update({5:1,6:1});h.call('MoveEvent_83')
+  assert h.knockCalls==1 and h.items[1]==(held if blocked else 0)
+ for sequence in [[effect(kind=1,value=8192),effect(kind=59,value=6144,target=1)],[effect(kind=59,value=6144,target=1),effect(kind=1,value=8192)]]:
+  h=Harness();h.items[1]=234;h.nativeSubstitute=0;h.install(effects=sequence);h.call('MoveEvent_37');assert h.vars[0x30]==120
+ h=Harness();h.items[1]=234;h.nativeSubstitute=0;h.install(count=100,effects=[effect(kind=59,value=6144,target=1)]);h.simulated=True;h.call('MoveEvent_37');assert h.vars[0x30]==60
+ h.vars.update({5:1,6:1});h.call('MoveEvent_83');assert h.knockCalls==0 and h.items[1]==234
+ print('Modern Knock Off: empty/blocked/removable items, adjusted power, ordering, preview and 100 definitions passed.')
+
+if Harness().apiCount>=66:
+ h=Harness();h.items[1]=234;h.nativeSubstitute=0;h.itemGuard=True;h.install(effects=[effect(kind=59,value=6144,target=1)]);h.call('MoveEvent_37');assert h.vars[0x30]==40
+ print('Native item-change prevention also vetoes the bonus.')
+
+if Harness().apiCount>=66:
+ h=Harness();h.items[1]=234;h.install(effects=[effect(kind=59,value=6144,target=1)]);h.call('MoveEvent_37');assert h.vars[0x30]==40
+ print('Substitute prevents the power bonus.')
+
+if Harness().apiCount>=66:
+ h=Harness();h.items[1]=234;h.nativeSubstitute=0;h.install(effects=[effect(kind=59,value=6144,target=1)]);h.call("MoveEvent_03");h.call("MoveEvent_37");h.stats[(1,13)]=0;h.vars.update({5:1,6:1})
+ h.put(h.symbols['MoveNativeIds'],282);h.put(h.symbols['MoveNativeGetters'],STUB+0x401);h.put(FLOW+0x3000,0x83);h.put(FLOW+0x3004,STUB+0x405)
+ h.call('MoveEvent_83');assert h.knockCalls==1 and h.items[1]==0
+ print('Knockout recipients still use the native Knock Off callback.')
+
+if Harness().apiCount>=66:
+ for before,after,comparison,expected in [(100,50,3,True),(100,50,1,False)]:
+  h=Harness();h.items[1]=234;h.nativeSubstitute=0;h.stats[(1,13)]=before
+  h.install(effects=[effect(kind=59,value=6144,target=1,conditions=leaf(1,100 if comparison==3 else 50,subject=1,comparison=comparison))])
+  h.put(h.symbols['MoveNativeIds'],282);h.put(h.symbols['MoveNativeGetters'],STUB+0x401);h.put(FLOW+0x3000,0x83);h.put(FLOW+0x3004,STUB+0x405)
+  h.call('MoveEvent_03');h.call('MoveEvent_37');h.stats[(1,13)]=after;h.vars.update({5:1,6:1});h.call('MoveEvent_83')
+  assert h.knockCalls==int(expected) and h.items[1]==(0 if expected else 234)
+  h.items[1]=234;h.call('MoveEvent_04');h.call('MoveEvent_83');assert h.items[1]==234
+ print('Knock Off freezes activation at power timing and clears it between actions.')

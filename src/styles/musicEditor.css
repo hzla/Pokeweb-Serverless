@@ -195,6 +195,7 @@
 
 .music-editor-buttons {
   display: flex;
+  align-items: flex-start;
   flex-wrap: wrap;
   gap: 12px;
 }

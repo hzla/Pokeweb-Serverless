@@ -40,6 +40,7 @@ import {
   type StereoPcm,
 } from "../pokeweb/streamedBgmModel";
 import { escapeHtml } from "./dom";
+import { renderRuntimeReleaseTimestamp } from "./runtimeReleaseTimestamp";
 
 type StreamedBgmDraft = {
   activeTab: MusicEditorTab;
@@ -389,7 +390,7 @@ export function renderMusicEditor(project: ProjectState, root: HTMLElement, onDi
             <label class="streamed-bgm-shortcut"><input id="streamed-bgm-shortcut" type="checkbox" ${draft.shortcutEnabled ? "checked" : ""} ${supported ? "" : "disabled"} /> Enable L + R + Select music mute (global; saved on import)</label>
             <div class="music-editor-buttons">
               <button class="btn -primary" id="install-streamed-bgm-btn" type="button" ${supported && draft.pcm ? "" : "disabled"}>${config ? "Update Selected Replacement" : "Add Replacement"}</button>
-              <button class="btn" id="update-streamed-bgm-runtime-btn" type="button" ${supported && (configs.length || (bw1 && getStandaloneStreamConfigs(project).length)) ? "" : "disabled"}>Update Music Runtime</button>
+              <div class="runtime-update-action"><button class="btn" id="update-streamed-bgm-runtime-btn" type="button" ${supported && (configs.length || (bw1 && getStandaloneStreamConfigs(project).length)) ? "" : "disabled"}>Update Music Runtime</button>${renderRuntimeReleaseTimestamp("music")}</div>
               <button class="btn -default" id="remove-streamed-bgm-btn" type="button" ${config ? "" : "disabled"}>Remove Selected Replacement</button>
             </div>
             <div class="code-injection-note" id="streamed-bgm-note">${escapeHtml(draft.message ?? (config ? (configTargetIsBgm ? `${config.sourceName} is installed. Removing it restores only the verified replacement data.` : `This older installation targets non-BGM sequence ${config.targetSequenceId} (${config.targetSequenceSymbol ?? "unknown"}). Choose a SEQ_BGM target, import the audio again, and reconfigure it before testing.`) : draft.hydrating ? "Loading SDAT background-music sequence names…" : "Choose a SEQ_BGM target and import MP3 or WAV audio. Full-track looping is the default."))}</div>

@@ -19,6 +19,7 @@ const unacted: MoveCondition = { kind: "targetActed", value: 0 };
 const superEffective = any({ kind: "effectiveness", value: 4 }, { kind: "effectiveness", value: 5 });
 const rainAccuracy = () => effect("accuracy", 1, "accuracy", "user", weather(2));
 export const MOVE_RECIPE_LIBRARY: readonly MoveRecipeTemplate[] = [
+  template(282, "Knock Off (modern)", [effect("modernKnockOff", 1.5, "power", "target")]),
   template(563, "Rototiller", [stat(1, 1, "status", "all", all(grass, { kind: "grounded", value: 1 })), stat(3, 1, "status", "all", all(grass, { kind: "grounded", value: 1 }))]),
   template(565, "Fell Stinger", [stat(1, 2, "knockout")]),
   template(576, "Topsy-Turvy", [effect("stages", 1, "status", "target", all(), { operation: 1 })]),

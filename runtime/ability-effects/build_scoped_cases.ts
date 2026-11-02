@@ -1,4 +1,7 @@
+import {configureItemRuleSets} from "../../src/pokeweb/itemEffectsModel";
+import {statSourceCases} from "./stat_source_cases";
 import { prepareCustomFlagCases, customFlagCases } from "./custom_flag_cases";
+import { statusPopupCases } from "./status_popup_cases";
 import blackAbilityBindings from "../../src/assets/data/abilityBindingsB1.json";
 /** Editable Gen 6–9 recipe imports: ROM lifecycle and native battle fixtures. */
 import assert from "node:assert/strict";
@@ -51,13 +54,16 @@ const variants:Record<number,AbilityRuleSet>={
 for(const[id,rule]of Object.entries(variants)){entries.set(Number(id),rule);names.set(Number(id),`Test ${id}`);}
 const customFlagsMode=process.argv.includes("--custom-flags");
 if(customFlagsMode)for(const[id,rule]of await prepareCustomFlagCases(project)){entries.set(id,rule);names.set(id,`Flag Test ${id}`);}
+const statusPopups=process.argv.includes("--stat-source")?statSourceCases(true):process.argv.includes("--status-popups")?statusPopupCases():undefined;
+if(statusPopups){entries.clear();names.clear();for(const[id,rule]of statusPopups.rules){entries.set(id,rule);names.set(id,statusPopups.names.get(id)!);}}
 await configureAbilityRuleSets(project,[...entries].map(([abilityId,rules])=>({abilityId,rules,name:names.get(abilityId)!})));
+if(process.argv.includes("--stat-source"))await configureItemRuleSets(project,[{itemId:85,rules:{effects:[{kind:"statStage",value:-1,stat:5,trigger:"afterContact",target:"attacker",chance:100}],conditions:all,consumable:false}}]);
 const verify=()=>{const s=inspectAbilityEffects(project);assert(s.editable,s.message);assert.deepEqual(s.rules,entries);for(const[id,name]of names)assert.equal(project.texts.banks.abilities?.[id],name);};
 verify();project=openProjectSession(createProjectDocument(project,false));project.originalRomBytes=input;hydrateAbilityEffectsSource(project,new NintendoDSRom(input,{fileData:"view"}));verify();
 const trim=()=>{for(const[name,store]of Object.entries(project.narcs))if(!store?.dirty.size)delete project.narcs[name as keyof typeof project.narcs];};
 trim();const exported=await exportModifiedRom(project,{forDsi:false});await writeArtifact(`${out}/ability-imports.nds`,exported);project=await load(exported);verify();
 const editReceipts=[];
-for(const official of(process.argv.includes("--quick")?[]:[168,186,198,240,284,290,293,296,180,178])){
+for(const official of(process.argv.includes("--quick")||statusPopups?[]:[168,186,198,240,284,290,293,296,180,178])){
  const editedId=slots.get(official)!,original=entries.get(editedId)!;
  const changed=validateAbilityRule({...original,effects:original.effects.map(e=>({...e,conditions:undefined,parameters:{...e.parameters,...(official===168?{limit:0,type:9}:official===186?{type:17,invertedPercent:50}:official===240||official===290?{stat:3}:official===284?{stat:2}:official===293?{cap:3}:official===296?{scope:0}:official===180?{activationChance:75}:{})},value:official===198?2.5:official===178?2: e.value})),conditions:{kind:"group",mode:"any",children:[{kind:"type",value:11},{kind:"weather",value:3}]}});
  for(const rules of[changed,original]){entries.set(editedId,rules);await configureAbilityRuleSets(project,[{abilityId:editedId,rules}]);trim();const bytes=await exportModifiedRom(project,{forDsi:false});project=await load(bytes);verify();editReceipts.push({officialId:official,sha256:sha(bytes),editableAfterReload:true});}
@@ -75,7 +81,7 @@ assert.equal(sideCandidates.length,1);const sideTableAddress=readU32(sideOverlay
 assert(sideTableAddress>=sideOverlay.ramAddress+sideOverlay.data.length&&sideTableAddress+448<=sideOverlay.ramAddress+sideOverlay.ramSize+sideOverlay.bssSize);
 const encoded=encodeAbilityRules(entries),nativeOffsets:number[]=[];
 for(const[id,r]of entries){const at=readU16(encoded,id*2),start=at+4+encoded[at+1]*4;r.effects.forEach((e,i)=>{if(e.kind.startsWith("nativeAbility:"))nativeOffsets.push(start+i*16);});}
-type Case={label:string;abilityId:number;enemyAbility?:number;enemySpecies?:number;playerSpecies?:number;enemyMove?:number;enemyLevel?:number;enemyCount?:number;enemyItem?:number;move?:number;playerMoves?:number[];turnMove?:number[];hp?:number;playerItem?:number;playerStatus?:HarnessPokemon["status"];ally?:HarnessPokemon;ally2?:HarnessPokemon;battleType?:"Doubles"|"Triples";menuCount?:number;checks:Record<string,unknown>};
+type Case={label:string;abilityId:number;enemyAbility?:number;enemySpecies?:number;playerSpecies?:number;playerGender?:0|1;enemyMove?:number;enemyLevel?:number;enemyCount?:number;enemyItem?:number;move?:number;playerMoves?:number[];turnMove?:number[];hp?:number;playerItem?:number;playerStatus?:HarnessPokemon["status"];ally?:HarnessPokemon;ally2?:HarnessPokemon;battleType?:"Doubles"|"Triples";menuCount?:number;checks:Record<string,unknown>};
 const cases:Case[]=[];
 const stages=(stat:number,...values:number[])=>values.map(v=>Array.from({length:7},(_,i)=>i===stat-1?v:6));
 function test(official:number,label:string,checks:Case["checks"],extra:Partial<Case>={}){cases.push({label,abilityId:slots.get(official)!,checks,...extra});}
@@ -166,6 +172,7 @@ if(process.argv.includes("--expanded-classes")){
  test(274,"expanded-wind-rider",{noDamage:true,playerStagesByTurn:[[6,6,6,6,6,6,6],[7,6,6,6,6,6,6],[8,6,6,6,6,6,6]],popupsByTurn:[0,1,1]},{enemyMove:wind});
 }
 if(customFlagsMode)cases.splice(0,cases.length,...customFlagCases(project));
+if(statusPopups)cases.splice(0,cases.length,...statusPopups.cases);
 const seedPath=process.argv.slice(4).find(arg=>!arg.startsWith("--"));
 const seed=rawSaveBytesFromDesmumeDsv(new Uint8Array(await readFile(seedPath??getTestBattleConfig("BW2").saveUrl)));
 // Rebuild only the disposable copy's party before the strict harness checks it.
@@ -176,9 +183,9 @@ const hashes:Record<string,string>={},fixtures=[];
 const only=process.argv.find(a=>a.startsWith("--only="))?.slice(7).split(",");
 for(const[i,spec]of cases.entries()){
  if(only&&!only.includes(spec.label))continue;
- const trainer=patchHarnessTrainer(project,parseHarnessConfig({trainerId:2,battleType:spec.battleType??"Singles",trainer:{team:Array.from({length:spec.enemyCount??1},()=>({speciesId:spec.enemySpecies??320,level:spec.enemyLevel??(spec.enemyMove?30:100),moves:[spec.enemyMove??150],itemId:spec.enemyItem??0,abilityId:spec.enemyAbility??50})),ai:0}}));
+ const trainer=patchHarnessTrainer(project,parseHarnessConfig({trainerId:2,battleType:spec.battleType??"Singles",trainer:{team:Array.from({length:spec.enemyCount??1},()=>({speciesId:spec.enemySpecies??320,level:spec.enemyLevel??(spec.enemyMove?30:100),moves:[spec.enemyMove??150],itemId:spec.enemyItem??0,abilityId:spec.enemyAbility??50,...(statusPopups?{gender:0 as const}:{})})),ai:0}}));
  stageCodeInjectionDll(project,"BattleHarnessW2.dll",configureHarnessRuntime(new Uint8Array(await readFile(new URL("../../src/assets/testbattle/BattleHarnessW2.dll",import.meta.url))),2,trainer));
- const save=patchHarnessSave(baseSave,project,parseHarnessConfig({trainerId:2,player:{team:[{speciesId:spec.playerSpecies??1,level:50,moves:spec.playerMoves??[spec.move??150],itemId:spec.playerItem??0,abilityId:spec.abilityId,...(spec.playerStatus?{status:spec.playerStatus}:{}),...(spec.hp!==undefined?{currentHp:spec.hp}:{})},...(spec.ally?[spec.ally]:[]),...(spec.ally2?[spec.ally2]:[])]}}));
+ const save=patchHarnessSave(baseSave,project,parseHarnessConfig({trainerId:2,player:{team:[{speciesId:spec.playerSpecies??1,level:50,moves:spec.playerMoves??[spec.move??150],itemId:spec.playerItem??0,abilityId:spec.abilityId,...(spec.playerGender===undefined?{}:{gender:spec.playerGender}),...(spec.playerStatus?{status:spec.playerStatus}:{}),...(spec.hp!==undefined?{currentHp:spec.hp}:{})},...(spec.ally?[spec.ally]:[]),...(spec.ally2?[spec.ally2]:[])]}}));
  const raw=decryptPk5Party(save.subarray(0x18e08,0x18e08+220)),maxHp=readU16(raw,0x90),label=`${String(i).padStart(3,"0")}-${spec.label}`,filename=`battle-${spec.enemySpecies??320}-${spec.battleType??"Singles"}-${spec.enemyMove??150}-${spec.enemyAbility??50}-${spec.enemyLevel??(spec.enemyMove?30:100)}-${spec.enemyCount??1}-${spec.enemyItem??0}.nds`;
  await writeArtifact(`${out}/saves/${label}.sav`,save);
  if(!hashes[filename]){const keep=project.narcs;project.narcs=Object.fromEntries(Object.entries(keep).filter(([name,store])=>["personal","trdata","trpok"].includes(name)&&store?.dirty.size));const bytes=await exportModifiedRom(project,{forDsi:false});project.narcs=keep;await writeArtifact(`${out}/${filename}`,bytes);hashes[filename]=sha(bytes);}
@@ -199,5 +206,5 @@ if(customFlagsMode){
  powerHook=battleRuntimeResolver(overlay.data,overlay.ramAddress,project.arm9,rom.arm9RamAddress,{...moveBindings.functions,...extras}).resolve("BW1_BTL_SERVER_FLOW_CalcMovePower").address;
 }
 const popupGateway=dll.symbols[dll.relocations.find(r=>r.target.module==="base"&&r.target.address===symbols.AbilityRuleApi+80)!.sourceSymbolIndex].address;
-await writeFile(`${out}/cases.json`,JSON.stringify({inputSha256:inputHash,exportSha256:sha(exported),reexportSha256:sha(reexported),editedAbilities:entries.size,codeBytes:dll.code.length,bssBytes:dll.bssSize,serializedBytes:rom.files[rom.fileId(ABILITY_EFFECTS_DLL_PATH)].length,nameLoader,api,symbols,pmcSymbols,hook:resolver.resolve("AbilityEvent_AddItem").address,configHex:Buffer.from(encoded).toString("hex"),nativeOffsets,romHashes:hashes,cases:fixtures,projectReload:true,romExportReload:true,reloadedEdits:editReceipts,imports:ABILITY_IMPORT_LIBRARY.map(t=>({officialId:t.id,assignedId:slots.get(t.id),name:t.defaultName,generation:t.generation})),priorityRuntime:true,powerHook,popupGateway,messageHook,blockMessage:dll.metadata.PokewebAbilityBlockMessage,presentationMessages:JSON.parse(String(dll.metadata.PokewebAbilityPresentationMessages??"[]")),eventConstHook:resolver.resolve("BattleEventVar_SetConstValue").address,sideTableAddress,weatherAddress:readU32(resolver.resolve("GetFieldWeather").code,8),damageReactionHook:resolver.resolve("ServerEvent_DamageReaction").address,nativeChanceHook:resolver.resolve("AbilityEvent_RollEffectChance").address,eventList:readU32(resolver.resolve("BattleEvent_SeekItem").code,0x30)},null,2)+"\n");
+await writeFile(`${out}/cases.json`,JSON.stringify({inputSha256:inputHash,exportSha256:sha(exported),reexportSha256:sha(reexported),editedAbilities:entries.size,codeBytes:dll.code.length,bssBytes:dll.bssSize,serializedBytes:rom.files[rom.fileId(ABILITY_EFFECTS_DLL_PATH)].length,nameLoader,api,symbols,pmcSymbols,hook:resolver.resolve("AbilityEvent_AddItem").address,configHex:Buffer.from(encoded).toString("hex"),nativeOffsets,romHashes:hashes,cases:fixtures,projectReload:true,romExportReload:true,reloadedEdits:editReceipts,imports:statusPopups?[]:ABILITY_IMPORT_LIBRARY.map(t=>({officialId:t.id,assignedId:slots.get(t.id),name:t.defaultName,generation:t.generation})),priorityRuntime:true,powerHook,popupGateway,messageHook,blockMessage:dll.metadata.PokewebAbilityBlockMessage,presentationMessages:JSON.parse(String(dll.metadata.PokewebAbilityPresentationMessages??"[]")),eventConstHook:resolver.resolve("BattleEventVar_SetConstValue").address,sideTableAddress,weatherAddress:readU32(resolver.resolve("GetFieldWeather").code,8),damageReactionHook:resolver.resolve("ServerEvent_DamageReaction").address,nativeChanceHook:resolver.resolve("AbilityEvent_RollEffectChance").address,eventList:readU32(resolver.resolve("BattleEvent_SeekItem").code,0x30)},null,2)+"\n");
 assert.equal(sha(new Uint8Array(await readFile(path))),inputHash);console.log(`${fixtures.length} ability import fixtures; export/reload and ${editReceipts.length} parameter re-edits passed.`);

@@ -55,6 +55,7 @@ export function abilityRuleEvents(rule: AbilityRuleSet, profiles: NativeAbilityP
         case 160: add(0x55, 0x8a, 0x38); break;
         case 162: add(p("mode") ? 0x5d : 0x5b); break;
         case 163: add(p("mode") ? 0xa7 : 0x4b); break;
+        case 165: add(0x5b); break;
         case 164: add(0x03, 0x4b, 0x83); break;
         default: throw new Error(`Missing ability event mapping: ${effect.kind}`);
       }

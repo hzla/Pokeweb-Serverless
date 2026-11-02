@@ -9,6 +9,19 @@ PUBLIC const volatile u32 AbilityRecipeApi[24]={0};
 PUBLIC const volatile u32 AbilityRecipeApi[23]={0};
 #endif
 #define RX(i,t) ((t)(uintptr_t)AbilityRecipeApi[i])
+#ifdef ABILITY_STAT_SOURCE
+/* Native work executes synchronously inside its source callback. Keep provenance
+ * on that call stack; move/item callbacks never inherit an ability's identity. */
+typedef struct AbilityOrigin {void*flow;u32 factor,owner,blocked;struct AbilityOrigin*previous;} AbilityOrigin;
+static AbilityOrigin*abilityOrigin;
+PUBLIC void AbilityCallbackScope(void*item,void*f,u8 owner,u32*w,Callback callback){
+ AbilityOrigin scope={f,*(u32*)((u8*)item+0x10),owner,0,abilityOrigin};
+ abilityOrigin=&scope;callback(item,f,owner,w);abilityOrigin=scope.previous;
+}
+PUBLIC __attribute__((naked)) void AbilityNativeCallback(void){
+ __asm__ volatile(".syntax unified\n adds r3, #0x1c\n push {r6, lr}\n sub sp, #8\n str r6, [sp]\n bl AbilityCallbackScope\n add sp, #8\n pop {r6, pc}\n .syntax divided\n");
+}
+#endif
 static u32 entryUsed[32][8];
 static u32 recipeMove,recipeCritical,recipeEffectiveness,entrySource;
 #ifdef ABILITY_BATTLE_MESSAGES
@@ -138,6 +151,18 @@ static void recipeObserve(void*f,u8 owner,const volatile u8*r,u32 event){
   }
  }
 }
+#ifdef ABILITY_STAT_SOURCE
+static void abilityStatGuard(void*f,u8 owner,const volatile u8*e,u32 event){
+ AbilityOrigin*source=abilityOrigin?abilityOrigin->previous:0;
+ if(!source||source->flow!=f||source->factor!=4||source->owner==owner||CHECK(MON(f,owner),16))return;
+ if(event==0x5b&&VALUE(2)==owner&&source->owner==VALUE(3)&&
+    (e[1]==8||VALUE(0x1f)==e[1])&&(s32)VALUE(0x20)<0&&REWRITE(0x41,1)&&!preview(f)){
+  /* Some native stat work suppresses the later blocked-notification event.
+   * A successful veto is the common, reliable notification boundary. */
+  if(!(source->blocked&(1u<<owner))){source->blocked|=1u<<owner;guardMessage(f,owner,owner,198);}
+ }
+}
+#endif
 static void recipeEffect(void*item,void*f,u8 owner,const volatile u8*e,u32 event,u32*w,u32 used){
  u32 kind=e[0],v=half(e+2),hp=STAT(MON(f,owner),13);s32 signedValue=(int16_t)v;
  if(kind==135){

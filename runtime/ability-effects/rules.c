@@ -150,7 +150,11 @@ static u32 bypassed(void*item,void*f,u32 event,const volatile u8*e){
 #ifdef ABILITY_POPUP_GROUPS
 /* One display interval per callback activation, including copied native effects.
  * The scope lives on the stack so recursive battle events cannot share it. */
-typedef struct PopupGroup { void *flow; u8 owner,open; struct PopupGroup *previous; } PopupGroup;
+typedef struct PopupGroup { void *flow; u8 owner,open;
+#ifdef ABILITY_STAT_SOURCE
+ u8 announced;
+#endif
+ struct PopupGroup *previous; } PopupGroup;
 static PopupGroup *popupGroup;
 static void closePopupGroup(PopupGroup*g){if(g->open){FN(20,void(*)(void*,u32,u8))(g->flow,3,g->owner);g->open=0;}}
 PUBLIC void AbilityPopupRun(void*f,u32 command,u8 owner){
@@ -158,7 +162,16 @@ PUBLIC void AbilityPopupRun(void*f,u32 command,u8 owner){
  if(command==2){
   /* A nested activation must not overlap its parent's display interval. */
   for(PopupGroup*p=g;p;p=p->previous)if(p!=g||p->flow!=f||p->owner!=owner)closePopupGroup(p);
-  if(g&&g->flow==f&&g->owner==owner){if(g->open)return;g->open=1;}
+  if(g&&g->flow==f&&g->owner==owner){
+#ifdef ABILITY_STAT_SOURCE
+   /* A nested prevention notice can close the source's interval. Its later
+    * effects must not announce that same activation a second time. */
+   if(g->announced){return;}g->announced=1;
+#else
+   if(g->open)return;
+#endif
+   g->open=1;
+  }
  }else if(command==3&&g&&g->flow==f&&g->owner==owner)return;
  FN(20,void(*)(void*,u32,u8))(f,command,owner);
 }
@@ -230,7 +243,12 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
 #endif
  if(!r||!active(r,f,MON(f,owner)))return;
 #ifdef ABILITY_POPUP_GROUPS
- PopupGroup group={f,owner,0,popupGroup};popupGroup=&group;
+#ifdef ABILITY_STAT_SOURCE
+ PopupGroup group={f,owner,0,0,popupGroup};
+#else
+ PopupGroup group={f,owner,0,popupGroup};
+#endif
+ popupGroup=&group;
 #endif
 #ifdef ABILITY_RECIPES
  u32 ability=SUB(item),used=entryUsed[owner][ability>>5]&(1u<<(ability&31)),mark=0;
@@ -250,6 +268,9 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
   if(kind>=129&&kind<=134){libraryEffect(item,f,owner,e,event);continue;}
 #endif
 #ifdef ABILITY_RECIPES
+#ifdef ABILITY_STAT_SOURCE
+  if(kind==165){abilityStatGuard(f,owner,e,event);continue;}
+#endif
   if(kind>=135&&kind<=153){recipeEffect(item,f,owner,e,event,nativeWork[owner][n],used);if(kind==136&&e[1]==0&&e[9]&&onEntry(event,owner)&&!preview(f))mark=1;continue;}
 #endif
 #ifdef ABILITY_WEATHER_GUARD

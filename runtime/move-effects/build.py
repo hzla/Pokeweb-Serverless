@@ -16,11 +16,15 @@ BUILD.mkdir(exist_ok=True)
 (BUILD / "meta.yml").write_text("PMCVersion: move-rules-1\nPMCModulePriority: 4\n")
 def run(*args):
     subprocess.run([str(arg) for arg in args], check=True)
-persistent = sys.argv[1:] == ["--persistent"]
+if len(sys.argv)==1:
+    run(sys.executable,HERE / "build.py","--modern-knock")
+    raise SystemExit(0)
+modern_knock = sys.argv[1:] == ["--modern-knock"]
+persistent = modern_knock or sys.argv[1:] == ["--persistent"]
 history = persistent or sys.argv[1:] == ["--history"]
 if sys.argv[1:] and not history:
-    raise SystemExit("Usage: build.py [--history|--persistent]")
-run(TOOLS / "arm-none-eabi-gcc", "-std=c11", "-mthumb", "-mcpu=arm946e-s", "-Os", "-Wall", "-Wextra", "-Werror", "-Wno-parentheses", "-Wno-misleading-indentation", "-ffreestanding", "-fno-builtin", "-fno-jump-tables", "-fno-unwind-tables", "-fno-asynchronous-unwind-tables", "-fvisibility=hidden", *(["-DMOVE_HISTORY"] if history else []), *(["-DMOVE_PERSISTENT"] if persistent else []), "-c", HERE / "rules.c", "-o", BUILD / "rules.o")
+    raise SystemExit("Usage: build.py [--history|--persistent|--modern-knock]")
+run(TOOLS / "arm-none-eabi-gcc", "-std=c11", "-mthumb", "-mcpu=arm946e-s", "-Os", "-Wall", "-Wextra", "-Werror", "-Wno-parentheses", "-Wno-misleading-indentation", "-ffreestanding", "-fno-builtin", "-fno-jump-tables", "-fno-unwind-tables", "-fno-asynchronous-unwind-tables", "-fvisibility=hidden", *(["-DMOVE_HISTORY"] if history else []), *(["-DMOVE_PERSISTENT"] if persistent else []), *(["-DMOVE_MODERN_KNOCK"] if modern_knock else []), "-c", HERE / "rules.c", "-o", BUILD / "rules.o")
 (BUILD / "template.dll").unlink(missing_ok=True)
 run("java", "-cp", JAR, "rpm.cli.RPMTool", "-i", BUILD / "rules.o", "--fourcc", "DLXF", "-o", BUILD / "template.dll", "--esdb", BUILD / "symbols.yml", "--meta", BUILD / "meta.yml", "--generate-relocations")
-run(ROOT / "node_modules/.bin/vite-node", HERE / "describe.ts", BUILD / "template.dll", ROOT / ("src/assets/data/moveRuleRuntimePersistent.json" if persistent else "src/assets/data/moveRuleRuntimeHistory.json" if history else "src/assets/data/moveRuleRuntime.json"))
+run(ROOT / "node_modules/.bin/vite-node", HERE / "describe.ts", BUILD / "template.dll", ROOT / ("src/assets/data/moveRuleRuntimeModernKnock.json" if modern_knock else "src/assets/data/moveRuleRuntimePersistent.json" if persistent else "src/assets/data/moveRuleRuntimeHistory.json" if history else "src/assets/data/moveRuleRuntime.json"))

@@ -222,3 +222,21 @@ Named custom tags can be created under **Expanded Flags → Manage flags** and a
 to moves. Their filters are used by adjustable ability recipes; assigning a tag
 alone does not change a move’s battle behavior. See the [ability runtime README](../ability-effects/README.md)
 for storage, limits and runtime update behavior.
+
+**Knock Off (modern)** imports the **Knock Off with power bonus** primitive.
+Its multiplier defaults to 1.5× and can be adjusted from 1× to 8×. The native
+item-removal eligibility check runs during base-power calculation; actual
+removal uses native Knock Off after a successful hit. Empty or protected item
+slots do not receive the bonus. The calculation checks the item before damage,
+so an item consumed during that hit can still have qualified for the bonus.
+Ordinary power, type, targeting and other move data remain separate controls.
+Activation conditions are checked during power calculation and remembered
+through that hit sequence, even if HP or weather changes during the hit. Bonus
+eligibility is determined before damage, including attacks that cause a knockout;
+native hit-completion and item-removal rules still apply.
+This primary primitive cannot be combined with another item-removal card or a
+native base behavior. Its per-move callbacks cover action boundaries, power and
+hit completion, with no weather-query subscription or battle-history observer.
+Its activation cache uses 96 bytes regardless of the number of installed moves.
+Build its current bundle with `python3 runtime/move-effects/build.py --modern-knock`;
+retained bundles remain unchanged for verification of older ROM exports.
