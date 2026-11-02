@@ -118,13 +118,19 @@ and its countdown/fainting sequence; it does not refresh an affected attacker's
 count on each hit. Entry notices are emitted at entry/ability gain, while passive
 stat and damage calculations remain silent. Presentation follows the corresponding
 behavior in pokeemerald-expansion while using Gen 5's native messages and queue.
+Timed status, stat and recoil actions open their popup after eligibility and the
+chance roll pass. Rejected local checks and failed rolls produce no popup.
+Aura entry notices use the configured type's display name, including Fairy and
+renamed types, without relying on Gen 5's native type-name formatter.
 
 Build from the repository root with `python3 runtime/ability-effects/build.py`.
 The original templates remain available for strict verification of older exports;
-the default build updates only the current custom-flag bundle (`--custom-flags-only`).
-`--messages-only`, `--move-classes-only` and `--optimized-only` rebuild retained bundles for verification of older exports;
+the default build updates only the current action-result bundle (`--action-results-only`).
+`--custom-flags-only`, `--messages-only`, `--move-classes-only` and `--optimized-only`
+rebuild retained bundles for verification of older exports;
 released bundles must remain byte-identical when making a new runtime. Runtime
-version 5 adds the custom flag registry and generic filters; version 4 remains
+version 6 gates timed-action popups and supplies type-specific aura notices.
+Version 5 added the custom flag registry and generic filters. Earlier bundles remain
 available for strict verification of existing exports. Version 4 added battle
 explanations, entry notices, expanded classification defaults,
 Whirlwind absorption and the corrected Perish countdown. It includes version 3's

@@ -9,6 +9,7 @@ import optimizedTemplates from "../assets/data/abilityRuleRuntimeOptimized.json"
 import classTemplates from "../assets/data/abilityRuleRuntimeMoveClasses.json";
 import messageTemplates from "../assets/data/abilityRuleRuntimeMessages.json";
 import customFlagTemplates from "../assets/data/abilityRuleRuntimeCustomFlags.json";
+import actionResultTemplates from "../assets/data/abilityRuleRuntimeActionResults.json";
 import { customMoveFlagId, customMoveFlagName, emptyCustomMoveFlags, encodeCustomMoveFlags, MAX_CUSTOM_MOVE_FLAGS, validateCustomMoveFlags, type CustomMoveFlagRegistry } from "./customMoveFlags";
 import { defaultMoveDllFlags, moveDllFlags, validateMoveClassOverrides, encodeMoveClassOverrides, expandedMoveDllDefaults, mergedMoveClassData } from "./abilityMoveClasses";
 import { ensureAbilityBlockMessages, ensureAbilityPresentationMessages } from "./abilityBattleMessages";
@@ -50,7 +51,7 @@ import { isVerifiedBattleCounterImport } from "./battleLogModel";
 import { detectSpecifyTrainerNaturesPatch, specifyTrainerNatures } from "./romPatchModel";
 import type { ProjectState } from "./projectStore";
 export const ABILITY_EFFECTS_DLL_PATH = "patches/AbilityEffects.dll";
-export const CURRENT_ABILITY_RUNTIME_VERSION = 5;
+export const CURRENT_ABILITY_RUNTIME_VERSION = 6;
 const retired = Uint8Array.of(80, 87, 65, 82);
 const optimizedRuntime = new Map<unknown, unknown>([
     [template, optimizedTemplates["abilityRuleRuntime.json"]],
@@ -108,6 +109,19 @@ const customFlagRuntime = new Map<unknown, unknown>([
     [scopedClientTemplate, customFlagTemplates["abilityRuleRuntimeClientScoped.json"]],
     [actionRecipeTemplate, customFlagTemplates["abilityRuleRuntimeRecipesActions.json"]],
     [actionClientTemplate, customFlagTemplates["abilityRuleRuntimeClientActions.json"]],
+]);
+const actionResultRuntime = new Map<unknown, unknown>([
+    [groupedTemplate, actionResultTemplates["abilityRuleRuntimeGrouped.json"]],
+    [groupedPriorityTemplate, actionResultTemplates["abilityRuleRuntimePriorityGrouped.json"]],
+    [groupedLibraryTemplate, actionResultTemplates["abilityRuleRuntimeLibraryGrouped.json"]],
+    [groupedRecipeTemplate, actionResultTemplates["abilityRuleRuntimeRecipesGrouped.json"]],
+    [groupedClientTemplate, actionResultTemplates["abilityRuleRuntimeClientGrouped.json"]],
+    [weatherRecipeTemplate, actionResultTemplates["abilityRuleRuntimeRecipesWeather.json"]],
+    [weatherClientTemplate, actionResultTemplates["abilityRuleRuntimeClientWeather.json"]],
+    [scopedRecipeTemplate, actionResultTemplates["abilityRuleRuntimeRecipesScoped.json"]],
+    [scopedClientTemplate, actionResultTemplates["abilityRuleRuntimeClientScoped.json"]],
+    [actionRecipeTemplate, actionResultTemplates["abilityRuleRuntimeRecipesActions.json"]],
+    [actionClientTemplate, actionResultTemplates["abilityRuleRuntimeClientActions.json"]],
 ]);
 type Source = {
     base: number;
@@ -285,10 +299,12 @@ function storedPresentationMessages(c:Context): number[] | undefined {
     if(value===undefined)return;
     if(typeof value!=="string")throw Error("Invalid ability presentation messages.");
     const ids:unknown=JSON.parse(value);
-    if(!Array.isArray(ids)||ids.length!==15||ids.some(id=>!Number.isInteger(id)||id<0||id>65532))throw Error("Invalid ability presentation messages.");
+    const version6 = parseRpm(bytes,{allowedMagics:["DLXF"]}).metadata.PokewebAbilityActionResults===1;
+    if(!Array.isArray(ids)||!(version6?[15,33]:[15]).includes(ids.length)||ids.some(id=>!Number.isInteger(id)||id<0||id>65532))throw Error("Invalid ability presentation messages.");
     return ids;
 }
-function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, previewHook = false, clientHooks = true, popupGroups = true, optimized = true, chainOwner = false, skipItemMoveParam = false, modern = true, overrides: ReadonlyMap<number, number> = storedMoveClasses(c), battleMessages = modern, blockMessage = storedBlockMessage(c), presentationMessages = storedPresentationMessages(c), automatic: ReadonlyMap<number,number> = battleMessages ? automaticMoveClasses(c,true) : new Map(), customFlags = true, registry: CustomMoveFlagRegistry = storedCustomMoveFlags(c)): RpmModule {
+function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, previewHook = false, clientHooks = true, popupGroups = true, optimized = true, chainOwner = false, skipItemMoveParam = false, modern = true, overrides: ReadonlyMap<number, number> = storedMoveClasses(c), battleMessages = modern, blockMessage = storedBlockMessage(c), presentationMessages = storedPresentationMessages(c), automatic: ReadonlyMap<number,number> = battleMessages ? automaticMoveClasses(c,true) : new Map(), customFlags = true, registry: CustomMoveFlagRegistry = storedCustomMoveFlags(c), actionResults = true): RpmModule {
+    actionResults = actionResults && battleMessages && customFlags;
     registry=validateCustomMoveFlags(registry);
     validateCustomFlagReferences(entries,registry);
     for (const rule of entries.values())
@@ -308,7 +324,7 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
         ? traps ? groupedClientTemplate : recipes ? groupedRecipeTemplate : library ? groupedLibraryTemplate : priority ? groupedPriorityTemplate : groupedTemplate
         : traps ? clientTemplate : recipes ? recipeTemplate : library ? libraryTemplate : priority ? priorityTemplate : template;
     if (modern && (!optimized || !popupGroups)) throw Error("Expanded Flags require the current ability runtime.");
-    const selectedTemplate = (modern ? (battleMessages ? customFlags ? customFlagRuntime : messageRuntime : classRuntime).get(legacyTemplate) : optimized ? optimizedRuntime.get(legacyTemplate) : legacyTemplate) as typeof template;
+    const selectedTemplate = (modern ? (battleMessages ? customFlags ? actionResults ? actionResultRuntime : customFlagRuntime : messageRuntime : classRuntime).get(legacyTemplate) : optimized ? optimizedRuntime.get(legacyTemplate) : legacyTemplate) as typeof template;
     if (!selectedTemplate) throw new Error("Missing optimized ability runtime.");
     const rpm = structuredClone(selectedTemplate) as unknown as RpmModule;
     rpm.code = Uint8Array.from(selectedTemplate.code);
@@ -429,6 +445,7 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
         if (battleMessages) rpm.metadata.PokewebMoveClassDefaults = JSON.stringify([...validateMoveClassOverrides([...automatic])]);
     }
     if(customFlags){rpm.metadata.PokewebAbilityCustomMoveFlags=1;rpm.metadata.PokewebCustomMoveFlags=JSON.stringify(registry);}
+    if(actionResults)rpm.metadata.PokewebAbilityActionResults=1;
     if (battleMessages) rpm.metadata.PokewebAbilityBattleMessages = 1;
     if (battleMessages && blockMessage !== undefined) rpm.metadata.PokewebAbilityBlockMessage = blockMessage;
     if (battleMessages && presentationMessages) rpm.metadata.PokewebAbilityPresentationMessages = JSON.stringify(presentationMessages);
@@ -481,7 +498,7 @@ function readRules(c: Context, verifyPeer = true): Map<number, AbilityRuleSet> {
     const owner=rpm.metadata.PokewebMoveParamChain==="owner";
     if(rpm.metadata.PokewebMoveParamChain!==undefined&&!owner)throw Error("Unrecognized shared move-parameter owner.");
     if(owner)assertNoCompetingMoveParamProviders(c);
-    if (!same(bytes, writeRpm(moduleFor(c, rules, false, clientHooks, popupGroups, optimized,owner,false,modern,storedMoveClasses(c),battleMessages,storedBlockMessage(c),storedPresentationMessages(c),automaticMoveClasses(c),rpm.metadata.PokewebAbilityCustomMoveFlags===1,storedCustomMoveFlags(c)), { ident: "DLXF" })) && !same(bytes, writeRpm(moduleFor(c, rules, true, clientHooks, popupGroups, optimized,owner,false,modern,storedMoveClasses(c),battleMessages,storedBlockMessage(c),storedPresentationMessages(c),automaticMoveClasses(c),rpm.metadata.PokewebAbilityCustomMoveFlags===1,storedCustomMoveFlags(c)), { ident: "DLXF" })))
+    if (!same(bytes, writeRpm(moduleFor(c, rules, false, clientHooks, popupGroups, optimized,owner,false,modern,storedMoveClasses(c),battleMessages,storedBlockMessage(c),storedPresentationMessages(c),automaticMoveClasses(c),rpm.metadata.PokewebAbilityCustomMoveFlags===1,storedCustomMoveFlags(c),rpm.metadata.PokewebAbilityActionResults===1), { ident: "DLXF" })) && !same(bytes, writeRpm(moduleFor(c, rules, true, clientHooks, popupGroups, optimized,owner,false,modern,storedMoveClasses(c),battleMessages,storedBlockMessage(c),storedPresentationMessages(c),automaticMoveClasses(c),rpm.metadata.PokewebAbilityCustomMoveFlags===1,storedCustomMoveFlags(c),rpm.metadata.PokewebAbilityActionResults===1), { ident: "DLXF" })))
         throw new Error("The shared ability effects DLL has been modified.");
     if(owner&&verifyPeer){
         const peer=c.files.get("patches/ItemEffects.dll");
@@ -494,7 +511,7 @@ export function inspectAbilityEffects(project: ProjectState): {
     editable: boolean;
     message: string;
     rules: Map<number, AbilityRuleSet>;
-    runtimeVersion?: 1 | 2 | 3 | 4 | 5;
+    runtimeVersion?: 1 | 2 | 3 | 4 | 5 | 6;
 } {
     try {
         const c = context(project), rules = readRules(c);
@@ -502,7 +519,7 @@ export function inspectAbilityEffects(project: ProjectState): {
             moduleFor(c, new Map([[1, validateAbilityRule(EMPTY_ABILITY_RULE)]]));
         const bytes = c.files.get(ABILITY_EFFECTS_DLL_PATH);
         const metadata = bytes && !same(bytes, retired) ? parseRpm(bytes, { allowedMagics: ["DLXF"] }).metadata : undefined;
-        const runtimeVersion = metadata ? metadata.PokewebAbilityCustomMoveFlags === 1 ? 5 : metadata.PokewebAbilityBattleMessages === 1 ? 4 : metadata.PokewebAbilityPowerRatio === 1 ? 3 : metadata.PokewebAbilityDispatchVersion === 2 ? 2 : 1 : undefined;
+        const runtimeVersion = metadata ? metadata.PokewebAbilityActionResults === 1 ? 6 : metadata.PokewebAbilityCustomMoveFlags === 1 ? 5 : metadata.PokewebAbilityBattleMessages === 1 ? 4 : metadata.PokewebAbilityPowerRatio === 1 ? 3 : metadata.PokewebAbilityDispatchVersion === 2 ? 2 : 1 : undefined;
         return { editable: true, message: rules.size ? "Shared DLL verified" : "Native ability runtime verified", rules, runtimeVersion };
     }
     catch (error) {

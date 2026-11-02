@@ -88,10 +88,18 @@ if(moveClasses){
 }
 const customFlagsMode=process.argv.includes("--custom-flags");
 if(customFlagsMode){for(const[id,rule]of inspectAbilityEffects(project).rules)if(!rules.has(id))rules.set(id,rule);for(const[id,rule]of await prepareCustomFlagCases(project))rules.set(id,rule);}
+const actionResultsMode=process.argv.includes("--action-results");
+const actionResultNames:Record<number,string>={220:"Fairy Aura",221:"Dark Aura",222:"Water Aura",223:"Toxic One",224:"Toxic Chain",226:"Toxic Thirty"};
+if(actionResultsMode){
+ rules.clear();for(const[id,rule]of inspectAbilityEffects(project).rules)rules.set(id,rule);
+ rules.set(220,imported("Fairy Aura"));rules.set(221,imported("Dark Aura"));
+ rules.set(222,{effects:[{kind:"abilityRecipe:fieldPower",value:1.333333,parameters:{type:10}}],conditions:all});
+ for(const[id,chance]of [[223,1],[224,100],[226,30]])rules.set(id,{effects:[{kind:"status",value:7,trigger:"afterAttack",target:"defender",chance}],conditions:all});
+}
 for(const[id,r]of rules)rules.set(id,validateAbilityRule(r));
 // Every imported recipe is linked with this game's native services before fixtures.
 for(const entry of ABILITY_IMPORT_LIBRARY)buildAbilityRuleModule(project,new Map([[255,entry.rule]]));
-await configureAbilityRuleSets(project,[...rules].map(([abilityId,rules])=>({abilityId,rules,name:notifications?({165:"Queenly Majesty",166:"Dazzling",167:"Armor Tail",168:"Bulletproof",169:"Good as Gold",170:"Wind Rider",171:"Sweet Veil",172:"Flower Veil",173:"Guard Dog",174:"Priority Two",175:"Capped Wind",176:"Toxic Debris",177:"Perish Body",178:"Anger Shell",179:"Capped Shell",180:"Partial Shell"}as Record<number,string>)[abilityId]:abilityId===167?"Scare":`BW ${abilityId}`})));
+await configureAbilityRuleSets(project,[...rules].map(([abilityId,rules])=>({abilityId,rules,name:actionResultsMode?actionResultNames[abilityId]:notifications?({165:"Queenly Majesty",166:"Dazzling",167:"Armor Tail",168:"Bulletproof",169:"Good as Gold",170:"Wind Rider",171:"Sweet Veil",172:"Flower Veil",173:"Guard Dog",174:"Priority Two",175:"Capped Wind",176:"Toxic Debris",177:"Perish Body",178:"Anger Shell",179:"Capped Shell",180:"Partial Shell"}as Record<number,string>)[abilityId]:abilityId===167?"Scare":`BW ${abilityId}`})));
 if(moveClasses){
  await configureMoveDllFlags(project,33,34);await configureMoveDllFlags(project,352,0);await configureMoveDllFlags(project,16,0);
  if(process.argv.includes("--move-power"))await configureMoveRuleSets(project,[{moveId:44,rules:{effects:[{kind:"power",value:3,phase:"power",target:"user",chance:100,secondary:false,conditions:all}],conditions:all,prerequisites:all}}]);
@@ -111,7 +119,7 @@ const api=Object.fromEntries(ABILITY_RULE_API.flatMap((name,i)=>name?[[name,read
 const gateway=dll.relocations.find(r=>r.target.module==="base"&&r.target.address===symbols.AbilityRuleApi+20*4)!;
 const pmc=parseRpm(rom.files[rom.fileId("codeinjection/RPMSYM-PMC.rpm")]),pmcSymbols=Object.fromEntries(pmc.symbols.filter(s=>s.name&&/g_Modules|g_MainAllocator|g_UserHeapArea/u.test(s.name)).map(s=>[s.name!,pmc.baseAddress+32+s.address]));
 const ov=rom.loadArm9Overlays([93]).get(93)!,resolver=battleRuntimeResolver(ov.data,ov.ramAddress,project.arm9,rom.arm9RamAddress,bindings.functions);
-const notificationsMetadata=notifications?{blockMessage:dll.metadata.PokewebAbilityBlockMessage,messageHook:battleRuntimeResolver(ov.data,ov.ramAddress,project.arm9,rom.arm9RamAddress,{...bindings.functions,...(game==="W"?whiteMoveBindings:blackMoveBindings).functions}).resolve("BW1_BTL_SERVER_FLOW_PushMsgRecord").address}:{};
+const notificationsMetadata=notifications||actionResultsMode?{blockMessage:dll.metadata.PokewebAbilityBlockMessage,messageHook:battleRuntimeResolver(ov.data,ov.ramAddress,project.arm9,rom.arm9RamAddress,{...bindings.functions,...(game==="W"?whiteMoveBindings:blackMoveBindings).functions}).resolve("BW1_BTL_SERVER_FLOW_PushMsgRecord").address}:{};
 let clientTrapStores:Record<string,number>|undefined;
 const clientFunction=dll.symbols.find(s=>s.name==="AbilityClientTrapped");if(clientFunction){const code=Buffer.from(dll.code.subarray(clientFunction.address,clientFunction.address+clientFunction.size));const store=(hex:string,offset:number)=>{const pattern=Buffer.from(hex,"hex"),at=code.indexOf(pattern);assert(at>=0&&code.indexOf(pattern,at+1)===-1);return clientFunction.address+at+offset;};clientTrapStores={trapper:store("08ab1b5d019a1370",6),ability:store("029b002b00d01e800025",6)};}
 const encoded=encodeAbilityRules(rules),nativeOffsets:number[]=[];for(const[id,r]of rules){const at=readU16(encoded,id*2),start=at+4+encoded[at+1]*4;r.effects.forEach((e,i)=>{if(e.kind.startsWith("nativeAbility:"))nativeOffsets.push(start+i*16);});}
@@ -209,6 +217,16 @@ if(notifications){
   {label:"guard-dog-message",abilityId:173,enemies:[mon(320,30,150,22)],checks:{stages:[7,6,6,6,6,6,6],guardMessages:{id:198,count:1},popupsByTurn:[1,0,0],popupOwner:0}}
  );
 }
+if(actionResultsMode)cases.splice(0,cases.length,
+ {label:"fairy-aura-label",abilityId:220,playerSpecies:498,checks:{noticeMessages:{slot:32,count:1},popupsByTurn:[1,0,0],captureAuraText:"Fairy"}},
+ {label:"dark-aura-label",abilityId:221,checks:{noticeMessages:{slot:31,count:1},popupsByTurn:[1,0,0],captureAuraText:"Dark"}},
+ {label:"edited-water-aura-label",abilityId:222,checks:{noticeMessages:{slot:25,count:1},popupsByTurn:[1,0,0],captureAuraText:"Water"}},
+ {label:"toxic-chain-failed-roll",abilityId:223,playerMoves:[33],checks:{enemyStatus:0,popupsByTurn:[0,0,0],statusPopupMatchesRolls:true,minimumFailedStatusRolls:1}},
+ {label:"toxic-chain-success-once",abilityId:224,playerMoves:[33],checks:{enemyStatus:5,popupsByTurn:[0,1,0]}},
+ {label:"toxic-chain-thirty-percent",abilityId:226,playerMoves:[33],menuCount:4,checks:{statusPopupMatchesRolls:true}},
+ {label:"toxic-chain-steel-immunity",abilityId:224,playerMoves:[33],enemies:[mon(81)],checks:{enemyStatus:0,popupsByTurn:[0,0,0]}},
+ {label:"toxic-chain-suppressed",abilityId:224,playerMoves:[33],enemies:[mon(320,100,380)],checks:{enemyStatus:0,suppressed:true,popupsByTurn:[0,0,0]}}
+);
 if(process.argv.includes("--expanded-classes")){
  const names=new Map(getTextBank(project,"message_texts",203).filter(e=>parseTextEntryId(e[0]).block===0).map(e=>[e[1].replace(/[^a-z]/gi,"").toLowerCase(),parseTextEntryId(e[0]).entry]));
  const ball=names.get("pyroball")!,wind=names.get("bleakwindstorm")!;assert(ball>=560&&wind>=560);

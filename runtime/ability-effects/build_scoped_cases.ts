@@ -146,7 +146,7 @@ if(process.argv.includes("--notifications")){
  test(214,"queenly-swap",{playerAbilities:[slots.get(214),50,slots.get(214)],blockMessages:{ability:slots.get(214),move:98,count:1}},{move:285,enemyMove:98});
  test(171,"bulletproof-message",{noDamage:true,popupsByTurn:[0,1,1],blockMessages:{ability:slots.get(171),move:247,count:2}},{enemyMove:247});
  test(283,"good-as-gold-message",{noDamage:true,status:0,popupsByTurn:[0,1,1],guardMessages:{id:210,count:2}},{enemyMove:86});
- for(const[official,label,slot]of [[186,"aura-entry",0],[188,"aura-break-entry",1],[284,"ruin-entry",5]]as const)test(official,label,{popupsByTurn:[1,0,0],noticeMessages:{slot,count:1}});
+ for(const[official,label,slot]of [[186,"aura-entry",31],[188,"aura-break-entry",1],[284,"ruin-entry",5]]as const)test(official,label,{popupsByTurn:[1,0,0],noticeMessages:{slot,count:1}});
  test(293,"overlord-no-faints",{popupsByTurn:[0,0,0],noticeMessages:{slot:10,count:0}});
  test(293,"overlord-fainted-bench",{popupsByTurn:[1,0,0],noticeMessages:{slot:10,count:1}},{ally:{speciesId:1,level:50,moves:[150],abilityId:50,currentHp:0}});
  test(251,"cleaner-no-screens",{popupsByTurn:[0,0,0]});

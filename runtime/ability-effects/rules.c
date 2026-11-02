@@ -117,11 +117,15 @@ static u32 action(void*item,void*f,u8 owner,const volatile u8*e,u8 target){
   if(condition==4&&typeMatch(mon,9)||condition==3&&typeMatch(mon,14)||condition==5&&(typeMatch(mon,3)||typeMatch(mon,8)))return 0;
  }
  if(e[6]<100&&!FN(27,u32(*)(u8))(e[6]))return 0;
+#ifdef ABILITY_ACTION_RESULTS
+ /* Eligibility and the one chance roll precede the visible activation. */
+ popup(f,2,owner);
+#endif
  if(kind==10){
   u8*p=PUSH(f,0xc,owner);put32(p+4,v==7?5:v);
   put32(p+8,v==7?FN(25,u32(*)(void))():FN(24,u32(*)(u32))(v));p[12]=0;p[15]=target;POP(f,p);
  }else if(kind==11){
-#ifdef ABILITY_STAT_POPUPS
+#if defined(ABILITY_STAT_POPUPS) && !defined(ABILITY_ACTION_RESULTS)
   popup(f,2,owner);
 #endif
   u8*p=PUSH(f,0xe,owner);put32(p+4,e[1]);p[12]=(u8)(int16_t)v;p[15]=1;p[16]=target;POP(f,p);
@@ -174,7 +178,11 @@ static void guardMessage(void*f,u8 owner,u8 target,u32 message){
  POP(f,p);popup(f,3,owner);
 }
 #ifdef ABILITY_RECIPES
+#ifdef ABILITY_ACTION_RESULTS
+PUBLIC const volatile u16 AbilityPresentationMessages[33]={0};
+#else
 PUBLIC const volatile u16 AbilityPresentationMessages[15]={0};
+#endif
 static void abilityNotice(void*f,u8 owner,u32 slot,u8 subject,u32 argument){
  u32 message=AbilityPresentationMessages[slot];if(!message)return;
  popup(f,2,owner);u8*p=PUSH(f,4,owner);FN(11,void(*)(void*,u32,u32))(p+4,2,message);FN(12,void(*)(void*,u32))(p+4,subject);FN(12,void(*)(void*,u32))(p+4,argument);POP(f,p);popup(f,3,owner);
@@ -270,7 +278,9 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
    u8 targets[12];u32 count=1;targets[0]=owner;
    if(e[5]==1)targets[0]=(u8)VALUE(3);
    if(e[5]==2){targets[0]=(u8)VALUE(4);if(event==0x85){count=VALUE(5);if(count>12)count=12;for(u32 j=0;j<count;++j)targets[j]=(u8)VALUE(6+j);}}
-#ifdef ABILITY_STAT_POPUPS
+#ifdef ABILITY_ACTION_RESULTS
+   /* action() opens the shared interval only after an action can proceed. */
+#elif defined(ABILITY_STAT_POPUPS)
    if(kind!=11)popup(f,2,owner);
 #else
    popup(f,2,owner);

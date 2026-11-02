@@ -3,6 +3,7 @@ import type { ProjectState } from "./projectStore";
 import { addTextEntries, commitTextBank, getTextBank, parseTextEntryId } from "./textModel";
 import { loadCodeInjectionNarcs } from "./codeInjectionInstall";
 import { NintendoDSRom } from "../nds/rom";
+import { typeNamesForProject } from "./constants";
 
 export const ABILITY_BLOCK_MESSAGES = [
   "VAR(258, 0)'s VAR(262, 1)\\nblocked VAR(263, 2)!",
@@ -43,5 +44,15 @@ export function ensureAbilityBlockMessages(project: ProjectState, rules: Readonl
 }
 export function ensureAbilityPresentationMessages(project: ProjectState, rules: ReadonlyMap<number, AbilityRuleSet>): number[] | undefined {
   if (![...rules.values()].some(rule => rule.effects.some(effect => noticeKinds.has(effect.kind)))) return;
-  return notices.map(message => ensureTriplet(project, [message, message.replace("VAR(258, 0)", "The wild VAR(258, 0)"), message.replace("VAR(258, 0)", "The foe's VAR(258, 0)")]));
+  const triplet = (message: string) => ensureTriplet(project, [message, message.replace("VAR(258, 0)", "The wild VAR(258, 0)"), message.replace("VAR(258, 0)", "The foe's VAR(258, 0)")]);
+  const auraTypes = new Set([...rules.values()].flatMap(rule => rule.effects.filter(effect => effect.kind === "abilityRecipe:fieldPower").map(effect => effect.parameters?.type ?? 16)));
+  const names = typeNamesForProject(project), texts = new Map<number,string>(), auras = Array<number>(18).fill(0);
+  for (const type of auraTypes) {
+    const name = names[type];
+    if (!name || /[\\\r\n\x00-\x1f]|VAR\(/u.test(name)) throw Error("Aura type names must be plain text.");
+    texts.set(type, `VAR(258, 0) is radiating\\nan aura of ${name}!`);
+  }
+  const ids = notices.map(triplet);
+  for (const [type,text] of texts) auras[type] = triplet(text);
+  return [...ids, ...auras];
 }

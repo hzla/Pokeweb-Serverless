@@ -16,7 +16,7 @@ def main():
    rom=copies[spec['rom']];shutil.copyfile(a.evidence/'saves'/f"{spec['label']}.sav",rom.with_suffix('.sav'))
    emu=MelonDS();flow=0;code=0;menus=[];multipliers=[];rewrites=[];errors=[];hooks=[];minimum={};healing=[];names=[];name_frame=0;name_captured=False;name_followups=set();native_chances=[];callback_priorities=[];damage_reactions=[];side_table=0;pending_damage=None;screen_removals=[];callback_owner=None;focus_work=[];move_end_items=[];combat_types=[];event_trace=[];native_stab=[]
    result={'case':spec['label'],'abilityId':spec['abilityId'],'passed':False,'romSha256':manifest['romHashes'][spec['rom']]};powers=[];messages=[];message_frame=0;message_captured=False;message_followups=set();message_hold_until=0
-   counter_callers=[];type_queries=[];client_traps=[];pending_client_trap=None;popups=[];popup_hooked=False;indirect_damage=[];faint_frames={}
+   counter_callers=[];type_queries=[];client_traps=[];pending_client_trap=None;popups=[];popup_hooked=False;indirect_damage=[];faint_frames={};status_chances=[]
    native_observed=any(k in spec['checks']for k in['stabByTurn','combatTypesByTurn','itemAtMoveEndFirstTurn'])and'AbilityRecipeHandlers'in manifest['symbols']
    def heap(fragment):
     address=next(value for name,value in manifest['pmcSymbols'].items()if fragment in name);value=emu.memory.read_long(address)
@@ -171,7 +171,7 @@ def main():
      row['value']=emu.memory.register_arm9.r0&65535;powers.append(row);handle.remove()
     handle=emu.memory.register_exec(regs.lr&~1,returned);hooks.append(handle)
    def message_pushed(cpu,address):
-    nonlocal message_frame
+    nonlocal message_frame,message_hold_until
     regs=emu.memory.register_arm9
     if not flow or regs.r0!=flow or emu.memory.read_long(flow+0x774):return
     ptr=regs.r1
@@ -180,6 +180,14 @@ def main():
     if count>8:return
     row={'id':emu.memory.read_short(ptr),'type':emu.memory.read_byte(ptr+2),'args':[emu.memory.read_long(ptr+4+n*4)for n in range(count)],'turnIndex':len(menus),'frame':emu.frame_count};messages.append(row)
     if row['id']==manifest.get('blockMessage') and not message_frame:message_frame=emu.frame_count+24
+    if spec['checks'].get('captureAuraText') and row['id']==manifest['presentationMessages'][spec['checks']['noticeMessages']['slot']] and not message_frame:
+     message_frame=emu.frame_count+60;message_hold_until=emu.frame_count+360
+   def status_rolled(cpu,address):
+    if not scope():return
+    regs=emu.memory.register_arm9;row={'turnIndex':len(menus)-1,'chance':regs.r0};status_chances.append(row);handle=None
+    def returned(cpu,address):
+     row['result']=emu.memory.register_arm9.r0;handle.remove()
+    handle=emu.memory.register_exec(regs.lr&~1,returned);hooks.append(handle)
    def rewritten(cpu,address):
     if scope():rewrites.append({'turnIndex':len(menus)-1,'key':emu.memory.register_arm9.r0,'value':emu.memory.register_arm9.r1,'owner':callback_owner})
    def pushed(cpu,address):
@@ -276,6 +284,7 @@ def main():
    if manifest.get('nameLoader'):hooks.append(emu.memory.register_exec(manifest['nameLoader'],named))
    if manifest.get('powerHook'):hooks.append(emu.memory.register_exec(manifest['powerHook'],power_begin))
    if manifest.get('messageHook'):hooks.append(emu.memory.register_exec(manifest['messageHook'],message_pushed))
+   if spec['checks'].get('statusPopupMatchesRolls'):hooks.append(emu.memory.register_exec(manifest['api']['RollEffectChance'],status_rolled))
    hooks.append(emu.memory.register_exec(manifest['api']['BattleHandler_PopWork'],popped))
    hooks += [emu.memory.register_exec(manifest.get('openingHook',0x0219f5da),opening),emu.memory.register_exec(manifest.get('commandHook',0x021cef18),command),emu.memory.register_exec(manifest['api']['BattleEventVar_MulValue'],multiplied),emu.memory.register_exec(manifest['api']['BattleEventVar_RewriteValue'],rewritten),emu.memory.register_exec(manifest['api']['BattleHandler_PushWork'],pushed)]
    try:
@@ -341,6 +350,12 @@ def main():
      expected=c['guardMessages'];actual=[m for m in messages if m['id']==expected['id']];assert len(actual)==expected['count'],messages
     if 'noticeMessages'in c:
      expected=c['noticeMessages'];actual=[m for m in messages if m['id']==manifest['presentationMessages'][expected['slot']]];assert len(actual)==expected['count'],messages
+    if c.get('statusPopupMatchesRolls'):
+     assert status_chances,'No live status chance roll observed'
+     assert sum(not row['result']for row in status_chances)>=c.get('minimumFailedStatusRolls',0),status_chances
+     for turn in range(len(menus)-1):
+      rolled=[r for r in status_chances if r['turnIndex']==turn];assert len(rolled)<=1,rolled
+      assert sum(p['command']==2 and p['owner']==0 and p['turnIndex']==turn+1 for p in popups)==sum(bool(r['result'])for r in rolled),(status_chances,popups)
     if'popupsByTurn'in c:
      assert popup_hooked,'Native popup gateway was not observed'
      counted=[v for v in popups if 'popupOwner'not in c or v['owner']==c['popupOwner']]
@@ -457,7 +472,7 @@ def main():
      if c.get('suppressed'):assert not callback_priorities,callback_priorities
      elif spec.get('move')==33 and spec['abilityId']!=143:assert {4,5}.issubset({v['priority']for v in callback_priorities}),callback_priorities
     result.update(passed=True,faintFrames=faint_frames,menus=menus,multipliers=multipliers,rewrites=rewrites,healing=healing,names=names,nativeChances=native_chances,callbackPriorities=callback_priorities,damageReactions=damage_reactions,focusWork=focus_work,moveEndItems=move_end_items,screenRemovals=screen_removals,minimumObservedFree=minimum,counterCalls=len(counter_callers),abilityCounterCalls=owned_counter_calls,typeQueries=type_queries,clientTraps=client_traps,popups=popups,combatTypes=combat_types,eventTrace=event_trace,nativeStab=native_stab,indirectDamage=indirect_damage)
-    result['powers']=powers;result['messages']=messages
+    result['powers']=powers;result['messages']=messages;result['statusChances']=status_chances
     emu.run_frames(20);emu.screenshot().save(a.evidence/f"{spec['label']}.png");(a.evidence/f"{spec['label']}-result.json").write_text(json.dumps(result,indent=2)+'\n');results.append(result);print(f"PASS {spec['label']}: HP {hp}; abilities {[s['ability']for s in menus]}",flush=True)
    except Exception as error:
     result['powers']=powers;result['messages']=messages

@@ -72,7 +72,7 @@ describe("custom move flags",()=>{
     const state=inspectAbilityEffects(project);expect(state.editable,state.message).toBe(true);expect(state.runtimeVersion).toBe(4);
     const next=buildAbilityRuleModule(project,state.rules,new Map([[33,34]]));
     project.fileSystem.additions![ABILITY_EFFECTS_DLL_PATH]=writeRpm(next,{ident:"DLXF"});
-    expect(inspectAbilityEffects(project)).toMatchObject({editable:true,runtimeVersion:5,rules:state.rules});
+    expect(inspectAbilityEffects(project)).toMatchObject({editable:true,runtimeVersion:CURRENT_ABILITY_RUNTIME_VERSION,rules:state.rules});
     expect(inspectCustomMoveFlags(project).registry).toEqual(emptyCustomMoveFlags());
   });
 });

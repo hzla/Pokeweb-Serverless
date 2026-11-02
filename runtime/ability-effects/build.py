@@ -10,7 +10,7 @@ BUILD=HERE/'build';BUILD.mkdir(exist_ok=True)
 def run(*args):subprocess.run([str(arg) for arg in args],check=True)
 if len(sys.argv)==1:
     # Released bundles are verification inputs, not current build outputs.
-    run(sys.executable,HERE/'build.py','--custom-flags-only')
+    run(sys.executable,HERE/'build.py','--action-results-only')
     raise SystemExit(0)
 run(sys.executable,HERE/'generate_move_classes.py')
 
@@ -30,9 +30,12 @@ messages_path=ROOT/'src/assets/data/abilityRuleRuntimeMessages.json'
 messages=json.loads(messages_path.read_text())if messages_path.exists()else{}
 custom_path=ROOT/'src/assets/data/abilityRuleRuntimeCustomFlags.json'
 custom=json.loads(custom_path.read_text())if custom_path.exists()else{}
+results_path=ROOT/'src/assets/data/abilityRuleRuntimeActionResults.json'
+results=json.loads(results_path.read_text())if results_path.exists()else{}
 variants=[(suffix,defines,asset,False)for suffix,defines,asset in variants]+[(suffix+'-optimized',defines+['-DABILITY_FILTER_EVENTS'],asset,True)for suffix,defines,asset in variants]
 for suffix,defines,asset,fast in variants:
-    custom_flags="--custom-flags-only" in sys.argv
+    action_results="--action-results-only" in sys.argv
+    custom_flags="--custom-flags-only" in sys.argv or action_results
     custom_messages="--messages-only" in sys.argv or custom_flags
     custom_classes="--move-classes-only" in sys.argv or custom_messages
     if custom_classes:
@@ -40,6 +43,7 @@ for suffix,defines,asset,fast in variants:
         suffix+='-classes';defines=defines+['-DABILITY_MOVE_CLASSES','-DABILITY_POWER_RATIO','-DABILITY_STAT_POPUPS']
         if custom_messages: suffix+='-messages';defines+=['-DABILITY_BATTLE_MESSAGES']
         if custom_flags: suffix+='-custom';defines+=['-DABILITY_CUSTOM_FLAGS']
+        if action_results: suffix+='-results';defines+=['-DABILITY_ACTION_RESULTS']
     if "--optimized-only" in sys.argv and not fast: continue
     if "--legacy-only" in sys.argv and fast: continue
     if "--actions-only" in sys.argv and "-DABILITY_ACTIONS" not in defines: continue
@@ -51,11 +55,14 @@ for suffix,defines,asset,fast in variants:
     run('java','-cp',JAR,'rpm.cli.RPMTool','-i',obj,'--fourcc','DLXF','-o',dll,'--esdb',BUILD/'rules-symbols.yml','--meta',BUILD/'rules-meta.yml','--generate-relocations')
     destination=BUILD/('optimized-'+asset)if fast else ROOT/'src/assets/data'/asset
     run(ROOT/'node_modules/.bin/vite-node',HERE/'describe.ts',dll,destination)
-    if custom_flags: custom[asset]=json.loads(destination.read_text())
+    if action_results: results[asset]=json.loads(destination.read_text())
+    elif custom_flags: custom[asset]=json.loads(destination.read_text())
     elif custom_messages: messages[asset]=json.loads(destination.read_text())
     elif custom_classes: classes[asset]=json.loads(destination.read_text())
     elif fast: optimized[asset]=json.loads(destination.read_text())
-if "--custom-flags-only" in sys.argv:
+if "--action-results-only" in sys.argv:
+    results_path.write_text(json.dumps(results,separators=(',',':'))+'\n')
+elif "--custom-flags-only" in sys.argv:
     custom_path.write_text(json.dumps(custom,separators=(',',':'))+'\n')
 elif "--messages-only" in sys.argv:
     messages_path.write_text(json.dumps(messages,separators=(',',':'))+'\n')

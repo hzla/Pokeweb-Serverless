@@ -68,7 +68,14 @@ static void scopedEffect(void*item,void*f,u8 owner,const volatile u8*e,u32 event
  u32 kind=e[0],v=half(e+2);void*holder=MON(f,owner);
  if(kind==155){
 #ifdef ABILITY_BATTLE_MESSAGES
-  if(onEntry(event,owner)&&!preview(f)){abilityNotice(f,owner,0,owner,e[1]);return;}
+  if(onEntry(event,owner)&&!preview(f)){
+#ifdef ABILITY_ACTION_RESULTS
+   /* Literal type labels also support types absent from the native formatter. */
+   if(e[1]<18)abilityNotice(f,owner,15+e[1],owner,0);
+#else
+   abilityNotice(f,owner,0,owner,e[1]);
+#endif
+   return;}
 #endif
   if(event!=0x38||VALUE(0x16)!=e[1]||!firstField(f,owner,kind,e[1]))return;
   for(u8 id=0;id<24;++id)if(hasField(f,id,156,0)){v=divide(4096*e[4],100);break;}
