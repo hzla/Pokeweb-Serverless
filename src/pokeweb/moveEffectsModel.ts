@@ -276,7 +276,12 @@ function stored(c: Context): Saved {
 export function isVerifiedMoveServiceImport(project: ProjectState, path: string, bytes: Uint8Array, name: string, address: number): boolean {
   if (path !== MOVE_EFFECTS_DLL_PATH || !["IsAffectedBySheerForce","ServerEvent_CheckTypeEffectiveness"].includes(name)) return false;
   try {
-    const c = context(project, false); stored(c);
+    const c = context(project, false);
+    // The ability caller is undergoing its own canonical verification. Check
+    // this peer independently: its history-init adapter otherwise asks to
+    // verify that same ability caller again and recursively re-enters here.
+    c.files.delete("patches/AbilityEffects.dll");
+    stored(c);
     const module = parseRpm(bytes, { allowedMagics: ["DLXF"] });
     const wrapper=name==="IsAffectedBySheerForce"?"MoveSheerForce":"MoveTypeMatchupHook";
     return module.relocations.some(r => r.target.module === c.overlayModule && r.target.address === address && r.target.type === (name==="ServerEvent_CheckTypeEffectiveness"?"THUMB_BRANCH_SAFESTACK":"THUMB_BRANCH") && module.symbols[r.sourceSymbolIndex]?.name === wrapper);
