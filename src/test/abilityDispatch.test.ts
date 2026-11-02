@@ -5,7 +5,7 @@ import { abilityRuleEvents } from "../pokeweb/abilityEvents";
 import { NATIVE_ABILITY_PROFILES } from "../pokeweb/abilityNativeRuntime";
 import { ABILITY_IMPORT_LIBRARY } from "../pokeweb/abilityLibrary";
 import { EMPTY_ABILITY_RULE, validateAbilityRule, type AbilityRuleEffect } from "../pokeweb/abilityRules";
-import { ABILITY_EFFECTS_DLL_PATH, buildAbilityRuleModule, inspectAbilityEffects, upgradeAbilityRuntime } from "../pokeweb/abilityEffectsModel";
+import { CURRENT_ABILITY_RUNTIME_VERSION, ABILITY_EFFECTS_DLL_PATH, buildAbilityRuleModule, inspectAbilityEffects, upgradeAbilityRuntime } from "../pokeweb/abilityEffectsModel";
 import { writeRpm } from "../pokeweb/rpm";
 import { makeItemEffectsProject } from "./fixtures/itemEffectsProject";
 
@@ -34,7 +34,8 @@ describe("filtered ability dispatch", () => {
     expect(events({ kind: "abilityRecipe:knockoutSplash", value: 20 })).toEqual([0x03, 0x4b, 0x83]);
     expect(events({ kind: "abilityRecipe:weatherGuard", value: 1 })).toEqual([0x7f]);
     expect(events({ kind: "abilityRecipe:transferItem", value: 1, parameters: { mode: 1 } })).toEqual([0xa7]);
-    expect(events({ kind: "abilityRecipe:auraInvert", value: 1 })).toEqual([]);
+    expect(events({ kind: "abilityRecipe:auraInvert", value: 1 })).toEqual([0x55,0x8a]);
+    expect(abilityRuleEvents(rule({kind:"abilityRecipe:auraInvert",value:1}),NATIVE_ABILITY_PROFILES,false)).toEqual([]);
   });
   it("maps every import and keeps native subscription events", () => {
     for (const p of ABILITY_IMPORT_LIBRARY) expect(() => abilityRuleEvents(p.rule, NATIVE_ABILITY_PROFILES), p.label).not.toThrow();
@@ -51,7 +52,7 @@ describe("filtered ability dispatch", () => {
     const next = buildAbilityRuleModule(project, before.rules);
     project.fileSystem.additions![ABILITY_EFFECTS_DLL_PATH] = writeRpm(next, { ident: "DLXF" });
     const after = inspectAbilityEffects(project);
-    expect(after.editable, after.message).toBe(true); expect(after.runtimeVersion).toBe(2); expect(after.rules).toEqual(before.rules);
+    expect(after.editable, after.message).toBe(true); expect(after.runtimeVersion).toBe(CURRENT_ABILITY_RUNTIME_VERSION); expect(after.rules).toEqual(before.rules);
     delete next.metadata.PokewebAbilityDispatchVersion;
     project.fileSystem.additions![ABILITY_EFFECTS_DLL_PATH] = writeRpm(next, { ident: "DLXF" });
     expect(inspectAbilityEffects(project).editable).toBe(false);

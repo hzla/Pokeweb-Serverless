@@ -8,6 +8,10 @@ TOOLS=Path(os.environ.get('ARM_TOOLCHAIN_BIN',WORKSPACE/'toolchains/arm-gnu-tool
 JAR=Path(os.environ.get('RPM_TOOL_JAR',WORKSPACE/'pw2-build-work/ctrmap/CTRMap.jar'))
 BUILD=HERE/'build';BUILD.mkdir(exist_ok=True)
 def run(*args):subprocess.run([str(arg) for arg in args],check=True)
+if len(sys.argv)==1:
+    # Released bundles are verification inputs, not current build outputs.
+    run(sys.executable,HERE/'build.py','--messages-only')
+    raise SystemExit(0)
 run(sys.executable,HERE/'generate_move_classes.py')
 
 (BUILD/'rules-meta.yml').write_text('PMCVersion: ability-rules-1\nPMCModulePriority: 4\n')
@@ -20,8 +24,18 @@ variants += [(suffix+'-scoped',defines+['-DABILITY_SCOPED'],asset.replace('Weath
 variants += [(suffix+'-actions',defines+['-DABILITY_ACTIONS'],asset.replace('Scoped.json','Actions.json')) for suffix,defines,asset in variants if suffix in ['-recipes-grouped-weather-scoped','-client-grouped-weather-scoped']]
 bundle_path=ROOT/'src/assets/data/abilityRuleRuntimeOptimized.json'
 optimized=json.loads(bundle_path.read_text())if bundle_path.exists()else{}
+classes_path=ROOT/'src/assets/data/abilityRuleRuntimeMoveClasses.json'
+classes=json.loads(classes_path.read_text())if classes_path.exists()else{}
+messages_path=ROOT/'src/assets/data/abilityRuleRuntimeMessages.json'
+messages=json.loads(messages_path.read_text())if messages_path.exists()else{}
 variants=[(suffix,defines,asset,False)for suffix,defines,asset in variants]+[(suffix+'-optimized',defines+['-DABILITY_FILTER_EVENTS'],asset,True)for suffix,defines,asset in variants]
 for suffix,defines,asset,fast in variants:
+    custom_messages="--messages-only" in sys.argv
+    custom_classes="--move-classes-only" in sys.argv or custom_messages
+    if custom_classes:
+        if not fast or '-DABILITY_POPUP_GROUPS' not in defines: continue
+        suffix+='-classes';defines=defines+['-DABILITY_MOVE_CLASSES','-DABILITY_POWER_RATIO','-DABILITY_STAT_POPUPS']
+        if custom_messages: suffix+='-messages';defines+=['-DABILITY_BATTLE_MESSAGES']
     if "--optimized-only" in sys.argv and not fast: continue
     if "--legacy-only" in sys.argv and fast: continue
     if "--actions-only" in sys.argv and "-DABILITY_ACTIONS" not in defines: continue
@@ -33,6 +47,12 @@ for suffix,defines,asset,fast in variants:
     run('java','-cp',JAR,'rpm.cli.RPMTool','-i',obj,'--fourcc','DLXF','-o',dll,'--esdb',BUILD/'rules-symbols.yml','--meta',BUILD/'rules-meta.yml','--generate-relocations')
     destination=BUILD/('optimized-'+asset)if fast else ROOT/'src/assets/data'/asset
     run(ROOT/'node_modules/.bin/vite-node',HERE/'describe.ts',dll,destination)
-    if fast: optimized[asset]=json.loads(destination.read_text())
-if "--legacy-only" not in sys.argv:
+    if custom_messages: messages[asset]=json.loads(destination.read_text())
+    elif custom_classes: classes[asset]=json.loads(destination.read_text())
+    elif fast: optimized[asset]=json.loads(destination.read_text())
+if "--messages-only" in sys.argv:
+    messages_path.write_text(json.dumps(messages,separators=(',',':'))+'\n')
+elif "--move-classes-only" in sys.argv:
+    classes_path.write_text(json.dumps(classes,separators=(',',':'))+'\n')
+elif "--legacy-only" not in sys.argv:
     bundle_path.write_text(json.dumps(optimized,separators=(',',':'))+'\n')

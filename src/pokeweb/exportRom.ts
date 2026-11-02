@@ -73,6 +73,7 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
   materializeSystemShopSource(project, rom);
   repairLegacyMoveAnimationArchives(project);
   repairMoveExpansionOverlayLoadSize(project, rom);
+  await (await import("./abilityEffectsModel")).refreshExpandedAbilityMoveFlags(project, true);
   repairLegacyBw1PmcBootCalls(project, rom);
   if (isW2AnimProject(project)) await materializeW2AnimAnimations(project, rom);
   else await materializePwanAnimations(project, rom);

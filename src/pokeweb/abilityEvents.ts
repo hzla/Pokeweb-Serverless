@@ -4,7 +4,7 @@ import { recipeAbilityEffect, recipeAbilityParameter } from "./abilityRecipeEffe
 import { libraryAbilityEffect } from "./abilityLibraryEffects";
 
 /** Native event subscriptions, including state observers that run before conditions. */
-export function abilityRuleEvents(rule: AbilityRuleSet, profiles: NativeAbilityProfile[]): number[] {
+export function abilityRuleEvents(rule: AbilityRuleSet, profiles: NativeAbilityProfile[], battleMessages = true): number[] {
   const events = new Set<number>();
   const add = (...ids: number[]) => ids.forEach(id => events.add(id));
   for (const effect of rule.effects) {
@@ -32,9 +32,11 @@ export function abilityRuleEvents(rule: AbilityRuleSet, profiles: NativeAbilityP
             case 5: add(0x03, 0x29, 0x04); break;
           }
           break;
-        case 137: add(0x65); if (p("cure")) add(0x55, 0x8a, 0x88, 0x77); break;
-        case 138: case 151: add(0x5b); break;
-        case 139: case 155: add(0x38); break;
+        case 137: add(0x65); if (battleMessages) add(0x67); if (p("cure")) add(0x55, 0x8a, 0x88, 0x77); break;
+        case 138: add(0x5b); if (battleMessages) add(0x5c); break;
+        case 151: add(0x5b); break;
+        case 139: add(0x38); break;
+        case 155: add(0x38); if (battleMessages) add(0x55, 0x8a); break;
         case 140: case 141: add(0x55, 0x8a); break;
         case 142: if (p("activation")) add(0x4b); else add(0x55, 0x8a); break;
         case 143: add(p("stat") === 5 ? 0x13 : 0x3b); break;
@@ -43,11 +45,11 @@ export function abilityRuleEvents(rule: AbilityRuleSet, profiles: NativeAbilityP
         case 146: add(0x33); break;
         case 147: add(0x3e); break;
         case 148: case 149: case 150: add(0x4b); break;
-        case 152: add(0x2d); if (p("tailwind")) add(0x55, 0x8a, 0x9f); break;
+        case 152: add(0x2d); if (battleMessages) add(0x8b); if (p("tailwind")) add(0x55, 0x8a, 0x9f); break;
         case 153: case 161: add(0x2d); break;
         case 154: add(0x7f); break;
-        case 156: break; // Queried as a field provider; no callback changes battle state.
-        case 157: add([1, 3].includes(p("stat")) ? 0x3b : 0x3c); break;
+        case 156: if (battleMessages) add(0x55, 0x8a); break;
+        case 157: add([1, 3].includes(p("stat")) ? 0x3b : 0x3c); if (battleMessages) add(0x55, 0x8a); break;
         case 158: add(0x03, 0x28, 0x29); break;
         case 159: add(0x3b); break;
         case 160: add(0x55, 0x8a, 0x38); break;

@@ -11,8 +11,28 @@ import { getMoveRecord, updateMoveField } from "../pokeweb/moveItemModel";
 import { undoActionChange } from "../pokeweb/actionUndo";
 import { makeEditProject } from "./fixtures/editProject";
 import type { BaseRom, BaseVersion } from "../pokeweb/constants";
+import { encodeGen5TextBank, type Gen5TextEntry } from "../pokeweb/text";
 
 describe("project document and editing session boundary", () => {
+  it("refreshes truncated BW move labels when reopening a saved project without changing text", () => {
+    const project = makeEditProject();
+    project.session.baseRom = "BW"; project.session.baseVersion = "B";
+    project.texts.banks.moves = ["None", "Pound"];
+    const rawFiles: Uint8Array[] = Array.from({length:287},()=>new Uint8Array());
+    const bank = (count:number, last:string):Gen5TextEntry[] => Array.from({length:count},(_,id)=>[`0_${id}`,id===count-1?last:"",0]);
+    rawFiles[203] = encodeGen5TextBank(bank(706,"Fire Lash"));
+    rawFiles[286] = encodeGen5TextBank(bank(560,"FUSION BOLT"));
+    project.narcs.message_texts = {name:"message_texts",fileId:4,sourcePath:"a/0/0/2",fileCount:287,rawFiles,records:new Map(),dirty:new Set()};
+    const document = createProjectDocument(project,false);
+
+    const session = openProjectSession(document);
+
+    expect(session.texts.banks.moves?.[705]).toBe("Fire Lash");
+    expect(session.texts.banks.moves?.[559]).toBe("Fusion Bolt");
+    expect(session.narcs.message_texts!.rawFiles).toBe(rawFiles);
+    expect(session.narcs.message_texts!.dirty.size).toBe(0);
+    expect(session.actionChangelog).toEqual(project.actionChangelog);
+  });
   it("retains applied System Shops and pending drafts through autosave documents",()=>{
     const project=makeEditProject();
     project.systemShops={document:{version:1,nextId:2,shops:[{id:1,name:'TM Shop',currency:93,inventory:[{item:328,cost:9}]}]},applied:{version:1,nextId:2,shops:[{id:1,name:'TM Shop',currency:93,inventory:[{item:328,cost:1}]}]}};

@@ -15,6 +15,7 @@ import {
   planMoveExpansionRouting,
   repairMoveExpansionOverlayLoadSize,
   usesFrostMoveExpansionLayout,
+  hasExpandedMoveFlagLayout,
 } from "../pokeweb/moveExpansionPatch";
 import { decompileMoveAnimationBytes, parseMoveAnimationScript, remapMoveAnimationAssets, remapMoveAnimationParticleIds } from "../pokeweb/moveAnimationModel";
 import { parseSpaArchive } from "../pokeweb/nitroSpa";
@@ -46,6 +47,15 @@ const ORIGINAL_SECONDARY_LOADER_HOOK = [0x84, 0x42, 0x10, 0x4b];
 const ORIGINAL_BW_VISUAL_HOOK = [0x31, 0x1c, 0x1a, 0x40];
 
 describe("Move Expansion patch", () => {
+  it.each(["BW","BW2"] as const)("identifies Frost's original %s expanded-ID layout without claiming our animation helpers are installed", baseRom => {
+    const fixture=routingFixture(baseRom), caller=fixture.caller;
+    fixture.loader.data.set([0x00,0xf0,0x00,0xf8,...FROST_SIGNATURE],caller);
+    const project={session:{baseRom},overlays:{[baseRom==="BW"?94:168]:fixture.loader.data,[baseRom==="BW"?93:167]:fixture.command.data}} as unknown as ProjectState;
+    expect(detectMoveExpansionRoutingHook(fixture.loader.data,baseRom)).toBe("unpatched");
+    expect(usesFrostMoveExpansionLayout(project)).toBe(false);
+    expect(hasExpandedMoveFlagLayout(project)).toBe(true);
+  });
+
   it.each([
     ["BW" as const, 0x3046, 0x33fcc, undefined, 0x021b6100, 0x021f6560],
     ["BW2" as const, 0x3536, 0x363cc, 0x6456, 0x021998c0, 0x021dda60],

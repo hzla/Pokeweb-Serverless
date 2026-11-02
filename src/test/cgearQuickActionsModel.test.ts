@@ -13,6 +13,7 @@ import { detectPmcInstallFromRom, listCodeInjectionDlls, stageCodeInjectionDll, 
 import { createNarcStore, type ProjectState } from "../pokeweb/projectStore";
 import { getNarcFormats } from "../pokeweb/formats";
 import { updateMartField } from "../pokeweb/martGrottoModel";
+import { getRomFileBytes } from "../pokeweb/fileSystemModel";
 import { isReduxRepel } from "../pokeweb/cgearReduxModel";
 import { parseRpm, writeRpm } from "../pokeweb/rpm";
 import { buttonFont, buttonItems, buttonNative } from "./cgearButtonsFixture";
@@ -316,17 +317,88 @@ describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
     await installCGearQuickActions(reopened);
     deepStrictEqual(structuredClone(reopened.narcs),pending);
   });
-  it.each(['truncated','odd-length','empty-count'] as const)('still rejects %s stock without staging changes',async(kind)=>{
+  it.each([
+    ['odd-length',/Mart stock 4 has an odd inventory size of 5 bytes/],
+    ['empty-inventory',/Pokémart stock 4: item count is 0; supported range is 1–45/],
+    ['oversized-count',/Pokémart stock 4: item count is 46; supported range is 1–45/],
+    ['missing-inventory',/Pokémart stock 4: inventory file is missing \(item count 2\)/],
+    ['gap',/Mart stock 4 has an empty slot before item 17/],
+  ] as const)('reports %s stock with its actual count or size without staging changes',async(kind,message)=>{
     const p=makeProject(v);assets();const rom=new NintendoDSRom(p.originalRomBytes!);
-    const path=kind==='empty-count'?'a/2/8/3':'a/2/8/2',id=rom.fileId(path),arc=new NARC(rom.files[id]);
-    if(kind==='empty-count')arc.files[0][2]=0;
-    else if(kind==='truncated')arc.files[2]=arc.files[2].slice(0,2);
-    else {const data=new Uint8Array(5);data.set(arc.files[2]);arc.files[2]=data;}
-    p.fileSystem={replacements:{[id]:arc.save()},additions:{}};
+    const stockId=rom.fileId('a/2/8/2'),countsId=rom.fileId('a/2/8/3');
+    const stock=new NARC(rom.files[stockId]),counts=new NARC(rom.files[countsId]);
+    if(kind==='empty-inventory')stock.files[4]=new Uint8Array();
+    else if(kind==='oversized-count'){
+      stock.files[4]=new Uint8Array(46*2);
+      for(let i=0;i<46;i++)writeU16(stock.files[4],i*2,4);
+    }
+    else if(kind==='missing-inventory')stock.files=stock.files.slice(0,4);
+    else if(kind==='gap')stock.files[4]=new Uint8Array([4,0,0,0,17,0]);
+    else {const data=new Uint8Array(5);data.set(stock.files[4]);stock.files[4]=data;}
+    p.fileSystem={replacements:{[stockId]:stock.save(),[countsId]:counts.save()},additions:{}};
     const doc=ensureCGearButtons(p).document;doc.buttons.push(newButton(doc,'systemShop'));
     const before=structuredClone({fs:p.fileSystem,arm:p.arm9,modules:p.codeInjection});
-    await expect(installCGearQuickActions(p)).rejects.toThrow(/stock 2.*item count/);
+    await expect(installCGearQuickActions(p)).rejects.toThrow(message);
     deepStrictEqual({fs:p.fileSystem,arm:p.arm9,modules:p.codeInjection},before);
+  });
+  it.each(['stale-19','too-small','zero','too-large','missing','shorter-inventory','padding','appended-shop'] as const)('automatically syncs %s counts from inventory and persists them',async(kind)=>{
+    const p=makeProject(v);assets();const rom=new NintendoDSRom(p.originalRomBytes!);
+    const stockId=rom.fileId('a/2/8/2'),countsId=rom.fileId('a/2/8/3');
+    const stock=new NARC(rom.files[stockId]),counts=new NARC(rom.files[countsId]);
+    let expected=2;
+    if(kind==='stale-19'){
+      stock.files[4]=new Uint8Array(36);
+      for(let i=0;i<18;i++)writeU16(stock.files[4],i*2,4);
+      counts.files[0][4]=19;expected=18;
+    }else if(kind==='too-small')counts.files[0][4]=1;
+    else if(kind==='zero')counts.files[0][4]=0;
+    else if(kind==='too-large')counts.files[0][4]=255;
+    else if(kind==='missing')counts.files[0]=counts.files[0].slice(0,4);
+    else if(kind==='shorter-inventory'){stock.files[4]=stock.files[4].slice(0,2);expected=1;}
+    else if(kind==='padding'){const data=new Uint8Array(40);data.set(stock.files[4]);stock.files[4]=data;counts.files[0][4]=19;}
+    else stock.files.push(new Uint8Array([4,0,0,0]));
+    p.fileSystem={replacements:{[stockId]:stock.save(),[countsId]:counts.save()},additions:{}};
+    const stockBefore=p.fileSystem.replacements[stockId].slice();
+    const doc=ensureCGearButtons(p).document;
+    if(kind!=='appended-shop')doc.buttons.push(newButton(doc,'systemShop'));
+    await installCGearQuickActions(p);
+    const synced=new NARC(getRomFileBytes(p,rom,countsId)).files[0];
+    expect(synced[4]).toBe(expected);
+    if(kind==='appended-shop'){expect(synced.length).toBe(7);expect(synced[6]).toBe(1);}
+    deepStrictEqual(getRomFileBytes(p,rom,stockId),stockBefore);
+    const output=await exportModifiedRom(p),reopened=makeProject(v,output),saved=new NintendoDSRom(output);
+    expect(new NARC(saved.getFileByName('a/2/8/3')).files[0][4]).toBe(expected);
+    await installCGearQuickActions(reopened);
+    expect(getCGearQuickActionsStatus(reopened).enabled).toBe(true);
+  });
+  it('commits loaded count repairs only after successful staging',async()=>{
+    const p=makeProject(v);assets();await installCGearQuickActions(p);loadMartEditor(p);
+    p.narcs.marts!.rawFiles[4]=new Uint8Array(36);
+    for(let i=0;i<18;i++)writeU16(p.narcs.marts!.rawFiles[4],i*2,4);
+    p.narcs.mart_counts!.rawFiles[0][4]=19;
+    const doc=ensureCGearButtons(p).document;doc.buttons.push(newButton(doc,'systemShop'));
+    const before=structuredClone({narcs:p.narcs,fs:p.fileSystem,arm:p.arm9,modules:p.codeInjection,applied:p.cgearButtons!.applied});
+    vi.stubGlobal('fetch',vi.fn(async()=>new Response(new Uint8Array([1,2]))));
+    await expect(installCGearQuickActions(p)).rejects.toThrow(/integrity check/);
+    deepStrictEqual(structuredClone({narcs:p.narcs,fs:p.fileSystem,arm:p.arm9,modules:p.codeInjection,applied:p.cgearButtons!.applied}),before);
+    assets();await installCGearQuickActions(p);
+    expect(p.narcs.mart_counts!.rawFiles[0][4]).toBe(18);
+    expect(p.narcs.mart_counts!.dirty.has(0)).toBe(true);
+    deepStrictEqual(structuredClone(p.narcs.marts),before.narcs.marts);
+  });
+  it('preserves a mart edit made while the C-Gear bundle is loading',async()=>{
+    const p=makeProject(v);assets();await installCGearQuickActions(p);loadMartEditor(p);
+    const doc=ensureCGearButtons(p).document;doc.buttons.push(newButton(doc,'systemShop'));
+    const before=structuredClone({fs:p.fileSystem,arm:p.arm9,modules:p.codeInjection,applied:p.cgearButtons!.applied});
+    let edited=false;
+    vi.stubGlobal('fetch',vi.fn(async(input:URL)=>{
+      if(!edited){edited=true;updateMartField(p,4,'item_2','Item 18');}
+      return new Response(new Uint8Array(readFileSync(new URL(`../assets/codeinjection/${input.pathname.split('/').pop()}`,import.meta.url))));
+    }));
+    await expect(installCGearQuickActions(p)).rejects.toThrow(/mart inventories changed while staging/);
+    expect(p.narcs.mart_counts!.rawFiles[0][4]).toBe(3);
+    expect(p.narcs.marts!.records.get(4)!.raw!.item_2).toBe(18);
+    deepStrictEqual(structuredClone({fs:p.fileSystem,arm:p.arm9,modules:p.codeInjection,applied:p.cgearButtons!.applied}),before);
   });
   it('rejects invalid pending stock without changing the working project',async()=>{
     const p=makeProject(v);assets();loadMartEditor(p);
@@ -337,15 +409,15 @@ describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
     await expect(installCGearQuickActions(p)).rejects.toThrow(/stock 2.*invalid item/);
     deepStrictEqual(structuredClone({narcs:p.narcs,fs:p.fileSystem,arm:p.arm9,modules:p.codeInjection}),before);
   });
-  it.each(['script','counts','item','native'] as const)('rejects incompatible shop %s atomically',async(kind)=>{
+  it.each(['script','item','native'] as const)('rejects incompatible shop %s atomically',async(kind)=>{
     const p=makeProject(v);assets();await installCGearQuickActions(p);
     const r=new NintendoDSRom(p.originalRomBytes!),d=ensureCGearButtons(p).document;d.buttons.push(newButton(d,'systemShop'));
     if(kind==='native'){
       const s=manifest.games[v].signatures.find(s=>s.label==='Native Buy state machine and cleanup')!,o=r.loadArm9Overlays([36]).get(36)!;
       p.overlays[36]=o.data.slice();p.overlays[36]![s.address-o.ramAddress]^=1;
     }else{
-      const id=r.fileId(kind==='script'?'a/0/5/6':kind==='counts'?'a/2/8/3':'a/2/8/2'),a=new NARC(r.files[id]);
-      if(kind==='script')a.files[1247][24]^=1;else if(kind==='counts')a.files[0][0]=255;else writeU16(a.files[0],0,65535);
+      const id=r.fileId(kind==='script'?'a/0/5/6':'a/2/8/2'),a=new NARC(r.files[id]);
+      if(kind==='script')a.files[1247][24]^=1;else writeU16(a.files[0],0,65535);
       p.fileSystem!.replacements[id]=a.save();
     }
     const before={fs:structuredClone(p.fileSystem),applied:structuredClone(p.cgearButtons!.applied),arm:p.arm9.slice()};

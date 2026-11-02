@@ -1,5 +1,5 @@
 import { encodeMoveRecipeBook, decodeMoveRecipeBook } from "./moveRecipeBook";
-import { inspectAbilityEffects, isVerifiedAbilityMoveParamImport, upgradeAbilityRuntime } from "./abilityEffectsModel";
+import { CURRENT_ABILITY_RUNTIME_VERSION, inspectAbilityEffects, isVerifiedAbilityMoveParamImport, upgradeAbilityRuntime } from "./abilityEffectsModel";
 import { isVerifiedItemMoveParamImport } from "./itemEffectsModel";
 import bindings from "../assets/data/moveRecipeBindings.json";
 import black1Bindings from "../assets/data/moveRecipeBindingsB1.json";
@@ -203,7 +203,7 @@ function needsAbilityUpgrade(c:Context):boolean {
   const module=parseRpm(bytes,{allowedMagics:["DLXF"]});
   if(module.metadata.PokewebAbilityEffects!=="rules")throw Error("Verify the installed shared ability runtime in Abilities before applying move recipes.");
   const state=inspectAbilityEffects(c.project);if(!state.editable)throw Error(state.message);
-  return state.runtimeVersion===1;
+  return state.runtimeVersion!==undefined&&state.runtimeVersion<CURRENT_ABILITY_RUNTIME_VERSION;
 }
 function checkHook(c: Context, name: string, address: number, size: number) {
   for (const [path, bytes] of c.files) {

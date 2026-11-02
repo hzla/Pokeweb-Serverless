@@ -1,13 +1,14 @@
 import { nativeAbilityProfile } from "../pokeweb/abilityNativeRuntime";
 import { ABILITY_IMPORT_LIBRARY, abilityImport } from "../pokeweb/abilityLibrary";
 import type { ProjectState } from "../pokeweb/projectStore";
-import { inspectAbilityEffects, configureAbilityRuleSets, createCustomAbility, nextCustomAbilityId, clearAbilityRules, upgradeAbilityRuntime } from "../pokeweb/abilityEffectsModel";
+import { inspectAbilityEffects, configureAbilityRuleSets, createCustomAbility, nextCustomAbilityId, clearAbilityRules } from "../pokeweb/abilityEffectsModel";
 import { ABILITY_NATIVE_EFFECTS, ABILITY_RULE_EFFECTS, ABILITY_RULE_PRESETS, EMPTY_ABILITY_RULE, type AbilityRuleSet } from "../pokeweb/abilityRules";
 import { renderItemRuleForm, installItemRuleEditor, type RuleFormOptions } from "./itemRuleEditor";
 import { escapeHtml } from "./dom";
 import { installAbilityPrimitiveReference } from "./abilityPrimitiveReference";
 import { getAbilityDescription, getAbilitySummaryName, updateAbilityDescription } from "../pokeweb/abilityTextModel";
 import { descriptionPreviewMarkup, installLazyDescriptionPreview } from "./lazyDescriptionPreview";
+import { renderAbilityRuntimeUpdate, installAbilityRuntimeUpdate, refreshAbilityRuntimeUpdate } from "./abilityRuntimeUpdate";
 
 export const BLANK_ABILITY_DRAFT:AbilityRuleSet={effects:[],conditions:{kind:"group",mode:"all",children:[]}};
 export function renderAbilityEditor(project: ProjectState, root: HTMLElement, onChange: () => void): void {
@@ -28,7 +29,7 @@ export function renderAbilityEditor(project: ProjectState, root: HTMLElement, on
             customDraft=false;onChange();
         },
     };
-    root.innerHTML=`<div class="ability-editor-layout"><aside class="pokemon-filter ability-sidebar"><h2>Abilities</h2><button type="button" class="btn -default" data-add-ability>Add ability</button><input type="search" data-ability-search placeholder="Search abilities" aria-label="Search abilities"><div class="ability-list" data-ability-list></div></aside><main class="pokemon-list ability-page" data-ability-panel></main><aside class="ability-reference" aria-label="Ability primitive reference" data-ability-reference></aside></div>`;
+    root.innerHTML=`<div class="ability-editor-layout"><aside class="pokemon-filter ability-sidebar"><h2>Abilities</h2><button type="button" class="btn -default" data-add-ability>Add ability</button>${renderAbilityRuntimeUpdate(project)}<input type="search" data-ability-search placeholder="Search abilities" aria-label="Search abilities"><div class="ability-list" data-ability-list></div></aside><main class="pokemon-list ability-page" data-ability-panel></main><aside class="ability-reference" aria-label="Ability primitive reference" data-ability-reference></aside></div>`;
     const updateReference=installAbilityPrimitiveReference(root.querySelector<HTMLElement>("[data-ability-reference]")!,project);
     function list(){
         const names=project.texts.banks.abilities??[];
@@ -37,6 +38,7 @@ export function renderAbilityEditor(project: ProjectState, root: HTMLElement, on
     }
     function panel(){
         descriptionPreview?.destroy();
+        refreshAbilityRuntimeUpdate(root,project);
         list();
         const state=inspectAbilityEffects(project),name=adding?"":project.texts.banks.abilities?.[selected]??`Ability ${selected}`,rule=adding?undefined:state.rules.get(selected);
         updateReference(state.rules);
@@ -45,7 +47,7 @@ export function renderAbilityEditor(project: ProjectState, root: HTMLElement, on
         const target=root.querySelector<HTMLElement>("[data-ability-panel]")!;
         let description=adding?newDescription:"",descriptionError="";
         if(!adding)try{description=getAbilityDescription(project,selected);}catch(error){descriptionError=error instanceof Error?error.message:String(error);}
-        target.innerHTML=`<div class="ability-page-heading"><h2>${adding?"New ability":escapeHtml(name)} <small>#${selected}</small></h2><span class="ability-state">${!state.editable?"Unavailable":adding||customDraft?"Custom draft":rule?"Custom effects · Shared DLL":noTemplate?"No native template":"Native behavior"}</span>${state.editable&&state.runtimeVersion===1?`<button type="button" class="btn -default" data-upgrade-ability-runtime>Update ability runtime</button>`:""}</div>
+        target.innerHTML=`<div class="ability-page-heading"><h2>${adding?"New ability":escapeHtml(name)} <small>#${selected}</small></h2><span class="ability-state">${!state.editable?"Unavailable":adding||customDraft?"Custom draft":rule?"Custom effects · Shared DLL":noTemplate?"No native template":"Native behavior"}</span></div>
           <label class="ability-name">Name<input data-ability-name aria-label="Ability name" maxlength="15" value="${escapeHtml(name)}" ${state.editable?"":"disabled"}></label>
           <section class="ability-description-editor"><label>Description<textarea data-ability-description aria-label="Ability description" spellcheck="false" ${descriptionError?"disabled":""}>${escapeHtml(description)}</textarea></label>${descriptionError?"":descriptionPreviewMarkup}<p role="status" data-ability-description-status>${escapeHtml(descriptionError)}</p></section>
           ${state.editable?noTemplate?`<button type="button" class="btn -default" data-ability-custom-draft>Create custom effects</button>`:`<div data-ability-rules>${renderItemRuleForm(project,{...structuredClone(adding||customDraft?BLANK_ABILITY_DRAFT:rule??native??BLANK_ABILITY_DRAFT),consumable:false},options)}</div>${rule?`<button type="button" class="btn -default ${selected>164?"-remove":""}" data-ability-restore>${selected<=164?"Restore native behavior":"Remove custom effects"}</button>`:""}${adding?`<button type="button" class="btn -default" data-ability-cancel>Cancel</button>`:""}`:`<p role="status">${escapeHtml(state.message)}</p>`}`;
@@ -62,11 +64,6 @@ export function renderAbilityEditor(project: ProjectState, root: HTMLElement, on
         });
         target.querySelector<HTMLInputElement>("[data-ability-name]")!.addEventListener("input",()=>preview?.refresh());
         target.querySelector<HTMLButtonElement>("[data-ability-custom-draft]")?.addEventListener("click",()=>{customDraft=true;panel();});
-        target.querySelector<HTMLButtonElement>("[data-upgrade-ability-runtime]")?.addEventListener("click",async event=>{
-            const button=event.currentTarget as HTMLButtonElement;button.disabled=true;button.textContent="Updating runtime…";
-            try{await upgradeAbilityRuntime(project);onChange();button.remove();target.querySelector<HTMLElement>(".ability-state")!.textContent="Ability runtime updated";}
-            catch(error){button.disabled=false;button.textContent="Update ability runtime";target.querySelector<HTMLElement>(".ability-state")!.textContent=error instanceof Error?error.message:String(error);}
-        });
         const form=target.querySelector<HTMLElement>("[data-ability-rules]");
         if(form)installItemRuleEditor(form,project,selected,panel,()=>{},options);
         target.querySelector<HTMLButtonElement>("[data-ability-cancel]")?.addEventListener("click",()=>{adding=false;selected=previous;customDraft=false;panel();});
@@ -75,5 +72,6 @@ export function renderAbilityEditor(project: ProjectState, root: HTMLElement, on
     root.querySelector<HTMLButtonElement>("[data-add-ability]")!.addEventListener("click",()=>{const id=nextCustomAbilityId(project);if(id===undefined)return;previous=adding?previous:selected;selected=id;adding=true;customDraft=false;newDescription="";panel();root.querySelector<HTMLInputElement>("[data-ability-name]")!.focus();});
     root.querySelector<HTMLInputElement>("[data-ability-search]")!.addEventListener("input",event=>{query=(event.target as HTMLInputElement).value;list();});
     root.querySelector<HTMLElement>("[data-ability-list]")!.addEventListener("click",event=>{const row=(event.target as HTMLElement).closest<HTMLElement>("[data-ability-id]");if(row){selected=Number(row.dataset.abilityId);adding=false;customDraft=false;panel();}});
+    installAbilityRuntimeUpdate(root,project,onChange);
     panel();
 }

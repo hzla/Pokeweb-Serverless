@@ -3,10 +3,17 @@ void*memset(void*dst,int value,unsigned length){volatile u8*p=dst;for(u32 n=0;n<
 void*memcpy(void*dst,const void*src,unsigned length){volatile u8*p=dst;const volatile u8*q=src;for(u32 n=0;n<length;++n)p[n]=q[n];return dst;}
 /* Small event-driven recipe operations; native services retain battle work,
  * suppression, stat/status guards, messages and side-condition handling. */
+#ifdef ABILITY_BATTLE_MESSAGES
+PUBLIC const volatile u32 AbilityRecipeApi[24]={0};
+#else
 PUBLIC const volatile u32 AbilityRecipeApi[23]={0};
+#endif
 #define RX(i,t) ((t)(uintptr_t)AbilityRecipeApi[i])
 static u32 entryUsed[32][8];
 static u32 recipeMove,recipeCritical,recipeEffectiveness,entrySource;
+#ifdef ABILITY_BATTLE_MESSAGES
+static u32 actionMove,actionUser;
+#endif
 static u32 ally(u8 a,u8 b){return RX(10,u32(*)(u8,u8))(a,b);}
 static u32 present(void*f,u8 id){return id<24&&RX(11,u32(*)(void*,u8))(f,id);}
 static u32 side(u8 id){return RX(13,u32(*)(u8))(id);}
@@ -39,9 +46,16 @@ PUBLIC void AbilityRecipeInit(void){
 #endif
  for(u32 n=0;n<32;++n)for(u32 k=0;k<8;++k)entryUsed[n][k]=0;
  recipeMove=recipeCritical=recipeEffectiveness=0;entrySource=31;RX(0,void(*)(void))();
+#ifdef ABILITY_BATTLE_MESSAGES
+ actionMove=0;actionUser=31;
+#endif
 }
 PUBLIC void AbilityRecipeHandlers(void*f,u32 event,u32 factor,u32 check){
  u32 previous=entrySource;if(event==0x55||event==0x8a)entrySource=VALUE(2);
+#ifdef ABILITY_BATTLE_MESSAGES
+ if(event==0x3){actionMove=VALUE(0x12);actionUser=VALUE(3);}
+ if(event==0x4){actionMove=0;actionUser=31;}
+#endif
 #ifdef ABILITY_SCOPED
  scopedBefore(f,event);
 #endif
@@ -83,8 +97,12 @@ static u32 conversionMatch(u32 filter,u32 move){
  if(!filter)return 1;
  if(filter==1||filter==2||filter==5)return FN(31,u32(*)(u32,u32))(move,filter==1?0:filter==2?7:8);
  u32 bit=filter==3?1:filter==4?2:filter==6?4:filter==7?8:filter==8?16:filter==13?32:filter==12?64:0;
+#ifdef ABILITY_MOVE_CLASSES
+ return (AbilityMoveClassBits(move)&bit)!=0;
+#else
  for(u32 n=0;n<sizeof(abilityMoveClasses)/sizeof(abilityMoveClasses[0]);++n)if(abilityMoveClasses[n][0]==move)return (abilityMoveClasses[n][1]&bit)!=0;
  return 0;
+#endif
 }
 static u32 recipeStage(void*item,void*f,u8 owner,u8 target,u32 stat,s32 value,u32 chance){
  u8 staged[16]={11,0,0,0,0,0,100};staged[1]=stat;put16(staged+2,value);staged[6]=chance;return action(item,f,owner,staged,target);
@@ -126,7 +144,7 @@ static void recipeEffect(void*item,void*f,u8 owner,const volatile u8*e,u32 event
   if(move==237||move==311||move==363||move==449||move==546||e[4]!=18&&original!=e[4])return;
   if(!conversionMatch(e[1],move))return;
   if(event==0x28&&VALUE(2)==owner)REWRITE(0x16,e[5]);
-  if(event==0x38&&VALUE(3)==owner&&VALUE(0x16)==e[5])MUL(v);
+  if(event==0x38&&VALUE(3)==owner&&VALUE(0x16)==e[5])POWER_MUL(v);
   return;
  }
  if(kind==136){
@@ -140,7 +158,9 @@ static void recipeEffect(void*item,void*f,u8 owner,const volatile u8*e,u32 event
   if(t==5&&event==0x4&&VALUE(2)==owner&&w[3]&&!preview(f)){w[3]=0;fire=actionMoveMatches(e,w);}
 #endif
   if(!fire||preview(f)||!hp&&t!=1)return;
+#ifndef ABILITY_STAT_POPUPS
   popup(f,2,owner);
+#endif
   for(u32 k=0;k<fire;++k)for(u8 id=0;id<24;++id)if(inScope(f,owner,id,e[5])){
    if(e[13]&&RX(19,u32(*)(void*,u8,u8,u16))(f,owner,id,0))continue;
    if(t==0&&e[5]==2&&RX(20,u32(*)(void*))(MON(f,id)))continue;
@@ -153,17 +173,60 @@ static void recipeEffect(void*item,void*f,u8 owner,const volatile u8*e,u32 event
   popup(f,3,owner);return;
  }
  if(kind==137){
-  if(event==0x65&&(!e[8]||VALUE(3)!=VALUE(4))&&VALUE(0x1d)==e[1]&&protect(f,owner,VALUE(4),e,4,5))REWRITE(0x41,1);
+  if(event==0x65&&(!e[8]||VALUE(3)!=VALUE(4))&&VALUE(0x1d)==e[1]&&protect(f,owner,VALUE(4),e,4,5)){
+#ifdef ABILITY_BATTLE_MESSAGES
+   if(REWRITE(0x41,1)&&!preview(f))w[0]=VALUE(4)+1;
+#else
+   REWRITE(0x41,1);
+#endif
+  }
+#ifdef ABILITY_BATTLE_MESSAGES
+  if(event==0x67&&w[0]==VALUE(4)+1&&!preview(f)){w[0]=0;guardMessage(f,owner,VALUE(4),210);}
+#endif
   if(e[6]&&!preview(f)&&(onEntry(event,owner)||event==0x88||event==0x77&&VALUE(2)==owner||event==0x55&&protect(f,owner,VALUE(2),e,4,5)))for(u8 id=0;id<24;++id)if(protect(f,owner,id,e,4,5))RX(15,void(*)(void*,u8,u32))(f,id,e[1]);
   return;
  }
- if(kind==138){if(event==0x5b&&protect(f,owner,VALUE(2),e,4,5)&&VALUE(3)!=VALUE(2)&&(e[1]==8||VALUE(0x1f)==e[1])&&(s32)VALUE(0x20)<0)REWRITE(0x41,1);return;}
- if(kind==139){if(hp&&event==0x38&&(VALUE(3)!=owner||e[1])&&ally(owner,VALUE(3))&&(!e[6]||FN(17,u32(*)(u32))(VALUE(0x12))==e[6])&&recipeMatch(e,4,5,6,VALUE(0x12))){MUL(v);}return;}
- if(kind==140&&onEntry(event,owner)&&!preview(f)){
-  if(!e[1]){for(u8 id=0;id<24;++id)if(inScope(f,owner,id,1)&&STAT(MON(f,id),13)&&(!e[4]||!RX(19,u32(*)(void*,u8,u8,u16))(f,owner,id,0))){popup(f,2,owner);u8*p=PUSH(f,15,owner);p[4]=owner;for(u32 n=0;n<7;++n)p[5+n]=*((u8*)MON(f,id)+0xfc+n);POP(f,p);if(e[5]){u8*flag=PUSH(f,RX(21,u32(*)(void*,u32))(MON(f,id),9)?23:24,owner);put32(flag+4,9);flag[8]=owner;POP(f,flag);}popup(f,3,owner);break;}}
-  else{u8*p=PUSH(f,16,owner);u32 count=0;for(u8 id=0;id<24&&count<6;++id)if(inScope(f,owner,id,1)&&(!e[4]||!RX(19,u32(*)(void*,u8,u8,u16))(f,owner,id,0)))p[5+count++]=id;p[4]=count;POP(f,p);}return;
+ if(kind==138){
+  if(event==0x5b&&protect(f,owner,VALUE(2),e,4,5)&&VALUE(3)!=VALUE(2)&&(e[1]==8||VALUE(0x1f)==e[1])&&(s32)VALUE(0x20)<0){
+#ifdef ABILITY_BATTLE_MESSAGES
+   if(REWRITE(0x41,1)&&!preview(f))w[0]=VALUE(2)+1;
+#else
+   REWRITE(0x41,1);
+#endif
+  }
+#ifdef ABILITY_BATTLE_MESSAGES
+  if(event==0x5c&&w[0]==VALUE(2)+1&&!preview(f)){w[0]=0;guardMessage(f,owner,VALUE(2),198);}
+#endif
+  return;
  }
- if(kind==141&&onEntry(event,owner)&&!preview(f)){for(u32 s=0;s<2;++s)if(!e[1]||s==(e[1]==1?side(owner):1-side(owner))){u8*p=PUSH(f,26,owner);p[4]=3;p[5]=3;p[7]=s;POP(f,p);}return;}
+ if(kind==139){if(hp&&event==0x38&&(VALUE(3)!=owner||e[1])&&ally(owner,VALUE(3))&&(!e[6]||FN(17,u32(*)(u32))(VALUE(0x12))==e[6])&&recipeMatch(e,4,5,6,VALUE(0x12))){POWER_MUL(v);}return;}
+ if(kind==140&&onEntry(event,owner)&&!preview(f)){
+  if(!e[1]){for(u8 id=0;id<24;++id)if(inScope(f,owner,id,1)&&STAT(MON(f,id),13)&&(!e[4]||!RX(19,u32(*)(void*,u8,u8,u16))(f,owner,id,0))){
+#ifdef ABILITY_BATTLE_MESSAGES
+   u32 changed=0;for(u32 n=0;n<7;++n)if(((u8*)MON(f,id))[0xfc+n]!=((u8*)MON(f,owner))[0xfc+n])changed=1;
+   if(e[5]&&!!RX(21,u32(*)(void*,u32))(MON(f,id),9)!=!!RX(21,u32(*)(void*,u32))(MON(f,owner),9))changed=1;
+   if(!changed){continue;}abilityNotice(f,owner,13,owner,id);
+#endif
+   popup(f,2,owner);u8*p=PUSH(f,15,owner);p[4]=owner;for(u32 n=0;n<7;++n)p[5+n]=*((u8*)MON(f,id)+0xfc+n);POP(f,p);if(e[5]){u8*flag=PUSH(f,RX(21,u32(*)(void*,u32))(MON(f,id),9)?23:24,owner);put32(flag+4,9);flag[8]=owner;POP(f,flag);}popup(f,3,owner);break;}}
+#ifdef ABILITY_BATTLE_MESSAGES
+  else{u8 ids[6];u32 count=0;for(u8 id=0;id<24&&count<6;++id)if(inScope(f,owner,id,1)&&STAT(MON(f,id),13)&&(!e[4]||!RX(19,u32(*)(void*,u8,u8,u16))(f,owner,id,0))){u32 changed=0;for(u32 n=0;n<7;++n)if(((u8*)MON(f,id))[0xfc+n]!=6)changed=1;if(changed){ids[count++]=id;abilityNotice(f,owner,12,id,0);}}
+   if(count){u8*p=PUSH(f,16,owner);p[4]=count;for(u32 n=0;n<count;++n)p[5+n]=ids[n];POP(f,p);}return;}
+#else
+  else{u8*p=PUSH(f,16,owner);u32 count=0;for(u8 id=0;id<24&&count<6;++id)if(inScope(f,owner,id,1)&&(!e[4]||!RX(19,u32(*)(void*,u8,u8,u16))(f,owner,id,0)))p[5+count++]=id;p[4]=count;POP(f,p);}return;
+#endif
+  return;
+ }
+ if(kind==141&&onEntry(event,owner)&&!preview(f)){
+#ifdef ABILITY_BATTLE_MESSAGES
+  u32 changed=0;for(u32 s=0;s<2;++s)if((!e[1]||s==(e[1]==1?side(owner):1-side(owner)))&&(RX(12,u32(*)(void*,u8,u32))(f,s,0)||RX(12,u32(*)(void*,u8,u32))(f,s,1)))changed=1;
+  if(!changed){return;}popup(f,2,owner);
+#endif
+  for(u32 s=0;s<2;++s)if(!e[1]||s==(e[1]==1?side(owner):1-side(owner))){u8*p=PUSH(f,26,owner);p[4]=3;p[5]=3;p[7]=s;POP(f,p);}
+#ifdef ABILITY_BATTLE_MESSAGES
+  popup(f,3,owner);
+#endif
+  return;
+ }
  if(kind==142&&!preview(f)&&(e[1]?event==0x4b&&VALUE(4)==owner&&!VALUE(0x46)&&VALUE(0x32)>0:onEntry(event,owner))){recipeWeather(f,owner,e);return;}
  if(kind==143&&(event==0x13||event==0x3b)&&FN(6,u32(*)(void*))(f)==e[4]){
   if(e[1]==5&&event==0x13&&VALUE(2)==owner||event==0x3b&&VALUE(3)==owner&&(e[1]==1&&FN(17,u32(*)(u32))(VALUE(0x12))==1||e[1]==3&&FN(17,u32(*)(u32))(VALUE(0x12))==2)){MUL(v);}return;
@@ -173,6 +236,9 @@ static void recipeEffect(void*item,void*f,u8 owner,const volatile u8*e,u32 event
  if(kind==146&&event==0x33&&VALUE(3)==owner){REWRITE(0x28,6);return;}
  if(kind==147&&event==0x3e&&VALUE(4)==owner&&hp*100>=STAT(MON(f,owner),14)*e[1]){recipeEffectiveness=v==1024?1:v==2048?2:v==4096?3:v==8192?4:5;return;}
  if(kind==148&&event==0x4b&&VALUE(4)==owner&&!VALUE(0x46)&&VALUE(0x32)>0&&(!e[4]||FN(17,u32(*)(u32))(VALUE(0x12))==e[4])&&!preview(f)){
+#ifdef ABILITY_BATTLE_MESSAGES
+  if(RX(23,u32(*)(void*,u32,u32))(f,1-side(owner),e[1])>=(e[1]==6?3:e[1]==7?2:1))return;
+#endif
   popup(f,2,owner);u8*p=PUSH(f,25,owner);put32(p+4,e[1]);put32(p+8,1);p[12]=1-side(owner);POP(f,p);popup(f,3,owner);return;
  }
  if(kind==149&&event==0x4b&&VALUE(4)==owner&&!VALUE(0x46)&&VALUE(0x32)>0&&!hp&&VALUE(3)!=owner&&!preview(f)){
@@ -180,16 +246,59 @@ static void recipeEffect(void*item,void*f,u8 owner,const volatile u8*e,u32 event
   u32 amount=divide(VALUE(0x32)*v,4096);if(!amount)amount=1;popup(f,2,owner);u8*p=PUSH(f,7,owner);put16(p+4,amount);p[6]=VALUE(3);POP(f,p);popup(f,3,owner);return;
  }
  if(kind==150&&event==0x4b&&VALUE(4)==owner&&!VALUE(0x46)&&VALUE(0x32)>0&&recipeMatch(e,1,4,5,VALUE(0x12))&&!preview(f)){
-  popup(f,2,owner);u8 ids[2]={owner,VALUE(3)};for(u32 n=0;n<2;++n)if(STAT(MON(f,ids[n]),13)&&!CHECK(MON(f,ids[n]),20)){u8*p=PUSH(f,12,owner);put32(p+4,20);put32(p+8,RX(17,u32(*)(u8,u16))(v,0));p[15]=ids[n];POP(f,p);}popup(f,3,owner);return;
+#ifdef ABILITY_BATTLE_MESSAGES
+  if(!hp||CHECK(MON(f,VALUE(3)),20))return;
+  abilityNotice(f,owner,14,owner,0);
+#endif
+  popup(f,2,owner);u8 ids[2]={owner,VALUE(3)};for(u32 n=0;n<2;++n)if(STAT(MON(f,ids[n]),13)&&!CHECK(MON(f,ids[n]),20)){u8*p=PUSH(f,12,owner);put32(p+4,20);/* Native Perish Song uses kind 2 with four ticks (3,2,1,0).
+    * The permanent kind-1 record never decrements. */
+#ifdef ABILITY_BATTLE_MESSAGES
+    put32(p+8,2|((v+1)<<3));
+#else
+    put32(p+8,RX(17,u32(*)(u8,u16))(v,0));
+#endif
+    p[15]=ids[n];POP(f,p);}popup(f,3,owner);return;
  }
  if(kind==151&&event==0x5b&&entrySource==VALUE(3)&&VALUE(0x1f)==e[5]&&VALUE(2)==owner&&(s32)VALUE(0x20)<0&&VALUE(3)!=owner&&present(f,VALUE(3))&&STAT(MON(f,VALUE(3)),16)==e[4]){
-  if(REWRITE(0x41,1)&&!preview(f)){popup(f,2,owner);recipeStage(item,f,owner,owner,e[1],signedValue,100);popup(f,3,owner);}return;
+  if(REWRITE(0x41,1)&&!preview(f)){
+#ifdef ABILITY_BATTLE_MESSAGES
+   guardMessage(f,owner,owner,198);
+#endif
+#ifndef ABILITY_STAT_POPUPS
+   popup(f,2,owner);
+#endif
+   recipeStage(item,f,owner,owner,e[1],signedValue,100);popup(f,3,owner);}return;
  }
  if(kind==152){
   u32 activate=0;
-  if(event==0x2d&&VALUE(4)==owner&&VALUE(3)!=owner&&recipeMatch(e,4,5,6,VALUE(0x12)))activate=REWRITE(0x40,1);
+#ifdef ABILITY_BATTLE_MESSAGES
+  if(event==0x8b&&VALUE(4)==owner&&actionUser!=owner&&actionMove&&conversionMatch(e[4],actionMove))activate=REWRITE(0x41,1);
+#endif
+  if(event==0x2d&&VALUE(4)==owner&&VALUE(3)!=owner&&recipeMatch(e,4,5,6,VALUE(0x12))){
+   activate=REWRITE(0x40,1);
+#ifdef ABILITY_BATTLE_MESSAGES
+   /* A successful native stat change supplies the explanation. At the cap,
+    * the move is still absorbed and needs its own no-effect message. */
+#endif
+  }
   if(e[5]&&(onEntry(event,owner)&&RX(12,u32(*)(void*,u8,u32))(f,side(owner),4)||event==0x9f&&VALUE(0x53)==4&&VALUE(0x52)==side(owner)&&!RX(12,u32(*)(void*,u8,u32))(f,side(owner),4)))activate=1;
-  if(activate&&!preview(f)){popup(f,2,owner);recipeStage(item,f,owner,owner,e[1],signedValue,100);popup(f,3,owner);}return;
+  if(activate&&!preview(f)){
+#ifndef ABILITY_STAT_POPUPS
+   popup(f,2,owner);
+#endif
+   u32 applied=recipeStage(item,f,owner,owner,e[1],signedValue,100);
+#ifdef ABILITY_BATTLE_MESSAGES
+   if((event==0x2d||event==0x8b)&&!applied)guardMessage(f,owner,owner,210);
+#else
+   (void)applied;
+#endif
+   popup(f,3,owner);}return;
  }
- if(kind==153&&event==0x2d&&VALUE(4)==owner&&(!e[6]||VALUE(3)!=owner)&&recipeMatch(e,1,4,5,VALUE(0x12)))REWRITE(0x40,1);
+ if(kind==153&&event==0x2d&&VALUE(4)==owner&&(!e[6]||VALUE(3)!=owner)&&recipeMatch(e,1,4,5,VALUE(0x12))){
+#ifdef ABILITY_BATTLE_MESSAGES
+  if(REWRITE(0x40,1)&&!preview(f))guardMessage(f,owner,owner,210);
+#else
+  REWRITE(0x40,1);
+#endif
+ }
 }

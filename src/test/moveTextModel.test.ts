@@ -50,6 +50,19 @@ describe("moveTextModel", () => {
     expect(project.texts.banks.moves?.[4]).toBe("Mega Punch");
   });
 
+  it("updates BW list names even when the uppercase bank has no expanded entry", () => {
+    const project = makeProject("BW", "B");
+    setBank(project.narcs.message_texts!.rawFiles, project.texts.messageTexts!, 203, makeBank(706, { 705: "Fire Lash" }));
+    const uppercase = project.narcs.message_texts!.rawFiles[286];
+
+    updateMoveTextName(project, 705, "flame lash");
+
+    expect(project.texts.banks.moves?.[705]).toBe("Flame Lash");
+    expect(getMoveTextInfo(project, 705)?.title).toBe("Flame Lash");
+    expect(project.narcs.message_texts!.rawFiles[286]).toBe(uppercase);
+    expect(project.narcs.message_texts!.dirty.has(286)).toBe(false);
+  });
+
   it("renames only the entries referenced by the selected move", () => {
     const project = makeProject("BW2", "W2");
     const rawFiles = project.narcs.message_texts!.rawFiles;

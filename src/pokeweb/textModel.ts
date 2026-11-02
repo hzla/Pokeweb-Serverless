@@ -196,6 +196,18 @@ export function commitTextBank(project: ProjectState, narcName: TextNarcName, ba
   refreshKnownTextBank(project, narcName, bankId, bank);
 }
 
+/** Rebuild legacy saved BW labels from the two name banks, without rewriting ROM text. */
+export function refreshBwMoveNames(project: ProjectState): void {
+  if (project.session.baseRom !== "BW") return;
+  let loaded: number | undefined;
+  for (const id of [203, 286]) {
+    if (!project.narcs.message_texts?.rawFiles[id]?.length) continue;
+    try { getTextBank(project, "message_texts", id); loaded = id; }
+    catch { /* Keep available labels when a name bank is malformed. */ }
+  }
+  if (loaded !== undefined) refreshKnownTextBank(project, "message_texts", loaded, getTextBank(project, "message_texts", loaded));
+}
+
 function refreshKnownTextBank(project: ProjectState, narcName: TextNarcName, bankId: number, bank: Gen5TextEntry[]): void {
   if (narcName !== "message_texts") return;
   const mappings = isGen4Project(project) ? GEN4_MESSAGE_BANKS[project.session.baseVersion as Gen4Version] : project.session.baseRom === "BW" ? BW_MESSAGE_BANKS : BW2_MESSAGE_BANKS;

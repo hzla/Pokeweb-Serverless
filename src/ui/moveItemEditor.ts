@@ -1,4 +1,6 @@
 import { installMoveRecipeButtons } from "./moveRecipeEditor";
+import { renderMoveDllFlags, installMoveDllFlags } from "./moveDllFlagsEditor";
+import { renderAbilityRuntimeUpdate, installAbilityRuntimeUpdate, refreshAbilityRuntimeUpdate } from "./abilityRuntimeUpdate";
 import { inspectMoveEffects, MOVE_RECIPE_MANAGED_FIELDS, supportsMoveRecipes } from "../pokeweb/moveEffectsModel";
 import miscDataIcon from "../assets/svgs/misc_data.svg?raw";
 import movieIconUrl from "../assets/svgs/movie.png";
@@ -116,6 +118,7 @@ export function renderMoveEditor(
 ): void {
   root.innerHTML = `
     <div class="pokemon-filter move-filter move-data-filter">
+      ${supportsMoveRecipes(project) ? renderAbilityRuntimeUpdate(project) : ""}
       <div class="filter-title">Search Text</div>
       <input class="filter-input" id="search-text"/>
       <button class="btn -default" id="search-text-btn" type="button">Search</button>
@@ -155,11 +158,13 @@ export function renderMoveEditor(
     onTestMove,
     onOpenMoveAnimation,
     autofills: getMoveAutofills(project),
-    renderExpanded: (moveId) => renderMoveExpanded(getMoveRecord(project, moveId), supportsMoveRecipes(project) && inspectMoveEffects(project).rules.has(moveId)),
+    renderExpanded: (moveId) => renderMoveExpanded(getMoveRecord(project, moveId), supportsMoveRecipes(project) && inspectMoveEffects(project).rules.has(moveId), supportsMoveRecipes(project) ? renderMoveDllFlags(project, moveId) : ""),
     renderTextPanel: (moveId) => renderMoveTextPanel(getMoveTextInfo(project, moveId)),
   });
   attachW2uSyncButton(root, project);
   installMoveRecipeButtons(root, project, onDirty);
+  installAbilityRuntimeUpdate(root, project, onDirty);
+  installMoveDllFlags(root, project, () => { refreshAbilityRuntimeUpdate(root, project); onDirty?.(); });
 }
 
 export function renderMoveAnimationPage(
@@ -376,7 +381,7 @@ function renderMoveEffectField(move: MoveRecord): string {
   `;
 }
 
-function renderMoveExpanded(move: MoveRecord, managed = false): string {
+function renderMoveExpanded(move: MoveRecord, managed = false, dllFlags = ""): string {
   const fieldValue = (field: string, options: Parameters<typeof editable>[4]) => managed && MOVE_RECIPE_MANAGED_FIELDS.includes(field)
     ? `<span class="expanded-field-value" title="Managed in Battle effects">Recipe</span>`
     : editable("move", field, move.readable[field], "expanded-field-value", options);
@@ -394,6 +399,7 @@ function renderMoveExpanded(move: MoveRecord, managed = false): string {
       <div class="expanded-row expanded-move-props" data-narc="move">
         ${PROPERTIES.map((prop) => `<div class="move-prop svg ${Number(move.readable[prop]) > 0 ? "-active" : ""}" data-field-name="${escapeHtml(prop)}"><img src="${publicAsset(`svgs/${prop}.svg`)}" alt=""><div class="prop-info">${escapeHtml(titleize(prop.replace(/_/gu, " ")))}</div></div>`).join("")}
       </div>
+      ${dllFlags}
     </div>
   `;
 }

@@ -67,12 +67,23 @@ static void scopedConsume(void*f,u8 owner,u32 old){
 static void scopedEffect(void*item,void*f,u8 owner,const volatile u8*e,u32 event,u32*w){
  u32 kind=e[0],v=half(e+2);void*holder=MON(f,owner);
  if(kind==155){
+#ifdef ABILITY_BATTLE_MESSAGES
+  if(onEntry(event,owner)&&!preview(f)){abilityNotice(f,owner,0,owner,e[1]);return;}
+#endif
   if(event!=0x38||VALUE(0x16)!=e[1]||!firstField(f,owner,kind,e[1]))return;
   for(u8 id=0;id<24;++id)if(hasField(f,id,156,0)){v=divide(4096*e[4],100);break;}
-  MUL(v);return;
+  POWER_MUL(v);return;
  }
- if(kind==156)return;
+ if(kind==156){
+#ifdef ABILITY_BATTLE_MESSAGES
+  if(onEntry(event,owner)&&!preview(f))abilityNotice(f,owner,1,owner,0);
+#endif
+  return;
+ }
  if(kind==157){
+#ifdef ABILITY_BATTLE_MESSAGES
+  if(onEntry(event,owner)&&!preview(f)&&v!=4096){abilityNotice(f,owner,2+e[1]-1+(v>4096?4:0),owner,0);return;}
+#endif
   u8 target=event==0x3b?VALUE(3):event==0x3c?VALUE(4):31;
   u32 category=event==0x3b?FN(17,u32(*)(u32))(VALUE(0x12)):event==0x3c?VALUE(0x1a):0;
   if(target==31||!firstField(f,owner,kind,e[1])||hasField(f,target,kind,e[1]))return;
@@ -95,12 +106,23 @@ static void scopedEffect(void*item,void*f,u8 owner,const volatile u8*e,u32 event
   popup(f,2,owner);u8*p=PUSH(f,20,owner);put16(p+4,pair);p[6]=owner;POP(f,p);popup(f,3,owner);w[0]=w[1]=1;return;
  }
  if(kind==159){if(event==0x3b&&VALUE(3)==owner&&VALUE(4)<32&&entered[VALUE(4)]==turn(f))MUL(v);return;}
- if(kind==160){if(event==0x38&&VALUE(3)==owner){u32 count=w[0];if(count>e[1])count=e[1];MUL(4096+divide(4096*v*count+50,100));}return;}
+ if(kind==160){
+#ifdef ABILITY_BATTLE_MESSAGES
+  if(onEntry(event,owner)&&w[0]&&v&&!preview(f))abilityNotice(f,owner,10,owner,0);
+#endif
+  if(event==0x38&&VALUE(3)==owner){u32 count=w[0];if(count>e[1])count=e[1];POWER_MUL(4096+divide(4096*v*count+50,100));}return;
+ }
  if(kind==161){
   if(event!=0x2d||VALUE(3)==VALUE(4)||ally(owner,VALUE(3))||!STAT(holder,13)||!(VALUE(4)==owner||e[1]&&ally(owner,VALUE(4))))return;
   u8 source=VALUE(3);s32 priority=0;
   if(!variable(0x18,&priority)){if(source>=32||priorityTurn[source]!=turn(f))return;priority=priorities[source];}else priority-=7;
-  if(priority>=(s32)v&&REWRITE(0x40,1)&&!preview(f)){popup(f,2,owner);popup(f,3,owner);}return;
+  if(priority>=(s32)v&&REWRITE(0x40,1)&&!preview(f)){
+#ifdef ABILITY_BATTLE_MESSAGES
+   guardMessage(f,owner,VALUE(4),0);
+#else
+   popup(f,2,owner);popup(f,3,owner);
+#endif
+  }return;
  }
  if(kind==162){
   if((e[1]?event!=0x5d:event!=0x5b)||preview(f)||!STAT(holder,13)||(e[4]&&e[4]!=VALUE(0x1f)))return;
@@ -111,7 +133,11 @@ static void scopedEffect(void*item,void*f,u8 owner,const volatile u8*e,u32 event
     * change, including the recipient's ordinary stat guards and reactions. */
    if(VALUE(0x41)==0&&REWRITE(0x41,1)){popup(f,2,owner);echoStage(item,f,owner,source,stat,reflected,1);popup(f,3,owner);}
   }
-  if(e[1]&&event==0x5d&&target!=owner&&!ally(owner,target)&&delta>0&&echoOrigin!=2){s32 copied=divide(delta*v+2048,4096);if(!copied)copied=1;popup(f,2,owner);echoStage(item,f,owner,owner,stat,copied,2);popup(f,3,owner);}
+  if(e[1]&&event==0x5d&&target!=owner&&!ally(owner,target)&&delta>0&&echoOrigin!=2){s32 copied=divide(delta*v+2048,4096);if(!copied)copied=1;
+#ifndef ABILITY_STAT_POPUPS
+   popup(f,2,owner);
+#endif
+   echoStage(item,f,owner,owner,stat,copied,2);popup(f,3,owner);}
   return;
  }
  if(kind==163){

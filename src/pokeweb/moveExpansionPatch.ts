@@ -114,6 +114,7 @@ type MoveExpansionRoutingCacheEntry = {
   loadedLoaderOverlay: Uint8Array | undefined;
   loadedCommandOverlay: Uint8Array | undefined;
   state: MoveExpansionRoutingState;
+  legacyFrost: boolean;
 };
 
 type RoutingOverlay = {
@@ -288,6 +289,8 @@ export async function installMoveExpansion(
   project.patches.applied.moveExpansion = true;
   if (animationBundle) project.patches.applied.moveExpansionBundledAnimations = true;
 
+  await (await import("./abilityEffectsModel")).refreshExpandedAbilityMoveFlags(project);
+
   const changed =
     overlayLoadSizeRepaired ||
     commandPatch.status === "applied" ||
@@ -342,6 +345,13 @@ export function usesFrostMoveExpansionLayout(project: ProjectState): boolean {
   if (!isGen5BaseRom(project.session.baseRom)) return false;
   if (project.patches?.applied?.moveExpansion) return true;
   return detectProjectMoveExpansionRouting(project) === "patched";
+}
+
+/** Classifications may recognize Frost's original expanded data independently of
+ * the newer animation adapters. This must not change animation/source-ID routing. */
+export function hasExpandedMoveFlagLayout(project: ProjectState): boolean {
+  if (!isGen5BaseRom(project.session.baseRom)) return false;
+  return usesFrostMoveExpansionLayout(project) || moveExpansionRoutingCache.get(project)?.legacyFrost === true;
 }
 
 export function getMoveExpansionSourceMoveId(moveId: number): number | undefined {
@@ -1146,14 +1156,16 @@ function detectProjectMoveExpansionRouting(project: ProjectState): MoveExpansion
     return cached.state;
   }
 
-  let state: MoveExpansionRoutingState = "unknown";
+  let state: MoveExpansionRoutingState = "unknown", legacyFrost = false;
   if (loadedLoaderOverlay?.length && loadedCommandOverlay?.length) {
     state = detectCompleteMoveExpansionRouting(loadedLoaderOverlay, loadedCommandOverlay, baseRom);
+    legacyFrost = isLegacyMoveExpansionRoutingHook(loadedLoaderOverlay, layout);
   } else if (originalRomBytes) {
     try {
       const overlays = new NintendoDSRom(originalRomBytes).loadArm9Overlays([layout.loaderOverlayId, layout.commandOverlayId]);
       const loaderOverlay = loadedLoaderOverlay ?? overlays.get(layout.loaderOverlayId)?.data;
       const commandOverlay = loadedCommandOverlay ?? overlays.get(layout.commandOverlayId)?.data;
+      legacyFrost = Boolean(loaderOverlay && isLegacyMoveExpansionRoutingHook(loaderOverlay, layout));
       state = loaderOverlay && commandOverlay
         ? detectCompleteMoveExpansionRouting(loaderOverlay, commandOverlay, baseRom)
         : "unknown";
@@ -1167,7 +1179,7 @@ function detectProjectMoveExpansionRouting(project: ProjectState): MoveExpansion
     originalRomBytes,
     loadedLoaderOverlay,
     loadedCommandOverlay,
-    state,
+    state, legacyFrost,
   });
   return state;
 }

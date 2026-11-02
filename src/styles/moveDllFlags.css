@@ -1,0 +1,12 @@
+#moves .move-dll-flags { width: 100%; padding: 20px 24px 24px; border-top: 1px solid #44475a; }
+#moves .move-dll-flags-heading { display: flex; align-items: baseline; gap: 16px; margin-bottom: 14px; }
+#moves .move-dll-flags-heading strong { font-size: 16px; }
+#moves [data-move-dll-status] { color: #aeb6c9; font-size: 13px; }
+#moves [data-move-dll-status].-error { color: #ff7373; }
+#moves .move-dll-flags-options { display: flex; flex-wrap: wrap; gap: 14px 26px; }
+#moves .move-dll-flags-options label { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 15px; }
+#moves .move-dll-flags-options input { accent-color: #b18afa; width: 17px; height: 17px; margin: 0; }
+.ability-runtime-update { display: flex; flex-direction: column; gap: 8px; margin: 0 0 14px; }
+.ability-runtime-update .btn { width: 100%; white-space: normal; }
+.ability-runtime-update [role="status"] { font-size: 13px; color: #aeb6c9; overflow-wrap: anywhere; }
+.ability-runtime-update [role="status"]:empty { display: none; }

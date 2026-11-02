@@ -4,11 +4,14 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { NintendoDSRom } from "../../src/nds/rom";
+import { getTextBank,parseTextEntryId } from "../../src/pokeweb/textModel";
 import { NARC } from "../../src/nds/narc";
 import {decodeRecord,markDirty} from "../../src/pokeweb/projectStore";
 import { readU16, readU32, writeU16, writeU32 } from "../../src/nds/binary";
 import { loadProjectFromRomBytes } from "../../src/pokeweb/loader";
 import { configureAbilityRuleSets, inspectAbilityEffects, hydrateAbilityEffectsSource, ABILITY_EFFECTS_DLL_PATH, ABILITY_RULE_API, buildAbilityRuleModule } from "../../src/pokeweb/abilityEffectsModel";
+import { configureMoveDllFlags } from "../../src/pokeweb/abilityEffectsModel";
+import { configureMoveRuleSets } from "../../src/pokeweb/moveEffectsModel";
 import { validateAbilityRule, encodeAbilityRules, type AbilityRuleSet } from "../../src/pokeweb/abilityRules";
 import { ABILITY_IMPORT_LIBRARY } from "../../src/pokeweb/abilityLibrary";
 import { parseHarnessConfig, patchHarnessSave, patchHarnessTrainer, type HarnessPokemon } from "../../src/pokeweb/battleHarness";
@@ -21,6 +24,8 @@ import { decryptPk5Party } from "../../src/pokeweb/testBattleTeam";
 import { battleRuntimeResolver } from "../../src/pokeweb/battleRuntimeBindings";
 import blackBindings from "../../src/assets/data/abilityBindingsB1.json";
 import whiteBindings from "../../src/assets/data/abilityBindingsW1.json";
+import blackMoveBindings from "../../src/assets/data/moveRecipeBindingsB1.json";
+import whiteMoveBindings from "../../src/assets/data/moveRecipeBindingsW1.json";
 
 const [inputPath, directory] = process.argv.slice(2); assert(directory, "Usage: INPUT.nds NEW_OUTPUT_DIRECTORY [--only=CASE,...]");
 const out = resolve(directory), input = new Uint8Array(await readFile(inputPath)), sha = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
@@ -56,17 +61,46 @@ const frost=process.argv.includes("--frost");
 if(frost){assert(game==="B"&&project.session.fairy,"Expected the reviewed Fairy-enabled Black ROM");rules.set(186,imported("Pixilate"));rules.set(187,{effects:[{kind:"nativeAbility:16",value:-1}],conditions:all});rules.set(188,{effects:[{kind:"nativeAbility:42",value:-1,parameters:{trapType:17}}],conditions:all});rules.set(189,{effects:[{kind:"healFlat",value:7}],conditions:{kind:"type",value:17}});rules.set(190,imported("Refrigerate"));rules.set(191,imported("Tera Shell"));}
 rules.set(192,{effects:[{kind:"speed",value:2}],conditions:{kind:"weather",value:3}});
 if(process.argv.includes("--stress"))for(let id=1;id<=164&&rules.size<100;id++)if(id!==13&&id!==50&&id!==117&&!rules.has(id))rules.set(id,{effects:[{kind:"healFlat",value:1}],conditions:all});
+const moveClasses=process.argv.includes("--move-classes");
+const notifications=process.argv.includes("--notifications");
+if(notifications){
+ rules.clear();
+ for(const[id,name]of [[165,"Queenly Majesty"],[166,"Dazzling"],[167,"Armor Tail"],[168,"Bulletproof"],[169,"Good as Gold"],[170,"Wind Rider"],[171,"Sweet Veil"],[172,"Flower Veil"],[173,"Guard Dog"],[176,"Toxic Debris"],[177,"Perish Body"],[178,"Anger Shell"]]as const)rules.set(id,imported(name));
+ rules.set(179,validateAbilityRule({effects:[...[{kind:"abilityRecipe:statAction",value:6,parameters:{stat:1}},{kind:"abilityRecipe:statAction",value:-6,parameters:{stat:2}},{kind:"abilityRecipe:statAction",value:6,parameters:{stat:3}},{kind:"abilityRecipe:statAction",value:-6,parameters:{stat:4}},{kind:"abilityRecipe:statAction",value:6,parameters:{stat:5}}],...imported("Anger Shell").effects],conditions:all}));
+ rules.set(180,validateAbilityRule({effects:[{kind:"abilityRecipe:statAction",value:6,parameters:{stat:1}},...imported("Anger Shell").effects],conditions:all}));
+ rules.set(174,{effects:[{kind:"abilityRecipe:priorityGuard",value:2}],conditions:all});
+ rules.set(175,{effects:[{kind:"abilityRecipe:statAction",value:6,parameters:{stat:1}},...imported("Wind Rider").effects],conditions:all});
+ for(const[id,rule]of inspectAbilityEffects(project).rules)if(!rules.has(id))rules.set(id,rule);
+}
+if(moveClasses){
+ rules.clear();
+ rules.set(165,{effects:[{kind:"abilityRecipe:convertType",value:1,parameters:{type:14}}],conditions:all});
+ rules.set(166,{effects:[{kind:"abilityRecipe:convertType",value:3,parameters:{type:14}}],conditions:all});
+ rules.set(167,{effects:[{kind:"ability:power",value:3,parameters:{moveClass:4}}],conditions:all});
+ rules.set(168,imported("Wind Rider"));
+ const entry=(stages:number)=>({kind:"abilityRecipe:statAction" as const,value:stages,parameters:{stat:2}});
+ const hit=(stages:number,stat=2)=>({kind:"ability:hitStat" as const,value:stages,parameters:{stat}});
+ rules.set(169,{effects:[entry(6),hit(1)],conditions:all});
+ rules.set(170,{effects:[entry(-6),hit(-1)],conditions:all});
+ rules.set(171,{effects:[entry(6),hit(1),hit(1,1)],conditions:all});
+ for(const[id,rule]of inspectAbilityEffects(project).rules)if(!rules.has(id))rules.set(id,rule);
+}
 for(const[id,r]of rules)rules.set(id,validateAbilityRule(r));
 // Every imported recipe is linked with this game's native services before fixtures.
 for(const entry of ABILITY_IMPORT_LIBRARY)buildAbilityRuleModule(project,new Map([[255,entry.rule]]));
-await configureAbilityRuleSets(project,[...rules].map(([abilityId,rules])=>({abilityId,rules,name:abilityId===167?"Scare":`BW ${abilityId}`})));
+await configureAbilityRuleSets(project,[...rules].map(([abilityId,rules])=>({abilityId,rules,name:notifications?({165:"Queenly Majesty",166:"Dazzling",167:"Armor Tail",168:"Bulletproof",169:"Good as Gold",170:"Wind Rider",171:"Sweet Veil",172:"Flower Veil",173:"Guard Dog",174:"Priority Two",175:"Capped Wind",176:"Toxic Debris",177:"Perish Body",178:"Anger Shell",179:"Capped Shell",180:"Partial Shell"}as Record<number,string>)[abilityId]:abilityId===167?"Scare":`BW ${abilityId}`})));
+if(moveClasses){
+ await configureMoveDllFlags(project,33,34);await configureMoveDllFlags(project,352,0);await configureMoveDllFlags(project,16,0);
+ if(process.argv.includes("--move-power"))await configureMoveRuleSets(project,[{moveId:44,rules:{effects:[{kind:"power",value:3,phase:"power",target:"user",chance:100,secondary:false,conditions:all}],conditions:all,prerequisites:all}}]);
+}
 const verify=()=>{const state=inspectAbilityEffects(project);assert(state.editable,state.message);assert.deepEqual(state.rules,rules);};verify();
 project=openProjectSession(createProjectDocument(project,false));project.originalRomBytes=input;hydrateAbilityEffectsSource(project,new NintendoDSRom(input,{fileData:"view"}));verify();
 const trim=()=>{for(const[name,store]of Object.entries(project.narcs))if(!store?.dirty.size)delete project.narcs[name as keyof typeof project.narcs];};
 trim();const exported=await exportModifiedRom(project,{forDsi:false});await writeFile(`${out}/bw1-abilities.nds`,exported);project=await load(exported);verify();
 // Re-edit an exported custom ID, then restore and verify the same FAT entry.
-await configureAbilityRuleSets(project,[{abilityId:167,rules:{...rules.get(167)!,effects:[{kind:"nativeAbility:22",value:-1,stat:4}]},name:"Scare"}]);
-trim();const reedited=await exportModifiedRom(project,{forDsi:false});project=await load(reedited);assert.equal(inspectAbilityEffects(project).rules.get(167)!.effects[0].stat,4);
+const reedit=moveClasses?{effects:[{kind:"ability:power",value:2,parameters:{moveClass:4}}],conditions:all}:{...rules.get(167)!,effects:[{kind:"nativeAbility:22",value:-1,stat:4}]};
+await configureAbilityRuleSets(project,[{abilityId:167,rules:reedit,name:notifications?"Armor Tail":"Scare"}]);
+trim();const reedited=await exportModifiedRom(project,{forDsi:false});project=await load(reedited);assert.equal(moveClasses?inspectAbilityEffects(project).rules.get(167)!.effects[0].value:inspectAbilityEffects(project).rules.get(167)!.effects[0].stat,moveClasses?2:4);
 await configureAbilityRuleSets(project,[{abilityId:167,rules:rules.get(167)!}]);trim();const final=await exportModifiedRom(project,{forDsi:false});project=await load(final);verify();
 const rom=new NintendoDSRom(final,{fileData:"view"}),dllBytes=rom.files[rom.fileId(ABILITY_EFFECTS_DLL_PATH)],dll=parseRpm(dllBytes,{allowedMagics:["DLXF"]});
 const symbols=Object.fromEntries(dll.symbols.filter(s=>s.name?.startsWith("Ability")).map(s=>[s.name!,s.address]));
@@ -74,6 +108,7 @@ const api=Object.fromEntries(ABILITY_RULE_API.flatMap((name,i)=>name?[[name,read
 const gateway=dll.relocations.find(r=>r.target.module==="base"&&r.target.address===symbols.AbilityRuleApi+20*4)!;
 const pmc=parseRpm(rom.files[rom.fileId("codeinjection/RPMSYM-PMC.rpm")]),pmcSymbols=Object.fromEntries(pmc.symbols.filter(s=>s.name&&/g_Modules|g_MainAllocator|g_UserHeapArea/u.test(s.name)).map(s=>[s.name!,pmc.baseAddress+32+s.address]));
 const ov=rom.loadArm9Overlays([93]).get(93)!,resolver=battleRuntimeResolver(ov.data,ov.ramAddress,project.arm9,rom.arm9RamAddress,bindings.functions);
+const notificationsMetadata=notifications?{blockMessage:dll.metadata.PokewebAbilityBlockMessage,messageHook:battleRuntimeResolver(ov.data,ov.ramAddress,project.arm9,rom.arm9RamAddress,{...bindings.functions,...(game==="W"?whiteMoveBindings:blackMoveBindings).functions}).resolve("BW1_BTL_SERVER_FLOW_PushMsgRecord").address}:{};
 let clientTrapStores:Record<string,number>|undefined;
 const clientFunction=dll.symbols.find(s=>s.name==="AbilityClientTrapped");if(clientFunction){const code=Buffer.from(dll.code.subarray(clientFunction.address,clientFunction.address+clientFunction.size));const store=(hex:string,offset:number)=>{const pattern=Buffer.from(hex,"hex"),at=code.indexOf(pattern);assert(at>=0&&code.indexOf(pattern,at+1)===-1);return clientFunction.address+at+offset;};clientTrapStores={trapper:store("08ab1b5d019a1370",6),ability:store("029b002b00d01e800025",6)};}
 const encoded=encodeAbilityRules(rules),nativeOffsets:number[]=[];for(const[id,r]of rules){const at=readU16(encoded,id*2),start=at+4+encoded[at+1]*4;r.effects.forEach((e,i)=>{if(e.kind.startsWith("nativeAbility:"))nativeOffsets.push(start+i*16);});}
@@ -129,6 +164,54 @@ if(frost){
   {label:"fairy-tera-shell",abilityId:191,playerSpecies:175,enemies:[mon(320,30,430)],checks:{effectiveness:[2,4]}}
  );
 }
+if(moveClasses){
+ const basePower=Number(decodeRecord(project,"moves",33).raw!.power),waterPower=Number(decodeRecord(project,"moves",352).raw!.power),icePower=Number(decodeRecord(project,"moves",420).raw!.power);
+ cases.splice(0,cases.length,
+  {label:"refrigerate-one",playerSpecies:527,abilityId:165,playerMoves:[33],enemies:[mon(527)],checks:{power:{move:33,value:basePower,type:14}}},
+  {label:"refrigerate-three",playerSpecies:527,abilityId:166,playerMoves:[33],enemies:[mon(527)],checks:{power:{move:33,value:basePower*3,type:14}}},
+  {label:"refrigerate-existing-ice",playerSpecies:527,abilityId:166,playerMoves:[420],enemies:[mon(527)],checks:{power:{move:420,value:icePower,type:14}}},
+  {label:"mega-launcher-added-pulse",abilityId:167,playerMoves:[33],checks:{power:{move:33,value:basePower*3,type:0}}},
+  {label:"mega-launcher-cleared-pulse",abilityId:167,playerMoves:[352],checks:{power:{move:352,value:waterPower,type:10}}},
+  {label:"wind-rider-added-wind",abilityId:168,enemies:[mon(320,30,33)],checks:{noDamage:true,playerStagesByTurn:[neutral,[7,6,6,6,6,6,6],[8,6,6,6,6,6,6]]}},
+  {label:"wind-rider-cleared-wind",abilityId:168,enemies:[mon(320,30,16)],checks:{stages:neutral}},
+  {label:"stamina-capped",abilityId:169,enemies:[mon(320,5,33)],checks:{stages:[6,12,6,6,6,6,6],popupsByTurn:[1,0,0]}},
+  {label:"stat-drop-capped",abilityId:170,enemies:[mon(320,5,33)],checks:{stages:[6,0,6,6,6,6,6],popupsByTurn:[1,0,0]}},
+  {label:"mixed-capped-and-valid",abilityId:171,enemies:[mon(320,5,33)],checks:{playerStagesByTurn:[[6,12,6,6,6,6,6],[7,12,6,6,6,6,6],[8,12,6,6,6,6,6]],popupsByTurn:[1,1,1]}},
+  {label:"move-editor-power-three",abilityId:50,playerMoves:[44],checks:{power:{move:44,value:Number(decodeRecord(project,"moves",44).raw!.power)*3,type:16}}}
+ );
+ if(!process.argv.includes("--move-power"))cases.pop();
+}
+if(notifications){
+ const blocked=(ability:number,move:number)=>({blockMessages:{ability,move,count:2},noDamage:true,popupsByTurn:[0,1,1]});
+ cases.splice(0,cases.length,
+  {label:"anger-shell",abilityId:178,enemies:[mon(320,30,162)],checks:{playerStagesByTurn:[neutral,[7,5,7,5,7,6,6],[7,5,7,5,7,6,6]],popupsByTurn:[0,1,0]}},
+  {label:"anger-shell-capped",abilityId:179,enemies:[mon(320,30,162)],checks:{stages:[12,0,12,0,12,6,6],popupsByTurn:[1,0,0]}},
+  {label:"anger-shell-partial",abilityId:180,enemies:[mon(320,30,162)],checks:{playerStagesByTurn:[[12,6,6,6,6,6,6],[12,5,7,5,7,6,6],[12,5,7,5,7,6,6]],popupsByTurn:[1,1,0]}},
+  {label:"queenly-block-message",abilityId:165,enemies:[mon(320,30,98)],checks:blocked(165,98)},
+  {label:"dazzling-block-message",abilityId:166,enemies:[mon(320,30,98)],checks:blocked(166,98)},
+  {label:"armor-tail-block-message",abilityId:167,enemies:[mon(320,30,98)],checks:blocked(167,98)},
+  {label:"queenly-normal-move",abilityId:165,enemies:[mon(320,30,33)],checks:{blockMessages:{count:0},popupsByTurn:[0,0,0]}},
+  {label:"queenly-edited-threshold",abilityId:174,enemies:[mon(320,30,98)],checks:{blockMessages:{count:0},popupsByTurn:[0,0,0]}},
+  {label:"queenly-skill-swap",abilityId:165,playerMoves:[285],enemies:[mon(320,30,98)],checks:{playerAbilities:[165,50,165],blockMessages:{ability:165,move:98,count:1}}},
+  {label:"bulletproof-block-message",abilityId:168,enemies:[mon(320,30,247)],checks:blocked(168,247)},
+  {label:"good-as-gold-block-message",abilityId:169,enemies:[mon(320,30,86)],checks:{...blocked(169,86),blockMessages:{count:0},guardMessages:{id:210,count:2},status:0}},
+  {label:"wind-rider-block-message",abilityId:170,enemies:[mon(320,30,16)],checks:{...blocked(170,16),blockMessages:{count:0},playerStagesByTurn:[neutral,[7,6,6,6,6,6,6],[8,6,6,6,6,6,6]]}},
+  {label:"wind-rider-capped-block-message",abilityId:175,enemies:[mon(320,30,16)],checks:{...blocked(175,16),blockMessages:{count:0},guardMessages:{id:210,count:2},popupsByTurn:[1,1,1],stages:[12,6,6,6,6,6,6]}},
+  {label:"sweet-veil-status-message",abilityId:171,enemies:[mon(320,30,147)],checks:{noDamage:true,status:0,guardMessages:{id:210,count:2},popupsByTurn:[0,1,1]}},
+  {label:"flower-veil-stat-message",abilityId:172,enemies:[mon(320,30,45)],checks:{noDamage:true,stages:neutral,guardMessages:{id:198,count:2},popupsByTurn:[0,1,1]}},
+  {label:"toxic-debris-at-layer-cap",abilityId:176,enemies:[mon(320,5,33)],menuCount:4,checks:{popupsByTurn:[0,1,1,0]}},
+  {label:"wind-rider-whirlwind",abilityId:170,enemies:[mon(320,30,18)],ally:mon(1,50,150),checks:{noDamage:true,playerStagesByTurn:[[6,6,6,6,6,6,6],[7,6,6,6,6,6,6],[8,6,6,6,6,6,6]],popupsByTurn:[0,1,1]}},
+  {label:"perish-body-countdown",abilityId:177,enemies:[mon(320,5,33)],menuCount:4,checks:{perishFaint:true,perishCountdown:[0,3,2,1],noticeMessages:{slot:14,count:1},popupsByTurn:[0,1,0,0]}},
+  {label:"perish-body-no-contact",abilityId:177,enemies:[mon(320,5,55)],checks:{conditionAbsent:20,popupsByTurn:[0,0,0]}},
+  {label:"guard-dog-message",abilityId:173,enemies:[mon(320,30,150,22)],checks:{stages:[7,6,6,6,6,6,6],guardMessages:{id:198,count:1},popupsByTurn:[1,0,0],popupOwner:0}}
+ );
+}
+if(process.argv.includes("--expanded-classes")){
+ const names=new Map(getTextBank(project,"message_texts",203).filter(e=>parseTextEntryId(e[0]).block===0).map(e=>[e[1].replace(/[^a-z]/gi,"").toLowerCase(),parseTextEntryId(e[0]).entry]));
+ const ball=names.get("pyroball")!,wind=names.get("bleakwindstorm")!;assert(ball>=560&&wind>=560);
+ cases.push({label:"expanded-bulletproof",abilityId:168,enemies:[mon(320,30,ball)],checks:{noDamage:true,blockMessages:{ability:168,move:ball,count:2},popupsByTurn:[0,1,1]}},
+ {label:"expanded-wind-rider",abilityId:170,enemies:[mon(320,30,wind)],checks:{noDamage:true,playerStagesByTurn:[neutral,[7,6,6,6,6,6,6],[8,6,6,6,6,6,6]],popupsByTurn:[0,1,1]}});
+}
 const only=process.argv.find(a=>a.startsWith("--only="))?.slice(7).split(","),hashes:Record<string,string>={},fixtures=[];
 for(const[index,spec]of cases.entries()){
  if(only&&!only.includes(spec.label))continue;
@@ -154,5 +237,5 @@ for(const[index,spec]of cases.entries()){
  await writeFile(`${out}/saves/${label}.sav`,save);if(!hashes[filename]){await writeFile(`${out}/${filename}`,downloads.romBytes);hashes[filename]=sha(downloads.romBytes);}
  fixtures.push({...spec,enemyCount:enemies.length,label,speciesId:spec.playerSpecies??1,maxHp:readU16(raw,0x90),hp:spec.hp??readU16(raw,0x90),rom:filename});
 }
-await writeFile(`${out}/cases.json`,JSON.stringify({inputSha256:sha(input),exportSha256:sha(exported),reexportSha256:sha(final),projectReload:true,romExportReload:true,importsLinked:ABILITY_IMPORT_LIBRARY.length,editedAbilities:rules.size,codeBytes:dll.code.length,bssBytes:dll.bssSize,serializedBytes:dllBytes.length,nameLoader:resolver.resolve("loadAbilityNameToStrbuf").address,api,symbols,pmcSymbols,popupGateway:dll.symbols[gateway.sourceSymbolIndex].address,hook:resolver.resolve("AbilityEvent_AddItem").address,configHex:Buffer.from(encoded).toString("hex"),nativeOffsets,romHashes:hashes,cases:fixtures,priorityRuntime:true,...(clientTrapStores?{clientTrapStores,typeQuery:resolver.resolve("DoesMonHaveType").address}:{}),damageReactionHook:resolver.resolve("ServerEvent_DamageReaction").address,eventConstHook:resolver.resolve("BattleEventVar_SetConstValue").address,eventList:readU32(resolver.resolve("BattleEvent_SeekItem").code,0x30),manualLaunch:true,openingHook:game==="W"?0x021bbb80:0x021bbb60,flowRegister:"r0",commandHook:game==="W"?0x021baccc:0x021bacac},null,2)+"\n");
+await writeFile(`${out}/cases.json`,JSON.stringify({inputSha256:sha(input),exportSha256:sha(exported),reexportSha256:sha(final),projectReload:true,romExportReload:true,importsLinked:ABILITY_IMPORT_LIBRARY.length,editedAbilities:rules.size,codeBytes:dll.code.length,bssBytes:dll.bssSize,serializedBytes:dllBytes.length,nameLoader:resolver.resolve("loadAbilityNameToStrbuf").address,api,symbols,pmcSymbols,popupGateway:dll.symbols[gateway.sourceSymbolIndex].address,hook:resolver.resolve("AbilityEvent_AddItem").address,configHex:Buffer.from(encoded).toString("hex"),nativeOffsets,romHashes:hashes,cases:fixtures,priorityRuntime:true,...notificationsMetadata,presentationMessages:JSON.parse(String(dll.metadata.PokewebAbilityPresentationMessages??"[]")),...(moveClasses?{powerHook:resolver.resolve("BW1_BTL_SERVER_FLOW_CalcMovePower").address}:{}),...(clientTrapStores?{clientTrapStores,typeQuery:resolver.resolve("DoesMonHaveType").address}:{}),damageReactionHook:resolver.resolve("ServerEvent_DamageReaction").address,eventConstHook:resolver.resolve("BattleEventVar_SetConstValue").address,eventList:readU32(resolver.resolve("BattleEvent_SeekItem").code,0x30),manualLaunch:true,openingHook:game==="W"?0x021bbb80:0x021bbb60,flowRegister:"r0",commandHook:game==="W"?0x021baccc:0x021bacac},null,2)+"\n");
 assert.equal(sha(new Uint8Array(await readFile(inputPath))),sha(input));console.log(`${fixtures.length} ${game} native fixtures; project and ROM reload passed.`);

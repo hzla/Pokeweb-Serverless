@@ -348,7 +348,7 @@ export const SELECTABLE_NARCS = Array.from(
 );
 
 export const BW_MESSAGE_BANKS = [
-  [286, "moves"],
+  [[203, 286], "moves"],
   [285, "abilities"],
   [284, "pokedex"],
   [191, "tr_classes"],

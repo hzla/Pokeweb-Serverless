@@ -27,9 +27,11 @@ include TMs; custom prices do not alter ordinary item data. Draft stock is not
 active until applied. Canonical formats are in `src/cgearButtons/document.ts`
 and `src/systemShops/document.ts`.
 
-The Pokémart option reads the ROM's ordinary shop inventories. Installation
-checks pending mart edits as they will be exported and allows unused trailing
-slots. Active item counts must fit the available data and reference valid items.
+The Pokémart option reads the ROM's ordinary shop inventories. Applying BW2
+C-Gear changes automatically synchronizes every vanilla mart's item count from
+its inventory, including pending edits and newly added shop records. Empty
+slots must follow stocked items; invalid item IDs and malformed records are
+rejected. Count repairs commit only when the complete installation succeeds.
 
 Build/check with `npm run cgear:build`, `npm run cgear:verify` and
 `npm run cgear:verify-rom -- /path/input.nds`; use `cgear:build-bw1` and

@@ -11,6 +11,7 @@ import type {
   W2AnimAnimationState, TrainerPwanAnimationState, StarterState, PatchState,
 } from "./projectStore";
 import type { ProjectDocument } from "./projectDocument";
+import { refreshBwMoveNames } from "./textModel";
 
 /** The mutable working set used by editors. Never pass this object to storage.
  * Flat fields keep existing models and staged installers compatible without
@@ -117,6 +118,7 @@ export function openProjectSession(document: ProjectDocument): ProjectSession {
 /** Rebuild small indexes from current resource bytes without decoding/caching
  * every trainer record or loading the original ROM again. */
 export function refreshProjectSessionIndexes(project: ProjectSession): void {
+  refreshBwMoveNames(project);
   const trdata = project.narcs.trdata;
   project.trpokInfo = trdata?.rawFiles.map((bytes, id) => {
     const raw = trdata.records.get(id)?.raw;

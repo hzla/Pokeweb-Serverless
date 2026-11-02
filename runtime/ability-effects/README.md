@@ -61,18 +61,60 @@ AND/OR conditions short-circuit in their displayed order. Effective weather stil
 uses the native query, preserving Cloud Nine and other ordinary weather guards.
 Rule complexity and the active battlers matter more than stored ability count.
 
-For a ROM using a verified older shared ability DLL, open **Pokémon → Abilities**,
-click **Update ability runtime**, then export the ROM. This replaces the shared
+The Moves page has a separate **Expanded Flags** row for biting, pulse, ball/bomb,
+slicing, powder, wind and healing classifications. These are separate from native
+move flags such as contact and sound. Changes save immediately and install the
+shared ability DLL and code-injection dependency when needed. Overrides are keyed
+by actual ROM move ID, including expanded IDs; unchecked stock classifications
+stay cleared after export/reload. Supported Frost expansion signatures and Pokeweb's
+expansion routing are detected automatically. Named Gen 6–9 moves receive their
+classification at the actual ROM ID, including Frost projects that leave BW's
+uppercase name bank unexpanded. Empty expansion slots receive no flags. Automatic
+defaults are saved separately from manual overrides, so renaming an installed move
+does not discard its flags. Unknown layouts and unrecognized names need manual
+classification. Installing Pokeweb's expansion after ability recipes refreshes the
+same DLL. Export also refreshes newly detected classifications in a current runtime,
+including after an external expansion or newly named moves. Unedited native moves
+retain the shipped defaults.
+The lookup reads sorted classification data without dispatching battle events.
+
+Power modifiers, including type-conversion bonuses, apply at the native power
+ratio stage. Conversion bonuses apply only to moves whose type is converted.
+Custom stat-stage actions check the requested stage change against native limits
+before opening an ability popup, without issuing extra battle queries. Capped
+changes do not open a popup. Other successful actions in the same activation retain their shared popup.
+
+For a ROM using a verified older shared ability DLL, click **Update Ability Runtime**
+in the left sidebar of **Pokémon → Abilities** or **Moves**, then export the ROM.
+The button is enabled only for recognized older runtimes. This replaces the shared
 DLL while preserving existing recipes, parameters, names and assignments. Applying
 an ability edit also updates the runtime automatically. Unknown or altered DLLs
 must pass normal compatibility checks before an update is available.
+Start the exported ROM from a normal save; an emulator save state restores the
+old runtime already loaded in memory.
+
+Blocking recipes show an ability popup and an explanation. Native stat/status
+prevention messages are reused where appropriate. Screen Cleaner opens its popup
+only when it removes a selected screen. Wind Rider also handles Whirlwind's
+forced-switch check. Perish Body applies the native timed Perish Song condition
+and its countdown/fainting sequence; it does not refresh an affected attacker's
+count on each hit. Entry notices are emitted at entry/ability gain, while passive
+stat and damage calculations remain silent. Presentation follows the corresponding
+behavior in pokeemerald-expansion while using Gen 5's native messages and queue.
 
 Build from the repository root with `python3 runtime/ability-effects/build.py`.
 The original templates remain available for strict verification of older exports;
-`--optimized-only` rebuilds the current template bundle. New modules use
-`PokewebAbilityDispatchVersion: 2`; their condition record format is unchanged.
+the default build updates only the current message bundle. `--move-classes-only`
+and `--optimized-only` rebuild retained bundles for verification of older exports;
+released bundles must remain byte-identical when making a new runtime. Runtime
+version 4 adds battle explanations, entry notices, expanded classification defaults,
+Whirlwind absorption and the corrected Perish countdown. It includes version 3's
+classification overrides, corrected power ratios and stat popup guards. New modules retain
+`PokewebAbilityDispatchVersion: 2`; recipe and condition record formats are unchanged.
 `test_conditions.c` checks the compiled evaluator's truth tables and skipped
-queries with a host C compiler. `verify_runtime_upgrade.ts` accepts an old ROM and
+queries with a host C compiler. `python3 runtime/ability-effects/test_move_classes.py`
+checks the compiled classification lookup, stock defaults, clears and expanded IDs.
+`verify_runtime_upgrade.ts` accepts an old ROM and
 a new output directory to check migration and export/reload preservation.
 Run `npx vitest run src/test/abilityRules.test.ts src/test/abilityLibrary.test.ts`
 for model checks. BW1 binding generation takes an explicit clean ROM, reference

@@ -15,8 +15,8 @@ def main():
   for spec in selected:
    rom=copies[spec['rom']];shutil.copyfile(a.evidence/'saves'/f"{spec['label']}.sav",rom.with_suffix('.sav'))
    emu=MelonDS();flow=0;code=0;menus=[];multipliers=[];rewrites=[];errors=[];hooks=[];minimum={};healing=[];names=[];name_frame=0;name_captured=False;name_followups=set();native_chances=[];callback_priorities=[];damage_reactions=[];side_table=0;pending_damage=None;screen_removals=[];callback_owner=None;focus_work=[];move_end_items=[];combat_types=[];event_trace=[];native_stab=[]
-   result={'case':spec['label'],'abilityId':spec['abilityId'],'passed':False,'romSha256':manifest['romHashes'][spec['rom']]}
-   counter_callers=[];type_queries=[];client_traps=[];pending_client_trap=None;popups=[];popup_hooked=False;indirect_damage=[]
+   result={'case':spec['label'],'abilityId':spec['abilityId'],'passed':False,'romSha256':manifest['romHashes'][spec['rom']]};powers=[];messages=[];message_frame=0;message_captured=False;message_followups=set();message_hold_until=0
+   counter_callers=[];type_queries=[];client_traps=[];pending_client_trap=None;popups=[];popup_hooked=False;indirect_damage=[];faint_frames={}
    native_observed=any(k in spec['checks']for k in['stabByTurn','combatTypesByTurn','itemAtMoveEndFirstTurn'])and'AbilityRecipeHandlers'in manifest['symbols']
    def heap(fragment):
     address=next(value for name,value in manifest['pmcSymbols'].items()if fragment in name);value=emu.memory.read_long(address)
@@ -60,6 +60,7 @@ def main():
      if menus and menus[-1]['turn']==turn:return
      main=emu.memory.read_long(flow+4);player=emu.memory.read_long(main+0xcc);enemy=emu.memory.read_long(main+0xcc+0x1c)
      state={'turn':turn,'frame':emu.frame_count,'hp':emu.memory.read_short(player+0x10),'maxHp':emu.memory.read_short(player+0xe),'item':emu.memory.read_short(player+0x12),'enemyHp':emu.memory.read_short(enemy+0x10),'enemyMaxHp':emu.memory.read_short(enemy+0xe),'ability':emu.memory.read_short(player+0x13c),'enemyAbility':emu.memory.read_short(enemy+0x13c),'stages':list(emu.memory.unsigned[player+0xfc:player+0x103]),'enemyStages':list(emu.memory.unsigned[enemy+0xfc:enemy+0x103]),'conditions':[emu.memory.read_long(player+0x1c+n*4)for n in range(36)],'enemyConditions':[emu.memory.read_long(enemy+0x1c+n*4)for n in range(36)]}
+     state['perishRemaining']=[((state[key][20]>>3)&63)-emu.memory.read_byte(mon+0xac+20) if state[key][20] else 0 for key,mon in [('conditions',player),('enemyConditions',enemy)]]
      state['types']=[emu.memory.read_byte(player+0xf8),emu.memory.read_byte(player+0xf9)]
      if'highestTargets'in spec['checks']or'knockoutSplash'in spec['checks']or'noSplash'in spec['checks']or'noDropsAfterHits'in spec['checks']:
       state['rawStats']=[emu.memory.read_short(player+0xee+n*2)for n in range(5)];state['enemyParty']=[]
@@ -162,6 +163,23 @@ def main():
     if scope():
      main=emu.memory.read_long(flow+4);mon=emu.memory.read_long(main+0xcc+(callback_owner if callback_owner is not None and callback_owner<12 else 7+(callback_owner-12 if callback_owner is not None else 0))*4)
      multipliers.append({'turnIndex':len(menus)-1,'key':emu.memory.register_arm9.r0,'value':emu.memory.register_arm9.r1,'owner':callback_owner,'suppressed':bool(emu.memory.read_long(mon+0x1c+16*4))if 0x02000000<=mon<0x02400000 else None})
+   def power_begin(cpu,address):
+    if not flow or not menus or emu.memory.read_long(flow+0x774):return
+    regs=emu.memory.register_arm9;param=regs.r3
+    row={'move':emu.memory.read_short(param),'type':emu.memory.read_byte(param+6),'turnIndex':len(menus)-1};handle=None
+    def returned(cpu,address):
+     row['value']=emu.memory.register_arm9.r0&65535;powers.append(row);handle.remove()
+    handle=emu.memory.register_exec(regs.lr&~1,returned);hooks.append(handle)
+   def message_pushed(cpu,address):
+    nonlocal message_frame
+    regs=emu.memory.register_arm9
+    if not flow or regs.r0!=flow or emu.memory.read_long(flow+0x774):return
+    ptr=regs.r1
+    if not 0x02000000<=ptr<0x02400000:return
+    count=emu.memory.read_byte(ptr+3)&127
+    if count>8:return
+    row={'id':emu.memory.read_short(ptr),'type':emu.memory.read_byte(ptr+2),'args':[emu.memory.read_long(ptr+4+n*4)for n in range(count)],'turnIndex':len(menus),'frame':emu.frame_count};messages.append(row)
+    if row['id']==manifest.get('blockMessage') and not message_frame:message_frame=emu.frame_count+24
    def rewritten(cpu,address):
     if scope():rewrites.append({'turnIndex':len(menus)-1,'key':emu.memory.register_arm9.r0,'value':emu.memory.register_arm9.r1,'owner':callback_owner})
    def pushed(cpu,address):
@@ -173,9 +191,12 @@ def main():
      if 0x02000000<=work<0x02400000 and emu.memory.read_byte(work)in[23,24]:focus_work.append({'turnIndex':len(menus)-1,'command':emu.memory.read_byte(work),'target':emu.memory.read_byte(work+8),'flag':emu.memory.read_long(work+4),'owned':bool(scope())})
      if 0x02000000<=work<0x02400000 and emu.memory.read_byte(work)==7 and scope():indirect_damage.append({'turnIndex':len(menus)-1,'amount':emu.memory.read_short(work+4),'target':emu.memory.read_byte(work+6)})
    def named(cpu,address):
-    nonlocal name_frame
+    nonlocal name_frame,message_hold_until
     value=emu.memory.register_arm9.r2;names.append({'abilityId':value,'frame':emu.frame_count})
     if value==spec['abilityId'] and not name_frame:name_frame=emu.frame_count+14
+    if message_frame and not message_hold_until and value==spec['abilityId'] and emu.frame_count>message_frame+40:
+     # Let the first explanation finish printing before advancing it with A.
+     message_hold_until=emu.frame_count+160
    def rolled(cpu,address):
     if flow and menus and not emu.memory.read_long(flow+0x774):native_chances.append({'turnIndex':len(menus)-1,'chance':emu.memory.register_arm9.r1,'owned':bool(scope())})
    def move_end(cpu,address):
@@ -253,6 +274,8 @@ def main():
    if manifest.get('eventConstHook'):hooks.append(emu.memory.register_exec(manifest['eventConstHook'],event_const))
    if manifest.get('nativeChanceHook'):hooks.append(emu.memory.register_exec(manifest['nativeChanceHook'],rolled))
    if manifest.get('nameLoader'):hooks.append(emu.memory.register_exec(manifest['nameLoader'],named))
+   if manifest.get('powerHook'):hooks.append(emu.memory.register_exec(manifest['powerHook'],power_begin))
+   if manifest.get('messageHook'):hooks.append(emu.memory.register_exec(manifest['messageHook'],message_pushed))
    hooks.append(emu.memory.register_exec(manifest['api']['BattleHandler_PopWork'],popped))
    hooks += [emu.memory.register_exec(manifest.get('openingHook',0x0219f5da),opening),emu.memory.register_exec(manifest.get('commandHook',0x021cef18),command),emu.memory.register_exec(manifest['api']['BattleEventVar_MulValue'],multiplied),emu.memory.register_exec(manifest['api']['BattleEventVar_RewriteValue'],rewritten),emu.memory.register_exec(manifest['api']['BattleHandler_PushWork'],pushed)]
    try:
@@ -274,7 +297,14 @@ def main():
       if 120<=age<124:emu.input.touch_set_pos(210,165)
       if 260<=age<264:emu.input.touch_set_pos(180,40)
       if 340<=age<344:emu.input.touch_set_pos(165,74)
+     if emu.frame_count<message_hold_until:emu.input.keypad_update(0)
      emu.cycle()
+     if message_frame and not message_captured and emu.frame_count>=message_frame:
+      emu.screenshot().save(a.evidence/f"{spec['label']}-block-message.png");message_captured=True
+     if message_frame:
+      for delay in [60,120,180,240,300]:
+       if delay not in message_followups and emu.frame_count>=message_frame+delay:
+        emu.screenshot().save(a.evidence/f"{spec['label']}-block-message-{delay}.png");message_followups.add(delay)
      if manifest.get('manualLaunch')and emu.frame_count%1200==0 and not menus:
       emu.screenshot().save(a.evidence/f"{spec['label']}-launch-{emu.frame_count}.png")
       print(f"LAUNCH {spec['label']}: frame {emu.frame_count}, battle flow {hex(flow)}",flush=True)
@@ -289,13 +319,32 @@ def main():
      # before overlay 167 loads. Sample only after its live registry is checked.
      if menus and emu.frame_count%30==0:sample()
      trapped='trapType'not in spec['checks']or bool(menus and emu.frame_count-menus[0]['frame']>=500 and any(q['result']==0 and q['ability']==spec.get('enemyAbility') and q['frame']>=menus[0]['frame']+120 for q in client_traps))
-     if len(menus)>=spec.get("menuCount",3)and trapped:break
+     if spec['checks'].get('perishFaint') and menus and flow:
+      main=emu.memory.read_long(flow+4)
+      for label,offset in [('holder',0xcc),('attacker',0xe8)]:
+       mon=emu.memory.read_long(main+offset)
+       if 0x02000000<mon<0x02400000 and emu.memory.read_short(mon+0x10)==0:faint_frames.setdefault(label,{'frame':emu.frame_count,'menuCount':len(menus)})
+     if len(menus)>=spec.get("menuCount",3)and trapped and (not spec['checks'].get('perishFaint')or len(faint_frames)==2):break
     emu.input.keypad_update(0);assert len(menus)>=spec.get('menuCount',3),f'No completed turns: {menus}'
     c=spec['checks'];hp=[s['hp']for s in menus]
+    if c.get('perishFaint'):assert set(faint_frames)=={'holder','attacker'} and all(v['menuCount']==4 for v in faint_frames.values()),faint_frames
+    if 'perishCountdown' in c:
+     for side in range(2):assert[s['perishRemaining'][side]for s in menus]==c['perishCountdown'],menus
+
+    if 'power'in c:assert any(all(row.get(key)==value for key,value in c['power'].items())for row in powers),powers
     if c.get('abilityPopupAfterFirstMenu'):assert any(v['owner']==0 and v['command']==2 and v['turnIndex']>0 for v in popups),popups
+    if 'blockMessages'in c:
+     expected=c['blockMessages'];actual=[m for m in messages if m['id']==manifest['blockMessage']]
+     assert len(actual)==expected['count'],actual
+     if expected['count']:assert all(m['args']==[0,expected['ability'],expected['move']]for m in actual),actual
+    if 'guardMessages'in c:
+     expected=c['guardMessages'];actual=[m for m in messages if m['id']==expected['id']];assert len(actual)==expected['count'],messages
+    if 'noticeMessages'in c:
+     expected=c['noticeMessages'];actual=[m for m in messages if m['id']==manifest['presentationMessages'][expected['slot']]];assert len(actual)==expected['count'],messages
     if'popupsByTurn'in c:
      assert popup_hooked,'Native popup gateway was not observed'
-     for command in[2,3]:assert[sum(v['command']==command and v['turnIndex']==i for v in popups)for i in range(len(menus))]==c['popupsByTurn'],popups
+     counted=[v for v in popups if 'popupOwner'not in c or v['owner']==c['popupOwner']]
+     for command in[2,3]:assert[sum(v['command']==command and v['turnIndex']==i for v in counted)for i in range(len(menus))]==c['popupsByTurn'],popups
      opened={}
      for popup in popups:
       owner=popup['owner']
@@ -407,9 +456,11 @@ def main():
        assert actual==expected,(ability,actual,expected,s)
      if c.get('suppressed'):assert not callback_priorities,callback_priorities
      elif spec.get('move')==33 and spec['abilityId']!=143:assert {4,5}.issubset({v['priority']for v in callback_priorities}),callback_priorities
-    result.update(passed=True,menus=menus,multipliers=multipliers,rewrites=rewrites,healing=healing,names=names,nativeChances=native_chances,callbackPriorities=callback_priorities,damageReactions=damage_reactions,focusWork=focus_work,moveEndItems=move_end_items,screenRemovals=screen_removals,minimumObservedFree=minimum,counterCalls=len(counter_callers),abilityCounterCalls=owned_counter_calls,typeQueries=type_queries,clientTraps=client_traps,popups=popups,combatTypes=combat_types,eventTrace=event_trace,nativeStab=native_stab,indirectDamage=indirect_damage)
+    result.update(passed=True,faintFrames=faint_frames,menus=menus,multipliers=multipliers,rewrites=rewrites,healing=healing,names=names,nativeChances=native_chances,callbackPriorities=callback_priorities,damageReactions=damage_reactions,focusWork=focus_work,moveEndItems=move_end_items,screenRemovals=screen_removals,minimumObservedFree=minimum,counterCalls=len(counter_callers),abilityCounterCalls=owned_counter_calls,typeQueries=type_queries,clientTraps=client_traps,popups=popups,combatTypes=combat_types,eventTrace=event_trace,nativeStab=native_stab,indirectDamage=indirect_damage)
+    result['powers']=powers;result['messages']=messages
     emu.run_frames(20);emu.screenshot().save(a.evidence/f"{spec['label']}.png");(a.evidence/f"{spec['label']}-result.json").write_text(json.dumps(result,indent=2)+'\n');results.append(result);print(f"PASS {spec['label']}: HP {hp}; abilities {[s['ability']for s in menus]}",flush=True)
    except Exception as error:
+    result['powers']=powers;result['messages']=messages
     result.update(error=repr(error),menus=menus,multipliers=multipliers,rewrites=rewrites,minimumObservedFree=minimum,pc=hex(emu.memory.register_arm9.pc),damageReactions=damage_reactions,focusWork=focus_work,moveEndItems=move_end_items,typeQueries=type_queries,clientTraps=client_traps,popups=popups,combatTypes=combat_types,eventTrace=event_trace,nativeStab=native_stab,indirectDamage=indirect_damage);emu.screenshot().save(a.evidence/f"{spec['label']}-failure.png");(a.evidence/f"{spec['label']}-failure.json").write_text(json.dumps(result,indent=2)+'\n');results.append(result);print(f"FAIL {spec['label']}: {error!r}",flush=True)
     if not a.keep_going:raise
    finally:emu.destroy()

@@ -9,6 +9,9 @@ typedef struct { u32 event; Callback callback; } Event;
 /* API entries are supplied only after their ROM signatures have been checked. */
 PUBLIC const volatile u32 AbilityRuleApi[43]={0};
 PUBLIC const volatile u8 *AbilityRuleData=(const volatile u8 *)1;
+#ifdef ABILITY_MOVE_CLASSES
+PUBLIC const volatile u8 *AbilityMoveClassData=(const volatile u8 *)1;
+#endif
 #ifdef ABILITY_FILTER_EVENTS
 PUBLIC const Event *const volatile AbilityRuleEventTables[256]={0};
 PUBLIC const volatile u8 AbilityRuleEventCounts[256]={0};
@@ -16,6 +19,13 @@ PUBLIC const volatile u8 AbilityRuleEventCounts[256]={0};
 #define FN(i,t) ((t)(uintptr_t)AbilityRuleApi[i])
 #define VALUE(k) FN(0,u32(*)(u32))(k)
 #define MUL(v) FN(1,void(*)(u32,u32))(0x35,v)
+#ifdef ABILITY_POWER_RATIO
+#define POWER_MUL(v) FN(1,void(*)(u32,u32))(0x31,v)
+#define LIBRARY_MUL(v) FN(1,void(*)(u32,u32))(event==0x38?0x31:0x35,v)
+#else
+#define POWER_MUL(v) MUL(v)
+#define LIBRARY_MUL(v) MUL(v)
+#endif
 #define MON(f,m) FN(2,void*(*)(void*,u8))(f,m)
 #define STAT(p,k) FN(3,u32(*)(void*,u32))(p,k)
 #define SUB(i) FN(13,u32(*)(void*))(i)
@@ -88,10 +98,15 @@ static u32 trigger(const volatile u8*e,void*f,u8 owner,u32 event){
  if(which==3||which==4)return event==0x4b&&VALUE(4)==owner&&VALUE(0x46)==0&&VALUE(0x32)>0&&(which==3||FN(31,u32(*)(u32,u32))(VALUE(0x12),0));
  return event==0x91&&VALUE(2)==owner;
 }
+#ifdef ABILITY_STAT_POPUPS
+static void popup(void*f,u32 command,u8 owner);
+#endif
 static u32 action(void*item,void*f,u8 owner,const volatile u8*e,u8 target){
  void*mon=MON(f,target);u32 kind=e[0],v=half(e+2);
  if(!STAT(mon,13))return 0;
- if(kind==11&&!FN(23,u32(*)(void*,u32,s32))(mon,e[1],(int16_t)v))return 0;
+ if(kind==11){
+  if(!FN(23,u32(*)(void*,u32,s32))(mon,e[1],(int16_t)v))return 0;
+ }
  if(kind==10){
   u32 condition=v==7?5:v;
   if(CHECK(mon,condition))return 0;
@@ -103,6 +118,9 @@ static u32 action(void*item,void*f,u8 owner,const volatile u8*e,u8 target){
   u8*p=PUSH(f,0xc,owner);put32(p+4,v==7?5:v);
   put32(p+8,v==7?FN(25,u32(*)(void))():FN(24,u32(*)(u32))(v));p[12]=0;p[15]=target;POP(f,p);
  }else if(kind==11){
+#ifdef ABILITY_STAT_POPUPS
+  popup(f,2,owner);
+#endif
   u8*p=PUSH(f,0xe,owner);put32(p+4,e[1]);p[12]=(u8)(int16_t)v;p[15]=1;p[16]=target;POP(f,p);
  }else{
   u32 amount=divide(STAT(mon,14)*v,10000);if(!amount)amount=1;
@@ -140,6 +158,25 @@ PUBLIC void AbilityPopupRun(void*f,u32 command,u8 owner){
 static void popup(void*f,u32 command,u8 owner){AbilityPopupRun(f,command,owner);}
 #else
 static void popup(void*f,u32 command,u8 owner){FN(20,void(*)(void*,u32,u8))(f,command,owner);}
+#endif
+#if defined(ABILITY_BATTLE_MESSAGES) && defined(ABILITY_LIBRARY)
+PUBLIC const volatile u16 AbilityBlockMessage=210;
+/* Use the same queued message path as native Soundproof. The popup identifies
+ * the provider, while the message names the protected recipient. */
+static void guardMessage(void*f,u8 owner,u8 target,u32 message){
+ u32 custom=!message&&AbilityBlockMessage!=210;if(!message)message=AbilityBlockMessage;
+ popup(f,2,owner);u8*p=PUSH(f,4,owner);FN(11,void(*)(void*,u32,u32))(p+4,2,message);
+ FN(12,void(*)(void*,u32))(p+4,custom?owner:target);
+ if(custom){FN(12,void(*)(void*,u32))(p+4,STAT(MON(f,owner),16));FN(12,void(*)(void*,u32))(p+4,VALUE(0x12));}
+ POP(f,p);popup(f,3,owner);
+}
+#ifdef ABILITY_RECIPES
+PUBLIC const volatile u16 AbilityPresentationMessages[15]={0};
+static void abilityNotice(void*f,u8 owner,u32 slot,u8 subject,u32 argument){
+ u32 message=AbilityPresentationMessages[slot];if(!message)return;
+ popup(f,2,owner);u8*p=PUSH(f,4,owner);FN(11,void(*)(void*,u32,u32))(p+4,2,message);FN(12,void(*)(void*,u32))(p+4,subject);FN(12,void(*)(void*,u32))(p+4,argument);POP(f,p);popup(f,3,owner);
+}
+#endif
 #endif
 #ifdef ABILITY_LIBRARY
 #include "library.c"
@@ -230,7 +267,13 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
    u8 targets[12];u32 count=1;targets[0]=owner;
    if(e[5]==1)targets[0]=(u8)VALUE(3);
    if(e[5]==2){targets[0]=(u8)VALUE(4);if(event==0x85){count=VALUE(5);if(count>12)count=12;for(u32 j=0;j<count;++j)targets[j]=(u8)VALUE(6+j);}}
-   popup(f,2,owner);for(u32 j=0;j<count;++j)action(item,f,owner,e,targets[j]);popup(f,3,owner);
+#ifdef ABILITY_STAT_POPUPS
+   if(kind!=11)popup(f,2,owner);
+#else
+   popup(f,2,owner);
+#endif
+   for(u32 j=0;j<count;++j){action(item,f,owner,e,targets[j]);}
+   popup(f,3,owner);
   }
  }
 #ifdef ABILITY_RECIPES

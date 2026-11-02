@@ -9,7 +9,7 @@ import { decompressCode } from "../nds/codeCompression";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { recordGenericChange } from "./actionChangelog";
-import { addRomFile, getRomFileBytes } from "./fileSystemModel";
+import { addRomFile, getRomFileBytes, replaceRomFile } from "./fileSystemModel";
 import { materializeProjectEdits } from "./projectMaterialize";
 import { loadActiveRomBytes } from "./persistence";
 import { adoptExistingPmcInstall, canRemoveStagedCodeInjectionDll, getPmcInstallStatus, installPmcBytes,
@@ -226,6 +226,7 @@ export function getCGearQuickActionsStatus(project: ProjectState): CGearQuickAct
 }
 function cloneInstallState(project: ProjectState): ProjectState {
   return { ...project, arm9: project.arm9.slice(),
+    narcs: { ...project.narcs },
     overlays: Object.fromEntries(Object.entries(project.overlays).map(([id, b]) => [id, b?.slice()])),
     fileSystem: structuredClone(project.fileSystem), codeInjection: structuredClone(project.codeInjection),
     patches: structuredClone(project.patches), actionChangelog: structuredClone(project.actionChangelog) };
@@ -237,39 +238,75 @@ function stageArchive(project: ProjectState, rom: NintendoDSRom, bytes: Uint8Arr
   else if (id !== undefined) {project.fileSystem ??= { replacements: {} };project.fileSystem.replacements[id] = bytes;}
   else addRomFile(project, manifest.archivePath, bytes);
 }
+function nativeMartStock(project: ProjectState, rom: NintendoDSRom): Uint8Array {
+  // Match export's pending item records without flushing the working project.
+  let source = project;
+  if (project.narcs.marts?.dirty.size) {
+    source = { ...project, narcs: { marts: structuredClone(project.narcs.marts) } };
+    materializeProjectEdits(source);
+  }
+  return getRomFileBytes(source, rom, rom.fileId(manifest.shopInventory.archive));
+}
+function prepareMartCounts(project: ProjectState, rom: NintendoDSRom) {
+  const stockBytes = nativeMartStock(project, rom);
+  const fileId = rom.fileId(manifest.shopInventory.countsArchive);
+  const countsBytes = getRomFileBytes(project, rom, fileId);
+  const stock = new NARC(stockBytes), counts = new NARC(countsBytes);
+  const items = new NARC(getRomFileBytes(project, rom, rom.fileId("a/0/2/4")));
+  const previous = counts.files[0] ?? new Uint8Array();
+  const next = new Uint8Array(Math.max(previous.length, stock.files.length));
+  next.set(previous);
+  for (const [row, data] of stock.files.entries()) {
+    if (data.length % 2) throw new Error(`Mart stock ${row} has an odd inventory size of ${data.length} bytes.`);
+    let count = 0, padding = false;
+    for (let offset = 0; offset < data.length; offset += 2) {
+      const item = readU16(data, offset);
+      if (!item) { padding = true; continue; }
+      if (padding) throw new Error(`Mart stock ${row} has an empty slot before item ${item}. Move stocked items before empty slots.`);
+      if (!items.files[item]?.length) throw new Error(`Mart stock ${row} contains an invalid item (${item}).`);
+      count++;
+    }
+    if (count > 255) throw new Error(`Mart stock ${row} has ${count} items; its count must fit in one byte.`);
+    next[row] = count;
+  }
+  const changed = previous.length !== next.length || next.some((value, index) => value !== previous[index]);
+  counts.files[0] = next;
+  return { fileId, stockBytes, countsBytes, replacement: changed ? counts.save() : undefined };
+}
+function assertMartSourcesUnchanged(project: ProjectState, rom: NintendoDSRom, before: ReturnType<typeof prepareMartCounts>): void {
+  const same = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((value, index) => value === b[index]);
+  if (!same(nativeMartStock(project, rom), before.stockBytes) || !same(getRomFileBytes(project, rom, before.fileId), before.countsBytes))
+    throw new Error("The mart inventories changed while staging. Apply again.");
+}
 function validateSystemShopResources(project: ProjectState, rom: NintendoDSRom): void {
-  const archive = (path: string, source = project) => {
+  const archive = (path: string) => {
     const id = rom.filenames.idOf(path);
     if (id === undefined) throw new Error(`System Shop requires native archive ${path}.`);
-    return new NARC(getRomFileBytes(source, rom, id));
+    return new NARC(getRomFileBytes(project, rom, id));
   };
   const expected = manifest.shopScript;
   const script = archive(expected.archive).files[expected.member];
   if (!script || script.length !== expected.length || fingerprint(script) !== expected.fingerprint)
     throw new Error("The native shop script has unrecognized changes. Restore a compatible script, or remove System Shop before applying.");
-  // Do not fingerprint authored stock or prices: native code reads both on
-  // each opening. Reject truncated/invalid inventories before staging instead.
-  // The mart editor updates counts immediately but serializes item records on
-  // export. Validate the same bytes export will use, without flushing the live
-  // project or materializing unrelated archives during a failed installation.
-  let stockProject = project;
-  if (project.narcs.marts?.dirty.size) {
-    stockProject = { ...project, narcs: { marts: structuredClone(project.narcs.marts) } };
-    materializeProjectEdits(stockProject);
-  }
-  const stock = archive(manifest.shopInventory.archive, stockProject);
+  const stock = new NARC(nativeMartStock(project, rom));
   const counts = archive(manifest.shopInventory.countsArchive).files[0];
   const items = archive("a/0/2/4");
   for (const row of new Set(manifest.shopInventory.badgeRows)) {
     const data = stock.files[row], count = counts?.[row];
     // Native shops read count entries; the editor can retain unused slots after
     // them. Retail stores at most 45 item/price records before its UI fields.
-    if (!count || count > 45 || !data || data.length < count * 2 || data.length % 2)
-      throw new Error(`System Shop general-store stock ${row} does not match its native item count.`);
+    if (!count || count > 45 || !data || data.length < count * 2 || data.length % 2) {
+      const problem = count === undefined ? "item count is missing"
+        : count === 0 || count > 45 ? `item count is ${count}; supported range is 1–45`
+        : !data ? `inventory file is missing (item count ${count})`
+        : data.length % 2 ? `inventory has an odd size of ${data.length} bytes (item count ${count})`
+        : `item count ${count} requires ${count * 2} bytes, but the inventory has ${data.length}`;
+      throw new Error(`Pokémart stock ${row}: ${problem}.`);
+    }
     for (let i = 0; i < count; i++) {
       const item = readU16(data, i * 2);
       if (!item || !items.files[item]?.length)
-        throw new Error(`System Shop general-store stock ${row} contains an invalid item (${item}).`);
+        throw new Error(`Pokémart stock ${row} contains an invalid item (${item}).`);
     }
   }
 }
@@ -301,7 +338,13 @@ export async function installCGearQuickActions(project: ProjectState, options:CG
     if(!script || script.length!==p.length || fingerprint(script)!==p.fingerprint || (redux && await hash(script) !== reduxManifest.pcScript.sha256))
       throw new Error("The PC storage script has unrecognized changes. Restore a compatible native PC script, or remove PC from the button design before applying.");
   }
-  if (state.document.buttons.some(b => b.action === "systemShop")) validateSystemShopResources(project, rom);
+  const martCounts = prepareMartCounts(project, rom);
+  const staged = cloneInstallState(input);
+  if (martCounts.replacement) {
+    if (staged.narcs.mart_counts) staged.narcs.mart_counts = structuredClone(staged.narcs.mart_counts);
+    replaceRomFile(staged, rom, martCounts.fileId, martCounts.replacement);
+  }
+  if (state.document.buttons.some(b => b.action === "systemShop")) validateSystemShopResources(staged, rom);
   const v = input.session.baseVersion as Version, profile: Profile = redux ? reduxManifest.games.W2 : manifest.games[v];
   const [dllResponse, archiveResponse] = await Promise.all([fetch(redux ? reduxUrl : urls[v]), fetch(graphicsUrl)]);
   if (!dllResponse.ok || !archiveResponse.ok) throw new Error("Could not load the bundled Quick Actions files.");
@@ -312,7 +355,6 @@ export async function installCGearQuickActions(project: ProjectState, options:CG
     throw new Error(`Quick Actions bundle failed its integrity check: cgearQuickActions.narc does not match version ${manifest.version}. Restore or rebuild the bundled C-Gear files together.`);
   if (!recognized(parseRpm(dll, { allowedMagics: ["DLXF"] }), v) || !archiveState(graphics))
     throw new Error("Quick Actions bundle failed its integrity check.");
-  const staged = cloneInstallState(input);
   let shops = project.systemShops && structuredClone(project.systemShops);
   if (state.document.buttons.some(b => b.action === "systemShop") || shops) {
     shops ??= structuredClone(ensureSystemShops(project));
@@ -320,12 +362,13 @@ export async function installCGearQuickActions(project: ProjectState, options:CG
     stageSystemShops(staged,rom,shops);
   }
   if (state.document.buttons.some(b => b.action === "pokenav")) {
-    staged.narcs = structuredClone(project.narcs); staged.texts = structuredClone(project.texts);
+    staged.narcs = structuredClone(staged.narcs); staged.texts = structuredClone(project.texts);
     await (await import("./pokenavModel")).stagePokenavRuntime(staged);
   }
   adoptExistingPmcInstall(staged, romBytes);
   if (!getPmcInstallStatus(staged).installed) installPmcBytes(staged, await loadBundledPmcBytes(v), romBytes);
   await installBundledBgmToggleDll(staged,{preserveShortcut:true});
+  assertMartSourcesUnchanged(project, rom, martCounts);
   const result = stageCodeInjectionDll(staged, status.dllPath?.split("/").pop() ?? profile.fileName, dll, "patches", romBytes);
   const backup=new NARC(new NARC(compiled.archive).files[14]);
   const prior=bytesAt(input,rom,manifest.archivePath),priorArc=prior&&new NARC(prior);

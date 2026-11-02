@@ -30,6 +30,14 @@ set its ordinary minimum/maximum hits to 2 and 5 separately. The AI behavior
 selection remains a native AI profile; arbitrary recipes do not generate new
 AI decision logic.
 
+Expanded move data also has a separate **Expanded Flags** row for the supplemental
+ability classifications. Changing these flags saves immediately and installs the
+shared ability runtime and its code-injection dependency when needed. The Moves
+sidebar's **Update Ability Runtime** button updates recognized older ability
+runtimes while preserving their recipes. These controls are independent of the
+move-effects DLL. Recipe power multipliers use the native base-power stage;
+final damage multipliers use the separate native final-damage stage.
+
 Applying a recipe saves and replaces the move's generic effect fields and
 native handler assignment together. Those generic fields are edited through
 the recipe while it is applied. **Restore native behavior** restores their
