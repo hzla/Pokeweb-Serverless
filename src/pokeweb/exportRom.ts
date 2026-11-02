@@ -29,7 +29,8 @@ import { materializePwanAnimations } from "./pwanAnimationModel";
 import { isW2AnimProject, materializeW2AnimAnimations } from "./w2animAnimationModel";
 import { getDirtyStarterOverlayIds } from "./starterModel";
 import { getDirtyPatchOverlayIds } from "./romPatchModel";
-import { moveEffectHandlerOverlayId, moveEffectHandlerTableOffset } from "./moveEffectHandlerModel";
+import { moveEffectHandlerOverlayId, moveEffectHandlerTableOffset, moveEffectHandlerTableLayout } from "./moveEffectHandlerModel";
+import { moveHandlerOverlay } from "./nativeMoveRegistry";
 import { BW2_TUTOR_MOVE_OVERLAY_ID, tutorMoveTableOffset } from "./tutorMoveModel";
 import { isRomFsTypeChartStore, typeChartOverlayId, typeChartTableOffset } from "./typeChartModel";
 import { repairNarcBytes } from "./romRepairModel";
@@ -343,6 +344,12 @@ function patchOverlayBackedStore(project: ProjectState, name: NarcName, overlayI
   if (isRomFsTypeChartStore(store)) return;
   const match = /^overlay\d+:(.+)$/u.exec(store.sourcePath);
   if (!match) return;
+  if (name === "move_effects_table") {
+    const out = moveHandlerOverlay(project, overlay, moveEffectHandlerTableLayout(project));
+    project.overlays[overlayId] = out;
+    overlayReplacements.set(overlayId, out);
+    return;
+  }
   const offset = overlayTableOffset(project, name, overlay);
   if (offset === undefined) return;
   const out = overlay.slice();

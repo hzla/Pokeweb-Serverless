@@ -1,4 +1,5 @@
 import { readU32 } from "../nds/binary";
+import { moveHandlerTableFormat } from "./formats";
 import type { Folder } from "../nds/fnt";
 import { NARC } from "../nds/narc";
 import { domainTitle, recordGenericChange } from "./actionChangelog";
@@ -460,6 +461,7 @@ function parseRawRecord(name: NarcName, bytes: Uint8Array, project: ProjectState
   if (name === "overworlds") return parseOverworlds(bytes);
   if (name === "trtext_table") return parseSingleFileTable(bytes, 4, ["trainer_id", "text_type"]);
   if (name === "trtext_offsets") return parseOffsetFile(bytes);
+  if (name === "move_effects_table") return readFormat(bytes, moveHandlerTableFormat(bytes.length / 8), name);
 
   const format = project.formats[name];
   if (!format) return { byteLength: bytes.length };

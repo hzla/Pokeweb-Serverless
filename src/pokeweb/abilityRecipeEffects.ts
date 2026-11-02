@@ -6,7 +6,7 @@ import {ACTION_ABILITY_EFFECTS} from "./abilityActionEffects";
 const p=(key:string,label:string,original:number,min:number,max:number,labels?:Record<number,string>,kind:NativeAbilityParameter["kind"]="number"):NativeAbilityParameter=>({key,label,original,min,max,step:1,kind,sites:[],...(labels?{labels,choices:Object.keys(labels).map(Number)}:{})});
 const stat=(highest=false)=>p("stat","Stat",1,1,highest?8:7,highest?{1:"Attack",2:"Defense",3:"Sp. Atk",4:"Sp. Def",5:"Speed",6:"Accuracy",7:"Evasion",8:"Highest raw stat"}:undefined,"stat");
 const scope=p("scope","Targets",0,0,4,{0:"Holder",1:"Allies",2:"Opponents",3:"All other Pokémon",4:"Attacker"});
-const move=p("moveClass","Move filter",0,0,13,{0:"Any move",1:"Contact",2:"Punching",3:"Biting",4:"Pulse",5:"Sound",6:"Ball / bomb",7:"Slicing",8:"Powder",9:"Type",10:"Category",12:"Healing",13:"Wind"});
+const move=p("moveClass","Move filter",0,0,255,{0:"Any move",1:"Contact",2:"Punching",3:"Biting",4:"Pulse",5:"Sound",6:"Ball / bomb",7:"Slicing",8:"Powder",9:"Type",10:"Category",12:"Healing",13:"Wind"});
 const type=p("type","Move type",0,0,17,undefined,"type"),category=p("category","Damage category",0,0,2,{0:"Any",1:"Physical",2:"Special"});
 const guardScope=p("scope","Protect",0,0,1,{0:"Holder",1:"Holder and allies"});
 const protectedType=p("protectedType","Protected Pokémon type",18,0,18,undefined,"type");

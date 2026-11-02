@@ -396,9 +396,12 @@ function renderMoveExpanded(move: MoveRecord, managed = false, dllFlags = ""): s
       <div class="expanded-right">
         ${MOVE_MISC_FIELDS.map(([label, field, type]) => expandedField(label, fieldValue(field, { type }))).join("")}
       </div>
-      <div class="expanded-row expanded-move-props" data-narc="move">
-        ${PROPERTIES.map((prop) => `<div class="move-prop svg ${Number(move.readable[prop]) > 0 ? "-active" : ""}" data-field-name="${escapeHtml(prop)}"><img src="${publicAsset(`svgs/${prop}.svg`)}" alt=""><div class="prop-info">${escapeHtml(titleize(prop.replace(/_/gu, " ")))}</div></div>`).join("")}
-      </div>
+      <section class="move-native-flags" aria-label="Vanilla Flags">
+        <div class="move-native-flags-heading"><strong>Vanilla Flags</strong></div>
+        <div class="move-native-flags-options">
+          ${PROPERTIES.map((prop) => `<label><input class="move-native-flag" type="checkbox" data-field-name="${escapeHtml(prop)}" ${Number(move.readable[prop]) > 0 ? "checked" : ""}>${escapeHtml(titleize(prop.replace(/[_-]/gu, " ")))}</label>`).join("")}
+        </div>
+      </section>
       ${dllFlags}
     </div>
   `;

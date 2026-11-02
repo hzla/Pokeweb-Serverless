@@ -1,3 +1,5 @@
+import { inspectCustomMoveFlags } from "../pokeweb/abilityEffectsModel";
+import { customMoveFlagFilter, type CustomMoveFlag } from "../pokeweb/customMoveFlags";
 import {recipeAbilityEffect} from "../pokeweb/abilityRecipeEffects";
 import { nativeAbilityProfile } from "../pokeweb/abilityNativeRuntime";
 import { ITEM_RULE_EFFECTS, ITEM_RULE_WEATHER, ITEM_RULE_STATUS_LABELS, ITEM_RULE_STAT_LABELS, ITEM_RULE_TRIGGERS, ITEM_RULE_TARGETS, ITEM_RULE_TRIGGER_LABELS, validateItemRule, type ItemRuleCondition, type ItemRuleSet, type ItemRuleEffect, type ItemRuleEffectDefinition } from "../pokeweb/itemRules";
@@ -36,7 +38,7 @@ function group(node: ItemRuleCondition, types: string[], path = "", depth = 0): 
     <button type="button" class="btn -default" data-rule-action="remove-condition" data-rule-path="${path}" aria-label="Remove condition">×</button>
   </div>`;
 }
-function effectFields(effect: ItemRuleEffect, index: number, types: string[], options: RuleFormOptions, abilityNames: string[] = []): string {
+function effectFields(effect: ItemRuleEffect, index: number, types: string[], options: RuleFormOptions, abilityNames: string[] = [], customFlags: readonly CustomMoveFlag[] = []): string {
   const definition = (options.definitions ?? ITEM_RULE_EFFECTS).find(d => d.kind === effect.kind)!;
   const select = (attribute: string, label: string, labels: readonly string[], selected: number, first = 0) => `<label><span>${label}</span><select ${attribute} aria-label="Effect ${index + 1} ${label.toLowerCase()}">${labels.map((text, i) => option(i + first, text, selected)).join("")}</select></label>`;
   const number = `<label class="item-rule-value"><input data-rule-effect-value aria-label="Effect ${index + 1} value" type="number" min="${effect.kind.startsWith("native:") ? 1 : effect.kind.startsWith("nativeAbility:") ? .125 : definition.min}" max="${definition.max}" step="${definition.step}" value="${effect.value}"><span>${definition.unit}</span></label>`;
@@ -61,14 +63,17 @@ function effectFields(effect: ItemRuleEffect, index: number, types: string[], op
   for (const control of profile?.parameters ?? library?.parameters ?? []) {
     if(control.when){const current=effect.parameters?.[control.when.key]??library?.parameters.find(p=>p.key===control.when!.key)?.original;if(Array.isArray(control.when.value)?!control.when.value.includes(current!):current!==control.when.value)continue;}
     const value=effect.parameters?.[control.key], labels=control.kind==="ability"?abilityNames:control.kind==="type"?types:control.kind==="weather"?ITEM_RULE_WEATHER:control.kind==="category"?["Status","Physical","Special"]:control.kind==="stat"?["",...ITEM_RULE_STAT_LABELS,"All stats"]:control.kind==="status"||control.kind==="majorStatus"?["","Paralysis","Sleep","Freeze","Burn","Poison","Confusion","Infatuation"]:undefined;
-    const text=(id:number)=>control.labels?.[id]??(id===14&&control.kind==="status"?"Yawn":(control.kind==="ability"?`${id} · ${labels?.[id]||`Ability ${id}`}`:labels?.[id]??String(id)));
-    const values=(control.choices??Array.from({length:control.max-control.min+1},(_,i)=>control.min+i)).filter(id=>control.kind!=="type"||id<types.length||control.labels?.[id]!==undefined);
+    const custom=options.ability&&library&&control.key==="moveClass"?new Map(customFlags.map(flag=>[customMoveFlagFilter(flag.id),`Custom: ${flag.name}`])):new Map<number,string>();
+    if(control.key==="moveClass"&&value!==undefined&&value>=14&&!custom.has(value))custom.set(value,`Missing custom flag ${value-13}`);
+    const text=(id:number)=>custom.get(id)??control.labels?.[id]??(id===14&&control.kind==="status"?"Yawn":(control.kind==="ability"?`${id} · ${labels?.[id]||`Ability ${id}`}`:labels?.[id]??String(id)));
+    const values=[...(control.choices??Array.from({length:control.max-control.min+1},(_,i)=>control.min+i)),...custom.keys()].filter(id=>control.kind!=="type"||id<types.length||control.labels?.[id]!==undefined);
     fields+=`<label><span>${escapeHtml(control.label)}</span>${labels||control.choices?`<select data-rule-native-parameter="${control.key}" aria-label="Effect ${index+1} ${escapeHtml(control.label.toLowerCase())}">${option("",`Original (${text(control.original)})`,value??"")}${values.map(id=>option(id,text(id),value??"")).join("")}</select>`:`<input type="number" data-rule-native-parameter="${control.key}" aria-label="Effect ${index+1} ${escapeHtml(control.label.toLowerCase())}" min="${control.min}" max="${control.max}" step="${control.step}" placeholder="Original (${Number(control.original.toFixed(3))})" value="${value??""}">`}</label>`;
   }
   if (options.ability&&!(library&&"fixedBypass"in library&&library.fixedBypass)) fields += `<label class="ability-rule-bypass"><input type="checkbox" data-rule-bypass ${((effect as ItemRuleEffect & { bypassable?: boolean }).bypassable ?? (profile ? true : library?.bypassable ?? ["defense", "specialDefense", "incomingAccuracy"].includes(effect.kind))) ? "checked" : ""}>${profile ? "Use native Mold Breaker rules" : "Mold Breaker can bypass"}</label>`;
   return fields;
 }
 export function renderItemRuleForm(project: ProjectState, rule: ItemRuleSet, options: RuleFormOptions = {}): string {
+  const customFlags=options.ability?inspectCustomMoveFlags(project).registry.flags:[];
   const root = rule.conditions.kind === "group" ? rule.conditions : { kind: "group" as const, mode: "all" as const, children: [rule.conditions] };
   const presets=options.presets??ITEM_RULE_PRESETS,groups=[...new Set(presets.map(p=>"group"in p?p.group:undefined))];
   const choices=groups.map(name=>`${name?`<optgroup label="${escapeHtml(name)}">`:""}${presets.filter(p=>("group"in p?p.group:undefined)===name).map(p=>option(p.id,p.label,"")).join("")}${name?"</optgroup>":""}`).join("");
@@ -79,7 +84,7 @@ export function renderItemRuleForm(project: ProjectState, rule: ItemRuleSet, opt
     <div data-rule-effects>${rule.effects.map((effect, index) => `<div class="item-rule-effect" data-rule-effect data-rule-effect-kind="${effect.kind}" data-rule-index="${index}">
       <div class="item-rule-effect-heading"><select data-rule-effect-kind aria-label="Effect ${index + 1}">${[false, true].map(native => `<optgroup label="${native ? options.ability ? "Copied ability handlers" : "Native item behaviors" : "Adjustable primitives"}">${(options.definitions ?? ITEM_RULE_EFFECTS).filter(d => Boolean(d.nativeItem) === native).map(d => option(d.kind, d.label, effect.kind)).join("")}</optgroup>`).join("")}</select>
       <button type="button" class="btn -default" data-rule-action="remove-effect" data-rule-index="${index}" aria-label="Remove effect ${index + 1}" ${rule.effects.length === 1 ? "disabled" : ""}>×</button></div>
-      <div class="item-rule-effect-fields">${effectFields(effect, index, typeNamesForProject(project), options, project.texts.banks.abilities??[])}</div></div>`).join("")}</div>
+      <div class="item-rule-effect-fields">${effectFields(effect, index, typeNamesForProject(project), options, project.texts.banks.abilities??[],customFlags)}</div></div>`).join("")}</div>
     ${group(root, typeNamesForProject(project))}
     ${options.ability ? "" : `<label class="item-rule-consumable"><input type="checkbox" data-rule-consumable ${rule.consumable ? "checked" : ""}>Consume on first successful effect</label>`}
     <button type="button" class="btn -default" data-rule-action="apply">${options.ability?"Apply ability":"Apply custom effects"}</button>

@@ -10,7 +10,7 @@ import { cacheBw2ScriptRuntimeContext } from "./bw2ScriptOverlayContext";
 import { decompressCode } from "../nds/codeCompression";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
-import { MOVE_EFFECT_HANDLER_TABLE_LENGTH, moveEffectHandlerOverlayId, moveEffectHandlerTableOffset } from "./moveEffectHandlerModel";
+import { ensureMoveEffectHandlerStore, moveEffectHandlerOverlayId, moveEffectHandlerTableOffset, moveEffectHandlerTableLayout } from "./moveEffectHandlerModel";
 import { BW2_TUTOR_MOVE_OVERLAY_ID, BW2_TUTOR_MOVE_TABLE_LENGTH, tutorMoveTableOffset } from "./tutorMoveModel";
 import { hydratePwanAnimationsFromRom } from "./pwanAnimationModel";
 import { hydrateW2AnimFromRom } from "./w2animAnimationModel";
@@ -268,6 +268,10 @@ async function hydratePersistedProject(project: ProjectState, availableSource?: 
   hydrateOverlayBackedStore(project, "grotto_odds", 36);
   hydrateOverlayBackedStore(project, "tutor_moves", BW2_TUTOR_MOVE_OVERLAY_ID);
   hydrateOverlayBackedStore(project, "move_effects_table", moveEffectOverlayId);
+  if (project.narcs.move_effects_table) {
+    try { ensureMoveEffectHandlerStore(project); }
+    catch { /* Preserve saved edits; the editors report incompatible legacy table locations. */ }
+  }
   hydrateOverlayBackedStore(project, "type_chart", chartOverlayId);
   if (project.narcs.scripts) cacheBw2ScriptRuntimeContext(project, rom);
 }
@@ -313,7 +317,7 @@ function hydrateOverlayBackedStore(project: ProjectState, name: "grotto_odds" | 
   if (isRomFsTypeChartStore(store)) return;
   if (!store || !overlay || (store.rawFiles[0]?.length ?? 0) > 0) return;
   const offset = overlayTableOffset(project, name, overlay);
-  const length = name === "grotto_odds" ? 200 : name === "tutor_moves" ? BW2_TUTOR_MOVE_TABLE_LENGTH : name === "type_chart" ? typeChartTableLength(project) : MOVE_EFFECT_HANDLER_TABLE_LENGTH;
+  const length = name === "grotto_odds" ? 200 : name === "tutor_moves" ? BW2_TUTOR_MOVE_TABLE_LENGTH : name === "type_chart" ? typeChartTableLength(project) : moveEffectHandlerTableLayout(project).byteLength;
   store.rawFiles = [overlay.slice(offset, offset + length)];
 }
 

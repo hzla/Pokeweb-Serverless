@@ -12,6 +12,9 @@ PUBLIC const volatile u8 *AbilityRuleData=(const volatile u8 *)1;
 #ifdef ABILITY_MOVE_CLASSES
 PUBLIC const volatile u8 *AbilityMoveClassData=(const volatile u8 *)1;
 #endif
+#ifdef ABILITY_CUSTOM_FLAGS
+PUBLIC const volatile u8 *AbilityCustomMoveFlagData=(const volatile u8 *)1;
+#endif
 #ifdef ABILITY_FILTER_EVENTS
 PUBLIC const Event *const volatile AbilityRuleEventTables[256]={0};
 PUBLIC const volatile u8 AbilityRuleEventCounts[256]={0};

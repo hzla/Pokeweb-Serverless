@@ -12,6 +12,8 @@ import {
   zeroMoveEffectHandlers,
 } from "../pokeweb/moveEffectHandlerModel";
 import { materializeProjectEdits } from "../pokeweb/projectMaterialize";
+import { createProjectDocument } from "../pokeweb/projectDocument";
+import { openProjectSession } from "../pokeweb/projectSession";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
 
 describe("moveEffectHandlerModel", () => {
@@ -42,7 +44,7 @@ describe("moveEffectHandlerModel", () => {
     const bytes = project.narcs.move_effects_table?.rawFiles[0] ?? new Uint8Array();
     expect(readU32(bytes, 0)).toBe(1);
     expect(readU32(bytes, 4)).toBe(0xcafebabe);
-    expect(readU32(bytes, 8)).toBe(2);
+    expect(readU32(bytes, 8)).toBe(0);
     expect(readU32(bytes, 12)).toBe(0);
     expect(formatAddress(16)).toBe("0x00000010");
   });
@@ -51,6 +53,27 @@ describe("moveEffectHandlerModel", () => {
     const project = makeProject("BW");
     expect(moveEffectHandlerOverlayId(project)).toBe(93);
     expect(moveEffectHandlerTableOffset(project)).toBe(0x0003cf30);
+  });
+
+  it("clears both fields when disabling a row by its move ID", () => {
+    const project = makeProject();
+    expect(updateMoveEffectHandlerMove(project, 0, "0")).toMatchObject({ moveId: 0, address: 0 });
+  });
+
+  it("edits the full expanded table and preserves rows after 258 across project reload", () => {
+    let project = makeProject("BW");
+    const expanded = new Uint8Array(384 * 8);
+    expanded.set(project.narcs.move_effects_table!.rawFiles[0]);
+    writeEntry(expanded, 383, 4, 0x021b1235);
+    project.narcs.move_effects_table!.rawFiles[0] = expanded;
+    expect(getMoveEffectHandlerRows(project)).toHaveLength(384);
+    updateMoveEffectHandlerAddress(project, 383, 0x021b5679);
+    project = openProjectSession(createProjectDocument(project, false));
+    expect(getMoveEffectHandlerRows(project)[383]).toMatchObject({ moveId: 4, address: 0x021b5679 });
+    updateMoveEffectHandlerMove(project, 383, "Water Gun");
+    materializeProjectEdits(project);
+    expect(readU32(project.narcs.move_effects_table!.rawFiles[0], 383 * 8)).toBe(3);
+    expect(readU32(project.narcs.move_effects_table!.rawFiles[0], 383 * 8 + 4)).toBe(0x021b5679);
   });
 });
 

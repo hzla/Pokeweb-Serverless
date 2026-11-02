@@ -13,9 +13,19 @@ PUBLIC u32 AbilityMoveClassBits(u32 move){
  return low<sizeof(abilityMoveClasses)/sizeof(abilityMoveClasses[0])&&abilityMoveClasses[low][0]==move?abilityMoveClasses[low][1]:0;
 }
 #endif
+#ifdef ABILITY_CUSTOM_FLAGS
+PUBLIC u32 AbilityMoveHasCustomFlag(u32 move,u32 flag){
+ const volatile u8*p=AbilityCustomMoveFlagData;u32 low=0,high=half(p);
+ while(low<high){u32 mid=(low+high)/2,m=half(p+2+mid*4),id=half(p+4+mid*4);if(m<move||m==move&&id<flag)low=mid+1;else high=mid;}
+ return low<half(p)&&half(p+2+low*4)==move&&half(p+4+low*4)==flag;
+}
+#endif
 static u32 libraryMatch(const volatile u8*e){
  u32 filter=e[1],move=VALUE(0x12);s32 x;
  if(!filter)return 1;
+#ifdef ABILITY_CUSTOM_FLAGS
+ if(filter>=14)return AbilityMoveHasCustomFlag(move,filter-13);
+#endif
  if(filter==1||filter==2||filter==5)return FN(31,u32(*)(u32,u32))(move,filter==1?0:filter==2?7:8);
  if(filter==9)return (variable(0x16,&x)?(u32)x:FN(35,u32(*)(u32,u32))(move,0))==e[4];
  if(filter==10)return FN(17,u32(*)(u32))(move)==e[5];

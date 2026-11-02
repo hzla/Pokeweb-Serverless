@@ -1,3 +1,4 @@
+import { prepareCustomFlagCases, customFlagCases } from "./custom_flag_cases";
 /** BW1 revision-0 ability recipes: production export/reload and native fixtures. */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -85,6 +86,8 @@ if(moveClasses){
  rules.set(171,{effects:[entry(6),hit(1),hit(1,1)],conditions:all});
  for(const[id,rule]of inspectAbilityEffects(project).rules)if(!rules.has(id))rules.set(id,rule);
 }
+const customFlagsMode=process.argv.includes("--custom-flags");
+if(customFlagsMode){for(const[id,rule]of inspectAbilityEffects(project).rules)if(!rules.has(id))rules.set(id,rule);for(const[id,rule]of await prepareCustomFlagCases(project))rules.set(id,rule);}
 for(const[id,r]of rules)rules.set(id,validateAbilityRule(r));
 // Every imported recipe is linked with this game's native services before fixtures.
 for(const entry of ABILITY_IMPORT_LIBRARY)buildAbilityRuleModule(project,new Map([[255,entry.rule]]));
@@ -212,6 +215,9 @@ if(process.argv.includes("--expanded-classes")){
  cases.push({label:"expanded-bulletproof",abilityId:168,enemies:[mon(320,30,ball)],checks:{noDamage:true,blockMessages:{ability:168,move:ball,count:2},popupsByTurn:[0,1,1]}},
  {label:"expanded-wind-rider",abilityId:170,enemies:[mon(320,30,wind)],checks:{noDamage:true,playerStagesByTurn:[neutral,[7,6,6,6,6,6,6],[8,6,6,6,6,6,6]],popupsByTurn:[0,1,1]}});
 }
+if(customFlagsMode){
+ cases.splice(0,cases.length,...customFlagCases(project).map(spec=>({label:spec.label,abilityId:spec.abilityId,playerMoves:[spec.move??150],hp:spec.hp,enemies:[mon(320,spec.enemyLevel??(spec.enemyMove?30:100),spec.enemyMove??150)],checks:spec.checks})));
+}
 const only=process.argv.find(a=>a.startsWith("--only="))?.slice(7).split(","),hashes:Record<string,string>={},fixtures=[];
 for(const[index,spec]of cases.entries()){
  if(only&&!only.includes(spec.label))continue;
@@ -237,5 +243,5 @@ for(const[index,spec]of cases.entries()){
  await writeFile(`${out}/saves/${label}.sav`,save);if(!hashes[filename]){await writeFile(`${out}/${filename}`,downloads.romBytes);hashes[filename]=sha(downloads.romBytes);}
  fixtures.push({...spec,enemyCount:enemies.length,label,speciesId:spec.playerSpecies??1,maxHp:readU16(raw,0x90),hp:spec.hp??readU16(raw,0x90),rom:filename});
 }
-await writeFile(`${out}/cases.json`,JSON.stringify({inputSha256:sha(input),exportSha256:sha(exported),reexportSha256:sha(final),projectReload:true,romExportReload:true,importsLinked:ABILITY_IMPORT_LIBRARY.length,editedAbilities:rules.size,codeBytes:dll.code.length,bssBytes:dll.bssSize,serializedBytes:dllBytes.length,nameLoader:resolver.resolve("loadAbilityNameToStrbuf").address,api,symbols,pmcSymbols,popupGateway:dll.symbols[gateway.sourceSymbolIndex].address,hook:resolver.resolve("AbilityEvent_AddItem").address,configHex:Buffer.from(encoded).toString("hex"),nativeOffsets,romHashes:hashes,cases:fixtures,priorityRuntime:true,...notificationsMetadata,presentationMessages:JSON.parse(String(dll.metadata.PokewebAbilityPresentationMessages??"[]")),...(moveClasses?{powerHook:resolver.resolve("BW1_BTL_SERVER_FLOW_CalcMovePower").address}:{}),...(clientTrapStores?{clientTrapStores,typeQuery:resolver.resolve("DoesMonHaveType").address}:{}),damageReactionHook:resolver.resolve("ServerEvent_DamageReaction").address,eventConstHook:resolver.resolve("BattleEventVar_SetConstValue").address,eventList:readU32(resolver.resolve("BattleEvent_SeekItem").code,0x30),manualLaunch:true,openingHook:game==="W"?0x021bbb80:0x021bbb60,flowRegister:"r0",commandHook:game==="W"?0x021baccc:0x021bacac},null,2)+"\n");
+await writeFile(`${out}/cases.json`,JSON.stringify({inputSha256:sha(input),exportSha256:sha(exported),reexportSha256:sha(final),projectReload:true,romExportReload:true,importsLinked:ABILITY_IMPORT_LIBRARY.length,editedAbilities:rules.size,codeBytes:dll.code.length,bssBytes:dll.bssSize,serializedBytes:dllBytes.length,nameLoader:resolver.resolve("loadAbilityNameToStrbuf").address,api,symbols,pmcSymbols,popupGateway:dll.symbols[gateway.sourceSymbolIndex].address,hook:resolver.resolve("AbilityEvent_AddItem").address,configHex:Buffer.from(encoded).toString("hex"),nativeOffsets,romHashes:hashes,cases:fixtures,priorityRuntime:true,...notificationsMetadata,presentationMessages:JSON.parse(String(dll.metadata.PokewebAbilityPresentationMessages??"[]")),...(moveClasses||customFlagsMode?{powerHook:resolver.resolve("BW1_BTL_SERVER_FLOW_CalcMovePower").address}:{}),...(clientTrapStores?{clientTrapStores,typeQuery:resolver.resolve("DoesMonHaveType").address}:{}),damageReactionHook:resolver.resolve("ServerEvent_DamageReaction").address,eventConstHook:resolver.resolve("BattleEventVar_SetConstValue").address,eventList:readU32(resolver.resolve("BattleEvent_SeekItem").code,0x30),manualLaunch:true,openingHook:game==="W"?0x021bbb80:0x021bbb60,flowRegister:"r0",commandHook:game==="W"?0x021baccc:0x021bacac},null,2)+"\n");
 assert.equal(sha(new Uint8Array(await readFile(inputPath))),sha(input));console.log(`${fixtures.length} ${game} native fixtures; project and ROM reload passed.`);

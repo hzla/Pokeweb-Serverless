@@ -2,7 +2,7 @@ import type { NativeAbilityParameter } from "./abilityNativeParameters";
 import type { ItemRuleEffectDefinition, ItemRuleEffect } from "./itemRules";
 
 const moveClasses = {0:"Any move",1:"Contact",2:"Punching",3:"Biting",4:"Pulse",5:"Sound",6:"Ball / bomb",7:"Slicing",8:"Powder",9:"Type",10:"Category",11:"Super effective",12:"Healing",13:"Wind"};
-const filter: NativeAbilityParameter = {key:"moveClass",label:"Move filter",kind:"number",original:0,min:0,max:13,step:1,choices:Array.from({length:14},(_,i)=>i),labels:moveClasses,sites:[]};
+const filter: NativeAbilityParameter = {key:"moveClass",label:"Move filter",kind:"number",original:0,min:0,max:255,step:1,choices:Array.from({length:14},(_,i)=>i),labels:moveClasses,sites:[]};
 const earlyFilter = {...filter,choices:filter.choices!.filter(value=>value!==11)};
 const type: NativeAbilityParameter = {key:"type",label:"Move type",kind:"type",original:0,min:0,max:17,step:1,sites:[],when:{key:"moveClass",value:9}};
 const category: NativeAbilityParameter = {key:"category",label:"Move category",kind:"category",original:1,min:0,max:2,step:1,sites:[],when:{key:"moveClass",value:10}};

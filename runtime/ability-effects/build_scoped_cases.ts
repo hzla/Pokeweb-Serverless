@@ -1,3 +1,5 @@
+import { prepareCustomFlagCases, customFlagCases } from "./custom_flag_cases";
+import blackAbilityBindings from "../../src/assets/data/abilityBindingsB1.json";
 /** Editable Gen 6–9 recipe imports: ROM lifecycle and native battle fixtures. */
 import assert from "node:assert/strict";
 import {createHash} from "node:crypto";
@@ -47,6 +49,8 @@ const variants:Record<number,AbilityRuleSet>={
  134:validateAbilityRule({...abilityImport(168).rule,effects:[{...abilityImport(168).rule.effects[0],parameters:{limit:0,type:9}}]}),
 };
 for(const[id,rule]of Object.entries(variants)){entries.set(Number(id),rule);names.set(Number(id),`Test ${id}`);}
+const customFlagsMode=process.argv.includes("--custom-flags");
+if(customFlagsMode)for(const[id,rule]of await prepareCustomFlagCases(project)){entries.set(id,rule);names.set(id,`Flag Test ${id}`);}
 await configureAbilityRuleSets(project,[...entries].map(([abilityId,rules])=>({abilityId,rules,name:names.get(abilityId)!})));
 const verify=()=>{const s=inspectAbilityEffects(project);assert(s.editable,s.message);assert.deepEqual(s.rules,entries);for(const[id,name]of names)assert.equal(project.texts.banks.abilities?.[id],name);};
 verify();project=openProjectSession(createProjectDocument(project,false));project.originalRomBytes=input;hydrateAbilityEffectsSource(project,new NintendoDSRom(input,{fileData:"view"}));verify();
@@ -161,6 +165,7 @@ if(process.argv.includes("--expanded-classes")){
  test(171,"expanded-bulletproof",{noDamage:true,blockMessages:{ability:slots.get(171),move:ball,count:2},popupsByTurn:[0,1,1]},{enemyMove:ball});
  test(274,"expanded-wind-rider",{noDamage:true,playerStagesByTurn:[[6,6,6,6,6,6,6],[7,6,6,6,6,6,6],[8,6,6,6,6,6,6]],popupsByTurn:[0,1,1]},{enemyMove:wind});
 }
+if(customFlagsMode)cases.splice(0,cases.length,...customFlagCases(project));
 const seedPath=process.argv.slice(4).find(arg=>!arg.startsWith("--"));
 const seed=rawSaveBytesFromDesmumeDsv(new Uint8Array(await readFile(seedPath??getTestBattleConfig("BW2").saveUrl)));
 // Rebuild only the disposable copy's party before the strict harness checks it.
@@ -183,6 +188,16 @@ const messageSignature=structuredClone(blackMoveBindings.functions.BW1_BTL_SERVE
 if(messageSignature.hex.slice(128,132)!=="216a")throw Error("Unrecognized message signature");
 messageSignature.hex=messageSignature.hex.slice(0,128)+"616a"+messageSignature.hex.slice(132);
 const messageHook=battleRuntimeResolver(overlay.data,overlay.ramAddress,project.arm9,rom.arm9RamAddress,{...moveBindings.functions,NotificationMessage:messageSignature}).resolve("NotificationMessage").address;
+let powerHook:number|undefined;
+if(customFlagsMode){
+ const extras=Object.fromEntries(Object.entries(blackAbilityBindings.functions).filter(([name])=>name.startsWith("BW1_")).map(([name,s])=>[name,{...s,module:s.module==="ARM9"?"ARM9":"167"}]));
+ // The reviewed W2 routine has the same instructions/calls as BW1; its
+ // diagnostic source-line marker is 0x30e6 rather than 0x30c7.
+ const powerSignature=extras.BW1_BTL_SERVER_FLOW_CalcMovePower;
+ assert.equal(powerSignature.hex.slice(320),"c7300000");
+ powerSignature.hex=powerSignature.hex.slice(0,320)+"e6300000";
+ powerHook=battleRuntimeResolver(overlay.data,overlay.ramAddress,project.arm9,rom.arm9RamAddress,{...moveBindings.functions,...extras}).resolve("BW1_BTL_SERVER_FLOW_CalcMovePower").address;
+}
 const popupGateway=dll.symbols[dll.relocations.find(r=>r.target.module==="base"&&r.target.address===symbols.AbilityRuleApi+80)!.sourceSymbolIndex].address;
-await writeFile(`${out}/cases.json`,JSON.stringify({inputSha256:inputHash,exportSha256:sha(exported),reexportSha256:sha(reexported),editedAbilities:entries.size,codeBytes:dll.code.length,bssBytes:dll.bssSize,serializedBytes:rom.files[rom.fileId(ABILITY_EFFECTS_DLL_PATH)].length,nameLoader,api,symbols,pmcSymbols,hook:resolver.resolve("AbilityEvent_AddItem").address,configHex:Buffer.from(encoded).toString("hex"),nativeOffsets,romHashes:hashes,cases:fixtures,projectReload:true,romExportReload:true,reloadedEdits:editReceipts,imports:ABILITY_IMPORT_LIBRARY.map(t=>({officialId:t.id,assignedId:slots.get(t.id),name:t.defaultName,generation:t.generation})),priorityRuntime:true,popupGateway,messageHook,blockMessage:dll.metadata.PokewebAbilityBlockMessage,presentationMessages:JSON.parse(String(dll.metadata.PokewebAbilityPresentationMessages??"[]")),eventConstHook:resolver.resolve("BattleEventVar_SetConstValue").address,sideTableAddress,weatherAddress:readU32(resolver.resolve("GetFieldWeather").code,8),damageReactionHook:resolver.resolve("ServerEvent_DamageReaction").address,nativeChanceHook:resolver.resolve("AbilityEvent_RollEffectChance").address,eventList:readU32(resolver.resolve("BattleEvent_SeekItem").code,0x30)},null,2)+"\n");
+await writeFile(`${out}/cases.json`,JSON.stringify({inputSha256:inputHash,exportSha256:sha(exported),reexportSha256:sha(reexported),editedAbilities:entries.size,codeBytes:dll.code.length,bssBytes:dll.bssSize,serializedBytes:rom.files[rom.fileId(ABILITY_EFFECTS_DLL_PATH)].length,nameLoader,api,symbols,pmcSymbols,hook:resolver.resolve("AbilityEvent_AddItem").address,configHex:Buffer.from(encoded).toString("hex"),nativeOffsets,romHashes:hashes,cases:fixtures,projectReload:true,romExportReload:true,reloadedEdits:editReceipts,imports:ABILITY_IMPORT_LIBRARY.map(t=>({officialId:t.id,assignedId:slots.get(t.id),name:t.defaultName,generation:t.generation})),priorityRuntime:true,powerHook,popupGateway,messageHook,blockMessage:dll.metadata.PokewebAbilityBlockMessage,presentationMessages:JSON.parse(String(dll.metadata.PokewebAbilityPresentationMessages??"[]")),eventConstHook:resolver.resolve("BattleEventVar_SetConstValue").address,sideTableAddress,weatherAddress:readU32(resolver.resolve("GetFieldWeather").code,8),damageReactionHook:resolver.resolve("ServerEvent_DamageReaction").address,nativeChanceHook:resolver.resolve("AbilityEvent_RollEffectChance").address,eventList:readU32(resolver.resolve("BattleEvent_SeekItem").code,0x30)},null,2)+"\n");
 assert.equal(sha(new Uint8Array(await readFile(path))),inputHash);console.log(`${fixtures.length} ability import fixtures; export/reload and ${editReceipts.length} parameter re-edits passed.`);

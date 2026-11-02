@@ -3,10 +3,21 @@
 The Moves page has an **Effects** editor for recognized US revision-0 Black,
 White, Black 2 and White 2 ROMs, including the reviewed Frost Black Fairy and
 vw2qol layouts. The full upgrade battle engine is not supported. Unrecognized
-native assignments, services, installed move modules or overlapping hooks stop
+native dispatcher code, services, installed move modules or overlapping hooks stop
 installation before move data is changed.
 Signature checks and a successful export do not establish gameplay behavior
 for every template, combination or ROM modification.
+
+The active native handler table is discovered from its checked dispatcher, including
+relocated or expanded tables with up to 4,096 rows. Move IDs and handler addresses
+may be reassigned, reordered, added to vacant slots or disabled. Both the address
+editor and recipe installer use this table, including pending address edits.
+Setting either the move ID or address to zero clears both fields, disabling the row safely.
+Duplicate move IDs, invalid IDs, out-of-bounds tables and nonzero pointers outside
+the loaded battle overlay or ARM9 code are rejected by recipe validation. Native
+operations reused by a recipe are identified independently by their checked code
+and event lists; moving their assignments does not change the operation imported
+by a template. Unedited moves continue through the ROM's native dispatcher.
 
 Import an effect template into the draft, adjust its cards and conditions, then
 apply it. Importing does not immediately change the ROM. Effects retain their
@@ -206,3 +217,8 @@ Spell, Core Enforcer, Doodle and Speed Swap. Freeze-Dry also accepts `inactive`,
 The `weather-doubles` and `weather-baseline-doubles` modes exercise the same
 comparison with four active Pokémon. The weather, Core Enforcer and Doodle
 fixtures use the Black ability editor.
+
+Named custom tags can be created under **Expanded Flags → Manage flags** and assigned
+to moves. Their filters are used by adjustable ability recipes; assigning a tag
+alone does not change a move’s battle behavior. See the [ability runtime README](../ability-effects/README.md)
+for storage, limits and runtime update behavior.

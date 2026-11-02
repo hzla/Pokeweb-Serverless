@@ -1,10 +1,27 @@
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
+import { NintendoDSRom } from "../nds/rom";
+import { readU32 } from "../nds/binary";
+import { battleRuntimeResolver, BATTLE_RUNTIME_SIGNATURES } from "./battleRuntimeBindings";
+import black from "../assets/data/moveRecipeBindingsB1.json";
+import white from "../assets/data/moveRecipeBindingsW1.json";
+import bw2 from "../assets/data/moveRecipeBindings.json";
+import { readNativeMoveRegistry, moveHandlerSourcePath, moveRegistryDispatcherSignature, type NativeMoveRegistry } from "./nativeMoveRegistry";
+import { moveHandlerTableFormat } from "./formats";
 
 export const MOVE_EFFECT_HANDLER_COUNT = 258;
 export const BW_MOVE_EFFECT_HANDLER_OVERLAY_ID = 93;
 export const BW2_MOVE_EFFECT_HANDLER_OVERLAY_ID = 167;
 export const MOVE_EFFECT_HANDLER_TABLE_LENGTH = MOVE_EFFECT_HANDLER_COUNT * 8;
+const sources = new WeakMap<ProjectState, { base: number; armBase: number }>();
+
+export function hydrateMoveHandlerTableSource(project: ProjectState, rom: NintendoDSRom): void {
+  const table = project.patches?.arm9OverlayTable ?? rom.arm9OverlayTable, id = moveEffectHandlerOverlayId(project);
+  for (let at = 0; at + 32 <= table.length; at += 32) if (readU32(table, at) === id) {
+    sources.set(project, { base: readU32(table, at + 4), armBase: rom.arm9RamAddress });
+    return;
+  }
+}
 
 export type MoveEffectHandlerRow = {
   index: number;
@@ -24,23 +41,59 @@ export function moveEffectHandlerOverlayId(project: ProjectState): number {
 }
 
 export function moveEffectHandlerTableOffset(project: ProjectState): number {
+  return moveEffectHandlerTableLayout(project).offset;
+}
+
+function legacyTableOffset(project: ProjectState): number {
   if (project.session.baseRom === "BW") return 0x0003cf30;
   return project.session.fairy ? 0x00040974 : 0x000407f4;
 }
 
+export function moveEffectHandlerTableLayout(project: ProjectState): NativeMoveRegistry {
+  const overlay = project.overlays[moveEffectHandlerOverlayId(project)], store = project.narcs.move_effects_table;
+  if (!sources.has(project) && project.originalRomBytes) hydrateMoveHandlerTableSource(project, new NintendoDSRom(project.originalRomBytes, { fileData: "view" }));
+  const source = sources.get(project);
+  if (overlay?.length && source && ["IRBO", "IRAO", "IRDO", "IREO"].includes(project.romInfo.idCode)) {
+    let base = source.base;
+    const table = project.patches?.arm9OverlayTable;
+    if (table) for (let at = 0; at + 32 <= table.length; at += 32) if (readU32(table, at) === moveEffectHandlerOverlayId(project)) base = readU32(table, at + 4);
+    const functions = project.romInfo.idCode === "IRBO" ? black.functions : project.romInfo.idCode === "IRAO" ? white.functions : { ...BATTLE_RUNTIME_SIGNATURES, ...bw2.functions };
+    const signatures = { ...functions, MoveEvent_AddItem: moveRegistryDispatcherSignature(functions.MoveEvent_AddItem) };
+    const dispatcher = battleRuntimeResolver(overlay, base, project.arm9, source.armBase, signatures).resolve("MoveEvent_AddItem");
+    return readNativeMoveRegistry(overlay, base, dispatcher.code);
+  }
+  const saved = /@([0-9]+)$/u.exec(store?.sourcePath ?? "");
+  if (overlay?.length && !source && !saved && ["IRBO", "IRAO", "IRDO", "IREO"].includes(project.romInfo.idCode))
+    throw Error("Reload the source ROM to locate its native move handler table.");
+  const byteLength = store?.rawFiles[0]?.length || MOVE_EFFECT_HANDLER_TABLE_LENGTH;
+  return { offset: saved ? Number(saved[1]) : legacyTableOffset(project), count: byteLength / 8, byteLength };
+}
+
 export function ensureMoveEffectHandlerStore(project: ProjectState): void {
   if (project.session.baseRom !== "BW" && project.session.baseRom !== "BW2") throw new Error("Move effect handlers are currently Gen 5-only.");
-  if (project.narcs.move_effects_table) return;
+  const existing = project.narcs.move_effects_table;
+  const layout = moveEffectHandlerTableLayout(project);
+  project.formats.move_effects_table = moveHandlerTableFormat(layout.count);
+  if (existing) {
+    const sourcePath = moveHandlerSourcePath(moveEffectHandlerOverlayId(project), layout.offset);
+    if (existing.sourcePath === sourcePath && existing.rawFiles[0]?.length === layout.byteLength) return;
+    if (existing.dirty.size) {
+      if (/@[0-9]+$/u.test(existing.sourcePath) || layout.offset !== legacyTableOffset(project) || existing.rawFiles[0]?.length !== layout.byteLength)
+        throw Error("Saved handler edits use a different table layout. Reload the source ROM before editing handlers.");
+      existing.sourcePath = sourcePath;
+      return;
+    }
+    if (!project.overlays[moveEffectHandlerOverlayId(project)]?.length) return;
+  }
   const overlayId = moveEffectHandlerOverlayId(project);
   const overlay = project.overlays[overlayId];
   if (!overlay) throw new Error("Move effect handler overlay data is not loaded. Load the Moves NARC or reload the ROM with Moves selected.");
-  const offset = moveEffectHandlerTableOffset(project);
   project.narcs.move_effects_table = {
     name: "move_effects_table",
     fileId: -1,
-    sourcePath: `overlay${overlayId}:move_effects_table`,
+    sourcePath: moveHandlerSourcePath(overlayId, layout.offset),
     fileCount: 1,
-    rawFiles: [overlay.slice(offset, offset + MOVE_EFFECT_HANDLER_TABLE_LENGTH)],
+    rawFiles: [overlay.slice(layout.offset, layout.offset + layout.byteLength)],
     records: new Map(),
     dirty: new Set(),
   };
@@ -48,17 +101,18 @@ export function ensureMoveEffectHandlerStore(project: ProjectState): void {
 
 export function getMoveEffectHandlerRows(project: ProjectState): MoveEffectHandlerRow[] {
   const { raw, readable } = handlerRecord(project);
-  return Array.from({ length: MOVE_EFFECT_HANDLER_COUNT }, (_, index) => rowFromRecord(project, raw, readable, index));
+  return Array.from({ length: project.narcs.move_effects_table!.rawFiles[0].length / 8 }, (_, index) => rowFromRecord(project, raw, readable, index));
 }
 
 export function updateMoveEffectHandlerMove(project: ProjectState, rowIndex: number, inputValue: string): MoveEffectHandlerRow {
   const { raw, readable } = handlerRecord(project);
-  validateRowIndex(rowIndex);
+  validateRowIndex(project, rowIndex);
   const field = `move_id_${rowIndex}`;
   const before = readable[field];
   const moveId = parseMoveId(project, inputValue);
   raw[field] = moveId;
   readable[field] = moveName(project, moveId);
+  if (!moveId) { raw[`address_${rowIndex}`] = 0; readable[`address_${rowIndex}`] = 0; }
   const row = rowFromRecord(project, raw, readable, rowIndex);
   recordFieldChange(project, "move_effects_table", `Handler Row ${rowIndex}`, "Move", before, row.moveName, {
     key: `move-effect-handler:${rowIndex}:move`,
@@ -69,14 +123,17 @@ export function updateMoveEffectHandlerMove(project: ProjectState, rowIndex: num
 
 export function updateMoveEffectHandlerAddress(project: ProjectState, rowIndex: number, inputValue: string | number): MoveEffectHandlerRow {
   const { raw, readable } = handlerRecord(project);
-  validateRowIndex(rowIndex);
+  validateRowIndex(project, rowIndex);
   const field = `address_${rowIndex}`;
   const before = formatAddress(raw[field] ?? 0);
+  const beforeName = moveName(project, raw[`move_id_${rowIndex}`] ?? 0);
   const address = parseAddress(inputValue);
   raw[field] = address;
   readable[field] = address;
+  // The native dispatcher calls a matching row's pointer without a null guard.
+  if (!address) { raw[`move_id_${rowIndex}`] = 0; readable[`move_id_${rowIndex}`] = moveName(project, 0); }
   const row = rowFromRecord(project, raw, readable, rowIndex);
-  recordFieldChange(project, "move_effects_table", row.moveName, "Effect Handler Address", before, row.addressHex, {
+  recordFieldChange(project, "move_effects_table", beforeName, "Effect Handler Address", before, row.addressHex, {
     key: `move-effect-handler:${rowIndex}:address`,
   });
   markDirty(project, "move_effects_table", 0);
@@ -233,6 +290,6 @@ function moveCount(project: ProjectState): number {
   return Math.max(project.narcs.moves?.fileCount ?? 0, project.texts.banks.moves?.length ?? 0, 1);
 }
 
-function validateRowIndex(rowIndex: number): void {
-  if (!Number.isInteger(rowIndex) || rowIndex < 0 || rowIndex >= MOVE_EFFECT_HANDLER_COUNT) throw new Error(`Handler row out of range: ${rowIndex}`);
+function validateRowIndex(project: ProjectState, rowIndex: number): void {
+  if (!Number.isInteger(rowIndex) || rowIndex < 0 || rowIndex >= project.narcs.move_effects_table!.rawFiles[0].length / 8) throw new Error(`Handler row out of range: ${rowIndex}`);
 }

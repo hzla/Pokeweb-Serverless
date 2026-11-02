@@ -1,12 +1,25 @@
-#moves .move-dll-flags { width: 100%; padding: 20px 24px 24px; border-top: 1px solid #44475a; }
-#moves .move-dll-flags-heading { display: flex; align-items: baseline; gap: 16px; margin-bottom: 14px; }
-#moves .move-dll-flags-heading strong { font-size: 16px; }
+#moves .move-dll-flags, #moves .move-native-flags { width: 100%; padding: 20px 24px 24px; border-top: 1px solid #44475a; }
+#moves .move-dll-flags-heading, #moves .move-native-flags-heading { display: flex; align-items: baseline; gap: 16px; margin-bottom: 14px; }
+#moves .move-dll-flags-heading strong, #moves .move-native-flags-heading strong { font-size: 16px; }
 #moves [data-move-dll-status] { color: #aeb6c9; font-size: 13px; }
 #moves [data-move-dll-status].-error { color: #ff7373; }
 #moves .move-dll-flags-options { display: flex; flex-wrap: wrap; gap: 14px 26px; }
-#moves .move-dll-flags-options label { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 15px; }
-#moves .move-dll-flags-options input { accent-color: #b18afa; width: 17px; height: 17px; margin: 0; }
+#moves .move-native-flags-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr)); gap: 14px 26px; }
+#moves .move-dll-flags-options label, #moves .move-native-flags-options label { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 15px; }
+#moves .move-dll-flags-options input, #moves .move-native-flags-options input { accent-color: #b18afa; flex: 0 0 auto; width: 17px; height: 17px; margin: 0; }
 .ability-runtime-update { display: flex; flex-direction: column; gap: 8px; margin: 0 0 14px; }
 .ability-runtime-update .btn { width: 100%; white-space: normal; }
 .ability-runtime-update [role="status"] { font-size: 13px; color: #aeb6c9; overflow-wrap: anywhere; }
 .ability-runtime-update [role="status"]:empty { display: none; }
+#moves .custom-move-flag-manager { margin-top: 22px; border-top: 1px solid #44475a; padding-top: 16px; }
+#moves .custom-move-flag-manager summary { color: #bc96ef; cursor: pointer; font-size: 15px; }
+#moves .custom-move-flag-create { display: flex; gap: 12px; margin: 18px 0; max-width: 530px; }
+#moves .custom-move-flag-manager input { background: #272936; border: 1px solid #656c82; border-radius: 5px; color: #f2f2f5; font: inherit; padding: 10px 12px; min-width: 0; }
+#moves .custom-move-flag-create input { flex: 1; }
+#moves .custom-move-flag-list { display: grid; gap: 12px; max-width: 740px; }
+#moves .custom-move-flag-row { display: grid; grid-template-columns: minmax(100px, 1fr) 85px auto auto; align-items: center; gap: 12px; }
+#moves .custom-move-flag-row span { color: #aeb6c9; font-size: 13px; }
+#moves .custom-move-flag-manager .btn { margin: 0; white-space: nowrap; font-size: 14px; }
+#moves .custom-move-flag-remove { background: #b83348; }
+#moves .custom-move-flag-remove:hover { background: #d44157; }
+@media (max-width: 640px) { #moves .custom-move-flag-row { grid-template-columns: minmax(100px, 1fr) auto; } }

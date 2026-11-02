@@ -33,7 +33,7 @@ import {
 import { getNarcFormats } from "./formats";
 import { normalizeEncounterFormReferences } from "./encounterModel";
 import { parseHeaders } from "./headerModel";
-import { MOVE_EFFECT_HANDLER_TABLE_LENGTH, moveEffectHandlerOverlayId, moveEffectHandlerTableOffset } from "./moveEffectHandlerModel";
+import { ensureMoveEffectHandlerStore, moveEffectHandlerOverlayId } from "./moveEffectHandlerModel";
 import { detectPmcInstallFromRom } from "./pmcModel";
 import { decodeStandaloneStreamManifest, STANDALONE_STREAM_MANIFEST_PATH } from "./standaloneStreamManifest";
 import { hydratePwanAnimationsFromRom } from "./pwanAnimationModel";
@@ -362,16 +362,8 @@ function extractOverlays(rom: NintendoDSRom, project: ProjectState, selectedNarc
 
   const moveEffectOverlay = project.overlays[moveEffectOverlayId];
   if (includeMoves && moveEffectOverlay) {
-    const effectTableOffset = moveEffectHandlerTableOffset(project);
-    project.narcs.move_effects_table = {
-      name: "move_effects_table",
-      fileId: -1,
-      sourcePath: `overlay${moveEffectOverlayId}:move_effects_table`,
-      fileCount: 1,
-      rawFiles: [moveEffectOverlay.slice(effectTableOffset, effectTableOffset + MOVE_EFFECT_HANDLER_TABLE_LENGTH)],
-      records: new Map(),
-      dirty: new Set(),
-    };
+    try { ensureMoveEffectHandlerStore(project); }
+    catch { /* The handler editor reports unsupported dispatch code without blocking ROM loading. */ }
   }
 
   if (project.session.baseRom === "BW2") {

@@ -32,6 +32,8 @@ import { decodeRecord, markDirty, type ProjectState } from "./projectStore";
 import { recordGenericChange } from "./actionChangelog";
 import { typeChartTypeCount } from "./typeChartModel";
 import { moveHistoryInitCall, moveHistoryProtectCall } from "./moveHistoryBindings";
+import { hydrateMoveHandlerTableSource } from "./moveEffectHandlerModel";
+import { readNativeMoveRegistry, moveHandlerOverlay, nativeMoveAssignments, moveRegistryDispatcherSignature } from "./nativeMoveRegistry";
 
 export const MOVE_EFFECTS_DLL_PATH = "patches/MoveEffects.dll";
 export const MOVE_RULE_API = ["BattleEventVar_GetValue", "BattleEventVar_GetValueIfExist", "BattleEventVar_RewriteValue", "BattleEventVar_MulValue", "GetBattleMon", "GetBattleMonStat", "GetPokeType", "PokeTypePair_IsMatch", "ServerEvent_GetWeather", "BtlServerFlow_IsSimulating", "BattleHandler_PushWork", "BattleHandler_PopWork", "BattleEventVar_Push", "BattleEventVar_Pop", "BattleEventVar_SetConstValue", "BattleEventVar_SetRewriteOnceValue", "IsAllyMonID", "CheckCondition", "BtlServerFlow_IsMonInBattle", "GetMonID", "GetBattleMonSpecies", "PML_MoveGetCategory", "GetTurnFlag", "RollEffectChance", "IsStatChangeValid", "IsFieldEffectActive", "ServerControl_CheckFloating", "BtlServerFlow_CheckMatchup", "BattleEventVar_SetValue", "BattleEvent_CallHandlers", "BtlCalc_MakeStatusCondition", "BattleEventItem_GetSubID", null, "DoesMoveEventExist", "BattleEvent_AddItem", null, null, "BattleRandom", "GetBattleMonHeldItem", "PML_ItemIsBerry", "GetSideFromOpposingMonID", "GetSideFromMonID", "sub_21ABB90", "RawBattleMonStat", "GetPreviousMoveID", "MoveGetID", "GetMovePP", "HandlerMoldBreakerStart", "HandlerMoldBreakerEnd", "HandlerBypassSubstitute", "PokeTypePair_GetType1", "PokeTypePair_GetType2", "PokeTypePair_Make", "BattleEvent_SeekItem", "ResetSpActPriority", "GetAdditionalConditionFlag", "BattleHandler_StrSetup", "BattleHandler_AddArg", "sub_21A7CB0", "sub_21AAB90", "IsSubstituteActive", "sub_21A57C4", "CritAtkDefLevel", "ServerEvent_GetMoveParam"] as const;
@@ -41,6 +43,7 @@ type Source = { base: number; armBase: number; game: string; revision: number; f
 const sources = new WeakMap<ProjectState, Source>();
 export function hydrateMoveEffectsSource(project: ProjectState, rom: NintendoDSRom): void {
   if (!supportsMoveRecipes(project)) return;
+  hydrateMoveHandlerTableSource(project, rom);
   const table=project.patches?.arm9OverlayTable ?? rom.arm9OverlayTable;
   const overlayId=project.session.baseRom==="BW"?93:167;
   for(let at=0;at+32<=table.length;at+=32)if(readU32(table,at)===overlayId){
@@ -115,6 +118,7 @@ function context(project: ProjectState, requireMoves = true) {
   const basic=(source.game==="IRBO"?black1Bindings.functions:source.game==="IRAO"?white1Bindings.functions:signatures) as Record<string,BattleRuntimeSignature>;
   const bw1=black1Bindings.functions as Record<string,BattleRuntimeSignature>;
   const nativeSignatures:Record<string,BattleRuntimeSignature>={...basic};
+  nativeSignatures.MoveEvent_AddItem=moveRegistryDispatcherSignature(nativeSignatures.MoveEvent_AddItem);
   nativeSignatures.BattleMon_GetCritStage??={...bw1.BattleMon_GetCritStage,module:String(overlayId)};
   nativeSignatures.BtlCalc_RollCritical??={...bw1.BtlCalc_RollCritical,module:String(overlayId)};
   nativeSignatures.getMoveFlag??=abilityNativeBindings.functions.getMoveFlag as BattleRuntimeSignature;
@@ -142,29 +146,36 @@ function context(project: ProjectState, requireMoves = true) {
   let base=source.base;
   const table=project.patches?.arm9OverlayTable;
   if(table)for(let at=0;at+32<=table.length;at+=32)if(readU32(table,at)===overlayId)base=readU32(table,at+4);
-  const overlay = project.overlays[overlayId];
+  let overlay = project.overlays[overlayId];
   if (!base || !overlay?.length || requireMoves && !project.narcs.moves) throw Error("Reload the ROM with Moves selected.");
-  const resolver = battleRuntimeResolver(overlay, base, project.arm9, source.armBase, nativeSignatures);
+  let resolver = battleRuntimeResolver(overlay, base, project.arm9, source.armBase, nativeSignatures);
   const dispatcher = resolver.resolve("MoveEvent_AddItem");
-  const first = readU32(dispatcher.code, 108), second = readU32(dispatcher.code, 116), count = readU32(dispatcher.code, 112);
-  if (second !== first + 4 || ![258, 384].includes(count)) throw Error("Unrecognized native move registry.");
-  const offset = first - base;
-  if (offset < 0 || offset + count * 8 > overlay.length || !catalog.rows.every((id, n) => readU32(overlay, offset + n * 8) === id || count === 384 && id === 216 && readU32(overlay, offset + n * 8) === 0 && readU32(overlay, offset + n * 8 + 4) === 0) || count === 384 && Array.from({length: 126}, (_, n) => n + 258).some(n => readU32(overlay, offset + n * 8) || readU32(overlay, offset + n * 8 + 4))) throw Error("Unrecognized native move assignments.");
-  const getters = new Map<number, { name: string; events: Array<{ event: number; handler: string }> }>();
+  const layout = readNativeMoveRegistry(overlay, base, dispatcher.code);
+  const effective = moveHandlerOverlay(project, overlay, layout);
+  if (effective !== overlay) { overlay = effective; resolver = battleRuntimeResolver(overlay, base, project.arm9, source.armBase, nativeSignatures); }
+  const assignments = nativeMoveAssignments(overlay, base, layout, project.narcs.moves?.fileCount ?? 65536, source.armBase, project.arm9.length);
+  const getters = new Map<number, { name: string; address: number; events: Array<{ event: number; handler: string }> }>();
   for (const [key, getter] of Object.entries(catalog.getters)) {
-    const id = Number(key), index = catalog.rows.indexOf(id), address = readU32(overlay, offset + index * 8 + 4) & ~1;
-    if (!resolver.matches(getter.name, address)) continue;
-    const eventAt = readU32(overlay, address - base + getter.tableRef) - base;
-    if (eventAt < 0 || eventAt + getter.events.length * 8 > overlay.length || !getter.events.every((e, n) => readU32(overlay, eventAt + n * 8) === e.event && resolver.matches(e.handler, readU32(overlay, eventAt + n * 8 + 4) & ~1))) continue;
+    // A table edit may move an operation to another move ID, or remove its
+    // assignment. Identify the reviewed operation by code and its event table.
+    const matches = (address: number) => {
+      if (!resolver.matches(getter.name, address)) return false;
+      const at = readU32(overlay!, address - base + getter.tableRef) - base;
+      return at >= 0 && at + getter.events.length * 8 <= overlay!.length && getter.events.every((e, n) => readU32(overlay!, at + n * 8) === e.event && resolver.matches(e.handler, readU32(overlay!, at + n * 8 + 4) & ~1));
+    };
+    const candidates = [...new Set([...assignments.values()].map(p => p & ~1))].filter(matches);
+    if (!candidates.length) for (let at = 0; at + nativeSignatures[getter.name].hex.length / 2 <= overlay.length; at += 2) if (matches(base + at)) candidates.push(base + at);
+    if (candidates.length !== 1) continue;
+    const address = candidates[0], id = Number(key), eventAt = readU32(overlay, address - base + getter.tableRef) - base;
     resolver.seed(getter.name, address);
     getter.events.forEach((e, n) => resolver.seed(e.handler, readU32(overlay, eventAt + n * 8 + 4) & ~1));
-    getters.set(id, getter);
+    getters.set(id, { ...getter, address });
   }
   const files = new Map(source.files);
   for(const[path,id]of source.ids)if(project.fileSystem?.replacements?.[id])files.set(path,project.fileSystem.replacements[id]);
   for (const [name, data] of Object.entries(project.fileSystem?.additions ?? {})) if (name.toLowerCase().endsWith(".dll")) files.set(name, data);
   const abilityCatalog=source.game==="IRBO"?black1Bindings.abilityCatalog:source.game==="IRAO"?white1Bindings.abilityCatalog:abilityContracts;
-  return { project, source, base, overlay, resolver, getters, files, signatures:nativeSignatures, overlayModule:String(overlayId), abilityCatalog, catalog, moveCount: project.narcs.moves?.fileCount ?? 65535 };
+  return { project, source, base, overlay, resolver, getters, assignments, files, signatures:nativeSignatures, overlayModule:String(overlayId), abilityCatalog, catalog, moveCount: project.narcs.moves?.fileCount ?? 65535 };
 }
 type Context = ReturnType<typeof context>;
 function resolveNativeSideState(c:Context):number {
@@ -402,9 +413,8 @@ function moduleFor(c: Context, saved: Saved, variant: RuntimeVariant=hasPersiste
       events.add(0x55);
       if(!c.getters.has(229))throw Error("Unrecognized native Rapid Spin handler.");
       const rapid=c.resolver.resolve("HandlerRapidSpin"),defog=c.resolver.resolve("WebDefog"),profile=(sideBindings as Record<string,typeof sideBindings.IRBO>)[c.source.game].defog;
-      const dispatcher=c.resolver.resolve("MoveEvent_AddItem"),table=readU32(dispatcher.code,108)-c.base,index=c.catalog.rows.indexOf(432);
-      const getter=readU32(c.overlay,table+index*8+4)&~1,getterAt=getter-c.base;
-      if(index<0||getterAt<0||getterAt+12>c.overlay.length||![0x2102,0x6001,0x4800,0x4770].every((v,n)=>readU16(c.overlay,getterAt+n*2)===v))throw Error("Unrecognized native Defog getter.");
+      const getter=(c.assignments.get(432)??0)&~1,getterAt=getter-c.base;
+      if(getterAt<0||getterAt+12>c.overlay.length||![0x2102,0x6001,0x4800,0x4770].every((v,n)=>readU16(c.overlay,getterAt+n*2)===v))throw Error("Unrecognized native Defog getter.");
       const handlerTable=readU32(c.overlay,getterAt+8)-c.base;
       if(handlerTable<0||handlerTable+8>c.overlay.length||readU32(c.overlay,handlerTable)!==0xa0||(readU32(c.overlay,handlerTable+4)&~1)!==defog.address)throw Error("Unrecognized native Defog assignment.");
       for(const call of profile.calls){const target=battleBranchTarget(defog.code,call.offset,defog.address),at=target-c.base;if(at<0||at+8>c.overlay.length||bytesHex(c.overlay.subarray(at,at+8))!==call.hex)throw Error("Unrecognized native Defog dependency.");}

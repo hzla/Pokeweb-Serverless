@@ -1,4 +1,5 @@
 import type { FieldSpec } from "./formats";
+import { moveHandlerTableFormat } from "./formats";
 import { parseHeaders } from "./headerModel";
 import { isGen4Project } from "./constants";
 import { GROTTO_ODDS_FIELDS } from "./martGrottoModel";
@@ -84,7 +85,7 @@ function materializeGrottoOdds(project: ProjectState): void {
 }
 
 function materializeFormattedStore(project: ProjectState, store: NarcStore): void {
-  const format = project.formats[store.name];
+  const format = store.name === "move_effects_table" ? moveHandlerTableFormat((store.rawFiles[0]?.length ?? 0) / 8) : project.formats[store.name];
   if (!format) return;
   for (const id of store.dirty) {
     const record = store.records.get(id);

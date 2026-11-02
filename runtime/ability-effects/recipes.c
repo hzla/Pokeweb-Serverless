@@ -95,6 +95,9 @@ static u32 recipeMatch(const volatile u8*e,u32 classAt,u32 typeAt,u32 categoryAt
 }
 static u32 conversionMatch(u32 filter,u32 move){
  if(!filter)return 1;
+#ifdef ABILITY_CUSTOM_FLAGS
+ if(filter>=14)return AbilityMoveHasCustomFlag(move,filter-13);
+#endif
  if(filter==1||filter==2||filter==5)return FN(31,u32(*)(u32,u32))(move,filter==1?0:filter==2?7:8);
  u32 bit=filter==3?1:filter==4?2:filter==6?4:filter==7?8:filter==8?16:filter==13?32:filter==12?64:0;
 #ifdef ABILITY_MOVE_CLASSES

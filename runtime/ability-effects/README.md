@@ -78,6 +78,23 @@ including after an external expansion or newly named moves. Unedited native move
 retain the shipped defaults.
 The lookup reads sorted classification data without dispatching battle events.
 
+**Manage flags** creates named custom tags. Check a tag in a move's Expanded Flags
+row, then choose **Custom: name** in an adjustable ability primitive's **Move filter**.
+The same tag can drive power/damage modifiers, move blocking, priority, reactions
+and type conversion wherever that primitive has a move filter. Existing AND/OR
+activation conditions still apply. Copied native callbacks keep their native flag
+checks; custom tags are consumed through the adjustable primitives.
+
+Custom definitions and assignments are stored in versioned metadata in the same
+shared DLL and survive ROM export/reload and project saves. Renaming preserves the
+ID and all recipe references. A flag used by a saved ability cannot be removed
+until those references are changed. Removed IDs are retired to prevent old drafts
+from silently referring to a new tag. There are 242 custom IDs (filter values
+14–255), names of 1–32 UTF-16 code units, and at most 4,096 move/tag assignments;
+the normal shared-DLL memory budget also applies. IDs are independent of the seven
+built-in classification bits. The runtime binary-searches sorted (move ID, flag ID)
+pairs without additional battle-event or weather queries.
+
 Power modifiers, including type-conversion bonuses, apply at the native power
 ratio stage. Conversion bonuses apply only to moves whose type is converted.
 Custom stat-stage actions check the requested stage change against native limits
@@ -104,10 +121,12 @@ behavior in pokeemerald-expansion while using Gen 5's native messages and queue.
 
 Build from the repository root with `python3 runtime/ability-effects/build.py`.
 The original templates remain available for strict verification of older exports;
-the default build updates only the current message bundle. `--move-classes-only`
-and `--optimized-only` rebuild retained bundles for verification of older exports;
+the default build updates only the current custom-flag bundle (`--custom-flags-only`).
+`--messages-only`, `--move-classes-only` and `--optimized-only` rebuild retained bundles for verification of older exports;
 released bundles must remain byte-identical when making a new runtime. Runtime
-version 4 adds battle explanations, entry notices, expanded classification defaults,
+version 5 adds the custom flag registry and generic filters; version 4 remains
+available for strict verification of existing exports. Version 4 added battle
+explanations, entry notices, expanded classification defaults,
 Whirlwind absorption and the corrected Perish countdown. It includes version 3's
 classification overrides, corrected power ratios and stat popup guards. New modules retain
 `PokewebAbilityDispatchVersion: 2`; recipe and condition record formats are unchanged.

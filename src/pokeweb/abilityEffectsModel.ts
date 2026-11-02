@@ -8,6 +8,8 @@ import whiteBindings from "../assets/data/abilityBindingsW1.json";
 import optimizedTemplates from "../assets/data/abilityRuleRuntimeOptimized.json";
 import classTemplates from "../assets/data/abilityRuleRuntimeMoveClasses.json";
 import messageTemplates from "../assets/data/abilityRuleRuntimeMessages.json";
+import customFlagTemplates from "../assets/data/abilityRuleRuntimeCustomFlags.json";
+import { customMoveFlagId, customMoveFlagName, emptyCustomMoveFlags, encodeCustomMoveFlags, MAX_CUSTOM_MOVE_FLAGS, validateCustomMoveFlags, type CustomMoveFlagRegistry } from "./customMoveFlags";
 import { defaultMoveDllFlags, moveDllFlags, validateMoveClassOverrides, encodeMoveClassOverrides, expandedMoveDllDefaults, mergedMoveClassData } from "./abilityMoveClasses";
 import { ensureAbilityBlockMessages, ensureAbilityPresentationMessages } from "./abilityBattleMessages";
 import { abilityRuleEvents } from "./abilityEvents";
@@ -48,7 +50,7 @@ import { isVerifiedBattleCounterImport } from "./battleLogModel";
 import { detectSpecifyTrainerNaturesPatch, specifyTrainerNatures } from "./romPatchModel";
 import type { ProjectState } from "./projectStore";
 export const ABILITY_EFFECTS_DLL_PATH = "patches/AbilityEffects.dll";
-export const CURRENT_ABILITY_RUNTIME_VERSION = 4;
+export const CURRENT_ABILITY_RUNTIME_VERSION = 5;
 const retired = Uint8Array.of(80, 87, 65, 82);
 const optimizedRuntime = new Map<unknown, unknown>([
     [template, optimizedTemplates["abilityRuleRuntime.json"]],
@@ -93,6 +95,19 @@ const messageRuntime = new Map<unknown, unknown>([
     [scopedClientTemplate, messageTemplates["abilityRuleRuntimeClientScoped.json"]],
     [actionRecipeTemplate, messageTemplates["abilityRuleRuntimeRecipesActions.json"]],
     [actionClientTemplate, messageTemplates["abilityRuleRuntimeClientActions.json"]],
+]);
+const customFlagRuntime = new Map<unknown, unknown>([
+    [groupedTemplate, customFlagTemplates["abilityRuleRuntimeGrouped.json"]],
+    [groupedPriorityTemplate, customFlagTemplates["abilityRuleRuntimePriorityGrouped.json"]],
+    [groupedLibraryTemplate, customFlagTemplates["abilityRuleRuntimeLibraryGrouped.json"]],
+    [groupedRecipeTemplate, customFlagTemplates["abilityRuleRuntimeRecipesGrouped.json"]],
+    [groupedClientTemplate, customFlagTemplates["abilityRuleRuntimeClientGrouped.json"]],
+    [weatherRecipeTemplate, customFlagTemplates["abilityRuleRuntimeRecipesWeather.json"]],
+    [weatherClientTemplate, customFlagTemplates["abilityRuleRuntimeClientWeather.json"]],
+    [scopedRecipeTemplate, customFlagTemplates["abilityRuleRuntimeRecipesScoped.json"]],
+    [scopedClientTemplate, customFlagTemplates["abilityRuleRuntimeClientScoped.json"]],
+    [actionRecipeTemplate, customFlagTemplates["abilityRuleRuntimeRecipesActions.json"]],
+    [actionClientTemplate, customFlagTemplates["abilityRuleRuntimeClientActions.json"]],
 ]);
 type Source = {
     base: number;
@@ -242,6 +257,21 @@ function automaticMoveClasses(c: Context, refresh = false): Map<number, number> 
     if (refresh) for (const [id,mask] of expandedMoveDllDefaults(c.project)) result.set(id,mask);
     return result;
 }
+function storedCustomMoveFlags(c: Context): CustomMoveFlagRegistry {
+    const bytes=c.files.get(ABILITY_EFFECTS_DLL_PATH);if(!bytes||same(bytes,retired))return emptyCustomMoveFlags();
+    const metadata=parseRpm(bytes,{allowedMagics:["DLXF"]}).metadata;
+    if(metadata.PokewebAbilityCustomMoveFlags===undefined&&metadata.PokewebCustomMoveFlags===undefined)return emptyCustomMoveFlags();
+    if(metadata.PokewebAbilityCustomMoveFlags!==1||typeof metadata.PokewebCustomMoveFlags!=="string")throw Error("Unrecognized custom move flag data.");
+    return validateCustomMoveFlags(JSON.parse(metadata.PokewebCustomMoveFlags));
+}
+function validateCustomFlagReferences(entries: ReadonlyMap<number,AbilityRuleSet>, registry: CustomMoveFlagRegistry): void {
+    const ids=new Set(registry.flags.map(flag=>flag.id));
+    for(const rule of entries.values())for(const effect of rule.effects){
+        if(!libraryAbilityEffect(effect.kind)&&!recipeAbilityEffect(effect.kind))continue;
+        const id=customMoveFlagId(effect.parameters?.moveClass??0);
+        if(id!==undefined&&!ids.has(id))throw Error(`Custom move flag ${id} is missing. Choose an existing flag.`);
+    }
+}
 function storedBlockMessage(c: Context): number | undefined {
     const bytes=c.files.get(ABILITY_EFFECTS_DLL_PATH);if(!bytes||same(bytes,retired))return;
     const value=parseRpm(bytes,{allowedMagics:["DLXF"]}).metadata.PokewebAbilityBlockMessage;
@@ -258,7 +288,9 @@ function storedPresentationMessages(c:Context): number[] | undefined {
     if(!Array.isArray(ids)||ids.length!==15||ids.some(id=>!Number.isInteger(id)||id<0||id>65532))throw Error("Invalid ability presentation messages.");
     return ids;
 }
-function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, previewHook = false, clientHooks = true, popupGroups = true, optimized = true, chainOwner = false, skipItemMoveParam = false, modern = true, overrides: ReadonlyMap<number, number> = storedMoveClasses(c), battleMessages = modern, blockMessage = storedBlockMessage(c), presentationMessages = storedPresentationMessages(c), automatic: ReadonlyMap<number,number> = battleMessages ? automaticMoveClasses(c,true) : new Map()): RpmModule {
+function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, previewHook = false, clientHooks = true, popupGroups = true, optimized = true, chainOwner = false, skipItemMoveParam = false, modern = true, overrides: ReadonlyMap<number, number> = storedMoveClasses(c), battleMessages = modern, blockMessage = storedBlockMessage(c), presentationMessages = storedPresentationMessages(c), automatic: ReadonlyMap<number,number> = battleMessages ? automaticMoveClasses(c,true) : new Map(), customFlags = true, registry: CustomMoveFlagRegistry = storedCustomMoveFlags(c)): RpmModule {
+    registry=validateCustomMoveFlags(registry);
+    validateCustomFlagReferences(entries,registry);
     for (const rule of entries.values())
         for (const e of rule.effects) {
             const p = nativeAbilityProfile(e.kind);
@@ -276,7 +308,7 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
         ? traps ? groupedClientTemplate : recipes ? groupedRecipeTemplate : library ? groupedLibraryTemplate : priority ? groupedPriorityTemplate : groupedTemplate
         : traps ? clientTemplate : recipes ? recipeTemplate : library ? libraryTemplate : priority ? priorityTemplate : template;
     if (modern && (!optimized || !popupGroups)) throw Error("Expanded Flags require the current ability runtime.");
-    const selectedTemplate = (modern ? (battleMessages ? messageRuntime : classRuntime).get(legacyTemplate) : optimized ? optimizedRuntime.get(legacyTemplate) : legacyTemplate) as typeof template;
+    const selectedTemplate = (modern ? (battleMessages ? customFlags ? customFlagRuntime : messageRuntime : classRuntime).get(legacyTemplate) : optimized ? optimizedRuntime.get(legacyTemplate) : legacyTemplate) as typeof template;
     if (!selectedTemplate) throw new Error("Missing optimized ability runtime.");
     const rpm = structuredClone(selectedTemplate) as unknown as RpmModule;
     rpm.code = Uint8Array.from(selectedTemplate.code);
@@ -337,6 +369,10 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
         const classes = append(encodeMoveClassOverrides(mergedMoveClassData(overrides,automatic)), "SECTION");
         rpm.relocations.push({ target: { module: "base", address: named("AbilityMoveClassData").address, type: "OFFSET" }, sourceSymbolIndex: classes });
     }
+    if(customFlags){
+        const flags=append(encodeCustomMoveFlags(registry),"SECTION");
+        rpm.relocations.push({target:{module:"base",address:named("AbilityCustomMoveFlagData").address,type:"OFFSET"},sourceSymbolIndex:flags});
+    }
     if (battleMessages && blockMessage !== undefined && (library || recipes)) writeU16(rpm.code,named("AbilityBlockMessage").address,blockMessage);
     if (battleMessages && recipes && presentationMessages) presentationMessages.forEach((id,n)=>writeU16(rpm.code,named("AbilityPresentationMessages").address+n*2,id));
     linkNativeAbilities(rpm, entries, rpm.symbols[data].address, c.resolver.resolve, (name, address, size, copied) => assertUnhooked(c, name, address, size, copied), c.profiles, c.signatures);
@@ -392,6 +428,7 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
         rpm.metadata.PokewebMoveClassOverrides = JSON.stringify([...validateMoveClassOverrides([...overrides], new Map(),battleMessages)]);
         if (battleMessages) rpm.metadata.PokewebMoveClassDefaults = JSON.stringify([...validateMoveClassOverrides([...automatic])]);
     }
+    if(customFlags){rpm.metadata.PokewebAbilityCustomMoveFlags=1;rpm.metadata.PokewebCustomMoveFlags=JSON.stringify(registry);}
     if (battleMessages) rpm.metadata.PokewebAbilityBattleMessages = 1;
     if (battleMessages && blockMessage !== undefined) rpm.metadata.PokewebAbilityBlockMessage = blockMessage;
     if (battleMessages && presentationMessages) rpm.metadata.PokewebAbilityPresentationMessages = JSON.stringify(presentationMessages);
@@ -429,7 +466,7 @@ function readRules(c: Context, verifyPeer = true): Map<number, AbilityRuleSet> {
     if (rpm.metadata.PokewebAbilityEffects !== "rules" || rpm.metadata.PMCVersion !== "1.0.0" || typeof rpm.metadata.PokewebAbilityRules !== "string")
         throw new Error("Unrecognized shared ability effects DLL.");
     const entries: unknown = JSON.parse(rpm.metadata.PokewebAbilityRules), rules = new Map<number, AbilityRuleSet>();
-    if (!Array.isArray(entries) || !entries.length && !storedMoveClasses(c).size && !automaticMoveClasses(c).size || entries.length > 255)
+    if (!Array.isArray(entries) || !entries.length && !storedMoveClasses(c).size && !automaticMoveClasses(c).size && storedCustomMoveFlags(c).nextId===1 || entries.length > 255)
         throw new Error("Invalid ability registry.");
     for (const entry of entries) {
         if (!Array.isArray(entry) || entry.length !== 2 || !Number.isInteger(entry[0]) || entry[0] < 1 || entry[0] > 255 || rules.has(entry[0]))
@@ -444,7 +481,7 @@ function readRules(c: Context, verifyPeer = true): Map<number, AbilityRuleSet> {
     const owner=rpm.metadata.PokewebMoveParamChain==="owner";
     if(rpm.metadata.PokewebMoveParamChain!==undefined&&!owner)throw Error("Unrecognized shared move-parameter owner.");
     if(owner)assertNoCompetingMoveParamProviders(c);
-    if (!same(bytes, writeRpm(moduleFor(c, rules, false, clientHooks, popupGroups, optimized,owner,false,modern,storedMoveClasses(c),battleMessages,storedBlockMessage(c),storedPresentationMessages(c),automaticMoveClasses(c)), { ident: "DLXF" })) && !same(bytes, writeRpm(moduleFor(c, rules, true, clientHooks, popupGroups, optimized,owner,false,modern,storedMoveClasses(c),battleMessages,storedBlockMessage(c),storedPresentationMessages(c),automaticMoveClasses(c)), { ident: "DLXF" })))
+    if (!same(bytes, writeRpm(moduleFor(c, rules, false, clientHooks, popupGroups, optimized,owner,false,modern,storedMoveClasses(c),battleMessages,storedBlockMessage(c),storedPresentationMessages(c),automaticMoveClasses(c),rpm.metadata.PokewebAbilityCustomMoveFlags===1,storedCustomMoveFlags(c)), { ident: "DLXF" })) && !same(bytes, writeRpm(moduleFor(c, rules, true, clientHooks, popupGroups, optimized,owner,false,modern,storedMoveClasses(c),battleMessages,storedBlockMessage(c),storedPresentationMessages(c),automaticMoveClasses(c),rpm.metadata.PokewebAbilityCustomMoveFlags===1,storedCustomMoveFlags(c)), { ident: "DLXF" })))
         throw new Error("The shared ability effects DLL has been modified.");
     if(owner&&verifyPeer){
         const peer=c.files.get("patches/ItemEffects.dll");
@@ -457,7 +494,7 @@ export function inspectAbilityEffects(project: ProjectState): {
     editable: boolean;
     message: string;
     rules: Map<number, AbilityRuleSet>;
-    runtimeVersion?: 1 | 2 | 3 | 4;
+    runtimeVersion?: 1 | 2 | 3 | 4 | 5;
 } {
     try {
         const c = context(project), rules = readRules(c);
@@ -465,7 +502,7 @@ export function inspectAbilityEffects(project: ProjectState): {
             moduleFor(c, new Map([[1, validateAbilityRule(EMPTY_ABILITY_RULE)]]));
         const bytes = c.files.get(ABILITY_EFFECTS_DLL_PATH);
         const metadata = bytes && !same(bytes, retired) ? parseRpm(bytes, { allowedMagics: ["DLXF"] }).metadata : undefined;
-        const runtimeVersion = metadata ? metadata.PokewebAbilityBattleMessages === 1 ? 4 : metadata.PokewebAbilityPowerRatio === 1 ? 3 : metadata.PokewebAbilityDispatchVersion === 2 ? 2 : 1 : undefined;
+        const runtimeVersion = metadata ? metadata.PokewebAbilityCustomMoveFlags === 1 ? 5 : metadata.PokewebAbilityBattleMessages === 1 ? 4 : metadata.PokewebAbilityPowerRatio === 1 ? 3 : metadata.PokewebAbilityDispatchVersion === 2 ? 2 : 1 : undefined;
         return { editable: true, message: rules.size ? "Shared DLL verified" : "Native ability runtime verified", rules, runtimeVersion };
     }
     catch (error) {
@@ -530,12 +567,12 @@ export function prepareAbilityMoveParamForItem(project:ProjectState,providerPres
     const module=moduleFor(c,rules,false,true,true,true,chain,true);
     return {chain,module,...(chain?{address:Number(module.metadata.PokewebMoveParamAddress)}:{})};
 }
-export function buildAbilityRuleModule(project: ProjectState, entries: ReadonlyMap<number, AbilityRuleSet>, moveClasses?: ReadonlyMap<number, number>): RpmModule {
+export function buildAbilityRuleModule(project: ProjectState, entries: ReadonlyMap<number, AbilityRuleSet>, moveClasses?: ReadonlyMap<number, number>, customFlags?: CustomMoveFlagRegistry): RpmModule {
     const checked = new Map([...entries].map(([id, r]) => [id, validateAbilityRule(r)]));
-    if (!checked.size && !moveClasses?.size)
+    if (!checked.size && !moveClasses?.size && !customFlags?.flags.length)
         throw new Error("Choose an ability effect.");
     const c = context(project);
-    return moduleFor(c, checked, false, true, true, true, false, false, true, moveClasses ?? storedMoveClasses(c));
+    return moduleFor(c, checked, false, true, true, true, false, false, true, moveClasses ?? storedMoveClasses(c),true,storedBlockMessage(c),storedPresentationMessages(c),automaticMoveClasses(c,true),true,customFlags??storedCustomMoveFlags(c));
 }
 function setName(project: ProjectState, id: number, name: string): void {
     const descriptionBank = project.session.baseRom === "BW" ? 183 : 375;
@@ -632,7 +669,7 @@ export function clearAbilityRules(project: ProjectState, id: number): void {
     const chain=needsProvider&&itemPlan.present;
     const blockMessage=ensureAbilityBlockMessages(project,rules)??storedBlockMessage(c);
     const presentationMessages=ensureAbilityPresentationMessages(project,rules)??storedPresentationMessages(c);
-    const next=rules.size||storedMoveClasses(c).size||automaticMoveClasses(c,true).size?moduleFor(c,rules,false,true,true,true,chain,chain,true,storedMoveClasses(c),true,blockMessage,presentationMessages):undefined;
+    const next=rules.size||storedMoveClasses(c).size||automaticMoveClasses(c,true).size||storedCustomMoveFlags(c).nextId>1?moduleFor(c,rules,false,true,true,true,chain,chain,true,storedMoveClasses(c),true,blockMessage,presentationMessages):undefined;
     if(chain&&(!next||next.metadata.PokewebMoveParamAddress!==itemPlan.address))throw Error("The shared ability and item hooks resolve to different native services.");
     if(itemPlan.module)stageCodeInjectionDll(project,"ItemEffects.dll",writeRpm(itemPlan.module,{ident:"DLXF"}));
     if (next)
@@ -660,39 +697,77 @@ export function inspectMoveDllFlags(project: ProjectState, moveId: number): { ed
     }
 }
 
-/** Persist classification data and install/update its shared runtime atomically. */
-export async function configureMoveDllFlags(project: ProjectState, moveId: number, flags: number): Promise<void> {
-    const state = inspectMoveDllFlags(project, moveId);
-    if (!state.editable) throw Error(state.message);
-    if (!Number.isInteger(flags) || flags < 0 || flags > 127) throw Error("Invalid expanded move flags.");
-    if (flags === state.flags) return;
-    const prepare = (target: ProjectState, installMessages = false) => {
-        const c = context(target), rules = readRules(c), overrides = storedMoveClasses(c);
-        if (flags === (automaticMoveClasses(c,true).get(moveId) ?? defaultMoveDllFlags(moveId))) overrides.delete(moveId); else overrides.set(moveId, flags);
-        const needsProvider = [...rules.values()].some(rule => rule.effects.some(effect => recipeAbilityEffect(effect.kind)));
-        const item = c.files.has("patches/ItemEffects.dll") ? prepareItemMoveParamForAbility(target, needsProvider) : { present: false };
-        const chain = needsProvider && item.present;
+/** Persist flags and their shared runtime as one checked transaction. */
+async function editExpandedMoveFlags(project: ProjectState, edit: (registry: CustomMoveFlagRegistry, overrides: Map<number,number>, c: Context) => void, log: (target: ProjectState) => void): Promise<void> {
+    const prepare=(target:ProjectState,installMessages=false)=>{
+        const c=context(target),rules=readRules(c),registry=storedCustomMoveFlags(c),overrides=storedMoveClasses(c);
+        edit(registry,overrides,c);
+        const checked=validateCustomMoveFlags(registry);validateCustomFlagReferences(rules,checked);
+        const needsProvider=[...rules.values()].some(rule=>rule.effects.some(effect=>recipeAbilityEffect(effect.kind)));
+        const item=c.files.has("patches/ItemEffects.dll")?prepareItemMoveParamForAbility(target,needsProvider):{present:false};
+        const chain=needsProvider&&item.present;
         const blockMessage=(installMessages?ensureAbilityBlockMessages(target,rules):undefined)??storedBlockMessage(c);
         const presentationMessages=(installMessages?ensureAbilityPresentationMessages(target,rules):undefined)??storedPresentationMessages(c);
-        const module = rules.size || overrides.size || automaticMoveClasses(c,true).size ? moduleFor(c, rules, false, true, true, true, chain, chain, true, overrides,true,blockMessage,presentationMessages) : undefined;
-        if (chain && module?.metadata.PokewebMoveParamAddress !== item.address) throw Error("The shared ability and item hooks resolve to different native services.");
-        return { c, module, item };
+        const module=rules.size||overrides.size||automaticMoveClasses(c,true).size||checked.nextId>1?moduleFor(c,rules,false,true,true,true,chain,chain,true,overrides,true,blockMessage,presentationMessages,automaticMoveClasses(c,true),true,checked):undefined;
+        if(chain&&module?.metadata.PokewebMoveParamAddress!==item.address)throw Error("The shared ability and item hooks resolve to different native services.");
+        return{c,module,item};
     };
     prepare(project);
-    await installCodeInjectionPatch(project, async staged => {
-        if (detectSpecifyTrainerNaturesPatch(staged) === "legacy") await specifyTrainerNatures(staged);
-        const { c, module, item } = prepare(staged,true);
-        if (item.module) stageCodeInjectionDll(staged, "ItemEffects.dll", writeRpm(item.module, { ident: "DLXF" }));
-        if (module) stageCodeInjectionDll(staged, "AbilityEffects.dll", writeRpm(module, { ident: "DLXF" }));
-        else {
-            const files = ensureFileSystemState(staged); delete files.additions![ABILITY_EFFECTS_DLL_PATH];
-            const id = c.source.ids.get(ABILITY_EFFECTS_DLL_PATH);
-            if (id !== undefined) setRomFileReplacement(staged, id, retired.slice());
-            if (staged.codeInjection?.modules) staged.codeInjection.modules = staged.codeInjection.modules.filter(entry => entry.path !== ABILITY_EFFECTS_DLL_PATH);
+    await installCodeInjectionPatch(project,async staged=>{
+        if(detectSpecifyTrainerNaturesPatch(staged)==="legacy")await specifyTrainerNatures(staged);
+        const{c,module,item}=prepare(staged,true);
+        if(item.module)stageCodeInjectionDll(staged,"ItemEffects.dll",writeRpm(item.module,{ident:"DLXF"}));
+        if(module)stageCodeInjectionDll(staged,"AbilityEffects.dll",writeRpm(module,{ident:"DLXF"}));
+        else{
+            const files=ensureFileSystemState(staged);delete files.additions![ABILITY_EFFECTS_DLL_PATH];
+            const id=c.source.ids.get(ABILITY_EFFECTS_DLL_PATH);if(id!==undefined)setRomFileReplacement(staged,id,retired.slice());
+            if(staged.codeInjection?.modules)staged.codeInjection.modules=staged.codeInjection.modules.filter(entry=>entry.path!==ABILITY_EFFECTS_DLL_PATH);
         }
-        recordFieldChange(staged, "moves", staged.texts.banks.moves?.[moveId] ?? `Move ${moveId}`, "Expanded Flags", state.flags, flags, { key: `move-dll-flags:${moveId}` });
+        log(staged);
     });
     verified.delete(project);
+}
+export async function configureMoveDllFlags(project: ProjectState, moveId: number, flags: number): Promise<void> {
+    const state=inspectMoveDllFlags(project,moveId);if(!state.editable)throw Error(state.message);
+    if(!Number.isInteger(flags)||flags<0||flags>127)throw Error("Invalid expanded move flags.");
+    if(flags===state.flags)return;
+    await editExpandedMoveFlags(project,(_registry,overrides,c)=>{
+        if(flags===(automaticMoveClasses(c,true).get(moveId)??defaultMoveDllFlags(moveId)))overrides.delete(moveId);else overrides.set(moveId,flags);
+    },target=>recordFieldChange(target,"moves",target.texts.banks.moves?.[moveId]??`Move ${moveId}`,"Expanded Flags",state.flags,flags,{key:`move-dll-flags:${moveId}`}));
+}
+export function inspectCustomMoveFlags(project: ProjectState): {editable:boolean;message:string;registry:CustomMoveFlagRegistry;references:Record<number,number[]>} {
+    try{
+        const c=context(project),rules=readRules(c),registry=storedCustomMoveFlags(c),references:Record<number,number[]>={};
+        for(const[id,rule]of rules)for(const effect of rule.effects){const flag=customMoveFlagId(effect.parameters?.moveClass??0);if(flag!==undefined&&!(references[flag]??=[]).includes(id))references[flag].push(id);}
+        return{editable:true,message:"",registry,references};
+    }catch(error){return{editable:false,message:error instanceof Error?error.message:String(error),registry:emptyCustomMoveFlags(),references:{}};}
+}
+export async function createCustomMoveFlag(project:ProjectState,input:string):Promise<number>{
+    const name=customMoveFlagName(input);let id=0;
+    await editExpandedMoveFlags(project,registry=>{
+        if(registry.nextId>MAX_CUSTOM_MOVE_FLAGS)throw Error(`The ${MAX_CUSTOM_MOVE_FLAGS} custom flag IDs are in use or retired.`);
+        id=registry.nextId++;registry.flags.push({id,name,moves:[]});
+    },target=>recordFieldChange(target,"moves","Expanded Flags","Custom flag","",name,{key:`move-custom-flag:${id}`}));
+    return id;
+}
+export async function renameCustomMoveFlag(project:ProjectState,id:number,input:string):Promise<void>{
+    const name=customMoveFlagName(input);let previous="";
+    await editExpandedMoveFlags(project,registry=>{const flag=registry.flags.find(flag=>flag.id===id);if(!flag)throw Error("Custom flag no longer exists.");previous=flag.name;flag.name=name;},target=>recordFieldChange(target,"moves","Expanded Flags","Custom flag",previous,name,{key:`move-custom-flag:${id}`}));
+}
+export async function deleteCustomMoveFlag(project:ProjectState,id:number):Promise<void>{
+    const state=inspectCustomMoveFlags(project);if(!state.editable)throw Error(state.message);
+    const used=state.references[id]??[];
+    if(used.length)throw Error(`This flag is used by ${used.map(id=>project.texts.banks.abilities?.[id]??`Ability ${id}`).join(", ")}. Change those recipes before removing it.`);
+    let previous="";
+    await editExpandedMoveFlags(project,registry=>{const flag=registry.flags.find(flag=>flag.id===id);if(!flag)throw Error("Custom flag no longer exists.");previous=flag.name;registry.flags=registry.flags.filter(flag=>flag.id!==id);},target=>recordFieldChange(target,"moves","Expanded Flags","Custom flag",previous,"Removed",{key:`move-custom-flag:${id}`}));
+}
+export async function configureCustomMoveFlag(project:ProjectState,moveId:number,flagId:number,enabled:boolean):Promise<void>{
+    const state=inspectMoveDllFlags(project,moveId);if(!state.editable)throw Error(state.message);
+    if(typeof enabled!=="boolean")throw Error("Invalid custom flag assignment.");
+    await editExpandedMoveFlags(project,registry=>{
+        const flag=registry.flags.find(flag=>flag.id===flagId);if(!flag)throw Error("Custom flag no longer exists.");
+        flag.moves=flag.moves.filter(id=>id!==moveId);if(enabled)flag.moves.push(moveId);
+    },target=>recordFieldChange(target,"moves",target.texts.banks.moves?.[moveId]??`Move ${moveId}`,`Custom flag ${flagId}`,!enabled,enabled,{key:`move-custom-flag:${flagId}:${moveId}`}));
 }
 
 /** Our expansion can be installed after ability recipes. Refresh the same DLL

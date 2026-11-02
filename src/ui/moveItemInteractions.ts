@@ -311,14 +311,6 @@ export function attachMoveInteractions(root: HTMLElement, project: ProjectState,
       return;
     }
 
-    const prop = target.closest<HTMLElement>(".move-prop");
-    if (prop?.dataset.fieldName) {
-      const next = !prop.classList.contains("-active");
-      updateMoveField(project, moveId, prop.dataset.fieldName, next);
-      prop.classList.toggle("-active", next);
-      return;
-    }
-
     const animationRowToggle = target.closest<HTMLButtonElement>(".move-animation-row-toggle");
     if (animationRowToggle) {
       options.onOpenMoveAnimation?.(moveId);
@@ -343,6 +335,25 @@ export function attachMoveInteractions(root: HTMLElement, project: ProjectState,
     }
     togglePanel(card, ".expanded-move", icon);
     stripeRows(root);
+  }, { signal: controller.signal });
+
+  root.addEventListener("change", (event) => {
+    const checkbox = event.target as HTMLInputElement;
+    if (!checkbox.matches("input.move-native-flag")) return;
+    const card = checkbox.closest<HTMLElement>(".move-card");
+    const moveId = Number(card?.dataset.index);
+    const fieldName = checkbox.dataset.fieldName;
+    if (!card || !Number.isInteger(moveId) || !fieldName) return;
+    try {
+      updateMoveField(project, moveId, fieldName, checkbox.checked);
+      checkbox.classList.remove("invalid");
+      checkbox.removeAttribute("title");
+      options.onDirty?.();
+    } catch (error) {
+      checkbox.checked = !checkbox.checked;
+      checkbox.classList.add("invalid");
+      checkbox.title = errorMessage(error);
+    }
   }, { signal: controller.signal });
 
   installMoveEditableFields(root, project, options);

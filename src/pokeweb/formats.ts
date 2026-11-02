@@ -3,6 +3,10 @@ import { isGen4BaseRom, type BaseRom, type NarcName } from "./constants";
 export type FieldSpec = [number, string];
 export type NarcFormatMap = Partial<Record<NarcName, FieldSpec[]>>;
 
+export function moveHandlerTableFormat(count: number): FieldSpec[] {
+  return Array.from({ length: count }, (_, n) => [[4, `move_id_${n}`], [4, `address_${n}`]] as FieldSpec[]).flat();
+}
+
 function range(count: number, make: (index: number) => FieldSpec[]): FieldSpec[] {
   return Array.from({ length: count }, (_, index) => make(index)).flat();
 }
@@ -123,10 +127,7 @@ export function getNarcFormats(baseRom: BaseRom): NarcFormatMap {
     [2, `lvl_learned_${n}`],
   ]);
 
-  formats.move_effects_table = range(258, (n) => [
-    [4, `move_id_${n}`],
-    [4, `address_${n}`],
-  ]);
+  formats.move_effects_table = moveHandlerTableFormat(258);
 
   formats.evolutions = range(8, (n) => [
     [2, `method_${n}`],

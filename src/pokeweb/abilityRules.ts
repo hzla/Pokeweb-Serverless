@@ -1,3 +1,4 @@
+import { customMoveFlagId } from "./customMoveFlags";
 import {RECIPE_ABILITY_EFFECTS,recipeAbilityEffect,recipeAbilityParameter,RECIPE_PARAMETER_BYTES} from "./abilityRecipeEffects";
 import { NATIVE_ABILITY_PROFILES, nativeAbilityProfile } from "./abilityNativeRuntime";
 import abilityNames from "../assets/data/vanilla_abilities.txt?raw";
@@ -32,7 +33,7 @@ export function validateAbilityRule(input: AbilityRuleSet): AbilityRuleSet {
             const parameters:Record<string,number>={};
             if(effect.parameters!==undefined){
                 if(!effect.parameters||typeof effect.parameters!=="object"||Array.isArray(effect.parameters))throw new Error("Invalid library ability parameters.");
-                for(const[key,value]of Object.entries(effect.parameters).sort(([a],[b])=>a.localeCompare(b))){const p=library.parameters.find(p=>p.key===key);if(!p||!Number.isFinite(value)||value<p.min||value>p.max||Math.abs(value/p.step-Math.round(value/p.step))>1e-7||p.choices&&!p.choices.includes(value))throw new Error(`Invalid library ability parameter: ${key}`);parameters[key]=value;}
+                for(const[key,value]of Object.entries(effect.parameters).sort(([a],[b])=>a.localeCompare(b))){const p=library.parameters.find(p=>p.key===key);if(!p||!Number.isFinite(value)||value<p.min||value>p.max||Math.abs(value/p.step-Math.round(value/p.step))>1e-7||p.choices&&!p.choices.includes(value)&&!(key==="moveClass"&&customMoveFlagId(value)!==undefined))throw new Error(`Invalid library ability parameter: ${key}`);parameters[key]=value;}
             }
             if(library.code===144&&(parameters.format??0)===1&&(!Number.isInteger(effect.value)||effect.value<1))throw new Error("Choose a positive whole healing divisor.");
             return {kind:effect.kind,value:effect.value,bypassable:effect.bypassable??library.bypassable,...(Object.keys(parameters).length?{parameters}:{})};
