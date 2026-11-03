@@ -25,6 +25,7 @@ const MAX_FORM_COUNT = 31;
 const BW_ALT_FORM_SPRITE_START = 652;
 const BW2_ALT_FORM_SPRITE_START = 685;
 const W2U_ALT_FORM_SPRITE_START = 724;
+const BW_FIRST_APPENDED_FORM_PERSONAL_ID = 669;
 const BW2_FIRST_APPENDED_FORM_PERSONAL_ID = 710;
 
 type FileSnapshot = Uint8Array;
@@ -93,11 +94,12 @@ export function getPokemonFormDeletionAvailability(project: ProjectState, reques
   if (owner.formIndex !== formCount - 1) {
     return { deletable: false, reason: "Delete this Pokemon's forms in reverse order, starting with its last form." };
   }
-  if (requestedPersonalId !== personal.rawFiles.length - 1) {
-    return { deletable: false, reason: "This form is not the latest appended personal file. Delete newer appended forms first." };
+  const firstAppendedId = project.session.baseRom === "BW2" ? BW2_FIRST_APPENDED_FORM_PERSONAL_ID : BW_FIRST_APPENDED_FORM_PERSONAL_ID;
+  if (requestedPersonalId < firstAppendedId) {
+    return { deletable: false, reason: "Only appended forms can be deleted; original ROM forms are protected." };
   }
-  if (learnsets.rawFiles.length !== requestedPersonalId + 1 || evolutions.rawFiles.length !== requestedPersonalId + 1) {
-    return { deletable: false, reason: "The form is no longer the aligned tail of the learnset and evolution archives." };
+  if (!learnsets.rawFiles[requestedPersonalId]?.length || !evolutions.rawFiles[requestedPersonalId]?.length) {
+    return { deletable: false, reason: "The form's learnset or evolution record is missing." };
   }
 
   let spriteId: number;
@@ -106,12 +108,33 @@ export function getPokemonFormDeletionAvailability(project: ProjectState, reques
   } catch {
     return { deletable: false, reason: "The form's sprite ID could not be resolved." };
   }
-  if (sprites.rawFiles.length !== (spriteId + 1) * SPRITE_FILES_PER_ENTRY) {
-    return { deletable: false, reason: "The form is not the latest appended Pokemon sprite block." };
+  if (sprites.rawFiles.length < (spriteId + 1) * SPRITE_FILES_PER_ENTRY) {
+    return { deletable: false, reason: "The form's Pokemon sprite block is incomplete." };
   }
   const iconHeaderCount = project.session.baseRom === "BW2" ? 8 : 7;
-  if (icons.rawFiles.length !== iconHeaderCount + (spriteId + 1) * 2) {
-    return { deletable: false, reason: "The form is not the latest appended Pokemon icon pair." };
+  if (icons.rawFiles.length < iconHeaderCount + (spriteId + 1) * 2) {
+    return { deletable: false, reason: "The form's Pokemon icon pair is incomplete." };
+  }
+  // Deleting an interior block must never renumber another species' files or
+  // remove graphics still selected by another personal/form mapping.
+  for (const id of getPokemonPersonalIds(project)) {
+    if (id === requestedPersonalId) continue;
+    const raw = decodeRecord(project, "personal", id).raw;
+    const firstFormId = Number(raw?.form_id ?? 0);
+    const count = Number(raw?.num_forms ?? 1);
+    if (id !== owner.speciesId && firstFormId > 0 && requestedPersonalId >= firstFormId && requestedPersonalId < firstFormId + count - 1) {
+      return { deletable: false, reason: "The form's personal record is shared with another Pokemon." };
+    }
+    if (resolvePokemonSpriteId(project, id) === spriteId) {
+      return { deletable: false, reason: "The form's sprite block is shared with another Pokemon." };
+    }
+    if (findPokemonPersonalFormOwner(project, id)) continue;
+    for (let formIndex = 1; formIndex < count; formIndex += 1) {
+      if (id === owner.speciesId && formIndex === owner.formIndex) continue;
+      if (resolvePokemonSpriteId(project, id, formIndex) === spriteId) {
+        return { deletable: false, reason: "The form's sprite block is shared with another Pokemon." };
+      }
+    }
   }
   const malePalette = getPokemonIconPaletteAssignment(project, spriteId, "male");
   const femalePalette = getPokemonIconPaletteAssignment(project, spriteId, "female");
@@ -124,8 +147,8 @@ export function getPokemonFormDeletionAvailability(project: ProjectState, reques
     pokemonNameBankId = requirePokemonNameBankId(project);
     const bank = getTextBank(project, "message_texts", pokemonNameBankId);
     const entryCount = Math.max(0, ...bank.map((entry) => parseTextEntryId(entry[0]).entry + 1));
-    if (entryCount !== requestedPersonalId + 1) {
-      return { deletable: false, reason: "The form name is not the latest entry in the Pokemon name bank." };
+    if (entryCount <= requestedPersonalId) {
+      return { deletable: false, reason: "The form name is missing from the Pokemon name bank." };
     }
   } catch (error) {
     return { deletable: false, reason: error instanceof Error ? error.message : String(error) };
@@ -164,12 +187,13 @@ export function deletePokemonForm(project: ProjectState, requestedPersonalId: nu
 
   const clearedEvolutionTargets = clearEvolutionTargets(project, availability.personalId);
   clearPokemonIconPaletteAssignment(project, availability.spriteId);
-  removeTailFiles(project, icons, "pokemon_icons", 2);
-  removeTailFiles(project, sprites, "pokemon_sprites", SPRITE_FILES_PER_ENTRY);
-  removeTailFiles(project, evolutions, "evolutions", 1);
-  removeTailFiles(project, learnsets, "learnsets", 1);
-  removeTailFiles(project, personal, "personal", 1);
-  deleteLastTextEntries(project, "message_texts", availability.pokemonNameBankId, 1);
+  const iconHeaderCount = project.session.baseRom === "BW2" ? 8 : 7;
+  removeFormFiles(project, icons, "pokemon_icons", iconHeaderCount + availability.spriteId * 2, 2);
+  removeFormFiles(project, sprites, "pokemon_sprites", availability.spriteId * SPRITE_FILES_PER_ENTRY, SPRITE_FILES_PER_ENTRY);
+  removeFormFiles(project, evolutions, "evolutions", availability.personalId, 1);
+  removeFormFiles(project, learnsets, "learnsets", availability.personalId, 1);
+  removeFormFiles(project, personal, "personal", availability.personalId, 1);
+  removePokemonFormName(project, availability.pokemonNameBankId, availability.personalId);
 
   const subject = pokemonSpeciesLabel(project, availability.speciesId);
   recordGenericChange(
@@ -470,23 +494,42 @@ function appendFile(project: ProjectState, store: NarcStore, name: NarcName, sou
   return id;
 }
 
-function removeTailFiles(project: ProjectState, store: NarcStore, name: NarcName, count: number): void {
-  if (!Number.isInteger(count) || count < 1 || store.rawFiles.length < count) throw new Error(`Unable to remove ${count} tail files from ${name}.`);
-  const firstRemovedId = store.rawFiles.length - count;
-  store.rawFiles.splice(firstRemovedId, count);
+function removeFormFiles(project: ProjectState, store: NarcStore, name: NarcName, firstRemovedId: number, count: number): void {
+  // Empty interior slots retain every other personal/sprite ID, including IDs
+  // referenced by scripts and ROM-specific code that Pokeweb cannot rewrite.
+  // Empty personal members are skipped by isPokemonPersonalRecord on reload.
+  if (firstRemovedId + count === store.rawFiles.length) store.rawFiles.splice(firstRemovedId, count);
+  else for (let id = firstRemovedId; id < firstRemovedId + count; id += 1) store.rawFiles[id] = new Uint8Array();
   store.fileCount = store.rawFiles.length;
-  for (let id = firstRemovedId; id < firstRemovedId + count; id += 1) store.records.delete(id);
+  for (let id = firstRemovedId; id < firstRemovedId + count; id += 1) {
+    store.records.delete(id);
+    store.dirty.delete(id);
+  }
   markDirty(project, name, firstRemovedId);
+}
+
+function removePokemonFormName(project: ProjectState, bankId: number, personalId: number): void {
+  const bank = getTextBank(project, "message_texts", bankId);
+  const entryCount = Math.max(0, ...bank.map((entry) => parseTextEntryId(entry[0]).entry + 1));
+  if (entryCount === personalId + 1) {
+    deleteLastTextEntries(project, "message_texts", bankId, 1);
+    return;
+  }
+  for (const entry of bank) {
+    if (parseTextEntryId(entry[0]).entry === personalId) entry[1] = "";
+  }
+  commitTextBank(project, "message_texts", bankId);
 }
 
 function clearEvolutionTargets(project: ProjectState, targetPersonalId: number): number {
   const store = requiredStore(project, "evolutions");
+  const slotCount = evolutionSlotCount(project);
   let cleared = 0;
   for (let id = 0; id < store.rawFiles.length; id += 1) {
     const record = decodeRecord(project, "evolutions", id);
     if (!record.raw || !record.readable) continue;
     let changed = false;
-    for (let slot = 0; slot < evolutionSlotCount(project); slot += 1) {
+    for (let slot = 0; slot < slotCount; slot += 1) {
       if (Number(record.raw[`target_${slot}`] ?? 0) !== targetPersonalId) continue;
       record.raw[`method_${slot}`] = 0;
       record.raw[`param_${slot}`] = 0;

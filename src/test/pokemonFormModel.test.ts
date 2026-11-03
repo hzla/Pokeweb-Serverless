@@ -8,7 +8,7 @@ import {
   getPokemonFormDeletionAvailability,
   repairAppendedPokemonFormNames,
 } from "../pokeweb/pokemonFormModel";
-import { pokemonPersonalDisplayIds } from "../pokeweb/pokemonLabels";
+import { findPokemonPersonalFormOwner, pokemonPersonalDisplayIds } from "../pokeweb/pokemonLabels";
 import { getPokemonCount, getPokemonPersonalIds, updatePokemonField } from "../pokeweb/pokemonModel";
 import { getPokemonIconPaletteAssignment, repairPokemonIconPaletteAssignmentPlacement, resolvePokemonSpriteId } from "../pokeweb/pokemonSpriteModel";
 import { materializeProjectEdits } from "../pokeweb/projectMaterialize";
@@ -189,6 +189,84 @@ describe("pokemonFormModel", () => {
     expect(getPokemonPersonalIds(project)).not.toContain(710);
   });
 
+  it.each(["BW", "BW2"] as const)("deletes older %s forms without changing newer personal, graphics, or name IDs", baseRom => {
+    const project = makeRetailBw2Project(baseRom);
+    const reportedSpecies = [531, 523, 25, 57, 638, 639, 640];
+    for (const id of [...reportedSpecies, 20]) seedBaseGraphics(project, id);
+    const forms = reportedSpecies.map(id => addPokemonForm(project, id));
+    const newer = addPokemonForm(project, 20);
+    // Older Add Form versions wrote 1 in child records, as in the reported ROM.
+    for (const form of forms) updatePokemonField(project, form.personalId, "personal", "num_forms", "1");
+    updatePokemonField(project, newer.personalId, "personal", "base_hp", "123");
+    materializeProjectEdits(project);
+    const newerPersonal = project.narcs.personal!.rawFiles[newer.personalId].slice();
+    const newerSprites = project.narcs.pokemon_sprites!.rawFiles.slice(newer.spriteId * 20, (newer.spriteId + 1) * 20).map(bytes => bytes.slice());
+    const iconStart = (baseRom === "BW2" ? 8 : 7) + newer.spriteId * 2;
+    const newerIcons = project.narcs.pokemon_icons!.rawFiles.slice(iconStart, iconStart + 2).map(bytes => bytes.slice());
+    const counts = Object.fromEntries(Object.entries(project.narcs).map(([name, store]) => [name, store!.rawFiles.length]));
+    const nameBankId = baseRom === "BW2" ? 90 : 284;
+    const newerName = decodeGen5TextBank(project.narcs.message_texts!.rawFiles[nameBankId])[newer.personalId];
+    const evolution = project.narcs.evolutions!.rawFiles[1];
+    writeInt(evolution, 0, 2, 4);
+    writeInt(evolution, 2, 2, 20);
+    writeInt(evolution, 4, 2, forms[0].personalId);
+    writeInt(evolution, 6, 2, 4);
+    writeInt(evolution, 8, 2, 30);
+    writeInt(evolution, 10, 2, newer.personalId);
+
+    for (const form of forms) {
+      expect(getPokemonFormDeletionAvailability(project, form.personalId)).toMatchObject({ deletable: true });
+      deletePokemonForm(project, form.personalId);
+      materializeProjectEdits(project);
+      expect(getPokemonPersonalIds(project)).not.toContain(form.personalId);
+      expect(pokemonPersonalDisplayIds(project)).not.toContain(form.personalId);
+      expect(decodeRecord(project, "personal", form.speciesId).raw).toMatchObject({ form_id: 0, form: 0, num_forms: 1 });
+      for (const name of ["personal", "learnsets", "evolutions"] as const) {
+        expect(project.narcs[name]!.rawFiles[form.personalId]).toHaveLength(0);
+        expect(project.narcs[name]!.records.has(form.personalId)).toBe(false);
+      }
+      expect(project.narcs.pokemon_sprites!.rawFiles.slice(form.spriteId * 20, (form.spriteId + 1) * 20).every(bytes => bytes.length === 0)).toBe(true);
+      expect(getPokemonIconPaletteAssignment(project, form.spriteId, "male").paletteId).toBe(0);
+      expect(getPokemonIconPaletteAssignment(project, form.spriteId, "female").paletteId).toBe(0);
+      expect(decodeGen5TextBank(project.narcs.message_texts!.rawFiles[nameBankId])[form.personalId]?.[1]).toBe("");
+    }
+    expect(decodeRecord(project, "evolutions", 1).raw).toMatchObject({ method_0: 0, param_0: 0, target_0: 0, method_1: 4, param_1: 30, target_1: newer.personalId });
+    expect(Object.fromEntries(Object.entries(project.narcs).map(([name, store]) => [name, store!.rawFiles.length]))).toEqual(counts);
+    expect(project.narcs.personal!.rawFiles[newer.personalId]).toEqual(newerPersonal);
+    expect(project.narcs.pokemon_sprites!.rawFiles.slice(newer.spriteId * 20, (newer.spriteId + 1) * 20)).toEqual(newerSprites);
+    expect(project.narcs.pokemon_icons!.rawFiles.slice(iconStart, iconStart + 2)).toEqual(newerIcons);
+    expect(decodeGen5TextBank(project.narcs.message_texts!.rawFiles[nameBankId])[newer.personalId]).toEqual(newerName);
+    expect(resolvePokemonSpriteId(project, newer.personalId)).toBe(newer.spriteId);
+    expect(findPokemonPersonalFormOwner(project, newer.personalId)).toMatchObject({ speciesId: 20, formIndex: 1 });
+
+    // Simulate a reload with no decoded-record or form-owner caches.
+    for (const store of Object.values(project.narcs)) store!.records.clear();
+    expect(getPokemonPersonalIds(project)).not.toContain(forms[0].personalId);
+    const replacement = addPokemonForm(project, reportedSpecies[0]);
+    expect(replacement.personalId).toBe(newer.personalId + 1);
+    expect(resolvePokemonSpriteId(project, newer.personalId)).toBe(newer.spriteId);
+    expect(project.narcs.personal!.rawFiles[newer.personalId]).toEqual(newerPersonal);
+  });
+
+  it("protects original ROM forms and graphics shared with another form", () => {
+    const project = makeRetailBw2Project();
+    updatePokemonField(project, SPINDA_ID, "personal", "form_id", "685");
+    updatePokemonField(project, SPINDA_ID, "personal", "num_forms", "2");
+    expect(getPokemonFormDeletionAvailability(project, 685)).toMatchObject({ deletable: false, reason: expect.stringContaining("original ROM forms") });
+    updatePokemonField(project, SPINDA_ID, "personal", "form_id", "0");
+    updatePokemonField(project, SPINDA_ID, "personal", "num_forms", "1");
+    const first = addPokemonForm(project, SPINDA_ID);
+    seedBaseGraphics(project, 1);
+    const second = addPokemonForm(project, 1);
+    updatePokemonField(project, 1, "personal", "form", String(first.spriteId - 685));
+    expect(getPokemonFormDeletionAvailability(project, first.personalId)).toMatchObject({ deletable: false, reason: expect.stringContaining("shared") });
+    expect(() => deletePokemonForm(project, first.personalId)).toThrow("shared");
+    expect(project.narcs.personal!.rawFiles).toHaveLength(second.personalId + 1);
+    updatePokemonField(project, 1, "personal", "form", String(second.spriteId - 685));
+    updatePokemonField(project, 1, "personal", "form_id", String(first.personalId));
+    expect(getPokemonFormDeletionAvailability(project, first.personalId)).toMatchObject({ deletable: false, reason: expect.stringContaining("personal record is shared") });
+  });
+
   it("moves an already-expanded icon palette table out of PMC overlay memory", () => {
     const project = makeRetailBw2Project();
     addPokemonForm(project, SPINDA_ID);
@@ -352,6 +430,14 @@ function makeRetailBw2Project(baseRom: "BW" | "BW2" = "BW2"): ProjectState {
     formats,
     trpokInfo: [],
   };
+}
+
+function seedBaseGraphics(project: ProjectState, speciesId: number): void {
+  const sprites = project.narcs.pokemon_sprites!.rawFiles;
+  const icons = project.narcs.pokemon_icons!.rawFiles;
+  const headerCount = project.session.baseRom === "BW2" ? 8 : 7;
+  for (let file = 0; file < 20; file++) sprites[speciesId * 20 + file] = sprites[SPINDA_ID * 20 + file].slice();
+  for (let gender = 0; gender < 2; gender++) icons[headerCount + speciesId * 2 + gender] = icons[headerCount + SPINDA_ID * 2 + gender].slice();
 }
 
 // Model Frost's personal-record parser at the serialized NARC boundary.

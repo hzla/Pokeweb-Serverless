@@ -164,7 +164,7 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
       const name = pokemonSpeciesLabel(project, owner.speciesId);
       if (
         !window.confirm(
-          `Delete form ${owner.formIndex} from ${name}? This removes its appended personal, learnset, evolution, sprite, icon, and name files. Evolution slots targeting personal ${requestedPersonalId} will be cleared.`,
+          `Delete form ${owner.formIndex} from ${name}? This removes its data while preserving other Pokemon IDs. Evolution slots targeting personal ${requestedPersonalId} will be cleared.`,
         )
       ) {
         return;

@@ -105,6 +105,8 @@ Each EV field accepts `0-3`. The game packs these into one internal EV-yield val
 
 Changing `# of Forms` alone does not create new sprite/form assets. Form work usually requires personal data, labels, sprites, and sometimes code or script support.
 
+**Add Form** generates personal, learnset, evolution, sprite, icon, and name data for BW/BW2. **Delete Form** removes a species' last appended form, even when other species have newer forms. Delete multiple forms of the same species in reverse order. Original ROM forms and shared graphics are protected. Deleting an interior form leaves empty archive slots to preserve other Pokémon IDs; evolution slots targeting its personal ID are cleared.
+
 ## Related Pages
 
 - [Pokemon Learnsets](Pokemon-Learnsets)

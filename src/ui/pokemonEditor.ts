@@ -378,7 +378,7 @@ function renderExpanded(project: ProjectState, record: PokemonEditorRecord): str
   const formOwner = findPokemonPersonalFormOwner(project, record.id);
   const deletion = formOwner ? getPokemonFormDeletionAvailability(project, record.id) : undefined;
   const deleteFormButton = deletion
-    ? `<button class="btn -default personal-delete-form${deletion.deletable ? "" : " invalid"}" data-delete-pokemon-form type="button" ${deletion.deletable ? "" : "disabled"} title="${escapeHtml(deletion.deletable ? "Delete this generated form and its appended files" : deletion.reason)}">Delete Form</button>`
+    ? `<button class="btn -default personal-delete-form${deletion.deletable ? "" : " invalid"}" data-delete-pokemon-form type="button" ${deletion.deletable ? "" : "disabled"} title="${escapeHtml(deletion.deletable ? "Delete this appended form and its data" : deletion.reason)}">Delete Form</button>`
     : "";
   return `
     <div class="expanded-card-content expanded-personal">
