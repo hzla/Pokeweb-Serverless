@@ -1,6 +1,7 @@
 import { concatBytes, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { compileMoveAnimation, decompileMoveAnimationBytes, getMoveAnimationParticleIds, parseMoveAnimationScript } from "./moveAnimationModel";
 import { getGen5BattleSpaWorkspaceBytes } from "./nitroSpa";
+import { repairMoveAnimationShakes, type MoveAnimationShakeRepair } from "./moveAnimationShakeAudit";
 import type { ProjectState } from "./projectStore";
 
 type MoveAsset = { sourceMoveId: number; targetMoveId: number; particleIds: number[]; bytes: Uint8Array };
@@ -109,21 +110,25 @@ export function optimizeMoveExpansionAssets(input: { moves: MoveAsset[]; particl
     move.bytes = compileMoveAnimation({} as ProjectState, move.sourceMoveId, rewritten);
     report.push({ sourceParticleId: particle.sourceParticleId, targetMoveId: move.targetMoveId, beforeBytes, afterBytes: [getGen5BattleSpaWorkspaceBytes(pack.bytes)], removedResources: [...remove], reusedResources: (rule.reuse ?? []).map(group => group.resources), detail: rule.detail });
   }
-  // Each cut starts five frames after the previous one. Three roundtrips per
-  // cut overlap native movement tasks and leave the target hidden during the
-  // subsequent damage blink. One roundtrip fits between cuts; the final shake
-  // and every cut/flash/sound keep their original timing.
-  const ceaseless = moves.find(move => move.sourceMoveId === 845 && move.targetMoveId === 910);
-  if (ceaseless) {
-    const script = decompileMoveAnimationBytes(ceaseless.bytes);
-    const overlapping = /^ShakeSprite DEFENDER, 2, 1229, 0, 2, 1, 3$/gmu;
-    const count = [...script.matchAll(overlapping)].length;
-    if (count !== 0 && count !== 5) throw new Error("Ceaseless Edge's hit-shake layout changed.");
-    if (count) ceaseless.bytes = compileMoveAnimation({} as ProjectState, ceaseless.sourceMoveId,
-      script.replace(overlapping, "ShakeSprite DEFENDER, 2, 1229, 0, 2, 1, 1"));
+  const shakeRepairs: { sourceMoveId: number; targetMoveId: number; repairs: MoveAnimationShakeRepair[] }[] = [];
+  for (const move of moves) {
+    const originalScript = decompileMoveAnimationBytes(move.bytes);
+    let script = originalScript;
+    // Preserve the previously reviewed one-cycle rhythm of all five cuts
+    // when rebuilding Ceaseless Edge from its original source assets.
+    if (move.sourceMoveId === 845 && move.targetMoveId === 910) {
+      const legacyCuts = /^ShakeSprite DEFENDER, 2, 1229, 0, 2, 1, 3$/gmu;
+      const count = [...script.matchAll(legacyCuts)].length;
+      if (count !== 0 && count !== 5) throw new Error("Ceaseless Edge's hit-shake layout changed.");
+      if (count) script = script.replace(legacyCuts, "ShakeSprite DEFENDER, 2, 1229, 0, 2, 1, 1");
+    }
+    const fixed = repairMoveAnimationShakes(script);
+    if (!fixed.repairs.length && script === originalScript) continue;
+    move.bytes = compileMoveAnimation({} as ProjectState, move.sourceMoveId, fixed.script);
+    if (fixed.repairs.length) shakeRepairs.push({ sourceMoveId: move.sourceMoveId, targetMoveId: move.targetMoveId, repairs: fixed.repairs });
   }
   for (const particle of particles) if (getGen5BattleSpaWorkspaceBytes(particle.bytes) > LIMIT) throw new Error(`Optimized SPA ${particle.sourceParticleId} still exceeds the retail arena.`);
-  return { moves, particles, report };
+  return { moves, particles, report, shakeRepairs };
 }
 
 function rewriteEmissions(script: string, spaId: number, map: Map<number, number>, remove: Set<number>, aliases: Map<number, { canonical: number; delay: number; scale?: number; life?: number }>): string {

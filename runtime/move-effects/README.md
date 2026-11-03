@@ -12,8 +12,10 @@ Move Expansion's packaged animations fit the retail 18 KiB particle workspace.
 Texture deduplication, timed reuse of emitter definitions and small reductions to
 secondary glow/flash layers keep the native pools and workspace unchanged.
 Terrain Pulse loads only the particle bank for its selected terrain variant;
-its five variants never load together. Ceaseless Edge uses one sprite shake per
-cut so overlapping movement tasks do not leave its target hidden during damage.
+its five variants never load together. Packaged sprite shakes finish before
+another position task starts on the same Pokémon. Earlier shakes use fewer
+cycles, or a conflicting secondary shake becomes a one-tick VM wait;
+particle, sound, hit and camera commands retain their explicit timing.
 Bundles that exceed the retail workspace
 are rejected. Reinstall with bundled animations enabled to replace older assets;
 this also rolls back the recognized earlier paired 24 KiB workspace edit.
@@ -27,6 +29,14 @@ scripts/audit-move-expansion-particles.ts --out
 move and SPA, references from all script variants, retail overflow sizes and
 remaining workspace. This checks allocation bounds; it does not verify visuals,
 audio, timing or other engine limits.
+
+To check every packaged script body for sprite-shake cancellation conflicts,
+run `npx vite-node scripts/audit-move-expansion-shakes.ts --out
+/path/outside/the/repository/shake-audit.json`. The static report includes
+shake/shake and shake/circular-movement conflicts. It uses native position-step
+durations and conservative command scheduling; a finding across another task's
+completion wait needs native confirmation. Bundle generation applies reviewed
+shake repairs and regression checks cover every packaged body.
 
 The active native handler table is discovered from its checked dispatcher, including
 relocated or expanded tables with up to 4,096 rows. Move IDs and handler addresses

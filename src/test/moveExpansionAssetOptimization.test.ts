@@ -46,13 +46,9 @@ describe("retail-budget expanded animation assets", () => {
         const oldEvents = events(oldLabels[variant], beforeSpas, new Set(report.removedResources));
         const newEvents = events(newLabels[variant], afterSpas, new Set());
         expect(newEvents, `move ${before.targetMoveId}, variant ${variant}`).toEqual(oldEvents);
-        // Camera, sound and sprite command times stay fixed. The five cut
-        // shakes deliberately use one cycle to avoid overlapping native tasks.
-        const expected = nonParticleEvents(oldLabels[variant]).map(event =>
-          before.targetMoveId === 910 && event.name === "ShakeSprite" &&
-          JSON.stringify(event.params) === JSON.stringify([16, 2, 1229, 0, 2, 1, 3])
-            ? { ...event, params: [16, 2, 1229, 0, 2, 1, 1] } : event);
-        expect(nonParticleEvents(newLabels[variant])).toEqual(expected);
+        // The dedicated shake audit checks the intentional shake repairs.
+        // Every other command retains its parameters and explicit wait time.
+        expect(nonParticleEvents(newLabels[variant])).toEqual(nonParticleEvents(oldLabels[variant]));
       }
     }
   });
@@ -110,7 +106,7 @@ function nonParticleEvents(commands: Command[]) {
   let frame = 0;
   return commands.flatMap(command => {
     if (command.name === "Wait") { frame += command.params[0]; return []; }
-    if (["DoSPAAnimation", "LoadSPA"].includes(command.name)) return [];
+    if (["DoSPAAnimation", "LoadSPA", "ShakeSprite"].includes(command.name)) return [];
     return [{ frame, name: command.name, params: command.params }];
   });
 }
