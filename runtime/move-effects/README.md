@@ -24,6 +24,13 @@ apply it. Importing does not immediately change the ROM. Effects retain their
 list order within each native timing boundary; arrow buttons reorder cards.
 Activation conditions control effects. Use prerequisites make the move fail.
 Empty condition groups mean always active.
+
+**Update Move Runtime** in the Move Data sidebar rebuilds a recognized older
+shared DLL with current code and packaging optimizations. It preserves all saved
+recipes, original move snapshots and pending move-data edits. The button is
+disabled when no move runtime is installed, the package is current, or its code
+cannot be verified. Export the ROM after updating. The timestamp beneath the
+button shows the latest committed move-runtime code change in your local time.
 New custom drafts start empty. Imports append effect cards and combine activation
 conditions and use prerequisites with AND, preserving nested OR groups and
 existing edits. Imports that exceed editor bounds or require a different

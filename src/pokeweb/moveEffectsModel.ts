@@ -70,7 +70,7 @@ export function hydrateMoveEffectsSource(project: ProjectState, rom: NintendoDSR
   }
 }
 type Snapshot = Record<string, number>;
-type Saved = { rules: Map<number, MoveRuleSet>; originals: Map<number, Snapshot>; messageBase?: number; swapMessageBase?: number; typeLossMessageBase?: number; powderCoverBase?: number; powderDamageBase?: number; focusMessageBase?: number; spotlightMessageBase?: number; fieldLockMessageBase?: number; webStartBase?:number; webHitBase?:number; webEndBase?:number; courtChangeBase?:number };
+type Saved = { runtimeVersion?:number; packagingVersion?:number; rules: Map<number, MoveRuleSet>; originals: Map<number, Snapshot>; messageBase?: number; swapMessageBase?: number; typeLossMessageBase?: number; powderCoverBase?: number; powderDamageBase?: number; focusMessageBase?: number; spotlightMessageBase?: number; fieldLockMessageBase?: number; webStartBase?:number; webHitBase?:number; webEndBase?:number; courtChangeBase?:number };
 const ITEM_MESSAGES = ["VAR(258, 0) is about to\\nbe attacked by its VAR(265, 1)!", "The wild VAR(258, 0) is about to\\nbe attacked by its VAR(265, 1)!", "The foe's VAR(258, 0) is about to\\nbe attacked by its VAR(265, 1)!"];
 const SWAP_MESSAGES = ["VAR(258, 0) swapped a stat\\nwith its target!", "The wild VAR(258, 0) swapped\\na stat with its target!", "The foe's VAR(258, 0) swapped\\na stat with its target!"];
 const TYPE_LOSS_MESSAGES = ["VAR(258, 0) lost its\\nVAR(259, 1) type!", "The wild VAR(258, 0) lost its\\nVAR(259, 1) type!", "The foe's VAR(258, 0) lost its\\nVAR(259, 1) type!"];
@@ -287,7 +287,7 @@ function stored(c: Context): Saved {
   if([...rules.values()].some(r=>r.effects.some(e=>e.kind==="fieldSwitchLock"))&&fieldLockMessageBase===undefined)throw Error("The switch-lock message is not configured.");
   if([...rules.values()].some(r=>r.effects.some(e=>e.kind==="entryStatHazard"))&&[webStartBase,webHitBase,webEndBase].some(v=>v===undefined))throw Error("The entry-hazard messages are not configured.");
   if([...rules.values()].some(r=>r.effects.some(e=>e.kind==="swapSideEffects"))&&courtChangeBase===undefined)throw Error("The side-exchange message is not configured.");
-  const saved:Saved = { rules, originals: original, ...(messageBase===undefined?{}:{messageBase:Number(messageBase)}), ...(swapMessageBase===undefined?{}:{swapMessageBase:Number(swapMessageBase)}), ...(typeLossMessageBase===undefined?{}:{typeLossMessageBase:Number(typeLossMessageBase)}), ...(powderCoverBase===undefined?{}:{powderCoverBase:Number(powderCoverBase)}), ...(powderDamageBase===undefined?{}:{powderDamageBase:Number(powderDamageBase)}), ...(focusMessageBase===undefined?{}:{focusMessageBase:Number(focusMessageBase)}), ...(spotlightMessageBase===undefined?{}:{spotlightMessageBase:Number(spotlightMessageBase)}), ...(fieldLockMessageBase===undefined?{}:{fieldLockMessageBase:Number(fieldLockMessageBase)}), ...(webStartBase===undefined?{}:{webStartBase:Number(webStartBase)}), ...(webHitBase===undefined?{}:{webHitBase:Number(webHitBase)}), ...(webEndBase===undefined?{}:{webEndBase:Number(webEndBase)}), ...(courtChangeBase===undefined?{}:{courtChangeBase:Number(courtChangeBase)}) };
+  const saved:Saved = { runtimeVersion:Number(module.metadata.PokewebMoveRecipes),packagingVersion:Number(packaging??0),rules, originals: original, ...(messageBase===undefined?{}:{messageBase:Number(messageBase)}), ...(swapMessageBase===undefined?{}:{swapMessageBase:Number(swapMessageBase)}), ...(typeLossMessageBase===undefined?{}:{typeLossMessageBase:Number(typeLossMessageBase)}), ...(powderCoverBase===undefined?{}:{powderCoverBase:Number(powderCoverBase)}), ...(powderDamageBase===undefined?{}:{powderDamageBase:Number(powderDamageBase)}), ...(focusMessageBase===undefined?{}:{focusMessageBase:Number(focusMessageBase)}), ...(spotlightMessageBase===undefined?{}:{spotlightMessageBase:Number(spotlightMessageBase)}), ...(fieldLockMessageBase===undefined?{}:{fieldLockMessageBase:Number(fieldLockMessageBase)}), ...(webStartBase===undefined?{}:{webStartBase:Number(webStartBase)}), ...(webHitBase===undefined?{}:{webHitBase:Number(webHitBase)}), ...(webEndBase===undefined?{}:{webEndBase:Number(webEndBase)}), ...(courtChangeBase===undefined?{}:{courtChangeBase:Number(courtChangeBase)}) };
   const config=module.symbols.find(symbol=>symbol.name==="MoveRecipeConfig");
   if(!config||config.address<0||config.address+4>module.code.length)throw Error("The saved move configuration is missing.");
   const encodedTypeCount=module.code[config.address+3];
@@ -675,9 +675,15 @@ export function buildMoveRuleModule(project: ProjectState, rules: ReadonlyMap<nu
   for (const [id] of rules) { const raw = decodeRecord(project, "moves", id).raw; if (!raw) throw Error("Move data unavailable."); snapshots.set(id, Object.fromEntries(MOVE_RECIPE_MANAGED_FIELDS.map(f => [f, raw[f] ?? 0]))); }
   return moduleFor(context(project), { rules: new Map(rules), originals: snapshots });
 }
-export function inspectMoveEffects(project: ProjectState): { editable: boolean; rules: Map<number, MoveRuleSet>; message: string } {
-  try { const c = context(project), saved = stored(c); return { editable: true, rules: saved.rules, message: saved.rules.size ? "Custom effects · Shared DLL" : "Native behavior" }; }
-  catch (error) { return { editable: false, rules: new Map(), message: error instanceof Error ? error.message : String(error) }; }
+export type MoveEffectsInspection={editable:boolean;rules:Map<number,MoveRuleSet>;message:string;runtimeVersion?:number;packagingVersion?:number;updateAvailable:boolean};
+function moveRuntimeNeedsUpdate(saved:Saved):boolean {
+  if(saved.runtimeVersion===undefined)return false;
+  const expected=[...saved.rules.values()].some(r=>r.effects.some(e=>e.kind==="modernKnockOff"))?11:hasPersistent(saved.rules)?10:hasHistory(saved.rules)?8:7;
+  return saved.packagingVersion!==CURRENT_MOVE_PACKAGING||saved.runtimeVersion!==expected;
+}
+export function inspectMoveEffects(project: ProjectState): MoveEffectsInspection {
+  try { const c = context(project), saved = stored(c); return { editable: true, rules: saved.rules, message: saved.rules.size ? "Custom effects · Shared DLL" : "Native behavior",runtimeVersion:saved.runtimeVersion,packagingVersion:saved.packagingVersion,updateAvailable:moveRuntimeNeedsUpdate(saved) }; }
+  catch (error) { return { editable: false, rules: new Map(), message: error instanceof Error ? error.message : String(error),updateAvailable:false }; }
 }
 function writeFields(project: ProjectState, id: number, fields: Snapshot) {
   const record = decodeRecord(project, "moves", id); if (!record.raw) throw Error("Move data unavailable.");
@@ -701,6 +707,19 @@ function stageMoveRecipes(project:ProjectState,saved:Saved):void {
   if(id===undefined)ensureFileSystemState(project).additions![MOVE_RECIPE_BOOK_PATH]=book;
   else setRomFileReplacement(project,id,book);
   stageCodeInjectionDll(project,"MoveEffects.dll",dll);
+}
+/** Rebuild the verified module without reapplying recipe-managed move fields. */
+export async function upgradeMoveRuntime(project:ProjectState):Promise<boolean> {
+  const c=context(project),saved=stored(c);
+  if(!moveRuntimeNeedsUpdate(saved))return false;
+  moduleFor(c,saved);const upgradeAbility=needsAbilityUpgrade(c);
+  await installCodeInjectionPatch(project,async staged=>{
+    if(upgradeAbility)await upgradeAbilityRuntime(staged);
+    ensureBattleMessages(staged,saved);
+    stageMoveRecipes(staged,saved);
+    recordGenericChange(staged,"moves","Updated the shared move runtime; saved recipes and move data preserved.","Move runtime");
+  });
+  return true;
 }
 export async function configureMoveRuleSets(project: ProjectState, edits: readonly { moveId: number; rules: MoveRuleSet }[]): Promise<void> {
   if (!edits.length) return;

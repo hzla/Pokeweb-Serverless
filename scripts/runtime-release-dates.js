@@ -12,6 +12,7 @@ export function runtimeReleaseDates(root) {
       "src/pokeweb/abilityEvents.ts",
       "src/pokeweb/abilityRules.ts",
     ],
+    move: ["src/assets/data/moveRuleRuntime*.json", "src/pokeweb/moveEffectsModel.ts", "src/pokeweb/moveRules.ts", "src/pokeweb/moveRecipeBook.ts", "runtime/move-effects/rules.c", "runtime/move-effects/history.h"],
     music: ["src/assets/codeinjection/BgmToggle*.dll", "src/pokeweb/streamedBgmModel.ts"],
   };
   return Object.fromEntries(Object.entries(paths).map(([runtime, files]) => {

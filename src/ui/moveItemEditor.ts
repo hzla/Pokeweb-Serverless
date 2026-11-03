@@ -1,3 +1,4 @@
+import { renderMoveRuntimeUpdate, installMoveRuntimeUpdate, refreshMoveRuntimeUpdate } from "./moveRuntimeUpdate";
 import { installMoveRecipeButtons } from "./moveRecipeEditor";
 import { renderMoveDllFlags, installMoveDllFlags } from "./moveDllFlagsEditor";
 import { renderAbilityRuntimeUpdate, installAbilityRuntimeUpdate, refreshAbilityRuntimeUpdate } from "./abilityRuntimeUpdate";
@@ -118,7 +119,7 @@ export function renderMoveEditor(
 ): void {
   root.innerHTML = `
     <div class="pokemon-filter move-filter move-data-filter">
-      ${supportsMoveRecipes(project) ? renderAbilityRuntimeUpdate(project) : ""}
+      ${supportsMoveRecipes(project) ? renderMoveRuntimeUpdate(project)+renderAbilityRuntimeUpdate(project) : ""}
       <div class="filter-title">Search Text</div>
       <input class="filter-input" id="search-text"/>
       <button class="btn -default" id="search-text-btn" type="button">Search</button>
@@ -162,9 +163,11 @@ export function renderMoveEditor(
     renderTextPanel: (moveId) => renderMoveTextPanel(getMoveTextInfo(project, moveId)),
   });
   attachW2uSyncButton(root, project);
-  installMoveRecipeButtons(root, project, onDirty);
-  installAbilityRuntimeUpdate(root, project, onDirty);
-  installMoveDllFlags(root, project, () => { refreshAbilityRuntimeUpdate(root, project); onDirty?.(); });
+  const runtimeChanged=()=>{refreshMoveRuntimeUpdate(root,project);refreshAbilityRuntimeUpdate(root,project);onDirty?.();};
+  installMoveRecipeButtons(root, project, runtimeChanged);
+  installMoveRuntimeUpdate(root,project,runtimeChanged);
+  installAbilityRuntimeUpdate(root, project, runtimeChanged);
+  installMoveDllFlags(root, project, runtimeChanged);
 }
 
 export function renderMoveAnimationPage(
