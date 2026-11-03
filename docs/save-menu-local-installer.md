@@ -1,6 +1,15 @@
 # B2/W2 save-menu installer
 
-Version 0.3.12 is bundled under **Code Injection → Graphical/UI Enhancements → Black 2 / White 2 Save Menu** in this Pokeweb build. Installation accepts compatible English Black 2 / White 2 ROMs with an installed, enabled Following Pokémon patch regardless of the page's hostname.
+Version 0.3.12 is bundled under **Code Injection → Graphical/UI Enhancements → Interactive Save Menu** in this Pokeweb build. Installation accepts compatible English Black 2 / White 2 ROMs with an installed, enabled Following Pokémon patch regardless of the page's hostname.
+
+**Uninstall Interactive Save Menu** removes a recognized menu DLL and its private
+map/settings assets, including installations already present in an imported ROM.
+Following Pokémon, PMC, standalone music and other patches remain installed.
+Export and restart from a normal save to restore the native menu and C-Gear
+question. Emulator states retain the runtime already loaded into RAM. Removal
+checks the DLL and native menu entry before publishing changes; unknown modules
+or modified native entries are refused. Retired files keep their numeric FAT
+slots to preserve unrelated references. The menu can be installed again.
 
 With a save present, the menu plays the game's Relic Song sequence by default. The player walking loop and occupied downward-facing follower sprites change poses every eighth note using the sequence tick counter, so they follow its tempo changes. The song restarts after its natural ending and the previous sound state is restored when leaving the menu. The no-save screen keeps its native behavior.
 
@@ -18,4 +27,8 @@ English B2/W2 and compatible hacks are accepted after native-code, Continue-disp
 
 Native source and build/harness tooling are maintained separately. Pokeweb ships `SaveMenuB2.dll`, `SaveMenuW2.dll`, `save-menu-map.lz`, and a generated compatibility manifest. The map installs as `ui/save-menu/map.lz` and is decoded through bounded streaming buffers. Standalone songs live in the ROM's SDAT; their manifest lives at `ui/streamed-music/library.json`.
 
-Automated checks cover both game profiles, hosted/LAN/loopback availability, and follower dependency validation. A separately named White 2 Following Pokémon 0.7.44 test ROM was cold-booted in headless melonDS with a six-Meloetta save and the 153 BPM standalone track. Captures show six downward follower sprites, selected groups cycling directional poses, release restoring ordinary walking, and no Hop or spin sound calls. The 0.3.12 capture also shows the `v1.3` label in the former gray marks' position. The exported ROM has no `ui/save-menu/spin-art.narc` or `spin-index.bin`. Audio waveforms and Black 2 running-game behavior still need emulator acceptance.
+The current menu reads follower artwork directly and does not install
+`ui/save-menu/spin-art.narc` or `spin-index.bin`. Older private spin assets are
+retired during updates and removal. Hardware and DSi behavior require independent
+testing. Audio waveform behavior and Black 2 transitions into the running game
+also require independent validation.

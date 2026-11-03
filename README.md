@@ -33,6 +33,7 @@ Pokeweb Serverless is a browser-based Gen 5 ROM editor for Pokemon Black, White,
 - BW2 habitat sync from encounter data.
 - Static Encounter/Scripted Encounter editor
 - Hidden Grotto editor .
+- Phenomena editor for cave dust clouds and Driftveil Drawbridge shadows: encounter vs. item chance, weighted item lists and per-zone overrides (PMC, BW and BW2).
 
 ### Moves, Items, TMs, and Types
 

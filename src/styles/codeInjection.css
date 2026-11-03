@@ -523,6 +523,7 @@
 }
 
 .code-injection-actions .btn.-default { background: #383a59; border-color: #55586d; color: #f2f2f2; }
+.code-injection-actions .btn.-remove { background: #b83a48; border-color: #b83a48; color: #fff; }
 
 .code-injection-settings {
   display: grid;

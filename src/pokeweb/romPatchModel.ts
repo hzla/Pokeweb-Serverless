@@ -189,7 +189,7 @@ export async function removeDustCloudItemRewards(project: ProjectState): Promise
 
 export async function makeHmsForgettable(project: ProjectState): Promise<RomPatchApplyResult> {
   if (project.session.baseRom !== "BW") {
-    throw new Error("Forgettable HMs is currently available for Black / White only.");
+    throw new Error("This ARM9 patch is for Black / White. For Black 2 / White 2, install Forgettable HMs from Code Injection > Quality of Life.");
   }
 
   const patched = applyForgettableHmsToArm9(project.arm9);

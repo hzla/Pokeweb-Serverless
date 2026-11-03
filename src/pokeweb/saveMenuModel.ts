@@ -6,6 +6,7 @@ import { parseNitroSdat } from "./nitroSound";
 import { recordGenericChange } from "./actionChangelog";
 import { getRomFileBytes, addRomFile, setRomFileReplacement } from "./fileSystemModel";
 import { loadActiveRomBytes } from "./persistence";
+import { withProjectMutationLock } from "./codeInjectionInstall";
 import { getPmcInstallStatus, adoptExistingPmcInstall, installPmcBytes, loadBundledPmcBytes, listCodeInjectionDlls, stageCodeInjectionDll } from "./pmcModel";
 import { getStandaloneStreamConfigs, type ProjectState } from "./projectStore";
 import { listNativeSdatStreams } from "./streamedBgmModel";
@@ -97,10 +98,11 @@ function patchBytes(project: ProjectState, rom: NintendoDSRom, path: string): Ui
   const staged = Object.keys(project.fileSystem?.additions ?? {}).find(p => p.toLowerCase() === path.toLowerCase());
   if (staged) return project.fileSystem?.additions?.[staged];
   const id = rom.filenames.idOf(path);
+  if (id !== undefined && project.fileSystem?.tombstones?.[id] === path) return undefined;
   return id === undefined ? undefined : getRomFileBytes(project, rom, id);
 }
 
-export function getSaveMenuStatus(project: ProjectState): { supported: boolean; dependencyPresent: boolean; installed: boolean; updateAvailable: boolean; message: string } {
+export function getSaveMenuStatus(project: ProjectState): { supported: boolean; dependencyPresent: boolean; installed: boolean; canUninstall: boolean; updateAvailable: boolean; message: string } {
   const version = versionOf(project);
   const supported = Boolean(version && (!project.romInfo?.idCode || project.romInfo.idCode === TARGETS[version].gameCode));
   const modules = listCodeInjectionDlls(project);
@@ -108,11 +110,51 @@ export function getSaveMenuStatus(project: ProjectState): { supported: boolean; 
   const dependencyPresent = modules.some(entry => entry.path.toLowerCase() === `patches/pokewebfollowingfield${version}.dll`.toLowerCase());
   const installed = Boolean(module);
   const updateAvailable = installed && module?.version !== DLL_VERSION;
-  return { supported, dependencyPresent, installed, updateAvailable, message: !supported ? "Requires an English Black 2 or White 2 ROM with a compatible menu layout."
+  return { supported, dependencyPresent, installed, canUninstall: supported && installed, updateAvailable, message: !supported ? "Requires an English Black 2 or White 2 ROM with a compatible menu layout."
     : !dependencyPresent ? "Install and enable Following Pokémon before installing the save menu."
     : updateAvailable ? "A newer Black 2/White 2 save menu is available. Update it, then export a new ROM."
       : installed ? "Save menu is installed. Export a new ROM after changing its settings."
         : `Installs the animated save card, configurable menu music, Unova map, party recall, and Continue jump for compatible ${version}. Requires the Following Pokémon patch; PMC is installed if needed.` };
+}
+
+/** DLL hooks are applied to RAM at boot. Retire the verified module and its
+ * private assets, retaining FAT slots so unrelated native file IDs stay put. */
+export async function uninstallSaveMenu(project: ProjectState): Promise<void> {
+  await withProjectMutationLock(project, async () => {
+    const status = getSaveMenuStatus(project), version = versionOf(project);
+    if (!status.canUninstall || !version) throw new Error(status.installed ? status.message : "The interactive save menu is not installed.");
+    const source = project.originalRomBytes ?? await loadActiveRomBytes();
+    if (!source) throw new Error("Reload the ROM before removing the save menu.");
+    const rom = new NintendoDSRom(source, { fileData: "view" }), target = TARGETS[version];
+    if (rom.idCode !== target.gameCode || source[30] !== 0) throw new Error("Save-menu removal requires a supported English revision-0 ROM.");
+    const modules = listCodeInjectionDlls(project), path = dllPath(version);
+    if (modules.some(module => /\/SaveMenu[WB]2\.dll$/iu.test(module.path) && module.path !== path)) throw new Error("Conflicting save-menu modules are installed; removal was not applied.");
+    const bytes = patchBytes(project, rom, path);
+    if (!bytes || !manifest.modules[version].recognizedSha256.includes(await sha256(bytes))) throw new Error("The save-menu DLL is unrecognized or modified; removal was not applied.");
+    const rpm = parseRpm(bytes, { allowedMagics: ["DLXF"] });
+    const overlay = loadOverlayTable(project.patches?.arm9OverlayTable ?? rom.arm9OverlayTable,
+      (_id, fileId) => getRomFileBytes(project, rom, fileId), new Set([162])).get(162);
+    const code = project.overlays[162] ?? overlay?.data, at = overlay ? target.hook - overlay.ramAddress : -1;
+    if (!code || at < 0 || hex(code.subarray(at, at + 16)) !== target.hookBytes) throw new Error("The native save-menu entry has changed; removal was not applied.");
+    const staged: ProjectState = { ...project, fileSystem: structuredClone(project.fileSystem),
+      codeInjection: structuredClone(project.codeInjection), actionChangelog: structuredClone(project.actionChangelog) };
+    const paths = [path, ...(/^0\.3\./u.test(String(rpm.metadata.PMCVersion))
+      ? [manifest.map.path, SAVE_MENU_SETTINGS_PATH, SAVE_MENU_SPIN_INDEX_PATH, SAVE_MENU_SPIN_ART_PATH] : [])];
+    staged.fileSystem ??= { replacements: {} };
+    const fs = staged.fileSystem; fs.replacements ??= {}; fs.tombstones ??= {};
+    for (const owned of paths) {
+      for (const addition of Object.keys(fs.additions ?? {})) if (addition.toLowerCase() === owned.toLowerCase()) delete fs.additions![addition];
+      const id = rom.filenames.idOf(owned);
+      if (id !== undefined) { fs.replacements[id] = new Uint8Array(); fs.tombstones[id] = owned; }
+    }
+    if (staged.codeInjection) {
+      staged.codeInjection.modules = staged.codeInjection.modules?.filter(module => module.path !== path);
+      delete staged.codeInjection.saveMenuSettings;
+    }
+    recordGenericChange(staged, "code_injection", `${version} interactive save menu removed; native menu restored on the next boot.`, "Save Menu", { key: "code-injection:save-menu" });
+    Object.assign(project, { originalRomBytes: source, fileSystem: staged.fileSystem,
+      codeInjection: staged.codeInjection, actionChangelog: staged.actionChangelog });
+  });
 }
 
 export async function installSaveMenu(project: ProjectState, settings: SaveMenuSettings = getSaveMenuSettings(project)): Promise<void> {
@@ -143,7 +185,12 @@ export async function installSaveMenu(project: ProjectState, settings: SaveMenuS
   }
   for (const [assetPath, digest] of Object.entries(target.artSha256)) {
     const id = rom.filenames.idOf(assetPath);
-    if (id === undefined || await sha256(getRomFileBytes(project, rom, id)) !== digest) {
+    // A read-only editor store may serialize an equivalent NARC differently.
+    // Verify its actual ROM bytes until an editor has changed its contents.
+    const store = id === undefined ? undefined : Object.values(project.narcs).find(store => store?.fileId === id);
+    const bytes = id === undefined ? undefined : store?.dirty.size ? getRomFileBytes(project, rom, id)
+      : project.fileSystem?.replacements?.[id] ?? rom.files[id];
+    if (!bytes || await sha256(bytes) !== digest) {
       throw new Error(`The save-menu artwork differs at ${assetPath}; this ROM needs a rebuilt asset bundle.`);
     }
   }
@@ -280,6 +327,7 @@ export async function installSaveMenu(project: ProjectState, settings: SaveMenuS
     const added = Object.keys(staged.fileSystem?.additions ?? {}).find(p => p.toLowerCase() === manifest.map.path.toLowerCase());
     if (added) delete staged.fileSystem!.additions![added];
     setRomFileReplacement(staged, mapId, map);
+    delete staged.fileSystem?.tombstones?.[mapId];
   }
   const settingsId = rom.filenames.idOf(SAVE_MENU_SETTINGS_PATH);
   if (settingsId === undefined) addRomFile(staged, SAVE_MENU_SETTINGS_PATH, settingsBytes);
@@ -287,6 +335,7 @@ export async function installSaveMenu(project: ProjectState, settings: SaveMenuS
     const added = Object.keys(staged.fileSystem?.additions ?? {}).find(p => p.toLowerCase() === SAVE_MENU_SETTINGS_PATH);
     if (added) delete staged.fileSystem!.additions![added];
     setRomFileReplacement(staged, settingsId, settingsBytes);
+    delete staged.fileSystem?.tombstones?.[settingsId];
   }
   if (status.installed) for (const legacyPath of [SAVE_MENU_SPIN_INDEX_PATH, SAVE_MENU_SPIN_ART_PATH]) {
     const added = Object.keys(staged.fileSystem?.additions ?? {}).find(p => p.toLowerCase() === legacyPath.toLowerCase());

@@ -55,4 +55,4 @@ Black and White share many formats with Black 2 and White 2, but not every edito
 | PMC code injection | BW2 only |
 | PWAN GIF animation injection | Full split runtime and bundled community assets for White 2 and clean US Black 2 |
 | Fairy Type Support patch | Black 2 and White 2 only |
-| Forgettable HMs patch | Black and White only |
+| Forgettable HMs patch | Black and White (ARM9 edit); Black 2 and White 2 (PMC DLL) |

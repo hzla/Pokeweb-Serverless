@@ -24,6 +24,7 @@
   * [Items](Items)
   * [Marts](Marts)
   * [Grottos](Grottos)
+  * [Phenomena](Phenomena)
   * [Texts](Texts)
   * [Starters](Starters)
   * [Type Chart](Type-Chart)

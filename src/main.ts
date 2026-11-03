@@ -47,7 +47,9 @@ import "./styles/battleBackgrounds.css";
 import "./styles/headerBattleEnvironments.css";
 import "./styles/overworldWeather.css";
 import "./styles/flyDestinations.css";
+import "./styles/phenomena.css";
 import { renderFlyDestinationEditor, stopFlyDestinationEditor } from "./ui/flyDestinationEditor";
+import { renderPhenomenaEditor } from "./ui/phenomenaEditor";
 import { loadFlyDestinationEditorData } from "./pokeweb/flyDestinationModel";
 import { attachNavigationDropdowns } from "./ui/navigationDropdowns";
 import "./styles/randomizer.css";
@@ -173,6 +175,7 @@ type AppRoute =
   | "randomizer"
   | "marts"
   | "grottos"
+  | "phenomena"
   | "grottoOdds"
   | "storyText"
   | "infoText"
@@ -292,6 +295,7 @@ const APP_ROUTES: AppRoute[] = [
   "randomizer",
   "marts",
   "grottos",
+  "phenomena",
   "grottoOdds",
   "storyText",
   "infoText",
@@ -346,6 +350,7 @@ const EDITOR_REQUIREMENTS: Record<
   randomizer: [],
   marts: ["marts", "mart_counts"],
   grottos: ["grottos", "grotto_odds"],
+  phenomena: ["items", "headers", "message_texts"],
   storyText: ["story_texts"],
   infoText: ["message_texts"],
 };
@@ -1233,6 +1238,15 @@ function renderApp(): void {
     return;
   }
 
+  if (route === "phenomena") {
+    renderPhenomenaEditor(project, content, () => {
+      dirty = true;
+      scheduleSave(project!);
+      renderDirtyIndicator();
+    });
+    return;
+  }
+
   if (route === "grottos") {
     renderGrottoEditor(
       project,
@@ -1458,13 +1472,15 @@ function renderWeatherMenu(): string {
 
 function renderEncountersMenu(): string {
   const grottoAvailable = project?.session.baseRom === "BW2";
-  const active = route === "encounters" || (grottoAvailable && route === "grottos");
+  const phenomenaAvailable = Boolean(project && ["B", "W", "B2", "W2"].includes(project.session.baseVersion));
+  const active = route === "encounters" || (grottoAvailable && route === "grottos") || route === "phenomena";
   return `
     <div class="header-more ${active ? "-active" : ""}">
       <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Encounters</button>
       <div class="header-more-menu">
         ${navItem("encounters", "Wild Encounters")}
         ${grottoAvailable ? navItem("grottos", "Hidden Grottos") : ""}
+        ${phenomenaAvailable ? navItem("phenomena", "Phenomena") : ""}
       </div>
     </div>
   `;
@@ -2092,6 +2108,62 @@ function renderUpload(root: HTMLElement): void {
             <p>and included the following documentation generation features: Calc Export, Text Documentation export, Dex Export, Mastersheet Creation</p>
             <p>The original repo was written mostly in Ruby/Python/JS/Html/CSS (the only languages I was familiar with) and required running a local server or using a hosted server to access which led to user friction for non technical users to install, and required monthly hosting costs on my end to allow non technical users to access online without installation.</p>
             <p>in 2026 AI assistance was used to port the original repo to a JS only implementation that could be hosted for free on Github and as well as for future maintenance and the research and development of numerous Code Injection Patches (following Pokemon, streamed sprites/music etc.)</p>
+            <div class="ai-breakdown-scroll" role="region" aria-label="Pokeweb Serverless AI Breakdown" tabindex="0">
+              <table class="ai-breakdown-table">
+                <caption>Pokeweb Serverless AI Breakdown</caption>
+                <thead>
+                  <tr><th scope="col">Development category</th><th scope="col">Editors and features</th></tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">Ported 1:1 from Pokeweb</th>
+                    <td>
+                      <ul>
+                        <li>Headers</li>
+                        <li>Personals</li>
+                        <li>Learnsets</li>
+                        <li>Evos</li>
+                        <li>Trainers</li>
+                        <li>Encounters</li>
+                        <li>Grottos</li>
+                        <li>Move Data</li>
+                        <li>Move Effect Handler Addresses</li>
+                        <li>TMs</li>
+                        <li>Item Data</li>
+                        <li>Marts</li>
+                      </ul>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Ported and refactored/enhanced with AI assistance</th>
+                    <td>
+                      <ul>
+                        <li>Overworlds</li>
+                        <li>Texts</li>
+                        <li>Tutor/TM Compatibility UI</li>
+                      </ul>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row">New editors added with AI assistance</th>
+                    <td>
+                      <ul>
+                        <li>Fly Destinations</li>
+                        <li>Matrices</li>
+                        <li>Maps and other 3D Assets</li>
+                        <li>Town Map Graphics</li>
+                        <li>Weather</li>
+                        <li>Following Pokémon</li>
+                        <li>Facilities</li>
+                        <li>Pokémon/Trainer Sprites</li>
+                        <li>Move/Ability/Item Effects</li>
+                        <li>All Code Injection packages except Infinite Rare Candy, Hard Level Caps, and Single NPC Double Battle Fix</li>
+                      </ul>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
         <footer class="home-footer">
@@ -2553,6 +2625,7 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
     return EDITOR_REQUIREMENTS.wbtFacilities.every((name) => project?.narcs[name]) && Boolean(project.narcs.wbt_sets || project.narcs.wbt_trainers || project.narcs.wbt_area_pools);
   }
   if ((nextRoute === "marts" || nextRoute === "grottos") && project.session.baseRom !== "BW2") return false;
+  if (nextRoute === "phenomena" && !(hasExportBase && ["B", "W", "B2", "W2"].includes(project.session.baseVersion))) return false;
   const editorRoute = nextRoute as Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "followingPokemon" | "patches" | "debugNarcs" | "grottoOdds" | "docGenerators" | "mastersheet" | "maps3d" | "changelog" | "tutorMoves">;
   return EDITOR_REQUIREMENTS[editorRoute].every((name) => project?.narcs[name]);
 }

@@ -1,0 +1,45 @@
+.phen-editor { padding: 24px; width: 100%; max-width: 1240px; margin: 0 auto; box-sizing: border-box; }
+.phen-editor h1 { margin: 0; font-size: 26px; }
+.phen-editor h2 { margin: 0; font-size: 18px; }
+.phen-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.phen-actions { display: flex; gap: 8px; margin-left: auto; }
+.phen-status { min-height: 22px; margin: 12px 0 16px; color: #b8bccd; line-height: 1.5; }
+.phen-status.-error { color: #ffb3bd; }
+.phen-muted { color: #b8bccd; font-size: 13px; }
+.phen-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr)); gap: 20px; align-items: start; }
+.phen-grid + .phen-add { margin-top: 16px; }
+.phen-card { background: #303341; border: 1px solid #484b5e; border-radius: 8px; padding: 20px; display: grid; gap: 16px; align-content: start; }
+.phen-card > header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.phen-group > header { align-items: center; }
+.phen-group > header select { width: auto; margin: 0; }
+.phen-subhead { margin: 32px 0 12px !important; }
+.phen-odds { display: grid; grid-template-columns: auto minmax(80px, 1fr) auto; align-items: center; gap: 12px; }
+.phen-odds label { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+.phen-pct { display: inline-flex; align-items: center; gap: 4px; }
+.phen-pct input { width: 80px; margin: 0; }
+.phen-bar { height: 8px; border-radius: 4px; background: #8be9fd; overflow: hidden; }
+.phen-bar .-battle { display: block; height: 100%; background: #ff79c6; }
+.phen-items { display: grid; gap: 4px; }
+.phen-row { display: grid; grid-template-columns: minmax(0, 1fr) 90px 64px 28px; gap: 8px; align-items: center; }
+.phen-row input, .phen-pct input, .phen-zone-input, .phen-group > header select { height: 32px; font-size: 14px; padding: 4px 8px; box-sizing: border-box; }
+.phen-row input { width: 100%; min-width: 0; margin: 0; }
+.phen-row.-head { color: #b8bccd; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.phen-share { text-align: right; font-variant-numeric: tabular-nums; }
+.phen-remove, .phen-chip button { background: none; border: 0; color: #b8bccd; font-size: 18px; line-height: 1; cursor: pointer; padding: 4px; border-radius: 4px; }
+.phen-remove:hover, .phen-chip button:hover { color: #ffb3bd; }
+.phen-remove:focus-visible, .phen-chip button:focus-visible { outline: 2px solid #8be9fd; }
+.phen-add { justify-self: start; margin-top: 4px; }
+.phen-zones { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.phen-chip { display: inline-flex; align-items: center; gap: 2px; background: #3e4657; border: 1px solid #55596e; border-radius: 999px; padding: 2px 4px 2px 10px; font-size: 13px; }
+.phen-chip button { font-size: 15px; }
+.phen-zone-input { width: 200px; margin: 0; }
+.phen-check { display: flex; align-items: center; gap: 8px; }
+.phen-editor input[aria-invalid="true"] { outline: 2px solid #ff5555; }
+.phen-editor button:disabled { opacity: .55; cursor: default; }
+@media (max-width: 600px) {
+  .phen-editor { padding: 16px; }
+  .phen-actions { margin-left: 0; }
+  .phen-odds { grid-template-columns: 1fr auto; }
+  .phen-bar { grid-column: 1 / -1; grid-row: 2; }
+  .phen-row { grid-template-columns: minmax(0, 1fr) 70px 56px 28px; }
+}

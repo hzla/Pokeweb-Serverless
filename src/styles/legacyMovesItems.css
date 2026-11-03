@@ -29,6 +29,9 @@
 .item-rule-effect-heading, .item-rule-preset { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
 .item-rule-effect-fields { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: end; }
 .item-rule-effect-fields > label { display: grid; gap: 4px; min-width: 100px; max-width: 220px; }
+.item-rule-effect-fields > .item-rule-native-parameter { flex: 0 0 auto; width: max-content; min-width: min(100%, calc(var(--rule-control-ch) * 1ch + 3rem)); max-width: 100%; }
+.item-rule-effect-fields .item-rule-native-parameter > select,
+.item-rule-effect-fields .item-rule-native-parameter > input[type="number"] { width: calc(var(--rule-control-ch) * 1ch + 3rem); max-width: 100%; min-width: 0; }
 .item-rule-effect-fields > .item-rule-value { display: flex; align-items: center; }
 .item-rule-effect-fields > .item-rule-value input { width: 100px; }
 .item-rule-effect-fields label > span { font-size: 12px; color: #aeb7ca; }

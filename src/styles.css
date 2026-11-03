@@ -62,6 +62,7 @@ img[src*="pokesprite/"] {
 .home-tab:focus-visible,
 .home-discord-button:focus-visible,
 .ai-use-disclaimer a:focus-visible,
+.ai-breakdown-scroll:focus-visible,
 .changelog-tab:focus-visible {
   outline: 2px solid #8be9fd;
   outline-offset: 3px;
@@ -222,6 +223,63 @@ img[src*="pokesprite/"] {
 
 .ai-use-disclaimer p:last-child {
   margin-bottom: 0;
+}
+
+.ai-breakdown-scroll {
+  overflow-x: auto;
+}
+
+.ai-breakdown-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.ai-breakdown-table caption {
+  padding-bottom: 16px;
+  text-align: left;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.ai-breakdown-table th,
+.ai-breakdown-table td {
+  border: 1px solid #6272a4;
+  padding: 16px;
+  vertical-align: top;
+}
+
+.ai-breakdown-table thead {
+  background: #282a36;
+  color: #bd93f9;
+}
+
+.ai-breakdown-table tbody th {
+  width: 32%;
+  background: #303247;
+}
+
+.ai-breakdown-table td {
+  color: #d6d7e2;
+}
+
+.ai-breakdown-table ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.ai-breakdown-table li + li {
+  margin-top: 4px;
+}
+
+@media (max-width: 640px) {
+  .ai-breakdown-table th,
+  .ai-breakdown-table td {
+    padding: 12px 10px;
+  }
 }
 
 .home-about {

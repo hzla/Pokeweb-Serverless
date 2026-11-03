@@ -17,7 +17,7 @@
 .move-recipe-layout .item-rule-effects-heading { gap: 16px; }
 .move-recipe-layout .item-rule-effects-heading strong { font-size: 17px; line-height: 1.4; }
 .move-recipe-layout .item-rule-effect { min-width: 0; padding: 20px; gap: 20px; border-radius: 8px; }
-.move-recipe-layout .item-rule-effect-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr)); gap: 18px 20px; align-items: end; }
+.move-recipe-layout .item-rule-effect-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: 18px 20px; align-items: end; }
 .move-recipe-layout .item-rule-effect-fields > label { min-width: 0; max-width: none; }
 .move-recipe-layout .item-rule-effect-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 8px; align-items: center; }
 .move-recipe-layout .item-rule-effect-heading:has(> strong) { grid-template-columns: minmax(0, 1fr) auto; }

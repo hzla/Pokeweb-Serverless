@@ -8,6 +8,7 @@ import {
   applyModernFairyTypings,
   applyRemoveDustCloudGemRewardsToOverlay,
   applyRemoveDustCloudItemRewardsToOverlay,
+  detectForgettableHmPatch,
   detectSpecifyTrainerNaturesPatch,
   makeHmsForgettable,
 } from "../pokeweb/romPatchModel";
@@ -173,11 +174,13 @@ describe("ROM patches", () => {
     expect([...project.arm9.slice(0, 4)]).toEqual([0x00, 0x20, 0x70, 0x47]);
   });
 
-  it("does not apply the forgettable HM patch to Black 2 / White 2 projects", async () => {
+  it("does not apply the Black / White ARM9 edit to Black 2 / White 2 projects", async () => {
     const project = makeTypingProject();
     project.arm9 = new Uint8Array(HM_FORGET_WHITE_PROTECTION_CHECK);
 
-    await expect(makeHmsForgettable(project)).rejects.toThrow("Black / White only");
+    await expect(makeHmsForgettable(project)).rejects.toThrow("Code Injection > Quality of Life");
+    expect([...project.arm9]).toEqual([...HM_FORGET_WHITE_PROTECTION_CHECK]);
+    expect(detectForgettableHmPatch(project)).toBe("unsupported");
   });
 
   it("installs the White 2 trainer nature helper without touching the old DSi code cave", () => {

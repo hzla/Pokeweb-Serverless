@@ -65,9 +65,10 @@ import { getPokenavStatus, installPokenav, disablePokenav } from "../pokeweb/pok
 import { getNuzlockeEncountersStatus,installNuzlockeEncounters,disableNuzlockeEncounters } from "../pokeweb/nuzlockeEncountersModel";
 import { getLearnsetViewerStatus, installLearnsetViewer, uninstallLearnsetViewer } from "../pokeweb/learnsetViewerModel";
 import { getSummaryStatViewerStatus, installSummaryStatViewer, uninstallSummaryStatViewer, SUMMARY_STAT_VIEWER_VERSION } from "../pokeweb/summaryStatViewerModel";
-import { getSaveMenuSettings, getSaveMenuStatus, installSaveMenu, SAVE_MENU_VERSION, SAVE_MENU_VERSION_LABEL_MAX_LENGTH, type SaveMenuSettings } from "../pokeweb/saveMenuModel";
+import { getSaveMenuSettings, getSaveMenuStatus, installSaveMenu, uninstallSaveMenu, SAVE_MENU_VERSION, SAVE_MENU_VERSION_LABEL_MAX_LENGTH, type SaveMenuSettings } from "../pokeweb/saveMenuModel";
 import { getInfiniteCandyStatus, getInstalledInfiniteCandyItemId, installInfiniteCandy } from "../pokeweb/infiniteCandyModel";
 import { getLevelCapsStatus, installLevelCaps } from "../pokeweb/levelCapsModel";
+import { getForgettableHmsPmcStatus, stageForgettableHmsPmc } from "../pokeweb/forgettableHmsRuntime";
 import { TESTING_PATCHES, getTestingPatchStatus, installTestingPatch, uninstallTestingPatch, type TestingPatchId } from "../pokeweb/testingPatchesModel";
 import { getBattleTypeHudStatus, installBattleTypeHud, uninstallBattleTypeHud, getMoveEffectivenessStatus, installMoveEffectiveness, uninstallMoveEffectiveness, DEFAULT_MOVE_HIGHLIGHT_COLORS, type MoveHighlightColors, type TypeIconVariant } from "../pokeweb/battleTypeHudModel";
 import {
@@ -141,6 +142,8 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const doubleBattleFixSupported = status.supported && doubleBattleFixStatus !== "unsupported";
   const bgmToggleStatus = detectBundledBgmToggleDll(project);
   const bgmToggleSupported = bgmToggleStatus !== "unsupported";
+  const forgettableHmsStatus = getForgettableHmsPmcStatus(project);
+  const forgettableHmsSupported = forgettableHmsStatus !== "unsupported";
   const infiniteCandyStatus = getInfiniteCandyStatus(project, pendingCandyItemIds.get(project));
   const infiniteCandyItemId = infiniteCandyStatus.itemId ?? getInstalledInfiniteCandyItemId(project) ?? 622;
   const levelCapsStatus = getLevelCapsStatus(project);
@@ -583,6 +586,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               <small>The native song follows its sequence clock. Streams use BPM. With music off, sprites change poses every eight frames.</small>
             </label>
             <button class="btn -primary" id="install-save-menu-btn" type="button" ${saveMenuStatus.supported && saveMenuStatus.dependencyPresent ? "" : "disabled"}>${saveMenuStatus.updateAvailable ? "Update Interactive Save Menu" : saveMenuStatus.installed ? "Reinstall Interactive Save Menu" : "Install Interactive Save Menu"}</button>
+            <button class="btn -default -remove" id="uninstall-save-menu-btn" type="button" ${saveMenuStatus.canUninstall ? "" : "disabled"}>Uninstall Interactive Save Menu</button>
             <div class="code-injection-note" id="save-menu-note" aria-live="polite"></div>
           </div>
         </section>
@@ -608,6 +612,27 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               ${bgmToggleStatus === "patched" ? "Reinstall Music Toggle" : "Install Music Toggle"}
             </button>
             <div class="code-injection-note" id="bgm-toggle-note" aria-live="polite"></div>
+          </div>
+        </section>
+        <section class="code-injection-panel" ${patchVisibility(forgettableHmsSupported)}>
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Forgettable HMs</h2>
+              <p>Lets the move deleter, level-up and TM move replacement screens forget HM moves. A small PMC module replaces the HM check at load time; the ROM's ARM9 code is left unchanged. Black / White use the ARM9 patch on the Patches page.</p>
+            </div>
+            ${renderInlineStatus(forgettableHmsStatus === "patched" ? "Installed" : forgettableHmsStatus === "legacy" ? "Migration Available" : forgettableHmsStatus === "unknown" ? "Signature Unknown" : forgettableHmsStatus === "unsupported" ? "Unsupported" : "Ready", { className: "code-injection-status" })}
+          </div>
+          <div class="code-injection-facts">
+            <div><span>ROM</span><strong>Black 2 / White 2</strong></div>
+            <div><span>Hook</span><strong>PML_MoveIsHM</strong></div>
+            <div><span>ARM9</span><strong>${forgettableHmsStatus === "legacy" ? "Inline edit restored" : "Unchanged"}</strong></div>
+            <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-forgettable-hms-btn" type="button" ${forgettableHmsStatus === "unpatched" || forgettableHmsStatus === "legacy" ? "" : "disabled"}${forgettableHmsStatus === "unknown" ? ' title="Could not find the Black 2 / White 2 HM check in ARM9. This ROM may have a different patch or code layout."' : ""}>
+              ${forgettableHmsStatus === "patched" ? "Forgettable HMs Installed" : forgettableHmsStatus === "legacy" ? "Migrate to PMC" : "Install Forgettable HMs"}
+            </button>
+            <div class="code-injection-note" id="forgettable-hms-note" aria-live="polite"></div>
           </div>
         </section>
         </section>
@@ -1084,6 +1109,26 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     }
   });
 
+  const forgettableHmsButton = root.querySelector<HTMLButtonElement>("#install-forgettable-hms-btn");
+  forgettableHmsButton?.addEventListener("click", async () => {
+    const note = root.querySelector<HTMLDivElement>("#forgettable-hms-note");
+    const previousText = forgettableHmsButton.textContent ?? "Install Forgettable HMs";
+    try {
+      forgettableHmsButton.disabled = true;
+      forgettableHmsButton.textContent = "Installing...";
+      if (note) note.textContent = status.installed ? "Locating the HM check and staging the Forgettable HMs DLL." : "Installing PMC, then staging the Forgettable HMs DLL.";
+      const result = await install(candidate => stageForgettableHmsPmc(candidate));
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+      const refreshedNote = root.querySelector<HTMLDivElement>("#forgettable-hms-note");
+      if (refreshedNote) refreshedNote.textContent = `${result.summary} Export the ROM to apply it.`;
+    } catch (error) {
+      forgettableHmsButton.disabled = false;
+      forgettableHmsButton.textContent = previousText;
+      if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+
   const infiniteCandyButton = root.querySelector<HTMLButtonElement>("#install-infinite-candy-btn");
   const candyItemInput = root.querySelector<HTMLInputElement>("#infinite-candy-item-id");
   candyItemInput?.addEventListener("input", () => {
@@ -1440,6 +1485,20 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       if (updated) updated.textContent = "Save menu staged. Export the ROM to use it.";
     } catch (error) {
       button.disabled = false;
+      if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+  root.querySelector<HTMLButtonElement>("#uninstall-save-menu-btn")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget as HTMLButtonElement;
+    const note = root.querySelector<HTMLElement>("#save-menu-note");
+    button.disabled = true;
+    if (note) note.textContent = "Verifying and removing the save-menu patch…";
+    try {
+      await uninstallSaveMenu(project); onDirty(); renderCodeInjectionEditor(project, root, onDirty);
+      const updated = root.querySelector<HTMLElement>("#save-menu-note");
+      if (updated) updated.textContent = "Save menu removed. Export and restart from a normal save to use the native menu.";
+    } catch (error) {
+      button.disabled = !getSaveMenuStatus(project).canUninstall;
       if (note) note.textContent = error instanceof Error ? error.message : String(error);
     }
   });

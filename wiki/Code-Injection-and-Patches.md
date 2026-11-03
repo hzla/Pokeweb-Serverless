@@ -51,6 +51,7 @@ Use these tools carefully. They modify ARM9, overlays, or ROM files at known byt
 | Install/Update Porta PC | Installs PMC if needed and stages the matching stripped DLL. Replaces a recognized original ButtonScript DLL in place. | `PortaPCB2.dll` or `PortaPCW2.dll` |
 | Uninstall Porta PC | Removes a Porta PC DLL staged in the current project. | Available before the DLL becomes part of an imported ROM |
 | Install Infinite Candy | Installs PMC if needed, stages the version-matched DLL, and fills item 622's data, name, and description. | Give item 622 through an event or save editor; Rare Candy at item 50 stays unchanged. Credit: PW2Code by Dararo. |
+| Install Forgettable HMs | Black 2 / White 2. Installs PMC if needed and stages a generated `ForgettableHmsB2.dll` / `ForgettableHmsW2.dll` that hooks `PML_MoveIsHM`, so HMs can be forgotten while ARM9 stays retail. An older inline ARM9 edit shows *Migration Available* and is restored on install. Black / White use the ARM9 patch on the Patches page. | Let players remove Cut or Surf in a BW2 hack. |
 | Install Hard Level Caps | Installs PMC if needed and stages the version-matched battle, Day Care, and item hooks. | Set the desired cap with `EventWorks.Set(16415, level)` in a game script. Zero leaves the default cap at 100. Credit: PW2Code by Dararo. |
 | Installed DLLs sidebar | Lists each injected patch or library once by its complete ROM path. | `patches/DoubleBattleFixW2.dll` |
 | Add Patch DLL | Adds a DLXF Gen V patch DLL to `patches/`. | A battle-code patch DLL |
@@ -64,7 +65,9 @@ Use these tools carefully. They modify ARM9, overlays, or ROM files at known byt
 | Remove Items from Cave Dust Clouds | Black / White / Black 2 / White 2 | Skips dust-cloud item rewards so dust clouds attempt wild encounters instead. | Make dust clouds always behave like encounter spots. |
 | Add Fairy Type Support | Black 2 / White 2 | Adds Fairy as an extra usable type and can update Pokemon and move typings. | Add Fairy-type Clefairy, Togepi, or Ralts-line behavior. |
 | Specify Trainer Pokemon Natures | Black 2 / White 2 | Enables the trainer Pokemon `Nature` field in supported ROMs. | Give a boss's ace an explicit `Adamant` nature. |
-| Make HM Moves Forgettable | Black / White | Changes move deleter behavior so HMs can be forgotten. | Let players remove Cut or Surf without special handling. |
+| Make HM Moves Forgettable | Black / White | Edits ARM9 so HMs can be forgotten. For Black 2 / White 2, use **Forgettable HMs** under Code Injection > Quality of Life. | Let players remove Cut or Surf without special handling. |
+
+The [Phenomena editor](Phenomena) replaces both dust-cloud patches with editable encounter chances and item lists for dust clouds and flying shadows. They are disabled once it is installed.
 
 ## Status Labels
 

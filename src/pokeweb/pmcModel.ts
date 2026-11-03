@@ -982,6 +982,7 @@ export function stageCodeInjectionDll(
     );
     if (duplicateAddition) delete project.fileSystem?.additions?.[duplicateAddition];
     setRomFileReplacement(project, existingRomFileId, bytes);
+    delete project.fileSystem?.tombstones?.[existingRomFileId];
   }
   project.codeInjection ??= {};
   const modules = (project.codeInjection.modules ??= []);
@@ -1039,7 +1040,10 @@ export function listCodeInjectionDlls(project: ProjectState): NonNullable<NonNul
     addDllModuleFromPath(path, seen, modules);
   }
   for (const module of codeInjectionDllsFromOriginalRom(project)) addDllModule(module, seen, modules);
-  return modules;
+  const removed = new Set(Object.entries(project.fileSystem?.tombstones ?? {})
+    .filter(([id]) => project.fileSystem?.replacements?.[Number(id)]?.length === 0)
+    .map(([, path]) => path.toLowerCase()));
+  return modules.filter(module => !removed.has(module.path.toLowerCase()));
 }
 
 function codeInjectionDllsFromOriginalRom(project: ProjectState): CodeInjectionModule[] {

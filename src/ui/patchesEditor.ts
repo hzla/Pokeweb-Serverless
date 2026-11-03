@@ -19,6 +19,7 @@ import {
   detectPlatinumItemStandardization,
 } from "../pokeweb/gen4ItemStandardizationModel";
 import type { ProjectState } from "../pokeweb/projectStore";
+import { isPhenomenaRuntimeStaged } from "../pokeweb/phenomenaModel";
 import { escapeHtml } from "./dom";
 import { getCascadePersonalMigrationStatus, migrateCascadePersonalData } from "../pokeweb/cascadeWhitePersonalModel";
 import moveAnimationCredits from "../assets/data/white2upgradeGen6MoveAnimationsCredits.json";
@@ -33,6 +34,10 @@ let status: PatchStatus | undefined;
 export function renderPatchesEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void): void {
   const gemStatus = detectDustCloudGemPatch(project);
   const itemStatus = detectDustCloudItemPatch(project);
+  // The Phenomena editor's runtime replaces both dust cloud branches.
+  const dustManaged = isPhenomenaRuntimeStaged(project);
+  const dustBadge = (value: ReturnType<typeof detectDustCloudGemPatch>) =>
+    renderInlineStatus(dustManaged ? "Phenomena editor" : dustStatusLabel(value), { className: "patch-badge", title: dustManaged ? "Edit dust cloud odds and items in Encounters → Phenomena." : undefined });
   const hmStatus = detectForgettableHmPatch(project);
   const fairyStatus = detectFairyTypePatch(project);
   const trainerNatureStatus = detectSpecifyTrainerNaturesPatch(project);
@@ -183,12 +188,12 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
               <p>Cave dust-cloud item rewards will skip the gem reward branch. Evolution stones and Everstone remain available.</p>
             </div>
             <div class="patch-card__meta">
-              ${renderInlineStatus(dustStatusLabel(gemStatus), { className: "patch-badge" })}
+              ${dustBadge(gemStatus)}
               <span>${project.session.baseRom === "BW2" ? "BW2" : "BW"}</span>
             </div>
           </div>
           <div class="patch-card__actions">
-            <button class="btn -default" id="remove-dust-cloud-gems-btn" type="button">Remove Gems from Dust Clouds</button>
+            <button class="btn -default" id="remove-dust-cloud-gems-btn" type="button" ${dustManaged ? "disabled" : ""}>Remove Gems from Dust Clouds</button>
           </div>
         </section>
         <section class="patch-card">
@@ -198,12 +203,12 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
               <p>Cave dust clouds will always attempt a wild encounter instead of rolling for an item reward.</p>
             </div>
             <div class="patch-card__meta">
-              ${renderInlineStatus(dustStatusLabel(itemStatus), { className: "patch-badge" })}
+              ${dustBadge(itemStatus)}
               <span>${project.session.baseRom === "BW2" ? "BW2" : "BW"}</span>
             </div>
           </div>
           <div class="patch-card__actions">
-            <button class="btn -default" id="remove-dust-cloud-items-btn" type="button">Remove Items from Dust Clouds</button>
+            <button class="btn -default" id="remove-dust-cloud-items-btn" type="button" ${dustManaged ? "disabled" : ""}>Remove Items from Dust Clouds</button>
           </div>
         </section>
         ${fairyPatchCard}
