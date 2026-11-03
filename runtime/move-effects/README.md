@@ -8,6 +8,26 @@ installation before move data is changed.
 Signature checks and a successful export do not establish gameplay behavior
 for every template, combination or ROM modification.
 
+Move Expansion's packaged animations fit the retail 18 KiB particle workspace.
+Texture deduplication, timed reuse of emitter definitions and small reductions to
+secondary glow/flash layers keep the native pools and workspace unchanged.
+Terrain Pulse loads only the particle bank for its selected terrain variant;
+its five variants never load together. Ceaseless Edge uses one sprite shake per
+cut so overlapping movement tasks do not leave its target hidden during damage.
+Bundles that exceed the retail workspace
+are rejected. Reinstall with bundled animations enabled to replace older assets;
+this also rolls back the recognized earlier paired 24 KiB workspace edit.
+Restart the emulator with the new ROM: a savestate retains old code and assets
+and may already contain overwritten memory.
+
+To audit every packaged animation's particle dependencies and native workspace
+requirements without emulator execution, run `npx vite-node
+scripts/audit-move-expansion-particles.ts --out
+/path/outside/the/repository/animation-audit.json`. The report includes every
+move and SPA, references from all script variants, retail overflow sizes and
+remaining workspace. This checks allocation bounds; it does not verify visuals,
+audio, timing or other engine limits.
+
 The active native handler table is discovered from its checked dispatcher, including
 relocated or expanded tables with up to 4,096 rows. Move IDs and handler addresses
 may be reassigned, reordered, added to vacant slots or disabled. Both the address

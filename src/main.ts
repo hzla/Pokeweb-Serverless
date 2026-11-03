@@ -2110,7 +2110,10 @@ function renderUpload(root: HTMLElement): void {
             <p>in 2026 AI assistance was used to port the original repo to a JS only implementation that could be hosted for free on Github and as well as for future maintenance and the research and development of numerous Code Injection Patches (following Pokemon, streamed sprites/music etc.)</p>
             <div class="ai-breakdown-scroll" role="region" aria-label="Pokeweb Serverless AI Breakdown" tabindex="0">
               <table class="ai-breakdown-table">
-                <caption>Pokeweb Serverless AI Breakdown</caption>
+                <caption>
+                  Pokeweb Serverless AI Breakdown
+                  <p>To be clear, this version of Pokeweb is near 100% AI generated code, the following table breaks down which parts of the code was ported from the previous handwritten Pokeweb version, and which parts have since been created fully with AI driven development.</p>
+                </caption>
                 <thead>
                   <tr><th scope="col">Development category</th><th scope="col">Editors and features</th></tr>
                 </thead>

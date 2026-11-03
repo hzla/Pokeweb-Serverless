@@ -245,6 +245,12 @@ img[src*="pokesprite/"] {
   font-weight: 600;
 }
 
+.ai-breakdown-table caption p {
+  margin: 12px 0 0;
+  font-size: 14px;
+  font-weight: 400;
+}
+
 .ai-breakdown-table th,
 .ai-breakdown-table td {
   border: 1px solid #6272a4;

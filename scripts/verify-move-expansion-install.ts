@@ -68,6 +68,10 @@ if (includeBundledAnimations) {
     assert(overlay.ramAddress === before.ramAddress, `overlay ${id} retains its RAM base`);
     assert(overlay.ramSize + overlay.bssSize <= before.ramSize + before.bssSize, `overlay ${id} does not grow into party-selection memory`);
     if (id === 94 || id === 168) assert(overlay.bssSize === 0, `overlay ${id} materialized BSS is not allocated twice`);
+    if (id === 94 || id === 168) {
+      const offsets = id === 94 ? [0x3c0e, 0x3c5c] : [0x40fe, 0x414c];
+      for (const offset of offsets) assert(overlay.data[offset] === 0x12 && overlay.data[offset + 1] === 0x21, `overlay ${id} retains the retail particle workspace`);
+    }
   }
   assert(installed.bundledAnimationsInstalled === animationBundle?.moves.length, "bundled animation install count");
   assert(installed.particleFilesInstalled > 0, "bundled particle install count");

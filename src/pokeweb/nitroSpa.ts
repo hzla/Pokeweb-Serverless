@@ -6,6 +6,31 @@ const RESOURCE_HEADER_SIZE = 88;
 const TEXTURE_HEADER_SIZE = 32;
 const FRAMES_PER_SECOND = 30;
 
+/** Native BW/BW2 battle manager: 24 emitter nodes and 200 particle nodes.
+ * Walk the native record layout without decoding textures or allocating RGBA.
+ */
+export function getGen5BattleSpaWorkspaceBytes(bytes: Uint8Array): number {
+  if (bytes.length < 32 || readU32(bytes, 0) !== SPA_MAGIC) throw new Error("Invalid battle particle archive.");
+  const resourceCount = readU16(bytes, 8);
+  const textureCount = readU16(bytes, 10);
+  let cursor = 32;
+  let behaviorCount = 0;
+  for (let index = 0; index < resourceCount; index += 1) {
+    if (cursor + RESOURCE_HEADER_SIZE > bytes.length) throw new Error("Incomplete battle particle resource.");
+    const flags = readU32(bytes, cursor);
+    for (let bit = 24; bit <= 29; bit += 1) behaviorCount += (flags >>> bit) & 1;
+    cursor += RESOURCE_HEADER_SIZE + optionalResourceBytes(flags);
+    if (cursor > bytes.length) throw new Error("Incomplete battle particle resource blocks.");
+  }
+  for (let index = 0; index < textureCount; index += 1) {
+    if (cursor + TEXTURE_HEADER_SIZE > bytes.length || readU32(bytes, cursor) !== SPT_MAGIC) throw new Error("Incomplete battle particle texture.");
+    const size = readU32(bytes, cursor + 28);
+    if (size < TEXTURE_HEADER_SIZE || cursor + size > bytes.length) throw new Error("Incomplete battle particle texture data.");
+    cursor += size;
+  }
+  return 0x4c + 24 * 0x9c + 200 * 0x44 + resourceCount * 0x20 + textureCount * 0x14 + behaviorCount * 8;
+}
+
 export type SpaWarning = {
   message: string;
 };

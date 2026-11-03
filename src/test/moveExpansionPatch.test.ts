@@ -3,11 +3,14 @@ import moveAnimationCredits from "../assets/data/white2upgradeGen6MoveAnimations
 import { getBundledMoveAnimationAuthor, summarizeMoveAnimationCredits } from "../pokeweb/moveAnimationCredits";
 import { readFileSync } from "node:fs";
 import { unzipSync, zipSync } from "fflate";
-import { readU16, readU32, writeU32 } from "../nds/binary";
+import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import type { NintendoDSRom } from "../nds/rom";
 import {
   allocateMoveExpansionParticleAssets,
   allocateMoveExpansionBackgroundAssets,
+  restorePreviousMoveExpansionParticleWorkspace,
+  MOVE_EXPANSION_PARTICLE_WORKSPACE_BYTES,
+  getMoveExpansionParticleWorkspaceBytes,
   applyMoveExpansionCommandHookToOverlay,
   applyMoveExpansionRoutingHookToOverlay,
   detectMoveExpansionRoutingHook,
@@ -47,6 +50,56 @@ const ORIGINAL_SECONDARY_LOADER_HOOK = [0x84, 0x42, 0x10, 0x4b];
 const ORIGINAL_BW_VISUAL_HOOK = [0x31, 0x1c, 0x1a, 0x40];
 
 describe("Move Expansion patch", () => {
+  it.each(["BW", "BW2"] as const)("preserves the retail %s arena and can roll back the previous paired 24 KiB patch", baseRom => {
+    const overlay = routingFixture(baseRom).loader.data;
+    const offsets = baseRom === "BW" ? [0x3c0e, 0x3c5c] : [0x40fe, 0x414c];
+    expect(restorePreviousMoveExpansionParticleWorkspace(overlay, baseRom).overlay).toBe(overlay);
+    const previous = overlay.slice();
+    for (const offset of offsets) previous[offset] = 0x18;
+    const restored = restorePreviousMoveExpansionParticleWorkspace(previous, baseRom);
+    expect(restored.changed).toBe(true);
+    expect(restored.overlay).toEqual(overlay);
+    for (const offset of offsets) expect(readU16(restored.overlay, offset)).toBe(0x2112);
+    const conflict = overlay.slice();
+    conflict[offsets[0] + 2] ^= 1;
+    expect(restorePreviousMoveExpansionParticleWorkspace(conflict, baseRom).overlay).toBe(conflict);
+    const larger = previous.slice();
+    for (const offset of offsets) larger[offset] = 0x20;
+    expect(restorePreviousMoveExpansionParticleWorkspace(larger, baseRom).overlay).toBe(larger);
+  });
+
+  it("fits every bundled SPA's native pools and descriptors, including Ceaseless Edge", () => {
+    const bundle = loadMoveAnimationBundle();
+    const required = (bytes: Uint8Array) => {
+      const spa = parseSpaArchive(bytes);
+      // Native SPL_Init: manager + 24 emitter nodes + 200 particle nodes.
+      return 0x4c + 24 * 0x9c + 200 * 0x44 + spa.resources.length * 0x20 +
+        spa.textures.length * 0x14 + spa.resources.reduce((sum, resource) => sum + resource.behaviors.length * 8, 0);
+    };
+    const edge = bundle.particles.find(particle => particle.sourceParticleId === 1025)!;
+    expect(required(edge.bytes)).toBe(18412);
+    expect(MOVE_EXPANSION_PARTICLE_WORKSPACE_BYTES).toBe(0x4800);
+    for (const particle of bundle.particles) {
+      expect(getMoveExpansionParticleWorkspaceBytes(particle.bytes)).toBe(required(particle.bytes));
+      expect(required(particle.bytes)).toBeLessThanOrEqual(MOVE_EXPANSION_PARTICLE_WORKSPACE_BYTES);
+    }
+  });
+
+  it("rejects bundles whose particles exceed the native workspace before installing them", () => {
+    const particle = new Uint8Array(32 + 300 * 88);
+    writeU32(particle, 0, 0x53504120);
+    writeU16(particle, 8, 300);
+    const bytes = zipSync({
+      "manifest.json": new TextEncoder().encode(JSON.stringify({
+        format: "pokeweb-move-expansion-animations", version: 3, generations: [6, 7, 8, 9], moves: [], backgrounds: [],
+        particles: [{ sourceParticleId: 1, particle: "move_spas/1.bin" }],
+      })),
+      "move_spas/1.bin": particle,
+    });
+    expect(() => parseMoveExpansionAnimationBundle(bytes)).toThrow(/exceeds the retail battle particle workspace/u);
+    expect(() => getMoveExpansionParticleWorkspaceBytes(particle.subarray(0, 32))).toThrow(/Incomplete battle particle resource/u);
+  });
+
   it.each(["BW","BW2"] as const)("identifies Frost's original %s expanded-ID layout without claiming our animation helpers are installed", baseRom => {
     const fixture=routingFixture(baseRom), caller=fixture.caller;
     fixture.loader.data.set([0x00,0xf0,0x00,0xf8,...FROST_SIGNATURE],caller);
@@ -185,7 +238,7 @@ describe("Move Expansion patch", () => {
     expect(bundle.moves.some((move) => move.sourceMoveId === 851)).toBe(false);
     expect(bundle.moves.some((move) => move.sourceMoveId === 743 || (move.sourceMoveId >= 757 && move.sourceMoveId <= 774))).toBe(false);
     expect(bundle.completeAssets).toBe(true);
-    expect(bundle.particles).toHaveLength(333);
+    expect(bundle.particles).toHaveLength(337);
     expect(bundle.backgrounds).toHaveLength(15);
     const bundledParticleIds = new Set(bundle.particles.map((particle) => particle.sourceParticleId));
     expect(bundle.moves.flatMap((move) => move.particleIds).every((particleId) => bundledParticleIds.has(particleId))).toBe(true);
@@ -217,22 +270,23 @@ describe("Move Expansion patch", () => {
     const particle = bundle.particles.find((entry) => entry.sourceParticleId === 960)!;
     const archive = parseSpaArchive(particle.bytes);
     expect(archive.warnings).toEqual([]);
-    expect(archive.resources).toHaveLength(22);
+    expect(archive.resources).toHaveLength(20);
     expect(archive.textures).toHaveLength(14);
     expect(archive.resources[0].particleLifeFrames).toBe(20);
     expect(archive.resources[1].startDelayFrames).toBe(20);
-    expect(archive.resources[11].startDelayFrames).toBe(80);
-    expect(archive.resources[11].initVelAxisAmplifier).toBe(1);
-    expect(archive.resources[11].loopFrames).toBe(48);
+    expect(archive.resources[9].startDelayFrames).toBe(80);
+    expect(archive.resources[9].initVelAxisAmplifier).toBe(1);
+    expect(archive.resources[9].loopFrames).toBe(48);
     // The old square-layer slots are now occupied by the retained sparks.
-    expect(archive.resources[19]).toMatchObject({ drawType: 1, emissionCount: 8 });
-    expect(archive.resources[20]).toMatchObject({ emissionCount: 3, startDelayFrames: 8 });
+    expect(archive.resources[17]).toMatchObject({ drawType: 1, emissionCount: 8 });
+    expect(archive.resources[18]).toMatchObject({ emissionCount: 3, startDelayFrames: 8 });
     const commands = [...parseMoveAnimationScript(decompileMoveAnimationBytes(move.bytes)).scripts.values()].flat();
     expect(commands[0].params[2]).toBe(24);
     expect(commands.filter((command) => command.name === "Wait").map((command) => command.params[0])).toEqual([20, 20, 20, 20, 16, 12, 16, 20, 24]);
     expect(commands.filter((command) => command.name === "PlaySound" && command.params[0] === 1475).map((command) => command.params[3])).toEqual([96, 112]);
     const emitters = commands.filter((command) => command.name === "DoSPAAnimation").map((command) => command.params[1]);
-    expect([...emitters].sort((a, b) => a - b)).toEqual(Array.from({ length: 22 }, (_, index) => index));
+    expect([...new Set(emitters)].sort((a, b) => a - b)).toEqual(Array.from({ length: 20 }, (_, index) => index));
+    expect(emitters.filter(index => index === 4)).toHaveLength(3);
   });
 
   it("keeps panel, bundle, and per-move credits in sync without counting replaced imports", () => {
@@ -376,6 +430,7 @@ describe("Move Expansion patch", () => {
   it("installs after Frost Fairy prepends overlay 93, and repairs a stale helper load size on export", () => {
     const loaderBase = 0x021f6560;
     const loader = new Uint8Array(0x149c0);
+    setParticleWorkspaceOperands(loader, "BW");
     loader.set([0x00, 0xf0, 0x00, 0xf8, ...FROST_SIGNATURE], 0x3046);
     setEndMarker(loader, "btlv_finger_cursor.c", 16);
     loader.set(ORIGINAL_BW_VISUAL_HOOK, 0x305e);
@@ -431,6 +486,7 @@ describe("Move Expansion patch", () => {
     const project = { session: { baseRom }, overlays: { [ids[0]]: command.data, [ids[1]]: compact.loader.overlay } } as unknown as ProjectState;
     expect(repairMoveExpansionOverlayLoadSize(project, rom)).toBe(true);
     expect(project.patches?.dirtyOverlayIds).toEqual([ids[0]]);
+    expect(project.overlays[ids[1]]).toEqual(compact.loader.overlay);
     expect(project.overlays[ids[0]]).toEqual(compact.command.overlay);
     expect(repairMoveExpansionOverlayLoadSize(project, rom)).toBe(false);
   });
@@ -477,6 +533,7 @@ function routingFixture(baseRom: "BW" | "BW2") {
   const hook = bw ? 0x33fcc : 0x363cc;
   const secondary = bw ? undefined : 0x6456;
   const loaderData = new Uint8Array(bw ? 0x149c0 : 0x167e0);
+  setParticleWorkspaceOperands(loaderData, baseRom);
   const commandData = new Uint8Array(bw ? 0x3da20 : 0x41740);
   setEndMarker(loaderData, "btlv_finger_cursor.c", bw ? 16 : 24);
   setEndMarker(commandData, bw ? "btl_field.c" : "pokewood_cutin.c", bw ? 29 : 16);
@@ -489,4 +546,10 @@ function routingFixture(baseRom: "BW" | "BW2") {
     command: { data: commandData, ramSize: commandData.length, ramAddress: bw ? 0x021b6100 : 0x021998c0, bssSize: 0 },
     caller, hook, secondary,
   };
+}
+
+function setParticleWorkspaceOperands(overlay: Uint8Array, baseRom: "BW" | "BW2") {
+  const offsets = baseRom === "BW" ? [0x3c0e, 0x3c5c] : [0x40fe, 0x414c];
+  overlay.set([0x00, 0x22, 0x01, 0x1c, 0x39, 0x40, 0x78, 0x1c, 0x08, 0x43, 0x00, 0x04, 0x12, 0x21, 0x00, 0x0c, 0x89, 0x02], offsets[0] - 12);
+  overlay.set([0x01, 0x1c, 0x39, 0x40, 0x78, 0x1c, 0x08, 0x43, 0x00, 0x04, 0x00, 0x0c, 0x12, 0x21, 0x02, 0x90, 0x30, 0x1c, 0x89, 0x02], offsets[1] - 12);
 }

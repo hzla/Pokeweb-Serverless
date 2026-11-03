@@ -1,12 +1,13 @@
 import { createHash } from "node:crypto";
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { zipSync } from "fflate";
+import { unzipSync, zipSync } from "fflate";
 import expansionData from "../src/assets/data/white2upgradeMoveExpansion.json";
 import { NARC } from "../src/nds/narc";
 import { NintendoDSRom } from "../src/nds/rom";
 import { decompileMoveAnimationBytes, parseMoveAnimationScript } from "../src/pokeweb/moveAnimationModel";
 import { getBundledMoveAnimationAuthor, summarizeMoveAnimationCredits, type MoveAnimationAuthor } from "../src/pokeweb/moveAnimationCredits";
+import { optimizeMoveExpansionAssets } from "../src/pokeweb/moveExpansionAssetOptimization";
 
 const FIRST_GEN6_MOVE_ID = 560;
 const LAST_GEN6_MOVE_ID = 621;
@@ -64,6 +65,8 @@ async function main(): Promise<void> {
   if (!/^IR[DE]/u.test(donorGameCode)) throw new Error("Animation dependencies must come from a Black 2 or White 2 ROM.");
   const donorParticles = new NARC(donor.files[donor.fileId("a/0/0/6")]);
   const donorBackgrounds = new NARC(donor.files[donor.fileId("a/0/9/4")]);
+  // Retain reviewed local artwork/timing edits when rebuilding from donors.
+  const overrides = unzipSync(new Uint8Array(await readFile(new URL("../src/assets/data/moveExpansionAnimationOverrides.zip", import.meta.url))));
   const moveTargetBySource = new Map(
     expansionData.moves.map((move, index) => [move.sourceId, expansionData.firstTargetMoveId + index] as const),
   );
@@ -99,7 +102,7 @@ async function main(): Promise<void> {
       "data/graphics/move_animations",
       `5_${sourceMoveId.toString().padStart(8, "0")}.bin`,
     );
-    const bytes = new Uint8Array(await readFile(sourcePath));
+    const bytes = overrides[`move_animations/${sourceMoveId}.bin`] ?? new Uint8Array(await readFile(sourcePath));
     const parsed = parseMoveAnimationScript(decompileMoveAnimationBytes(bytes));
     const commands = [...parsed.scripts.values()].flat();
     const particleIds = uniqueSorted(
@@ -129,7 +132,7 @@ async function main(): Promise<void> {
     );
     let bytes: Uint8Array | undefined;
     try {
-      bytes = new Uint8Array(await readFile(sourcePath));
+      bytes = overrides[`move_spas/${sourceParticleId}.bin`] ?? new Uint8Array(await readFile(sourcePath));
     } catch {
       bytes = donorParticles.files[sourceParticleId]?.slice();
       if (!bytes) {
@@ -146,6 +149,22 @@ async function main(): Promise<void> {
     entries[archivePath] = bytes;
     particles.push({ sourceParticleId, particle: archivePath, sha256: sha256(bytes) });
   }
+
+  const optimized = optimizeMoveExpansionAssets({
+    moves: moves.map(move => ({ ...move, bytes: entries[move.animation] })),
+    particles: particles.map(particle => ({ ...particle, bytes: entries[particle.particle] })),
+  });
+  for (const move of optimized.moves) {
+    const entry = moves.find(entry => entry.sourceMoveId === move.sourceMoveId)!;
+    entries[entry.animation] = move.bytes;
+    entry.particleIds = move.particleIds;
+    entry.sha256 = sha256(move.bytes);
+  }
+  particles.splice(0, particles.length, ...optimized.particles.map(particle => {
+    const archivePath = `move_spas/${particle.sourceParticleId}.bin`;
+    entries[archivePath] = particle.bytes;
+    return { sourceParticleId: particle.sourceParticleId, particle: archivePath, sha256: sha256(particle.bytes) };
+  }));
 
   const backgrounds = uniqueSorted(referencedBackgroundIds).map((sourceBackgroundId) => {
     const files = [0, 1, 2].map((part) => {

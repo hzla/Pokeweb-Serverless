@@ -46,6 +46,7 @@ src/test/local/
 
 # Optional local maintenance, generation, and verification entry points.
 /scripts/*
+!/scripts/audit-move-expansion-particles.ts
 !/scripts/verify-habitat-sync.ts
 !/scripts/validate-rom-data.ts
 !/scripts/verify-gen5-map-import.ts

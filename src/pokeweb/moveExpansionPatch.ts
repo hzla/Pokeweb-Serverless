@@ -10,9 +10,19 @@ import { loadActiveRomBytes } from "./persistence";
 import { commitTextBank, getTextBank, parseTextEntryId } from "./textModel";
 import { createNarcStore, markDirty, type NarcStore, type ProjectState } from "./projectStore";
 import { getRomFileBytes, replaceRomFile } from "./fileSystemModel";
+import { getGen5BattleSpaWorkspaceBytes } from "./nitroSpa";
 
 export const MOVE_EXPANSION_TARGET_COUNT = 1000;
 export const MOVE_EXPANSION_FIRST_USABLE_ID = 680;
+export const MOVE_EXPANSION_PARTICLE_WORKSPACE_BYTES = 0x4800;
+
+/** Allocation sizes from the BW/BW2 battle SPL_Init and SPL_Load routines.
+ * Optional SPA blocks remain in the source file; each enabled behavior needs
+ * one 8-byte function/data pair in addition to the fixed resource descriptor.
+ */
+export function getMoveExpansionParticleWorkspaceBytes(bytes: Uint8Array): number {
+  return getGen5BattleSpaWorkspaceBytes(bytes);
+}
 
 export type MoveExpansionInstallOptions = {
   includeBundledAnimations?: boolean;
@@ -258,6 +268,9 @@ export async function installMoveExpansion(
   }
   const routingPatch = plan.loader;
   const commandPatch = plan.command;
+  const workspaceRestored = animationBundle
+    ? restorePreviousMoveExpansionParticleWorkspace(routingPatch.overlay, project.session.baseRom)
+    : { changed: false, overlay: routingPatch.overlay };
 
   const stores = await ensureExpansionStores(project, Boolean(animationBundle));
   const originalMoveCount = stores.moves.rawFiles.length;
@@ -274,8 +287,8 @@ export async function installMoveExpansion(
     markPatchOverlayDirty(project, layout.commandOverlayId);
   }
   const overlayLoadSizeRepaired = routingOverlay.ramSize !== routingPatch.overlay.length || routingOverlay.bssSize !== 0;
-  if (routingPatch.status === "applied" || overlayLoadSizeRepaired) {
-    project.overlays[layout.loaderOverlayId] = routingPatch.overlay;
+  if (routingPatch.status === "applied" || overlayLoadSizeRepaired || workspaceRestored.changed) {
+    project.overlays[layout.loaderOverlayId] = workspaceRestored.overlay;
     markPatchOverlayDirty(project, layout.loaderOverlayId);
   }
   if (overlayLoadSizeRepaired) {
@@ -293,6 +306,7 @@ export async function installMoveExpansion(
 
   const changed =
     overlayLoadSizeRepaired ||
+    workspaceRestored.changed ||
     commandPatch.status === "applied" ||
     routingPatch.status === "applied" ||
     moveSummary.changed > 0 ||
@@ -331,6 +345,28 @@ export async function installMoveExpansion(
     backgroundFilesInstalled: bundledAnimationSummary.backgroundFilesAdded,
     overlayLoadSizeRepaired,
   };
+}
+
+/** Roll back only the earlier paired 24 KiB change when installing the new,
+ * retail-budget assets. Fresh ROMs and foreign capacity changes are untouched.
+ */
+export function restorePreviousMoveExpansionParticleWorkspace(
+  overlay: Uint8Array,
+  baseRom: Gen5BaseRom,
+): { changed: boolean; overlay: Uint8Array } {
+  const offsets = baseRom === "BW" ? [0x3c0e, 0x3c5c] : [0x40fe, 0x414c];
+  const prefixes = [
+    [0x00, 0x22, 0x01, 0x1c, 0x39, 0x40, 0x78, 0x1c, 0x08, 0x43, 0x00, 0x04],
+    [0x01, 0x1c, 0x39, 0x40, 0x78, 0x1c, 0x08, 0x43, 0x00, 0x04, 0x00, 0x0c],
+  ];
+  const suffixes = [[0x00, 0x0c, 0x89, 0x02], [0x02, 0x90, 0x30, 0x1c, 0x89, 0x02]];
+  for (const [index, offset] of offsets.entries()) {
+    if (!matchesSequence(overlay, prefixes[index], offset - 12) ||
+        !matchesSequence(overlay, suffixes[index], offset + 2) || readU16(overlay, offset) !== 0x2118) return { changed: false, overlay };
+  }
+  const out = overlay.slice();
+  for (const offset of offsets) out[offset] = 0x12;
+  return { changed: true, overlay: out };
 }
 
 export function detectMoveExpansionPatch(project: ProjectState): MoveExpansionPatchState {
@@ -955,6 +991,9 @@ export function parseMoveExpansionAnimationBundle(bytes: Uint8Array): MoveExpans
     const particle = requiredBundlePath(entry.particle, `particle path for SPA ${sourceParticleId}`);
     const particleBytes = entries[particle];
     if (!particleBytes) throw new Error(`The move-expansion animation bundle is missing ${particle}.`);
+    if (getMoveExpansionParticleWorkspaceBytes(particleBytes) > MOVE_EXPANSION_PARTICLE_WORKSPACE_BYTES) {
+      throw new Error(`Bundled particle ${sourceParticleId} exceeds the retail battle particle workspace.`);
+    }
     return { sourceParticleId, bytes: particleBytes };
   });
   const backgrounds = ((manifest.backgrounds ?? []) as unknown[]).map((value) => {
