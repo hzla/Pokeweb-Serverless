@@ -38,6 +38,12 @@
 .item-rule-group .item-rule-group { background: rgba(40, 42, 54, .6); }
 .item-rule-value { display: flex; align-items: center; gap: 6px; }
 .item-rule-value span { color: #aeb7ca; font-size: 12px; }
+.ability-rule-set { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 10px 20px; padding: 12px 16px; }
+.ability-rule-set > label { display: inline-flex; align-items: center; gap: 7px; min-width: 130px; }
+.ability-rule-set input[type="checkbox"] { width: auto; }
+.ability-rule-stats { flex: 1 1 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px 20px; padding: 12px 16px; }
+.ability-rule-stats label { display: flex; flex-direction: column; gap: 6px; }
+.ability-rule-stats input { width: 100%; box-sizing: border-box; }
 .item-rule-form select, .item-rule-form input[type="number"] { background: #282a36; border: 1px solid #62677d; border-radius: 4px; color: #f8f8f2; min-height: 34px; padding: 5px 8px; width: 100%; box-sizing: border-box; }
 .item-rule-group-tools select { width: auto; }
 .item-rule-consumable { display: flex; align-items: center; gap: 10px; }

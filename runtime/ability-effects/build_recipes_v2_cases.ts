@@ -1,3 +1,4 @@
+import { abilityExecutionLayout } from "../../src/pokeweb/abilityRecipeOptimization";
 /** Editable Gen 6–9 recipe imports: ROM lifecycle and native battle fixtures. */
 import assert from "node:assert/strict";
 import {createHash} from "node:crypto";
@@ -66,8 +67,7 @@ const sideOverlay=rom.loadArm9Overlays([169]).get(169)!,sidePattern=Buffer.from(
 for(let at=0;at+20<=sideOverlay.data.length;at+=2)if(sidePattern.every((v,i)=>sideOverlay.data[at+i]===v))sideCandidates.push(at);
 assert.equal(sideCandidates.length,1);const sideTableAddress=readU32(sideOverlay.data,sideCandidates[0]+16)-12;
 assert(sideTableAddress>=sideOverlay.ramAddress+sideOverlay.data.length&&sideTableAddress+448<=sideOverlay.ramAddress+sideOverlay.ramSize+sideOverlay.bssSize);
-const encoded=encodeAbilityRules(entries),nativeOffsets:number[]=[];
-for(const[id,r]of entries){const at=readU16(encoded,id*2),start=at+4+encoded[at+1]*4;r.effects.forEach((e,i)=>{if(e.kind.startsWith("nativeAbility:"))nativeOffsets.push(start+i*16);});}
+const {bytes:encoded,nativeOffsets}=abilityExecutionLayout(entries);
 type Case={label:string;abilityId:number;enemyAbility?:number;enemySpecies?:number;playerSpecies?:number;enemyMove?:number;enemyLevel?:number;enemyCount?:number;move?:number;hp?:number;playerItem?:number;playerStatus?:HarnessPokemon["status"];ally?:HarnessPokemon;ally2?:HarnessPokemon;battleType?:"Doubles"|"Triples";menuCount?:number;checks:Record<string,unknown>};
 const cases:Case[]=[];
 const stages=(stat:number,...values:number[])=>values.map(v=>Array.from({length:7},(_,i)=>i===stat-1?v:6));
@@ -196,7 +196,9 @@ cases.push({label:"native-berry-timing-baseline",abilityId:236,hp:66,playerItem:
 const baseSave=rawSaveBytesFromDesmumeDsv(new Uint8Array(await readFile(getTestBattleConfig("BW2").saveUrl)));
 await prepareBw2TestBattleCodeInjection(project);
 const hashes:Record<string,string>={},fixtures=[];
+const only=process.argv.find(arg=>arg.startsWith("--only="))?.slice(7).split(",");
 for(const[i,spec]of cases.entries()){
+ if(only&&!only.includes(spec.label))continue;
  const trainer=patchHarnessTrainer(project,parseHarnessConfig({trainerId:2,battleType:spec.battleType??"Singles",trainer:{team:Array.from({length:spec.enemyCount??1},()=>({speciesId:spec.enemySpecies??320,level:spec.enemyLevel??(spec.enemyMove?30:100),moves:[spec.enemyMove??150],itemId:0,abilityId:spec.enemyAbility??50})),ai:0}}));
  stageCodeInjectionDll(project,"BattleHarnessW2.dll",configureHarnessRuntime(new Uint8Array(await readFile(new URL("../../src/assets/testbattle/BattleHarnessW2.dll",import.meta.url))),2,trainer));
  const save=patchHarnessSave(baseSave,project,parseHarnessConfig({trainerId:2,player:{team:[{speciesId:spec.playerSpecies??1,level:50,moves:[spec.move??150],itemId:spec.playerItem??0,abilityId:spec.abilityId,...(spec.playerStatus?{status:spec.playerStatus}:{}),...(spec.hp!==undefined?{currentHp:spec.hp}:{})},...(spec.ally?[spec.ally]:[]),...(spec.ally2?[spec.ally2]:[])]}}));
@@ -206,4 +208,4 @@ for(const[i,spec]of cases.entries()){
  fixtures.push({...spec,saveSha256:sha(save),label,speciesId:spec.playerSpecies??1,maxHp,hp:spec.hp??maxHp,rom:filename});
 }
 await writeFile(`${out}/cases.json`,JSON.stringify({inputSha256:inputHash,exportSha256:sha(exported),reexportSha256:sha(reexported),editedAbilities:entries.size,codeBytes:dll.code.length,bssBytes:dll.bssSize,serializedBytes:rom.files[rom.fileId(ABILITY_EFFECTS_DLL_PATH)].length,nameLoader,api,symbols,pmcSymbols,hook:resolver.resolve("AbilityEvent_AddItem").address,configHex:Buffer.from(encoded).toString("hex"),nativeOffsets,romHashes:hashes,cases:fixtures,projectReload:true,romExportReload:true,reloadedEdits:editReceipts,imports:ABILITY_IMPORT_LIBRARY.map(t=>({officialId:t.id,assignedId:slots.get(t.id),name:t.defaultName,generation:t.generation})),priorityRuntime:true,eventConstHook:resolver.resolve("BattleEventVar_SetConstValue").address,sideTableAddress,weatherAddress:readU32(resolver.resolve("GetFieldWeather").code,8),damageReactionHook:resolver.resolve("ServerEvent_DamageReaction").address,nativeChanceHook:resolver.resolve("AbilityEvent_RollEffectChance").address,eventList:readU32(resolver.resolve("BattleEvent_SeekItem").code,0x30)},null,2)+"\n");
-assert.equal(sha(new Uint8Array(await readFile(path))),inputHash);console.log(`${cases.length} ability import fixtures; export/reload and parameter re-edits passed.`);
+assert.equal(sha(new Uint8Array(await readFile(path))),inputHash);console.log(`${fixtures.length} ability import fixtures; export/reload and parameter re-edits passed.`);

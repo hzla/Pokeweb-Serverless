@@ -1,6 +1,6 @@
 import { inspectCustomMoveFlags } from "../pokeweb/abilityEffectsModel";
-import { customMoveFlagFilter, type CustomMoveFlag } from "../pokeweb/customMoveFlags";
-import {recipeAbilityEffect} from "../pokeweb/abilityRecipeEffects";
+import { customMoveFlagFilter, customMoveFlagId, type CustomMoveFlag } from "../pokeweb/customMoveFlags";
+import {recipeAbilityEffect,ABILITY_PROTECTED_CONDITION_LABELS} from "../pokeweb/abilityRecipeEffects";
 import { nativeAbilityProfile } from "../pokeweb/abilityNativeRuntime";
 import { ITEM_RULE_EFFECTS, ITEM_RULE_WEATHER, ITEM_RULE_STATUS_LABELS, ITEM_RULE_STAT_LABELS, ITEM_RULE_TRIGGERS, ITEM_RULE_TARGETS, ITEM_RULE_TRIGGER_LABELS, validateItemRule, type ItemRuleCondition, type ItemRuleSet, type ItemRuleEffect, type ItemRuleEffectDefinition } from "../pokeweb/itemRules";
 import { configureItemRuleSets } from "../pokeweb/itemEffectsModel";
@@ -62,12 +62,21 @@ function effectFields(effect: ItemRuleEffect, index: number, types: string[], op
   if (profile?.chances) fields += `<label><span>Activation chance (%)</span><input type="number" data-rule-native-chance aria-label="Native activation chance" min="1" max="100" placeholder="Original" value="${effect.chance ?? ""}"></label>`;
   for (const control of profile?.parameters ?? library?.parameters ?? []) {
     if(control.when){const current=effect.parameters?.[control.when.key]??library?.parameters.find(p=>p.key===control.when!.key)?.original;if(Array.isArray(control.when.value)?!control.when.value.includes(current!):current!==control.when.value)continue;}
+    if(control.hidden){fields+=`<input type="hidden" data-rule-native-parameter="${control.key}" value="${effect.parameters?.[control.key]??control.original}">`;continue;}
+    if(libraryAbilityEffect(effect.kind)&&control.key==="type")continue;
+    if(control.kind==="conditionSet"||control.kind==="typeSet"){
+      const labels=control.kind==="conditionSet"?ABILITY_PROTECTED_CONDITION_LABELS:types;
+      const mask=effect.parameters?.[control.key]??(control.kind==="typeSet"?1<<(effect.parameters?.type??0):control.original);
+      fields+=`<fieldset class="ability-rule-set"><legend>${escapeHtml(control.label)}</legend>${labels.map((label,bit)=>`<label><input type="checkbox" data-rule-set="${control.key}" value="${1<<bit}" ${mask&(1<<bit)?"checked":""}>${escapeHtml(label)}</label>`).join("")}</fieldset>`;continue;
+    }
+    if(effect.kind==="abilityRecipe:statGroup"&&control.key==="attackStages")fields+='<fieldset class="ability-rule-stats"><legend>Stat changes</legend>';
     const value=effect.parameters?.[control.key], labels=control.kind==="ability"?abilityNames:control.kind==="type"?types:control.kind==="weather"?ITEM_RULE_WEATHER:control.kind==="category"?["Status","Physical","Special"]:control.kind==="stat"?["",...ITEM_RULE_STAT_LABELS,"All stats"]:control.kind==="status"||control.kind==="majorStatus"?["","Paralysis","Sleep","Freeze","Burn","Poison","Confusion","Infatuation"]:undefined;
     const custom=options.ability&&library&&control.key==="moveClass"?new Map(customFlags.map(flag=>[customMoveFlagFilter(flag.id),`Custom: ${flag.name}`])):new Map<number,string>();
-    if(control.key==="moveClass"&&value!==undefined&&value>=14&&!custom.has(value))custom.set(value,`Missing custom flag ${value-13}`);
+    if(control.key==="moveClass"&&value!==undefined&&customMoveFlagId(value)!==undefined&&!custom.has(value))custom.set(value,`Missing custom flag ${value-13}`);
     const text=(id:number)=>custom.get(id)??control.labels?.[id]??(id===14&&control.kind==="status"?"Yawn":(control.kind==="ability"?`${id} · ${labels?.[id]||`Ability ${id}`}`:labels?.[id]??String(id)));
     const values=[...(control.choices??Array.from({length:control.max-control.min+1},(_,i)=>control.min+i)),...custom.keys()].filter(id=>control.kind!=="type"||id<types.length||control.labels?.[id]!==undefined);
     fields+=`<label><span>${escapeHtml(control.label)}</span>${labels||control.choices?`<select data-rule-native-parameter="${control.key}" aria-label="Effect ${index+1} ${escapeHtml(control.label.toLowerCase())}">${option("",`Original (${text(control.original)})`,value??"")}${values.map(id=>option(id,text(id),value??"")).join("")}</select>`:`<input type="number" data-rule-native-parameter="${control.key}" aria-label="Effect ${index+1} ${escapeHtml(control.label.toLowerCase())}" min="${control.min}" max="${control.max}" step="${control.step}" placeholder="Original (${Number(control.original.toFixed(3))})" value="${value??""}">`}</label>`;
+    if(effect.kind==="abilityRecipe:statGroup"&&control.key==="evasionStages")fields+='</fieldset>';
   }
   if (options.ability&&!(library&&"fixedBypass"in library&&library.fixedBypass)) fields += `<label class="ability-rule-bypass"><input type="checkbox" data-rule-bypass ${((effect as ItemRuleEffect & { bypassable?: boolean }).bypassable ?? (profile ? true : library?.bypassable ?? ["defense", "specialDefense", "incomingAccuracy"].includes(effect.kind))) ? "checked" : ""}>${profile ? "Use native Mold Breaker rules" : "Mold Breaker can bypass"}</label>`;
   return fields;
@@ -115,6 +124,7 @@ export function readItemRuleForm(container: HTMLElement): ItemRuleSet {
       const chance = row.querySelector<HTMLInputElement>("[data-rule-native-chance]");
       if (chance?.value.trim()) effect.chance = numeric(chance);
       const parameters=Object.fromEntries(Array.from(row.querySelectorAll<HTMLInputElement|HTMLSelectElement>("[data-rule-native-parameter]")).filter(field=>field.value.trim()!=="").map(field=>[field.dataset.ruleNativeParameter!,Number(field.value)]));
+      for(const key of new Set(Array.from(row.querySelectorAll<HTMLInputElement>("[data-rule-set]")).map(field=>field.dataset.ruleSet!)))parameters[key]=Array.from(row.querySelectorAll<HTMLInputElement>(`[data-rule-set="${key}"]:checked`)).reduce((mask,field)=>mask|Number(field.value),0);
       if(Object.keys(parameters).length)effect.parameters=parameters;
       if (row.querySelector("[data-rule-bypass]")) Object.assign(effect, { bypassable: row.querySelector<HTMLInputElement>("[data-rule-bypass]")!.checked });
       return effect;

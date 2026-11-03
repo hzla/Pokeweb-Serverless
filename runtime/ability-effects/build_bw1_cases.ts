@@ -1,3 +1,4 @@
+import { abilityExecutionLayout } from "../../src/pokeweb/abilityRecipeOptimization";
 import {statSourceCases} from "./stat_source_cases";
 import { prepareCustomFlagCases, customFlagCases } from "./custom_flag_cases";
 import { statusPopupCases } from "./status_popup_cases";
@@ -126,7 +127,7 @@ const ov=rom.loadArm9Overlays([93]).get(93)!,resolver=battleRuntimeResolver(ov.d
 const notificationsMetadata=notifications||actionResultsMode?{blockMessage:dll.metadata.PokewebAbilityBlockMessage,messageHook:battleRuntimeResolver(ov.data,ov.ramAddress,project.arm9,rom.arm9RamAddress,{...bindings.functions,...(game==="W"?whiteMoveBindings:blackMoveBindings).functions}).resolve("BW1_BTL_SERVER_FLOW_PushMsgRecord").address}:{};
 let clientTrapStores:Record<string,number>|undefined;
 const clientFunction=dll.symbols.find(s=>s.name==="AbilityClientTrapped");if(clientFunction){const code=Buffer.from(dll.code.subarray(clientFunction.address,clientFunction.address+clientFunction.size));const store=(hex:string,offset:number)=>{const pattern=Buffer.from(hex,"hex"),at=code.indexOf(pattern);assert(at>=0&&code.indexOf(pattern,at+1)===-1);return clientFunction.address+at+offset;};clientTrapStores={trapper:store("08ab1b5d019a1370",6),ability:store("029b002b00d01e800025",6)};}
-const encoded=encodeAbilityRules(rules),nativeOffsets:number[]=[];for(const[id,r]of rules){const at=readU16(encoded,id*2),start=at+4+encoded[at+1]*4;r.effects.forEach((e,i)=>{if(e.kind.startsWith("nativeAbility:"))nativeOffsets.push(start+i*16);});}
+const {bytes:encoded,nativeOffsets}=abilityExecutionLayout(rules);
 const neutral=[6,6,6,6,6,6,6];const mon=(speciesId=320,level=100,move=150,abilityId=50):HarnessPokemon=>({speciesId,level,moves:[move],abilityId,itemId:0});
 type Case={label:string;playerSpecies?:number;playerGender?:0|1;abilityId:number;playerMoves?:number[];turnMove?:number[];hp?:number;ally?:HarnessPokemon;enemies?:HarnessPokemon[];battleType?:"Doubles";enemyAbility?:number;menuCount?:number;bench?:HarnessPokemon[];checks:Record<string,unknown>};
 const cases:Case[]=[

@@ -14,8 +14,8 @@ describe('expanded standalone ability recipes',()=>{
   expect(abilityImport(184).rule.effects[0]).toMatchObject({kind:'abilityRecipe:convertType',value:1.2,parameters:{type:2}});
   expect(abilityImport(204).rule.effects[0]).toMatchObject({value:1,parameters:{sourceType:18,moveClass:5,type:10}});
   expect(abilityImport(224).rule.effects[0].parameters).toMatchObject({activation:4,stat:8});
-  expect(abilityImport(271).rule.effects.map(e=>[e.value,e.parameters?.stat,e.parameters?.activation])).toEqual([[1,1,2],[1,3,2],[1,5,2],[-1,2,2],[-1,4,2]]);
-  expect(abilityImport(166).rule.effects.filter(e=>e.kind==='abilityRecipe:statusGuard').map(e=>e.parameters?.condition)).toContain(14);
+  expect(abilityImport(271).rule.effects).toHaveLength(1);expect(abilityImport(271).rule.effects[0]).toMatchObject({kind:'abilityRecipe:statGroup',parameters:{activation:2,attackStages:1,specialAttackStages:1,speedStages:1,defenseStages:-1,specialDefenseStages:-1}});
+  expect(abilityImport(166).rule.effects.find(e=>e.kind==='abilityRecipe:statusGuardSet')!.parameters!.conditionMask&(1<<10)).toBeTruthy();
   expect(abilityImport(288).rule.effects).toHaveLength(2);expect(abilityImport(288).rule.effects[1].value).toBe(1.333333);
   for(const id of[234,235,306])expect(abilityImport(id).rule.effects[0].parameters?.once).toBe(1);
  });

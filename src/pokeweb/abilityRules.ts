@@ -1,5 +1,6 @@
 import { customMoveFlagId } from "./customMoveFlags";
-import {RECIPE_ABILITY_EFFECTS,recipeAbilityEffect,recipeAbilityParameter,RECIPE_PARAMETER_BYTES} from "./abilityRecipeEffects";
+import { encodeAbilityMoveFilter } from "./abilityMoveFilters";
+import {RECIPE_ABILITY_EFFECTS,recipeAbilityEffect,recipeAbilityParameter,RECIPE_PARAMETER_BYTES,ABILITY_GROUP_STAGE_KEYS} from "./abilityRecipeEffects";
 import { NATIVE_ABILITY_PROFILES, nativeAbilityProfile } from "./abilityNativeRuntime";
 import abilityNames from "../assets/data/vanilla_abilities.txt?raw";
 import { LIBRARY_ABILITY_EFFECTS, libraryAbilityEffect, libraryAbilityParameter } from "./abilityLibraryEffects";
@@ -34,6 +35,12 @@ export function validateAbilityRule(input: AbilityRuleSet): AbilityRuleSet {
             if(effect.parameters!==undefined){
                 if(!effect.parameters||typeof effect.parameters!=="object"||Array.isArray(effect.parameters))throw new Error("Invalid library ability parameters.");
                 for(const[key,value]of Object.entries(effect.parameters).sort(([a],[b])=>a.localeCompare(b))){const p=library.parameters.find(p=>p.key===key);if(!p||!Number.isFinite(value)||value<p.min||value>p.max||Math.abs(value/p.step-Math.round(value/p.step))>1e-7||p.choices&&!p.choices.includes(value)&&!(key==="moveClass"&&customMoveFlagId(value)!==undefined))throw new Error(`Invalid library ability parameter: ${key}`);parameters[key]=value;}
+            }
+            if(parameters.types!==undefined&&(parameters.moveClass??0)!==9)throw Error("Type sets require the move-type filter.");
+            if(library.code===167){
+                if(!ABILITY_GROUP_STAGE_KEYS.some(key=>parameters[key]))throw Error("Choose at least one stat change.");
+                let order=parameters.statOrder??0;const seen=new Set<number>();
+                for(let n=0;n<7;n++,order>>>=3){const stat=order&7;if(stat&&seen.has(stat))throw Error("Duplicate stat in grouped order.");if(stat)seen.add(stat);}
             }
             if(library.code===144&&(parameters.format??0)===1&&(!Number.isInteger(effect.value)||effect.value<1))throw new Error("Choose a positive whole healing divisor.");
             return {kind:effect.kind,value:effect.value,bypassable:effect.bypassable??library.bypassable,...(Object.keys(parameters).length?{parameters}:{})};
@@ -73,15 +80,18 @@ export function validateAbilityRule(input: AbilityRuleSet): AbilityRuleSet {
     return { conditions, effects };
 }
 /** A 256-entry offset index followed by bounded conditions and fixed effect records. */
-export function encodeAbilityRules(entries: ReadonlyMap<number, AbilityRuleSet>): Uint8Array {
+export function encodeAbilityRules(entries: ReadonlyMap<number, AbilityRuleSet>, deduplicate = false): Uint8Array {
     const bytes: number[] = Array(512).fill(0);
+    const records = new Map<string, number>();
     const emit = (op: number, arg: number, value: number) => bytes.push(op, arg, value & 255, value >>> 8 & 255);
     for (const [id, input] of [...entries].sort(([a], [b]) => a - b)) {
         if (!Number.isInteger(id) || id < 1 || id > 255)
             throw new Error("Ability IDs must be between 1 and 255.");
-        const rule = validateAbilityRule(input), at = bytes.length;
+        const rule = validateAbilityRule(input), key = JSON.stringify(rule), shared = deduplicate ? records.get(key) : undefined, at = shared ?? bytes.length;
         bytes[id * 2] = at & 255;
         bytes[id * 2 + 1] = at >>> 8;
+        if(shared !== undefined) continue;
+        records.set(key, at);
         bytes.push(rule.effects.length, 0, 0, 1);
         function node(c: AbilityRuleSet["conditions"]): void {
             if (c.kind === "group") {
@@ -99,13 +109,25 @@ export function encodeAbilityRules(entries: ReadonlyMap<number, AbilityRuleSet>)
             const recipe=recipeAbilityEffect(e.kind);
             if(recipe){
                 const row=Array(16).fill(0),value=Math.round(e.value*recipe.scale);row[0]=recipe.code;row[2]=value&255;row[3]=value>>>8&255;row[7]=Number(e.bypassable);
-                recipe.parameters.forEach((p,i)=>row[RECIPE_PARAMETER_BYTES[i]]=recipeAbilityParameter(e,p.key));bytes.push(...row);continue;
+                if(recipe.code===166){const p=(key:string)=>recipeAbilityParameter(e,key),mask=p("conditionMask");row[1]=mask&255;row[4]=mask>>>8;row[5]=p("scope");row[6]=p("protectedType");row[8]=p("cure");row[9]=p("excludeSelf");bytes.push(...row);continue;}
+                if(recipe.code===167){
+                    const p=(key:string)=>recipeAbilityParameter(e,key);let stages=0;ABILITY_GROUP_STAGE_KEYS.forEach((key,index)=>stages|=(p(key)&15)<<(index*4));
+                    row[1]=p("activation")|p("once")<<3|p("adjacent")<<4;
+                    for(let n=0;n<4;n++)row[2+n]=stages>>>(n*8)&255;
+                    const filter=encodeAbilityMoveFilter(p("moveClass"));row[7]|=filter.tag;
+                    row[6]=p("activationChance");row[8]=p("threshold");row[9]=filter.filter;row[10]=p("type");row[11]=p("category")|p("scope")<<2;
+                    for(let n=0;n<3;n++)row[12+n]=p("statOrder")>>>(n*8)&255;
+                    bytes.push(...row);continue;
+                }
+                recipe.parameters.forEach((p,i)=>{const value=recipeAbilityParameter(e,p.key);if(p.key==="moveClass"){const filter=encodeAbilityMoveFilter(value);row[RECIPE_PARAMETER_BYTES[i]]=filter.filter;row[7]|=filter.tag;}else row[RECIPE_PARAMETER_BYTES[i]]=value;});bytes.push(...row);continue;
             }
             const library=libraryAbilityEffect(e.kind);
             if(library){
                 const value=Math.round(e.value*(library.code<=131?4096:1));
-                emit(library.code,libraryAbilityParameter(e,"moveClass"),value);
-                bytes.push(libraryAbilityParameter(e,"type"),libraryAbilityParameter(e,"category"),library.code===133?libraryAbilityParameter(e,"activationChance"):100,Number(e.bypassable),library.code===133?libraryAbilityParameter(e,"stat"):0,library.code===133?libraryAbilityParameter(e,"target"):0,0,0,0,0,0,0);
+                const filter=encodeAbilityMoveFilter(libraryAbilityParameter(e,"moveClass"));
+                emit(library.code,filter.filter,value);
+                const types=e.parameters?.types??0;
+                bytes.push(libraryAbilityParameter(e,"type"),libraryAbilityParameter(e,"category"),library.code===133?libraryAbilityParameter(e,"activationChance"):100,Number(e.bypassable)|filter.tag,library.code===133?libraryAbilityParameter(e,"stat"):0,library.code===133?libraryAbilityParameter(e,"target"):0,types&255,types>>>8&255,types>>>16&255,0,0,0);
                 continue;
             }
             const profile = nativeAbilityProfile(e.kind), index = ITEM_RULE_EFFECTS.findIndex(d => d.kind === e.kind);

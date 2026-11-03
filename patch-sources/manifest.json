@@ -1298,9 +1298,21 @@
         {
           "name": "PMC_W2I.rpm",
           "sha256": "286b4bd96e0acbe82014eb0121ed674fd3618ba6d328b2cd3c300e88779d4dfe"
+        },
+        {
+          "name": "PMC_B2_200.rpm",
+          "sha256": "6e7f35a104fb02934da489458f0666cc20ee1602f51a8ab0a7514fe29b0f3f14"
+        },
+        {
+          "name": "PMC_W2_200.rpm",
+          "sha256": "1854850fae5973b97a51d6a4a013f58cefbce119c61a94bd2094d9c6847e6ba4"
+        },
+        {
+          "name": "PMC_W2I_200.rpm",
+          "sha256": "29be431e10e49b0777792783b6e934e445f5277f4c31fe796b1af02e0bb67da6"
         }
       ],
-      "note": "W2I retargets the pinned W2 loader through the audited Pokeweb adapter; B2/W2 framework sources remain in the PMC checkout. External toolchains and libraries are not vendored.",
+      "note": "W2I retargets the pinned W2 loader through the Pokeweb adapter. Optional 200 KiB packages derive from the retained original bundles; BW1 uses a bounded startup-budget adapter. B2/W2 framework sources remain in the PMC checkout. External toolchains and libraries are not vendored.",
       "status": "source-available",
       "files": [
         {
@@ -1521,6 +1533,136 @@
           },
           "kind": "build-tool",
           "sha256": "9655826b5374184eb4c4e7cf550959a3817831ecbeef3b5af9a88d327494de03",
+          "normalized": false
+        },
+        {
+          "path": "pmc/integration/pmcHeapRuntime.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/pmcHeapRuntime.ts"
+          },
+          "kind": "source",
+          "sha256": "a052a189ac06dd3daf14677d417525fad13d08792320092cd4f9ccd438669a79",
+          "normalized": false
+        },
+        {
+          "path": "pmc/integration/pmcModel.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/pmcModel.ts"
+          },
+          "kind": "source",
+          "sha256": "9b73bf4e84bdfb0668123fb9ab87e77986dd677620774be30cd411004d03212d",
+          "normalized": false
+        },
+        {
+          "path": "pmc/heap/budget.c",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/pmc-heap/budget.c"
+          },
+          "kind": "source",
+          "sha256": "3478ab1b31690cb512e2925ac19d3fe59ddc1a6bcd06275d02cb34fdf999a28d",
+          "normalized": false
+        },
+        {
+          "path": "pmc/heap/build.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/pmc-heap/build.py"
+          },
+          "kind": "build-tool",
+          "sha256": "06a9a6a8c39f72378b7933860c494b2e29eb5380709a467eb857d0011b89bd1f",
+          "normalized": false
+        },
+        {
+          "path": "pmc/heap/build.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/pmc-heap/build.ts"
+          },
+          "kind": "build-tool",
+          "sha256": "fdbdbfaf9a3174ef9695f44a868a9053e383f48dd156a5dae6f8f687b921383d",
+          "normalized": false
+        },
+        {
+          "path": "pmc/heap/runtime-notes.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/pmc-heap/README.md"
+          },
+          "kind": "documentation",
+          "sha256": "84aea0bb0c450bfcbbe856cb751bccc2ed0d2f7dbd30482565cbf0a60ddd1c44",
+          "normalized": false
+        },
+        {
+          "path": "pmc/heap/test_fixture.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/pmc-heap/test_fixture.ts"
+          },
+          "kind": "test",
+          "sha256": "099d18329b70b48b1402e3c25ed5f633dc42556992e7cdce4b43dedcd168c4dd",
+          "normalized": false
+        },
+        {
+          "path": "pmc/heap/test_runtime.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/pmc-heap/test_runtime.py"
+          },
+          "kind": "test",
+          "sha256": "2d4ee393c84e6334c2340486f7a358561ab06ee89fb4a5d475ca629116a81cf4",
+          "normalized": false
+        },
+        {
+          "path": "pmc/heap/verify_rom.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/pmc-heap/verify_rom.ts"
+          },
+          "kind": "test",
+          "sha256": "03949a6f2d1db9479386b88bfd6e924fa35925d594bb7aa958fe4849c5c1282f",
+          "normalized": false
+        },
+        {
+          "path": "pmc/heap/pmcHeapBudgetRuntime.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/assets/data/pmcHeapBudgetRuntime.json"
+          },
+          "kind": "generated-source",
+          "sha256": "55dc8c4f8e5a2986c6e0005c84b47d9ac65be09deae8e957f9f25da333e99749",
+          "normalized": false
+        },
+        {
+          "path": "pmc/tests/pmcHeapRuntime.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/pmcHeapRuntime.test.ts"
+          },
+          "kind": "test",
+          "sha256": "b3f3d77e9a4d7ed576fe2fa8852ae5097b697e00512e3924a838f3c1fbc95693",
+          "normalized": false
+        },
+        {
+          "path": "pmc/tests/pmcModel.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/pmcModel.test.ts"
+          },
+          "kind": "test",
+          "sha256": "531e5f6fd066f2295992a3f592d57bca28bb41de08c35233a948d707cfe34141",
+          "normalized": false
+        },
+        {
+          "path": "pmc/integration/codeInjectionEditor.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/ui/codeInjectionEditor.ts"
+          },
+          "kind": "source",
+          "sha256": "608b42de7620306f38ae445821e91f2880dce62497eb071a47f6656b38d70c18",
           "normalized": false
         }
       ]

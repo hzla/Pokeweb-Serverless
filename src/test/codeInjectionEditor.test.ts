@@ -8,8 +8,38 @@ import * as menuEvolution from "../pokeweb/menuEvolutionModel";
 import * as battleLog from "../pokeweb/battleLogModel";
 import * as candyModel from "../pokeweb/infiniteCandyModel";
 import * as levelCapsModel from "../pokeweb/levelCapsModel";
+import * as pmcModel from "../pokeweb/pmcModel";
 
 afterEach(() => vi.restoreAllMocks());
+
+describe("optional PMC heap expansion", () => {
+  it.each(["B", "W", "B2", "W2"] as const)("shows a separate opt-in sidebar action for %s", version => {
+    const project = makeProject(version, true); project.codeInjection!.pmc!.version = version === "B" || version === "W" ? "13.2.4-bw1" : "13.2.4";
+    const expand = vi.spyOn(pmcModel, "expandPmcHeapAllocation");
+    const root = { innerHTML: "", querySelector: () => null, querySelectorAll: () => [] };
+    renderCodeInjectionEditor(project, root as unknown as HTMLElement, () => {});
+    const sidebar = root.innerHTML.slice(root.innerHTML.indexOf("<aside"), root.innerHTML.indexOf("</aside>"));
+    expect(sidebar).toContain("Expand PMC Heap Allocation");
+    expect(sidebar).not.toMatch(/id="expand-pmc-heap-btn"[^>]*disabled/);
+    expect(expand).not.toHaveBeenCalled();
+    project.codeInjection!.pmc!.version = version === "B" || version === "W" ? "13.2.4-heap200-bw1" : "13.2.4-heap200";
+    renderCodeInjectionEditor(project, root as unknown as HTMLElement, () => {});
+    expect(root.innerHTML).toMatch(/id="expand-pmc-heap-btn"[^>]*disabled/);
+    expect(root.innerHTML).toContain("<strong>200 KiB</strong>");
+    expect(expand).not.toHaveBeenCalled();
+  });
+  it("installs expansion only after the dedicated button is pressed", async () => {
+    const project = makeProject("W2", true); project.codeInjection!.pmc!.version = "13.2.4";
+    let click: () => Promise<void> = async () => {};
+    const button = { disabled: false, addEventListener: (_: string, fn: () => Promise<void>) => { click = fn; } }, note = { textContent: "" };
+    const root = { innerHTML: "", querySelector: (selector: string) => selector === "#expand-pmc-heap-btn" ? button : selector === "#pmc-install-note" ? note : null, querySelectorAll: () => [] };
+    const expand = vi.spyOn(pmcModel, "expandPmcHeapAllocation").mockResolvedValue({ overlayId: 344, overlayBaseAddress: 0x021f8000, symbolPath: "codeinjection/RPMSYM-PMC.rpm" });
+    const dirty = vi.fn(); renderCodeInjectionEditor(project, root as unknown as HTMLElement, dirty);
+    expect(expand).not.toHaveBeenCalled(); await click();
+    expect(expand).toHaveBeenCalledOnce(); expect(expand).toHaveBeenCalledWith(project); expect(dirty).toHaveBeenCalledOnce();
+  });
+  it("disables expansion until PMC is installed", () => expect(renderFixture("W2")).toMatch(/id="expand-pmc-heap-btn"[^>]*disabled/));
+});
 
 describe("Hard Level Caps updates", () => {
   it("offers an update when the installed cap DLL needs to match Candy", () => {

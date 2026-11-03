@@ -10,6 +10,6 @@ export const ACTION_ABILITY_EFFECTS: RecipeAbilityEffect[] = [{
 
 /** Earlier configurations keep their exact runtime and record layout. */
 export function needsAbilityActionRuntime(effect: ItemRuleEffect): boolean {
-  return effect.kind === "abilityRecipe:knockoutSplash" || effect.kind === "abilityRecipe:statAction"
+  return effect.kind === "abilityRecipe:knockoutSplash" || ["abilityRecipe:statAction","abilityRecipe:statGroup"].includes(effect.kind)
     && (effect.parameters?.activation === 5 || effect.parameters?.statSource === 1);
 }

@@ -10,6 +10,10 @@ import classTemplates from "../assets/data/abilityRuleRuntimeMoveClasses.json";
 import messageTemplates from "../assets/data/abilityRuleRuntimeMessages.json";
 import customFlagTemplates from "../assets/data/abilityRuleRuntimeCustomFlags.json";
 import statSourceTemplates from "../assets/data/abilityRuleRuntimeStatSource.json";
+import compactTemplates from "../assets/data/abilityRuleRuntimeCompact.json";
+import nativeFlagTemplates from "../assets/data/abilityRuleRuntimeNativeFlags.json";
+import { vanillaMoveFlagIndex } from "./abilityMoveFilters";
+import { abilityWorkSlots, optimizeAbilityRule, abilityExecutionSignature } from "./abilityRecipeOptimization";
 import actionResultTemplates from "../assets/data/abilityRuleRuntimeActionResults.json";
 import { customMoveFlagId, customMoveFlagName, emptyCustomMoveFlags, encodeCustomMoveFlags, MAX_CUSTOM_MOVE_FLAGS, validateCustomMoveFlags, type CustomMoveFlagRegistry } from "./customMoveFlags";
 import { defaultMoveDllFlags, moveDllFlags, validateMoveClassOverrides, encodeMoveClassOverrides, expandedMoveDllDefaults, mergedMoveClassData } from "./abilityMoveClasses";
@@ -42,9 +46,10 @@ import { NintendoDSRom } from "../nds/rom";
 import { readU32, writeU16, writeU32 } from "../nds/binary";
 import { battleRuntimeResolver, battleBranchTarget, BATTLE_RUNTIME_SIGNATURES } from "./battleRuntimeBindings";
 import { validateAbilityRule, encodeAbilityRules, EMPTY_ABILITY_RULE, type AbilityRuleSet } from "./abilityRules";
-import { installCodeInjectionPatch } from "./codeInjectionInstall";
+import { installCodeInjectionPatch, withProjectMutationLock } from "./codeInjectionInstall";
 import { stageCodeInjectionDll } from "./pmcModel";
-import { parseRpm, writeRpm, type RpmModule } from "./rpm";
+import { parseRpm, writeRpm, stripRpmPrivateSymbolNames, type RpmModule } from "./rpm";
+import { encodeAbilityRecipeBook, decodeAbilityRecipeBook } from "./abilityRecipeBook";
 import { ensureFileSystemState, setRomFileReplacement } from "./fileSystemModel";
 import { addTextEntries, getTextBank, updateTextEntry } from "./textModel";
 import { recordFieldChange } from "./actionChangelog";
@@ -52,7 +57,7 @@ import { isVerifiedBattleCounterImport } from "./battleLogModel";
 import { detectSpecifyTrainerNaturesPatch, specifyTrainerNatures } from "./romPatchModel";
 import type { ProjectState } from "./projectStore";
 export const ABILITY_EFFECTS_DLL_PATH = "patches/AbilityEffects.dll";
-export const CURRENT_ABILITY_RUNTIME_VERSION = 7;
+export const CURRENT_ABILITY_RUNTIME_VERSION = 10;
 const retired = Uint8Array.of(80, 87, 65, 82);
 const optimizedRuntime = new Map<unknown, unknown>([
     [template, optimizedTemplates["abilityRuleRuntime.json"]],
@@ -317,9 +322,17 @@ function storedPresentationMessages(c:Context): number[] | undefined {
     if(!Array.isArray(ids)||!(version6?[15,33]:[15]).includes(ids.length)||ids.some(id=>!Number.isInteger(id)||id<0||id>65532))throw Error("Invalid ability presentation messages.");
     return ids;
 }
-function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, previewHook = false, clientHooks = true, popupGroups = true, optimized = true, chainOwner = false, skipItemMoveParam = false, modern = true, overrides: ReadonlyMap<number, number> = storedMoveClasses(c), battleMessages = modern, blockMessage = storedBlockMessage(c), presentationMessages = storedPresentationMessages(c), automatic: ReadonlyMap<number,number> = battleMessages ? automaticMoveClasses(c,true) : new Map(), customFlags = true, registry: CustomMoveFlagRegistry = storedCustomMoveFlags(c), actionResults = true, statSource = true): RpmModule {
+function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, previewHook = false, clientHooks = true, popupGroups = true, optimized = true, chainOwner = false, skipItemMoveParam = false, modern = true, overrides: ReadonlyMap<number, number> = storedMoveClasses(c), battleMessages = modern, blockMessage = storedBlockMessage(c), presentationMessages = storedPresentationMessages(c), automatic: ReadonlyMap<number,number> = battleMessages ? automaticMoveClasses(c,true) : new Map(), customFlags = true, registry: CustomMoveFlagRegistry = storedCustomMoveFlags(c), actionResults = true, statSource = true, compact = true, compactExecution = true, nativeFlags = true): RpmModule {
     actionResults = actionResults && battleMessages && customFlags;
     statSource = statSource && actionResults;
+    if(compact && !statSource) throw Error("Compact ability packaging requires the current runtime.");
+    if(compactExecution && !compact)throw Error("Compact execution requires current packaging.");
+    if(nativeFlags && !compactExecution)throw Error("Native move flags require the current ability runtime.");
+    if(!nativeFlags && [...entries.values()].some(rule=>rule.effects.some(e=>vanillaMoveFlagIndex(e.parameters?.moveClass??0)!==undefined)))throw Error("The saved ability runtime cannot support native move flag filters.");
+    const authoredEntries=entries;
+    if(compactExecution)entries=new Map([...entries].map(([id,rule])=>[id,validateAbilityRule(optimizeAbilityRule(rule))]));
+    else if([...entries.values()].some(rule=>rule.effects.some(e=>(recipeAbilityEffect(e.kind)?.code??0)>=166||e.parameters?.types!==undefined)))throw Error("The saved ability runtime cannot support consolidated effects.");
+    const workSlots=abilityWorkSlots(entries);
     if(!statSource&&[...entries.values()].some(r=>r.effects.some(e=>e.kind==="abilityRecipe:abilityStatGuard")))throw Error("The saved ability runtime cannot support ability-source stat prevention.");
     registry=validateCustomMoveFlags(registry);
     validateCustomFlagReferences(entries,registry);
@@ -340,7 +353,9 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
         ? traps ? groupedClientTemplate : recipes ? groupedRecipeTemplate : library ? groupedLibraryTemplate : priority ? groupedPriorityTemplate : groupedTemplate
         : traps ? clientTemplate : recipes ? recipeTemplate : library ? libraryTemplate : priority ? priorityTemplate : template;
     if (modern && (!optimized || !popupGroups)) throw Error("Expanded Flags require the current ability runtime.");
-    const selectedTemplate = (modern ? (battleMessages ? customFlags ? actionResults ? statSource ? statSourceRuntime : actionResultRuntime : customFlagRuntime : messageRuntime : classRuntime).get(legacyTemplate) : optimized ? optimizedRuntime.get(legacyTemplate) : legacyTemplate) as typeof template;
+    const compactName=Object.entries(statSourceTemplates).find(([,value])=>value===statSourceRuntime.get(legacyTemplate))?.[0];
+    const compactBundle=compactName?((nativeFlags?nativeFlagTemplates:compactTemplates) as Record<string,Record<string,unknown>>)[compactName]?.[workSlots]:undefined;
+    const selectedTemplate = (compactExecution?compactBundle:modern ? (battleMessages ? customFlags ? actionResults ? statSource ? statSourceRuntime : actionResultRuntime : customFlagRuntime : messageRuntime : classRuntime).get(legacyTemplate) : optimized ? optimizedRuntime.get(legacyTemplate) : legacyTemplate) as typeof template;
     if (!selectedTemplate) throw new Error("Missing optimized ability runtime.");
     const rpm = structuredClone(selectedTemplate) as unknown as RpmModule;
     rpm.code = Uint8Array.from(selectedTemplate.code);
@@ -404,7 +419,7 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
         const scopedApi=named("AbilityScopedApi").address;
         ["GetTurnCounter","PokeTypePair_MakeMonotype","IsItemSwapBlocked","IsItemUnremovable","GiratinaArceusGenesectItemCheck","BattleMon_SetType"].forEach((name,i)=>{const service=c.resolver.resolve(name);assertUnhooked(c,name,service.address,service.code.length);writeU32(rpm.code,scopedApi+i*4,service.address|1);});
     }
-    const data = append(encodeAbilityRules(entries), "SECTION");
+    const data = append(encodeAbilityRules(entries,compactExecution), "SECTION");
     rpm.relocations.push({ target: { module: "base", address: named("AbilityRuleData").address, type: "OFFSET" }, sourceSymbolIndex: data });
     if (modern) {
         const classes = append(encodeMoveClassOverrides(mergedMoveClassData(overrides,automatic)), "SECTION");
@@ -416,7 +431,7 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
     }
     if (battleMessages && blockMessage !== undefined && (library || recipes)) writeU16(rpm.code,named("AbilityBlockMessage").address,blockMessage);
     if (battleMessages && recipes && presentationMessages) presentationMessages.forEach((id,n)=>writeU16(rpm.code,named("AbilityPresentationMessages").address+n*2,id));
-    linkNativeAbilities(rpm, entries, rpm.symbols[data].address, c.resolver.resolve, (name, address, size, copied) => assertUnhooked(c, name, address, size, copied), c.profiles, c.signatures);
+    linkNativeAbilities(rpm, entries, rpm.symbols[data].address, c.resolver.resolve, (name, address, size, copied) => assertUnhooked(c, name, address, size, copied), c.profiles, c.signatures,compactExecution);
     if (optimized) {
         const tables = named("AbilityRuleEventTables").address, counts = named("AbilityRuleEventCounts").address;
         const shared = new Map<string, number>();
@@ -461,7 +476,9 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
     }
     const shift = ((rpm.code.length + 3) & ~3) - bssBase;
     bss.forEach(s => s.address += shift);
-    rpm.metadata = { PMCGameID: c.project.session.baseVersion, PMCVersion: "1.0.0", PMCModulePriority: 4, PokewebAbilityEffects: "rules", PokewebAbilityRules: JSON.stringify([...entries].sort(([a], [b]) => a - b)) };
+    rpm.metadata = { PMCGameID: c.project.session.baseVersion, PMCVersion: "1.0.0", PMCModulePriority: 4, PokewebAbilityEffects: "rules", PokewebAbilityRules: compact ? encodeAbilityRecipeBook([...authoredEntries].sort(([a], [b]) => a - b)) : JSON.stringify([...authoredEntries].sort(([a], [b]) => a - b)) };
+    if(compactExecution){rpm.metadata.PokewebAbilityCompact=1;rpm.metadata.PokewebAbilityWorkSlots=workSlots;}
+    if(nativeFlags)rpm.metadata.PokewebAbilityNativeMoveFlags=1;
     if (modern) {
         rpm.metadata.PokewebAbilityMoveClasses = 1;
         rpm.metadata.PokewebAbilityPowerRatio = 1;
@@ -484,8 +501,9 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
     if(chainOwner&&!recipes)throw Error("The ability runtime has no move-parameter adapter to share.");
     if(chainOwner)assertNoCompetingMoveParamProviders(c);
     const result=chainOwner?chainAbilityMoveParam(rpm,c.overlayModule).module:rpm;
+    if(compact){result.metadata.PokewebAbilityPackaging=1;stripRpmPrivateSymbolNames(result);}
     const serialized = writeRpm(result, { ident: "DLXF" });
-    if (result.code.length + result.bssSize > 65536 || serialized.length + result.code.length + result.bssSize > 112 * 1024)
+    if (result.code.length + result.bssSize > 65536 || serialized.length + result.code.length + result.bssSize > 160 * 1024)
         throw new Error("Ability effects exceed the shared DLL memory budget. Reduce rule complexity.");
     return result;
 }
@@ -508,7 +526,15 @@ function readRules(c: Context, verifyPeer = true): Map<number, AbilityRuleSet> {
     const rpm = parseRpm(bytes, { allowedMagics: ["DLXF"] });
     if (rpm.metadata.PokewebAbilityEffects !== "rules" || rpm.metadata.PMCVersion !== "1.0.0" || typeof rpm.metadata.PokewebAbilityRules !== "string")
         throw new Error("Unrecognized shared ability effects DLL.");
-    const entries: unknown = JSON.parse(rpm.metadata.PokewebAbilityRules), rules = new Map<number, AbilityRuleSet>();
+    if(rpm.metadata.PokewebAbilityPackaging!==undefined && rpm.metadata.PokewebAbilityPackaging!==1) throw Error("Unrecognized ability packaging version.");
+    const compact=rpm.metadata.PokewebAbilityPackaging===1;
+    if(rpm.metadata.PokewebAbilityCompact!==undefined&&rpm.metadata.PokewebAbilityCompact!==1)throw Error("Unrecognized ability execution format.");
+    const compactExecution=rpm.metadata.PokewebAbilityCompact===1;
+    if(rpm.metadata.PokewebAbilityNativeMoveFlags!==undefined&&rpm.metadata.PokewebAbilityNativeMoveFlags!==1)throw Error("Unrecognized native move flag runtime.");
+    const nativeFlags=rpm.metadata.PokewebAbilityNativeMoveFlags===1;
+    if(!compactExecution&&rpm.metadata.PokewebAbilityWorkSlots!==undefined)throw Error("Invalid ability working-memory metadata.");
+    if(compact!==rpm.metadata.PokewebAbilityRules.startsWith("z1:"))throw Error("Invalid ability recipe metadata format.");
+    const entries: unknown = decodeAbilityRecipeBook(rpm.metadata.PokewebAbilityRules), rules = new Map<number, AbilityRuleSet>();
     if (!Array.isArray(entries) || !entries.length && !storedMoveClasses(c).size && !automaticMoveClasses(c).size && storedCustomMoveFlags(c).nextId===1 || entries.length > 255)
         throw new Error("Invalid ability registry.");
     for (const entry of entries) {
@@ -524,7 +550,7 @@ function readRules(c: Context, verifyPeer = true): Map<number, AbilityRuleSet> {
     const owner=rpm.metadata.PokewebMoveParamChain==="owner";
     if(rpm.metadata.PokewebMoveParamChain!==undefined&&!owner)throw Error("Unrecognized shared move-parameter owner.");
     if(owner)assertNoCompetingMoveParamProviders(c);
-    if (!same(bytes, writeRpm(moduleFor(c, rules, false, clientHooks, popupGroups, optimized,owner,false,modern,storedMoveClasses(c),battleMessages,storedBlockMessage(c),storedPresentationMessages(c),automaticMoveClasses(c),rpm.metadata.PokewebAbilityCustomMoveFlags===1,storedCustomMoveFlags(c),rpm.metadata.PokewebAbilityActionResults===1,rpm.metadata.PokewebAbilityStatSource===1), { ident: "DLXF" })) && !same(bytes, writeRpm(moduleFor(c, rules, true, clientHooks, popupGroups, optimized,owner,false,modern,storedMoveClasses(c),battleMessages,storedBlockMessage(c),storedPresentationMessages(c),automaticMoveClasses(c),rpm.metadata.PokewebAbilityCustomMoveFlags===1,storedCustomMoveFlags(c),rpm.metadata.PokewebAbilityActionResults===1,rpm.metadata.PokewebAbilityStatSource===1), { ident: "DLXF" })))
+    if (!same(bytes, writeRpm(moduleFor(c, rules, false, clientHooks, popupGroups, optimized,owner,false,modern,storedMoveClasses(c),battleMessages,storedBlockMessage(c),storedPresentationMessages(c),automaticMoveClasses(c),rpm.metadata.PokewebAbilityCustomMoveFlags===1,storedCustomMoveFlags(c),rpm.metadata.PokewebAbilityActionResults===1,rpm.metadata.PokewebAbilityStatSource===1,compact,compactExecution,nativeFlags), { ident: "DLXF" })) && !same(bytes, writeRpm(moduleFor(c, rules, true, clientHooks, popupGroups, optimized,owner,false,modern,storedMoveClasses(c),battleMessages,storedBlockMessage(c),storedPresentationMessages(c),automaticMoveClasses(c),rpm.metadata.PokewebAbilityCustomMoveFlags===1,storedCustomMoveFlags(c),rpm.metadata.PokewebAbilityActionResults===1,rpm.metadata.PokewebAbilityStatSource===1,compact,compactExecution,nativeFlags), { ident: "DLXF" })))
         throw new Error("The shared ability effects DLL has been modified.");
     if(owner&&verifyPeer){
         const peer=c.files.get("patches/ItemEffects.dll");
@@ -537,7 +563,7 @@ export function inspectAbilityEffects(project: ProjectState): {
     editable: boolean;
     message: string;
     rules: Map<number, AbilityRuleSet>;
-    runtimeVersion?: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+    runtimeVersion?: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 } {
     try {
         const c = context(project), rules = readRules(c);
@@ -545,7 +571,7 @@ export function inspectAbilityEffects(project: ProjectState): {
             moduleFor(c, new Map([[1, validateAbilityRule(EMPTY_ABILITY_RULE)]]));
         const bytes = c.files.get(ABILITY_EFFECTS_DLL_PATH);
         const metadata = bytes && !same(bytes, retired) ? parseRpm(bytes, { allowedMagics: ["DLXF"] }).metadata : undefined;
-        const runtimeVersion = metadata ? metadata.PokewebAbilityStatSource === 1 ? 7 : metadata.PokewebAbilityActionResults === 1 ? 6 : metadata.PokewebAbilityCustomMoveFlags === 1 ? 5 : metadata.PokewebAbilityBattleMessages === 1 ? 4 : metadata.PokewebAbilityPowerRatio === 1 ? 3 : metadata.PokewebAbilityDispatchVersion === 2 ? 2 : 1 : undefined;
+        const runtimeVersion = metadata ? metadata.PokewebAbilityNativeMoveFlags === 1 ? 10 : metadata.PokewebAbilityCompact === 1 ? 9 : metadata.PokewebAbilityPackaging === 1 ? 8 : metadata.PokewebAbilityStatSource === 1 ? 7 : metadata.PokewebAbilityActionResults === 1 ? 6 : metadata.PokewebAbilityCustomMoveFlags === 1 ? 5 : metadata.PokewebAbilityBattleMessages === 1 ? 4 : metadata.PokewebAbilityPowerRatio === 1 ? 3 : metadata.PokewebAbilityDispatchVersion === 2 ? 2 : 1 : undefined;
         return { editable: true, message: rules.size ? "Shared DLL verified" : "Native ability runtime verified", rules, runtimeVersion };
     }
     catch (error) {
@@ -645,6 +671,7 @@ export async function configureAbilityRuleSets(project: ProjectState, edits: rea
     if (!edits.length)
         return;
     const c = context(project), rules = readRules(c), seen = new Set<number>();
+    let effectsChanged = false;
     const checked = edits.map(edit => {
         const id = edit.abilityId;
         if (!Number.isInteger(id) || id < 1 || id > 255 || seen.has(id))
@@ -657,9 +684,30 @@ export async function configureAbilityRuleSets(project: ProjectState, edits: rea
             throw new Error("Give the new ability a name.");
         const description = edit.description === undefined ? undefined : normalizeAbilityDescription(edit.description);
         const canonical = validateAbilityRule(edit.rules);
+        const previous = rules.get(id) ?? (nativeAbilityProfile(`nativeAbility:${id}`)
+            ? validateAbilityRule({ effects: [{ kind: `nativeAbility:${id}`, value: -1 }], conditions: EMPTY_ABILITY_RULE.conditions })
+            : undefined);
+        effectsChanged ||= previous === undefined || abilityExecutionSignature(previous) !== abilityExecutionSignature(canonical);
         rules.set(id, canonical);
         return { ...edit, name, description, rules: canonical };
     });
+    // Text-only edits neither replace a native assignment nor update an installed
+    // runtime. Stage text and its readable personal labels atomically without PMC.
+    if (!effectsChanged) {
+        await withProjectMutationLock(project, () => {
+            const staged = { ...project, texts: structuredClone(project.texts), narcs: { ...project.narcs }, actionChangelog: structuredClone(project.actionChangelog) };
+            for (const name of ["message_texts", "personal"] as const)
+                if (project.narcs[name]) staged.narcs[name] = structuredClone(project.narcs[name]);
+            for (const edit of checked) {
+                if (edit.name) setName(staged, edit.abilityId, edit.name);
+                if (edit.description !== undefined) updateAbilityDescription(staged, edit.abilityId, edit.description);
+            }
+            project.texts = staged.texts;
+            project.narcs = staged.narcs;
+            project.actionChangelog = staged.actionChangelog;
+        });
+        return;
+    }
     const needsProvider=[...rules.values()].some(r=>r.effects.some(e=>recipeAbilityEffect(e.kind)));
     const itemPlan:{present:boolean;module?:RpmModule;address?:number}=c.files.has("patches/ItemEffects.dll")?prepareItemMoveParamForAbility(project,needsProvider):{present:false};
     const chain=needsProvider&&itemPlan.present;

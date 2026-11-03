@@ -24,7 +24,7 @@ import { NintendoDSRom } from "../nds/rom";
 import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { BATTLE_RUNTIME_SIGNATURES, battleBranchTarget, battleRuntimeResolver, type BattleRuntimeSignature } from "./battleRuntimeBindings";
 import { checkedMoveEventList, encodeMoveRules, moveRecipeEvents, validateMoveRule, validateMoveRuleCategory, validateMoveRuleHits, MOVE_CONDITION_CODES,MOVE_PHASES,movePrimitive,type MoveCondition,type MoveRuleSet } from "./moveRules";
-import { parseRpm, writeRpm, type RpmModule } from "./rpm";
+import { parseRpm, writeRpm, stripRpmPrivateSymbolNames, type RpmModule } from "./rpm";
 import { ensureFileSystemState, setRomFileReplacement } from "./fileSystemModel";
 import { installCodeInjectionPatch, loadCodeInjectionNarcs } from "./codeInjectionInstall";
 import { addTextEntries, commitTextBank, getTextBank, parseTextEntryId } from "./textModel";
@@ -272,8 +272,10 @@ function stored(c: Context): Saved {
   const encodedTypeCount=module.code[config.address+3];
   if(module.metadata.PokewebMoveRecipes===1?encodedTypeCount!==0:![17,18].includes(encodedTypeCount))throw Error("Invalid saved move type layout.");
   const variants: RuntimeVariant[] = module.metadata.PokewebMoveRecipes===1 ? ["v1"] : module.metadata.PokewebMoveRecipes===2 ? ["v2a","v2b"] : module.metadata.PokewebMoveRecipes===3 ? ["v3"] : module.metadata.PokewebMoveRecipes===4 ? ["v4"] : module.metadata.PokewebMoveRecipes===5 ? ["v5"] : module.metadata.PokewebMoveRecipes===6 ? ["v6"] : module.metadata.PokewebMoveRecipes===8?["history"]:module.metadata.PokewebMoveRecipes===9?["persistent9"]:module.metadata.PokewebMoveRecipes===11?["modernKnock"]:module.metadata.PokewebMoveRecipes===10?["persistent"]:["current"];
+  if(module.metadata.PokewebMovePackaging!==undefined&&module.metadata.PokewebMovePackaging!==1)throw Error("Unrecognized move packaging version.");
+  const compact=module.metadata.PokewebMovePackaging===1;
   const packedBook=module.metadata.MoveRecipeBook.startsWith("z1:");
-  if (!variants.some(variant => same(writeRpm(moduleFor(c, saved, variant, encodedTypeCount,packedBook), { ident: "DLXF" }), bytes))) throw Error("The installed move DLL has unrecognized edits.");
+  if (!variants.some(variant => same(writeRpm(moduleFor(c, saved, variant, encodedTypeCount,packedBook,compact), { ident: "DLXF" }), bytes))) throw Error("The installed move DLL has unrecognized edits.");
   return saved;
 }
 /** Allow ordinary callers to use this exact transparent adapter; copied bodies must fail. */
@@ -314,7 +316,7 @@ const hasPersistent=(rules:ReadonlyMap<number,MoveRuleSet>)=>{
   const uses=(c:import("./moveRules").MoveCondition):boolean=>c.kind==="group"?c.children.some(uses):c.kind==="persistentFromMove"||c.kind==="adjacent";
   return [...rules.values()].some(r=>uses(r.conditions)||uses(r.prerequisites)||r.effects.some(e=>uses(e.conditions)||e.kind==="tidyField"&&Boolean((e.parameters?.hazards??7)&8)||["vulnerableUntilAction","residualDamage","residualStat","fieldMoveType","targetMoveType","selfTrapBoost","mutualTrap","powderReaction","blockMoveFlag","focusCritical","spotlight","criticalStageBoost","fieldSwitchLock","entryStatHazard","swapSideEffects"].includes(e.kind)));
 };
-function moduleFor(c: Context, saved: Saved, variant: RuntimeVariant=[...saved.rules.values()].some(r=>r.effects.some(e=>e.kind==="modernKnockOff"))?"modernKnock":hasPersistent(saved.rules)?"persistent":hasHistory(saved.rules)?"history":"current", savedTypeCount?:number, packedBook=true): RpmModule {
+function moduleFor(c: Context, saved: Saved, variant: RuntimeVariant=[...saved.rules.values()].some(r=>r.effects.some(e=>e.kind==="modernKnockOff"))?"modernKnock":hasPersistent(saved.rules)?"persistent":hasHistory(saved.rules)?"history":"current", savedTypeCount?:number, packedBook=true, compact=true): RpmModule {
   if (!saved.rules.size) throw Error("Choose at least one move recipe.");
   const rules = new Map([...saved.rules].sort(([a], [b]) => a - b).map(([id, rule]) => [id, validateMoveRule(rule)]));
   const legacy=variant==="v1",persistent=variant==="persistent"||variant==="persistent9"||variant==="modernKnock";
@@ -337,6 +339,7 @@ function moduleFor(c: Context, saved: Saved, variant: RuntimeVariant=[...saved.r
   if(variant!=="modernKnock"&&kinds.has("modernKnockOff"))throw Error("This saved move runtime cannot support modern Knock Off.");
   const latest=variant==="current"||variant==="history"||persistent;
   const modern=variant==="v3"||variant==="v4"||variant==="v5"||variant==="v6"||latest,hasStatDrainMessage=variant==="v4"||variant==="v5"||variant==="v6"||latest,hasTidyVisual=variant==="v5"||variant==="v6"||latest,hasFullMessages=variant==="v6"||latest;
+  if(compact&&!latest)throw Error("Compact move packaging requires the current runtime.");
   const messages=hasFullMessages?["requireHeldItem","hazard","reducePP","statDrain","sourceCondition","suppressAbility","heal","cureAndHeal","copyAbility","maxHpRecoil","swapRawStat","changeType",...(latest?["allyHealInstead","drainEachHit"]:[]),...(persistent?["residualDamage","residualStat","selfTrapBoost","mutualTrap","powderReaction","blockMoveFlag","focusCritical","criticalStageBoost","spotlight","fieldSwitchLock","entryStatHazard","swapSideEffects"]:[])]:hasStatDrainMessage?["requireHeldItem","hazard","reducePP","statDrain"]:["requireHeldItem","hazard","reducePP"];
   const extraApis:Record<number,readonly string[]>={40:[],41:["hazard","entryStatHazard"],42:modern?["sourceCondition","requireHeldItem",...(persistent?["spotlight","condition:adjacent"]:[])]:["sourceCondition"],43:["swapRawStat","attackStat"],44:["reducePP"],45:["reducePP"],46:["reducePP"],47:["ignoreAbilities"],48:["ignoreAbilities"],49:["bypassSubstitute"],50:["changeType"],51:["changeType"],52:["changeType"],53:["tidyField","swapSideEffects"],54:hasTidyVisual?[]:["tidyField"],55:["condition:hidden",...(persistent?["criticalStageBoost"]:[])],56:messages,57:messages,58:["tidyField"],59:["typeMatchup"],60:["bypassSubstitute","modernKnockOff"],61:["thawTargets"],62:["attackStat"],63:["moveUserType","powderReaction"],64:["modernKnockOff"],65:["modernKnockOff"]};
   MOVE_RULE_API.forEach((name, index) => { if (!name || legacy&&index>=37 || !modern&&index>=56 || !hasTidyVisual&&index>=58 || !latest&&index>=59 || latest&&index===49 || index>=40&&!extraApis[index]?.some(kind=>kinds.has(kind))) return; const service = c.resolver.resolve(name); checkHook(c, name, service.address, service.code.length); writeU32(rpm.code, api + index * 4, service.address | 1); });
@@ -585,15 +588,21 @@ function moduleFor(c: Context, saved: Saved, variant: RuntimeVariant=[...saved.r
   });
   const encoded = encodeMoveRules(rules,legacy?0:savedTypeCount??typeChartTypeCount(c.project)), data = append(encoded, "MoveRecipeConfig");
   rpm.relocations.push({ target: { module: "base", address: named("MoveRuleData").address, type: "OFFSET" }, sourceSymbolIndex: data });
+  const sharedEventTables=new Map<string,number>();
   for (const [index, [id, rule]] of [...rules].entries()) {
     if(c.project.narcs.moves&&rule.effects.some(e=>e.kind==="drainEachHit"))validateMoveRuleHits(rule,Number(decodeRecord(c.project,"moves",id).raw?.hits??0));
     if(rule.nativeBase && rule.effects.some(e=>["power","hpPower","historyPower"].includes(e.kind)) && c.getters.get(rule.nativeBase)!.events.some(e=>e.event===0x37)) throw Error("This native base already sets power. Use a recipe power effect instead.");
     const events = new Set(moveRecipeEvents(rule,variant==="v2a"||variant==="v2b",!latest));
     if (rule.nativeBase) c.getters.get(rule.nativeBase)!.events.forEach(e => events.add(e.event));
-    const list = checkedMoveEventList(events), bytes = new Uint8Array(list.length * 8);
-    list.forEach((event, n) => writeU32(bytes, n * 8, event));
-    const table = append(bytes), start = rpm.symbols[table].address;
-    list.forEach((event, n) => rpm.relocations.push({ target: { module: "base", address: start + n * 8 + 4, type: "OFFSET" }, sourceSymbolIndex: rpm.symbols.indexOf(named(`MoveEvent_${event.toString(16).padStart(2, "0")}`)) }));
+    const list = checkedMoveEventList(events), key=list.join(",");
+    let table=compact?sharedEventTables.get(key):undefined;
+    if(table===undefined){
+      const bytes = new Uint8Array(list.length * 8);
+      list.forEach((event, n) => writeU32(bytes, n * 8, event));
+      table=append(bytes);const start=rpm.symbols[table].address;
+      list.forEach((event, n) => rpm.relocations.push({ target: { module: "base", address: start + n * 8 + 4, type: "OFFSET" }, sourceSymbolIndex: rpm.symbols.indexOf(named(`MoveEvent_${event.toString(16).padStart(2, "0")}`)) }));
+      if(compact)sharedEventTables.set(key,table);
+    }
     const entry = rpm.symbols[data].address + 4 + index * 16; writeU16(rpm.code, entry + 2, list.length);
     rpm.relocations.push({ target: { module: "base", address: entry + 8, type: "OFFSET" }, sourceSymbolIndex: table });
     if (id >= c.moveCount) throw Error("The move does not exist in this ROM.");
@@ -612,6 +621,7 @@ function moduleFor(c: Context, saved: Saved, variant: RuntimeVariant=[...saved.r
   if((variant==="persistent"||variant==="modernKnock")&&saved.webHitBase!==undefined)rpm.metadata.MoveWebHitBase=saved.webHitBase;
   if((variant==="persistent"||variant==="modernKnock")&&saved.webEndBase!==undefined)rpm.metadata.MoveWebEndBase=saved.webEndBase;
   if((variant==="persistent"||variant==="modernKnock")&&saved.courtChangeBase!==undefined)rpm.metadata.MoveCourtChangeBase=saved.courtChangeBase;
+  if(compact){rpm.metadata.PokewebMovePackaging=1;stripRpmPrivateSymbolNames(rpm,["MoveRecipeConfig"]);}
   const serialized = writeRpm(rpm, { ident: "DLXF" });
   if (rpm.code.length + rpm.bssSize > 49152 || serialized.length + rpm.code.length + rpm.bssSize > 96 * 1024) throw Error("Move recipes exceed the shared DLL memory budget.");
   return rpm;

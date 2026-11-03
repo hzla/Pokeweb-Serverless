@@ -151,6 +151,11 @@ narrow Sheer Force eligibility and flinch adapters; unrelated moves delegate to
 their native implementations. It does not change loader limits, heap sizes,
 Pokémon structures or the action scheduler.
 
+Current packages share immutable event tables between moves with the same event
+list and omit private symbol names. Export/import names, the editor's configuration
+section and all required relocations remain available. Applying a recipe repackages
+the shared DLL; older packages continue to use their original verification layout.
+
 Each move subscribes only to its required native events. The runtime checks
 the owning battler and checks the move ID wherever the native frame provides
 it. Accuracy and defense-stage frames use the selected native move item for

@@ -104,9 +104,17 @@ PUBLIC u32 AbilityRecipeForceItem(void*f,u8*param){
 }
 static u32 recipeMatch(const volatile u8*e,u32 classAt,u32 typeAt,u32 categoryAt,u32 move){
  u8 filter[16]={0};filter[1]=e[classAt];filter[4]=e[typeAt];filter[5]=e[categoryAt];
+#ifdef ABILITY_NATIVE_MOVE_FLAGS
+ filter[7]=e[7]&2;
+#endif
  (void)move;return libraryMatch(filter);
 }
-static u32 conversionMatch(u32 filter,u32 move){
+static u32 conversionMatch(u32 filter,u32 move,u32 flags){
+#ifdef ABILITY_NATIVE_MOVE_FLAGS
+ if(flags&2)return FN(31,u32(*)(u32,u32))(move,filter);
+#else
+ (void)flags;
+#endif
  if(!filter)return 1;
 #ifdef ABILITY_CUSTOM_FLAGS
  if(filter>=14)return AbilityMoveHasCustomFlag(move,filter-13);
@@ -145,7 +153,11 @@ static void recipeObserve(void*f,u8 owner,const volatile u8*r,u32 event){
 #endif
  const volatile u8*e=effects(r);
  for(u32 n=0;n<r[0];++n,e+=16){u32*w=nativeWork[owner][n];
-  if(e[0]==136&&e[1]==2){
+  if((e[0]==136&&e[1]==2)
+#ifdef ABILITY_COMPACT
+     ||(e[0]==167&&(e[1]&7)==2)
+#endif
+  ){
    if(event==0x81){w[0]=0;w[1]=0;}
    if(event==0x4b&&VALUE(4)==owner&&!VALUE(0x46)&&VALUE(0x32)>0){w[1]=1;w[0]+=VALUE(0x32);}
   }
@@ -165,12 +177,26 @@ static void abilityStatGuard(void*f,u8 owner,const volatile u8*e,u32 event){
 #endif
 static void recipeEffect(void*item,void*f,u8 owner,const volatile u8*e,u32 event,u32*w,u32 used){
  u32 kind=e[0],v=half(e+2),hp=STAT(MON(f,owner),13);s32 signedValue=(int16_t)v;
+#ifdef ABILITY_COMPACT
+ if(kind==167){
+  /* Preserve the original stat/target iteration order and independent rolls.
+   * Every stat sees the same observer state, including after-move activation. */
+  u32 order=e[12]|(u32)e[13]<<8|(u32)e[14]<<16,seen=0,initial[7],last[7];
+  for(u32 n=0;n<7;++n)initial[n]=last[n]=w[n];
+  for(u32 n=0;n<14;++n){u32 stat=n<7?(order>>(n*3)&7):n-6;if(!stat||seen&(1u<<stat))continue;seen|=1u<<stat;
+   u32 packed=e[2]|(u32)e[3]<<8|(u32)e[4]<<16|(u32)e[5]<<24; s32 stages=(packed>>((stat-1)*4))&15;if(stages&8)stages-=16;if(!stages)continue;
+   u8 single[16]={136};single[1]=e[1]&7;put16(single+2,stages);single[4]=stat;single[5]=e[11]>>2;single[6]=e[6];single[7]=e[7];single[8]=e[8];single[9]=(e[1]>>3)&1;single[10]=e[9];single[11]=e[10];single[12]=e[11]&3;single[13]=(e[1]>>4)&1;
+   u32 work[7];for(u32 k=0;k<7;++k)work[k]=initial[k];recipeEffect(item,f,owner,single,event,work,used);for(u32 k=0;k<7;++k)last[k]=work[k];
+  }
+  for(u32 n=0;n<7;++n){w[n]=last[n];}return;
+ }
+#endif
  if(kind==135){
   u32 move=event==0x28?recipeMove:VALUE(0x12);if(!move)return;
   u32 original=FN(35,u32(*)(u32,u32))(move,0);
   /* These moves choose their type after the initial move-parameter event. */
   if(move==237||move==311||move==363||move==449||move==546||e[4]!=18&&original!=e[4])return;
-  if(!conversionMatch(e[1],move))return;
+  if(!conversionMatch(e[1],move,e[7]))return;
   if(event==0x28&&VALUE(2)==owner)REWRITE(0x16,e[5]);
   if(event==0x38&&VALUE(3)==owner&&VALUE(0x16)==e[5])POWER_MUL(v);
   return;
@@ -200,8 +226,21 @@ static void recipeEffect(void*item,void*f,u8 owner,const volatile u8*e,u32 event
   }
   popup(f,3,owner);return;
  }
- if(kind==137){
-  if(event==0x65&&(!e[8]||VALUE(3)!=VALUE(4))&&VALUE(0x1d)==e[1]&&protect(f,owner,VALUE(4),e,4,5)){
+ if(kind==137
+#ifdef ABILITY_COMPACT
+    ||kind==166
+#endif
+ ){
+  const volatile u8*g=e;
+#ifdef ABILITY_COMPACT
+  static const u8 conditions[13]={1,2,3,4,5,6,7,11,12,13,14,15,23};u8 guard[16]={137};u32 mask=0;
+  if(kind==166){mask=e[1]|(u32)e[4]<<8;guard[4]=e[5];guard[5]=e[6];guard[6]=e[8];guard[8]=e[9];g=guard;}
+  u32 condition=event==0x65?VALUE(0x1d):0,matches=kind==137?condition==e[1]:0;
+  if(kind==166)for(u32 n=0;n<13;++n)if((mask&(1u<<n))&&condition==conditions[n]){matches=1;break;}
+#else
+  u32 matches=event==0x65&&VALUE(0x1d)==e[1];
+#endif
+  if(event==0x65&&(!g[8]||VALUE(3)!=VALUE(4))&&matches&&protect(f,owner,VALUE(4),g,4,5)){
 #ifdef ABILITY_BATTLE_MESSAGES
    if(REWRITE(0x41,1)&&!preview(f))w[0]=VALUE(4)+1;
 #else
@@ -211,7 +250,13 @@ static void recipeEffect(void*item,void*f,u8 owner,const volatile u8*e,u32 event
 #ifdef ABILITY_BATTLE_MESSAGES
   if(event==0x67&&w[0]==VALUE(4)+1&&!preview(f)){w[0]=0;guardMessage(f,owner,VALUE(4),210);}
 #endif
-  if(e[6]&&!preview(f)&&(onEntry(event,owner)||event==0x88||event==0x77&&VALUE(2)==owner||event==0x55&&protect(f,owner,VALUE(2),e,4,5)))for(u8 id=0;id<24;++id)if(protect(f,owner,id,e,4,5))RX(15,void(*)(void*,u8,u32))(f,id,e[1]);
+  if(g[6]&&!preview(f)&&(onEntry(event,owner)||event==0x88||event==0x77&&VALUE(2)==owner||event==0x55&&protect(f,owner,VALUE(2),g,4,5)))for(u8 id=0;id<24;++id)if(protect(f,owner,id,g,4,5)){
+#ifdef ABILITY_COMPACT
+   if(kind==166){for(u32 n=0;n<13;++n)if(mask&(1u<<n))RX(15,void(*)(void*,u8,u32))(f,id,conditions[n]);}
+   else
+#endif
+   RX(15,void(*)(void*,u8,u32))(f,id,e[1]);
+  }
   return;
  }
  if(kind==138){
@@ -300,7 +345,7 @@ static void recipeEffect(void*item,void*f,u8 owner,const volatile u8*e,u32 event
  if(kind==152){
   u32 activate=0;
 #ifdef ABILITY_BATTLE_MESSAGES
-  if(event==0x8b&&VALUE(4)==owner&&actionUser!=owner&&actionMove&&conversionMatch(e[4],actionMove))activate=REWRITE(0x41,1);
+  if(event==0x8b&&VALUE(4)==owner&&actionUser!=owner&&actionMove&&conversionMatch(e[4],actionMove,e[7]))activate=REWRITE(0x41,1);
 #endif
   if(event==0x2d&&VALUE(4)==owner&&VALUE(3)!=owner&&recipeMatch(e,4,5,6,VALUE(0x12))){
    activate=REWRITE(0x40,1);

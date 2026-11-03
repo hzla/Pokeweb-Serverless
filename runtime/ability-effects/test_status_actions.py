@@ -3,7 +3,7 @@
 This is a fast runtime regression, separate from native DS gameplay tests.
 Requires the local Python unicorn package; it makes no network requests.
 """
-import json
+import json, sys
 from pathlib import Path
 import struct
 from unicorn import Uc, UC_ARCH_ARM, UC_MODE_THUMB, UC_HOOK_CODE
@@ -11,6 +11,8 @@ from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_AR
 
 ROOT = Path(__file__).resolve().parents[2]
 BUNDLE = json.loads((ROOT / "src/assets/data/abilityRuleRuntimeStatSource.json").read_text())
+if "--compact" in sys.argv:
+    BUNDLE = {key: variants["4"] for key, variants in json.loads((ROOT / "src/assets/data/abilityRuleRuntimeCompact.json").read_text()).items()}
 BASE, API, DATA, ITEM, FLOW, WORK, STACK, STOP = 0x100000, 0x200000, 0x312000, 0x310000, 0x311000, 0x314000, 0x410000, 0x20f000
 TRIGGERS = [(0, 0x55), (1, 0x77), (2, 0x85), (3, 0x4b), (4, 0x4b), (5, 0x91)]
 U32 = lambda value: struct.pack("<I", value)

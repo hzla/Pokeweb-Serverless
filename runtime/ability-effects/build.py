@@ -10,7 +10,7 @@ BUILD=HERE/'build';BUILD.mkdir(exist_ok=True)
 def run(*args):subprocess.run([str(arg) for arg in args],check=True)
 if len(sys.argv)==1:
     # Released bundles are verification inputs, not current build outputs.
-    run(sys.executable,HERE/'build.py','--stat-source-only')
+    run(sys.executable,HERE/'build.py','--native-flags-only')
     raise SystemExit(0)
 run(sys.executable,HERE/'generate_move_classes.py')
 
@@ -34,9 +34,15 @@ results_path=ROOT/'src/assets/data/abilityRuleRuntimeActionResults.json'
 results=json.loads(results_path.read_text())if results_path.exists()else{}
 source_path=ROOT/'src/assets/data/abilityRuleRuntimeStatSource.json'
 source={}
+compact_path=ROOT/'src/assets/data/abilityRuleRuntimeCompact.json'
+compact={}
+native_flags='--native-flags-only' in sys.argv
+native_flags_path=ROOT/'src/assets/data/abilityRuleRuntimeNativeFlags.json'
+compact_mode='--compact-only' in sys.argv or native_flags
 variants=[(suffix,defines,asset,False)for suffix,defines,asset in variants]+[(suffix+'-optimized',defines+['-DABILITY_FILTER_EVENTS'],asset,True)for suffix,defines,asset in variants]
-for suffix,defines,asset,fast in variants:
-    stat_source="--stat-source-only" in sys.argv
+variants=[(suffix,defines,asset,fast,slots) for suffix,defines,asset,fast in variants for slots in ([4,8,16] if compact_mode else [16])]
+for suffix,defines,asset,fast,slots in variants:
+    stat_source="--stat-source-only" in sys.argv or compact_mode
     action_results="--action-results-only" in sys.argv or stat_source
     custom_flags="--custom-flags-only" in sys.argv or action_results
     custom_messages="--messages-only" in sys.argv or custom_flags
@@ -48,6 +54,8 @@ for suffix,defines,asset,fast in variants:
         if custom_flags: suffix+='-custom';defines+=['-DABILITY_CUSTOM_FLAGS']
         if action_results: suffix+='-results';defines+=['-DABILITY_ACTION_RESULTS']
         if stat_source: suffix+='-source';defines+=['-DABILITY_STAT_SOURCE']
+        if compact_mode: suffix+=f'-compact-{slots}';defines+=['-DABILITY_COMPACT',f'-DABILITY_EFFECT_SLOTS={slots}']
+        if native_flags: suffix+='-native-flags';defines+=['-DABILITY_NATIVE_MOVE_FLAGS']
     if "--optimized-only" in sys.argv and not fast: continue
     if "--legacy-only" in sys.argv and fast: continue
     if "--actions-only" in sys.argv and "-DABILITY_ACTIONS" not in defines: continue
@@ -59,13 +67,16 @@ for suffix,defines,asset,fast in variants:
     run('java','-cp',JAR,'rpm.cli.RPMTool','-i',obj,'--fourcc','DLXF','-o',dll,'--esdb',BUILD/'rules-symbols.yml','--meta',BUILD/'rules-meta.yml','--generate-relocations')
     destination=BUILD/('optimized-'+asset)if fast else ROOT/'src/assets/data'/asset
     run(ROOT/'node_modules/.bin/vite-node',HERE/'describe.ts',dll,destination)
-    if stat_source: source[asset]=json.loads(destination.read_text())
+    if compact_mode: compact.setdefault(asset,{})[str(slots)]=json.loads(destination.read_text())
+    elif stat_source: source[asset]=json.loads(destination.read_text())
     elif action_results: results[asset]=json.loads(destination.read_text())
     elif custom_flags: custom[asset]=json.loads(destination.read_text())
     elif custom_messages: messages[asset]=json.loads(destination.read_text())
     elif custom_classes: classes[asset]=json.loads(destination.read_text())
     elif fast: optimized[asset]=json.loads(destination.read_text())
-if "--stat-source-only" in sys.argv:
+if compact_mode:
+    (native_flags_path if native_flags else compact_path).write_text(json.dumps(compact,separators=(',',':'))+'\n')
+elif "--stat-source-only" in sys.argv:
     source_path.write_text(json.dumps(source,separators=(',',':'))+'\n')
 elif "--action-results-only" in sys.argv:
     results_path.write_text(json.dumps(results,separators=(',',':'))+'\n')

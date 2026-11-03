@@ -3,7 +3,11 @@
 static void actionObserve(void*f,u8 owner,const volatile u8*r,u32 event){
  const volatile u8*e=effects(r);
  for(u32 n=0;n<r[0];++n,e+=16){u32*w=nativeWork[owner][n];
-  if(e[0]==136&&e[1]==5){
+  if((e[0]==136&&e[1]==5)
+#ifdef ABILITY_COMPACT
+     ||(e[0]==167&&(e[1]&7)==5)
+#endif
+  ){
    if(event==0x3&&VALUE(3)==owner)w[3]=0;
    if(event==0x29&&VALUE(3)==owner){w[0]=VALUE(0x12);w[1]=VALUE(0x16);w[2]=FN(17,u32(*)(u32))(w[0]);w[3]=1;}
   }
@@ -15,9 +19,12 @@ static void actionObserve(void*f,u8 owner,const volatile u8*r,u32 event){
 }
 static u32 actionMoveMatches(const volatile u8*e,const u32*w){
  if(e[12]&&w[2]!=e[12])return 0;
+#ifdef ABILITY_NATIVE_MOVE_FLAGS
+ if(e[7]&2)return conversionMatch(e[10],w[0],e[7]);
+#endif
  if(e[10]==9)return w[1]==e[11];
  if(e[10]==10)return w[2]==e[12];
- return conversionMatch(e[10],w[0]);
+ return conversionMatch(e[10],w[0],e[7]);
 }
 static void actionSplash(void*f,u8 owner,const volatile u8*e,u32 event,u32*w){
  if(event!=0x83||VALUE(3)!=owner||preview(f)||!STAT(MON(f,owner),13))return;

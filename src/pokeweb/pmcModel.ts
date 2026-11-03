@@ -25,6 +25,7 @@ import {
 } from "./rpm";
 import bgmBw1Manifest from "../assets/codeinjection/bgmBw1Manifest.json";
 import italianPmcContract from "../../runtime/following-pokemon/italy-pmc-contract.json";
+import { adaptExpandedBw1PmcBoot, EXPANDED_PMC_HEAP_KIB } from "./pmcHeapRuntime";
 
 export type PmcInstallStatus =
   | { installed: false; supported: boolean; message: string }
@@ -78,6 +79,9 @@ const GEN5_RETAIL_ROOT_FILES: Record<"BW" | "BW2", { firstId: number; names: str
 const PMC_B2_URL = new URL("../assets/codeinjection/PMC_B2.rpm", import.meta.url);
 const PMC_W2_URL = new URL("../assets/codeinjection/PMC_W2.rpm", import.meta.url);
 const PMC_W2I_URL = new URL("../assets/codeinjection/PMC_W2I.rpm", import.meta.url);
+const PMC_B2_200_URL = new URL("../assets/codeinjection/PMC_B2_200.rpm", import.meta.url);
+const PMC_W2_200_URL = new URL("../assets/codeinjection/PMC_W2_200.rpm", import.meta.url);
+const PMC_W2I_200_URL = new URL("../assets/codeinjection/PMC_W2I_200.rpm", import.meta.url);
 const DOUBLE_BATTLE_FIX_B_URL = new URL("../assets/codeinjection/DoubleBattleFixB.dll", import.meta.url);
 const DOUBLE_BATTLE_FIX_B2_URL = new URL("../assets/codeinjection/DoubleBattleFixB2.dll", import.meta.url);
 const DOUBLE_BATTLE_FIX_W2_URL = new URL("../assets/codeinjection/DoubleBattleFixW2.dll", import.meta.url);
@@ -258,13 +262,84 @@ export async function installBundledPmc(project: ProjectState): Promise<PmcInsta
   const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
   if (!romBytes) throw new Error("Reload the ROM before installing PMC.");
   const idCode = readAscii(romBytes, 12, 4);
-  return installPmcBytes(project, await loadBundledPmcBytes(project.session.baseVersion, idCode), romBytes);
+  const expanded = getPmcInstallStatus(project);
+  return installPmcBytes(project, await loadBundledPmcBytes(project.session.baseVersion, idCode, expanded.installed && Boolean(expanded.version?.includes("-heap200"))), romBytes);
 }
 
-export async function loadBundledPmcBytes(version: ProjectState["session"]["baseVersion"], idCode?: string): Promise<Uint8Array> {
-  const response = await fetch(idCode === "IRDI" ? PMC_W2I_URL : version === "B2" ? PMC_B2_URL : PMC_W2_URL);
+export async function loadBundledPmcBytes(version: ProjectState["session"]["baseVersion"], idCode?: string, expanded = false): Promise<Uint8Array> {
+  const url = expanded ? idCode === "IRDI" ? PMC_W2I_200_URL : version === "B2" ? PMC_B2_200_URL : PMC_W2_200_URL
+    : idCode === "IRDI" ? PMC_W2I_URL : version === "B2" ? PMC_B2_URL : PMC_W2_URL;
+  const response = await fetch(url);
   if (!response.ok) throw new Error(`Could not load bundled PMC binary (${response.status})`);
   return new Uint8Array(await response.arrayBuffer());
+}
+
+export function getPmcHeapExpansionStatus(project: ProjectState): { available: boolean; expanded: boolean; message: string } {
+  const status = getPmcInstallStatus(project);
+  if (!status.installed) return { available: false, expanded: false, message: "Install PMC first." };
+  const code = project.romInfo?.idCode ?? "";
+  const supported = ["IRBO", "IRAO", "IREO", "IRDO", "IRDI"].includes(code) && (!project.originalRomBytes || project.originalRomBytes[30] === 0);
+  if (!supported) return { available: false, expanded: false, message: "This PMC expansion requires a supported revision-0 ROM." };
+  const expanded = status.version === "13.2.4-heap200" || status.version === "13.2.4-heap200-bw1" || status.version === "13.2.4-w2i-heap200";
+  const recognized = expanded || status.version === "13.2.4" || status.version === "13.2.4-bw1" || status.version === "13.2.4-w2i";
+  return { available: recognized && !expanded, expanded, message: !recognized ? "Update PMC to the current bundled version before expansion." : expanded ? "Expanded allocation installed (up to 200 KiB)." : "Reserve up to 200 KiB for PMC; existing patches are preserved." };
+}
+
+/** Explicit opt-in. Verify the active loader and hooks, then publish atomically. */
+export async function expandPmcHeapAllocation(project: ProjectState): Promise<PmcInstallResult> {
+  const state = getPmcHeapExpansionStatus(project);
+  if (!state.available && !state.expanded) throw Error(state.message);
+  const { installCodeInjectionPatch } = await import("./codeInjectionInstall");
+  return installCodeInjectionPatch(project, async staged => {
+    const romBytes = staged.originalRomBytes!;
+    const rom = new NintendoDSRom(romBytes, { fileData: "view" });
+    const installed = getPmcInstallStatus(staged);
+    if (!installed.installed) throw Error("Install PMC first.");
+    const pathBytes = (path: string, state = staged): Uint8Array | undefined => {
+      const added = state.fileSystem?.additions?.[path];
+      if (added) return added;
+      const id = rom.filenames.idOf(path);
+      return id === undefined ? undefined : getRomFileBytes(state, rom, id);
+    };
+    const row = findOverlayEntry(staged.patches?.arm9OverlayTable ?? rom.arm9OverlayTable, installed.overlayId);
+    const oldImage = staged.fileSystem?.additions?.[overlayPathForId(installed.overlayId)]
+      ?? (row === undefined ? undefined : getRomFileBytes(staged, rom, readU32(staged.patches?.arm9OverlayTable ?? rom.arm9OverlayTable, row + 24)));
+    if (!oldImage) throw Error("The active PMC overlay is missing.");
+    const oldSymbols = pathBytes(PMC_SYMBOL_PATH);
+    if (!oldSymbols) throw Error("The active PMC symbols are missing.");
+    const checked: ProjectState = { ...staged, arm9: staged.arm9.slice(), overlays: structuredClone(staged.overlays), fileSystem: structuredClone(staged.fileSystem), patches: structuredClone(staged.patches), codeInjection: structuredClone(staged.codeInjection), actionChangelog: structuredClone(staged.actionChangelog) };
+    const current = await loadBundledPmcBytes(staged.session.baseVersion, rom.idCode, state.expanded);
+    installPmcBytes(checked, current, romBytes);
+    const expectedImage = pathBytes(overlayPathForId(installed.overlayId), checked), expectedSymbols = pathBytes(PMC_SYMBOL_PATH, checked);
+    if (!expectedImage || !expectedSymbols || !bytesEqual(oldImage, expectedImage) || !bytesEqual(oldSymbols, expectedSymbols) || !bytesEqual(staged.arm9, checked.arm9)
+      || Object.entries(staged.overlays).some(([id, data]) => data && checked.overlays[Number(id)] && !bytesEqual(data, checked.overlays[Number(id)]!))) {
+      throw Error("The active PMC loader or its hooks have unrecognized changes; expansion was not applied.");
+    }
+    if (state.expanded) return { overlayId: installed.overlayId, overlayBaseAddress: checked.codeInjection!.pmc!.overlayBaseAddress!, version: installed.version, gameId: installed.gameId, symbolPath: PMC_SYMBOL_PATH };
+    const previousArm9 = staged.arm9.slice();
+    const result = installPmcBytes(staged, await loadBundledPmcBytes(staged.session.baseVersion, rom.idCode, true), romBytes);
+    const nextImage = pathBytes(overlayPathForId(installed.overlayId))!;
+    const before = parseRpm(oldSymbols), after = parseRpm(pathBytes(PMC_SYMBOL_PATH)!);
+    for (const symbol of before.symbols.filter(s => s.attributes & 1)) {
+      const next = after.symbols.find(s => s.name === symbol.name && s.attributes & 1);
+      if (!next || next.address !== symbol.address || next.type !== symbol.type) throw Error("PMC expansion would move an existing patch service.");
+    }
+    for (const module of listCodeInjectionDlls(staged)) {
+      const bytes = pathBytes(module.path);
+      if (!bytes || readAscii(bytes, 0, 4) !== "DLXF") continue;
+      const dll = parseRpm(bytes, { allowedMagics: ["DLXF"] });
+      for (const relocation of dll.relocations.filter(r => [String(installed.overlayId), "ARM9", "0"].includes(r.target.module))) {
+        const arm9 = relocation.target.module !== String(installed.overlayId);
+        const at = (relocation.target.address & ~1) - (arm9 ? rom.arm9RamAddress : result.overlayBaseAddress);
+        const size = relocation.target.type === "FULL_COPY" ? dll.symbols[relocation.sourceSymbolIndex]?.size ?? 0 : relocation.target.type === "OFFSET" ? 4 : 16;
+        const previous = arm9 ? previousArm9 : oldImage, next = arm9 ? staged.arm9 : nextImage;
+        if (relocation.target.module === "0" && (at < 0 || at + size > previous.length)) continue; // native overlay 0, outside ARM9
+        if (at < 0 || at + size > previous.length || !bytesEqual(previous.subarray(at, at + size), next.subarray(at, at + size))) throw Error(`PMC expansion conflicts with ${module.path}.`);
+      }
+    }
+    recordGenericChange(staged, "code_injection", `Expanded PMC allocation to ${EXPANDED_PMC_HEAP_KIB} KiB.`, "PMC", { key: "code-injection:pmc-heap" });
+    return result;
+  });
 }
 
 function validateItalianPmcInstallSites(arm9: Uint8Array, rom: NintendoDSRom, romBytes: Uint8Array): void {
@@ -290,9 +365,17 @@ export function installPmcBytes(project: ProjectState, rpmBytes: Uint8Array, rom
   const bw1Version = project.session.baseRom === "BW" && (project.session.baseVersion === "B" || project.session.baseVersion === "W")
     ? project.session.baseVersion
     : undefined;
+  let restoreStartupTable: { literal: number; sourceAddress: number } | undefined;
   if (bw1Version) {
     retargetPmcForBw1(rpm, bw1Version);
     validateBw1PmcInstallSites(activeArm9, rom.arm9RamAddress, bw1Version, existingOverlayId !== undefined);
+    if (rpm.metadata.PokewebPmcHeapKiB === EXPANDED_PMC_HEAP_KIB) {
+      const { specs, literal } = resolveBw1StartupHeapSpecs(project, rom, activeArm9, bw1Version);
+      adaptExpandedBw1PmcBoot(rpm, rpm.symbols.findIndex(s => s.name === "GFLAppInit"), specs, literal);
+    } else {
+      const id = rom.filenames.idOf(PMC_SYMBOL_PATH), previous = project.fileSystem?.additions?.[PMC_SYMBOL_PATH] ?? (id === undefined ? undefined : getRomFileBytes(project, rom, id));
+      if (previous && parseRpm(previous).metadata.PokewebPmcHeapKiB === EXPANDED_PMC_HEAP_KIB) restoreStartupTable = resolveBw1StartupHeapSpecs(project, rom, activeArm9, bw1Version);
+    }
   }
   if (rom.idCode === "IRDI" && existingOverlayId === undefined) validateItalianPmcInstallSites(activeArm9, rom, romBytes);
   const gameId = stringMeta(rpm, "PMCGameID");
@@ -327,6 +410,7 @@ export function installPmcBytes(project: ProjectState, rpmBytes: Uint8Array, rom
   updateRpmCodeImageForBase(rpm);
   rpm.metadata.SymbolFile = "RPMSYM-PMC.rpm";
   applyExternalRelocations(project, rom, rpm);
+  if (restoreStartupTable) writeU32(project.arm9, restoreStartupTable.literal - rom.arm9RamAddress, restoreStartupTable.sourceAddress);
   if (bw1Version) applyBw1PmcBytePatch(project.arm9, rom.arm9RamAddress, bw1Version);
 
   const symbolRpm = createSymbolOnlyRpm(rpm);
@@ -1347,6 +1431,26 @@ function retargetPmcForBw1(rpm: RpmModule, version: Bw1Version): void {
   }
   writeU16(rpm.code, 0x4a8, 0x22ed);
   writeU16(rpm.code, 0x4ac, 0x46c0);
+}
+
+function resolveBw1StartupHeapSpecs(project: ProjectState, rom: NintendoDSRom, arm9: Uint8Array, version: Bw1Version): { specs: Uint8Array; literal: number; sourceAddress: number } {
+  const base = rom.arm9RamAddress, entry = BW1_PMC_LAYOUTS[version].symbols.GFLAppInit.address & ~1, at = entry - base;
+  const twlLoad = readU16(arm9, at + 0x4c), dsLoad = readU16(arm9, at + 0x50);
+  if ((twlLoad & 0xff00) !== 0x4800 || (dsLoad & 0xff00) !== 0x4800 || readU16(arm9, at + 0x4e) !== 0xe000 || readU16(arm9, at + 0x52) !== 0x2102 || readU16(arm9, at + 0x54) !== 0x22ad || readU16(arm9, at + 0x56) !== 0x2300) throw Error("Unrecognized BW1 startup heap selection.");
+  const high = readU16(arm9, at + 0x58), low = readU16(arm9, at + 0x5a);
+  const delta = (((high & 0x7ff) << 12 | (low & 0x7ff) << 1) << 9) >> 9;
+  if ((high & 0xf800) !== 0xf000 || (low & 0xf800) !== 0xe800 || ((entry + 0x5c) & ~3) + delta !== 0x02030608 + (version === "W" ? 24 : 0)) throw Error("Unrecognized BW1 startup heap initializer.");
+  const twlLiteral = ((entry + 0x50) & ~3) + (twlLoad & 255) * 4, literal = ((entry + 0x54) & ~3) + (dsLoad & 255) * 4;
+  const dsAddress = readU32(arm9, twlLiteral - base) + 16, current = readU32(arm9, literal - base), offset = dsAddress - base;
+  if (offset < 0 || offset + 16 > arm9.length || dsAddress & 3) throw Error("The BW1 startup heap table is outside ARM9.");
+  if (current !== dsAddress) {
+    const id = rom.filenames.idOf(PMC_SYMBOL_PATH), bytes = project.fileSystem?.additions?.[PMC_SYMBOL_PATH] ?? (id === undefined ? undefined : getRomFileBytes(project, rom, id));
+    const previous = bytes && parseRpm(bytes), copy = previous && previous.symbols.find(s => s.name === "__PokewebBw1HeapSpecs");
+    if (!previous || previous.metadata.PokewebPmcHeapKiB !== EXPANDED_PMC_HEAP_KIB || !copy || previous.baseAddress + 32 + copy.address !== current) throw Error("The BW1 startup heap table has an unrecognized redirection.");
+  }
+  const specs = arm9.slice(offset, offset + 16), heap0 = readU32(specs, 0), heap1 = readU32(specs, 8);
+  if (heap0 < 0x4000 || heap0 > 0x100000 || heap1 < 0x80000 || heap1 > 0x300000 || heap0 & 31 || heap1 & 31) throw Error("Unrecognized BW1 startup heap budgets.");
+  return { specs, literal, sourceAddress: dsAddress };
 }
 
 function appendBw1BootInitializerWrapper(rpm: RpmModule, gflAppInitIndex: number): void {

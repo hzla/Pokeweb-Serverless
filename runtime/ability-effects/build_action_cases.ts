@@ -1,3 +1,4 @@
+import { abilityExecutionLayout } from "../../src/pokeweb/abilityRecipeOptimization";
 /** Action recipes: project/ROM round trips and ordinary native battle fixtures. */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -55,8 +56,7 @@ const api = Object.fromEntries(ABILITY_RULE_API.flatMap((name, i) => name ? [[na
 const gateway = dll.relocations.find(r => r.target.module === "base" && r.target.address === symbols.AbilityRuleApi + 20 * 4)!;
 const pmc = parseRpm(rom.files[rom.fileId("codeinjection/RPMSYM-PMC.rpm")]), pmcSymbols = Object.fromEntries(pmc.symbols.filter(s => s.name && /g_Modules|g_MainAllocator|g_UserHeapArea/u.test(s.name)).map(s => [s.name!, pmc.baseAddress + 32 + s.address]));
 const overlay = rom.loadArm9Overlays([167]).get(167)!, resolver = battleRuntimeResolver(overlay.data, overlay.ramAddress, project.arm9, rom.arm9RamAddress);
-const encoded = encodeAbilityRules(rules), nativeOffsets: number[] = [];
-for (const [id, rule] of rules) { const at = readU16(encoded, id * 2), start = at + 4 + encoded[at + 1] * 4; rule.effects.forEach((effect, i) => { if (effect.kind.startsWith("nativeAbility:")) nativeOffsets.push(start + i * 16); }); }
+const {bytes:encoded,nativeOffsets}=abilityExecutionLayout(rules);
 type Case = { label: string; abilityId: number; playerSpecies?: number; level?: number; playerMoves?: number[]; turnMove?: number[]; hp?: number; playerStatus?: HarnessPokemon["status"]; ally?: HarnessPokemon; enemies?: HarnessPokemon[]; battleType?: "Doubles" | "Triples"; menuCount?: number; checks: Record<string, unknown> };
 const mon = (speciesId = 320, level = 100, move = 150, abilityId = 50): HarnessPokemon => ({ speciesId, level, moves: [move], abilityId, itemId: 0 });
 const stages = (spatk: number, speed: number, defense = 6) => [6, defense, spatk, 6, speed, 6, 6], neutral = stages(6, 6);

@@ -3,7 +3,7 @@
 The small ARM caller enters the real callback scopes recursively, so move/item
 origins, nested abilities and repeated changes exercise the runtime call stack.
 """
-import json, struct, subprocess
+import json, struct, subprocess, sys
 from pathlib import Path
 from elftools.elf.elffile import ELFFile
 from unicorn import Uc, UC_ARCH_ARM, UC_MODE_THUMB, UC_HOOK_CODE
@@ -29,6 +29,7 @@ void TestInvoke(void){
 ''')
 subprocess.run([str(TOOLS/'arm-none-eabi-gcc'),'-mthumb','-mcpu=arm946e-s','-Os','-ffreestanding','-nostdlib','-Wl,-Ttext=0x180000,-Tbss=0x190000,-eTestInvoke',str(DRIVER),'-o',str(ELF)],check=True)
 BUNDLE=json.loads((ROOT/'src/assets/data/abilityRuleRuntimeStatSource.json').read_text())['abilityRuleRuntimeRecipesGrouped.json']
+if '--compact' in sys.argv:BUNDLE=json.loads((ROOT/'src/assets/data/abilityRuleRuntimeCompact.json').read_text())['abilityRuleRuntimeRecipesGrouped.json']['4']
 BASE,API,DATA,MON,FLOW,WORK,STACK,STOP=0x100000,0x200000,0x300000,0x320000,0x330000,0x340000,0x410000,0x20f000
 u32=lambda x:struct.pack('<I',x&0xffffffff)
 def exercise(factor=4,source=12,target=0,delta=-1,stat=1,selected=8,suppressed=False,preview=False,repeat=1,activations=1,no_source=False,bypass=False,skip=False):

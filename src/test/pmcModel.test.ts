@@ -23,6 +23,9 @@ import {
   installBundledBgmToggleDll,
   readBgmRuntimeConfig,
   installPmcBytes,
+  installBundledPmc,
+  expandPmcHeapAllocation,
+  getPmcHeapExpansionStatus,
   listCodeInjectionDlls,
   PMC_OVERLAY_ID_PATH,
   PMC_OVERLAY_RESERVED_SIZE,
@@ -155,6 +158,49 @@ describe("PMC installer", () => {
   it("parses bundled PMC metadata", () => {
     expect(parseRpm(pmcB2).metadata).toMatchObject({ PMCGameID: "B2", PMCVersion: "13.2.4" });
     expect(parseRpm(pmcW2).metadata).toMatchObject({ PMCGameID: "W2", PMCVersion: "13.2.4" });
+  });
+
+  it.each(["B2", "W2"] as const)("expands %s only on request and preserves installed patch bytes and update preference", async version => {
+    await withBundledCodeInjectionFetch(async () => {
+      const bytes = makeBw2LikeRom(); if (version === "B2") bytes[14] = 69;
+      const project = makeProject(bytes, version); project.romInfo.idCode = version === "B2" ? "IREO" : "IRDO";
+      expect(getPmcHeapExpansionStatus(project)).toMatchObject({ available: false, expanded: false });
+      await installBundledPmc(project);
+      expect(getPmcInstallStatus(project)).toMatchObject({ version: "13.2.4" });
+      expect(getPmcHeapExpansionStatus(project)).toMatchObject({ available: true, expanded: false });
+      for (const [name, dll] of [[`MainMenuSkip${version}.dll`, version === "B2" ? mainMenuSkipB2 : mainMenuSkipW2], [`BgmToggle${version}.dll`, version === "B2" ? bgmToggleB2 : bgmToggleW2]] as const) stageCodeInjectionDll(project, name, dll);
+      const patchBytes = structuredClone(Object.entries(project.fileSystem!.additions!).filter(([path]) => path.startsWith("patches/")));
+      await expandPmcHeapAllocation(project);
+      expect(getPmcHeapExpansionStatus(project)).toMatchObject({ available: false, expanded: true });
+      expect(getPmcInstallStatus(project)).toMatchObject({ version: "13.2.4-heap200" });
+      for (const [path, dll] of patchBytes) expect(project.fileSystem!.additions![path]).toEqual(dll);
+      const state = structuredClone(project.fileSystem);
+      await expandPmcHeapAllocation(project); expect(project.fileSystem).toEqual(state);
+      await installBundledPmc(project); expect(getPmcHeapExpansionStatus(project).expanded).toBe(true);
+      const rom = new NintendoDSRom(await exportModifiedRom(project));
+      const reopened = makeProject(rom.save(), version); reopened.romInfo.idCode = rom.idCode; reopened.arm9 = decompressCode(rom.arm9); reopened.codeInjection = detectPmcInstallFromRom(rom);
+      expect(getPmcHeapExpansionStatus(reopened)).toMatchObject({ available: false, expanded: true });
+      await expandPmcHeapAllocation(reopened);
+      for (const [path, dll] of patchBytes) expect(rom.getFileByName(path)).toEqual(dll);
+    });
+  });
+
+  it.each(["loader", "hook", "conflicting DLL"])("rejects an unrecognized PMC %s atomically", async damage => {
+    await withBundledCodeInjectionFetch(async () => {
+      const bytes = makeBw2LikeRom(), project = makeProject(bytes, "W2"); project.romInfo.idCode = "IRDO";
+      installPmcBytes(project, pmcW2, bytes);
+      if (damage === "loader") project.fileSystem!.additions!["overlay/overlay_0344.bin"][0x100] ^= 1;
+      else if (damage === "hook") project.arm9[0x400e] ^= 1;
+      else {
+        const symbols = parseRpm(project.fileSystem!.additions![PMC_SYMBOL_PATH]);
+        const allocator = symbols.symbols.find(s => s.name?.endsWith("CreateSystemAllocatorEv"))!;
+        const dll = writeRpm({ code: new Uint8Array(4), bssSize: 0, baseAddress: 0, metadata: {}, symbols: [{ name: "conflict", address: 0, size: 4, type: "FUNCTION_THM", attributes: 1 }], relocations: [{ target: { module: "344", address: symbols.baseAddress + 32 + allocator.address + 32, type: "THUMB_BRANCH" }, sourceSymbolIndex: 0 }] }, { ident: "DLXF" });
+        stageCodeInjectionDll(project, "conflict.dll", dll);
+      }
+      const before = structuredClone({ arm9: project.arm9, fileSystem: project.fileSystem, codeInjection: project.codeInjection, actionChangelog: project.actionChangelog });
+      await expect(expandPmcHeapAllocation(project)).rejects.toThrow(/unrecognized|conflict/);
+      expect({ arm9: project.arm9, fileSystem: project.fileSystem, codeInjection: project.codeInjection, actionChangelog: project.actionChangelog }).toEqual(before);
+    });
   });
 
   it("does not double-count BSS when writing a packed code RPM", () => {
@@ -1138,6 +1184,7 @@ async function withBundledCodeInjectionFetch(run: () => Promise<void>): Promise<
     const fileName = url.pathname.split("/").pop();
     if (fileName === "PMC_B2.rpm") return new Response(pmcB2);
     if (fileName === "PMC_W2.rpm") return new Response(pmcW2);
+    if (fileName === "PMC_B2_200.rpm" || fileName === "PMC_W2_200.rpm") return new Response(new Uint8Array(readFileSync(new URL(`../assets/codeinjection/${fileName}`, import.meta.url))));
     if (fileName === "MainMenuSkipB2.dll") return new Response(mainMenuSkipB2);
     if (fileName === "MainMenuSkipW2.dll") return new Response(mainMenuSkipW2);
     if (fileName === "FormEvolutionB2.dll") return new Response(formEvolutionB2);

@@ -170,6 +170,13 @@ export function cloneRpm(rpm: RpmModule): RpmModule {
   };
 }
 
+/** Keep all operational exports/imports and explicitly named editor sections.
+ * Records and relocation indices are unchanged; private names are not link keys. */
+export function stripRpmPrivateSymbolNames(rpm: RpmModule, keep: readonly string[] = []): void {
+  for (const symbol of rpm.symbols)
+    if (!(symbol.attributes & (SYMBOL_ATTR_EXPORT | SYMBOL_ATTR_IMPORT)) && symbol.name && !keep.includes(symbol.name)) symbol.name = null;
+}
+
 export function createCodeOnlyRpm(rpm: RpmModule): RpmModule {
   return {
     code: rpm.code,

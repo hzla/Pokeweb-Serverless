@@ -1,4 +1,5 @@
 import { nativeAbilityProfile } from "../pokeweb/abilityNativeRuntime";
+import { optimizeAbilityRule } from "../pokeweb/abilityRecipeOptimization";
 import { ABILITY_IMPORT_LIBRARY, abilityImport } from "../pokeweb/abilityLibrary";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { inspectAbilityEffects, configureAbilityRuleSets, createCustomAbility, nextCustomAbilityId, clearAbilityRules } from "../pokeweb/abilityEffectsModel";
@@ -41,7 +42,7 @@ export function renderAbilityEditor(project: ProjectState, root: HTMLElement, on
         refreshAbilityRuntimeUpdate(root,project);
         list();
         const state=inspectAbilityEffects(project),name=adding?"":project.texts.banks.abilities?.[selected]??`Ability ${selected}`,rule=adding?undefined:state.rules.get(selected);
-        updateReference(state.rules);
+        updateReference(new Map([...state.rules].map(([id,rule])=>[id,optimizeAbilityRule(rule)])));
         const native:AbilityRuleSet|undefined=!adding&&nativeAbilityProfile(`nativeAbility:${selected}`)?{effects:[{kind:`nativeAbility:${selected}`,value:-1}],conditions:EMPTY_ABILITY_RULE.conditions}:undefined;
         const noTemplate=!adding&&!rule&&!native&&!customDraft;
         const target=root.querySelector<HTMLElement>("[data-ability-panel]")!;
@@ -50,7 +51,7 @@ export function renderAbilityEditor(project: ProjectState, root: HTMLElement, on
         target.innerHTML=`<div class="ability-page-heading"><h2>${adding?"New ability":escapeHtml(name)} <small>#${selected}</small></h2><span class="ability-state">${!state.editable?"Unavailable":adding||customDraft?"Custom draft":rule?"Custom effects · Shared DLL":noTemplate?"No native template":"Native behavior"}</span></div>
           <label class="ability-name">Name<input data-ability-name aria-label="Ability name" maxlength="15" value="${escapeHtml(name)}" ${state.editable?"":"disabled"}></label>
           <section class="ability-description-editor"><label>Description<textarea data-ability-description aria-label="Ability description" spellcheck="false" ${descriptionError?"disabled":""}>${escapeHtml(description)}</textarea></label>${descriptionError?"":descriptionPreviewMarkup}<p role="status" data-ability-description-status>${escapeHtml(descriptionError)}</p></section>
-          ${state.editable?noTemplate?`<button type="button" class="btn -default" data-ability-custom-draft>Create custom effects</button>`:`<div data-ability-rules>${renderItemRuleForm(project,{...structuredClone(adding||customDraft?BLANK_ABILITY_DRAFT:rule??native??BLANK_ABILITY_DRAFT),consumable:false},options)}</div>${rule?`<button type="button" class="btn -default ${selected>164?"-remove":""}" data-ability-restore>${selected<=164?"Restore native behavior":"Remove custom effects"}</button>`:""}${adding?`<button type="button" class="btn -default" data-ability-cancel>Cancel</button>`:""}`:`<p role="status">${escapeHtml(state.message)}</p>`}`;
+          ${state.editable?noTemplate?`<button type="button" class="btn -default" data-ability-custom-draft>Create custom effects</button>`:`<div data-ability-rules>${renderItemRuleForm(project,{...optimizeAbilityRule(adding||customDraft?BLANK_ABILITY_DRAFT:rule??native??BLANK_ABILITY_DRAFT),consumable:false},options)}</div>${rule?`<button type="button" class="btn -default ${selected>164?"-remove":""}" data-ability-restore>${selected<=164?"Restore native behavior":"Remove custom effects"}</button>`:""}${adding?`<button type="button" class="btn -default" data-ability-cancel>Cancel</button>`:""}`:`<p role="status">${escapeHtml(state.message)}</p>`}`;
         const descriptionField=target.querySelector<HTMLTextAreaElement>("[data-ability-description]")!;
         const descriptionDetails=target.querySelector<HTMLDetailsElement>("[data-description-preview]");
         const preview=descriptionDetails?installLazyDescriptionPreview(project,descriptionDetails,"ability",()=>descriptionField.value,()=>{const value=target.querySelector<HTMLInputElement>("[data-ability-name]")!.value;return adding||value!==name?value:getAbilitySummaryName(project,selected);}):undefined;

@@ -39,7 +39,7 @@ describe("standalone ability imports",()=>{
  it("validates editable library parameters and encodes stat targets and signed stages",()=>{
   const rule=validateAbilityRule({effects:[{kind:"ability:hitStat",value:-2,parameters:{moveClass:9,type:17,stat:3,target:1,activationChance:67}}],conditions:{kind:"group",mode:"all",children:[]}}),b=encodeAbilityRules(new Map([[165,rule]])),at=512+8;
   expect(Array.from(b.slice(at,at+10))).toEqual([133,9,254,255,17,1,67,0,3,1]);
-  for(const parameters of [{moveClass:256},{type:18},{stat:0},{target:2},{activationChance:101},{bad:1}]as Record<string,number>[])expect(()=>validateAbilityRule({...rule,effects:[{...rule.effects[0],parameters}]})).toThrow();
+  for(const parameters of [{moveClass:270},{type:18},{stat:0},{target:2},{activationChance:101},{bad:1}]as Record<string,number>[])expect(()=>validateAbilityRule({...rule,effects:[{...rule.effects[0],parameters}]})).toThrow();
   expect(()=>validateAbilityRule({...rule,effects:[{...rule.effects[0],value:0}]})).toThrow();
   expect(()=>validateAbilityRule({...rule,effects:[]})).toThrow();
  });

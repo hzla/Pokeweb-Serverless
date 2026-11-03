@@ -39,7 +39,10 @@ PUBLIC const volatile u8 AbilityRuleEventCounts[256]={0};
 #define REWRITE(k,v) FN(28,u32(*)(u32,u32))(k,v)
 #define CHECK(p,k) FN(30,u32(*)(void*,u32))(p,k)
 static u32 bypassProbe;
-static u32 nativeWork[32][16][7];
+#ifndef ABILITY_EFFECT_SLOTS
+#define ABILITY_EFFECT_SLOTS 16
+#endif
+static u32 nativeWork[32][ABILITY_EFFECT_SLOTS][7];
 #ifdef ABILITY_CLIENT_TRAPS
 static void *clientFlow;
 #endif
@@ -141,7 +144,11 @@ PUBLIC u32 AbilityMoldSkip(void*item,void*f,u32 factor,u32 event,u16 id,u8 owner
  return FN(19,u32(*)(void*,void*,u32,u32,u16,u8))(item,f,factor,event,id,owner);
 }
 static u32 bypassed(void*item,void*f,u32 event,const volatile u8*e){
+#ifdef ABILITY_NATIVE_MOVE_FLAGS
+ if(!(e[7]&1))return 0;
+#else
  if(!e[7])return 0;
+#endif
  u16 original=*(u16*)((u8*)item+0x38);*(u16*)((u8*)item+0x38)=e[0]==128?half(e+12):47;
  u32 previous=bypassProbe;bypassProbe=1;
  u32 skipped=FN(32,u32(*)(void*,void*,u32))(f,item,event);
@@ -241,7 +248,7 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
  if(r&&7-(*(u32*)((u8*)item+0x14)>>24)==5)scopedObserve(f,owner,r,event);
 #endif
 #endif
- if(!r||!active(r,f,MON(f,owner)))return;
+ if(!r||r[0]>ABILITY_EFFECT_SLOTS||owner>=32||!active(r,f,MON(f,owner)))return;
 #ifdef ABILITY_POPUP_GROUPS
 #ifdef ABILITY_STAT_SOURCE
  PopupGroup group={f,owner,0,0,popupGroup};
@@ -264,6 +271,9 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
  e[15]?e[15]:5)!=7-(*(u32*)((u8*)item+0x14)>>24))continue;
 #endif
   u32 kind=e[0],v=half(e+2),yes=0;if(bypassed(item,f,event,e))continue;
+#if defined(ABILITY_RECIPES) && defined(ABILITY_COMPACT)
+  if(kind==166||kind==167){recipeEffect(item,f,owner,e,event,nativeWork[owner][n],used);if(kind==167&&(e[1]&7)==0&&(e[1]&8)&&onEntry(event,owner)&&!preview(f))mark=1;continue;}
+#endif
 #ifdef ABILITY_LIBRARY
   if(kind>=129&&kind<=134){libraryEffect(item,f,owner,e,event);continue;}
 #endif
@@ -342,7 +352,7 @@ PUBLIC const Event AbilityContactEvents[]={{0x4b,AbilityEvent_4b}};
 #endif
 PUBLIC void *AbilityDispatch(void*mon){
  u32 id=STAT(mon,0x10),owner=FN(15,u32(*)(void*))(mon);
- if(record(id)&&owner<32)for(u32 n=0;n<16;++n)for(u32 k=0;k<7;++k)nativeWork[owner][n][k]=0;
+ if(record(id)&&owner<32)for(u32 n=0;n<ABILITY_EFFECT_SLOTS;++n)for(u32 k=0;k<7;++k)nativeWork[owner][n][k]=0;
  if(record(id)){
   void*normal=FN(14,void*(*)(u32,u32,u32,u32,u32,const Event*,u32))(4,id,5,FN(16,u32(*)(void*,u32))(mon,12),FN(15,u32(*)(void*))(mon),
 #ifdef ABILITY_FILTER_EVENTS

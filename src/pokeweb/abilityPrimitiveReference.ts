@@ -27,6 +27,8 @@ export const ABILITY_PRIMITIVE_DESCRIPTIONS: Readonly<Record<string, string>> = 
   "abilityRecipe:convertType": "Change matching moves to a chosen type and apply a power multiplier. Some moves that choose their own type are excluded.",
   "abilityRecipe:statAction": "Change targets’ stat stages on entry, a damaging hit, an HP threshold crossing, a faint or after using a move. Highest raw stat can use the holder’s or each target’s stats.",
   "abilityRecipe:statusGuard": "Prevent a chosen condition for the holder or allies, optionally curing it too.",
+  "abilityRecipe:statusGuardSet": "Prevent any of the checked conditions for the holder or allies, optionally curing them too.",
+  "abilityRecipe:statGroup": "Apply several stat changes at one trigger, with independent chance rolls and native stat prevention for each change.",
   "abilityRecipe:abilityStatGuard": "Block the holder’s stat drops caused by other Pokémon’s abilities, without raising a stat. Move and item effects still work.",
   "abilityRecipe:statGuard": "Prevent selected stat drops for the holder or allies, optionally restricted by their type.",
   "abilityRecipe:allyPower": "Multiply matching allies’ move power, optionally including the holder.",

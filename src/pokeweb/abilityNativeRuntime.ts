@@ -48,7 +48,7 @@ export function nativeAbilityEvents(profile: NativeAbilityProfile, effect: Abili
 export function linkNativeAbilities(rpm: RpmModule, rules: ReadonlyMap<number, AbilityRuleSet>, dataOffset: number, resolve: (name: string) => {
     address: number;
     code: Uint8Array;
-}, check: (name: string, address: number, size: number, copied?: boolean) => void, profiles: NativeAbilityProfile[] = NATIVE_ABILITY_PROFILES, signatures: Record<string, BattleRuntimeSignature> = BATTLE_RUNTIME_SIGNATURES): void {
+}, check: (name: string, address: number, size: number, copied?: boolean) => void, profiles: NativeAbilityProfile[] = NATIVE_ABILITY_PROFILES, signatures: Record<string, BattleRuntimeSignature> = BATTLE_RUNTIME_SIGNATURES, deduplicate = false): void {
     const append = (bytes: Uint8Array, type: "FUNCTION_THM" | "SECTION") => { const at = (rpm.code.length + 3) & ~3, next = new Uint8Array(at + bytes.length); next.set(rpm.code); next.set(bytes, at); rpm.code = next; rpm.symbols.push({ name: null, address: at, size: bytes.length, type, attributes: 0 }); return rpm.symbols.length - 1; };
     const copies = new Map<string, number>();
     function editedSites(effect: AbilityRuleEffect, profile: NativeAbilityProfile) {
@@ -148,8 +148,11 @@ export function linkNativeAbilities(rpm: RpmModule, rules: ReadonlyMap<number, A
         }
         return symbol;
     }
+    const patchedRecords = new Set<number>(), eventTables = new Map<string, number>();
     for (const [id, rule] of [...rules].sort(([a], [b]) => a - b)) {
         const at = dataOffset + (rpm.code[dataOffset + id * 2] | rpm.code[dataOffset + id * 2 + 1] << 8), start = at + 4 + rpm.code[at + 1] * 4;
+        if(deduplicate && patchedRecords.has(at))continue;
+        patchedRecords.add(at);
         rule.effects.forEach((effect, index) => {
             const profile = effect.kind.startsWith("nativeAbility:") ? profiles.find(p => p.id === Number(effect.kind.slice(14))) : undefined;
             if (!profile)
@@ -157,8 +160,9 @@ export function linkNativeAbilities(rpm: RpmModule, rules: ReadonlyMap<number, A
             const events = nativeAbilityEvents(profile, effect);
             const callbacks = events.map(e => copy(e.handler, effect, profile)), table = new Uint8Array(events.length * 8);
             events.forEach((e, i) => writeU32(table, i * 8, e.event));
-            const symbol = append(table, "SECTION");
-            events.forEach((_, i) => rpm.relocations.push({ target: { module: "base", address: rpm.symbols[symbol].address + i * 8 + 4, type: "OFFSET" }, sourceSymbolIndex: callbacks[i] }));
+            const key=JSON.stringify(events.map((e,i)=>[e.event,callbacks[i]]));
+            let symbol = deduplicate ? eventTables.get(key) : undefined;
+            if(symbol===undefined){symbol=append(table,"SECTION");eventTables.set(key,symbol);events.forEach((_, i) => rpm.relocations.push({ target: { module: "base", address: rpm.symbols[symbol!].address + i * 8 + 4, type: "OFFSET" }, sourceSymbolIndex: callbacks[i] }));}
             rpm.relocations.push({ target: { module: "base", address: start + index * 16 + 8, type: "OFFSET" }, sourceSymbolIndex: symbol });
             rpm.code[start + index * 16 + 14] = events.length;
         });

@@ -1,3 +1,4 @@
+import {decodeAbilityRecipeBook} from "../pokeweb/abilityRecipeBook";
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { MOVE_DLL_FLAGS, defaultMoveDllFlags, encodeMoveClassOverrides, moveDllFlags, validateMoveClassOverrides, expandedMoveDllDefaults } from "../pokeweb/abilityMoveClasses";
@@ -40,7 +41,7 @@ describe("DLL move classifications", () => {
   it.each(["B", "W", "W2"] as const)("stores flags before any ability recipes in %s and retains them when recipes are added", game => {
     const project = fixture(game), before = project.overlays[game === "W2" ? 167 : 93]!.slice();
     const module = buildAbilityRuleModule(project, new Map(), overrides);
-    expect(module.metadata.PokewebAbilityRules).toBe("[]");
+    expect(decodeAbilityRecipeBook(String(module.metadata.PokewebAbilityRules))).toEqual([]);
     expect(module.relocations.some(r => r.target.module !== "base")).toBe(false);
     project.fileSystem = { replacements: {}, additions: { [ABILITY_EFFECTS_DLL_PATH]: writeRpm(module, { ident: "DLXF" }) } };
     expect(inspectAbilityEffects(project)).toMatchObject({ editable: true, runtimeVersion: CURRENT_ABILITY_RUNTIME_VERSION });

@@ -1,3 +1,4 @@
+import {decodeAbilityRecipeBook} from "../pokeweb/abilityRecipeBook";
 import { describe, it, expect } from "vitest";
 import { NATIVE_ABILITY_PROFILES } from "../pokeweb/abilityNativeRuntime";
 import { validateAbilityRule, EMPTY_ABILITY_RULE } from "../pokeweb/abilityRules";
@@ -20,7 +21,7 @@ describe("native ability recipe parameters",()=>{
    const rule=validateAbilityRule({effects:[{kind:`nativeAbility:${profile.id}`,value:-1,parameters:{[control.key]:value}}],conditions:EMPTY_ABILITY_RULE.conditions});
    const rpm=buildAbilityRuleModule(project,new Map([[165,rule]]));
    expect(rpm.code.length+rpm.bssSize,`${profile.id}/${control.key}`).toBeLessThan(65536);
-   expect(JSON.parse(String(rpm.metadata.PokewebAbilityRules))[0][1].effects[0].parameters[control.key]).toBe(value);
+   expect(decodeAbilityRecipeBook(String(rpm.metadata.PokewebAbilityRules))).toEqual([[165,rule]]);
   }
   expect(project.overlays[167]).toEqual(before);
  });

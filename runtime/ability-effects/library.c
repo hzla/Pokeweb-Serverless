@@ -22,12 +22,19 @@ PUBLIC u32 AbilityMoveHasCustomFlag(u32 move,u32 flag){
 #endif
 static u32 libraryMatch(const volatile u8*e){
  u32 filter=e[1],move=VALUE(0x12);s32 x;
+#ifdef ABILITY_NATIVE_MOVE_FLAGS
+ if(e[7]&2)return FN(31,u32(*)(u32,u32))(move,filter);
+#endif
  if(!filter)return 1;
 #ifdef ABILITY_CUSTOM_FLAGS
  if(filter>=14)return AbilityMoveHasCustomFlag(move,filter-13);
 #endif
  if(filter==1||filter==2||filter==5)return FN(31,u32(*)(u32,u32))(move,filter==1?0:filter==2?7:8);
- if(filter==9)return (variable(0x16,&x)?(u32)x:FN(35,u32(*)(u32,u32))(move,0))==e[4];
+ if(filter==9){u32 type=variable(0x16,&x)?(u32)x:FN(35,u32(*)(u32,u32))(move,0);
+#ifdef ABILITY_COMPACT
+  u32 mask=e[10]|(u32)e[11]<<8|(u32)e[12]<<16;if(mask)return type<18&&(mask&(1u<<type));
+#endif
+  return type==e[4];}
  if(filter==10)return FN(17,u32(*)(u32))(move)==e[5];
  if(filter==11)return variable(0x38,&x)&&FN(34,u32(*)(u32))((u32)x)==2;
  u32 bit=filter==3?1:filter==4?2:filter==6?4:filter==7?8:filter==8?16:filter==13?32:filter==12?64:0;

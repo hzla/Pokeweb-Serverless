@@ -2,10 +2,11 @@
  * Mechanics and classifications were checked against the integration catalog;
  * no expansion handler bodies or engine modules are copied into this library. */
 import { validateAbilityRule, EMPTY_ABILITY_RULE, type AbilityRuleSet, type AbilityRuleEffect } from "./abilityRules";
+import { optimizeAbilityRule } from "./abilityRecipeOptimization";
 export type AbilityImport = {id:number;label:string;generation:6|7|8|9;defaultName:string;rule:AbilityRuleSet};
 const entries:AbilityImport[]=[];
 const native=(id:number,parameters?:Record<string,number>,extra:Partial<AbilityRuleEffect>={}):AbilityRuleEffect=>({kind:`nativeAbility:${id}`,value:-1,...(parameters?{parameters}:{}),...extra});
-function add(id:number,label:string,generation:AbilityImport["generation"],effects:AbilityRuleEffect[],conditions:AbilityRuleSet["conditions"]=EMPTY_ABILITY_RULE.conditions){entries.push({id,label,generation,defaultName:label.length<=15?label:label.replace(/\s+/gu,""),rule:validateAbilityRule({effects,conditions:structuredClone(conditions)})});}
+function add(id:number,label:string,generation:AbilityImport["generation"],effects:AbilityRuleEffect[],conditions:AbilityRuleSet["conditions"]=EMPTY_ABILITY_RULE.conditions){entries.push({id,label,generation,defaultName:label.length<=15?label:label.replace(/\s+/gu,""),rule:validateAbilityRule(optimizeAbilityRule(validateAbilityRule({effects,conditions:structuredClone(conditions)})))});}
 const power=(moveClass:number,value:number,parameters:Record<string,number>={}):AbilityRuleEffect=>({kind:"ability:power",value,parameters:{moveClass,...parameters}});
 const taken=(moveClass:number,value:number,parameters:Record<string,number>={}):AbilityRuleEffect=>({kind:"ability:damageTaken",value,parameters:{moveClass,...parameters}});
 const hit=(stat:number,value:number,parameters:Record<string,number>={}):AbilityRuleEffect=>({kind:"ability:hitStat",value,parameters:{stat,...parameters}});

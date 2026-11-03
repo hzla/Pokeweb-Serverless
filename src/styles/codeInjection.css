@@ -56,6 +56,13 @@
   grid-template-columns: 1fr;
 }
 
+.code-injection-sidebar__runtime #expand-pmc-heap-btn {
+  min-width: 0;
+  width: 100%;
+  white-space: normal;
+  line-height: 1.35;
+}
+
 .code-injection-sidebar__modules {
   border-top: 1px solid #44475a;
   margin-top: 22px;

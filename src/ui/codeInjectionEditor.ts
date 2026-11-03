@@ -3,7 +3,7 @@ import { getTrainerFieldConditionsStatus } from "../pokeweb/trainerFieldConditio
 import { attachTrainerFieldInstaller, renderTrainerFieldInstaller } from "./trainerFieldConditions";
 import { getDebugSaveFlagStatus, installDebugSaveFlag, parseDebugSaveFlag } from "../pokeweb/debugSaveFlagModel";
 import { renderInlineStatus } from "./inlineStatus";
-import { installCodeInjectionPatch } from "../pokeweb/codeInjectionInstall";
+import { installCodeInjectionPatch, withProjectMutationLock } from "../pokeweb/codeInjectionInstall";
 import { getPartyQuickActionsStatus, installPartyQuickActions, disablePartyQuickActions, parsePartyToolbarHideFlag, PARTY_TOOLBAR_SECTIONS } from "../pokeweb/partyQuickActionsModel";
 import {
   detectBundledFormEvolutionDll,
@@ -11,6 +11,8 @@ import {
   detectBundledBgmToggleDll,
   detectBundledOverworldWeatherRuntime,
   getPmcInstallStatus,
+  getPmcHeapExpansionStatus,
+  expandPmcHeapAllocation,
   getPmcUpdateConfirmationMessage,
   installBundledOverworldWeatherRuntime,
   installBundledBgmToggleDll,
@@ -127,6 +129,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     `data-code-injection-supported="${supported}"${!supported && !showUnsupported ? " hidden" : ""}`;
   const emptyCategoryMessage = `<div class="code-injection-empty" data-code-injection-empty hidden>No supported patches in this category. Enable “Show unsupported patches” in the sidebar to view all patches.</div>`;
   const status = getPmcInstallStatus(project);
+  const heapExpansion = getPmcHeapExpansionStatus(project);
   const install = <T>(stage: (candidate: ProjectState) => T | Promise<T>) => installCodeInjectionPatch(project, stage);
   const modules = listCodeInjectionDlls(project);
   const formEvolutionStatus = detectBundledFormEvolutionDll(project);
@@ -264,9 +267,11 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           </div>
           <div class="code-injection-facts">
             <div><span>Version</span><strong>${status.installed && status.version ? escapeHtml(status.version) : "—"}</strong></div>
+            ${heapExpansion.expanded ? `<div><span>Heap cap</span><strong>200 KiB</strong></div>` : ""}
           </div>
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-pmc-btn" type="button" ${status.supported ? "" : "disabled"}>${status.installed ? "Update PMC" : "Install PMC"}</button>
+            <button class="btn -default" id="expand-pmc-heap-btn" type="button" ${heapExpansion.available ? "" : "disabled"} title="${escapeHtml(heapExpansion.message)}">Expand PMC Heap Allocation</button>
             <div class="code-injection-note" id="pmc-install-note" aria-live="polite"></div>
           </div>
         </section>
@@ -840,6 +845,23 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   });
   const button = root.querySelector<HTMLButtonElement>("#install-pmc-btn");
   const note = root.querySelector<HTMLDivElement>("#pmc-install-note");
+  const expandHeapButton = root.querySelector<HTMLButtonElement>("#expand-pmc-heap-btn");
+  expandHeapButton?.addEventListener("click", async () => {
+    expandHeapButton.disabled = true;
+    if (button) button.disabled = true;
+    if (note) note.textContent = "Verifying PMC and installed patches…";
+    try {
+      await expandPmcHeapAllocation(project);
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+      const refreshed = root.querySelector<HTMLDivElement>("#pmc-install-note");
+      if (refreshed) refreshed.textContent = "Expanded allocation installed. Export and restart from a normal save.";
+    } catch (error) {
+      expandHeapButton.disabled = !getPmcHeapExpansionStatus(project).available;
+      if (button) button.disabled = !getPmcInstallStatus(project).supported;
+      if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
   button?.addEventListener("click", async () => {
     const previousText = button.textContent ?? "Install PMC";
     try {
@@ -853,15 +875,17 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         }
       }
       button.disabled = true;
+      if (expandHeapButton) expandHeapButton.disabled = true;
       button.textContent = "Installing...";
       if (note) note.textContent = "Installing the runtime and preparing patch folders...";
-      const result = await installBundledPmc(project);
+      const result = await withProjectMutationLock(project, () => installBundledPmc(project));
       onDirty();
       renderCodeInjectionEditor(project, root, onDirty);
       const refreshedNote = root.querySelector<HTMLDivElement>("#pmc-install-note");
       if (refreshedNote) refreshedNote.textContent = `PMC ${result.version ?? "runtime"} installed.`;
     } catch (error) {
       button.disabled = false;
+      if (expandHeapButton) expandHeapButton.disabled = !getPmcHeapExpansionStatus(project).available;
       button.textContent = previousText;
       if (note) note.textContent = error instanceof Error ? error.message : String(error);
     }

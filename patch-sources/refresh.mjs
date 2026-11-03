@@ -408,14 +408,27 @@ for (const group of additions) {
 }
 const pmcPatch = manifest.patches.find(patch => patch.name === 'pmc');
 if (!pmcPatch) throw Error('PMC source provenance is missing');
-if (!pmcPatch.artifacts.some(artifact => artifact.name === 'PMC_W2I.rpm'))
-  pmcPatch.artifacts.push({ name: 'PMC_W2I.rpm' });
-pmcPatch.note = 'W2I retargets the pinned W2 loader through the audited Pokeweb adapter; B2/W2 framework sources remain in the PMC checkout. External toolchains and libraries are not vendored.';
+for (const name of ['PMC_W2I.rpm', 'PMC_B2_200.rpm', 'PMC_W2_200.rpm', 'PMC_W2I_200.rpm'])
+  if (!pmcPatch.artifacts.some(artifact => artifact.name === name)) pmcPatch.artifacts.push({ name });
+pmcPatch.note = 'W2I retargets the pinned W2 loader through the Pokeweb adapter. Optional 200 KiB packages derive from the retained original bundles; BW1 uses a bounded startup-budget adapter. B2/W2 framework sources remain in the PMC checkout. External toolchains and libraries are not vendored.';
 for (const [name, origin] of [
   ['build-italian-pmc.ts', 'scripts/build-italian-pmc.ts'],
   ['inspect-pmc.ts', 'scripts/inspect-pmc.ts'],
 ]) if (!pmcPatch.files.some(entry => entry.path === `pmc/integration/${name}`))
   pmcPatch.files.push(file('pmc', `integration/${name}`, 'build-tool', origin));
+for (const entry of [
+  ...runtimeFiles('pmc-heap').map(entry => ({ ...entry, path: entry.path.replace(/^pmc-heap\//, 'pmc/heap/') })),
+  file('pmc', 'heap/pmcHeapBudgetRuntime.json', 'generated-source', 'src/assets/data/pmcHeapBudgetRuntime.json'),
+  file('pmc', 'tests/pmcHeapRuntime.test.ts', 'test', 'src/test/pmcHeapRuntime.test.ts'),
+  file('pmc', 'tests/pmcModel.test.ts', 'test', 'src/test/pmcModel.test.ts'),
+  file('pmc', 'integration/pmcHeapRuntime.ts', 'source', 'src/pokeweb/pmcHeapRuntime.ts'),
+  file('pmc', 'integration/pmcModel.ts', 'source', 'src/pokeweb/pmcModel.ts'),
+  file('pmc', 'integration/codeInjectionEditor.ts', 'source', 'src/ui/codeInjectionEditor.ts'),
+]) {
+  const existing = pmcPatch.files.find(file => file.path === entry.path);
+  if (existing) Object.assign(existing, entry);
+  else pmcPatch.files.push(entry);
+}
 pmcPatch.files = pmcPatch.files.filter(entry => entry.path !== 'pmc/integration/inspect-italian-pmc.ts');
 // Shared mode-aware memory helper used by the split sprite runtimes.
 for (const [name, origin, kind, repository] of [

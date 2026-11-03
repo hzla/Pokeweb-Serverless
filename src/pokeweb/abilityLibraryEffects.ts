@@ -1,8 +1,9 @@
 import type { NativeAbilityParameter } from "./abilityNativeParameters";
 import type { ItemRuleEffectDefinition, ItemRuleEffect } from "./itemRules";
+import { VANILLA_MOVE_FILTER_LABELS, VANILLA_MOVE_FILTER_MAX } from "./abilityMoveFilters";
 
-const moveClasses = {0:"Any move",1:"Contact",2:"Punching",3:"Biting",4:"Pulse",5:"Sound",6:"Ball / bomb",7:"Slicing",8:"Powder",9:"Type",10:"Category",11:"Super effective",12:"Healing",13:"Wind"};
-const filter: NativeAbilityParameter = {key:"moveClass",label:"Move filter",kind:"number",original:0,min:0,max:255,step:1,choices:Array.from({length:14},(_,i)=>i),labels:moveClasses,sites:[]};
+const moveClasses = {0:"Any move",1:"Contact",2:"Punching",3:"Biting",4:"Pulse",5:"Sound",6:"Ball / bomb",7:"Slicing",8:"Powder",9:"Type",10:"Category",11:"Super effective",12:"Healing (expanded)",13:"Wind",...VANILLA_MOVE_FILTER_LABELS};
+const filter: NativeAbilityParameter = {key:"moveClass",label:"Move filter",kind:"number",original:0,min:0,max:VANILLA_MOVE_FILTER_MAX,step:1,choices:Object.keys(moveClasses).map(Number),labels:moveClasses,sites:[]};
 const earlyFilter = {...filter,choices:filter.choices!.filter(value=>value!==11)};
 const type: NativeAbilityParameter = {key:"type",label:"Move type",kind:"type",original:0,min:0,max:17,step:1,sites:[],when:{key:"moveClass",value:9}};
 const category: NativeAbilityParameter = {key:"category",label:"Move category",kind:"category",original:1,min:0,max:2,step:1,sites:[],when:{key:"moveClass",value:10}};
@@ -18,6 +19,7 @@ export const LIBRARY_ABILITY_EFFECTS: LibraryAbilityEffect[] = [
   {key:"activationChance",label:"Activation chance (%)",kind:"number",original:100,min:0,max:100,step:1,sites:[]},earlyFilter,type,category]},
  {kind:"ability:priority",code:134,label:"Move priority bonus",value:1,min:1,max:7,step:1,unit:"priority",bypassable:false,parameters:[earlyFilter,type,category]},
 ];
+for(const effect of LIBRARY_ABILITY_EFFECTS)effect.parameters.push({key:"types",label:"Move types",kind:"typeSet",original:1,min:1,max:0x3ffff,step:1,sites:[],when:{key:"moveClass",value:9}});
 export const libraryAbilityEffect=(kind:string):LibraryAbilityEffect|undefined=>LIBRARY_ABILITY_EFFECTS.find(e=>e.kind===kind);
 export function libraryAbilityParameter(effect: ItemRuleEffect,key:string):number {
  const p=libraryAbilityEffect(effect.kind)?.parameters.find(p=>p.key===key);

@@ -14,6 +14,8 @@ battle effects. New ability descriptions are saved with Apply ability. Open
 updates while typing and warns about clipped text. It preserves explicit line
 breaks (`\n` or entered newlines) and does not automatically wrap text. Preview
 code and resources load on demand and parsed resources are shared per project.
+Applying only name or description changes preserves the installed effects DLL
+and native assignment without installing or updating the runtime.
 
 Rules support up to 16 effects and bounded conditions for HP, type, weather,
 species, status and moves. Templates and their editable controls are defined in
@@ -22,6 +24,13 @@ Passive multipliers use the engine's fixed-point scale. Copied handlers preserve
 native triggers and intrinsic restrictions; copying a callback does not reproduce
 every ability-ID check elsewhere in the game. Imported recipes may implement
 only the scope named in the picker. Fairy selectors require a Fairy-enabled ROM.
+
+**Protect against conditions** uses checkboxes for a set of conditions with shared
+scope, curing and bypass settings. **Grouped stat changes** exposes a separate
+amount for each stat at one trigger; chance rolls and native stat prevention still
+apply independently. Move-type filters on power, damage, immunity, priority and hit
+reactions accept several checked types. These imports use the same primitives as
+manually created effects.
 
 The additional field/history templates use native operations and private tracking;
 they do not replace the scheduler or global ability-eligibility rules. Protean and
@@ -41,6 +50,21 @@ compile native code. Applying an edit verifies native signatures, dependencies,
 relocations and hook conflicts before committing the change. Recognized BW2 battle
 counter and trainer-nature adapters are handled by the installer. Unknown patches
 and rewritten native dispatchers are rejected.
+
+Current DLLs compress the editor's recipe metadata and omit private symbol names.
+Binary battle recipes, executable instructions and private state layouts are
+unchanged by this packaging. Export/import names and relocation records remain
+available for PMC linking and shared hooks. Recognized older packages retain
+their original verification format and are repackaged by a runtime update or edit.
+Current execution records deduplicate identical recipes and compatible native event
+tables. The compiler consolidates compatible adjacent guards, stat actions and
+disjoint type filters while preserving the saved editor recipe, stat order and
+independent rolls. Working memory uses an automatically selected 4-, 8- or 16-slot
+variant; changing effect requirements rebuilds it. Mutable work remains separate
+for each owner and resets through the native ability lifecycle.
+Effect changes allow up to 64 KiB of code plus working memory and a conservative
+160 KiB combined file/code/working-memory estimate. This editor budget does not
+measure the actual free PMC heap or guarantee that all installed modules fit.
 
 Supported profiles are US revision-0 Black, White, Black 2 and White 2 with
 compatible native interfaces. BW uses overlay 93 and message banks 182/183/285; BW2 uses
@@ -77,6 +101,21 @@ same DLL. Export also refreshes newly detected classifications in a current runt
 including after an external expansion or newly named moves. Unedited native moves
 retain the shipped defaults.
 The lookup reads sorted classification data without dispatching battle events.
+
+Adjustable primitives with a **Move filter** also offer **Vanilla: …** choices
+for all 14 native move flags, including **Vanilla: Healing move**. These read the
+flags edited under **Moves → Vanilla Flags** directly, independently of Expanded
+Flags or custom tags. They work with filtered power/damage, priority, blocking,
+hit reactions, ally power, type conversion and triggered stat changes. Existing
+activation conditions still apply. The imported Triage template keeps its
+**Healing (expanded)** filter; select **Vanilla: Healing move** to change it.
+Copied native handlers retain their original intrinsic flag checks.
+
+Native flag filters use editor values 256–269; custom filter values 14–255 retain
+their existing meaning. Runtime records stay 16 bytes: flag byte bit 0 remains
+Mold Breaker eligibility and bit 1 marks a native flag index in the move-filter
+byte. Applying edits updates the one shared DLL; verified older versions remain
+readable. Native flag reads add no battle-event or weather queries.
 
 **Manage flags** creates named custom tags. Check a tag in a move's Expanded Flags
 row, then choose **Custom: name** in an adjustable ability primitive's **Move filter**.
@@ -125,17 +164,18 @@ renamed types, without relying on Gen 5's native type-name formatter.
 
 Build from the repository root with `python3 runtime/ability-effects/build.py`.
 The original templates remain available for strict verification of older exports;
-the default build updates only the current stat-source bundle (`--stat-source-only`).
+the default build updates only the current bundle (`--native-flags-only`),
+including its 4-, 8- and 16-slot work variants. `--compact-only`, `--stat-source-only`,
 `--action-results-only`, `--custom-flags-only`, `--messages-only`, `--move-classes-only` and `--optimized-only`
 rebuild retained bundles for verification of older exports;
-released bundles must remain byte-identical when making a new runtime. Runtime
-version 7 adds ability-source stat-drop prevention. Version 6 gates timed-action popups and supplies type-specific aura notices.
-Version 5 added the custom flag registry and generic filters. Earlier bundles remain
-available for strict verification of existing exports. Version 4 added battle
-explanations, entry notices, expanded classification defaults,
-Whirlwind absorption and the corrected Perish countdown. It includes version 3's
-classification overrides, corrected power ratios and stat popup guards. New modules retain
-`PokewebAbilityDispatchVersion: 2`; recipe and condition record formats are unchanged.
+released bundles must remain byte-identical when making a new runtime. Consolidated
+execution records use shared immutable data. The
+`PokewebAbilityCompact: 1` and `PokewebAbilityWorkSlots` metadata identify the
+execution format and selected work capacity. Versions 1–9 remain readable through
+their retained bundles and can be updated while preserving editor recipes.
+New modules retain `PokewebAbilityDispatchVersion: 2` and the 16-byte effect stride.
+`python3 runtime/ability-effects/test_compact.py --current` checks the consolidated
+ARM operations and each work variant with isolated native-service doubles.
 `test_conditions.c` checks the compiled evaluator's truth tables and skipped
 queries with a host C compiler. `python3 runtime/ability-effects/test_move_classes.py`
 checks the compiled classification lookup, stock defaults, clears and expanded IDs.

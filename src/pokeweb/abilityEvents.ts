@@ -22,7 +22,7 @@ export function abilityRuleEvents(rule: AbilityRuleSet, profiles: NativeAbilityP
       const p = (key: string) => recipeAbilityParameter(effect, key);
       switch (recipe.code) {
         case 135: add(0x28, 0x38); break;
-        case 136:
+        case 136: case 167:
           switch (p("activation")) {
             case 0: add(0x55, 0x8a); break;
             case 1: add(0x4b); break;
@@ -32,7 +32,7 @@ export function abilityRuleEvents(rule: AbilityRuleSet, profiles: NativeAbilityP
             case 5: add(0x03, 0x29, 0x04); break;
           }
           break;
-        case 137: add(0x65); if (battleMessages) add(0x67); if (p("cure")) add(0x55, 0x8a, 0x88, 0x77); break;
+        case 137: case 166: add(0x65); if (battleMessages) add(0x67); if (p("cure")) add(0x55, 0x8a, 0x88, 0x77); break;
         case 138: add(0x5b); if (battleMessages) add(0x5c); break;
         case 151: add(0x5b); break;
         case 139: add(0x38); break;

@@ -33,6 +33,6 @@ describe("ability-source stat guard",()=>{
   const old=inspectAbilityEffects(project);expect(old.editable,old.message).toBe(true);expect(old.runtimeVersion).toBe(6);
   const rpm=buildAbilityRuleModule(project,old.rules);expect(rpm.metadata.PokewebAbilityStatSource).toBe(1);
   project.fileSystem.additions![ABILITY_EFFECTS_DLL_PATH]=writeRpm(rpm,{ident:"DLXF"});
-  expect(inspectAbilityEffects(project)).toMatchObject({editable:true,runtimeVersion:7,rules:old.rules});
+  expect(inspectAbilityEffects(project)).toMatchObject({editable:true,runtimeVersion:CURRENT_ABILITY_RUNTIME_VERSION,rules:old.rules});
  });
 });
