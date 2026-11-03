@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { loadProjectFromRomBytes } from "../../src/pokeweb/loader";
-import { buildMoveRuleModule, configureMoveRuleSets, clearMoveRules, inspectMoveEffects, hydrateMoveEffectsSource, MOVE_RECIPE_MANAGED_FIELDS, MOVE_EFFECTS_DLL_PATH } from "../../src/pokeweb/moveEffectsModel";
+import { buildMoveRuleModule, configureMoveRuleSets, clearMoveRules, inspectMoveEffects, hydrateMoveEffectsSource, MOVE_RECIPE_MANAGED_FIELDS, MOVE_EFFECTS_DLL_PATH, MOVE_RECIPE_BOOK_PATH } from "../../src/pokeweb/moveEffectsModel";
 import type { Folder } from "../../src/nds/fnt";
 import { NARC } from "../../src/nds/narc";
 import { repairNarcBytes } from "../../src/pokeweb/romRepairModel";
@@ -32,12 +32,12 @@ await writeFile(resolve(out,`overlay${overlayId}.bin`),overlay.data);
 console.log(JSON.stringify({game:rom.idCode,base:overlay.ramAddress,templates:entries.size,code:rpm.code.length,bss:rpm.bssSize}));
 
 await configureMoveRuleSets(project,[...entries].map(([moveId,rules])=>({moveId,rules})));
-assert.deepEqual(inspectMoveEffects(project).rules,entries);
+assert(inspectMoveEffects(project).editable,inspectMoveEffects(project).message);assert.deepEqual(inspectMoveEffects(project).rules,entries);
 project=openProjectSession(createProjectDocument(project,false));hydrateMoveEffectsSource(project,rom);project.originalRomBytes=undefined;
-assert.deepEqual(inspectMoveEffects(project).rules,entries);
+assert(inspectMoveEffects(project).editable,inspectMoveEffects(project).message);assert.deepEqual(inspectMoveEffects(project).rules,entries);
 project.originalRomBytes=input;
 const first=await exportModifiedRom(project,{forDsi:false});
-project=await load(first);assert.deepEqual(inspectMoveEffects(project).rules,entries);
+project=await load(first);assert(inspectMoveEffects(project).editable,inspectMoveEffects(project).message);assert.deepEqual(inspectMoveEffects(project).rules,entries);
 const exported=new NintendoDSRom(first,{fileData:"view"});let preservedFiles=0;
 function checkFiles(folder:Folder,prefix=""){
  for(const[name,nested]of folder.folders)checkFiles(nested,`${prefix}${name}/`);
@@ -69,7 +69,7 @@ for(let id=1;id<=100;++id){const now=decodeRecord(project,"moves",id).raw!;for(c
 const oldMoves=await load(input);for(let id=101;id<project.narcs.moves!.fileCount;++id)assert.deepEqual(project.narcs.moves!.rawFiles[id],oldMoves.narcs.moves!.rawFiles[id],`Unedited move ${id}`);
 const edited=structuredClone(entries.get(1)!);edited.effects=[{kind:"power",value:2.5,phase:"power",target:"user",chance:100,secondary:false,conditions:{kind:"group",mode:"all",children:[]}}];
 await configureMoveRuleSets(project,[{moveId:1,rules:edited}]);entries.set(1,edited);
-const second=await exportModifiedRom(project,{forDsi:false});project=await load(second);assert.deepEqual(inspectMoveEffects(project).rules,entries);
+const second=await exportModifiedRom(project,{forDsi:false});project=await load(second);assert(inspectMoveEffects(project).editable,inspectMoveEffects(project).message);assert.deepEqual(inspectMoveEffects(project).rules,entries);
 await clearMoveRules(project,1);assert.equal(inspectMoveEffects(project).rules.has(1),false);
 const restored=decodeRecord(project,"moves",1).raw!;
 for(const field of ["effect_category","result_effect","effect_chance","status","min_turns","max_turns","healing","recoil","flinch",...[1,2,3].flatMap(n=>[`stat_${n}`,`magnitude_${n}`,`stat_chance_${n}`])])assert.equal(restored[field],before[0][field],`Restored ${field}`);
@@ -78,3 +78,15 @@ const exportedRom=new NintendoDSRom(first,{fileData:"view"});assert.equal(export
 const hash=(b:Uint8Array)=>createHash("sha256").update(b).digest("hex");assert.equal(hash(new Uint8Array(await readFile(path))),hash(input));
 await writeFile(resolve(out,"roundtrip.json"),JSON.stringify({game:rom.idCode,passed:true,editedMoves:100,exports:3,sharedMoveDlls:1,codeBytes:rpm.code.length,bssBytes:rpm.bssSize,inputUnchanged:true,preservedFiles})+"\n");
 console.log("100-move project/ROM round trips, re-edit, restore and one DLL verified.");
+if(!state.rules.size){
+  let single=await load(input);
+  const originalFields=structuredClone(decodeRecord(single,"moves",1).raw!);
+  await configureMoveRuleSets(single,[{moveId:1,rules:{conditions:{kind:"group",mode:"all",children:[]},prerequisites:{kind:"group",mode:"all",children:[]},effects:[{kind:"power",value:2,phase:"power",target:"user",chance:100,secondary:false,conditions:{kind:"group",mode:"all",children:[]}}]}}]);
+  single=await load(await exportModifiedRom(single,{forDsi:false}));
+  await clearMoveRules(single,1);
+  const removed=await exportModifiedRom(single,{forDsi:false}),reopened=await load(removed),restoredState=inspectMoveEffects(reopened);
+  assert(restoredState.editable,restoredState.message);assert.equal(restoredState.rules.size,0);
+  assert.equal(new NintendoDSRom(removed,{fileData:"view"}).getFileByName(MOVE_RECIPE_BOOK_PATH).length,0);
+  for(const field of MOVE_RECIPE_MANAGED_FIELDS)assert.equal(decodeRecord(reopened,"moves",1).raw![field],originalFields[field]);
+  console.log("Final recipe removal clears the sidecar and restores native data after reload.");
+}

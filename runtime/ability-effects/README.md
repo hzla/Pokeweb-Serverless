@@ -62,8 +62,9 @@ disjoint type filters while preserving the saved editor recipe, stat order and
 independent rolls. Working memory uses an automatically selected 4-, 8- or 16-slot
 variant; changing effect requirements rebuilds it. Mutable work remains separate
 for each owner and resets through the native ability lifecycle.
-Effect changes allow up to 64 KiB of code plus working memory and a conservative
-160 KiB combined file/code/working-memory estimate. This editor budget does not
+Effect changes allow up to 64 KiB of code plus working memory and a
+160 KiB expanded DLL allocation including alignment and its allocator header.
+Executable code already present in the file is counted once. This editor budget does not
 measure the actual free PMC heap or guarantee that all installed modules fit.
 
 Supported profiles are US revision-0 Black, White, Black 2 and White 2 with

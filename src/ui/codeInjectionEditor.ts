@@ -1,3 +1,5 @@
+import {renderPmcCapacity,formatPmcKiB} from "./pmcCapacity";
+import {getPmcMemoryEstimate} from "../pokeweb/pmcMemoryModel";
 import { typeIconPreview, DEFAULT_TYPE_ICON_BORDER, DEFAULT_BW1_TYPE_ICON_BORDER } from "../pokeweb/typeIconAppearance";
 import { getTrainerFieldConditionsStatus } from "../pokeweb/trainerFieldConditionsModel";
 import { attachTrainerFieldInstaller, renderTrainerFieldInstaller } from "./trainerFieldConditions";
@@ -132,6 +134,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const heapExpansion = getPmcHeapExpansionStatus(project);
   const install = <T>(stage: (candidate: ProjectState) => T | Promise<T>) => installCodeInjectionPatch(project, stage);
   const modules = listCodeInjectionDlls(project);
+  const memory=status.installed?getPmcMemoryEstimate(project):undefined;
   const formEvolutionStatus = detectBundledFormEvolutionDll(project);
   const formEvolutionInstalled = formEvolutionStatus === "patched";
   const doubleBattleFixStatus = detectBundledDoubleBattleFixDll(project);
@@ -269,6 +272,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div><span>Version</span><strong>${status.installed && status.version ? escapeHtml(status.version) : "—"}</strong></div>
             ${heapExpansion.expanded ? `<div><span>Heap cap</span><strong>200 KiB</strong></div>` : ""}
           </div>
+          ${memory?renderPmcCapacity(memory,project.session.baseRom==="BW"):""}
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-pmc-btn" type="button" ${status.supported ? "" : "disabled"}>${status.installed ? "Update PMC" : "Install PMC"}</button>
             <button class="btn -default" id="expand-pmc-heap-btn" type="button" ${heapExpansion.available ? "" : "disabled"} title="${escapeHtml(heapExpansion.message)}">Expand PMC Heap Allocation</button>
@@ -293,6 +297,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
                       (module) => `
                         <div class="code-injection-module">
                           <strong>${escapeHtml(module.path)}</strong>
+                          ${memory?.modules.find(m=>m.path===module.path)?`<small>${formatPmcKiB(memory.modules.find(m=>m.path===module.path)!.residentAllocationBytes)} retained · ${formatPmcKiB(memory.modules.find(m=>m.path===module.path)!.loadAllocationBytes)} loading</small>`:""}
                         </div>
                       `,
                     )

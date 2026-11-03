@@ -1,3 +1,4 @@
+import {moveDebugSymbols} from "./debug_symbols";
 /** Disposable BW1 native battle fixture using the production move editor. */
 import assert from 'node:assert/strict';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
@@ -53,7 +54,7 @@ if(doubles)for(const half of [0,0x24000]){
 const rom=new NintendoDSRom(downloads.romBytes,{fileData:'view'}),dll=parseRpm(rom.files[rom.fileId(MOVE_EFFECTS_DLL_PATH)],{allowedMagics:['DLXF']});
 const reload=await loadProjectFromRomBytes(downloads.romBytes,'export.nds',{selectedNarcs:['moves','message_texts']});assert.deepEqual(inspectMoveEffects(reload).rules.get(33),rule);
 const hook=dll.relocations.find(r=>r.target.module==='93'&&dll.symbols[r.sourceSymbolIndex]?.name==='MoveDispatch');assert(hook);
-const symbols=Object.fromEntries(dll.symbols.filter(s=>s.name?.startsWith('Move')).map(s=>[s.name!,s.address]));
+const symbols=moveDebugSymbols(dll);
 const pmc=parseRpm(rom.files[rom.fileId('codeinjection/RPMSYM-PMC.rpm')]);
 const pmcSymbols=Object.fromEntries(pmc.symbols.filter(s=>s.name&&/g_Modules|g_MainAllocator|g_UserHeapArea/.test(s.name)).map(s=>[s.name!,pmc.baseAddress+32+s.address]));
 let eventList:number|undefined;

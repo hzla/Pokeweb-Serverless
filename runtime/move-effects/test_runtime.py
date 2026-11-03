@@ -98,7 +98,7 @@ class Harness:
    elif index==17:value=self.conditions.get(((a[0]-MON)//0x200,a[1]),False)
    elif index==24:
     stage=self.stats.get(((a[0]-MON)//0x200,a[1]),6);delta=struct.unpack('<i',struct.pack('<I',a[2]))[0];value=stage<12 if delta>0 else stage>0
-   elif index==31:value=1
+   elif index==31:value=getattr(self,"selectedMove",1)
    elif index==32:self.native+=1;value=123
    elif index==33:value=1
    elif index==34:value=1

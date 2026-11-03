@@ -1,3 +1,9 @@
+import { estimateRpmMemory } from "./rpmMemory";
+import compactTemplate from "../assets/data/moveRuleRuntimeCompact.json";
+import compactHistoryTemplate from "../assets/data/moveRuleRuntimeHistoryCompact.json";
+import compactPersistentTemplate from "../assets/data/moveRuleRuntimePersistentCompact.json";
+import compactKnockTemplate from "../assets/data/moveRuleRuntimeModernKnockCompact.json";
+import { sha256Hex } from "../nds/sha256";
 import { encodeMoveRecipeBook, decodeMoveRecipeBook } from "./moveRecipeBook";
 import { CURRENT_ABILITY_RUNTIME_VERSION, inspectAbilityEffects, isVerifiedAbilityMoveParamImport, upgradeAbilityRuntime } from "./abilityEffectsModel";
 import { isVerifiedItemMoveParamImport } from "./itemEffectsModel";
@@ -36,11 +42,13 @@ import { moveHistoryInitCall, moveHistoryProtectCall } from "./moveHistoryBindin
 import { hydrateMoveHandlerTableSource } from "./moveEffectHandlerModel";
 import { readNativeMoveRegistry, moveHandlerOverlay, nativeMoveAssignments, moveRegistryDispatcherSignature } from "./nativeMoveRegistry";
 
+export const MOVE_RECIPE_BOOK_PATH = "pokeweb/move-recipes.dat";
+export const CURRENT_MOVE_PACKAGING = 2;
 export const MOVE_EFFECTS_DLL_PATH = "patches/MoveEffects.dll";
 export const MOVE_RULE_API = ["BattleEventVar_GetValue", "BattleEventVar_GetValueIfExist", "BattleEventVar_RewriteValue", "BattleEventVar_MulValue", "GetBattleMon", "GetBattleMonStat", "GetPokeType", "PokeTypePair_IsMatch", "ServerEvent_GetWeather", "BtlServerFlow_IsSimulating", "BattleHandler_PushWork", "BattleHandler_PopWork", "BattleEventVar_Push", "BattleEventVar_Pop", "BattleEventVar_SetConstValue", "BattleEventVar_SetRewriteOnceValue", "IsAllyMonID", "CheckCondition", "BtlServerFlow_IsMonInBattle", "GetMonID", "GetBattleMonSpecies", "PML_MoveGetCategory", "GetTurnFlag", "RollEffectChance", "IsStatChangeValid", "IsFieldEffectActive", "ServerControl_CheckFloating", "BtlServerFlow_CheckMatchup", "BattleEventVar_SetValue", "BattleEvent_CallHandlers", "BtlCalc_MakeStatusCondition", "BattleEventItem_GetSubID", null, "DoesMoveEventExist", "BattleEvent_AddItem", null, null, "BattleRandom", "GetBattleMonHeldItem", "PML_ItemIsBerry", "GetSideFromOpposingMonID", "GetSideFromMonID", "sub_21ABB90", "RawBattleMonStat", "GetPreviousMoveID", "MoveGetID", "GetMovePP", "HandlerMoldBreakerStart", "HandlerMoldBreakerEnd", "HandlerBypassSubstitute", "PokeTypePair_GetType1", "PokeTypePair_GetType2", "PokeTypePair_Make", "BattleEvent_SeekItem", "ResetSpActPriority", "GetAdditionalConditionFlag", "BattleHandler_StrSetup", "BattleHandler_AddArg", "sub_21A7CB0", "sub_21AAB90", "IsSubstituteActive", "sub_21A57C4", "CritAtkDefLevel", "ServerEvent_GetMoveParam", "IsItemSwapBlocked", "KnockItemChangeBlocked"] as const;
 const signatures = { ...BATTLE_RUNTIME_SIGNATURES, ...bindings.functions } as Record<string, BattleRuntimeSignature>;
 const retired = Uint8Array.of(80, 87, 77, 82);
-type Source = { base: number; armBase: number; game: string; revision: number; files: Map<string, Uint8Array>; ids: Map<string, number> };
+type Source = { base: number; armBase: number; game: string; revision: number; files: Map<string, Uint8Array>; ids: Map<string, number>; overlayTable:Uint8Array; sideOverlay:ReturnType<ReturnType<NintendoDSRom["loadArm9Overlays"]>["get"]> };
 const sources = new WeakMap<ProjectState, Source>();
 export function hydrateMoveEffectsSource(project: ProjectState, rom: NintendoDSRom): void {
   if (!supportsMoveRecipes(project)) return;
@@ -54,7 +62,11 @@ export function hydrateMoveEffectsSource(project: ProjectState, rom: NintendoDSR
       const path=`${directory}/${name}`,id=rom.filenames.idOf(path);
       if(id!==undefined){files.set(path,rom.files[id].slice());ids.set(path,id);}
     }
-    sources.set(project,{base:readU32(table,at+4),armBase:rom.arm9RamAddress,game:rom.idCode,revision:rom.data[30],files,ids});return;
+    const bookId=rom.filenames.idOf(MOVE_RECIPE_BOOK_PATH);
+    if(bookId!==undefined){files.set(MOVE_RECIPE_BOOK_PATH,rom.files[bookId].slice());ids.set(MOVE_RECIPE_BOOK_PATH,bookId);}
+    let sideOverlay:Source["sideOverlay"];
+    try{sideOverlay=rom.loadArm9Overlays([project.session.baseRom==="BW"?95:169]).get(project.session.baseRom==="BW"?95:169);}catch{/* Only side-exchange recipes require this overlay. */}
+    sources.set(project,{base:readU32(table,at+4),armBase:rom.arm9RamAddress,game:rom.idCode,revision:rom.data[30],files,ids,overlayTable:rom.arm9OverlayTable.slice(),sideOverlay});return;
   }
 }
 type Snapshot = Record<string, number>;
@@ -177,15 +189,15 @@ function context(project: ProjectState, requireMoves = true) {
   }
   const files = new Map(source.files);
   for(const[path,id]of source.ids)if(project.fileSystem?.replacements?.[id])files.set(path,project.fileSystem.replacements[id]);
-  for (const [name, data] of Object.entries(project.fileSystem?.additions ?? {})) if (name.toLowerCase().endsWith(".dll")) files.set(name, data);
+  for (const [name, data] of Object.entries(project.fileSystem?.additions ?? {})) if (name.toLowerCase().endsWith(".dll")||name===MOVE_RECIPE_BOOK_PATH) files.set(name, data);
   const abilityCatalog=source.game==="IRBO"?black1Bindings.abilityCatalog:source.game==="IRAO"?white1Bindings.abilityCatalog:abilityContracts;
   return { project, source, base, overlay, resolver, getters, assignments, files, signatures:nativeSignatures, overlayModule:String(overlayId), abilityCatalog, catalog, moveCount: project.narcs.moves?.fileCount ?? 65535 };
 }
 type Context = ReturnType<typeof context>;
 function resolveNativeSideState(c:Context):number {
-  const id=c.project.session.baseRom==="BW"?95:169,rom=new NintendoDSRom(c.project.originalRomBytes!,{fileData:"view"}),overlay=rom.loadArm9Overlays([id]).get(id);
+  const id=c.project.session.baseRom==="BW"?95:169,overlay=c.source.sideOverlay;
   if(!overlay)throw Error("The native side-effect overlay is unavailable.");
-  const table=c.project.patches?.arm9OverlayTable??rom.arm9OverlayTable;
+  const table=c.project.patches?.arm9OverlayTable??c.source.overlayTable;
   let entry=-1;for(let at=0;at+32<=table.length;at+=32)if(readU32(table,at)===id){entry=at;break;}
   if(entry<0||readU32(table,entry+4)!==overlay.ramAddress||readU32(table,entry+8)!==overlay.ramSize||readU32(table,entry+12)!==overlay.bssSize||readU32(table,entry+24)!==overlay.fileId)throw Error("The native side-effect overlay layout has changed.");
   if(c.project.fileSystem?.replacements?.[overlay.fileId])throw Error("The native side-effect overlay has an unreviewed replacement.");
@@ -238,8 +250,17 @@ function stored(c: Context): Saved {
   const bytes = c.files.get(MOVE_EFFECTS_DLL_PATH);
   if (!bytes || same(bytes, retired)) return { rules: new Map(), originals: new Map() };
   const module = parseRpm(bytes, { allowedMagics: ["DLXF"] });
-  if (![1,2,3,4,5,6,7,8,9,10,11].includes(Number(module.metadata.PokewebMoveRecipes)) || typeof module.metadata.MoveRecipeBook !== "string") throw Error("The installed move DLL is not a supported recipe module.");
-  const {rules,originals:original} = decodeMoveRecipeBook(module.metadata.MoveRecipeBook, MOVE_RECIPE_MANAGED_FIELDS);
+  if (![1,2,3,4,5,6,7,8,9,10,11].includes(Number(module.metadata.PokewebMoveRecipes))) throw Error("The installed move DLL is not a supported recipe module.");
+  const packaging=module.metadata.PokewebMovePackaging;
+  if(packaging!==undefined&&packaging!==1&&packaging!==2)throw Error("Unrecognized move packaging version.");
+  let book=module.metadata.MoveRecipeBook;
+  if(packaging===2){
+    const bytes=c.files.get(MOVE_RECIPE_BOOK_PATH);
+    if(!bytes||bytes.length>80000||sha256Hex(bytes)!==module.metadata.MoveRecipeBookHash)throw Error("The move recipe sidecar is missing or does not match its runtime.");
+    book=new TextDecoder("utf-8",{fatal:true}).decode(bytes);
+  }
+  if(typeof book!=="string")throw Error("The installed move recipe book is missing.");
+  const {rules,originals:original} = decodeMoveRecipeBook(book, MOVE_RECIPE_MANAGED_FIELDS);
   if(module.metadata.PokewebMoveRecipes===1&&[...rules.values()].some(rule=>!isLegacyRule(rule)))throw Error("The legacy move DLL contains unsupported recipe data.");
   if (!rules.size || rules.size !== original.size) throw Error("Invalid saved move recipes.");
   for (const [id, rule] of rules) {
@@ -272,9 +293,8 @@ function stored(c: Context): Saved {
   const encodedTypeCount=module.code[config.address+3];
   if(module.metadata.PokewebMoveRecipes===1?encodedTypeCount!==0:![17,18].includes(encodedTypeCount))throw Error("Invalid saved move type layout.");
   const variants: RuntimeVariant[] = module.metadata.PokewebMoveRecipes===1 ? ["v1"] : module.metadata.PokewebMoveRecipes===2 ? ["v2a","v2b"] : module.metadata.PokewebMoveRecipes===3 ? ["v3"] : module.metadata.PokewebMoveRecipes===4 ? ["v4"] : module.metadata.PokewebMoveRecipes===5 ? ["v5"] : module.metadata.PokewebMoveRecipes===6 ? ["v6"] : module.metadata.PokewebMoveRecipes===8?["history"]:module.metadata.PokewebMoveRecipes===9?["persistent9"]:module.metadata.PokewebMoveRecipes===11?["modernKnock"]:module.metadata.PokewebMoveRecipes===10?["persistent"]:["current"];
-  if(module.metadata.PokewebMovePackaging!==undefined&&module.metadata.PokewebMovePackaging!==1)throw Error("Unrecognized move packaging version.");
-  const compact=module.metadata.PokewebMovePackaging===1;
-  const packedBook=module.metadata.MoveRecipeBook.startsWith("z1:");
+  const compact=packaging===2?2:packaging===1;
+  const packedBook=book.startsWith("z1:");
   if (!variants.some(variant => same(writeRpm(moduleFor(c, saved, variant, encodedTypeCount,packedBook,compact), { ident: "DLXF" }), bytes))) throw Error("The installed move DLL has unrecognized edits.");
   return saved;
 }
@@ -316,17 +336,35 @@ const hasPersistent=(rules:ReadonlyMap<number,MoveRuleSet>)=>{
   const uses=(c:import("./moveRules").MoveCondition):boolean=>c.kind==="group"?c.children.some(uses):c.kind==="persistentFromMove"||c.kind==="adjacent";
   return [...rules.values()].some(r=>uses(r.conditions)||uses(r.prerequisites)||r.effects.some(e=>uses(e.conditions)||e.kind==="tidyField"&&Boolean((e.parameters?.hazards??7)&8)||["vulnerableUntilAction","residualDamage","residualStat","fieldMoveType","targetMoveType","selfTrapBoost","mutualTrap","powderReaction","blockMoveFlag","focusCritical","spotlight","criticalStageBoost","fieldSwitchLock","entryStatHazard","swapSideEffects"].includes(e.kind)));
 };
-function moduleFor(c: Context, saved: Saved, variant: RuntimeVariant=[...saved.rules.values()].some(r=>r.effects.some(e=>e.kind==="modernKnockOff"))?"modernKnock":hasPersistent(saved.rules)?"persistent":hasHistory(saved.rules)?"history":"current", savedTypeCount?:number, packedBook=true, compact=true): RpmModule {
+function moduleFor(c: Context, saved: Saved, variant: RuntimeVariant=[...saved.rules.values()].some(r=>r.effects.some(e=>e.kind==="modernKnockOff"))?"modernKnock":hasPersistent(saved.rules)?"persistent":hasHistory(saved.rules)?"history":"current", savedTypeCount?:number, packedBook=true, compact:boolean|2=2): RpmModule {
   if (!saved.rules.size) throw Error("Choose at least one move recipe.");
   const rules = new Map([...saved.rules].sort(([a], [b]) => a - b).map(([id, rule]) => [id, validateMoveRule(rule)]));
   const legacy=variant==="v1",persistent=variant==="persistent"||variant==="persistent9"||variant==="modernKnock";
   const runtime=variant==="modernKnock"?modernKnockTemplate:legacy?legacyTemplate:variant==="v2a"?version2a:variant==="v2b"?version2b:variant==="v3"?version3:variant==="v4"?version4:variant==="v5"?version5:variant==="v6"?version6:variant==="persistent"?persistentTemplate:variant==="persistent9"?persistentV9:variant==="history"?historyTemplate:template;
-  const rpm = structuredClone(runtime) as unknown as RpmModule; rpm.code = Uint8Array.from(runtime.code);
+  const optimized=compact===2;
+  const selectedRuntime=optimized?(variant==="modernKnock"?compactKnockTemplate:variant==="persistent"?compactPersistentTemplate:variant==="history"?compactHistoryTemplate:variant==="current"?compactTemplate:undefined):runtime;
+  if(!selectedRuntime)throw Error("Optimized packaging requires a current move runtime.");
+  const rpm = structuredClone(selectedRuntime) as unknown as RpmModule; rpm.code = Uint8Array.from(selectedRuntime.code);
   const bssBase = (rpm.code.length + 3) & ~3, bss = rpm.symbols.filter(s => !(s.attributes & 4) && s.address >= bssBase);
   const named = (name: string) => { const symbol = rpm.symbols.find(s => s.name === name); if (!symbol) throw Error(`Missing move runtime symbol ${name}`); return symbol; };
   const append = (bytes: Uint8Array, name: string | null = null, type: "SECTION" | "FUNCTION_THM" = "SECTION") => {
     const at = (rpm.code.length + 3) & ~3, code = new Uint8Array(at + bytes.length); code.set(rpm.code); code.set(bytes, at); rpm.code = code;
     rpm.symbols.push({ name, address: at, size: bytes.length, type, attributes: 0 }); return rpm.symbols.length - 1;
+  };
+  // The checked compiler-generated wrapper supplies the fifth Thumb argument
+  // on the stack. Materialize only events actually referenced by this recipe set.
+  const prototype=optimized?named("MoveEventTemplate"):undefined;
+  const prototypeBytes=prototype?rpm.code.slice(prototype.address,prototype.address+prototype.size):undefined;
+  if(prototypeBytes&&(prototypeBytes.length!==12||readU16(prototypeBytes,0)!==0xb513||readU16(prototypeBytes,2)!==0x2400||readU16(prototypeBytes,4)!==0x9400||readU16(prototypeBytes,10)!==0xbd13))throw Error("Unrecognized move event wrapper.");
+  let prototypeUsed=false;
+  const eventSymbol=(event:number)=>{
+    const name=`MoveEvent_${event.toString(16).padStart(2,"0")}`;
+    const existing=rpm.symbols.findIndex(s=>s.name===name);if(existing>=0)return existing;
+    if(!prototype||!prototypeBytes||event<0||event>165)throw Error(`Missing move runtime event ${event}`);
+    let index:number;
+    if(!prototypeUsed){prototypeUsed=true;prototype.name=name;prototype.attributes&=~1;index=rpm.symbols.indexOf(prototype);}
+    else {index=append(prototypeBytes,name,"FUNCTION_THM");rpm.relocations.push({target:{module:"base",address:rpm.symbols[index].address+6,type:"THUMB_BRANCH_LINK"},sourceSymbolIndex:rpm.symbols.indexOf(named("dispatch"))});}
+    rpm.code[rpm.symbols[index].address+2]=event;return index;
   };
   const api = named("MoveRuleApi").address;
   const kinds=new Set([...rules.values()].flatMap(r=>r.effects.map(e=>e.kind)));
@@ -586,7 +624,7 @@ function moduleFor(c: Context, saved: Saved, variant: RuntimeVariant=[...saved.r
     writeU16(rpm.code, named("MoveNativeIds").address + index * 2, id);
     writeU32(rpm.code, named("MoveNativeGetters").address + index * 4, service.address | 1);
   });
-  const encoded = encodeMoveRules(rules,legacy?0:savedTypeCount??typeChartTypeCount(c.project)), data = append(encoded, "MoveRecipeConfig");
+  const encoded = encodeMoveRules(rules,legacy?0:savedTypeCount??typeChartTypeCount(c.project),optimized), data = append(encoded, "MoveRecipeConfig");
   rpm.relocations.push({ target: { module: "base", address: named("MoveRuleData").address, type: "OFFSET" }, sourceSymbolIndex: data });
   const sharedEventTables=new Map<string,number>();
   for (const [index, [id, rule]] of [...rules].entries()) {
@@ -599,8 +637,9 @@ function moduleFor(c: Context, saved: Saved, variant: RuntimeVariant=[...saved.r
     if(table===undefined){
       const bytes = new Uint8Array(list.length * 8);
       list.forEach((event, n) => writeU32(bytes, n * 8, event));
+      const callbacks=list.map(eventSymbol);
       table=append(bytes);const start=rpm.symbols[table].address;
-      list.forEach((event, n) => rpm.relocations.push({ target: { module: "base", address: start + n * 8 + 4, type: "OFFSET" }, sourceSymbolIndex: rpm.symbols.indexOf(named(`MoveEvent_${event.toString(16).padStart(2, "0")}`)) }));
+      list.forEach((event, n) => rpm.relocations.push({ target: { module: "base", address: start + n * 8 + 4, type: "OFFSET" }, sourceSymbolIndex: callbacks[n] }));
       if(compact)sharedEventTables.set(key,table);
     }
     const entry = rpm.symbols[data].address + 4 + index * 16; writeU16(rpm.code, entry + 2, list.length);
@@ -621,9 +660,13 @@ function moduleFor(c: Context, saved: Saved, variant: RuntimeVariant=[...saved.r
   if((variant==="persistent"||variant==="modernKnock")&&saved.webHitBase!==undefined)rpm.metadata.MoveWebHitBase=saved.webHitBase;
   if((variant==="persistent"||variant==="modernKnock")&&saved.webEndBase!==undefined)rpm.metadata.MoveWebEndBase=saved.webEndBase;
   if((variant==="persistent"||variant==="modernKnock")&&saved.courtChangeBase!==undefined)rpm.metadata.MoveCourtChangeBase=saved.courtChangeBase;
-  if(compact){rpm.metadata.PokewebMovePackaging=1;stripRpmPrivateSymbolNames(rpm,["MoveRecipeConfig"]);}
+  if(compact){
+    rpm.metadata.PokewebMovePackaging=optimized?2:1;
+    if(optimized){const book=new TextEncoder().encode(String(rpm.metadata.MoveRecipeBook));delete rpm.metadata.MoveRecipeBook;rpm.metadata.MoveRecipeBookHash=sha256Hex(book);}
+    stripRpmPrivateSymbolNames(rpm,["MoveRecipeConfig"]);
+  }
   const serialized = writeRpm(rpm, { ident: "DLXF" });
-  if (rpm.code.length + rpm.bssSize > 49152 || serialized.length + rpm.code.length + rpm.bssSize > 96 * 1024) throw Error("Move recipes exceed the shared DLL memory budget.");
+  if (rpm.code.length + rpm.bssSize > 49152 || estimateRpmMemory(serialized).loadAllocationBytes > 96 * 1024) throw Error("Move recipes exceed the shared DLL memory budget.");
   return rpm;
 }
 export function buildMoveRuleModule(project: ProjectState, rules: ReadonlyMap<number, MoveRuleSet>): RpmModule {
@@ -652,6 +695,13 @@ function recipeFields(project: ProjectState, id: number, rule: MoveRuleSet) {
 
   writeFields(project, id, fields);
 }
+function stageMoveRecipes(project:ProjectState,saved:Saved):void {
+  const book=new TextEncoder().encode(encodeMoveRecipeBook(saved.rules,saved.originals,MOVE_RECIPE_MANAGED_FIELDS,true));
+  const c=context(project),id=c.source.ids.get(MOVE_RECIPE_BOOK_PATH),dll=writeRpm(moduleFor(c,saved),{ident:"DLXF"});
+  if(id===undefined)ensureFileSystemState(project).additions![MOVE_RECIPE_BOOK_PATH]=book;
+  else setRomFileReplacement(project,id,book);
+  stageCodeInjectionDll(project,"MoveEffects.dll",dll);
+}
 export async function configureMoveRuleSets(project: ProjectState, edits: readonly { moveId: number; rules: MoveRuleSet }[]): Promise<void> {
   if (!edits.length) return;
   const c = context(project), saved = stored(c), seen = new Set<number>();
@@ -670,7 +720,7 @@ export async function configureMoveRuleSets(project: ProjectState, edits: readon
   await installCodeInjectionPatch(project, async staged => {
     if(upgrade)await upgradeAbilityRuntime(staged);
     ensureBattleMessages(staged,saved);
-    stageCodeInjectionDll(staged, "MoveEffects.dll", writeRpm(moduleFor(context(staged), saved), { ident: "DLXF" }));
+    stageMoveRecipes(staged,saved);
     for (const edit of edits) recipeFields(staged, edit.moveId, saved.rules.get(edit.moveId)!);
     recordGenericChange(staged, "moves", `Applied recipes to ${edits.length} moves.`, "Move effects");
   });
@@ -679,8 +729,11 @@ export async function clearMoveRules(project: ProjectState, id: number): Promise
   const saved = stored(context(project)), original = saved.originals.get(id); if (!original) return;
   saved.rules.delete(id); saved.originals.delete(id);
   await installCodeInjectionPatch(project, staged => {
-    if (saved.rules.size) { ensureBattleMessages(staged,saved); stageCodeInjectionDll(staged, "MoveEffects.dll", writeRpm(moduleFor(context(staged), saved), { ident: "DLXF" })); }
+    if (saved.rules.size) { ensureBattleMessages(staged,saved); stageMoveRecipes(staged,saved); }
     else {
+      const bookId=context(staged).source.ids.get(MOVE_RECIPE_BOOK_PATH);
+      delete ensureFileSystemState(staged).additions![MOVE_RECIPE_BOOK_PATH];
+      if(bookId!==undefined)setRomFileReplacement(staged,bookId,new Uint8Array());
       const c = context(staged), fileId = c.source.ids.get(MOVE_EFFECTS_DLL_PATH);
       if (fileId !== undefined) setRomFileReplacement(staged, fileId, retired);
       else delete ensureFileSystemState(staged).additions![MOVE_EFFECTS_DLL_PATH];

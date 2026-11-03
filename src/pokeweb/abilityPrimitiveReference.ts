@@ -1,3 +1,4 @@
+import { displayAbilityName } from "./abilityTextModel";
 import { ABILITY_IMPORT_LIBRARY } from "./abilityLibrary";
 import { ABILITY_RULE_EFFECTS, ABILITY_RULE_PRESETS, type AbilityRuleSet } from "./abilityRules";
 
@@ -76,9 +77,9 @@ export function abilityPrimitiveReference(
     kind: definition.kind,
     label: definition.label,
     description: ABILITY_PRIMITIVE_DESCRIPTIONS[definition.kind] ?? definition.label,
-    templates: [...new Set(templates.filter(template => template.rule.effects.some(effect => effect.kind === definition.kind)).map(template => template.label))].sort((a, b) => a.localeCompare(b)),
+    templates: [...new Set(templates.filter(template => template.rule.effects.some(effect => effect.kind === definition.kind)).map(template => displayAbilityName(template.id,template.label)))].sort((a, b) => a.localeCompare(b)),
     savedAbilities: [...rules].filter(([, rule]) => rule.effects.some(effect => effect.kind === definition.kind))
-      .map(([id]) => ({ id, name: names[id] || `Ability ${id}` })).sort((a, b) => a.id - b.id),
+      .map(([id]) => ({ id, name: displayAbilityName(id,names[id] || `Ability ${id}`) })).sort((a, b) => a.id - b.id),
   }));
 }
 

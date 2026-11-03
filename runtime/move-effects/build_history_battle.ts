@@ -1,3 +1,4 @@
+import {moveDebugSymbols} from "./debug_symbols";
 /** Disposable in-game history fixture; output must be outside the repository. */
 import assert from "node:assert/strict";
 import {readFile,writeFile,mkdir} from "node:fs/promises";
@@ -47,7 +48,7 @@ const save=patchHarnessSave(rawSaveBytesFromDesmumeDsv(downloads.saveBytes),proj
 const rom=new NintendoDSRom(downloads.romBytes,{fileData:"view"}),dll=parseRpm(rom.files[rom.fileId(MOVE_EFFECTS_DLL_PATH)],{allowedMagics:["DLXF"]});
 const reload=await loadProjectFromRomBytes(downloads.romBytes,"export.nds",{selectedNarcs:["moves","message_texts"]});assert.deepEqual(inspectMoveEffects(reload).rules.get(priorFailure?52:33),rule);
 const moduleId=project.session.baseRom==="BW"?"93":"167",hook=dll.relocations.find(r=>r.target.module===moduleId&&dll.symbols[r.sourceSymbolIndex]?.name==="MoveDispatch");assert(hook);
-const symbols=Object.fromEntries(dll.symbols.filter(s=>s.name&&(s.name.startsWith("Move")||["moveHistory","moveCritBoost","moveCritPending","moveFieldLockTurns"].includes(s.name))).map(s=>[s.name!,s.address]));
+const symbols=moveDebugSymbols(dll);
 await writeFile(`${out}/battle.nds`,downloads.romBytes);await writeFile(`${out}/battle.sav`,save);
 await writeFile(`${out}/fixture.json`,JSON.stringify({game:rom.idCode,hook:hook.target.address,symbols,kind,mode,codeBytes:dll.code.length,getter:readU32(dll.code,symbols.MoveRuleApi)&~1,rewrite:readU32(dll.code,symbols.MoveRuleApi+8)&~1,multiply:readU32(dll.code,symbols.MoveRuleApi+12)&~1,pop:readU32(dll.code,symbols.MoveRuleApi+44)&~1},null,2));
 console.log(JSON.stringify({game:rom.idCode,kind,exportReload:true}));

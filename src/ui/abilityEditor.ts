@@ -7,7 +7,7 @@ import { ABILITY_NATIVE_EFFECTS, ABILITY_RULE_EFFECTS, ABILITY_RULE_PRESETS, EMP
 import { renderItemRuleForm, installItemRuleEditor, type RuleFormOptions } from "./itemRuleEditor";
 import { escapeHtml } from "./dom";
 import { installAbilityPrimitiveReference } from "./abilityPrimitiveReference";
-import { getAbilityDescription, getAbilitySummaryName, updateAbilityDescription } from "../pokeweb/abilityTextModel";
+import { displayAbilityName, getAbilityDescription, getAbilitySummaryName, updateAbilityDescription } from "../pokeweb/abilityTextModel";
 import { descriptionPreviewMarkup, installLazyDescriptionPreview } from "./lazyDescriptionPreview";
 import { renderAbilityRuntimeUpdate, installAbilityRuntimeUpdate, refreshAbilityRuntimeUpdate } from "./abilityRuntimeUpdate";
 
@@ -17,23 +17,23 @@ export function renderAbilityEditor(project: ProjectState, root: HTMLElement, on
     let descriptionPreview:ReturnType<typeof installLazyDescriptionPreview>|undefined;
     const options:RuleFormOptions={
         ability:true,
-        definitions:[...ABILITY_RULE_EFFECTS,...ABILITY_NATIVE_EFFECTS.map(d=>({...d,label:project.texts.banks.abilities?.[d.nativeItem]??d.label}))],
-        presets:[...ABILITY_IMPORT_LIBRARY.map(p=>({id:p.id,label:p.label,group:`Generation ${p.generation}`})),...ABILITY_RULE_PRESETS.map(p=>({id:p.id,label:p.label,group:project.session.baseRom === "BW" ? "BW templates" : "BW2 templates"}))],
+        definitions:[...ABILITY_RULE_EFFECTS,...ABILITY_NATIVE_EFFECTS.map(d=>({...d,label:displayAbilityName(d.nativeItem,project.texts.banks.abilities?.[d.nativeItem]??d.label)}))],
+        presets:[...ABILITY_IMPORT_LIBRARY.map(p=>({id:p.id,label:p.label,group:`Generation ${p.generation}`})),...ABILITY_RULE_PRESETS.map(p=>({id:p.id,label:displayAbilityName(p.id,p.label),group:project.session.baseRom === "BW" ? "BW templates" : "BW2 templates"}))],
         preset:id=>({...structuredClone(id>164?abilityImport(id).rule:ABILITY_RULE_PRESETS.find(p=>p.id===id)!.rule),consumable:false}),
-        imported:id=>{const name=root.querySelector<HTMLInputElement>("[data-ability-name]")!;if(!name.value.trim())name.value=id>164?abilityImport(id).defaultName:(ABILITY_RULE_PRESETS.find(p=>p.id===id)!.label).slice(0,15);descriptionPreview?.refresh();},
+        imported:id=>{const name=root.querySelector<HTMLInputElement>("[data-ability-name]")!;if(!name.value.trim())name.value=id>164?abilityImport(id).defaultName:displayAbilityName(id,ABILITY_RULE_PRESETS.find(p=>p.id===id)!.label).slice(0,15);descriptionPreview?.refresh();},
         apply:async rule=>{
             const name=root.querySelector<HTMLInputElement>("[data-ability-name]")!.value;
             const field=root.querySelector<HTMLTextAreaElement>("[data-ability-description]");
             const description=field&&!field.disabled?field.value:undefined;
             if(adding){selected=await createCustomAbility(project,name,rule,description);adding=false;query="";root.querySelector<HTMLInputElement>("[data-ability-search]")!.value="";}
-            else await configureAbilityRuleSets(project,[{abilityId:selected,name,description,rules:rule}]);
+            else {const original=project.texts.banks.abilities?.[selected]??"";await configureAbilityRuleSets(project,[{abilityId:selected,name:name===displayAbilityName(selected,original)?undefined:name,description,rules:rule}]);}
             customDraft=false;onChange();
         },
     };
     root.innerHTML=`<div class="ability-editor-layout"><aside class="pokemon-filter ability-sidebar"><h2>Abilities</h2><button type="button" class="btn -default" data-add-ability>Add ability</button>${renderAbilityRuntimeUpdate(project)}<input type="search" data-ability-search placeholder="Search abilities" aria-label="Search abilities"><div class="ability-list" data-ability-list></div></aside><main class="pokemon-list ability-page" data-ability-panel></main><aside class="ability-reference" aria-label="Ability primitive reference" data-ability-reference></aside></div>`;
     const updateReference=installAbilityPrimitiveReference(root.querySelector<HTMLElement>("[data-ability-reference]")!,project);
     function list(){
-        const names=project.texts.banks.abilities??[];
+        const names=(project.texts.banks.abilities??[]).map((name,id)=>displayAbilityName(id,name));
         root.querySelector<HTMLElement>("[data-ability-list]")!.innerHTML=names.slice(1,256).flatMap((name,index)=>name&&`${index+1} ${name}`.toLowerCase().includes(query.toLowerCase())?[`<button type="button" class="ability-list-item ${!adding&&selected===index+1?"-active":""}" data-ability-id="${index+1}"><span>${index+1}</span>${escapeHtml(name)}</button>`]:[]).join("");
         root.querySelector<HTMLButtonElement>("[data-add-ability]")!.disabled=nextCustomAbilityId(project)===undefined||!inspectAbilityEffects(project).editable;
     }
@@ -41,7 +41,7 @@ export function renderAbilityEditor(project: ProjectState, root: HTMLElement, on
         descriptionPreview?.destroy();
         refreshAbilityRuntimeUpdate(root,project);
         list();
-        const state=inspectAbilityEffects(project),name=adding?"":project.texts.banks.abilities?.[selected]??`Ability ${selected}`,rule=adding?undefined:state.rules.get(selected);
+        const state=inspectAbilityEffects(project),name=adding?"":displayAbilityName(selected,project.texts.banks.abilities?.[selected]??`Ability ${selected}`),rule=adding?undefined:state.rules.get(selected);
         updateReference(new Map([...state.rules].map(([id,rule])=>[id,optimizeAbilityRule(rule)])));
         const native:AbilityRuleSet|undefined=!adding&&nativeAbilityProfile(`nativeAbility:${selected}`)?{effects:[{kind:`nativeAbility:${selected}`,value:-1}],conditions:EMPTY_ABILITY_RULE.conditions}:undefined;
         const noTemplate=!adding&&!rule&&!native&&!customDraft;

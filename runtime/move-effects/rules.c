@@ -131,7 +131,10 @@ static u32 condition(const volatile u8**cursor,Evaluation*x,u32 evaluate){
 #endif
  return p[2]?!result:result;
 }
-static u32 match(const volatile u8*p,Evaluation*x){return condition(&p,x,1);}
+static u32 match(const volatile u8*p,Evaluation*x,u32 count){
+ /* Configuration v2 omits empty groups; v1 callers always have a root node. */
+ return !count||condition(&p,x,1);
+}
 static u32 preview(void*f){return FN(9,u32(*)(void*))(f)||FN(27,u32(*)(void*))(f);}
 #ifdef MOVE_HISTORY
 PUBLIC void MoveHistoryInit(void){
@@ -151,7 +154,7 @@ static u32 removeWeb(void*f,u8 owner,u32 side){
  u8*p=PUSH(f,4,owner);if(p){FN(56,void(*)(void*,u32,u32))(p+4,2,MoveWebEndBase+side);POP(f,p);}return 1;
 }
 static u32 addResidual(void*f,const volatile u8*e,u8 source,u8 target,u16 move){
- MoveResidual*free=0;for(u32 i=0;i<48;++i){MoveResidual*r=moveResidual+i;if(r->effect==e&&r->target==target){free=r;break;}if(!r->effect&&!free)free=r;}
+ MoveResidual*free=0;for(u32 i=0;i<48;++i){MoveResidual*r=moveResidual+i;if(r->effect==e&&r->target==target&&r->move==move){free=r;break;}if(!r->effect&&!free)free=r;}
  if(!free){u8*p=PUSH(f,4,source);if(p){FN(56,void(*)(void*,u32,u32))(p+4,2,24);FN(57,void(*)(void*,u32))(p+4,target);POP(f,p);}return 0;}free->effect=e;free->target=target;free->source=source;free->kind=e[0];free->move=move;free->remaining=(u8)half(e+(e[0]==45?14:10));return 1;
 }
 #endif
@@ -300,7 +303,7 @@ PUBLIC u32 MoveHistorySelect(void*client,void*mon,u32 move,u8*message){
  const volatile u8*r=MoveRuleData+word(idx+4),*global=r+8,*e=global+(r[1]+r[2])*8;
  Evaluation x={.owner=(u8)owner,.target=(u8)owner,.move=(u16)move};
  for(u32 n=0;n<r[0];++n){
-  if(e[0]==43&&(!half(e+8)||moveHistory.selected_last_turn[owner]&&moveHistory.selected_move[owner]==moveHistory.selected_last_turn[owner])&&match(global,&x)&&match(e+32,&x)){
+  if(e[0]==43&&(!half(e+8)||moveHistory.selected_last_turn[owner]&&moveHistory.selected_move[owner]==moveHistory.selected_last_turn[owner])&&match(global,&x,r[1])&&match(e+32,&x,e[5])){
    if(message){memset(message,0,36);put16(message,905);message[2]=0x50;message[3]=0x22;put32(message+4,owner);put32(message+8,move);}
    return 1;
   }
@@ -550,7 +553,7 @@ PUBLIC u32 MoveTypeMatchup(void*f,void*attacker,void*defender,u32 moveType,u32 d
  if(owner>=24||target>=24)return native;
  Evaluation x={.flow=f,.owner=(u8)owner,.target=(u8)target,.move=(u16)move};
  for(u32 n=0;n<r[0];++n){
-  if(e[0]==35&&half(e+6)==defendingType&&match(global,&x)&&match(e+32,&x))native=half(e+8);
+  if(e[0]==35&&half(e+6)==defendingType&&match(global,&x,r[1])&&match(e+32,&x,e[5]))native=half(e+8);
   e+=32+e[5]*8;
  }
  return native;
@@ -574,7 +577,7 @@ PUBLIC u32 MoveDamagingSubstitute(void*defender,const u8*param,void*f,void*attac
  if(owner>=24||target>=24)return native;
  Evaluation x={.flow=f,.owner=(u8)owner,.target=(u8)target,.move=(u16)move};
  for(u32 n=0;n<r[0];++n){
-  if(e[0]==28&&match(global,&x)&&match(e+32,&x))return 0;
+  if(e[0]==28&&match(global,&x,r[1])&&match(e+32,&x,e[5]))return 0;
   e+=32+e[5]*8;
  }
  return native;
@@ -595,7 +598,7 @@ PUBLIC u32 MoveDamageWeather(void*f,const u8*param){
  Evaluation x={.flow=f,.owner=(u8)owner,.target=(u8)target,.move=(u16)move,.weather=actual,.weatherValid=1};
  u32 result=actual;
  for(u32 n=0;n<r[0];++n){
-  if(e[0]==36&&half(e+6)==actual&&(half(e+10)==255||half(e+10)==param[6])&&match(global,&x)&&match(e+32,&x))result=half(e+8);
+  if(e[0]==36&&half(e+6)==actual&&(half(e+10)==255||half(e+10)==param[6])&&match(global,&x,r[1])&&match(e+32,&x,e[5]))result=half(e+8);
   e+=32+e[5]*8;
  }
  return result;
@@ -613,7 +616,7 @@ PUBLIC void MoveThawHitTargets(void*f,const u8*param,void*attacker,void*targets)
   if(owner<24){
    Evaluation x={.flow=f,.owner=(u8)owner,.target=(u8)owner,.move=half(param)};
    for(u32 n=0;n<r[0];++n){
-    if(e[0]==37&&match(global,&x)&&match(e+32,&x)){
+    if(e[0]==37&&match(global,&x,r[1])&&match(e+32,&x,e[5])){
      u8 temp[20];memcpy(temp,param,sizeof(temp));temp[6]=9;
      FN(61,void(*)(void*,const u8*,void*,void*))(f,temp,attacker,targets);return;
     }
@@ -631,7 +634,7 @@ PUBLIC void MoveRedirectEvent(void*f,u32 event){
    const volatile u8*r=MoveRuleData+word(idx+4),*global=r+8,*e=global+(r[1]+r[2])*8;
    Evaluation x={.flow=f,.owner=(u8)owner,.target=(u8)target,.move=(u16)move};
    for(u32 n=0;n<r[0];++n){
-    if(e[0]==38&&match(global,&x)&&match(e+32,&x))return;
+    if(e[0]==38&&match(global,&x,r[1])&&match(e+32,&x,e[5]))return;
     e+=32+e[5]*8;
    }
   }
@@ -644,7 +647,7 @@ static u32 attackSelector(void*f,const u8*param,u32 original){
  const volatile u8*r=MoveRuleData+word(idx+4),*global=r+8,*e=global+(r[1]+r[2])*8;
  Evaluation x={.flow=f,.owner=(u8)owner,.target=(u8)target,.move=(u16)move};
  for(u32 n=0;n<r[0];++n){
-  if(e[0]==39&&match(global,&x)&&match(e+32,&x))return 7+half(e+6);
+  if(e[0]==39&&match(global,&x,r[1])&&match(e+32,&x,e[5]))return 7+half(e+6);
   e+=32+e[5]*8;
  }
  return original;
@@ -681,7 +684,7 @@ PUBLIC void MoveResolveUserType(void*f,u16 move,void*mon,u8*param){
  const volatile u8*r=MoveRuleData+word(idx+4),*global=r+8,*e=global+(r[1]+r[2])*8;
  Evaluation x={.flow=f,.owner=(u8)owner,.target=(u8)owner,.move=move};
  for(u32 n=0;n<r[0];++n){
-  if(e[0]==40&&match(global,&x)&&match(e+32,&x)){
+  if(e[0]==40&&match(global,&x,r[1])&&match(e+32,&x,e[5])){
    u8*m=mon;u32 nullType=MoveRuleData[3]?MoveRuleData[3]:17,first=m[0xf8],second=m[0xf9],removedFlying=0;
    if(FN(17,u32(*)(void*,u32))(mon,24)){
     if(first==2){first=nullType;removedFlying=1;}
@@ -694,6 +697,10 @@ PUBLIC void MoveResolveUserType(void*f,u16 move,void*mon,u8*param){
   e+=32+e[5]*8;
  }
 }
+#ifdef MOVE_COMPACT
+/* Runtime-built event wrappers can call this with any event ID. */
+__attribute__((noipa))
+#endif
 static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
  u32 move=FN(31,u32(*)(void*))(item);const volatile u8*idx=entry(move);if(!idx||owner>=24)return;
  const volatile u8*r=MoveRuleData+word(idx+4);
@@ -724,12 +731,12 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
   * move ID. Their selected move item supplies identity, as in native handlers. */
  if(TRY(0x12,&actual)?(u32)actual!=move:event!=0x30&&event!=0x31&&event!=0x32&&event!=0x33&&event!=0x3a){if(markers&&w&&event==4)w[3]=0;return;}
  if(!TRY(4,&target))(void)TRY(6,&target);Evaluation x={.flow=f,.owner=owner,.target=target>=0&&target<24?(u8)target:owner,.move=(u16)move,.itemRequired=itemRequired,.event=(u8)event};
- if(event==r[3]&&!match(requirements,&x)){SET(event==0x1f?0x22:0x40,event==0x1f?0x1a:1);return;}
+ if(event==r[3]&&!match(requirements,&x,r[2])){SET(event==0x1f?0x22:0x40,event==0x1f?0x1a:1);return;}
  u32 power=0,powerChanged=0;
  for(u32 n=0;n<r[0];++n){const volatile u8*e=effects;effects+=32+e[5]*8;u32 kind=e[0],phase=e[1],v=half(e+6);
 #ifdef MOVE_MODERN_KNOCK
   if(kind==59){
-   if(event==0x37&&target>=0&&target<24&&match(global,&x)&&match(e+32,&x)){
+   if(event==0x37&&target>=0&&target<24&&match(global,&x,r[1])&&match(e+32,&x,e[5])){
     /* Activation belongs to power timing. HP, weather or abilities may change
      * during the hit; removal still belongs to this same accepted activation. */
     if(!preview(f))knockArmed[owner]|=1u<<target;
@@ -756,7 +763,7 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
    if(!w||preview(f))continue;
    if(event==3){w[0]=0;continue;}
    if(event==0x4b){
-    s32 damage=0;if(w[0]>=6||target<0||target>=24||!TRY(0x32,&damage)||damage<=0||!match(global,&x)||!match(e+32,&x))continue;
+    s32 damage=0;if(w[0]>=6||target<0||target>=24||!TRY(0x32,&damage)||damage<=0||!match(global,&x,r[1])||!match(e+32,&x,e[5]))continue;
     void*m=MON(f,(u8)target);if(!m)continue;u32 amount=divide((u32)damage*v,100);if(!amount)amount=1;if(amount>65535)amount=65535;
     w[++w[0]]=amount|((u32)target<<16)|((effectiveAbility(m)==64u)<<24);continue;
    }
@@ -774,7 +781,7 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
    u32 bit=1u<<(target+8);
    if(event==0x30){
     w[6]&=~bit;
-    if(!FN(16,u32(*)(u8,u8))(owner,(u8)target)||!match(global,&x)||!match(e+32,&x))continue;
+    if(!FN(16,u32(*)(u8,u8))(owner,(u8)target)||!match(global,&x,r[1])||!match(e+32,&x,e[5]))continue;
     SET(0x51,1);w[6]|=bit;continue;
    }
    u32 marked=w[6]&bit;w[6]&=~bit;if(!marked||preview(f)||!alive(f,(u8)target))continue;
@@ -782,11 +789,11 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
    if(STAT(m,13)>=STAT(m,14)){u8*p=PUSH(f,4,owner);if(p){FN(56,void(*)(void*,u32,u32))(p+4,2,523);FN(57,void(*)(void*,u32))(p+4,target);POP(f,p);}continue;}
    heal(f,owner,(u8)target,divide(STAT(m,14)*v,half(e+8)));continue;
   }
-  if(kind==10){if((event==0x3a||event==0x33)&&match(global,&x)&&match(e+32,&x)){if(event==0x3a)SET(0x51,1);if(event==0x33)SET(0x4b,1);}continue;}
-  if(kind==28){if(event==5&&match(global,&x)&&match(e+32,&x))FN(49,Callback)(item,f,owner,w);continue;}
-  if(kind==27){if(event==3&&match(global,&x)&&match(e+32,&x))FN(47,Callback)(item,f,owner,w);continue;}
+  if(kind==10){if((event==0x3a||event==0x33)&&match(global,&x,r[1])&&match(e+32,&x,e[5])){if(event==0x3a)SET(0x51,1);if(event==0x33)SET(0x4b,1);}continue;}
+  if(kind==28){if(event==5&&match(global,&x,r[1])&&match(e+32,&x,e[5]))FN(49,Callback)(item,f,owner,w);continue;}
+  if(kind==27){if(event==3&&match(global,&x,r[1])&&match(e+32,&x,e[5]))FN(47,Callback)(item,f,owner,w);continue;}
   if(kind==32){
-   if(!w||(event!=0x2d&&event!=0x46)||(w[6]&1u)||target<0||target>=24||!match(global,&x)||!match(e+32,&x))continue;
+   if(!w||(event!=0x2d&&event!=0x46)||(w[6]&1u)||target<0||target>=24||!match(global,&x,r[1])||!match(e+32,&x,e[5]))continue;
    u32 bit=1u<<target,pos=FN(42,u32(*)(void*,u8))(f,target);if(pos>=6)continue;
    u8*slot=(u8*)w+(pos<2?8:pos<4?16:20)+(pos%2)*2;
    if(event==0x2d){
@@ -801,13 +808,13 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
   if(kind==31){
    if(!w||preview(f))continue;u32 bit=1u<<n;
    if(half(e+10)?event==0x45:event==0x25||event==0x26){w[3]|=bit;continue;}
-   if(event==4){u32 marked=w[3]&bit;w[3]&=~bit;x.target=owner;if(marked&&match(global,&x)&&match(e+32,&x))action(item,f,owner,owner,e,w,&x);}continue;
+   if(event==4){u32 marked=w[3]&bit;w[3]&=~bit;x.target=owner;if(marked&&match(global,&x,r[1])&&match(e+32,&x,e[5]))action(item,f,owner,owner,e,w,&x);}continue;
   }
   if(phase>=14||event!=events[phase]&&!(phase==6&&event==0xa1))continue;
 #ifdef MOVE_PERSISTENT
-  if(kind==44){if(!preview(f)&&owner<24&&match(global,&x)&&match(e+32,&x)){moveVulnerability[owner]=(u16)v;if(half(e+8))moveVulnerabilityAccuracy|=move_history_mask(owner);else moveVulnerabilityAccuracy&=~move_history_mask(owner);}continue;}
+  if(kind==44){if(!preview(f)&&owner<24&&match(global,&x,r[1])&&match(e+32,&x,e[5])){moveVulnerability[owner]=(u16)v;if(half(e+8))moveVulnerabilityAccuracy|=move_history_mask(owner);else moveVulnerabilityAccuracy&=~move_history_mask(owner);}continue;}
 #endif
-  if(kind<=3||kind==9||kind==42){if(!match(global,&x)||!match(e+32,&x))continue;
+  if(kind<=3||kind==9||kind==42){if(!match(global,&x,r[1])||!match(e+32,&x,e[5]))continue;
    if(kind==1){if(!powerChanged)power=GET(0x30);powerChanged=1;if(power>65535)power=65535;power=(power*v)>>12;if(power>65535)power=65535;if(!power)power=1;}
    if(kind==2)MUL(0x35,v);
    if(kind==3)SET(0x51,1);
@@ -821,7 +828,7 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
   if(phase==4){s32 damage=0,sub=0;if(!TRY(0x32,&damage)||damage<=0||e[2]!=0&&TRY(0x46,&sub)&&sub)continue;}
   if(phase==7){u32 count=GET(5),ko=0;for(u32 j=0;j<count&&j<6;++j)if(!STAT(MON(f,GET(6+j)),13))ko=1;if(!ko)continue;}
   u32 recipientsMask=recipients(&x,e[2]),statCount=0;u8 statTargets[6];
-  for(u8 id=0;id<24;++id)if(recipientsMask&(1u<<id)){x.target=id;if(match(global,&x)&&match(e+32,&x)){
+  for(u8 id=0;id<24;++id)if(recipientsMask&(1u<<id)){x.target=id;if(match(global,&x,r[1])&&match(e+32,&x,e[5])){
    if(kind==4){if(statCount<6&&alive(f,id)&&actionChance(f,owner,id,e)){void*m=MON(f,id);s32 delta=(int16_t)v;if(FN(24,u32(*)(void*,u32,s32))(m,half(e+8),effectiveAbility(m)==126?-delta:delta))statTargets[statCount++]=id;}}
    else action(item,f,owner,id,e,w,&x);
   }}

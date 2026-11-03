@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { decodeGen5TextBank, encodeGen5TextBank, type Gen5TextEntry } from "../pokeweb/text";
-import { getAbilityDescription, getAbilitySummaryName, updateAbilityDescription } from "../pokeweb/abilityTextModel";
+import { displayAbilityName, getAbilityDescription, getAbilitySummaryName, updateAbilityDescription } from "../pokeweb/abilityTextModel";
 
 function fixture(version: "B" | "W" | "B2" | "W2") {
   const bw = version === "B" || version === "W", id = bw ? 183 : 375;
@@ -12,6 +12,12 @@ function fixture(version: "B" | "W" | "B2" | "W2") {
   return { project, id };
 }
 describe("ability descriptions", () => {
+  it("title-cases vanilla editor labels without changing custom capitalization",()=>{
+    expect(displayAbilityName(3,"SPEED BOOST")).toBe("Speed Boost");
+    expect(displayAbilityName(3,"QUICKEN")).toBe("QUICKEN");
+    expect(displayAbilityName(165,"SPEED BOOST")).toBe("SPEED BOOST");
+    expect(displayAbilityName(3,"Speed BOOST")).toBe("Speed BOOST");
+  });
   it("uses the Summary name rather than the uppercase battle label in previews", () => {
     const { project } = fixture("B2");
     project.texts.banks.abilities![1] = "STENCH";

@@ -9,6 +9,19 @@ The expanded packages raise the ceiling to 200 KiB. Available memory can impose
 a smaller allocation. Their allocator accounts for its context and alignment
 inside that reservation. The original PMC packages remain bundled unchanged.
 
+The sidebar shows estimated battle and overworld usage against the installed
+160 or 200 KiB cap. These are two phases of the same heap, not separate reserves.
+Each DLL's retained size excludes internal relocation data released after linking;
+its loading size includes BSS expansion, eight-byte alignment and allocator
+headers, counting executable code once. The phase estimate includes PMC's base
+work allocation and follows module priority and ROM file order for loading peaks.
+It also accounts for the initial scan of inactive patch DLLs. Recognized battle
+and field overlays determine scope; libraries and unclassified dependencies are
+included in both phases conservatively. Unreadable DLLs make the estimate
+incomplete. Additional allocations performed by patch code during play and heap
+fragmentation are outside this static estimate. The cap is not a measurement of
+the arena actually available to PMC, which can be smaller, especially in BW1.
+
 Supported inputs use the current, verified Pokeweb PMC on US revision-0 Black,
 White, Black 2 or White 2, or the reviewed Italian White 2 profile. Older loaders
 must first be updated with **Update PMC**. Unrecognized loader code, symbol files,

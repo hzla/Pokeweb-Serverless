@@ -250,22 +250,26 @@ export function encodeMoveConditions(condition: MoveCondition): number[] {
   }
   emit(validateMoveCondition(condition)); return bytes;
 }
-export function encodeMoveRules(entries: ReadonlyMap<number, MoveRuleSet>, nullType=0): Uint8Array {
+export function encodeMoveRules(entries: ReadonlyMap<number, MoveRuleSet>, nullType=0, compact=false): Uint8Array {
   if(![0,17,18].includes(nullType))throw Error("Unrecognized native type count.");
   const sorted = [...entries].sort(([a], [b]) => a - b), bytes: number[] = Array(4 + sorted.length * 16).fill(0);
-  bytes[0] = sorted.length & 255; bytes[1] = sorted.length >> 8; bytes[2] = 1;bytes[3]=nullType;
+  bytes[0] = sorted.length & 255; bytes[1] = sorted.length >> 8; bytes[2] = compact?2:1;bytes[3]=nullType;
+  const records=new Map<string,number>();
+  const conditions=(node:MoveCondition)=>compact&&node.kind==="group"&&node.mode==="all"&&!node.children.length?[]:encodeMoveConditions(node);
   for (const [index, [id, input]] of sorted.entries()) {
     if (!integer(id, 1, 65534)) throw Error("Move IDs must fit the ROM's move range.");
-    const rule = validateMoveRule(input), at = bytes.length, global = encodeMoveConditions(rule.conditions), requirements = encodeMoveConditions(rule.prerequisites);
+    const rule = validateMoveRule(input), record: number[]=[], global = conditions(rule.conditions), requirements = conditions(rule.prerequisites);
     const entry = 4 + index * 16; bytes[entry] = id & 255; bytes[entry + 1] = id >> 8;
-    for (let k = 0; k < 4; ++k) bytes[entry + 4 + k] = at >>> k * 8 & 255;
-    bytes.push(rule.effects.length, global.length / 8, requirements.length / 8, movePrerequisiteEvent(rule.prerequisites), (rule.nativeBase ?? 0) & 255, (rule.nativeBase ?? 0) >> 8, 0, 0, ...global, ...requirements);
+    record.push(rule.effects.length, global.length / 8, requirements.length / 8, movePrerequisiteEvent(rule.prerequisites), (rule.nativeBase ?? 0) & 255, (rule.nativeBase ?? 0) >> 8, 0, 0, ...global, ...requirements);
     for (const e of rule.effects) {
-      const def = movePrimitive(e.kind)!, conditions = encodeMoveConditions(e.conditions), row = Array(32).fill(0), v = Math.round(e.value * def.scale);
-      row[0] = def.code; row[1] = MOVE_PHASES.indexOf(e.phase); row[2] = ["user", "target", "allies", "opponents", "all"].indexOf(e.target); row[3] = Number(e.secondary); row[4] = e.chance; row[5] = conditions.length / 8; row[6] = v & 255; row[7] = v >> 8 & 255;
+      const def = movePrimitive(e.kind)!, encodedConditions = conditions(e.conditions), row = Array(32).fill(0), v = Math.round(e.value * def.scale);
+      row[0] = def.code; row[1] = MOVE_PHASES.indexOf(e.phase); row[2] = ["user", "target", "allies", "opponents", "all"].indexOf(e.target); row[3] = Number(e.secondary); row[4] = e.chance; row[5] = encodedConditions.length / 8; row[6] = v & 255; row[7] = v >> 8 & 255;
       def.parameters.forEach((p, i) => { const value = e.parameters?.[p.key] ?? p.original; row[8 + i * 2] = value & 255; row[9 + i * 2] = value >> 8 & 255; });
-      bytes.push(...row, ...conditions);
+      record.push(...row, ...encodedConditions);
     }
+    const key=record.join(","),previous=compact?records.get(key):undefined,at=previous??bytes.length;
+    if(previous===undefined){records.set(key,at);bytes.push(...record);}
+    for (let k = 0; k < 4; ++k) bytes[entry + 4 + k] = at >>> k * 8 & 255;
   }
   if (bytes.length > 65535) throw Error("Move recipes exceed the shared configuration budget.");
   return Uint8Array.from(bytes);

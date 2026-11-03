@@ -1,3 +1,4 @@
+import { estimateRpmMemory } from "./rpmMemory";
 import { isVerifiedMoveFieldSwitchImport, isVerifiedMoveServiceImport } from "./moveEffectsModel";
 import { chainAbilityMoveParam } from "./battleMoveParamChain";
 import { normalizeAbilityDescription, updateAbilityDescription } from "./abilityTextModel";
@@ -503,7 +504,7 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
     const result=chainOwner?chainAbilityMoveParam(rpm,c.overlayModule).module:rpm;
     if(compact){result.metadata.PokewebAbilityPackaging=1;stripRpmPrivateSymbolNames(result);}
     const serialized = writeRpm(result, { ident: "DLXF" });
-    if (result.code.length + result.bssSize > 65536 || serialized.length + result.code.length + result.bssSize > 160 * 1024)
+    if (result.code.length + result.bssSize > 65536 || estimateRpmMemory(serialized).loadAllocationBytes > 160 * 1024)
         throw new Error("Ability effects exceed the shared DLL memory budget. Reduce rule complexity.");
     return result;
 }

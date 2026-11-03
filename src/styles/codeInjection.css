@@ -48,6 +48,26 @@
   padding: 14px;
 }
 
+.pmc-capacity {
+  border-top: 1px solid #44475a;
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+  padding-top: 14px;
+}
+.pmc-capacity h3 {font-size: 14px; margin: 0;}
+.pmc-capacity-label {align-items: baseline; display: flex; flex-wrap: wrap; gap: 4px 10px; justify-content: space-between; font-size: 12px;}
+.pmc-capacity-phase {display: grid; gap: 6px;}
+.pmc-capacity-track {background: #191b26; border-radius: 4px; height: 10px; overflow: hidden; position: relative;}
+.pmc-capacity-track span {height: 100%; left: 0; position: absolute; top: 0;}
+.pmc-capacity-peak {background: #696078;}
+.pmc-capacity-used {background: #69d6bd;}
+.pmc-capacity-phase.-near .pmc-capacity-used {background: #e7c879;}
+.pmc-capacity-phase.-over .pmc-capacity-used {background: #ee667a;}
+.pmc-capacity small,.code-injection-module small {color: #b8bbcc; font-size: 11px; line-height: 1.45;}
+.pmc-capacity .pmc-capacity-warning {color: #ff8899;}
+.code-injection-module small {display: block; margin-top: 5px;}
+
 .code-injection-sidebar__runtime .code-injection-panel__header {
   flex-wrap: wrap;
 }

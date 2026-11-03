@@ -2,6 +2,14 @@ import { isGen5Project } from "./constants";
 import type { ProjectState } from "./projectStore";
 import { encodeGen5TextBank } from "./text";
 import { getTextBank, parseTextEntryId, updateTextEntry } from "./textModel";
+import vanillaAbilityNames from "../assets/data/vanilla_abilities.txt?raw";
+
+const vanillaNames=vanillaAbilityNames.split(/\r?\n/u);
+/** Display only: retain user capitalization and the ROM's original text. */
+export function displayAbilityName(id:number,name:string):string {
+  return id>0&&id<=164&&name===vanillaNames[id]
+    ?name.toLowerCase().replace(/\b\w/gu,letter=>letter.toUpperCase()):name;
+}
 
 export function normalizeAbilityDescription(text: string): string {
   const value = text.replace(/\r\n?/gu, "\n").replace(/\n/gu, "\\n");

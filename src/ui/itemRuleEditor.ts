@@ -1,3 +1,4 @@
+import { displayAbilityName } from "../pokeweb/abilityTextModel";
 import { inspectCustomMoveFlags } from "../pokeweb/abilityEffectsModel";
 import { customMoveFlagFilter, customMoveFlagId, type CustomMoveFlag } from "../pokeweb/customMoveFlags";
 import {recipeAbilityEffect,ABILITY_PROTECTED_CONDITION_LABELS} from "../pokeweb/abilityRecipeEffects";
@@ -93,7 +94,7 @@ export function renderItemRuleForm(project: ProjectState, rule: ItemRuleSet, opt
     <div data-rule-effects>${rule.effects.map((effect, index) => `<div class="item-rule-effect" data-rule-effect data-rule-effect-kind="${effect.kind}" data-rule-index="${index}">
       <div class="item-rule-effect-heading"><select data-rule-effect-kind aria-label="Effect ${index + 1}">${[false, true].map(native => `<optgroup label="${native ? options.ability ? "Copied ability handlers" : "Native item behaviors" : "Adjustable primitives"}">${(options.definitions ?? ITEM_RULE_EFFECTS).filter(d => Boolean(d.nativeItem) === native).map(d => option(d.kind, d.label, effect.kind)).join("")}</optgroup>`).join("")}</select>
       <button type="button" class="btn -default" data-rule-action="remove-effect" data-rule-index="${index}" aria-label="Remove effect ${index + 1}" ${rule.effects.length === 1 ? "disabled" : ""}>×</button></div>
-      <div class="item-rule-effect-fields">${effectFields(effect, index, typeNamesForProject(project), options, project.texts.banks.abilities??[],customFlags)}</div></div>`).join("")}</div>
+      <div class="item-rule-effect-fields">${effectFields(effect, index, typeNamesForProject(project), options, (project.texts.banks.abilities??[]).map((name,id)=>displayAbilityName(id,name)),customFlags)}</div></div>`).join("")}</div>
     ${group(root, typeNamesForProject(project))}
     ${options.ability ? "" : `<label class="item-rule-consumable"><input type="checkbox" data-rule-consumable ${rule.consumable ? "checked" : ""}>Consume on first successful effect</label>`}
     <button type="button" class="btn -default" data-rule-action="apply">${options.ability?"Apply ability":"Apply custom effects"}</button>

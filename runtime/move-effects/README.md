@@ -151,10 +151,21 @@ narrow Sheer Force eligibility and flinch adapters; unrelated moves delegate to
 their native implementations. It does not change loader limits, heap sizes,
 Pokémon structures or the action scheduler.
 
-Current packages share immutable event tables between moves with the same event
-list and omit private symbol names. Export/import names, the editor's configuration
-section and all required relocations remain available. Applying a recipe repackages
-the shared DLL; older packages continue to use their original verification layout.
+Current packages share immutable recipe bodies and event tables, omit empty
+always-active condition records, and generate callbacks only for events used by
+installed recipes. Compiler-local symbols retain their relocation records without
+exported names. Required public exports and imports remain available. Recurring
+effects retain each actual move's identity even when its recipe body is shared.
+
+Packaging version 2 stores the compressed editor recipe book and original move
+fields in `pokeweb/move-recipes.dat`, outside PMC's loaded DLL. The DLL's
+`MoveRecipeBookHash` binds that file to the installed package; a missing or
+mismatched file prevents editing. Keep it when transferring files between ROMs.
+This sidecar does not need a runtime file reader: battle execution uses the binary
+configuration inside the DLL. Applying a recipe updates both files in one staged
+transaction. Older inline packages keep their original verification layout and
+migrate on the next edit. Removing the final recipe retires the DLL and clears
+the saved recipe book.
 
 Each move subscribes only to its required native events. The runtime checks
 the owning battler and checks the move ID wherever the native frame provides
@@ -171,8 +182,9 @@ on a battle event: move lookup uses a sorted binary index.
 
 Each recipe allows 16 effects. Each condition tree allows 32 nodes, eight
 children per group and three nested levels. Configuration is bounded to
-65,535 bytes; code plus state to 48 KiB; and serialized module plus live code
-and state to 96 KiB. Installation rejects oversized configurations. The
+65,535 bytes; code plus state to 48 KiB; and expanded DLL allocation, including
+allocator alignment and its block header, to 96 KiB. Code already present in
+the serialized module is counted once. Installation rejects oversized configurations. The
 history runtime allocates 228 bytes of private battle state. The persistent
 runtime allocates 1,468 bytes in total, including history state and the bounded
 recurring-effect slots. Both use a field observer for only the required events;
@@ -199,7 +211,11 @@ deterministic and do not accept an effect-chance roll.
 `python3 runtime/move-effects/build.py` rebuilds the bundled relocatable runtime
 using ARM GNU tools and RPMTool. Set `ARM_TOOLCHAIN_BIN` and `RPM_TOOL_JAR` when
 they are not in the workspace's configured tool directories. No ROM is needed
-for this build. Add `--history` or `--persistent` to rebuild the corresponding runtime artifact.
+for this build. The default builds all four current compact runtime artifacts.
+Use `--base`, `--history`, `--persistent` or `--modern-knock` for one variant.
+Retained verification bundles are not overwritten. Add `--test-only` to compile
+an object with all named event wrappers for the Thumb interpreter tests without
+changing any bundled artifact.
 
 `generate_bindings.ts CLEAN_WHITE2.nds SDK_IRDO.yml OUTPUT.json` generates the
 BW2 native contracts from explicit local inputs. For BW1, generate the ability
