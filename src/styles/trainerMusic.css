@@ -1,5 +1,5 @@
 .trainer-music-page {
-  background: #282a36;
+  background: var(--ink-0);
   color: #f2f2f2;
   min-height: 100vh;
   padding: 68px 28px 36px;
@@ -62,7 +62,7 @@
 }
 
 .trainer-music-warning {
-  background: #282a36;
+  background: var(--ink-0);
   border: 0;
   border-radius: 0;
   display: grid;
@@ -97,7 +97,7 @@
 }
 
 .trainer-music-tab.-active {
-  border-bottom-color: #bd93f9;
+  border-bottom-color: var(--amber);
   color: #f8f8f2;
 }
 
@@ -128,14 +128,14 @@
   display: grid;
   gap: 14px;
   position: sticky;
-  top: 58px;
+  top: calc(var(--chrome-h) + 18px);
 }
 
 .trainer-music-card,
 .trainer-music-assignments,
 .trainer-music-state-card {
-  background: #383a59;
-  border: 1px solid #44475a;
+  background: var(--ink-2);
+  border: 1px solid var(--ink-3);
   border-radius: 6px;
 }
 
@@ -292,7 +292,7 @@
 
 .trainer-music-search:focus,
 .trainer-music-assignment-select:focus {
-  border-color: #bd93f9;
+  border-color: var(--amber);
   outline: 2px solid rgb(189 147 249 / 22%);
 }
 
@@ -339,7 +339,7 @@
 }
 
 .trainer-music-table tr.-selected td:first-child {
-  box-shadow: inset 3px 0 #bd93f9;
+  box-shadow: inset 3px 0 var(--amber);
 }
 
 .trainer-music-table tr.-readonly td {
@@ -424,7 +424,7 @@
 }
 
 .trainer-music-state-card.-error {
-  border-color: #44475a;
+  border-color: var(--ink-3);
   border-left: 3px solid #ff8585;
 }
 
@@ -478,5 +478,5 @@
   }
 }
 
-.trainer-music-help-card { background: transparent; border: 0; border-top: 1px solid #44475a; padding: 14px 0 0; }
-.trainer-music-export-actions .btn, .trainer-music-row-play.btn { background: #383a59; border-color: #55586d; color: #f2f2f2; }
+.trainer-music-help-card { background: transparent; border: 0; border-top: 1px solid var(--ink-3); padding: 14px 0 0; }
+.trainer-music-export-actions .btn, .trainer-music-row-play.btn { background: var(--ink-2); border-color: #55586d; color: #f2f2f2; }

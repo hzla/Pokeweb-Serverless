@@ -48,6 +48,7 @@ import { detectWhite2ExpandedRigAtlasPatchState } from "./expandedRigAtlasPatch"
 import { createFileStore, createNarcStore, type ProjectState } from "./projectStore";
 import { refreshProjectSessionIndexes } from "./projectSession";
 import { getStarterOverlayIds } from "./starterModel";
+import { PROFESSOR_INTRO_OVERLAY_IDS } from "./professorIntroModel";
 import { cleanDisplayText, decodeGen4TextBank, decodeGen5TextBank, type TextEntry } from "./text";
 import {
   BLACK2UPGRADE_TYPE_CHART_ROMFS_PATH,
@@ -187,7 +188,7 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
   normalizeEncounterFormReferences(project);
   if (!project.session.fairy && detectFairyTypeUsage(project)) project.session.fairy = true;
 
-  if (selectedNarcs.size === 0 || selectedNarcs.has("grottos") || selectedNarcs.has("moves") || selectedNarcs.has("items") || selectedNarcs.has("personal") || selectedNarcs.has("starter_sprites")) {
+  if (selectedNarcs.size === 0 || selectedNarcs.has("grottos") || selectedNarcs.has("moves") || selectedNarcs.has("items") || selectedNarcs.has("personal") || selectedNarcs.has("starter_sprites") || (project.session.baseRom === "BW2" && selectedNarcs.has("scripts"))) {
     await reportLoadProgress(onProgress, "Extracting overlays");
     extractOverlays(rom, project, selectedNarcs);
   }
@@ -333,6 +334,7 @@ function extractOverlays(rom: NintendoDSRom, project: ProjectState, selectedNarc
     includeItemEffects ? 167 : undefined,
     project.session.baseRom === "BW" && (includeAll || selectedNarcs.has("personal")) ? 93 : undefined,
     ...(includeStarters ? getStarterOverlayIds(project.session.baseRom) : []),
+    ...(project.session.baseRom === "BW2" && (includeStarters || selectedNarcs.has("scripts")) ? PROFESSOR_INTRO_OVERLAY_IDS : []),
   ].filter((id): id is number => id !== undefined);
   if (ids.length === 0) return;
   const overlays = rom.loadArm9Overlays(ids);

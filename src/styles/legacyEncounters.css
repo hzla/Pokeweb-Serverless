@@ -1,5 +1,5 @@
 #encounters .field-header {
-  top: 40px;
+  top: var(--chrome-h);
 }
 
 #encounters > .encounter-card > .expanded-field-main {
@@ -82,17 +82,17 @@
   padding: 10px 12px;
   text-align: left;
   width: 50%;
-  background: #282a36;
+  background: var(--ink-0);
   border-left: 3px solid #777b8f;
 }
 
 .encounter-wild-group.-grass {
-  background: #282a36;
+  background: var(--ink-0);
   border-color: #2ecc71;
 }
 
 .encounter-wild-group.-water {
-  background: #282a36;
+  background: var(--ink-0);
   border-color: #3498db;
 }
 
@@ -104,13 +104,13 @@
 
 .encounter-wild-group.-grass:hover,
 .encounter-wild-group.-grass:focus-visible {
-  background: #383a59;
+  background: var(--ink-2);
   box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.25);
 }
 
 .encounter-wild-group.-water:hover,
 .encounter-wild-group.-water:focus-visible {
-  background: #383a59;
+  background: var(--ink-2);
   box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.25);
 }
 
@@ -159,7 +159,7 @@
 
 .encounter-copy-toolbar {
   align-items: center;
-  border-bottom: 1px solid #44475a;
+  border-bottom: 1px solid var(--ink-3);
   box-sizing: border-box;
   display: flex;
   flex: 0 0 100%;
@@ -193,11 +193,11 @@
 
 .encounter-copy-source {
   background: #f2f2f2;
-  border: 1px solid #44475a;
+  border: 1px solid var(--ink-3);
   border-radius: 4px;
   box-sizing: border-box;
-  color: #282a36;
-  font: 14px/1.25 Rubik, sans-serif;
+  color: var(--ink-0);
+  font: 14px/1.25 Barlow, sans-serif;
   min-height: 36px;
   padding: 8px 10px;
   width: 130px;
@@ -283,7 +283,7 @@
 
 .expanded-tab-icon:hover svg *,
 .expanded-tab-icon.-active svg * {
-  fill: #bd93f9;
+  fill: var(--amber);
 }
 
 .expanded-grass {

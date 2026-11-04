@@ -48,7 +48,7 @@
 
 .overworld-entity-action-row .ow-btn {
   width: 100%;
-  background: #6272a4;
+  background: var(--field-line);
 }
 
 .overworld-test-warp[hidden] {
@@ -71,7 +71,7 @@
   text-align: center;
   padding: 8px 12px;
   border-radius: 2px;
-  background: #bd93f9;
+  background: var(--amber);
 }
 
 #add-entity {
@@ -95,9 +95,9 @@
 }
 
 .ow-entity-tab {
-  border: 1px solid #44475a;
+  border: 1px solid var(--ink-3);
   border-radius: 2px;
-  background: #282a36;
+  background: var(--ink-0);
   color: #f8f8f2;
   cursor: pointer;
   padding: 7px 8px;
@@ -114,8 +114,8 @@
 .sidebar-select {
   min-width: 112px;
   max-width: 140px;
-  background: #282a36;
-  border: 1px solid #44475a;
+  background: var(--ink-0);
+  border: 1px solid var(--ink-3);
   border-radius: 3px;
   color: #50baa0;
   padding: 4px 6px;
@@ -130,7 +130,7 @@
 }
 
 .overworld-empty-selection {
-  border: 1px solid #44475a;
+  border: 1px solid var(--ink-3);
   border-radius: 4px;
   color: #f8f8f2;
   padding: 10px;
@@ -141,10 +141,10 @@
   margin-left: 18vw;
   width: 82vw;
   min-width: 0;
-  height: calc(100vh - 40px);
+  height: calc(100vh - var(--chrome-h));
   padding: 0;
   overflow: hidden;
-  background: #383a59;
+  background: var(--ink-2);
   position: relative;
   flex: 0 0 auto;
 }
@@ -186,7 +186,7 @@
 }
 
 .overworld-map {
-  background: #282a36;
+  background: var(--ink-0);
   z-index: 1;
 }
 
@@ -273,24 +273,25 @@
 
 #overworld.overworld-gen5-permissions .overworld-toolbar {
   position: fixed;
+  top: calc(var(--chrome-h) + 18px);
 }
 
 .ow-tool {
-  background: #44475a;
+  background: var(--ink-3);
   min-width: 44px;
 }
 
 .overworld-view-toggle {
   display: flex;
   overflow: hidden;
-  border: 1px solid #6272a4;
+  border: 1px solid var(--field-line);
   border-radius: 4px;
 }
 
 .overworld-view-button {
   border-radius: 0;
   min-width: 96px;
-  background: #282a36;
+  background: var(--ink-0);
 }
 
 .overworld-view-button.active {
@@ -300,7 +301,7 @@
 }
 
 .overworld-view-title {
-  border: 1px solid #6272a4;
+  border: 1px solid var(--field-line);
   border-radius: 4px;
   background: rgba(40, 42, 54, 0.9);
   color: #f8f8f2;
@@ -311,9 +312,9 @@
 
 .overworld-permission-controls,
 .overworld-permission-matrix {
-  border: 1px solid #44475a;
+  border: 1px solid var(--ink-3);
   border-radius: 4px;
-  background: #282a36;
+  background: var(--ink-0);
   padding: 10px;
 }
 
@@ -355,12 +356,12 @@
   left: 8px;
   width: 18px;
   height: 18px;
-  border: 1px solid #6272a4;
+  border: 1px solid var(--field-line);
   border-radius: 3px;
   background:
     linear-gradient(135deg, transparent 34%, rgba(248, 248, 242, 0.8) 35%, rgba(248, 248, 242, 0.8) 43%, transparent 44%),
     linear-gradient(135deg, transparent 54%, rgba(248, 248, 242, 0.65) 55%, rgba(248, 248, 242, 0.65) 63%, transparent 64%),
-    #44475a;
+    var(--ink-3);
   cursor: nwse-resize;
   z-index: 2;
   padding: 0;
@@ -370,7 +371,7 @@
   display: block;
   width: 100%;
   height: 220px;
-  border: 1px solid #44475a;
+  border: 1px solid var(--ink-3);
   border-radius: 2px;
   background: #202330;
   image-rendering: pixelated;
@@ -406,7 +407,7 @@
 .overworld-permission-controls .map3d-field input {
   box-sizing: border-box;
   width: 100%;
-  border: 1px solid #44475a;
+  border: 1px solid var(--ink-3);
   border-radius: 2px;
   background: #202330;
   color: #50baa0;
@@ -536,7 +537,7 @@
   z-index: 3;
   max-width: min(520px, calc(100% - 36px));
   padding: 10px 12px;
-  border: 1px solid #6272a4;
+  border: 1px solid var(--field-line);
   border-radius: 4px;
   background: rgba(40, 42, 54, 0.9);
   color: #f8f8f2;
@@ -547,11 +548,11 @@
 .popup-editor {
   position: static;
   width: 100%;
-  border: 1px solid #44475a;
+  border: 1px solid var(--ink-3);
   border-radius: 4px;
   padding: 10px;
   z-index: 10;
-  background: #282a36;
+  background: var(--ink-0);
   display: none;
 }
 

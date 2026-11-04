@@ -188,7 +188,7 @@
 }
 
 .battle-background-format-note {
-  border-top: 1px solid #44475a;
+  border-top: 1px solid var(--ink-3);
   color: #9fa8bc;
   font-size: 11px;
   line-height: 1.5;
@@ -209,7 +209,7 @@
 .battle-background-content {
   background: #20232d;
   margin-left: 280px;
-  min-height: calc(100vh - 40px);
+  min-height: calc(100vh - var(--chrome-h));
   padding: 0;
   width: calc(100% - 280px);
 }

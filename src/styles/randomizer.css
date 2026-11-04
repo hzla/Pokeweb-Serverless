@@ -1,9 +1,9 @@
 .randomizer-page {
   --randomizer-accent: #50fa7b;
   --randomizer-accent-strong: #1abc9c;
-  --randomizer-card: #383a59;
-  --randomizer-line: #44475a;
-  background: #282a36;
+  --randomizer-card: var(--ink-2);
+  --randomizer-line: var(--ink-3);
+  background: var(--ink-0);
   color: #f2f2f2;
   display: grid;
   flex: 1 1 auto;
@@ -15,13 +15,13 @@
 
 .randomizer-sidebar {
   align-self: start;
-  background: #282a36;
-  border-right: 1px solid #44475a;
+  background: var(--ink-0);
+  border-right: 1px solid var(--ink-3);
   box-sizing: border-box;
-  min-height: calc(100vh - 40px);
+  min-height: calc(100vh - var(--chrome-h));
   padding: 28px 22px;
   position: sticky;
-  top: 40px;
+  top: var(--chrome-h);
 }
 
 .randomizer-sidebar h1 {
@@ -63,7 +63,7 @@
 
 .randomizer-control select:focus,
 .randomizer-control input:focus {
-  border-color: #bd93f9;
+  border-color: var(--amber);
   box-shadow: 0 0 0 3px rgb(189 147 249 / 14%);
   outline: none;
 }
@@ -75,7 +75,7 @@
 }
 
 .randomizer-control.-seed {
-  border-bottom: 1px solid #44475a;
+  border-bottom: 1px solid var(--ink-3);
   margin-bottom: 18px;
   padding-bottom: 20px;
 }
@@ -87,7 +87,7 @@
 }
 
 .randomizer-seed-row .btn {
-  background: #bd93f9;
+  background: var(--amber);
   padding-inline: 12px;
 }
 
@@ -139,7 +139,7 @@
 .randomizer-reset {
   background: transparent;
   border: 0;
-  color: #bd93f9;
+  color: var(--amber);
   cursor: pointer;
   font-size: 12px;
   padding: 5px;
@@ -215,7 +215,7 @@
 }
 
 .randomizer-unavailable {
-  background: #282a36;
+  background: var(--ink-0);
   border: 0;
   border-radius: 0;
   color: #d6d7e2;
@@ -283,7 +283,7 @@
 }
 
 .randomizer-alert.-error {
-  background: #282a36;
+  background: var(--ink-0);
   border: 0;
   color: #f2f2f2;
   border-left: 3px solid #ff8585;
@@ -296,7 +296,7 @@
   }
 
   .randomizer-sidebar {
-    border-bottom: 1px solid #44475a;
+    border-bottom: 1px solid var(--ink-3);
     border-right: 0;
     min-height: 0;
     position: static;

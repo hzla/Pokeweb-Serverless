@@ -5,8 +5,8 @@ body { margin: 0; }
 .homepage, .homepage *, .homepage *::before, .homepage *::after { box-sizing: border-box; }
 .homepage {
   width: 100%; min-height: 100vh; padding: 28px 32px 0;
-  background: #282a36; color: #f2f2f2;
-  font: 16px/1.6 Rubik, Arial, sans-serif;
+  background: var(--ink-0); color: #f2f2f2;
+  font: 16px/1.6 Barlow, Arial, sans-serif;
   --home-muted: #c1c3d3; --home-accent: #c5a3ff; --home-border: #45485d;
 }
 .homepage-shell { width: min(1180px, 100%); margin: 0 auto; }

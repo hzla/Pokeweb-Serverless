@@ -1,7 +1,7 @@
 body {
-  background: #282a36;
+  background: var(--ink-0);
   color: #f2f2f2;
-  font-family: Rubik, Arial, sans-serif;
+  font-family: Barlow, Arial, sans-serif;
 }
 
 a {
@@ -30,7 +30,7 @@ button.header-item {
   padding: 5px calc(2vw);
   padding-right: 30px;
   justify-content: space-between;
-  background: #282a36;
+  background: var(--ink-0);
   box-shadow: 0 5px 10px 0 rgb(0 0 0 / 15%);
   font-size: 0.8vw;
 }
@@ -73,8 +73,8 @@ button.header-item {
 .header-item:hover,
 .header-item.-active {
   cursor: pointer;
-  color: #bd93f9;
-  border-bottom: 2px solid #bd93f9;
+  color: var(--amber);
+  border-bottom: 2px solid var(--amber);
 }
 
 .header-item.disabled {
@@ -114,7 +114,7 @@ button.header-item {
 }
 
 .header-more-menu {
-  background: #282a36;
+  background: var(--ink-0);
   box-shadow: 0 8px 18px rgb(0 0 0 / 24%);
   display: none;
   min-width: 150px;
@@ -154,20 +154,20 @@ button.header-item {
   display: flex;
   height: 100vh;
   overflow: auto;
-  padding-top: 50px;
+  padding-top: calc(var(--chrome-h) + 10px);
   width: 100%;
 }
 
 .pokemon-filter {
   width: 18vw;
-  background-color: #282a36;
+  background-color: var(--ink-0);
   color: #f2f2f2;
   flex: 0 0 auto;
   height: 100vh;
   overflow: visible;
   padding: 10px;
   position: fixed;
-  top: 40px;
+  top: var(--chrome-h);
   z-index: 20;
   box-shadow: 10px 0 10px 0 rgb(0 0 0 / 15%);
 }
@@ -209,18 +209,18 @@ button.header-item {
   width: 100%;
   text-align: center;
   display: block;
-  border-bottom: 1px solid #44475a;
+  border-bottom: 1px solid var(--ink-3);
   padding: 10px 0;
   font-size: 1.5vw;
 }
 
 .filter-input {
   border-radius: 5px;
-  border: 1px solid #44475a;
+  border: 1px solid var(--ink-3);
   height: 40px;
   padding: 5px 10px;
   background: #f2f2f2;
-  color: #282a36;
+  color: var(--ink-0);
 }
 
 .btn {
@@ -229,7 +229,7 @@ button.header-item {
   border-radius: 3px;
   cursor: pointer;
   display: inline-block;
-  font-family: Rubik, sans-serif;
+  font-family: Barlow, sans-serif;
   font-size: 13px;
   font-weight: 500;
   letter-spacing: 0;
@@ -237,14 +237,14 @@ button.header-item {
   padding: 10px 15px;
   text-decoration: none;
   text-transform: none;
-  background: #383a59;
+  background: var(--ink-2);
   color: #f2f2f2;
 }
 
 .btn.-default {
-  background: #bd93f9;
+  background: var(--amber);
   color: #f1f1f1;
-  border-color: #bd93f9;
+  border-color: var(--amber);
 }
 
 @media only screen and (max-width: 1180px) {
@@ -325,7 +325,7 @@ button.header-item {
   }
 }
 
-.btn.-primary { background: #1abc9c; border-color: #1abc9c; color: #f1f1f1; }
+.btn.-primary { background: var(--amber); border-color: var(--amber); color: var(--on-amber); }
 .btn:hover:not(:disabled) { filter: brightness(1.1); }
-.btn:focus-visible { outline: 2px solid #bd93f9; outline-offset: 3px; }
+.btn:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
 .btn:disabled { cursor: not-allowed; opacity: 0.55; }

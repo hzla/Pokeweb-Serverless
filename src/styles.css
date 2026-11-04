@@ -1,7 +1,39 @@
+/* Unova instrument tokens (see "Pokeweb UI Design Template"). */
+@font-face { font-family: "Barlow"; font-weight: 400; font-display: swap; src: url("./assets/fonts/barlow-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Barlow"; font-weight: 500; font-display: swap; src: url("./assets/fonts/barlow-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "Barlow"; font-weight: 600; font-display: swap; src: url("./assets/fonts/barlow-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Semi Condensed"; font-weight: 500; font-display: swap; src: url("./assets/fonts/barlow-semi-condensed-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Semi Condensed"; font-weight: 600; font-display: swap; src: url("./assets/fonts/barlow-semi-condensed-latin-600-normal.woff2") format("woff2"); }
+
 :root {
-  background: #282a36;
-  color: #f2f2f2;
-  font-family: Rubik, Arial, sans-serif;
+  /* Ink surfaces: elevation is a step in ink, never a shadow. */
+  --ink-0: #161a22;
+  --ink-1: #1e2430;
+  --ink-2: #283041;
+  --ink-3: #3a4459;
+  --row-hover: #232a38;
+  --field: #12161d;
+  --field-line: #5d6b88;
+  --field-line-hover: #7a89a8;
+  --text: #e8ecf3;
+  --text-muted: #9aa5bb;
+  --value: #1abc9c;
+  /* The one accent: primary action, focus, selection, edit marks. */
+  --amber: #f5a524;
+  --amber-hover: #ffb84d;
+  --on-amber: #161a22;
+  --danger: #ff6b6b;
+  --success: #5ccf8f;
+  --font: "Barlow", system-ui, sans-serif;
+  --font-cond: "Barlow Semi Condensed", "Barlow", sans-serif;
+  --radius: 2px;
+  --slant: 8px;
+  --h-top: 44px;
+  --h-subnav: 40px;
+  --chrome-h: calc(var(--h-top) + var(--h-subnav));
+  background: var(--ink-0);
+  color: var(--text);
+  font-family: var(--font);
 }
 
 * {
@@ -24,7 +56,7 @@ img[src*="pokesprite/"] {
   display: grid;
   place-items: center;
   padding: 24px;
-  background: #282a36;
+  background: var(--ink-0);
 }
 
 .home-shell {
@@ -37,14 +69,14 @@ img[src*="pokesprite/"] {
 .home-tabs {
   display: flex;
   gap: 8px;
-  border-bottom: 1px solid #44475a;
+  border-bottom: 1px solid var(--ink-3);
   padding-bottom: 12px;
   overflow-x: auto;
 }
 
 .home-tab {
-  background: #383a59;
-  border: 1px solid #44475a;
+  background: var(--ink-2);
+  border: 1px solid var(--ink-3);
   border-radius: 6px;
   color: #d6d7e2;
   cursor: pointer;
@@ -55,8 +87,8 @@ img[src*="pokesprite/"] {
 }
 
 .home-tab[aria-selected="true"] {
-  background: #bd93f9;
-  border-color: #bd93f9;
+  background: var(--amber);
+  border-color: var(--amber);
   color: #f1f1f1;
 }
 
@@ -83,7 +115,7 @@ img[src*="pokesprite/"] {
   align-items: center;
   justify-content: center;
   gap: 12px 16px;
-  border-top: 1px solid #44475a;
+  border-top: 1px solid var(--ink-3);
   padding-top: 20px;
   text-align: center;
 }
@@ -117,13 +149,13 @@ img[src*="pokesprite/"] {
 
 .translation-tool [hidden] { display: none; }
 .translation-tool .changelog-file { margin-bottom: 12px; }
-.translation-tool select { background: #44475a; color: #f2f2f2; padding: 8px; border: 1px solid #6272a4; border-radius: 4px; }
+.translation-tool select { background: var(--ink-3); color: #f2f2f2; padding: 8px; border: 1px solid var(--field-line); border-radius: 4px; }
 .translation-error { color: #f1a5a5; }
 
 .translation-assets {
   margin-top: 20px;
-  background: #383a59;
-  border: 1px solid #44475a;
+  background: var(--ink-2);
+  border: 1px solid var(--ink-3);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -134,8 +166,8 @@ img[src*="pokesprite/"] {
   font-weight: 500;
 }
 
-.translation-assets summary:hover { background: #44475a; }
-.translation-assets[open] summary { border-bottom: 1px solid #6272a4; }
+.translation-assets summary:hover { background: var(--ink-3); }
+.translation-assets[open] summary { border-bottom: 1px solid var(--field-line); }
 .translation-assets summary:focus-visible,
 .translation-assets-scroll:focus-visible { outline: 2px solid #8be9fd; outline-offset: -3px; }
 .translation-assets-scroll { overflow-x: auto; }
@@ -152,40 +184,40 @@ img[src*="pokesprite/"] {
 .translation-assets-table th,
 .translation-assets-table td {
   padding: 14px 24px;
-  border-bottom: 1px solid #44475a;
+  border-bottom: 1px solid var(--ink-3);
   vertical-align: top;
 }
 
-.translation-assets-table thead { background: #303247; color: #bd93f9; }
+.translation-assets-table thead { background: #303247; color: var(--amber); }
 .translation-assets-table tbody th { width: 22%; font-weight: 500; }
 .translation-assets-table td { color: #d6d7e2; }
 .translation-assets-table code { color: #8be9fd; white-space: nowrap; }
 .translation-assets-table tr:last-child > * { border-bottom: 0; }
 
-.translation-graphics { padding: 20px 24px; border-bottom: 1px solid #6272a4; }
+.translation-graphics { padding: 20px 24px; border-bottom: 1px solid var(--field-line); }
 .translation-graphics [hidden] { display: none; }
 .translation-graphics-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .translation-graphics h3 { margin: 0; font-size: 18px; }
 .translation-graphics label { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
 .translation-graphics select { min-width: 0; max-width: 100%; flex: 1; }
-.translation-graphics select, .translation-graphics input { background: #44475a; color: #f2f2f2; padding: 8px; border: 1px solid #6272a4; border-radius: 4px; }
+.translation-graphics select, .translation-graphics input { background: var(--ink-3); color: #f2f2f2; padding: 8px; border: 1px solid var(--field-line); border-radius: 4px; }
 #translation-palette-controls:not([hidden]) { display: flex; flex-wrap: wrap; gap: 20px; }
 #translation-palette-controls input { width: 60px; }
 #translation-preview-status, #translation-preview-caption, #translation-preview-warnings { margin-top: 14px; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
 .translation-graphics-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 18px; }
 .translation-graphics-pair figure { margin: 0; min-width: 0; }
-.translation-graphics-pair figcaption { margin-bottom: 8px; color: #bd93f9; }
-.translation-graphic-image { min-height: 80px; padding: 12px; overflow: auto; border: 1px solid #6272a4; border-radius: 4px; background: repeating-conic-gradient(#303247 0% 25%, #383a59 0% 50%) 0 / 16px 16px; }
+.translation-graphics-pair figcaption { margin-bottom: 8px; color: var(--amber); }
+.translation-graphic-image { min-height: 80px; padding: 12px; overflow: auto; border: 1px solid var(--field-line); border-radius: 4px; background: repeating-conic-gradient(#303247 0% 25%, var(--ink-2) 0% 50%) 0 / 16px 16px; }
 .translation-graphic-image canvas { display: block; max-width: 100%; height: auto; image-rendering: pixelated; }
 #translation-preview-issues summary { padding: 14px 0; border: 0; }
 #translation-preview-issues ul { max-height: 220px; overflow: auto; margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.6; }
 .translation-differences { margin-top: 18px; }
 .translation-differences > summary { cursor: pointer; line-height: 1.5; }
-.translation-differences .translation-assets-scroll { max-height: 300px; margin-top: 12px; border: 1px solid #6272a4; border-radius: 4px; }
+.translation-differences .translation-assets-scroll { max-height: 300px; margin-top: 12px; border: 1px solid var(--field-line); border-radius: 4px; }
 .translation-differences p { margin: 12px 0; font-size: 14px; }
 .translation-script-audit { margin-top: 18px; }
 .translation-script-audit summary { cursor: pointer; line-height: 1.5; }
-.translation-script-member { margin-top: 12px; border: 1px solid #6272a4; border-radius: 4px; padding: 10px; }
+.translation-script-member { margin-top: 12px; border: 1px solid var(--field-line); border-radius: 4px; padding: 10px; }
 .translation-script-member > details { margin-top: 10px; }
 .translation-script-member .translation-assets-scroll { max-height: 320px; margin-top: 10px; }
 .translation-script-member .translation-assets-table td { min-width: 150px; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -195,8 +227,8 @@ img[src*="pokesprite/"] {
 }
 
 .upload-panel {
-  background: #383a59;
-  border: 1px solid #44475a;
+  background: var(--ink-2);
+  border: 1px solid var(--ink-3);
   border-radius: 8px;
   padding: 28px;
   box-shadow: 0 8px 20px rgb(0 0 0 / 20%);
@@ -254,14 +286,14 @@ img[src*="pokesprite/"] {
 
 .ai-breakdown-table th,
 .ai-breakdown-table td {
-  border: 1px solid #6272a4;
+  border: 1px solid var(--field-line);
   padding: 16px;
   vertical-align: top;
 }
 
 .ai-breakdown-table thead {
-  background: #282a36;
-  color: #bd93f9;
+  background: var(--ink-0);
+  color: var(--amber);
 }
 
 .ai-breakdown-table tbody th {
@@ -334,8 +366,8 @@ img[src*="pokesprite/"] {
   display: grid;
   gap: 12px;
   padding: 24px;
-  border: 1px dashed #bd93f9;
-  background: #282a36;
+  border: 1px dashed var(--amber);
+  background: var(--ink-0);
   border-radius: 6px;
   cursor: pointer;
 }
@@ -360,7 +392,7 @@ img[src*="pokesprite/"] {
   margin-top: 18px;
   min-height: 42px;
   padding: 12px;
-  background: #282a36;
+  background: var(--ink-0);
   border-radius: 6px;
   color: #f2f2f2;
 }
@@ -448,8 +480,8 @@ img[src*="pokesprite/"] {
 }
 
 .rom-load-dialog__close {
-  background: #282a36;
-  border: 1px solid #6272a4;
+  background: var(--ink-0);
+  border: 1px solid var(--field-line);
   border-radius: 5px;
   color: #f2f2f2;
   cursor: pointer;
@@ -464,8 +496,8 @@ img[src*="pokesprite/"] {
 }
 
 .rom-load-progress {
-  background: #282a36;
-  border: 1px solid #44475a;
+  background: var(--ink-0);
+  border: 1px solid var(--ink-3);
   border-radius: 999px;
   height: 10px;
   overflow: hidden;
@@ -584,8 +616,8 @@ img[src*="pokesprite/"] {
 }
 
 .changelog-file {
-  background: #282a36;
-  border: 1px solid #44475a;
+  background: var(--ink-0);
+  border: 1px solid var(--ink-3);
   border-radius: 5px;
   display: grid;
   gap: 10px;
@@ -626,8 +658,8 @@ img[src*="pokesprite/"] {
 }
 
 .changelog-output {
-  background: #282a36;
-  border: 1px solid #44475a;
+  background: var(--ink-0);
+  border: 1px solid var(--ink-3);
   border-radius: 5px;
   color: #f2f2f2;
   display: block;
@@ -649,7 +681,7 @@ img[src*="pokesprite/"] {
 }
 
 .changelog-tab-list {
-  border-bottom: 1px solid #44475a;
+  border-bottom: 1px solid var(--ink-3);
   display: flex;
   gap: 8px;
   overflow-x: auto;
@@ -657,8 +689,8 @@ img[src*="pokesprite/"] {
 }
 
 .changelog-tab {
-  background: #282a36;
-  border: 1px solid #44475a;
+  background: var(--ink-0);
+  border: 1px solid var(--ink-3);
   border-radius: 5px;
   color: #f2f2f2;
   cursor: pointer;
@@ -668,8 +700,8 @@ img[src*="pokesprite/"] {
 }
 
 .changelog-tab.-active {
-  border-color: #bd93f9;
-  color: #bd93f9;
+  border-color: var(--amber);
+  color: var(--amber);
 }
 
 .changelog-tab span {
@@ -690,7 +722,7 @@ img[src*="pokesprite/"] {
 }
 
 .changelog-subject {
-  border-bottom: 1px solid #44475a;
+  border-bottom: 1px solid var(--ink-3);
   padding: 0 0 14px;
   margin-bottom: 14px;
 }
@@ -720,8 +752,8 @@ img[src*="pokesprite/"] {
 }
 
 .changelog-undo-btn {
-  background: #282a36;
-  border: 1px solid #44475a;
+  background: var(--ink-0);
+  border: 1px solid var(--ink-3);
   border-radius: 4px;
   color: #f2f2f2;
   cursor: pointer;
@@ -733,8 +765,8 @@ img[src*="pokesprite/"] {
 }
 
 .changelog-undo-btn:hover {
-  border-color: #bd93f9;
-  color: #bd93f9;
+  border-color: var(--amber);
+  color: var(--amber);
 }
 
 .changelog-changed {
@@ -753,8 +785,8 @@ img[src*="pokesprite/"] {
 }
 
 .export-changelog-dialog__panel {
-  background: #282a36;
-  border: 1px solid #44475a;
+  background: var(--ink-0);
+  border: 1px solid var(--ink-3);
   border-radius: 8px;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
   color: #f2f2f2;
@@ -793,14 +825,14 @@ img[src*="pokesprite/"] {
 }
 
 .changelog-empty {
-  background: #282a36;
+  background: var(--ink-0);
   border-radius: 5px;
   margin-top: 12px;
   padding: 12px;
 }
 
 .changelog-narc-picker {
-  border: 1px solid #6272a4;
+  border: 1px solid var(--field-line);
   border-radius: 6px;
   margin: 20px 0;
   padding: 16px;
@@ -835,7 +867,7 @@ img[src*="pokesprite/"] {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #282a36;
+  background: var(--ink-0);
   border-radius: 4px;
   padding: 10px;
   cursor: pointer;
@@ -858,8 +890,8 @@ img[src*="pokesprite/"] {
 }
 
 .changelog-document {
-  background: #282a36;
-  border: 1px solid #44475a;
+  background: var(--ink-0);
+  border: 1px solid var(--ink-3);
   border-radius: 6px;
   padding: 24px;
   color: #eceef7;
@@ -868,7 +900,7 @@ img[src*="pokesprite/"] {
 }
 
 .changelog-document__header {
-  border-bottom: 1px solid #44475a;
+  border-bottom: 1px solid var(--ink-3);
   padding-bottom: 12px;
   margin-bottom: 24px;
 }
@@ -906,7 +938,7 @@ img[src*="pokesprite/"] {
 
 .changelog-document th,
 .changelog-document td {
-  border: 1px solid #44475a;
+  border: 1px solid var(--ink-3);
   padding: 9px 10px;
   text-align: left;
   vertical-align: top;
@@ -935,7 +967,7 @@ img[src*="pokesprite/"] {
 
 .changelog-team-slot > th,
 .changelog-team-slot > td {
-  border-top: 2px solid #6272a4;
+  border-top: 2px solid var(--field-line);
 }
 
 .changelog-document .changelog-old {
@@ -985,7 +1017,7 @@ img[src*="pokesprite/"] {
 .narc-picker {
   margin-top: 20px;
   padding-top: 18px;
-  border-top: 1px solid #44475a;
+  border-top: 1px solid var(--ink-3);
 }
 
 .narc-picker > summary {
@@ -1065,8 +1097,8 @@ img[src*="pokesprite/"] {
 
 .narc-choice {
   align-items: center;
-  background: #282a36;
-  border: 1px solid #44475a;
+  background: var(--ink-0);
+  border: 1px solid var(--ink-3);
   border-radius: 5px;
   display: flex;
   gap: 8px;
@@ -1272,6 +1304,6 @@ pre {
   line-height: 1.5;
 }
 
-.dirty-indicator__marker { color: #bd93f9; }
-.dirty-indicator:hover { border-bottom-color: #bd93f9; color: #bd93f9; }
-.dirty-indicator:focus-visible { outline: 2px solid #bd93f9; outline-offset: 2px; }
+.dirty-indicator__marker { color: var(--amber); }
+.dirty-indicator:hover { border-bottom-color: var(--amber); color: var(--amber); }
+.dirty-indicator:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }

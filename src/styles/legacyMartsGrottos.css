@@ -1,7 +1,7 @@
 #marts .field-header,
 #grottos .field-header,
 #grotto-odds .field-header {
-  top: 40px;
+  top: var(--chrome-h);
 }
 
 #marts > .mart-card > .expanded-field-main,

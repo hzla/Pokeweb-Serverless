@@ -1,18 +1,18 @@
 .overworld-weather-page {
-  --weather-bg: #282a36;
-  --weather-panel: #383a59;
+  --weather-bg: var(--ink-0);
+  --weather-panel: var(--ink-2);
   --weather-panel-hover: #41435f;
-  --weather-border: #44475a;
-  --weather-header: #6272a4;
+  --weather-border: var(--ink-3);
+  --weather-header: var(--field-line);
   --weather-text: #f2f2f2;
   --weather-muted: #b7bacd;
-  --weather-accent: #bd93f9;
+  --weather-accent: var(--amber);
   display: grid;
   grid-template-columns: minmax(290px, 340px) minmax(860px, 1fr);
   align-self: flex-start;
   width: 100%;
   margin-top: 40px;
-  min-height: calc(100vh - 45px);
+  min-height: calc(100vh - var(--chrome-h) - 5px);
   color: var(--weather-text);
   background: var(--weather-bg);
 }
@@ -20,12 +20,12 @@
 .overworld-weather-sidebar {
   display: flex;
   position: sticky;
-  top: 40px;
+  top: var(--chrome-h);
   align-self: start;
   flex-direction: column;
   gap: 12px;
   box-sizing: border-box;
-  height: calc(100vh - 40px);
+  height: calc(100vh - var(--chrome-h));
   padding: 18px;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -112,7 +112,7 @@
   border: 0;
   border-radius: 0;
   background: transparent;
-  border-top: 1px solid #44475a;
+  border-top: 1px solid var(--ink-3);
 }
 
 .weather-effect-detail p { margin: 8px 0; color: #c9d2da; font-size: 12px; line-height: 1.4; }
@@ -132,7 +132,7 @@
   color: #ffb86c;
 }
 .weather-badge.-custom {
-  color: #bd93f9;
+  color: var(--amber);
 }
 
 .weather-preview-frame {
@@ -245,19 +245,19 @@
 }
 
 .weather-graphics-page {
-  --weather-bg: #282a36;
-  --weather-panel: #383a59;
+  --weather-bg: var(--ink-0);
+  --weather-panel: var(--ink-2);
   --weather-panel-hover: #41435f;
-  --weather-border: #44475a;
-  --weather-header: #6272a4;
+  --weather-border: var(--ink-3);
+  --weather-header: var(--field-line);
   --weather-text: #f2f2f2;
   --weather-muted: #b7bacd;
-  --weather-accent: #bd93f9;
+  --weather-accent: var(--amber);
   display: grid;
   grid-template-columns: minmax(290px, 330px) minmax(0, 1fr);
   align-self: flex-start;
   width: 100%;
-  min-height: calc(100vh - 40px);
+  min-height: calc(100vh - var(--chrome-h));
   margin-top: 40px;
   color: var(--weather-text);
   background: var(--weather-bg);
@@ -265,13 +265,13 @@
 
 .weather-graphics-sidebar {
   position: sticky;
-  top: 40px;
+  top: var(--chrome-h);
   align-self: start;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  height: calc(100vh - 40px);
+  height: calc(100vh - var(--chrome-h));
   padding: 18px;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -370,7 +370,7 @@
   border: 0;
   border-left: 3px solid #ffb86c;
   border-radius: 0;
-  background: #282a36;
+  background: var(--ink-0);
   font-size: 12px;
   line-height: 1.45;
 }
@@ -429,21 +429,21 @@
   padding: 9px 11px;
   color: #d6d7e2;
   border: 0;
-  border-left: 3px solid #6272a4;
+  border-left: 3px solid var(--field-line);
   border-radius: 0;
-  background: #282a36;
+  background: var(--ink-0);
   font-size: 11px;
   line-height: 1.45;
 }
 .weather-lighting-note.-warning {
   color: #d6d7e2;
   border-left-color: #ffb86c;
-  background: #282a36;
+  background: var(--ink-0);
 }
 .weather-lighting-note.-runtime {
   color: #d6d7e2;
   border-left-color: #8be9fd;
-  background: #282a36;
+  background: var(--ink-0);
 }
 .weather-lighting-help { margin: -3px 0 12px; color: #bfc8df !important; }
 .weather-lighting-help strong { color: #eef2ff; }
@@ -550,7 +550,7 @@
 .weather-aux-card strong { display: block; margin-bottom: 9px; color: #fff; font-size: 12px; }
 .weather-aux-card canvas { width: 128px; height: 128px; }
 .weather-empty-channel { color: var(--weather-muted); text-align: center; }
-.weather-graphics-loading { box-sizing: border-box; min-height: 100vh; padding: 110px 30px; color: #c8cada; background: #282a36; font-size: 16px; text-align: center; }
+.weather-graphics-loading { box-sizing: border-box; min-height: 100vh; padding: 110px 30px; color: #c8cada; background: var(--ink-0); font-size: 16px; text-align: center; }
 .weather-graphics-loading.-error { color: #ff9c9c; }
 
 @media (max-width: 980px) {

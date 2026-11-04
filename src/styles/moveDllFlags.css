@@ -1,4 +1,4 @@
-#moves .move-dll-flags, #moves .move-native-flags { width: 100%; padding: 20px 24px 24px; border-top: 1px solid #44475a; }
+#moves .move-dll-flags, #moves .move-native-flags { width: 100%; padding: 20px 24px 24px; border-top: 1px solid var(--ink-3); }
 #moves .move-dll-flags-heading, #moves .move-native-flags-heading { display: flex; align-items: baseline; gap: 16px; margin-bottom: 14px; }
 #moves .move-dll-flags-heading strong, #moves .move-native-flags-heading strong { font-size: 16px; }
 #moves [data-move-dll-status] { color: #aeb6c9; font-size: 13px; }
@@ -11,7 +11,7 @@
 .ability-runtime-update .btn { width: 100%; white-space: normal; }
 .ability-runtime-update [role="status"] { font-size: 13px; color: #aeb6c9; overflow-wrap: anywhere; }
 .ability-runtime-update [role="status"]:empty { display: none; }
-#moves .custom-move-flag-manager { margin-top: 22px; border-top: 1px solid #44475a; padding-top: 16px; }
+#moves .custom-move-flag-manager { margin-top: 22px; border-top: 1px solid var(--ink-3); padding-top: 16px; }
 #moves .custom-move-flag-manager summary { color: #bc96ef; cursor: pointer; font-size: 15px; }
 #moves .custom-move-flag-create { display: flex; gap: 12px; margin: 18px 0; max-width: 530px; }
 #moves .custom-move-flag-manager input { background: #272936; border: 1px solid #656c82; border-radius: 5px; color: #f2f2f5; font: inherit; padding: 10px 12px; min-width: 0; }

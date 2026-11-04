@@ -7,7 +7,7 @@
   border: 0;
   border-left: 3px solid #ffb86c;
   border-radius: 0;
-  background: #282a36;
+  background: var(--ink-0);
   color: #d6d7e2;
   font-size: 13px;
   line-height: 1.5;
@@ -30,8 +30,8 @@
 .cui-editor button:hover:not(:disabled) { border-color: #9aa8ba; filter: brightness(1.12); }
 .cui-editor button:disabled { opacity: .45; cursor: default; }
 .cui-editor button.-selected {
-  border-color: #bd93f9;
-  background: #383a59;
+  border-color: var(--amber);
+  background: var(--ink-2);
 }
 .cui-editor button:focus-visible, .cui-editor canvas:focus-visible, .cui-editor select:focus-visible, .cui-editor input:focus-visible { outline: 2px solid #57caff; outline-offset: 2px; }
 .cui-editor .cui-button-primary {
@@ -84,7 +84,7 @@
 .cui-capability {
   padding: 8px;
   border-left: 3px solid #ffb86c;
-  background: #282a36;
+  background: var(--ink-0);
   font-size: 12px;
   line-height: 1.5;
 }

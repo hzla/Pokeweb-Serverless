@@ -21,7 +21,7 @@
 }
 
 .small-filters {
-  border-bottom: 1px solid #44475a;
+  border-bottom: 1px solid var(--ink-3);
   display: flex;
   flex-wrap: wrap;
   font-size: 13px;
@@ -30,7 +30,7 @@
 }
 
 .evo-method-list {
-  border-bottom: 1px solid #44475a;
+  border-bottom: 1px solid var(--ink-3);
   display: grid;
   gap: 6px;
   max-height: 34vh;
@@ -154,7 +154,7 @@
 .gen-filters .btn-5.-default.-active,
 .type-filters .btn-5.-default.-active {
   background: #f2f2f2;
-  border: 1px solid #bd93f9;
+  border: 1px solid var(--amber);
   box-shadow: none;
 }
 
@@ -173,24 +173,24 @@
 }
 
 .filterable {
-  background: #282a36;
+  background: var(--ink-0);
   color: #f2f2f2;
 }
 
 .filterable .expanded-card-content,
 .filterable .expanded-card-subcontent,
 .filterable .pokemon-card__info {
-  background: #383a59;
+  background: var(--ink-2);
 }
 
 .filterable:nth-child(2n) {
-  background: #383a59;
+  background: var(--ink-2);
 }
 
 .filterable:nth-child(2n) .expanded-card-content,
 .filterable:nth-child(2n) .expanded-card-subcontent,
 .filterable:nth-child(2n) .pokemon-card__info {
-  background: #282a36;
+  background: var(--ink-0);
 }
 
 .pokemon-card__img {
@@ -269,7 +269,7 @@
 .pokemon-name-toggle:hover,
 .pokemon-name-toggle:focus-visible,
 .pokemon-name-toggle.-active {
-  color: #bd93f9;
+  color: var(--amber);
   outline: none;
   text-decoration: underline;
   text-decoration-thickness: 2px;
@@ -290,7 +290,7 @@
 
 #personals .pokemon-text-editor {
   background: rgba(25, 28, 42, 0.78);
-  border-bottom: 1px solid #44475a;
+  border-bottom: 1px solid var(--ink-3);
   display: grid;
   gap: 14px 20px;
   grid-template-columns: minmax(220px, 0.42fr) minmax(320px, 1fr);
@@ -312,10 +312,10 @@
 
 #personals .pokemon-text-name-input {
   background: #f2f2f2;
-  border: 1px solid #44475a;
+  border: 1px solid var(--ink-3);
   border-radius: 4px;
-  color: #282a36;
-  font: 15px/1.35 Rubik, sans-serif;
+  color: var(--ink-0);
+  font: 15px/1.35 Barlow, sans-serif;
   letter-spacing: 0;
   min-height: 38px;
   padding: 8px 10px;
@@ -359,7 +359,7 @@
 
 #personals .pokemon-text-bank-header {
   align-items: center;
-  background: #6272a4;
+  background: var(--field-line);
   color: #1abc9c;
   display: flex;
   justify-content: space-between;
@@ -505,7 +505,7 @@
 }
 
 .pokemon-card__graph-wrapper {
-  background-color: #44475a;
+  background-color: var(--ink-3);
   border-radius: 3px;
   overflow: hidden;
   width: 200px;
@@ -607,7 +607,7 @@
 }
 
 .pokemon-cry-metadata {
-  border-top: 1px solid #44475a;
+  border-top: 1px solid var(--ink-3);
   display: grid;
   gap: 10px;
   grid-column: 1 / -1;
@@ -646,15 +646,15 @@
 .expand-card:hover *,
 .expand-card.-active * {
   cursor: pointer;
-  color: #bd93f9;
-  fill: #bd93f9 !important;
-  stroke: #bd93f9 !important;
+  color: var(--amber);
+  fill: var(--amber) !important;
+  stroke: var(--amber) !important;
 }
 
 .expand-card.exp-personal:hover *,
 .expand-card.exp-personal.-active * {
   fill: none !important;
-  stroke: #bd93f9 !important;
+  stroke: var(--amber) !important;
 }
 
 .expanded-personal .expanded-left,
@@ -671,7 +671,7 @@
 
 .personal-form-toolbar {
   align-items: center;
-  border-bottom: 1px solid #44475a;
+  border-bottom: 1px solid var(--ink-3);
   box-sizing: border-box;
   display: flex;
   flex: 0 0 100%;
@@ -731,7 +731,7 @@
 
 .compatibility-copy-toolbar {
   align-items: center;
-  border-bottom: 1px solid #44475a;
+  border-bottom: 1px solid var(--ink-3);
   display: flex;
   flex: 0 0 100%;
   gap: 8px;
@@ -757,7 +757,7 @@
 
 .tm-compatibility-sort select,
 .tm-compatibility-sort__direction {
-  background: #282a36;
+  background: var(--ink-0);
   border: 1px solid #55586d;
   border-radius: 6px;
   color: #f2f2f2;
@@ -778,7 +778,7 @@
 
 .tm-compatibility-sort select:focus-visible,
 .tm-compatibility-sort__direction:focus-visible {
-  border-color: #bd93f9;
+  border-color: var(--amber);
   box-shadow: 0 0 0 3px rgba(189, 147, 249, 0.2);
   outline: none;
 }
@@ -835,8 +835,8 @@
   --tm-type-ink: #f8f8f2;
   align-items: center;
   appearance: none;
-  background: #282a36;
-  border: 1px solid #44475a;
+  background: var(--ink-0);
+  border: 1px solid var(--ink-3);
   border-radius: 4px;
   box-sizing: border-box;
   color: #f2f2f2;
@@ -883,7 +883,7 @@
   border: 1px solid #777b8f;
   border-radius: 3px;
   box-sizing: border-box;
-  color: #282a36;
+  color: var(--ink-0);
   display: inline-flex;
   flex: 0 0 18px;
   font-size: 12px;
@@ -895,48 +895,48 @@
 }
 
 :is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor):hover {
-  background: #383a59;
+  background: var(--ink-2);
   border-color: #777b8f;
 }
 
 :is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor):focus-visible {
-  border-color: #bd93f9;
-  outline: 2px solid #bd93f9;
+  border-color: var(--amber);
+  outline: 2px solid var(--amber);
   outline-offset: 2px;
 }
 
 :is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-active {
-  background: #383a59;
+  background: var(--ink-2);
   border-color: #777b8f;
 }
 
 :is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-active .tm-compatibility-option__check {
-  background: #bd93f9;
-  border-color: #bd93f9;
+  background: var(--amber);
+  border-color: var(--amber);
 }
 
 :is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-active .tm-compatibility-option__check::before {
   content: "\2713";
 }
 
-:is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-normal { --tm-type-color: #a8a8a8; --tm-type-ink: #282a36; }
+:is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-normal { --tm-type-color: #a8a8a8; --tm-type-ink: var(--ink-0); }
 :is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-fighting { --tm-type-color: #c9514b; }
-:is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-flying { --tm-type-color: #9096f0; --tm-type-ink: #282a36; }
+:is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-flying { --tm-type-color: #9096f0; --tm-type-ink: var(--ink-0); }
 :is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-poison { --tm-type-color: #b456b4; }
-:is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-ground { --tm-type-color: #e0b668; --tm-type-ink: #282a36; }
-:is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-rock { --tm-type-color: #c3aa45; --tm-type-ink: #282a36; }
-:is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-bug { --tm-type-color: #9cb820; --tm-type-ink: #282a36; }
+:is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-ground { --tm-type-color: #e0b668; --tm-type-ink: var(--ink-0); }
+:is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-rock { --tm-type-color: #c3aa45; --tm-type-ink: var(--ink-0); }
+:is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-bug { --tm-type-color: #9cb820; --tm-type-ink: var(--ink-0); }
 :is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-ghost { --tm-type-color: #846cad; }
-:is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-steel { --tm-type-color: #7fa3b0; --tm-type-ink: #282a36; }
-:is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-fire { --tm-type-color: #f08030; --tm-type-ink: #282a36; }
-:is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-water { --tm-type-color: #6890f0; --tm-type-ink: #282a36; }
-:is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-grass { --tm-type-color: #54c95a; --tm-type-ink: #282a36; }
-:is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-electric { --tm-type-color: #ffcc33; --tm-type-ink: #282a36; }
-:is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-psychic { --tm-type-color: #f05a91; --tm-type-ink: #282a36; }
-:is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-ice { --tm-type-color: #98d8d8; --tm-type-ink: #282a36; }
+:is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-steel { --tm-type-color: #7fa3b0; --tm-type-ink: var(--ink-0); }
+:is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-fire { --tm-type-color: #f08030; --tm-type-ink: var(--ink-0); }
+:is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-water { --tm-type-color: #6890f0; --tm-type-ink: var(--ink-0); }
+:is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-grass { --tm-type-color: #54c95a; --tm-type-ink: var(--ink-0); }
+:is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-electric { --tm-type-color: #ffcc33; --tm-type-ink: var(--ink-0); }
+:is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-psychic { --tm-type-color: #f05a91; --tm-type-ink: var(--ink-0); }
+:is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-ice { --tm-type-color: #98d8d8; --tm-type-ink: var(--ink-0); }
 :is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-dragon { --tm-type-color: #8357f5; }
 :is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-dark { --tm-type-color: #71655f; }
-:is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-fairy { --tm-type-color: #f09ad9; --tm-type-ink: #282a36; }
+:is(.expanded-tms .cell.tm, .expanded-tutors .cell.tutor).-fairy { --tm-type-color: #f09ad9; --tm-type-ink: var(--ink-0); }
 
 @media (max-width: 640px) {
   .compatibility-copy-toolbar {
@@ -958,7 +958,7 @@
 }
 
 .expanded-egg-moves .expanded-left {
-  border-right: 1px solid #44475a;
+  border-right: 1px solid var(--ink-3);
   padding: 16px 24px;
   width: 50%;
 }
@@ -983,7 +983,7 @@
 .expanded-personal .expanded-mid,
 .expanded-learnset .expanded-left,
 .expanded-evos .expanded-left {
-  border-right: 1px solid #44475a;
+  border-right: 1px solid var(--ink-3);
 }
 
 .expanded-personal .expanded-right,
@@ -1007,7 +1007,7 @@
 
 .learnset-toolbar {
   align-items: center;
-  border-bottom: 1px solid #44475a;
+  border-bottom: 1px solid var(--ink-3);
   display: flex;
   gap: 12px;
   justify-content: space-between;
@@ -1023,7 +1023,7 @@
 
 .learnset-copy-source {
   background: rgba(40, 42, 54, 0.72);
-  border: 1px solid #6272a4;
+  border: 1px solid var(--field-line);
   border-radius: 4px;
   color: #f8f8f2;
   min-height: 38px;
@@ -1131,7 +1131,7 @@
 
 .learnset-icon-button {
   align-items: center;
-  background: #383a59;
+  background: var(--ink-2);
   border: 1px solid #55586d;
   border-radius: 4px;
   color: #f2f2f2;
@@ -1147,7 +1147,7 @@
 }
 
 .learnset-icon-button:hover {
-  background: #44475a;
+  background: var(--ink-3);
 }
 
 .learnset-icon-button:disabled {
@@ -1156,13 +1156,13 @@
 }
 
 .learnset-icon-button.-danger {
-  background: #383a59;
+  background: var(--ink-2);
   border-color: #55586d;
   color: #ff8585;
 }
 
 .learnset-icon-button.-danger:hover {
-  background: #44475a;
+  background: var(--ink-3);
 }
 
 .expanded-field-name,

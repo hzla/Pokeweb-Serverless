@@ -5,7 +5,7 @@
 .flag-reference input[type=search] { min-width: 300px; flex: 1; max-width: 460px; background: #202631; border: 1px solid #63718a; border-radius: 6px; padding: 12px; color: #f1f1f1; font: inherit; }
 .flag-reference nav { display: flex; gap: 6px; flex-wrap: wrap; margin: 24px 0 18px; }
 .flag-reference nav button { background: #2c3442; border: 1px solid #46505e; border-radius: 5px; padding: 9px 13px; color: #f1f1f1; font: inherit; cursor: pointer; }
-.flag-reference nav button[aria-selected=true] { background: #65508d; border-color: #bd93f9; }
+.flag-reference nav button[aria-selected=true] { background: #65508d; border-color: var(--amber); }
 .flag-reference button:focus-visible { outline: 2px solid #8be9fd; outline-offset: 2px; }
 .flag-filters { display: flex; gap: 24px; justify-content: space-between; flex-wrap: wrap; }
 .flag-reference .flag-note, .flag-reference footer { color: #a6b5c9; font-size: 13px; line-height: 1.6; }

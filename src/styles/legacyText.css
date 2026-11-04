@@ -84,8 +84,8 @@
 }
 
 .text-replace {
-  background: #282a36;
-  border: 1px solid #6272a4;
+  background: var(--ink-0);
+  border: 1px solid var(--field-line);
   border-radius: 8px;
   margin: 0 18px 24px;
   padding: 18px;
@@ -114,8 +114,8 @@
 
 .text-replace input,
 .text-replace select {
-  background: #383a59;
-  border: 1px solid #6272a4;
+  background: var(--ink-2);
+  border: 1px solid var(--field-line);
   border-radius: 4px;
   box-sizing: border-box;
   color: #f2f2f2;
@@ -130,7 +130,7 @@
 }
 
 .text-replace :is(input, select, button):focus-visible {
-  outline: 2px solid #bd93f9;
+  outline: 2px solid var(--amber);
   outline-offset: 2px;
 }
 
@@ -149,7 +149,7 @@
 .text-replace .btn,
 .text-replace-confirm .btn {
   background: #f2f2f2;
-  color: #282a36;
+  color: var(--ink-0);
   font-size: 16px;
   letter-spacing: 0;
   padding: 10px 16px;
@@ -169,8 +169,8 @@
 }
 
 .text-replace-confirm {
-  background: #282a36;
-  border: 1px solid #bd93f9;
+  background: var(--ink-0);
+  border: 1px solid var(--amber);
   border-radius: 8px;
   color: #f2f2f2;
   font-size: 16px;
@@ -185,7 +185,7 @@
 }
 
 .text-replace-confirm pre {
-  background: #383a59;
+  background: var(--ink-2);
   border-radius: 4px;
   font: inherit;
   overflow-wrap: anywhere;
@@ -201,7 +201,7 @@
 
 #texts .text-header {
   align-items: flex-start;
-  background: #6272a4;
+  background: var(--field-line);
   color: #f2f2f2;
   cursor: pointer;
   min-height: 58px;
@@ -209,7 +209,7 @@
 }
 
 #texts .text-header:hover {
-  border: 1px solid #bd93f9;
+  border: 1px solid var(--amber);
 }
 
 #texts .text-header:not(:first-child) {
@@ -242,7 +242,7 @@
 }
 
 .text-bank .expanded-field:nth-child(even) {
-  background: #383a59;
+  background: var(--ink-2);
 }
 
 .msg-id {

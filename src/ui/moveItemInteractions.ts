@@ -57,8 +57,10 @@ export type MoveAnimationEditorRenderOptions = {
   recoveryNotice?: string;
 };
 
-type MoveOptions = MoveAnimationEditorOptions & {
+export type MoveOptions = MoveAnimationEditorOptions & {
   onOpenMoveAnimation?: (moveId: number) => void;
+  /** Called with the visible list rows after every search or filter change. */
+  onFiltered?: (visible: HTMLElement[]) => void;
   autofills: Record<string, string[]>;
   renderExpanded: (moveId: number) => string;
   renderTextPanel?: (moveId: number) => string;
@@ -249,8 +251,9 @@ export function attachMoveInteractions(root: HTMLElement, project: ProjectState,
 
   const runFilter = () => {
     filters.searchText = searchInput?.value ?? "";
-    filterMoves(root, project, filters.searchText, activeCategories, activeTypes, activeGenerations);
+    const visible = filterMoves(root, project, filters.searchText, activeCategories, activeTypes, activeGenerations);
     stripeRows(root);
+    options.onFiltered?.(visible);
   };
 
   searchButton?.addEventListener("click", runFilter, { signal: controller.signal });
@@ -861,7 +864,7 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
   });
 }
 
-function installMoveTextFields(root: HTMLElement, project: ProjectState, options: MoveOptions): void {
+export function installMoveTextFields(root: HTMLElement, project: ProjectState, options: MoveOptions): void {
   root.querySelectorAll<HTMLInputElement>(".move-text-name-input").forEach((input) => {
     if (input.dataset.moveTextNameInstalled === "true") return;
     input.dataset.moveTextNameInstalled = "true";
@@ -1128,8 +1131,8 @@ export function attachItemInteractions(root: HTMLElement, project: ProjectState,
 
 function filterMoves(root: HTMLElement, project: ProjectState, searchText: string, categories: Set<string>, types: Set<string>, generations: Set<number>): HTMLElement[] {
   const visible: HTMLElement[] = [];
-  root.querySelectorAll<HTMLElement>("#moves .move-card").forEach((card) => {
-    const moveId = Number(card.dataset.index);
+  root.querySelectorAll<HTMLElement>("[data-move-row]").forEach((card) => {
+    const moveId = Number(card.dataset.moveRow);
     const generationMatches = generations.size === 0 || generations.has(getMoveGeneration(project, moveId) ?? 0);
     const show = Number.isInteger(moveId) && generationMatches && moveMatchesSearch(getMoveRecord(project, moveId), searchText, categories, types);
     card.style.display = show ? "" : "none";
@@ -1149,7 +1152,7 @@ function filterItems(root: HTMLElement, project: ProjectState, searchText: strin
   return visible;
 }
 
-function installMoveEditableFields(root: HTMLElement, project: ProjectState, options: MoveOptions): void {
+export function installMoveEditableFields(root: HTMLElement, project: ProjectState, options: MoveOptions): void {
   root.querySelectorAll<HTMLElement>("[contenteditable='true'][data-narc='move']").forEach((field) => {
     if (field.dataset.moveEditInstalled === "true") return;
     field.dataset.moveEditInstalled = "true";
@@ -1370,18 +1373,22 @@ function installAutocomplete(field: HTMLElement, autofills: Record<string, strin
   suggestions.className = "suggestions";
   suggestions.hidden = true;
   host.append(suggestions);
+  // On focus the picker lists every option (current one marked); typing filters it.
+  let focusValue = "";
   const render = () => {
     const query = field.textContent?.trim().toLowerCase() ?? "";
-    if (!query) {
-      suggestions.hidden = true;
-      return;
-    }
-    const matches = values.filter((value) => value.toLowerCase().includes(query)).slice(0, 12);
-    suggestions.innerHTML = matches.map((value) => `<div>${escapeHtml(value)}</div>`).join("");
+    const browsing = query === "" || query === focusValue.toLowerCase();
+    const matches = browsing ? values : values.filter((value) => value.toLowerCase().includes(query)).slice(0, 50);
+    suggestions.innerHTML = matches.map((value) => `<div${value.toLowerCase() === query ? ' class="is-current"' : ""}>${escapeHtml(value)}</div>`).join("");
     suggestions.hidden = matches.length === 0;
+    const current = browsing ? suggestions.querySelector<HTMLElement>(".is-current") : null;
+    suggestions.scrollTop = current ? Math.max(0, current.offsetTop - suggestions.clientHeight / 2) : 0;
   };
   field.addEventListener("input", render);
-  field.addEventListener("focus", render);
+  field.addEventListener("focus", () => {
+    focusValue = field.textContent?.trim() ?? "";
+    render();
+  });
   field.addEventListener("blur", () => window.setTimeout(() => (suggestions.hidden = true), 150));
   suggestions.addEventListener("mousedown", (event) => {
     const target = event.target as HTMLElement;

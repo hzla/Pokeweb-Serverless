@@ -58,7 +58,7 @@ import "./styles/musicEditor.css";
 import "./styles/titleScreen.css";
 import "./styles/inlineStatus.css";
 
-import { MANDATORY_NARCS, SELECTABLE_NARCS, isGen4Project, isGen5Project, type NarcName } from "./pokeweb/constants";
+import { MANDATORY_NARCS, SELECTABLE_NARCS, isGen4Project, isGen5Project, type BaseVersion, type NarcName } from "./pokeweb/constants";
 import { NARC } from "./nds/narc";
 import { NintendoDSRom } from "./nds/rom";
 import { generateChangelogFromRomFiles, type ChangelogResult } from "./pokeweb/changelogModel";
@@ -125,6 +125,8 @@ import { escapeHtml } from "./ui/dom";
 import { attachHomeTabs, homeTabFromHash, homeTabOrDefault, homeTabUrl, type HomeTab } from "./ui/homeTabs";
 import { attachTranslationCard, renderTranslationCard } from "./ui/translation";
 import { exportChangelogPdf, exportChangelogText, attachChangelogNarcPicker, renderChangelogGenerator, renderGeneratedChangelog, selectedChangelogNarcsFromPicker } from "./ui/changelogGenerator";
+// Loaded last so the shared Unova controls win over every legacy stylesheet.
+import "./styles/unova.css";
 
 type AppRoute =
   | "upload"
@@ -1366,47 +1368,101 @@ function renderMap3dEditorLoadError(root: HTMLElement, error: unknown): void {
 function renderNav(): string {
   if (!project) return `<div id="header"></div>`;
   return `
-    <div id="header">
-      <div class="header-left">
-        ${renderHeadersMenu()}
-        ${renderMapsMenu()}
-        ${project.session.baseRom === "BW2" ? renderWeatherMenu() : ""}
-        ${renderPokemonMenu()}
-        ${navItem("followingPokemon", "Following Pokémon")}
-        ${renderTrainersMenu()}
-        ${renderEncountersMenu()}
-        ${renderMovesMenu()}
-        ${renderItemsMenu()}
-        ${renderTextsMenu()}
-        ${navItem("codeInjection", "Code Injection")}
-        ${renderMoreMenu()}
-      </div>
-      <div class="header-status" id="header-status">${dirty ? renderDirtyIndicatorLink() : ""}</div>
-      <div class="header-right">
-        <a class="header-item header-discord" href="${DISCORD_INVITE_URL}" target="_blank" rel="noopener noreferrer" aria-label="Discord" title="Join the Discord"><img src="${publicAsset("svgs/discord.svg")}" width="22" height="22" alt=""></a>
-        ${navItem("docGenerators", "Doc Generators")}
-        ${navItem("mastersheet", "Mastersheet")}
-        ${renderRefreshRomButton()}
-        <div class="header-more">
-          <button class="header-item header-more-trigger" type="button" aria-haspopup="true" aria-expanded="false">Export</button>
-          <div class="header-more-menu">
-            <a class="header-item ${hasExportBase ? "" : "disabled"}" href="#" data-export-rom="true"
-              title="Export the edited ROM, automatically preserving DS and DSi mode support when the source includes DSi data.">Export ROM</a>
-            <a class="header-item ${hasExportBase ? "" : "disabled"}" href="#" data-export-frost-rom="true"
-              title="Export Pokeweb's Gen V PMC layout for Frost. Third-party code using hard-coded file IDs is not supported.">Export for Frost</a>
-          </div>
+    <div id="header" class="app-chrome">
+      <div class="topbar">
+        <span class="brand">Pokeweb</span>
+        <span class="rom-chip" title="${escapeHtml(project.session.romName ?? "")}">${escapeHtml(romVersionLabel())}</span>
+        <nav class="header-left" aria-label="Sections">
+          ${renderHeadersMenu()}
+          ${renderMapsMenu()}
+          ${project.session.baseRom === "BW2" ? renderWeatherMenu() : ""}
+          ${renderPokemonMenu()}
+          ${navItem("followingPokemon", "Following Pokémon")}
+          ${renderTrainersMenu()}
+          ${renderEncountersMenu()}
+          ${renderMovesMenu()}
+          ${renderItemsMenu()}
+          ${renderTextsMenu()}
+          ${navItem("codeInjection", "Code injection")}
+          ${renderMoreMenu()}
+        </nav>
+        <div class="header-status" id="header-status"></div>
+        <div class="header-right">
+          <a class="header-item header-discord" href="${DISCORD_INVITE_URL}" target="_blank" rel="noopener noreferrer" aria-label="Discord" title="Join the Discord"><img src="${publicAsset("svgs/discord.svg")}" width="22" height="22" alt=""></a>
+          ${renderProjectMenu()}
         </div>
-        <a class="header-item" href="#" data-route="upload">New</a>
+      </div>
+      <div class="subnav">
+        <nav class="subnav-tabs" id="subnav-tabs" aria-label="Pages in this section"></nav>
+        <div class="page-actions" id="page-actions"></div>
       </div>
     </div>
   `;
 }
 
+function romVersionLabel(): string {
+  const labels: Partial<Record<BaseVersion, string>> = { B: "Black", W: "White", B2: "Black 2", W2: "White 2", D: "Diamond", P: "Pearl", Pt: "Platinum", HG: "HeartGold", SS: "SoulSilver" };
+  return (project && labels[project.session.baseVersion]) ?? "ROM";
+}
+
+/** Project-level actions live in one menu so the section bar never wraps. */
+function renderProjectMenu(): string {
+  return `
+    <div class="project-menu ${dirty ? "-dirty" : ""}">
+      <button class="btn sm project-menu-trigger" type="button" aria-haspopup="true" aria-expanded="false"><span class="dot" aria-hidden="true"></span>Project</button>
+      <div class="project-menu-list" role="menu">
+        ${navItem("changelog", "View changelog")}
+        ${navItem("docGenerators", "Doc generators")}
+        ${navItem("mastersheet", "Mastersheet")}
+        <hr>
+        ${renderRefreshRomButton()}
+        <a class="header-item ${hasExportBase ? "" : "disabled"}" href="#" data-export-rom="true"
+          title="Export the edited ROM, automatically preserving DS and DSi mode support when the source includes DSi data.">Export ROM</a>
+        <a class="header-item ${hasExportBase ? "" : "disabled"}" href="#" data-export-frost-rom="true"
+          title="Export Pokeweb's Gen V PMC layout for Frost. Third-party code using hard-coded file IDs is not supported.">Export for Frost</a>
+        <hr>
+        <a class="header-item" href="#" data-route="upload">New project</a>
+      </div>
+    </div>
+  `;
+}
+
+/** Copies the active section's pages into the tab row under the section bar. */
+function renderSubnavTabs(): void {
+  const tabs = appRoot.querySelector<HTMLElement>("#subnav-tabs");
+  const section = appRoot.querySelector<HTMLElement>(".app-chrome .header-left > .header-more.-active");
+  if (!tabs || !section) return;
+  const items = [...section.querySelectorAll<HTMLElement>(".header-more-menu > .header-item")];
+  tabs.innerHTML = items.map((item) => item.outerHTML).join("");
+}
+
+function attachProjectMenu(): void {
+  const menu = appRoot.querySelector<HTMLElement>(".project-menu");
+  const trigger = menu?.querySelector<HTMLButtonElement>(".project-menu-trigger");
+  if (!menu || !trigger) return;
+  const setOpen = (open: boolean) => {
+    menu.classList.toggle("-open", open);
+    trigger.setAttribute("aria-expanded", String(open));
+  };
+  trigger.addEventListener("click", (event) => {
+    event.stopPropagation();
+    setOpen(!menu.classList.contains("-open"));
+  });
+  menu.querySelector(".project-menu-list")?.addEventListener("click", () => setOpen(false));
+  menu.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") { setOpen(false); trigger.focus(); }
+  });
+  document.addEventListener("click", (event) => {
+    if (!menu.isConnected) return;
+    if (!menu.contains(event.target as Node)) setOpen(false);
+  });
+}
+
 function renderHeadersMenu(): string {
   const active = route === "headers" || route === "overworlds" || route === "flyDestinations" || route === "matrixEditor";
   return `<div class="header-more ${active ? "-active" : ""}">
-    <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Headers &amp; Overworlds</button>
-    <div class="header-more-menu">${navItem("headers", "Headers")}${navItem("overworlds", "Overworlds", 0)}${project?.session.baseRom === "BW2" ? navItem("flyDestinations", "Fly Destinations") : ""}${project && isGen5Project(project) ? navItem("matrixEditor", "Matrix Editor") : ""}</div>
+    <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Headers</button>
+    <div class="header-more-menu">${navItem("headers", "Headers")}${navItem("overworlds", "Overworlds", 0)}${project?.session.baseRom === "BW2" ? navItem("flyDestinations", "Fly destinations") : ""}${project && isGen5Project(project) ? navItem("matrixEditor", "Matrix editor") : ""}</div>
   </div>`;
 }
 
@@ -1414,7 +1470,7 @@ function renderMapsMenu(): string {
   const active = route === "mapStudio" || route === "maps3d" || route === "buildings" || route === "cutscenes" || route === "field-scenes" || route === "battleBackgrounds" || route === "townMap";
   return `<div class="header-more ${active ? "-active" : ""}">
     <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Maps</button>
-    <div class="header-more-menu">${navItem("maps3d", "Map Editor")}${project?.session.baseRom === "BW2" ? navItem("townMap", "Town Map") : ""}${canOpenMapStudio() ? navItem("mapStudio", "Map Studio") : ""}${navItem("buildings", "Buildings")}${navItem("battleBackgrounds", "Battle Backgrounds")}${canUseLocalRomBridge() ? navItem("cutscenes", "Cutscenes") + navItem("field-scenes", "Field tours") : ""}</div>
+    <div class="header-more-menu">${navItem("maps3d", "Map editor")}${project?.session.baseRom === "BW2" ? navItem("townMap", "Town map") : ""}${canOpenMapStudio() ? navItem("mapStudio", "Map studio") : ""}${navItem("buildings", "Buildings")}${navItem("battleBackgrounds", "Battle backgrounds")}${canUseLocalRomBridge() ? navItem("cutscenes", "Cutscenes") + navItem("field-scenes", "Field tours") : ""}</div>
   </div>`;
 }
 
@@ -1427,16 +1483,15 @@ function renderRefreshRomButton(): string {
 function renderMoreMenu(): string {
   const moreRoutes: Array<[Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds" | "pokemonSprites">, string]> = [
     ["randomizer", "Randomizer"],
-    ["starters", "Scripted PKMN"],
-    ["types", "Type Chart"],
+    ["starters", "Scripted Pokémon"],
+    ["types", "Type chart"],
     ["music", "Music"],
-    ["changelog", "Changelog"],
     ["patches", "Patches"],
-    ["fileSystem", "File System"],
-    ["cgearButtons", "C-Gear Buttons"],
-    ["flagReference", "Flag Reference"],
+    ["fileSystem", "File system"],
+    ["cgearButtons", "C-Gear buttons"],
+    ["flagReference", "Flag reference"],
   ];
-  if (project?.session.baseRom === "BW2") moreRoutes.splice(3, 0, ["titleScreen", "Title Screen"]);
+  if (project?.session.baseRom === "BW2") moreRoutes.splice(3, 0, ["titleScreen", "Title screen"]);
   const active = moreRoutes.some(([moreRoute]) => route === moreRoute);
   return `
     <div class="header-more ${active ? "-active" : ""}">
@@ -1453,8 +1508,8 @@ function renderTrainersMenu(): string {
     ? [
       ["facilities", "Subway / PWT"],
       ["wbtFacilities", "Black Tower / White Treehollow"],
-      ["trainerMusic", "Trainer Music"],
-      ...(project?.session.baseRom === "BW2" ? [["playerBackSprite", "Player Back Sprite"] as ["playerBackSprite", string]] : []),
+      ["trainerMusic", "Trainer music"],
+      ...(project?.session.baseRom === "BW2" ? [["playerBackSprite", "Player back sprite"] as ["playerBackSprite", string]] : []),
     ]
     : [];
   const active = route === "trainers" || trainerRoutes.some(([trainerRoute]) => route === trainerRoute);
@@ -1462,7 +1517,7 @@ function renderTrainersMenu(): string {
     <div class="header-more ${active ? "-active" : ""}">
       <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Trainers</button>
       <div class="header-more-menu">
-        ${navItem("trainers", "Main Trainers")}
+        ${navItem("trainers", "Main trainers")}
         ${trainerRoutes.map(([trainerRoute, label]) => navItem(trainerRoute, label)).join("")}
       </div>
     </div>
@@ -1475,8 +1530,8 @@ function renderWeatherMenu(): string {
     <div class="header-more ${active ? "-active" : ""}">
       <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Weather</button>
       <div class="header-more-menu">
-        ${navItem("weather", "Area Assignments")}
-        ${navItem("weatherGraphics", "Graphics Editor")}
+        ${navItem("weather", "Area assignments")}
+        ${navItem("weatherGraphics", "Graphics editor")}
       </div>
     </div>
   `;
@@ -1490,8 +1545,8 @@ function renderEncountersMenu(): string {
     <div class="header-more ${active ? "-active" : ""}">
       <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Encounters</button>
       <div class="header-more-menu">
-        ${navItem("encounters", "Wild Encounters")}
-        ${grottoAvailable ? navItem("grottos", "Hidden Grottos") : ""}
+        ${navItem("encounters", "Wild encounters")}
+        ${grottoAvailable ? navItem("grottos", "Hidden grottos") : ""}
         ${phenomenaAvailable ? navItem("phenomena", "Phenomena") : ""}
       </div>
     </div>
@@ -1499,11 +1554,11 @@ function renderEncountersMenu(): string {
 }
 
 function renderPokemonMenu(): string {
-  if (!project || !supportsAbilityEditor(project)) return navItem("pokemon", "Pokemon");
+  if (!project || !supportsAbilityEditor(project)) return navItem("pokemon", "Pokémon");
   const active = route === "pokemon" || route === "abilities";
   return `<div class="header-more ${active ? "-active" : ""}">
-    <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Pokemon</button>
-    <div class="header-more-menu">${navItem("pokemon", "Pokemon Data")}${navItem("abilities", "Abilities")}</div>
+    <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Pokémon</button>
+    <div class="header-more-menu">${navItem("pokemon", "Pokémon data")}${navItem("abilities", "Abilities")}</div>
   </div>`;
 }
 
@@ -1514,9 +1569,9 @@ function renderItemsMenu(): string {
     <div class="header-more ${active ? "-active" : ""}">
       <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Items</button>
       <div class="header-more-menu">
-        ${navItem("items", "Item Data")}
+        ${navItem("items", "Item data")}
         ${martsAvailable ? navItem("marts", "Marts") : ""}
-        ${martsAvailable ? navItem("systemShops", "C-Gear Shops") : ""}
+        ${martsAvailable ? navItem("systemShops", "C-Gear shops") : ""}
       </div>
     </div>
   `;
@@ -1529,11 +1584,11 @@ function renderMovesMenu(): string {
     <div class="header-more ${active ? "-active" : ""}">
       <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Moves</button>
       <div class="header-more-menu">
-        ${navItem("moves", "Move Data")}
+        ${navItem("moves", "Move data")}
         ${navItem("tms", "TMs")}
-        ${navItem("tutorMoves", "Tutor Data")}
-        ${navItem("moveEffectHandlers", "Move Effect Handlers")}
-        ${navItem("moveBackgrounds", "Move Backgrounds")}
+        ${navItem("tutorMoves", "Tutors")}
+        ${navItem("moveEffectHandlers", "Effect handlers")}
+        ${navItem("moveBackgrounds", "Backgrounds")}
       </div>
     </div>
   `;
@@ -1546,8 +1601,8 @@ function renderTextsMenu(): string {
     <div class="header-more ${active ? "-active" : ""}">
       <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Texts</button>
       <div class="header-more-menu">
-        ${storyAvailable ? navItem("storyText", "Story Text") : ""}
-        ${navItem("infoText", "Message Text")}
+        ${storyAvailable ? navItem("storyText", "Story text") : ""}
+        ${navItem("infoText", "Message text")}
         ${canUseLocalRomBridge() && project?.session.baseRom === "BW2" ? navItem("bw2Scripts", "BW2 Scripts") : ""}
       </div>
     </div>
@@ -1555,6 +1610,8 @@ function renderTextsMenu(): string {
 }
 
 function attachNav(): void {
+  renderSubnavTabs();
+  attachProjectMenu();
   appRoot.querySelectorAll<HTMLAnchorElement>("[data-route]").forEach((link) => {
     link.addEventListener("click", (event) => {
       event.preventDefault();
@@ -3085,23 +3142,18 @@ function setChangelogBusy(root: HTMLElement, busy: boolean): void {
 function renderDirtyIndicator(): void {
   const headerStatus = appRoot.querySelector<HTMLElement>("#header-status");
   if (headerStatus) {
-    headerStatus.innerHTML = (dirty ? renderDirtyIndicatorLink() : "") + (autosaveError
+    headerStatus.innerHTML = (autosaveError
       ? `<span role="alert">Autosave failed: ${escapeHtml(autosaveError)} <button type="button" data-retry-autosave>Retry</button></span>` : "");
     headerStatus.querySelector<HTMLButtonElement>("[data-retry-autosave]")?.addEventListener("click", () => {
       if (!project) return;
       const current = project;
       void scheduleSave.flush(current).catch(error => { if (project === current) { autosaveError = errorMessage(error); renderDirtyIndicator(); } });
     });
-    headerStatus.querySelector<HTMLAnchorElement>("[data-route='changelog']")?.addEventListener("click", (event) => {
-      event.preventDefault();
-      navigate("changelog");
-    });
   }
+
+  appRoot.querySelector(".project-menu")?.classList.toggle("-dirty", dirty);
 
   const debugLink = appRoot.querySelector<HTMLAnchorElement>("[data-route='debugNarcs']");
   if (debugLink && project) debugLink.textContent = `Debug (${getCachedRecordCount(project)})`;
 }
 
-function renderDirtyIndicatorLink(): string {
-  return `<a class="dirty-indicator" href="${routeUrl("changelog")}" data-route="changelog"><span class="dirty-indicator__marker" aria-hidden="true">•</span>View Changelog</a>`;
-}

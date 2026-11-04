@@ -1,5 +1,5 @@
 .music-editor-page {
-  background: #282a36;
+  background: var(--ink-0);
   color: #f2f2f2;
   display: grid;
   flex: 1 1 auto;
@@ -10,7 +10,7 @@
 }
 
 .music-editor-sidebar {
-  border-right: 1px solid #44475a;
+  border-right: 1px solid var(--ink-3);
   min-height: calc(100vh - 44px);
   padding: 22px 18px;
 }
@@ -37,7 +37,7 @@
   gap: 6px;
   margin-top: 24px;
   padding: 14px 0 0;
-  border-top: 1px solid #44475a;
+  border-top: 1px solid var(--ink-3);
 }
 
 .music-editor-sidebar__summary span,
@@ -76,7 +76,7 @@
 }
 
 .music-editor-tabs {
-  border-bottom: 1px solid #44475a;
+  border-bottom: 1px solid var(--ink-3);
   display: flex;
   gap: 6px;
   overflow-x: auto;
@@ -99,16 +99,16 @@
 }
 
 .music-editor-tab:hover {
-  color: #bd93f9;
+  color: var(--amber);
 }
 .music-editor-tab.-active {
   background: transparent;
-  border-color: #bd93f9;
+  border-color: var(--amber);
   color: #f2f2f2;
   margin-bottom: 0;
 }
 .music-editor-tab:focus-visible {
-  outline: 2px solid #bd93f9;
+  outline: 2px solid var(--amber);
   outline-offset: -2px;
 }
 
@@ -141,7 +141,7 @@
 .streamed-bgm-controls input[type="number"],
 .streamed-bgm-controls input[type="file"],
 .streamed-bgm-controls select {
-  background: #282a36;
+  background: var(--ink-0);
   border: 1px solid rgb(98 114 164 / 75%);
   border-radius: 5px;
   color: #f2f2f2;
@@ -162,7 +162,7 @@
 .music-import-preview,
 .streamed-bgm-crop {
   background: rgb(40 42 54 / 55%);
-  border: 1px solid #44475a;
+  border: 1px solid var(--ink-3);
   border-radius: 6px;
   display: grid;
   gap: 9px;
@@ -221,7 +221,7 @@
 }
 
 .music-reference-filters input {
-  background: #282a36;
+  background: var(--ink-0);
   border: 1px solid rgb(98 114 164 / 75%);
   border-radius: 5px;
   color: #f2f2f2;
@@ -230,7 +230,7 @@
 }
 
 .music-reference-tabs {
-  border-bottom: 1px solid #6272a4;
+  border-bottom: 1px solid var(--field-line);
   display: flex;
   gap: 6px;
   margin-top: 18px;
@@ -257,8 +257,8 @@
 }
 
 .music-reference-tab.-active {
-  background: #282a36;
-  border-color: #6272a4;
+  background: var(--ink-0);
+  border-color: var(--field-line);
   color: #69d6bd;
   margin-bottom: -1px;
 }
@@ -274,7 +274,7 @@
 }
 
 .native-stream-reference {
-  border-top: 1px solid #44475a;
+  border-top: 1px solid var(--ink-3);
   margin-top: 24px;
   padding-top: 18px;
 }
@@ -298,7 +298,7 @@
 }
 
 .music-reference-scroll {
-  border: 1px solid #6272a4;
+  border: 1px solid var(--field-line);
   border-radius: 5px;
   max-height: 580px;
   overflow: auto;
@@ -315,14 +315,14 @@
 }
 
 .music-reference-table caption {
-  background: #282a36;
+  background: var(--ink-0);
   padding: 8px 12px;
   text-align: left;
 }
 
 .music-reference-table th,
 .music-reference-table td {
-  border-bottom: 1px solid #44475a;
+  border-bottom: 1px solid var(--ink-3);
   padding: 12px;
   text-align: left;
   vertical-align: top;
@@ -330,7 +330,7 @@
 }
 
 .music-reference-table thead th {
-  background: #282a36;
+  background: var(--ink-0);
   position: sticky;
   top: 0;
   z-index: 1;
@@ -353,8 +353,8 @@
 .music-reference-tracks { display: grid; gap: 10px; }
 
 .music-reference-id {
-  background: #282a36;
-  border: 1px solid #6272a4;
+  background: var(--ink-0);
+  border: 1px solid var(--field-line);
   border-radius: 5px;
   color: #69d6bd;
   cursor: pointer;
@@ -385,7 +385,7 @@
 
   .music-reference-panel {
     position: sticky;
-    top: 68px;
+    top: calc(var(--chrome-h) + 28px);
   }
 }
 
@@ -395,7 +395,7 @@
   }
 
   .music-editor-sidebar {
-    border-bottom: 1px solid #44475a;
+    border-bottom: 1px solid var(--ink-3);
     border-right: 0;
     min-height: 0;
   }

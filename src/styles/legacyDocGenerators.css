@@ -11,7 +11,7 @@
 
 .doc-panel__header {
   align-items: baseline;
-  border-bottom: 1px solid #44475a;
+  border-bottom: 1px solid var(--ink-3);
   display: flex;
   gap: 24px;
   justify-content: space-between;
@@ -32,8 +32,8 @@
 }
 
 .doc-section {
-  background: #282a36;
-  border-bottom: 1px solid #44475a;
+  background: var(--ink-0);
+  border-bottom: 1px solid var(--ink-3);
   padding: 22px 0 28px;
 }
 
@@ -60,9 +60,9 @@
 
 .doc-title-field input {
   background: #f2f2f2;
-  border: 1px solid #44475a;
+  border: 1px solid var(--ink-3);
   border-radius: 5px;
-  color: #282a36;
+  color: var(--ink-0);
   height: 44px;
   padding: 6px 12px;
 }

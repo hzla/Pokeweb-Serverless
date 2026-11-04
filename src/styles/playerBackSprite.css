@@ -18,7 +18,7 @@
 }
 
 #player-back-animation-canvas {
-  border: 1px solid #44475a;
+  border: 1px solid var(--ink-3);
   width: 100%;
 }
 

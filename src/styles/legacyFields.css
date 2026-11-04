@@ -2,17 +2,18 @@
   color: #f2f2f2;
   margin-left: 18vw;
   width: 82vw;
-  padding-top: 100px;
+  /* Clears the fixed column header (60px) under the chrome; see scroll-margin in unova.css. */
+  padding-top: 60px;
 }
 
 .spreadsheet > .expanded-field.field-header {
-  background: #6272a4;
+  background: var(--field-line);
   left: 18vw;
   width: 82%;
   padding-left: 20px;
   padding-right: 20px;
   position: fixed;
-  top: 40px;
+  top: var(--chrome-h);
   z-index: 10;
   height: 60px;
   line-height: 40px;
@@ -55,7 +56,7 @@
 .expanded-field {
   display: flex;
   justify-content: space-between;
-  border-bottom: 1px solid #44475a;
+  border-bottom: 1px solid var(--ink-3);
   padding: 10px 0;
   font-size: 20px;
   align-items: center;
@@ -97,7 +98,7 @@
 #headers .expanded-left {
   width: 33.33%;
   padding: 22px 36px 26px;
-  border-right: 1px solid #44475a;
+  border-right: 1px solid var(--ink-3);
 }
 
 #headers .expanded-left:last-child {
@@ -199,7 +200,7 @@
 }
 
 .header-detail-open-link {
-  background: #383a59;
+  background: var(--ink-2);
   border: 1px solid #55586d;
   border-radius: 4px;
   color: #f2f2f2;
@@ -211,7 +212,7 @@
 }
 
 .header-detail-open-link:hover {
-  background: #44475a;
+  background: var(--ink-3);
 }
 
 .header-detail-value {
@@ -273,12 +274,12 @@
   text-align: right;
 }
 
-[contenteditable="true"]:not(.pokemon-type):not(.btn) {
+[contenteditable="true"]:not(.pokemon-type):not(.btn):not(.type-plate) {
   border: 1px solid rgba(242, 242, 242, 0.16);
   border-radius: 4px;
   box-sizing: border-box;
   color: #1abc9c;
-  background: transparent !important;
+  background-color: var(--field) !important;
   outline: none;
   cursor: pointer;
   min-height: 24px;
@@ -321,7 +322,7 @@
 }
 
 div.-active svg * {
-  stroke: #bd93f9;
+  stroke: var(--amber);
 }
 
 .no-fill.-active svg * {
@@ -342,7 +343,7 @@ div.-active svg * {
   min-width: 100%;
   border: 1px solid #ccc;
   border-top: 0;
-  background: #282a36;
+  background: var(--ink-0);
   box-shadow: 0 10px 22px rgb(0 0 0 / 35%);
   color: #1abc9c;
   z-index: 30;
@@ -362,7 +363,7 @@ div.-active svg * {
 }
 
 [data-autocomplete] .suggestions > div:hover {
-  background: #bd93f9;
+  background: var(--amber);
   color: #f2f2f2;
 }
 
@@ -396,7 +397,7 @@ div.-active svg * {
     width: 100%;
     padding: 16px 20px;
     border-right: 0;
-    border-bottom: 1px solid #44475a;
+    border-bottom: 1px solid var(--ink-3);
   }
 
   #headers .expanded-header {
@@ -414,4 +415,4 @@ div.-active svg * {
   }
 }
 
-.header-detail-open-link:focus-visible { outline: 2px solid #bd93f9; outline-offset: 2px; }
+.header-detail-open-link:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }

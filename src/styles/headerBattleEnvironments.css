@@ -6,7 +6,7 @@
 .header-battle-terrain-selector select,
 .header-battle-dialog-controls select,
 .header-battle-mapping-row select {
-  background: #282a36;
+  background: var(--ink-0);
   border: 1px solid #55586d;
   border-radius: 5px;
   color: #f2f2f2;
@@ -33,7 +33,7 @@
   margin-top: 4px;
   min-width: 0;
   padding: 12px 0;
-  border-top: 1px solid #44475a;
+  border-top: 1px solid var(--ink-3);
 }
 
 .header-battle-environment-loading,
@@ -128,14 +128,14 @@
 }
 
 .header-battle-shared-warning {
-  background: #282a36;
+  background: var(--ink-0);
   border: 0;
   border-left: 3px solid #ffb86c;
   border-radius: 0;
 }
 
 .header-battle-validation-warning {
-  background: #282a36;
+  background: var(--ink-0);
   border: 0;
   border-left: 3px solid #ff8585;
   border-radius: 0;
@@ -207,7 +207,7 @@
 .header-battle-environment-dialog > header,
 .header-battle-environment-dialog > footer {
   align-items: center;
-  background: #282a36;
+  background: var(--ink-0);
   display: flex;
   flex: 0 0 auto;
   justify-content: space-between;
@@ -250,13 +250,13 @@
 }
 
 .header-battle-dialog-notice.-custom {
-  background: #282a36;
+  background: var(--ink-0);
   color: #d6d7e2;
   border-left: 3px solid #ffb86c;
 }
 
 .header-battle-dialog-notice.-shared {
-  background: #282a36;
+  background: var(--ink-0);
   color: #d6d7e2;
   border-left: 3px solid #ff8585;
 }

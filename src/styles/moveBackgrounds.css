@@ -105,7 +105,7 @@
 }
 
 .move-background-references {
-  border-top: 1px solid #44475a;
+  border-top: 1px solid var(--ink-3);
   display: grid;
   gap: 8px;
   padding-top: 12px;
@@ -153,7 +153,7 @@
 
 .move-background-content {
   background: #20232d;
-  min-height: calc(100vh - 40px);
+  min-height: calc(100vh - var(--chrome-h));
   padding: 0;
 }
 

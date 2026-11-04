@@ -4,12 +4,12 @@
   padding: 72px 24px 24px;
   width: 100%;
   color: #eef2fb;
-  background: #282a36;
+  background: var(--ink-0);
   --pwan-accent: #1abc9c;
-  --pwan-accent-hover: #44475a;
-  --pwan-border: #44475a;
-  --pwan-panel: #383a59;
-  --pwan-panel-strong: #383a59;
+  --pwan-accent-hover: var(--ink-3);
+  --pwan-border: var(--ink-3);
+  --pwan-panel: var(--ink-2);
+  --pwan-panel-strong: var(--ink-2);
   --pwan-muted: #aeb4c6;
 }
 
@@ -18,13 +18,13 @@
 }
 
 .pwan-page .btn {
-  background: #383a59;
+  background: var(--ink-2);
   border: 1px solid #55586d;
   color: #f2f2f2;
 }
 
 .pwan-page .btn:hover {
-  background: #44475a;
+  background: var(--ink-3);
   border-color: #777b8f;
   color: #f8ffff;
 }
@@ -69,7 +69,7 @@
   padding: 14px;
   border: 0;
   background: transparent;
-  border-bottom: 1px solid #44475a;
+  border-bottom: 1px solid var(--ink-3);
 }
 
 .pwan-runtime.-ready {
@@ -797,7 +797,7 @@
   border: 1px dashed #777b8f;
   border-radius: 6px;
   padding: 14px;
-  background: #282a36;
+  background: var(--ink-0);
   color: #d6d7e2;
   cursor: pointer;
   text-align: center;
@@ -806,8 +806,8 @@
 
 .pwan-gif-dropzone:hover,
 .pwan-gif-dropzone.-dragging {
-  border-color: #bd93f9;
-  background: #383a59;
+  border-color: var(--amber);
+  background: var(--ink-2);
 }
 
 .pwan-gif-dropzone.-busy {
@@ -861,7 +861,7 @@
 }
 
 .pwan-side-badge.-front {
-  background: #6272a4;
+  background: var(--field-line);
 }
 
 .pwan-side-badge.-back {
@@ -869,7 +869,7 @@
 }
 
 .pwan-side-badge.-missing {
-  border: 1px solid #44475a;
+  border: 1px solid var(--ink-3);
   background: transparent;
   color: #757b8d;
 }
@@ -975,7 +975,7 @@
   width: 100%;
   min-width: 0;
   padding: 8px;
-  border: 1px solid #44475a;
+  border: 1px solid var(--ink-3);
   border-radius: 4px;
   background: #282d3b;
   color: #eef2fb;
@@ -1004,7 +1004,7 @@
   max-width: 100%;
   height: auto;
   image-rendering: pixelated;
-  border: 1px solid #44475a;
+  border: 1px solid var(--ink-3);
   background-color: #202431;
   background-image: conic-gradient(#303647 25%, transparent 0 50%, #303647 0 75%, transparent 0);
   background-size: 16px 16px;
@@ -1126,7 +1126,7 @@
   background: transparent;
   color: var(--pwan-muted);
   font-size: 13px;
-  border-top: 1px solid #44475a;
+  border-top: 1px solid var(--ink-3);
 }
 
 .pwan-archive-summary strong {
@@ -1134,7 +1134,7 @@
 }
 
 .pwan-archive-summary.-error {
-  border-color: #44475a;
+  border-color: var(--ink-3);
   background: transparent;
   color: #f2f2f2;
   border-left: 3px solid #ff8585;
@@ -1188,6 +1188,6 @@
   }
 }
 
-.pwan-page .btn.-primary { background: #1abc9c; border-color: #1abc9c; color: #f1f1f1; }
-.pwan-warning { background: #282a36; border: 0; border-left: 3px solid #ffb86c; border-radius: 0; color: #d6d7e2; }
+.pwan-page .btn.-primary { background: var(--amber); border-color: var(--amber); color: var(--on-amber); }
+.pwan-warning { background: var(--ink-0); border: 0; border-left: 3px solid #ffb86c; border-radius: 0; color: #d6d7e2; }
 .pwan-empty { background: transparent; border: 0; color: #d6d7e2; }

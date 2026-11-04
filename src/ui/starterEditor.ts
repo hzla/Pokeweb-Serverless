@@ -1,5 +1,6 @@
 import { applyStarters, getStarterEditorState } from "../pokeweb/starterModel";
 import type { ProjectState } from "../pokeweb/projectStore";
+import { applyProfessorIntroPokemon, loadProfessorIntroPokemon } from "../pokeweb/professorIntroModel";
 import { NATURES } from "../pokeweb/constants";
 import { getPokemonPersonalIds } from "../pokeweb/pokemonModel";
 import { findPokemonBaseSpeciesId, findPokemonPersonalFormOwner, pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
@@ -21,8 +22,8 @@ type StarterEditorOptions = {
   onDirty?: () => void;
 };
 
-type ScriptPokemonTab = "starters" | "party_gifts" | "box_gifts" | "eggs" | "wild_battles" | "trades";
-type ScriptPokemonAcquisitionTab = Exclude<ScriptPokemonTab, "starters">;
+type ScriptPokemonTab = "starters" | "party_gifts" | "box_gifts" | "eggs" | "wild_battles" | "trades" | "professor_intro";
+type ScriptPokemonAcquisitionTab = Exclude<ScriptPokemonTab, "starters" | "professor_intro">;
 
 const SCRIPT_POKEMON_TABS: Array<{ id: ScriptPokemonTab; label: string }> = [
   { id: "starters", label: "Starters" },
@@ -31,12 +32,14 @@ const SCRIPT_POKEMON_TABS: Array<{ id: ScriptPokemonTab; label: string }> = [
   { id: "eggs", label: "Eggs" },
   { id: "wild_battles", label: "Wild Battles" },
   { id: "trades", label: "Trades" },
+  { id: "professor_intro", label: "Professor Intro" },
 ];
 
 let activeScriptPokemonTab: ScriptPokemonTab = "starters";
 const scriptPokemonIconInstallations = new WeakMap<HTMLElement, { disconnect: () => void }>();
 
 export function renderStarterEditor(project: ProjectState, root: HTMLElement, options: StarterEditorOptions = {}): void {
+  if (project.session.baseRom !== "BW2" && activeScriptPokemonTab === "professor_intro") activeScriptPokemonTab = "starters";
   const state = getStarterEditorState(project);
   const scripted = scanGen5ScriptPokemon(project);
   root.innerHTML = `
@@ -47,7 +50,7 @@ export function renderStarterEditor(project: ProjectState, root: HTMLElement, op
           <span>${escapeHtml(project.session.baseRom)}</span>
         </div>
       </div>
-      ${renderTabBar(scripted.groups)}
+      ${renderTabBar(project, scripted.groups)}
       <section class="script-pokemon-tab-panel" data-script-pokemon-panel="starters" ${activeScriptPokemonTab === "starters" ? "" : "hidden"}>
         <div class="script-pokemon-heading">
           <div><h2>Starters</h2><p>The dedicated starter selector keeps the selection script, sprites, overlay, and story text synchronized.</p></div>
@@ -62,6 +65,12 @@ export function renderStarterEditor(project: ProjectState, root: HTMLElement, op
       ${renderScriptedPokemonTabs(project, scripted.groups, scripted.diagnostics.map((diagnostic) => (
         diagnostic.scriptFileId === undefined ? diagnostic.message : `Script ${diagnostic.scriptFileId}: ${diagnostic.message}`
       )))}
+      ${project.session.baseRom === "BW2" ? `
+        <section class="script-pokemon-tab-panel" data-script-pokemon-panel="professor_intro" ${activeScriptPokemonTab === "professor_intro" ? "" : "hidden"}>
+          <div class="script-pokemon-heading"><div><h2>Professor Intro</h2></div></div>
+          <div data-professor-intro-editor><span role="status">Loading intro Pokémon…</span></div>
+        </section>
+      ` : ""}
       <datalist id="script-pokemon-species-list">${speciesListOptions(project)}</datalist>
       <datalist id="script-pokemon-item-list">${itemListOptions(project)}</datalist>
     </div>
@@ -106,6 +115,7 @@ export function renderStarterEditor(project: ProjectState, root: HTMLElement, op
   installScriptPokemonGroupIconRendering(project, root);
 
   installScriptPokemonFieldSynchronization(root);
+  void installProfessorIntroEditor(project, root, options);
 
   root.querySelectorAll<HTMLButtonElement>("[data-script-pokemon-apply]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -156,11 +166,49 @@ export function renderStarterEditor(project: ProjectState, root: HTMLElement, op
   });
 }
 
-function renderTabBar(groups: ScriptPokemonGroup[]): string {
+async function installProfessorIntroEditor(project: ProjectState, root: HTMLElement, options: StarterEditorOptions): Promise<void> {
+  const panel = root.querySelector<HTMLElement>("[data-professor-intro-editor]");
+  if (!panel) return;
+  try {
+    const state = await loadProfessorIntroPokemon(project);
+    if (!root.contains(panel)) return;
+    panel.innerHTML = `
+      ${state.warnings.map(warning => `<div class="starter-warning">${escapeHtml(warning)}</div>`).join("")}
+      <article class="script-pokemon-card">
+        <div class="script-pokemon-card-head"><strong>Professor Juniper’s Pokémon</strong></div>
+        <div class="script-pokemon-fields">
+          <label class="script-pokemon-field"><span>Pokémon</span><input data-professor-intro-species list="professor-intro-species-list" value="${escapeHtml(speciesDisplayValue(project, state.speciesId))}" /></label>
+        </div>
+        <datalist id="professor-intro-species-list">${Array.from({ length: 649 }, (_, i) => `<option value="${escapeHtml(speciesDisplayValue(project, i + 1))}"></option>`).join("")}</datalist>
+        <div class="script-pokemon-actions">
+          <span role="status" data-professor-intro-status>Base form · Sprite and cry</span>
+          <button class="primary-button" type="button" data-professor-intro-apply>Apply Pokémon</button>
+        </div>
+      </article>
+    `;
+    panel.querySelector<HTMLButtonElement>("[data-professor-intro-apply]")!.addEventListener("click", () => {
+      const status = panel.querySelector<HTMLElement>("[data-professor-intro-status]")!;
+      const input = panel.querySelector<HTMLInputElement>("[data-professor-intro-species]")!;
+      try {
+        const saved = applyProfessorIntroPokemon(project, parseSpeciesValue(project, input.value));
+        input.value = speciesDisplayValue(project, saved.speciesId);
+        panel.querySelectorAll(".starter-warning").forEach(warning => warning.remove());
+        status.textContent = `Saved: ${speciesDisplayValue(project, saved.speciesId)}. Sprite and cry updated.`;
+        options.onDirty?.();
+      } catch (error) {
+        status.textContent = error instanceof Error ? error.message : String(error);
+      }
+    });
+  } catch (error) {
+    if (root.contains(panel)) panel.innerHTML = `<div class="starter-warning" role="status">${escapeHtml(error instanceof Error ? error.message : String(error))}</div>`;
+  }
+}
+
+function renderTabBar(project: ProjectState, groups: ScriptPokemonGroup[]): string {
   return `
     <div class="script-pokemon-tabs" role="tablist" aria-label="Scripted Pokemon acquisition methods">
-      ${SCRIPT_POKEMON_TABS.map((tab) => {
-        const count = tab.id === "starters" ? 3 : acquisitionCountForTab(groups, tab.id);
+      ${SCRIPT_POKEMON_TABS.filter(tab => tab.id !== "professor_intro" || project.session.baseRom === "BW2").map((tab) => {
+        const count = tab.id === "starters" ? 3 : tab.id === "professor_intro" ? 1 : acquisitionCountForTab(groups, tab.id);
         const selected = activeScriptPokemonTab === tab.id;
         return `<button type="button" role="tab" class="script-pokemon-tab ${selected ? "-active" : ""}" data-script-pokemon-tab="${tab.id}" aria-selected="${selected}">${escapeHtml(tab.label)} <span>${count}</span></button>`;
       }).join("")}
@@ -169,7 +217,7 @@ function renderTabBar(groups: ScriptPokemonGroup[]): string {
 }
 
 function renderScriptedPokemonTabs(project: ProjectState, groups: ScriptPokemonGroup[], warnings: string[]): string {
-  const acquisitionTabs = SCRIPT_POKEMON_TABS.filter((tab): tab is { id: ScriptPokemonAcquisitionTab; label: string } => tab.id !== "starters");
+  const acquisitionTabs = SCRIPT_POKEMON_TABS.filter((tab): tab is { id: ScriptPokemonAcquisitionTab; label: string } => tab.id !== "starters" && tab.id !== "professor_intro");
   return acquisitionTabs.map((tab) => {
     const tabGroups = groupsForTab(groups, tab.id);
     const count = tabGroups.reduce((sum, group) => sum + group.acquisitionCount, 0);
@@ -186,7 +234,7 @@ function renderScriptedPokemonTabs(project: ProjectState, groups: ScriptPokemonG
   }).join("");
 }
 
-function groupsForTab(groups: ScriptPokemonGroup[], tab: Exclude<ScriptPokemonTab, "starters">): ScriptPokemonGroup[] {
+function groupsForTab(groups: ScriptPokemonGroup[], tab: Exclude<ScriptPokemonTab, "starters" | "professor_intro">): ScriptPokemonGroup[] {
   return groups.flatMap((group) => {
     const entries = group.entries.map((entry) => ({
       ...entry,
@@ -203,13 +251,13 @@ function groupsForTab(groups: ScriptPokemonGroup[], tab: Exclude<ScriptPokemonTa
   });
 }
 
-function acquisitionCountForTab(groups: ScriptPokemonGroup[], tab: Exclude<ScriptPokemonTab, "starters">): number {
+function acquisitionCountForTab(groups: ScriptPokemonGroup[], tab: Exclude<ScriptPokemonTab, "starters" | "professor_intro">): number {
   return groups.reduce((sum, group) => sum + group.entries.reduce((entrySum, entry) => (
     entrySum + entry.acquisitions.filter((acquisition) => acquisitionBelongsToTab(acquisition, tab)).length
   ), 0), 0);
 }
 
-function acquisitionBelongsToTab(acquisition: ScriptPokemonAcquisition, tab: Exclude<ScriptPokemonTab, "starters">): boolean {
+function acquisitionBelongsToTab(acquisition: ScriptPokemonAcquisition, tab: Exclude<ScriptPokemonTab, "starters" | "professor_intro">): boolean {
   if (tab === "party_gifts") return acquisition.kind === "party_gift" || acquisition.kind === "party_gift_ex" || acquisition.kind === "n_gift";
   if (tab === "box_gifts") return acquisition.kind === "box_gift" || acquisition.kind === "box_gift_ex";
   if (tab === "eggs") return acquisition.kind === "egg";
@@ -217,7 +265,7 @@ function acquisitionBelongsToTab(acquisition: ScriptPokemonAcquisition, tab: Exc
   return acquisition.kind === "trade";
 }
 
-function tabDescription(tab: Exclude<ScriptPokemonTab, "starters">): string {
+function tabDescription(tab: Exclude<ScriptPokemonTab, "starters" | "professor_intro">): string {
   if (tab === "party_gifts") return "Pokemon added directly to the player's party, including extended and N-style gifts.";
   if (tab === "box_gifts") return "Pokemon sent directly to storage by BoxAdd and BoxAddEx commands.";
   if (tab === "eggs") return "Scripted eggs added to the party at their fixed level of 1.";

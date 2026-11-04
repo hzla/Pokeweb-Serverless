@@ -338,8 +338,8 @@ function clearOpenState(element: HTMLElement, encounterId: number): void {
 function stripeEncounterRows(root: HTMLElement): void {
   const visible = [...root.querySelectorAll<HTMLElement>("#encounters .encounter-card")].filter((card) => card.style.display !== "none");
   visible.forEach((card, index) => {
-    const rowColor = index % 2 === 0 ? "#282a36" : "#383a59";
-    const contentColor = index % 2 === 0 ? "#383a59" : "#282a36";
+    const rowColor = index % 2 === 0 ? "var(--ink-0)" : "var(--ink-1)";
+    const contentColor = index % 2 === 0 ? "var(--ink-1)" : "var(--ink-0)";
     card.style.background = rowColor;
     card.querySelectorAll<HTMLElement>(".expanded-card-content").forEach((content) => {
       content.style.background = contentColor;

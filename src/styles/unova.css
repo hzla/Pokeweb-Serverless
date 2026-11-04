@@ -1,0 +1,617 @@
+/*
+ * Unova instrument component layer. Loaded after every legacy stylesheet so the
+ * shared controls (chrome, buttons, fields, checkboxes, tabs, type plates) look
+ * the same on every page. Tokens live at the top of src/styles.css.
+ */
+
+body {
+  background: var(--ink-0);
+  color: var(--text);
+  font-family: var(--font);
+  font-variant-numeric: tabular-nums;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+* {
+  scrollbar-color: var(--ink-3) transparent;
+}
+
+/* ---------- App chrome: top bar + sub-page tabs ---------- */
+
+#header.app-chrome {
+  display: block;
+  position: fixed;
+  inset: 0 0 auto 0;
+  width: auto;
+  height: var(--chrome-h);
+  padding: 0;
+  z-index: 100;
+  background: var(--ink-0);
+  box-shadow: none;
+  font-size: 14px;
+}
+
+.app-chrome .topbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: var(--h-top);
+  padding: 0 12px 0 16px;
+  border-bottom: 1px solid var(--ink-3);
+}
+
+.app-chrome .brand {
+  margin-right: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.app-chrome .rom-chip {
+  margin-right: 14px;
+  padding: 2px 6px;
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.app-chrome .header-left {
+  display: flex;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.app-chrome .header-left > .header-item,
+.app-chrome .header-left > .header-more > .header-more-trigger {
+  position: relative;
+  height: var(--h-top);
+  margin: 0;
+  padding: 0 10px;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: 500 14px/var(--h-top) var(--font);
+  white-space: nowrap;
+}
+
+.app-chrome .header-left > .header-item:hover,
+.app-chrome .header-left > .header-more > .header-more-trigger:hover {
+  border: 0;
+  color: var(--text);
+}
+
+.app-chrome .header-left > .header-item.-active,
+.app-chrome .header-left > .header-more.-active > .header-more-trigger {
+  border: 0;
+  color: var(--text);
+}
+
+.app-chrome .header-left > .header-item.-active::after,
+.app-chrome .header-left > .header-more.-active > .header-more-trigger::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 0;
+  height: 3px;
+  background: var(--amber);
+  clip-path: polygon(3px 0, 100% 0, calc(100% - 3px) 100%, 0 100%);
+}
+
+/* Sections no longer drop down: their pages are the tabs in the row below. */
+.app-chrome .header-left .header-more-menu {
+  display: none !important;
+}
+
+.app-chrome .header-item.disabled,
+.app-chrome .header-item.disabled:hover {
+  border: 0;
+  color: var(--text-muted);
+  opacity: 0.45;
+}
+
+.app-chrome .header-status {
+  flex: 1 1 auto;
+  justify-content: flex-end;
+  min-width: 0;
+  padding: 0 12px;
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.app-chrome .header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  max-width: none;
+}
+
+.app-chrome .header-discord {
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  opacity: 0.8;
+}
+
+.app-chrome .header-discord:hover {
+  border: 0;
+  opacity: 1;
+}
+
+.app-chrome .subnav {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  height: var(--h-subnav);
+  padding: 0 12px 0 16px;
+  background: var(--ink-1);
+  border-bottom: 1px solid var(--ink-2);
+}
+
+.app-chrome .subnav-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.app-chrome .page-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  min-width: 0;
+}
+
+.app-chrome .page-actions:empty {
+  display: none;
+}
+
+/* Route hashes (#items, #encounters) match list ids, so the browser scrolls the
+   list into view on navigation; keep it below the chrome instead of under it. */
+#content-container [id] {
+  scroll-margin-top: calc(var(--chrome-h) + 10px);
+}
+
+/* ---------- Tabs: the Unova trapezoid ---------- */
+
+.uv-tab,
+.app-chrome .subnav-tabs > .header-item {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  margin: 0;
+  padding: 0 20px;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font: 500 14px/1 var(--font);
+  white-space: nowrap;
+  clip-path: polygon(var(--slant) 0, calc(100% - var(--slant)) 0, 100% 100%, 0 100%);
+}
+
+.uv-tab:hover,
+.app-chrome .subnav-tabs > .header-item:hover {
+  border: 0;
+  background: rgb(255 255 255 / 3%);
+  color: var(--text);
+}
+
+.uv-tab.is-active,
+.uv-tab[aria-selected="true"],
+.app-chrome .subnav-tabs > .header-item.-active {
+  border: 0;
+  background: var(--ink-0);
+  color: var(--text);
+}
+
+.uv-tab:focus-visible,
+.app-chrome .subnav-tabs > .header-item:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: -2px;
+}
+
+/* ---------- Project menu ---------- */
+
+.project-menu {
+  position: relative;
+}
+
+.project-menu-trigger .dot {
+  display: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--amber);
+}
+
+.project-menu.-dirty .project-menu-trigger .dot {
+  display: inline-block;
+}
+
+.project-menu-list {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 120;
+  min-width: 220px;
+  padding: 4px 0;
+  background: var(--ink-2);
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 45%);
+}
+
+.project-menu.-open .project-menu-list {
+  display: block;
+}
+
+.project-menu-list .header-item,
+.project-menu-list .header-more-menu .header-item {
+  display: block;
+  width: 100%;
+  height: 34px;
+  margin: 0;
+  padding: 0 14px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: 400 14px/34px var(--font);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.project-menu-list .header-item:hover {
+  border: 0;
+  background: var(--ink-1);
+  color: var(--text);
+}
+
+.project-menu-list .header-item.disabled {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.project-menu-list hr {
+  margin: 4px 0;
+  border: 0;
+  border-top: 1px solid var(--ink-3);
+}
+
+/* ---------- Buttons ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius);
+  background: var(--ink-2);
+  color: var(--text);
+  font: 600 14px/1.15 var(--font);
+  text-align: center;
+  filter: none;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.btn.-default {
+  border-color: var(--ink-3);
+  background: var(--ink-2);
+  color: var(--text);
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--field-line);
+  filter: none;
+}
+
+.btn.-primary {
+  border-color: var(--amber);
+  background: var(--amber);
+  color: var(--on-amber);
+}
+
+.btn.-primary:hover:not(:disabled) {
+  border-color: var(--amber-hover);
+  background: var(--amber-hover);
+}
+
+.btn.-danger,
+.btn.-remove {
+  border-color: color-mix(in srgb, var(--danger) 55%, transparent);
+  background: none;
+  color: var(--danger);
+}
+
+.btn.-ghost {
+  border-color: transparent;
+  background: none;
+  color: var(--text-muted);
+}
+
+.btn.-default.-active,
+.btn[aria-pressed="true"] {
+  border-color: var(--amber);
+  background: var(--ink-3);
+  color: var(--text);
+}
+
+.btn:disabled,
+.btn.disabled {
+  border-color: transparent;
+  background: var(--ink-2);
+  color: color-mix(in srgb, var(--text-muted) 60%, transparent);
+  cursor: default;
+  opacity: 1;
+}
+
+.btn.sm {
+  min-height: 26px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+/* ---------- Fields ---------- */
+
+#content-container [contenteditable="true"]:not(.btn):not(.type-plate):not(.text-line) {
+  min-height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius);
+  background-color: var(--field);
+  color: var(--value);
+  line-height: 26px;
+}
+
+#content-container [contenteditable="true"]:not(.btn):not(.text-line):hover {
+  border-color: var(--field-line-hover);
+}
+
+#content-container input:is([type="text"], [type="number"], [type="search"], [type="url"], :not([type])),
+#content-container select,
+#content-container textarea,
+.filter-input {
+  min-height: 28px;
+  padding: 3px 8px;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius);
+  background-color: var(--field);
+  color: var(--text);
+  font: 400 14px/1.35 var(--font);
+}
+
+#content-container input:is([type="number"]) {
+  color: var(--value);
+  text-align: right;
+}
+
+#content-container select {
+  appearance: none;
+  padding-right: 26px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%239aa5bb' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-position: right 9px center;
+  background-repeat: no-repeat;
+}
+
+#content-container input::placeholder,
+#content-container textarea::placeholder,
+.filter-input::placeholder {
+  color: color-mix(in srgb, var(--text-muted) 80%, transparent);
+}
+
+#content-container :is(input, select, textarea, [contenteditable="true"]):focus,
+.filter-input:focus {
+  border-color: var(--amber);
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--amber) 35%, transparent);
+}
+
+#content-container :is(input, select, textarea, [contenteditable="true"]).invalid {
+  border-color: var(--danger);
+}
+
+#content-container input:disabled,
+#content-container select:disabled,
+#content-container textarea:disabled {
+  border-color: var(--ink-3);
+  color: var(--text-muted);
+}
+
+/* Checkboxes: 16px field box, amber when checked. */
+#content-container input[type="checkbox"] {
+  appearance: none;
+  display: inline-grid;
+  place-content: center;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 0 8px 0 0;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius);
+  background: var(--field);
+  cursor: pointer;
+  vertical-align: -3px;
+}
+
+#content-container input[type="checkbox"]:checked {
+  border-color: var(--amber);
+  background: var(--amber);
+}
+
+#content-container input[type="checkbox"]:checked::after {
+  content: "";
+  width: 4px;
+  height: 9px;
+  margin-top: -2px;
+  border: solid var(--on-amber);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+#content-container input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+#content-container input[type="checkbox"]:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+/* Picker suggestions */
+[data-autocomplete] .suggestions,
+.expanded-card-content div:not(.multi).expanded-field [data-autocomplete] .suggestions,
+.expanded-card-subcontent div:not(.multi).expanded-field [data-autocomplete] .suggestions {
+  margin-top: 2px;
+  padding: 4px 0;
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius);
+  background: var(--ink-2);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 45%);
+  color: var(--text);
+  font: 400 14px/1.3 var(--font);
+  max-height: 280px;
+}
+
+[data-autocomplete] .suggestions > div {
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+[data-autocomplete] .suggestions > div:hover,
+[data-autocomplete] .suggestions > div.is-current {
+  background: var(--ink-1);
+  color: var(--value);
+}
+
+/* ---------- Type plates ---------- */
+
+.type-plate {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  min-width: 76px;
+  padding: 0 12px;
+  background: var(--t, #a8a878);
+  color: var(--t-ink, var(--ink-0));
+  font: 600 11px/1 var(--font-cond);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+}
+
+/* Story and message text lines stay prose rows, not boxed fields. */
+#content-container [contenteditable="true"].text-line {
+  background-color: transparent !important;
+}
+
+/* Editable plates (type pickers) beat the legacy contenteditable look. */
+#content-container [contenteditable="true"].type-plate {
+  border: 0;
+  border-radius: 0;
+  background: var(--t, #a8a878);
+  color: var(--t-ink, var(--ink-0));
+  line-height: 1;
+}
+
+.type-plate.sm {
+  height: 16px;
+  min-width: 60px;
+  padding: 0 8px;
+  font-size: 10px;
+}
+
+.type-plate.-normal { --t: #a8a878; }
+.type-plate.-fire { --t: #f08030; }
+.type-plate.-water { --t: #6890f0; }
+.type-plate.-grass { --t: #78c850; }
+.type-plate.-electric { --t: #f8d030; }
+.type-plate.-ice { --t: #98d8d8; }
+.type-plate.-fighting { --t: #c03028; --t-ink: #fff; }
+.type-plate.-poison { --t: #a040a0; --t-ink: #fff; }
+.type-plate.-ground { --t: #e0c068; }
+.type-plate.-flying { --t: #a890f0; }
+.type-plate.-psychic { --t: #f85888; }
+.type-plate.-bug { --t: #a8b820; }
+.type-plate.-rock { --t: #b8a038; }
+.type-plate.-ghost { --t: #705898; --t-ink: #fff; }
+.type-plate.-dragon { --t: #7038f8; --t-ink: #fff; }
+.type-plate.-dark { --t: #705848; --t-ink: #fff; }
+.type-plate.-steel { --t: #b8b8d0; }
+.type-plate.-fairy { --t: #ee99ac; }
+
+/* ---------- Section bars ---------- */
+
+.section-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 28px;
+  margin: 0 0 12px;
+  padding: 0 28px 0 14px;
+  background: var(--ink-2);
+  color: var(--text);
+  font: 600 14px/1 var(--font);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
+}
+
+.section-bar::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--amber);
+}
+
+/* ---------- Legacy surfaces picking up the tokens ---------- */
+
+.pokemon-filter {
+  height: calc(100vh - var(--chrome-h));
+  overflow-y: auto;
+  background: var(--ink-1);
+  border-right: 1px solid var(--ink-3);
+  box-shadow: none;
+}
+
+.filter-title {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--ink-3);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.spreadsheet > .expanded-field.field-header {
+  background: var(--ink-1);
+  border-bottom: 1px solid var(--ink-3);
+  color: var(--text-muted);
+  font: 600 13px/40px var(--font-cond);
+}

@@ -66,9 +66,9 @@
 }
 .system-shops .ss-apply,
 .system-shops .ss-dependencies {
-  background: #bd93f9;
+  background: var(--amber);
   color: #f1f1f1;
-  border-color: #bd93f9;
+  border-color: var(--amber);
   font-weight: 600;
 }
 .system-shops .ss-delete {

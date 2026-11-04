@@ -7,7 +7,7 @@
 }
 
 .trainer-sprite-format-panel {
-  border-top: 1px solid #44475a;
+  border-top: 1px solid var(--ink-3);
   display: grid;
   gap: 10px;
   padding-top: 14px;
@@ -43,7 +43,7 @@
 }
 
 .trainer-sprite-editor-page {
-  min-height: calc(100vh - 40px);
+  min-height: calc(100vh - var(--chrome-h));
 }
 
 .trainer-animation-workbench {
@@ -67,7 +67,7 @@
   background-color: #242638;
   background-position: 0 0, 0 8px, 8px -8px, -8px 0;
   background-size: 16px 16px;
-  border: 1px solid #44475a;
+  border: 1px solid var(--ink-3);
   display: block;
   image-rendering: pixelated;
   max-width: 100%;
@@ -110,7 +110,7 @@
 
 .trainer-rig-atlas-wrap {
   background: #1d1f2f;
-  border: 1px solid #44475a;
+  border: 1px solid var(--ink-3);
   border-radius: 6px;
   max-width: 516px;
   overflow: auto;
@@ -172,7 +172,7 @@
 }
 
 .trainer-gif-shared-warning {
-  background: #282a36;
+  background: var(--ink-0);
   border: 0;
   border-radius: 0;
   display: grid;

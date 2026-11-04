@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  height: calc(100vh - 40px);
+  height: calc(100vh - var(--chrome-h));
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -206,7 +206,7 @@
 
 .map3d-controls {
   background: #2f314b;
-  border: 1px solid #44475a;
+  border: 1px solid var(--ink-3);
   border-radius: 5px;
   color: #f2f2f2;
   font-size: 13px;
@@ -236,7 +236,7 @@
 
 .map3d-load-error code {
   background: #202432;
-  border: 1px solid #44475a;
+  border: 1px solid var(--ink-3);
   border-radius: 4px;
   color: #d6d7e2;
   font-size: 11px;
@@ -331,8 +331,8 @@
 }
 
 .map3d-warnings {
-  background: #383a59;
-  border: 1px solid #44475a;
+  background: var(--ink-2);
+  border: 1px solid var(--ink-3);
   border-radius: 5px;
   color: #f2f2f2;
   font-size: 13px;
@@ -362,7 +362,7 @@
 
 .map3d-view {
   background: #20232a;
-  height: calc(100vh - 40px);
+  height: calc(100vh - var(--chrome-h));
   margin-left: 18vw;
   padding: 0;
   position: relative;

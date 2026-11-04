@@ -1,5 +1,5 @@
 .code-injection-page {
-  background: #282a36;
+  background: var(--ink-0);
   color: #f2f2f2;
   display: grid;
   flex: 1 1 auto;
@@ -10,7 +10,7 @@
 }
 
 .code-injection-sidebar {
-  border-right: 1px solid #44475a;
+  border-right: 1px solid var(--ink-3);
   min-height: calc(100vh - 44px);
   padding: 22px 18px;
 }
@@ -49,7 +49,7 @@
 }
 
 .pmc-capacity {
-  border-top: 1px solid #44475a;
+  border-top: 1px solid var(--ink-3);
   display: grid;
   gap: 14px;
   margin-top: 16px;
@@ -84,7 +84,7 @@
 }
 
 .code-injection-sidebar__modules {
-  border-top: 1px solid #44475a;
+  border-top: 1px solid var(--ink-3);
   margin-top: 22px;
   padding-top: 20px;
 }
@@ -140,7 +140,7 @@
 }
 
 .code-injection-tabs {
-  border-bottom: 1px solid #44475a;
+  border-bottom: 1px solid var(--ink-3);
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -160,12 +160,12 @@
 
 .code-injection-tab:hover,
 .code-injection-tab.-active {
-  border-bottom-color: #bd93f9;
-  color: #bd93f9;
+  border-bottom-color: var(--amber);
+  color: var(--amber);
 }
 
 .code-injection-tab:focus-visible {
-  outline: 2px solid #bd93f9;
+  outline: 2px solid var(--amber);
   outline-offset: -2px;
 }
 
@@ -176,8 +176,8 @@
 }
 
 .code-injection-panel {
-  background: #383a59;
-  border: 1px solid #44475a;
+  background: var(--ink-2);
+  border: 1px solid var(--ink-3);
   border-radius: 6px;
   margin-bottom: 18px;
   max-width: 900px;
@@ -203,8 +203,8 @@
 
 .code-injection-showcase {
   align-items: center;
-  background: #282a36;
-  border: 1px solid #44475a;
+  background: var(--ink-0);
+  border: 1px solid var(--ink-3);
   border-radius: 6px;
   display: flex;
   flex-wrap: wrap;
@@ -227,7 +227,7 @@
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   margin-top: 18px;
   padding-top: 14px;
-  border-top: 1px solid #44475a;
+  border-top: 1px solid var(--ink-3);
 }
 
 .code-injection-facts div {
@@ -274,8 +274,8 @@
 }
 
 .party-toolbar-flag input {
-  background: #282a36;
-  border: 1px solid #6272a4;
+  background: var(--ink-0);
+  border: 1px solid var(--field-line);
   border-radius: 4px;
   color: #f2f2f2;
   max-width: 100%;
@@ -289,7 +289,7 @@
 }
 
 .party-toolbar-section-flags {
-  border: 1px solid #6272a4;
+  border: 1px solid var(--field-line);
   border-radius: 6px;
   display: grid;
   flex-basis: 100%;
@@ -312,9 +312,9 @@
 }
 
 .code-injection-actions .btn.-primary {
-  background: #1abc9c;
-  color: #f1f1f1;
-  border-color: #1abc9c;
+  background: var(--amber);
+  color: var(--on-amber);
+  border-color: var(--amber);
 }
 
 .code-injection-actions .btn:disabled {
@@ -333,7 +333,7 @@
 }
 
 .type-icon-variant-preview {
-  background: #282a36;
+  background: var(--ink-0);
   border: 2px solid rgb(98 114 164 / 48%);
   border-radius: 8px;
   margin: 0;
@@ -364,8 +364,8 @@
 }
 
 .type-icon-variant-preview { cursor: pointer; font: inherit; text-align: left; }
-.type-icon-variant-preview:hover { border-color: #bd93f9; }
-.type-icon-variant-preview:focus-visible { outline: 3px solid #bd93f9; outline-offset: 3px; }
+.type-icon-variant-preview:hover { border-color: var(--amber); }
+.type-icon-variant-preview:focus-visible { outline: 3px solid var(--amber); outline-offset: 3px; }
 .type-icon-variant-caption { display: block; }
 .type-icon-border-color { display: flex; align-items: center; gap: 12px; margin-top: 14px; font-weight: 700; }
 .type-icon-border-color[hidden] { display: none; }
@@ -458,7 +458,7 @@
   gap: 8px;
   margin-top: 14px;
   padding: 10px 0 0;
-  border-top: 1px solid #44475a;
+  border-top: 1px solid var(--ink-3);
 }
 
 .code-injection-credits span {
@@ -485,7 +485,7 @@
   background: transparent;
   border: 0;
   padding: 10px 0;
-  border-bottom: 1px solid #44475a;
+  border-bottom: 1px solid var(--ink-3);
 }
 
 .code-injection-empty {
@@ -516,13 +516,13 @@
   }
 
   .code-injection-sidebar {
-    border-bottom: 1px solid #44475a;
+    border-bottom: 1px solid var(--ink-3);
     border-right: 0;
     min-height: 0;
   }
 }
 
-.code-injection-actions .btn.-default { background: #383a59; border-color: #55586d; color: #f2f2f2; }
+.code-injection-actions .btn.-default { background: var(--ink-2); border-color: #55586d; color: #f2f2f2; }
 .code-injection-actions .btn.-remove { background: #b83a48; border-color: #b83a48; color: #fff; }
 
 .code-injection-settings {
@@ -541,7 +541,7 @@
 
 .code-injection-settings select,
 .code-injection-settings input {
-  background: #282a36;
+  background: var(--ink-0);
   border: 1px solid #55586d;
   border-radius: 4px;
   color: #f2f2f2;
@@ -555,4 +555,4 @@
 .code-injection-settings > .btn,
 .code-injection-settings > .code-injection-note { grid-column: 1 / -1; justify-self: start; }
 .code-injection-settings select:focus-visible,
-.code-injection-settings input:focus-visible { outline: 2px solid #bd93f9; outline-offset: 2px; }
+.code-injection-settings input:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }

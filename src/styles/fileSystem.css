@@ -1,5 +1,5 @@
 .file-system-page {
-  background: #282a36;
+  background: var(--ink-0);
   color: #f2f2f2;
   display: grid;
   flex: 1 1 auto;
@@ -12,15 +12,15 @@
 }
 
 .file-system-sidebar {
-  background: #282a36;
-  border-right: 1px solid #44475a;
+  background: var(--ink-0);
+  border-right: 1px solid var(--ink-3);
   min-height: calc(100vh - 44px);
   overflow: auto;
   box-shadow: 10px 0 10px 0 rgb(0 0 0 / 15%);
 }
 
 .file-system-sidebar__header {
-  border-bottom: 1px solid #44475a;
+  border-bottom: 1px solid var(--ink-3);
   padding: 18px;
 }
 
@@ -40,7 +40,7 @@
 }
 
 .file-system-sidebar__arm9 {
-  border-bottom: 1px solid #44475a;
+  border-bottom: 1px solid var(--ink-3);
   padding: 14px 18px;
 }
 
@@ -114,8 +114,8 @@
 }
 
 .file-system-tree .tf-node.-selected {
-  background: #44475a;
-  border-left-color: #bd93f9;
+  background: var(--ink-3);
+  border-left-color: var(--amber);
   color: #ffffff;
 }
 
@@ -168,8 +168,8 @@
 }
 
 .file-system-actions .btn.-primary {
-  background: #1abc9c;
-  color: #f1f1f1;
+  background: var(--amber);
+  color: var(--on-amber);
 }
 
 .file-system-actions .btn:disabled,
@@ -180,8 +180,8 @@
 
 .file-system-hex-toolbar {
   align-items: center;
-  background: #383a59;
-  border: 1px solid #44475a;
+  background: var(--ink-2);
+  border: 1px solid var(--ink-3);
   border-radius: 6px;
   display: flex;
   flex-wrap: wrap;
@@ -207,8 +207,8 @@
 }
 
 .file-system-hex-toolbar input {
-  background: #282a36;
-  border: 1px solid #44475a;
+  background: var(--ink-0);
+  border: 1px solid var(--ink-3);
   border-radius: 4px;
   color: #f2f2f2;
   font: inherit;
@@ -219,7 +219,7 @@
 
 .file-system-hex {
   background: #1d1f2a;
-  border: 1px solid #44475a;
+  border: 1px solid var(--ink-3);
   border-radius: 6px;
   color: #eef2f6;
   font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
@@ -247,8 +247,8 @@
 }
 
 .hex-cell {
-  background: #282a36;
-  border: 1px solid #44475a;
+  background: var(--ink-0);
+  border: 1px solid var(--ink-3);
   border-radius: 3px;
   color: #f7f9fb;
   font: inherit;
@@ -259,7 +259,7 @@
 }
 
 .hex-cell:focus {
-  border-color: #bd93f9;
+  border-color: var(--amber);
   outline: 2px solid rgb(189 147 249 / 25%);
 }
 
@@ -286,8 +286,8 @@
 
 .file-system-empty {
   align-items: center;
-  background: #383a59;
-  border: 1px solid #44475a;
+  background: var(--ink-2);
+  border: 1px solid var(--ink-3);
   border-radius: 6px;
   color: #d6d7e2;
   display: flex;
@@ -296,14 +296,14 @@
 }
 
 .narc-reference {
-  background: #383a59;
-  border: 1px solid #44475a;
+  background: var(--ink-2);
+  border: 1px solid var(--ink-3);
   border-radius: 6px;
   overflow: hidden;
 }
 
 .narc-reference__header {
-  border-bottom: 1px solid #44475a;
+  border-bottom: 1px solid var(--ink-3);
   padding: 16px;
 }
 
@@ -343,11 +343,11 @@
 }
 
 .narc-reference__row:hover {
-  background: #44475a;
+  background: var(--ink-3);
 }
 
 .narc-reference__row code {
-  color: #bd93f9;
+  color: var(--amber);
   font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
   font-size: 13px;
 }
@@ -365,7 +365,7 @@
   }
 
   .file-system-sidebar {
-    border-bottom: 1px solid #44475a;
+    border-bottom: 1px solid var(--ink-3);
     border-right: 0;
     min-height: auto;
     max-height: 42vh;
