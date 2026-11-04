@@ -198,7 +198,6 @@ export type CodeInjectionState = {
   streamedBgms?: StreamedBgmConfig[];
   nativeStreamReplacements?: NativeStreamReplacementConfig[];
   standaloneStreams?: StandaloneStreamConfig[];
-  saveMenuSettings?: { music: "relic-song" | "stream" | "off"; streamId?: number; bpm: number; stepsPerBeat: 1 | 2 | 4; versionLabel?: string };
   battleLog?: {
     ancestryPath: string;
     ancestryFileId?: number;

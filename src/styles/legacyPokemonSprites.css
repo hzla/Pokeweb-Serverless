@@ -609,6 +609,7 @@
 .sprite-editor-page {
   display: grid;
   gap: 20px;
+  grid-template-columns: minmax(0, 1fr);
   margin-left: var(--sprite-sidebar-width);
   padding: 64px 24px 40px;
   width: calc(100vw - var(--sprite-sidebar-width));
@@ -1576,3 +1577,12 @@
 }
 
 .sprite-sidebar .btn.-primary, .sprite-editor-page .btn.-primary { background: #1abc9c; border-color: #1abc9c; color: #f1f1f1; }
+
+.palette-editor:has([data-reset-nature]) .palette-row { grid-template-columns: 20px 26px repeat(3, 52px) 30px; }
+.palette-row [data-reset-nature] { padding: 2px 5px; min-width: 0; }
+.nature-palette-controls { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
+.nature-palette-controls .sprite-field { margin-bottom: 0; min-width: 145px; }
+.nature-palette-installer { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.palette-editor h3 small { font-size: 11px; color: #aab5c8; }
+
+.palette-editor:has([data-reset-nature]) .palette-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 265px), 1fr)); }

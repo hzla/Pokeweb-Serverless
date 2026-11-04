@@ -48,7 +48,6 @@ Check each guide for its supported games and revisions. Browser previews and str
 - [Custom UI project schema](custom-ui/project.schema.json)
 - [Native Learnset preset bundle](custom-ui/learnset-native.pwui.zip)
 - [C-Gear button authoring tutorial](cgear-buttons/index.html)
-- [Save-menu installer (BW2)](save-menu-local-installer.md)
 - [Compile and decompile BW2 field scripts](bw2-script-compiler.md)
 - [Cutscene timeline and JSON authoring (US White 2)](cutscenes/authoring.md)
 - [Field scenes and player control](cutscenes/field-scenes.md)

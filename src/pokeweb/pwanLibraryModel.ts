@@ -71,6 +71,7 @@ export type LoadedPwanLibrary = {
 };
 
 export type ImportPwanLibraryEntryOptions = {
+  resetNaturePalettes?: boolean;
   library?: LoadedPwanLibrary;
   carrier?: PwanCarrierTemplate;
 };
@@ -101,7 +102,7 @@ export async function importPwanLibraryEntry(
 ): Promise<PwanAnimationOverride> {
   const library = options.library ?? await loadPwanLibrary();
   const carrier = options.carrier ?? await loadBundledPwanCarrierTemplate(project.session.baseVersion === "B2" ? "B2" : "W2");
-  return importPwanLibraryEntryFromLoadedLibrary(project, targetSpeciesId, libraryEntryId, library, carrier);
+  return importPwanLibraryEntryFromLoadedLibrary(project, targetSpeciesId, libraryEntryId, library, carrier, options);
 }
 
 export function importPwanLibraryEntryFromLoadedLibrary(
@@ -110,6 +111,7 @@ export function importPwanLibraryEntryFromLoadedLibrary(
   libraryEntryId: string,
   library: LoadedPwanLibrary,
   carrier: PwanCarrierTemplate,
+  options: Pick<ImportPwanLibraryEntryOptions, "resetNaturePalettes"> = {},
 ): PwanAnimationOverride {
   if (!project.narcs.pokemon_sprites) throw new Error("Pokemon Sprites must be loaded before importing community PWAN assets.");
   const entry = library.entries.find((candidate) => candidate.id === libraryEntryId);
@@ -136,7 +138,7 @@ export function importPwanLibraryEntryFromLoadedLibrary(
     nativePaletteSource,
     carrierTemplate: "w2u-gen6-placeholder",
   };
-  upsertPwanOverride(project, next);
+  upsertPwanOverride(project, next, options);
   const saved = findPwanOverrideForSpecies(project, targetSpeciesId);
   if (!saved) throw new Error(`PWAN library import for species ${targetSpeciesId} did not save.`);
   applyPwanCarrierPatch(project, saved, carrier);

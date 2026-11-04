@@ -1,6 +1,8 @@
 import { hydrateMoveEffectsSource } from "./moveEffectsModel";
 import { hydrateAbilityEffectsSource } from "./abilityEffectsModel";
 import { hydrateTrainerFieldConditionsSources } from "./trainerFieldConditionsModel";
+import { hydrateNaturePalettes } from "./naturePaletteModel";
+import { hydrateNaturePaletteRuntime } from "./naturePaletteRuntime";
 import { hydrateItemEffectsSource } from "./itemEffectsModel";
 import type { ProjectState } from "./projectStore";
 import { ProjectSaveQueue, createProjectSaveScheduler, type ProjectSaveScheduler } from "./projectSaveScheduler";
@@ -225,6 +227,8 @@ async function hydratePersistedProject(project: ProjectState, availableSource?: 
   hydrateAbilityEffectsSource(project, rom);
   hydrateMoveEffectsSource(project, rom);
   if (project.arm9.length === 0) project.arm9 = decompressCode(rom.arm9);
+  hydrateNaturePalettes(project, rom);
+  hydrateNaturePaletteRuntime(project, rom);
   hydrateBattleLogInstallMetadata(project, rom);
   if (!w2anim && !project.pwanAnimations?.dirty && !project.trainerPwanAnimations?.dirty &&
       (((project.pwanAnimations?.overrides.length ?? 0) === 0 || !project.pwanAnimations?.detectedArchive) ||

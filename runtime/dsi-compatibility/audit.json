@@ -2,7 +2,7 @@
   "format": 1,
   "scope": "4 MiB pointer limits; source review and executable inventory, not game compatibility certification.",
   "sourceFilesScanned": 509,
-  "artifactCount": 120,
+  "artifactCount": 118,
   "sourceCandidates": [
     {
       "repository": "pokeweb",
@@ -570,34 +570,6 @@
       "codeBytes": 48,
       "bssBytes": 0,
       "boundaryLiteralCandidates": []
-    },
-    {
-      "path": "src/assets/codeinjection/SaveMenuB2.dll",
-      "sha256": "9fd0b72ddef222ca3b01d94cac40e47923e89098de67df21fbbbba6cb859d969",
-      "codeBytes": 33288,
-      "bssBytes": 6624,
-      "boundaryLiteralCandidates": [
-        {
-          "offset": 31432,
-          "value": "0x003fffff"
-        },
-        {
-          "offset": 31444,
-          "value": "0x003fffff"
-        }
-      ]
-    },
-    {
-      "path": "src/assets/codeinjection/SaveMenuW2.dll",
-      "sha256": "5464dc3f3a48b047357622c5e0d8c7cacf60ee85e113cf86d209153563a4c23a",
-      "codeBytes": 33096,
-      "bssBytes": 6628,
-      "boundaryLiteralCandidates": [
-        {
-          "offset": 30832,
-          "value": "0x003fffff"
-        }
-      ]
     },
     {
       "path": "src/assets/codeinjection/SummaryStatViewerB.dll",

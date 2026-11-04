@@ -1398,7 +1398,7 @@ export async function removeLastStandaloneStream(project: ProjectState): Promise
     if (settings && (settings.length === 16 || settings.length === 48) && readAscii(settings, 0, 4) === "SMNU"
       && readU16(settings, 4) === (settings.length === 16 ? 1 : 2)
       && readU16(settings, 6) === 1 && readU16(settings, 8) === last.streamId) {
-      throw new Error("Select another song in the Save Menu editor before removing this stream.");
+      throw new Error("This stream is used by the ROM's save menu and cannot be removed.");
     }
     const { configs: bgms, shortcutEnabled } = await readInstalledMusic(draft, rom, version, sdat.bytes);
     if (bgms.length || version === "B" || version === "W") assertBundledBgmRuntimeCompatibility(draft, romBytes);

@@ -51,6 +51,7 @@ img[src*="pokesprite/"] {
   flex: 0 0 auto;
   font: inherit;
   padding: 13px 20px;
+  text-decoration: none;
 }
 
 .home-tab[aria-selected="true"] {

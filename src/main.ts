@@ -122,7 +122,7 @@ import {
   renderActionChangelogPage,
 } from "./ui/changelogView";
 import { escapeHtml } from "./ui/dom";
-import { attachHomeTabs } from "./ui/homeTabs";
+import { attachHomeTabs, homeTabFromHash, homeTabOrDefault, homeTabUrl, type HomeTab } from "./ui/homeTabs";
 import { attachTranslationCard, renderTranslationCard } from "./ui/translation";
 import { exportChangelogPdf, exportChangelogText, attachChangelogNarcPicker, renderChangelogGenerator, renderGeneratedChangelog, selectedChangelogNarcsFromPicker } from "./ui/changelogGenerator";
 
@@ -185,6 +185,7 @@ type AppRoute =
   | "debugNarcs";
 type AppHistoryState = {
   route: AppRoute;
+  homeTab?: HomeTab;
   matrixHeaderId?: number;
   overworldId?: number;
   overworldHeaderId?: number;
@@ -455,6 +456,8 @@ const defaultDocumentTitle = document.title;
 
 let project: ProjectState | undefined;
 let route: AppRoute = "upload";
+let activeHomeTab: HomeTab = "upload";
+let homeTabs: ReturnType<typeof attachHomeTabs> | undefined;
 let activeOverworldId: number | undefined;
 let activeOverworldHeaderId: number | undefined;
 let activeMapZoneId: number | undefined;
@@ -563,6 +566,7 @@ async function boot(): Promise<void> {
     hydrateProject(project);
   }
   const initialState = routeStateFromUrl() ?? routeStateFromStorage();
+  activeHomeTab = homeTabOrDefault(initialState.homeTab);
   activeOverworldId = initialState.overworldId;
   activeOverworldHeaderId = initialState.overworldHeaderId;
   activeMapZoneId = initialState.mapZoneId;
@@ -653,6 +657,13 @@ function renderProjectRestoreError(error: unknown): void {
 
 window.addEventListener("popstate", (event) => {
   const nextState = routeStateFromHistory(event.state) ?? routeStateFromUrl() ?? routeStateFromStorage();
+  if (route === "upload" && nextState.route === "upload" && homeTabs) {
+    activeHomeTab = homeTabOrDefault(nextState.homeTab);
+    if (!(project && !hasExportBase && activeHomeTab === "upload")) {
+      homeTabs.select(activeHomeTab);
+      return;
+    }
+  }
   applyRouteState(nextState, { fromHistory: true });
 });
 
@@ -678,6 +689,7 @@ function checkCurrentSourceRom(): void {
 let stopMapStudioView: (() => void) | undefined;
 let stopTownMapView: (() => void) | undefined;
 function renderApp(): void {
+  homeTabs = undefined;
   stopMapStudioView?.(); stopMapStudioView = undefined;
   syncProjectEditSubscription();
   const previousContent = document.getElementById("content-container");
@@ -2033,7 +2045,7 @@ async function ensurePokemonFormAssets(): Promise<void> {
 }
 
 function renderUpload(root: HTMLElement): void {
-  if (project && !hasExportBase) {
+  if (project && !hasExportBase && activeHomeTab === "upload") {
     renderSourceRomRecovery(root, project);
     return;
   }
@@ -2045,12 +2057,12 @@ function renderUpload(root: HTMLElement): void {
     <section class="upload-page">
       <div class="home-shell">
         <nav class="home-tabs" role="tablist" aria-label="Homepage tools">
-          <button id="home-tab-upload" class="home-tab" type="button" role="tab" aria-selected="true" aria-controls="home-panel-upload" data-home-tab="upload">ROM Upload</button>
-          <button id="home-tab-repair" class="home-tab" type="button" role="tab" aria-selected="false" aria-controls="home-panel-repair" tabindex="-1" data-home-tab="repair">Repair</button>
-          <button id="home-tab-translation" class="home-tab" type="button" role="tab" aria-selected="false" aria-controls="home-panel-translation" tabindex="-1" data-home-tab="translation">Translation</button>
-          <button id="home-tab-changelog" class="home-tab" type="button" role="tab" aria-selected="false" aria-controls="home-panel-changelog" tabindex="-1" data-home-tab="changelog">Changelog Generator</button>
-          <button id="home-tab-about" class="home-tab" type="button" role="tab" aria-selected="false" aria-controls="home-panel-about" tabindex="-1" data-home-tab="about">About</button>
-          <button id="home-tab-ai-use-disclaimer" class="home-tab" type="button" role="tab" aria-selected="false" aria-controls="home-panel-ai-use-disclaimer" tabindex="-1" data-home-tab="ai-use-disclaimer">AI Use Disclaimer</button>
+          <a href="${homeTabUrl("upload")}" id="home-tab-upload" class="home-tab" role="tab" aria-selected="true" aria-controls="home-panel-upload" data-home-tab="upload">ROM Upload</a>
+          <a href="${homeTabUrl("repair")}" id="home-tab-repair" class="home-tab" role="tab" aria-selected="false" aria-controls="home-panel-repair" tabindex="-1" data-home-tab="repair">Repair</a>
+          <a href="${homeTabUrl("translation")}" id="home-tab-translation" class="home-tab" role="tab" aria-selected="false" aria-controls="home-panel-translation" tabindex="-1" data-home-tab="translation">Translation</a>
+          <a href="${homeTabUrl("changelog")}" id="home-tab-changelog" class="home-tab" role="tab" aria-selected="false" aria-controls="home-panel-changelog" tabindex="-1" data-home-tab="changelog">Changelog Generator</a>
+          <a href="${homeTabUrl("about")}" id="home-tab-about" class="home-tab" role="tab" aria-selected="false" aria-controls="home-panel-about" tabindex="-1" data-home-tab="about">About</a>
+          <a href="${homeTabUrl("ai-use-disclaimer")}" id="home-tab-ai-use-disclaimer" class="home-tab" role="tab" aria-selected="false" aria-controls="home-panel-ai-use-disclaimer" tabindex="-1" data-home-tab="ai-use-disclaimer">AI Use Disclaimer</a>
         </nav>
         <section id="home-panel-upload" class="home-tab-panel" role="tabpanel" aria-labelledby="home-tab-upload" data-home-panel="upload">
         <div class="upload-panel">
@@ -2176,7 +2188,14 @@ function renderUpload(root: HTMLElement): void {
       </div>
     </section>
   `;
-  attachHomeTabs(root);
+  homeTabs = attachHomeTabs(root, {
+    initialTab: activeHomeTab,
+    onSelect: (tab) => {
+      activeHomeTab = tab;
+      syncBrowserHistory(false);
+      if (project && !hasExportBase && tab === "upload") renderApp();
+    },
+  });
   attachTranslationCard(root, (bytes, filename) => downloadBlob(bytesBlob(bytes, "application/octet-stream"), filename));
   attachChangelogNarcPicker(root);
 
@@ -2727,6 +2746,7 @@ function applyRouteState(nextState: AppHistoryState, options: { replace?: boolea
     return;
   if (requestedRoute === "grottoOdds" && !canVisit("grottos")) return;
 
+  activeHomeTab = homeTabOrDefault(nextState.homeTab);
   activeOverworldId = nextState.overworldId;
   activeOverworldHeaderId = nextState.overworldHeaderId;
   activeMapZoneId = nextState.mapZoneId;
@@ -2781,6 +2801,7 @@ function syncBrowserHistory(replace: boolean): void {
 }
 
 function currentHistoryState(): AppHistoryState {
+  if (route === "upload") return { route, homeTab: activeHomeTab };
   if (route === "matrixEditor") return { route, matrixHeaderId: activeMatrixHeaderId };
   if (route === "overworlds") return { route, overworldId: activeOverworldId, overworldHeaderId: activeOverworldHeaderId };
   if (route === "maps3d") return { route, mapZoneId: activeMapZoneId, mapId: activeMapId, mapMatrixCell: activeMapMatrixCell };
@@ -2807,6 +2828,7 @@ function routeUrl(
   cutsceneSequenceId?: number,
   cutsceneSceneId?: string,
 ): string {
+  if (nextRoute === "upload") return homeTabUrl(activeHomeTab);
   if (nextRoute === "matrixEditor" && activeMatrixHeaderId !== undefined) return `#matrixEditor/header/${activeMatrixHeaderId}`;
   if (nextRoute === "cutscenes" && cutsceneSceneId) return `#cutscenes/scene/${encodeURIComponent(cutsceneSceneId)}`;
   if (nextRoute === "cutscenes" && cutsceneSequenceId !== undefined) return `#cutscenes/${cutsceneSequenceId}`;
@@ -2833,6 +2855,7 @@ function routeStateFromUrl(): AppHistoryState | undefined {
   const formIndex = extraText === undefined ? undefined : Number(extraText);
   return {
     route: routeName,
+    homeTab: homeTabFromHash(window.location.hash),
     cutsceneSequenceId: routeName === "cutscenes" && Number.isSafeInteger(id) && id! > 0 ? id : undefined,
     cutsceneSceneId: routeName === "cutscenes" && idText === "scene" && extraText && /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(extraText) ? extraText : undefined,
     matrixHeaderId: routeName === "matrixEditor" && idText === "header" && Number.isSafeInteger(formIndex) && formIndex! >= 0 ? formIndex : undefined,
@@ -2874,6 +2897,7 @@ function routeStateFromHistory(value: unknown): AppHistoryState | undefined {
   if (!isAppRoute(maybe.route)) return undefined;
   return {
     route: maybe.route,
+    homeTab: maybe.route === "upload" ? homeTabOrDefault(maybe.homeTab) : undefined,
     cutsceneSequenceId: Number.isSafeInteger(maybe.cutsceneSequenceId) && maybe.cutsceneSequenceId! > 0 ? maybe.cutsceneSequenceId : undefined,
     cutsceneSceneId: typeof maybe.cutsceneSceneId === "string" && /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(maybe.cutsceneSceneId) ? maybe.cutsceneSceneId : undefined,
     matrixHeaderId: Number.isSafeInteger(maybe.matrixHeaderId) && maybe.matrixHeaderId! >= 0 ? maybe.matrixHeaderId : undefined,

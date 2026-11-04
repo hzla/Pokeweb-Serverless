@@ -770,7 +770,7 @@ function installMusicEditorInteractions(project: ProjectState, root: HTMLElement
         trimStartSeconds: draft.standaloneTrimStartSeconds, trimEndSeconds: draft.standaloneTrimEndSeconds,
         loopStartSeconds: draft.standaloneLoopStartSeconds,
       });
-      draft.standaloneMessage = `${installed.name} added as stream ${installed.streamId}. Select it in the Save Menu installer.`;
+      draft.standaloneMessage = `${installed.name} added as stream ${installed.streamId}.`;
     }, "standalone");
   });
   root.querySelector<HTMLButtonElement>("#remove-last-standalone-stream-btn")?.addEventListener("click", async () => {

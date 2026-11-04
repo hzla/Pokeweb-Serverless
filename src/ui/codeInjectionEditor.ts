@@ -1,4 +1,5 @@
 import {renderPmcCapacity,formatPmcKiB} from "./pmcCapacity";
+import { attachNaturePaletteInstaller, renderNaturePaletteInstaller } from "./naturePaletteInstaller";
 import {getPmcMemoryEstimate} from "../pokeweb/pmcMemoryModel";
 import { typeIconPreview, DEFAULT_TYPE_ICON_BORDER, DEFAULT_BW1_TYPE_ICON_BORDER } from "../pokeweb/typeIconAppearance";
 import { getTrainerFieldConditionsStatus } from "../pokeweb/trainerFieldConditionsModel";
@@ -65,7 +66,6 @@ import { getPokenavStatus, installPokenav, disablePokenav } from "../pokeweb/pok
 import { getNuzlockeEncountersStatus,installNuzlockeEncounters,disableNuzlockeEncounters } from "../pokeweb/nuzlockeEncountersModel";
 import { getLearnsetViewerStatus, installLearnsetViewer, uninstallLearnsetViewer } from "../pokeweb/learnsetViewerModel";
 import { getSummaryStatViewerStatus, installSummaryStatViewer, uninstallSummaryStatViewer, SUMMARY_STAT_VIEWER_VERSION } from "../pokeweb/summaryStatViewerModel";
-import { getSaveMenuSettings, getSaveMenuStatus, installSaveMenu, uninstallSaveMenu, SAVE_MENU_VERSION, SAVE_MENU_VERSION_LABEL_MAX_LENGTH, type SaveMenuSettings } from "../pokeweb/saveMenuModel";
 import { getInfiniteCandyStatus, getInstalledInfiniteCandyItemId, installInfiniteCandy } from "../pokeweb/infiniteCandyModel";
 import { getLevelCapsStatus, installLevelCaps } from "../pokeweb/levelCapsModel";
 import { getForgettableHmsPmcStatus, stageForgettableHmsPmc } from "../pokeweb/forgettableHmsRuntime";
@@ -78,7 +78,7 @@ import {
   type PwanCompatibilityReport,
 } from "../pokeweb/pwanCompatibilityModel";
 import { loadActiveRomBytes } from "../pokeweb/persistence";
-import { getStandaloneStreamConfigs, type ProjectState } from "../pokeweb/projectStore";
+import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 
 const codeInjectionHydrationProjects = new WeakSet<ProjectState>();
@@ -172,9 +172,6 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const pokenavStatus = getPokenavStatus(project);
   const nuzlockeStatus = getNuzlockeEncountersStatus(project);
   const summaryStatStatus = getSummaryStatViewerStatus(project);
-  const saveMenuStatus = getSaveMenuStatus(project);
-  const saveMenuSettings = getSaveMenuSettings(project);
-  const standaloneSongs = getStandaloneStreamConfigs(project);
   const battleHudStatus = getBattleTypeHudStatus(project);
   const typeIconSettings = pendingTypeIcons.get(project) ?? {
     variant: battleHudStatus.iconVariant ?? "letters",
@@ -429,6 +426,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         </section>
         </section>
         <section class="code-injection-tab-panel" id="code-injection-panel-graphics" role="tabpanel" aria-labelledby="code-injection-tab-graphics" tabindex="0" ${activeTab === "graphics" ? "" : "hidden"}>
+        <section class="code-injection-panel"><div class="code-injection-panel__header"><div><h2>Nature Palettes</h2><p>25 normal/shiny palette pairs per form. Edit in the Pokémon sprite editor.</p></div></div>${renderNaturePaletteInstaller(project)}</section>
         <section class="code-injection-panel" ${patchVisibility(summaryStatStatus.supported)}>
           <div class="code-injection-panel__header"><div>
             <h2>Summary IV/EV Viewer</h2>
@@ -555,39 +553,6 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <button class="btn -primary" id="install-pokenav-btn" type="button" ${pokenavStatus.compatible ? "" : "disabled"}>${pokenavStatus.updateAvailable ? "Update" : pokenavStatus.installed ? "Enable / Reinstall" : "Install"}</button>
             <button class="btn -default" id="disable-pokenav-btn" type="button" ${pokenavStatus.compatible && pokenavStatus.enabled ? "" : "disabled"}>Disable</button>
             <div class="code-injection-note" id="pokenav-note" aria-live="polite"></div>
-          </div>
-        </section>
-        <section class="code-injection-panel" ${patchVisibility(saveMenuStatus.supported)}>
-          <div class="code-injection-panel__header"><div>
-            <h2>Interactive Save Menu</h2>
-            <p>An animated save card and native Unova map. Continue recalls the party from right to left while the player raises a Poké Ball, then jumps across both screens onto the location marker. The C-Gear question is answered Yes automatically.</p>
-          </div>${renderInlineStatus(saveMenuStatus.updateAvailable ? "Update Available" : saveMenuStatus.installed ? "Installed" : !saveMenuStatus.supported ? "Unsupported" : saveMenuStatus.dependencyPresent ? "Ready" : "Requires Following Pokémon", { className: "code-injection-status" })}</div>
-          <div class="code-injection-facts"><div><span>ROM</span><strong>English Black 2 / White 2</strong></div><div><span>Version</span><strong>${SAVE_MENU_VERSION}</strong></div></div>
-          <p>${escapeHtml(saveMenuStatus.message)}</p>
-          ${saveMenuStatus.supported ? `<p><a class="btn -default" href="#followingPokemon" data-route="followingPokemon">${saveMenuStatus.dependencyPresent ? "Open Following Pokémon" : "Install Following Pokémon"}</a></p>` : ""}
-          <p>L/R make the left/right three Pokémon Hop; Y/X make alternating party slots Hop. Hold Select with L to spin slots 1–3, R for slots 4–6, Y for slots 1/3/5, or X for slots 2/4/6 using their follower sprites. The player raises the matching hand, and walking stays on the music beat.</p>
-          <div class="code-injection-actions code-injection-settings">
-            <label>ROM version label<input id="save-menu-version-label" type="text" maxlength="${SAVE_MENU_VERSION_LABEL_MAX_LENGTH}" value="${escapeHtml(saveMenuSettings.versionLabel ?? "")}" placeholder="v1.0" ${saveMenuStatus.supported ? "" : "disabled"} />
-              <small>Optional text in the save card header. Up to 30 letters, numbers, spaces, or . , ! ? -.</small>
-            </label>
-            <label>Menu song
-              <select id="save-menu-song" ${saveMenuStatus.supported ? "" : "disabled"}>
-                <option value="relic-song" ${saveMenuSettings.music === "relic-song" ? "selected" : ""}>Relic Song (native sequence)</option>
-                <option value="off" ${saveMenuSettings.music === "off" ? "selected" : ""}>Off (no save-menu music)</option>
-                ${standaloneSongs.map(song => `<option value="stream:${song.streamId}" ${song.loop ? "" : "disabled"} ${saveMenuSettings.music === "stream" && saveMenuSettings.streamId === song.streamId ? "selected" : ""}>${escapeHtml(song.name)} · stream ${song.streamId}${song.loop ? "" : " (not looping)"}</option>`).join("")}
-              </select>
-              <small>Use Music → Standalone streamed songs to add a track without replacing game music.</small>
-            </label>
-            <label>Stream tempo (BPM)<input id="save-menu-bpm" type="number" min="30" max="300" step="1" value="${saveMenuSettings.bpm}" ${saveMenuStatus.supported ? "" : "disabled"} /></label>
-            <label>Sprite pose changes per beat
-              <select id="save-menu-steps-per-beat" ${saveMenuStatus.supported ? "" : "disabled"}>
-                ${([1, 2, 4] as const).map(steps => `<option value="${steps}" ${saveMenuSettings.stepsPerBeat === steps ? "selected" : ""}>${steps}</option>`).join("")}
-              </select>
-              <small>The native song follows its sequence clock. Streams use BPM. With music off, sprites change poses every eight frames.</small>
-            </label>
-            <button class="btn -primary" id="install-save-menu-btn" type="button" ${saveMenuStatus.supported && saveMenuStatus.dependencyPresent ? "" : "disabled"}>${saveMenuStatus.updateAvailable ? "Update Interactive Save Menu" : saveMenuStatus.installed ? "Reinstall Interactive Save Menu" : "Install Interactive Save Menu"}</button>
-            <button class="btn -default -remove" id="uninstall-save-menu-btn" type="button" ${saveMenuStatus.canUninstall ? "" : "disabled"}>Uninstall Interactive Save Menu</button>
-            <div class="code-injection-note" id="save-menu-note" aria-live="polite"></div>
           </div>
         </section>
         </section>
@@ -972,11 +937,13 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     }
   });
 
+  attachNaturePaletteInstaller(project, root, () => { onDirty(); renderCodeInjectionEditor(project, root, onDirty); });
+
   const uninstallPwanButton = root.querySelector<HTMLButtonElement>("#uninstall-pwan-runtime-btn");
-  uninstallPwanButton?.addEventListener("click", () => {
+  uninstallPwanButton?.addEventListener("click", async () => {
     try {
       uninstallPwanButton.disabled = true;
-      uninstallPwanRuntime(project);
+      await uninstallPwanRuntime(project);
       onDirty();
       renderCodeInjectionEditor(project, root, onDirty);
       const refreshedNote = root.querySelector<HTMLDivElement>("#pwan-runtime-note");
@@ -1466,42 +1433,6 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     });
   }
   const dllNote = root.querySelector<HTMLDivElement>("#dll-install-note");
-  root.querySelector<HTMLButtonElement>("#install-save-menu-btn")?.addEventListener("click", async (event) => {
-    const button = event.currentTarget as HTMLButtonElement;
-    const note = root.querySelector<HTMLElement>("#save-menu-note");
-    button.disabled = true;
-    if (note) note.textContent = "Checking menu compatibility and staging the save menu…";
-    try {
-      const song = root.querySelector<HTMLSelectElement>("#save-menu-song")?.value ?? "relic-song";
-      const settings: SaveMenuSettings = {
-        music: song.startsWith("stream:") ? "stream" : song === "off" ? "off" : "relic-song",
-        ...(song.startsWith("stream:") ? { streamId: Number(song.slice(7)) } : {}),
-        bpm: Number(root.querySelector<HTMLInputElement>("#save-menu-bpm")?.value ?? 150),
-        stepsPerBeat: Number(root.querySelector<HTMLSelectElement>("#save-menu-steps-per-beat")?.value ?? 2) as 1 | 2 | 4,
-        versionLabel: root.querySelector<HTMLInputElement>("#save-menu-version-label")?.value.trim() ?? "",
-      };
-      await install(candidate => installSaveMenu(candidate, settings)); onDirty(); renderCodeInjectionEditor(project, root, onDirty);
-      const updated = root.querySelector<HTMLElement>("#save-menu-note");
-      if (updated) updated.textContent = "Save menu staged. Export the ROM to use it.";
-    } catch (error) {
-      button.disabled = false;
-      if (note) note.textContent = error instanceof Error ? error.message : String(error);
-    }
-  });
-  root.querySelector<HTMLButtonElement>("#uninstall-save-menu-btn")?.addEventListener("click", async (event) => {
-    const button = event.currentTarget as HTMLButtonElement;
-    const note = root.querySelector<HTMLElement>("#save-menu-note");
-    button.disabled = true;
-    if (note) note.textContent = "Verifying and removing the save-menu patch…";
-    try {
-      await uninstallSaveMenu(project); onDirty(); renderCodeInjectionEditor(project, root, onDirty);
-      const updated = root.querySelector<HTMLElement>("#save-menu-note");
-      if (updated) updated.textContent = "Save menu removed. Export and restart from a normal save to use the native menu.";
-    } catch (error) {
-      button.disabled = !getSaveMenuStatus(project).canUninstall;
-      if (note) note.textContent = error instanceof Error ? error.message : String(error);
-    }
-  });
   for (const [selector, action] of [
     ["#install-summary-stat-btn", () => install(candidate => installSummaryStatViewer(candidate, { includeEvs: root.querySelector<HTMLInputElement>("#summary-stat-evs")?.checked ?? true }))],
     ["#uninstall-summary-stat-btn", () => uninstallSummaryStatViewer(project)],

@@ -1,4 +1,7 @@
 import { recordGenericChange } from "./actionChangelog";
+import { installCodeInjectionPatch } from "./codeInjectionInstall";
+import { protectPwanNaturePalettes } from "./naturePaletteModel";
+import { getNaturePaletteRuntimeStatus, isNaturePaletteRuntimeInstalled, removePwanPreservingNature, stageNaturePaletteRuntime } from "./naturePaletteRuntime";
 import { readAscii, writeU16, writeU32, readU16, readU32 } from "../nds/binary";
 import { addRomFile, setRomFileReplacement } from "./fileSystemModel";
 import { NARC } from "../nds/narc";
@@ -104,6 +107,7 @@ export type PwanOverrideSideInput = {
 };
 
 export type PwanOverrideSideUpsert = {
+  resetNaturePalettes?: boolean;
   speciesId: number;
   formIndex?: number;
   assetIndex?: number;
@@ -219,6 +223,11 @@ export function hasLegacyPwanRuntimeDll(project: ProjectState): boolean {
 }
 
 export async function installPwanRuntime(project: ProjectState): Promise<void> {
+  if (isNaturePaletteRuntimeInstalled(project)) return installCodeInjectionPatch(project, stagePwanRuntime);
+  return stagePwanRuntime(project);
+}
+async function stagePwanRuntime(project: ProjectState): Promise<void> {
+  const natureEnabled = isNaturePaletteRuntimeInstalled(project);
   if (isW2AnimProject(project)) throw new Error("This ROM uses w2anim; installing PWAN would overwrite its renderer hooks");
   if (project.session.baseVersion !== "W2" && project.session.baseVersion !== "B2") {
     throw new Error("PWAN animation injection supports stock US Black 2 and White 2 projects.");
@@ -234,6 +243,7 @@ export async function installPwanRuntime(project: ProjectState): Promise<void> {
   if (!pmc.installed) await installBundledPmc(project);
   if (retirementBytes) await migrateLegacyW2Runtime(project, retirementBytes);
   for (const artifact of artifacts) stageCodeInjectionDll(project, artifact.fileName, artifact.bytes, "patches");
+  if (natureEnabled) await stageNaturePaletteRuntime(project, true);
   const state = ensurePwanAnimationState(project);
   state.runtimeInstalled = true;
   state.dirty = true;
@@ -248,11 +258,13 @@ export async function installPwanRuntime(project: ProjectState): Promise<void> {
 
 export function canUninstallPwanRuntime(project: ProjectState): boolean {
   if (isW2AnimProject(project)) return false;
+  if (isNaturePaletteRuntimeInstalled(project)) return getNaturePaletteRuntimeStatus(project).compatible;
   const paths = project.session.baseVersion === "B2" ? PWAN_B2_RUNTIME_PATHS : PWAN_W2_RUNTIME_PATHS;
   return paths.every((path) => canRemoveStagedCodeInjectionDll(project, path));
 }
 
-export function uninstallPwanRuntime(project: ProjectState): void {
+export function uninstallPwanRuntime(project: ProjectState): void | Promise<void> {
+  if (isNaturePaletteRuntimeInstalled(project)) return removePwanPreservingNature(project);
   if (isW2AnimProject(project)) throw new Error("The resident w2anim renderer cannot be uninstalled as a PWAN DLL");
   if (project.session.baseVersion !== "W2" && project.session.baseVersion !== "B2") {
     throw new Error("PWAN animation injection supports stock US Black 2 and White 2 projects.");
@@ -437,11 +449,12 @@ export function ensurePwanOverrideBackNcecY(override: PwanAnimationOverride): 43
   return override.backNcecY;
 }
 
-export function upsertPwanOverride(project: ProjectState, override: PwanAnimationOverride): void {
+export function upsertPwanOverride(project: ProjectState, override: PwanAnimationOverride, options: { resetNaturePalettes?: boolean } = {}): void {
   const state = ensurePwanAnimationState(project);
   const normalized = normalizePwanOverride(override);
   captureNativeCarrierBackup(project, pwanAssetIndex(normalized));
   const index = findPwanOverrideIndex(state, normalized.speciesId, normalized.formIndex);
+  protectPwanNaturePalettes(project, index < 0 ? undefined : state.overrides[index], normalized, options.resetNaturePalettes);
   if (index === -1) state.overrides.push(normalized);
   else state.overrides[index] = normalized;
   state.dirty = true;
@@ -466,6 +479,7 @@ export function upsertPwanOverrideSide(project: ProjectState, input: PwanOverrid
     carrierTemplate: "w2u-gen6-placeholder",
   });
   captureNativeCarrierBackup(project, pwanAssetIndex(override));
+  protectPwanNaturePalettes(project, previous, override, input.resetNaturePalettes);
   if (index === -1) state.overrides.push(override);
   else state.overrides[index] = override;
   state.dirty = true;

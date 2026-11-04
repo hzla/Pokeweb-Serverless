@@ -1,3 +1,6 @@
+import { NATURE_NAMES, rgb555, type NaturePaletteSource, type NaturePaletteTarget } from "../pokeweb/naturePaletteData";
+import { getNaturePalette, naturePaletteBase, naturePalettesSupported, resetNaturePalette, setNaturePalette } from "../pokeweb/naturePaletteModel";
+import { attachNaturePaletteInstaller, renderNaturePaletteInstaller } from "./naturePaletteInstaller";
 import {
   genderedPokemonIcons,
   getPokemonIconImage,
@@ -91,6 +94,8 @@ type SpriteEditorState = {
   variant: PokemonSpriteVariant;
   paletteKind: PokemonPaletteKind;
   previewPaletteKind: PokemonPaletteKind;
+  paletteNature: number;
+  paletteSource: NaturePaletteSource;
   iconVariant: PokemonIconVariant;
   iconPaletteId: number;
   rigSide: "front" | "back";
@@ -251,6 +256,8 @@ const state: SpriteEditorState = {
   variant: { kind: "sprite", side: "front", gender: "male" },
   paletteKind: "normal",
   previewPaletteKind: "normal",
+  paletteNature: -1,
+  paletteSource: "native",
   iconVariant: "male",
   iconPaletteId: 0,
   rigSide: "front",
@@ -344,6 +351,10 @@ export function renderPokemonSpriteEditor(
     const entry = getPokemonSpriteEntry(project, spriteId);
     const iconAssignment = getPokemonIconPaletteAssignment(project, iconAddress.paletteKey, state.iconVariant);
     state.iconPaletteId = Math.min(2, iconAssignment.paletteId);
+    if (!naturePalettesSupported(project)) { state.paletteNature = -1; state.paletteSource = "native"; }
+    if (state.paletteSource !== "native") {
+      try { naturePaletteBase(project, spriteId, state.paletteSource, false); } catch { state.paletteSource = "native"; }
+    }
     const rigCells = getRigCells(project, spriteId, state.rigSide);
     state.selectedCell = clamp(state.selectedCell, 0, Math.max(0, rigCells.cells.length - 1));
     const showAnimationHotkeys = hasSelectedAnimationPart(project, spriteId);
@@ -398,9 +409,11 @@ export function renderPokemonSpriteEditor(
           <button class="sprite-section-toggle" data-toggle-sprite-section="palettes" type="button" aria-expanded="${state.palettesExpanded}">
             <span>${state.palettesExpanded ? "v" : ">"} Palettes</span>
           </button>
-          ${state.palettesExpanded ? `<div class="palette-columns">
-            ${renderPaletteEditor("normal", entry.palette)}
-            ${renderPaletteEditor("shiny", entry.shinyPalette)}
+          ${state.palettesExpanded ? `
+          ${renderNaturePaletteControls(project, spriteId)}
+          <div class="palette-columns">
+            ${renderSelectedPaletteEditor(project, spriteId, "normal")}
+            ${renderSelectedPaletteEditor(project, spriteId, "shiny")}
           </div>` : ""}
         </section>
         <section class="sprite-section ${state.iconsExpanded ? "" : "-collapsed"}">
@@ -453,6 +466,22 @@ function attachSpriteEditor(
   const redrawPreviews = () => drawAllPreviews(project, spriteId, root, paletteHighlight);
   const rerender = () => renderPokemonSpriteEditor(project, root, speciesId, formIndex, options);
   installSpriteEditorShortcuts(project, root, spriteId, options, setStatus, rerender);
+  attachNaturePaletteInstaller(project, root, () => { options.onDirty?.(); rerender(); });
+  root.querySelector<HTMLSelectElement>("#palette-nature")?.addEventListener("change", event => {
+    state.paletteNature = Number((event.currentTarget as HTMLSelectElement).value); rerender();
+  });
+  root.querySelector<HTMLSelectElement>("#palette-source")?.addEventListener("change", event => {
+    state.paletteSource = (event.currentTarget as HTMLSelectElement).value as NaturePaletteSource;
+    if (state.paletteSource !== "native") state.animationSide = state.paletteSource === "pwan-front" ? "front" : "back";
+    rerender();
+  });
+  root.querySelectorAll<HTMLButtonElement>("[data-reset-nature]").forEach(button => button.addEventListener("click", () => {
+    try {
+      const kind = button.dataset.resetNature as PokemonPaletteKind;
+      resetNaturePalette(project, selectedNatureTarget(spriteId, kind), button.dataset.resetColor === undefined ? undefined : Number(button.dataset.resetColor));
+      options.onDirty?.(); rerender();
+    } catch (error) { setStatus(errorMessage(error)); }
+  }));
   root.querySelector("#sprite-sidebar-toggle")?.addEventListener("click", () => {
     state.sidebarCollapsed = !state.sidebarCollapsed;
     rerender();
@@ -490,7 +519,7 @@ function attachSpriteEditor(
     button.addEventListener("click", () => {
       try {
         const variant = parseVariant(String(button.dataset.exportPreview ?? ""));
-        const image = getPokemonSpriteImage(project, spriteId, variant, state.previewPaletteKind);
+        const image = natureSpriteImage(project, spriteId, variant, state.previewPaletteKind);
         downloadPng(image, `${spriteFileBaseName(spriteId)}_${variantValue(variant)}_${state.previewPaletteKind}.png`);
       } catch (error) {
         setStatus(errorMessage(error));
@@ -516,7 +545,7 @@ function attachSpriteEditor(
     button.addEventListener("click", () => {
       try {
         const kind = button.dataset.applyPalette as PokemonPaletteKind;
-        setPokemonPalette(project, spriteId, kind, readPaletteInputs(root, kind));
+        saveSelectedPalette(project, spriteId, kind, readPaletteInputs(root, kind));
         options.onDirty?.();
         setStatus(`Applied ${kind} palette`);
         rerender();
@@ -528,7 +557,7 @@ function attachSpriteEditor(
   root.querySelectorAll<HTMLButtonElement>("[data-export-palette]").forEach((button) => {
     button.addEventListener("click", () => {
       const kind = button.dataset.exportPalette as PokemonPaletteKind;
-      downloadPng(paletteToImage(getPokemonPalettes(project, spriteId)[kind]), `${spriteFileBaseName(spriteId)}_${kind}_palette.png`);
+      downloadPng(paletteToImage(selectedPalette(project, spriteId, kind).palette), `${spriteFileBaseName(spriteId)}_${kind}_palette.png`);
     });
   });
   root.querySelectorAll<HTMLInputElement>("[data-import-palette]").forEach((input) => {
@@ -537,7 +566,7 @@ function attachSpriteEditor(
         const file = input.files?.[0];
         if (!file) return;
         const kind = input.dataset.importPalette as PokemonPaletteKind;
-        setPokemonPalette(project, spriteId, kind, imageToPalette(await imageFileToRgba(file)));
+        saveSelectedPalette(project, spriteId, kind, imageToPalette(await imageFileToRgba(file)));
         options.onDirty?.();
         setStatus(`Imported ${kind} palette`);
         rerender();
@@ -2472,9 +2501,10 @@ function isPngBytes(bytes: Uint8Array): boolean {
 
 function drawAllPreviews(project: ProjectState, spriteId: number, root: HTMLElement, highlight?: PaletteHighlight): void {
   pwanPreviewCache.clear();
+  const nativePalette = (kind: PokemonPaletteKind) => state.paletteNature < 0 ? getPokemonPalettes(project, spriteId)[kind] : getNaturePalette(project, { spriteId, source: "native", nature: state.paletteNature, shiny: kind === "shiny" }).palette;
   const palettes = {
-    normal: readPaletteInputs(root, "normal"),
-    shiny: readPaletteInputs(root, "shiny"),
+    normal: state.paletteSource === "native" && root.querySelector('[data-palette="normal"]') ? readPaletteInputs(root, "normal") : nativePalette("normal"),
+    shiny: state.paletteSource === "native" && root.querySelector('[data-palette="shiny"]') ? readPaletteInputs(root, "shiny") : nativePalette("shiny"),
   };
   const paletteKind = highlight?.kind ?? state.previewPaletteKind;
   for (const variant of variantOptions(true)) {
@@ -2550,7 +2580,7 @@ function drawAnimationEditor(project: ProjectState, spriteId: number, root: HTML
   ctx.fillStyle = "#242638";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   drawGrid(ctx, canvas.width, canvas.height, 24, "rgb(255 255 255 / 10%)");
-  const pwanPreview = activePwanAnimationPreview(project);
+  const pwanPreview = activePwanAnimationPreview(project, root);
   if (pwanPreview) {
     drawPwanAnimationPreview(ctx, pwanPreview, state.animationTick);
     return;
@@ -2559,7 +2589,7 @@ function drawAnimationEditor(project: ProjectState, spriteId: number, root: HTML
     const animation = getPokemonAnimation(project, spriteId, state.animationSide);
     const multiCells = getPokemonMultiCells(project, spriteId, state.animationSide);
     const rigCells = getRigCells(project, spriteId, state.animationSide);
-    const rigImage = getPokemonSpriteImage(project, spriteId, rigVariantForSide(state.animationSide), state.previewPaletteKind);
+    const rigImage = natureSpriteImage(project, spriteId, rigVariantForSide(state.animationSide), state.previewPaletteKind);
     const usePlayback = state.animationPlaying || state.animationTick > 0;
     const playback = usePlayback ? resolveMultiCellPlayback(project, spriteId, multiCells.cells, multiCells.cells[state.animationMultiCell] ?? multiCells.cells[0], state.animationTick) : undefined;
     const multiCell = playback?.multiCell ?? multiCells.cells[state.animationMultiCell] ?? multiCells.cells[0];
@@ -2599,21 +2629,31 @@ function drawAnimationEditor(project: ProjectState, spriteId: number, root: HTML
   }
 }
 
-function activePwanAnimationPreview(project: ProjectState): PwanPreview | undefined {
+function activePwanAnimationPreview(project: ProjectState, root?: HTMLElement): PwanPreview | undefined {
   const speciesId = state.speciesId;
   if (speciesId === undefined || speciesId < 1 || (!project.w2animAnimations && !project.pwanAnimations?.overrides.length)) return undefined;
   const override = findPwanOverrideForSpecies(project, speciesId, state.formIndex ?? 0);
   if (!override) return undefined;
   const side = override[state.animationSide];
   if (!side) return undefined;
-  const key = `${speciesId}:${state.formIndex ?? 0}:${state.animationSide}:${state.previewPaletteKind}:${side.sourceFileName}:${side.pwanBytes.length}:${side.timelineCount}:${side.totalTicks}`;
+  const source = state.animationSide === "front" ? "pwan-front" : "pwan-back";
+  const draft = root && state.paletteNature >= 0 && state.paletteSource === source && root.querySelector(`[data-palette="${state.previewPaletteKind}"]`)
+    ? Uint16Array.from(readPaletteInputs(root, state.previewPaletteKind), rgb555) : undefined;
+  const key = `${speciesId}:${state.formIndex ?? 0}:${state.animationSide}:${state.previewPaletteKind}:${state.paletteNature}:${side.sourceFileName}:${side.pwanBytes.length}:${side.timelineCount}:${side.totalTicks}:${draft?.join(",") ?? ""}`;
   const cached = pwanPreviewCache.get(key);
   if (cached) return cached;
   const timeline = pwanTimeline(side.pwanBytes);
   if (timeline.length === 0) return undefined;
   const frameImages = new Map<number, HTMLCanvasElement>();
-  const palette = w2animPokemonPreviewPalette(project, override.speciesId, override.formIndex ?? 0,
+  let palette = w2animPokemonPreviewPalette(project, override.speciesId, override.formIndex ?? 0,
     state.animationSide, side.paletteBgr555, state.previewPaletteKind === "shiny");
+  if (state.paletteNature >= 0 && naturePalettesSupported(project)) {
+    palette = Uint16Array.from(getNaturePalette(project, {
+      spriteId: resolvePokemonSpriteId(project, override.speciesId, override.formIndex ?? 0),
+      source, nature: state.paletteNature, shiny: state.previewPaletteKind === "shiny",
+    }).palette, rgb555);
+  }
+  if (draft) palette = draft;
   const frames = timeline.map((entry) => {
     let image = frameImages.get(entry.frameIndex);
     if (!image) {
@@ -4235,32 +4275,70 @@ function currentSideOamSummary(project: ProjectState, spriteId: number, side: Po
   }
 }
 
-function renderPaletteEditor(kind: PokemonPaletteKind, palette: RgbColor[]): string {
+function selectedNatureTarget(spriteId: number, kind: PokemonPaletteKind): NaturePaletteTarget {
+  return { spriteId, source: state.paletteSource, nature: state.paletteNature, shiny: kind === "shiny" };
+}
+function selectedPalette(project: ProjectState, spriteId: number, kind: PokemonPaletteKind): { palette: RgbColor[]; mask: number } {
+  if (state.paletteNature >= 0) return getNaturePalette(project, selectedNatureTarget(spriteId, kind));
+  return { palette: naturePaletteBase(project, spriteId, state.paletteSource, kind === "shiny"), mask: 0 };
+}
+function saveSelectedPalette(project: ProjectState, spriteId: number, kind: PokemonPaletteKind, palette: RgbColor[]): void {
+  if (state.paletteNature >= 0) setNaturePalette(project, selectedNatureTarget(spriteId, kind), palette);
+  else if (state.paletteSource === "native") setPokemonPalette(project, spriteId, kind, palette);
+  else throw new Error("Edit PWAN source colors in the imported animation; select a nature to create a variation.");
+}
+function natureSpriteImage(project: ProjectState, spriteId: number, variant: PokemonSpriteVariant, kind: PokemonPaletteKind): RgbaImageData {
+  if (state.paletteNature < 0) return getPokemonSpriteImage(project, spriteId, variant, kind);
+  const indexed = getPokemonSpriteIndexedImage(project, spriteId, variant);
+  const palette = getNaturePalette(project, { spriteId, source: "native", nature: state.paletteNature, shiny: kind === "shiny" }).palette;
+  const pixels = new Uint8ClampedArray(indexed.indices.length * 4);
+  indexed.indices.forEach((i, at) => { const c = palette[i]; pixels.set([c.r, c.g, c.b, i ? 255 : 0], at * 4); });
+  return { width: indexed.width, height: indexed.height, pixels };
+}
+function renderNaturePaletteControls(project: ProjectState, spriteId: number): string {
+  if (!naturePalettesSupported(project)) return "";
+  const sources: Array<[NaturePaletteSource, string]> = [["native", "Native"]];
+  for (const [source, label] of [["pwan-front", "PWAN Front"], ["pwan-back", "PWAN Back"]] as const) {
+    try { naturePaletteBase(project, spriteId, source, false); sources.push([source, label]); } catch { /* No imported side. */ }
+  }
+  return `<div class="sprite-actions nature-palette-controls">
+    <label class="sprite-field"><span>Palette</span><select id="palette-nature"><option value="-1" ${state.paletteNature < 0 ? "selected" : ""}>Base</option>${NATURE_NAMES.map((name, i) => `<option value="${i}" ${state.paletteNature === i ? "selected" : ""}>${name}</option>`).join("")}</select></label>
+    <label class="sprite-field"><span>Source</span><select id="palette-source">${sources.map(([value, label]) => `<option value="${value}" ${state.paletteSource === value ? "selected" : ""}>${label}</option>`).join("")}</select></label>
+    ${renderNaturePaletteInstaller(project)}
+  </div>`;
+}
+function renderSelectedPaletteEditor(project: ProjectState, spriteId: number, kind: PokemonPaletteKind): string {
+  const value = selectedPalette(project, spriteId, kind);
+  return renderPaletteEditor(kind, value.palette, state.paletteNature >= 0 ? value.mask : undefined, state.paletteNature < 0 && state.paletteSource !== "native");
+}
+function renderPaletteEditor(kind: PokemonPaletteKind, palette: RgbColor[], mask?: number, readonly = false): string {
   const label = kind === "normal" ? "Normal" : "Shiny";
   return `
     <div class="palette-editor" data-palette-kind="${kind}">
-      <h3>${label}</h3>
+      <h3>${label}${mask === undefined ? "" : ` <small>${mask ? "Custom" : "Inherited"}</small>`}</h3>
       <div class="palette-grid">
         ${palette
           .map(
             (color, index) => `
               <div class="palette-row">
-                <label class="palette-swatch" data-palette-kind="${kind}" data-color="${index}" style="background: rgb(${color.r} ${color.g} ${color.b})" title="Edit color ${index}">
-                  <input data-palette-picker="${kind}" data-color="${index}" type="color" value="${rgbToHex(color)}">
+                <label class="palette-swatch" data-palette-kind="${kind}" data-color="${index}" style="background: rgb(${color.r} ${color.g} ${color.b})" title="${mask !== undefined && (mask & (1 << index)) ? "Custom" : "Edit"} color ${index}">
+                  <input data-palette-picker="${kind}" data-color="${index}" type="color" value="${rgbToHex(color)}" ${readonly || (mask !== undefined && index === 0) ? "disabled" : ""}>
                 </label>
-                <strong>${index}</strong>
-                <input data-palette="${kind}" data-color="${index}" data-channel="r" type="number" min="0" max="255" value="${color.r}">
-                <input data-palette="${kind}" data-color="${index}" data-channel="g" type="number" min="0" max="255" value="${color.g}">
-                <input data-palette="${kind}" data-color="${index}" data-channel="b" type="number" min="0" max="255" value="${color.b}">
+                <strong>${index}${mask !== undefined && (mask & (1 << index)) ? " ●" : ""}</strong>
+                <input data-palette="${kind}" data-color="${index}" data-channel="r" type="number" min="0" max="255" value="${color.r}" ${readonly || (mask !== undefined && index === 0) ? "disabled" : ""}>
+                <input data-palette="${kind}" data-color="${index}" data-channel="g" type="number" min="0" max="255" value="${color.g}" ${readonly || (mask !== undefined && index === 0) ? "disabled" : ""}>
+                <input data-palette="${kind}" data-color="${index}" data-channel="b" type="number" min="0" max="255" value="${color.b}" ${readonly || (mask !== undefined && index === 0) ? "disabled" : ""}>
+                ${mask !== undefined && (mask & (1 << index)) ? `<button type="button" class="btn -default" data-reset-nature="${kind}" data-reset-color="${index}" aria-label="Reset ${kind} color ${index}">↶</button>` : ""}
               </div>
             `,
           )
           .join("")}
       </div>
       <div class="palette-actions">
-        <button class="btn -default" data-apply-palette="${kind}" type="button">Apply</button>
+        ${mask !== undefined ? `<button class="btn -default" data-reset-nature="${kind}" type="button" ${mask ? "" : "disabled"}>Reset ${label}</button>` : ""}
+        <button class="btn -default" data-apply-palette="${kind}" type="button" ${readonly ? "disabled" : ""}>Apply</button>
         <button class="btn -default" data-export-palette="${kind}" type="button">Export</button>
-        <label class="btn -default file-btn">Import<input data-import-palette="${kind}" type="file" accept="image/png"></label>
+        <label class="btn -default file-btn">Import<input data-import-palette="${kind}" type="file" accept="image/png" ${readonly ? "disabled" : ""}></label>
       </div>
     </div>
   `;

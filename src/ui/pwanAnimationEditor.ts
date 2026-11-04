@@ -1,3 +1,4 @@
+import { NaturePaletteReplacementError } from "../pokeweb/naturePaletteModel";
 import { renderInlineStatus } from "./inlineStatus";
 import type { ProjectState, PwanAnimationOverride, PwanOverrideSide, PwanPaletteSource } from "../pokeweb/projectStore";
 import { isW2AnimProject, w2animArchiveSummary } from "../pokeweb/w2animAnimationModel";
@@ -258,7 +259,7 @@ export function installPwanImportFormEvents(project: ProjectState, root: HTMLEle
         nativePaletteSource,
         carrierTemplate: "w2u-gen6-placeholder",
       };
-      upsertPwanOverride(project, override);
+      withNaturePaletteReplacement(resetNaturePalettes => upsertPwanOverride(project, override, { resetNaturePalettes }));
       options.onDirty?.();
       setStatus(message, `Saved ${speciesLabel(project, speciesId)}. Export will stage ${isW2AnimProject(project) ? "w2anim" : "PWAN"} assets and patch native carriers.`);
       options.onRefresh?.();
@@ -791,21 +792,24 @@ function startPwanPreview(project: ProjectState, speciesId: number, previewSide:
   });
   applyButton?.addEventListener("click", () => {
     if (!draft.dirty) return;
-    const target = resolvePwanSpeciesTarget(project, speciesId);
-    upsertPwanOverrideSide(project, {
-      speciesId: target.speciesId,
-      formIndex: target.formIndex,
-      assetIndex: target.assetIndex === target.speciesId ? undefined : target.assetIndex,
-      side: previewSide,
-      sideData: clonePwanSide(draft.side),
-      nativePaletteSource: previewSide,
-    });
-    draft.base = clonePwanSide(draft.side);
-    draft.pixelDirty = false;
-    draft.dirty = false;
-    syncControls();
-    options.onDirty?.();
-    setStatus(status, `Applied ${previewSide} PWAN edits.`);
+    try {
+      const target = resolvePwanSpeciesTarget(project, speciesId);
+      withNaturePaletteReplacement(resetNaturePalettes => upsertPwanOverrideSide(project, {
+        resetNaturePalettes,
+        speciesId: target.speciesId,
+        formIndex: target.formIndex,
+        assetIndex: target.assetIndex === target.speciesId ? undefined : target.assetIndex,
+        side: previewSide,
+        sideData: clonePwanSide(draft.side),
+        nativePaletteSource: previewSide,
+      }));
+      draft.base = clonePwanSide(draft.side);
+      draft.pixelDirty = false;
+      draft.dirty = false;
+      syncControls();
+      options.onDirty?.();
+      setStatus(status, `Applied ${previewSide} PWAN edits.`);
+    } catch (error) { setStatus(status, error instanceof Error ? error.message : String(error), true); }
   });
   gifButton?.addEventListener("click", () => {
     const gifBytes = pwanToGifBytes(draft.side.pwanBytes);
@@ -1643,7 +1647,12 @@ function installSpeciesPwanEvents(project: ProjectState, root: HTMLElement, spec
     pwanLibraryUiState.messageError = false;
     refresh();
     try {
-      await importPwanLibraryEntry(project, speciesId, pwanLibraryUiState.selectedEntryId, { library: pwanLibraryUiState.library });
+      try {
+        await importPwanLibraryEntry(project, speciesId, pwanLibraryUiState.selectedEntryId, { library: pwanLibraryUiState.library });
+      } catch (error) {
+        if (!(error instanceof NaturePaletteReplacementError) || !window.confirm(`${error.message} Replace and reset?`)) throw error;
+        await importPwanLibraryEntry(project, speciesId, pwanLibraryUiState.selectedEntryId, { library: pwanLibraryUiState.library, resetNaturePalettes: true });
+      }
       pwanLibraryUiState.message = entry ? `Imported ${entry.name}${entry.icon ? " with its icon" : ""}.` : "Imported community asset.";
       pwanLibraryUiState.messageError = false;
       options.onDirty?.();
@@ -1690,14 +1699,15 @@ function installPwanSideDropzone(project: ProjectState, root: HTMLElement, speci
     try {
       const sideData = pwanOverrideSideFromCompileResult({ fileName: ready.source.fileName, gifBytes: ready.source.bytes }, ready.result);
       const target = resolvePwanSpeciesTarget(project, speciesId);
-      upsertPwanOverrideSide(project, {
+      withNaturePaletteReplacement(resetNaturePalettes => upsertPwanOverrideSide(project, {
+        resetNaturePalettes,
         speciesId: target.speciesId,
         formIndex: target.formIndex,
         assetIndex: target.assetIndex === target.speciesId ? undefined : target.assetIndex,
         side,
         sideData,
         nativePaletteSource: side,
-      });
+      }));
       options.onDirty?.();
       setStatus(message, `Imported ${title.toLowerCase()} GIF for ${speciesLabel(project, speciesId)}.`);
       options.onRefresh?.();
@@ -1966,4 +1976,12 @@ function setStatus(element: HTMLElement | null | undefined, message: string, err
   if (!element) return;
   element.textContent = message;
   element.classList.toggle("-error", error);
+}
+
+function withNaturePaletteReplacement<T>(action: (resetNaturePalettes: boolean) => T): T {
+  try { return action(false); }
+  catch (error) {
+    if (!(error instanceof NaturePaletteReplacementError) || !window.confirm(`${error.message} Replace and reset?`)) throw error;
+    return action(true);
+  }
 }

@@ -138,21 +138,13 @@ function renderFixture(version: "W2" | "B2" | "B" | "W", pmcInstalled = false): 
   return root.innerHTML;
 }
 
-describe("save-menu version label", () => {
-  it("uses v1.0 on a new project and links to the Following Pokémon installer", () => {
-    const html = renderFixture("W2");
-    expect(html).toContain('id="save-menu-version-label"');
-    expect(html).toContain('value="v1.0"');
-    expect(html).toContain('href="#followingPokemon" data-route="followingPokemon">Install Following Pokémon</a>');
-  });
-  it("shows the optional header-label field with its current value", () => {
-    const project = makeProject("W2");
-    project.codeInjection = { saveMenuSettings: { music: "relic-song", bpm: 153, stepsPerBeat: 2, versionLabel: "v1.3" } };
-    const root = { innerHTML: "", querySelector: () => null, querySelectorAll: () => [] };
-    renderCodeInjectionEditor(project, root as unknown as HTMLElement, () => {});
-    expect(root.innerHTML).toContain('id="save-menu-version-label"');
-    expect(root.innerHTML).toContain('value="v1.3"');
-    expect(root.innerHTML).toContain('maxlength="30"');
+describe("archived save-menu patch", () => {
+  it.each(["B", "W", "B2", "W2"] as const)("offers no save-menu installer or settings on %s", version => {
+    const html = renderFixture(version);
+    expect(html).not.toContain("Interactive Save Menu");
+    expect(html).not.toContain("install-save-menu-btn");
+    expect(html).not.toContain("save-menu-version-label");
+    expect(html).not.toContain("save-menu-song");
   });
 });
 
@@ -331,7 +323,7 @@ describe("code-injection patch categories", () => {
       "PWAN GIF Support", "Trainer PWAN GIF Support", "Overworld Weather Runtime", "Trainer Battle Log",
     ]);
     expect(headings(panels[1])).toEqual([
-      "Summary IV/EV Viewer", "Enhanced Party Menu and Battle Log Integration", "Type Icons", "Learnset Viewer", "Move Effectiveness Preview", "C-Gear Quick Actions", "Pokenav", "Interactive Save Menu",
+      "Summary IV/EV Viewer", "Enhanced Party Menu and Battle Log Integration", "Type Icons", "Learnset Viewer", "Move Effectiveness Preview", "C-Gear Quick Actions", "Pokenav",
     ]);
     expect(headings(panels[2])).toEqual(["Instant Fast Text", "Background Music Toggle", "Forgettable HMs"]);
     expect(headings(panels[3])).toEqual([

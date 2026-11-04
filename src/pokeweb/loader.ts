@@ -1,6 +1,8 @@
 import { hydrateMoveEffectsSource } from "./moveEffectsModel";
 import { hydrateAbilityEffectsSource } from "./abilityEffectsModel";
 import { hydrateTrainerFieldConditionsSources } from "./trainerFieldConditionsModel";
+import { hydrateNaturePalettes } from "./naturePaletteModel";
+import { hydrateNaturePaletteRuntime } from "./naturePaletteRuntime";
 import { hydrateItemEffectsSource } from "./itemEffectsModel";
 import { hydrateCGearButtons } from "./cgearButtonsModel";
 import { hydrateSystemShops } from "./systemShopsModel";
@@ -130,32 +132,6 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
       try { project.codeInjection!.standaloneStreams = decodeStandaloneStreamManifest(rom.files[standaloneManifestId]); }
       catch { /* The Music editor validates and reports an incompatible manifest before writing. */ }
     }
-    const menuSettingsId = rom.filenames.idOf("ui/save-menu/settings.bin");
-    if (menuSettingsId !== undefined) {
-      const settings = rom.files[menuSettingsId];
-      if (settings && (settings.length === 16 || settings.length === 48)
-        && String.fromCharCode(...settings.subarray(0, 4)) === "SMNU") {
-        const view = new DataView(settings.buffer, settings.byteOffset, settings.byteLength);
-        const mode = view.getUint16(6, true), bpm = view.getUint16(10, true), steps = view.getUint16(12, true);
-        const format = view.getUint16(4, true);
-        const label = format === 2 ? settings.subarray(16, 48) : new Uint8Array();
-        const terminator = format === 2 ? label.indexOf(0) : 0;
-        const versionLabel = format === 2 && terminator >= 0 ? new TextDecoder().decode(label.subarray(0, terminator)) : "";
-        const validLabel = format === 1 || (terminator >= 0 && terminator <= 30
-          && label.subarray(terminator).every(byte => byte === 0)
-          && /^[A-Za-z0-9 .,!?-]*$/u.test(versionLabel) && versionLabel === versionLabel.trim());
-        if (format === (settings.length === 16 ? 1 : 2) && validLabel
-          && mode <= 2 && (mode !== 2 || view.getUint16(8, true) === 0)
-          && bpm >= 30 && bpm <= 300 && (steps === 1 || steps === 2 || steps === 4)
-          && view.getUint16(14, true) === 48 / steps) {
-          project.codeInjection!.saveMenuSettings = {
-            music: mode === 2 ? "off" : mode === 1 ? "stream" : "relic-song",
-            ...(mode === 1 ? { streamId: view.getUint16(8, true) } : {}),
-            bpm, stepsPerBeat: steps, ...(versionLabel ? { versionLabel } : {}),
-          };
-        }
-      }
-    }
     hydrateCustomUi(project, rom);
     hydrateCGearButtons(project, rom);
     try { hydrateSystemShops(project, rom); }
@@ -166,6 +142,8 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
     hydrateKoMoveLearnsetFromRom(project, rom);
     hydrateTrainerLocationTables(project, rom);
     hydrateTrainerFieldConditionsSources(project, rom);
+    hydrateNaturePalettes(project, rom);
+    hydrateNaturePaletteRuntime(project, rom);
     hydrateItemEffectsSource(project, rom);
     hydrateAbilityEffectsSource(project, rom);
     hydrateMoveEffectsSource(project, rom);

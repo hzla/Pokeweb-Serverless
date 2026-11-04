@@ -15,7 +15,7 @@ function sourceRom(project:ProjectState):NintendoDSRom|undefined {
 }
 export function getPmcMemoryEstimate(project:ProjectState):PmcMemoryEstimate {
   const rom=sourceRom(project),modules:PmcMemoryEstimate["modules"]=[],unknown:string[]=[],conservative:string[]=[],issues:Record<string,string>={};
-  const battle=new Set(project.session.baseRom==="BW"?[93,95]:[167,169]);
+  const battle=new Set(project.session.baseRom==="BW"?[93,95]:[167,168,169]);
   const field=new Set(project.session.baseRom==="BW"?[21]:[36]);
   for(const entry of listCodeInjectionDlls(project)){
     try{
