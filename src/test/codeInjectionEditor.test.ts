@@ -165,6 +165,15 @@ describe("code-injection design credits", () => {
 });
 
 describe("unsupported patch visibility", () => {
+  it.each(["B", "W", "B2", "W2"] as const)("shows Nature Palettes by default only for supported %s ROMs", version => {
+    const card = renderFixture(version).match(/<section class="code-injection-panel"[^>]*>[\s\S]*?<\/section>/g)!
+      .find(html => html.includes("<h2>Nature Palettes</h2>"))!;
+    expect(card).toBeDefined();
+    const opening = card.slice(0, card.indexOf(">"));
+    const supported = version === "B2" || version === "W2";
+    expect(opening).toContain(`data-code-injection-supported="${supported}"`);
+    expect(/\bhidden\b/u.test(opening)).toBe(!supported);
+  });
   it.each(["B", "W"] as const)("shows all five released graphical patches by default on %s", version => {
     const cards = renderFixture(version).match(/<section class="code-injection-panel"[^>]*>[\s\S]*?<\/section>/g)!;
     for (const title of ["Summary IV/EV Viewer", "Type Icons", "Move Effectiveness Preview", "Learnset Viewer", MENU_EVOLUTION_TITLE]) {
@@ -323,7 +332,7 @@ describe("code-injection patch categories", () => {
       "PWAN GIF Support", "Trainer PWAN GIF Support", "Overworld Weather Runtime", "Trainer Battle Log",
     ]);
     expect(headings(panels[1])).toEqual([
-      "Summary IV/EV Viewer", "Enhanced Party Menu and Battle Log Integration", "Type Icons", "Learnset Viewer", "Move Effectiveness Preview", "C-Gear Quick Actions", "Pokenav",
+      "Nature Palettes", "Summary IV/EV Viewer", "Enhanced Party Menu and Battle Log Integration", "Type Icons", "Learnset Viewer", "Move Effectiveness Preview", "C-Gear Quick Actions", "Pokenav",
     ]);
     expect(headings(panels[2])).toEqual(["Instant Fast Text", "Background Music Toggle", "Forgettable HMs"]);
     expect(headings(panels[3])).toEqual([

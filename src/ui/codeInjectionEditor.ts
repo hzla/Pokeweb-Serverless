@@ -1,5 +1,6 @@
 import {renderPmcCapacity,formatPmcKiB} from "./pmcCapacity";
 import { attachNaturePaletteInstaller, renderNaturePaletteInstaller } from "./naturePaletteInstaller";
+import { naturePalettesSupported } from "../pokeweb/naturePaletteModel";
 import {getPmcMemoryEstimate} from "../pokeweb/pmcMemoryModel";
 import { typeIconPreview, DEFAULT_TYPE_ICON_BORDER, DEFAULT_BW1_TYPE_ICON_BORDER } from "../pokeweb/typeIconAppearance";
 import { getTrainerFieldConditionsStatus } from "../pokeweb/trainerFieldConditionsModel";
@@ -426,7 +427,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         </section>
         </section>
         <section class="code-injection-tab-panel" id="code-injection-panel-graphics" role="tabpanel" aria-labelledby="code-injection-tab-graphics" tabindex="0" ${activeTab === "graphics" ? "" : "hidden"}>
-        <section class="code-injection-panel"><div class="code-injection-panel__header"><div><h2>Nature Palettes</h2><p>25 normal/shiny palette pairs per form. Edit in the Pokémon sprite editor.</p></div></div>${renderNaturePaletteInstaller(project)}</section>
+        <section class="code-injection-panel" ${patchVisibility(naturePalettesSupported(project))}><div class="code-injection-panel__header"><div><h2>Nature Palettes</h2><p>25 normal/shiny palette pairs per form. Edit in the Pokémon sprite editor.</p></div></div>${renderNaturePaletteInstaller(project)}</section>
         <section class="code-injection-panel" ${patchVisibility(summaryStatStatus.supported)}>
           <div class="code-injection-panel__header"><div>
             <h2>Summary IV/EV Viewer</h2>

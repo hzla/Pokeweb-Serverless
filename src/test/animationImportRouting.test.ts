@@ -37,7 +37,7 @@ describe("shared GIF import routing", () => {
     await click!();
     expect(resolve).toHaveBeenCalledWith(project, 6, 3);
     expect(apply).toHaveBeenCalledWith(project, expect.objectContaining({ speciesId: 6, formIndex: 3, assetIndex: 840,
-      front: expect.objectContaining({ pwanBytes: compiled.pwanBytes, paletteBgr555: compiled.paletteBgr555 }) }));
+      front: expect.objectContaining({ pwanBytes: compiled.pwanBytes, paletteBgr555: compiled.paletteBgr555 }) }), { resetNaturePalettes: false });
     expect(message.textContent).toContain(backend === "w2anim" ? "w2anim assets" : "PWAN assets");
     expect(refresh).toHaveBeenCalledOnce();
     expect(window.alert).not.toHaveBeenCalled();
