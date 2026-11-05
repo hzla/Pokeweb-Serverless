@@ -17,12 +17,9 @@ import type { StreamedBgmConfig } from "../pokeweb/projectStore";
 describe("Music editor sequence list", () => {
   it("shows one selected editing tab and supports keyboard navigation across all three workflows", () => {
     const html = renderMusicEditorTabs("streamed");
-    expect(html).toContain('aria-controls="music-editor-panel-bgm"');
-    expect(html).toContain('aria-controls="music-editor-panel-streamed"');
-    expect(html).toContain('aria-controls="music-editor-panel-standalone"');
-    expect(html).toContain('data-music-editor-tab="bgm">BGM Replacements</button>');
-    expect(html).toContain('data-music-editor-tab="streamed">Streamed Replacements</button>');
-    expect(html).toContain('data-music-editor-tab="standalone">Standalone</button>');
+    expect(html).toContain('data-music-editor-tab="bgm">Music</button>');
+    expect(html).toContain('data-music-editor-tab="streamed">Streams</button>');
+    expect(html).toContain('data-music-editor-tab="standalone">New songs</button>');
     expect(html.match(/aria-selected="true"/g)).toHaveLength(1);
     expect(html.match(/tabindex="0"/g)).toHaveLength(1);
     expect(nextMusicEditorTab("standalone", "ArrowRight")).toBe("bgm");

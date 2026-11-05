@@ -30,7 +30,7 @@ describe("custom item rule configuration", () => {
     updateItemField(project, 85, "gain_values", "16");
     // The same public module builder accepts slotless rules and verifies every dependency.
     const rpm = buildItemTypeHealingModule(project, 85, 5);
-    expect(rpm.metadata.PMCVersion).toBe("4.0.0");
+    expect(rpm.metadata.PMCVersion).toBe("6.0.0");
     expect(rpm.bssSize).toBeGreaterThan(0);
     expect(rpm.relocations.filter(r => r.target.module === "167")).toHaveLength(6);
     const bss = rpm.symbols.find(symbol => symbol.name === "slots")!;

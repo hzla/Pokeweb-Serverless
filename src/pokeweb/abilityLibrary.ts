@@ -45,6 +45,7 @@ add(292,"Sharpness",9,[power(7,1.5)]);
 add(297,"Earth Eater",9,[native(11,{type:4,healPercent:25})]);
 add(302,"Toxic Chain",9,[{kind:"status",value:7,trigger:"afterAttack",target:"defender",chance:30,bypassable:false}]);
 const recipe=(kind:string,value=1,parameters:Record<string,number>={},bypassable?:boolean):AbilityRuleEffect=>({kind:`abilityRecipe:${kind}`,value,parameters,...(bypassable===undefined?{}:{bypassable})});
+add(185,"Parental Bond",6,[recipe("additionalStrike",.25)]);
 const entryStat=(stat:number,value:number,once=0)=>recipe("statAction",value,{stat,once});
 const guard=(condition:number,parameters:Record<string,number>={})=>recipe("statusGuard",1,{condition,scope:1,...parameters});
 add(165,"Aroma Veil",6,[7,11,12,13,15,23].map(c=>guard(c)));

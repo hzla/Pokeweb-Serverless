@@ -1,3 +1,6 @@
+import {hydrateBw1ItemSource,inspectBw1ItemEffect,buildBw1ItemModule,configureBw1ItemRules,clearBw1ItemRules,checkedBw1ItemRule} from "./itemBw1Effects";
+import {battleRuntimeResolver} from "./battleRuntimeBindings";
+import {itemMessageIds} from "./itemBattleMessages";
 import profiles from "../assets/data/itemEffectProfiles.json";
 import ruleBindings from "../assets/data/itemRuleBindings.json";
 import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
@@ -9,7 +12,8 @@ import { stageCodeInjectionDll } from "./pmcModel";
 import { ensureFileSystemState, setRomFileReplacement } from "./fileSystemModel";
 import { parseRpm, writeRpm, type RpmModule } from "./rpm";
 import type { ProjectState } from "./projectStore";
-import { buildRuleRuntime, ITEM_RULE_API } from "./itemRuleRuntime";
+import { buildRuleRuntime, ITEM_RULE_API, defaultItemMoveClasses } from "./itemRuleRuntime";
+import { expandedMoveDllDefaults, validateMoveClassOverrides } from "./abilityMoveClasses";
 import { validateItemRule, type ItemRuleSet } from "./itemRules";
 import { ITEM_NATIVE_FUNCTIONS, nativeItemBranchTarget, type NativeItemResolver } from "./itemNativeRuntime";
 import { isVerifiedAbilityClientTrapImport, isVerifiedAbilityMoveParamOwner, prepareAbilityMoveParamForItem } from "./abilityEffectsModel";
@@ -24,7 +28,7 @@ type Factory = { address: number; offset: number; table: number; events: NativeE
 type Source = { base: number; arm9Base: number; game: string; revision: number; files: Record<string, Uint8Array>; fileIds: Record<string, number> };
 type Context = { project: ProjectState; source: Source; data: Uint8Array; table: number; dispatcher: number; factories: Map<number, Factory>; itemId?: number; rulesRead?: boolean; peerVerified?:boolean; rules?: Map<number, ItemRuleSet> };
 const sources = new WeakMap<ProjectState, Source>();
-const verifiedRules = new WeakMap<ProjectState, { base: number; overlay: Uint8Array; arm9: Uint8Array; files: Map<string, Uint8Array>; rules: Map<number, ItemRuleSet>; peerVerified:boolean }>();
+const verifiedRules = new WeakMap<ProjectState, { base: number; overlay: Uint8Array; arm9: Uint8Array; files: Map<string, Uint8Array>; rules: Map<number, ItemRuleSet>; peerVerified:boolean;messages?:string }>();
 const signatures = new Map(Object.entries(profiles.functions).map(([name, s]) => [name, {
   ...s, bytes: fromHex(s.hex), maskBytes: fromHex(s.mask),
 }]));
@@ -38,6 +42,7 @@ export type ItemEffectState = {
 
 /** Retain only overlay metadata and patch DLLs when the full input ROM is released. */
 export function hydrateItemEffectsSource(project: ProjectState, rom: NintendoDSRom): void {
+  if(project.session.baseRom==="BW"){hydrateBw1ItemSource(project,rom);return;}
   if (project.session.baseRom !== "BW2") return;
   const table = project.patches?.arm9OverlayTable ?? rom.arm9OverlayTable;
   for (let at = 0; at + 32 <= table.length; at += 32) {
@@ -110,6 +115,7 @@ function nativeContext(project: ProjectState): Context {
 }
 
 export function inspectItemEffect(project: ProjectState, itemId: number): ItemEffectState {
+  if(project.session.baseRom==="BW")return inspectBw1ItemEffect(project,itemId);
   const empty = { editable: false, message: "", choices: [], events: [], controls: [] };
   try {
     const c = nativeContext(project), row = rowOffset(c, itemId);
@@ -514,7 +520,7 @@ function nativeRuleResolver(c: Context, skipAbilityMoveParam = false): NativeIte
     return { address, code };
   };
 }
-function ruleModule(c: Context, rules: ReadonlyMap<number, ItemRuleSet>, legacy = false, chainFollower = false, skipAbilityMoveParam = chainFollower): RpmModule {
+function ruleModule(c: Context, rules: ReadonlyMap<number, ItemRuleSet>, legacy = false, chainFollower = false, skipAbilityMoveParam = chainFollower, nativeVersion:4|5|6=6, moveClasses?:ReadonlyMap<number,number>): RpmModule {
   assertNoConflict(c, c.source.base + c.dispatcher, 8, [ITEM_EFFECTS_DLL_PATH]);
   const located = new Map<string, number>([["ItemEvent_AddItemCore", c.dispatcher]]);
   function locate(name: string): number {
@@ -562,19 +568,44 @@ function ruleModule(c: Context, rules: ReadonlyMap<number, ItemRuleSet>, legacy 
   const signature = signatures.get("ItemEvent_AddItemCore")!;
   const resolve = legacy ? undefined : nativeRuleResolver(c,skipAbilityMoveParam);
   const extra = ["ItemGetParam", "BattleEventVar_Push", "BattleEventVar_Pop", "BattleEventVar_SetConstValue", "IsStatChangeValid", "BtlCalc_MakeStatusCondition", "MakeConditionBadlyPoisoned", "BattleEventVar_GetValueIfExist", "RollEffectChance", "BattleEventVar_RewriteValue", "GetBattleMonSpecies", "CheckCondition", "getMoveFlag", "BattleEvent_CheckSkip", "GetBattleMonHeldItem", null, "CanMonUseHeldItem", "IsMonTrapped", null, "SetMoveEffectIndex", null, null, "BtlServerFlow_CanUseHeldItem"];
-  const result=buildRuleRuntime({ game: c.project.session.baseVersion, rules, api: ITEM_RULE_API.map(name => addresses[name]), legacy,
+  if(nativeVersion>=5&&!legacy)extra.push(null,"IsSubstituteActive");
+  if(nativeVersion>=5&&!legacy&&moveClasses===undefined){
+    const classes=defaultItemMoveClasses();for(const[id,flags]of expandedMoveDllDefaults(c.project))classes.set(id,flags);
+    const peer=patchFiles(c).get("patches/AbilityEffects.dll");
+    if(peer&&!sameBytes(peer,RETIRED_PATCH)){
+      const meta=parseRpm(peer,{allowedMagics:["DLXF"]}).metadata;
+      if(typeof meta.PokewebMoveClassOverrides==="string")for(const[id,flags]of validateMoveClassOverrides(JSON.parse(meta.PokewebMoveClassOverrides),new Map(),true))classes.set(id,flags);
+    }
+    moveClasses=classes;
+  }
+  if(nativeVersion===6&&!legacy){
+    const resolver=battleRuntimeResolver(c.data,c.source.base,c.project.arm9,c.source.arm9Base);
+    for(const name of ["BattleEventItem_AttachSkipCheckHandler","GetSideFromMonID","IsEventTargetMon","BattleRandom"]){const result=resolver.resolve(name);assertNoConflict(c,result.address,result.code.length,[ITEM_EFFECTS_DLL_PATH]);}
+    extra.push("BattleEventItem_AttachSkipCheckHandler","GetSideFromMonID","IsEventTargetMon","BattleRandom");
+    const oldResolve=resolve!;
+    // New portable services are already present in the shared battle contracts.
+    const extraResolve:NativeItemResolver=(name,address)=>{
+      if(!["BattleEventItem_AttachSkipCheckHandler","GetSideFromMonID","IsEventTargetMon","BattleRandom"].includes(name))return oldResolve(name,address);
+      const result=resolver.resolve(name);if(address!==undefined&&result.address!==address)throw Error(`Unrecognized item service: ${name}`);return result;
+    };
+    return buildResult(extraResolve);
+  }
+  return buildResult(resolve);
+  function buildResult(resolve:NativeItemResolver|undefined):RpmModule{
+  const result=buildRuleRuntime({ game: c.project.session.baseVersion, rules, api: ITEM_RULE_API.map(name => addresses[name]), legacy,nativeVersion,moveClasses,messages:nativeVersion===6?itemMessageIds(c.project,rules):undefined,
     native: resolve ? { resolve, api: new Map(extra.flatMap((name, index) => name ? [[19 + index, resolve(name).address] as const] : [])) } : undefined,
     dispatcher: { address: c.source.base + c.dispatcher, code: c.data.slice(c.dispatcher, c.dispatcher + signature.bytes.length),
       calls: signature.calls.map(value => ({ offset: value.offset, address: branchTarget(c, c.dispatcher + value.offset) })) } });
   if(chainFollower&&legacy)throw Error("The legacy item runtime has no move-parameter adapter to share.");
   return chainFollower?chainItemMoveParam(result).module:result;
+  }
 }
 function readGenericRules(c: Context, verifyPeer = true): Map<number, ItemRuleSet> | undefined {
   if (c.rulesRead&&(!verifyPeer||c.peerVerified)) return c.rules;
   const bytes = patchFiles(c).get(ITEM_EFFECTS_DLL_PATH);
   if (!bytes || sameBytes(bytes, RETIRED_PATCH)) { c.rulesRead = true; return; }
   const cached = verifiedRules.get(c.project), files = patchFiles(c);
-  if (cached && (!verifyPeer||cached.peerVerified) && cached.base === c.source.base && sameBytes(cached.overlay, c.data) && sameBytes(cached.arm9, c.project.arm9)
+  if (cached && (cached.messages===undefined||cached.messages===JSON.stringify(itemMessageIds(c.project,cached.rules))) && (!verifyPeer||cached.peerVerified) && cached.base === c.source.base && sameBytes(cached.overlay, c.data) && sameBytes(cached.arm9, c.project.arm9)
     && files.size === cached.files.size && [...files].every(([path, value]) => cached.files.has(path) && sameBytes(cached.files.get(path)!, value))) {
     c.rules = structuredClone(cached.rules); c.rulesRead = true;c.peerVerified=cached.peerVerified; return c.rules;
   }
@@ -593,8 +624,11 @@ function readGenericRules(c: Context, verifyPeer = true): Map<number, ItemRuleSe
     const peer=files.get("patches/AbilityEffects.dll");
     if(!peer||parseRpm(peer,{allowedMagics:["DLXF"]}).metadata.PokewebMoveParamAddress!==rpm.metadata.PokewebMoveParamAddress||!isVerifiedAbilityMoveParamOwner(c.project))throw Error("The shared ability move-parameter owner is missing or modified.");
   }
-  if (!["3.0.0", "4.0.0"].includes(String(rpm.metadata.PMCVersion)) || !sameBytes(bytes, writeRpm(ruleModule(c, rules, rpm.metadata.PMCVersion === "3.0.0",follower), { ident: "DLXF" }))) throw new Error("The shared item rules DLL has been modified.");
-  verifiedRules.set(c.project, { base: c.source.base, overlay: c.data.slice(), arm9: c.project.arm9.slice(), files: new Map([...files].map(([path, value]) => [path, value.slice()])), rules: structuredClone(rules),peerVerified:verifyPeer||!follower });
+  const modern=["5.0.0","6.0.0"].includes(String(rpm.metadata.PMCVersion));
+  if(modern&&typeof rpm.metadata.PokewebItemMoveClasses!=="string")throw Error("Missing item move-class data.");
+  const classes=modern?validateMoveClassOverrides(JSON.parse(String(rpm.metadata.PokewebItemMoveClasses)),new Map(),true):undefined;
+  if (!["3.0.0", "4.0.0", "5.0.0", "6.0.0"].includes(String(rpm.metadata.PMCVersion)) || !sameBytes(bytes, writeRpm(ruleModule(c, rules, rpm.metadata.PMCVersion === "3.0.0",follower,follower,rpm.metadata.PMCVersion==="6.0.0"?6:modern?5:4,classes), { ident: "DLXF" }))) throw new Error("The shared item rules DLL has been modified.");
+  verifiedRules.set(c.project, { base: c.source.base, overlay: c.data.slice(), arm9: c.project.arm9.slice(), files: new Map([...files].map(([path, value]) => [path, value.slice()])), rules: structuredClone(rules),peerVerified:verifyPeer||!follower,...(rpm.metadata.PMCVersion==="6.0.0"?{messages:JSON.stringify(itemMessageIds(c.project,rules))}:{}) });
   c.rules = rules; c.rulesRead = true;c.peerVerified=verifyPeer||!follower;
   return rules;
 }
@@ -623,15 +657,21 @@ export function isVerifiedItemMoveParamImport(project: ProjectState, path: strin
 function typeHealingRule(type: number, divisor: number): ItemRuleSet {
   return { effects: [{ kind: "healDivisor", value: divisor }], conditions: { kind: "group", mode: "all", children: [{ kind: "type", value: type }] }, consumable: false };
 }
+function checkedItemRule(project:ProjectState,input:ItemRuleSet):ItemRuleSet {
+  const rule=validateItemRule(input);
+  if(!project.session.fairy&&rule.effects.some(e=>["itemRecipe:hitStats","itemRecipe:power","itemRecipe:resist","itemRecipe:flagPower"].includes(e.kind)&&e.parameters?.type===17))throw Error("Fairy requires a Fairy-enabled ROM. Choose another move type.");
+  return rule;
+}
 /** Build a checked image without installing it, for local inspection/validation. */
-export function buildItemRuleModule(project: ProjectState, entries: ReadonlyMap<number, ItemRuleSet>): RpmModule {
+export function buildItemRuleModule(project: ProjectState, entries: ReadonlyMap<number, ItemRuleSet>, nativeVersion:4|5|6=6, options:{chainFollower?:boolean;moveClasses?:ReadonlyMap<number,number>}={}): RpmModule {
+  if(project.session.baseRom==="BW"&&nativeVersion!==6)throw Error("Black/White item recipes require the version-6 runtime.");
   const rules = new Map<number, ItemRuleSet>();
   for (const [id, input] of entries) {
     if (!Number.isInteger(id) || id < 1 || id >= 640) throw new Error("Invalid item ID.");
-    getItemRecord(project, id); rules.set(id, validateItemRule(input));
+    getItemRecord(project, id); rules.set(id, checkedItemRule(project,input));
   }
   if (!rules.size) throw new Error("Choose at least one item rule.");
-  return ruleModule(nativeContext(project), rules);
+  return project.session.baseRom==="BW"?buildBw1ItemModule(project,new Map([...rules].map(([id,r])=>[id,checkedBw1ItemRule(project,r)])),options.moveClasses):ruleModule(nativeContext(project), rules,false,Boolean(options.chainFollower),Boolean(options.chainFollower),nativeVersion,options.moveClasses);
 }
 function existingRules(c: Context): Map<number, ItemRuleSet> {
   const existing = readGenericRules(c);
@@ -640,6 +680,7 @@ function existingRules(c: Context): Map<number, ItemRuleSet> {
 }
 function stageGenericRules(c: Context, rules: ReadonlyMap<number, ItemRuleSet>): void {
   const ability=patchFiles(c).has("patches/AbilityEffects.dll")?prepareAbilityMoveParamForItem(c.project,Boolean(rules.size)):{chain:false};
+  itemMessageIds(c.project,rules,true);
   const item=rules.size?ruleModule(c,rules,false,ability.chain,ability.chain):undefined;
   if(ability.chain&&(!item||item.metadata.PokewebMoveParamAddress!==ability.address))throw Error("The shared ability and item hooks resolve to different native services.");
   if(ability.module)stageCodeInjectionDll(c.project,"AbilityEffects.dll",writeRpm(ability.module,{ident:"DLXF"}));
@@ -650,11 +691,12 @@ function stageGenericRules(c: Context, rules: ReadonlyMap<number, ItemRuleSet>):
 /** Rules are encoded inside the single shared DLL and verified again on reopen. */
 export async function configureItemRuleSets(project: ProjectState, edits: readonly { itemId: number; rules: ItemRuleSet }[]): Promise<void> {
   if (!edits.length) return;
+  if(project.session.baseRom==="BW")return configureBw1ItemRules(project,edits);
   const c = nativeContext(project), rules = existingRules(c), seen = new Set<number>();
   for (const edit of edits) {
     if (!Number.isInteger(edit.itemId) || edit.itemId < 1 || edit.itemId >= 640 || seen.has(edit.itemId)) throw new Error("Invalid item ID.");
     getItemRecord(project, edit.itemId); seen.add(edit.itemId);
-    rules.set(edit.itemId, validateItemRule(edit.rules));
+    rules.set(edit.itemId, checkedItemRule(project,edit.rules));
   }
   const ability=patchFiles(c).has("patches/AbilityEffects.dll")?prepareAbilityMoveParamForItem(project,true):{chain:false};
   const preflight=ruleModule(c,rules,false,ability.chain,ability.chain);
@@ -667,6 +709,7 @@ export async function configureItemRuleSets(project: ProjectState, edits: readon
   });
 }
 export function clearItemRules(project: ProjectState, itemId: number): void {
+  if(project.session.baseRom==="BW"){clearBw1ItemRules(project,itemId);return;}
   const c = nativeContext(project);
   disableHealingOverride(c, itemId);
 }

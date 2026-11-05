@@ -41,6 +41,7 @@ import {
 } from "../pokeweb/streamedBgmModel";
 import { escapeHtml } from "./dom";
 import { renderRuntimeReleaseTimestamp } from "./runtimeReleaseTimestamp";
+import "../styles/moveData.css";
 
 type StreamedBgmDraft = {
   activeTab: MusicEditorTab;
@@ -84,19 +85,22 @@ type StreamedBgmDraft = {
   standaloneTrimEndSeconds?: number;
   standaloneLoopStartSeconds: number;
   standaloneMessage?: string;
+  standaloneSelection?: number | "new";
+  toolsOpen?: boolean;
+  bgmFilter?: MusicReferenceFilter | "replaced";
   busy?: boolean;
 };
 
 const MUSIC_EDITOR_TABS = ["bgm", "streamed", "standalone"] as const;
 export type MusicEditorTab = typeof MUSIC_EDITOR_TABS[number];
 const MUSIC_EDITOR_TAB_LABELS: Record<MusicEditorTab, string> = {
-  bgm: "BGM Replacements",
-  streamed: "Streamed Replacements",
-  standalone: "Standalone",
+  bgm: "Music",
+  streamed: "Streams",
+  standalone: "New songs",
 };
 
 export function renderMusicEditorTabs(activeTab: MusicEditorTab, availableTabs: readonly MusicEditorTab[] = MUSIC_EDITOR_TABS): string {
-  return availableTabs.map((tab) => `<button type="button" id="music-editor-tab-${tab}" class="music-editor-tab ${activeTab === tab ? "-active" : ""}" role="tab" aria-controls="music-editor-panel-${tab}" aria-selected="${activeTab === tab}" tabindex="${activeTab === tab ? "0" : "-1"}" data-music-editor-tab="${tab}">${MUSIC_EDITOR_TAB_LABELS[tab]}</button>`).join("");
+  return availableTabs.map((tab) => `<button type="button" id="music-editor-tab-${tab}" class="uv-tab" role="tab" aria-controls="music-detail" aria-selected="${activeTab === tab}" tabindex="${activeTab === tab ? "0" : "-1"}" data-music-editor-tab="${tab}">${MUSIC_EDITOR_TAB_LABELS[tab]}</button>`).join("");
 }
 
 export function nextMusicEditorTab(current: MusicEditorTab, key: string, availableTabs: readonly MusicEditorTab[] = MUSIC_EDITOR_TABS): MusicEditorTab | undefined {
@@ -165,8 +169,8 @@ export function listMusicEditorSequences(
 
 export function renderStreamedBgmEncodingOptions(selected: StreamedBgmEncoding): string {
   return `
-    <option value="adpcm" ${selected === "adpcm" ? "selected" : ""}>Recommended — Stereo IMA ADPCM (~75% smaller)</option>
-    <option value="pcm16" ${selected === "pcm16" ? "selected" : ""}>Maximum quality — Stereo PCM16</option>`;
+    <option value="adpcm" ${selected === "adpcm" ? "selected" : ""}>ADPCM, ~75% smaller</option>
+    <option value="pcm16" ${selected === "pcm16" ? "selected" : ""}>Maximum quality (PCM16)</option>`;
 }
 
 export function buildNativeStreamReference(
@@ -284,7 +288,7 @@ function hydrateSequenceList(project: ProjectState, root: HTMLElement, onDirty: 
         }
       }
       if (!draft.sequences.some((entry) => entry.id === draft.targetSequenceId)) {
-        draft.targetSequenceId = draft.sequences[0]?.id ?? 0;
+        draft.targetSequenceId = (draft.sequences.find((entry) => !/DUMMY|SILENCE/u.test(entry.symbol)) ?? draft.sequences[0])?.id ?? 0;
         draft.encoding = "adpcm";
       }
       if (!draft.nativeInitialized) {
@@ -317,113 +321,298 @@ function hydrateSequenceList(project: ProjectState, root: HTMLElement, onDirty: 
     });
 }
 
+type BgmFilter = MusicReferenceFilter | "replaced";
+type BgmTrackInfo = { names: string[]; categories: Set<string>; haystack: string };
+
+/** Friendly names for each BGM sequence, from the BW2 reference (BW1 shows symbols only). */
+function bgmTrackInfo(sequences: ReadonlyArray<{ id: number; symbol: string }>, bw1: boolean): Map<number, BgmTrackInfo> {
+  const info = new Map<number, BgmTrackInfo>();
+  for (const sequence of sequences) info.set(sequence.id, { names: [], categories: new Set(), haystack: `${sequence.id} ${sequence.symbol}` });
+  if (!bw1) {
+    for (const entry of buildMusicReference(sequences)) {
+      for (const track of entry.tracks) {
+        const item = info.get(track.id);
+        if (!item) continue;
+        const name = track.label ? `${entry.title} · ${track.label}` : entry.title;
+        if (!item.names.includes(name)) item.names.push(name);
+        item.categories.add(entry.category);
+        item.haystack += ` ${name} ${entry.description}`;
+      }
+    }
+  }
+  for (const item of info.values()) item.haystack = item.haystack.normalize("NFKD").replace(/[̀-ͯ]/gu, "").toLocaleLowerCase();
+  return info;
+}
+
+function bgmTrackTitle(info: BgmTrackInfo | undefined, symbol: string): string {
+  if (!info?.names.length) return symbol;
+  return info.names.length > 1 ? `${info.names[0]} +${info.names.length - 1}` : info.names[0]!;
+}
+
+function matchesQuery(haystack: string, search: string): boolean {
+  const query = search.trim().normalize("NFKD").replace(/[̀-ͯ]/gu, "").toLocaleLowerCase();
+  return !query || query.split(/\s+/u).every((term) => haystack.includes(term));
+}
+
+function megabytes(bytes: number): string {
+  return `${(bytes / 0x10_0000).toFixed(2)} MiB`;
+}
+
+function seconds(value: number | undefined): string {
+  return value === undefined || !Number.isFinite(value) ? "" : value.toFixed(3);
+}
+
 export function renderMusicEditor(project: ProjectState, root: HTMLElement, onDirty: () => void): void {
   const draft = getStreamedBgmDraft(project);
   hydrateSequenceList(project, root, onDirty, draft);
 
   const configs = getStreamedBgmConfigs(project);
   const nativeConfigs = getNativeStreamReplacementConfigs(project);
-  const config = configs.find((entry) => entry.targetSequenceId === draft.targetSequenceId);
-  const configTargetIsBgm = !config || Boolean(config.targetSequenceSymbol?.startsWith("SEQ_BGM_"));
+  const standalone = getStandaloneStreamConfigs(project);
   const bw1 = project.session.baseRom === "BW" && (project.session.baseVersion === "B" || project.session.baseVersion === "W");
   const supported = bw1 || (project.session.baseRom === "BW2" && (project.session.baseVersion === "B2" || project.session.baseVersion === "W2"));
-  const archiveSupported = bw1 || supported;
-  const managedStreamIds = new Set([...configs.map((entry) => entry.streamId), ...getStandaloneStreamConfigs(project).map((entry) => entry.streamId)]);
+  if (!supported) {
+    root.innerHTML = `<div class="music-data" id="music-data"><section class="md-detail mu-detail"><div class="mu-empty">Music replacement supports US Black, White, Black 2 and White 2.</div></section></div>`;
+    return;
+  }
+  const managedStreamIds = new Set([...configs.map((entry) => entry.streamId), ...standalone.map((entry) => entry.streamId)]);
   const hasEditableNativeStream = Boolean(draft.nativeStreams?.some((entry) => !managedStreamIds.has(entry.id)));
   const availableTabs: readonly MusicEditorTab[] = bw1 && !hasEditableNativeStream ? ["bgm", "standalone"] : MUSIC_EDITOR_TABS;
   if (!availableTabs.includes(draft.activeTab)) draft.activeTab = "bgm";
-  const duration = draft.pcm ? draft.pcm.left.length / draft.pcm.sampleRate : undefined;
-  const loopEnd = draft.loopEndSeconds ?? duration;
-  const plannedEncoding = draft.encoding;
-  const selectedSequence = draft.sequences?.find((entry) => entry.id === draft.targetSequenceId);
+  const totalBytes = [...configs, ...nativeConfigs, ...standalone].reduce((total, entry) => total + entry.encodedBytes, 0);
 
   root.innerHTML = `
-    <section class="music-editor-page">
-      <aside class="music-editor-sidebar">
-        <h1>Music</h1>
-        <p>Import mixed audio for ${bw1 ? "Black or White" : "Black 2 or White 2"} music and custom streamed tracks.</p>
-        <div class="music-editor-sidebar__summary">
-          <span>Installed replacements</span>
-          <strong>${configs.length + nativeConfigs.length} track${configs.length + nativeConfigs.length === 1 ? "" : "s"}</strong>
-          <small>${configs.length + nativeConfigs.length ? `${([...configs, ...nativeConfigs].reduce((total, entry) => total + entry.encodedBytes, 0) / 0x10_0000).toFixed(2)} MiB of custom audio` : "The original SDAT is unchanged."}</small>
-        </div>
+    <div class="music-data" id="music-data">
+      <aside class="md-list mu-list" aria-label="Music">
+        <div class="md-tabs mu-modes" role="tablist" aria-label="Music editor sections">${renderMusicEditorTabs(draft.activeTab, availableTabs)}</div>
+        <div class="md-filters" data-music-filters>${renderListFilters(draft, bw1)}</div>
+        <div class="md-rows" id="music-list" role="listbox" aria-label="Tracks" tabindex="0">${renderListRows(project, draft, bw1)}</div>
+        <div class="md-list-foot">${configs.length + nativeConfigs.length + standalone.length ? `${configs.length + nativeConfigs.length} replaced · ${standalone.length} new · ${megabytes(totalBytes)}` : "No custom music yet"}</div>
+        ${draft.activeTab === "bgm" ? renderBgmTools(project, draft, configs, bw1) : ""}
       </aside>
-      <main class="music-editor-main">
-        <div class="music-editor-workspace">
-          <div class="music-editor-tabs" role="tablist" aria-label="Music editor sections">
-            ${renderMusicEditorTabs(draft.activeTab, availableTabs)}
-          </div>
-          <div id="music-editor-panel-bgm" class="music-editor-tab-panel" role="tabpanel" aria-labelledby="music-editor-tab-bgm" ${draft.activeTab === "bgm" ? "" : "hidden"}>
-        <section class="code-injection-panel music-editor-panel music-editor-primary-panel">
-          <h2>Streamed BGM Replacement</h2>
-          <div class="code-injection-actions streamed-bgm-controls">
-            <label>Target BGM sequence
-              <input id="streamed-bgm-target" type="text" list="streamed-bgm-sequences" value="${draft.targetSequenceId}${selectedSequence ? ` — ${escapeHtml(selectedSequence.symbol)}` : ""}" ${supported ? "" : "disabled"} />
-            </label>
-            <datalist id="streamed-bgm-sequences">
-              ${(draft.sequences ?? []).map((entry) => `<option value="${entry.id} — ${escapeHtml(entry.symbol)}"></option>`).join("")}
-            </datalist>
-            <div class="music-current-track-preview">
-              <button class="btn" id="preview-current-bgm-btn" type="button" ${selectedSequence && !draft.hydrating ? "" : "disabled"}>Load Current Track Preview</button>
-              <small>Loads up to 15 seconds. Native replacements are decoded directly; game sequences use the browser SDAT renderer.</small>
-              ${draft.currentTrackPreviewUrl ? `<audio id="current-bgm-preview" controls preload="metadata" src="${escapeHtml(draft.currentTrackPreviewUrl)}"></audio>` : ""}
-            </div>
-            <label>MP3 or WAV
-              <input id="streamed-bgm-file" type="file" accept="audio/mpeg,audio/wav,.mp3,.wav" ${supported ? "" : "disabled"} />
-            </label>
-            ${draft.previewUrl ? `<div class="music-import-preview"><strong>Imported track preview</strong><audio id="streamed-bgm-preview" controls preload="metadata" src="${escapeHtml(draft.previewUrl)}"></audio><small>Playback follows the crop window below.</small></div>` : ""}
-            <label>Storage encoding
-              <select id="streamed-bgm-encoding" ${supported ? "" : "disabled"}>
-                ${renderStreamedBgmEncodingOptions(plannedEncoding)}
-              </select>
-              <small class="streamed-bgm-encoding-help">Saved separately for this target. Both formats use stereo playback at 32,728 Hz.</small>
-            </label>
-            <div class="streamed-bgm-crop">
-              <strong>Crop imported audio</strong>
-              <small>Times refer to the source file. For example, set “Keep from” to 2.500 to remove its first 2.5 seconds.</small>
-              <div class="streamed-bgm-loop-grid">
-                <label>Keep from (seconds)<input id="streamed-bgm-trim-start" type="number" min="0" step="0.001" value="${draft.trimStartSeconds.toFixed(3)}" ${supported ? "" : "disabled"} /></label>
-                <label>Keep until (seconds)<input id="streamed-bgm-loop-end" type="number" min="0" step="0.001" value="${loopEnd?.toFixed(3) ?? ""}" placeholder="Full track" ${supported ? "" : "disabled"} /></label>
-              </div>
-            </div>
-            <label>Loop start in cropped track (seconds)<input id="streamed-bgm-loop-start" type="number" min="0" step="0.001" value="${draft.loopStartSeconds.toFixed(3)}" ${supported ? "" : "disabled"} /></label>
-            <label class="streamed-bgm-shortcut"><input id="streamed-bgm-shortcut" type="checkbox" ${draft.shortcutEnabled ? "checked" : ""} ${supported ? "" : "disabled"} /> Enable L + R + Select music mute (global; saved on import)</label>
-            <div class="music-editor-buttons">
-              <button class="btn -primary" id="install-streamed-bgm-btn" type="button" ${supported && draft.pcm ? "" : "disabled"}>${config ? "Update Selected Replacement" : "Add Replacement"}</button>
-              <div class="runtime-update-action"><button class="btn" id="update-streamed-bgm-runtime-btn" type="button" ${supported && (configs.length || (bw1 && getStandaloneStreamConfigs(project).length)) ? "" : "disabled"}>Update Music Runtime</button>${renderRuntimeReleaseTimestamp("music")}</div>
-              <button class="btn -default" id="remove-streamed-bgm-btn" type="button" ${config ? "" : "disabled"}>Remove Selected Replacement</button>
-            </div>
-            <div class="code-injection-note" id="streamed-bgm-note">${escapeHtml(draft.message ?? (config ? (configTargetIsBgm ? `${config.sourceName} is installed. Removing it restores only the verified replacement data.` : `This older installation targets non-BGM sequence ${config.targetSequenceId} (${config.targetSequenceSymbol ?? "unknown"}). Choose a SEQ_BGM target, import the audio again, and reconfigure it before testing.`) : draft.hydrating ? "Loading SDAT background-music sequence names…" : "Choose a SEQ_BGM target and import MP3 or WAV audio. Full-track looping is the default."))}</div>
-          </div>
-        </section>
-        <section class="code-injection-panel music-editor-panel music-editor-installed-panel" aria-labelledby="installed-music-title">
-          <h2 id="installed-music-title">Installed replacements (${configs.length})</h2>
-          <p>Select a target to import new audio for it, or remove it individually. Other replacements are retained. Size estimates exclude small archive/runtime overhead.</p>
-          <div class="music-reference-scroll" tabindex="0" role="region" aria-label="Installed music replacements">
-            <table class="music-reference-table">
-              <thead><tr><th scope="col">Target / source</th><th scope="col">Loop / encoded size</th><th scope="col">Actions</th></tr></thead>
-              <tbody>${renderInstalledMusicRows(configs)}</tbody>
-            </table>
-          </div>
-          ${configs.length > 1 ? `<button class="btn -default" id="remove-all-streamed-bgm-btn" type="button">Remove All Replacements</button>` : ""}
-        </section>
-          </div>
-          <div id="music-editor-panel-streamed" class="music-editor-tab-panel" role="tabpanel" aria-labelledby="music-editor-tab-streamed" ${draft.activeTab === "streamed" ? "" : "hidden"}>
-            ${renderNativeStreamPanel(project, draft, configs, nativeConfigs, archiveSupported && (!bw1 || hasEditableNativeStream), new Set(getStandaloneStreamConfigs(project).map(entry => entry.streamId))) || '<section class="code-injection-panel music-editor-panel"><h2>Streamed Replacements</h2><p>No eligible native streams are available in this ROM.</p></section>'}
-          </div>
-          <div id="music-editor-panel-standalone" class="music-editor-tab-panel" role="tabpanel" aria-labelledby="music-editor-tab-standalone" ${draft.activeTab === "standalone" ? "" : "hidden"}>
-            ${renderStandaloneStreamPanel(project, draft, archiveSupported)}
-          </div>
-        </div>
-        ${bw1 ? renderBw1MusicReferencePanel(draft) : renderMusicReferencePanel(draft, supported)}
-      </main>
-    </section>
+      <section class="md-detail mu-detail" id="music-detail">${renderDetail(project, draft, configs, nativeConfigs, standalone)}</section>
+    </div>
   `;
 
   installMusicEditorInteractions(project, root, onDirty, draft);
   if (draft.busy || draft.hydrating) {
-    root.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement>("input, button, select").forEach((element) => { element.disabled = true; });
+    root.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement>("#music-detail input, #music-detail button, #music-detail select, .md-tools input, .md-tools button").forEach((element) => { element.disabled = true; });
   }
+}
+
+function renderListFilters(draft: StreamedBgmDraft, bw1: boolean): string {
+  if (draft.activeTab === "standalone") return "";
+  if (draft.activeTab === "streamed") {
+    const category = draft.nativeReferenceCategory ?? "all";
+    return `
+      <input class="md-search" id="music-list-search" type="search" placeholder="Search streams" autocomplete="off" spellcheck="false" aria-label="Search streams" value="${escapeHtml(draft.nativeReferenceSearch ?? "")}">
+      <select id="music-list-category" aria-label="Show">
+        <option value="all"${category === "all" ? " selected" : ""}>All streams</option>
+        ${Object.entries(NATIVE_STREAM_REFERENCE_CATEGORIES).map(([value, label]) => `<option value="${value}"${category === value ? " selected" : ""}>${escapeHtml(label)}</option>`).join("")}
+      </select>`;
+  }
+  const filter: BgmFilter = draft.bgmFilter ?? "all";
+  return `
+    <input class="md-search" id="music-list-search" type="search" placeholder="Search tracks" autocomplete="off" spellcheck="false" aria-label="Search music" value="${escapeHtml(draft.referenceSearch ?? "")}">
+    <select id="music-list-category" aria-label="Show">
+      <option value="all"${filter === "all" ? " selected" : ""}>All tracks</option>
+      <option value="replaced"${filter === "replaced" ? " selected" : ""}>Replaced</option>
+      ${bw1 ? "" : Object.entries(MUSIC_REFERENCE_CATEGORIES).map(([value, label]) => `<option value="${value}"${filter === value ? " selected" : ""}>${escapeHtml(label)}</option>`).join("")}
+    </select>`;
+}
+
+function renderListRows(project: ProjectState, draft: StreamedBgmDraft, bw1: boolean): string {
+  if (draft.hydrating && !draft.sequences) return `<div class="mu-list-empty">Loading the sound archive…</div>`;
+  if (draft.activeTab === "streamed") {
+    const entries = buildNativeStreamReference(draft.nativeStreams ?? [], getStreamedBgmConfigs(project), getStandaloneStreamConfigs(project));
+    const matches = filterNativeStreamReference(entries, draft.nativeReferenceSearch ?? "", draft.nativeReferenceCategory ?? "all");
+    const replaced = new Set(getNativeStreamReplacementConfigs(project).map((entry) => entry.streamId));
+    if (!matches.length) return `<div class="mu-list-empty">No matching streams.</div>`;
+    return matches.map((entry) => {
+      const managed = entry.managedSequenceId !== undefined || entry.managedStandalone;
+      const flag = entry.managedSequenceId !== undefined ? `BGM ${entry.managedSequenceId}` : entry.managedStandalone ? "New song" : replaced.has(entry.stream.id) ? "Replaced" : "";
+      return `<div class="md-row mu-row${managed ? " -managed" : ""}" data-music-row="${entry.stream.id}" role="option" aria-selected="${entry.stream.id === draft.nativeStreamId && !managed}"${managed ? ` aria-disabled="true" title="${escapeHtml(entry.managedStandalone ? "Edited on the New songs tab" : `Edited as BGM ${entry.managedSequenceId}`)}"` : ""}>
+        <span class="md-row-id">${entry.stream.id}</span>
+        <span class="md-row-name">${escapeHtml(entry.title)}<small>${escapeHtml(entry.stream.symbol)}</small></span>
+        <span class="mu-flag${replaced.has(entry.stream.id) ? " -replaced" : ""}">${escapeHtml(flag)}</span>
+      </div>`;
+    }).join("");
+  }
+  if (draft.activeTab === "standalone") {
+    const tracks = getStandaloneStreamConfigs(project);
+    const selected = draft.standaloneSelection ?? "new";
+    return `<div class="md-row mu-row -new" data-music-row="new" role="option" aria-selected="${selected === "new"}"><span class="md-row-id">+</span><span class="md-row-name">New song</span><span></span></div>
+      ${tracks.map((track) => `<div class="md-row mu-row" data-music-row="${track.streamId}" role="option" aria-selected="${selected === track.streamId}">
+        <span class="md-row-id">${track.streamId}</span>
+        <span class="md-row-name">${escapeHtml(track.name)}<small>${escapeHtml(track.sourceName)}</small></span>
+        <span class="mu-flag">${megabytes(track.encodedBytes)}</span>
+      </div>`).join("")}`;
+  }
+  const sequences = draft.sequences ?? [];
+  const info = bgmTrackInfo(sequences, bw1);
+  const replaced = new Set(getStreamedBgmConfigs(project).map((entry) => entry.targetSequenceId));
+  const filter: BgmFilter = draft.bgmFilter ?? "all";
+  const rows = sequences.filter((sequence) => {
+    const item = info.get(sequence.id);
+    if (filter === "replaced" && !replaced.has(sequence.id)) return false;
+    if (filter !== "all" && filter !== "replaced" && !item?.categories.has(filter)) return false;
+    return matchesQuery(item?.haystack ?? "", draft.referenceSearch ?? "");
+  });
+  if (!rows.length) return `<div class="mu-list-empty">No matching tracks.</div>`;
+  return rows.map((sequence) => {
+    const item = info.get(sequence.id);
+    const named = Boolean(item?.names.length);
+    return `<div class="md-row mu-row" data-music-row="${sequence.id}" role="option" aria-selected="${sequence.id === draft.targetSequenceId}" title="${escapeHtml(item?.names.join("\n") || sequence.symbol)}">
+      <span class="md-row-id">${sequence.id}</span>
+      <span class="md-row-name">${escapeHtml(bgmTrackTitle(item, sequence.symbol))}${named ? `<small>${escapeHtml(sequence.symbol)}</small>` : ""}</span>
+      <span class="mu-flag${replaced.has(sequence.id) ? " -replaced" : ""}">${replaced.has(sequence.id) ? "Replaced" : ""}</span>
+    </div>`;
+  }).join("");
+}
+
+function renderBgmTools(project: ProjectState, draft: StreamedBgmDraft, configs: readonly StreamedBgmConfig[], bw1: boolean): string {
+  const runtimeEnabled = configs.length || (bw1 && getStandaloneStreamConfigs(project).length);
+  return `<details class="md-tools mu-tools" ${draft.toolsOpen ? "open" : ""}>
+    <summary>Settings</summary>
+    <div class="mu-tools-body">
+      <label class="mu-check"><input id="streamed-bgm-shortcut" type="checkbox" ${draft.shortcutEnabled ? "checked" : ""}> L + R + Select mutes music</label>
+      <div class="runtime-update-action"><button class="btn sm -default" id="update-streamed-bgm-runtime-btn" type="button" ${runtimeEnabled ? "" : "disabled"}>Update music runtime</button>${renderRuntimeReleaseTimestamp("music")}</div>
+      ${configs.length > 1 ? `<button class="btn sm -default" id="remove-all-streamed-bgm-btn" type="button">Remove all replacements</button>` : ""}
+    </div>
+  </details>`;
+}
+
+function renderAudioImport(prefix: string, fileId: string, pcm: StereoPcm | undefined, sourceName: string | undefined, previewId: string | undefined, previewUrl: string | undefined, enabled: boolean): string {
+  return `
+    <div class="mu-file">
+      <label class="btn sm -default file-btn">${pcm ? "Choose another file" : "Choose MP3 or WAV"}<input id="${fileId}" type="file" accept="audio/mpeg,audio/wav,.mp3,.wav" ${enabled ? "" : "disabled"}></label>
+      <span class="mu-file-name">${pcm && sourceName ? `${escapeHtml(sourceName)} · ${(pcm.left.length / pcm.sampleRate).toFixed(1)} s` : ""}</span>
+    </div>
+    ${previewUrl ? `<audio class="mu-audio" ${previewId ? `id="${previewId}"` : ""} controls preload="metadata" src="${escapeHtml(previewUrl)}" data-${prefix}-preview></audio>` : ""}`;
+}
+
+function renderTimingFields(ids: { trimStart: string; trimEnd: string; loopStart: string; loop?: string }, values: { trimStart: number; trimEnd?: number; loopStart: number; loop?: boolean }, enabled: boolean, encoding: { id: string; value: StreamedBgmEncoding }): string {
+  const disabled = enabled ? "" : "disabled";
+  return `
+    <div class="mu-fields">
+      <label class="mu-field"><span>Keep from (s)</span><input id="${ids.trimStart}" type="number" min="0" step="0.001" value="${seconds(values.trimStart)}" ${disabled}></label>
+      <label class="mu-field"><span>Keep until (s)</span><input id="${ids.trimEnd}" type="number" min="0" step="0.001" value="${seconds(values.trimEnd)}" placeholder="End" ${disabled}></label>
+      <label class="mu-field"><span>Loop from (s)</span><input id="${ids.loopStart}" type="number" min="0" step="0.001" value="${seconds(values.loopStart)}" ${enabled && values.loop !== false ? "" : "disabled"}></label>
+      <label class="mu-field"><span>Quality</span><select id="${encoding.id}" ${disabled}>${renderStreamedBgmEncodingOptions(encoding.value)}</select></label>
+      ${ids.loop ? `<label class="mu-check"><input id="${ids.loop}" type="checkbox" ${values.loop ? "checked" : ""} ${disabled}> Loop</label>` : ""}
+    </div>`;
+}
+
+function renderDetail(
+  project: ProjectState,
+  draft: StreamedBgmDraft,
+  configs: readonly StreamedBgmConfig[],
+  nativeConfigs: readonly NativeStreamReplacementConfig[],
+  standalone: readonly StandaloneStreamConfig[],
+): string {
+  if (draft.activeTab === "streamed") return renderStreamDetail(draft, configs, nativeConfigs, standalone);
+  if (draft.activeTab === "standalone") return renderStandaloneDetail(draft, standalone);
+  const bw1 = project.session.baseRom === "BW";
+  const sequence = draft.sequences?.find((entry) => entry.id === draft.targetSequenceId);
+  if (!sequence) return `<div class="mu-empty">${draft.hydrating ? "Loading the sound archive…" : escapeHtml(draft.message ?? "Pick a track.")}</div>`;
+  const info = bgmTrackInfo(draft.sequences ?? [], bw1).get(sequence.id);
+  const config = configs.find((entry) => entry.targetSequenceId === sequence.id);
+  const legacyTarget = config && !config.targetSequenceSymbol?.startsWith("SEQ_BGM_");
+  return `
+    <header class="mu-head">
+      <div class="td-title"><h1>${escapeHtml(info?.names[0] ?? sequence.symbol)}</h1><span class="td-num">#${sequence.id}</span></div>
+      ${info?.names.length ? `<div class="fd-subtitle">${escapeHtml([sequence.symbol, ...info.names.slice(1)].join(" · "))}</div>` : ""}
+    </header>
+    <input type="hidden" id="streamed-bgm-target" value="${sequence.id}">
+    <section class="mu-section">
+      <div class="mu-section-title">Now playing in game</div>
+      ${config ? `<div class="mu-installed"><strong>${escapeHtml(config.sourceName)}</strong><span>${megabytes(config.encodedBytes)} · ${escapeHtml(streamedBgmEncodingLabel(config.encoding ?? "pcm16"))} · loop ${(config.loopStartSample / config.sampleRate).toFixed(2)}–${(config.loopEndSample / config.sampleRate).toFixed(2)} s</span>
+        <button class="btn sm -default" id="remove-streamed-bgm-btn" type="button">Restore original</button></div>` : `<div class="mu-original">Original track</div>`}
+      <div class="mu-current">
+        <button class="btn sm -default" id="preview-current-bgm-btn" type="button">Listen (15 s)</button>
+        ${draft.currentTrackPreviewUrl ? `<audio class="mu-audio" id="current-bgm-preview" controls preload="metadata" src="${escapeHtml(draft.currentTrackPreviewUrl)}"></audio>` : ""}
+      </div>
+    </section>
+    <section class="mu-section">
+      <div class="mu-section-title">${config ? "Replace again" : "Replace with"}</div>
+      ${renderAudioImport("bgm", "streamed-bgm-file", draft.pcm, draft.sourceName, "streamed-bgm-preview", draft.previewUrl, true)}
+      ${renderTimingFields({ trimStart: "streamed-bgm-trim-start", trimEnd: "streamed-bgm-loop-end", loopStart: "streamed-bgm-loop-start" },
+        { trimStart: draft.trimStartSeconds, trimEnd: draft.loopEndSeconds ?? (draft.pcm ? draft.pcm.left.length / draft.pcm.sampleRate : undefined), loopStart: draft.loopStartSeconds }, true,
+        { id: "streamed-bgm-encoding", value: draft.encoding })}
+      <div class="mu-actions"><button class="btn -primary" id="install-streamed-bgm-btn" type="button" ${draft.pcm ? "" : "disabled"}>${config ? "Update replacement" : "Replace track"}</button></div>
+    </section>
+    <div class="mu-note" id="streamed-bgm-note" role="status">${escapeHtml(draft.message ?? (legacyTarget ? `This older replacement targets non-BGM sequence ${config!.targetSequenceId}; import the audio again to reconfigure it.` : ""))}</div>`;
+}
+
+function renderStreamDetail(
+  draft: StreamedBgmDraft,
+  configs: readonly StreamedBgmConfig[],
+  nativeConfigs: readonly NativeStreamReplacementConfig[],
+  standalone: readonly StandaloneStreamConfig[],
+): string {
+  const managed = new Set([...configs.map((entry) => entry.streamId), ...standalone.map((entry) => entry.streamId)]);
+  const stream = draft.nativeStreams?.find((entry) => entry.id === draft.nativeStreamId && !managed.has(entry.id));
+  if (!stream) return `<div class="mu-empty">${draft.hydrating ? "Loading the sound archive…" : "Pick a stream."}</div>`;
+  const entry = buildNativeStreamReference([stream], configs, standalone)[0]!;
+  const config = nativeConfigs.find((item) => item.streamId === stream.id);
+  const end = draft.nativeLoopEndSeconds ?? (draft.nativePcm ? draft.nativePcm.left.length / draft.nativePcm.sampleRate : undefined);
+  return `
+    <header class="mu-head">
+      <div class="td-title"><h1>${escapeHtml(entry.title)}</h1><span class="td-num">#${stream.id}</span></div>
+      <div class="fd-subtitle">${escapeHtml(stream.symbol)} · ${stream.channels} ch · ${stream.sampleRate.toLocaleString()} Hz · ${stream.encoding.toUpperCase()} · ${megabytes(stream.encodedBytes)}</div>
+    </header>
+    <input type="hidden" id="native-stream-target" value="${stream.id}">
+    <section class="mu-section">
+      <div class="mu-section-title">Now playing in game</div>
+      ${config ? `<div class="mu-installed"><strong>${escapeHtml(config.sourceName)}</strong><span>${megabytes(config.encodedBytes)} · ${escapeHtml(streamedBgmEncodingLabel(config.encoding))}${config.loop ? ` · loop ${(config.loopStartSample / config.sampleRate).toFixed(2)}–${(config.loopEndSample / config.sampleRate).toFixed(2)} s` : ""}</span>
+        <button class="btn sm -default" id="remove-native-stream-btn" type="button">Restore original</button></div>` : `<div class="mu-original">Original stream</div>`}
+      <div class="mu-current">
+        <button class="btn sm -default" id="preview-current-native-stream-btn" type="button">Listen (15 s)</button>
+        ${draft.nativeCurrentTrackPreviewUrl ? `<audio class="mu-audio" id="current-native-stream-preview" controls preload="metadata" src="${escapeHtml(draft.nativeCurrentTrackPreviewUrl)}"></audio>` : ""}
+      </div>
+    </section>
+    <section class="mu-section">
+      <div class="mu-section-title">${config ? "Replace again" : "Replace with"}</div>
+      ${renderAudioImport("native", "native-stream-file", draft.nativePcm, draft.nativeSourceName, "native-stream-preview", draft.nativePreviewUrl, true)}
+      ${renderTimingFields({ trimStart: "native-stream-trim-start", trimEnd: "native-stream-loop-end", loopStart: "native-stream-loop-start", loop: "native-stream-loop" },
+        { trimStart: draft.nativeTrimStartSeconds, trimEnd: end, loopStart: draft.nativeLoopStartSeconds, loop: draft.nativeLoop }, true,
+        { id: "native-stream-encoding", value: draft.nativeEncoding })}
+      <div class="mu-actions"><button class="btn -primary" id="install-native-stream-btn" type="button" ${draft.nativePcm ? "" : "disabled"}>${config ? "Update replacement" : "Replace stream"}</button></div>
+    </section>
+    <div class="mu-note" id="native-stream-note" role="status">${escapeHtml(draft.nativeMessage ?? "")}</div>`;
+}
+
+function renderStandaloneDetail(draft: StreamedBgmDraft, tracks: readonly StandaloneStreamConfig[]): string {
+  const selection = draft.standaloneSelection ?? "new";
+  const track = selection === "new" ? undefined : tracks.find((entry) => entry.streamId === selection);
+  if (track) {
+    const newest = tracks.reduce((max, entry) => Math.max(max, entry.streamId), -1) === track.streamId;
+    return `
+      <header class="mu-head">
+        <div class="td-title"><h1>${escapeHtml(track.name)}</h1><span class="td-num">#${track.streamId}</span></div>
+        <div class="fd-subtitle">${escapeHtml(track.sourceName)} · ${megabytes(track.encodedBytes)} · ${escapeHtml(streamedBgmEncodingLabel(track.encoding))}${track.loop ? ` · loop ${(track.loopStartSample / track.sampleRate).toFixed(2)}–${(track.loopEndSample / track.sampleRate).toFixed(2)} s` : ""}</div>
+      </header>
+      <section class="mu-section">
+        <div class="mu-section-title">Stream ID</div>
+        <div class="mu-original">Play stream <strong>${track.streamId}</strong> from scripts or code to use this song.</div>
+        ${newest ? `<div class="mu-actions"><button class="btn sm -default" id="remove-last-standalone-stream-btn" type="button">Remove song</button></div>` : `<div class="mu-original">Only the newest song can be removed.</div>`}
+      </section>
+      <div class="mu-note" id="standalone-stream-note" role="status">${escapeHtml(draft.standaloneMessage ?? "")}</div>`;
+  }
+  return `
+    <header class="mu-head">
+      <div class="td-title"><h1>New song</h1></div>
+      <div class="fd-subtitle">Adds a stream without replacing any game music.</div>
+    </header>
+    <section class="mu-section">
+      <label class="mu-field -wide"><span>Name</span><input id="standalone-stream-name" type="text" maxlength="80" value="${escapeHtml(draft.standaloneName)}"></label>
+      ${renderAudioImport("standalone", "standalone-stream-file", draft.standalonePcm, draft.standaloneSourceName, undefined, draft.standalonePreviewUrl, true)}
+      ${renderTimingFields({ trimStart: "standalone-stream-trim-start", trimEnd: "standalone-stream-trim-end", loopStart: "standalone-stream-loop-start", loop: "standalone-stream-loop" },
+        { trimStart: draft.standaloneTrimStartSeconds, trimEnd: draft.standaloneTrimEndSeconds ?? (draft.standalonePcm ? draft.standalonePcm.left.length / draft.standalonePcm.sampleRate : undefined), loopStart: draft.standaloneLoopStartSeconds, loop: draft.standaloneLoop }, true,
+        { id: "standalone-stream-encoding", value: draft.standaloneEncoding })}
+      <div class="mu-actions"><button class="btn -primary" id="add-standalone-stream-btn" type="button" ${draft.standalonePcm ? "" : "disabled"}>Add song</button></div>
+    </section>
+    <div class="mu-note" id="standalone-stream-note" role="status">${escapeHtml(draft.standaloneMessage ?? "")}</div>`;
 }
 
 export function renderInstalledMusicRows(configs: readonly StreamedBgmConfig[]): string {
@@ -434,116 +623,6 @@ export function renderInstalledMusicRows(configs: readonly StreamedBgmConfig[]):
     <td><button class="btn" type="button" data-music-select="${config.targetSequenceId}" aria-label="Select replacement ${config.targetSequenceId}">Select</button>
       <button class="btn -default" type="button" data-music-remove="${config.targetSequenceId}" aria-label="Remove replacement ${config.targetSequenceId}">Remove</button></td>
   </tr>`).join("");
-}
-
-function renderStandaloneStreamPanel(project: ProjectState, draft: StreamedBgmDraft, supported: boolean): string {
-  const tracks = getStandaloneStreamConfigs(project);
-  const duration = draft.standalonePcm ? draft.standalonePcm.left.length / draft.standalonePcm.sampleRate : undefined;
-  return `<section class="code-injection-panel music-editor-panel" aria-labelledby="standalone-stream-title">
-    <h2 id="standalone-stream-title">Standalone streamed songs</h2>
-    <p>Add a stream without replacing any game music. Custom game features can reference its stream ID.</p>
-    <div class="code-injection-actions streamed-bgm-controls">
-      <label>Track name<input id="standalone-stream-name" type="text" maxlength="80" value="${escapeHtml(draft.standaloneName)}" ${supported ? "" : "disabled"} /></label>
-      <label>Audio file<input id="standalone-stream-file" type="file" accept="audio/mpeg,audio/wav,.mp3,.wav" ${supported ? "" : "disabled"} /></label>
-      ${draft.standalonePreviewUrl ? `<div class="music-import-preview"><strong>Imported track preview</strong><audio controls preload="metadata" src="${escapeHtml(draft.standalonePreviewUrl)}"></audio></div>` : ""}
-      <label>Storage encoding<select id="standalone-stream-encoding" ${supported ? "" : "disabled"}>${renderStreamedBgmEncodingOptions(draft.standaloneEncoding)}</select></label>
-      <label class="streamed-bgm-shortcut"><input id="standalone-stream-loop" type="checkbox" ${draft.standaloneLoop ? "checked" : ""} ${supported ? "" : "disabled"} /> Loop when the track reaches its end</label>
-      <div class="streamed-bgm-loop-grid">
-        <label>Keep from (seconds)<input id="standalone-stream-trim-start" type="number" min="0" step="0.001" value="${draft.standaloneTrimStartSeconds.toFixed(3)}" ${supported ? "" : "disabled"} /></label>
-        <label>Keep until (seconds)<input id="standalone-stream-trim-end" type="number" min="0" step="0.001" value="${draft.standaloneTrimEndSeconds?.toFixed(3) ?? duration?.toFixed(3) ?? ""}" placeholder="Full track" ${supported ? "" : "disabled"} /></label>
-      </div>
-      <label>Loop start in cropped track (seconds)<input id="standalone-stream-loop-start" type="number" min="0" step="0.001" value="${draft.standaloneLoopStartSeconds.toFixed(3)}" ${supported && draft.standaloneLoop ? "" : "disabled"} /></label>
-      <div class="music-editor-buttons">
-        <button class="btn -primary" id="add-standalone-stream-btn" type="button" ${supported && draft.standalonePcm ? "" : "disabled"}>Add Standalone Song</button>
-        <button class="btn -default" id="remove-last-standalone-stream-btn" type="button" ${tracks.length ? "" : "disabled"}>Remove Newest Song</button>
-      </div>
-      <div class="code-injection-note" id="standalone-stream-note" aria-live="polite">${escapeHtml(draft.standaloneMessage ?? "Each song gets a native stream ID. Existing game tracks stay unchanged.")}</div>
-    </div>
-    ${tracks.length ? `<div class="music-reference-scroll" tabindex="0" role="region" aria-label="Standalone songs"><table class="music-reference-table"><thead><tr><th scope="col">Stream ID</th><th scope="col">Name / source</th><th scope="col">Size</th></tr></thead><tbody>${tracks.map(track => `<tr><td>${track.streamId}</td><td>${escapeHtml(track.name)}<small>${escapeHtml(track.sourceName)}</small></td><td>${(track.encodedBytes / 0x10_0000).toFixed(2)} MiB</td></tr>`).join("")}</tbody></table></div>` : ""}
-  </section>`;
-}
-
-function renderNativeStreamPanel(
-  project: ProjectState,
-  draft: StreamedBgmDraft,
-  mappings: readonly StreamedBgmConfig[],
-  configs: readonly NativeStreamReplacementConfig[],
-  supported: boolean,
-  standaloneIds: Set<number>,
-): string {
-  if (!supported) return "";
-  const streams = draft.nativeStreams ?? [];
-  const managedStreamIds = new Set([...mappings.map((mapping) => mapping.streamId), ...standaloneIds]);
-  const editableStreams = streams.filter((stream) => !managedStreamIds.has(stream.id));
-  const selected = editableStreams.find((stream) => stream.id === draft.nativeStreamId);
-  const config = configs.find((entry) => entry.streamId === draft.nativeStreamId);
-  const duration = draft.nativePcm ? draft.nativePcm.left.length / draft.nativePcm.sampleRate : undefined;
-  const end = draft.nativeLoopEndSeconds ?? duration;
-  const referenceEntries = buildNativeStreamReference(streams, mappings, getStandaloneStreamConfigs(project));
-  const category = draft.nativeReferenceCategory ?? (project.session.baseRom === "BW" ? "all" : "title");
-  const matches = filterNativeStreamReference(referenceEntries, draft.nativeReferenceSearch ?? "", category);
-  const categoryLabel = category === "all" ? "All streams" : NATIVE_STREAM_REFERENCE_CATEGORIES[category];
-  return `<section class="code-injection-panel music-editor-panel music-editor-native-panel" aria-labelledby="native-stream-title">
-    <h2 id="native-stream-title">Native streamed music</h2>
-    <p>Replace an existing SDAT STRM directly. This does not add a sequence redirect or gameplay replacement buffer; the ROM must already contain code that plays this stream.</p>
-    <div class="code-injection-actions streamed-bgm-controls">
-      <label>Target stream
-        <select id="native-stream-target" ${editableStreams.length ? "" : "disabled"}>
-          ${editableStreams.map((stream) => `<option value="${stream.id}" ${stream.id === draft.nativeStreamId ? "selected" : ""}>${stream.id} — ${escapeHtml(stream.symbol)}</option>`).join("")}
-        </select>
-      </label>
-      <div class="music-current-track-preview">
-        <button class="btn" id="preview-current-native-stream-btn" type="button" ${selected ? "" : "disabled"}>Load Current Track Preview</button>
-        <small>Decodes up to 15 seconds of the stream currently stored in this project.</small>
-        ${draft.nativeCurrentTrackPreviewUrl ? `<audio id="current-native-stream-preview" controls preload="metadata" src="${escapeHtml(draft.nativeCurrentTrackPreviewUrl)}"></audio>` : ""}
-      </div>
-      <label>MP3 or WAV
-        <input id="native-stream-file" type="file" accept="audio/mpeg,audio/wav,.mp3,.wav" ${selected ? "" : "disabled"} />
-      </label>
-      ${draft.nativePreviewUrl ? `<div class="music-import-preview"><strong>Imported track preview</strong><audio id="native-stream-preview" controls preload="metadata" src="${escapeHtml(draft.nativePreviewUrl)}"></audio><small>Playback follows the crop window below.</small></div>` : ""}
-      <label>Storage encoding
-        <select id="native-stream-encoding" ${selected ? "" : "disabled"}>${renderStreamedBgmEncodingOptions(draft.nativeEncoding)}</select>
-      </label>
-      <label class="streamed-bgm-shortcut"><input id="native-stream-loop" type="checkbox" ${draft.nativeLoop ? "checked" : ""} ${selected ? "" : "disabled"} /> Loop after reaching the track end</label>
-      <div class="streamed-bgm-crop">
-        <strong>Crop imported audio</strong>
-        <small>Times refer to the source file. Cropping does not modify the MP3 or WAV on disk.</small>
-        <div class="streamed-bgm-loop-grid">
-          <label>Keep from (seconds)<input id="native-stream-trim-start" type="number" min="0" step="0.001" value="${draft.nativeTrimStartSeconds.toFixed(3)}" ${selected ? "" : "disabled"} /></label>
-          <label>Keep until (seconds)<input id="native-stream-loop-end" type="number" min="0" step="0.001" value="${end?.toFixed(3) ?? ""}" placeholder="Full track" ${selected ? "" : "disabled"} /></label>
-        </div>
-      </div>
-      <label>Loop start in cropped track (seconds)<input id="native-stream-loop-start" type="number" min="0" step="0.001" value="${draft.nativeLoopStartSeconds.toFixed(3)}" ${selected && draft.nativeLoop ? "" : "disabled"} /></label>
-      <div class="music-editor-buttons">
-        <button class="btn -primary" id="install-native-stream-btn" type="button" ${selected && draft.nativePcm ? "" : "disabled"}>${config ? "Update Stream Replacement" : "Replace Stream"}</button>
-        <button class="btn -default" id="remove-native-stream-btn" type="button" ${config ? "" : "disabled"}>Restore Loaded-ROM Stream</button>
-      </div>
-      <div class="code-injection-note" id="native-stream-note">${escapeHtml(draft.nativeMessage ?? (config
-        ? `${config.sourceName} replaces stream ${config.streamId} (${config.streamSymbol ?? selected?.symbol ?? "unnamed"}).`
-        : selected ? `Stream ${selected.id} (${selected.symbol}) is ${selected.encoding.toUpperCase()}, ${selected.sampleRate.toLocaleString()} Hz, ${(selected.encodedBytes / 0x10_0000).toFixed(2)} MiB.`
-          : "No directly editable native streams were found."))}</div>
-    </div>
-    <div class="native-stream-reference">
-      <h3>Stream ID reference</h3>
-      <p>Locate streamed audio in the active ROM by category. Click a directly editable stream ID to select it above.</p>
-      <div class="music-reference-tabs" role="tablist" aria-label="Stream categories">
-        <button type="button" class="music-reference-tab ${category === "all" ? "-active" : ""}" role="tab" aria-selected="${category === "all"}" data-native-reference-category="all">All streams</button>
-        ${Object.entries(NATIVE_STREAM_REFERENCE_CATEGORIES).map(([value, label]) => `<button type="button" class="music-reference-tab ${category === value ? "-active" : ""}" role="tab" aria-selected="${category === value}" data-native-reference-category="${value}">${escapeHtml(label)}</button>`).join("")}
-      </div>
-      <div class="music-reference-filters"><label>Search streams
-        <input id="native-reference-search" type="search" placeholder="Try title, STRM_TITLE, sequence ID, or stream ID" value="${escapeHtml(draft.nativeReferenceSearch ?? "")}" />
-      </label></div>
-      <p class="music-reference-caution">Custom replacement streams are listed for reference but remain managed by their BGM sequence entries above.</p>
-      <p id="native-reference-status" role="status">${matches.length} ${categoryLabel.toLocaleLowerCase()} entries</p>
-      <div class="music-reference-scroll native-stream-reference-scroll" tabindex="0" role="tabpanel" aria-label="${escapeHtml(categoryLabel)} stream ID reference table">
-        <table class="music-reference-table native-stream-reference-table">
-          <caption>${project.session.baseRom === "BW" ? "Black / White" : "Black 2 / White 2"} · ${escapeHtml(categoryLabel)}</caption>
-          <thead><tr><th scope="col">Use</th><th scope="col">Stream ID</th><th scope="col">Location / notes</th></tr></thead>
-          <tbody id="native-reference-rows">${draft.hydrating ? `<tr><td colspan="3" class="music-reference-empty">Loading SDAT streams…</td></tr>` : renderNativeStreamReferenceRows(matches, draft.nativeStreamId)}</tbody>
-        </table>
-      </div>
-    </div>
-  </section>`;
 }
 
 export function renderMusicReferenceRows(entries: readonly MusicReferenceEntry[], selectedId: number): string {
@@ -562,97 +641,107 @@ export function renderMusicReferenceRows(entries: readonly MusicReferenceEntry[]
     </tr>`).join("");
 }
 
-function renderMusicReferencePanel(draft: StreamedBgmDraft, supported: boolean): string {
-  if (!supported) return "";
-  const entries = buildMusicReference(draft.sequences ?? []);
-  const selectedCategory = draft.referenceCategory ?? "cities";
-  const matches = filterMusicReference(entries, draft.referenceSearch ?? "", selectedCategory);
-  const categoryLabel = selectedCategory === "all" ? "All tracks" : MUSIC_REFERENCE_CATEGORIES[selectedCategory];
-  return `
-    <section class="code-injection-panel music-editor-panel music-reference-panel" aria-labelledby="music-reference-title">
-      <h2 id="music-reference-title">Music ID reference</h2>
-      <p>Find overworld and battle tracks by name. Click an ID to set the replacement target above; this does not install anything.</p>
-      <div class="music-reference-tabs" role="tablist" aria-label="Music categories">
-        <button type="button" class="music-reference-tab ${selectedCategory === "all" ? "-active" : ""}" role="tab" aria-selected="${selectedCategory === "all"}" aria-controls="music-reference-table-panel" data-music-reference-category="all">All tracks</button>
-        ${Object.entries(MUSIC_REFERENCE_CATEGORIES).map(([value, label]) => `<button type="button" class="music-reference-tab ${selectedCategory === value ? "-active" : ""}" role="tab" aria-selected="${selectedCategory === value}" aria-controls="music-reference-table-panel" data-music-reference-category="${value}">${escapeHtml(label)}</button>`).join("")}
-      </div>
-      <div class="music-reference-filters">
-        <label>Search tracks
-          <input id="music-reference-search" type="search" placeholder="Try Pokémon Center, Route 19, Hugh, or 1128" value="${escapeHtml(draft.referenceSearch ?? "")}" />
-        </label>
-      </div>
-      <p class="music-reference-caution">Default BW2 uses; ROM hacks and scripted events can change these. IDs come from this ROM's SDAT. Shared IDs affect every location or battle using that sequence. Seasonal, version, low-HP and victory tracks are separate targets; add a replacement for each ID you want to change.</p>
-      <p id="music-reference-status" role="status">${draft.hydrating ? "Loading music IDs…" : `${matches.length} ${categoryLabel.toLocaleLowerCase()} reference groups`}</p>
-      <div id="music-reference-table-panel" class="music-reference-scroll" tabindex="0" role="tabpanel" aria-label="${escapeHtml(categoryLabel)} music ID reference table">
-        <table class="music-reference-table">
-          <caption>Black 2 / White 2 · ${escapeHtml(categoryLabel)} sequence IDs</caption>
-          <thead><tr><th scope="col">Location / battle</th><th scope="col">ID · click to select</th><th scope="col">Used for / notes</th></tr></thead>
-          <tbody id="music-reference-rows">${draft.hydrating ? `<tr><td colspan="3" class="music-reference-empty">Loading SDAT sequence names…</td></tr>` : renderMusicReferenceRows(matches, draft.targetSequenceId)}</tbody>
-        </table>
-      </div>
-    </section>`;
-}
-
 export function filterBw1MusicSequences(sequences: readonly { id: number; symbol: string }[], search: string): Array<{ id: number; symbol: string }> {
   const query = search.trim().toLocaleLowerCase();
   return sequences.filter((entry) => !query || String(entry.id).includes(query) || entry.symbol.toLocaleLowerCase().includes(query));
 }
 
-function renderBw1MusicReferenceRows(sequences: readonly { id: number; symbol: string }[]): string {
-  if (!sequences.length) return '<tr><td colspan="2" class="music-reference-empty">No matching BGM sequences.</td></tr>';
-  return sequences.map((entry) => `<tr><th scope="row">${entry.id}</th><td><code>${escapeHtml(entry.symbol)}</code></td></tr>`).join("");
-}
-
-function renderBw1MusicReferencePanel(draft: StreamedBgmDraft): string {
-  const matches = filterBw1MusicSequences(draft.sequences ?? [], draft.referenceSearch ?? "");
-  return `<section class="code-injection-panel music-editor-panel music-reference-panel" aria-labelledby="music-reference-title">
-    <h2 id="music-reference-title">Black / White BGM sequence IDs</h2>
-    <p>These names and IDs come from this ROM's sound archive. A name alone does not establish every place the game uses a track.</p>
-    <div class="music-reference-filters"><label>Search sequence ID or symbol
-      <input id="music-reference-search" type="search" placeholder="Try SEQ_BGM_VS or 1003" value="${escapeHtml(draft.referenceSearch ?? "")}" />
-    </label></div>
-    <p id="music-reference-status" role="status">${draft.hydrating ? "Loading music IDs…" : `${matches.length} BGM sequences`}</p>
-    <div id="music-reference-table-panel" class="music-reference-scroll" tabindex="0" aria-label="Black / White BGM sequence IDs">
-      <table class="music-reference-table"><caption>Black / White · SDAT BGM sequences</caption>
-        <thead><tr><th scope="col">ID</th><th scope="col">Sequence symbol</th></tr></thead>
-        <tbody id="music-reference-rows">${draft.hydrating ? '<tr><td colspan="2" class="music-reference-empty">Loading SDAT sequence names…</td></tr>' : renderBw1MusicReferenceRows(matches)}</tbody>
-      </table>
-    </div>
-  </section>`;
-}
-
 function installMusicEditorInteractions(project: ProjectState, root: HTMLElement, onDirty: () => void, draft: StreamedBgmDraft): void {
+  const bw1 = project.session.baseRom === "BW";
+  const rerender = () => renderMusicEditor(project, root, onDirty);
+  const list = root.querySelector<HTMLElement>("#music-list");
+
+  // ---------- Sections and list ----------
   const editorTabs = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-music-editor-tab]"));
   const availableTabs = editorTabs.map((button) => button.dataset.musicEditorTab as MusicEditorTab);
-  const selectEditorTab = (tab: MusicEditorTab) => {
-    if (!availableTabs.includes(tab)) return;
-    draft.activeTab = tab;
-    editorTabs.forEach((button) => {
-      const active = button.dataset.musicEditorTab === tab;
-      button.classList.toggle("-active", active);
-      button.setAttribute("aria-selected", String(active));
-      button.tabIndex = active ? 0 : -1;
+  editorTabs.forEach((button) => {
+    const tab = button.dataset.musicEditorTab as MusicEditorTab;
+    button.addEventListener("click", () => {
+      if (draft.activeTab === tab) return;
+      draft.activeTab = tab;
+      rerender();
     });
-    MUSIC_EDITOR_TABS.forEach((name) => {
-      const panel = root.querySelector<HTMLElement>(`#music-editor-panel-${name}`);
-      if (panel) panel.hidden = name !== tab;
-    });
-  };
-  editorTabs.forEach((button, index) => {
-    const tab = availableTabs[index]!;
-    button.addEventListener("click", () => selectEditorTab(tab));
     button.addEventListener("keydown", (event) => {
       const next = nextMusicEditorTab(tab, event.key, availableTabs);
       if (!next) return;
       event.preventDefault();
-      selectEditorTab(next);
-      editorTabs.find((item) => item.dataset.musicEditorTab === next)?.focus();
+      draft.activeTab = next;
+      rerender();
+      root.querySelector<HTMLButtonElement>(`[data-music-editor-tab="${next}"]`)?.focus();
     });
   });
+
+  const refreshRows = () => {
+    if (list) list.innerHTML = renderListRows(project, draft, bw1);
+  };
+  const listSearch = root.querySelector<HTMLInputElement>("#music-list-search");
+  const listCategory = root.querySelector<HTMLSelectElement>("#music-list-category");
+  let searchTimer: number | undefined;
+  listSearch?.addEventListener("input", () => {
+    window.clearTimeout(searchTimer);
+    searchTimer = window.setTimeout(() => {
+      if (draft.activeTab === "streamed") draft.nativeReferenceSearch = listSearch.value;
+      else draft.referenceSearch = listSearch.value;
+      refreshRows();
+    }, 120);
+  });
+  listCategory?.addEventListener("change", () => {
+    if (draft.activeTab === "streamed") draft.nativeReferenceCategory = listCategory.value as NativeStreamReferenceCategory;
+    else draft.bgmFilter = listCategory.value as BgmFilter;
+    refreshRows();
+  });
+
+  const selectBgm = (id: number) => {
+    if (id === draft.targetSequenceId) return;
+    draft.targetSequenceId = id;
+    const installed = getStreamedBgmConfigs(project).find((entry) => entry.targetSequenceId === id);
+    draft.encoding = installed?.encoding ?? (installed ? "pcm16" : draft.encoding);
+    if (draft.currentTrackPreviewUrl) URL.revokeObjectURL(draft.currentTrackPreviewUrl);
+    draft.currentTrackPreviewUrl = undefined;
+    draft.message = undefined;
+  };
+  const selectRow = (row: HTMLElement) => {
+    if (row.getAttribute("aria-disabled") === "true" || draft.busy) return;
+    const value = row.dataset.musicRow;
+    if (value === undefined) return;
+    if (draft.activeTab === "streamed") applyNativeTarget(Number(value));
+    else if (draft.activeTab === "standalone") {
+      draft.standaloneSelection = value === "new" ? "new" : Number(value);
+      draft.standaloneMessage = undefined;
+    } else selectBgm(Number(value));
+    rerender();
+    root.querySelector<HTMLElement>(`#music-list [aria-selected="true"]`)?.scrollIntoView({ block: "nearest" });
+  };
+  list?.addEventListener("click", (event) => {
+    const row = (event.target as Element).closest<HTMLElement>("[data-music-row]");
+    if (row) selectRow(row);
+  });
+  list?.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    event.preventDefault();
+    const rows = [...list.querySelectorAll<HTMLElement>("[data-music-row]:not([aria-disabled='true'])")];
+    const index = rows.findIndex((row) => row.getAttribute("aria-selected") === "true");
+    const next = rows[Math.max(0, Math.min(rows.length - 1, index + (event.key === "ArrowDown" ? 1 : -1)))];
+    if (next) {
+      selectRow(next);
+      root.querySelector<HTMLElement>("#music-list")?.focus();
+    }
+  });
+  if (!root.querySelector("#music-list [aria-selected='true']")) {
+    // Keep the selection visible after filters hide it.
+  } else {
+    root.querySelector<HTMLElement>("#music-list [aria-selected='true']")?.scrollIntoView({ block: "nearest" });
+  }
+
+  const tools = root.querySelector<HTMLDetailsElement>(".mu-tools");
+  tools?.addEventListener("toggle", () => { draft.toolsOpen = tools.open; });
+
+  // ---------- Shared helpers ----------
+  const disableAll = () => root.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement>("#music-detail input, #music-detail button, #music-detail select, .md-tools input, .md-tools button").forEach((element) => { element.disabled = true; });
   const runEdit = async (operation: () => Promise<void>, messageTarget: "sequence" | "native" | "standalone" = "sequence") => {
     if (draft.busy) return;
     draft.busy = true;
-    root.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement>("input, button, select").forEach((element) => { element.disabled = true; });
+    disableAll();
     try {
       await operation();
       draft.nativeStreams = listNativeSdatStreams((await loadNitroSdatFromProject(project)).bytes);
@@ -664,13 +753,13 @@ function installMusicEditorInteractions(project: ProjectState, root: HTMLElement
       else draft.message = message;
     } finally {
       draft.busy = false;
-      renderMusicEditor(project, root, onDirty);
+      rerender();
     }
   };
   const runPreview = async (operation: () => Promise<void>, messageTarget: "sequence" | "native") => {
     if (draft.busy) return;
     draft.busy = true;
-    root.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement>("input, button, select").forEach((element) => { element.disabled = true; });
+    disableAll();
     try {
       await operation();
     } catch (error) {
@@ -679,338 +768,10 @@ function installMusicEditorInteractions(project: ProjectState, root: HTMLElement
       else draft.message = message;
     } finally {
       draft.busy = false;
-      renderMusicEditor(project, root, onDirty);
+      rerender();
     }
   };
-  const updateRuntimeButton = root.querySelector<HTMLButtonElement>("#update-streamed-bgm-runtime-btn");
-  updateRuntimeButton?.addEventListener("click", async () => {
-    await runEdit(async () => {
-      await updateStreamedBgmRuntime(project);
-      draft.message = "Music runtime updated. All audio, loops, and mute settings were preserved. Fresh-boot the exported ROM to use it.";
-    });
-  });
-  const fileInput = root.querySelector<HTMLInputElement>("#streamed-bgm-file");
-  const targetInput = root.querySelector<HTMLInputElement>("#streamed-bgm-target");
-  const encodingSelect = root.querySelector<HTMLSelectElement>("#streamed-bgm-encoding");
-  const trimStartInput = root.querySelector<HTMLInputElement>("#streamed-bgm-trim-start");
-  const loopStartInput = root.querySelector<HTMLInputElement>("#streamed-bgm-loop-start");
-  const loopEndInput = root.querySelector<HTMLInputElement>("#streamed-bgm-loop-end");
-  const shortcutInput = root.querySelector<HTMLInputElement>("#streamed-bgm-shortcut");
-  const installButton = root.querySelector<HTMLButtonElement>("#install-streamed-bgm-btn");
-  const removeButton = root.querySelector<HTMLButtonElement>("#remove-streamed-bgm-btn");
-  const note = root.querySelector<HTMLDivElement>("#streamed-bgm-note");
-  const currentBgmPreviewButton = root.querySelector<HTMLButtonElement>("#preview-current-bgm-btn");
-  const importedBgmPreview = root.querySelector<HTMLAudioElement>("#streamed-bgm-preview");
-  const bw1 = project.session.baseRom === "BW";
-  const referenceEntries = bw1 ? [] : buildMusicReference(draft.sequences ?? []);
-  const referenceSearch = root.querySelector<HTMLInputElement>("#music-reference-search");
-  const referenceTabs = root.querySelectorAll<HTMLButtonElement>("[data-music-reference-category]");
-  const referenceRows = root.querySelector<HTMLTableSectionElement>("#music-reference-rows");
-  const referenceStatus = root.querySelector<HTMLElement>("#music-reference-status");
-  const referenceTablePanel = root.querySelector<HTMLElement>("#music-reference-table-panel");
-  const nativeTarget = root.querySelector<HTMLSelectElement>("#native-stream-target");
-  const nativeFile = root.querySelector<HTMLInputElement>("#native-stream-file");
-  const nativeEncoding = root.querySelector<HTMLSelectElement>("#native-stream-encoding");
-  const nativeLoop = root.querySelector<HTMLInputElement>("#native-stream-loop");
-  const nativeTrimStart = root.querySelector<HTMLInputElement>("#native-stream-trim-start");
-  const nativeLoopStart = root.querySelector<HTMLInputElement>("#native-stream-loop-start");
-  const nativeLoopEnd = root.querySelector<HTMLInputElement>("#native-stream-loop-end");
-  const nativeInstall = root.querySelector<HTMLButtonElement>("#install-native-stream-btn");
-  const nativeRemove = root.querySelector<HTMLButtonElement>("#remove-native-stream-btn");
-  const nativeNote = root.querySelector<HTMLElement>("#native-stream-note");
-  const currentNativePreviewButton = root.querySelector<HTMLButtonElement>("#preview-current-native-stream-btn");
-  const importedNativePreview = root.querySelector<HTMLAudioElement>("#native-stream-preview");
-  const nativeReferenceSearch = root.querySelector<HTMLInputElement>("#native-reference-search");
-  const nativeReferenceTabs = root.querySelectorAll<HTMLButtonElement>("[data-native-reference-category]");
-  const nativeReferenceRows = root.querySelector<HTMLTableSectionElement>("#native-reference-rows");
-  const nativeReferenceStatus = root.querySelector<HTMLElement>("#native-reference-status");
-  const standaloneName = root.querySelector<HTMLInputElement>("#standalone-stream-name");
-  const standaloneFile = root.querySelector<HTMLInputElement>("#standalone-stream-file");
-  const standaloneEncoding = root.querySelector<HTMLSelectElement>("#standalone-stream-encoding");
-  const standaloneLoop = root.querySelector<HTMLInputElement>("#standalone-stream-loop");
-  const standaloneTrimStart = root.querySelector<HTMLInputElement>("#standalone-stream-trim-start");
-  const standaloneTrimEnd = root.querySelector<HTMLInputElement>("#standalone-stream-trim-end");
-  const standaloneLoopStart = root.querySelector<HTMLInputElement>("#standalone-stream-loop-start");
-  const standaloneNote = root.querySelector<HTMLElement>("#standalone-stream-note");
-  const syncStandaloneInputs = () => {
-    draft.standaloneName = standaloneName?.value ?? draft.standaloneName;
-    draft.standaloneEncoding = standaloneEncoding?.value === "pcm16" ? "pcm16" : "adpcm";
-    draft.standaloneLoop = standaloneLoop?.checked ?? true;
-    draft.standaloneTrimStartSeconds = Number(standaloneTrimStart?.value ?? 0);
-    draft.standaloneTrimEndSeconds = standaloneTrimEnd?.value ? Number(standaloneTrimEnd.value) : undefined;
-    draft.standaloneLoopStartSeconds = Number(standaloneLoopStart?.value ?? 0);
-  };
-  standaloneLoop?.addEventListener("change", () => { syncStandaloneInputs(); if (standaloneLoopStart) standaloneLoopStart.disabled = !draft.standaloneLoop; });
-  standaloneFile?.addEventListener("change", async () => {
-    const file = standaloneFile.files?.[0];
-    if (!file) return;
-    await runEdit(async () => {
-      syncStandaloneInputs();
-      if (standaloneNote) standaloneNote.textContent = `Decoding and resampling ${file.name}…`;
-      const pcm = await decodeAudioFile(file);
-      if (draft.standalonePreviewUrl) URL.revokeObjectURL(draft.standalonePreviewUrl);
-      draft.standalonePcm = pcm;
-      draft.standaloneSourceName = file.name;
-      draft.standalonePreviewUrl = URL.createObjectURL(file);
-      if (!draft.standaloneName) draft.standaloneName = file.name.replace(/\.[^.]+$/u, "");
-      draft.standaloneTrimStartSeconds = 0;
-      draft.standaloneTrimEndSeconds = pcm.left.length / pcm.sampleRate;
-      draft.standaloneLoopStartSeconds = 0;
-      draft.standaloneMessage = `${file.name} decoded. Set the track name and add it to the ROM.`;
-    }, "standalone");
-  });
-  root.querySelector<HTMLButtonElement>("#add-standalone-stream-btn")?.addEventListener("click", async () => {
-    await runEdit(async () => {
-      syncStandaloneInputs();
-      if (!draft.standalonePcm || !draft.standaloneSourceName) throw new Error("Import an MP3 or WAV file first.");
-      if (standaloneNote) standaloneNote.textContent = "Encoding and appending the standalone stream…";
-      const installed = await installStandaloneStream(project, {
-        name: draft.standaloneName, sourceName: draft.standaloneSourceName, pcm: draft.standalonePcm,
-        encoding: draft.standaloneEncoding, loop: draft.standaloneLoop,
-        trimStartSeconds: draft.standaloneTrimStartSeconds, trimEndSeconds: draft.standaloneTrimEndSeconds,
-        loopStartSeconds: draft.standaloneLoopStartSeconds,
-      });
-      draft.standaloneMessage = `${installed.name} added as stream ${installed.streamId}.`;
-    }, "standalone");
-  });
-  root.querySelector<HTMLButtonElement>("#remove-last-standalone-stream-btn")?.addEventListener("click", async () => {
-    await runEdit(async () => {
-      await removeLastStandaloneStream(project);
-      draft.standaloneMessage = "Newest standalone song removed. Earlier song IDs are unchanged.";
-    }, "standalone");
-  });
-
-  const nativeReferenceEntries = buildNativeStreamReference(draft.nativeStreams ?? [], getStreamedBgmConfigs(project), getStandaloneStreamConfigs(project));
-  const applyNativeTarget = (streamId: number) => {
-    const stream = draft.nativeStreams?.find((entry) => entry.id === streamId);
-    if (!stream || getStandaloneStreamConfigs(project).some((entry) => entry.streamId === streamId)) return;
-    const changed = draft.nativeStreamId !== streamId;
-    const installed = getNativeStreamReplacementConfigs(project).find((entry) => entry.streamId === streamId);
-    draft.nativeStreamId = streamId;
-    draft.nativeEncoding = installed?.encoding ?? "adpcm";
-    draft.nativeLoop = installed?.loop ?? stream.loop;
-    draft.nativeTrimStartSeconds = installed?.sourceTrimStartSeconds ?? 0;
-    draft.nativeLoopStartSeconds = installed
-      ? installed.loopStartSample / installed.sampleRate
-      : stream.loopStartSample / Math.max(1, stream.sampleRate);
-    draft.nativeLoopEndSeconds = installed
-      ? installed.sourceTrimEndSeconds ?? installed.loopEndSample / installed.sampleRate
-      : stream.sampleCount / Math.max(1, stream.sampleRate);
-    if (changed && draft.nativeCurrentTrackPreviewUrl) {
-      URL.revokeObjectURL(draft.nativeCurrentTrackPreviewUrl);
-      draft.nativeCurrentTrackPreviewUrl = undefined;
-    }
-    draft.nativeMessage = undefined;
-  };
-  const updateNativeInputs = () => {
-    const streamId = Number(nativeTarget?.value);
-    if (Number.isInteger(streamId)) draft.nativeStreamId = streamId;
-    if (nativeEncoding?.value === "adpcm" || nativeEncoding?.value === "pcm16") draft.nativeEncoding = nativeEncoding.value;
-    draft.nativeLoop = nativeLoop?.checked ?? false;
-    const trimStart = Number(nativeTrimStart?.value);
-    if (Number.isFinite(trimStart)) draft.nativeTrimStartSeconds = trimStart;
-    const start = Number(nativeLoopStart?.value);
-    if (Number.isFinite(start)) draft.nativeLoopStartSeconds = start;
-    const end = nativeLoopEnd?.value.trim() ?? "";
-    draft.nativeLoopEndSeconds = end ? Number(end) : undefined;
-    if (nativeLoopStart) nativeLoopStart.disabled = !draft.nativeLoop;
-  };
-  const filterNativeReference = () => {
-    draft.nativeReferenceSearch = nativeReferenceSearch?.value ?? "";
-    const category = draft.nativeReferenceCategory ?? "title";
-    const matches = filterNativeStreamReference(nativeReferenceEntries, draft.nativeReferenceSearch, category);
-    if (nativeReferenceRows) nativeReferenceRows.innerHTML = renderNativeStreamReferenceRows(matches, draft.nativeStreamId);
-    const label = category === "all" ? "All streams" : NATIVE_STREAM_REFERENCE_CATEGORIES[category];
-    if (nativeReferenceStatus) nativeReferenceStatus.textContent = `${matches.length} ${label.toLocaleLowerCase()} entries`;
-  };
-
-  nativeTarget?.addEventListener("change", () => {
-    applyNativeTarget(Number(nativeTarget.value));
-    renderMusicEditor(project, root, onDirty);
-  });
-  nativeEncoding?.addEventListener("change", updateNativeInputs);
-  nativeLoop?.addEventListener("change", updateNativeInputs);
-  nativeTrimStart?.addEventListener("input", updateNativeInputs);
-  nativeLoopStart?.addEventListener("input", updateNativeInputs);
-  nativeLoopEnd?.addEventListener("input", updateNativeInputs);
-  nativeReferenceSearch?.addEventListener("input", filterNativeReference);
-  nativeReferenceTabs.forEach((tab) => tab.addEventListener("click", () => {
-    const category = tab.dataset.nativeReferenceCategory as NativeStreamReferenceCategory | undefined;
-    if (!category) return;
-    draft.nativeReferenceCategory = category;
-    renderMusicEditor(project, root, onDirty);
-  }));
-  nativeReferenceRows?.addEventListener("click", (event) => {
-    const button = (event.target as Element).closest<HTMLButtonElement>("[data-native-stream-reference-id]");
-    if (!button) return;
-    applyNativeTarget(Number(button.dataset.nativeStreamReferenceId));
-    renderMusicEditor(project, root, onDirty);
-  });
-
-  currentNativePreviewButton?.addEventListener("click", () => {
-    void runPreview(async () => {
-      currentNativePreviewButton.disabled = true;
-      currentNativePreviewButton.textContent = "Preparing Preview…";
-      if (nativeNote) nativeNote.textContent = `Decoding the first ${CURRENT_TRACK_PREVIEW_SECONDS} seconds of stream ${draft.nativeStreamId}…`;
-      const sdat = await loadNitroSdatFromProject(project);
-      const pcm = decodeNativeSdatStreamPcm(sdat.bytes, draft.nativeStreamId, CURRENT_TRACK_PREVIEW_SECONDS);
-      if (draft.nativeCurrentTrackPreviewUrl) URL.revokeObjectURL(draft.nativeCurrentTrackPreviewUrl);
-      draft.nativeCurrentTrackPreviewUrl = createPcmPreviewUrl(pcm);
-      draft.nativeMessage = `Current stream ${draft.nativeStreamId} preview is ready (${(pcm.left.length / pcm.sampleRate).toFixed(1)} seconds).`;
-    }, "native");
-  });
-
-  nativeFile?.addEventListener("change", async () => {
-    const file = nativeFile.files?.[0];
-    if (!file) return;
-    await runEdit(async () => {
-      updateNativeInputs();
-      nativeFile.disabled = true;
-      if (nativeNote) nativeNote.textContent = `Decoding and resampling ${file.name}…`;
-      const pcm = await decodeAudioFile(file);
-      if (draft.nativePreviewUrl) URL.revokeObjectURL(draft.nativePreviewUrl);
-      draft.nativePcm = pcm;
-      draft.nativeSourceName = file.name;
-      draft.nativePreviewUrl = URL.createObjectURL(file);
-      draft.nativeTrimStartSeconds = 0;
-      draft.nativeLoopStartSeconds = 0;
-      draft.nativeLoopEndSeconds = pcm.left.length / pcm.sampleRate;
-      draft.nativeMessage = `${file.name} decoded to ${pcm.left.length.toLocaleString()} stereo samples.`;
-    }, "native");
-  });
-
-  nativeInstall?.addEventListener("click", async () => {
-    await runEdit(async () => {
-      updateNativeInputs();
-      if (!draft.nativePcm || !draft.nativeSourceName) throw new Error("Import an MP3 or WAV file first.");
-      nativeInstall.disabled = true;
-      nativeInstall.textContent = "Replacing…";
-      if (nativeNote) nativeNote.textContent = "Encoding the native stream, rebuilding SDAT, and validating ROM capacity.";
-      await installNativeStreamReplacement(project, {
-        sourceName: draft.nativeSourceName,
-        pcm: draft.nativePcm,
-        streamId: draft.nativeStreamId,
-        encoding: draft.nativeEncoding,
-        loop: draft.nativeLoop,
-        trimStartSeconds: draft.nativeTrimStartSeconds,
-        trimEndSeconds: draft.nativeLoopEndSeconds,
-        loopStartSeconds: draft.nativeLoopStartSeconds,
-      });
-      if (draft.nativeCurrentTrackPreviewUrl) URL.revokeObjectURL(draft.nativeCurrentTrackPreviewUrl);
-      draft.nativeCurrentTrackPreviewUrl = undefined;
-      draft.nativeMessage = `${draft.nativeSourceName} now replaces native stream ${draft.nativeStreamId}.`;
-    }, "native");
-  });
-
-  nativeRemove?.addEventListener("click", async () => {
-    await runEdit(async () => {
-      if (nativeNote) nativeNote.textContent = "Verifying and restoring the stream from the loaded ROM…";
-      await removeNativeStreamReplacement(project, draft.nativeStreamId);
-      if (draft.nativeCurrentTrackPreviewUrl) URL.revokeObjectURL(draft.nativeCurrentTrackPreviewUrl);
-      draft.nativeCurrentTrackPreviewUrl = undefined;
-      draft.nativeMessage = `Native stream ${draft.nativeStreamId} restored from the loaded ROM.`;
-      const stream = listNativeSdatStreams((await loadNitroSdatFromProject(project)).bytes)
-        .find((entry) => entry.id === draft.nativeStreamId);
-      if (stream) {
-        draft.nativeLoop = stream.loop;
-        draft.nativeTrimStartSeconds = 0;
-        draft.nativeLoopStartSeconds = stream.loopStartSample / Math.max(1, stream.sampleRate);
-        draft.nativeLoopEndSeconds = stream.sampleCount / Math.max(1, stream.sampleRate);
-      }
-    }, "native");
-  });
-
-  const selectedReferenceCategory = () => draft.referenceCategory ?? "cities";
-  const refreshReferenceTabs = () => {
-    const selected = selectedReferenceCategory();
-    referenceTabs.forEach((tab) => {
-      const active = tab.dataset.musicReferenceCategory === selected;
-      tab.classList.toggle("-active", active);
-      tab.setAttribute("aria-selected", String(active));
-    });
-    const categoryLabel = selected === "all" ? "All tracks" : MUSIC_REFERENCE_CATEGORIES[selected];
-    if (referenceTablePanel) referenceTablePanel.setAttribute("aria-label", `${categoryLabel} music ID reference table`);
-  };
-
-  const refreshReferenceSelection = () => {
-    referenceRows?.querySelectorAll<HTMLButtonElement>("[data-music-reference-id]").forEach((button) => {
-      button.setAttribute("aria-pressed", String(Number(button.dataset.musicReferenceId) === draft.targetSequenceId));
-    });
-  };
-  const filterReference = () => {
-    draft.referenceSearch = referenceSearch?.value ?? "";
-    if (bw1) {
-      const matches = filterBw1MusicSequences(draft.sequences ?? [], draft.referenceSearch);
-      if (referenceRows) referenceRows.innerHTML = renderBw1MusicReferenceRows(matches);
-      if (referenceStatus) referenceStatus.textContent = `${matches.length} BGM sequences`;
-      return;
-    }
-    const category = selectedReferenceCategory();
-    const matches = filterMusicReference(referenceEntries, draft.referenceSearch, category);
-    if (referenceRows) referenceRows.innerHTML = renderMusicReferenceRows(matches, draft.targetSequenceId);
-    const categoryLabel = category === "all" ? "All tracks" : MUSIC_REFERENCE_CATEGORIES[category];
-    if (referenceStatus) referenceStatus.textContent = `${matches.length} ${categoryLabel.toLocaleLowerCase()} reference groups`;
-  };
-  referenceSearch?.addEventListener("input", filterReference);
-  referenceTabs.forEach((tab) => tab.addEventListener("click", () => {
-    const category = tab.dataset.musicReferenceCategory;
-    if (!category) return;
-    draft.referenceCategory = category as MusicReferenceFilter;
-    refreshReferenceTabs();
-    filterReference();
-  }));
-  referenceRows?.addEventListener("click", (event) => {
-    const button = (event.target as Element).closest<HTMLButtonElement>("[data-music-reference-id]");
-    if (!button || !referenceRows.contains(button) || !targetInput || targetInput.disabled) return;
-    const sequence = draft.sequences?.find((item) => item.id === Number(button.dataset.musicReferenceId));
-    if (!sequence) return;
-    targetInput.value = `${sequence.id} — ${sequence.symbol}`;
-    updateInputs();
-    selectEditorTab("bgm");
-    if (referenceStatus) referenceStatus.textContent = `Selected ${sequence.id} — ${sequence.symbol}. Import audio and use Add / Update Selected Replacement above to apply it.`;
-  });
-
-  const updateInputs = () => {
-    const target = Number.parseInt(targetInput?.value ?? "", 10);
-    const targetChanged = Number.isInteger(target) && target !== draft.targetSequenceId;
-    if (Number.isInteger(target)) draft.targetSequenceId = target;
-    if (targetChanged && draft.currentTrackPreviewUrl) {
-      URL.revokeObjectURL(draft.currentTrackPreviewUrl);
-      draft.currentTrackPreviewUrl = undefined;
-    }
-    refreshReferenceSelection();
-    const trimStart = Number(trimStartInput?.value);
-    if (Number.isFinite(trimStart)) draft.trimStartSeconds = trimStart;
-    const loopStart = Number(loopStartInput?.value);
-    if (Number.isFinite(loopStart)) draft.loopStartSeconds = loopStart;
-    const loopEndText = loopEndInput?.value.trim() ?? "";
-    draft.loopEndSeconds = loopEndText ? Number(loopEndText) : undefined;
-    draft.shortcutEnabled = shortcutInput?.checked ?? false;
-    const installed = getStreamedBgmConfigs(project).find((entry) => entry.targetSequenceId === draft.targetSequenceId);
-    if (targetChanged) {
-      draft.encoding = installed?.encoding ?? (installed ? "pcm16" : "adpcm");
-      if (encodingSelect) encodingSelect.value = draft.encoding;
-    } else if (encodingSelect?.value === "adpcm" || encodingSelect?.value === "pcm16") {
-      draft.encoding = encodingSelect.value;
-    }
-    if (installButton) installButton.textContent = installed ? "Update Selected Replacement" : "Add Replacement";
-    if (removeButton) removeButton.disabled = !installed;
-  };
-
-  targetInput?.addEventListener("input", updateInputs);
-  targetInput?.addEventListener("change", updateInputs);
-  encodingSelect?.addEventListener("change", updateInputs);
-  trimStartInput?.addEventListener("input", updateInputs);
-  loopStartInput?.addEventListener("input", updateInputs);
-  loopEndInput?.addEventListener("input", updateInputs);
-  shortcutInput?.addEventListener("change", updateInputs);
-
-  const constrainImportedPreview = (
-    audio: HTMLAudioElement | null,
-    startInput: HTMLInputElement | null,
-    endInput: HTMLInputElement | null,
-    update: () => void,
-  ) => {
+  const constrainImportedPreview = (audio: HTMLAudioElement | null, startInput: HTMLInputElement | null, endInput: HTMLInputElement | null, update: () => void) => {
     if (!audio) return;
     const bounds = () => {
       update();
@@ -1031,29 +792,57 @@ function installMusicEditorInteractions(project: ProjectState, root: HTMLElement
       }
     });
   };
-  constrainImportedPreview(importedBgmPreview, trimStartInput, loopEndInput, updateInputs);
-  constrainImportedPreview(importedNativePreview, nativeTrimStart, nativeLoopEnd, updateNativeInputs);
 
+  // ---------- BGM ----------
+  const fileInput = root.querySelector<HTMLInputElement>("#streamed-bgm-file");
+  const encodingSelect = root.querySelector<HTMLSelectElement>("#streamed-bgm-encoding");
+  const trimStartInput = root.querySelector<HTMLInputElement>("#streamed-bgm-trim-start");
+  const loopStartInput = root.querySelector<HTMLInputElement>("#streamed-bgm-loop-start");
+  const loopEndInput = root.querySelector<HTMLInputElement>("#streamed-bgm-loop-end");
+  const shortcutInput = root.querySelector<HTMLInputElement>("#streamed-bgm-shortcut");
+  const installButton = root.querySelector<HTMLButtonElement>("#install-streamed-bgm-btn");
+  const note = root.querySelector<HTMLDivElement>("#streamed-bgm-note");
+  const updateInputs = () => {
+    const trimStart = Number(trimStartInput?.value);
+    if (trimStartInput && Number.isFinite(trimStart)) draft.trimStartSeconds = trimStart;
+    const loopStart = Number(loopStartInput?.value);
+    if (loopStartInput && Number.isFinite(loopStart)) draft.loopStartSeconds = loopStart;
+    if (loopEndInput) {
+      const loopEndText = loopEndInput.value.trim();
+      draft.loopEndSeconds = loopEndText ? Number(loopEndText) : undefined;
+    }
+    if (shortcutInput) draft.shortcutEnabled = shortcutInput.checked;
+    if (encodingSelect?.value === "adpcm" || encodingSelect?.value === "pcm16") draft.encoding = encodingSelect.value;
+  };
+  encodingSelect?.addEventListener("change", updateInputs);
+  trimStartInput?.addEventListener("input", updateInputs);
+  loopStartInput?.addEventListener("input", updateInputs);
+  loopEndInput?.addEventListener("input", updateInputs);
+  shortcutInput?.addEventListener("change", updateInputs);
+  constrainImportedPreview(root.querySelector<HTMLAudioElement>("#streamed-bgm-preview"), trimStartInput, loopEndInput, updateInputs);
+
+  root.querySelector<HTMLButtonElement>("#update-streamed-bgm-runtime-btn")?.addEventListener("click", async () => {
+    await runEdit(async () => {
+      await updateStreamedBgmRuntime(project);
+      draft.message = "Music runtime updated. Fresh-boot the exported ROM to use it.";
+    });
+  });
+
+  const currentBgmPreviewButton = root.querySelector<HTMLButtonElement>("#preview-current-bgm-btn");
   currentBgmPreviewButton?.addEventListener("click", () => {
     void runPreview(async () => {
       updateInputs();
       const sequence = draft.sequences?.find((entry) => entry.id === draft.targetSequenceId);
-      if (!sequence) throw new Error("Choose a valid BGM sequence before loading its preview.");
-      currentBgmPreviewButton.disabled = true;
-      currentBgmPreviewButton.textContent = "Preparing Preview…";
-      if (note) note.textContent = `Rendering the first ${CURRENT_TRACK_PREVIEW_SECONDS} seconds of sequence ${sequence.id}…`;
+      if (!sequence) throw new Error("Pick a track first.");
+      currentBgmPreviewButton.textContent = "Rendering…";
       const sdat = await loadNitroSdatFromProject(project);
       const mapping = getStreamedBgmConfigs(project).find((entry) => entry.targetSequenceId === sequence.id);
       const pcm = mapping
         ? decodeNativeSdatStreamPcm(sdat.bytes, mapping.streamId, CURRENT_TRACK_PREVIEW_SECONDS)
-        : await renderNitroSequencePcm(sdat, sequence.id, {
-          maxSeconds: CURRENT_TRACK_PREVIEW_SECONDS,
-          sampleRate: 24_000,
-          cache: false,
-        });
+        : await renderNitroSequencePcm(sdat, sequence.id, { maxSeconds: CURRENT_TRACK_PREVIEW_SECONDS, sampleRate: 24_000, cache: false });
       if (draft.currentTrackPreviewUrl) URL.revokeObjectURL(draft.currentTrackPreviewUrl);
       draft.currentTrackPreviewUrl = createPcmPreviewUrl(pcm);
-      draft.message = `${mapping ? "Installed replacement" : "Game sequence"} preview for ${sequence.id} is ready (${(pcm.left.length / pcm.sampleRate).toFixed(1)} seconds).`;
+      draft.message = undefined;
     }, "sequence");
   });
 
@@ -1062,8 +851,7 @@ function installMusicEditorInteractions(project: ProjectState, root: HTMLElement
     if (!file) return;
     await runEdit(async () => {
       updateInputs();
-      fileInput.disabled = true;
-      if (note) note.textContent = `Decoding and resampling ${file.name}…`;
+      if (note) note.textContent = `Decoding ${file.name}…`;
       const pcm = await decodeAudioFile(file);
       if (draft.previewUrl) URL.revokeObjectURL(draft.previewUrl);
       draft.pcm = pcm;
@@ -1072,19 +860,18 @@ function installMusicEditorInteractions(project: ProjectState, root: HTMLElement
       draft.trimStartSeconds = 0;
       draft.loopStartSeconds = 0;
       draft.loopEndSeconds = pcm.left.length / pcm.sampleRate;
-      draft.message = `${file.name} decoded to ${pcm.left.length.toLocaleString()} stereo samples.`;
+      draft.message = undefined;
     });
   });
 
   installButton?.addEventListener("click", async () => {
     await runEdit(async () => {
       updateInputs();
-      if (!draft.pcm || !draft.sourceName) throw new Error("Import an MP3 or WAV file first.");
+      if (!draft.pcm || !draft.sourceName) throw new Error("Choose an MP3 or WAV file first.");
       const sequence = draft.sequences?.find((entry) => entry.id === draft.targetSequenceId);
-      if (!sequence) throw new Error("Choose a valid target sequence from the SDAT list.");
-      installButton.disabled = true;
+      if (!sequence) throw new Error("Pick a track first.");
       installButton.textContent = "Installing…";
-      if (note) note.textContent = "Encoding the native stream, rebuilding SDAT, configuring the runtime, and validating ROM capacity.";
+      if (note) note.textContent = "Encoding and rebuilding the sound archive…";
       await installStreamedBgm(project, {
         sourceName: draft.sourceName,
         pcm: draft.pcm,
@@ -1098,32 +885,199 @@ function installMusicEditorInteractions(project: ProjectState, root: HTMLElement
       });
       if (draft.currentTrackPreviewUrl) URL.revokeObjectURL(draft.currentTrackPreviewUrl);
       draft.currentTrackPreviewUrl = undefined;
-      draft.message = `${draft.sourceName} is staged for sequence ${sequence.id} (${sequence.symbol}).`;
+      draft.message = `${draft.sourceName} now plays as ${sequence.id}.`;
     });
   });
 
   const remove = (id?: number) => runEdit(async () => {
-    if (note) note.textContent = "Verifying replacement data and restoring original sequence references…";
+    if (note) note.textContent = "Restoring the original track…";
     await removeStreamedBgm(project, id);
     if (draft.currentTrackPreviewUrl) URL.revokeObjectURL(draft.currentTrackPreviewUrl);
     draft.currentTrackPreviewUrl = undefined;
-    draft.message = id === undefined ? "All replacements removed; the mute shortcut was preserved." : `Replacement ${id} removed. Other tracks and the mute shortcut were preserved.`;
+    draft.message = id === undefined ? "All replacements removed." : "Original track restored.";
   });
-  removeButton?.addEventListener("click", () => { void remove(draft.targetSequenceId); });
-  root.querySelectorAll<HTMLButtonElement>("[data-music-remove]").forEach((button) => {
-    button.addEventListener("click", () => { void remove(Number(button.dataset.musicRemove)); });
-  });
-  root.querySelectorAll<HTMLButtonElement>("[data-music-select]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const id = Number(button.dataset.musicSelect);
-      const sequence = draft.sequences?.find((entry) => entry.id === id);
-      if (!targetInput) return;
-      targetInput.value = `${id}${sequence ? ` — ${sequence.symbol}` : ""}`;
-      updateInputs();
-      targetInput.focus();
-    });
-  });
+  root.querySelector<HTMLButtonElement>("#remove-streamed-bgm-btn")?.addEventListener("click", () => { void remove(draft.targetSequenceId); });
   root.querySelector("#remove-all-streamed-bgm-btn")?.addEventListener("click", () => {
-    if (globalThis.confirm("Remove all custom music replacements and restore their original tracks?")) void remove();
+    if (globalThis.confirm("Remove every music replacement and restore the original tracks?")) void remove();
+  });
+
+  // ---------- Streams ----------
+  const nativeFile = root.querySelector<HTMLInputElement>("#native-stream-file");
+  const nativeEncoding = root.querySelector<HTMLSelectElement>("#native-stream-encoding");
+  const nativeLoop = root.querySelector<HTMLInputElement>("#native-stream-loop");
+  const nativeTrimStart = root.querySelector<HTMLInputElement>("#native-stream-trim-start");
+  const nativeLoopStart = root.querySelector<HTMLInputElement>("#native-stream-loop-start");
+  const nativeLoopEnd = root.querySelector<HTMLInputElement>("#native-stream-loop-end");
+  const nativeInstall = root.querySelector<HTMLButtonElement>("#install-native-stream-btn");
+  const nativeNote = root.querySelector<HTMLElement>("#native-stream-note");
+  function applyNativeTarget(streamId: number): void {
+    const stream = draft.nativeStreams?.find((entry) => entry.id === streamId);
+    if (!stream || getStandaloneStreamConfigs(project).some((entry) => entry.streamId === streamId)) return;
+    const changed = draft.nativeStreamId !== streamId;
+    const installed = getNativeStreamReplacementConfigs(project).find((entry) => entry.streamId === streamId);
+    draft.nativeStreamId = streamId;
+    draft.nativeEncoding = installed?.encoding ?? "adpcm";
+    draft.nativeLoop = installed?.loop ?? stream.loop;
+    draft.nativeTrimStartSeconds = installed?.sourceTrimStartSeconds ?? 0;
+    draft.nativeLoopStartSeconds = installed ? installed.loopStartSample / installed.sampleRate : stream.loopStartSample / Math.max(1, stream.sampleRate);
+    draft.nativeLoopEndSeconds = installed
+      ? installed.sourceTrimEndSeconds ?? installed.loopEndSample / installed.sampleRate
+      : stream.sampleCount / Math.max(1, stream.sampleRate);
+    if (changed && draft.nativeCurrentTrackPreviewUrl) {
+      URL.revokeObjectURL(draft.nativeCurrentTrackPreviewUrl);
+      draft.nativeCurrentTrackPreviewUrl = undefined;
+    }
+    draft.nativeMessage = undefined;
+  }
+  const updateNativeInputs = () => {
+    if (nativeEncoding?.value === "adpcm" || nativeEncoding?.value === "pcm16") draft.nativeEncoding = nativeEncoding.value;
+    if (nativeLoop) draft.nativeLoop = nativeLoop.checked;
+    const trimStart = Number(nativeTrimStart?.value);
+    if (nativeTrimStart && Number.isFinite(trimStart)) draft.nativeTrimStartSeconds = trimStart;
+    const start = Number(nativeLoopStart?.value);
+    if (nativeLoopStart && Number.isFinite(start)) draft.nativeLoopStartSeconds = start;
+    if (nativeLoopEnd) {
+      const end = nativeLoopEnd.value.trim();
+      draft.nativeLoopEndSeconds = end ? Number(end) : undefined;
+    }
+    if (nativeLoopStart) nativeLoopStart.disabled = !draft.nativeLoop;
+  };
+  nativeEncoding?.addEventListener("change", updateNativeInputs);
+  nativeLoop?.addEventListener("change", updateNativeInputs);
+  nativeTrimStart?.addEventListener("input", updateNativeInputs);
+  nativeLoopStart?.addEventListener("input", updateNativeInputs);
+  nativeLoopEnd?.addEventListener("input", updateNativeInputs);
+  constrainImportedPreview(root.querySelector<HTMLAudioElement>("#native-stream-preview"), nativeTrimStart, nativeLoopEnd, updateNativeInputs);
+
+  const currentNativePreviewButton = root.querySelector<HTMLButtonElement>("#preview-current-native-stream-btn");
+  currentNativePreviewButton?.addEventListener("click", () => {
+    void runPreview(async () => {
+      currentNativePreviewButton.textContent = "Decoding…";
+      const sdat = await loadNitroSdatFromProject(project);
+      const pcm = decodeNativeSdatStreamPcm(sdat.bytes, draft.nativeStreamId, CURRENT_TRACK_PREVIEW_SECONDS);
+      if (draft.nativeCurrentTrackPreviewUrl) URL.revokeObjectURL(draft.nativeCurrentTrackPreviewUrl);
+      draft.nativeCurrentTrackPreviewUrl = createPcmPreviewUrl(pcm);
+      draft.nativeMessage = undefined;
+    }, "native");
+  });
+
+  nativeFile?.addEventListener("change", async () => {
+    const file = nativeFile.files?.[0];
+    if (!file) return;
+    await runEdit(async () => {
+      updateNativeInputs();
+      if (nativeNote) nativeNote.textContent = `Decoding ${file.name}…`;
+      const pcm = await decodeAudioFile(file);
+      if (draft.nativePreviewUrl) URL.revokeObjectURL(draft.nativePreviewUrl);
+      draft.nativePcm = pcm;
+      draft.nativeSourceName = file.name;
+      draft.nativePreviewUrl = URL.createObjectURL(file);
+      draft.nativeTrimStartSeconds = 0;
+      draft.nativeLoopStartSeconds = 0;
+      draft.nativeLoopEndSeconds = pcm.left.length / pcm.sampleRate;
+      draft.nativeMessage = undefined;
+    }, "native");
+  });
+
+  nativeInstall?.addEventListener("click", async () => {
+    await runEdit(async () => {
+      updateNativeInputs();
+      if (!draft.nativePcm || !draft.nativeSourceName) throw new Error("Choose an MP3 or WAV file first.");
+      nativeInstall.textContent = "Replacing…";
+      if (nativeNote) nativeNote.textContent = "Encoding and rebuilding the sound archive…";
+      await installNativeStreamReplacement(project, {
+        sourceName: draft.nativeSourceName,
+        pcm: draft.nativePcm,
+        streamId: draft.nativeStreamId,
+        encoding: draft.nativeEncoding,
+        loop: draft.nativeLoop,
+        trimStartSeconds: draft.nativeTrimStartSeconds,
+        trimEndSeconds: draft.nativeLoopEndSeconds,
+        loopStartSeconds: draft.nativeLoopStartSeconds,
+      });
+      if (draft.nativeCurrentTrackPreviewUrl) URL.revokeObjectURL(draft.nativeCurrentTrackPreviewUrl);
+      draft.nativeCurrentTrackPreviewUrl = undefined;
+      draft.nativeMessage = `${draft.nativeSourceName} now plays as stream ${draft.nativeStreamId}.`;
+    }, "native");
+  });
+
+  root.querySelector<HTMLButtonElement>("#remove-native-stream-btn")?.addEventListener("click", async () => {
+    await runEdit(async () => {
+      if (nativeNote) nativeNote.textContent = "Restoring the original stream…";
+      await removeNativeStreamReplacement(project, draft.nativeStreamId);
+      if (draft.nativeCurrentTrackPreviewUrl) URL.revokeObjectURL(draft.nativeCurrentTrackPreviewUrl);
+      draft.nativeCurrentTrackPreviewUrl = undefined;
+      draft.nativeMessage = "Original stream restored.";
+      const stream = listNativeSdatStreams((await loadNitroSdatFromProject(project)).bytes).find((entry) => entry.id === draft.nativeStreamId);
+      if (stream) {
+        draft.nativeLoop = stream.loop;
+        draft.nativeTrimStartSeconds = 0;
+        draft.nativeLoopStartSeconds = stream.loopStartSample / Math.max(1, stream.sampleRate);
+        draft.nativeLoopEndSeconds = stream.sampleCount / Math.max(1, stream.sampleRate);
+      }
+    }, "native");
+  });
+
+  // ---------- New songs ----------
+  const standaloneName = root.querySelector<HTMLInputElement>("#standalone-stream-name");
+  const standaloneFile = root.querySelector<HTMLInputElement>("#standalone-stream-file");
+  const standaloneEncoding = root.querySelector<HTMLSelectElement>("#standalone-stream-encoding");
+  const standaloneLoop = root.querySelector<HTMLInputElement>("#standalone-stream-loop");
+  const standaloneTrimStart = root.querySelector<HTMLInputElement>("#standalone-stream-trim-start");
+  const standaloneTrimEnd = root.querySelector<HTMLInputElement>("#standalone-stream-trim-end");
+  const standaloneLoopStart = root.querySelector<HTMLInputElement>("#standalone-stream-loop-start");
+  const standaloneNote = root.querySelector<HTMLElement>("#standalone-stream-note");
+  const syncStandaloneInputs = () => {
+    if (standaloneName) draft.standaloneName = standaloneName.value;
+    if (standaloneEncoding) draft.standaloneEncoding = standaloneEncoding.value === "pcm16" ? "pcm16" : "adpcm";
+    if (standaloneLoop) draft.standaloneLoop = standaloneLoop.checked;
+    if (standaloneTrimStart) draft.standaloneTrimStartSeconds = Number(standaloneTrimStart.value || 0);
+    if (standaloneTrimEnd) draft.standaloneTrimEndSeconds = standaloneTrimEnd.value ? Number(standaloneTrimEnd.value) : undefined;
+    if (standaloneLoopStart) draft.standaloneLoopStartSeconds = Number(standaloneLoopStart.value || 0);
+  };
+  [standaloneName, standaloneEncoding, standaloneTrimStart, standaloneTrimEnd, standaloneLoopStart].forEach((input) => input?.addEventListener("input", syncStandaloneInputs));
+  standaloneLoop?.addEventListener("change", () => {
+    syncStandaloneInputs();
+    if (standaloneLoopStart) standaloneLoopStart.disabled = !draft.standaloneLoop;
+  });
+  standaloneFile?.addEventListener("change", async () => {
+    const file = standaloneFile.files?.[0];
+    if (!file) return;
+    await runEdit(async () => {
+      syncStandaloneInputs();
+      if (standaloneNote) standaloneNote.textContent = `Decoding ${file.name}…`;
+      const pcm = await decodeAudioFile(file);
+      if (draft.standalonePreviewUrl) URL.revokeObjectURL(draft.standalonePreviewUrl);
+      draft.standalonePcm = pcm;
+      draft.standaloneSourceName = file.name;
+      draft.standalonePreviewUrl = URL.createObjectURL(file);
+      if (!draft.standaloneName) draft.standaloneName = file.name.replace(/\.[^.]+$/u, "");
+      draft.standaloneTrimStartSeconds = 0;
+      draft.standaloneTrimEndSeconds = pcm.left.length / pcm.sampleRate;
+      draft.standaloneLoopStartSeconds = 0;
+      draft.standaloneMessage = undefined;
+    }, "standalone");
+  });
+  root.querySelector<HTMLButtonElement>("#add-standalone-stream-btn")?.addEventListener("click", async () => {
+    await runEdit(async () => {
+      syncStandaloneInputs();
+      if (!draft.standalonePcm || !draft.standaloneSourceName) throw new Error("Choose an MP3 or WAV file first.");
+      if (standaloneNote) standaloneNote.textContent = "Encoding and adding the song…";
+      const installed = await installStandaloneStream(project, {
+        name: draft.standaloneName, sourceName: draft.standaloneSourceName, pcm: draft.standalonePcm,
+        encoding: draft.standaloneEncoding, loop: draft.standaloneLoop,
+        trimStartSeconds: draft.standaloneTrimStartSeconds, trimEndSeconds: draft.standaloneTrimEndSeconds,
+        loopStartSeconds: draft.standaloneLoopStartSeconds,
+      });
+      draft.standaloneSelection = installed.streamId;
+      draft.standaloneMessage = `${installed.name} added as stream ${installed.streamId}.`;
+    }, "standalone");
+  });
+  root.querySelector<HTMLButtonElement>("#remove-last-standalone-stream-btn")?.addEventListener("click", async () => {
+    await runEdit(async () => {
+      await removeLastStandaloneStream(project);
+      draft.standaloneSelection = "new";
+      draft.standaloneMessage = "Song removed.";
+    }, "standalone");
   });
 }

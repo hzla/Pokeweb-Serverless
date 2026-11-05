@@ -17,10 +17,12 @@ The Item editor edits item price and packed behavior fields for use, held effect
 | Name | Item name from text data. Edit item names in [Texts](Texts). | `Potion` |
 | Market Value | Buy/sell price-related value. Range `0-65535`. | `300` |
 
-## Native Held Battle Effects (BW2)
+## Held Battle Effects (BW / BW2)
 
-Open an item's details to edit its **Held battle effect**. US revision-0 Black 2
-and White 2 are supported when the native table and callbacks are recognized.
+Open **Held effect** in an item’s details. US revision-0 Black, White, Black 2
+and White 2 support custom item recipes. Native handler assignments and operand
+edits are available in BW2 when its native table and callbacks are recognized.
+Black/White’s **Native behavior** option restores the original item effect.
 The editor discovers the assignment table, follows its actual pointers and uses
 the overlay's recorded load address. Recognizable shifted layouts are supported;
 unknown or conflicting code disables native edits.
@@ -39,15 +41,18 @@ unknown or conflicting code disables native edits.
   (OR)** condition groups, and **Consume on first successful effect**. Press
   **Apply custom effects** to install the draft and verify its ROM bytes.
 
+BW1 supports the portable recipes and primitives; copied native behaviors, move
+locking, Drive/Plate move typing and escape adapters remain BW2-only.
+
 The custom library includes adjustable stat and damage multipliers, healing,
 status infliction, stat-stage changes, recoil, critical stages, accuracy, move
 typing, move locking and escape from trapping. Status, stat-stage and recoil
 actions have trigger, target and chance controls. Repeated stat-stage primitives
 can change different stats on the same item. A rule contains up to 16 effects.
 
-**Load item preset** starts from an existing in-battle item effect. Choice presets
+**Import Effect Template** starts from an existing in-battle item effect. Choice presets
 split the stat multiplier and move lock into separate editable primitives.
-There are also 169 composable **Native item behaviors**, covering berries,
+BW2 also offers 169 composable **Native item behaviors**, covering berries,
 flinching, survival, switching reactions, weather/screen/trapping duration,
 weight, immunities, species-dependent bonuses and other native battle mechanics.
 Native behaviors keep their original timing, intrinsic conditions and species
@@ -55,6 +60,14 @@ restrictions. **Parameter → Original** reads the donor item's parameter from t
 loaded ROM; **Custom** overrides that number only for this primitive. Some native
 behaviors ignore that parameter. Use the adjustable primitives to change hardcoded
 values such as Choice multipliers, critical stages, status or stage changes.
+
+Modern templates include Maranga Berry, Weakness Policy, Fairy Feather, Roseli
+Berry, Safety Goggles, Heavy-Duty Boots, Clear Amulet, Covert Cloak, Loaded Dice,
+Mirror Herb and Punching Glove (power only). Their parameters remain editable.
+Original Fairy effects require a Fairy-enabled ROM; vanilla imports use Normal
+and the resistance template accepts neutral hits. Choose another supported type
+as needed. Boots cover the three retail hazards; Loaded Dice covers 2–5-hit
+moves. Punching Glove’s move class is selectable and retains contact.
 
 Conditions check holder HP, type, weather, species or status, and the current
 move's type or category. Combine them with nested **All (AND)** / **Any (OR)**
@@ -71,9 +84,7 @@ preview calculations cannot consume it. Once consumed, the remaining effects
 stop. Native behaviors retain their intrinsic one-shot state and cooldowns. A reusable
 berry or gem that permits reactivation uses subsequent native triggers; recovery
 does not continuously repeat while the game is idle. This toggle
-is separate from the raw bag-use **Consumed On Use** field. Effects are evaluated
-in their listed order; a consumable item stops queuing further effects once one
-has requested activation.
+is separate from the raw bag-use **Consumed On Use** field. Effects in one activation finish together before the item is consumed once.
 
 Custom rules also work on items without an original battle handler. Choosing
 **No battle effect** removes their rules; choosing a native assignment restores

@@ -54,6 +54,7 @@ export type ProjectDocument = {
   cgearButtons?: import("../cgearButtons/document").Project;
   systemShops?: import("../systemShops/document").Project;
   customUi?: import("../customUi/document").Project;
+  uiScreens?: import("../nativeUi/document").Project;
   cutsceneAuthoring?: import("./cutsceneScene").CutsceneAuthoringState;
   fieldScenes?: import("./fieldScene").FieldSceneAuthoring;
   map3dAreaEdits?: Map3dAreaEditState;
@@ -109,7 +110,7 @@ export function createProjectDocument(project: ProjectSession, hasMatchingSource
     docs: project.docs ? { romTitle: project.docs.romTitle, mastersheetMarkdown: project.docs.mastersheetMarkdown,
       mastersheetHighlights: project.docs.mastersheetHighlights } : undefined,
     scriptDrafts: project.bw2ScriptEditor?.drafts,
-    cgearButtons: project.cgearButtons, systemShops: project.systemShops, customUi: project.customUi,
+    cgearButtons: project.cgearButtons, systemShops: project.systemShops, customUi: project.customUi, uiScreens: project.uiScreens,
     cutsceneAuthoring: project.cutsceneAuthoring,
     fieldScenes: project.fieldScenes,
     map3dAreaEdits: project.map3dAreaEdits, fileSystem: project.fileSystem,

@@ -5,7 +5,7 @@ from unicorn import Uc, UC_ARCH_ARM, UC_MODE_THUMB, UC_HOOK_CODE
 from unicorn.arm_const import UC_ARM_REG_R0,UC_ARM_REG_R1,UC_ARM_REG_R2,UC_ARM_REG_R3,UC_ARM_REG_SP,UC_ARM_REG_LR
 ROOT=Path(__file__).resolve().parents[2]
 BUNDLES=json.loads((ROOT/'src/assets/data/abilityRuleRuntimeCompact.json').read_text())
-if '--current' in sys.argv:BUNDLES=json.loads((ROOT/'src/assets/data/abilityRuleRuntimeNativeFlags.json').read_text())
+if '--current' in sys.argv:BUNDLES=json.loads((ROOT/'src/assets/data/abilityRuleRuntimeStrikes.json').read_text())
 BASE,API,DATA,ITEM,FLOW,WORK,STACK,STOP=0x100000,0x200000,0x312000,0x310000,0x311000,0x314000,0x410000,0x20f000
 u32=lambda x:struct.pack('<I',x&0xffffffff)
 

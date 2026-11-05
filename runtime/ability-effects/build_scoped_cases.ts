@@ -1,4 +1,7 @@
+import {environmentCases} from "./environment_cases";
+import {strikeCases} from "./strike_cases";
 import {configureItemRuleSets} from "../../src/pokeweb/itemEffectsModel";
+import {configureMoveRuleSets} from "../../src/pokeweb/moveEffectsModel";
 import {statSourceCases} from "./stat_source_cases";
 import { prepareCustomFlagCases, customFlagCases } from "./custom_flag_cases";
 import { statusPopupCases } from "./status_popup_cases";
@@ -54,10 +57,18 @@ const variants:Record<number,AbilityRuleSet>={
 for(const[id,rule]of Object.entries(variants)){entries.set(Number(id),rule);names.set(Number(id),`Test ${id}`);}
 const customFlagsMode=process.argv.includes("--custom-flags");
 if(customFlagsMode)for(const[id,rule]of await prepareCustomFlagCases(project)){entries.set(id,rule);names.set(id,`Flag Test ${id}`);}
-const statusPopups=process.argv.includes("--stat-source")?statSourceCases(true):process.argv.includes("--status-popups")?statusPopupCases():undefined;
+const statusPopups=process.argv.includes("--strikes")?strikeCases():process.argv.includes("--environment")?environmentCases():process.argv.includes("--stat-source")?statSourceCases(true):process.argv.includes("--status-popups")?statusPopupCases():undefined;
 if(statusPopups){entries.clear();names.clear();for(const[id,rule]of statusPopups.rules){entries.set(id,rule);names.set(id,statusPopups.names.get(id)!);}}
 await configureAbilityRuleSets(project,[...entries].map(([abilityId,rules])=>({abilityId,rules,name:names.get(abilityId)!})));
+if(process.argv.includes("--strikes-coexist")){
+ await configureItemRuleSets(project,[{itemId:281,rules:{effects:[{kind:"healPercent",value:10}],conditions:all,consumable:false}}]);
+ await configureMoveRuleSets(project,[{moveId:33,rules:{effects:[{kind:"power",value:2,phase:"power",target:"user",chance:100,secondary:false,conditions:all}],conditions:all,prerequisites:all}}]);
+}
 if(process.argv.includes("--stat-source"))await configureItemRuleSets(project,[{itemId:85,rules:{effects:[{kind:"statStage",value:-1,stat:5,trigger:"afterContact",target:"attacker",chance:100}],conditions:all,consumable:false}}]);
+if(process.argv.includes("--environment")){
+ // Fixture-only accuracy: isolate damage immunity from Leech Seed's hit roll.
+ const {decodeRecord,markDirty}=await import("../../src/pokeweb/projectStore");decodeRecord(project,"moves",73).raw!.accuracy=100;markDirty(project,"moves",73);
+}
 const verify=()=>{const s=inspectAbilityEffects(project);assert(s.editable,s.message);assert.deepEqual(s.rules,entries);for(const[id,name]of names)assert.equal(project.texts.banks.abilities?.[id],name);};
 verify();project=openProjectSession(createProjectDocument(project,false));project.originalRomBytes=input;hydrateAbilityEffectsSource(project,new NintendoDSRom(input,{fileData:"view"}));verify();
 const trim=()=>{for(const[name,store]of Object.entries(project.narcs))if(!store?.dirty.size)delete project.narcs[name as keyof typeof project.narcs];};
@@ -173,6 +184,10 @@ if(process.argv.includes("--expanded-classes")){
 }
 if(customFlagsMode)cases.splice(0,cases.length,...customFlagCases(project));
 if(statusPopups)cases.splice(0,cases.length,...statusPopups.cases);
+if(process.argv.includes("--strikes-coexist")){
+ const coexist=cases.find(c=>c.label==="strike-quarter")!;
+ coexist.hp=90;coexist.playerItem=281;coexist.checks.power={move:33,value:100};coexist.checks.hpByTurn=[90,102,114];
+}
 const seedPath=process.argv.slice(4).find(arg=>!arg.startsWith("--"));
 const seed=rawSaveBytesFromDesmumeDsv(new Uint8Array(await readFile(seedPath??getTestBattleConfig("BW2").saveUrl)));
 // Rebuild only the disposable copy's party before the strict harness checks it.
@@ -196,7 +211,7 @@ if(messageSignature.hex.slice(128,132)!=="216a")throw Error("Unrecognized messag
 messageSignature.hex=messageSignature.hex.slice(0,128)+"616a"+messageSignature.hex.slice(132);
 const messageHook=battleRuntimeResolver(overlay.data,overlay.ramAddress,project.arm9,rom.arm9RamAddress,{...moveBindings.functions,NotificationMessage:messageSignature}).resolve("NotificationMessage").address;
 let powerHook:number|undefined;
-if(customFlagsMode){
+if(customFlagsMode||process.argv.includes("--strikes-coexist")){
  const extras=Object.fromEntries(Object.entries(blackAbilityBindings.functions).filter(([name])=>name.startsWith("BW1_")).map(([name,s])=>[name,{...s,module:s.module==="ARM9"?"ARM9":"167"}]));
  // The reviewed W2 routine has the same instructions/calls as BW1; its
  // diagnostic source-line marker is 0x30e6 rather than 0x30c7.
@@ -206,5 +221,5 @@ if(customFlagsMode){
  powerHook=battleRuntimeResolver(overlay.data,overlay.ramAddress,project.arm9,rom.arm9RamAddress,{...moveBindings.functions,...extras}).resolve("BW1_BTL_SERVER_FLOW_CalcMovePower").address;
 }
 const popupGateway=dll.symbols[dll.relocations.find(r=>r.target.module==="base"&&r.target.address===symbols.AbilityRuleApi+80)!.sourceSymbolIndex].address;
-await writeFile(`${out}/cases.json`,JSON.stringify({inputSha256:inputHash,exportSha256:sha(exported),reexportSha256:sha(reexported),editedAbilities:entries.size,codeBytes:dll.code.length,bssBytes:dll.bssSize,serializedBytes:rom.files[rom.fileId(ABILITY_EFFECTS_DLL_PATH)].length,nameLoader,api,symbols,pmcSymbols,hook:resolver.resolve("AbilityEvent_AddItem").address,configHex:Buffer.from(encoded).toString("hex"),nativeOffsets,romHashes:hashes,cases:fixtures,projectReload:true,romExportReload:true,reloadedEdits:editReceipts,imports:statusPopups?[]:ABILITY_IMPORT_LIBRARY.map(t=>({officialId:t.id,assignedId:slots.get(t.id),name:t.defaultName,generation:t.generation})),priorityRuntime:true,powerHook,popupGateway,messageHook,blockMessage:dll.metadata.PokewebAbilityBlockMessage,presentationMessages:JSON.parse(String(dll.metadata.PokewebAbilityPresentationMessages??"[]")),eventConstHook:resolver.resolve("BattleEventVar_SetConstValue").address,sideTableAddress,weatherAddress:readU32(resolver.resolve("GetFieldWeather").code,8),damageReactionHook:resolver.resolve("ServerEvent_DamageReaction").address,nativeChanceHook:resolver.resolve("AbilityEvent_RollEffectChance").address,eventList:readU32(resolver.resolve("BattleEvent_SeekItem").code,0x30)},null,2)+"\n");
+await writeFile(`${out}/cases.json`,JSON.stringify({inputSha256:inputHash,exportSha256:sha(exported),reexportSha256:sha(reexported),editedAbilities:entries.size,codeBytes:dll.code.length,bssBytes:dll.bssSize,serializedBytes:rom.files[rom.fileId(ABILITY_EFFECTS_DLL_PATH)].length,nameLoader,api,symbols,pmcSymbols,hook:resolver.resolve("AbilityEvent_AddItem").address,configHex:Buffer.from(encoded).toString("hex"),nativeOffsets,romHashes:hashes,cases:fixtures,projectReload:true,romExportReload:true,reloadedEdits:editReceipts,imports:statusPopups?[]:ABILITY_IMPORT_LIBRARY.map(t=>({officialId:t.id,assignedId:slots.get(t.id),name:t.defaultName,generation:t.generation})),priorityRuntime:true,powerHook,popupGateway,messageHook,blockMessage:dll.metadata.PokewebAbilityBlockMessage,presentationMessages:JSON.parse(String(dll.metadata.PokewebAbilityPresentationMessages??"[]")),eventConstHook:resolver.resolve("BattleEventVar_SetConstValue").address,sideTableAddress,fieldAddress:readU32(resolver.resolve("IsFieldEffectActive").code,8),weatherAddress:readU32(resolver.resolve("GetFieldWeather").code,8),damageReactionHook:resolver.resolve("ServerEvent_DamageReaction").address,nativeChanceHook:resolver.resolve("AbilityEvent_RollEffectChance").address,eventList:readU32(resolver.resolve("BattleEvent_SeekItem").code,0x30)},null,2)+"\n");
 assert.equal(sha(new Uint8Array(await readFile(path))),inputHash);console.log(`${fixtures.length} ability import fixtures; export/reload and ${editReceipts.length} parameter re-edits passed.`);

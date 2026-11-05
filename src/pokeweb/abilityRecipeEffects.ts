@@ -25,6 +25,7 @@ const stageKeys = ["attackStages","defenseStages","specialAttackStages","special
 export const ABILITY_GROUP_STAGE_KEYS: readonly string[] = stageKeys;
 export type RecipeAbilityEffect=ItemRuleEffectDefinition&{code:number;scale:number;parameters:NativeAbilityParameter[];bypassable:boolean;nonzero?:boolean;fixedBypass?:boolean};
 const effect=(kind:string,code:number,label:string,value:number,min:number,max:number,step:number,unit:string,scale:number,parameters:NativeAbilityParameter[],bypassable=false,nonzero=false):RecipeAbilityEffect=>({kind:`abilityRecipe:${kind}`,code,label,value,min,max,step,unit,scale,parameters:parameters.map(p=>({...p})),bypassable,nonzero});
+export const ABILITY_DAMAGE_SOURCE_LABELS = ["Burn", "Poison / bad poison", "Curse", "Binding moves", "Nightmare", "Hail", "Sandstorm", "Move recoil / crash damage", "Leech Seed", "Spikes / Stealth Rock", "Contact retaliation", "Other held-item damage", "Other ability damage", "Other indirect damage"];
 export const RECIPE_ABILITY_EFFECTS:RecipeAbilityEffect[]=[
  effect("convertType",135,"Convert move type and power",1.2,.125,8,.001,"× power",4096,[{...move,choices:move.choices!.filter(v=>v!==9&&v!==10)},p("sourceType","Original move type",0,0,18,undefined,"type"),p("type","New move type",2,0,17,undefined,"type")]),
  effect("statAction",136,"Triggered stat stages",1,-6,6,1,"stages",1,[trigger,stat(true),scope,p("activationChance","Chance (%)",100,0,100),p("threshold","HP threshold (%)",50,1,100),once,move,type,category,p("adjacent","Range",0,0,1,{0:"All active targets",1:"Adjacent targets"}),p("statSource","Highest stat of",0,0,1,{0:"Holder",1:"Each target"})],false,true),
@@ -49,6 +50,10 @@ export const RECIPE_ABILITY_EFFECTS:RecipeAbilityEffect[]=[
  effect("abilityStatGuard",165,"Block stat drops from other abilities",1,1,1,1,"",1,[p("stat","Stat",8,1,8,undefined,"stat")],true),
  effect("statusGuardSet",166,"Protect against conditions",1,1,1,1,"",1,[p("conditionMask","Conditions",1,1,8191,undefined,"conditionSet"),guardScope,protectedType,p("cure","Automatically cure",0,0,1,{0:"No",1:"Yes"}),p("excludeSelf","Self-inflicted conditions",0,0,1,{0:"Also prevent",1:"Allow"})],true),
  effect("statGroup",167,"Grouped stat changes",1,1,1,1,"",1,[trigger,...stageKeys.map((key,index)=>p(key,["Attack","Defense","Sp. Atk","Sp. Def","Speed","Accuracy","Evasion"][index]+" stages",0,-6,6)),scope,p("activationChance","Chance per stat (%)",100,0,100),p("threshold","HP threshold (%)",50,1,100),once,move,type,category,p("adjacent","Range",0,0,1,{0:"All active targets",1:"Adjacent targets"}),{...p("statOrder","Stat order",0,0,0x1fffff),hidden:true}]),
+ effect("fieldEntry",168,"Set a field condition on entry",1,1,1,1,"",1,[p("condition","Field condition",1,1,7,{1:"Trick Room",2:"Gravity",4:"Water Sport",5:"Mud Sport",6:"Wonder Room",7:"Magic Room"}),p("duration","Duration (turns; 0 = permanent)",5,0,63),p("active","When already active",0,0,1,{0:"Leave unchanged",1:"Toggle off"})]),
+ effect("sideEntry",169,"Set a side condition on entry",1,1,1,1,"",1,[p("condition","Side condition",4,0,13,{0:"Reflect",1:"Light Screen",2:"Safeguard",3:"Mist",4:"Tailwind",5:"Lucky Chant",6:"Spikes",7:"Toxic Spikes",8:"Stealth Rock",11:"Pledge rainbow",12:"Pledge sea of fire",13:"Pledge swamp"}),p("side","Sides",0,0,2,{0:"Own side",1:"Opposing side",2:"Both sides"}),p("duration","Duration (turns; 0 = permanent)",4,0,63),p("layers","Layers to add",1,1,3)]),
+ effect("damageGuard",170,"Prevent selected indirect damage",1,1,1,1,"",1,[p("sources","Damage sources",3,1,16383,undefined,"damageSet")]),
+ effect("additionalStrike",171,"Additional strike",.25,.125,8,.001,"× second-hit damage",4096,[]),
  ...SCOPED_ABILITY_EFFECTS,
  ...ACTION_ABILITY_EFFECTS,
 ];
@@ -60,3 +65,6 @@ const source=RECIPE_ABILITY_EFFECTS[0].parameters.find(p=>p.key==="sourceType")!
 export const recipeAbilityEffect=(kind:string)=>RECIPE_ABILITY_EFFECTS.find(e=>e.kind===kind);
 export const RECIPE_PARAMETER_BYTES=[1,4,5,6,8,9,10,11,12,13,14,15];
 export function recipeAbilityParameter(effect:ItemRuleEffect,key:string){const p=recipeAbilityEffect(effect.kind)?.parameters.find(p=>p.key===key);if(!p)throw new Error(`Unknown recipe parameter: ${key}`);return effect.parameters?.[key]??p.original;}
+
+RECIPE_ABILITY_EFFECTS.find(e=>e.code===169)!.parameters.find(p=>p.key==="layers")!.when={key:"condition",value:[6,7]};
+RECIPE_ABILITY_EFFECTS.find(e=>e.code===169)!.parameters.find(p=>p.key==="duration")!.when={key:"condition",value:[0,1,2,3,4,5,11,12,13]};

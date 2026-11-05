@@ -58,7 +58,7 @@ export function renderItemEditor(project: ProjectState, root: HTMLElement, onDir
   const state = editorStates.get(project) ?? { itemId: 1, tab: "data" as ItemTab, search: "", pocket: "" };
   editorStates.set(project, state);
   if (state.itemId >= count || state.itemId < 1) state.itemId = count > 1 ? 1 : 0;
-  if (state.tab === "effect" && project.session.baseRom !== "BW2") state.tab = "data";
+  if (state.tab === "effect" && !["BW","BW2"].includes(project.session.baseRom)) state.tab = "data";
   const pageActions = document.getElementById("page-actions");
   if (pageActions) pageActions.innerHTML = "";
   // Item 0 is the game's "None" placeholder.
@@ -234,7 +234,7 @@ function renderItemDetail(project: ProjectState, id: number, tab: ItemTab): stri
   const name = itemName(item);
   const price = itemPrice(item);
   const pocket = FIELD_POCKETS[part(item, 7, 4)] ?? `Pocket ${part(item, 7, 4)}`;
-  const hasEffects = project.session.baseRom === "BW2";
+  const hasEffects = ["BW","BW2"].includes(project.session.baseRom);
   const tabButton = (key: ItemTab, label: string) => `<button class="uv-tab" type="button" role="tab" data-item-tab="${key}" aria-selected="${tab === key}">${label}</button>`;
   return `
     <article class="item-card it-card" data-index="${id}">

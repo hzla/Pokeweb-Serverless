@@ -1,3 +1,5 @@
+import {environmentCases} from "./environment_cases";
+import {strikeCases} from "./strike_cases";
 import { abilityExecutionLayout } from "../../src/pokeweb/abilityRecipeOptimization";
 import {statSourceCases} from "./stat_source_cases";
 import { prepareCustomFlagCases, customFlagCases } from "./custom_flag_cases";
@@ -99,7 +101,7 @@ if(actionResultsMode){
  rules.set(222,{effects:[{kind:"abilityRecipe:fieldPower",value:1.333333,parameters:{type:10}}],conditions:all});
  for(const[id,chance]of [[223,1],[224,100],[226,30]])rules.set(id,{effects:[{kind:"status",value:7,trigger:"afterAttack",target:"defender",chance}],conditions:all});
 }
-const statusPopups = process.argv.includes("--stat-source") ? statSourceCases() : process.argv.includes("--status-popups") ? statusPopupCases() : undefined;
+const statusPopups = process.argv.includes("--strikes") ? strikeCases() : process.argv.includes("--environment") ? environmentCases() : process.argv.includes("--stat-source") ? statSourceCases() : process.argv.includes("--status-popups") ? statusPopupCases() : undefined;
 if(statusPopups){rules.clear();for(const[id,rule]of inspectAbilityEffects(project).rules)rules.set(id,rule);for(const[id,rule]of statusPopups.rules)rules.set(id,rule);}
 for(const[id,r]of rules)rules.set(id,validateAbilityRule(r));
 // Every imported recipe is linked with this game's native services before fixtures.
@@ -108,6 +110,10 @@ await configureAbilityRuleSets(project,[...rules].map(([abilityId,rules])=>({abi
 if(moveClasses){
  await configureMoveDllFlags(project,33,34);await configureMoveDllFlags(project,352,0);await configureMoveDllFlags(project,16,0);
  if(process.argv.includes("--move-power"))await configureMoveRuleSets(project,[{moveId:44,rules:{effects:[{kind:"power",value:3,phase:"power",target:"user",chance:100,secondary:false,conditions:all}],conditions:all,prerequisites:all}}]);
+}
+if(process.argv.includes("--environment")){
+ // Fixture-only accuracy: isolate damage immunity from Leech Seed's hit roll.
+ const {decodeRecord,markDirty}=await import("../../src/pokeweb/projectStore");decodeRecord(project,"moves",73).raw!.accuracy=100;markDirty(project,"moves",73);
 }
 const verify=()=>{const state=inspectAbilityEffects(project);assert(state.editable,state.message);assert.deepEqual(state.rules,rules);};verify();
 project=openProjectSession(createProjectDocument(project,false));project.originalRomBytes=input;hydrateAbilityEffectsSource(project,new NintendoDSRom(input,{fileData:"view"}));verify();
@@ -129,7 +135,7 @@ let clientTrapStores:Record<string,number>|undefined;
 const clientFunction=dll.symbols.find(s=>s.name==="AbilityClientTrapped");if(clientFunction){const code=Buffer.from(dll.code.subarray(clientFunction.address,clientFunction.address+clientFunction.size));const store=(hex:string,offset:number)=>{const pattern=Buffer.from(hex,"hex"),at=code.indexOf(pattern);assert(at>=0&&code.indexOf(pattern,at+1)===-1);return clientFunction.address+at+offset;};clientTrapStores={trapper:store("08ab1b5d019a1370",6),ability:store("029b002b00d01e800025",6)};}
 const {bytes:encoded,nativeOffsets}=abilityExecutionLayout(rules);
 const neutral=[6,6,6,6,6,6,6];const mon=(speciesId=320,level=100,move=150,abilityId=50):HarnessPokemon=>({speciesId,level,moves:[move],abilityId,itemId:0});
-type Case={label:string;playerSpecies?:number;playerGender?:0|1;abilityId:number;playerMoves?:number[];turnMove?:number[];hp?:number;ally?:HarnessPokemon;enemies?:HarnessPokemon[];battleType?:"Doubles";enemyAbility?:number;menuCount?:number;bench?:HarnessPokemon[];checks:Record<string,unknown>};
+type Case={label:string;playerSpecies?:number;playerGender?:0|1;abilityId:number;playerMoves?:number[];playerStatus?:HarnessPokemon["status"];turnMove?:number[];hp?:number;ally?:HarnessPokemon;enemies?:HarnessPokemon[];battleType?:"Doubles";enemyAbility?:number;menuCount?:number;bench?:HarnessPokemon[];checks:Record<string,unknown>};
 const cases:Case[]=[
  {label:"entry-grouped",abilityId:165,checks:{stages:[6,7,6,6,5,6,6],popupsByTurn:[1,0,0]}},
  {label:"scare-spatk",abilityId:167,checks:{enemyStages:[6,6,5,6,6,6,6]}},
@@ -241,7 +247,7 @@ if(process.argv.includes("--expanded-classes")){
 if(customFlagsMode){
  cases.splice(0,cases.length,...customFlagCases(project).map(spec=>({label:spec.label,abilityId:spec.abilityId,playerMoves:[spec.move??150],hp:spec.hp,enemies:[mon(320,spec.enemyLevel??(spec.enemyMove?30:100),spec.enemyMove??150)],checks:spec.checks})));
 }
-if(statusPopups)cases.splice(0,cases.length,...statusPopups.cases.map(spec=>({...spec,playerMoves:[spec.move??150],enemies:[{...mon(320,spec.enemyLevel??100,spec.enemyMove??150),...("enemyAbility"in spec?{abilityId:spec.enemyAbility}:{}),gender:0}]})));
+if(statusPopups)cases.splice(0,cases.length,...statusPopups.cases.map(spec=>({...spec,playerMoves:[spec.move??150],enemies:Array.from({length:spec.enemyCount??1},()=>({...mon(spec.enemySpecies??320,spec.enemyLevel??100,spec.enemyMove??150),...("enemyAbility"in spec?{abilityId:spec.enemyAbility}:{}),gender:0 as const}))})));
 const only=process.argv.find(a=>a.startsWith("--only="))?.slice(7).split(","),hashes:Record<string,string>={},fixtures=[];
 for(const[index,spec]of cases.entries()){
  if(only&&!only.includes(spec.label))continue;
@@ -255,7 +261,7 @@ for(const[index,spec]of cases.entries()){
   archive.files.forEach((bytes,i)=>{if(bytes.length!==before.files[i].length+36)return;const end=8+bytes[4]*20+bytes[5]*36,first=bytes.slice(end-36,end);if(readU16(first,10)!==3002)return;const partner=first.slice();writeU16(partner,0,readU16(first,0)+1);writeU16(partner,28,readU16(first,28)+1);const expanded=new Uint8Array(bytes.length+36);expanded.set(bytes.subarray(0,end));expanded.set(partner,end);expanded.set(bytes.subarray(end),end+36);expanded[5]++;writeU32(expanded,0,readU32(bytes,0)+36);archive.files[i]=expanded;partners++;});
   assert(partners>0,"Double-trainer field partner fixture missing");downloads.romBytes=fixture.save({files:new Map([[fixture.fileId(path),archive.save()]]),preserveOriginalLength:true});
  }
- const save=patchHarnessSave(rawSaveBytesFromDesmumeDsv(downloads.saveBytes),project,parseHarnessConfig({trainerId:2,player:{team:[{speciesId:spec.playerSpecies??1,level:50,moves:spec.playerMoves??[150],abilityId:spec.abilityId,itemId:0,...(spec.playerGender===undefined?{}:{gender:spec.playerGender}),...(spec.hp===undefined?{}:{currentHp:spec.hp})},...(spec.ally?[spec.ally]:[]),...(spec.bench??[])]}}));
+ const save=patchHarnessSave(rawSaveBytesFromDesmumeDsv(downloads.saveBytes),project,parseHarnessConfig({trainerId:2,player:{team:[{speciesId:spec.playerSpecies??1,level:50,moves:spec.playerMoves??[150],abilityId:spec.abilityId,itemId:0,...(spec.playerGender===undefined?{}:{gender:spec.playerGender}),...(spec.hp===undefined?{}:{currentHp:spec.hp}),...(spec.playerStatus?{status:spec.playerStatus}:{})},...(spec.ally?[spec.ally]:[]),...(spec.bench??[])]}}));
  if(spec.battleType==="Doubles")for(const half of [0,0x24000]){
   // The bundled save restores field actors, so the partner also needs its own
   // actor record. Preserve the first actor and every unrelated saved actor.
@@ -267,5 +273,5 @@ for(const[index,spec]of cases.entries()){
  await writeFile(`${out}/saves/${label}.sav`,save);if(!hashes[filename]){await writeFile(`${out}/${filename}`,downloads.romBytes);hashes[filename]=sha(downloads.romBytes);}
  fixtures.push({...spec,enemyCount:enemies.length,label,speciesId:spec.playerSpecies??1,maxHp:readU16(raw,0x90),hp:spec.hp??readU16(raw,0x90),rom:filename});
 }
-await writeFile(`${out}/cases.json`,JSON.stringify({inputSha256:sha(input),exportSha256:sha(exported),reexportSha256:sha(final),projectReload:true,romExportReload:true,importsLinked:ABILITY_IMPORT_LIBRARY.length,editedAbilities:rules.size,codeBytes:dll.code.length,bssBytes:dll.bssSize,serializedBytes:dllBytes.length,nameLoader:resolver.resolve("loadAbilityNameToStrbuf").address,api,symbols,pmcSymbols,popupGateway:dll.symbols[gateway.sourceSymbolIndex].address,hook:resolver.resolve("AbilityEvent_AddItem").address,configHex:Buffer.from(encoded).toString("hex"),nativeOffsets,romHashes:hashes,cases:fixtures,priorityRuntime:true,...notificationsMetadata,presentationMessages:JSON.parse(String(dll.metadata.PokewebAbilityPresentationMessages??"[]")),...(moveClasses||customFlagsMode?{powerHook:resolver.resolve("BW1_BTL_SERVER_FLOW_CalcMovePower").address}:{}),...(clientTrapStores?{clientTrapStores,typeQuery:resolver.resolve("DoesMonHaveType").address}:{}),damageReactionHook:resolver.resolve("ServerEvent_DamageReaction").address,eventConstHook:resolver.resolve("BattleEventVar_SetConstValue").address,eventList:readU32(resolver.resolve("BattleEvent_SeekItem").code,0x30),manualLaunch:true,openingHook:game==="W"?0x021bbb80:0x021bbb60,flowRegister:"r0",commandHook:game==="W"?0x021baccc:0x021bacac},null,2)+"\n");
+await writeFile(`${out}/cases.json`,JSON.stringify({inputSha256:sha(input),exportSha256:sha(exported),reexportSha256:sha(final),projectReload:true,romExportReload:true,importsLinked:ABILITY_IMPORT_LIBRARY.length,editedAbilities:rules.size,codeBytes:dll.code.length,bssBytes:dll.bssSize,serializedBytes:dllBytes.length,nameLoader:resolver.resolve("loadAbilityNameToStrbuf").address,api,symbols,pmcSymbols,popupGateway:dll.symbols[gateway.sourceSymbolIndex].address,hook:resolver.resolve("AbilityEvent_AddItem").address,configHex:Buffer.from(encoded).toString("hex"),nativeOffsets,romHashes:hashes,cases:fixtures,priorityRuntime:true,...notificationsMetadata,presentationMessages:JSON.parse(String(dll.metadata.PokewebAbilityPresentationMessages??"[]")),...(moveClasses||customFlagsMode?{powerHook:resolver.resolve("BW1_BTL_SERVER_FLOW_CalcMovePower").address}:{}),...(clientTrapStores?{clientTrapStores,typeQuery:resolver.resolve("DoesMonHaveType").address}:{}),damageReactionHook:resolver.resolve("ServerEvent_DamageReaction").address,eventConstHook:resolver.resolve("BattleEventVar_SetConstValue").address,eventList:readU32(resolver.resolve("BattleEvent_SeekItem").code,0x30),fieldAddress:readU32(resolver.resolve("IsFieldEffectActive").code,8),sideTableAddress:(()=>{const side=rom.loadArm9Overlays([95]).get(95)!;return side.ramAddress+side.ramSize;})(),manualLaunch:true,openingHook:game==="W"?0x021bbb80:0x021bbb60,flowRegister:"r0",commandHook:game==="W"?0x021baccc:0x021bacac},null,2)+"\n");
 assert.equal(sha(new Uint8Array(await readFile(inputPath))),sha(input));console.log(`${fixtures.length} ${game} native fixtures; project and ROM reload passed.`);

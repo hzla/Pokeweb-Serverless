@@ -22,6 +22,7 @@ export type ProjectSession = {
   cgearButtons?: import("../cgearButtons/document").Project;
   systemShops?: import("../systemShops/document").Project;
   customUi?: import("../customUi/document").Project;
+  uiScreens?: import("../nativeUi/document").Project;
   cutsceneAuthoring?: import("./cutsceneScene").CutsceneAuthoringState;
   fieldScenes?: import("./fieldScene").FieldSceneAuthoring;
   originalRomBytes?: Uint8Array;
@@ -97,7 +98,7 @@ export function openProjectSession(document: ProjectDocument): ProjectSession {
     docs: document.docs ? { ...document.docs, trainerLocations: {}, trainerDiffs: {},
       itemLocations: {}, groundItemScriptMap: {} } : undefined,
     bw2ScriptEditor: document.scriptDrafts ? { drafts: document.scriptDrafts } : undefined,
-    cgearButtons: document.cgearButtons, systemShops: document.systemShops, customUi: document.customUi,
+    cgearButtons: document.cgearButtons, systemShops: document.systemShops, customUi: document.customUi, uiScreens: document.uiScreens,
     cutsceneAuthoring: document.cutsceneAuthoring,
     fieldScenes: document.fieldScenes,
     map3dAreaEdits: document.map3dAreaEdits, fileSystem: document.fileSystem,

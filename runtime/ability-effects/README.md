@@ -32,10 +32,51 @@ apply independently. Move-type filters on power, damage, immunity, priority and 
 reactions accept several checked types. These imports use the same primitives as
 manually created effects.
 
+**Set a field condition on entry** starts Trick Room, Gravity, Water Sport,
+Mud Sport, Wonder Room or Magic Room on entry/ability gain. Choose 1–63 turns
+or 0 for permanent; an active condition can be left unchanged or toggled off.
+**Set a side condition on entry** places screens, Tailwind, Lucky Chant, hazards
+or Pledge effects on the chosen side(s). Hazards are permanent and obey native
+layer limits. Native expiration and removal continue to apply; losing or
+suppressing the ability does not remove an already created condition.
+
+The **Magic Guard** import uses **Prevent selected indirect damage**, with
+checkboxes for burn, poison/bad poison, Curse, binding, Nightmare, hail,
+sandstorm, move recoil/crash, Leech Seed, hazards, contact retaliation, other
+item damage, other ability damage and other indirect damage. The manual primitive
+defaults to burn and poison; the import selects all sources. Statuses and their
+stat penalties remain intact. Selected status-damage immunity also takes precedence
+over minimum-one modifiers such as a copied Heatproof effect. Confusion damage, direct attacks, forced Struggle
+recoil and explicit HP costs that bypass native Magic Guard are unchanged.
+Queued native damage is classified by its native message ID, independently of
+message text. Unclassified custom queued damage uses Other indirect damage.
+Native Solar Power/Dry Skin damage without a message uses its existing sunny
+weather event context. These controls do not classify arbitrary rewritten engines.
+
+Entry effects subscribe only to entry/ability gain; damage guards subscribe only
+to selected damage boundaries. Burn/poison-only protection adds no native hook.
+Queued-damage selections share one checked call-site adapter in the ability DLL;
+its source context is restored on return. The primitives add no weather queries,
+extra global recipe scans, Pokémon fields or persistent per-recipe allocations.
+
 The additional field/history templates use native operations and private tracking;
 they do not replace the scheduler or global ability-eligibility rules. Protean and
 Libero expose their activation limit, and Mega Launcher covers pulse damage only.
 Heal Pulse healing is unchanged.
+
+**Additional strike** makes eligible single-hit damaging moves strike twice,
+with an adjustable multiplier for the second strike's ordinary damage. Fixed
+damage uses the native fixed-damage path on each strike. Existing multi-hit,
+charging, OHKO, self-destructing, delayed and certain other special moves are
+excluded. The effect uses the native target count, so multi-target moves do
+not become two-hit moves when multiple targets are selected. Suppression and
+ability changes are checked when each move starts. A scoped native adapter
+shares the ability DLL and does not change the move's stored hit count.
+The special-move exclusions use vanilla move IDs, including when those IDs are
+repurposed. Custom handlers and expanded move IDs are not automatically
+classified for move-specific sequencing; check their interactions separately.
+For damage sequences nested more than eight levels, deeper sequences retain
+their native hit counts.
 
 **Triggered stat stages** can select the holder's or each target's highest raw
 stat (excluding HP and ignoring stages; ties use Attack, Defense, Sp. Atk, Sp. Def,
@@ -165,14 +206,14 @@ renamed types, without relying on Gen 5's native type-name formatter.
 
 Build from the repository root with `python3 runtime/ability-effects/build.py`.
 The original templates remain available for strict verification of older exports;
-the default build updates only the current bundle (`--native-flags-only`),
-including its 4-, 8- and 16-slot work variants. `--compact-only`, `--stat-source-only`,
+the default build updates only the current bundle (`--environment-only`),
+including its 4-, 8- and 16-slot work variants. `--native-flags-only`, `--compact-only`, `--stat-source-only`,
 `--action-results-only`, `--custom-flags-only`, `--messages-only`, `--move-classes-only` and `--optimized-only`
 rebuild retained bundles for verification of older exports;
 released bundles must remain byte-identical when making a new runtime. Consolidated
 execution records use shared immutable data. The
 `PokewebAbilityCompact: 1` and `PokewebAbilityWorkSlots` metadata identify the
-execution format and selected work capacity. Versions 1–9 remain readable through
+execution format and selected work capacity. Versions 1–10 remain readable through
 their retained bundles and can be updated while preserving editor recipes.
 New modules retain `PokewebAbilityDispatchVersion: 2` and the 16-byte effect stride.
 `python3 runtime/ability-effects/test_compact.py --current` checks the consolidated
@@ -225,3 +266,8 @@ blocking notice is shown per source callback activation; a multi-stat activation
 does not repeat either the source ability's popup or the guard's notice. The runtime tracks
 source callbacks on the call stack only when this primitive is installed; it
 does not scan ability definitions or query weather to identify the source.
+
+`python3 runtime/ability-effects/test_environment.py` checks the current ARM
+entry actions and source guards with isolated native services. Native case
+builders accept `--environment` for condition, immunity, suppression and swap
+fixtures; pass a new output directory and explicit ROM input.

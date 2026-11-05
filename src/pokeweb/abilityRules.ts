@@ -21,6 +21,7 @@ export const ABILITY_NATIVE_EFFECTS = NATIVE_ABILITY_PROFILES.map(p => ({ kind: 
 export function validateAbilityRule(input: AbilityRuleSet): AbilityRuleSet {
     if (!input || !Array.isArray(input.effects) || input.effects.length < 1 || input.effects.length > 16)
         throw new Error("Choose one to sixteen ability effects.");
+    if(input.effects.filter(effect=>effect?.kind==="abilityRecipe:additionalStrike").length>1)throw Error("Choose at most one additional strike effect.");
     const conditions = validateItemRule({ effects: [{ kind: "attack", value: 1 }], conditions: input.conditions, consumable: false }).conditions;
     const effects = input.effects.map(effect => {
         if (!effect || effect.bypassable !== undefined && typeof effect.bypassable !== "boolean")
@@ -119,6 +120,7 @@ export function encodeAbilityRules(entries: ReadonlyMap<number, AbilityRuleSet>,
                     for(let n=0;n<3;n++)row[12+n]=p("statOrder")>>>(n*8)&255;
                     bytes.push(...row);continue;
                 }
+                if(recipe.code===170){const mask=recipeAbilityParameter(e,"sources");row[1]=mask&255;row[4]=mask>>>8;bytes.push(...row);continue;}
                 recipe.parameters.forEach((p,i)=>{const value=recipeAbilityParameter(e,p.key);if(p.key==="moveClass"){const filter=encodeAbilityMoveFilter(value);row[RECIPE_PARAMETER_BYTES[i]]=filter.filter;row[7]|=filter.tag;}else row[RECIPE_PARAMETER_BYTES[i]]=value;});bytes.push(...row);continue;
             }
             const library=libraryAbilityEffect(e.kind);
@@ -145,6 +147,7 @@ export const ABILITY_RULE_PRESETS: Array<{
     label: string;
     rule: AbilityRuleSet;
 }> = [
+    { id: 98, label: "Magic Guard", rule: { ...EMPTY_ABILITY_RULE, effects: [{ kind: "abilityRecipe:damageGuard", value: 1, parameters: {sources:16383} }] } },
     { id: 37, label: "Huge Power", rule: { ...EMPTY_ABILITY_RULE, effects: [{ kind: "attack", value: 2 }] } },
     { id: 3, label: "Speed Boost", rule: { ...EMPTY_ABILITY_RULE, effects: [{ kind: "statStage", stat: 5, value: 1, trigger: "turnEnd", target: "holder", chance: 100 }] } },
     { id: 33, label: "Swift Swim", rule: { effects: [{ kind: "speed", value: 2 }], conditions: { kind: "weather", value: 2 } } },

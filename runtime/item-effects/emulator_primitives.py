@@ -13,7 +13,9 @@ def main():
     results=[]
     with tempfile.TemporaryDirectory(prefix='pokeweb-rules-native-') as tmp:
         copies={}
+        needed={spec['rom'] for spec in selected}
         for name,digest in manifest['romHashes'].items():
+            if name not in needed:continue
             source=a.evidence/name;assert hashlib.sha256(source.read_bytes()).hexdigest()==digest
             target=Path(tmp)/name
             if sys.platform!='darwin' or subprocess.run(['cp','-c',str(source),str(target)],stderr=subprocess.DEVNULL).returncode:
@@ -43,7 +45,12 @@ def main():
                     if stats and (name not in minimum or stats['freePayloadBytes']<minimum[name]['freePayloadBytes']):minimum[name]=stats
             def opening(cpu,address):
                 nonlocal flow
-                flow=emu.memory.register_arm9.r6
+                candidate=getattr(emu.memory.register_arm9,manifest.get('flowRegister','r6'))
+                if manifest.get('flowRegister'):
+                    if not 0x02000000<=candidate<0x02400000:return
+                    main=emu.memory.read_long(candidate+4)
+                    if not 0x02000000<=main<0x02400000 or emu.memory.read_long(main+8)!=emu.memory.read_long(candidate):return
+                flow=candidate
             def command(cpu,address):
                 nonlocal code
                 try:
@@ -53,7 +60,7 @@ def main():
                     main=emu.memory.read_long(flow+4);player=emu.memory.read_long(main+0xcc);enemy=emu.memory.read_long(main+0xcc+0x1c)
                     state={'turn':turn,'frame':emu.frame_count,'hp':emu.memory.read_short(player+0x10),'maxHp':emu.memory.read_short(player+0xe),
                            'item':emu.memory.read_short(player+0x12),'consumedItem':emu.memory.read_short(player+0x14),'enemyHp':emu.memory.read_short(enemy+0x10), 'enemyMaxHp':emu.memory.read_short(enemy+0xe), 'stages':list(emu.memory.unsigned[player+0xfc:player+0x103]), 'conditions':[emu.memory.read_long(player+0x1c+n*4) for n in range(36)]}
-                    assert emu.memory.read_short(player+0xc)==spec['speciesId']
+                    assert emu.memory.read_short(player+0xc)==spec['speciesId'],('Species',emu.memory.read_short(player+0xc),spec['speciesId'],hex(flow),hex(player))
                     assert state['maxHp']==spec['maxHp']
                     if not menus:
                         pass # Entry effects can already have changed HP, stages or consumed the item.
@@ -83,6 +90,19 @@ def main():
                             node=emu.memory.read_long(node+24)
                         assert ours==1,('Expected one shared item module',ours)
                         result['loader']={'totalPatchRecords':len(states),'itemPatchRecords':ours,'liveRuleCount':manifest['editedItems']}
+                    state['sideItems']=[]
+                    if manifest.get('eventList'):
+                        node=emu.memory.read_long(manifest['eventList']+4);seen=set()
+                        while node:
+                            assert node not in seen and 0x02000000<=node<0x02400000
+                            seen.add(node)
+                            if emu.memory.read_long(node+0x10)==2:state['sideItems'].append({'effect':emu.memory.read_short(node+0x38),'side':emu.memory.read_byte(node+0x3a)})
+                            node=emu.memory.read_long(node+4)
+                    state['sideEffects']=[[emu.memory.read_long(manifest['sideTableAddress']+(side*14+effect)*16+12) for effect in range(14)] for side in range(2)] if manifest.get('sideTableAddress') else []
+                    state['party'] = []
+                    for n in range(2 if spec.get('bench') else 1):
+                        mon=emu.memory.read_long(main+0xcc+n*4)
+                        state['party'].append({'hp':emu.memory.read_short(mon+0x10),'maxHp':emu.memory.read_short(mon+0xe),'conditions':[emu.memory.read_long(mon+0x1c+k*4) for k in range(36)]})
                     menus.append(state)
                 except Exception as error:errors.append(error)
             def multiplied(cpu,address):
@@ -91,6 +111,21 @@ def main():
                 native=manifest.get('nativeObservationRange',[0,0])
                 if (code<=lr<code+manifest['codeBytes'] or native[0]<=lr<native[1]) and flow and not emu.memory.read_long(flow+0x774):
                     multipliers.append({'frame':emu.frame_count,'turnIndex':len(menus)-1,'key':emu.memory.register_arm9.r0,'value':emu.memory.register_arm9.r1})
+            hit_counts=[];notices=[];pending_counts={};return_hooks={}
+            def count_entry(cpu,address):
+                regs=emu.memory.register_arm9
+                if not flow or regs.r0!=flow or emu.memory.read_long(flow+0x774):return
+                ret=regs.lr&~1;pending_counts.setdefault(ret,[]).append((regs.r3,regs.r2,len(menus)-1))
+                if ret not in return_hooks:
+                    def returned(cpu,address):
+                        if not pending_counts.get(address):return
+                        pointer,move,index=pending_counts[address].pop();hit_counts.append({'count':emu.memory.read_byte(pointer),'move':move,'turnIndex':index})
+                    return_hooks[ret]=emu.memory.register_exec(ret,returned)
+            def notice(cpu,address):
+                regs=emu.memory.register_arm9
+                if flow and regs.r1==2 and regs.r2 in manifest.get('itemMessages',[]) and not emu.memory.read_long(flow+0x774):notices.append({'message':regs.r2,'turnIndex':len(menus)-1})
+            if manifest.get('countHook'):hooks.append(emu.memory.register_exec(manifest['countHook'],count_entry))
+            hooks.append(emu.memory.register_exec(manifest['api']['BattleHandler_StrSetup'],notice))
             rewrites=[]
             def rewritten(cpu,address):
                 if code and menus and code<=(emu.memory.register_arm9.lr&~1)<code+manifest['codeBytes']:
@@ -101,7 +136,7 @@ def main():
             try:
                 emu.open(rom)
                 for _ in range(a.max_frames):
-                    if menus:emu.input.keypad_update(1 if emu.frame_count%12<3 else 0)
+                    if menus or manifest.get('manualLaunch'):emu.input.keypad_update(128 if manifest.get('manualLaunch') and not menus and emu.frame_count%1200 in (600,601) else 1 if emu.frame_count%12<3 else 0)
                     emu.cycle()
                     if errors:raise errors[0]
                     # Field overlays occupy these addresses before the battle
@@ -111,6 +146,7 @@ def main():
                 emu.input.keypad_update(0)
                 assert len(menus)>=3,f'No two completed turns: {menus}'
                 checks=spec.get('checks',{})
+                if 'hpByTurn' in checks:assert [state['hp'] for state in menus]==checks['hpByTurn'],menus
                 if checks.get('survive'):assert menus[1]['hp']==1 and menus[2]['hp']==1,menus
                 if checks.get('noDamage'):assert all(state['hp']==spec['maxHp'] for state in menus),menus
                 if checks.get('unchangedHp'):assert all(state['hp']==spec['hp'] for state in menus),menus
@@ -124,6 +160,8 @@ def main():
                     for state in states:
                         present=[n for n in range(1,7) if state['conditions'][n]]
                         assert present==([checks['status']] if checks['status'] else []),(present,checks,menus)
+                if 'statusPerTurn' in checks:
+                    assert [next((n for n in range(1,7) if state['conditions'][n]),0) for state in menus]==checks['statusPerTurn'],menus
                 if checks.get('badPoison'):assert (menus[1]['conditions'][5]>>3)&63==15,menus[1]['conditions'][5]
                 for stage,value in checks.get('initialStages',{}).items():assert menus[0]['stages'][int(stage)-1]==value,menus
                 for stage,value in checks.get('stages',{}).items():
@@ -133,6 +171,7 @@ def main():
                     for state in menus[1:3]:assert bool(state['conditions'][0x1b])==checks['lock'],menus
                 if checks.get('consumed'):
                     for state in menus[1:3]:assert state['item']==0 and state['consumedItem']==spec['itemId'],menus
+                if checks.get('itemByTurn'):assert [m['item'] for m in menus]==[spec['itemId'],0,spec['itemId']],menus
                 if checks.get('retained'):
                     for state in menus:assert state['item']==spec['itemId'],menus
                 if 'recoilPercent' in checks:
@@ -150,18 +189,39 @@ def main():
                 if 'minimumHeal' in checks:assert menus[2]['hp']>=spec['hp']+checks['minimumHeal'],menus
                 if checks.get('enemyDamaged'):assert menus[1]['enemyHp']<menus[0]['enemyHp'],menus
                 if 'multiplier' in checks:
-                    actual=[entry for entry in multipliers if entry['value']==checks['multiplier']]
-                    assert any(entry['turnIndex']==0 for entry in actual),(checks,multipliers)
+                    actual=[entry for entry in multipliers if entry['value']==checks['multiplier'] and ('multiplierKey' not in checks or entry['key']==checks['multiplierKey'])]
+                    assert any(entry['turnIndex']==checks.get('multiplierTurns',[0])[0] for entry in actual),(checks,multipliers)
+                    if 'multiplierTurns' in checks:assert sorted(set(e['turnIndex'] for e in actual))==checks['multiplierTurns'],multipliers
                     if checks.get('bothTurns'):assert any(entry['turnIndex']==1 for entry in actual),multipliers
                     if checks.get('firstTurnOnly'):assert not any(entry['turnIndex']>=1 for entry in actual),multipliers
+                if 'noMultiplier' in checks:assert not any(entry['value']==checks['noMultiplier'] for entry in multipliers),multipliers
                 if 'critical' in checks:assert any(entry['key']==0x2c and entry['value']==checks['critical'] for entry in rewrites),(checks,rewrites)
                 if 'moveType' in checks:assert any(entry['key']==0x16 and entry['value']==checks['moveType'] for entry in rewrites),(checks,rewrites)
-                result.update(passed=True,menus=menus,multipliers=multipliers,rewrites=rewrites,minimumObservedFree=minimum)
+                if 'itemNotice' in checks:
+                    message=manifest['itemMessages'][checks['itemNotice']]
+                    assert any(n['message']==message for n in notices),(checks,notices)
+                    if checks.get('consumed'):assert sum(n['message']==message for n in notices)==1,notices
+                if 'hitCounts' in checks:
+                    actual=[h['count'] for h in hit_counts if h['move']==spec['move']]
+                    assert len(actual)>=(1 if checks.get('fixedCountControl') else 2) and all(n in checks['hitCounts'] for n in actual),(checks,hit_counts)
+                    if checks.get('fixedCountControl'):assert not any(r['key']==0x2a for r in rewrites),rewrites
+                if checks.get('nativeHitCounts'):
+                    actual=[h['count'] for h in hit_counts if h['move']==spec['move']]
+                    assert len(actual)>=2 and all(2<=n<=5 for n in actual) and not any(r['key']==0x2a for r in rewrites),(hit_counts,rewrites)
+                if checks.get('absorbedToxicSpikes'):
+                    for state in menus[1:]:
+                        hazards=state['sideEffects'][0]
+                        assert hazards[7]==0 and hazards[6]>0 and hazards[8]>0,(hazards,menus)
+                if checks.get('partyHpFull'):assert all(p['hp']==p['maxHp'] for state in menus for p in state['party']),menus
+                if checks.get('partyStatusClear'):assert all(not p['conditions'][5] for state in menus for p in state['party']),menus
+                if checks.get('partyDamaged'):assert any(p['hp']<p['maxHp'] for state in menus for p in state['party']),menus
+                if checks.get('partyPoisoned'):assert any(p['conditions'][5] for state in menus for p in state['party']),menus
+                result.update(passed=True,hitCounts=hit_counts,itemNotices=notices,menus=menus,multipliers=multipliers,rewrites=rewrites,minimumObservedFree=minimum)
                 emu.run_frames(20);emu.screenshot().save(a.evidence/f"{spec['label']}.png")
                 (a.evidence/f"{spec['label']}-result.json").write_text(json.dumps(result,indent=2)+'\n')
                 results.append(result);print(f"PASS {spec['label']}: HP {[s['hp'] for s in menus]}, held {[s['item'] for s in menus]}",flush=True)
             except Exception as error:
-                result.update(error=str(error),menus=menus,multipliers=multipliers,rewrites=rewrites,minimumObservedFree=minimum,pc=hex(emu.memory.register_arm9.pc))
+                result.update(error=str(error),hitCounts=hit_counts,itemNotices=notices,menus=menus,multipliers=multipliers,rewrites=rewrites,minimumObservedFree=minimum,pc=hex(emu.memory.register_arm9.pc))
                 emu.screenshot().save(a.evidence/f"{spec['label']}-failure.png")
                 (a.evidence/f"{spec['label']}-failure.json").write_text(json.dumps(result,indent=2)+'\n')
                 raise

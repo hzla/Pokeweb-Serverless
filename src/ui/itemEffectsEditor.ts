@@ -1,13 +1,14 @@
 import { typeNamesForProject } from "../pokeweb/constants";
 import { assignItemEffect, clearItemRules, configureItemTypeHealing, formatAddress, inspectItemEffect, updateItemEffectControl } from "../pokeweb/itemEffectsModel";
 import { EMPTY_ITEM_RULE } from "../pokeweb/itemRules";
+import { itemRulePreset } from "../pokeweb/itemRulePresets";
 import { installItemRuleEditor, renderItemRuleForm } from "./itemRuleEditor";
 import { getItemRecord } from "../pokeweb/moveItemModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 
 export function renderItemEffects(project: ProjectState, itemId: number): string {
-  if (project.session.baseRom !== "BW2") return "";
+  if (!["BW","BW2"].includes(project.session.baseRom)) return "";
   const state = inspectItemEffect(project, itemId);
   const name = (id: number) => String(project.texts.banks.items?.[id] ?? `Item ${id}`);
   const selected = state.rules ? -2 : state.typeHealing !== undefined ? -1 : state.nativeSlot ? state.profileId : -3;
@@ -20,11 +21,12 @@ export function renderItemEffects(project: ProjectState, itemId: number): string
     <div class="item-native-heading"><strong>Held battle effect</strong><span class="item-native-status ${state.editable ? "-verified" : ""}">${state.editable ? "Verified in ROM" : "Unavailable"}</span></div>
     ${state.editable ? `<label class="item-native-control"><span>Handler assignment</span><select data-item-effect-assignment aria-label="Handler assignment">
       ${state.choices.map(choice => `<option value="${choice.id}" ${selected === choice.id ? "selected" : ""}>${escapeHtml(choice.label)}</option>`).join("")}
-      ${state.nativeSlot ? "" : `<option value="-3" ${selected === -3 ? "selected" : ""}>No battle effect</option>`}
-      <option value="-1" ${selected === -1 ? "selected" : ""}>Type-restricted healing</option>
+      ${state.nativeSlot ? "" : `<option value="-3" ${selected === -3 ? "selected" : ""}>${project.session.baseRom==="BW"?"Native behavior":"No battle effect"}</option>`}
+      ${project.session.baseRom==="BW2"?`<option value="-1" ${selected === -1 ? "selected" : ""}>Type-restricted healing</option>`:""}
       <option value="-2" ${selected === -2 ? "selected" : ""}>Custom effects</option>
     </select></label>${controls}
-    <div data-item-rule-editor ${selected === -2 ? "" : "hidden"}>${renderItemRuleForm(project, state.rules ?? {...structuredClone(EMPTY_ITEM_RULE),effects:[]})}</div>
+    ${!state.rules&&state.profileId!==undefined&&state.profileId>=184&&state.profileId<=200?'<button type="button" class="btn -default" data-item-resistance-recipe>Customize resistance</button>':""}
+    <div data-item-rule-editor ${selected === -2 ? "" : "hidden"}>${renderItemRuleForm(project, state.rules ?? (state.profileId!==undefined&&state.profileId>=184&&state.profileId<=200?itemRulePreset(state.profileId,true):{...structuredClone(EMPTY_ITEM_RULE),effects:[]}))}</div>
     <div class="item-type-healing" ${selected === -1 ? "" : "hidden"}>
       <label class="item-native-control"><span>Holder type</span><select data-item-heal-type aria-label="Healing holder type">${typeNamesForProject(project).map((type, id) => `<option value="${id}" ${id === (state.typeHealing ?? 5) ? "selected" : ""}>${escapeHtml(type)}</option>`).join("")}</select></label>
       <label class="item-native-control"><span>Max HP healing divisor</span><input data-item-heal-divisor aria-label="Type healing divisor" type="number" min="1" max="255" value="${state.typeHealing === undefined ? 16 : Number(getItemRecord(project, itemId).raw.gain_values)}"></label>
@@ -72,6 +74,9 @@ export function installItemEffects(root: HTMLElement, project: ProjectState, onD
       catch (error) { const state = inspectItemEffect(project, itemId); select.value = String(state.rules ? -2 : state.typeHealing !== undefined ? -1 : state.nativeSlot ? state.profileId : -3); feedback(message(error), true); }
     });
     const ruleEditor = panel.querySelector<HTMLElement>("[data-item-rule-editor]");
+    panel.querySelector<HTMLButtonElement>("[data-item-resistance-recipe]")?.addEventListener("click",()=>{
+      const select=panel.querySelector<HTMLSelectElement>("[data-item-effect-assignment]")!;select.value="-2";select.dispatchEvent(new Event("change",{bubbles:true}));
+    });
     if (ruleEditor) installItemRuleEditor(ruleEditor, project, itemId, () => { onDirty?.(); refresh("Custom effects installed and verified."); }, () => {
       const status = panel.querySelector<HTMLElement>(".item-native-status")!;
       status.textContent = "Not applied"; status.classList.remove("-verified");

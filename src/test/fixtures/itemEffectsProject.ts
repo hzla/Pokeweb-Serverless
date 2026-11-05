@@ -1,3 +1,5 @@
+import environment from "../../assets/data/abilityEnvironmentBindings.json";
+import strikes from "../../assets/data/abilityStrikeBindings.json";
 import scopedBindings from "../../assets/data/abilityScopedBindings.json";
 import recipeBindings from "../../assets/data/abilityRecipeBindings.json";
 import abilityBindings from "../../assets/data/abilityBindings.json";
@@ -76,6 +78,23 @@ export function makeItemEffectsProject(shift = 0, relocateBy = 0, extended = fal
     }
     for(const[name,signature]of Object.entries(scopedBindings.functions))for(const call of signature.calls){
       const at=offsets.get(name)!,delta=offsets.get(call.target)!-(at+call.offset+4);writeU16(data,at+call.offset,0xf000|(delta>>12)&0x7ff);writeU16(data,at+call.offset+2,0xf800|(delta>>1)&0x7ff);
+    }
+  }
+  if(ability&&extended){
+    const extra={...environment.profiles.BW2,...strikes.profiles.BW2};
+    for(const[name,signature]of Object.entries(extra)){offsets.set(name,cursor);const bytes=Uint8Array.from(signature.hex.match(/../gu)!,v=>parseInt(v,16));data.set(bytes,cursor);cursor=(cursor+bytes.length+3)&~3;}
+    for(const[name,signature]of Object.entries(extra))for(const call of signature.calls){const at=offsets.get(name)!,delta=offsets.get(call.target)!-(at+call.offset+4);writeU16(data,at+call.offset,0xf000|(delta>>12)&0x7ff);writeU16(data,at+call.offset+2,0xf800|(delta>>1)&0x7ff);}
+  }
+  if(extended){
+    for(const name of ["BattleEventItem_AttachSkipCheckHandler","GetSideFromMonID","IsEventTargetMon","BattleRandom"]){
+      if(offsets.has(name))continue;
+      const signature=abilityBindings.functions[name as keyof typeof abilityBindings.functions];offsets.set(name,cursor);
+      const bytes=Uint8Array.from(signature.hex.match(/../gu)!,v=>parseInt(v,16));data.set(bytes,cursor);cursor=(cursor+bytes.length+3)&~3;
+    }
+    // Anchor duplicated short accessors through the checked Mold Breaker caller.
+    for(const name of ["HandlerMoldBreakerSkipCheck","HandlerMoldBreaker"]){
+      const signature=(abilityBindings.functions as Record<string,{hex:string;calls:{offset:number;target:string}[]}>)[name];if(!signature||offsets.has(name))continue;
+      offsets.set(name,cursor);const bytes=Uint8Array.from(signature.hex.match(/../gu)!,v=>parseInt(v,16));data.set(bytes,cursor);cursor=(cursor+bytes.length+3)&~3;
     }
   }
   const overlay = data.slice(0, cursor);

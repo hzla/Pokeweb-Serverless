@@ -16,6 +16,7 @@ def main():
    rom=copies[spec['rom']];shutil.copyfile(a.evidence/'saves'/f"{spec['label']}.sav",rom.with_suffix('.sav'))
    emu=MelonDS();flow=0;code=0;menus=[];multipliers=[];rewrites=[];errors=[];hooks=[];minimum={};healing=[];names=[];name_frame=0;name_captured=False;name_followups=set();native_chances=[];callback_priorities=[];damage_reactions=[];side_table=0;pending_damage=None;screen_removals=[];callback_owner=None;focus_work=[];move_end_items=[];combat_types=[];event_trace=[];native_stab=[]
    result={'case':spec['label'],'abilityId':spec['abilityId'],'passed':False,'romSha256':manifest['romHashes'][spec['rom']]};powers=[];messages=[];message_frame=0;message_captured=False;message_followups=set();message_hold_until=0
+   weather_queries=[];ability_weather_queries=[]
    counter_callers=[];type_queries=[];client_traps=[];pending_client_trap=None;popups=[];popup_hooked=False;indirect_damage=[];faint_frames={};status_chances=[];status_genders=[]
    native_observed=any(k in spec['checks']for k in['stabByTurn','combatTypesByTurn','itemAtMoveEndFirstTurn'])and'AbilityRecipeHandlers'in manifest['symbols']
    def heap(fragment):
@@ -69,6 +70,7 @@ def main():
        state['enemyParty'].append({'id':emu.memory.read_byte(mon+0x19),'hp':emu.memory.read_short(mon+0x10),'maxHp':emu.memory.read_short(mon+0xe),'rawStats':[emu.memory.read_short(mon+0xee+n*2)for n in range(5)],'stages':list(emu.memory.unsigned[mon+0xfc:mon+0x103])})
      state['focus']=bool(emu.memory.read_byte(player+0x156)&2)
      if'partyHpByTurn'in spec['checks']:state['partyHp']=[emu.memory.read_short(emu.memory.read_long(main+0xcc+slot*4)+0x10)for slot in range(len(spec['checks']['partyHpByTurn'][0]))]
+     if manifest.get('fieldAddress'):state['fieldActive']=[bool(emu.memory.read_long(manifest['fieldAddress']+0x148+i*4))for i in range(8)]
      state['weather']=emu.memory.read_byte(manifest['weatherAddress'])if manifest.get('weatherAddress')else None
      ally_mon=emu.memory.read_long(main+0xd0)
      if spec.get('ally'):
@@ -283,6 +285,12 @@ def main():
      returned_hook.remove()
     if 0x02000000<=query['caller']<0x02400000:
      returned_hook=emu.memory.register_exec(query['caller'],returned);hooks.append(returned_hook)
+   def queried_weather(cpu,address):
+    regs=emu.memory.register_arm9
+    if flow and regs.r0==flow:
+     weather_queries.append(emu.frame_count)
+     if code and code<=(regs.lr&~1)<code+manifest['codeBytes']:ability_weather_queries.append(emu.frame_count)
+   if manifest['api'].get('ServerEvent_GetWeather'):hooks.append(emu.memory.register_exec(manifest['api']['ServerEvent_GetWeather'],queried_weather))
    if manifest.get('counterHook'):hooks.append(emu.memory.register_exec(manifest['counterHook'],counter_import))
    if manifest.get('typeQuery'):hooks.append(emu.memory.register_exec(manifest['typeQuery'],type_query))
    if manifest.get('damageReactionHook'):hooks.append(emu.memory.register_exec(manifest['damageReactionHook'],damaged))
@@ -301,7 +309,10 @@ def main():
     for _ in range(a.max_frames):
      if menus or manifest.get('manualLaunch'):
       # The normal BW2 test save faces away from its NPC, which stands south.
-      key=128 if manifest.get('manualLaunch')and 600<=emu.frame_count-boot_frame<602 else 1 if emu.frame_count%12<3 else 0
+      # A cold boot can reach the overworld after the initial turn input. Retry
+      # the blocked step toward the trainer until the battle actually starts.
+      age=emu.frame_count-boot_frame
+      key=128 if manifest.get('manualLaunch')and age>=600 and age%1200 in (600,601) else 1 if emu.frame_count%12<3 else 0
       emu.input.keypad_update(key)
      if menus and spec.get('turnMove'):
       age=emu.frame_count-menus[-1]['frame'];choice=spec['turnMove'][min(len(menus)-1,len(spec['turnMove'])-1)]
@@ -378,6 +389,7 @@ def main():
       else:assert opened.get(owner),popups;opened[owner]=False
      assert not any(opened.values()),popups
     owned_counter_calls=sum(code<=caller<code+manifest['codeBytes']for caller in counter_callers)
+    if 'abilityWeatherQueries' in c:assert len(ability_weather_queries)==c['abilityWeatherQueries'],ability_weather_queries
     if c.get('counterImport'):assert owned_counter_calls,'No ability-to-counter import call observed'
     if c.get('counterPresent'):assert counter_callers,'No installed counter entry call observed'
     if'stabByTurn'in c:
@@ -401,6 +413,9 @@ def main():
     for key,source,inverse in [('conditionAbsent','conditions',True),('conditionPresent','conditions',False),('enemyConditionPresent','enemyConditions',False),('allyConditionAbsent','allyConditions',True)]:
      if key in c:assert all(bool(state[source][c[key]])!=inverse for state in menus[1:]),menus
     if'weather'in c:assert menus[-1]['weather']==c['weather'],menus
+    if 'fieldActive' in c:assert [state['fieldActive'][c['fieldActive']['condition']]for state in menus]==c['fieldActive']['values'],menus
+    if 'nativeSide' in c:
+     effect=c['nativeSide'];assert [state['sideEffects'][effect['side']][effect['condition']]for state in menus]==effect['layers'],menus
     if'hazardLayers'in c:assert[state['sideEffects'][1][7]for state in menus]==c['hazardLayers'],menus
     if'allyHpByTurn'in c:assert[state['allyHp']for state in menus]==c['allyHpByTurn'],menus
     if c.get('screensCleared'):assert any(v['screens'][0][0]and v['screens'][1][0]for v in screen_removals)and all(not state['sideEffects'][side][effect]for state in menus for side in range(2)for effect in[0,1]),(menus,screen_removals)
@@ -412,6 +427,12 @@ def main():
     if c.get('allEnemyCritical'):
      hits=[hit for hit in damage_reactions if hit['target']==0];assert len(hits)>=2 and all(hit['critical']for hit in hits),damage_reactions
     if'outgoingEffectiveness'in c:assert [hit['effectiveness']for hit in damage_reactions if hit['attacker']==0 and hit['target']>=12]==c['outgoingEffectiveness'],damage_reactions
+    if'outgoingHits'in c:assert [sum(hit['attacker']==0 and hit['target']>=12 and hit['damage']>0 and hit['turnIndex']==i for hit in damage_reactions)for i in range(len(c['outgoingHits']))]==c['outgoingHits'],damage_reactions
+    if'incomingHits'in c:assert [sum(hit['attacker']>=12 and hit['target']==0 and hit['damage']>0 and hit['turnIndex']==i for hit in damage_reactions)for i in range(len(c['incomingHits']))]==c['incomingHits'],damage_reactions
+    if'strikeMultipliers'in c:assert [v['value']for v in multipliers if v['key']==0x35 and v['value']in (512,1024,2048,4096,12288,32768)]==c['strikeMultipliers'],multipliers
+    if c.get('noAbilityWeatherQueries'):assert not ability_weather_queries,ability_weather_queries
+    if'abilityWeatherQueryCount'in c:assert len(ability_weather_queries)==c['abilityWeatherQueryCount'],ability_weather_queries
+    if'abilityWeatherQueriesAtMost'in c:assert 1<=len(ability_weather_queries)<=c['abilityWeatherQueriesAtMost'],ability_weather_queries
     if'effectiveness'in c:assert [hit['effectiveness']for hit in damage_reactions if hit['target']==0]==c['effectiveness'],damage_reactions
     if'item'in c:assert all(s['item']==c['item']for s in menus),menus
     if c.get('name'):assert any(n['abilityId']==spec['abilityId']for n in names),names
@@ -484,7 +505,7 @@ def main():
        assert actual==expected,(ability,actual,expected,s)
      if c.get('suppressed'):assert not callback_priorities,callback_priorities
      elif spec.get('move')==33 and spec['abilityId']!=143:assert {4,5}.issubset({v['priority']for v in callback_priorities}),callback_priorities
-    result.update(passed=True,faintFrames=faint_frames,menus=menus,multipliers=multipliers,rewrites=rewrites,healing=healing,names=names,nativeChances=native_chances,callbackPriorities=callback_priorities,damageReactions=damage_reactions,focusWork=focus_work,moveEndItems=move_end_items,screenRemovals=screen_removals,minimumObservedFree=minimum,counterCalls=len(counter_callers),abilityCounterCalls=owned_counter_calls,typeQueries=type_queries,clientTraps=client_traps,popups=popups,combatTypes=combat_types,eventTrace=event_trace,nativeStab=native_stab,indirectDamage=indirect_damage)
+    result.update(passed=True,weatherQueries=len(weather_queries),abilityWeatherQueries=len(ability_weather_queries),faintFrames=faint_frames,menus=menus,multipliers=multipliers,rewrites=rewrites,healing=healing,names=names,nativeChances=native_chances,callbackPriorities=callback_priorities,damageReactions=damage_reactions,focusWork=focus_work,moveEndItems=move_end_items,screenRemovals=screen_removals,minimumObservedFree=minimum,counterCalls=len(counter_callers),abilityCounterCalls=owned_counter_calls,typeQueries=type_queries,clientTraps=client_traps,popups=popups,combatTypes=combat_types,eventTrace=event_trace,nativeStab=native_stab,indirectDamage=indirect_damage)
     result['powers']=powers;result['messages']=messages;result['statusChances']=status_chances;result['statusGenders']=status_genders
     emu.run_frames(20);emu.screenshot().save(a.evidence/f"{spec['label']}.png");(a.evidence/f"{spec['label']}-result.json").write_text(json.dumps(result,indent=2)+'\n');results.append(result);print(f"PASS {spec['label']}: HP {hp}; abilities {[s['ability']for s in menus]}",flush=True)
    except Exception as error:

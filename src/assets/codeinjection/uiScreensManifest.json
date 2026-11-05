@@ -1,0 +1,179 @@
+{
+  "version": 1,
+  "games": {
+    "W2": {
+      "idCode": "IRDO",
+      "overlay": 36,
+      "base": 35124800,
+      "hooks": [
+        {
+          "label": "UiCreate",
+          "address": 35259414,
+          "expectedHex": "00f023fa",
+          "patchSize": 4
+        },
+        {
+          "label": "UiTouch",
+          "address": 35260194,
+          "expectedHex": "9df689f9",
+          "patchSize": 4
+        },
+        {
+          "label": "UiNavigate",
+          "address": 35259988,
+          "expectedHex": "fff79aff",
+          "patchSize": 4
+        },
+        {
+          "label": "UiNavigate",
+          "address": 35260020,
+          "expectedHex": "fff78aff",
+          "patchSize": 4
+        },
+        {
+          "label": "UiNavigate",
+          "address": 35260048,
+          "expectedHex": "fff77cff",
+          "patchSize": 4
+        },
+        {
+          "label": "UiNavigate",
+          "address": 35260078,
+          "expectedHex": "fff76dff",
+          "patchSize": 4
+        }
+      ],
+      "contracts": [
+        {
+          "address": 35260512,
+          "expectedHex": "f0b589b0061c70680d1c141cdff730fee7f7b4f8071c012028602068a179a8602079e2790823287560796875022000900d200190012002900620a7f627fc6860a7f6fafc6868a7f63bfe0021a6f65cfc6868a7f635fe011ce06802220090019711204b278001bf000290f059012381f6ebf9206900284ad031880022012300916169aaf6b1ffe86033882069a169e269abf68cfa2861217a03a80180617a4180002181808171c1710181418108214c0206940794002181820221c18203a800900020019030880290381c1038283f3058e968f2592b69abf6cbfba861211cabf613fea8690121abf601fea8690021abf6b1fda8680728a86904d10021abf6f8fb09b0f0bd0121abf6f3fb09b0f0bd0020a86109b0f0bd",
+          "module": "36"
+        },
+        {
+          "address": 35259788,
+          "expectedHex": "70b5051c0e1ca87fe97ffff7f5ff041c281c21300078fff76dfe001f42011048a10080180818325c944216d0ff2a03d10220e877012070bdfe2a02d10120e87770bd062a03d007485100405ca87706485100405ce877012070bd002070bdc046",
+          "module": "36"
+        },
+        {
+          "address": 35260168,
+          "expectedHex": "70b588b01e4b051c00aa202118785b1c1070521c491ef9d100a89df689f9041c0020c043844228d01c2060432818c06b072822d0e20fe107891a1f20c14150180026a218a8775010e8774920ee62800028580021abf6f8fc062c05d1281c012100f022f808b070bd01206862281c311c00f01af801209cf607ff08b070bdc046",
+          "module": "36"
+        },
+        {
+          "address": 35259060,
+          "expectedHex": "f0b591b0051c6b880091171c0020022126220026a8f65efa0190341c1c20311c414369184c63711c09060e0e072ef6d31c20544978430f18534b02aa072118889b1c1080921c491ef9d1a0003e58042e1fd169881020a8f627f90c90a86968f623fc002807d1a86968f63afc011c0c98a8f68cf914e005aa02ab0232072118889b1c1080921c491ef9d105a90c980231eee73e497200895a0198a8f633fb0c900996062c43d0e20fe107891a1f20c1415018c001403009a908716208302050432c3048710879321c203808724879487200980c210d902e484a4381188058032e0e9048680f90886810900ad1a86968f625fc012805d108200e9018200f9023201090022e0ad1a86968f618fc012805d10e200e901e200f9029201090082e12d10b200e901b200f90262010900be0802109a80171b42141710021017241720d910e910f911091134a61005018515c09aa40789171291c1c23d07134316343281cc91800f023fa0c98a8f6b8f8601c0006040e072c00d268e7",
+          "module": "36"
+        },
+        {
+          "address": 33850716,
+          "expectedHex": "38b5051c64200090081c6900",
+          "module": "ARM9"
+        },
+        {
+          "address": 33850944,
+          "expectedHex": "30b4002242800e4c0a882388",
+          "module": "ARM9"
+        },
+        {
+          "address": 33850768,
+          "expectedHex": "014b00214160184779a20302",
+          "module": "ARM9"
+        },
+        {
+          "address": 33806904,
+          "expectedHex": "10b5041cfff762fc211cfff7",
+          "module": "ARM9"
+        }
+      ],
+      "specialMapAddress": 35454640,
+      "sha256": "60e678b54d9aa129cc233d4d04c061ef26beecf3973904dbd772cf1bba66722a"
+    },
+    "B2": {
+      "idCode": "IREO",
+      "overlay": 36,
+      "base": 35124736,
+      "hooks": [
+        {
+          "label": "UiCreate",
+          "address": 35259350,
+          "expectedHex": "00f023fa",
+          "patchSize": 4
+        },
+        {
+          "label": "UiTouch",
+          "address": 35260130,
+          "expectedHex": "9df693f9",
+          "patchSize": 4
+        },
+        {
+          "label": "UiNavigate",
+          "address": 35259924,
+          "expectedHex": "fff79aff",
+          "patchSize": 4
+        },
+        {
+          "label": "UiNavigate",
+          "address": 35259956,
+          "expectedHex": "fff78aff",
+          "patchSize": 4
+        },
+        {
+          "label": "UiNavigate",
+          "address": 35259984,
+          "expectedHex": "fff77cff",
+          "patchSize": 4
+        },
+        {
+          "label": "UiNavigate",
+          "address": 35260014,
+          "expectedHex": "fff76dff",
+          "patchSize": 4
+        }
+      ],
+      "contracts": [
+        {
+          "address": 35260448,
+          "expectedHex": "f0b589b0061c70680d1c141cdff730fee7f7b4f8071c012028602068a179a8602079e2790823287560796875022000900d200190012002900620a7f631fc6860a7f604fd6868a7f645fe0021a6f666fc6868a7f63ffe011ce06802220090019711204b278001bf000290f059012381f6f5f9206900284ad031880022012300916169aaf6bbffe86033882069a169e269abf696fa2861217a03a80180617a4180002181808171c1710181418108214c0206940794002181820221c18203a800900020019030880290381c1038283f3058e968f2592b69abf6d5fba861211cabf61dfea8690121abf60bfea8690021abf6bbfda8680728a86904d10021abf602fc09b0f0bd0121abf6fdfb09b0f0bd0020a86109b0f0bd",
+          "module": "36"
+        },
+        {
+          "address": 35259724,
+          "expectedHex": "70b5051c0e1ca87fe97ffff7f5ff041c281c21300078fff76dfe001f42011048a10080180818325c944216d0ff2a03d10220e877012070bdfe2a02d10120e87770bd062a03d007485100405ca87706485100405ce877012070bd002070bdc046",
+          "module": "36"
+        },
+        {
+          "address": 35260104,
+          "expectedHex": "70b588b01e4b051c00aa202118785b1c1070521c491ef9d100a89df693f9041c0020c043844228d01c2060432818c06b072822d0e20fe107891a1f20c14150180026a218a8775010e8774920ee62800028580021abf602fd062c05d1281c012100f022f808b070bd01206862281c311c00f01af801209cf611ff08b070bdc046",
+          "module": "36"
+        },
+        {
+          "address": 35258996,
+          "expectedHex": "f0b591b0051c6b880091171c0020022126220026a8f668fa0190341c1c20311c414369184c63711c09060e0e072ef6d31c20544978430f18534b02aa072118889b1c1080921c491ef9d1a0003e58042e1fd169881020a8f631f90c90a86968f643fc002807d1a86968f65afc011c0c98a8f696f914e005aa02ab0232072118889b1c1080921c491ef9d105a90c980231eee73e497200895a0198a8f63dfb0c900996062c43d0e20fe107891a1f20c1415018c001403009a908716208302050432c3048710879321c203808724879487200980c210d902e484a4381188058032e0e9048680f90886810900ad1a86968f645fc012805d108200e9018200f9023201090022e0ad1a86968f638fc012805d10e200e901e200f9029201090082e12d10b200e901b200f90262010900be0802109a80171b42141710021017241720d910e910f911091134a61005018515c09aa40789171291c1c23d07134316343281cc91800f023fa0c98a8f6c2f8601c0006040e072c00d268e7",
+          "module": "36"
+        },
+        {
+          "address": 33850672,
+          "expectedHex": "38b5051c64200090081c6900",
+          "module": "ARM9"
+        },
+        {
+          "address": 33850900,
+          "expectedHex": "30b4002242800e4c0a882388",
+          "module": "ARM9"
+        },
+        {
+          "address": 33850724,
+          "expectedHex": "014b0021416018474da20302",
+          "module": "ARM9"
+        },
+        {
+          "address": 33806860,
+          "expectedHex": "10b5041cfff762fc211cfff7",
+          "module": "ARM9"
+        }
+      ],
+      "specialMapAddress": 35454588,
+      "sha256": "8612d08c8250c7512a72f3614d6e71577ad083542fdb67b59d09497fb9ec8e1e"
+    }
+  }
+}

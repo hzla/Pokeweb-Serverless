@@ -6,7 +6,7 @@ export type AbilityParameterSite = {
   argument?: number; field?: number; width?: 1 | 4; scale?: number; minimum?: number; shiftBase?: number; original?: number; expected?: number;
 };
 export type NativeAbilityParameter = {
-  key: string; label: string; kind: "ability" | "type" | "status" | "majorStatus" | "stat" | "weather" | "category" | "number" | "conditionSet" | "typeSet";
+  key: string; label: string; kind: "ability" | "type" | "status" | "majorStatus" | "stat" | "weather" | "category" | "number" | "conditionSet" | "typeSet" | "damageSet";
   original: number; min: number; max: number; step: number; choices?: number[]; nonzero?: boolean;
   sites: AbilityParameterSite[];
   labels?: Record<number,string>; when?: {key:string;value:number|number[]}; hidden?: boolean;

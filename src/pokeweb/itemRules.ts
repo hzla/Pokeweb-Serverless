@@ -1,7 +1,8 @@
 import nativeProfiles from "../assets/data/itemEffectProfiles.json";
 import nativeBindings from "../assets/data/itemNativeBindings.json";
+import { ITEM_RECIPE_EFFECTS, ITEM_RECIPE_STATS, itemRecipeEffect, itemRecipeParameter, encodeItemRecipe } from "./itemRecipeEffects";
 
-export type ItemRuleEffectKind = "attack" | "specialAttack" | "defense" | "specialDefense" | "speed" | "damage" | "healPercent" | "healFlat" | "healDivisor" | "status" | "statStage" | "recoil" | "moveLock" | "critical" | "accuracy" | "incomingAccuracy" | "moveType" | "escapeTrap" | `native:${number}` | `nativeAbility:${number}` | `abilityRecipe:${string}` | "ability:power" | "ability:damage" | "ability:damageTaken" | "ability:immunity" | "ability:hitStat" | "ability:priority";
+export type ItemRuleEffectKind = "attack" | "specialAttack" | "defense" | "specialDefense" | "speed" | "damage" | "healPercent" | "healFlat" | "healDivisor" | "status" | "statStage" | "recoil" | "moveLock" | "critical" | "accuracy" | "incomingAccuracy" | "moveType" | "escapeTrap" | `native:${number}` | `nativeAbility:${number}` | `abilityRecipe:${string}` | `itemRecipe:${string}` | "ability:power" | "ability:damage" | "ability:damageTaken" | "ability:immunity" | "ability:hitStat" | "ability:priority";
 export type ItemRuleEffectDefinition = { kind: ItemRuleEffectKind; label: string; value: number; min: number; max: number; step: number; unit: string; nativeItem?: number; parameterLabel?: string; valueChoices?: number[]; valueLabels?: Record<number,string> };
 function nativeParameter(row: typeof nativeProfiles.rows[number]): { parameterLabel?: string; unit: string } {
   const functions = nativeBindings.functions as Record<string, { calls: Array<{ target: string }> }>, seen = new Set<string>();
@@ -45,6 +46,7 @@ export const ITEM_RULE_EFFECTS: readonly ItemRuleEffectDefinition[] = [
   { kind: "moveType", label: "Change move type", value: 9, min: 0, max: 17, step: 1, unit: "" },
   { kind: "escapeTrap", label: "Allow switching out of traps", value: 1, min: 1, max: 1, step: 1, unit: "" },
   ...nativeProfiles.rows.filter(row => ![223, 319].includes(row.id)).map(row => ({ kind: `native:${row.id}` as const, label: `${row.label} behavior`, value: -1, min: -1, max: 255, step: 1, ...nativeParameter(row), nativeItem: row.id })),
+  ...ITEM_RECIPE_EFFECTS,
 ];
 export const ITEM_RULE_TRIGGERS = ["entry", "turnEnd", "afterAttack", "afterHit", "afterContact", "hpCheck"] as const;
 export const ITEM_RULE_TARGETS = ["holder", "attacker", "defender"] as const;
@@ -73,6 +75,21 @@ export function validateItemRule(input: ItemRuleSet, definitions: readonly ItemR
     if (effect.kind === "statStage" && !effect.value) throw new Error("Choose a nonzero stat stage change.");
     if (effect.kind.startsWith("native:") && effect.value === 0) throw new Error("Use a positive native parameter or the original value.");
     const result: ItemRuleEffect = { kind: effect.kind, value: effect.value };
+    const recipe=itemRecipeEffect(effect.kind);
+    if(recipe){
+      const parameters:Record<string,number>={};
+      if(effect.parameters!==undefined){
+        if(!effect.parameters||typeof effect.parameters!=="object"||Array.isArray(effect.parameters))throw Error("Invalid item recipe parameters.");
+        for(const[key,value]of Object.entries(effect.parameters).sort(([a],[b])=>a.localeCompare(b))){
+          const control=recipe.parameters.find(p=>p.key===key);
+          if(!control||!Number.isFinite(value)||value<control.min||value>control.max||Math.abs(value/control.step-Math.round(value/control.step))>1e-7||control.choices&&!control.choices.includes(value))throw Error(`Invalid item recipe parameter: ${key}`);
+          parameters[key]=value;
+        }
+      }
+      if(Object.keys(parameters).length)result.parameters=parameters;
+      if(recipe.code===129&&!ITEM_RECIPE_STATS.some(key=>itemRecipeParameter(result,key)))throw Error("Choose at least one stat change.");
+      if([effect.trigger,effect.target,effect.stat,effect.chance,effect.weather,effect.move,effect.bypassable].some(v=>v!==undefined))throw Error("Use the item recipe's own parameters.");
+    }
     if (["status", "statStage", "recoil"].includes(effect.kind)) {
       const trigger = effect.trigger ?? (effect.kind === "statStage" ? "entry" : effect.kind === "status" ? "turnEnd" : "afterAttack");
       const target = effect.target ?? "holder", chance = effect.chance ?? 100;
@@ -160,6 +177,7 @@ export function encodeItemRulesV4(entries: ReadonlyMap<number, ItemRuleSet>): En
     }
     node(rule.conditions);
     for (const effect of rule.effects) {
+      if(itemRecipeEffect(effect.kind)){bytes.push(...encodeItemRecipe(effect));continue;}
       const offset = bytes.length, index = ITEM_RULE_EFFECTS.findIndex(value => value.kind === effect.kind);
       const isNative = effect.kind.startsWith("native:") || effect.kind === "moveLock";
       const opcode = isNative ? 128 : index + 1;

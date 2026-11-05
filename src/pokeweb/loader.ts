@@ -324,14 +324,14 @@ function extractOverlays(rom: NintendoDSRom, project: ProjectState, selectedNarc
   const includeAll = selectedNarcs.size === 0;
   const includeGrottos = includeAll || selectedNarcs.has("grottos");
   const includeMoves = includeAll || selectedNarcs.has("moves");
-  const includeItemEffects = project.session.baseRom === "BW2" && (includeAll || selectedNarcs.has("items") || selectedNarcs.has("personal"));
+  const includeItemEffects = ["BW","BW2"].includes(project.session.baseRom) && (includeAll || selectedNarcs.has("items") || selectedNarcs.has("personal"));
   const includeTutorMoves = includeAll || selectedNarcs.has("moves") || selectedNarcs.has("tutor_moves");
   const includeStarters = includeAll || selectedNarcs.has("starter_sprites");
   const moveEffectOverlayId = moveEffectHandlerOverlayId(project);
   const ids = [
     ...(project.session.baseRom === "BW2" ? [includeGrottos || includeTutorMoves ? BW2_TUTOR_MOVE_OVERLAY_ID : undefined] : []),
     includeMoves ? moveEffectOverlayId : undefined,
-    includeItemEffects ? 167 : undefined,
+    includeItemEffects ? project.session.baseRom==="BW"?93:167 : undefined,
     project.session.baseRom === "BW" && (includeAll || selectedNarcs.has("personal")) ? 93 : undefined,
     ...(includeStarters ? getStarterOverlayIds(project.session.baseRom) : []),
     ...(project.session.baseRom === "BW2" && (includeStarters || selectedNarcs.has("scripts")) ? PROFESSOR_INTRO_OVERLAY_IDS : []),

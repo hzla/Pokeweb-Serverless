@@ -1,7 +1,7 @@
 import { displayAbilityName } from "../pokeweb/abilityTextModel";
 import { inspectCustomMoveFlags } from "../pokeweb/abilityEffectsModel";
 import { customMoveFlagFilter, customMoveFlagId, type CustomMoveFlag } from "../pokeweb/customMoveFlags";
-import {recipeAbilityEffect,ABILITY_PROTECTED_CONDITION_LABELS} from "../pokeweb/abilityRecipeEffects";
+import {recipeAbilityEffect,ABILITY_PROTECTED_CONDITION_LABELS,ABILITY_DAMAGE_SOURCE_LABELS} from "../pokeweb/abilityRecipeEffects";
 import { nativeAbilityProfile } from "../pokeweb/abilityNativeRuntime";
 import { ITEM_RULE_EFFECTS, ITEM_RULE_WEATHER, ITEM_RULE_STATUS_LABELS, ITEM_RULE_STAT_LABELS, ITEM_RULE_TRIGGERS, ITEM_RULE_TARGETS, ITEM_RULE_TRIGGER_LABELS, validateItemRule, type ItemRuleCondition, type ItemRuleSet, type ItemRuleEffect, type ItemRuleEffectDefinition } from "../pokeweb/itemRules";
 import { configureItemRuleSets } from "../pokeweb/itemEffectsModel";
@@ -12,6 +12,7 @@ import { getItemRecord } from "../pokeweb/moveItemModel";
 import { escapeHtml } from "./dom";
 import { libraryAbilityEffect } from "../pokeweb/abilityLibraryEffects";
 import { appendItemRuleTemplate } from "../pokeweb/appendRuleTemplate";
+import { itemRecipeEffect } from "../pokeweb/itemRecipeEffects";
 
 export type RuleFormOptions = {
   definitions?: readonly ItemRuleEffectDefinition[];
@@ -57,7 +58,7 @@ function effectFields(effect: ItemRuleEffect, index: number, types: string[], op
     fields += `<label><span>Chance (%)</span><input data-rule-chance aria-label="Effect ${index + 1} chance" type="number" min="1" max="100" value="${effect.chance ?? 100}"></label>`;
   }
   if (effect.kind === "moveType") fields += `<label><span>Move ID (0 = any)</span><input data-rule-move aria-label="Move type filter" type="number" min="0" max="1023" value="${effect.move ?? 0}"></label>`;
-  const profile = nativeAbilityProfile(effect.kind), library=libraryAbilityEffect(effect.kind)??recipeAbilityEffect(effect.kind);
+  const profile = nativeAbilityProfile(effect.kind), library=libraryAbilityEffect(effect.kind)??recipeAbilityEffect(effect.kind)??itemRecipeEffect(effect.kind);
   if (profile?.stats) fields += select("data-rule-stat", "Stat lowered", ITEM_RULE_STAT_LABELS, effect.stat ?? profile.stats[0].original, 1);
   if (profile?.weather) fields += `<label><span>Weather check</span><select data-rule-native-weather aria-label="Native weather check">${option(-1, "Original", effect.weather ?? -1)}${ITEM_RULE_WEATHER.map((text, id) => option(id, text, effect.weather ?? -1)).join("")}</select></label>`;
   if (profile?.chances) fields += `<label><span>Activation chance (%)</span><input type="number" data-rule-native-chance aria-label="Native activation chance" min="1" max="100" placeholder="Original" value="${effect.chance ?? ""}"></label>`;
@@ -65,27 +66,33 @@ function effectFields(effect: ItemRuleEffect, index: number, types: string[], op
     if(control.when){const current=effect.parameters?.[control.when.key]??library?.parameters.find(p=>p.key===control.when!.key)?.original;if(Array.isArray(control.when.value)?!control.when.value.includes(current!):current!==control.when.value)continue;}
     if(control.hidden){fields+=`<input type="hidden" data-rule-native-parameter="${control.key}" value="${effect.parameters?.[control.key]??control.original}">`;continue;}
     if(libraryAbilityEffect(effect.kind)&&control.key==="type")continue;
-    if(control.kind==="conditionSet"||control.kind==="typeSet"){
-      const labels=control.kind==="conditionSet"?ABILITY_PROTECTED_CONDITION_LABELS:types;
+    if(control.kind==="conditionSet"||control.kind==="typeSet"||control.kind==="damageSet"){
+      const labels=control.kind==="conditionSet"?ABILITY_PROTECTED_CONDITION_LABELS:control.kind==="damageSet"?ABILITY_DAMAGE_SOURCE_LABELS:types;
       const mask=effect.parameters?.[control.key]??(control.kind==="typeSet"?1<<(effect.parameters?.type??0):control.original);
       fields+=`<fieldset class="ability-rule-set"><legend>${escapeHtml(control.label)}</legend>${labels.map((label,bit)=>`<label><input type="checkbox" data-rule-set="${control.key}" value="${1<<bit}" ${mask&(1<<bit)?"checked":""}>${escapeHtml(label)}</label>`).join("")}</fieldset>`;continue;
     }
-    if(effect.kind==="abilityRecipe:statGroup"&&control.key==="attackStages")fields+='<fieldset class="ability-rule-stats"><legend>Stat changes</legend>';
+    if(effect.kind==="abilityRecipe:statGroup"&&control.key==="attackStages"||effect.kind==="itemRecipe:hitStats"&&control.key==="attack")fields+='<fieldset class="ability-rule-stats"><legend>Stat changes</legend>';
     const value=effect.parameters?.[control.key], labels=control.kind==="ability"?abilityNames:control.kind==="type"?types:control.kind==="weather"?ITEM_RULE_WEATHER:control.kind==="category"?["Status","Physical","Special"]:control.kind==="stat"?["",...ITEM_RULE_STAT_LABELS,"All stats"]:control.kind==="status"||control.kind==="majorStatus"?["","Paralysis","Sleep","Freeze","Burn","Poison","Confusion","Infatuation"]:undefined;
     const custom=options.ability&&library&&control.key==="moveClass"?new Map(customFlags.map(flag=>[customMoveFlagFilter(flag.id),`Custom: ${flag.name}`])):new Map<number,string>();
     if(control.key==="moveClass"&&value!==undefined&&customMoveFlagId(value)!==undefined&&!custom.has(value))custom.set(value,`Missing custom flag ${value-13}`);
-    const text=(id:number)=>custom.get(id)??control.labels?.[id]??(id===14&&control.kind==="status"?"Yawn":(control.kind==="ability"?`${id} · ${labels?.[id]||`Ability ${id}`}`:labels?.[id]??String(id)));
+    const text=(id:number)=>custom.get(id)??control.labels?.[id]??(control.kind==="type"&&id===17&&id>=types.length?"Fairy (unavailable)":id===14&&control.kind==="status"?"Yawn":(control.kind==="ability"?`${id} · ${labels?.[id]||`Ability ${id}`}`:labels?.[id]??String(id)));
     const values=[...(control.choices??Array.from({length:control.max-control.min+1},(_,i)=>control.min+i)),...custom.keys()].filter(id=>control.kind!=="type"||id<types.length||control.labels?.[id]!==undefined);
+    if(control.kind==="type"&&value!==undefined&&!values.includes(value))values.push(value);
     const original=`Original (${labels||control.choices?text(control.original):Number(control.original.toFixed(3))})`;
     const current=value===undefined?"":labels||control.choices?text(value):String(value);
     const width=Math.max(18,Math.ceil(Math.max(original.length,current.length)*1.1));
     fields+=`<label class="item-rule-native-parameter" style="--rule-control-ch:${width}"><span>${escapeHtml(control.label)}</span>${labels||control.choices?`<select data-rule-native-parameter="${control.key}" aria-label="Effect ${index+1} ${escapeHtml(control.label.toLowerCase())}">${option("",original,value??"")}${values.map(id=>option(id,text(id),value??"")).join("")}</select>`:`<input type="number" data-rule-native-parameter="${control.key}" aria-label="Effect ${index+1} ${escapeHtml(control.label.toLowerCase())}" min="${control.min}" max="${control.max}" step="${control.step}" placeholder="${escapeHtml(original)}" value="${value??""}">`}</label>`;
-    if(effect.kind==="abilityRecipe:statGroup"&&control.key==="evasionStages")fields+='</fieldset>';
+    if(effect.kind==="abilityRecipe:statGroup"&&control.key==="evasionStages"||effect.kind==="itemRecipe:hitStats"&&control.key==="evasion")fields+='</fieldset>';
   }
   if (options.ability&&!(library&&"fixedBypass"in library&&library.fixedBypass)) fields += `<label class="ability-rule-bypass"><input type="checkbox" data-rule-bypass ${((effect as ItemRuleEffect & { bypassable?: boolean }).bypassable ?? (profile ? true : library?.bypassable ?? ["defense", "specialDefense", "incomingAccuracy"].includes(effect.kind))) ? "checked" : ""}>${profile ? "Use native Mold Breaker rules" : "Mold Breaker can bypass"}</label>`;
   return fields;
 }
+function portableItemOptions(project:ProjectState,options:RuleFormOptions):RuleFormOptions {
+  if(options.ability||project.session.baseRom!=="BW")return options;
+  return {...options,definitions:options.definitions??ITEM_RULE_EFFECTS.filter(e=>!e.nativeItem&&!["moveLock","moveType","escapeTrap"].includes(e.kind)),presets:options.presets??ITEM_RULE_PRESETS.filter(p=>p.id>=10001||p.id>=184&&p.id<=200)};
+}
 export function renderItemRuleForm(project: ProjectState, rule: ItemRuleSet, options: RuleFormOptions = {}): string {
+  options=portableItemOptions(project,options);
   const customFlags=options.ability?inspectCustomMoveFlags(project).registry.flags:[];
   const root = rule.conditions.kind === "group" ? rule.conditions : { kind: "group" as const, mode: "all" as const, children: [rule.conditions] };
   const presets=options.presets??ITEM_RULE_PRESETS,groups=[...new Set(presets.map(p=>"group"in p?p.group:undefined))];
@@ -136,6 +143,7 @@ export function readItemRuleForm(container: HTMLElement): ItemRuleSet {
     conditions: read(container.querySelector<HTMLElement>("[data-rule-group]")!), consumable: container.querySelector<HTMLInputElement>("[data-rule-consumable]")?.checked ?? false };
 }
 export function installItemRuleEditor(container: HTMLElement, project: ProjectState, itemId: number, applied: () => void, changed: () => void, options: RuleFormOptions = {}): void {
+  options=portableItemOptions(project,options);
   const replace = (rule: ItemRuleSet) => { container.innerHTML = renderItemRuleForm(project, rule, options); };
   const feedback = (message: string) => { const node = container.querySelector<HTMLElement>("[data-rule-feedback]")!; node.textContent = message; node.classList.add("-error"); };
   function at(rule: ItemRuleSet, path: string): ItemRuleCondition {
@@ -181,8 +189,9 @@ export function installItemRuleEditor(container: HTMLElement, project: ProjectSt
       if (action === "preset") {
         const selected = container.querySelector<HTMLSelectElement>("[data-rule-preset]")!.value;
         if (!selected) return;
-        const imported = options.preset ? options.preset(Number(selected)) : itemRulePreset(Number(selected), Boolean(Number(getItemRecord(project, Number(selected)).raw.consumable_flag)));
+        const imported = options.preset ? options.preset(Number(selected)) : itemRulePreset(Number(selected), Number(selected)<640&&Boolean(Number(getItemRecord(project, Number(selected)).raw.consumable_flag)),Boolean(project.session.fairy));
         const combined = appendItemRuleTemplate(rule, imported);
+        if(!options.ability&&!rule.effects.length)combined.consumable=imported.consumable;
         replace(combined); options.imported?.(Number(selected)); changed(); return;
       }
       if (action === "apply") {

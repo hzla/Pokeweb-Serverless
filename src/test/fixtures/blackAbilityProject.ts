@@ -1,3 +1,5 @@
+import environment from "../../assets/data/abilityEnvironmentBindings.json";
+import strikes from "../../assets/data/abilityStrikeBindings.json";
 import bindings from "../../assets/data/abilityBindingsB1.json";
 import whiteBindings from "../../assets/data/abilityBindingsW1.json";
 import { writeU16, writeU32 } from "../../nds/binary";
@@ -33,6 +35,14 @@ export function makeBw1AbilityProject(game:"B"|"W",shift=0,relocate=0,fairy=fals
   p.events.forEach((e,n)=>{writeU32(overlay,events+n*8,e.event);writeU32(overlay,events+n*8+4,locations.get(e.handler)!|1);});writeU32(overlay,table+i*8+4,(base+factory)|1);at=events+p.events.length*8;
  });
  for(const ref of catalog.tableRefs)writeU32(overlay,locations.get("AbilityEvent_AddItem")!-base+ref.offset,base+table+ref.column);
+ const extra={...environment.profiles[game],...strikes.profiles[game]};
+ for(const[name,signature]of Object.entries(extra)){
+  const bytes=hex(signature.hex),mask=hex(signature.mask),candidates:number[]=[];
+  for(let p=0;p+bytes.length<=at;p+=2)if(bytes.every((v,i)=>(v&mask[i])===(overlay[p+i]&mask[i])))candidates.push(p);
+  if(candidates.length===1){locations.set(name,base+candidates[0]);continue;}
+  locations.set(name,base+at);overlay.set(bytes,at);at=(at+bytes.length+3)&~3;
+ }
+ for(const[name,signature]of Object.entries(extra))for(const call of signature.calls){const address=locations.get(name)!,offset=address-base+call.offset,delta=locations.get(call.target)!-(address+call.offset+4);writeU16(overlay,offset,0xf000|(delta>>12)&0x7ff);writeU16(overlay,offset+2,0xf800|(delta>>1)&0x7ff);}
  const idCode=game==="W"?"IRAO":"IRBO";
  const bytes=new Uint8Array(0x1000);bytes.set(new TextEncoder().encode(idCode),12);writeU32(bytes,0x20,0x800);writeU32(bytes,0x28,armBase);writeU32(bytes,0x2c,4);writeU32(bytes,0x50,0x400);writeU32(bytes,0x54,32);writeU32(bytes,0x400,93);writeU32(bytes,0x404,base);
  const project={originalRomBytes:bytes,session:{baseRom:"BW",baseVersion:game,romName:`${game} fixture`,fairy,fileIds:{},blacklist:[]},romInfo:{idCode,fileName:"fixture.nds",title:"Fixture",size:bytes.length},arm9:arm9.slice(0,armAt),overlays:{93:overlay.slice(0,at)},formats:getNarcFormats("BW"),trpokInfo:[],narcs:{},texts:{banks:{abilities:Array.from({length:165},(_,i)=>`Ability ${i}`)}}} as ProjectState;

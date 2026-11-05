@@ -10,6 +10,8 @@ import { ProjectDocumentError } from "./pokeweb/projectDocument";
 import { defaults as defaultCGearButtons } from "./cgearButtons/document";
 import { renderCGearButtonsEditor, stopCGearButtonsEditor } from "./ui/cgearButtonsEditor";
 import "./styles/customUi.css";
+import "./styles/uiScreens.css";
+import { renderUiScreensEditor, stopUiScreensEditor } from "./ui/uiScreensEditor";
 import { renderCustomUiEditor, stopCustomUiEditor } from "./ui/customUiEditor";
 import "./styles.css";
 import "./styles/legacyLayout.css";
@@ -174,6 +176,7 @@ type AppRoute =
   | "cgearButtons"
   | "systemShops"
   | "flagReference"
+  | "uiScreens"
   | "customUi"
   | "battleBackgrounds"
   | "randomizer"
@@ -293,6 +296,7 @@ const APP_ROUTES: AppRoute[] = [
   "moveEffectHandlers",
   "moveBackgrounds",
   "titleScreen",
+  "uiScreens",
   "customUi",
   "cgearButtons",
   "systemShops",
@@ -349,6 +353,7 @@ const EDITOR_REQUIREMENTS: Record<
   moveBackgrounds: ["move_animations", "battle_animations"],
   battleBackgrounds: [],
   titleScreen: [],
+  uiScreens: [],
   customUi: [],
   cgearButtons: [],
   systemShops: [],
@@ -703,6 +708,7 @@ function renderApp(): void {
   if (previousContent) stopTrainerImageRendering(previousContent);
   stopTitleScreenEditor();
   stopCustomUiEditor();
+  stopUiScreensEditor();
   stopCGearButtonsEditor();
   stopBw2ScriptEditor();
   stopTownMapView?.(); stopTownMapView = undefined;
@@ -1241,6 +1247,11 @@ function renderApp(): void {
     return;
   }
 
+  if (route === "uiScreens") {
+    void renderUiScreensEditor(project, content, () => { dirty = true; scheduleSave(project!); renderDirtyIndicator(); });
+    return;
+  }
+
   if (route === "customUi") {
     void renderCustomUiEditor(project, content, () => { dirty = true; scheduleSave(project!); renderDirtyIndicator(); });
     return;
@@ -1501,7 +1512,10 @@ function renderMoreMenu(): string {
     ["cgearButtons", "C-Gear buttons"],
     ["flagReference", "Flag reference"],
   ];
-  if (project?.session.baseRom === "BW2") moreRoutes.splice(3, 0, ["titleScreen", "Title screen"]);
+  if (project?.session.baseRom === "BW2") {
+    moreRoutes.splice(3, 0, ["titleScreen", "Title screen"]);
+    if (canUseLocalRomBridge()) moreRoutes.splice(4, 0, ["uiScreens", "UI screens"]);
+  }
   const active = moreRoutes.some(([moreRoute]) => route === moreRoute);
   return `
     <div class="header-more ${active ? "-active" : ""}">
@@ -2651,6 +2665,7 @@ function loadedNarcNames(currentProject: ProjectState): NarcName[] {
 }
 
 function hasAnyRomChanges(currentProject: ProjectState): boolean {
+  if (currentProject.uiScreens && JSON.stringify(currentProject.uiScreens.draft) !== JSON.stringify(currentProject.uiScreens.applied)) return true;
   if(currentProject.systemShops&&JSON.stringify(currentProject.systemShops.document)!==JSON.stringify(currentProject.systemShops.applied))return true;
   if (currentProject.cgearButtons && JSON.stringify(currentProject.cgearButtons.document) !== JSON.stringify(currentProject.cgearButtons.applied ?? defaultCGearButtons(currentProject.session.baseRom === "BW" ? "BW" : "BW2"))) return true;
   if (dirty || currentProject.arm9Dirty || currentProject.tms?.dirty) return true;
@@ -2672,6 +2687,7 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
   if (nextRoute === "cgearButtons") return (project.session.baseRom === "BW" || project.session.baseRom === "BW2") && hasExportBase;
   if (nextRoute === "flagReference") return project.session.baseRom === "BW" || project.session.baseRom === "BW2";
   if (nextRoute === "systemShops") return project.session.baseRom === "BW2" && hasExportBase;
+  if (nextRoute === "uiScreens") return canUseLocalRomBridge() && project.session.baseRom === "BW2" && hasExportBase;
   if (nextRoute === "customUi") return false;
   if (nextRoute === "titleScreen") return project.session.baseRom === "BW2" && hasExportBase;
   if (nextRoute === "trainerMusic") return isGen5Project(project);

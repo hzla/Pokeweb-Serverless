@@ -261,6 +261,9 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
  u32 ability=SUB(item),used=entryUsed[owner][ability>>5]&(1u<<(ability&31)),mark=0;
 #endif
  const volatile u8*e=effects(r);
+#if defined(ABILITY_ENVIRONMENT) && defined(ABILITY_RECIPES)
+ u32 environmentStatusBlocked=0;
+#endif
  for(u32 n=0;n<r[0];++n,e+=16){
 #ifdef ABILITY_PRIORITY
   /* Keep contact reactions in the donor's priority group, including mixed recipes. */
@@ -271,6 +274,10 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
  e[15]?e[15]:5)!=7-(*(u32*)((u8*)item+0x14)>>24))continue;
 #endif
   u32 kind=e[0],v=half(e+2),yes=0;if(bypassed(item,f,event,e))continue;
+#if defined(ABILITY_ENVIRONMENT) && defined(ABILITY_RECIPES)
+  if(kind==168||kind==169){environmentEntry(f,owner,e,event);continue;}
+  if(kind==170){environmentStatusBlocked|=environmentDamageGuard(f,owner,e,event);continue;}
+#endif
 #if defined(ABILITY_RECIPES) && defined(ABILITY_COMPACT)
   if(kind==166||kind==167){recipeEffect(item,f,owner,e,event,nativeWork[owner][n],used);if(kind==167&&(e[1]&7)==0&&(e[1]&8)&&onEntry(event,owner)&&!preview(f))mark=1;continue;}
 #endif
@@ -322,6 +329,10 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
  }
 #ifdef ABILITY_RECIPES
  if(mark)entryUsed[owner][ability>>5]|=1u<<(ability&31);
+#endif
+#if defined(ABILITY_ENVIRONMENT) && defined(ABILITY_RECIPES)
+ /* Immunity wins over later minimum-one modifiers in the same activation. */
+ if(environmentStatusBlocked)REWRITE(0x32,0);
 #endif
  if(event==0x77)healing(item,f,owner,r,event);
 #ifdef ABILITY_POPUP_GROUPS

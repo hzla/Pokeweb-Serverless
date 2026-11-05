@@ -17,7 +17,7 @@
 
 /* ---------- List column ---------- */
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-list {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-list {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -25,48 +25,48 @@
   border-right: 1px solid var(--ink-3);
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-filters {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-filters {
   display: grid;
   gap: 8px;
   padding: 12px 12px 10px 16px;
   border-bottom: 1px solid var(--ink-3);
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-search {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-search {
   width: 100%;
   min-height: 32px;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-chips {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-chips {
   display: flex;
   gap: 6px;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-filter {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-filter {
   position: relative;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-filter > summary {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-filter > summary {
   list-style: none;
   cursor: pointer;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-filter > summary::-webkit-details-marker {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-filter > summary::-webkit-details-marker {
   display: none;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-filter.-active > summary {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-filter.-active > summary {
   border-color: var(--amber);
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-filter-count:not(:empty) {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-filter-count:not(:empty) {
   min-width: 16px;
   margin-left: 2px;
   color: var(--amber);
   font-weight: 600;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-filter-pop {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-filter-pop {
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
@@ -83,36 +83,36 @@
   box-shadow: 0 8px 24px rgb(0 0 0 / 45%);
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-filter-pop.gen-filters {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-filter-pop.gen-filters {
   grid-template-columns: repeat(3, 72px);
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-filter-pop .btn img {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-filter-pop .btn img {
   width: 18px;
   height: 18px;
   object-fit: contain;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-type-toggle {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-type-toggle {
   border: 0;
   cursor: pointer;
   opacity: 0.5;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-type-toggle:hover {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-type-toggle:hover {
   opacity: 0.8;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-type-toggle[aria-pressed="true"] {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-type-toggle[aria-pressed="true"] {
   opacity: 1;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-type-toggle[aria-pressed="true"]::before {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-type-toggle[aria-pressed="true"]::before {
   content: "\2713\00a0";
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-list-head,
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-row {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-list-head,
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-row {
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr) 64px 34px;
   align-items: center;
@@ -120,40 +120,40 @@
   padding: 0 12px 0 16px;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-list-head {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-list-head {
   padding-top: 8px;
   padding-bottom: 6px;
   color: var(--text-muted);
   font: 600 12px/1 var(--font-cond);
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-list-head span:nth-child(3),
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-list-head span:nth-child(4) {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-list-head span:nth-child(3),
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-list-head span:nth-child(4) {
   text-align: right;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-rows {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-rows {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
   outline: none;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-row {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-row {
   position: relative;
   height: 36px;
   cursor: pointer;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-row:hover {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-row:hover {
   background: var(--row-hover);
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-row.is-selected {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-row.is-selected {
   background: var(--ink-2);
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-row.is-selected::before {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-row.is-selected::before {
   content: "";
   position: absolute;
   inset: 0 auto 0 0;
@@ -161,32 +161,32 @@
   background: var(--amber);
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-rows:focus-visible .md-row.is-selected {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-rows:focus-visible .md-row.is-selected {
   box-shadow: inset 0 0 0 1px var(--amber);
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-row-id {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-row-id {
   color: var(--text-muted);
   font-size: 13px;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-row-name {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-row-name {
   overflow: hidden;
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-row .type-plate {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-row .type-plate {
   justify-self: end;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-row-pow {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-row-pow {
   color: var(--text-muted);
   text-align: right;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-edits {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-edits {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -196,140 +196,140 @@
   font-weight: 600;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-edits::before {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-edits::before {
   content: "";
   width: 3px;
   height: 12px;
   background: var(--amber);
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-list-foot {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-list-foot {
   padding: 8px 16px;
   border-top: 1px solid var(--ink-3);
   color: var(--text-muted);
   font-size: 12px;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-tools {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-tools {
   padding: 0 16px 12px;
   color: var(--text-muted);
   font-size: 13px;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-tools > summary {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-tools > summary {
   padding: 8px 0;
   cursor: pointer;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-tools .filter-title {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-tools .filter-title {
   display: none;
 }
 
 /* ---------- Detail ---------- */
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-detail {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-detail {
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
   padding: 20px 28px 32px;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-card {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-card {
   max-width: 1180px;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-head {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 24px;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-head-main {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-head-main {
   display: grid;
   gap: 10px;
   min-width: 0;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-title {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-title {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-title h1 {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-title h1 {
   margin: 0;
   font-size: 24px;
   font-weight: 600;
   line-height: 1.2;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-num {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-num {
   color: var(--text-muted);
   font-size: 16px;
   font-weight: 500;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-title [data-autocomplete] {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-title [data-autocomplete] {
   display: inline-block;
 }
 
-#content-container :is(#move-data, #pokemon-data, #trainer-data, #facility-data, #encounter-data, #item-data, #text-data, #sprite-data, #header-data) .md-title .type-plate[contenteditable="true"] {
+#content-container :is(#move-data, #pokemon-data, #trainer-data, #facility-data, #encounter-data, #item-data, #text-data, #sprite-data, #header-data, #music-data) .md-title .type-plate[contenteditable="true"] {
   min-width: 84px;
   cursor: text;
   outline: none;
 }
 
-#content-container :is(#move-data, #pokemon-data, #trainer-data, #facility-data, #encounter-data, #item-data, #text-data, #sprite-data, #header-data) .md-title .type-plate[contenteditable="true"]:focus {
+#content-container :is(#move-data, #pokemon-data, #trainer-data, #facility-data, #encounter-data, #item-data, #text-data, #sprite-data, #header-data, #music-data) .md-title .type-plate[contenteditable="true"]:focus {
   box-shadow: none;
   filter: brightness(1.15);
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-category {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-category {
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-category img {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-category img {
   width: 26px;
   height: 26px;
   object-fit: contain;
   cursor: pointer;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-category img.unchosen {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-category img.unchosen {
   opacity: 0.25;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-category img.unchosen:hover {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-category img.unchosen:hover {
   opacity: 0.6;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-effect {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-effect {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-hint,
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-stat > span {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-hint,
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-stat > span {
   color: var(--text-muted);
   font-size: 12px;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-effect .move-effect {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-effect .move-effect {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-#content-container :is(#move-data, #pokemon-data, #trainer-data, #facility-data, #encounter-data, #item-data, #text-data, #sprite-data, #header-data) .md-effect .move-effect-name {
+#content-container :is(#move-data, #pokemon-data, #trainer-data, #facility-data, #encounter-data, #item-data, #text-data, #sprite-data, #header-data, #music-data) .md-effect .move-effect-name {
   min-width: 380px;
   padding-right: 26px;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-effect .move-effect-id {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-effect .move-effect-id {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -337,43 +337,43 @@
   font-size: 12px;
 }
 
-#content-container :is(#move-data, #pokemon-data, #trainer-data, #facility-data, #encounter-data, #item-data, #text-data, #sprite-data, #header-data) .md-effect .move-effect-id-input {
+#content-container :is(#move-data, #pokemon-data, #trainer-data, #facility-data, #encounter-data, #item-data, #text-data, #sprite-data, #header-data, #music-data) .md-effect .move-effect-id-input {
   width: 64px;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-keystats {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-keystats {
   display: flex;
   gap: 16px;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-stat {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-stat {
   position: relative;
   display: grid;
   justify-items: end;
   gap: 4px;
 }
 
-#content-container :is(#move-data, #pokemon-data, #trainer-data, #facility-data, #encounter-data, #item-data, #text-data, #sprite-data, #header-data) .md-stat .move-power,
-#content-container :is(#move-data, #pokemon-data, #trainer-data, #facility-data, #encounter-data, #item-data, #text-data, #sprite-data, #header-data) .md-stat .move-accuracy {
+#content-container :is(#move-data, #pokemon-data, #trainer-data, #facility-data, #encounter-data, #item-data, #text-data, #sprite-data, #header-data, #music-data) .md-stat .move-power,
+#content-container :is(#move-data, #pokemon-data, #trainer-data, #facility-data, #encounter-data, #item-data, #text-data, #sprite-data, #header-data, #music-data) .md-stat .move-accuracy {
   width: 64px;
   text-align: right;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-tabs {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-tabs {
   display: flex;
   gap: 2px;
   margin-top: 18px;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-tabs .uv-tab[aria-selected="true"] {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-tabs .uv-tab[aria-selected="true"] {
   background: var(--ink-1);
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-panels {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-panels {
   background: var(--ink-1);
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-panels > .expanded-card-content {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-panels > .expanded-card-content {
   display: none;
   width: auto;
   margin: 0;
@@ -383,19 +383,19 @@
   font-size: 14px;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-panels > .expanded-card-content.is-open {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-panels > .expanded-card-content.is-open {
   display: block;
 }
 
 /* Data tab */
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-grid {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 24px;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-form {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-form {
   display: grid;
   grid-template-columns: 104px minmax(0, 1fr);
   align-items: center;
@@ -404,7 +404,7 @@
   padding-left: 8px;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-value {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-value {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -412,7 +412,7 @@
   min-width: 0;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-unit {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-unit {
   color: var(--text-muted);
 }
 
@@ -421,10 +421,10 @@
   position: relative;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-label.is-edited::before,
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-check.is-edited::before,
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-label.is-edited::before,
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-check.is-edited::before,
 :is(.move-data, .trainer-data, .facility-data, .encounter-data, .item-data) tr.is-edited td:first-child::before,
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-stat.is-edited::before {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-stat.is-edited::before {
   content: "";
   position: absolute;
   left: -8px;
@@ -439,19 +439,19 @@
   position: relative;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-stat.is-edited::before {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-stat.is-edited::before {
   top: 8px;
   left: auto;
   right: calc(100% + 6px);
 }
 
 /* Numbers: 64px, right-aligned. Pickers: left-aligned with a chevron. */
-#content-container :is(#move-data, #pokemon-data, #trainer-data, #facility-data, #encounter-data, #item-data, #text-data, #sprite-data, #header-data) .md-card [contenteditable="true"][data-type] {
+#content-container :is(#move-data, #pokemon-data, #trainer-data, #facility-data, #encounter-data, #item-data, #text-data, #sprite-data, #header-data, #music-data) .md-card [contenteditable="true"][data-type] {
   width: 64px;
   text-align: right;
 }
 
-#content-container :is(#move-data, #pokemon-data, #trainer-data, #facility-data, #encounter-data, #item-data, #text-data, #sprite-data, #header-data) .md-card [contenteditable="true"][data-autofill]:not(.type-plate) {
+#content-container :is(#move-data, #pokemon-data, #trainer-data, #facility-data, #encounter-data, #item-data, #text-data, #sprite-data, #header-data, #music-data) .md-card [contenteditable="true"][data-autofill]:not(.type-plate) {
   min-width: 0;
   width: 100%;
   padding-right: 26px;
@@ -463,81 +463,81 @@
   background-repeat: no-repeat;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-form [data-autocomplete] {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-form [data-autocomplete] {
   flex: 1 1 auto;
   min-width: 0;
   max-width: 240px;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-managed {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-managed {
   color: var(--text-muted);
   font-size: 13px;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-table {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-table {
   width: 100%;
   border-collapse: collapse;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-table th {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-table th {
   padding: 0 8px 6px 0;
   color: var(--text-muted);
   font: 600 12px/1 var(--font-cond);
   text-align: left;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-table td {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-table td {
   padding: 2px 8px 2px 0;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-table .r {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-table .r {
   text-align: right;
 }
 
-#content-container :is(#move-data, #pokemon-data, #trainer-data, #facility-data, #encounter-data, #item-data, #text-data, #sprite-data, #header-data) .md-table td.r > [contenteditable] {
+#content-container :is(#move-data, #pokemon-data, #trainer-data, #facility-data, #encounter-data, #item-data, #text-data, #sprite-data, #header-data, #music-data) .md-table td.r > [contenteditable] {
   display: inline-block;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-table td:first-child {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-table td:first-child {
   width: 100%;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .section-bar.md-gap {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .section-bar.md-gap {
   margin-top: 20px;
 }
 
 /* Flags */
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-flags {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-flags {
   margin-top: 20px;
   padding-top: 16px;
   border-top: 1px solid var(--ink-2);
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-flag-grid,
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .move-dll-flags-options {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-flag-grid,
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .move-dll-flags-options {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 10px 16px;
   padding-left: 8px;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-check,
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .move-dll-flags-options > label {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-check,
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .move-dll-flags-options > label {
   display: flex;
   align-items: center;
   font-size: 14px;
   cursor: pointer;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .move-dll-flags {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .move-dll-flags {
   margin-top: 18px;
   padding: 0;
   border: 0;
   background: none;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .move-dll-flags-heading {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .move-dll-flags-heading {
   display: flex;
   align-items: baseline;
   gap: 10px;
@@ -546,7 +546,7 @@
   font-size: 13px;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .move-dll-flags-heading strong {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .move-dll-flags-heading strong {
   color: var(--text);
   font-weight: 600;
 }
@@ -583,43 +583,43 @@
 }
 
 /* Text tab: the shared text panel, on the Unova surfaces */
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .md-panels > .expanded-move-texts {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .md-panels > .expanded-move-texts {
   padding: 0;
   border: 0;
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .move-text-editor {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .move-text-editor {
   background: none;
   border-bottom: 1px solid var(--ink-2);
 }
 
-#content-container :is(#move-data, #pokemon-data, #trainer-data, #facility-data, #encounter-data, #item-data, #text-data, #sprite-data, #header-data) .move-text-name-input,
-#content-container :is(#move-data, #pokemon-data, #trainer-data, #facility-data, #encounter-data, #item-data, #text-data, #sprite-data, #header-data) .move-text-description-input {
+#content-container :is(#move-data, #pokemon-data, #trainer-data, #facility-data, #encounter-data, #item-data, #text-data, #sprite-data, #header-data, #music-data) .move-text-name-input,
+#content-container :is(#move-data, #pokemon-data, #trainer-data, #facility-data, #encounter-data, #item-data, #text-data, #sprite-data, #header-data, #music-data) .move-text-description-input {
   background-color: var(--field);
   border-color: var(--field-line);
   color: var(--text);
   font: 400 14px/1.4 var(--font);
 }
 
-:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data) .move-text-control span {
+:is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data) .move-text-control span {
   font-size: 13px;
   font-weight: 600;
 }
 
 /* Text bank headers (Move Text tab, Pokemon Names tab): raised ink, not a slate bar. */
-#content-container :is(#move-data, #pokemon-data, #trainer-data, #facility-data, #encounter-data, #item-data, #text-data, #sprite-data, #header-data) :is(.move-text-bank-header, .pokemon-text-bank-header) {
+#content-container :is(#move-data, #pokemon-data, #trainer-data, #facility-data, #encounter-data, #item-data, #text-data, #sprite-data, #header-data, #music-data) :is(.move-text-bank-header, .pokemon-text-bank-header) {
   padding: 8px 14px;
   background: var(--ink-2);
   border: 0;
 }
 
-#content-container :is(#move-data, #pokemon-data, #trainer-data, #facility-data, #encounter-data, #item-data, #text-data, #sprite-data, #header-data) :is(.move-text-bank-header, .pokemon-text-bank-header) span {
+#content-container :is(#move-data, #pokemon-data, #trainer-data, #facility-data, #encounter-data, #item-data, #text-data, #sprite-data, #header-data, #music-data) :is(.move-text-bank-header, .pokemon-text-bank-header) span {
   color: var(--text);
   font-size: 14px;
   font-weight: 600;
 }
 
-#content-container :is(#move-data, #pokemon-data, #trainer-data, #facility-data, #encounter-data, #item-data, #text-data, #sprite-data, #header-data) :is(.move-text-bank-header, .pokemon-text-bank-header) small {
+#content-container :is(#move-data, #pokemon-data, #trainer-data, #facility-data, #encounter-data, #item-data, #text-data, #sprite-data, #header-data, #music-data) :is(.move-text-bank-header, .pokemon-text-bank-header) small {
   color: var(--text-muted);
   font-size: 12px;
 }

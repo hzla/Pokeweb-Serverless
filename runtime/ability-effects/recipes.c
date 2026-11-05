@@ -24,6 +24,9 @@ PUBLIC __attribute__((naked)) void AbilityNativeCallback(void){
 #endif
 static u32 entryUsed[32][8];
 static u32 recipeMove,recipeCritical,recipeEffectiveness,entrySource;
+#ifdef ABILITY_STRIKES
+#include "strikes.c"
+#endif
 #ifdef ABILITY_BATTLE_MESSAGES
 static u32 actionMove,actionUser;
 #endif
@@ -54,6 +57,9 @@ static void actionObserve(void*,u8,const volatile u8*,u32);
 static u32 actionMoveMatches(const volatile u8*,const u32*);
 #endif
 PUBLIC void AbilityRecipeInit(void){
+#ifdef ABILITY_STRIKES
+ strikeInit();
+#endif
 #ifdef ABILITY_SCOPED
  scopedInit();
 #endif
@@ -73,6 +79,9 @@ PUBLIC void AbilityRecipeHandlers(void*f,u32 event,u32 factor,u32 check){
  scopedBefore(f,event);
 #endif
  RX(22,void(*)(void*,u32,u32,u32))(f,event,factor,check);entrySource=previous;
+#ifdef ABILITY_STRIKES
+ strikeAfterHandlers(f,event);
+#endif
 #ifdef ABILITY_SCOPED
  scopedAfter(f,event);
 #endif
@@ -174,6 +183,9 @@ static void abilityStatGuard(void*f,u8 owner,const volatile u8*e,u32 event){
   if(!(source->blocked&(1u<<owner))){source->blocked|=1u<<owner;guardMessage(f,owner,owner,198);}
  }
 }
+#endif
+#ifdef ABILITY_ENVIRONMENT
+#include "environment.c"
 #endif
 static void recipeEffect(void*item,void*f,u8 owner,const volatile u8*e,u32 event,u32*w,u32 used){
  u32 kind=e[0],v=half(e+2),hp=STAT(MON(f,owner),13);s32 signedValue=(int16_t)v;
