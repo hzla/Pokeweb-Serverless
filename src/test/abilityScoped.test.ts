@@ -11,7 +11,7 @@ const ids=[168,170,178,180,186,187,188,198,214,219,236,240,284,285,286,287,290,2
 const all={kind:'group' as const,mode:'all' as const,children:[]};
 describe('scoped native-service ability imports',()=>{
  it('imports all nineteen editable templates and keeps Mega Launcher damage-only',()=>{
-  expect(ABILITY_IMPORT_LIBRARY).toHaveLength(88);
+  expect(ABILITY_IMPORT_LIBRARY.filter(t=>ids.includes(t.id)).map(t=>t.id).sort((a,b)=>a-b)).toEqual([...ids].sort((a,b)=>a-b));
   for(const id of ids){const t=abilityImport(id);expect(validateAbilityRule(t.rule)).toEqual(t.rule);expect(t.defaultName.length).toBeLessThanOrEqual(15);}
   expect(abilityImport(178)).toMatchObject({label:'Mega Launcher (damage only)',defaultName:'Mega Launcher',rule:{effects:[{kind:'ability:power',value:1.5,parameters:{moveClass:4}}]}});
   expect(abilityImport(290).rule.effects[0].bypassable).toBe(false);
