@@ -91,7 +91,8 @@ import { renderHeaderEditor } from "./ui/headerEditor";
 import { renderOverworldWeatherEditor, stopOverworldWeatherEditorPreview } from "./ui/overworldWeatherEditor";
 import { renderOverworldWeatherGraphicsEditor, stopOverworldWeatherGraphicsEditor } from "./ui/overworldWeatherGraphicsEditor";
 import { renderEncounterEditor, selectEncounterArea } from "./ui/encounterEditor";
-import { renderMoveAnimationPage, renderMoveEditor } from "./ui/moveItemEditor";
+import { renderMoveEditor } from "./ui/moveItemEditor";
+import { renderMoveAnimationPage } from "./ui/moveAnimationEditorPage";
 import { renderItemEditor } from "./ui/itemEditor";
 import { renderMoveEffectHandlerEditor } from "./ui/moveEffectHandlerEditor";
 import { renderMoveBackgroundEditor } from "./ui/moveBackgroundEditor";
@@ -1171,11 +1172,19 @@ function renderApp(): void {
   }
 
   if (route === "moveAnimation") {
-    renderMoveAnimationPage(project, content, activeMoveAnimationMoveId ?? 0, () => {
-      dirty = true;
-      scheduleSave(project!);
-      renderDirtyIndicator();
-    }, (moveId, scriptText) => launchMoveTestBattle(moveId, scriptText), () => navigate("moves"), openMoveAnimation);
+    renderMoveAnimationPage(project, content, activeMoveAnimationMoveId ?? 1, {
+      onDirty: () => {
+        dirty = true;
+        scheduleSave(project!);
+        renderDirtyIndicator();
+      },
+      onTestMove: (moveId, scriptText) => launchMoveTestBattle(moveId, scriptText),
+      // Picking a move rewrites the current history entry instead of stacking one per click.
+      onSelect: (moveId) => {
+        activeMoveAnimationMoveId = moveId;
+        syncBrowserHistory(true);
+      },
+    });
     return;
   }
 
@@ -1614,6 +1623,7 @@ function renderMovesMenu(): string {
       <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Moves</button>
       <div class="header-more-menu">
         ${navItem("moves", "Move data")}
+        ${navItem("moveAnimation", "Animations")}
         ${navItem("tms", "TMs")}
         ${navItem("tutorMoves", "Tutors")}
         ${navItem("moveEffectHandlers", "Effect handlers")}
@@ -2808,7 +2818,6 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
           : ` title="Missing: ${requirements.filter((name) => !project?.narcs[name]).join(", ")}"`;
   const active =
     route === nextRoute ||
-    (nextRoute === "moves" && route === "moveAnimation") ||
     (nextRoute === "trainers" && (route === "trainerSprites" || route === "playerBackSprite"));
   return `<a class="header-item ${active ? "-active" : ""} ${enabled ? "" : "disabled"}" href="${routeUrl(nextRoute, overworldId ?? activeOverworldId)}" ${enabled ? `data-route="${nextRoute}"${overworldId !== undefined ? ` data-overworld-id="${overworldId}"` : ""}` : ""}${missing}>${label}</a>`;
 }
@@ -2818,7 +2827,6 @@ function safeRoute(nextRoute: AppRoute): AppRoute {
   if (!project || nextRoute === "upload" || nextRoute === "debugNarcs") return nextRoute;
   if (nextRoute === "grottoOdds") return canVisit("grottos") ? nextRoute : safeRoute("grottos");
   if (nextRoute === "overworlds" && activeOverworldId === undefined) return safeRoute("headers");
-  if (nextRoute === "moveAnimation" && activeMoveAnimationMoveId === undefined) return safeRoute("moves");
   if (nextRoute === "pokemonSprites" && activePokemonSpriteSpeciesId === undefined) return safeRoute("pokemon");
   if (nextRoute === "trainerSprites" && activeTrainerSpriteClassId === undefined) return safeRoute("trainers");
   if (canVisit(nextRoute)) return nextRoute;

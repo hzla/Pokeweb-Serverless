@@ -8,7 +8,7 @@ import {
   getMoveAnimationDisplayCommandName,
   getMoveAnimationGenericCommandAliases,
 } from "../pokeweb/moveAnimationCommandNames";
-import { getMoveAnimationVmSchema } from "../pokeweb/moveAnimationVmSchema";
+import { getMoveAnimationVmSchema, type MoveAnimationVmCommandSchema } from "../pokeweb/moveAnimationVmSchema";
 import {
   getMoveAnimationEnumCompletions,
   isMoveAnimationEnumToken,
@@ -21,7 +21,31 @@ export type MoveAnimationCodeEditor = {
   getValue: () => string;
   setValue: (value: string) => void;
   setInvalid: (invalid: boolean) => void;
+  /** Replaces one 1-based line without moving the cursor off it. */
+  replaceLine: (lineNumber: number, text: string) => void;
+  /** Puts the cursor at the start of a 1-based line and scrolls it into view. */
+  focusLine: (lineNumber: number, options?: { focus?: boolean }) => void;
+  /** Moves the cursor to the previous or next command line. Returns false at either end. */
+  stepCommand: (direction: -1 | 1) => boolean;
+  focus: () => void;
   destroy: () => void;
+};
+
+export type MoveAnimationLineKind = "command" | "unknown" | "label" | "directive" | "comment" | "blank";
+
+export type MoveAnimationLineInfo = {
+  lineNumber: number;
+  text: string;
+  kind: MoveAnimationLineKind;
+  indent: string;
+  /** The name as written in the script. */
+  commandName?: string;
+  definition?: MoveAnimationVmCommandSchema;
+  doc?: MoveAnimationCommandDoc;
+  /** Parameter tokens as written, in order. */
+  params: string[];
+  /** Trailing comment including the leading "@", or "". */
+  comment: string;
 };
 
 export type MoveAnimationCommandDoc = {
@@ -44,6 +68,9 @@ export type MoveAnimationCommandReference = {
 
 type MoveAnimationCodeEditorOptions = {
   onCommandSelected?: (reference: MoveAnimationCommandReference) => void;
+  /** Fires when the cursor moves to another line or the cursor line's text changes. */
+  onCursorLine?: (info: MoveAnimationLineInfo) => void;
+  onChange?: () => void;
 };
 
 type CommandToken = { name: string; from: number; to: number; lineFrom: number; lineTo: number; lineText: string };
@@ -90,10 +117,13 @@ export function installMoveAnimationCodeEditor(host: HTMLElement, script: string
       moveAnimationHighlighting,
       createMoveAnimationAutocomplete(),
       moveAnimationInteractions(host, options),
-      EditorView.lineWrapping,
+      EditorView.updateListener.of((update) => {
+        if (update.docChanged) options.onChange?.();
+        if (update.docChanged || update.selectionSet) reportCursorLine(update.view);
+      }),
       EditorView.theme({
         "&": {
-          minHeight: "420px",
+          height: "100%",
           backgroundColor: "#272822",
           color: "#f8f8f2",
           fontSize: "15px",
@@ -108,6 +138,7 @@ export function installMoveAnimationCodeEditor(host: HTMLElement, script: string
           padding: "12px 0",
         },
         ".cm-scroller": {
+          overflow: "auto",
           cursor: "text",
           fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
         },
@@ -184,16 +215,84 @@ export function installMoveAnimationCodeEditor(host: HTMLElement, script: string
     ],
   });
 
+  let lastReported = "";
+  function reportCursorLine(target: EditorView): void {
+    if (!options.onCursorLine) return;
+    const line = target.state.doc.lineAt(target.state.selection.main.head);
+    const key = `${line.number}\u0000${line.text}`;
+    if (key === lastReported) return;
+    lastReported = key;
+    options.onCursorLine(describeMoveAnimationLine(line.text, line.number));
+  }
+  const clampLine = (lineNumber: number) => Math.max(1, Math.min(view.state.doc.lines, Math.round(lineNumber)));
+  queueMicrotask(() => reportCursorLine(view));
+
   return {
     getValue: () => view.state.doc.toString(),
     setValue: (value: string) => {
-      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: value } });
+      const head = Math.min(view.state.selection.main.head, value.length);
+      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: value }, selection: { anchor: head } });
     },
     setInvalid: (invalid: boolean) => {
       host.classList.toggle("invalid", invalid);
     },
+    replaceLine: (lineNumber, text) => {
+      if (lineNumber < 1 || lineNumber > view.state.doc.lines) return;
+      const line = view.state.doc.line(lineNumber);
+      if (line.text === text) return;
+      const head = view.state.selection.main.head;
+      const column = line.number === view.state.doc.lineAt(head).number ? Math.min(head - line.from, text.length) : 0;
+      view.dispatch({ changes: { from: line.from, to: line.to, insert: text }, selection: { anchor: line.from + column } });
+    },
+    focusLine: (lineNumber, focusOptions = {}) => {
+      const line = view.state.doc.line(clampLine(lineNumber));
+      const indent = /^\s*/u.exec(line.text)?.[0].length ?? 0;
+      view.dispatch({ selection: { anchor: line.from + indent }, effects: EditorView.scrollIntoView(line.from, { y: "center" }) });
+      if (focusOptions.focus) view.focus();
+    },
+    stepCommand: (direction) => {
+      let number = view.state.doc.lineAt(view.state.selection.main.head).number + direction;
+      while (number >= 1 && number <= view.state.doc.lines) {
+        const line = view.state.doc.line(number);
+        const kind = describeMoveAnimationLine(line.text, number).kind;
+        if (kind === "command" || kind === "unknown") {
+          const indent = /^\s*/u.exec(line.text)?.[0].length ?? 0;
+          view.dispatch({ selection: { anchor: line.from + indent }, effects: EditorView.scrollIntoView(line.from, { y: "nearest" }) });
+          return true;
+        }
+        number += direction;
+      }
+      return false;
+    },
+    focus: () => view.focus(),
     destroy: () => view.destroy(),
   };
+}
+
+/** Splits one script line into its command, parameter tokens and comment. */
+export function describeMoveAnimationLine(text: string, lineNumber = 1): MoveAnimationLineInfo {
+  const commentIndex = text.indexOf("@");
+  const code = commentIndex >= 0 ? text.slice(0, commentIndex) : text;
+  const comment = commentIndex >= 0 ? text.slice(commentIndex).trimEnd() : "";
+  const indent = /^\s*/u.exec(text)?.[0] ?? "";
+  const base = { lineNumber, text, indent, params: [] as string[], comment };
+  const trimmed = code.trim();
+  if (!trimmed) return { ...base, kind: comment ? "comment" : "blank" };
+  if (trimmed.startsWith(".")) return { ...base, kind: "directive" };
+  if (/^[A-Za-z_][A-Za-z0-9_]*:$/u.test(trimmed)) return { ...base, kind: "label" };
+  const match = /^\s*([A-Za-z_][A-Za-z0-9_]*)(?:\s+(.*))?$/u.exec(code);
+  if (!match) return { ...base, kind: "unknown" };
+  const commandName = match[1];
+  const params = (match[2] ?? "").split(/\s*,\s*|\s+/u).map((token) => token.trim()).filter(Boolean);
+  const definition = commandDefinitionsByName.get(commandName.toLowerCase());
+  const doc = commandDocs.get(commandName.toLowerCase());
+  return { ...base, kind: definition ? "command" : "unknown", commandName, definition, doc, params };
+}
+
+/** Rebuilds a command line from edited parameter tokens, keeping its indent and comment. */
+export function formatMoveAnimationLine(info: Pick<MoveAnimationLineInfo, "indent" | "commandName" | "comment">, params: string[]): string {
+  const comment = info.comment ? ` ${info.comment}` : "";
+  return `${info.indent}${info.commandName ?? ""}${params.length ? ` ${params.join(", ")}` : ""}${comment}`;
 }
 
 const moveAnimationHighlighting = ViewPlugin.fromClass(
@@ -350,7 +449,7 @@ function moveAnimationInteractions(host: HTMLElement, options: MoveAnimationCode
       const doc = commandDocs.get(token.name.toLowerCase());
       if (!doc) return false;
       options.onCommandSelected?.({ clickedName: token.name, doc, lineText: token.lineText });
-      return true;
+      return false;
     },
     mousemove: (event, view) => {
       const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });

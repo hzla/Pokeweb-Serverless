@@ -137,6 +137,8 @@ export type MoveAnimationTimelineEvent = {
   fallbackReason?: string;
   debug?: string;
   sourceMoveId?: number;
+  /** Index of the source command within its label, when known. */
+  commandIndex?: number;
   backgroundId?: number;
   backgroundEffect?: "hgDiagonalBeam";
   backgroundFrameIndex?: number;
@@ -690,6 +692,7 @@ function makeEvent(
     params: command.params,
     status,
     message,
+    commandIndex: command.index,
     ...extra,
   };
 }

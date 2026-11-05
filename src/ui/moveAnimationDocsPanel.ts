@@ -54,10 +54,7 @@ function render(state: State): void {
   state.host.innerHTML = `
     <div class="move-animation-docs-panel">
       <div class="move-animation-docs-header">
-        <div>
-          <h4>Animation Docs</h4>
-          <span>Search commands, SPA fields, workflows, and script-vs-SPA boundaries.</span>
-        </div>
+        <h4>Docs</h4>
         <label>
           <span>Search</span>
           <input data-move-doc-search type="search" value="${escapeHtml(state.search)}" placeholder="particle, color, projectile...">
@@ -68,7 +65,6 @@ function render(state: State): void {
         ${docTabButton("spa", "SPA Fields", state.tab)}
         ${docTabButton("workflows", "Workflows", state.tab)}
         ${docTabButton("boundary", "Script vs SPA", state.tab)}
-        ${docTabButton("future", "Future Tools", state.tab)}
       </div>
       <div class="move-animation-docs-body">${renderTab(state)}</div>
     </div>

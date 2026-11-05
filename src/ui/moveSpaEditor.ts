@@ -263,11 +263,18 @@ export type MoveSpaEditorController = {
   setSpaIds: (spaIds: number[], selectedSpaId?: number) => Promise<void>;
   getArchiveOverride: (spaId: number) => SpaArchive | undefined;
   hasDirtyArchives: () => boolean;
+  /** Saves every edited archive. Resolves to the number saved. */
+  saveDirty: () => Promise<number>;
+  /** Drops unsaved edits and reloads the referenced archives. */
+  discardEdits: () => Promise<void>;
 };
 
 type MoveSpaEditorOptions = {
   onDirty?: () => void;
   onPreviewChange?: () => void;
+  /** "split" shows the fields beside an always-on emitter preview and leaves saving to the host page. */
+  layout?: "tabs" | "split";
+  onDirtyChange?: (dirty: boolean) => void;
 };
 
 export type MoveSpaEditorDataSource = {
@@ -298,6 +305,7 @@ type State = {
   openSections: Set<string>;
   previewController?: MoveAnimationPreviewController;
   previewRequestId: number;
+  previewRefreshTimer?: number;
   options: MoveSpaEditorOptions;
   error?: string;
   status?: string;
@@ -341,7 +349,7 @@ export function installMoveSpaEditorWithSource(
     loading: false,
     saving: false,
     scriptText,
-    openSections: new Set(["emitter", "particle", "textures"]),
+    openSections: new Set(options.layout === "split" ? ["emitter"] : ["emitter", "particle", "textures"]),
     previewRequestId: 0,
     options,
   };
@@ -396,7 +404,44 @@ export function installMoveSpaEditorWithSource(
     },
     getArchiveOverride: (spaId) => state.archives.get(spaId),
     hasDirtyArchives: () => state.dirtySpaIds.size > 0,
+    saveDirty: () => saveDirtyArchives(state),
+    discardEdits: async () => {
+      if (!state.dirtySpaIds.size) return;
+      const selected = state.selectedSpaId;
+      state.dirtySpaIds.clear();
+      for (const spaId of [...state.archives.keys()]) state.archives.set(spaId, cloneArchive(await state.source.loadArchive(spaId)));
+      state.selectedSpaId = selected;
+      state.status = undefined;
+      options.onDirtyChange?.(false);
+      options.onPreviewChange?.();
+      render(state);
+    },
   };
+}
+
+async function saveDirtyArchives(state: State): Promise<number> {
+  const ids = [...state.dirtySpaIds];
+  if (!ids.length) return 0;
+  state.saving = true;
+  state.error = undefined;
+  try {
+    for (const spaId of ids) {
+      const archive = state.archives.get(spaId);
+      if (!archive) continue;
+      await state.source.updateArchive(spaId, archive);
+      state.dirtySpaIds.delete(spaId);
+    }
+    state.status = ids.length === 1 ? `Saved SPA ${ids[0]}` : `Saved ${ids.length} SPA files`;
+    state.options.onDirty?.();
+    return ids.length;
+  } catch (error) {
+    state.error = error instanceof Error ? error.message : String(error);
+    throw error;
+  } finally {
+    state.saving = false;
+    state.options.onDirtyChange?.(state.dirtySpaIds.size > 0);
+    render(state);
+  }
 }
 
 async function ensureReferences(state: State, scriptText: string, preserveExisting: boolean): Promise<void> {
@@ -471,6 +516,7 @@ async function handleAction(state: State, action: string, options: MoveSpaEditor
     state.dirtySpaIds.clear();
     state.selectedSpaId = undefined;
     state.status = undefined;
+    options.onDirtyChange?.(false);
     render(state);
     if (state.explicitSpaIds) await ensureSpaIds(state, state.explicitSpaIds, false, state.selectedSpaId);
     else await ensureReferences(state, state.scriptText, false);
@@ -492,6 +538,7 @@ async function handleAction(state: State, action: string, options: MoveSpaEditor
       state.status = `Saved SPA ${state.selectedSpaId}`;
       options.onDirty?.();
       options.onPreviewChange?.();
+      options.onDirtyChange?.(state.dirtySpaIds.size > 0);
     } catch (error) {
       state.error = error instanceof Error ? error.message : String(error);
       state.status = undefined;
@@ -630,7 +677,48 @@ function handleFieldEvent(state: State, event: Event): void {
   setPathValue(subject, field, readInputValue(input));
   markDirty(state);
   updateDerivedFlags(state);
-  render(state);
+  // Selects and checkboxes can add or remove sections; typed values only need the preview refreshed,
+  // so the field keeps focus while the user types.
+  const structural = input instanceof HTMLSelectElement || input.type === "checkbox";
+  if (structural) {
+    if (event.type === "change") render(state);
+    return;
+  }
+  if (event.type === "change" && input instanceof HTMLInputElement && input.type === "number") {
+    const stored = getPathValue(subject, field);
+    if (typeof stored === "number" && stored !== Number(input.value)) input.value = String(formatFieldNumber(stored));
+  }
+  refreshFileLabel(state);
+  scheduleEmitterPreview(state);
+}
+
+function getPathValue(target: unknown, path: string): unknown {
+  let cursor = target as Record<string, unknown> | undefined;
+  for (const part of path.split(".")) cursor = cursor?.[part] as Record<string, unknown> | undefined;
+  return cursor;
+}
+
+function refreshFileLabel(state: State): void {
+  const heading = state.host.querySelector<HTMLElement>(".move-spa-editor-header h4");
+  if (heading) heading.textContent = `SPA Particle Editor${fileLabelFor(state)}`;
+}
+
+function fileLabelFor(state: State): string {
+  return state.selectedSpaId === undefined ? "" : ` - File ${state.selectedSpaId}${state.dirtySpaIds.has(state.selectedSpaId) ? " *" : ""}`;
+}
+
+function scheduleEmitterPreview(state: State): void {
+  if (state.options.layout !== "split" && state.subTab !== "preview") return;
+  window.clearTimeout(state.previewRefreshTimer);
+  state.previewRefreshTimer = window.setTimeout(() => {
+    destroyEmitterPreview(state);
+    void mountEmitterPreview(state);
+  }, 300);
+}
+
+/** Display-only rounding; untouched fields keep their stored precision. */
+function formatFieldNumber(value: number): number {
+  return Number.isInteger(value) ? value : Number(value.toFixed(4));
 }
 
 function render(state: State): void {
@@ -639,8 +727,9 @@ function render(state: State): void {
   activeOpenSections = state.openSections;
   const archive = currentArchive(state);
   const resource = currentResource(state);
-  const fileLabel = state.selectedSpaId === undefined ? "" : ` - File ${state.selectedSpaId}${state.dirtySpaIds.has(state.selectedSpaId) ? " *" : ""}`;
+  const fileLabel = fileLabelFor(state);
   const canUseSelected = archive !== undefined && state.selectedSpaId !== undefined;
+  const split = state.options.layout === "split";
   state.host.innerHTML = `
     <div class="move-spa-editor">
       <div class="move-spa-editor-header">
@@ -649,7 +738,7 @@ function render(state: State): void {
           <span>${state.status ? escapeHtml(state.status) : state.loading ? escapeHtml(state.source.loadingLabel ?? "Loading SPA archives...") : `${state.spaIds.length} ${escapeHtml(state.source.selectorLabel ?? "SPA archive")}${state.spaIds.length === 1 ? "" : "s"}`}</span>
         </div>
         <div class="move-spa-header-actions">
-          <button class="script-btn" data-spa-action="save" type="button" ${canUseSelected && state.dirtySpaIds.has(state.selectedSpaId!) && !state.saving ? "" : "disabled"}>Save SPA Edits</button>
+          ${split ? "" : `<button class="script-btn" data-spa-action="save" type="button" ${canUseSelected && state.dirtySpaIds.has(state.selectedSpaId!) && !state.saving ? "" : "disabled"}>Save SPA Edits</button>`}
           <button class="script-btn" data-spa-action="import" type="button" ${canUseSelected ? "" : "disabled"}>Import SPA</button>
           <button class="script-btn" data-spa-action="export" type="button" ${canUseSelected ? "" : "disabled"}>Export SPA</button>
           <button class="script-btn" data-spa-action="reload" type="button">Reload</button>
@@ -657,13 +746,17 @@ function render(state: State): void {
         <input data-spa-import-file type="file" accept=".spa,application/octet-stream" hidden>
       </div>
       ${state.error ? `<div class="move-spa-error">${escapeHtml(state.error)}</div>` : ""}
-      ${renderSubTabs(state)}
+      ${split ? "" : renderSubTabs(state)}
       ${renderSelectors(state, archive)}
-      ${archive && resource ? renderActiveSubTab(state, archive, resource) : renderEmptyState(state)}
+      ${archive && resource
+        ? split
+          ? `<div class="move-spa-split">${renderResourceEditor(archive, resource, state.selectedTextureIndex, state.textureImportFormat)}${renderEmitterPreviewPane(state, archive, resource)}</div>`
+          : renderActiveSubTab(state, archive, resource)
+        : renderEmptyState(state)}
     </div>
   `;
   drawTextureCanvases(state);
-  if (state.subTab === "preview") void mountEmitterPreview(state);
+  if (split || state.subTab === "preview") void mountEmitterPreview(state);
 }
 
 function renderSubTabs(state: State): string {
@@ -745,7 +838,7 @@ async function mountEmitterPreview(state: State): Promise<void> {
   const preview = buildEmitterPreview(spaId, archive, resource);
   try {
     const controller = await installMoveAnimationPreview(host, preview, { initialPlaying: true });
-    if (requestId !== state.previewRequestId || state.subTab !== "preview") {
+    if (requestId !== state.previewRequestId || (state.subTab !== "preview" && state.options.layout !== "split")) {
       controller.destroy();
       return;
     }
@@ -1064,7 +1157,7 @@ function addButton(action: string, label: string): string {
 }
 
 function numberField(label: string, target: string, field: string, value: number, step: number, min?: number, max?: number, behaviorIndex?: number): string {
-  return `<label>${fieldHelpButton(label, target, field)}<input data-spa-target="${target}" data-spa-field="${field}" ${behaviorIndex === undefined ? "" : `data-behavior-index="${behaviorIndex}"`} type="number" step="${step}" ${min === undefined ? "" : `min="${min}"`} ${max === undefined ? "" : `max="${max}"`} value="${Number.isFinite(value) ? value : 0}"></label>`;
+  return `<label>${fieldHelpButton(label, target, field)}<input data-spa-target="${target}" data-spa-field="${field}" ${behaviorIndex === undefined ? "" : `data-behavior-index="${behaviorIndex}"`} type="number" step="${step}" ${min === undefined ? "" : `min="${min}"`} ${max === undefined ? "" : `max="${max}"`} value="${Number.isFinite(value) ? formatFieldNumber(value) : 0}"></label>`;
 }
 
 function textureIndexField(label: string, target: string, field: string, value: number, archive: SpaArchive, behaviorIndex?: number): string {
@@ -1184,6 +1277,7 @@ function markDirty(state: State): void {
   if (state.selectedSpaId !== undefined) state.dirtySpaIds.add(state.selectedSpaId);
   state.status = undefined;
   state.options.onPreviewChange?.();
+  state.options.onDirtyChange?.(state.dirtySpaIds.size > 0);
 }
 
 async function replaceSelectedTexture(state: State, file: File): Promise<void> {

@@ -28,11 +28,17 @@ type ThreeModule = typeof import("three");
 
 export type MoveAnimationPreviewController = {
   setAudioSuppressed: (suppressed: boolean) => void;
+  /** Jumps to a frame and pauses playback. */
+  seek: (frame: number) => void;
+  pause: () => void;
+  togglePlaying: () => void;
   destroy: () => void;
 };
 
 type MoveAnimationPreviewOptions = {
   initialPlaying?: boolean;
+  /** Called when a timeline row is clicked (after the preview seeks to it). */
+  onTimelineSelect?: (event: MoveAnimationPreview["timeline"][number], index: number) => void;
   onPhaseChange?: (phaseIndex: number) => void;
   audio?: {
     project: ProjectState;
@@ -137,18 +143,37 @@ export async function installMoveAnimationPreview(
       });
   };
 
+  const timeline = createTimelineTracker(host);
   const setFrame = (nextFrame: number) => {
     frame = Math.max(0, Math.min(preview.frameCount, nextFrame));
     if (frameSlider) frameSlider.value = String(Math.round(frame));
     if (frameLabel) frameLabel.textContent = `${Math.round(frame)} / ${preview.frameCount}`;
-    updateTimeline(host, frame);
+    timeline.update(frame);
   };
-
-  playButton?.addEventListener("click", () => {
+  const pause = () => {
+    playing = false;
+    if (playButton) playButton.textContent = "Play";
+    timelineAudio?.stop();
+  };
+  const togglePlaying = () => {
     playing = !playing;
-    playButton.textContent = playing ? "Pause" : "Play";
+    if (playButton) playButton.textContent = playing ? "Pause" : "Play";
+    if (playing && frame >= preview.frameCount) setFrame(0);
     if (playing && !audioSuppressed) timelineAudio?.startAtFrame(frame, speed);
     else timelineAudio?.stop();
+  };
+
+  playButton?.addEventListener("click", togglePlaying);
+  host.querySelector<HTMLElement>(".move-animation-preview-timeline")?.addEventListener("click", (event) => {
+    const row = (event.target as HTMLElement).closest<HTMLElement>(".move-animation-preview-event");
+    if (!row) return;
+    const index = Number(row.dataset.eventIndex);
+    const timelineEvent = preview.timeline[index];
+    if (!timelineEvent) return;
+    pause();
+    setFrame(timelineEvent.frame);
+    timeline.select(row);
+    options.onTimelineSelect?.(timelineEvent, index);
   });
   restartButton?.addEventListener("click", () => {
     setFrame(0);
@@ -193,8 +218,27 @@ export async function installMoveAnimationPreview(
   observer.observe(rendererHost);
   resize();
 
+  const destroy = () => {
+    if (disposed) return;
+    disposed = true;
+    audioEnableSerial += 1;
+    window.cancelAnimationFrame(raf);
+    observer.disconnect();
+    timelineAudio?.destroy();
+    effects.destroy();
+    background.destroy();
+    stage.destroy();
+    renderer.dispose();
+    renderer.forceContextLoss();
+    host.innerHTML = "";
+  };
   const tick = (now: number) => {
     if (disposed) return;
+    // A page re-render can drop the host without calling destroy; stop rendering and free the GL context.
+    if (!host.isConnected) {
+      destroy();
+      return;
+    }
     const elapsed = Math.min(0.1, (now - lastTime) / 1000);
     lastTime = now;
     if (playing) {
@@ -231,18 +275,13 @@ export async function installMoveAnimationPreview(
       if (suppressed) timelineAudio?.stop();
       else if (playing && audioInput?.checked) timelineAudio?.startAtFrame(frame, speed);
     },
-    destroy: () => {
-      disposed = true;
-      audioEnableSerial += 1;
-      window.cancelAnimationFrame(raf);
-      observer.disconnect();
-      timelineAudio?.destroy();
-      effects.destroy();
-      background.destroy();
-      stage.destroy();
-      renderer.dispose();
-      host.innerHTML = "";
+    seek: (nextFrame) => {
+      pause();
+      setFrame(nextFrame);
     },
+    pause,
+    togglePlaying,
+    destroy,
   };
 }
 
@@ -269,7 +308,7 @@ function renderPreviewShell(preview: MoveAnimationPreview, initialPlaying: boole
       <div class="move-animation-preview-controls">
         <button class="script-btn move-preview-play" type="button">${initialPlaying ? "Pause" : "Play"}</button>
         <button class="script-btn move-preview-restart" type="button">Restart</button>
-        <label>Frame <input class="move-preview-frame" type="range" min="0" max="${preview.frameCount}" value="0"></label>
+        <label class="move-preview-frame-wrap">Frame <span class="move-preview-frame-track"><input class="move-preview-frame" type="range" min="0" max="${preview.frameCount}" value="0">${renderSoundMarks(preview)}</span></label>
         <span class="move-preview-frame-label">0 / ${preview.frameCount}</span>
         ${
           phaseCount > 1
@@ -301,8 +340,8 @@ function renderPreviewShell(preview: MoveAnimationPreview, initialPlaying: boole
           <div class="move-animation-preview-timeline">
             ${preview.timeline
               .map(
-                (event) => `
-                  <div class="move-animation-preview-event -${event.status}" data-frame="${event.frame}">
+                (event, index) => `
+                  <div class="move-animation-preview-event -${event.status}${event.command === "PlaySound" ? " -sound" : ""}" data-frame="${event.frame}" data-event-index="${index}">
                     <span>${event.frame}</span>
                     <strong>${escapeHtml(event.command)}</strong>
                     <small>${escapeHtml(event.message)}</small>
@@ -1149,15 +1188,38 @@ function vectorFromTuple(THREE: ThreeModule, tuple: [number, number, number]): i
   return new THREE.Vector3(tuple[0], tuple[1], tuple[2]);
 }
 
-function updateTimeline(host: HTMLElement, frame: number): void {
-  let active: HTMLElement | undefined;
-  host.querySelectorAll<HTMLElement>(".move-animation-preview-event").forEach((row) => {
-    const rowFrame = Number(row.dataset.frame);
-    const isActive = rowFrame <= frame;
-    row.classList.toggle("-past", isActive);
-    if (isActive) active = row;
-  });
-  active?.scrollIntoView({ block: "nearest" });
+function renderSoundMarks(preview: MoveAnimationPreview): string {
+  const frames = [...new Set(preview.timeline.filter((event) => event.command === "PlaySound").map((event) => event.frame))];
+  if (!frames.length || preview.frameCount <= 0) return "";
+  return `<span class="move-preview-marks" aria-hidden="true">${frames.map((frame) => `<i style="left:${((frame / preview.frameCount) * 100).toFixed(2)}%" title="Sound at frame ${frame}"></i>`).join("")}</span>`;
+}
+
+/** Marks rows up to the current frame and keeps the latest one visible, scrolling only the timeline list. */
+function createTimelineTracker(host: HTMLElement): { update: (frame: number) => void; select: (row: HTMLElement) => void } {
+  const list = host.querySelector<HTMLElement>(".move-animation-preview-timeline");
+  const rows = [...host.querySelectorAll<HTMLElement>(".move-animation-preview-event")].map((row) => ({ row, frame: Number(row.dataset.frame) }));
+  let lastActive: HTMLElement | undefined;
+  const reveal = (row: HTMLElement) => {
+    if (!list) return;
+    const top = row.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop;
+    if (top < list.scrollTop) list.scrollTop = top;
+    else if (top + row.offsetHeight > list.scrollTop + list.clientHeight) list.scrollTop = top + row.offsetHeight - list.clientHeight;
+  };
+  return {
+    update: (frame) => {
+      let active: HTMLElement | undefined;
+      for (const entry of rows) {
+        const past = entry.frame <= frame;
+        if (past !== entry.row.classList.contains("-past")) entry.row.classList.toggle("-past", past);
+        if (past) active = entry.row;
+      }
+      if (active && active !== lastActive) reveal(active);
+      lastActive = active;
+    },
+    select: (row) => {
+      for (const entry of rows) entry.row.classList.toggle("-selected", entry.row === row);
+    },
+  };
 }
 
 type BackgroundController = {

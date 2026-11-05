@@ -5,13 +5,6 @@ import { renderAbilityRuntimeUpdate, installAbilityRuntimeUpdate, refreshAbility
 import { inspectMoveEffects, MOVE_RECIPE_MANAGED_FIELDS, supportsMoveRecipes } from "../pokeweb/moveEffectsModel";
 import { PROPERTIES, CATEGORIES, typeNamesForProject } from "../pokeweb/constants";
 import {
-  decompileMoveAnimation,
-  EMPTY_MOVE_ANIMATION_SCRIPT,
-  getMoveAnimationTargetInfo,
-  hasMoveAnimationScript,
-  type MoveAnimationTargetInfo,
-} from "../pokeweb/moveAnimationModel";
-import {
   getMoveAutofills,
   getMoveCount,
   getMoveRecord,
@@ -26,11 +19,10 @@ import { getMoveTextInfo, hasMoveTextBanks, type MoveTextInfo, type MoveTextLine
 import { descriptionPreviewMarkup } from "./lazyDescriptionPreview";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
-import { attachMoveInteractions, installMoveAnimationEditor, installMoveEditableFields, installMoveTextFields, renderMoveAnimationEditor, type MoveOptions } from "./moveItemInteractions";
+import { attachMoveInteractions, installMoveEditableFields, installMoveTextFields, type MoveOptions } from "./moveItemInteractions";
 import "../styles/moveData.css";
 import { attachW2uSyncButton, renderW2uSyncButton } from "./w2uLocalSync";
 import { publicAsset } from "../assetUrl";
-import { pokemonPersonalDisplayIds, pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
 
 type MoveDetailTab = "data" | "effects" | "text";
 
@@ -380,147 +372,6 @@ function renderMoveDataPanel(project: ProjectState, moveId: number): string {
       </section>
     </div>
   `;
-}
-
-export function renderMoveAnimationPage(
-  project: ProjectState,
-  root: HTMLElement,
-  moveId: number,
-  onDirty?: () => void,
-  onTestMove?: (moveId: number, scriptText: string) => Promise<void>,
-  onBack?: () => void,
-  onOpenMoveAnimation?: (moveId: number) => void,
-): void {
-  if (!Number.isSafeInteger(moveId) || moveId < 0 || moveId >= getMoveCount(project)) {
-    root.innerHTML = `
-      <aside class="pokemon-filter move-animation-sidebar">
-        <button class="btn -default move-animation-back" type="button">Back to Moves</button>
-        <div class="move-command-reference" id="move-command-reference">
-          <div class="move-command-reference-empty">Click a script command to view its parameters here.</div>
-        </div>
-      </aside>
-      <main class="pokemon-list pokemon-move-list spreadsheet move-animation-page" id="moves">
-        <div class="move-animation-page-header">
-          <div>
-            <h2>Move Animation</h2>
-            <p class="move-animation-page-meta">Move ${escapeHtml(String(moveId))}</p>
-          </div>
-        </div>
-        <div class="move-animation-editor show-flex">
-          <div class="move-animation-error">Move ${escapeHtml(String(moveId))} could not be loaded.</div>
-        </div>
-      </main>
-    `;
-    root.querySelector<HTMLButtonElement>(".move-animation-back")?.addEventListener("click", () => onBack?.());
-    return;
-  }
-  const move = getMoveRecord(project, moveId);
-  const moveName = titleize(String(move.readable.name ?? `Move ${moveId}`));
-  const animationTarget = getMoveAnimationTargetInfo(project, moveId);
-  const canTestMoveAnimation = hasMoveAnimationScript(project, moveId) && onTestMove !== undefined;
-  const pokemonOptions = pokemonPersonalDisplayIds(project).filter((id) => id > 0)
-    .map((id) => `<option value="${id}" ${id === 1 ? "selected" : ""}>${id} - ${escapeHtml(pokemonSpeciesLabel(project, id))}</option>`).join("");
-  root.innerHTML = `
-    <aside class="pokemon-filter move-animation-sidebar">
-      <button class="btn -default move-animation-back" type="button">Back to Moves</button>
-      <label class="move-animation-move-select">
-        <span>Move</span>
-        <select id="move-animation-move-select">
-          ${renderMoveAnimationMoveOptions(project, moveId)}
-        </select>
-      </label>
-      <section class="move-animation-environment-controls" aria-label="Preview battle environment">
-        <div class="move-animation-environment-title">Preview Environment</div>
-        <label class="move-animation-environment-select">
-          <span>Battle Background</span>
-          <select id="move-animation-background-select" disabled>
-            <option>Loading backgrounds…</option>
-          </select>
-        </label>
-        <label class="move-animation-environment-select">
-          <span>Battle Platform</span>
-          <select id="move-animation-platform-select" disabled>
-            <option>Loading platforms…</option>
-          </select>
-        </label>
-        <label class="move-animation-environment-select">
-          <span>User Pokemon</span>
-          <select id="move-animation-user-pokemon-select">${pokemonOptions}</select>
-        </label>
-        <label class="move-animation-environment-select">
-          <span>Target Pokemon</span>
-          <select id="move-animation-target-pokemon-select">${pokemonOptions}</select>
-        </label>
-        <label class="move-animation-side-toggle">
-          <input id="move-animation-swap-sides" type="checkbox">
-          <span><strong>Swap user / target sides</strong><small>User moves to the opponent side.</small></span>
-        </label>
-      </section>
-      <button class="btn -default move-animation-test-btn" type="button" ${canTestMoveAnimation ? "" : "disabled"}>Test in Game</button>
-      <div class="move-command-reference" id="move-command-reference">
-        <div class="move-command-reference-empty">Click a script command to view its parameters here.</div>
-      </div>
-    </aside>
-    <main class="pokemon-list pokemon-move-list spreadsheet move-animation-page" id="moves">
-      <div class="move-animation-page-header">
-        <div>
-          <h2>${escapeHtml(moveName)} Animation</h2>
-          <p class="move-animation-page-meta">Move ${moveId}${renderMoveAnimationTargetLabel(animationTarget)}</p>
-        </div>
-      </div>
-      <div class="move-animation-editor show-flex"></div>
-    </main>
-  `;
-  root.querySelector<HTMLButtonElement>(".move-animation-back")?.addEventListener("click", () => onBack?.());
-  root.querySelector<HTMLSelectElement>("#move-animation-move-select")?.addEventListener("change", (event) => {
-    const nextMoveId = Number((event.currentTarget as HTMLSelectElement).value);
-    if (Number.isSafeInteger(nextMoveId)) onOpenMoveAnimation?.(nextMoveId);
-  });
-  const panel = root.querySelector<HTMLElement>(".move-animation-editor");
-  if (!panel) return;
-  if (!hasMoveAnimationScript(project, moveId)) {
-    panel.innerHTML = `<div class="move-animation-error">Move animation NARCs were not loaded for this ROM session.</div>`;
-    return;
-  }
-  let script = EMPTY_MOVE_ANIMATION_SCRIPT;
-  let recoveryNotice: string | undefined;
-  try {
-    script = decompileMoveAnimation(project, moveId);
-  } catch (error) {
-    recoveryNotice = `${error instanceof Error ? error.message : String(error)}. A new empty script is ready.`;
-  }
-  panel.innerHTML = renderMoveAnimationEditor(script, {
-    donorMoveOptions: renderMoveAnimationDonorOptions(project, moveId),
-    recoveryNotice,
-  });
-  installMoveAnimationEditor(panel, project, moveId, { onDirty, onTestMove });
-}
-
-function renderMoveAnimationTargetLabel(target: MoveAnimationTargetInfo | undefined): string {
-  if (!target) return "";
-  const layout = target.white2UpgradeLayout ? "W2U" : "Retail";
-  return ` - ${layout} ${escapeHtml(target.sourcePath)} #${target.index}`;
-}
-
-function renderMoveAnimationMoveOptions(project: ProjectState, selectedMoveId: number): string {
-  const options: string[] = [];
-  for (let id = 0; id < getMoveCount(project); id += 1) {
-    const move = getMoveRecord(project, id);
-    const name = titleize(String(move.readable.name ?? `Move ${id}`));
-    options.push(`<option value="${id}" ${id === selectedMoveId ? "selected" : ""}>${escapeHtml(name)} - ${id}</option>`);
-  }
-  return options.join("");
-}
-
-function renderMoveAnimationDonorOptions(project: ProjectState, targetMoveId: number): string {
-  const options = ['<option value="">Choose a move</option>'];
-  for (let id = 0; id < getMoveCount(project); id += 1) {
-    if (id === targetMoveId) continue;
-    const move = getMoveRecord(project, id);
-    const name = titleize(String(move.readable.name ?? `Move ${id}`));
-    options.push(`<option value="${id}">${escapeHtml(name)} - ${id}</option>`);
-  }
-  return options.join("");
 }
 
 function renderMoveEffectField(move: MoveRecord): string {

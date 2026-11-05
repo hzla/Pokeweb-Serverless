@@ -44,6 +44,8 @@ export type MoveAnimationCommandDefinition = {
 export type ParsedMoveAnimationCommand = {
   label: string;
   line: string;
+  /** Position of the command inside its label's body. */
+  index?: number;
   opcode: number;
   name: string;
   params: number[];
@@ -265,11 +267,12 @@ export function parseMoveAnimationScript(scriptText: string): ParsedMoveAnimatio
   for (const label of parsed.labelOrder) {
     scripts.set(
       label,
-      (parsed.bodies.get(label) ?? []).map((line) => {
+      (parsed.bodies.get(label) ?? []).map((line, index) => {
         const command = parseCommandLine(label, line);
         return {
           label,
           line,
+          index,
           opcode: command.definition.opcode,
           name: command.definition.name,
           params: command.params,
@@ -485,6 +488,35 @@ function compileAnimationScript(scriptText: string): Uint8Array {
     writeU32(out, 4 + index * 4, offset);
   });
   for (const label of parsed.labelOrder) out.set(compiledBodies.get(label) ?? new Uint8Array(), labelOffsets.get(label)!);
+  return out;
+}
+
+/**
+ * 1-based editor line numbers of every command, keyed by label, in body order.
+ * Mirrors parseScriptText so `ParsedMoveAnimationCommand.index` maps back to a source line.
+ */
+export function moveAnimationScriptCommandLines(scriptText: string): Map<string, number[]> {
+  const lines = scriptText.split(/\r?\n/u);
+  const meaningful = lines
+    .map((line, index) => ({ text: stripComment(line).trim(), lineNumber: index + 1 }))
+    .filter((line) => line.text && !line.text.startsWith(".include") && !line.text.startsWith(".align"));
+  const out = new Map<string, number[]>();
+  const labelled = meaningful.some((line) => /^\.word\s+[-+]?(?:0x[0-9a-f]+|\d+)/iu.test(line.text));
+  if (!labelled) {
+    out.set(SIMPLE_SCRIPT_LABEL, meaningful.map((line) => line.lineNumber));
+    return out;
+  }
+  let active: number[] | undefined;
+  for (const line of meaningful) {
+    const labelMatch = /^([A-Za-z_][A-Za-z0-9_]*):$/u.exec(line.text);
+    if (labelMatch) {
+      active = [];
+      if (!out.has(labelMatch[1])) out.set(labelMatch[1], active);
+      continue;
+    }
+    if (line.text.startsWith(".")) continue;
+    active?.push(line.lineNumber);
+  }
   return out;
 }
 
