@@ -73,7 +73,7 @@ export function applyPokemonCompatibilityFilter(panel: HTMLElement, project: Pro
   for (const card of panel.querySelectorAll<HTMLElement>(".tm-pokemon-compatibility-card")) {
     const speciesId = Number(card.dataset.speciesId);
     const show = Number.isInteger(speciesId)
-      ? pokemonMatchesSearch(getPokemonSummaryRecord(project, speciesId), searchText, generations, activeTypes)
+      ? pokemonMatchesSearch(getPokemonSummaryRecord(project, speciesId), searchText, generations, activeTypes, [pokemonSpeciesLabel(project, speciesId)])
       : false;
     card.hidden = !show;
   }

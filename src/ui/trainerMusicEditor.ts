@@ -430,22 +430,11 @@ function installTrainerMusicEditor(
   };
 }
 
-function renderEditorShell(model: TrainerMusicModel, battleModel: TrainerBattleMusicModel): string {
-  const editableCount = model.assignments.filter((assignment) => assignment.editable).length;
-  const editableBattleCount = battleModel.assignments.filter((assignment) => assignment.editable).length;
+function renderEditorShell(_model: TrainerMusicModel, _battleModel: TrainerBattleMusicModel): string {
   return `
     <div class="trainer-music-page">
       <header class="trainer-music-page-header">
-        <div>
-          <h1>Trainer Music</h1>
-          <p>Preview, export, and reassign both trainer approach themes and the music used when trainer battles begin.</p>
-        </div>
-        <div class="trainer-music-page-summary">
-          <span><strong>${model.themes.length}</strong> Eye themes</span>
-          <span><strong>${editableCount}</strong> editable classes</span>
-          <span><strong>${battleModel.themes.length}</strong> battle tracks</span>
-          <span><strong>${editableBattleCount}</strong> battle groups</span>
-        </div>
+        <h1>Trainer music</h1>
       </header>
       <div class="trainer-music-tabs" role="tablist" aria-label="Trainer music type">
         <button class="trainer-music-tab -active" type="button" role="tab" aria-selected="true" data-trainer-music-tab="approach">Approach Themes</button>

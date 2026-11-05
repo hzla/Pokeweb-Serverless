@@ -75,7 +75,11 @@ import { PWAN_HEIGHT, PWAN_WIDTH, pwanFramePixels, pwanTimeline } from "../pokew
 import { findPwanOverrideForSpecies, getPwanRuntimeStatus } from "../pokeweb/pwanAnimationModel";
 import { w2animPokemonPreviewPalette } from "../pokeweb/w2animAnimationModel";
 import { getPokemonPersonalIds } from "../pokeweb/pokemonModel";
-import { pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
+import { findPokemonPersonalFormOwner, pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
+import { trainerPokemonSpriteSlug } from "../pokeweb/trainerModel";
+import { publicAsset } from "../assetUrl";
+import "../styles/moveData.css";
+import "../styles/spriteData.css";
 import { concatBytes } from "../nds/binary";
 import { parsePokemonCustomSpriteBundle } from "../pokeweb/pokemonSpriteWriters";
 import type { ProjectState } from "../pokeweb/projectStore";
@@ -88,7 +92,20 @@ type RenderOptions = {
   onBack?: () => void;
   onNavigateForm?: (formIndex: number) => void;
   onNavigateSpecies?: (speciesId: number) => void;
+  /** Called when the list picks another sprite; the host records it without re-rendering. */
+  onSelect?: (speciesId: number, formIndex: number) => void;
 };
+
+type SpriteTab = "sprites" | "palettes" | "icon" | "animation" | "rig";
+type SpriteListEntry = { speciesId: number; formIndex: number; name: string; formLabel: string; slug: string; haystack: string };
+
+const SPRITE_TABS: ReadonlyArray<{ value: SpriteTab; label: string }> = [
+  { value: "sprites", label: "Sprites" },
+  { value: "palettes", label: "Palettes" },
+  { value: "icon", label: "Icon" },
+  { value: "animation", label: "Animation" },
+  { value: "rig", label: "Rig" },
+];
 
 type SpriteEditorState = {
   variant: PokemonSpriteVariant;
@@ -110,7 +127,7 @@ type SpriteEditorState = {
   animationExpanded: boolean;
   animationStepInterval: number;
   animationTab: AnimationEditorTab;
-  sidebarCollapsed: boolean;
+  tab: SpriteTab;
   selectedCell: number;
   selectedSubCell: boolean;
   gifFlipbookPackingMode: PokemonFlipbookPackingMode;
@@ -129,9 +146,6 @@ type SpriteEditorState = {
   lastGifImport?: GifImportSummary;
   speciesId?: number;
   formIndex?: number;
-  spritesExpanded: boolean;
-  palettesExpanded: boolean;
-  iconsExpanded: boolean;
 };
 
 type AnimationEditorTab = "preview" | "nanr" | "nmar" | "nmcr" | "ncer" | "ncec";
@@ -272,7 +286,7 @@ const state: SpriteEditorState = {
   animationExpanded: false,
   animationStepInterval: readAnimationStepInterval(),
   animationTab: "preview",
-  sidebarCollapsed: false,
+  tab: "sprites",
   selectedCell: 0,
   selectedSubCell: false,
   gifFlipbookPackingMode: readGifFlipbookPackingModePreference(),
@@ -286,9 +300,6 @@ const state: SpriteEditorState = {
   gifManualFrames: "",
   gifViewerFrame: 0,
   gifViewerPlaying: false,
-  spritesExpanded: false,
-  palettesExpanded: false,
-  iconsExpanded: false,
 };
 let animationPlaybackHandle: number | undefined;
 let gifViewerPlaybackHandle: number | undefined;
@@ -331,6 +342,166 @@ const ANIMATION_PREVIEW_Y_OFFSET = 114;
 const ANIMATION_ROTATE_HANDLE_RADIUS = 8;
 const ANIMATION_ROTATE_HIT_RADIUS = 24;
 
+const spriteListView = { search: "", scrollTop: 0 };
+let spriteListCache: { project: ProjectState; revision: number; entries: SpriteListEntry[] } | undefined;
+
+function spriteListEntries(project: ProjectState): SpriteListEntry[] {
+  const revision = project.narcs.personal?.revision ?? 0;
+  if (spriteListCache?.project === project && spriteListCache.revision === revision) return spriteListCache.entries;
+  const entries: SpriteListEntry[] = [];
+  for (const speciesId of getPokemonPersonalIds(project)) {
+    if (speciesId <= 0 || findPokemonPersonalFormOwner(project, speciesId)) continue;
+    const name = titleize(pokemonSpeciesLabel(project, speciesId));
+    let forms: Array<{ formIndex: number; label: string }>;
+    try {
+      forms = getPokemonSpriteFormOptions(project, speciesId);
+    } catch {
+      forms = [{ formIndex: 0, label: name }];
+    }
+    for (const form of forms) {
+      const formLabel = form.formIndex === 0 ? "" : form.label;
+      entries.push({
+        speciesId,
+        formIndex: form.formIndex,
+        name,
+        formLabel,
+        slug: trainerPokemonSpriteSlug(name, form.formIndex),
+        haystack: `${speciesId} ${name} ${formLabel}`.toLowerCase(),
+      });
+    }
+  }
+  spriteListCache = { project, revision, entries };
+  return entries;
+}
+
+/** Sprite editor inside the Pokémon section: searchable species/form list + the sprite detail. */
+export function renderPokemonSpriteWorkspace(
+  project: ProjectState,
+  root: HTMLElement,
+  speciesId: number,
+  formIndex: number,
+  options: RenderOptions = {},
+): void {
+  const owner = findPokemonPersonalFormOwner(project, speciesId);
+  let selected = owner ? { speciesId: owner.speciesId, formIndex: owner.formIndex } : { speciesId, formIndex };
+  const entries = spriteListEntries(project);
+  const pageActions = document.getElementById("page-actions");
+  if (pageActions) pageActions.innerHTML = "";
+  root.innerHTML = `
+    <div class="sprite-data" id="sprite-data">
+      <aside class="md-list" aria-label="Pokémon sprites">
+        <div class="md-filters">
+          <input class="md-search" id="sprite-search" type="search" placeholder="Search Pokémon or form" autocomplete="off" spellcheck="false" aria-label="Search Pokémon" value="${escapeHtml(spriteListView.search)}">
+        </div>
+        <div class="md-rows" id="sprite-list" role="listbox" aria-label="Pokémon sprites" tabindex="0">
+          ${entries
+            .map(
+              (entry) => `<div class="md-row sp-row ${entry.formLabel ? "-form" : ""}" data-sprite-row="${entry.speciesId}:${entry.formIndex}" role="option" aria-selected="false">
+                <span class="md-row-id">${entry.formLabel ? "" : entry.speciesId}</span>
+                <img class="sp-row-icon" src="${publicAsset(`images/pokesprite/${entry.slug}.png`)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+                <span class="md-row-name">${escapeHtml(entry.formLabel ? entry.formLabel : entry.name)}${entry.formLabel ? `<span class="sp-row-base">${escapeHtml(entry.name)}</span>` : ""}</span>
+              </div>`,
+            )
+            .join("")}
+        </div>
+        <div class="md-list-foot" id="sprite-count"></div>
+      </aside>
+      <section class="md-detail sp-detail" id="sprite-detail"></section>
+    </div>
+  `;
+  const list = root.querySelector<HTMLElement>("#sprite-list")!;
+  const detail = root.querySelector<HTMLElement>("#sprite-detail")!;
+  const search = root.querySelector<HTMLInputElement>("#sprite-search")!;
+  const count = root.querySelector<HTMLElement>("#sprite-count")!;
+  const rows = [...list.querySelectorAll<HTMLElement>("[data-sprite-row]")];
+  const keyOf = (value: { speciesId: number; formIndex: number }) => `${value.speciesId}:${value.formIndex}`;
+
+  const applyFilter = () => {
+    const terms = spriteListView.search.trim().toLowerCase().split(/\s+/u).filter(Boolean);
+    let shown = 0;
+    rows.forEach((row, index) => {
+      const entry = entries[index]!;
+      // A matching base species keeps its forms visible; a matching form keeps its row.
+      const visible = terms.every((term) => entry.haystack.includes(term));
+      row.style.display = visible ? "" : "none";
+      if (visible) shown += 1;
+    });
+    count.textContent = terms.length ? `${shown} of ${rows.length} sprites` : `${rows.length} sprites`;
+  };
+
+  const markSelection = (scroll: boolean) => {
+    const key = keyOf(selected);
+    rows.forEach((row) => {
+      const active = row.dataset.spriteRow === key;
+      row.classList.toggle("is-selected", active);
+      row.setAttribute("aria-selected", String(active));
+      if (active && scroll) row.scrollIntoView({ block: "nearest" });
+    });
+  };
+
+  const detailOptions: RenderOptions = {
+    ...options,
+    onNavigateSpecies: (id) => select({ speciesId: id, formIndex: 0 }),
+    onNavigateForm: (form) => select({ speciesId: selected.speciesId, formIndex: form }),
+  };
+  const select = (next: { speciesId: number; formIndex: number }, scroll = true) => {
+    selected = next;
+    markSelection(scroll);
+    options.onSelect?.(next.speciesId, next.formIndex);
+    renderPokemonSpriteEditor(project, detail, next.speciesId, next.formIndex, detailOptions);
+  };
+
+  list.addEventListener("click", (event) => {
+    const row = (event.target as Element).closest<HTMLElement>("[data-sprite-row]");
+    if (!row) return;
+    const [id, form] = (row.dataset.spriteRow ?? "").split(":").map(Number);
+    if (keyOf(selected) === row.dataset.spriteRow) return;
+    select({ speciesId: id!, formIndex: form! }, false);
+  });
+  list.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    event.preventDefault();
+    const visible = rows.filter((row) => row.style.display !== "none");
+    const index = visible.findIndex((row) => row.classList.contains("is-selected"));
+    const next = visible[Math.max(0, Math.min(visible.length - 1, index + (event.key === "ArrowDown" ? 1 : -1)))];
+    if (!next || next.classList.contains("is-selected")) return;
+    const [id, form] = (next.dataset.spriteRow ?? "").split(":").map(Number);
+    select({ speciesId: id!, formIndex: form! });
+  });
+  list.addEventListener("scroll", () => {
+    spriteListView.scrollTop = list.scrollTop;
+  });
+  let searchTimer: number | undefined;
+  search.addEventListener("input", () => {
+    window.clearTimeout(searchTimer);
+    searchTimer = window.setTimeout(() => {
+      spriteListView.search = search.value;
+      applyFilter();
+    }, 120);
+  });
+  search.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    const first = rows.find((row) => row.style.display !== "none");
+    if (!first) return;
+    const [id, form] = (first.dataset.spriteRow ?? "").split(":").map(Number);
+    select({ speciesId: id!, formIndex: form! });
+  });
+
+  // The raw-files menu closes when clicking anywhere else.
+  if (!root.dataset.spriteRawMenu) {
+    root.dataset.spriteRawMenu = "true";
+    root.addEventListener("click", (event) => {
+      const raw = root.querySelector<HTMLDetailsElement>("details.sp-raw[open]");
+      if (raw && !raw.contains(event.target as Node)) raw.open = false;
+    });
+  }
+
+  applyFilter();
+  list.scrollTop = spriteListView.scrollTop;
+  markSelection(true);
+  renderPokemonSpriteEditor(project, detail, selected.speciesId, selected.formIndex, detailOptions);
+}
+
 export function renderPokemonSpriteEditor(
   project: ProjectState,
   root: HTMLElement,
@@ -359,80 +530,39 @@ export function renderPokemonSpriteEditor(
     state.selectedCell = clamp(state.selectedCell, 0, Math.max(0, rigCells.cells.length - 1));
     const showAnimationHotkeys = hasSelectedAnimationPart(project, spriteId);
 
+    const speciesName = titleize(pokemonSpeciesLabel(project, speciesId));
+    const formNote = forms.length > 1 ? `${selectedForm.formIndex === 0 ? "Base form" : selectedForm.label} · ` : "";
     root.innerHTML = `
-      <aside class="pokemon-filter sprite-sidebar ${state.sidebarCollapsed ? "-collapsed" : ""}">
-        <button class="sprite-sidebar-toggle" id="sprite-sidebar-toggle" type="button" aria-label="${state.sidebarCollapsed ? "Show sprite sidebar" : "Hide sprite sidebar"}" title="${state.sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}">${state.sidebarCollapsed ? ">" : "<"}</button>
-        <div class="sprite-sidebar-content">
-          <div class="filter-title">Sprite Editor</div>
-          <label class="sprite-field">
-            <span>Pokemon</span>
-            <select id="sprite-species-select">
-              ${renderSpeciesOptions(project, speciesId)}
-            </select>
-          </label>
-          ${renderFormSelector(forms, selectedForm.formIndex)}
-          <div class="sprite-sidebar-group">
-            <div class="sprite-sidebar-heading">Bundle</div>
-            <label class="sprite-bundle-drop" id="sprite-bundle-drop">
-              <input id="sprite-bundle-import" type="file" accept=".pkmonspritebundle,.pksprdat">
-              <strong>Import Bundle</strong>
-              <span>Click or drop .pkmonspritebundle / .pksprdat</span>
-            </label>
-          </div>
-          <div class="sprite-sidebar-group">
-            <div class="sprite-sidebar-heading">Raw Files</div>
-            <label class="sprite-field">
-              <span>File</span>
-              <select id="raw-file-index">${SPRITE_FILE_LABELS.map((label, index) => `<option value="${index}">${index}: ${label}</option>`).join("")}</select>
-            </label>
-            <div class="sprite-actions -raw">
-              <button class="btn -default" id="raw-export" type="button">Export</button>
-              <label class="btn -default file-btn">Import<input id="raw-import" type="file"></label>
-              <label class="btn -default file-btn">Import ZIP<input id="raw-import-zip" type="file" accept=".zip,application/zip,application/x-zip-compressed"></label>
-              <button class="btn -default" id="raw-dump" type="button">Dump All</button>
-            </div>
-          </div>
-          <div class="sprite-status" id="sprite-status"></div>
-          ${showAnimationHotkeys ? renderAnimationHotkeyHint() : ""}
+      <header class="td-head fd-head -no-sprite sp-head">
+        <div class="td-ident">
+          <div class="td-title"><h1>${escapeHtml(speciesName)}</h1><span class="td-num">#${speciesId}</span></div>
+          <div class="fd-subtitle">${escapeHtml(formNote)}Sprite file ${spriteId}${entry.hasFemale ? " · has female sprites" : ""}</div>
         </div>
-      </aside>
-      <main class="sprite-editor-page ${state.sidebarCollapsed ? "-sidebar-collapsed" : ""}">
-        ${renderAnimationSection(project, spriteId, speciesId)}
-        ${renderRigSection(project, rigCells)}
-        <section class="sprite-section sprite-preview-section ${state.spritesExpanded ? "" : "-collapsed"}">
-          <button class="sprite-section-toggle" data-toggle-sprite-section="sprites" type="button" aria-expanded="${state.spritesExpanded}">
-            <span>${state.spritesExpanded ? "v" : ">"} Sprites</span>
-          </button>
-          ${state.spritesExpanded ? renderPreviewCanvases(project, entry.hasFemale) : ""}
-        </section>
-        <section class="sprite-section ${state.palettesExpanded ? "" : "-collapsed"}">
-          <button class="sprite-section-toggle" data-toggle-sprite-section="palettes" type="button" aria-expanded="${state.palettesExpanded}">
-            <span>${state.palettesExpanded ? "v" : ">"} Palettes</span>
-          </button>
-          ${state.palettesExpanded ? `
-          ${renderNaturePaletteControls(project, spriteId)}
-          <div class="palette-columns">
-            ${renderSelectedPaletteEditor(project, spriteId, "normal")}
-            ${renderSelectedPaletteEditor(project, spriteId, "shiny")}
-          </div>` : ""}
-        </section>
-        <section class="sprite-section ${state.iconsExpanded ? "" : "-collapsed"}">
-          <button class="sprite-section-toggle" data-toggle-sprite-section="icons" type="button" aria-expanded="${state.iconsExpanded}">
-            <span>${state.iconsExpanded ? "v" : ">"} Icons</span>
-          </button>
-          ${state.iconsExpanded ? `<div class="icon-editor-grid">
-            <div class="icon-preview-wrap"><canvas id="pokemon-icon-preview" width="32" height="64"></canvas></div>
-            <div class="icon-controls">
-              <label class="sprite-field"><span>Icon</span><select id="icon-variant"><option value="male" ${state.iconVariant === "male" ? "selected" : ""}>Male Icon</option><option value="female" ${state.iconVariant === "female" ? "selected" : ""}>Female Icon</option></select></label>
-              <label class="sprite-field"><span>Palette</span><input id="icon-palette-id" type="number" min="0" max="2" value="${state.iconPaletteId}"></label>
-              <button class="btn -default" id="icon-set-palette" type="button" ${iconAssignment.editable ? "" : "disabled"}>Set Palette</button>
-              <button class="btn -default" id="icon-export-png" type="button">Export Icon</button>
-              <label class="btn -default file-btn">Import Icon<input id="icon-import-png" type="file" accept="image/png"></label>
+        <div class="sp-actions">
+          <label class="btn sm -default file-btn sp-bundle" id="sprite-bundle-drop" title="Import a .pkmonspritebundle or .pksprdat (or drop one here)">Import bundle<input id="sprite-bundle-import" type="file" accept=".pkmonspritebundle,.pksprdat"></label>
+          <details class="sp-raw">
+            <summary class="btn sm -default">Raw files</summary>
+            <div class="sp-raw-pop">
+              <select id="raw-file-index" aria-label="Raw file">${SPRITE_FILE_LABELS.map((label, index) => `<option value="${index}">${index}: ${label}</option>`).join("")}</select>
+              <div class="sp-raw-actions">
+                <button class="btn sm -default" id="raw-export" type="button">Export file</button>
+                <label class="btn sm -default file-btn">Replace file<input id="raw-import" type="file"></label>
+                <button class="btn sm -default" id="raw-dump" type="button">Export all (ZIP)</button>
+                <label class="btn sm -default file-btn">Import ZIP<input id="raw-import-zip" type="file" accept=".zip,application/zip,application/x-zip-compressed"></label>
+                <button class="btn sm -default" id="raw-export-package" type="button">Export .pksprdat</button>
+              </div>
             </div>
-            <div class="icon-palettes">${renderIconPalettes(getPokemonIconPalettes(project))}</div>
-          </div>` : ""}
-        </section>
-      </main>
+          </details>
+        </div>
+      </header>
+      <div class="md-tabs" role="tablist" aria-label="Sprite editor">
+        ${SPRITE_TABS.map((tab) => `<button class="uv-tab" type="button" role="tab" data-sprite-tab="${tab.value}" aria-selected="${tab.value === state.tab}">${tab.label}</button>`).join("")}
+      </div>
+      <div class="sprite-status" id="sprite-status" role="status"></div>
+      ${state.tab === "animation" && showAnimationHotkeys ? renderAnimationHotkeyHint() : ""}
+      <div class="sprite-editor-page sp-body -${state.tab}">
+        ${renderSpriteTab(project, spriteId, speciesId, entry.hasFemale, rigCells, iconAssignment.editable)}
+      </div>
     `;
     attachSpriteEditor(project, root, speciesId, selectedForm.formIndex, spriteId, iconAddress, options);
     adjustAnimationCanvasDisplaySize(root);
@@ -441,12 +571,50 @@ export function renderPokemonSpriteEditor(
     drawRigEditor(project, spriteId, rigCells);
     drawAnimationEditor(project, spriteId, root);
     drawGifViewer(root);
-    if (state.animationPlaying) startAnimationPlayback(project, spriteId, root);
+    if (state.animationPlaying && state.tab === "animation") startAnimationPlayback(project, spriteId, root);
     if (state.gifViewerPlaying) startGifViewerPlayback(root);
   } catch (error) {
     root.innerHTML = `<div class="sprite-editor-error"><button class="btn -default" id="sprite-back" type="button">Back</button><p>${escapeHtml(errorMessage(error))}</p></div>`;
     root.querySelector("#sprite-back")?.addEventListener("click", () => options.onBack?.());
   }
+}
+
+function renderSpriteTab(
+  project: ProjectState,
+  spriteId: number,
+  speciesId: number,
+  hasFemale: boolean,
+  rigCells: RigCellsFile,
+  iconEditable: boolean,
+): string {
+  if (state.tab === "palettes") {
+    return `<section class="sprite-section">
+      ${renderNaturePaletteControls(project, spriteId)}
+      <div class="palette-columns">
+        ${renderSelectedPaletteEditor(project, spriteId, "normal")}
+        ${renderSelectedPaletteEditor(project, spriteId, "shiny")}
+      </div>
+      <div class="sp-palette-preview">${renderPreviewCanvases(project, hasFemale, true)}</div>
+    </section>`;
+  }
+  if (state.tab === "icon") {
+    return `<section class="sprite-section"><div class="icon-editor-grid">
+      <div class="icon-preview-wrap"><canvas id="pokemon-icon-preview" width="32" height="64"></canvas></div>
+      <div class="icon-controls">
+        <label class="sprite-field"><span>Icon</span><select id="icon-variant"><option value="male" ${state.iconVariant === "male" ? "selected" : ""}>Male icon</option><option value="female" ${state.iconVariant === "female" ? "selected" : ""}>Female icon</option></select></label>
+        <label class="sprite-field"><span>Palette</span><input id="icon-palette-id" type="number" min="0" max="2" value="${state.iconPaletteId}"></label>
+        <div class="sp-icon-actions">
+          <button class="btn sm -default" id="icon-set-palette" type="button" ${iconEditable ? "" : "disabled"}>Set palette</button>
+          <button class="btn sm -default" id="icon-export-png" type="button">Export PNG</button>
+          <label class="btn sm -default file-btn">Import PNG<input id="icon-import-png" type="file" accept="image/png"></label>
+        </div>
+      </div>
+      <div class="icon-palettes">${renderIconPalettes(getPokemonIconPalettes(project))}</div>
+    </div></section>`;
+  }
+  if (state.tab === "animation") return renderAnimationSection(project, spriteId, speciesId);
+  if (state.tab === "rig") return renderRigSection(project, rigCells);
+  return `<section class="sprite-section sprite-preview-section">${renderPreviewCanvases(project, hasFemale)}</section>`;
 }
 
 function attachSpriteEditor(
@@ -482,19 +650,20 @@ function attachSpriteEditor(
       options.onDirty?.(); rerender();
     } catch (error) { setStatus(errorMessage(error)); }
   }));
-  root.querySelector("#sprite-sidebar-toggle")?.addEventListener("click", () => {
-    state.sidebarCollapsed = !state.sidebarCollapsed;
-    rerender();
-  });
-  root.querySelector("#sprite-back")?.addEventListener("click", () => options.onBack?.());
-  root.querySelectorAll<HTMLButtonElement>("[data-toggle-sprite-section]").forEach((button) => {
+  root.querySelectorAll<HTMLButtonElement>("[data-sprite-tab]").forEach((button) => {
     button.addEventListener("click", () => {
-      if (button.dataset.toggleSpriteSection === "icons") state.iconsExpanded = !state.iconsExpanded;
-      else if (button.dataset.toggleSpriteSection === "palettes") state.palettesExpanded = !state.palettesExpanded;
-      else state.spritesExpanded = !state.spritesExpanded;
+      const tab = button.dataset.spriteTab as SpriteTab;
+      if (tab === state.tab) return;
+      state.tab = tab;
+      if (tab !== "animation") state.animationPlaying = false;
       rerender();
     });
   });
+  root.querySelector("#raw-export-package")?.addEventListener("click", () => {
+    const entry = getPokemonSpriteEntry(project, spriteId);
+    downloadBytes(packageFromFiles(entry.files), `${spriteFileBaseName(spriteId)}.pksprdat`, "application/octet-stream");
+  });
+  root.querySelector("#sprite-back")?.addEventListener("click", () => options.onBack?.());
   root.querySelector<HTMLSelectElement>("#sprite-species-select")?.addEventListener("change", (event) => {
     const value = Number((event.currentTarget as HTMLSelectElement).value);
     if (Number.isInteger(value)) options.onNavigateSpecies?.(value);
@@ -1389,7 +1558,7 @@ function installSpriteEditorShortcuts(
       spriteEditorShortcutCleanup?.();
       return;
     }
-    if (isEditableShortcutTarget(event.target)) return;
+    if (isEditableShortcutTarget(event.target) || state.tab !== "animation") return;
     if (isUndoShortcut(event)) {
       event.preventDefault();
       event.stopPropagation();
@@ -3564,11 +3733,11 @@ function animationDragCursor(mode: AnimationDragMode): string {
   return "nwse-resize";
 }
 
-function renderPreviewCanvases(project: ProjectState, hasFemale: boolean): string {
+function renderPreviewCanvases(project: ProjectState, hasFemale: boolean, compact = false): string {
   const rigAtlas = getPokemonRigAtlasDimensions(project);
   const grouped = [
     { kind: "sprite", title: "", variants: variantOptions(hasFemale).filter((variant) => variant.kind === "sprite") },
-    { kind: "rig", title: "Rigs", variants: variantOptions(hasFemale).filter((variant) => variant.kind === "rig") },
+    ...(compact ? [] : [{ kind: "rig", title: "Rigs", variants: variantOptions(hasFemale).filter((variant) => variant.kind === "rig") }]),
   ];
   return grouped
     .map((group) => `
@@ -3590,10 +3759,10 @@ function renderPreviewCanvases(project: ProjectState, hasFemale: boolean): strin
         <div class="sprite-preview-item">
           <div class="sprite-preview-item-header">
             <div>${escapeHtml(variantLabel(variant))}</div>
-            <div class="sprite-preview-item-actions">
-              <button class="btn -default" data-export-preview="${variantValue(variant)}" type="button">Export</button>
-              <label class="btn -default file-btn">Import<input data-import-preview="${variantValue(variant)}" type="file" accept="image/png"></label>
-            </div>
+            ${compact ? "" : `<div class="sprite-preview-item-actions">
+              <button class="btn sm -default" data-export-preview="${variantValue(variant)}" type="button">Export</button>
+              <label class="btn sm -default file-btn">Import<input data-import-preview="${variantValue(variant)}" type="file" accept="image/png"></label>
+            </div>`}
           </div>
           <canvas id="preview-${variantValue(variant)}" data-preview-kind="${variant.kind}" width="${variant.kind === "rig" ? rigAtlas.width : 96}" height="${variant.kind === "rig" ? rigAtlas.height : 96}"></canvas>
         </div>
@@ -4357,39 +4526,6 @@ function renderIconPalettes(palettes: RgbColor[][]): string {
     .join("");
 }
 
-function renderSpeciesOptions(project: ProjectState, selectedSpeciesId: number): string {
-  return getPokemonPersonalIds(project).map((speciesId) => {
-    const name = titleize(pokemonSpeciesLabel(project, speciesId));
-    return `<option value="${speciesId}" ${speciesId === selectedSpeciesId ? "selected" : ""}>${escapeHtml(name)} (#${speciesId})</option>`;
-  }).join("");
-}
-
-function renderFormSelector(forms: ReturnType<typeof getPokemonSpriteFormOptions>, selectedFormIndex: number): string {
-  if (forms.length <= 1) return "";
-  if (forms.length < 7) {
-    return `
-      <div class="sprite-field">
-        <span>Form</span>
-        <div class="sprite-form-tabs" role="tablist" aria-label="Pokemon form">
-          ${forms
-            .map(
-              (form) =>
-                `<button class="btn -default ${form.formIndex === selectedFormIndex ? "-active" : ""}" data-form-tab="${form.formIndex}" type="button" role="tab" aria-selected="${form.formIndex === selectedFormIndex}">${escapeHtml(form.label)}</button>`,
-            )
-            .join("")}
-        </div>
-      </div>
-    `;
-  }
-  return `
-    <label class="sprite-field">
-      <span>Form</span>
-      <select id="sprite-form-select">
-        ${forms.map((form) => `<option value="${form.formIndex}" ${form.formIndex === selectedFormIndex ? "selected" : ""}>${escapeHtml(form.label)} (${form.spriteId})</option>`).join("")}
-      </select>
-    </label>
-  `;
-}
 
 function renderRigControls(cells: RigCellsFile): string {
   const selected = selectedRigCell(cells);

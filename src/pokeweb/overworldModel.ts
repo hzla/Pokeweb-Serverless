@@ -610,8 +610,11 @@ function mapDimensions(project: ProjectState, mapId: number): { width: number; h
 
 function selectSceneCells(cells: MatrixCell[], header: HeaderRow, rowId: number): MatrixCell[] {
   const headerValues = cells.map((cell) => Number(cell.headerId)).filter((value) => Number.isFinite(value) && value !== NULL_MAP_ID);
+  // A matrix without a zone layer is one zone: the game loads every cell, and event
+  // coordinates are relative to the whole matrix (e.g. White Forest, matrix 357).
+  if (headerValues.length === 0) return cells;
   const flySelection = selectSceneCellsByFlyPosition(cells, header);
-  if (headerValues.length === 0 || headerValues.every((value) => value === 0)) return flySelection ?? cells;
+  if (headerValues.every((value) => value === 0)) return flySelection ?? cells;
 
   for (const candidate of sceneHeaderCandidates(header, rowId)) {
     const matching = cells.filter((cell) => Number(cell.headerId) === candidate);

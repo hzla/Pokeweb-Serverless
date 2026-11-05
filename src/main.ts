@@ -88,15 +88,16 @@ import { renderPatchesEditor } from "./ui/patchesEditor";
 import { renderHeaderEditor } from "./ui/headerEditor";
 import { renderOverworldWeatherEditor, stopOverworldWeatherEditorPreview } from "./ui/overworldWeatherEditor";
 import { renderOverworldWeatherGraphicsEditor, stopOverworldWeatherGraphicsEditor } from "./ui/overworldWeatherGraphicsEditor";
-import { renderEncounterEditor } from "./ui/encounterEditor";
-import { renderItemEditor, renderMoveAnimationPage, renderMoveEditor } from "./ui/moveItemEditor";
+import { renderEncounterEditor, selectEncounterArea } from "./ui/encounterEditor";
+import { renderMoveAnimationPage, renderMoveEditor } from "./ui/moveItemEditor";
+import { renderItemEditor } from "./ui/itemEditor";
 import { renderMoveEffectHandlerEditor } from "./ui/moveEffectHandlerEditor";
 import { renderMoveBackgroundEditor } from "./ui/moveBackgroundEditor";
 import { renderBattleBackgroundEditor } from "./ui/battleBackgroundEditor";
 import { buildBattleEnvironmentTestDownloads, type BattleEnvironmentTestSelection } from "./pokeweb/battleEnvironmentTest";
 import { renderTitleScreenEditor, stopTitleScreenEditor } from "./ui/titleScreenEditor";
 import { renderPokemonEditor } from "./ui/pokemonEditor";
-import { renderPokemonSpriteEditor } from "./ui/pokemonSpriteEditor";
+import { renderPokemonSpriteWorkspace } from "./ui/pokemonSpriteEditor";
 import { renderPwanAnimationEditor } from "./ui/pwanAnimationEditor";
 import { getPwanRuntimeStatus } from "./pokeweb/pwanAnimationModel";
 import { renderStarterEditor } from "./ui/starterEditor";
@@ -108,8 +109,9 @@ import { renderTrainerSpriteEditor, stopTrainerSpriteEditorPlayback } from "./ui
 import { renderPlayerTrainerBackSpritePreview, stopPlayerTrainerBackSpritePlayback } from "./ui/playerTrainerBackSpritePreview";
 import { renderTrainerMusicEditor, stopTrainerMusicEditorPlayback } from "./ui/trainerMusicEditor";
 import { renderBattleFacilityEditor } from "./ui/battleFacilityEditor";
-import { renderGrottoEditor, renderGrottoOddsEditor, renderMartEditor } from "./ui/martGrottoEditor";
-import { renderTextEditor } from "./ui/textEditor";
+import { renderGrottoEditor } from "./ui/grottoEditor";
+import { renderMartEditor } from "./ui/martGrottoEditor";
+import { renderTextEditor, selectTextBank } from "./ui/textEditor";
 import { renderOverworldEditor } from "./ui/overworldEditor";
 import { renderDocGenerators } from "./ui/docGenerators";
 import { renderMastersheetEditor } from "./ui/mastersheetEditor";
@@ -187,6 +189,7 @@ type AppRoute =
   | "debugNarcs";
 type AppHistoryState = {
   route: AppRoute;
+  headerRowId?: number;
   homeTab?: HomeTab;
   matrixHeaderId?: number;
   overworldId?: number;
@@ -462,6 +465,7 @@ let activeHomeTab: HomeTab = "upload";
 let homeTabs: ReturnType<typeof attachHomeTabs> | undefined;
 let activeOverworldId: number | undefined;
 let activeOverworldHeaderId: number | undefined;
+let activeHeaderRowId: number | undefined;
 let activeMapZoneId: number | undefined;
 let activeCutsceneSequenceId: number | undefined;
 let activeCutsceneSceneId: string | undefined;
@@ -571,6 +575,7 @@ async function boot(): Promise<void> {
   activeHomeTab = homeTabOrDefault(initialState.homeTab);
   activeOverworldId = initialState.overworldId;
   activeOverworldHeaderId = initialState.overworldHeaderId;
+  activeHeaderRowId = initialState.headerRowId;
   activeMapZoneId = initialState.mapZoneId;
   activeCutsceneSequenceId = initialState.cutsceneSequenceId;
   activeCutsceneSceneId = initialState.cutsceneSceneId;
@@ -747,17 +752,36 @@ function renderApp(): void {
   }
 
   if (route === "headers") {
-    renderHeaderEditor(
-      project,
-      content,
-      () => {
+    const headerProject = project;
+    renderHeaderEditor(headerProject, content, {
+      onDirty: () => {
         dirty = true;
-        scheduleSave(project!);
+        scheduleSave(headerProject);
         renderDirtyIndicator();
       },
-      canVisit("overworlds") ? openOverworld : undefined,
-      canVisit("matrixEditor") ? headerId => applyRouteState({ route: "matrixEditor", matrixHeaderId: headerId }) : undefined,
-    );
+      selectedRowId: activeHeaderRowId,
+      // Selecting a header rewrites the current history entry, so Back from a linked editor lands on it again.
+      onSelect: (rowId) => {
+        if (activeHeaderRowId === rowId && window.location.hash === `#headers/${rowId - 1}`) return;
+        activeHeaderRowId = rowId;
+        syncBrowserHistory(true);
+      },
+      onOpenOverworld: canVisit("overworlds") ? (overworldId, rowId) => applyRouteState({ route: "overworlds", overworldId, overworldHeaderId: rowId - 1 }) : undefined,
+      onOpenSeasons: canVisit("matrixEditor") ? (headerId) => applyRouteState({ route: "matrixEditor", matrixHeaderId: headerId }) : undefined,
+      onOpenText: canVisit("storyText") ? (bankId) => {
+        selectTextBank(headerProject, "story_texts", bankId);
+        applyRouteState({ route: "storyText" });
+      } : undefined,
+      onOpenScript: canVisit("bw2Scripts") ? (scriptId) => {
+        (headerProject.bw2ScriptEditor ??= { drafts: {} }).selectedFileId = scriptId;
+        applyRouteState({ route: "bw2Scripts" });
+      } : undefined,
+      onOpenMap: canVisit("maps3d") ? (zoneId) => applyRouteState({ route: "maps3d", mapZoneId: zoneId }) : undefined,
+      onOpenEncounters: canVisit("encounters") ? (encounterId) => {
+        selectEncounterArea(headerProject, encounterId);
+        applyRouteState({ route: "encounters" });
+      } : undefined,
+    });
     return;
   }
 
@@ -903,6 +927,7 @@ function renderApp(): void {
       () => navigate("headers"),
       launchOverworldTestWarp,
       activeOverworldHeaderId === undefined ? undefined : activeOverworldHeaderId + 1,
+      (overworldId) => openOverworld(overworldId),
     );
     return;
   }
@@ -1012,15 +1037,18 @@ function renderApp(): void {
       navigate("pokemon");
       return;
     }
-    renderPokemonSpriteEditor(project, content, activePokemonSpriteSpeciesId, activePokemonSpriteFormIndex, {
+    renderPokemonSpriteWorkspace(project, content, activePokemonSpriteSpeciesId, activePokemonSpriteFormIndex, {
       onDirty: () => {
         dirty = true;
         scheduleSave(project!);
         renderDirtyIndicator();
       },
       onBack: () => navigate("pokemon"),
-      onNavigateSpecies: (speciesId) => openPokemonSprites(speciesId, 0),
-      onNavigateForm: (formIndex) => openPokemonSprites(activePokemonSpriteSpeciesId!, formIndex),
+      onSelect: (speciesId, formIndex) => {
+        activePokemonSpriteSpeciesId = speciesId;
+        activePokemonSpriteFormIndex = formIndex;
+        syncBrowserHistory(true);
+      },
     });
     return;
   }
@@ -1261,31 +1289,13 @@ function renderApp(): void {
     return;
   }
 
-  if (route === "grottos") {
-    renderGrottoEditor(
-      project,
-      content,
-      () => {
-        dirty = true;
-        scheduleSave(project!);
-        renderDirtyIndicator();
-      },
-      () => navigate("grottoOdds"),
-    );
-    return;
-  }
-
-  if (route === "grottoOdds") {
-    renderGrottoOddsEditor(
-      project,
-      content,
-      () => {
-        dirty = true;
-        scheduleSave(project!);
-        renderDirtyIndicator();
-      },
-      () => navigate("grottos"),
-    );
+  if (route === "grottos" || route === "grottoOdds") {
+    // Grotto rates are edited inside each grotto; the old odds route lands here too.
+    renderGrottoEditor(project, content, () => {
+      dirty = true;
+      scheduleSave(project!);
+      renderDirtyIndicator();
+    });
     return;
   }
 
@@ -1554,11 +1564,16 @@ function renderEncountersMenu(): string {
 }
 
 function renderPokemonMenu(): string {
-  if (!project || !supportsAbilityEditor(project)) return navItem("pokemon", "Pokémon");
-  const active = route === "pokemon" || route === "abilities";
+  const abilities = Boolean(project && supportsAbilityEditor(project));
+  const sprites = Boolean(project && isGen5Project(project) && project.narcs.personal);
+  if (!abilities && !sprites) return navItem("pokemon", "Pokémon");
+  const active = route === "pokemon" || route === "abilities" || route === "pokemonSprites";
+  const spriteLink = sprites
+    ? `<a class="header-item ${route === "pokemonSprites" ? "-active" : ""}" href="#pokemonSprites/${activePokemonSpriteSpeciesId ?? 1}/${activePokemonSpriteFormIndex ?? 0}" data-open-pokemon-sprites="true">Sprites</a>`
+    : "";
   return `<div class="header-more ${active ? "-active" : ""}">
     <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Pokémon</button>
-    <div class="header-more-menu">${navItem("pokemon", "Pokémon data")}${navItem("abilities", "Abilities")}</div>
+    <div class="header-more-menu">${navItem("pokemon", "Pokémon data")}${spriteLink}${abilities ? navItem("abilities", "Abilities") : ""}</div>
   </div>`;
 }
 
@@ -1612,6 +1627,13 @@ function renderTextsMenu(): string {
 function attachNav(): void {
   renderSubnavTabs();
   attachProjectMenu();
+  appRoot.querySelectorAll<HTMLAnchorElement>("[data-open-pokemon-sprites]").forEach((link) => {
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      if (route === "pokemonSprites") return;
+      openPokemonSprites(activePokemonSpriteSpeciesId ?? 1, activePokemonSpriteFormIndex ?? 0);
+    });
+  });
   appRoot.querySelectorAll<HTMLAnchorElement>("[data-route]").forEach((link) => {
     link.addEventListener("click", (event) => {
       event.preventDefault();
@@ -2081,7 +2103,7 @@ async function ensurePokemonSpriteNarcs(): Promise<void> {
   const bytes = project.originalRomBytes ?? (await loadActiveRomBytes());
   if (!bytes) throw new Error("Pokemon sprite data is not loaded. Reload the ROM once, then open the paintbrush editor again.");
 
-  const rom = new NintendoDSRom(bytes);
+  const rom = new NintendoDSRom(bytes, { fileData: "view" });
   for (const definition of [
     { path: "a/0/0/4", name: "pokemon_sprites" as const },
     { path: "a/0/0/7", name: "pokemon_icons" as const },
@@ -2806,6 +2828,7 @@ function applyRouteState(nextState: AppHistoryState, options: { replace?: boolea
   activeHomeTab = homeTabOrDefault(nextState.homeTab);
   activeOverworldId = nextState.overworldId;
   activeOverworldHeaderId = nextState.overworldHeaderId;
+  if (nextState.headerRowId !== undefined) activeHeaderRowId = nextState.headerRowId;
   activeMapZoneId = nextState.mapZoneId;
   activeCutsceneSequenceId = nextState.cutsceneSequenceId;
   activeCutsceneSceneId = nextState.cutsceneSceneId;
@@ -2860,6 +2883,7 @@ function syncBrowserHistory(replace: boolean): void {
 function currentHistoryState(): AppHistoryState {
   if (route === "upload") return { route, homeTab: activeHomeTab };
   if (route === "matrixEditor") return { route, matrixHeaderId: activeMatrixHeaderId };
+  if (route === "headers") return { route, headerRowId: activeHeaderRowId };
   if (route === "overworlds") return { route, overworldId: activeOverworldId, overworldHeaderId: activeOverworldHeaderId };
   if (route === "maps3d") return { route, mapZoneId: activeMapZoneId, mapId: activeMapId, mapMatrixCell: activeMapMatrixCell };
   if (route === "cutscenes") return { route, cutsceneSequenceId: activeCutsceneSequenceId, cutsceneSceneId: activeCutsceneSceneId };
@@ -2887,6 +2911,8 @@ function routeUrl(
 ): string {
   if (nextRoute === "upload") return homeTabUrl(activeHomeTab);
   if (nextRoute === "matrixEditor" && activeMatrixHeaderId !== undefined) return `#matrixEditor/header/${activeMatrixHeaderId}`;
+  // The URL shows the header ID users see (row - 1).
+  if (nextRoute === "headers" && activeHeaderRowId !== undefined) return `#headers/${activeHeaderRowId - 1}`;
   if (nextRoute === "cutscenes" && cutsceneSceneId) return `#cutscenes/scene/${encodeURIComponent(cutsceneSceneId)}`;
   if (nextRoute === "cutscenes" && cutsceneSequenceId !== undefined) return `#cutscenes/${cutsceneSequenceId}`;
   if (nextRoute === "overworlds" && overworldId !== undefined) return `#overworlds/${overworldId}${overworldHeaderId === undefined ? "" : `/${overworldHeaderId}`}`;
@@ -2916,6 +2942,7 @@ function routeStateFromUrl(): AppHistoryState | undefined {
     cutsceneSequenceId: routeName === "cutscenes" && Number.isSafeInteger(id) && id! > 0 ? id : undefined,
     cutsceneSceneId: routeName === "cutscenes" && idText === "scene" && extraText && /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(extraText) ? extraText : undefined,
     matrixHeaderId: routeName === "matrixEditor" && idText === "header" && Number.isSafeInteger(formIndex) && formIndex! >= 0 ? formIndex : undefined,
+    headerRowId: routeName === "headers" && Number.isSafeInteger(id) && id! >= 0 ? id! + 1 : undefined,
     overworldId: routeName === "overworlds" && Number.isSafeInteger(id) ? id : undefined,
     overworldHeaderId: routeName === "overworlds" && Number.isSafeInteger(formIndex) && formIndex! >= 0 ? formIndex : undefined,
     mapZoneId: routeName === "maps3d" && Number.isSafeInteger(id) && id! >= 0 ? id : undefined,

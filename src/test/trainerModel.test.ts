@@ -8,6 +8,10 @@ import {
   autofillTrainerPokemonMoves,
   calculateTrainerPokemonNature,
   deleteTrainerPokemon,
+  duplicateTrainerPokemon,
+  formatTrainerTeamShowdownText,
+  importTrainerTeamShowdownText,
+  moveTrainerPokemon,
   formatTrainerPokemonShowdownText,
   getTrainerRecord,
   importTrainerPokemonShowdownText,
@@ -283,6 +287,52 @@ describe("trainerModel", () => {
     expect(trainer.party[0].speciesName).toBe("Ivysaur");
     expect(trainer.party[0]).toMatchObject({ nature: "Timid", natureSetting: "Timid", natureValue: 11 });
     expect(project.trpokInfo[1]).toEqual({ template: 3, numPokemon: 1 });
+  });
+
+  it("clears the class changelog entry when the original class is restored", () => {
+    const project = makeProject(3);
+    const original = getTrainerRecord(project, 1).raw.class;
+    updateTrainerField(project, 1, "class", "Leader (2)");
+    expect(project.actionChangelog?.entries.some((entry) => entry.key === "trainer:1:data:class")).toBe(true);
+    updateTrainerField(project, 1, "class", String(original));
+    expect(project.actionChangelog?.entries.some((entry) => entry.key === "trainer:1:data:class")).toBe(false);
+  });
+
+  it("moves and duplicates trainer Pokemon without losing their fields", () => {
+    const project = makeProject(3);
+    addTrainerPokemon(project, 1);
+    updateTrainerPokemonField(project, 1, 1, "species_id_1", "Ivysaur");
+    updateTrainerPokemonField(project, 1, 1, "level_1", "30");
+
+    moveTrainerPokemon(project, 1, 1, 0);
+    let party = getTrainerRecord(project, 1).party;
+    expect(party.map((pok) => [pok.speciesName, pok.level])).toEqual([["Ivysaur", 30], ["Bulbasaur", 5]]);
+    expect(project.actionChangelog?.entries.some((entry) => entry.key === "trainer:1:party-order")).toBe(true);
+    moveTrainerPokemon(project, 1, 0, 1);
+    expect(project.actionChangelog?.entries.some((entry) => entry.key === "trainer:1:party-order")).toBe(false);
+    moveTrainerPokemon(project, 1, 1, 0);
+
+    const copy = duplicateTrainerPokemon(project, 1, 0);
+    expect(copy.slot).toBe(1);
+    party = getTrainerRecord(project, 1).party;
+    expect(party.map((pok) => [pok.speciesName, pok.level])).toEqual([["Ivysaur", 30], ["Ivysaur", 30], ["Bulbasaur", 5]]);
+    expect(party[1].itemName).toBe(party[0].itemName);
+    expect(project.trpokInfo[1]).toEqual({ template: 3, numPokemon: 3 });
+  });
+
+  it("replaces the whole party from a Showdown team and round-trips it", () => {
+    const project = makeProject(3);
+    const team = `${SHOWDOWN_IMPORT_TEXT}\n\nBulbasaur @ Potion\nLevel: 7\n- Tackle`;
+
+    importTrainerTeamShowdownText(project, 1, team);
+    const party = getTrainerRecord(project, 1).party;
+    expect(party.map((pok) => [pok.speciesName, pok.level])).toEqual([["Ivysaur", 42], ["Bulbasaur", 7]]);
+    expect(formatTrainerTeamShowdownText(project, 1).split("\n\n")).toHaveLength(2);
+
+    importTrainerTeamShowdownText(project, 1, "Bulbasaur\nLevel: 9");
+    expect(getTrainerRecord(project, 1).party.map((pok) => pok.level)).toEqual([9]);
+    expect(() => importTrainerTeamShowdownText(project, 1, "Missingmon\nLevel: 9")).toThrow();
+    expect(getTrainerRecord(project, 1).party.map((pok) => pok.level)).toEqual([9]);
   });
 
   it("adds a trainer by cloning trainer data, party data, names, and BW2 text tables", () => {

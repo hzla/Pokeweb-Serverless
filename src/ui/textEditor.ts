@@ -1,10 +1,14 @@
+import { BW2_MESSAGE_BANKS, BW_MESSAGE_BANKS } from "../pokeweb/constants";
+import { layoutBw2Dialogue, loadBw2DialogueAssets, type DialogueFont } from "../pokeweb/bw2DialoguePreview";
+import { parseHeaders } from "../pokeweb/headerModel";
+import type { ProjectState } from "../pokeweb/projectStore";
+import type { Gen5TextEntry } from "../pokeweb/text";
 import {
   addTextEntries,
   applyTextReplacement,
   deleteLastTextEntries,
   getTextBank,
   getTextBankCount,
-  getTextBankSummaries,
   parseTextEntryId,
   previewTextReplacement,
   updateTextEntry,
@@ -12,363 +16,550 @@ import {
   type TextReplacementMode,
   type TextReplacementPlan,
 } from "../pokeweb/textModel";
-import type { ProjectState } from "../pokeweb/projectStore";
-import type { Gen5TextEntry } from "../pokeweb/text";
-import { escapeHtml, selectText } from "./dom";
+import { installBw2DialoguePreview, type Bw2DialoguePreview } from "./bw2DialoguePreview";
+import { escapeHtml } from "./dom";
+import { assumedDialogueVariables, installGameTextEditor, renderGameTextEditor } from "./textHighlight";
+import { installPicker } from "./trainerInteractions";
+import "../styles/moveData.css";
+import "../styles/textData.css";
 
 const TEXT_BANK_STORAGE_KEY_PREFIX = "pokeweb-serverless-active-text-bank";
+const MATCH_LIST_LIMIT = 200;
+
+type TextEditorState = {
+  bankId: number;
+  entryIndex: number;
+  filter: string;
+  overflowOnly: boolean;
+  find: string;
+  replace: string;
+  mode: TextReplacementMode;
+  scope: "bank" | "all";
+  lastMatch?: TextReplacementPlan["matches"][number];
+};
+
+const editorStates = new WeakMap<ProjectState, Partial<Record<TextNarcName, TextEditorState>>>();
+
+const KNOWN_BANK_NAMES: Record<string, string> = {
+  moves: "Move names",
+  abilities: "Ability names",
+  pokedex: "Pokémon names",
+  tr_classes: "Trainer classes",
+  tr_names: "Trainer names",
+  locations: "Location names",
+  items: "Item names",
+};
+
+/** Opens a bank the next time the editor renders (used by links from other editors). */
+export function selectTextBank(project: ProjectState, narcName: TextNarcName, bankId: number): void {
+  const states = editorStates.get(project) ?? {};
+  editorStates.set(project, states);
+  const state = states[narcName];
+  if (state) {
+    state.bankId = bankId;
+    state.entryIndex = 0;
+    state.filter = "";
+    state.overflowOnly = false;
+  }
+  rememberTextBank(narcName, bankId);
+}
 
 export function renderTextEditor(project: ProjectState, root: HTMLElement, narcName: TextNarcName, title: string, onDirty?: () => void): void {
-  let selectedBank = loadRememberedTextBank(narcName, getTextBankCount(project, narcName));
-  let searchText = "";
-  let ignoreCase = false;
-  let findText = "";
-  let replacementText = "";
-  let replacementMode: TextReplacementMode = "ignore-case";
-  let replacementScope = selectedBank === undefined ? "all" : "bank";
-  let lastMatch: TextReplacementPlan["matches"][number] | undefined;
-  let replacementNotice = "";
-
-  const renderList = (remember = true) => {
-    selectedBank = undefined;
-    if (remember) rememberTextBank(narcName, undefined);
-    root.innerHTML = `
-      <div class="pokemon-filter text-filter">
-        <div class="filter-title">Search Text</div>
-        <input class="filter-input" id="search-textbanks" value="${escapeHtml(searchText)}"/>
-        <label class="container filter-check">
-          <div class="filter-label">Ignore Case?</div>
-          <input class="ignore-case" type="checkbox" ${ignoreCase ? "checked" : ""}>
-          <span class="checkmark"></span>
-        </label>
-        <button class="btn -default" id="search-textbanks-btn" type="button">Search</button>
-      </div>
-      <div class="pokemon-list spreadsheet" id="texts" data-narc="${narcName}">
-        ${renderReplacementControls()}
-        ${getTextBankSummaries(project, narcName, searchText, ignoreCase).map((summary) => renderBankSummary(summary.id, summary.preview)).join("")}
-      </div>
-    `;
-    attachListHandlers();
-    attachReplacementHandlers();
+  const bankCount = getTextBankCount(project, narcName);
+  const states = editorStates.get(project) ?? {};
+  editorStates.set(project, states);
+  const state: TextEditorState = states[narcName] ?? {
+    bankId: loadRememberedTextBank(narcName, bankCount) ?? 0,
+    entryIndex: 0,
+    filter: "",
+    overflowOnly: false,
+    find: "",
+    replace: "",
+    mode: "ignore-case",
+    scope: "bank",
   };
+  states[narcName] = state;
+  if (state.bankId >= bankCount) state.bankId = 0;
+  const names = bankNames(project, narcName, bankCount);
+  const bankLabel = (id: number) => (names[id] === `Bank ${id}` ? `Bank ${id}` : `${names[id]} - Bank ${id}`);
+  const bankOptions = names.map((_name, id) => bankLabel(id));
+  const canPreview = project.session.baseRom === "BW2";
+  const pageActions = document.getElementById("page-actions");
+  if (pageActions) pageActions.innerHTML = "";
 
-  const renderDetail = (bankId: number, remember = true) => {
-    selectedBank = bankId;
-    if (remember) rememberTextBank(narcName, bankId);
-    const bank = getTextBank(project, narcName, bankId);
-    root.innerHTML = `
-      <div class="pokemon-filter text-filter">
-        <div class="filter-title">Bank ${bankId}</div>
-        <button class="btn -default" id="back-textbanks" type="button">${title}</button>
-        <div class="sidebar-btns">
-          <div class="sb-btn" id="add-text">Add Text(s)</div>
-          <input class="sb-field" id="add-text-count" value="1">
+  root.innerHTML = `
+    <div class="text-data" id="text-data">
+      <aside class="md-list tx-side" aria-label="${escapeHtml(title)} tools">
+        <div class="tx-block">
+          <div class="tx-block-title">Bank</div>
+          <div class="tx-bank-row">
+            <button class="btn sm -ghost" type="button" data-bank-step="-1" aria-label="Previous bank">‹</button>
+            <div class="tx-bank-picker"><div contenteditable="true" spellcheck="false" data-bank-picker data-autofill="banks" aria-label="Text bank"></div></div>
+            <button class="btn sm -ghost" type="button" data-bank-step="1" aria-label="Next bank">›</button>
+          </div>
+          <input class="md-search" type="search" data-text-filter placeholder="Search in bank" value="${escapeHtml(state.filter)}" autocomplete="off" spellcheck="false" aria-label="Search in bank">
+          <label class="md-check td-check"><input type="checkbox" data-overflow-only ${state.overflowOnly ? "checked" : ""} ${canPreview ? "" : "disabled"}><span>Only overflowing messages</span></label>
         </div>
-        <div class="sidebar-btns">
-          <div class="sb-btn" id="del-text">Del Last Text(s)</div>
-          <input class="sb-field" id="del-text-count" value="1">
+        <form class="tx-block tx-replace" aria-label="Find and replace">
+          <div class="tx-block-title">Find and replace</div>
+          <input class="md-search" data-find placeholder="Find" value="${escapeHtml(state.find)}" autocomplete="off" spellcheck="false" aria-label="Find">
+          <input class="md-search" data-replace placeholder="Replace with (empty deletes)" value="${escapeHtml(state.replace)}" autocomplete="off" spellcheck="false" aria-label="Replace with">
+          <div class="tx-replace-options">
+            <select data-mode aria-label="Matching">
+              <option value="ignore-case"${state.mode === "ignore-case" ? " selected" : ""}>Ignore case</option>
+              <option value="match-case"${state.mode === "match-case" ? " selected" : ""}>Match case</option>
+              <option value="capitalization-aware"${state.mode === "capitalization-aware" ? " selected" : ""} title="Matches any case and keeps UPPERCASE, lowercase and Title Case">Keep capitalization</option>
+            </select>
+            <select data-scope aria-label="Search in">
+              <option value="bank"${state.scope === "bank" ? " selected" : ""}>This bank</option>
+              <option value="all"${state.scope === "all" ? " selected" : ""}>All banks</option>
+            </select>
+          </div>
+          <div class="tx-replace-actions">
+            <button class="btn" type="button" data-find-next>Find next</button>
+            <button class="btn" type="submit" data-replace-all>Replace all…</button>
+          </div>
+          <div class="tx-match-status" data-match-status role="status" aria-live="polite"></div>
+          <div class="tx-matches" data-matches></div>
+        </form>
+        <div class="tx-block tx-bank-actions">
+          <button class="btn sm" type="button" data-add-entry>Add message</button>
+          <button class="btn sm" type="button" data-delete-entry>Delete last message</button>
         </div>
-      </div>
-      <div class="pokemon-list spreadsheet text-detail-list" id="texts" data-narc="${narcName}" data-index="${bankId}">
-        ${renderReplacementControls()}
-        ${bank.map((entry, flatIndex) => renderTextEntry(entry, flatIndex)).join("")}
-      </div>
-    `;
-    attachDetailHandlers(bankId);
-    attachReplacementHandlers();
-  };
-
-  function renderReplacementControls(): string {
-    return `
-      <form class="text-replace" aria-label="Find and replace">
-        <h2>Find and replace</h2>
-        <div class="text-replace-fields">
-          <label>Find<input id="text-find" value="${escapeHtml(findText)}" autocomplete="off" spellcheck="false"></label>
-          <label>Replace with<input id="text-replacement" value="${escapeHtml(replacementText)}" autocomplete="off" spellcheck="false" placeholder="Leave empty to delete matches"></label>
-          <label>Matching<select id="text-replacement-mode">
-            <option value="ignore-case" ${replacementMode === "ignore-case" ? "selected" : ""}>Ignore case</option>
-            <option value="match-case" ${replacementMode === "match-case" ? "selected" : ""}>Match case</option>
-            <option value="capitalization-aware" ${replacementMode === "capitalization-aware" ? "selected" : ""}>Capitalization aware</option>
-          </select></label>
-          <label>Search in<select id="text-replacement-scope">
-            ${selectedBank === undefined ? "" : `<option value="bank" ${replacementScope === "bank" ? "selected" : ""}>Current bank (${selectedBank})</option>`}
-            <option value="all" ${replacementScope === "all" || selectedBank === undefined ? "selected" : ""}>All ${escapeHtml(title)} banks</option>
-          </select></label>
-        </div>
-        <p class="text-replace-help">Finds literal text, including parts of words. Capitalization aware matches any case and preserves UPPERCASE, lowercase, and Title Case. Mixed case uses your replacement as typed.</p>
-        <div class="text-replace-actions">
-          <button class="btn -default" id="text-find-next" type="button">Find next</button>
-          <button class="btn -default" id="text-replace-all" type="submit">Replace all…</button>
-          <span id="text-replace-count" role="status" aria-live="polite"></span>
-        </div>
-        <p id="text-replace-notice" role="status">${escapeHtml(replacementNotice)}</p>
-      </form>
-      <dialog class="text-replace-confirm" aria-labelledby="text-replace-confirm-title" aria-describedby="text-replace-confirm-summary">
+      </aside>
+      <section class="md-detail tx-main" data-text-main></section>
+      <aside class="tx-preview" aria-label="In-game preview">
+        <div class="tx-preview-head"><span class="tx-block-title">In-game preview</span><span class="tx-preview-entry" data-preview-entry></span></div>
+        ${canPreview ? `<div data-preview-root></div>` : `<p class="td-empty">The in-game preview needs a Black 2 / White 2 project.</p>`}
+      </aside>
+      <dialog class="text-replace-confirm" aria-labelledby="text-replace-confirm-title">
         <h2 id="text-replace-confirm-title">Confirm replacements</h2>
-        <p id="text-replace-confirm-summary"></p>
-        <pre id="text-replace-confirm-details"></pre>
-        <div class="text-replace-actions">
-          <button class="btn -default" id="text-replace-cancel" type="button" autofocus>Cancel</button>
-          <button class="btn -default" id="text-replace-confirm-apply" type="button">Apply replacements</button>
+        <p data-confirm-summary></p>
+        <pre data-confirm-details></pre>
+        <div class="tx-replace-actions">
+          <button class="btn" type="button" data-confirm-cancel autofocus>Cancel</button>
+          <button class="btn -primary" type="button" data-confirm-apply>Apply replacements</button>
         </div>
       </dialog>
+    </div>
+  `;
+
+  const main = root.querySelector<HTMLElement>("[data-text-main]")!;
+  const picker = root.querySelector<HTMLElement>("[data-bank-picker]")!;
+  const filterInput = root.querySelector<HTMLInputElement>("[data-text-filter]")!;
+  const overflowOnly = root.querySelector<HTMLInputElement>("[data-overflow-only]")!;
+  const form = root.querySelector<HTMLFormElement>(".tx-replace")!;
+  const dialog = root.querySelector<HTMLDialogElement>(".text-replace-confirm")!;
+  const previewEntry = root.querySelector<HTMLElement>("[data-preview-entry]")!;
+  const previewRoot = root.querySelector<HTMLElement>("[data-preview-root]");
+  let font: DialogueFont | undefined;
+  let previewText = "";
+  const preview: Bw2DialoguePreview | undefined = previewRoot ? installBw2DialoguePreview(project, previewRoot, () => previewText, assumedDialogueVariables, { stacked: true }) : undefined;
+  preview?.show();
+  if (canPreview) {
+    void loadBw2DialogueAssets(project).then((assets) => {
+      font = assets.font;
+      if (!root.isConnected) return;
+      main.querySelectorAll<HTMLElement>("[data-entry]").forEach(flagRow);
+      refreshSummary();
+      applyFilter();
+    }).catch(() => {
+      overflowOnly.disabled = true;
+    });
+  }
+
+  // ---------- Bank ----------
+
+  const bankPicker = installPicker(picker, bankOptions);
+  const setPickerLabel = () => {
+    picker.textContent = bankLabel(state.bankId);
+  };
+  const commitPicker = () => {
+    const raw = picker.dataset.commitValue ?? picker.textContent ?? "";
+    delete picker.dataset.commitValue;
+    delete picker.dataset.commitLabel;
+    const match = /\bBank (\d+)\s*$/u.exec(raw) ?? /^\s*(\d+)\s*$/u.exec(raw);
+    const index = match ? Number(match[1]) : names.findIndex((name) => name.toLowerCase() === raw.trim().toLowerCase());
+    if (Number.isInteger(index) && index >= 0 && index < bankCount && index !== state.bankId) selectBank(index);
+    else setPickerLabel();
+  };
+  picker.addEventListener("focus", () => {
+    window.setTimeout(() => {
+      if (document.activeElement !== picker) return;
+      const range = document.createRange();
+      range.selectNodeContents(picker);
+      window.getSelection()?.removeAllRanges();
+      window.getSelection()?.addRange(range);
+    }, 0);
+    bankPicker?.open();
+  });
+  picker.addEventListener("keydown", (event) => {
+    if (bankPicker?.handleKey(event)) return;
+    if (event.key === "Enter" || event.key === "Escape") {
+      event.preventDefault();
+      if (event.key === "Escape") setPickerLabel();
+      picker.blur();
+    }
+  });
+  picker.addEventListener("blur", () => {
+    bankPicker?.close();
+    commitPicker();
+  });
+  root.querySelectorAll<HTMLButtonElement>("[data-bank-step]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const next = state.bankId + Number(button.dataset.bankStep);
+      if (next >= 0 && next < bankCount) selectBank(next);
+    });
+  });
+
+  function selectBank(bankId: number, entryIndex = 0): void {
+    state.bankId = bankId;
+    state.entryIndex = entryIndex;
+    rememberTextBank(narcName, bankId);
+    setPickerLabel();
+    renderBank();
+    if (state.scope === "bank") updateMatches();
+  }
+
+  // ---------- Messages ----------
+
+  const editedEntries = () => {
+    const prefix = `text:${narcName}:${state.bankId}:`;
+    return new Set((project.actionChangelog?.entries ?? []).filter((entry) => entry.key.startsWith(prefix)).map((entry) => Number(entry.key.slice(prefix.length))));
+  };
+
+  function renderBank(): void {
+    const bank = getTextBank(project, narcName, state.bankId);
+    const edited = editedEntries();
+    main.innerHTML = `
+      <header class="tx-head">
+        <h1>${escapeHtml(names[state.bankId] ?? `Bank ${state.bankId}`)}${names[state.bankId] === `Bank ${state.bankId}` ? "" : `<span class="td-num">#${state.bankId}</span>`}</h1>
+        <span class="fd-subtitle" data-bank-summary></span>
+      </header>
+      <div class="tx-rows" role="list">
+        ${bank.map((entry, index) => renderRow(entry, index, edited.has(index))).join("") || `<p class="td-empty">This bank has no messages. Add one from the sidebar.</p>`}
+      </div>
+    `;
+    main.querySelectorAll<HTMLTextAreaElement>("textarea.tx-input").forEach(installGameTextEditor);
+    if (font) main.querySelectorAll<HTMLElement>("[data-entry]").forEach(flagRow);
+    refreshSummary();
+    applyFilter();
+    selectEntry(Math.min(state.entryIndex, Math.max(0, bank.length - 1)), false);
+    main.scrollTop = 0;
+  }
+
+  function renderRow(entry: Gen5TextEntry, index: number, edited: boolean): string {
+    const meta = parseTextEntryId(entry[0]);
+    const label = meta.block === 0 ? String(meta.entry) : `${meta.block}_${meta.entry}`;
+    return `
+      <div class="tx-row" role="listitem" data-entry="${index}">
+        <span class="tx-id${edited ? " is-edited" : ""}" title="Message ${escapeHtml(label)}">${escapeHtml(label)}</span>
+        ${renderGameTextEditor(entry[1], `data-entry-input="${index}" aria-label="Message ${escapeHtml(label)}"`, "(empty)")}
+        <span class="tx-flag" data-flag></span>
+      </div>
     `;
   }
 
-  function replacementPreview(): TextReplacementPlan {
-    return previewTextReplacement(project, narcName, findText, replacementText, replacementMode, replacementScope === "bank" ? selectedBank : undefined);
-  }
-
-  function replacementSummary(plan: TextReplacementPlan): string {
-    return `${plan.replacementCount} replacement${plan.replacementCount === 1 ? "" : "s"} in ${plan.changes.length} text entr${plan.changes.length === 1 ? "y" : "ies"} across ${plan.bankCount} bank${plan.bankCount === 1 ? "" : "s"}`;
-  }
-
-  function updateReplacementPreview(): void {
-    const plan = replacementPreview();
-    const status = root.querySelector<HTMLElement>("#text-replace-count");
-    if (status) status.textContent = !findText ? "Enter text to find."
-      : plan.matches.length === 0 ? "No matches found."
-        : `${plan.matches.length} match${plan.matches.length === 1 ? "" : "es"}; ${replacementSummary(plan)}.`;
-    const replaceButton = root.querySelector<HTMLButtonElement>("#text-replace-all");
-    if (replaceButton) replaceButton.disabled = plan.replacementCount === 0;
-    const findButton = root.querySelector<HTMLButtonElement>("#text-find-next");
-    if (findButton) findButton.disabled = plan.matches.length === 0;
-  }
-
-  function attachReplacementHandlers(): void {
-    const form = root.querySelector<HTMLFormElement>(".text-replace");
-    const dialog = root.querySelector<HTMLDialogElement>(".text-replace-confirm");
-    let pendingPlan: TextReplacementPlan | undefined;
-    const readInputs = () => {
-      findText = root.querySelector<HTMLInputElement>("#text-find")?.value ?? "";
-      replacementText = root.querySelector<HTMLInputElement>("#text-replacement")?.value ?? "";
-      replacementMode = (root.querySelector<HTMLSelectElement>("#text-replacement-mode")?.value ?? "ignore-case") as TextReplacementMode;
-      replacementScope = root.querySelector<HTMLSelectElement>("#text-replacement-scope")?.value ?? "all";
-      lastMatch = undefined;
-      replacementNotice = "";
-      const notice = root.querySelector<HTMLElement>("#text-replace-notice");
-      if (notice) notice.textContent = "";
-      updateReplacementPreview();
-    };
-    form?.addEventListener("input", readInputs);
-    form?.addEventListener("change", readInputs);
-    // Enter in a search field finds the next match; replacing is an explicit action.
-    form?.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" && event.target instanceof HTMLInputElement) {
-        event.preventDefault();
-        findNext();
-      }
-    });
-    root.querySelector<HTMLButtonElement>("#text-find-next")?.addEventListener("click", findNext);
-    form?.addEventListener("submit", (event) => {
-      event.preventDefault();
-      const plan = replacementPreview();
-      if (plan.replacementCount === 0) return;
-      const scope = replacementScope === "bank" && selectedBank !== undefined ? `${title}, bank ${selectedBank}` : `all ${title} banks`;
-      const summary = root.querySelector<HTMLElement>("#text-replace-confirm-summary");
-      const details = root.querySelector<HTMLElement>("#text-replace-confirm-details");
-      if (summary) summary.textContent = `Make ${replacementSummary(plan)} in ${scope}?`;
-      if (details) details.textContent = `Find: ${findText}\nReplace with: ${replacementText || "(empty text)"}\nMatching: ${replacementMode === "capitalization-aware" ? "Capitalization aware" : replacementMode === "match-case" ? "Match case" : "Ignore case"}`;
-      pendingPlan = plan;
-      dialog?.showModal();
-    });
-    root.querySelector<HTMLButtonElement>("#text-replace-cancel")?.addEventListener("click", () => dialog?.close());
-    dialog?.addEventListener("close", () => { pendingPlan = undefined; });
-    root.querySelector<HTMLButtonElement>("#text-replace-confirm-apply")?.addEventListener("click", () => {
-      const plan = pendingPlan;
-      if (!plan) return;
-      pendingPlan = undefined;
-      dialog?.close();
-      try {
-        applyTextReplacement(project, plan);
-      } catch (error) {
-        replacementNotice = `No replacements were made. ${error instanceof Error ? error.message : String(error)}`;
-        const notice = root.querySelector<HTMLElement>("#text-replace-notice");
-        if (notice) notice.textContent = replacementNotice;
-        return;
-      }
-      replacementNotice = `Applied ${replacementSummary(plan)}.`;
-      lastMatch = undefined;
-      onDirty?.();
-      if (selectedBank === undefined) renderList(false);
-      else renderDetail(selectedBank, false);
-    });
-    updateReplacementPreview();
-  }
-
-  function findNext(): void {
-    const { matches } = replacementPreview();
-    if (matches.length === 0) return;
-    const previous = matches.findIndex((match) => match.bankId === lastMatch?.bankId && match.entryIndex === lastMatch.entryIndex && match.offset === lastMatch.offset);
-    const match = matches[(previous + 1) % matches.length];
-    lastMatch = match;
-    if (selectedBank !== match.bankId) renderDetail(match.bankId);
-    const field = root.querySelector<HTMLElement>(`.text-line[data-entry-index="${match.entryIndex}"]`);
-    if (!field?.firstChild) return;
-    field.focus();
-    field.scrollIntoView({ block: "center" });
-    const range = document.createRange();
-    const walker = document.createTreeWalker(field, NodeFilter.SHOW_TEXT);
-    let offset = 0;
-    let started = false;
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      const end = offset + (node.textContent?.length ?? 0);
-      if (!started && match.offset < end) {
-        range.setStart(node, match.offset - offset);
-        started = true;
-      }
-      if (started && match.offset + match.length <= end) {
-        range.setEnd(node, match.offset + match.length - offset);
-        break;
-      }
-      offset = end;
+  /** Mark a message whose lines run past the box or past two lines before a page break. */
+  function flagRow(row: HTMLElement): void {
+    const flag = row.querySelector<HTMLElement>("[data-flag]");
+    const text = row.querySelector<HTMLTextAreaElement>("textarea")?.value ?? "";
+    if (!flag || !font) return;
+    let problems: string[] = [];
+    try {
+      problems = layoutBw2Dialogue(text, font, assumedDialogueVariables()).warnings.filter((warning) => /exceeds|below the two-line/u.test(warning));
+    } catch (error) {
+      problems = [error instanceof Error ? error.message : String(error)];
     }
-    const selection = window.getSelection();
-    selection?.removeAllRanges();
-    selection?.addRange(range);
+    row.classList.toggle("-overflow", problems.length > 0);
+    flag.textContent = problems.length ? "Overflow" : "";
+    flag.title = problems.join("\n");
   }
 
-  function attachListHandlers(): void {
-    const input = root.querySelector<HTMLInputElement>("#search-textbanks");
-    const checkbox = root.querySelector<HTMLInputElement>(".ignore-case");
-    const searchButton = root.querySelector<HTMLButtonElement>("#search-textbanks-btn");
-    const search = () => {
-      searchText = input?.value ?? "";
-      ignoreCase = checkbox?.checked ?? false;
-      renderList(false);
+  function refreshSummary(): void {
+    const total = main.querySelectorAll("[data-entry]").length;
+    const overflowing = main.querySelectorAll("[data-entry].-overflow").length;
+    const summary = main.querySelector<HTMLElement>("[data-bank-summary]");
+    if (summary) summary.textContent = `${total} message${total === 1 ? "" : "s"}${font && overflowing ? ` · ${overflowing} overflowing` : ""}`;
+  }
+
+  function applyFilter(): void {
+    const term = state.filter.trim().toLowerCase();
+    main.querySelectorAll<HTMLElement>("[data-entry]").forEach((row) => {
+      const text = row.querySelector<HTMLTextAreaElement>("textarea")?.value.toLowerCase() ?? "";
+      const show = (!term || text.includes(term) || row.querySelector(".tx-id")?.textContent === term) && (!state.overflowOnly || row.classList.contains("-overflow"));
+      row.hidden = !show;
+    });
+  }
+
+  function selectEntry(index: number, focus: boolean): void {
+    state.entryIndex = index;
+    main.querySelectorAll<HTMLElement>("[data-entry]").forEach((row) => row.classList.toggle("is-selected", Number(row.dataset.entry) === index));
+    const textarea = main.querySelector<HTMLTextAreaElement>(`textarea[data-entry-input="${index}"]`);
+    previewText = textarea?.value ?? "";
+    const id = textarea?.closest("[data-entry]")?.querySelector(".tx-id")?.textContent ?? "";
+    previewEntry.textContent = textarea ? `Message ${id}` : "";
+    preview?.refresh();
+    if (focus) textarea?.focus();
+  }
+
+  let previewTimer = 0;
+  main.addEventListener("focusin", (event) => {
+    const textarea = (event.target as HTMLElement).closest<HTMLTextAreaElement>("textarea[data-entry-input]");
+    if (textarea) {
+      textarea.dataset.initial = textarea.value;
+      selectEntry(Number(textarea.dataset.entryInput), false);
+    }
+  });
+  main.addEventListener("input", (event) => {
+    const textarea = (event.target as HTMLElement).closest<HTMLTextAreaElement>("textarea[data-entry-input]");
+    if (!textarea) return;
+    previewText = textarea.value;
+    window.clearTimeout(previewTimer);
+    previewTimer = window.setTimeout(() => {
+      preview?.refresh();
+      const row = textarea.closest<HTMLElement>("[data-entry]");
+      if (row) flagRow(row);
+      refreshSummary();
+    }, 120);
+  });
+  main.addEventListener("focusout", (event) => {
+    const textarea = (event.target as HTMLElement).closest<HTMLTextAreaElement>("textarea[data-entry-input]");
+    if (textarea) commitEntry(textarea);
+  });
+  main.addEventListener("keydown", (event) => {
+    const textarea = (event.target as HTMLElement).closest<HTMLTextAreaElement>("textarea[data-entry-input]");
+    if (!textarea) return;
+    const index = Number(textarea.dataset.entryInput);
+    const step = (direction: number) => {
+      const rows = [...main.querySelectorAll<HTMLElement>("[data-entry]")].filter((row) => !row.hidden);
+      const at = rows.findIndex((row) => Number(row.dataset.entry) === index);
+      const next = rows[at + direction];
+      if (next) selectEntry(Number(next.dataset.entry), true);
     };
-    searchButton?.addEventListener("click", search);
-    input?.addEventListener("keypress", (event) => {
-      if (event.key === "Enter") search();
-    });
-    root.querySelectorAll<HTMLElement>(".text-header[data-bank-id]").forEach((header) => {
-      header.addEventListener("click", () => {
-        replacementScope = "bank";
-        lastMatch = undefined;
-        renderDetail(Number(header.dataset.bankId));
-      });
-    });
-  }
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      step(1);
+    } else if (event.key === "Escape") {
+      textarea.value = textarea.dataset.initial ?? textarea.value;
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      textarea.blur();
+    } else if ((event.key === "ArrowDown" || event.key === "ArrowUp") && (event.altKey || event.metaKey)) {
+      event.preventDefault();
+      step(event.key === "ArrowDown" ? 1 : -1);
+    }
+  });
 
-  function attachDetailHandlers(bankId: number): void {
-    root.querySelector<HTMLButtonElement>("#back-textbanks")?.addEventListener("click", () => {
-      replacementScope = "all";
-      lastMatch = undefined;
-      renderList();
-    });
-    root.querySelector<HTMLButtonElement>("#add-text")?.addEventListener("click", () => {
-      addTextEntries(project, narcName, bankId, readCount("#add-text-count"));
+  function commitEntry(textarea: HTMLTextAreaElement): void {
+    const index = Number(textarea.dataset.entryInput);
+    const value = textarea.value;
+    if (value === (textarea.dataset.initial ?? value)) return;
+    try {
+      updateTextEntry(project, narcName, state.bankId, index, value);
+      textarea.dataset.initial = value;
+      textarea.classList.remove("invalid");
       onDirty?.();
-      renderDetail(bankId, false);
-    });
-    root.querySelector<HTMLButtonElement>("#del-text")?.addEventListener("click", () => {
-      deleteLastTextEntries(project, narcName, bankId, readCount("#del-text-count"));
+      const prefix = `text:${narcName}:${state.bankId}:${index}`;
+      const edited = (project.actionChangelog?.entries ?? []).some((entry) => entry.key === prefix);
+      textarea.closest("[data-entry]")?.querySelector(".tx-id")?.classList.toggle("is-edited", edited);
+      updateMatches();
+    } catch (error) {
+      textarea.classList.add("invalid");
+      textarea.title = error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  filterInput.addEventListener("input", () => {
+    state.filter = filterInput.value;
+    applyFilter();
+  });
+  overflowOnly.addEventListener("change", () => {
+    state.overflowOnly = overflowOnly.checked;
+    applyFilter();
+  });
+  root.querySelector("[data-add-entry]")?.addEventListener("click", () => {
+    addTextEntries(project, narcName, state.bankId, 1);
+    onDirty?.();
+    const count = getTextBank(project, narcName, state.bankId).length;
+    state.entryIndex = count - 1;
+    renderBank();
+    selectEntry(count - 1, true);
+    main.querySelector<HTMLElement>(`[data-entry="${count - 1}"]`)?.scrollIntoView({ block: "center" });
+  });
+  root.querySelector("[data-delete-entry]")?.addEventListener("click", () => {
+    const bank = getTextBank(project, narcName, state.bankId);
+    if (!bank.length) return;
+    const last = bank[bank.length - 1];
+    if (last[1] && !window.confirm(`Delete the last message?\n\n${last[1].slice(0, 200)}`)) return;
+    deleteLastTextEntries(project, narcName, state.bankId, 1);
+    onDirty?.();
+    renderBank();
+  });
+
+  // ---------- Find and replace ----------
+
+  const findInput = form.querySelector<HTMLInputElement>("[data-find]")!;
+  const replaceInput = form.querySelector<HTMLInputElement>("[data-replace]")!;
+  const modeSelect = form.querySelector<HTMLSelectElement>("[data-mode]")!;
+  const scopeSelect = form.querySelector<HTMLSelectElement>("[data-scope]")!;
+  const status = form.querySelector<HTMLElement>("[data-match-status]")!;
+  const matchList = form.querySelector<HTMLElement>("[data-matches]")!;
+  let pendingPlan: TextReplacementPlan | undefined;
+
+  const plan = () => previewTextReplacement(project, narcName, state.find, state.replace, state.mode, state.scope === "bank" ? state.bankId : undefined);
+  const summarize = (result: TextReplacementPlan) => `${result.replacementCount} replacement${result.replacementCount === 1 ? "" : "s"} in ${result.changes.length} message${result.changes.length === 1 ? "" : "s"} across ${result.bankCount} bank${result.bankCount === 1 ? "" : "s"}`;
+
+  function updateMatches(): void {
+    const result = state.find ? plan() : undefined;
+    form.querySelector<HTMLButtonElement>("[data-find-next]")!.disabled = !result?.matches.length;
+    form.querySelector<HTMLButtonElement>("[data-replace-all]")!.disabled = !result?.replacementCount;
+    status.textContent = !result ? "" : result.matches.length === 0 ? "No matches" : `${result.matches.length} match${result.matches.length === 1 ? "" : "es"} in ${result.changes.length} message${result.changes.length === 1 ? "" : "s"}`;
+    if (!result?.matches.length) {
+      matchList.innerHTML = "";
+      return;
+    }
+    const seen = new Set<string>();
+    const rows: string[] = [];
+    for (const match of result.matches) {
+      const key = `${match.bankId}:${match.entryIndex}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (rows.length >= MATCH_LIST_LIMIT) break;
+      const text = getTextBank(project, narcName, match.bankId)[match.entryIndex]?.[1] ?? "";
+      const start = Math.max(0, match.offset - 18);
+      const snippet = `${start > 0 ? "…" : ""}${escapeHtml(text.slice(start, match.offset))}<mark>${escapeHtml(text.slice(match.offset, match.offset + match.length))}</mark>${escapeHtml(text.slice(match.offset + match.length, match.offset + match.length + 30))}`;
+      rows.push(`<button class="tx-match" type="button" data-match-bank="${match.bankId}" data-match-entry="${match.entryIndex}" data-match-offset="${match.offset}" data-match-length="${match.length}"><span class="tx-match-where">${state.scope === "all" ? `${match.bankId} · ` : ""}#${match.entryIndex}</span><span class="tx-match-text">${snippet}</span></button>`);
+    }
+    matchList.innerHTML = rows.join("") + (seen.size > MATCH_LIST_LIMIT ? `<p class="td-empty">Showing the first ${MATCH_LIST_LIMIT} messages.</p>` : "");
+  }
+
+  function revealMatch(bankId: number, entryIndex: number, offset: number, length: number): void {
+    if (bankId !== state.bankId) selectBank(bankId, entryIndex);
+    if (state.filter || state.overflowOnly) {
+      state.filter = "";
+      state.overflowOnly = false;
+      filterInput.value = "";
+      overflowOnly.checked = false;
+      applyFilter();
+    }
+    selectEntry(entryIndex, true);
+    const textarea = main.querySelector<HTMLTextAreaElement>(`textarea[data-entry-input="${entryIndex}"]`);
+    textarea?.setSelectionRange(offset, offset + length);
+    textarea?.closest("[data-entry]")?.scrollIntoView({ block: "center" });
+  }
+
+  const readForm = () => {
+    state.find = findInput.value;
+    state.replace = replaceInput.value;
+    state.mode = modeSelect.value as TextReplacementMode;
+    state.scope = scopeSelect.value as "bank" | "all";
+    state.lastMatch = undefined;
+    updateMatches();
+  };
+  let findTimer = 0;
+  form.addEventListener("input", () => {
+    window.clearTimeout(findTimer);
+    findTimer = window.setTimeout(readForm, 150);
+  });
+  form.addEventListener("change", readForm);
+  form.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && event.target instanceof HTMLInputElement) {
+      event.preventDefault();
+      readForm();
+      findNext();
+    }
+  });
+  const findNext = () => {
+    const { matches } = plan();
+    if (!matches.length) return;
+    const previous = matches.findIndex((match) => match.bankId === state.lastMatch?.bankId && match.entryIndex === state.lastMatch.entryIndex && match.offset === state.lastMatch.offset);
+    const match = matches[(previous + 1) % matches.length];
+    state.lastMatch = match;
+    revealMatch(match.bankId, match.entryIndex, match.offset, match.length);
+  };
+  form.querySelector("[data-find-next]")?.addEventListener("click", findNext);
+  matchList.addEventListener("click", (event) => {
+    const button = (event.target as HTMLElement).closest<HTMLElement>("[data-match-bank]");
+    if (button) revealMatch(Number(button.dataset.matchBank), Number(button.dataset.matchEntry), Number(button.dataset.matchOffset), Number(button.dataset.matchLength));
+  });
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    readForm();
+    const result = plan();
+    if (!result.replacementCount) return;
+    pendingPlan = result;
+    dialog.querySelector<HTMLElement>("[data-confirm-summary]")!.textContent = `Make ${summarize(result)} in ${state.scope === "bank" ? `bank ${state.bankId}` : `all ${title} banks`}?`;
+    dialog.querySelector<HTMLElement>("[data-confirm-details]")!.textContent = `Find: ${state.find}\nReplace with: ${state.replace || "(nothing)"}\nMatching: ${modeSelect.selectedOptions[0]?.text ?? state.mode}`;
+    dialog.showModal();
+  });
+  dialog.querySelector("[data-confirm-cancel]")?.addEventListener("click", () => dialog.close());
+  dialog.addEventListener("close", () => {
+    pendingPlan = undefined;
+  });
+  dialog.querySelector("[data-confirm-apply]")?.addEventListener("click", () => {
+    const result = pendingPlan;
+    dialog.close();
+    if (!result) return;
+    try {
+      applyTextReplacement(project, result);
       onDirty?.();
-      renderDetail(bankId, false);
-    });
+      status.textContent = `Applied ${summarize(result)}.`;
+      renderBank();
+      updateMatches();
+    } catch (error) {
+      status.textContent = `No replacements were made. ${error instanceof Error ? error.message : String(error)}`;
+    }
+  });
 
-    root.querySelectorAll<HTMLElement>(".text-line[contenteditable='true']").forEach((field) => {
-      let initialValue = field.textContent ?? "";
-      field.addEventListener("mousedown", () => {
-        initialValue = field.textContent ?? "";
-      });
-      field.addEventListener("click", () => selectText(field));
-      field.addEventListener("focusout", () => {
-        if (selectedBank === undefined) return;
-        const flatIndex = Number(field.dataset.entryIndex);
-        const nextValue = field.textContent ?? "";
-        if (!Number.isInteger(flatIndex) || nextValue === initialValue) return;
-        try {
-          updateTextEntry(project, narcName, selectedBank, flatIndex, nextValue);
-          field.classList.remove("invalid");
-          field.style.border = "";
-          onDirty?.();
-          initialValue = nextValue;
-          updateReplacementPreview();
-        } catch {
-          field.textContent = initialValue;
-          field.classList.add("invalid");
-          field.style.border = "1px solid red";
-        }
-      });
-    });
+  setPickerLabel();
+  renderBank();
+  updateMatches();
+}
+
+/** Bank labels: known name banks for message text, and the maps that load each story bank. */
+function bankNames(project: ProjectState, narcName: TextNarcName, count: number): string[] {
+  const names = Array.from({ length: count }, (_unused, id) => `Bank ${id}`);
+  if (narcName === "message_texts") {
+    const known = project.session.baseRom === "BW2" ? BW2_MESSAGE_BANKS : project.session.baseRom === "BW" ? BW_MESSAGE_BANKS : [];
+    for (const [source, key] of known) {
+      for (const id of Array.isArray(source) ? source : [source]) if (id < count) names[id] = KNOWN_BANK_NAMES[key] ?? key;
+    }
+    return names;
   }
-
-  function readCount(selector: string): number {
-    const value = Number(root.querySelector<HTMLInputElement>(selector)?.value ?? "1");
-    return Number.isSafeInteger(value) && value > 0 ? Math.min(value, 50) : 1;
+  try {
+    if (!project.headers) project.headers = parseHeaders(project);
+  } catch {
+    return names;
   }
-
-  if (selectedBank === undefined) renderList(false);
-  else renderDetail(selectedBank, false);
+  const places = new Map<number, string[]>();
+  for (const row of Object.values(project.headers.rows)) {
+    const bankId = Number(row.text_bank_id);
+    if (!Number.isInteger(bankId) || bankId >= count) continue;
+    const list = places.get(bankId) ?? [];
+    const place = String(row.location_name ?? "");
+    if (place && !list.includes(place)) list.push(place);
+    places.set(bankId, list);
+  }
+  for (const [bankId, list] of places) names[bankId] = list.length > 2 ? `${list.slice(0, 2).join(", ")} +${list.length - 2}` : list.join(", ") || names[bankId];
+  return names;
 }
 
 function loadRememberedTextBank(narcName: TextNarcName, bankCount: number): number | undefined {
   try {
-    const value = globalThis.localStorage?.getItem(textBankStorageKey(narcName));
+    const value = globalThis.localStorage?.getItem(`${TEXT_BANK_STORAGE_KEY_PREFIX}:${narcName}`);
     if (value === null || value === undefined) return undefined;
     const bankId = Number(value);
     if (Number.isSafeInteger(bankId) && bankId >= 0 && bankId < bankCount) return bankId;
-    globalThis.localStorage?.removeItem(textBankStorageKey(narcName));
   } catch {
     // Storage may be unavailable in private or constrained browser contexts.
   }
   return undefined;
 }
 
-function rememberTextBank(narcName: TextNarcName, bankId: number | undefined): void {
+function rememberTextBank(narcName: TextNarcName, bankId: number): void {
   try {
-    const key = textBankStorageKey(narcName);
-    if (bankId === undefined) globalThis.localStorage?.removeItem(key);
-    else globalThis.localStorage?.setItem(key, String(bankId));
+    globalThis.localStorage?.setItem(`${TEXT_BANK_STORAGE_KEY_PREFIX}:${narcName}`, String(bankId));
   } catch {
     // The editor remains usable without persistent UI state.
   }
-}
-
-function textBankStorageKey(narcName: TextNarcName): string {
-  return `${TEXT_BANK_STORAGE_KEY_PREFIX}:${narcName}`;
-}
-
-function renderBankSummary(bankId: number, entries: Gen5TextEntry[]): string {
-  return `
-    <div class="expanded-field filterable text-header" data-bank-id="${bankId}" data-index="${bankId}">
-      <div class="expanded-field-main">
-        <div class="log-text">Text Bank ${bankId}</div>
-      </div>
-    </div>
-    <div class="text-bank">
-      ${entries.map((entry) => renderPreviewEntry(entry)).join("")}
-    </div>
-  `;
-}
-
-function renderPreviewEntry(entry: Gen5TextEntry): string {
-  const meta = parseTextEntryId(entry[0]);
-  return `
-    <div class="expanded-field filterable">
-      <div class="expanded-field-main">
-        <div class="msg-id">MSG ${meta.entry}</div>
-        <div class="log-text">${escapeHtml(entry[1])}</div>
-      </div>
-    </div>
-  `;
-}
-
-function renderTextEntry(entry: Gen5TextEntry, flatIndex: number): string {
-  const meta = parseTextEntryId(entry[0]);
-  return `
-    <div class="expanded-field filterable text-header">
-      <div class="expanded-field-main">
-        <div class="log-text">MSG ${meta.block === 0 ? meta.entry : `${meta.block}_${meta.entry}`}</div>
-      </div>
-    </div>
-    <div class="text-bank" data-index="${meta.entry}">
-      <div class="expanded-field filterable">
-        <div class="expanded-field-main">
-          <div class="log-text text-line" data-entry-index="${flatIndex}" contenteditable="true">${escapeHtml(entry[1])}</div>
-        </div>
-      </div>
-    </div>
-  `;
 }

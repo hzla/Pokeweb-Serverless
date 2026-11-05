@@ -13,6 +13,7 @@ import {
 } from "./battleEnvironmentUsage";
 import { loadBattlePlatformCatalog, type BattlePlatformCatalog } from "./battlePlatformModel";
 import { replaceRomFile } from "./fileSystemModel";
+import type { NintendoDSRom } from "../nds/rom";
 import { getHeaderPackedValue, updateHeaderPackedField, type HeaderCollection } from "./headerModel";
 import type { ProjectState } from "./projectStore";
 
@@ -27,8 +28,11 @@ export type BattleEnvironmentZoneSpec = {
   reserved?: number[];
 };
 
+/** The editor keeps only what it needs from the ROM, so the ROM itself can be released. */
+export type BattleEnvironmentEditorArchives = Omit<BattleEnvironmentArchives, "rom"> & { rom: Pick<NintendoDSRom, "idCode"> };
+
 export type BattleEnvironmentEditorData = {
-  archives: BattleEnvironmentArchives;
+  archives: BattleEnvironmentEditorArchives;
   backgroundCatalog: BattleBackgroundCatalog;
   platformCatalog: BattlePlatformCatalog;
   rows: BattleEnvironmentZoneSpec[];
@@ -40,11 +44,53 @@ export type BattleEnvironmentValidation = {
   warnings: string[];
 };
 
-export async function loadBattleEnvironmentEditorData(project: ProjectState): Promise<BattleEnvironmentEditorData> {
-  const [archives, backgroundCatalog, platformCatalog] = await Promise.all([
-    loadBattleEnvironmentArchives(project),
-    loadBattleBackgroundCatalog(project),
-    loadBattlePlatformCatalog(project),
+type EditorDataCache = { signature: unknown[]; data: Promise<BattleEnvironmentEditorData> };
+const editorDataCache = new WeakMap<ProjectState, EditorDataCache>();
+
+/** What the cached data was built from: the graphics and table files as currently edited. */
+function editorDataSignature(project: ProjectState, fileIds: readonly number[]): unknown[] {
+  return fileIds.flatMap((fileId) => {
+    const store = Object.values(project.narcs).find((entry) => entry?.fileId === fileId);
+    return [fileId, store, store?.revision, project.fileSystem?.replacements?.[fileId]];
+  });
+}
+
+function sameSignature(left: unknown[], right: unknown[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+/**
+ * Reused across header selections: parsing these archives needs the whole ROM,
+ * so it happens once per edit of the underlying files rather than per row.
+ */
+export function loadBattleEnvironmentEditorData(project: ProjectState): Promise<BattleEnvironmentEditorData> {
+  const cached = editorDataCache.get(project);
+  if (cached && (cached.signature.length === 0 || sameSignature(cached.signature, editorDataSignature(project, fileIdsOf(cached.signature))))) return cached.data;
+  const entry: EditorDataCache = { signature: [], data: Promise.resolve(undefined as never) };
+  entry.data = loadBattleEnvironmentEditorDataUncached(project).then(
+    (data) => {
+      entry.signature = editorDataSignature(project, [data.archives.graphicsFileId, data.archives.table.fileId]);
+      return data;
+    },
+    (error) => {
+      if (editorDataCache.get(project) === entry) editorDataCache.delete(project);
+      throw error;
+    },
+  );
+  editorDataCache.set(project, entry);
+  return entry.data;
+}
+
+function fileIdsOf(signature: unknown[]): number[] {
+  return signature.filter((_value, index) => index % 4 === 0) as number[];
+}
+
+async function loadBattleEnvironmentEditorDataUncached(project: ProjectState): Promise<BattleEnvironmentEditorData> {
+  const full = await loadBattleEnvironmentArchives(project);
+  const archives: BattleEnvironmentEditorArchives = { ...full, rom: { idCode: full.rom.idCode } };
+  const [backgroundCatalog, platformCatalog] = await Promise.all([
+    loadBattleBackgroundCatalog(project, archives),
+    loadBattlePlatformCatalog(project, archives),
   ]);
   const zoneSpecBytes = archives.table.narc.files[0];
   if (!zoneSpecBytes) throw new Error("The battle-background table does not contain its zone-spec lookup file.");

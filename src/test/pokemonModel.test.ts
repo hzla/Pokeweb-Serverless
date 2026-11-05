@@ -5,6 +5,8 @@ import { materializeProjectEdits } from "../pokeweb/projectMaterialize";
 import { undoActionChange } from "../pokeweb/actionUndo";
 import {
   appendPokemonEggMove,
+  clearAllPokemonEvYields,
+  EV_YIELD_FIELDS,
   appendPokemonLearnsetMove,
   copyPokemonLearnset,
   copyPokemonTmCompatibility,
@@ -107,6 +109,19 @@ describe("pokemonModel", () => {
     expect(project.narcs.evolutions?.dirty.has(1)).toBe(true);
     expect(project.actionChangelog?.entries.map((entry) => entry.domain)).toEqual(expect.arrayContaining(["personal", "learnsets", "evolutions"]));
     expect(project.actionChangelog?.entries.some((entry) => entry.text.includes("Bulbasaur type 1 changed from Grass to Poison."))).toBe(true);
+  });
+
+  it("clears EV yields from every Pokemon with a single changelog entry", () => {
+    const project = makeProject();
+
+    expect(clearAllPokemonEvYields(project)).toBe(1);
+    const record = getPokemonRecord(project, 1);
+    expect(record.rawPersonal.evs).toBe(0);
+    expect(EV_YIELD_FIELDS.every(([, field]) => Number(record.personal[field]) === 0)).toBe(true);
+    expect(project.narcs.personal?.dirty.has(1)).toBe(true);
+    expect(project.actionChangelog?.entries).toHaveLength(1);
+    expect(project.actionChangelog?.entries[0].text).toBe("Removed EV yields from 1 Pokémon.");
+    expect(clearAllPokemonEvYields(project)).toBe(0);
   });
 
   it("formats and updates evolution parameters by method type", () => {
@@ -418,6 +433,8 @@ describe("pokemonModel", () => {
     expect(pokemonMatchesSearch(bulbasaur, "nope, bulb", new Set([1]), new Set(["grass"]))).toBe(true);
     expect(pokemonMatchesSearch(bulbasaur, "bulb", new Set([2]), new Set(["grass"]))).toBe(false);
     expect(pokemonMatchesSearch(bulbasaur, "bulb", new Set([1]), new Set(["fire"]))).toBe(false);
+    expect(pokemonMatchesSearch(bulbasaur, "rotom", new Set(), new Set())).toBe(false);
+    expect(pokemonMatchesSearch(bulbasaur, "rotom", new Set(), new Set(), ["Rotom-Heat"])).toBe(true);
   });
 });
 

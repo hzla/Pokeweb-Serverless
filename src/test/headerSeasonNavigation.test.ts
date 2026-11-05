@@ -1,28 +1,28 @@
 import { describe, expect, it, vi } from "vitest";
-import { renderHeaderEditor } from "../ui/headerEditor";
+import { renderHeaderLinks } from "../ui/headerEditor";
 import { makeMatrixProject } from "./fixtures/matrixProject";
 vi.mock("../ui/legacyInteractions", () => ({ attachHeaderInteractions: vi.fn() }));
 vi.mock("../ui/headerBattleEnvironmentEditor", () => ({ initializeHeaderBattleEnvironmentEditors: vi.fn(), renderBattleBackgroundTypeSelect: () => "", renderHeaderBattleEnvironmentCard: () => "" }));
 
-describe("header seasonal assignments shortcut", () => {
-  it("opens native header IDs, including zero, without editing the header", () => {
-    const project = makeMatrixProject(), open = vi.fn(), dirty = vi.fn();
-    let html = "";
-    const links: Array<{ dataset: { openMatrixSeasons: string }; click?: (event: { preventDefault: () => void }) => void }> = [];
-    const root = { set innerHTML(value: string) {
-      html = value; links.length = 0;
-      for (const match of value.matchAll(/data-open-matrix-seasons="(\d+)"/gu)) {
-        const link = { dataset: { openMatrixSeasons: match[1] }, addEventListener(_name: string, callback: (event: { preventDefault: () => void }) => void) { link.click = callback; }, click: undefined as ((event: { preventDefault: () => void }) => void) | undefined };
-        links.push(link);
-      }
-    }, querySelectorAll: (selector: string) => selector === "[data-open-matrix-seasons]" ? links : [] };
-    renderHeaderEditor(project, root as unknown as HTMLElement, dirty, undefined, open);
-    expect(html).toContain('href="#matrixEditor/header/0"'); expect(links).toHaveLength(3);
-    links[0].click!({ preventDefault: vi.fn() }); links[2].click!({ preventDefault: vi.fn() });
-    expect(open.mock.calls).toEqual([[0], [2]]); expect(dirty).not.toHaveBeenCalled();
+describe("header reference links", () => {
+  it("links native header IDs, including zero, to the matrix without editing the header", () => {
+    const project = makeMatrixProject();
+    const row = project.headers!.rows[1];
+    const html = renderHeaderLinks(project, row, { onOpenSeasons: vi.fn() }, false);
+    expect(html).toMatch(/data-open-ref="matrix" data-ref-id="0"(?! aria-disabled)/u);
     expect(project.headers!.rows[1].matrix_id).toBe(0);
-    project.session.baseRom = "Pt";
-    renderHeaderEditor(project, root as unknown as HTMLElement, dirty, undefined, open);
-    expect(links).toHaveLength(0);
+  });
+
+  it("disables links whose editor is unavailable", () => {
+    const project = makeMatrixProject();
+    const html = renderHeaderLinks(project, project.headers!.rows[1], {}, false);
+    expect(html.match(/aria-disabled="true"/gu)).toHaveLength(6);
+  });
+
+  it("marks unused encounter tables as none", () => {
+    const project = makeMatrixProject();
+    const row = { ...project.headers!.rows[1], enc_data_id: 0xffff, encounter_id: 255 };
+    const html = renderHeaderLinks(project, row, { onOpenEncounters: vi.fn() }, false);
+    expect(html).toMatch(/data-open-ref="encounters" data-ref-id="65535" aria-disabled="true"[^>]*><span>Encounters<\/span><strong>None<\/strong>/u);
   });
 });

@@ -313,14 +313,15 @@ async function loadTrainerBattleMusicOverlay(project: ProjectState): Promise<Tra
   const overlayId = BATTLE_LAYOUTS[version].overlayId;
   const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
   if (!romBytes) throw new Error("Original ROM bytes are not available; reload the ROM before editing trainer battle music.");
-  const rom = new NintendoDSRom(romBytes);
+  const rom = new NintendoDSRom(romBytes, { fileData: "view" });
   const original = rom.loadArm9Overlays([overlayId]).get(overlayId);
   if (!original) throw new Error(`Could not load trainer battle-music overlay ${overlayId} from the ROM.`);
   const current = project.overlays[overlayId];
   return {
     overlayId,
     ramAddress: overlayRamAddress(project, rom, overlayId) ?? original.ramAddress,
-    data: current && current.length > 0 ? current : original.data,
+    // Own the overlay bytes: a view would pin the whole ROM buffer.
+    data: current && current.length > 0 ? current : original.data.slice(),
   };
 }
 

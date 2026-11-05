@@ -125,7 +125,7 @@ export function importArm9Bytes(project: ProjectState, rom: NintendoDSRom, bytes
 }
 
 export function buildFileSystemSnapshot(project: ProjectState, romBytes: Uint8Array): FileSystemSnapshot {
-  const rom = new NintendoDSRom(romBytes);
+  const rom = new NintendoDSRom(romBytes, { fileData: "view" });
   const named = listNamedFiles(rom.filenames)
     .filter(file => project.fileSystem?.tombstones?.[file.id] !== file.path)
     .sort((a, b) => a.id - b.id);
@@ -180,7 +180,7 @@ export function getRomFileBytes(project: ProjectState, rom: Pick<NintendoDSRom, 
   return project.fileSystem?.replacements?.[fileId] ?? rom.files[fileId] ?? new Uint8Array();
 }
 
-export function replaceRomFile(project: ProjectState, rom: NintendoDSRom, fileId: number, bytes: Uint8Array): void {
+export function replaceRomFile(project: ProjectState, rom: Pick<NintendoDSRom, "idCode">, fileId: number, bytes: Uint8Array): void {
   const store = narcStoreForFile(project, fileId);
   if (store) {
     let narc: NARC;

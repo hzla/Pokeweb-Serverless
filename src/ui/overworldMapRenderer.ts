@@ -200,7 +200,11 @@ function renderOverworldMapTopDownAtSize(
       warnings,
     };
   } finally {
-    if (!sharedRenderer) renderer.dispose();
+    if (!sharedRenderer) {
+      renderer.dispose();
+      // Free the GL context now rather than at garbage collection (browsers cap live contexts).
+      renderer.forceContextLoss();
+    }
     clearGroup(group);
     for (const texture of textureCache.values()) texture.dispose();
   }

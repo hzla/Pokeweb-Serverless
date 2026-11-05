@@ -2,7 +2,9 @@ import { readU16, readU32 } from "../nds/binary";
 import {
   loadBattleEnvironmentArchives,
   resolveBattleResourceId,
+  type BattleEnvironmentArchives,
 } from "./battleBackgroundModel";
+import type { NintendoDSRom } from "../nds/rom";
 import { decodeBattleModelScene, type BattleModelScene } from "./battleModelScene";
 import type { ProjectState } from "./projectStore";
 
@@ -49,8 +51,11 @@ type ResolvedSeasonResources = {
   nsbmaResourceId?: number;
 };
 
-export async function loadBattlePlatformCatalog(project: ProjectState): Promise<BattlePlatformCatalog> {
-  const { rom, graphics, table } = await loadBattleEnvironmentArchives(project);
+export async function loadBattlePlatformCatalog(
+  project: ProjectState,
+  archives?: Pick<BattleEnvironmentArchives, "graphics" | "table"> & { rom: Pick<NintendoDSRom, "idCode"> },
+): Promise<BattlePlatformCatalog> {
+  const { rom, graphics, table } = archives ?? (await loadBattleEnvironmentArchives(project));
   const stageRows = table.narc.files[2];
   if (!stageRows) throw new Error("The battle-background table does not contain its stage/platform lookup file.");
   const tableEntryCount = Math.floor(stageRows.length / (/^IR[DE]/u.test(rom.idCode) ? BATTLE_PLATFORM_RECORD_BYTES : 68));

@@ -1,266 +1,234 @@
-import miscDataIcon from "../assets/svgs/misc_data.svg?raw";
-import {
-  GROTTO_ITEM_RARITIES,
-  GROTTO_ITEM_TYPES,
-  GROTTO_POKEMON_RARITIES,
-  GROTTO_VERSIONS,
-  getGrottoAutofills,
-  getGrottoCount,
-  getGrottoOdds,
-  getGrottoRecord,
-  getMartAutofills,
-  getMartCount,
-  getMartRecord,
-  remainingHiddenCommonOdd,
-  type GrottoRecord,
-  type MartRecord,
-} from "../pokeweb/martGrottoModel";
-import type { ProjectState } from "../pokeweb/projectStore";
-import { escapeHtml } from "./dom";
-import { attachGrottoInteractions, attachGrottoOddsInteractions, attachMartInteractions } from "./martGrottoInteractions";
 import { publicAsset } from "../assetUrl";
+import { getMartAutofills, getMartCount, getMartRecord, martMatchesSearch, updateMartField, type MartRecord } from "../pokeweb/martGrottoModel";
+import { getItemRecord } from "../pokeweb/moveItemModel";
+import type { ProjectState } from "../pokeweb/projectStore";
+import { attachListArrows, changedKeys, installDetailFields, markSelectedRow, patchDetail, refreshEditMarks } from "./detailFields";
+import { escapeHtml } from "./dom";
+import "../styles/moveData.css";
+import "../styles/trainerData.css";
+import "../styles/facilityData.css";
+import "../styles/encounterData.css";
+import "../styles/itemData.css";
+
+const MART_SLOTS = 20;
+
+type MartEditorState = { martId: number; search: string };
+const editorStates = new WeakMap<ProjectState, MartEditorState>();
 
 export function renderMartEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void): void {
+  const count = getMartCount(project);
+  const state = editorStates.get(project) ?? { martId: 0, search: "" };
+  editorStates.set(project, state);
+  if (state.martId >= count) state.martId = 0;
+  const autofills = getMartAutofills(project);
+  const pageActions = document.getElementById("page-actions");
+  if (pageActions) pageActions.innerHTML = "";
+
   root.innerHTML = `
-    <div class="pokemon-filter mart-filter">
-      <div class="filter-title">Search Text</div>
-      <input class="filter-input" id="search-text"/>
-      <button class="btn -default" id="search-text-btn" type="button">Search</button>
-    </div>
-    <div class="pokemon-list spreadsheet" id="marts">
-      <div class="expanded-field field-header">
-        <div class="expanded-field-main">
-          <div class="mart-id">ID</div>
-          <div class="mart-name">Location/Description</div>
-          <div class="mart-inv">Inventory</div>
+    <div class="item-data mart-data" id="item-data">
+      <aside class="md-list" aria-label="Marts">
+        <div class="md-filters">
+          <input class="md-search" id="mart-search" type="search" value="${escapeHtml(state.search)}" placeholder="Search marts or items" autocomplete="off" spellcheck="false" aria-label="Search marts">
         </div>
-      </div>
-      ${renderMartRows(project)}
+        <div class="md-rows" id="mart-list" role="listbox" aria-label="Marts" tabindex="0">
+          ${Array.from({ length: count }, (_unused, id) => renderMartRow(project, id)).join("")}
+        </div>
+        <div class="md-list-foot" data-mart-count></div>
+      </aside>
+      <section class="md-detail" id="mart-detail"></section>
     </div>
   `;
 
-  attachMartInteractions(root, project, {
-    onDirty,
-    autofills: getMartAutofills(project),
-    renderPanel: (martId) => renderMartPanel(getMartRecord(project, martId)),
+  const list = root.querySelector<HTMLElement>("#mart-list")!;
+  const detail = root.querySelector<HTMLElement>("#mart-detail")!;
+  const countLabel = root.querySelector<HTMLElement>("[data-mart-count]")!;
+  const searchInput = root.querySelector<HTMLInputElement>("#mart-search")!;
+
+  const filter = () => {
+    let visible = 0;
+    list.querySelectorAll<HTMLElement>("[data-mart]").forEach((row) => {
+      const show = !state.search.trim() || martMatchesSearch(getMartRecord(project, Number(row.dataset.mart)), state.search);
+      row.style.display = show ? "" : "none";
+      if (show) visible += 1;
+    });
+    countLabel.textContent = visible === count ? `${count} marts` : `${visible} of ${count} marts`;
+  };
+
+  const refreshRow = (id: number) => {
+    const row = list.querySelector<HTMLElement>(`[data-mart="${id}"]`);
+    if (!row) return;
+    const template = document.createElement("template");
+    template.innerHTML = renderMartRow(project, id).trim();
+    const next = template.content.firstElementChild as HTMLElement;
+    next.classList.toggle("is-selected", row.classList.contains("is-selected"));
+    next.setAttribute("aria-selected", row.getAttribute("aria-selected") ?? "false");
+    next.style.display = row.style.display;
+    row.replaceWith(next);
+  };
+
+  const html = () => renderMartDetail(project, state.martId);
+  const install = (scope: HTMLElement) => installDetailFields(scope, { autofills, commit });
+  const marks = () => refreshEditMarks(detail, changedKeys(project.actionChangelog?.entries, `mart:${state.martId}:`));
+  const render = () => {
+    detail.innerHTML = html();
+    install(detail);
+    marks();
+  };
+  const changed = () => {
+    onDirty?.();
+    refreshRow(state.martId);
+  };
+
+  function commit(field: HTMLElement, value: string): boolean {
+    try {
+      updateMartField(project, state.martId, field.dataset.fieldName ?? "", value === "" ? itemLabel(project, 0) : value);
+      changed();
+      // Clearing a slot pulls the items below it up, so the shop list stays contiguous.
+      window.setTimeout(() => {
+        compact(project, state.martId);
+        patchDetail(detail, html(), install);
+        marks();
+      }, 0);
+      return true;
+    } catch (error) {
+      field.title = error instanceof Error ? error.message : String(error);
+      return false;
+    }
+  }
+
+  const select = (id: number, scroll = false) => {
+    state.martId = id;
+    markSelectedRow(list, "[data-mart]", (row) => Number(row.dataset.mart) === id, scroll);
+    render();
+    detail.scrollTop = 0;
+  };
+
+  detail.addEventListener("click", (event) => {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button");
+    if (!button) return;
+    const mart = getMartRecord(project, state.martId);
+    const items = martItemIds(mart);
+    try {
+      if (button.matches("[data-mart-remove]")) {
+        const slot = Number(button.dataset.martRemove);
+        writeItems(project, state.martId, items.filter((_unused, index) => index !== slot));
+      } else if (button.matches("[data-mart-move]")) {
+        const slot = Number(button.dataset.slot);
+        const to = slot + Number(button.dataset.martMove);
+        if (to < 0 || to >= items.length) return;
+        [items[slot], items[to]] = [items[to], items[slot]];
+        writeItems(project, state.martId, items);
+      } else return;
+      changed();
+      render();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : String(error));
+    }
   });
-}
 
-export function renderGrottoEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void, showOdds?: () => void): void {
-  root.innerHTML = `
-    <div class="pokemon-filter grotto-filter">
-      <div class="filter-title">Search</div>
-      <input class="filter-input" id="search-text"/>
-      <button class="btn -default" id="search-text-btn" type="button">Search</button>
-      <button class="btn -default" id="edit-odds" type="button">Edit Odds</button>
-    </div>
-    <div class="pokemon-list spreadsheet" id="grottos">
-      <div class="expanded-field field-header">
-        <div class="expanded-field-main">
-          <div class="grotto-id">ID</div>
-          <div class="grotto-location">Location</div>
-          <div class="grotto-wilds">Encounters</div>
-        </div>
-      </div>
-      ${renderGrottoRows(project)}
-    </div>
-  `;
-
-  root.querySelector<HTMLButtonElement>("#edit-odds")?.addEventListener("click", () => showOdds?.());
-  attachGrottoInteractions(root, project, {
-    onDirty,
-    autofills: getGrottoAutofills(project),
-    renderRow: (grottoId) => renderGrottoRow(project, grottoId),
-    renderPanel: (grottoId) => renderGrottoPanel(project, getGrottoRecord(project, grottoId)),
+  searchInput.addEventListener("input", () => {
+    window.clearTimeout(Number(searchInput.dataset.timer));
+    searchInput.dataset.timer = String(window.setTimeout(() => {
+      state.search = searchInput.value;
+      filter();
+    }, 160));
   });
+  list.addEventListener("click", (event) => {
+    const row = (event.target as HTMLElement).closest<HTMLElement>("[data-mart]");
+    if (row) select(Number(row.dataset.mart));
+  });
+  attachListArrows(list, "[data-mart]", (row) => select(Number(row.dataset.mart), true));
+
+  filter();
+  select(state.martId, true);
 }
 
-export function renderGrottoOddsEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void, showGrottos?: () => void): void {
-  const odds = getGrottoOdds(project).readable;
-  root.innerHTML = `
-    <div class="pokemon-filter grotto-odds-filter">
-      SR = Super Rare
-      <br><br>
-      R = Rare
-      <br><br>
-      UC = Uncommon
-      <br><br>
-      CM = Common
-      <br><br>
-      H-Item = Hidden Item
-      <br><br>
-      CM H-Item = 100 - all other odds
-      <button class="btn -default" id="back-grottos" type="button">Grottos</button>
+/** Mart slots are written by item name; slot 0's name is the empty value. */
+function itemLabel(project: ProjectState, itemId: number): string {
+  return project.texts.banks.items?.[itemId] ?? String(itemId);
+}
+
+function martItemIds(mart: MartRecord): number[] {
+  return Array.from({ length: MART_SLOTS }, (_unused, slot) => Number(mart.raw[`item_${slot}`] ?? 0)).filter((itemId) => itemId > 0);
+}
+
+/** Write a new item order through the normal field updates, touching only slots that change. */
+function writeItems(project: ProjectState, martId: number, items: number[]): void {
+  const mart = getMartRecord(project, martId);
+  for (let slot = 0; slot < MART_SLOTS; slot += 1) {
+    const next = items[slot] ?? 0;
+    if (Number(mart.raw[`item_${slot}`] ?? 0) !== next) updateMartField(project, martId, `item_${slot}`, itemLabel(project, next));
+  }
+}
+
+function compact(project: ProjectState, martId: number): void {
+  const mart = getMartRecord(project, martId);
+  const slots = Array.from({ length: MART_SLOTS }, (_unused, slot) => Number(mart.raw[`item_${slot}`] ?? 0));
+  const items = slots.filter((itemId) => itemId > 0);
+  if (items.some((itemId, index) => slots[index] !== itemId)) writeItems(project, martId, items);
+}
+
+// ---------- List ----------
+
+function renderMartRow(project: ProjectState, id: number): string {
+  const mart = getMartRecord(project, id);
+  const edits = (project.actionChangelog?.entries ?? []).filter((entry) => entry.key.startsWith(`mart:${id}:`)).length;
+  const count = martItemIds(mart).length;
+  return `
+    <div class="md-row mt-row" role="option" aria-selected="false" data-mart="${id}">
+      <span class="md-row-id">${id}</span>
+      <span class="md-row-name">${escapeHtml(String(mart.readable.name ?? `Mart ${id}`))}${edits ? `<span class="md-edits" title="${edits} change${edits === 1 ? "" : "s"}">${edits}</span>` : ""}</span>
+      <span class="it-row-price">${count} item${count === 1 ? "" : "s"}</span>
     </div>
-    <div class="pokemon-list pokemon-move-list spreadsheet tm-list" id="grotto-odds">
-      <div class="expanded-field field-header">
-        <div class="expanded-field-main">
-          <div class="odds-header grotto-name">Name</div>
-          <div class="odds-header">R Pok</div>
-          <div class="odds-header">UC Pok</div>
-          <div class="odds-header">CM Pok</div>
-          <div class="odds-header">SR Item</div>
-          <div class="odds-header">R Item</div>
-          <div class="odds-header">UC Item</div>
-          <div class="odds-header">CM Item</div>
-          <div class="odds-header">SR H-Item</div>
-          <div class="odds-header">R H-Item</div>
-          <div class="odds-header">UC H-Item</div>
+  `;
+}
+
+// ---------- Detail ----------
+
+function itemIcon(name: string): string {
+  const slug = name.normalize("NFKD").replace(/[^a-zA-Z0-9]/gu, "").toLowerCase();
+  return `<img class="it-row-icon" src="${publicAsset(`images/item_sprites/${slug}.png`)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`;
+}
+
+function renderMartDetail(project: ProjectState, id: number): string {
+  const mart = getMartRecord(project, id);
+  const items = martItemIds(mart);
+  const rows = items.map((itemId, slot) => {
+    const name = String(mart.readable[`item_${slot}`] ?? "");
+    const price = Number(getItemRecord(project, itemId).raw.market_value ?? 0) * 10;
+    return `
+      <tr data-mark-fields="item_${slot}">
+        <td class="mt-pos">${slot + 1}</td>
+        <td class="en-mon-cell"><div class="en-mon"><span class="en-mon-icon" data-derived="icon-${slot}">${itemIcon(name)}</span><div autocorrect="off" spellcheck="false" contenteditable="true" data-field-name="item_${slot}" data-autofill="items">${escapeHtml(name)}</div></div></td>
+        <td class="r mt-price" data-derived="price-${slot}">${price ? `₽${price.toLocaleString("en-US")}` : "—"}</td>
+        <td class="mt-actions">
+          <button class="btn sm -ghost" type="button" data-mart-move="-1" data-slot="${slot}" title="Move up" aria-label="Move up" ${slot === 0 ? "disabled" : ""}>↑</button>
+          <button class="btn sm -ghost" type="button" data-mart-move="1" data-slot="${slot}" title="Move down" aria-label="Move down" ${slot === items.length - 1 ? "disabled" : ""}>↓</button>
+          <button class="btn sm -ghost" type="button" data-mart-remove="${slot}" title="Remove" aria-label="Remove">×</button>
+        </td>
+      </tr>
+    `;
+  }).join("");
+  const addRow = items.length < MART_SLOTS ? `
+    <tr class="mt-add-row">
+      <td class="mt-pos">${items.length + 1}</td>
+      <td class="en-mon-cell"><div class="en-mon"><span class="en-mon-icon"></span><div autocorrect="off" spellcheck="false" contenteditable="true" data-field-name="item_${items.length}" data-autofill="items" data-placeholder="Add an item"></div></div></td>
+      <td></td><td></td>
+    </tr>
+  ` : "";
+  return `
+    <article class="mt-card" data-index="${id}">
+      <header class="td-head fd-head -no-sprite">
+        <div class="td-ident">
+          <div class="td-title"><h1>${escapeHtml(String(mart.readable.name ?? `Mart ${id}`))}</h1><span class="td-num">#${id}</span></div>
+          <div class="fd-subtitle">${items.length} of ${MART_SLOTS} slots used</div>
         </div>
-      </div>
-      ${Array.from({ length: Math.min(20, getGrottoCount(project)) }, (_, id) => renderGrottoOddsRow(project, id, odds)).join("")}
-    </div>
+      </header>
+      <div class="section-bar">Stock</div>
+      <table class="md-table mt-table" data-structure="${items.length}">
+        <thead><tr><th class="mt-pos">#</th><th>Item</th><th class="r">Price</th><th></th></tr></thead>
+        <tbody>${rows}${addRow}</tbody>
+      </table>
+    </article>
   `;
-
-  root.querySelector<HTMLButtonElement>("#back-grottos")?.addEventListener("click", () => showGrottos?.());
-  attachGrottoOddsInteractions(root, project, { onDirty });
-}
-
-function renderMartRows(project: ProjectState): string {
-  return Array.from({ length: getMartCount(project) }, (_, id) => renderMartRow(getMartRecord(project, id))).join("");
-}
-
-function renderMartRow(mart: MartRecord): string {
-  return `
-    <div class="expanded-field filterable mart-card" data-index="${mart.id}">
-      <div class="expanded-field-main">
-        <div class="mart-id">${mart.id}</div>
-        <div class="mart-name">${escapeHtml(String(mart.readable.name ?? "-"))}</div>
-        <div class="mart-inv">${escapeHtml(mart.inventory)}</div>
-        <div class="move-info expand-action expand-mart svg no-fill" data-expand="mart">${miscDataIcon}</div>
-      </div>
-    </div>
-  `;
-}
-
-function renderMartPanel(mart: MartRecord): string {
-  return `
-    <div class="expanded-card-content expanded-mart">
-      ${[[0, 9], [10, 19]]
-        .map(
-          ([start, end]) => `
-            <div class="expanded-left">
-              ${Array.from({ length: end - start + 1 }, (_, index) => start + index)
-                .map((n) => `<div class="expanded-field">${editable("mart", `item_${n}`, "mart-item", mart.readable[`item_${n}`], { autofill: "items" })}</div>`)
-                .join("")}
-            </div>
-          `,
-        )
-        .join("")}
-    </div>
-  `;
-}
-
-function renderGrottoRows(project: ProjectState): string {
-  return Array.from({ length: getGrottoCount(project) }, (_, id) => renderGrottoRow(project, id)).join("");
-}
-
-export function renderGrottoRow(project: ProjectState, grottoId: number): string {
-  const grotto = getGrottoRecord(project, grottoId);
-  return `
-    <div class="expanded-field filterable grotto-card" data-index="${grotto.id}">
-      <div class="expanded-field-main">
-        <div class="grotto-id">${grotto.id}</div>
-        <div class="grotto-location">${escapeHtml(String(grotto.readable.name ?? ""))}</div>
-        <div class="grotto-wilds">
-          ${grotto.wilds.map((wild, index) => renderWild(wild, grotto.spriteSlugs[index])).join("")}
-        </div>
-        <div class="move-info expand-action expand-grotto svg no-fill" data-expand="grotto">${miscDataIcon}</div>
-      </div>
-    </div>
-  `;
-}
-
-function renderGrottoPanel(project: ProjectState, grotto: GrottoRecord): string {
-  return `
-    <div class="expanded-card-content expanded-grotto">
-      ${GROTTO_VERSIONS.map((version) => GROTTO_POKEMON_RARITIES.map((rarity) => renderGrottoPokemonColumn(project, grotto, version, rarity)).join("")).join("")}
-      ${GROTTO_ITEM_TYPES.map((itemType) => GROTTO_ITEM_RARITIES.map((rarity) => renderGrottoItemColumn(project, grotto, itemType, rarity)).join("")).join("")}
-    </div>
-  `;
-}
-
-function renderGrottoPokemonColumn(project: ProjectState, grotto: GrottoRecord, version: string, rarity: string): string {
-  const odds = getGrottoOdds(project).readable[`${rarity}_pok_odds_${grotto.id}`] ?? 0;
-  return `
-    <div class="expanded-left">
-      <div class="expanded-field multi field-header">
-        <div class="enc-slot">${escapeHtml(titleize(version))} ${odds}%</div>
-        <div class="enc-lvl">Min</div>
-        <div class="enc-lvl">Max</div>
-        <div class="enc-lvl">F/M</div>
-        <div class="enc-form">Form</div>
-      </div>
-      ${Array.from({ length: 4 }, (_, n) => {
-        const base = `${version}_${rarity}`;
-        return `
-          <div class="expanded-field multi">
-            ${editable("grotto", `${base}_pok_${n}`, "enc-slot enc-name", grotto.readable[`${base}_pok_${n}`], { autofill: "pokemon_names" })}
-            ${editable("grotto", `${base}_min_lvl_${n}`, "enc-lvl", grotto.readable[`${base}_min_lvl_${n}`], { type: "int-100" })}
-            ${editable("grotto", `${base}_max_lvl_${n}`, "enc-lvl", grotto.readable[`${base}_max_lvl_${n}`], { type: "int-100" })}
-            ${editable("grotto", `${base}_gender_${n}`, "enc-lvl", grotto.readable[`${base}_gender_${n}`], { type: "int-100" })}
-            ${editable("grotto", `${base}_form_${n}`, "enc-form", grotto.readable[`${base}_form_${n}`], { type: "int-100" })}
-          </div>
-        `;
-      }).join("")}
-    </div>
-  `;
-}
-
-function renderGrottoItemColumn(project: ProjectState, grotto: GrottoRecord, itemType: string, rarity: string): string {
-  const odds =
-    itemType === "hidden" && rarity === "common"
-      ? remainingHiddenCommonOdd(project, grotto.id)
-      : (getGrottoOdds(project).readable[`${rarity}_${itemType}_item_odds_${grotto.id}`] ?? 0);
-  return `
-    <div class="expanded-left grotto-item">
-      <div class="expanded-field multi field-header">
-        <div class="enc-slot">${escapeHtml(titleize(itemType))} Items ${odds}%</div>
-      </div>
-      ${Array.from({ length: 4 }, (_, n) =>
-        `<div class="expanded-field multi">${editable("grotto", `${itemType}_${rarity}_item_${n}`, "grotto-item-name", grotto.readable[`${itemType}_${rarity}_item_${n}`], { autofill: "items" })}</div>`,
-      ).join("")}
-    </div>
-  `;
-}
-
-function renderGrottoOddsRow(project: ProjectState, grottoId: number, odds: Record<string, string | number>): string {
-  const grotto = getGrottoRecord(project, grottoId);
-  return `
-    <div class="expanded-field filterable grotto-odds-card" data-index="${grottoId}">
-      <div class="expanded-field-main">
-        <div class="grotto-name" data-narc="grotto">${escapeHtml(String(grotto.readable.name ?? ""))}</div>
-        ${["rare", "uncommon", "common"].map((rarity) => oddsEditable(`${rarity}_pok_odds_${grottoId}`, odds[`${rarity}_pok_odds_${grottoId}`])).join("")}
-        ${["superrare", "rare", "uncommon", "common"].map((rarity) => oddsEditable(`${rarity}_normal_item_odds_${grottoId}`, odds[`${rarity}_normal_item_odds_${grottoId}`])).join("")}
-        ${["superrare", "rare", "uncommon"].map((rarity) => oddsEditable(`${rarity}_hidden_item_odds_${grottoId}`, odds[`${rarity}_hidden_item_odds_${grottoId}`])).join("")}
-      </div>
-    </div>
-  `;
-}
-
-function renderWild(name: string, slug: string): string {
-  const missingSprite = publicAsset("images/pokesprite/-.png");
-  return `
-    <div class="wild">
-      <img src="${publicAsset(`images/pokesprite/${slug}.png`)}" alt="${escapeHtml(name)}" loading="lazy" onerror="this.src='${missingSprite}'">
-    </div>
-  `;
-}
-
-function editable(narc: "mart" | "grotto", field: string, className: string, value: unknown, options: { autofill?: string; type?: string } = {}): string {
-  const autofill = options.autofill ? ` data-autocomplete-spy data-autofill="${options.autofill}"` : "";
-  const type = options.type ? ` data-type="${options.type}"` : "";
-  return `<div autocorrect="off" data-narc="${narc}" data-field-name="${field}" class="${className}" contenteditable="true"${autofill}${type}>${escapeHtml(String(value ?? ""))}</div>`;
-}
-
-function oddsEditable(field: string, value: unknown): string {
-  return `<div data-narc="grotto" class="odds-item" data-type="int-100" contenteditable="true" data-field-name="${field}">${escapeHtml(String(value ?? 0))}</div>`;
-}
-
-function titleize(value: string): string {
-  return value
-    .replace(/_/gu, " ")
-    .split(/\s+/u)
-    .map((part) => (part ? part[0].toUpperCase() + part.slice(1).toLowerCase() : part))
-    .join(" ");
 }

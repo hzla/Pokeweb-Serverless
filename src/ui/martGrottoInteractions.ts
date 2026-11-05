@@ -1,12 +1,4 @@
-import {
-  getGrottoRecord,
-  getMartRecord,
-  grottoMatchesSearch,
-  martMatchesSearch,
-  updateGrottoField,
-  updateGrottoOddsField,
-  updateMartField,
-} from "../pokeweb/martGrottoModel";
+import { getMartRecord, martMatchesSearch, updateMartField } from "../pokeweb/martGrottoModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml, scrollRowBelowStickyHeader, selectText } from "./dom";
 
@@ -14,17 +6,6 @@ type MartOptions = {
   onDirty?: () => void;
   autofills: Record<string, string[]>;
   renderPanel: (martId: number) => string;
-};
-
-type GrottoOptions = {
-  onDirty?: () => void;
-  autofills: Record<string, string[]>;
-  renderRow: (grottoId: number) => string;
-  renderPanel: (grottoId: number) => string;
-};
-
-type GrottoOddsOptions = {
-  onDirty?: () => void;
 };
 
 export function attachMartInteractions(root: HTMLElement, project: ProjectState, options: MartOptions): void {
@@ -58,77 +39,11 @@ export function attachMartInteractions(root: HTMLElement, project: ProjectState,
   runFilter();
 }
 
-export function attachGrottoInteractions(root: HTMLElement, project: ProjectState, options: GrottoOptions): void {
-  const searchInput = root.querySelector<HTMLInputElement>("#search-text");
-  const searchButton = root.querySelector<HTMLButtonElement>("#search-text-btn");
-  const runFilter = () => {
-    filterGrottos(root, project, searchInput?.value ?? "");
-    stripeRows(root, "#grottos .grotto-card");
-  };
-
-  searchButton?.addEventListener("click", runFilter);
-  searchInput?.addEventListener("keypress", (event) => {
-    if (event.key === "Enter") runFilter();
-  });
-
-  root.addEventListener("click", (event) => {
-    const target = event.target as HTMLElement;
-    const card = target.closest<HTMLElement>(".grotto-card");
-    const grottoId = Number(card?.dataset.index);
-    const icon = target.closest<HTMLElement>(".expand-action");
-    if (!card || !Number.isInteger(grottoId) || !icon) return;
-    if (!card.querySelector(".expanded-grotto")) {
-      card.insertAdjacentHTML("beforeend", options.renderPanel(grottoId));
-      installGrottoEditableFields(card, project, options);
-    }
-    togglePanel(card, ".expanded-grotto", icon);
-    stripeRows(root, "#grottos .grotto-card");
-  });
-
-  installGrottoEditableFields(root, project, options);
-  runFilter();
-}
-
-export function attachGrottoOddsInteractions(root: HTMLElement, project: ProjectState, options: GrottoOddsOptions): void {
-  root.querySelectorAll<HTMLElement>("[contenteditable='true'][data-narc='grotto']").forEach((field) => {
-    if (field.dataset.grottoOddsEditInstalled === "true") return;
-    field.dataset.grottoOddsEditInstalled = "true";
-    let initialValue = field.textContent?.trim() ?? "";
-    installEditableHandlers(
-      field,
-      () => {
-        const fieldName = field.dataset.fieldName;
-        if (!fieldName) return false;
-        const result = updateGrottoOddsField(project, fieldName, field.textContent?.trim() ?? "");
-        field.textContent = String(result.value);
-        return true;
-      },
-      () => initialValue,
-      (value) => {
-        initialValue = value;
-      },
-      options.onDirty,
-    );
-  });
-  stripeRows(root, "#grotto-odds .grotto-odds-card");
-}
-
 function filterMarts(root: HTMLElement, project: ProjectState, searchText: string): HTMLElement[] {
   const visible: HTMLElement[] = [];
   root.querySelectorAll<HTMLElement>("#marts .mart-card").forEach((card) => {
     const martId = Number(card.dataset.index);
     const show = Number.isInteger(martId) ? martMatchesSearch(getMartRecord(project, martId), searchText) : false;
-    card.style.display = show ? "" : "none";
-    if (show) visible.push(card);
-  });
-  return visible;
-}
-
-function filterGrottos(root: HTMLElement, project: ProjectState, searchText: string): HTMLElement[] {
-  const visible: HTMLElement[] = [];
-  root.querySelectorAll<HTMLElement>("#grottos .grotto-card").forEach((card) => {
-    const grottoId = Number(card.dataset.index);
-    const show = Number.isInteger(grottoId) ? grottoMatchesSearch(getGrottoRecord(project, grottoId), searchText) : false;
     card.style.display = show ? "" : "none";
     if (show) visible.push(card);
   });
@@ -151,41 +66,6 @@ function installMartEditableFields(root: HTMLElement, project: ProjectState, opt
         const result = updateMartField(project, martId, fieldName, field.textContent?.trim() ?? "");
         field.textContent = String(result.value);
         card.querySelector<HTMLElement>(".mart-inv")!.textContent = getMartRecord(project, martId).inventory;
-        return true;
-      },
-      () => initialValue,
-      (value) => {
-        initialValue = value;
-      },
-      options.onDirty,
-    );
-  });
-}
-
-function installGrottoEditableFields(root: HTMLElement, project: ProjectState, options: GrottoOptions): void {
-  root.querySelectorAll<HTMLElement>("[contenteditable='true'][data-narc='grotto']").forEach((field) => {
-    if (field.dataset.grottoEditInstalled === "true") return;
-    field.dataset.grottoEditInstalled = "true";
-    let initialValue = field.textContent?.trim() ?? "";
-    installAutocomplete(field, options.autofills);
-    installEditableHandlers(
-      field,
-      () => {
-        const card = field.closest<HTMLElement>(".grotto-card");
-        const grottoId = Number(card?.dataset.index);
-        const fieldName = field.dataset.fieldName;
-        if (!card || !Number.isInteger(grottoId) || !fieldName) return false;
-        const open = card.querySelector(".expanded-grotto.show-flex") !== null;
-        updateGrottoField(project, grottoId, fieldName, field.textContent?.trim() ?? "");
-        card.outerHTML = options.renderRow(grottoId);
-        const nextCard = root.querySelector<HTMLElement>(`.grotto-card[data-index="${grottoId}"]`);
-        if (nextCard && open) {
-          nextCard.insertAdjacentHTML("beforeend", options.renderPanel(grottoId));
-          nextCard.querySelector<HTMLElement>(".expanded-grotto")?.classList.add("show-flex");
-          nextCard.querySelector<HTMLElement>(".expand-action")?.classList.add("-active");
-          installGrottoEditableFields(nextCard, project, options);
-        }
-        stripeRows(root, "#grottos .grotto-card");
         return true;
       },
       () => initialValue,

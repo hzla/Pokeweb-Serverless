@@ -3,7 +3,6 @@ import { installMoveRecipeEditor } from "./moveRecipeEditor";
 import { renderMoveDllFlags, installMoveDllFlags } from "./moveDllFlagsEditor";
 import { renderAbilityRuntimeUpdate, installAbilityRuntimeUpdate, refreshAbilityRuntimeUpdate } from "./abilityRuntimeUpdate";
 import { inspectMoveEffects, MOVE_RECIPE_MANAGED_FIELDS, supportsMoveRecipes } from "../pokeweb/moveEffectsModel";
-import miscDataIcon from "../assets/svgs/misc_data.svg?raw";
 import { PROPERTIES, CATEGORIES, typeNamesForProject } from "../pokeweb/constants";
 import {
   decompileMoveAnimation,
@@ -13,96 +12,25 @@ import {
   type MoveAnimationTargetInfo,
 } from "../pokeweb/moveAnimationModel";
 import {
-  getItemCount,
-  getItemRecord,
   getMoveAutofills,
   getMoveCount,
   getMoveRecord,
   EFFECTS,
-  ITEM_FIELD_LABELS,
-  ITEM_PACKED_FIELDS,
   MOVE_EFFECT_FIELDS,
   MOVE_MISC_FIELDS,
   MOVE_STAT_FIELDS,
   titleize,
-  type ItemRecord,
   type MoveRecord,
 } from "../pokeweb/moveItemModel";
 import { getMoveTextInfo, hasMoveTextBanks, type MoveTextInfo, type MoveTextLine, type MoveTextSection } from "../pokeweb/moveTextModel";
 import { descriptionPreviewMarkup } from "./lazyDescriptionPreview";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
-import { attachItemInteractions, attachMoveInteractions, installMoveAnimationEditor, installMoveEditableFields, installMoveTextFields, renderMoveAnimationEditor, type MoveOptions } from "./moveItemInteractions";
+import { attachMoveInteractions, installMoveAnimationEditor, installMoveEditableFields, installMoveTextFields, renderMoveAnimationEditor, type MoveOptions } from "./moveItemInteractions";
 import "../styles/moveData.css";
-import { renderItemEffects } from "./itemEffectsEditor";
 import { attachW2uSyncButton, renderW2uSyncButton } from "./w2uLocalSync";
 import { publicAsset } from "../assetUrl";
 import { pokemonPersonalDisplayIds, pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
-
-type ItemFieldSpec = readonly [field: string, max: number];
-
-const ITEM_DETAIL_SECTIONS: Array<{ title: string; fields: readonly ItemFieldSpec[] }> = [
-  {
-    title: "Overview",
-    fields: [
-      ["item_type", 255],
-      ["name_order_id", 255],
-      ["gain_values", 255],
-      ["nature_gift_power", 1],
-    ],
-  },
-  {
-    title: "Use Routing",
-    fields: [
-      ["item_group", 255],
-      ["battle_item_group", 255],
-      ["usability_flag", 255],
-      ["consumable_flag", 255],
-      ["type_attribute", 65535],
-    ],
-  },
-  {
-    title: "Battle Behavior",
-    fields: [
-      ["battle_flags", 255],
-      ["berry_flags", 255],
-      ["held_flags", 255],
-      ["unknown_flag_1", 255],
-    ],
-  },
-  {
-    title: "Stat Boosts",
-    fields: [
-      ["hp_atk_boost", 255],
-      ["def_spatk_boost", 255],
-      ["spd_spdef_boost", 255],
-      ["acc_crit_pp_boost", 255],
-    ],
-  },
-  {
-    title: "Recovery And Status",
-    fields: [
-      ["status_removal_flag", 255],
-      ["pp_flags", 65535],
-      ["hp_gain", 255],
-      ["pp_gain", 255],
-    ],
-  },
-  {
-    title: "EV And Friendship",
-    fields: [
-      ["hp_ev_gain", 255],
-      ["atk_ev_gain", 255],
-      ["def_ev_gain", 255],
-      ["spd_ev_gain", 255],
-      ["spatk_ev_gain", 255],
-      ["spdef_ev_gain", 255],
-      ["battle_happiness", 1],
-      ["ow_happiness", 1],
-      ["hold_happiness", 1],
-    ],
-  },
-];
 
 type MoveDetailTab = "data" | "effects" | "text";
 
@@ -595,37 +523,6 @@ function renderMoveAnimationDonorOptions(project: ProjectState, targetMoveId: nu
   return options.join("");
 }
 
-export function renderItemEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void): void {
-  root.innerHTML = `
-    <div class="pokemon-filter item-filter">
-      <div class="filter-title">Search Text</div>
-      <input class="filter-input" id="search-text"/>
-      <button class="btn -default" id="search-text-btn" type="button">Search</button>
-    </div>
-    <div class="pokemon-list spreadsheet" id="items">
-      <div class="expanded-field field-header">
-        <div class="expanded-field-main">
-          <div class="item-id">ID</div>
-          <div class="item-name">Name</div>
-          <div class="item-value">Market Value</div>
-        </div>
-      </div>
-      ${renderItemRows(project)}
-    </div>
-  `;
-
-  attachItemInteractions(root, project, {
-    onDirty,
-    renderExpanded: (itemId) => renderItemExpanded(getItemRecord(project, itemId), project),
-  });
-}
-
-function renderItemRows(project: ProjectState): string {
-  const rows: string[] = [];
-  for (let id = 0; id < getItemCount(project); id += 1) rows.push(renderItemRow(getItemRecord(project, id)));
-  return rows.join("");
-}
-
 function renderMoveEffectField(move: MoveRecord): string {
   return `
     <div class="move-effect">
@@ -688,83 +585,6 @@ function renderMoveTextLine(line: MoveTextLine): string {
   `;
 }
 
-function renderItemRow(item: ItemRecord): string {
-  return `
-    <div class="expanded-field filterable item-card" data-index="${item.id}">
-      <div class="expanded-field-main">
-        <div class="item-id">${item.id}</div>
-        <div class="item-name">${escapeHtml(String(item.readable.name ?? `Item ${item.id}`))}</div>
-        ${editable("item", "market_value", item.readable.market_value, "item-value", { type: "int-65535" })}
-        <button type="button" class="move-info expand-action expand-item svg no-fill" data-expand="item" aria-label="Edit ${escapeHtml(String(item.readable.name ?? `Item ${item.id}`))}" aria-expanded="false">${miscDataIcon}</button>
-      </div>
-    </div>
-  `;
-}
-
-function renderItemExpanded(item: ItemRecord, project: ProjectState): string {
-  return `
-    <div class="expanded-card-content expanded-item">
-      ${renderItemEffects(project, item.id)}
-      <div class="item-detail-grid">
-        ${ITEM_DETAIL_SECTIONS.map((section) => renderItemDetailSection(item, section.title, section.fields)).join("")}
-      </div>
-    </div>
-  `;
-}
-
-function renderItemDetailSection(item: ItemRecord, title: string, fields: readonly ItemFieldSpec[]): string {
-  return `
-    <section class="item-detail-section">
-      <div class="item-detail-section-title">${escapeHtml(title)}</div>
-      <div class="item-detail-section-fields">
-        ${fields.map(([field, max]) => renderItemExpandedField(item, field, max)).join("")}
-      </div>
-    </section>
-  `;
-}
-
-function renderItemExpandedField(item: ItemRecord, field: string, max: number): string {
-  const label = ITEM_FIELD_LABELS[field] ?? titleize(field.replace(/_/gu, " "));
-  const packedParts = ITEM_PACKED_FIELDS[field];
-  if (!packedParts) {
-    return `
-      <div class="item-detail-field">
-        <label class="item-detail-label">${escapeHtml(label)}</label>
-        ${editable("item", field, item.readable[field], `item-detail-value item-${field}`, { type: `int-${max}` })}
-      </div>
-    `;
-  }
-
-  const value = Number(item.readable[field] ?? 0);
-  const parts = packedParts
-    .map((part) => {
-      const partMax = (1 << part.size) - 1;
-      const partValue = (value >> part.offset) & partMax;
-      if (part.kind === "checkbox") {
-        return `
-          <label class="item-flag-check">
-            <input class="item-flag-checkbox" data-field-name="${escapeHtml(field)}" data-part-key="${escapeHtml(part.key)}" type="checkbox" ${partValue > 0 ? "checked" : ""}>
-            <span>${escapeHtml(part.label)}</span>
-          </label>
-        `;
-      }
-      return `
-        <label class="item-flag-number">
-          <span>${escapeHtml(part.label)}</span>
-          ${editable("item-part", field, partValue, "item-detail-value item-packed-value", { type: `int-${partMax}`, part: part.key })}
-        </label>
-      `;
-    })
-    .join("");
-
-  return `
-    <div class="item-detail-field -packed">
-      <div class="item-detail-label">${escapeHtml(label)}</div>
-      <div class="item-flag-editor" data-field-name="${escapeHtml(field)}" data-raw-value="${value}">${parts}</div>
-    </div>
-  `;
-}
-
 function renderCategoryImages(category: string): string {
   return CATEGORIES.map((cat) => {
     const active = cat.toLowerCase() === category.toLowerCase();
@@ -772,14 +592,6 @@ function renderCategoryImages(category: string): string {
   }).join("");
 }
 
-function expandedField(label: string, value: string, labelClass = "expanded-field-name"): string {
-  return `
-    <div class="expanded-field">
-      <div class="${labelClass}">${escapeHtml(label)}</div>
-      ${value}
-    </div>
-  `;
-}
 
 function editable(
   narc: "move" | "item" | "item-part",

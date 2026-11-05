@@ -48,6 +48,10 @@ export type PokemonInteractionOptions = {
   onEnsureFormAssets?: () => Promise<void>;
   onFormAdded?: (result: AddPokemonFormResult) => void;
   onFormDeleted?: (result: DeletePokemonFormResult) => void;
+  /** Called with the visible list rows after every search or filter change. */
+  onFiltered?: (visible: HTMLElement[]) => void;
+  /** Called after a right-click "apply to all listed" edit with the species it changed. */
+  onBulkApplied?: (speciesIds: number[]) => void;
 };
 
 const pokemonInteractionInstallations = new WeakMap<HTMLElement, AbortController>();
@@ -66,11 +70,17 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
   const searchButton = root.querySelector<HTMLButtonElement>("#search-text-btn");
 
   const runFilter = () => {
-    filterPokemon(root, project, searchInput?.value ?? "", activeGenerations, activeTypes);
+    const visible = filterPokemon(root, project, searchInput?.value ?? "", activeGenerations, activeTypes);
     syncEvolutionMethodInfo(root);
     stripeRows(root);
+    options.onFiltered?.(visible);
   };
 
+  let searchTimer: number | undefined;
+  searchInput?.addEventListener("input", () => {
+    window.clearTimeout(searchTimer);
+    searchTimer = window.setTimeout(runFilter, 150);
+  }, listenerOptions);
   searchButton?.addEventListener("click", runFilter, listenerOptions);
   searchInput?.addEventListener("keypress", (event) => {
     if (event.key === "Enter") runFilter();
@@ -131,7 +141,7 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
       const speciesId = Number(card?.dataset.index);
       if (!card || !Number.isInteger(speciesId) || !options.renderTextPanel) return;
       if (!card.querySelector(".expanded-pokemon-texts")) {
-        card.insertAdjacentHTML("beforeend", options.renderTextPanel(speciesId));
+        (card.querySelector<HTMLElement>(".pd-panels") ?? card).insertAdjacentHTML("beforeend", options.renderTextPanel(speciesId));
         installPokemonTextFields(card, project, options);
       }
       const panel = card.querySelector<HTMLElement>(".expanded-pokemon-texts");
@@ -387,7 +397,7 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
     const expand = icon.dataset.expand;
     if (!card || !Number.isInteger(speciesId) || !expand) return;
 
-    if (!card.querySelector(".expanded-personal")) card.insertAdjacentHTML("beforeend", options.renderExpanded(speciesId));
+    if (!card.querySelector(".expanded-personal")) (card.querySelector<HTMLElement>(".pd-panels") ?? card).insertAdjacentHTML("beforeend", options.renderExpanded(speciesId));
     installEditableFields(card, project, options);
 
     const targetPanel = card.querySelector<HTMLElement>(`.expanded-${expand}`);
@@ -478,7 +488,8 @@ function compareMachineNumber(left: HTMLElement, right: HTMLElement): number {
 
 function refreshExpandedPanels(card: HTMLElement, project: ProjectState, speciesId: number, activePanel: string, options: PokemonInteractionOptions): void {
   card.querySelectorAll<HTMLElement>(".expanded-card-content").forEach((panel) => panel.remove());
-  card.insertAdjacentHTML("beforeend", options.renderExpanded(speciesId));
+  // The list + detail layout keeps panels in a tab container; older layouts append to the card.
+  (card.querySelector<HTMLElement>(".pd-panels") ?? card).insertAdjacentHTML("beforeend", options.renderExpanded(speciesId));
   installEditableFields(card, project, options);
   card.querySelectorAll<HTMLElement>(".card-icon, .expand-action").forEach((item) => item.classList.remove("-active"));
   card.querySelectorAll<HTMLButtonElement>(".pokemon-name-toggle").forEach((button) => {
@@ -490,7 +501,7 @@ function refreshExpandedPanels(card: HTMLElement, project: ProjectState, species
   syncEvolutionMethodInfo(card.closest<HTMLElement>("#content-container") ?? document.body);
 }
 
-function installPokemonTextFields(root: HTMLElement, project: ProjectState, options: PokemonInteractionOptions): void {
+export function installPokemonTextFields(root: HTMLElement, project: ProjectState, options: PokemonInteractionOptions): void {
   root.querySelectorAll<HTMLInputElement>(".pokemon-text-name-input").forEach((input) => {
     if (input.dataset.pokemonTextNameInstalled === "true") return;
     input.dataset.pokemonTextNameInstalled = "true";
@@ -569,9 +580,9 @@ export function filterPokemon(
 ): HTMLElement[] {
   const visible: HTMLElement[] = [];
   const unfiltered = !searchText.split(",").some((term) => term.trim()) && generations.size === 0 && types.size === 0;
-  root.querySelectorAll<HTMLElement>("#personals .pokemon-card.filterable").forEach((card) => {
-    const speciesId = Number(card.dataset.index);
-    const show = Number.isInteger(speciesId) && (unfiltered || pokemonMatchesSearch(getPokemonSummaryRecord(project, speciesId), searchText, generations, types));
+  root.querySelectorAll<HTMLElement>("[data-pokemon-row]").forEach((card) => {
+    const speciesId = Number(card.dataset.pokemonRow);
+    const show = Number.isInteger(speciesId) && (unfiltered || pokemonMatchesSearch(getPokemonSummaryRecord(project, speciesId), searchText, generations, types, [pokemonSpeciesLabel(project, speciesId)]));
     card.style.display = show ? "" : "none";
     if (show) visible.push(card);
   });
@@ -647,24 +658,25 @@ function applyPokemonFieldToVisibleRows(root: HTMLElement, project: ProjectState
   const value = sourceField.textContent?.trim() ?? "";
   if (!narc || !fieldName || !isPokemonEditableNarc(narc)) return false;
 
-  const visibleCards = visiblePokemonCards(root);
-  if (visibleCards.length === 0) return true;
+  const speciesIds = visiblePokemonIds(root);
+  if (speciesIds.length === 0) return true;
 
   const label = fieldName.replace(/_/gu, " ");
-  if (!window.confirm(`Apply "${value}" to ${label} for ${visibleCards.length} visible Pokemon?`)) return true;
+  if (!window.confirm(`Apply "${value}" to ${label} for ${speciesIds.length} listed Pokemon?`)) return true;
 
   let updated = 0;
   let failed = 0;
-  for (const card of visibleCards) {
-    const speciesId = Number(card.dataset.index);
-    if (!Number.isInteger(speciesId)) continue;
+  const changed: number[] = [];
+  for (const speciesId of speciesIds) {
+    const card = root.querySelector<HTMLElement>(`.pokemon-card.filterable[data-index="${speciesId}"]`);
     try {
       const result = updatePokemonEditableField(project, speciesId, narc, fieldName, value);
-      syncRenderedPokemonEditableField(card, project, speciesId, narc, fieldName, result, options);
+      if (card) syncRenderedPokemonEditableField(card, project, speciesId, narc, fieldName, result, options);
       updated += 1;
+      changed.push(speciesId);
     } catch {
       failed += 1;
-      markRenderedPokemonEditableInvalid(card, narc, fieldName);
+      if (card) markRenderedPokemonEditableInvalid(card, narc, fieldName);
     }
   }
 
@@ -672,15 +684,19 @@ function applyPokemonFieldToVisibleRows(root: HTMLElement, project: ProjectState
     options.onDirty?.();
     syncEvolutionMethodInfo(root);
     stripeRows(root);
+    options.onBulkApplied?.(changed);
   }
   if (failed > 0) {
-    window.alert(`Applied to ${updated} visible Pokemon; ${failed} row${failed === 1 ? "" : "s"} could not use that value.`);
+    window.alert(`Applied to ${updated} listed Pokemon; ${failed} could not use that value.`);
   }
   return true;
 }
 
-function visiblePokemonCards(root: HTMLElement): HTMLElement[] {
-  return [...root.querySelectorAll<HTMLElement>("#personals .pokemon-card.filterable")].filter((card) => card.style.display !== "none");
+function visiblePokemonIds(root: HTMLElement): number[] {
+  return [...root.querySelectorAll<HTMLElement>("[data-pokemon-row]")]
+    .filter((row) => row.style.display !== "none")
+    .map((row) => Number(row.dataset.pokemonRow))
+    .filter(Number.isInteger);
 }
 
 function isPokemonEditableNarc(narc: string): narc is PokemonEditableNarc {
@@ -770,16 +786,16 @@ function syncVisualFieldState(field: HTMLElement, result: ReturnType<typeof upda
 
   if (result.movePreview) {
     const row = field.closest<HTMLElement>(".expanded-field.multi");
-    const typeButton = row?.querySelector<HTMLButtonElement>(".move-type .btn");
+    const typePlate = row?.querySelector<HTMLElement>(".move-type .type-plate");
     const type = result.movePreview.type;
-    if (typeButton) {
-      typeButton.className = `btn -${String(type).toLowerCase()} -active`;
-      typeButton.textContent = String(type).toUpperCase().slice(0, 3);
+    if (typePlate) {
+      typePlate.className = `type-plate sm -${String(type).toLowerCase().replace(/[^a-z0-9_-]+/gu, "")}`;
+      typePlate.textContent = String(type);
     }
     const cat = row?.querySelector<HTMLElement>(".move-cat");
     const power = row?.querySelector<HTMLElement>(".move-power");
     const accuracy = row?.querySelector<HTMLElement>(".move-accuracy");
-    if (cat) cat.textContent = String(result.movePreview.category).slice(0, 3);
+    if (cat) cat.textContent = String(result.movePreview.category);
     if (power) power.textContent = String(result.movePreview.power);
     if (accuracy) accuracy.textContent = String(result.movePreview.accuracy);
   }
@@ -801,19 +817,23 @@ function installAutocomplete(field: HTMLElement, autofills: Record<string, strin
   suggestions.hidden = true;
   host.append(suggestions);
 
+  // On focus the picker lists every option (current one marked); typing filters it.
+  let focusValue = "";
   const render = () => {
     const query = field.textContent?.trim().toLowerCase() ?? "";
-    if (!query) {
-      suggestions.hidden = true;
-      return;
-    }
-    const matches = values.filter((value) => value.toLowerCase().includes(query)).slice(0, 12);
-    suggestions.innerHTML = matches.map((value) => `<div>${escapeHtml(value)}</div>`).join("");
+    const browsing = query === "" || query === focusValue.toLowerCase();
+    const matches = browsing ? values : values.filter((value) => value.toLowerCase().includes(query)).slice(0, 50);
+    suggestions.innerHTML = matches.map((value) => `<div${value.toLowerCase() === query ? ' class="is-current"' : ""}>${escapeHtml(value)}</div>`).join("");
     suggestions.hidden = matches.length === 0;
+    const current = browsing ? suggestions.querySelector<HTMLElement>(".is-current") : null;
+    suggestions.scrollTop = current ? Math.max(0, current.offsetTop - suggestions.clientHeight / 2) : 0;
   };
 
   field.addEventListener("input", render);
-  field.addEventListener("focus", render);
+  field.addEventListener("focus", () => {
+    focusValue = field.textContent?.trim() ?? "";
+    render();
+  });
   field.addEventListener("blur", () => {
     window.setTimeout(() => {
       suggestions.hidden = true;

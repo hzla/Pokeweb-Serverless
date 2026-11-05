@@ -1,0 +1,149 @@
+/* Item data: list + detail. Shared pieces live in moveData.css, trainerData.css and facilityData.css. */
+
+.item-data {
+  grid-template-columns: 320px minmax(0, 1fr);
+}
+
+#item-data .md-filters > select {
+  width: 100%;
+}
+
+#item-data .md-row.it-row {
+  grid-template-columns: 34px 24px minmax(0, 1fr) auto;
+}
+
+#item-data .it-row-icon {
+  width: 24px;
+  height: 24px;
+  image-rendering: pixelated;
+}
+
+#item-data .it-row-price {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+#item-data .it-card {
+  max-width: 1180px;
+}
+
+#item-data .td-sprite.it-sprite {
+  width: 80px;
+  height: 80px;
+}
+
+#item-data .it-head-icon {
+  width: 60px;
+  height: 60px;
+  image-rendering: pixelated;
+}
+
+#item-data .td-head {
+  grid-template-columns: 80px minmax(0, 1fr);
+}
+
+#item-data .it-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+  gap: 8px 32px;
+  margin-top: 16px;
+}
+
+#item-data .md-form {
+  grid-template-columns: 104px minmax(0, 1fr);
+}
+
+#item-data .md-value select {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 200px;
+}
+
+#item-data .it-checks {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 12px;
+}
+
+#item-data .it-table td:first-child,
+#item-data .it-table th:first-child {
+  width: auto;
+  padding-left: 8px;
+}
+
+#item-data .it-table td.r > input[type="checkbox"] {
+  vertical-align: middle;
+}
+
+#item-data .it-signed {
+  display: inline-block;
+  min-width: 40px;
+  margin-left: 6px;
+  text-align: left;
+}
+
+#item-data .it-effect {
+  margin-top: 16px;
+}
+
+/* Marts */
+#item-data .md-row.mt-row {
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+}
+
+#item-data .mt-card {
+  max-width: 760px;
+}
+
+#item-data .mt-table td,
+#item-data .mt-table th {
+  padding-top: 1px;
+  padding-bottom: 1px;
+}
+
+#item-data .mt-table td:first-child,
+#item-data .mt-table th:first-child {
+  width: 36px;
+  padding-left: 8px;
+  color: var(--text-muted);
+}
+
+#item-data .mt-table td.en-mon-cell {
+  width: 100%;
+}
+
+#item-data .mt-table .en-mon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#item-data .mt-table .en-mon-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+}
+
+#item-data .mt-table .en-mon [data-autocomplete] {
+  flex: 1 1 auto;
+  max-width: 320px;
+}
+
+#item-data .mt-price {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+#item-data .mt-actions {
+  white-space: nowrap;
+}
+
+#item-data .mt-actions .btn {
+  visibility: hidden;
+}
+
+#item-data .mt-table tr:hover .mt-actions .btn,
+#item-data .mt-table tr:focus-within .mt-actions .btn {
+  visibility: visible;
+}

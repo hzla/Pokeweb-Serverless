@@ -10,7 +10,7 @@ type Status = ReturnType<typeof getTrainerFieldConditionsStatus>;
 export function renderTrainerFieldInstaller(status: Status, sidebar = false): string {
   return `<div class="trainer-field-installer ${sidebar ? "trainer-field-sidebar" : ""}">
     ${renderInlineStatus(status.updateAvailable ? "Update available" : status.installed ? "Installed" : status.compatible ? "Ready" : status.supported ? "Unavailable" : "Unsupported", { className: "patch-badge", title: status.message })}
-    <button class="btn ${sidebar ? "-default" : "-primary"}" data-install-trainer-fields type="button" ${status.compatible && (!status.installed || status.updateAvailable) ? "" : "disabled"}>${status.updateAvailable ? "Update Field Conditions" : status.installed ? "Installed" : "Install Field Conditions"}</button>
+    <button class="btn ${sidebar ? "-default" : "-primary"}" data-install-trainer-fields type="button" ${status.compatible && (!status.installed || status.updateAvailable) ? "" : "disabled"}>${status.updateAvailable ? "Update field conditions" : status.installed ? "Installed" : "Install field conditions"}</button>
     <span data-trainer-field-install-status role="status"></span>
   </div>`;
 }

@@ -130,7 +130,7 @@ describe("bundled runtime and supported profiles", () => {
     expect(renderTrainerFieldInstaller({ ...state, installed: true })).toContain('disabled>Installed');
     const update = renderTrainerFieldInstaller({ ...state, installed: true, updateAvailable: true });
     expect(update).toContain("Update available");
-    expect(update).toContain("Update Field Conditions");
+    expect(update).toContain("Update field conditions");
     expect(update).not.toContain('disabled>');
   });
   it("hides extra fields until the exact runtime is installed, then renders separate sides", () => {

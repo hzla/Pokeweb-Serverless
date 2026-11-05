@@ -24,10 +24,13 @@ import { ensureGen4OverworldSpriteResources, gen4SpecialOverworldIconName, getGe
 import type { ProjectState } from "../pokeweb/projectStore";
 import type { OverworldTestWarpSelection } from "../pokeweb/testOverworldWarp";
 import { escapeHtml, selectText } from "./dom";
+import { changedKeys } from "./detailFields";
+import { installPicker } from "./trainerInteractions";
 import { publicAsset } from "../assetUrl";
 import { gen4PermissionTileFill } from "./gen4MapPreviewRenderer";
 import type { OverworldMapRender } from "./overworldMapRenderer";
 import { clampU16, formatHex16, GEN5_PERMISSION_FLAGS, gen5PermissionColorHex } from "../pokeweb/gen5PermissionModel";
+import "../styles/overworldData.css";
 
 const TILE_SIZE = 32;
 const MAP_VIEW_TILE_SCALE = 1;
@@ -38,17 +41,49 @@ const MIN_ZOOM = 0.05;
 const MIN_NPC_SCREEN_SIZE = 18;
 const ENTITY_DRAG_START_PX = 6;
 const GEN5_STAGE_PADDING = 48;
-const GEN5_STAGE_LEFT_PADDING = 28;
+const MAX_ZOOM = 3;
 
 type OverworldViewMode = "permissions" | "map";
 type SidebarTab = OverworldEntityKind | "permissions";
 type SidebarFieldOption = { value: number; label: string };
-type SidebarField = { key: string; label: string; editable?: boolean; showWhenRail?: boolean; showWhenGrid?: boolean; options?: readonly SidebarFieldOption[] };
+type FieldGroup = "identity" | "behaviour" | "destination" | "event" | "position" | "advanced";
+type SidebarField = {
+  key: string;
+  label: string;
+  group: FieldGroup;
+  editable?: boolean;
+  showWhenRail?: boolean;
+  showWhenGrid?: boolean;
+  options?: readonly SidebarFieldOption[];
+  title?: string;
+};
 type ActiveCellViewport = { key: string; x: number; y: number; width: number; height: number; map?: OverworldMapScene };
 type PermissionTileSelection = { mapId: number; index: number; x: number; y: number; layer2: number; layer3: number };
 type PermissionGridLayout = { x: number; y: number; cellSize: number; bounds: { x: number; y: number; width: number; height: number } };
+type OverworldLayer = OverworldEntityKind | "permissions";
 
 const mapRenderCache = new Map<string, Promise<OverworldMapRender> | OverworldMapRender>();
+const MAP_RENDER_CACHE_LIMIT = 6;
+
+/** Layer visibility survives switching between overworlds; the permission overlay starts off. */
+const layerPrefs: Record<OverworldLayer, boolean> & { opacity: number; matrix: boolean } = {
+  npc: true,
+  furniture: true,
+  warp: true,
+  trigger: true,
+  permissions: false,
+  opacity: 0.45,
+  matrix: false,
+};
+
+const FIELD_GROUP_LABELS: Record<FieldGroup, string> = {
+  identity: "Identity",
+  behaviour: "Behaviour",
+  destination: "Destination",
+  event: "Event",
+  position: "Position",
+  advanced: "Advanced",
+};
 
 const MOVEMENT_MODIFIER_OPTIONS: readonly SidebarFieldOption[] = [
   { value: 0, label: "Normal" },
@@ -74,26 +109,116 @@ const MOVEMENT_MODIFIER_OPTIONS: readonly SidebarFieldOption[] = [
   { value: 20, label: "Non-trainer spin pause" },
 ];
 
-const NPC_FIELD_LABELS: Record<string, string> = {
-  overworld_id: "overworld id",
-  overworld_sprite: "overworld sprite",
-  movement_permissions: "move code",
-  movement_permissions_2: "movement modifier",
-  overworld_flag: "overworld flag",
-  script_id: "script id",
-  direction: "direction",
-  sight: "sight range",
-  unknown_1: "modifier step count",
-  unknown_2: "modifier parameter 2",
-  horizontal_leash: "horizontal leash",
-  vertical_leash: "vertical leash",
-  unknown_3: "unknown 3",
-  unknown_4: "unknown 4",
-  x_cord: "x",
-  y_cord: "y",
-  unknown_5: "unknown 5",
-  z_cord: "z",
+/* Field model directions (MMDL_DIR_*): 0 up, 1 down, 2 left, 3 right. */
+const FACING_OPTIONS: readonly SidebarFieldOption[] = [
+  { value: 0, label: "Up" },
+  { value: 1, label: "Down" },
+  { value: 2, label: "Left" },
+  { value: 3, label: "Right" },
+];
+
+/* BgEventData.dir, matched against the player's facing in EVENTDATA_SYSTEM_SearchBgEventScriptId. */
+const BG_FACING_OPTIONS: readonly SidebarFieldOption[] = [
+  { value: 0, label: "Facing up" },
+  { value: 1, label: "Facing right" },
+  { value: 2, label: "Facing left" },
+  { value: 3, label: "Facing down" },
+  { value: 4, label: "Any direction" },
+  { value: 5, label: "Facing left or right" },
+  { value: 6, label: "Facing up or down" },
+];
+
+/* BgEventData.type: 2 is a hidden item (its flag is checked instead of the facing). */
+const BG_TYPE_OPTIONS: readonly SidebarFieldOption[] = [
+  { value: 0, label: "Talk" },
+  { value: 2, label: "Hidden item" },
+];
+
+/* ConnectData.exitDir (EVENTDATA_SYSTEM_ConnectExitDirToDir); 0 never matches a walking direction. */
+const EXIT_DIRECTION_OPTIONS: readonly SidebarFieldOption[] = [
+  { value: 0, label: "None" },
+  { value: 1, label: "Up" },
+  { value: 2, label: "Down" },
+  { value: 3, label: "Left" },
+  { value: 4, label: "Right" },
+];
+
+/* EventRec.checkType: 1-4 from EVENTDATA_SYSTEM_DirToPosEventType, 6 runs automatically. */
+const TRIGGER_TYPE_OPTIONS: readonly SidebarFieldOption[] = [
+  { value: 1, label: "Moving up" },
+  { value: 2, label: "Moving down" },
+  { value: 3, label: "Moving left" },
+  { value: 4, label: "Moving right" },
+  { value: 6, label: "Automatic" },
+];
+
+const POSITION_TYPE_OPTIONS: readonly SidebarFieldOption[] = [
+  { value: 0, label: "Grid" },
+  { value: 1, label: "Rail" },
+];
+
+/* MmdlHeader layout (fldmmdl_types.h). */
+const NPC_FIELD_DEFS: Record<string, Omit<SidebarField, "key">> = {
+  overworld_id: { label: "Object ID", group: "identity", editable: false },
+  overworld_sprite: { label: "Sprite", group: "identity" },
+  script_id: { label: "Script", group: "identity" },
+  overworld_flag: { label: "Event flag", group: "identity" },
+  movement_permissions_2: { label: "Event type", group: "behaviour" },
+  movement_permissions: { label: "Movement", group: "behaviour" },
+  direction: { label: "Facing", group: "behaviour" },
+  sight: { label: "Sight range", group: "behaviour", title: "Param 0" },
+  unknown_1: { label: "Param 1", group: "behaviour", title: "Modifier step count" },
+  unknown_2: { label: "Param 2", group: "behaviour" },
+  horizontal_leash: { label: "Move limit X", group: "behaviour" },
+  vertical_leash: { label: "Move limit Y", group: "behaviour" },
+  x_cord: { label: "X", group: "position" },
+  y_cord: { label: "Y", group: "position" },
+  z_cord: { label: "Z", group: "position" },
+  unknown_3: { label: "Position type", group: "advanced", title: "0 grid, otherwise rail" },
+  unknown_4: { label: "Position type (high)", group: "advanced" },
+  unknown_5: { label: "Height (low)", group: "advanced" },
 };
+
+const NPC_FIELD_ORDER = [
+  "overworld_id",
+  "overworld_sprite",
+  "script_id",
+  "overworld_flag",
+  "movement_permissions_2",
+  "movement_permissions",
+  "direction",
+  "sight",
+  "unknown_1",
+  "unknown_2",
+  "horizontal_leash",
+  "vertical_leash",
+  "x_cord",
+  "y_cord",
+  "z_cord",
+  "unknown_3",
+  "unknown_4",
+  "unknown_5",
+];
+
+const LAYER_LABELS: Record<OverworldLayer, string> = {
+  npc: "NPCs",
+  furniture: "Furniture",
+  warp: "Warps",
+  trigger: "Triggers",
+  permissions: "Permissions",
+};
+
+const PERMISSION_LEGEND: ReadonlyArray<{ label: string; color: string }> = [
+  { label: "Walkable", color: "#7bd88f" },
+  { label: "Blocked", color: "#ff4d4f" },
+  { label: "Water", color: "#3da5ff" },
+  { label: "Grass", color: "#42d66b" },
+  { label: "Sand", color: "#d8b35a" },
+  { label: "Encounter", color: "#ffc857" },
+  { label: "Special", color: "#8de8ff" },
+  { label: "Reflection", color: "#a78bfa" },
+  { label: "Shadow", color: "#a5b4c8" },
+];
 
 export function renderOverworldEditor(
   project: ProjectState,
@@ -103,6 +228,7 @@ export function renderOverworldEditor(
   onBack?: () => void,
   onTestWarp?: (selection: OverworldTestWarpSelection) => Promise<void>,
   headerRowId?: number,
+  onOpenOverworld?: (overworldId: number) => void,
 ): void {
   let scene = getOverworldScene(project, overworldId, headerRowId);
   const isGen4 = isGen4Project(project);
@@ -116,103 +242,136 @@ export function renderOverworldEditor(
   const pendingPaintEdits = new Map<string, MapPermissionTileEdit>();
   let permissionGridLayout: PermissionGridLayout | undefined;
 
+  const testWarpHtml =
+    project.session.baseRom === "BW2" && onTestWarp
+      ? `<div class="overworld-test-warp" id="test-warp-controls" hidden>
+          <button class="btn sm -default" id="test-warp-here" type="button">Test warp here</button>
+          <div class="overworld-test-warp-status" id="test-warp-status" role="status"></div>
+        </div>`
+      : "";
+  const layerChip = (layer: OverworldLayer) =>
+    `<label class="ow-chip" title="Show ${escapeHtml(LAYER_LABELS[layer].toLowerCase())}"><input type="checkbox" data-layer="${layer}" ${layerPrefs[layer] ? "checked" : ""}><span class="ow-chip-dot -${layer}"></span>${escapeHtml(LAYER_LABELS[layer])}</label>`;
+
   root.innerHTML = `
-    <div class="pokemon-filter overworld-bar">
-      <div class="overworld-info filterable" data-index="${overworldId}">
-        <div class="filter-title">${escapeHtml(scene.locationName)}</div>
-        <div class="overworld-subtitle">Overworld ${overworldId} / Matrix ${scene.matrixId}</div>
-        <div class="overworld-entity-tabs" role="group" aria-label="Overworld entity type">
-          ${OVERWORLD_ENTITY_KINDS.map((kind) => `<button class="ow-entity-tab ${kind === activeSidebarTab ? "active" : ""}" data-sidebar-tab="${kind}" type="button">${escapeHtml(entityKindLabel(kind))}</button>`).join("")}
-          ${isGen4 ? "" : `<button class="ow-entity-tab" data-sidebar-tab="permissions" type="button">Permissions</button>`}
-        </div>
-        <div id="entity-sidebar-content">
-          <div class="sidebar-row">
-            <div class="sidebar-label">Selected</div>
-            <select class="sidebar-select" id="entity-select"></select>
+    <div id="overworld-editor" class="ow-shell ${isGen4 ? "-gen4" : "-gen5"}">
+      <aside class="ow-side">
+        <header class="ow-head" data-index="${overworldId}">
+          <div class="ow-file-row">
+            <button class="btn sm -ghost" type="button" data-ow-step="-1" aria-label="Previous overworld" title="Previous overworld">&lsaquo;</button>
+            <div class="ow-file-picker"><div contenteditable="true" spellcheck="false" data-ow-picker aria-label="Overworld file"></div></div>
+            <button class="btn sm -ghost" type="button" data-ow-step="1" aria-label="Next overworld" title="Next overworld">&rsaquo;</button>
           </div>
-          <div class="overworld-entity-fields" id="entity-fields"></div>
-          <div class="overworld-entity-actions" id="entity-actions"></div>
+          <h1>${escapeHtml(scene.locationName)}</h1>
+          <div class="ow-sub">Overworld ${overworldId} · Matrix ${scene.matrixId}</div>
+        </header>
+        <div class="md-tabs ow-tabs" role="tablist" aria-label="Edit">
+          ${OVERWORLD_ENTITY_KINDS.map((kind) => `<button class="uv-tab ow-entity-tab" data-sidebar-tab="${kind}" type="button" role="tab" aria-selected="${kind === activeSidebarTab}">${escapeHtml(LAYER_LABELS[kind])}</button>`).join("")}
+          ${isGen4 ? "" : `<button class="uv-tab ow-entity-tab" data-sidebar-tab="permissions" type="button" role="tab" aria-selected="false">Permissions</button>`}
         </div>
-        ${isGen4 ? "" : `<div id="permission-sidebar-content" class="overworld-sidebar-permissions" hidden>${renderGen5PermissionControls()}</div>`}
-      </div>
-      <div class="sidebar-btns" id="entity-command-buttons">
-        <button class="ow-btn" id="add-entity" type="button">Add NPC</button>
-        <button class="ow-btn" id="del-entity" type="button">Del Selected</button>
-      </div>
-      <div class="sidebar-btns">
-        <button class="ow-btn" id="back-headers" type="button">Back to Headers</button>
-      </div>
-      ${project.session.baseRom === "BW2" && onTestWarp ? `<div class="sidebar-btns overworld-test-warp" id="test-warp-controls" hidden>
-        <button class="ow-btn" id="test-warp-here" type="button">Test Warp to Here</button>
-        <div class="overworld-test-warp-status" id="test-warp-status" role="status">Press Down in Aspertia City to warp to this tile.</div>
-      </div>` : ""}
-      ${
-        isGen4
-          ? `<div class="popup-editor field-holder" id="tile-editor">
-              <div class="popup-field-row">
-                <div class="popup-field-label">${tileLayerLabels.flag}</div>
-                <div class="popup-field" data-layer="2" id="tile-flag" contenteditable="true" data-type="int-65535">0</div>
-              </div>
-              <div class="popup-field-row">
-                <div class="popup-field-label">${tileLayerLabels.movement}</div>
-                <div class="popup-field" data-layer="3" id="tile-mov" contenteditable="true" data-type="int-65535">0</div>
-              </div>
-            </div>`
-          : ""
-      }
-    </div>
-    <div class="pokemon-list ${isGen4 ? "" : "overworld-gen5-permissions"}" id="overworld">
-      <div class="overworld-toolbar">
+        <div id="entity-sidebar-content" class="ow-entity-panel">
+          <div class="ow-block ow-pick">
+            <div class="ow-pick-row">
+              <button class="btn sm -default" id="entity-prev" type="button" aria-label="Previous" title="Previous">&lsaquo;</button>
+              <select class="ow-select" id="entity-select" aria-label="Selected"></select>
+              <button class="btn sm -default" id="entity-next" type="button" aria-label="Next" title="Next">&rsaquo;</button>
+            </div>
+            <div class="ow-pick-actions" id="entity-command-buttons">
+              <button class="btn sm -default" id="add-entity" type="button">Add NPC</button>
+              <button class="btn sm -default" id="del-entity" type="button" title="Delete (Del)">Delete</button>
+            </div>
+          </div>
+          <div class="ow-fields" id="entity-fields"></div>
+          <div class="ow-entity-actions" id="entity-actions"></div>
+        </div>
         ${
           isGen4
-            ? `<div class="overworld-view-toggle" role="group" aria-label="Overworld view mode">
-                <button class="ow-tool overworld-view-button active" id="view-permissions" type="button">Permissions</button>
-                <button class="ow-tool overworld-view-button" id="view-map" type="button">Map</button>
+            ? `<div class="ow-block popup-editor field-holder" id="tile-editor">
+                <div class="ow-group-title">Tile</div>
+                <div class="popup-field-row">
+                  <div class="popup-field-label">${tileLayerLabels.flag}</div>
+                  <div class="popup-field" data-layer="2" id="tile-flag" contenteditable="true" data-type="int-65535">0</div>
+                </div>
+                <div class="popup-field-row">
+                  <div class="popup-field-label">${tileLayerLabels.movement}</div>
+                  <div class="popup-field" data-layer="3" id="tile-mov" contenteditable="true" data-type="int-65535">0</div>
+                </div>
               </div>`
-            : `<div class="overworld-view-title">Map + Permissions</div>`
+            : `<div id="permission-sidebar-content" class="ow-permission-panel" hidden>${renderGen5PermissionControls(testWarpHtml)}</div>`
         }
-        <button class="ow-tool" id="zoom-out" type="button">-</button>
-        <button class="ow-tool" id="zoom-reset" type="button">100%</button>
-        <button class="ow-tool" id="zoom-in" type="button">+</button>
-      </div>
-      <div class="overworld-stage">
-        <canvas class="overworld-map" id="overworld-canvas"></canvas>
-        ${
-          isGen4
-            ? `<div class="overworld-cell-nav" role="group" aria-label="Map section">
-                <button class="ow-tool overworld-cell-button overworld-cell-left" id="cell-left" type="button" title="Previous section west">&larr;</button>
-                <button class="ow-tool overworld-cell-button overworld-cell-up" id="cell-up" type="button" title="Previous section north">&uarr;</button>
-                <span class="overworld-cell-label" id="cell-label"></span>
-                <button class="ow-tool overworld-cell-button overworld-cell-down" id="cell-down" type="button" title="Next section south">&darr;</button>
-                <button class="ow-tool overworld-cell-button overworld-cell-right" id="cell-right" type="button" title="Next section east">&rarr;</button>
-              </div>`
-            : ""
-        }
-        <div class="overworld-map-status" id="overworld-map-status" hidden></div>
-        <div class="overworld-entities" id="overworld-entities"></div>
-      </div>
-      ${isGen4 ? "" : renderGen5PermissionMatrix()}
+      </aside>
+      <section class="ow-main">
+        <div class="ow-toolbar">
+          ${
+            isGen4
+              ? `<div class="ow-view-toggle" role="group" aria-label="View">
+                  <button class="btn sm -default" id="view-permissions" type="button" aria-pressed="true">Permissions</button>
+                  <button class="btn sm -default" id="view-map" type="button" aria-pressed="false">Map</button>
+                </div>`
+              : ""
+          }
+          <div class="ow-layers" role="group" aria-label="Layers">
+            ${OVERWORLD_ENTITY_KINDS.map(layerChip).join("")}
+            ${
+              isGen4
+                ? ""
+                : `${layerChip("permissions")}<input class="ow-opacity" id="ow-permission-opacity" type="range" min="10" max="90" step="5" value="${Math.round(layerPrefs.opacity * 100)}" aria-label="Permission overlay opacity" title="Overlay opacity" ${layerPrefs.permissions ? "" : "hidden"}>`
+            }
+          </div>
+          <span class="ow-cursor" id="ow-cursor" aria-live="off"></span>
+          <div class="ow-zoom" role="group" aria-label="Zoom">
+            <button class="btn sm -default" id="zoom-out" type="button" aria-label="Zoom out">&minus;</button>
+            <span class="ow-zoom-label" id="zoom-label" title="${isGen4 ? "Scroll to zoom" : "Pinch or ⌘-scroll to zoom"}">100%</span>
+            <button class="btn sm -default" id="zoom-in" type="button" aria-label="Zoom in">+</button>
+            <button class="btn sm -default" id="zoom-fit" type="button" title="Fit the map">Fit</button>
+          </div>
+          ${isGen4 ? "" : `<button class="btn sm -default" id="toggle-matrix" type="button" aria-pressed="${layerPrefs.matrix}" title="Permissions matrix">Matrix</button>`}
+        </div>
+        ${isGen4 ? "" : `<div class="ow-legend" id="ow-legend" ${layerPrefs.permissions ? "" : "hidden"}>${renderPermissionLegend()}</div>`}
+        <div class="ow-body">
+          <div class="ow-viewport ${isGen4 ? "" : "-gen5"}" id="ow-viewport">
+            <div class="overworld-stage">
+              <canvas class="overworld-map" id="overworld-canvas"></canvas>
+              ${
+                isGen4
+                  ? `<div class="overworld-cell-nav" role="group" aria-label="Map section">
+                      <button class="btn sm -default overworld-cell-button overworld-cell-left" id="cell-left" type="button" title="Previous section west">&larr;</button>
+                      <button class="btn sm -default overworld-cell-button overworld-cell-up" id="cell-up" type="button" title="Previous section north">&uarr;</button>
+                      <span class="overworld-cell-label" id="cell-label"></span>
+                      <button class="btn sm -default overworld-cell-button overworld-cell-down" id="cell-down" type="button" title="Next section south">&darr;</button>
+                      <button class="btn sm -default overworld-cell-button overworld-cell-right" id="cell-right" type="button" title="Next section east">&rarr;</button>
+                    </div>`
+                  : ""
+              }
+              <div class="overworld-map-status" id="overworld-map-status" hidden></div>
+              <div class="overworld-entities" id="overworld-entities"></div>
+            </div>
+          </div>
+          ${isGen4 ? "" : renderGen5PermissionMatrix()}
+        </div>
+      </section>
     </div>
   `;
 
   const stage = root.querySelector<HTMLDivElement>(".overworld-stage");
-  const overworldPane = root.querySelector<HTMLDivElement>("#overworld");
+  const overworldPane = root.querySelector<HTMLDivElement>("#ow-viewport");
   const canvas = root.querySelector<HTMLCanvasElement>("#overworld-canvas");
   const entities = root.querySelector<HTMLDivElement>("#overworld-entities");
   const tileEditor = root.querySelector<HTMLDivElement>("#tile-editor");
-  const zoomLabel = root.querySelector<HTMLButtonElement>("#zoom-reset");
+  const zoomLabel = root.querySelector<HTMLElement>("#zoom-label");
+  const cursorReadout = root.querySelector<HTMLElement>("#ow-cursor");
+  const legend = root.querySelector<HTMLElement>("#ow-legend");
+  const opacityInput = root.querySelector<HTMLInputElement>("#ow-permission-opacity");
+  const matrixToggle = root.querySelector<HTMLButtonElement>("#toggle-matrix");
   const mapStatus = root.querySelector<HTMLDivElement>("#overworld-map-status");
   const permissionGrid = root.querySelector<HTMLCanvasElement>("#permission-grid-canvas");
   const permissionClassInput = root.querySelector<HTMLInputElement>("#ow-permission-class");
   const permissionFlagsInput = root.querySelector<HTMLInputElement>("#ow-permission-flags");
   const permissionSelected = root.querySelector<HTMLDivElement>("#permission-selected");
-  const permissionFlagValue = root.querySelector<HTMLDivElement>("#ow-permission-flag-value");
+  const permissionSwatch = root.querySelector<HTMLElement>("#ow-permission-swatch");
   const permissionPaintToggle = root.querySelector<HTMLInputElement>("#ow-permission-paint");
-  const permissionMatrix = root.querySelector<HTMLDivElement>(".overworld-permission-matrix");
-  const permissionMatrixResize = root.querySelector<HTMLButtonElement>("#permission-matrix-resize");
+  const permissionMatrix = root.querySelector<HTMLElement>("#ow-matrix");
   const entitySidebarContent = root.querySelector<HTMLDivElement>("#entity-sidebar-content");
   const permissionSidebarContent = root.querySelector<HTMLDivElement>("#permission-sidebar-content");
-  const entityCommandButtons = root.querySelector<HTMLDivElement>("#entity-command-buttons");
   const testWarpControls = root.querySelector<HTMLDivElement>("#test-warp-controls");
   const testWarpButton = root.querySelector<HTMLButtonElement>("#test-warp-here");
   const testWarpStatus = root.querySelector<HTMLDivElement>("#test-warp-status");
@@ -220,6 +379,59 @@ export function renderOverworldEditor(
   const stageEl = stage;
   const overworldPaneEl = overworldPane;
   const entityLayer = entities;
+
+  // ---------- Overworld file picker ----------
+  const fileOptions = overworldFileOptions(project);
+  const filePicker = root.querySelector<HTMLElement>("[data-ow-picker]");
+  if (filePicker) {
+    const label = () => fileOptions[overworldId] ?? `Overworld ${overworldId}`;
+    filePicker.textContent = label();
+    const picker = installPicker(filePicker, fileOptions);
+    const open = (id: number) => {
+      if (id === overworldId || id < 0 || id >= fileOptions.length) {
+        filePicker.textContent = label();
+        return;
+      }
+      onOpenOverworld?.(id);
+    };
+    filePicker.addEventListener("focus", () => {
+      window.setTimeout(() => {
+        if (document.activeElement !== filePicker) return;
+        const range = document.createRange();
+        range.selectNodeContents(filePicker);
+        window.getSelection()?.removeAllRanges();
+        window.getSelection()?.addRange(range);
+      }, 0);
+      picker?.open();
+    });
+    filePicker.addEventListener("keydown", (event) => {
+      if (picker?.handleKey(event)) return;
+      if (event.key === "Enter" || event.key === "Escape") {
+        event.preventDefault();
+        if (event.key === "Escape") filePicker.textContent = label();
+        filePicker.blur();
+      }
+    });
+    filePicker.addEventListener("blur", () => {
+      picker?.close();
+      const raw = filePicker.dataset.commitValue ?? filePicker.textContent ?? "";
+      delete filePicker.dataset.commitValue;
+      delete filePicker.dataset.commitLabel;
+      const match = /\bOverworld (\d+)\s*$/u.exec(raw) ?? /^\s*(\d+)\s*$/u.exec(raw);
+      const query = raw.trim().toLowerCase();
+      const id = match
+        ? Number(match[1])
+        : query
+          ? fileOptions.findIndex((option) => option.toLowerCase().includes(query))
+          : -1;
+      open(id);
+    });
+    root.querySelectorAll<HTMLButtonElement>("[data-ow-step]").forEach((button) => {
+      const next = overworldId + Number(button.dataset.owStep);
+      button.disabled = next < 0 || next >= fileOptions.length;
+      button.addEventListener("click", () => open(next));
+    });
+  }
 
   const state = {
     zoom: 1,
@@ -279,38 +491,47 @@ export function renderOverworldEditor(
     draw();
   };
 
-  const frameScene = (rect = stage.getBoundingClientRect()) => {
-    const focus = selectedEntityBounds(scene, selectedEntity) ?? selectedEntityBounds(scene, { kind: "npc", index: scene.npcs[0]?.index ?? -1 });
+  const frameScene = (rect = stage.getBoundingClientRect(), whole = false) => {
+    const focus = whole ? undefined : selectedEntityBounds(scene, selectedEntity) ?? selectedEntityBounds(scene, { kind: "npc", index: scene.npcs[0]?.index ?? -1 });
     const bounds = displayBounds(focus);
     const fitRect = isGen4 ? rect : overworldPane.getBoundingClientRect();
     const tileSize = activeTileSize();
-    const fitZoom = Math.min(1, Math.max(MIN_ZOOM, Math.min(fitRect.width / Math.max(1, bounds.width * tileSize), fitRect.height / Math.max(1, bounds.height * tileSize)) * 0.85));
-    state.zoom = fitZoom;
+    const fit = Math.min(fitRect.width / Math.max(1, bounds.width * tileSize), fitRect.height / Math.max(1, bounds.height * tileSize));
+    state.zoom = isGen4 ? Math.min(1, Math.max(MIN_ZOOM, fit * 0.85)) : Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, fit * 0.94));
     const frameRect = syncGen5ScrollableStage(bounds);
     resizeCanvasToRect(frameRect);
     centerDisplayBounds(bounds, frameRect);
     state.framed = true;
     updateZoomLabel();
-    scrollGen5StageLeft();
+    resetGen5Scroll();
   };
 
-  const setZoom = (nextZoom: number, anchorX?: number, anchorY?: number) => {
-    const rect = stage.getBoundingClientRect();
+  /** Zooms keeping the world point under the given client position (default: the view centre) fixed. */
+  const setZoom = (nextZoom: number, clientX?: number, clientY?: number) => {
     const bounds = displayBounds();
     const tileSize = activeTileSize();
     const previousZoom = state.zoom;
-    state.zoom = Math.min(3, Math.max(MIN_ZOOM, nextZoom));
-    if (!isGen4 || anchorX === undefined || anchorY === undefined) {
+    state.zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, nextZoom));
+    if (state.zoom === previousZoom) return;
+    if (!isGen4) {
+      const view = overworldPaneEl.getBoundingClientRect();
+      const anchorX = clientX ?? view.left + view.width / 2;
+      const anchorY = clientY ?? view.top + view.height / 2;
+      const stageRect = stageEl.getBoundingClientRect();
+      const worldX = (anchorX - stageRect.left - state.panX) / (tileSize * previousZoom);
+      const worldY = (anchorY - stageRect.top - state.panY) / (tileSize * previousZoom);
       const frameRect = syncGen5ScrollableStage(bounds);
       resizeCanvasToRect(frameRect);
       centerDisplayBounds(bounds, frameRect);
+      overworldPaneEl.scrollLeft = state.panX + worldX * tileSize * state.zoom - (anchorX - view.left);
+      overworldPaneEl.scrollTop = state.panY + worldY * tileSize * state.zoom - (anchorY - view.top);
       updateZoomLabel();
       draw();
-      scrollGen5StageLeft();
       return;
     }
-    const screenX = anchorX ?? rect.width / 2;
-    const screenY = anchorY ?? rect.height / 2;
+    const rect = stage.getBoundingClientRect();
+    const screenX = clientX === undefined ? rect.width / 2 : clientX - rect.left;
+    const screenY = clientY === undefined ? rect.height / 2 : clientY - rect.top;
     const worldX = (screenX - state.panX) / (tileSize * previousZoom);
     const worldY = (screenY - state.panY) / (tileSize * previousZoom);
     state.panX = screenX - worldX * tileSize * state.zoom;
@@ -323,9 +544,7 @@ export function renderOverworldEditor(
     const tileSize = activeTileSize();
     const centerX = bounds.x + bounds.width / 2;
     const centerY = bounds.y + bounds.height / 2;
-    state.panX = isGen4
-      ? rect.width / 2 - centerX * tileSize * state.zoom
-      : GEN5_STAGE_LEFT_PADDING - bounds.x * tileSize * state.zoom;
+    state.panX = rect.width / 2 - centerX * tileSize * state.zoom;
     state.panY = rect.height / 2 - centerY * tileSize * state.zoom;
   }
 
@@ -333,7 +552,7 @@ export function renderOverworldEditor(
     if (isGen4) return stageEl.getBoundingClientRect();
     const paneRect = overworldPaneEl.getBoundingClientRect();
     const tileSize = activeTileSize() * state.zoom;
-    const width = Math.max(paneRect.width, Math.ceil(bounds.width * tileSize + GEN5_STAGE_PADDING + GEN5_STAGE_LEFT_PADDING));
+    const width = Math.max(paneRect.width, Math.ceil(bounds.width * tileSize + GEN5_STAGE_PADDING * 2));
     const height = Math.max(paneRect.height, Math.ceil(bounds.height * tileSize + GEN5_STAGE_PADDING * 2));
     const nextWidth = `${width}px`;
     const nextHeight = `${height}px`;
@@ -342,11 +561,12 @@ export function renderOverworldEditor(
     return stageEl.getBoundingClientRect();
   }
 
-  function scrollGen5StageLeft(): void {
+  function resetGen5Scroll(): void {
     if (isGen4) return;
-    window.requestAnimationFrame(() => {
-      overworldPaneEl.scrollLeft = 0;
-    });
+    const stageRect = stageEl.getBoundingClientRect();
+    const view = overworldPaneEl.getBoundingClientRect();
+    overworldPaneEl.scrollLeft = Math.max(0, (stageRect.width - view.width) / 2);
+    overworldPaneEl.scrollTop = Math.max(0, (stageRect.height - view.height) / 2);
   }
 
   const updateZoomLabel = () => {
@@ -486,7 +706,7 @@ export function renderOverworldEditor(
       if (isGen4) drawTrueMapSection(ctx, state.mapRender, mapGridBounds(scene), activeCellViewport(), tileSize, state.panX, state.panY);
       else {
         drawTrueMap(ctx, state.mapRender, mapViewTileBounds(scene, state.mapRender, isGen4), tileSize, state.panX, state.panY);
-        drawGen5PermissionOverlay(ctx, scene, tileSize, state.panX, state.panY);
+        if (layerPrefs.permissions) drawGen5PermissionOverlay(ctx, scene, tileSize, state.panX, state.panY, layerPrefs.opacity);
       }
     } else {
       const origin = activeOrigin();
@@ -518,11 +738,15 @@ export function renderOverworldEditor(
     if (isGen4) return;
     if (testWarpControls) testWarpControls.hidden = !selectedTile;
     if (permissionSelected) {
-      permissionSelected.textContent = selectedTile
-        ? `Map ${selectedTile.mapId} tile ${selectedTile.index} / Local X ${selectedTile.x}, Y ${selectedTile.y} / Global X ${selectedTile.x + scene.translateX}, Y ${selectedTile.y + scene.translateY} (matrix) / class ${selectedTile.layer2} / flags ${formatHex16(selectedTile.layer3)}`
-        : "Select a tile to sample its class and flags.";
+      permissionSelected.innerHTML = selectedTile
+        ? `<div class="ow-tile-line"><span class="ow-swatch" style="background:${gen5PermissionColorHex({ tileClass: selectedTile.layer2, flags: selectedTile.layer3 })}"></span><strong>X ${selectedTile.x}, Y ${selectedTile.y}</strong><span class="ow-muted">map ${selectedTile.mapId}</span></div>
+           <div class="ow-tile-line ow-muted">Class ${selectedTile.layer2} · flags ${formatHex16(selectedTile.layer3)} · ${escapeHtml(permissionCategoryLabel(selectedTile.layer2, selectedTile.layer3))}</div>`
+        : `<div class="ow-muted">Click a tile on the map to sample it.</div>`;
     }
-    if (permissionFlagValue) permissionFlagValue.textContent = `Calculated flags: ${formatHex16(permissionBrush.flags)}`;
+    if (permissionSwatch) {
+      permissionSwatch.style.background = gen5PermissionColorHex({ tileClass: permissionBrush.tileClass, flags: permissionBrush.flags });
+      permissionSwatch.title = permissionCategoryLabel(permissionBrush.tileClass, permissionBrush.flags);
+    }
   }
 
   function readPermissionBrushFromInputs(): void {
@@ -706,49 +930,9 @@ export function renderOverworldEditor(
     });
   }
 
-  function bindPermissionMatrixResize(): void {
-    if (isGen4 || !permissionMatrix || !permissionMatrixResize) return;
-    permissionMatrixResize.addEventListener("pointerdown", (event) => {
-      if (event.button !== 0) return;
-      event.preventDefault();
-      event.stopPropagation();
-      const startX = event.clientX;
-      const startY = event.clientY;
-      const startRect = permissionMatrix.getBoundingClientRect();
-      const minWidth = 260;
-      const minHeight = 160;
-      const maxWidth = Math.max(minWidth, window.innerWidth - 36);
-      const maxHeight = Math.max(minHeight, window.innerHeight - 110);
-      permissionMatrixResize.setPointerCapture(event.pointerId);
-
-      const move = (moveEvent: PointerEvent) => {
-        const width = clampNumber(startRect.width - (moveEvent.clientX - startX), minWidth, maxWidth);
-        const height = clampNumber(startRect.height - (moveEvent.clientY - startY), minHeight, maxHeight);
-        permissionMatrix.style.width = `${width}px`;
-        permissionMatrix.style.height = `${height}px`;
-        schedulePermissionGridDraw(1);
-      };
-      const up = (upEvent: PointerEvent) => {
-        window.removeEventListener("pointermove", move);
-        window.removeEventListener("pointerup", up);
-        window.removeEventListener("pointercancel", up);
-        try {
-          if (permissionMatrixResize.hasPointerCapture(upEvent.pointerId)) permissionMatrixResize.releasePointerCapture(upEvent.pointerId);
-        } catch {
-          // Pointer capture may already be released by the browser.
-        }
-        schedulePermissionGridDraw(1);
-      };
-
-      window.addEventListener("pointermove", move);
-      window.addEventListener("pointerup", up);
-      window.addEventListener("pointercancel", up);
-    });
-  }
-
   const updateViewButtons = () => {
-    root.querySelector<HTMLButtonElement>("#view-permissions")?.classList.toggle("active", state.viewMode === "permissions");
-    root.querySelector<HTMLButtonElement>("#view-map")?.classList.toggle("active", state.viewMode === "map");
+    root.querySelector<HTMLButtonElement>("#view-permissions")?.setAttribute("aria-pressed", String(state.viewMode === "permissions"));
+    root.querySelector<HTMLButtonElement>("#view-map")?.setAttribute("aria-pressed", String(state.viewMode === "map"));
   };
 
   const updateMapStatus = () => {
@@ -791,7 +975,10 @@ export function renderOverworldEditor(
         mapRenderCache.set(key, cached);
       }
       const render = await cached;
+      mapRenderCache.delete(key);
       mapRenderCache.set(key, render);
+      // Each render is a canvas of up to 2048x2048; keep the recently viewed few.
+      while (mapRenderCache.size > MAP_RENDER_CACHE_LIMIT) mapRenderCache.delete(mapRenderCache.keys().next().value!);
       if (token !== state.mapRenderToken) return;
       state.mapRender = render;
       if (state.viewMode === "map") frameScene();
@@ -810,26 +997,18 @@ export function renderOverworldEditor(
 
   function renderEntityOverlay(): void {
     const selected = selectedEntity;
-    const overlays =
-      state.viewMode === "map"
-        ? visibleEntitiesByKind("npc")
-            .filter((entity): entity is OverworldNpc => entity.kind === "npc")
-            .map((npc) => renderNpc(project, npc, worldToScreen, isSelected(selected, "npc", npc.index)))
-            .join("")
-        : [
-            ...visibleEntitiesByKind("furniture")
-              .filter((entry): entry is OverworldFurniture => entry.kind === "furniture" && !entry.isRail)
-              .map((entry) => renderGridEntity(entry, worldToScreen, isSelected(selected, "furniture", entry.index))),
-            ...visibleEntitiesByKind("warp")
-              .filter((entry): entry is OverworldWarp => entry.kind === "warp" && !entry.isRail)
-              .map((entry) => renderGridEntity(entry, worldToScreen, isSelected(selected, "warp", entry.index))),
-            ...visibleEntitiesByKind("trigger")
-              .filter((entry): entry is OverworldTrigger => entry.kind === "trigger" && !entry.isRail)
-              .map((entry) => renderGridEntity(entry, worldToScreen, isSelected(selected, "trigger", entry.index))),
-            ...visibleEntitiesByKind("npc")
-              .filter((entity): entity is OverworldNpc => entity.kind === "npc")
-              .map((npc) => renderNpc(project, npc, worldToScreen, isSelected(selected, "npc", npc.index))),
-          ].join("");
+    // Hidden layers still draw the selected entity so the selection never disappears.
+    const shown = (kind: OverworldEntityKind, index: number) => layerPrefs[kind] || isSelected(selected, kind, index);
+    const overlays = [
+      ...(["warp", "trigger", "furniture"] as const).flatMap((kind) =>
+        visibleEntitiesByKind(kind)
+          .filter((entry): entry is OverworldFurniture | OverworldWarp | OverworldTrigger => entry.kind !== "npc" && !entry.isRail && shown(kind, entry.index))
+          .map((entry) => renderGridEntity(entry, worldToScreen, isSelected(selected, entry.kind, entry.index))),
+      ),
+      ...visibleEntitiesByKind("npc")
+        .filter((entity): entity is OverworldNpc => entity.kind === "npc" && shown("npc", entity.index))
+        .map((npc) => renderNpc(project, npc, worldToScreen, isSelected(selected, "npc", npc.index))),
+    ].join("");
     entityLayer.innerHTML = overlays;
     adjustSpriteDirections(entityLayer);
     entityLayer.querySelectorAll<HTMLDivElement>(".overworld-item").forEach((item) => {
@@ -924,31 +1103,35 @@ export function renderOverworldEditor(
         }
       });
     });
-    host.querySelectorAll<HTMLElement>(".sidebar-val[contenteditable='true']").forEach((field) => {
-      let initial = "";
+    host.querySelectorAll<HTMLInputElement>("input.sidebar-val:not([readonly])").forEach((field) => {
+      let initial = field.value;
       field.addEventListener("focus", () => {
-        initial = field.textContent?.trim() ?? "";
-        selectText(field);
+        initial = field.value.trim();
+        field.select();
       });
-      field.addEventListener("keypress", (event) => {
+      field.addEventListener("keydown", (event) => {
         if (event.key === "Enter") {
           event.preventDefault();
           field.blur();
+        } else if (event.key === "Escape") {
+          field.value = initial;
+          field.blur();
         }
       });
-      field.addEventListener("focusout", () => {
+      field.addEventListener("change", () => {
         const key = field.dataset.fieldKey;
         const selection = selectedEntity;
         if (!key || !selection) return;
-        const next = field.textContent?.trim() ?? "";
+        const next = field.value.trim();
         if (next === initial) return;
         try {
           const value = updateOverworldEntityField(project, overworldId, selection, key, next);
-          field.textContent = String(value);
+          field.value = String(value);
+          initial = field.value;
           reloadScene();
           onDirty?.();
         } catch {
-          field.textContent = initial;
+          field.value = initial;
           field.classList.add("invalid");
           window.setTimeout(() => field.classList.remove("invalid"), 800);
         }
@@ -967,6 +1150,47 @@ export function renderOverworldEditor(
     return { x: 0, y: 0 };
   }
 
+  /** Scrolls the map so the selected entity is in view (Gen 4 switches to its map section). */
+  function revealEntity(selection: OverworldEntitySelection | undefined): void {
+    const entity = entityBySelection(scene, selection);
+    if (!entity || (entity.kind !== "npc" && entity.isRail)) return;
+    if (isGen4) {
+      const map = mapForPoint(scene, entity.x, entity.y);
+      if (map && cellKey(map) !== activeCellKey) setActiveCell(map);
+      return;
+    }
+    const width = entity.kind === "npc" || entity.kind === "furniture" ? 1 : entity.width;
+    const height = entity.kind === "npc" || entity.kind === "furniture" ? 1 : entity.height;
+    const point = worldToScreen(entity.x + width / 2, entity.y + height / 2);
+    const view = overworldPaneEl.getBoundingClientRect();
+    const left = overworldPaneEl.scrollLeft;
+    const top = overworldPaneEl.scrollTop;
+    const margin = 60;
+    const inside = point.x > left + margin && point.x < left + view.width - margin && point.y > top + margin && point.y < top + view.height - margin;
+    if (inside) return;
+    overworldPaneEl.scrollTo({ left: point.x - view.width / 2, top: point.y - view.height / 2, behavior: "smooth" });
+  }
+
+  function chooseEntity(selection: OverworldEntitySelection | undefined, reveal: boolean): void {
+    selectedEntity = selection;
+    selectedTile = undefined;
+    if (tileEditor) tileEditor.style.display = "none";
+    if (reveal) revealEntity(selection);
+    renderEntityOverlay();
+    fillSidebar();
+  }
+
+  function setLayer(layer: OverworldLayer, visible: boolean): void {
+    layerPrefs[layer] = visible;
+    const checkbox = root.querySelector<HTMLInputElement>(`[data-layer="${layer}"]`);
+    if (checkbox) checkbox.checked = visible;
+    if (layer === "permissions") {
+      if (legend) legend.hidden = !visible;
+      if (opacityInput) opacityInput.hidden = !visible;
+    }
+    draw();
+  }
+
   const fillSidebar = () => {
     updateCellNav();
     updateEntityTabs(root, activeSidebarTab);
@@ -975,7 +1199,7 @@ export function renderOverworldEditor(
     const permissionsActive = activeSidebarTab === "permissions";
     if (entitySidebarContent) entitySidebarContent.hidden = permissionsActive;
     if (permissionSidebarContent) permissionSidebarContent.hidden = !permissionsActive;
-    if (entityCommandButtons) entityCommandButtons.hidden = permissionsActive;
+    stageEl.classList.toggle("-tiles", permissionsActive);
     if (permissionsActive) {
       updatePermissionPanel();
       return;
@@ -984,20 +1208,26 @@ export function renderOverworldEditor(
     const select = root.querySelector<HTMLSelectElement>("#entity-select");
     selectedEntity = normalizeVisibleSelection(selectedEntity, activeKind);
     const entitiesForKind = visibleEntitiesByKind(activeKind);
+    const position = entitiesForKind.findIndex((entity) => selectedEntity?.kind === activeKind && entity.index === selectedEntity.index);
     if (select) {
-      select.innerHTML = entitiesForKind.map((entity) => `<option value="${entity.index}" ${selectedEntity?.kind === activeKind && selectedEntity.index === entity.index ? "selected" : ""}>${escapeHtml(entityOptionLabel(entity))}</option>`).join("");
+      select.innerHTML = entitiesForKind.length
+        ? entitiesForKind.map((entity) => `<option value="${entity.index}" ${position >= 0 && entitiesForKind[position] === entity ? "selected" : ""}>${escapeHtml(entityOptionLabel(project, entity, scene.raw))}</option>`).join("")
+        : `<option value="">No ${escapeHtml(entityKindLabel(activeKind))} yet</option>`;
       select.disabled = entitiesForKind.length === 0;
     }
+    const prev = root.querySelector<HTMLButtonElement>("#entity-prev");
+    const next = root.querySelector<HTMLButtonElement>("#entity-next");
+    if (prev) prev.disabled = position <= 0;
+    if (next) next.disabled = position < 0 || position >= entitiesForKind.length - 1;
 
     const entity = visibleEntityBySelection(selectedEntity);
     const fieldsHost = root.querySelector<HTMLDivElement>("#entity-fields");
     if (fieldsHost) {
-      fieldsHost.innerHTML = entity
-        ? sidebarFields(entity, isGen4)
-            .map((field) => sidebarRow(field, entity, scene.raw))
-            .join("")
-        : `<div class="overworld-empty-selection">No ${escapeHtml(entityKindLabel(activeKind))} selected</div>`;
-      bindEntityFieldEvents(fieldsHost);
+      fieldsHost.innerHTML = entity ? renderEntityFields(project, overworldId, entity, isGen4, scene.raw) : "";
+      if (entity) {
+        bindEntityFieldEvents(fieldsHost);
+        adjustSpriteDirections(fieldsHost);
+      }
     }
     const actionsHost = root.querySelector<HTMLDivElement>("#entity-actions");
     if (actionsHost) {
@@ -1016,8 +1246,7 @@ export function renderOverworldEditor(
     updatePermissionPanel();
   };
 
-  root.querySelector<HTMLButtonElement>("#back-headers")?.addEventListener("click", () => onBack?.());
-  root.querySelector<HTMLButtonElement>("#add-entity")?.addEventListener("click", () => {
+  function addEntity(): void {
     if (activeSidebarTab === "permissions") return;
     const index = addOverworldEntity(project, overworldId, activeKind);
     selectedEntity = { kind: activeKind, index };
@@ -1025,40 +1254,86 @@ export function renderOverworldEditor(
     moveOverworldEntity(project, overworldId, activeKind, index, position.x, position.y);
     reloadScene();
     onDirty?.();
-  });
-  root.querySelector<HTMLButtonElement>("#del-entity")?.addEventListener("click", () => {
-    if (activeSidebarTab === "permissions") return;
-    if (!selectedEntity) return;
+  }
+
+  function deleteSelectedEntity(): void {
+    if (activeSidebarTab === "permissions" || !selectedEntity) return;
+    const entities = visibleEntitiesByKind(selectedEntity.kind);
+    const position = entities.findIndex((entity) => entity.index === selectedEntity?.index);
     deleteOverworldEntity(project, overworldId, selectedEntity.kind, selectedEntity.index);
-    selectedEntity = undefined;
+    const neighbour = entities[position + 1] ?? entities[position - 1];
+    // Gen 5 keeps the other indexes; Gen 4 renumbers, so fall back to the first entry there.
+    selectedEntity = neighbour && !isGen4 ? { kind: selectedEntity.kind, index: neighbour.index } : undefined;
     reloadScene();
     onDirty?.();
-  });
+  }
+
+  function stepEntity(delta: number): void {
+    const entities = visibleEntitiesByKind(activeKind);
+    const position = entities.findIndex((entity) => selectedEntity?.kind === activeKind && entity.index === selectedEntity.index);
+    const target = entities[Math.max(0, Math.min(entities.length - 1, position + delta))];
+    if (target) chooseEntity({ kind: activeKind, index: target.index }, true);
+  }
+
+  function nudgeSelectedEntity(dx: number, dy: number): void {
+    const entity = visibleEntityBySelection(selectedEntity);
+    if (!entity || (entity.kind !== "npc" && entity.isRail)) return;
+    const next = clampToActiveCell(entity.x + dx, entity.y + dy);
+    if (next.x === entity.x && next.y === entity.y) return;
+    moveOverworldEntity(project, overworldId, entity.kind, entity.index, next.x, next.y);
+    reloadScene();
+    onDirty?.();
+  }
+
+  root.querySelector<HTMLButtonElement>("#add-entity")?.addEventListener("click", addEntity);
+  root.querySelector<HTMLButtonElement>("#del-entity")?.addEventListener("click", deleteSelectedEntity);
+  root.querySelector<HTMLButtonElement>("#entity-prev")?.addEventListener("click", () => stepEntity(-1));
+  root.querySelector<HTMLButtonElement>("#entity-next")?.addEventListener("click", () => stepEntity(1));
 
   root.querySelector<HTMLSelectElement>("#entity-select")?.addEventListener("change", (event) => {
     const target = event.currentTarget as HTMLSelectElement;
-    selectedEntity = target.value === "" ? undefined : { kind: activeKind, index: Number(target.value) };
-    selectedTile = undefined;
-    if (tileEditor) tileEditor.style.display = "none";
-    renderEntityOverlay();
-    fillSidebar();
+    chooseEntity(target.value === "" ? undefined : { kind: activeKind, index: Number(target.value) }, true);
   });
 
   root.querySelectorAll<HTMLButtonElement>(".ow-entity-tab").forEach((button) => {
     button.addEventListener("click", () => {
       const tab = button.dataset.sidebarTab as SidebarTab | undefined;
-      if (!tab) return;
+      if (!tab || tab === activeSidebarTab) return;
+      const leavingPermissions = activeSidebarTab === "permissions";
       activeSidebarTab = tab;
-      if (tab !== "permissions") {
+      if (tab === "permissions") {
+        if (!layerPrefs.permissions) setLayer("permissions", true);
+      } else {
         activeKind = tab;
         selectedEntity = normalizeVisibleSelection(selectedEntity?.kind === tab ? selectedEntity : undefined, activeKind);
-        selectedTile = undefined;
+        if (leavingPermissions) {
+          selectedTile = undefined;
+          draw();
+        }
         if (tileEditor) tileEditor.style.display = "none";
+        revealEntity(selectedEntity);
       }
       renderEntityOverlay();
       fillSidebar();
     });
   });
+
+  root.querySelectorAll<HTMLInputElement>("[data-layer]").forEach((checkbox) => {
+    checkbox.addEventListener("change", () => setLayer(checkbox.dataset.layer as OverworldLayer, checkbox.checked));
+  });
+  opacityInput?.addEventListener("input", () => {
+    layerPrefs.opacity = Number(opacityInput.value) / 100;
+    draw();
+  });
+  const setMatrixVisible = (visible: boolean) => {
+    layerPrefs.matrix = visible;
+    if (permissionMatrix) permissionMatrix.hidden = !visible;
+    matrixToggle?.setAttribute("aria-pressed", String(visible));
+    resize();
+    if (visible) schedulePermissionGridDraw();
+  };
+  matrixToggle?.addEventListener("click", () => setMatrixVisible(!layerPrefs.matrix));
+  root.querySelector<HTMLButtonElement>("#close-matrix")?.addEventListener("click", () => setMatrixVisible(false));
 
   root.querySelectorAll<HTMLElement>(".popup-field[contenteditable='true']").forEach((field) => {
     let initial = "";
@@ -1090,12 +1365,12 @@ export function renderOverworldEditor(
   });
 
   if (!isGen4) {
-    bindPermissionMatrixResize();
     writePermissionBrushToInputs(0, 0);
     permissionClassInput?.addEventListener("input", readPermissionBrushFromInputs);
     permissionFlagsInput?.addEventListener("input", readPermissionBrushFromInputs);
     permissionPaintToggle?.addEventListener("change", () => {
       permissionBrush.painting = Boolean(permissionPaintToggle.checked);
+      stageEl.classList.toggle("-painting", permissionBrush.painting);
     });
     root.querySelectorAll<HTMLInputElement>("[data-ow-permission-flag]").forEach((checkbox) => {
       checkbox.addEventListener("change", () => {
@@ -1139,11 +1414,20 @@ export function renderOverworldEditor(
     permissionGrid?.addEventListener("pointercancel", endGridPaint);
   }
 
+  const releaseCapture = (pointerId: number) => {
+    try {
+      if (canvas.hasPointerCapture(pointerId)) canvas.releasePointerCapture(pointerId);
+    } catch {
+      // Pointer capture may already be released by the browser.
+    }
+  };
+  const tilesActive = () => !isGen4 && activeSidebarTab === "permissions";
+
   canvas.addEventListener("pointerdown", (event) => {
-    if (event.button !== 0) return;
+    if (event.button !== 0 && event.button !== 1) return;
     state.dragStartX = event.clientX;
     state.dragStartY = event.clientY;
-    if (!isGen4 && permissionBrush.painting) {
+    if (event.button === 0 && tilesActive() && permissionBrush.painting) {
       event.preventDefault();
       pendingPaintEdits.clear();
       state.paintingPermissions = true;
@@ -1151,55 +1435,47 @@ export function renderOverworldEditor(
       paintCanvasTileAt(event.clientX, event.clientY);
       return;
     }
-    if (!isGen4) {
-      canvas.setPointerCapture(event.pointerId);
-      return;
-    }
+    event.preventDefault();
     state.draggingMap = true;
-    state.dragPanX = state.panX;
-    state.dragPanY = state.panY;
+    state.dragPanX = isGen4 ? state.panX : overworldPaneEl.scrollLeft;
+    state.dragPanY = isGen4 ? state.panY : overworldPaneEl.scrollTop;
     canvas.setPointerCapture(event.pointerId);
   });
   canvas.addEventListener("pointermove", (event) => {
-    if (!isGen4 && state.paintingPermissions) {
+    if (state.paintingPermissions) {
       paintCanvasTileAt(event.clientX, event.clientY);
       return;
     }
-    if (!isGen4) return;
     if (!state.draggingMap) return;
-    state.panX = state.dragPanX + event.clientX - state.dragStartX;
-    state.panY = state.dragPanY + event.clientY - state.dragStartY;
-    draw();
+    const dx = event.clientX - state.dragStartX;
+    const dy = event.clientY - state.dragStartY;
+    stageEl.classList.toggle("-panning", Math.abs(dx) + Math.abs(dy) >= 4);
+    if (isGen4) {
+      state.panX = state.dragPanX + dx;
+      state.panY = state.dragPanY + dy;
+      draw();
+    } else {
+      overworldPaneEl.scrollLeft = state.dragPanX - dx;
+      overworldPaneEl.scrollTop = state.dragPanY - dy;
+    }
   });
   canvas.addEventListener("pointerup", (event) => {
-    if (!isGen4 && state.paintingPermissions) {
+    releaseCapture(event.pointerId);
+    if (state.paintingPermissions) {
       paintCanvasTileAt(event.clientX, event.clientY);
       state.paintingPermissions = false;
-      try {
-        if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
-      } catch {
-        // Pointer capture may already be released by the browser.
-      }
       commitPermissionPaint();
       return;
     }
     const moved = Math.abs(event.clientX - state.dragStartX) + Math.abs(event.clientY - state.dragStartY);
     state.draggingMap = false;
-    if (!isGen4) {
-      try {
-        if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
-      } catch {
-        // Pointer capture may already be released by the browser.
-      }
-      if (moved < 4) {
-        selectedEntity = undefined;
-        renderEntityOverlay();
-        fillSidebar();
-        selectPermissionTile(tileAt(scene, screenToWorld(event.clientX, event.clientY)), true);
-      }
+    stageEl.classList.remove("-panning");
+    if (moved >= 4 || event.button !== 0) return;
+    if (tilesActive()) {
+      selectPermissionTile(tileAt(scene, screenToWorld(event.clientX, event.clientY)), true);
       return;
     }
-    if (moved < 4 && state.viewMode === "permissions") {
+    if (isGen4 && state.viewMode === "permissions") {
       selectedTile = tileAt(scene, screenToWorld(event.clientX, event.clientY));
       if (selectedTile && tileEditor) {
         selectedEntity = undefined;
@@ -1209,43 +1485,52 @@ export function renderOverworldEditor(
         root.querySelector<HTMLElement>("#tile-flag")!.textContent = String(selectedTile.layer2);
         root.querySelector<HTMLElement>("#tile-mov")!.textContent = String(selectedTile.layer3);
       }
-    } else if (state.viewMode === "map") {
+    } else if (isGen4) {
       selectedTile = undefined;
       if (tileEditor) tileEditor.style.display = "none";
     }
   });
   canvas.addEventListener("pointercancel", (event) => {
-    if (!isGen4 && state.paintingPermissions) {
+    releaseCapture(event.pointerId);
+    if (state.paintingPermissions) {
       state.paintingPermissions = false;
-      try {
-        if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
-      } catch {
-        // Pointer capture may already be released by the browser.
-      }
       commitPermissionPaint();
     }
     state.draggingMap = false;
+    stageEl.classList.remove("-panning");
   });
-  canvas.addEventListener(
+
+  stageEl.addEventListener("pointermove", (event) => {
+    if (!cursorReadout) return;
+    const world = screenToWorld(event.clientX, event.clientY);
+    const tile = tileAt(scene, world);
+    const x = Math.floor(world.x);
+    const y = Math.floor(world.y);
+    cursorReadout.textContent = tile
+      ? `X ${x}, Y ${y} · class ${tile.layer2} · ${formatHex16(tile.layer3)}`
+      : `X ${x}, Y ${y}`;
+  });
+  stageEl.addEventListener("pointerleave", () => {
+    if (cursorReadout) cursorReadout.textContent = "";
+  });
+
+  stageEl.addEventListener(
     "wheel",
     (event) => {
-      if (!isGen4) return;
+      // Gen 5 scrolls natively; pinch (ctrlKey) or Cmd/Ctrl-scroll zooms around the cursor.
+      if (!isGen4 && !event.ctrlKey && !event.metaKey) return;
       event.preventDefault();
-      const rect = stage.getBoundingClientRect();
-      setZoom(state.zoom + (event.deltaY < 0 ? WHEEL_ZOOM_STEP : -WHEEL_ZOOM_STEP), event.clientX - rect.left, event.clientY - rect.top);
+      const factor = Math.exp(-event.deltaY * (event.ctrlKey && !isGen4 ? 0.01 : 0.002));
+      setZoom(isGen4 ? state.zoom + (event.deltaY < 0 ? WHEEL_ZOOM_STEP : -WHEEL_ZOOM_STEP) : state.zoom * factor, event.clientX, event.clientY);
     },
     { passive: false },
   );
 
-  root.querySelector<HTMLButtonElement>("#zoom-in")?.addEventListener("click", () => {
-    setZoom(state.zoom + 0.1);
-  });
-  root.querySelector<HTMLButtonElement>("#zoom-out")?.addEventListener("click", () => {
-    setZoom(state.zoom - 0.1);
-  });
-  root.querySelector<HTMLButtonElement>("#zoom-reset")?.addEventListener("click", () => {
+  root.querySelector<HTMLButtonElement>("#zoom-in")?.addEventListener("click", () => setZoom(state.zoom * 1.25));
+  root.querySelector<HTMLButtonElement>("#zoom-out")?.addEventListener("click", () => setZoom(state.zoom / 1.25));
+  root.querySelector<HTMLButtonElement>("#zoom-fit")?.addEventListener("click", () => {
     state.framed = false;
-    frameScene();
+    frameScene(stage.getBoundingClientRect(), true);
     draw();
   });
   root.querySelector<HTMLButtonElement>("#view-permissions")?.addEventListener("click", () => {
@@ -1259,14 +1544,36 @@ export function renderOverworldEditor(
   root.querySelector<HTMLButtonElement>("#cell-up")?.addEventListener("click", () => moveActiveCell(0, -1));
   root.querySelector<HTMLButtonElement>("#cell-down")?.addEventListener("click", () => moveActiveCell(0, 1));
 
-  root.addEventListener("keydown", (event) => {
-    if (!isGen4 || event.key !== "Tab" || isEditableTarget(event.target)) return;
-    event.preventDefault();
-    setViewMode(state.viewMode === "permissions" ? "map" : "permissions");
-  });
+  const NUDGES: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (!canvas.isConnected) {
+      window.removeEventListener("keydown", onKeyDown);
+      return;
+    }
+    if (isTextEntryTarget(event.target) || event.metaKey || event.ctrlKey || event.altKey) return;
+    if (isGen4 && event.key === "Tab" && !isEditableTarget(event.target)) {
+      event.preventDefault();
+      setViewMode(state.viewMode === "permissions" ? "map" : "permissions");
+      return;
+    }
+    if (activeSidebarTab === "permissions") return;
+    if (event.key === "Delete" || event.key === "Backspace") {
+      if (!selectedEntity) return;
+      event.preventDefault();
+      deleteSelectedEntity();
+      return;
+    }
+    const nudge = NUDGES[event.key];
+    if (nudge && selectedEntity && !(event.target instanceof HTMLSelectElement)) {
+      event.preventDefault();
+      nudgeSelectedEntity(nudge[0], nudge[1]);
+    }
+  };
+  window.addEventListener("keydown", onKeyDown);
 
   const resizeObserver = new ResizeObserver(resize);
   resizeObserver.observe(stage);
+  if (!isGen4) resizeObserver.observe(overworldPaneEl);
   if (permissionGrid) {
     const permissionGridObserver = new ResizeObserver(() => schedulePermissionGridDraw());
     permissionGridObserver.observe(permissionGrid);
@@ -1279,70 +1586,108 @@ export function renderOverworldEditor(
   window.requestAnimationFrame(resize);
 }
 
-function sidebarRow(field: SidebarField, entity: OverworldEntity, raw = {} as Record<string, unknown>): string {
-  const value = entityFieldValue(entity, field.key, raw);
+function renderFieldControl(field: SidebarField, value: number, edited: boolean): string {
+  const title = field.title ? ` title="${escapeHtml(field.title)}"` : "";
+  const mark = edited ? " is-edited" : "";
   if (field.options) {
+    const listed = field.options.some((option) => option.value === value);
+    const options = listed ? field.options : [...field.options, { value, label: "Other" }];
     return `
-      <div class="sidebar-row">
-        <div class="sidebar-label">${escapeHtml(field.label)}</div>
-        <select class="sidebar-select sidebar-field-select" data-field-key="${escapeHtml(field.key)}">
-          ${field.options
-            .map((option) => `<option value="${option.value}" ${Number(value) === option.value ? "selected" : ""}>${option.value} ${escapeHtml(option.label)}</option>`)
-            .join("")}
+      <label class="ow-row${mark}"${title}>
+        <span class="ow-label">${escapeHtml(field.label)}</span>
+        <select class="ow-input sidebar-field-select" data-field-key="${escapeHtml(field.key)}">
+          ${options.map((option) => `<option value="${option.value}" ${value === option.value ? "selected" : ""}>${escapeHtml(option.label)} (${option.value})</option>`).join("")}
         </select>
-      </div>
+      </label>
     `;
   }
-  const editable = field.editable === false ? "false" : "true";
+  const readOnly = field.editable === false ? "readonly tabindex=\"-1\"" : "";
   return `
-    <div class="sidebar-row">
-      <div class="sidebar-label">${escapeHtml(field.label)}</div>
-      <div class="sidebar-val" data-field-key="${escapeHtml(field.key)}" data-narc="overworld" contenteditable="${editable}" data-type="int-65535">${escapeHtml(String(value))}</div>
-    </div>
+    <label class="ow-row${mark}"${title}>
+      <span class="ow-label">${escapeHtml(field.label)}</span>
+      <input class="ow-input sidebar-val" data-field-key="${escapeHtml(field.key)}" type="text" inputmode="numeric" spellcheck="false" autocomplete="off" value="${escapeHtml(String(value))}" ${readOnly}>
+    </label>
   `;
 }
 
-function renderGen5PermissionControls(): string {
+function renderEntityFields(project: ProjectState, overworldId: number, entity: OverworldEntity, isGen4: boolean, raw: Record<string, unknown>): string {
+  const edited = changedKeys(project.actionChangelog?.entries, `overworld:${overworldId}:${entity.kind}:${entity.index}:`);
+  const fields = sidebarFields(entity, isGen4);
+  const groups = new Map<FieldGroup, SidebarField[]>();
+  for (const field of fields) groups.set(field.group, [...(groups.get(field.group) ?? []), field]);
+  return [...groups.entries()]
+    .map(([group, entries]) => {
+      const rows = entries
+        .map((field) => {
+          const value = Number(entityFieldValue(entity, field.key, raw));
+          const control = renderFieldControl(field, value, edited.has(field.key));
+          if (entity.kind === "npc" && field.key === "overworld_sprite") {
+            return control.replace("</label>", `${renderSpritePreview(project, entity)}</label>`).replace('class="ow-row', 'class="ow-row -sprite');
+          }
+          return control;
+        })
+        .join("");
+      if (group === "advanced") {
+        return `<details class="ow-group -advanced"><summary>${FIELD_GROUP_LABELS[group]}</summary><div class="ow-grid">${rows}</div></details>`;
+      }
+      return `<section class="ow-group"><div class="ow-group-title">${FIELD_GROUP_LABELS[group]}</div><div class="ow-grid ${group === "position" ? "-pos" : ""}">${rows}</div></section>`;
+    })
+    .join("");
+}
+
+function renderSpritePreview(project: ProjectState, npc: OverworldNpc): string {
+  const isGen4 = isGen4Project(project);
+  const romSprite = isGen4 ? getGen4OverworldSpriteDataUrl(project, npc.spriteId, npc.direction) : undefined;
+  const src = isGen4 ? romSprite : publicAsset(`images/overworlds/${npc.spriteSlug}.png`);
+  if (!src) return `<span class="ow-sprite-preview -missing" aria-hidden="true"></span>`;
+  const attrs = isGen4 ? `data-rom-sprite="true"` : `onerror="this.hidden=true;this.parentElement?.classList.add('-missing')"`;
+  return `<span class="ow-sprite-preview" data-dir="${npc.direction}" aria-hidden="true"><img class="overworld-sprite" src="${escapeHtml(src)}" alt="" ${attrs}></span>`;
+}
+
+function permissionCategoryLabel(tileClass: number, flags: number): string {
+  const color = gen5PermissionColorHex({ tileClass, flags });
+  return PERMISSION_LEGEND.find((entry) => entry.color === color)?.label ?? "Other";
+}
+
+function renderPermissionLegend(): string {
+  return PERMISSION_LEGEND.map((entry) => `<span class="ow-legend-item"><span class="ow-swatch" style="background:${entry.color}"></span>${escapeHtml(entry.label)}</span>`).join("") +
+    `<span class="ow-legend-item"><span class="ow-swatch -other"></span>Other</span>`;
+}
+
+function renderGen5PermissionControls(testWarpHtml: string): string {
+  const known = GEN5_PERMISSION_FLAGS.filter((flag) => !flag.label.startsWith("Unknown"));
+  const unknown = GEN5_PERMISSION_FLAGS.filter((flag) => flag.label.startsWith("Unknown"));
+  const chip = (flag: (typeof GEN5_PERMISSION_FLAGS)[number]) => `
+    <label class="ow-flag choosable-text">
+      <input type="checkbox" data-ow-permission-flag="${flag.bit}" />
+      ${escapeHtml(flag.label.startsWith("Unknown") ? formatHex16(flag.bit) : flag.label)}
+    </label>`;
   return `
-    <div class="overworld-permission-controls">
-      <div id="permission-selected" class="overworld-permission-selected">Select a tile to sample its class and flags.</div>
-      <label class="map3d-field">
-        <span>Tile class</span>
-        <input id="ow-permission-class" type="text" inputmode="numeric" value="0" />
-      </label>
-      <label class="map3d-field">
-        <span>Flags</span>
-        <input id="ow-permission-flags" type="text" inputmode="text" value="0x0000" />
-      </label>
-      <div class="map3d-field">
-        <span>Flag bits</span>
-        <div class="map3d-flag-grid">
-          ${GEN5_PERMISSION_FLAGS.map(
-            (flag) => `
-              <label class="map3d-check map3d-flag-check choosable-text choosable-prop">
-                <input type="checkbox" data-ow-permission-flag="${flag.bit}" />
-                ${escapeHtml(flag.label)}
-              </label>
-            `,
-          ).join("")}
-        </div>
-        <div class="map3d-flag-value" id="ow-permission-flag-value">Calculated flags: 0x0000</div>
+    <section class="ow-group">
+      <div class="ow-group-title">Selected tile</div>
+      <div id="permission-selected" class="ow-tile"></div>
+      ${testWarpHtml}
+    </section>
+    <section class="ow-group">
+      <div class="ow-group-title">Brush</div>
+      <div class="ow-brush">
+        <span class="ow-swatch -lg" id="ow-permission-swatch"></span>
+        <label class="ow-row -stack"><span class="ow-label">Class</span><input class="ow-input" id="ow-permission-class" type="text" inputmode="numeric" value="0" spellcheck="false" /></label>
+        <label class="ow-row -stack"><span class="ow-label">Flags</span><input class="ow-input" id="ow-permission-flags" type="text" value="0x0000" spellcheck="false" /></label>
       </div>
-      <label class="map3d-check overworld-permission-paint">
-        <input id="ow-permission-paint" type="checkbox" />
-        Paint on click/drag
-      </label>
-    </div>
+      <div class="ow-flags">${known.map(chip).join("")}</div>
+      <details class="ow-group -advanced -flags"><summary>Other flag bits</summary><div class="ow-flags">${unknown.map(chip).join("")}</div></details>
+      <label class="md-check td-check ow-paint"><input id="ow-permission-paint" type="checkbox" /><span>Paint on the map</span></label>
+    </section>
   `;
 }
 
 function renderGen5PermissionMatrix(): string {
   return `
-    <div class="overworld-permission-matrix">
-      <button id="permission-matrix-resize" class="overworld-permission-resize-handle" type="button" title="Resize permissions matrix"></button>
-      <div class="overworld-permission-title">Permissions Matrix</div>
+    <aside class="ow-matrix" id="ow-matrix" ${layerPrefs.matrix ? "" : "hidden"}>
+      <div class="ow-matrix-head"><span>Permissions matrix</span><button class="btn sm -ghost" id="close-matrix" type="button" aria-label="Hide matrix">&times;</button></div>
       <canvas id="permission-grid-canvas" class="overworld-permission-grid"></canvas>
-    </div>
+    </aside>
   `;
 }
 
@@ -1376,6 +1721,26 @@ function warpTargetForZone(project: ProjectState, zoneId: number): { overworldId
   return undefined;
 }
 
+/** "Black City - Overworld 1", named from the map headers that load each overworld file. */
+function overworldFileOptions(project: ProjectState): string[] {
+  const count = project.narcs.overworlds?.fileCount ?? 0;
+  const names = new Map<number, string[]>();
+  for (const row of Object.values(project.headers?.rows ?? {})) {
+    const id = Number(row.overworlds_id ?? row.map_id);
+    const name = String(row.location_name ?? "").trim();
+    if (!Number.isSafeInteger(id) || !name) continue;
+    const list = names.get(id) ?? [];
+    if (!list.includes(name)) list.push(name);
+    names.set(id, list);
+  }
+  return Array.from({ length: count }, (_, id) => {
+    const list = names.get(id) ?? [];
+    if (list.length === 0) return `Overworld ${id}`;
+    const name = list.length > 2 ? `${list[0]}, ${list[1]} +${list.length - 2}` : list.join(", ");
+    return `${name} - Overworld ${id}`;
+  });
+}
+
 function overworldRouteUrl(overworldId: number): string {
   const url = new URL(window.location.href);
   url.hash = `overworlds/${overworldId}`;
@@ -1384,7 +1749,7 @@ function overworldRouteUrl(overworldId: number): string {
 
 function updateEntityTabs(root: ParentNode, activeTab: SidebarTab): void {
   root.querySelectorAll<HTMLButtonElement>(".ow-entity-tab").forEach((button) => {
-    button.classList.toggle("active", button.dataset.sidebarTab === activeTab);
+    button.setAttribute("aria-selected", String(button.dataset.sidebarTab === activeTab));
   });
 }
 
@@ -1418,73 +1783,87 @@ function isSelected(selection: OverworldEntitySelection | undefined, kind: Overw
   return selection?.kind === kind && selection.index === index;
 }
 
-function entityOptionLabel(entity: OverworldEntity): string {
-  const suffix = entity.kind !== "npc" && entity.isRail ? " rail" : "";
-  return `${entityKindLabel(entity.kind)} ${entity.index}${suffix}`;
+function entityOptionLabel(project: ProjectState, entity: OverworldEntity, raw: Record<string, unknown>): string {
+  if (entity.kind === "npc") {
+    const script = Number(raw[`npc_${entity.index}_script_id`] ?? 0);
+    const eventType = Number(raw[`npc_${entity.index}_movement_permissions_2`] ?? 0);
+    const role = eventType === 1 || eventType === 2 ? " · trainer" : eventType === 3 ? " · item" : "";
+    return `${entity.index}: Sprite ${entity.spriteId} · script ${script}${role}`;
+  }
+  const rail = entity.isRail ? " · rail" : "";
+  if (entity.kind === "warp") {
+    const target = warpTargetForZone(project, entity.targetZone);
+    return `${entity.index}: To ${target?.locationName ?? `zone ${entity.targetZone}`} · warp ${entity.targetWarpId}${rail}`;
+  }
+  if (entity.kind === "trigger") {
+    const check = entity.variable ? ` · var ${entity.variable} = ${entity.value}` : "";
+    return `${entity.index}: Script ${entity.script}${check}${rail}`;
+  }
+  return `${entity.index}: Script ${entity.script}${entity.condition === 2 ? " · hidden item" : ""}${rail}`;
 }
 
 function entityKindLabel(kind: OverworldEntityKind): string {
-  return kind === "npc" ? "NPC" : kind[0]!.toUpperCase() + kind.slice(1);
+  return kind === "npc" ? "NPC" : kind;
 }
 
 function sidebarFields(entity: OverworldEntity, isGen4: boolean): SidebarField[] {
   if (entity.kind === "npc") {
-    return NPC_FIELDS.map((field) => ({
-      key: field,
-      label: NPC_FIELD_LABELS[field] ?? field,
-      editable: field !== "overworld_id",
-      options: !isGen4 && field === "movement_permissions_2" ? MOVEMENT_MODIFIER_OPTIONS : undefined,
-    }));
+    return NPC_FIELD_ORDER.filter((key) => (NPC_FIELDS as readonly string[]).includes(key)).map((key) => {
+      const def = NPC_FIELD_DEFS[key]!;
+      const options = key === "direction" ? FACING_OPTIONS : !isGen4 && key === "movement_permissions_2" ? MOVEMENT_MODIFIER_OPTIONS : undefined;
+      return { key, ...def, options };
+    });
   }
+  const gen5 = (options: readonly SidebarFieldOption[]) => (isGen4 ? undefined : options);
+  const railFields = (unused: boolean): SidebarField[] => [
+    { key: "railLineNo", label: "Rail line", group: "position", showWhenRail: true },
+    { key: "railFrontPos", label: "Rail front", group: "position", showWhenRail: true },
+    { key: "railSidePos", label: "Rail side", group: "position", showWhenRail: true },
+    ...(unused ? [{ key: "railUnused", label: "Rail unused", group: "advanced" as const, showWhenRail: true }] : []),
+  ];
+  const isRail: SidebarField = { key: "isRail", label: "Position type", group: "advanced", options: POSITION_TYPE_OPTIONS };
   if (entity.kind === "furniture") {
-    return [
-      { key: "script", label: "script" },
-      { key: "condition", label: "condition" },
-      { key: "interactibility", label: "interactibility" },
-      { key: "isRail", label: "is rail" },
-      { key: "gridX", label: "grid x", showWhenGrid: true },
-      { key: "gridZ", label: "grid y", showWhenGrid: true },
-      { key: "railLineNo", label: "rail line", showWhenRail: true },
-      { key: "railFrontPos", label: "rail front", showWhenRail: true },
-      { key: "railSidePos", label: "rail side", showWhenRail: true },
-      { key: "railUnused", label: "rail unused", showWhenRail: true },
-      { key: "altitude", label: "y" },
-    ].filter((field) => fieldVisible(field, entity));
+    return ([
+      { key: "script", label: "Script", group: "event" },
+      { key: "condition", label: "Type", group: "event", options: gen5(BG_TYPE_OPTIONS) },
+      { key: "interactibility", label: "Activates", group: "event", options: gen5(BG_FACING_OPTIONS) },
+      { key: "gridX", label: "X", group: "position", showWhenGrid: true },
+      { key: "gridZ", label: "Y", group: "position", showWhenGrid: true },
+      { key: "altitude", label: "Z", group: "position" },
+      ...railFields(true),
+      isRail,
+    ] satisfies SidebarField[]).filter((field) => fieldVisible(field, entity));
   }
   if (entity.kind === "warp") {
-    return [
-      { key: "targetZone", label: "target zone" },
-      { key: "targetWarpId", label: "target warp" },
-      { key: "contactDirection", label: "contact dir" },
-      { key: "transitionType", label: "transition" },
-      { key: "isRail", label: "is rail" },
-      { key: "gridX", label: "grid x", showWhenGrid: true },
-      { key: "worldY", label: "y", showWhenGrid: true },
-      { key: "gridZ", label: "grid y", showWhenGrid: true },
-      { key: "railLineNo", label: "rail line", showWhenRail: true },
-      { key: "railFrontPos", label: "rail front", showWhenRail: true },
-      { key: "railSidePos", label: "rail side", showWhenRail: true },
-      { key: "width", label: "width" },
-      { key: "height", label: "height" },
-      { key: "unknown", label: "unknown" },
-    ].filter((field) => fieldVisible(field, entity));
+    return ([
+      { key: "targetZone", label: "Zone", group: "destination" },
+      { key: "targetWarpId", label: "Warp", group: "destination" },
+      { key: "contactDirection", label: "Exit direction", group: "behaviour", options: gen5(EXIT_DIRECTION_OPTIONS) },
+      { key: "transitionType", label: "Exit type", group: "behaviour" },
+      { key: "gridX", label: "X", group: "position", showWhenGrid: true },
+      { key: "gridZ", label: "Y", group: "position", showWhenGrid: true },
+      { key: "worldY", label: "Z", group: "position", showWhenGrid: true },
+      ...railFields(false),
+      { key: "width", label: "W", group: "position" },
+      { key: "height", label: "H", group: "position" },
+      isRail,
+      { key: "unknown", label: "Unknown", group: "advanced" },
+    ] satisfies SidebarField[]).filter((field) => fieldVisible(field, entity));
   }
-  return [
-    { key: "script", label: "script" },
-    { key: "variable", label: "variable" },
-    { key: "value", label: "value" },
-    { key: "type", label: "type" },
-    { key: "isRail", label: "is rail" },
-    { key: "gridX", label: "grid x", showWhenGrid: true },
-    { key: "gridZ", label: "grid y", showWhenGrid: true },
-    { key: "railLineNo", label: "rail line", showWhenRail: true },
-    { key: "railFrontPos", label: "rail front", showWhenRail: true },
-    { key: "railSidePos", label: "rail side", showWhenRail: true },
-    { key: "width", label: "width" },
-    { key: "height", label: "height" },
-    { key: "worldY", label: "y", showWhenGrid: true },
-    { key: "unknown", label: "unknown" },
-  ].filter((field) => fieldVisible(field, entity));
+  return ([
+    { key: "script", label: "Script", group: "event" },
+    { key: "type", label: "Fires when", group: "event", options: gen5(TRIGGER_TYPE_OPTIONS) },
+    { key: "variable", label: "Variable", group: "event", title: "0 fires without checking a variable" },
+    { key: "value", label: "Value", group: "event", title: "Fires when the variable equals this" },
+    { key: "gridX", label: "X", group: "position", showWhenGrid: true },
+    { key: "gridZ", label: "Y", group: "position", showWhenGrid: true },
+    { key: "worldY", label: "Z", group: "position", showWhenGrid: true },
+    ...railFields(false),
+    { key: "width", label: "W", group: "position" },
+    { key: "height", label: "H", group: "position" },
+    isRail,
+    { key: "unknown", label: "Unknown", group: "advanced" },
+  ] satisfies SidebarField[]).filter((field) => fieldVisible(field, entity));
 }
 
 function fieldVisible(field: SidebarField, entity: OverworldFurniture | OverworldWarp | OverworldTrigger): boolean {
@@ -1493,12 +1872,16 @@ function fieldVisible(field: SidebarField, entity: OverworldFurniture | Overworl
   return true;
 }
 
+/* Semantic field keys that the scene exposes under another name. */
+const ENTITY_FIELD_ALIASES: Record<string, string> = { gridX: "x", gridZ: "y", worldY: "altitude" };
+
 function entityFieldValue(entity: OverworldEntity, key: string, raw: Record<string, unknown>): number | boolean {
   if (entity.kind === "npc") {
     if (key === "x_cord" || key === "y_cord") return sceneRawNpcValue(entity, key);
     return Number(raw[`npc_${entity.index}_${key}`] ?? sceneRawNpcValue(entity, key));
   }
-  return Number((entity as unknown as Record<string, number | boolean>)[key] ?? 0);
+  const record = entity as unknown as Record<string, number | boolean>;
+  return Number(record[ENTITY_FIELD_ALIASES[key] ?? key] ?? record[key] ?? 0);
 }
 
 function sceneRawNpcValue(entity: OverworldNpc, key: string): number {
@@ -1545,9 +1928,9 @@ export function drawMap(
   context.strokeRect(startX, startY, map.width * size, map.height * size);
 }
 
-function drawGen5PermissionOverlay(context: CanvasRenderingContext2D, scene: OverworldScene, size: number, panX: number, panY: number): void {
+function drawGen5PermissionOverlay(context: CanvasRenderingContext2D, scene: OverworldScene, size: number, panX: number, panY: number, opacity: number): void {
   context.save();
-  context.globalAlpha = 0.42;
+  context.globalAlpha = opacity;
   for (const map of scene.maps) {
     if (map.empty || map.missing) continue;
     const startX = panX + map.x * size;
@@ -1668,6 +2051,11 @@ function associatedMapZoneId(scene: OverworldScene): number {
   return Number(scene.header.index);
 }
 
+function isTextEntryTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return target.isContentEditable || target.tagName === "TEXTAREA" || (target.tagName === "INPUT" && (target as HTMLInputElement).type !== "checkbox" && (target as HTMLInputElement).type !== "range");
+}
+
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   return target.isContentEditable || ["INPUT", "SELECT", "TEXTAREA", "BUTTON"].includes(target.tagName);
@@ -1716,9 +2104,11 @@ export function renderGridEntity(
   const height = Math.max(14, position.tileSize * heightTiles);
   const offsetX = entity.kind === "furniture" ? (width - position.tileSize) / 2 : 0;
   const offsetY = entity.kind === "furniture" ? (height - position.tileSize) / 2 : 0;
+  const tiny = Math.min(width, height) < 20 ? "-tiny" : "";
+  const label = `${entity.kind === "furniture" ? "Furniture" : entity.kind === "warp" ? "Warp" : "Trigger"} ${entity.index}`;
   return `
-    <div class="overworld-item overworld-grid-entity overworld-${entity.kind} ${selected ? "selected" : ""}"
-      data-kind="${entity.kind}" data-index="${entity.index}" title="${escapeHtml(entityKindLabel(entity.kind))} ${entity.index}"
+    <div class="overworld-item overworld-grid-entity overworld-${entity.kind} ${tiny} ${selected ? "selected" : ""}"
+      data-kind="${entity.kind}" data-index="${entity.index}" title="${escapeHtml(label)}"
       style="left:${position.x - offsetX}px;top:${position.y - offsetY}px;width:${width}px;height:${height}px">
       <span>${escapeHtml(entity.kind[0]!.toUpperCase())}${entity.index}</span>
     </div>

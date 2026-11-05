@@ -48,7 +48,9 @@ export function saveActiveProject(project: ProjectState): Promise<void> {
 async function persistActiveProject(project: ProjectState): Promise<void> {
   const source = project.originalRomBytes;
   if (source) {
-    await saveActiveRomBytes(source, activeRomMetadataFromProject(project));
+    // Editors often borrow the stored ROM into originalRomBytes; writing that
+    // same buffer back would re-store hundreds of MB on every save.
+    if (source !== cachedRomBytes) await saveActiveRomBytes(source, activeRomMetadataFromProject(project));
     if (project.originalRomBytes === source) delete project.originalRomBytes;
   }
   const compact = await activeRomMatchesProject(project);
@@ -85,6 +87,7 @@ export async function loadActiveProject(): Promise<ProjectState | undefined> {
 }
 
 export async function clearActiveProject(): Promise<void> {
+  releaseActiveRomBytes();
   const db = await openDb();
   try {
     const transaction = db.transaction([PROJECT_STORE_NAME, ROM_STORE_NAME], "readwrite");
@@ -98,6 +101,7 @@ export async function clearActiveProject(): Promise<void> {
 }
 
 export async function saveActiveRomBytes(bytes: Uint8Array, metadata?: ActiveRomMetadata): Promise<void> {
+  releaseActiveRomBytes();
   const db = await openDb();
   try {
     const transaction = db.transaction(ROM_STORE_NAME, "readwrite");
@@ -106,6 +110,8 @@ export async function saveActiveRomBytes(bytes: Uint8Array, metadata?: ActiveRom
     const requests = [requestToPromise(store.put(bytes, ACTIVE_ROM_KEY)), complete];
     if (metadata) requests.push(requestToPromise(store.put(metadata, ACTIVE_ROM_METADATA_KEY)));
     await Promise.all(requests);
+    // The bytes just written are the stored ROM; reuse them instead of reading them back.
+    keepRomBytes(bytes, JSON.stringify(metadata ?? (await storedRomMetadataOrNull())));
   } finally { db.close(); }
 }
 
@@ -129,11 +135,90 @@ export function compactRomBytes(bytes: Uint8Array): Uint8Array {
   return new NintendoDSRom(bytes).save();
 }
 
-export async function loadActiveRomBytes(): Promise<Uint8Array | undefined> {
+/*
+ * Every IndexedDB read of the source ROM materialises a fresh copy of the whole
+ * file (hundreds of MB). Editors often ask for it several times in a burst
+ * (three loaders at once, again on every list selection), so share one copy:
+ * concurrent callers await the same read, and the copy is kept until the ROM
+ * has gone unused for a while, then released for the garbage collector.
+ * Callers treat these bytes as read-only, as they already must for
+ * project.originalRomBytes.
+ */
+const ROM_CACHE_IDLE_MS = 30_000;
+let cachedRomBytes: Uint8Array | undefined;
+let cachedRomStamp: string | undefined;
+let pendingRomBytes: Promise<Uint8Array | undefined> | undefined;
+let romCacheTimer: ReturnType<typeof setTimeout> | undefined;
+let romCacheGeneration = 0;
+
+function keepRomBytes(bytes: Uint8Array | undefined, stamp?: string): void {
+  cachedRomBytes = bytes;
+  cachedRomStamp = bytes ? stamp : undefined;
+  if (romCacheTimer !== undefined) clearTimeout(romCacheTimer);
+  romCacheTimer = bytes ? setTimeout(() => releaseActiveRomBytes(), ROM_CACHE_IDLE_MS) : undefined;
+}
+
+async function storedRomMetadataOrNull(): Promise<ActiveRomMetadata | null> {
+  return (await loadActiveRomMetadata()) ?? null;
+}
+
+/** Drops the shared in-memory copy (the IndexedDB copy is untouched). */
+export function releaseActiveRomBytes(): void {
+  romCacheGeneration += 1;
+  pendingRomBytes = undefined;
+  keepRomBytes(undefined);
+}
+
+/** A cheap fingerprint of the stored ROM (metadata only), to notice another tab replacing it. */
+async function storedRomStamp(): Promise<string | undefined> {
   const db = await openDb();
-  const bytes = await requestToPromise<Uint8Array | undefined>(db.transaction(ROM_STORE_NAME, "readonly").objectStore(ROM_STORE_NAME).get(ACTIVE_ROM_KEY));
-  db.close();
-  return bytes;
+  try {
+    const store = db.transaction(ROM_STORE_NAME, "readonly").objectStore(ROM_STORE_NAME);
+    const [metadata, count] = await Promise.all([
+      requestToPromise<ActiveRomMetadata | undefined>(store.get(ACTIVE_ROM_METADATA_KEY)),
+      requestToPromise<number>(store.count(ACTIVE_ROM_KEY)),
+    ]);
+    return count > 0 ? JSON.stringify(metadata ?? null) : undefined;
+  } finally {
+    db.close();
+  }
+}
+
+export async function loadActiveRomBytes(): Promise<Uint8Array | undefined> {
+  if (cachedRomBytes) {
+    const bytes = cachedRomBytes;
+    const stamp = await storedRomStamp();
+    if (stamp !== undefined && stamp === cachedRomStamp && cachedRomBytes === bytes) {
+      keepRomBytes(bytes, stamp);
+      return bytes;
+    }
+    if (cachedRomBytes === bytes) releaseActiveRomBytes();
+  }
+  if (!pendingRomBytes) {
+    const generation = romCacheGeneration;
+    let stamp: string | undefined;
+    const read = (async () => {
+      stamp = await storedRomStamp();
+      const db = await openDb();
+      try {
+        return await requestToPromise<Uint8Array | undefined>(db.transaction(ROM_STORE_NAME, "readonly").objectStore(ROM_STORE_NAME).get(ACTIVE_ROM_KEY));
+      } finally {
+        db.close();
+      }
+    })();
+    pendingRomBytes = read;
+    void read.then(
+      (bytes) => {
+        if (generation !== romCacheGeneration) return;
+        pendingRomBytes = undefined;
+        keepRomBytes(bytes, stamp);
+      },
+      () => {
+        if (generation === romCacheGeneration) pendingRomBytes = undefined;
+      },
+    );
+  }
+  return pendingRomBytes;
 }
 
 export async function loadActiveRomMetadata(): Promise<ActiveRomMetadata | undefined> {
@@ -159,12 +244,15 @@ export async function activeRomMatchesProject(project: ProjectState): Promise<bo
       requestToPromise<ActiveRomMetadata | undefined>(store.get(ACTIVE_ROM_METADATA_KEY)),
       requestToPromise<number>(store.count(ACTIVE_ROM_KEY)),
     ]);
-    return count > 0 && (!metadata || (
+    const matches = count > 0 && (!metadata || (
       metadata.fileName === project.romInfo.fileName &&
       (metadata.idCode === undefined || metadata.idCode === project.romInfo.idCode) &&
       (metadata.sourceSize === undefined || metadata.sourceSize === project.romInfo.size) &&
       (metadata.sourceSha256 === undefined || metadata.sourceSha256 === project.romInfo.sourceSha256)
     ));
+    // Another tab replaced the stored ROM: never serve the old in-memory copy.
+    if (!matches) releaseActiveRomBytes();
+    return matches;
   } finally {
     db.close();
   }

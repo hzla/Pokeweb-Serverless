@@ -40,11 +40,15 @@ export type BattleBackgroundScene = BattleModelScene & {
 export type BattleEnvironmentArchives = {
   rom: NintendoDSRom;
   graphics: NARC;
+  graphicsFileId: number;
   table: { fileId: number; path: string; narc: NARC };
 };
 
-export async function loadBattleBackgroundCatalog(project: ProjectState): Promise<BattleBackgroundCatalog> {
-  const { rom, graphics, table } = await loadBattleEnvironmentArchives(project);
+export async function loadBattleBackgroundCatalog(
+  project: ProjectState,
+  archives?: Pick<BattleEnvironmentArchives, "graphics" | "table"> & { rom: Pick<NintendoDSRom, "idCode"> },
+): Promise<BattleBackgroundCatalog> {
+  const { rom, graphics, table } = archives ?? (await loadBattleEnvironmentArchives(project));
   const backgroundRows = table.narc.files[1];
   if (!backgroundRows) throw new Error("The battle-background table does not contain its field-model lookup file.");
   const tableEntryCount = Math.floor(backgroundRows.length / BACKGROUND_TABLE_RECORD_BYTES);
@@ -105,11 +109,24 @@ export function parseBattleBackgroundVariants(
   return variants;
 }
 
-export async function loadBattleEnvironmentArchives(project: ProjectState): Promise<BattleEnvironmentArchives> {
+const pendingArchives = new WeakMap<ProjectState, Promise<BattleEnvironmentArchives>>();
+
+/** Concurrent callers (the catalogs load together) share one ROM parse. */
+export function loadBattleEnvironmentArchives(project: ProjectState): Promise<BattleEnvironmentArchives> {
+  const pending = pendingArchives.get(project);
+  if (pending) return pending;
+  const load = loadBattleEnvironmentArchivesUncached(project).finally(() => {
+    if (pendingArchives.get(project) === load) pendingArchives.delete(project);
+  });
+  pendingArchives.set(project, load);
+  return load;
+}
+
+async function loadBattleEnvironmentArchivesUncached(project: ProjectState): Promise<BattleEnvironmentArchives> {
   const rom = await loadProjectRom(project);
   const graphicsFileId = rom.fileId(BATTLE_GRAPHICS_PATH);
   const graphics = new NARC(getRomFileBytes(project, rom, graphicsFileId));
-  return { rom, graphics, table: findBattleBackgroundTable(project, rom, graphics) };
+  return { rom, graphics, graphicsFileId, table: findBattleBackgroundTable(project, rom, graphics) };
 }
 
 async function loadProjectRom(project: ProjectState): Promise<NintendoDSRom> {

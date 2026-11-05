@@ -163,7 +163,8 @@ export function updateTrainerField(project: ProjectState, trainerId: number, fie
   const record = decodeRecord(project, "trdata", trainerId);
   if (!record.raw || !record.readable) throw new Error(`Unable to update trainer ${trainerId}`);
   syncTrainerReadable(project, trainerId, record.raw, record.readable);
-  const before = record.readable[field];
+  // Class names repeat across ids, so the changelog compares "Name (id)" on both sides.
+  const before = field === "class" ? `${record.readable.class} (${record.raw.class})` : record.readable[field];
   let rawValue: number;
   let value: string | number;
 
@@ -567,6 +568,103 @@ export function deleteTrainerPokemon(project: ProjectState, trainerId: number, s
   markDirty(project, "trdata", trainerId);
   markDirty(project, "trpok", trainerId);
   return getTrainerRecord(project, trainerId);
+}
+
+const TRAINER_POKEMON_FIELDS = ["ivs", "ability", "level", "padding", "species_id", "form", "item_id", "move_1", "move_2", "move_3", "move_4"];
+
+function swapTrainerPokemonRaw(raw: RawRecord, a: number, b: number): void {
+  for (const field of TRAINER_POKEMON_FIELDS) {
+    const left = raw[`${field}_${a}`];
+    const right = raw[`${field}_${b}`];
+    if (right === undefined) delete raw[`${field}_${a}`];
+    else raw[`${field}_${a}`] = right;
+    if (left === undefined) delete raw[`${field}_${b}`];
+    else raw[`${field}_${b}`] = left;
+  }
+}
+
+/** Move a party member to another slot, shifting the members in between. */
+export function moveTrainerPokemon(project: ProjectState, trainerId: number, from: number, to: number): TrainerRecord {
+  const trdata = decodeRecord(project, "trdata", trainerId);
+  const trpok = decodeRecord(project, "trpok", trainerId);
+  if (!trdata.raw || !trdata.readable || !trpok.raw || !trpok.readable) throw new Error(`Unable to move trainer Pokemon ${trainerId}:${from}`);
+  const count = Number(trdata.raw.num_pokemon ?? 0);
+  if (from < 0 || from >= count || to < 0 || to >= count) throw new Error("Trainer Pokemon slot does not exist");
+  if (from === to) return getTrainerRecord(project, trainerId);
+  const partyOrder = () => Array.from({ length: count }, (_unused, slot) => pokemonName(project, Number(trpok.raw?.[`species_id_${slot}`] ?? 0))).join(", ");
+  const before = partyOrder();
+  const step = to > from ? 1 : -1;
+  for (let current = from; current !== to; current += step) swapTrainerPokemonRaw(trpok.raw, current, current + step);
+  syncTrainerPokemonReadable(project, trainerId, trpok.raw, trpok.readable);
+  // One entry for the party order, so moving a Pokemon back clears it.
+  recordFieldChange(project, "trpok", trainerChangelogSubject(project, trainerId), "Party order", before, partyOrder(), {
+    key: `trainer:${trainerId}:party-order`,
+  });
+  markDirty(project, "trpok", trainerId);
+  return getTrainerRecord(project, trainerId);
+}
+
+/** Copy a party member into the slot right after it. */
+export function duplicateTrainerPokemon(project: ProjectState, trainerId: number, slot: number): TrainerPokemonSlot {
+  const trdata = decodeRecord(project, "trdata", trainerId);
+  const trpok = decodeRecord(project, "trpok", trainerId);
+  if (!trdata.raw || !trdata.readable || !trpok.raw || !trpok.readable) throw new Error(`Unable to duplicate trainer Pokemon ${trainerId}:${slot}`);
+  const count = Number(trdata.raw.num_pokemon ?? 0);
+  if (slot < 0 || slot >= count) throw new Error("Trainer Pokemon slot does not exist");
+  if (count >= 6) throw new Error("Trainer parties cannot exceed 6 Pokemon");
+
+  for (const field of TRAINER_POKEMON_FIELDS) {
+    const value = trpok.raw[`${field}_${slot}`];
+    if (value !== undefined) trpok.raw[`${field}_${count}`] = value;
+  }
+  for (let current = count; current > slot + 1; current -= 1) swapTrainerPokemonRaw(trpok.raw, current, current - 1);
+  trdata.raw.num_pokemon = count + 1;
+  trdata.readable.num_pokemon = count + 1;
+  project.trpokInfo[trainerId] = { template: Number(trdata.raw.template ?? 0), numPokemon: count + 1 };
+  syncTrainerPokemonReadable(project, trainerId, trpok.raw, trpok.readable);
+  const subject = trainerChangelogSubject(project, trainerId);
+  recordGenericChange(project, "trpok", `${subject} Pokemon ${slot + 1} was duplicated.`, subject, {
+    key: `trainer:${trainerId}:pokemon-duplicate:${slot}`,
+  });
+  markDirty(project, "trdata", trainerId);
+  markDirty(project, "trpok", trainerId);
+  return getTrainerPokemonSlot(project, trainerId, slot + 1);
+}
+
+export function formatTrainerTeamShowdownText(project: ProjectState, trainerId: number): string {
+  const trainer = getTrainerRecord(project, trainerId, { includeTexts: false });
+  return trainer.party.map((pok) => formatTrainerPokemonShowdownText(project, trainerId, pok.slot)).join("\n\n");
+}
+
+/** Replace the whole party with a Showdown team paste (1–6 sets). */
+export function importTrainerTeamShowdownText(project: ProjectState, trainerId: number, text: string): TrainerRecord {
+  const blocks = text.replace(/\r\n?/gu, "\n").split(/\n\s*\n/gu).map((block) => block.trim()).filter(Boolean);
+  if (blocks.length === 0) throw new Error("Paste at least one Showdown set");
+  if (blocks.length > 6) throw new Error("Trainer parties cannot exceed 6 Pokemon");
+  // Parse everything first so a bad set does not leave the party half replaced.
+  blocks.forEach((block) => findPokemonValueIndex(project, parseTrainerPokemonShowdownImport(block).species));
+  blocks.forEach((block, slot) => {
+    if (slot >= getTrainerRecord(project, trainerId, { includeTexts: false }).party.length) addTrainerPokemon(project, trainerId);
+    importTrainerPokemonShowdownText(project, trainerId, slot, block);
+  });
+  while (getTrainerRecord(project, trainerId, { includeTexts: false }).party.length > blocks.length) {
+    deleteTrainerPokemon(project, trainerId, blocks.length);
+  }
+  return getTrainerRecord(project, trainerId);
+}
+
+export type TrainerAbilityOption = { slot: number; label: string };
+
+/** Ability slot choices with the ability each one resolves to for this species and form. */
+export function getTrainerPokemonAbilityOptions(project: ProjectState, pok: TrainerPokemonSlot): TrainerAbilityOption[] {
+  const max = trainerAbilitySlotMax(project);
+  const slotLabel = (slot: number) => (slot === 3 ? "Hidden" : slot >= 4 ? `AI ${slot - 3}` : `Ability ${slot}`);
+  const options: TrainerAbilityOption[] = [{ slot: 0, label: `Default${pok.abilitySlot === 0 && pok.abilityName !== "" ? ` (${pok.abilityName})` : ""}` }];
+  for (let slot = 1; slot <= max; slot += 1) {
+    const name = abilityName(project, pok.speciesId, slot, pok.form);
+    options.push({ slot, label: `${slotLabel(slot)}${name !== "" ? `: ${name}` : ""}` });
+  }
+  return options;
 }
 
 export function calculateTrainerPokemonNature(project: ProjectState, trainerId: number, slot: number): string {

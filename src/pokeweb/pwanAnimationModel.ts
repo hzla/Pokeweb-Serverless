@@ -314,7 +314,7 @@ async function migrateLegacyW2Runtime(project: ProjectState, retirementBytes: Ui
     if (hasLegacyPwanRuntimeDll(project)) throw new Error("Reload the ROM before upgrading the legacy White 2 PWAN runtime.");
     return;
   }
-  const rom = new NintendoDSRom(romBytes);
+  const rom = new NintendoDSRom(romBytes, { fileData: "view" });
   const fileId = rom.filenames.idOf(PWAN_LEGACY_W2_RUNTIME_PATH);
   if (fileId === undefined) return;
   const activeBytes = project.fileSystem?.replacements?.[fileId] ?? rom.files[fileId] ?? new Uint8Array();

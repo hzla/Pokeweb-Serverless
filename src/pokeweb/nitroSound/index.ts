@@ -251,12 +251,13 @@ export function invalidateNitroSdatCache(project: ProjectState): void {
 async function loadNitroSdatFromProjectUncached(project: ProjectState): Promise<NitroSdat> {
   const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
   if (!romBytes) throw new Error("Original ROM bytes are not available; reload the ROM before previewing SDAT audio.");
-  const rom = new NintendoDSRom(romBytes);
+  // Parse as views and copy out only the SDAT, so the cached SDAT does not pin the whole ROM.
+  const rom = new NintendoDSRom(romBytes, { fileData: "view" });
   const namedSdat = listNamedRomFiles(rom.filenames)
     .filter((file) => file.path.toLowerCase().endsWith(".sdat"))
     .sort((a, b) => scoreSdatPath(a.path) - scoreSdatPath(b.path) || a.path.localeCompare(b.path))[0];
   if (namedSdat) {
-    const bytes = project.fileSystem?.replacements?.[namedSdat.id] ?? rom.files[namedSdat.id];
+    const bytes = project.fileSystem?.replacements?.[namedSdat.id] ?? rom.files[namedSdat.id]?.slice();
     if (!bytes) throw new Error(`Named SDAT file ${namedSdat.path} is missing from the ROM file table.`);
     const sdat = parseNitroSdat(bytes, namedSdat.path);
     sdat.sourceFileId = namedSdat.id;
@@ -265,7 +266,7 @@ async function loadNitroSdatFromProjectUncached(project: ProjectState): Promise<
 
   const scanned = rom.files.findIndex((file, fileId) => readAscii(project.fileSystem?.replacements?.[fileId] ?? file, 0, 4) === "SDAT");
   if (scanned >= 0) {
-    const sdat = parseNitroSdat(project.fileSystem?.replacements?.[scanned] ?? rom.files[scanned], `file ${scanned}`);
+    const sdat = parseNitroSdat(project.fileSystem?.replacements?.[scanned] ?? rom.files[scanned]!.slice(), `file ${scanned}`);
     sdat.sourceFileId = scanned;
     return sdat;
   }

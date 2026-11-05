@@ -1,10 +1,8 @@
 import { getTrainerFieldConditionsStatus } from "../pokeweb/trainerFieldConditionsModel";
-import { attachTrainerFieldInstaller, attachTrainerFieldSettings, renderTrainerFieldInstaller, renderTrainerFieldSettings } from "./trainerFieldConditions";
+import { attachTrainerFieldInstaller, renderTrainerFieldInstaller } from "./trainerFieldConditions";
 import { renderInlineStatus } from "./inlineStatus";
-import addIcon from "../assets/svgs/add.svg?raw";
 import { publicAsset } from "../assetUrl";
-import { trainerAbilitySlotMax } from "../pokeweb/cascadeWhiteModel";
-import { TRAINER_AIS, isGen5Project } from "../pokeweb/constants";
+import { BATTLE_TYPES, isGen5Project } from "../pokeweb/constants";
 import { enrichTrainerLocations } from "../pokeweb/docGeneratorModel";
 import { detectSpecifyTrainerNaturesPatch, specifyTrainerNatures } from "../pokeweb/romPatchModel";
 import { readGen5SavePokemon, type Gen5SavePokemon } from "../pokeweb/gen5SaveReader";
@@ -17,30 +15,28 @@ import {
   type TrainerScriptArchiveStatus,
 } from "../pokeweb/trainerScriptArchiveModel";
 import {
+  addTrainer,
   getTrainerAutofills,
   getTrainerCount,
   getTrainerRecord,
   trainerPokemonSpriteSlug,
-  type TrainerPokemonSlot,
   type TrainerRecord,
 } from "../pokeweb/trainerModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 import { observeNearViewport } from "./nearViewport";
 import { requestEncounterRoll } from "./encounterRollModal";
-import { attachTrainerInteractions, type TrainerPanel } from "./trainerInteractions";
+import { TRAINER_SPRITE_RENDER_VERSION, renderTrainerListRowContent } from "./trainerDetail";
+import { attachTrainerDetail, writeClipboardText, type TrainerSelection } from "./trainerInteractions";
 import { attachW2uSyncButton, renderW2uSyncButton } from "./w2uLocalSync";
-import {
-  genderedPokemonIcons,
-  getPokemonIconImage,
-  resolvePokemonSpriteId,
-  type PokemonIconVariant,
-  type RgbaImageData,
-} from "../pokeweb/pokemonSpriteModel";
+import { getPokemonIconImage, type PokemonIconVariant, type RgbaImageData } from "../pokeweb/pokemonSpriteModel";
+import "../styles/moveData.css";
+import "../styles/trainerData.css";
+import "../styles/textData.css";
 
 const TEST_BATTLE_TEAM_STORAGE_PREFIX = "pokeweb.testBattle.teamText";
 const TEST_BATTLE_BOX_STORAGE_PREFIX = "pokeweb.testBattle.box";
-const TRAINER_SPRITE_RENDER_VERSION = "gen5-mcss-ncec-v2";
+const trainerEditorState = new WeakMap<ProjectState, TrainerSelection & { testTeamOpen: boolean }>();
 const trainerSpriteInstallations = new WeakMap<HTMLElement, { disconnect: () => void }>();
 const trainerPokemonIconInstallations = new WeakMap<HTMLElement, { disconnect: () => void }>();
 
@@ -66,82 +62,209 @@ export function renderTrainerEditor(
   const trainerNaturePatchStatus = detectSpecifyTrainerNaturesPatch(project);
   const savedTestBattleTeamText = getTrainerTestBattleTeamText(project);
   autoEnrichTrainerLocations(project);
-  const trainerMoreContent = [
-    renderW2uSyncButton(project, ["trainers"]),
-    renderTrainerScriptArchivePanel(project),
+
+  // Trainer 0 is the game's empty placeholder record.
+  const count = getTrainerCount(project);
+  const ids = Array.from({ length: Math.max(0, count - (count > 1 ? 1 : 0)) }, (_unused, index) => index + (count > 1 ? 1 : 0));
+  const selection = trainerEditorState.get(project) ?? { trainerId: ids[0] ?? 0, slot: 0, testTeamOpen: false };
+  if (!ids.includes(selection.trainerId)) selection.trainerId = ids[0] ?? 0;
+  trainerEditorState.set(project, selection);
+
+  const records = ids.map((id) => getTrainerRecord(project, id, { includeTexts: false }));
+  const classNames = project.texts.banks.tr_classes ?? [];
+  const usedClasses = [...new Set(records.map((trainer) => Number(trainer.readable.class_id ?? trainer.raw.class ?? 0)))]
+    .sort((a, b) => String(classNames[a] ?? a).localeCompare(String(classNames[b] ?? b)) || a - b);
+  const tools = [
+    project.session.baseRom === "BW2" ? `<div class="td-tool"><div class="filter-title">Field conditions</div>${renderTrainerFieldInstaller(trainerFieldStatus, true)}</div>` : "",
     renderTrainerNaturePatchPanel(project, trainerNaturePatchStatus),
+    renderTrainerScriptArchivePanel(project),
+    renderW2uSyncButton(project, ["trainers"]),
   ].filter(Boolean).join("");
+
   root.innerHTML = `
-    <div class="pokemon-filter trainer-filter">
-      <div class="filter-title">Search</div>
-      <input class="filter-input" id="search-text"/>
-      <button class="btn -default" id="search-text-btn" type="button">Search</button>
-      <button class="btn -default trainer-add-button" id="add-trainer-btn" type="button" title="Clone the selected trainer, party, name slot, and dialogue table rows">
-        <span class="svg">${addIcon}</span>
-        Add Trainer
-      </button>
-      ${project.session.baseRom === "BW2" ? `<button class="btn -default" id="player-back-sprite-open" type="button">Player Back Sprite</button>` : ""}
-      <div class="trainer-test-team">
-        <div class="filter-title">Test Team</div>
-        <textarea id="test-battle-team-import" class="trainer-test-team-input" spellcheck="false" placeholder="Paste Showdown team import. Use Bulbasaur^1 for form 1. Exp: N sets exact total EXP instead of Level: N (Exp wins if both are present).">${escapeHtml(savedTestBattleTeamText)}</textarea>
-        ${isGen5Project(project) ? `
-          <div class="trainer-save-reader">
-            <input id="trainer-save-upload" class="trainer-save-upload" type="file" accept=".sav,.dsv,.srm,application/octet-stream" hidden>
-            <div class="trainer-save-actions">
-              <label class="btn -default trainer-save-upload-button" for="trainer-save-upload">Load Save</label>
-              <button class="btn -default trainer-roll-encounters-button" type="button" data-roll-encounters>Roll Encounters</button>
-              <span class="trainer-save-status" aria-live="polite"></span>
-            </div>
-            <div class="trainer-save-pokemon-box" aria-label="Pokemon from save" hidden></div>
-            <button class="btn -default trainer-box-copy-button" type="button" data-copy-showdown-box hidden>Copy Showdown Paste</button>
+    <div class="trainer-data" id="trainer-data">
+      <aside class="md-list" aria-label="Trainers">
+        <div class="md-filters">
+          <input class="md-search" id="search-text" type="search" placeholder="Search trainers, Pokémon, items, dialogue" autocomplete="off" spellcheck="false" aria-label="Search trainers">
+          <div class="md-chips td-filter-row">
+            <select data-trainer-filter="class" aria-label="Filter by class">
+              <option value="">All classes</option>
+              ${usedClasses.map((id) => `<option value="${id}">${escapeHtml(String(classNames[id] ?? `Class ${id}`))}</option>`).join("")}
+            </select>
+            <select data-trainer-filter="battle" aria-label="Filter by battle type">
+              <option value="">All battles</option>
+              ${BATTLE_TYPES.map((type) => `<option value="${escapeHtml(type)}">${escapeHtml(type)}</option>`).join("")}
+            </select>
           </div>
-        ` : ""}
-      </div>
-      ${project.session.baseRom === "BW2" ? renderTrainerFieldInstaller(trainerFieldStatus, true) : ""}
-      ${trainerMoreContent ? `
-        <details class="trainer-more-section">
-          <summary>More</summary>
-          <div class="trainer-more-content">${trainerMoreContent}</div>
-        </details>
-      ` : ""}
-    </div>
-    <div class="pokemon-list spreadsheet" id="trainers">
-      <div class="expanded-field field-header">
-        <div class="expanded-field-main">
-          <div class="trainer-id">ID</div>
-          <div class="trainer-name">Name</div>
-          <div class="trainer-class">Class</div>
-          <div class="trainer-btype">Battle Type</div>
-          <div class="trainer-moves">Moves</div>
-          <div class="trainer-items">Items</div>
-          <div class="trainer-poks">Pokemon</div>
         </div>
-      </div>
-      ${renderTrainerRows(project)}
+        <div class="md-rows" id="trainer-list" role="listbox" aria-label="Trainers" tabindex="0">
+          ${records.map((trainer) => renderTrainerListRow(project, trainer)).join("")}
+        </div>
+        <div class="md-list-foot" data-trainer-count></div>
+        ${tools ? `<details class="md-tools"><summary>Tools</summary><div class="td-tools">${tools}</div></details>` : ""}
+      </aside>
+      <section class="md-detail" id="trainer-detail"></section>
+      <aside class="td-drawer" data-test-team-drawer aria-label="Test team"${selection.testTeamOpen ? "" : " hidden"}>
+        <div class="td-drawer-head">
+          <h2>Test team</h2>
+          <button class="btn sm -ghost" type="button" data-test-team-close aria-label="Close test team">×</button>
+        </div>
+        <p class="td-note">Your side in Test battle. Paste a Showdown team; use Bulbasaur^1 for form 1, and Exp: N to set exact experience instead of Level: N.</p>
+        <div class="trainer-test-team">
+          <textarea id="test-battle-team-import" class="trainer-test-team-input" spellcheck="false" placeholder="Paste a Showdown team">${escapeHtml(savedTestBattleTeamText)}</textarea>
+          ${isGen5Project(project) ? `
+            <div class="trainer-save-reader">
+              <input id="trainer-save-upload" class="trainer-save-upload" type="file" accept=".sav,.dsv,.srm,application/octet-stream" hidden>
+              <div class="trainer-save-actions">
+                <label class="btn trainer-save-upload-button" for="trainer-save-upload">Load save</label>
+                <button class="btn trainer-roll-encounters-button" type="button" data-roll-encounters>Roll encounters</button>
+                <span class="trainer-save-status" aria-live="polite"></span>
+              </div>
+              <div class="trainer-save-pokemon-box" aria-label="Pokemon from save" hidden></div>
+              <button class="btn trainer-box-copy-button" type="button" data-copy-showdown-box hidden>Copy Showdown paste</button>
+            </div>
+          ` : ""}
+        </div>
+      </aside>
     </div>
   `;
+
+  const list = root.querySelector<HTMLElement>("#trainer-list")!;
+  const detail = root.querySelector<HTMLElement>("#trainer-detail")!;
+  const drawer = root.querySelector<HTMLElement>("[data-test-team-drawer]")!;
+  const countLabel = root.querySelector<HTMLElement>("[data-trainer-count]")!;
+  const searchInput = root.querySelector<HTMLInputElement>("#search-text")!;
+  const classFilter = root.querySelector<HTMLSelectElement>('[data-trainer-filter="class"]')!;
+  const battleFilter = root.querySelector<HTMLSelectElement>('[data-trainer-filter="battle"]')!;
+  const haystacks = new Map<number, string>();
+
+  const refreshRow = (trainerId: number) => {
+    haystacks.delete(trainerId);
+    const row = list.querySelector<HTMLElement>(`[data-trainer-row="${trainerId}"]`);
+    if (!row) return;
+    const template = document.createElement("template");
+    template.innerHTML = renderTrainerListRow(project, getTrainerRecord(project, trainerId, { includeTexts: false })).trim();
+    const next = template.content.firstElementChild as HTMLElement | null;
+    if (!next) return;
+    next.classList.toggle("is-selected", row.classList.contains("is-selected"));
+    next.setAttribute("aria-selected", row.getAttribute("aria-selected") ?? "false");
+    next.style.display = row.style.display;
+    row.replaceWith(next);
+  };
+
+  const controller = attachTrainerDetail(detail, project, selection, {
+    onDirty,
+    onTestBattle,
+    onOpenTrainerSprite,
+    onTrainerChanged: refreshRow,
+    getTestTeamText: () => getTrainerTestBattleTeamText(project, root),
+    autofills: getTrainerAutofills(project),
+    natureField: trainerNaturePatchStatus === "patched",
+  });
+
+  const filter = () => {
+    const terms = searchInput.value.split(",").map((term) => term.trim().toLowerCase()).filter(Boolean);
+    const classId = classFilter.value;
+    const battle = battleFilter.value;
+    let visible = 0;
+    list.querySelectorAll<HTMLElement>("[data-trainer-row]").forEach((row) => {
+      const trainerId = Number(row.dataset.trainerRow);
+      let show = (!classId || row.dataset.classId === classId) && (!battle || row.dataset.battleType === battle);
+      if (show && terms.length) {
+        let haystack = haystacks.get(trainerId);
+        if (haystack === undefined) {
+          haystack = [
+            JSON.stringify(getTrainerRecord(project, trainerId)),
+            ...(project.docs?.trainerLocations[String(trainerId)] ?? []),
+          ].join("\n").toLowerCase();
+          haystacks.set(trainerId, haystack);
+        }
+        show = terms.some((term) => haystack!.includes(term));
+      }
+      row.style.display = show ? "" : "none";
+      if (show) visible += 1;
+    });
+    countLabel.textContent = visible === ids.length ? `${ids.length} trainers` : `${visible} of ${ids.length} trainers`;
+  };
+
+  const select = (trainerId: number, fromKeyboard = false) => {
+    if (selection.trainerId !== trainerId) selection.slot = 0;
+    selection.trainerId = trainerId;
+    controller.render();
+    list.querySelectorAll<HTMLElement>("[data-trainer-row]").forEach((row) => {
+      const active = Number(row.dataset.trainerRow) === trainerId;
+      row.classList.toggle("is-selected", active);
+      row.setAttribute("aria-selected", String(active));
+      if (active && fromKeyboard) row.scrollIntoView({ block: "nearest" });
+    });
+  };
+
+  let searchTimer = 0;
+  searchInput.addEventListener("input", () => {
+    window.clearTimeout(searchTimer);
+    searchTimer = window.setTimeout(filter, 160);
+  });
+  classFilter.addEventListener("change", filter);
+  battleFilter.addEventListener("change", filter);
+  list.addEventListener("click", (event) => {
+    const row = (event.target as HTMLElement).closest<HTMLElement>("[data-trainer-row]");
+    if (row) select(Number(row.dataset.trainerRow));
+  });
+  list.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    event.preventDefault();
+    const rows = [...list.querySelectorAll<HTMLElement>("[data-trainer-row]")].filter((row) => row.style.display !== "none");
+    const index = rows.findIndex((row) => Number(row.dataset.trainerRow) === selection.trainerId);
+    const next = rows[Math.max(0, Math.min(rows.length - 1, index + (event.key === "ArrowDown" ? 1 : -1)))];
+    if (next) select(Number(next.dataset.trainerRow), true);
+  });
+
+  const setTestTeamOpen = (open: boolean) => {
+    selection.testTeamOpen = open;
+    drawer.hidden = !open;
+    document.querySelector<HTMLButtonElement>("#page-actions [data-trainer-team]")?.setAttribute("aria-pressed", String(open));
+    if (open) drawer.querySelector<HTMLTextAreaElement>("#test-battle-team-import")?.focus();
+  };
+  drawer.querySelector("[data-test-team-close]")?.addEventListener("click", () => setTestTeamOpen(false));
+
+  const pageActions = document.getElementById("page-actions");
+  if (pageActions) {
+    pageActions.innerHTML = `
+      <button class="btn" type="button" data-trainer-add title="Clone the selected trainer, its party, name slot and dialogue rows">Add trainer</button>
+      <button class="btn" type="button" data-trainer-team aria-pressed="${selection.testTeamOpen}" title="Your side in Test battle">Test team</button>
+    `;
+    pageActions.querySelector("[data-trainer-team]")?.addEventListener("click", () => setTestTeamOpen(!selection.testTeamOpen));
+    pageActions.querySelector("[data-trainer-add]")?.addEventListener("click", () => {
+      try {
+        const trainer = addTrainer(project, selection.trainerId);
+        ids.push(trainer.id);
+        list.insertAdjacentHTML("beforeend", renderTrainerListRow(project, trainer));
+        onDirty?.();
+        filter();
+        select(trainer.id, true);
+      } catch (error) {
+        window.alert(error instanceof Error ? error.message : String(error));
+      }
+    });
+  }
 
   installTrainerSpriteRendering(project, root);
   installTrainerPokemonIconRendering(project, root);
   installTrainerScriptArchiveControl(project, root, onDirty, onTestBattle, onOpenTrainerSprite, onOpenPlayerBackSprite);
   installTrainerNaturePatchControl(project, root, onDirty, onTestBattle, onOpenTrainerSprite, onOpenPlayerBackSprite, trainerNaturePatchStatus);
-  attachTrainerInteractions(root, project, {
-    onDirty,
-    onTestBattle,
-    onOpenTrainerSprite,
-    autofills: getTrainerAutofills(project),
-    renderRow: (trainerId) => renderTrainerRow(project, trainerId),
-    renderPanel: (trainerId, panel) => renderTrainerPanel(project, trainerId, panel),
-  });
   attachTrainerFieldInstaller(project, root, () => {
     onDirty?.();
     renderTrainerEditor(project, root, onDirty, onTestBattle, onOpenTrainerSprite, onOpenPlayerBackSprite);
   });
-  attachTrainerFieldSettings(project, root, onDirty);
   attachW2uSyncButton(root, project);
-  root.querySelector("#player-back-sprite-open")?.addEventListener("click", () => onOpenPlayerBackSprite?.());
   installTestBattleTeamPersistence(project, root);
   installTrainerSaveReader(project, root);
+  filter();
+  select(selection.trainerId, true);
+}
+
+export function renderTrainerListRow(project: ProjectState, trainer: TrainerRecord): string {
+  return `<div class="md-row td-row" role="option" aria-selected="false" data-trainer-row="${trainer.id}" data-class-id="${Number(trainer.readable.class_id ?? trainer.raw.class ?? 0)}" data-battle-type="${escapeHtml(String(trainer.readable.battle_type_1 ?? ""))}">${renderTrainerListRowContent(project, trainer)}</div>`;
 }
 
 function installTestBattleTeamPersistence(project: ProjectState, root: HTMLElement): void {
@@ -367,26 +490,6 @@ function showdownBlocks(text: string): string[] {
     .filter(Boolean);
 }
 
-async function writeClipboardText(text: string): Promise<void> {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return;
-  }
-
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  textarea.setAttribute("readonly", "true");
-  textarea.style.position = "fixed";
-  textarea.style.left = "-9999px";
-  document.body.appendChild(textarea);
-  textarea.select();
-  try {
-    if (!document.execCommand("copy")) throw new Error("Clipboard copy failed");
-  } finally {
-    textarea.remove();
-  }
-}
-
 function readSavedTrainerBox(project: ProjectState): TrainerBoxPokemon[] {
   if (typeof localStorage === "undefined") return [];
   try {
@@ -448,76 +551,28 @@ function testBattleTeamStorageKey(project: ProjectState): string {
   return `${TEST_BATTLE_TEAM_STORAGE_PREFIX}.${project.session.baseVersion}.${project.session.romName}`;
 }
 
-export function renderTrainerRow(project: ProjectState, trainerId: number): string {
-  return renderTrainerCard(project, getTrainerRecord(project, trainerId, { includeTexts: false }));
-}
+/** Inputs of the last enrichment; scanning every overworld and script takes ~0.5 s. */
+const trainerLocationSignatures = new WeakMap<ProjectState, string>();
 
-export function renderTrainerPanel(project: ProjectState, trainerId: number, panel: TrainerPanel): string {
-  const trainer = getTrainerRecord(project, trainerId, { includeTexts: panel === "trainer" });
-  if (panel === "trainer") return renderExpandedTrainer(project, trainer);
-  const pokemon = trainer.party.find((pok) => pok.slot === panel);
-  return pokemon ? renderTrainerPokemon(project, trainer, pokemon, detectSpecifyTrainerNaturesPatch(project) === "patched") : "";
-}
-
-function renderTrainerRows(project: ProjectState): string {
-  const rows: string[] = [];
-  for (let trainerId = 0; trainerId < getTrainerCount(project); trainerId += 1) rows.push(renderTrainerRow(project, trainerId));
-  return rows.join("");
-}
-
-function renderTrainerCard(project: ProjectState, trainer: TrainerRecord): string {
-  const trainerName = String(trainer.readable.name ?? `Trainer ${trainer.id}`);
-  return `
-    <div class="expanded-field filterable trainer-card" data-index="${trainer.id}">
-      <div class="expanded-field-main">
-        <div class="trainer-id">${trainer.id}</div>
-        <button class="field-btn test-battle-btn trainer-row-test-btn" type="button">Test</button>
-        <div class="trainer-name">
-          ${renderTrainerSprite(project, trainer)}
-          <span>${escapeHtml(trainerName)}${renderTrainerLocation(project, trainer.id)}</span>
-        </div>
-        ${editable("trdata", "class", `${trainer.readable.class ?? ""} (${trainer.readable.class_id ?? trainer.raw.class ?? 0})`, "trainer-class", { autofill: "class_names" })}
-        ${editable("trdata", "battle_type_1", trainer.readable.battle_type_1, "trainer-btype", { autofill: "battle_types" })}
-        <div class="trainer-moves">${checkbox("has_moves", trainer.hasMoves)}</div>
-        <div class="trainer-items">
-          <div class="add-trpok svg" data-narc="trpok" title="Add Pokemon">${addIcon}</div>
-          ${checkbox("has_items", trainer.hasItems)}
-        </div>
-        <div class="trainer-poks">
-          ${trainer.party.map((pok) => renderPartyPreview(project, pok)).join("")}
-        </div>
-      </div>
-    </div>
-  `;
+function trainerLocationSignature(project: ProjectState): string {
+  const stores = Object.entries(project.narcs)
+    .map(([name, store]) => `${name}:${store?.revision ?? 0}:${store?.fileCount ?? 0}`)
+    .sort()
+    .join(",");
+  const overlays = Object.entries(project.overlays ?? {}).map(([id, bytes]) => `${id}:${bytes?.length ?? 0}`).join(",");
+  return `${stores}|${overlays}`;
 }
 
 function autoEnrichTrainerLocations(project: ProjectState): void {
   if (!isGen5Project(project) || !project.narcs.headers || !project.narcs.overworlds) return;
+  const signature = trainerLocationSignature(project);
+  if (project.docs?.trainerLocations && trainerLocationSignatures.get(project) === signature) return;
   try {
     enrichTrainerLocations(project);
+    trainerLocationSignatures.set(project, signature);
   } catch (error) {
     console.warn("Failed to enrich trainer locations", error);
   }
-}
-
-function renderTrainerLocation(project: ProjectState, trainerId: number): string {
-  const source = project.docs?.trainerLocationSources?.[String(trainerId)]?.[0];
-  const location = source?.location ?? project.docs?.trainerLocations[String(trainerId)]?.[0];
-  if (!location) return "";
-  const label = escapeHtml(location);
-  if (!source) return ` - ${label}`;
-  return ` - <a class="trainer-location-link" href="#overworlds/${source.overworldId}" title="Open ${label} in the overworld editor">${label}</a>`;
-}
-
-function renderTrainerSprite(project: ProjectState, trainer: TrainerRecord): string {
-  if (!hasGen5TrainerSprites(project)) return `<img src="${trainer.spritePath}" loading="lazy" decoding="async" alt="" onerror="this.style.display='none'">`;
-  const trainerClassId = Number(trainer.readable.class_id ?? trainer.raw.class ?? 0);
-  const className = String(trainer.readable.class ?? `Trainer class ${trainerClassId}`);
-  return `
-    <button class="trainer-rom-sprite-link" type="button" data-trainer-class-id="${trainerClassId}" title="Edit ${escapeHtml(className)} sprite" aria-label="Edit ${escapeHtml(className)} sprite">
-      <canvas class="trainer-rom-sprite" data-trainer-class-id="${trainerClassId}" data-trainer-sprite-version="${TRAINER_SPRITE_RENDER_VERSION}" width="96" height="96" aria-hidden="true"></canvas>
-    </button>
-  `;
 }
 
 export function stopTrainerImageRendering(root: HTMLElement): void {
@@ -527,7 +582,7 @@ export function stopTrainerImageRendering(root: HTMLElement): void {
   trainerPokemonIconInstallations.delete(root);
 }
 
-function installTrainerSpriteRendering(project: ProjectState, root: HTMLElement): void {
+export function installTrainerSpriteRendering(project: ProjectState, root: HTMLElement): void {
   trainerSpriteInstallations.get(root)?.disconnect();
   if (!hasGen5TrainerSprites(project)) return;
 
@@ -642,89 +697,19 @@ function installTrainerPokemonIconRendering(project: ProjectState, root: HTMLEle
   });
 }
 
-function renderExpandedTrainer(project: ProjectState, trainer: TrainerRecord): string {
-  return `
-    <div class="expanded-card-content expanded-trainer">
-      <div class="expanded-left">
-        ${[1, 2, 3, 4]
-          .map((n) => expandedField(`Item ${n}`, editable("trdata", `item_${n}`, trainer.readable[`item_${n}`], "tr-item", { autofill: "items" })))
-          .join("")}
-        ${trainer.texts.length ? `<div class="show-bottom">Texts</div>` : ""}
-      </div>
-      <div class="expanded-left">
-        ${expandedField("Money", editable("trdata", "money", trainer.readable.money, "tr-item", { type: "int-255" }))}
-        ${expandedField("Reward", editable("trdata", "reward_item", trainer.readable.reward_item, "tr-item", { autofill: "items" }))}
-        ${expandedField("Heal?", editable("trdata", "heal", trainer.readable.heal, "tr-item", { type: "int-1" }))}
-      </div>
-      <div class="expanded-right trainer-ai" data-narc="trdata">
-        ${TRAINER_AIS.map((ai) => `<div class="choosable-text choosable-prop ${Number(trainer.readable[ai]) > 0 ? "-active" : ""}" data-field-name="${escapeHtml(ai)}" title="Right click to set for all trainers">${escapeHtml(ai)}</div>`).join("")}
-      </div>
-      ${renderTrainerFieldSettings(project, trainer.id)}
-      ${renderTrainerTexts(trainer)}
-    </div>
-  `;
-}
-
-function renderTrainerTexts(trainer: TrainerRecord): string {
-  if (trainer.texts.length === 0) return "";
-  return `
-    <div class="expanded-bottom trainer-texts">
-      ${trainer.texts
-        .map(
-          (line) => `
-            <div class="expanded-field">
-              <div class="expanded-field-main">
-                <div class="msg-id">${escapeHtml(`${line.label}${line.bankIndex === undefined ? "" : ` (${line.bankIndex})`}`)}</div>
-                ${editable("trtext", `text_${line.typeId}_entry_${line.entryIndex}`, line.value, `log-text no-validate empty-text ${line.exists ? "" : "-empty"}`)}
-                ${line.exists ? `<button class="field-btn del-btn delete-trtext" type="button" data-type-id="${line.typeId}" title="Delete trainer text row">Delete</button>` : ""}
-              </div>
-            </div>
-          `,
-        )
-        .join("")}
-    </div>
-  `;
-}
-
-function renderTrainerPokemon(project: ProjectState, trainer: TrainerRecord, pok: TrainerPokemonSlot, showNatureField: boolean): string {
-  return `
-    <div data-sub-index="${pok.slot}" class="expanded-card-subcontent expanded-pok expanded-pok-${pok.slot}">
-      <div class="expanded-left">
-        ${expandedField("Species", editable("trpok", `species_id_${pok.slot}`, pok.speciesName, "tr-item trpok-name", { autofill: "pokemon_names" }))}
-        ${expandedField("Level", editable("trpok", `level_${pok.slot}`, pok.level, "tr-item trpok-lvl", { type: "int-100" }))}
-        ${expandedField(`Ability Slot (${pok.abilityName})`, editable("trpok", `ability_${pok.slot}`, pok.abilitySlot, "tr-item", { type: `int-${trainerAbilitySlotMax(project)}` }))}
-        ${expandedField("Gender", editable("trpok", `gender_${pok.slot}`, pok.gender, "tr-item", { autofill: "genders" }))}
-        ${expandedField(`IVs: (${pok.nature})`, editable("trpok", `ivs_${pok.slot}`, pok.ivs, "tr-item", { type: "int-255" }), "iv-label")}
-        ${showNatureField ? expandedField("Nature", editable("trpok", `nature_${pok.slot}`, pok.natureSetting, "tr-item", { autofill: "natures" })) : ""}
-        ${expandedField("Form", editable("trpok", `form_${pok.slot}`, pok.form, "tr-item", { type: "int-255" }))}
-      </div>
-      <div class="expanded-left">
-        ${expandedField("Held Item", editable("trpok", `item_id_${pok.slot}`, trainer.hasItems ? pok.itemName : "", "tr-item", { autofill: "items", check: "has-items" }))}
-        ${[1, 2, 3, 4].map((move) => expandedField(`Move ${move}`, editable("trpok", `move_${move}_${pok.slot}`, trainer.hasMoves ? pok.moves[move - 1] : "", "tr-item trpok-mov", { autofill: "move_names", check: "has-moves" }))).join("")}
-        <div class="expanded-field btn-field-right multi">
-          <div class="autofill-btn field-btn" data-narc="trpok">Autofill Moves</div>
-          <div class="copy-showdown-btn field-btn" data-narc="trpok">Copy</div>
-          <button class="import-showdown-btn field-btn" type="button" data-narc="trpok">Import</button>
-          <div class="delete-trpok del-btn field-btn" data-narc="trpok">Delete</div>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
 function renderTrainerScriptArchivePanel(project: ProjectState): string {
   const status = getTrainerScriptArchiveStatus(project);
   if (!status.ok && status.reason === "unsupported") return "";
   const disabled = status.ok && status.canExpand ? "" : "disabled";
   return `
     <div class="trainer-script-panel">
-      <div class="filter-title">Global Scripts</div>
+      <div class="filter-title">Global scripts</div>
       <div class="trainer-script-status">
         ${renderInlineStatus(trainerScriptArchiveStatusLabel(status), { className: "patch-badge" })}
         <span>${status.ok ? `file ${status.scriptFileId}` : escapeHtml(project.session.baseVersion)}</span>
       </div>
       <div class="trainer-script-detail">${escapeHtml(formatTrainerScriptArchiveDetail(status))}</div>
-      <button class="btn -default trainer-script-expand-btn" id="trainer-script-expand-btn" type="button" ${disabled}>Expand Global Scripts</button>
+      <button class="btn -default trainer-script-expand-btn" id="trainer-script-expand-btn" type="button" ${disabled}>Expand global scripts</button>
     </div>
   `;
 }
@@ -734,7 +719,7 @@ function renderTrainerNaturePatchPanel(project: ProjectState, status: ReturnType
   const buttonDisabled = status === "patched" ? "disabled" : "";
   return `
     <div class="trainer-nature-patch-panel">
-      <div class="filter-title">Natures</div>
+      <div class="filter-title">Trainer natures</div>
       <div class="trainer-nature-patch-status">
         ${renderInlineStatus(trainerNatureStatusLabel(status), { className: "patch-badge" })}
         <span>${escapeHtml(project.session.baseVersion)}</span>
@@ -756,7 +741,7 @@ function installTrainerScriptArchiveControl(
   const button = root.querySelector<HTMLButtonElement>("#trainer-script-expand-btn");
   if (!button || !status.ok || !status.canExpand) return;
   button.addEventListener("click", () => {
-    const previousText = button.textContent ?? "Expand Global Scripts";
+    const previousText = button.textContent ?? "Expand global scripts";
     button.disabled = true;
     button.textContent = "Expanding...";
     try {
@@ -805,9 +790,9 @@ function trainerScriptArchiveStatusLabel(status: TrainerScriptArchiveStatus): st
     if (status.reason === "unrecognized") return "Unknown";
     return "Unsupported";
   }
-  if (status.outOfRangeTrainerIds.length) return "Range Limit";
-  if (status.needsExpansion) return "Needs Sync";
-  if (status.helperTrainerIds.length) return "Helper Slots";
+  if (status.outOfRangeTrainerIds.length) return "Range limit";
+  if (status.needsExpansion) return "Needs sync";
+  if (status.helperTrainerIds.length) return "Helper slots";
   return "Ready";
 }
 
@@ -822,57 +807,7 @@ function trainerNatureStatusLabel(status: ReturnType<typeof detectSpecifyTrainer
 
 function trainerNatureButtonLabel(status: ReturnType<typeof detectSpecifyTrainerNaturesPatch>): string {
   if (status === "patched") return "Applied";
-  if (status === "legacy") return "Migrate Patch";
-  return "Apply Patch";
+  if (status === "legacy") return "Migrate patch";
+  return "Apply patch";
 }
 
-function renderPartyPreview(project: ProjectState, pok: TrainerPokemonSlot): string {
-  const missingSprite = publicAsset("images/pokesprite/-.png");
-  let romIcon = "";
-  if (isGen5Project(project) && project.narcs.pokemon_icons) {
-    try {
-      const spriteId = resolvePokemonSpriteId(project, pok.speciesId, pok.form);
-      const variant: PokemonIconVariant = pok.gender === "Female" && genderedPokemonIcons(project, spriteId) ? "female" : "male";
-      romIcon = `<canvas class="trainer-pokemon-preview trainer-pokemon-rom-icon" data-trainer-pokemon-sprite-id="${spriteId}" data-trainer-pokemon-icon-variant="${variant}" data-show="pok-${pok.slot}" width="32" height="32" hidden aria-label="${escapeHtml(pok.speciesName)}"></canvas>`;
-    } catch {
-      // Keep the form-aware static sprite below as a fallback for incomplete ROM data.
-    }
-  }
-  return `
-    <div class="wild">
-      ${romIcon}
-      <img class="trainer-pokemon-preview trainer-pokemon-fallback-icon" data-trainer-image-src="${publicAsset(`images/pokesprite/${pok.spriteSlug}.png`)}" loading="lazy" decoding="async" alt="" data-show="pok-${pok.slot}" onerror="this.onerror=null;this.src='${missingSprite}'">
-    </div>
-  `;
-}
-
-function expandedField(label: string, value: string, labelClass = "expanded-trlabel"): string {
-  return `
-    <div class="expanded-field">
-      <div class="${labelClass}">${escapeHtml(label)}</div>
-      ${value}
-    </div>
-  `;
-}
-
-function editable(
-  narc: "trdata" | "trpok" | "trtext",
-  field: string,
-  value: unknown,
-  className: string,
-  options: { autofill?: string; type?: string; check?: string } = {},
-): string {
-  const autofill = options.autofill ? ` data-autocomplete-spy data-autofill="${options.autofill}"` : "";
-  const type = options.type ? ` data-type="${options.type}"` : "";
-  const check = options.check ? ` data-check="${options.check}"` : "";
-  return `<div autocorrect="off" data-narc="${narc}" data-field-name="${field}" class="${className}" contenteditable="true"${autofill}${type}${check}>${escapeHtml(String(value ?? ""))}</div>`;
-}
-
-function checkbox(field: string, checked: boolean): string {
-  return `
-    <label class="container" data-narc="trdata">
-      <input class="trainer-tmp-flag ${field.replace("_", "-")} choosable-prop ${checked ? "-active" : ""}" data-field-name="${field}" type="checkbox" ${checked ? "checked" : ""}>
-      <span class="checkmark"></span>
-    </label>
-  `;
-}

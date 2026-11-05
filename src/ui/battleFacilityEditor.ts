@@ -1,12 +1,12 @@
-import miscDataIcon from "../assets/svgs/misc_data.svg?raw";
 import { publicAsset } from "../assetUrl";
 import {
   FACILITY_CHOICE_LABELS,
   FACILITY_SET_LABELS,
-  facilityAreaPoolMatchesSearch,
-  facilityChoiceUsesTrainerClass,
+  defaultSetLibraryForChoice,
   evStatLabels,
+  facilityAreaPoolMatchesSearch,
   facilityChoiceMatchesSearch,
+  facilityChoiceUsesTrainerClass,
   facilityRegulationMatchesSearch,
   facilitySetMatchesSearch,
   getFacilityAreaPoolCount,
@@ -26,669 +26,718 @@ import {
   updateFacilityRegulationField,
   updateFacilitySetField,
   type BattleFacilityAreaPoolRecord,
-  type BattleFacilityGroup,
   type BattleFacilityChoiceRecord,
+  type BattleFacilityGroup,
   type BattleFacilityRegulationRecord,
   type BattleFacilitySet,
   type FacilityChoiceNarcName,
   type FacilitySetNarcName,
 } from "../pokeweb/battleFacilityModel";
+import { NATURES } from "../pokeweb/constants";
+import { getMovePreview } from "../pokeweb/pokemonModel";
 import type { ProjectState } from "../pokeweb/projectStore";
-import { escapeHtml } from "./dom";
+import { hasGen5TrainerSprites } from "../pokeweb/trainerSpriteModel";
+import { escapeHtml, selectText } from "./dom";
+import { TRAINER_SPRITE_RENDER_VERSION } from "./trainerDetail";
+import { installTrainerSpriteRendering } from "./trainerEditor";
+import { installPicker } from "./trainerInteractions";
+import "../styles/moveData.css";
+import "../styles/trainerData.css";
+import "../styles/facilityData.css";
 
 type FacilityMode = "sets" | "choices" | "areaPools" | "bosses" | "regulations";
-
-let activeMode: FacilityMode = "sets";
-let activeSetNarc: FacilitySetNarcName | undefined;
-let activeChoiceNarc: FacilityChoiceNarcName | undefined;
-let searchText = "";
+type FacilityKind = "set" | "choice" | "regulation" | "areaPool";
 
 type BattleFacilityEditorOptions = {
   group?: BattleFacilityGroup;
 };
 
-const GROUP_LABELS: Record<BattleFacilityGroup, string> = {
-  subwayPwt: "Subway / PWT",
-  wbt: "Black Tower / White Treehollow",
+type GroupState = {
+  mode: FacilityMode;
+  setNarc?: FacilitySetNarcName;
+  choiceNarc?: FacilityChoiceNarcName;
+  search: string;
+  /** Selected record per list ("sets:subway_sets" → id). */
+  selected: Record<string, number>;
 };
+
+const groupStates: Record<BattleFacilityGroup, GroupState> = {
+  subwayPwt: { mode: "sets", search: "", selected: {} },
+  wbt: { mode: "sets", search: "", selected: {} },
+};
+
+const REGULATION_LEVEL_RULES: Array<[number, string]> = [[0, "Normal"], [1, "Minimum"], [2, "Maximum"], [3, "Scale down"], [4, "Set level"], [5, "Scale up"]];
+const REGULATION_BATTLE_TYPES: Array<[number, string]> = [[0, "Single"], [1, "Double"], [2, "Triple"], [3, "Rotation"], [4, "Multi"], [5, "Shooter"]];
 
 export function renderBattleFacilityEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void, options: BattleFacilityEditorOptions = {}): void {
   const group = options.group ?? "subwayPwt";
+  const state = groupStates[group];
   const setNarcs = getFacilitySetNarcOptions(project, group);
   const choiceNarcs = getFacilityChoiceNarcOptions(project, group);
   const hasRegulations = group === "subwayPwt" && Boolean(project.narcs.regulations);
   const hasAreaPools = group === "wbt" && Boolean(project.narcs.wbt_area_pools);
-  activeSetNarc = activeSetNarc && setNarcs.includes(activeSetNarc) ? activeSetNarc : setNarcs[0];
-  activeChoiceNarc = activeChoiceNarc && choiceNarcs.includes(activeChoiceNarc) ? activeChoiceNarc : choiceNarcs[0];
-  if (activeMode === "bosses" && group !== "wbt") activeMode = "sets";
-  if (activeMode === "areaPools" && !hasAreaPools) activeMode = activeChoiceNarc ? "choices" : "sets";
-  if (activeMode === "regulations" && !hasRegulations) activeMode = activeSetNarc ? "sets" : "choices";
-  if (activeMode === "sets" && !activeSetNarc && activeChoiceNarc) activeMode = "choices";
-  if (activeMode === "sets" && !activeSetNarc && !activeChoiceNarc && hasAreaPools) activeMode = "areaPools";
-  if (activeMode === "sets" && !activeSetNarc && !activeChoiceNarc && hasRegulations) activeMode = "regulations";
-  if (activeMode === "choices" && !activeChoiceNarc && activeSetNarc) activeMode = "sets";
-  if (activeMode === "choices" && !activeChoiceNarc && !activeSetNarc && hasAreaPools) activeMode = "areaPools";
-  if (activeMode === "choices" && !activeChoiceNarc && !activeSetNarc && hasRegulations) activeMode = "regulations";
-  if (activeMode === "bosses" && !activeChoiceNarc && activeSetNarc) activeMode = "sets";
+  state.setNarc = state.setNarc && setNarcs.includes(state.setNarc) ? state.setNarc : setNarcs[0];
+  state.choiceNarc = state.choiceNarc && choiceNarcs.includes(state.choiceNarc) ? state.choiceNarc : choiceNarcs[0];
+  const available: Record<FacilityMode, boolean> = {
+    sets: Boolean(state.setNarc),
+    choices: Boolean(state.choiceNarc),
+    bosses: group === "wbt" && Boolean(state.choiceNarc),
+    areaPools: hasAreaPools,
+    regulations: hasRegulations,
+  };
+  if (!available[state.mode]) state.mode = (["sets", "choices", "areaPools", "regulations"] as FacilityMode[]).find((mode) => available[mode]) ?? "sets";
+
+  const modes: Array<[FacilityMode, string]> = group === "wbt"
+    ? [["sets", "Sets"], ["choices", "Trainers"], ["bosses", "Boss teams"], ["areaPools", "Area pools"]]
+    : [["sets", "Sets"], ["choices", "Choices"], ["regulations", "Regulations"]];
+  const pageActions = document.getElementById("page-actions");
+  if (pageActions) pageActions.innerHTML = "";
 
   root.innerHTML = `
-    <div class="pokemon-filter trainer-filter facility-filter">
-      <div class="filter-title">${escapeHtml(GROUP_LABELS[group])}</div>
-      <div class="facility-tabs">
-        <button class="btn -default facility-tab ${activeMode === "sets" ? "-active" : ""}" data-facility-mode="sets" type="button" ${setNarcs.length ? "" : "disabled"}>Sets</button>
-        <button class="btn -default facility-tab ${activeMode === "choices" ? "-active" : ""}" data-facility-mode="choices" type="button" ${choiceNarcs.length ? "" : "disabled"}>${group === "wbt" ? "Trainers" : "Choices"}</button>
-        ${group === "wbt" ? `<button class="btn -default facility-tab ${activeMode === "areaPools" ? "-active" : ""}" data-facility-mode="areaPools" type="button" ${hasAreaPools ? "" : "disabled"}>Area Pools</button>` : ""}
-        ${group === "subwayPwt" ? `<button class="btn -default facility-tab ${activeMode === "regulations" ? "-active" : ""}" data-facility-mode="regulations" type="button" ${hasRegulations ? "" : "disabled"}>Regulations</button>` : ""}
-        ${group === "wbt" ? `<button class="btn -default facility-tab ${activeMode === "bosses" ? "-active" : ""}" data-facility-mode="bosses" type="button" ${choiceNarcs.length ? "" : "disabled"}>Boss Teams</button>` : ""}
-      </div>
-      ${renderFacilityRelationshipGuide(group)}
-      ${renderArchiveSelect(project, setNarcs, choiceNarcs)}
-      <input class="filter-input" id="facility-search-text" value="${escapeHtml(searchText)}"/>
-      <button class="btn -default" id="facility-search-btn" type="button">Search</button>
+    <div class="facility-data" id="facility-data">
+      <aside class="md-list" aria-label="Records">
+        <div class="md-filters">
+          <div class="fd-modes" role="tablist" aria-label="Record type">
+            ${modes.map(([mode, label]) => `<button class="btn sm" type="button" role="tab" data-facility-mode="${mode}" aria-pressed="${state.mode === mode}" ${available[mode] ? "" : "disabled"}>${label}</button>`).join("")}
+          </div>
+          ${renderArchiveSelect(state, setNarcs, choiceNarcs)}
+          <input class="md-search" id="facility-search-text" type="search" value="${escapeHtml(state.search)}" placeholder="${escapeHtml(searchPlaceholder(state.mode))}" autocomplete="off" spellcheck="false" aria-label="Search records">
+        </div>
+        <div class="md-rows" id="facility-list" role="listbox" aria-label="Records" tabindex="0">${renderRows(project, state)}</div>
+        <div class="md-list-foot" data-facility-count></div>
+        <details class="md-tools"><summary>How these connect</summary><div class="fd-guide">${renderGuide(group)}</div></details>
+      </aside>
+      <section class="md-detail" id="facility-detail"></section>
     </div>
-    ${renderActivePanel(project, group)}
   `;
 
-  attachFacilityEvents(project, root, onDirty, options);
+  const list = root.querySelector<HTMLElement>("#facility-list")!;
+  const detail = root.querySelector<HTMLElement>("#facility-detail")!;
+  const countLabel = root.querySelector<HTMLElement>("[data-facility-count]")!;
+  const searchInput = root.querySelector<HTMLInputElement>("#facility-search-text")!;
+  const listKey = () => `${state.mode}:${state.mode === "sets" ? state.setNarc : state.mode === "choices" || state.mode === "bosses" ? state.choiceNarc : ""}`;
+  const rerender = () => renderBattleFacilityEditor(project, root, onDirty, options);
+
+  const filter = () => {
+    const query = state.search;
+    let visible = 0;
+    const rows = [...list.querySelectorAll<HTMLElement>("[data-record]")];
+    rows.forEach((row) => {
+      const show = !query.trim() || recordMatches(project, state, Number(row.dataset.record), query);
+      row.style.display = show ? "" : "none";
+      if (show) visible += 1;
+    });
+    const noun = state.mode === "sets" ? "sets" : state.mode === "regulations" ? "regulations" : state.mode === "areaPools" ? "area configs" : group === "wbt" ? "trainers" : "choices";
+    countLabel.textContent = visible === rows.length ? `${rows.length} ${noun}` : `${visible} of ${rows.length} ${noun}`;
+  };
+
+  const refreshRow = (id: number) => {
+    const row = list.querySelector<HTMLElement>(`[data-record="${id}"]`);
+    if (!row) return;
+    const template = document.createElement("template");
+    template.innerHTML = renderRow(project, state, id).trim();
+    const next = template.content.firstElementChild as HTMLElement | null;
+    if (!next) return;
+    next.classList.toggle("is-selected", row.classList.contains("is-selected"));
+    next.setAttribute("aria-selected", row.getAttribute("aria-selected") ?? "false");
+    next.style.display = row.style.display;
+    row.replaceWith(next);
+  };
+
+  const controller = attachFacilityDetail(detail, project, state, {
+    onDirty,
+    onRecordChanged: refreshRow,
+    jumpToSet: (narc, id) => {
+      state.mode = "sets";
+      state.setNarc = narc;
+      state.search = "";
+      state.selected[`sets:${narc}`] = id;
+      rerender();
+    },
+    jumpToChoice: (narc, id) => {
+      state.mode = "choices";
+      state.choiceNarc = narc;
+      state.search = "";
+      state.selected[`choices:${narc}`] = id;
+      rerender();
+    },
+  });
+
+  const select = (id: number, fromKeyboard = false) => {
+    state.selected[listKey()] = id;
+    controller.render(state.mode, id);
+    list.querySelectorAll<HTMLElement>("[data-record]").forEach((row) => {
+      const active = Number(row.dataset.record) === id;
+      row.classList.toggle("is-selected", active);
+      row.setAttribute("aria-selected", String(active));
+      if (active && fromKeyboard) row.scrollIntoView({ block: "nearest" });
+    });
+  };
+
+  root.querySelectorAll<HTMLButtonElement>("[data-facility-mode]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.mode = button.dataset.facilityMode as FacilityMode;
+      rerender();
+    });
+  });
+  root.querySelector<HTMLSelectElement>("[data-facility-archive]")?.addEventListener("change", (event) => {
+    const value = (event.currentTarget as HTMLSelectElement).value;
+    if (state.mode === "sets") state.setNarc = value as FacilitySetNarcName;
+    else state.choiceNarc = value as FacilityChoiceNarcName;
+    rerender();
+  });
+  let searchTimer = 0;
+  searchInput.addEventListener("input", () => {
+    window.clearTimeout(searchTimer);
+    searchTimer = window.setTimeout(() => {
+      state.search = searchInput.value;
+      filter();
+    }, 160);
+  });
+  list.addEventListener("click", (event) => {
+    const row = (event.target as HTMLElement).closest<HTMLElement>("[data-record]");
+    if (row) select(Number(row.dataset.record));
+  });
+  list.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    event.preventDefault();
+    const rows = [...list.querySelectorAll<HTMLElement>("[data-record]")].filter((row) => row.style.display !== "none");
+    const index = rows.findIndex((row) => row.classList.contains("is-selected"));
+    const next = rows[Math.max(0, Math.min(rows.length - 1, index + (event.key === "ArrowDown" ? 1 : -1)))];
+    if (next) select(Number(next.dataset.record), true);
+  });
+
+  installTrainerSpriteRendering(project, root);
+  filter();
+  const ids = [...list.querySelectorAll<HTMLElement>("[data-record]")].map((row) => Number(row.dataset.record));
+  const remembered = state.selected[listKey()];
+  const initial = remembered !== undefined && ids.includes(remembered) ? remembered : ids[0];
+  if (initial === undefined) detail.innerHTML = `<p class="td-empty">No records in this archive.</p>`;
+  else select(initial, true);
 }
 
-function renderFacilityRelationshipGuide(group: BattleFacilityGroup): string {
+// ---------- List ----------
+
+function renderArchiveSelect(state: GroupState, setNarcs: FacilitySetNarcName[], choiceNarcs: FacilityChoiceNarcName[]): string {
+  const choose = <T extends string>(names: T[], current: T | undefined, labels: Record<T, string>) => names.length > 1
+    ? `<select data-facility-archive aria-label="Archive">${names.map((name) => `<option value="${name}"${name === current ? " selected" : ""}>${escapeHtml(labels[name])}</option>`).join("")}</select>`
+    : "";
+  if (state.mode === "sets") return choose(setNarcs, state.setNarc, FACILITY_SET_LABELS);
+  if (state.mode === "choices" || state.mode === "bosses") return choose(choiceNarcs, state.choiceNarc, FACILITY_CHOICE_LABELS);
+  return "";
+}
+
+function searchPlaceholder(mode: FacilityMode): string {
+  if (mode === "sets") return "Search Pokémon, moves, items";
+  if (mode === "regulations") return "Search regulations";
+  if (mode === "areaPools") return "Search area configs";
+  return "Search trainers, set IDs";
+}
+
+function recordIds(project: ProjectState, state: GroupState): number[] {
+  const range = (count: number) => Array.from({ length: count }, (_unused, id) => id);
+  if (state.mode === "sets") return state.setNarc ? range(getFacilitySetCount(project, state.setNarc)) : [];
+  if (state.mode === "regulations") return range(getFacilityRegulationCount(project));
+  if (state.mode === "areaPools") return range(getFacilityAreaPoolCount(project));
+  if (!state.choiceNarc) return [];
+  const narc = state.choiceNarc;
+  const ids = range(getFacilityChoiceCount(project, narc));
+  return state.mode === "bosses" ? ids.filter((id) => isBossFacilityChoice(getFacilityChoiceRecord(project, narc, id))) : ids;
+}
+
+function renderRows(project: ProjectState, state: GroupState): string {
+  return recordIds(project, state).map((id) => renderRow(project, state, id)).join("");
+}
+
+function recordMatches(project: ProjectState, state: GroupState, id: number, query: string): boolean {
+  try {
+    if (state.mode === "sets") return facilitySetMatchesSearch(getFacilitySetRecord(project, state.setNarc!, id), query);
+    if (state.mode === "regulations") return facilityRegulationMatchesSearch(getFacilityRegulationRecord(project, id), query);
+    if (state.mode === "areaPools") return facilityAreaPoolMatchesSearch(getFacilityAreaPoolRecord(project, id), query);
+    return facilityChoiceMatchesSearch(getFacilityChoiceRecord(project, state.choiceNarc!, id), query);
+  } catch {
+    return false;
+  }
+}
+
+function editCount(project: ProjectState, prefix: string): number {
+  return (project.actionChangelog?.entries ?? []).filter((entry) => entry.key.startsWith(prefix)).length;
+}
+
+function editBadge(count: number): string {
+  return count ? `<span class="md-edits" title="${count} change${count === 1 ? "" : "s"}">${count}</span>` : "";
+}
+
+function renderRow(project: ProjectState, state: GroupState, id: number): string {
+  const open = (extra = "") => `<div class="md-row fd-row${extra}" role="option" aria-selected="false" data-record="${id}">`;
+  try {
+    if (state.mode === "sets") {
+      const set = getFacilitySetRecord(project, state.setNarc!, id);
+      return `${open()}
+        <span class="md-row-id">${id}</span>
+        ${pokemonIcon(set.spriteSlug, "fd-row-icon")}
+        <span class="md-row-name">${escapeHtml(set.speciesName || "—")}${editBadge(editCount(project, `facility-set:${set.narc}:${id}:`))}</span>
+        <span class="fd-row-aside">${escapeHtml(hasValue(set.itemName) ? set.itemName : "")}</span>
+      </div>`;
+    }
+    if (state.mode === "regulations") {
+      const record = getFacilityRegulationRecord(project, id);
+      return `${open()}
+        <span class="md-row-id">${id}</span>
+        <span></span>
+        <span class="md-row-name">${escapeHtml(record.label)}${editBadge(editCount(project, `facility-regulation:${id}:`))}</span>
+        <span class="fd-row-aside">${escapeHtml(record.battleTypeName)}</span>
+      </div>`;
+    }
+    if (state.mode === "areaPools") {
+      const record = getFacilityAreaPoolRecord(project, id);
+      return `${open()}
+        <span class="md-row-id">${id}</span>
+        <span></span>
+        <span class="md-row-name">Area config ${record.recordId}${editBadge(editCount(project, `facility-area-pool:${id}:`))}</span>
+        <span class="fd-row-aside">${record.pools.length} pools</span>
+      </div>`;
+    }
+    const choice = getFacilityChoiceRecord(project, state.choiceNarc!, id);
+    return `${open(" fd-row-tall")}
+      <span class="md-row-id">${id}</span>
+      <span class="td-row-sprite">${choiceSprite(project, choice)}</span>
+      <span class="td-row-main">
+        <span class="td-row-line">
+          <span class="md-row-name">${escapeHtml(choiceName(choice))}${editBadge(editCount(project, `facility-choice:${choice.narc}:${id}:`))}</span>
+          <span class="td-row-lv">${choice.setIds.length} set${choice.setIds.length === 1 ? "" : "s"}</span>
+        </span>
+        <span class="td-row-line"><span class="fd-row-sets">${choiceSetIcons(project, choice, 6)}</span></span>
+      </span>
+    </div>`;
+  } catch (error) {
+    return `${open()}<span class="md-row-id">${id}</span><span></span><span class="md-row-name fd-invalid">${escapeHtml(error instanceof Error ? error.message : "Unreadable record")}</span><span></span></div>`;
+  }
+}
+
+function choiceName(choice: BattleFacilityChoiceRecord): string {
+  return facilityChoiceUsesTrainerClass(choice.narc) ? choice.trainerTypeName : `Record ${choice.id}`;
+}
+
+function choiceSprite(project: ProjectState, choice: BattleFacilityChoiceRecord): string {
+  if (!facilityChoiceUsesTrainerClass(choice.narc) || !hasGen5TrainerSprites(project)) return "";
+  return `<canvas class="trainer-rom-sprite" data-trainer-class-id="${choice.trainerType}" data-trainer-sprite-version="${TRAINER_SPRITE_RENDER_VERSION}" width="96" height="96" aria-hidden="true"></canvas>`;
+}
+
+function choiceSetIcons(project: ProjectState, choice: BattleFacilityChoiceRecord, limit: number): string {
+  const library = choice.setLibrary;
+  if (!library) return "";
+  const icons = choice.setIds.slice(0, limit).map((setId) => {
+    try {
+      const set = getFacilitySetRecord(project, library, setId);
+      return pokemonIcon(set.spriteSlug, "fd-mini-icon", set.speciesName);
+    } catch {
+      return pokemonIcon("-", "fd-mini-icon", `Missing set ${setId}`);
+    }
+  });
+  const more = choice.setIds.length - limit;
+  return `${icons.join("")}${more > 0 ? `<span class="fd-more">+${more}</span>` : ""}`;
+}
+
+function pokemonIcon(spriteSlug: string, className: string, title = ""): string {
+  const missing = publicAsset("images/pokesprite/-.png");
+  return `<img class="${className}" src="${publicAsset(`images/pokesprite/${spriteSlug}.png`)}" alt="" loading="lazy" decoding="async"${title ? ` title="${escapeHtml(title)}"` : ""} onerror="this.onerror=null;this.src='${missing}'">`;
+}
+
+function renderGuide(group: BattleFacilityGroup): string {
   if (group === "subwayPwt") {
     return `
-      <aside class="facility-relationship-guide" aria-label="How Sets, Choices, and Regulations connect">
-        <div class="facility-relationship-title">How the tabs connect</div>
-        <p><strong>Choices → Sets:</strong> trainer choices reference Set IDs; Sets define each Pokemon build. PWT maps hold tournament/trainer assignments.</p>
-        <p><strong>Regulations are separate:</strong> they control battle rules such as level, format, and party size, but do not select opponents or teams.</p>
-        <p><strong>Kanto/Johto leaders:</strong> start with the PWT Map records in Choices, inspect the relevant 1v1/6v6 choice, then follow its Set IDs into Sets.</p>
-      </aside>
+      <p><strong>Choices → Sets.</strong> Each trainer choice lists the set IDs it can draw from; a set is one Pokémon build. PWT maps hold tournament and trainer assignments.</p>
+      <p><strong>Regulations</strong> set battle rules such as level, format and party size. They don't pick opponents or teams.</p>
     `;
   }
   return `
-    <aside class="facility-relationship-guide" aria-label="How Sets, Trainers, and Area Pools connect">
-      <div class="facility-relationship-title">How the tabs connect</div>
-      <p><strong>Area Pools → Trainers → Sets:</strong> areas select trainer records, and each trainer references the Set IDs used to build its Pokemon.</p>
-      <p><strong>Boss Teams</strong> is a filtered view of the same trainer records.</p>
-    </aside>
+    <p><strong>Area pools → Trainers → Sets.</strong> Areas pick trainer records, and each trainer lists the set IDs used to build its Pokémon.</p>
+    <p><strong>Boss teams</strong> are the same trainer records, filtered to bosses.</p>
   `;
 }
 
-function renderArchiveSelect(project: ProjectState, setNarcs: FacilitySetNarcName[], choiceNarcs: FacilityChoiceNarcName[]): string {
-  if (activeMode === "sets") {
+// ---------- Detail ----------
+
+type FacilityDetailOptions = {
+  onDirty?: () => void;
+  onRecordChanged: (id: number) => void;
+  jumpToSet: (narc: FacilitySetNarcName, id: number) => void;
+  jumpToChoice: (narc: FacilityChoiceNarcName, id: number) => void;
+};
+
+const detailControllers = new WeakMap<HTMLElement, AbortController>();
+
+function attachFacilityDetail(detail: HTMLElement, project: ProjectState, state: GroupState, options: FacilityDetailOptions) {
+  detailControllers.get(detail)?.abort();
+  const controller = new AbortController();
+  detailControllers.set(detail, controller);
+  const { signal } = controller;
+  const autofills = getFacilityAutofills(project) as unknown as Record<string, string[]>;
+  let current: { mode: FacilityMode; id: number } | undefined;
+
+  const html = () => {
+    if (!current) return "";
+    try {
+      return renderDetail(project, state, current.mode, current.id);
+    } catch (error) {
+      return `<p class="td-empty fd-invalid">${escapeHtml(error instanceof Error ? error.message : String(error))}</p>`;
+    }
+  };
+
+  const markPrefix = () => {
+    const card = detail.querySelector<HTMLElement>(".fd-card");
+    return card?.dataset.markPrefix ?? "";
+  };
+
+  const refreshMarks = () => {
+    const prefix = markPrefix();
+    if (!prefix) return;
+    const edited = new Set((project.actionChangelog?.entries ?? []).filter((entry) => entry.key.startsWith(prefix)).map((entry) => entry.key.slice(prefix.length)));
+    detail.querySelectorAll<HTMLElement>("[data-mark-fields]").forEach((element) => {
+      element.classList.toggle("is-edited", (element.dataset.markFields ?? "").split("|").some((field) => edited.has(field)));
+    });
+  };
+
+  const install = (container: HTMLElement) => {
+    container.querySelectorAll<HTMLElement>("[contenteditable='true'][data-field-name]").forEach((field) => {
+      if (field.dataset.facilityInstalled === "true") return;
+      field.dataset.facilityInstalled = "true";
+      let initial = field.textContent?.trim() ?? "";
+      const picker = field.dataset.autofill ? installPicker(field, autofills[field.dataset.autofill] ?? []) : undefined;
+      field.addEventListener("focus", () => {
+        initial = field.textContent?.trim() ?? "";
+        window.setTimeout(() => {
+          if (document.activeElement === field) selectText(field);
+        }, 0);
+        picker?.open();
+      });
+      field.addEventListener("input", () => {
+        field.classList.remove("invalid");
+        delete field.dataset.commitValue;
+        delete field.dataset.commitLabel;
+      });
+      field.addEventListener("keydown", (event) => {
+        if (picker?.handleKey(event)) return;
+        if (event.key === "Enter" && !field.classList.contains("fd-hex")) {
+          event.preventDefault();
+          field.blur();
+        } else if (event.key === "Escape") {
+          field.textContent = initial;
+          field.blur();
+        }
+      });
+      field.addEventListener("blur", () => {
+        picker?.close();
+        let value = field.textContent?.trim() ?? "";
+        if (field.dataset.commitValue !== undefined && field.dataset.commitLabel === value) value = field.dataset.commitValue;
+        else if (value === initial) return;
+        if (commit(field, value)) initial = field.textContent?.trim() ?? "";
+        else field.textContent = initial;
+      });
+    });
+  };
+
+  /** Apply a re-render without replacing focusable elements when the layout is unchanged. */
+  const refresh = () => {
+    const next = document.createElement("template");
+    next.innerHTML = html();
+    const signature = (scope: ParentNode) => [...scope.querySelectorAll<HTMLElement>("[data-field-name], [data-jump-set], [data-jump-choice]")].map((element) => `${element.tagName}:${element.dataset.fieldName ?? ""}`).join(",");
+    if (signature(next.content) !== signature(detail)) {
+      const scrollTop = detail.scrollTop;
+      detail.innerHTML = next.innerHTML;
+      install(detail);
+      detail.scrollTop = scrollTop;
+    } else {
+      next.content.querySelectorAll<HTMLElement>("[data-derived]").forEach((source) => {
+        const target = detail.querySelector<HTMLElement>(`[data-derived="${source.dataset.derived}"]`);
+        if (target) target.innerHTML = source.innerHTML;
+      });
+      next.content.querySelectorAll<HTMLElement>("[data-field-name]").forEach((source) => {
+        const target = detail.querySelector<HTMLElement>(`${source.tagName.toLowerCase()}[data-field-name="${source.dataset.fieldName}"]`);
+        if (!target || target === document.activeElement) return;
+        if (target instanceof HTMLSelectElement && source instanceof HTMLSelectElement) {
+          target.innerHTML = source.innerHTML;
+          target.value = source.value;
+        } else if (target instanceof HTMLInputElement && source instanceof HTMLInputElement) target.checked = source.checked;
+        else target.textContent = source.textContent;
+      });
+    }
+    refreshMarks();
+  };
+
+  const commit = (field: HTMLElement, value: string | boolean): boolean => {
+    const card = field.closest<HTMLElement>(".fd-card");
+    if (!card || !current) return false;
+    const kind = card.dataset.kind as FacilityKind;
+    const id = Number(card.dataset.index);
+    const fieldName = field.dataset.fieldName ?? "";
+    try {
+      if (kind === "set") updateFacilitySetField(project, card.dataset.narc as FacilitySetNarcName, id, fieldName, value);
+      else if (kind === "choice") updateFacilityChoiceField(project, card.dataset.narc as FacilityChoiceNarcName, id, fieldName, String(value));
+      else if (kind === "areaPool") updateFacilityAreaPoolValue(project, id, Number(field.dataset.offset), String(value));
+      else updateFacilityRegulationField(project, id, fieldName, String(value));
+      field.classList.remove("invalid");
+      field.removeAttribute("title");
+      options.onDirty?.();
+      options.onRecordChanged(id);
+      window.setTimeout(refresh, 0);
+      return true;
+    } catch (error) {
+      field.classList.add("invalid");
+      field.title = error instanceof Error ? error.message : String(error);
+      return false;
+    }
+  };
+
+  detail.addEventListener("change", (event) => {
+    const target = event.target as HTMLElement;
+    if (target instanceof HTMLSelectElement && target.dataset.fieldName) {
+      if (!commit(target, target.value)) refresh();
+    } else if (target instanceof HTMLInputElement && target.type === "checkbox" && target.dataset.fieldName) {
+      if (!commit(target, target.checked)) refresh();
+    }
+  }, { signal });
+
+  detail.addEventListener("click", (event) => {
+    const target = event.target as HTMLElement;
+    const setJump = target.closest<HTMLElement>("[data-jump-set]");
+    if (setJump) {
+      options.jumpToSet(setJump.dataset.jumpSet as FacilitySetNarcName, Number(setJump.dataset.setId));
+      return;
+    }
+    const choiceJump = target.closest<HTMLElement>("[data-jump-choice]");
+    if (choiceJump) options.jumpToChoice(choiceJump.dataset.jumpChoice as FacilityChoiceNarcName, Number(choiceJump.dataset.choiceId));
+  }, { signal });
+
+  return {
+    render: (mode: FacilityMode, id: number) => {
+      current = { mode, id };
+      detail.innerHTML = html();
+      install(detail);
+      refreshMarks();
+      detail.scrollTop = 0;
+    },
+  };
+}
+
+function renderDetail(project: ProjectState, state: GroupState, mode: FacilityMode, id: number): string {
+  if (mode === "sets") return renderSetDetail(project, state.setNarc!, id);
+  if (mode === "regulations") return renderRegulationDetail(getFacilityRegulationRecord(project, id));
+  if (mode === "areaPools") return renderAreaPoolDetail(getFacilityAreaPoolRecord(project, id));
+  return renderChoiceDetail(project, getFacilityChoiceRecord(project, state.choiceNarc!, id));
+}
+
+function renderSetDetail(project: ProjectState, narc: FacilitySetNarcName, id: number): string {
+  const set = getFacilitySetRecord(project, narc, id);
+  const evLabels = evStatLabels();
+  const evCount = set.evStats.filter(Boolean).length;
+  const evShare = evCount ? Math.floor(510 / evCount) : 0;
+  return `
+    <article class="fd-card" data-kind="set" data-narc="${narc}" data-index="${id}" data-mark-prefix="facility-set:${narc}:${id}:">
+      ${renderHead(`<span data-derived="sprite">${pokemonIcon(set.spriteSlug, "fd-head-icon")}</span>`, `<span data-derived="title">${escapeHtml(set.speciesName || "—")}</span>`, id, FACILITY_SET_LABELS[narc])}
+      <div class="fd-body">
+        <section>
+          <div class="section-bar">Set</div>
+          <div class="md-form">
+            ${formRow("Species", "species", editable("set", "species", set.speciesName, { autofill: "pokemon_names" }))}
+            ${formRow("Held item", "item", editable("set", "item", set.itemName, { autofill: "items" }))}
+            ${formRow("Nature", "nature", select("nature", NATURES.map((nature) => [nature, nature]), set.natureName))}
+            ${formRow("Form", "form", editable("set", "form", set.form, { type: "int-65535" }))}
+          </div>
+          <div class="section-bar md-gap">EVs<span class="td-bar-note" data-derived="ev-note">${evCount ? `510 split evenly: ${evShare} each` : "None"}</span></div>
+          <div class="fd-evs">
+            ${evLabels.map((label, index) => `
+              <label class="md-check td-check" data-mark-fields="ev_${index}|evSpread|rawHex">
+                <input type="checkbox" data-field-name="ev_${index}" ${set.evStats[index] ? "checked" : ""}>
+                <span>${escapeHtml(label)}</span>
+              </label>
+            `).join("")}
+          </div>
+        </section>
+        <section>
+          ${renderMoveTable(project, set)}
+          <div class="section-bar md-gap">Used by</div>
+          <div class="fd-used-by">${renderSetUsers(project, narc, id)}</div>
+        </section>
+      </div>
+      ${renderRaw("set", set.rawHex)}
+    </article>
+  `;
+}
+
+function renderMoveTable(project: ProjectState, set: BattleFacilitySet): string {
+  const rows = set.moves.map((move, index) => {
+    const preview = move.id > 0 ? getMovePreview(project, move.id) : undefined;
+    const power = String(preview?.power ?? "");
     return `
-      <label class="facility-select-label">
-        <span>Archive</span>
-        <select id="facility-set-narc">
-          ${setNarcs.map((name) => `<option value="${name}" ${name === activeSetNarc ? "selected" : ""}>${escapeHtml(FACILITY_SET_LABELS[name])}</option>`).join("")}
-        </select>
-      </label>
+      <tr data-mark-fields="move_${index}|rawHex">
+        <td>${editable("set", `move_${index}`, move.name, { autofill: "move_names" })}</td>
+        <td data-derived="m${index}-type">${preview?.type ? `<span class="type-plate sm -${preview.type.toLowerCase().replace(/[^a-z0-9_-]+/gu, "")}">${escapeHtml(preview.type)}</span>` : ""}</td>
+        <td class="td-move-cat" data-derived="m${index}-cat">${escapeHtml(preview?.category ? preview.category.charAt(0).toUpperCase() + preview.category.slice(1).toLowerCase() : "")}</td>
+        <td class="r" data-derived="m${index}-pow">${escapeHtml(power === "0" ? "—" : power)}</td>
+      </tr>
     `;
-  }
-  if (activeMode === "regulations") {
-    return `
-      <div class="facility-select-label">
-        <span>Archive</span>
-        <div class="facility-readonly facility-archive-note">Battle Regulations (${getFacilityRegulationCount(project)} records)</div>
-        <div class="facility-warning facility-regulation-safety-note">Pokemon count changes are unsafe unless matching code-injection edits update the battle mode team-size logic and opponent generation limits.</div>
-      </div>
-    `;
-  }
-  if (activeMode === "areaPools") {
-    return `
-      <div class="facility-select-label">
-        <span>Archive</span>
-        <div class="facility-readonly facility-archive-note">Black Tower / White Treehollow Area Pools (${getFacilityAreaPoolCount(project)} records)</div>
-        <div class="facility-warning facility-regulation-safety-note">Trainer pool entries are inferred from 20-set WBT trainer records inside the area configuration archive. Control values are visible but read-only.</div>
-      </div>
-    `;
-  }
+  }).join("");
   return `
-    <label class="facility-select-label">
-      <span>Archive</span>
-      <select id="facility-choice-narc">
-        ${choiceNarcs.map((name) => `<option value="${name}" ${name === activeChoiceNarc ? "selected" : ""}>${escapeHtml(FACILITY_CHOICE_LABELS[name])}</option>`).join("")}
-      </select>
-    </label>
+    <table class="md-table td-move-table" aria-label="Moves">
+      <thead><tr><th>Moves</th><th>Type</th><th>Category</th><th class="r">Power</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
   `;
 }
 
-function renderActivePanel(project: ProjectState, group: BattleFacilityGroup): string {
-  if (activeMode === "sets") {
-    if (!activeSetNarc) return `<div class="pokemon-list spreadsheet"><div class="facility-empty">No facility set archives are loaded.</div></div>`;
-    return renderSetPanel(project, activeSetNarc);
-  }
-  if (activeMode === "regulations") {
-    if (!project.narcs.regulations) return `<div class="pokemon-list spreadsheet"><div class="facility-empty">No regulation archive is loaded.</div></div>`;
-    return renderRegulationPanel(project);
-  }
-  if (activeMode === "areaPools") {
-    if (!project.narcs.wbt_area_pools) return `<div class="pokemon-list spreadsheet"><div class="facility-empty">No Black Tower / White Treehollow area pool archive is loaded.</div></div>`;
-    return renderAreaPoolPanel(project);
-  }
-  if (!activeChoiceNarc) return `<div class="pokemon-list spreadsheet"><div class="facility-empty">No facility choice archives are loaded.</div></div>`;
-  return renderChoicePanel(project, activeChoiceNarc, activeMode === "bosses", group);
-}
-
-function renderSetPanel(project: ProjectState, narc: FacilitySetNarcName): string {
-  const rows: string[] = [];
-  const count = getFacilitySetCount(project, narc);
-  for (let id = 0; id < count; id += 1) {
-    const set = getFacilitySetRecord(project, narc, id);
-    if (facilitySetMatchesSearch(set, searchText)) rows.push(renderSetCard(set));
-  }
-  return `
-    <div class="pokemon-list spreadsheet facility-list" id="facility-sets">
-      <div class="expanded-field field-header">
-        <div class="expanded-field-main facility-set-main">
-          <div class="trainer-id">ID</div>
-          <div class="trainer-name">Pokemon</div>
-          <div class="trainer-poks">Moves</div>
-          <div class="trainer-class">Item</div>
-          <div class="trainer-btype">Nature</div>
-          <div class="trainer-items">EVs</div>
-          <div class="trainer-moves">Form</div>
-        </div>
-      </div>
-      ${rows.join("") || `<div class="facility-empty">No matching sets.</div>`}
-    </div>
-  `;
-}
-
-function renderRegulationPanel(project: ProjectState): string {
-  const rows: string[] = [];
-  const count = getFacilityRegulationCount(project);
-  for (let id = 0; id < count; id += 1) {
-    const record = getFacilityRegulationRecord(project, id);
-    if (facilityRegulationMatchesSearch(record, searchText)) rows.push(renderRegulationCard(record));
-  }
-  return `
-    <div class="pokemon-list spreadsheet facility-list" id="facility-regulations">
-      <div class="expanded-field field-header">
-        <div class="expanded-field-main facility-regulation-main">
-          <div class="trainer-id">ID</div>
-          <div class="trainer-name">Regulation</div>
-          <div class="trainer-class">Pokemon</div>
-          <div class="trainer-btype">Level</div>
-          <div class="trainer-poks">Mode</div>
-          <div class="trainer-items">Total Lv.</div>
-          <div class="trainer-moves">Battle</div>
-        </div>
-      </div>
-      ${rows.join("") || `<div class="facility-empty">No matching regulations.</div>`}
-    </div>
-  `;
-}
-
-function renderAreaPoolPanel(project: ProjectState): string {
-  const rows: string[] = [];
-  const count = getFacilityAreaPoolCount(project);
-  for (let id = 0; id < count; id += 1) {
-    const record = getFacilityAreaPoolRecord(project, id);
-    if (facilityAreaPoolMatchesSearch(record, searchText)) rows.push(renderAreaPoolCard(record));
-  }
-  return `
-    <div class="pokemon-list spreadsheet facility-list" id="facility-area-pools">
-      <div class="expanded-field field-header">
-        <div class="expanded-field-main facility-area-pool-main">
-          <div class="trainer-id">ID</div>
-          <div class="trainer-name">Record</div>
-          <div class="trainer-class">Header</div>
-          <div class="trainer-poks">Pools</div>
-        </div>
-      </div>
-      ${rows.join("") || `<div class="facility-empty">No matching area pools.</div>`}
-    </div>
-  `;
-}
-
-function renderChoicePanel(project: ProjectState, narc: FacilityChoiceNarcName, bossesOnly: boolean, group: BattleFacilityGroup): string {
-  const rows: string[] = [];
-  const count = getFacilityChoiceCount(project, narc);
-  for (let id = 0; id < count; id += 1) {
-    const choice = getFacilityChoiceRecord(project, narc, id);
-    if (bossesOnly && !isBossFacilityChoice(choice)) continue;
-    if (facilityChoiceMatchesSearch(choice, searchText)) rows.push(renderChoiceCard(project, choice));
-  }
-  return `
-    <div class="pokemon-list spreadsheet facility-list" id="facility-choices">
-      <div class="expanded-field field-header">
-        <div class="expanded-field-main facility-choice-main">
-          <div class="trainer-id">ID</div>
-          <div class="facility-choice-icon-header"></div>
-          <div class="trainer-name">Record</div>
-          <div class="trainer-class" ${facilityChoiceUsesTrainerClass(narc) ? "" : `title="Raw PWT record metadata; this is not a trainer class."`}>${facilityChoiceUsesTrainerClass(narc) ? "Trainer Class" : "Header"}</div>
-          <div class="trainer-btype">Set Count</div>
-          <div class="trainer-poks">Sets</div>
-          <div class="trainer-moves">Size</div>
-        </div>
-      </div>
-      ${rows.join("") || `<div class="facility-empty">No matching ${bossesOnly ? "boss team" : group === "wbt" ? "trainer" : "choice"} records.</div>`}
-    </div>
-  `;
-}
-
-function renderRegulationCard(record: BattleFacilityRegulationRecord): string {
-  return `
-    <div class="expanded-field filterable trainer-card facility-card ${record.note ? "facility-regulation-special" : ""}" data-facility-kind="regulation" data-index="${record.id}">
-      <div class="expanded-field-main facility-regulation-main">
-        <div class="trainer-id">${record.id}</div>
-        <div class="trainer-name">
-          <strong>${escapeHtml(record.label)}</strong>
-          ${record.note ? `<span class="facility-regulation-note">${escapeHtml(record.note)}</span>` : ""}
-        </div>
-        <div class="trainer-class facility-regulation-counts">
-          ${editable("regulation", "numLo", record.numLo, "facility-small-int", { type: "int-255" })}
-          <span>to</span>
-          ${editable("regulation", "numHi", record.numHi, "facility-small-int", { type: "int-255" })}
-        </div>
-        ${editable("regulation", "level", record.level, "trainer-btype facility-level-edit", { type: "int-255" })}
-        ${regulationLevelRangeSelect(record)}
-        ${editable("regulation", "levelTotal", record.levelTotal, "trainer-items", { type: "int-65535" })}
-        <div class="trainer-moves facility-regulation-battle">
-          ${regulationBattleTypeSelect(record)}
-          ${editable("regulation", "battleCount", record.battleCount, "facility-small-int", { type: "int-255" })}
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function renderSetCard(set: BattleFacilitySet): string {
-  const missingSprite = publicAsset("images/pokesprite/-.png");
-  return `
-    <div class="expanded-field filterable trainer-card facility-card" data-facility-kind="set" data-narc="${set.narc}" data-index="${set.id}">
-      <div class="expanded-field-main facility-set-main">
-        <div class="trainer-id">${set.id}</div>
-        <div class="trainer-name facility-species-cell">
-          <img src="${publicAsset(`images/pokesprite/${set.spriteSlug}.png`)}" alt="" onerror="this.src='${missingSprite}'">
-          ${editable("set", "species", set.speciesName, "tr-item trpok-name", { autofill: "pokemon_names" })}
-        </div>
-        <div class="trainer-poks facility-move-list">
-          ${set.moves.map((move, index) => editable("set", `move_${index}`, move.name, "tr-item trpok-mov", { autofill: "move_names" })).join("")}
-        </div>
-        ${editable("set", "item", set.itemName, "trainer-class", { autofill: "items" })}
-        ${editable("set", "nature", set.natureName, "trainer-btype", { autofill: "natures" })}
-        <div class="trainer-items facility-ev-summary">${renderEvSummary(set)}</div>
-        ${editable("set", "form", set.form, "trainer-moves", { type: "int-65535" })}
-      </div>
-    </div>
-  `;
-}
-
-function renderChoiceCard(project: ProjectState, choice: BattleFacilityChoiceRecord): string {
-  const invalidClass = choice.invalidSetIds.length ? " -invalid" : "";
-  return `
-    <div class="expanded-field filterable trainer-card facility-card" data-facility-kind="choice" data-narc="${choice.narc}" data-index="${choice.id}">
-      <div class="expanded-field-main facility-choice-main">
-        <div class="trainer-id">${choice.id}</div>
-        <div class="move-info expand-action expand-trainer svg no-fill" data-expand="trainer">${miscDataIcon}</div>
-        <div class="trainer-name">${escapeHtml(choice.label)}</div>
-        ${trainerTypeEdit(choice)}
-        ${editable("choice", "count", choice.count, "trainer-btype", { type: "int-65535" })}
-        <div class="trainer-poks facility-setids${invalidClass}">${renderChoiceSetSpritePreview(project, choice)}</div>
-        <div class="trainer-moves facility-readonly" title="Record byte length. For source-backed Subway records this is 4 bytes plus 2 bytes for each set ID.">${choice.byteLength}</div>
-      </div>
-      <div class="expanded-card-content expanded-trainer">
-        <div class="facility-choice-fields facility-choice-sets">
-          <div class="facility-choice-section-title">Sets (${choice.setIds.length}${choice.setIds.length === choice.count ? "" : ` / ${choice.count}`})</div>
-          <div class="facility-choice-set-table-host" data-choice-set-table-host>Expand this trainer to load editable set rows.</div>
-        </div>
-        ${renderChoiceExtras(choice)}
-        <div class="expanded-bottom trainer-texts facility-raw">
-          ${expandedField("Raw Hex", editable("choice", "rawHex", choice.rawHex, "log-text no-validate facility-hex"))}
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function renderAreaPoolCard(record: BattleFacilityAreaPoolRecord): string {
-  return `
-    <div class="expanded-field filterable trainer-card facility-card" data-facility-kind="areaPool" data-index="${record.id}">
-      <div class="expanded-field-main facility-area-pool-main">
-        <div class="trainer-id">${record.id}</div>
-        <div class="trainer-name">
-          <strong>Area Config ${record.recordId}</strong>
-          <span class="facility-area-meta">${record.byteLength} bytes</span>
-        </div>
-        <div class="trainer-class facility-area-header">${record.headerValues.slice(0, 9).map((value) => escapeHtml(String(value))).join(" ")}</div>
-        <div class="trainer-poks facility-area-pool-list">${record.pools.map((pool) => renderAreaPool(pool.index, pool.startOffset, pool.values, pool.trainerRefCount)).join("")}</div>
-      </div>
-    </div>
-  `;
-}
-
-function renderAreaPool(index: number, startOffset: number, values: BattleFacilityAreaPoolRecord["pools"][number]["values"], trainerRefCount: number): string {
-  return `
-    <div class="facility-area-pool">
-      <div class="facility-area-pool-title">Pool ${index + 1} <span>@0x${startOffset.toString(16).padStart(4, "0")}</span> <em>${trainerRefCount} trainers</em></div>
-      <div class="facility-area-pool-values">
-        ${values.map((value) => renderAreaPoolValue(value)).join("")}
-      </div>
-    </div>
-  `;
-}
-
-function renderAreaPoolValue(value: BattleFacilityAreaPoolRecord["pools"][number]["values"][number]): string {
-  if (!value.isTrainerRef) {
-    return `<span class="facility-area-control" title="Control or non-trainer value at 0x${value.offset.toString(16).padStart(4, "0")}">${escapeHtml(String(value.value))}</span>`;
-  }
-  return `
-    <span class="facility-area-trainer">
-      ${editable("areaPool", "value", value.value, "facility-area-trainer-id", { type: "int-65535", offset: value.offset })}
-      <button class="facility-trainer-jump" data-trainer-id="${value.value}" type="button" title="Open trainer ${value.value}">
-        ${escapeHtml(value.trainerTypeName ?? `Trainer ${value.value}`)}
-      </button>
-    </span>
-  `;
-}
-
-function renderChoiceSetTable(project: ProjectState, choice: BattleFacilityChoiceRecord): string {
-  if (!choice.setLibrary) return `<div class="facility-empty-inline">No loaded set archive matches this choice archive.</div>`;
-  const missingSprite = publicAsset("images/pokesprite/-.png");
-  const rows = choice.setIds
-    .map((setId, index) => renderChoiceSetTableRow(project, choice, setId, index, missingSprite))
-    .join("");
-  return `
-    <div class="facility-choice-set-grid" role="table" aria-label="Usable Pokemon sets">
-      ${rows}
-    </div>
-  `;
-}
-
-function renderChoiceSetTableRow(project: ProjectState, choice: BattleFacilityChoiceRecord, setId: number, index: number, missingSprite: string): string {
-  if (!choice.setLibrary) return "";
-  try {
-    const set = getFacilitySetRecord(project, choice.setLibrary, setId);
-    return `
-      <div class="facility-choice-set-entry" role="row">
-        ${editable("choice", `set_${index}`, setId, "facility-set-table-id", { type: "int-65535" })}
-        <button class="facility-set-jump" data-set-narc="${choice.setLibrary}" data-set-id="${setId}" type="button" title="Open set ${setId}">
-          <img src="${publicAsset(`images/pokesprite/${set.spriteSlug}.png`)}" alt="" onerror="this.src='${missingSprite}'">
-          <span>${escapeHtml(set.speciesName)}</span>
-        </button>
-      </div>
-    `;
-  } catch {
-    return `
-      <div class="facility-choice-set-entry facility-choice-set-missing" role="row">
-        ${editable("choice", `set_${index}`, setId, "facility-set-table-id", { type: "int-65535" })}
-        <span class="facility-set-missing-label">Missing set ${escapeHtml(String(setId))}</span>
-      </div>
-    `;
-  }
-}
-
-function renderChoiceExtras(choice: BattleFacilityChoiceRecord): string {
-  if (!choice.extraValues.length && !choice.invalidSetIds.length) return "";
-  return `
-    <div class="facility-choice-fields facility-choice-extras">
-      ${choice.extraValues.length ? `<div class="facility-choice-section-title">Extras (${choice.extraValues.length})</div>` : ""}
-      ${choice.extraValues.map((value, index) => expandedField(`Extra ${index + 1}`, editable("choice", `extra_${index}`, value, "tr-item", { type: "int-65535" }))).join("")}
-      ${choice.invalidSetIds.length ? `<div class="facility-warning">Invalid set IDs for ${escapeHtml(choice.setLibrary ?? "selected library")}: ${choice.invalidSetIds.join(", ")}</div>` : ""}
-    </div>
-  `;
-}
-
-function renderChoiceSetSpritePreview(project: ProjectState, choice: BattleFacilityChoiceRecord): string {
-  const setLibrary = choice.setLibrary;
-  if (!setLibrary) return escapeHtml(choice.setIds.join(", "));
-  const missingSprite = publicAsset("images/pokesprite/-.png");
-  const previewLimit = 6;
-  const sprites = choice.setIds
-    .slice(0, previewLimit)
-    .map((setId) => {
+/** Choice records in this group's archives whose set list includes this set. */
+function renderSetUsers(project: ProjectState, narc: FacilitySetNarcName, setId: number): string {
+  const users: string[] = [];
+  for (const choiceNarc of Object.keys(FACILITY_CHOICE_LABELS) as FacilityChoiceNarcName[]) {
+    if (!project.narcs[choiceNarc] || defaultSetLibraryForChoice(project, choiceNarc) !== narc) continue;
+    for (let id = 0; id < getFacilityChoiceCount(project, choiceNarc); id += 1) {
       try {
-        const set = getFacilitySetRecord(project, setLibrary, setId);
-        return `
-          <button class="facility-set-jump facility-set-sprite" data-set-narc="${setLibrary}" data-set-id="${setId}" type="button" title="Open set ${setId}: ${escapeHtml(set.speciesName)}" aria-label="Open set ${setId}: ${escapeHtml(set.speciesName)}">
-            <img src="${publicAsset(`images/pokesprite/${set.spriteSlug}.png`)}" alt="" loading="lazy" onerror="this.src='${missingSprite}'">
-          </button>
-        `;
+        const choice = getFacilityChoiceRecord(project, choiceNarc, id);
+        if (!choice.setIds.includes(setId)) continue;
+        users.push(`<button class="btn sm fd-chip" type="button" data-jump-choice="${choiceNarc}" data-choice-id="${id}" title="${escapeHtml(`${FACILITY_CHOICE_LABELS[choiceNarc]} ${id}`)}">${escapeHtml(choiceName(choice))} <span>#${id}</span></button>`);
       } catch {
-        return `
-          <span class="facility-set-sprite -missing" title="Set ${setId} is missing from ${setLibrary}" role="img" aria-label="Missing set ${setId}">
-            <img src="${missingSprite}" alt="">
-          </span>
-        `;
+        // Skip unreadable records.
       }
-    })
-    .join("");
-  const hiddenCount = Math.max(0, choice.setIds.length - previewLimit);
-  return `${sprites}${hiddenCount ? `<span class="facility-set-sprite-more" title="Expand this choice to view all ${choice.setIds.length} sets">+${hiddenCount} more</span>` : ""}`;
-}
-
-function trainerTypeEdit(choice: BattleFacilityChoiceRecord): string {
-  if (!facilityChoiceUsesTrainerClass(choice.narc)) {
-    return editable("choice", "trainerType", choice.trainerType, "trainer-class facility-trainer-type-select", { type: "int-65535" });
+    }
   }
-  return editable("choice", "trainerType", `${choice.trainerTypeName} (${choice.trainerType})`, "trainer-class facility-trainer-type-select", { autofill: "trainer_types" });
+  return users.length ? users.join("") : `<p class="td-empty">No trainer uses this set.</p>`;
 }
 
-function regulationLevelRangeSelect(record: BattleFacilityRegulationRecord): string {
-  const options: Array<[number, string]> = [
-    [0, "Normal"],
-    [1, "Minimum"],
-    [2, "Maximum"],
-    [3, "Scale Down"],
-    [4, "Set Level"],
-    [5, "Scale Up"],
-  ];
-  const hasCurrent = options.some(([value]) => value === record.levelRange);
-  const allOptions = hasCurrent ? options : [...options, [record.levelRange, record.levelRangeName] as [number, string]];
+function renderChoiceDetail(project: ProjectState, choice: BattleFacilityChoiceRecord): string {
+  const usesClass = facilityChoiceUsesTrainerClass(choice.narc);
+  const library = choice.setLibrary;
+  const cards = choice.setIds.map((setId, index) => {
+    let body = `<span class="fd-set-missing">Missing set</span>`;
+    let jump = "";
+    if (library) {
+      try {
+        const set = getFacilitySetRecord(project, library, setId);
+        body = `${pokemonIcon(set.spriteSlug, "fd-set-icon")}<span class="fd-set-name">${escapeHtml(set.speciesName)}</span><span class="fd-set-item">${escapeHtml(hasValue(set.itemName) ? set.itemName : "")}</span>`;
+        jump = `<button class="btn sm -ghost fd-set-open" type="button" data-jump-set="${library}" data-set-id="${setId}" title="Open set ${setId}">Open</button>`;
+      } catch {
+        // Keep the missing-set body.
+      }
+    }
+    return `
+      <div class="fd-set" data-mark-fields="set_${index}|rawHex">
+        <div class="fd-set-body" data-derived="set-${index}">${body}</div>
+        <div class="fd-set-foot">
+          <span class="md-unit">Set</span>${editable("choice", `set_${index}`, setId, { type: "int-65535", label: `Set ID ${index + 1}` })}
+          <span data-derived="set-jump-${index}">${jump}</span>
+        </div>
+      </div>
+    `;
+  }).join("");
   return `
-    <select data-facility-edit="regulation" data-field-name="levelRange" class="trainer-poks facility-regulation-select" title="Level regulation mode">
-      ${allOptions.map(([value, label]) => `<option value="${value}" ${value === record.levelRange ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}
-    </select>
+    <article class="fd-card" data-kind="choice" data-narc="${choice.narc}" data-index="${choice.id}" data-mark-prefix="facility-choice:${choice.narc}:${choice.id}:">
+      ${renderHead(`<span data-derived="sprite">${choiceSprite(project, choice)}</span>`, `<span data-derived="title">${escapeHtml(choiceName(choice))}</span>`, choice.id, FACILITY_CHOICE_LABELS[choice.narc])}
+      <div class="md-form fd-meta">
+        ${usesClass
+          ? formRow("Trainer class", "trainerType", editable("choice", "trainerType", `${choice.trainerTypeName}`, { autofill: "trainer_types" }))
+          : formRow("Header", "trainerType", editable("choice", "trainerType", choice.trainerType, { type: "int-65535" }))}
+        ${formRow("Set count", "count", `${editable("choice", "count", choice.count, { type: "int-65535" })}<span class="md-unit" title="Record length; 4 bytes plus 2 for each set ID">${choice.byteLength} bytes</span>`)}
+      </div>
+      <div class="section-bar md-gap">Sets<span class="td-bar-note">${choice.setIds.length}${choice.setIds.length === choice.count ? "" : ` of ${choice.count} declared`}${library ? ` · from ${escapeHtml(FACILITY_SET_LABELS[library])}` : ""}</span></div>
+      ${choice.invalidSetIds.length ? `<p class="fd-warning">Set IDs not in ${escapeHtml(library ? FACILITY_SET_LABELS[library] : "the set archive")}: ${choice.invalidSetIds.join(", ")}</p>` : ""}
+      <div class="fd-sets">${cards || `<p class="td-empty">This record has no sets.</p>`}</div>
+      ${choice.extraValues.length ? `
+        <div class="section-bar md-gap">Extra values</div>
+        <div class="md-form fd-meta">${choice.extraValues.map((value, index) => formRow(`Extra ${index + 1}`, `extra_${index}`, editable("choice", `extra_${index}`, value, { type: "int-65535" }))).join("")}</div>
+      ` : ""}
+      ${renderRaw("choice", choice.rawHex)}
+    </article>
   `;
 }
 
-function regulationBattleTypeSelect(record: BattleFacilityRegulationRecord): string {
-  const options: Array<[number, string]> = [
-    [0, "Single"],
-    [1, "Double"],
-    [2, "Triple"],
-    [3, "Rotation"],
-    [4, "Multi"],
-    [5, "Shooter"],
-  ];
-  const hasCurrent = options.some(([value]) => value === record.battleType);
-  const allOptions = hasCurrent ? options : [...options, [record.battleType, record.battleTypeName] as [number, string]];
+function renderRegulationDetail(record: BattleFacilityRegulationRecord): string {
+  const options = (choices: Array<[number, string]>, current: number, currentName: string) => {
+    const all = choices.some(([value]) => value === current) ? choices : [...choices, [current, currentName] as [number, string]];
+    return all.map(([value, label]) => [String(value), label] as [string, string]);
+  };
   return `
-    <select data-facility-edit="regulation" data-field-name="battleType" class="facility-regulation-select" title="Battle type">
-      ${allOptions.map(([value, label]) => `<option value="${value}" ${value === record.battleType ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}
-    </select>
+    <article class="fd-card" data-kind="regulation" data-index="${record.id}" data-mark-prefix="facility-regulation:${record.id}:">
+      ${renderHead("", escapeHtml(record.label), record.id, record.note ?? "Battle regulation")}
+      <div class="section-bar">Rules</div>
+      <div class="md-form fd-meta">
+        ${formRow("Pokémon", "numLo|numHi", `${editable("regulation", "numLo", record.numLo, { type: "int-255", label: "Minimum Pokémon" })}<span class="md-unit">to</span>${editable("regulation", "numHi", record.numHi, { type: "int-255", label: "Maximum Pokémon" })}`)}
+        ${formRow("Level", "level", editable("regulation", "level", record.level, { type: "int-255" }))}
+        ${formRow("Level rule", "levelRange", select("levelRange", options(REGULATION_LEVEL_RULES, record.levelRange, record.levelRangeName), String(record.levelRange)))}
+        ${formRow("Total level", "levelTotal", `${editable("regulation", "levelTotal", record.levelTotal, { type: "int-65535" })}<span class="md-unit">${record.levelTotal ? "" : "no cap"}</span>`)}
+        ${formRow("Battle", "battleType", select("battleType", options(REGULATION_BATTLE_TYPES, record.battleType, record.battleTypeName), String(record.battleType)))}
+        ${formRow("Battle count", "battleCount", editable("regulation", "battleCount", record.battleCount, { type: "int-255" }))}
+      </div>
+      <p class="fd-warning">Changing the Pokémon count needs matching code changes to the battle mode's team size and opponent generation.</p>
+    </article>
   `;
 }
 
-function renderEvSummary(set: BattleFacilitySet): string {
-  return evStatLabels()
-    .map((label, index) => `<button class="facility-ev-chip facility-ev ${set.evStats[index] ? "-active" : ""}" data-field-name="ev_${index}" type="button" title="${escapeHtml(label)}">${escapeHtml(shortEvLabel(label))}</button>`)
-    .join("");
-}
-
-function shortEvLabel(label: string): string {
-  return label
-    .replace("Attack", "Atk")
-    .replace("Defense", "Def")
-    .replace("Speed", "Spe")
-    .replace("Sp. ", "Sp");
-}
-
-function expandedField(label: string, value: string, labelClass = "expanded-trlabel"): string {
+function renderAreaPoolDetail(record: BattleFacilityAreaPoolRecord): string {
   return `
-    <div class="expanded-field">
-      <div class="${labelClass}">${escapeHtml(label)}</div>
-      ${value}
-    </div>
+    <article class="fd-card" data-kind="areaPool" data-index="${record.id}" data-mark-prefix="facility-area-pool:${record.id}:">
+      ${renderHead("", `Area config ${record.recordId}`, record.id, `${record.byteLength} bytes`)}
+      <div class="section-bar">Header</div>
+      <p class="fd-mono">${record.headerValues.map((value) => escapeHtml(String(value))).join(" ")}</p>
+      ${record.pools.map((pool) => `
+        <div class="section-bar md-gap">Pool ${pool.index + 1}<span class="td-bar-note">${pool.trainerRefCount} trainers · 0x${pool.startOffset.toString(16).padStart(4, "0")}</span></div>
+        <div class="fd-pool">
+          ${pool.values.map((value) => value.isTrainerRef ? `
+            <div class="fd-pool-trainer" data-mark-fields="${value.offset}">
+              ${editable("areaPool", "value", value.value, { type: "int-65535", offset: value.offset, label: "Trainer ID" })}
+              <button class="btn sm -ghost" type="button" data-jump-choice="wbt_trainers" data-choice-id="${value.value}" title="Open trainer ${value.value}">${escapeHtml(value.trainerTypeName ?? `Trainer ${value.value}`)}</button>
+            </div>
+          ` : `<span class="fd-pool-control" title="Control value at 0x${value.offset.toString(16).padStart(4, "0")} (read-only)">${escapeHtml(String(value.value))}</span>`).join("")}
+        </div>
+      `).join("")}
+    </article>
   `;
+}
+
+function renderHead(sprite: string, title: string, id: number, subtitle: string): string {
+  return `
+    <header class="td-head fd-head${sprite ? "" : " -no-sprite"}">
+      ${sprite ? `<div class="td-sprite">${sprite}</div>` : ""}
+      <div class="td-ident">
+        <div class="td-title"><h1>${title}</h1><span class="td-num">#${id}</span></div>
+        <div class="fd-subtitle">${escapeHtml(subtitle)}</div>
+      </div>
+    </header>
+  `;
+}
+
+function renderRaw(kind: FacilityKind, rawHex: string): string {
+  return `
+    <details class="fd-raw">
+      <summary>Raw record</summary>
+      <div data-mark-fields="rawHex">${editable(kind, "rawHex", rawHex, { className: "fd-hex", label: "Raw record bytes" })}</div>
+    </details>
+  `;
+}
+
+function formRow(label: string, markFields: string, value: string): string {
+  return `<span class="md-label" data-mark-fields="${escapeHtml(markFields)}|rawHex">${escapeHtml(label)}</span><span class="md-value">${value}</span>`;
+}
+
+function select(field: string, options: Array<[string, string]>, current: string): string {
+  return `<select data-field-name="${field}">${options.map(([value, label]) => `<option value="${escapeHtml(value)}"${value === current ? " selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select>`;
 }
 
 function editable(
-  kind: "set" | "choice" | "areaPool" | "regulation",
+  kind: FacilityKind,
   field: string,
   value: unknown,
-  className: string,
-  options: { autofill?: keyof ReturnType<typeof getFacilityAutofills>; type?: string; offset?: number } = {},
+  options: { autofill?: string; type?: string; offset?: number; label?: string; className?: string } = {},
 ): string {
-  const autofill = options.autofill ? ` data-autocomplete-spy data-autofill="${options.autofill}"` : "";
-  const type = options.type ? ` data-type="${options.type}"` : "";
-  const offset = options.offset === undefined ? "" : ` data-offset="${options.offset}"`;
-  return `<div autocorrect="off" data-facility-edit="${kind}" data-field-name="${field}" class="${className}" contenteditable="true"${autofill}${type}${offset}>${escapeHtml(String(value ?? ""))}</div>`;
+  const attributes = [
+    options.autofill ? `data-autofill="${options.autofill}"` : "",
+    options.type ? `data-type="${options.type}"` : "",
+    options.offset === undefined ? "" : `data-offset="${options.offset}"`,
+    options.label ? `aria-label="${escapeHtml(options.label)}"` : "",
+  ].filter(Boolean).join(" ");
+  return `<div autocorrect="off" spellcheck="false" contenteditable="true" data-facility-edit="${kind}" data-field-name="${field}" class="${options.className ?? ""}" ${attributes}>${escapeHtml(String(value ?? ""))}</div>`;
 }
 
-function attachFacilityEvents(project: ProjectState, root: HTMLElement, onDirty?: () => void, options: BattleFacilityEditorOptions = {}): void {
-  root.querySelectorAll<HTMLButtonElement>("[data-facility-mode]").forEach((button) => {
-    button.addEventListener("click", () => {
-      activeMode = button.dataset.facilityMode as FacilityMode;
-      renderBattleFacilityEditor(project, root, onDirty, options);
-    });
-  });
-  root.querySelector<HTMLSelectElement>("#facility-set-narc")?.addEventListener("change", (event) => {
-    activeSetNarc = (event.currentTarget as HTMLSelectElement).value as FacilitySetNarcName;
-    renderBattleFacilityEditor(project, root, onDirty, options);
-  });
-  root.querySelector<HTMLSelectElement>("#facility-choice-narc")?.addEventListener("change", (event) => {
-    activeChoiceNarc = (event.currentTarget as HTMLSelectElement).value as FacilityChoiceNarcName;
-    renderBattleFacilityEditor(project, root, onDirty, options);
-  });
-  const searchInput = root.querySelector<HTMLInputElement>("#facility-search-text");
-  root.querySelector<HTMLButtonElement>("#facility-search-btn")?.addEventListener("click", () => {
-    searchText = searchInput?.value ?? "";
-    renderBattleFacilityEditor(project, root, onDirty, options);
-  });
-  searchInput?.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      searchText = searchInput.value;
-      renderBattleFacilityEditor(project, root, onDirty, options);
-    }
-  });
-
-  root.querySelectorAll<HTMLElement>(".expand-action").forEach((button) => {
-    button.addEventListener("click", () => {
-      const card = button.closest<HTMLElement>(".trainer-card");
-      const panel = card?.querySelector<HTMLElement>(`.expanded-${button.dataset.expand}`);
-      if (card && panel && button.dataset.expand === "trainer") {
-        hydrateChoiceSetTable(project, root, card, onDirty, options);
-      }
-      panel?.classList.toggle("show-flex");
-      button.classList.toggle("-active", Boolean(panel?.classList.contains("show-flex")));
-    });
-  });
-
-  attachFacilitySetJumpEvents(project, root, onDirty, options);
-
-  root.querySelectorAll<HTMLButtonElement>(".facility-trainer-jump").forEach((button) => {
-    button.addEventListener("click", () => {
-      const trainerId = Number(button.dataset.trainerId);
-      activeMode = "choices";
-      activeChoiceNarc = "wbt_trainers";
-      searchText = "";
-      renderBattleFacilityEditor(project, root, onDirty, options);
-      requestAnimationFrame(() => {
-        const target = [...root.querySelectorAll<HTMLElement>("#facility-choices .facility-card")].find((card) => card.dataset.narc === "wbt_trainers" && Number(card.dataset.index) === trainerId);
-        target?.scrollIntoView({ block: "center" });
-        target?.classList.add("facility-card-flash");
-        window.setTimeout(() => target?.classList.remove("facility-card-flash"), 1200);
-      });
-    });
-  });
-
-  root.querySelectorAll<HTMLSelectElement>("select[data-facility-edit]").forEach((field) => {
-    field.addEventListener("change", () => {
-      commitFacilityField(project, root, field, onDirty, options);
-    });
-  });
-
-  attachFacilityEditableFieldEvents(project, root, onDirty, options);
-
-  root.querySelectorAll<HTMLElement>(".facility-ev").forEach((button) => {
-    button.addEventListener("click", () => {
-      const card = button.closest<HTMLElement>(".facility-card");
-      if (!card) return;
-      const narc = card.dataset.narc as FacilitySetNarcName;
-      const id = Number(card.dataset.index);
-      updateFacilitySetField(project, narc, id, button.dataset.fieldName ?? "", !button.classList.contains("-active"));
-      onDirty?.();
-      renderBattleFacilityEditor(project, root, onDirty, options);
-    });
-  });
-
-  attachAutocomplete(root, getFacilityAutofills(project));
-}
-
-function attachFacilitySetJumpEvents(project: ProjectState, root: HTMLElement, onDirty?: () => void, options: BattleFacilityEditorOptions = {}, scope: ParentNode = root): void {
-  scope.querySelectorAll<HTMLButtonElement>(".facility-set-jump").forEach((button) => {
-    button.addEventListener("click", () => {
-      const setNarc = button.dataset.setNarc as FacilitySetNarcName;
-      const setId = Number(button.dataset.setId);
-      activeMode = "sets";
-      activeSetNarc = setNarc;
-      searchText = "";
-      renderBattleFacilityEditor(project, root, onDirty, options);
-      requestAnimationFrame(() => {
-        const target = [...root.querySelectorAll<HTMLElement>("#facility-sets .facility-card")].find((card) => card.dataset.narc === setNarc && Number(card.dataset.index) === setId);
-        target?.scrollIntoView({ block: "center" });
-        target?.classList.add("facility-card-flash");
-        window.setTimeout(() => target?.classList.remove("facility-card-flash"), 1200);
-      });
-    });
-  });
-}
-
-function attachFacilityEditableFieldEvents(project: ProjectState, root: HTMLElement, onDirty?: () => void, options: BattleFacilityEditorOptions = {}, scope: ParentNode = root): void {
-  scope.querySelectorAll<HTMLElement>("[data-facility-edit]:not(select)").forEach((field) => {
-    field.addEventListener("keydown", (event) => {
-      if ((event as KeyboardEvent).key === "Enter" && !field.classList.contains("facility-hex")) {
-        event.preventDefault();
-        field.blur();
-      }
-    });
-    field.addEventListener("blur", () => {
-      commitFacilityField(project, root, field, onDirty, options);
-    });
-  });
-}
-
-function hydrateChoiceSetTable(project: ProjectState, root: HTMLElement, card: HTMLElement, onDirty?: () => void, options: BattleFacilityEditorOptions = {}): void {
-  const host = card.querySelector<HTMLElement>("[data-choice-set-table-host]");
-  if (!host || host.dataset.hydrated === "true") return;
-  const narc = card.dataset.narc as FacilityChoiceNarcName;
-  const id = Number(card.dataset.index);
-  const choice = getFacilityChoiceRecord(project, narc, id);
-  host.innerHTML = renderChoiceSetTable(project, choice);
-  host.dataset.hydrated = "true";
-  attachFacilitySetJumpEvents(project, root, onDirty, options, host);
-  attachFacilityEditableFieldEvents(project, root, onDirty, options, host);
-}
-
-function commitFacilityField(project: ProjectState, root: HTMLElement, field: HTMLElement | HTMLSelectElement, onDirty?: () => void, options: BattleFacilityEditorOptions = {}): void {
-  const card = field.closest<HTMLElement>(".facility-card");
-  if (!card) return;
-  const kind = field.dataset.facilityEdit;
-  const id = Number(card.dataset.index);
-  const fieldName = field.dataset.fieldName ?? "";
-  const value = field instanceof HTMLSelectElement ? field.value : field.textContent ?? "";
-  try {
-    if (kind === "set") updateFacilitySetField(project, card.dataset.narc as FacilitySetNarcName, id, fieldName, value);
-    else if (kind === "choice") updateFacilityChoiceField(project, card.dataset.narc as FacilityChoiceNarcName, id, fieldName, value);
-    else if (kind === "areaPool") updateFacilityAreaPoolValue(project, id, Number(field.dataset.offset), value);
-    else updateFacilityRegulationField(project, id, fieldName, value);
-    onDirty?.();
-    renderBattleFacilityEditor(project, root, onDirty, options);
-  } catch (error) {
-    window.alert(error instanceof Error ? error.message : String(error));
-    renderBattleFacilityEditor(project, root, onDirty, options);
-  }
-}
-
-function attachAutocomplete(root: HTMLElement, autofills: ReturnType<typeof getFacilityAutofills>): void {
-  root.querySelectorAll<HTMLElement>("[data-autocomplete-spy]").forEach((field) => {
-    field.addEventListener("input", () => {
-      const key = field.dataset.autofill as keyof typeof autofills;
-      const values = autofills[key] ?? [];
-      const text = (field.textContent ?? "").trim().toLowerCase();
-      field.setAttribute("data-suggestions", values.filter((value) => value.toLowerCase().includes(text)).slice(0, 8).join("\\n"));
-    });
-  });
+function hasValue(name: string): boolean {
+  return Boolean(name) && !/^(none|-+|\?+|0)$/iu.test(name.trim());
 }

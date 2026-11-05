@@ -148,7 +148,7 @@ export type PokemonUpdateResult = {
   movePreview?: Pick<LearnsetMove, "type" | "category" | "power" | "accuracy">;
 };
 
-type EvolutionParamKind = "none" | "level" | "integer" | "item" | "move" | "pokemon" | "ability";
+export type EvolutionParamKind = "none" | "level" | "integer" | "item" | "move" | "pokemon" | "ability";
 
 const EVOLUTION_PARAM_KINDS: Partial<Record<number, EvolutionParamKind>> = {
   0: "none",
@@ -645,7 +645,28 @@ export function updatePokemonField(
   return result;
 }
 
-export function pokemonMatchesSearch(record: PokemonSummaryRecord, searchText: string, generations: Set<number>, types: Set<string>): boolean {
+/**
+ * Sets every EV yield to 0 on all Pokemon, forms included. Records one changelog
+ * entry for the whole operation instead of one per changed field.
+ */
+export function clearAllPokemonEvYields(project: ProjectState): number {
+  let changed = 0;
+  for (const speciesId of getPokemonPersonalIds(project)) {
+    const record = decodeRecord(project, "personal", speciesId);
+    if (!record.raw || !record.readable || !("evs" in record.raw)) continue;
+    enrichPersonalReadable(record.raw, record.readable);
+    const hasYield = Number(record.raw.evs ?? 0) !== 0 || EV_YIELD_FIELDS.some(([, field]) => Number(record.readable![field] ?? 0) !== 0);
+    if (!hasYield) continue;
+    for (const [, field] of EV_YIELD_FIELDS) updatePersonalField(project, record.raw, record.readable, field, "0");
+    markDirty(project, "personal", speciesId);
+    changed += 1;
+  }
+  if (changed > 0) recordGenericChange(project, "personal", `Removed EV yields from ${changed} Pokémon.`, undefined, { key: "pokemon:all:ev-yields-cleared" });
+  return changed;
+}
+
+/** `aliases` are display names (such as "Rotom-Heat" for an alternate-form record) that are searchable too. */
+export function pokemonMatchesSearch(record: PokemonSummaryRecord, searchText: string, generations: Set<number>, types: Set<string>, aliases: readonly string[] = []): boolean {
   if (generations.size > 0 && !generations.has(record.gen)) return false;
   if (types.size > 0) {
     const type1 = String(record.personal.type_1 ?? "").toLowerCase();
@@ -659,7 +680,7 @@ export function pokemonMatchesSearch(record: PokemonSummaryRecord, searchText: s
     .filter(Boolean);
   if (terms.length === 0) return true;
 
-  const haystack = JSON.stringify(record).toLowerCase();
+  const haystack = [JSON.stringify(record), ...aliases].join("\n").toLowerCase();
   return terms.some((term) => haystack.includes(term));
 }
 
@@ -999,7 +1020,7 @@ function updateEvolutionField(project: ProjectState, raw: RawRecord, readable: R
   throw new Error(`Unsupported evolution field: ${field}`);
 }
 
-function evolutionParamKind(method: string | number): EvolutionParamKind {
+export function evolutionParamKind(method: string | number): EvolutionParamKind {
   const methodId = typeof method === "number" ? method : EVO_METHODS.findIndex((value) => normalizeName(value) === normalizeName(String(method)));
   const mapped = EVOLUTION_PARAM_KINDS[methodId];
   if (mapped) return mapped;

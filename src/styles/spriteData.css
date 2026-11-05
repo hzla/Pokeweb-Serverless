@@ -1,0 +1,254 @@
+/* Pokémon sprite editor: list + detail inside the Pokémon section. */
+
+.sprite-data {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  width: 100%;
+  height: calc(100vh - var(--chrome-h));
+  margin-top: -10px;
+  overflow: hidden;
+  font-size: 14px;
+}
+
+#sprite-data .sp-row {
+  grid-template-columns: 34px 32px minmax(0, 1fr);
+}
+
+#sprite-data .sp-row.-form .md-row-name {
+  color: var(--text);
+  font-weight: 400;
+}
+
+#sprite-data .sp-row-base {
+  margin-left: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+#sprite-data .sp-row-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+/* ---------- Detail ---------- */
+
+#sprite-data .sp-detail {
+  padding: 18px 24px 32px;
+}
+
+#sprite-data .sp-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 24px;
+  margin-bottom: 14px;
+}
+
+#sprite-data .td-ident {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+#sprite-data .td-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+#sprite-data .td-title h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+#sprite-data .td-num,
+#sprite-data .fd-subtitle {
+  color: var(--text-muted);
+}
+
+#sprite-data .td-num {
+  font-size: 16px;
+}
+
+#sprite-data .sp-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+#sprite-data .sp-bundle.-dragging {
+  outline: 2px dashed var(--amber);
+  outline-offset: 2px;
+}
+
+#sprite-data .sp-raw {
+  position: relative;
+}
+
+#sprite-data .sp-raw > summary {
+  list-style: none;
+}
+
+#sprite-data .sp-raw > summary::-webkit-details-marker {
+  display: none;
+}
+
+#sprite-data .sp-raw[open] > summary {
+  border-color: var(--amber);
+}
+
+#sprite-data .sp-raw-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  display: grid;
+  gap: 8px;
+  width: 300px;
+  padding: 10px;
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius);
+  background: var(--ink-2);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 45%);
+}
+
+#sprite-data .sp-raw-pop select {
+  width: 100%;
+  min-width: 0;
+}
+
+#sprite-data .sp-raw-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+#sprite-data .sp-raw-actions > :last-child {
+  grid-column: 1 / -1;
+}
+
+#sprite-data .sprite-status {
+  min-height: 0;
+  padding: 0;
+  margin: 8px 0 0;
+}
+
+#sprite-data .sprite-status:empty {
+  display: none;
+}
+
+#sprite-data .sprite-animation-hotkeys {
+  margin: 10px 0 0;
+  padding: 8px 0 0;
+  border-top: 0;
+}
+
+/* The tab row replaces the old fixed sidebar and collapsible headings. */
+#sprite-data .sprite-editor-page.sp-body {
+  display: grid;
+  gap: 18px;
+  width: auto;
+  margin: 0;
+  padding: 16px 0 0;
+}
+
+#sprite-data .sp-body .sprite-section {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+#sprite-data .sp-body #sprite-animation-section .animation-title-row h2,
+#sprite-data .sp-body #sprite-rig-section .sprite-section-header h2 {
+  display: none;
+}
+
+#sprite-data .sp-body .animation-title-row {
+  min-width: 0;
+}
+
+/* Sprites tab: 2x previews, wrapping instead of overflowing. */
+#sprite-data .sprite-preview-grid {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+#sprite-data .sprite-preview-item canvas[data-preview-kind="sprite"] {
+  width: 192px;
+}
+
+#sprite-data .sprite-preview-item canvas[data-preview-kind="rig"] {
+  width: min(512px, 100%);
+}
+
+#sprite-data .sprite-preview-group:has(canvas[data-preview-kind="rig"]) .sprite-preview-grid {
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+}
+
+#sprite-data .sprite-preview-item-header {
+  font-size: 13px;
+}
+
+/* Palettes tab: a live preview under the two editors. */
+#sprite-data .sp-palette-preview {
+  margin-top: 4px;
+}
+
+#sprite-data .sp-palette-preview .sprite-preview-grid {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+#sprite-data .sp-palette-preview .sprite-preview-item canvas[data-preview-kind="sprite"] {
+  width: 144px;
+}
+
+/* Icon tab */
+#sprite-data .icon-editor-grid {
+  grid-template-columns: 120px minmax(220px, 300px) minmax(0, 1fr);
+}
+
+#sprite-data .sp-icon-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Animation and rig tabs: keep wide panels inside the column. */
+/* The GIF importer is wide; it sits under the editor instead of beside it. */
+#sprite-data .animation-workbench {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+#sprite-data .animation-workbench > .animation-editor-grid {
+  justify-self: start;
+  max-width: 100%;
+}
+
+#sprite-data .animation-workbench > * {
+  min-width: 0;
+}
+
+#sprite-data .rig-editor-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+}
+
+#sprite-data .rig-canvas-wrap canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Palette channel inputs: three digits must fit. */
+#content-container #sprite-data .palette-row input[data-channel] {
+  padding: 2px 5px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+}
+
+#sprite-data .palette-row input[data-channel]::-webkit-outer-spin-button,
+#sprite-data .palette-row input[data-channel]::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}

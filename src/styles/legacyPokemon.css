@@ -288,7 +288,7 @@
   display: block !important;
 }
 
-#personals .pokemon-text-editor {
+:is(#personals, #pokemon-data) .pokemon-text-editor {
   background: rgba(25, 28, 42, 0.78);
   border-bottom: 1px solid var(--ink-3);
   display: grid;
@@ -298,19 +298,19 @@
   width: 100%;
 }
 
-#personals .pokemon-text-control {
+:is(#personals, #pokemon-data) .pokemon-text-control {
   display: grid;
   gap: 7px;
 }
 
-#personals .pokemon-text-control span,
-#personals .pokemon-text-editor-copy strong {
+:is(#personals, #pokemon-data) .pokemon-text-control span,
+:is(#personals, #pokemon-data) .pokemon-text-editor-copy strong {
   color: #f2f2f2;
   font-size: 13px;
   font-weight: 700;
 }
 
-#personals .pokemon-text-name-input {
+:is(#personals, #pokemon-data) .pokemon-text-name-input {
   background: #f2f2f2;
   border: 1px solid var(--ink-3);
   border-radius: 4px;
@@ -322,42 +322,42 @@
   width: 100%;
 }
 
-#personals .pokemon-text-name-input.invalid {
+:is(#personals, #pokemon-data) .pokemon-text-name-input.invalid {
   border-color: #ff5555;
 }
 
-#personals .pokemon-text-editor-copy {
+:is(#personals, #pokemon-data) .pokemon-text-editor-copy {
   align-content: center;
   display: grid;
   gap: 5px;
 }
 
-#personals .pokemon-text-editor-copy span,
-#personals .pokemon-text-form-note,
-#personals .pokemon-text-status {
+:is(#personals, #pokemon-data) .pokemon-text-editor-copy span,
+:is(#personals, #pokemon-data) .pokemon-text-form-note,
+:is(#personals, #pokemon-data) .pokemon-text-status {
   color: #aeb7ca;
   font-size: 12px;
 }
 
-#personals .pokemon-text-status {
+:is(#personals, #pokemon-data) .pokemon-text-status {
   grid-column: 1 / -1;
   min-height: 0;
 }
 
-#personals .pokemon-text-status.-error {
+:is(#personals, #pokemon-data) .pokemon-text-status.-error {
   color: #ff7b7b;
 }
 
-#personals .pokemon-text-bank-list,
-#personals .pokemon-text-bank-section {
+:is(#personals, #pokemon-data) .pokemon-text-bank-list,
+:is(#personals, #pokemon-data) .pokemon-text-bank-section {
   width: 100%;
 }
 
-#personals .pokemon-text-bank-section + .pokemon-text-bank-section {
+:is(#personals, #pokemon-data) .pokemon-text-bank-section + .pokemon-text-bank-section {
   margin-top: 18px;
 }
 
-#personals .pokemon-text-bank-header {
+:is(#personals, #pokemon-data) .pokemon-text-bank-header {
   align-items: center;
   background: var(--field-line);
   color: #1abc9c;
@@ -367,33 +367,33 @@
   padding: 0 28px;
 }
 
-#personals .pokemon-text-bank-header span {
+:is(#personals, #pokemon-data) .pokemon-text-bank-header span {
   font-size: 22px;
   font-weight: 700;
 }
 
-#personals .pokemon-text-bank-header small {
+:is(#personals, #pokemon-data) .pokemon-text-bank-header small {
   color: #d7d7e2;
   font-size: 12px;
 }
 
-#personals .pokemon-text-bank-section.-read-only .pokemon-text-bank-header span,
-#personals .pokemon-text-bank-section.-read-only .pokemon-text-value {
+:is(#personals, #pokemon-data) .pokemon-text-bank-section.-read-only .pokemon-text-bank-header span,
+:is(#personals, #pokemon-data) .pokemon-text-bank-section.-read-only .pokemon-text-value {
   color: #aeb7ca;
 }
 
-#personals .pokemon-text-line {
+:is(#personals, #pokemon-data) .pokemon-text-line {
   align-items: stretch;
   display: grid;
   grid-template-columns: 150px minmax(0, 1fr);
   min-height: 46px;
 }
 
-#personals .pokemon-text-line:nth-child(odd) {
+:is(#personals, #pokemon-data) .pokemon-text-line:nth-child(odd) {
   background: rgba(56, 58, 89, 0.78);
 }
 
-#personals .pokemon-text-msg {
+:is(#personals, #pokemon-data) .pokemon-text-msg {
   align-items: center;
   color: #f2f2f2;
   display: flex;
@@ -402,7 +402,7 @@
   white-space: nowrap;
 }
 
-#personals .pokemon-text-value {
+:is(#personals, #pokemon-data) .pokemon-text-value {
   color: #1abc9c;
   line-height: 1.35;
   overflow-wrap: anywhere;
@@ -411,23 +411,23 @@
   white-space: pre-wrap;
 }
 
-#personals .pokemon-text-empty {
+:is(#personals, #pokemon-data) .pokemon-text-empty {
   color: #aeb7ca;
   padding: 18px 28px;
   width: 100%;
 }
 
 @media (max-width: 920px) {
-  #personals .pokemon-text-editor {
+  :is(#personals, #pokemon-data) .pokemon-text-editor {
     grid-template-columns: 1fr;
   }
 
-  #personals .pokemon-text-line {
+  :is(#personals, #pokemon-data) .pokemon-text-line {
     grid-template-columns: 110px minmax(0, 1fr);
   }
 
-  #personals .pokemon-text-msg,
-  #personals .pokemon-text-value {
+  :is(#personals, #pokemon-data) .pokemon-text-msg,
+  :is(#personals, #pokemon-data) .pokemon-text-value {
     padding-left: 14px;
     padding-right: 14px;
   }

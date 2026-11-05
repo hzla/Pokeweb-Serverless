@@ -14,7 +14,7 @@ export async function ensureMoveSpaStore(project: ProjectState): Promise<NarcSto
 
   const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
   if (!romBytes) throw new Error("Original ROM bytes are unavailable. Reload the ROM before saving SPA edits.");
-  const rom = new NintendoDSRom(romBytes);
+  const rom = new NintendoDSRom(romBytes, { fileData: "view" });
   const fileId = rom.fileId(MOVE_SPA_PATH);
   const store = createNarcStore("move_spas", MOVE_SPA_PATH, fileId, new NARC(rom.files[fileId]));
   project.narcs.move_spas = store;

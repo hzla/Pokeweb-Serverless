@@ -1,4 +1,4 @@
-import { EVO_METHODS, isGen4Project, typeNamesForProject } from "../pokeweb/constants";
+import { isGen4Project, typeNamesForProject } from "../pokeweb/constants";
 import { cascadeWhiteTrainerAbilityName, detectCascadeWhiteRom } from "../pokeweb/cascadeWhiteModel";
 import { hasCascadePersonalData } from "../pokeweb/cascadeWhitePersonalModel";
 import {
@@ -11,6 +11,8 @@ import {
   getPokemonCount,
   getPokemonRecord,
   getPokemonSummaryRecord,
+  evolutionParamKind,
+  clearAllPokemonEvYields,
   type EvolutionSlot,
   type EggMoveSlot,
   type LearnsetMove,
@@ -38,19 +40,11 @@ import type { RgbaImageData } from "../pokeweb/pokemonSpriteModel";
 import type { ProjectState, ReadableRecord } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 import { attachPokemonInteractions } from "./pokemonInteractions";
-import { installPokemonCardViewport } from "./pokemonCardViewport";
+import "../styles/moveData.css";
+import "../styles/pokemonData.css";
 import { observeNearViewport } from "./nearViewport";
 import { attachW2uSyncButton, renderW2uSyncButton } from "./w2uLocalSync";
 import { pokemonSpriteSlug } from "../pokeweb/spriteSlug";
-import evoIcon from "../assets/svgs/evo.svg?raw";
-import eggMovesIcon from "../assets/svgs/egg_moves.svg?raw";
-import miscDataIcon from "../assets/svgs/misc_data.svg?raw";
-import movesIcon from "../assets/svgs/moves.svg?raw";
-import movieIcon from "../assets/svgs/movie.svg?raw";
-import paintIcon from "../assets/svgs/paint.svg?raw";
-import tmsIcon from "../assets/svgs/tms.svg?raw";
-import tutorsIcon from "../assets/svgs/tutors.svg?raw";
-import soundIcon from "../assets/svgs/sound_move.svg?raw";
 import { publicAsset } from "../assetUrl";
 import { installPokemonCryPanel, renderPokemonCryPanel } from "./pokemonCryEditor";
 import {
@@ -60,18 +54,36 @@ import {
 } from "../pokeweb/koMoveLearnsetModel";
 import { isKoMoveEditorAvailable } from "../pokeweb/menuEvolutionModel";
 
-const ICONS: Record<string, string> = {
-  learnset: movesIcon,
-  tms: tmsIcon,
-  tutors: tutorsIcon,
-  "egg-moves": eggMovesIcon,
-  evos: evoIcon,
-  personal: miscDataIcon,
-  cry: soundIcon,
-};
 const POKEMON_CARD_SPRITE_RENDER_VERSION = "personal-front-sprite-v2";
 const pokemonCardSpriteInstallations = new WeakMap<HTMLElement, { disconnect: () => void }>();
-const pokemonCardViewportInstallations = new WeakMap<HTMLElement, () => void>();
+
+type PokemonTab = "personal" | "learnset" | "tms" | "tutors" | "egg-moves" | "evos" | "names" | "cry";
+
+/** Selected Pokemon and tab survive re-renders (route changes, form edits) per project. */
+const pokemonDataSelection = new WeakMap<ProjectState, { speciesId: number; tab: PokemonTab }>();
+
+const STAT_LABELS: Record<string, string> = {
+  base_hp: "HP",
+  base_atk: "Attack",
+  base_def: "Defense",
+  base_spatk: "Sp. Atk",
+  base_spdef: "Sp. Def",
+  base_speed: "Speed",
+};
+
+/** Header fields are marked in the header itself, so they do not count toward the Personal tab. */
+const HEADER_FIELDS = /^personal:(type_|ability_|base_(hp|atk|def|spatk|spdef|speed)$)/u;
+
+const TAB_EDIT_PREFIXES: Record<PokemonTab, RegExp> = {
+  personal: /^personal:/u,
+  learnset: /^(learnsets:|learnset-|ko)/u,
+  tms: /^(compat:|tm-compat-copy)/u,
+  tutors: /^tutor/u,
+  "egg-moves": /^egg/u,
+  evos: /^evolutions:/u,
+  names: /^$^/u,
+  cry: /^$^/u,
+};
 
 export function renderPokemonEditor(
   project: ProjectState,
@@ -81,40 +93,42 @@ export function renderPokemonEditor(
   onOpenPwan?: (speciesId: number) => void,
   onEnsureFormAssets?: () => Promise<void>,
 ): void {
-  pokemonCardViewportInstallations.get(root)?.();
+  const ids = pokemonPersonalDisplayIds(project);
+  const selection = pokemonDataSelection.get(project) ?? { speciesId: ids.includes(1) ? 1 : ids[0] ?? 0, tab: "personal" as PokemonTab };
+  if (!ids.includes(selection.speciesId)) selection.speciesId = ids.includes(1) ? 1 : ids[0] ?? 0;
+  pokemonDataSelection.set(project, selection);
+  const pageActions = document.getElementById("page-actions");
+  if (pageActions) pageActions.innerHTML = "";
+  const w2u = renderW2uSyncButton(project, ["personal", "learnsets", "evolutions"]);
+
   root.innerHTML = `
-    <div class="pokemon-filter pokemon-filter-personal">
-      <div class="filter-title">Search Text</div>
-      <input class="filter-input" id="search-text"/>
-      <button class="btn -default" id="search-text-btn" type="button">Search</button>
-      <div class="filter-title">Generation</div>
-      <div class="small-filters gen-filters">
-        ${[1, 2, 3, 4, 5].map((gen) => `<button class="btn -default btn-5" data-gen="${gen}" type="button" aria-pressed="false">${gen}</button>`).join("")}
-      </div>
-      <div class="small-filters type-filters">
-        ${typeNamesForProject(project).map((type) => `<button class="btn -default btn-5 -${type.toLowerCase()}" data-ptype="${type.toLowerCase()}" type="button" aria-pressed="false">${type.toUpperCase().slice(0, 3)}</button>`).join("")}
-      </div>
-      <br>
-      <div class="small-filters">Tip: You can right click a value to apply to all</div>
-      ${renderW2uSyncButton(project, ["personal", "learnsets", "evolutions"])}
-      <div class="evo-method-info" hidden>
-        <div class="filter-title">Evolution Methods</div>
-        <div class="evo-method-list">
-          ${EVO_METHODS.map(
-            (method, index) => `
-              <div class="evo-method-row">
-                <span class="evo-method-id">${index}</span>
-                <span>${escapeHtml(method)}</span>
-              </div>
-            `,
-          ).join("")}
+    <div class="pokemon-data" id="pokemon-data">
+      <aside class="md-list" aria-label="Pokemon">
+        <div class="md-filters">
+          <input class="md-search" id="search-text" type="search" placeholder="Search Pokémon, moves, abilities" autocomplete="off" spellcheck="false" aria-label="Search Pokemon">
+          <div class="md-chips">
+            ${renderPokemonFilter("Type", "type-filters", typeNamesForProject(project).map((type) => `<button class="type-plate -${typeClass(type)} md-type-toggle" data-ptype="${type.toLowerCase()}" type="button" aria-pressed="false">${escapeHtml(type)}</button>`).join(""))}
+            ${renderPokemonFilter("Generation", "gen-filters", [1, 2, 3, 4, 5].map((gen) => `<button class="btn sm" data-gen="${gen}" type="button" aria-pressed="false">Gen ${gen}</button>`).join(""))}
+          </div>
         </div>
-      </div>
-    </div>
-    <div class="pokemon-list" id="personals">
-      ${pokemonPersonalDisplayIds(project).map(renderPokemonCardPlaceholder).join("")}
+        <div class="md-list-head" aria-hidden="true"><span>#</span><span></span><span>Name</span><span>Type</span></div>
+        <div class="md-rows" id="pokemon-list" role="listbox" aria-label="Pokemon" tabindex="0">
+          ${ids.map((id) => `<div class="md-row" data-pokemon-row="${id}" role="option" aria-selected="false">${renderPokemonListRowContent(project, id)}</div>`).join("")}
+        </div>
+        <div class="md-list-foot" data-pokemon-count></div>
+        ${w2u ? `<details class="md-tools"><summary>W2U sync</summary>${w2u}</details>` : ""}
+      </aside>
+      <section class="md-detail" id="pokemon-detail"></section>
     </div>
   `;
+
+  const list = root.querySelector<HTMLElement>("#pokemon-list")!;
+  const detail = root.querySelector<HTMLElement>("#pokemon-detail")!;
+  const countLabel = root.querySelector<HTMLElement>("[data-pokemon-count]")!;
+  const rerender = (speciesId: number) => {
+    selection.speciesId = speciesId;
+    renderPokemonEditor(project, root, onDirty, onOpenSprites, onOpenPwan, onEnsureFormAssets);
+  };
 
   const interactions = attachPokemonInteractions(root, project, {
     onDirty,
@@ -125,89 +139,259 @@ export function renderPokemonEditor(
     installCryPanel: (panel, speciesId) => installPokemonCryPanel(panel, project, speciesId, { onDirty }),
     autofills: getPokemonAutofills(project),
     onEnsureFormAssets,
-    onFormAdded: (result: AddPokemonFormResult) => {
-      renderPokemonEditor(project, root, onDirty, onOpenSprites, onOpenPwan, onEnsureFormAssets);
-      window.requestAnimationFrame(() => {
-        root.querySelector<HTMLElement>(`.pokemon-card[data-index='${result.personalId}']`)?.scrollIntoView({ block: "center" });
-      });
+    onFormAdded: (result: AddPokemonFormResult) => rerender(result.personalId),
+    onFormDeleted: (result: DeletePokemonFormResult) => rerender(result.speciesId),
+    onFiltered: (visible) => {
+      countLabel.textContent = visible.length === ids.length ? `${ids.length} Pokémon` : `${visible.length} of ${ids.length} Pokémon`;
+      updatePokemonFilterCounts(root);
     },
-    onFormDeleted: (result: DeletePokemonFormResult) => {
-      renderPokemonEditor(project, root, onDirty, onOpenSprites, onOpenPwan, onEnsureFormAssets);
-      window.requestAnimationFrame(() => {
-        root.querySelector<HTMLElement>(`.pokemon-card[data-index='${result.speciesId}']`)?.scrollIntoView({ block: "center" });
-      });
+    onBulkApplied: (speciesIds) => {
+      speciesIds.forEach((id) => refreshPokemonListRow(project, root, id));
+      refreshPokemonEditState(project, root, selection.speciesId);
     },
   });
+
+  const showTab = (tab: PokemonTab) => {
+    const card = detail.querySelector<HTMLElement>(".pokemon-card");
+    if (!card) return;
+    if (tab === "names" && !hasPokemonTextBanks(project)) tab = "personal";
+    if (tab === "cry" && project.session.generation !== "gen5") tab = "personal";
+    selection.tab = tab;
+    const speciesId = Number(card.dataset.index);
+    const panels = card.querySelector<HTMLElement>(".pd-panels")!;
+    if (tab === "names" && !panels.querySelector(".expanded-pokemon-texts")) {
+      panels.insertAdjacentHTML("beforeend", renderPokemonTextPanel(getPokemonTextInfo(project, speciesId)));
+      interactions.installCard(card);
+    }
+    const panelClass = tab === "names" ? "expanded-pokemon-texts" : `expanded-${tab}`;
+    const target = panels.querySelector<HTMLElement>(`:scope > .${panelClass}`);
+    if (tab === "cry" && target && target.dataset.cryInstalled !== "true") {
+      target.dataset.cryInstalled = "true";
+      void installPokemonCryPanel(target, project, speciesId, { onDirty });
+    }
+    panels.querySelectorAll<HTMLElement>(":scope > .expanded-card-content").forEach((panel) => panel.classList.toggle("show-flex", panel === target));
+    card.querySelectorAll<HTMLButtonElement>("[data-pokemon-tab]").forEach((button) => button.setAttribute("aria-selected", String(button.dataset.pokemonTab === tab)));
+  };
+
+  const select = (speciesId: number, focusList = false) => {
+    selection.speciesId = speciesId;
+    detail.innerHTML = renderPokemonDetail(project, speciesId, Boolean(onOpenPwan));
+    interactions.installCard(detail);
+    installPokemonCardSpriteRendering(project, detail);
+    list.querySelectorAll<HTMLElement>("[data-pokemon-row]").forEach((row) => {
+      const active = Number(row.dataset.pokemonRow) === speciesId;
+      row.classList.toggle("is-selected", active);
+      row.setAttribute("aria-selected", String(active));
+      if (active && focusList) row.scrollIntoView({ block: "nearest" });
+    });
+    showTab(selection.tab);
+    refreshPokemonEditState(project, root, speciesId);
+  };
+
+  list.addEventListener("click", (event) => {
+    const row = (event.target as HTMLElement).closest<HTMLElement>("[data-pokemon-row]");
+    if (row) select(Number(row.dataset.pokemonRow));
+  });
+  list.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    event.preventDefault();
+    const rows = [...list.querySelectorAll<HTMLElement>("[data-pokemon-row]")].filter((row) => row.style.display !== "none");
+    const index = rows.findIndex((row) => Number(row.dataset.pokemonRow) === selection.speciesId);
+    const next = rows[Math.max(0, Math.min(rows.length - 1, index + (event.key === "ArrowDown" ? 1 : -1)))];
+    if (next) select(Number(next.dataset.pokemonRow), true);
+  });
+  detail.addEventListener("click", (event) => {
+    const tab = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-pokemon-tab]");
+    if (tab) {
+      showTab(tab.dataset.pokemonTab as PokemonTab);
+      return;
+    }
+    if ((event.target as HTMLElement).closest("[data-clear-all-evs]")) {
+      if (!window.confirm(`Remove EV yields from every Pokémon? This sets all six EV yields to 0 on all ${ids.length} Pokémon and forms.`)) return;
+      const changed = clearAllPokemonEvYields(project);
+      if (changed > 0) onDirty?.();
+      select(selection.speciesId);
+      const status = detail.querySelector<HTMLElement>("[data-clear-all-evs-status]");
+      if (status) status.textContent = changed > 0 ? `Removed from ${changed} Pokémon` : "No Pokémon had EV yields";
+      return;
+    }
+    window.setTimeout(() => refreshPokemonEditState(project, root, selection.speciesId), 0);
+  });
+  // Field commits happen on focusout/change; resync the list row, header and marks after them.
+  const resync = () => window.setTimeout(() => refreshPokemonEditState(project, root, selection.speciesId), 0);
+  detail.addEventListener("focusout", resync);
+  detail.addEventListener("change", resync);
+  root.querySelectorAll<HTMLDetailsElement>(".md-filter").forEach((filter) => {
+    filter.addEventListener("toggle", () => {
+      if (filter.open) root.querySelectorAll<HTMLDetailsElement>(".md-filter").forEach((other) => { if (other !== filter) other.open = false; });
+    });
+  });
+  document.addEventListener("click", (event) => {
+    if (!root.isConnected) return;
+    root.querySelectorAll<HTMLDetailsElement>(".md-filter[open]").forEach((filter) => { if (!filter.contains(event.target as Node)) filter.open = false; });
+  });
+
   attachW2uSyncButton(root, project);
-  installPokemonCardSpriteRendering(project, root);
-  pokemonCardViewportInstallations.set(root, installPokemonCardViewport(root, (card) => {
-    const record = getPokemonSummaryRecord(project, Number(card.dataset.index));
-    card.dataset.gen = String(record.gen);
-    card.innerHTML = renderPokemonCardContents(project, record, Boolean(onOpenPwan));
-    interactions.installCard(card);
-  }, () => {
-    interactions.disconnect();
-    pokemonCardSpriteInstallations.get(root)?.disconnect();
-    pokemonCardSpriteInstallations.delete(root);
-    pokemonCardViewportInstallations.delete(root);
-  }));
+  select(selection.speciesId, true);
+}
+
+function renderPokemonFilter(label: string, groupClass: string, buttons: string): string {
+  return `
+    <details class="md-filter">
+      <summary class="btn sm">${label}<span class="md-filter-count" data-filter-count></span></summary>
+      <div class="md-filter-pop small-filters ${groupClass}" role="group" aria-label="${label}">${buttons}</div>
+    </details>
+  `;
+}
+
+function updatePokemonFilterCounts(root: HTMLElement): void {
+  root.querySelectorAll<HTMLElement>(".md-filter").forEach((filter) => {
+    const count = filter.querySelectorAll('[aria-pressed="true"]').length;
+    const label = filter.querySelector<HTMLElement>("[data-filter-count]");
+    if (label) label.textContent = count ? String(count) : "";
+    filter.classList.toggle("-active", count > 0);
+  });
+}
+
+/** Changed fields for a species, as "<group>:<field>" suffixes of its changelog keys. */
+function editedPokemonFields(project: ProjectState, speciesId: number): Set<string> {
+  const prefix = `pokemon:${speciesId}:`;
+  return new Set((project.actionChangelog?.entries ?? []).filter((entry) => entry.key.startsWith(prefix)).map((entry) => entry.key.slice(prefix.length)));
+}
+
+function renderPokemonListRowContent(project: ProjectState, speciesId: number): string {
+  const record = getPokemonSummaryRecord(project, speciesId);
+  const name = pokemonSpeciesLabel(project, speciesId);
+  const type1 = String(record.personal.type_1 ?? "");
+  const type2 = String(record.personal.type_2 ?? "");
+  const edits = editedPokemonFields(project, speciesId).size;
+  return `
+    <span class="md-row-id">${speciesId}</span>
+    <img class="pd-row-icon" src="${publicAsset(`images/pokesprite/${pokemonSpriteSlug(name)}.png`)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+    <span class="md-row-name">${escapeHtml(name)}${edits ? `<span class="md-edits" title="${edits} change${edits === 1 ? "" : "s"}">${edits}</span>` : ""}</span>
+    <span class="pd-row-types"><span class="type-plate sm -${typeClass(type1)}">${escapeHtml(type1)}</span>${type2 && type2 !== type1 ? `<span class="type-plate sm -${typeClass(type2)}">${escapeHtml(type2)}</span>` : ""}</span>
+  `;
+}
+
+function refreshPokemonListRow(project: ProjectState, root: HTMLElement, speciesId: number): void {
+  const row = root.querySelector<HTMLElement>(`[data-pokemon-row="${speciesId}"]`);
+  if (row) row.innerHTML = renderPokemonListRowContent(project, speciesId);
+}
+
+function refreshPokemonEditState(project: ProjectState, root: HTMLElement, speciesId: number): void {
+  refreshPokemonListRow(project, root, speciesId);
+  const card = root.querySelector<HTMLElement>(`#pokemon-detail .pokemon-card[data-index="${speciesId}"]`);
+  if (!card) return;
+  const edited = editedPokemonFields(project, speciesId);
+  const record = getPokemonSummaryRecord(project, speciesId);
+  const title = card.querySelector<HTMLElement>(".pd-title h1");
+  if (title) title.textContent = pokemonSpeciesLabel(project, speciesId);
+  card.querySelectorAll<HTMLElement>("[data-mark-fields]").forEach((mark) => {
+    const fields = (mark.dataset.markFields ?? "").split(" ");
+    mark.classList.toggle("is-edited", fields.some((field) => edited.has(field)));
+  });
+  card.querySelectorAll<HTMLElement>("[data-tab-edits]").forEach((badge) => {
+    const tab = badge.dataset.tabEdits as PokemonTab;
+    const count = [...edited].filter((key) => TAB_EDIT_PREFIXES[tab]?.test(key) && !HEADER_FIELDS.test(key)).length;
+    badge.textContent = count ? String(count) : "";
+  });
+  const total = BASE_STAT_FIELDS.reduce((sum, [, field]) => sum + (Number(record.personal[field]) || 0), 0);
+  const totalCell = card.querySelector<HTMLElement>("[data-base-stat-total]");
+  if (totalCell) totalCell.textContent = String(total);
+  card.querySelectorAll<HTMLElement>(".pd-stats tr[data-stat]").forEach((row) => {
+    const value = Number(record.personal[row.dataset.stat ?? ""]) || 0;
+    const bar = row.querySelector<HTMLElement>(".pd-stat-bar > span");
+    if (bar) {
+      bar.style.width = `${Math.min(100, (value / 255) * 100)}%`;
+      bar.style.background = statColor(value);
+    }
+  });
+  card.querySelectorAll<HTMLElement>("[data-hint]").forEach((hint) => {
+    hint.textContent = personalHint(hint.dataset.hint ?? "", Number(record.personal[hint.dataset.hint ?? ""]));
+  });
+  card.querySelectorAll<HTMLElement>("[data-compat-count]").forEach((label) => {
+    const panel = label.closest<HTMLElement>(".expanded-card-content");
+    const cells = panel ? [...panel.querySelectorAll<HTMLElement>(".cell[aria-pressed]")] : [];
+    label.textContent = `${cells.filter((cell) => cell.getAttribute("aria-pressed") === "true").length} of ${cells.length} compatible`;
+  });
+}
+
+function statColor(value: number): string {
+  if (value < 50) return "#ff6b6b";
+  if (value < 80) return "#f0a050";
+  if (value < 100) return "#e8d050";
+  if (value < 120) return "#9fd65a";
+  return "#5ccf8f";
+}
+
+/** Plain-language meaning shown beside raw personal values. */
+function personalHint(field: string, value: number): string {
+  if (!Number.isFinite(value)) return "";
+  if (field === "gender") {
+    if (value === 255) return "Genderless";
+    if (value === 0) return "Always male";
+    if (value === 254) return "Always female";
+    const female = ((value + 1) / 256) * 100;
+    return `${Number((100 - female).toFixed(1))}% male`;
+  }
+  if (field === "hatch_cycle") return `≈ ${(value * 257).toLocaleString("en-US")} steps`;
+  if (field === "height") return `${(value / 10).toFixed(1)} m`;
+  if (field === "weight") return `${(value / 10).toFixed(1)} kg`;
+  return "";
+}
+
+function renderPokemonDetail(project: ProjectState, speciesId: number, showPwan: boolean): string {
+  const record = getPokemonSummaryRecord(project, speciesId);
+  const pok = record.personal;
+  const name = pokemonSpeciesLabel(project, speciesId);
+  const type1 = String(pok.type_1 ?? "");
+  const type2 = String(pok.type_2 ?? "");
+  const cascade = renderCascadeAbilitySlots(project, speciesId);
+  const tab = (key: PokemonTab, label: string) => `<button class="uv-tab" type="button" role="tab" data-pokemon-tab="${key}">${label}<span class="pd-tab-edits" data-tab-edits="${key}"></span></button>`;
+  const ability = (field: string, label: string) => `<label class="pd-ability" data-mark-fields="personal:${field}"><span>${label}</span>${editable("personal", field, titleizeValue(pok[field]), "pokemon-card__ability", { autofill: "abilities" })}</label>`;
+  return `
+    <article class="pokemon-card filterable pd-card" data-index="${speciesId}">
+      <header class="pd-head">
+        <div class="pd-sprite pokemon-card__img">${renderPokemonCardSprite(project, speciesId, name)}</div>
+        <div class="pd-ident">
+          <div class="pd-title"><h1>${escapeHtml(name)}</h1></div>
+          <div class="pd-types" data-mark-fields="personal:type_1 personal:type_2">
+            ${editable("personal", "type_1", type1, `type-plate pokemon-type -${typeClass(type1)}`, { autofill: "types", label: "Type 1" })}
+            ${editable("personal", "type_2", type2, `type-plate pokemon-type -${typeClass(type2)}`, { autofill: "types", label: "Type 2" })}
+          </div>
+          <div class="pd-abilities">
+            ${ability("ability_1", "Ability 1")}
+            ${ability("ability_2", "Ability 2")}
+            ${ability("ability_3", "Hidden")}
+          </div>
+          ${cascade ? `<div class="pd-abilities pd-ai-abilities"><span class="pd-hint">AI abilities</span>${cascade}</div>` : ""}
+        </div>
+        <table class="pd-stats" aria-label="Base stats">
+          <tbody>
+            ${BASE_STAT_FIELDS.map(([, field]) => renderBaseStat(STAT_LABELS[field] ?? field, field, pok[field])).join("")}
+            <tr class="pd-total"><td>Total</td><td data-base-stat-total></td><td></td></tr>
+          </tbody>
+        </table>
+      </header>
+      <div class="md-tabs pd-tabs" role="tablist" aria-label="Pokemon editor">
+        ${tab("personal", "Personal")}
+        ${tab("learnset", "Learnset")}
+        ${tab("tms", "TMs")}
+        ${tab("tutors", "Tutors")}
+        ${tab("egg-moves", "Egg moves")}
+        ${tab("evos", "Evolutions")}
+        ${hasPokemonTextBanks(project) ? tab("names", "Names") : ""}
+        ${project.session.generation === "gen5" ? tab("cry", "Cry") : ""}
+        <button class="uv-tab sprite-editor-action" type="button" title="Open the sprite editor">Sprites</button>
+        ${showPwan ? `<button class="uv-tab pwan-editor-action" type="button" title="Open the PWAN animation editor">Animation</button>` : ""}
+      </div>
+      <div class="md-panels pd-panels">${renderPokemonExpandedSections(project, speciesId)}</div>
+    </article>
+  `;
 }
 
 export function renderPokemonExpandedSections(project: ProjectState, speciesId: number): string {
   return renderExpanded(project, getPokemonRecord(project, speciesId));
-}
-
-export function renderPokemonCardPlaceholder(speciesId: number): string {
-  return `<div class="pokemon-card filterable pokemon-card-placeholder" data-index="${speciesId}" aria-hidden="true"></div>`;
-}
-
-function renderPokemonCardContents(project: ProjectState, record: PokemonSummaryRecord, showPwanIcon: boolean): string {
-  const pok = record.personal;
-  const name = pokemonSpeciesLabel(project, record.id);
-  const type1 = String(pok.type_1 ?? "");
-  const type2 = String(pok.type_2 ?? "");
-  return `
-      <div class="pokemon-card__info">
-        <div class="pokemon-card__header">
-          <div class="pokemon-card__img">
-            ${renderPokemonCardSprite(project, record.id, name)}
-          </div>
-        </div>
-        ${renderPokemonName(project, record.id, name)}
-        <div class="pokemon-types">
-          ${editable("personal", "type_1", type1, `pokemon-type -${typeClass(type1)}`, { autofill: "types" })}
-          ${editable("personal", "type_2", type2, `pokemon-type -${typeClass(type2)}`, { autofill: "types" })}
-        </div>
-        <div class="pokemon-card__abilities">
-          ${editable("personal", "ability_1", titleizeValue(pok.ability_1), "pokemon-card__ability", { autofill: "abilities" })}
-          ${editable("personal", "ability_2", titleizeValue(pok.ability_2), "pokemon-card__ability", { autofill: "abilities" })}
-          ${editable("personal", "ability_3", titleizeValue(pok.ability_3), "pokemon-card__ability", { autofill: "abilities" })}
-          ${renderCascadeAbilitySlots(project, record.id)}
-        </div>
-      </div>
-      <table class="pokemon-card__table" cellspacing="0">
-        <tbody>
-          ${BASE_STAT_FIELDS.map(([label, field]) => renderBaseStat(label, field, pok[field])).join("")}
-        </tbody>
-      </table>
-      <div class="personal-icons">
-        ${icon("learnset", "Learnset")}
-        ${icon("tms", "TMs")}
-        ${icon("tutors", "Tutors")}
-        ${icon("egg-moves", "Egg Moves")}
-        ${icon("evos", "Evolutions")}
-        ${icon("personal", "Personal")}
-        ${project.session.generation === "gen5" ? icon("cry", "Play, export, or import Pokemon cry") : ""}
-        ${spriteIcon()}
-        ${showPwanIcon ? pwanIcon() : ""}
-      </div>
-  `;
-}
-
-function renderPokemonName(project: ProjectState, speciesId: number, name: string): string {
-  const label = `#${speciesId} ${name}`;
-  if (!hasPokemonTextBanks(project)) return `<div class="pokemon-card__name">${escapeHtml(label)}</div>`;
-  return `<button class="pokemon-card__name pokemon-name-toggle" type="button" aria-expanded="false" title="Edit Pokemon name and text references">${escapeHtml(label)}</button>`;
 }
 
 function renderPokemonTextPanel(info: PokemonTextInfo | undefined): string {
@@ -359,12 +543,8 @@ function renderExpanded(project: ProjectState, record: PokemonEditorRecord): str
   const learnsetSpeciesMax = Math.max(1, (project.narcs.learnsets?.fileCount ?? 1) - 1);
   const personalSpeciesMax = Math.max(1, getPokemonCount(project) - 1);
   const canAddLearnsetMove = record.learnset.length < learnsetLimit;
-  const learnsetColumnSplit = Math.ceil(record.learnset.length / 2);
   const koMovesAvailable = isKoMoveEditorAvailable(project);
   const koMoves = koMovesAvailable ? getPokemonKoMoves(project, record.id) : [];
-  const leftIntegerFields = MISC_INTEGER_FIELDS.filter(([, field]) => field in record.rawPersonal && field !== "height" && field !== "weight");
-  const midIntegerFields = MISC_INTEGER_FIELDS.filter(([, field]) => field in record.rawPersonal && (field === "height" || field === "weight"));
-  const textFields = PERSONAL_TEXT_FIELDS.filter(([, field]) => field in record.rawPersonal);
   const addFormReady =
     !isGen4Project(project) &&
     Boolean(
@@ -378,77 +558,172 @@ function renderExpanded(project: ProjectState, record: PokemonEditorRecord): str
   const formOwner = findPokemonPersonalFormOwner(project, record.id);
   const deletion = formOwner ? getPokemonFormDeletionAvailability(project, record.id) : undefined;
   const deleteFormButton = deletion
-    ? `<button class="btn -default personal-delete-form${deletion.deletable ? "" : " invalid"}" data-delete-pokemon-form type="button" ${deletion.deletable ? "" : "disabled"} title="${escapeHtml(deletion.deletable ? "Delete this appended form and its data" : deletion.reason)}">Delete Form</button>`
+    ? `<button class="btn sm -danger personal-delete-form${deletion.deletable ? "" : " invalid"}" data-delete-pokemon-form type="button" ${deletion.deletable ? "" : "disabled"} title="${escapeHtml(deletion.deletable ? "Delete this appended form and its data" : deletion.reason)}">Delete form</button>`
     : "";
+  const tmsEnabled = record.tmCompatibility.filter((slot) => slot.enabled).length;
+  const tutorSlots = record.tutorCompatibility.flatMap((group) => group.slots);
   return `
     <div class="expanded-card-content expanded-personal">
-      <div class="personal-form-toolbar">
-        <div>
-          <strong>Add a stat-bearing alternate form</strong>
-          <span>Copies the base personal data, learnset, sprites, and icons; evolution data starts empty.</span>
+      ${renderPersonalPanel(record)}
+      <section class="pd-forms">
+        <div class="section-bar">Forms</div>
+        <div class="pd-forms-body">
+          <div class="md-form">
+            ${personalRow(record, "form_id", "Form data offset")}
+            ${personalRow(record, "form", "Form sprite offset")}
+            ${personalRow(record, "num_forms", "Number of forms")}
+          </div>
+          <div class="pd-form-actions">
+            <p class="pd-note">Adding a form copies this Pokémon's personal data, learnset, sprites and icons into a new stat-bearing form. Its evolutions start empty.</p>
+            <div class="personal-form-actions">
+              <button class="btn sm personal-add-form" data-add-pokemon-form type="button" ${addFormReady ? "" : "disabled"} title="${addFormReady ? "Generate and append all files for a new form" : "Load Personal, Learnsets, Evolutions, Pokemon Sprites, Pokemon Icons, and Message Texts to add a form"}">Add form</button>
+              ${deleteFormButton}
+            </div>
+          </div>
         </div>
-        <div class="personal-form-actions">
-          ${deleteFormButton}
-          <button class="btn -default personal-add-form" data-add-pokemon-form type="button" ${addFormReady ? "" : "disabled"} title="${addFormReady ? "Generate and append all files for a new form" : "Load Personal, Learnsets, Evolutions, Pokemon Sprites, Pokemon Icons, and Message Texts to add a form"}">Add Form</button>
-        </div>
-      </div>
-      <div class="expanded-left">
-        ${leftIntegerFields.map(([label, field, max]) => expandedField(label, editable("personal", field, record.personal[field], "expanded-field-value", { type: `int-${max}` }))).join("")}
-      </div>
-      <div class="expanded-mid">
-        ${midIntegerFields.map(([label, field, max]) => expandedField(label, editable("personal", field, record.personal[field], "expanded-field-value", { type: `int-${max}` }))).join("")}
-        ${textFields.map(([label, field, autofill]) => expandedField(label, editable("personal", field, record.personal[field], "expanded-field-value", { autofill }))).join("")}
-      </div>
-      <div class="expanded-right">
-        ${EV_YIELD_FIELDS.map(([label, field]) => expandedField(`${label} EVs`, editable("personal", field, record.personal[field], "expanded-field-value ev-field", { type: "int-3" }))).join("")}
-      </div>
+      </section>
     </div>
     <div class="expanded-card-content expanded-learnset">
       <div class="learnset-panel">
-        <div class="learnset-toolbar">
+        <div class="learnset-toolbar pd-toolbar">
           <div class="learnset-toolbar-actions">
-            <button class="btn -default learnset-action" data-learnset-action="append" type="button" ${canAddLearnsetMove ? "" : "disabled"}>Add Move</button>
-            <input class="learnset-copy-source" type="number" inputmode="numeric" min="1" max="${learnsetSpeciesMax}" step="1" placeholder="Species ID" aria-label="Source species ID">
-            <button class="btn -default learnset-action" data-learnset-action="copy" type="button">Copy From</button>
+            <button class="btn sm learnset-action" data-learnset-action="append" type="button" ${canAddLearnsetMove ? "" : "disabled"}>Add move</button>
+            <span class="pd-copy">
+              <input class="learnset-copy-source" type="number" inputmode="numeric" min="1" max="${learnsetSpeciesMax}" step="1" placeholder="Species ID" aria-label="Source species ID">
+              <button class="btn sm learnset-action" data-learnset-action="copy" type="button">Copy from</button>
+            </span>
           </div>
-          <span class="learnset-count">${record.learnset.length}/${learnsetLimit}</span>
+          <span class="learnset-count">${record.learnset.length} of ${learnsetLimit} moves</span>
         </div>
-        <div class="learnset-columns">
-          <div class="expanded-left">
-            ${record.learnset.slice(0, learnsetColumnSplit).map((move) => renderLearnsetMove(move, canAddLearnsetMove)).join("")}
-          </div>
-          <div class="expanded-left">
-            ${record.learnset.slice(learnsetColumnSplit).map((move) => renderLearnsetMove(move, canAddLearnsetMove)).join("")}
-          </div>
-        </div>
+        ${renderMoveTable("Level", record.learnset.map((move) => renderLearnsetMove(move, canAddLearnsetMove)).join(""))}
       </div>
       ${koMovesAvailable ? renderKoMoves(koMoves, learnsetSpeciesMax) : ""}
     </div>
     <div class="expanded-card-content expanded-tms">
-      ${renderCompatibilityCopyToolbar("tm", "TM/HM", personalSpeciesMax)}
+      ${renderCompatibilityCopyToolbar("tm", "TM/HM", personalSpeciesMax, `${tmsEnabled} of ${record.tmCompatibility.length} compatible`)}
       <div class="tm-compatibility-grid">
         ${record.tmCompatibility.map((slot) => renderTmCompatibility(slot)).join("")}
       </div>
     </div>
     <div class="expanded-card-content expanded-tutors">
-      ${record.tutorCompatibility.length > 0 ? `${renderCompatibilityCopyToolbar("tutor", "Tutor", personalSpeciesMax)}${record.tutorCompatibility.map((group) => renderTutorGroup(group)).join("")}` : renderUnavailablePanel("BW2 tutor compatibility is not available for this ROM.")}
+      ${record.tutorCompatibility.length > 0 ? `${renderCompatibilityCopyToolbar("tutor", "Tutor", personalSpeciesMax, `${tutorSlots.filter((slot) => slot.enabled).length} of ${tutorSlots.length} compatible`)}${record.tutorCompatibility.map((group) => renderTutorGroup(group)).join("")}` : renderUnavailablePanel("BW2 tutor compatibility is not available for this ROM.")}
     </div>
     <div class="expanded-card-content expanded-egg-moves">
       ${record.eggMovesLoaded ? renderEggMoves(record.eggMoves) : renderUnavailablePanel("Egg move data was not loaded for this project. Reload with Pokemon data selected.")}
     </div>
     <div class="expanded-card-content expanded-evos">
-      ${evolutionColumns(record.evolutions).map((slots) => renderEvolutionColumn(slots)).join("")}
+      ${renderEvolutionTable(record.evolutions)}
     </div>
     ${project.session.generation === "gen5" ? renderPokemonCryPanel(record.id) : ""}
   `;
 }
 
-function renderCompatibilityCopyToolbar(kind: "tm" | "tutor", label: string, speciesMax: number): string {
+const PERSONAL_INTEGER_MAX: Record<string, number> = Object.fromEntries(MISC_INTEGER_FIELDS.map(([, field, max]) => [field, max]));
+const PERSONAL_TEXT_AUTOFILL: Record<string, string> = Object.fromEntries(PERSONAL_TEXT_FIELDS.map(([, field, autofill]) => [field, autofill]));
+
+/** One label + value row of the personal form; skipped when this ROM's personal format lacks the field. */
+function personalRow(record: PokemonEditorRecord, field: string, label: string): string {
+  if (!(field in record.rawPersonal)) return "";
+  const autofill = PERSONAL_TEXT_AUTOFILL[field];
+  const value = autofill
+    ? editable("personal", field, record.personal[field], "pd-field", { autofill })
+    : editable("personal", field, record.personal[field], "pd-field", { type: `int-${PERSONAL_INTEGER_MAX[field] ?? 255}` });
+  const hint = ["gender", "hatch_cycle", "height", "weight"].includes(field) ? `<span class="md-unit" data-hint="${field}"></span>` : "";
+  return `<span class="md-label" data-mark-fields="personal:${field}">${label}</span><div class="md-value">${value}${hint}</div>`;
+}
+
+function renderPersonalPanel(record: PokemonEditorRecord): string {
+  const evFields = EV_YIELD_FIELDS.filter(([, field]) => field in record.rawPersonal);
   return `
-    <div class="compatibility-copy-toolbar">
+    <div class="md-grid">
+      <section>
+        <div class="section-bar">Training</div>
+        <div class="md-form">
+          ${personalRow(record, "catchrate", "Catch rate")}
+          ${personalRow(record, "base_exp", "Exp yield")}
+          ${personalRow(record, "base_happy", "Base happiness")}
+          ${personalRow(record, "exp_rate", "Growth rate")}
+          ${personalRow(record, "hidden_ability_chance", "Hidden ability chance")}
+        </div>
+      </section>
+      <section>
+        <div class="section-bar">Breeding</div>
+        <div class="md-form">
+          ${personalRow(record, "gender", "Gender")}
+          ${personalRow(record, "hatch_cycle", "Egg cycles")}
+          ${personalRow(record, "egg_group_1", "Egg group 1")}
+          ${personalRow(record, "egg_group_2", "Egg group 2")}
+        </div>
+      </section>
+      <section>
+        <div class="section-bar">Wild held items</div>
+        <div class="md-form">
+          ${personalRow(record, "item_1", "50%")}
+          ${personalRow(record, "item_2", "5%")}
+          ${personalRow(record, "item_3", "1%")}
+        </div>
+        <div class="section-bar md-gap">Size</div>
+        <div class="md-form">
+          ${personalRow(record, "height", "Height")}
+          ${personalRow(record, "weight", "Weight")}
+        </div>
+      </section>
+    </div>
+    ${evFields.length ? `
+      <section class="pd-evs">
+        <div class="pd-section-head">
+          <div class="section-bar">EV yield</div>
+          <span class="learnset-count" data-clear-all-evs-status role="status"></span>
+          <button class="btn sm -danger" type="button" data-clear-all-evs title="Set all six EV yields to 0 on every Pokémon and form">Remove from all Pokémon</button>
+        </div>
+        <table class="md-table pd-ev-table">
+          <thead><tr>${evFields.map(([label]) => `<th class="r">${escapeHtml(label)}</th>`).join("")}</tr></thead>
+          <tbody><tr>${evFields.map(([label, field]) => `<td class="r" data-mark-fields="personal:${field}">${editable("personal", field, record.personal[field], "pd-field ev-field", { type: "int-3", label: `${label} EV yield` })}</td>`).join("")}</tr></tbody>
+        </table>
+      </section>` : ""}
+  `;
+}
+
+function renderMoveTable(firstColumn: string, rows: string, extraClass = ""): string {
+  return `
+    <div class="pd-move-table ${extraClass}">
+      <div class="pd-move-head" aria-hidden="true">
+        ${firstColumn ? `<span class="r">${firstColumn}</span>` : ""}<span>Move</span><span>Type</span><span>Category</span><span class="r">Power</span><span class="r">Acc.</span><span></span>
+      </div>
+      ${rows || `<div class="pd-empty">No moves yet.</div>`}
+    </div>
+  `;
+}
+
+function renderEvolutionTable(slots: EvolutionSlot[]): string {
+  const paramLabels: Record<string, string> = { none: "", level: "Level", integer: "Value", item: "Item", move: "Move", pokemon: "Pokémon", ability: "Ability" };
+  return `
+    <div class="pd-evo-table">
+      <div class="pd-evo-head" aria-hidden="true"><span>#</span><span>Method</span><span>Parameter</span><span>Evolves into</span><span class="r">ID</span></div>
+      ${slots.map((slot) => {
+        const paramOptions = slot.paramAutofill ? { autofill: slot.paramAutofill } : { type: "int-65535" };
+        const kind = paramLabels[evolutionParamKind(slot.method)] ?? "";
+        return `
+          <div class="pd-evo-row${slot.methodId === 0 ? " -empty" : ""}" data-mark-fields="evolutions:method_${slot.index} evolutions:param_${slot.index} evolutions:target_${slot.index}">
+            <span class="pd-evo-n">${slot.index + 1}</span>
+            <div class="pd-evo-cell">${editable("evolution", `method_${slot.index}`, slot.method, "evo-value", { autofill: "evo_methods", label: `Evolution ${slot.index + 1} method` })}</div>
+            <div class="pd-evo-cell pd-evo-param">${editable("evolution", `param_${slot.index}`, slot.param, "evo-value", { ...paramOptions, label: `Evolution ${slot.index + 1} ${kind || "parameter"}` })}${kind ? `<span class="md-unit">${kind}</span>` : ""}</div>
+            <div class="pd-evo-cell">${editable("evolution", `target_${slot.index}`, slot.target, "evo-value", { autofill: "evolution_targets", label: `Evolution ${slot.index + 1} target name or species ID` })}</div>
+            <div class="pd-evo-cell r">${editable("evolution", `target_${slot.index}`, slot.targetId, "evolution-target-id-input", { type: "int-65535", label: `Evolution ${slot.index + 1} target species ID` })}</div>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function renderCompatibilityCopyToolbar(kind: "tm" | "tutor", label: string, speciesMax: number, count: string): string {
+  return `
+    <div class="compatibility-copy-toolbar pd-toolbar">
       <div class="compatibility-copy-actions">
         <input class="learnset-copy-source compatibility-copy-source" type="number" inputmode="numeric" min="1" max="${speciesMax}" step="1" placeholder="Species ID" aria-label="${label} compatibility source species ID">
-        <button class="btn -default compatibility-copy-action" data-compatibility-copy="${kind}" type="button">Copy From</button>
+        <button class="btn sm compatibility-copy-action" data-compatibility-copy="${kind}" type="button">Copy from</button>
+        <span class="learnset-count" data-compat-count>${count}</span>
       </div>
       ${kind === "tm" ? renderTmSortControls() : ""}
     </div>
@@ -470,33 +745,24 @@ function renderTmSortControls(): string {
   `;
 }
 
-function evolutionColumns(slots: EvolutionSlot[]): EvolutionSlot[][] {
-  const size = Math.ceil(slots.length / 3);
-  return [slots.slice(0, size), slots.slice(size, size * 2), slots.slice(size * 2)];
-}
-
 function renderBaseStat(label: string, field: string, value: unknown): string {
   const numeric = Number(value) || 0;
   return `
-    <tr>
-      <td><strong>${label}</strong></td>
+    <tr data-stat="${field}" data-mark-fields="personal:${field}">
+      <th scope="row">${label}</th>
       <td data-narc="personal" data-type="int-255" data-field-name="${field}" contenteditable="true">${numeric}</td>
-      <td>
-        <div class="pokemon-card__graph-wrapper">
-          <div class="pokemon-card__graph -medium" style="width: calc(100% * (${numeric} / 255));"></div>
-        </div>
-      </td>
+      <td><div class="pd-stat-bar"><span class="pokemon-card__graph" style="width: ${Math.min(100, (numeric / 255) * 100)}%; background: ${statColor(numeric)}"></span></div></td>
     </tr>
   `;
 }
 
 function renderLearnsetMove(move: LearnsetMove, canInsert: boolean): string {
   return `
-    <div class="expanded-field multi learnset-row" data-learnset-index="${move.index}">
+    <div class="expanded-field multi learnset-row pd-move-row" data-learnset-index="${move.index}" data-mark-fields="learnsets:lvl_learned_${move.index} learnsets:move_id_${move.index}">
       <div data-require="move-name" data-narc="learnset" data-field-name="lvl_learned_${move.index}" data-type="int-100" class="move-level" contenteditable="true">${move.level}</div>
       ${editable("learnset", `move_id_${move.index}`, move.moveName, "move-name", { autofill: "move_names", require: "move-level" })}
-      <div class="move-type"><button class="btn -${typeClass(move.type)} -active" type="button">${escapeHtml(String(move.type).toUpperCase().slice(0, 3))}</button></div>
-      <div class="move-cat">${escapeHtml(String(move.category).slice(0, 3))}</div>
+      <div class="move-type"><span class="type-plate sm -${typeClass(move.type)}">${escapeHtml(String(move.type))}</span></div>
+      <div class="move-cat">${escapeHtml(titleize(String(move.category)))}</div>
       <div class="move-power">${escapeHtml(String(move.power))}</div>
       <div class="move-accuracy">${escapeHtml(String(move.accuracy))}</div>
       <div class="learnset-row-actions">
@@ -509,72 +775,37 @@ function renderLearnsetMove(move: LearnsetMove, canInsert: boolean): string {
 
 function renderKoMoves(moves: KoMoveLearnsetEntry[], speciesMax: number): string {
   const canInsert = moves.length < KO_MOVE_LEARNSET_MAX_MOVES;
-  const split = Math.ceil(moves.length / 2);
   return `
     <div class="learnset-panel ko-move-panel">
-      <div class="learnset-toolbar">
+      <div class="section-bar md-gap">KO moves</div>
+      <div class="learnset-toolbar pd-toolbar">
         <div class="learnset-toolbar-actions">
-          <strong>KO Moves</strong>
-          <button class="btn -default" data-ko-learnset-action="append" type="button" ${canInsert ? "" : "disabled"}>Add Move</button>
-          <input class="learnset-copy-source ko-learnset-copy-source" type="number" inputmode="numeric" min="1" max="${speciesMax}" step="1" placeholder="Species ID" aria-label="KO learnset source species ID">
-          <button class="btn -default" data-ko-learnset-action="copy" type="button">Copy From</button>
+          <button class="btn sm" data-ko-learnset-action="append" type="button" ${canInsert ? "" : "disabled"}>Add move</button>
+          <span class="pd-copy">
+            <input class="learnset-copy-source ko-learnset-copy-source" type="number" inputmode="numeric" min="1" max="${speciesMax}" step="1" placeholder="Species ID" aria-label="KO learnset source species ID">
+            <button class="btn sm" data-ko-learnset-action="copy" type="button">Copy from</button>
+          </span>
         </div>
-        <span class="learnset-count">${moves.length}/${KO_MOVE_LEARNSET_MAX_MOVES}</span>
+        <span class="learnset-count">${moves.length} of ${KO_MOVE_LEARNSET_MAX_MOVES} moves</span>
       </div>
-      <div class="learnset-columns">
-        <div class="expanded-left">
-          ${moves.slice(0, split).map((move) => renderKoMove(move, canInsert)).join("")}
-        </div>
-        <div class="expanded-left">
-          ${moves.slice(split).map((move) => renderKoMove(move, canInsert)).join("")}
-        </div>
-      </div>
+      ${renderMoveTable("KOs", moves.map((move) => renderKoMove(move, canInsert)).join(""))}
     </div>
   `;
 }
 
 function renderKoMove(move: KoMoveLearnsetEntry, canInsert: boolean): string {
   return `
-    <div class="expanded-field multi learnset-row ko-move-row" data-ko-learnset-index="${move.index}">
+    <div class="expanded-field multi learnset-row ko-move-row pd-move-row" data-ko-learnset-index="${move.index}">
       <div data-require="move-name" data-narc="ko_learnset" data-field-name="ko_count_${move.index}" data-type="int-65535" class="move-level" contenteditable="true" title="Required KO count">${move.koCount}</div>
       ${editable("ko_learnset", `move_id_${move.index}`, move.moveName, "move-name", { autofill: "move_names", require: "move-level" })}
-      <div class="move-type"><button class="btn -${typeClass(move.type)} -active" type="button">${escapeHtml(String(move.type).toUpperCase().slice(0, 3))}</button></div>
-      <div class="move-cat">${escapeHtml(String(move.category).slice(0, 3))}</div>
+      <div class="move-type"><span class="type-plate sm -${typeClass(move.type)}">${escapeHtml(String(move.type))}</span></div>
+      <div class="move-cat">${escapeHtml(titleize(String(move.category)))}</div>
       <div class="move-power">${escapeHtml(String(move.power))}</div>
       <div class="move-accuracy">${escapeHtml(String(move.accuracy))}</div>
       <div class="learnset-row-actions">
         <button class="learnset-icon-button" data-ko-learnset-action="insert" data-ko-learnset-index="${move.index + 1}" title="Insert KO move below" type="button" ${canInsert ? "" : "disabled"}>+</button>
         <button class="learnset-icon-button -danger" data-ko-learnset-action="delete" data-ko-learnset-index="${move.index}" title="Delete KO move" type="button">×</button>
       </div>
-    </div>
-  `;
-}
-
-function renderEvolutionColumn(slots: EvolutionSlot[]): string {
-  return `
-    <div class="expanded-left">
-      ${slots
-        .map((slot) => {
-          const paramOptions = slot.paramAutofill ? { autofill: slot.paramAutofill } : { type: "int-65535" };
-          return `
-            ${expandedField("Method", editable("evolution", `method_${slot.index}`, slot.method, "evo-value", { autofill: "evo_methods" }))}
-            ${expandedField("Parameter", editable("evolution", `param_${slot.index}`, slot.param, "evo-value", paramOptions))}
-            ${evolutionTargetField(slot)}
-          `;
-        })
-        .join("")}
-    </div>
-  `;
-}
-
-function evolutionTargetField(slot: EvolutionSlot): string {
-  return `
-    <div class="expanded-field evolution-target-field">
-      <div class="expanded-field-name evolution-target-label">
-        <span>Evolves to</span>
-        <span class="evolution-target-id">Species ID ${editable("evolution", `target_${slot.index}`, slot.targetId, "evolution-target-id-input", { type: "int-65535", label: `Evolution ${slot.index + 1} target species ID` })}</span>
-      </div>
-      ${editable("evolution", `target_${slot.index}`, slot.target, "evo-value", { autofill: "evolution_targets", label: `Evolution ${slot.index + 1} target name or species ID` })}
     </div>
   `;
 }
@@ -644,28 +875,23 @@ function renderEggMoves(moves: EggMoveSlot[]): string {
   const canInsert = true;
   return `
     <div class="learnset-panel egg-move-panel">
-      <div class="learnset-toolbar">
-        <button class="btn -default egg-move-action" data-egg-move-action="append" type="button">Add Move</button>
+      <div class="learnset-toolbar pd-toolbar">
+        <div class="learnset-toolbar-actions">
+          <button class="btn sm egg-move-action" data-egg-move-action="append" type="button">Add move</button>
+        </div>
         <span class="learnset-count">${moves.length} egg move${moves.length === 1 ? "" : "s"}</span>
       </div>
-      <div class="learnset-columns">
-        <div class="expanded-left">
-          ${moves.slice(0, Math.ceil(moves.length / 2)).map((move) => renderEggMove(move, canInsert)).join("")}
-        </div>
-        <div class="expanded-left">
-          ${moves.slice(Math.ceil(moves.length / 2)).map((move) => renderEggMove(move, canInsert)).join("")}
-        </div>
-      </div>
+      ${renderMoveTable("", moves.map((move) => renderEggMove(move, canInsert)).join(""), "-no-first")}
     </div>
   `;
 }
 
 function renderEggMove(move: EggMoveSlot, canInsert: boolean): string {
   return `
-    <div class="expanded-field multi egg-move-row" data-egg-move-index="${move.index}">
+    <div class="expanded-field multi egg-move-row pd-move-row -no-first" data-egg-move-index="${move.index}" data-mark-fields="egg:${move.index}">
       ${editable("egg_moves", `move_id_${move.index}`, move.moveName, "move-name", { autofill: "move_names" })}
-      <div class="move-type"><button class="btn -${typeClass(move.type)} -active" type="button">${escapeHtml(String(move.type).toUpperCase().slice(0, 3))}</button></div>
-      <div class="move-cat">${escapeHtml(String(move.category).slice(0, 3))}</div>
+      <div class="move-type"><span class="type-plate sm -${typeClass(move.type)}">${escapeHtml(String(move.type))}</span></div>
+      <div class="move-cat">${escapeHtml(titleize(String(move.category)))}</div>
       <div class="move-power">${escapeHtml(String(move.power))}</div>
       <div class="move-accuracy">${escapeHtml(String(move.accuracy))}</div>
       <div class="learnset-row-actions">
@@ -680,15 +906,6 @@ function renderUnavailablePanel(message: string): string {
   return `<div class="expanded-empty">${escapeHtml(message)}</div>`;
 }
 
-function expandedField(label: string, value: string): string {
-  return `
-    <div class="expanded-field">
-      <div class="expanded-field-name">${escapeHtml(label)}</div>
-      ${value}
-    </div>
-  `;
-}
-
 function editable(
   narc: "personal" | "learnset" | "evolution" | "egg_moves" | "ko_learnset",
   field: string,
@@ -701,18 +918,6 @@ function editable(
   const require = options.require ? ` data-require="${options.require}"` : "";
   const label = options.label ? ` aria-label="${escapeHtml(options.label)}" title="${escapeHtml(options.label)}"` : "";
   return `<div autocorrect="off" data-narc="${narc}" data-field-name="${field}" class="${className}" contenteditable="true"${autofill}${type}${require}${label}>${escapeHtml(String(value ?? ""))}</div>`;
-}
-
-function icon(expand: string, label: string): string {
-  return `<div class="expand-card exp-${expand} card-icon expand-action" data-expand="${expand}" title="${label}">${ICONS[expand]}</div>`;
-}
-
-function spriteIcon(): string {
-  return `<div class="expand-card card-icon sprite-editor-action paintbrush-icon" title="Sprite Editor">${paintIcon}</div>`;
-}
-
-function pwanIcon(): string {
-  return `<button class="expand-card card-icon pwan-editor-action pwan-movie-icon" title="PWAN Animation Editor" type="button">${movieIcon}</button>`;
 }
 
 function typeClass(type: string): string {

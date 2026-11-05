@@ -1,0 +1,285 @@
+/* Battle facilities (Subway / PWT, Black Tower / White Treehollow): list + detail.
+   Shared pieces live in moveData.css and trainerData.css. */
+
+.facility-data {
+  grid-template-columns: 340px minmax(0, 1fr);
+}
+
+/* ---------- List ---------- */
+
+:is(#facility-data, #encounter-data, #item-data) .fd-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+:is(#facility-data, #encounter-data, #item-data) .md-filters > select {
+  width: 100%;
+}
+
+:is(#facility-data, #encounter-data, #item-data) .md-row.fd-row {
+  grid-template-columns: 34px 28px minmax(0, 1fr) auto;
+}
+
+:is(#facility-data, #encounter-data, #item-data) .md-row.fd-row-tall {
+  grid-template-columns: 34px 40px minmax(0, 1fr);
+  height: 52px;
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-row-icon {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-row-aside {
+  max-width: 120px;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-row-sets {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: 22px;
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-mini-icon {
+  width: 26px;
+  height: 22px;
+  margin-right: -2px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-more {
+  margin-left: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-invalid {
+  color: var(--danger);
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-guide p {
+  margin: 0 0 8px;
+  line-height: 1.4;
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-guide strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ---------- Detail ---------- */
+
+:is(#facility-data, #encounter-data, #item-data) .fd-card {
+  max-width: 1100px;
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-head.-no-sprite {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-head-icon {
+  width: 96px;
+  height: 80px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-subtitle {
+  color: var(--text-muted);
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-body {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 32px;
+}
+
+:is(#facility-data, #encounter-data, #item-data) .md-form {
+  grid-template-columns: 104px minmax(0, 1fr);
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-meta {
+  max-width: 560px;
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-evs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2px 12px;
+  padding-left: 8px;
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-used-by {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-left: 8px;
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-chip span {
+  margin-left: 4px;
+  color: var(--text-muted);
+}
+
+/* Set cards inside a trainer choice */
+:is(#facility-data, #encounter-data, #item-data) .fd-sets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 8px;
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-set {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius);
+  background: var(--ink-1);
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-set.is-edited::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: -1px;
+  width: 3px;
+  height: 16px;
+  background: var(--amber);
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-set-body {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 8px;
+  min-height: 40px;
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-set-icon {
+  grid-row: 1 / 3;
+  width: 40px;
+  height: 34px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-set-name {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-set-item {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-set-missing {
+  grid-column: 1 / -1;
+  color: var(--danger);
+  font-size: 13px;
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-set-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#content-container :is(#facility-data, #encounter-data, #item-data) .fd-set-foot [contenteditable="true"] {
+  width: 64px;
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-set-open {
+  margin-left: auto;
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-warning {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-left: 3px solid var(--amber);
+  background: var(--ink-1);
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-card > .fd-warning:last-child {
+  margin-top: 16px;
+}
+
+/* Area pools */
+:is(#facility-data, #encounter-data, #item-data) .fd-mono {
+  margin: 0;
+  padding-left: 8px;
+  color: var(--text-muted);
+  font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-pool {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-left: 8px;
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-pool-trainer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius);
+  background: var(--ink-1);
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-pool-trainer.is-edited {
+  border-color: var(--amber);
+}
+
+#content-container :is(#facility-data, #encounter-data, #item-data) .fd-pool-trainer [contenteditable="true"] {
+  width: 56px;
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-pool-control {
+  align-self: center;
+  padding: 0 4px;
+  color: var(--text-muted);
+  font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* Raw bytes */
+:is(#facility-data, #encounter-data, #item-data) .fd-raw {
+  margin-top: 24px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+:is(#facility-data, #encounter-data, #item-data) .fd-raw > summary {
+  padding: 6px 0;
+  cursor: pointer;
+}
+
+#content-container :is(#facility-data, #encounter-data, #item-data) .fd-hex {
+  width: 100%;
+  min-height: 32px;
+  font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

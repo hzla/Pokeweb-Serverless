@@ -1,12 +1,8 @@
 import {
-  getItemRecord,
   getMoveRecord,
   getMoveGeneration,
-  itemMatchesSearch,
   moveMatchesSearch,
   updateMoveEffectId,
-  updateItemField,
-  updateItemPackedField,
   updateMoveField,
   type FieldUpdateResult,
 } from "../pokeweb/moveItemModel";
@@ -45,7 +41,6 @@ import { installMoveAnimationCodeEditor, type MoveAnimationCommandReference } fr
 import { installMoveAnimationDocsPanel, type MoveAnimationDocsPanelController } from "./moveAnimationDocsPanel";
 import { installMoveSpaEditor, type MoveSpaEditorController } from "./moveSpaEditor";
 import { getMoveListFilters } from "./moveListFilters";
-import { installItemEffects, renderItemEffects } from "./itemEffectsEditor";
 
 export type MoveAnimationEditorOptions = {
   onDirty?: () => void;
@@ -64,11 +59,6 @@ export type MoveOptions = MoveAnimationEditorOptions & {
   autofills: Record<string, string[]>;
   renderExpanded: (moveId: number) => string;
   renderTextPanel?: (moveId: number) => string;
-};
-
-type ItemOptions = {
-  onDirty?: () => void;
-  renderExpanded: (itemId: number) => string;
 };
 
 type SelectedBattleVariant = {
@@ -1095,57 +1085,12 @@ function renderCommandNotes(doc: MoveAnimationCommandReference["doc"]): string {
   return `<div class="move-command-reference-notes"><div>Notes</div><ul>${doc.notes.map((note) => `<li>${escapeHtml(note)}</li>`).join("")}</ul></div>`;
 }
 
-export function attachItemInteractions(root: HTMLElement, project: ProjectState, options: ItemOptions): void {
-  const searchInput = root.querySelector<HTMLInputElement>("#search-text");
-  const searchButton = root.querySelector<HTMLButtonElement>("#search-text-btn");
-  const runFilter = () => {
-    filterItems(root, project, searchInput?.value ?? "");
-    stripeRows(root);
-  };
-
-  searchButton?.addEventListener("click", runFilter);
-  searchInput?.addEventListener("keypress", (event) => {
-    if (event.key === "Enter") runFilter();
-  });
-
-  root.addEventListener("click", (event) => {
-    const target = event.target as HTMLElement;
-    const card = target.closest<HTMLElement>(".item-card");
-    const itemId = Number(card?.dataset.index);
-    const icon = target.closest<HTMLElement>(".expand-action");
-    if (!card || !Number.isInteger(itemId) || !icon) return;
-    if (!card.querySelector(".expanded-item")) {
-      card.insertAdjacentHTML("beforeend", options.renderExpanded(itemId));
-      installItemEditableFields(card, project, options);
-      installItemEffects(card, project, options.onDirty);
-    }
-    togglePanel(card, ".expanded-item", icon);
-    icon.setAttribute("aria-expanded", String(card.querySelector(".expanded-item")?.classList.contains("show-flex") ?? false));
-    stripeRows(root);
-  });
-
-  installItemEditableFields(root, project, options);
-  installItemEffects(root, project, options.onDirty);
-  runFilter();
-}
-
 function filterMoves(root: HTMLElement, project: ProjectState, searchText: string, categories: Set<string>, types: Set<string>, generations: Set<number>): HTMLElement[] {
   const visible: HTMLElement[] = [];
   root.querySelectorAll<HTMLElement>("[data-move-row]").forEach((card) => {
     const moveId = Number(card.dataset.moveRow);
     const generationMatches = generations.size === 0 || generations.has(getMoveGeneration(project, moveId) ?? 0);
     const show = Number.isInteger(moveId) && generationMatches && moveMatchesSearch(getMoveRecord(project, moveId), searchText, categories, types);
-    card.style.display = show ? "" : "none";
-    if (show) visible.push(card);
-  });
-  return visible;
-}
-
-function filterItems(root: HTMLElement, project: ProjectState, searchText: string): HTMLElement[] {
-  const visible: HTMLElement[] = [];
-  root.querySelectorAll<HTMLElement>("#items .item-card").forEach((card) => {
-    const itemId = Number(card.dataset.index);
-    const show = Number.isInteger(itemId) ? itemMatchesSearch(getItemRecord(project, itemId), searchText) : false;
     card.style.display = show ? "" : "none";
     if (show) visible.push(card);
   });
@@ -1205,70 +1150,6 @@ export function installMoveEditableFields(root: HTMLElement, project: ProjectSta
       } catch {
         input.value = initialValue;
         input.classList.add("invalid");
-      }
-    });
-  });
-}
-
-function installItemEditableFields(root: HTMLElement, project: ProjectState, options: ItemOptions): void {
-  root.querySelectorAll<HTMLElement>("[contenteditable='true'][data-narc='item']").forEach((field) => {
-    if (field.dataset.itemEditInstalled === "true") return;
-    field.dataset.itemEditInstalled = "true";
-    let initialValue = field.textContent?.trim() ?? "";
-    installEditableHandlers(field, () => {
-      const card = field.closest<HTMLElement>(".item-card");
-      const itemId = Number(card?.dataset.index);
-      const fieldName = field.dataset.fieldName;
-      if (!card || !Number.isInteger(itemId) || !fieldName) return false;
-      const result = updateItemField(project, itemId, fieldName, field.textContent?.trim() ?? "");
-      field.textContent = String(result.value);
-      if (fieldName === "gain_values") {
-        const native = card.querySelector(".item-native-effects");
-        if (native) { native.outerHTML = renderItemEffects(project, itemId); installItemEffects(card, project, options.onDirty); }
-      }
-      options.onDirty?.();
-      return true;
-    }, () => initialValue, (value) => {
-      initialValue = value;
-    });
-  });
-
-  root.querySelectorAll<HTMLElement>("[contenteditable='true'][data-narc='item-part']").forEach((field) => {
-    if (field.dataset.itemPartEditInstalled === "true") return;
-    field.dataset.itemPartEditInstalled = "true";
-    let initialValue = field.textContent?.trim() ?? "";
-    installEditableHandlers(field, () => {
-      const card = field.closest<HTMLElement>(".item-card");
-      const itemId = Number(card?.dataset.index);
-      const fieldName = field.dataset.fieldName;
-      const partKey = field.dataset.partKey;
-      if (!card || !Number.isInteger(itemId) || !fieldName || !partKey) return false;
-      const result = updateItemPackedField(project, itemId, fieldName, partKey, field.textContent?.trim() ?? "");
-      syncItemPackedEditor(card, fieldName, result.rawValue);
-      options.onDirty?.();
-      return true;
-    }, () => initialValue, (value) => {
-      initialValue = value;
-    });
-  });
-
-  root.querySelectorAll<HTMLInputElement>(".item-flag-checkbox").forEach((checkbox) => {
-    if (checkbox.dataset.itemFlagInstalled === "true") return;
-    checkbox.dataset.itemFlagInstalled = "true";
-    checkbox.addEventListener("change", () => {
-      const card = checkbox.closest<HTMLElement>(".item-card");
-      const itemId = Number(card?.dataset.index);
-      const fieldName = checkbox.dataset.fieldName;
-      const partKey = checkbox.dataset.partKey;
-      if (!card || !Number.isInteger(itemId) || !fieldName || !partKey) return;
-      try {
-        const result = updateItemPackedField(project, itemId, fieldName, partKey, checkbox.checked);
-        syncItemPackedEditor(card, fieldName, result.rawValue);
-        options.onDirty?.();
-        checkbox.classList.remove("invalid");
-      } catch {
-        checkbox.checked = !checkbox.checked;
-        checkbox.classList.add("invalid");
       }
     });
   });
@@ -1340,11 +1221,6 @@ function syncMoveNameInRow(card: HTMLElement, project: ProjectState, moveId: num
   if (!nameField) return;
   const move = getMoveRecord(project, moveId);
   nameField.textContent = `${move.id} - ${String(move.readable.name ?? `Move ${move.id}`)}`;
-}
-
-function syncItemPackedEditor(card: HTMLElement, fieldName: string, rawValue: number): void {
-  const editor = card.querySelector<HTMLElement>(`.item-flag-editor[data-field-name="${CSS.escape(fieldName)}"]`);
-  if (editor) editor.dataset.rawValue = String(rawValue);
 }
 
 function togglePanel(card: HTMLElement, selector: string, icon: HTMLElement): void {

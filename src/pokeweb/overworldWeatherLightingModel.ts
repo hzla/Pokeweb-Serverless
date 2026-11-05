@@ -267,7 +267,7 @@ function weatherIdsReferencingLightingMember(project: ProjectState, memberId: nu
 async function loadWeatherLightingNarc(project: ProjectState): Promise<{ rom: NintendoDSRom; fileId: number; narc: NARC }> {
   const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
   if (!romBytes) throw new Error("Reload the source ROM to edit weather lighting.");
-  const rom = new NintendoDSRom(romBytes);
+  const rom = new NintendoDSRom(romBytes, { fileData: "view" });
   const fileId = rom.filenames.idOf(OVERWORLD_WEATHER_LIGHT_ARCHIVE_PATH);
   if (fileId === undefined) throw new Error(`ROM path ${OVERWORLD_WEATHER_LIGHT_ARCHIVE_PATH} was not found.`);
   return { rom, fileId, narc: new NARC(getRomFileBytes(project, rom, fileId)) };

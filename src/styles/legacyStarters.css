@@ -659,3 +659,44 @@
     max-width: calc(100vw - 110px);
   }
 }
+
+.professor-intro-layout {
+  align-items: center;
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(256px, 512px) minmax(180px, 280px);
+  margin-bottom: 16px;
+}
+
+.professor-intro-preview {
+  aspect-ratio: 4 / 3;
+  background: var(--ink-0);
+  border: 1px solid var(--ink-3);
+  border-radius: 6px;
+  display: grid;
+  margin: 0;
+  overflow: hidden;
+  place-items: center;
+}
+
+.professor-intro-preview canvas {
+  display: block;
+  image-rendering: pixelated;
+  width: 100%;
+}
+
+.professor-intro-preview [hidden] {
+  display: none;
+}
+
+.professor-intro-preview > span {
+  color: rgba(242, 242, 242, 0.68);
+  padding: 20px;
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .professor-intro-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

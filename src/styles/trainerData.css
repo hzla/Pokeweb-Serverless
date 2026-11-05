@@ -1,0 +1,738 @@
+/* Trainer data: list + detail. Shared list/detail pieces live in moveData.css. */
+
+.trainer-data {
+  position: relative;
+  grid-template-columns: 360px minmax(0, 1fr);
+}
+
+/* ---------- List ---------- */
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-filter-row select {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .md-row.td-row {
+  grid-template-columns: 34px 40px minmax(0, 1fr);
+  height: 52px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-row-sprite {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  overflow: hidden;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-row-sprite :is(canvas, img) {
+  width: 48px;
+  height: 48px;
+  image-rendering: pixelated;
+  object-fit: contain;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-row-sprite canvas:not(.-loaded) {
+  visibility: hidden;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-row-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-row-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-row-lv,
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-row-class {
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-row-class {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-row-party {
+  display: flex;
+  flex: none;
+  height: 22px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-row-mon {
+  display: block;
+  width: 22px;
+  height: 22px;
+  margin-left: -2px;
+  overflow: hidden;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) :is(.td-row-mon, .td-mon-sprite) :is(canvas, img) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  object-fit: contain;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) :is(.td-row-mon, .td-mon-sprite) canvas.-loaded + img {
+  display: none;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-tools {
+  display: grid;
+  gap: 16px;
+  padding-bottom: 4px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-tools .filter-title {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text);
+  font: 600 13px/1.2 var(--font);
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-tools :is(.trainer-script-panel, .trainer-nature-patch-panel) {
+  gap: 6px;
+  margin-top: 0;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-tools .trainer-field-installer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ---------- Detail ---------- */
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-card {
+  max-width: 1180px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-head {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 24px;
+  margin-bottom: 20px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-sprite {
+  display: grid;
+  place-items: center;
+  width: 112px;
+  height: 112px;
+  border: 1px solid var(--ink-3);
+  background: var(--ink-1);
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-sprite .trainer-rom-sprite-link {
+  min-width: 0;
+  min-height: 0;
+  width: 104px;
+  height: 104px;
+  border-radius: var(--radius);
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-sprite :is(canvas, img) {
+  width: 96px;
+  height: 96px;
+  image-rendering: pixelated;
+  object-fit: contain;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-ident {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding-top: 4px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-title h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-num {
+  color: var(--text-muted);
+  font-size: 16px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 24px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-meta-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-meta-field .md-label {
+  position: relative;
+  color: var(--text-muted);
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-meta-field [data-autocomplete] {
+  width: 220px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-meta-field select {
+  width: 120px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-location-link {
+  color: var(--value);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-location-link:hover {
+  color: var(--text);
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-head-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  align-items: start;
+  gap: 32px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-bar-note {
+  margin-left: 10px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-note,
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-note:empty {
+  display: none;
+}
+
+/* Party strip: six fixed-width slot cards. */
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-strip {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-mon {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 6px 10px;
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius);
+  background: var(--ink-1);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-mon:hover {
+  border-color: var(--field-line-hover);
+  background: var(--row-hover);
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-mon.is-selected {
+  border-color: var(--amber);
+  background: var(--ink-2);
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-mon.is-selected::after {
+  content: "";
+  position: absolute;
+  inset: -1px -1px auto;
+  height: 3px;
+  background: var(--amber);
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-mon:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-mon.is-edited::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: 6px;
+  width: 3px;
+  height: 14px;
+  background: var(--amber);
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-mon-icon {
+  display: block;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-mon-sprite {
+  display: block;
+  width: 64px;
+  height: 64px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-mon-name {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-mon-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* Held item: overlaid on the card's top-right corner. */
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-item-icon {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 30px;
+  height: 30px;
+  image-rendering: pixelated;
+  object-fit: contain;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-mon-add {
+  align-content: center;
+  border-style: dashed;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-mon-add:hover {
+  border-color: var(--amber);
+  color: var(--text);
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-mon-plus {
+  font-size: 28px;
+  line-height: 1;
+}
+
+/* Slot editor */
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-slot-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--ink-3);
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-slot-head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-slot-species {
+  margin-left: 10px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-slot-actions {
+  display: flex;
+  gap: 6px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-slot-grid.expanded-pok {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 28px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-slot-grid .md-form {
+  grid-template-columns: 96px minmax(0, 1fr);
+  padding-left: 8px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .md-value [data-autocomplete] {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 260px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .md-value select {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 260px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-readonly {
+  color: var(--value);
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-moves {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-move-table td:first-child {
+  width: auto;
+  padding-left: 8px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-move-table th:first-child {
+  padding-left: 8px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-move-table td:nth-child(2) {
+  width: 76px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-move-table td:nth-child(3) {
+  width: 72px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-move-table td:nth-child(4) {
+  width: 44px;
+  color: var(--text-muted);
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-move-table [data-autocomplete] {
+  display: block;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-move-table tr.-default :is(.type-plate, .td-move-cat, .r) {
+  opacity: 0.55;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-moves-foot {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-left: 8px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-moves-foot > .btn {
+  flex: none;
+  margin-left: auto;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-held {
+  margin-top: 4px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-moves > .td-note {
+  padding-left: 8px;
+}
+
+#content-container :is(#trainer-data, #facility-data, #encounter-data, #item-data) [contenteditable="true"][data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  font-style: italic;
+  pointer-events: none;
+}
+
+/* Settings column */
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-settings .md-form {
+  grid-template-columns: 96px minmax(0, 1fr);
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-checks {
+  display: grid;
+  gap: 2px;
+  margin-top: 8px;
+  padding-left: 8px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-check {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  cursor: pointer;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-check .md-unit {
+  font-size: 12px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-ai {
+  margin-top: 0;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-ai-special {
+  margin-top: 8px;
+  padding-left: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-ai-special > summary {
+  padding: 4px 0;
+  cursor: pointer;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-ai-special .td-checks {
+  padding-left: 0;
+  color: var(--text);
+  font-size: 14px;
+}
+
+/* Full-width sections */
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-wide {
+  margin-top: 8px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-lines {
+  display: grid;
+  gap: 4px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-line {
+  position: relative;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 32px;
+  align-items: start;
+  gap: 12px;
+  padding-left: 8px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-line > .md-label {
+  position: relative;
+  padding-top: 7px;
+  color: var(--text-muted);
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-line.is-edited > .md-label::before {
+  content: "";
+  position: absolute;
+  top: 9px;
+  left: -8px;
+  width: 3px;
+  height: 16px;
+  background: var(--amber);
+}
+
+#content-container :is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-line-text {
+  min-height: 32px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-unused {
+  margin-top: 10px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-unused > summary {
+  padding: 6px 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .trainer-field-settings {
+  padding-left: 8px;
+}
+
+/* Picker hints ("Name  12") */
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) [data-autocomplete] .suggestions > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) [data-autocomplete] .suggestions > div small {
+  color: var(--text-muted);
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) [data-autocomplete] .suggestions > div.is-active {
+  background: var(--ink-3);
+  color: var(--text);
+}
+
+/* ---------- Test team drawer ---------- */
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-drawer {
+  position: absolute;
+  inset: 0 0 0 auto;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 400px;
+  padding: 16px 20px;
+  overflow-y: auto;
+  background: var(--ink-1);
+  border-left: 1px solid var(--ink-3);
+  box-shadow: -12px 0 32px rgb(0 0 0 / 40%);
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-drawer[hidden] {
+  display: none;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-drawer-head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-drawer .trainer-test-team {
+  margin-top: 0;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-drawer .trainer-test-team-input {
+  min-height: 320px;
+  background: var(--field);
+  border-color: var(--field-line);
+  border-radius: var(--radius);
+}
+
+/* ---------- Showdown import dialog ---------- */
+
+.trainer-showdown-import-dialog {
+  border-radius: var(--radius);
+  background: var(--ink-1);
+}
+
+.trainer-showdown-import-title {
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.trainer-showdown-import-description {
+  margin: -6px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.trainer-showdown-import-input {
+  border-radius: var(--radius);
+  background: var(--field);
+  border-color: var(--field-line);
+}
+
+.trainer-showdown-import-input:focus {
+  border-color: var(--amber);
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) :is(.td-row-mon, .td-mon-sprite) canvas[hidden] {
+  display: none;
+}
+
+/* Neutralise the legacy party-row layout these icon containers share a class with. */
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .trainer-poks {
+  gap: 0;
+  min-width: 0;
+  width: auto;
+  padding: 0;
+  flex-wrap: nowrap;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-mon-icon.trainer-poks {
+  display: block;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .trainer-poks .trainer-pokemon-preview,
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .trainer-poks .trainer-pokemon-preview:hover {
+  max-width: none;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  cursor: inherit;
+}
+
+/* Keep the list usable while Tools is open. */
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .md-tools[open] .td-tools {
+  max-height: 42vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* Dialogue with its in-game preview */
+#trainer-data .td-dialogue {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 288px;
+  align-items: start;
+  gap: 24px;
+}
+
+#trainer-data .td-dialogue-preview {
+  position: sticky;
+  top: 0;
+  display: grid;
+  gap: 8px;
+  margin-top: 28px;
+  padding: 12px;
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius);
+  background: var(--ink-1);
+}
+
+#trainer-data .td-line.is-selected > .md-label {
+  color: var(--text);
+}
+
+#trainer-data .td-line > .tx-edit {
+  min-width: 0;
+}

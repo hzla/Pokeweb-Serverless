@@ -178,7 +178,7 @@ export async function ensureTrainerSpriteStore(project: ProjectState): Promise<b
 
   const path = trainerSpriteNarcPath(project);
   if (!path) return false;
-  const rom = new NintendoDSRom(bytes);
+  const rom = new NintendoDSRom(bytes, { fileData: "view" });
   const fileId = rom.fileId(path);
   project.session.fileIds[TRAINER_SPRITE_NARC_NAME] = fileId;
   project.session.blacklist = project.session.blacklist.filter((name) => name !== TRAINER_SPRITE_NARC_NAME);

@@ -3,7 +3,8 @@ import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 
 export type Bw2DialoguePreview = { refresh: () => void; show: () => void; destroy: () => void };
-export function installBw2DialoguePreview(project: ProjectState, root: HTMLElement, text: () => string, variables: () => DialogueVariables, options: { zoom?: 1 | 2 } = {}): Bw2DialoguePreview {
+/** `stacked` draws every page of the message one under another instead of paging through them. */
+export function installBw2DialoguePreview(project: ProjectState, root: HTMLElement, text: () => string, variables: () => DialogueVariables, options: { zoom?: 1 | 2; stacked?: boolean } = {}): Bw2DialoguePreview {
   let stopped = false, started = false, page = 0;
   let assets: DialogueAssets | undefined, layout: DialogueLayout | undefined;
   root.innerHTML = `<div class="bw2-dialogue-navigation"><button type="button" data-bw2-dialogue-previous aria-label="Previous dialogue page">‹</button><select data-bw2-dialogue-page aria-label="Dialogue page"></select><button type="button" data-bw2-dialogue-next aria-label="Next dialogue page">›</button><select data-bw2-dialogue-zoom aria-label="Dialogue preview zoom"><option value="1">1×</option><option value="2">2×</option></select></div><div class="bw2-dialogue-stage"><canvas data-bw2-dialogue-canvas width="256" height="48" aria-label="Game-font dialogue preview"></canvas></div><p data-bw2-dialogue-metrics class="bw2-text-context"></p><div data-bw2-dialogue-notice class="bw2-text-context" role="status">Loading the ROM's dialogue graphics…</div>`;
@@ -14,7 +15,30 @@ export function installBw2DialoguePreview(project: ProjectState, root: HTMLEleme
   const zoom = root.querySelector<HTMLSelectElement>("[data-bw2-dialogue-zoom]");
   if (zoom) zoom.value = String(options.zoom ?? 1);
   if (canvas) canvas.style.width = `${DIALOGUE_WIDTH * (options.zoom ?? 1)}px`;
+  if (options.stacked) {
+    root.querySelector<HTMLElement>(".bw2-dialogue-navigation")?.setAttribute("hidden", "");
+    root.querySelector<HTMLElement>("[data-bw2-dialogue-metrics]")?.setAttribute("hidden", "");
+  }
+  const drawPage = (target: HTMLCanvasElement, current: DialogueLayout["pages"][number]): void => {
+    const context = target.getContext("2d");
+    if (!context || !assets) return;
+    const image = context.createImageData(DIALOGUE_WIDTH, DIALOGUE_HEIGHT);
+    image.data.set(renderBw2DialoguePage(assets, current)); context.putImageData(image, 0, 0);
+    current.widths.slice(0, 2).forEach((width, line) => { if (width > 232) { context.fillStyle = "#ff2424"; context.fillRect(246, 8 + line * 16, 2, 16); } });
+  };
+  function paintStacked(): void {
+    const stage = root.querySelector<HTMLElement>(".bw2-dialogue-stage");
+    if (!stage || !layout || !assets) return;
+    const zoomLevel = Number(zoom?.value ?? options.zoom ?? 1);
+    stage.innerHTML = layout.pages.map((current, index) => `<figure class="bw2-dialogue-page"><canvas data-bw2-dialogue-page-canvas="${index}" width="${DIALOGUE_WIDTH}" height="${DIALOGUE_HEIGHT}" style="width:${DIALOGUE_WIDTH * zoomLevel}px" aria-label="Dialogue page ${index + 1}"></canvas><figcaption class="bw2-text-context">${current.widths.slice(0, 2).map((width, row) => `<span class="${width > 232 ? "-error" : ""}">Line ${row + 1}: ${width}/232px</span>`).join(" · ")}</figcaption></figure>`).join("");
+    layout.pages.forEach((current, index) => {
+      const target = stage.querySelector<HTMLCanvasElement>(`[data-bw2-dialogue-page-canvas="${index}"]`);
+      if (target) drawPage(target, current);
+    });
+    if (notice) notice.innerHTML = "";
+  }
   function paint(): void {
+    if (options.stacked) { paintStacked(); return; }
     if (stopped || !assets || !layout || !canvas) return;
     const context = canvas.getContext("2d");
     if (!context) return;
@@ -40,7 +64,7 @@ export function installBw2DialoguePreview(project: ProjectState, root: HTMLEleme
   select?.addEventListener("change", () => { page = Number(select.value); paint(); });
   previous?.addEventListener("click", () => { page = Math.max(0, page - 1); paint(); });
   next?.addEventListener("click", () => { page = Math.min((layout?.pages.length ?? 1) - 1, page + 1); paint(); });
-  root.querySelector<HTMLSelectElement>("[data-bw2-dialogue-zoom]")?.addEventListener("change", (event) => { if (canvas) canvas.style.width = `${DIALOGUE_WIDTH * Number((event.target as HTMLSelectElement).value)}px`; });
+  root.querySelector<HTMLSelectElement>("[data-bw2-dialogue-zoom]")?.addEventListener("change", (event) => { if (options.stacked) { paint(); return; } if (canvas) canvas.style.width = `${DIALOGUE_WIDTH * Number((event.target as HTMLSelectElement).value)}px`; });
   return { refresh, show: () => {
     if (stopped || started) { refresh(); return; }
     started = true;

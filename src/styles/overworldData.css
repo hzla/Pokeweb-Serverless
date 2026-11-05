@@ -1,0 +1,682 @@
+/* Overworld editor: sidebar inspector, map toolbar, scrolling map, docked permissions matrix. */
+
+#overworld-editor {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  width: 100%;
+  height: calc(100vh - var(--chrome-h));
+  margin-top: -10px;
+  overflow: hidden;
+  font-size: 14px;
+}
+
+/* ---------- Sidebar ---------- */
+
+#overworld-editor .ow-side {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  border-right: 1px solid var(--ink-3);
+  background: var(--ink-1);
+}
+
+#overworld-editor .ow-head {
+  padding: 16px 16px 10px;
+}
+
+#overworld-editor .ow-head h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+#overworld-editor .ow-sub,
+#overworld-editor .ow-muted {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+#overworld-editor .ow-sub {
+  margin-top: 3px;
+}
+
+#overworld-editor .ow-tabs {
+  display: flex;
+  flex: 0 0 auto;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--ink-3);
+}
+
+#overworld-editor .ow-tabs .uv-tab {
+  flex: 1 1 auto;
+  justify-content: center;
+  padding: 0 8px;
+  font-size: 13px;
+}
+
+#overworld-editor .ow-block,
+#overworld-editor .ow-group {
+  display: grid;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--ink-3);
+}
+
+#overworld-editor .ow-group-title,
+#overworld-editor .ow-group.-advanced > summary {
+  color: var(--text-muted);
+  font: 600 12px/1 var(--font-cond);
+  letter-spacing: 0.02em;
+}
+
+#overworld-editor .ow-group.-advanced > summary {
+  cursor: pointer;
+}
+
+#overworld-editor .ow-group.-advanced[open] > summary {
+  margin-bottom: 8px;
+}
+
+#overworld-editor .ow-group.-advanced.-flags {
+  padding: 0;
+  border: 0;
+}
+
+#overworld-editor .ow-pick-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 4px;
+  align-items: center;
+}
+
+#overworld-editor .ow-pick-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+#overworld-editor :is(#add-entity, #del-entity) {
+  background: var(--ink-2);
+  color: var(--text);
+}
+
+#overworld-editor :is(#add-entity, #del-entity):hover:not(:disabled) {
+  background: var(--ink-3);
+}
+
+#overworld-editor .ow-select,
+#overworld-editor .ow-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  text-align: left;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius);
+  background: var(--field);
+  color: var(--text);
+  font: 14px/1 var(--font);
+}
+
+#overworld-editor input.ow-input {
+  color: var(--value);
+  font-variant-numeric: tabular-nums;
+}
+
+#overworld-editor .ow-input:hover,
+#overworld-editor .ow-select:hover {
+  border-color: var(--field-line-hover);
+}
+
+#overworld-editor .ow-input:focus,
+#overworld-editor .ow-select:focus {
+  border-color: var(--amber);
+  outline: none;
+}
+
+#overworld-editor .ow-input[readonly] {
+  border-color: transparent;
+  background: none;
+  color: var(--text-muted);
+}
+
+#overworld-editor .ow-input.invalid {
+  border-color: var(--danger);
+}
+
+#overworld-editor .ow-grid {
+  display: grid;
+  gap: 6px;
+}
+
+#overworld-editor .ow-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+#overworld-editor .ow-row.-sprite {
+  grid-template-columns: 112px minmax(0, 1fr) 32px;
+}
+
+#overworld-editor .ow-label {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#overworld-editor .ow-row.is-edited .ow-label {
+  color: var(--amber);
+}
+
+#overworld-editor .ow-row.is-edited::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: -9px;
+  width: 4px;
+  height: 4px;
+  margin-top: -2px;
+  border-radius: 50%;
+  background: var(--amber);
+}
+
+#overworld-editor .ow-grid.-pos {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px 10px;
+}
+
+#overworld-editor .ow-grid.-pos .ow-row {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px;
+}
+
+#overworld-editor .ow-sprite-preview {
+  position: relative;
+  display: block;
+  width: 32px;
+  height: 32px;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--ink-0);
+}
+
+#overworld-editor .ow-sprite-preview.-missing {
+  background: repeating-linear-gradient(45deg, var(--ink-0) 0 4px, var(--ink-2) 4px 8px);
+}
+
+#overworld-editor .ow-entity-actions:empty {
+  display: none;
+}
+
+#overworld-editor .ow-entity-actions {
+  padding: 12px 16px;
+}
+
+#overworld-editor .ow-entity-actions .sidebar-btns {
+  margin: 0;
+}
+
+#overworld-editor .ow-entity-actions .ow-btn {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--field-line);
+  background: var(--ink-2);
+  color: var(--text);
+  font-size: 13px;
+}
+
+#overworld-editor .ow-entity-actions .ow-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Permissions tab */
+
+#overworld-editor .ow-tile {
+  display: grid;
+  gap: 4px;
+  min-height: 38px;
+}
+
+#overworld-editor .ow-tile-line {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+#overworld-editor .ow-swatch {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  border: 1px solid rgb(0 0 0 / 35%);
+  border-radius: 2px;
+}
+
+#overworld-editor .ow-swatch.-lg {
+  width: 30px;
+  height: 30px;
+  align-self: end;
+}
+
+#overworld-editor .ow-swatch.-other {
+  background: conic-gradient(#e05ab4, #5a8ce0, #5ae0a0, #e0c35a, #e05ab4);
+}
+
+#overworld-editor .ow-brush {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr;
+  gap: 8px;
+}
+
+#overworld-editor .ow-row.-stack {
+  grid-template-columns: 1fr;
+  gap: 4px;
+}
+
+#overworld-editor .ow-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+#overworld-editor .ow-flag {
+  position: relative;
+  padding: 5px 9px;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  user-select: none;
+}
+
+#overworld-editor .ow-flag input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#overworld-editor .ow-flag:hover {
+  color: var(--text);
+}
+
+#overworld-editor .ow-flag.-active {
+  border-color: var(--value);
+  background: rgb(26 188 156 / 14%);
+  color: var(--text);
+}
+
+#overworld-editor .ow-paint {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 4px;
+  cursor: pointer;
+}
+
+#overworld-editor .overworld-test-warp {
+  display: grid;
+  gap: 6px;
+}
+
+#overworld-editor .overworld-test-warp[hidden],
+#overworld-editor .overworld-test-warp-status:empty {
+  display: none;
+}
+
+#overworld-editor .overworld-test-warp-status {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+#overworld-editor .popup-editor {
+  border: 0;
+  border-bottom: 1px solid var(--ink-3);
+  border-radius: 0;
+  padding: 12px 16px;
+  background: none;
+}
+
+/* ---------- Map ---------- */
+
+#overworld-editor .ow-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--ink-0);
+}
+
+#overworld-editor .ow-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--ink-3);
+  background: var(--ink-1);
+}
+
+#overworld-editor .ow-layers,
+#overworld-editor .ow-zoom,
+#overworld-editor .ow-view-toggle {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+#overworld-editor .ow-chip {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  user-select: none;
+}
+
+#overworld-editor .ow-chip input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#overworld-editor .ow-chip:hover {
+  color: var(--text);
+}
+
+#overworld-editor .ow-chip:has(input:checked) {
+  border-color: var(--field-line-hover);
+  background: var(--ink-2);
+  color: var(--text);
+}
+
+#overworld-editor .ow-chip:has(input:focus-visible) {
+  outline: 2px solid var(--amber);
+  outline-offset: -2px;
+}
+
+#overworld-editor .ow-chip-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  opacity: 0.35;
+}
+
+#overworld-editor .ow-chip:has(input:checked) .ow-chip-dot {
+  opacity: 1;
+}
+
+#overworld-editor .ow-chip-dot.-npc { background: var(--amber); }
+#overworld-editor .ow-chip-dot.-furniture { background: #f0d264; }
+#overworld-editor .ow-chip-dot.-warp { background: #2ecc71; }
+#overworld-editor .ow-chip-dot.-trigger { background: #59c2ff; }
+#overworld-editor .ow-chip-dot.-permissions { background: conic-gradient(#ff4d4f, #3da5ff, #42d66b, #ffc857, #ff4d4f); }
+
+#overworld-editor .ow-opacity {
+  width: 90px;
+  accent-color: var(--amber);
+}
+
+#overworld-editor .ow-opacity[hidden] {
+  display: none;
+}
+
+#overworld-editor .ow-cursor {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font: 500 13px/1 var(--font-cond);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+#overworld-editor .ow-zoom-label {
+  min-width: 46px;
+  color: var(--text);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  cursor: default;
+}
+
+#overworld-editor .ow-legend {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--ink-3);
+  background: var(--ink-1);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+#overworld-editor .ow-legend[hidden] {
+  display: none;
+}
+
+#overworld-editor .ow-legend-item {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+#overworld-editor .ow-body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+#overworld-editor .ow-viewport {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--ink-0);
+}
+
+#overworld-editor .ow-viewport.-gen5 {
+  overflow: auto;
+}
+
+#overworld-editor .ow-viewport.-gen5 .overworld-stage {
+  min-width: 100%;
+  min-height: 100%;
+  overflow: visible;
+}
+
+#overworld-editor .overworld-stage {
+  cursor: grab;
+}
+
+#overworld-editor .overworld-stage.-panning,
+#overworld-editor .overworld-stage.-panning .overworld-map {
+  cursor: grabbing;
+}
+
+#overworld-editor .overworld-stage.-tiles .overworld-map {
+  cursor: cell;
+}
+
+#overworld-editor .overworld-stage.-tiles.-painting .overworld-map {
+  cursor: crosshair;
+}
+
+/* While editing tiles, clicks go to the map underneath the entity markers. */
+#overworld-editor .overworld-stage.-tiles .overworld-item {
+  pointer-events: none;
+}
+
+#overworld-editor .overworld-map {
+  background: var(--ink-0);
+}
+
+#overworld-editor .overworld-map-status {
+  top: 14px;
+  left: 14px;
+  border-color: var(--ink-3);
+  background: var(--ink-1);
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* Entities */
+
+#overworld-editor .overworld-item.selected,
+#overworld-editor .overworld-item.overworld-npc:hover {
+  outline: 2px solid var(--amber);
+  outline-offset: 1px;
+}
+
+#overworld-editor .overworld-grid-entity {
+  box-sizing: border-box;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 1px 3px;
+  font: 600 10px/1.2 var(--font-cond);
+  text-shadow: 0 1px 2px #000;
+}
+
+#overworld-editor .overworld-grid-entity.-tiny span {
+  display: none;
+}
+
+#overworld-editor .overworld-warp {
+  border: 2px solid #2ecc71;
+  background: rgb(46 204 113 / 22%);
+  color: #c9f7dc;
+}
+
+#overworld-editor .overworld-trigger {
+  border: 2px dashed #59c2ff;
+  background: rgb(89 194 255 / 14%);
+  color: #d4efff;
+}
+
+#overworld-editor .overworld-furniture {
+  border: 2px solid #f0d264;
+  border-radius: 50%;
+  background: rgb(240 210 100 / 45%);
+  color: #fff6d0;
+}
+
+#overworld-editor .overworld-furniture span {
+  display: none;
+}
+
+#overworld-editor .overworld-item.selected.overworld-grid-entity {
+  outline-offset: 2px;
+}
+
+/* Gen 4 section navigation */
+
+#overworld-editor .overworld-cell-button {
+  position: absolute;
+  min-width: 34px;
+  pointer-events: auto;
+}
+
+#overworld-editor .overworld-cell-up {
+  top: 10px;
+}
+
+#overworld-editor .overworld-cell-label {
+  top: 46px;
+  background: var(--ink-1);
+}
+
+/* Permissions matrix, docked to the right of the map */
+
+#overworld-editor .ow-matrix {
+  display: flex;
+  flex: 0 0 320px;
+  flex-direction: column;
+  min-height: 0;
+  border-left: 1px solid var(--ink-3);
+  background: var(--ink-1);
+}
+
+#overworld-editor .ow-matrix[hidden] {
+  display: none;
+}
+
+#overworld-editor .ow-matrix-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px 6px 14px;
+  color: var(--text-muted);
+  font: 600 12px/1 var(--font-cond);
+  letter-spacing: 0.02em;
+}
+
+#overworld-editor .ow-matrix .overworld-permission-grid {
+  flex: 1 1 auto;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  border: 0;
+  border-top: 1px solid var(--ink-3);
+  border-radius: 0;
+}
+
+/* Overworld file picker (same pattern as the text bank picker). */
+#overworld-editor .ow-file-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 4px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+#overworld-editor .ow-file-picker [data-autocomplete] {
+  display: block;
+}
+
+#content-container #overworld-editor .ow-file-picker [contenteditable="true"] {
+  overflow: hidden;
+  padding-right: 26px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%239aa5bb' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-position: right 9px center;
+  background-repeat: no-repeat;
+}
+
+#overworld-editor .ow-file-picker .suggestions {
+  max-height: 420px;
+}
+
+#overworld-editor [data-autocomplete] .suggestions > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+#overworld-editor [data-autocomplete] .suggestions > div small {
+  color: var(--text-muted);
+}
+
+#overworld-editor [data-autocomplete] .suggestions > div.is-active {
+  background: var(--ink-3);
+}

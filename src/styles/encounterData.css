@@ -1,0 +1,366 @@
+/* Wild encounters and hidden grottos: list + detail.
+   Shared pieces live in moveData.css, trainerData.css and facilityData.css. */
+
+.encounter-data {
+  grid-template-columns: 340px minmax(0, 1fr);
+}
+
+/* ---------- List ---------- */
+
+#encounter-data .md-filters > select {
+  width: 100%;
+}
+
+#encounter-data .md-row.en-row {
+  grid-template-columns: 34px minmax(0, 1fr);
+}
+
+#encounter-data .en-row-more {
+  margin-left: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+#encounter-data .en-tag {
+  flex: none;
+  padding: 1px 6px;
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+#encounter-data .en-none {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* ---------- Detail ---------- */
+
+#encounter-data .en-card {
+  max-width: 1180px;
+}
+
+#encounter-data .en-seasons {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+#encounter-data .en-link {
+  padding-left: 0;
+}
+
+#encounter-data .en-season-tabs {
+  display: flex;
+  gap: 6px;
+}
+
+#encounter-data .en-kinds {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  align-items: start;
+  gap: 16px 28px;
+  margin-top: 16px;
+}
+
+#encounter-data .en-kinds.gr-items {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+#encounter-data .en-kind-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 32px;
+  margin-bottom: 6px;
+  padding-left: 8px;
+}
+
+#encounter-data .en-kind-head h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+#encounter-data .en-rate {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+#encounter-data .en-rate .md-label {
+  position: relative;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+#encounter-data .en-rate.is-edited .md-label::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: -8px;
+  width: 3px;
+  height: 14px;
+  background: var(--amber);
+  transform: translateY(-50%);
+}
+
+#content-container #encounter-data .en-rate [contenteditable="true"] {
+  width: 48px;
+  text-align: right;
+}
+
+#encounter-data .en-off {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+#encounter-data .en-kind.-off .en-kind-head {
+  opacity: 0.8;
+}
+
+#encounter-data .en-table td {
+  padding-top: 1px;
+  padding-bottom: 1px;
+}
+
+#encounter-data .en-table td:first-child {
+  width: auto;
+}
+
+#encounter-data .en-pct {
+  width: 36px;
+  padding-left: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: right;
+}
+
+#encounter-data .en-table th:first-child {
+  padding-left: 8px;
+}
+
+#encounter-data .en-mon {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+#encounter-data .en-mon-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 30px;
+  height: 26px;
+}
+
+#encounter-data .en-mon-icon .fd-mini-icon {
+  width: 30px;
+  height: 26px;
+  margin: 0;
+}
+
+#encounter-data .en-mon [data-autocomplete] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+#encounter-data .en-mon > span:last-child:not(.en-mon-icon) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#content-container #encounter-data .en-table td.r > [contenteditable="true"] {
+  width: 48px;
+}
+
+#encounter-data .en-form {
+  width: 108px;
+}
+
+#encounter-data .en-form:disabled {
+  opacity: 0.45;
+}
+
+#encounter-data .en-summary {
+  max-width: 820px;
+}
+
+#encounter-data .en-summary td,
+#encounter-data .en-summary th {
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+#encounter-data .en-summary td.r {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+#encounter-data .en-summary td:first-child,
+#encounter-data .en-summary th:first-child {
+  padding-left: 8px;
+}
+
+/* Toolbar: copy from another area */
+.page-actions .en-copy {
+  position: relative;
+}
+
+.page-actions .en-copy > summary {
+  list-style: none;
+}
+
+.page-actions .en-copy > summary::-webkit-details-marker {
+  display: none;
+}
+
+.page-actions .en-copy-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 60;
+  display: grid;
+  gap: 8px;
+  width: 320px;
+  padding: 12px;
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius);
+  background: var(--ink-2);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 45%);
+}
+
+.page-actions .en-copy-pop select {
+  width: 100%;
+}
+
+/* Grotto items */
+#encounter-data .gr-item-icon {
+  width: 24px;
+  height: 24px;
+  image-rendering: pixelated;
+}
+
+#encounter-data .gr-item-table td:first-child {
+  padding-left: 8px;
+}
+
+#encounter-data .gr-remainder {
+  min-width: 48px;
+  color: var(--value);
+  text-align: right;
+}
+
+#encounter-data .gr-remainder.-over {
+  color: var(--danger);
+}
+
+#encounter-data .en-table td.en-mon-cell,
+#encounter-data .en-summary td.en-mon-cell {
+  width: 100%;
+}
+
+/* Area type icons in the list */
+#encounter-data .md-row.en-row {
+  grid-template-columns: 34px minmax(0, 1fr) auto auto;
+}
+
+#encounter-data .en-terrain {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 36px;
+}
+
+#encounter-data .en-terrain-icon {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+}
+
+#encounter-data .en-terrain-icon svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+#encounter-data .en-terrain-icon svg g {
+  fill: currentColor;
+}
+
+#encounter-data .en-terrain-icon.-grass {
+  color: #6fcf6a;
+}
+
+#encounter-data .en-terrain-icon.-water {
+  color: #5aa9f0;
+}
+
+#encounter-data .en-terrain-icon.-cave {
+  color: #c49a6c;
+}
+
+#encounter-data .en-terrain-icon.-shadow {
+  color: #b9c7e6;
+}
+
+/* Area thumbnails beside the title: one per distinct map that uses this table. */
+#encounter-data .fd-head.-no-sprite.en-head {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.zone-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  max-width: 560px;
+}
+
+.zone-thumb {
+  position: relative;
+  display: block;
+  width: 120px;
+  height: 120px;
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius);
+  background: var(--ink-1) center / cover no-repeat;
+  image-rendering: pixelated;
+}
+
+.zone-thumb:hover,
+.zone-thumb:focus-visible {
+  border-color: var(--amber);
+  outline: none;
+}
+
+.zone-thumb.-loading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / 6%) 50%, transparent 70%) 0 0 / 200% 100%;
+  animation: zone-thumb-shimmer 1.2s linear infinite;
+}
+
+.zone-thumb.-unavailable {
+  background-image: repeating-linear-gradient(45deg, var(--ink-1) 0 6px, var(--ink-2) 6px 12px);
+}
+
+.zone-thumb-more {
+  align-self: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+@keyframes zone-thumb-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}

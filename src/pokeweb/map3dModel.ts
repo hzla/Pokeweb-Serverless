@@ -56,6 +56,9 @@ export type Map3dSeason = "spring" | "summer" | "autumn" | "winter";
 
 export type Map3dMatrixCell = { matrixId: number; x: number; y: number };
 
+/** Decoded zones kept for quick revisits (each holds geometry and textures). */
+const ZONE_CACHE_LIMIT = 4;
+
 export type Map3dLoadOptions = {
   season?: Map3dSeason;
   /** Read-only surrounding terrain/props, using the active area's resource bank. */
@@ -517,6 +520,7 @@ class Map3dLoader {
   private archiveBaseRom?: BaseRom;
   private zoneCache = new Map<string, Promise<Map3dSceneData>>();
 
+
   loadZone(project: ProjectState, zoneId: number, options: Map3dLoadOptions = {}, onProgress?: (message: string) => void): Promise<Map3dSceneData> {
     if (this.project !== project) {
       this.project = project;
@@ -528,9 +532,19 @@ class Map3dLoader {
     if (options.cache === false || options.previewMap) return this.loadZoneUncached(project, zoneId, season, cell, onProgress, options.previewMap, options.includeNeighbors);
     const cacheKey = `${project.session.baseRom}:${zoneId}:${season}:${cell ? `${cell.matrixId},${cell.x},${cell.y}` : "zone"}:${options.includeNeighbors ? "neighbors" : "isolated"}:${project.narcs.maps?.revision ?? 0}:${project.narcs.matrix?.revision ?? 0}:${project.narcs.headers?.revision ?? 0}:${project.narcs.map_replace?.revision ?? 0}`;
     const cached = this.zoneCache.get(cacheKey);
-    if (cached) return cached;
+    if (cached) {
+      // Most recently used last, so eviction drops the oldest scene.
+      this.zoneCache.delete(cacheKey);
+      this.zoneCache.set(cacheKey, cached);
+      return cached;
+    }
     const promise = this.loadZoneUncached(project, zoneId, season, cell, onProgress, undefined, options.includeNeighbors);
     this.zoneCache.set(cacheKey, promise);
+    // Decoded scenes hold full geometry and textures; keep only a few.
+    while (this.zoneCache.size > ZONE_CACHE_LIMIT) this.zoneCache.delete(this.zoneCache.keys().next().value!);
+    promise.catch(() => {
+      if (this.zoneCache.get(cacheKey) === promise) this.zoneCache.delete(cacheKey);
+    });
     return promise;
   }
 
@@ -553,7 +567,7 @@ class Map3dLoader {
     if (edits.length === 0) return;
     const bytes = project.originalRomBytes ?? (await loadActiveRomBytes());
     if (!bytes) throw new Error("Reload the ROM before saving 3D map permissions");
-    const rom = new NintendoDSRom(bytes);
+    const rom = new NintendoDSRom(bytes, { fileData: "view" });
     let store = project.narcs.maps;
     if (!store) {
       const fileId = rom.fileId(MAP_CHUNKS_PATH);
@@ -998,7 +1012,9 @@ async function loadArchives(project: ProjectState): Promise<LazyArchives> {
   const baseRom = project.session.baseRom;
   const bytes = project.originalRomBytes ?? await loadActiveRomBytes();
   if (!bytes) throw new Error("Reload the ROM before opening Maps 3D");
-  const rom = new NintendoDSRom(bytes);
+  // Views, not copies: every archive below is copied out by NARC parsing, so the
+  // ROM buffer is not retained by the cached archives.
+  const rom = new NintendoDSRom(bytes, { fileData: "view" });
   const currentArchive = (path: string) => new NARC(getRomFileBytes(project, rom, rom.fileId(path)));
   return {
     baseRom,
@@ -1006,7 +1022,7 @@ async function loadArchives(project: ProjectState): Promise<LazyArchives> {
     chunks: new NARC(rom.getFileByName(MAP_CHUNKS_PATH)),
     chunksFileId: rom.fileId(MAP_CHUNKS_PATH),
     mapReplace: firstFile(new NARC(rom.getFileByName(MAP_REPLACE_PATH))) ?? new Uint8Array(),
-    areaTable: rom.getFileByName(AREA_TABLE_PATH),
+    areaTable: rom.getFileByName(AREA_TABLE_PATH).slice(),
     textures: currentArchive(MAP_TEXTURES_PATH),
     textureSrt: currentArchive(MAP_SRT_PATH),
     texturePat: currentArchive(MAP_PAT_PATH),

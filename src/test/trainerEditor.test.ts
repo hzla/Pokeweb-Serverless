@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getTrainerRecord, type TrainerRecord } from "../pokeweb/trainerModel";
 import type { ProjectState } from "../pokeweb/projectStore";
-import { getTrainerTestBattleTeamText, renderTrainerPanel, renderTrainerRow } from "../ui/trainerEditor";
+import { getTrainerTestBattleTeamText } from "../ui/trainerEditor";
+import { renderTrainerDetail, renderTrainerListRowContent } from "../ui/trainerDetail";
 
 vi.mock("../pokeweb/trainerModel", async (original) => ({
   ...await original<typeof import("../pokeweb/trainerModel")>(),
@@ -28,48 +29,47 @@ beforeEach(() => {
   vi.mocked(getTrainerRecord).mockReset().mockImplementation(() => trainer);
 });
 
-describe("lazy trainer editors", () => {
-  it("renders only summary fields and party previews on initial load", () => {
-    const row = renderTrainerRow(project, 1);
+describe("trainer list and detail", () => {
+  it("renders only summary fields and party icons in list rows", () => {
+    const row = renderTrainerListRowContent(project, 1);
     expect(getTrainerRecord).toHaveBeenCalledWith(project, 1, { includeTexts: false });
     expect(row).toContain("Test &lt;Trainer&gt;");
-    expect(row).toContain('data-show="pok-0"');
-    expect(row).toContain('data-show="pok-1"');
-    expect(row).not.toContain("expanded-card-content");
-    expect(row).not.toContain("expanded-card-subcontent");
-    expect(row).not.toContain('data-narc="trpok" data-field-name=');
+    expect(row).toContain("Lv 12");
+    expect(row.match(/class="wild td-row-mon"/gu)).toHaveLength(2);
+    expect(row).not.toContain("contenteditable");
     expect(row).not.toContain("Let's battle!");
   });
 
-  it("loads trainer settings and dialogue only when that panel is requested", () => {
-    const panel = renderTrainerPanel(project, 1, "trainer");
-    expect(getTrainerRecord).toHaveBeenCalledWith(project, 1, { includeTexts: true });
-    expect(panel).toContain("trainer-ai");
-    expect(panel).toContain('data-field-name="item_1"');
-    expect(panel).toContain('data-field-name="text_0_entry_0"');
-    expect(panel).not.toContain("expanded-pok");
+  it("shows the level range across the party", () => {
+    trainer.party[1].level = 15;
+    expect(renderTrainerListRowContent(project, 1)).toContain("Lv 12–15");
   });
 
-  it("renders only the requested Pokemon with current values and nature controls", () => {
+  it("renders trainer settings, AI flags, dialogue and only the selected Pokemon's editor", () => {
     trainer.party[1].level = 42;
-    const panel = renderTrainerPanel(project, 1, 1);
-    expect(getTrainerRecord).toHaveBeenCalledWith(project, 1, { includeTexts: false });
-    expect(panel).toContain('data-sub-index="1"');
-    expect(panel).toContain('data-field-name="level_1"');
-    expect(panel).toContain('>42</div>');
-    expect(panel).toContain('data-field-name="nature_1"');
-    expect(panel).not.toContain('data-sub-index="0"');
-    expect(panel).not.toContain("trainer-ai");
-    expect(panel).not.toContain("trainer-texts");
+    const detail = renderTrainerDetail(project, 1, 1, true);
+    expect(getTrainerRecord).toHaveBeenCalledWith(project, 1, { includeTexts: true });
+    expect(detail).toContain('data-field-name="item_1"');
+    expect(detail).toContain('data-trainer-ai="Expert"');
+    expect(detail).toContain(`data-trainer-text="0"`);
+    expect(detail).toContain('data-field-name="level_1"');
+    expect(detail).toContain(">42</div>");
+    expect(detail).toContain('data-slot-select="nature_1"');
+    expect(detail).not.toContain('data-field-name="level_0"');
+    expect(detail.match(/class="td-mon( is-selected)?"/gu)).toHaveLength(2);
+    expect(detail).toContain("data-party-add");
   });
 
-  it("does not recreate deleted party slots", () => {
+  it("falls back to the first Pokemon when the selected slot was deleted", () => {
     trainer.party.pop();
-    expect(renderTrainerPanel(project, 1, 1)).toBe("");
+    const detail = renderTrainerDetail(project, 1, 1, false);
+    expect(detail).toContain('data-field-name="level_0"');
+    expect(detail).not.toContain('data-field-name="level_1"');
+    expect(detail).not.toContain('data-slot-select="nature_0"');
   });
 
   it("keeps fallback image URLs dormant until their cells approach the viewport", () => {
-    const images = renderTrainerRow(project, 1).match(/<img\b[^>]*>/gu)!;
+    const images = renderTrainerListRowContent(project, 1).match(/<img\b[^>]*>/gu)!;
     expect(images).toHaveLength(2);
     for (const image of images) {
       expect(image).toContain("data-trainer-image-src=");

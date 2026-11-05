@@ -761,7 +761,7 @@ async function loadMoveSpaArchiveUncached(project: ProjectState, spaId: number):
 
   const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
   if (!romBytes) throw new Error("Original ROM bytes are unavailable. Reload the ROM to preview move particles.");
-  const rom = new NintendoDSRom(romBytes);
+  const rom = new NintendoDSRom(romBytes, { fileData: "view" });
   const narc = new NARC(rom.getFileByName(MOVE_SPA_PATH));
   const bytes = narc.files[spaId];
   if (!bytes) throw new Error(`Move SPA ${spaId} does not exist in ${MOVE_SPA_PATH}`);
@@ -771,7 +771,7 @@ async function loadMoveSpaArchiveUncached(project: ProjectState, spaId: number):
 async function loadMoveBackgroundUncached(project: ProjectState, backgroundId: number): Promise<NitroBackgroundImage> {
   const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
   if (!romBytes) throw new Error("Original ROM bytes are unavailable. Reload the ROM to preview move backgrounds.");
-  const rom = new NintendoDSRom(romBytes);
+  const rom = new NintendoDSRom(romBytes, { fileData: "view" });
   const backgroundPath = moveBackgroundArchivePath(project.session.baseRom === "BW" ? "BW" : "BW2");
   const fileId = rom.fileId(backgroundPath);
   const archiveBytes = getRomFileBytes(project, rom, fileId);

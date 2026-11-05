@@ -147,7 +147,7 @@ function compareReferences(left: MoveBackgroundReference, right: MoveBackgroundR
 async function loadMoveBackgroundArchive(project: ProjectState): Promise<{ fileId: number; narc: NARC }> {
   const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
   if (!romBytes) throw new Error("Original ROM bytes are unavailable. Reload the ROM to edit move backgrounds.");
-  const rom = new NintendoDSRom(romBytes);
+  const rom = new NintendoDSRom(romBytes, { fileData: "view" });
   const backgroundPath = moveBackgroundArchivePath(project.session.baseRom === "BW" ? "BW" : "BW2");
   const fileId = rom.fileId(backgroundPath);
   const bytes = project.fileSystem?.replacements?.[fileId] ?? rom.files[fileId];

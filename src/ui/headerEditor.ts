@@ -15,15 +15,11 @@ import {
   renderHeaderBattleEnvironmentCard,
 } from "./headerBattleEnvironmentEditor";
 import { attachHeaderInteractions } from "./legacyInteractions";
+import { headerMatchesSearch } from "../pokeweb/headerModel";
+import { getEncounterCount } from "../pokeweb/encounterModel";
+import "../styles/moveData.css";
+import "../styles/headerData.css";
 
-const INFO_ICON = `
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-info">
-    <circle cx="12" cy="12" r="10"></circle>
-    <line x1="12" y1="16" x2="12" y2="12"></line>
-    <line x1="12" y1="8" x2="12" y2="8"></line>
-  </svg>
-`;
 
 type HeaderDetailItem =
   | { kind: "field"; field: string; max?: number; openOverworld?: boolean; text?: boolean }
@@ -170,106 +166,252 @@ function headerDetailSectionsFor(project: ProjectState): HeaderDetailSection[] {
   ];
 }
 
-export function renderHeaderEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void, onOpenOverworld?: (overworldId: number) => void, onOpenSeasons?: (headerId: number) => void): void {
-  if (!project.headers) throw new Error("Header data has not been parsed");
+export type HeaderEditorOptions = {
+  onDirty?: () => void;
+  /** Header row (1-based) to show; the host keeps it in the URL so Back returns here. */
+  selectedRowId?: number;
+  onSelect?: (rowId: number) => void;
+  onOpenOverworld?: (overworldId: number, rowId: number) => void;
+  onOpenSeasons?: (headerIndex: number) => void;
+  onOpenText?: (bankId: number) => void;
+  onOpenScript?: (scriptId: number) => void;
+  onOpenMap?: (zoneId: number) => void;
+  onOpenEncounters?: (encounterId: number) => void;
+};
 
-  root.innerHTML = `
-    <div class="pokemon-filter">
-      <div class="filter-title">Search Location</div>
-      <input class="filter-input" id="search-text"/>
-      <button class="btn -default" id="search-text-btn" type="button">Search</button>
-      ${project.session.baseRom === "BW2" ? `<a class="btn -default" href="#townMap" data-route="townMap">Town Map</a><a class="btn -default" href="#flyDestinations" data-route="flyDestinations">Fly Destinations</a>` : ""}
-    </div>
-    <div class="pokemon-list spreadsheet" id="headers">
-      <div class="expanded-field field-header">
-        <div class="expanded-field-main">
-          <div class="hdr-id">ID</div>
-          <div class="hdr-location">Location Name</div>
-          <div class="hdr-matrix">Matrix</div>
-          <div class="hdr-script">Scripts</div>
-          <div class="hdr-texts">Texts</div>
-          <div class="hdr-encounters">Encounter</div>
-        </div>
-      </div>
-      ${renderRows(project, Boolean(onOpenOverworld), Boolean(onOpenSeasons) && !isGen4Project(project))}
-    </div>
-  `;
+/** Selection and search survive re-renders of the header list per project. */
+const headerSelection = new WeakMap<ProjectState, { rowId: number; search: string; scrollTop: number }>();
 
-  attachHeaderInteractions(root, project, { onDirty });
-  if (!isGen4Project(project)) initializeHeaderBattleEnvironmentEditors(root, project, onDirty);
-  root.querySelectorAll<HTMLElement>("[data-open-matrix-seasons]").forEach(link => link.addEventListener("click", event => {
-    event.preventDefault();
-    const id = Number(link.dataset.openMatrixSeasons);
-    if (Number.isSafeInteger(id) && id >= 0) onOpenSeasons?.(id);
-  }));
-  root.querySelectorAll<HTMLElement>("[data-open-overworld]").forEach((link) => {
-    link.addEventListener("click", (event) => {
-      event.preventDefault();
-      const id = Number(link.dataset.openOverworld);
-      if (Number.isSafeInteger(id)) onOpenOverworld?.(id);
-    });
-  });
-}
-
-function renderRows(project: ProjectState, canOpenOverworld: boolean, canOpenSeasons: boolean): string {
+export function renderHeaderEditor(project: ProjectState, root: HTMLElement, options: HeaderEditorOptions = {}): void {
   const headers = project.headers;
-  if (!headers) return "";
-  const rows: string[] = [];
-  for (let rowId = 1; rowId <= headers.count; rowId += 1) {
+  if (!headers) throw new Error("Header data has not been parsed");
+  const gen4 = isGen4Project(project);
+  const view = headerSelection.get(project) ?? { rowId: 1, search: "", scrollTop: 0 };
+  headerSelection.set(project, view);
+  if (options.selectedRowId !== undefined) view.rowId = options.selectedRowId;
+  if (view.rowId < 1 || view.rowId > headers.count) view.rowId = 1;
+  const pageActions = document.getElementById("page-actions");
+  if (pageActions) pageActions.innerHTML = "";
+
+  const rowIds = Array.from({ length: headers.count }, (_, index) => index + 1);
+  root.innerHTML = `
+    <div class="header-data" id="header-data">
+      <aside class="md-list" aria-label="Map headers">
+        <div class="md-filters">
+          <input class="md-search" id="header-search" type="search" placeholder="Search headers" autocomplete="off" spellcheck="false" aria-label="Search headers" value="${escapeHtml(view.search)}">
+        </div>
+        <div class="md-list-head" aria-hidden="true"><span>ID</span><span>Location</span><span>Matrix</span></div>
+        <div class="md-rows" id="header-list" role="listbox" aria-label="Map headers" tabindex="0">
+          ${rowIds.map((rowId) => `<div class="md-row hd-row" data-header-row="${rowId}" role="option" aria-selected="false">${renderHeaderListRow(headers.rows[rowId], rowId)}</div>`).join("")}
+        </div>
+        <div class="md-list-foot" id="header-count"></div>
+      </aside>
+      <section class="md-detail" id="header-detail"></section>
+    </div>
+  `;
+
+  const list = root.querySelector<HTMLElement>("#header-list")!;
+  const detail = root.querySelector<HTMLElement>("#header-detail")!;
+  const search = root.querySelector<HTMLInputElement>("#header-search")!;
+  const count = root.querySelector<HTMLElement>("#header-count")!;
+  const rows = [...list.querySelectorAll<HTMLElement>("[data-header-row]")];
+
+  const applyFilter = () => {
+    const text = view.search.trim();
+    let shown = 0;
+    rows.forEach((element) => {
+      const rowId = Number(element.dataset.headerRow);
+      const row = headers.rows[rowId];
+      const visible = !text || String(rowId - 1) === text || (row ? headerMatchesSearch(row, text) : false);
+      element.style.display = visible ? "" : "none";
+      if (visible) shown += 1;
+    });
+    count.textContent = text ? `${shown} of ${rows.length} headers` : `${rows.length} headers`;
+  };
+
+  const markSelection = (scroll: boolean) => {
+    rows.forEach((element) => {
+      const active = Number(element.dataset.headerRow) === view.rowId;
+      element.classList.toggle("is-selected", active);
+      element.setAttribute("aria-selected", String(active));
+      if (active && scroll) element.scrollIntoView({ block: "nearest" });
+    });
+  };
+
+  const refreshListRow = (rowId: number) => {
+    const element = rows[rowId - 1];
+    if (element) element.innerHTML = renderHeaderListRow(headers.rows[rowId], rowId);
+  };
+
+  const renderDetail = () => {
+    const rowId = view.rowId;
     const row = headers.rows[rowId];
-    rows.push(renderRow(project, rowId, row, canOpenOverworld, canOpenSeasons));
-  }
-  return rows.join("");
+    if (!row) {
+      detail.innerHTML = "";
+      return;
+    }
+    detail.innerHTML = `<div class="hd-detail">${renderHeaderDetail(project, rowId, row, options, gen4)}</div>`;
+    const host = detail.querySelector<HTMLElement>(".hd-detail")!;
+    const onDirty = () => {
+      options.onDirty?.();
+      refreshListRow(rowId);
+      const links = host.querySelector<HTMLElement>("[data-header-links]");
+      if (links) links.innerHTML = renderHeaderLinks(project, row, options, gen4);
+      const title = host.querySelector<HTMLElement>("[data-header-title]");
+      if (title) title.textContent = String(row.location_name ?? "");
+      const subtitle = host.querySelector<HTMLElement>("[data-header-subtitle]");
+      if (subtitle) subtitle.textContent = headerSubtitle(row, gen4);
+    };
+    attachHeaderInteractions(host, project, { onDirty });
+    if (!gen4) initializeHeaderBattleEnvironmentEditors(host, project, onDirty);
+    host.addEventListener("click", (event) => {
+      const link = (event.target as Element).closest<HTMLElement>("[data-open-ref]");
+      if (!link || link.getAttribute("aria-disabled") === "true") return;
+      event.preventDefault();
+      const id = Number(link.dataset.refId);
+      if (!Number.isSafeInteger(id)) return;
+      const kind = link.dataset.openRef;
+      if (kind === "overworld") options.onOpenOverworld?.(id, rowId);
+      else if (kind === "matrix") options.onOpenSeasons?.(id);
+      else if (kind === "text") options.onOpenText?.(id);
+      else if (kind === "script") options.onOpenScript?.(id);
+      else if (kind === "map") options.onOpenMap?.(id);
+      else if (kind === "encounters") options.onOpenEncounters?.(id);
+    });
+  };
+
+  const select = (rowId: number, scroll: boolean) => {
+    if (rowId === view.rowId && detail.childElementCount > 0) return;
+    view.rowId = rowId;
+    markSelection(scroll);
+    renderDetail();
+    detail.scrollTop = 0;
+    options.onSelect?.(rowId);
+  };
+
+  list.addEventListener("click", (event) => {
+    const element = (event.target as Element).closest<HTMLElement>("[data-header-row]");
+    if (element) select(Number(element.dataset.headerRow), false);
+  });
+  list.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    event.preventDefault();
+    const visible = rows.filter((element) => element.style.display !== "none");
+    const index = visible.findIndex((element) => element.classList.contains("is-selected"));
+    const next = visible[Math.max(0, Math.min(visible.length - 1, index + (event.key === "ArrowDown" ? 1 : -1)))];
+    if (next) select(Number(next.dataset.headerRow), true);
+  });
+  list.addEventListener("scroll", () => {
+    view.scrollTop = list.scrollTop;
+  });
+  let searchTimer: number | undefined;
+  search.addEventListener("input", () => {
+    window.clearTimeout(searchTimer);
+    searchTimer = window.setTimeout(() => {
+      view.search = search.value;
+      applyFilter();
+    }, 150);
+  });
+  search.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    const first = rows.find((element) => element.style.display !== "none");
+    if (first) select(Number(first.dataset.headerRow), true);
+  });
+
+  applyFilter();
+  list.scrollTop = view.scrollTop;
+  markSelection(true);
+  renderDetail();
+  options.onSelect?.(view.rowId);
 }
 
-function renderRow(project: ProjectState, rowId: number, row: HeaderRow, canOpenOverworld: boolean, canOpenSeasons: boolean): string {
+function renderHeaderListRow(row: HeaderRow | undefined, rowId: number): string {
   return `
-    <div class="expanded-field filterable" data-index="${rowId}">
-      <div class="expanded-field-main">
-        <div class="hdr-id">${rowId - 1}</div>
-        ${field("location_name", "hdr-location", row.location_name, { autofill: "location_names" })}
-        ${field("matrix_id", "hdr-matrix", row.matrix_id, { type: "int-65535" })}
-        ${field("script_id", "hdr-script", row.script_id, { type: "int-65535" })}
-        ${field("text_bank_id", "hdr-texts", row.text_bank_id, { type: "int-65535" })}
-        ${field("enc_data_id", "hdr-encounters", row.enc_data_id, { type: "int-65535" })}
-        <div class="move-info expand-action expand-header svg no-fill" data-expand="header">${INFO_ICON}</div>
-      </div>
-      <div class="expanded-card-content expanded-header">
-        <div class="header-detail-grid">
-          ${headerDetailSectionsFor(project).map((section) => renderHeaderDetailSection(rowId, row, section.title, section.items, canOpenOverworld, canOpenSeasons)).join("")}
-        </div>
-      </div>
-    </div>
+    <span class="md-row-id">${rowId - 1}</span>
+    <span class="md-row-name">${escapeHtml(String(row?.location_name ?? ""))}</span>
+    <span class="md-row-pow">${escapeHtml(String(row?.matrix_id ?? ""))}</span>
   `;
 }
 
-function renderHeaderDetailSection(rowId: number, row: HeaderRow, title: string, items: readonly HeaderDetailItem[], canOpenOverworld: boolean, canOpenSeasons: boolean): string {
+function headerSubtitle(row: HeaderRow, gen4: boolean): string {
+  return gen4 ? `Matrix ${row.matrix_id}` : `Zone ${row.index} · Matrix ${row.matrix_id}`;
+}
+
+function renderHeaderDetail(project: ProjectState, rowId: number, row: HeaderRow, options: HeaderEditorOptions, gen4: boolean): string {
+  return `
+    <article class="filterable hd-card" data-index="${rowId}">
+      <header class="hd-head">
+        <div class="td-title"><h1 data-header-title>${escapeHtml(String(row.location_name ?? ""))}</h1><span class="td-num">#${rowId - 1}</span></div>
+        <div class="fd-subtitle" data-header-subtitle>${escapeHtml(headerSubtitle(row, gen4))}</div>
+      </header>
+      <nav class="hd-links" data-header-links aria-label="Open referenced data">${renderHeaderLinks(project, row, options, gen4)}</nav>
+      <div class="expanded-header show-flex hd-sections">
+        <div class="header-detail-grid">
+          <section class="header-detail-section">
+            <div class="header-detail-section-title">Location</div>
+            <div class="header-detail-section-fields">
+              <div class="header-detail-field">
+                <label class="header-detail-label"><span>${escapeHtml(HEADER_FIELD_LABELS.location_name ?? "Location name")}</span></label>
+                ${field("location_name", "header-detail-value hd-location", row.location_name, { autofill: "location_names" })}
+              </div>
+            </div>
+          </section>
+          ${headerDetailSectionsFor(project).map((section) => renderHeaderDetailSection(rowId, row, section.title, section.items)).join("")}
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+export function renderHeaderLinks(project: ProjectState, row: HeaderRow, options: HeaderEditorOptions, gen4: boolean): string {
+  const value = (name: string) => Number(row[name]);
+  const link = (kind: string, label: string, id: number, available: boolean, title: string, limit = Infinity, shown = id) => {
+    const exists = Number.isSafeInteger(id) && id >= 0 && id !== 0xffff && id < limit;
+    const usable = available && exists;
+    return `<a class="hd-link" href="#" data-open-ref="${kind}" data-ref-id="${id}" ${usable ? "" : `aria-disabled="true"`} title="${escapeHtml(usable ? title : exists ? `${title} (not available)` : "Not used by this header")}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(exists ? String(shown) : "None")}</strong></a>`;
+  };
+  let encounterLimit = Infinity;
+  try {
+    encounterLimit = project.narcs.encounters ? getEncounterCount(project) : Infinity;
+  } catch {
+    // Without the encounter archive the id is shown as stored.
+  }
+  const overworld = gen4 ? value("event_id") : value("overworlds_id");
+  // Gen 5 packs the table id into the low byte of enc_data_id (exposed as encounter_id); 255 means none.
+  const packed = Number(row.encounter_id ?? value("enc_data_id") & 0xff);
+  const encounters = gen4 ? value("wild_id") : packed === 0xff ? 0xffff : packed;
+  return [
+    link("text", "Text bank", value("text_bank_id"), Boolean(options.onOpenText), "Open this text bank"),
+    link("script", "Script", value("script_id"), Boolean(options.onOpenScript), "Open this script file"),
+    link("overworld", "Overworld", overworld, Boolean(options.onOpenOverworld), "Open the overworld (NPCs, warps, triggers)"),
+    link("map", "Map zone", Number(row.index), Boolean(options.onOpenMap), "Open this zone in the map editor"),
+    link("matrix", "Matrix", Number(row.index), Boolean(options.onOpenSeasons), "Open this header's matrix", Infinity, value("matrix_id")),
+    link("encounters", "Encounters", encounters, Boolean(options.onOpenEncounters), "Open this encounter table", encounterLimit),
+  ].join("");
+}
+
+function renderHeaderDetailSection(rowId: number, row: HeaderRow, title: string, items: readonly HeaderDetailItem[]): string {
   return `
     <section class="header-detail-section">
       <div class="header-detail-section-title">${escapeHtml(title)}</div>
       <div class="header-detail-section-fields">
-        ${items.map((item) => renderHeaderDetailItem(rowId, row, item, canOpenOverworld, canOpenSeasons)).join("")}
+        ${items.map((item) => renderHeaderDetailItem(rowId, row, item)).join("")}
       </div>
     </section>
   `;
 }
 
-function renderHeaderDetailItem(rowId: number, row: HeaderRow, item: HeaderDetailItem, canOpenOverworld: boolean, canOpenSeasons: boolean): string {
+function renderHeaderDetailItem(rowId: number, row: HeaderRow, item: HeaderDetailItem): string {
   if (item.kind === "battleEnvironment") return renderHeaderBattleEnvironmentCard(rowId, row);
   if (item.kind === "packed") return renderHeaderPackedField(row, item.field);
 
   const max = item.max ?? headerFieldMax(item.field) ?? 65535;
   const value = row[item.field] ?? "";
   const label = HEADER_FIELD_LABELS[item.field] ?? titleize(item.field);
-  const openLink =
-    item.openOverworld && canOpenOverworld
-      ? `<a class="header-detail-open-link" href="#" data-open-overworld="${Number(value)}">Open</a>`
-      : item.field === "matrix_id" && canOpenSeasons ? `<a class="header-detail-open-link" href="#matrixEditor/header/${row.index}" data-open-matrix-seasons="${row.index}">Open seasons</a>` : "";
   return `
     <div class="header-detail-field">
       <label class="header-detail-label">
         <span>${escapeHtml(label)}</span>
-        ${openLink}
       </label>
       ${field(item.field, `header-detail-value header-${item.field}`, value, { type: item.text ? null : `int-${max}` })}
     </div>

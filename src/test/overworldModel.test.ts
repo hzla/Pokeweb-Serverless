@@ -90,6 +90,31 @@ describe("overworldModel", () => {
     expect(readU16(data!, 38)).toBe(38);
   });
 
+  it("uses every cell of a matrix without a zone layer, ignoring the fly position", () => {
+    const project = makeProject(
+      packOverworld({
+        npc_count: 1,
+        npc_0_overworld_id: 0,
+        npc_0_overworld_sprite: 1,
+        npc_0_x_cord: 8,
+        npc_0_y_cord: 46,
+      }),
+    );
+    project.headers = {
+      count: 1,
+      rows: { 1: { index: 0, matrix_id: 0, overworlds_id: 0, parent_map_id: 0, location_name: "White Forest", fly_x: 42, fly_z: 38 } },
+    };
+    project.narcs.maps = makeStore("maps", [makeMapBytes(32, 32, [], []), makeMapBytes(32, 32, [], []), makeMapBytes(32, 32, [], []), makeMapBytes(32, 32, [], [])]);
+    project.narcs.matrix = makeStore("matrix", makeMatrixBytes(2, 2, [0, 1, 2, 3], []));
+
+    const scene = getOverworldScene(project, 0);
+
+    expect(scene.translateX).toBe(0);
+    expect(scene.translateY).toBe(0);
+    expect(scene.maps).toHaveLength(4);
+    expect(scene.npcs[0]).toMatchObject({ x: 8, y: 46 });
+  });
+
   it("patches dirty map tile layers without rewriting untouched map bytes", () => {
     const project = makeProject();
     const original = project.narcs.maps?.rawFiles[0].slice();
@@ -273,7 +298,8 @@ function makeMapBytes(width: number, height: number, layer2: number[], layer3: n
 }
 
 function makeMatrixBytes(width: number, height: number, maps: number[], headers: number[]): Uint8Array {
-  const out = new Uint8Array(8 + width * height * 8);
+  const out = new Uint8Array(8 + width * height * (headers.length > 0 ? 8 : 4));
+  writeInt(out, 0, 4, headers.length > 0 ? 1 : 0);
   writeInt(out, 4, 2, width);
   writeInt(out, 6, 2, height);
   let offset = 8;

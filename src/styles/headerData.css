@@ -1,0 +1,153 @@
+/* Map headers: list + detail with links to the data each header references. */
+
+.header-data {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  width: 100%;
+  height: calc(100vh - var(--chrome-h));
+  margin-top: -10px;
+  overflow: hidden;
+  font-size: 14px;
+}
+
+#header-data .md-list-head,
+#header-data .hd-row {
+  grid-template-columns: 40px minmax(0, 1fr) 56px;
+}
+
+#header-data .md-row-pow {
+  font-variant-numeric: tabular-nums;
+}
+
+#header-data .hd-card {
+  max-width: 1180px;
+  background: none !important;
+}
+
+#header-data .hd-head {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+#header-data .td-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+#header-data .td-title h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+#header-data .td-num,
+#header-data .fd-subtitle {
+  color: var(--text-muted);
+}
+
+#header-data .td-num {
+  font-size: 16px;
+}
+
+/* Reference links */
+#header-data .hd-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+#header-data .hd-link {
+  display: inline-flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 6px 12px;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius);
+  background: var(--ink-1);
+  color: var(--text-muted);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+#header-data .hd-link strong {
+  color: var(--value);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+#header-data .hd-link::after {
+  content: "\2197";
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+#header-data .hd-link:hover {
+  border-color: var(--amber);
+  color: var(--text);
+}
+
+#header-data .hd-link:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 1px;
+}
+
+#header-data .hd-link[aria-disabled="true"] {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* Sections: the legacy header cards, flattened onto the Unova surfaces. */
+#header-data .hd-sections {
+  display: block;
+}
+
+#header-data .header-detail-grid {
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 12px;
+}
+
+#header-data .header-detail-section {
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius);
+  background: var(--ink-1);
+}
+
+#header-data .header-detail-section-title {
+  color: var(--text-muted);
+  font: 600 12px/1 var(--font-cond);
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+#header-data .header-detail-label {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+#header-data .header-detail-field {
+  grid-template-columns: minmax(130px, 1fr) minmax(90px, 160px);
+}
+
+#header-data .header-detail-field.-packed {
+  grid-template-columns: 1fr;
+}
+
+#header-data .header-detail-value {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+#header-data .hd-location {
+  text-align: left;
+}
+
+#header-data .header-flag-check,
+#header-data .header-flag-number {
+  border-radius: var(--radius);
+  background: var(--ink-2);
+  font-weight: 500;
+}

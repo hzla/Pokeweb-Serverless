@@ -1,6 +1,8 @@
 import { applyStarters, getStarterEditorState } from "../pokeweb/starterModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { applyProfessorIntroPokemon, loadProfessorIntroPokemon } from "../pokeweb/professorIntroModel";
+import { loadProfessorIntroPreview, type ProfessorIntroPreview } from "../pokeweb/professorIntroPreview";
+import { drawProfessorIntroPreview } from "./professorIntroPreview";
 import { NATURES } from "../pokeweb/constants";
 import { getPokemonPersonalIds } from "../pokeweb/pokemonModel";
 import { findPokemonBaseSpeciesId, findPokemonPersonalFormOwner, pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
@@ -176,7 +178,11 @@ async function installProfessorIntroEditor(project: ProjectState, root: HTMLElem
       ${state.warnings.map(warning => `<div class="starter-warning">${escapeHtml(warning)}</div>`).join("")}
       <article class="script-pokemon-card">
         <div class="script-pokemon-card-head"><strong>Professor Juniper’s Pokémon</strong></div>
-        <div class="script-pokemon-fields">
+        <div class="professor-intro-layout">
+          <figure class="professor-intro-preview">
+            <canvas width="256" height="192" role="img" aria-label="Professor Juniper with the selected Pokémon" data-professor-intro-preview hidden></canvas>
+            <span role="status" data-professor-intro-preview-status>Loading preview…</span>
+          </figure>
           <label class="script-pokemon-field"><span>Pokémon</span><input data-professor-intro-species list="professor-intro-species-list" value="${escapeHtml(speciesDisplayValue(project, state.speciesId))}" /></label>
         </div>
         <datalist id="professor-intro-species-list">${Array.from({ length: 649 }, (_, i) => `<option value="${escapeHtml(speciesDisplayValue(project, i + 1))}"></option>`).join("")}</datalist>
@@ -186,12 +192,40 @@ async function installProfessorIntroEditor(project: ProjectState, root: HTMLElem
         </div>
       </article>
     `;
+    const input = panel.querySelector<HTMLInputElement>("[data-professor-intro-species]")!;
+    const canvas = panel.querySelector<HTMLCanvasElement>("[data-professor-intro-preview]")!;
+    const previewStatus = panel.querySelector<HTMLElement>("[data-professor-intro-preview-status]")!;
+    let scene: ProfessorIntroPreview | undefined;
+    const updatePreview = () => {
+      if (!scene || !root.contains(panel)) return;
+      try {
+        const speciesId = parseSpeciesValue(project, input.value);
+        if (!Number.isInteger(speciesId) || speciesId < 1 || speciesId > 649) throw new Error("Choose a Pokémon from the list to preview it.");
+        drawProfessorIntroPreview(canvas, project, scene, speciesId);
+        canvas.setAttribute("aria-label", `Professor Juniper with ${pokemonSpeciesLabel(project, speciesId)}`);
+        canvas.hidden = false;
+        previewStatus.hidden = true;
+      } catch (error) {
+        canvas.hidden = true;
+        previewStatus.textContent = error instanceof Error ? error.message : String(error);
+        previewStatus.hidden = false;
+      }
+    };
+    input.addEventListener("input", updatePreview);
+    input.addEventListener("change", updatePreview);
+    void loadProfessorIntroPreview(project).then(loaded => {
+      scene = loaded;
+      updatePreview();
+    }).catch(error => {
+      if (root.contains(panel)) previewStatus.textContent = error instanceof Error ? error.message : String(error);
+    });
     panel.querySelector<HTMLButtonElement>("[data-professor-intro-apply]")!.addEventListener("click", () => {
       const status = panel.querySelector<HTMLElement>("[data-professor-intro-status]")!;
       const input = panel.querySelector<HTMLInputElement>("[data-professor-intro-species]")!;
       try {
         const saved = applyProfessorIntroPokemon(project, parseSpeciesValue(project, input.value));
         input.value = speciesDisplayValue(project, saved.speciesId);
+        updatePreview();
         panel.querySelectorAll(".starter-warning").forEach(warning => warning.remove());
         status.textContent = `Saved: ${speciesDisplayValue(project, saved.speciesId)}. Sprite and cry updated.`;
         options.onDirty?.();
