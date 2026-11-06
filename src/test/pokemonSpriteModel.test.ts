@@ -290,6 +290,36 @@ describe("pokemonSpriteModel", () => {
     expect(project.narcs.pokemon_sprites!.dirty.has(39)).toBe(true);
   });
 
+  it.each(["normal", "shiny"] as const)("saves the reported RGB color to the nearest %s palette color", kind => {
+    const project = makeProject();
+    const palettes = getPokemonPalettes(project, 1);
+    const next = palettes[kind].map(color => ({ ...color }));
+    next[1] = { r: 58, g: 160, b: 131 };
+    setPokemonPalette(project, 1, kind, next);
+    const saved = getPokemonPalettes(project, 1);
+    expect(saved[kind][1]).toEqual({ r: 57, g: 156, b: 132 });
+    expect(saved[kind].filter((_color, i) => i !== 1)).toEqual(palettes[kind].filter((_color, i) => i !== 1));
+    expect(saved[kind === "normal" ? "shiny" : "normal"]).toEqual(palettes[kind === "normal" ? "shiny" : "normal"]);
+  });
+
+  it("selects a nearest representable channel for every 8-bit input and preserves saved colors", () => {
+    const project = makeProject();
+    const levels = Array.from({ length: 32 }, (_unused, i) => Math.floor(i * 8.25));
+    for (let start = 0; start < 256; start += 16) {
+      const requested = Array.from({ length: 16 }, (_unused, i) => ({ r: start + i, g: start + i, b: start + i }));
+      setPokemonPalette(project, 1, "normal", requested);
+      const saved = getPokemonPalettes(project, 1).normal;
+      saved.forEach((color, i) => {
+        const distance = Math.min(...levels.map(level => Math.abs(level - requested[i]!.r)));
+        expect(Math.abs(color.r - requested[i]!.r)).toBe(distance);
+        expect(color).toEqual({ r: color.r, g: color.r, b: color.r });
+      });
+      const bytes = project.narcs.pokemon_sprites!.rawFiles[38]!.slice();
+      setPokemonPalette(project, 1, "normal", saved);
+      expect(project.narcs.pokemon_sprites!.rawFiles[38]).toEqual(bytes);
+    }
+  });
+
   it("uses BW2 icon indexing and validates icon imports", () => {
     const project = makeProject();
     const icon = getPokemonIconImage(project, 1, "male", 0);

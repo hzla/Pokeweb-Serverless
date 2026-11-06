@@ -11,6 +11,14 @@ import { parsePokemonAnimationBundle } from "../pokeweb/pokemonSpriteWriters";
 import { decompressNitro, parsePokemonAnimation, parsePokemonCellBank, parsePokemonMultiCells, parseRigCells, type PokemonAnimationFrame, type PokemonCell } from "../pokeweb/pokemonSpriteModel";
 
 describe("pokemonFlipbookRig", () => {
+  it("uses the nearest native palette color for imported frames", () => {
+    const frame = makeFrame(0);
+    fillRect(frame, 18, 20, 12, 10, [58, 160, 131, 255]);
+    const result = buildPokemonFlipbookRigFromFrames([frame], { ...defaultPokemonFlipbookImportConfig(), strategy: "first-window" });
+    expect(result.palette).toContainEqual({ r: 57, g: 156, b: 132 });
+    expect(result.palette).not.toContainEqual({ r: 66, g: 165, b: 132 });
+  });
+
   it.skipIf(!existsSync(new URL("../../node_modules/gifuct-js/demo/dog.gif", import.meta.url)))("reads infinite, finite, and absent GIF loop metadata", () => {
     const gifUrl = new URL("../../node_modules/gifuct-js/demo/dog.gif", import.meta.url);
     const infinite = new Uint8Array(readFileSync(gifUrl));
@@ -63,8 +71,8 @@ describe("pokemonFlipbookRig", () => {
       maxUniqueFrames: 20,
     });
 
-    expect(result.palette).toContainEqual({ r: 255, g: 247, b: 140 });
-    expect(result.palette).toContainEqual({ r: 247, g: 165, b: 90 });
+    expect(result.palette).toContainEqual({ r: 255, g: 239, b: 140 });
+    expect(result.palette).toContainEqual({ r: 247, g: 156, b: 90 });
     expect(result.palette).toContainEqual({ r: 49, g: 66, b: 49 });
   });
 
@@ -98,8 +106,8 @@ describe("pokemonFlipbookRig", () => {
       maxUniqueFrames: 8,
     });
 
-    expect(result.palette).toContainEqual({ r: 24, g: 173, b: 140 });
-    expect(result.palette).toContainEqual({ r: 33, g: 123, b: 107 });
+    expect(result.palette).toContainEqual({ r: 24, g: 165, b: 132 });
+    expect(result.palette).toContainEqual({ r: 24, g: 123, b: 99 });
   });
 
   it("uses full-pose block packing so every animation cell has NCEC metadata", () => {

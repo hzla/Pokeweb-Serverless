@@ -2,7 +2,7 @@ import { deepStrictEqual } from "node:assert";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
-import { decompressCode } from "../nds/codeCompression";
+import { compressCode, decompressCode } from "../nds/codeCompression";
 import { Folder, saveFnt } from "../nds/fnt";
 import { NintendoDSRom } from "../nds/rom";
 import { exportModifiedRom } from "../pokeweb/exportRom";
@@ -55,6 +55,78 @@ const bgmToggleW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection
 const overworldWeatherRuntimeW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/PokewebOverworldWeatherW2.dll", import.meta.url)));
 
 describe("PMC installer", () => {
+  it("recompresses edited intro overlays only for Frost export and preserves their loaded images", async () => {
+    const sourceRom = new NintendoDSRom(makeBw2LikeRom());
+    const table = sourceRom.arm9OverlayTable.slice();
+    const files = new Map<number, Uint8Array>();
+    for (const id of [162, 294]) {
+      const image = new Uint8Array(0x800).fill(id);
+      image[0x100] = 150;
+      files.set(id, image);
+      writeU32(table, id * 32 + 4, 0x021a0000);
+      writeU32(table, id * 32 + 8, image.length);
+      writeU32(table, id * 32 + 12, 0x80);
+      writeU32(table, id * 32 + 16, 0x021a0020);
+      writeU32(table, id * 32 + 20, 0x021a0040);
+      writeU32(table, id * 32 + 28, 0x02000000);
+    }
+    const source = sourceRom.save({ arm9OverlayTable: table, files });
+    const before = source.slice(), project = makeProject(source, "W2");
+    project.overlays = Object.fromEntries([...files].map(([id, image]) => [id, image.slice()]));
+    project.overlays[162]![0x104] = 25;
+    project.patches = { dirtyOverlayIds: [162, 294], applied: {} };
+    const normal = new NintendoDSRom(await exportModifiedRom(project));
+    const exported = await exportModifiedRom(project, { frostCompatibility: true });
+    const frost = new NintendoDSRom(exported);
+    for (const id of [162, 294]) {
+      const metadata = readU32(frost.arm9OverlayTable, id * 32 + 28);
+      expect(metadata >>> 24).toBe(3);
+      expect(metadata & 0xffffff).toBe(frost.files[id].length);
+      expect(frost.files[id].length).toBeLessThan(project.overlays[id]!.length);
+      expect(decompressCode(frost.files[id])).toEqual(project.overlays[id]);
+      expect(normal.files[id]).toEqual(project.overlays[id]);
+      expect(readU32(normal.arm9OverlayTable, id * 32 + 28)).toBe(0x02000000);
+      expect(frost.arm9OverlayTable.subarray(id * 32, id * 32 + 28)).toEqual(normal.arm9OverlayTable.subarray(id * 32, id * 32 + 28));
+    }
+    expect(frost.arm9).toEqual(normal.arm9);
+    expect(frost.getFileByName("base.bin")).toEqual(normal.getFileByName("base.bin"));
+    expect(exportFrostCompatibleRom(exported)).toEqual(exported);
+    expect(source).toEqual(before);
+    expect(project.overlays[162]).toEqual(normal.files[162]);
+  });
+
+  it("recompresses retail overlays while keeping both PMC images raw and identical", async () => {
+    const rom = new NintendoDSRom(makeBw2LikeRom());
+    const table = rom.arm9OverlayTable.slice(), image = new Uint8Array(0x800).fill(0x52);
+    writeU32(table, 162 * 32 + 8, image.length);
+    writeU32(table, 162 * 32 + 28, 0x02000000);
+    const source = rom.save({ arm9OverlayTable: table, files: new Map([[162, image]]) });
+    const project = makeProject(source, "W2");
+    installPmcBytes(project, pmcW2, source);
+    const exported = await exportModifiedRom(project, { frostCompatibility: true });
+    const frost = new NintendoDSRom(exported);
+    expect(readU32(frost.arm9OverlayTable, 162 * 32 + 28) >>> 24).toBe(3);
+    expect(decompressCode(frost.files[162])).toEqual(image);
+    expect(readU32(frost.arm9OverlayTable, 344 * 32 + 28) >>> 24 & 1).toBe(0);
+    expect(readAscii(frost.files[344], 0, 4)).toBe("RPM0");
+    expect(frost.files[344]).toEqual(frost.getFileByName("overlay/overlay_0344.bin"));
+    expect(detectPmcInstallFromRom(frost)?.pmc).toBeDefined();
+    expect(exportFrostCompatibleRom(exported)).toEqual(exported);
+  });
+
+  it("preserves existing compressed overlays and incompressible raw images", () => {
+    const rom = new NintendoDSRom(makeBw2LikeRom());
+    const table = rom.arm9OverlayTable.slice();
+    const compressed = compressCode(new Uint8Array(0x800).fill(0x71));
+    const raw = Uint8Array.from({ length: 32 }, (_unused, i) => i);
+    writeU32(table, 162 * 32 + 8, 0x800);
+    writeU32(table, 162 * 32 + 28, compressed.length | 0x03000000);
+    writeU32(table, 294 * 32 + 8, raw.length);
+    writeU32(table, 294 * 32 + 28, 0x02000000);
+    const source = rom.save({ arm9OverlayTable: table, files: new Map([[162, compressed], [294, raw]]) });
+    expect(exportFrostCompatibleRom(source)).toBe(source);
+  });
+
   it.each(["B", "W"] as const)("reimports and exports a %s PMC ROM in Frost's layout", async (version) => {
     const source = makeBw2LikeRom(238, new Folder({ files: ["base.bin"], firstId: 237 }), 237);
     source.set(new TextEncoder().encode(version === "B" ? "IRBO" : "IRAO"), 12);

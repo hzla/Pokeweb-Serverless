@@ -2,6 +2,8 @@
 
 Pokeweb's Frost export reserves an unnamed PMC overlay slot before the named filesystem and aligns Frost's overlay/FNT indices. It retains native code, named assets, and DSi resources.
 
+It also BLZ-recompresses uncompressed retail overlays when compression reduces their size, including overlays changed by the professor intro editor. Their decoded bytes, RAM placement, and BSS remain unchanged. Already compressed overlays retain their encoding; incompressible images and the injected PMC loader remain in their existing format. This avoids Frost tools attempting to decompress edited raw overlays.
+
 ## Frost 5.0.1 large-ROM reader overflow
 
 Frost reads the digest-table pointer at header `0x1f0` as the start of its retained ROM tail. Its reader caps the end at `0x12000000` (288 MiB), then subtracts that pointer. When the pointer lies beyond the cap but inside the file, the array length becomes negative and .NET raises `Arithmetic operation resulted in an overflow.`

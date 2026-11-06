@@ -1619,9 +1619,9 @@ function nearestPaletteColor(color: RgbColor, palette: RgbColor[]): RgbColor {
 }
 
 function roundTripBgr555Color(color: RgbColor): RgbColor {
-  const r = Math.min(31, Math.ceil(clamp(color.r, 0, 255) / 8.25));
-  const g = Math.min(31, Math.ceil(clamp(color.g, 0, 255) / 8.25));
-  const b = Math.min(31, Math.ceil(clamp(color.b, 0, 255) / 8.25));
+  const r = Math.min(31, Math.round(clamp(color.r, 0, 255) / 8.25));
+  const g = Math.min(31, Math.round(clamp(color.g, 0, 255) / 8.25));
+  const b = Math.min(31, Math.round(clamp(color.b, 0, 255) / 8.25));
   return { r: Math.floor(r * 8.25), g: Math.floor(g * 8.25), b: Math.floor(b * 8.25) };
 }
 

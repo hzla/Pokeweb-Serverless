@@ -1,4 +1,5 @@
 import { readAscii, readU32, writeU32 } from "../nds/binary";
+import { compressCode, decompressCode, isCodeCompressed } from "../nds/codeCompression";
 import { type Folder } from "../nds/fnt";
 import { NintendoDSRom, type RomSaveOptions } from "../nds/rom";
 import { detectPmcInstallFromRom, PMC_OVERLAY_RESERVED_SIZE } from "./pmcModel";
@@ -25,7 +26,7 @@ export function frostReaderOverflowWarning(romLength: number, digestTableOffset:
  * compatibility guarantee.
  */
 export function exportFrostCompatibleRom(bytes: Uint8Array, options: FrostExportOptions = {}): Uint8Array {
-  const rom = new NintendoDSRom(bytes);
+  const rom = new NintendoDSRom(bytes, { fileData: "view" });
   const complete = (output: Uint8Array): Uint8Array => {
     const warning = frostReaderOverflowWarning(output.length, readU32(output, 0x1f0));
     if (warning) options.onWarning?.(warning);
@@ -47,7 +48,10 @@ export function exportFrostCompatibleRom(bytes: Uint8Array, options: FrostExport
   }
   if (count === retailCount && rom.filenames.firstId === count) {
     validateNamedFiles(rom, count, reject);
-    return complete(bytes); // No injection: the normal export already has Frost's layout.
+    const { table, files } = recompressRetailOverlays(rom, retailCount);
+    return complete(files.size ? rom.save({
+      forDsi: options.forDsi, arm9OverlayTable: table, files, preserveOriginalLength: true,
+    }) : bytes);
   }
   const pmc = detectPmcInstallFromRom(rom)?.pmc;
   const gameId = { IRA: "W", IRB: "B", IRD: "W2", IRE: "B2" }[rom.idCode.slice(0, 3)];
@@ -80,19 +84,46 @@ export function exportFrostCompatibleRom(bytes: Uint8Array, options: FrostExport
   validateNamedFiles(rom, alreadyReserved ? count : retailCount, reject);
   if (!alreadyReserved && rom.files.length >= 0x10000) return reject("The file-ID table is full.");
 
-  const table = rom.arm9OverlayTable.slice();
+  const { table, files } = recompressRetailOverlays(rom, retailCount);
   writeU32(table, rowOffset + 24, retailCount);
+  if (alreadyReserved) files.set(retailCount, image);
   // An insertion shifts all named paths together, preserving contiguous folder
   // ranges (especially /patches). Never erase the root filenames to fake firstId.
   return complete(rom.save({
     forDsi: options.forDsi,
     arm9OverlayTable: table,
-    ...(alreadyReserved
-      ? { files: new Map([[retailCount, image]]) }
-      : { insertedFiles: [{ fileId: retailCount, bytes: image }] }),
+    files,
+    ...(!alreadyReserved ? { insertedFiles: [{ fileId: retailCount, bytes: image }] } : {}),
     priorityFileIds: [retailCount],
     preserveOriginalLength: true,
   }));
+}
+
+function recompressRetailOverlays(rom: NintendoDSRom, retailCount: number): { table: Uint8Array; files: Map<number, Uint8Array> } {
+  const table = rom.arm9OverlayTable.slice();
+  const files = new Map<number, Uint8Array>();
+  // Frost's overlay viewer and patch applier call BLZ decoding even on raw
+  // overlays. Restore compression for native images; PMC's RPM image must
+  // remain uncompressed and identical to its named filesystem copy.
+  for (let row = 0; row < retailCount; row += 1) {
+    const offset = row * 32;
+    const metadata = readU32(table, offset + 28);
+    if ((metadata >>> 24) & 1) continue;
+    const fileId = readU32(table, offset + 24);
+    const data = rom.files[fileId];
+    if (!data || data.length < 8 || data.length !== readU32(table, offset + 8)) continue;
+    const compressed = compressCode(data);
+    // The encoder returns a raw wrapper when BLZ cannot reduce the image.
+    // Never mark that fallback as compressed or grow the loaded image.
+    if (!isCodeCompressed(compressed)) continue;
+    const decoded = decompressCode(compressed);
+    if (compressed.length > 0xffffff || decoded.length !== data.length || decoded.some((byte, i) => byte !== data[i])) {
+      throw new Error(`Frost export could not safely recompress overlay ${row}.`);
+    }
+    files.set(fileId, compressed);
+    writeU32(table, offset + 28, compressed.length | ((metadata & 0xff000000) | 0x01000000));
+  }
+  return { table, files };
 }
 
 function validateNamedFiles(rom: NintendoDSRom, firstId: number, reject: (reason: string) => never): void {

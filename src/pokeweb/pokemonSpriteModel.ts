@@ -1508,9 +1508,9 @@ function readBgr555(value: number): RgbColor {
 }
 
 function writeBgr555(color: RgbColor): number {
-  const r = Math.min(31, Math.ceil(clampByte(color.r) / 8.25));
-  const g = Math.min(31, Math.ceil(clampByte(color.g) / 8.25));
-  const b = Math.min(31, Math.ceil(clampByte(color.b) / 8.25));
+  const r = Math.min(31, Math.round(clampByte(color.r) / 8.25));
+  const g = Math.min(31, Math.round(clampByte(color.g) / 8.25));
+  const b = Math.min(31, Math.round(clampByte(color.b) / 8.25));
   return r | (g << 5) | (b << 10);
 }
 
