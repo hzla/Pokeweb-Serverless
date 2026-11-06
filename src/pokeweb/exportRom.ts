@@ -4,6 +4,7 @@ import { materializeCustomUiSource } from "./customUiModel";
 import { readU32, writeU32 } from "../nds/binary";
 import { setArm9CompressedStaticEnd } from "../nds/arm9ModuleParams";
 import { compressCode, isCodeCompressed } from "../nds/codeCompression";
+import { recompressOverlayFiles } from "../nds/code";
 import { addFilePath, cloneFolder, reserveFilePath, type Folder, shiftFileIdsAtOrAfter } from "../nds/fnt";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
@@ -320,8 +321,6 @@ function patchOverlayFiles(project: ProjectState, rom: NintendoDSRom, fileReplac
     const overlay = project.overlays[overlayId];
     if (overlay) overlayReplacements.set(overlayId, overlay);
   }
-  if (overlayReplacements.size === 0) return undefined;
-
   const table = baseTable.slice();
   for (let offset = 0; offset + 32 <= table.length; offset += 32) {
     const overlayId = readU32(table, offset);
@@ -334,7 +333,11 @@ function patchOverlayFiles(project: ProjectState, rom: NintendoDSRom, fileReplac
     writeU32(table, offset + 8, data.length);
     writeU32(table, offset + 28, (flags & ~1) << 24);
   }
-  return table;
+  const pmcId = project.codeInjection?.pmc?.overlayId;
+  const packed = recompressOverlayFiles(table, (_, id) => fileReplacements.get(id) ?? rom.files[id],
+    new Set(pmcId === undefined ? [] : [pmcId]));
+  for (const [id, bytes] of packed.files) fileReplacements.set(id, bytes);
+  return overlayReplacements.size || packed.files.size ? packed.table : undefined;
 }
 
 function patchOverlayBackedStore(project: ProjectState, name: NarcName, overlayId: number, overlayReplacements: Map<number, Uint8Array>): void {

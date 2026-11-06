@@ -1,5 +1,38 @@
 import { describe, expect, it } from "vitest";
 import { compressCode, decompressCode, isCodeCompressed } from "../nds/codeCompression";
+import { readU32, writeU32 } from "../nds/binary";
+import { recompressOverlayFiles } from "../nds/code";
+
+describe("overlay recompression", () => {
+  it("uses overlay file IDs and preserves all loaded metadata and caller buffers", () => {
+    const table = new Uint8Array(32), data = new Uint8Array(0x800).fill(0x5a);
+    [162, 0x021a0000, data.length, 0x80, 0x021a0020, 0x021a0040, 19, 0x82000000]
+      .forEach((value, i) => writeU32(table, i * 4, value));
+    const before = table.slice(), original = data.slice();
+    const packed = recompressOverlayFiles(table, (id, fileId) => {
+      expect(id).toBe(162); expect(fileId).toBe(19); return data;
+    });
+    expect(packed.files.size).toBe(1);
+    expect(decompressCode(packed.files.get(19)!)).toEqual(data);
+    expect(packed.table.subarray(0, 28)).toEqual(table.subarray(0, 28));
+    expect(readU32(packed.table, 28) >>> 24).toBe(0x83);
+    expect(readU32(packed.table, 28) & 0xffffff).toBe(packed.files.get(19)!.length);
+    expect(table).toEqual(before); expect(data).toEqual(original);
+  });
+  it("keeps compressed, incompressible, excluded and RPM loader images unchanged", () => {
+    const raw = new Uint8Array(0x800).fill(0x71), encoded = compressCode(raw);
+    const rpm = raw.slice(); rpm.set(new TextEncoder().encode("RPM0"));
+    const files = [encoded, Uint8Array.from({ length: 32 }, (_, i) => i), rpm, raw];
+    const table = new Uint8Array(4 * 32);
+    for (let id = 0; id < 4; ++id) {
+      writeU32(table, id * 32, id); writeU32(table, id * 32 + 24, id);
+      writeU32(table, id * 32 + 8, id === 0 ? raw.length : files[id].length);
+    }
+    writeU32(table, 28, 0x01000000 | encoded.length);
+    const packed = recompressOverlayFiles(table, (_, id) => files[id], new Set([3]));
+    expect(packed.files.size).toBe(0); expect(packed.table).toEqual(table);
+  });
+});
 
 describe("decompressCode", () => {
   it("returns uncompressed data unchanged", () => {

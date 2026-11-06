@@ -5926,16 +5926,34 @@
       "artifacts": [
         {
           "name": "HardLevelCapsB2.dll",
-          "sha256": "8343b58ad0a537bdfb21619ca4bbf2026f08120400a78d718ad72b1c1c5751ca"
+          "sha256": "b37bd94b2630201801550bc2e85ddbff254d8e0d40f113d3f81585d1e29cc3c7"
         },
         {
           "name": "HardLevelCapsW2.dll",
-          "sha256": "c82381bbd86e97298891c41995fd1bedabf0e855d1c89af8850564c0c3853dbe"
+          "sha256": "cacf88c7782f11feb1a252082644e7176f3a2f4cb9d4fe2b103bc76de412cae4"
+        },
+        {
+          "name": "TrainerLevelCapsB2.dll",
+          "sha256": "d7c57625892ec5ddab7e7be4ff544801313439fa2a179ca0198a7f775436cc39"
+        },
+        {
+          "name": "TrainerLevelCapsW2.dll",
+          "sha256": "b04719ef4bb964b7d277fd98065070762308686c1ccc728d89a4d10a1362cb77"
         }
       ],
       "note": "US Black 2 / White 2 PMC modules. Runtime source, builder, verifier, and installer are inventoried; availability does not establish historical binary reproducibility.",
       "status": "source-available",
       "files": [
+        {
+          "path": "level-caps/build_trainer_caps.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/level-caps/build_trainer_caps.py"
+          },
+          "kind": "build-tool",
+          "sha256": "b0a6a58abd710ba480f5bb7c52cbb1cfa5fea489095dbb63e6bb2d5c79edd318",
+          "normalized": false
+        },
         {
           "path": "level-caps/build.py",
           "origin": {
@@ -5943,7 +5961,7 @@
             "path": "runtime/level-caps/build.py"
           },
           "kind": "build-tool",
-          "sha256": "d0360d747ed6ec0bc3b3e43e4581d0e82d92319746cdc51a8be385466f5657d9",
+          "sha256": "88a67a0d6b4ff75b28487f462b38496b2b984ed71285599ca8a2df90edccd5e3",
           "normalized": false
         },
         {
@@ -5953,7 +5971,7 @@
             "path": "runtime/level-caps/hooks.s"
           },
           "kind": "source",
-          "sha256": "c6374fc0dfd0ce40407d4ef2aa8118c6f7abb5e2e4d9048cbde63f8cbb708bdf",
+          "sha256": "1bff861464c4c9d4695fa6370a6afad00b765c424db74dca71842cb1b270048a",
           "normalized": false
         },
         {
@@ -5963,7 +5981,7 @@
             "path": "runtime/level-caps/level_caps.c"
           },
           "kind": "source",
-          "sha256": "4c4421bbfca37c3da71ceba6882ef8a6f60e9abc36c3f2ca5762e89dd4794913",
+          "sha256": "e49a4ff9dce8daabe4d57c1872372808ecccabb0a9323933b1fa628293b4bbd0",
           "normalized": false
         },
         {
@@ -5973,7 +5991,27 @@
             "path": "runtime/level-caps/README.md"
           },
           "kind": "documentation",
-          "sha256": "f8afa4d42d52a38a76c6d6d9aaea6d8d82398199d4a70a1c3b324a720a35307a",
+          "sha256": "cbfbaf9e997fa8b7f220d6d99c38374618afb5b7ff5b1201085f94e96e7b071c",
+          "normalized": false
+        },
+        {
+          "path": "level-caps/trainer_caps.c",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/level-caps/trainer_caps.c"
+          },
+          "kind": "source",
+          "sha256": "383ae19fdfc7f08f2eb8df5a784df3c6cefa9c6ef0e17bbe14951d800f15227a",
+          "normalized": false
+        },
+        {
+          "path": "level-caps/verify_trainer_caps.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/level-caps/verify_trainer_caps.py"
+          },
+          "kind": "test",
+          "sha256": "5d425135d8b4d45c358bf3f821efe26dcd29b4407bed8532e2003ee0c4176ab2",
           "normalized": false
         },
         {
@@ -5983,7 +6021,7 @@
             "path": "runtime/level-caps/verify.py"
           },
           "kind": "test",
-          "sha256": "8b25b177ec2b4436ad779e698930bd729806f0bd91e1fd6b7ed9ab2bcbcf19cb",
+          "sha256": "ec458387aa0554e16704dd1db570b9f2d8db4350048c59ade807db2702e73c3b",
           "normalized": false
         },
         {
@@ -5993,7 +6031,57 @@
             "path": "src/pokeweb/levelCapsModel.ts"
           },
           "kind": "support-only",
-          "sha256": "a14e5a0f8b0a926d1834ecb3debc546e65d7270f80da6005da4c1f07d43f8a28",
+          "sha256": "6742320712d8257b994641f5a1b292683e017a35c531d591aa685dc1dd8a0d73",
+          "normalized": false
+        },
+        {
+          "path": "level-caps/integration/trainerLevelCapsModel.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/trainerLevelCapsModel.ts"
+          },
+          "kind": "source",
+          "sha256": "2c5a0b9c5e6a27676c80214747471ea317a67f097544b8ffb912d6ea22d3c32c",
+          "normalized": false
+        },
+        {
+          "path": "level-caps/integration/trainerLevelCaps.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/ui/trainerLevelCaps.ts"
+          },
+          "kind": "source",
+          "sha256": "e03541a01794a2d364d9e3440001b028b8fdfdbf75564a38b30def3e80b72238",
+          "normalized": false
+        },
+        {
+          "path": "level-caps/metadata/trainerLevelCapsManifest.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/assets/codeinjection/trainerLevelCapsManifest.json"
+          },
+          "kind": "metadata",
+          "sha256": "8cf517da7129ac5e4f901e191e82bae52578cfb7f067bbf47d7c4e9244512fa0",
+          "normalized": false
+        },
+        {
+          "path": "level-caps/tests/trainerLevelCaps.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/trainerLevelCaps.test.ts"
+          },
+          "kind": "test",
+          "sha256": "a5a5952970cf70177edbfefd933da99f5f4fdfcc354964e993515a36a182d535",
+          "normalized": false
+        },
+        {
+          "path": "level-caps/tests/verify-trainer-level-caps.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "scripts/verify-trainer-level-caps.ts"
+          },
+          "kind": "test",
+          "sha256": "8b49764ef80da08b42971d2080581a6ef2886c9aea5dd7f7860e7493b45d349c",
           "normalized": false
         },
         {

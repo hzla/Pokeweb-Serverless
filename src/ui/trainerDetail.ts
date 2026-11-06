@@ -19,6 +19,7 @@ import { hasGen5TrainerSprites } from "../pokeweb/trainerSpriteModel";
 import type { TrainerTextLine } from "../pokeweb/trainerTextModel";
 import { escapeHtml } from "./dom";
 import { renderTrainerFieldSettings } from "./trainerFieldConditions";
+import { renderTrainerLevelCapSetting } from "./trainerLevelCaps";
 import { renderGameTextEditor } from "./textHighlight";
 
 export const TRAINER_SPRITE_RENDER_VERSION = "gen5-mcss-ncec-v2";
@@ -175,7 +176,7 @@ export function renderTrainerDetail(project: ProjectState, trainerId: number, se
           <div class="td-slot" data-slot-editor>${slot ? renderTrainerSlotEditor(project, trainer, slot, natureField) : renderEmptyParty()}</div>
         </section>
         <aside class="td-settings" aria-label="Trainer settings">
-          ${renderTrainerSettings(trainer)}
+          ${renderTrainerSettings(project, trainer)}
         </aside>
       </div>
       ${fieldSettings ? `<section class="td-wide"><div class="section-bar md-gap">Field conditions</div>${fieldSettings}</section>` : ""}
@@ -299,7 +300,7 @@ function renderSlotMoves(project: ProjectState, trainer: TrainerRecord, pok: Tra
   `;
 }
 
-function renderTrainerSettings(trainer: TrainerRecord): string {
+function renderTrainerSettings(project: ProjectState, trainer: TrainerRecord): string {
   const checkRow = (field: string, label: string, checked: boolean, hint = "") => `
     <label class="md-check td-check" data-mark-fields="data:${field}">
       <input type="checkbox" data-trainer-check="${field}" ${checked ? "checked" : ""}>
@@ -321,6 +322,7 @@ function renderTrainerSettings(trainer: TrainerRecord): string {
       ${[1, 2, 3, 4].map((n) => formRow(`Battle item ${n}`, `data:item_${n}`, editable("trdata", `item_${n}`, trainer.readable[`item_${n}`], "", { autofill: "items" }))).join("")}
       ${formRow("Prize money", "data:money", editable("trdata", "money", trainer.readable.money, "", { type: "int-255" }))}
       ${formRow("Reward item", "data:reward_item", editable("trdata", "reward_item", trainer.readable.reward_item, "", { autofill: "items" }))}
+      ${renderTrainerLevelCapSetting(project, trainer.id)}
     </div>
     <div class="td-checks">
       ${checkRow("heal", "Heals the player after battle", Number(trainer.readable.heal) > 0)}

@@ -181,6 +181,7 @@ runtime/field-season/build/
 !/scripts/verify-skeletal-timeline.ts
 /runtime/trainer-field-conditions/build/
 !/scripts/verify-trainer-field-conditions.ts
+!/scripts/verify-trainer-level-caps.ts
 
 /runtime/ability-effects/build/
 

@@ -485,6 +485,23 @@
 }
 
 /* Settings column */
+#trainer-data [data-trainer-level-cap] {
+  box-sizing: border-box;
+  width: 104px;
+  max-width: 100%;
+  min-width: 0;
+  padding: 5px 8px;
+  color: var(--text);
+  background: var(--ink-0);
+  border: 1px solid var(--field-line);
+  border-radius: 4px;
+  font: inherit;
+}
+
+#trainer-data [data-trainer-level-cap][aria-invalid="true"] {
+  border-color: var(--amber);
+}
+
 :is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-settings .md-form {
   grid-template-columns: 96px minmax(0, 1fr);
 }

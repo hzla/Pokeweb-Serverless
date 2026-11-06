@@ -16,3 +16,29 @@ overlapping hooks are unsupported.
 Build with `npm run levelcaps:build`; compiled verification uses
 `npm run levelcaps:verify` and Unicorn. Party field `0x9E` is the level field;
 `0x05` is species and must not be used for cap comparisons.
+
+The optional **Trainer Level Caps** companion requires Hard Level Caps and US
+revision-0 B2/W2. Install it from Code Injection to expose **Lvl Cap after Win**
+in trainer settings. A blank field or 0 leaves the cap unchanged; 1–100 writes
+that exact value to saved work variable 16415 after an offline trainer victory.
+This can lower an existing cap. Losses, draws, escapes, wild, link, facility and
+Trial House battles leave it unchanged. Two opposing trainers use the higher
+configured cap; the player's partner is ignored. The new cap applies when
+returning to the field, after that battle's EXP has been awarded. Scripted writes
+to the same variable can still change it afterward.
+
+The companion replaces one checked BL in overlay 12's battle-return callback,
+preserving the retail result broadcaster. Edits elsewhere in that overlay are
+allowed; changes to the checked callback or competing DLL hooks are rejected.
+Trainer records are unchanged. Values are stored in `battle/trainer-caps.bin`:
+a 16-byte little-endian header (`PWLC`, u16 version 1, u16 record size 1,
+u32 trainer count, u32 work variable 16415), followed by one byte per trainer ID.
+Missing, malformed or out-of-range runtime records perform no cap write.
+
+Build the companion with `npm run trainercaps:build`. Set
+`TRAINER_CAPS_BUILD_DIR` to choose the intermediate output directory. Check the
+shipped DLLs against clean inputs with `npm run trainercaps:verify -- --black2
+<black2.nds> --white2 <white2.nds>`. This runs the retail callback and relocated
+DLL in an ARM946 CPU model with native callees and filesystem I/O stubbed; it
+does not constitute a full DS playthrough. `npm run trainercaps:verify-rom --
+<black2.nds> <white2.nds>` checks installation, exported data, reimport and edits.

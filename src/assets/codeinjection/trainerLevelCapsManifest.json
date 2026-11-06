@@ -1,0 +1,356 @@
+{
+  "B2": {
+    "idCode": "IREO",
+    "fileName": "TrainerLevelCapsB2.dll",
+    "version": "1.0.0",
+    "hookAddress": 35033340,
+    "signatureAddress": 35033320,
+    "expectedHex": "38b5051c0c1ca968201ca8310968aef6ddf9281cfff71cff281cfff7bbff",
+    "codeHex": "4278037812021a438378c0781b04134300061843704737b513006a46d51d002204002a70934201d100203ebd1b688b42fad21033190070f0e7fe0028f4d001222900200070f0ecfe0128edd128786428ead8eae7f0b599b0050068f15dff002d7fd0ae68002e7cd03000fff7c9ff012877d130001c30fff7c3ff002871d1731cdb7f002b6dd13000a830fff7b9ff012867d128001430fff7b3ff002861d028001c30fff7adff00285bd128002830fff7a7ff042304001c40184252d16f68002f4fd004a870f0cafd274904a870f0d8fe002846d01022694604a870f0a1fe10282fd16846fff78cff204b984229d101a8fff786ff1e4b984223d103a8fff780ff1c4b98421dd102a8fff77aff8023421e05005b029a4214d204a870f041fe2b00103398420dd12900f26c04a8fff773ff29000400726d04a8fff76dff844200d2040004a870f026fe002c0ad0380017f011f9002805d0074919f08cf8002800d0048019b0f0bdc0469801000050574c43010001001f400000726f6d3a2f626174746c652f747261696e65722d636170732e62696e00000000",
+    "bssSize": 0,
+    "symbols": [
+      {
+        "name": null,
+        "size": 0,
+        "address": 34016808,
+        "type": 3,
+        "attributes": 4
+      },
+      {
+        "name": null,
+        "size": 0,
+        "address": 34016832,
+        "type": 3,
+        "attributes": 4
+      },
+      {
+        "name": null,
+        "size": 0,
+        "address": 35032888,
+        "type": 3,
+        "attributes": 4
+      },
+      {
+        "name": null,
+        "size": 0,
+        "address": 34016380,
+        "type": 3,
+        "attributes": 4
+      },
+      {
+        "name": null,
+        "size": 0,
+        "address": 34016928,
+        "type": 3,
+        "attributes": 4
+      },
+      {
+        "name": null,
+        "size": 0,
+        "address": 34016704,
+        "type": 3,
+        "attributes": 4
+      },
+      {
+        "name": null,
+        "size": 0,
+        "address": 34016692,
+        "type": 3,
+        "attributes": 4
+      },
+      {
+        "name": null,
+        "size": 0,
+        "address": 33649556,
+        "type": 3,
+        "attributes": 4
+      },
+      {
+        "name": null,
+        "size": 0,
+        "address": 33657492,
+        "type": 3,
+        "attributes": 4
+      },
+      {
+        "name": null,
+        "size": 0,
+        "address": 376,
+        "type": 1,
+        "attributes": 0
+      },
+      {
+        "name": null,
+        "size": 292,
+        "address": 84,
+        "type": 3,
+        "attributes": 1
+      },
+      {
+        "name": null,
+        "size": 22,
+        "address": 0,
+        "type": 3,
+        "attributes": 1
+      },
+      {
+        "name": null,
+        "size": 62,
+        "address": 22,
+        "type": 3,
+        "attributes": 1
+      }
+    ],
+    "relocations": [
+      {
+        "address": 54,
+        "symbol": 0,
+        "module": "base",
+        "type": "THUMB_BRANCH_LINK"
+      },
+      {
+        "address": 68,
+        "symbol": 1,
+        "module": "base",
+        "type": "THUMB_BRANCH_LINK"
+      },
+      {
+        "address": 90,
+        "symbol": 2,
+        "module": "base",
+        "type": "THUMB_BRANCH_LINK"
+      },
+      {
+        "address": 196,
+        "symbol": 3,
+        "module": "base",
+        "type": "THUMB_BRANCH_LINK"
+      },
+      {
+        "address": 204,
+        "symbol": 4,
+        "module": "base",
+        "type": "THUMB_BRANCH_LINK"
+      },
+      {
+        "address": 218,
+        "symbol": 1,
+        "module": "base",
+        "type": "THUMB_BRANCH_LINK"
+      },
+      {
+        "address": 282,
+        "symbol": 5,
+        "module": "base",
+        "type": "THUMB_BRANCH_LINK"
+      },
+      {
+        "address": 324,
+        "symbol": 6,
+        "module": "base",
+        "type": "THUMB_BRANCH_LINK"
+      },
+      {
+        "address": 334,
+        "symbol": 7,
+        "module": "base",
+        "type": "THUMB_BRANCH_LINK"
+      },
+      {
+        "address": 344,
+        "symbol": 8,
+        "module": "base",
+        "type": "THUMB_BRANCH_LINK"
+      },
+      {
+        "address": 360,
+        "symbol": 9,
+        "module": "base",
+        "type": "OFFSET"
+      },
+      {
+        "address": 35033340,
+        "symbol": 10,
+        "module": "12",
+        "type": "THUMB_BRANCH_LINK"
+      }
+    ]
+  },
+  "W2": {
+    "idCode": "IRDO",
+    "fileName": "TrainerLevelCapsW2.dll",
+    "version": "1.0.0",
+    "hookAddress": 35033404,
+    "signatureAddress": 35033384,
+    "expectedHex": "38b5051c0c1ca968201ca8310968aef6bdf9281cfff71cff281cfff7bbff",
+    "codeHex": "4278037812021a438378c0781b04134300061843704737b513006a46d51d002204002a70934201d100203ebd1b688b42fad21033190070f0fdfe0028f4d001222900200070f002ff0128edd128786428ead8eae7f0b599b0050068f17dff002d7fd0ae68002e7cd03000fff7c9ff012877d130001c30fff7c3ff002871d1731cdb7f002b6dd13000a830fff7b9ff012867d128001430fff7b3ff002861d028001c30fff7adff00285bd128002830fff7a7ff042304001c40184252d16f68002f4fd004a870f0e0fd274904a870f0eefe002846d01022694604a870f0b7fe10282fd16846fff78cff204b984229d101a8fff786ff1e4b984223d103a8fff780ff1c4b98421dd102a8fff77aff8023421e05005b029a4214d204a870f057fe2b00103398420dd12900f26c04a8fff773ff29000400726d04a8fff76dff844200d2040004a870f03cfe002c0ad0380017f011f9002805d0074919f0a2f8002800d0048019b0f0bdc0469801000050574c43010001001f400000726f6d3a2f626174746c652f747261696e65722d636170732e62696e00000000",
+    "bssSize": 0,
+    "symbols": [
+      {
+        "name": null,
+        "size": 0,
+        "address": 34016852,
+        "type": 3,
+        "attributes": 4
+      },
+      {
+        "name": null,
+        "size": 0,
+        "address": 34016876,
+        "type": 3,
+        "attributes": 4
+      },
+      {
+        "name": null,
+        "size": 0,
+        "address": 35032952,
+        "type": 3,
+        "attributes": 4
+      },
+      {
+        "name": null,
+        "size": 0,
+        "address": 34016424,
+        "type": 3,
+        "attributes": 4
+      },
+      {
+        "name": null,
+        "size": 0,
+        "address": 34016972,
+        "type": 3,
+        "attributes": 4
+      },
+      {
+        "name": null,
+        "size": 0,
+        "address": 34016748,
+        "type": 3,
+        "attributes": 4
+      },
+      {
+        "name": null,
+        "size": 0,
+        "address": 34016736,
+        "type": 3,
+        "attributes": 4
+      },
+      {
+        "name": null,
+        "size": 0,
+        "address": 33649556,
+        "type": 3,
+        "attributes": 4
+      },
+      {
+        "name": null,
+        "size": 0,
+        "address": 33657536,
+        "type": 3,
+        "attributes": 4
+      },
+      {
+        "name": null,
+        "size": 0,
+        "address": 376,
+        "type": 1,
+        "attributes": 0
+      },
+      {
+        "name": null,
+        "size": 292,
+        "address": 84,
+        "type": 3,
+        "attributes": 1
+      },
+      {
+        "name": null,
+        "size": 22,
+        "address": 0,
+        "type": 3,
+        "attributes": 1
+      },
+      {
+        "name": null,
+        "size": 62,
+        "address": 22,
+        "type": 3,
+        "attributes": 1
+      }
+    ],
+    "relocations": [
+      {
+        "address": 54,
+        "symbol": 0,
+        "module": "base",
+        "type": "THUMB_BRANCH_LINK"
+      },
+      {
+        "address": 68,
+        "symbol": 1,
+        "module": "base",
+        "type": "THUMB_BRANCH_LINK"
+      },
+      {
+        "address": 90,
+        "symbol": 2,
+        "module": "base",
+        "type": "THUMB_BRANCH_LINK"
+      },
+      {
+        "address": 196,
+        "symbol": 3,
+        "module": "base",
+        "type": "THUMB_BRANCH_LINK"
+      },
+      {
+        "address": 204,
+        "symbol": 4,
+        "module": "base",
+        "type": "THUMB_BRANCH_LINK"
+      },
+      {
+        "address": 218,
+        "symbol": 1,
+        "module": "base",
+        "type": "THUMB_BRANCH_LINK"
+      },
+      {
+        "address": 282,
+        "symbol": 5,
+        "module": "base",
+        "type": "THUMB_BRANCH_LINK"
+      },
+      {
+        "address": 324,
+        "symbol": 6,
+        "module": "base",
+        "type": "THUMB_BRANCH_LINK"
+      },
+      {
+        "address": 334,
+        "symbol": 7,
+        "module": "base",
+        "type": "THUMB_BRANCH_LINK"
+      },
+      {
+        "address": 344,
+        "symbol": 8,
+        "module": "base",
+        "type": "THUMB_BRANCH_LINK"
+      },
+      {
+        "address": 360,
+        "symbol": 9,
+        "module": "base",
+        "type": "OFFSET"
+      },
+      {
+        "address": 35033404,
+        "symbol": 10,
+        "module": "12",
+        "type": "THUMB_BRANCH_LINK"
+      }
+    ]
+  }
+}

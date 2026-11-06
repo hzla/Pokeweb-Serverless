@@ -1,6 +1,7 @@
 import { hydrateMoveEffectsSource } from "./moveEffectsModel";
 import { hydrateAbilityEffectsSource } from "./abilityEffectsModel";
 import { hydrateTrainerFieldConditionsSources } from "./trainerFieldConditionsModel";
+import { hydrateTrainerLevelCapsSources } from "./trainerLevelCapsModel";
 import { hydrateNaturePalettes } from "./naturePaletteModel";
 import { hydrateNaturePaletteRuntime } from "./naturePaletteRuntime";
 import { hydrateItemEffectsSource } from "./itemEffectsModel";
@@ -143,6 +144,7 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
     hydrateKoMoveLearnsetFromRom(project, rom);
     hydrateTrainerLocationTables(project, rom);
     hydrateTrainerFieldConditionsSources(project, rom);
+    hydrateTrainerLevelCapsSources(project, rom);
     hydrateNaturePalettes(project, rom);
     hydrateNaturePaletteRuntime(project, rom);
     hydrateItemEffectsSource(project, rom);

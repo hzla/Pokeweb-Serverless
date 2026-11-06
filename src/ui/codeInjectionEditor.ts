@@ -69,6 +69,7 @@ import { getLearnsetViewerStatus, installLearnsetViewer, uninstallLearnsetViewer
 import { getSummaryStatViewerStatus, installSummaryStatViewer, uninstallSummaryStatViewer, SUMMARY_STAT_VIEWER_VERSION } from "../pokeweb/summaryStatViewerModel";
 import { getInfiniteCandyStatus, getInstalledInfiniteCandyItemId, installInfiniteCandy } from "../pokeweb/infiniteCandyModel";
 import { getLevelCapsStatus, installLevelCaps } from "../pokeweb/levelCapsModel";
+import { getTrainerLevelCapsStatus, installTrainerLevelCaps } from "../pokeweb/trainerLevelCapsModel";
 import { getForgettableHmsPmcStatus, stageForgettableHmsPmc } from "../pokeweb/forgettableHmsRuntime";
 import { TESTING_PATCHES, getTestingPatchStatus, installTestingPatch, uninstallTestingPatch, type TestingPatchId } from "../pokeweb/testingPatchesModel";
 import { getBattleTypeHudStatus, installBattleTypeHud, uninstallBattleTypeHud, getMoveEffectivenessStatus, installMoveEffectiveness, uninstallMoveEffectiveness, DEFAULT_MOVE_HIGHLIGHT_COLORS, type MoveHighlightColors, type TypeIconVariant } from "../pokeweb/battleTypeHudModel";
@@ -148,6 +149,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const infiniteCandyStatus = getInfiniteCandyStatus(project, pendingCandyItemIds.get(project));
   const infiniteCandyItemId = infiniteCandyStatus.itemId ?? getInstalledInfiniteCandyItemId(project) ?? 622;
   const levelCapsStatus = getLevelCapsStatus(project);
+  const trainerLevelCapsStatus = getTrainerLevelCapsStatus(project);
   const debugFlag = getDebugSaveFlagStatus(project);
   const testingPatchCard = (id: TestingPatchId) => {
     const patch = TESTING_PATCHES[id];
@@ -647,6 +649,16 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div class="code-injection-credits">Adapted from PW2Code by Dararo.</div>
           </div>
         </section>
+        <section class="code-injection-panel" ${patchVisibility(trainerLevelCapsStatus.supported)}>
+          <div class="code-injection-panel__header">
+            <div><h2>Trainer Level Caps</h2><p>Hard Level Caps companion. Set “Lvl Cap after Win” in a trainer’s settings to update the cap after victory.</p></div>
+            ${renderInlineStatus(trainerLevelCapsStatus.installed ? "Installed" : trainerLevelCapsStatus.compatible ? "Ready" : "Unavailable", { className: "code-injection-status", title: trainerLevelCapsStatus.message })}
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-trainer-level-caps-btn" type="button" ${trainerLevelCapsStatus.compatible && !trainerLevelCapsStatus.installed ? "" : "disabled"}>${trainerLevelCapsStatus.installed ? "Installed" : "Install Trainer Level Caps"}</button>
+            <div class="code-injection-note" id="trainer-level-caps-note" aria-live="polite"></div>
+          </div>
+        </section>
         <section class="code-injection-panel" ${patchVisibility(doubleBattleFixStatus !== "unsupported")}>
           <div class="code-injection-panel__header">
             <div>
@@ -1137,6 +1149,20 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       renderCodeInjectionEditor(project, root, onDirty);
     } catch (error) {
       levelCapsButton.disabled = false;
+      if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+
+  const trainerLevelCapsButton = root.querySelector<HTMLButtonElement>("#install-trainer-level-caps-btn");
+  trainerLevelCapsButton?.addEventListener("click", async () => {
+    const note = root.querySelector<HTMLDivElement>("#trainer-level-caps-note");
+    trainerLevelCapsButton.disabled = true;
+    try {
+      await installTrainerLevelCaps(project);
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+    } catch (error) {
+      trainerLevelCapsButton.disabled = false;
       if (note) note.textContent = error instanceof Error ? error.message : String(error);
     }
   });

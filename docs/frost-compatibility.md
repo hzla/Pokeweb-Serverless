@@ -2,7 +2,7 @@
 
 Pokeweb's Frost export reserves an unnamed PMC overlay slot before the named filesystem and aligns Frost's overlay/FNT indices. It retains native code, named assets, and DSi resources.
 
-It also BLZ-recompresses uncompressed retail overlays when compression reduces their size, including overlays changed by the professor intro editor. Their decoded bytes, RAM placement, and BSS remain unchanged. Already compressed overlays retain their encoding; incompressible images and the injected PMC loader remain in their existing format. This avoids Frost tools attempting to decompress edited raw overlays.
+Normal and Frost exports both BLZ-recompress uncompressed overlays when compression reduces their size, including overlays changed by the professor intro editor. Their decoded bytes, RAM placement, and BSS remain unchanged. Already compressed overlays retain their encoding; incompressible images and the injected PMC loader remain in their existing format. Frost export additionally applies its filesystem layout changes. Compression alone does not provide those changes to a normal export.
 
 ## Frost 5.0.1 large-ROM reader overflow
 

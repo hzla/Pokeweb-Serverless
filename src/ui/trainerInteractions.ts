@@ -17,6 +17,7 @@ import { updateTrainerText } from "../pokeweb/trainerTextModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml, selectText } from "./dom";
 import { attachTrainerFieldSettings } from "./trainerFieldConditions";
+import { attachTrainerLevelCapSetting } from "./trainerLevelCaps";
 import { installBw2DialoguePreview, type Bw2DialoguePreview } from "./bw2DialoguePreview";
 import { assumedDialogueVariables, installGameTextEditor } from "./textHighlight";
 import {
@@ -468,6 +469,7 @@ export function attachTrainerDetail(
   }, { signal });
 
   attachTrainerFieldSettings(project, detail, options.onDirty);
+  attachTrainerLevelCapSetting(project, detail, changed);
   return { render };
 }
 

@@ -165,10 +165,15 @@ const additions = [
   },
   {
     name: 'level-caps', title: 'Hard level caps',
-    artifacts: ['HardLevelCapsB2.dll', 'HardLevelCapsW2.dll'],
+    artifacts: ['HardLevelCapsB2.dll', 'HardLevelCapsW2.dll', 'TrainerLevelCapsB2.dll', 'TrainerLevelCapsW2.dll'],
     note: 'US Black 2 / White 2 PMC modules. Runtime source, builder, verifier, and installer are inventoried; availability does not establish historical binary reproducibility.',
     extra: [
       file('level-caps', 'integration/levelCapsModel.ts', 'support-only', 'src/pokeweb/levelCapsModel.ts'),
+      file('level-caps', 'integration/trainerLevelCapsModel.ts', 'source', 'src/pokeweb/trainerLevelCapsModel.ts'),
+      file('level-caps', 'integration/trainerLevelCaps.ts', 'source', 'src/ui/trainerLevelCaps.ts'),
+      file('level-caps', 'metadata/trainerLevelCapsManifest.json', 'metadata', 'src/assets/codeinjection/trainerLevelCapsManifest.json'),
+      file('level-caps', 'tests/trainerLevelCaps.test.ts', 'test', 'src/test/trainerLevelCaps.test.ts'),
+      file('level-caps', 'tests/verify-trainer-level-caps.ts', 'test', 'scripts/verify-trainer-level-caps.ts'),
       file('level-caps', 'tests/verify-level-caps-install.ts', 'test', 'scripts/verify-level-caps-install.ts'),
     ],
   },

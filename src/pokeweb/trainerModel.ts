@@ -1,4 +1,5 @@
 import { cloneTrainerFieldConditions } from "./trainerFieldConditionsModel";
+import { cloneTrainerLevelCap } from "./trainerLevelCapsModel";
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
 import { cascadeWhitePersonalName, cascadeWhiteTrainerAbilityName, trainerAbilitySlotMax } from "./cascadeWhiteModel";
 import { BATTLE_TYPES, BW2_MESSAGE_BANKS, BW_MESSAGE_BANKS, NATURES, TRAINER_AIS, TRAINER_GENDERS, isGen4Project, type Gen4BaseRom, type NarcName } from "./constants";
@@ -130,6 +131,7 @@ export function addTrainer(project: ProjectState, templateTrainerId?: number): T
   };
 
   cloneTrainerFieldConditions(project, sourceTrainerId, trainerId);
+  cloneTrainerLevelCap(project, sourceTrainerId, trainerId);
   trdataStore.rawFiles.push(trdataBytes);
   trdataStore.fileCount = trdataStore.rawFiles.length;
   trdataStore.records.set(trainerId, { id: trainerId, bytes: trdataBytes, raw: trdataRaw, readable: {} });

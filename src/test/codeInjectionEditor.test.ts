@@ -8,6 +8,7 @@ import * as menuEvolution from "../pokeweb/menuEvolutionModel";
 import * as battleLog from "../pokeweb/battleLogModel";
 import * as candyModel from "../pokeweb/infiniteCandyModel";
 import * as levelCapsModel from "../pokeweb/levelCapsModel";
+import * as trainerLevelCapsModel from "../pokeweb/trainerLevelCapsModel";
 import * as pmcModel from "../pokeweb/pmcModel";
 
 afterEach(() => vi.restoreAllMocks());
@@ -42,6 +43,20 @@ describe("optional PMC heap expansion", () => {
 });
 
 describe("Hard Level Caps updates", () => {
+  it("installs the optional trainer companion only from its own button", async () => {
+    vi.spyOn(trainerLevelCapsModel, "getTrainerLevelCapsStatus").mockReturnValue({
+      supported: true, compatible: true, installed: false, message: "Ready.",
+    });
+    const install = vi.spyOn(trainerLevelCapsModel, "installTrainerLevelCaps").mockResolvedValue();
+    let click: () => Promise<void> = async () => {};
+    const button = { disabled: false, addEventListener: (_: string, handler: typeof click) => { click = handler; } };
+    const root = { innerHTML: "", querySelector: (selector: string) => selector === "#install-trainer-level-caps-btn" ? button : null, querySelectorAll: () => [] };
+    const project = makeProject("W2", true), dirty = vi.fn();
+    renderCodeInjectionEditor(project, root as unknown as HTMLElement, dirty);
+    expect(root.innerHTML).toContain("Lvl Cap after Win");
+    expect(install).not.toHaveBeenCalled(); await click();
+    expect(install).toHaveBeenCalledOnce(); expect(install).toHaveBeenCalledWith(project); expect(dirty).toHaveBeenCalledOnce();
+  });
   it("offers an update when the installed cap DLL needs to match Candy", () => {
     vi.spyOn(levelCapsModel, "getLevelCapsStatus").mockReturnValue({
       supported: true, compatible: true, installed: true, updateAvailable: true, candyItemId: 113, message: "Update available",
@@ -336,7 +351,7 @@ describe("code-injection patch categories", () => {
     ]);
     expect(headings(panels[2])).toEqual(["Instant Fast Text", "Background Music Toggle", "Forgettable HMs"]);
     expect(headings(panels[3])).toEqual([
-      "Infinite Rare Candy", "Hard Level Caps", "Single-NPC Double Battle Fix",
+      "Infinite Rare Candy", "Hard Level Caps", "Trainer Level Caps", "Single-NPC Double Battle Fix",
       "Trainer Field Conditions", "Tag Battle Stabilization", "Nuzlocke Style Encounters", "Porta PC", "Added-Form Evolution Support",
     ]);
     expect(headings(panels[4])).toEqual(["Debug Save Flag", "Walk Through Walls", "Instant Battle Victory"]);
