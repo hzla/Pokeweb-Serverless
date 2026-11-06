@@ -50,7 +50,8 @@ function fingerprint(b: Uint8Array): string {
 }
 function recognized(rpm: RpmModule, version: Version): boolean {
   const candidates=[{version:manifest.version,profile:manifest.games[version]},...manifest.previousVersions.map(p=>({version:p.version,profile:p.games[version]})),
-    ...(version === "W2" ? [{ version: reduxManifest.version, profile: reduxManifest.games.W2 }] : [])];
+    ...(version === "W2" ? [{ version: reduxManifest.version, profile: reduxManifest.games.W2 },
+      ...reduxManifest.previousVersions.map(p => ({ version: p.version, profile: p.games.W2 }))] : [])];
   const found=candidates.find(c=>rpm.metadata.PMCVersion===c.version && rpm.bssSize===c.profile.bssSize && fingerprint(rpm.code)===c.profile.codeFingerprint);
   if(!found)return false;
   const p = found.profile;
@@ -278,7 +279,7 @@ function assertMartSourcesUnchanged(project: ProjectState, rom: NintendoDSRom, b
   if (!same(nativeMartStock(project, rom), before.stockBytes) || !same(getRomFileBytes(project, rom, before.fileId), before.countsBytes))
     throw new Error("The mart inventories changed while staging. Apply again.");
 }
-function validateSystemShopResources(project: ProjectState, rom: NintendoDSRom): void {
+function validateSystemShopResources(project: ProjectState, rom: NintendoDSRom, includePokemart = true): void {
   const archive = (path: string) => {
     const id = rom.filenames.idOf(path);
     if (id === undefined) throw new Error(`System Shop requires native archive ${path}.`);
@@ -288,6 +289,7 @@ function validateSystemShopResources(project: ProjectState, rom: NintendoDSRom):
   const script = archive(expected.archive).files[expected.member];
   if (!script || script.length !== expected.length || fingerprint(script) !== expected.fingerprint)
     throw new Error("The native shop script has unrecognized changes. Restore a compatible script, or remove System Shop before applying.");
+  if (!includePokemart) return;
   const stock = new NARC(nativeMartStock(project, rom));
   const counts = archive(manifest.shopInventory.countsArchive).files[0];
   const items = archive("a/0/2/4");
@@ -344,7 +346,10 @@ export async function installCGearQuickActions(project: ProjectState, options:CG
     if (staged.narcs.mart_counts) staged.narcs.mart_counts = structuredClone(staged.narcs.mart_counts);
     replaceRomFile(staged, rom, martCounts.fileId, martCounts.replacement);
   }
-  if (state.document.buttons.some(b => b.action === "systemShop")) validateSystemShopResources(staged, rom);
+  if (state.document.buttons.some(b => b.action === "systemShop")) {
+    const shopDocument = options.applySystemShops ? project.systemShops?.document : project.systemShops?.applied;
+    validateSystemShopResources(staged, rom, shopDocument?.includePokemart !== false);
+  }
   const v = input.session.baseVersion as Version, profile: Profile = redux ? reduxManifest.games.W2 : manifest.games[v];
   const [dllResponse, archiveResponse] = await Promise.all([fetch(redux ? reduxUrl : urls[v]), fetch(graphicsUrl)]);
   if (!dllResponse.ok || !archiveResponse.ok) throw new Error("Could not load the bundled Quick Actions files.");

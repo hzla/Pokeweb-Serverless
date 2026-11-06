@@ -20,6 +20,9 @@ survive project save/reopen and ROM export/reload. Configuration and runtime
 installation are committed together; unknown hooks/resources are rejected.
 
 For BW2 shops, use **Items → C-Gear Shops**, apply stock, then add a SHOP button.
+Uncheck **Include Pokémart** for a picker containing only custom shops. The option
+is enabled by default, including in older projects. If no shop has available
+stock, the picker offers Cancel.
 Each shop uses Poké Dollars or one stackable bag-item currency (not Key Items or
 TMs/HMs). Limits: 16 shops, 45 unique rows each, 24-character names, costs 1–999
 items or 1–9,999,999 Poké Dollars. Native item IDs 1–638 are supported. Stock may

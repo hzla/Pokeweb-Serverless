@@ -17,7 +17,7 @@ import { currencyGraphics } from "./graphics";
 
 export const ARCHIVE = "system-shops/shops.narc";
 export const RECORD_SIZE = 64 + MAX_STOCK * 8;
-export const ARCHIVE_VERSION = 2;
+export const ARCHIVE_VERSION = 3;
 export function validCondition(condition: StockCondition | undefined): boolean {
   if (condition === undefined) return true;
   if (!condition || typeof condition !== "object") return false;
@@ -57,6 +57,8 @@ export function validate(document: Document, assets: Assets): string[] {
     ids = new Set<number>();
   if (document.version !== 1 || document.shops.length > MAX_SHOPS)
     errors.push(`Use up to ${MAX_SHOPS} custom shops.`);
+  if (document.includePokemart !== undefined && typeof document.includePokemart !== "boolean")
+    errors.push("Choose whether to include Pokémart.");
   if (
     !Number.isInteger(document.nextId) ||
     document.nextId < 1 ||
@@ -178,6 +180,9 @@ export function compile(state: Project, assets: Assets): Uint8Array {
   writeU16(config, 4, ARCHIVE_VERSION);
   writeU16(config, 6, RECORD_SIZE);
   writeU16(config, 8, document.shops.length);
+  // Keep picker values stable: zero is always the native shop, custom shops
+  // retain values 1–16. The runtime omits zero when this flag is set.
+  writeU16(config, 10, document.includePokemart === false ? 1 : 0);
   for (const [i, shop] of document.shops.entries()) {
     const at = 32 + i * RECORD_SIZE;
     writeU16(config, at, shop.id);
@@ -246,7 +251,8 @@ export function recover(bytes: Uint8Array): Project {
   const trustedPickers = [pickerScript(count), compilePicker(count, false)];
   if (
     readU32(h, 0) !== 0x50485353 ||
-    ![1, ARCHIVE_VERSION].includes(readU16(h, 4)) ||
+    ![1, 2, ARCHIVE_VERSION].includes(readU16(h, 4)) ||
+    readU16(h, 10) > (readU16(h, 4) >= 3 ? 1 : 0) ||
     readU16(h, 6) !== RECORD_SIZE ||
     count > MAX_SHOPS ||
     h.length !== 32 + count * RECORD_SIZE ||
@@ -267,6 +273,7 @@ export function recover(bytes: Uint8Array): Project {
   const state = JSON.parse(new TextDecoder().decode(arc.files[1])) as Project;
   const sourceShape = (d: Document) =>
     d?.version === 1 &&
+    (d.includePokemart === undefined || typeof d.includePokemart === "boolean") &&
     Number.isInteger(d.nextId) &&
     d.nextId > 0 &&
     d.nextId <= 65536 &&
@@ -300,6 +307,8 @@ export function recover(bytes: Uint8Array): Project {
   // nevertheless describe exactly the stock and names used by the runtime.
   const applied = state.applied ?? defaults(),
     expectedRecords = new Uint8Array(count * RECORD_SIZE);
+  if (readU16(h, 10) !== (applied.includePokemart === false ? 1 : 0))
+    throw new Error("System Shop compiled data differs from its applied source.");
   for (const [i, shop] of applied.shops.entries()) {
     const at = i * RECORD_SIZE;
     writeU16(expectedRecords, at, shop.id);

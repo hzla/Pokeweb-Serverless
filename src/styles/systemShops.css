@@ -91,9 +91,18 @@
   border-color: #65dac1;
   background: #17483f;
 }
-.ss-native {
+.system-shops .ss-native {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   border-bottom: 1px solid #46505e;
   padding-bottom: 14px;
+  margin-bottom: 20px;
+}
+.system-shops .ss-native input {
+  width: auto;
+  margin: 0;
+  accent-color: var(--amber);
 }
 .ss-properties {
   display: flex;

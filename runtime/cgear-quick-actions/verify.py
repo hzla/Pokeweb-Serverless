@@ -2279,3 +2279,90 @@ for game in ("W2", "B2"):
             assert h.allocations==baseline
     h.call("QaCGearExit",SUB);assert not h.allocations
     print(game,"all 0–8 badge counts, set/clear conditions, combined requirements, stable price mapping, empty-shop omission and read-only flag checks passed")
+
+# Native shop value zero is optional; custom IDs, return loops and Cancel keep
+# their existing meanings even when every purchasable choice is omitted.
+for game in ("W2", "B2"):
+    h = Harness(game)
+    h.heapFree = h.heapLargest = 0x80000
+    h.configure([(20, 20, 0, 0, 255, 60, 116, 0, 0)])
+    h.call("QaCGearInit", SUB); h.call("QaCGearUpdate", SUB, 1)
+    baseline = dict(h.allocations)
+    del h.functions[h.arm(0x200c97c)] # Read actual retail badge bits for the empty-stock case.
+    native, runtime, scriptState, choice, testVm, operands = [SUB+n for n in [0x10000,0x14000,0x14100,0x14200,0x14400,0x14480]]
+    h.put(runtime+32, scriptState); menu = scriptState+0x34
+    h.functions[h.ov(0x2153f60)] = lambda a: choice if a[1]==0x802a else choice+4
+    nativeChoices, nativeBuys = [], []
+    h.functions[h.ov(0x21a85bc)] = lambda a: nativeChoices.append(struct.unpack('<H',h.uc.mem_read(h.word(a[0]+32)+4,2))[0]) or 0
+    def buy(a):
+        nativeBuys.append(h.word(choice) & 0xffff)
+        h.put(h.shopProcess+0x3c,native-8)
+        return 0
+    h.functions[h.ov(0x21abbb0)] = buy
+    h.functions[h.ov(0x21ac3b0)] = lambda a: 1
+    for case in [0,1,16,"conditions"]:
+        h.shopArc = ndspy.narc.NARC((BUILD / f"shop-fixture-custom-only-{case}.narc").read_bytes())
+        h.put(GAME+4,0)
+        h.call(h.arm(0x201922c),h.flagWork,42)
+        h.press(60,116);event=h.call("QaCGearEvent",SUB,1);h.release()
+        assert event and h.call(h.word(event+4),event,event+8)==0
+        child=h.children[-1][1]
+        count=struct.unpack_from('<H',h.shopArc.files[0],8)[0]
+        expected=[] if case=="conditions" else list(range(1,count+1))
+        def picker():
+            nativeChoices.clear(); h.put(menu+16,0)
+            for selection in [*range(count+1),65534]:
+                h.write(operands,struct.pack('<3H',0,65535,selection));h.put(testVm+32,operands)
+                h.call("QaShopChoiceAdd",testVm,runtime)
+                assert h.word(testVm+32)==operands+(0 if selection in [*expected,65534] else 6), (game,case,selection,nativeChoices,hex(h.word(testVm+32)))
+            assert nativeChoices==[*expected,65534]
+            h.free(h.word(menu+20));h.put(menu+16,0)
+        picker()
+        # Reject a forged/stale zero selection as well as hiding its menu row.
+        before=len(nativeBuys);h.put(choice,0);h.put(testVm+32,operands)
+        h.call("QaShopBuyCommand",testVm,runtime)
+        assert len(nativeBuys)==before and h.word(testVm+32)==operands+4
+        for selection in expected[:1]+(expected[-1:] if len(expected)>1 else []):
+            h.put(choice,selection);h.put(testVm+32,operands)
+            h.call("QaShopBuyCommand",testVm,runtime)
+            assert nativeBuys[-1]==selection
+            stock=h.call("QaShopStockFile",0x11a,0,21);counts=h.call("QaShopStockFile",0x11b,0,21)
+            record=32+(selection-1)*424
+            firstItem=struct.unpack_from('<H',h.shopArc.files[0],record+64)[0]
+            firstCost=struct.unpack_from('<I',h.shopArc.files[0],record+68)[0]
+            assert struct.unpack('<H',h.uc.mem_read(stock,2))[0]==firstItem
+            assert h.call("QaShopPrice",0)==firstCost
+            h.free(stock);h.free(counts)
+            assert h.call("QaShopTick",0,native,255,0)==1
+            assert h.word(choice+4)==1
+            picker()
+        h.eventDelete(child);assert h.call(h.word(event+4),event,event+8)==1;h.eventDelete(event)
+        assert h.allocations==baseline
+    # Older archive formats keep the original native shop choice enabled.
+    for version in (1,2):
+        h.shopArc=ndspy.narc.NARC((BUILD/'shop-fixture-1.narc').read_bytes())
+        config=bytearray(h.shopArc.files[0]);struct.pack_into('<H',config,4,version);h.shopArc.files[0]=config
+        h.press(60,116);event=h.call("QaCGearEvent",SUB,1);h.release()
+        assert event and h.call(h.word(event+4),event,event+8)==0
+        child=h.children[-1][1];h.put(menu+16,0);nativeChoices.clear()
+        h.write(operands,struct.pack('<3H',0,65535,0));h.put(testVm+32,operands)
+        h.call("QaShopChoiceAdd",testVm,runtime)
+        assert nativeChoices==[0] and h.word(testVm+32)==operands
+        h.free(h.word(menu+20));h.put(menu+16,0)
+        h.put(choice,0);h.put(testVm+32,operands);h.call("QaShopBuyCommand",testVm,runtime)
+        assert nativeBuys[-1]==0
+        assert h.call("QaShopTick",0,native,255,0)==1
+        h.eventDelete(child);assert h.call(h.word(event+4),event,event+8)==1;h.eventDelete(event)
+        assert h.allocations==baseline
+    # Malformed flags and legacy archives that try to opt out fail closed.
+    for version,flags in [(2,1),(3,2)]:
+        h.shopArc=ndspy.narc.NARC((BUILD/'shop-fixture-1.narc').read_bytes())
+        config=bytearray(h.shopArc.files[0]);struct.pack_into('<H',config,4,version);struct.pack_into('<H',config,10,flags);h.shopArc.files[0]=config
+        h.press(60,116);event=h.call("QaCGearEvent",SUB,1);h.release()
+        assert event and h.call(h.word(event+4),event,event+8)==1
+        h.eventDelete(event);assert h.allocations==baseline
+    # The global hook still dispatches ordinary NPC choices normally.
+    nativeChoices.clear();h.put(testVm+32,operands);h.write(operands,struct.pack('<3H',0,65535,0))
+    h.call("QaShopChoiceAdd",testVm,runtime);assert nativeChoices==[0]
+    h.call("QaCGearExit",SUB);assert not h.allocations
+    print(game,"optional Pokémart, 0/1/16 custom shops, Cancel-only picker, stable stock/prices, rejected hidden requests, return loops and cleanup passed")

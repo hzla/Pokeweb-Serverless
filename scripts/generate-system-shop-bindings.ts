@@ -52,6 +52,8 @@ if (process.argv.includes("--fixtures")) {
     const document=defaults(),shop=tmTestShop(document);document.shops.push(shop);
     shop.inventory.forEach((row,i)=>row.condition={badges:i%9,...(i%3===0?{flag:{id:42,state:"set" as const}}:i%3===1?{flag:{id:42,state:"clear" as const}}:{})});
     await writeFile(new URL("../runtime/cgear-quick-actions/build/shop-fixture-conditions.narc",import.meta.url),compile({document,applied:document},assets));
+    document.includePokemart = false;
+    await writeFile(new URL("../runtime/cgear-quick-actions/build/shop-fixture-custom-only-conditions.narc",import.meta.url),compile({document,applied:document},assets));
   }
   for (const count of [0, 1, 16]) {
     const document = defaults();
@@ -63,6 +65,11 @@ if (process.argv.includes("--fixtures")) {
         `../runtime/cgear-quick-actions/build/shop-fixture-${count}.narc`,
         import.meta.url,
       ),
+      compile({ document, applied: document }, assets),
+    );
+    document.includePokemart = false;
+    await writeFile(
+      new URL(`../runtime/cgear-quick-actions/build/shop-fixture-custom-only-${count}.narc`, import.meta.url),
       compile({ document, applied: document }, assets),
     );
   }

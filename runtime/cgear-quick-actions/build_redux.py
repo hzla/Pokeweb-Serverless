@@ -7,12 +7,12 @@ PC launches the unchanged Redux script. Native phenomenon edits stay intact.
 import argparse, copy, hashlib, json, shutil, struct, subprocess, sys
 from pathlib import Path
 import ndspy.rom, ndspy.narc, ndspy.codeCompression
-from build import HERE, BUILD, WS, REPO, ASSETS, TOOLS, JAR, CALLS, WORDS, run
+from build import HERE, BUILD, WS, REPO, ASSETS, TOOLS, JAR, CALLS, WORDS, VERSION as BASE_VERSION, run
 
 sys.path.insert(0, str(HERE.parent / 'battle-type-hud'))
 from rpm_read import read_rpm
 
-VERSION = '0.5.7-redux'
+VERSION = f'{BASE_VERSION}-redux'
 REPEL_SHA = '19154aa8ebb0941f21229e4121b9b4d902fb7a01d99e19718b16e6a2555d5adb'
 PC_SHA = 'c1665e4652d9faac61d53a59fa8055398e160943e9d4c3f9115063640ed59751'
 
@@ -26,7 +26,7 @@ def prepare(path):
     rom = ndspy.rom.NintendoDSRom.fromFile(path)
     assert bytes(rom.idCode) == b'IRDO' and rom.version == 0, 'Expected US White 2 revision 0.'
     base = json.loads((ASSETS / 'cgearQuickActionsManifest.json').read_text())
-    assert base['version'] == '0.5.7', 'Audit the adapter again after changing the base runtime.'
+    assert base['version'] == BASE_VERSION, 'Build the base runtime before its adapter.'
     profile = copy.deepcopy(base['games']['W2'])
     overlays = rom.loadArm9Overlays([12, 36, 79])
     arm = ndspy.codeCompression.decompress(rom.arm9)
@@ -60,6 +60,7 @@ def prepare(path):
         assetFileName='CGearQuickActionsReduxW2.dll', repelFlag=3063, repelModule=contract,
         pcScript=dict(archive='a/0/5/6', member=1244, length=len(pc), fingerprint=fingerprint(pc), sha256=PC_SHA, entry=66),
         games={'W2': profile})
+    result['previousVersions'] = json.loads((HERE / 'redux-profile.json').read_text()).get('previousVersions', [])
     (HERE / 'redux-profile.json').write_text(json.dumps(result, indent=2) + '\n')
 
 def main():

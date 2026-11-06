@@ -14,7 +14,13 @@ export type Shop = {
   currency: number;
   inventory: StockEntry[];
 };
-export type Document = { version: 1; nextId: number; shops: Shop[] };
+export type Document = {
+  version: 1;
+  nextId: number;
+  /** Omitted in older projects; the native Pokémart is included by default. */
+  includePokemart?: boolean;
+  shops: Shop[];
+};
 export type Project = { document: Document; applied?: Document };
 export const defaults = (): Document => ({ version: 1, nextId: 1, shops: [] });
 export function newShop(document: Document): Shop {

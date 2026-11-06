@@ -141,6 +141,10 @@ describe("White 2 Redux C-Gear adapter", () => {
     const dll = p.fileSystem!.additions!["patches/CGearQuickActionsW2.dll"];
     expect(dll).toEqual(new Uint8Array(readFileSync(new URL("../assets/codeinjection/CGearQuickActionsReduxW2.dll", import.meta.url))));
     expect(parseRpm(dll, { allowedMagics: ["DLXF"] }).relocations.some(r => r.target.module === "36" && [0x21824bc, 0x21a0b2c].includes(r.target.address))).toBe(false);
+    p.fileSystem!.additions!["patches/CGearQuickActionsW2.dll"] = new Uint8Array(readFileSync(new URL("./fixtures/cgear-quick-actions-v0.5.7/CGearQuickActionsReduxW2.dll", import.meta.url)));
+    expect(getCGearQuickActionsStatus(p)).toMatchObject({ compatible: true, updateAvailable: true, romProfile: "redux" });
+    await installCGearQuickActions(p);
+    expect(getCGearQuickActionsStatus(p)).toMatchObject({ compatible: true, updateAvailable: false, romProfile: "redux" });
     const exported = new NintendoDSRom(await exportModifiedRom(p));
     deepStrictEqual(exported.getFileByName("patches/ToggleRepel.dll"), repel);
     expect(exported.loadArm9Overlays([36]).get(36)!.data).toEqual(beforeCode);
@@ -216,7 +220,7 @@ describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
     expect(getCGearQuickActionsStatus(p)).toMatchObject({ compatible: false, message: expect.stringContaining("ForeignEvent.dll") });
   });
   // 0.5.5/0.5.6 share the System Shop hook layout; 0.5.4 predates it.
-  it.each([['0.5.4'],['0.5.5','0.5.6']].map(versions=>({versions})))('upgrades $versions and preserves an optional System Shop through apply, export, disable and re-enable',async ({versions})=>{
+  it.each([['0.5.4'],['0.5.5','0.5.6','0.5.7']].map(versions=>({versions})))('upgrades $versions and preserves an optional System Shop through apply, export, disable and re-enable',async ({versions})=>{
     const p=makeProject(v);assets();await installCGearQuickActions(p);
     const path=`patches/CGearQuickActions${v}.dll`;
     for(const previousVersion of versions){
@@ -233,18 +237,37 @@ describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
     disableCGearQuickActions(reopened);await installCGearQuickActions(reopened);
     expect(reopened.cgearButtons!.applied).toEqual(d);
   });
+  it('checks native Pokémart stock only when the applied picker includes it',async()=>{
+    const p=makeProject(v);assets();
+    const buttons=ensureCGearButtons(p).document;buttons.buttons.push(newButton(buttons,'systemShop'));
+    const shops=ensureSystemShops(p);shops.document.shops.push(newShop(shops.document));shops.document.includePokemart=false;
+    const rom=new NintendoDSRom(p.originalRomBytes!),id=rom.fileId(manifest.shopInventory.archive),stock=new NARC(rom.files[id]);
+    stock.files[0]=new Uint8Array(46*2);for(let i=0;i<46;i++)writeU16(stock.files[0],i*2,4);
+    p.fileSystem={replacements:{[id]:stock.save()}};
+    await installCGearQuickActions(p,{applySystemShops:true});
+    expect(p.systemShops!.applied!.includePokemart).toBe(false);
+    delete p.systemShops!.document.includePokemart;
+    await installCGearQuickActions(p); // A pending toggle does not change the runtime yet.
+    const before=structuredClone(p.fileSystem);
+    await expect(installCGearQuickActions(p,{applySystemShops:true})).rejects.toThrow(/Pokémart stock 0/);
+    expect(p.systemShops!.applied!.includePokemart).toBe(false);
+    deepStrictEqual(p.fileSystem,before);
+  });
   it('applies custom currency shops atomically and preserves drafts through ROM export/reopening',async()=>{
     const p=makeProject(v);assets();const buttons=ensureCGearButtons(p).document;buttons.buttons.push(newButton(buttons,'systemShop'));
     const state=ensureSystemShops(p);state.document.shops.push(tmTestShop(state.document));
+    state.document.includePokemart=false;
     state.document.shops[0].inventory[1].condition={badges:2,flag:{id:3000,state:"set"}};
     await installCGearQuickActions(p,{applySystemShops:true});
     expect(state.applied).toBeUndefined(); // Staging replaces the state only on success.
     expect(p.systemShops!.applied).toEqual(p.systemShops!.document);
     p.systemShops!.document.shops[0].inventory[0].cost=25;
+    delete p.systemShops!.document.includePokemart;
     p.systemShops!.document.shops[0].inventory[1].condition!.flag!.state="clear";
     const applied=structuredClone(p.systemShops!.applied);
     await installCGearQuickActions(p);
     expect(p.systemShops!.applied).toEqual(applied);
+    expect(p.systemShops!.applied!.includePokemart).toBe(false);
     const exported=await exportModifiedRom(p),reopened=makeProject(v,exported),rom=new NintendoDSRom(exported);
     await installCGearQuickActions(reopened);
     hydrateSystemShops(reopened,rom);
@@ -257,6 +280,7 @@ describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
     p.systemShops!.document.shops[0].currency=93;
     await installCGearQuickActions(p,{applySystemShops:true});
     expect(p.systemShops!.applied!.shops[0].inventory[0].cost).toBe(25);
+    expect(p.systemShops!.applied!.includePokemart).toBeUndefined();
     disableCGearQuickActions(p);await installCGearQuickActions(p);
     expect(p.systemShops!.applied!.shops[0].inventory[0].cost).toBe(25);
     const archive=p.fileSystem!.additions![SHOP_ARCHIVE];archive[archive.length-1]^=1;

@@ -66,7 +66,7 @@ export async function renderSystemShopsEditor(
       const errors = validate(document, assets);
       root.innerHTML = `<section class="system-shops"><header><h1>C-Gear Shops</h1><div class="ss-header-actions"><button class="ss-dependencies" ${busy ? "disabled" : ""}>${busy === "dependencies" ? "Installing…" : "Install Dependencies"}</button><button class="ss-apply" ${busy || errors.length ? "disabled" : ""}>${busy === "apply" ? "Applying…" : "Apply Changes"}</button></div></header>
         <p role="status" class="ss-status">${esc(message ? `${message}${pending ? " Unapplied changes" : ""}` : pending ? "Unapplied changes" : "Applied configuration is up to date")}</p>
-        <fieldset ${busy ? "disabled" : ""}><div class="ss-layout"><aside><h2>Custom shops <small>${document.shops.length} / ${MAX_SHOPS}</small></h2><p class="ss-native">Pokémart</p>
+        <fieldset ${busy ? "disabled" : ""}><div class="ss-layout"><aside><label class="ss-native"><input id="ss-include-pokemart" type="checkbox" ${document.includePokemart !== false ? "checked" : ""}>Include Pokémart</label><h2>Custom shops <small>${document.shops.length} / ${MAX_SHOPS}</small></h2>
         ${document.shops.map((s) => `<button class="ss-shop ${s.id === selected ? "-selected" : ""}" data-shop="${s.id}">${esc(s.name || "Unnamed shop")}</button>`).join("")}
         <button class="ss-add" id="ss-add-shop" ${document.shops.length >= MAX_SHOPS ? "disabled" : ""}>+ Add Shop</button></aside>
         <article>${
@@ -96,6 +96,11 @@ export async function renderSystemShopsEditor(
             draw();
           }),
       );
+      root.querySelector<HTMLInputElement>("#ss-include-pokemart")!.onchange = (event) => {
+        if ((event.target as HTMLInputElement).checked) delete document.includePokemart;
+        else document.includePokemart = false;
+        changed();
+      };
       root.querySelector<HTMLButtonElement>("#ss-add-shop")!.onclick = () => {
         const s = newShop(document);
         document.shops.push(s);

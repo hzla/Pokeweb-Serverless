@@ -7,6 +7,7 @@ import {
   canUseCurrency,
   pickerScript,
   RECORD_SIZE,
+  ARCHIVE_VERSION,
   encodeCondition,
   type Assets,
 } from "../systemShops/compiler";
@@ -57,7 +58,7 @@ describe("System Shops source and compiler", () => {
     expect(recover(upgraded.save())).toEqual(state);
     expect(upgraded.files[2]).toEqual(pickerScript(1));
     expect(upgraded.files[2]).not.toEqual(old.files[2]);
-    expect(upgraded.files[0][4]).toBe(2);
+    expect(upgraded.files[0][4]).toBe(ARCHIVE_VERSION);
     expect(old.files[0][4]).toBe(1);
   });
   it("uses one shop currency and encodes all twenty TM costs without modifying ROM prices", () => {
@@ -84,6 +85,50 @@ describe("System Shops source and compiler", () => {
     expect(text[20][1]).toBe("Heart Scale");
     expect(text[7][1]).toContain("Heart Scale");
     expect(text[7][1]).not.toContain("$");
+  });
+  it("keeps Pokémart enabled for older sources and version-2 archives", () => {
+    const document = defaults(); document.shops.push(newShop(document));
+    const state = { document, applied: structuredClone(document) };
+    const arc = new NARC(compile(state, assets()));
+    expect(readU16(arc.files[0], 10)).toBe(0);
+    writeU16(arc.files[0], 4, 2);
+    expect(recover(arc.save())).toEqual(state);
+    expect(readU16(new NARC(compile(recover(arc.save()), assets())).files[0], 4)).toBe(ARCHIVE_VERSION);
+  });
+  it.each([0, 1, 16])("can omit Pokémart with %i custom shops while retaining stable menu values", count => {
+    const document = defaults(); document.includePokemart = false;
+    for (let i = 0; i < count; i++) document.shops.push(newShop(document));
+    const state = { document, applied: structuredClone(document) };
+    const arc = new NARC(compile(state, assets()));
+    expect(readU16(arc.files[0], 10)).toBe(1);
+    expect(readU16(arc.files[0], 8)).toBe(count);
+    expect(arc.files[2]).toEqual(pickerScript(count));
+    // The runtime skips native value zero; custom text/value IDs stay 1–16.
+    expect(decodeGen5TextBank(arc.files[3]).map(entry => entry[1]))
+      .toEqual(["Pokémart", ...document.shops.map(shop => shop.name), "Cancel"]);
+    expect(recover(arc.save())).toEqual(state);
+  });
+  it("separates the Pokémart draft toggle from the applied configuration", () => {
+    const applied = defaults(), document = structuredClone(applied);
+    document.includePokemart = false;
+    let arc = new NARC(compile({ document, applied }, assets()));
+    expect(readU16(arc.files[0], 10)).toBe(0);
+    expect(recover(arc.save()).document.includePokemart).toBe(false);
+    arc = new NARC(compile({ document: applied, applied: document }, assets()));
+    expect(readU16(arc.files[0], 10)).toBe(1);
+    expect(recover(arc.save()).applied!.includePokemart).toBe(false);
+  });
+  it("rejects inconsistent Pokémart settings and unsupported header flags", () => {
+    const document = defaults();
+    const state = { document, applied: structuredClone(document) };
+    const arc = new NARC(compile(state, assets()));
+    state.applied.includePokemart = false;
+    arc.files[1] = new TextEncoder().encode(JSON.stringify(state));
+    expect(() => recover(arc.save())).toThrow(/differs/);
+    writeU16(arc.files[0], 10, 2);
+    expect(() => recover(arc.save())).toThrow(/integrity/);
+    document.includePokemart = "false" as never;
+    expect(validate(document, assets()).join()).toContain("Pokémart");
   });
   it("scales the loaded currency icon into a centered 16px cell and retains its palette", () => {
     const a = assets(),
@@ -203,7 +248,7 @@ describe("inventory unlock conditions", () => {
     const applied = structuredClone(document);
     document.shops[0].inventory[3].condition!.flag!.id = NaN;
     const arc = new NARC(compile({document,applied},assets()));
-    expect(readU16(arc.files[0],4)).toBe(2);
+    expect(readU16(arc.files[0],4)).toBe(ARCHIVE_VERSION);
     expect(readU16(arc.files[0],98)).toBe(0);
     expect(readU16(arc.files[0],98+8)).toBe(2);
     expect(readU16(arc.files[0],98+3*8)).toBe(42*18+4);

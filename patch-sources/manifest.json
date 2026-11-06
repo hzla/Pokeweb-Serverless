@@ -6632,11 +6632,15 @@
       "artifacts": [
         {
           "name": "CGearQuickActionsB2.dll",
-          "sha256": "361443a8c0990644d448b66615925070b8cf9373a93fdce3f2cc397179b381bb"
+          "sha256": "2615424cedd3f4cee2ea3ed533e19dfd442236269e7ea38f34f471387eae098f"
         },
         {
           "name": "CGearQuickActionsW2.dll",
-          "sha256": "2020b233565fcd11319b0dfbc72b17fb458115d0601df5037d1583f2f34cd88b"
+          "sha256": "0a594464bad3c2d3aee3e86d49f49f5f66861a46721541f4b39671aaa617f86e"
+        },
+        {
+          "name": "CGearQuickActionsReduxW2.dll",
+          "sha256": "facc28310f107d904ecd213c1f9e1b210bf09700d0c62155be8cfed495004521"
         },
         {
           "name": "CGearQuickActionsB.dll",
@@ -6647,7 +6651,7 @@
           "sha256": "d67c6328efd3bcd065db64ec21764467d10ce2b068289e0cbc9e5762b9d2bd91"
         }
       ],
-      "note": "BW2 0.5.7 includes the optional System Shop picker, native Pokémart, custom inventories/prices, stackable-item currencies, native TM rendering, currency balance icon and optional per-item badge/save-flag conditions. Inventory defaults remain unrestricted, and visible stock/prices share a stable row map. BW1 remains 0.1.3-bw1 without System Shop. Both retain HM02-gated native Fly without a learned-move requirement. BW2 retains the outer-rim 12-degree skin dial and moving marker while hiding the digital clock and chevron decal; shared geometry and compiled graphics are inventoried here. It retains the optional Nuzlocke snapshot provider to the Pokenav application action; its shared viewer sources are inventoried separately. Bundle hashes/versions are tested together. Source availability does not establish hardware acceptance.",
+      "note": "BW2 0.5.8 includes the System Shop picker with optional native Pokémart visibility, custom inventories/prices, stackable-item currencies, native TM rendering, currency balance icon and optional per-item badge/save-flag conditions. Pokémart is included by default in existing projects. Inventory defaults remain unrestricted, and visible stock/prices share a stable row map. BW1 remains 0.1.3-bw1 without System Shop. Both retain HM02-gated native Fly without a learned-move requirement. BW2 retains the outer-rim 12-degree skin dial and moving marker while hiding the digital clock and chevron decal; shared geometry and compiled graphics are inventoried here. It retains the optional Nuzlocke snapshot provider to the Pokenav application action; its shared viewer sources are inventoried separately. Bundle hashes/versions are tested together. Source availability does not establish hardware acceptance.",
       "status": "source-available",
       "files": [
         {
@@ -6667,7 +6671,7 @@
             "path": "runtime/cgear-quick-actions/build_redux.py"
           },
           "kind": "build-tool",
-          "sha256": "f1549822aee9eb690739679ad0c72d76cbbf5e4e510313979c56e6b6cf46c68a",
+          "sha256": "21ee2fe0ec69c16f3ef096e9563884c36e7d3dc59498c6579c1972c54bdb79a3",
           "normalized": false
         },
         {
@@ -6677,7 +6681,7 @@
             "path": "runtime/cgear-quick-actions/build.py"
           },
           "kind": "build-tool",
-          "sha256": "19393a3235e5dc25f9a36a162e06961bef9f3752308ded0b52563a65a419ef88",
+          "sha256": "81e9f45fd5c1e86990c442648b1d5399f5efd977efb1e4047e90cb07a1a23f07",
           "normalized": false
         },
         {
@@ -6787,7 +6791,7 @@
             "path": "runtime/cgear-quick-actions/previous.json"
           },
           "kind": "metadata",
-          "sha256": "a7bb9616621a35d00be4dd1582d71fb38025222877772fa0e7059635832aca76",
+          "sha256": "e18b7b0c4abd78b9baa875542dbd012af543c987d40cba4aafab3ae92fa2e0d3",
           "normalized": false
         },
         {
@@ -6827,7 +6831,7 @@
             "path": "runtime/cgear-quick-actions/README.md"
           },
           "kind": "documentation",
-          "sha256": "52ce242d89a8ef555a932edba4925eb6ed35a1f0222ed8327285eac26b7d58e8",
+          "sha256": "6ac0d9e362962cb0f9c7373316c33a4b9081246432f5d05bdf21e3ca1236cdcf",
           "normalized": false
         },
         {
@@ -6837,7 +6841,7 @@
             "path": "runtime/cgear-quick-actions/redux-profile.json"
           },
           "kind": "metadata",
-          "sha256": "58c5552fecb7b640dc908b97327a3f78c960151d790f7d66d7f42ca73884a7b7",
+          "sha256": "476cc516ba928f1a2bf92b9ef3cea37cba7d6a07469114a04e3e0c58d26fa1a9",
           "normalized": false
         },
         {
@@ -6897,7 +6901,7 @@
             "path": "runtime/cgear-quick-actions/verify.py"
           },
           "kind": "test",
-          "sha256": "eee305615dd6031dff781daf6b2174862e7e24d988f1c177acb90dda33359ad7",
+          "sha256": "b91b2e05c47eeb8bdb9dda9f971bbcf5e21f892a66a952573c3af98dbf1e6e55",
           "normalized": false
         },
         {
@@ -6977,7 +6981,7 @@
             "path": "runtime/cgear-quick-actions/bw2/shop.inc"
           },
           "kind": "source",
-          "sha256": "fea0bbff32665631ade4198f5a979af5709e6473db081c6a262794f39ed5bd7c",
+          "sha256": "74fda3cb52c30e35c4fb72602fee9bd301b6c692e19d36dc24a3d990d4894ba0",
           "normalized": false
         },
         {
@@ -7027,7 +7031,7 @@
             "path": "docs/cgear-buttons/index.html"
           },
           "kind": "documentation",
-          "sha256": "4295178ca77fab5a7a5d1f3348ef6f031801a90083ce96dfe6cca2ae2c3ab428",
+          "sha256": "ba91e6e90fabdabe280d3c708b276a851e0b91ff23a6bbd3d8577a8c72c9abd2",
           "normalized": false
         },
         {
@@ -7207,7 +7211,7 @@
             "path": "src/test/cgearQuickActionsModel.test.ts"
           },
           "kind": "test",
-          "sha256": "0c47a71ea59e3829d45c6e1f74460ec70bf9d2d71fac99a0cf773bd931d52898",
+          "sha256": "36cc20ff66c962f676beea93757d278abed7852a1607c530b983d5ce7de3fccb",
           "normalized": false
         },
         {
@@ -7227,7 +7231,7 @@
             "path": "src/pokeweb/cgearQuickActionsModel.ts"
           },
           "kind": "support-only",
-          "sha256": "ae84308b5dd531a4cda5632d4f7bbfa1a20071e1a7a06bd8e0d29c3b8a07439c",
+          "sha256": "832697b3df947d09ac0bc1518e656c097c6e76359103b95fe121cd417f0d1c9f",
           "normalized": false
         },
         {
@@ -7247,7 +7251,7 @@
             "path": "scripts/generate-system-shop-bindings.ts"
           },
           "kind": "build-tool",
-          "sha256": "6151d558d9deeddba52f6a3736103169882ed37bbb9bcfa5c0a4d76016a93d46",
+          "sha256": "e2601a9364c03d5427913ad89e8d07ace807195bf27a726ae11ba9c9870007b4",
           "normalized": false
         },
         {
@@ -7267,7 +7271,7 @@
             "path": "src/systemShops/compiler.ts"
           },
           "kind": "support-only",
-          "sha256": "9e1c2bef16405d8b5d3ce19e0499e628118786067dfb379b32189c0061c29552",
+          "sha256": "ad14d61b3d74033d3262b5dcb8c1bdf6007c699e84fa099226df2bc9a418b4d0",
           "normalized": false
         },
         {
@@ -7277,7 +7281,7 @@
             "path": "src/systemShops/document.ts"
           },
           "kind": "support-only",
-          "sha256": "ba6c7b2a9840717c538d118abe60f8df2bb01fe12727150a24f6ae58ce48be70",
+          "sha256": "ac5090d9d23d58320dbff48b539f2c5a73172a587e38800eac334d46853e2435",
           "normalized": false
         },
         {
@@ -7307,7 +7311,7 @@
             "path": "src/ui/systemShopsEditor.ts"
           },
           "kind": "support-only",
-          "sha256": "38c5c2516e24336796642813f2381c0d43e1206aae5fde583d1dd507b3c9dc12",
+          "sha256": "7a8217b6d0711804ab2e02b167cd5a2f94055fad70f3d1d9bac51391bd6282a2",
           "normalized": false
         },
         {
@@ -7327,7 +7331,7 @@
             "path": "src/styles/systemShops.css"
           },
           "kind": "support-only",
-          "sha256": "260a887fcb7002528afde2e9c586c43cc6bdfe14042ee2d070f80b80af8882e7",
+          "sha256": "7cb26a46ad9b33ebccf3890f374f02d6e721ac348fe4479422d2362ce0dab213",
           "normalized": false
         },
         {
@@ -7337,7 +7341,17 @@
             "path": "src/test/systemShops.test.ts"
           },
           "kind": "test",
-          "sha256": "be2a390f1c78e422bb1267d10052f9f50a73ffcdc39fb47829919e5499ab4832",
+          "sha256": "146e62cb5e450bac2080d7566762a424f95f5469626bc0b3cd20e051832d1a18",
+          "normalized": false
+        },
+        {
+          "path": "cgear-quick-actions/tests/systemShopsEditor.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/systemShopsEditor.test.ts"
+          },
+          "kind": "test",
+          "sha256": "7afd60bc3afb14abd2a98bad29dcbda19d5bb8a8eed5b999b968aec25e328ee8",
           "normalized": false
         },
         {
@@ -7367,7 +7381,17 @@
             "path": "src/assets/codeinjection/cgearQuickActionsManifest.json"
           },
           "kind": "metadata",
-          "sha256": "b680268ce86514f52ebd996e1a23d94e0f6339acd6551a4f0bfd642d686c6ced",
+          "sha256": "264292dcfe7f5068be0ef04fcbc7f31ea654960c0eff896d98954dfcf3d0cf8b",
+          "normalized": false
+        },
+        {
+          "path": "cgear-quick-actions/metadata/cgearQuickActionsReduxManifest.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/assets/codeinjection/cgearQuickActionsReduxManifest.json"
+          },
+          "kind": "metadata",
+          "sha256": "404f5de832b0572668e6f9f1aeb69d9e7665f858230655fef8d1aa944c51ee36",
           "normalized": false
         }
       ]

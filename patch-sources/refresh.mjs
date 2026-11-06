@@ -285,8 +285,8 @@ const additions = [
   },
   {
     name: 'cgear-quick-actions', title: 'C-Gear Buttons and Quick Actions',
-    artifacts: ['CGearQuickActionsB2.dll', 'CGearQuickActionsW2.dll', 'CGearQuickActionsB.dll', 'CGearQuickActionsW.dll'],
-    note: 'BW2 0.5.7 includes the optional System Shop picker, native Pokémart, custom inventories/prices, stackable-item currencies, native TM rendering, currency balance icon and optional per-item badge/save-flag conditions. Inventory defaults remain unrestricted, and visible stock/prices share a stable row map. BW1 remains 0.1.3-bw1 without System Shop. Both retain HM02-gated native Fly without a learned-move requirement. BW2 retains the outer-rim 12-degree skin dial and moving marker while hiding the digital clock and chevron decal; shared geometry and compiled graphics are inventoried here. It retains the optional Nuzlocke snapshot provider to the Pokenav application action; its shared viewer sources are inventoried separately. Bundle hashes/versions are tested together. Source availability does not establish hardware acceptance.',
+    artifacts: ['CGearQuickActionsB2.dll', 'CGearQuickActionsW2.dll', 'CGearQuickActionsReduxW2.dll', 'CGearQuickActionsB.dll', 'CGearQuickActionsW.dll'],
+    note: 'BW2 0.5.8 includes the System Shop picker with optional native Pokémart visibility, custom inventories/prices, stackable-item currencies, native TM rendering, currency balance icon and optional per-item badge/save-flag conditions. Pokémart is included by default in existing projects. Inventory defaults remain unrestricted, and visible stock/prices share a stable row map. BW1 remains 0.1.3-bw1 without System Shop. Both retain HM02-gated native Fly without a learned-move requirement. BW2 retains the outer-rim 12-degree skin dial and moving marker while hiding the digital clock and chevron decal; shared geometry and compiled graphics are inventoried here. It retains the optional Nuzlocke snapshot provider to the Pokenav application action; its shared viewer sources are inventoried separately. Bundle hashes/versions are tested together. Source availability does not establish hardware acceptance.',
     extra: [
       ...fs.readdirSync(path.join(app, 'runtime/cgear-quick-actions/bw2')).filter(name => name.endsWith('.inc')).sort().map(name => file('cgear-quick-actions', `bw2/${name}`)),
       file('cgear-quick-actions', '.clang-format', 'metadata'),
@@ -307,9 +307,11 @@ const additions = [
       file('cgear-quick-actions', 'integration/tmModel.ts', 'support-only', 'src/pokeweb/tmModel.ts'),
       file('cgear-quick-actions', 'integration/systemShops.css', 'support-only', 'src/styles/systemShops.css'),
       file('cgear-quick-actions', 'tests/systemShops.test.ts', 'test', 'src/test/systemShops.test.ts'),
+      file('cgear-quick-actions', 'tests/systemShopsEditor.test.ts', 'test', 'src/test/systemShopsEditor.test.ts'),
       file('cgear-quick-actions', 'tests/cgearBundle.test.ts', 'test', 'src/test/cgearBundle.test.ts'),
       file('cgear-quick-actions', 'tests/verify-cgear-quick-actions-install.ts', 'test', 'scripts/verify-cgear-quick-actions-install.ts'),
       file('cgear-quick-actions', 'metadata/cgearQuickActionsManifest.json', 'metadata', 'src/assets/codeinjection/cgearQuickActionsManifest.json'),
+      file('cgear-quick-actions', 'metadata/cgearQuickActionsReduxManifest.json', 'metadata', 'src/assets/codeinjection/cgearQuickActionsReduxManifest.json'),
     ],
   },
   {

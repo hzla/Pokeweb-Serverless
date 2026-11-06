@@ -16,6 +16,10 @@ struct ShopWork {
 };
 ShopWork* activeShop;
 
+bool shopIncludesPokemart(const ShopWork* work) {
+    return !(at<u16>(work->config, 10) & 1);
+}
+
 bool shopCapacity(u16 heap) {
     const u32 heaps[] = {4, 21, u32(heap)};
     for (u32 h : heaps) {
@@ -119,7 +123,9 @@ bool shopLoad(ShopWork* work) {
     if (ok) {
         auto* h = work->config;
         work->count = at<u16>(h, 8);
-        ok = at<u32>(h, 0) == 0x50485353 && (at<u16>(h, 4) == 1 || at<u16>(h, 4) == 2) && at<u16>(h, 6) == ShopRecordSize &&
+        u32 version = at<u16>(h, 4), flags = at<u16>(h, 10);
+        ok = at<u32>(h, 0) == 0x50485353 && version >= 1 && version <= 3 &&
+             flags <= (version >= 3 ? 1u : 0u) && at<u16>(h, 6) == ShopRecordSize &&
              work->count <= 16 && size == 32 + work->count * ShopRecordSize &&
              at<u32>(h, 16) == size && fingerprint(h + 32, size - 32) == at<u32>(h, 12);
     }
@@ -132,7 +138,7 @@ bool shopLoad(ShopWork* work) {
                 u32 encoded = at<u16>(record, 66 + n * 8);
                 u32 flag = shopConditionFlag(encoded);
                 ok = flag <= 0xbf3 && (flag || !(encoded & 1)) &&
-                     (at<u16>(work->config, 4) == 2 || !encoded);
+                     (at<u16>(work->config, 4) >= 2 || !encoded);
             }
         }
     }
@@ -229,8 +235,9 @@ int shopChoiceAdd(void* vm, void* runtime) {
     if (ownedShopScript(runtime)) {
         u32 selection = at<u16>(at<void*>(vm, 32), 4);
         // Keep stable native menu values while omitting shops with no stock.
-        if (selection && selection <= activeShop->count &&
-            !shopVisibleRows(activeShop, selection))
+        if ((!selection && !shopIncludesPokemart(activeShop)) ||
+            (selection && selection <= activeShop->count &&
+             !shopVisibleRows(activeShop, selection)))
             return shopSkipOperands(vm, 6);
     }
     return ov<int (*)(void*, void*)>(CG_NATIVE_CHOICE_ADD)(vm, runtime);
@@ -243,7 +250,8 @@ int shopBuyCommand(void* vm, void* runtime) {
     // launch or failed return-menu allocation instead unwinds this session.
     *ov<u16* (*)(void*, u32)>(CG_SCRIPT_WORK)(work->process, 0x802c) = 0;
     work->selection = *ov<u16* (*)(void*, u32)>(CG_SCRIPT_WORK)(work->process, 0x802a);
-    if (work->selection > work->count)
+    if (work->selection > work->count ||
+        (!work->selection && !shopIncludesPokemart(work)))
         return shopSkipOperands(vm, 4);
     if (u8* record = shopRecord()) {
         work->visibleCount = shopVisibleRows(work, work->selection, work->visibleRows);
