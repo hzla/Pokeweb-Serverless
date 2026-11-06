@@ -4,6 +4,10 @@ Pokeweb's Frost export reserves an unnamed PMC overlay slot before the named fil
 
 Normal and Frost exports both BLZ-recompress uncompressed overlays when compression reduces their size, including overlays changed by the professor intro editor. Their decoded bytes, RAM placement, and BSS remain unchanged. Already compressed overlays retain their encoding; incompressible images and the injected PMC loader remain in their existing format. Frost export additionally applies its filesystem layout changes. Compression alone does not provide those changes to a normal export.
 
+If a ROM already has a reserved Frost slot but its overlay table loads the named PMC image, Frost export refreshes the unused reserved copy from that active image. If the game loads the reserved copy and it differs from the named image, export rejects the conflict before repacking.
+
+Deleted forms can leave empty interior archive members. Frost export fills unused empty personal records with zero data and unused empty sprite blocks with a valid placeholder copied from the ROM. IDs and existing records stay unchanged. These placeholders can appear as unused entries in compatibility editors. Missing records still referenced by a species or form are rejected. Normal export retains the empty members.
+
 ## Frost 5.0.1 large-ROM reader overflow
 
 Frost reads the digest-table pointer at header `0x1f0` as the start of its retained ROM tail. Its reader caps the end at `0x12000000` (288 MiB), then subtracts that pointer. When the pointer lies beyond the cap but inside the file, the array length becomes negative and .NET raises `Arithmetic operation resulted in an overflow.`

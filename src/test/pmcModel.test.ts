@@ -207,7 +207,27 @@ describe("PMC installer", () => {
     const diverged = new NintendoDSRom(exported);
     const changedPmc = diverged.files[344].slice();
     changedPmc[0x100] ^= 1;
-    expect(() => exportFrostCompatibleRom(diverged.save({ files: new Map([[344, changedPmc]]) }))).toThrow(/copies differ/u);
+    const conflicting = diverged.save({ files: new Map([[344, changedPmc]]) });
+    expect(() => exportFrostCompatibleRom(conflicting)).toThrow(/copies differ/u);
+    const conflictingProject = makeProject(conflicting, version);
+    conflictingProject.codeInjection = detectPmcInstallFromRom(new NintendoDSRom(conflicting));
+    await expect(exportModifiedRom(conflictingProject, { frostCompatibility: true })).rejects.toThrow(/copies differ/u);
+
+    // A normal export/reinstallation can leave a stale anonymous copy while
+    // the actual overlay already uses the updated named image.
+    const namedId = diverged.fileId("overlay/overlay_0344.bin");
+    const namedActiveTable = diverged.arm9OverlayTable.slice();
+    writeU32(namedActiveTable, 344 * 32 + 24, namedId);
+    const stale = diverged.save({ arm9OverlayTable: namedActiveTable, files: new Map([[344, changedPmc]]) });
+    const recovered = new NintendoDSRom(exportFrostCompatibleRom(stale));
+    expect(readU32(recovered.arm9OverlayTable, 344 * 32 + 24)).toBe(344);
+    expect(recovered.files[344]).toEqual(recovered.getFileByName("overlay/overlay_0344.bin"));
+    expect(recovered.getFileByName("overlay/overlay_0344.bin")).toEqual(diverged.getFileByName("overlay/overlay_0344.bin"));
+    expect(exportFrostCompatibleRom(recovered.data)).toEqual(recovered.data);
+    const staleProject = makeProject(stale, version);
+    staleProject.codeInjection = detectPmcInstallFromRom(new NintendoDSRom(stale));
+    const recoveredViaExport = new NintendoDSRom(await exportModifiedRom(staleProject, { frostCompatibility: true }));
+    expect(recoveredViaExport.files[344]).toEqual(recoveredViaExport.getFileByName("overlay/overlay_0344.bin"));
   });
 
   it("leaves vanilla layout unchanged and rejects unfamiliar overlays or overlapping filenames", async () => {

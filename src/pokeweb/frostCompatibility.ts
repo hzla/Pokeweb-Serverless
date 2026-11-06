@@ -3,9 +3,28 @@ import { recompressOverlayFiles } from "../nds/code";
 import { type Folder } from "../nds/fnt";
 import { NintendoDSRom, type RomSaveOptions } from "../nds/rom";
 import { detectPmcInstallFromRom, PMC_OVERLAY_RESERVED_SIZE } from "./pmcModel";
+import { frostSparseFormFiles } from "./frostSparseForms";
 
 export type FrostCompatibilityWarning = { code: "frost-reader-overflow"; message: string };
 type FrostExportOptions = Pick<RomSaveOptions, "forDsi"> & { onWarning?: (warning: FrostCompatibilityWarning) => void };
+
+function retailOverlayCount(rom: NintendoDSRom): number | undefined {
+  return /^(IRA|IRB)/u.test(rom.idCode) ? 237 : /^(IRD|IRE)/u.test(rom.idCode) ? 344 : undefined;
+}
+
+/** Check before normal export can repoint an existing Frost loader to its named copy. */
+export function assertFrostPmcRuntimeCopiesAgree(rom: NintendoDSRom): void {
+  const retailCount = retailOverlayCount(rom);
+  if (retailCount === undefined || rom.arm9OverlayTable.length !== (retailCount + 1) * 32
+    || rom.filenames.firstId !== retailCount + 1) return;
+  const at = retailCount * 32;
+  if (readU32(rom.arm9OverlayTable, at) !== retailCount || readU32(rom.arm9OverlayTable, at + 24) !== retailCount) return;
+  const namedId = rom.filenames.idOf(`overlay/overlay_${String(retailCount).padStart(4, "0")}.bin`);
+  const active = rom.files[retailCount], named = namedId === undefined ? undefined : rom.files[namedId];
+  if (active && named && (active.length !== named.length || active.some((byte, i) => byte !== named[i]))) {
+    throw new Error("Frost compatibility export only supports Pokeweb's known Gen V filesystem/PMC layout. PMC's runtime and named copies differ. Resolve the external PMC edits before converting this ROM. Use normal Export for this ROM.");
+  }
+}
 
 /** Frost 5.0.1 caps the tail at 288 MiB before subtracting header[0x1f0]. */
 export function frostReaderOverflowWarning(romLength: number, digestTableOffset: number): FrostCompatibilityWarning | undefined {
@@ -27,12 +46,13 @@ export function frostReaderOverflowWarning(romLength: number, digestTableOffset:
  */
 export function exportFrostCompatibleRom(bytes: Uint8Array, options: FrostExportOptions = {}): Uint8Array {
   const rom = new NintendoDSRom(bytes, { fileData: "view" });
+  assertFrostPmcRuntimeCopiesAgree(rom);
   const complete = (output: Uint8Array): Uint8Array => {
     const warning = frostReaderOverflowWarning(output.length, readU32(output, 0x1f0));
     if (warning) options.onWarning?.(warning);
     return output;
   };
-  const retailCount = /^(IRA|IRB)/u.test(rom.idCode) ? 237 : /^(IRD|IRE)/u.test(rom.idCode) ? 344 : undefined;
+  const retailCount = retailOverlayCount(rom);
   const reject = (reason: string): never => {
     throw new Error(`Frost compatibility export only supports Pokeweb's known Gen V filesystem/PMC layout. ${reason} Use normal Export for this ROM.`);
   };
@@ -75,9 +95,9 @@ export function exportFrostCompatibleRom(bytes: Uint8Array, options: FrostExport
     if (!reserved || reserved.length !== image.length || readAscii(reserved, 0, 4) !== "RPM0") {
       return reject("The presumed PMC slot contains another file.");
     }
-    if (!reserved.every((byte, index) => byte === image[index])) {
-      return reject("PMC's runtime and named copies differ. Resolve the external PMC edits before converting this ROM.");
-    }
+    // Normal export can point the overlay at an updated named PMC image while
+    // retaining the old anonymous Frost slot. That inactive copy is refreshed
+    // below. A conflicting active anonymous copy was rejected before repacking.
   } else if (rom.filenames.firstId !== retailCount || actualId !== namedId) {
     return reject("The root file table has an unfamiliar starting index.");
   }
@@ -101,6 +121,7 @@ export function exportFrostCompatibleRom(bytes: Uint8Array, options: FrostExport
 
 function recompressRetailOverlays(rom: NintendoDSRom, retailCount: number): { table: Uint8Array; files: Map<number, Uint8Array> } {
   const packed = recompressOverlayFiles(rom.arm9OverlayTable.subarray(0, retailCount * 32), (_, id) => rom.files[id]);
+  for (const [id, bytes] of frostSparseFormFiles(rom)) packed.files.set(id, bytes);
   const table = rom.arm9OverlayTable.slice();
   table.set(packed.table);
   return { table, files: packed.files };

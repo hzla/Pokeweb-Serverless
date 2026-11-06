@@ -38,7 +38,7 @@ import { repairNarcBytes } from "./romRepairModel";
 import { repairPokemonIconPaletteAssignmentPlacement } from "./pokemonSpriteModel";
 import { repairAppendedPokemonFormNames } from "./pokemonFormModel";
 import type { ProjectState } from "./projectStore";
-import { exportFrostCompatibleRom, type FrostCompatibilityWarning } from "./frostCompatibility";
+import { assertFrostPmcRuntimeCopiesAgree, exportFrostCompatibleRom, type FrostCompatibilityWarning } from "./frostCompatibility";
 import { hydrateKoMoveLearnsetFromRom } from "./koMoveLearnsetModel";
 
 export { materializeProjectEdits } from "./projectMaterialize";
@@ -67,6 +67,7 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
   if (!originalRomBytes) throw new Error("This saved project does not include the original ROM bytes. Please load the ROM again before exporting.");
 
   const rom = new NintendoDSRom(originalRomBytes, { fileData: "view" });
+  if (options.frostCompatibility) assertFrostPmcRuntimeCopiesAgree(rom);
   hydrateKoMoveLearnsetFromRom(project, rom);
   const repairedLegacyPmcRootFnt = repairLegacyPmcRootFnt(project, rom);
   materializeProjectEdits(project);
