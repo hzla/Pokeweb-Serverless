@@ -1,14 +1,21 @@
 import { defineConfig } from "vite";
 import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
 import { createW2uLocalBridgePlugin } from "./scripts/w2u-local-bridge.js";
 import { runtimeReleaseDates } from "./scripts/runtime-release-dates.js";
 
 export default defineConfig(({ mode }) => {
   const isCodexDev = mode === "codex-dev";
   const isRomTest = mode === "rom";
+  let buildId = process.env.GITHUB_SHA || "unknown";
+  if (buildId === "unknown") {
+    try { buildId = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); }
+    catch { /* Source archives may not include Git metadata. */ }
+  }
   return {
     base: process.env.GITHUB_PAGES_BASE || "./",
     define: {
+      __POKEWEB_BUILD_ID__: JSON.stringify(buildId),
       __POKEWEB_RUNTIME_RELEASE_DATES__: JSON.stringify(runtimeReleaseDates(fileURLToPath(new URL(".", import.meta.url)))),
     },
     plugins: [

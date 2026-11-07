@@ -222,14 +222,28 @@ function normalizeMalformedNarcBytes(bytes: Uint8Array): Uint8Array {
   return repairNarcBytes(bytes).bytes;
 }
 
-function planRomAdditions(rom: NintendoDSRom, additions: Array<{ path: string; bytes: Uint8Array }>): PlannedRomAdditions {
+export function planRomAdditions(rom: NintendoDSRom, additions: Array<{ path: string; bytes: Uint8Array }>): PlannedRomAdditions {
   let filenames = cloneFolder(rom.filenames);
   let fileCount = rom.files.length;
   const insertedFiles: PlannedRomAdditions["insertedFiles"] = [];
   const addedFiles: PlannedRomAdditions["addedFiles"] = [];
   const pathFileIds = new Map<string, number>();
 
-  for (const file of additions) {
+  // save() applies insertions in ascending numeric order, before appends.
+  // Plan in that same order so a later insertion cannot invalidate an earlier
+  // position. Group direct siblings as well: sorting full paths can interleave
+  // a subdirectory with the files of its parent and split a new FNT range.
+  const folderTail = (path: string): number => {
+    const folder = findRomFolder(rom.filenames, parentRomPath(path));
+    return folder?.files.length ? folder.firstId + folder.files.length : Infinity;
+  };
+  const ordered = [...additions].sort((a, b) => {
+    const aTail = folderTail(a.path), bTail = folderTail(b.path);
+    if (aTail !== bTail) return aTail < bTail ? -1 : 1;
+    const aParent = parentRomPath(a.path), bParent = parentRomPath(b.path);
+    return compareRomAdditionPaths({ path: `${aParent}/` }, { path: `${bParent}/` }) || a.path.localeCompare(b.path);
+  });
+  for (const file of ordered) {
     const insertionId = insertionIdForExistingFolder(filenames, file.path, fileCount);
     if (insertionId !== undefined) {
       const fileId = insertionId;

@@ -6,6 +6,7 @@ import { Folder, saveFnt } from "../nds/fnt";
 import { NARC, hasCtrMapIncompatibleFntb, hasEarlyFimgMagic } from "../nds/narc";
 import { crc16, NintendoDSRom, romDeviceCapacityByte } from "../nds/rom";
 import { exportModifiedRom, materializeProjectEdits, prepareArm9Download } from "../pokeweb/exportRom";
+import { createExportDebugReport } from "../pokeweb/exportDebugReport";
 import { addRomFile, importArm9Bytes } from "../pokeweb/fileSystemModel";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import { parseHeaders, updateHeaderField } from "../pokeweb/headerModel";
@@ -191,6 +192,57 @@ describe("ROM export", () => {
     project.fileSystem!.replacements[1] = Uint8Array.of(4);
     const replaced = new NintendoDSRom(await exportModifiedRom(project));
     deepStrictEqual([...replaced.files[1]], [4]);
+  });
+
+  it("inserts into existing folders in file-ID order when their names sort differently", async () => {
+    const source = new NintendoDSRom(makeRom(Array.from({ length: 6 }, (_, id) => Uint8Array.of(id)))).save({
+      filenames: new Folder({ files: ["root.bin"], folders: [
+        ["codeinjection", new Folder({ firstId: 1, files: ["symbols.rpm", "config.bin"] })],
+        ["battle", new Folder({ firstId: 3, files: ["trainer-fields.bin", "other.bin"] })],
+        ["patches", new Folder({ firstId: 5, files: ["Existing.dll"] })],
+      ] }),
+    });
+    const project = makeProject(source);
+    addRomFile(project, "battle/trainer-caps.bin", Uint8Array.of(70));
+    addRomFile(project, "codeinjection/new-symbols.rpm", Uint8Array.of(80));
+    addRomFile(project, "patches/New.dll", Uint8Array.of(90));
+    const bytes = await exportModifiedRom(project), exported = new NintendoDSRom(bytes);
+    for (const path of ["root.bin", "codeinjection/symbols.rpm", "codeinjection/config.bin", "battle/trainer-fields.bin", "battle/other.bin", "patches/Existing.dll"]) {
+      expect(exported.getFileByName(path)).toEqual(new NintendoDSRom(source).getFileByName(path));
+    }
+    expect(exported.getFileByName("battle/trainer-caps.bin")).toEqual(Uint8Array.of(70));
+    expect(exported.getFileByName("codeinjection/new-symbols.rpm")).toEqual(Uint8Array.of(80));
+    expect(exported.getFileByName("patches/New.dll")).toEqual(Uint8Array.of(90));
+    expect(await exportModifiedRom(makeProject(bytes))).toEqual(bytes);
+  });
+
+  it("keeps files in each new folder together when nested paths sort between them", async () => {
+    const project = makeProject(makeRom([Uint8Array.of(1)]));
+    const paths = ["battle/a.bin", "battle/nested/data.bin", "battle/trainer-caps.bin", "patches/Test.dll"];
+    paths.forEach((path, id) => addRomFile(project, path, Uint8Array.of(10 + id)));
+    const exported = new NintendoDSRom(await exportModifiedRom(project));
+    paths.forEach((path, id) => expect(exported.getFileByName(path)).toEqual(Uint8Array.of(10 + id)));
+    expect(exported.fileId("battle/trainer-caps.bin")).toBe(exported.fileId("battle/a.bin") + 1);
+  });
+
+  it("downloads structural export diagnostics without project names or binary payloads", () => {
+    const secret = "PRIVATE_PAYLOAD_MUST_NOT_APPEAR";
+    const source = makeRom([new TextEncoder().encode(secret)]);
+    const project = makeProject(source);
+    project.session.romName = "PRIVATE_PROJECT_NAME";
+    project.romInfo.fileName = "/private/input.nds";
+    project.texts.banks.moves = ["PRIVATE_EDITED_TEXT"];
+    addRomFile(project, "battle/trainer-caps.bin", new TextEncoder().encode(secret));
+    project.fileSystem!.replacements[0] = new TextEncoder().encode(secret);
+    const failure = { message: "Cannot append battle/trainer-caps.bin", stage: "build-rom", frostCompatibility: false };
+    const report = createExportDebugReport(project, failure, source);
+    const json = JSON.stringify(report);
+    for (const excluded of [secret, "PRIVATE_PROJECT_NAME", "/private/input.nds", "PRIVATE_EDITED_TEXT", "originalRomBytes", "rawFiles"]) expect(json).not.toContain(excluded);
+    expect(report.source).toMatchObject({ available: true, files: [{ id: 0, size: secret.length }] });
+    expect(report).toMatchObject({ plan: { appends: [{ path: "battle/trainer-caps.bin", fileId: 1, size: secret.length }] } });
+    expect(project.originalRomBytes).toBe(source);
+    expect(createExportDebugReport(project, failure).source).toEqual({ available: false });
+    expect(createExportDebugReport(project, failure, Uint8Array.of(1)).source).toMatchObject({ available: false });
   });
 
   it("preserves existing root FNT names when exporting an appended PMC overlay", async () => {

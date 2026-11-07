@@ -824,6 +824,15 @@ img[src*="pokesprite/"] {
   justify-content: flex-end;
 }
 
+.export-error-dialog {
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+}
+
+.export-error-dialog:not([open]) { display: none; }
+.export-error-dialog::backdrop { background: rgba(17, 20, 30, 0.72); }
+.export-error-dialog [data-export-error] { white-space: pre-wrap; overflow-wrap: anywhere; }
+
 .changelog-empty {
   background: var(--ink-0);
   border-radius: 5px;

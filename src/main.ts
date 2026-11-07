@@ -66,6 +66,8 @@ import { NintendoDSRom } from "./nds/rom";
 import { generateChangelogFromRomFiles, type ChangelogResult } from "./pokeweb/changelogModel";
 import { ensureActionChangelog, renderActionChangelogText, resetActionChangelog } from "./pokeweb/actionChangelog";
 import { exportModifiedRom } from "./pokeweb/exportRom";
+import { createExportDebugReport } from "./pokeweb/exportDebugReport";
+import { showExportFailureDialog } from "./ui/exportFailureDialog";
 import { projectEditSession } from "./pokeweb/editSession";
 import { parseHeaders } from "./pokeweb/headerModel";
 import { installIntegrationConsoleApi } from "./pokeweb/integrationConsole";
@@ -1802,32 +1804,44 @@ async function downloadRom(frostCompatibility = false): Promise<void> {
   const previousText = link?.textContent ?? "Export";
   const filename = `${project.session.romName || "pokeweb"}-${frostCompatibility ? "frost-compatible" : "modified"}.nds`;
   let saveStarted = false;
+  let stage = "save-project";
   try {
     if (link) {
       link.textContent = "Building...";
     }
     exportLinks.forEach((item) => item.classList.add("disabled"));
     await scheduleSave.flush(project);
+    stage = "build-rom";
     const warnings: string[] = [];
     const bytes = await exportModifiedRom(project, { frostCompatibility, onWarning: (warning) => warnings.push(warning.message), onFrostWarning: (warning) => warnings.push(warning.message) });
     if (bytes.length === 0) throw new Error("Export produced an empty ROM. No file was written.");
     const blob = bytesBlob(bytes, "application/octet-stream");
+    stage = "save-project-after-build";
     await saveActiveProject(project);
     if (warnings.length) window.alert(`Export warning\n\n${[...new Set(warnings)].join("\n\n")}`);
+    stage = "choose-save-target";
     const saveHandle = await chooseRomSaveTargetForPreparedDownload(filename);
     if (saveHandle === null) return;
     saveStarted = true;
+    stage = "save-rom";
     if (saveHandle) {
       await writeBlobToSaveHandle(saveHandle, blob);
     } else {
       downloadBlob(blob, filename);
     }
+    stage = "changelog";
     await maybeOfferChangelogExport(filename);
     dirty = false;
     renderDirtyIndicator();
   } catch (error) {
     const message = saveStarted ? "Saving the exported ROM failed." : "Export failed. No ROM file was saved.";
-    window.alert(`${message}\n\n${errorMessage(error)}`);
+    const failedProject = project;
+    const failure = { message: errorMessage(error), stage, frostCompatibility };
+    await showExportFailureDialog(`${message}\n\n${failure.message}`, async () => {
+      const sourceBytes = failedProject.originalRomBytes ?? await loadActiveRomBytes().catch(() => undefined);
+      const report = createExportDebugReport(failedProject, failure, sourceBytes);
+      downloadSharedTextFile("pokeweb-export-report.json", JSON.stringify(report, null, 2));
+    });
   } finally {
     romExportInProgress = false;
     exportLinks.forEach((item) => item.classList.toggle("disabled", !hasExportBase));
