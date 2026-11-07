@@ -20,7 +20,7 @@ const toolPaths: Record<string, string> = {
   fill: "m4 11 8-8 9 9-8 8-9-9Zm0 0h17M9 2l4 4m7 9s-3 3-3 5a3 3 0 0 0 6 0c0-2-3-5-3-5Z",
   pick: "m14 4 6 6m-5-7 6 6M6 17l10-10 3 3L9 20H4v-5l2 2Z", height: "M3 20h18M7 17V7m-3 3 3-3 3 3m7-3v10m-3-3 3 3 3-3M3 3h18",
   smart: "M4 4h5v5H4V4Zm11 0h5v5h-5V4ZM4 15h5v5H4v-5Zm11 0h5v5h-5v-5M9 6h6M6 9v6m3 3h6m3-9v6m-6-5v4m-2-2h4",
-  pan: "M12 2v20M2 12h20M8 6l4-4 4 4M8 18l4 4 4-4M6 8l-4 4 4 4m12-8 4 4-4 4", fit: "M3 8V3h5m8 0h5v5M3 16v5h5m8 0h5v-5M8 8h8v8H8V8Z"
+  pan: "M12 2v20M2 12h20M8 6l4-4 4 4M8 18l4 4 4-4M6 8l-4 4 4 4m12-8 4 4-4 4", explore: "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM16 8l-3 5-5 3 3-5 5-3Z", fit: "M3 8V3h5m8 0h5v5M3 16v5h5m8 0h5v-5M8 8h8v8H8V8Z"
 };
 function button(action: string, title: string, disabled = false) { return `<button class="ms-icon" data-ms="${action}" title="${title}" aria-label="${title}" ${disabled ? "disabled" : ""}><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${toolPaths[action] || toolPaths.paint}" /></svg></button>`; }
 function download(bytes: Uint8Array, filename: string, mime = "application/zip") {
@@ -49,8 +49,8 @@ export function renderMapStudio(root: HTMLElement, project: ProjectState | undef
     <div class="ms-body">
       <fieldset class="ms-layers"><legend>Layers</legend>${Array.from({ length: 9 }, (_, l) => `<div class="ms-layer-row"><input type="checkbox" data-visible="${l}" checked aria-label="Show layer ${l + 1}" disabled /><button class="ms-layer" data-layer="${l}" aria-label="Edit layer ${l + 1}" aria-pressed="${l === 0}" disabled><span>${l + 1}<small data-layer-count="${l}">empty</small></span></button></div>`).join("")}</fieldset>
       <div class="ms-tool-column"><fieldset><legend>View</legend>${button("3d", "3D view")}${button("top", "Top view")}${button("grid", "Toggle grid")}${button("wire", "Toggle wireframe")}</fieldset>
-      <fieldset><legend>Tools</legend>${button("paint", "Paint (B)")}${button("smart", "Smart brush (G)", true)}${button("erase", "Erase (E)")}${button("fill", "Bucket fill (F)")}${button("pick", "Pick tile and height (I)")}${button("height", "Paint height (H)")}${button("pan", "Pan (Space)")}${button("fit", "Fit camera to map")}</fieldset></div>
-      <div class="ms-viewport"><div class="ms-empty"><h1>Map Studio</h1><p>Open a PDSMAP project with its tileset and textures, or start a new map from a tileset.</p><div class="ms-empty-actions"><button data-ms="folder">Open folder…</button><button data-ms="open">Open files or ZIP…</button></div><button data-ms="restore" class="ms-restore" hidden>Restore browser draft</button></div><div class="ms-view-label" hidden>3D view</div><div class="ms-coords" hidden>X: — &nbsp; Y: —</div></div>
+      <fieldset><legend>Tools</legend>${button("paint", "Paint (B)")}${button("smart", "Smart brush (G)", true)}${button("erase", "Erase (E)")}${button("fill", "Bucket fill (F)")}${button("pick", "Pick tile and height (I)")}${button("height", "Paint height (H)")}${button("pan", "Pan (Space)")}${button("explore", "Explore (V): drag to rotate, Shift-drag to pan")}${button("fit", "Fit camera to map")}</fieldset></div>
+      <div class="ms-viewport"><div class="ms-empty"><h1>Map Studio</h1><p>Open a PDSMAP project with its tileset and textures, or start a new map from a tileset.</p><div class="ms-empty-actions"><button data-ms="folder">Open folder…</button><button data-ms="open">Open files or ZIP…</button></div><button data-ms="restore" class="ms-restore" hidden>Restore browser draft</button></div><div class="ms-view-label" hidden>Top view</div><div class="ms-coords" hidden>X: — &nbsp; Y: —</div></div>
       <fieldset class="ms-height"><legend>Z</legend><input type="number" data-role="height" aria-label="Paint height" min="-128" max="127" value="0" />${Array.from({ length: 33 }, (_, i) => 24 - i).map(h => `<button class="ms-height-step" data-height="${h}" style="--height:${h}" aria-pressed="${h === 0}">${h}</button>`).join("")}</fieldset>
       <fieldset class="ms-palette"><legend>Tile List</legend><select data-role="tileset" aria-label="Tileset library"><option value="">Project tiles</option></select><button data-ms="import-tileset">Import tileset…</button><div class="ms-palette-modes"><div role="group" aria-label="Palette arrangement"><button data-ms="palette-layouts" aria-pressed="true">Layouts</button><button data-ms="palette-tiles" aria-pressed="false">Tiles</button></div><div role="group" aria-label="Tile preview angle"><button data-ms="tile-top" aria-pressed="true">Top</button><button data-ms="tile-3d" aria-pressed="false">3D</button></div></div><select data-role="category" aria-label="Tile category" hidden><option value="">All categories</option></select><input type="search" data-role="search" placeholder="Search tiles or layouts" aria-label="Search tiles" /><button data-ms="new-layout" disabled>New layout…</button><div class="ms-active-brush" data-role="active-brush" hidden><span></span><button data-ms="single-tile" title="Use single tiles (B)" aria-label="Turn off smart brush">×</button></div><div class="ms-tiles"></div><div class="ms-palette-count">No tileset loaded</div></fieldset>
       <aside class="ms-right"><div class="ms-tabs" role="tablist"><button data-tab="matrix" role="tab" aria-selected="true">Matrix</button><button data-tab="tools" role="tab" aria-selected="false">Map Tools</button></div>
@@ -105,7 +105,9 @@ export function renderMapStudio(root: HTMLElement, project: ProjectState | undef
     studio.querySelectorAll<HTMLButtonElement>("[data-layer]").forEach(b => { b.disabled = !workspace; b.setAttribute("aria-pressed", String(Number(b.dataset.layer) === layer)); });
     studio.querySelectorAll<HTMLInputElement>("[data-visible]").forEach(b => b.disabled = !workspace);
     studio.querySelectorAll<HTMLButtonElement>("[data-height]").forEach(b => b.setAttribute("aria-pressed", String(Number(b.dataset.height) === height)));
-    for (const t of ["paint", "smart", "erase", "fill", "pick", "height", "pan"]) studio.querySelector(`[data-ms="${t}"]`)?.setAttribute("aria-pressed", String(tool === t));
+    for (const t of ["paint", "smart", "erase", "fill", "pick", "height", "pan", "explore"]) studio.querySelector(`[data-ms="${t}"]`)?.setAttribute("aria-pressed", String(tool === t));
+    for (const mode of ["top", "3d"]) studio.querySelectorAll(`[data-ms="${mode}"]`).forEach(b => b.setAttribute("aria-pressed", String((viewport?.viewMode ?? "top") === mode)));
+    host.querySelector(".ms-view-label")!.textContent = tool === "explore" ? "Explore · Drag to rotate · Shift-drag to pan" : viewport?.viewMode === "3d" ? "3D view" : "Top view";
     query<HTMLInputElement>("height").value = String(height);
     query("selection").textContent = smartArmed && smartLayout ? `Smart: ${smartLayout.name}` : workspace ? `Tile: ${tile} · ${workspace.tileset.tiles[tile]?.name || "—"}` : "Tile: —";
     if (workspace) {
@@ -261,12 +263,12 @@ export function renderMapStudio(root: HTMLElement, project: ProjectState | undef
     if (next === "smart") { if (!workspace?.layouts?.some(g => g.id === smartLayoutId)) { status("Choose Brush beside a layout first."); return; } smartArmed = true; }
     if (["paint","fill","pick"].includes(next)) smartArmed = false;
     if (next === "pan" && tool !== "pan") beforePan = tool;
-    tool = next; viewport?.setPan(tool === "pan"); refresh();
+    tool = next; viewport?.setNavigation(tool === "explore" ? "explore" : tool === "pan" ? "pan" : "paint"); refresh();
   }
   function attachPainting(view: StudioViewport) {
     const canvas = view.canvas;
     const paint = (event: PointerEvent) => {
-      if (!workspace || !history || busy || tool === "pan") return;
+      if (!workspace || !history || busy || tool === "pan" || tool === "explore") return;
       const point = view.pick(event.clientX, event.clientY, height); if (!point) { previous = undefined; return; }
       host.querySelector(".ms-coords")!.textContent = `X: ${point.x}   Y: ${point.y}   Layer: ${layer + 1}   Z: ${height}`;
       if (!dragging) return;
@@ -284,7 +286,7 @@ export function renderMapStudio(root: HTMLElement, project: ProjectState | undef
         previous = point; renderTerrain(); refresh();
       } catch (error) { history.cancelStroke(); dragging = false; previous = undefined; renderTerrain(); refresh(); status(error instanceof Error ? error.message : String(error), true); }
     };
-    canvas.addEventListener("pointerdown", event => { if (event.button !== 0 || tool === "pan" || busy) return; dragging = true; previous = undefined; canvas.setPointerCapture(event.pointerId); paint(event); }, listen);
+    canvas.addEventListener("pointerdown", event => { if (event.button !== 0 || tool === "pan" || tool === "explore" || busy) return; dragging = true; previous = undefined; canvas.setPointerCapture(event.pointerId); paint(event); }, listen);
     canvas.addEventListener("pointermove", paint, listen);
     const finish = () => { if (!dragging) return; dragging = false; previous = undefined; if (history?.finish()) changed(); };
     canvas.addEventListener("pointerup", finish, listen); canvas.addEventListener("pointercancel", finish, listen); canvas.addEventListener("lostpointercapture", finish, listen);
@@ -352,8 +354,8 @@ export function renderMapStudio(root: HTMLElement, project: ProjectState | undef
         if (disposed) return; modified = false; cacheDraft(); refresh(); status(action === "save" ? "Saved PDSMS-compatible project bundle" : "Saved PDSMAP; its tileset and sidecars remain in the project bundle"); return;
       }
       if (action === "undo" || action === "redo") { if (history?.[action]()) { changed(); renderTerrain(); } return; }
-      if (["paint", "smart", "erase", "fill", "pick", "height", "pan"].includes(action)) { selectTool(action as StudioTool); return; }
-      if (action === "3d" || action === "top") { viewport?.setView(action); viewport?.setPan(tool === "pan"); host.querySelector(".ms-view-label")!.textContent = action === "3d" ? "3D view" : "Top view"; return; }
+      if (["paint", "smart", "erase", "fill", "pick", "height", "pan", "explore"].includes(action)) { selectTool(action as StudioTool); return; }
+      if (action === "3d" || action === "top") { if (action === "top" && tool === "explore") selectTool("paint"); viewport?.setView(action); refresh(); return; }
       if (action === "fit") { viewport?.fit(); return; }
       if (action === "grid" || action === "wire") { const enabled = target.getAttribute("aria-pressed") !== "true"; target.setAttribute("aria-pressed", String(enabled)); if (action === "grid") viewport?.setGrid(enabled); else viewport?.setWire(enabled); return; }
       if (action === "add") {
@@ -414,7 +416,7 @@ export function renderMapStudio(root: HTMLElement, project: ProjectState | undef
       else if (event.key.toLowerCase() === "y") { event.preventDefault(); studio.querySelector<HTMLButtonElement>('[data-ms="redo"]')?.click(); }
       return;
     }
-    const keys: Record<string, StudioTool> = { b: "paint", g: "smart", e: "erase", f: "fill", i: "pick", h: "height", " ": "pan" };
+    const keys: Record<string, StudioTool> = { b: "paint", g: "smart", e: "erase", f: "fill", i: "pick", h: "height", v: "explore", " ": "pan" };
     if (keys[event.key.toLowerCase()]) { event.preventDefault(); selectTool(keys[event.key.toLowerCase()]); }
     if (event.key === "[" || event.key === "]") { height = Math.max(-128, Math.min(127, height + (event.key === "]" ? 1 : -1))); refresh(); }
   }, listen);

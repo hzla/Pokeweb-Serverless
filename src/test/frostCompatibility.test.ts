@@ -15,14 +15,14 @@ describe("Frost overlay recompression", () => {
       writeU32(table, id * 32 + 8, image.length);
       writeU32(table, id * 32 + 12, 0x80);
       writeU32(table, id * 32 + 24, id);
-      writeU32(table, id * 32 + 28, 0x02000000);
+      writeU32(table, id * 32 + 28, 0x00000000);
     }
     const source = base.save({ arm9OverlayTable: table,
       insertedFiles: Array.from({ length: 344 }, () => ({ fileId: 0, bytes: image })) });
     const original = new NintendoDSRom(source), before = source.slice();
     const exported = exportFrostCompatibleRom(source);
     const frost = new NintendoDSRom(exported);
-    expect(readU32(frost.arm9OverlayTable, 162 * 32 + 28) >>> 24).toBe(3);
+    expect(readU32(frost.arm9OverlayTable, 162 * 32 + 28) >>> 24).toBe(1);
     expect(frost.loadArm9Overlays([162]).get(162)?.data).toEqual(image);
     for (const field of [0x1c0, 0x1d0]) {
       const oldAt = readU32(source, field), newAt = readU32(exported, field);

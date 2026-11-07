@@ -23,13 +23,13 @@ describe("ROM export", () => {
   it("recompresses normal export overlays while rebuilding DSi integrity and preserving filenames", async () => {
     const original = new NintendoDSRom(makeTwlRom("IREO"));
     const image = new Uint8Array(0x800).fill(0x5a), table = new Uint8Array(32);
-    [162, 0x021a0000, image.length, 0x80, 0x021a0020, 0x021a0040, 0, 0x02000000]
+    [162, 0x021a0000, image.length, 0x80, 0x021a0020, 0x021a0040, 0, 0x00000000]
       .forEach((value, i) => writeU32(table, i * 4, value));
     const source = original.save({ arm9OverlayTable: table, insertedFiles: [{ fileId: 0, bytes: image }] });
     const before = source.slice(), native = new NintendoDSRom(source);
     const exported = await exportModifiedRom(makeProject(source));
     const rom = new NintendoDSRom(exported);
-    expect(readU32(rom.arm9OverlayTable, 28) >>> 24).toBe(3);
+    expect(readU32(rom.arm9OverlayTable, 28) >>> 24).toBe(1);
     expect(readU32(rom.arm9OverlayTable, 28) & 0xffffff).toBe(rom.files[0].length);
     expect(rom.arm9OverlayTable.subarray(0, 28)).toEqual(table.subarray(0, 28));
     expect(rom.loadArm9Overlays([162]).get(162)?.data).toEqual(image);

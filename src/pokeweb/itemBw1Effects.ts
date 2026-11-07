@@ -1,3 +1,4 @@
+import { hasItemSelection, resolveItemSelection } from "./itemSelectionBindings";
 import black from "../assets/data/abilityBindingsB1.json";
 import white from "../assets/data/abilityBindingsW1.json";
 import {NintendoDSRom} from "../nds/rom";
@@ -56,15 +57,16 @@ export function buildBw1ItemModule(project:ProjectState,rules:ReadonlyMap<number
  const c=context(project),dispatcher=c.resolve("ItemEvent_AddItemCore"),api=ITEM_RULE_API.map(name=>c.resolve(name).address);
  const extras=["ItemGetParam","BattleEventVar_Push","BattleEventVar_Pop","BattleEventVar_SetConstValue","IsStatChangeValid","BtlCalc_MakeStatusCondition","MakeConditionBadlyPoisoned","BattleEventVar_GetValueIfExist","RollEffectChance","BattleEventVar_RewriteValue","GetBattleMonSpecies","CheckCondition","getMoveFlag","BattleEvent_CheckSkip","GetBattleMonHeldItem",null,null,null,null,null,null,null,"BtlServerFlow_CanUseHeldItem",null,"IsSubstituteActive","BattleEventItem_AttachSkipCheckHandler","GetSideFromMonID","IsEventTargetMon","BattleRandom"];
  if(classes===undefined){classes=defaultItemMoveClasses();for(const[id,flags]of expandedMoveDllDefaults(project))(classes as Map<number,number>).set(id,flags);const peer=c.files.get("patches/AbilityEffects.dll");if(peer&&!same(peer,Uint8Array.of(80,87,65,82))){const text=parseRpm(peer,{allowedMagics:["DLXF"]}).metadata.PokewebMoveClassOverrides;if(typeof text==="string")for(const[id,flags]of validateMoveClassOverrides(JSON.parse(text),new Map(),true))(classes as Map<number,number>).set(id,flags);}}
- return buildRuleRuntime({game:project.session.baseVersion,rules,api,module:"93",portable:true,nativeVersion:6,moveClasses:classes,messages:itemMessageIds(project,rules),native:{resolve:c.resolve,api:new Map(extras.flatMap((name,i)=>name?[[19+i,c.resolve(name).address] as const]:[]))},
+ const selection=hasItemSelection(rules)?resolveItemSelection(c.source.game,c.data,c.base,project.arm9,c.source.armBase,c.check):undefined;
+ return buildRuleRuntime({game:project.session.baseVersion,rules,api,module:"93",portable:true,nativeVersion:selection?7:6,selection,moveClasses:classes,messages:itemMessageIds(project,rules),native:{resolve:c.resolve,api:new Map(extras.flatMap((name,i)=>name?[[19+i,c.resolve(name).address] as const]:[]))},
   dispatcher:{...dispatcher,calls:c.functions.ItemEvent_AddItemCore.calls.map(call=>({offset:call.offset,address:battleBranchTarget(dispatcher.code,call.offset,dispatcher.address)}))}});
 }
 const verified=new WeakMap<ProjectState,{overlay:Uint8Array;arm9:Uint8Array;base:number;files:Map<string,Uint8Array>;rules:Map<number,ItemRuleSet>;messages:string}>();
-function readRules(project:ProjectState):Map<number,ItemRuleSet>{
+export function readBw1ItemRules(project:ProjectState):Map<number,ItemRuleSet>{
  const c=context(project),bytes=c.files.get(dllPath);if(!bytes||same(bytes,retired))return new Map();
  const cache=verified.get(project);
  if(cache&&cache.base===c.base&&same(cache.overlay,c.data)&&same(cache.arm9,project.arm9)&&cache.files.size===c.files.size&&[...c.files].every(([path,b])=>cache.files.has(path)&&same(cache.files.get(path)!,b))&&cache.messages===JSON.stringify(itemMessageIds(project,cache.rules)))return structuredClone(cache.rules);
- const rpm=parseRpm(bytes,{allowedMagics:["DLXF"]});if(rpm.metadata.PMCVersion!=="6.0.0"||rpm.metadata.PokewebItemEffects!=="rules"||typeof rpm.metadata.PokewebItemRules!=="string"||typeof rpm.metadata.PokewebItemMoveClasses!=="string")throw Error("Unrecognized shared item runtime.");
+ const rpm=parseRpm(bytes,{allowedMagics:["DLXF"]});if(!["6.0.0","7.0.0"].includes(String(rpm.metadata.PMCVersion))||rpm.metadata.PokewebItemEffects!=="rules"||typeof rpm.metadata.PokewebItemRules!=="string"||typeof rpm.metadata.PokewebItemMoveClasses!=="string")throw Error("Unrecognized shared item runtime.");
  const entries:unknown=JSON.parse(rpm.metadata.PokewebItemRules);if(!Array.isArray(entries)||!entries.length||entries.length>639)throw Error("Invalid item rule registry.");
  const rules=new Map<number,ItemRuleSet>();for(const entry of entries){if(!Array.isArray(entry)||entry.length!==2||!Number.isInteger(entry[0])||entry[0]<1||entry[0]>=640||rules.has(entry[0]))throw Error("Invalid item rule registry.");getItemRecord(project,entry[0]);rules.set(entry[0],checkedBw1ItemRule(project,entry[1]));}
  const classes=validateMoveClassOverrides(JSON.parse(rpm.metadata.PokewebItemMoveClasses),new Map(),true);
@@ -72,14 +74,14 @@ function readRules(project:ProjectState):Map<number,ItemRuleSet>{
  verified.set(project,{base:c.base,overlay:c.data.slice(),arm9:project.arm9.slice(),files:new Map([...c.files].map(([p,b])=>[p,b.slice()])),rules:structuredClone(rules),messages:JSON.stringify(itemMessageIds(project,rules))});return rules;
 }
 export function inspectBw1ItemEffect(project:ProjectState,itemId:number):ItemEffectState{
- const empty={editable:false,message:"",choices:[],events:[],controls:[]};try{getItemRecord(project,itemId);context(project).resolve("ItemEvent_AddItemCore");const rules=readRules(project).get(itemId);return {...empty,editable:true,message:"Verified native item registration",nativeSlot:false,rules};}catch(error){return {...empty,message:error instanceof Error?error.message:String(error)};}
+ const empty={editable:false,message:"",choices:[],events:[],controls:[]};try{getItemRecord(project,itemId);context(project).resolve("ItemEvent_AddItemCore");const rules=readBw1ItemRules(project).get(itemId);return {...empty,editable:true,message:"Verified native item registration",nativeSlot:false,rules};}catch(error){return {...empty,message:error instanceof Error?error.message:String(error)};}
 }
 export async function configureBw1ItemRules(project:ProjectState,edits:readonly{itemId:number;rules:ItemRuleSet}[]):Promise<void>{
- const rules=readRules(project),seen=new Set<number>();for(const edit of edits){if(!Number.isInteger(edit.itemId)||edit.itemId<1||edit.itemId>=640||seen.has(edit.itemId))throw Error("Invalid item ID.");getItemRecord(project,edit.itemId);seen.add(edit.itemId);rules.set(edit.itemId,checkedBw1ItemRule(project,edit.rules));}
+ const rules=readBw1ItemRules(project),seen=new Set<number>();for(const edit of edits){if(!Number.isInteger(edit.itemId)||edit.itemId<1||edit.itemId>=640||seen.has(edit.itemId))throw Error("Invalid item ID.");getItemRecord(project,edit.itemId);seen.add(edit.itemId);rules.set(edit.itemId,checkedBw1ItemRule(project,edit.rules));}
  buildBw1ItemModule(project,rules);
  await installCodeInjectionPatch(project,async staged=>{itemMessageIds(staged,rules,true);stageCodeInjectionDll(staged,"ItemEffects.dll",writeRpm(buildBw1ItemModule(staged,rules),{ident:"DLXF"}));for(const edit of edits)recordFieldChange(staged,"items",String(getItemRecord(staged,edit.itemId).readable.name),"Custom battle rules","Previous effect",JSON.stringify(edit.rules),{key:`item-rules:${edit.itemId}`});});
 }
 export function clearBw1ItemRules(project:ProjectState,itemId:number):void{
- const rules=readRules(project);if(!rules.delete(itemId))return;if(rules.size){stageCodeInjectionDll(project,"ItemEffects.dll",writeRpm(buildBw1ItemModule(project,rules),{ident:"DLXF"}));return;}
+ const rules=readBw1ItemRules(project);if(!rules.delete(itemId))return;if(rules.size){stageCodeInjectionDll(project,"ItemEffects.dll",writeRpm(buildBw1ItemModule(project,rules),{ident:"DLXF"}));return;}
  const c=context(project),state=ensureFileSystemState(project);delete state.additions![dllPath];const id=c.source.ids.get(dllPath);if(id!==undefined)setRomFileReplacement(project,id,retired.slice());if(project.codeInjection?.modules)project.codeInjection.modules=project.codeInjection.modules.filter(m=>m.path!==dllPath);
 }

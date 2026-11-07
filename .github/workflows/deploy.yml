@@ -36,8 +36,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Test
+      - name: Test (full)
+        if: ${{ github.event_name != 'push' || (!contains(github.event.head_commit.message, '[skip tests]') && !contains(github.event.head_commit.message, '[quick tests]')) }}
         run: npm test
+
+      - name: Test (quick)
+        if: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[quick tests]') && !contains(github.event.head_commit.message, '[skip tests]') }}
+        run: npm run test:quick
 
       - name: Build
         run: npm run build

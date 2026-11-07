@@ -22,3 +22,10 @@ already-decided battles are excluded.
 Run `python3 runtime/debug-helpers/build.py` and
 `python3 runtime/debug-helpers/verify.py /path/cleanwhite2.nds` from the repository
 root. Broad map/battle-format coverage and hardware timing remain unverified.
+
+The regular map editor's **Test in game** shortcut uses a separate, temporary,
+always-on collision adapter for checked US revision-0 B/W/B2/W2 code. Its two
+epilogue hooks bypass normal and rail collision checks without changing the
+regular debug toggle or saved state. Native bindings are recorded by
+`map_test_bindings.py`; `verify_map_test.py` executes both adapters against the
+native epilogues and checks return masks, registers and stack restoration.

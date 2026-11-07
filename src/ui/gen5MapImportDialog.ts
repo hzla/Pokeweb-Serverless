@@ -1,9 +1,10 @@
 import type { ProjectState } from "../pokeweb/projectStore";
 import { applyGen5MapImport, prepareGen5MapImport, type Gen5MapImport, type Gen5MapImportInput, type Gen5MapImportTarget } from "../pokeweb/gen5MapImport";
-import { getMatrixSnapshot, loadMatrixEditorData } from "../pokeweb/matrixModel";
+import { loadMatrixEditorData } from "../pokeweb/matrixModel";
 import { MATRIX_SEASONS, resolveSeasonalMatrix, type MatrixSeason } from "../pokeweb/seasonalMatrixModel";
 import type { Map3dSceneData } from "../pokeweb/map3dModel";
 import { escapeHtml } from "./dom";
+import type { MapFolderChoice, MapImportFile, MapImportFiles } from "../pokeweb/gen5MapImportFolder";
 
 type Callbacks = {
   lock(locked: boolean): void;
@@ -17,7 +18,7 @@ const fields = [
 ] as const;
 
 /** A single local transaction; files never leave the browser. */
-export async function openGen5MapImportDialog(project: ProjectState, root: HTMLElement, initial: Gen5MapImportTarget, callbacks: Callbacks): Promise<void> {
+export async function openGen5MapImportDialog(project: ProjectState, root: HTMLElement, initial: Gen5MapImportTarget, callbacks: Callbacks, options: { openFolder?: boolean } = {}): Promise<void> {
   await loadMatrixEditorData(project, { seasons: true });
   const dialog = document.createElement("dialog"); dialog.className = "map3d-native-import";
   dialog.setAttribute("aria-label", "Import DS Map Studio map");
@@ -32,8 +33,12 @@ export async function openGen5MapImportDialog(project: ProjectState, root: HTMLE
       <output data-native-destination></output>
     </fieldset>
     <fieldset data-native-fields><legend>Files</legend>
+      <div class="map3d-folder-actions"><button class="ow-tool" type="button" data-native="folder">Open folder…</button><output data-native-folder-name></output></div>
+      <input name="folder" type="file" webkitdirectory multiple hidden />
+      <label class="map3d-field" data-native-folder-choice hidden>Map export<select name="folderMap"></select></label>
       <label class="map3d-field">Source game<select name="game"><option value="BW" ${project.session.baseRom === "BW" ? "selected" : ""}>Black / White</option><option value="BW2" ${project.session.baseRom === "BW2" ? "selected" : ""}>Black 2 / White 2</option></select></label>
-      ${fields.map(([name, label, accept]) => `<label class="map3d-field">${label}<input name="${name}" type="file" accept="${accept}" /><output data-native-component="${name}">Retain destination</output></label>`).join("")}
+      <dl class="map3d-folder-files" data-native-folder-files hidden></dl>
+      <details data-native-manual open><summary>Choose files individually</summary>${fields.map(([name, label, accept]) => `<label class="map3d-field">${label}<input name="${name}" type="file" accept="${accept}" /><output data-native-component="${name}">Retain destination</output></label>`).join("")}</details>
     </fieldset>
     <div data-native-status role="status" aria-live="polite"></div>
     <div data-native-summary hidden></div>
@@ -49,6 +54,7 @@ export async function openGen5MapImportDialog(project: ProjectState, root: HTMLE
   const form = dialog.querySelector("form")!, status = dialog.querySelector<HTMLElement>("[data-native-status]")!;
   const field = (name: string) => form.elements.namedItem(name) as HTMLInputElement | HTMLSelectElement;
   let pending: Gen5MapImport | undefined, busy = false, closed = false;
+  let assigned: MapImportFiles = {}, folderFiles: MapImportFile[] = [], choices: MapFolderChoice[] = [], removeSecond = false, embeddedTextures = false, folderInvalid = false;
   const button = (action: string) => dialog.querySelector<HTMLButtonElement>(`[data-native="${action}"]`)!;
   function close(restore = true) {
     if (closed || busy) return; closed = true;
@@ -66,18 +72,66 @@ export async function openGen5MapImportDialog(project: ProjectState, root: HTMLE
     } catch (error) { status.textContent = String(error); }
   }
   for (const name of ["matrixId", "headerId", "x", "y", "season"]) field(name).addEventListener("change", refreshDestination);
+  function refreshFiles() {
+    const description = (name: typeof fields[number][0]) => assigned.bin && ["model", "permissions", "secondaryPermissions"].includes(name) ? "From BIN" : assigned[name]?.name ?? (name === "textures" && embeddedTextures ? "Embedded in model" : name === "secondaryPermissions" && removeSecond ? "Remove destination layer" : "Retain destination");
+    for (const [name] of fields) {
+      dialog.querySelector<HTMLElement>(`[data-native-component="${name}"]`)!.textContent = description(name);
+      (field(name) as HTMLInputElement).disabled = !!assigned.bin && ["model", "permissions", "secondaryPermissions"].includes(name);
+    }
+    dialog.querySelector<HTMLElement>("[data-native-folder-files]")!.innerHTML = fields.filter(([name]) => assigned[name] || name === "textures" && embeddedTextures || name === "secondaryPermissions" && removeSecond).map(([name, label]) => `<dt>${label}</dt><dd>${escapeHtml(description(name))}</dd>`).join("");
+  }
   for (const [name] of fields) field(name).addEventListener("change", () => {
     const input = field(name) as HTMLInputElement, file = input.files?.[0];
-    dialog.querySelector<HTMLElement>(`[data-native-component="${name}"]`)!.textContent = file ? "Import" : "Retain destination";
-    if (name === "bin") for (const other of ["model", "permissions", "secondaryPermissions"]) {
-      const control = field(other) as HTMLInputElement; control.disabled = Boolean(file); if (file) { control.value = ""; dialog.querySelector<HTMLElement>(`[data-native-component="${other}"]`)!.textContent = "From BIN"; }
+    if (file) assigned[name] = file; else delete assigned[name];
+    folderInvalid = false; button("prepare").disabled = false; status.textContent = "";
+    if (name === "model" || name === "bin") embeddedTextures = false;
+    if (name === "secondaryPermissions") removeSecond = false;
+    if (name === "bin" && file) for (const other of ["model", "permissions", "secondaryPermissions"] as const) {
+      delete assigned[other]; (field(other) as HTMLInputElement).value = ""; removeSecond = false;
     }
+    refreshFiles();
   });
+  async function selectFolderMap() {
+    const choice = choices[Number(field("folderMap").value)]; if (!choice) return;
+    assigned = {}; removeSecond = embeddedTextures = false; refreshFiles();
+    const { resolveMapFolderImport } = await import("../pokeweb/gen5MapImportFolder");
+    const resolved = await resolveMapFolderImport(choice, folderFiles); if (closed) return;
+    assigned = resolved.files; removeSecond = resolved.removeSecond; embeddedTextures = resolved.embeddedTextures;
+    for (const [name] of fields) (field(name) as HTMLInputElement).value = "";
+    field("game").value = resolved.game ?? project.session.baseRom;
+    refreshFiles(); dialog.querySelector<HTMLElement>("[data-native-folder-files]")!.hidden = false;
+    dialog.querySelector<HTMLDetailsElement>("[data-native-manual]")!.open = resolved.notes.length > 0;
+    status.textContent = resolved.notes.join(" ") || "Files selected. Review import to preview the map.";
+  }
+  async function folderAction(action: () => Promise<void>) {
+    if (busy || closed) return; busy = true; button("prepare").disabled = true; button("folder").disabled = true; field("folderMap").disabled = true;
+    for (const fs of dialog.querySelectorAll<HTMLFieldSetElement>("fieldset")) fs.disabled = true;
+    try { await action(); }
+    catch (error) { folderInvalid = true; status.textContent = `Folder import failed: ${error instanceof Error ? error.message : String(error)}`; }
+    finally { busy = false; for (const fs of dialog.querySelectorAll<HTMLFieldSetElement>("fieldset")) fs.disabled = false; button("prepare").disabled = folderInvalid; button("folder").disabled = false; field("folderMap").disabled = false; }
+  }
+  field("folder").addEventListener("change", () => {
+    const input = field("folder") as HTMLInputElement, selected = Array.from(input.files ?? []); input.value = ""; if (!selected.length) return;
+    void folderAction(async () => {
+      folderInvalid = false;
+      status.textContent = "Finding map exports…";
+      const { findMapFolderImports } = await import("../pokeweb/gen5MapImportFolder");
+      const found = await findMapFolderImports(selected); if (closed) return;
+      choices = found; folderFiles = selected;
+      const selector = field("folderMap") as HTMLSelectElement;
+      selector.innerHTML = choices.map((choice, i) => `<option value="${i}">${escapeHtml(choice.label)}</option>`).join(""); selector.value = "0";
+      dialog.querySelector<HTMLElement>("[data-native-folder-choice]")!.hidden = choices.length === 1;
+      dialog.querySelector<HTMLElement>("[data-native-folder-name]")!.textContent = selected[0].webkitRelativePath.split("/")[0] || "Selected folder";
+      await selectFolderMap();
+    });
+  });
+  field("folderMap").addEventListener("change", () => { folderInvalid = false; void folderAction(selectFolderMap); });
   dialog.addEventListener("cancel", event => { event.preventDefault(); close(); });
   form.addEventListener("submit", event => { event.preventDefault(); close(); });
   dialog.addEventListener("click", async event => {
     const action = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-native]")?.dataset.native;
     if (!action || busy) return;
+    if (action === "folder") { (field("folder") as HTMLInputElement).click(); return; }
     if (action === "cancel") { close(); return; }
     if (action === "original" && pending) { callbacks.preview(pending.original); return; }
     if (action === "converted" && pending) { callbacks.preview(pending.converted); return; }
@@ -88,11 +142,12 @@ export async function openGen5MapImportDialog(project: ProjectState, root: HTMLE
         status.textContent = "Reading native map resources…";
         const input: Gen5MapImportInput = { game: field("game").value as "BW" | "BW2" };
         for (const [name, , accept] of fields) {
-          const file = (field(name) as HTMLInputElement).files?.[0]; if (!file) continue;
+          const file = assigned[name]; if (!file) continue;
           if (!file.name.toLowerCase().endsWith(accept)) throw new Error(`Choose a ${accept} file for this component. Gen 4 sidecars are incompatible with Gen 5.`);
           if (file.size > 64 * 1024 * 1024) throw new Error("Choose component files smaller than 64 MB.");
           input[name] = new Uint8Array(await file.arrayBuffer());
         }
+        if (removeSecond && !input.bin && !input.secondaryPermissions) input.secondaryPermissions = null;
         pending = await prepareGen5MapImport(project, input, { matrixId: Number(field("matrixId").value), x: Number(field("x").value), y: Number(field("y").value),
           headerId: Number(field("headerId").value), season: field("season").value as Gen5MapImportTarget["season"] });
         if (!dialog.isConnected) return;
@@ -112,5 +167,6 @@ export async function openGen5MapImportDialog(project: ProjectState, root: HTMLE
     finally { busy = false; for (const b of dialog.querySelectorAll<HTMLButtonElement>("button")) b.disabled = false; }
   });
   refreshDestination(); callbacks.lock(true); dialog.show();
+  if (options.openFolder) (field("folder") as HTMLInputElement).click();
   dialog.addEventListener("keydown", event => { if (event.key === "Escape") { event.preventDefault(); close(); } });
 }

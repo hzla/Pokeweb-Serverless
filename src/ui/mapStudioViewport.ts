@@ -23,7 +23,8 @@ export class StudioViewport {
   private resize: ResizeObserver;
   private ray = new THREE.Raycaster();
   private wire = false;
-  private mode = "3d";
+  private mode = "top";
+  private navigation: "paint" | "pan" | "explore" = "paint";
   private onChange = () => this.requestRender();
   constructor(private host: HTMLElement, private workspace: StudioWorkspace) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
@@ -34,13 +35,20 @@ export class StudioViewport {
     this.resize = new ResizeObserver(() => this.size()); this.resize.observe(host); this.size();
   }
   get canvas() { return this.renderer.domElement; }
+  get viewMode() { return this.mode; }
   private makeCamera() { return this.mode === "3d" ? new THREE.PerspectiveCamera(40, 1, 0.05, 2000) : new THREE.OrthographicCamera(-20, 20, 20, -20, 0.05, 2000); }
   private makeControls() {
     const controls = new OrbitControls(this.camera, this.canvas); controls.enableDamping = false; controls.enableRotate = this.mode === "3d";
-    controls.mouseButtons = { LEFT: undefined as unknown as THREE.MOUSE, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE };
+    controls.mouseButtons = { LEFT: this.navigation === "explore" ? THREE.MOUSE.ROTATE : this.navigation === "pan" ? THREE.MOUSE.PAN : undefined as unknown as THREE.MOUSE, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE };
     controls.addEventListener("change", this.onChange); return controls;
   }
-  setPan(pan: boolean) { this.controls.mouseButtons.LEFT = pan ? THREE.MOUSE.PAN : undefined as unknown as THREE.MOUSE; }
+  setNavigation(mode: "paint" | "pan" | "explore") {
+    this.navigation = mode;
+    if (mode === "explore" && this.mode !== "3d") this.setView("3d");
+    this.controls.mouseButtons.LEFT = mode === "explore" ? THREE.MOUSE.ROTATE : mode === "pan" ? THREE.MOUSE.PAN : undefined as unknown as THREE.MOUSE;
+    this.canvas.style.cursor = mode === "paint" ? "crosshair" : "grab";
+    this.canvas.setAttribute("aria-label", mode === "explore" ? "Map Studio terrain viewport: drag to rotate, Shift-drag to pan" : "Map Studio terrain viewport");
+  }
   async loadTextures(indices = studioMeshes(this.workspace, this.workspace.map.chunks[0]).map(m => m.material)) {
     await Promise.all([...new Set(indices)].map(index => {
       if (this.loading.has(index)) return this.loading.get(index);

@@ -48,6 +48,15 @@ effects while primary effects remain active. Prevention and copying notices foll
 [pokeemerald-expansion](https://github.com/rh-hideout/pokeemerald-expansion), with
 native BW message variants and the actual holder/item names.
 
+The Assault Vest template combines a 1.5× Special Defense multiplier with a
+move-selection restriction. The restriction can match status, physical, special
+or any category, optionally combined with the move’s base type; in-battle type
+conversions do not change that filter. Its item-wide
+activation conditions apply to both effects. Struggle remains selectable. The
+restriction follows held-item suppression and uses the game’s move-selection
+checks; called-move interactions have not been fully verified. The selection
+adapter uses verified native callers and coexists with move-editor selection rules.
+
 Effects sharing one event finish before a consumable is removed. Prevention
 recipes act on qualifying native checks, before the engine’s chance roll; they
 do not predict whether that roll would have succeeded. Maranga's forced berry use
@@ -68,9 +77,10 @@ compatible ARM9 bindings. Metadata supports project/ROM reopening and recognized
 legacy migrations; changed templates/dependencies are checked again on reopen.
 
 Build with `python3 runtime/item-effects/build_rules.py` (`--legacy` for v3 and
-`--v4` / `--v5` for the retained v4/v5 templates). New rules use version 6; older templates stay
+`--v4`, `--v5` or `--v6` for the retained templates). Move restrictions use version 7; other new rules use version 6. Older templates stay
 available for exact verification of existing exports. Native catalog generators require explicit local reference inputs.
 Run `npx vitest run src/test/itemEffectsModel.test.ts src/test/itemRules.test.ts src/test/itemRecipes.test.ts src/test/itemTemplatesPortable.test.ts`
-for model checks. Native fixture builders write separate outputs; emulator tools
+for model checks. `python3 runtime/item-effects/test_selection_runtime.py` exercises
+the compiled selection adapter with Unicorn and an ARM toolchain. Native fixture builders write separate outputs; emulator tools
 require melonDS and `MELONDS_HEADLESS_LIB`. Representative native cases do not
 establish hardware, DSi or all cross-patch combinations.

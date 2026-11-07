@@ -1,3 +1,5 @@
+import templateV7 from "../assets/data/itemRuleRuntimeV7.json";
+import { hasItemSelection, type ItemSelectionBindings } from "./itemSelectionBindings";
 import template from "../assets/data/itemRuleRuntime.json";
 import templateV3 from "../assets/data/itemRuleRuntimeV3.json";
 import templateV6 from "../assets/data/itemRuleRuntimeV6.json";
@@ -11,13 +13,14 @@ import { writeRpm, type RpmModule } from "./rpm";
 export const ITEM_RULE_API = ["BattleEventVar_GetValue", "BattleEventVar_MulValue", "GetBattleMon", "GetBattleMonStat", "GetPokeType", "PokeTypePair_IsMatch", "ServerEvent_GetWeather", "BtlServerFlow_IsSimulating", "BtlServerFlow_CheckMatchup", "BattleHandler_PushWork", "BattleHandler_PopWork", "BattleHandler_StrSetup", "BattleHandler_AddArg", "BattleEventItem_GetSubID", "BattleEvent_AddItem", "GetMonID", "RawBattleMonStat", "PML_MoveGetCategory"];
 export type RuleRuntimeInput = { game: string; rules: ReadonlyMap<number, ItemRuleSet>; api: readonly number[];
   native?: { resolve: NativeItemResolver; api: ReadonlyMap<number, number> }; legacy?: boolean;
-  nativeVersion?:4|5|6; module?:string; portable?:boolean; messages?:readonly number[]; moveClasses?:ReadonlyMap<number,number>;
+  nativeVersion?:4|5|6|7; selection?: ItemSelectionBindings; module?:string; portable?:boolean; messages?:readonly number[]; moveClasses?:ReadonlyMap<number,number>;
   dispatcher: { address: number; code: Uint8Array; calls: Array<{ offset: number; address: number }> } };
 
 export function buildRuleRuntime(input: RuleRuntimeInput): RpmModule {
-  const extended = Boolean(input.native) && !input.legacy, version=input.nativeVersion??6, modern=extended&&version>=5, latest=extended&&version===6, sourceTemplate = extended ? latest?templateV6:modern?templateV5:template : templateV3;
+  const extended = Boolean(input.native) && !input.legacy, version=input.nativeVersion??6, modern=extended&&version>=5, latest=extended&&version>=6, sourceTemplate = extended ? version===7?templateV7:latest?templateV6:modern?templateV5:template : templateV3;
   if(extended&&!modern&&[...input.rules.values()].some(r=>r.effects.some(e=>e.kind.startsWith("itemRecipe:"))))throw Error("Item recipes require the version-5 runtime.");
   if(version<6&&[...input.rules.values()].some(r=>r.effects.some(e=>["hazardGuard","statGuard","secondaryGuard","hitCount","mirrorBoosts","flagPower"].some(k=>e.kind===`itemRecipe:${k}`))))throw Error("These item recipes require the version-6 runtime.");
+  if (hasItemSelection(input.rules) && (version !== 7 || !input.selection)) throw Error("Move restrictions require a verified selection adapter.");
   const rpm = structuredClone(sourceTemplate) as unknown as RpmModule;
   const original = Uint8Array.from(sourceTemplate.code), dispatch = (original.length + 3) & ~3;
   const config = (dispatch + input.dispatcher.code.length + 3) & ~3;
@@ -44,6 +47,11 @@ export function buildRuleRuntime(input: RuleRuntimeInput): RpmModule {
     rpm.symbols.push({ name: null, address: call.address, size: 0, type: "FUNCTION_THM", attributes: 4 });
     rpm.relocations.push({ target: { module: "base", address: dispatch + call.offset, type: "THUMB_BRANCH_LINK" }, sourceSymbolIndex: rpm.symbols.length - 1 });
   }
+  if (input.selection) {
+    const wrapper = rpm.symbols.indexOf(named("RuleItemSelect"));
+    for (const [index, address] of [[48,input.selection.address],[49,input.selection.canUse],[50,input.selection.moveType]] as const) writeU32(rpm.code, api + index * 4, address | 1);
+    for (const address of input.selection.sites) rpm.relocations.push({target:{module:input.module??"167",address,type:"THUMB_BRANCH_LINK"},sourceSymbolIndex:wrapper});
+  }
   if (extended) {
     input.native!.api.forEach((address, index) => writeU32(rpm.code, api + index * 4, address | 1));
     if(!input.portable)appendNativeItemEffects(rpm, encoded!, config, input.native!.resolve);
@@ -59,7 +67,7 @@ export function buildRuleRuntime(input: RuleRuntimeInput): RpmModule {
     const shift = ((rpm.code.length + 3) & ~3) - bssBase;
     bssSymbols.forEach(symbol => { symbol.address += shift; });
   }
-  rpm.metadata = { PMCGameID: input.game, PMCVersion: extended ? latest?"6.0.0":modern?"5.0.0":"4.0.0" : "3.0.0", PMCModulePriority: 4, PokewebItemEffects: "rules",
+  rpm.metadata = { PMCGameID: input.game, PMCVersion: extended ? version===7?"7.0.0":latest?"6.0.0":modern?"5.0.0":"4.0.0" : "3.0.0", PMCModulePriority: 4, PokewebItemEffects: "rules",
     PokewebItemRules: JSON.stringify([...input.rules].sort(([a], [b]) => a - b)) };
   if(latest)rpm.metadata.PokewebItemMessages=JSON.stringify(input.messages??[0,0,0]);
   if(modern)rpm.metadata.PokewebItemMoveClasses=JSON.stringify([...(input.moveClasses??defaultItemMoveClasses())].filter(([,mask])=>mask).sort(([a],[b])=>a-b));

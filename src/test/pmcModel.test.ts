@@ -55,7 +55,7 @@ const bgmToggleW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection
 const overworldWeatherRuntimeW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/PokewebOverworldWeatherW2.dll", import.meta.url)));
 
 describe("PMC installer", () => {
-  it("recompresses edited intro overlays in normal and Frost exports and preserves their loaded images", async () => {
+  it("preserves edited signed intro overlays in normal and Frost exports", async () => {
     const sourceRom = new NintendoDSRom(makeBw2LikeRom());
     const table = sourceRom.arm9OverlayTable.slice();
     const files = new Map<number, Uint8Array>();
@@ -80,10 +80,8 @@ describe("PMC installer", () => {
     const frost = new NintendoDSRom(exported);
     for (const id of [162, 294]) {
       const metadata = readU32(frost.arm9OverlayTable, id * 32 + 28);
-      expect(metadata >>> 24).toBe(3);
-      expect(metadata & 0xffffff).toBe(frost.files[id].length);
-      expect(frost.files[id].length).toBeLessThan(project.overlays[id]!.length);
-      expect(decompressCode(frost.files[id])).toEqual(project.overlays[id]);
+      expect(metadata >>> 24).toBe(2);
+      expect(frost.files[id]).toEqual(project.overlays[id]);
       expect(normal.files[id]).toEqual(frost.files[id]);
       expect(readU32(normal.arm9OverlayTable, id * 32 + 28)).toBe(metadata);
       expect(normal.loadArm9Overlays([id]).get(id)?.data).toEqual(project.overlays[id]);
@@ -96,7 +94,7 @@ describe("PMC installer", () => {
     expect(project.overlays[162]).toEqual(normal.loadArm9Overlays([162]).get(162)?.data);
   });
 
-  it.each([false, true])("recompresses retail overlays while keeping PMC raw (Frost: %s)", async frostCompatibility => {
+  it.each([false, true])("preserves signed retail overlays and keeps PMC raw (Frost: %s)", async frostCompatibility => {
     const rom = new NintendoDSRom(makeBw2LikeRom());
     const table = rom.arm9OverlayTable.slice(), image = new Uint8Array(0x800).fill(0x52);
     writeU32(table, 162 * 32 + 8, image.length);
@@ -106,8 +104,8 @@ describe("PMC installer", () => {
     installPmcBytes(project, pmcW2, source);
     const exported = await exportModifiedRom(project, { frostCompatibility });
     const frost = new NintendoDSRom(exported);
-    expect(readU32(frost.arm9OverlayTable, 162 * 32 + 28) >>> 24).toBe(3);
-    expect(decompressCode(frost.files[162])).toEqual(image);
+    expect(readU32(frost.arm9OverlayTable, 162 * 32 + 28) >>> 24).toBe(2);
+    expect(frost.files[162]).toEqual(image);
     expect(readU32(frost.arm9OverlayTable, 344 * 32 + 28) >>> 24 & 1).toBe(0);
     const pmcFileId = readU32(frost.arm9OverlayTable, 344 * 32 + 24);
     expect(readAscii(frost.files[pmcFileId], 0, 4)).toBe("RPM0");

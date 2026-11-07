@@ -1,4 +1,5 @@
 import { readU16, writeU16 } from "../nds/binary";
+import { itemSpriteTableFromPointers } from "./itemSpriteTable";
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
 import { isGen4Project, type BaseVersion } from "./constants";
 import { getMoveRecord, moveMatchesSearch, titleize, type FieldUpdateResult, type MoveRecord } from "./moveItemModel";
@@ -247,7 +248,7 @@ export function syncTmIcon(project: ProjectState, field: string): boolean {
   const state = ensureTms(project);
   const itemId = tmFieldItemId(field);
   if (itemId === undefined) return false;
-  const tableOffset = locateItemGraphicsTable(project.arm9);
+  const tableOffset = itemSpriteTableFromPointers(project.arm9, project.session.baseVersion) ?? locateItemGraphicsTable(project.arm9);
   if (tableOffset === undefined) throw new Error("Unable to locate the item icon graphics table in ARM9");
 
   const moveId = Number(state.raw[field] ?? 0);

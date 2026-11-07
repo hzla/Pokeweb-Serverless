@@ -147,3 +147,12 @@
 #item-data .mt-table tr:focus-within .mt-actions .btn {
   visibility: visible;
 }
+
+#item-data .it-sprite-editor { margin-top: 16px; }
+#item-data .it-sprite-layout { display: flex; flex-wrap: wrap; gap: 24px; padding: 16px 0; }
+#item-data .it-sprite-layout canvas { width: 192px; height: 192px; image-rendering: pixelated; background: repeating-conic-gradient(#9da2ad 0% 25%, #d7dbe1 0% 50%) 50% / 24px 24px; border: 1px solid var(--border-color, #626a80); }
+#item-data .it-sprite-controls { display: grid; gap: 12px; align-content: start; }
+#item-data .it-sprite-controls > label:first-child { display: grid; gap: 6px; }
+#item-data .it-sprite-position { display: flex; gap: 16px; }
+#item-data .it-sprite-position input { width: 72px; }
+#item-data .it-sprite-controls button { justify-self: start; }

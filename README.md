@@ -64,6 +64,8 @@ See the [workflow guides and references](docs/README.md) for detailed editing in
 
 `npm test` runs the self-contained suite, including synthetic ROM export, save-data, and installer rollback checks. `npm run test:rom` also enables integration checks against local retail ROMs and extracted resources, using one worker and a 30-second default test limit. Missing local fixtures are reported as skipped; retail ROMs are not bundled with the tests. Both commands accept Vitest file filters, for example `npm run test:rom -- src/test/mapGlbImport.test.ts`.
 
+`npm run test:quick` runs the curated core suite in `scripts/quick-test-files.js`, covering ROM import/export, autosave, core editing, and native patch installation. For GitHub Pages deployments, `[quick tests]` in the pushed HEAD commit message selects this subset; `[skip tests]` skips tests entirely and takes precedence if both markers appear. Unmarked pushes and manual workflow runs use the full suite. These markers affect only tests; the workflow still builds and deploys the site.
+
 ## Credits
 
 Should users choose to install from the animated sprite library, or move animation expansion library, relevant credits are listed on the install pages.

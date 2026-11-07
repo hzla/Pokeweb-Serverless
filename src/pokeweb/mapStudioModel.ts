@@ -1,6 +1,6 @@
 import { studioAssert, type StudioChunk, type StudioWorkspace } from "./mapStudioFormats";
 
-export type StudioTool = "paint" | "smart" | "erase" | "fill" | "pick" | "height" | "pan";
+export type StudioTool = "paint" | "smart" | "erase" | "fill" | "pick" | "height" | "pan" | "explore";
 type CellChange = { chunk: number; layer: number; index: number; tile: number; height: number; brush?: string; nextTile: number; nextHeight: number; nextBrush?: string };
 export const studioCellKey = (chunk: number, layer: number, index: number) => `${chunk}:${layer}:${index}`;
 /** A drag is one command. Store changed cells, never snapshots of the entire map. */

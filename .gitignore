@@ -53,6 +53,9 @@ src/test/local/
 !/scripts/verify-gen5-map-import.ts
 !/scripts/verify-gen5-map-import-emulator.ts
 !/scripts/verify-map-studio.ts
+!/scripts/verify-map-height-generation.ts
+!/scripts/verify-map-explore-test.ts
+!/scripts/verify-map-explore-emulator.ts
 !/scripts/verify-map-studio-emulator.ts
 !/scripts/generate-item-effect-profiles.py
 !/scripts/verify-item-effects.ts
@@ -78,6 +81,7 @@ src/test/local/
 # Vite imports the local bridge; TypeScript/tests import the shared tooling.
 !/scripts/w2u-local-bridge.js
 !/scripts/runtime-release-dates.js
+!/scripts/quick-test-files.js
 !/scripts/lib/
 !/scripts/build-battle-harness.ts
 !/scripts/test-battle-harness-headless.py

@@ -1,4 +1,5 @@
-import {hydrateBw1ItemSource,inspectBw1ItemEffect,buildBw1ItemModule,configureBw1ItemRules,clearBw1ItemRules,checkedBw1ItemRule} from "./itemBw1Effects";
+import { hasItemSelection, resolveItemSelection } from "./itemSelectionBindings";
+import {hydrateBw1ItemSource,inspectBw1ItemEffect,buildBw1ItemModule,configureBw1ItemRules,clearBw1ItemRules,checkedBw1ItemRule,readBw1ItemRules} from "./itemBw1Effects";
 import {battleRuntimeResolver} from "./battleRuntimeBindings";
 import {itemMessageIds} from "./itemBattleMessages";
 import profiles from "../assets/data/itemEffectProfiles.json";
@@ -520,7 +521,7 @@ function nativeRuleResolver(c: Context, skipAbilityMoveParam = false): NativeIte
     return { address, code };
   };
 }
-function ruleModule(c: Context, rules: ReadonlyMap<number, ItemRuleSet>, legacy = false, chainFollower = false, skipAbilityMoveParam = chainFollower, nativeVersion:4|5|6=6, moveClasses?:ReadonlyMap<number,number>): RpmModule {
+function ruleModule(c: Context, rules: ReadonlyMap<number, ItemRuleSet>, legacy = false, chainFollower = false, skipAbilityMoveParam = chainFollower, nativeVersion:4|5|6|7=hasItemSelection(rules)?7:6, moveClasses?:ReadonlyMap<number,number>): RpmModule {
   assertNoConflict(c, c.source.base + c.dispatcher, 8, [ITEM_EFFECTS_DLL_PATH]);
   const located = new Map<string, number>([["ItemEvent_AddItemCore", c.dispatcher]]);
   function locate(name: string): number {
@@ -578,7 +579,7 @@ function ruleModule(c: Context, rules: ReadonlyMap<number, ItemRuleSet>, legacy 
     }
     moveClasses=classes;
   }
-  if(nativeVersion===6&&!legacy){
+  if(nativeVersion>=6&&!legacy){
     const resolver=battleRuntimeResolver(c.data,c.source.base,c.project.arm9,c.source.arm9Base);
     for(const name of ["BattleEventItem_AttachSkipCheckHandler","GetSideFromMonID","IsEventTargetMon","BattleRandom"]){const result=resolver.resolve(name);assertNoConflict(c,result.address,result.code.length,[ITEM_EFFECTS_DLL_PATH]);}
     extra.push("BattleEventItem_AttachSkipCheckHandler","GetSideFromMonID","IsEventTargetMon","BattleRandom");
@@ -592,7 +593,8 @@ function ruleModule(c: Context, rules: ReadonlyMap<number, ItemRuleSet>, legacy 
   }
   return buildResult(resolve);
   function buildResult(resolve:NativeItemResolver|undefined):RpmModule{
-  const result=buildRuleRuntime({ game: c.project.session.baseVersion, rules, api: ITEM_RULE_API.map(name => addresses[name]), legacy,nativeVersion,moveClasses,messages:nativeVersion===6?itemMessageIds(c.project,rules):undefined,
+  const selection=nativeVersion===7?resolveItemSelection(c.source.game,c.data,c.source.base,c.project.arm9,c.source.arm9Base,(address,size)=>assertNoConflict(c,address,size,[ITEM_EFFECTS_DLL_PATH])):undefined;
+  const result=buildRuleRuntime({ selection, game: c.project.session.baseVersion, rules, api: ITEM_RULE_API.map(name => addresses[name]), legacy,nativeVersion,moveClasses,messages:nativeVersion>=6?itemMessageIds(c.project,rules):undefined,
     native: resolve ? { resolve, api: new Map(extra.flatMap((name, index) => name ? [[19 + index, resolve(name).address] as const] : [])) } : undefined,
     dispatcher: { address: c.source.base + c.dispatcher, code: c.data.slice(c.dispatcher, c.dispatcher + signature.bytes.length),
       calls: signature.calls.map(value => ({ offset: value.offset, address: branchTarget(c, c.dispatcher + value.offset) })) } });
@@ -624,11 +626,11 @@ function readGenericRules(c: Context, verifyPeer = true): Map<number, ItemRuleSe
     const peer=files.get("patches/AbilityEffects.dll");
     if(!peer||parseRpm(peer,{allowedMagics:["DLXF"]}).metadata.PokewebMoveParamAddress!==rpm.metadata.PokewebMoveParamAddress||!isVerifiedAbilityMoveParamOwner(c.project))throw Error("The shared ability move-parameter owner is missing or modified.");
   }
-  const modern=["5.0.0","6.0.0"].includes(String(rpm.metadata.PMCVersion));
+  const modern=["5.0.0","6.0.0","7.0.0"].includes(String(rpm.metadata.PMCVersion));
   if(modern&&typeof rpm.metadata.PokewebItemMoveClasses!=="string")throw Error("Missing item move-class data.");
   const classes=modern?validateMoveClassOverrides(JSON.parse(String(rpm.metadata.PokewebItemMoveClasses)),new Map(),true):undefined;
-  if (!["3.0.0", "4.0.0", "5.0.0", "6.0.0"].includes(String(rpm.metadata.PMCVersion)) || !sameBytes(bytes, writeRpm(ruleModule(c, rules, rpm.metadata.PMCVersion === "3.0.0",follower,follower,rpm.metadata.PMCVersion==="6.0.0"?6:modern?5:4,classes), { ident: "DLXF" }))) throw new Error("The shared item rules DLL has been modified.");
-  verifiedRules.set(c.project, { base: c.source.base, overlay: c.data.slice(), arm9: c.project.arm9.slice(), files: new Map([...files].map(([path, value]) => [path, value.slice()])), rules: structuredClone(rules),peerVerified:verifyPeer||!follower,...(rpm.metadata.PMCVersion==="6.0.0"?{messages:JSON.stringify(itemMessageIds(c.project,rules))}:{}) });
+  if (!["3.0.0", "4.0.0", "5.0.0", "6.0.0", "7.0.0"].includes(String(rpm.metadata.PMCVersion)) || !sameBytes(bytes, writeRpm(ruleModule(c, rules, rpm.metadata.PMCVersion === "3.0.0",follower,follower,rpm.metadata.PMCVersion==="7.0.0"?7:rpm.metadata.PMCVersion==="6.0.0"?6:modern?5:4,classes), { ident: "DLXF" }))) throw new Error("The shared item rules DLL has been modified.");
+  verifiedRules.set(c.project, { base: c.source.base, overlay: c.data.slice(), arm9: c.project.arm9.slice(), files: new Map([...files].map(([path, value]) => [path, value.slice()])), rules: structuredClone(rules),peerVerified:verifyPeer||!follower,...(["6.0.0","7.0.0"].includes(String(rpm.metadata.PMCVersion))?{messages:JSON.stringify(itemMessageIds(c.project,rules))}:{}) });
   c.rules = rules; c.rulesRead = true;c.peerVerified=verifyPeer||!follower;
   return rules;
 }
@@ -645,6 +647,18 @@ export function prepareItemMoveParamForAbility(project:ProjectState,chain:boolea
   const module=ruleModule(c,rules,false,chain,true);
   return {present:true,module,...(chain?{address:Number(module.metadata.PokewebMoveParamAddress)}:{})};
 }
+/** Verify the item-owned selection call sites before allowing a move hook. */
+export function isVerifiedItemSelectionImport(project:ProjectState,path:string,bytes:Uint8Array,address:number):boolean {
+  if(path!==ITEM_EFFECTS_DLL_PATH)return false;
+  try {
+    const module=parseRpm(bytes,{allowedMagics:["DLXF"]});
+    if(module.metadata.PMCVersion!=="7.0.0")return false;
+    const rules=project.session.baseRom==="BW"?readBw1ItemRules(project):readGenericRules(nativeContext(project));
+    if(!rules||!hasItemSelection(rules))return false;
+    const targets=module.relocations.filter(r=>r.target.module===(project.session.baseRom==="BW"?"93":"167")&&r.target.type==="THUMB_BRANCH_LINK"&&module.symbols[r.sourceSymbolIndex]?.name==="RuleItemSelect");
+    return targets.length===5&&targets.some(r=>r.target.address===address);
+  } catch {return false;}
+}
 /** A caller may use the canonical item-aware move-parameter entry point. */
 export function isVerifiedItemMoveParamImport(project: ProjectState, path: string, bytes: Uint8Array, address: number): boolean {
   if(path!==ITEM_EFFECTS_DLL_PATH)return false;
@@ -659,12 +673,12 @@ function typeHealingRule(type: number, divisor: number): ItemRuleSet {
 }
 function checkedItemRule(project:ProjectState,input:ItemRuleSet):ItemRuleSet {
   const rule=validateItemRule(input);
-  if(!project.session.fairy&&rule.effects.some(e=>["itemRecipe:hitStats","itemRecipe:power","itemRecipe:resist","itemRecipe:flagPower"].includes(e.kind)&&e.parameters?.type===17))throw Error("Fairy requires a Fairy-enabled ROM. Choose another move type.");
+  if(!project.session.fairy&&rule.effects.some(e=>["itemRecipe:hitStats","itemRecipe:power","itemRecipe:resist","itemRecipe:flagPower","itemRecipe:moveRestriction"].includes(e.kind)&&e.parameters?.type===17))throw Error("Fairy requires a Fairy-enabled ROM. Choose another move type.");
   return rule;
 }
 /** Build a checked image without installing it, for local inspection/validation. */
-export function buildItemRuleModule(project: ProjectState, entries: ReadonlyMap<number, ItemRuleSet>, nativeVersion:4|5|6=6, options:{chainFollower?:boolean;moveClasses?:ReadonlyMap<number,number>}={}): RpmModule {
-  if(project.session.baseRom==="BW"&&nativeVersion!==6)throw Error("Black/White item recipes require the version-6 runtime.");
+export function buildItemRuleModule(project: ProjectState, entries: ReadonlyMap<number, ItemRuleSet>, nativeVersion:4|5|6|7=hasItemSelection(entries)?7:6, options:{chainFollower?:boolean;moveClasses?:ReadonlyMap<number,number>}={}): RpmModule {
+  if(project.session.baseRom==="BW"&&nativeVersion!==6&&nativeVersion!==7)throw Error("Black/White item recipes require the version-6 or version-7 runtime.");
   const rules = new Map<number, ItemRuleSet>();
   for (const [id, input] of entries) {
     if (!Number.isInteger(id) || id < 1 || id >= 640) throw new Error("Invalid item ID.");

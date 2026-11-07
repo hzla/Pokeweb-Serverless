@@ -6,7 +6,7 @@ import { recompressOverlayFiles } from "../nds/code";
 describe("overlay recompression", () => {
   it("uses overlay file IDs and preserves all loaded metadata and caller buffers", () => {
     const table = new Uint8Array(32), data = new Uint8Array(0x800).fill(0x5a);
-    [162, 0x021a0000, data.length, 0x80, 0x021a0020, 0x021a0040, 19, 0x82000000]
+    [162, 0x021a0000, data.length, 0x80, 0x021a0020, 0x021a0040, 19, 0x80000000]
       .forEach((value, i) => writeU32(table, i * 4, value));
     const before = table.slice(), original = data.slice();
     const packed = recompressOverlayFiles(table, (id, fileId) => {
@@ -15,9 +15,15 @@ describe("overlay recompression", () => {
     expect(packed.files.size).toBe(1);
     expect(decompressCode(packed.files.get(19)!)).toEqual(data);
     expect(packed.table.subarray(0, 28)).toEqual(table.subarray(0, 28));
-    expect(readU32(packed.table, 28) >>> 24).toBe(0x83);
+    expect(readU32(packed.table, 28) >>> 24).toBe(0x81);
     expect(readU32(packed.table, 28) & 0xffffff).toBe(packed.files.get(19)!.length);
     expect(table).toEqual(before); expect(data).toEqual(original);
+  });
+  it("preserves signed raw overlay images and their metadata", () => {
+    const table = new Uint8Array(32), data = new Uint8Array(0x800).fill(0x5a);
+    writeU32(table, 8, data.length); writeU32(table, 24, 19); writeU32(table, 28, 0x02000000 | data.length);
+    const packed = recompressOverlayFiles(table, () => data);
+    expect(packed.files.size).toBe(0); expect(packed.table).toEqual(table);
   });
   it("keeps compressed, incompressible, excluded and RPM loader images unchanged", () => {
     const raw = new Uint8Array(0x800).fill(0x71), encoded = compressCode(raw);

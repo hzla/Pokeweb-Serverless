@@ -14,6 +14,7 @@ Gen 4 and Gen 5 authoring projects can be loaded. All nine tile and height layer
 - **Pick (I)** selects an existing tile and height. **Height (H)** changes the elevation of painted cells. The Z rail or numeric field sets the brush height; brackets adjust it by one.
 - Each pointer stroke is one undo command. Use Ctrl/Command Z and Ctrl/Command Shift Z, or the toolbar.
 - Layer checkboxes control visibility; the neighboring layer buttons select the editing layer. Middle drag pans, right drag rotates, and scrolling zooms.
+- Projects open in **Top view**. **Explore (V)** switches to 3D camera navigation: drag to rotate, Shift-drag or middle drag to pan, and scroll to zoom. Explore does not paint. **Top view** returns to painting from above; **B** selects the paint tool in the current view. Space temporarily pans and returns to the previous tool.
 - Search filters the entire tile library. Large palettes display tiles in batches, with thumbnails generated only for visible entries.
 
 **Save project bundle** downloads a ZIP containing the updated project and its assets. Extract the bundle to open it in desktop PDSMS. **Save PDSMAP only** downloads the map grids separately. Browser drafts use a separate Map Studio database; they are not embedded in the ROM project's ordinary autosave.

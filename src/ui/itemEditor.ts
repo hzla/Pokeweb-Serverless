@@ -5,13 +5,14 @@ import type { ProjectState } from "../pokeweb/projectStore";
 import { attachListArrows, changedKeys, installDetailFields, markSelectedRow, patchDetail, refreshEditMarks } from "./detailFields";
 import { escapeHtml } from "./dom";
 import { installItemEffects, renderItemEffects } from "./itemEffectsEditor";
+import { installItemSpriteEditor, renderItemSpriteEditor } from "./itemSpriteEditor";
 import "../styles/moveData.css";
 import "../styles/trainerData.css";
 import "../styles/facilityData.css";
 import "../styles/encounterData.css";
 import "../styles/itemData.css";
 
-type ItemTab = "data" | "effect";
+type ItemTab = "data" | "effect" | "sprite";
 
 type ItemEditorState = { itemId: number; tab: ItemTab; search: string; pocket: string };
 
@@ -58,7 +59,7 @@ export function renderItemEditor(project: ProjectState, root: HTMLElement, onDir
   const state = editorStates.get(project) ?? { itemId: 1, tab: "data" as ItemTab, search: "", pocket: "" };
   editorStates.set(project, state);
   if (state.itemId >= count || state.itemId < 1) state.itemId = count > 1 ? 1 : 0;
-  if (state.tab === "effect" && !["BW","BW2"].includes(project.session.baseRom)) state.tab = "data";
+  if (state.tab !== "data" && !["BW","BW2"].includes(project.session.baseRom)) state.tab = "data";
   const pageActions = document.getElementById("page-actions");
   if (pageActions) pageActions.innerHTML = "";
   // Item 0 is the game's "None" placeholder.
@@ -115,6 +116,7 @@ export function renderItemEditor(project: ProjectState, root: HTMLElement, onDir
   const html = () => renderItemDetail(project, state.itemId, state.tab);
   const install = (scope: HTMLElement) => {
     installDetailFields(scope, { autofills: {}, commit });
+    installItemSpriteEditor(scope, project, state.itemId, () => { onDirty?.(); refreshRow(state.itemId); marks(); });
     installItemEffects(scope, project, () => {
       onDirty?.();
       refreshRow(state.itemId);
@@ -245,8 +247,8 @@ function renderItemDetail(project: ProjectState, id: number, tab: ItemTab): stri
           <div class="fd-subtitle" data-derived="subtitle">${escapeHtml(pocket)}${price ? ` · ₽${price.toLocaleString("en-US")}, sells for ₽${Math.floor(price / 2).toLocaleString("en-US")}` : ""}</div>
         </div>
       </header>
-      ${hasEffects ? `<div class="md-tabs" role="tablist" aria-label="Item editor">${tabButton("data", "Data")}${tabButton("effect", "Held effect")}</div>` : ""}
-      ${tab === "effect" && hasEffects ? `<div class="it-effect">${renderItemEffects(project, id)}</div>` : renderDataPanel(project, item)}
+      ${hasEffects ? `<div class="md-tabs" role="tablist" aria-label="Item editor">${tabButton("data", "Data")}${tabButton("effect", "Held effect")}${tabButton("sprite", "Sprite")}</div>` : ""}
+      ${tab === "effect" && hasEffects ? `<div class="it-effect">${renderItemEffects(project, id)}</div>` : tab === "sprite" && hasEffects ? renderItemSpriteEditor() : renderDataPanel(project, item)}
     </article>
   `;
 }

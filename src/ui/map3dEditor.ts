@@ -30,6 +30,7 @@ import { escapeHtml } from "./dom";
 import { createMap3dBuildingInspector, pickMap3dBuilding } from "./map3dBuildingInspector";
 import type { MapGlbImport } from "../pokeweb/mapGlbImport";
 import type { Gen5MapImport } from "../pokeweb/gen5MapImport";
+import type { MapHeightEdit } from "../pokeweb/mapHeightEdit";
 import { openTestBattleEmulator } from '../pokeweb/testBattleEmulatorLauncher';
 import type { MapCameraTestPosition } from '../pokeweb/mapCameraTest';
 
@@ -159,6 +160,8 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   let pendingImport: MapGlbImport | undefined;
   let lastImport: MapGlbImport | undefined;
   let lastNativeImport: Gen5MapImport | undefined;
+  let lastHeightEdit: MapHeightEdit | undefined;
+  let testingMap = false;
   const lockedControls = new Map<HTMLInputElement | HTMLSelectElement | HTMLButtonElement, boolean>();
   const dirtyPermissionEdits = new Map<string, Map3dPermissionEdit>();
 
@@ -287,6 +290,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
         <label class="map3d-check"><input id="map3d-permission-paint" type="checkbox" /> Paint on click</label>
         <button class="ow-tool map3d-load-button" id="map3d-permission-apply" type="button">Apply To Selected</button>
         <button class="ow-tool map3d-load-button" id="map3d-permission-save" type="button">Save Permission Edits</button>
+        ${isGen4Project(project) ? "" : '<button class="ow-tool map3d-load-button" id="map3d-height-generate" type="button" disabled>Generate walking heights…</button><button class="ow-tool map3d-load-button" id="map3d-height-undo" type="button" disabled>Undo generated heights</button>'}
         <div class="map3d-permission-selected" id="map3d-permission-selected">Load a map, enable the overlay, then click a tile.</div>
       </div>
     </div>
@@ -295,9 +299,10 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
         <div class="map3d-toolbar-buttons">
           <button class="ow-tool" id="map3d-reset" type="button">Reset View</button>
           <button class="ow-tool" id="map3d-topdown" type="button">Top Down</button>
+          ${isGen4Project(project) ? '' : '<button class="ow-tool" id="map3d-game-test" type="button" disabled>Test in game</button>'}
           <button class="ow-tool" id="map3d-export" type="button" disabled title="Export the loaded map and season, including terrain, buildings, and textures">Export for Blender (.glb)</button>
           ${project.session.baseRom === "BW2" ? '<button class="ow-tool" id="map3d-import" type="button" disabled>Import edited map GLB</button><input id="map3d-import-file" type="file" accept=".glb" hidden />' : ''}
-          ${isGen4Project(project) ? '' : '<button class="ow-tool" id="map3d-native-import" type="button" disabled>Import DS Map Studio map</button><button class="ow-tool" id="map3d-import-undo" type="button" disabled>Undo map import</button>'}
+          ${isGen4Project(project) ? '' : '<button class="ow-tool" id="map3d-native-folder" type="button" disabled>Open map folder…</button><button class="ow-tool" id="map3d-native-import" type="button" disabled>Import DS Map Studio map</button><button class="ow-tool" id="map3d-import-undo" type="button" disabled>Undo map import</button>'}
         </div>
         <div class="map3d-export-status" id="map3d-export-status" role="status" aria-live="polite"></div>
         <details class="map3d-controls map3d-camera-readout" open>
@@ -331,7 +336,11 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   root.querySelector<HTMLButtonElement>('#map3d-copy-camera')!.addEventListener('click',()=>{const p=cameraCoordinates();if(!p)return;const text=JSON.stringify(p,null,2),field=document.createElement('textarea');field.value=text;field.style.cssText='position:fixed;left:-10000px;top:0';root.append(field);field.select();const copied=document.execCommand('copy');field.remove();if(copied)setStatus('Camera coordinates copied.');else void navigator.clipboard.writeText(text).then(()=>setStatus('Camera coordinates copied.')).catch(()=>setStatus('Unable to copy. The live camera coordinates remain visible above.'));});
   const importButton = root.querySelector<HTMLButtonElement>("#map3d-import");
   const nativeImportButton = root.querySelector<HTMLButtonElement>("#map3d-native-import");
+  const nativeFolderButton = root.querySelector<HTMLButtonElement>("#map3d-native-folder");
   const importUndo = root.querySelector<HTMLButtonElement>("#map3d-import-undo");
+  const heightGenerate = root.querySelector<HTMLButtonElement>("#map3d-height-generate");
+  const heightUndo = root.querySelector<HTMLButtonElement>("#map3d-height-undo");
+  const mapGameTest = root.querySelector<HTMLButtonElement>("#map3d-game-test");
   const importFile = root.querySelector<HTMLInputElement>("#map3d-import-file");
   const importReview = root.querySelector<HTMLElement>("#map3d-import-review")!;
   const seasonButtons = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-map3d-season]"));
@@ -546,22 +555,27 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     }
     void load(activeZone);
   });
-  async function testInGame(position:MapCameraTestPosition){
+  async function testInGame(position?:MapCameraTestPosition){
     const data=activeData;
-    if(!data||data.zoneId!==position.zoneId)throw new Error('Reload the map and snap camera again.');
+    if(!data||position&&data.zoneId!==position.zoneId)throw new Error('Reload the map before testing.');
     if(importing||pendingImport)throw new Error('Apply or cancel the map import before testing.');
     if(dirtyPermissionEdits.size)throw new Error('Save permission edits before testing.');
+    if(testingMap)return;
     const emulator=openTestBattleEmulator({mode:'field'});
+    testingMap=true;refreshImportButtons();
     if(exportStatus)exportStatus.textContent='Preparing game test…';
     try{
-      const {resolveMapCameraTestPosition,buildMapCameraTestDownloads}=await import('../pokeweb/mapCameraTest');
-      const destination=resolveMapCameraTestPosition(data,{x:position.tileX*16+8,y:position.height,z:position.tileZ*16+8},position.facing);
-      const result=await buildMapCameraTestDownloads(project,destination);
-      const name=`${project.session.romName||'White2'}-map-test-${destination.zoneId}-${destination.tileX}-${destination.tileZ}`;
-      await emulator.launch({romName:`${name}.nds`,saveName:`${name}.dsv`,trainerId:0,testLabel:`Zone ${destination.zoneId} · Tile ${destination.tileX}, ${destination.tileZ} — Continue, then press Down`,romBytes:result.romBytes,saveBytes:result.dsvBytes});
-      if(exportStatus&&activeData===data)exportStatus.textContent=`Continue, then press Down → Zone ${destination.zoneId} · Tile ${destination.tileX}, ${destination.tileZ}`;
+      const {resolveMapCameraTestPosition}=await import('../pokeweb/mapCameraTest');
+      const {bottomLeftMapTestTile,buildMapExploreTestDownloads}=await import('../pokeweb/mapExploreTest');
+      const destination=position?resolveMapCameraTestPosition(data,{x:position.tileX*16+8,y:position.height,z:position.tileZ*16+8},position.facing):bottomLeftMapTestTile(project,data);
+      const result=await buildMapExploreTestDownloads(project,destination);
+      const name=`${project.session.romName||project.session.baseVersion}-map-test-${destination.zoneId}-${destination.tileX}-${destination.tileZ}`;
+      await emulator.launch({romName:`${name}.nds`,saveName:`${name}.dsv`,trainerId:0,testLabel:`Zone ${destination.zoneId} · Tile ${destination.tileX}, ${destination.tileZ} — Continue, then press Down · Walk Through Walls on`,romBytes:result.romBytes,saveBytes:result.saveBytes});
+      if(exportStatus&&activeData===data)exportStatus.textContent=`Continue, then press Down → Zone ${destination.zoneId} · Tile ${destination.tileX}, ${destination.tileZ} · Walk Through Walls on for this test`;
     }catch(error){emulator.close();if(exportStatus&&activeData===data)exportStatus.textContent=`Game test failed: ${error instanceof Error?error.message:String(error)}`;throw error;}
+    finally{testingMap=false;refreshImportButtons();}
   }
+  mapGameTest?.addEventListener("click",()=>{void testInGame().catch(error=>setStatus(error instanceof Error?error.message:String(error)));});
   root.querySelector<HTMLInputElement>("#map3d-show-neighbors")?.addEventListener("change", (event) => {
     includeNeighbors = (event.target as HTMLInputElement).checked;
     void load(activeZone);
@@ -609,8 +623,12 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   function refreshImportButtons() {
     if (importButton) importButton.disabled = !activeData || importing || exporting || !!pendingImport;
     if (nativeImportButton) nativeImportButton.disabled = !activeData || importing || exporting || !!pendingImport;
+    if (nativeFolderButton) nativeFolderButton.disabled = !activeData || importing || exporting || !!pendingImport;
     if (importUndo) importUndo.disabled = !activeData || importing || !!pendingImport || (!lastNativeImport && (lastImport?.original.zoneId !== activeZone || lastImport.original.season !== activeSeason));
     if (exportButton) exportButton.disabled = !activeData || importing || exporting || !!pendingImport;
+    if (heightGenerate) heightGenerate.disabled = !activeData || importing || exporting || !!pendingImport;
+    if (heightUndo) heightUndo.disabled = !lastHeightEdit?.applied || importing || exporting || !!pendingImport;
+    if (mapGameTest) mapGameTest.disabled = !activeData || importing || exporting || testingMap || !!pendingImport;
   }
   function clearImportReview() {
     pendingImport = undefined; importReview.hidden = true;
@@ -624,7 +642,33 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     buildingInspector.setData(undefined, "Apply or cancel the map import to resume placement editing.");
     applyCurrentLayerSettings(false);
   }
-  nativeImportButton?.addEventListener("click", async () => {
+  heightGenerate?.addEventListener("click", async () => {
+    if (!activeData || importing || exporting || pendingImport) return;
+    if (dirtyPermissionEdits.size) { setStatus("Save permission edits before generating walking heights."); return; }
+    const data = activeData, locks = new Map<HTMLInputElement | HTMLSelectElement | HTMLButtonElement, boolean>();
+    importing = true; refreshImportButtons();
+    try {
+      const { openMapHeightDialog } = await import("./mapHeightDialog");
+      openMapHeightDialog(project, root, data, {
+        lock(locked) {
+          importing = locked;
+          if (locked) for (const control of root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>(".map3d-sidebar input, .map3d-sidebar select, .map3d-sidebar button, .map3d-toolbar button")) { locks.set(control, control.disabled); control.disabled = true; }
+          else { for (const [control, disabled] of locks) control.disabled = disabled; locks.clear(); }
+          refreshImportButtons();
+        },
+        preview: showImportPreview,
+        restore() { if (state && activeData) { renderSceneData(state, activeData); buildingInspector.setData(activeData); applyCurrentLayerSettings(false); } },
+        async applied(edit) { lastHeightEdit = edit; onDirty?.(); await load(activeZone); setStatus("Walking heights applied. Export the ROM to test movement."); },
+      });
+    } catch (error) { importing = false; refreshImportButtons(); setStatus(error instanceof Error ? error.message : String(error)); }
+  });
+  heightUndo?.addEventListener("click", async () => {
+    if (!lastHeightEdit || importing || pendingImport) return;
+    try { (await import("../pokeweb/mapHeightEdit")).applyMapHeightEdit(project, lastHeightEdit, true); lastHeightEdit = undefined; onDirty?.(); await load(activeZone); setStatus("Generated walking heights undone."); }
+    catch (error) { setStatus(error instanceof Error ? error.message : String(error)); }
+    refreshImportButtons();
+  });
+  async function openNativeImport(openFolder = false) {
     if (!activeData || importing || exporting || pendingImport) return;
     if (dirtyPermissionEdits.size) { if (exportStatus) exportStatus.textContent = "Save permission edits before importing a map."; return; }
     const data = activeData, locks = new Map<HTMLInputElement | HTMLSelectElement | HTMLButtonElement, boolean>();
@@ -650,9 +694,11 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
           onDirty?.(); await load(result.target.headerId);
           if (exportStatus) exportStatus.textContent = "DS Map Studio import applied. Export the ROM to test it in-game.";
         },
-      });
+      }, { openFolder });
     } catch (error) { importing = false; refreshImportButtons(); if (exportStatus) exportStatus.textContent = `Import failed: ${error instanceof Error ? error.message : String(error)}`; }
-  });
+  }
+  nativeImportButton?.addEventListener("click", () => { void openNativeImport(); });
+  nativeFolderButton?.addEventListener("click", () => { void openNativeImport(true); });
   importButton?.addEventListener("click", () => {
     if (dirtyPermissionEdits.size) { if (exportStatus) exportStatus.textContent = "Save permission edits before importing a map."; return; }
     if (activeData && !importing && !pendingImport) importFile?.click();

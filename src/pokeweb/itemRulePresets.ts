@@ -1,6 +1,6 @@
 import { ITEM_RULE_EFFECTS, validateItemRule, type ItemRuleSet } from "./itemRules";
 const always = () => ({ kind: "group" as const, mode: "all" as const, children: [] });
-export const ITEM_RECIPE_TEMPLATE_IDS = { maranga: 10001, weaknessPolicy: 10002, fairyFeather: 10003, roseli: 10004, safetyGoggles: 10005, heavyDutyBoots:10006, clearAmulet:10007, covertCloak:10008, loadedDice:10009, mirrorHerb:10010, punchingGlove:10011 } as const;
+export const ITEM_RECIPE_TEMPLATE_IDS = { maranga: 10001, weaknessPolicy: 10002, fairyFeather: 10003, roseli: 10004, safetyGoggles: 10005, heavyDutyBoots:10006, clearAmulet:10007, covertCloak:10008, loadedDice:10009, mirrorHerb:10010, punchingGlove:10011, assaultVest:10012 } as const;
 const recipes = new Map<number,{label:string;effects:ItemRuleSet["effects"];consumable:boolean}>([
   [10001,{label:"Maranga Berry",effects:[{kind:"itemRecipe:hitStats",value:1,parameters:{category:2,berryUse:1}}],consumable:true}],
   [10002,{label:"Weakness Policy",effects:[{kind:"itemRecipe:hitStats",value:1,parameters:{attack:2,specialAttack:2,specialDefense:0,effectiveness:4}}],consumable:true}],
@@ -12,6 +12,7 @@ const recipes = new Map<number,{label:string;effects:ItemRuleSet["effects"];cons
   [10008,{label:"Covert Cloak",effects:[{kind:"itemRecipe:secondaryGuard",value:1}],consumable:false}],
   [10009,{label:"Loaded Dice",effects:[{kind:"itemRecipe:hitCount",value:4}],consumable:false}],
   [10010,{label:"Mirror Herb",effects:[{kind:"itemRecipe:mirrorBoosts",value:1}],consumable:true}],
+  [10012,{label:"Assault Vest",effects:[{kind:"specialDefense",value:1.5},{kind:"itemRecipe:moveRestriction",value:1}],consumable:false}],
   [10011,{label:"Punching Glove (power)",effects:[{kind:"itemRecipe:flagPower",value:1.1}],consumable:false}],
 ]);
 export const ITEM_RULE_PRESETS = [

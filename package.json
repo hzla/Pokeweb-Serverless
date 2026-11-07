@@ -8,6 +8,7 @@
     "dev:codex": "vite --mode codex-dev --host 127.0.0.1 --port 5173 --strictPort",
     "build": "tsc && vite build",
     "test": "vitest run",
+    "test:quick": "vitest run --mode quick",
     "test:rom": "vitest run --mode rom",
     "rom:validate": "vite-node scripts/validate-rom-data.ts",
     "abilities:build": "python3 runtime/ability-effects/build.py",

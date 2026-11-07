@@ -10,7 +10,9 @@ export function recompressOverlayFiles(
   const table = tableData.slice(), files = new Map<number, Uint8Array>();
   for (let offset = 0; offset + 32 <= table.length; offset += 32) {
     const overlayId = readU32(table, offset), metadata = readU32(table, offset + 28);
-    if (excludedOverlayIds.has(overlayId) || ((metadata >>> 24) & 1)) continue;
+    // Preserve signed images: recompressing them has not been validated against
+    // the game loader and can prevent PMC-patched ROMs from booting.
+    if (excludedOverlayIds.has(overlayId) || ((metadata >>> 24) & 3)) continue;
     const fileId = readU32(table, offset + 24), data = fileCallback(overlayId, fileId);
     // PMC's RPM image must match its named filesystem copy and stay raw.
     if (!data || data.length < 8 || data.length !== readU32(table, offset + 8) || readAscii(data, 0, 4) === "RPM0") continue;

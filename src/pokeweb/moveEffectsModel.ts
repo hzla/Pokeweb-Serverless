@@ -6,7 +6,7 @@ import compactKnockTemplate from "../assets/data/moveRuleRuntimeModernKnockCompa
 import { sha256Hex } from "../nds/sha256";
 import { encodeMoveRecipeBook, decodeMoveRecipeBook } from "./moveRecipeBook";
 import { CURRENT_ABILITY_RUNTIME_VERSION, inspectAbilityEffects, isVerifiedAbilityMoveParamImport, upgradeAbilityRuntime } from "./abilityEffectsModel";
-import { isVerifiedItemMoveParamImport } from "./itemEffectsModel";
+import { isVerifiedItemMoveParamImport, isVerifiedItemSelectionImport } from "./itemEffectsModel";
 import bindings from "../assets/data/moveRecipeBindings.json";
 import black1Bindings from "../assets/data/moveRecipeBindingsB1.json";
 import white1Bindings from "../assets/data/moveRecipeBindingsW1.json";
@@ -240,6 +240,7 @@ function checkHook(c: Context, name: string, address: number, size: number) {
       if (relocation.target.module !== (c.signatures[name].module === "ARM9" ? "0" : c.overlayModule)) continue;
       const start = relocation.target.address & ~1, length = relocation.target.type === "FULL_COPY" ? module.symbols[relocation.sourceSymbolIndex]?.size ?? 0 : relocation.target.type === "OFFSET" ? 4 : 16;
       if (start < address + size && start + length > address) {
+        if(name==="HistorySelect"&&relocation.target.type==="THUMB_BRANCH_LINK"&&isVerifiedItemSelectionImport(c.project,path,bytes,start))continue;
         if(name==="ServerEvent_GetMoveParam"&&start===address&&relocation.target.type==="THUMB_BRANCH"&&(isVerifiedAbilityMoveParamImport(c.project,path,bytes,address)||isVerifiedItemMoveParamImport(c.project,path,bytes,address)))continue;
         throw Error(`Conflicting move service hook: ${path} (${name}).`);
       }
@@ -300,16 +301,17 @@ function stored(c: Context): Saved {
 }
 /** Allow ordinary callers to use this exact transparent adapter; copied bodies must fail. */
 export function isVerifiedMoveServiceImport(project: ProjectState, path: string, bytes: Uint8Array, name: string, address: number): boolean {
-  if (path !== MOVE_EFFECTS_DLL_PATH || !["IsAffectedBySheerForce","ServerEvent_CheckTypeEffectiveness"].includes(name)) return false;
+  if (path !== MOVE_EFFECTS_DLL_PATH || !["IsAffectedBySheerForce","ServerEvent_CheckTypeEffectiveness","BattleMon_GetCritStage","BtlCalc_RollCritical"].includes(name)) return false;
   try {
     const c = context(project, false);
+    if (!c.files.has(path) || !same(c.files.get(path)!, bytes)) return false;
     // The ability caller is undergoing its own canonical verification. Check
     // this peer independently: its history-init adapter otherwise asks to
     // verify that same ability caller again and recursively re-enters here.
     c.files.delete("patches/AbilityEffects.dll");
     stored(c);
     const module = parseRpm(bytes, { allowedMagics: ["DLXF"] });
-    const wrapper=name==="IsAffectedBySheerForce"?"MoveSheerForce":"MoveTypeMatchupHook";
+    const wrapper=name==="IsAffectedBySheerForce"?"MoveSheerForce":name==="BattleMon_GetCritStage"?"MoveCriticalRank":name==="BtlCalc_RollCritical"?"MoveFocusedCritical":"MoveTypeMatchupHook";
     return module.relocations.some(r => r.target.module === c.overlayModule && r.target.address === address && r.target.type === (name==="ServerEvent_CheckTypeEffectiveness"?"THUMB_BRANCH_SAFESTACK":"THUMB_BRANCH") && module.symbols[r.sourceSymbolIndex]?.name === wrapper);
   } catch { return false; }
 }

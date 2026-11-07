@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import { createW2uLocalBridgePlugin } from "./scripts/w2u-local-bridge.js";
 import { runtimeReleaseDates } from "./scripts/runtime-release-dates.js";
+import { QUICK_TEST_FILES } from "./scripts/quick-test-files.js";
 
 export default defineConfig(({ mode }) => {
   const isCodexDev = mode === "codex-dev";
@@ -36,7 +37,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     test: {
-      include: ["src/test/**/*.test.ts"],
+      include: mode === "quick" ? QUICK_TEST_FILES : ["src/test/**/*.test.ts"],
       // Bound retail ROM memory use with one worker and allow full import/export cycles.
       maxWorkers: isRomTest ? 1 : 2,
       minWorkers: 1,

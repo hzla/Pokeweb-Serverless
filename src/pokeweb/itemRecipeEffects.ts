@@ -42,6 +42,9 @@ export const ITEM_RECIPE_EFFECTS:Recipe[] = [
   recipe("mirrorBoosts",138,"Copy opponents’ stat boosts",1,.125,8,.125,"× stages",[
     p("stat","Copied stat",0,0,7,"number",{0:"All stats",1:"Attack",2:"Defense",3:"Sp. Atk",4:"Sp. Def",5:"Speed",6:"Accuracy",7:"Evasion"}),
   ]),
+  recipe("moveRestriction",140,"Restrict move selection",1,1,1,1,"",[
+    p("category","Restricted category",1,0,3,"number",{0:"Any category",1:"Status",2:"Physical",3:"Special"},[0,1,2,3]),p("type","Base move type",18,0,18,"type",{18:"Any type"}),
+  ]),
   recipe("flagPower",139,"Move-class power multiplier",1.1,.125,8,.025,"×",[
     p("moveClass","Move class",2,0,13,"number",ITEM_RECIPE_MOVE_CLASSES,[0,1,2,3,4,5,6,7,8,12,13]),moveType(),category(),
   ]),
@@ -61,6 +64,7 @@ export function encodeItemRecipe(effect:ItemRuleEffect):number[] {
   else if(definition.code===136){b[1]=p("status");b[2]=p("statChanges");b[3]=p("flinch");}
   else if(definition.code===137){b[1]=effect.value;}
   else if(definition.code===138){b[1]=p("stat");const value=Math.round(effect.value*4096);b[2]=value&255;b[3]=value>>>8;}
+  else if(definition.code===140){b[1]=p("category");b[2]=p("type");}
   else if(definition.code===139){b[1]=p("type");const value=Math.round(effect.value*4096);b[2]=value&255;b[3]=value>>>8;b[4]=p("category");b[5]=p("moveClass");}
   else {const value=Math.round(effect.value*4096);b[1]=p(definition.code===132?"weather":definition.code===133?"moveClass":"type");b[2]=value&255;b[3]=value>>>8;if(definition.code===130)b[4]=p("category");if(definition.code===131)b[4]=p("superEffective");}
   return b;

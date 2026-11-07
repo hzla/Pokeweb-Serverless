@@ -27,6 +27,15 @@ describe("parameterized item templates",()=>{
   }
   expect(itemRecipeParameter(itemRulePreset(10004).effects[0],"type")).toBe(17);
  });
+ it("encodes adjustable Assault Vest move restrictions",()=>{
+  const rule=itemRulePreset(ITEM_RECIPE_TEMPLATE_IDS.assaultVest);
+  expect(rule.effects).toEqual([{kind:"specialDefense",value:1.5},{kind:"itemRecipe:moveRestriction",value:1}]);
+  expect(rule.consumable).toBe(false);
+  const check=(expected:number[])=>{const bytes=encodeItemRulesV4(new Map([[85,rule]])).bytes,at=readU16(bytes,170)+8+16;expect([...bytes.slice(at,at+3)]).toEqual(expected);};
+  check([140,1,18]);rule.effects[1].parameters={category:0,type:9};check([140,0,9]);
+  expect(()=>validateItemRule({...rule,effects:[{...rule.effects[1],parameters:{category:4}}]})).toThrow();
+  const {project}=makeItemEffectsProject(0,0,true);expect(renderItemRuleForm(project,rule)).toContain("Restricted category");
+ });
  it("rejects invalid parameters and empty stat groups",()=>{
   const r=itemRulePreset(10002);
   expect(()=>validateItemRule({...r,effects:[{...r.effects[0],parameters:{attack:7}}]})).toThrow();
@@ -36,7 +45,7 @@ describe("parameterized item templates",()=>{
  it("links every new recipe into one verified module and preserves parameters on reopening",()=>{
   const {project,base,offsets}=makeItemEffectsProject(0,0,true);
   project.session.fairy=true;
-  const rules=new Map(Object.values(ITEM_RECIPE_TEMPLATE_IDS).map((id,i)=>[85+i,itemRulePreset(id)]));
+  const rules=new Map(Object.values(ITEM_RECIPE_TEMPLATE_IDS).filter(id=>id!==ITEM_RECIPE_TEMPLATE_IDS.assaultVest).map((id,i)=>[85+i,itemRulePreset(id)]));
   const rpm=buildItemRuleModule(project,rules);
   expect(readU32(rpm.code,rpm.symbols.find(s=>s.name==="ItemRuleApi")!.address+43*4)).toBe((base+offsets.get("IsSubstituteActive")!)|1);
   expect(rpm.metadata.PMCVersion).toBe("6.0.0");expect(rpm.code.length+rpm.bssSize).toBeLessThan(65536);
