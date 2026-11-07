@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { optimizeMoveExpansionAssets } from "../pokeweb/moveExpansionAssetOptimization";
 import { decompileMoveAnimationBytes, parseMoveAnimationScript } from "../pokeweb/moveAnimationModel";
 import { getGen5BattleSpaWorkspaceBytes, parseSpaArchive, type SpaArchive } from "../pokeweb/nitroSpa";
+import { readU32, writeU16, writeU32 } from "../nds/binary";
 
 function assets(path: string) {
   const entries = unzipSync(new Uint8Array(readFileSync(new URL(path, import.meta.url))));
@@ -22,6 +23,33 @@ const source = assets("./fixtures/move-expansion/oversize-source-animations.zip"
 const optimized = optimizeMoveExpansionAssets(source);
 
 describe("retail-budget expanded animation assets", () => {
+  it("isolates the native Pyro Ball allowance without weakening retail exports", () => {
+    const move = source.moves.find(move => move.sourceMoveId === 780)!;
+    const original = source.particles.find(particle => particle.sourceParticleId === 960)!;
+    const spa = parseSpaArchive(original.bytes);
+    // Copy complete encoded records, including their optional blocks.
+    const textureAt = readU32(original.bytes, 24);
+    let end = 32;
+    for (let i = 0; i < 2; i++) {
+      const flags = readU32(original.bytes, end);
+      end += 88;
+      for (const [bit, size] of [[8, 12], [9, 12], [10, 8], [11, 12], [16, 20], [24, 8], [25, 8], [26, 16], [27, 4], [28, 8], [29, 16]]) if (flags & (1 << bit)) end += size;
+    }
+    const firstTwo = original.bytes.slice(32, end);
+    const extended = new Uint8Array(original.bytes.length + firstTwo.length);
+    extended.set(original.bytes.slice(0, textureAt));
+    extended.set(firstTwo, textureAt);
+    extended.set(original.bytes.slice(textureAt), textureAt + firstTwo.length);
+    writeU16(extended, 8, 24);
+    writeU32(extended, 16, readU32(original.bytes, 16) + firstTwo.length);
+    writeU32(extended, 24, textureAt + firstTwo.length);
+    const input = { moves: [move], particles: [{ ...original, bytes: extended }] };
+    expect(() => optimizeMoveExpansionAssets(input)).toThrow(/reviewed optimization/);
+    const native = optimizeMoveExpansionAssets(input, { nativePyro: true });
+    expect(parseSpaArchive(native.particles[0].bytes).resources).toHaveLength(22);
+    expect(getGen5BattleSpaWorkspaceBytes(native.particles[0].bytes)).toBeLessThanOrEqual(0x6000);
+    expect(() => optimizeMoveExpansionAssets(source, { nativePyro: true })).toThrow(/isolated/);
+  });
   it("optimizes all eleven source SPAs below the unchanged 18 KiB limit and is repeatable", () => {
     expect(optimized.report).toHaveLength(11);
     for (const particle of optimized.particles) expect(getGen5BattleSpaWorkspaceBytes(particle.bytes)).toBeLessThan(0x4800);

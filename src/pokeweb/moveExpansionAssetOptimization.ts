@@ -31,9 +31,11 @@ const RULES: Record<number, { count: number; remove?: number[]; reuse?: Reuse[];
 };
 
 /** Build-time asset changes only. The native 24-emitter/200-particle pools and
- * 18 KiB arena remain unchanged. Exact record copies preserve unknown SPA bits.
+ * default 18 KiB arena remain unchanged. The isolated native Pyro Ball export
+ * retains that port's existing 24 KiB allowance. Exact record copies preserve unknown SPA bits.
  */
-export function optimizeMoveExpansionAssets(input: { moves: MoveAsset[]; particles: ParticleAsset[] }) {
+export function optimizeMoveExpansionAssets(input: { moves: MoveAsset[]; particles: ParticleAsset[] }, options: { nativePyro?: boolean } = {}) {
+  if (options.nativePyro && (input.moves.length !== 1 || input.moves[0].sourceMoveId !== 780 || input.particles.length !== 1 || input.particles[0].sourceParticleId !== 960)) throw new Error("The native Pyro Ball policy applies only to its isolated move/bank pair.");
   const moves = input.moves.map(move => ({ ...move, particleIds: move.particleIds.slice() }));
   const particles = input.particles.map(particle => ({ ...particle }));
   const report: MoveParticleOptimization[] = [];
@@ -74,7 +76,10 @@ export function optimizeMoveExpansionAssets(input: { moves: MoveAsset[]; particl
       continue;
     }
     const rule = RULES[particle.sourceParticleId];
-    if (!rule || original.resources.length !== rule.count) throw new Error(`SPA ${particle.sourceParticleId} needs a reviewed optimization for its current layout.`);
+    // The native port's faster Pyro Ball retains two extra impact emitters.
+    // Its same three charge rings still require byte-identical normalized records.
+    const nativePyro = options.nativePyro && original.resources.length === 24;
+    if (!rule || (original.resources.length !== rule.count && !nativePyro)) throw new Error(`SPA ${particle.sourceParticleId} needs a reviewed optimization for its current layout.`);
     const working = particle.bytes.slice();
     const aliases = new Map<number, { canonical: number; delay: number; scale?: number; life?: number }>();
     for (const group of rule.reuse ?? []) {
@@ -127,7 +132,10 @@ export function optimizeMoveExpansionAssets(input: { moves: MoveAsset[]; particl
     move.bytes = compileMoveAnimation({} as ProjectState, move.sourceMoveId, fixed.script);
     if (fixed.repairs.length) shakeRepairs.push({ sourceMoveId: move.sourceMoveId, targetMoveId: move.targetMoveId, repairs: fixed.repairs });
   }
-  for (const particle of particles) if (getGen5BattleSpaWorkspaceBytes(particle.bytes) > LIMIT) throw new Error(`Optimized SPA ${particle.sourceParticleId} still exceeds the retail arena.`);
+  for (const particle of particles) {
+    const limit = options.nativePyro ? 0x6000 : LIMIT;
+    if (getGen5BattleSpaWorkspaceBytes(particle.bytes) > limit) throw new Error(`Optimized SPA ${particle.sourceParticleId} still exceeds its particle arena.`);
+  }
   return { moves, particles, report, shakeRepairs };
 }
 

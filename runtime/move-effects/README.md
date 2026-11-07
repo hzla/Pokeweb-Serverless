@@ -38,6 +38,13 @@ durations and conservative command scheduling; a finding across another task's
 completion wait needs native confirmation. Bundle generation applies reviewed
 shake repairs and regression checks cover every packaged body.
 
+For a native decomp checkout, `scripts/export-native-move-animation-fixes.ts` exports the bundled particle-budget
+and shake repairs into its existing presentation-repair format. Run it with `--source`, `--catalog`,
+`--prior-repairs` and a new external `--out` directory, then regenerate the native animation catalog with that
+repair root. It remaps split Terrain Pulse banks around native-owned IDs and preserves prior repairs. Native
+Pyro Ball retains its faster timing, two extra impact layers and existing 24 KiB allowance; ordinary Pokeweb
+bundle generation still enforces 18 KiB. The exporter never modifies the source artwork or ROM.
+
 The active native handler table is discovered from its checked dispatcher, including
 relocated or expanded tables with up to 4,096 rows. Move IDs and handler addresses
 may be reassigned, reordered, added to vacant slots or disabled. Both the address
