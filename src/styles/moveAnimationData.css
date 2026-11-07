@@ -1037,3 +1037,10 @@
   background: none;
   color: var(--text);
 }
+
+/* While another move loads, dim the old one (after a short delay so fast switches don't flicker). */
+#move-anim-data .ma-detail.-switching > * {
+  opacity: 0.5;
+  pointer-events: none;
+  transition: opacity 0.1s 0.08s;
+}

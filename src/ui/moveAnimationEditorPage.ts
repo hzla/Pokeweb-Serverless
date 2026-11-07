@@ -31,6 +31,7 @@ import {
   MOVE_PREVIEW_BACKGROUND_INDEX,
   MOVE_PREVIEW_PLATFORM_INDEX,
   MOVE_PREVIEW_SPECIES_ID,
+  type MoveAnimationBattleEnvironment,
   type MoveAnimationBattleEnvironmentSelection,
 } from "../pokeweb/moveAnimationBattleEnvironment";
 import { pokemonPersonalDisplayIds, pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
@@ -237,6 +238,16 @@ type PageState = {
   rawNumbers: boolean;
 };
 
+/** Things every move's detail can share, built once per page visit. */
+type PageContext = {
+  /** Decoded battle scenes (background, platforms, Pokémon sprites) keyed by scene choice. */
+  scenes: Map<string, Promise<MoveAnimationBattleEnvironment>>;
+  pokemonOptions?: string;
+  donorOptions?: string;
+};
+
+const SCENE_CACHE_LIMIT = 6;
+
 type DetailSession = {
   isDirty: () => boolean;
   destroy: () => void;
@@ -273,6 +284,9 @@ export function renderMoveAnimationPage(project: ProjectState, root: HTMLElement
   const editedToggle = page.querySelector<HTMLButtonElement>("[data-ma-edited-only]")!;
   const count = page.querySelector<HTMLElement>("[data-ma-count]")!;
   let currentId = Number.isSafeInteger(moveId) && moveId >= 0 && moveId < moveCount ? moveId : 0;
+  const context: PageContext = { scenes: new Map() };
+  let pendingFrame = 0;
+  let pendingTimer = 0;
 
   const applyFilter = () => {
     const query = state.search.trim().toLowerCase();
@@ -298,18 +312,30 @@ export function renderMoveAnimationPage(project: ProjectState, root: HTMLElement
     const row = list.querySelector<HTMLElement>(`[data-ma-row="${id}"]`);
     if (row) row.classList.toggle("-edited", moveAnimationEdited(project, id));
   };
+  // The row highlight paints first and the editor is rebuilt on the next task. Clicking or
+  // arrowing through several moves quickly only builds the last one.
   const open = (id: number, scroll = false) => {
     sessions.get(root)?.destroy();
+    sessions.delete(root);
     currentId = id;
     markSelected(scroll);
-    const session = installMoveAnimationDetail(project, detail, id, state, {
-      ...options,
-      onDirty: () => {
-        refreshRow(id);
-        options.onDirty?.();
-      },
+    window.cancelAnimationFrame(pendingFrame);
+    window.clearTimeout(pendingTimer);
+    detail.classList.add("-switching");
+    pendingFrame = window.requestAnimationFrame(() => {
+      pendingTimer = window.setTimeout(() => {
+        if (!detail.isConnected || currentId !== id) return;
+        detail.classList.remove("-switching");
+        const session = installMoveAnimationDetail(project, detail, id, state, context, {
+          ...options,
+          onDirty: () => {
+            refreshRow(id);
+            options.onDirty?.();
+          },
+        });
+        sessions.set(root, session);
+      }, 0);
     });
-    sessions.set(root, session);
   };
   const select = (id: number, scroll = false) => {
     if (id === currentId) return;
@@ -387,10 +413,10 @@ function revealRow(list: HTMLElement, row: HTMLElement): void {
 
 // ---------- Detail ----------
 
-function renderDetailShell(project: ProjectState, moveId: number, state: PageState, canTest: boolean, recoveryNotice?: string): string {
+function renderDetailShell(project: ProjectState, moveId: number, state: PageState, context: PageContext, canTest: boolean, recoveryNotice?: string): string {
   const target = getMoveAnimationTargetInfo(project, moveId);
   const source = target ? `${target.white2UpgradeLayout ? "W2U" : "Retail"} ${target.sourcePath} #${target.index}` : "";
-  const pokemonOptions = pokemonPersonalDisplayIds(project).filter((id) => id > 0)
+  const pokemonOptions = context.pokemonOptions ??= pokemonPersonalDisplayIds(project).filter((id) => id > 0)
     .map((id) => `<option value="${id}" ${id === 1 ? "selected" : ""}>${escapeHtml(pokemonSpeciesLabel(project, id) || `Pokémon ${id}`)}</option>`).join("");
   const tab = (id: BodyTab, label: string) => `<button class="uv-tab" type="button" role="tab" aria-selected="${state.tab === id}" tabindex="${state.tab === id ? 0 : -1}" data-ma-tab="${id}">${label}</button>`;
   return `
@@ -424,7 +450,7 @@ function renderDetailShell(project: ProjectState, moveId: number, state: PageSta
     </header>
     <div class="ma-copy" hidden>
       <span>Copy animation from</span>
-      <select data-ma-copy-source>${renderDonorOptions(project, moveId)}</select>
+      <select data-ma-copy-source>${context.donorOptions ??= renderDonorOptions(project)}</select>
       <button class="btn sm -default" type="button" data-ma-action="copy-script" disabled>Script only</button>
       <button class="btn sm -default" type="button" data-ma-action="copy-script-spa" title="Also clone the donor's particle file into this move's slot" disabled>Script + particles</button>
       <button class="btn sm -ghost" type="button" data-ma-action="copy-cancel">Cancel</button>
@@ -474,10 +500,9 @@ function renderDetailShell(project: ProjectState, moveId: number, state: PageSta
   `;
 }
 
-function renderDonorOptions(project: ProjectState, targetMoveId: number): string {
+function renderDonorOptions(project: ProjectState): string {
   const options = ['<option value="">Choose a move</option>'];
   for (let id = 0; id < getMoveCount(project); id += 1) {
-    if (id === targetMoveId) continue;
     options.push(`<option value="${id}">${escapeHtml(moveName(project, id))}</option>`);
   }
   return options.join("");
@@ -487,7 +512,7 @@ function shortcutLabel(): string {
   return /Mac|iPhone|iPad/u.test(navigator.platform) ? "⌘" : "Ctrl";
 }
 
-function installMoveAnimationDetail(project: ProjectState, detail: HTMLElement, moveId: number, state: PageState, options: MoveAnimationPageOptions): DetailSession {
+function installMoveAnimationDetail(project: ProjectState, detail: HTMLElement, moveId: number, state: PageState, context: PageContext, options: MoveAnimationPageOptions): DetailSession {
   const abort = new AbortController();
   const signal = abort.signal;
   if (!hasMoveAnimationScript(project, moveId)) {
@@ -505,7 +530,7 @@ function installMoveAnimationDetail(project: ProjectState, detail: HTMLElement, 
   if (paramDisplayMode === "numeric") {
     try { script = formatMoveAnimationScriptParameters(script, "numeric"); } catch { paramDisplayMode = "semantic"; }
   }
-  detail.innerHTML = renderDetailShell(project, moveId, state, Boolean(options.onTestMove), recoveryNotice);
+  detail.innerHTML = renderDetailShell(project, moveId, state, context, Boolean(options.onTestMove), recoveryNotice);
 
   const q = <T extends Element>(selector: string) => detail.querySelector<T>(selector) ?? undefined;
   const status = q<HTMLElement>(".ma-status");
@@ -672,7 +697,7 @@ function installMoveAnimationDetail(project: ProjectState, detail: HTMLElement, 
       });
       previewPhaseIndex = preview.phaseIndex ?? 0;
       try {
-        preview.battleEnvironment = await loadMoveAnimationBattleEnvironment(project, { ...environment });
+        preview.battleEnvironment = await loadScene(context, project, environment);
       } catch (error) {
         preview.warnings.push({ message: `Battle scene: ${errorText(error)}` });
       }
@@ -763,6 +788,7 @@ function installMoveAnimationDetail(project: ProjectState, detail: HTMLElement, 
     detail.querySelectorAll<HTMLElement>("[data-ma-panel]").forEach((panel) => {
       panel.hidden = panel.dataset.maPanel !== tab;
     });
+    spaEditor?.setActive(tab === "particles");
     if (tab !== "sounds") audioPreview?.stop();
     if (tab !== "script") previewController?.pause();
     previewController?.setAudioSuppressed(tab !== "script");
@@ -964,6 +990,7 @@ function installMoveAnimationDetail(project: ProjectState, detail: HTMLElement, 
       }
     }
   }, { signal });
+  copySource?.querySelector(`option[value="${moveId}"]`)?.remove();
   copySource?.addEventListener("change", () => setCopyBusy(false), { signal });
   if (copySource) installSearchableSelect(copySource, "Donor move", signal);
   detail.querySelector<HTMLInputElement>("[data-ma-raw]")?.addEventListener("change", (event) => {
@@ -1030,6 +1057,24 @@ function installMoveAnimationDetail(project: ProjectState, detail: HTMLElement, 
       editor?.destroy();
     },
   };
+}
+
+/** The same scene is used for every move, so decode it once instead of on each switch. */
+function loadScene(context: PageContext, project: ProjectState, selection: MoveAnimationBattleEnvironmentSelection): Promise<MoveAnimationBattleEnvironment> {
+  const key = JSON.stringify(selection);
+  let scene = context.scenes.get(key);
+  if (scene) {
+    context.scenes.delete(key);
+    context.scenes.set(key, scene);
+    return scene;
+  }
+  scene = loadMoveAnimationBattleEnvironment(project, { ...selection });
+  context.scenes.set(key, scene);
+  scene.catch(() => {
+    if (context.scenes.get(key) === scene) context.scenes.delete(key);
+  });
+  while (context.scenes.size > SCENE_CACHE_LIMIT) context.scenes.delete(context.scenes.keys().next().value!);
+  return scene;
 }
 
 function isTypingTarget(target: EventTarget | null): boolean {

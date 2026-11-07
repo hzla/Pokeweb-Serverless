@@ -47,6 +47,37 @@ type MoveAnimationPreviewOptions = {
   };
 };
 
+/**
+ * WebGL contexts are expensive to create and Chrome caps how many can be alive, so previews hand
+ * their renderers back here instead of disposing them. A reused renderer also keeps its compiled
+ * shaders, which makes the next preview's first frame cheap.
+ */
+type RendererKind = "stage" | "environment";
+const RENDERER_POOL_LIMIT = 2;
+const rendererPool: Record<RendererKind, import("three").WebGLRenderer[]> = { stage: [], environment: [] };
+
+function acquireRenderer(THREE: ThreeModule, kind: RendererKind): import("three").WebGLRenderer {
+  while (rendererPool[kind].length) {
+    const pooled = rendererPool[kind].pop()!;
+    if (!pooled.getContext().isContextLost()) return pooled;
+    pooled.dispose();
+  }
+  return kind === "stage"
+    ? new THREE.WebGLRenderer({ antialias: true, alpha: true })
+    : new THREE.WebGLRenderer({ antialias: false, alpha: false });
+}
+
+function releaseRenderer(kind: RendererKind, renderer: import("three").WebGLRenderer): void {
+  renderer.domElement.remove();
+  renderer.renderLists.dispose();
+  if (rendererPool[kind].length < RENDERER_POOL_LIMIT && !renderer.getContext().isContextLost()) {
+    rendererPool[kind].push(renderer);
+    return;
+  }
+  renderer.dispose();
+  renderer.forceContextLoss();
+}
+
 export async function installMoveAnimationPreview(
   host: HTMLElement,
   preview: MoveAnimationPreview,
@@ -63,7 +94,7 @@ export async function installMoveAnimationPreview(
   const canvasHost = host.querySelector<HTMLElement>(".move-animation-preview-canvas");
   canvasHost?.append(backgroundCanvas, rendererHost);
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  const renderer = acquireRenderer(THREE, "stage");
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
   renderer.setClearColor(0x000000, 0);
   rendererHost.append(renderer.domElement);
@@ -228,8 +259,7 @@ export async function installMoveAnimationPreview(
     effects.destroy();
     background.destroy();
     stage.destroy();
-    renderer.dispose();
-    renderer.forceContextLoss();
+    releaseRenderer("stage", renderer);
     host.innerHTML = "";
   };
   const tick = (now: number) => {
@@ -1322,7 +1352,7 @@ function previewSwappedSides(preview: MoveAnimationPreview): boolean {
 function createBattleEnvironmentCanvasRenderer(THREE: ThreeModule, preview: MoveAnimationPreview): BattleEnvironmentCanvasRenderer {
   const environment = preview.battleEnvironment;
   if (!environment) throw new Error("The move preview battle environment was not loaded.");
-  const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false });
+  const renderer = acquireRenderer(THREE, "environment");
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.setClearColor(0x202431, 1);
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
@@ -1359,7 +1389,7 @@ function createBattleEnvironmentCanvasRenderer(THREE: ThreeModule, preview: Move
     },
     destroy: () => {
       for (const model of models) model.dispose();
-      renderer.dispose();
+      releaseRenderer("environment", renderer);
     },
   };
 }

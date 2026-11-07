@@ -156,3 +156,11 @@
 #item-data .it-sprite-position { display: flex; gap: 16px; }
 #item-data .it-sprite-position input { width: 72px; }
 #item-data .it-sprite-controls button { justify-self: start; }
+#item-data .it-sprite-library-filters, #item-data .it-sprite-library-pages { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 12px 0; }
+#item-data .it-sprite-library-filters input { min-width: 200px; }
+#item-data .it-sprite-library-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
+#item-data .it-sprite-library-item { display: grid; justify-items: center; align-content: start; gap: 6px; min-height: 88px; padding: 8px; color: inherit; background: transparent; border: 1px solid var(--border-color, #626a80); border-radius: 4px; cursor: pointer; }
+#item-data .it-sprite-library-item:hover, #item-data .it-sprite-library-item:focus-visible { border-color: #b890f4; background: #ffffff12; }
+#item-data .it-sprite-library-item img { width: 48px; height: 48px; object-fit: contain; image-rendering: pixelated; }
+#item-data .it-sprite-library-item span { font-size: 12px; overflow-wrap: anywhere; }
+#item-data .it-sprite-credits { margin-top: 18px; font-size: 12px; opacity: .8; }

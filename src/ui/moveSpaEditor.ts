@@ -267,6 +267,8 @@ export type MoveSpaEditorController = {
   saveDirty: () => Promise<number>;
   /** Drops unsaved edits and reloads the referenced archives. */
   discardEdits: () => Promise<void>;
+  /** Split layout only: the emitter preview runs while the editor is on screen. */
+  setActive: (active: boolean) => void;
 };
 
 type MoveSpaEditorOptions = {
@@ -306,6 +308,8 @@ type State = {
   previewController?: MoveAnimationPreviewController;
   previewRequestId: number;
   previewRefreshTimer?: number;
+  /** Whether the host is visible; split layouts start hidden until the page says otherwise. */
+  active: boolean;
   options: MoveSpaEditorOptions;
   error?: string;
   status?: string;
@@ -350,6 +354,7 @@ export function installMoveSpaEditorWithSource(
     saving: false,
     scriptText,
     openSections: new Set(options.layout === "split" ? ["emitter"] : ["emitter", "particle", "textures"]),
+    active: options.layout !== "split",
     previewRequestId: 0,
     options,
   };
@@ -405,6 +410,14 @@ export function installMoveSpaEditorWithSource(
     getArchiveOverride: (spaId) => state.archives.get(spaId),
     hasDirtyArchives: () => state.dirtySpaIds.size > 0,
     saveDirty: () => saveDirtyArchives(state),
+    setActive: (active) => {
+      if (state.active === active) return;
+      state.active = active;
+      if (!emitterPreviewVisible(state)) {
+        window.clearTimeout(state.previewRefreshTimer);
+        destroyEmitterPreview(state);
+      } else if (!state.previewController) void mountEmitterPreview(state);
+    },
     discardEdits: async () => {
       if (!state.dirtySpaIds.size) return;
       const selected = state.selectedSpaId;
@@ -707,8 +720,12 @@ function fileLabelFor(state: State): string {
   return state.selectedSpaId === undefined ? "" : ` - File ${state.selectedSpaId}${state.dirtySpaIds.has(state.selectedSpaId) ? " *" : ""}`;
 }
 
+function emitterPreviewVisible(state: State): boolean {
+  return state.active && (state.options.layout === "split" || state.subTab === "preview");
+}
+
 function scheduleEmitterPreview(state: State): void {
-  if (state.options.layout !== "split" && state.subTab !== "preview") return;
+  if (!emitterPreviewVisible(state)) return;
   window.clearTimeout(state.previewRefreshTimer);
   state.previewRefreshTimer = window.setTimeout(() => {
     destroyEmitterPreview(state);
@@ -756,7 +773,7 @@ function render(state: State): void {
     </div>
   `;
   drawTextureCanvases(state);
-  if (split || state.subTab === "preview") void mountEmitterPreview(state);
+  if (emitterPreviewVisible(state)) void mountEmitterPreview(state);
 }
 
 function renderSubTabs(state: State): string {
@@ -838,7 +855,7 @@ async function mountEmitterPreview(state: State): Promise<void> {
   const preview = buildEmitterPreview(spaId, archive, resource);
   try {
     const controller = await installMoveAnimationPreview(host, preview, { initialPlaying: true });
-    if (requestId !== state.previewRequestId || (state.subTab !== "preview" && state.options.layout !== "split")) {
+    if (requestId !== state.previewRequestId || !emitterPreviewVisible(state)) {
       controller.destroy();
       return;
     }
