@@ -8,6 +8,7 @@ import { recordGenericChange } from "./actionChangelog";
 import { isGen4Project, type NarcName } from "./constants";
 import { detectWhite2ExpandedRigAtlasPatchState } from "./expandedRigAtlasPatch";
 import { markDirty, type NarcStore, type ProjectState } from "./projectStore";
+import { listOverlayInfos } from "./overlayEditModel";
 
 export type FileSystemTreeNode = {
   name: string;
@@ -21,7 +22,9 @@ export type FileSystemNodeRef =
   | { kind: "folder"; path: string }
   | { kind: "addedRomFile"; path: string }
   | { kind: "romFile"; fileId: number; path: string }
-  | { kind: "narcFile"; parentFileId: number; index: number; path: string; parentPath: string };
+  | { kind: "narcFile"; parentFileId: number; index: number; path: string; parentPath: string }
+  /** A decompressed ARM9 overlay (edited through overlayEditModel). */
+  | { kind: "overlay"; overlayId: number; path: string };
 
 export type NarcInsertPosition = "before" | "after" | "append";
 
@@ -144,6 +147,15 @@ export function buildFileSystemSnapshot(project: ProjectState, romBytes: Uint8Ar
       type: "file" as const,
       meta: { kind: "romFile" as const, fileId, path: `_unnamed/file_${fileId}.bin` },
     }));
+  const overlays = listOverlayInfos(project, rom).map((info): FileSystemTreeNode => {
+    const name = overlayNodeName(info.overlayId);
+    return {
+      name,
+      type: "file",
+      meta: { kind: "overlay", overlayId: info.overlayId, path: `_overlays/${name}` },
+    };
+  });
+  if (overlays.length > 0) roots.push({ name: "_overlays", type: "folder", collapsed: true, children: overlays, meta: { kind: "folder", path: "_overlays" } });
   if (unnamed.length > 0) roots.push({ name: "_unnamed", type: "folder", collapsed: true, children: unnamed, meta: { kind: "folder", path: "_unnamed" } });
 
   for (const node of walkTree(roots)) {
@@ -165,6 +177,10 @@ export function buildFileSystemSnapshot(project: ProjectState, romBytes: Uint8Ar
   }
 
   return { rom, roots, pathRefs };
+}
+
+export function overlayNodeName(overlayId: number): string {
+  return `overlay_${overlayId.toString().padStart(4, "0")}.bin`;
 }
 
 export function getNodeBytes(project: ProjectState, rom: NintendoDSRom, ref: FileSystemNodeRef): Uint8Array {
@@ -288,6 +304,7 @@ export function downloadBytes(bytes: Uint8Array, filename: string): void {
 
 export function filenameForRef(project: ProjectState, rom: NintendoDSRom, ref: FileSystemNodeRef): string {
   if (ref.kind === "addedRomFile") return basename(ref.path);
+  if (ref.kind === "overlay") return overlayNodeName(ref.overlayId);
   if (ref.kind === "romFile") {
     const name = basename(ref.path);
     return tryParseNarc(getRomFileBytes(project, rom, ref.fileId)) ? withExtension(name, ".narc") : name;

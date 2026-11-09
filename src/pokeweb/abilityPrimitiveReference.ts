@@ -50,6 +50,7 @@ export const ABILITY_PRIMITIVE_DESCRIPTIONS: Readonly<Record<string, string>> = 
   "abilityRecipe:fieldEntry": "Start a native field condition on entry or ability gain, with an adjustable duration and optional toggle when already active.",
   "abilityRecipe:sideEntry": "Place a native side condition on entry or ability gain. Hazards use native layer limits and removal rules.",
   "abilityRecipe:damageGuard": "Prevent checked sources of indirect HP damage without curing their conditions or removing other status penalties. Native message IDs classify queued damage; unclassified custom damage uses Other indirect damage.",
+  "abilityRecipe:protectBypass": "Matching moves hit targets protected by Protect, Detect, Wide Guard or Quick Guard. Damage to a still-protected target is multiplied by the value at the final damage stage (1 = full damage); fixed-damage moves are unchanged. Other effects of the move still apply, and the protection stays in place for other attackers.",
   "abilityRecipe:additionalStrike": "Strike a second time with eligible damaging moves, with an adjustable second-hit damage multiplier. Existing multi-hit and certain special moves are excluded.",
   "abilityRecipe:weatherGuard": "Prevent damage from hail, sandstorm or both. Does not change weather’s other effects.",
   "abilityRecipe:fieldPower": "Multiply one move type’s power for both sides. An aura-inversion effect can reverse the bonus.",

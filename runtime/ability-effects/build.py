@@ -10,7 +10,7 @@ BUILD=HERE/'build';BUILD.mkdir(exist_ok=True)
 def run(*args):subprocess.run([str(arg) for arg in args],check=True)
 if len(sys.argv)==1:
     # Released bundles are verification inputs, not current build outputs.
-    run(sys.executable,HERE/'build.py','--strikes-only')
+    run(sys.executable,HERE/'build.py','--protect-only')
     raise SystemExit(0)
 run(sys.executable,HERE/'generate_move_classes.py')
 
@@ -36,10 +36,11 @@ source_path=ROOT/'src/assets/data/abilityRuleRuntimeStatSource.json'
 source={}
 compact_path=ROOT/'src/assets/data/abilityRuleRuntimeCompact.json'
 compact={}
-strikes='--strikes-only' in sys.argv
+protect='--protect-only' in sys.argv
+strikes='--strikes-only' in sys.argv or protect
 environment='--environment-only' in sys.argv or strikes
 native_flags='--native-flags-only' in sys.argv or environment
-native_flags_path=ROOT/('src/assets/data/abilityRuleRuntimeStrikes.json' if strikes else 'src/assets/data/abilityRuleRuntimeEnvironment.json' if environment else 'src/assets/data/abilityRuleRuntimeNativeFlags.json')
+native_flags_path=ROOT/('src/assets/data/abilityRuleRuntimeProtect.json' if protect else 'src/assets/data/abilityRuleRuntimeStrikes.json' if strikes else 'src/assets/data/abilityRuleRuntimeEnvironment.json' if environment else 'src/assets/data/abilityRuleRuntimeNativeFlags.json')
 compact_mode='--compact-only' in sys.argv or native_flags
 variants=[(suffix,defines,asset,False)for suffix,defines,asset in variants]+[(suffix+'-optimized',defines+['-DABILITY_FILTER_EVENTS'],asset,True)for suffix,defines,asset in variants]
 variants=[(suffix,defines,asset,fast,slots) for suffix,defines,asset,fast in variants for slots in ([4,8,16] if compact_mode else [16])]
@@ -60,6 +61,8 @@ for suffix,defines,asset,fast,slots in variants:
         if native_flags: suffix+='-native-flags';defines+=['-DABILITY_NATIVE_MOVE_FLAGS']
         if environment: suffix+='-environment';defines+=['-DABILITY_ENVIRONMENT']
         if strikes: suffix+='-strikes';defines+=['-DABILITY_STRIKES']
+        if protect: suffix+='-protect';defines+=['-DABILITY_PROTECT']
+        if protect and os.environ.get('ABILITY_PROTECT_TEST')=='1': defines+=['-DABILITY_PROTECT_TEST']
     if "--optimized-only" in sys.argv and not fast: continue
     if "--legacy-only" in sys.argv and fast: continue
     if "--actions-only" in sys.argv and "-DABILITY_ACTIONS" not in defines: continue

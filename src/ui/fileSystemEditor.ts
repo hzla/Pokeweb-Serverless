@@ -18,6 +18,18 @@ import {
   type FileSystemTreeNode,
   type NarcInsertPosition,
 } from "../pokeweb/fileSystemModel";
+import {
+  applyOverlayBytes,
+  getOverlayInfo,
+  getOverlayWorkingBytes,
+  importOverlayBytes,
+  isOverlayStaged,
+  overlayChangedByteCount,
+  overlayIdForFile,
+  overlayTableOwners,
+  restoreOriginalOverlay,
+  type OverlayInfo,
+} from "../pokeweb/overlayEditModel";
 import { loadActiveRomBytes } from "../pokeweb/persistence";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml, formatBytes } from "./dom";
@@ -48,6 +60,8 @@ let searchQuery = "";
 let searchMatchOffset = -1;
 let searchNeedleLength = 0;
 let selectedTreePath = "";
+/** RAM address of byte 0 in the hex view (an overlay's load address, else 0). */
+let addressBase = 0;
 
 export async function renderFileSystemEditor(project: ProjectState, root: HTMLElement, options: FileSystemEditorOptions): Promise<void> {
   const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
@@ -69,6 +83,7 @@ export async function renderFileSystemEditor(project: ProjectState, root: HTMLEl
   searchMatchOffset = -1;
   searchNeedleLength = 0;
   selectedTreePath = "";
+  addressBase = 0;
 
   root.innerHTML = `
     <div class="file-system-page">
@@ -147,7 +162,14 @@ export async function renderFileSystemEditor(project: ProjectState, root: HTMLEl
 
   const selectRef = (ref: FileSystemNodeRef) => {
     selectedRef = ref;
-    const bytes = getNodeBytes(project, snapshot.rom, ref);
+    let bytes: Uint8Array;
+    try {
+      bytes = ref.kind === "overlay" ? getOverlayWorkingBytes(project, snapshot.rom, ref.overlayId) : getNodeBytes(project, snapshot.rom, ref);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : String(error));
+      return;
+    }
+    addressBase = ref.kind === "overlay" ? getOverlayInfo(project, snapshot.rom, ref.overlayId)?.ramAddress ?? 0 : 0;
     cleanBytes = bytes.slice();
     draftBytes = bytes.slice();
     pageOffset = 0;
@@ -198,7 +220,7 @@ export async function renderFileSystemEditor(project: ProjectState, root: HTMLEl
       icons: { folder: "▸", file: "•" },
     },
     onFileOpen: (node: FileSystemTreeNode) => {
-      if (node.meta?.kind === "romFile" || node.meta?.kind === "narcFile" || node.meta?.kind === "addedRomFile") selectRef(node.meta);
+      if (node.meta?.kind === "romFile" || node.meta?.kind === "narcFile" || node.meta?.kind === "addedRomFile" || node.meta?.kind === "overlay") selectRef(node.meta);
     },
   }) as TreeForgeInstance;
 
@@ -218,6 +240,10 @@ function renderDetail(
     root.innerHTML = renderEmptyDetail(project);
     return;
   }
+  if (ref.kind === "overlay") {
+    renderOverlayDetail(project, rom, root, ref.overlayId, actions);
+    return;
+  }
   const dirty = !bytesEqual(cleanBytes, draftBytes);
   const title = ref.kind === "narcFile" ? `${ref.parentPath} / ${filenameForRef(project, rom, ref)}` : ref.path;
   const isNarcParent = ref.kind === "romFile" && Boolean(tryParseNarc(getNodeBytes(project, rom, ref)));
@@ -225,12 +251,18 @@ function renderDetail(
   const targetIndex = ref.kind === "narcFile" ? ref.index : 0;
   const parentFileId = ref.kind === "narcFile" ? ref.parentFileId : ref.kind === "romFile" ? ref.fileId : -1;
   const fileKindLabel = ref.kind === "romFile" ? `file id ${ref.fileId}` : ref.kind === "narcFile" ? `NARC entry ${ref.index}` : "new ROM file";
+  const overlayId = ref.kind === "romFile" ? overlayIdForFile(project, rom, ref.fileId) : undefined;
+  const overlayNote = overlayId === undefined
+    ? ""
+    : isOverlayStaged(project, overlayId)
+      ? ` · stored image of overlay ${overlayId}. That overlay has staged edits, so export rebuilds this file from _overlays and ignores changes made here.`
+      : ` · stored (possibly compressed) image of overlay ${overlayId}. Edit its code decompressed under _overlays.`;
 
   root.innerHTML = `
     <div class="file-system-detail__header">
       <div>
         <h2>${escapeHtml(title)}</h2>
-        <p>${formatBytes(draftBytes.length)} · ${fileKindLabel}</p>
+        <p>${formatBytes(draftBytes.length)} · ${fileKindLabel}${escapeHtml(overlayNote)}</p>
       </div>
       <div class="file-system-actions">
         <button class="btn -default" id="fs-export" type="button">Export</button>
@@ -242,25 +274,7 @@ function renderDetail(
         <button class="btn -default" id="fs-revert" type="button" ${dirty ? "" : "disabled"}>Revert</button>
       </div>
     </div>
-    <div class="file-system-hex-toolbar">
-      <button class="btn -default" id="fs-page-prev" type="button" ${pageOffset === 0 ? "disabled" : ""}>Prev</button>
-      <label>
-        <span>Go to</span>
-        <input id="fs-page-offset" type="text" value="0x${pageOffset.toString(16).toUpperCase()}" />
-      </label>
-      <button class="btn -default" id="fs-page-go" type="button">Go</button>
-      <button class="btn -default" id="fs-page-next" type="button" ${pageOffset + PAGE_SIZE >= draftBytes.length ? "disabled" : ""}>Next</button>
-      <label class="file-system-search">
-        <span>Search</span>
-        <input id="fs-search-query" type="text" value="${escapeHtml(searchQuery)}" placeholder="hex bytes or text" />
-      </label>
-      <button class="btn -default" id="fs-search-prev" type="button">Prev</button>
-      <button class="btn -default" id="fs-search-next" type="button">Next</button>
-      <span>${rangeLabel()}</span>
-    </div>
-    <div id="file-system-hex" class="file-system-hex">
-      ${renderHexPage()}
-    </div>
+    ${renderHexView()}
     <div id="file-system-status" class="file-system-status">${dirty ? "Hex edits are staged in the browser." : "No staged hex edits."}</div>
     <input id="fs-import-input" type="file" hidden />
     <input id="fs-insert-input" type="file" multiple hidden />
@@ -322,21 +336,141 @@ function renderDetail(
     actions.rerender();
   });
 
+  bindHexView(root, actions.rerender);
+}
+
+function renderOverlayDetail(
+  project: ProjectState,
+  rom: NintendoDSRom,
+  root: HTMLElement,
+  overlayId: number,
+  actions: { onDirty: () => void; refreshSnapshot: () => void; rerender: () => void },
+): void {
+  const info = getOverlayInfo(project, rom, overlayId);
+  if (!info) {
+    root.innerHTML = `<div class="file-system-empty">Overlay ${overlayId} is no longer in the overlay table.</div>`;
+    return;
+  }
+  const dirty = !bytesEqual(cleanBytes, draftBytes);
+  const readOnly = Boolean(info.readOnlyReason);
+  const staged = isOverlayStaged(project, overlayId);
+  const changed = overlayChangedByteCount(project, rom, overlayId);
+  const owners = overlayTableOwners(project, overlayId);
+  const hex = (value: number) => `0x${value.toString(16).toUpperCase().padStart(8, "0")}`;
+  const notes = [
+    info.readOnlyReason,
+    staged
+      ? `Staged: ${changed} byte${changed === 1 ? "" : "s"} differ from the loaded ROM. Export writes this overlay ${exportFormLabel(info)} and updates its overlay table entry.`
+      : `Unmodified. Applying a hex edit stages the overlay; export then writes it ${exportFormLabel(info)} and updates its overlay table entry.`,
+    owners.length ? `The ${owners.join(" and ")} table inside this overlay is written from its editor on export, over any hex edits to that range.` : undefined,
+    project.fileSystem?.replacements?.[info.fileId] ? `File ${info.fileId}, this overlay's stored image, was replaced in the File System; these bytes start from that replacement.` : undefined,
+  ].filter((note): note is string => Boolean(note));
+
+  root.innerHTML = `
+    <div class="file-system-detail__header">
+      <div>
+        <h2>Overlay ${overlayId}</h2>
+        <p>RAM ${hex(info.ramAddress)}–${hex(info.ramAddress + info.ramSize - 1)} · ${formatBytes(draftBytes.length)} decompressed · file id ${info.fileId} · stored ${storedFormLabel(info)}</p>
+      </div>
+      <div class="file-system-actions">
+        <button class="btn -default" id="fs-export" type="button">Export</button>
+        <button class="btn -default" id="fs-import" type="button" ${readOnly ? "disabled" : ""}>Import</button>
+        <button class="btn -primary" id="fs-apply" type="button" ${dirty && !readOnly ? "" : "disabled"}>Apply Hex</button>
+        <button class="btn -default" id="fs-revert" type="button" ${dirty ? "" : "disabled"}>Revert</button>
+        <button class="btn -default" id="fs-restore-overlay" type="button" ${staged && !readOnly ? "" : "disabled"}>Restore Original</button>
+      </div>
+    </div>
+    <div class="file-system-status">Go to accepts a RAM address (${hex(info.ramAddress)}…) or an offset. ${notes.map(escapeHtml).join(" ")}</div>
+    ${renderHexView()}
+    <div id="file-system-status" class="file-system-status">${dirty ? "Unapplied hex edits. Click Apply Hex to stage them." : "No unapplied hex edits."}</div>
+    <input id="fs-import-input" type="file" hidden />
+  `;
+
+  const fail = (error: unknown) => window.alert(error instanceof Error ? error.message : String(error));
+  root.querySelector<HTMLButtonElement>("#fs-export")?.addEventListener("click", () => {
+    downloadBytes(draftBytes, `overlay_${overlayId.toString().padStart(4, "0")}.decompressed.bin`);
+  });
+
+  const importInput = root.querySelector<HTMLInputElement>("#fs-import-input");
+  root.querySelector<HTMLButtonElement>("#fs-import")?.addEventListener("click", () => importInput?.click());
+  importInput?.addEventListener("change", async () => {
+    const file = importInput.files?.[0];
+    if (!file) return;
+    try {
+      importOverlayBytes(project, rom, overlayId, new Uint8Array(await file.arrayBuffer()));
+      cleanBytes = getOverlayWorkingBytes(project, rom, overlayId).slice();
+      draftBytes = cleanBytes.slice();
+      actions.onDirty();
+      actions.refreshSnapshot();
+      actions.rerender();
+    } catch (error) {
+      fail(error);
+    } finally {
+      importInput.value = "";
+    }
+  });
+
+  root.querySelector<HTMLButtonElement>("#fs-apply")?.addEventListener("click", () => {
+    try {
+      applyOverlayBytes(project, rom, overlayId, draftBytes.slice());
+      cleanBytes = draftBytes.slice();
+      actions.onDirty();
+      actions.refreshSnapshot();
+      actions.rerender();
+    } catch (error) {
+      fail(error);
+    }
+  });
+
+  root.querySelector<HTMLButtonElement>("#fs-revert")?.addEventListener("click", () => {
+    draftBytes = cleanBytes.slice();
+    actions.rerender();
+  });
+
+  root.querySelector<HTMLButtonElement>("#fs-restore-overlay")?.addEventListener("click", () => {
+    if (!window.confirm(`Restore overlay ${overlayId} to the loaded ROM's original code? This also undoes changes other Pokeweb features (Patches, starters, code injection installers) made to this overlay.`)) return;
+    try {
+      restoreOriginalOverlay(project, rom, overlayId);
+      cleanBytes = getOverlayWorkingBytes(project, rom, overlayId).slice();
+      draftBytes = cleanBytes.slice();
+      actions.onDirty();
+      actions.refreshSnapshot();
+      actions.rerender();
+    } catch (error) {
+      fail(error);
+    }
+  });
+
+  bindHexView(root, actions.rerender);
+}
+
+function storedFormLabel(info: OverlayInfo): string {
+  const parts = [info.compressed ? "compressed" : "uncompressed"];
+  if (info.signed) parts.push("signed");
+  return parts.join(", ");
+}
+
+/** Mirrors exportRom: signed overlays are left decompressed, others are recompressed. */
+function exportFormLabel(info: OverlayInfo): string {
+  return info.signed ? "decompressed (signed overlays are not recompressed)" : "recompressed";
+}
+
+function bindHexView(root: HTMLElement, rerender: () => void): void {
   root.querySelector<HTMLButtonElement>("#fs-page-prev")?.addEventListener("click", () => {
     pageOffset = Math.max(0, pageOffset - PAGE_SIZE);
-    actions.rerender();
+    rerender();
   });
   root.querySelector<HTMLButtonElement>("#fs-page-next")?.addEventListener("click", () => {
     pageOffset = Math.min(Math.max(0, draftBytes.length - 1), pageOffset + PAGE_SIZE);
     pageOffset -= pageOffset % BYTES_PER_ROW;
-    actions.rerender();
+    rerender();
   });
   root.querySelector<HTMLInputElement>("#fs-page-offset")?.addEventListener("change", (event) => {
     const value = parseOffset((event.target as HTMLInputElement).value);
-    goToOffset(value, actions.rerender);
+    goToOffset(value, rerender);
   });
   root.querySelector<HTMLButtonElement>("#fs-page-go")?.addEventListener("click", () => {
-    goToOffset(parseOffset(root.querySelector<HTMLInputElement>("#fs-page-offset")?.value ?? ""), actions.rerender);
+    goToOffset(parseOffset(root.querySelector<HTMLInputElement>("#fs-page-offset")?.value ?? ""), rerender);
   });
   root.querySelector<HTMLInputElement>("#fs-search-query")?.addEventListener("input", (event) => {
     searchQuery = (event.target as HTMLInputElement).value;
@@ -344,10 +478,10 @@ function renderDetail(
   root.querySelector<HTMLInputElement>("#fs-search-query")?.addEventListener("keydown", (event) => {
     if (event.key !== "Enter") return;
     event.preventDefault();
-    findSearchMatch(1, actions.rerender);
+    findSearchMatch(1, rerender);
   });
-  root.querySelector<HTMLButtonElement>("#fs-search-prev")?.addEventListener("click", () => findSearchMatch(-1, actions.rerender));
-  root.querySelector<HTMLButtonElement>("#fs-search-next")?.addEventListener("click", () => findSearchMatch(1, actions.rerender));
+  root.querySelector<HTMLButtonElement>("#fs-search-prev")?.addEventListener("click", () => findSearchMatch(-1, rerender));
+  root.querySelector<HTMLButtonElement>("#fs-search-next")?.addEventListener("click", () => findSearchMatch(1, rerender));
 
   if (searchMatchOffset >= pageOffset && searchMatchOffset < pageOffset + PAGE_SIZE) {
     window.setTimeout(() => focusHexCell(searchMatchOffset), 0);
@@ -363,9 +497,33 @@ function renderDetail(
       input.classList.remove("-invalid");
       const offset = Number(input.dataset.offset);
       draftBytes[offset] = Number.parseInt(input.value, 16);
-      actions.rerender();
+      rerender();
     });
   });
+}
+
+function renderHexView(): string {
+  return `
+    <div class="file-system-hex-toolbar">
+      <button class="btn -default" id="fs-page-prev" type="button" ${pageOffset === 0 ? "disabled" : ""}>Prev</button>
+      <label>
+        <span>Go to</span>
+        <input id="fs-page-offset" type="text" value="0x${(addressBase + pageOffset).toString(16).toUpperCase()}" />
+      </label>
+      <button class="btn -default" id="fs-page-go" type="button">Go</button>
+      <button class="btn -default" id="fs-page-next" type="button" ${pageOffset + PAGE_SIZE >= draftBytes.length ? "disabled" : ""}>Next</button>
+      <label class="file-system-search">
+        <span>Search</span>
+        <input id="fs-search-query" type="text" value="${escapeHtml(searchQuery)}" placeholder="hex bytes or text" />
+      </label>
+      <button class="btn -default" id="fs-search-prev" type="button">Prev</button>
+      <button class="btn -default" id="fs-search-next" type="button">Next</button>
+      <span>${rangeLabel()}</span>
+    </div>
+    <div id="file-system-hex" class="file-system-hex">
+      ${renderHexPage()}
+    </div>
+  `;
 }
 
 function renderHexPage(): string {
@@ -376,7 +534,7 @@ function renderHexPage(): string {
     const row = draftBytes.slice(offset, Math.min(end, offset + BYTES_PER_ROW));
     rows.push(`
       <div class="hex-row">
-        <code class="hex-offset">${offset.toString(16).padStart(8, "0").toUpperCase()}</code>
+        <code class="hex-offset">${(addressBase + offset).toString(16).padStart(8, "0").toUpperCase()}</code>
         <div class="hex-bytes">
           ${[...row]
             .map(
@@ -432,14 +590,17 @@ function renderBw2ReferenceTable(): string {
 function rangeLabel(): string {
   if (draftBytes.length === 0) return "0 B";
   const end = Math.min(draftBytes.length, pageOffset + PAGE_SIZE);
-  return `Showing 0x${pageOffset.toString(16).toUpperCase()}-0x${(end - 1).toString(16).toUpperCase()} of ${formatBytes(draftBytes.length)}`;
+  return `Showing 0x${(addressBase + pageOffset).toString(16).toUpperCase()}-0x${(addressBase + end - 1).toString(16).toUpperCase()} of ${formatBytes(draftBytes.length)}`;
 }
 
 function parseOffset(value: string): number {
   const trimmed = value.trim();
-  if (/^0x[0-9a-f]+$/iu.test(trimmed)) return Number.parseInt(trimmed.slice(2), 16);
-  if (/^[0-9]+$/u.test(trimmed)) return Number.parseInt(trimmed, 10);
-  return pageOffset;
+  let parsed: number;
+  if (/^0x[0-9a-f]+$/iu.test(trimmed)) parsed = Number.parseInt(trimmed.slice(2), 16);
+  else if (/^[0-9]+$/u.test(trimmed)) parsed = Number.parseInt(trimmed, 10);
+  else return pageOffset;
+  // Overlays accept either a RAM address inside the overlay or a file offset.
+  return addressBase && parsed >= addressBase && parsed < addressBase + draftBytes.length ? parsed - addressBase : parsed;
 }
 
 function goToOffset(offset: number, rerender: () => void): void {

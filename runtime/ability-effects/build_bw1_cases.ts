@@ -1,5 +1,6 @@
 import {environmentCases} from "./environment_cases";
 import {strikeCases} from "./strike_cases";
+import {protectCases} from "./protect_cases";
 import { abilityExecutionLayout } from "../../src/pokeweb/abilityRecipeOptimization";
 import {statSourceCases} from "./stat_source_cases";
 import { prepareCustomFlagCases, customFlagCases } from "./custom_flag_cases";
@@ -101,7 +102,7 @@ if(actionResultsMode){
  rules.set(222,{effects:[{kind:"abilityRecipe:fieldPower",value:1.333333,parameters:{type:10}}],conditions:all});
  for(const[id,chance]of [[223,1],[224,100],[226,30]])rules.set(id,{effects:[{kind:"status",value:7,trigger:"afterAttack",target:"defender",chance}],conditions:all});
 }
-const statusPopups = process.argv.includes("--strikes") ? strikeCases() : process.argv.includes("--environment") ? environmentCases() : process.argv.includes("--stat-source") ? statSourceCases() : process.argv.includes("--status-popups") ? statusPopupCases() : undefined;
+const statusPopups = process.argv.includes("--protect") ? protectCases() : process.argv.includes("--strikes") ? strikeCases() : process.argv.includes("--environment") ? environmentCases() : process.argv.includes("--stat-source") ? statSourceCases() : process.argv.includes("--status-popups") ? statusPopupCases() : undefined;
 if(statusPopups){rules.clear();for(const[id,rule]of inspectAbilityEffects(project).rules)rules.set(id,rule);for(const[id,rule]of statusPopups.rules)rules.set(id,rule);}
 for(const[id,r]of rules)rules.set(id,validateAbilityRule(r));
 // Every imported recipe is linked with this game's native services before fixtures.
@@ -247,7 +248,7 @@ if(process.argv.includes("--expanded-classes")){
 if(customFlagsMode){
  cases.splice(0,cases.length,...customFlagCases(project).map(spec=>({label:spec.label,abilityId:spec.abilityId,playerMoves:[spec.move??150],hp:spec.hp,enemies:[mon(320,spec.enemyLevel??(spec.enemyMove?30:100),spec.enemyMove??150)],checks:spec.checks})));
 }
-if(statusPopups)cases.splice(0,cases.length,...statusPopups.cases.map(spec=>({...spec,playerMoves:[spec.move??150],enemies:Array.from({length:spec.enemyCount??1},()=>({...mon(spec.enemySpecies??320,spec.enemyLevel??100,spec.enemyMove??150),...("enemyAbility"in spec?{abilityId:spec.enemyAbility}:{}),gender:0 as const}))})));
+if(statusPopups)cases.splice(0,cases.length,...statusPopups.cases.map(spec=>({...spec,playerMoves:"playerMoves"in spec&&spec.playerMoves?spec.playerMoves:[spec.move??150],enemies:Array.from({length:spec.enemyCount??1},()=>({...mon(spec.enemySpecies??320,spec.enemyLevel??100,spec.enemyMove??150),...("enemyAbility"in spec?{abilityId:spec.enemyAbility}:{}),gender:0 as const}))})));
 const only=process.argv.find(a=>a.startsWith("--only="))?.slice(7).split(","),hashes:Record<string,string>={},fixtures=[];
 for(const[index,spec]of cases.entries()){
  if(only&&!only.includes(spec.label))continue;

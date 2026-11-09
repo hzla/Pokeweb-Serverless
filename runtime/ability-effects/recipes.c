@@ -27,6 +27,12 @@ static u32 recipeMove,recipeCritical,recipeEffectiveness,entrySource;
 #ifdef ABILITY_STRIKES
 #include "strikes.c"
 #endif
+#ifdef ABILITY_PROTECT
+typedef struct {u32*flags[2];u32 count;} ProtectPause;
+static void protectInit(void);
+static void protectBefore(void*,u32,ProtectPause*);
+static void protectAfter(void*,u32,ProtectPause*);
+#endif
 #ifdef ABILITY_BATTLE_MESSAGES
 static u32 actionMove,actionUser;
 #endif
@@ -60,6 +66,9 @@ PUBLIC void AbilityRecipeInit(void){
 #ifdef ABILITY_STRIKES
  strikeInit();
 #endif
+#ifdef ABILITY_PROTECT
+ protectInit();
+#endif
 #ifdef ABILITY_SCOPED
  scopedInit();
 #endif
@@ -78,7 +87,13 @@ PUBLIC void AbilityRecipeHandlers(void*f,u32 event,u32 factor,u32 check){
 #ifdef ABILITY_SCOPED
  scopedBefore(f,event);
 #endif
+#ifdef ABILITY_PROTECT
+ ProtectPause pause;protectBefore(f,event,&pause);
+#endif
  RX(22,void(*)(void*,u32,u32,u32))(f,event,factor,check);entrySource=previous;
+#ifdef ABILITY_PROTECT
+ protectAfter(f,event,&pause);
+#endif
 #ifdef ABILITY_STRIKES
  strikeAfterHandlers(f,event);
 #endif
@@ -137,6 +152,9 @@ static u32 conversionMatch(u32 filter,u32 move,u32 flags){
  return 0;
 #endif
 }
+#ifdef ABILITY_PROTECT
+#include "protect.c"
+#endif
 static u32 recipeStage(void*item,void*f,u8 owner,u8 target,u32 stat,s32 value,u32 chance){
  u8 staged[16]={11,0,0,0,0,0,100};staged[1]=stat;put16(staged+2,value);staged[6]=chance;return action(item,f,owner,staged,target);
 }

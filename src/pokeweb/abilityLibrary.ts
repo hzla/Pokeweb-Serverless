@@ -3,7 +3,7 @@
  * no expansion handler bodies or engine modules are copied into this library. */
 import { validateAbilityRule, EMPTY_ABILITY_RULE, type AbilityRuleSet, type AbilityRuleEffect } from "./abilityRules";
 import { optimizeAbilityRule } from "./abilityRecipeOptimization";
-export type AbilityImport = {id:number;label:string;generation:6|7|8|9;defaultName:string;rule:AbilityRuleSet};
+export type AbilityImport = {id:number;label:string;generation:6|7|8|9;defaultName:string;rule:AbilityRuleSet;group?:string};
 const entries:AbilityImport[]=[];
 const native=(id:number,parameters?:Record<string,number>,extra:Partial<AbilityRuleEffect>={}):AbilityRuleEffect=>({kind:`nativeAbility:${id}`,value:-1,...(parameters?{parameters}:{}),...extra});
 function add(id:number,label:string,generation:AbilityImport["generation"],effects:AbilityRuleEffect[],conditions:AbilityRuleSet["conditions"]=EMPTY_ABILITY_RULE.conditions){entries.push({id,label,generation,defaultName:label.length<=15?label:label.replace(/\s+/gu,""),rule:validateAbilityRule(optimizeAbilityRule(validateAbilityRule({effects,conditions:structuredClone(conditions)})))});}
@@ -70,6 +70,8 @@ add(245,"Sand Spit",8,[recipe("weatherAction",1,{activation:1,weather:4,duration
 add(249,"Power Spot",8,[recipe("allyPower",1.3)]);
 add(251,"Screen Cleaner",8,[recipe("clearScreens")]);
 add(253,"Perish Body",8,[recipe("perish",3,{moveClass:1})]);
+// Gen 8–9 behavior: contact moves ignore protection at full damage.
+add(260,"Unseen Fist",8,[recipe("protectBypass",1,{moveClass:1})]);
 add(257,"Pastel Veil",8,[guard(5,{cure:1})]);
 add(261,"Curious Medicine",8,[recipe("stageOperation",1,{operation:1,adjacent:1})]);
 add(252,"Steely Spirit",8,[recipe("allyPower",1.5,{scope:1,moveClass:9,type:8})]);
@@ -104,6 +106,8 @@ add(287,"Vessel of Ruin",9,[recipe("fieldStat",.75,{stat:3})]);
 add(290,"Opportunist",9,[recipe("statEcho",1,{mode:1},false)]);
 add(293,"Supreme Overlord",9,[recipe("fallenPower",10)]);
 add(296,"Armor Tail",9,[recipe("priorityGuard")]);
+// Pokémon Champions abilities have no Gen 6–9 index; IDs from 1000 are library-only keys.
+add(1000,"Piercing Drill",9,[recipe("protectBypass",.25,{moveClass:1})]);entries.at(-1)!.group="Pokémon Champions";
 export const ABILITY_IMPORT_LIBRARY=entries.sort((a,b)=>a.generation-b.generation||a.label.localeCompare(b.label));
 export function abilityImport(id:number):AbilityImport{
  const entry=ABILITY_IMPORT_LIBRARY.find(e=>e.id===id);if(!entry)throw new Error("Choose a supported ability import.");return structuredClone(entry);

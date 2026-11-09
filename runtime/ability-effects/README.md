@@ -78,6 +78,30 @@ classified for move-specific sequencing; check their interactions separately.
 For damage sequences nested more than eight levels, deeper sequences retain
 their native hit counts.
 
+**Hit through protection** lets the holder's matching moves (default: contact
+moves) hit targets protected by Protect, Detect, Wide Guard or Quick Guard. The
+value is the damage multiplier against a target that is still protected: the
+**Unseen Fist** import (Gen 8–9 behavior) uses 1×, and the **Piercing Drill**
+import (Pokémon Champions) uses 0.25×. Champions' own Unseen Fist also uses
+0.25×; edit the value for that version. The move filter accepts the
+same contact, expanded, vanilla-flag and custom choices as other primitives, and
+AND/OR activation conditions apply. Unprotected targets take normal damage, and the move's other effects
+(secondary effects, drain, recoil, contact reactions) are processed normally.
+The protection itself stays in place for other attackers. Protect and Detect use
+the native protect-break query, answered after its handlers like Feint's.
+Wide Guard and Quick Guard are side-condition items that block in the shared no-effect check; only
+while that check runs for an eligible holder are the defender side's two guard
+items paused, so move-specific failure checks and other immunities still apply.
+The reduction is applied per target and per hit at the final damage stage, after
+the native modifiers, using the native fixed-point multiplier. Fixed-damage moves
+(Seismic Toss, Night Shade, Super Fang …) skip that stage and deal their normal
+amount through protection. Gastro Acid suppresses the effect; Skill Swap and other
+ability changes take effect for the next move. Protection moves added by a ROM
+hack need their own review; only the four vanilla BW/BW2 protections are handled.
+The primitive adds no native hooks: it uses the recipe dispatcher wrapper that
+recipe runtimes already install, plus two read-only services (`GetTurnFlag`,
+`BattleEvent_SeekItem`) resolved by checked signatures on each game.
+
 **Triggered stat stages** can select the holder's or each target's highest raw
 stat (excluding HP and ignoring stages; ties use Attack, Defense, Sp. Atk, Sp. Def,
 then Speed). **After using a move** fires once after an executed move resolves,
@@ -204,7 +228,10 @@ chance roll pass. Rejected local checks and failed rolls produce no popup.
 Aura entry notices use the configured type's display name, including Fairy and
 renamed types, without relying on Gen 5's native type-name formatter.
 
-Build from the repository root with `python3 runtime/ability-effects/build.py`.
+Build from the repository root with `python3 runtime/ability-effects/build.py`
+(the default now builds the v13 `--protect-only` bundle,
+`src/assets/data/abilityRuleRuntimeProtect.json`; the v12 strikes bundle is retained
+unchanged for verifying older exports).
 The original templates remain available for strict verification of older exports;
 the default build updates only the current bundle (`--environment-only`),
 including its 4-, 8- and 16-slot work variants. `--native-flags-only`, `--compact-only`, `--stat-source-only`,
@@ -213,7 +240,7 @@ rebuild retained bundles for verification of older exports;
 released bundles must remain byte-identical when making a new runtime. Consolidated
 execution records use shared immutable data. The
 `PokewebAbilityCompact: 1` and `PokewebAbilityWorkSlots` metadata identify the
-execution format and selected work capacity. Versions 1–10 remain readable through
+execution format and selected work capacity. Versions 1–12 remain readable through
 their retained bundles and can be updated while preserving editor recipes.
 New modules retain `PokewebAbilityDispatchVersion: 2` and the 16-byte effect stride.
 `python3 runtime/ability-effects/test_compact.py --current` checks the consolidated
@@ -271,3 +298,17 @@ does not scan ability definitions or query weather to identify the source.
 entry actions and source guards with isolated native services. Native case
 builders accept `--environment` for condition, immunity, suppression and swap
 fixtures; pass a new output directory and explicit ROM input.
+
+Hit-through-protection gameplay fixtures use an emulator-only evidence log. In a
+disposable checkout, build the test bundle with
+`ABILITY_PROTECT_TEST=1 python3 runtime/ability-effects/build.py --protect-only`
+(never commit that bundle: its log uses the last free working-memory bytes), then
+create fixtures with `build_scoped_cases.ts CLEAN_W2.nds NEW_OUTPUT --protect` or
+`build_bw1_cases.ts CLEAN_B_OR_W.nds NEW_OUTPUT --protect` and run
+`npx vite-node runtime/ability-effects/run_protect_cases.ts NEW_OUTPUT --frames=9000`.
+The runner uses the bundled desmume-wasm core (no melonDS dependency) and checks
+the protect-break result, guard pauses, damage-stage multipliers and damage dealt
+for Protect, Detect, Quick Guard, Wide Guard (doubles), non-contact, inactive
+condition, fixed damage, unprotected, opponent-holder, Gastro Acid and Skill Swap
+cases. Verified on US White 2, Black and White. Black 2 shares White 2's checked
+bindings and was link/export-checked only; the repository has no Black 2 battle harness.

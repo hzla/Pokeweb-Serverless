@@ -18,7 +18,7 @@ export function renderAbilityEditor(project: ProjectState, root: HTMLElement, on
     const options:RuleFormOptions={
         ability:true,
         definitions:[...ABILITY_RULE_EFFECTS,...ABILITY_NATIVE_EFFECTS.map(d=>({...d,label:displayAbilityName(d.nativeItem,project.texts.banks.abilities?.[d.nativeItem]??d.label)}))],
-        presets:[...ABILITY_IMPORT_LIBRARY.map(p=>({id:p.id,label:p.label,group:`Generation ${p.generation}`})),...ABILITY_RULE_PRESETS.map(p=>({id:p.id,label:displayAbilityName(p.id,p.label),group:project.session.baseRom === "BW" ? "BW templates" : "BW2 templates"}))],
+        presets:[...ABILITY_IMPORT_LIBRARY.map(p=>({id:p.id,label:p.label,group:p.group??`Generation ${p.generation}`})),...ABILITY_RULE_PRESETS.map(p=>({id:p.id,label:displayAbilityName(p.id,p.label),group:project.session.baseRom === "BW" ? "BW templates" : "BW2 templates"}))],
         preset:id=>({...structuredClone(id>164?abilityImport(id).rule:ABILITY_RULE_PRESETS.find(p=>p.id===id)!.rule),consumable:false}),
         imported:id=>{const name=root.querySelector<HTMLInputElement>("[data-ability-name]")!;if(!name.value.trim())name.value=id>164?abilityImport(id).defaultName:displayAbilityName(id,ABILITY_RULE_PRESETS.find(p=>p.id===id)!.label).slice(0,15);descriptionPreview?.refresh();},
         apply:async rule=>{

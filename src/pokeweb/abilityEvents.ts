@@ -58,6 +58,7 @@ export function abilityRuleEvents(rule: AbilityRuleSet, profiles: NativeAbilityP
         case 165: add(0x5b); break;
         case 168: case 169: add(0x55,0x8a); break;
         case 171: break; // The checked damage-move adapter handles this primitive.
+        case 172: break; // The recipe dispatcher adapter handles the protection checks and damage stage.
         case 170: {
           const mask=p("sources");
           if(mask&0x201f)add(0x6b);
