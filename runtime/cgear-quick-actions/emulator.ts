@@ -1,6 +1,6 @@
 // Isolated emulator smoke test. Only the bundled fixture save is used in RAM.
 import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 import vm from "node:vm";
 import { PNG } from "pngjs";
@@ -30,7 +30,7 @@ const input=process.argv[2];if(!input) throw new Error("Pass clean B2/W2 ROM.");
 const scenarioArg=process.argv.indexOf('--scenario');
 const scenario=scenarioArg<0?'default':process.argv[scenarioArg+1];
 const radarSuffix=['--radar-zone','--radar-x','--radar-z'].map(name=>{const i=process.argv.indexOf(name);return i<0?'':`-${name.slice(8)}${Number(process.argv[i+1])}`;}).join('');
-const out=new URL(`./build/emulator-${input.toLowerCase().includes("black")?"B2":"W2"}-${scenario}${actionId?`-${actionId}`:""}${process.argv.includes("--power-on")?"-on":"-off"}${process.argv.includes("--eight")?"-eight":""}${radarSuffix}${process.argv.includes("--append-shop")?"-seven":""}/`,import.meta.url);await mkdir(out,{recursive:true});
+const out=process.env.CGEAR_EMULATOR_OUTPUT?pathToFileURL(process.env.CGEAR_EMULATOR_OUTPUT!.replace(/\/?$/u,"/")):new URL(`./build/emulator-${input.toLowerCase().includes("black")?"B2":"W2"}-${scenario}${actionId?`-${actionId}`:""}${process.argv.includes("--power-on")?"-on":"-off"}${process.argv.includes("--eight")?"-eight":""}${radarSuffix}${process.argv.includes("--append-shop")?"-seven":""}/`,import.meta.url);await mkdir(out,{recursive:true});
 globalThis.fetch=(async(v:RequestInfo|URL)=>new Response(new Uint8Array(await readFile(v instanceof URL?v:new URL(v instanceof Request?v.url:String(v)))))) as typeof fetch;
 const project=await loadProjectFromRomBytes(new Uint8Array(await readFile(input)),"quick-actions.nds",{selectedNarcs:[]});
 const design=ensureCGearButtons(project).document;

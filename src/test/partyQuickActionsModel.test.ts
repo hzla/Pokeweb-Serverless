@@ -106,6 +106,19 @@ for (const v of ["B2", "W2"] as const)
             disablePartyQuickActions(p);
             expect(getPartyQuickActionsStatus(p).enabled).toBe(false);
         });
+        it("repairs a missing field companion and rejects altered callback code", async () => {
+            const p = project(v); assets(); await installPartyQuickActions(p);
+            const path = `patches/${manifest.games[v].field.fileName}`;
+            delete p.fileSystem!.additions![path];
+            expect(getPartyQuickActionsStatus(p)).toMatchObject({ installed: true, compatible: true, updateAvailable: true });
+            await installPartyQuickActions(p);
+            expect(getPartyQuickActionsStatus(p).updateAvailable).toBe(false);
+            p.fileSystem!.additions![path] = p.fileSystem!.additions![path].slice();
+            p.fileSystem!.additions![path][32] ^= 1;
+            const before = structuredClone(p);
+            await expect(installPartyQuickActions(p)).rejects.toThrow(/Conflicting/);
+            deepStrictEqual(structuredClone(p), before);
+        });
         it("rolls back item, icon and text edits if toolbar staging fails after installing the dependency", async () => {
             const p = project(v), before = structuredClone(p); assets();
             const stage = pmc.stageCodeInjectionDll;
@@ -119,7 +132,7 @@ for (const v of ["B2", "W2"] as const)
         // One export cycle per graphics/hook/config layout; recognize every release.
         for (const priors of [["0.1.0", "0.1.1"], ["0.1.2", "0.1.3"], ["0.1.4"], ["0.1.5"]]) it(`updates toolbar layout ${priors[0]} in place after export`, async () => {
             const p = project(v); assets(); await installPartyQuickActions(p);
-            const entry = listCodeInjectionDlls(p).find(e => e.fileName.startsWith("PartyQuickActions"))!;
+            const entry = listCodeInjectionDlls(p).find(e => e.fileName === `PartyQuickActions${v}.dll`)!;
             for (const prior of priors) {
                 const fixture = (name: string) => new Uint8Array(readFileSync(new URL(`./fixtures/party-quick-actions-v${prior}/${name}`, import.meta.url)));
                 p.fileSystem!.additions![entry.path] = fixture(`PartyQuickActions${v}.dll`);
@@ -138,7 +151,7 @@ for (const v of ["B2", "W2"] as const)
             expect(getPartyQuickActionsStatus(reopened).enabled).toBe(false);
             await installPartyQuickActions(reopened);
             expect(getPartyQuickActionsStatus(reopened)).toMatchObject({ installed: true, enabled: true, compatible: true, updateAvailable: false, dllPath: entry.path });
-            expect(listCodeInjectionDlls(reopened).filter(e => e.fileName.startsWith("PartyQuickActions"))).toHaveLength(1);
+            expect(listCodeInjectionDlls(reopened).filter(e => e.fileName === `PartyQuickActions${v}.dll`)).toHaveLength(1);
             expect(getPartyQuickActionsStatus(project(v, await exportModifiedRom(reopened)))).toMatchObject({ installed: true, compatible: true, updateAvailable: false });
             expect(getPartyQuickActionsStatus(reopened)).toMatchObject({ hideFlag: prior === "0.1.5" ? 0x05ee : null, sectionHideFlags: { candy: null, heal: null, hp: null, exp: null, statuses: null } });
         });
@@ -182,7 +195,7 @@ for (const v of ["B2", "W2"] as const)
             await expect(installPartyQuickActions(p)).rejects.toThrow(/Unrecognized Party toolbar archive/);
             deepStrictEqual(structuredClone(p), before);
         });
-        it("installs once, disables, and recovers through export", async () => { const p = project(v); assets(); expect(getPartyQuickActionsStatus(p).compatible).toBe(true); await installPartyQuickActions(p); await installPartyQuickActions(p); expect(listCodeInjectionDlls(p).filter(e => e.fileName.startsWith("PartyQuickActions"))).toHaveLength(1); expect(getPartyQuickActionsStatus(p)).toMatchObject({ installed: true, enabled: true }); disablePartyQuickActions(p); const reopened = project(v, await exportModifiedRom(p)); expect(getPartyQuickActionsStatus(reopened)).toMatchObject({ installed: true, enabled: false, compatible: true }); await installPartyQuickActions(reopened); expect(getPartyQuickActionsStatus(reopened).enabled).toBe(true); });
+        it("installs once, disables, and recovers through export", async () => { const p = project(v); assets(); expect(getPartyQuickActionsStatus(p).compatible).toBe(true); await installPartyQuickActions(p); await installPartyQuickActions(p); expect(listCodeInjectionDlls(p).filter(e => e.fileName === `PartyQuickActions${v}.dll`)).toHaveLength(1); expect(getPartyQuickActionsStatus(p)).toMatchObject({ installed: true, enabled: true }); disablePartyQuickActions(p); const reopened = project(v, await exportModifiedRom(p)); expect(getPartyQuickActionsStatus(reopened)).toMatchObject({ installed: true, enabled: false, compatible: true }); await installPartyQuickActions(reopened); expect(getPartyQuickActionsStatus(reopened).enabled).toBe(true); });
         it("rejects changed native hooks without staging", async () => { const p = project(v); const s = manifest.games[v].signatures.find(s => s.patchSize)!; const r = new NintendoDSRom(p.originalRomBytes!); const mod = Number(s.module), base = new DataView(r.arm9OverlayTable.buffer).getUint32(mod * 32 + 4, true); p.overlays[mod] = r.files[mod].slice(); p.overlays[mod]![s.address - base] ^= 1; const before = structuredClone(p); assets(); await expect(installPartyQuickActions(p)).rejects.toThrow(/Unrecognized/); deepStrictEqual(structuredClone(p), before); });
         it("preserves the project when bundled loading fails", async () => { const p = project(v), before = structuredClone(p); assets(true); await expect(installPartyQuickActions(p)).rejects.toThrow(/Could not load/); deepStrictEqual(structuredClone(p), before); });
         it("rejects altered private graphics without changing the installation", async () => {
@@ -197,7 +210,7 @@ for (const v of ["B2", "W2"] as const)
         });
         it("rejects conflicting modules before staging", async () => {
             const p = project(v); assets(); await installPartyQuickActions(p);
-            const entry = listCodeInjectionDlls(p).find(e => e.fileName.startsWith("PartyQuickActions"))!;
+            const entry = listCodeInjectionDlls(p).find(e => e.fileName === `PartyQuickActions${v}.dll`)!;
             const modified = p.fileSystem!.additions![entry.path]!.slice();
                         // Alter owned code while preserving the module's hook table.
             const header = new DataView(modified.buffer).getUint32(8, true);

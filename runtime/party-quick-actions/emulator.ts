@@ -1,6 +1,6 @@
 // Isolated emulator smoke test. Only the bundled fixture save is used in RAM.
 import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 import vm from "node:vm";
 import { PNG } from "pngjs";
@@ -28,7 +28,7 @@ const hideFlag = process.argv.includes('--flag-configured') || scenario==='hidde
 
 globalThis.fetch=(async(v:RequestInfo|URL)=>new Response(new Uint8Array(await readFile(v instanceof URL?v:new URL(v instanceof Request?v.url:String(v)))))) as typeof fetch;
 const project=await loadProjectFromRomBytes(new Uint8Array(await readFile(input)),"quick-actions.nds",{selectedNarcs:[]});
-const out=new URL(`./build/emulator-${project.session.baseVersion}-${scenario}${process.argv.includes("--power-on")?"-on":"-off"}${process.argv.includes("--companions")?"-companions":""}${process.argv.includes("--no-candy")?"-no-candy":""}${scenario==="sections"?`-${hiddenSections.join("-")||"none"}`:""}/`,import.meta.url);await mkdir(out,{recursive:true});
+const out=process.env.PARTY_EMULATOR_OUTPUT?pathToFileURL(process.env.PARTY_EMULATOR_OUTPUT!.replace(/\/?$/u,"/")):new URL(`./build/emulator-${project.session.baseVersion}-${scenario}${process.argv.includes("--power-on")?"-on":"-off"}${process.argv.includes("--companions")?"-companions":""}${process.argv.includes("--no-candy")?"-no-candy":""}${scenario==="sections"?`-${hiddenSections.join("-")||"none"}`:""}/`,import.meta.url);await mkdir(out,{recursive:true});
 await installCGearQuickActions(project);
 if(process.argv.includes('--companions')) {
  await installBattleLog(project);await installMenuEvolution(project);

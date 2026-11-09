@@ -200,6 +200,19 @@ function legacyControls(arc:NARC){
   writeU32(arc.files[0],24,fingerprint(new Uint8Array(arc.files.slice(1,12).flatMap(b=>Array.from(b)))));
 }
 describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
+  it("repairs a missing field companion atomically and rejects a changed companion", async () => {
+    const p = makeProject(v); assets(); await installCGearQuickActions(p);
+    const path = `patches/${manifest.games[v].field.fileName}`;
+    delete p.fileSystem!.additions![path];
+    expect(getCGearQuickActionsStatus(p)).toMatchObject({ installed: true, compatible: true, updateAvailable: true });
+    await installCGearQuickActions(p);
+    expect(getCGearQuickActionsStatus(p).updateAvailable).toBe(false);
+    p.fileSystem!.additions![path] = p.fileSystem!.additions![path].slice();
+    p.fileSystem!.additions![path][32] ^= 1;
+    const before = structuredClone(p);
+    await expect(installCGearQuickActions(p)).rejects.toThrow(/Conflicting/u);
+    deepStrictEqual(structuredClone(p), before);
+  });
   it("accepts the verified Following Pokémon event hooks but rejects altered or overlapping modules", async () => {
     const p = makeProject(v); assets();
     const directory = v === "W2" ? "" : "black2/";

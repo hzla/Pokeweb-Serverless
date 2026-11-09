@@ -28,6 +28,9 @@ def prepare(path):
     base = json.loads((ASSETS / 'cgearQuickActionsManifest.json').read_text())
     assert base['version'] == BASE_VERSION, 'Build the base runtime before its adapter.'
     profile = copy.deepcopy(base['games']['W2'])
+    # This separately checked adapter keeps its combined runtime layout.
+    profile.pop('field', None)
+    profile.pop('exports', None)
     overlays = rom.loadArm9Overlays([12, 36, 79])
     arm = ndspy.codeCompression.decompress(rom.arm9)
     for signature in profile['signatures']:

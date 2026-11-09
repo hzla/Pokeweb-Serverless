@@ -1,3 +1,5 @@
+import { uiFieldCompanion, matchesUiFieldCompanion, loadUiFieldCompanion, type UiFieldCompanion } from "./uiRuntimeCompanion";
+import previous16 from "../../runtime/party-quick-actions/previous-0.1.6.json";
 import manifest from "../assets/codeinjection/partyQuickActionsManifest.json";
 import bw1Manifest from "../assets/codeinjection/partyQuickActionsBw1Manifest.json";
 import previous from "../../runtime/party-quick-actions/previous.json";
@@ -20,7 +22,7 @@ import { createNarcStore, type ProjectState } from "./projectStore";
 import { parseRpm, type RpmModule } from "./rpm";
 type Version = "B" | "W" | "B2" | "W2";
 type Profile = {
-  idCode: string; fileName: string; sha256: string; codeFingerprint: string; bssSize: number;
+  field?: UiFieldCompanion; idCode: string; fileName: string; sha256: string; codeFingerprint: string; bssSize: number;
   signatures: { label: string; module: string; address: number; expectedHex: string; patchSize: number; patchType?: string }[];
   archiveSha256?: string; graphicsFingerprints?: string[];
 };
@@ -50,9 +52,11 @@ export type PartyQuickActionsStatus = {
   message: string;
 };
 const urls = { B: new URL("../assets/codeinjection/PartyQuickActionsB.dll", import.meta.url), W: new URL("../assets/codeinjection/PartyQuickActionsW.dll", import.meta.url), W2: new URL("../assets/codeinjection/PartyQuickActionsW2.dll", import.meta.url), B2: new URL("../assets/codeinjection/PartyQuickActionsB2.dll", import.meta.url) };
+const fieldUrls = { W2: new URL("../assets/codeinjection/PartyQuickActionsFieldW2.dll", import.meta.url),
+  B2: new URL("../assets/codeinjection/PartyQuickActionsFieldB2.dll", import.meta.url) };
 const archiveUrl = new URL("../assets/codeinjection/partyQuickActions.narc", import.meta.url);
 const archiveUrls = { B: new URL("../assets/codeinjection/partyQuickActionsB.narc", import.meta.url), W: new URL("../assets/codeinjection/partyQuickActionsW.narc", import.meta.url), B2: archiveUrl, W2: archiveUrl };
-const bundles: Bundle[] = [manifest, previous, previous11, previous12, previous13, previous14, previous15, bw1Manifest];
+const bundles: Bundle[] = [manifest, previous, previous11, previous12, previous13, previous14, previous15, previous16, bw1Manifest];
 const currentBundle = (version: Version): Bundle => version === "B" || version === "W" ? bw1Manifest : manifest;
 const graphics = (bundle: Bundle, version: Version) => bundle.games[version]?.graphicsFingerprints ?? bundle.graphicsFingerprints ?? [];
 export const getPartyToolbarMaxSaveFlag = (version: string) => version === "B" || version === "W" ? 2911 : PARTY_QUICK_ACTIONS_MAX_SAVE_FLAG;
@@ -69,7 +73,7 @@ function matchesModule(module: RpmModule, version: Version, bundle: Bundle) {
   if (!profile) return false;
   const hooks = module.relocations.filter(({ target }) => target.module !== "base")
     .map(({ target }) => `${target.module}:${target.address}:${target.type}`).sort();
-  const expected = profile.signatures.filter(s => s.patchSize)
+  const expected = profile.signatures.filter(s => s.patchSize && (!uiFieldCompanion(profile) || s.module !== "12"))
     .map(s => `${s.module}:${s.address}:${s.patchType ?? (s.label.endsWith("Return") ? "FULL_COPY" : "THUMB_BRANCH_LINK")}`).sort();
   return module.metadata.PMCGameID === version && module.metadata.PMCVersion === bundle.version
     && module.metadata.PMCModulePriority === 4 && !module.baseAddress
@@ -168,6 +172,8 @@ export function getPartyQuickActionsStatus(p: ProjectState): PartyQuickActionsSt
           rpm = parseRpm(b, { allowedMagics: ["DLXF"] });
       }
       catch { }
+      if (!b && entry.path === `patches/${uiFieldCompanion(profile)?.fileName}`) continue;
+      if (rpm && matchesUiFieldCompanion(rpm, profile, v, bundle.version)) continue;
       if (rpm && recognized(rpm, v) && entry.target === "patches") {
         if (state.installed)
           throw new Error("Duplicate Party toolbar modules. Remove the duplicate before installing.");
@@ -175,11 +181,16 @@ export function getPartyQuickActionsStatus(p: ProjectState): PartyQuickActionsSt
         state.dllPath = entry.path;
         state.updateAvailable = !matchesModule(rpm, v, bundle);
       }
-      else if (/^PartyQuickActions[WB]2?\.dll$/iu.test(entry.fileName) || rpm?.relocations.some(({ target, sourceSymbolIndex }) => {
+      else if (/^PartyQuickActions(?:Field)?[WB]2?\.dll$/iu.test(entry.fileName) || rpm?.relocations.some(({ target, sourceSymbolIndex }) => {
         const size = target.type === "FULL_COPY" ? rpm!.symbols[sourceSymbolIndex]?.size ?? 0 : target.type === "THUMB_BRANCH" ? 12 : target.type === "THUMB_BRANCH_SAFESTACK" ? 16 : 4;
         return profile.signatures.filter(s => s.patchSize).some(s => s.module === target.module && target.address < s.address + s.patchSize && target.address + size > s.address);
       }))
         throw new Error(`Conflicting Party toolbar hooks in ${entry.path}. Remove that conflicting module or use a compatible version.`);
+    }
+    const field = uiFieldCompanion(profile);
+    if (state.installed && field) {
+      const bytes = bytesAt(p, r, `patches/${field.fileName}`);
+      if (!bytes || !matchesUiFieldCompanion(parseRpm(bytes, { allowedMagics: ["DLXF"] }), profile, v, bundle.version)) state.updateAvailable = true;
     }
     const archive = bytesAt(p, r, manifest.archivePath);
     if (archive) {
@@ -263,6 +274,12 @@ export async function installPartyQuickActions(p: ProjectState, options: PartyQu
     installPmcBytes(staged, await loadBundledPmcBytes(v), romBytes);
   loadCandyArchives(staged, r);
   if (!s.candyInstalled) await installInfiniteCandy(staged);
+  const field = uiFieldCompanion(profile);
+  if (field && (v === "B2" || v === "W2")) {
+    const bytes = await loadUiFieldCompanion(profile, fieldUrls[v]);
+    if (!matchesUiFieldCompanion(parseRpm(bytes, { allowedMagics: ["DLXF"] }), profile, v, bundle.version)) throw new Error("Unrecognized Party field companion.");
+    stageCodeInjectionDll(staged, field.fileName, bytes, "patches", romBytes);
+  }
   const result = stageCodeInjectionDll(staged, s.dllPath?.split("/").pop() ?? profile.fileName, dll, "patches", romBytes);
   stageArchive(staged, r, configuredArchive.save());
   recordGenericChange(staged, "code_injection", `Party toolbar installed with Infinite Rare Candy: Candy, confirmed Heal Team, HP adjustment, confirmed XP edging, L/A navigation and five status toggles.${hideFlag ? ` Hidden when save flag 0x${hideFlag.toString(16).toUpperCase()} is set.` : ""}`, "Party Toolbar", { key: "code-injection:party-quick-actions" });

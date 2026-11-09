@@ -27,7 +27,25 @@ bool available(u32 i){return i<BUTTONS&&(session.mask&(1<<i));}
 u32 centerX(u32 i){u32 n=0;for(u32 p=0;p<order(i);p++)if(available(button(p)))n++;return 13+20*n;}
 void navBorder(bool on);
 void confirmClose(void* w,bool accept);
+#if defined(PARTY_SPLIT_UI) || defined(PARTY_SPLIT_FIELD)
+#define evolutionOwner PokewebPartyEvolutionOwner
+#define flagRequest PokewebPartyFlagRequest
+#define flagWork PokewebPartyFlagWork
+#ifdef PARTY_SPLIT_UI
+#define PARTY_SHARED extern __attribute__((visibility("default")))
+#else
+#define PARTY_SHARED __attribute__((visibility("default")))
+#endif
+extern "C" {
+PARTY_SHARED void* evolutionOwner;
+PARTY_SHARED void* flagRequest;
+PARTY_SHARED void* flagWork;
+}
+#else
 void* evolutionOwner;
+void* flagRequest;
+void* flagWork;
+#endif
 #if defined(GAME_B) || defined(GAME_W)
 // A medicine action may outlive the Party work through Summary or Evolution.
 // Keep its native item until the field callback has copied the request, then
@@ -36,8 +54,6 @@ void* medicineOwner;
 u32 medicineStage,medicineMode;
 u16 medicineItem;
 #endif
-void* flagRequest;
-void* flagWork;
 void* fallbackWork;
 void clear(void* p,u32 n){for(u32 i=0;i<n;i++)at<u8>(p,i)=0;}
 void* request(void* w){return at<void*>(w,Profile::Request);}
@@ -218,7 +234,9 @@ extern "C" void* PaRequest(void* field,u32 mode,u32 previous,const void* data){
  return r;
 }
 #else
+#ifndef PARTY_SPLIT_UI
 extern "C" void* PaRequest(void* game,u32 mode,void* party,u32 heap){void* r=api<void*(*)(void*,u32,void*,u32)>(0x2034c80)(game,mode,party,heap);flagRequest=r;flagWork=r?api<void*(*)(void*)>(0x2017394)(game):nullptr;return r;}
+#endif
 #endif
 extern "C" u32 PaEnd(void* w){if(session.work==w){if(session.candy&&(at<u32>(request(w),Profile::Result)==5||at<u32>(request(w),Profile::Result)==9)){
 #if defined(GAME_B) || defined(GAME_W)
@@ -349,6 +367,7 @@ extern "C" void PaIdle(void* w){
  }
  ov<void(*)(void*)>(0x219bb48)(w);
 }
+#ifndef PARTY_SPLIT_UI
 extern "C" u32 PaPartyReturn(void* w,void* data){
 #if defined(GAME_B) || defined(GAME_W)
  if(medicineOwner==data&&medicineStage==1){medicineOwner=w;medicineStage=2;}
@@ -365,3 +384,4 @@ extern "C" u32 PaEvolutionReturn(void* w){u32 r=ov<u32(*)(void*)>(0x215c3e4)(w);
 #endif
  return r;
 }
+#endif

@@ -1,6 +1,7 @@
 import { buttonAssets, ensureCGearButtons, hydrateCGearButtons, validateButtonArchive, disableButtonArchive, stageNativeButtonGraphics, restoreNativeButtonGraphics, installedNativeButtonGraphics } from "./cgearButtonsModel";
 import { compile } from "../cgearButtons/compiler";
 import { originalGraphics, sameGraphics, packNativeGraphics } from "../cgearButtons/nativeGraphics";
+import { uiFieldCompanion, uiSymbolHash, matchesUiFieldCompanion, loadUiFieldCompanion, type UiFieldCompanion } from "./uiRuntimeCompanion";
 import manifest from "../assets/codeinjection/cgearQuickActionsManifest.json";
 import reduxManifest from "../assets/codeinjection/cgearQuickActionsReduxManifest.json";
 import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
@@ -27,7 +28,7 @@ import followingBlack2 from "../assets/following/black2/runtime.json";
 import followingUpgrade from "../assets/following/white2upgrade/runtime.json";
 
 type Version = "B2" | "W2";
-type Profile = typeof manifest.games.W2;
+type Profile = Omit<typeof manifest.games.W2, "field" | "exports"> & { field?: UiFieldCompanion; exports?: string[] };
 export const CGEAR_QUICK_ACTIONS_VERSION = manifest.version;
 export const CGEAR_QUICK_ACTIONS_ARCHIVE = manifest.archivePath;
 export const CGEAR_QUICK_ACTIONS_DEFAULT_PC_HIDE_FLAG = manifest.defaultPcHideFlag;
@@ -40,6 +41,8 @@ export type CGearQuickActionsStatus = {
 };
 const urls = { W2: new URL("../assets/codeinjection/CGearQuickActionsW2.dll", import.meta.url),
   B2: new URL("../assets/codeinjection/CGearQuickActionsB2.dll", import.meta.url) };
+const fieldUrls = { W2: new URL("../assets/codeinjection/CGearQuickActionsFieldW2.dll", import.meta.url),
+  B2: new URL("../assets/codeinjection/CGearQuickActionsFieldB2.dll", import.meta.url) };
 const graphicsUrl = new URL("../assets/codeinjection/cgearQuickActions.narc", import.meta.url);
 const reduxUrl = new URL("../assets/codeinjection/CGearQuickActionsReduxW2.dll", import.meta.url);
 const hex = (b: Uint8Array) => Array.from(b, v => v.toString(16).padStart(2, "0")).join("");
@@ -57,8 +60,8 @@ function recognized(rpm: RpmModule, version: Version): boolean {
   const p = found.profile;
   if (rpm.baseAddress || rpm.bssSize !== p.bssSize || rpm.metadata.PMCGameID !== version
     || rpm.metadata.PMCModulePriority !== 4
-    || rpm.symbols.some(s => (s.attributes & 2) && s.address!==parseInt(fingerprint(new TextEncoder().encode("PokewebBgmMute")),16)) || fingerprint(rpm.code) !== p.codeFingerprint) return false;
-  const expected = p.signatures.filter(s => s.patchSize).map(s => `${s.module}:${s.address}:${s.label.startsWith("QaRepel") || s.label.startsWith("QaPhenomenon") || s.label.startsWith("QaShop") && !["QaShopChoiceAdd","QaShopBuyCommand","QaShopRowPrice","QaShopTmRowPrice"].includes(s.label) || ["QaInput", "QaButtonHit", "QaGearUnit", "QaGearEnd"].includes(s.label) ? "THUMB_BRANCH_LINK" : "FULL_COPY"}`).sort();
+    || rpm.symbols.some(s => (s.attributes & 2) && !new Set([uiSymbolHash("PokewebBgmMute"), ...(uiFieldCompanion(p)?.exports.map(uiSymbolHash) ?? [])]).has(s.address)) || fingerprint(rpm.code) !== p.codeFingerprint) return false;
+  const expected = p.signatures.filter(s => s.patchSize && (!uiFieldCompanion(p) || s.module !== "12")).map(s => `${s.module}:${s.address}:${s.label.startsWith("QaRepel") || s.label.startsWith("QaPhenomenon") || s.label.startsWith("QaShop") && !["QaShopChoiceAdd","QaShopBuyCommand","QaShopRowPrice","QaShopTmRowPrice"].includes(s.label) || ["QaInput", "QaButtonHit", "QaGearUnit", "QaGearEnd"].includes(s.label) ? "THUMB_BRANCH_LINK" : "FULL_COPY"}`).sort();
   const actual = rpm.relocations.filter(r => r.target.module !== "base").map(r => `${r.target.module}:${r.target.address}:${r.target.type}`).sort();
   return expected.join("|") === actual.join("|");
 }
@@ -170,20 +173,29 @@ export function getCGearQuickActionsStatus(project: ProjectState): CGearQuickAct
     let rpm: RpmModule | undefined;
     let bytes: Uint8Array | undefined;
     try {bytes = bytesAt(project, rom, entry.path);if (bytes) rpm = parseRpm(bytes, { allowedMagics: ["DLXF"] });} catch { /* Names still checked below. */ }
+    if (!bytes && !redux && entry.path === `patches/${uiFieldCompanion(profile)?.fileName}`) continue;
+    if (!redux && rpm && matchesUiFieldCompanion(rpm, manifest.games[v], v, manifest.version)) continue;
     if (redux && entry.target === "patches" && entry.path === redux.path && rpm && isReduxRepel(rpm)) continue;
     if (entry.target === "patches" && rpm && recognized(rpm, v)) {
       if (rpm.metadata.PMCVersion === reduxManifest.version && !redux) return { ...state, installed: true,
         message: "The Redux C-Gear adapter requires its matching Redux repel runtime. Restore that runtime before updating." };
       owned.push(entry.path);state.updateAvailable=rpm.metadata.PMCVersion!==targetVersion;
     }
-    else if ((rpm && conflicts(rpm, profile, isVerifiedFollowingCore(entry.path, bytes, v))) || /^CGearQuickActions[WB]2\.dll$/iu.test(entry.fileName)) {
+    else if ((rpm && conflicts(rpm, profile, isVerifiedFollowingCore(entry.path, bytes, v))) || /^CGearQuickActions(?:Field)?[WB]2\.dll$/iu.test(entry.fileName)) {
       return { ...state, message: `Conflicting C-Gear, encounter, or field action code in ${entry.path}. Remove that conflicting module or use a compatible version.` };
     }
   }
   if (owned.length > 1) return { ...state, installed: true, message: "Multiple Quick Actions runtimes are present. Remove the duplicate before updating." };
   state.installed = owned.length === 1;state.dllPath = owned[0];
+  const field = !redux && uiFieldCompanion(profile);
+  if (state.installed && field) {
+    const bytes = bytesAt(project, rom, `patches/${field.fileName}`);
+    if (!bytes || !matchesUiFieldCompanion(parseRpm(bytes, { allowedMagics: ["DLXF"] }), profile, v, manifest.version)) state.updateAvailable = true;
+  }
+
   state.canRemove = Boolean(state.dllPath && canRemoveStagedCodeInjectionDll(project, state.dllPath)
-    && project.fileSystem?.additions?.[manifest.archivePath]);
+    && project.fileSystem?.additions?.[manifest.archivePath]
+    && (!field || canRemoveStagedCodeInjectionDll(project, `patches/${field.fileName}`)));
   const archive = bytesAt(project, rom, manifest.archivePath);
   if (archive) {
     try {
@@ -374,6 +386,12 @@ export async function installCGearQuickActions(project: ProjectState, options:CG
   if (!getPmcInstallStatus(staged).installed) installPmcBytes(staged, await loadBundledPmcBytes(v), romBytes);
   await installBundledBgmToggleDll(staged,{preserveShortcut:true});
   assertMartSourcesUnchanged(project, rom, martCounts);
+  if (!redux) {
+    const field = uiFieldCompanion(profile)!;
+    const bytes = await loadUiFieldCompanion(profile, fieldUrls[v]);
+    if (!matchesUiFieldCompanion(parseRpm(bytes, { allowedMagics: ["DLXF"] }), profile, v, manifest.version)) throw new Error("Unrecognized C-Gear field companion.");
+    stageCodeInjectionDll(staged, field.fileName, bytes, "patches", romBytes);
+  }
   const result = stageCodeInjectionDll(staged, status.dllPath?.split("/").pop() ?? profile.fileName, dll, "patches", romBytes);
   const backup=new NARC(new NARC(compiled.archive).files[14]);
   const prior=bytesAt(input,rom,manifest.archivePath),priorArc=prior&&new NARC(prior);
@@ -406,6 +424,8 @@ export function removeCGearQuickActions(project: ProjectState): void {
   const status = getCGearQuickActionsStatus(project);
   if (!status.canRemove || !status.dllPath) throw new Error("Only a Quick Actions runtime staged in this project can be removed. Use Disable for an exported installation.");
   if(project.originalRomBytes){const rom=new NintendoDSRom(project.originalRomBytes,{fileData:"view"}),prior=bytesAt(project,rom,manifest.archivePath);if(prior)restoreNativeButtonGraphics(project,rom,prior);}
+  const field = status.romProfile !== "redux" && uiFieldCompanion(manifest.games[project.session.baseVersion as Version]);
+  if (field && canRemoveStagedCodeInjectionDll(project, `patches/${field.fileName}`)) removeStagedCodeInjectionDll(project, `patches/${field.fileName}`);
   removeStagedCodeInjectionDll(project, status.dllPath);
   if(project.cgearButtons){project.cgearButtons.enabled=false;project.cgearButtons.applied=undefined;}
   if (project.fileSystem?.additions?.[manifest.archivePath]) delete project.fileSystem.additions[manifest.archivePath];

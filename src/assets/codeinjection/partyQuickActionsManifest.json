@@ -1,13 +1,13 @@
 {
-  "version": "0.1.6",
+  "version": "0.1.7",
   "archivePath": "party-tools/ui.narc",
   "games": {
     "W2": {
       "idCode": "IRDO",
       "fileName": "PartyQuickActionsW2.dll",
-      "sha256": "054b8a3f3dcff37cfb5a21ae27a13930097a892278c9377097ca8befac140a70",
-      "codeFingerprint": "8f6db8ef",
-      "bssSize": 492,
+      "sha256": "49c611fdde3bba93b5d949a27154913a4c6195dcef9e55347e2ed8f8d34bf34c",
+      "codeFingerprint": "b1a2aa08",
+      "bssSize": 480,
       "signatures": [
         {
           "label": "PaRequest",
@@ -688,14 +688,26 @@
           "expectedHex": "f8b582b0051c0c1cfef7c8fd00283ed1a32080002858406c062838d0201c00f067fb051c2068a12100227df6fdfe011ce088302294f60efc071c206aa9f6f2fa061c281cfe300006000e012802d80e210f2506e0012d02d10c210d2501e00a210b25012000900191301c3d211b223b1ca8f6daf8012000900195301c3d211c223b1ca8f6d1f8a06b0121adf6e3f802b0f8bd0000f0b583b0051c28880c1c85f631f9061c174818490068a9f607fd071c0120009002200190301c00213a1c002385f6f4f92920009009200190112080010290216a281c321c0323fef797fe381ca9f6d8fa301c85f65df9a06b0021adf6b1f8206b0121adf65ffa0120a06103b0f0bdc04674a409028a02000070b582b0161c051c0c1c012e2cd1297b032903d0042901d0172900d106e0fef737fd012806d1e069062803da281c211c082202e0281c211c062200f04df8606b0121adf633fa01ad201c1a2113222b1c00f0d4fa291c206b00220025adf682f8201c4430057034e0287b032803d121796a6b8a42",
           "patchSize": 0
         }
-      ]
+      ],
+      "exports": [],
+      "field": {
+        "fileName": "PartyQuickActionsFieldW2.dll",
+        "sha256": "6ecebf0abc67c7c40715781fb4eca49109c22e2d5d091f9edda300e79965faaa",
+        "codeFingerprint": "e71971e8",
+        "bssSize": 12,
+        "exports": [
+          "PokewebPartyFlagRequest",
+          "PokewebPartyFlagWork",
+          "PokewebPartyEvolutionOwner"
+        ]
+      }
     },
     "B2": {
       "idCode": "IREO",
       "fileName": "PartyQuickActionsB2.dll",
-      "sha256": "eb7318758b8d8386b2a588ab60143323a8f8501755c84b39a015cb6a383a1cdc",
-      "codeFingerprint": "e837dea4",
-      "bssSize": 492,
+      "sha256": "f6b3e19acf5ae2c82bff0ec8dd30caeb48b73a354037f79a4b7a6331959f7171",
+      "codeFingerprint": "cc32cdb2",
+      "bssSize": 480,
       "signatures": [
         {
           "label": "PaRequest",
@@ -1376,7 +1388,19 @@
           "expectedHex": "f8b582b0051c0c1cfef7c8fd00283ed1a32080002858406c062838d0201c00f067fb051c2068a12100227df607ff011ce088302294f618fc071c206aa9f6fcfa061c281cfe300006000e012802d80e210f2506e0012d02d10c210d2501e00a210b25012000900191301c3d211b223b1ca8f6e4f8012000900195301c3d211c223b1ca8f6dbf8a06b0121adf6edf802b0f8bd0000f0b583b0051c28880c1c85f63bf9061c174818490068a9f611fd071c0120009002200190301c00213a1c002385f6fef92920009009200190112080010290216a281c321c0323fef797fe381ca9f6e2fa301c85f667f9a06b0021adf6bbf8206b0121adf669fa0120a06103b0f0bdc04634a409028a02000070b582b0161c051c0c1c012e2cd1297b032903d0042901d0172900d106e0fef737fd012806d1e069062803da281c211c082202e0281c211c062200f04df8606b0121adf63dfa01ad201c1a2113222b1c00f0d4fa291c206b00220025adf68cf8201c4430057034e0287b032803d121796a6b8a42",
           "patchSize": 0
         }
-      ]
+      ],
+      "exports": [],
+      "field": {
+        "fileName": "PartyQuickActionsFieldB2.dll",
+        "sha256": "f47a58c193ab13c7e4dd0d746685a48b04f5110af080a5f1b4483f2dca9a8ddb",
+        "codeFingerprint": "f974c50d",
+        "bssSize": 12,
+        "exports": [
+          "PokewebPartyFlagRequest",
+          "PokewebPartyFlagWork",
+          "PokewebPartyEvolutionOwner"
+        ]
+      }
     }
   },
   "archiveSha256": "1e233bcb5d041acfd29885867f21c0104a988ceba0db3ec9258c38872764b77b",

@@ -5,11 +5,28 @@ import bw2 from "../assets/codeinjection/cgearQuickActionsManifest.json";
 import bw1 from "../assets/codeinjection/cgearQuickActionsBw1Manifest.json";
 import redux from "../assets/codeinjection/cgearQuickActionsReduxManifest.json";
 import { parseRpm } from "../pokeweb/rpm";
+import party from "../assets/codeinjection/partyQuickActionsManifest.json";
+import { estimateRpmMemory } from "../pokeweb/rpmMemory";
+import { matchesUiFieldCompanion } from "../pokeweb/uiRuntimeCompanion";
 
 const asset = (name: string) => new Uint8Array(readFileSync(new URL(`../assets/codeinjection/${name}`, import.meta.url)));
 const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 
 describe("C-Gear release bundle consistency", () => {
+  for (const game of ["B2", "W2"] as const) {
+    for (const [family, manifest, overlays] of [["C-Gear", bw2, ["36", "79"]], ["Party", party, ["165"]]] as const) {
+      it(`${game} ${family} retains only its field companion during ordinary battle`, () => {
+        const profile = manifest.games[game], main = parseRpm(asset(profile.fileName), { allowedMagics: ["DLXF"] });
+        const bytes = asset(profile.field.fileName), field = parseRpm(bytes, { allowedMagics: ["DLXF"] });
+        expect(sha256(bytes)).toBe(profile.field.sha256);
+        expect(matchesUiFieldCompanion(field, profile, game, manifest.version)).toBe(true);
+        expect([...new Set(main.relocations.filter(r => r.target.module !== "base").map(r => r.target.module))].sort()).toEqual([...overlays].sort());
+        expect(estimateRpmMemory(bytes).residentAllocationBytes).toBeLessThan(family === "C-Gear" ? 7000 : 700);
+        const providers = [...field.symbols.filter(s => s.attributes & 1).map(s => s.nameHash), 0x55872599];
+        expect(main.symbols.filter(s => s.attributes & 2).every(s => providers.includes(s.address))).toBe(true);
+      });
+    }
+  }
   it("binds the Redux adapter to its version, native patch set, repel owner and PC script", () => {
     const blob = asset(redux.assetFileName), rpm = parseRpm(blob, { allowedMagics: ["DLXF"] });
     expect(sha256(blob)).toBe(redux.games.W2.sha256);

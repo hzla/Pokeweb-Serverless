@@ -14,7 +14,7 @@ struct ShopWork {
     u32 iconChar, iconPalette;
     u8 bagBackup[BagBytes];
 };
-ShopWork* activeShop;
+CG_SHARED(ShopWork*, activeShop);
 
 bool shopIncludesPokemart(const ShopWork* work) {
     return !(at<u16>(work->config, 10) & 1);

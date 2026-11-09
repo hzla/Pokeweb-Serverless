@@ -1,6 +1,8 @@
 """Build separately checked English B2/W2 PMC modules and their private archive."""
 
-import hashlib, json, os, struct, subprocess
+import hashlib, json, os, struct, subprocess, sys
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent.parent))
+from split_ui_build import package_split
 from pathlib import Path
 import ndspy.rom, ndspy.codeCompression
 
@@ -16,7 +18,7 @@ TOOLS = Path(
     )
 )
 JAR = Path(os.environ.get("RPM_TOOL_JAR", WS / "White2Upgrade/CTRMap.jar"))
-VERSION = "0.5.8"
+VERSION = "0.5.9"
 # Every native import is an explicit US address. No reference source is a build
 # dependency. Verified early getters share addresses; the saved flag helper
 # and the later imported helpers differ by 44.
@@ -634,6 +636,11 @@ def main():
             "bssSize": struct.unpack_from("<I", blob, h + 12)[0],
             "signatures": signatures,
         }
+        parts = package_split(HERE, BUILD, TOOLS, JAR, ASSETS, game, stem, "quick_actions.cpp",
+            [HERE.parent / "nuzlocke-encounters/runtime.cpp", HERE.parent / "learnset-viewer/memory.cpp"],
+            "CG_SPLIT_UI", "CG_SPLIT_FIELD", VERSION)
+        manifest["games"][game].update(parts["ui"])
+        manifest["games"][game]["field"] = parts["field"]
         print(dll.name, len(blob), "bytes; code", size)
     (ASSETS / "cgearQuickActionsManifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
 

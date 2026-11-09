@@ -10,15 +10,24 @@
 #include "shop_picker.generated.h"
 #include "dial.generated.h"
 
+#if defined(CG_SPLIT_UI) || defined(CG_SPLIT_FIELD)
+namespace cgear_runtime {
+#else
 namespace {
+#endif
 #include "bw2/session.inc"
 #include "bw2/game_state.inc"
 #include "bw2/configuration.inc"
 #include "bw2/actors_and_dial.inc"
 #include "bw2/resources.inc"
 #include "bw2/update.inc"
+#include "bw2/request_types.inc"
 #include "bw2/requests.inc"
 #include "bw2/shop.inc"
 } // namespace
+
+#if defined(CG_SPLIT_UI) || defined(CG_SPLIT_FIELD)
+using namespace cgear_runtime;
+#endif
 
 #include "bw2/hooks.inc"

@@ -1,0 +1,165 @@
+{
+  "version": "0.1.6",
+  "archivePath": "party-tools/ui.narc",
+  "games": {
+    "W2": {
+      "idCode": "IRDO",
+      "fileName": "PartyQuickActionsW2.dll",
+      "sha256": "054b8a3f3dcff37cfb5a21ae27a13930097a892278c9377097ca8befac140a70",
+      "codeFingerprint": "8f6db8ef",
+      "bssSize": 492,
+      "signatures": [
+        {
+          "label": "PaRequest",
+          "module": "12",
+          "address": 34977850,
+          "expectedHex": "d9f621fa",
+          "patchSize": 4
+        },
+        {
+          "label": "PaInit",
+          "module": "165",
+          "address": 35232382,
+          "expectedHex": "00f0a3f8",
+          "patchSize": 4
+        },
+        {
+          "label": "PaEnd",
+          "module": "165",
+          "address": 35232432,
+          "expectedHex": "00f09af9",
+          "patchSize": 4
+        },
+        {
+          "label": "PaTick",
+          "module": "165",
+          "address": 35232692,
+          "expectedHex": "00f08cf9",
+          "patchSize": 4
+        },
+        {
+          "label": "PaIdle",
+          "module": "165",
+          "address": 35233600,
+          "expectedHex": "01f002fe",
+          "patchSize": 4
+        },
+        {
+          "label": "PaPrompt",
+          "module": "165",
+          "address": 35238478,
+          "expectedHex": "04f017fb",
+          "patchSize": 4
+        },
+        {
+          "label": "PaSubtract",
+          "module": "165",
+          "address": 35238976,
+          "expectedHex": "03f022f9",
+          "patchSize": 4
+        },
+        {
+          "label": "PaPartyReturn",
+          "module": "12",
+          "address": 35048420,
+          "expectedHex": "0dba1502",
+          "patchSize": 4
+        },
+        {
+          "label": "PaEvolutionReturn",
+          "module": "12",
+          "address": 35048684,
+          "expectedHex": "e5c31502",
+          "patchSize": 4
+        }
+      ]
+    },
+    "B2": {
+      "idCode": "IREO",
+      "fileName": "PartyQuickActionsB2.dll",
+      "sha256": "eb7318758b8d8386b2a588ab60143323a8f8501755c84b39a015cb6a383a1cdc",
+      "codeFingerprint": "e837dea4",
+      "bssSize": 492,
+      "signatures": [
+        {
+          "label": "PaRequest",
+          "module": "12",
+          "address": 34977786,
+          "expectedHex": "d9f62bfa",
+          "patchSize": 4
+        },
+        {
+          "label": "PaInit",
+          "module": "165",
+          "address": 35232318,
+          "expectedHex": "00f0a3f8",
+          "patchSize": 4
+        },
+        {
+          "label": "PaEnd",
+          "module": "165",
+          "address": 35232368,
+          "expectedHex": "00f09af9",
+          "patchSize": 4
+        },
+        {
+          "label": "PaTick",
+          "module": "165",
+          "address": 35232628,
+          "expectedHex": "00f08cf9",
+          "patchSize": 4
+        },
+        {
+          "label": "PaIdle",
+          "module": "165",
+          "address": 35233536,
+          "expectedHex": "01f002fe",
+          "patchSize": 4
+        },
+        {
+          "label": "PaPrompt",
+          "module": "165",
+          "address": 35238414,
+          "expectedHex": "04f017fb",
+          "patchSize": 4
+        },
+        {
+          "label": "PaSubtract",
+          "module": "165",
+          "address": 35238912,
+          "expectedHex": "03f022f9",
+          "patchSize": 4
+        },
+        {
+          "label": "PaPartyReturn",
+          "module": "12",
+          "address": 35048356,
+          "expectedHex": "cdb91502",
+          "patchSize": 4
+        },
+        {
+          "label": "PaEvolutionReturn",
+          "module": "12",
+          "address": 35048620,
+          "expectedHex": "a5c31502",
+          "patchSize": 4
+        }
+      ]
+    }
+  },
+  "archiveSha256": "1e233bcb5d041acfd29885867f21c0104a988ceba0db3ec9258c38872764b77b",
+  "graphicsFingerprints": [
+    "00869def",
+    "41739f66",
+    "2664f6d5",
+    "4f35b0fc",
+    "cb9e5c70",
+    "e9a86eae",
+    "e74452dd",
+    "365bcef0",
+    "ce7b2a02",
+    "e4ae2260",
+    "da76f076",
+    "233a7573"
+  ]
+}

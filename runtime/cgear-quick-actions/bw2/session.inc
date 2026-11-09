@@ -50,11 +50,31 @@ struct Session {
     u16 preparedSkin, dialTarget;
     void* marker;
     u32 markerChars;
-} session;
+};
+#if defined(CG_SPLIT_UI)
+#define CG_SHARED(type, name) extern __attribute__((visibility("default"))) type name
+#elif defined(CG_SPLIT_FIELD)
+#define CG_SHARED(type, name) __attribute__((visibility("default"))) type name
+#else
+#define CG_SHARED(type, name) type name
+#endif
+#ifdef CG_SPLIT_UI
+// RPM data imports do not preserve C++ member-address addends. Resolve the
+// shared object through a function so member offsets stay CPU arithmetic.
+__attribute__((visibility("default"), const)) Session* sharedSession();
+#define session (*sharedSession())
+#else
+Session session;
+#ifdef CG_SPLIT_FIELD
+__attribute__((visibility("default"), const)) Session* sharedSession() { return &session; }
+#endif
+#endif
 static_assert(__builtin_offsetof(Session, hideCommunication) == 1400);
 static_assert(__builtin_offsetof(Session, skinFeedback) == 1403);
 // Archive state is also read on the no-C-Gear initialization path: encounter
 // hooks must not depend on whether the touch-screen sprites are visible.
-bool enabled, repelPresent, pokenavEnabled;
-MapRequest* ownedMap;
-void* radarWork;
+CG_SHARED(bool, enabled);
+CG_SHARED(bool, repelPresent);
+CG_SHARED(bool, pokenavEnabled);
+CG_SHARED(MapRequest*, ownedMap);
+CG_SHARED(void*, radarWork);

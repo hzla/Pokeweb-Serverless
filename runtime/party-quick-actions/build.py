@@ -1,9 +1,11 @@
 """Build the English BW2 Party toolbar from checked retail call sites."""
-import hashlib,json,os,struct,subprocess
+import hashlib,json,os,struct,subprocess,sys
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent.parent))
+from split_ui_build import package_split
 from pathlib import Path
 import ndspy.rom,ndspy.narc,ndspy.codeCompression
 HERE=Path(__file__).resolve().parent;REPO=HERE.parents[1];WS=REPO.parent;BUILD=HERE/'build';ASSETS=REPO/'src/assets/codeinjection'
-TOOLS=WS/'toolchains/arm-gnu-toolchain-14.2.rel1-darwin-arm64-arm-none-eabi/bin';JAR=WS/'White2Upgrade/CTRMap.jar';VERSION='0.1.6'
+TOOLS=Path(os.environ.get('ARM_TOOLCHAIN_BIN',WS/'toolchains/arm-gnu-toolchain-14.2.rel1-darwin-arm64-arm-none-eabi/bin'));JAR=Path(os.environ.get('RPM_TOOL_JAR',WS/'White2Upgrade/CTRMap.jar'));VERSION='0.1.7'
 APIS=[0x20056fc,0x203a6d4,0x2006254,0x2008474,0x201cd24,0x201cd48,0x201d5e0,0x201fe24,0x201ff34,0x2021c70,0x2021ca8,0x2039f8c,0x2039fbc,0x203cb14,0x203a228,0x203a278,0x203da74,0x203dab0,0x203df28,0x203df4c,0x2045840,0x2045ba8,0x2047168,0x2048270,0x2048298,0x2048520,0x204855c,0x2048590,0x2048640,0x204aac8,0x204ab38,0x204ab48,0x204bbcc,0x204bcfc,0x204bd3c,0x204be0c,0x204be90,0x204bf48,0x204bfc4,0x204b8e8,0x204b9b8,0x204ba6c,0x204c06c,0x204c134,0x204c150,0x204c54c,0x2070ca8,0x2070ecc]
 APIS += [0x2017394,0x20191d8,0x2034c80]
 APIS += [0x204c16c]
@@ -177,5 +179,7 @@ def main():
   blob=dll.read_bytes();h=struct.unpack_from('<I',blob,8)[0];info=h+struct.unpack_from('<I',blob,h+8)[0];start,size=struct.unpack_from('<II',blob,info+16);f=0x811c9dc5
   for b in blob[start:start+size]:f=((f^b)*0x1000193)&0xffffffff
   m['games'][game]={'idCode':r.idCode.decode(),'fileName':dll.name,'sha256':hashlib.sha256(blob).hexdigest(),'codeFingerprint':f'{f:08x}','bssSize':struct.unpack_from('<I',blob,h+12)[0],'signatures':sig};print(stem,len(blob))
+  parts=package_split(HERE,BUILD,TOOLS,JAR,ASSETS,game,stem,'party_tools.cpp',[],'PARTY_SPLIT_UI','PARTY_SPLIT_FIELD',VERSION)
+  m['games'][game].update(parts['ui']);m['games'][game]['field']=parts['field']
  (ASSETS/'partyQuickActionsManifest.json').write_text(json.dumps(m,indent=2)+'\n')
 if __name__=='__main__':main()

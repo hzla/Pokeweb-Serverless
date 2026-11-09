@@ -1,21 +1,4 @@
-// Native application request lifetimes: Save, optional Pokenav, PC and Party/Bag/Map.
-// Included once by quick_actions.cpp inside its private namespace.
-
-// Native report state owns its allocations and ordinary yes/no/save flow.
-// Our event owns the 32-byte request and waits for subscreen reconstruction.
-struct SaveWork {
-    void* control;
-    void* sys;
-    void* field;
-    void* message;
-    u16 heap, pad;
-    void* result;
-    u32 returnMode;
-    void* local;
-    Subscreen* sub;
-    u32 reportSequence, finished;
-};
-static_assert(__builtin_offsetof(SaveWork, sub) == 32);
+#ifndef CG_SPLIT_UI
 int saveEvent(void* event, u32*) {
     auto* requestWork = api<SaveWork* (*)(void*)>(CG_EVENT_WORK)(event);
     if (!requestWork->finished) {
@@ -33,16 +16,6 @@ int saveEvent(void* event, u32*) {
     return requestWork->finished &&
            ov<u32 (*)(Subscreen*)>(CG_SUBSCREEN_TRANSITION_DONE)(requestWork->sub);
 }
-struct FlyWork {
-    MapRequest map;
-    u32 member, action, item;
-};
-// Optional custom-screen integration. The beginner guide resumes at
-// storageEvent(); Pokenav's own screen implementation is in runtime/pokenav.
-struct NavWork {
-    MapRequest map;
-    pokenav::Launch request;
-};
 int navEvent(void* event, u32* sequence) {
     auto* requestWork = api<NavWork* (*)(void*)>(CG_EVENT_WORK)(event);
     if (!*sequence) {
@@ -64,6 +37,8 @@ int navEvent(void* event, u32* sequence) {
     }
     return 1;
 }
+#endif
+#ifndef CG_SPLIT_FIELD
 bool navConfigured(u16 heap) {
     pokenavEnabled = false;
     bool present = false;
@@ -161,6 +136,8 @@ void* storageEvent(void* sys, u16 heap) {
     return event;
 #endif
 }
+#endif
+#ifndef CG_SPLIT_UI
 int flyEvent(void* event, u32* sequence) {
     auto* requestWork = api<FlyWork* (*)(void*)>(CG_EVENT_WORK)(event);
     void* sys = api<void* (*)(void*)>(CG_EVENT_SYSTEM)(event);
@@ -248,3 +225,5 @@ int flyEvent(void* event, u32* sequence) {
     }
     return 1;
 }
+
+#endif

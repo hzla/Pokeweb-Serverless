@@ -16,7 +16,11 @@ its loading size includes BSS expansion, eight-byte alignment and allocator
 headers, counting executable code once. The phase estimate includes PMC's base
 work allocation and follows module priority and ROM file order for loading peaks.
 It also accounts for the initial scan of inactive patch DLLs. Recognized battle
-and field overlays determine scope; libraries and unclassified dependencies are
+and field overlays determine scope. BW2 overlay-12 hooks stay resident across
+battles. Party, Bag, Summary and Learnset Viewer screens count toward the
+on-demand loading peak, rather than the steady battle/field total. The split
+C-Gear and Party UI modules unload with their own overlays; their small field
+callback companions remain resident. Libraries and unclassified dependencies are
 included in both phases conservatively. Unreadable DLLs make the estimate
 incomplete. Additional allocations performed by patch code during play and heap
 fragmentation are outside this static estimate. The cap is not a measurement of

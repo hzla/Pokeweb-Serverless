@@ -42902,5 +42902,499 @@
         ]
       }
     }
+  },
+  {
+    "version": "0.5.8",
+    "graphicsFingerprint": "2309c921",
+    "games": {
+      "W2": {
+        "bssSize": 9648,
+        "codeFingerprint": "4989fb0c",
+        "signatures": [
+          {
+            "label": "QaShopUnit",
+            "module": "36",
+            "address": 35311278,
+            "expectedHex": "9ff64bf8",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopGraphics",
+            "module": "36",
+            "address": 35307608,
+            "expectedHex": "00f024ff",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopGraphicsEnd",
+            "module": "36",
+            "address": 35309054,
+            "expectedHex": "00f06ffc",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopBalanceText",
+            "module": "36",
+            "address": 35311982,
+            "expectedHex": "74f6f1fd",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopStockFile",
+            "module": "36",
+            "address": 35309460,
+            "expectedHex": "9ef6e4f8",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopStockFile",
+            "module": "36",
+            "address": 35309500,
+            "expectedHex": "9ef6d0f8",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopLabel",
+            "module": "36",
+            "address": 35309578,
+            "expectedHex": "fff749ff",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopSelect",
+            "module": "36",
+            "address": 35308280,
+            "expectedHex": "fff70aff",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopPrice",
+            "module": "36",
+            "address": 35309598,
+            "expectedHex": "66f64fff",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopMessageBank",
+            "module": "36",
+            "address": 35310180,
+            "expectedHex": "9bf690fe",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopBalance",
+            "module": "36",
+            "address": 35307796,
+            "expectedHex": "fff7deff",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopBalance",
+            "module": "36",
+            "address": 35308052,
+            "expectedHex": "fff75eff",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopMoney",
+            "module": "36",
+            "address": 35311910,
+            "expectedHex": "5ff649fc",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopPay",
+            "module": "36",
+            "address": 35308898,
+            "expectedHex": "fff707ff",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopAdd",
+            "module": "36",
+            "address": 35308918,
+            "expectedHex": "5bf677fe",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopTick",
+            "module": "36",
+            "address": 35307038,
+            "expectedHex": "00f0c7fa",
+            "patchSize": 4
+          },
+          {
+            "label": "QaInput",
+            "module": "79",
+            "address": 35572096,
+            "expectedHex": "fef788ff",
+            "patchSize": 4
+          },
+          {
+            "label": "QaButtonHit",
+            "module": "79",
+            "address": 35567816,
+            "expectedHex": "fff73eff",
+            "patchSize": 4
+          },
+          {
+            "label": "QaGearUnit",
+            "module": "79",
+            "address": 35571520,
+            "expectedHex": "5ff602fc",
+            "patchSize": 4
+          },
+          {
+            "label": "QaGearEnd",
+            "module": "79",
+            "address": 35573314,
+            "expectedHex": "fff7e1fc",
+            "patchSize": 4
+          },
+          {
+            "label": "QaRepelStep",
+            "module": "36",
+            "address": 35136700,
+            "expectedHex": "8bf67cfc",
+            "patchSize": 4
+          },
+          {
+            "label": "QaRepelDepleted",
+            "module": "36",
+            "address": 35261228,
+            "expectedHex": "6df658f9",
+            "patchSize": 4
+          },
+          {
+            "label": "QaPhenomenonInterval",
+            "module": "36",
+            "address": 35266916,
+            "expectedHex": "00f0a2f9",
+            "patchSize": 4
+          },
+          {
+            "label": "QaPhenomenonChance",
+            "module": "36",
+            "address": 35266928,
+            "expectedHex": "71f682fb",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopRowPrice",
+            "module": "36",
+            "address": 35312828,
+            "expectedHex": "11d51a02",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopTmRowPrice",
+            "module": "36",
+            "address": 35312832,
+            "expectedHex": "a1d51a02",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopChoiceAdd",
+            "module": "12",
+            "address": 35043380,
+            "expectedHex": "bd851a02",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopBuyCommand",
+            "module": "12",
+            "address": 35043996,
+            "expectedHex": "b1bb1a02",
+            "patchSize": 4
+          },
+          {
+            "label": "QaCGearInit",
+            "module": "36",
+            "address": 35453456,
+            "expectedHex": "65851902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaCGearUpdate",
+            "module": "36",
+            "address": 35453460,
+            "expectedHex": "5d861902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaCGearEvent",
+            "module": "36",
+            "address": 35453468,
+            "expectedHex": "b5861902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaCGearExit",
+            "module": "36",
+            "address": 35453472,
+            "expectedHex": "3d861902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaNoGearInit",
+            "module": "36",
+            "address": 35453596,
+            "expectedHex": "c1861902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaTownMapReturn",
+            "module": "12",
+            "address": 35048612,
+            "expectedHex": "39c01502",
+            "patchSize": 4
+          }
+        ]
+      },
+      "B2": {
+        "bssSize": 9652,
+        "codeFingerprint": "a8de2849",
+        "signatures": [
+          {
+            "label": "QaShopUnit",
+            "module": "36",
+            "address": 35311214,
+            "expectedHex": "9ff655f8",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopGraphics",
+            "module": "36",
+            "address": 35307544,
+            "expectedHex": "00f024ff",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopGraphicsEnd",
+            "module": "36",
+            "address": 35308990,
+            "expectedHex": "00f06ffc",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopBalanceText",
+            "module": "36",
+            "address": 35311918,
+            "expectedHex": "74f6fbfd",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopStockFile",
+            "module": "36",
+            "address": 35309396,
+            "expectedHex": "9ef6eef8",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopStockFile",
+            "module": "36",
+            "address": 35309436,
+            "expectedHex": "9ef6daf8",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopLabel",
+            "module": "36",
+            "address": 35309514,
+            "expectedHex": "fff749ff",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopSelect",
+            "module": "36",
+            "address": 35308216,
+            "expectedHex": "fff70aff",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopPrice",
+            "module": "36",
+            "address": 35309534,
+            "expectedHex": "66f66fff",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopMessageBank",
+            "module": "36",
+            "address": 35310116,
+            "expectedHex": "9bf69afe",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopBalance",
+            "module": "36",
+            "address": 35307732,
+            "expectedHex": "fff7deff",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopBalance",
+            "module": "36",
+            "address": 35307988,
+            "expectedHex": "fff75eff",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopMoney",
+            "module": "36",
+            "address": 35311846,
+            "expectedHex": "5ff669fc",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopPay",
+            "module": "36",
+            "address": 35308834,
+            "expectedHex": "fff707ff",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopAdd",
+            "module": "36",
+            "address": 35308854,
+            "expectedHex": "5bf697fe",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopTick",
+            "module": "36",
+            "address": 35306974,
+            "expectedHex": "00f0c7fa",
+            "patchSize": 4
+          },
+          {
+            "label": "QaInput",
+            "module": "79",
+            "address": 35572032,
+            "expectedHex": "fef788ff",
+            "patchSize": 4
+          },
+          {
+            "label": "QaButtonHit",
+            "module": "79",
+            "address": 35567752,
+            "expectedHex": "fff73eff",
+            "patchSize": 4
+          },
+          {
+            "label": "QaGearUnit",
+            "module": "79",
+            "address": 35571456,
+            "expectedHex": "5ff60cfc",
+            "patchSize": 4
+          },
+          {
+            "label": "QaGearEnd",
+            "module": "79",
+            "address": 35573250,
+            "expectedHex": "fff7e1fc",
+            "patchSize": 4
+          },
+          {
+            "label": "QaRepelStep",
+            "module": "36",
+            "address": 35136636,
+            "expectedHex": "8bf69cfc",
+            "patchSize": 4
+          },
+          {
+            "label": "QaRepelDepleted",
+            "module": "36",
+            "address": 35261164,
+            "expectedHex": "6df678f9",
+            "patchSize": 4
+          },
+          {
+            "label": "QaPhenomenonInterval",
+            "module": "36",
+            "address": 35266852,
+            "expectedHex": "00f0a2f9",
+            "patchSize": 4
+          },
+          {
+            "label": "QaPhenomenonChance",
+            "module": "36",
+            "address": 35266864,
+            "expectedHex": "71f6a2fb",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopRowPrice",
+            "module": "36",
+            "address": 35312764,
+            "expectedHex": "d1d41a02",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopTmRowPrice",
+            "module": "36",
+            "address": 35312768,
+            "expectedHex": "61d51a02",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopChoiceAdd",
+            "module": "12",
+            "address": 35043316,
+            "expectedHex": "7d851a02",
+            "patchSize": 4
+          },
+          {
+            "label": "QaShopBuyCommand",
+            "module": "12",
+            "address": 35043932,
+            "expectedHex": "71bb1a02",
+            "patchSize": 4
+          },
+          {
+            "label": "QaCGearInit",
+            "module": "36",
+            "address": 35453404,
+            "expectedHex": "25851902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaCGearUpdate",
+            "module": "36",
+            "address": 35453408,
+            "expectedHex": "1d861902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaCGearEvent",
+            "module": "36",
+            "address": 35453416,
+            "expectedHex": "75861902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaCGearExit",
+            "module": "36",
+            "address": 35453420,
+            "expectedHex": "fd851902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaNoGearInit",
+            "module": "36",
+            "address": 35453544,
+            "expectedHex": "81861902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaTownMapReturn",
+            "module": "12",
+            "address": 35048548,
+            "expectedHex": "f9bf1502",
+            "patchSize": 4
+          }
+        ]
+      }
+    }
   }
 ]

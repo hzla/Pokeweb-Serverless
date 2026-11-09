@@ -6,7 +6,7 @@ import {estimateRpmMemory,type RpmMemoryEstimate} from "./rpmMemory";
 // Initial allocator block, HeapArea object and the 4 KiB PMC work arena.
 export const PMC_BASE_ALLOCATION_BYTES=4176;
 export type PmcPhaseMemory={residentBytes:number;loadingPeakBytes:number;modules:string[]};
-export type PmcMemoryEstimate={capBytes:number;battle:PmcPhaseMemory;overworld:PmcPhaseMemory;modules:Array<RpmMemoryEstimate&{path:string;scope:"resident"|"battle"|"overworld"|"uncertain";order:number}>;unknown:string[];issues:Record<string,string>;conservative:string[]};
+export type PmcMemoryEstimate={capBytes:number;battle:PmcPhaseMemory;overworld:PmcPhaseMemory;modules:Array<RpmMemoryEstimate&{path:string;scope:"resident"|"battle"|"overworld"|"menu"|"uncertain";order:number}>;unknown:string[];issues:Record<string,string>;conservative:string[]};
 const roms=new WeakMap<ProjectState,{bytes:Uint8Array;rom:NintendoDSRom}>();
 const estimates=new WeakMap<Uint8Array,RpmMemoryEstimate>();
 function sourceRom(project:ProjectState):NintendoDSRom|undefined {
@@ -16,7 +16,8 @@ function sourceRom(project:ProjectState):NintendoDSRom|undefined {
 export function getPmcMemoryEstimate(project:ProjectState):PmcMemoryEstimate {
   const rom=sourceRom(project),modules:PmcMemoryEstimate["modules"]=[],unknown:string[]=[],conservative:string[]=[],issues:Record<string,string>={};
   const battle=new Set(project.session.baseRom==="BW"?[93,95]:[167,168,169]);
-  const field=new Set(project.session.baseRom==="BW"?[21]:[36]);
+  const field=new Set(project.session.baseRom==="BW"?[21]:[36,79,265,284,298,307]);
+  const menus=new Set(project.session.baseRom==="BW"?[]:[165,166,207,258]);
   for(const entry of listCodeInjectionDlls(project)){
     try{
       const id=rom?.filenames.idOf(entry.path);
@@ -25,8 +26,10 @@ export function getPmcMemoryEstimate(project:ProjectState):PmcMemoryEstimate {
       if(bytes.length===4&&["PWAR","PWMR"].includes(new TextDecoder().decode(bytes)))continue;
       let estimate=estimates.get(bytes);if(!estimate){estimate=estimateRpmMemory(bytes);estimates.set(bytes,estimate);}
       const overlays=estimate.overlays;
-      const resident=!overlays.length||overlays.some(id=>["ARM9","ARM7","0"].includes(id));
-      const scope=resident?"resident":overlays.every(id=>battle.has(Number(id)))?"battle":overlays.every(id=>field.has(Number(id)))?"overworld":"uncertain";
+      // BW2's field/menu engine remains mounted throughout a battle. A hook
+      // into overlay 12 pins its DLL even when its own UI is not visible.
+      const resident=!overlays.length||overlays.some(id=>["ARM9","ARM7","0",...(project.session.baseRom==="BW2"?["12"]:[])].includes(id));
+      const scope=resident?"resident":overlays.every(id=>battle.has(Number(id)))?"battle":overlays.every(id=>field.has(Number(id)))?"overworld":overlays.every(id=>menus.has(Number(id)))?"menu":"uncertain";
       if(scope==="uncertain"||entry.target==="lib")conservative.push(entry.path);
       modules.push({...estimate,path:entry.path,order:id??(rom?.files.length??0)+Object.keys(project.fileSystem?.additions??{}).sort().indexOf(entry.path),scope:entry.target==="lib"?"uncertain":scope});
     }catch(error){unknown.push(entry.path);issues[entry.path]=error instanceof Error?error.message:String(error);}
@@ -42,6 +45,15 @@ export function getPmcMemoryEstimate(project:ProjectState):PmcMemoryEstimate {
     let loaded=PMC_BASE_ALLOCATION_BYTES+common.reduce((n,m)=>n+m.residentAllocationBytes,0);
     let loadingPeakBytes=loaded+Math.max(0,...common.map(m=>m.loadAllocationBytes-m.residentAllocationBytes));
     for(const module of selected.filter(m=>m.scope===name)){loadingPeakBytes=Math.max(loadingPeakBytes,loaded+module.loadAllocationBytes);loaded+=module.residentAllocationBytes;}
+    // Party, Bag, Summary and the viewer load on demand. Keep their possible
+    // load in the peak, rather than counting every screen as always resident.
+    for(const overlay of menus){
+      let menuLoaded=loaded;
+      for(const module of modules.filter(m=>m.scope==="menu"&&m.overlays.includes(String(overlay)))){
+        loadingPeakBytes=Math.max(loadingPeakBytes,menuLoaded+module.loadAllocationBytes);
+        menuLoaded+=module.residentAllocationBytes;
+      }
+    }
     // Startup scans every patch DLL, including patches inactive in this phase.
     // Resident modules can remain expanded until the scan has finished.
     const residentLoads=modules.filter(m=>m.scope==="resident").reduce((n,m)=>n+m.loadAllocationBytes,0);

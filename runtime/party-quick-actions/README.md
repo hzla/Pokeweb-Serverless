@@ -31,3 +31,8 @@ retain the native menu. Build/check with `npm run partytools:build` and
 `npm run partytools:verify`; BW1 uses the `:build-bw1` / `:verify-bw1` variants.
 BW1 bundle acceptance is tied to exact hashes. Hardware/live DSi and other ROM
 revisions require independent testing.
+
+BW2 uses a small overlay-12 companion for request/return ownership and saved-flag
+context. The toolbar code loads with Party overlay 165 and unloads when that
+screen closes. Update the feature to upgrade older combined installations; both
+DLLs install and validate together. Battle Party modes keep the native controls.

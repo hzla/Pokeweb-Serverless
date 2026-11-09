@@ -12,13 +12,21 @@ function dll(overlay="93",bssSize=1500,priority=4){
 }
 function project(files:Record<string,Uint8Array>,version="13.2.4"){return {session:{baseRom:"BW",baseVersion:"B"},fileSystem:{replacements:{},additions:files},codeInjection:{pmc:{version}}}as unknown as ProjectState;}
 describe("PMC memory estimates",()=>{
-  it("classifies BW2 graphics overlay 168 as battle and keeps summary overlap conservative",()=>{
+  it("keeps BW2 Summary on demand and includes its loading cost in the battle peak",()=>{
     const p=project({"patches/Graphics.dll":dll("168"),"patches/Summary.dll":dll("207")});p.session.baseRom="BW2";p.session.baseVersion="W2";
     const estimate=getPmcMemoryEstimate(p);
     expect(estimate.battle.modules).toContain("patches/Graphics.dll");
     expect(estimate.overworld.modules).not.toContain("patches/Graphics.dll");
-    expect(estimate.battle.modules).toContain("patches/Summary.dll");
-    expect(estimate.conservative).toContain("patches/Summary.dll");
+    expect(estimate.battle.modules).not.toContain("patches/Summary.dll");
+    expect(estimate.conservative).not.toContain("patches/Summary.dll");
+    expect(estimate.battle.loadingPeakBytes).toBeGreaterThanOrEqual(estimate.battle.residentBytes+estimateRpmMemory(p.fileSystem!.additions!["patches/Summary.dll"]).loadAllocationBytes);
+  });
+  it("counts the BW2 field bridge during battle and excludes the separate C-Gear UI",()=>{
+    const p=project({"patches/Field.dll":dll("12"),"patches/Gear.dll":dll("79"),"patches/Party.dll":dll("165")});p.session.baseRom="BW2";p.session.baseVersion="B2";
+    const estimate=getPmcMemoryEstimate(p);
+    expect(estimate.battle.modules).toEqual(["patches/Field.dll"]);
+    expect(estimate.overworld.modules).toEqual(["patches/Field.dll","patches/Gear.dll"]);
+    expect(estimate.battle.loadingPeakBytes).toBeGreaterThanOrEqual(estimate.battle.residentBytes+estimateRpmMemory(p.fileSystem!.additions!["patches/Party.dll"]).loadAllocationBytes);
   });
   it("counts code exactly once and includes expanded BSS, link retention and allocator headers",()=>{
     const bytes=dll(),m=estimateRpmMemory(bytes),header=readU32(bytes,8),info=header+readU32(bytes,header+8),relocation=header+readU32(bytes,info+8);

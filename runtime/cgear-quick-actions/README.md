@@ -42,3 +42,9 @@ Build/check with `npm run cgear:build`, `npm run cgear:verify` and
 [button authoring guide](../../docs/cgear-buttons/index.html) covers native
 graphics/input integration. Other revisions, expanded item tables and arbitrary
 native application edits need separate bindings and gameplay checks.
+
+Stock US BW2 uses separate UI and field-callback DLLs. The UI loads with field/C-Gear
+overlays 36/79 and unloads during battle. The smaller overlay-12 companion owns
+shared state and application-return callbacks so native menus can finish safely.
+Update the feature to upgrade older combined installations; both DLLs install
+and validate together.
