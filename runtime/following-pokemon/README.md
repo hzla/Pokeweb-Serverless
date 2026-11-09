@@ -15,6 +15,9 @@ non-Egg Surf user; the land selection returns afterward.
 
 The in-game Options row toggles followers through reserved Options bit 11;
 existing saves default on. Pokeweb's ROM-wide enable setting is independent.
+When Autorun is also installed, this row is drawn by the shared Options rows
+module (`runtime/option-rows/`) and the Options module slot holds the removed
+stub; Following's install, removal and receipt checks handle both layouts.
 Followers are temporary field actors and are never saved. Safe menus/dialogue
 retain them; unsafe scenes, doors, battles and genuine actor conflicts recall
 them. In eligible local singles, a healthy grounded follower matching party slot

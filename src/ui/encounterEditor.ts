@@ -33,6 +33,7 @@ import type { HeaderRow } from "../pokeweb/headerModel";
 import { attachListArrows, changedKeys, installDetailFields, markSelectedRow, patchDetail, refreshEditMarks } from "./detailFields";
 import { escapeHtml } from "./dom";
 import { pokemonFormOptions } from "./pokemonFormOptions";
+import { bindDexAreaSync, dexAreaSyncButton } from "./dexAreaEditor";
 import "../styles/moveData.css";
 import "../styles/trainerData.css";
 import "../styles/facilityData.css";
@@ -283,7 +284,9 @@ function renderPageActions(
       </div>
     </details>
     ${project.session.baseRom === "BW2" ? `<button class="btn" type="button" data-sync-habitats title="Rebuild the Pokédex habitat list from these encounters">Sync dex habitats</button>` : ""}
+    ${project.session.baseVersion === "B2" || project.session.baseVersion === "W2" ? dexAreaSyncButton() : ""}
   `;
+  bindDexAreaSync(project, pageActions, onDirty);
   const copy = pageActions.querySelector<HTMLDetailsElement>(".en-copy")!;
   const source = pageActions.querySelector<HTMLSelectElement>("#encounter-copy-source")!;
   copy.addEventListener("toggle", () => {

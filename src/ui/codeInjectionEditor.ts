@@ -71,6 +71,7 @@ import { getInfiniteCandyStatus, getInstalledInfiniteCandyItemId, installInfinit
 import { getLevelCapsStatus, installLevelCaps } from "../pokeweb/levelCapsModel";
 import { getTrainerLevelCapsStatus, installTrainerLevelCaps } from "../pokeweb/trainerLevelCapsModel";
 import { getForgettableHmsPmcStatus, stageForgettableHmsPmc } from "../pokeweb/forgettableHmsRuntime";
+import { getAutorunStatus, stageAutorun, uninstallAutorun } from "../pokeweb/autorunModel";
 import { TESTING_PATCHES, getTestingPatchStatus, installTestingPatch, uninstallTestingPatch, type TestingPatchId } from "../pokeweb/testingPatchesModel";
 import { getBattleTypeHudStatus, installBattleTypeHud, uninstallBattleTypeHud, getMoveEffectivenessStatus, installMoveEffectiveness, uninstallMoveEffectiveness, DEFAULT_MOVE_HIGHLIGHT_COLORS, type MoveHighlightColors, type TypeIconVariant } from "../pokeweb/battleTypeHudModel";
 import {
@@ -145,6 +146,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const bgmToggleStatus = detectBundledBgmToggleDll(project);
   const bgmToggleSupported = bgmToggleStatus !== "unsupported";
   const forgettableHmsStatus = getForgettableHmsPmcStatus(project);
+  const autorunStatus = getAutorunStatus(project);
   const forgettableHmsSupported = forgettableHmsStatus !== "unsupported";
   const infiniteCandyStatus = getInfiniteCandyStatus(project, pendingCandyItemIds.get(project));
   const infiniteCandyItemId = infiniteCandyStatus.itemId ?? getInstalledInfiniteCandyItemId(project) ?? 622;
@@ -601,6 +603,28 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               ${forgettableHmsStatus === "patched" ? "Forgettable HMs Installed" : forgettableHmsStatus === "legacy" ? "Migrate to PMC" : "Install Forgettable HMs"}
             </button>
             <div class="code-injection-note" id="forgettable-hms-note" aria-live="polite"></div>
+          </div>
+        </section>
+        <section class="code-injection-panel" ${patchVisibility(autorunStatus.supported)}>
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Autorun</h2>
+              <p>Once the player has the Running Shoes, moving runs without holding B; holding B walks (and turns in place). Adds an Autorun On/Off row to the in-game Options screen${project.session.baseRom === "BW2" ? ", below Following Pokémon's row when both are installed" : ""}. Existing saves start with Autorun on.</p>
+            </div>
+            ${renderInlineStatus(!autorunStatus.supported ? "Unsupported" : autorunStatus.installed ? autorunStatus.updateAvailable ? "Update Available" : "Installed" : autorunStatus.compatible ? "Ready" : "Incompatible", { className: "code-injection-status" })}
+          </div>
+          <div class="code-injection-facts">
+            <div><span>ROM</span><strong>US Black / White / Black 2 / White 2</strong></div>
+            <div><span>Walk</span><strong>Hold B</strong></div>
+            <div><span>Options row</span><strong>${autorunStatus.optionsRow ? autorunStatus.sharedWithFollowing ? "With Followers" : "Installed" : "Will Install"}</strong></div>
+            <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-autorun-btn" type="button" ${autorunStatus.compatible && (!autorunStatus.installed || autorunStatus.updateAvailable) ? "" : "disabled"}${autorunStatus.compatible || !autorunStatus.message ? "" : ` title="${escapeHtml(autorunStatus.message)}"`}>
+              ${autorunStatus.installed ? autorunStatus.updateAvailable ? "Update Autorun" : "Autorun Installed" : "Install Autorun"}
+            </button>
+            <button class="btn -default -remove" id="uninstall-autorun-btn" type="button" ${autorunStatus.canUninstall ? "" : "disabled"}>Uninstall Autorun</button>
+            <div class="code-injection-note" id="autorun-note" aria-live="polite"></div>
           </div>
         </section>
         </section>
@@ -1105,6 +1129,36 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     } catch (error) {
       forgettableHmsButton.disabled = false;
       forgettableHmsButton.textContent = previousText;
+      if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+
+  const autorunButton = root.querySelector<HTMLButtonElement>("#install-autorun-btn");
+  autorunButton?.addEventListener("click", async () => {
+    const note = root.querySelector<HTMLDivElement>("#autorun-note");
+    const previousText = autorunButton.textContent ?? "Install Autorun";
+    try {
+      autorunButton.disabled = true;
+      autorunButton.textContent = "Installing...";
+      if (note) note.textContent = status.installed ? "Staging Autorun and its Options row." : "Installing PMC, then staging Autorun and its Options row.";
+      const result = await install(candidate => stageAutorun(candidate));
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+      const refreshedNote = root.querySelector<HTMLDivElement>("#autorun-note");
+      if (refreshedNote) refreshedNote.textContent = `Autorun staged${result.sharedWithFollowing ? " with Following Pokémon's Options row" : ""}. Export the ROM to apply it.`;
+    } catch (error) {
+      autorunButton.disabled = false;
+      autorunButton.textContent = previousText;
+      if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+  root.querySelector<HTMLButtonElement>("#uninstall-autorun-btn")?.addEventListener("click", async () => {
+    const note = root.querySelector<HTMLDivElement>("#autorun-note");
+    try {
+      await uninstallAutorun(project);
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+    } catch (error) {
       if (note) note.textContent = error instanceof Error ? error.message : String(error);
     }
   });

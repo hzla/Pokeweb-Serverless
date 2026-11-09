@@ -1,0 +1,58 @@
+{
+  "version": "1.0.0",
+  "configBit": 12,
+  "games": {
+    "B": {
+      "idCode": "IRBO",
+      "fieldOverlay": 21,
+      "hooks": {
+        "grid": { "address": "0x021a35f0", "bytes": "08b5806800f0dcfd08bd0000" },
+        "nogrid": { "address": "0x021a3674", "bytes": "c068014b1847c0466d591a02" }
+      },
+      "bindings": {
+        "GRID_TARGET": "0x021a41b1", "NOGRID_TARGET": "0x021a596d", "GET_GAME_SYSTEM": "0x021a30bd",
+        "CHECK_SHOES": "0x021a35bd", "GET_GAME_DATA": "0x020120f5", "GET_SAVE": "0x02012ebd",
+        "GET_CONFIG": "0x0200873d", "GET_GRID_POS": "0x021a35fd"
+      }
+    },
+    "W": {
+      "idCode": "IRAO",
+      "fieldOverlay": 21,
+      "hooks": {
+        "grid": { "address": "0x021a3610", "bytes": "08b5806800f0dcfd08bd0000" },
+        "nogrid": { "address": "0x021a3694", "bytes": "c068014b1847c0468d591a02" }
+      },
+      "bindings": {
+        "GRID_TARGET": "0x021a41d1", "NOGRID_TARGET": "0x021a598d", "GET_GAME_SYSTEM": "0x021a30dd",
+        "CHECK_SHOES": "0x021a35dd", "GET_GAME_DATA": "0x020120f5", "GET_SAVE": "0x02012ebd",
+        "GET_CONFIG": "0x0200873d", "GET_GRID_POS": "0x021a361d"
+      }
+    },
+    "B2": {
+      "idCode": "IREO",
+      "fieldOverlay": 36,
+      "hooks": {
+        "grid": { "address": "0x0219ac58", "bytes": "08b5806800f0dafd08bd0000" },
+        "nogrid": { "address": "0x0219acdc", "bytes": "c068014b1847c0468dcf1902" }
+      },
+      "bindings": {
+        "GRID_TARGET": "0x0219b815", "NOGRID_TARGET": "0x0219cf8d", "GET_GAME_SYSTEM": "0x0219a6e9",
+        "CHECK_SHOES": "0x0219ac25", "GET_GAME_DATA": "0x02016ad9", "GET_SAVE": "0x02017935",
+        "GET_CONFIG": "0x02008ddd", "GET_GRID_POS": "0x0219ac65"
+      }
+    },
+    "W2": {
+      "idCode": "IRDO",
+      "fieldOverlay": 36,
+      "hooks": {
+        "grid": { "address": "0x0219ac98", "bytes": "08b5806800f0dafd08bd0000" },
+        "nogrid": { "address": "0x0219ad1c", "bytes": "c068014b1847c046cdcf1902" }
+      },
+      "bindings": {
+        "GRID_TARGET": "0x0219b855", "NOGRID_TARGET": "0x0219cfcd", "GET_GAME_SYSTEM": "0x0219a729",
+        "CHECK_SHOES": "0x0219ac65", "GET_GAME_DATA": "0x02016ad9", "GET_SAVE": "0x02017935",
+        "GET_CONFIG": "0x02008ddd", "GET_GRID_POS": "0x0219aca5"
+      }
+    }
+  }
+}

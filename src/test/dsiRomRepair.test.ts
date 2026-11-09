@@ -12,6 +12,41 @@ import { bytes, makeTwlRom, verifyAllDigests } from "./fixtures/dsiRom";
 const games = [["IRBO", "Black"], ["IRAO", "White"], ["IREO", "Black 2"], ["IRDO", "White 2"]] as const;
 
 describe("damaged DSi exports", () => {
+  it.each(games)("silently exports already-stripped %s ROMs and retains donor repair support", async (code) => {
+    const donor = makeTwlRom(code), source = donor.slice(0, 0x80000);
+    source.fill(0, 0x1c0, 0x208);
+    writeU32(source, 0x210, 0);
+    source.fill(0, 0x220, 0x230);
+    source.fill(0, 0x328, 0x33c);
+    source[0x1c] &= ~6;
+    const before = source.slice(), warnings: DsiExportWarning[] = [];
+    const project = makeProject(source);
+    project.fileSystem = { replacements: { 0: bytes(0x1800) } };
+    const out = await exportModifiedRom(project, { onWarning: warning => warnings.push(warning) });
+    const rom = new NintendoDSRom(out);
+    expect(warnings).toEqual([]);
+    expect(out[0x12]).toBe(2);
+    expect(out.subarray(0x1c0, 0x208).every(value => value === 0)).toBe(true);
+    expect(readU32(out, 0x210)).toBe(0);
+    expect(readU16(out, 0x92) * 0x80000).toBeGreaterThanOrEqual(readU32(out, 0x80));
+    expect(readU16(out, 0x15e)).toBe(crc16(out.subarray(0, 0x15e)));
+    deepStrictEqual(rom.files[0], bytes(0x1800));
+    deepStrictEqual(source, before);
+    expect(() => rom.save({ forDsi: true })).toThrow("original ROM");
+    const repaired = await repairDsiRom(out, donor);
+    deepStrictEqual(new NintendoDSRom(repaired.bytes).files[0], bytes(0x1800));
+    verifyAllDigests(repaired.bytes);
+  });
+
+  it("still refuses truncated native DS files in an already-stripped ROM", () => {
+    const source = makeTwlRom("IRBO");
+    source.fill(0, 0x1c0, 0x208);
+    writeU32(source, 0x210, 0);
+    source.fill(0, 0x220, 0x230);
+    writeU32(source, 0x5404, source.length + 1);
+    expect(() => new NintendoDSRom(source).save({ allowDamagedDsi: true })).toThrow("DS file 0");
+  });
+
   it.each(games)("allows a warned %s DS export while preserving edits and original inputs", async (code) => {
     const donor = makeTwlRom(code);
     // Reproduce the old exporter's packed-program/stale-table layout.

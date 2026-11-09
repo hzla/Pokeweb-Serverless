@@ -1,6 +1,6 @@
 import type { Gen5MapImportInput } from "./gen5MapImport";
 import { readAscii } from "../nds/binary";
-import { readGen5MapBin, validateMapNitro } from "./gen5MapImportFormats";
+import { hasGen5MapBinSignature, readGen5MapBin, validateMapNitro } from "./gen5MapImportFormats";
 
 export type MapImportComponent = "bin" | "model" | "textures" | "permissions" | "secondaryPermissions";
 export type MapImportFile = Pick<File, "name" | "size" | "arrayBuffer"> & { webkitRelativePath?: string; slice?: File["slice"] };
@@ -27,7 +27,7 @@ export async function findMapFolderImports(selected: MapImportFile[]): Promise<M
   if (new Set(paths).size !== paths.length) throw new Error("The folder contains duplicate file names differing only in case. Choose files individually.");
   const extension = (ext: string) => files.filter(f => f.name.toLowerCase().endsWith(ext));
   const bins: MapImportFile[] = [];
-  for (const file of extension(".bin")) if (readAscii(await prefix(file, 4), 0, 2) === "WB") bins.push(file);
+  for (const file of extension(".bin")) if (hasGen5MapBinSignature(await prefix(file, 4))) bins.push(file);
   const models = extension(".nsbmd"), permissions = extension(".per"), metadata = extension(".pdsmap"), choices: MapFolderChoice[] = [];
   const match = (list: MapImportFile[], anchor: MapImportFile, names: string[]) => list.filter(f => directory(f) === directory(anchor) && names.includes(stem(f)));
   const sourceMap = (anchor: MapImportFile, per?: MapImportFile) => {

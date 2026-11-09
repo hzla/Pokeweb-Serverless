@@ -364,3 +364,224 @@
   from { background-position: 100% 0; }
   to { background-position: -100% 0; }
 }
+
+/* ---------- Pokédex areas ---------- */
+
+#dex-area-data .md-row.en-row {
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+}
+
+#dex-area-data .da-card {
+  max-width: 1180px;
+}
+
+#dex-area-data .da-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+#dex-area-data .da-head h2 {
+  margin: 0;
+}
+
+#dex-area-data .da-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+#dex-area-data .da-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+#dex-area-data .da-card {
+  --da-grass: #5ccf8f;
+  --da-dark-grass: #2f9e64;
+  --da-shaking-grass: #a8e6a1;
+  --da-surf: #8ec9ff;
+  --da-ripple: #c3e2ff;
+  --da-fish: #3f7ee8;
+  --da-fish-ripple: #6f9bff;
+}
+
+#dex-area-data .-grass { --tone: var(--da-grass); }
+#dex-area-data .-dark-grass { --tone: var(--da-dark-grass); }
+#dex-area-data .-shaking-grass { --tone: var(--da-shaking-grass); }
+#dex-area-data .-surf { --tone: var(--da-surf); }
+#dex-area-data .-ripple { --tone: var(--da-ripple); }
+#dex-area-data .-fish { --tone: var(--da-fish); }
+#dex-area-data .-fish-ripple { --tone: var(--da-fish-ripple); }
+
+#dex-area-data .da-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 14px 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+#dex-area-data .da-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#dex-area-data .da-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius);
+  background: var(--tone);
+}
+
+#dex-area-data .da-add {
+  margin-bottom: 12px;
+}
+
+#dex-area-data .da-table {
+  width: auto;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+#dex-area-data .da-table th,
+#dex-area-data .da-table td {
+  width: auto;
+  padding: 3px 1px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+#dex-area-data .da-table .da-area-head,
+#dex-area-data .da-table .da-area-cell {
+  min-width: 190px;
+  padding: 3px 16px 3px 8px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+#dex-area-data .da-table .da-area-cell {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+#dex-area-data .da-table thead th {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+#dex-area-data .da-table .da-season {
+  padding: 0 0 4px 8px;
+  border-left: 1px solid var(--ink-3);
+  color: var(--text);
+  text-align: left;
+}
+
+#dex-area-data .da-table .da-method {
+  min-width: 25px;
+  padding-bottom: 6px;
+  color: var(--tone);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  cursor: help;
+}
+
+#dex-area-data .da-table .-first {
+  padding-left: 8px;
+  border-left: 1px solid var(--ink-3);
+}
+
+#dex-area-data .da-table tbody tr:hover > * {
+  background: var(--row-hover);
+}
+
+#dex-area-data .da-zone {
+  margin-left: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+#dex-area-data .da-bit {
+  display: block;
+  width: 22px;
+  height: 22px;
+  margin: 0 auto;
+  padding: 0;
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius);
+  background: transparent;
+  cursor: pointer;
+}
+
+#dex-area-data .da-bit:hover {
+  border-color: var(--tone);
+  background: color-mix(in srgb, var(--tone) 18%, transparent);
+}
+
+#dex-area-data .da-bit[aria-pressed="true"] {
+  border-color: var(--tone);
+  background: var(--tone);
+}
+
+#dex-area-data .da-bit[aria-pressed="true"]::after {
+  content: "";
+  display: block;
+  width: 6px;
+  height: 10px;
+  margin: 3px auto 0;
+  border: solid var(--ink-0);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+#dex-area-data .da-bit:focus-visible,
+#dex-area-data .da-remove:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 1px;
+}
+
+#dex-area-data .da-table .da-remove-cell {
+  padding-left: 10px;
+}
+
+#dex-area-data .da-remove {
+  width: 24px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.55;
+}
+
+#dex-area-data .da-table tbody tr:hover .da-remove {
+  opacity: 1;
+}
+
+#dex-area-data .da-remove:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+#dex-area-data .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}

@@ -1,0 +1,281 @@
+{
+  "version": "1.0.0",
+  "textIds": {
+    "autorun": {
+      "label": 19,
+      "help": 29,
+      "on": 13,
+      "off": 14
+    },
+    "following": {
+      "label": 6,
+      "help": 30,
+      "on": 21,
+      "off": 22
+    }
+  },
+  "games": {
+    "B": {
+      "idCode": "IRBO",
+      "optionsOverlay": 68,
+      "hooks": {
+        "init": {
+          "address": "0x021b96e2",
+          "bytes": "01f027f8"
+        },
+        "exit": {
+          "address": "0x021b9790",
+          "bytes": "01f010f8"
+        },
+        "main": {
+          "address": "0x021bb22a",
+          "bytes": "fff7c9fa"
+        },
+        "select": {
+          "address": "0x021ba46a",
+          "bytes": "00f0b7fa"
+        },
+        "compareExit": {
+          "address": "0x021bb2a8",
+          "bytes": "fff71cff"
+        },
+        "compareCancel": {
+          "address": "0x021bb2de",
+          "bytes": "fff701ff"
+        },
+        "commit": {
+          "address": "0x021bb4ea",
+          "bytes": "fff75dfd"
+        }
+      },
+      "bindings": {
+        "ACTOR_AUTOANIM": "0x0204b92c",
+        "ACTOR_CREATE": "0x0204b294",
+        "ACTOR_DELETE": "0x0204b3b4",
+        "ACTOR_POS": "0x0204b404",
+        "ACTOR_SEQUENCE": "0x0204b8a0",
+        "BG_BUFFER": "0x0204162c",
+        "BG_ENABLE": "0x02040588",
+        "BG_OFFSET_Y": "0x02040804",
+        "BG_PALETTE": "0x020413b0",
+        "BG_QUEUE": "0x02041b6c",
+        "BITMAP_FILL": "0x02043b5c",
+        "MSG_LOAD": "0x02045ec0",
+        "MSG_PRINT": "0x021ba279",
+        "OPTIONS_APPLY": "0x021bafa9",
+        "SCROLL_EXIT": "0x021ba7b5",
+        "SCROLL_INIT": "0x021ba735",
+        "SCROLL_MAIN": "0x021ba7c1",
+        "SCROLL_MOVE": "0x021babe1",
+        "SE_PLAY": "0x020061e5",
+        "STRBUF_FREE": "0x02045808",
+        "TEXT_DRAW": "0x0201c7a5",
+        "WINDOW_BG": "0x02045730",
+        "WINDOW_BITMAP": "0x02045770",
+        "WINDOW_CREATE": "0x020450f0",
+        "WINDOW_FLUSH_CHAR": "0x02045334",
+        "WINDOW_FLUSH_MAP": "0x02045374",
+        "WINDOW_FREE": "0x020452e8"
+      }
+    },
+    "W": {
+      "idCode": "IRAO",
+      "optionsOverlay": 68,
+      "hooks": {
+        "init": {
+          "address": "0x021b9702",
+          "bytes": "01f027f8"
+        },
+        "exit": {
+          "address": "0x021b97b0",
+          "bytes": "01f010f8"
+        },
+        "main": {
+          "address": "0x021bb24a",
+          "bytes": "fff7c9fa"
+        },
+        "select": {
+          "address": "0x021ba48a",
+          "bytes": "00f0b7fa"
+        },
+        "compareExit": {
+          "address": "0x021bb2c8",
+          "bytes": "fff71cff"
+        },
+        "compareCancel": {
+          "address": "0x021bb2fe",
+          "bytes": "fff701ff"
+        },
+        "commit": {
+          "address": "0x021bb50a",
+          "bytes": "fff75dfd"
+        }
+      },
+      "bindings": {
+        "ACTOR_AUTOANIM": "0x0204b944",
+        "ACTOR_CREATE": "0x0204b2ac",
+        "ACTOR_DELETE": "0x0204b3cc",
+        "ACTOR_POS": "0x0204b41c",
+        "ACTOR_SEQUENCE": "0x0204b8b8",
+        "BG_BUFFER": "0x02041644",
+        "BG_ENABLE": "0x020405a0",
+        "BG_OFFSET_Y": "0x0204081c",
+        "BG_PALETTE": "0x020413c8",
+        "BG_QUEUE": "0x02041b84",
+        "BITMAP_FILL": "0x02043b74",
+        "MSG_LOAD": "0x02045ed8",
+        "MSG_PRINT": "0x021ba299",
+        "OPTIONS_APPLY": "0x021bafc9",
+        "SCROLL_EXIT": "0x021ba7d5",
+        "SCROLL_INIT": "0x021ba755",
+        "SCROLL_MAIN": "0x021ba7e1",
+        "SCROLL_MOVE": "0x021bac01",
+        "SE_PLAY": "0x020061e5",
+        "STRBUF_FREE": "0x02045820",
+        "TEXT_DRAW": "0x0201c7c1",
+        "WINDOW_BG": "0x02045748",
+        "WINDOW_BITMAP": "0x02045788",
+        "WINDOW_CREATE": "0x02045108",
+        "WINDOW_FLUSH_CHAR": "0x0204534c",
+        "WINDOW_FLUSH_MAP": "0x0204538c",
+        "WINDOW_FREE": "0x02045300"
+      }
+    },
+    "B2": {
+      "idCode": "IREO",
+      "optionsOverlay": 140,
+      "hooks": {
+        "init": {
+          "address": "0x0219cfc2",
+          "bytes": "01f027f8"
+        },
+        "exit": {
+          "address": "0x0219d070",
+          "bytes": "01f010f8"
+        },
+        "main": {
+          "address": "0x0219eb2e",
+          "bytes": "fff7b7fa"
+        },
+        "select": {
+          "address": "0x0219dd4a",
+          "bytes": "00f0c9fa"
+        },
+        "compareExit": {
+          "address": "0x0219ebac",
+          "bytes": "fff71cff"
+        },
+        "compareCancel": {
+          "address": "0x0219ebe2",
+          "bytes": "fff701ff"
+        },
+        "commit": {
+          "address": "0x0219edee",
+          "bytes": "fff75dfd"
+        }
+      },
+      "bindings": {
+        "ACTOR_AUTOANIM": "0x0204c521",
+        "ACTOR_CREATE": "0x0204c041",
+        "ACTOR_DELETE": "0x0204c109",
+        "ACTOR_POS": "0x0204c141",
+        "ACTOR_SEQUENCE": "0x0204c4b9",
+        "BG_BUFFER": "0x02045815",
+        "BG_ENABLE": "0x02044c99",
+        "BG_OFFSET_Y": "0x02044e75",
+        "BG_PALETTE": "0x0204566d",
+        "BG_QUEUE": "0x02045b7d",
+        "BITMAP_FILL": "0x0204713d",
+        "FS_CLOSE": "0x02070db5",
+        "FS_INIT": "0x02070c7d",
+        "FS_LENGTH": "0x02070dc1",
+        "FS_OPEN": "0x02070ea1",
+        "FS_READ": "0x02070e41",
+        "MSG_LOAD": "0x0204898d",
+        "MSG_PRINT": "0x0219db59",
+        "OPTIONS_APPLY": "0x0219e8ad",
+        "SCROLL_EXIT": "0x0219e095",
+        "SCROLL_INIT": "0x0219e015",
+        "SCROLL_MAIN": "0x0219e0a1",
+        "SCROLL_MOVE": "0x0219e4e5",
+        "SE_PLAY": "0x02006255",
+        "STRBUF_FREE": "0x02048565",
+        "TEXT_DRAW": "0x02021cfd",
+        "WINDOW_BG": "0x020484d5",
+        "WINDOW_BITMAP": "0x020484f5",
+        "WINDOW_CREATE": "0x020480c1",
+        "WINDOW_FLUSH_CHAR": "0x02048245",
+        "WINDOW_FLUSH_MAP": "0x0204826d",
+        "WINDOW_FREE": "0x02048211"
+      }
+    },
+    "W2": {
+      "idCode": "IRDO",
+      "optionsOverlay": 140,
+      "hooks": {
+        "init": {
+          "address": "0x0219d002",
+          "bytes": "01f027f8"
+        },
+        "exit": {
+          "address": "0x0219d0b0",
+          "bytes": "01f010f8"
+        },
+        "main": {
+          "address": "0x0219eb6e",
+          "bytes": "fff7b7fa"
+        },
+        "select": {
+          "address": "0x0219dd8a",
+          "bytes": "00f0c9fa"
+        },
+        "compareExit": {
+          "address": "0x0219ebec",
+          "bytes": "fff71cff"
+        },
+        "compareCancel": {
+          "address": "0x0219ec22",
+          "bytes": "fff701ff"
+        },
+        "commit": {
+          "address": "0x0219ee2e",
+          "bytes": "fff75dfd"
+        }
+      },
+      "bindings": {
+        "ACTOR_AUTOANIM": "0x0204c54d",
+        "ACTOR_CREATE": "0x0204c06d",
+        "ACTOR_DELETE": "0x0204c135",
+        "ACTOR_POS": "0x0204c16d",
+        "ACTOR_SEQUENCE": "0x0204c4e5",
+        "BG_BUFFER": "0x02045841",
+        "BG_ENABLE": "0x02044cc5",
+        "BG_OFFSET_Y": "0x02044ea1",
+        "BG_PALETTE": "0x02045699",
+        "BG_QUEUE": "0x02045ba9",
+        "BITMAP_FILL": "0x02047169",
+        "FS_CLOSE": "0x02070de1",
+        "FS_INIT": "0x02070ca9",
+        "FS_LENGTH": "0x02070ded",
+        "FS_OPEN": "0x02070ecd",
+        "FS_READ": "0x02070e6d",
+        "MSG_LOAD": "0x020489b9",
+        "MSG_PRINT": "0x0219db99",
+        "OPTIONS_APPLY": "0x0219e8ed",
+        "SCROLL_EXIT": "0x0219e0d5",
+        "SCROLL_INIT": "0x0219e055",
+        "SCROLL_MAIN": "0x0219e0e1",
+        "SCROLL_MOVE": "0x0219e525",
+        "SE_PLAY": "0x02006255",
+        "STRBUF_FREE": "0x02048591",
+        "TEXT_DRAW": "0x02021d29",
+        "WINDOW_BG": "0x02048501",
+        "WINDOW_BITMAP": "0x02048521",
+        "WINDOW_CREATE": "0x020480ed",
+        "WINDOW_FLUSH_CHAR": "0x02048271",
+        "WINDOW_FLUSH_MAP": "0x02048299",
+        "WINDOW_FREE": "0x0204823d"
+      }
+    }
+  }
+}

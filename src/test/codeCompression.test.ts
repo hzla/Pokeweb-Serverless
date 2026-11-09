@@ -4,6 +4,27 @@ import { readU32, writeU32 } from "../nds/binary";
 import { recompressOverlayFiles } from "../nds/code";
 
 describe("overlay recompression", () => {
+  it.each([0, 2])("keeps raw VRAM code uncompressed with flags %i", (flags) => {
+    const table = new Uint8Array(32), data = new Uint8Array(0x800).fill(0x5a);
+    [169, 0x06898020, data.length, 0, 0, 0, 19, flags << 24]
+      .forEach((value, i) => writeU32(table, i * 4, value));
+    const packed = recompressOverlayFiles(table, () => data);
+    expect(packed.files.size).toBe(0);
+    expect(packed.table).toEqual(table);
+  });
+  it.each([1, 3])("repairs compressed VRAM code with flags %i without changing loaded bytes", (flags) => {
+    const data = new Uint8Array(0x800).fill(0x5a), encoded = compressCode(data), table = new Uint8Array(32);
+    [169, 0x06898020, data.length, 0x80, 0x06898020, 0x06898024, 19, (flags << 24) | encoded.length]
+      .forEach((value, i) => writeU32(table, i * 4, value));
+    const before = table.slice(), original = encoded.slice();
+    const packed = recompressOverlayFiles(table, () => encoded);
+    expect(packed.files.get(19)).toEqual(data);
+    expect(packed.table.subarray(0, 28)).toEqual(table.subarray(0, 28));
+    expect(readU32(packed.table, 28)).toBe((flags & ~1) << 24);
+    expect(table).toEqual(before); expect(encoded).toEqual(original);
+    writeU32(table, 8, data.length + 1);
+    expect(() => recompressOverlayFiles(table, () => encoded)).toThrow("Could not safely decompress VRAM overlay 169");
+  });
   it("uses overlay file IDs and preserves all loaded metadata and caller buffers", () => {
     const table = new Uint8Array(32), data = new Uint8Array(0x800).fill(0x5a);
     [162, 0x021a0000, data.length, 0x80, 0x021a0020, 0x021a0040, 19, 0x80000000]

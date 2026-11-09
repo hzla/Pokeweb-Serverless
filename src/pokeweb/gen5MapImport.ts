@@ -105,13 +105,22 @@ export function stageGen5MapDestination(project: ProjectState, target: Gen5MapIm
   if (!newCell && project.narcs.maps?.rawFiles[current.mapId] && equalMapBytes(project.narcs.maps.rawFiles[current.mapId], bytes)) return { mapId: current.mapId, newCell: false };
   const affectedMatrices = new Set(newCell ? snapshots.map(s => s.id) : [selected.id]);
   const rules = replacementRules(getMapReplacementBytes(project));
+  const conditionalCopies = new Set<number>();
   // Non-seasonal two-way conditions leave the later value slots zero-filled.
   ensure(!rules.some(rule => rule.condition !== 0 && rule.patchType === 1 && rule.values.slice(0, 2).some(id => affectedMatrices.has(id))),
     "This matrix has conditional seasonal routing. Resolve its event-dependent assignments before importing.");
-  for (const rule of rules) if (affectedMatrices.has(rule.matrixId) && (rule.condition !== 0 || ![0, 1].includes(rule.patchType))) {
+  for (const [index, rule] of rules.entries()) if (affectedMatrices.has(rule.matrixId) && (rule.condition !== 0 || ![0, 1].includes(rule.patchType))) {
     const base = cell(getMatrixSnapshot(project, selected.id), target).mapId;
-    ensure(rule.patchType === 0 && rule.values[0] !== base && rule.values[0] !== current.mapId,
+    if (rule.patchType === 0 && rule.values[0] !== base && rule.values[0] !== current.mapId) continue;
+    if (rule.patchType === 0 && rule.condition !== 0 && rule.values[0] === rule.values[1]) continue;
+    // A non-seasonal cell can retain its ordered story swaps by copying their
+    // source references to the fresh IDs. Combined seasonal/event graphs need
+    // separate authoring; do not silently flatten those routes.
+    ensure(rule.patchType === 0 && rule.condition !== 0 && !newCell && selected.id === target.matrixId
+      && snapshots.every(snapshot => snapshot.id === selected.id && cell(snapshot, target).mapId === base)
+      && !rules.some(r => r.matrixId === selected.id && r.patchType === 0 && r.condition === 0 && r.values[0] === base && r.values.slice(0, 4).some(id => id !== base)),
       "This cell has conditional map routing. Resolve its event-dependent assignments before importing.");
+    conditionalCopies.add(index);
   }
   // Audit every root that can load a changed matrix, including whole-matrix substitutions.
   const baselines: Array<{ root: number; season: MatrixSeason; snapshot: MatrixSnapshot }> = [];
@@ -140,7 +149,22 @@ export function stageGen5MapDestination(project: ProjectState, target: Gen5MapIm
     const oldRules = getMapReplacementBytes(project), extra = new Uint8Array(16);
     extra[0] = selected.id & 255; extra[1] = selected.id >>> 8;
     values.forEach((value, i) => { extra[4 + i * 2] = value & 255; extra[5 + i * 2] = value >>> 8; }); extra[14] = 255; extra[15] = 255;
-    const next = new Uint8Array(oldRules.length + 16); next.set(oldRules); next.set(extra, oldRules.length);
+    let next: Uint8Array;
+    if (conditionalCopies.size) {
+      // Resolve the isolated cell's season before native story checks. Keep each
+      // copied check beside its original so subsequent conditional swaps retain
+      // their order, while other cells continue using the original rules.
+      const ids = [...new Set([anchor, mapId])], parts = [extra];
+      for (let index = 0; index < rules.length; index++) {
+        const original = oldRules.slice(index * 16, (index + 1) * 16); parts.push(original);
+        if (conditionalCopies.has(index)) for (const id of ids) {
+          const copy = original.slice(); writeU16(copy, 4, id); parts.push(copy);
+        }
+      }
+      next = new Uint8Array(parts.length * 16); parts.forEach((part, index) => next.set(part, index * 16));
+    } else {
+      next = new Uint8Array(oldRules.length + 16); next.set(oldRules); next.set(extra, oldRules.length);
+    }
     parseMapReplacementFile(next); put(project, "map_replace", 0, next);
   }
   for (const { root, season, snapshot } of baselines) {

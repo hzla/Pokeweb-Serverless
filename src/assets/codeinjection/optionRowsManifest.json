@@ -1,0 +1,163 @@
+{
+  "version": "1.0.0",
+  "textIds": {
+    "autorun": {
+      "label": 19,
+      "help": 29,
+      "on": 13,
+      "off": 14
+    },
+    "following": {
+      "label": 6,
+      "help": 30,
+      "on": 21,
+      "off": 22
+    }
+  },
+  "games": {
+    "B": {
+      "idCode": "IRBO",
+      "optionsOverlay": 68,
+      "fileName": "PokewebOptionRowsB.dll",
+      "sha256": "7a6ed3121c33c314feb7b3f8523b27d7abc1c2595e61061d500d9b1b9b225ac4",
+      "hooks": {
+        "init": {
+          "address": "0x021b96e2",
+          "bytes": "01f027f8"
+        },
+        "exit": {
+          "address": "0x021b9790",
+          "bytes": "01f010f8"
+        },
+        "main": {
+          "address": "0x021bb22a",
+          "bytes": "fff7c9fa"
+        },
+        "select": {
+          "address": "0x021ba46a",
+          "bytes": "00f0b7fa"
+        },
+        "compareExit": {
+          "address": "0x021bb2a8",
+          "bytes": "fff71cff"
+        },
+        "compareCancel": {
+          "address": "0x021bb2de",
+          "bytes": "fff701ff"
+        },
+        "commit": {
+          "address": "0x021bb4ea",
+          "bytes": "fff75dfd"
+        }
+      }
+    },
+    "W": {
+      "idCode": "IRAO",
+      "optionsOverlay": 68,
+      "fileName": "PokewebOptionRowsW.dll",
+      "sha256": "9dafcd1ef11cccafbb16348e2b4483359beb1582c858f849b2248d6688b966d3",
+      "hooks": {
+        "init": {
+          "address": "0x021b9702",
+          "bytes": "01f027f8"
+        },
+        "exit": {
+          "address": "0x021b97b0",
+          "bytes": "01f010f8"
+        },
+        "main": {
+          "address": "0x021bb24a",
+          "bytes": "fff7c9fa"
+        },
+        "select": {
+          "address": "0x021ba48a",
+          "bytes": "00f0b7fa"
+        },
+        "compareExit": {
+          "address": "0x021bb2c8",
+          "bytes": "fff71cff"
+        },
+        "compareCancel": {
+          "address": "0x021bb2fe",
+          "bytes": "fff701ff"
+        },
+        "commit": {
+          "address": "0x021bb50a",
+          "bytes": "fff75dfd"
+        }
+      }
+    },
+    "B2": {
+      "idCode": "IREO",
+      "optionsOverlay": 140,
+      "fileName": "PokewebOptionRowsB2.dll",
+      "sha256": "cc3deeb2420d6767b3d8cf030c71f66b1f02f30919542dad6e3f5ec3022e5c7b",
+      "hooks": {
+        "init": {
+          "address": "0x0219cfc2",
+          "bytes": "01f027f8"
+        },
+        "exit": {
+          "address": "0x0219d070",
+          "bytes": "01f010f8"
+        },
+        "main": {
+          "address": "0x0219eb2e",
+          "bytes": "fff7b7fa"
+        },
+        "select": {
+          "address": "0x0219dd4a",
+          "bytes": "00f0c9fa"
+        },
+        "compareExit": {
+          "address": "0x0219ebac",
+          "bytes": "fff71cff"
+        },
+        "compareCancel": {
+          "address": "0x0219ebe2",
+          "bytes": "fff701ff"
+        },
+        "commit": {
+          "address": "0x0219edee",
+          "bytes": "fff75dfd"
+        }
+      }
+    },
+    "W2": {
+      "idCode": "IRDO",
+      "optionsOverlay": 140,
+      "fileName": "PokewebOptionRowsW2.dll",
+      "sha256": "5f811fb8ae547a9cfb74deeb799ab5bec922378b71a5085b8d4da1f9f804e72c",
+      "hooks": {
+        "init": {
+          "address": "0x0219d002",
+          "bytes": "01f027f8"
+        },
+        "exit": {
+          "address": "0x0219d0b0",
+          "bytes": "01f010f8"
+        },
+        "main": {
+          "address": "0x0219eb6e",
+          "bytes": "fff7b7fa"
+        },
+        "select": {
+          "address": "0x0219dd8a",
+          "bytes": "00f0c9fa"
+        },
+        "compareExit": {
+          "address": "0x0219ebec",
+          "bytes": "fff71cff"
+        },
+        "compareCancel": {
+          "address": "0x0219ec22",
+          "bytes": "fff701ff"
+        },
+        "commit": {
+          "address": "0x0219ee2e",
+          "bytes": "fff75dfd"
+        }
+      }
+    }
+  }
+}

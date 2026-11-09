@@ -1,0 +1,7 @@
+[{"keys":"right","frames":24},{"wait":20},{"dump":"ARUN"},
+ {"keys":"x","frames":4},{"wait":40},{"touch":[190,138]},{"wait":120},
+ {"keys":"down"},{"keys":"down"},{"keys":"down"},{"keys":"down"},{"keys":"down"},{"keys":"down"},
+ {"keys":"right"},{"keys":"down"},{"keys":"a"},{"wait":200},{"keys":"b"},{"wait":60},
+ {"keys":"left","frames":24},{"wait":20},{"dump":"ARUN"},{"capture":"01-field-off"},
+ {"keys":"x","frames":4},{"wait":40},{"touch":[190,138]},{"wait":120},{"capture":"02-reopened-off"},
+ {"keys":"b"},{"wait":120},{"keys":"b"},{"wait":60}]

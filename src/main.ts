@@ -52,6 +52,7 @@ import "./styles/flyDestinations.css";
 import "./styles/phenomena.css";
 import { renderFlyDestinationEditor, stopFlyDestinationEditor } from "./ui/flyDestinationEditor";
 import { renderPhenomenaEditor } from "./ui/phenomenaEditor";
+import { renderDexAreaEditor } from "./ui/dexAreaEditor";
 import { loadFlyDestinationEditorData } from "./pokeweb/flyDestinationModel";
 import { attachNavigationDropdowns } from "./ui/navigationDropdowns";
 import "./styles/randomizer.css";
@@ -186,6 +187,7 @@ type AppRoute =
   | "marts"
   | "grottos"
   | "phenomena"
+  | "dexAreas"
   | "grottoOdds"
   | "storyText"
   | "infoText"
@@ -309,6 +311,7 @@ const APP_ROUTES: AppRoute[] = [
   "marts",
   "grottos",
   "phenomena",
+  "dexAreas",
   "grottoOdds",
   "storyText",
   "infoText",
@@ -365,6 +368,7 @@ const EDITOR_REQUIREMENTS: Record<
   marts: ["marts", "mart_counts"],
   grottos: ["grottos", "grotto_odds"],
   phenomena: ["items", "headers", "message_texts"],
+  dexAreas: ["encounters", "headers", "personal"],
   storyText: ["story_texts"],
   infoText: ["message_texts"],
 };
@@ -1302,6 +1306,15 @@ function renderApp(): void {
     return;
   }
 
+  if (route === "dexAreas") {
+    renderDexAreaEditor(project, content, () => {
+      dirty = true;
+      scheduleSave(project!);
+      renderDirtyIndicator();
+    });
+    return;
+  }
+
   if (route === "phenomena") {
     renderPhenomenaEditor(project, content, () => {
       dirty = true;
@@ -1575,13 +1588,15 @@ function renderWeatherMenu(): string {
 function renderEncountersMenu(): string {
   const grottoAvailable = project?.session.baseRom === "BW2";
   const phenomenaAvailable = Boolean(project && ["B", "W", "B2", "W2"].includes(project.session.baseVersion));
-  const active = route === "encounters" || (grottoAvailable && route === "grottos") || route === "phenomena";
+  const dexAreasAvailable = Boolean(project && (project.session.baseVersion === "B2" || project.session.baseVersion === "W2"));
+  const active = route === "encounters" || (grottoAvailable && route === "grottos") || route === "phenomena" || (dexAreasAvailable && route === "dexAreas");
   return `
     <div class="header-more ${active ? "-active" : ""}">
       <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Encounters</button>
       <div class="header-more-menu">
         ${navItem("encounters", "Wild encounters")}
         ${grottoAvailable ? navItem("grottos", "Hidden grottos") : ""}
+        ${dexAreasAvailable ? navItem("dexAreas", "Pokédex areas") : ""}
         ${phenomenaAvailable ? navItem("phenomena", "Phenomena") : ""}
       </div>
     </div>
@@ -2766,6 +2781,7 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
     return EDITOR_REQUIREMENTS.wbtFacilities.every((name) => project?.narcs[name]) && Boolean(project.narcs.wbt_sets || project.narcs.wbt_trainers || project.narcs.wbt_area_pools);
   }
   if ((nextRoute === "marts" || nextRoute === "grottos") && project.session.baseRom !== "BW2") return false;
+  if (nextRoute === "dexAreas" && !(hasExportBase && (project.session.baseVersion === "B2" || project.session.baseVersion === "W2"))) return false;
   if (nextRoute === "phenomena" && !(hasExportBase && ["B", "W", "B2", "W2"].includes(project.session.baseVersion))) return false;
   const editorRoute = nextRoute as Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "followingPokemon" | "patches" | "debugNarcs" | "grottoOdds" | "docGenerators" | "mastersheet" | "maps3d" | "changelog" | "tutorMoves">;
   return EDITOR_REQUIREMENTS[editorRoute].every((name) => project?.narcs[name]);

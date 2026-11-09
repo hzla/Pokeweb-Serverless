@@ -1,0 +1,5 @@
+[{"keys":"down","frames":24},{"wait":30},{"capture":"01-field-follower"},
+ {"keys":"x","frames":4},{"wait":40},{"touch":[190,138]},{"wait":120},{"capture":"02-options"},
+ {"keys":"down"},{"keys":"down"},{"keys":"down"},{"keys":"down"},{"keys":"down"},{"keys":"down"},
+ {"keys":"right"},{"wait":10},{"capture":"03-followers-off"},{"keys":"down"},{"keys":"down"},{"keys":"a"},{"wait":200},
+ {"keys":"b"},{"wait":90},{"keys":"up","frames":24},{"wait":40},{"capture":"04-field-no-follower"},{"dump":"ARUN"}]

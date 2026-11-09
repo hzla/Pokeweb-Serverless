@@ -6,7 +6,7 @@ import { applyGen5MapImport, prepareGen5MapImport, stageGen5MapDestination, undo
 import { mergeGen5MapTextures, readGen5MapBin, validateGen5Permissions } from "../pokeweb/gen5MapImportFormats";
 import { decodeTexture, loadMap3dZone, packGameFreakContainer, readNitroResources } from "../pokeweb/map3dModel";
 import { getMatrixSnapshot, applyMatrixCellEdit } from "../pokeweb/matrixModel";
-import { getMapReplacementBytes, resolveSeasonalMatrix, setSeasonalAssignment } from "../pokeweb/seasonalMatrixModel";
+import { getMapReplacementBytes, MATRIX_SEASONS, replacementRules, resolveSeasonalMatrix, setSeasonalAssignment } from "../pokeweb/seasonalMatrixModel";
 import { materialRecords, nitroBlocks, readDictionary, writeNitroFile } from "../pokeweb/nitroResourceWriter";
 import { createProjectDocument } from "../pokeweb/projectDocument";
 import { openProjectSession } from "../pokeweb/projectSession";
@@ -15,6 +15,10 @@ import { gen5ImportProject, mapBin, mapModel, mapPermissions, mapTextures } from
 
 const target: Gen5MapImportTarget = { matrixId: 0, x: 0, y: 0, headerId: 0, season: "winter" };
 describe("Gen 5 native map formats", () => {
+  it("reads native GC chunks with two walking layers and preserves their signature", () => {
+    const files = readGen5MapBin(mapBin(true)).files;
+    expect(readGen5MapBin(packGameFreakContainer("GC", files))).toEqual({ signature: "GC", files, placements: 3 });
+  });
   it("distinguishes a second PER from placements and retains opaque members", () => {
     for (const second of [false, true]) {
       const parsed = readGen5MapBin(mapBin(second));
@@ -47,6 +51,27 @@ describe("Gen 5 native map formats", () => {
 });
 
 describe.each(["BW", "BW2"] as const)("%s map import", game => {
+  it("imports separate PDSMS files over a GC destination without losing placements or opaque members", async () => {
+    const project = gen5ImportProject(game), original = packGameFreakContainer("GC", readGen5MapBin(mapBin(true)).files);
+    project.narcs.maps!.rawFiles[0] = original;
+    const per = mapPermissions(true); writeU16(per, 8, 0x1234);
+    const result = await prepareGen5MapImport(project, { game, model: mapModel(), permissions: per, secondaryPermissions: mapPermissions() }, { ...target, season: "spring" });
+    expect(project.narcs.maps!.rawFiles[0]).toEqual(original);
+    await applyGen5MapImport(project, result);
+    const imported = readGen5MapBin(project.narcs.maps!.rawFiles[result.mapId]);
+    expect(imported.signature).toBe("GC"); expect(imported.files[1]).toEqual(per); expect(imported.files[2]).toEqual(mapPermissions());
+    expect(imported.files.slice(3)).toEqual(readGen5MapBin(original).files.slice(3));
+    for (const season of ["summer", "autumn", "winter"] as const) {
+      const id = resolveSeasonalMatrix(project, 0, season).cells[0].mapId; expect(project.narcs.maps!.rawFiles[id]).toEqual(original);
+    }
+    await undoGen5MapImport(project, result); expect(project.narcs.maps!.rawFiles[0]).toEqual(original);
+  });
+  it("imports complete native GC BINs", async () => {
+    const project = gen5ImportProject(game), bin = packGameFreakContainer("GC", readGen5MapBin(mapBin(true)).files);
+    const result = await prepareGen5MapImport(project, { game, bin }, target);
+    await applyGen5MapImport(project, result);
+    expect(project.narcs.maps!.rawFiles[result.mapId]).toEqual(bin);
+  });
   it("stages imported building resources and placements atomically, preserves existing assets and undoes them", async () => {
     const project = gen5ImportProject(game), original = structuredClone(project), input = { game, model: mapModel(), permissions: mapPermissions(), buildings: {
       assets: [{ model: mapModel(), textures: mapTextures(0x7c00) }], placements: [{ asset: 0, x: -56, y: 32, z: -64, rotationY: 90 }] } };
@@ -127,6 +152,52 @@ describe.each(["BW", "BW2"] as const)("%s map import", game => {
 });
 
 describe("seasonal destination isolation", () => {
+  it.each(MATRIX_SEASONS)("preserves conditional map swaps and other cells when importing %s", season => {
+    const project = gen5ImportProject(); applyMatrixCellEdit(project, 0, [1], { mapId: 0 });
+    project.narcs.maps!.rawFiles.forEach((bytes, id) => { bytes[bytes.length - 1] = 32 + id; });
+    const rules = new Uint8Array(32);
+    rules[3] = 3; writeU16(rules, 4, 0); writeU16(rules, 6, 4); writeU16(rules, 14, 65535);
+    rules[19] = 7; writeU16(rules, 20, 4); writeU16(rules, 22, 7); writeU16(rules, 30, 65535);
+    project.narcs.map_replace!.rawFiles[0] = rules;
+    const original = project.narcs.maps!.rawFiles.map(b => b.slice()), changed = mapBin(); changed[changed.length - 1] ^= 1;
+    const result = stageGen5MapDestination(project, { ...target, season }, changed);
+    // Evaluate the native ordered rules with story conditions both disabled and enabled.
+    for (const currentSeason of MATRIX_SEASONS) for (const frozen of [false, true]) for (const nextEvent of [false, true]) {
+      const cells = getMatrixSnapshot(project, 0).cells.map(c => c.mapId);
+      for (const rule of replacementRules(getMapReplacementBytes(project))) {
+        if (rule.condition === 3 && !frozen || rule.condition === 7 && !nextEvent) continue;
+        const destination = rule.values[rule.condition === 0 ? MATRIX_SEASONS.indexOf(currentSeason) : 1];
+        for (let i = 0; i < cells.length; i++) if (cells[i] === rule.values[0]) cells[i] = destination;
+      }
+      const alternate = nextEvent ? 7 : 4;
+      expect(project.narcs.maps!.rawFiles[cells[0]]).toEqual(frozen ? original[alternate] : currentSeason === season ? changed : original[0]);
+      expect(project.narcs.maps!.rawFiles[cells[1]]).toEqual(original[frozen ? alternate : 0]);
+    }
+    expect(project.narcs.maps!.rawFiles[0]).toEqual(original[0]);
+    expect(resolveSeasonalMatrix(project, 0, season).cells[0].mapId).toBe(result.mapId);
+  });
+  it("keeps blocking a destination with combined seasonal and conditional map substitutions", () => {
+    const project = gen5ImportProject(); setSeasonalAssignment(project, 0, "map", 0, [0, 1, 2, 3]);
+    const existing = getMapReplacementBytes(project), rules = new Uint8Array(existing.length + 16); rules.set(existing);
+    rules[existing.length + 3] = 3; writeU16(rules, existing.length + 6, 4); project.narcs.map_replace!.rawFiles[0] = rules; project.narcs.map_replace!.records.clear();
+    const changed = mapBin(); changed[changed.length - 1] ^= 1;
+    expect(() => stageGen5MapDestination(project, { ...target, season: "spring" }, changed)).toThrow("conditional map routing");
+  });
+  it("keeps blocking seasonal cascades that return to the base map before a conditional swap", () => {
+    const project = gen5ImportProject(), rules = new Uint8Array(48);
+    writeU16(rules, 6, 4);
+    writeU16(rules, 20, 4); writeU16(rules, 24, 4); writeU16(rules, 26, 4);
+    rules[35] = 3; writeU16(rules, 38, 7); project.narcs.map_replace!.rawFiles[0] = rules;
+    expect(MATRIX_SEASONS.map(season => resolveSeasonalMatrix(project, 0, season).cells[0].mapId)).toEqual([0, 0, 0, 0]);
+    const changed = mapBin(); changed[changed.length - 1] ^= 1;
+    expect(() => stageGen5MapDestination(project, { ...target, season: "spring" }, changed)).toThrow("conditional map routing");
+  });
+  it("does not turn a no-op story rule into a replacement of the imported map", () => {
+    const project = gen5ImportProject(), rule = new Uint8Array(16); rule[3] = 3; project.narcs.map_replace!.rawFiles[0] = rule;
+    const changed = mapBin(); changed[changed.length - 1] ^= 1;
+    stageGen5MapDestination(project, { ...target, season: "spring" }, changed);
+    expect(replacementRules(getMapReplacementBytes(project)).filter(r => r.condition === 3)).toEqual(replacementRules(rule));
+  });
   it("isolates repeated chunks for spring and leaves the original resources unchanged", () => {
     const project = gen5ImportProject(); applyMatrixCellEdit(project, 0, [1], { mapId: 0 });
     setSeasonalAssignment(project, 0, "map", 0, [0, 1, 2, 3]); const original = project.narcs.maps!.rawFiles[0].slice(), changed = original.slice(); changed[changed.length - 1] ^= 1;

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { findMapFolderImports, resolveMapFolderImport, type MapImportFile } from "../pokeweb/gen5MapImportFolder";
 import { mapBin, mapModel, mapPermissions, mapTextures } from "./fixtures/gen5MapImport";
 import { nitroBlocks, writeNitroFile } from "../pokeweb/nitroResourceWriter";
+import { packGameFreakContainer } from "../pokeweb/map3dModel";
+import { readGen5MapBin } from "../pokeweb/gen5MapImportFormats";
 const file = (path: string, bytes: Uint8Array = new Uint8Array()): MapImportFile => ({ name: path.split("/").at(-1)!, webkitRelativePath: path, size: bytes.length, arrayBuffer: async () => bytes.slice().buffer });
 const model = () => writeNitroFile(mapModel(), [...nitroBlocks(mapModel()), ...nitroBlocks(mapTextures())]);
 const metadata = (game: number) => new TextEncoder().encode(`gameindex\r\n${game}\r\ntileset\r\nSample.pdsts\r\n`);
@@ -38,9 +40,10 @@ describe("native map folder import", () => {
     const files = [file("Sample.nsbmd", model()), file("other.nsbtx")];
     expect((await resolveMapFolderImport((await findMapFolderImports(files))[0], files)).files.textures).toBeUndefined();
   });
-  it("discovers Gen 5 BINs and ignores Gen 4 BIN exports and metadata files", async () => {
-    const files = [file("map.bin", mapBin()), file("gen4.bin", new Uint8Array(16)), file(".__map.nsbmd"), file("__MACOSX/map.nsbmd")];
+  it.each(["WB", "GC"])("discovers %s Gen 5 BINs and ignores Gen 4 BIN exports and metadata files", async signature => {
+    const files = [file("map.bin", packGameFreakContainer(signature, readGen5MapBin(mapBin(true)).files)), file("gen4.bin", new Uint8Array(16)), file(".__map.nsbmd"), file("__MACOSX/map.nsbmd")];
     expect((await findMapFolderImports(files)).map(c => c.files.bin?.name)).toEqual(["map.bin"]);
+    expect((await resolveMapFolderImport((await findMapFolderImports(files))[0], files)).files.bin?.name).toBe("map.bin");
   });
   it("rejects Gen 4 project metadata before assigning the selected export", async () => {
     const files = [file("Sample.nsbmd", model()), file("Sample.pdsmap", metadata(3))];

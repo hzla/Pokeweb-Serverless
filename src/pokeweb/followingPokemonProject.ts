@@ -31,6 +31,7 @@ import { loadActiveRomBytes } from "./persistence";
 import { refreshDecodedTextState } from "./loader";
 import type { ProjectState } from "./projectStore";
 import { getPmcInstallStatus, installBundledPmc, listCodeInjectionDlls, stageCodeInjectionDll } from "./pmcModel";
+import { isOptionRowsModulePath, optionRowsDllPath, readTable as readOptionRowsTable, reconcileOptionRows } from "./optionRowsModel";
 import { parseRpm, writeRpm, type RpmModule } from "./rpm";
 import { buildFollowerCatalog, deriveFollowerGrounding, deriveFollowerSpacing, encodeFollowerLandAnchors, validateFollowerLandAnchors, followerSideGap, followerBillboardDrawMode, followerAnimationSelector, decodeFollowerRegistry, encodeFollowerRegistry, followerCrc32, followerKey, followerDefaultDirectionalGaps, readFollowerStockAppearances, validateFollowerRegistry, validateFollowerResource,
   type FollowerAppearanceKey, type FollowerAssetEntry, type FollowerRegistry } from "./followingPokemonModel";
@@ -273,6 +274,8 @@ export async function checkFollowerCompatibility(project: ProjectState, rom?: Fo
     if (module.path === modulePaths.core && [runtimeManifest.coreSha256, await followerRomSha256(removedModule(profile, 2)), ...runtimeManifest.previousVersions.flatMap(version => "coreSha256" in version ? [version.coreSha256] : [])].includes(await followerRomSha256(data))) continue;
     if (module.path === modulePaths.options && [runtimeManifest.optionsModuleSha256, await followerRomSha256(removedModule(profile, 3)), ...runtimeManifest.previousVersions.flatMap(version => version.optionsModuleSha256 ? [version.optionsModuleSha256] : [])].includes(await followerRomSha256(data))) continue;
     if (module.path === modulePaths.battle && [runtimeManifest.battleModuleSha256, await followerRomSha256(removedModule(profile, 4)), ...runtimeManifest.previousVersions.flatMap(version => version.battleModuleSha256 ? [version.battleModuleSha256] : [])].includes(await followerRomSha256(data))) continue;
+    // The shared Options rows module (Autorun) carries Following's Options row; installs reconcile the two.
+    if (isOptionRowsModulePath(module.path)) continue;
     try {
       const rpm = parseRpm(data, { allowedMagics: ["DLXF"] });
       // Only hook write spans are owned. Native-adapter signatures can cover
@@ -550,6 +553,14 @@ async function requireFollowerTileBounds(project: ProjectState, rom: FollowerRom
 // module removes every follower hook without renumbering unrelated ROM files.
 const removedModule = (profile: FollowerProfile = "stock", priority = 4) => writeRpm({ code: Uint8Array.of(0x70,0x47,0,0), bssSize: 0, baseAddress: 0, symbols: [], relocations: [],
   metadata: { PMCGameID: profile === "black2" ? "B2" : profile === "white2italy" ? "W2I" : "W2", PMCVersion: "following-removed", PMCModulePriority: priority } }, { ident: "DLXF" });
+/** The inert module a removed Following package leaves in each of its DLL slots. */
+export const followerRemovedModule = (profile: FollowerProfile, priority = 4) => removedModule(profile, priority);
+/** Following's Options slot holds the stub because the shared Options rows module carries its row. */
+async function followerOptionsDelegated(project: ProjectState, rom: FollowerFiles, profile: FollowerProfile, optionsHash: string | undefined): Promise<boolean> {
+  if (profile === "white2italy" || optionsHash !== await followerRomSha256(removedModule(profile, 3))) return false;
+  const shared = readFollowingFile(project, rom, optionRowsDllPath(profile === "black2" ? "B2" : "W2"));
+  return !!shared && readOptionRowsTable(shared).includes("following");
+}
 export const FOLLOWER_EVENTS_DLL_PATH = "patches/PokewebFollowingEventsW2.dll";
 export const FOLLOWER_DLL_B2_PATH = "patches/PokewebFollowingFieldB2.dll";
 export const FOLLOWER_EVENTS_B2_DLL_PATH = "patches/PokewebFollowingEventsB2.dll";
@@ -742,7 +753,8 @@ export async function readFollowerAlphaInstall(project: ProjectState, rom?: Foll
     if (current || extendedPrevious?.optionsModuleSha256) {
       const options = readFollowingFile(project, rom, modulePaths.options);
       const expectedOptions = state.removed ? await followerRomSha256(removedModule(profile, 3)) : current ? runtimeManifest.optionsModuleSha256 : extendedPrevious!.optionsModuleSha256!;
-      if (state.optionsModuleSha256 !== expectedOptions || !options || await followerRomSha256(options) !== expectedOptions)
+      const optionsHash = options ? await followerRomSha256(options) : undefined;
+      if (state.optionsModuleSha256 !== expectedOptions || !options || (optionsHash !== expectedOptions && !(await followerOptionsDelegated(project, rom, profile, optionsHash))))
         throw new Error("Follower Options module has changed or is missing. Refusing to overwrite owned data.");
     }
     if (current || extendedPrevious?.battleModuleSha256) {
@@ -1173,6 +1185,7 @@ export async function installFollowerAlpha(project: ProjectState, rom?: Follower
     ...(landRider && landAnchors ? { [FOLLOWER_LAND_RIDER_PATH]: landRider, [FOLLOWER_LAND_ANCHORS_PATH]: landAnchors } : {}),
     [FOLLOWER_INSTALL_PATH]: new TextEncoder().encode(JSON.stringify(state, null, 2) + "\n") });
   stageFollowerOptionsStore(staged, optionsText.bytes);
+  if (profile === "stock" || profile === "black2" || profile === "white2upgrade") await reconcileOptionRows(staged, { following: true });
   if (assetWorkspace) stageFollowingFiles(staged, rom, {
     [FOLLOWER_MANIFEST_PATH]: new TextEncoder().encode(JSON.stringify(assetWorkspace, null, 2) + "\n"),
     [FOLLOWER_REGISTRY_PATH]: encodeFollowerRegistry(assetWorkspace.registry),
@@ -1236,6 +1249,7 @@ export async function removeFollowerAlpha(project: ProjectState, rom?: FollowerR
   stageCodeInjectionDll(staged, modulePaths.battleName, battleStub);
   stageFollowingFiles(staged, rom, { ...(optionsText ? { [FOLLOWER_OPTIONS_TEXT_PATH]: optionsText } : {}), [FOLLOWER_NATIVE_PATH]: config, [FOLLOWER_INSTALL_PATH]: new TextEncoder().encode(JSON.stringify(state, null, 2) + "\n") });
   if (optionsText) stageFollowerOptionsStore(staged, optionsText);
+  if (profile === "stock" || profile === "black2" || profile === "white2upgrade") await reconcileOptionRows(staged, { following: false });
   recordGenericChange(staged, "following_pokemon", "Removed follower runtime hooks; assets and shared PMC retained.", "Following Pokémon", { key: "following-runtime" });
   project.fileSystem = staged.fileSystem; project.codeInjection = staged.codeInjection; project.actionChangelog = staged.actionChangelog;
   project.narcs = staged.narcs; refreshDecodedTextState(project);

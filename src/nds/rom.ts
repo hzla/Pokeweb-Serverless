@@ -191,7 +191,10 @@ export class NintendoDSRom {
       damagedDsi = true;
       twlSections = [];
       digestSource = undefined;
-      options.onWarning?.(damagedDsiExportWarning(this.data));
+      // A fully cleared TWL payload header is an existing DS-only input.
+      // Still validate native files and sanitize the output, but warn only
+      // when there is DSi metadata left that could not be preserved.
+      if (!this.hasClearedTwlMetadata()) options.onWarning?.(damagedDsiExportWarning(this.data));
     }
     const minimumLength = Math.max(options.preserveOriginalLength ? this.data.length : 0, checkedMinimumLength(options.minimumLength));
 
@@ -380,6 +383,13 @@ export class NintendoDSRom {
       if (readU32(this.data, field) !== 0) return true;
     }
     return false;
+  }
+
+  private hasClearedTwlMetadata(): boolean {
+    for (let field = 0x1c0; field <= 0x204; field += 4) {
+      if (readU32(this.data, field) !== 0) return false;
+    }
+    return [0x210, 0x220, 0x224, 0x228, 0x22c].every(field => readU32(this.data, field) === 0);
   }
 }
 

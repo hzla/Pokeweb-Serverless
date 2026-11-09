@@ -20,6 +20,23 @@ import { makeTwlRom, verifyAllDigests } from "./fixtures/dsiRom";
 import { applyMatrixCellEdit, createMatrix, duplicateMatrix, getMatrixSnapshot, linkHeaderToMatrix, resizeMatrix } from "../pokeweb/matrixModel";
 
 describe("ROM export", () => {
+  it("repairs a compressed VRAM battle overlay on export and preserves it on re-export", async () => {
+    const original = new NintendoDSRom(makeTwlRom("IREO"));
+    const image = new Uint8Array(0x800).fill(0x5a), encoded = compressCode(image), table = new Uint8Array(32);
+    [169, 0x06898020, image.length, 0x80, 0x06898020, 0x06898024, 0, 0x03000000 | encoded.length]
+      .forEach((value, i) => writeU32(table, i * 4, value));
+    const source = original.save({ arm9OverlayTable: table, insertedFiles: [{ fileId: 0, bytes: encoded }] });
+    const before = source.slice(), native = new NintendoDSRom(source);
+    for (const input of [source, await exportModifiedRom(makeProject(source))]) {
+      const exported = await exportModifiedRom(makeProject(input)), rom = new NintendoDSRom(exported);
+      expect(readU32(rom.arm9OverlayTable, 28)).toBe(0x02000000);
+      expect(rom.files[0]).toEqual(image);
+      expect(rom.arm9OverlayTable.subarray(0, 28)).toEqual(table.subarray(0, 28));
+      expect(rom.getFileByName("file.bin")).toEqual(native.getFileByName("file.bin"));
+      verifyAllDigests(exported);
+    }
+    expect(source).toEqual(before);
+  });
   it("recompresses normal export overlays while rebuilding DSi integrity and preserving filenames", async () => {
     const original = new NintendoDSRom(makeTwlRom("IREO"));
     const image = new Uint8Array(0x800).fill(0x5a), table = new Uint8Array(32);

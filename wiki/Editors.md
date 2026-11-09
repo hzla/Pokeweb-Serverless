@@ -16,7 +16,7 @@ Pokeweb unlocks editors based on the ROM data groups loaded at project creation.
 | Animated Sprites | `personal`, `pokemon_sprites`, plus the Black 2 or White 2 PWAN runtime |
 | Starters | `personal`, `pokemon_sprites`, `starter_sprites`, `scripts`, `story_texts`, starter overlay |
 | Trainers | `trdata`, `trpok`, `personal`, `items`, `moves`, trainer text tables |
-| Encounters | `encounters`; BW2 habitat sync also needs `habitats` |
+| Encounters | `encounters`; BW2 habitat sync also needs `habitats`; Pokédex areas need `headers` and read `town_map` and `town_map_species_habitats` from the ROM |
 | Moves | `moves`; animation tools also use `move_animations`, `battle_animations`, `move_spas` |
 | Items | `items` |
 | TMs | `moves` and ARM9 table data |

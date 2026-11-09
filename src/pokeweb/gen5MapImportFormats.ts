@@ -32,8 +32,14 @@ export function validateGen5Permissions(bytes: Uint8Array): void {
   }
 }
 
+/** WB terrain and GC terrain with two walking layers share the native member container. */
+export function hasGen5MapBinSignature(bytes: Uint8Array): boolean {
+  const signature = readAscii(bytes, 0, 2);
+  return signature === "WB" || signature === "GC";
+}
+
 export function readGen5MapBin(bytes: Uint8Array): { signature: string; files: Uint8Array[]; placements: number } {
-  ensure(bytes.length >= 20 && readAscii(bytes, 0, 2) === "WB", "Choose a native Gen 5 map BIN. Gen 4 map BINs cannot be imported into BW/BW2.");
+  ensure(bytes.length >= 20 && hasGen5MapBinSignature(bytes), "Choose a native Gen 5 map BIN. Gen 4 map BINs cannot be imported into BW/BW2.");
   const count = readU16(bytes, 2), header = 4 + (count + 1) * 4;
   ensure(count >= 3 && count <= 64 && header <= bytes.length, "Invalid Gen 5 map member count.");
   let last = header;
