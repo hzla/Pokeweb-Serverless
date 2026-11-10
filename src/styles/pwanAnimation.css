@@ -775,14 +775,8 @@
   padding: 5px 8px;
 }
 
-.pwan-side-footer {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: auto;
-}
-
-.pwan-side-footer .btn {
-  min-width: 96px;
+.pwan-side-apply {
+  width: 100%;
 }
 
 .pwan-side-import {
@@ -961,8 +955,16 @@
 }
 
 .pwan-side-import > .pwan-conversion,
-.pwan-conversion-actions {
+.pwan-conversion-actions,
+.pwan-full-size {
   grid-column: 1 / -1;
+}
+
+.pwan-full-size {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
 }
 
 .pwan-conversion-preset {

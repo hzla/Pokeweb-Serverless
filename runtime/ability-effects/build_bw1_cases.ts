@@ -1,3 +1,4 @@
+import {statusCases} from "./status_cases";
 import {environmentCases} from "./environment_cases";
 import {strikeCases} from "./strike_cases";
 import {protectCases} from "./protect_cases";
@@ -103,11 +104,12 @@ if(actionResultsMode){
  rules.set(222,{effects:[{kind:"abilityRecipe:fieldPower",value:1.333333,parameters:{type:10}}],conditions:all});
  for(const[id,chance]of [[223,1],[224,100],[226,30]])rules.set(id,{effects:[{kind:"status",value:7,trigger:"afterAttack",target:"defender",chance}],conditions:all});
 }
-const statusPopups = process.argv.includes("--weather-moves") ? weatherCases() : process.argv.includes("--protect") ? protectCases() : process.argv.includes("--strikes") ? strikeCases() : process.argv.includes("--environment") ? environmentCases() : process.argv.includes("--stat-source") ? statSourceCases() : process.argv.includes("--status-popups") ? statusPopupCases() : undefined;
+const statusPopups = process.argv.includes("--status-extensions") ? statusCases() : process.argv.includes("--weather-moves") ? weatherCases() : process.argv.includes("--protect") ? protectCases() : process.argv.includes("--strikes") ? strikeCases() : process.argv.includes("--environment") ? environmentCases() : process.argv.includes("--stat-source") ? statSourceCases() : process.argv.includes("--status-popups") ? statusPopupCases() : undefined;
 if(statusPopups){rules.clear();for(const[id,rule]of inspectAbilityEffects(project).rules)rules.set(id,rule);for(const[id,rule]of statusPopups.rules)rules.set(id,rule);}
 for(const[id,r]of rules)rules.set(id,validateAbilityRule(r));
 // Every imported recipe is linked with this game's native services before fixtures.
 for(const entry of ABILITY_IMPORT_LIBRARY)buildAbilityRuleModule(project,new Map([[255,entry.rule]]));
+if(process.argv.includes("--status-extensions"))for(const id of [92,261,496]){decodeRecord(project,"moves",id).raw!.accuracy=100;if(id===496)decodeRecord(project,"moves",id).raw!.type=12;markDirty(project,"moves",id);}
 await configureAbilityRuleSets(project,[...rules].map(([abilityId,rules])=>({abilityId,rules,name:statusPopups?statusPopups.names.get(abilityId):actionResultsMode?actionResultNames[abilityId]:notifications?({165:"Queenly Majesty",166:"Dazzling",167:"Armor Tail",168:"Bulletproof",169:"Good as Gold",170:"Wind Rider",171:"Sweet Veil",172:"Flower Veil",173:"Guard Dog",174:"Priority Two",175:"Capped Wind",176:"Toxic Debris",177:"Perish Body",178:"Anger Shell",179:"Capped Shell",180:"Partial Shell"}as Record<number,string>)[abilityId]:abilityId===167?"Scare":`BW ${abilityId}`})));
 if(moveClasses){
  await configureMoveDllFlags(project,33,34);await configureMoveDllFlags(project,352,0);await configureMoveDllFlags(project,16,0);
@@ -249,7 +251,7 @@ if(process.argv.includes("--expanded-classes")){
 if(customFlagsMode){
  cases.splice(0,cases.length,...customFlagCases(project).map(spec=>({label:spec.label,abilityId:spec.abilityId,playerMoves:[spec.move??150],hp:spec.hp,enemies:[mon(320,spec.enemyLevel??(spec.enemyMove?30:100),spec.enemyMove??150)],checks:spec.checks})));
 }
-if(statusPopups)cases.splice(0,cases.length,...statusPopups.cases.map(spec=>({...spec,playerMoves:"playerMoves"in spec&&spec.playerMoves?spec.playerMoves:[spec.move??150],enemies:Array.from({length:spec.enemyCount??1},()=>({...mon(spec.enemySpecies??320,spec.enemyLevel??100,spec.enemyMove??150),...("enemyAbility"in spec?{abilityId:spec.enemyAbility}:{}),gender:0 as const}))})));
+if(statusPopups)cases.splice(0,cases.length,...statusPopups.cases.map(spec=>({...spec,playerMoves:"playerMoves"in spec&&spec.playerMoves?spec.playerMoves:[spec.move??150],enemies:Array.from({length:spec.enemyCount??1},(_,index)=>({...mon(spec.enemySpecies??320,spec.enemyLevel??100,index?spec.enemy2Move??spec.enemyMove??150:spec.enemyMove??150),abilitySlot:index?2:1,abilityId:index?spec.enemy2Ability??spec.enemyAbility??50:spec.enemyAbility??50,gender:0 as const}))})));
 const only=process.argv.find(a=>a.startsWith("--only="))?.slice(7).split(","),hashes:Record<string,string>={},fixtures=[];
 for(const[index,spec]of cases.entries()){
  if(only&&!only.includes(spec.label))continue;

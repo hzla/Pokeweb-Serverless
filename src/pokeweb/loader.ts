@@ -41,6 +41,7 @@ import { detectPmcInstallFromRom } from "./pmcModel";
 import { decodeStandaloneStreamManifest, STANDALONE_STREAM_MANIFEST_PATH } from "./standaloneStreamManifest";
 import { hydratePwanAnimationsFromRom } from "./pwanAnimationModel";
 import { hydrateW2AnimFromRom } from "./w2animAnimationModel";
+import { hydrateAnimStreamsFromRom } from "./animStreamsModel";
 import { hydrateKoMoveLearnsetFromRom } from "./koMoveLearnsetModel";
 import { hydrateTrainerLocationTables } from "./trainerLocationModel";
 import { hydrateCascadePersonalSources } from "./cascadeWhitePersonalModel";
@@ -140,7 +141,7 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
     catch { /* Installation status reports a damaged owned shop archive. */ }
     hydrateCascadePersonalSources(project, rom);
     hydrateBattleLogInstallMetadata(project, rom);
-    if (!hydrateW2AnimFromRom(project, rom)) hydratePwanAnimationsFromRom(project, rom);
+    if (!hydrateAnimStreamsFromRom(project, rom) && !hydrateW2AnimFromRom(project, rom)) hydratePwanAnimationsFromRom(project, rom);
     hydrateKoMoveLearnsetFromRom(project, rom);
     hydrateTrainerLocationTables(project, rom);
     hydrateTrainerFieldConditionsSources(project, rom);

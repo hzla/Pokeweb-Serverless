@@ -67,6 +67,7 @@ for suffix,defines,asset,fast,slots in variants:
         if protect and os.environ.get('ABILITY_PROTECT_TEST')=='1': defines+=['-DABILITY_PROTECT_TEST']
         if weather_moves: suffix+='-weather-moves';defines+=['-DABILITY_WEATHER_MOVES']
         if status_extensions: suffix+='-status-extensions';defines+=['-DABILITY_STATUS_EXTENSIONS']
+        if status_extensions and os.environ.get('ABILITY_STATUS_TEST')=='1': defines+=['-DABILITY_STATUS_TEST']
         if weather_moves and os.environ.get('ABILITY_WEATHER_TEST')=='1': defines+=['-DABILITY_WEATHER_TEST']
     if "--optimized-only" in sys.argv and not fast: continue
     if "--legacy-only" in sys.argv and fast: continue

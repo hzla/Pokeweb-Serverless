@@ -11,7 +11,7 @@ export const ABILITY_BLOCK_MESSAGES = [
   "The foe's VAR(258, 0)'s VAR(262, 1)\\nblocked VAR(263, 2)!",
 ];
 const blockKinds = new Set(["ability:immunity", "abilityRecipe:windAbsorb", "abilityRecipe:moveGuard", "abilityRecipe:priorityGuard"]);
-const noticeKinds = new Set(["abilityRecipe:fieldPower", "abilityRecipe:auraInvert", "abilityRecipe:fieldStat", "abilityRecipe:fallenPower", "abilityRecipe:clearScreens", "abilityRecipe:stageOperation", "abilityRecipe:perish"]);
+const noticeKinds = new Set(["abilityRecipe:fieldPower", "abilityRecipe:auraInvert", "abilityRecipe:fieldStat", "abilityRecipe:fallenPower", "abilityRecipe:clearScreens", "abilityRecipe:stageOperation", "abilityRecipe:perish", "abilityRecipe:windCharge"]);
 const notices = [
   "VAR(258, 0) is radiating\\nan aura of VAR(259, 1)!",
   "VAR(258, 0) reversed\\nother Pokémon's auras!",
@@ -54,5 +54,5 @@ export function ensureAbilityPresentationMessages(project: ProjectState, rules: 
   }
   const ids = notices.map(triplet);
   for (const [type,text] of texts) auras[type] = triplet(text);
-  return [...ids, ...auras];
+  return [...ids, ...auras, ...([...rules.values()].some(r=>r.effects.some(e=>e.kind==="abilityRecipe:windCharge"))?[triplet("VAR(258, 0) became charged\\nwith power!")]:[])];
 }

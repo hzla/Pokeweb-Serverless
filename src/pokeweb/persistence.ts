@@ -17,6 +17,7 @@ import { ensureMoveEffectHandlerStore, moveEffectHandlerOverlayId, moveEffectHan
 import { BW2_TUTOR_MOVE_OVERLAY_ID, BW2_TUTOR_MOVE_TABLE_LENGTH, tutorMoveTableOffset } from "./tutorMoveModel";
 import { hydratePwanAnimationsFromRom } from "./pwanAnimationModel";
 import { hydrateW2AnimFromRom } from "./w2animAnimationModel";
+import { hydrateAnimStreamsFromRom } from "./animStreamsModel";
 import { hydrateKoMoveLearnsetFromRom } from "./koMoveLearnsetModel";
 import { hydrateTrainerLocationTables } from "./trainerLocationModel";
 import { hydrateCascadePersonalSources } from "./cascadeWhitePersonalModel";
@@ -323,7 +324,7 @@ async function hydratePersistedProject(project: ProjectState, availableSource?: 
   if (!w2anim && !project.pwanAnimations?.dirty && !project.trainerPwanAnimations?.dirty &&
       (((project.pwanAnimations?.overrides.length ?? 0) === 0 || !project.pwanAnimations?.detectedArchive) ||
        ((project.trainerPwanAnimations?.overrides.length ?? 0) === 0 || !project.trainerPwanAnimations?.detectedArchive))) {
-    hydratePwanAnimationsFromRom(project, rom);
+    if (!hydrateAnimStreamsFromRom(project, rom)) hydratePwanAnimationsFromRom(project, rom);
   }
 
   for (const store of Object.values(project.narcs)) {

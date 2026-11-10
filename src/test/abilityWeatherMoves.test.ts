@@ -49,14 +49,14 @@ describe("simulated move weather ability",()=>{
   expect(dll.relocations.some(r=>dll.symbols[r.sourceSymbolIndex]?.name==="AbilityWeatherQuery")).toBe(false);
  });
  it("recognizes the previous protection runtime and updates it with its recipes intact",()=>{
-  expect(CURRENT_ABILITY_RUNTIME_VERSION).toBe(14);
+  expect(CURRENT_ABILITY_RUNTIME_VERSION).toBe(15);
   const {project}=makeItemEffectsProject(0,0,true,true);
   project.fileSystem={replacements:{},additions:{[ABILITY_EFFECTS_DLL_PATH]:new Uint8Array(readFileSync(new URL("./fixtures/ability-runtime-v13/protect.dll",import.meta.url)))}};
   const before=inspectAbilityEffects(project);expect(before).toMatchObject({editable:true,runtimeVersion:13});
   expect(parseRpm(project.fileSystem.additions![ABILITY_EFFECTS_DLL_PATH],{allowedMagics:["DLXF"]}).metadata.PokewebAbilityWeatherMoves).toBeUndefined();
   const upgraded=new Map([...before.rules,[166,make(1)]]);
   project.fileSystem.additions![ABILITY_EFFECTS_DLL_PATH]=writeRpm(buildAbilityRuleModule(project,upgraded),{ident:"DLXF"});
-  expect(inspectAbilityEffects(project)).toMatchObject({editable:true,runtimeVersion:14,rules:upgraded});
+  expect(inspectAbilityEffects(project)).toMatchObject({editable:true,runtimeVersion:CURRENT_ABILITY_RUNTIME_VERSION,rules:upgraded});
  });
  it("rejects a modified native weather query before installing",()=>{
   const {project,offsets}=makeItemEffectsProject(0,0,true,true);

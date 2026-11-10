@@ -43,6 +43,7 @@ export function validateAbilityRule(input: AbilityRuleSet): AbilityRuleSet {
                 let order=parameters.statOrder??0;const seen=new Set<number>();
                 for(let n=0;n<7;n++,order>>>=3){const stat=order&7;if(stat&&seen.has(stat))throw Error("Duplicate stat in grouped order.");if(stat)seen.add(stat);}
             }
+            if(library.code===175&&(parameters.minTurns??2)>(parameters.maxTurns??5))throw Error("Minimum duration must not exceed maximum duration.");
             if(library.code===144&&(parameters.format??0)===1&&(!Number.isInteger(effect.value)||effect.value<1))throw new Error("Choose a positive whole healing divisor.");
             return {kind:effect.kind,value:effect.value,bypassable:effect.bypassable??library.bypassable,...(Object.keys(parameters).length?{parameters}:{})};
         }

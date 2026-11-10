@@ -218,6 +218,29 @@ the normal shared-DLL memory budget also applies. IDs are independent of the sev
 built-in classification bits. The runtime binary-searches sorted (move ID, flag ID)
 pairs without additional battle-event or weather queries.
 
+Propeller Tail provides an editable move filter for ignoring target redirection
+from moves and abilities. Reflection and the selected target's own immunities
+still apply. Corrosion exposes the status and the types whose status immunity
+can be bypassed; native status prevention, existing conditions and damaging-move
+type immunity remain in effect. Multiple bypass cards combine their selected types.
+
+Poison Puppeteer can follow a successfully inflicted move status with confusion,
+with adjustable chance and duration. Hazards, other abilities, failed status
+attempts and an existing confusion do not trigger another application. These
+recipes are species-independent and use the editor's ordinary suppression and
+ability-swapping behavior.
+
+Wind Power exposes the incoming move filter, boosted move type, power multiplier
+and Tailwind activation. The incoming move still affects the holder. Its charge
+does not stack, persists through nonmatching moves and ability replacement or
+suppression, and clears on switching or an attempted matching move. Type conversion
+is resolved before consuming the charge. Native Charge and Wind Power do not
+multiply together; the selected Wind Power multiplier replaces the native Charge
+contribution when both apply. Charging does not grant Charge's Special Defense
+stage increase. The primitives share the ability DLL and use only relevant native
+battle events and checked status services, without polling or synthetic weather
+queries.
+
 Power modifiers, including type-conversion bonuses, apply at the native power
 ratio stage. Conversion bonuses apply only to moves whose type is converted.
 Custom stat-stage actions check the requested stage change against native limits
@@ -247,11 +270,12 @@ Aura entry notices use the configured type's display name, including Fairy and
 renamed types, without relying on Gen 5's native type-name formatter.
 
 Build from the repository root with `python3 runtime/ability-effects/build.py`
-(the default now builds the v14 `--weather-moves-only` bundle,
-`src/assets/data/abilityRuleRuntimeWeatherMoves.json`; the v13 `--protect-only` and
+(the default builds the v15 `--status-extensions-only` bundle,
+`src/assets/data/abilityRuleRuntimeStatusExtensions.json`; the v14 `--weather-moves-only`,
+v13 `--protect-only` and
 v12 strikes bundles are retained unchanged for verifying older exports).
 The original templates remain available for strict verification of older exports;
-the default build updates only the current bundle (`--environment-only`),
+the default build updates only the current bundle (`--status-extensions-only`),
 including its 4-, 8- and 16-slot work variants. `--native-flags-only`, `--compact-only`, `--stat-source-only`,
 `--action-results-only`, `--custom-flags-only`, `--messages-only`, `--move-classes-only` and `--optimized-only`
 rebuild retained bundles for verification of older exports;

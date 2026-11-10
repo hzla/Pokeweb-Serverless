@@ -22,6 +22,17 @@ PUBLIC __attribute__((naked)) void AbilityNativeCallback(void){
  __asm__ volatile(".syntax unified\n adds r3, #0x1c\n push {r6, lr}\n sub sp, #8\n str r6, [sp]\n bl AbilityCallbackScope\n add sp, #8\n pop {r6, pc}\n .syntax divided\n");
 }
 #endif
+#ifdef ABILITY_STATUS_EXTENSIONS
+typedef struct {void*flow;u8 source,target,condition,moveOrigin;} AbilityStatusReceipt;
+typedef struct AbilityStatusScope {AbilityStatusReceipt receipt;struct AbilityStatusScope*previous;} AbilityStatusScope;
+static AbilityStatusReceipt statusAttempt;
+static AbilityStatusScope*statusScope;
+static void extensionsInit(void);
+static void extensionsBefore(void*,u32);
+static void extensionsAfter(void*,u32);
+static u32 extensionsRedirect(void*,u32);
+static void extensionEffect(void*,u8,const volatile u8*,u32);
+#endif
 static u32 entryUsed[32][8];
 static u32 recipeMove,recipeCritical,recipeEffectiveness,entrySource;
 #ifdef ABILITY_STRIKES
@@ -68,6 +79,9 @@ static void actionObserve(void*,u8,const volatile u8*,u32);
 static u32 actionMoveMatches(const volatile u8*,const u32*);
 #endif
 PUBLIC void AbilityRecipeInit(void){
+#ifdef ABILITY_STATUS_EXTENSIONS
+ extensionsInit();
+#endif
 #ifdef ABILITY_STRIKES
  strikeInit();
 #endif
@@ -87,6 +101,12 @@ PUBLIC void AbilityRecipeInit(void){
 #endif
 }
 PUBLIC void AbilityRecipeHandlers(void*f,u32 event,u32 factor,u32 check){
+#ifdef ABILITY_STATUS_EXTENSIONS
+ if(extensionsRedirect(f,event))return;
+ AbilityStatusScope statusFrame;
+ if(event==0x68){statusFrame.receipt=statusAttempt;statusFrame.previous=statusScope;statusScope=&statusFrame;}
+ extensionsBefore(f,event);
+#endif
  u32 previous=entrySource;if(event==0x55||event==0x8a)entrySource=VALUE(2);
 #ifdef ABILITY_BATTLE_MESSAGES
  if(event==0x3){actionMove=VALUE(0x12);actionUser=VALUE(3);}
@@ -102,6 +122,10 @@ PUBLIC void AbilityRecipeHandlers(void*f,u32 event,u32 factor,u32 check){
  weatherBefore(f,event);
 #endif
  RX(22,void(*)(void*,u32,u32,u32))(f,event,factor,check);entrySource=previous;
+#ifdef ABILITY_STATUS_EXTENSIONS
+ extensionsAfter(f,event);
+ if(event==0x68)statusScope=statusFrame.previous;
+#endif
 #ifdef ABILITY_PROTECT
  protectAfter(f,event,&pause);
 #endif
@@ -166,6 +190,9 @@ static u32 conversionMatch(u32 filter,u32 move,u32 flags){
  return 0;
 #endif
 }
+#ifdef ABILITY_STATUS_EXTENSIONS
+#include "status_extensions.c"
+#endif
 #ifdef ABILITY_PROTECT
 #include "protect.c"
 #endif

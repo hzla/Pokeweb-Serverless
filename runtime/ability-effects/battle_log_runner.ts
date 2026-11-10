@@ -9,7 +9,7 @@ import {PNG} from "pngjs";
 import {toDesmumeDsv} from "../../src/pokeweb/testBattle";
 
 export type LogEntry={event:number;a:number;d:number;x:number;move:number;y:number;value:number};
-export type RunOptions={tag:string;frames:number;shots:boolean;evidence:string};
+export type RunOptions={tag:string;frames:number;shots:boolean;evidence:string;logCapacity?:number};
 const A=128,B=64;
 
 export async function runLoggedBattle(directory:string,spec:any,options:RunOptions):Promise<{entries:LogEntry[];frames:number}>{
@@ -29,7 +29,7 @@ export async function runLoggedBattle(directory:string,spec:any,options:RunOptio
   for(let at=m.indexOf(Buffer.from(tag));at>=0;at=m.indexOf(Buffer.from(tag),at+4)){
    // The DLL's code also contains the tag; a live log starts with a move start.
    const total=m.readUInt32LE(at+4);if(!total||total>100000||m[at+8]!==3)continue;
-   const count=Math.min(total,20),list:LogEntry[]=[];
+   const count=Math.min(total,options.logCapacity??20),list:LogEntry[]=[];
    for(let n=0;n<count;++n){const e=at+8+n*12;list.push({event:m[e],a:m[e+1],d:m[e+2],x:m[e+3],move:m.readUInt16LE(e+4),y:m.readUInt16LE(e+6),value:m.readUInt32LE(e+8)});}
    hits.push(list);
   }
@@ -42,7 +42,7 @@ export async function runLoggedBattle(directory:string,spec:any,options:RunOptio
   const log=frame%30===0?read():undefined;
   if(log?.length)started=true;
   const playerMoves=log?log.filter(e=>e.event===3&&e.a===0).length:0;
-  if(log&&playerMoves>=turns&&log.filter(e=>e.event===3).length>=(spec.battleType==="Doubles"?4:2)*turns){/* every battler acted */ frame+=600;for(let k=0;k<600;++k)core._runFrame(1,frame%12<3?A:0,0,0,0);break;}
+  if(log&&playerMoves>=turns&&log.filter(e=>e.event===3).length>=(spec.battleType==="Doubles"?4:2)*turns){/* every battler acted */ frame+=600;for(let k=0;k<600;++k)core._runFrame(1,(frame+k)%12<3?A:0,0,0,0);break;}
   let keys=0,touch:[number,number]|undefined;
   // BW1 fixtures start the battle by talking to the trainer; A also picks
   // move 1, which every multi-turn case uses first.

@@ -160,7 +160,12 @@ export function detectPwanRuntimeCompatibility(project: ProjectState): PwanCompa
     return { compatible: false, supportedBase: false, passed: 0, failed: 1, missing: 0, checks: [check] };
   }
 
-  const signatures = version === "B2" ? PWAN_B2_COMPATIBILITY_SIGNATURES : PWAN_W2_COMPATIBILITY_SIGNATURES;
+  return checkCompatibilitySignatures(project, version === "B2" ? PWAN_B2_COMPATIBILITY_SIGNATURES : PWAN_W2_COMPATIBILITY_SIGNATURES, rom);
+}
+
+/** Compares each signature window with the ROM's ARM9 and (staged or original) overlays. */
+export function checkCompatibilitySignatures(project: ProjectState, signatures: PwanCompatibilitySignature[], rom = parseOriginalRom(project)): PwanCompatibilityReport {
+  const version = project.session.baseVersion;
   const overlayIds = [...new Set(signatures.map((signature) => signature.overlayId).filter((id): id is number => id !== undefined))];
   const originalOverlays = loadOriginalOverlays(rom, overlayIds);
   const arm9BaseAddress = rom?.arm9RamAddress ?? DEFAULT_W2_ARM9_BASE_ADDRESS;

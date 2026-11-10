@@ -83,8 +83,8 @@ import { downloadBytes } from "../pokeweb/fileSystemModel";
 import { getIntroSkipStatus, stageIntroSkip, uninstallIntroSkip } from "../pokeweb/introSkipModel";
 import { TESTING_PATCHES, getTestingPatchStatus, installTestingPatch, uninstallTestingPatch, type TestingPatchId } from "../pokeweb/testingPatchesModel";
 import { getBattleTypeHudStatus, installBattleTypeHud, uninstallBattleTypeHud, getMoveEffectivenessStatus, installMoveEffectiveness, uninstallMoveEffectiveness, DEFAULT_MOVE_HIGHLIGHT_COLORS, type MoveHighlightColors, type TypeIconVariant } from "../pokeweb/battleTypeHudModel";
+import { detectAnimStreamsCompatibility } from "../pokeweb/animStreamsModel";
 import {
-  detectPwanRuntimeCompatibility,
   pwanCompatibilityFailureSummary,
   type PwanCompatibilityCheck,
   type PwanCompatibilityReport,
@@ -215,10 +215,13 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const pwanRuntimeInstalled = pwanRuntimeStatus.supported && pwanRuntimeStatus.installed;
   const pwanRuntimeCanUninstall = pwanRuntimeInstalled && canUninstallPwanRuntime(project);
   const pwanLegacyInstalled = pwanRuntimeStatus.supported && pwanRuntimeStatus.legacyInstalled;
-  const pwanCompatibility = detectPwanRuntimeCompatibility(project);
+  const pwanStreaming = pwanRuntimeStatus.supported && Boolean(pwanRuntimeStatus.streaming);
+  const pwanUpdateAvailable = pwanRuntimeStatus.supported && Boolean(pwanRuntimeStatus.updateAvailable);
+  // Installing always installs the streaming runtime (an update replaces the split PWAN DLLs), so check its hooks.
+  const pwanCompatibility = detectAnimStreamsCompatibility(project);
   const pwanCanInstall = pwanRuntimeStatus.supported && pwanCompatibility.compatible;
   const trainerPwanStatus = getTrainerPwanRuntimeStatus(project);
-  const trainerPwanCompatibility = detectTrainerPwanCompatibility(project);
+  const trainerPwanCompatibility = project.session.baseVersion === "W2" || project.session.baseVersion === "B2" ? pwanCompatibility : detectTrainerPwanCompatibility(project);
   const trainerPwanInstalled = trainerPwanStatus.supported && trainerPwanStatus.installed;
   const trainerPwanCanInstall = trainerPwanStatus.supported && (trainerPwanCompatibility.compatible || (!project.originalRomBytes && trainerPwanCompatibility.checks.every((check) => check.status === "missing")));
   const trainerPwanCanUninstall = trainerPwanInstalled && canUninstallTrainerPwanRuntime(project);
@@ -344,10 +347,11 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               <h2>PWAN GIF Support</h2>
               <p>Allows for importing Pokemon sprite animations as gifs</p>
             </div>
-            ${renderInlineStatus(pwanRuntimeInstalled ? "Installed" : pwanLegacyInstalled ? "Upgrade" : pwanCanInstall ? "Ready" : pwanCompatibility.supportedBase ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}
+            ${renderInlineStatus(pwanUpdateAvailable ? "Update" : pwanRuntimeInstalled ? "Installed" : pwanLegacyInstalled ? "Upgrade" : pwanCanInstall ? "Ready" : pwanCompatibility.supportedBase ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}
           </div>
+          ${pwanUpdateAvailable ? `<p class="code-injection-note">${escapeHtml(pwanRuntimeStatus.message)}</p>` : ""}
           <div class="code-injection-facts">
-            <div><span>Runtime</span><strong>Full split</strong></div>
+            <div><span>Runtime</span><strong>${pwanUpdateAvailable ? "PWAN (split)" : "Streaming"}</strong></div>
             <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
             <div><span>Compatibility</span><strong>${pwanCompatibility.compatible ? "Passed" : pwanCompatibility.supportedBase ? "Failed" : "Unsupported"}</strong></div>
             <div><span>Hook Checks</span><strong>${pwanCompatibility.passed}/${pwanCompatibility.checks.length}</strong></div>
@@ -355,10 +359,10 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           ${renderPwanCompatibilityDetails(project, pwanCompatibility)}
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-pwan-runtime-btn" type="button" ${pwanCanInstall ? "" : "disabled"}>
-              ${pwanRuntimeInstalled ? "Reinstall PWAN GIF Support" : pwanLegacyInstalled ? "Upgrade PWAN GIF Support" : "Install PWAN GIF Support"}
+              ${pwanUpdateAvailable ? "Update to Streaming Runtime" : pwanRuntimeInstalled ? "Reinstall PWAN GIF Support" : pwanLegacyInstalled ? "Upgrade PWAN GIF Support" : "Install PWAN GIF Support"}
             </button>
             <button class="btn -default" id="uninstall-pwan-runtime-btn" type="button" ${pwanRuntimeCanUninstall ? "" : "disabled"}
-              title="${pwanRuntimeInstalled && !pwanRuntimeCanUninstall ? "DLLs already built into the loaded ROM cannot be removed yet." : "Remove the staged PWAN runtime DLLs."}">
+              title="${pwanRuntimeInstalled && !pwanRuntimeCanUninstall ? "DLLs already built into the loaded ROM cannot be removed yet." : pwanStreaming ? "Remove the animated sprite runtime and its streams; imported animations stay in the project." : "Remove the staged PWAN runtime DLLs."}">
               Uninstall PWAN GIF Support
             </button>
             <div class="code-injection-note" id="pwan-runtime-note" aria-live="polite"></div>
@@ -374,7 +378,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           </div>
           <div class="code-injection-facts">
             <div><span>Sprites</span><strong>Front trainers</strong></div>
-            <div><span>Runtime</span><strong>Standalone</strong></div>
+            <div><span>Runtime</span><strong>${pwanStreaming ? "Shared (streaming)" : "Standalone"}</strong></div>
             <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
             <div><span>ROM</span><strong>${escapeHtml(project.session.baseVersion)}</strong></div>
             <div><span>Hook Checks</span><strong>${trainerPwanCompatibility.passed}/${trainerPwanCompatibility.checks.length}</strong></div>
@@ -1140,7 +1144,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   pwanButton?.addEventListener("click", async () => {
     const previousText = pwanButton.textContent ?? "Install PWAN GIF Support";
     try {
-      const compatibility = detectPwanRuntimeCompatibility(project);
+      const compatibility = detectAnimStreamsCompatibility(project);
       if (!compatibility.compatible) {
         if (pwanNote) pwanNote.textContent = pwanCompatibilityFailureSummary(compatibility);
         return;
@@ -1148,16 +1152,14 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       pwanButton.disabled = true;
       pwanButton.textContent = "Installing...";
       if (pwanNote) {
-        pwanNote.textContent = status.installed ? "Staging the bundled PWAN runtime DLLs." : "Installing PMC and staging the bundled PWAN runtime DLLs.";
+        pwanNote.textContent = status.installed ? "Staging the animated sprite streaming runtime." : "Installing PMC and staging the animated sprite streaming runtime.";
       }
       await install(candidate => installPwanRuntime(candidate));
       onDirty();
       renderCodeInjectionEditor(project, root, onDirty);
       const refreshedNote = root.querySelector<HTMLDivElement>("#pwan-runtime-note");
       if (refreshedNote) {
-        refreshedNote.textContent = project.session.baseVersion === "B2"
-          ? "Black 2 split PWAN support is staged. Export the ROM to include the runtimes and PWAN archive."
-          : "White 2 split PWAN support is staged. Export the ROM to include the runtimes and PWAN archive.";
+        refreshedNote.textContent = "The streaming runtime is staged. Export the ROM to write the animations as streams (an older PWAN archive is converted and removed).";
       }
     } catch (error) {
       pwanButton.disabled = false;
@@ -1176,7 +1178,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       onDirty();
       renderCodeInjectionEditor(project, root, onDirty);
       const refreshedNote = root.querySelector<HTMLDivElement>("#pwan-runtime-note");
-      if (refreshedNote) refreshedNote.textContent = "PWAN runtime DLLs removed. Imported PWAN assets remain in the project for later reinstallation.";
+      if (refreshedNote) refreshedNote.textContent = "Animated sprite runtime removed. Imported animations remain in the project for later reinstallation.";
     } catch (error) {
       uninstallPwanButton.disabled = false;
       const currentNote = root.querySelector<HTMLDivElement>("#pwan-runtime-note") ?? pwanNote;

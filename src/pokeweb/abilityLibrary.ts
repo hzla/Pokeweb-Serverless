@@ -110,12 +110,13 @@ add(296,"Armor Tail",9,[recipe("priorityGuard")]);
 add(1000,"Piercing Drill",9,[recipe("protectBypass",.25,{moveClass:1})]);entries.at(-1)!.group="Legends Z-A";
 // Mega Sol, and the same primitive with the other Gen 5 weathers.
 for(const[id,label,weather]of [[1001,"Mega Sol",1],[1002,"Mega Rain",2],[1003,"Mega Hail",3],[1004,"Mega Sand",4]] as const){add(id,label,9,[recipe("moveWeather",1,{weather})]);entries.at(-1)!.group="Legends Z-A";}
-export const ABILITY_IMPORT_LIBRARY=entries.sort((a,b)=>a.generation-b.generation||a.label.localeCompare(b.label));
-export function abilityImport(id:number):AbilityImport{
- const entry=ABILITY_IMPORT_LIBRARY.find(e=>e.id===id);if(!entry)throw new Error("Choose a supported ability import.");return structuredClone(entry);
-}
 
 add(239,"Propeller Tail",8,[recipe("ignoreRedirection",1)]);
 add(310,"Poison Puppeteer",9,[recipe("statusFollowup",100,{condition:5,followup:6})]);
 add(212,"Corrosion",7,[recipe("statusTypeBypass",1,{condition:5,type:3,secondType:8})]);
 add(277,"Wind Power",9,[recipe("windCharge",2,{moveClass:13,type:12,tailwind:1})]);
+
+export const ABILITY_IMPORT_LIBRARY=entries.sort((a,b)=>a.generation-b.generation||a.label.localeCompare(b.label));
+export function abilityImport(id:number):AbilityImport{
+ const entry=ABILITY_IMPORT_LIBRARY.find(e=>e.id===id);if(!entry)throw new Error("Choose a supported ability import.");return structuredClone(entry);
+}

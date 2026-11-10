@@ -20,7 +20,7 @@ Use these tools carefully. They modify ARM9, overlays, or ROM files at known byt
 |---|---|---|
 | General patches | Original ROM bytes | Pokeweb must be able to compare the target bytes against the supported patch signatures. |
 | PMC runtime | Black 2 / White 2 code files | PMC is the runtime used by several injected DLL-style patches. |
-| PWAN GIF support | Clean US Black 2 (`IREO`) or White 2 (`IRDO`) code layout | Both versions support the split summary, battle, and miscellaneous renderers. |
+| PWAN GIF support | Clean US Black 2 (`IREO`) or White 2 (`IRDO`) code layout | One streaming runtime per version (`PokewebAnimStreamsB2.dll` / `PokewebAnimStreamsW2.dll`) for Pokémon and trainers, in every view that draws battle-style sprites. |
 | Trainer battle log | US Black 2 (`IREO`), White 2 (`IRDO`), or the corresponding Upgrade ROM | Uses a version-specific DLL, PMC, save blocks 29–31, the evolution NARC, and summary text bank 179. |
 | Enhanced Party Menu and Battle Log Integration | US Black 2 or White 2 with the current matching Battle Counters DLL | Adds EVOLVE and RELEARN to the field party menu, post-battle KO evolution, and KO learnsets. |
 | Single-NPC double battle fix | Black 2 / White 2 with PMC support | The fix is installed as a bundled DLXF patch. |
@@ -38,9 +38,9 @@ Use these tools carefully. They modify ARM9, overlays, or ROM files at known byt
 | Install PMC | Installs or updates the PMC runtime for supported Black 2 / White 2 ROMs. | Click after loading a supported ROM. |
 | PMC overlay | Shows the overlay used by the runtime. | `overlay_316` |
 | PMC base address | Shows where the runtime is expected to live in memory. | `0x023C8000` |
-| PWAN GIF status | Shows whether Pokeweb can install the PWAN animated-sprite runtime. | `Ready`, `Unsupported`, `Incompatible` |
-| Install/Upgrade PWAN GIF Support | Stages the three version-specific PWAN runtime files and upgrades a known legacy White 2 monolith. | Summary, Battle, and Misc DLLs for W2 or B2 |
-| Uninstall PWAN GIF Support | Removes PWAN runtime DLLs staged in the current project while preserving imported PWAN assets. | Available before the staged DLLs are exported and reloaded as part of a ROM. |
+| PWAN GIF status | Shows whether Pokeweb can install the animated-sprite runtime, or `Update` when the ROM still has the older split PWAN runtime. | `Ready`, `Installed`, `Update`, `Unsupported`, `Incompatible` |
+| Install PWAN GIF Support / Update to Streaming Runtime | Stages the streaming runtime. On a ROM with the older PWAN runtime it removes `PokewebPwan{Battle,Summary,Misc,Trainer}`; at export every existing animation (Pokémon and trainers) is converted to streams and `zz_pokeweb_pwan/pwan.narc` is removed. Nature palettes switch to their native renderer. | `PokewebAnimStreamsW2.dll` or `PokewebAnimStreamsB2.dll`, `w2anim/streams.bin` |
+| Uninstall PWAN GIF Support | Removes the runtime and its streams; imported animations stay in the project. | |
 | Install Battle Log | Checks six ARM9/battle/summary regions, installs PMC if needed, stages the version-specific stripped battle and summary DLLs, and generates ancestry from current evolution data. | US Black 2, White 2, Black2Upgrade, or White2Upgrade |
 | Uninstall Battle Log | Removes the staged battle and summary DLLs, removes or restores generated ancestry data, and restores normal Pal Pad/Wi-Fi save handling. Existing log records in the save remain untouched. | Available before the staged DLLs are exported and reloaded as part of a ROM. |
 | Install Item Expansion | Black 2 / White 2. Installs PMC if needed and stages five `PokewebItems*` DLLs: item IDs up to 1023 and pokebw2's shared bag (one pool of 1,023 distinct items instead of fixed pockets). Pads item data and the item name, description, article and plural texts to 1,024 entries; items 639–1023 exist once you name them in the Items editor, and take their pocket from their item data. Also installs Battle Log's save guard. | Add Mega Stones at IDs 657 and up. |
@@ -144,12 +144,13 @@ After updating the DLL, export and restart the game from an ordinary in-game sav
 ### Install PWAN animated-sprite support
 
 1. Use a clean supported US Black 2 or White 2 code layout.
-2. Install PMC if Pokeweb says it is required.
-3. Install PWAN GIF support.
-4. Open Animated Sprites and explicitly import the front and/or back GIF for a species/form.
-5. Export the ROM and test the generated PWAN archive in battle.
+2. Install PWAN GIF support (PMC is installed with it if needed).
+3. Open Animated Sprites and import the front and/or back GIF for a species/form, or a trainer GIF in the Trainer Sprite editor.
+4. Export the ROM.
 
-Installing the runtime alone writes an empty PWAN configuration and does not modify the Pokemon sprite NARC. White 2 stages `PokewebPwanSummaryW2.dll`, `PokewebPwanBattleW2.dll`, and `PokewebPwanMiscW2.dll`. Black 2 stages the corresponding `PokewebPwanSummaryB2.dll`, `PokewebPwanBattleB2.dll`, and `PokewebPwanMiscB2.dll`, enabling animated overrides in battles, summaries, evolution, egg hatching, and the other supported non-battle views.
+The runtime streams each animated sprite from `w2anim/streams.bin` into the sprite's own texture slot, one frame at a time: frames are LZ-compressed and stored once however often the animation repeats them, and the buffers live on the battle (or scene) heap, not in PMC's heap. It covers battles, the summary, evolution, egg hatching, trades, the Pokédex form view, the intro and the Hall of Fame (first frame). Art up to 128x128 can keep its full size (see [Pokémon Sprites and Animations](Pokemon-Sprites-and-Animations)). It is a C port of White2Upgrade's w2anim streamer (MegaB2W2's AnimSprites): `runtime/anim-streams/`.
+
+**Updating a ROM made with the older PWAN runtime.** The card shows `Update`. Choose Update to Streaming Runtime and export: the old DLLs are removed, every animation in `pwan.narc` (Pokémon and trainers) is written as streams with the same frames and timing, and `pwan.narc` is removed (on one test ROM, 2.2 MB of PWAN data became 0.5 MB of streams). Reloading the exported ROM restores the animations for editing. Test from an in-game save, not an emulator save state from before the update.
 
 ### Install the trainer battle log
 

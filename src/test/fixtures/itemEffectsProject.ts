@@ -1,3 +1,4 @@
+import status from "../../assets/data/abilityStatusBindings.json";
 import environment from "../../assets/data/abilityEnvironmentBindings.json";
 import strikes from "../../assets/data/abilityStrikeBindings.json";
 import scopedBindings from "../../assets/data/abilityScopedBindings.json";
@@ -81,7 +82,7 @@ export function makeItemEffectsProject(shift = 0, relocateBy = 0, extended = fal
     }
   }
   if(ability&&extended){
-    const extra={...environment.profiles.BW2,...strikes.profiles.BW2};
+    const extra={...environment.profiles.BW2,...strikes.profiles.BW2,...status.profiles.BW2};
     for(const[name,signature]of Object.entries(extra)){offsets.set(name,cursor);const bytes=Uint8Array.from(signature.hex.match(/../gu)!,v=>parseInt(v,16));data.set(bytes,cursor);cursor=(cursor+bytes.length+3)&~3;}
     for(const[name,signature]of Object.entries(extra))for(const call of signature.calls){const at=offsets.get(name)!,delta=offsets.get(call.target)!-(at+call.offset+4);writeU16(data,at+call.offset,0xf000|(delta>>12)&0x7ff);writeU16(data,at+call.offset+2,0xf800|(delta>>1)&0x7ff);}
   }

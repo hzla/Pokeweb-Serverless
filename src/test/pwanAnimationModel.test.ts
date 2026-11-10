@@ -97,28 +97,42 @@ describe("pwanAnimationModel", () => {
     expect(hasPwanRuntimeDll(project)).toBe(false);
   });
 
-  it("stages all three Black 2 split DLLs from the bundled installer", async () => {
+  it("installs the Black 2 streaming runtime instead of the split PWAN DLLs", async () => {
     const project = makeRuntimeInstallProject("B2");
     stubRuntimeAssetFetch();
 
     await installPwanRuntime(project);
 
-    for (const path of PWAN_B2_RUNTIME_PATHS) {
-      expect(project.fileSystem?.additions?.[path]?.slice(0, 4), path).toEqual(Uint8Array.of(0x44, 0x4c, 0x58, 0x46));
-    }
-    expect(PWAN_W2_RUNTIME_PATHS.every((path) => project.fileSystem?.additions?.[path] === undefined)).toBe(true);
+    expect(project.fileSystem?.additions?.["patches/PokewebAnimStreamsB2.dll"]?.slice(0, 4)).toEqual(Uint8Array.of(0x44, 0x4c, 0x58, 0x46));
+    expect([...PWAN_B2_RUNTIME_PATHS, ...PWAN_W2_RUNTIME_PATHS].every((path) => project.fileSystem?.additions?.[path] === undefined)).toBe(true);
     expect(project.pwanAnimations).toMatchObject({ runtimeInstalled: true, dirty: true, overrides: [] });
+    expect(getPwanRuntimeStatus(project)).toMatchObject({ installed: true, streaming: true });
   });
 
-  it("stages all three current White 2 split DLLs and no legacy monolith", async () => {
+  it("installs the White 2 streaming runtime and no legacy monolith", async () => {
     const project = makeRuntimeInstallProject("W2");
     stubRuntimeAssetFetch();
 
     await installPwanRuntime(project);
 
-    expect(PWAN_W2_RUNTIME_PATHS.every((path) => project.fileSystem?.additions?.[path]?.length)).toBe(true);
+    expect(project.fileSystem?.additions?.["patches/PokewebAnimStreamsW2.dll"]?.length).toBeGreaterThan(0);
     expect(project.fileSystem?.additions?.[PWAN_LEGACY_W2_RUNTIME_PATH]).toBeUndefined();
     expect(hasPwanRuntimeDll(project)).toBe(true);
+  });
+
+  it("upgrades staged split PWAN DLLs (and the trainer DLL) to the streaming runtime", async () => {
+    const project = makeRuntimeInstallProject("B2");
+    const split = [...PWAN_B2_RUNTIME_PATHS, "patches/PokewebPwanTrainerB2.dll"];
+    for (const path of split) project.fileSystem!.additions![path] = readFileSync(new URL(`../assets/codeinjection/${path.slice(8)}`, import.meta.url));
+    stubRuntimeAssetFetch();
+    expect(getPwanRuntimeStatus(project)).toMatchObject({ installed: true, updateAvailable: true });
+
+    await installPwanRuntime(project);
+
+    expect(split.every((path) => project.fileSystem?.additions?.[path] === undefined)).toBe(true);
+    expect(project.fileSystem?.additions?.["patches/PokewebAnimStreamsB2.dll"]?.length).toBeGreaterThan(0);
+    expect(getPwanRuntimeStatus(project)).toMatchObject({ installed: true, streaming: true });
+    expect(project.trainerPwanAnimations).toMatchObject({ runtimeInstalled: true, dirty: true });
   });
 
   it("uninstalls staged PWAN DLLs while preserving imported PWAN assets", () => {

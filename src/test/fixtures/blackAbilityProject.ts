@@ -1,3 +1,4 @@
+import status from "../../assets/data/abilityStatusBindings.json";
 import environment from "../../assets/data/abilityEnvironmentBindings.json";
 import strikes from "../../assets/data/abilityStrikeBindings.json";
 import bindings from "../../assets/data/abilityBindingsB1.json";
@@ -35,7 +36,7 @@ export function makeBw1AbilityProject(game:"B"|"W",shift=0,relocate=0,fairy=fals
   p.events.forEach((e,n)=>{writeU32(overlay,events+n*8,e.event);writeU32(overlay,events+n*8+4,locations.get(e.handler)!|1);});writeU32(overlay,table+i*8+4,(base+factory)|1);at=events+p.events.length*8;
  });
  for(const ref of catalog.tableRefs)writeU32(overlay,locations.get("AbilityEvent_AddItem")!-base+ref.offset,base+table+ref.column);
- const extra={...environment.profiles[game],...strikes.profiles[game]};
+ const extra={...environment.profiles[game],...strikes.profiles[game],...status.profiles[game]};
  for(const[name,signature]of Object.entries(extra)){
   const bytes=hex(signature.hex),mask=hex(signature.mask),candidates:number[]=[];
   for(let p=0;p+bytes.length<=at;p+=2)if(bytes.every((v,i)=>(v&mask[i])===(overlay[p+i]&mask[i])))candidates.push(p);

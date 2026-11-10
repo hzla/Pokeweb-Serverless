@@ -78,7 +78,9 @@ Each Pokemon sprite entry uses 20 subfiles.
 
 ## PWAN Animated Sprites
 
-PWAN compiles front and back GIFs into a custom archive and stages version-specific runtime code so the game can display them. White 2 and Black 2 both support the split battle, summary, and miscellaneous non-battle renderers. Black 2 is limited to explicitly imported vanilla Gen 5 species/forms.
+PWAN compiles front and back GIFs into animations that Pokeweb's streaming runtime plays in battles, summaries, evolution, egg hatching and the other views that draw battle-style sprites (White 2 and Black 2). Black 2 is limited to explicitly imported vanilla Gen 5 species/forms.
+
+A GIF is normally fitted into a 96x96, 15-colour frame. With the streaming runtime installed, **Keep full size (up to 128×128)** (checked by default for art larger than 96x96) streams the art at its own size instead: art over 128 is scaled to fit, the front stands on the ground like the game's sprites, the back where a PWAN back stands, and the offset and FPS controls still apply. Pixel or scale edits in the side editor apply to the 96x96 version, so they turn the side back into a 96x96 animation.
 
 | Field/control | Meaning |
 | --- | --- |
@@ -103,7 +105,8 @@ PWAN compiles front and back GIFs into a custom archive and stages version-speci
 | Import a full sprite bundle | Use Import Bundle and verify front, back, icons, palettes, and animations. |
 | Edit native animation movement | Open Animation, select a part/frame, adjust transform, and preview playback. |
 | Add GIF animated sprites in White 2 | Install PMC and PWAN support, open Animated Sprites, provide front/back GIFs, save override, export ROM. |
-| Add GIF animated sprites in Black 2 | Install the Black 2 PMC and split PWAN runtimes, manually select a species/form and front/back GIF, save override, export ROM. |
+| Add GIF animated sprites in Black 2 | Install PWAN GIF support, manually select a species/form and front/back GIF, save override, export ROM. |
+| Update a ROM made with the older PWAN runtime | Code Injection → PWAN GIF Support → Update to Streaming Runtime, then export. |
 
 ## Caveats
 

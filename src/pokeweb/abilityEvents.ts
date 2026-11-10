@@ -61,7 +61,7 @@ export function abilityRuleEvents(rule: AbilityRuleSet, profiles: NativeAbilityP
         case 172: break; // The recipe dispatcher adapter handles the protection checks and damage stage.
         case 174: case 176: break;
         case 175: add(0x68); break;
-        case 177: add(0x4b,0x9f); break;
+        case 177: add(0x4b,0x8b,0x9f); break;
         case 173: break; // The checked native weather-query adapter handles this primitive.
         case 170: {
           const mask=p("sources");

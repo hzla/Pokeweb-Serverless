@@ -1,3 +1,5 @@
+import { adjustFullSizeMani, compileGifToFullSizeStream, gifFitsPwan } from "../pokeweb/animStreamsFullSize";
+import { hasAnimStreamsRuntime } from "../pokeweb/animStreamsModel";
 import { NaturePaletteReplacementError } from "../pokeweb/naturePaletteModel";
 import { renderInlineStatus } from "./inlineStatus";
 import type { ProjectState, PwanAnimationOverride, PwanOverrideSide, PwanPaletteSource } from "../pokeweb/projectStore";
@@ -474,7 +476,9 @@ function startPwanPreview(project: ProjectState, speciesId: number, previewSide:
     });
     if (applyButton) {
       applyButton.disabled = !draft.dirty;
-      applyButton.textContent = draft.dirty ? "Apply" : "Applied";
+      applyButton.textContent = draft.dirty ? "Apply Changes" : "Applied";
+      applyButton.classList.toggle("-primary", draft.dirty);
+      applyButton.classList.toggle("-default", !draft.dirty);
     }
     panel?.querySelectorAll<HTMLButtonElement>(`[data-pwan-pixel-tool='${previewSide}']`).forEach((button) => {
       const selected = button.dataset.pwanPixelToolName === pixelEditor.tool;
@@ -794,13 +798,27 @@ function startPwanPreview(project: ProjectState, speciesId: number, previewSide:
     if (!draft.dirty) return;
     try {
       const target = resolvePwanSpeciesTarget(project, speciesId);
+      const sideData = clonePwanSide(draft.side);
+      let fullSizeNote = "";
+      if (draft.base.fullSizeMani) {
+        // Offset and speed carry over to the full-size stream; pixel and scale edits exist only at 96x96.
+        if (draft.pixelDirty || normalizePwanFrameScale(draft.scale) !== 1) {
+          delete sideData.fullSizeMani;
+          fullSizeNote = " The side now streams at 96x96: pixel and scale edits apply to the 96x96 version only.";
+        } else {
+          sideData.fullSizeMani = adjustFullSizeMani(draft.base.fullSizeMani, {
+            dx: draft.offsetX - (draft.base.offsetX ?? 0), dy: draft.offsetY - (draft.base.offsetY ?? 0),
+            durationScale: draft.base.framesPerSecond && draft.framesPerSecond ? draft.base.framesPerSecond / draft.framesPerSecond : 1,
+          });
+        }
+      }
       withNaturePaletteReplacement(resetNaturePalettes => upsertPwanOverrideSide(project, {
         resetNaturePalettes,
         speciesId: target.speciesId,
         formIndex: target.formIndex,
         assetIndex: target.assetIndex === target.speciesId ? undefined : target.assetIndex,
         side: previewSide,
-        sideData: clonePwanSide(draft.side),
+        sideData,
         nativePaletteSource: previewSide,
       }));
       draft.base = clonePwanSide(draft.side);
@@ -808,7 +826,7 @@ function startPwanPreview(project: ProjectState, speciesId: number, previewSide:
       draft.dirty = false;
       syncControls();
       options.onDirty?.();
-      setStatus(status, `Applied ${previewSide} PWAN edits.`);
+      setStatus(status, `Applied ${previewSide} PWAN edits.${fullSizeNote}`);
     } catch (error) { setStatus(status, error instanceof Error ? error.message : String(error), true); }
   });
   gifButton?.addEventListener("click", () => {
@@ -1566,6 +1584,7 @@ function renderSpeciesSidePanel(project: ProjectState, speciesId: number, side: 
                   <span>Dark Line <strong data-pwan-outline-threshold-label="${side}">${outlineThreshold}</strong></span>
                   <input data-pwan-outline-threshold="${side}" type="range" min="${PWAN_MIN_OUTLINE_THRESHOLD}" max="${PWAN_MAX_OUTLINE_THRESHOLD}" step="1" value="${outlineThreshold}" ${frameScaleMode === "outlineFill" ? "" : "disabled"}>
                 </label>
+                <button class="btn -default pwan-side-apply" data-pwan-apply="${side}" type="button" disabled title="Save this side's offset, scale, FPS and pixel edits to the project (written to the ROM at export)">Applied</button>
                 <div class="pwan-preview-actions">
                   <button class="btn -default" data-pwan-download-gif="${side}" type="button">Export GIF</button>
                   <button class="btn -default" data-pwan-download-png="${side}" type="button">Export PNG</button>
@@ -1582,13 +1601,15 @@ function renderSpeciesSidePanel(project: ProjectState, speciesId: number, side: 
           <span class="pwan-dropzone-copy">Drop or choose GIF</span>
         </label>
         ${renderPwanGifImportPreview(side)}
+        ${hasAnimStreamsRuntime(project) ? `<label class="pwan-full-size" title="Streams the GIF's art at its own size, up to 128x128, instead of fitting it into 96x96. The preview above shows the 96x96 version.">
+          <input type="checkbox" data-pwan-full-size="${side}"> Keep full size (up to 128×128)
+        </label>` : ""}
         <div class="pwan-conversion-actions">
           <button class="btn -default" data-pwan-import-apply="${side}" type="button" disabled>Apply ${title} GIF</button>
           <button class="btn -default" data-pwan-import-cancel="${side}" type="button">Cancel Preview</button>
         </div>
         <div class="pwan-status" id="${statusId}"></div>
       </div>
-      ${data ? `<div class="pwan-side-footer"><button class="btn -default" data-pwan-apply="${side}" type="button" disabled>Applied</button></div>` : ""}
     </section>
   `;
 }
@@ -1677,9 +1698,17 @@ function installPwanSideDropzone(project: ProjectState, root: HTMLElement, speci
   if (!dropzone || !input) return;
   const title = side === "front" ? "Front" : "Back";
   const apply = root.querySelector<HTMLButtonElement>(`[data-pwan-import-apply='${side}']`);
+  const fullSize = root.querySelector<HTMLInputElement>(`[data-pwan-full-size='${side}']`);
+  let fullSizeSource: Uint8Array | undefined;
   const session = installPwanGifImportPreview(root, side, { onChange: (current) => {
     if (apply) apply.disabled = !current.ready();
     dropzone.classList.toggle("-busy", current.busy);
+    // Art larger than 96x96 keeps its size by default (the streaming runtime draws it up to 128x128).
+    const bytes = current.source?.bytes;
+    if (fullSize && bytes && bytes !== fullSizeSource) {
+      fullSizeSource = bytes;
+      try { fullSize.checked = !gifFitsPwan(bytes); } catch { fullSize.checked = false; }
+    }
   } });
 
   const previewFile = async (file: File) => {
@@ -1698,6 +1727,12 @@ function installPwanSideDropzone(project: ProjectState, root: HTMLElement, speci
     if (!ready) return;
     try {
       const sideData = pwanOverrideSideFromCompileResult({ fileName: ready.source.fileName, gifBytes: ready.source.bytes }, ready.result);
+      let fullSizeNote = "";
+      if (fullSize?.checked) {
+        const full = compileGifToFullSizeStream(ready.source.bytes, { side, colorPreset: session.colorPreset });
+        sideData.fullSizeMani = full.mani;
+        fullSizeNote = ` Streams at ${full.width}x${full.height}.`;
+      }
       const target = resolvePwanSpeciesTarget(project, speciesId);
       withNaturePaletteReplacement(resetNaturePalettes => upsertPwanOverrideSide(project, {
         resetNaturePalettes,
@@ -1709,7 +1744,7 @@ function installPwanSideDropzone(project: ProjectState, root: HTMLElement, speci
         nativePaletteSource: side,
       }));
       options.onDirty?.();
-      setStatus(message, `Imported ${title.toLowerCase()} GIF for ${speciesLabel(project, speciesId)}.`);
+      setStatus(message, `Imported ${title.toLowerCase()} GIF for ${speciesLabel(project, speciesId)}.${fullSizeNote}`);
       options.onRefresh?.();
     } catch (error) {
       setStatus(message, error instanceof Error ? error.message : String(error), true);

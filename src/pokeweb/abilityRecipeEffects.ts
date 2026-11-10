@@ -56,10 +56,10 @@ export const RECIPE_ABILITY_EFFECTS:RecipeAbilityEffect[]=[
  effect("additionalStrike",171,"Additional strike",.25,.125,8,.001,"× second-hit damage",4096,[]),
  effect("moveWeather",173,"Moves act as if the weather is",1,1,1,1,"",1,[p("weather","Weather",1,1,4,undefined,"weather")]),
  effect("protectBypass",172,"Hit through protection",1,.001,1,.001,"× damage through protection",4096,[{...move,original:1}]),
- effect("ignoreRedirection",174,"Ignore move redirection",1,1,1,1,"",1,[move]),
- effect("statusFollowup",175,"Add a condition after inflicting a status",100,1,100,1,"% chance",1,[p("condition","Status inflicted",5,1,5,{1:"Paralysis",2:"Sleep",3:"Freeze",4:"Burn",5:"Poison / bad poison"}),p("followup","Condition to add",6,6,7,{6:"Confusion",7:"Infatuation"})]),
+ effect("ignoreRedirection",174,"Ignore move redirection",1,1,1,1,"",1,[{...move,choices:move.choices!.filter(v=>v!==9&&v!==10)}]),
+ effect("statusFollowup",175,"Add a condition after inflicting a status",100,1,100,1,"% chance",1,[p("condition","Status inflicted",5,1,5,{1:"Paralysis",2:"Sleep",3:"Freeze",4:"Burn",5:"Poison / bad poison"}),p("followup","Condition to add",6,6,6,{6:"Confusion"}),p("minTurns","Minimum duration (turns)",2,1,7),p("maxTurns","Maximum duration (turns)",5,1,7)]),
  effect("statusTypeBypass",176,"Bypass type-based status immunity",1,1,1,1,"",1,[p("condition","Status",5,1,5,{1:"Paralysis",2:"Sleep",3:"Freeze",4:"Burn",5:"Poison / bad poison"}),p("type","Immune type",3,0,17,undefined,"type"),p("secondType","Second immune type",8,0,18,undefined,"type")]),
- effect("windCharge",177,"Charge the next move after a matching hit",2,.125,8,.001,"× power",4096,[{...move,original:13},p("type","Boosted move type",12,0,17,undefined,"type"),p("tailwind","Activate when Tailwind starts",1,0,1,{0:"No",1:"Yes"})]),
+ effect("windCharge",177,"Charge the next move after a matching hit",2,.125,8,.001,"× power",4096,[{...move,original:13,choices:move.choices!.filter(v=>v!==9&&v!==10)},p("type","Boosted move type",12,0,17,undefined,"type"),p("tailwind","Activate when Tailwind starts",1,0,1,{0:"No",1:"Yes"})]),
  ...SCOPED_ABILITY_EFFECTS,
  ...ACTION_ABILITY_EFFECTS,
 ];

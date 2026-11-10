@@ -1,3 +1,4 @@
+import {statusCases} from "./status_cases";
 import {environmentCases} from "./environment_cases";
 import {strikeCases} from "./strike_cases";
 import {protectCases} from "./protect_cases";
@@ -59,14 +60,15 @@ const variants:Record<number,AbilityRuleSet>={
 for(const[id,rule]of Object.entries(variants)){entries.set(Number(id),rule);names.set(Number(id),`Test ${id}`);}
 const customFlagsMode=process.argv.includes("--custom-flags");
 if(customFlagsMode)for(const[id,rule]of await prepareCustomFlagCases(project)){entries.set(id,rule);names.set(id,`Flag Test ${id}`);}
-const statusPopups=process.argv.includes("--weather-moves")?weatherCases():process.argv.includes("--protect")?protectCases():process.argv.includes("--strikes")?strikeCases():process.argv.includes("--environment")?environmentCases():process.argv.includes("--stat-source")?statSourceCases(true):process.argv.includes("--status-popups")?statusPopupCases():undefined;
+const statusPopups=process.argv.includes("--status-extensions")?statusCases():process.argv.includes("--weather-moves")?weatherCases():process.argv.includes("--protect")?protectCases():process.argv.includes("--strikes")?strikeCases():process.argv.includes("--environment")?environmentCases():process.argv.includes("--stat-source")?statSourceCases(true):process.argv.includes("--status-popups")?statusPopupCases():undefined;
 if(statusPopups){entries.clear();names.clear();for(const[id,rule]of statusPopups.rules){entries.set(id,rule);names.set(id,statusPopups.names.get(id)!);}}
 await configureAbilityRuleSets(project,[...entries].map(([abilityId,rules])=>({abilityId,rules,name:names.get(abilityId)!})));
-if(process.argv.includes("--strikes-coexist")){
+if(process.argv.includes("--strikes-coexist")||process.argv.includes("--status-coexist")){
  await configureItemRuleSets(project,[{itemId:281,rules:{effects:[{kind:"healPercent",value:10}],conditions:all,consumable:false}}]);
  await configureMoveRuleSets(project,[{moveId:33,rules:{effects:[{kind:"power",value:2,phase:"power",target:"user",chance:100,secondary:false,conditions:all}],conditions:all,prerequisites:all}}]);
 }
 if(process.argv.includes("--stat-source"))await configureItemRuleSets(project,[{itemId:85,rules:{effects:[{kind:"statStage",value:-1,stat:5,trigger:"afterContact",target:"attacker",chance:100}],conditions:all,consumable:false}}]);
+if(process.argv.includes("--status-extensions")){const {decodeRecord,markDirty}=await import("../../src/pokeweb/projectStore");for(const id of [92,261,496]){decodeRecord(project,"moves",id).raw!.accuracy=100;if(id===496)decodeRecord(project,"moves",id).raw!.type=12;markDirty(project,"moves",id);}}
 if(process.argv.includes("--environment")){
  // Fixture-only accuracy: isolate damage immunity from Leech Seed's hit roll.
  const {decodeRecord,markDirty}=await import("../../src/pokeweb/projectStore");decodeRecord(project,"moves",73).raw!.accuracy=100;markDirty(project,"moves",73);
@@ -94,7 +96,7 @@ assert.equal(sideCandidates.length,1);const sideTableAddress=readU32(sideOverlay
 assert(sideTableAddress>=sideOverlay.ramAddress+sideOverlay.data.length&&sideTableAddress+448<=sideOverlay.ramAddress+sideOverlay.ramSize+sideOverlay.bssSize);
 const encoded=encodeAbilityRules(entries),nativeOffsets:number[]=[];
 for(const[id,r]of entries){const at=readU16(encoded,id*2),start=at+4+encoded[at+1]*4;r.effects.forEach((e,i)=>{if(e.kind.startsWith("nativeAbility:"))nativeOffsets.push(start+i*16);});}
-type Case={label:string;abilityId:number;enemyAbility?:number;enemySpecies?:number;playerSpecies?:number;playerGender?:0|1;enemyMove?:number;enemyLevel?:number;enemyCount?:number;enemyItem?:number;move?:number;playerMoves?:number[];turnMove?:number[];hp?:number;playerItem?:number;playerStatus?:HarnessPokemon["status"];ally?:HarnessPokemon;ally2?:HarnessPokemon;battleType?:"Doubles"|"Triples";menuCount?:number;checks:Record<string,unknown>};
+type Case={label:string;abilityId:number;enemyAbility?:number;enemySpecies?:number;playerSpecies?:number;playerGender?:0|1;enemyMove?:number;enemyLevel?:number;enemyCount?:number;enemyItem?:number;move?:number;playerMoves?:number[];turnMove?:number[];hp?:number;playerItem?:number;playerStatus?:HarnessPokemon["status"];ally?:HarnessPokemon;ally2?:HarnessPokemon;battleType?:"Doubles"|"Triples";menuCount?:number;checks:Record<string,unknown>;enemy2Ability?:number;enemy2Move?:number};
 const cases:Case[]=[];
 const stages=(stat:number,...values:number[])=>values.map(v=>Array.from({length:7},(_,i)=>i===stat-1?v:6));
 function test(official:number,label:string,checks:Case["checks"],extra:Partial<Case>={}){cases.push({label,abilityId:slots.get(official)!,checks,...extra});}
@@ -200,10 +202,10 @@ const hashes:Record<string,string>={},fixtures=[];
 const only=process.argv.find(a=>a.startsWith("--only="))?.slice(7).split(",");
 for(const[i,spec]of cases.entries()){
  if(only&&!only.includes(spec.label))continue;
- const trainer=patchHarnessTrainer(project,parseHarnessConfig({trainerId:2,battleType:spec.battleType??"Singles",trainer:{team:Array.from({length:spec.enemyCount??1},()=>({speciesId:spec.enemySpecies??320,level:spec.enemyLevel??(spec.enemyMove?30:100),moves:[spec.enemyMove??150],itemId:spec.enemyItem??0,abilityId:spec.enemyAbility??50,...(statusPopups?{gender:0 as const}:{})})),ai:0}}));
+ const trainer=patchHarnessTrainer(project,parseHarnessConfig({trainerId:2,battleType:spec.battleType??"Singles",trainer:{team:Array.from({length:spec.enemyCount??1},(_,index)=>({speciesId:spec.enemySpecies??320,level:spec.enemyLevel??(spec.enemyMove?30:100),moves:[index?spec.enemy2Move??spec.enemyMove??150:spec.enemyMove??150],itemId:spec.enemyItem??0,abilitySlot:index?2:1,abilityId:index?spec.enemy2Ability??spec.enemyAbility??50:spec.enemyAbility??50,...(statusPopups?{gender:0 as const}:{})})),ai:0}}));
  stageCodeInjectionDll(project,"BattleHarnessW2.dll",configureHarnessRuntime(new Uint8Array(await readFile(new URL("../../src/assets/testbattle/BattleHarnessW2.dll",import.meta.url))),2,trainer));
  const save=patchHarnessSave(baseSave,project,parseHarnessConfig({trainerId:2,player:{team:[{speciesId:spec.playerSpecies??1,level:50,moves:spec.playerMoves??[spec.move??150],itemId:spec.playerItem??0,abilityId:spec.abilityId,...(spec.playerGender===undefined?{}:{gender:spec.playerGender}),...(spec.playerStatus?{status:spec.playerStatus}:{}),...(spec.hp!==undefined?{currentHp:spec.hp}:{})},...(spec.ally?[spec.ally]:[]),...(spec.ally2?[spec.ally2]:[])]}}));
- const raw=decryptPk5Party(save.subarray(0x18e08,0x18e08+220)),maxHp=readU16(raw,0x90),label=`${String(i).padStart(3,"0")}-${spec.label}`,filename=`battle-${spec.enemySpecies??320}-${spec.battleType??"Singles"}-${spec.enemyMove??150}-${spec.enemyAbility??50}-${spec.enemyLevel??(spec.enemyMove?30:100)}-${spec.enemyCount??1}-${spec.enemyItem??0}.nds`;
+ const raw=decryptPk5Party(save.subarray(0x18e08,0x18e08+220)),maxHp=readU16(raw,0x90),label=`${String(i).padStart(3,"0")}-${spec.label}`,filename=`battle-${spec.enemySpecies??320}-${spec.battleType??"Singles"}-${spec.enemyMove??150}-${spec.enemyAbility??50}-${spec.enemyLevel??(spec.enemyMove?30:100)}-${spec.enemyCount??1}-${spec.enemyItem??0}-${spec.enemy2Ability??50}-${spec.enemy2Move??150}.nds`;
  await writeArtifact(`${out}/saves/${label}.sav`,save);
  if(!hashes[filename]){const keep=project.narcs;project.narcs=Object.fromEntries(Object.entries(keep).filter(([name,store])=>["personal","trdata","trpok"].includes(name)&&store?.dirty.size));const bytes=await exportModifiedRom(project,{forDsi:false});project.narcs=keep;await writeArtifact(`${out}/${filename}`,bytes);hashes[filename]=sha(bytes);}
  fixtures.push({...spec,saveSha256:sha(save),label,speciesId:spec.playerSpecies??1,maxHp,hp:spec.hp??maxHp,rom:filename});

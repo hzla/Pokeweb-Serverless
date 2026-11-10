@@ -265,6 +265,11 @@ export type PwanOverrideSide = {
   offsetX?: number;
   offsetY?: number;
   notes?: string[];
+  /**
+   * Streaming runtime only: the side at full size (up to 128x128) as an A3I5 MANI (animStreamsFullSize.ts). `pwanBytes`
+   * then holds the same animation fitted into 96x96, for previews.
+   */
+  fullSizeMani?: Uint8Array;
 };
 
 export type PwanAnimationOverride = {

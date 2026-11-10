@@ -199,7 +199,11 @@ static void guardMessage(void*f,u8 owner,u8 target,u32 message){
 }
 #ifdef ABILITY_RECIPES
 #ifdef ABILITY_ACTION_RESULTS
+#ifdef ABILITY_STATUS_EXTENSIONS
+PUBLIC const volatile u16 AbilityPresentationMessages[34]={0};
+#else
 PUBLIC const volatile u16 AbilityPresentationMessages[33]={0};
+#endif
 #else
 PUBLIC const volatile u16 AbilityPresentationMessages[15]={0};
 #endif
@@ -286,6 +290,9 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
 #endif
 #ifdef ABILITY_RECIPES
 #ifdef ABILITY_STAT_SOURCE
+  #ifdef ABILITY_STATUS_EXTENSIONS
+  if(kind>=174&&kind<=177){extensionEffect(f,owner,e,event);continue;}
+  #endif
   if(kind==165){abilityStatGuard(f,owner,e,event);continue;}
 #endif
   if(kind>=135&&kind<=153){recipeEffect(item,f,owner,e,event,nativeWork[owner][n],used);if(kind==136&&e[1]==0&&e[9]&&onEntry(event,owner)&&!preview(f))mark=1;continue;}

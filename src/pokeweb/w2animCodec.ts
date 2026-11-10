@@ -1,7 +1,9 @@
 import { readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 
 export const W2ANIM_PATH = "w2anim/streams.bin";
-export const W2ANIM_OWN_PALETTES = 1, W2ANIM_TEX4 = 2, W2ANIM_TICKS = 4, W2ANIM_CARRIER = 1;
+export const W2ANIM_OWN_PALETTES = 1, W2ANIM_TEX4 = 2, W2ANIM_TICKS = 4, W2ANIM_MORPH = 8, W2ANIM_CARRIER = 1;
+/** Pokeweb trainers: MCSS loads the trainer graphic whose first file is `shinyNclrFile`, in the entry's own arc. */
+export const W2ANIM_TRAINER_CARRIER = 2;
 export type W2AnimEntry = { arc: number; flags: number; sheetFile: number; maniOffset: number; shinyNclrFile: number };
 export type W2AnimSequence = { frame: number; duration: number };
 export type W2AnimMani = {
@@ -99,7 +101,7 @@ export function parseW2Anim(bytes: Uint8Array): W2AnimArchive {
     const p = index + i * 16;
     const entry = { arc: readU16(bytes, p), flags: readU16(bytes, p + 2), sheetFile: readU32(bytes, p + 4),
       maniOffset: readU32(bytes, p + 8), shinyNclrFile: readU32(bytes, p + 12) };
-    if (entry.flags & ~W2ANIM_CARRIER || entry.maniOffset < index + count * 16 || entry.maniOffset % 4)
+    if (entry.flags & ~(W2ANIM_CARRIER | W2ANIM_TRAINER_CARRIER) || entry.maniOffset < index + count * 16 || entry.maniOffset % 4)
       throw new Error("Invalid w2anim index entry");
     const previous = entries.at(-1);
     if (previous && (entry.arc < previous.arc || (entry.arc === previous.arc && entry.sheetFile <= previous.sheetFile)))
@@ -115,10 +117,11 @@ export function parseW2Anim(bytes: Uint8Array): W2AnimArchive {
     const flags = readU16(bytes, offset + 6), width = readU16(bytes, offset + 8), height = readU16(bytes, offset + 10);
     const seqCount = readU16(bytes, offset + 12), uniqueCount = readU16(bytes, offset + 14);
     const seqAt = readU32(bytes, offset + 16), frameAt = readU32(bytes, offset + 20), paletteAt = readU32(bytes, offset + 24);
-    if (flags & ~7 || !width || !height || height > 128 || width > (flags & W2ANIM_TEX4 ? 256 : 128) ||
-        (flags & W2ANIM_TEX4 && width % 2) || !seqCount || !uniqueCount)
+    if (flags & ~15 || !width || !height || height > 128 || width > (flags & W2ANIM_TEX4 ? 256 : 128) ||
+        (flags & W2ANIM_TEX4 && width % 2) || (flags & W2ANIM_MORPH && flags & W2ANIM_TEX4) || !seqCount || !uniqueCount)
       throw new Error("Invalid w2anim dimensions, flags or counts");
-    const occupied: Array<[number, number]> = [[0, 28]];
+    // The morph block (A3I5 only): {s16 x0, y0; u8 map[16]; u8 source[16]} at 0x1C.
+    const occupied: Array<[number, number]> = [[0, flags & W2ANIM_MORPH ? 0x40 : 28]];
     const reserve = (at: number, size: number): void => {
       if (at % 4) throw new Error("Unaligned w2anim manifest offset");
       span(bytes, offset + at, size, end);

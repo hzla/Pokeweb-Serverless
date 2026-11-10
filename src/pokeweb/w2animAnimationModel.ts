@@ -5,6 +5,7 @@ import { decompressNitro, resolvePokemonSpriteId } from "./pokemonSpriteModel";
 import { markDirty, type ProjectState, type PwanOverrideSide } from "./projectStore";
 import { parsePwanHeader, pwanPalette, pwanTimeline, pwanFramesPerSecond, pwanVisibleHeight, validatePwan, PWAN_MAX_TIMELINE } from "./pwanCompiler";
 import { ensureTrainerSpriteStore } from "./trainerSpriteModel";
+import { listCodeInjectionDlls } from "./pmcModel";
 import { decodeW2AnimFrame, encodeW2AnimLz10, encodeW2AnimMani, materializeW2AnimArchive, parseW2Anim,
   W2ANIM_CARRIER, W2ANIM_OWN_PALETTES, W2ANIM_PATH, W2ANIM_TEX4, W2ANIM_TICKS, w2animKey,
   type W2AnimArchive, type W2AnimEntry, type W2AnimMani } from "./w2animCodec";
@@ -14,8 +15,16 @@ const backend = new WeakMap<Uint8Array, boolean>();
 const REGIONS = [[0, 0, 0, 8, 8], [0x800, 64, 0, 4, 8], [0xc00, 0, 64, 8, 4], [0x1000, 64, 64, 4, 4]];
 const equal = (a: Uint8Array, b: Uint8Array): boolean => a.length === b.length && a.every((value, n) => value === b[n]);
 
+/** Pokeweb's own stream runtime (animStreamsModel) is staged or in the ROM: its streams are Pokeweb's, not W2U's. */
+function pokewebStreamRuntimeIn(paths: Iterable<string>): boolean {
+  for (const path of paths) if (/^patches\/PokewebAnimStreams(W2|B2)\.dll$/iu.test(path)) return true;
+  return false;
+}
+
 export function isW2AnimProject(project: ProjectState): boolean {
-  if (project.w2animAnimations || project.fileSystem?.additions?.[W2ANIM_PATH]) return true;
+  if (project.w2animAnimations) return true;
+  if (pokewebStreamRuntimeIn(listCodeInjectionDlls(project).map((module) => module.path))) return false;
+  if (project.fileSystem?.additions?.[W2ANIM_PATH]) return true;
   const bytes = project.originalRomBytes;
   if (!bytes) return false;
   let value = backend.get(bytes);
@@ -55,6 +64,7 @@ export function w2animPokemonPreviewPalette(project: ProjectState, speciesId: nu
 export function hydrateW2AnimFromRom(project: ProjectState, rom: NintendoDSRom): boolean {
   const fileId = rom.filenames.idOf(W2ANIM_PATH);
   if (fileId === undefined) return false;
+  if (pokewebStreamRuntimeIn(["patches/PokewebAnimStreamsW2.dll", "patches/PokewebAnimStreamsB2.dll"].filter((path) => rom.filenames.idOf(path) !== undefined))) return false;
   if (project.session.baseVersion !== "W2" || rom.idCode !== "IRDO") throw new Error("w2anim authoring supports the US White 2 integration layout only");
   const source = rom.files[fileId]!;
   // A ROM-backed view would pin (and serialize) the entire source buffer.

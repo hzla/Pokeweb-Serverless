@@ -17,6 +17,7 @@ import { pwanFramesPerSecond, pwanPalette, pwanVisibleHeight, scalePwanFrames, s
 import { buildTrainerPwanCarrierFiles, ensureTrainerSpriteStore } from "./trainerSpriteModel";
 import { detectTrainerPwanCompatibility, trainerPwanCompatibilityFailureSummary } from "./trainerPwanCompatibilityModel";
 import { hydrateW2AnimTrainerTarget, isW2AnimProject } from "./w2animAnimationModel";
+import { hasAnimStreamsRuntime } from "./animStreamsModel";
 
 export const TRAINER_PWAN_CONFIG_MEMBER_ID = 3203;
 export const TRAINER_PWAN_ASSET_MEMBER_BASE = 3204;
@@ -65,8 +66,10 @@ export function getTrainerPwanRuntimeStatus(project: ProjectState): TrainerPwanR
   if (project.session.baseVersion !== "W2" && project.session.baseVersion !== "B2") {
     return { supported: false, installed: false, message: "Animated trainer PWAN support is available for stock US Black 2 and White 2 projects." };
   }
-  const installed = hasTrainerPwanRuntimeDll(project);
   const pmcInstalled = getPmcInstallStatus(project).installed;
+  if (hasAnimStreamsRuntime(project)) return { supported: true, installed: true, pmcInstalled,
+    message: "Animated trainers stream with the animated sprite runtime (installed with PWAN GIF Support)." };
+  const installed = hasTrainerPwanRuntimeDll(project);
   return {
     supported: true,
     installed,
@@ -79,8 +82,17 @@ export function getTrainerPwanRuntimeStatus(project: ProjectState): TrainerPwanR
   };
 }
 
+/** Trainers stream with the same runtime as Pokémon: installing trainer support installs (or upgrades to) it. */
 export async function installTrainerPwanRuntime(project: ProjectState): Promise<void> {
   if (isW2AnimProject(project)) throw new Error("This ROM uses w2anim; installing trainer PWAN would overwrite its renderer hooks");
+  if (project.session.baseVersion === "W2" || project.session.baseVersion === "B2") {
+    if (!hasAnimStreamsRuntime(project)) await (await import("./pwanAnimationModel")).installPwanRuntime(project);
+    return;
+  }
+  return installSplitTrainerPwanRuntime(project);
+}
+
+async function installSplitTrainerPwanRuntime(project: ProjectState): Promise<void> {
   if (project.session.baseVersion !== "W2" && project.session.baseVersion !== "B2") {
     throw new Error("Animated trainer PWAN support is available for stock US Black 2 and White 2 projects.");
   }
@@ -105,13 +117,14 @@ export async function installTrainerPwanRuntime(project: ProjectState): Promise<
 }
 
 export function canUninstallTrainerPwanRuntime(project: ProjectState): boolean {
-  if (isW2AnimProject(project)) return false;
+  if (isW2AnimProject(project) || hasAnimStreamsRuntime(project)) return false; // shared with Pokémon: uninstall PWAN GIF Support
   const path = trainerPwanRuntimePath(project);
   return Boolean(path && canRemoveStagedCodeInjectionDll(project, path));
 }
 
 export function uninstallTrainerPwanRuntime(project: ProjectState): void {
   if (isW2AnimProject(project)) throw new Error("The resident w2anim renderer cannot be uninstalled as a PWAN DLL");
+  if (hasAnimStreamsRuntime(project)) throw new Error("Trainers share the animated sprite runtime; uninstall PWAN GIF Support to remove it.");
   const path = trainerPwanRuntimePath(project);
   if (!path) throw new Error("Animated trainer PWAN support is available for stock US Black 2 and White 2 projects.");
   if (!canRemoveStagedCodeInjectionDll(project, path)) throw new Error("A trainer PWAN DLL already built into the loaded ROM cannot be removed by this editor yet.");

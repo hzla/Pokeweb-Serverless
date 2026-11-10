@@ -24,6 +24,7 @@ import { compileGifToPwan, parsePwanHeader, PWAN_MAX_TIMELINE, pwanFramesPerSeco
 import { compileGifToPwanAsync } from "./pwanCompilerClient";
 import { detectPwanRuntimeCompatibility, pwanCompatibilityFailureSummary } from "./pwanCompatibilityModel";
 import { hydrateW2AnimPokemonTarget, isW2AnimProject, materializeW2AnimAnimations } from "./w2animAnimationModel";
+import { animStreamsRuntimePath, applyFullSizeBlockFiles, detectAnimStreamsCompatibility, hasAnimStreamsRuntime, legacyPwanRuntimePaths, stageAnimStreamsRuntime, unstageAnimStreamsRuntime, writeAnimStreams } from "./animStreamsModel";
 import {
   buildTrainerPwanConfig,
   getTrainerPwanRuntimeStatus,
@@ -86,7 +87,9 @@ const MAX_PWAN_OVERRIDES = 500;
 
 export type PwanRuntimeStatus =
   | { supported: false; installed: false; message: string }
-  | { supported: true; installed: boolean; pmcInstalled: boolean; legacyInstalled: boolean; message: string };
+  | { supported: true; installed: boolean; pmcInstalled: boolean; legacyInstalled: boolean; message: string;
+      /** The split PWAN runtimes are installed: installing replaces them with the streaming runtime. */
+      updateAvailable?: boolean; streaming?: boolean };
 
 export type PwanOverrideInput = {
   speciesId: number;
@@ -173,20 +176,15 @@ export function getPwanRuntimeStatus(project: ProjectState): PwanRuntimeStatus {
     return { supported: false, installed: false, message: "PWAN animation injection supports stock US Black 2 and White 2 projects." };
   }
   const pmc = getPmcInstallStatus(project);
+  if (hasAnimStreamsRuntime(project)) {
+    return { supported: true, installed: true, pmcInstalled: pmc.installed, legacyInstalled: false, streaming: true,
+      message: "Animated sprites stream from w2anim/streams.bin (Pokémon and trainers)." };
+  }
   const installed = hasPwanRuntimeDll(project);
   const legacyInstalled = hasLegacyPwanRuntimeDll(project);
-  if (installed) {
-    return {
-      supported: true,
-      installed: true,
-      pmcInstalled: pmc.installed,
-      legacyInstalled,
-      message: pmc.installed
-        ? project.session.baseVersion === "B2"
-          ? "Black 2 split PWAN animation runtimes are staged."
-          : "White 2 split PWAN animation runtimes are staged."
-        : "PWAN animation runtime DLLs are present.",
-    };
+  if (installed || legacyPwanRuntimePaths(project).length) {
+    return { supported: true, installed, pmcInstalled: pmc.installed, legacyInstalled, updateAvailable: true,
+      message: "The PWAN runtime is installed. Update to the streaming runtime: sprites up to 128x128, frames on the battle heap instead of PMC's, deduplicated and compressed. Existing animations are converted at export." };
   }
   if (!pmc.installed) {
     return {
@@ -195,8 +193,8 @@ export function getPwanRuntimeStatus(project: ProjectState): PwanRuntimeStatus {
       pmcInstalled: false,
       legacyInstalled,
       message: legacyInstalled
-        ? "Legacy White 2 PWAN support was detected. Install the current split runtime to upgrade it."
-        : "Install the PMC runtime before staging the PWAN animation patch.",
+        ? "Legacy White 2 PWAN support was detected. Install the streaming runtime to upgrade it."
+        : "Installing animated sprite support will also install PMC.",
     };
   }
   return {
@@ -205,12 +203,14 @@ export function getPwanRuntimeStatus(project: ProjectState): PwanRuntimeStatus {
     pmcInstalled: true,
     legacyInstalled,
     message: legacyInstalled
-      ? "Legacy White 2 PWAN support was detected. Install the current split runtime to upgrade it."
-      : "PMC is installed; stage the PWAN animation runtime next.",
+      ? "Legacy White 2 PWAN support was detected. Install the streaming runtime to upgrade it."
+      : "PMC is installed; install the animated sprite streaming runtime next.",
   };
 }
 
+/** An animated sprite runtime (the streaming one, or the split PWAN DLLs it replaces) is staged or in the ROM. */
 export function hasPwanRuntimeDll(project: ProjectState): boolean {
+  if (hasAnimStreamsRuntime(project)) return true;
   const paths = new Set(listCodeInjectionDlls(project).map((module) => module.path.toLowerCase()));
   if (project.session.baseVersion === "B2") return PWAN_B2_RUNTIME_PATHS.every((path) => paths.has(path.toLowerCase()));
   if (project.session.baseVersion === "W2") return PWAN_W2_RUNTIME_PATHS.every((path) => paths.has(path.toLowerCase()));
@@ -226,9 +226,31 @@ export async function installPwanRuntime(project: ProjectState): Promise<void> {
   if (isNaturePaletteRuntimeInstalled(project)) return installCodeInjectionPatch(project, stagePwanRuntime);
   return stagePwanRuntime(project);
 }
+/**
+ * Installs the streaming runtime (animStreamsModel). A ROM with the split PWAN runtimes is upgraded: their DLLs are
+ * removed, its PWAN overrides (read from pwan.narc at load) are written as streams at export and pwan.narc is
+ * removed. Nature palettes switch to their native renderer, which the streams keep (they use the native palette).
+ */
 async function stagePwanRuntime(project: ProjectState): Promise<void> {
   const natureEnabled = isNaturePaletteRuntimeInstalled(project);
   if (isW2AnimProject(project)) throw new Error("This ROM uses w2anim; installing PWAN would overwrite its renderer hooks");
+  if (project.session.baseVersion !== "W2" && project.session.baseVersion !== "B2") {
+    throw new Error("PWAN animation injection supports stock US Black 2 and White 2 projects.");
+  }
+  if (project.originalRomBytes) {
+    const compatibility = detectAnimStreamsCompatibility(project);
+    if (!compatibility.compatible) throw new Error(pwanCompatibilityFailureSummary(compatibility));
+  }
+  const { removed } = await stageAnimStreamsRuntime(project);
+  if (natureEnabled) await stageNaturePaletteRuntime(project, false);
+  recordGenericChange(project, "code_injection",
+    removed.length ? `Animated sprite streaming runtime installed; replaced ${removed.map((path) => path.replace(/^patches\//u, "")).join(", ")}.` : "Animated sprite streaming runtime installed.",
+    "PWAN Runtime", { key: "pwan-runtime" });
+}
+
+/** The split PWAN runtimes (kept for ROMs built before the streaming runtime). */
+export async function stageSplitPwanRuntime(project: ProjectState): Promise<void> {
+  const natureEnabled = isNaturePaletteRuntimeInstalled(project);
   if (project.session.baseVersion !== "W2" && project.session.baseVersion !== "B2") {
     throw new Error("PWAN animation injection supports stock US Black 2 and White 2 projects.");
   }
@@ -258,12 +280,18 @@ async function stagePwanRuntime(project: ProjectState): Promise<void> {
 
 export function canUninstallPwanRuntime(project: ProjectState): boolean {
   if (isW2AnimProject(project)) return false;
+  if (hasAnimStreamsRuntime(project)) return true;
   if (isNaturePaletteRuntimeInstalled(project)) return getNaturePaletteRuntimeStatus(project).compatible;
   const paths = project.session.baseVersion === "B2" ? PWAN_B2_RUNTIME_PATHS : PWAN_W2_RUNTIME_PATHS;
   return paths.every((path) => canRemoveStagedCodeInjectionDll(project, path));
 }
 
 export function uninstallPwanRuntime(project: ProjectState): void | Promise<void> {
+  if (hasAnimStreamsRuntime(project)) {
+    unstageAnimStreamsRuntime(project);
+    recordGenericChange(project, "code_injection", "Animated sprite streaming runtime removed; imported animations were preserved in the project.", "PWAN Runtime", { key: "pwan-runtime" });
+    return;
+  }
   if (isNaturePaletteRuntimeInstalled(project)) return removePwanPreservingNature(project);
   if (isW2AnimProject(project)) throw new Error("The resident w2anim renderer cannot be uninstalled as a PWAN DLL");
   if (project.session.baseVersion !== "W2" && project.session.baseVersion !== "B2") {
@@ -599,6 +627,10 @@ export async function materializePwanAnimations(project: ProjectState, rom?: Nin
   const trainerDirty = Boolean(trainerState?.dirty);
   if (!speciesDirty && !trainerDirty) return;
   rom ??= project.originalRomBytes ? new NintendoDSRom(project.originalRomBytes, { fileData: "view" }) : undefined;
+  if (hasAnimStreamsRuntime(project)) {
+    await materializeAnimStreams(project, rom);
+    return;
+  }
   const archiveFileId = rom?.filenames.idOf(PWAN_ARCHIVE_PATH);
   const archiveBytes = (archiveFileId === undefined ? undefined : project.fileSystem?.replacements?.[archiveFileId])
     ?? project.fileSystem?.additions?.[PWAN_ARCHIVE_PATH]
@@ -637,6 +669,26 @@ export async function materializePwanAnimations(project: ProjectState, rom?: Nin
   // Keep the last staged archive available until the replacement is complete.
   clearMaterializedPwanFiles(project, speciesDirty);
   writePwanArchiveFile(project, rom, bytes);
+}
+
+/** Streaming runtime export: every Pokémon and trainer override is rewritten (carriers, streams.bin, its index). */
+async function materializeAnimStreams(project: ProjectState, rom: NintendoDSRom | undefined): Promise<void> {
+  const overrides = sortedPwanOverrides(project.pwanAnimations?.overrides ?? []);
+  const trainers = project.trainerPwanAnimations?.overrides ?? [];
+  if (overrides.length) {
+    if (!project.narcs.pokemon_sprites) throw new Error("Pokemon Sprites must be loaded before exporting animated Pokémon sprites.");
+    const carrier = await loadBundledPwanCarrierTemplate(project.session.baseVersion === "B2" ? "B2" : "W2");
+    for (const override of overrides) {
+      validatePwanOverrideTarget(project, override);
+      applyPwanCarrierPatch(project, override, carrier);
+    }
+    applyFullSizeBlockFiles(project, overrides);
+  }
+  const trainerCarrier = trainers.length || project.trainerPwanAnimations?.carrierGraphicIndex !== undefined
+    ? await materializeTrainerPwanCarrier(project) : undefined;
+  clearMaterializedPwanFiles(project, true);
+  writeAnimStreams(project, rom, { pokemon: overrides, trainers, trainerCarrierGraphicIndex: trainerCarrier });
+  if (project.pwanAnimations) project.pwanAnimations.detectedArchive = { path: animStreamsRuntimePath(project) ?? "", version: 1, count: overrides.length };
 }
 
 export function buildPwanConfig(overrides: PwanAnimationOverride[]): Uint8Array {
