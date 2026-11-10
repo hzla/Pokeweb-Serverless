@@ -1,3 +1,4 @@
+import { adaptSaveForProject } from "./itemExpansionModel";
 import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
@@ -69,7 +70,7 @@ export async function buildOverworldTestWarpDownloads(project: ProjectState, sel
   const saveBytes = patchOverworldTestWarpSave(normalizeTestBattleSavePartyNicknames(save.rawSaveBytes, project, "BW2"), destination);
   return {
     romBytes: rom.save({ files: new Map([[fileId, overworlds.save()]]), preserveOriginalLength: true }),
-    saveBytes: toDesmumeDsv(saveBytes),
+    saveBytes: toDesmumeDsv(adaptSaveForProject(project, saveBytes)),
   };
 }
 

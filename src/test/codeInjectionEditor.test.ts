@@ -344,15 +344,15 @@ describe("code-injection patch categories", () => {
     });
 
     expect(headings(panels[0])).toEqual([
-      "PWAN GIF Support", "Trainer PWAN GIF Support", "Overworld Weather Runtime", "Trainer Battle Log",
+      "PWAN GIF Support", "Trainer PWAN GIF Support", "Overworld Weather Runtime", "Trainer Battle Log", "Item Expansion",
     ]);
     expect(headings(panels[1])).toEqual([
       "Nature Palettes", "Summary IV/EV Viewer", "Enhanced Party Menu and Battle Log Integration", "Type Icons", "Learnset Viewer", "Move Effectiveness Preview", "C-Gear Quick Actions", "Pokenav",
     ]);
-    expect(headings(panels[2])).toEqual(["Instant Fast Text", "Background Music Toggle", "Forgettable HMs", "Autorun"]);
+    expect(headings(panels[2])).toEqual(["Instant Fast Text", "Background Music Toggle", "Forgettable HMs", "Autorun", "Skip Intro"]);
     expect(headings(panels[3])).toEqual([
       "Infinite Rare Candy", "Hard Level Caps", "Trainer Level Caps", "Single-NPC Double Battle Fix",
-      "Trainer Field Conditions", "Tag Battle Stabilization", "Nuzlocke Style Encounters", "Porta PC", "Added-Form Evolution Support",
+      "Trainer Field Conditions", "Tag Battle Stabilization", "Nuzlocke Style Encounters", "Porta PC", "Added-Form Evolution Support", "Mega Evolution",
     ]);
     expect(headings(panels[4])).toEqual(["Debug Save Flag", "Walk Through Walls", "Instant Battle Victory"]);
     expect(html).toContain(">Debug Helpers</button>");

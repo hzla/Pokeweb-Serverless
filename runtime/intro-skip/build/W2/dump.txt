@@ -1,0 +1,110 @@
+DLXF file | Code segment base address: 0x20 | BSS size: 0x0
+Symbol count: 12 | Relocation count: 11
+
+Symbol table:
+	Symbol 0 | <anonymous>
+		Address: a8
+		Type: VALUE
+		Size: 0
+		Attributes: []
+	Symbol 1 | <anonymous>
+		Address: a8
+		Type: VALUE
+		Size: 0
+		Attributes: []
+	Symbol 2 | <anonymous>
+		Address: a8
+		Type: VALUE
+		Size: 0
+		Attributes: []
+	Symbol 3 | <anonymous>
+		Address: a8
+		Type: VALUE
+		Size: 0
+		Attributes: []
+	Symbol 4 | <anonymous>
+		Address: a8
+		Type: VALUE
+		Size: 0
+		Attributes: []
+	Symbol 5 | Hash: 1d7c3c89
+		Address: a8
+		Type: VALUE
+		Size: 28
+		Attributes: [Export symbol]
+	Symbol 6 | Hash: 26e60fdc
+		Address: 7c
+		Type: FUNCTION_THM
+		Size: 44
+		Attributes: [Export symbol]
+	Symbol 7 | Hash: 60af1b5e
+		Address: 5c
+		Type: FUNCTION_THM
+		Size: 16
+		Attributes: [Export symbol]
+	Symbol 8 | Hash: 6d72608b
+		Address: 4
+		Type: FUNCTION_THM
+		Size: 32
+		Attributes: [Export symbol]
+	Symbol 9 | Hash: 88b198ed
+		Address: 6c
+		Type: FUNCTION_THM
+		Size: 16
+		Attributes: [Export symbol]
+	Symbol 10 | Hash: 9e00698c
+		Address: 24
+		Type: FUNCTION_THM
+		Size: 56
+		Attributes: [Export symbol]
+	Symbol 11 | Hash: ade176a3
+		Address: 0
+		Type: FUNCTION_THM
+		Size: 4
+		Attributes: [Export symbol]
+
+Relocation table:
+	Relocation 0
+		Source symbol: null(VALUE) @ 0xa8 [0x0]
+		Target: OFFSET @ base :: 0x18
+	Relocation 1
+		Source symbol: null(FUNCTION_THM) @ 0x0 [0x4]
+		Target: OFFSET @ base :: 0x20
+	Relocation 2
+		Source symbol: null(VALUE) @ 0xa8 [0x0]
+		Target: OFFSET @ base :: 0x58
+	Relocation 3
+		Source symbol: null(VALUE) @ 0xa8 [0x0]
+		Target: OFFSET @ base :: 0x68
+	Relocation 4
+		Source symbol: null(VALUE) @ 0xa8 [0x0]
+		Target: OFFSET @ base :: 0x78
+	Relocation 5
+		Source symbol: null(VALUE) @ 0xa8 [0x0]
+		Target: OFFSET @ base :: 0xa4
+	Relocation 6
+		Source symbol: null(FUNCTION_THM) @ 0x4 [0x20]
+		Target: THUMB_BRANCH_LINK @ 35 :: 0x217ca28
+	Relocation 7
+		Source symbol: null(FUNCTION_THM) @ 0x24 [0x38]
+		Target: THUMB_BRANCH_LINK @ 35 :: 0x217cadc
+	Relocation 8
+		Source symbol: null(FUNCTION_THM) @ 0x6c [0x10]
+		Target: THUMB_BRANCH_LINK @ 35 :: 0x217cb4c
+	Relocation 9
+		Source symbol: null(FUNCTION_THM) @ 0x7c [0x2c]
+		Target: THUMB_BRANCH_LINK @ 35 :: 0x217cbb2
+	Relocation 10
+		Source symbol: null(FUNCTION_THM) @ 0x5c [0x10]
+		Target: THUMB_BRANCH_LINK @ 35 :: 0x217cb3c
+
+Metadata:
+	PMCGameID:
+		Type: STRING
+		Value: W2
+	PMCModulePriority:
+		Type: INT
+		Value: 4
+	PMCVersion:
+		Type: STRING
+		Value: 1.0.0

@@ -206,6 +206,27 @@ export type CodeInjectionState = {
     /** Verified resident retail-Wi-Fi isolation guard, retained across hydration. */
     saveGuardVersion?: number;
   };
+  /** 1,024-item expansion with the shared bag and its save format (runtime/item-expansion). */
+  itemExpansion?: {
+    version: number;
+    /** Icon archive members (character, palette) of items 639-1023 that have their own icon. */
+    icons?: Record<number, [number, number]>;
+  };
+  /** Mega Evolution (runtime/mega-evolution): routes and settings written into the DLL's PWMG table. */
+  megaEvolution?: {
+    version: number;
+    routes: Array<{ species: number; trigger: number; sourceForm: number; targetForm: number; moveTrigger?: boolean }>;
+    messages: { reacting: number; evolved: number; wish: number };
+    animationMove: number;
+    revealFrame: number;
+    autoFoes: boolean;
+    /** The Mega content package (megaContentModel): the forms and stones it added. */
+    content?: {
+      version: number;
+      forms: Array<{ key: string; name: string; species: number; form: number; credits: { front: string; back: string } }>;
+      stones: number[];
+    };
+  };
   menuEvolution?: {
     messageBankId: number;
     messageEntryId: number;

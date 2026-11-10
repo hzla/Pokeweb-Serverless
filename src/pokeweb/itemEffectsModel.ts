@@ -17,7 +17,7 @@ import { buildRuleRuntime, ITEM_RULE_API, defaultItemMoveClasses } from "./itemR
 import { expandedMoveDllDefaults, validateMoveClassOverrides } from "./abilityMoveClasses";
 import { validateItemRule, type ItemRuleSet } from "./itemRules";
 import { ITEM_NATIVE_FUNCTIONS, nativeItemBranchTarget, type NativeItemResolver } from "./itemNativeRuntime";
-import { isVerifiedAbilityClientTrapImport, isVerifiedAbilityMoveParamOwner, prepareAbilityMoveParamForItem } from "./abilityEffectsModel";
+import { isVerifiedAbilityClientTrapImport, isVerifiedAbilityMoveParamOwner, isVerifiedAbilityWeatherImport, prepareAbilityMoveParamForItem } from "./abilityEffectsModel";
 import { chainItemMoveParam } from "./battleMoveParamChain";
 import { isVerifiedBattleCounterImport } from "./battleLogModel";
 import { detectSpecifyTrainerNaturesPatch, specifyTrainerNatures } from "./romPatchModel";
@@ -269,6 +269,8 @@ function assertNoConflict(c: Context, address: number, size: number, except: rea
         if (start === address && relocation.target.type === "THUMB_BRANCH") {
           if (importedService === "IsMonTrapped" && isVerifiedAbilityClientTrapImport(c.project, path, address, size)) continue;
           if (importedService === "IsFainted" && isVerifiedBattleCounterImport(c.project.session.baseVersion, path, bytes, address)) continue;
+          // The ability runtime's simulated move weather keeps the native query's contract.
+          if (importedService === "ServerEvent_GetWeather" && isVerifiedAbilityWeatherImport(c.project, path, bytes, address)) continue;
         }
         throw new Error(`Conflicting native item hook: ${path}${importedService ? ` (${importedService})` : ""}.`);
       }

@@ -16,6 +16,7 @@ import {ensureFileSystemState,setRomFileReplacement} from "./fileSystemModel";
 import {recordFieldChange} from "./actionChangelog";
 import {itemMessageIds} from "./itemBattleMessages";
 import {expandedMoveDllDefaults,validateMoveClassOverrides} from "./abilityMoveClasses";
+import {isVerifiedAbilityWeatherImport} from "./abilityEffectsModel";
 const dllPath="patches/ItemEffects.dll",retired=Uint8Array.of(80,87,73,82);
 type Source={base:number;armBase:number;game:string;revision:number;files:Map<string,Uint8Array>;ids:Map<string,number>};
 const sources=new WeakMap<ProjectState,Source>();
@@ -41,10 +42,13 @@ function context(project:ProjectState){
  const resolver=battleRuntimeResolver(data,base,project.arm9,source.armBase,functions);
  const files=new Map(source.files);for(const[path,id]of source.ids)if(project.fileSystem?.replacements[id])files.set(path,project.fileSystem.replacements[id]);
  for(const[path,bytes]of Object.entries(project.fileSystem?.additions??{}))if(path.toLowerCase().endsWith(".dll"))files.set(path,bytes);
- function check(address:number,size:number){for(const[path,bytes]of files){if(path===dllPath)continue;let rpm:RpmModule;try{rpm=parseRpm(bytes,{allowedMagics:["DLXF"]});}catch{continue;}
-  for(const r of rpm.relocations){if(r.target.module!=="93")continue;const start=r.target.address&~1,count=r.target.type==="OFFSET"?4:r.target.type==="FULL_COPY"?rpm.symbols[r.sourceSymbolIndex]?.size??0:16;if(start<address+size&&start+count>address)throw Error(`Conflicting native item hook: ${path}.`);}
+ function check(address:number,size:number,service?:string){for(const[path,bytes]of files){if(path===dllPath)continue;let rpm:RpmModule;try{rpm=parseRpm(bytes,{allowedMagics:["DLXF"]});}catch{continue;}
+  for(const r of rpm.relocations){if(r.target.module!=="93")continue;const start=r.target.address&~1,count=r.target.type==="OFFSET"?4:r.target.type==="FULL_COPY"?rpm.symbols[r.sourceSymbolIndex]?.size??0:16;if(start<address+size&&start+count>address){
+   // The ability runtime's simulated move weather keeps the native query's contract.
+   if(service==="ServerEvent_GetWeather"&&start===address&&r.target.type==="THUMB_BRANCH"&&isVerifiedAbilityWeatherImport(project,path,bytes,address))continue;
+   throw Error(`Conflicting native item hook: ${path}.`);}}
  }}
- const resolve=(name:string,address?:number)=>{const result=resolver.resolve(name);if(address!==undefined&&result.address!==address)throw Error(`Unrecognized item service: ${name}`);if(functions[name].module==="93")check(result.address,result.code.length);return result;};
+ const resolve=(name:string,address?:number)=>{const result=resolver.resolve(name);if(address!==undefined&&result.address!==address)throw Error(`Unrecognized item service: ${name}`);if(functions[name].module==="93")check(result.address,result.code.length,name);return result;};
  return {source,data,base,functions,resolver,resolve,files,check};
 }
 export function checkedBw1ItemRule(project:ProjectState,input:ItemRuleSet):ItemRuleSet{

@@ -1,3 +1,4 @@
+import { adaptSaveForProject } from "./itemExpansionModel";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { BW2_NARCS, BW_NARCS, HEADER_NARCS, type BaseRom, type NarcDefinition, type NarcName } from "./constants";
@@ -200,7 +201,7 @@ export async function buildTestBattleDownloads(project: ProjectState, trainerId:
     const badges = patchTestBattleSaveBadges(save.rawSaveBytes, config);
     const animations = patchTestBattleSaveMoveAnimations(badges, config);
     const party = patchTestBattleSavePlayerParty(animations, project, options.playerTeamText ?? "", config.baseRom);
-    return { romBytes, saveBytes: toDesmumeDsv(patchHarnessSave(party, project, { trainerId })) };
+    return { romBytes, saveBytes: toDesmumeDsv(adaptSaveForProject(project, patchHarnessSave(party, project, { trainerId }))) };
   }
 
   const [baseRomBytes, loadedSave] = await Promise.all([exportTestBattleBaseRom(project), loadTestBattleSave(config)]);
@@ -212,7 +213,7 @@ export async function buildTestBattleDownloads(project: ProjectState, trainerId:
   const patchedBadgeSaveBytes = patchTestBattleSaveBadges(patchedFlagSaveBytes, config);
   const patchedAnimationSaveBytes = patchTestBattleSaveMoveAnimations(patchedBadgeSaveBytes, config);
   const patchedSaveBytes = patchTestBattleSavePlayerParty(patchedAnimationSaveBytes, project, options.playerTeamText ?? "", config.baseRom);
-  return { romBytes, saveBytes: toDesmumeDsv(patchedSaveBytes) };
+  return { romBytes, saveBytes: toDesmumeDsv(adaptSaveForProject(project, patchedSaveBytes)) };
 }
 
 /**
@@ -227,7 +228,7 @@ export async function buildQuickLaunchDownloads(project: ProjectState, options: 
   const saveBytes = playerTeamText
     ? patchTestBattleSavePlayerParty(loadedSave.rawSaveBytes, project, playerTeamText, config.baseRom)
     : loadedSave.rawSaveBytes;
-  return { romBytes, saveBytes: bundleTestBattleSaveForQuickLaunch(saveBytes) };
+  return { romBytes, saveBytes: bundleTestBattleSaveForQuickLaunch(adaptSaveForProject(project, saveBytes)) };
 }
 
 /** Wrap the launch save in the format consumed by the emulator. */
@@ -244,7 +245,7 @@ export async function buildMoveTestBattleDownloads(project: ProjectState, moveId
     const badges = patchTestBattleSaveBadges(save.rawSaveBytes, config);
     const animations = patchTestBattleSaveMoveAnimations(badges, config);
     const party = patchTestBattleSavePlayerFirstMove(animations, project, moveId, config.baseRom);
-    return { romBytes, saveBytes: toDesmumeDsv(patchHarnessSave(party, project, { trainerId: TEST_BATTLE_BASE_TRAINER_ID })) };
+    return { romBytes, saveBytes: toDesmumeDsv(adaptSaveForProject(project, patchHarnessSave(party, project, { trainerId: TEST_BATTLE_BASE_TRAINER_ID }))) };
   }
 
   const [baseRomBytes, loadedSave] = await Promise.all([exportTestBattleBaseRom(project), loadTestBattleSave(config)]);
@@ -256,7 +257,7 @@ export async function buildMoveTestBattleDownloads(project: ProjectState, moveId
   const patchedBadgeSaveBytes = patchTestBattleSaveBadges(patchedFlagSaveBytes, config);
   const patchedAnimationSaveBytes = patchTestBattleSaveMoveAnimations(patchedBadgeSaveBytes, config);
   const patchedSaveBytes = patchTestBattleSavePlayerFirstMove(patchedAnimationSaveBytes, project, moveId, config.baseRom);
-  return { romBytes, saveBytes: toDesmumeDsv(patchedSaveBytes) };
+  return { romBytes, saveBytes: toDesmumeDsv(adaptSaveForProject(project, patchedSaveBytes)) };
 }
 
 export async function exportTestBattleBaseRom(project: ProjectState): Promise<Uint8Array> {

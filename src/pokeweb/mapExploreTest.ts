@@ -1,3 +1,4 @@
+import { adaptSaveForProject } from "./itemExpansionModel";
 import { readU16 } from "../nds/binary";
 import { NintendoDSRom } from "../nds/rom";
 import { NARC } from "../nds/narc";
@@ -45,6 +46,6 @@ export async function buildMapExploreTestDownloads(project: ProjectState, destin
   if (!scripts.files[scriptId] || !events.files[eventId]) throw new Error("The bundled save map has missing scripts or events.");
   const warp = installMapCameraTestWarp(scripts.files[scriptId],events.files[eventId],save,destination);
   scripts.files[scriptId] = warp.scripts; events.files[eventId] = warp.events;
-  return { romBytes: rom.save({ files: new Map([[scriptsId,scripts.save()],[eventsId,events.save()]]),preserveOriginalLength:true }), saveBytes: toDesmumeDsv(save.rawSaveBytes), destination,
+  return { romBytes: rom.save({ files: new Map([[scriptsId,scripts.save()],[eventsId,events.save()]]),preserveOriginalLength:true }), saveBytes: toDesmumeDsv(adaptSaveForProject(project, save.rawSaveBytes)), destination,
     trigger: { zoneId: save.zoneId, tileX: save.gridX, tileZ: save.gridZ, scriptId,eventId,entryId:warp.entryId }, walkThroughWalls: true };
 }

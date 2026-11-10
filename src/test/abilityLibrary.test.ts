@@ -18,9 +18,10 @@ describe("standalone ability imports",()=>{
  });
  it.each([[0,0],[0x1800,0x3000]])("builds and reopens all imports in one module at layout (%i,%i)",(shift,move)=>{
   const {project}=makeItemEffectsProject(shift,move,true,true),before=project.overlays[167]!.slice();
-  const rules=new Map(ABILITY_IMPORT_LIBRARY.map((t,i)=>[165+i,t.rule])),rpm=buildAbilityRuleModule(project,rules);
+  const rules=new Map(ABILITY_IMPORT_LIBRARY.map((t,i)=>[i<91?165+i:164-(i-91),t.rule])),rpm=buildAbilityRuleModule(project,rules);
   expect(rpm.code.length+rpm.bssSize).toBeLessThanOrEqual(65536);expect(writeRpm(rpm,{ident:"DLXF"}).length+rpm.code.length+rpm.bssSize).toBeLessThanOrEqual(112*1024);
-  expect(rpm.relocations.filter(r=>r.target.module==="167")).toHaveLength(12);expect(project.overlays[167]).toEqual(before);
+  // 12 shared adapters plus the simulated move-weather query (Mega Sol).
+  expect(rpm.relocations.filter(r=>r.target.module==="167")).toHaveLength(13);expect(project.overlays[167]).toEqual(before);
   project.fileSystem={replacements:{},additions:{[ABILITY_EFFECTS_DLL_PATH]:writeRpm(rpm,{ident:"DLXF"})}};
   expect(inspectAbilityEffects(project).rules).toEqual(rules);
   const changed=structuredClone(rpm);changed.code[changed.code.length-1]^=1;project.fileSystem.additions![ABILITY_EFFECTS_DLL_PATH]=writeRpm(changed,{ident:"DLXF"});expect(inspectAbilityEffects(project).editable).toBe(false);

@@ -1,0 +1,104 @@
+{
+  "version": 1,
+  "tableTag": "PWMG",
+  "games": {
+    "W2": {
+      "fileName": "PokewebMegaW2.dll",
+      "size": 11328,
+      "sha256": "2a6db97735ab08c53304f6487e03a62528b9af2c77efa285e77e5946f930f5e9",
+      "targets": [
+        {
+          "kind": "THUMB_BRANCH",
+          "segment": "167",
+          "address": "0x21bbf18"
+        },
+        {
+          "kind": "THUMB_BRANCH",
+          "segment": "167",
+          "address": "0x21bc3c4"
+        },
+        {
+          "kind": "THUMB_BRANCH",
+          "segment": "167",
+          "address": "0x21cdeb8"
+        },
+        {
+          "kind": "THUMB_BRANCH",
+          "segment": "167",
+          "address": "0x21d04a0"
+        },
+        {
+          "kind": "THUMB_BRANCH",
+          "segment": "167",
+          "address": "0x21d04bc"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "167",
+          "address": "0x219f700"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "167",
+          "address": "0x219fa66"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "167",
+          "address": "0x21b3cce"
+        }
+      ],
+      "literals": [],
+      "tableOffset": 7192
+    },
+    "B2": {
+      "fileName": "PokewebMegaB2.dll",
+      "size": 11328,
+      "sha256": "b2e58542cb8b673981bffe479ec1054e26a1c2d0953a06bb78a7a3bc1dbb5b0d",
+      "targets": [
+        {
+          "kind": "THUMB_BRANCH",
+          "segment": "167",
+          "address": "0x21bbed8"
+        },
+        {
+          "kind": "THUMB_BRANCH",
+          "segment": "167",
+          "address": "0x21bc384"
+        },
+        {
+          "kind": "THUMB_BRANCH",
+          "segment": "167",
+          "address": "0x21cde78"
+        },
+        {
+          "kind": "THUMB_BRANCH",
+          "segment": "167",
+          "address": "0x21d0460"
+        },
+        {
+          "kind": "THUMB_BRANCH",
+          "segment": "167",
+          "address": "0x21d047c"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "167",
+          "address": "0x219f6c0"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "167",
+          "address": "0x219fa26"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "167",
+          "address": "0x21b3c8e"
+        }
+      ],
+      "literals": [],
+      "tableOffset": 7192
+    }
+  }
+}

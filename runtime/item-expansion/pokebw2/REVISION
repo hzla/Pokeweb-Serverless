@@ -1,0 +1,10 @@
+Vendored from pokebw2 (https://github.com/fuddlesworth/pokebw2 with hzla's item-expansion branches).
+
+src/system/myitem_savedata.c, src/ov142/bag_item.c, src/ov142/itemmenu.c:
+  feature/w2-bag-performance 37b4b6b8151eaf8e729e0ed199536cdac2095885
+src/ov286/*.c, src/ov036/scrcmd_shop.c and include/, lib/ (headers only):
+  integration/w2-items-shared-nov06 95aed3cca70e0e9629e821fecf41b1dacec6f90d
+include/constants/*.h generated from that revision's data (build/include/generated).
+
+Only headers the vendored sources include are copied. Do not edit these files: struct layout changes for the
+DLL live in ../include (overrides searched first), and everything else is done by generate.py.

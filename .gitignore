@@ -23,6 +23,8 @@ work/
 analysis/
 runtime/form-evolution/build/
 runtime/item-effects/build/
+runtime/item-expansion/build/
+runtime/mega-evolution/build/
 runtime/tag-battle-stabilization/build/
 runtime/double-battle-fix/build/
 runtime/porta-pc/build/

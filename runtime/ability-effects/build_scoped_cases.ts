@@ -1,6 +1,7 @@
 import {environmentCases} from "./environment_cases";
 import {strikeCases} from "./strike_cases";
 import {protectCases} from "./protect_cases";
+import {weatherCases} from "./weather_cases";
 import {configureItemRuleSets} from "../../src/pokeweb/itemEffectsModel";
 import {configureMoveRuleSets} from "../../src/pokeweb/moveEffectsModel";
 import {statSourceCases} from "./stat_source_cases";
@@ -58,7 +59,7 @@ const variants:Record<number,AbilityRuleSet>={
 for(const[id,rule]of Object.entries(variants)){entries.set(Number(id),rule);names.set(Number(id),`Test ${id}`);}
 const customFlagsMode=process.argv.includes("--custom-flags");
 if(customFlagsMode)for(const[id,rule]of await prepareCustomFlagCases(project)){entries.set(id,rule);names.set(id,`Flag Test ${id}`);}
-const statusPopups=process.argv.includes("--protect")?protectCases():process.argv.includes("--strikes")?strikeCases():process.argv.includes("--environment")?environmentCases():process.argv.includes("--stat-source")?statSourceCases(true):process.argv.includes("--status-popups")?statusPopupCases():undefined;
+const statusPopups=process.argv.includes("--weather-moves")?weatherCases():process.argv.includes("--protect")?protectCases():process.argv.includes("--strikes")?strikeCases():process.argv.includes("--environment")?environmentCases():process.argv.includes("--stat-source")?statSourceCases(true):process.argv.includes("--status-popups")?statusPopupCases():undefined;
 if(statusPopups){entries.clear();names.clear();for(const[id,rule]of statusPopups.rules){entries.set(id,rule);names.set(id,statusPopups.names.get(id)!);}}
 await configureAbilityRuleSets(project,[...entries].map(([abilityId,rules])=>({abilityId,rules,name:names.get(abilityId)!})));
 if(process.argv.includes("--strikes-coexist")){

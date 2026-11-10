@@ -30,7 +30,7 @@ describe('expanded standalone ability recipes',()=>{
  it.each([[0,0],[0x1800,0x3000]])('verifies all imports and the precise Fairy range variant at layout (%i,%i)',(shift,move)=>{
   const f=makeItemEffectsProject(shift,move,true,true),offset=f.offsets.get('ServerControl_CheckMoveEffectiveness')!,overlay=f.project.overlays[167]!;
   overlay[offset+0x12]=18;overlay[offset+0x15]=0xdb;
-  const rules=new Map(ABILITY_IMPORT_LIBRARY.map((t,i)=>[165+i,t.rule])),rpm=buildAbilityRuleModule(f.project,rules);
+  const rules=new Map(ABILITY_IMPORT_LIBRARY.map((t,i)=>[i<91?165+i:164-(i-91),t.rule])),rpm=buildAbilityRuleModule(f.project,rules);
   expect(rpm.code.length+rpm.bssSize).toBeLessThanOrEqual(65536);expect(rpm.bssSize).toBeLessThanOrEqual(16384);
   expect(rpm.relocations.some(r=>r.target.address===f.base+offset&&r.target.type==='THUMB_BRANCH_SAFESTACK')).toBe(true);
   f.project.fileSystem={replacements:{},additions:{[ABILITY_EFFECTS_DLL_PATH]:writeRpm(rpm,{ident:'DLXF'})}};

@@ -1,4 +1,5 @@
 import { NATURES } from "./constants";
+import { PARTY_BLOCK_SHIFT, detectSaveFormat } from "./itemSaveFormat";
 import { pokemonSpeciesLabel } from "./pokemonLabels";
 import { decodeRecord, type ProjectState, type RawRecord } from "./projectStore";
 import { decryptPk5Party, decryptPk5Stored, levelForExperience } from "./testBattleTeam";
@@ -50,9 +51,11 @@ export function readGen5SavePokemon(project: ProjectState, saveBytes: Uint8Array
   }
 
   const pokemon: Gen5SavePokemon[] = [];
-  const partyCount = Math.min(MAX_PARTY_SIZE, saveBytes[PARTY_COUNT_OFFSET] ?? 0);
+  // The item expansion's save format moves the party block (boxes stay where they are).
+  const shift = saveBytes.length === 0x80000 && detectSaveFormat(saveBytes) === "expanded" ? PARTY_BLOCK_SHIFT : 0;
+  const partyCount = Math.min(MAX_PARTY_SIZE, saveBytes[PARTY_COUNT_OFFSET + shift] ?? 0);
   for (let partySlot = 0; partySlot < partyCount; partySlot += 1) {
-    const offset = PARTY_DATA_OFFSET + partySlot * PARTY_SLOT_SIZE;
+    const offset = PARTY_DATA_OFFSET + shift + partySlot * PARTY_SLOT_SIZE;
     const encrypted = saveBytes.subarray(offset, offset + PARTY_SLOT_SIZE);
     if (isEmptySlot(encrypted)) continue;
     const decrypted = decryptPk5Party(encrypted);

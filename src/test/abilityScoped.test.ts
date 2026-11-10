@@ -31,7 +31,7 @@ describe('scoped native-service ability imports',()=>{
   const html=renderItemRuleForm(makeItemEffectsProject().project,{...abilityImport(186).rule,consumable:false},{ability:true,definitions:ABILITY_RULE_EFFECTS});expect(html).not.toContain('data-rule-bypass');
  });
  it.each([[0,0,false],[0x1800,0x3000,false],[0,0,true],[0x1800,0x3000,true]])('reopens a shared registry on shifted layout %i/%i with client %s',(shift,move,client)=>{
-  const {project}=makeItemEffectsProject(Number(shift),Number(move),true,true),rules=new Map(ABILITY_IMPORT_LIBRARY.map((t,i)=>[165+i,t.rule]));if(client)rules.set(255,validateAbilityRule({effects:[{kind:'nativeAbility:42',value:-1}],conditions:all}));
+  const {project}=makeItemEffectsProject(Number(shift),Number(move),true,true),rules=new Map(ABILITY_IMPORT_LIBRARY.map((t,i)=>[i<91?165+i:164-(i-91),t.rule]));if(client)rules.set(255,validateAbilityRule({effects:[{kind:'nativeAbility:42',value:-1}],conditions:all}));
   const rpm=buildAbilityRuleModule(project,rules);expect(rpm.metadata.PokewebAbilityScoped).toBe(1);expect(rpm.bssSize).toBeLessThanOrEqual(16384);expect(rpm.code.length+rpm.bssSize).toBeLessThanOrEqual(65536);expect(writeRpm(rpm,{ident:'DLXF'}).length+rpm.code.length+rpm.bssSize).toBeLessThanOrEqual(112*1024);
   project.fileSystem={replacements:{},additions:{[ABILITY_EFFECTS_DLL_PATH]:writeRpm(rpm,{ident:'DLXF'})}};expect(inspectAbilityEffects(project).rules).toEqual(rules);
   delete rpm.metadata.PokewebAbilityScoped;project.fileSystem.additions![ABILITY_EFFECTS_DLL_PATH]=writeRpm(rpm,{ident:'DLXF'});expect(inspectAbilityEffects(project).editable).toBe(false);

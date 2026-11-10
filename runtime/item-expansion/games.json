@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "games": {
+    "W2": {"idCode": "IRDO", "pokebw2": "w2_us", "binaries": "${POKEBW2_EXTRACT}/w2_us"},
+    "B2": {"idCode": "IREO", "pokebw2": "b2_us", "binaries": "${POKEBW2_EXTRACT}/b2_us"}
+  }
+}

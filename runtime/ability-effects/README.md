@@ -82,7 +82,7 @@ their native hit counts.
 moves) hit targets protected by Protect, Detect, Wide Guard or Quick Guard. The
 value is the damage multiplier against a target that is still protected: the
 **Unseen Fist** import (Gen 8–9 behavior) uses 1×, and the **Piercing Drill**
-import (Pokémon Champions) uses 0.25×. Champions' own Unseen Fist also uses
+import (Legends Z-A group) uses 0.25×. Champions' own Unseen Fist also uses
 0.25×; edit the value for that version. The move filter accepts the
 same contact, expanded, vanilla-flag and custom choices as other primitives, and
 AND/OR activation conditions apply. Unprotected targets take normal damage, and the move's other effects
@@ -101,6 +101,24 @@ hack need their own review; only the four vanilla BW/BW2 protections are handled
 The primitive adds no native hooks: it uses the recipe dispatcher wrapper that
 recipe runtimes already install, plus two read-only services (`GetTurnFlag`,
 `BattleEvent_SeekItem`) resolved by checked signatures on each game.
+
+**Moves act as if the weather is…** (sun, rain, hail or sandstorm) makes every
+weather check made while the holder's own move resolves read as the chosen weather,
+like Mega Sol (Legends Z-A). The **Mega Sol** import uses sun; **Mega Rain**,
+**Mega Hail** and **Mega Sand** are the same primitive with the other Gen 5
+weathers. Weather Ball's type and power, Solar Beam's charge turn and power,
+Thunder/Blizzard accuracy, Growth, the weather recovery moves, the damage weather
+modifier and weather abilities all follow it during that move, as do the target's
+weather checks during that move (for example, sun's freeze immunity or sandstorm's
+Rock-type Sp. Def boost), matching Showdown's Mega Sol. Real weather is replaced
+for that move, not combined. Cloud Nine and Air Lock do not cancel it. The field
+weather, other Pokémon's moves and end-of-turn effects are unchanged.
+Eligibility (suppression, AND/OR conditions) is decided when the move starts; called
+moves run inside the same move. It adds one checked adapter on the native weather
+query: outside the holder's move a relocated copy of the original query runs. The
+move and item runtimes accept that verified adapter, so Mega Sol coexists with the
+move editor's **Change damage weather** effect and item recipes in either install order.
+The simulated weather is silent (no ability popup).
 
 **Triggered stat stages** can select the holder's or each target's highest raw
 stat (excluding HP and ignoring stages; ties use Attack, Defense, Sp. Atk, Sp. Def,
@@ -229,9 +247,9 @@ Aura entry notices use the configured type's display name, including Fairy and
 renamed types, without relying on Gen 5's native type-name formatter.
 
 Build from the repository root with `python3 runtime/ability-effects/build.py`
-(the default now builds the v13 `--protect-only` bundle,
-`src/assets/data/abilityRuleRuntimeProtect.json`; the v12 strikes bundle is retained
-unchanged for verifying older exports).
+(the default now builds the v14 `--weather-moves-only` bundle,
+`src/assets/data/abilityRuleRuntimeWeatherMoves.json`; the v13 `--protect-only` and
+v12 strikes bundles are retained unchanged for verifying older exports).
 The original templates remain available for strict verification of older exports;
 the default build updates only the current bundle (`--environment-only`),
 including its 4-, 8- and 16-slot work variants. `--native-flags-only`, `--compact-only`, `--stat-source-only`,
@@ -240,7 +258,7 @@ rebuild retained bundles for verification of older exports;
 released bundles must remain byte-identical when making a new runtime. Consolidated
 execution records use shared immutable data. The
 `PokewebAbilityCompact: 1` and `PokewebAbilityWorkSlots` metadata identify the
-execution format and selected work capacity. Versions 1–12 remain readable through
+execution format and selected work capacity. Versions 1–13 remain readable through
 their retained bundles and can be updated while preserving editor recipes.
 New modules retain `PokewebAbilityDispatchVersion: 2` and the 16-byte effect stride.
 `python3 runtime/ability-effects/test_compact.py --current` checks the consolidated
@@ -312,3 +330,11 @@ for Protect, Detect, Quick Guard, Wide Guard (doubles), non-contact, inactive
 condition, fixed damage, unprotected, opponent-holder, Gastro Acid and Skill Swap
 cases. Verified on US White 2, Black and White. Black 2 shares White 2's checked
 bindings and was link/export-checked only; the repository has no Black 2 battle harness.
+
+Simulated move weather fixtures work the same way: build the test bundle with
+`ABILITY_WEATHER_TEST=1 python3 runtime/ability-effects/build.py --weather-moves-only`
+in a disposable checkout, create fixtures with `--weather-moves` instead of
+`--protect`, and run `run_weather_cases.ts`. It checks Weather Ball's type for each
+weather and a control, Mega Sol replacing real rain, Solar Beam without a charge turn,
+an unaffected opponent, Cloud Nine, Gastro Acid, an inactive condition and the absence
+of end-of-turn weather damage. Both runners share `battle_log_runner.ts`.

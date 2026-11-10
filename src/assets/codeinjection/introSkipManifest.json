@@ -1,0 +1,60 @@
+{
+  "version": "1.0.0",
+  "overlay": 35,
+  "games": {
+    "B2": {
+      "idCode": "IREO",
+      "fileName": "IntroSkipB2.dll",
+      "sha256": "d3ff8b9f89318962a1c26921de40d1345bb56f672001b35cec334a0f470efdff",
+      "hooks": {
+        "demo": {
+          "address": "0x0217c9e8",
+          "bytes": "e0f7aef8"
+        },
+        "init": {
+          "address": "0x0217ca9c",
+          "bytes": "d6f73aff"
+        },
+        "hide": {
+          "address": "0x0217cafc",
+          "bytes": "eaf764fa"
+        },
+        "script": {
+          "address": "0x0217cb0c",
+          "bytes": "d6f7bafd"
+        },
+        "spawn": {
+          "address": "0x0217cb72",
+          "bytes": "9cf6d9fa"
+        }
+      }
+    },
+    "W2": {
+      "idCode": "IRDO",
+      "fileName": "IntroSkipW2.dll",
+      "sha256": "71f6804bd709873d32130e8a205c8a25715380d4e7f0e54c86ac90abddbb1ead",
+      "hooks": {
+        "demo": {
+          "address": "0x0217ca28",
+          "bytes": "e0f7aef8"
+        },
+        "init": {
+          "address": "0x0217cadc",
+          "bytes": "d6f73aff"
+        },
+        "hide": {
+          "address": "0x0217cb3c",
+          "bytes": "eaf764fa"
+        },
+        "script": {
+          "address": "0x0217cb4c",
+          "bytes": "d6f7bafd"
+        },
+        "spawn": {
+          "address": "0x0217cbb2",
+          "bytes": "9cf6cffa"
+        }
+      }
+    }
+  }
+}

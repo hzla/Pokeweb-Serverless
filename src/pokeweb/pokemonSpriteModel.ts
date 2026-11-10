@@ -1383,6 +1383,22 @@ type ExternalIconPaletteMap = {
   commit: (bytes: Uint8Array) => void;
 };
 
+// Parsing the ROM is the slow part (a form install asks for the map dozens of times), so the original ROM's map is
+// looked up once per ROM. Callers never write into `bytes`; they commit a new array.
+const originalIconPaletteMaps = new WeakMap<Uint8Array, { fileId: number; bytes: Uint8Array } | null>();
+
+function originalIconPaletteMap(romBytes: Uint8Array): { fileId: number; bytes: Uint8Array } | undefined {
+  let entry = originalIconPaletteMaps.get(romBytes);
+  if (entry === undefined) {
+    const rom = new NintendoDSRom(romBytes, { fileData: "view" });
+    const fileId = rom.filenames.idOf(EXTERNAL_ICON_PALETTE_MAP_PATH);
+    const bytes = fileId === undefined ? undefined : rom.files[fileId];
+    entry = fileId === undefined || !bytes ? null : { fileId, bytes };
+    originalIconPaletteMaps.set(romBytes, entry);
+  }
+  return entry ?? undefined;
+}
+
 function externalIconPaletteMap(project: ProjectState): ExternalIconPaletteMap | undefined {
   const additionKey = Object.keys(project.fileSystem?.additions ?? {}).find((candidate) => candidate.toLowerCase() === EXTERNAL_ICON_PALETTE_MAP_PATH);
   if (additionKey) {
@@ -1397,10 +1413,10 @@ function externalIconPaletteMap(project: ProjectState): ExternalIconPaletteMap |
   }
 
   if (!project.originalRomBytes) return undefined;
-  const rom = new NintendoDSRom(project.originalRomBytes);
-  const fileId = rom.filenames.idOf(EXTERNAL_ICON_PALETTE_MAP_PATH);
-  if (fileId === undefined) return undefined;
-  const bytes = project.fileSystem?.replacements?.[fileId] ?? rom.files[fileId];
+  const original = originalIconPaletteMap(project.originalRomBytes);
+  if (!original) return undefined;
+  const { fileId } = original;
+  const bytes = project.fileSystem?.replacements?.[fileId] ?? original.bytes;
   if (!bytes) return undefined;
   return {
     bytes,

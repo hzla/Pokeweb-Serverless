@@ -16,7 +16,7 @@ const recordEffect=(bytes:Uint8Array,id:number)=>{const at=readU16(bytes,id*2);r
 describe("hit through protection ability",()=>{
  it("imports Unseen Fist and Piercing Drill as editable contact recipes",()=>{
   const unseen=abilityImport(260),drill=abilityImport(1000);
-  expect(unseen).toMatchObject({label:"Unseen Fist",generation:8});expect(drill).toMatchObject({label:"Piercing Drill",group:"Pokémon Champions"});
+  expect(unseen).toMatchObject({label:"Unseen Fist",generation:8});expect(drill).toMatchObject({label:"Piercing Drill",group:"Legends Z-A"});
   expect(unseen.rule).toEqual(make(1));expect(drill.rule).toEqual(make(.25));
   for(const rule of [unseen.rule,drill.rule])expect(abilityRuleEvents(rule,NATIVE_ABILITY_PROFILES)).toEqual([]);
   const b=encodeAbilityRules(new Map([[165,unseen.rule],[166,drill.rule]]));
@@ -51,14 +51,14 @@ describe("hit through protection ability",()=>{
   expect(readU32(dll.code,api.address)).toBe(0);expect(readU32(dll.code,api.address+4)).toBe(0);
  });
  it("recognizes the previous strike runtime and updates it with its recipes intact",()=>{
-  expect(CURRENT_ABILITY_RUNTIME_VERSION).toBe(13);
+  expect(CURRENT_ABILITY_RUNTIME_VERSION).toBeGreaterThanOrEqual(13);
   const {project}=makeItemEffectsProject(0,0,true,true);
   project.fileSystem={replacements:{},additions:{[ABILITY_EFFECTS_DLL_PATH]:new Uint8Array(readFileSync(new URL("./fixtures/ability-runtime-v12/strike.dll",import.meta.url)))}};
   const before=inspectAbilityEffects(project);expect(before).toMatchObject({editable:true,runtimeVersion:12});
   expect(parseRpm(project.fileSystem.additions![ABILITY_EFFECTS_DLL_PATH],{allowedMagics:["DLXF"]}).metadata.PokewebAbilityProtect).toBeUndefined();
   const upgraded=new Map([...before.rules,[166,make(.25)]]);
   project.fileSystem.additions![ABILITY_EFFECTS_DLL_PATH]=writeRpm(buildAbilityRuleModule(project,upgraded),{ident:"DLXF"});
-  expect(inspectAbilityEffects(project)).toMatchObject({editable:true,runtimeVersion:13,rules:upgraded});
+  expect(inspectAbilityEffects(project)).toMatchObject({editable:true,runtimeVersion:CURRENT_ABILITY_RUNTIME_VERSION,rules:upgraded});
  });
  it.each(["GetTurnFlag","BattleEvent_SeekItem"])("rejects a modified %s before installing",name=>{
   const {project,offsets}=makeItemEffectsProject(0,0,true,true);

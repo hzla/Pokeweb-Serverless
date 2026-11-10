@@ -72,6 +72,11 @@ import { getLevelCapsStatus, installLevelCaps } from "../pokeweb/levelCapsModel"
 import { getTrainerLevelCapsStatus, installTrainerLevelCaps } from "../pokeweb/trainerLevelCapsModel";
 import { getForgettableHmsPmcStatus, stageForgettableHmsPmc } from "../pokeweb/forgettableHmsRuntime";
 import { getAutorunStatus, stageAutorun, uninstallAutorun } from "../pokeweb/autorunModel";
+import { convertSaveForItemExpansion, convertSaveFromItemExpansion, getItemExpansionStatus, isItemExpansionInstalled, stageItemExpansion, uninstallItemExpansion } from "../pokeweb/itemExpansionModel";
+import { MEGA_CREDITS, getMegaEvolutionStatus, setMegaEvolutionConfig, stageMegaEvolution, uninstallMegaEvolution, type MegaRoute } from "../pokeweb/megaEvolutionModel";
+import { getMegaContentStatus, installMegaContent, megaSpriteCredits, stageMegaAnimation } from "../pokeweb/megaContentModel";
+import { downloadBytes } from "../pokeweb/fileSystemModel";
+import { getIntroSkipStatus, stageIntroSkip, uninstallIntroSkip } from "../pokeweb/introSkipModel";
 import { TESTING_PATCHES, getTestingPatchStatus, installTestingPatch, uninstallTestingPatch, type TestingPatchId } from "../pokeweb/testingPatchesModel";
 import { getBattleTypeHudStatus, installBattleTypeHud, uninstallBattleTypeHud, getMoveEffectivenessStatus, installMoveEffectiveness, uninstallMoveEffectiveness, DEFAULT_MOVE_HIGHLIGHT_COLORS, type MoveHighlightColors, type TypeIconVariant } from "../pokeweb/battleTypeHudModel";
 import {
@@ -147,6 +152,13 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const bgmToggleSupported = bgmToggleStatus !== "unsupported";
   const forgettableHmsStatus = getForgettableHmsPmcStatus(project);
   const autorunStatus = getAutorunStatus(project);
+  const itemExpansionStatus = getItemExpansionStatus(project);
+  const introSkipStatus = getIntroSkipStatus(project);
+  const megaStatus = getMegaEvolutionStatus(project);
+  const megaContentStatus = getMegaContentStatus(project);
+  const megaConfig = project.codeInjection?.megaEvolution;
+  // One button: Item Expansion, the PWAN runtime, the Mega runtime, the Mega Pokémon and their stones and routes.
+  const megaInstallEnabled = megaContentStatus.installed ? megaStatus.updateAvailable || megaContentStatus.animationMissing : megaContentStatus.ready;
   const forgettableHmsSupported = forgettableHmsStatus !== "unsupported";
   const infiniteCandyStatus = getInfiniteCandyStatus(project, pendingCandyItemIds.get(project));
   const infiniteCandyItemId = infiniteCandyStatus.itemId ?? getInstalledInfiniteCandyItemId(project) ?? 622;
@@ -429,6 +441,31 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div class="code-injection-note" id="battle-log-note" aria-live="polite"></div>
           </div>
         </section>
+        <section class="code-injection-panel" ${patchVisibility(itemExpansionStatus.supported)}>
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Item Expansion</h2>
+              <p>Item IDs up to 1023 and pokebw2's shared bag: one pool of 1,023 distinct items instead of fixed pockets. Items 639–1023 exist once they are named in the item editor. Uses a new save format: convert existing saves below. Pal Pad, Wi-Fi friend and Unity Tower data stop being saved.</p>
+            </div>
+            ${renderInlineStatus(!itemExpansionStatus.supported ? "Unsupported" : itemExpansionStatus.installed ? itemExpansionStatus.updateAvailable ? "Update Available" : "Installed" : itemExpansionStatus.compatible ? "Ready" : "Incompatible", { className: "code-injection-status" })}
+          </div>
+          <div class="code-injection-facts">
+            <div><span>Item IDs</span><strong>1–1023</strong></div>
+            <div><span>New items named</span><strong>${itemExpansionStatus.installed ? itemExpansionStatus.authoredExtraItems : "—"}</strong></div>
+            <div><span>Bag</span><strong>1,023 shared slots</strong></div>
+            <div><span>Save format</span><strong>${itemExpansionStatus.installed ? "Expanded" : "Retail"}</strong></div>
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-item-expansion-btn" type="button" ${itemExpansionStatus.compatible && (!itemExpansionStatus.installed || itemExpansionStatus.updateAvailable) ? "" : "disabled"}${itemExpansionStatus.compatible || !itemExpansionStatus.message ? "" : ` title="${escapeHtml(itemExpansionStatus.message)}"`}>
+              ${itemExpansionStatus.installed ? itemExpansionStatus.updateAvailable ? "Update Item Expansion" : "Item Expansion Installed" : "Install Item Expansion"}
+            </button>
+            <button class="btn -default" id="convert-item-save-btn" type="button" ${itemExpansionStatus.installed ? "" : "disabled"}>Convert Save to Expanded…</button>
+            <button class="btn -default" id="revert-item-save-btn" type="button" ${itemExpansionStatus.installed ? "" : "disabled"}>Convert Save to Retail…</button>
+            <button class="btn -default -remove" id="uninstall-item-expansion-btn" type="button" ${itemExpansionStatus.canUninstall ? "" : "disabled"}>Uninstall Item Expansion</button>
+            <input id="item-expansion-save-input" type="file" accept=".sav" hidden />
+            <div class="code-injection-note" id="item-expansion-note" aria-live="polite"></div>
+          </div>
+        </section>
         </section>
         <section class="code-injection-tab-panel" id="code-injection-panel-graphics" role="tabpanel" aria-labelledby="code-injection-tab-graphics" tabindex="0" ${activeTab === "graphics" ? "" : "hidden"}>
         <section class="code-injection-panel" ${patchVisibility(naturePalettesSupported(project))}><div class="code-injection-panel__header"><div><h2>Nature Palettes</h2><p>25 normal/shiny palette pairs per form. Edit in the Pokémon sprite editor.</p></div></div>${renderNaturePaletteInstaller(project)}</section>
@@ -627,6 +664,28 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div class="code-injection-note" id="autorun-note" aria-live="polite"></div>
           </div>
         </section>
+        <section class="code-injection-panel" ${patchVisibility(introSkipStatus.supported)}>
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Skip Intro</h2>
+              <p>A new game starts in the player's room, in control, right after Professor Juniper's introduction. Skips the Aspertia City flyover, mom's call outside the house and her "I'm home!" scene. Mom waits inside, and the story continues as usual.</p>
+            </div>
+            ${renderInlineStatus(!introSkipStatus.supported ? "Unsupported" : introSkipStatus.installed ? introSkipStatus.updateAvailable ? "Update Available" : "Installed" : introSkipStatus.compatible ? "Ready" : "Incompatible", { className: "code-injection-status" })}
+          </div>
+          <div class="code-injection-facts">
+            <div><span>ROM</span><strong>US Black 2 / White 2</strong></div>
+            <div><span>Hooks</span><strong>Overlay 35 new-game events</strong></div>
+            <div><span>Saves</span><strong>New games only</strong></div>
+            <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-intro-skip-btn" type="button" ${introSkipStatus.compatible && (!introSkipStatus.installed || introSkipStatus.updateAvailable) ? "" : "disabled"}${introSkipStatus.compatible || !introSkipStatus.message ? "" : ` title="${escapeHtml(introSkipStatus.message)}"`}>
+              ${introSkipStatus.installed ? introSkipStatus.updateAvailable ? "Update Skip Intro" : "Skip Intro Installed" : "Install Skip Intro"}
+            </button>
+            <button class="btn -default -remove" id="uninstall-intro-skip-btn" type="button" ${introSkipStatus.canUninstall ? "" : "disabled"}>Uninstall Skip Intro</button>
+            <div class="code-injection-note" id="intro-skip-note" aria-live="polite"></div>
+          </div>
+        </section>
         </section>
         <section class="code-injection-tab-panel" id="code-injection-panel-add-ons" role="tabpanel" aria-labelledby="code-injection-tab-add-ons" tabindex="0" ${activeTab === "add-ons" ? "" : "hidden"}>
         <section class="code-injection-panel" ${patchVisibility(infiniteCandyStatus.supported)}>
@@ -804,6 +863,57 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-form-evolution-btn" type="button" ${formEvolutionStatus === "unpatched" ? "" : "disabled"}>${formEvolutionInstalled ? "Installed" : "Install Added-Form Evolution Support"}</button>
             <div class="code-injection-note" id="form-evolution-note" aria-live="polite"></div>
+          </div>
+        </section>
+        <section class="code-injection-panel" ${patchVisibility(megaStatus.supported)}>
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Mega Evolution</h2>
+            </div>
+            ${renderInlineStatus(!megaStatus.supported ? "Unsupported" : megaStatus.installed ? megaStatus.updateAvailable ? "Update Available" : "Installed" : megaStatus.compatible ? "Ready" : "Incompatible", { className: "code-injection-status" })}
+          </div>
+          <div class="code-injection-facts">
+            <div><span>Routes</span><strong>${megaStatus.installed ? megaStatus.routes : "—"}</strong></div>
+            <div><span>Turn order</span><strong>Generation 7</strong></div>
+            <div><span>Mega Pokémon</span><strong>${megaContentStatus.installed ? `${megaContentStatus.forms} installed` : megaContentStatus.ready ? "Ready" : "—"}</strong></div>
+            <div><span>Credits</span><strong>${MEGA_CREDITS.map((credit) => `${escapeHtml(credit.name)} (${escapeHtml(credit.role)})`).join("; ")}</strong></div>
+          </div>
+          ${megaConfig ? `<details class="code-injection-mega-routes">
+            <summary>Routes (${megaConfig.routes.length}) and messages</summary>
+            <table class="code-injection-table">
+              <thead><tr><th>Species ID</th><th>Item / move ID</th><th>Move trigger</th><th>Form</th><th>Mega form</th><th></th></tr></thead>
+              <tbody id="mega-route-rows">${megaConfig.routes.map((route, index) => `<tr data-mega-route="${index}">
+                <td><input type="number" min="1" max="65535" value="${route.species}" data-field="species" aria-label="Route ${index + 1} species ID"></td>
+                <td><input type="number" min="1" max="65535" value="${route.trigger}" data-field="trigger" aria-label="Route ${index + 1} trigger ID"></td>
+                <td><input type="checkbox" data-field="moveTrigger" ${route.moveTrigger ? "checked" : ""} aria-label="Route ${index + 1} is triggered by a move"></td>
+                <td><input type="number" min="0" max="31" value="${route.sourceForm}" data-field="sourceForm" aria-label="Route ${index + 1} form"></td>
+                <td><input type="number" min="1" max="31" value="${route.targetForm}" data-field="targetForm" aria-label="Route ${index + 1} Mega form"></td>
+                <td><button class="btn -default -remove" type="button" data-remove-mega-route="${index}">Remove</button></td>
+              </tr>`).join("")}</tbody>
+            </table>
+            <div class="code-injection-facts">
+              <label><span>“Reacting” message</span><input id="mega-msg-reacting" type="number" min="0" max="65535" value="${megaConfig.messages.reacting}"></label>
+              <label><span>“Mega Evolved” message</span><input id="mega-msg-evolved" type="number" min="0" max="65535" value="${megaConfig.messages.evolved}"></label>
+              <label><span>“Fervent wish” message</span><input id="mega-msg-wish" type="number" min="0" max="65535" value="${megaConfig.messages.wish}"></label>
+              <label><span>Animation</span><input id="mega-animation" type="number" min="0" max="65535" value="${megaConfig.animationMove}" title="0 plays the native form change"></label>
+              <label><span>Trainers Mega Evolve</span><input id="mega-auto-foes" type="checkbox" ${megaConfig.autoFoes ? "checked" : ""}></label>
+            </div>
+          </details>` : ""}
+          ${megaContentStatus.supported ? `<details class="code-injection-mega-credits">
+            <summary>Mega sprite credits</summary>
+            <table class="code-injection-table">
+              <thead><tr><th>Mega</th><th>Front</th><th>Back</th></tr></thead>
+              <tbody>${megaSpriteCredits().map((credit) => `<tr><td>${escapeHtml(credit.name)}</td><td>${escapeHtml(credit.front)}</td><td>${escapeHtml(credit.back)}</td></tr>`).join("")}</tbody>
+            </table>
+          </details>` : ""}
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-mega-btn" type="button" ${megaInstallEnabled ? "" : "disabled"}${megaInstallEnabled || !megaContentStatus.message ? "" : ` title="${escapeHtml(megaContentStatus.message)}"`}>
+              ${megaContentStatus.installed ? megaStatus.updateAvailable || megaContentStatus.animationMissing ? "Update Mega Evolution" : "Mega Evolution Installed" : "Install Mega Evolution"}
+            </button>
+            <button class="btn -default" id="add-mega-route-btn" type="button" ${megaConfig ? "" : "disabled"}>Add Route</button>
+            <button class="btn -default" id="save-mega-routes-btn" type="button" ${megaConfig ? "" : "disabled"}>Save Routes</button>
+            <button class="btn -default -remove" id="uninstall-mega-btn" type="button" ${megaStatus.canUninstall ? "" : "disabled"}>Uninstall Mega Evolution</button>
+            <div class="code-injection-note" id="mega-evolution-note" aria-live="polite"></div>
           </div>
         </section>
         </section>
@@ -1133,6 +1243,159 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     }
   });
 
+  const itemExpansionButton = root.querySelector<HTMLButtonElement>("#install-item-expansion-btn");
+  itemExpansionButton?.addEventListener("click", async () => {
+    const note = root.querySelector<HTMLDivElement>("#item-expansion-note");
+    const previousText = itemExpansionButton.textContent ?? "Install Item Expansion";
+    try {
+      itemExpansionButton.disabled = true;
+      itemExpansionButton.textContent = "Installing...";
+      const result = await install(candidate => stageItemExpansion(candidate));
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+      const refreshedNote = root.querySelector<HTMLDivElement>("#item-expansion-note");
+      if (refreshedNote) refreshedNote.textContent = `Item expansion staged (${result.addedItemSlots} new item slots). Export the ROM, and convert existing saves before using them with it.`;
+    } catch (error) {
+      itemExpansionButton.disabled = false;
+      itemExpansionButton.textContent = previousText;
+      if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+  const itemSaveInput = root.querySelector<HTMLInputElement>("#item-expansion-save-input");
+  let itemSaveDirection: "expanded" | "retail" = "expanded";
+  for (const [id, direction] of [["#convert-item-save-btn", "expanded"], ["#revert-item-save-btn", "retail"]] as const) {
+    root.querySelector<HTMLButtonElement>(id)?.addEventListener("click", () => {
+      itemSaveDirection = direction;
+      if (itemSaveInput) { itemSaveInput.value = ""; itemSaveInput.click(); }
+    });
+  }
+  itemSaveInput?.addEventListener("change", async () => {
+    const note = root.querySelector<HTMLDivElement>("#item-expansion-note");
+    const file = itemSaveInput.files?.[0];
+    if (!file) return;
+    try {
+      const source = new Uint8Array(await file.arrayBuffer());
+      const { bytes, report } = itemSaveDirection === "expanded" ? convertSaveForItemExpansion(project, source) : convertSaveFromItemExpansion(project, source);
+      const name = file.name.replace(/\.sav$/iu, "") + (itemSaveDirection === "expanded" ? "-expanded-items.sav" : "-retail.sav");
+      downloadBytes(bytes, name);
+      if (note) note.textContent = `Converted ${file.name} (${report.bagItems} bag items${report.palPadBattleLogKept ? ", Battle Log records kept" : ""}) to ${name}. The original file is unchanged.`;
+    } catch (error) {
+      if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+  root.querySelector<HTMLButtonElement>("#uninstall-item-expansion-btn")?.addEventListener("click", async () => {
+    const note = root.querySelector<HTMLDivElement>("#item-expansion-note");
+    try {
+      uninstallItemExpansion(project);
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+    } catch (error) {
+      if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+
+  const megaNote = () => root.querySelector<HTMLDivElement>("#mega-evolution-note");
+  const readMegaRoutes = (): MegaRoute[] => [...root.querySelectorAll<HTMLTableRowElement>("[data-mega-route]")].map((row) => {
+    const value = (field: string) => Number(row.querySelector<HTMLInputElement>(`[data-field="${field}"]`)?.value ?? 0);
+    return {
+      species: value("species"), trigger: value("trigger"), sourceForm: value("sourceForm"), targetForm: value("targetForm"),
+      ...(row.querySelector<HTMLInputElement>('[data-field="moveTrigger"]')?.checked ? { moveTrigger: true } : {}),
+    };
+  });
+  const saveMegaConfig = (routes: MegaRoute[]) => {
+    const number = (id: string) => Number(root.querySelector<HTMLInputElement>(id)?.value ?? 0);
+    setMegaEvolutionConfig(project, {
+      routes,
+      messages: { reacting: number("#mega-msg-reacting"), evolved: number("#mega-msg-evolved"), wish: number("#mega-msg-wish") },
+      animationMove: number("#mega-animation"),
+      autoFoes: root.querySelector<HTMLInputElement>("#mega-auto-foes")?.checked ?? true,
+    });
+    onDirty();
+    renderCodeInjectionEditor(project, root, onDirty);
+  };
+  const megaButton = root.querySelector<HTMLButtonElement>("#install-mega-btn");
+  megaButton?.addEventListener("click", async () => {
+    const previousText = megaButton.textContent ?? "Install Mega Evolution";
+    try {
+      megaButton.disabled = true;
+      megaButton.textContent = "Installing...";
+      const contentStatus = getMegaContentStatus(project);
+      if (contentStatus.installed) {
+        const updated = await install(async (candidate) => {
+          const changes: string[] = [];
+          if (getMegaEvolutionStatus(candidate).updateAvailable) changes.push(`${(await stageMegaEvolution(candidate)).dll} updated`);
+          if (contentStatus.animationMissing) { await stageMegaAnimation(candidate); changes.push("transformation animation added"); }
+          return changes;
+        });
+        onDirty();
+        renderCodeInjectionEditor(project, root, onDirty);
+        const refreshed = megaNote();
+        if (refreshed) refreshed.textContent = `Mega Evolution: ${updated.join(", ")}.`;
+        return;
+      }
+      const itemsWereInstalled = isItemExpansionInstalled(project);
+      const report = await installMegaContent(project, (stage) => install(stage));
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+      const skipped = report.skipped;
+      const notes = [
+        `${report.forms.length} Mega Pokémon, their ${report.stones} Mega Stones, routes and the transformation animation installed.`,
+        itemsWereInstalled ? "" : "Item Expansion was installed: convert existing saves on the Item Expansion card.",
+        report.abilitiesAdded.length ? `Abilities added: ${report.abilitiesAdded.join(", ")}.` : "",
+        skipped.length ? `Skipped: ${skipped.map((skip) => `${skip.name} (${skip.reason})`).join("; ")}.` : "",
+        report.abilityFallbacks.length ? `Kept the base ability: ${report.abilityFallbacks.join("; ")}.` : "",
+        report.typeFallbacks.length ? `Kept the base type: ${report.typeFallbacks.join("; ")}.` : "",
+      ].filter(Boolean);
+      const refreshed = megaNote();
+      if (refreshed) refreshed.textContent = notes.join(" ");
+    } catch (error) {
+      megaButton.disabled = false;
+      megaButton.textContent = previousText;
+      const note = megaNote();
+      if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+  root.querySelector<HTMLButtonElement>("#add-mega-route-btn")?.addEventListener("click", () => {
+    try {
+      // A new row starts as a copy of the last one so its numbers can be adjusted; saving validates it.
+      const routes = readMegaRoutes();
+      const last = routes.at(-1);
+      project.codeInjection!.megaEvolution!.routes = [...routes, last ? { ...last, targetForm: last.targetForm + 1 } : { species: 6, trigger: 1, sourceForm: 0, targetForm: 1 }];
+      renderCodeInjectionEditor(project, root, onDirty);
+    } catch (error) {
+      const note = megaNote();
+      if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+  root.querySelectorAll<HTMLButtonElement>("[data-remove-mega-route]").forEach((button) => button.addEventListener("click", () => {
+    try {
+      saveMegaConfig(readMegaRoutes().filter((_, index) => index !== Number(button.dataset.removeMegaRoute)));
+    } catch (error) {
+      const note = megaNote();
+      if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
+  }));
+  root.querySelector<HTMLButtonElement>("#save-mega-routes-btn")?.addEventListener("click", () => {
+    try {
+      saveMegaConfig(readMegaRoutes());
+      const note = megaNote();
+      if (note) note.textContent = "Mega routes saved.";
+    } catch (error) {
+      const note = megaNote();
+      if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+  root.querySelector<HTMLButtonElement>("#uninstall-mega-btn")?.addEventListener("click", () => {
+    try {
+      uninstallMegaEvolution(project);
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+    } catch (error) {
+      const note = megaNote();
+      if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+
   const autorunButton = root.querySelector<HTMLButtonElement>("#install-autorun-btn");
   autorunButton?.addEventListener("click", async () => {
     const note = root.querySelector<HTMLDivElement>("#autorun-note");
@@ -1156,6 +1419,36 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     const note = root.querySelector<HTMLDivElement>("#autorun-note");
     try {
       await uninstallAutorun(project);
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+    } catch (error) {
+      if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+
+  const introSkipButton = root.querySelector<HTMLButtonElement>("#install-intro-skip-btn");
+  introSkipButton?.addEventListener("click", async () => {
+    const note = root.querySelector<HTMLDivElement>("#intro-skip-note");
+    const previousText = introSkipButton.textContent ?? "Install Skip Intro";
+    try {
+      introSkipButton.disabled = true;
+      introSkipButton.textContent = "Installing...";
+      if (note) note.textContent = status.installed ? "Staging Skip Intro." : "Installing PMC, then staging Skip Intro.";
+      await install(candidate => stageIntroSkip(candidate));
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+      const refreshedNote = root.querySelector<HTMLDivElement>("#intro-skip-note");
+      if (refreshedNote) refreshedNote.textContent = "Skip Intro staged. Export the ROM and start a new game to see it.";
+    } catch (error) {
+      introSkipButton.disabled = false;
+      introSkipButton.textContent = previousText;
+      if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+  root.querySelector<HTMLButtonElement>("#uninstall-intro-skip-btn")?.addEventListener("click", async () => {
+    const note = root.querySelector<HTMLDivElement>("#intro-skip-note");
+    try {
+      await uninstallIntroSkip(project);
       onDirty();
       renderCodeInjectionEditor(project, root, onDirty);
     } catch (error) {

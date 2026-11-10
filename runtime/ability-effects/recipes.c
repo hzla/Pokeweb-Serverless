@@ -27,6 +27,11 @@ static u32 recipeMove,recipeCritical,recipeEffectiveness,entrySource;
 #ifdef ABILITY_STRIKES
 #include "strikes.c"
 #endif
+#ifdef ABILITY_WEATHER_MOVES
+static void weatherInit(void);
+static void weatherBefore(void*,u32);
+static void weatherAfter(void*,u32);
+#endif
 #ifdef ABILITY_PROTECT
 typedef struct {u32*flags[2];u32 count;} ProtectPause;
 static void protectInit(void);
@@ -69,6 +74,9 @@ PUBLIC void AbilityRecipeInit(void){
 #ifdef ABILITY_PROTECT
  protectInit();
 #endif
+#ifdef ABILITY_WEATHER_MOVES
+ weatherInit();
+#endif
 #ifdef ABILITY_SCOPED
  scopedInit();
 #endif
@@ -90,9 +98,15 @@ PUBLIC void AbilityRecipeHandlers(void*f,u32 event,u32 factor,u32 check){
 #ifdef ABILITY_PROTECT
  ProtectPause pause;protectBefore(f,event,&pause);
 #endif
+#ifdef ABILITY_WEATHER_MOVES
+ weatherBefore(f,event);
+#endif
  RX(22,void(*)(void*,u32,u32,u32))(f,event,factor,check);entrySource=previous;
 #ifdef ABILITY_PROTECT
  protectAfter(f,event,&pause);
+#endif
+#ifdef ABILITY_WEATHER_MOVES
+ weatherAfter(f,event);
 #endif
 #ifdef ABILITY_STRIKES
  strikeAfterHandlers(f,event);
@@ -154,6 +168,9 @@ static u32 conversionMatch(u32 filter,u32 move,u32 flags){
 }
 #ifdef ABILITY_PROTECT
 #include "protect.c"
+#endif
+#ifdef ABILITY_WEATHER_MOVES
+#include "weather.c"
 #endif
 static u32 recipeStage(void*item,void*f,u8 owner,u8 target,u32 stat,s32 value,u32 chance){
  u8 staged[16]={11,0,0,0,0,0,100};staged[1]=stat;put16(staged+2,value);staged[6]=chance;return action(item,f,owner,staged,target);

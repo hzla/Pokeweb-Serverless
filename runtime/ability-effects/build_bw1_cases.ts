@@ -1,6 +1,7 @@
 import {environmentCases} from "./environment_cases";
 import {strikeCases} from "./strike_cases";
 import {protectCases} from "./protect_cases";
+import {weatherCases} from "./weather_cases";
 import { abilityExecutionLayout } from "../../src/pokeweb/abilityRecipeOptimization";
 import {statSourceCases} from "./stat_source_cases";
 import { prepareCustomFlagCases, customFlagCases } from "./custom_flag_cases";
@@ -102,7 +103,7 @@ if(actionResultsMode){
  rules.set(222,{effects:[{kind:"abilityRecipe:fieldPower",value:1.333333,parameters:{type:10}}],conditions:all});
  for(const[id,chance]of [[223,1],[224,100],[226,30]])rules.set(id,{effects:[{kind:"status",value:7,trigger:"afterAttack",target:"defender",chance}],conditions:all});
 }
-const statusPopups = process.argv.includes("--protect") ? protectCases() : process.argv.includes("--strikes") ? strikeCases() : process.argv.includes("--environment") ? environmentCases() : process.argv.includes("--stat-source") ? statSourceCases() : process.argv.includes("--status-popups") ? statusPopupCases() : undefined;
+const statusPopups = process.argv.includes("--weather-moves") ? weatherCases() : process.argv.includes("--protect") ? protectCases() : process.argv.includes("--strikes") ? strikeCases() : process.argv.includes("--environment") ? environmentCases() : process.argv.includes("--stat-source") ? statSourceCases() : process.argv.includes("--status-popups") ? statusPopupCases() : undefined;
 if(statusPopups){rules.clear();for(const[id,rule]of inspectAbilityEffects(project).rules)rules.set(id,rule);for(const[id,rule]of statusPopups.rules)rules.set(id,rule);}
 for(const[id,r]of rules)rules.set(id,validateAbilityRule(r));
 // Every imported recipe is linked with this game's native services before fixtures.

@@ -1,5 +1,4 @@
 #include "native_follow.h"
-#include "native_shadow.h"
 #include "scene.h"
 #include "render_math.h"
 #include <limits.h>
@@ -154,24 +153,27 @@ int fwn_idle_pose(FwNativeRoute *r,Actor *a,Actor *p,FwSample *pose){
     next.y=height;if(!fws_step_clear(a,&next))return 0;
     pose->x=next.x;pose->y=next.y;pose->z=next.z;pose->direction=(uint8_t)fwn_facing(p);return 1;
 }
-int fwn_body_position(Actor *a,void *camera,const FwPoint *native,int sprite_y,FwPoint *out){
+int fwn_ground_position(Actor *a,void *camera,const FwPoint *native,FwPoint *out){
     if(!a||!native||!out)return 0;
     *out=*native;
+    unsigned node=a->descriptor[3];
+    if(camera&&a->system&&(node==10||node==11)){
+        void *mapper=CALL(0x02166fe9,void*(*)(void*))(a->system);
+        if(mapper&&CALL(0x021b3d5d,int(*)(void*))(mapper)){
+            FwrCamera view={*(FwPoint*)((uint8_t*)camera+32),*(FwPoint*)((uint8_t*)camera+56),U32(camera,0)};
+            FwPoint anchor={a->drawOffset.x,0,a->drawOffset.z};
+            return fwr_camera_anchor(native,&anchor,&view,out);
+        }
+    }
+    return 1;
+}
+int fwn_body_position(Actor *a,void *camera,const FwPoint *native,int sprite_y,FwPoint *out){
+    if(!fwn_ground_position(a,camera,native,out))return 0;
     int64_t y=(int64_t)native->y+(int64_t)(sprite_y-(int8_t)a->descriptor[14])*4096;
     if(y<INT32_MIN||y>INT32_MAX)return 0;
     out->y=(int32_t)y;
     if(camera){
         FwrCamera view={*(FwPoint*)((uint8_t*)camera+32),*(FwPoint*)((uint8_t*)camera+56),U32(camera,0)};
-        unsigned node=a->descriptor[3];
-        if(a->system&&(node==10||node==11)){
-            void *mapper=CALL(0x02166fe9,void*(*)(void*))(a->system);
-            if(mapper&&CALL(0x021b3d5d,int(*)(void*))(mapper)){
-                /* Native grid-sprite alignment belongs to the camera's X/Z
-                 * basis on rail maps. Shadows retain their native ground. */
-                FwPoint anchor={a->drawOffset.x,0,a->drawOffset.z},position;
-                if(fwr_camera_anchor(out,&anchor,&view,&position))*out=position;
-            }
-        }
         /* Visual bobbing stays in the billboard plane, preserving depth. */
         int64_t bob=(int64_t)a->drawOffset.y+a->externalOffset.y;
         FwPoint position;
@@ -179,27 +181,26 @@ int fwn_body_position(Actor *a,void *camera,const FwPoint *native,int sprite_y,F
     }
     return 1;
 }
-typedef struct{uint16_t geom,pad;FwPoint position;uint16_t frame;int16_t sx,sy;uint16_t rotation,flags,pad2;} NativeBillboard;
-_Static_assert(sizeof(NativeBillboard)==28,"native billboard layout");
+FwnBillboard *fwn_billboard(void *system,Actor *a){
+    if(!system||!a||!a->system||(a->flags&5u)!=1u)return 0;
+    void *fieldBl=PTR(a->system,0x28),*scene=PTR(system,4),*slots=PTR(system,0x18);
+    unsigned count=*(uint16_t*)((uint8_t*)system+0x1c);
+    if(!fieldBl||PTR(fieldBl,4)!=system||!scene||!PTR(scene,8)||!slots||count>256)return 0;
+    unsigned slot=CALL(0x02167241,unsigned(*)(Actor*,unsigned))(a,0);
+    if(slot>=count)return 0;
+    unsigned index=U32(slots,slot*40),actors=*(uint16_t*)((uint8_t*)scene+14);
+    if(actors>256||index>=actors)return 0;
+    return (FwnBillboard*)PTR(scene,8)+index;
+}
 void fwn_draw(void *system,void *camera,void *light,Actor *a,int sprite_y){
-    NativeBillboard *body=0;FwPoint original={0};uint16_t originalFlags=0;int change=0;
-    if(system&&a&&(a->flags&5u)==1u){
-        /* Use the actor's native scene-node index, never a nearest billboard. */
-        unsigned slot=CALL(0x02167241,unsigned(*)(Actor*,unsigned))(a,0);
-        void *fieldBl=PTR(a->system,0x28),*scene=PTR(system,4),*slots=PTR(system,0x18);
-        unsigned index=0xffffu;
-        if(fieldBl&&PTR(fieldBl,4)==system&&slots&&slot<*(uint16_t*)((uint8_t*)system+0x1c))
-            index=U32(slots,slot*40);
-        if(scene&&PTR(scene,8)&&index<*(uint16_t*)((uint8_t*)scene+14)){
-            body=(NativeBillboard*)PTR(scene,8)+index;original=body->position;originalFlags=body->flags;
-            FwPoint position;
-            if(fwn_body_position(a,(body->geom>>14)==0?camera:0,&original,sprite_y,&position)){
-                body->position=position;change=1;
-                if((body->geom>>14)==0&&*((uint8_t*)scene+36)==0)
-                    body->flags=(uint16_t)((body->flags&~0x1e0u)|(FWN_SHADOW_BODY_ID<<5));
-            }
+    FwnBillboard *body=fwn_billboard(system,a);FwPoint original={0};int change=0;
+    if(body){
+        original=body->position;
+        FwPoint position;
+        if(fwn_body_position(a,(body->geom>>14)==0?camera:0,&original,sprite_y,&position)){
+            body->position=position;change=1;
         }
     }
     CALL(0x0204f685,void(*)(void*,void*,void*))(system,camera,light);
-    if(change){body->position=original;body->flags=originalFlags;}
+    if(change)body->position=original;
 }

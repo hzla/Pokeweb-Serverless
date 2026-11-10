@@ -16,6 +16,7 @@ import environmentTemplates from "../assets/data/abilityRuleRuntimeEnvironment.j
 import environmentBindings from "../assets/data/abilityEnvironmentBindings.json";
 import strikeTemplates from "../assets/data/abilityRuleRuntimeStrikes.json";
 import protectTemplates from "../assets/data/abilityRuleRuntimeProtect.json";
+import weatherMoveTemplates from "../assets/data/abilityRuleRuntimeWeatherMoves.json";
 import strikeBindings from "../assets/data/abilityStrikeBindings.json";
 import nativeFlagTemplates from "../assets/data/abilityRuleRuntimeNativeFlags.json";
 import { vanillaMoveFlagIndex } from "./abilityMoveFilters";
@@ -63,7 +64,7 @@ import { isVerifiedBattleCounterImport } from "./battleLogModel";
 import { detectSpecifyTrainerNaturesPatch, specifyTrainerNatures } from "./romPatchModel";
 import type { ProjectState } from "./projectStore";
 export const ABILITY_EFFECTS_DLL_PATH = "patches/AbilityEffects.dll";
-export const CURRENT_ABILITY_RUNTIME_VERSION = 13;
+export const CURRENT_ABILITY_RUNTIME_VERSION = 14;
 const retired = Uint8Array.of(80, 87, 65, 82);
 const optimizedRuntime = new Map<unknown, unknown>([
     [template, optimizedTemplates["abilityRuleRuntime.json"]],
@@ -328,7 +329,7 @@ function storedPresentationMessages(c:Context): number[] | undefined {
     if(!Array.isArray(ids)||!(version6?[15,33]:[15]).includes(ids.length)||ids.some(id=>!Number.isInteger(id)||id<0||id>65532))throw Error("Invalid ability presentation messages.");
     return ids;
 }
-function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, previewHook = false, clientHooks = true, popupGroups = true, optimized = true, chainOwner = false, skipItemMoveParam = false, modern = true, overrides: ReadonlyMap<number, number> = storedMoveClasses(c), battleMessages = modern, blockMessage = storedBlockMessage(c), presentationMessages = storedPresentationMessages(c), automatic: ReadonlyMap<number,number> = battleMessages ? automaticMoveClasses(c,true) : new Map(), customFlags = true, registry: CustomMoveFlagRegistry = storedCustomMoveFlags(c), actionResults = true, statSource = true, compact = true, compactExecution = true, nativeFlags = true, environment = true, strikes = true, protect = true): RpmModule {
+function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, previewHook = false, clientHooks = true, popupGroups = true, optimized = true, chainOwner = false, skipItemMoveParam = false, modern = true, overrides: ReadonlyMap<number, number> = storedMoveClasses(c), battleMessages = modern, blockMessage = storedBlockMessage(c), presentationMessages = storedPresentationMessages(c), automatic: ReadonlyMap<number,number> = battleMessages ? automaticMoveClasses(c,true) : new Map(), customFlags = true, registry: CustomMoveFlagRegistry = storedCustomMoveFlags(c), actionResults = true, statSource = true, compact = true, compactExecution = true, nativeFlags = true, environment = true, strikes = true, protect = true, weatherMoves = true): RpmModule {
     actionResults = actionResults && battleMessages && customFlags;
     statSource = statSource && actionResults;
     if(compact && !statSource) throw Error("Compact ability packaging requires the current runtime.");
@@ -337,6 +338,8 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
     if(!nativeFlags && [...entries.values()].some(rule=>rule.effects.some(e=>vanillaMoveFlagIndex(e.parameters?.moveClass??0)!==undefined)))throw Error("The saved ability runtime cannot support native move flag filters.");
     if(strikes&&!environment)throw Error("Additional strikes require the current ability runtime.");
     if(protect&&!strikes)throw Error("Hitting through protection requires the current ability runtime.");
+    if(weatherMoves&&!protect)throw Error("Simulated move weather requires the current ability runtime.");
+    if(!weatherMoves&&[...entries.values()].some(r=>r.effects.some(e=>e.kind==="abilityRecipe:moveWeather")))throw Error("The saved ability runtime cannot support simulated move weather.");
     if(!protect&&[...entries.values()].some(r=>r.effects.some(e=>e.kind==="abilityRecipe:protectBypass")))throw Error("The saved ability runtime cannot support hitting through protection.");
     if(!strikes&&[...entries.values()].some(r=>r.effects.some(e=>e.kind==="abilityRecipe:additionalStrike")))throw Error("The saved ability runtime cannot support additional strikes.");
     if(environment&&!nativeFlags)throw Error("Entry conditions and selective damage guards require the current ability runtime.");
@@ -366,7 +369,7 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
         : traps ? clientTemplate : recipes ? recipeTemplate : library ? libraryTemplate : priority ? priorityTemplate : template;
     if (modern && (!optimized || !popupGroups)) throw Error("Expanded Flags require the current ability runtime.");
     const compactName=Object.entries(statSourceTemplates).find(([,value])=>value===statSourceRuntime.get(legacyTemplate))?.[0];
-    const compactBundle=compactName?((protect?protectTemplates:strikes?strikeTemplates:environment?environmentTemplates:nativeFlags?nativeFlagTemplates:compactTemplates) as Record<string,Record<string,unknown>>)[compactName]?.[workSlots]:undefined;
+    const compactBundle=compactName?((weatherMoves?weatherMoveTemplates:protect?protectTemplates:strikes?strikeTemplates:environment?environmentTemplates:nativeFlags?nativeFlagTemplates:compactTemplates) as Record<string,Record<string,unknown>>)[compactName]?.[workSlots]:undefined;
     const selectedTemplate = (compactExecution?compactBundle:modern ? (battleMessages ? customFlags ? actionResults ? statSource ? statSourceRuntime : actionResultRuntime : customFlagRuntime : messageRuntime : classRuntime).get(legacyTemplate) : optimized ? optimizedRuntime.get(legacyTemplate) : legacyTemplate) as typeof template;
     if (!selectedTemplate) throw new Error("Missing optimized ability runtime.");
     const rpm = structuredClone(selectedTemplate) as unknown as RpmModule;
@@ -463,6 +466,20 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
         const api=named("AbilityProtectApi").address;
         ["GetTurnFlag","BattleEvent_SeekItem"].forEach((name,i)=>{const service=c.resolver.resolve(name);assertUnhooked(c,name,service.address,service.code.length);writeU32(rpm.code,api+i*4,service.address|1);});
     }
+    if(weatherMoves&&[...entries.values()].some(r=>r.effects.some(e=>e.kind==="abilityRecipe:moveWeather"))){
+        // The native weather query is replaced by a checked adapter that runs a
+        // relocated copy of the original outside the holder's move sequence.
+        const name="ServerEvent_GetWeather",{address,code}=c.resolver.resolve(name);
+        assertUnhooked(c,name,address,code.length,true);
+        const symbol=append(code,"FUNCTION_THM"),at=rpm.symbols[symbol].address;
+        rpm.relocations.push({target:{module:"base",address:named("AbilityWeatherApi").address,type:"OFFSET"},sourceSymbolIndex:symbol},{target:{module:c.overlayModule,address,type:"THUMB_BRANCH"},sourceSymbolIndex:rpm.symbols.indexOf(named("AbilityWeatherQuery"))});
+        for(const call of c.signatures[name].calls){
+            const target=battleBranchTarget(code,call.offset,address);if(!c.resolver.matches(call.target,target))throw new Error(`Unrecognized weather dependency: ${call.target}`);
+            assertUnhooked(c,call.target,target,c.signatures[call.target].hex.length/2);
+            rpm.symbols.push({name:null,address:target,size:0,type:c.signatures[call.target].thumb===false?"FUNCTION_ARM":"FUNCTION_THM",attributes:4});
+            rpm.relocations.push({target:{module:"base",address:at+call.offset,type:"THUMB_BRANCH_LINK"},sourceSymbolIndex:rpm.symbols.length-1});
+        }
+    }
     if(scoped){
         const scopedApi=named("AbilityScopedApi").address;
         ["GetTurnCounter","PokeTypePair_MakeMonotype","IsItemSwapBlocked","IsItemUnremovable","GiratinaArceusGenesectItemCheck","BattleMon_SetType"].forEach((name,i)=>{const service=c.resolver.resolve(name);assertUnhooked(c,name,service.address,service.code.length);writeU32(rpm.code,scopedApi+i*4,service.address|1);});
@@ -529,6 +546,7 @@ function moduleFor(c: Context, entries: ReadonlyMap<number, AbilityRuleSet>, pre
     if(environment)rpm.metadata.PokewebAbilityEnvironment=1;
     if(strikes)rpm.metadata.PokewebAbilityStrikes=1;
     if(protect)rpm.metadata.PokewebAbilityProtect=1;
+    if(weatherMoves)rpm.metadata.PokewebAbilityWeatherMoves=1;
     if(nativeFlags)rpm.metadata.PokewebAbilityNativeMoveFlags=1;
     if (modern) {
         rpm.metadata.PokewebAbilityMoveClasses = 1;
@@ -587,6 +605,8 @@ function readRules(c: Context, verifyPeer = true): Map<number, AbilityRuleSet> {
     const strikes=rpm.metadata.PokewebAbilityStrikes===1;
     if(rpm.metadata.PokewebAbilityProtect!==undefined&&rpm.metadata.PokewebAbilityProtect!==1)throw Error("Unrecognized ability protection runtime.");
     const protect=rpm.metadata.PokewebAbilityProtect===1;
+    if(rpm.metadata.PokewebAbilityWeatherMoves!==undefined&&rpm.metadata.PokewebAbilityWeatherMoves!==1)throw Error("Unrecognized ability move-weather runtime.");
+    const weatherMoves=rpm.metadata.PokewebAbilityWeatherMoves===1;
     if(rpm.metadata.PokewebAbilityEnvironment!==undefined&&rpm.metadata.PokewebAbilityEnvironment!==1)throw Error("Unrecognized ability environment runtime.");
     const environment=rpm.metadata.PokewebAbilityEnvironment===1;
     if(!compactExecution&&rpm.metadata.PokewebAbilityWorkSlots!==undefined)throw Error("Invalid ability working-memory metadata.");
@@ -607,7 +627,7 @@ function readRules(c: Context, verifyPeer = true): Map<number, AbilityRuleSet> {
     const owner=rpm.metadata.PokewebMoveParamChain==="owner";
     if(rpm.metadata.PokewebMoveParamChain!==undefined&&!owner)throw Error("Unrecognized shared move-parameter owner.");
     if(owner)assertNoCompetingMoveParamProviders(c);
-    if (!same(bytes, writeRpm(moduleFor(c, rules, false, clientHooks, popupGroups, optimized,owner,false,modern,storedMoveClasses(c),battleMessages,storedBlockMessage(c),storedPresentationMessages(c),automaticMoveClasses(c),rpm.metadata.PokewebAbilityCustomMoveFlags===1,storedCustomMoveFlags(c),rpm.metadata.PokewebAbilityActionResults===1,rpm.metadata.PokewebAbilityStatSource===1,compact,compactExecution,nativeFlags,environment,strikes,protect), { ident: "DLXF" })) && !same(bytes, writeRpm(moduleFor(c, rules, true, clientHooks, popupGroups, optimized,owner,false,modern,storedMoveClasses(c),battleMessages,storedBlockMessage(c),storedPresentationMessages(c),automaticMoveClasses(c),rpm.metadata.PokewebAbilityCustomMoveFlags===1,storedCustomMoveFlags(c),rpm.metadata.PokewebAbilityActionResults===1,rpm.metadata.PokewebAbilityStatSource===1,compact,compactExecution,nativeFlags,environment,strikes,protect), { ident: "DLXF" })))
+    if (!same(bytes, writeRpm(moduleFor(c, rules, false, clientHooks, popupGroups, optimized,owner,false,modern,storedMoveClasses(c),battleMessages,storedBlockMessage(c),storedPresentationMessages(c),automaticMoveClasses(c),rpm.metadata.PokewebAbilityCustomMoveFlags===1,storedCustomMoveFlags(c),rpm.metadata.PokewebAbilityActionResults===1,rpm.metadata.PokewebAbilityStatSource===1,compact,compactExecution,nativeFlags,environment,strikes,protect,weatherMoves), { ident: "DLXF" })) && !same(bytes, writeRpm(moduleFor(c, rules, true, clientHooks, popupGroups, optimized,owner,false,modern,storedMoveClasses(c),battleMessages,storedBlockMessage(c),storedPresentationMessages(c),automaticMoveClasses(c),rpm.metadata.PokewebAbilityCustomMoveFlags===1,storedCustomMoveFlags(c),rpm.metadata.PokewebAbilityActionResults===1,rpm.metadata.PokewebAbilityStatSource===1,compact,compactExecution,nativeFlags,environment,strikes,protect,weatherMoves), { ident: "DLXF" })))
         throw new Error("The shared ability effects DLL has been modified.");
     if(owner&&verifyPeer){
         const peer=c.files.get("patches/ItemEffects.dll");
@@ -620,7 +640,7 @@ export function inspectAbilityEffects(project: ProjectState): {
     editable: boolean;
     message: string;
     rules: Map<number, AbilityRuleSet>;
-    runtimeVersion?: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13;
+    runtimeVersion?: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14;
 } {
     try {
         const c = context(project), rules = readRules(c);
@@ -628,7 +648,7 @@ export function inspectAbilityEffects(project: ProjectState): {
             moduleFor(c, new Map([[1, validateAbilityRule(EMPTY_ABILITY_RULE)]]));
         const bytes = c.files.get(ABILITY_EFFECTS_DLL_PATH);
         const metadata = bytes && !same(bytes, retired) ? parseRpm(bytes, { allowedMagics: ["DLXF"] }).metadata : undefined;
-        const runtimeVersion = metadata ? metadata.PokewebAbilityProtect === 1 ? 13 : metadata.PokewebAbilityStrikes === 1 ? 12 : metadata.PokewebAbilityEnvironment === 1 ? 11 : metadata.PokewebAbilityNativeMoveFlags === 1 ? 10 : metadata.PokewebAbilityCompact === 1 ? 9 : metadata.PokewebAbilityPackaging === 1 ? 8 : metadata.PokewebAbilityStatSource === 1 ? 7 : metadata.PokewebAbilityActionResults === 1 ? 6 : metadata.PokewebAbilityCustomMoveFlags === 1 ? 5 : metadata.PokewebAbilityBattleMessages === 1 ? 4 : metadata.PokewebAbilityPowerRatio === 1 ? 3 : metadata.PokewebAbilityDispatchVersion === 2 ? 2 : 1 : undefined;
+        const runtimeVersion = metadata ? metadata.PokewebAbilityWeatherMoves === 1 ? 14 : metadata.PokewebAbilityProtect === 1 ? 13 : metadata.PokewebAbilityStrikes === 1 ? 12 : metadata.PokewebAbilityEnvironment === 1 ? 11 : metadata.PokewebAbilityNativeMoveFlags === 1 ? 10 : metadata.PokewebAbilityCompact === 1 ? 9 : metadata.PokewebAbilityPackaging === 1 ? 8 : metadata.PokewebAbilityStatSource === 1 ? 7 : metadata.PokewebAbilityActionResults === 1 ? 6 : metadata.PokewebAbilityCustomMoveFlags === 1 ? 5 : metadata.PokewebAbilityBattleMessages === 1 ? 4 : metadata.PokewebAbilityPowerRatio === 1 ? 3 : metadata.PokewebAbilityDispatchVersion === 2 ? 2 : 1 : undefined;
         return { editable: true, message: rules.size ? "Shared DLL verified" : "Native ability runtime verified", rules, runtimeVersion };
     }
     catch (error) {
@@ -664,6 +684,17 @@ export function isVerifiedAbilityClientTrapImport(project: ProjectState, path: s
         if (!bytes || parseRpm(bytes, { allowedMagics: ["DLXF"] }).metadata.PokewebAbilityClientTraps !== 1) return false;
         const service = c.resolver.resolve("IsMonTrapped");
         return service.address === address && service.code.length === size && readRules(c).size > 0;
+    } catch { return false; }
+}
+/** Peer runtimes may call the weather query through the verified ability adapter. */
+export function isVerifiedAbilityWeatherImport(project: ProjectState, path: string, bytes: Uint8Array, address: number): boolean {
+    if (path !== ABILITY_EFFECTS_DLL_PATH) return false;
+    try {
+        const c=context(project),actual=c.files.get(path);if(!actual||!same(actual,bytes))return false;
+        // Exclude the calling peers while checking the ability owner's canonical bytes.
+        c.files.delete("patches/MoveEffects.dll");c.files.delete("patches/ItemEffects.dll");if(!readRules(c,false).size)return false;
+        const service=c.resolver.resolve("ServerEvent_GetWeather"),rpm=parseRpm(bytes,{allowedMagics:["DLXF"]});
+        return service.address===address&&rpm.metadata.PokewebAbilityWeatherMoves===1&&rpm.relocations.some(r=>r.target.module===c.overlayModule&&r.target.address===address&&r.target.type==="THUMB_BRANCH"&&rpm.symbols[r.sourceSymbolIndex]?.name==="AbilityWeatherQuery");
     } catch { return false; }
 }
 /** A caller may use the canonical ability-aware move-parameter entry point. */

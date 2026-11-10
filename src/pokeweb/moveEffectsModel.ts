@@ -5,7 +5,7 @@ import compactPersistentTemplate from "../assets/data/moveRuleRuntimePersistentC
 import compactKnockTemplate from "../assets/data/moveRuleRuntimeModernKnockCompact.json";
 import { sha256Hex } from "../nds/sha256";
 import { encodeMoveRecipeBook, decodeMoveRecipeBook } from "./moveRecipeBook";
-import { CURRENT_ABILITY_RUNTIME_VERSION, inspectAbilityEffects, isVerifiedAbilityMoveParamImport, upgradeAbilityRuntime } from "./abilityEffectsModel";
+import { CURRENT_ABILITY_RUNTIME_VERSION, inspectAbilityEffects, isVerifiedAbilityMoveParamImport, isVerifiedAbilityWeatherImport, upgradeAbilityRuntime } from "./abilityEffectsModel";
 import { isVerifiedItemMoveParamImport, isVerifiedItemSelectionImport } from "./itemEffectsModel";
 import bindings from "../assets/data/moveRecipeBindings.json";
 import black1Bindings from "../assets/data/moveRecipeBindingsB1.json";
@@ -242,6 +242,7 @@ function checkHook(c: Context, name: string, address: number, size: number) {
       if (start < address + size && start + length > address) {
         if(name==="HistorySelect"&&relocation.target.type==="THUMB_BRANCH_LINK"&&isVerifiedItemSelectionImport(c.project,path,bytes,start))continue;
         if(name==="ServerEvent_GetMoveParam"&&start===address&&relocation.target.type==="THUMB_BRANCH"&&(isVerifiedAbilityMoveParamImport(c.project,path,bytes,address)||isVerifiedItemMoveParamImport(c.project,path,bytes,address)))continue;
+        if(name==="ServerEvent_GetWeather"&&start===address&&relocation.target.type==="THUMB_BRANCH"&&isVerifiedAbilityWeatherImport(c.project,path,bytes,address))continue;
         throw Error(`Conflicting move service hook: ${path} (${name}).`);
       }
     }

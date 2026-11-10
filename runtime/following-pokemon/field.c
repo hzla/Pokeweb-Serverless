@@ -195,6 +195,9 @@ static int owned(void) {
 }
 static void cleanup_impl(int keepTrail) {
 #ifdef FW_NATIVE_BEHAVIOR
+ fwn_shadow_reset();
+#endif
+#ifdef FW_NATIVE_BEHAVIOR
  fwn_route_reset(&nativeRoute);
 #endif
  fwr_grass_clear();
@@ -769,6 +772,16 @@ API void FollowingUpdate(ActorSystem *sys) {
    CALL(0x02194df5,void(*)(Actor*))(a);
    FollowingShadowDebug.attached=!!(a->moveflags&SHADOW_SET);
   }
+#ifdef FW_NATIVE_BEHAVIOR
+  if(
+#ifdef FW_MOUNT
+     !fwland_active()&&
+#endif
+#ifdef FW_ARCEUS_SURF
+     !fwsurf_active()&&
+#endif
+     !(a->flags&HIDDEN))fwn_shadow_prepare(a);
+#endif
   fwfx_prepare(a);fwfx_snapshot(a);
  }
 }

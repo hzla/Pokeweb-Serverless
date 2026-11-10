@@ -1,0 +1,3557 @@
+{
+ "format": "pokeweb-mega-content-v1",
+ "credits": [
+  {
+   "name": "Dararo",
+   "role": "Original Mega Evolution implementation"
+  },
+  {
+   "name": "Hibiki",
+   "role": "Battle UI and transformation animation"
+  }
+ ],
+ "animation": {
+  "script": "animation/script.bin",
+  "particles": {
+   "765": "animation/spa_765.bin",
+   "767": "animation/spa_767.bin",
+   "770": "animation/spa_770.bin",
+   "771": "animation/spa_771.bin",
+   "783": "animation/spa_783.bin"
+  },
+  "revealFrame": 244
+ },
+ "genericStoneIcon": "items/mega_ring.rgba",
+ "forms": [
+  {
+   "key": "MEGA_VENUSAUR",
+   "name": "Mega Venusaur",
+   "species": 3,
+   "baseName": "Venusaur",
+   "stats": [
+    80,
+    100,
+    123,
+    80,
+    122,
+    120
+   ],
+   "types": [
+    11,
+    3
+   ],
+   "abilities": [
+    47,
+    47,
+    47
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 240,
+   "weight": 1555,
+   "stone": 657,
+   "icon": {
+    "male": "icons/724_0.bin",
+    "female": "icons/724_1.bin",
+    "malePaletteId": 0,
+    "femalePaletteId": 0
+   },
+   "sprites": {
+    "front": {
+     "source": "pwan/724_front.pwan",
+     "credits": "Unknown"
+    },
+    "back": {
+     "source": "pwan/724_back.pwan",
+     "credits": "Unknown"
+    }
+   }
+  },
+  {
+   "key": "MEGA_CHARIZARD_X",
+   "name": "Mega Charizard X",
+   "species": 6,
+   "baseName": "Charizard",
+   "stats": [
+    78,
+    130,
+    111,
+    100,
+    130,
+    85
+   ],
+   "types": [
+    9,
+    15
+   ],
+   "abilities": [
+    181,
+    181,
+    181
+   ],
+   "abilityNames": {
+    "181": "Tough Claws"
+   },
+   "abilityDescriptions": {
+    "181": "Powers up moves that make\ndirect contact."
+   },
+   "height": 170,
+   "weight": 1105,
+   "stone": 659,
+   "library": "6-1-725",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon Sprite Project; hexagonereal"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
+    }
+   }
+  },
+  {
+   "key": "MEGA_CHARIZARD_Y",
+   "name": "Mega Charizard Y",
+   "species": 6,
+   "baseName": "Charizard",
+   "stats": [
+    78,
+    104,
+    78,
+    100,
+    159,
+    115
+   ],
+   "types": [
+    9,
+    2
+   ],
+   "abilities": [
+    70,
+    70,
+    70
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 170,
+   "weight": 1005,
+   "stone": 660,
+   "library": "6-2-726",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
+    }
+   }
+  },
+  {
+   "key": "MEGA_BLASTOISE",
+   "name": "Mega Blastoise",
+   "species": 9,
+   "baseName": "Blastoise",
+   "stats": [
+    79,
+    103,
+    120,
+    78,
+    135,
+    115
+   ],
+   "types": [
+    10,
+    10
+   ],
+   "abilities": [
+    178,
+    178,
+    178
+   ],
+   "abilityNames": {
+    "178": "Mega Launcher"
+   },
+   "abilityDescriptions": {
+    "178": "Powers up aura and pulse\nmoves."
+   },
+   "height": 160,
+   "weight": 1011,
+   "stone": 662,
+   "icon": {
+    "male": "icons/727_0.bin",
+    "female": "icons/727_1.bin",
+    "malePaletteId": 2,
+    "femalePaletteId": 2
+   },
+   "sprites": {
+    "front": {
+     "source": "pwan/727_front.pwan",
+     "credits": "Unknown"
+    },
+    "back": {
+     "source": "pwan/727_back.pwan",
+     "credits": "Unknown"
+    }
+   }
+  },
+  {
+   "key": "MEGA_BEEDRILL",
+   "name": "Mega Beedrill",
+   "species": 15,
+   "baseName": "Beedrill",
+   "stats": [
+    65,
+    150,
+    40,
+    145,
+    15,
+    80
+   ],
+   "types": [
+    6,
+    3
+   ],
+   "abilities": [
+    91,
+    91,
+    91
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 140,
+   "weight": 405,
+   "stone": 665,
+   "library": "15-1-728",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon Sprite Project; arinoelle"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Ghasty001"
+    }
+   }
+  },
+  {
+   "key": "MEGA_PIDGEOT",
+   "name": "Mega Pidgeot",
+   "species": 18,
+   "baseName": "Pidgeot",
+   "stats": [
+    83,
+    80,
+    80,
+    121,
+    135,
+    80
+   ],
+   "types": [
+    0,
+    2
+   ],
+   "abilities": [
+    99,
+    99,
+    99
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 220,
+   "weight": 505,
+   "stone": 666,
+   "library": "18-1-729",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    },
+    "back": {
+     "source": "pwan/729_back.pwan",
+     "credits": "Unknown"
+    }
+   }
+  },
+  {
+   "key": "MEGA_ZA_RAICHU_X",
+   "name": "Mega Raichu X",
+   "species": 26,
+   "baseName": "Raichu",
+   "stats": [
+    60,
+    135,
+    95,
+    110,
+    90,
+    95
+   ],
+   "types": [
+    12,
+    12
+   ],
+   "abilities": [
+    9,
+    9,
+    31
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 80,
+   "weight": 300,
+   "stone": 668,
+   "library": "26-1-1097",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "RetroNC"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    }
+   }
+  },
+  {
+   "key": "MEGA_ZA_RAICHU_Y",
+   "name": "Mega Raichu Y",
+   "species": 26,
+   "baseName": "Raichu",
+   "stats": [
+    60,
+    100,
+    55,
+    130,
+    160,
+    80
+   ],
+   "types": [
+    12,
+    12
+   ],
+   "abilities": [
+    9,
+    9,
+    31
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 80,
+   "weight": 300,
+   "stone": 669,
+   "library": "26-2-1098",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "RetroNC"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    }
+   }
+  },
+  {
+   "key": "MEGA_ZA_CLEFABLE",
+   "name": "Mega Clefable",
+   "species": 36,
+   "baseName": "Clefable",
+   "stats": [
+    95,
+    80,
+    93,
+    70,
+    135,
+    110
+   ],
+   "types": [
+    17,
+    17
+   ],
+   "abilities": [
+    56,
+    98,
+    109
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 130,
+   "weight": 400,
+   "stone": 670,
+   "library": "36-1-1040",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "RetroNC"
+    }
+   }
+  },
+  {
+   "key": "MEGA_ALAKAZAM",
+   "name": "Mega Alakazam",
+   "species": 65,
+   "baseName": "Alakazam",
+   "stats": [
+    55,
+    50,
+    65,
+    150,
+    175,
+    95
+   ],
+   "types": [
+    13,
+    13
+   ],
+   "abilities": [
+    36,
+    36,
+    36
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 120,
+   "weight": 480,
+   "stone": 672,
+   "library": "65-1-736",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon Sprite Project"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    }
+   }
+  },
+  {
+   "key": "MEGA_ZA_VICTREEBEL",
+   "name": "Mega Victreebel",
+   "species": 71,
+   "baseName": "Victreebel",
+   "stats": [
+    80,
+    125,
+    85,
+    70,
+    135,
+    95
+   ],
+   "types": [
+    11,
+    3
+   ],
+   "abilities": [
+    34,
+    34,
+    82
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 170,
+   "weight": 155,
+   "stone": 674,
+   "library": "71-1-1041",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "RetroNC"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    }
+   }
+  },
+  {
+   "key": "MEGA_SLOWBRO",
+   "name": "Mega Slowbro",
+   "species": 80,
+   "baseName": "Slowbro",
+   "stats": [
+    95,
+    75,
+    180,
+    30,
+    130,
+    80
+   ],
+   "types": [
+    10,
+    13
+   ],
+   "abilities": [
+    75,
+    75,
+    75
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 200,
+   "weight": 1200,
+   "stone": 675,
+   "library": "80-1-1117",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
+    }
+   }
+  },
+  {
+   "key": "MEGA_GENGAR",
+   "name": "Mega Gengar",
+   "species": 94,
+   "baseName": "Gengar",
+   "stats": [
+    60,
+    65,
+    80,
+    130,
+    170,
+    95
+   ],
+   "types": [
+    7,
+    3
+   ],
+   "abilities": [
+    23,
+    23,
+    23
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 140,
+   "weight": 405,
+   "stone": 676,
+   "library": "94-1-738",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    }
+   }
+  },
+  {
+   "key": "MEGA_KANGASKHAN",
+   "name": "Mega Kangaskhan",
+   "species": 115,
+   "baseName": "Kangaskhan",
+   "stats": [
+    105,
+    125,
+    100,
+    100,
+    60,
+    100
+   ],
+   "types": [
+    0,
+    0
+   ],
+   "abilities": [
+    185,
+    185,
+    185
+   ],
+   "abilityNames": {
+    "185": "Parental Bond"
+   },
+   "abilityDescriptions": {
+    "185": "Parent and child attack\ntogether."
+   },
+   "height": 220,
+   "weight": 1000,
+   "stone": 679,
+   "library": "115-1-739",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
+    }
+   }
+  },
+  {
+   "key": "MEGA_ZA_STARMIE",
+   "name": "Mega Starmie",
+   "species": 121,
+   "baseName": "Starmie",
+   "stats": [
+    60,
+    140,
+    105,
+    120,
+    130,
+    105
+   ],
+   "types": [
+    10,
+    13
+   ],
+   "abilities": [
+    35,
+    30,
+    148
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 110,
+   "weight": 800,
+   "stone": 680,
+   "library": "121-1-1042",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "RetroNC"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    }
+   }
+  },
+  {
+   "key": "MEGA_PINSIR",
+   "name": "Mega Pinsir",
+   "species": 127,
+   "baseName": "Pinsir",
+   "stats": [
+    65,
+    155,
+    120,
+    105,
+    65,
+    90
+   ],
+   "types": [
+    6,
+    2
+   ],
+   "abilities": [
+    184,
+    184,
+    184
+   ],
+   "abilityNames": {
+    "184": "Aerilate"
+   },
+   "abilityDescriptions": {
+    "184": "Normal-type moves become\nFlying-type moves."
+   },
+   "height": 170,
+   "weight": 590,
+   "stone": 681,
+   "library": "127-1-740",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    }
+   }
+  },
+  {
+   "key": "MEGA_GYARADOS",
+   "name": "Mega Gyarados",
+   "species": 130,
+   "baseName": "Gyarados",
+   "stats": [
+    95,
+    155,
+    109,
+    81,
+    70,
+    130
+   ],
+   "types": [
+    10,
+    16
+   ],
+   "abilities": [
+    104,
+    104,
+    104
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 650,
+   "weight": 3050,
+   "stone": 682,
+   "library": "130-1-741",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    }
+   }
+  },
+  {
+   "key": "MEGA_AERODACTYL",
+   "name": "Mega Aerodactyl",
+   "species": 142,
+   "baseName": "Aerodactyl",
+   "stats": [
+    80,
+    135,
+    85,
+    150,
+    70,
+    95
+   ],
+   "types": [
+    5,
+    2
+   ],
+   "abilities": [
+    181,
+    181,
+    181
+   ],
+   "abilityNames": {
+    "181": "Tough Claws"
+   },
+   "abilityDescriptions": {
+    "181": "Powers up moves that make\ndirect contact."
+   },
+   "height": 210,
+   "weight": 790,
+   "stone": 685,
+   "icon": {
+    "male": "icons/742_0.bin",
+    "female": "icons/742_1.bin",
+    "malePaletteId": 0,
+    "femalePaletteId": 0
+   },
+   "sprites": {
+    "front": {
+     "source": "pwan/742_front.pwan",
+     "credits": "Unknown"
+    },
+    "back": {
+     "source": "pwan/742_back.pwan",
+     "credits": "Unknown"
+    }
+   }
+  },
+  {
+   "key": "MEGA_ZA_DRAGONITE",
+   "name": "Mega Dragonite",
+   "species": 149,
+   "baseName": "Dragonite",
+   "stats": [
+    91,
+    124,
+    115,
+    100,
+    145,
+    125
+   ],
+   "types": [
+    15,
+    2
+   ],
+   "abilities": [
+    39,
+    39,
+    136
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 220,
+   "weight": 2100,
+   "stone": 687,
+   "library": "149-1-1043",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "RetroNC"
+    },
+    "back": {
+     "source": "library",
+     "credits": "RetroNC"
+    }
+   }
+  },
+  {
+   "key": "MEGA_MEWTWO_X",
+   "name": "Mega Mewtwo X",
+   "species": 150,
+   "baseName": "Mewtwo",
+   "stats": [
+    106,
+    190,
+    100,
+    130,
+    154,
+    100
+   ],
+   "types": [
+    13,
+    1
+   ],
+   "abilities": [
+    80,
+    80,
+    80
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 230,
+   "weight": 1270,
+   "stone": 688,
+   "library": "150-1-743",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon Sprite Project; hexagonereal"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
+    }
+   }
+  },
+  {
+   "key": "MEGA_MEWTWO_Y",
+   "name": "Mega Mewtwo Y",
+   "species": 150,
+   "baseName": "Mewtwo",
+   "stats": [
+    106,
+    150,
+    70,
+    140,
+    194,
+    120
+   ],
+   "types": [
+    13,
+    13
+   ],
+   "abilities": [
+    15,
+    15,
+    15
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 150,
+   "weight": 330,
+   "stone": 689,
+   "library": "150-2-744",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon Sprite Project; hexagonereal"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Smogon Sprite Project"
+    }
+   }
+  },
+  {
+   "key": "MEGA_ZA_MEGANIUM",
+   "name": "Mega Meganium",
+   "species": 154,
+   "baseName": "Meganium",
+   "stats": [
+    80,
+    92,
+    115,
+    80,
+    143,
+    115
+   ],
+   "types": [
+    11,
+    11
+   ],
+   "abilities": [
+    65,
+    65,
+    102
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 180,
+   "weight": 1005,
+   "stone": 690,
+   "library": "154-1-1044",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "RetroNC"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    }
+   }
+  },
+  {
+   "key": "MEGA_ZA_FERALIGATR",
+   "name": "Mega Feraligatr",
+   "species": 160,
+   "baseName": "Feraligatr",
+   "stats": [
+    85,
+    160,
+    125,
+    78,
+    89,
+    93
+   ],
+   "types": [
+    10,
+    10
+   ],
+   "abilities": [
+    67,
+    67,
+    125
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 230,
+   "weight": 888,
+   "stone": 691,
+   "library": "160-1-1045",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "RetroNC"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    }
+   }
+  },
+  {
+   "key": "MEGA_AMPHAROS",
+   "name": "Mega Ampharos",
+   "species": 181,
+   "baseName": "Ampharos",
+   "stats": [
+    90,
+    95,
+    105,
+    45,
+    165,
+    110
+   ],
+   "types": [
+    12,
+    15
+   ],
+   "abilities": [
+    104,
+    104,
+    104
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 140,
+   "weight": 615,
+   "stone": 692,
+   "library": "181-1-745",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon Sprite Project"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Smogon Sprite Project"
+    }
+   }
+  },
+  {
+   "key": "MEGA_STEELIX",
+   "name": "Mega Steelix",
+   "species": 208,
+   "baseName": "Steelix",
+   "stats": [
+    75,
+    125,
+    230,
+    30,
+    55,
+    95
+   ],
+   "types": [
+    8,
+    4
+   ],
+   "abilities": [
+    159,
+    159,
+    159
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 1050,
+   "weight": 7400,
+   "stone": 693,
+   "library": "208-1-773",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon Sprite Project"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    }
+   }
+  },
+  {
+   "key": "MEGA_SCIZOR",
+   "name": "Mega Scizor",
+   "species": 212,
+   "baseName": "Scizor",
+   "stats": [
+    70,
+    150,
+    140,
+    75,
+    65,
+    100
+   ],
+   "types": [
+    6,
+    8
+   ],
+   "abilities": [
+    101,
+    101,
+    101
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 200,
+   "weight": 1250,
+   "stone": 694,
+   "library": "212-1-774",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon Sprite Project; hexagonereal"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Smogon Sprite Project"
+    }
+   }
+  },
+  {
+   "key": "MEGA_HERACROSS",
+   "name": "Mega Heracross",
+   "species": 214,
+   "baseName": "Heracross",
+   "stats": [
+    80,
+    185,
+    115,
+    75,
+    40,
+    105
+   ],
+   "types": [
+    6,
+    1
+   ],
+   "abilities": [
+    92,
+    92,
+    92
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 170,
+   "weight": 625,
+   "stone": 695,
+   "library": "214-1-775",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    }
+   }
+  },
+  {
+   "key": "MEGA_ZA_SKARMORY",
+   "name": "Mega Skarmory",
+   "species": 227,
+   "baseName": "Skarmory",
+   "stats": [
+    65,
+    140,
+    110,
+    110,
+    40,
+    100
+   ],
+   "types": [
+    8,
+    2
+   ],
+   "abilities": [
+    51,
+    5,
+    133
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 170,
+   "weight": 505,
+   "stone": 696,
+   "library": "227-1-1046",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "RetroNC"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    }
+   }
+  },
+  {
+   "key": "MEGA_HOUNDOOM",
+   "name": "Mega Houndoom",
+   "species": 229,
+   "baseName": "Houndoom",
+   "stats": [
+    75,
+    90,
+    90,
+    115,
+    140,
+    90
+   ],
+   "types": [
+    16,
+    9
+   ],
+   "abilities": [
+    94,
+    94,
+    94
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 190,
+   "weight": 495,
+   "stone": 697,
+   "library": "229-1-776",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    },
+    "back": {
+     "source": "pwan/776_back.pwan",
+     "credits": "Unknown"
+    }
+   }
+  },
+  {
+   "key": "MEGA_TYRANITAR",
+   "name": "Mega Tyranitar",
+   "species": 248,
+   "baseName": "Tyranitar",
+   "stats": [
+    100,
+    164,
+    150,
+    71,
+    95,
+    120
+   ],
+   "types": [
+    5,
+    16
+   ],
+   "abilities": [
+    45,
+    45,
+    45
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 250,
+   "weight": 2550,
+   "stone": 698,
+   "library": "248-1-777",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon Sprite Project; hexagonereal"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Smogon Sprite Project; hexagonereal"
+    }
+   }
+  },
+  {
+   "key": "MEGA_SCEPTILE",
+   "name": "Mega Sceptile",
+   "species": 254,
+   "baseName": "Sceptile",
+   "stats": [
+    70,
+    110,
+    75,
+    145,
+    145,
+    85
+   ],
+   "types": [
+    11,
+    15
+   ],
+   "abilities": [
+    31,
+    31,
+    31
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 190,
+   "weight": 552,
+   "stone": 699,
+   "icon": {
+    "male": "icons/778_0.bin",
+    "female": "icons/778_1.bin",
+    "malePaletteId": 2,
+    "femalePaletteId": 2
+   },
+   "sprites": {
+    "front": {
+     "source": "pwan/778_front.pwan",
+     "credits": "Unknown"
+    },
+    "back": {
+     "source": "pwan/778_back.pwan",
+     "credits": "Unknown"
+    }
+   }
+  },
+  {
+   "key": "MEGA_BLAZIKEN",
+   "name": "Mega Blaziken",
+   "species": 257,
+   "baseName": "Blaziken",
+   "stats": [
+    80,
+    160,
+    80,
+    100,
+    130,
+    80
+   ],
+   "types": [
+    9,
+    1
+   ],
+   "abilities": [
+    3,
+    3,
+    3
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 190,
+   "weight": 520,
+   "stone": 700,
+   "library": "257-1-779",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon Sprite Project; hexagonereal"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
+    }
+   }
+  },
+  {
+   "key": "MEGA_SWAMPERT",
+   "name": "Mega Swampert",
+   "species": 260,
+   "baseName": "Swampert",
+   "stats": [
+    100,
+    150,
+    110,
+    70,
+    95,
+    110
+   ],
+   "types": [
+    10,
+    4
+   ],
+   "abilities": [
+    33,
+    33,
+    33
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 190,
+   "weight": 1020,
+   "stone": 701,
+   "library": "260-1-780",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
+    }
+   }
+  },
+  {
+   "key": "MEGA_GARDEVOIR",
+   "name": "Mega Gardevoir",
+   "species": 282,
+   "baseName": "Gardevoir",
+   "stats": [
+    68,
+    85,
+    65,
+    100,
+    165,
+    135
+   ],
+   "types": [
+    13,
+    17
+   ],
+   "abilities": [
+    182,
+    182,
+    182
+   ],
+   "abilityNames": {
+    "182": "Pixilate"
+   },
+   "abilityDescriptions": {
+    "182": "Normal-type moves become\nFairy-type moves."
+   },
+   "height": 160,
+   "weight": 484,
+   "stone": 702,
+   "library": "282-1-781",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon Sprite Project"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Smogon Sprite Project"
+    }
+   }
+  },
+  {
+   "key": "MEGA_SABLEYE",
+   "name": "Mega Sableye",
+   "species": 302,
+   "baseName": "Sableye",
+   "stats": [
+    50,
+    85,
+    125,
+    20,
+    85,
+    115
+   ],
+   "types": [
+    16,
+    7
+   ],
+   "abilities": [
+    156,
+    156,
+    156
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 50,
+   "weight": 1610,
+   "stone": 703,
+   "library": "302-1-782",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
+    },
+    "back": {
+     "source": "pwan/782_back.pwan",
+     "credits": "Unknown"
+    }
+   }
+  },
+  {
+   "key": "MEGA_MAWILE",
+   "name": "Mega Mawile",
+   "species": 303,
+   "baseName": "Mawile",
+   "stats": [
+    50,
+    105,
+    125,
+    50,
+    55,
+    95
+   ],
+   "types": [
+    8,
+    17
+   ],
+   "abilities": [
+    37,
+    37,
+    37
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 100,
+   "weight": 235,
+   "stone": 704,
+   "library": "303-1-783",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon Sprite Project"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Smogon Sprite Project"
+    }
+   }
+  },
+  {
+   "key": "MEGA_AGGRON",
+   "name": "Mega Aggron",
+   "species": 306,
+   "baseName": "Aggron",
+   "stats": [
+    70,
+    140,
+    230,
+    50,
+    60,
+    80
+   ],
+   "types": [
+    8,
+    8
+   ],
+   "abilities": [
+    111,
+    111,
+    111
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 220,
+   "weight": 3950,
+   "stone": 705,
+   "library": "306-1-784",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
+    }
+   }
+  },
+  {
+   "key": "MEGA_MEDICHAM",
+   "name": "Mega Medicham",
+   "species": 308,
+   "baseName": "Medicham",
+   "stats": [
+    60,
+    100,
+    85,
+    100,
+    80,
+    85
+   ],
+   "types": [
+    1,
+    13
+   ],
+   "abilities": [
+    74,
+    74,
+    74
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 130,
+   "weight": 315,
+   "stone": 706,
+   "library": "308-1-785",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon Sprite Project"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
+    }
+   }
+  },
+  {
+   "key": "MEGA_MANECTRIC",
+   "name": "Mega Manectric",
+   "species": 310,
+   "baseName": "Manectric",
+   "stats": [
+    70,
+    75,
+    80,
+    135,
+    135,
+    80
+   ],
+   "types": [
+    12,
+    12
+   ],
+   "abilities": [
+    22,
+    22,
+    22
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 180,
+   "weight": 440,
+   "stone": 707,
+   "library": "310-1-786",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon Sprite Project; hexagonereal"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    }
+   }
+  },
+  {
+   "key": "MEGA_SHARPEDO",
+   "name": "Mega Sharpedo",
+   "species": 319,
+   "baseName": "Sharpedo",
+   "stats": [
+    70,
+    140,
+    70,
+    105,
+    110,
+    65
+   ],
+   "types": [
+    10,
+    16
+   ],
+   "abilities": [
+    173,
+    173,
+    173
+   ],
+   "abilityNames": {
+    "173": "Strong Jaw"
+   },
+   "abilityDescriptions": {
+    "173": "Powers up biting moves."
+   },
+   "height": 250,
+   "weight": 1303,
+   "stone": 708,
+   "icon": {
+    "male": "icons/787_0.bin",
+    "female": "icons/787_1.bin",
+    "malePaletteId": 2,
+    "femalePaletteId": 2
+   },
+   "sprites": {
+    "front": {
+     "source": "pwan/787_front.pwan",
+     "credits": "Unknown"
+    },
+    "back": {
+     "source": "pwan/787_back.pwan",
+     "credits": "Unknown"
+    }
+   }
+  },
+  {
+   "key": "MEGA_CAMERUPT",
+   "name": "Mega Camerupt",
+   "species": 323,
+   "baseName": "Camerupt",
+   "stats": [
+    70,
+    120,
+    100,
+    20,
+    145,
+    105
+   ],
+   "types": [
+    9,
+    4
+   ],
+   "abilities": [
+    125,
+    125,
+    125
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 250,
+   "weight": 3205,
+   "stone": 709,
+   "icon": {
+    "male": "icons/788_0.bin",
+    "female": "icons/788_1.bin",
+    "malePaletteId": 0,
+    "femalePaletteId": 0
+   },
+   "sprites": {
+    "front": {
+     "source": "pwan/788_front.pwan",
+     "credits": "Unknown"
+    },
+    "back": {
+     "source": "pwan/788_back.pwan",
+     "credits": "Unknown"
+    }
+   }
+  },
+  {
+   "key": "MEGA_ALTARIA",
+   "name": "Mega Altaria",
+   "species": 334,
+   "baseName": "Altaria",
+   "stats": [
+    75,
+    110,
+    110,
+    80,
+    110,
+    105
+   ],
+   "types": [
+    15,
+    17
+   ],
+   "abilities": [
+    182,
+    182,
+    182
+   ],
+   "abilityNames": {
+    "182": "Pixilate"
+   },
+   "abilityDescriptions": {
+    "182": "Normal-type moves become\nFairy-type moves."
+   },
+   "height": 150,
+   "weight": 206,
+   "stone": 710,
+   "library": "334-1-789",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Ghasty001"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Ghasty001"
+    }
+   }
+  },
+  {
+   "key": "MEGA_BANETTE",
+   "name": "Mega Banette",
+   "species": 354,
+   "baseName": "Banette",
+   "stats": [
+    64,
+    165,
+    75,
+    75,
+    93,
+    83
+   ],
+   "types": [
+    7,
+    7
+   ],
+   "abilities": [
+    158,
+    158,
+    158
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 120,
+   "weight": 130,
+   "stone": 711,
+   "library": "354-1-793",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon Sprite Project"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    }
+   }
+  },
+  {
+   "key": "MEGA_ZA_CHIMECHO",
+   "name": "Mega Chimecho",
+   "species": 358,
+   "baseName": "Chimecho",
+   "stats": [
+    65,
+    50,
+    110,
+    65,
+    135,
+    120
+   ],
+   "types": [
+    13,
+    13
+   ],
+   "abilities": [
+    26,
+    26,
+    26
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 60,
+   "weight": 10,
+   "stone": 712,
+   "library": "358-1-1047",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "RetroNC"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    }
+   }
+  },
+  {
+   "key": "MEGA_ABSOL",
+   "name": "Mega Absol",
+   "species": 359,
+   "baseName": "Absol",
+   "stats": [
+    65,
+    150,
+    60,
+    115,
+    115,
+    60
+   ],
+   "types": [
+    16,
+    16
+   ],
+   "abilities": [
+    156,
+    156,
+    156
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 120,
+   "weight": 490,
+   "stone": 713,
+   "library": "359-1-1048",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon Sprite Project"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Smogon Sprite Project"
+    }
+   }
+  },
+  {
+   "key": "MEGA_ZA_ABSOL_Z",
+   "name": "Mega Absol Z",
+   "species": 359,
+   "baseName": "Absol",
+   "stats": [
+    65,
+    154,
+    60,
+    151,
+    75,
+    60
+   ],
+   "types": [
+    16,
+    16
+   ],
+   "abilities": [
+    46,
+    105,
+    154
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 120,
+   "weight": 470,
+   "stone": 714,
+   "library": "359-2-1049",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "RetroNC"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
+    }
+   }
+  },
+  {
+   "key": "MEGA_GLALIE",
+   "name": "Mega Glalie",
+   "species": 362,
+   "baseName": "Glalie",
+   "stats": [
+    80,
+    120,
+    80,
+    100,
+    120,
+    80
+   ],
+   "types": [
+    14,
+    14
+   ],
+   "abilities": [
+    174,
+    174,
+    174
+   ],
+   "abilityNames": {
+    "174": "Refrigerate"
+   },
+   "abilityDescriptions": {
+    "174": "Normal-type moves become\nIce-type moves."
+   },
+   "height": 210,
+   "weight": 3502,
+   "stone": 715,
+   "library": "362-1-795",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon Sprite Project; arinoelle"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Smogon Sprite Project; arinoelle"
+    }
+   }
+  },
+  {
+   "key": "MEGA_SALAMENCE",
+   "name": "Mega Salamence",
+   "species": 373,
+   "baseName": "Salamence",
+   "stats": [
+    95,
+    145,
+    130,
+    120,
+    120,
+    90
+   ],
+   "types": [
+    15,
+    2
+   ],
+   "abilities": [
+    184,
+    184,
+    184
+   ],
+   "abilityNames": {
+    "184": "Aerilate"
+   },
+   "abilityDescriptions": {
+    "184": "Normal-type moves become\nFlying-type moves."
+   },
+   "height": 180,
+   "weight": 1126,
+   "stone": 716,
+   "library": "373-1-796",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon Sprite Project; hexagonereal"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    }
+   }
+  },
+  {
+   "key": "MEGA_METAGROSS",
+   "name": "Mega Metagross",
+   "species": 376,
+   "baseName": "Metagross",
+   "stats": [
+    80,
+    145,
+    150,
+    110,
+    105,
+    110
+   ],
+   "types": [
+    8,
+    13
+   ],
+   "abilities": [
+    181,
+    181,
+    181
+   ],
+   "abilityNames": {
+    "181": "Tough Claws"
+   },
+   "abilityDescriptions": {
+    "181": "Powers up moves that make\ndirect contact."
+   },
+   "height": 250,
+   "weight": 9429,
+   "stone": 717,
+   "icon": {
+    "male": "icons/797_0.bin",
+    "female": "icons/797_1.bin",
+    "malePaletteId": 0,
+    "femalePaletteId": 0
+   },
+   "sprites": {
+    "front": {
+     "source": "pwan/797_front.pwan",
+     "credits": "Unknown"
+    },
+    "back": {
+     "source": "pwan/797_back.pwan",
+     "credits": "Unknown"
+    }
+   }
+  },
+  {
+   "key": "MEGA_LATIAS",
+   "name": "Mega Latias",
+   "species": 380,
+   "baseName": "Latias",
+   "stats": [
+    80,
+    100,
+    120,
+    110,
+    140,
+    150
+   ],
+   "types": [
+    15,
+    13
+   ],
+   "abilities": [
+    26,
+    26,
+    26
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 180,
+   "weight": 520,
+   "stone": 718,
+   "library": "380-1-798",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon Sprite Project; hexagonereal"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
+    }
+   }
+  },
+  {
+   "key": "MEGA_LATIOS",
+   "name": "Mega Latios",
+   "species": 381,
+   "baseName": "Latios",
+   "stats": [
+    80,
+    130,
+    100,
+    110,
+    160,
+    120
+   ],
+   "types": [
+    15,
+    13
+   ],
+   "abilities": [
+    26,
+    26,
+    26
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 230,
+   "weight": 700,
+   "stone": 719,
+   "library": "381-1-799",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon Sprite Project; hexagonereal"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
+    }
+   }
+  },
+  {
+   "key": "MEGA_RAYQUAZA",
+   "name": "Mega Rayquaza",
+   "species": 384,
+   "baseName": "Rayquaza",
+   "stats": [
+    105,
+    180,
+    100,
+    115,
+    180,
+    100
+   ],
+   "types": [
+    15,
+    2
+   ],
+   "abilities": [
+    191,
+    191,
+    191
+   ],
+   "abilityNames": {
+    "191": "Delta Stream"
+   },
+   "abilityDescriptions": {
+    "191": "Strong winds that protect\nFlying types."
+   },
+   "height": 1080,
+   "weight": 3920,
+   "move": {
+    "id": 620,
+    "name": "Dragon Ascent"
+   },
+   "library": "384-1-802",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon Sprite Project"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
+    }
+   }
+  },
+  {
+   "key": "MEGA_ZA_STARAPTOR",
+   "name": "Mega Staraptor",
+   "species": 398,
+   "baseName": "Staraptor",
+   "stats": [
+    85,
+    140,
+    100,
+    110,
+    60,
+    90
+   ],
+   "types": [
+    0,
+    2
+   ],
+   "abilities": [
+    22,
+    22,
+    120
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 120,
+   "weight": 249,
+   "stone": 720,
+   "library": "398-1-1050",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "RetroNC"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    }
+   }
+  },
+  {
+   "key": "MEGA_LOPUNNY",
+   "name": "Mega Lopunny",
+   "species": 428,
+   "baseName": "Lopunny",
+   "stats": [
+    65,
+    136,
+    94,
+    135,
+    54,
+    96
+   ],
+   "types": [
+    0,
+    1
+   ],
+   "abilities": [
+    113,
+    113,
+    113
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 130,
+   "weight": 283,
+   "stone": 721,
+   "library": "428-1-813",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
+    }
+   }
+  },
+  {
+   "key": "MEGA_GARCHOMP",
+   "name": "Mega Garchomp",
+   "species": 445,
+   "baseName": "Garchomp",
+   "stats": [
+    108,
+    170,
+    115,
+    92,
+    120,
+    95
+   ],
+   "types": [
+    15,
+    4
+   ],
+   "abilities": [
+    159,
+    159,
+    159
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 190,
+   "weight": 950,
+   "stone": 722,
+   "library": "445-1-1051",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon Sprite Project; hexagonereal"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Smogon Sprite Project"
+    }
+   }
+  },
+  {
+   "key": "MEGA_ZA_GARCHOMP_Z",
+   "name": "Mega Garchomp Z",
+   "species": 445,
+   "baseName": "Garchomp",
+   "stats": [
+    108,
+    130,
+    85,
+    151,
+    141,
+    85
+   ],
+   "types": [
+    15,
+    4
+   ],
+   "abilities": [
+    8,
+    8,
+    24
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 190,
+   "weight": 950,
+   "stone": 723,
+   "library": "445-2-1052",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "RetroNC"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    }
+   }
+  },
+  {
+   "key": "MEGA_LUCARIO",
+   "name": "Mega Lucario",
+   "species": 448,
+   "baseName": "Lucario",
+   "stats": [
+    70,
+    145,
+    88,
+    112,
+    140,
+    70
+   ],
+   "types": [
+    1,
+    8
+   ],
+   "abilities": [
+    91,
+    91,
+    91
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 130,
+   "weight": 575,
+   "stone": 724,
+   "library": "448-1-1053",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon Sprite Project"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Smogon Sprite Project"
+    }
+   }
+  },
+  {
+   "key": "MEGA_ZA_LUCARIO_Z",
+   "name": "Mega Lucario Z",
+   "species": 448,
+   "baseName": "Lucario",
+   "stats": [
+    70,
+    100,
+    70,
+    151,
+    164,
+    70
+   ],
+   "types": [
+    1,
+    8
+   ],
+   "abilities": [
+    80,
+    39,
+    154
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 120,
+   "weight": 540,
+   "stone": 725,
+   "library": "448-2-1054",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "RetroNC"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
+    }
+   }
+  },
+  {
+   "key": "MEGA_ABOMASNOW",
+   "name": "Mega Abomasnow",
+   "species": 460,
+   "baseName": "Abomasnow",
+   "stats": [
+    90,
+    132,
+    105,
+    30,
+    132,
+    105
+   ],
+   "types": [
+    11,
+    14
+   ],
+   "abilities": [
+    117,
+    117,
+    117
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 270,
+   "weight": 1850,
+   "stone": 726,
+   "library": "460-1-816",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon Sprite Project"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Smogon Sprite Project"
+    }
+   }
+  },
+  {
+   "key": "MEGA_GALLADE",
+   "name": "Mega Gallade",
+   "species": 475,
+   "baseName": "Gallade",
+   "stats": [
+    68,
+    165,
+    95,
+    110,
+    65,
+    115
+   ],
+   "types": [
+    13,
+    1
+   ],
+   "abilities": [
+    39,
+    39,
+    39
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 160,
+   "weight": 564,
+   "stone": 727,
+   "library": "475-1-817",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
+    },
+    "back": {
+     "source": "pwan/817_back.pwan",
+     "credits": "Unknown"
+    }
+   }
+  },
+  {
+   "key": "MEGA_ZA_FROSLASS",
+   "name": "Mega Froslass",
+   "species": 478,
+   "baseName": "Froslass",
+   "stats": [
+    70,
+    80,
+    70,
+    120,
+    140,
+    100
+   ],
+   "types": [
+    14,
+    7
+   ],
+   "abilities": [
+    81,
+    81,
+    130
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 130,
+   "weight": 266,
+   "stone": 728,
+   "library": "478-1-1055",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "RetroNC"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    }
+   }
+  },
+  {
+   "key": "MEGA_ZA_HEATRAN",
+   "name": "Mega Heatran",
+   "species": 485,
+   "baseName": "Heatran",
+   "stats": [
+    91,
+    120,
+    106,
+    67,
+    175,
+    141
+   ],
+   "types": [
+    9,
+    8
+   ],
+   "abilities": [
+    18,
+    18,
+    49
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 170,
+   "weight": 4300,
+   "stone": 729,
+   "library": "485-1-1056",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "RetroNC"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    }
+   }
+  },
+  {
+   "key": "MEGA_ZA_DARKRAI",
+   "name": "Mega Darkrai",
+   "species": 491,
+   "baseName": "Darkrai",
+   "stats": [
+    70,
+    120,
+    130,
+    85,
+    165,
+    130
+   ],
+   "types": [
+    16,
+    16
+   ],
+   "abilities": [
+    123,
+    123,
+    123
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 150,
+   "weight": 505,
+   "stone": 730,
+   "library": "491-1-1057",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "RetroNC"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    }
+   }
+  },
+  {
+   "key": "MEGA_ZA_EMBOAR",
+   "name": "Mega Emboar",
+   "species": 500,
+   "baseName": "Emboar",
+   "stats": [
+    110,
+    148,
+    75,
+    75,
+    110,
+    110
+   ],
+   "types": [
+    9,
+    1
+   ],
+   "abilities": [
+    66,
+    66,
+    120
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 160,
+   "weight": 1500,
+   "stone": 731,
+   "library": "500-1-1058",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "RetroNC"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    }
+   }
+  },
+  {
+   "key": "MEGA_ZA_EXCADRILL",
+   "name": "Mega Excadrill",
+   "species": 530,
+   "baseName": "Excadrill",
+   "stats": [
+    110,
+    165,
+    100,
+    103,
+    65,
+    65
+   ],
+   "types": [
+    4,
+    8
+   ],
+   "abilities": [
+    146,
+    159,
+    104
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 70,
+   "weight": 404,
+   "stone": 732,
+   "library": "530-1-1059",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "RetroNC"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    }
+   }
+  },
+  {
+   "key": "MEGA_AUDINO",
+   "name": "Mega Audino",
+   "species": 531,
+   "baseName": "Audino",
+   "stats": [
+    103,
+    60,
+    126,
+    50,
+    80,
+    126
+   ],
+   "types": [
+    0,
+    17
+   ],
+   "abilities": [
+    131,
+    131,
+    131
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 150,
+   "weight": 320,
+   "stone": 733,
+   "library": "531-1-825",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
+    }
+   }
+  },
+  {
+   "key": "MEGA_ZA_SCOLIPEDE",
+   "name": "Mega Scolipede",
+   "species": 545,
+   "baseName": "Scolipede",
+   "stats": [
+    60,
+    140,
+    149,
+    62,
+    75,
+    99
+   ],
+   "types": [
+    6,
+    3
+   ],
+   "abilities": [
+    38,
+    68,
+    3
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 250,
+   "weight": 2005,
+   "stone": 734,
+   "library": "545-1-1060",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "RetroNC"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    }
+   }
+  },
+  {
+   "key": "MEGA_ZA_SCRAFTY",
+   "name": "Mega Scrafty",
+   "species": 560,
+   "baseName": "Scrafty",
+   "stats": [
+    65,
+    130,
+    135,
+    68,
+    55,
+    135
+   ],
+   "types": [
+    16,
+    1
+   ],
+   "abilities": [
+    61,
+    153,
+    22
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 110,
+   "weight": 300,
+   "stone": 735,
+   "library": "560-1-1061",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "RetroNC"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    }
+   }
+  },
+  {
+   "key": "MEGA_ZA_EELEKTROSS",
+   "name": "Mega Eelektross",
+   "species": 604,
+   "baseName": "Eelektross",
+   "stats": [
+    85,
+    145,
+    80,
+    80,
+    135,
+    90
+   ],
+   "types": [
+    12,
+    12
+   ],
+   "abilities": [
+    26,
+    26,
+    26
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 210,
+   "weight": 805,
+   "stone": 737,
+   "library": "604-1-1062",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "RetroNC"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    }
+   }
+  },
+  {
+   "key": "MEGA_ZA_CHANDELURE",
+   "name": "Mega Chandelure",
+   "species": 609,
+   "baseName": "Chandelure",
+   "stats": [
+    60,
+    75,
+    110,
+    90,
+    175,
+    110
+   ],
+   "types": [
+    7,
+    9
+   ],
+   "abilities": [
+    18,
+    49,
+    151
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 100,
+   "weight": 343,
+   "stone": 738,
+   "library": "609-1-1063",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "RetroNC"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
+    }
+   }
+  },
+  {
+   "key": "MEGA_ZA_GOLURK",
+   "name": "Mega Golurk",
+   "species": 623,
+   "baseName": "Golurk",
+   "stats": [
+    89,
+    159,
+    105,
+    55,
+    70,
+    105
+   ],
+   "types": [
+    4,
+    7
+   ],
+   "abilities": [
+    89,
+    103,
+    99
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "height": 280,
+   "weight": 3300,
+   "stone": 739,
+   "library": "623-1-1064",
+   "sprites": {
+    "front": {
+     "source": "library",
+     "credits": "RetroNC"
+    },
+    "back": {
+     "source": "library",
+     "credits": "Aronousqui20"
+    }
+   }
+  }
+ ],
+ "stones": [
+  {
+   "id": 657,
+   "key": "VENUSAURITE",
+   "name": "Venusaurite",
+   "forms": [
+    "MEGA_VENUSAUR"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Venusaur hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/venusaurite.rgba"
+  },
+  {
+   "id": 659,
+   "key": "CHARIZARDITE_X",
+   "name": "Charizardite X",
+   "forms": [
+    "MEGA_CHARIZARD_X"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Charizard hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/charizardite_x.rgba"
+  },
+  {
+   "id": 660,
+   "key": "CHARIZARDITE_Y",
+   "name": "Charizardite Y",
+   "forms": [
+    "MEGA_CHARIZARD_Y"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Charizard hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/charizardite_y.rgba"
+  },
+  {
+   "id": 662,
+   "key": "BLASTOISINITE",
+   "name": "Blastoisinite",
+   "forms": [
+    "MEGA_BLASTOISE"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Blastoise hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/blastoisinite.rgba"
+  },
+  {
+   "id": 665,
+   "key": "BEEDRILLITE",
+   "name": "Beedrillite",
+   "forms": [
+    "MEGA_BEEDRILL"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Beedrill hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/beedrillite.rgba"
+  },
+  {
+   "id": 666,
+   "key": "PIDGEOTITE",
+   "name": "Pidgeotite",
+   "forms": [
+    "MEGA_PIDGEOT"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Pidgeot hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/pidgeotite.rgba"
+  },
+  {
+   "id": 668,
+   "key": "RAICHUNITE_X",
+   "name": "Raichunite X",
+   "forms": [
+    "MEGA_ZA_RAICHU_X"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Raichu hold it, and it\\ncan Mega Evolve in battle."
+  },
+  {
+   "id": 669,
+   "key": "RAICHUNITE_Y",
+   "name": "Raichunite Y",
+   "forms": [
+    "MEGA_ZA_RAICHU_Y"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Raichu hold it, and it\\ncan Mega Evolve in battle."
+  },
+  {
+   "id": 670,
+   "key": "CLEFABLE_MEGA_STONE",
+   "name": "Clefable Mega Stone",
+   "forms": [
+    "MEGA_ZA_CLEFABLE"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Clefable hold it, and it\\ncan Mega Evolve in battle."
+  },
+  {
+   "id": 672,
+   "key": "ALAKAZITE",
+   "name": "Alakazite",
+   "forms": [
+    "MEGA_ALAKAZAM"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Alakazam hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/alakazite.rgba"
+  },
+  {
+   "id": 674,
+   "key": "VICTREEBEL_MEGA_STONE",
+   "name": "Victreebel Mega Stone",
+   "forms": [
+    "MEGA_ZA_VICTREEBEL"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Victreebel hold it, and it\\ncan Mega Evolve in battle."
+  },
+  {
+   "id": 675,
+   "key": "SLOWBRONITE",
+   "name": "Slowbronite",
+   "forms": [
+    "MEGA_SLOWBRO"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Slowbro hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/slowbronite.rgba"
+  },
+  {
+   "id": 676,
+   "key": "GENGARITE",
+   "name": "Gengarite",
+   "forms": [
+    "MEGA_GENGAR"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Gengar hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/gengarite.rgba"
+  },
+  {
+   "id": 679,
+   "key": "KANGASKHANITE",
+   "name": "Kangaskhanite",
+   "forms": [
+    "MEGA_KANGASKHAN"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Kangaskhan hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/kangaskhanite.rgba"
+  },
+  {
+   "id": 680,
+   "key": "STARMIE_MEGA_STONE",
+   "name": "Starmie Mega Stone",
+   "forms": [
+    "MEGA_ZA_STARMIE"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Starmie hold it, and it\\ncan Mega Evolve in battle."
+  },
+  {
+   "id": 681,
+   "key": "PINSIRITE",
+   "name": "Pinsirite",
+   "forms": [
+    "MEGA_PINSIR"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Pinsir hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/pinsirite.rgba"
+  },
+  {
+   "id": 682,
+   "key": "GYARADOSITE",
+   "name": "Gyaradosite",
+   "forms": [
+    "MEGA_GYARADOS"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Gyarados hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/gyaradosite.rgba"
+  },
+  {
+   "id": 685,
+   "key": "AERODACTYLITE",
+   "name": "Aerodactylite",
+   "forms": [
+    "MEGA_AERODACTYL"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Aerodactyl hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/aerodactylite.rgba"
+  },
+  {
+   "id": 687,
+   "key": "DRAGONITE_MEGA_STONE",
+   "name": "Dragonite Mega Stone",
+   "forms": [
+    "MEGA_ZA_DRAGONITE"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Dragonite hold it, and it\\ncan Mega Evolve in battle."
+  },
+  {
+   "id": 688,
+   "key": "MEWTWONITE_X",
+   "name": "Mewtwonite X",
+   "forms": [
+    "MEGA_MEWTWO_X"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Mewtwo hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/mewtwonite_x.rgba"
+  },
+  {
+   "id": 689,
+   "key": "MEWTWONITE_Y",
+   "name": "Mewtwonite Y",
+   "forms": [
+    "MEGA_MEWTWO_Y"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Mewtwo hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/mewtwonite_y.rgba"
+  },
+  {
+   "id": 690,
+   "key": "MEGANIUM_MEGA_STONE",
+   "name": "Meganium Mega Stone",
+   "forms": [
+    "MEGA_ZA_MEGANIUM"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Meganium hold it, and it\\ncan Mega Evolve in battle."
+  },
+  {
+   "id": 691,
+   "key": "FERALIGATR_MEGA_STONE",
+   "name": "Feraligatr Mega Stone",
+   "forms": [
+    "MEGA_ZA_FERALIGATR"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Feraligatr hold it, and it\\ncan Mega Evolve in battle."
+  },
+  {
+   "id": 692,
+   "key": "AMPHAROSITE",
+   "name": "Ampharosite",
+   "forms": [
+    "MEGA_AMPHAROS"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Ampharos hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/ampharosite.rgba"
+  },
+  {
+   "id": 693,
+   "key": "STEELIXITE",
+   "name": "Steelixite",
+   "forms": [
+    "MEGA_STEELIX"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Steelix hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/steelixite.rgba"
+  },
+  {
+   "id": 694,
+   "key": "SCIZORITE",
+   "name": "Scizorite",
+   "forms": [
+    "MEGA_SCIZOR"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Scizor hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/scizorite.rgba"
+  },
+  {
+   "id": 695,
+   "key": "HERACRONITE",
+   "name": "Heracronite",
+   "forms": [
+    "MEGA_HERACROSS"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Heracross hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/heracronite.rgba"
+  },
+  {
+   "id": 696,
+   "key": "SKARMORY_MEGA_STONE",
+   "name": "Skarmory Mega Stone",
+   "forms": [
+    "MEGA_ZA_SKARMORY"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Skarmory hold it, and it\\ncan Mega Evolve in battle."
+  },
+  {
+   "id": 697,
+   "key": "HOUNDOOMINITE",
+   "name": "Houndoominite",
+   "forms": [
+    "MEGA_HOUNDOOM"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Houndoom hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/houndoominite.rgba"
+  },
+  {
+   "id": 698,
+   "key": "TYRANITARITE",
+   "name": "Tyranitarite",
+   "forms": [
+    "MEGA_TYRANITAR"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Tyranitar hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/tyranitarite.rgba"
+  },
+  {
+   "id": 699,
+   "key": "SCEPTILITE",
+   "name": "Sceptilite",
+   "forms": [
+    "MEGA_SCEPTILE"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Sceptile hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/sceptilite.rgba"
+  },
+  {
+   "id": 700,
+   "key": "BLAZIKENITE",
+   "name": "Blazikenite",
+   "forms": [
+    "MEGA_BLAZIKEN"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Blaziken hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/blazikenite.rgba"
+  },
+  {
+   "id": 701,
+   "key": "SWAMPERTITE",
+   "name": "Swampertite",
+   "forms": [
+    "MEGA_SWAMPERT"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Swampert hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/swampertite.rgba"
+  },
+  {
+   "id": 702,
+   "key": "GARDEVOIRITE",
+   "name": "Gardevoirite",
+   "forms": [
+    "MEGA_GARDEVOIR"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Gardevoir hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/gardevoirite.rgba"
+  },
+  {
+   "id": 703,
+   "key": "SABLENITE",
+   "name": "Sablenite",
+   "forms": [
+    "MEGA_SABLEYE"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Sableye hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/sablenite.rgba"
+  },
+  {
+   "id": 704,
+   "key": "MAWILITE",
+   "name": "Mawilite",
+   "forms": [
+    "MEGA_MAWILE"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Mawile hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/mawilite.rgba"
+  },
+  {
+   "id": 705,
+   "key": "AGGRONITE",
+   "name": "Aggronite",
+   "forms": [
+    "MEGA_AGGRON"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Aggron hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/aggronite.rgba"
+  },
+  {
+   "id": 706,
+   "key": "MEDICHAMITE",
+   "name": "Medichamite",
+   "forms": [
+    "MEGA_MEDICHAM"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Medicham hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/medichamite.rgba"
+  },
+  {
+   "id": 707,
+   "key": "MANECTITE",
+   "name": "Manectite",
+   "forms": [
+    "MEGA_MANECTRIC"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Manectric hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/manectite.rgba"
+  },
+  {
+   "id": 708,
+   "key": "SHARPEDONITE",
+   "name": "Sharpedonite",
+   "forms": [
+    "MEGA_SHARPEDO"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Sharpedo hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/sharpedonite.rgba"
+  },
+  {
+   "id": 709,
+   "key": "CAMERUPTITE",
+   "name": "Cameruptite",
+   "forms": [
+    "MEGA_CAMERUPT"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Camerupt hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/cameruptite.rgba"
+  },
+  {
+   "id": 710,
+   "key": "ALTARIANITE",
+   "name": "Altarianite",
+   "forms": [
+    "MEGA_ALTARIA"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Altaria hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/altarianite.rgba"
+  },
+  {
+   "id": 711,
+   "key": "BANETTITE",
+   "name": "Banettite",
+   "forms": [
+    "MEGA_BANETTE"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Banette hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/banettite.rgba"
+  },
+  {
+   "id": 712,
+   "key": "CHIMECHO_MEGA_STONE",
+   "name": "Chimecho Mega Stone",
+   "forms": [
+    "MEGA_ZA_CHIMECHO"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Chimecho hold it, and it\\ncan Mega Evolve in battle."
+  },
+  {
+   "id": 713,
+   "key": "ABSOLITE",
+   "name": "Absolite",
+   "forms": [
+    "MEGA_ABSOL"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Absol hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/absolite.rgba"
+  },
+  {
+   "id": 714,
+   "key": "ABSOL_Z_MEGA_STONE",
+   "name": "Absol Z Mega Stone",
+   "forms": [
+    "MEGA_ZA_ABSOL_Z"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Absol hold it, and it\\ncan Mega Evolve in battle."
+  },
+  {
+   "id": 715,
+   "key": "GLALITITE",
+   "name": "Glalitite",
+   "forms": [
+    "MEGA_GLALIE"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Glalie hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/glalitite.rgba"
+  },
+  {
+   "id": 716,
+   "key": "SALAMENCITE",
+   "name": "Salamencite",
+   "forms": [
+    "MEGA_SALAMENCE"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Salamence hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/salamencite.rgba"
+  },
+  {
+   "id": 717,
+   "key": "METAGROSSITE",
+   "name": "Metagrossite",
+   "forms": [
+    "MEGA_METAGROSS"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Metagross hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/metagrossite.rgba"
+  },
+  {
+   "id": 718,
+   "key": "LATIASITE",
+   "name": "Latiasite",
+   "forms": [
+    "MEGA_LATIAS"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Latias hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/latiasite.rgba"
+  },
+  {
+   "id": 719,
+   "key": "LATIOSITE",
+   "name": "Latiosite",
+   "forms": [
+    "MEGA_LATIOS"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Latios hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/latiosite.rgba"
+  },
+  {
+   "id": 720,
+   "key": "STARAPTOR_MEGA_STONE",
+   "name": "Staraptor Mega Stone",
+   "forms": [
+    "MEGA_ZA_STARAPTOR"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Staraptor hold it, and it\\ncan Mega Evolve in battle."
+  },
+  {
+   "id": 721,
+   "key": "LOPUNNITE",
+   "name": "Lopunnite",
+   "forms": [
+    "MEGA_LOPUNNY"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Lopunny hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/lopunnite.rgba"
+  },
+  {
+   "id": 722,
+   "key": "GARCHOMPITE",
+   "name": "Garchompite",
+   "forms": [
+    "MEGA_GARCHOMP"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Garchomp hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/garchompite.rgba"
+  },
+  {
+   "id": 723,
+   "key": "GARCHOMP_Z_MEGA_STONE",
+   "name": "Garchomp Z Mega Stone",
+   "forms": [
+    "MEGA_ZA_GARCHOMP_Z"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Garchomp hold it, and it\\ncan Mega Evolve in battle."
+  },
+  {
+   "id": 724,
+   "key": "LUCARIONITE",
+   "name": "Lucarionite",
+   "forms": [
+    "MEGA_LUCARIO"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Lucario hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/lucarionite.rgba"
+  },
+  {
+   "id": 725,
+   "key": "LUCARIO_Z_MEGA_STONE",
+   "name": "Lucario Z Mega Stone",
+   "forms": [
+    "MEGA_ZA_LUCARIO_Z"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Lucario hold it, and it\\ncan Mega Evolve in battle."
+  },
+  {
+   "id": 726,
+   "key": "ABOMASITE",
+   "name": "Abomasite",
+   "forms": [
+    "MEGA_ABOMASNOW"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Abomasnow hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/abomasite.rgba"
+  },
+  {
+   "id": 727,
+   "key": "GALLADITE",
+   "name": "Galladite",
+   "forms": [
+    "MEGA_GALLADE"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Gallade hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/galladite.rgba"
+  },
+  {
+   "id": 728,
+   "key": "FROSLASS_MEGA_STONE",
+   "name": "Froslass Mega Stone",
+   "forms": [
+    "MEGA_ZA_FROSLASS"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Froslass hold it, and it\\ncan Mega Evolve in battle."
+  },
+  {
+   "id": 729,
+   "key": "HEATRAN_MEGA_STONE",
+   "name": "Heatran Mega Stone",
+   "forms": [
+    "MEGA_ZA_HEATRAN"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Heatran hold it, and it\\ncan Mega Evolve in battle."
+  },
+  {
+   "id": 730,
+   "key": "DARKRAI_MEGA_STONE",
+   "name": "Darkrai Mega Stone",
+   "forms": [
+    "MEGA_ZA_DARKRAI"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Darkrai hold it, and it\\ncan Mega Evolve in battle."
+  },
+  {
+   "id": 731,
+   "key": "EMBOAR_MEGA_STONE",
+   "name": "Emboar Mega Stone",
+   "forms": [
+    "MEGA_ZA_EMBOAR"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Emboar hold it, and it\\ncan Mega Evolve in battle."
+  },
+  {
+   "id": 732,
+   "key": "EXCADRILL_MEGA_STONE",
+   "name": "Excadrill Mega Stone",
+   "forms": [
+    "MEGA_ZA_EXCADRILL"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Excadrill hold it, and it\\ncan Mega Evolve in battle."
+  },
+  {
+   "id": 733,
+   "key": "AUDINITE",
+   "name": "Audinite",
+   "forms": [
+    "MEGA_AUDINO"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Audino hold it, and it\\ncan Mega Evolve in battle.",
+   "icon": "items/audinite.rgba"
+  },
+  {
+   "id": 734,
+   "key": "SCOLIPEDE_MEGA_STONE",
+   "name": "Scolipede Mega Stone",
+   "forms": [
+    "MEGA_ZA_SCOLIPEDE"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Scolipede hold it, and it\\ncan Mega Evolve in battle."
+  },
+  {
+   "id": 735,
+   "key": "SCRAFTY_MEGA_STONE",
+   "name": "Scrafty Mega Stone",
+   "forms": [
+    "MEGA_ZA_SCRAFTY"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Scrafty hold it, and it\\ncan Mega Evolve in battle."
+  },
+  {
+   "id": 737,
+   "key": "EELEKTROSS_MEGA_STONE",
+   "name": "Eelektross Mega Stone",
+   "forms": [
+    "MEGA_ZA_EELEKTROSS"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Eelektross hold it, and it\\ncan Mega Evolve in battle."
+  },
+  {
+   "id": 738,
+   "key": "CHANDELURE_MEGA_STONE",
+   "name": "Chandelure Mega Stone",
+   "forms": [
+    "MEGA_ZA_CHANDELURE"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Chandelure hold it, and it\\ncan Mega Evolve in battle."
+  },
+  {
+   "id": 739,
+   "key": "GOLURK_MEGA_STONE",
+   "name": "Golurk Mega Stone",
+   "forms": [
+    "MEGA_ZA_GOLURK"
+   ],
+   "description": "One of the mysterious Mega Stones.\\nHave Golurk hold it, and it\\ncan Mega Evolve in battle."
+  }
+ ],
+ "zipSha256": "6828681e2165c3dd0e8b78ca94f58236ca017aa132cbe5a2e7a9fec445b22b32"
+}

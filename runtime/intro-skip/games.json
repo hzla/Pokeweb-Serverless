@@ -1,0 +1,34 @@
+{
+  "version": "1.0.0",
+  "overlay": 35,
+  "games": {
+    "B2": {
+      "idCode": "IREO",
+      "hooks": {
+        "demo": { "address": "0x0217c9e8", "bytes": "e0f7aef8" },
+        "init": { "address": "0x0217ca9c", "bytes": "d6f73aff" },
+        "hide": { "address": "0x0217cafc", "bytes": "eaf764fa" },
+        "script": { "address": "0x0217cb0c", "bytes": "d6f7bafd" },
+        "spawn": { "address": "0x0217cb72", "bytes": "9cf6d9fa" }
+      },
+      "bindings": {
+        "GET_GAME_DATA": "0x02016ad9", "GAME_EVENT_CREATE": "0x02016cb5", "GET_EVENT_WORK": "0x02017395",
+        "FLAG_RESET": "0x02019201", "CREATE_ZONE_CHANGE": "0x02019049", "PLAYER_INIT_SETUP": "0x02153915"
+      }
+    },
+    "W2": {
+      "idCode": "IRDO",
+      "hooks": {
+        "demo": { "address": "0x0217ca28", "bytes": "e0f7aef8" },
+        "init": { "address": "0x0217cadc", "bytes": "d6f73aff" },
+        "hide": { "address": "0x0217cb3c", "bytes": "eaf764fa" },
+        "script": { "address": "0x0217cb4c", "bytes": "d6f7bafd" },
+        "spawn": { "address": "0x0217cbb2", "bytes": "9cf6cffa" }
+      },
+      "bindings": {
+        "GET_GAME_DATA": "0x02016ad9", "GAME_EVENT_CREATE": "0x02016cb5", "GET_EVENT_WORK": "0x02017395",
+        "FLAG_RESET": "0x0201922d", "CREATE_ZONE_CHANGE": "0x02019075", "PLAYER_INIT_SETUP": "0x02153955"
+      }
+    }
+  }
+}

@@ -54,6 +54,7 @@ export const RECIPE_ABILITY_EFFECTS:RecipeAbilityEffect[]=[
  effect("sideEntry",169,"Set a side condition on entry",1,1,1,1,"",1,[p("condition","Side condition",4,0,13,{0:"Reflect",1:"Light Screen",2:"Safeguard",3:"Mist",4:"Tailwind",5:"Lucky Chant",6:"Spikes",7:"Toxic Spikes",8:"Stealth Rock",11:"Pledge rainbow",12:"Pledge sea of fire",13:"Pledge swamp"}),p("side","Sides",0,0,2,{0:"Own side",1:"Opposing side",2:"Both sides"}),p("duration","Duration (turns; 0 = permanent)",4,0,63),p("layers","Layers to add",1,1,3)]),
  effect("damageGuard",170,"Prevent selected indirect damage",1,1,1,1,"",1,[p("sources","Damage sources",3,1,16383,undefined,"damageSet")]),
  effect("additionalStrike",171,"Additional strike",.25,.125,8,.001,"× second-hit damage",4096,[]),
+ effect("moveWeather",173,"Moves act as if the weather is",1,1,1,1,"",1,[p("weather","Weather",1,1,4,undefined,"weather")]),
  effect("protectBypass",172,"Hit through protection",1,.001,1,.001,"× damage through protection",4096,[{...move,original:1}]),
  ...SCOPED_ABILITY_EFFECTS,
  ...ACTION_ABILITY_EFFECTS,

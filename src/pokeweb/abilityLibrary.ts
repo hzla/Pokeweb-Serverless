@@ -106,8 +106,10 @@ add(287,"Vessel of Ruin",9,[recipe("fieldStat",.75,{stat:3})]);
 add(290,"Opportunist",9,[recipe("statEcho",1,{mode:1},false)]);
 add(293,"Supreme Overlord",9,[recipe("fallenPower",10)]);
 add(296,"Armor Tail",9,[recipe("priorityGuard")]);
-// Pokémon Champions abilities have no Gen 6–9 index; IDs from 1000 are library-only keys.
-add(1000,"Piercing Drill",9,[recipe("protectBypass",.25,{moveClass:1})]);entries.at(-1)!.group="Pokémon Champions";
+// Legends Z-A abilities have no Gen 6–9 index; IDs from 1000 are library-only keys.
+add(1000,"Piercing Drill",9,[recipe("protectBypass",.25,{moveClass:1})]);entries.at(-1)!.group="Legends Z-A";
+// Mega Sol, and the same primitive with the other Gen 5 weathers.
+for(const[id,label,weather]of [[1001,"Mega Sol",1],[1002,"Mega Rain",2],[1003,"Mega Hail",3],[1004,"Mega Sand",4]] as const){add(id,label,9,[recipe("moveWeather",1,{weather})]);entries.at(-1)!.group="Legends Z-A";}
 export const ABILITY_IMPORT_LIBRARY=entries.sort((a,b)=>a.generation-b.generation||a.label.localeCompare(b.label));
 export function abilityImport(id:number):AbilityImport{
  const entry=ABILITY_IMPORT_LIBRARY.find(e=>e.id===id);if(!entry)throw new Error("Choose a supported ability import.");return structuredClone(entry);

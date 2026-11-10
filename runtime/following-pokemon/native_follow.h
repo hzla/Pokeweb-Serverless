@@ -2,6 +2,13 @@
 #define FW_NATIVE_FOLLOW_H
 #include "native.h"
 #include "native_route.h"
+typedef struct {
+ uint16_t geom,pad;FwPoint position;uint16_t frame;int16_t sx,sy;
+ uint16_t rotation,flags,pad2;
+} FwnBillboard;
+_Static_assert(sizeof(FwnBillboard)==28,"native billboard ABI");
+FwnBillboard *fwn_billboard(void *system,Actor *actor);
+int fwn_ground_position(Actor *actor,void *camera,const FwPoint *native,FwPoint *output);
 int fwn_exterior(void *field);
 unsigned fwn_facing(Actor *player);
 void fwn_capture_facing(Actor *player,FwSample *sample);

@@ -57,3 +57,4 @@ Black and White share many formats with Black 2 and White 2, but not every edito
 | Fairy Type Support patch | Black 2 and White 2 only |
 | Forgettable HMs patch | Black and White (ARM9 edit); Black 2 and White 2 (PMC DLL) |
 | Autorun | US Black, White, Black 2 and White 2 (PMC DLL and Options row) |
+| Skip Intro | US Black 2 and White 2 (PMC DLL) |

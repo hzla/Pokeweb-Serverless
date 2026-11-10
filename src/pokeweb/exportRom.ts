@@ -74,6 +74,8 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
   materializeCustomUiSource(project, rom);
   materializeCGearButtonSource(project, rom);
   materializeSystemShopSource(project, rom);
+  (await import("./itemExpansionModel")).materializeItemExpansionTables(project, rom);
+  (await import("./megaEvolutionModel")).materializeMegaEvolutionTable(project);
   repairLegacyMoveAnimationArchives(project);
   repairMoveExpansionOverlayLoadSize(project, rom);
   await (await import("./abilityEffectsModel")).refreshExpandedAbilityMoveFlags(project, true);
