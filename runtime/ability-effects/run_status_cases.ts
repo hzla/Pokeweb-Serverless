@@ -11,6 +11,7 @@ for(const spec of manifest.cases){
  const {entries,frames}=await runLoggedBattle(directory,spec,{tag:'CSTL',frames:12000,shots:false,evidence,logCapacity:128}),c=spec.checks.extension,errors:string[]=[];
  const starts=entries.filter(e=>e.event===3&&e.a===0),statuses=entries.filter(e=>(e.event===0x68||e.event===0x69)&&e.a===0&&e.value),powers=entries.filter(e=>e.event===0x38&&e.a===0),hits=entries.filter(e=>e.a===0&&(e.event===0x4b&&e.value>0||e.event===4&&e.d<24&&e.value>e.y));
  if(starts.length<(spec.menuCount??1))errors.push('Requested move sequence did not complete');
+ if(spec.turnMove)for(let i=0;i<(spec.menuCount??1);i++)if(starts[i]?.move!==spec.playerMoves[spec.turnMove[i]])errors.push(`Selected move ${i+1} did not execute as specified`);
  for(const condition of c.statuses??[])if(!statuses.some(e=>e.x===condition))errors.push(`Condition ${condition} was not applied`);
  for(const condition of c.absent??[])if(statuses.some(e=>e.x===condition))errors.push(`Unexpected condition ${condition}`);
  if(c.firstType!==undefined&&powers[0]?.x!==c.firstType)errors.push('Converted move type not observed');

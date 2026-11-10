@@ -10,7 +10,7 @@ import {toDesmumeDsv} from "../../src/pokeweb/testBattle";
 
 export type LogEntry={event:number;a:number;d:number;x:number;move:number;y:number;value:number};
 export type RunOptions={tag:string;frames:number;shots:boolean;evidence:string;logCapacity?:number};
-const A=128,B=64;
+const A=128;
 
 export async function runLoggedBattle(directory:string,spec:any,options:RunOptions):Promise<{entries:LogEntry[];frames:number}>{
  const {tag,frames,shots,evidence}=options;
@@ -51,8 +51,11 @@ export async function runLoggedBattle(directory:string,spec:any,options:RunOptio
    const choice=turnMove[Math.min(playerMoves,turnMove.length-1)],phase=frame%300;
    if(phase>=100&&phase<104)touch=[128,85];
    if(phase>=180&&phase<184)touch=[choice%2===0?64:192,choice<2?44:115];
-   // B advances messages without choosing anything; menus are chosen by touch.
-   if(phase<90&&frame%12<3)keys=B;
+   if(phase>=250&&phase<254)touch=[192,60]; // right opponent
+   if(phase>=270&&phase<274)touch=[192,115]; // ally self-targeting moves
+   if(phase>=285&&phase<289)touch=[64,115]; // holder self-targeting moves
+   // Confirm after offering each legal target position.
+   if(phase>=295&&phase<299)keys=A;
   }else if(frame%12<3)keys=A;
   core._runFrame(1,keys,touch?1:0,touch?.[0]??0,touch?.[1]??0);
   if(frame===1500)await capture("f1500");
