@@ -308,7 +308,13 @@ export async function addMoveExpansion(
   project: ProjectState,
   options: AddMoveExpansionOptions = {},
 ): Promise<RomPatchApplyResult> {
+  // Move Expansion brings Fairy Type Support with it where the ROM supports it (Black 2 / White 2), so the
+  // Gen 6+ Fairy moves keep their type.
+  const fairyInstalled = detectFairyTypePatch(project) === "unpatched"
+    ? Boolean(await addFairyTypeSupport(project, { updateModernFairyTypings: true }))
+    : false;
   const result = await installMoveExpansion(project, options);
+  const fairyText = fairyInstalled ? " Fairy Type Support was installed first." : "";
   const mappedFairyText =
     result.fairyMovesMappedToNormal > 0
       ? ` ${result.fairyMovesMappedToNormal} Fairy-type definitions were safely mapped to Normal because Fairy Type Support is not installed.`
@@ -317,7 +323,7 @@ export async function addMoveExpansion(
     ? ` The optional Gen 6-9 animation bundle is installed with ${result.bundledAnimationsInstalled} scripts; this run appended ${result.particleFilesInstalled} particle files and ${result.backgroundFilesInstalled} background files, with references adapted for this ROM.`
     : "";
   const summary = result.changed
-    ? `Expanded move data and animations to 1,000 entries, installed the Frost-compatible routing hook, and added ${result.importedMovesAdded} selectable White2Upgrade move definitions.${mappedFairyText}${bundledAnimationText}`
+    ? `Expanded move data and animations to 1,000 entries, installed the Frost-compatible routing hook, and added ${result.importedMovesAdded} selectable White2Upgrade move definitions.${fairyText}${mappedFairyText}${bundledAnimationText}`
     : `Move Expansion, its routing hook, and the coordinated text and animation tables are already installed.${bundledAnimationText}`;
   return {
     patchId: "moveExpansion",

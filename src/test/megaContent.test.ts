@@ -6,7 +6,6 @@ import { MEGA_CONTENT, megaSpriteCredits } from "../pokeweb/megaContentModel";
 
 const zip = new Uint8Array(readFileSync(new URL("../assets/mega/megaContent.zip", import.meta.url)));
 const files = unzipSync(zip);
-const UNKNOWN_SPRITES = ["Mega Venusaur", "Mega Blastoise", "Mega Aerodactyl", "Mega Sceptile", "Mega Sharpedo", "Mega Camerupt", "Mega Metagross"];
 
 describe("Mega content package", () => {
   it("matches its manifest", () => {
@@ -51,10 +50,16 @@ describe("Mega content package", () => {
     for (const name of Object.keys(files).filter((key) => key.endsWith(".rgba"))) expect(files[name]).toHaveLength(32 * 32 * 4);
   });
 
-  it("credits every sprite, with Unknown where no credit record exists", () => {
+  it("takes every Mega's sprites from the PWAN library, each side credited", () => {
     const credits = megaSpriteCredits();
-    for (const credit of credits) expect(credit.front).not.toBe("—");
-    for (const name of UNKNOWN_SPRITES) expect(credits.find((credit) => credit.name === name)).toMatchObject({ front: "Unknown", back: "Unknown" });
+    expect(MEGA_CONTENT.forms.every((form) => form.library && Object.values(form.sprites).every((sprite) => sprite.source === "library"))).toBe(true);
+    for (const credit of credits) {
+      expect(credit.front).not.toBe("—");
+      expect(credit.front).not.toBe("Unknown");
+      expect(credit.back).not.toBe("Unknown");
+    }
+    expect(credits.find((credit) => credit.name === "Mega Venusaur")).toMatchObject({ front: "Smogon/Sprites Animados Contributors", back: "Smogon/Sprites Animados Contributors" });
+    expect(credits.find((credit) => credit.name === "Mega Pidgeot")).toMatchObject({ front: "Aronousqui20", back: "Aronousqui20" });
     expect(credits.find((credit) => credit.name === "Mega Charizard X")).toMatchObject({ front: "Smogon Sprite Project; hexagonereal", back: "Smogon/Sprites Animados Contributors" });
     expect(MEGA_CONTENT.credits.map((credit) => credit.name)).toEqual(["Dararo", "Hibiki"]);
   });

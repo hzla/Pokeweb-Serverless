@@ -98,7 +98,7 @@ AI flags are behavior switches for the battle AI. Exact move scoring still depen
 | Make a trainer a Double Battle | Set Battle Type to `Doubles`, make sure the trainer has at least two Pokemon, and consider installing the Single-NPC Double Battle Fix for common-script BW2 trainers. |
 | Give custom moves | Enable Moves, edit Move 1-4, or click Autofill Moves. |
 | Give held items | Enable Items and edit Held Item on each Pokemon. |
-| Set explicit natures | Apply Specify Trainer Pokemon Natures, then set Nature per party member. |
+| Set explicit natures | Install Specify Trainer Pokémon Natures (Code Injection > Infrastructure and Dependencies), then set Nature per party member. |
 | Add a trainer | Select a similar trainer, click Add Trainer, then edit class, text, party, and scripts that reference it. |
 
 ## Caveats

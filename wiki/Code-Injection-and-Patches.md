@@ -2,7 +2,7 @@
 
 ## Cascade personal-data migration
 
-The Patches page shows **Editable Cascade AI Abilities** for a detected Cascade White BW2 ROM containing an identifiable injected AI ability table, or an already migrated Cascade ROM. **Migrate AI Abilities & Chances** copies the loaded variant's numeric ability IDs and raw hidden ability chance values into its Pokémon personal records and enables editing. See [Pokemon Personal](Pokemon-Personal.md) for offsets and ranges.
+Code Injection > Infrastructure and Dependencies shows **Editable Cascade AI Abilities** for a detected Cascade White BW2 ROM containing an identifiable injected AI ability table, or an already migrated Cascade ROM. **Migrate AI Abilities & Chances** copies the loaded variant's numeric ability IDs and raw hidden ability chance values into its Pokémon personal records and enables editing. See [Pokemon Personal](Pokemon-Personal.md) for offsets and ranges.
 
 Both tables are extracted from the loaded DLLs. Ability IDs come from the `A9_DamageCalc.cpp` table; raw chance multipliers come from the separate `WhiteListedPokemon` array in `newitems_support_structs.h`, compiled into `D2_FieldOverlays.dll`. Current byte-sized and older enum-sized ability layouts are supported; missing, ambiguous, conflicting, truncated, or non-`u8` tables cannot be migrated. All target personal records are validated before any writes. This operation does not modify injected code or change gameplay behavior.
 
@@ -10,7 +10,7 @@ An earlier AI-only migration can use **Import Hidden Ability Chances** to fill z
 
 ## Purpose
 
-The Code Injection and Patches editors apply bundled binary changes to the ROM. These features are for behavior that cannot be represented as normal game data, such as adding a runtime, changing battle code, changing dust-cloud logic, or extending type support.
+The Code Injection page applies bundled binary changes to the ROM (the separate Patches page was folded into it). These features are for behavior that cannot be represented as normal game data, such as adding a runtime, changing battle code, changing dust-cloud logic, or extending type support.
 
 Use these tools carefully. They modify ARM9, overlays, or ROM files at known byte locations. Pokeweb checks the ROM version and expected original bytes before applying supported patches, but you should still keep backups.
 
@@ -45,8 +45,9 @@ Use these tools carefully. They modify ARM9, overlays, or ROM files at known byt
 | Uninstall Battle Log | Removes the staged battle and summary DLLs, removes or restores generated ancestry data, and restores normal Pal Pad/Wi-Fi save handling. Existing log records in the save remain untouched. | Available before the staged DLLs are exported and reloaded as part of a ROM. |
 | Install Item Expansion | Black 2 / White 2. Installs PMC if needed and stages five `PokewebItems*` DLLs: item IDs up to 1023 and pokebw2's shared bag (one pool of 1,023 distinct items instead of fixed pockets). Pads item data and the item name, description, article and plural texts to 1,024 entries; items 639–1023 exist once you name them in the Items editor, and take their pocket from their item data. Also installs Battle Log's save guard. | Add Mega Stones at IDs 657 and up. |
 | Convert Save to Expanded / to Retail | The item expansion uses a new save format: the bag block grows and the Pal Pad trade-history block shrinks (Battle Log records are kept). Converts a raw `.sav` both ways, never in place; the original file is unchanged. A ROM with the expansion stops at a message when it finds an unconverted save. Converted saves do not work with PKHeX, Poké Transporter or older ROMs, and Pal Pad, Wi-Fi friend and Unity Tower data are no longer saved. | `game.sav` → `game-expanded-items.sav` |
-| Install Mega Evolution | Black 2 / White 2 (Feature Add-Ons), shown only when Pokeweb runs on localhost (experimental, like Map Studio). One click installs everything it needs (PMC, Item Expansion, the PWAN runtime, `PokewebMega*.dll`) and the Mega Pokémon below. The player arms Mega Evolution on the move screen with START or the MEGA button; every trainer the game controls (opponents and partners) Mega Evolves whenever it can; one per trainer per battle, Generation 7 turn order. The form, its ability and stats last until the battle ends. Routes (species, held Mega Stone or trigger move, form, Mega form) can list your own Mega forms. Credits: Dararo (original Mega Evolution implementation), Hibiki (battle UI and transformation animation). | Refuses White 2 Upgrade / Black 2 Upgrade, which have their own. |
-| Mega Pokémon (same button) | Adds the 70 Mega forms of species 1-649 that use a Mega Stone (stats, types, abilities, weight), their Mega Stones (IDs 657-780, with icons), animated sprites and icons, the battle messages, Hibiki's transformation animation and a route each. Missing Gen 6+ abilities are added from the ability library. When Move Expansion is installed first it also adds Mega Rayquaza (Dragon Ascent). If the Mega Pokémon were installed without the animation, the button shows Update Mega Evolution and adds it. Item Expansion changes the save format: convert existing saves on its card. Sprite credits are listed on the card; sprites without a credit record are marked Unknown. | Fairy-type Megas keep their base type without the Fairy type patch. |
+| Install Move Expansion | Black / White / Black 2 / White 2 (Major Features/Expansions). Expands the ROM to 1,000 move slots and adds the data for the Gen 6-9 moves (no special move handlers), installing Fairy Type Support first on Black 2 / White 2; optionally the move animations compiled from Gen 5 romhacks and the community. Credits for the move animations are on the card. | Installed automatically by Install Mega Evolution. |
+| Install Mega Evolution | Black 2 / White 2 (Major Features/Expansions), shown only when Pokeweb runs on localhost (experimental, like Map Studio). One click installs everything it needs (PMC, Fairy Type Support and Move Expansion, Item Expansion, the PWAN runtime, `PokewebMega*.dll`) and the Mega Pokémon below. The player arms Mega Evolution on the move screen with START or the MEGA button; every trainer the game controls (opponents and partners) Mega Evolves whenever it can; one per trainer per battle, Generation 7 turn order. The form, its ability and stats last until the battle ends. Routes (species, held Mega Stone or trigger move, form, Mega form) can list your own Mega forms. Credits: Dararo (original Mega Evolution implementation), Hibiki (battle UI and transformation animation). | Refuses White 2 Upgrade / Black 2 Upgrade, which have their own. |
+| Mega Pokémon (same button) | Adds the 71 Mega forms of species 1-649 (stats, types, abilities, weight): 70 with their Mega Stones (IDs 657-780, with icons) and Mega Rayquaza, triggered by knowing Dragon Ascent (from Move Expansion); animated sprites and icons, the battle messages, Hibiki's transformation animation and a route each. Missing Gen 6+ abilities are added from the ability library. If Move Expansion can't be installed on the ROM, Mega Rayquaza is skipped. If the Mega Pokémon were installed without the animation, the button shows Update Mega Evolution and adds it. Item Expansion changes the save format: convert existing saves on its card. Sprites come from the PWAN library; their credits are listed on the card. | Fairy-type Megas keep their base type without the Fairy type patch. |
 | Install/Update Enhanced Party Menu and Battle Log Integration | Verifies party/field/tutor and battle-return hooks, stages the matching stripped companion, and configures EVOLVE and RELEARN text. Existing KO learnsets are preserved. | Update older companions to 1.3.1 for the post-battle KO evolution fix |
 | Uninstall Enhanced Party Menu and Battle Log Integration | Removes a staged companion while retaining text entries and KO learnsets. Uninstall this before removing Battle Log. | Existing message IDs never shift |
 | Single-NPC double battle fix | Installs a bundled patch that fixes trainer scripts where one visible NPC should start a double battle. | Black 2 or White 2 patch DLL |
@@ -55,7 +56,7 @@ Use these tools carefully. They modify ARM9, overlays, or ROM files at known byt
 | Install/Update Porta PC | Installs PMC if needed and stages the matching stripped DLL. Replaces a recognized original ButtonScript DLL in place. | `PortaPCB2.dll` or `PortaPCW2.dll` |
 | Uninstall Porta PC | Removes a Porta PC DLL staged in the current project. | Available before the DLL becomes part of an imported ROM |
 | Install Infinite Candy | Installs PMC if needed, stages the version-matched DLL, and fills item 622's data, name, and description. | Give item 622 through an event or save editor; Rare Candy at item 50 stays unchanged. Credit: PW2Code by Dararo. |
-| Install Forgettable HMs | Black 2 / White 2. Installs PMC if needed and stages a generated `ForgettableHmsB2.dll` / `ForgettableHmsW2.dll` that hooks `PML_MoveIsHM`, so HMs can be forgotten while ARM9 stays retail. An older inline ARM9 edit shows *Migration Available* and is restored on install. Black / White use the ARM9 patch on the Patches page. | Let players remove Cut or Surf in a BW2 hack. |
+| Install Forgettable HMs | Black 2 / White 2. Installs PMC if needed and stages a generated `ForgettableHmsB2.dll` / `ForgettableHmsW2.dll` that hooks `PML_MoveIsHM`, so HMs can be forgotten while ARM9 stays retail. An older inline ARM9 edit shows *Migration Available* and is restored on install. Black / White use the ARM9 patch (Make HM Moves Forgettable) on the same tab. | Let players remove Cut or Surf in a BW2 hack. |
 | Install/Update Autorun | US Black, White, Black 2 and White 2. Installs PMC if needed, stages `Autorun{B,W,B2,W2}.dll` (field grid and rail movement hooks) and the shared `PokewebOptionRows*.dll`, and adds an AUTORUN On/Off row to the in-game Options screen. With the Running Shoes, moving runs and holding B walks; existing saves start with Autorun on. On Black 2 / White 2 with Following Pokémon, both rows share one Options module (Followers, then Autorun). | Run everywhere without holding B. |
 | Uninstall Autorun | Removes a staged Autorun install, its Options row and text. Following Pokémon's row stays. | Available before the DLL becomes part of an imported ROM |
 | Install/Update Skip Intro | US Black 2 and White 2. Installs PMC if needed and stages `IntroSkip{B2,W2}.dll` (five call hooks in the new-game events of overlay 35). A new game starts in the player's room, in control, right after Professor Juniper's introduction: no Aspertia flyover, no call outside the house, no "I'm home!" scene. Mom waits in the house and the story continues as usual. | Faster new games. |
@@ -65,17 +66,18 @@ Use these tools carefully. They modify ARM9, overlays, or ROM files at known byt
 | Add Patch DLL | Adds a DLXF Gen V patch DLL to `patches/`. | A battle-code patch DLL |
 | Add Library DLL | Adds a supporting library DLL to `lib/`. | A libRPM-compatible dependency |
 
-## Patch Editor Controls
+## ROM patches on the Code Injection page
 
-| Patch | Supported games | What it changes | Example use |
-|---|---|---|---|
-| Remove Gems from Cave Dust Clouds | Black / White / Black 2 / White 2 | Skips the dust-cloud reward branch that gives type gems. Other dust-cloud rewards can remain. | Make caves give encounters and non-gem items only. |
-| Remove Items from Cave Dust Clouds | Black / White / Black 2 / White 2 | Skips dust-cloud item rewards so dust clouds attempt wild encounters instead. | Make dust clouds always behave like encounter spots. |
-| Add Fairy Type Support | Black 2 / White 2 | Adds Fairy as an extra usable type and can update Pokemon and move typings. | Add Fairy-type Clefairy, Togepi, or Ralts-line behavior. |
-| Specify Trainer Pokemon Natures | Black 2 / White 2 | Enables the trainer Pokemon `Nature` field in supported ROMs. | Give a boss's ace an explicit `Adamant` nature. |
-| Make HM Moves Forgettable | Black / White | Edits ARM9 so HMs can be forgotten. For Black 2 / White 2, use **Forgettable HMs** under Code Injection > Quality of Life. | Let players remove Cut or Surf without special handling. |
+These are direct ROM edits rather than PMC modules; each asks for confirmation and is kept by exporting the ROM.
 
-The [Phenomena editor](Phenomena) replaces both dust-cloud patches with editable encounter chances and item lists for dust clouds and flying shadows. They are disabled once it is installed.
+| Patch | Tab | Supported games | What it changes | Example use |
+|---|---|---|---|---|
+| Fairy Type Support | Major Features/Expansions | Black 2 / White 2 | Adds Fairy as an extra usable type and can update Pokemon and move typings. Installed automatically by Move Expansion and Mega Evolution. | Add Fairy-type Clefairy, Togepi, or Ralts-line behavior. |
+| Move Expansion | Major Features/Expansions | Black / White / Black 2 / White 2 | 1,000 move slots and the data of the Gen 6-9 moves (base power, accuracy, status effects; no special move handlers), with Fairy Type Support where available; optionally the move animations. | Give Pokémon Moonblast or Play Rough. |
+| Make HM Moves Forgettable | Quality of Life | Black / White | Edits ARM9 so HMs can be forgotten. For Black 2 / White 2, use **Forgettable HMs** on the same tab. | Let players remove Cut or Surf without special handling. |
+| Editable Cascade AI Abilities | Infrastructure and Dependencies | Cascade White | See *Cascade personal-data migration* above. | |
+
+Dust-cloud rewards (including removing gems or items) are edited in the [Phenomena editor](Phenomena), which has editable encounter chances and item lists for dust clouds and flying shadows. Specify Trainer Pokémon Natures moved to Code Injection > Infrastructure and Dependencies.
 
 ## Status Labels
 
@@ -105,7 +107,7 @@ Normal **Export ROM** remains available and does not opt into the conversion.
 ### Install a bundled gameplay patch
 
 1. Load the original ROM data and the relevant game data.
-2. Open `Code Injection/Patches`.
+2. Open `Code Injection`.
 3. Read the status for the patch you want.
 4. Apply the patch only if it is shown as ready or supported.
 5. Export the ROM and test the changed behavior in-game.
@@ -113,7 +115,7 @@ Normal **Export ROM** remains available and does not opt into the conversion.
 ### Enable trainer natures
 
 1. Use a supported Black 2 / White 2 ROM.
-2. Apply `Specify Trainer Pokemon Natures`.
+2. Open Code Injection > Infrastructure and Dependencies and choose **Install Trainer Natures** (PMC is installed automatically; an older inline natures patch is migrated).
 3. Open the Trainer editor.
 4. Set each Pokemon's `Nature` field, or leave it as `Auto` to preserve normal behavior.
 
@@ -152,7 +154,7 @@ Installing the runtime alone writes an empty PWAN configuration and does not mod
 ### Install the trainer battle log
 
 1. Use a US Black 2, White 2, or corresponding Upgrade project whose ARM9, battle, and summary hook bytes still match its base game.
-2. Open `Code Injection/Patches` and install the Trainer Battle Log. PMC is installed automatically if needed.
+2. Open `Code Injection` and install the Trainer Battle Log. PMC is installed automatically if needed.
 3. Export the ROM. The installer generates `battlelog/ancestry.narc` from the project's current `a/0/1/9` and stages the matching battle and summary DLL pair under `patches/`. The dedicated `battlelog` directory is appended to NitroFS so existing ROM file IDs remain unchanged.
 4. Save normally after trainer battles to persist new records.
 

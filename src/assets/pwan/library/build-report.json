@@ -56,9 +56,9 @@
   },
   "distribution": {
     "encoding": "gzip",
-    "compressedBytes": 12648551,
-    "archiveBytes": 120503404,
-    "archiveSha256": "3afd5152d875e6b972eef4c9b809d2172e2e54c8bbe62e9503ab4dd7e554c2cf"
+    "compressedBytes": 12873891,
+    "archiveBytes": 122168880,
+    "archiveSha256": "e9de2f23e8362b34dc3ba35114b07e7e6c9ddfff020e9316220e456e1085d230"
   },
   "gmaxMegas": {
     "addedEntries": 33,
@@ -74,5 +74,37 @@
       "malePaletteId": 2,
       "femalePaletteId": 2
     }
-  }
+  },
+  "megaCorrections": [
+    "MEGA_VENUSAUR: added at asset 706, icon members 4301-4302",
+    "MEGA_VENUSAUR front: essentials_gifs/Front/VENUSAUR_1.gif (20 frames, 9 unique, 15 colours) — Gen 5-inspired color preset applied: +15% saturation and +10% contrast; review the preview for clipped highlights or lost shades",
+    "MEGA_VENUSAUR back: essentials_gifs/Back/VENUSAUR_1.gif (16 frames, 5 unique, 15 colours) — Gen 5-inspired color preset applied: +15% saturation and +10% contrast; review the preview for clipped highlights or lost shades",
+    "MEGA_BLASTOISE: added at asset 722, icon members 4303-4304",
+    "MEGA_BLASTOISE front: essentials_gifs/Front/BLASTOISE_1.gif (8 frames, 5 unique, 14 colours) — Gen 5-inspired color preset applied: +15% saturation and +10% contrast; review the preview for clipped highlights or lost shades",
+    "MEGA_BLASTOISE back: essentials_gifs/Back/BLASTOISE_1.gif (4 frames, 4 unique, 13 colours) — Gen 5-inspired color preset applied: +15% saturation and +10% contrast; review the preview for clipped highlights or lost shades",
+    "MEGA_PIDGEOT front: aranousqui20-newmegas/pidgeot-mega-front.gif (48 frames, 48 unique, 15 colours) — Uses 22 opaque colors; Gen 5 battle sprites support 15 plus transparency; Opaque colors were reduced by merging the least-visible closest color pairs to fit PWAN's 15-color visible palette; Source GIF is 163x98; resized into 96x96 using nearest-neighbor sampling (no blended pixels); Gen 5-inspired color preset applied: +15% saturation and +10% contrast; review the preview for clipped highlights or lost shades",
+    "MEGA_PIDGEOT back: aranousqui20-newmegas/pidgeot-mega-back.gif (48 frames, 48 unique, 15 colours) — Uses 22 opaque colors; Gen 5 battle sprites support 15 plus transparency; Opaque colors were reduced by merging the least-visible closest color pairs to fit PWAN's 15-color visible palette; Source GIF is 166x116; resized into 96x96 using nearest-neighbor sampling (no blended pixels); Gen 5-inspired color preset applied: +15% saturation and +10% contrast; review the preview for clipped highlights or lost shades",
+    "MEGA_SLOWBRO front: essentials_gifs/Front/SLOWBRO_2.gif (52 frames, 15 unique, 15 colours) — Gen 5-inspired color preset applied: +15% saturation and +10% contrast; review the preview for clipped highlights or lost shades",
+    "MEGA_SLOWBRO back: essentials_gifs/Back/SLOWBRO_2.gif (14 frames, 11 unique, 11 colours) — Gen 5-inspired color preset applied: +15% saturation and +10% contrast; review the preview for clipped highlights or lost shades",
+    "MEGA_AERODACTYL: added at asset 723, icon members 4305-4306",
+    "MEGA_AERODACTYL front: aranousqui20-newmegas/aerodactyle-mega-front.gif (60 frames, 39 unique, 15 colours) — Uses 19 opaque colors; Gen 5 battle sprites support 15 plus transparency; Opaque colors were reduced by merging the least-visible closest color pairs to fit PWAN's 15-color visible palette; Source GIF is 118x103; resized into 96x96 using nearest-neighbor sampling (no blended pixels); Gen 5-inspired color preset applied: +15% saturation and +10% contrast; review the preview for clipped highlights or lost shades",
+    "MEGA_AERODACTYL back: aranousqui20-newmegas/aerodactyl-mega-back.gif (60 frames, 40 unique, 15 colours) — Uses 17 opaque colors; Gen 5 battle sprites support 15 plus transparency; Opaque colors were reduced by merging the least-visible closest color pairs to fit PWAN's 15-color visible palette; Source GIF is 127x106; resized into 96x96 using nearest-neighbor sampling (no blended pixels); Gen 5-inspired color preset applied: +15% saturation and +10% contrast; review the preview for clipped highlights or lost shades",
+    "MEGA_HOUNDOOM front: aranousqui20-newmegas/houndoom-mega-front.gif (72 frames, 54 unique, 15 colours) — Uses 16 opaque colors; Gen 5 battle sprites support 15 plus transparency; Opaque colors were reduced by merging the least-visible closest color pairs to fit PWAN's 15-color visible palette; Gen 5-inspired color preset applied: +15% saturation and +10% contrast; review the preview for clipped highlights or lost shades",
+    "MEGA_HOUNDOOM back: aranousqui20-newmegas/houndoom-mega-back.gif (72 frames, 48 unique, 14 colours) — Gen 5-inspired color preset applied: +15% saturation and +10% contrast; review the preview for clipped highlights or lost shades",
+    "MEGA_SCEPTILE: added at asset 724, icon members 4307-4308",
+    "MEGA_SCEPTILE front: essentials_gifs/Front/SCEPTILE_1.gif (12 frames, 7 unique, 15 colours) — Gen 5-inspired color preset applied: +15% saturation and +10% contrast; review the preview for clipped highlights or lost shades",
+    "MEGA_SCEPTILE back: essentials_gifs/Back/SCEPTILE_1.gif (19 frames, 13 unique, 14 colours) — Gen 5-inspired color preset applied: +15% saturation and +10% contrast; review the preview for clipped highlights or lost shades",
+    "MEGA_SABLEYE front: aranousqui20-newmegas/sableye-mega-fron.gif (69 frames, 44 unique, 15 colours) — Uses 178 opaque colors; Gen 5 battle sprites support 15 plus transparency; Opaque colors were reduced with weighted median-cut source-color selection to fit PWAN's 15-color visible palette; Gen 5-inspired color preset applied: +15% saturation and +10% contrast; review the preview for clipped highlights or lost shades",
+    "MEGA_SABLEYE back: aranousqui20-newmegas/sableye-mega-back.gif (69 frames, 44 unique, 15 colours) — Uses 54 opaque colors; Gen 5 battle sprites support 15 plus transparency; Opaque colors were reduced by merging the least-visible closest color pairs to fit PWAN's 15-color visible palette; Gen 5-inspired color preset applied: +15% saturation and +10% contrast; review the preview for clipped highlights or lost shades",
+    "MEGA_SHARPEDO: added at asset 727, icon members 4309-4310",
+    "MEGA_SHARPEDO front: essentials_gifs/Front/SHARPEDO_1.gif (44 frames, 20 unique, 13 colours) — Gen 5-inspired color preset applied: +15% saturation and +10% contrast; review the preview for clipped highlights or lost shades",
+    "MEGA_SHARPEDO back: essentials_gifs/Back/SHARPEDO_1.gif (12 frames, 7 unique, 13 colours) — Gen 5-inspired color preset applied: +15% saturation and +10% contrast; review the preview for clipped highlights or lost shades",
+    "MEGA_CAMERUPT: added at asset 730, icon members 4311-4312",
+    "MEGA_CAMERUPT front: essentials_gifs/Front/CAMERUPT_1.gif (20 frames, 8 unique, 14 colours) — Gen 5-inspired color preset applied: +15% saturation and +10% contrast; review the preview for clipped highlights or lost shades",
+    "MEGA_CAMERUPT back: essentials_gifs/Back/CAMERUPT_1.gif (11 frames, 9 unique, 15 colours) — Gen 5-inspired color preset applied: +15% saturation and +10% contrast; review the preview for clipped highlights or lost shades",
+    "MEGA_METAGROSS: added at asset 731, icon members 4313-4314",
+    "MEGA_METAGROSS front: essentials_gifs/Front/METAGROSS_1.gif (12 frames, 7 unique, 15 colours) — Gen 5-inspired color preset applied: +15% saturation and +10% contrast; review the preview for clipped highlights or lost shades",
+    "MEGA_METAGROSS back: essentials_gifs/Back/METAGROSS_1.gif (14 frames, 8 unique, 8 colours) — Gen 5-inspired color preset applied: +15% saturation and +10% contrast; review the preview for clipped highlights or lost shades",
+    "MEGA_GALLADE back: essentials_gifs/Back/GALLADE_1.gif (29 frames, 8 unique, 15 colours) — Gen 5-inspired color preset applied: +15% saturation and +10% contrast; review the preview for clipped highlights or lost shades"
+  ]
 }

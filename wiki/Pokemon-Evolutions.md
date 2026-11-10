@@ -70,6 +70,24 @@ Evolution data is stored as slots. Each slot has a method, a parameter, and a ta
 | Remove an evolution | Set Method to `None`; set Parameter and target to harmless values if desired. |
 | Create branched evolutions | Use multiple slots with different methods/parameters. |
 
+## Mega Evolution (Black 2 / White 2)
+
+When Pokeweb runs on localhost, the Evolutions tab of a Black 2 / White 2 project has a **Mega Evolution** section below the slots. Mega Evolutions are not evolution slots: they live in the Mega Evolution runtime's route table (Code Injection → Major Features/Expansions → Mega Evolution, up to 192). If Mega Evolution isn't installed, the section offers the same one-click install.
+
+| Column | Meaning |
+| --- | --- |
+| Trigger | `Held item` (a Mega Stone) or `Knows move` (like Mega Rayquaza's Dragon Ascent). |
+| Item or move | The trigger, by name; its ID is shown next to it. |
+| Mega form | Another form of this Pokémon. `New form…` adds one (as Personal → Add form does), named `<Pokémon>-Mega`. `Open` goes to the form to set its stats, types, ability and sprites. |
+
+| Goal | Steps |
+| --- | --- |
+| Add a custom Mega | On the base Pokémon: `New Mega Stone…` (creates the item in the first free slot from 781 with no price or effect and the generic stone icon), then in the empty row pick the stone, choose `New form…`, press `Add`. Open the Mega form and edit it. |
+| Use an existing item | Type its name. Regular items (below 657) keep their own battle effect; the section says so. |
+| Remove a Mega | `Remove`. The Mega form stays; delete it on the Personal tab if unused. Routes whose Mega form was deleted show in red and are dropped at the next edit. |
+
+A Mega form's own Evolutions tab names the Pokémon and item it comes from. In battle, the Mega takes the ability in the same slot (first, second or hidden) as the Pokémon's own ability, and the item can't be removed from that Pokémon.
+
 ## Caveats
 
 Some methods are hard-coded to specific map locations or special cases. If you want a custom location evolution, changing this table alone is usually not enough.

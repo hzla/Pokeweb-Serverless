@@ -2,6 +2,9 @@ import grottoLocationsText from "../assets/data/grotto_locations.txt?raw";
 import martLocationsText from "../assets/data/mart_locations.txt?raw";
 import { writeU8 } from "../nds/binary";
 import { recordFieldChange } from "./actionChangelog";
+import {
+  bw1MartCapacity, bw1MartCount, bw1MartLabel, isBw1BpMart, readBw1Marts, setBw1BpItems, setBw1MartItems, type Bw1MartData,
+} from "./bw1MartModel";
 import { findPokemonSpeciesId, pokemonSpeciesLabel, pokemonSpeciesNameOptions } from "./pokemonLabels";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
 import { pokemonSpriteSlug } from "./spriteSlug";
@@ -48,8 +51,21 @@ export const GROTTO_ODDS_FIELDS = Array.from({ length: 20 }, (_, index) => [
 const MART_LOCATIONS = martLocationsText.split(/\r?\n/u).filter(Boolean);
 const GROTTO_LOCATIONS = grottoLocationsText.split(/\r?\n/u).filter(Boolean);
 
+export const BW2_MART_SLOTS = 20;
+
 export function getMartCount(project: ProjectState): number {
+  if (project.session.baseRom === "BW") return bw1MartCount();
   return project.narcs.marts?.fileCount ?? 0;
+}
+
+/** Slots this mart can hold: 20 in BW2; BW1's retail list size, or 40 with expanded inventories. */
+export function getMartSlotLimit(project: ProjectState, martId: number): number {
+  return project.session.baseRom === "BW" ? bw1MartCapacity(readBw1Marts(project), martId) : BW2_MART_SLOTS;
+}
+
+/** BW1's Battle Subway shops sell for BP at per-entry prices (`price_N` fields). */
+export function isBpMart(project: ProjectState, martId: number): boolean {
+  return project.session.baseRom === "BW" && isBw1BpMart(martId);
 }
 
 export function getGrottoCount(project: ProjectState): number {
@@ -57,6 +73,7 @@ export function getGrottoCount(project: ProjectState): number {
 }
 
 export function getMartRecord(project: ProjectState, martId: number): MartRecord {
+  if (project.session.baseRom === "BW") return bw1MartRecord(project, readBw1Marts(project), martId);
   const record = decodeRecord(project, "marts", martId);
   if (!record.raw || !record.readable) throw new Error(`Unable to decode mart ${martId}`);
   syncMartReadable(project, martId, record.raw, record.readable);
@@ -101,6 +118,7 @@ export function getGrottoAutofills(project: ProjectState): Record<string, string
 }
 
 export function updateMartField(project: ProjectState, martId: number, field: string, inputValue: string): FieldUpdateResult {
+  if (project.session.baseRom === "BW") return updateBw1MartField(project, martId, field, inputValue);
   if (!/^item_\d+$/u.test(field)) throw new Error(`Unsupported mart field: ${field}`);
   const record = getMartRecord(project, martId);
   const before = record.readable[field] ?? "";
@@ -181,6 +199,75 @@ export function remainingHiddenCommonOdd(project: ProjectState, grottoId: number
   return remaining;
 }
 
+function bw1MartRecord(project: ProjectState, data: Bw1MartData, martId: number): MartRecord {
+  const raw: RawRecord = {};
+  const readable: ReadableRecord = { index: martId, name: bw1MartLabel(data, martId) };
+  const bp = isBw1BpMart(martId);
+  const entries = bp ? data.bpShops[martId - data.shops.length] ?? [] : (data.shops[martId] ?? []).map((itemId) => ({ itemId, price: 0 }));
+  const slots = Math.max(bw1MartCapacity(data, martId), entries.length);
+  for (let n = 0; n < slots; n += 1) {
+    const entry = entries[n];
+    raw[`item_${n}`] = entry?.itemId ?? 0;
+    readable[`item_${n}`] = itemName(project, entry?.itemId ?? 0);
+    if (bp) {
+      raw[`price_${n}`] = entry?.price ?? 0;
+      readable[`price_${n}`] = entry?.price ?? 0;
+    }
+  }
+  return { id: martId, raw, readable, inventory: martInventory(readable, slots) };
+}
+
+/**
+ * Reorder or drop slots in one step: `order` lists the current slot indices to
+ * keep, in their new order. BP prices move with their items.
+ */
+export function reorderMartSlots(project: ProjectState, martId: number, order: number[]): void {
+  if (project.session.baseRom === "BW") {
+    const data = readBw1Marts(project);
+    if (isBw1BpMart(martId)) {
+      const entries = data.bpShops[martId - data.shops.length] ?? [];
+      setBw1BpItems(project, martId, order.map((slot) => entries[slot]!).filter(Boolean));
+    } else {
+      const items = data.shops[martId] ?? [];
+      setBw1MartItems(project, martId, order.map((slot) => items[slot]!).filter((item) => item !== undefined));
+    }
+    return;
+  }
+  const record = getMartRecord(project, martId);
+  const items = order.map((slot) => Number(record.raw[`item_${slot}`] ?? 0));
+  for (let slot = 0; slot < BW2_MART_SLOTS; slot += 1) {
+    const next = items[slot] ?? 0;
+    if (Number(record.raw[`item_${slot}`] ?? 0) !== next) updateMartField(project, martId, `item_${slot}`, itemName(project, next));
+  }
+}
+
+/** Item edits rebuild the list without empty slots; `price_N` edits a BP price. */
+function updateBw1MartField(project: ProjectState, martId: number, field: string, inputValue: string): FieldUpdateResult {
+  const match = /^(item|price)_(\d+)$/u.exec(field);
+  if (!match) throw new Error(`Unsupported mart field: ${field}`);
+  const slot = Number(match[2]);
+  const data = readBw1Marts(project);
+  const bp = isBw1BpMart(martId);
+  const entries = bp ? (data.bpShops[martId - data.shops.length] ?? []).map((entry) => ({ ...entry })) : (data.shops[martId] ?? []).map((itemId) => ({ itemId, price: 0 }));
+  if (slot > entries.length) throw new Error("Fill the slots in order.");
+  let result: FieldUpdateResult;
+  if (match[1] === "price") {
+    if (!bp || !entries[slot]) throw new Error("Only BP shop entries have prices.");
+    const price = parseInteger(inputValue.trim(), 0, 0xffff, "BP price");
+    entries[slot]!.price = price;
+    result = { value: price, rawValue: price };
+  } else {
+    const itemId = findValueIndex(project.texts.banks.items ?? [], inputValue.trim(), "item");
+    if (entries[slot]) entries[slot]!.itemId = itemId;
+    else if (itemId) entries.push({ itemId, price: 1 });
+    result = { value: itemName(project, itemId), rawValue: itemId };
+  }
+  const kept = entries.filter((entry) => entry.itemId !== 0);
+  if (bp) setBw1BpItems(project, martId, kept, martFieldLabel(field));
+  else setBw1MartItems(project, martId, kept.map((entry) => entry.itemId), martFieldLabel(field));
+  return result;
+}
+
 function syncMartReadable(project: ProjectState, martId: number, raw: RawRecord, readable: ReadableRecord): void {
   readable.index = martId;
   readable.name = MART_LOCATIONS[martId] ?? "-";
@@ -206,8 +293,8 @@ function syncGrottoReadable(project: ProjectState, grottoId: number, raw: RawRec
   }
 }
 
-function martInventory(readable: ReadableRecord): string {
-  const items = Array.from({ length: 20 }, (_, n) => String(readable[`item_${n}`] ?? "None"));
+function martInventory(readable: ReadableRecord, slots = BW2_MART_SLOTS): string {
+  const items = Array.from({ length: slots }, (_, n) => String(readable[`item_${n}`] ?? "None"));
   return [...new Set(items.filter((item) => item !== "None"))].join(", ");
 }
 

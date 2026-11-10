@@ -2,16 +2,16 @@
 
     python3 runtime/mega-evolution/content/build_content.py \
         --pokebw2-res <pokebw2>/res/w2u --identities <item_identities.json> \
-        --w2u <White2Upgrade-w2-integration> --w2u-icons <dir from extract_w2u_icons.py>
+        --w2u <White2Upgrade-w2-integration>
 
 Sources (all from the user's own projects):
 - pokebw2 `res/w2u/mega_roster.json` (forms: stats, types, abilities, height, weight; only species 1-649 are used),
   `item_identities.json` (Mega Stone IDs 657-780 and names), `ability_text.json` (names of abilities above 164),
   `content_credits.json` (per-side sprite credits).
-- Pokeweb's PWAN library (`src/assets/pwan/library/manifest.json`): animated sprites and icons for the Megas it has.
-- White2Upgrade: `assets/pokeweb_pwan/<asset>_<side>.pwan` for the Megas or sides the library lacks (credited
-  "Unknown"), their icons from the built ROM's `a/0/0/7` (extract_w2u_icons.py), `assets/item_icons` (Mega Stone
-  icons), and Hibiki's transformation animation (`data/graphics/move_animations/5_00000622.bin` + the SPAs it loads).
+- Pokeweb's PWAN library (`src/assets/pwan/library/manifest.json`): the animated sprites, icons and per-side credits of
+  every Mega (scripts/patch-pwan-library-megas.ts corrected the ones White2Upgrade's PWAN files got wrong).
+- White2Upgrade: `assets/item_icons` (Mega Stone icons) and Hibiki's transformation animation
+  (`data/graphics/move_animations/5_00000622.bin` + the SPAs it loads).
 
 Writes src/assets/data/megaContent.json and src/assets/mega/megaContent.zip.
 """
@@ -28,11 +28,6 @@ LIBRARY = REPO / "src/assets/pwan/library/manifest.json"
 OUT_JSON = REPO / "src/assets/data/megaContent.json"
 OUT_ZIP = REPO / "src/assets/mega/megaContent.zip"
 MAX_SPECIES = 649
-# White2Upgrade asset indices of the Megas the PWAN library does not carry (no credit record upstream).
-SUPPLEMENT_ASSETS = {
-    "MEGA_VENUSAUR": 724, "MEGA_BLASTOISE": 727, "MEGA_AERODACTYL": 742, "MEGA_SCEPTILE": 778,
-    "MEGA_SHARPEDO": 787, "MEGA_CAMERUPT": 788, "MEGA_METAGROSS": 797,
-}
 ANIMATION_SCRIPT = 622
 UNKNOWN = "Unknown"
 
@@ -58,7 +53,6 @@ def main():
     parser.add_argument("--pokebw2-res", required=True, type=Path)
     parser.add_argument("--identities", type=Path, help="item_identities.json (defaults to --pokebw2-res)")
     parser.add_argument("--w2u", required=True, type=Path)
-    parser.add_argument("--w2u-icons", required=True, type=Path)
     args = parser.parse_args()
 
     roster = load(args.pokebw2_res / "mega_roster.json")
@@ -100,29 +94,14 @@ def main():
                                             "description": stone_description(base["name"])})["forms"].append(key)
         side_credits = {s["side"]: s["credits"] for s in credits.get((form["species"], form["form"]), {}).get("sides", [])}
         lib = library_by_key.get(key)
+        if not lib:
+            raise SystemExit(f"{key} is not in the PWAN library; add it (scripts/patch-pwan-library-megas.ts) first")
+        entry["library"] = lib["id"]
+        lib_sides = {s["side"]: s["credits"] for s in lib.get("spriteSources", [])}
         sprites = {}
-        if lib:
-            entry["library"] = lib["id"]
-            lib_sides = {s["side"]: s["credits"] for s in lib.get("spriteSources", [])}
-            for side in ("front", "back"):
-                if lib["hasFront" if side == "front" else "hasBack"]:
-                    sprites[side] = {"source": "library", "credits": lib_sides.get(side) or side_credits.get(side) or lib["credits"]}
-            asset = lib["assetIndex"]
-        else:
-            asset = SUPPLEMENT_ASSETS[key]
-            for k in (0, 1):
-                zip_files[f"icons/{asset}_{k}.bin"] = (args.w2u_icons / f"{asset}_{k}.bin").read_bytes()
-            palettes = (args.w2u_icons / "pokeicon_palette_map.bin").read_bytes()[asset]
-            entry["icon"] = {"male": f"icons/{asset}_0.bin", "female": f"icons/{asset}_1.bin",
-                             "malePaletteId": palettes & 15, "femalePaletteId": palettes >> 4}
         for side in ("front", "back"):
-            if side in sprites:
-                continue
-            path = args.w2u / "assets/pokeweb_pwan" / f"{asset}_{side}.pwan"
-            if path.exists():
-                name = f"pwan/{asset}_{side}.pwan"
-                zip_files[name] = path.read_bytes()
-                sprites[side] = {"source": name, "credits": side_credits.get(side) or UNKNOWN}
+            if lib["hasFront" if side == "front" else "hasBack"]:
+                sprites[side] = {"source": "library", "credits": lib_sides.get(side) or side_credits.get(side) or lib["credits"] or UNKNOWN}
         entry["sprites"] = sprites
         forms.append(entry)
 

@@ -50,20 +50,15 @@
    "height": 240,
    "weight": 1555,
    "stone": 657,
-   "icon": {
-    "male": "icons/724_0.bin",
-    "female": "icons/724_1.bin",
-    "malePaletteId": 0,
-    "femalePaletteId": 0
-   },
+   "library": "3-1-706",
    "sprites": {
     "front": {
-     "source": "pwan/724_front.pwan",
-     "credits": "Unknown"
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
     },
     "back": {
-     "source": "pwan/724_back.pwan",
-     "credits": "Unknown"
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
     }
    }
   },
@@ -180,20 +175,15 @@
    "height": 160,
    "weight": 1011,
    "stone": 662,
-   "icon": {
-    "male": "icons/727_0.bin",
-    "female": "icons/727_1.bin",
-    "malePaletteId": 2,
-    "femalePaletteId": 2
-   },
+   "library": "9-1-722",
    "sprites": {
     "front": {
-     "source": "pwan/727_front.pwan",
-     "credits": "Unknown"
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
     },
     "back": {
-     "source": "pwan/727_back.pwan",
-     "credits": "Unknown"
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
     }
    }
   },
@@ -270,8 +260,8 @@
      "credits": "Aronousqui20"
     },
     "back": {
-     "source": "pwan/729_back.pwan",
-     "credits": "Unknown"
+     "source": "library",
+     "credits": "Aronousqui20"
     }
    }
   },
@@ -739,20 +729,15 @@
    "height": 210,
    "weight": 790,
    "stone": 685,
-   "icon": {
-    "male": "icons/742_0.bin",
-    "female": "icons/742_1.bin",
-    "malePaletteId": 0,
-    "femalePaletteId": 0
-   },
+   "library": "142-1-723",
    "sprites": {
     "front": {
-     "source": "pwan/742_front.pwan",
-     "credits": "Unknown"
+     "source": "library",
+     "credits": "Aronousqui20"
     },
     "back": {
-     "source": "pwan/742_back.pwan",
-     "credits": "Unknown"
+     "source": "library",
+     "credits": "Aronousqui20"
     }
    }
   },
@@ -1180,8 +1165,8 @@
      "credits": "Aronousqui20"
     },
     "back": {
-     "source": "pwan/776_back.pwan",
-     "credits": "Unknown"
+     "source": "library",
+     "credits": "Aronousqui20"
     }
    }
   },
@@ -1251,20 +1236,15 @@
    "height": 190,
    "weight": 552,
    "stone": 699,
-   "icon": {
-    "male": "icons/778_0.bin",
-    "female": "icons/778_1.bin",
-    "malePaletteId": 2,
-    "femalePaletteId": 2
-   },
+   "library": "254-1-724",
    "sprites": {
     "front": {
-     "source": "pwan/778_front.pwan",
-     "credits": "Unknown"
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
     },
     "back": {
-     "source": "pwan/778_back.pwan",
-     "credits": "Unknown"
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
     }
    }
   },
@@ -1420,11 +1400,11 @@
    "sprites": {
     "front": {
      "source": "library",
-     "credits": "Smogon/Sprites Animados Contributors"
+     "credits": "Aronousqui20"
     },
     "back": {
-     "source": "pwan/782_back.pwan",
-     "credits": "Unknown"
+     "source": "library",
+     "credits": "Aronousqui20"
     }
    }
   },
@@ -1615,20 +1595,15 @@
    "height": 250,
    "weight": 1303,
    "stone": 708,
-   "icon": {
-    "male": "icons/787_0.bin",
-    "female": "icons/787_1.bin",
-    "malePaletteId": 2,
-    "femalePaletteId": 2
-   },
+   "library": "319-1-727",
    "sprites": {
     "front": {
-     "source": "pwan/787_front.pwan",
-     "credits": "Unknown"
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
     },
     "back": {
-     "source": "pwan/787_back.pwan",
-     "credits": "Unknown"
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
     }
    }
   },
@@ -1659,20 +1634,15 @@
    "height": 250,
    "weight": 3205,
    "stone": 709,
-   "icon": {
-    "male": "icons/788_0.bin",
-    "female": "icons/788_1.bin",
-    "malePaletteId": 0,
-    "femalePaletteId": 0
-   },
+   "library": "323-1-730",
    "sprites": {
     "front": {
-     "source": "pwan/788_front.pwan",
-     "credits": "Unknown"
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
     },
     "back": {
-     "source": "pwan/788_back.pwan",
-     "credits": "Unknown"
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
     }
    }
   },
@@ -1992,20 +1962,15 @@
    "height": 250,
    "weight": 9429,
    "stone": 717,
-   "icon": {
-    "male": "icons/797_0.bin",
-    "female": "icons/797_1.bin",
-    "malePaletteId": 0,
-    "femalePaletteId": 0
-   },
+   "library": "376-1-731",
    "sprites": {
     "front": {
-     "source": "pwan/797_front.pwan",
-     "credits": "Unknown"
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
     },
     "back": {
-     "source": "pwan/797_back.pwan",
-     "credits": "Unknown"
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
     }
    }
   },
@@ -2440,8 +2405,8 @@
      "credits": "Smogon/Sprites Animados Contributors"
     },
     "back": {
-     "source": "pwan/817_back.pwan",
-     "credits": "Unknown"
+     "source": "library",
+     "credits": "Smogon/Sprites Animados Contributors"
     }
    }
   },
@@ -3553,5 +3518,5 @@
    "description": "One of the mysterious Mega Stones.\\nHave Golurk hold it, and it\\ncan Mega Evolve in battle."
   }
  ],
- "zipSha256": "6828681e2165c3dd0e8b78ca94f58236ca017aa132cbe5a2e7a9fec445b22b32"
+ "zipSha256": "0d9aa2777ad539a1595d5768dcc13eb4f3b8db23a3714c483eae22047ad18886"
 }

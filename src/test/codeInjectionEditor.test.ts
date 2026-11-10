@@ -63,7 +63,7 @@ describe("Hard Level Caps updates", () => {
       supported: true, compatible: true, installed: true, updateAvailable: true, candyItemId: 113, message: "Update available",
     });
     const html = renderFixture("W2");
-    const card = html.slice(html.indexOf("<h2>Hard Level Caps</h2>"), html.indexOf("<h2>Single-NPC Double Battle Fix</h2>"));
+    const card = html.slice(html.indexOf("<h2>Hard Level Caps</h2>"), html.indexOf("<h2>Trainer Level Caps</h2>"));
     expect(card).toContain("Update available");
     expect(card).toMatch(/id="install-level-caps-btn" type="button"\s*>\s*Update Hard Level Caps/u);
   });
@@ -167,7 +167,7 @@ describe("archived save-menu patch", () => {
 describe("code-injection design credits", () => {
   it.each(["W2", "B2"] as const)("credits TrustyPeaches only on the requested %s cards", (version) => {
     const cards = renderFixture(version).match(/<section class="code-injection-panel"[^>]*>[\s\S]*?<\/section>/g) ?? [];
-    for (const title of ["Learnset Viewer", "Type Icons"]) {
+    for (const title of ["Party Menu Learnset/Dex Viewer", "Type Icons"]) {
       const card = cards.find(html => html.includes(`<h2>${title}</h2>`));
       expect(card).toBeDefined();
       expect(card).toContain(`class="code-injection-credits" aria-label="${title} credits"`);
@@ -192,7 +192,7 @@ describe("unsupported patch visibility", () => {
   });
   it.each(["B", "W"] as const)("shows all five released graphical patches by default on %s", version => {
     const cards = renderFixture(version).match(/<section class="code-injection-panel"[^>]*>[\s\S]*?<\/section>/g)!;
-    for (const title of ["Summary IV/EV Viewer", "Type Icons", "Move Effectiveness Preview", "Learnset Viewer", MENU_EVOLUTION_TITLE]) {
+    for (const title of ["Summary IV/EV Viewer", "Type Icons", "Move Effectiveness Preview", "Party Menu Learnset/Dex Viewer", MENU_EVOLUTION_TITLE]) {
       const card = cards.find(html => html.includes(`<h2>${title}</h2>`));
       expect(card, title).toBeDefined();
       const opening = card!.slice(0, card!.indexOf(">"));
@@ -334,7 +334,7 @@ describe("code-injection patch categories", () => {
     vi.spyOn(megaEvolutionModel, "canUseMegaEvolutionInstaller").mockReturnValue(true);
     const html = renderFixture("W2");
     const headings = (section: string) => [...section.matchAll(/<h2>([^<]+)<\/h2>/g)].map(match => match[1]);
-    const panelIds = ["infrastructure", "graphics", "quality-of-life", "add-ons", "debug-helpers"];
+    const panelIds = ["infrastructure", "graphics", "quality-of-life", "major-features", "add-ons", "debug-helpers"];
     const panels = panelIds.map((id, index) => {
       const start = html.indexOf(`id="code-injection-panel-${id}"`);
       const end = index + 1 < panelIds.length
@@ -347,16 +347,22 @@ describe("code-injection patch categories", () => {
 
     expect(headings(panels[0])).toEqual([
       "PWAN GIF Support", "Trainer PWAN GIF Support", "Overworld Weather Runtime", "Trainer Battle Log", "Item Expansion",
+      "Single-NPC Double Battle Fix", "Tag Battle Stabilization", "Added-Form Evolution Support", "Specify Trainer Pokémon Natures",
     ]);
     expect(headings(panels[1])).toEqual([
-      "Nature Palettes", "Summary IV/EV Viewer", "Enhanced Party Menu and Battle Log Integration", "Type Icons", "Learnset Viewer", "Move Effectiveness Preview", "C-Gear Quick Actions", "Pokenav",
+      "Nature Palettes", "Summary IV/EV Viewer", "Enhanced Party Menu and Battle Log Integration", "Type Icons", "Party Menu Learnset/Dex Viewer", "Move Effectiveness Preview", "C-Gear Quick Actions", "Pokenav",
     ]);
-    expect(headings(panels[2])).toEqual(["Instant Fast Text", "Background Music Toggle", "Forgettable HMs", "Autorun", "Skip Intro"]);
-    expect(headings(panels[3])).toEqual([
-      "Infinite Rare Candy", "Hard Level Caps", "Trainer Level Caps", "Single-NPC Double Battle Fix",
-      "Trainer Field Conditions", "Tag Battle Stabilization", "Nuzlocke Style Encounters", "Porta PC", "Added-Form Evolution Support", "Mega Evolution",
+    expect(headings(panels[2])).toEqual(["Instant Fast Text", "Background Music Toggle", "Forgettable HMs", "Make HM Moves Forgettable", "Autorun", "Skip Intro"]);
+    expect(headings(panels[3])).toEqual(["Fairy Type Support", "Move Expansion", "Mega Evolution"]);
+    expect(headings(panels[4])).toEqual([
+      "Infinite Rare Candy", "Hard Level Caps", "Trainer Level Caps",
+      "Trainer Field Conditions", "Nuzlocke Style Encounters", "Porta PC",
     ]);
-    expect(headings(panels[4])).toEqual(["Debug Save Flag", "Walk Through Walls", "Instant Battle Victory"]);
+    expect(headings(panels[5])).toEqual(["Debug Save Flag", "Walk Through Walls", "Instant Battle Victory"]);
+    expect(html).toContain(">Major Features/Expansions</button>");
+    expect(html).toContain(">Minor Features/Add-ons</button>");
+    expect(panels[3]).toContain("Move animation credits");
+    expect(panels[3].replace(/<[^>]*>/g, " ").replace(/\s+/g, " ")).toContain("Blaze Black/Volt White 2 Redux (11) Cascade White (17) Log(n) (157) Hzla (100)");
     expect(html).toContain(">Debug Helpers</button>");
     expect(html.slice(html.indexOf("<aside"), html.indexOf("</aside>"))).toContain("<h2>PMC Runtime</h2>");
     expect(html.slice(html.indexOf("<main"), html.indexOf("</main>"))).not.toContain("<h2>PMC Runtime</h2>");

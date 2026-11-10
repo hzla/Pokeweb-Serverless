@@ -31,6 +31,8 @@ runtime/porta-pc/build/
 runtime/battle-harness/build/
 runtime/cgear-quick-actions/build/
 runtime/autosave/build/
+runtime/intro-skip/build/
+runtime/bw1-marts/build/
 runtime/cutscene-dialogue/build/
 runtime/fly-destinations/build/
 __pycache__/

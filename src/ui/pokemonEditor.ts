@@ -40,6 +40,7 @@ import type { RgbaImageData } from "../pokeweb/pokemonSpriteModel";
 import type { ProjectState, ReadableRecord } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 import { attachPokemonInteractions } from "./pokemonInteractions";
+import { attachPokemonMegaSection, renderPokemonMegaSection } from "./pokemonMegaPanel";
 import "../styles/moveData.css";
 import "../styles/pokemonData.css";
 import { observeNearViewport } from "./nearViewport";
@@ -219,6 +220,7 @@ export function renderPokemonEditor(
   });
   // Field commits happen on focusout/change; resync the list row, header and marks after them.
   const resync = () => window.setTimeout(() => refreshPokemonEditState(project, root, selection.speciesId), 0);
+  attachPokemonMegaSection(detail, project, { onDirty, rerender, select: (speciesId) => select(speciesId, true), onEnsureFormAssets });
   detail.addEventListener("focusout", resync);
   detail.addEventListener("change", resync);
   root.querySelectorAll<HTMLDetailsElement>(".md-filter").forEach((filter) => {
@@ -613,6 +615,7 @@ function renderExpanded(project: ProjectState, record: PokemonEditorRecord): str
     </div>
     <div class="expanded-card-content expanded-evos">
       ${renderEvolutionTable(record.evolutions)}
+      ${renderPokemonMegaSection(project, record.id)}
     </div>
     ${project.session.generation === "gen5" ? renderPokemonCryPanel(record.id) : ""}
   `;

@@ -66,10 +66,17 @@ export function parseHarnessConfig(input: unknown): HarnessConfig {
 }
 
 /** Reject altered executable sites individually; ordinary ROM data edits are allowed. */
-export function validateHarnessRom(rom: NintendoDSRom, edits?: Pick<ProjectState, "arm9" | "overlays">): void {
+export function validateHarnessRom(rom: NintendoDSRom, edits?: Pick<ProjectState, "arm9" | "overlays"> & Partial<Pick<ProjectState, "patches">>): void {
   if (rom.idCode !== "IRDO" || rom.data[0x1e] !== 0) throw new Error("Battle harness currently targets US White 2 revision 0 and compatible White2Upgrade ROMs");
   const arm9 = edits?.arm9.length ? edits.arm9 : decompressCode(rom.arm9), overlays = rom.loadArm9Overlays([12, 167]);
-  for (const [id, overlay] of overlays) if (edits?.overlays[id]?.length) overlay.data = edits.overlays[id];
+  // A replaced overlay may also load at another address (Fairy Type Support prepends code to overlay 167 and moves
+  // its start down, so the functions keep their addresses): take the base from the edited overlay table.
+  const table = edits?.patches?.arm9OverlayTable;
+  for (const [id, overlay] of overlays) {
+    if (!edits?.overlays[id]?.length) continue;
+    overlay.data = edits.overlays[id];
+    if (table && table.length >= id * 32 + 8) overlay.ramAddress = new DataView(table.buffer, table.byteOffset + id * 32 + 4, 4).getUint32(0, true);
+  }
   const signatures = [
     [overlays.get(12)!.data, overlays.get(12)!.ramAddress, 0x0215a790, "38b5051c04480c1ce2f64efb281c211c22f0eef838bdc046"],
     [overlays.get(12)!.data, overlays.get(12)!.ramAddress, 0x02169128, "38b5051c0c1ca968201ca8310968aef6"],

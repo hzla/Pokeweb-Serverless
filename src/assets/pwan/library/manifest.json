@@ -4,13 +4,13 @@
   "sourceRom": "White2Upgrade.nds",
   "iconSourceRom": "White2Upgrade.nds",
   "archivePath": "zz_pokeweb_pwan/pwan.narc",
-  "archiveBytes": 120503404,
-  "entryCount": 596,
-  "iconCount": 596,
+  "archiveBytes": 122168880,
+  "entryCount": 603,
+  "iconCount": 603,
   "sideCount": {
-    "front": 596,
-    "back": 587,
-    "total": 1183
+    "front": 603,
+    "back": 598,
+    "total": 1201
   },
   "entries": [
     {
@@ -11667,10 +11667,10 @@
       "formIndex": 1,
       "assetIndex": 817,
       "hasFront": true,
-      "hasBack": false,
+      "hasBack": true,
       "credits": "Smogon/Sprites Animados Contributors",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs (sprite import priority; Mega sprites corrected by scripts/patch-pwan-library-megas.ts); nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately.",
       "icon": {
         "maleMemberId": 3713,
         "femaleMemberId": 3714,
@@ -11685,6 +11685,12 @@
           "source": "essentials_gifs/Front/GALLADE_1.gif",
           "credits": "Smogon/Sprites Animados Contributors",
           "creditBasis": "Selected source collection attribution"
+        },
+        {
+          "side": "back",
+          "source": "essentials_gifs/Back/GALLADE_1.gif",
+          "credits": "Smogon/Sprites Animados Contributors",
+          "creditBasis": "sprite source folder"
         }
       ]
     },
@@ -12165,10 +12171,10 @@
       "formIndex": 1,
       "assetIndex": 776,
       "hasFront": true,
-      "hasBack": false,
+      "hasBack": true,
       "credits": "Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs (sprite import priority; Mega sprites corrected by scripts/patch-pwan-library-megas.ts); nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately.",
       "icon": {
         "maleMemberId": 3741,
         "femaleMemberId": 3742,
@@ -12182,7 +12188,13 @@
           "side": "front",
           "source": "aranousqui20-newmegas/houndoom-mega-front.gif",
           "credits": "Aronousqui20",
-          "creditBasis": "Selected source collection attribution"
+          "creditBasis": "sprite source folder"
+        },
+        {
+          "side": "back",
+          "source": "aranousqui20-newmegas/houndoom-mega-back.gif",
+          "credits": "Aronousqui20",
+          "creditBasis": "sprite source folder"
         }
       ]
     },
@@ -12759,10 +12771,10 @@
       "formIndex": 1,
       "assetIndex": 729,
       "hasFront": true,
-      "hasBack": false,
+      "hasBack": true,
       "credits": "Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs (sprite import priority; Mega sprites corrected by scripts/patch-pwan-library-megas.ts); nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately.",
       "icon": {
         "maleMemberId": 3775,
         "femaleMemberId": 3776,
@@ -12776,7 +12788,13 @@
           "side": "front",
           "source": "aranousqui20-newmegas/pidgeot-mega-front.gif",
           "credits": "Aronousqui20",
-          "creditBasis": "Selected source collection attribution"
+          "creditBasis": "sprite source folder"
+        },
+        {
+          "side": "back",
+          "source": "aranousqui20-newmegas/pidgeot-mega-back.gif",
+          "credits": "Aronousqui20",
+          "creditBasis": "sprite source folder"
         }
       ]
     },
@@ -12969,10 +12987,10 @@
       "formIndex": 1,
       "assetIndex": 782,
       "hasFront": true,
-      "hasBack": false,
-      "credits": "Smogon/Sprites Animados Contributors",
+      "hasBack": true,
+      "credits": "Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs (sprite import priority; Mega sprites corrected by scripts/patch-pwan-library-megas.ts); nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately.",
       "icon": {
         "maleMemberId": 3787,
         "femaleMemberId": 3788,
@@ -12984,9 +13002,15 @@
       "spriteSources": [
         {
           "side": "front",
-          "source": "essentials_gifs/Front/SABLEYE_1.gif",
-          "credits": "Smogon/Sprites Animados Contributors",
-          "creditBasis": "Selected source collection attribution"
+          "source": "aranousqui20-newmegas/sableye-mega-fron.gif",
+          "credits": "Aronousqui20",
+          "creditBasis": "sprite source folder"
+        },
+        {
+          "side": "back",
+          "source": "aranousqui20-newmegas/sableye-mega-back.gif",
+          "credits": "Aronousqui20",
+          "creditBasis": "sprite source folder"
         }
       ]
     },
@@ -13218,7 +13242,7 @@
       "hasBack": true,
       "credits": "Smogon/Sprites Animados Contributors",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs (sprite import priority; Mega sprites corrected by scripts/patch-pwan-library-megas.ts); nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately.",
       "icon": {
         "maleMemberId": 3801,
         "femaleMemberId": 3802,
@@ -13230,15 +13254,15 @@
       "spriteSources": [
         {
           "side": "front",
-          "source": "essentials_gifs/Front/SLOWBRO_1.gif",
+          "source": "essentials_gifs/Front/SLOWBRO_2.gif",
           "credits": "Smogon/Sprites Animados Contributors",
-          "creditBasis": "Selected source collection attribution"
+          "creditBasis": "sprite source folder"
         },
         {
           "side": "back",
-          "source": "essentials_gifs/Back/SLOWBRO_1.gif",
+          "source": "essentials_gifs/Back/SLOWBRO_2.gif",
           "credits": "Smogon/Sprites Animados Contributors",
-          "creditBasis": "Selected source collection attribution"
+          "creditBasis": "sprite source folder"
         }
       ]
     },
@@ -21413,6 +21437,251 @@
           "creditBasis": "Selected source collection attribution"
         }
       ]
+    },
+    {
+      "id": "3-1-706",
+      "name": "Mega Venusaur",
+      "key": "MEGA_VENUSAUR",
+      "kind": "mega form",
+      "speciesId": 3,
+      "formIndex": 1,
+      "assetIndex": 706,
+      "hasFront": true,
+      "hasBack": true,
+      "credits": "Smogon/Sprites Animados Contributors",
+      "creditSource": "import-report",
+      "icon": {
+        "maleMemberId": 4301,
+        "femaleMemberId": 4302,
+        "malePaletteId": 0,
+        "femalePaletteId": 0,
+        "sourcePng": "essentials_pngs/Icons/VENUSAUR_1.png"
+      },
+      "spriteSources": [
+        {
+          "side": "front",
+          "source": "essentials_gifs/Front/VENUSAUR_1.gif",
+          "credits": "Smogon/Sprites Animados Contributors",
+          "creditBasis": "sprite source folder"
+        },
+        {
+          "side": "back",
+          "source": "essentials_gifs/Back/VENUSAUR_1.gif",
+          "credits": "Smogon/Sprites Animados Contributors",
+          "creditBasis": "sprite source folder"
+        }
+      ],
+      "notes": "Approved priority GIFs (sprite import priority; Mega sprites corrected by scripts/patch-pwan-library-megas.ts); nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately."
+    },
+    {
+      "id": "9-1-722",
+      "name": "Mega Blastoise",
+      "key": "MEGA_BLASTOISE",
+      "kind": "mega form",
+      "speciesId": 9,
+      "formIndex": 1,
+      "assetIndex": 722,
+      "hasFront": true,
+      "hasBack": true,
+      "credits": "Smogon/Sprites Animados Contributors",
+      "creditSource": "import-report",
+      "icon": {
+        "maleMemberId": 4303,
+        "femaleMemberId": 4304,
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourcePng": "essentials_pngs/Icons/BLASTOISE_1.png"
+      },
+      "spriteSources": [
+        {
+          "side": "front",
+          "source": "essentials_gifs/Front/BLASTOISE_1.gif",
+          "credits": "Smogon/Sprites Animados Contributors",
+          "creditBasis": "sprite source folder"
+        },
+        {
+          "side": "back",
+          "source": "essentials_gifs/Back/BLASTOISE_1.gif",
+          "credits": "Smogon/Sprites Animados Contributors",
+          "creditBasis": "sprite source folder"
+        }
+      ],
+      "notes": "Approved priority GIFs (sprite import priority; Mega sprites corrected by scripts/patch-pwan-library-megas.ts); nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately."
+    },
+    {
+      "id": "142-1-723",
+      "name": "Mega Aerodactyl",
+      "key": "MEGA_AERODACTYL",
+      "kind": "mega form",
+      "speciesId": 142,
+      "formIndex": 1,
+      "assetIndex": 723,
+      "hasFront": true,
+      "hasBack": true,
+      "credits": "Aronousqui20",
+      "creditSource": "import-report",
+      "icon": {
+        "maleMemberId": 4305,
+        "femaleMemberId": 4306,
+        "malePaletteId": 0,
+        "femalePaletteId": 0,
+        "sourcePng": "essentials_pngs/Icons/AERODACTYL_1.png"
+      },
+      "spriteSources": [
+        {
+          "side": "front",
+          "source": "aranousqui20-newmegas/aerodactyle-mega-front.gif",
+          "credits": "Aronousqui20",
+          "creditBasis": "sprite source folder"
+        },
+        {
+          "side": "back",
+          "source": "aranousqui20-newmegas/aerodactyl-mega-back.gif",
+          "credits": "Aronousqui20",
+          "creditBasis": "sprite source folder"
+        }
+      ],
+      "notes": "Approved priority GIFs (sprite import priority; Mega sprites corrected by scripts/patch-pwan-library-megas.ts); nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately."
+    },
+    {
+      "id": "254-1-724",
+      "name": "Mega Sceptile",
+      "key": "MEGA_SCEPTILE",
+      "kind": "mega form",
+      "speciesId": 254,
+      "formIndex": 1,
+      "assetIndex": 724,
+      "hasFront": true,
+      "hasBack": true,
+      "credits": "Smogon/Sprites Animados Contributors",
+      "creditSource": "import-report",
+      "icon": {
+        "maleMemberId": 4307,
+        "femaleMemberId": 4308,
+        "malePaletteId": 0,
+        "femalePaletteId": 0,
+        "sourcePng": "essentials_pngs/Icons/SCEPTILE_1.png"
+      },
+      "spriteSources": [
+        {
+          "side": "front",
+          "source": "essentials_gifs/Front/SCEPTILE_1.gif",
+          "credits": "Smogon/Sprites Animados Contributors",
+          "creditBasis": "sprite source folder"
+        },
+        {
+          "side": "back",
+          "source": "essentials_gifs/Back/SCEPTILE_1.gif",
+          "credits": "Smogon/Sprites Animados Contributors",
+          "creditBasis": "sprite source folder"
+        }
+      ],
+      "notes": "Approved priority GIFs (sprite import priority; Mega sprites corrected by scripts/patch-pwan-library-megas.ts); nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately."
+    },
+    {
+      "id": "319-1-727",
+      "name": "Mega Sharpedo",
+      "key": "MEGA_SHARPEDO",
+      "kind": "mega form",
+      "speciesId": 319,
+      "formIndex": 1,
+      "assetIndex": 727,
+      "hasFront": true,
+      "hasBack": true,
+      "credits": "Smogon/Sprites Animados Contributors",
+      "creditSource": "import-report",
+      "icon": {
+        "maleMemberId": 4309,
+        "femaleMemberId": 4310,
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourcePng": "essentials_pngs/Icons/SHARPEDO_1.png"
+      },
+      "spriteSources": [
+        {
+          "side": "front",
+          "source": "essentials_gifs/Front/SHARPEDO_1.gif",
+          "credits": "Smogon/Sprites Animados Contributors",
+          "creditBasis": "sprite source folder"
+        },
+        {
+          "side": "back",
+          "source": "essentials_gifs/Back/SHARPEDO_1.gif",
+          "credits": "Smogon/Sprites Animados Contributors",
+          "creditBasis": "sprite source folder"
+        }
+      ],
+      "notes": "Approved priority GIFs (sprite import priority; Mega sprites corrected by scripts/patch-pwan-library-megas.ts); nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately."
+    },
+    {
+      "id": "323-1-730",
+      "name": "Mega Camerupt",
+      "key": "MEGA_CAMERUPT",
+      "kind": "mega form",
+      "speciesId": 323,
+      "formIndex": 1,
+      "assetIndex": 730,
+      "hasFront": true,
+      "hasBack": true,
+      "credits": "Smogon/Sprites Animados Contributors",
+      "creditSource": "import-report",
+      "icon": {
+        "maleMemberId": 4311,
+        "femaleMemberId": 4312,
+        "malePaletteId": 0,
+        "femalePaletteId": 0,
+        "sourcePng": "essentials_pngs/Icons/CAMERUPT_1.png"
+      },
+      "spriteSources": [
+        {
+          "side": "front",
+          "source": "essentials_gifs/Front/CAMERUPT_1.gif",
+          "credits": "Smogon/Sprites Animados Contributors",
+          "creditBasis": "sprite source folder"
+        },
+        {
+          "side": "back",
+          "source": "essentials_gifs/Back/CAMERUPT_1.gif",
+          "credits": "Smogon/Sprites Animados Contributors",
+          "creditBasis": "sprite source folder"
+        }
+      ],
+      "notes": "Approved priority GIFs (sprite import priority; Mega sprites corrected by scripts/patch-pwan-library-megas.ts); nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately."
+    },
+    {
+      "id": "376-1-731",
+      "name": "Mega Metagross",
+      "key": "MEGA_METAGROSS",
+      "kind": "mega form",
+      "speciesId": 376,
+      "formIndex": 1,
+      "assetIndex": 731,
+      "hasFront": true,
+      "hasBack": true,
+      "credits": "Smogon/Sprites Animados Contributors",
+      "creditSource": "import-report",
+      "icon": {
+        "maleMemberId": 4313,
+        "femaleMemberId": 4314,
+        "malePaletteId": 0,
+        "femalePaletteId": 0,
+        "sourcePng": "essentials_pngs/Icons/METAGROSS_1.png"
+      },
+      "spriteSources": [
+        {
+          "side": "front",
+          "source": "essentials_gifs/Front/METAGROSS_1.gif",
+          "credits": "Smogon/Sprites Animados Contributors",
+          "creditBasis": "sprite source folder"
+        },
+        {
+          "side": "back",
+          "source": "essentials_gifs/Back/METAGROSS_1.gif",
+          "credits": "Smogon/Sprites Animados Contributors",
+          "creditBasis": "sprite source folder"
+        }
+      ],
+      "notes": "Approved priority GIFs (sprite import priority; Mega sprites corrected by scripts/patch-pwan-library-megas.ts); nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately."
     }
   ]
 }

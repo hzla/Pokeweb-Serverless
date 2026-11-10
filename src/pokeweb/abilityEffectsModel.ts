@@ -830,6 +830,20 @@ export function nextCustomAbilityId(project: ProjectState): number | undefined {
             last = id;
     return last < 255 ? last + 1 : undefined;
 }
+/**
+ * Creates several abilities at consecutive free IDs with one runtime build (each `createCustomAbility` rebuilds and
+ * re-stages the ability DLL). Returns their IDs in order.
+ */
+export async function createCustomAbilities(project: ProjectState, abilities: ReadonlyArray<{ name: string; rules?: AbilityRuleSet; description?: string }>): Promise<number[]> {
+    if (!abilities.length)
+        return [];
+    const first = nextCustomAbilityId(project);
+    if (first === undefined || first + abilities.length - 1 > 255)
+        throw new Error("All 255 ability IDs are in use.");
+    const ids = abilities.map((_, index) => first + index);
+    await configureAbilityRuleSets(project, abilities.map((ability, index) => ({ abilityId: ids[index], name: ability.name, rules: ability.rules ?? EMPTY_ABILITY_RULE, description: ability.description })));
+    return ids;
+}
 export async function createCustomAbility(project: ProjectState, name: string, rules: AbilityRuleSet = EMPTY_ABILITY_RULE, description?: string): Promise<number> {
     const id = nextCustomAbilityId(project);
     if (id === undefined)

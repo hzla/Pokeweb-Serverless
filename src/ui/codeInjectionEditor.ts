@@ -73,6 +73,10 @@ import { getTrainerLevelCapsStatus, installTrainerLevelCaps } from "../pokeweb/t
 import { getForgettableHmsPmcStatus, stageForgettableHmsPmc } from "../pokeweb/forgettableHmsRuntime";
 import { getAutorunStatus, stageAutorun, uninstallAutorun } from "../pokeweb/autorunModel";
 import { convertSaveForItemExpansion, convertSaveFromItemExpansion, getItemExpansionStatus, isItemExpansionInstalled, stageItemExpansion, uninstallItemExpansion } from "../pokeweb/itemExpansionModel";
+import { addFairyTypeSupport, addMoveExpansion, detectFairyTypePatch, detectForgettableHmPatch, detectSpecifyTrainerNaturesPatch, makeHmsForgettable, specifyTrainerNatures, type RomPatchApplyResult } from "../pokeweb/romPatchModel";
+import { getCascadePersonalMigrationStatus, migrateCascadePersonalData } from "../pokeweb/cascadeWhitePersonalModel";
+import { detectMoveExpansionPatch } from "../pokeweb/moveExpansionPatch";
+import moveAnimationCredits from "../assets/data/white2upgradeGen6MoveAnimationsCredits.json";
 import { MEGA_CREDITS, canUseMegaEvolutionInstaller, getMegaEvolutionStatus, setMegaEvolutionConfig, stageMegaEvolution, uninstallMegaEvolution, type MegaRoute } from "../pokeweb/megaEvolutionModel";
 import { getMegaContentStatus, installMegaContent, megaSpriteCredits, stageMegaAnimation } from "../pokeweb/megaContentModel";
 import { downloadBytes } from "../pokeweb/fileSystemModel";
@@ -123,7 +127,8 @@ const codeInjectionTabs = [
   { id: "infrastructure", label: "Infrastructure and Dependencies" },
   { id: "graphics", label: "Graphical/UI Enhancements" },
   { id: "quality-of-life", label: "Quality of Life" },
-  { id: "add-ons", label: "Feature Add-Ons" },
+  { id: "major-features", label: "Major Features/Expansions" },
+  { id: "add-ons", label: "Minor Features/Add-ons" },
   { id: "debug-helpers", label: "Debug Helpers" },
 ] as const;
 type CodeInjectionTab = (typeof codeInjectionTabs)[number]["id"];
@@ -155,6 +160,11 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const itemExpansionStatus = getItemExpansionStatus(project);
   const introSkipStatus = getIntroSkipStatus(project);
   const megaStatus = getMegaEvolutionStatus(project);
+  const trainerNatureStatus = detectSpecifyTrainerNaturesPatch(project);
+  const moveExpansionStatus = detectMoveExpansionPatch(project);
+  const fairyStatus = detectFairyTypePatch(project);
+  const bw1HmStatus = detectForgettableHmPatch(project);
+  const cascadeStatus = getCascadePersonalMigrationStatus(project);
   const megaContentStatus = getMegaContentStatus(project);
   const megaConfig = project.codeInjection?.megaEvolution;
   // One button: Item Expansion, the PWAN runtime, the Mega runtime, the Mega Pokémon and their stones and routes.
@@ -226,13 +236,13 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   }
   const battleUiCards = [
     { id: "battle-hud", title: "Type Icons", status: battleHudStatus,
-      description: "Shows type icons on player and enemy health panels in singles, doubles and triples, including compact panels with EXP bars. Choose lettered hexagons, the original circular symbol artwork, or solid type-colored wedges fitted into the HUD edge. Every style preserves the native caught marker. Status labels hide the icons until the condition clears. Installs independently of move highlighting." },
+      description: "" },
     { id: "move-effectiveness", title: "Move Effectiveness Preview", status: moveEffectivenessStatus,
-      description: "Highlights damaging moves as super effective, not very effective, or immune. Includes standard BW2 type immunities, Levitate, Air Balloon, Magnet Rise, and blocking abilities with suppression and bypass checks. Singles and rotation use the opposing Pokémon; doubles and triples color the selected move name while choosing an enemy. Weather Ball, Natural Gift, Judgment and Techno Blast stay neutral. Custom ability and item mechanics need a compatible preview patch." },
+      description: "" },
   ].map(card => `
         <section class="code-injection-panel" ${patchVisibility(card.status.supported)}>
           <div class="code-injection-panel__header">
-            <div><h2>${card.title}</h2><p>${card.description}</p></div>
+            <div><h2>${card.title}</h2>${card.description ? `<p>${card.description}</p>` : ""}</div>
             ${renderInlineStatus(card.status.legacyCombined ? "Combined Patch Present" : card.status.updateAvailable ? "Update Available" : card.status.installed ? "Installed" : card.status.compatible ? "Ready" : card.status.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}
           </div>
           ${card.id === "move-effectiveness" ? renderPatchShowcase("moves") : ""}
@@ -466,6 +476,98 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div class="code-injection-note" id="item-expansion-note" aria-live="polite"></div>
           </div>
         </section>
+        <section class="code-injection-panel" ${patchVisibility(doubleBattleFixStatus !== "unsupported")}>
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Single-NPC Double Battle Fix</h2>
+              <p>${
+                doubleBattleFixStatus !== "unsupported"
+                  ? "Fixes common-script trainers changed from Singles to Doubles. Available for US Black 1 and Black 2 / White 2. PMC is installed automatically if needed."
+                  : "A White 1 build of this patch is not bundled yet."
+              }</p>
+            </div>
+            ${renderInlineStatus(doubleBattleFixStatus === "patched" ? "Installed" : doubleBattleFixStatus === "unsupported" ? "Unsupported" : "Not Installed", { className: "code-injection-status" })}
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-double-battle-fix-btn" type="button" ${doubleBattleFixSupported ? "" : "disabled"} title="Install the bundled double battle fix and any missing dependencies.">
+              Install Double Battle Fix
+            </button>
+            <div class="code-injection-note" id="double-battle-fix-note" aria-live="polite"></div>
+          </div>
+          <div class="code-injection-credits" aria-label="Double Battle Fix credits">
+            <span>Implementation credits</span>
+            <strong>Sunk</strong>
+            <strong>Papaya</strong>
+          </div>
+        </section>
+        <section class="code-injection-panel" ${patchVisibility(tagBattleStatus.supported)}>
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Tag Battle Stabilization</h2>
+              <p>Allows tag battles with more than the vanilla limit of six opposing Pokemon, such as two opponents with four Pokemon each. Runs one trainer's AI at a time to reduce script memory use and prevent the related battle-start hang.</p>
+            </div>
+            ${renderInlineStatus(!tagBattleStatus.supported ? "Unsupported" : !tagBattleStatus.compatible ? "Incompatible" : tagBattleStatus.installed ? "Installed" : "Ready", { className: "code-injection-status" })}
+          </div>
+          <div class="code-injection-facts">
+            <div><span>Supported ROM</span><strong>US White 2</strong></div>
+            <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
+          </div>
+          <p>Configure each trainer's team in the Trainer editor. This patch does not change team sizes.</p>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-tag-battle-stabilization-btn" type="button" ${tagBattleCanInstall ? "" : "disabled"}>
+              Install Tag Battle Stabilization
+            </button>
+            <button class="btn -default" id="uninstall-tag-battle-stabilization-btn" type="button" ${tagBattleStatus.canUninstall ? "" : "disabled"}
+              title="${tagBattleStatus.installed && !tagBattleStatus.canUninstall ? "A DLL already built into the loaded ROM cannot be removed yet." : "Remove the staged Tag Battle Stabilization DLL."}">
+              Uninstall Tag Battle Stabilization
+            </button>
+            <div class="code-injection-note" id="tag-battle-stabilization-note" aria-live="polite"></div>
+          </div>
+        </section>
+        <section class="code-injection-panel" ${patchVisibility(formEvolutionStatus !== "unsupported")}>
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Added-Form Evolution Support</h2>
+              <p>Allows evolution NARC targets to reference appended personal-form IDs while storing the evolved Pokemon as a safe base species and form.</p>
+            </div>
+            ${renderInlineStatus(formEvolutionInstalled ? "Installed" : formEvolutionStatus === "unsupported" ? "Unsupported" : "Not Installed", { className: "code-injection-status" })}
+          </div>
+          <div class="code-injection-facts">
+            <div><span>Runtime</span><strong>${formEvolutionStatus === "unsupported" ? "B2/W2 only" : `FormEvolution${escapeHtml(project.session.baseVersion)}.dll`}</strong></div>
+            <div><span>Module Path</span><strong>${formEvolutionInstalled ? `patches/FormEvolution${escapeHtml(project.session.baseVersion)}.dll` : "Pending"}</strong></div>
+            <div><span>Installation</span><strong>Installer or Add Form</strong></div>
+            <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
+          </div>
+          <div class="code-injection-note">
+            ${
+              formEvolutionInstalled
+                ? "The bundled form-evolution DLL is active in this project and will be included in the exported ROM."
+                : formEvolutionStatus === "unsupported"
+                  ? "The bundled form-evolution runtime currently supports Black 2 and White 2."
+                  : "Install here or use Add Form in the Pokemon editor. PMC is installed automatically if needed."
+            }
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-form-evolution-btn" type="button" ${formEvolutionStatus === "unpatched" ? "" : "disabled"}>${formEvolutionInstalled ? "Installed" : "Install Added-Form Evolution Support"}</button>
+            <div class="code-injection-note" id="form-evolution-note" aria-live="polite"></div>
+          </div>
+        </section>
+        <section class="code-injection-panel" ${patchVisibility(trainerNatureStatus !== "unsupported")}>
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Specify Trainer Pokémon Natures</h2>
+              <p>Lets trainer Pokémon use the Nature field from the trainer editor through a PMC runtime while preserving vanilla behavior when set to Auto.</p>
+            </div>
+            ${renderInlineStatus(trainerNatureStatus === "patched" ? "Installed" : trainerNatureStatus === "legacy" ? "Migration Available" : trainerNatureStatus === "unsupported" ? "Unsupported" : trainerNatureStatus === "unknown" ? "Incompatible" : "Ready", { className: "code-injection-status" })}
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-trainer-natures-btn" type="button" ${trainerNatureStatus === "unpatched" || trainerNatureStatus === "legacy" ? "" : "disabled"}${trainerNatureStatus === "unknown" ? ' title="Could not verify the trainer Pokémon setup call sites; this ROM may contain a conflicting trainer code patch."' : ""}>
+              ${trainerNatureStatus === "patched" ? "Trainer Natures Installed" : trainerNatureStatus === "legacy" ? "Migrate Trainer Natures" : "Install Trainer Natures"}
+            </button>
+            <div class="code-injection-note" id="trainer-natures-note" aria-live="polite"></div>
+          </div>
+        </section>
+        ${renderCascadePersonalCard(cascadeStatus)}
         </section>
         <section class="code-injection-tab-panel" id="code-injection-panel-graphics" role="tabpanel" aria-labelledby="code-injection-tab-graphics" tabindex="0" ${activeTab === "graphics" ? "" : "hidden"}>
         <section class="code-injection-panel" ${patchVisibility(naturePalettesSupported(project))}><div class="code-injection-panel__header"><div><h2>Nature Palettes</h2><p>25 normal/shiny palette pairs per form. Edit in the Pokémon sprite editor.</p></div></div>${renderNaturePaletteInstaller(project)}</section>
@@ -476,7 +578,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           </div>${renderInlineStatus(summaryStatStatus.updateAvailable ? "Update Available" : summaryStatStatus.installed ? "Installed" : summaryStatStatus.compatible ? "Ready" : summaryStatStatus.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}</div>
           ${renderPatchShowcase("summary")}
           <div class="code-injection-facts"><div><span>ROM</span><strong>English US Black 2 / White 2</strong></div><div><span>Version</span><strong>${SUMMARY_STAT_VIEWER_VERSION}</strong></div></div>
-          <p>${escapeHtml(summaryStatStatus.message)}</p>
+          ${summaryStatStatus.message ? `<p>${escapeHtml(summaryStatStatus.message)}</p>` : ""}
           <label><input type="checkbox" id="summary-stat-evs" ${summaryStatStatus.options.includeEvs ? "checked" : ""} ${summaryStatStatus.compatible ? "" : "disabled"}> Include EV view</label>
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-summary-stat-btn" type="button" ${summaryStatStatus.compatible ? "" : "disabled"}>${summaryStatStatus.updateAvailable ? "Update Viewer" : summaryStatStatus.installed ? "Apply Settings" : "Install Summary IV/EV Viewer"}</button>
@@ -543,8 +645,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         <section class="code-injection-panel" ${patchVisibility(learnsetStatus.supported)}>
           <div class="code-injection-panel__header">
             <div>
-              <h2>Learnset Viewer</h2>
-              <p>Adds a standalone LEARNSET party command. D-pad Right/Left switches party Pokémon, skipping Eggs; L/R browses the evolution family and loads the highlighted species' info and learnset. Only its icon animates. A pages evolution requirements; final evolutions also show their predecessor's requirements. Hidden abilities are purple. The lower screen lists all level-up moves with levels and base max PP. Read-only: browsing never evolves Pokémon or teaches moves; no KO moves, and RELEARN is unchanged.</p>
+              <h2>Party Menu Learnset/Dex Viewer</h2>
             </div>
             ${renderInlineStatus(learnsetStatus.partial ? "Incomplete" : learnsetStatus.updateAvailable ? "Update Available" : learnsetStatus.installed ? "Installed" : learnsetStatus.compatible ? "Ready" : learnsetStatus.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}
           </div>
@@ -559,7 +660,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <button class="btn -default" id="uninstall-learnset-viewer-btn" type="button" ${learnsetStatus.canUninstall ? "" : "disabled"} title="Only staged companions can be removed; built-in ROM files cannot yet be deleted.">Uninstall</button>
             <div class="code-injection-note" id="learnset-viewer-note" aria-live="polite"></div>
           </div>
-          <div class="code-injection-credits" aria-label="Learnset Viewer credits">
+          <div class="code-injection-credits" aria-label="Party Menu Learnset/Dex Viewer credits">
             <span>Designed in collaboration with</span>
             <strong>TrustyPeaches</strong>
           </div>
@@ -569,13 +670,12 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-panel__header"><div>
             <h2>C-Gear Quick Actions</h2>
             <a class="btn -primary" href="#cgearButtons" data-route="cgearButtons">Configure Buttons</a>
-            <p>REPEL, PC, BIKE, MAP, PARTY and BAG touch shortcuts, with up to eight editable buttons. Available after obtaining C-Gear, including with wireless off. Use the wrench to rearrange them. ${project.session.baseRom==="BW"?"Tap the upper-right button to browse native backgrounds.":"Drag the outer rim to browse skins: clockwise next, counterclockwise previous, every 12°."}</p>
+            <p>Add QoL shortcuts to C-Gear</p>
           </div>${renderInlineStatus(!quickActionsStatus.supported ? "Unsupported" : !quickActionsStatus.compatible ? "Incompatible" : quickActionsStatus.enabled ? "Enabled" : quickActionsStatus.installed ? "Disabled" : "Ready", { className: "code-injection-status" })}</div>
           <div class="code-injection-facts"><div><span>Games</span><strong>English Black / White / Black 2 / White 2</strong></div>
             <div><span>Dependency</span><strong>PMC only</strong></div>${quickActionsStatus.romProfile === "redux" ? '<div><span>ROM profile</span><strong>Redux</strong></div>' : ""}<div><span>Release</span><strong>${escapeHtml(project.session.baseRom==="BW"?CGEAR_QUICK_ACTIONS_BW1_VERSION:quickActionsStatus.runtimeVersion??CGEAR_QUICK_ACTIONS_VERSION)} development</strong></div></div>
           <img src="${project.session.baseRom==="BW"?new URL("../assets/codeinjection/cgearQuickActionsBw1Preview.png", import.meta.url).href:new URL("../assets/codeinjection/cgearQuickActionsPreview.png", import.meta.url).href}" alt="Editable C-Gear action button layout." width="256" height="192" style="max-width:100%;width:384px;height:auto;image-rendering:pixelated" />
-          <p>${escapeHtml(quickActionsStatus.message)}</p>
-          <p>Configure up to eight buttons, their labels, colors, starting positions, native key-item actions, and optional save-flag visibility. Changes are applied together from the button editor.</p>
+          ${quickActionsStatus.message ? `<p>${escapeHtml(quickActionsStatus.message)}</p>` : ""}
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-cgear-quick-actions-btn" type="button" ${quickActionsStatus.compatible ? "" : "disabled"}>${quickActionsStatus.installed ? "Update / Enable" : "Install"}</button>
             <button class="btn -default" id="disable-cgear-quick-actions-btn" type="button" ${quickActionsStatus.compatible && quickActionsStatus.enabled ? "" : "disabled"}>Disable</button>
@@ -642,6 +742,19 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div class="code-injection-note" id="forgettable-hms-note" aria-live="polite"></div>
           </div>
         </section>
+        <section class="code-injection-panel" ${patchVisibility(bw1HmStatus !== "unsupported")}>
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Make HM Moves Forgettable</h2>
+              <p>Lets the move deleter and move replacement screens forget HM moves in Black / White (an ARM9 edit; Black 2 / White 2 use Forgettable HMs above).</p>
+            </div>
+            ${renderInlineStatus(bw1HmStatus === "patched" ? "Installed" : bw1HmStatus === "unsupported" ? "Unsupported" : bw1HmStatus === "unknown" ? "Signature Unknown" : "Ready", { className: "code-injection-status" })}
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="make-hms-forgettable-btn" type="button" ${bw1HmStatus === "unpatched" ? "" : "disabled"}>${bw1HmStatus === "patched" ? "HMs Forgettable" : "Make HMs Forgettable"}</button>
+            <div class="code-injection-note" id="bw1-hms-note" aria-live="polite"></div>
+          </div>
+        </section>
         <section class="code-injection-panel" ${patchVisibility(autorunStatus.supported)}>
           <div class="code-injection-panel__header">
             <div>
@@ -686,6 +799,102 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div class="code-injection-note" id="intro-skip-note" aria-live="polite"></div>
           </div>
         </section>
+        </section>
+        <section class="code-injection-tab-panel" id="code-injection-panel-major-features" role="tabpanel" aria-labelledby="code-injection-tab-major-features" tabindex="0" ${activeTab === "major-features" ? "" : "hidden"}>
+        <section class="code-injection-panel" ${patchVisibility(fairyStatus !== "unsupported")}>
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Fairy Type Support</h2>
+              <p>Adds Fairy as a battle type and updates the supporting battle, move, Pokémon, and text data used by the ROM.</p>
+            </div>
+            ${renderInlineStatus(fairyStatus === "patched" ? "Installed" : fairyStatus === "unsupported" ? "Unsupported" : "Ready", { className: "code-injection-status" })}
+          </div>
+          <div class="code-injection-facts">
+            <div><span>ROM</span><strong>Black 2 / White 2</strong></div>
+            <div><span>Installed by</span><strong>This card, Move Expansion or Mega Evolution</strong></div>
+          </div>
+          <div class="code-injection-actions">
+            <label><input id="fairy-modern-typings-checkbox" type="checkbox" checked> Update Pokémon and move typings</label>
+            <button class="btn -primary" id="add-fairy-type-btn" type="button" ${fairyStatus === "unpatched" ? "" : "disabled"}>${fairyStatus === "patched" ? "Fairy Type Installed" : "Add Fairy Type Support"}</button>
+            <div class="code-injection-note" id="fairy-type-note" aria-live="polite"></div>
+          </div>
+        </section>
+        <section class="code-injection-panel" ${patchVisibility(moveExpansionStatus !== "unsupported")}>
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Move Expansion</h2>
+              <p>Expands the ROM to 1,000 move slots, and adds the data for gen 6-9 moves. Only the basic data like base power, accuracy, status effects etc are added, no special move handlers. Fairy Type is installed automatically.</p>
+              <p>You can optionally choose to install move animations as well which have been compiled from existing gen 5 romhacks and the community.</p>
+            </div>
+            ${renderInlineStatus(moveExpansionStatus === "patched" ? "Installed" : moveExpansionStatus === "routing-only" ? "Routing Only" : moveExpansionStatus === "unsupported" ? "Unsupported" : moveExpansionStatus === "unknown" ? "Incompatible" : "Ready", { className: "code-injection-status" })}
+          </div>
+          <div class="code-injection-facts">
+            <div><span>Move slots</span><strong>1,000</strong></div>
+            <div><span>Fairy Type</span><strong>${fairyStatus === "patched" ? "Installed" : fairyStatus === "unsupported" ? "Not available" : "Installed with it"}</strong></div>
+            <div><span>Installed by</span><strong>This card or Mega Evolution</strong></div>
+          </div>
+          <div class="code-injection-actions">
+            <label><input id="move-expansion-animations-checkbox" type="checkbox" ${project.patches?.applied?.moveExpansionBundledAnimations || project.patches?.applied?.moveExpansionGen6Animations ? "checked" : ""}> Include Gen 6-9 Animations</label>
+            <button class="btn -primary" id="install-move-expansion-btn" type="button" ${moveExpansionStatus === "unsupported" || moveExpansionStatus === "unknown" ? "disabled" : ""}>${moveExpansionStatus === "patched" ? "Update Move Expansion" : "Install Move Expansion"}</button>
+            <div class="code-injection-note" id="move-expansion-note" aria-live="polite"></div>
+          </div>
+          <div class="code-injection-credits" aria-label="Move animation credits">
+            <span>Move animation credits</span>
+            ${moveAnimationCredits.map(({ author, count }) => `<strong>${escapeHtml(author)} (${count})</strong>`).join("")}
+          </div>
+        </section>
+        ${canUseMegaEvolutionInstaller() ? `<section class="code-injection-panel" ${patchVisibility(megaStatus.supported)}>
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Mega Evolution</h2>
+            </div>
+            ${renderInlineStatus(!megaStatus.supported ? "Unsupported" : megaStatus.installed ? megaStatus.updateAvailable ? "Update Available" : "Installed" : megaStatus.compatible ? "Ready" : "Incompatible", { className: "code-injection-status" })}
+          </div>
+          <div class="code-injection-facts">
+            <div><span>Routes</span><strong>${megaStatus.installed ? megaStatus.routes : "—"}</strong></div>
+            <div><span>Turn order</span><strong>Generation 7</strong></div>
+            <div><span>Mega Pokémon</span><strong>${megaContentStatus.installed ? `${megaContentStatus.forms} installed` : megaContentStatus.ready ? "Ready" : "—"}</strong></div>
+            <div><span>Credits</span><strong>${MEGA_CREDITS.map((credit) => `${escapeHtml(credit.name)} (${escapeHtml(credit.role)})`).join("; ")}</strong></div>
+          </div>
+          ${megaConfig ? `<details class="code-injection-mega-routes">
+            <summary>Routes (${megaConfig.routes.length}) and messages</summary>
+            <table class="code-injection-table">
+              <thead><tr><th>Species ID</th><th>Item / move ID</th><th>Move trigger</th><th>Form</th><th>Mega form</th><th></th></tr></thead>
+              <tbody id="mega-route-rows">${megaConfig.routes.map((route, index) => `<tr data-mega-route="${index}">
+                <td><input type="number" min="1" max="65535" value="${route.species}" data-field="species" aria-label="Route ${index + 1} species ID"></td>
+                <td><input type="number" min="1" max="65535" value="${route.trigger}" data-field="trigger" aria-label="Route ${index + 1} trigger ID"></td>
+                <td><input type="checkbox" data-field="moveTrigger" ${route.moveTrigger ? "checked" : ""} aria-label="Route ${index + 1} is triggered by a move"></td>
+                <td><input type="number" min="0" max="31" value="${route.sourceForm}" data-field="sourceForm" aria-label="Route ${index + 1} form"></td>
+                <td><input type="number" min="1" max="31" value="${route.targetForm}" data-field="targetForm" aria-label="Route ${index + 1} Mega form"></td>
+                <td><button class="btn -default -remove" type="button" data-remove-mega-route="${index}">Remove</button></td>
+              </tr>`).join("")}</tbody>
+            </table>
+            <div class="code-injection-facts">
+              <label><span>“Reacting” message</span><input id="mega-msg-reacting" type="number" min="0" max="65535" value="${megaConfig.messages.reacting}"></label>
+              <label><span>“Mega Evolved” message</span><input id="mega-msg-evolved" type="number" min="0" max="65535" value="${megaConfig.messages.evolved}"></label>
+              <label><span>“Fervent wish” message</span><input id="mega-msg-wish" type="number" min="0" max="65535" value="${megaConfig.messages.wish}"></label>
+              <label><span>Animation</span><input id="mega-animation" type="number" min="0" max="65535" value="${megaConfig.animationMove}" title="0 plays the native form change"></label>
+              <label><span>Trainers Mega Evolve</span><input id="mega-auto-foes" type="checkbox" ${megaConfig.autoFoes ? "checked" : ""}></label>
+            </div>
+          </details>` : ""}
+          ${megaContentStatus.supported ? `<details class="code-injection-mega-credits">
+            <summary>Mega sprite credits</summary>
+            <table class="code-injection-table">
+              <thead><tr><th>Mega</th><th>Front</th><th>Back</th></tr></thead>
+              <tbody>${megaSpriteCredits().map((credit) => `<tr><td>${escapeHtml(credit.name)}</td><td>${escapeHtml(credit.front)}</td><td>${escapeHtml(credit.back)}</td></tr>`).join("")}</tbody>
+            </table>
+          </details>` : ""}
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-mega-btn" type="button" ${megaInstallEnabled ? "" : "disabled"}${megaInstallEnabled || !megaContentStatus.message ? "" : ` title="${escapeHtml(megaContentStatus.message)}"`}>
+              ${megaContentStatus.installed ? megaStatus.updateAvailable || megaContentStatus.animationMissing ? "Update Mega Evolution" : "Mega Evolution Installed" : "Install Mega Evolution"}
+            </button>
+            <button class="btn -default" id="add-mega-route-btn" type="button" ${megaConfig ? "" : "disabled"}>Add Route</button>
+            <button class="btn -default" id="save-mega-routes-btn" type="button" ${megaConfig ? "" : "disabled"}>Save Routes</button>
+            <button class="btn -default -remove" id="uninstall-mega-btn" type="button" ${megaStatus.canUninstall ? "" : "disabled"}>Uninstall Mega Evolution</button>
+            <div class="code-injection-note" id="mega-evolution-note" aria-live="polite"></div>
+          </div>
+        </section>
+        ` : ""}
         </section>
         <section class="code-injection-tab-panel" id="code-injection-panel-add-ons" role="tabpanel" aria-labelledby="code-injection-tab-add-ons" tabindex="0" ${activeTab === "add-ons" ? "" : "hidden"}>
         <section class="code-injection-panel" ${patchVisibility(infiniteCandyStatus.supported)}>
@@ -742,59 +951,11 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div class="code-injection-note" id="trainer-level-caps-note" aria-live="polite"></div>
           </div>
         </section>
-        <section class="code-injection-panel" ${patchVisibility(doubleBattleFixStatus !== "unsupported")}>
-          <div class="code-injection-panel__header">
-            <div>
-              <h2>Single-NPC Double Battle Fix</h2>
-              <p>${
-                doubleBattleFixStatus !== "unsupported"
-                  ? "Fixes common-script trainers changed from Singles to Doubles. Available for US Black 1 and Black 2 / White 2. PMC is installed automatically if needed."
-                  : "A White 1 build of this patch is not bundled yet."
-              }</p>
-            </div>
-            ${renderInlineStatus(doubleBattleFixStatus === "patched" ? "Installed" : doubleBattleFixStatus === "unsupported" ? "Unsupported" : "Not Installed", { className: "code-injection-status" })}
-          </div>
-          <div class="code-injection-actions">
-            <button class="btn -primary" id="install-double-battle-fix-btn" type="button" ${doubleBattleFixSupported ? "" : "disabled"} title="Install the bundled double battle fix and any missing dependencies.">
-              Install Double Battle Fix
-            </button>
-            <div class="code-injection-note" id="double-battle-fix-note" aria-live="polite"></div>
-          </div>
-          <div class="code-injection-credits" aria-label="Double Battle Fix credits">
-            <span>Implementation credits</span>
-            <strong>Sunk</strong>
-            <strong>Papaya</strong>
-          </div>
-        </section>
         <section class="code-injection-panel" ${patchVisibility(trainerFieldStatus.supported)}>
           <div class="code-injection-panel__header"><div><h2>Trainer Field Conditions</h2>
           </div></div>
           <div class="code-injection-facts"><div><span>ROM</span><strong>English US Black 2 / White 2</strong></div><div><span>Dependency</span><strong>PMC only</strong></div></div>
           ${renderTrainerFieldInstaller(trainerFieldStatus)}
-        </section>
-        <section class="code-injection-panel" ${patchVisibility(tagBattleStatus.supported)}>
-          <div class="code-injection-panel__header">
-            <div>
-              <h2>Tag Battle Stabilization</h2>
-              <p>Allows tag battles with more than the vanilla limit of six opposing Pokemon, such as two opponents with four Pokemon each. Runs one trainer's AI at a time to reduce script memory use and prevent the related battle-start hang.</p>
-            </div>
-            ${renderInlineStatus(!tagBattleStatus.supported ? "Unsupported" : !tagBattleStatus.compatible ? "Incompatible" : tagBattleStatus.installed ? "Installed" : "Ready", { className: "code-injection-status" })}
-          </div>
-          <div class="code-injection-facts">
-            <div><span>Supported ROM</span><strong>US White 2</strong></div>
-            <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
-          </div>
-          <p>Configure each trainer's team in the Trainer editor. This patch does not change team sizes.</p>
-          <div class="code-injection-actions">
-            <button class="btn -primary" id="install-tag-battle-stabilization-btn" type="button" ${tagBattleCanInstall ? "" : "disabled"}>
-              Install Tag Battle Stabilization
-            </button>
-            <button class="btn -default" id="uninstall-tag-battle-stabilization-btn" type="button" ${tagBattleStatus.canUninstall ? "" : "disabled"}
-              title="${tagBattleStatus.installed && !tagBattleStatus.canUninstall ? "A DLL already built into the loaded ROM cannot be removed yet." : "Remove the staged Tag Battle Stabilization DLL."}">
-              Uninstall Tag Battle Stabilization
-            </button>
-            <div class="code-injection-note" id="tag-battle-stabilization-note" aria-live="polite"></div>
-          </div>
         </section>
         <section class="code-injection-panel" ${patchVisibility(nuzlockeStatus.supported)}>
           <div class="code-injection-panel__header"><div><h2>Nuzlocke Style Encounters</h2>
@@ -837,86 +998,6 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div class="code-injection-note" id="porta-pc-note" aria-live="polite"></div>
           </div>
         </section>
-        <section class="code-injection-panel" ${patchVisibility(formEvolutionStatus !== "unsupported")}>
-          <div class="code-injection-panel__header">
-            <div>
-              <h2>Added-Form Evolution Support</h2>
-              <p>Allows evolution NARC targets to reference appended personal-form IDs while storing the evolved Pokemon as a safe base species and form.</p>
-            </div>
-            ${renderInlineStatus(formEvolutionInstalled ? "Installed" : formEvolutionStatus === "unsupported" ? "Unsupported" : "Not Installed", { className: "code-injection-status" })}
-          </div>
-          <div class="code-injection-facts">
-            <div><span>Runtime</span><strong>${formEvolutionStatus === "unsupported" ? "B2/W2 only" : `FormEvolution${escapeHtml(project.session.baseVersion)}.dll`}</strong></div>
-            <div><span>Module Path</span><strong>${formEvolutionInstalled ? `patches/FormEvolution${escapeHtml(project.session.baseVersion)}.dll` : "Pending"}</strong></div>
-            <div><span>Installation</span><strong>Installer or Add Form</strong></div>
-            <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
-          </div>
-          <div class="code-injection-note">
-            ${
-              formEvolutionInstalled
-                ? "The bundled form-evolution DLL is active in this project and will be included in the exported ROM."
-                : formEvolutionStatus === "unsupported"
-                  ? "The bundled form-evolution runtime currently supports Black 2 and White 2."
-                  : "Install here or use Add Form in the Pokemon editor. PMC is installed automatically if needed."
-            }
-          </div>
-          <div class="code-injection-actions">
-            <button class="btn -primary" id="install-form-evolution-btn" type="button" ${formEvolutionStatus === "unpatched" ? "" : "disabled"}>${formEvolutionInstalled ? "Installed" : "Install Added-Form Evolution Support"}</button>
-            <div class="code-injection-note" id="form-evolution-note" aria-live="polite"></div>
-          </div>
-        </section>
-        ${canUseMegaEvolutionInstaller() ? `<section class="code-injection-panel" ${patchVisibility(megaStatus.supported)}>
-          <div class="code-injection-panel__header">
-            <div>
-              <h2>Mega Evolution</h2>
-            </div>
-            ${renderInlineStatus(!megaStatus.supported ? "Unsupported" : megaStatus.installed ? megaStatus.updateAvailable ? "Update Available" : "Installed" : megaStatus.compatible ? "Ready" : "Incompatible", { className: "code-injection-status" })}
-          </div>
-          <div class="code-injection-facts">
-            <div><span>Routes</span><strong>${megaStatus.installed ? megaStatus.routes : "—"}</strong></div>
-            <div><span>Turn order</span><strong>Generation 7</strong></div>
-            <div><span>Mega Pokémon</span><strong>${megaContentStatus.installed ? `${megaContentStatus.forms} installed` : megaContentStatus.ready ? "Ready" : "—"}</strong></div>
-            <div><span>Credits</span><strong>${MEGA_CREDITS.map((credit) => `${escapeHtml(credit.name)} (${escapeHtml(credit.role)})`).join("; ")}</strong></div>
-          </div>
-          ${megaConfig ? `<details class="code-injection-mega-routes">
-            <summary>Routes (${megaConfig.routes.length}) and messages</summary>
-            <table class="code-injection-table">
-              <thead><tr><th>Species ID</th><th>Item / move ID</th><th>Move trigger</th><th>Form</th><th>Mega form</th><th></th></tr></thead>
-              <tbody id="mega-route-rows">${megaConfig.routes.map((route, index) => `<tr data-mega-route="${index}">
-                <td><input type="number" min="1" max="65535" value="${route.species}" data-field="species" aria-label="Route ${index + 1} species ID"></td>
-                <td><input type="number" min="1" max="65535" value="${route.trigger}" data-field="trigger" aria-label="Route ${index + 1} trigger ID"></td>
-                <td><input type="checkbox" data-field="moveTrigger" ${route.moveTrigger ? "checked" : ""} aria-label="Route ${index + 1} is triggered by a move"></td>
-                <td><input type="number" min="0" max="31" value="${route.sourceForm}" data-field="sourceForm" aria-label="Route ${index + 1} form"></td>
-                <td><input type="number" min="1" max="31" value="${route.targetForm}" data-field="targetForm" aria-label="Route ${index + 1} Mega form"></td>
-                <td><button class="btn -default -remove" type="button" data-remove-mega-route="${index}">Remove</button></td>
-              </tr>`).join("")}</tbody>
-            </table>
-            <div class="code-injection-facts">
-              <label><span>“Reacting” message</span><input id="mega-msg-reacting" type="number" min="0" max="65535" value="${megaConfig.messages.reacting}"></label>
-              <label><span>“Mega Evolved” message</span><input id="mega-msg-evolved" type="number" min="0" max="65535" value="${megaConfig.messages.evolved}"></label>
-              <label><span>“Fervent wish” message</span><input id="mega-msg-wish" type="number" min="0" max="65535" value="${megaConfig.messages.wish}"></label>
-              <label><span>Animation</span><input id="mega-animation" type="number" min="0" max="65535" value="${megaConfig.animationMove}" title="0 plays the native form change"></label>
-              <label><span>Trainers Mega Evolve</span><input id="mega-auto-foes" type="checkbox" ${megaConfig.autoFoes ? "checked" : ""}></label>
-            </div>
-          </details>` : ""}
-          ${megaContentStatus.supported ? `<details class="code-injection-mega-credits">
-            <summary>Mega sprite credits</summary>
-            <table class="code-injection-table">
-              <thead><tr><th>Mega</th><th>Front</th><th>Back</th></tr></thead>
-              <tbody>${megaSpriteCredits().map((credit) => `<tr><td>${escapeHtml(credit.name)}</td><td>${escapeHtml(credit.front)}</td><td>${escapeHtml(credit.back)}</td></tr>`).join("")}</tbody>
-            </table>
-          </details>` : ""}
-          <div class="code-injection-actions">
-            <button class="btn -primary" id="install-mega-btn" type="button" ${megaInstallEnabled ? "" : "disabled"}${megaInstallEnabled || !megaContentStatus.message ? "" : ` title="${escapeHtml(megaContentStatus.message)}"`}>
-              ${megaContentStatus.installed ? megaStatus.updateAvailable || megaContentStatus.animationMissing ? "Update Mega Evolution" : "Mega Evolution Installed" : "Install Mega Evolution"}
-            </button>
-            <button class="btn -default" id="add-mega-route-btn" type="button" ${megaConfig ? "" : "disabled"}>Add Route</button>
-            <button class="btn -default" id="save-mega-routes-btn" type="button" ${megaConfig ? "" : "disabled"}>Save Routes</button>
-            <button class="btn -default -remove" id="uninstall-mega-btn" type="button" ${megaStatus.canUninstall ? "" : "disabled"}>Uninstall Mega Evolution</button>
-            <div class="code-injection-note" id="mega-evolution-note" aria-live="polite"></div>
-          </div>
-        </section>
-        ` : ""}
         </section>
         <section class="code-injection-tab-panel" id="code-injection-panel-debug-helpers" role="tabpanel" aria-labelledby="code-injection-tab-debug-helpers" tabindex="0" ${activeTab === "debug-helpers" ? "" : "hidden"}>
           <section class="code-injection-panel" ${patchVisibility(debugFlag.supported)}>
@@ -1150,6 +1231,72 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     }
   });
 
+  /** ROM patches (not PMC modules) that used to live on the Patches page: confirm, apply to the project, re-render. */
+  const romPatchButton = (buttonId: string, noteId: string, confirmText: string, apply: () => Promise<RomPatchApplyResult>) => {
+    root.querySelector<HTMLButtonElement>(`#${buttonId}`)?.addEventListener("click", async (event) => {
+      const button = event.currentTarget as HTMLButtonElement;
+      if (!window.confirm(`${confirmText}\n\nExport the ROM after applying to keep this change.`)) return;
+      const previousText = button.textContent ?? "";
+      button.disabled = true;
+      button.textContent = "Applying...";
+      try {
+        const result = await apply();
+        if (result.status !== "already-applied") onDirty();
+        renderCodeInjectionEditor(project, root, onDirty);
+        const note = root.querySelector(`#${noteId}`);
+        if (note) note.textContent = result.summary ?? (result.status === "already-applied" ? "Already applied." : "Applied. Export the ROM to keep it.");
+      } catch (error) {
+        button.disabled = false;
+        button.textContent = previousText;
+        const note = root.querySelector(`#${noteId}`);
+        if (note) note.textContent = error instanceof Error ? error.message : String(error);
+      }
+    });
+  };
+  romPatchButton("add-fairy-type-btn", "fairy-type-note", "Apply this ROM patch to add Fairy Type Support?",
+    () => addFairyTypeSupport(project, { updateModernFairyTypings: root.querySelector<HTMLInputElement>("#fairy-modern-typings-checkbox")?.checked ?? true }));
+  romPatchButton("make-hms-forgettable-btn", "bw1-hms-note", "Apply this ARM9 patch to make HM moves forgettable?", () => makeHmsForgettable(project));
+  romPatchButton("migrate-cascade-personal-btn", "cascade-personal-note", cascadeStatus.abilitiesMigrated
+    ? "Import this ROM’s raw Hidden Ability Chance values into zero-valued fields? Existing AI abilities and nonzero chances will be preserved."
+    : "Copy this ROM’s injected AI abilities and raw Hidden Ability Chance values into personal data and enable editing?", () => migrateCascadePersonalData(project));
+
+  root.querySelector<HTMLButtonElement>("#install-move-expansion-btn")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget as HTMLButtonElement;
+    const includeBundledAnimations = root.querySelector<HTMLInputElement>("#move-expansion-animations-checkbox")?.checked ?? false;
+    if (!window.confirm(`Expand this ROM to 1,000 move slots and install the animation-routing hook${fairyStatus === "unpatched" ? " and Fairy Type Support" : ""}${includeBundledAnimations ? ", Gen 6-9 animation scripts, particles, and backgrounds" : ""}?`)) return;
+    const previousText = button.textContent ?? "Install Move Expansion";
+    button.disabled = true;
+    button.textContent = "Installing...";
+    try {
+      const result = await addMoveExpansion(project, { includeBundledAnimations });
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+      const note = root.querySelector("#move-expansion-note");
+      if (note && result.summary) note.textContent = result.summary;
+    } catch (error) {
+      button.disabled = false;
+      button.textContent = previousText;
+      const note = root.querySelector("#move-expansion-note");
+      if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+
+  root.querySelector<HTMLButtonElement>("#install-trainer-natures-btn")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget as HTMLButtonElement;
+    button.disabled = true;
+    try {
+      const result = await install(candidate => specifyTrainerNatures(candidate));
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+      const note = root.querySelector("#trainer-natures-note");
+      if (note && result.summary) note.textContent = result.summary;
+    } catch (error) {
+      button.disabled = false;
+      const note = root.querySelector("#trainer-natures-note");
+      if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+
   root.querySelector<HTMLButtonElement>("#install-form-evolution-btn")?.addEventListener("click", async (event) => {
     const button = event.currentTarget as HTMLButtonElement;
     button.disabled = true;
@@ -1341,6 +1488,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       const skipped = report.skipped;
       const notes = [
         `${report.forms.length} Mega Pokémon, their ${report.stones} Mega Stones, routes and the transformation animation installed.`,
+        report.moveExpansion === "installed" ? `Move Expansion${report.fairyTypeInstalled ? " and Fairy Type Support were" : " was"} installed (Mega Rayquaza's Dragon Ascent${report.fairyTypeInstalled ? ", the Fairy Megas' type" : ""}).` : report.moveExpansion === "unavailable" ? "Move Expansion couldn't be installed on this ROM, so Mega Rayquaza was skipped." : "",
         itemsWereInstalled ? "" : "Item Expansion was installed: convert existing saves on the Item Expansion card.",
         report.abilitiesAdded.length ? `Abilities added: ${report.abilitiesAdded.join(", ")}.` : "",
         skipped.length ? `Skipped: ${skipped.map((skip) => `${skip.name} (${skip.reason})`).join("; ")}.` : "",
@@ -1894,4 +2042,24 @@ async function hydrateRomBytesForCodeInjection(project: ProjectState, root: HTML
   } finally {
     codeInjectionHydrationProjects.delete(project);
   }
+}
+
+/** Cascade White: imports the ROM's injected AI abilities and Hidden Ability chances into the personal editor. */
+export function renderCascadePersonalCard(cascadeStatus: ReturnType<typeof getCascadePersonalMigrationStatus>): string {
+  if (!cascadeStatus.visible) return "";
+  return `
+<section class="code-injection-panel">
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Editable Cascade AI Abilities</h2>
+              <p>${escapeHtml(cascadeStatus.message)}</p>
+              <p>Imports three AI ability slots and raw Hidden Ability Chance values from this ROM’s injected tables into the Pokémon personal editor. Gameplay use of these personal fields requires a Cascade runtime update.</p>
+            </div>
+            ${renderInlineStatus(cascadeStatus.installed ? "Migrated" : cascadeStatus.canMigrate ? "Ready" : "Unavailable", { className: "code-injection-status" })}
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="migrate-cascade-personal-btn" type="button" ${cascadeStatus.canMigrate ? "" : "disabled"}>${cascadeStatus.abilitiesMigrated && !cascadeStatus.installed ? "Import Hidden Ability Chances" : "Migrate AI Abilities &amp; Chances"}</button>
+            <div class="code-injection-note" id="cascade-personal-note" aria-live="polite"></div>
+          </div>
+        </section>`;
 }

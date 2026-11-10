@@ -14,7 +14,7 @@ import { materializeProjectEdits } from "../pokeweb/projectMaterialize";
 import { decodeRecord, type ProjectState } from "../pokeweb/projectStore";
 import { copyPokemonTutorCompatibility, getPokemonSummaryRecord, updatePokemonField, updatePokemonTutorCompatibility } from "../pokeweb/pokemonModel";
 import { writeRpm } from "../pokeweb/rpm";
-import { renderPatchesEditor } from "../ui/patchesEditor";
+import { renderCascadePersonalCard } from "../ui/codeInjectionEditor";
 import { renderCascadeAbilitySlots, renderPokemonExpandedSections } from "../ui/pokemonEditor";
 
 const DLL_PATH = "patches/A9_DamageCalc.dll";
@@ -360,9 +360,7 @@ function makeProject(): ProjectState {
 }
 
 function patchesHtml(project: ProjectState): string {
-  const root = { innerHTML: "", querySelector: () => null };
-  renderPatchesEditor(project, root as unknown as HTMLElement);
-  return root.innerHTML;
+  return renderCascadePersonalCard(getCascadePersonalMigrationStatus(project));
 }
 
 function sourceRom(project: ProjectState): NintendoDSRom {

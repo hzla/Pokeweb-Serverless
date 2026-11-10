@@ -2,14 +2,15 @@ import contentJson from "../assets/data/megaContent.json";
 import { unzipSync } from "fflate";
 import { recordGenericChange } from "./actionChangelog";
 import { ABILITY_IMPORT_LIBRARY } from "./abilityLibrary";
-import { createCustomAbility } from "./abilityEffectsModel";
+import { createCustomAbilities } from "./abilityEffectsModel";
 import { loadCodeInjectionNarcs } from "./codeInjectionInstall";
 import { getItemExpansionStatus, isItemExpansionInstalled, ITEM_TEXT_BANKS, stageItemExpansion } from "./itemExpansionModel";
 import { writeItemSprite } from "./itemSpriteModel";
+import { megaFormSuffix, nameMegaForm } from "./megaEditorModel";
 import { getMegaEvolutionStatus, isMegaEvolutionInstalled, materializeMegaEvolutionTable, megaEvolutionVersion, stageMegaEvolution, type MegaRoute } from "./megaEvolutionModel";
 import { allocateMoveExpansionParticleAssets, detectMoveExpansionPatch } from "./moveExpansionPatch";
 import { addPokemonForm } from "./pokemonFormModel";
-import { detectFairyTypePatch } from "./romPatchModel";
+import { addMoveExpansion, detectFairyTypePatch } from "./romPatchModel";
 import { updatePokemonField } from "./pokemonModel";
 import { installPokemonIconPayload, resolvePokemonIconAddress } from "./pokemonSpriteModel";
 import { decodeRecord, markDirty, type ProjectState } from "./projectStore";
@@ -17,6 +18,7 @@ import { applyPwanCarrierPatch, loadBundledPwanCarrierTemplate } from "./pwanCar
 import { buildPwanOverrideSideFromPwanBytes, findPwanOverrideForSpecies, hasPwanRuntimeDll, installPwanRuntime, resolvePwanSpeciesTarget, upsertPwanOverrideSide } from "./pwanAnimationModel";
 import { importPwanLibraryEntryFromLoadedLibrary, loadPwanLibrary } from "./pwanLibraryModel";
 import { NintendoDSRom } from "../nds/rom";
+import { loadActiveRomBytes } from "./persistence";
 import { addTextEntries, commitTextBank, getTextBank } from "./textModel";
 
 /**
@@ -81,6 +83,10 @@ export type MegaContentReport = {
   abilityFallbacks: string[];
   typeFallbacks: string[];
   animation: boolean;
+  /** Move Expansion, which Mega Rayquaza (Dragon Ascent) needs: installed by this install, already there, or not possible. */
+  moveExpansion?: "installed" | "present" | "unavailable";
+  /** Fairy Type Support came with Move Expansion in this install. */
+  fairyTypeInstalled?: boolean;
 };
 
 export function getMegaContentStatus(project: ProjectState): MegaContentStatus {
@@ -124,19 +130,29 @@ function normalize(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/gu, "");
 }
 
-/** A national ability ID as this ROM knows it: retail IDs as they are, newer ones by name or from the library. */
-async function resolveAbility(project: ProjectState, form: MegaContentForm, id: number, report: MegaContentReport): Promise<number | undefined> {
-  if (id <= 164) return id;
-  const name = form.abilityNames[String(id)];
-  if (!name) return undefined;
+/**
+ * National ability IDs as this ROM knows them: retail IDs as they are, newer ones by name or created from the ability
+ * library, all new ones in one runtime build. Unknown IDs map to undefined (the form keeps its base ability there).
+ */
+async function resolveAbilities(project: ProjectState, forms: readonly MegaContentForm[], report: MegaContentReport): Promise<Map<number, number | undefined>> {
+  const resolved = new Map<number, number | undefined>();
   const names = project.texts.banks.abilities ?? [];
-  const existing = names.findIndex((candidate) => normalize(candidate ?? "") === normalize(name));
-  if (existing > 0) return existing;
-  const template = ABILITY_IMPORT_LIBRARY.find((entry) => entry.id === id);
-  if (!template) return undefined;
-  const created = await createCustomAbility(project, template.defaultName, template.rule, form.abilityDescriptions[String(id)]);
-  report.abilitiesAdded.push(template.defaultName);
-  return created;
+  const toCreate: Array<{ national: number; name: string; rules: (typeof ABILITY_IMPORT_LIBRARY)[number]["rule"]; description?: string }> = [];
+  for (const form of forms) {
+    for (const id of form.abilities) {
+      if (resolved.has(id) || toCreate.some((entry) => entry.national === id)) continue;
+      if (id <= 164) { resolved.set(id, id); continue; }
+      const name = form.abilityNames[String(id)];
+      const existing = name ? names.findIndex((candidate) => normalize(candidate ?? "") === normalize(name)) : -1;
+      if (existing > 0) { resolved.set(id, existing); continue; }
+      const template = name ? ABILITY_IMPORT_LIBRARY.find((entry) => entry.id === id) : undefined;
+      if (!template) { resolved.set(id, undefined); continue; }
+      toCreate.push({ national: id, name: template.defaultName, rules: template.rule, description: form.abilityDescriptions[String(id)] });
+    }
+  }
+  const created = await createCustomAbilities(project, toCreate.map(({ name, rules, description }) => ({ name, rules, description })));
+  toCreate.forEach((entry, index) => { resolved.set(entry.national, created[index]); report.abilitiesAdded.push(entry.name); });
+  return resolved;
 }
 
 function setPersonal(project: ProjectState, personalId: number, field: string, value: number): void {
@@ -215,6 +231,39 @@ function installStones(project: ProjectState, romBytes: Uint8Array, files: Recor
     const pixels = new Uint8ClampedArray(file(files, stone.icon ?? MEGA_CONTENT.genericStoneIcon));
     writeItemSprite(project, romBytes, stone.id, { width: 32, height: 32, pixels }, 0, 0, false);
   }
+}
+
+/** Custom Mega Stones go after the package's stones (657-780), in Item Expansion's free placeholder slots. */
+export const CUSTOM_MEGA_STONE_IDS = { first: 781, last: 1023 } as const;
+
+/**
+ * Creates a Mega Stone for a custom Mega Evolution in the first free item slot from 781: White2Upgrade's stone item
+ * data (no price, no hold effect), name, plural, article, a description naming the Pokémon and the generic stone icon.
+ * Needs Item Expansion. Returns the item ID.
+ */
+export async function stageCustomMegaStone(project: ProjectState, stone: { name: string; pokemon: string; description?: string }): Promise<number> {
+  const name = stone.name.trim();
+  if (!name) throw new Error("Name the Mega Stone.");
+  if (name.length > 16) throw new Error("Item names fit 16 characters.");
+  if (!isItemExpansionInstalled(project)) throw new Error("Mega Stones need Item Expansion (install Mega Evolution first).");
+  project.originalRomBytes ??= await loadActiveRomBytes();
+  if (!project.originalRomBytes) throw new Error("Reload the ROM before adding a Mega Stone.");
+  const rom = new NintendoDSRom(project.originalRomBytes, { fileData: "view" });
+  loadCodeInjectionNarcs(project, rom, ["items", "message_texts"]);
+  const names = getTextBank(project, "message_texts", ITEM_TEXT_BANKS.names);
+  const taken = names.findIndex((entry, id) => id > 0 && entry?.[1]?.trim().toLowerCase() === name.toLowerCase());
+  if (taken > 0) throw new Error(`Item ${taken} is already called ${name}.`);
+  let id: number = CUSTOM_MEGA_STONE_IDS.first;
+  const free = (candidate: number) => {
+    const current = names[candidate]?.[1]?.trim() ?? "";
+    return !current || current === PLACEHOLDER;
+  };
+  while (id <= CUSTOM_MEGA_STONE_IDS.last && !free(id)) id++;
+  if (id > CUSTOM_MEGA_STONE_IDS.last || !names[id] || !project.narcs.items!.rawFiles[id]) throw new Error(`No free item slot between ${CUSTOM_MEGA_STONE_IDS.first} and ${CUSTOM_MEGA_STONE_IDS.last}.`);
+  const description = stone.description?.trim() || `One of the mysterious Mega Stones.\\nHave ${stone.pokemon} hold it, and it\\ncan Mega Evolve in battle.`;
+  installStones(project, project.originalRomBytes, await loadContentFiles(), [{ id, key: `CUSTOM_${id}`, name, forms: [], description }]);
+  recordGenericChange(project, "items", `Mega Stone: ${name} (item ${id}).`, "Mega Evolution", { key: `items:mega-stone:${id}` });
+  return id;
 }
 
 /** Hibiki's animation, with its particles appended to the SPA archive, as a member past the move expansion's 1,000. */
@@ -297,16 +346,21 @@ export async function stageMegaContent(project: ProjectState): Promise<MegaConte
   const routes: MegaRoute[] = [];
   const formsInstalled: Array<{ key: string; name: string; species: number; form: number; credits: { front: string; back: string } }> = [];
 
-  for (const form of MEGA_CONTENT.forms) {
+  const installable = MEGA_CONTENT.forms.flatMap((form) => {
     let moveTrigger: number | undefined;
     if (form.move) {
       moveTrigger = moveNames.findIndex((name) => normalize(name ?? "") === normalize(form.move!.name));
-      if (moveTrigger <= 0) { report.skipped.push({ name: form.name, reason: `needs the move ${form.move.name} (Move Expansion)` }); continue; }
+      if (moveTrigger <= 0) { report.skipped.push({ name: form.name, reason: `needs the move ${form.move.name} (Move Expansion)` }); return []; }
     }
-    const base = decodeRecord(project, "personal", form.species).raw;
-    if (!base) { report.skipped.push({ name: form.name, reason: "the species is missing" }); continue; }
+    if (!decodeRecord(project, "personal", form.species).raw) { report.skipped.push({ name: form.name, reason: "the species is missing" }); return []; }
+    return [{ form, moveTrigger }];
+  });
+  const abilities = await resolveAbilities(project, installable.map(({ form }) => form), report);
+
+  for (const { form, moveTrigger } of installable) {
     const added = addPokemonForm(project, form.species);
     const personalId = added.personalId;
+    nameMegaForm(project, personalId, megaFormSuffix(form.name, form.baseName));
     const stats: Array<[string, number]> = [["base_hp", form.stats[0]], ["base_atk", form.stats[1]], ["base_def", form.stats[2]],
       ["base_speed", form.stats[3]], ["base_spatk", form.stats[4]], ["base_spdef", form.stats[5]]];
     for (const [field, value] of stats) setPersonal(project, personalId, field, value);
@@ -315,7 +369,7 @@ export async function stageMegaContent(project: ProjectState): Promise<MegaConte
       else report.typeFallbacks.push(`${form.name} (Fairy needs the Fairy type patch)`);
     });
     for (let slot = 0; slot < 3; slot++) {
-      const ability = await resolveAbility(project, form, form.abilities[slot], report);
+      const ability = abilities.get(form.abilities[slot]);
       if (ability === undefined) {
         if (slot === 0) report.abilityFallbacks.push(`${form.name}: ${form.abilityNames[String(form.abilities[slot])] ?? form.abilities[slot]}`);
         continue; // the form keeps its base form's ability in this slot
@@ -391,5 +445,16 @@ export async function installMegaContent(
   const status = getMegaContentStatus(project);
   if (!status.ready) throw new Error(status.message);
   if (!hasPwanRuntimeDll(project)) await installPwanRuntime(project);
-  return install((staged) => stageMegaContent(staged));
+  // Move Expansion first, so the content adds Mega Rayquaza (Dragon Ascent) and routes the animation through it.
+  let moveExpansion: MegaContentReport["moveExpansion"] = "present";
+  const moveState = detectMoveExpansionPatch(project);
+  const fairyBefore = detectFairyTypePatch(project);
+  if (moveState === "unpatched" || moveState === "routing-only") {
+    await addMoveExpansion(project); // with Fairy Type Support, so the Fairy Megas get their type
+    moveExpansion = "installed";
+  } else if (moveState !== "patched") {
+    moveExpansion = "unavailable";
+  }
+  const report = await install((staged) => stageMegaContent(staged));
+  return { ...report, moveExpansion, fairyTypeInstalled: fairyBefore === "unpatched" && detectFairyTypePatch(project) === "patched" };
 }

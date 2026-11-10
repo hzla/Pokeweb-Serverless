@@ -234,7 +234,7 @@ export function getCGearQuickActionsStatus(project: ProjectState): CGearQuickAct
     : state.installed ? state.enabled ? "Quick Actions is enabled. The wrench also rearranges custom buttons, including with wireless off."
     : redux ? "Quick Actions is disabled. Redux's own Repel toggle remains available."
     : "Quick Actions is disabled. Saved Repel and button positions remain dormant."
-    : "Native hooks match. PMC is the only dependency. This is a development build awaiting the full gameplay acceptance checklist.";
+    : "";
   return state;
 }
 function cloneInstallState(project: ProjectState): ProjectState {

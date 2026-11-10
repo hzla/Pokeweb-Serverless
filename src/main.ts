@@ -89,7 +89,6 @@ import { renderBw2ScriptEditor, stopBw2ScriptEditor } from "./ui/bw2ScriptEditor
 import { renderFollowingPokemonEditor } from "./ui/followingPokemonEditor";
 import { renderMusicEditor } from "./ui/musicEditor";
 import { renderFileSystemEditor } from "./ui/fileSystemEditor";
-import { renderPatchesEditor } from "./ui/patchesEditor";
 import { renderHeaderEditor } from "./ui/headerEditor";
 import { renderOverworldWeatherEditor, stopOverworldWeatherEditorPreview } from "./ui/overworldWeatherEditor";
 import { renderOverworldWeatherGraphicsEditor, stopOverworldWeatherGraphicsEditor } from "./ui/overworldWeatherGraphicsEditor";
@@ -117,6 +116,7 @@ import { renderTrainerMusicEditor, stopTrainerMusicEditorPlayback } from "./ui/t
 import { renderBattleFacilityEditor } from "./ui/battleFacilityEditor";
 import { renderGrottoEditor } from "./ui/grottoEditor";
 import { renderMartEditor } from "./ui/martGrottoEditor";
+import { bw1MartsSupported } from "./pokeweb/bw1MartModel";
 import { renderTextEditor, selectTextBank } from "./ui/textEditor";
 import { renderOverworldEditor } from "./ui/overworldEditor";
 import { renderDocGenerators } from "./ui/docGenerators";
@@ -915,11 +915,8 @@ function renderApp(): void {
   }
 
   if (route === "patches") {
-    renderPatchesEditor(project, content, () => {
-      dirty = true;
-      scheduleSave(project!);
-      renderDirtyIndicator();
-    });
+    // The Patches page was folded into Code Injection; keep old links working.
+    navigate("codeInjection");
     return;
   }
 
@@ -1298,11 +1295,16 @@ function renderApp(): void {
   }
 
   if (route === "marts") {
-    renderMartEditor(project, content, () => {
+    const onDirty = () => {
       dirty = true;
       scheduleSave(project!);
       renderDirtyIndicator();
-    });
+    };
+    if (project.session.baseRom === "BW") {
+      void renderBw1Marts(project, content, onDirty);
+      return;
+    }
+    renderMartEditor(project, content, onDirty);
     return;
   }
 
@@ -1531,7 +1533,6 @@ function renderMoreMenu(): string {
     ["starters", "Scripted Pokémon"],
     ["types", "Type chart"],
     ["music", "Music"],
-    ["patches", "Patches"],
     ["fileSystem", "File system"],
     ["cgearButtons", "C-Gear buttons"],
     ["flagReference", "Flag reference"],
@@ -1619,13 +1620,14 @@ function renderPokemonMenu(): string {
 
 function renderItemsMenu(): string {
   const martsAvailable = project?.session.baseRom === "BW2";
-  const active = route === "items" || (martsAvailable && (route === "marts" || route === "systemShops"));
+  const bw1Marts = project?.session.baseRom === "BW";
+  const active = route === "items" || ((martsAvailable || bw1Marts) && route === "marts") || (martsAvailable && route === "systemShops");
   return `
     <div class="header-more ${active ? "-active" : ""}">
       <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Items</button>
       <div class="header-more-menu">
         ${navItem("items", "Item data")}
-        ${martsAvailable ? navItem("marts", "Marts") : ""}
+        ${martsAvailable || bw1Marts ? navItem("marts", "Marts") : ""}
         ${martsAvailable ? navItem("systemShops", "C-Gear shops") : ""}
       </div>
     </div>
@@ -2147,6 +2149,28 @@ async function openPokemonSpritesAsync(speciesId: number, formIndex = 0): Promis
   } catch (error) {
     window.alert(error instanceof Error ? error.message : String(error));
   }
+}
+
+/** BW1 marts live in overlay 21: attach the stored ROM bytes before rendering. */
+async function renderBw1Marts(current: ProjectState, content: HTMLElement, onDirty: () => void): Promise<void> {
+  const message = (text: string) => { content.innerHTML = `<div class="file-system-page"><div class="file-system-empty">${escapeHtml(text)}</div></div>`; };
+  if (!current.originalRomBytes) {
+    message("Loading marts...");
+    try {
+      const bytes = await loadActiveRomBytes();
+      if (!bytes) throw new Error("Reload the ROM to edit Black / White marts.");
+      current.originalRomBytes ??= bytes;
+    } catch (error) {
+      message(error instanceof Error ? error.message : String(error));
+      return;
+    }
+    if (project !== current || route !== "marts" || !content.isConnected) return;
+  }
+  if (!bw1MartsSupported(current)) {
+    message("This ROM's overlay 21 does not contain the Black / White shop tables.");
+    return;
+  }
+  renderMartEditor(current, content, onDirty);
 }
 
 async function ensurePokemonSpriteNarcs(): Promise<void> {
@@ -2780,6 +2804,8 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
   if (nextRoute === "wbtFacilities") {
     return EDITOR_REQUIREMENTS.wbtFacilities.every((name) => project?.narcs[name]) && Boolean(project.narcs.wbt_sets || project.narcs.wbt_trainers || project.narcs.wbt_area_pools);
   }
+  // The ROM bytes are loaded when the page opens (browser projects keep them in storage).
+  if (nextRoute === "marts" && project.session.baseRom === "BW") return hasExportBase && (project.session.baseVersion === "B" || project.session.baseVersion === "W") && Boolean(project.texts.banks.items?.length);
   if ((nextRoute === "marts" || nextRoute === "grottos") && project.session.baseRom !== "BW2") return false;
   if (nextRoute === "dexAreas" && !(hasExportBase && (project.session.baseVersion === "B2" || project.session.baseVersion === "W2"))) return false;
   if (nextRoute === "phenomena" && !(hasExportBase && ["B", "W", "B2", "W2"].includes(project.session.baseVersion))) return false;
@@ -2825,6 +2851,8 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
       ? ` title="${project?.session.baseRom === "BW" || project?.session.baseRom === "BW2" ? "Reload the ROM before opening Music" : "Music replacement supports US Black, White, Black 2 and White 2"}"`
     : nextRoute === "patches"
       ? ` title="Reload the ROM before opening Patches"`
+    : nextRoute === "marts" && project?.session.baseRom === "BW"
+      ? ` title="Reload the ROM before opening Marts"`
     : nextRoute === "cutscenes" || nextRoute === "field-scenes"
       ? ` title="Native cutscenes currently require a US White 2 source ROM"`
       : nextRoute === "maps3d"

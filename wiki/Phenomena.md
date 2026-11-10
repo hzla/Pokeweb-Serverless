@@ -26,5 +26,5 @@ Wild battles use the zone's Special Grass slots in the [Encounter editor](Encoun
 ## Notes
 
 * Changes apply after exporting the ROM.
-* The Patches page dust-cloud patches are replaced by this editor once it is installed. Use a `100%` encounter chance to stop dust clouds giving items, or remove the Gem rows to stop Gems.
+* This editor replaces the old dust-cloud patches (no longer offered). Use a `100%` encounter chance to stop dust clouds giving items, or remove the Gem rows to stop Gems.
 * Up to 48 items per list, 8 zone overrides and 32 zones per override.

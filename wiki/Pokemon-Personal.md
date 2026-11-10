@@ -28,7 +28,7 @@ The Pokemon Personal section edits species-level data: stats, typing, abilities,
 
 ## Cascade AI Abilities
 
-For a detected Cascade White variant, **Patches → Editable Cascade AI Abilities → Migrate AI Abilities & Chances** copies the three AI-only ability IDs and hidden ability chance values from the ROM's injected tables into personal data. The existing read-only AI slots become editable Ability 4, 5, and 6 fields. Names come from the ROM's ability bank; numeric IDs `0–255` are also accepted.
+For a detected Cascade White variant, **Code Injection → Infrastructure and Dependencies → Editable Cascade AI Abilities → Migrate AI Abilities & Chances** copies the three AI-only ability IDs and hidden ability chance values from the ROM's injected tables into personal data. The existing read-only AI slots become editable Ability 4, 5, and 6 fields. Names come from the ROM's ability bank; numeric IDs `0–255` are also accepted.
 
 | Cascade field | Personal byte offset | Range |
 | --- | --- | --- |

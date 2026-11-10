@@ -139,7 +139,7 @@ export function getSummaryStatViewerStatus(project: ProjectState): SummaryStatVi
   }
   state.compatible = true;
   state.message = state.installed ? `Summary viewer installed (${state.options.includeEvs ? "IVs and EVs" : "IVs only"}).`
-    : "Uses native Summary controls. PMC is installed automatically when needed; other gameplay patches are not required.";
+    : "";
   if (state.updateAvailable) state.message += ` Version ${manifest.version} is available; update for native title lettering and restored Stats tab flashing.`;
   return state;
 }

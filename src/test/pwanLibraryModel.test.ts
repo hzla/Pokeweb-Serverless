@@ -148,12 +148,12 @@ describe("pwanLibraryModel", () => {
     const missingCredits = manifest.entries.filter((entry) => entry.credits.trim().length === 0);
 
     expect(manifest.format).toBe("pokeweb-pwan-library-v2");
-    expect(manifest.entryCount).toBe(596);
-    expect(manifest.iconCount).toBe(596);
-    expect(manifest.sideCount).toEqual({ front: 596, back: 587, total: 1183 });
-    expect(manifest.entries).toHaveLength(596);
+    expect(manifest.entryCount).toBe(603);
+    expect(manifest.iconCount).toBe(603);
+    expect(manifest.sideCount).toEqual({ front: 603, back: 598, total: 1201 });
+    expect(manifest.entries).toHaveLength(603);
     expect(manifest.entries.every((entry) => entry.icon)).toBe(true);
-    expect(loaded.iconsByEntryId.size).toBe(596);
+    expect(loaded.iconsByEntryId.size).toBe(603);
     const megaCharizardX = manifest.entries.find((entry) => entry.key === "MEGA_CHARIZARD_X");
     const litten = manifest.entries.find((entry) => entry.key === "SPECIES_725");
     expect(megaCharizardX?.icon?.sourceArchiveIndex).toBe(3024);
@@ -164,8 +164,8 @@ describe("pwanLibraryModel", () => {
     expect(samurott.icon?.sourcePng).toBe('essentials_pngs/Icons/SAMUROTT_1.png');
     expect(samurott.icon?.sourceArchiveIndex).toBeUndefined();
     expect(digest(loaded.iconsByEntryId.get(samurott.id)!.male)).not.toBe(digest(loaded.iconsByEntryId.get(garchompZ.id)!.male));
-    expect(manifest.entries.filter((entry) => entry.hasFront !== entry.hasBack)).toHaveLength(9);
-    expect(new Set(manifest.entries.map(entry => `${entry.speciesId}:${entry.formIndex}`)).size).toBe(596);
+    expect(manifest.entries.filter((entry) => entry.hasFront !== entry.hasBack)).toHaveLength(5);
+    expect(new Set(manifest.entries.map(entry => `${entry.speciesId}:${entry.formIndex}`)).size).toBe(603);
     expect(manifest.entries.find(entry => entry.speciesId === 718 && entry.formIndex === 1)?.name).toBe('Zygarde 10%');
     expect(manifest.entries.find(entry => entry.speciesId === 658 && entry.formIndex === 2)?.name).toBe('Ash-Greninja');
     expect(missingCredits).toEqual([]);

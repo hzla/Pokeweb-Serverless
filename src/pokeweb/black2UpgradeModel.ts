@@ -327,18 +327,30 @@ function validateCompatibility(project: ProjectState, manifest: Black2UpgradeCom
   if (failures.length > 0) throw new Error(`Black 2 Upgrade code-signature validation failed. Modified or incompatible hook windows: ${failures.join(", ")}.`);
 }
 
+// Parsing a ROM copies every file in it; detection asks for the same paths again and again (once per form added,
+// per evolution record...), so each original ROM's lookups are kept. Only ever read: callers never write into them.
+const originalRomPaths = new WeakMap<Uint8Array, Map<string, { fileId: number; bytes: Uint8Array } | null>>();
+
 function romPathBytes(project: ProjectState, path: string): Uint8Array | undefined {
   const staged = project.fileSystem?.additions?.[path];
   if (staged) return staged;
   if (!project.originalRomBytes) return undefined;
-  try {
-    const rom = new NintendoDSRom(project.originalRomBytes);
-    const fileId = rom.filenames.idOf(path);
-    if (fileId === undefined) return undefined;
-    return project.fileSystem?.replacements?.[fileId] ?? rom.files[fileId];
-  } catch {
-    return undefined;
+  let paths = originalRomPaths.get(project.originalRomBytes);
+  if (!paths) originalRomPaths.set(project.originalRomBytes, paths = new Map());
+  let entry = paths.get(path);
+  if (entry === undefined) {
+    try {
+      const rom = new NintendoDSRom(project.originalRomBytes, { fileData: "view" });
+      const fileId = rom.filenames.idOf(path);
+      const bytes = fileId === undefined ? undefined : rom.files[fileId];
+      entry = fileId === undefined || !bytes ? null : { fileId, bytes };
+    } catch {
+      entry = null;
+    }
+    paths.set(path, entry);
   }
+  if (!entry) return undefined;
+  return project.fileSystem?.replacements?.[entry.fileId] ?? entry.bytes;
 }
 
 function parseMarker(bytes: Uint8Array | undefined): Black2UpgradeMarker | undefined {

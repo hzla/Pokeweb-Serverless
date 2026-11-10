@@ -1,6 +1,6 @@
 # Mega Evolution (Black 2 / White 2)
 
-A standalone PMC runtime for Mega Evolution, installed from **Code Injection → Feature Add-Ons → Mega Evolution**
+A standalone PMC runtime for Mega Evolution, installed from **Code Injection → Major Features/Expansions → Mega Evolution**
 (`src/pokeweb/megaEvolutionModel.ts`). The card is shown only on localhost (`canUseMegaEvolutionInstaller`, the
 same rule as Map Studio); projects that already have it keep working and exporting elsewhere. One DLL per game, `PokewebMega{W2,B2}.dll`, scoped to battle overlay 167:
 PMC loads it with the battle and drops it afterwards, so its state starts clean in every battle.
@@ -81,20 +81,23 @@ its own form and ability back. Not yet verified: opposing trainers' Megas, doubl
 ## Mega Pokémon (content package)
 
 `src/pokeweb/megaContentModel.ts`, installed by the card's one **Install Mega Evolution** button, which also installs
-Item Expansion, the PWAN runtime and this runtime when missing. From `src/assets/data/megaContent.json` + `src/assets/mega/megaContent.zip`
-(built by `content/build_content.py` from pokebw2's `res/w2u` data and White2Upgrade's assets; White2Upgrade icons
-via `content/extract_w2u_icons.py`):
+Move Expansion, Item Expansion, the PWAN runtime and this runtime when missing. From `src/assets/data/megaContent.json` + `src/assets/mega/megaContent.zip`
+(built by `content/build_content.py` from pokebw2's `res/w2u` data, Pokeweb's PWAN library and White2Upgrade's item
+icons and animation):
 
 - 71 Mega forms of species 1-649 (`addPokemonForm`, then stats, types, abilities, height, weight from pokebw2's
   `mega_roster.json`). Abilities above 164 are matched by name or created from Pokeweb's ability library (Tough
   Claws, Mega Launcher, Parental Bond, Aerilate, Pixilate, Strong Jaw, Refrigerate); Delta Stream has no template
-  (Mega Rayquaza keeps its base ability). Fairy needs the Fairy type patch, otherwise the base type stays.
+  (Mega Rayquaza keeps its base ability). Fairy needs Fairy Type Support, which the install adds with Move Expansion; without it the base type stays.
 - Mega Stones at their pokebw2 IDs (657-780, Item Expansion): White2Upgrade's item data (no price, no effect),
   names, plurals, articles, a description, White2Upgrade's icons (the Legends Z-A stones use the Mega Ring icon).
-- Animated sprites: Pokeweb's PWAN library entry (with its icon), plus White2Upgrade's PWAN files for the Megas or
-  sides the library lacks. Sprite credits are per side; the ones without a credit record are "Unknown" (Mega
-  Venusaur, Blastoise, Aerodactyl, Sceptile, Sharpedo, Camerupt, Metagross; the backs of Mega Pidgeot, Houndoom,
-  Sableye and Gallade). The card lists every credit.
+- Animated sprites and icons: every Mega's PWAN library entry, credited per side (the card lists them). White2Upgrade's
+  `assets/pokeweb_pwan` files at the old supplement asset numbers (724, 727, 742, 778, 787, 788, 797 and the backs at
+  729, 776, 782, 817) were Gen 7/8 Pokémon (Decidueye, Incineroar, Cutiefly, Mimikyu...), and the library's Mega
+  Slowbro was Galarian Slowbro, so `scripts/patch-pwan-library-megas.ts` rebuilt those sprites from the priority
+  sources in `~/Repos/Port-Pokeweb/sprites` (aranousqui20-newmegas preferred, essentials_gifs otherwise: Venusaur,
+  Blastoise, Slowbro (`SLOWBRO_2`; `_1` is Galarian), Sceptile, Sharpedo, Camerupt, Metagross, Gallade's back) and added
+  the seven Megas the library lacked with White2Upgrade's icons (pokebw2 `sourceIconFile` / `iconPalette`).
 - Battle messages (bank 18, player / wild / foe triplets): "reacting to [trainer]'s Mega Ring", "has Mega Evolved",
   the fervent wish.
 - Hibiki's transformation animation (White2Upgrade's script 622 and SPAs 765, 767, 770, 771, 783). Without Move
@@ -103,7 +106,8 @@ via `content/extract_w2u_icons.py`):
   Expansion it goes past member 1,000 of `a/0/6/5` and plays as its ID + 115 (the expansion's routing). Projects
   whose Mega Pokémon were installed without the animation get it from the card's Update button
   (`stageMegaAnimation`).
-- With Move Expansion: Mega Rayquaza (Dragon Ascent).
+- Mega Rayquaza (Dragon Ascent from Move Expansion, which the install adds first when the ROM doesn't have it;
+  skipped if Move Expansion can't be installed).
 - One route per Mega.
 
 Verified in desmond (`emulator_content.ts`, White 2 and Black 2): the install adds 70 forms and 70 stones without
@@ -112,6 +116,13 @@ Move Expansion (Mega Rayquaza skipped) and 71 with it; Charizard holding Chariza
 animation (with and without Move Expansion); with `--foe`, the trainer's Charizard holding Charizardite Y Mega Evolves on its own
 (Drought, stats). In desmond the intact sphere of the animation shows dark for a moment in both games; check it on
 hardware or melonDS before tuning the SPAs. The install takes about 15-30 seconds.
+
+Custom Megas: the Pokémon editor's Evolutions tab (`src/ui/pokemonMegaPanel.ts`, `src/pokeweb/megaEditorModel.ts`)
+edits the routes of one form, adds Mega forms (named `<Pokémon>-Mega` at their personal index in the name bank, which
+the game doesn't read past species 649) and creates Mega Stones at items 781-1023 (`stageCustomMegaStone`). The content
+install names its forms the same way (`Charizard-Mega-X`). Verified in desmond: a new Pikachu form with a new
+Pikachuite (item 781) Mega Evolves with the animation and the "Pikachuite is reacting" message, and changes type,
+ability and stats.
 
 Not included yet: the Mega glyph over the Pokémon (Hibiki's animation no longer draws the Mega symbol itself;
 White2Upgrade's MegaB2W2 extras draw it, White 2 only), the Mega cry and HP-bar icon, the battle summary's Mega

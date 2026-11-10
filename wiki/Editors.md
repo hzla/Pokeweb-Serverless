@@ -24,7 +24,7 @@ Pokeweb unlocks editors based on the ROM data groups loaded at project creation.
 | Marts | BW2 `marts`, `mart_counts` |
 | Grottos | BW2 `grottos`, `grotto_odds` |
 | Texts | `story_texts` or `message_texts` |
-| Code Injection, Patches, File System | original ROM bytes must be available |
+| Code Injection, File System | original ROM bytes must be available |
 
 ## Common Controls
 
@@ -63,7 +63,7 @@ Pokeweb unlocks editors based on the ROM data groups loaded at project creation.
 | [Texts](Texts) | Search and edit message/story text banks. |
 | [Starters](Starters) | Replace starter species, related script references, type text, and starter sprites. |
 | [Type Chart](Type-Chart) | Edit type effectiveness values. |
-| [Code Injection and Patches](Code-Injection-and-Patches) | Apply built-in ROM patches, install PMC/PWAN support, and stage patch/library DLLs. |
+| [Code Injection and Patches](Code-Injection-and-Patches) | Apply built-in ROM patches and expansions, install PMC/PWAN support, and stage patch/library DLLs. |
 | [File System](File-System) | Browse, export, import, replace, insert, append, and hex-edit raw ROM/NARC files and decompressed ARM9 overlays. |
 
 ## Documentation Generators
