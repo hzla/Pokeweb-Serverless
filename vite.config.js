@@ -15,6 +15,9 @@ export default defineConfig(({ mode }) => {
   }
   return {
     base: process.env.GITHUB_PAGES_BASE || "./",
+    // Runtime templates contain millions of numeric entries. Keep large JSON
+    // as a parse expression instead of expanding every entry into Rollup's AST.
+    json: { stringify: true },
     define: {
       __POKEWEB_BUILD_ID__: JSON.stringify(buildId),
       __POKEWEB_RUNTIME_RELEASE_DATES__: JSON.stringify(runtimeReleaseDates(fileURLToPath(new URL(".", import.meta.url)))),
