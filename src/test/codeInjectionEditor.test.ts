@@ -10,6 +10,7 @@ import * as candyModel from "../pokeweb/infiniteCandyModel";
 import * as levelCapsModel from "../pokeweb/levelCapsModel";
 import * as trainerLevelCapsModel from "../pokeweb/trainerLevelCapsModel";
 import * as pmcModel from "../pokeweb/pmcModel";
+import * as megaEvolutionModel from "../pokeweb/megaEvolutionModel";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -330,6 +331,7 @@ describe("code-injection patch categories", () => {
   });
 
   it("places every patch in its functional tab and keeps PMC in the sidebar", () => {
+    vi.spyOn(megaEvolutionModel, "canUseMegaEvolutionInstaller").mockReturnValue(true);
     const html = renderFixture("W2");
     const headings = (section: string) => [...section.matchAll(/<h2>([^<]+)<\/h2>/g)].map(match => match[1]);
     const panelIds = ["infrastructure", "graphics", "quality-of-life", "add-ons", "debug-helpers"];
@@ -367,5 +369,16 @@ describe("code-injection patch categories", () => {
     const actionNotes = [...html.matchAll(/<div class="code-injection-note" id="[^"]+-note" aria-live="polite">([\s\S]*?)<\/div>/g)];
     expect(actionNotes.filter(match => !match[0].includes('id="infinite-candy-note"')).every(match => match[1] === "")).toBe(true);
     expect(actionNotes.find(match => match[0].includes('id="infinite-candy-note"'))?.[1]).not.toBe("");
+  });
+
+  it("shows Mega Evolution only on localhost, like Map Studio", () => {
+    vi.spyOn(megaEvolutionModel, "canUseMegaEvolutionInstaller").mockReturnValue(false);
+    const html = renderFixture("W2");
+    expect(html).not.toContain("<h2>Mega Evolution</h2>");
+    expect(html).not.toContain('id="install-mega-btn"');
+    expect(html).toContain("<h2>Added-Form Evolution Support</h2>");
+    vi.restoreAllMocks();
+    for (const host of ["localhost", "127.0.0.1", "::1", "[::1]"]) expect(megaEvolutionModel.canUseMegaEvolutionInstaller(host)).toBe(true);
+    for (const host of ["", "hzla.github.io", "localhost.example"]) expect(megaEvolutionModel.canUseMegaEvolutionInstaller(host)).toBe(false);
   });
 });

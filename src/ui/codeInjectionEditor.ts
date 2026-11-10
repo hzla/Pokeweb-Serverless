@@ -73,7 +73,7 @@ import { getTrainerLevelCapsStatus, installTrainerLevelCaps } from "../pokeweb/t
 import { getForgettableHmsPmcStatus, stageForgettableHmsPmc } from "../pokeweb/forgettableHmsRuntime";
 import { getAutorunStatus, stageAutorun, uninstallAutorun } from "../pokeweb/autorunModel";
 import { convertSaveForItemExpansion, convertSaveFromItemExpansion, getItemExpansionStatus, isItemExpansionInstalled, stageItemExpansion, uninstallItemExpansion } from "../pokeweb/itemExpansionModel";
-import { MEGA_CREDITS, getMegaEvolutionStatus, setMegaEvolutionConfig, stageMegaEvolution, uninstallMegaEvolution, type MegaRoute } from "../pokeweb/megaEvolutionModel";
+import { MEGA_CREDITS, canUseMegaEvolutionInstaller, getMegaEvolutionStatus, setMegaEvolutionConfig, stageMegaEvolution, uninstallMegaEvolution, type MegaRoute } from "../pokeweb/megaEvolutionModel";
 import { getMegaContentStatus, installMegaContent, megaSpriteCredits, stageMegaAnimation } from "../pokeweb/megaContentModel";
 import { downloadBytes } from "../pokeweb/fileSystemModel";
 import { getIntroSkipStatus, stageIntroSkip, uninstallIntroSkip } from "../pokeweb/introSkipModel";
@@ -865,7 +865,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div class="code-injection-note" id="form-evolution-note" aria-live="polite"></div>
           </div>
         </section>
-        <section class="code-injection-panel" ${patchVisibility(megaStatus.supported)}>
+        ${canUseMegaEvolutionInstaller() ? `<section class="code-injection-panel" ${patchVisibility(megaStatus.supported)}>
           <div class="code-injection-panel__header">
             <div>
               <h2>Mega Evolution</h2>
@@ -916,6 +916,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div class="code-injection-note" id="mega-evolution-note" aria-live="polite"></div>
           </div>
         </section>
+        ` : ""}
         </section>
         <section class="code-injection-tab-panel" id="code-injection-panel-debug-helpers" role="tabpanel" aria-labelledby="code-injection-tab-debug-helpers" tabindex="0" ${activeTab === "debug-helpers" ? "" : "hidden"}>
           <section class="code-injection-panel" ${patchVisibility(debugFlag.supported)}>

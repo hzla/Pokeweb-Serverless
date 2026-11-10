@@ -1,7 +1,8 @@
 # Mega Evolution (Black 2 / White 2)
 
 A standalone PMC runtime for Mega Evolution, installed from **Code Injection → Feature Add-Ons → Mega Evolution**
-(`src/pokeweb/megaEvolutionModel.ts`). One DLL per game, `PokewebMega{W2,B2}.dll`, scoped to battle overlay 167:
+(`src/pokeweb/megaEvolutionModel.ts`). The card is shown only on localhost (`canUseMegaEvolutionInstaller`, the
+same rule as Map Studio); projects that already have it keep working and exporting elsewhere. One DLL per game, `PokewebMega{W2,B2}.dll`, scoped to battle overlay 167:
 PMC loads it with the battle and drops it afterwards, so its state starts clean in every battle.
 
 ## Credits

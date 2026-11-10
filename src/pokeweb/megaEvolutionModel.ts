@@ -1,5 +1,6 @@
 import manifest from "../assets/codeinjection/megaEvolutionManifest.json";
 import { recordGenericChange } from "./actionChangelog";
+import { canOpenMapStudio } from "./mapStudioAccess";
 import { canRemoveStagedCodeInjectionDll, detectBlack2UpgradeDlls, detectWhite2UpgradeDlls, listCodeInjectionDlls, removeStagedCodeInjectionDll, stageCodeInjectionDll } from "./pmcModel";
 import { decodeRecord, type ProjectState } from "./projectStore";
 import { parseRpm } from "./rpm";
@@ -119,6 +120,11 @@ export function megaEvolutionConflicts(project: ProjectState): string[] {
     if (hits) conflicts.push(path.split("/").pop()!);
   }
   return conflicts;
+}
+
+/** The Mega Evolution card is experimental: like Map Studio, it is shown only when Pokeweb runs on localhost. */
+export function canUseMegaEvolutionInstaller(hostname = typeof location === "undefined" ? "" : location.hostname): boolean {
+  return canOpenMapStudio(hostname);
 }
 
 export function getMegaEvolutionStatus(project: ProjectState): MegaEvolutionStatus {
