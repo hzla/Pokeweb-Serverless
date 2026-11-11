@@ -25,6 +25,7 @@ runtime/form-evolution/build/
 runtime/item-effects/build/
 runtime/item-expansion/build/
 runtime/mega-evolution/build/
+runtime/regional-forms/build/
 runtime/tag-battle-stabilization/build/
 runtime/double-battle-fix/build/
 runtime/porta-pc/build/
@@ -114,6 +115,7 @@ src/test/local/
 !/scripts/sync-white2expansion-progress.ts
 !/scripts/verify-white2expansion-animation-viewer.ts
 !/scripts/pack-pwan-library.ts
+!/scripts/reimport-pwan-library-full-size.ts
 !/scripts/assets/
 
 # The shipped library is losslessly compressed; keep the raw diagnostic cache local.

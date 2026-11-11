@@ -335,6 +335,22 @@ describe("trainerModel", () => {
     expect(getTrainerRecord(project, 1).party.map((pok) => pok.level)).toEqual([9]);
   });
 
+  it("imports a form's own name as its species in that form", () => {
+    const project = makeProject(3);
+    const formats = project.formats!;
+    project.narcs.personal = makeStore("personal", packRows(formats.personal!, [
+      {},
+      { ability_1: 1, ability_2: 2, ability_3: 3, gender: 127, form_id: 3, num_forms: 2 },
+      { ability_1: 1, ability_2: 2, ability_3: 3, gender: 127 },
+      { ability_1: 1, ability_2: 2, ability_3: 3, gender: 127 },
+    ]), 4);
+    project.texts.banks.pokedex = ["None", "Bulbasaur", "Ivysaur", "Bulbasaur-Alola"];
+
+    importTrainerTeamShowdownText(project, 1, "Bulbasaur-Alola\nLevel: 9\n\nIvysaur\nLevel: 9");
+    const trpok = decodeRecord(project, "trpok", 1).raw!;
+    expect([trpok.species_id_0, trpok.form_0, trpok.species_id_1, trpok.form_1]).toEqual([1, 1, 2, 0]);
+  });
+
   it("adds a trainer by cloning trainer data, party data, names, and BW2 text tables", () => {
     const project = makeProject(3);
     addTrainerTextFixtures(project);

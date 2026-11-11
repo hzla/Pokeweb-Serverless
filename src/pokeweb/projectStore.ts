@@ -212,6 +212,11 @@ export type CodeInjectionState = {
     /** Icon archive members (character, palette) of items 639-1023 that have their own icon. */
     icons?: Record<number, [number, number]>;
   };
+  /** Regional forms (regionalFormsModel): the forms the package added, by its keys. */
+  regionalForms?: {
+    version: number;
+    forms: Array<{ key: string; name: string; species: number; form: number; personalId: number }>;
+  };
   /** Mega Evolution (runtime/mega-evolution): routes and settings written into the DLL's PWMG table. */
   megaEvolution?: {
     version: number;
@@ -220,6 +225,8 @@ export type CodeInjectionState = {
     animationMove: number;
     revealFrame: number;
     autoFoes: boolean;
+    /** The key item the player needs to Mega Evolve (the Mega Ring); 0 or absent: none. */
+    ringItem?: number;
     /** The Mega content package (megaContentModel): the forms and stones it added. */
     content?: {
       version: number;
@@ -445,6 +452,15 @@ export function decodeRecord(project: ProjectState, name: NarcName, id: number):
   record.raw = parseRawRecord(name, bytes, project, id);
   record.readable = toReadable(name, record.raw, project, id);
   store.records.set(id, record);
+  if (name === "personal") enrichCascadePersonalRecord(project, record);
+  return record;
+}
+
+/** Re-derives a cached record's readable view after its raw fields were written directly (installers). */
+export function refreshRecordReadable(project: ProjectState, name: NarcName, id: number): NarcRecord {
+  const record = decodeRecord(project, name, id);
+  if (!record.raw) throw new Error(`Record ${id} of ${name} could not be read`);
+  record.readable = toReadable(name, record.raw, project, id);
   if (name === "personal") enrichCascadePersonalRecord(project, record);
   return record;
 }

@@ -6,11 +6,12 @@ import { renderPokemonMegaSection } from "../ui/pokemonMegaPanel";
 const project = (baseRom: "BW" | "BW2") => ({ session: { baseRom, generation: "gen5" } }) as unknown as ProjectState;
 
 describe("Pokémon editor Mega Evolution section", () => {
-  it("is offered for Black 2 / White 2 on localhost only", () => {
+  it("is offered for Black / White and Black 2 / White 2 on localhost only", () => {
     expect(megaEditorAvailable(project("BW2"), "localhost")).toBe(true);
     expect(megaEditorAvailable(project("BW2"), "127.0.0.1")).toBe(true);
     expect(megaEditorAvailable(project("BW2"), "hzla.github.io")).toBe(false);
-    expect(megaEditorAvailable(project("BW"), "localhost")).toBe(false);
+    expect(megaEditorAvailable(project("BW"), "localhost")).toBe(true);
+    expect(megaEditorAvailable(project("BW"), "hzla.github.io")).toBe(false);
     // Node has no location: the section renders nothing.
     expect(renderPokemonMegaSection(project("BW2"), 6)).toBe("");
   });

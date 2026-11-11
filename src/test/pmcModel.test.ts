@@ -1,4 +1,5 @@
 import { deepStrictEqual } from "node:assert";
+import formEvolutionManifest from "../assets/codeinjection/formEvolutionManifest.json";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
@@ -908,37 +909,23 @@ describe("PMC installer", () => {
     expect([...mainMenuSkipB2]).not.toEqual([...mainMenuSkipW2]);
   });
 
-  it("bundles versioned form-evolution hooks for both BW2 revisions", () => {
-    for (const [version, dll, hooks, symbols] of [
-      [
-        "B2",
-        formEvolutionB2,
-        ["284:21e355c:THUMB_BRANCH_LINK", "284:21e4e22:THUMB_BRANCH_LINK"],
-        { PML_PersonalGetParamSingle: 0x0201ef1c, PokeParty_ChangeForme: 0x0201c864, setChangedPkmSpecies: 0x0201c7b4 },
-      ],
-      [
-        "W2",
-        formEvolutionW2,
-        ["284:21e359c:THUMB_BRANCH_LINK", "284:21e4e62:THUMB_BRANCH_LINK"],
-        { PML_PersonalGetParamSingle: 0x0201ef48, PokeParty_ChangeForme: 0x0201c890, setChangedPkmSpecies: 0x0201c7e0 },
-      ],
-    ] as const) {
-      expect(readAscii(dll, 0, 4)).toBe("DLXF");
-      const rpm = parseRpm(dll, { allowedMagics: ["DLXF"] });
-      expect(rpm.metadata).toMatchObject({
-        PMCGameID: version,
-        PMCModulePriority: 4,
-        PMCVersion: "1.0.0",
-      });
-      expect(rpm.symbols.filter((symbol) => (symbol.attributes & 2) !== 0)).toEqual([]);
-      for (const [name, address] of Object.entries(symbols)) {
-        const external = rpm.symbols.find((symbol) => symbol.name === name);
-        expect(external).toMatchObject({ address, type: "FUNCTION_THM", attributes: expect.any(Number) });
-        expect((external!.attributes & 2) !== 0).toBe(false);
-        expect((external!.attributes & 4) !== 0).toBe(true);
+  it("bundles the evolution by form runtime for Black, White, Black 2 and White 2", () => {
+    const manifest = formEvolutionManifest.games as Record<string, Record<"core" | "demo", { fileName: string; targets: Array<{ kind: string; segment: string; address: string }> }>>;
+    for (const version of ["B", "W", "B2", "W2"] as const) {
+      for (const part of ["core", "demo"] as const) {
+        const entry = manifest[version]![part];
+        const dll = new Uint8Array(readFileSync(new URL(`../assets/codeinjection/${entry.fileName}`, import.meta.url)));
+        expect(readAscii(dll, 0, 4)).toBe("DLXF");
+        const rpm = parseRpm(dll, { allowedMagics: ["DLXF"] });
+        expect(rpm.metadata).toMatchObject({ PMCGameID: version, PMCModulePriority: 4, PMCVersion: "2.0.0" });
+        expect(externalHooks(dll)).toEqual(entry.targets.map((target) => `${target.segment}:${target.address.replace(/^0x/u, "")}:${target.kind}`).sort());
+        // The core is resident (ARM9): the evolution check; the scene part loads with the evolution overlay.
+        expect(new Set(entry.targets.map((target) => target.segment))).toEqual(new Set([part === "core" ? "ARM9" : version.endsWith("2") ? "284" : "195"]));
       }
-      expect(externalHooks(dll)).toEqual([...hooks].sort());
     }
+    // The scene hooks are the earlier Black 2 / White 2 runtime's, which this replaces at the same path.
+    expect(externalHooks(formEvolutionB2)).toEqual(["284:21e355c:THUMB_BRANCH_LINK", "284:21e4e22:THUMB_BRANCH_LINK"]);
+    expect(externalHooks(formEvolutionW2)).toEqual(["284:21e359c:THUMB_BRANCH_LINK", "284:21e4e62:THUMB_BRANCH_LINK"]);
   });
 
   it("bundles versioned global background-music toggles for both BW2 revisions", () => {
@@ -1046,7 +1033,7 @@ describe("PMC installer", () => {
     expect(project.fileSystem).toBeUndefined();
   });
 
-  it("prepares the matching BW2 form-evolution runtime only once", async () => {
+  it("prepares the matching BW2 form-evolution runtime (both parts) only once", async () => {
     for (const [version, expectedDll] of [
       ["B2", formEvolutionB2],
       ["W2", formEvolutionW2],
@@ -1062,13 +1049,17 @@ describe("PMC installer", () => {
           fileName: `FormEvolution${version}.dll`,
           target: "patches",
           gameId: version,
-          version: "1.0.0",
+          version: "2.0.0",
         });
         expect(second).toEqual(first);
         expect(getPmcInstallStatus(project)).toMatchObject({ installed: true, gameId: version });
         expect(detectBundledFormEvolutionDll(project)).toBe("patched");
         deepStrictEqual(project.fileSystem?.additions?.[`patches/FormEvolution${version}.dll`], expectedDll);
-        expect(listCodeInjectionDlls(project).filter((module) => module.fileName === `FormEvolution${version}.dll`)).toHaveLength(1);
+        deepStrictEqual(project.fileSystem?.additions?.[`patches/FormEvolutionCore${version}.dll`],
+          new Uint8Array(readFileSync(new URL(`../assets/codeinjection/FormEvolutionCore${version}.dll`, import.meta.url))));
+        for (const name of [`FormEvolution${version}.dll`, `FormEvolutionCore${version}.dll`]) {
+          expect(listCodeInjectionDlls(project).filter((module) => module.fileName === name)).toHaveLength(1);
+        }
 
         const exportedRom = new NintendoDSRom(await exportModifiedRom(project));
         const reimportedProject = makeProject(exportedRom.save(), version);
@@ -1281,6 +1272,7 @@ async function withBundledCodeInjectionFetch(run: () => Promise<void>): Promise<
     if (fileName === "MainMenuSkipW2.dll") return new Response(mainMenuSkipW2);
     if (fileName === "FormEvolutionB2.dll") return new Response(formEvolutionB2);
     if (fileName === "FormEvolutionW2.dll") return new Response(formEvolutionW2);
+    if (fileName === "FormEvolutionCoreB2.dll" || fileName === "FormEvolutionCoreW2.dll") return new Response(new Uint8Array(readFileSync(new URL(`../assets/codeinjection/${fileName}`, import.meta.url))));
     if (fileName === "BgmToggleB2.dll") return new Response(bgmToggleB2);
     if (fileName === "BgmToggleW2.dll") return new Response(bgmToggleW2);
     if (fileName === "PokewebOverworldWeatherW2.dll") return new Response(overworldWeatherRuntimeW2);

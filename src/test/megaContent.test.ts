@@ -2,7 +2,9 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { unzipSync } from "fflate";
 import { describe, expect, it } from "vitest";
-import { MEGA_CONTENT, megaSpriteCredits } from "../pokeweb/megaContentModel";
+import { MEGA_CONTENT, MEGA_RING_ITEM, megaSpriteCredits } from "../pokeweb/megaContentModel";
+import { detectSaveFormat, retailPocketItems } from "../pokeweb/itemSaveFormat";
+import { rawSaveBytesFromDesmumeDsv } from "../pokeweb/testBattle";
 
 const zip = new Uint8Array(readFileSync(new URL("../assets/mega/megaContent.zip", import.meta.url)));
 const files = unzipSync(zip);
@@ -62,5 +64,20 @@ describe("Mega content package", () => {
     expect(credits.find((credit) => credit.name === "Mega Pidgeot")).toMatchObject({ front: "Aronousqui20", back: "Aronousqui20" });
     expect(credits.find((credit) => credit.name === "Mega Charizard X")).toMatchObject({ front: "Smogon Sprite Project; hexagonereal", back: "Smogon/Sprites Animados Contributors" });
     expect(MEGA_CONTENT.credits.map((credit) => credit.name)).toEqual(["Dararo", "Hibiki"]);
+  });
+});
+
+describe("Mega Ring", () => {
+  it("is in the Key Items of the bundled Black / White and Black 2 / White 2 test saves", () => {
+    for (const [name, family] of [["test.sav", "BW2"], ["white.dsv", "BW1"]] as const) {
+      const raw = rawSaveBytesFromDesmumeDsv(new Uint8Array(readFileSync(new URL(`../assets/testbattle/${name}`, import.meta.url))));
+      expect(detectSaveFormat(raw, family), name).toBe("retail");
+      expect(retailPocketItems(raw, family, 4), name).toContainEqual([MEGA_RING_ITEM, 1]);
+    }
+  });
+
+  it("uses White2Upgrade's ID, an unused retail slot, and its icon", () => {
+    expect(MEGA_RING_ITEM).toBe(124);
+    expect(files[MEGA_CONTENT.genericStoneIcon]).toHaveLength(32 * 32 * 4);
   });
 });

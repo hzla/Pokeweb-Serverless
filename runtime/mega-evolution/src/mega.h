@@ -1,8 +1,10 @@
-// Pokeweb Mega Evolution runtime (Black 2 / White 2, PMC DLL on battle overlay 167).
+// Pokeweb Mega Evolution runtime (PMC DLL on the battle overlay: 167 in Black 2 / White 2, 93 in Black / White).
 //
 // Ported from White2Upgrade's w2u_mega.cpp (Mega Evolution originally implemented by Dararo; Battle UI and
 // transformation animation by Hibiki), placed at the native hook points pokebw2's decomp identifies. Retail
 // structures are accessed through the offsets below (checked against pokebw2's headers; identical in both games).
+// Black / White builds (PW_BW1) call the same retail code under aletheia's names, mapped in mega_bw1.h; their
+// structures match Black 2 / White 2's except where noted.
 #ifndef POKEWEB_MEGA_H
 #define POKEWEB_MEGA_H
 
@@ -26,6 +28,7 @@ typedef union { u32 raw; } BattleAction;
 #define MON_SRC(m) (*(PartyPkm **)((u8 *)(m) + 0x00))
 #define MON_SPECIES(m) (*(u16 *)((u8 *)(m) + 0x0c))
 #define MON_HP(m) (*(u16 *)((u8 *)(m) + 0x10))
+#define HEAPID_BATTLE 0x12 // the battle's heap in all four games
 #define MON_HELD_ITEM(m) (*(u16 *)((u8 *)(m) + 0x12))
 #define MON_BASE_ABILITY(m) (*(u16 *)((u8 *)(m) + 0x16))
 #define MON_ID(m) (*(u8 *)((u8 *)(m) + 0x19))
@@ -56,7 +59,11 @@ typedef union { u32 raw; } BattleAction;
 #define FLOW_QUEUE(f) (*(void **)((u8 *)(f) + 0x0c))
 #define FLOW_ACTION_ORDER_COUNT(f) (*(u8 *)((u8 *)(f) + 0x782))
 #define FLOW_ACTION_ORDER(f) ((ActionOrderEntry *)((u8 *)(f) + 0x7e0))
+#ifdef PW_BW1
+#define FLOW_ACTION_STATE(f) ((void *)((u8 *)(f) + 0x1d74))
+#else
 #define FLOW_ACTION_STATE(f) ((void *)((u8 *)(f) + 0x1d78))
+#endif
 
 // BtlvCore
 #define CORE_MAIN_MODULE(c) (*(void **)((u8 *)(c) + 0x00))
@@ -64,7 +71,11 @@ typedef union { u32 raw; } BattleAction;
 #define CORE_POKECON(c) (*(void **)((u8 *)(c) + 0x08))
 #define CORE_ACTION(c) (*(BattleAction **)((u8 *)(c) + 0xb8))
 #define CORE_MON(c) (*(BattleMon **)((u8 *)(c) + 0xbc))
+#ifdef PW_BW1
+#define CORE_SCU(c) (*(void **)((u8 *)(c) + 0x17c))
+#else
 #define CORE_SCU(c) (*(void **)((u8 *)(c) + 0x1c0))
+#endif
 
 #define PKM_PARAM_PID 0x0
 #define PKM_PARAM_ITEM 0x6
@@ -94,6 +105,9 @@ typedef struct {
     u8 top, bottom, left, right;
 } TouchRect;
 
+#ifdef PW_BW1
+#include "mega_bw1.h"
+#else
 // Retail functions (absolute addresses at link time; names from pokebw2)
 u32 PML_PersonalGetParamSingle(u32 species, u32 form, u32 param);
 u32 PokeParty_GetParam(PartyPkm *pkm, u32 param, void *extra);
@@ -142,10 +156,13 @@ void BtlvScu_StartChangeForm(void *scu, u32 viewPos, BOOL skip);
 BOOL BtlvScu_WaitChangeSprite(void *scu);
 void BtlvScu_StartMoveEffect(void *scu, u8 attackerPos, u8 targetPos, u16 move, s32 target, u32 arg5, u8 arg6);
 BOOL BtlvScu_WaitMoveEffect(void *scu);
+void *GetBagSave(void *mainModule);
+BOOL BagSave_CheckAmount(void *bag, u32 item, u32 count, u32 heapId);
+#endif
 
 // The install-time table (patched by Pokeweb; tag "PWMG")
 #define PW_MEGA_MAGIC 0x474d5750u
-#define PW_MEGA_VERSION 1
+#define PW_MEGA_VERSION 2 // 2: ringItem
 #define PW_MEGA_MAX_ROUTES 192
 #define PW_MEGA_ROUTE_MOVE 1 // trigger is a move the Pokémon knows (Mega Rayquaza), not a held item
 
@@ -170,6 +187,8 @@ typedef struct {
     u16 seDisarm;
     u16 revealFrame;   // the frame of the animation at which the Mega sprite replaces the base sprite
     u16 options;       // bit 0: trainers the game controls (opponents, partners) Mega Evolve whenever they can
+    u16 ringItem;      // the key item the player needs in the bag to Mega Evolve (the Mega Ring); 0: none needed
+    u16 reserved;
     PwMegaRoute routes[PW_MEGA_MAX_ROUTES];
 } PwMegaConfig;
 

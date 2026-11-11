@@ -4,7 +4,7 @@
   "sourceRom": "White2Upgrade.nds",
   "iconSourceRom": "White2Upgrade.nds",
   "archivePath": "zz_pokeweb_pwan/pwan.narc",
-  "archiveBytes": 122168880,
+  "archiveBytes": 131205460,
   "entryCount": 603,
   "iconCount": 603,
   "sideCount": {
@@ -61,7 +61,7 @@
       "hasBack": true,
       "credits": "skidmarc25",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 101x87 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3111,
         "femaleMemberId": 3112,
@@ -83,7 +83,14 @@
           "credits": "skidmarc25",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4315,
+          "width": 101,
+          "height": 87
+        }
+      }
     },
     {
       "id": "869-0-1347",
@@ -241,7 +248,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 113x102, back 109x100 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3119,
         "femaleMemberId": 3120,
@@ -263,7 +270,19 @@
           "credits": "Smogon Sprite Project",
           "creditBasis": "Selected source collection; individual animator not verified"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4316,
+          "width": 113,
+          "height": 102
+        },
+        "back": {
+          "memberId": 4317,
+          "width": 109,
+          "height": 100
+        }
+      }
     },
     {
       "id": "74-1-1111",
@@ -601,7 +620,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 105x96, back 123x93 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3139,
         "femaleMemberId": 3140,
@@ -623,7 +642,19 @@
           "credits": "Smogon Sprite Project",
           "creditBasis": "Selected source collection; individual animator not verified"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4318,
+          "width": 105,
+          "height": 96
+        },
+        "back": {
+          "memberId": 4319,
+          "width": 123,
+          "height": 93
+        }
+      }
     },
     {
       "id": "20-1-1096",
@@ -1753,7 +1784,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; Antiant",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 90x128, back 76x128 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3201,
         "femaleMemberId": 3202,
@@ -1775,7 +1806,19 @@
           "credits": "Smogon Sprite Project; Antiant",
           "creditBasis": "Tracker credits for the exact selected Gen 7 GIF stem"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4320,
+          "width": 90,
+          "height": 128
+        },
+        "back": {
+          "memberId": 4321,
+          "width": 76,
+          "height": 128
+        }
+      }
     },
     {
       "id": "9-2-1512",
@@ -2509,7 +2552,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; uppa",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 100x117, back 101x117 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3239,
         "femaleMemberId": 3240,
@@ -2531,7 +2574,19 @@
           "credits": "Smogon Sprite Project; uppa",
           "creditBasis": "Tracker credits for the exact selected Gen 7 GIF stem"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4322,
+          "width": 100,
+          "height": 117
+        },
+        "back": {
+          "memberId": 4323,
+          "width": 101,
+          "height": 117
+        }
+      }
     },
     {
       "id": "851-0-1329",
@@ -3121,7 +3176,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; Antiant",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 118x90, back 111x83 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3267,
         "femaleMemberId": 3268,
@@ -3143,7 +3198,19 @@
           "credits": "Smogon Sprite Project; Antiant",
           "creditBasis": "Gen 6 sprite CSV: completed animator entry and matching side link"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4324,
+          "width": 118,
+          "height": 90
+        },
+        "back": {
+          "memberId": 4325,
+          "width": 111,
+          "height": 83
+        }
+      }
     },
     {
       "id": "852-0-1330",
@@ -3589,7 +3656,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; Antiant",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 101x86, back 99x86 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3287,
         "femaleMemberId": 3288,
@@ -3611,7 +3678,19 @@
           "credits": "Smogon Sprite Project; Antiant",
           "creditBasis": "Tracker credits for the exact selected Gen 7 GIF stem"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4326,
+          "width": 101,
+          "height": 86
+        },
+        "back": {
+          "memberId": 4327,
+          "width": 99,
+          "height": 86
+        }
+      }
     },
     {
       "id": "739-0-1217",
@@ -3913,7 +3992,7 @@
       "hasBack": true,
       "credits": "snivy101; Smogon/Sprites Animados Contributors",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Re-imported at the art's own size: front from its 61x55 art with its transparency (scripts/reimport-pwan-library-full-size.ts).",
       "icon": {
         "maleMemberId": 3305,
         "femaleMemberId": 3306,
@@ -4453,7 +4532,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; hexagonereal; Smogon/Sprites Animados Contributors",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 98x98 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3335,
         "femaleMemberId": 3336,
@@ -4475,7 +4554,14 @@
           "credits": "Smogon/Sprites Animados Contributors",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4328,
+          "width": 98,
+          "height": 98
+        }
+      }
     },
     {
       "id": "887-0-1365",
@@ -8736,7 +8822,7 @@
       "hasBack": true,
       "credits": "diegotoon20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 97x106 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3557,
         "femaleMemberId": 3558,
@@ -8758,7 +8844,14 @@
           "credits": "diegotoon20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4329,
+          "width": 97,
+          "height": 106
+        }
+      }
     },
     {
       "id": "972-0-1450",
@@ -9708,7 +9801,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; Antiant",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 108x97, back 108x96 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3607,
         "femaleMemberId": 3608,
@@ -9730,7 +9823,19 @@
           "credits": "Smogon Sprite Project; Antiant",
           "creditBasis": "Gen 6 sprite CSV: completed animator entry and matching side link"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4330,
+          "width": 108,
+          "height": 97
+        },
+        "back": {
+          "memberId": 4331,
+          "width": 108,
+          "height": 96
+        }
+      }
     },
     {
       "id": "775-0-1253",
@@ -9780,7 +9885,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; Antiant, uppa",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 108x88, back 112x86 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3611,
         "femaleMemberId": 3612,
@@ -9802,7 +9907,19 @@
           "credits": "Smogon Sprite Project; Antiant, uppa",
           "creditBasis": "Tracker credits for the exact selected Gen 7 GIF stem"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4332,
+          "width": 108,
+          "height": 88
+        },
+        "back": {
+          "memberId": 4333,
+          "width": 112,
+          "height": 86
+        }
+      }
     },
     {
       "id": "1007-0-1485",
@@ -10068,7 +10185,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; uppa",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 103x109, back 110x109 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3625,
         "femaleMemberId": 3626,
@@ -10090,7 +10207,19 @@
           "credits": "Smogon Sprite Project; uppa",
           "creditBasis": "Tracker credits for the exact selected Gen 7 GIF stem"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4334,
+          "width": 103,
+          "height": 109
+        },
+        "back": {
+          "memberId": 4335,
+          "width": 110,
+          "height": 109
+        }
+      }
     },
     {
       "id": "754-0-1232",
@@ -10644,7 +10773,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 88x98, back 97x109 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3655,
         "femaleMemberId": 3656,
@@ -10666,7 +10795,19 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4336,
+          "width": 88,
+          "height": 98
+        },
+        "back": {
+          "memberId": 4337,
+          "width": 97,
+          "height": 109
+        }
+      }
     },
     {
       "id": "334-1-789",
@@ -10680,7 +10821,7 @@
       "hasBack": true,
       "credits": "Ghasty001",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 111x112, back 102x99 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3657,
         "femaleMemberId": 3658,
@@ -10702,7 +10843,19 @@
           "credits": "Ghasty001",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4338,
+          "width": 111,
+          "height": 112
+        },
+        "back": {
+          "memberId": 4339,
+          "width": 102,
+          "height": 99
+        }
+      }
     },
     {
       "id": "181-1-745",
@@ -10788,7 +10941,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 99x85 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3663,
         "femaleMemberId": 3664,
@@ -10810,7 +10963,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4340,
+          "width": 99,
+          "height": 85
+        }
+      }
     },
     {
       "id": "689-1-1078",
@@ -10824,7 +10984,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 92x98 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3665,
         "femaleMemberId": 3666,
@@ -10846,7 +11006,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4341,
+          "width": 92,
+          "height": 98
+        }
+      }
     },
     {
       "id": "998-1-1094",
@@ -10860,7 +11027,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 128x117 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3667,
         "femaleMemberId": 3668,
@@ -10882,7 +11049,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4342,
+          "width": 128,
+          "height": 117
+        }
+      }
     },
     {
       "id": "15-1-728",
@@ -10896,7 +11070,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; arinoelle; Ghasty001",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 103x88 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3669,
         "femaleMemberId": 3670,
@@ -10918,7 +11092,14 @@
           "credits": "Ghasty001",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4343,
+          "width": 103,
+          "height": 88
+        }
+      }
     },
     {
       "id": "257-1-779",
@@ -10932,7 +11113,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; hexagonereal; Smogon/Sprites Animados Contributors",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 114x115 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3671,
         "femaleMemberId": 3672,
@@ -10954,7 +11135,14 @@
           "credits": "Smogon/Sprites Animados Contributors",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4344,
+          "width": 114,
+          "height": 115
+        }
+      }
     },
     {
       "id": "609-1-1063",
@@ -11004,7 +11192,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; hexagonereal; Smogon/Sprites Animados Contributors",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 105x94 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3675,
         "femaleMemberId": 3676,
@@ -11026,7 +11214,14 @@
           "credits": "Smogon/Sprites Animados Contributors",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4345,
+          "width": 105,
+          "height": 94
+        }
+      }
     },
     {
       "id": "6-2-726",
@@ -11076,7 +11271,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 101x128 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3679,
         "femaleMemberId": 3680,
@@ -11098,7 +11293,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4346,
+          "width": 101,
+          "height": 128
+        }
+      }
     },
     {
       "id": "358-1-1047",
@@ -11112,7 +11314,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 117x103 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3681,
         "femaleMemberId": 3682,
@@ -11134,7 +11336,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4347,
+          "width": 117,
+          "height": 103
+        }
+      }
     },
     {
       "id": "36-1-1040",
@@ -11178,7 +11387,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 122x110 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3685,
         "femaleMemberId": 3686,
@@ -11200,7 +11409,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4348,
+          "width": 122,
+          "height": 110
+        }
+      }
     },
     {
       "id": "491-1-1057",
@@ -11214,7 +11430,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 128x104 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3687,
         "femaleMemberId": 3688,
@@ -11236,7 +11452,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4349,
+          "width": 128,
+          "height": 104
+        }
+      }
     },
     {
       "id": "655-1-1066",
@@ -11250,7 +11473,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 128x119 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3689,
         "femaleMemberId": 3690,
@@ -11272,7 +11495,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4350,
+          "width": 128,
+          "height": 119
+        }
+      }
     },
     {
       "id": "719-1-895",
@@ -11388,7 +11618,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 119x125 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3697,
         "femaleMemberId": 3698,
@@ -11410,7 +11640,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4351,
+          "width": 119,
+          "height": 125
+        }
+      }
     },
     {
       "id": "604-1-1062",
@@ -11424,7 +11661,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 128x111 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3699,
         "femaleMemberId": 3700,
@@ -11446,7 +11683,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4352,
+          "width": 128,
+          "height": 111
+        }
+      }
     },
     {
       "id": "500-1-1058",
@@ -11460,7 +11704,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 127x113 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3701,
         "femaleMemberId": 3702,
@@ -11482,7 +11726,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4353,
+          "width": 127,
+          "height": 113
+        }
+      }
     },
     {
       "id": "530-1-1059",
@@ -11496,7 +11747,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 112x79 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3703,
         "femaleMemberId": 3704,
@@ -11518,7 +11769,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4354,
+          "width": 112,
+          "height": 79
+        }
+      }
     },
     {
       "id": "870-1-1088",
@@ -11532,7 +11790,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 119x92 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3705,
         "femaleMemberId": 3706,
@@ -11554,7 +11812,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4355,
+          "width": 119,
+          "height": 92
+        }
+      }
     },
     {
       "id": "160-1-1045",
@@ -11568,7 +11833,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 104x107 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3707,
         "femaleMemberId": 3708,
@@ -11590,7 +11855,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4356,
+          "width": 104,
+          "height": 107
+        }
+      }
     },
     {
       "id": "670-6-1074",
@@ -11634,7 +11906,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 112x103 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3711,
         "femaleMemberId": 3712,
@@ -11656,7 +11928,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4357,
+          "width": 112,
+          "height": 103
+        }
+      }
     },
     {
       "id": "475-1-817",
@@ -11742,7 +12021,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 128x90 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3717,
         "femaleMemberId": 3718,
@@ -11764,7 +12043,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4358,
+          "width": 128,
+          "height": 90
+        }
+      }
     },
     {
       "id": "282-1-781",
@@ -11886,7 +12172,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 118x128 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3725,
         "femaleMemberId": 3726,
@@ -11908,7 +12194,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4359,
+          "width": 118,
+          "height": 128
+        }
+      }
     },
     {
       "id": "768-1-1083",
@@ -11922,7 +12215,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 102x97 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3727,
         "femaleMemberId": 3728,
@@ -11944,7 +12237,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4360,
+          "width": 102,
+          "height": 97
+        }
+      }
     },
     {
       "id": "623-1-1064",
@@ -11958,7 +12258,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 128x102 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3729,
         "femaleMemberId": 3730,
@@ -11980,7 +12280,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4361,
+          "width": 128,
+          "height": 102
+        }
+      }
     },
     {
       "id": "658-1-1180",
@@ -11994,7 +12301,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 93x117 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3731,
         "femaleMemberId": 3732,
@@ -12016,7 +12323,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4362,
+          "width": 93,
+          "height": 117
+        }
+      }
     },
     {
       "id": "130-1-741",
@@ -12030,7 +12344,7 @@
       "hasBack": true,
       "credits": "Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 128x118, back 128x115 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3733,
         "femaleMemberId": 3734,
@@ -12052,7 +12366,19 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4363,
+          "width": 128,
+          "height": 118
+        },
+        "back": {
+          "memberId": 4364,
+          "width": 128,
+          "height": 115
+        }
+      }
     },
     {
       "id": "701-1-1080",
@@ -12066,7 +12392,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 107x87 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3735,
         "femaleMemberId": 3736,
@@ -12088,7 +12414,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4365,
+          "width": 107,
+          "height": 87
+        }
+      }
     },
     {
       "id": "485-1-1056",
@@ -12102,7 +12435,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 128x105 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3737,
         "femaleMemberId": 3738,
@@ -12124,7 +12457,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4366,
+          "width": 128,
+          "height": 105
+        }
+      }
     },
     {
       "id": "214-1-775",
@@ -12138,7 +12478,7 @@
       "hasBack": true,
       "credits": "Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 116x92, back 99x90 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3739,
         "femaleMemberId": 3740,
@@ -12160,7 +12500,19 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4367,
+          "width": 116,
+          "height": 92
+        },
+        "back": {
+          "memberId": 4368,
+          "width": 99,
+          "height": 90
+        }
+      }
     },
     {
       "id": "229-1-776",
@@ -12246,7 +12598,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; hexagonereal; Smogon/Sprites Animados Contributors",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 94x109 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3745,
         "femaleMemberId": 3746,
@@ -12268,7 +12620,14 @@
           "credits": "Smogon/Sprites Animados Contributors",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4369,
+          "width": 94,
+          "height": 109
+        }
+      }
     },
     {
       "id": "381-1-799",
@@ -12282,7 +12641,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; hexagonereal; Smogon/Sprites Animados Contributors",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 100x104 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3747,
         "femaleMemberId": 3748,
@@ -12304,7 +12663,14 @@
           "credits": "Smogon/Sprites Animados Contributors",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4370,
+          "width": 100,
+          "height": 104
+        }
+      }
     },
     {
       "id": "428-1-813",
@@ -12486,7 +12852,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 128x93 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3759,
         "femaleMemberId": 3760,
@@ -12508,7 +12874,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4371,
+          "width": 128,
+          "height": 93
+        }
+      }
     },
     {
       "id": "310-1-786",
@@ -12522,7 +12895,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; hexagonereal; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 103x85 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3761,
         "femaleMemberId": 3762,
@@ -12544,7 +12917,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4372,
+          "width": 103,
+          "height": 85
+        }
+      }
     },
     {
       "id": "303-1-783",
@@ -12774,7 +13154,7 @@
       "hasBack": true,
       "credits": "Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs (sprite import priority; Mega sprites corrected by scripts/patch-pwan-library-megas.ts); nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately.",
+      "notes": "Approved priority GIFs (sprite import priority; Mega sprites corrected by scripts/patch-pwan-library-megas.ts); nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately. Full size (up to 128x128) for the streaming runtime: front 128x77, back 128x89 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3775,
         "femaleMemberId": 3776,
@@ -12796,7 +13176,19 @@
           "credits": "Aronousqui20",
           "creditBasis": "sprite source folder"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4373,
+          "width": 128,
+          "height": 77
+        },
+        "back": {
+          "memberId": 4374,
+          "width": 128,
+          "height": 89
+        }
+      }
     },
     {
       "id": "127-1-740",
@@ -12810,7 +13202,7 @@
       "hasBack": true,
       "credits": "Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 117x94 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3777,
         "femaleMemberId": 3778,
@@ -12832,7 +13224,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4375,
+          "width": 117,
+          "height": 94
+        }
+      }
     },
     {
       "id": "668-1-1068",
@@ -12846,7 +13245,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 100x101 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3779,
         "femaleMemberId": 3780,
@@ -12868,7 +13267,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4376,
+          "width": 100,
+          "height": 101
+        }
+      }
     },
     {
       "id": "26-1-1097",
@@ -12882,7 +13288,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 121x102 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3781,
         "femaleMemberId": 3782,
@@ -12904,7 +13310,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4377,
+          "width": 121,
+          "height": 102
+        }
+      }
     },
     {
       "id": "26-2-1098",
@@ -12954,7 +13367,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; Smogon/Sprites Animados Contributors",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 100x108 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3785,
         "femaleMemberId": 3786,
@@ -12976,7 +13389,14 @@
           "credits": "Smogon/Sprites Animados Contributors",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4378,
+          "width": 100,
+          "height": 108
+        }
+      }
     },
     {
       "id": "302-1-782",
@@ -13026,7 +13446,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; hexagonereal; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 108x77, back 128x87 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3789,
         "femaleMemberId": 3790,
@@ -13048,7 +13468,19 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4379,
+          "width": 108,
+          "height": 77
+        },
+        "back": {
+          "memberId": 4380,
+          "width": 128,
+          "height": 87
+        }
+      }
     },
     {
       "id": "212-1-774",
@@ -13098,7 +13530,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 84x103 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3793,
         "femaleMemberId": 3794,
@@ -13120,7 +13552,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4381,
+          "width": 84,
+          "height": 103
+        }
+      }
     },
     {
       "id": "952-1-1089",
@@ -13206,7 +13645,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 78x107 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3799,
         "femaleMemberId": 3800,
@@ -13228,7 +13667,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4382,
+          "width": 78,
+          "height": 107
+        }
+      }
     },
     {
       "id": "80-1-1117",
@@ -13278,7 +13724,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 128x124 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3803,
         "femaleMemberId": 3804,
@@ -13300,7 +13746,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4383,
+          "width": 128,
+          "height": 124
+        }
+      }
     },
     {
       "id": "121-1-1042",
@@ -13350,7 +13803,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 115x127 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3807,
         "femaleMemberId": 3808,
@@ -13372,7 +13825,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4384,
+          "width": 115,
+          "height": 127
+        }
+      }
     },
     {
       "id": "260-1-780",
@@ -13422,7 +13882,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 119x77 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3811,
         "femaleMemberId": 3812,
@@ -13444,7 +13904,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4385,
+          "width": 119,
+          "height": 77
+        }
+      }
     },
     {
       "id": "978-2-1092",
@@ -13458,7 +13925,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 119x77 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3813,
         "femaleMemberId": 3814,
@@ -13480,7 +13947,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4385,
+          "width": 119,
+          "height": 77
+        }
+      }
     },
     {
       "id": "978-3-1093",
@@ -13494,7 +13968,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 119x77 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3815,
         "femaleMemberId": 3816,
@@ -13516,7 +13990,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4385,
+          "width": 119,
+          "height": 77
+        }
+      }
     },
     {
       "id": "248-1-777",
@@ -13530,7 +14011,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; hexagonereal",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 88x101 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3817,
         "femaleMemberId": 3818,
@@ -13552,7 +14033,14 @@
           "credits": "Smogon Sprite Project; hexagonereal",
           "creditBasis": "Gen 6 sprite CSV: completed animator entry and matching side link"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4386,
+          "width": 88,
+          "height": 101
+        }
+      }
     },
     {
       "id": "71-1-1041",
@@ -13566,7 +14054,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 70x127 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3819,
         "femaleMemberId": 3820,
@@ -13588,7 +14076,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4387,
+          "width": 70,
+          "height": 127
+        }
+      }
     },
     {
       "id": "807-1-1087",
@@ -13602,7 +14097,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 108x109 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3821,
         "femaleMemberId": 3822,
@@ -13624,7 +14119,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4388,
+          "width": 108,
+          "height": 109
+        }
+      }
     },
     {
       "id": "718-3-1081",
@@ -13638,7 +14140,7 @@
       "hasBack": true,
       "credits": "RetroNC; Aronousqui20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 108x113 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3823,
         "femaleMemberId": 3824,
@@ -13660,7 +14162,14 @@
           "credits": "Aronousqui20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4389,
+          "width": 108,
+          "height": 113
+        }
+      }
     },
     {
       "id": "809-0-1287",
@@ -13674,7 +14183,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; Smogon/Sprites Animados Contributors",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 101x75 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3825,
         "femaleMemberId": 3826,
@@ -13696,7 +14205,14 @@
           "credits": "Smogon/Sprites Animados Contributors",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4390,
+          "width": 101,
+          "height": 75
+        }
+      }
     },
     {
       "id": "809-1-1532",
@@ -13998,7 +14514,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Re-imported at the art's own size: front from its sheet cell, back from its sheet cell (scripts/reimport-pwan-library-full-size.ts).",
       "icon": {
         "maleMemberId": 3839,
         "femaleMemberId": 3840,
@@ -14934,7 +15450,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; uppa",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 98x88 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3891,
         "femaleMemberId": 3892,
@@ -14956,7 +15472,14 @@
           "credits": "Smogon Sprite Project; uppa",
           "creditBasis": "Tracker credits for the exact selected Gen 7 GIF stem"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4391,
+          "width": 98,
+          "height": 88
+        }
+      }
     },
     {
       "id": "827-0-1305",
@@ -15078,7 +15601,7 @@
       "hasBack": true,
       "credits": "diegotoon20",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 128x121, back 128x97 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 3899,
         "femaleMemberId": 3900,
@@ -15100,7 +15623,19 @@
           "credits": "diegotoon20",
           "creditBasis": "Selected source collection attribution"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4392,
+          "width": 128,
+          "height": 121
+        },
+        "back": {
+          "memberId": 4393,
+          "width": 128,
+          "height": 97
+        }
+      }
     },
     {
       "id": "919-0-1397",
@@ -17346,7 +17881,7 @@
       "hasBack": true,
       "credits": "snivy101; Smogon/Sprites Animados Contributors",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Re-imported at the art's own size: front from its 67x44 art with its transparency (scripts/reimport-pwan-library-full-size.ts).",
       "icon": {
         "maleMemberId": 4019,
         "femaleMemberId": 4020,
@@ -18390,7 +18925,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; uppa",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 99x91, back 104x87 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 4075,
         "femaleMemberId": 4076,
@@ -18412,7 +18947,19 @@
           "credits": "Smogon Sprite Project; uppa",
           "creditBasis": "Tracker credits for the exact selected Gen 7 GIF stem"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4394,
+          "width": 99,
+          "height": 91
+        },
+        "back": {
+          "memberId": 4395,
+          "width": 104,
+          "height": 87
+        }
+      }
     },
     {
       "id": "897-0-1375",
@@ -18750,7 +19297,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; Smogon/Sprites Animados Contributors",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Re-imported at the art's own size: front from its 96x93 art (scripts/reimport-pwan-library-full-size.ts).",
       "icon": {
         "maleMemberId": 4095,
         "femaleMemberId": 4096,
@@ -19002,7 +19549,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; princessofmusic",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 121x93, back 116x93 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 4109,
         "femaleMemberId": 4110,
@@ -19024,7 +19571,19 @@
           "credits": "Smogon Sprite Project; princessofmusic",
           "creditBasis": "Gen 6 sprite CSV: completed animator entry and matching side link"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4396,
+          "width": 121,
+          "height": 93
+        },
+        "back": {
+          "memberId": 4397,
+          "width": 116,
+          "height": 93
+        }
+      }
     },
     {
       "id": "924-0-1402",
@@ -19074,7 +19633,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; Antiant, LeParagon",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: back 91x98 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 4113,
         "femaleMemberId": 4114,
@@ -19096,7 +19655,14 @@
           "credits": "Smogon Sprite Project; Antiant, LeParagon",
           "creditBasis": "Tracker credits for the exact selected Gen 7 GIF stem"
         }
-      ]
+      ],
+      "fullSize": {
+        "back": {
+          "memberId": 4398,
+          "width": 91,
+          "height": 98
+        }
+      }
     },
     {
       "id": "788-0-1266",
@@ -19146,7 +19712,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; uppa",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Re-imported at the art's own size: front from its 89x82 art, back from its 86x85 art with its transparency (scripts/reimport-pwan-library-full-size.ts).",
       "icon": {
         "maleMemberId": 4117,
         "femaleMemberId": 4118,
@@ -19182,7 +19748,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; uppa",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Re-imported at the art's own size: back from its 58x76 art (scripts/reimport-pwan-library-full-size.ts).",
       "icon": {
         "maleMemberId": 4119,
         "femaleMemberId": 4120,
@@ -20082,7 +20648,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; Antiant",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 100x82, back 100x78 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 4165,
         "femaleMemberId": 4166,
@@ -20104,7 +20670,19 @@
           "credits": "Smogon Sprite Project; Antiant",
           "creditBasis": "Gen 6 sprite CSV: completed animator entry and matching side link"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4399,
+          "width": 100,
+          "height": 82
+        },
+        "back": {
+          "memberId": 4400,
+          "width": 100,
+          "height": 78
+        }
+      }
     },
     {
       "id": "696-0-696",
@@ -20730,7 +21308,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 104x89, back 100x111 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 4195,
         "femaleMemberId": 4196,
@@ -20752,7 +21330,19 @@
           "credits": "Smogon Sprite Project",
           "creditBasis": "Selected source collection; individual animator not verified"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4401,
+          "width": 104,
+          "height": 89
+        },
+        "back": {
+          "memberId": 4402,
+          "width": 100,
+          "height": 111
+        }
+      }
     },
     {
       "id": "1001-0-1479",
@@ -20946,7 +21536,7 @@
       "hasBack": true,
       "credits": "Smogon Sprite Project; NoelleMBrooks",
       "creditSource": "import-report",
-      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved.",
+      "notes": "Approved priority GIFs; nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately; timing and placement preserved. Full size (up to 128x128) for the streaming runtime: front 102x101, back 92x100 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
       "icon": {
         "maleMemberId": 4207,
         "femaleMemberId": 4208,
@@ -20968,7 +21558,19 @@
           "credits": "Smogon Sprite Project; NoelleMBrooks",
           "creditBasis": "Tracker credits for the exact selected Gen 7 GIF stem"
         }
-      ]
+      ],
+      "fullSize": {
+        "front": {
+          "memberId": 4403,
+          "width": 102,
+          "height": 101
+        },
+        "back": {
+          "memberId": 4404,
+          "width": 92,
+          "height": 100
+        }
+      }
     },
     {
       "id": "835-0-1313",
@@ -21541,7 +22143,19 @@
           "creditBasis": "sprite source folder"
         }
       ],
-      "notes": "Approved priority GIFs (sprite import priority; Mega sprites corrected by scripts/patch-pwan-library-megas.ts); nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately."
+      "notes": "Approved priority GIFs (sprite import priority; Mega sprites corrected by scripts/patch-pwan-library-megas.ts); nearest-neighbor resizing; TEX4 with 15 visible RGB555 colors. Gen 5 preset enabled (+15% saturation, +10% contrast). Front/back source attributions recorded separately. Full size (up to 128x128) for the streaming runtime: front 118x103, back 127x106 (scripts/reimport-pwan-library-full-size.ts); the 96x96 PWAN is kept for previews and the PWAN runtime.",
+      "fullSize": {
+        "front": {
+          "memberId": 4405,
+          "width": 118,
+          "height": 103
+        },
+        "back": {
+          "memberId": 4406,
+          "width": 127,
+          "height": 106
+        }
+      }
     },
     {
       "id": "254-1-724",

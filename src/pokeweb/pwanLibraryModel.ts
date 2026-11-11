@@ -12,6 +12,7 @@ import {
 } from "./pwanAnimationModel";
 import { applyPwanCarrierPatch, loadBundledPwanCarrierTemplate, type PwanCarrierTemplate } from "./pwanCarrierPatch";
 import { installPokemonIconPayload, resolvePokemonIconAddress, type PokemonIconPayload } from "./pokemonSpriteModel";
+import { parseFullSizeMani } from "./animStreamsFullSize";
 import type { ProjectState, PwanAnimationOverride, PwanOverrideSide } from "./projectStore";
 
 export type PwanLibraryCreditSource = "tracker" | "import-report" | "missing";
@@ -44,7 +45,15 @@ export type PwanLibraryEntry = {
     sourcePaletteKey?: number;
     sourcePng?: string;
   };
+  /**
+   * Sides whose source art is larger than 96x96: the archive member holding the side at full size (up to 128x128, an
+   * A3I5 MANI, animStreamsFullSize.ts), used by the streaming runtime. The side's PWAN stays the 96x96 version (the
+   * PWAN runtime and previews).
+   */
+  fullSize?: Partial<Record<"front" | "back", PwanLibraryFullSizeSide>>;
 };
+
+export type PwanLibraryFullSizeSide = { memberId: number; width: number; height: number };
 
 export type PwanLibraryManifest = {
   format: "pokeweb-pwan-library-v1" | "pokeweb-pwan-library-v2";
@@ -161,7 +170,7 @@ export function parsePwanLibraryArchive(manifest: PwanLibraryManifest, archiveBy
   const iconsByEntryId = new Map<string, PokemonIconPayload>();
   for (const entry of manifest.entries) {
     const source = findLibraryOverride(overrides, entry);
-    if (source) overridesByEntryId.set(entry.id, source);
+    if (source) overridesByEntryId.set(entry.id, withFullSizeSides(archive, entry, source));
     const icon = iconPayloadFromArchive(archive, entry);
     if (icon) iconsByEntryId.set(entry.id, icon);
   }
@@ -202,6 +211,23 @@ function findLibraryOverride(overrides: PwanAnimationOverride[], entry: PwanLibr
   );
 }
 
+/** The entry's sides with their full-size streams (a copy: entries can share an override). */
+function withFullSizeSides(archive: NARC, entry: PwanLibraryEntry, override: PwanAnimationOverride): PwanAnimationOverride {
+  if (!entry.fullSize) return override;
+  const out = { ...override };
+  for (const side of ["front", "back"] as const) {
+    const record = entry.fullSize[side];
+    if (!record) continue;
+    const mani = archive.files[record.memberId];
+    const data = out[side];
+    if (!mani?.length || !data) throw new Error(`PWAN library entry ${entry.name} is missing its full-size ${side}.`);
+    const info = parseFullSizeMani(mani);
+    if (info.width !== record.width || info.height !== record.height) throw new Error(`PWAN library entry ${entry.name}: its full-size ${side} is not ${record.width}x${record.height}.`);
+    out[side] = { ...data, fullSizeMani: mani };
+  }
+  return out;
+}
+
 function iconPayloadFromArchive(archive: NARC, entry: PwanLibraryEntry): PokemonIconPayload | undefined {
   if (!entry.icon) return undefined;
   const male = archive.files[entry.icon.maleMemberId];
@@ -219,6 +245,7 @@ function cloneLibrarySide(side: PwanOverrideSide, entry: PwanLibraryEntry, sideN
   return {
     ...buildPwanOverrideSideFromPwanBytes(side.pwanBytes, `Hzla PWAN Library/${entry.name}/${sideName}.pwan`),
     notes: side.notes ? [...side.notes] : undefined,
+    ...(side.fullSizeMani ? { fullSizeMani: side.fullSizeMani.slice() } : {}),
   };
 }
 
@@ -227,6 +254,7 @@ function clonePwanSide(side: PwanOverrideSide): PwanOverrideSide {
     ...side,
     sourceGifBytes: side.sourceGifBytes.slice(),
     pwanBytes: side.pwanBytes.slice(),
+    ...(side.fullSizeMani ? { fullSizeMani: side.fullSizeMani.slice() } : {}),
     scaleBasePwanBytes: side.scaleBasePwanBytes?.slice(),
     offsetBasePwanBytes: side.offsetBasePwanBytes?.slice(),
     paletteBgr555: side.paletteBgr555.slice(),

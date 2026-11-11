@@ -2,7 +2,7 @@ import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { recordGenericChange } from "./actionChangelog";
 import { BW2_NARCS, TYPES, isGen5BaseRom, type Gen5BaseRom, type NarcName } from "./constants";
-import { applyFairyTypeGeneralPatch } from "./generalPatchModel";
+import { applyFairyTypeGeneralPatch, fairyTypePatchAvailable } from "./generalPatchModel";
 import { loadActiveRomBytes } from "./persistence";
 import { createNarcStore, type NarcStore, type ProjectState } from "./projectStore";
 import { detectTrainerNaturePatchState, hasTrainerNaturePmcSetupSignatures, restoreLegacyTrainerNaturePatchToArm9, type TrainerNaturePatchState } from "./trainerNaturePatch";
@@ -217,8 +217,8 @@ export async function makeHmsForgettable(project: ProjectState): Promise<RomPatc
 }
 
 export async function addFairyTypeSupport(project: ProjectState, options: AddFairyTypeSupportOptions = {}): Promise<RomPatchApplyResult> {
-  if (project.session.baseVersion !== "B2" && project.session.baseVersion !== "W2") {
-    throw new Error("Fairy Type Support is currently available for Black 2 and White 2 only.");
+  if (!fairyTypePatchAvailable(project.session.baseVersion)) {
+    throw new Error("Fairy Type Support is available for Black, White, Black 2 and White 2.");
   }
 
   const supportAlreadyApplied = Boolean(project.patches?.applied?.fairyType);
@@ -308,8 +308,7 @@ export async function addMoveExpansion(
   project: ProjectState,
   options: AddMoveExpansionOptions = {},
 ): Promise<RomPatchApplyResult> {
-  // Move Expansion brings Fairy Type Support with it where the ROM supports it (Black 2 / White 2), so the
-  // Gen 6+ Fairy moves keep their type.
+  // Move Expansion brings Fairy Type Support with it, so the Gen 6+ Fairy moves keep their type.
   const fairyInstalled = detectFairyTypePatch(project) === "unpatched"
     ? Boolean(await addFairyTypeSupport(project, { updateModernFairyTypings: true }))
     : false;
@@ -335,8 +334,8 @@ export async function addMoveExpansion(
 }
 
 export async function applyModernFairyTypings(project: ProjectState): Promise<FairyModernTypingResult> {
-  if (project.session.baseVersion !== "B2" && project.session.baseVersion !== "W2") {
-    throw new Error("Modern Fairy typings are currently available for Black 2 and White 2 only.");
+  if (!fairyTypePatchAvailable(project.session.baseVersion)) {
+    throw new Error("Modern Fairy typings are available for Black, White, Black 2 and White 2.");
   }
 
   const personalStore = await ensureNarcStore(project, "personal");
@@ -437,7 +436,7 @@ export function detectForgettableHmPatch(project: ProjectState): "patched" | "un
 }
 
 export function detectFairyTypePatch(project: ProjectState): "patched" | "unpatched" | "unsupported" {
-  if (project.session.baseVersion !== "B2" && project.session.baseVersion !== "W2") return "unsupported";
+  if (!fairyTypePatchAvailable(project.session.baseVersion)) return "unsupported";
   return project.patches?.applied?.fairyType || project.session.fairy ? "patched" : "unpatched";
 }
 

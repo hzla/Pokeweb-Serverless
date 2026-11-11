@@ -1,11 +1,13 @@
 """Build the Pokeweb item expansion DLLs (1,024 item IDs, pokebw2's shared bag and its save format).
 
-    python3 runtime/item-expansion/build.py [--game W2|B2] [--test]
+    python3 runtime/item-expansion/build.py [--game W2|B2|B|W] [--test]
 
 Inputs:
   * runtime/item-expansion/pokebw2/   vendored pokebw2 sources and headers (see pokebw2/REVISION)
   * POKEBW2_CONFIG (default ../pokebw2/config relative to the workspace): pokebw2's symbol tables
   * games.json: per game, the retail binaries used to verify every in-place literal edit
+
+Black / White (--game B / W) are built by build_bw1.py from the aletheia decomp's symbols and clean ROMs.
 
 Outputs (src/assets/codeinjection unless --test): PokewebItems{Core,Bag,BattleBag,Field,Battle}<game>.dll and
 itemExpansionManifest.json (hook targets, literal edits, table tags).
@@ -420,15 +422,19 @@ def describe(dll, dump, edits, original):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--game", choices=["W2", "B2"], action="append")
+    parser.add_argument("--game", choices=["W2", "B2", "B", "W"], action="append")
     parser.add_argument("--test", action="store_true")
     args = parser.parse_args()
     cfg = json.loads((HERE / "games.json").read_text())
     out_root = HERE / "build"
     shipped = {"version": cfg["version"], "saveMagic": f"0x{PW_SAVE_MAGIC:08x}", "palPadBlockSize": PAL_PAD_SIZE,
                "bagBlockSize": 0x1080, "games": {}}
-    for game in args.game or list(cfg["games"]):
-        manifest = build_game(game, cfg["games"][game], cfg["version"], out_root)
+    for game in args.game or [*cfg["games"], "B", "W"]:
+        if game in ("B", "W"):  # Black / White: aletheia symbols (build_bw1.py)
+            import build_bw1
+            manifest = build_bw1.build_bw1_game(sys.modules[__name__], game, cfg["version"], out_root)
+        else:
+            manifest = build_game(game, cfg["games"][game], cfg["version"], out_root)
         shipped["games"][game] = manifest
         for part in manifest["dlls"].values():
             print(f"{game} {part['fileName']}: {part['size']} bytes, {len(part['targets'])} targets")

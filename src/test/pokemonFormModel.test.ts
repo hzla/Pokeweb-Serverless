@@ -9,7 +9,9 @@ import {
   repairAppendedPokemonFormNames,
 } from "../pokeweb/pokemonFormModel";
 import { findPokemonPersonalFormOwner, pokemonPersonalDisplayIds } from "../pokeweb/pokemonLabels";
-import { getPokemonCount, getPokemonPersonalIds, updatePokemonField } from "../pokeweb/pokemonModel";
+import { getPokemonCount, getPokemonPersonalIds, setPokemonEvolutions, updatePokemonField } from "../pokeweb/pokemonModel";
+import { BW2_MESSAGE_BANKS } from "../pokeweb/constants";
+import { commitTextBank, getTextBank, parseTextEntryId } from "../pokeweb/textModel";
 import { getPokemonIconPaletteAssignment, repairPokemonIconPaletteAssignmentPlacement, resolvePokemonSpriteId } from "../pokeweb/pokemonSpriteModel";
 import { materializeProjectEdits } from "../pokeweb/projectMaterialize";
 import { decodeRecord, type NarcStore, type ProjectState } from "../pokeweb/projectStore";
@@ -353,6 +355,32 @@ describe("pokemonFormModel", () => {
     expect(mappings[relocatedId]).toEqual({ nameId: SPINDA_ID, formId: 1, spriteId: added.spriteId - 1 });
     expect(mappings[added.personalId]).toEqual({ nameId: SPINDA_ID, formId: 2, spriteId: added.spriteId });
     expect(project.narcs.personal!.rawFiles[relocatedId][32]).toBe(3);
+  });
+
+  it("keeps a relocated form's name and the evolutions that target it", () => {
+    const project = makeRetailBw2Project();
+    const first = addPokemonForm(project, SPINDA_ID);
+    const nameBank = BW2_MESSAGE_BANKS.find(([, name]) => name === "pokedex")![0] as number;
+    const rename = (personalId: number, name: string) => {
+      const bank = getTextBank(project, "message_texts", nameBank);
+      for (const entry of bank) if (parseTextEntryId(entry[0]).entry === personalId) entry[1] = name;
+      commitTextBank(project, "message_texts", nameBank);
+    };
+    rename(first.personalId, "Spinda-Alt");
+    // Another Pokémon evolves into the form (a target naming its personal record).
+    setPokemonEvolutions(project, 1, [{ method: 4, param: 16, target: first.personalId }]);
+    const sprites = project.narcs.pokemon_sprites!.rawFiles, icons = project.narcs.pokemon_icons!.rawFiles;
+    for (let file = 0; file < 20; file++) sprites[20 + file] = sprites[SPINDA_ID * 20 + file].slice();
+    for (let gender = 0; gender < 2; gender++) icons[BW2_ICON_HEADER_FILES + 2 + gender] = icons[BW2_ICON_HEADER_FILES + SPINDA_ID * 2 + gender].slice();
+    addPokemonForm(project, 1);
+    const added = addPokemonForm(project, SPINDA_ID);
+    expect(added.relocatedForms).toBe(1);
+    const relocatedId = Number(decodeRecord(project, "personal", SPINDA_ID).raw?.form_id);
+    expect(relocatedId).not.toBe(first.personalId);
+    const names = getTextBank(project, "message_texts", nameBank).filter((entry) => parseTextEntryId(entry[0]).entry === relocatedId);
+    expect(names.length).toBeGreaterThan(0);
+    expect(names.every((entry) => entry[1] === "Spinda-Alt")).toBe(true);
+    expect(decodeRecord(project, "evolutions", 1).raw?.target_0).toBe(relocatedId);
   });
 });
 

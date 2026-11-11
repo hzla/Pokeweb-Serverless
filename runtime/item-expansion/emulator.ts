@@ -1,4 +1,4 @@
-// Item expansion check on a clean US White 2 / Black 2 ROM (desmond, headless).
+// Item expansion check on a clean US White 2 / Black 2 / Black / White ROM (desmond, headless).
 // npx vite-node runtime/item-expansion/emulator.ts /path/clean.nds [--vanilla] [--retail-save] [--item 700] [--frames N]
 //
 // Installs the expansion, names item --item ("Test Item", Items pocket), puts 7 of it in the converted quick-launch
@@ -13,16 +13,16 @@ import { PNG } from "pngjs";
 import { loadProjectFromRomBytes } from "../../src/pokeweb/loader";
 import { buildQuickLaunchDownloads } from "../../src/pokeweb/testBattle";
 import { installCodeInjectionPatch, loadCodeInjectionNarcs } from "../../src/pokeweb/codeInjectionInstall";
-import { stageItemExpansion, ITEM_TEXT_BANKS } from "../../src/pokeweb/itemExpansionModel";
+import { stageItemExpansion, itemFamily } from "../../src/pokeweb/itemExpansionModel";
 import { getTextBank, commitTextBank } from "../../src/pokeweb/textModel";
 import { markDirty } from "../../src/pokeweb/projectStore";
 import { NintendoDSRom } from "../../src/nds/rom";
-import { EXPANDED_SAVE_LAYOUT, recoverSave, encodeSave, detectSaveFormat } from "../../src/pokeweb/itemSaveFormat";
+import { saveLayout, recoverSave, encodeSave, detectSaveFormat, BW1_BAG_POOL_VERSION, BAG_POOL_VERSION } from "../../src/pokeweb/itemSaveFormat";
 
 const argv = process.argv.slice(2);
 const option = (name: string) => { const i = argv.indexOf(name); return i < 0 ? undefined : argv[i + 1]; };
 const romPath = argv[0];
-if (!romPath) throw new Error("Pass a clean US Black 2 or White 2 ROM.");
+if (!romPath) throw new Error("Pass a clean US Black, White, Black 2 or White 2 ROM.");
 const testItem = Number(option("--item") ?? 700);
 const label = option("--name") ?? [basename(romPath, ".nds"), argv.includes("--vanilla") ? "vanilla" : "items", argv.includes("--retail-save") ? "retail-save" : ""].filter(Boolean).join("-");
 const output = fileURLToPath(new URL(`./build/emulator/${label}/`, import.meta.url));
@@ -30,14 +30,17 @@ await mkdir(output, { recursive: true });
 globalThis.fetch = (async (input: RequestInfo | URL) => new Response(new Uint8Array(await readFile(new URL(input instanceof Request ? input.url : String(input)))))) as typeof fetch;
 
 const project = await loadProjectFromRomBytes(new Uint8Array(await readFile(romPath)), basename(romPath), { selectedNarcs: [] });
+const family = itemFamily(project);
+const EXPANDED_SAVE_LAYOUT = saveLayout(family.save, "expanded");
+const poolVersion = family.save === "BW1" ? BW1_BAG_POOL_VERSION : BAG_POOL_VERSION;
 if (!argv.includes("--vanilla")) {
   await installCodeInjectionPatch(project, (staged) => stageItemExpansion(staged));
   // Author the test item: a name and the Items pocket (field pocket bits 7-10 of the attribute halfword are 0).
   const rom = new NintendoDSRom(project.originalRomBytes!, { fileData: "view" });
   loadCodeInjectionNarcs(project, rom, ["items", "message_texts"]);
-  const names = getTextBank(project, "message_texts", ITEM_TEXT_BANKS.names);
+  const names = getTextBank(project, "message_texts", family.textBanks.names);
   names[testItem][1] = "Test Item";
-  commitTextBank(project, "message_texts", ITEM_TEXT_BANKS.names);
+  commitTextBank(project, "message_texts", family.textBanks.names);
   const record = project.narcs.items!.rawFiles[testItem];
   record[0] = 100; // price
   markDirty(project, "items", testItem);
@@ -47,7 +50,7 @@ const romBytes = downloads.romBytes;
 let saveBytes = downloads.saveBytes;
 // The quick-launch save is a DeSmuME .dsv: raw 512 KiB followed by a footer.
 const raw = saveBytes.subarray(0, 0x80000);
-console.log("quick-launch save format:", detectSaveFormat(raw));
+console.log("quick-launch save format:", detectSaveFormat(raw, family.save));
 if (!argv.includes("--vanilla") && !argv.includes("--retail-save")) {
   // Put 7 of the test item into the bag (Items pocket items come first in the pool).
   const recovered = recoverSave(raw, EXPANDED_SAVE_LAYOUT);
@@ -55,7 +58,7 @@ if (!argv.includes("--vanilla") && !argv.includes("--retail-save")) {
   let used = 0;
   while (used < 1023 && (bag[4 + used * 4] | (bag[5 + used * 4] << 8))) used++;
   // Insert at the end of the Items pocket (pocket 0): find the first slot whose item is not in pocket 0.
-  const pocketOf = (item: number) => item >= 639 ? 0 : ((project.narcs.items!.rawFiles[item][8] | (project.narcs.items!.rawFiles[item][9] << 8)) >> 7) & 15;
+  const pocketOf = (item: number) => item >= family.nativeCount ? 0 : ((project.narcs.items!.rawFiles[item][8] | (project.narcs.items!.rawFiles[item][9] << 8)) >> 7) & 15;
   let at = 0;
   while (at < used && pocketOf(bag[4 + at * 4] | (bag[5 + at * 4] << 8)) === 0) at++;
   bag.copyWithin(4 + (at + 1) * 4, 4 + at * 4, 4 + used * 4);
@@ -66,7 +69,7 @@ if (!argv.includes("--vanilla") && !argv.includes("--retail-save")) {
 } else if (argv.includes("--retail-save")) {
   const original = await buildQuickLaunchDownloads({ ...project, codeInjection: { ...project.codeInjection, itemExpansion: undefined } });
   saveBytes = new Uint8Array(saveBytes); saveBytes.set(original.saveBytes.subarray(0, 0x80000), 0);
-  console.log("forced retail save:", detectSaveFormat(saveBytes.subarray(0, 0x80000)));
+  console.log("forced retail save:", detectSaveFormat(saveBytes.subarray(0, 0x80000), family.save));
 }
 await writeFile(join(output, "rom.nds"), romBytes);
 await writeFile(join(output, "save.dsv"), saveBytes);
@@ -92,11 +95,11 @@ const step = (count: number, keys = 0) => { for (let i = 0; i < count; i++, fram
 const touch = (x: number, y: number, frames = 6) => { for (let i = 0; i < frames; i++, frame++) core._runFrame(1, 0, 1, x, y); step(2); };
 const capture = async (name: string) => { const fb = core._getSymbol(4) >>> 0, png = new PNG({ width: 256, height: 384 }); png.data = Buffer.from(core.HEAPU8.subarray(fb, fb + 256 * 384 * 4)); await writeFile(join(output, `${name}.png`), PNG.sync.write(png)); };
 
-// The loaded bag in RAM: the version-2 pool begins with the word 2 followed by item/count pairs.
+// The loaded bag in RAM: the pool begins with its version word followed by item/count pairs.
 const findBag = () => {
   const memory = ram();
-  const needle = Buffer.alloc(8); needle.writeUInt32LE(2, 0);
-  for (let at = memory.indexOf(Buffer.from([2, 0, 0, 0])); at >= 0; at = memory.indexOf(Buffer.from([2, 0, 0, 0]), at + 4)) {
+  const word = Buffer.alloc(4); word.writeUInt32LE(poolVersion, 0);
+  for (let at = memory.indexOf(word); at >= 0; at = memory.indexOf(word, at + 4)) {
     if (at % 4) continue;
     let ok = true, count = 0;
     for (let slot = 0; slot < 1023; slot++) {
@@ -136,7 +139,7 @@ if (argv.includes("--save")) {
   for (let i = 0; i < 6; i++) { step(4, KEY.a); step(60); }
   step(600); await capture("saved");
   const card = new Uint8Array(core.HEAPU8.subarray(core._savGetPointer(0), core._savGetPointer(0) + 0x80000));
-  const format = detectSaveFormat(card);
+  const format = detectSaveFormat(card, family.save);
   const recovered = recoverSave(card, EXPANDED_SAVE_LAYOUT);
   const bagAfter = recovered.payloads[25];
   let found: [number, number] | undefined;

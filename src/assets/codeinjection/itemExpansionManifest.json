@@ -1055,6 +1055,680 @@
           ]
         }
       }
+    },
+    "B": {
+      "dlls": {
+        "core": {
+          "fileName": "PokewebItemsCoreB.dll",
+          "size": 8080,
+          "sha256": "ebf4de3a26c747cd95bff31b144c7f859e05fa7614561f4ff94480137c5adc8f",
+          "targets": [
+            {
+              "kind": "FULL_COPY",
+              "segment": "ARM9",
+              "address": "0x2007cb0"
+            },
+            {
+              "kind": "FULL_COPY",
+              "segment": "ARM9",
+              "address": "0x2009da0"
+            },
+            {
+              "kind": "FULL_COPY",
+              "segment": "ARM9",
+              "address": "0x20192f8"
+            },
+            {
+              "kind": "FULL_COPY",
+              "segment": "ARM9",
+              "address": "0x2019894"
+            },
+            {
+              "kind": "FULL_COPY",
+              "segment": "ARM9",
+              "address": "0x2020f2c"
+            },
+            {
+              "kind": "FULL_COPY",
+              "segment": "ARM9",
+              "address": "0x2020fb0"
+            },
+            {
+              "kind": "FULL_COPY",
+              "segment": "ARM9",
+              "address": "0x2020fe0"
+            },
+            {
+              "kind": "FULL_COPY",
+              "segment": "ARM9",
+              "address": "0x209d94c"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2007230"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2007cb8"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2007cc8"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2007d00"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2007d6c"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2007df8"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2007e3c"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2007e50"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2007ef8"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2007f1c"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2007f68"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2007fa0"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2007fb8"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x200816c"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x20081dc"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2020e60"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2020f34"
+            },
+            {
+              "kind": "THUMB_BRANCH_LINK",
+              "segment": "ARM9",
+              "address": "0x2005276"
+            }
+          ],
+          "literals": [
+            {
+              "segment": "ARM9",
+              "address": "0x020192f8",
+              "retail": "0x00000272",
+              "value": "0x000003ff"
+            },
+            {
+              "segment": "ARM9",
+              "address": "0x02019894",
+              "retail": "0x00000272",
+              "value": "0x000003ff"
+            },
+            {
+              "segment": "ARM9",
+              "address": "0x02020f2c",
+              "retail": "0x00000272",
+              "value": "0x000003ff"
+            },
+            {
+              "segment": "ARM9",
+              "address": "0x02020fb0",
+              "retail": "0x00000272",
+              "value": "0x000003ff"
+            },
+            {
+              "segment": "ARM9",
+              "address": "0x02020fe0",
+              "retail": "0x00000272",
+              "value": "0x000003ff"
+            },
+            {
+              "segment": "ARM9",
+              "address": "0x02009da0",
+              "retail": "0x00000d54",
+              "value": "0x000006fc"
+            },
+            {
+              "segment": "ARM9",
+              "address": "0x0209d94c",
+              "retail": "0x31053527",
+              "value": "0x32495750"
+            },
+            {
+              "segment": "ARM9",
+              "address": "0x02007cb0",
+              "retail": "0x01802027",
+              "value": "0x03002001"
+            }
+          ]
+        },
+        "bag": {
+          "fileName": "PokewebItemsBagB.dll",
+          "size": 1552,
+          "sha256": "3c3fb61bcda093c66ea2ef1eff28f13d6f25a37d25bc68aac4e204ef1d13f655",
+          "targets": [
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "70",
+              "address": "0x21b616c"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "70",
+              "address": "0x21b61c8"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "70",
+              "address": "0x21b621c"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "70",
+              "address": "0x21b7f54"
+            },
+            {
+              "kind": "THUMB_BRANCH_LINK",
+              "segment": "70",
+              "address": "0x21b677c"
+            },
+            {
+              "kind": "THUMB_BRANCH_LINK",
+              "segment": "70",
+              "address": "0x21b67d0"
+            },
+            {
+              "kind": "THUMB_BRANCH_LINK",
+              "segment": "70",
+              "address": "0x21b741e"
+            },
+            {
+              "kind": "THUMB_BRANCH_LINK",
+              "segment": "70",
+              "address": "0x21b742c"
+            },
+            {
+              "kind": "THUMB_BRANCH_LINK",
+              "segment": "70",
+              "address": "0x21b8a9a"
+            }
+          ],
+          "literals": []
+        },
+        "battleBag": {
+          "fileName": "PokewebItemsBattleBagB.dll",
+          "size": 1840,
+          "sha256": "f47c7444b6b7cdb3ca7fe7e95010ea3d90b2ce686ebb2471e26956f3b2ee0df9",
+          "targets": [
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "197",
+              "address": "0x220b9d8"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "197",
+              "address": "0x220ba2c"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "197",
+              "address": "0x220bb98"
+            },
+            {
+              "kind": "THUMB_BRANCH_LINK",
+              "segment": "197",
+              "address": "0x220b4f4"
+            },
+            {
+              "kind": "THUMB_BRANCH_LINK",
+              "segment": "197",
+              "address": "0x220b510"
+            },
+            {
+              "kind": "THUMB_BRANCH_LINK",
+              "segment": "197",
+              "address": "0x220b8be"
+            },
+            {
+              "kind": "THUMB_BRANCH_LINK",
+              "segment": "197",
+              "address": "0x220b8d0"
+            },
+            {
+              "kind": "THUMB_BRANCH_LINK",
+              "segment": "197",
+              "address": "0x220b8d8"
+            },
+            {
+              "kind": "THUMB_BRANCH_LINK",
+              "segment": "197",
+              "address": "0x220d456"
+            }
+          ],
+          "literals": []
+        },
+        "field": {
+          "fileName": "PokewebItemsFieldB.dll",
+          "size": 304,
+          "sha256": "692572232dfe796bf78bfa94d88dfbaa149231f0b2620f5db5d99670e763b50e",
+          "targets": [
+            {
+              "kind": "FULL_COPY",
+              "segment": "21",
+              "address": "0x21a977c"
+            }
+          ],
+          "literals": [
+            {
+              "segment": "21",
+              "address": "0x021a977c",
+              "retail": "0x00000272",
+              "value": "0x000003ff"
+            }
+          ]
+        },
+        "battle": {
+          "fileName": "PokewebItemsBattleB.dll",
+          "size": 304,
+          "sha256": "8d40bcb926184dea56bb739f74c09b8d841507714bb8674167d6d5bdd4ceab64",
+          "targets": [
+            {
+              "kind": "FULL_COPY",
+              "segment": "93",
+              "address": "0x21d4ef4"
+            }
+          ],
+          "literals": [
+            {
+              "segment": "93",
+              "address": "0x021d4ef4",
+              "retail": "0x00000272",
+              "value": "0x000003ff"
+            }
+          ]
+        }
+      }
+    },
+    "W": {
+      "dlls": {
+        "core": {
+          "fileName": "PokewebItemsCoreW.dll",
+          "size": 8080,
+          "sha256": "62294c7bf8c3b95acf5406cb07a9e08d42ca2393feefbf49d256a370d3c625e2",
+          "targets": [
+            {
+              "kind": "FULL_COPY",
+              "segment": "ARM9",
+              "address": "0x2007cb0"
+            },
+            {
+              "kind": "FULL_COPY",
+              "segment": "ARM9",
+              "address": "0x2009da0"
+            },
+            {
+              "kind": "FULL_COPY",
+              "segment": "ARM9",
+              "address": "0x2019314"
+            },
+            {
+              "kind": "FULL_COPY",
+              "segment": "ARM9",
+              "address": "0x20198b0"
+            },
+            {
+              "kind": "FULL_COPY",
+              "segment": "ARM9",
+              "address": "0x2020f48"
+            },
+            {
+              "kind": "FULL_COPY",
+              "segment": "ARM9",
+              "address": "0x2020fcc"
+            },
+            {
+              "kind": "FULL_COPY",
+              "segment": "ARM9",
+              "address": "0x2020ffc"
+            },
+            {
+              "kind": "FULL_COPY",
+              "segment": "ARM9",
+              "address": "0x209d964"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2007230"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2007cb8"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2007cc8"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2007d00"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2007d6c"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2007df8"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2007e3c"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2007e50"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2007ef8"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2007f1c"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2007f68"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2007fa0"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2007fb8"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x200816c"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x20081dc"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2020e7c"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "ARM9",
+              "address": "0x2020f50"
+            },
+            {
+              "kind": "THUMB_BRANCH_LINK",
+              "segment": "ARM9",
+              "address": "0x2005276"
+            }
+          ],
+          "literals": [
+            {
+              "segment": "ARM9",
+              "address": "0x02019314",
+              "retail": "0x00000272",
+              "value": "0x000003ff"
+            },
+            {
+              "segment": "ARM9",
+              "address": "0x020198b0",
+              "retail": "0x00000272",
+              "value": "0x000003ff"
+            },
+            {
+              "segment": "ARM9",
+              "address": "0x02020f48",
+              "retail": "0x00000272",
+              "value": "0x000003ff"
+            },
+            {
+              "segment": "ARM9",
+              "address": "0x02020fcc",
+              "retail": "0x00000272",
+              "value": "0x000003ff"
+            },
+            {
+              "segment": "ARM9",
+              "address": "0x02020ffc",
+              "retail": "0x00000272",
+              "value": "0x000003ff"
+            },
+            {
+              "segment": "ARM9",
+              "address": "0x02009da0",
+              "retail": "0x00000d54",
+              "value": "0x000006fc"
+            },
+            {
+              "segment": "ARM9",
+              "address": "0x0209d964",
+              "retail": "0x31053527",
+              "value": "0x32495750"
+            },
+            {
+              "segment": "ARM9",
+              "address": "0x02007cb0",
+              "retail": "0x01802027",
+              "value": "0x03002001"
+            }
+          ]
+        },
+        "bag": {
+          "fileName": "PokewebItemsBagW.dll",
+          "size": 1552,
+          "sha256": "aa62823055669aa53b71a3836fcb22f031c1527c0230b585b1af77f240e1aa6d",
+          "targets": [
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "70",
+              "address": "0x21b618c"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "70",
+              "address": "0x21b61e8"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "70",
+              "address": "0x21b623c"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "70",
+              "address": "0x21b7f74"
+            },
+            {
+              "kind": "THUMB_BRANCH_LINK",
+              "segment": "70",
+              "address": "0x21b679c"
+            },
+            {
+              "kind": "THUMB_BRANCH_LINK",
+              "segment": "70",
+              "address": "0x21b67f0"
+            },
+            {
+              "kind": "THUMB_BRANCH_LINK",
+              "segment": "70",
+              "address": "0x21b743e"
+            },
+            {
+              "kind": "THUMB_BRANCH_LINK",
+              "segment": "70",
+              "address": "0x21b744c"
+            },
+            {
+              "kind": "THUMB_BRANCH_LINK",
+              "segment": "70",
+              "address": "0x21b8aba"
+            }
+          ],
+          "literals": []
+        },
+        "battleBag": {
+          "fileName": "PokewebItemsBattleBagW.dll",
+          "size": 1840,
+          "sha256": "5430de265aecd569e2c120cf16e456beda773df0975b63b25b80c7979f8c011d",
+          "targets": [
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "197",
+              "address": "0x220b9f8"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "197",
+              "address": "0x220ba4c"
+            },
+            {
+              "kind": "THUMB_BRANCH",
+              "segment": "197",
+              "address": "0x220bbb8"
+            },
+            {
+              "kind": "THUMB_BRANCH_LINK",
+              "segment": "197",
+              "address": "0x220b514"
+            },
+            {
+              "kind": "THUMB_BRANCH_LINK",
+              "segment": "197",
+              "address": "0x220b530"
+            },
+            {
+              "kind": "THUMB_BRANCH_LINK",
+              "segment": "197",
+              "address": "0x220b8de"
+            },
+            {
+              "kind": "THUMB_BRANCH_LINK",
+              "segment": "197",
+              "address": "0x220b8f0"
+            },
+            {
+              "kind": "THUMB_BRANCH_LINK",
+              "segment": "197",
+              "address": "0x220b8f8"
+            },
+            {
+              "kind": "THUMB_BRANCH_LINK",
+              "segment": "197",
+              "address": "0x220d476"
+            }
+          ],
+          "literals": []
+        },
+        "field": {
+          "fileName": "PokewebItemsFieldW.dll",
+          "size": 304,
+          "sha256": "40cc4f31f9f4fcf98728021f7e47c3d5fd45d4f1dd016e47aa3a65a5752e7204",
+          "targets": [
+            {
+              "kind": "FULL_COPY",
+              "segment": "21",
+              "address": "0x21a979c"
+            }
+          ],
+          "literals": [
+            {
+              "segment": "21",
+              "address": "0x021a979c",
+              "retail": "0x00000272",
+              "value": "0x000003ff"
+            }
+          ]
+        },
+        "battle": {
+          "fileName": "PokewebItemsBattleW.dll",
+          "size": 304,
+          "sha256": "2387d324f45d738bad8dcdfe69ba1d1de1a9b06c48064fef2f43b6b6f5ed5d37",
+          "targets": [
+            {
+              "kind": "FULL_COPY",
+              "segment": "93",
+              "address": "0x21d4f14"
+            }
+          ],
+          "literals": [
+            {
+              "segment": "93",
+              "address": "0x021d4f14",
+              "retail": "0x00000272",
+              "value": "0x000003ff"
+            }
+          ]
+        }
+      }
     }
   },
   "version": 1,

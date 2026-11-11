@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  BAG_BLOCK, EXPANDED_SAVE_LAYOUT, PAL_PAD_BLOCK, PARTY_BLOCK_SHIFT, RETAIL_SAVE_LAYOUT, TRAINER_BLOCK, SAVE_EXTRA_START,
-  convertSaveToExpanded, convertSaveToRetail, crc16, detectSaveFormat, encodeSave, recoverSave, validateExpandedBag,
-  type ItemSaveRules,
+  BAG_BLOCK, BW1_BAG_POOL_VERSION, BW1_EXPANDED_SAVE_LAYOUT, BW1_RETAIL_SAVE_LAYOUT, EXPANDED_SAVE_LAYOUT, PAL_PAD_BLOCK,
+  PARTY_BLOCK_SHIFT, RETAIL_SAVE_LAYOUT, TRAINER_BLOCK, SAVE_EXTRA_START, convertSaveToExpanded, convertSaveToRetail,
+  crc16, detectSaveFormat, encodeSave, isExpandedItemSave, recoverSave, validateExpandedBag, type ItemSaveRules,
 } from "../pokeweb/itemSaveFormat";
 
 const POCKETS = new Map<number, number>([[1, 0], [17, 1], [328, 2], [149, 3], [442, 4], [700, 0]]);
@@ -108,5 +108,73 @@ describe("item save format", () => {
     const recovered = recoverSave(save, EXPANDED_SAVE_LAYOUT);
     expect(recovered.recoveredBlocks).toBe(1);
     expect(recovered.payloads[1]).toEqual(recoverSave(convertSaveToExpanded(retailSave(), rules).bytes, EXPANDED_SAVE_LAYOUT).payloads[1]);
+  });
+});
+
+describe("Black / White item save format", () => {
+  const bw1Rules: ItemSaveRules = { family: "BW1", pocketOf: (item) => POCKETS.get(item) ?? (item > 0 && item < 627 ? 0 : undefined) };
+
+  function bw1RetailSave(version = 21): Uint8Array {
+    const payloads = BW1_RETAIL_SAVE_LAYOUT.blocks.map((block, index) => {
+      const payload = new Uint8Array(block.size);
+      for (let i = 0; i < payload.length; i++) payload[i] = (index * 17 + i) & 0xff;
+      return payload;
+    });
+    payloads[TRAINER_BLOCK][4 + 27] = version;
+    const bag = new Uint8Array(0x9c0);
+    const put = (offset: number, item: number, count: number) => { bag[offset] = item & 0xff; bag[offset + 1] = item >> 8; bag[offset + 2] = count & 0xff; bag[offset + 3] = count >> 8; };
+    put(0, 1, 5);
+    put(4, 2, 1);
+    put(0x4d8, 442, 1);
+    put(0x624, 328, 1);
+    put(0x7d8, 17, 20);
+    put(0x898, 149, 3);
+    payloads[BAG_BLOCK] = bag;
+    return encodeSave(new Uint8Array(0x80000).fill(0xee), BW1_RETAIL_SAVE_LAYOUT, payloads, payloads.map((_, i) => i), 7);
+  }
+
+  it("keeps Black / White's footer position (0x23f9c) and moves only blocks 26-31 by 0x700", () => {
+    expect(BW1_RETAIL_SAVE_LAYOUT.blocks).toHaveLength(69);
+    expect(BW1_RETAIL_SAVE_LAYOUT.crcOffset).toBe(0x23f00);
+    expect(BW1_RETAIL_SAVE_LAYOUT.footerOffset + 0x10).toBe(0x23f9c);
+    expect(BW1_EXPANDED_SAVE_LAYOUT.crcOffset).toBe(BW1_RETAIL_SAVE_LAYOUT.crcOffset);
+    BW1_RETAIL_SAVE_LAYOUT.blocks.forEach((block, index) => {
+      expect(BW1_EXPANDED_SAVE_LAYOUT.blocks[index].offset - block.offset).toBe(index >= 26 && index <= 31 ? PARTY_BLOCK_SHIFT : 0);
+    });
+    expect(BW1_EXPANDED_SAVE_LAYOUT.blocks[BAG_BLOCK].size).toBe(0x1000);
+    expect(BW1_EXPANDED_SAVE_LAYOUT.blocks[PAL_PAD_BLOCK].size).toBe(0x6fc);
+  });
+
+  it("converts a Black save to the pool and back, and tells the families apart", () => {
+    const source = bw1RetailSave();
+    expect(detectSaveFormat(source, "BW1")).toBe("retail");
+    expect(detectSaveFormat(source)).toBe("unknown");
+    const { bytes, report } = convertSaveToExpanded(source, bw1Rules);
+    expect(report).toMatchObject({ bagItems: 6, generation: 7, gameVersion: 21 });
+    expect(detectSaveFormat(bytes, "BW1")).toBe("expanded");
+    expect(isExpandedItemSave(bytes)).toBe(true);
+    expect(isExpandedItemSave(source)).toBe(false);
+    const bag = recoverSave(bytes, BW1_EXPANDED_SAVE_LAYOUT).payloads[BAG_BLOCK];
+    expect(bag[0] | (bag[1] << 8) | (bag[2] << 16) | (bag[3] << 24)).toBe(BW1_BAG_POOL_VERSION);
+    expect([0, 1, 2, 3, 4, 5].map((slot) => bag[4 + slot * 4] | (bag[5 + slot * 4] << 8))).toEqual([1, 2, 17, 328, 149, 442]);
+    expect(validateExpandedBag(bag, bw1Rules)).toBeUndefined();
+    const original = recoverSave(source, BW1_RETAIL_SAVE_LAYOUT);
+    const back = recoverSave(convertSaveToRetail(bytes, bw1Rules).bytes, BW1_RETAIL_SAVE_LAYOUT);
+    expect(back.payloads[BAG_BLOCK].subarray(0, 0x998)).toEqual(original.payloads[BAG_BLOCK].subarray(0, 0x998));
+    expect(back.payloads[27]).toEqual(original.payloads[27]);
+  });
+
+  it("refuses Black 2 / White 2 saves and items above 626 on the way back", () => {
+    expect(() => convertSaveToExpanded(bw1RetailSave(22), bw1Rules)).toThrow(/not a Black \/ White save/);
+    const converted = convertSaveToExpanded(bw1RetailSave(), bw1Rules).bytes;
+    const recovered = recoverSave(converted, BW1_EXPANDED_SAVE_LAYOUT);
+    const bag = recovered.payloads[BAG_BLOCK].slice();
+    bag.copyWithin(8, 4, 4 + 6 * 4);
+    bag[4] = 630 & 0xff; bag[5] = 630 >> 8; bag[6] = 1; bag[7] = 0;
+    recovered.payloads[BAG_BLOCK] = bag;
+    const rules630: ItemSaveRules = { ...bw1Rules, pocketOf: (item) => (item === 630 ? 0 : bw1Rules.pocketOf(item)) };
+    const withNew = encodeSave(converted, BW1_EXPANDED_SAVE_LAYOUT, recovered.payloads, recovered.counts, recovered.generation);
+    expect(validateExpandedBag(bag, rules630)).toBeUndefined();
+    expect(() => convertSaveToRetail(withNew, rules630)).toThrow(/630/);
   });
 });

@@ -1447,9 +1447,21 @@ function renderPwanLibraryEntryDetails(entry: PwanLibraryEntry): string {
         ${entry.icon ? `<span>Icon included</span>` : ""}
       </div>
       <div><strong>Credits</strong><span>${escapeHtml(entry.credits || "Missing credit")}</span></div>
+      ${pwanLibraryFullSizeText(entry) ? `<div><strong>Full size</strong><span>${escapeHtml(pwanLibraryFullSizeText(entry))}</span></div>` : ""}
       ${entry.notes ? `<div><strong>Notes</strong><span>${escapeHtml(entry.notes)}</span></div>` : ""}
     </div>
   `;
+}
+
+/** "Front 128x118, back 128x115 with the streaming runtime (96x96 otherwise)", or "" for 96x96 entries. */
+function pwanLibraryFullSizeText(entry: PwanLibraryEntry): string {
+  const sides = (["front", "back"] as const).flatMap((side) => {
+    const record = entry.fullSize?.[side];
+    return record ? [`${side} ${record.width}x${record.height}`] : [];
+  });
+  if (!sides.length) return "";
+  const text = sides.join(", ");
+  return `${text[0]!.toUpperCase()}${text.slice(1)} with the streaming runtime (96x96 otherwise)`;
 }
 
 function selectedPwanLibraryEntry(entries: PwanLibraryEntry[]): PwanLibraryEntry | undefined {

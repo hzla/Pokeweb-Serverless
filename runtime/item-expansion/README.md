@@ -1,4 +1,4 @@
-# Item expansion (Black 2 / White 2)
+# Item expansion (Black 2 / White 2, Black / White)
 
 Item IDs 0–1023 and pokebw2's shared bag: one save pool of 1,023 distinct items instead of five fixed pockets
 (310 / 83 / 109 / 48 / 64), with the field and battle bag lists sized to what the player owns. US Black 2 (`IREO`)
@@ -68,6 +68,38 @@ pool with item 700 loaded; field bag lists and scrolls it; giving it to a Pokém
 save (generation +1, held item 700, 6 left); a retail save stops at the conversion message. White 2 battle: the
 Pokémon keeps item 700 in battle; the battle bag opens and pages. Not yet run: shops selling items above 638, Black 2
 battle, hardware.
+
+## Black / White
+
+The same design on US Black (`IRBO`) and White (`IRAO`), built by `build_bw1.py` from the aletheia decomp (symbols)
+and clean ROMs (`ALETHEIA`, `BW1_ROM_B` / `BW1_ROM_W`, or `BW1_EXTRACT_B` / `BW1_EXTRACT_W`; see
+`runtime/anim-streams/bw1.py`):
+
+    ALETHEIA=~/Repos/Port-Pokeweb/aletheia BW1_ROM_B=clean-black.nds BW1_ROM_W=clean-white.nds \
+        python3 runtime/item-expansion/build.py --game B --game W
+
+pokebw2's sources do not fit Black / White, so the runtime is written against aletheia's (`bw1/`):
+
+| DLL | Loads with | What it does |
+|---|---|---|
+| `PokewebItemsCore{B,W}.dll` | always (ARM9) | Save layout (bag block 0x9c0→0x1000, trade-history block 31 0xd54→0x6fc, footer magic `PWI2`), boot admission, title-screen erase of both copies, the pool (`bw1/pool.c`: 14 `MYITEM_SAVEDATA_*` functions; the retail array helpers are kept), item icons / data files for IDs 627–1023 (`FILE_UTIL_Get`, `FILE_UTIL_LoadItemRecord`) and the item-ID limit (626→1023) in Pokémon held items and item data / text reads |
+| `PokewebItemsBag{B,W}.dll` | overlay 70 (bag) | Move mode's pocket copy in a 1,023-slot heap buffer instead of `ItemMenuWork.items[310]`; pocket sort with buffers sized to the pocket |
+| `PokewebItemsBattleBag{B,W}.dll` | overlay 197 (battle bag) | Per-pocket heap lists instead of `BagWork.rows[4][36]`; the drawing functions read one staged row |
+| `PokewebItemsField{B,W}.dll` | overlay 21 (field) | Wild Pokémon held items above 626 |
+| `PokewebItemsBattle{B,W}.dll` | overlay 93 (battle) | `BTL_POKEPARAM_Create` keeps held items above 626 |
+
+Black / White differences: retail items end at 626 (627 entries; new IDs are 627–1023); item text banks 53 / 54 / 279
+/ 280; battle pockets in archive 232 (`a/2/3/2`); the bag has no Free Space, so the pool block is a version word
+("PWB1") and 1,023 slots; the main save copies are 0x24000 bytes (69 blocks, used size 0x23f9c) and blocks 26–31 move
+by 0x700 as on Black 2 / White 2. The bag pockets of the retail IDs are tabulated ("PWIP", written by Pokeweb from the
+item data) because Black / White read them out of each item's data file. Battle Log's `BattleLogSaveGuard{B,W}.dll`
+isolates blocks 29–31 the same way.
+
+Verification (`emulator.ts` and `emulator_bw1.ts`, both games, 2026-11-10): a converted save boots with item 700 in
+the bag; giving it and saving writes a valid expanded save; a retail save stops at the conversion message; with 396
+extra items (a 581-item pool, ~470 in the Items pocket) the field bag scrolls, moves (SELECT) and sorts the pocket and
+the pool stays valid; the battle bag's Poké Ball pocket lists 402 items over 67 pages; a held item 1022 survives
+`BTL_POKEPARAM_Create`.
 
 ## Credits
 

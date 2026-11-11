@@ -6,7 +6,8 @@ import { decodeRecord, type ProjectState } from "./projectStore";
 import { parseRpm } from "./rpm";
 
 /**
- * Mega Evolution (Black 2 / White 2): one PMC DLL on battle overlay 167 (runtime/mega-evolution).
+ * Mega Evolution (Black 2 / White 2 and Black / White): one PMC DLL on the battle overlay, 167 in Black 2 / White 2
+ * and 93 in Black / White (runtime/mega-evolution).
  *
  * A Pokémon holding its route's trigger item (or knowing its trigger move) changes into the route's target form
  * once per side per battle: the player arms it on the move screen (START or the touch button), opposing trainers
@@ -17,7 +18,7 @@ import { parseRpm } from "./rpm";
  * from White2Upgrade.
  */
 
-export type MegaEvolutionVersion = "B2" | "W2";
+export type MegaEvolutionVersion = "B2" | "W2" | "B" | "W";
 
 export type MegaRoute = {
   species: number;
@@ -37,6 +38,8 @@ export type MegaEvolutionConfig = {
   animationMove: number;
   revealFrame: number;
   autoFoes: boolean;
+  /** The key item the player needs in the bag to Mega Evolve (the Mega Ring); 0 or absent: none needed. */
+  ringItem?: number;
   /** Set by the Mega content package (megaContentModel). */
   content?: {
     version: number;
@@ -54,6 +57,8 @@ export const MEGA_CREDITS = [
 const DLL_URLS: Record<MegaEvolutionVersion, URL> = {
   W2: new URL("../assets/codeinjection/PokewebMegaW2.dll", import.meta.url),
   B2: new URL("../assets/codeinjection/PokewebMegaB2.dll", import.meta.url),
+  W: new URL("../assets/codeinjection/PokewebMegaW.dll", import.meta.url),
+  B: new URL("../assets/codeinjection/PokewebMegaB.dll", import.meta.url),
 };
 
 type GameManifest = {
@@ -62,7 +67,10 @@ type GameManifest = {
 };
 const games = manifest.games as Partial<Record<MegaEvolutionVersion, GameManifest>>;
 const TABLE_MAGIC = 0x474d5750; // "PWMG"
-const TABLE_VERSION = 1;
+// Version 1 (24-byte header) is still read so a project whose staged DLL predates the update keeps exporting; version 2
+// adds the ring item and moves the routes to +28.
+const TABLE_VERSIONS = [1, 2];
+const headerSize = (version: number) => (version >= 2 ? 28 : 24);
 const DEFAULT_CONFIG: Omit<MegaEvolutionConfig, "version" | "routes"> = {
   messages: { reacting: 0, evolved: 0, wish: 0 }, animationMove: 0, revealFrame: 244, autoFoes: true,
 };
@@ -79,7 +87,7 @@ export type MegaEvolutionStatus = {
 
 export function megaEvolutionVersion(project: ProjectState): MegaEvolutionVersion | undefined {
   const version = project.session.baseVersion;
-  return (version === "W2" || version === "B2") && games[version] ? version : undefined;
+  return (version === "W2" || version === "B2" || version === "W" || version === "B") && games[version] ? version : undefined;
 }
 
 function dllPath(version: MegaEvolutionVersion): string {
@@ -130,7 +138,7 @@ export function canUseMegaEvolutionInstaller(hostname = typeof location === "und
 export function getMegaEvolutionStatus(project: ProjectState): MegaEvolutionStatus {
   const version = megaEvolutionVersion(project);
   const status: MegaEvolutionStatus = { supported: false, installed: false, updateAvailable: false, compatible: false, canUninstall: false, routes: 0, message: "" };
-  if (!version) return { ...status, message: "Mega Evolution supports US Black 2 and White 2." };
+  if (!version) return { ...status, message: "Mega Evolution supports US Black, White, Black 2 and White 2." };
   status.supported = true;
   status.installed = isMegaEvolutionInstalled(project);
   status.routes = project.codeInjection?.megaEvolution?.routes.length ?? 0;
@@ -174,7 +182,7 @@ export function validateMegaRoutes(project: ProjectState, routes: MegaRoute[]): 
 function findTable(bytes: Uint8Array): number {
   for (let i = 0; i + 8 <= bytes.length; i += 4) {
     const view = new DataView(bytes.buffer, bytes.byteOffset + i, 8);
-    if (view.getUint32(0, true) === TABLE_MAGIC && view.getUint16(4, true) === TABLE_VERSION) return i;
+    if (view.getUint32(0, true) === TABLE_MAGIC && TABLE_VERSIONS.includes(view.getUint16(4, true))) return i;
   }
   return -1;
 }
@@ -185,7 +193,8 @@ export function writeMegaEvolutionTable(bytes: Uint8Array, config: MegaEvolution
   const at = findTable(out);
   if (at < 0) throw new Error("The Mega Evolution DLL has no route table.");
   if (config.routes.length > MEGA_ROUTE_CAPACITY) throw new Error(`At most ${MEGA_ROUTE_CAPACITY} Mega routes fit the runtime.`);
-  const view = new DataView(out.buffer, out.byteOffset + at, 24 + MEGA_ROUTE_CAPACITY * 8);
+  const header = headerSize(new DataView(out.buffer, out.byteOffset + at, 8).getUint16(4, true));
+  const view = new DataView(out.buffer, out.byteOffset + at, header + MEGA_ROUTE_CAPACITY * 8);
   view.setUint16(6, config.routes.length, true);
   view.setUint16(8, config.messages.reacting, true);
   view.setUint16(10, config.messages.evolved, true);
@@ -193,9 +202,10 @@ export function writeMegaEvolutionTable(bytes: Uint8Array, config: MegaEvolution
   view.setUint16(14, config.animationMove, true);
   view.setUint16(20, config.revealFrame, true);
   view.setUint16(22, config.autoFoes ? 1 : 0, true);
+  if (header >= 28) view.setUint16(24, config.ringItem ?? 0, true);
   for (let index = 0; index < MEGA_ROUTE_CAPACITY; index++) {
     const route = config.routes[index];
-    const o = 24 + index * 8;
+    const o = header + index * 8;
     view.setUint16(o, route?.species ?? 0, true);
     view.setUint16(o + 2, route?.trigger ?? 0, true);
     view.setUint8(o + 4, route?.sourceForm ?? 0);
@@ -230,7 +240,7 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
 /** Install (or update) on a staged project; use through installCodeInjectionPatch. Keeps existing routes. */
 export async function stageMegaEvolution(project: ProjectState): Promise<{ dll: string }> {
   const version = megaEvolutionVersion(project);
-  if (!version) throw new Error("Mega Evolution supports US Black 2 and White 2.");
+  if (!version) throw new Error("Mega Evolution supports US Black, White, Black 2 and White 2.");
   const status = getMegaEvolutionStatus(project);
   if (!status.compatible) throw new Error(status.message);
   const game = games[version]!;

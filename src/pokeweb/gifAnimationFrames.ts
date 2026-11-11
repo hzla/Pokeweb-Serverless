@@ -26,6 +26,7 @@ const MAX_GEN5_OPAQUE_COLORS = 15;
 export function decodeGifFrames(bytes: Uint8Array): AnimationAnalysisFrame[] {
   const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
   const parsed = parseGIF(arrayBuffer);
+  carryGraphicControlToImages(parsed.frames as GifBlock[]);
   const decompressed = decompressFrames(parsed, true);
   const width = parsed.lsd.width;
   const height = parsed.lsd.height;
@@ -44,6 +45,25 @@ export function decodeGifFrames(bytes: Uint8Array): AnimationAnalysisFrame[] {
       pixels: output,
     };
   });
+}
+
+type GifBlock = { gce?: unknown; image?: unknown };
+
+/**
+ * A Graphic Control Extension applies to the next image even when other extensions (a comment, as ezgif writes)
+ * come between them. gifuct-js parses those into a block without an image, which decompressFrames drops, so the
+ * image would lose its transparency, delay and disposal: the GCE is moved onto the image it belongs to.
+ */
+function carryGraphicControlToImages(blocks: GifBlock[]): void {
+  let pending: unknown;
+  for (const block of blocks) {
+    if (!block.image) {
+      if (block.gce) pending = block.gce;
+      continue;
+    }
+    if (!block.gce && pending) block.gce = pending;
+    pending = undefined;
+  }
 }
 
 export function analyzePalette(frames: AnimationAnalysisFrame[]): PaletteReport {

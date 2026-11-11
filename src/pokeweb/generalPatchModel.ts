@@ -10,6 +10,20 @@ import type { NarcStore, ProjectState } from "./projectStore";
 
 const FAIRY_B2_PATCH_URL = new URL("../assets/patches/fairy-b2.bin", import.meta.url);
 const FAIRY_W2_PATCH_URL = new URL("../assets/patches/fairy-w2.bin", import.meta.url);
+// Black / White: Frost's Black patch, and the White patch derived from it (runtime/fairy-bw1/build.py).
+const FAIRY_B_PATCH_URL = new URL("../assets/patches/fairy-b.bin", import.meta.url);
+const FAIRY_W_PATCH_URL = new URL("../assets/patches/fairy-w.bin", import.meta.url);
+const FAIRY_PATCH_URLS: Partial<Record<BaseVersion, URL>> = {
+  B2: FAIRY_B2_PATCH_URL,
+  W2: FAIRY_W2_PATCH_URL,
+  B: FAIRY_B_PATCH_URL,
+  W: FAIRY_W_PATCH_URL,
+};
+
+/** Fairy Type Support has a patch for this game (US Black, White, Black 2 and White 2). */
+export function fairyTypePatchAvailable(baseVersion: BaseVersion): boolean {
+  return Boolean(FAIRY_PATCH_URLS[baseVersion]);
+}
 
 export type GeneralPatchSection = {
   name: string;
@@ -35,11 +49,13 @@ type GeneralPatchContext = {
 const FAIRY_PATCH_VERSION: Partial<Record<BaseVersion, string>> = {
   B2: "pokemon b2",
   W2: "pokemon w2",
+  B: "pokemon b",
+  W: "pokemon w",
 };
 
 export async function loadFairyTypePatchSections(baseVersion: BaseVersion): Promise<GeneralPatchSection[]> {
-  const url = baseVersion === "B2" ? FAIRY_B2_PATCH_URL : baseVersion === "W2" ? FAIRY_W2_PATCH_URL : undefined;
-  if (!url) throw new Error("Fairy Type Support is currently available for Black 2 and White 2 only.");
+  const url = FAIRY_PATCH_URLS[baseVersion];
+  if (!url) throw new Error("Fairy Type Support is available for Black, White, Black 2 and White 2.");
 
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Could not load the Fairy Type Support patch (${response.status}).`);
@@ -47,8 +63,8 @@ export async function loadFairyTypePatchSections(baseVersion: BaseVersion): Prom
 }
 
 export async function applyFairyTypeGeneralPatch(project: ProjectState): Promise<GeneralPatchApplySummary> {
-  if (project.session.baseVersion !== "B2" && project.session.baseVersion !== "W2") {
-    throw new Error("Fairy Type Support is currently available for Black 2 and White 2 only.");
+  if (!fairyTypePatchAvailable(project.session.baseVersion)) {
+    throw new Error("Fairy Type Support is available for Black, White, Black 2 and White 2.");
   }
 
   const sections = await loadFairyTypePatchSections(project.session.baseVersion);

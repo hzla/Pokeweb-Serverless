@@ -82,6 +82,8 @@ PWAN compiles front and back GIFs into animations that Pokeweb's streaming runti
 
 A GIF is normally fitted into a 96x96, 15-colour frame. With the streaming runtime installed, **Keep full size (up to 128×128)** (checked by default for art larger than 96x96) streams the art at its own size instead: art over 128 is scaled to fit, the front stands on the ground like the game's sprites, the back where a PWAN back stands, and the offset and FPS controls still apply. Pixel or scale edits in the side editor apply to the 96x96 version, so they turn the side back into a 96x96 animation.
 
+Hzla's PWAN Library keeps the larger sprites at full size too: 94 sides whose source art is larger than 96x96 (Gen 7+ Pokémon such as Lunala, Celesteela and Blacephalon, and many Mega backs and fronts) carry a full-size stream next to their 96x96 version, and the library panel lists their size under **Full size**. Imported with the streaming runtime, those sides play at full size (the Mega Pokémon install uses them the same way); the PWAN runtime and the previews use the 96x96 version. They were converted with the Gen 5 colour preset (+15% saturation, +10% contrast) from the sources chosen by the sprite import priority (`scripts/reimport-pwan-library-full-size.ts`).
+
 | Field/control | Meaning |
 | --- | --- |
 | Pokemon | Species/form target for the override. |

@@ -300,7 +300,8 @@ describe("code-injection patch categories", () => {
     const html = renderFixture("W2");
     expect(html).not.toMatch(/id="install-form-evolution-btn"[^>]*disabled/u);
     expect(html).not.toMatch(/data-dll-target="(?:patches|lib)"[^>]*disabled/u);
-    expect(renderFixture("W")).toMatch(/id="install-form-evolution-btn"[^>]*disabled/u);
+    // Evolution by form supports Black / White too.
+    expect(renderFixture("W")).not.toMatch(/id="install-form-evolution-btn"[^>]*disabled/u);
   });
 
   it.each(["B2", "W2"] as const)("shows the concise toolbar description and optional hide flag on %s", version => {
@@ -353,7 +354,7 @@ describe("code-injection patch categories", () => {
       "Nature Palettes", "Summary IV/EV Viewer", "Enhanced Party Menu and Battle Log Integration", "Type Icons", "Party Menu Learnset/Dex Viewer", "Move Effectiveness Preview", "C-Gear Quick Actions", "Pokenav",
     ]);
     expect(headings(panels[2])).toEqual(["Instant Fast Text", "Background Music Toggle", "Forgettable HMs", "Make HM Moves Forgettable", "Autorun", "Skip Intro"]);
-    expect(headings(panels[3])).toEqual(["Fairy Type Support", "Move Expansion", "Mega Evolution"]);
+    expect(headings(panels[3])).toEqual(["Fairy Type Support", "Move Expansion", "Mega Evolution", "Regional Forms"]);
     expect(headings(panels[4])).toEqual([
       "Infinite Rare Candy", "Hard Level Caps", "Trainer Level Caps",
       "Trainer Field Conditions", "Nuzlocke Style Encounters", "Porta PC",

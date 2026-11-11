@@ -1,0 +1,7685 @@
+{
+ "format": "pokeweb-regional-forms-v1",
+ "source": "White2Upgrade data/pml; PWAN library sprites and icons",
+ "forms": [
+  {
+   "key": "REGIONAL_ALOLA_RATTATA",
+   "name": "Alolan Rattata",
+   "species": 19,
+   "family": 19,
+   "w2uForm": 1,
+   "suffix": "Alola",
+   "library": "19-1-1095",
+   "credits": {
+    "front": "Smogon Sprite Project",
+    "back": "Smogon Sprite Project"
+   },
+   "personal": {
+    "stats": [
+     30,
+     56,
+     35,
+     72,
+     25,
+     35
+    ],
+    "types": [
+     16,
+     0
+    ],
+    "catchRate": 255,
+    "stage": 1,
+    "evs": 64,
+    "items": [
+     0,
+     0,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 15,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     5,
+     5
+    ],
+    "flee": 120,
+    "color": 4,
+    "baseExp": 51,
+    "height": 3,
+    "weight": 38,
+    "tm": [
+     2752724512,
+     1208007432,
+     1130364929,
+     0
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     2054,
+     78976,
+     2,
+     10496
+    ]
+   },
+   "abilities": [
+    82,
+    55,
+    47
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "learnset": [
+    [
+     1,
+     33
+    ],
+    [
+     1,
+     39
+    ],
+    [
+     4,
+     98
+    ],
+    [
+     7,
+     116
+    ],
+    [
+     10,
+     44
+    ],
+    [
+     13,
+     228
+    ],
+    [
+     16,
+     158
+    ],
+    [
+     19,
+     372
+    ],
+    [
+     22,
+     242
+    ],
+    [
+     25,
+     389
+    ],
+    [
+     28,
+     162
+    ],
+    [
+     31,
+     38
+    ],
+    [
+     34,
+     283
+    ]
+   ],
+   "evolutions": [
+    {
+     "method": 4,
+     "param": 20,
+     "species": 20,
+     "form": "REGIONAL_ALOLA_RATICATE"
+    }
+   ]
+  },
+  {
+   "key": "REGIONAL_ALOLA_RATICATE",
+   "name": "Alolan Raticate",
+   "species": 20,
+   "family": 19,
+   "w2uForm": 1,
+   "suffix": "Alola",
+   "library": "20-1-1096",
+   "credits": {
+    "front": "Smogon Sprite Project",
+    "back": "Smogon Sprite Project"
+   },
+   "personal": {
+    "stats": [
+     75,
+     71,
+     70,
+     77,
+     40,
+     80
+    ],
+    "types": [
+     16,
+     0
+    ],
+    "catchRate": 127,
+    "stage": 2,
+    "evs": 128,
+    "items": [
+     0,
+     0,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 15,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     5,
+     5
+    ],
+    "flee": 90,
+    "color": 4,
+    "baseExp": 145,
+    "height": 7,
+    "weight": 255,
+    "tm": [
+     2752741296,
+     1208007434,
+     1130365961,
+     0
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     2054,
+     78976,
+     6,
+     10496
+    ]
+   },
+   "abilities": [
+    82,
+    55,
+    47
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "learnset": [
+    [
+     1,
+     116
+    ],
+    [
+     1,
+     98
+    ],
+    [
+     1,
+     184
+    ],
+    [
+     1,
+     14
+    ],
+    [
+     1,
+     33
+    ],
+    [
+     1,
+     39
+    ],
+    [
+     10,
+     44
+    ],
+    [
+     13,
+     228
+    ],
+    [
+     16,
+     158
+    ],
+    [
+     19,
+     372
+    ],
+    [
+     24,
+     242
+    ],
+    [
+     29,
+     389
+    ],
+    [
+     34,
+     162
+    ],
+    [
+     39,
+     38
+    ],
+    [
+     44,
+     283
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_ALOLA_RAICHU",
+   "name": "Alolan Raichu",
+   "species": 26,
+   "family": 172,
+   "w2uForm": 3,
+   "suffix": "Alola",
+   "library": "26-3-1099",
+   "credits": {
+    "front": "Smogon Sprite Project",
+    "back": "Smogon Sprite Project"
+   },
+   "personal": {
+    "stats": [
+     60,
+     85,
+     50,
+     110,
+     95,
+     85
+    ],
+    "types": [
+     12,
+     13
+    ],
+    "catchRate": 75,
+    "stage": 3,
+    "evs": 192,
+    "items": [
+     0,
+     0,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 10,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     5,
+     6
+    ],
+    "flee": 0,
+    "color": 5,
+    "baseExp": 218,
+    "height": 7,
+    "weight": 210,
+    "tm": [
+     3718234668,
+     26065409,
+     308281736,
+     2
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     6162,
+     66081,
+     6,
+     25936
+    ]
+   },
+   "abilities": [
+    207,
+    207,
+    207
+   ],
+   "abilityNames": {
+    "207": "Surge Surfer"
+   },
+   "abilityDescriptions": {
+    "207": "Doubles its Speed on\\nElectric Terrain."
+   },
+   "learnset": [
+    [
+     1,
+     94
+    ],
+    [
+     1,
+     97
+    ],
+    [
+     1,
+     204
+    ],
+    [
+     1,
+     435
+    ],
+    [
+     1,
+     104
+    ],
+    [
+     1,
+     486
+    ],
+    [
+     1,
+     364
+    ],
+    [
+     1,
+     45
+    ],
+    [
+     1,
+     231
+    ],
+    [
+     1,
+     113
+    ],
+    [
+     1,
+     417
+    ],
+    [
+     1,
+     609,
+     "Nuzzle"
+    ],
+    [
+     1,
+     589,
+     "Play Nice"
+    ],
+    [
+     1,
+     98
+    ],
+    [
+     1,
+     209
+    ],
+    [
+     1,
+     186
+    ],
+    [
+     1,
+     39
+    ],
+    [
+     1,
+     87
+    ],
+    [
+     1,
+     84
+    ],
+    [
+     1,
+     86
+    ],
+    [
+     5,
+     85
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_ALOLA_SANDSHREW",
+   "name": "Alolan Sandshrew",
+   "species": 27,
+   "family": 27,
+   "w2uForm": 1,
+   "suffix": "Alola",
+   "library": "27-1-1100",
+   "credits": {
+    "front": "Smogon Sprite Project",
+    "back": "Smogon Sprite Project"
+   },
+   "personal": {
+    "stats": [
+     50,
+     75,
+     90,
+     40,
+     10,
+     35
+    ],
+    "types": [
+     14,
+     8
+    ],
+    "catchRate": 255,
+    "stage": 1,
+    "evs": 16,
+    "items": [
+     0,
+     286,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     5,
+     5
+    ],
+    "flee": 90,
+    "color": 8,
+    "baseExp": 60,
+    "height": 7,
+    "weight": 400,
+    "tm": [
+     3457758816,
+     8436416,
+     105768449,
+     0
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     16934,
+     68672,
+     6,
+     12544
+    ]
+   },
+   "abilities": [
+    81,
+    81,
+    202
+   ],
+   "abilityNames": {
+    "202": "Slush Rush"
+   },
+   "abilityDescriptions": {
+    "202": "Boosts the Pokémon’s\\nSpeed stat in a hailstorm."
+   },
+   "learnset": [
+    [
+     1,
+     111
+    ],
+    [
+     1,
+     10
+    ],
+    [
+     3,
+     54
+    ],
+    [
+     6,
+     181
+    ],
+    [
+     9,
+     205
+    ],
+    [
+     12,
+     210
+    ],
+    [
+     15,
+     229
+    ],
+    [
+     18,
+     232
+    ],
+    [
+     21,
+     129
+    ],
+    [
+     24,
+     154
+    ],
+    [
+     27,
+     334
+    ],
+    [
+     30,
+     163
+    ],
+    [
+     33,
+     442
+    ],
+    [
+     36,
+     360
+    ],
+    [
+     39,
+     14
+    ],
+    [
+     42,
+     883,
+     "Snowscape"
+    ],
+    [
+     45,
+     59
+    ]
+   ],
+   "evolutions": [
+    {
+     "method": 4,
+     "param": 22,
+     "species": 28,
+     "form": "REGIONAL_ALOLA_SANDSLASH"
+    }
+   ]
+  },
+  {
+   "key": "REGIONAL_ALOLA_SANDSLASH",
+   "name": "Alolan Sandslash",
+   "species": 28,
+   "family": 27,
+   "w2uForm": 1,
+   "suffix": "Alola",
+   "library": "28-1-1101",
+   "credits": {
+    "front": "Smogon Sprite Project",
+    "back": "Smogon Sprite Project"
+   },
+   "personal": {
+    "stats": [
+     75,
+     100,
+     120,
+     65,
+     25,
+     65
+    ],
+    "types": [
+     14,
+     8
+    ],
+    "catchRate": 90,
+    "stage": 2,
+    "evs": 32,
+    "items": [
+     0,
+     286,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     5,
+     5
+    ],
+    "flee": 60,
+    "color": 1,
+    "baseExp": 158,
+    "height": 12,
+    "weight": 550,
+    "tm": [
+     3457775200,
+     11057856,
+     105768457,
+     0
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     17062,
+     68672,
+     6,
+     12544
+    ]
+   },
+   "abilities": [
+    81,
+    81,
+    202
+   ],
+   "abilityNames": {
+    "202": "Slush Rush"
+   },
+   "abilityDescriptions": {
+    "202": "Boosts the Pokémon’s\\nSpeed stat in a hailstorm."
+   },
+   "learnset": [
+    [
+     1,
+     333
+    ],
+    [
+     1,
+     59
+    ],
+    [
+     1,
+     111
+    ],
+    [
+     1,
+     210
+    ],
+    [
+     1,
+     154
+    ],
+    [
+     1,
+     360
+    ],
+    [
+     1,
+     556
+    ],
+    [
+     1,
+     334
+    ],
+    [
+     1,
+     442
+    ],
+    [
+     1,
+     368
+    ],
+    [
+     1,
+     232
+    ],
+    [
+     1,
+     54
+    ],
+    [
+     1,
+     181
+    ],
+    [
+     1,
+     229
+    ],
+    [
+     1,
+     205
+    ],
+    [
+     1,
+     10
+    ],
+    [
+     1,
+     163
+    ],
+    [
+     1,
+     883,
+     "Snowscape"
+    ],
+    [
+     1,
+     129
+    ],
+    [
+     1,
+     14
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_ALOLA_VULPIX",
+   "name": "Alolan Vulpix",
+   "species": 37,
+   "family": 37,
+   "w2uForm": 1,
+   "suffix": "Alola",
+   "library": "37-1-1102",
+   "credits": {
+    "front": "Smogon Sprite Project",
+    "back": "Smogon Sprite Project"
+   },
+   "personal": {
+    "stats": [
+     38,
+     41,
+     40,
+     65,
+     50,
+     65
+    ],
+    "types": [
+     14,
+     14
+    ],
+    "catchRate": 190,
+    "stage": 1,
+    "evs": 64,
+    "items": [
+     0,
+     249,
+     0
+    ],
+    "gender": 191,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     5,
+     5
+    ],
+    "flee": 0,
+    "color": 8,
+    "baseExp": 60,
+    "height": 6,
+    "weight": 99,
+    "tm": [
+     2350592624,
+     39424,
+     37769218,
+     0
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     2,
+     80904,
+     610,
+     8212
+    ]
+   },
+   "abilities": [
+    81,
+    81,
+    117
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "learnset": [
+    [
+     1,
+     181
+    ],
+    [
+     1,
+     39
+    ],
+    [
+     4,
+     50
+    ],
+    [
+     8,
+     420
+    ],
+    [
+     12,
+     180
+    ],
+    [
+     16,
+     196
+    ],
+    [
+     20,
+     109
+    ],
+    [
+     24,
+     62
+    ],
+    [
+     28,
+     326
+    ],
+    [
+     32,
+     58
+    ],
+    [
+     36,
+     286
+    ],
+    [
+     40,
+     54
+    ],
+    [
+     44,
+     694,
+     "Aurora Veil"
+    ],
+    [
+     48,
+     573,
+     "Freeze-Dry"
+    ],
+    [
+     52,
+     59
+    ]
+   ],
+   "evolutions": [
+    {
+     "method": 8,
+     "param": 82,
+     "species": 38,
+     "form": "REGIONAL_ALOLA_NINETALES"
+    }
+   ]
+  },
+  {
+   "key": "REGIONAL_ALOLA_NINETALES",
+   "name": "Alolan Ninetales",
+   "species": 38,
+   "family": 37,
+   "w2uForm": 1,
+   "suffix": "Alola",
+   "library": "38-1-1103",
+   "credits": {
+    "front": "Smogon Sprite Project",
+    "back": "Smogon Sprite Project"
+   },
+   "personal": {
+    "stats": [
+     73,
+     67,
+     75,
+     109,
+     81,
+     100
+    ],
+    "types": [
+     14,
+     17
+    ],
+    "catchRate": 75,
+    "stage": 2,
+    "evs": 128,
+    "items": [
+     0,
+     249,
+     0
+    ],
+    "gender": 191,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     5,
+     5
+    ],
+    "flee": 0,
+    "color": 1,
+    "baseExp": 177,
+    "height": 11,
+    "weight": 199,
+    "tm": [
+     2352706172,
+     39424,
+     38817802,
+     0
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     2,
+     80904,
+     610,
+     8340
+    ]
+   },
+   "abilities": [
+    81,
+    81,
+    117
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "learnset": [
+    [
+     1,
+     605,
+     "Dazzling Gleam"
+    ],
+    [
+     1,
+     62
+    ],
+    [
+     1,
+     694,
+     "Aurora Veil"
+    ],
+    [
+     1,
+     59
+    ],
+    [
+     1,
+     109
+    ],
+    [
+     1,
+     50
+    ],
+    [
+     1,
+     326
+    ],
+    [
+     1,
+     573,
+     "Freeze-Dry"
+    ],
+    [
+     1,
+     58
+    ],
+    [
+     1,
+     420
+    ],
+    [
+     1,
+     196
+    ],
+    [
+     1,
+     286
+    ],
+    [
+     1,
+     54
+    ],
+    [
+     1,
+     417
+    ],
+    [
+     1,
+     181
+    ],
+    [
+     1,
+     180
+    ],
+    [
+     1,
+     39
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_ALOLA_DIGLETT",
+   "name": "Alolan Diglett",
+   "species": 50,
+   "family": 50,
+   "w2uForm": 1,
+   "suffix": "Alola",
+   "library": "50-1-1104",
+   "credits": {
+    "front": "Smogon Sprite Project",
+    "back": "Smogon Sprite Project"
+   },
+   "personal": {
+    "stats": [
+     10,
+     55,
+     30,
+     90,
+     35,
+     45
+    ],
+    "types": [
+     4,
+     8
+    ],
+    "catchRate": 255,
+    "stage": 1,
+    "evs": 64,
+    "items": [
+     0,
+     237,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     5,
+     5
+    ],
+    "flee": 120,
+    "color": 5,
+    "baseExp": 53,
+    "height": 2,
+    "weight": 10,
+    "tm": [
+     2387674656,
+     375512,
+     105161793,
+     0
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     2080,
+     76,
+     2,
+     12304
+    ]
+   },
+   "abilities": [
+    8,
+    221,
+    159
+   ],
+   "abilityNames": {
+    "221": "Tangling Hair"
+   },
+   "abilityDescriptions": {
+    "221": "Contact with it lowers the\\nattacker's Speed."
+   },
+   "learnset": [
+    [
+     1,
+     232
+    ],
+    [
+     1,
+     28
+    ],
+    [
+     4,
+     45
+    ],
+    [
+     8,
+     310
+    ],
+    [
+     12,
+     189
+    ],
+    [
+     16,
+     523
+    ],
+    [
+     20,
+     389
+    ],
+    [
+     24,
+     442
+    ],
+    [
+     28,
+     201
+    ],
+    [
+     32,
+     91
+    ],
+    [
+     36,
+     414
+    ],
+    [
+     40,
+     89
+    ],
+    [
+     44,
+     90
+    ]
+   ],
+   "evolutions": [
+    {
+     "method": 4,
+     "param": 26,
+     "species": 51,
+     "form": "REGIONAL_ALOLA_DUGTRIO"
+    }
+   ]
+  },
+  {
+   "key": "REGIONAL_ALOLA_DUGTRIO",
+   "name": "Alolan Dugtrio",
+   "species": 51,
+   "family": 50,
+   "w2uForm": 1,
+   "suffix": "Alola",
+   "library": "51-1-1105",
+   "credits": {
+    "front": "Smogon Sprite Project",
+    "back": "Smogon Sprite Project"
+   },
+   "personal": {
+    "stats": [
+     35,
+     100,
+     60,
+     110,
+     50,
+     70
+    ],
+    "types": [
+     4,
+     8
+    ],
+    "catchRate": 50,
+    "stage": 2,
+    "evs": 8,
+    "items": [
+     0,
+     237,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     5,
+     5
+    ],
+    "flee": 0,
+    "color": 5,
+    "baseExp": 142,
+    "height": 7,
+    "weight": 666,
+    "tm": [
+     2387691040,
+     375514,
+     105161801,
+     0
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     2080,
+     76,
+     2,
+     12560
+    ]
+   },
+   "abilities": [
+    8,
+    221,
+    159
+   ],
+   "abilityNames": {
+    "221": "Tangling Hair"
+   },
+   "abilityDescriptions": {
+    "221": "Contact with it lowers the\\nattacker's Speed."
+   },
+   "learnset": [
+    [
+     1,
+     328
+    ],
+    [
+     1,
+     310
+    ],
+    [
+     1,
+     45
+    ],
+    [
+     1,
+     232
+    ],
+    [
+     1,
+     400
+    ],
+    [
+     1,
+     28
+    ],
+    [
+     1,
+     161
+    ],
+    [
+     12,
+     189
+    ],
+    [
+     16,
+     523
+    ],
+    [
+     20,
+     389
+    ],
+    [
+     24,
+     442
+    ],
+    [
+     30,
+     201
+    ],
+    [
+     36,
+     91
+    ],
+    [
+     42,
+     414
+    ],
+    [
+     48,
+     89
+    ],
+    [
+     54,
+     90
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_ALOLA_MEOWTH",
+   "name": "Alolan Meowth",
+   "species": 52,
+   "family": 52,
+   "w2uForm": 1,
+   "suffix": "Alola",
+   "library": "52-1-1106",
+   "credits": {
+    "front": "Smogon Sprite Project",
+    "back": "Smogon Sprite Project"
+   },
+   "personal": {
+    "stats": [
+     40,
+     35,
+     35,
+     90,
+     50,
+     40
+    ],
+    "types": [
+     16,
+     16
+    ],
+    "catchRate": 255,
+    "stage": 1,
+    "evs": 64,
+    "items": [
+     0,
+     217,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     5,
+     5
+    ],
+    "flee": 0,
+    "color": 1,
+    "baseExp": 58,
+    "height": 4,
+    "weight": 42,
+    "tm": [
+     2912095776,
+     1208073088,
+     1129582855,
+     0
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     3138,
+     103560,
+     6,
+     10516
+    ]
+   },
+   "abilities": [
+    53,
+    101,
+    155
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "learnset": [
+    [
+     1,
+     252
+    ],
+    [
+     1,
+     45
+    ],
+    [
+     4,
+     364
+    ],
+    [
+     8,
+     10
+    ],
+    [
+     12,
+     6
+    ],
+    [
+     16,
+     44
+    ],
+    [
+     20,
+     269
+    ],
+    [
+     24,
+     372
+    ],
+    [
+     29,
+     154
+    ],
+    [
+     32,
+     103
+    ],
+    [
+     36,
+     400
+    ],
+    [
+     40,
+     417
+    ],
+    [
+     44,
+     583,
+     "Play Rough"
+    ]
+   ],
+   "evolutions": [
+    {
+     "method": 1,
+     "param": 0,
+     "species": 53,
+     "form": "REGIONAL_ALOLA_PERSIAN"
+    }
+   ]
+  },
+  {
+   "key": "REGIONAL_GALAR_MEOWTH",
+   "name": "Galarian Meowth",
+   "species": 52,
+   "family": 52,
+   "w2uForm": 2,
+   "suffix": "Galar",
+   "library": "52-2-1107",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     50,
+     65,
+     55,
+     40,
+     40,
+     40
+    ],
+    "types": [
+     8,
+     8
+    ],
+    "catchRate": 255,
+    "stage": 1,
+    "evs": 4,
+    "items": [
+     0,
+     217,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     5,
+     5
+    ],
+    "flee": 0,
+    "color": 5,
+    "baseExp": 58,
+    "height": 4,
+    "weight": 75,
+    "tm": [
+     3985837601,
+     10599296,
+     2270496295,
+     0
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     3170,
+     102600,
+     6,
+     14612
+    ]
+   },
+   "abilities": [
+    53,
+    181,
+    127
+   ],
+   "abilityNames": {
+    "181": "Tough Claws"
+   },
+   "abilityDescriptions": {
+    "181": "Powers up moves that make\\ndirect contact."
+   },
+   "learnset": [
+    [
+     1,
+     252
+    ],
+    [
+     1,
+     45
+    ],
+    [
+     4,
+     468
+    ],
+    [
+     8,
+     10
+    ],
+    [
+     12,
+     6
+    ],
+    [
+     16,
+     232
+    ],
+    [
+     20,
+     269
+    ],
+    [
+     24,
+     207
+    ],
+    [
+     29,
+     154
+    ],
+    [
+     32,
+     103
+    ],
+    [
+     36,
+     163
+    ],
+    [
+     40,
+     319
+    ],
+    [
+     44,
+     37
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_ALOLA_PERSIAN",
+   "name": "Alolan Persian",
+   "species": 53,
+   "family": 52,
+   "w2uForm": 1,
+   "suffix": "Alola",
+   "library": "53-1-1108",
+   "credits": {
+    "front": "Smogon Sprite Project",
+    "back": "Smogon Sprite Project"
+   },
+   "personal": {
+    "stats": [
+     65,
+     60,
+     60,
+     115,
+     75,
+     65
+    ],
+    "types": [
+     16,
+     16
+    ],
+    "catchRate": 90,
+    "stage": 2,
+    "evs": 128,
+    "items": [
+     0,
+     217,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     5,
+     5
+    ],
+    "flee": 0,
+    "color": 1,
+    "baseExp": 154,
+    "height": 11,
+    "weight": 330,
+    "tm": [
+     2916306480,
+     1208073088,
+     1129582863,
+     0
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     3138,
+     103560,
+     6,
+     10516
+    ]
+   },
+   "abilities": [
+    169,
+    101,
+    155
+   ],
+   "abilityNames": {
+    "169": "Fur Coat"
+   },
+   "abilityDescriptions": {
+    "169": "Halves damage from\\nphysical moves."
+   },
+   "learnset": [
+    [
+     1,
+     408
+    ],
+    [
+     1,
+     252
+    ],
+    [
+     1,
+     364
+    ],
+    [
+     1,
+     45
+    ],
+    [
+     1,
+     511
+    ],
+    [
+     1,
+     10
+    ],
+    [
+     1,
+     415
+    ],
+    [
+     12,
+     6
+    ],
+    [
+     16,
+     44
+    ],
+    [
+     20,
+     269
+    ],
+    [
+     24,
+     372
+    ],
+    [
+     31,
+     154
+    ],
+    [
+     36,
+     103
+    ],
+    [
+     42,
+     400
+    ],
+    [
+     48,
+     417
+    ],
+    [
+     54,
+     583,
+     "Play Rough"
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_HISUI_GROWLITHE",
+   "name": "Hisuian Growlithe",
+   "species": 58,
+   "family": 58,
+   "w2uForm": 1,
+   "suffix": "Hisui",
+   "library": "58-1-1109",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     60,
+     75,
+     45,
+     55,
+     65,
+     50
+    ],
+    "types": [
+     9,
+     5
+    ],
+    "catchRate": 190,
+    "stage": 1,
+    "evs": 4,
+    "items": [
+     0,
+     0,
+     0
+    ],
+    "gender": 63,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 5,
+    "eggGroups": [
+     5,
+     5
+    ],
+    "flee": 0,
+    "color": 5,
+    "baseExp": 70,
+    "height": 8,
+    "weight": 227,
+    "tm": [
+     2354644528,
+     335715956,
+     843087940,
+     4
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     2,
+     0,
+     18,
+     12816
+    ]
+   },
+   "abilities": [
+    22,
+    18,
+    69
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "learnset": [
+    [
+     1,
+     52
+    ],
+    [
+     1,
+     43
+    ],
+    [
+     4,
+     336
+    ],
+    [
+     8,
+     44
+    ],
+    [
+     12,
+     172
+    ],
+    [
+     16,
+     270
+    ],
+    [
+     24,
+     424
+    ],
+    [
+     28,
+     514
+    ],
+    [
+     32,
+     242
+    ],
+    [
+     36,
+     36
+    ],
+    [
+     40,
+     53
+    ],
+    [
+     44,
+     46
+    ],
+    [
+     48,
+     157
+    ],
+    [
+     52,
+     179
+    ],
+    [
+     56,
+     394
+    ]
+   ],
+   "evolutions": [
+    {
+     "method": 8,
+     "param": 82,
+     "species": 59,
+     "form": "REGIONAL_HISUI_ARCANINE"
+    }
+   ]
+  },
+  {
+   "key": "REGIONAL_HISUI_ARCANINE",
+   "name": "Hisuian Arcanine",
+   "species": 59,
+   "family": 58,
+   "w2uForm": 1,
+   "suffix": "Hisui",
+   "library": "59-1-1110",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     95,
+     115,
+     80,
+     90,
+     95,
+     80
+    ],
+    "types": [
+     9,
+     5
+    ],
+    "catchRate": 75,
+    "stage": 2,
+    "evs": 8,
+    "items": [
+     0,
+     0,
+     0
+    ],
+    "gender": 63,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 5,
+    "eggGroups": [
+     5,
+     5
+    ],
+    "flee": 0,
+    "color": 5,
+    "baseExp": 194,
+    "height": 20,
+    "weight": 1680,
+    "tm": [
+     2356758064,
+     335724276,
+     1916837964,
+     4
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     34,
+     49152,
+     18,
+     12816
+    ]
+   },
+   "abilities": [
+    22,
+    18,
+    69
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "learnset": [
+    [
+     1,
+     245
+    ],
+    [
+     1,
+     97
+    ],
+    [
+     1,
+     44
+    ],
+    [
+     1,
+     242
+    ],
+    [
+     1,
+     52
+    ],
+    [
+     1,
+     424
+    ],
+    [
+     1,
+     172
+    ],
+    [
+     1,
+     394
+    ],
+    [
+     1,
+     270
+    ],
+    [
+     1,
+     336
+    ],
+    [
+     1,
+     43
+    ],
+    [
+     1,
+     514
+    ],
+    [
+     1,
+     179
+    ],
+    [
+     1,
+     46
+    ],
+    [
+     1,
+     157
+    ],
+    [
+     1,
+     88
+    ],
+    [
+     1,
+     36
+    ],
+    [
+     5,
+     53
+    ],
+    [
+     64,
+     833,
+     "Raging Fury"
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_ALOLA_GEODUDE",
+   "name": "Alolan Geodude",
+   "species": 74,
+   "family": 74,
+   "w2uForm": 1,
+   "suffix": "Alola",
+   "library": "74-1-1111",
+   "credits": {
+    "front": "Smogon Sprite Project",
+    "back": "Smogon Sprite Project"
+   },
+   "personal": {
+    "stats": [
+     40,
+     80,
+     100,
+     20,
+     30,
+     30
+    ],
+    "types": [
+     5,
+     12
+    ],
+    "catchRate": 255,
+    "stage": 1,
+    "evs": 16,
+    "items": [
+     0,
+     229,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 15,
+    "happiness": 70,
+    "growth": 3,
+    "eggGroups": [
+     10,
+     10
+    ],
+    "flee": 90,
+    "color": 7,
+    "baseExp": 60,
+    "height": 4,
+    "weight": 203,
+    "tm": [
+     3486582304,
+     2172689012,
+     306226128,
+     0
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     12288,
+     870,
+     2,
+     12288
+    ]
+   },
+   "abilities": [
+    42,
+    5,
+    206
+   ],
+   "abilityNames": {
+    "206": "Galvanize"
+   },
+   "abilityDescriptions": {
+    "206": "Normal moves become\\nElectric and get stronger."
+   },
+   "learnset": [
+    [
+     1,
+     111
+    ],
+    [
+     1,
+     33
+    ],
+    [
+     4,
+     268
+    ],
+    [
+     6,
+     397
+    ],
+    [
+     10,
+     205
+    ],
+    [
+     12,
+     209
+    ],
+    [
+     16,
+     88
+    ],
+    [
+     18,
+     479
+    ],
+    [
+     22,
+     9
+    ],
+    [
+     24,
+     120
+    ],
+    [
+     28,
+     446
+    ],
+    [
+     30,
+     350
+    ],
+    [
+     34,
+     435
+    ],
+    [
+     36,
+     153
+    ],
+    [
+     40,
+     38
+    ],
+    [
+     42,
+     444
+    ]
+   ],
+   "evolutions": [
+    {
+     "method": 4,
+     "param": 25,
+     "species": 75,
+     "form": "REGIONAL_ALOLA_GRAVELER"
+    }
+   ]
+  },
+  {
+   "key": "REGIONAL_ALOLA_GRAVELER",
+   "name": "Alolan Graveler",
+   "species": 75,
+   "family": 74,
+   "w2uForm": 1,
+   "suffix": "Alola",
+   "library": "75-1-1112",
+   "credits": {
+    "front": "Smogon Sprite Project",
+    "back": "Smogon Sprite Project"
+   },
+   "personal": {
+    "stats": [
+     55,
+     95,
+     115,
+     35,
+     45,
+     45
+    ],
+    "types": [
+     5,
+     12
+    ],
+    "catchRate": 120,
+    "stage": 2,
+    "evs": 32,
+    "items": [
+     0,
+     229,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 15,
+    "happiness": 70,
+    "growth": 3,
+    "eggGroups": [
+     10,
+     10
+    ],
+    "flee": 60,
+    "color": 7,
+    "baseExp": 137,
+    "height": 10,
+    "weight": 1100,
+    "tm": [
+     3486582304,
+     2173475444,
+     306226128,
+     0
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     12288,
+     870,
+     2,
+     12288
+    ]
+   },
+   "abilities": [
+    42,
+    5,
+    206
+   ],
+   "abilityNames": {
+    "206": "Galvanize"
+   },
+   "abilityDescriptions": {
+    "206": "Normal moves become\\nElectric and get stronger."
+   },
+   "learnset": [
+    [
+     1,
+     268
+    ],
+    [
+     1,
+     111
+    ],
+    [
+     1,
+     397
+    ],
+    [
+     1,
+     33
+    ],
+    [
+     10,
+     205
+    ],
+    [
+     12,
+     209
+    ],
+    [
+     16,
+     88
+    ],
+    [
+     18,
+     479
+    ],
+    [
+     22,
+     9
+    ],
+    [
+     24,
+     120
+    ],
+    [
+     30,
+     446
+    ],
+    [
+     34,
+     350
+    ],
+    [
+     40,
+     435
+    ],
+    [
+     44,
+     153
+    ],
+    [
+     50,
+     38
+    ],
+    [
+     54,
+     444
+    ]
+   ],
+   "evolutions": [
+    {
+     "method": 5,
+     "param": 0,
+     "species": 76,
+     "form": "REGIONAL_ALOLA_GOLEM"
+    }
+   ]
+  },
+  {
+   "key": "REGIONAL_ALOLA_GOLEM",
+   "name": "Alolan Golem",
+   "species": 76,
+   "family": 74,
+   "w2uForm": 1,
+   "suffix": "Alola",
+   "library": "76-1-1113",
+   "credits": {
+    "front": "Smogon Sprite Project",
+    "back": "Smogon Sprite Project"
+   },
+   "personal": {
+    "stats": [
+     80,
+     120,
+     130,
+     45,
+     55,
+     65
+    ],
+    "types": [
+     5,
+     12
+    ],
+    "catchRate": 45,
+    "stage": 3,
+    "evs": 48,
+    "items": [
+     0,
+     229,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 15,
+    "happiness": 70,
+    "growth": 3,
+    "eggGroups": [
+     10,
+     10
+    ],
+    "flee": 0,
+    "color": 7,
+    "baseExp": 223,
+    "height": 17,
+    "weight": 3160,
+    "tm": [
+     3486598704,
+     2173540980,
+     306226136,
+     0
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     12320,
+     870,
+     2,
+     12288
+    ]
+   },
+   "abilities": [
+    42,
+    5,
+    206
+   ],
+   "abilityNames": {
+    "206": "Galvanize"
+   },
+   "abilityDescriptions": {
+    "206": "Normal moves become\\nElectric and get stronger."
+   },
+   "learnset": [
+    [
+     1,
+     268
+    ],
+    [
+     1,
+     111
+    ],
+    [
+     1,
+     484
+    ],
+    [
+     1,
+     397
+    ],
+    [
+     1,
+     33
+    ],
+    [
+     12,
+     209
+    ],
+    [
+     16,
+     88
+    ],
+    [
+     18,
+     479
+    ],
+    [
+     22,
+     9
+    ],
+    [
+     24,
+     120
+    ],
+    [
+     30,
+     446
+    ],
+    [
+     34,
+     350
+    ],
+    [
+     40,
+     435
+    ],
+    [
+     44,
+     153
+    ],
+    [
+     50,
+     38
+    ],
+    [
+     54,
+     444
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_GALAR_PONYTA",
+   "name": "Galarian Ponyta",
+   "species": 77,
+   "family": 77,
+   "w2uForm": 1,
+   "suffix": "Galar",
+   "library": "77-1-1114",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     50,
+     85,
+     55,
+     90,
+     65,
+     65
+    ],
+    "types": [
+     13,
+     13
+    ],
+    "catchRate": 190,
+    "stage": 1,
+    "evs": 64,
+    "items": [
+     0,
+     0,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     5,
+     5
+    ],
+    "flee": 120,
+    "color": 8,
+    "baseExp": 82,
+    "height": 8,
+    "weight": 240,
+    "tm": [
+     2484142632,
+     67476992,
+     306184192,
+     4
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     768,
+     73728,
+     2,
+     8192
+    ]
+   },
+   "abilities": [
+    50,
+    257,
+    107
+   ],
+   "abilityNames": {
+    "257": "Pastel Veil"
+   },
+   "abilityDescriptions": {
+    "257": "It and its allies can't be\\npoisoned."
+   },
+   "learnset": [
+    [
+     1,
+     45
+    ],
+    [
+     1,
+     33
+    ],
+    [
+     5,
+     39
+    ],
+    [
+     10,
+     93
+    ],
+    [
+     15,
+     584,
+     "Fairy Wind"
+    ],
+    [
+     20,
+     97
+    ],
+    [
+     25,
+     60
+    ],
+    [
+     30,
+     23
+    ],
+    [
+     35,
+     505
+    ],
+    [
+     41,
+     36
+    ],
+    [
+     45,
+     605,
+     "Dazzling Gleam"
+    ],
+    [
+     50,
+     94
+    ],
+    [
+     55,
+     361
+    ]
+   ],
+   "evolutions": [
+    {
+     "method": 4,
+     "param": 40,
+     "species": 78,
+     "form": "REGIONAL_GALAR_RAPIDASH"
+    }
+   ]
+  },
+  {
+   "key": "REGIONAL_GALAR_RAPIDASH",
+   "name": "Galarian Rapidash",
+   "species": 78,
+   "family": 77,
+   "w2uForm": 1,
+   "suffix": "Galar",
+   "library": "78-1-1115",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     65,
+     100,
+     70,
+     105,
+     80,
+     80
+    ],
+    "types": [
+     13,
+     17
+    ],
+    "catchRate": 60,
+    "stage": 2,
+    "evs": 128,
+    "items": [
+     0,
+     0,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     5,
+     5
+    ],
+    "flee": 0,
+    "color": 8,
+    "baseExp": 175,
+    "height": 17,
+    "weight": 800,
+    "tm": [
+     2484159016,
+     67476992,
+     440402952,
+     4
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     896,
+     73728,
+     2,
+     8384
+    ]
+   },
+   "abilities": [
+    50,
+    257,
+    107
+   ],
+   "abilityNames": {
+    "257": "Pastel Veil"
+   },
+   "abilityDescriptions": {
+    "257": "It and its allies can't be\\npoisoned."
+   },
+   "learnset": [
+    [
+     1,
+     427
+    ],
+    [
+     1,
+     93
+    ],
+    [
+     1,
+     45
+    ],
+    [
+     1,
+     224
+    ],
+    [
+     1,
+     98
+    ],
+    [
+     1,
+     33
+    ],
+    [
+     1,
+     39
+    ],
+    [
+     15,
+     584,
+     "Fairy Wind"
+    ],
+    [
+     20,
+     97
+    ],
+    [
+     25,
+     60
+    ],
+    [
+     30,
+     23
+    ],
+    [
+     35,
+     505
+    ],
+    [
+     43,
+     36
+    ],
+    [
+     49,
+     605,
+     "Dazzling Gleam"
+    ],
+    [
+     56,
+     94
+    ],
+    [
+     63,
+     361
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_GALAR_SLOWPOKE",
+   "name": "Galarian Slowpoke",
+   "species": 79,
+   "family": 79,
+   "w2uForm": 1,
+   "suffix": "Galar",
+   "library": "79-1-1116",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     90,
+     65,
+     65,
+     15,
+     40,
+     40
+    ],
+    "types": [
+     13,
+     13
+    ],
+    "catchRate": 190,
+    "stage": 1,
+    "evs": 1,
+    "items": [
+     0,
+     279,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     1,
+     2
+    ],
+    "flee": 60,
+    "color": 9,
+    "baseExp": 63,
+    "height": 12,
+    "weight": 360,
+    "tm": [
+     3189749356,
+     71408164,
+     175124768,
+     30
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     16,
+     76811,
+     2,
+     25784
+    ]
+   },
+   "abilities": [
+    82,
+    20,
+    144
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "learnset": [
+    [
+     1,
+     174
+    ],
+    [
+     1,
+     33
+    ],
+    [
+     3,
+     45
+    ],
+    [
+     6,
+     51
+    ],
+    [
+     9,
+     281
+    ],
+    [
+     12,
+     93
+    ],
+    [
+     15,
+     50
+    ],
+    [
+     18,
+     352
+    ],
+    [
+     21,
+     29
+    ],
+    [
+     24,
+     428
+    ],
+    [
+     27,
+     133
+    ],
+    [
+     30,
+     57
+    ],
+    [
+     33,
+     303
+    ],
+    [
+     36,
+     94
+    ],
+    [
+     39,
+     244
+    ],
+    [
+     42,
+     240
+    ],
+    [
+     45,
+     505
+    ]
+   ],
+   "evolutions": [
+    {
+     "method": 4,
+     "param": 37,
+     "species": 80,
+     "form": "REGIONAL_GALAR_SLOWBRO"
+    },
+    {
+     "method": 6,
+     "param": 221,
+     "species": 199,
+     "form": "REGIONAL_GALAR_SLOWKING"
+    }
+   ]
+  },
+  {
+   "key": "REGIONAL_GALAR_SLOWBRO",
+   "name": "Galarian Slowbro",
+   "species": 80,
+   "family": 79,
+   "w2uForm": 2,
+   "suffix": "Galar",
+   "library": "80-2-1118",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     95,
+     100,
+     95,
+     30,
+     100,
+     70
+    ],
+    "types": [
+     3,
+     13
+    ],
+    "catchRate": 75,
+    "stage": 2,
+    "evs": 8,
+    "items": [
+     0,
+     221,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     1,
+     2
+    ],
+    "flee": 60,
+    "color": 9,
+    "baseExp": 172,
+    "height": 16,
+    "weight": 705,
+    "tm": [
+     4267702124,
+     80321086,
+     712519976,
+     30
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     17424,
+     76875,
+     2050,
+     25784
+    ]
+   },
+   "abilities": [
+    259,
+    20,
+    144
+   ],
+   "abilityNames": {
+    "259": "Quick Draw"
+   },
+   "abilityDescriptions": {
+    "259": "Enables the Pokémon to\\nmove first occasionally."
+   },
+   "learnset": [
+    [
+     1,
+     801,
+     "Shell Side Arm"
+    ],
+    [
+     1,
+     51
+    ],
+    [
+     1,
+     174
+    ],
+    [
+     1,
+     45
+    ],
+    [
+     1,
+     33
+    ],
+    [
+     1,
+     110
+    ],
+    [
+     9,
+     281
+    ],
+    [
+     12,
+     93
+    ],
+    [
+     15,
+     50
+    ],
+    [
+     18,
+     352
+    ],
+    [
+     21,
+     29
+    ],
+    [
+     24,
+     428
+    ],
+    [
+     27,
+     133
+    ],
+    [
+     30,
+     57
+    ],
+    [
+     33,
+     303
+    ],
+    [
+     36,
+     94
+    ],
+    [
+     39,
+     244
+    ],
+    [
+     42,
+     240
+    ],
+    [
+     45,
+     505
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_GALAR_FARFETCHD",
+   "name": "Galarian Farfetch'd",
+   "species": 83,
+   "family": 83,
+   "w2uForm": 1,
+   "suffix": "Galar",
+   "library": "83-1-1119",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     52,
+     95,
+     55,
+     55,
+     58,
+     62
+    ],
+    "types": [
+     1,
+     1
+    ],
+    "catchRate": 45,
+    "stage": 2,
+    "evs": 4,
+    "items": [
+     0,
+     259,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     4,
+     5
+    ],
+    "flee": 120,
+    "color": 5,
+    "baseExp": 123,
+    "height": 8,
+    "weight": 420,
+    "tm": [
+     3289450016,
+     39552,
+     2194412548,
+     0
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     2,
+     384,
+     4486,
+     8208
+    ]
+   },
+   "abilities": [
+    80,
+    80,
+    113
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "learnset": [
+    [
+     1,
+     64
+    ],
+    [
+     1,
+     28
+    ],
+    [
+     5,
+     43
+    ],
+    [
+     10,
+     210
+    ],
+    [
+     15,
+     249
+    ],
+    [
+     20,
+     693,
+     "Brutal Swing"
+    ],
+    [
+     25,
+     197
+    ],
+    [
+     30,
+     282
+    ],
+    [
+     35,
+     432
+    ],
+    [
+     40,
+     280
+    ],
+    [
+     45,
+     14
+    ],
+    [
+     50,
+     21
+    ],
+    [
+     55,
+     348
+    ],
+    [
+     60,
+     515
+    ],
+    [
+     65,
+     413
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_ALOLA_GRIMER",
+   "name": "Alolan Grimer",
+   "species": 88,
+   "family": 88,
+   "w2uForm": 1,
+   "suffix": "Alola",
+   "library": "88-1-1120",
+   "credits": {
+    "front": "Smogon Sprite Project",
+    "back": "Smogon Sprite Project"
+   },
+   "personal": {
+    "stats": [
+     80,
+     80,
+     50,
+     25,
+     40,
+     50
+    ],
+    "types": [
+     3,
+     16
+    ],
+    "catchRate": 190,
+    "stage": 1,
+    "evs": 1,
+    "items": [
+     0,
+     281,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     11,
+     11
+    ],
+    "flee": 60,
+    "color": 3,
+    "baseExp": 65,
+    "height": 7,
+    "weight": 420,
+    "tm": [
+     3985854240,
+     3363879806,
+     1112047706,
+     0
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     29696,
+     12288,
+     3590,
+     8213
+    ]
+   },
+   "abilities": [
+    143,
+    82,
+    223
+   ],
+   "abilityNames": {
+    "223": "Power of Alchemy"
+   },
+   "abilityDescriptions": {
+    "223": "The Pokémon copies the\\nAbility of a defeated ally."
+   },
+   "learnset": [
+    [
+     1,
+     139
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     4,
+     106
+    ],
+    [
+     7,
+     44
+    ],
+    [
+     12,
+     50
+    ],
+    [
+     15,
+     491
+    ],
+    [
+     18,
+     305
+    ],
+    [
+     21,
+     107
+    ],
+    [
+     26,
+     92
+    ],
+    [
+     29,
+     282
+    ],
+    [
+     32,
+     242
+    ],
+    [
+     37,
+     103
+    ],
+    [
+     40,
+     441
+    ],
+    [
+     43,
+     151
+    ],
+    [
+     46,
+     562,
+     "Belch"
+    ],
+    [
+     48,
+     262
+    ]
+   ],
+   "evolutions": [
+    {
+     "method": 4,
+     "param": 38,
+     "species": 89,
+     "form": "REGIONAL_ALOLA_MUK"
+    }
+   ]
+  },
+  {
+   "key": "REGIONAL_ALOLA_MUK",
+   "name": "Alolan Muk",
+   "species": 89,
+   "family": 88,
+   "w2uForm": 1,
+   "suffix": "Alola",
+   "library": "89-1-1121",
+   "credits": {
+    "front": "Smogon Sprite Project",
+    "back": "Smogon Sprite Project"
+   },
+   "personal": {
+    "stats": [
+     105,
+     105,
+     75,
+     50,
+     65,
+     100
+    ],
+    "types": [
+     3,
+     16
+    ],
+    "catchRate": 75,
+    "stage": 2,
+    "evs": 5,
+    "items": [
+     281,
+     0,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     11,
+     11
+    ],
+    "flee": 60,
+    "color": 3,
+    "baseExp": 175,
+    "height": 10,
+    "weight": 520,
+    "tm": [
+     3985854240,
+     3364404094,
+     1112047706,
+     0
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     29696,
+     12290,
+     3590,
+     9237
+    ]
+   },
+   "abilities": [
+    143,
+    82,
+    223
+   ],
+   "abilityNames": {
+    "223": "Power of Alchemy"
+   },
+   "abilityDescriptions": {
+    "223": "The Pokémon copies the\\nAbility of a defeated ally."
+   },
+   "learnset": [
+    [
+     1,
+     44
+    ],
+    [
+     1,
+     106
+    ],
+    [
+     1,
+     139
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     12,
+     50
+    ],
+    [
+     15,
+     491
+    ],
+    [
+     18,
+     305
+    ],
+    [
+     21,
+     107
+    ],
+    [
+     26,
+     92
+    ],
+    [
+     29,
+     282
+    ],
+    [
+     32,
+     242
+    ],
+    [
+     37,
+     103
+    ],
+    [
+     40,
+     441
+    ],
+    [
+     46,
+     151
+    ],
+    [
+     52,
+     562,
+     "Belch"
+    ],
+    [
+     57,
+     262
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_HISUI_VOLTORB",
+   "name": "Hisuian Voltorb",
+   "species": 100,
+   "family": 100,
+   "w2uForm": 1,
+   "suffix": "Hisui",
+   "library": "100-1-1122",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     40,
+     30,
+     50,
+     100,
+     55,
+     55
+    ],
+    "types": [
+     12,
+     11
+    ],
+    "catchRate": 190,
+    "stage": 1,
+    "evs": 64,
+    "items": [
+     0,
+     0,
+     0
+    ],
+    "gender": 255,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     10,
+     10
+    ],
+    "flee": 120,
+    "color": 0,
+    "baseExp": 66,
+    "height": 5,
+    "weight": 130,
+    "tm": [
+     2243103264,
+     2165353217,
+     308282272,
+     0
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     80,
+     553,
+     1026,
+     8192
+    ]
+   },
+   "abilities": [
+    43,
+    9,
+    106
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "learnset": [
+    [
+     1,
+     268
+    ],
+    [
+     1,
+     33
+    ],
+    [
+     4,
+     84
+    ],
+    [
+     6,
+     78
+    ],
+    [
+     9,
+     331
+    ],
+    [
+     11,
+     205
+    ],
+    [
+     13,
+     103
+    ],
+    [
+     16,
+     451
+    ],
+    [
+     20,
+     129
+    ],
+    [
+     22,
+     486
+    ],
+    [
+     26,
+     120
+    ],
+    [
+     29,
+     412
+    ],
+    [
+     34,
+     435
+    ],
+    [
+     34,
+     402
+    ],
+    [
+     41,
+     153
+    ],
+    [
+     46,
+     360
+    ],
+    [
+     50,
+     580,
+     "Grassy Terrain"
+    ]
+   ],
+   "evolutions": [
+    {
+     "method": 8,
+     "param": 85,
+     "species": 101,
+     "form": "REGIONAL_HISUI_ELECTRODE"
+    }
+   ]
+  },
+  {
+   "key": "REGIONAL_HISUI_ELECTRODE",
+   "name": "Hisuian Electrode",
+   "species": 101,
+   "family": 100,
+   "w2uForm": 1,
+   "suffix": "Hisui",
+   "library": "101-1-1123",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     60,
+     50,
+     70,
+     150,
+     80,
+     80
+    ],
+    "types": [
+     12,
+     11
+    ],
+    "catchRate": 60,
+    "stage": 2,
+    "evs": 128,
+    "items": [
+     0,
+     0,
+     0
+    ],
+    "gender": 255,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     10,
+     10
+    ],
+    "flee": 0,
+    "color": 0,
+    "baseExp": 168,
+    "height": 12,
+    "weight": 710,
+    "tm": [
+     2243119648,
+     2165353217,
+     308282280,
+     0
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     80,
+     553,
+     1026,
+     8192
+    ]
+   },
+   "abilities": [
+    43,
+    9,
+    106
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "learnset": [
+    [
+     1,
+     835,
+     "Chloroblast"
+    ],
+    [
+     1,
+     268
+    ],
+    [
+     1,
+     33
+    ],
+    [
+     4,
+     84
+    ],
+    [
+     6,
+     78
+    ],
+    [
+     9,
+     331
+    ],
+    [
+     11,
+     205
+    ],
+    [
+     13,
+     103
+    ],
+    [
+     16,
+     451
+    ],
+    [
+     20,
+     129
+    ],
+    [
+     22,
+     486
+    ],
+    [
+     26,
+     120
+    ],
+    [
+     29,
+     412
+    ],
+    [
+     34,
+     435
+    ],
+    [
+     34,
+     402
+    ],
+    [
+     41,
+     153
+    ],
+    [
+     46,
+     360
+    ],
+    [
+     50,
+     580,
+     "Grassy Terrain"
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_ALOLA_EXEGGUTOR",
+   "name": "Alolan Exeggutor",
+   "species": 103,
+   "family": 102,
+   "w2uForm": 1,
+   "suffix": "Alola",
+   "library": "103-1-1124",
+   "credits": {
+    "front": "Smogon Sprite Project",
+    "back": "Smogon Sprite Project"
+   },
+   "personal": {
+    "stats": [
+     95,
+     105,
+     85,
+     45,
+     125,
+     75
+    ],
+    "types": [
+     11,
+     15
+    ],
+    "catchRate": 45,
+    "stage": 2,
+    "evs": 512,
+    "items": [
+     0,
+     0,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 5,
+    "eggGroups": [
+     7,
+     7
+    ],
+    "flee": 0,
+    "color": 2,
+    "baseExp": 182,
+    "height": 109,
+    "weight": 4156,
+    "tm": [
+     3593848364,
+     2148579853,
+     175256584,
+     0
+    ],
+    "typeTutors": 64,
+    "tutors": [
+     2656,
+     90386,
+     1038,
+     25138
+    ]
+   },
+   "abilities": [
+    119,
+    119,
+    139
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "learnset": [
+    [
+     1,
+     692,
+     "Dragon Hammer"
+    ],
+    [
+     1,
+     71
+    ],
+    [
+     1,
+     331
+    ],
+    [
+     1,
+     93
+    ],
+    [
+     1,
+     326
+    ],
+    [
+     1,
+     202
+    ],
+    [
+     1,
+     74
+    ],
+    [
+     1,
+     95
+    ],
+    [
+     1,
+     437
+    ],
+    [
+     1,
+     73
+    ],
+    [
+     1,
+     72
+    ],
+    [
+     1,
+     473
+    ],
+    [
+     1,
+     115
+    ],
+    [
+     1,
+     402
+    ],
+    [
+     1,
+     76
+    ],
+    [
+     1,
+     235
+    ],
+    [
+     1,
+     253
+    ],
+    [
+     1,
+     452
+    ],
+    [
+     1,
+     388
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_ALOLA_MAROWAK",
+   "name": "Alolan Marowak",
+   "species": 105,
+   "family": 104,
+   "w2uForm": 1,
+   "suffix": "Alola",
+   "library": "105-1-1125",
+   "credits": {
+    "front": "Smogon Sprite Project",
+    "back": "Smogon Sprite Project"
+   },
+   "personal": {
+    "stats": [
+     60,
+     80,
+     110,
+     45,
+     50,
+     80
+    ],
+    "types": [
+     9,
+     7
+    ],
+    "catchRate": 75,
+    "stage": 2,
+    "evs": 32,
+    "items": [
+     0,
+     258,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     1,
+     1
+    ],
+    "flee": 60,
+    "color": 6,
+    "baseExp": 149,
+    "height": 10,
+    "weight": 340,
+    "tm": [
+     4023612960,
+     279822068,
+     38839372,
+     0
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     14880,
+     70724,
+     534,
+     13060
+    ]
+   },
+   "abilities": [
+    130,
+    31,
+    69
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "learnset": [
+    [
+     1,
+     708,
+     "Shadow Bone"
+    ],
+    [
+     1,
+     38
+    ],
+    [
+     1,
+     206
+    ],
+    [
+     1,
+     83
+    ],
+    [
+     1,
+     116
+    ],
+    [
+     1,
+     45
+    ],
+    [
+     1,
+     29
+    ],
+    [
+     1,
+     189
+    ],
+    [
+     1,
+     514
+    ],
+    [
+     1,
+     39
+    ],
+    [
+     12,
+     172
+    ],
+    [
+     16,
+     506
+    ],
+    [
+     20,
+     374
+    ],
+    [
+     24,
+     707,
+     "Stomping Tantrum"
+    ],
+    [
+     31,
+     198
+    ],
+    [
+     36,
+     261
+    ],
+    [
+     42,
+     283
+    ],
+    [
+     48,
+     155
+    ],
+    [
+     54,
+     37
+    ],
+    [
+     60,
+     394
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_GALAR_WEEZING",
+   "name": "Galarian Weezing",
+   "species": 110,
+   "family": 109,
+   "w2uForm": 1,
+   "suffix": "Galar",
+   "library": "110-1-1126",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     65,
+     90,
+     120,
+     60,
+     85,
+     70
+    ],
+    "types": [
+     3,
+     17
+    ],
+    "catchRate": 60,
+    "stage": 2,
+    "evs": 32,
+    "items": [
+     0,
+     228,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     11,
+     11
+    ],
+    "flee": 60,
+    "color": 7,
+    "baseExp": 172,
+    "height": 30,
+    "weight": 160,
+    "tm": [
+     2777894688,
+     2483206958,
+     37749290,
+     0
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     3072,
+     4096,
+     530,
+     8324
+    ]
+   },
+   "abilities": [
+    26,
+    256,
+    228
+   ],
+   "abilityNames": {
+    "256": "Neutralizing Gas",
+    "228": "Misty Surge"
+   },
+   "abilityDescriptions": {
+    "256": "Nullifies all other\\nAbilities while it is out.",
+    "228": "Sets Misty Terrain when it\\nenters battle."
+   },
+   "learnset": [
+    [
+     1,
+     458
+    ],
+    [
+     1,
+     597,
+     "Aromatic Mist"
+    ],
+    [
+     1,
+     432
+    ],
+    [
+     1,
+     114
+    ],
+    [
+     1,
+     257
+    ],
+    [
+     1,
+     139
+    ],
+    [
+     1,
+     123
+    ],
+    [
+     1,
+     108
+    ],
+    [
+     1,
+     790,
+     "Strange Steam"
+    ],
+    [
+     1,
+     33
+    ],
+    [
+     12,
+     499
+    ],
+    [
+     16,
+     372
+    ],
+    [
+     20,
+     124
+    ],
+    [
+     24,
+     584,
+     "Fairy Wind"
+    ],
+    [
+     28,
+     120
+    ],
+    [
+     32,
+     188
+    ],
+    [
+     38,
+     92
+    ],
+    [
+     44,
+     562,
+     "Belch"
+    ],
+    [
+     50,
+     153
+    ],
+    [
+     56,
+     262
+    ],
+    [
+     62,
+     194
+    ],
+    [
+     68,
+     581,
+     "Misty Terrain"
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_GALAR_MR_MIME",
+   "name": "Galarian Mr. Mime",
+   "species": 122,
+   "family": 439,
+   "w2uForm": 1,
+   "suffix": "Galar",
+   "library": "122-1-1127",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     50,
+     65,
+     65,
+     100,
+     90,
+     90
+    ],
+    "types": [
+     14,
+     13
+    ],
+    "catchRate": 45,
+    "stage": 2,
+    "evs": 128,
+    "items": [
+     0,
+     0,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 25,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     8,
+     8
+    ],
+    "flee": 90,
+    "color": 8,
+    "baseExp": 161,
+    "height": 14,
+    "weight": 568,
+    "tm": [
+     4123000428,
+     27048833,
+     175116586,
+     0
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     18450,
+     9289,
+     2082,
+     27888
+    ]
+   },
+   "abilities": [
+    72,
+    251,
+    115
+   ],
+   "abilityNames": {
+    "251": "Screen Cleaner"
+   },
+   "abilityDescriptions": {
+    "251": "Removes screens when it\\nenters battle."
+   },
+   "learnset": [
+    [
+     1,
+     383
+    ],
+    [
+     1,
+     605,
+     "Dazzling Gleam"
+    ],
+    [
+     1,
+     227
+    ],
+    [
+     1,
+     420
+    ],
+    [
+     1,
+     113
+    ],
+    [
+     1,
+     102
+    ],
+    [
+     1,
+     581,
+     "Misty Terrain"
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     1,
+     182
+    ],
+    [
+     1,
+     229
+    ],
+    [
+     1,
+     278
+    ],
+    [
+     1,
+     115
+    ],
+    [
+     1,
+     272
+    ],
+    [
+     1,
+     219
+    ],
+    [
+     12,
+     93
+    ],
+    [
+     16,
+     502
+    ],
+    [
+     20,
+     196
+    ],
+    [
+     24,
+     24
+    ],
+    [
+     28,
+     60
+    ],
+    [
+     32,
+     95
+    ],
+    [
+     36,
+     243
+    ],
+    [
+     40,
+     389
+    ],
+    [
+     44,
+     573,
+     "Freeze-Dry"
+    ],
+    [
+     48,
+     94
+    ],
+    [
+     52,
+     298
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_PALDEA_TAUROS_COMBAT",
+   "name": "Paldean Tauros Combat Breed",
+   "species": 128,
+   "family": 128,
+   "w2uForm": 1,
+   "suffix": "Paldea-Combat",
+   "library": "128-1-1128",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     75,
+     110,
+     105,
+     100,
+     30,
+     70
+    ],
+    "types": [
+     1,
+     1
+    ],
+    "catchRate": 45,
+    "stage": 2,
+    "evs": 8,
+    "items": [
+     0,
+     0,
+     0
+    ],
+    "gender": 0,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 5,
+    "eggGroups": [
+     5,
+     5
+    ],
+    "flee": 90,
+    "color": 4,
+    "baseExp": 172,
+    "height": 14,
+    "weight": 1150,
+    "tm": [
+     2383627936,
+     67156560,
+     843358286,
+     6
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     160,
+     8192,
+     34,
+     8960
+    ]
+   },
+   "abilities": [
+    22,
+    83,
+    291
+   ],
+   "abilityNames": {
+    "291": "Cud Chew"
+   },
+   "abilityDescriptions": {
+    "291": "Eats a Berry again at the\\nnext turn's end."
+   },
+   "learnset": [
+    [
+     1,
+     33
+    ],
+    [
+     1,
+     39
+    ],
+    [
+     5,
+     526
+    ],
+    [
+     10,
+     24
+    ],
+    [
+     15,
+     372
+    ],
+    [
+     20,
+     29
+    ],
+    [
+     25,
+     184
+    ],
+    [
+     30,
+     428
+    ],
+    [
+     35,
+     873,
+     "Raging Bull"
+    ],
+    [
+     40,
+     156
+    ],
+    [
+     45,
+     207
+    ],
+    [
+     50,
+     37
+    ],
+    [
+     55,
+     38
+    ],
+    [
+     60,
+     370
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_PALDEA_TAUROS_BLAZE",
+   "name": "Paldean Tauros Blaze Breed",
+   "species": 128,
+   "family": 128,
+   "w2uForm": 2,
+   "suffix": "Paldea-Blaze",
+   "library": "128-2-1129",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     75,
+     110,
+     105,
+     100,
+     30,
+     70
+    ],
+    "types": [
+     1,
+     9
+    ],
+    "catchRate": 45,
+    "stage": 2,
+    "evs": 8,
+    "items": [
+     0,
+     0,
+     0
+    ],
+    "gender": 0,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 5,
+    "eggGroups": [
+     5,
+     5
+    ],
+    "flee": 90,
+    "color": 4,
+    "baseExp": 172,
+    "height": 14,
+    "weight": 850,
+    "tm": [
+     2383627936,
+     335724148,
+     843358286,
+     4
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     160,
+     8192,
+     34,
+     8960
+    ]
+   },
+   "abilities": [
+    22,
+    83,
+    291
+   ],
+   "abilityNames": {
+    "291": "Cud Chew"
+   },
+   "abilityDescriptions": {
+    "291": "Eats a Berry again at the\\nnext turn's end."
+   },
+   "learnset": [
+    [
+     1,
+     33
+    ],
+    [
+     1,
+     39
+    ],
+    [
+     5,
+     526
+    ],
+    [
+     10,
+     24
+    ],
+    [
+     15,
+     488
+    ],
+    [
+     20,
+     29
+    ],
+    [
+     25,
+     184
+    ],
+    [
+     30,
+     428
+    ],
+    [
+     35,
+     873,
+     "Raging Bull"
+    ],
+    [
+     40,
+     156
+    ],
+    [
+     45,
+     207
+    ],
+    [
+     50,
+     37
+    ],
+    [
+     55,
+     394
+    ],
+    [
+     60,
+     370
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_PALDEA_TAUROS_AQUA",
+   "name": "Paldean Tauros Aqua Breed",
+   "species": 128,
+   "family": 128,
+   "w2uForm": 3,
+   "suffix": "Paldea-Aqua",
+   "library": "128-3-1130",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     75,
+     110,
+     105,
+     100,
+     30,
+     70
+    ],
+    "types": [
+     1,
+     10
+    ],
+    "catchRate": 45,
+    "stage": 2,
+    "evs": 8,
+    "items": [
+     0,
+     0,
+     0
+    ],
+    "gender": 0,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 5,
+    "eggGroups": [
+     5,
+     5
+    ],
+    "flee": 90,
+    "color": 4,
+    "baseExp": 172,
+    "height": 14,
+    "weight": 1100,
+    "tm": [
+     2383626912,
+     67156560,
+     843358286,
+     6
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     160,
+     8192,
+     34,
+     8960
+    ]
+   },
+   "abilities": [
+    22,
+    83,
+    291
+   ],
+   "abilityNames": {
+    "291": "Cud Chew"
+   },
+   "abilityDescriptions": {
+    "291": "Eats a Berry again at the\\nnext turn's end."
+   },
+   "learnset": [
+    [
+     1,
+     33
+    ],
+    [
+     1,
+     39
+    ],
+    [
+     5,
+     526
+    ],
+    [
+     10,
+     24
+    ],
+    [
+     15,
+     453
+    ],
+    [
+     20,
+     29
+    ],
+    [
+     25,
+     184
+    ],
+    [
+     30,
+     428
+    ],
+    [
+     35,
+     873,
+     "Raging Bull"
+    ],
+    [
+     40,
+     156
+    ],
+    [
+     45,
+     207
+    ],
+    [
+     50,
+     37
+    ],
+    [
+     55,
+     834,
+     "Wave Crash"
+    ],
+    [
+     60,
+     370
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_GALAR_ARTICUNO",
+   "name": "Galarian Articuno",
+   "species": 144,
+   "family": 144,
+   "w2uForm": 1,
+   "suffix": "Galar",
+   "library": "144-1-1131",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     90,
+     85,
+     85,
+     95,
+     125,
+     100
+    ],
+    "types": [
+     13,
+     2
+    ],
+    "catchRate": 3,
+    "stage": 3,
+    "evs": 768,
+    "items": [
+     0,
+     0,
+     0
+    ],
+    "gender": 255,
+    "hatchCycles": 80,
+    "happiness": 35,
+    "growth": 5,
+    "eggGroups": [
+     15,
+     15
+    ],
+    "flee": 0,
+    "color": 6,
+    "baseExp": 261,
+    "height": 17,
+    "weight": 509,
+    "tm": [
+     3021194796,
+     33851905,
+     734019592,
+     1
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     16,
+     32768,
+     4482,
+     24624
+    ]
+   },
+   "abilities": [
+    172,
+    172,
+    172
+   ],
+   "abilityNames": {
+    "172": "Competitive"
+   },
+   "abilityDescriptions": {
+    "172": "Boosts the Sp. Atk stat\\nwhen a stat is lowered."
+   },
+   "learnset": [
+    [
+     1,
+     16
+    ],
+    [
+     5,
+     93
+    ],
+    [
+     10,
+     115
+    ],
+    [
+     15,
+     95
+    ],
+    [
+     20,
+     97
+    ],
+    [
+     25,
+     246
+    ],
+    [
+     30,
+     366
+    ],
+    [
+     35,
+     427
+    ],
+    [
+     40,
+     105
+    ],
+    [
+     45,
+     821,
+     "Freezing Glare"
+    ],
+    [
+     50,
+     138
+    ],
+    [
+     55,
+     542
+    ],
+    [
+     60,
+     104
+    ],
+    [
+     65,
+     248
+    ],
+    [
+     70,
+     433
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_GALAR_ZAPDOS",
+   "name": "Galarian Zapdos",
+   "species": 145,
+   "family": 145,
+   "w2uForm": 1,
+   "suffix": "Galar",
+   "library": "145-1-1132",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     90,
+     125,
+     90,
+     100,
+     85,
+     90
+    ],
+    "types": [
+     1,
+     2
+    ],
+    "catchRate": 3,
+    "stage": 3,
+    "evs": 12,
+    "items": [
+     0,
+     0,
+     0
+    ],
+    "gender": 255,
+    "hatchCycles": 80,
+    "happiness": 35,
+    "growth": 5,
+    "eggGroups": [
+     15,
+     15
+    ],
+    "flee": 0,
+    "color": 2,
+    "baseExp": 261,
+    "height": 16,
+    "weight": 582,
+    "tm": [
+     3289632416,
+     570477200,
+     599785518,
+     1
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     784,
+     256,
+     4486,
+     8464
+    ]
+   },
+   "abilities": [
+    128,
+    128,
+    128
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "learnset": [
+    [
+     1,
+     116
+    ],
+    [
+     1,
+     64
+    ],
+    [
+     5,
+     249
+    ],
+    [
+     10,
+     113
+    ],
+    [
+     15,
+     365
+    ],
+    [
+     20,
+     97
+    ],
+    [
+     25,
+     246
+    ],
+    [
+     30,
+     280
+    ],
+    [
+     35,
+     65
+    ],
+    [
+     40,
+     501
+    ],
+    [
+     45,
+     823,
+     "Thunderous Kick"
+    ],
+    [
+     50,
+     339
+    ],
+    [
+     55,
+     68
+    ],
+    [
+     60,
+     197
+    ],
+    [
+     65,
+     370
+    ],
+    [
+     70,
+     179
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_GALAR_MOLTRES",
+   "name": "Galarian Moltres",
+   "species": 146,
+   "family": 146,
+   "w2uForm": 1,
+   "suffix": "Galar",
+   "library": "146-1-1133",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     90,
+     85,
+     90,
+     90,
+     100,
+     125
+    ],
+    "types": [
+     16,
+     2
+    ],
+    "catchRate": 3,
+    "stage": 3,
+    "evs": 3072,
+    "items": [
+     0,
+     0,
+     0
+    ],
+    "gender": 255,
+    "hatchCycles": 80,
+    "happiness": 35,
+    "growth": 5,
+    "eggGroups": [
+     15,
+     15
+    ],
+    "flee": 0,
+    "color": 0,
+    "baseExp": 261,
+    "height": 20,
+    "weight": 660,
+    "tm": [
+     2753252896,
+     637577872,
+     1673527306,
+     1
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     0,
+     36872,
+     4994,
+     8212
+    ]
+   },
+   "abilities": [
+    201,
+    201,
+    201
+   ],
+   "abilityNames": {
+    "201": "Berserk"
+   },
+   "abilityDescriptions": {
+    "201": "Sp. Atk rises when a hit\\ndrops it below half HP."
+   },
+   "learnset": [
+    [
+     1,
+     16
+    ],
+    [
+     1,
+     43
+    ],
+    [
+     5,
+     371
+    ],
+    [
+     10,
+     219
+    ],
+    [
+     15,
+     17
+    ],
+    [
+     20,
+     97
+    ],
+    [
+     25,
+     246
+    ],
+    [
+     30,
+     389
+    ],
+    [
+     35,
+     403
+    ],
+    [
+     40,
+     495
+    ],
+    [
+     45,
+     822,
+     "Fiery Wrath"
+    ],
+    [
+     50,
+     417
+    ],
+    [
+     55,
+     542
+    ],
+    [
+     60,
+     203
+    ],
+    [
+     65,
+     262
+    ],
+    [
+     70,
+     143
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_HISUI_TYPHLOSION",
+   "name": "Hisuian Typhlosion",
+   "species": 157,
+   "family": 155,
+   "w2uForm": 1,
+   "suffix": "Hisui",
+   "library": "157-1-1134",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     73,
+     84,
+     78,
+     95,
+     119,
+     85
+    ],
+    "types": [
+     9,
+     7
+    ],
+    "catchRate": 45,
+    "stage": 3,
+    "evs": 768,
+    "items": [
+     0,
+     0,
+     0
+    ],
+    "gender": 31,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 3,
+    "eggGroups": [
+     5,
+     5
+    ],
+    "flee": 0,
+    "color": 2,
+    "baseExp": 240,
+    "height": 16,
+    "weight": 698,
+    "tm": [
+     3996206648,
+     336240292,
+     2990580233,
+     4
+    ],
+    "typeTutors": 18,
+    "tutors": [
+     12834,
+     8192,
+     18,
+     8452
+    ]
+   },
+   "abilities": [
+    66,
+    66,
+    119
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "learnset": [
+    [
+     1,
+     844,
+     "Infernal Parade"
+    ],
+    [
+     1,
+     38
+    ],
+    [
+     1,
+     52
+    ],
+    [
+     1,
+     284
+    ],
+    [
+     1,
+     360
+    ],
+    [
+     1,
+     43
+    ],
+    [
+     1,
+     108
+    ],
+    [
+     1,
+     33
+    ],
+    [
+     13,
+     98
+    ],
+    [
+     20,
+     172
+    ],
+    [
+     24,
+     111
+    ],
+    [
+     31,
+     129
+    ],
+    [
+     35,
+     488
+    ],
+    [
+     43,
+     436
+    ],
+    [
+     48,
+     53
+    ],
+    [
+     56,
+     517
+    ],
+    [
+     61,
+     205
+    ],
+    [
+     74,
+     315
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_PALDEA_WOOPER",
+   "name": "Paldean Wooper",
+   "species": 194,
+   "family": 194,
+   "w2uForm": 1,
+   "suffix": "Paldea",
+   "library": "194-1-1135",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     55,
+     45,
+     45,
+     15,
+     25,
+     25
+    ],
+    "types": [
+     3,
+     4
+    ],
+    "catchRate": 255,
+    "stage": 1,
+    "evs": 1,
+    "items": [
+     0,
+     0,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     2,
+     5
+    ],
+    "flee": 120,
+    "color": 5,
+    "baseExp": 42,
+    "height": 4,
+    "weight": 110,
+    "tm": [
+     2384135008,
+     39514,
+     575184992,
+     26
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     1536,
+     2052,
+     2,
+     12312
+    ]
+   },
+   "abilities": [
+    38,
+    11,
+    109
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "learnset": [
+    [
+     1,
+     341
+    ],
+    [
+     1,
+     39
+    ],
+    [
+     4,
+     33
+    ],
+    [
+     8,
+     342
+    ],
+    [
+     12,
+     390
+    ],
+    [
+     16,
+     21
+    ],
+    [
+     21,
+     281
+    ],
+    [
+     24,
+     398
+    ],
+    [
+     28,
+     482
+    ],
+    [
+     32,
+     133
+    ],
+    [
+     36,
+     92
+    ],
+    [
+     40,
+     89
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_GALAR_SLOWKING",
+   "name": "Galarian Slowking",
+   "species": 199,
+   "family": 79,
+   "w2uForm": 1,
+   "suffix": "Galar",
+   "library": "199-1-1136",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     95,
+     65,
+     80,
+     30,
+     110,
+     110
+    ],
+    "types": [
+     3,
+     13
+    ],
+    "catchRate": 70,
+    "stage": 2,
+    "evs": 2048,
+    "items": [
+     0,
+     221,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     1,
+     2
+    ],
+    "flee": 0,
+    "color": 9,
+    "baseExp": 172,
+    "height": 18,
+    "weight": 795,
+    "tm": [
+     4263509868,
+     214555182,
+     1786261800,
+     30
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     29712,
+     76875,
+     2050,
+     25784
+    ]
+   },
+   "abilities": [
+    261,
+    20,
+    144
+   ],
+   "abilityNames": {
+    "261": "Curious Medicine"
+   },
+   "abilityDescriptions": {
+    "261": "Resets allies' stat\\nchanges on entry."
+   },
+   "learnset": [
+    [
+     1,
+     826,
+     "Eerie Spell"
+    ],
+    [
+     1,
+     51
+    ],
+    [
+     1,
+     881,
+     "Chilly Reception"
+    ],
+    [
+     1,
+     174
+    ],
+    [
+     1,
+     248
+    ],
+    [
+     1,
+     45
+    ],
+    [
+     1,
+     417
+    ],
+    [
+     1,
+     408
+    ],
+    [
+     1,
+     207
+    ],
+    [
+     1,
+     33
+    ],
+    [
+     1,
+     92
+    ],
+    [
+     1,
+     127
+    ],
+    [
+     9,
+     281
+    ],
+    [
+     12,
+     93
+    ],
+    [
+     15,
+     50
+    ],
+    [
+     18,
+     352
+    ],
+    [
+     21,
+     29
+    ],
+    [
+     24,
+     428
+    ],
+    [
+     27,
+     133
+    ],
+    [
+     30,
+     57
+    ],
+    [
+     33,
+     303
+    ],
+    [
+     36,
+     94
+    ],
+    [
+     39,
+     244
+    ],
+    [
+     42,
+     240
+    ],
+    [
+     45,
+     505
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_HISUI_QWILFISH",
+   "name": "Hisuian Qwilfish",
+   "species": 211,
+   "family": 211,
+   "w2uForm": 1,
+   "suffix": "Hisui",
+   "library": "211-1-1137",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     65,
+     95,
+     85,
+     85,
+     55,
+     55
+    ],
+    "types": [
+     16,
+     3
+    ],
+    "catchRate": 45,
+    "stage": 1,
+    "evs": 4,
+    "items": [
+     0,
+     245,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     12,
+     12
+    ],
+    "flee": 0,
+    "color": 4,
+    "baseExp": 86,
+    "height": 5,
+    "weight": 39,
+    "tm": [
+     2752723808,
+     2147523080,
+     38274570,
+     26
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     1296,
+     7168,
+     514,
+     8196
+    ]
+   },
+   "abilities": [
+    38,
+    33,
+    22
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "learnset": [
+    [
+     1,
+     40
+    ],
+    [
+     1,
+     33
+    ],
+    [
+     4,
+     106
+    ],
+    [
+     8,
+     44
+    ],
+    [
+     12,
+     565,
+     "Fell Stinger"
+    ],
+    [
+     16,
+     107
+    ],
+    [
+     20,
+     191
+    ],
+    [
+     24,
+     362
+    ],
+    [
+     28,
+     839,
+     "Barb Barrage"
+    ],
+    [
+     32,
+     42
+    ],
+    [
+     36,
+     390
+    ],
+    [
+     40,
+     255
+    ],
+    [
+     40,
+     254
+    ],
+    [
+     44,
+     92
+    ],
+    [
+     48,
+     242
+    ],
+    [
+     52,
+     367
+    ],
+    [
+     56,
+     194
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_HISUI_SNEASEL",
+   "name": "Hisuian Sneasel",
+   "species": 215,
+   "family": 215,
+   "w2uForm": 1,
+   "suffix": "Hisui",
+   "library": "215-1-1138",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     55,
+     95,
+     55,
+     115,
+     35,
+     75
+    ],
+    "types": [
+     1,
+     3
+    ],
+    "catchRate": 60,
+    "stage": 1,
+    "evs": 64,
+    "items": [
+     0,
+     217,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 20,
+    "happiness": 35,
+    "growth": 3,
+    "eggGroups": [
+     5,
+     5
+    ],
+    "flee": 0,
+    "color": 71,
+    "baseExp": 86,
+    "height": 9,
+    "weight": 270,
+    "tm": [
+     3960672233,
+     1084816266,
+     2725839887,
+     4
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     1536,
+     0,
+     2,
+     10244
+    ]
+   },
+   "abilities": [
+    39,
+    51,
+    124
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "learnset": [
+    [
+     1,
+     43
+    ],
+    [
+     1,
+     249
+    ],
+    [
+     1,
+     10
+    ],
+    [
+     6,
+     269
+    ],
+    [
+     12,
+     98
+    ],
+    [
+     18,
+     232
+    ],
+    [
+     24,
+     398
+    ],
+    [
+     30,
+     280
+    ],
+    [
+     36,
+     468
+    ],
+    [
+     42,
+     163
+    ],
+    [
+     48,
+     97
+    ],
+    [
+     54,
+     103
+    ],
+    [
+     60,
+     370
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_GALAR_CORSOLA",
+   "name": "Galarian Corsola",
+   "species": 222,
+   "family": 222,
+   "w2uForm": 1,
+   "suffix": "Galar",
+   "library": "222-1-1139",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     60,
+     55,
+     100,
+     30,
+     65,
+     100
+    ],
+    "types": [
+     7,
+     7
+    ],
+    "catchRate": 60,
+    "stage": 2,
+    "evs": 1024,
+    "items": [
+     0,
+     238,
+     0
+    ],
+    "gender": 191,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 4,
+    "eggGroups": [
+     2,
+     9
+    ],
+    "flee": 0,
+    "color": 8,
+    "baseExp": 133,
+    "height": 6,
+    "weight": 5,
+    "tm": [
+     3189487208,
+     2420152913,
+     574660688,
+     6
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     0,
+     1093,
+     1026,
+     12544
+    ]
+   },
+   "abilities": [
+    133,
+    133,
+    130
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "learnset": [
+    [
+     1,
+     106
+    ],
+    [
+     1,
+     33
+    ],
+    [
+     5,
+     310
+    ],
+    [
+     10,
+     50
+    ],
+    [
+     15,
+     180
+    ],
+    [
+     20,
+     246
+    ],
+    [
+     25,
+     506
+    ],
+    [
+     30,
+     174
+    ],
+    [
+     35,
+     668,
+     "Strength Sap"
+    ],
+    [
+     40,
+     408
+    ],
+    [
+     45,
+     101
+    ],
+    [
+     50,
+     288
+    ],
+    [
+     55,
+     243
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_GALAR_ZIGZAGOON",
+   "name": "Galarian Zigzagoon",
+   "species": 263,
+   "family": 263,
+   "w2uForm": 1,
+   "suffix": "Galar",
+   "library": "263-1-1140",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     38,
+     30,
+     41,
+     60,
+     30,
+     41
+    ],
+    "types": [
+     16,
+     0
+    ],
+    "catchRate": 255,
+    "stage": 1,
+    "evs": 64,
+    "items": [
+     17,
+     28,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 15,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     5,
+     5
+    ],
+    "flee": 120,
+    "color": 8,
+    "baseExp": 56,
+    "height": 4,
+    "weight": 175,
+    "tm": [
+     2912108065,
+     25278976,
+     3798204678,
+     2
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     1094,
+     99456,
+     2,
+     8240
+    ]
+   },
+   "abilities": [
+    53,
+    82,
+    95
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "learnset": [
+    [
+     1,
+     43
+    ],
+    [
+     1,
+     33
+    ],
+    [
+     3,
+     28
+    ],
+    [
+     6,
+     122
+    ],
+    [
+     9,
+     555
+    ],
+    [
+     12,
+     29
+    ],
+    [
+     15,
+     608,
+     "Baby-Doll Eyes"
+    ],
+    [
+     18,
+     42
+    ],
+    [
+     21,
+     156
+    ],
+    [
+     24,
+     36
+    ],
+    [
+     27,
+     184
+    ],
+    [
+     30,
+     68
+    ],
+    [
+     33,
+     269
+    ],
+    [
+     36,
+     38
+    ]
+   ],
+   "evolutions": [
+    {
+     "method": 4,
+     "param": 20,
+     "species": 264,
+     "form": "REGIONAL_GALAR_LINOONE"
+    }
+   ]
+  },
+  {
+   "key": "REGIONAL_GALAR_LINOONE",
+   "name": "Galarian Linoone",
+   "species": 264,
+   "family": 263,
+   "w2uForm": 1,
+   "suffix": "Galar",
+   "library": "264-1-1141",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     78,
+     70,
+     61,
+     100,
+     50,
+     61
+    ],
+    "types": [
+     16,
+     0
+    ],
+    "catchRate": 90,
+    "stage": 2,
+    "evs": 128,
+    "items": [
+     17,
+     29,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 15,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     5,
+     5
+    ],
+    "flee": 90,
+    "color": 8,
+    "baseExp": 147,
+    "height": 5,
+    "weight": 325,
+    "tm": [
+     2912124465,
+     25278976,
+     3798204687,
+     6
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     1094,
+     99456,
+     2,
+     8240
+    ]
+   },
+   "abilities": [
+    53,
+    82,
+    95
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "learnset": [
+    [
+     1,
+     400
+    ],
+    [
+     1,
+     608,
+     "Baby-Doll Eyes"
+    ],
+    [
+     1,
+     43
+    ],
+    [
+     1,
+     122
+    ],
+    [
+     1,
+     42
+    ],
+    [
+     1,
+     28
+    ],
+    [
+     1,
+     415
+    ],
+    [
+     1,
+     33
+    ],
+    [
+     9,
+     555
+    ],
+    [
+     12,
+     29
+    ],
+    [
+     15,
+     468
+    ],
+    [
+     18,
+     154
+    ],
+    [
+     23,
+     156
+    ],
+    [
+     28,
+     36
+    ],
+    [
+     33,
+     184
+    ],
+    [
+     38,
+     68
+    ],
+    [
+     43,
+     269
+    ],
+    [
+     48,
+     38
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_HISUI_SAMUROTT",
+   "name": "Hisuian Samurott",
+   "species": 503,
+   "family": 501,
+   "w2uForm": 1,
+   "suffix": "Hisui",
+   "library": "503-1-1142",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     90,
+     108,
+     80,
+     85,
+     100,
+     65
+    ],
+    "types": [
+     10,
+     16
+    ],
+    "catchRate": 45,
+    "stage": 3,
+    "evs": 768,
+    "items": [
+     0,
+     0,
+     0
+    ],
+    "gender": 31,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 3,
+    "eggGroups": [
+     5,
+     5
+    ],
+    "flee": 0,
+    "color": 1,
+    "baseExp": 238,
+    "height": 15,
+    "weight": 582,
+    "tm": [
+     3423828576,
+     10533504,
+     3798017036,
+     30
+    ],
+    "typeTutors": 36,
+    "tutors": [
+     130,
+     7426,
+     6,
+     8208
+    ]
+   },
+   "abilities": [
+    67,
+    67,
+    292
+   ],
+   "abilityNames": {
+    "292": "Sharpness"
+   },
+   "abilityDescriptions": {
+    "292": "Powers up slicing moves."
+   },
+   "learnset": [
+    [
+     1,
+     845,
+     "Ceaseless Edge"
+    ],
+    [
+     1,
+     224
+    ],
+    [
+     1,
+     163
+    ],
+    [
+     1,
+     389
+    ],
+    [
+     1,
+     33
+    ],
+    [
+     1,
+     39
+    ],
+    [
+     1,
+     55
+    ],
+    [
+     13,
+     116
+    ],
+    [
+     18,
+     534
+    ],
+    [
+     21,
+     210
+    ],
+    [
+     25,
+     352
+    ],
+    [
+     29,
+     332
+    ],
+    [
+     34,
+     453
+    ],
+    [
+     39,
+     227
+    ],
+    [
+     46,
+     401
+    ],
+    [
+     51,
+     514
+    ],
+    [
+     58,
+     14
+    ],
+    [
+     63,
+     56
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_HISUI_LILLIGANT",
+   "name": "Hisuian Lilligant",
+   "species": 549,
+   "family": 548,
+   "w2uForm": 1,
+   "suffix": "Hisui",
+   "library": "549-1-1143",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     70,
+     105,
+     75,
+     105,
+     50,
+     75
+    ],
+    "types": [
+     11,
+     1
+    ],
+    "catchRate": 75,
+    "stage": 2,
+    "evs": 512,
+    "items": [
+     0,
+     0,
+     0
+    ],
+    "gender": 254,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     7,
+     7
+    ],
+    "flee": 0,
+    "color": 67,
+    "baseExp": 168,
+    "height": 12,
+    "weight": 192,
+    "tm": [
+     3292218912,
+     537975424,
+     2188907560,
+     0
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     578,
+     0,
+     1130,
+     8218
+    ]
+   },
+   "abilities": [
+    34,
+    55,
+    102
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "learnset": [
+    [
+     1,
+     837,
+     "Victory Dance"
+    ],
+    [
+     1,
+     71
+    ],
+    [
+     1,
+     495
+    ],
+    [
+     1,
+     432
+    ],
+    [
+     1,
+     412
+    ],
+    [
+     1,
+     494
+    ],
+    [
+     1,
+     202
+    ],
+    [
+     1,
+     74
+    ],
+    [
+     1,
+     270
+    ],
+    [
+     1,
+     348
+    ],
+    [
+     1,
+     437
+    ],
+    [
+     1,
+     73
+    ],
+    [
+     1,
+     345
+    ],
+    [
+     1,
+     72
+    ],
+    [
+     1,
+     25
+    ],
+    [
+     1,
+     572,
+     "Petal Blizzard"
+    ],
+    [
+     1,
+     79
+    ],
+    [
+     1,
+     669,
+     "Solar Blade"
+    ],
+    [
+     1,
+     78
+    ],
+    [
+     1,
+     241
+    ],
+    [
+     1,
+     235
+    ],
+    [
+     1,
+     298
+    ],
+    [
+     5,
+     853,
+     "Axe Kick"
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_GALAR_DARUMAKA",
+   "name": "Galarian Darumaka",
+   "species": 554,
+   "family": 554,
+   "w2uForm": 1,
+   "suffix": "Galar",
+   "library": "554-1-1144",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     70,
+     90,
+     45,
+     50,
+     15,
+     45
+    ],
+    "types": [
+     14,
+     14
+    ],
+    "catchRate": 120,
+    "stage": 1,
+    "evs": 4,
+    "items": [
+     0,
+     0,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 3,
+    "eggGroups": [
+     5,
+     5
+    ],
+    "flee": 0,
+    "color": 8,
+    "baseExp": 63,
+    "height": 7,
+    "weight": 400,
+    "tm": [
+     3425779248,
+     344112740,
+     593789440,
+     4
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     26624,
+     8448,
+     18,
+     8448
+    ]
+   },
+   "abilities": [
+    55,
+    55,
+    39
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "learnset": [
+    [
+     1,
+     181
+    ],
+    [
+     1,
+     33
+    ],
+    [
+     4,
+     269
+    ],
+    [
+     8,
+     44
+    ],
+    [
+     12,
+     419
+    ],
+    [
+     16,
+     526
+    ],
+    [
+     20,
+     423
+    ],
+    [
+     24,
+     29
+    ],
+    [
+     28,
+     8
+    ],
+    [
+     32,
+     253
+    ],
+    [
+     36,
+     187
+    ],
+    [
+     40,
+     59
+    ],
+    [
+     44,
+     37
+    ],
+    [
+     48,
+     276
+    ]
+   ],
+   "evolutions": [
+    {
+     "method": 4,
+     "param": 35,
+     "species": 555,
+     "form": "REGIONAL_GALAR_DARMANITAN"
+    }
+   ]
+  },
+  {
+   "key": "REGIONAL_GALAR_DARMANITAN",
+   "name": "Galarian Darmanitan",
+   "species": 555,
+   "family": 554,
+   "w2uForm": 2,
+   "suffix": "Galar",
+   "library": "555-2-1146",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     105,
+     140,
+     55,
+     95,
+     30,
+     55
+    ],
+    "types": [
+     14,
+     14
+    ],
+    "catchRate": 60,
+    "stage": 2,
+    "evs": 8,
+    "items": [
+     0,
+     0,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 3,
+    "eggGroups": [
+     5,
+     5
+    ],
+    "flee": 0,
+    "color": 8,
+    "baseExp": 168,
+    "height": 17,
+    "weight": 1200,
+    "tm": [
+     3731979952,
+     344637284,
+     593797706,
+     4
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     26656,
+     8512,
+     18,
+     8448
+    ]
+   },
+   "abilities": [
+    255,
+    255,
+    161
+   ],
+   "abilityNames": {
+    "255": "Gorilla Tactics"
+   },
+   "abilityDescriptions": {
+    "255": "Boosts Attack but locks it\\ninto one move."
+   },
+   "learnset": [
+    [
+     1,
+     556
+    ],
+    [
+     1,
+     44
+    ],
+    [
+     1,
+     181
+    ],
+    [
+     1,
+     33
+    ],
+    [
+     1,
+     269
+    ],
+    [
+     12,
+     419
+    ],
+    [
+     16,
+     526
+    ],
+    [
+     20,
+     423
+    ],
+    [
+     24,
+     29
+    ],
+    [
+     28,
+     8
+    ],
+    [
+     32,
+     253
+    ],
+    [
+     38,
+     187
+    ],
+    [
+     44,
+     59
+    ],
+    [
+     50,
+     37
+    ],
+    [
+     56,
+     276
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_GALAR_DARMANITAN_ZEN",
+   "name": "Galarian Darmanitan Zen Mode",
+   "species": 555,
+   "family": 554,
+   "w2uForm": 3,
+   "suffix": "Galar-Zen",
+   "library": "555-3-1147",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     105,
+     160,
+     55,
+     135,
+     30,
+     55
+    ],
+    "types": [
+     14,
+     9
+    ],
+    "catchRate": 60,
+    "stage": 2,
+    "evs": 512,
+    "items": [
+     0,
+     0,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 3,
+    "eggGroups": [
+     5,
+     5
+    ],
+    "flee": 0,
+    "color": 8,
+    "baseExp": 168,
+    "height": 17,
+    "weight": 1200,
+    "tm": [
+     3731967664,
+     344637284,
+     593797706,
+     4
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     10240,
+     8448,
+     18,
+     8448
+    ]
+   },
+   "abilities": [
+    161,
+    161,
+    161
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "learnset": [
+    [
+     1,
+     33
+    ],
+    [
+     1,
+     205
+    ],
+    [
+     1,
+     510
+    ],
+    [
+     1,
+     99
+    ],
+    [
+     3,
+     205
+    ],
+    [
+     6,
+     510
+    ],
+    [
+     9,
+     99
+    ],
+    [
+     11,
+     424
+    ],
+    [
+     14,
+     29
+    ],
+    [
+     17,
+     207
+    ],
+    [
+     19,
+     263
+    ],
+    [
+     22,
+     7
+    ],
+    [
+     25,
+     526
+    ],
+    [
+     27,
+     37
+    ],
+    [
+     30,
+     187
+    ],
+    [
+     33,
+     394
+    ],
+    [
+     35,
+     359
+    ],
+    [
+     39,
+     269
+    ],
+    [
+     47,
+     276
+    ],
+    [
+     54,
+     315
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_GALAR_YAMASK",
+   "name": "Galarian Yamask",
+   "species": 562,
+   "family": 562,
+   "w2uForm": 1,
+   "suffix": "Galar",
+   "library": "562-1-1148",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     38,
+     55,
+     85,
+     30,
+     30,
+     65
+    ],
+    "types": [
+     4,
+     7
+    ],
+    "catchRate": 190,
+    "stage": 1,
+    "evs": 16,
+    "items": [
+     0,
+     247,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 25,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     10,
+     11
+    ],
+    "flee": 0,
+    "color": 4,
+    "baseExp": 61,
+    "height": 5,
+    "weight": 15,
+    "tm": [
+     3055485480,
+     1343535696,
+     173051938,
+     0
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     0,
+     12359,
+     550,
+     26796
+    ]
+   },
+   "abilities": [
+    254,
+    254,
+    254
+   ],
+   "abilityNames": {
+    "254": "Wandering Spirit"
+   },
+   "abilityDescriptions": {
+    "254": "Swaps Abilities with a foe\\nthat touches it."
+   },
+   "learnset": [
+    [
+     1,
+     310
+    ],
+    [
+     1,
+     182
+    ],
+    [
+     4,
+     114
+    ],
+    [
+     8,
+     101
+    ],
+    [
+     12,
+     50
+    ],
+    [
+     16,
+     693,
+     "Brutal Swing"
+    ],
+    [
+     20,
+     578,
+     "Crafty Shield"
+    ],
+    [
+     24,
+     506
+    ],
+    [
+     28,
+     212
+    ],
+    [
+     32,
+     21
+    ],
+    [
+     36,
+     174
+    ],
+    [
+     40,
+     247
+    ],
+    [
+     44,
+     89
+    ],
+    [
+     48,
+     470
+    ],
+    [
+     48,
+     471
+    ],
+    [
+     52,
+     194
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_HISUI_ZORUA",
+   "name": "Hisuian Zorua",
+   "species": 570,
+   "family": 570,
+   "w2uForm": 1,
+   "suffix": "Hisui",
+   "library": "570-1-1149",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     35,
+     60,
+     40,
+     70,
+     85,
+     40
+    ],
+    "types": [
+     0,
+     7
+    ],
+    "catchRate": 75,
+    "stage": 1,
+    "evs": 256,
+    "items": [
+     0,
+     0,
+     0
+    ],
+    "gender": 31,
+    "hatchCycles": 25,
+    "happiness": 70,
+    "growth": 3,
+    "eggGroups": [
+     5,
+     5
+    ],
+    "flee": 0,
+    "color": 71,
+    "baseExp": 66,
+    "height": 7,
+    "weight": 125,
+    "tm": [
+     2886945337,
+     1417722632,
+     3275755535,
+     0
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     258,
+     5128,
+     518,
+     10276
+    ]
+   },
+   "abilities": [
+    149,
+    149,
+    149
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "learnset": [
+    [
+     1,
+     43
+    ],
+    [
+     1,
+     10
+    ],
+    [
+     4,
+     259
+    ],
+    [
+     8,
+     468
+    ],
+    [
+     12,
+     425
+    ],
+    [
+     16,
+     174
+    ],
+    [
+     20,
+     269
+    ],
+    [
+     24,
+     282
+    ],
+    [
+     28,
+     180
+    ],
+    [
+     32,
+     97
+    ],
+    [
+     36,
+     247
+    ],
+    [
+     40,
+     841,
+     "Bitter Malice"
+    ],
+    [
+     44,
+     417
+    ],
+    [
+     48,
+     492
+    ]
+   ],
+   "evolutions": [
+    {
+     "method": 4,
+     "param": 30,
+     "species": 571,
+     "form": "REGIONAL_HISUI_ZOROARK"
+    }
+   ]
+  },
+  {
+   "key": "REGIONAL_HISUI_ZOROARK",
+   "name": "Hisuian Zoroark",
+   "species": 571,
+   "family": 570,
+   "w2uForm": 1,
+   "suffix": "Hisui",
+   "library": "571-1-1150",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     55,
+     100,
+     60,
+     110,
+     125,
+     60
+    ],
+    "types": [
+     0,
+     7
+    ],
+    "catchRate": 45,
+    "stage": 2,
+    "evs": 512,
+    "items": [
+     0,
+     0,
+     0
+    ],
+    "gender": 31,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 3,
+    "eggGroups": [
+     5,
+     5
+    ],
+    "flee": 0,
+    "color": 7,
+    "baseExp": 179,
+    "height": 16,
+    "weight": 730,
+    "tm": [
+     4229122617,
+     1418263436,
+     3814724623,
+     0
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     770,
+     37896,
+     518,
+     10292
+    ]
+   },
+   "abilities": [
+    149,
+    149,
+    149
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "learnset": [
+    [
+     1,
+     421
+    ],
+    [
+     1,
+     468
+    ],
+    [
+     1,
+     43
+    ],
+    [
+     1,
+     10
+    ],
+    [
+     1,
+     259
+    ],
+    [
+     1,
+     369
+    ],
+    [
+     12,
+     425
+    ],
+    [
+     16,
+     174
+    ],
+    [
+     20,
+     269
+    ],
+    [
+     24,
+     282
+    ],
+    [
+     28,
+     180
+    ],
+    [
+     34,
+     97
+    ],
+    [
+     40,
+     247
+    ],
+    [
+     46,
+     841,
+     "Bitter Malice"
+    ],
+    [
+     52,
+     417
+    ],
+    [
+     58,
+     492
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_GALAR_STUNFISK",
+   "name": "Galarian Stunfisk",
+   "species": 618,
+   "family": 618,
+   "w2uForm": 1,
+   "suffix": "Galar",
+   "library": "618-1-1151",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     109,
+     81,
+     99,
+     32,
+     66,
+     84
+    ],
+    "types": [
+     4,
+     8
+    ],
+    "catchRate": 75,
+    "stage": 2,
+    "evs": 2,
+    "items": [
+     0,
+     237,
+     0
+    ],
+    "gender": 127,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 0,
+    "eggGroups": [
+     2,
+     11
+    ],
+    "flee": 0,
+    "color": 3,
+    "baseExp": 165,
+    "height": 7,
+    "weight": 205,
+    "tm": [
+     2383610400,
+     4233818,
+     104898914,
+     2
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     2304,
+     2156,
+     514,
+     12548
+    ]
+   },
+   "abilities": [
+    250,
+    250,
+    250
+   ],
+   "abilityNames": {
+    "250": "Mimicry"
+   },
+   "abilityDescriptions": {
+    "250": "Its type changes with the\\nterrain."
+   },
+   "learnset": [
+    [
+     1,
+     232
+    ],
+    [
+     1,
+     189
+    ],
+    [
+     1,
+     33
+    ],
+    [
+     1,
+     55
+    ],
+    [
+     5,
+     203
+    ],
+    [
+     10,
+     341
+    ],
+    [
+     15,
+     279
+    ],
+    [
+     20,
+     319
+    ],
+    [
+     25,
+     389
+    ],
+    [
+     30,
+     334
+    ],
+    [
+     35,
+     340
+    ],
+    [
+     40,
+     330
+    ],
+    [
+     45,
+     779,
+     "Snap Trap"
+    ],
+    [
+     50,
+     175
+    ],
+    [
+     55,
+     90
+    ]
+   ],
+   "evolutions": []
+  },
+  {
+   "key": "REGIONAL_HISUI_BRAVIARY",
+   "name": "Hisuian Braviary",
+   "species": 628,
+   "family": 627,
+   "w2uForm": 1,
+   "suffix": "Hisui",
+   "library": "628-1-1152",
+   "credits": {
+    "front": "Smogon/Sprites Animados Contributors",
+    "back": "Smogon/Sprites Animados Contributors"
+   },
+   "personal": {
+    "stats": [
+     110,
+     83,
+     70,
+     65,
+     112,
+     70
+    ],
+    "types": [
+     13,
+     2
+    ],
+    "catchRate": 60,
+    "stage": 2,
+    "evs": 8,
+    "items": [
+     0,
+     0,
+     0
+    ],
+    "gender": 0,
+    "hatchCycles": 20,
+    "happiness": 70,
+    "growth": 5,
+    "eggGroups": [
+     4,
+     4
+    ],
+    "flee": 0,
+    "color": 8,
+    "baseExp": 179,
+    "height": 17,
+    "weight": 434,
+    "tm": [
+     3021162157,
+     570464960,
+     3821309965,
+     5
+    ],
+    "typeTutors": 0,
+    "tutors": [
+     0,
+     42240,
+     4498,
+     8208
+    ]
+   },
+   "abilities": [
+    51,
+    125,
+    110
+   ],
+   "abilityNames": {},
+   "abilityDescriptions": {},
+   "learnset": [
+    [
+     1,
+     840,
+     "Esper Wing"
+    ],
+    [
+     1,
+     468
+    ],
+    [
+     1,
+     43
+    ],
+    [
+     1,
+     64
+    ],
+    [
+     1,
+     143
+    ],
+    [
+     1,
+     276
+    ],
+    [
+     1,
+     17
+    ],
+    [
+     18,
+     366
+    ],
+    [
+     24,
+     184
+    ],
+    [
+     30,
+     332
+    ],
+    [
+     36,
+     163
+    ],
+    [
+     42,
+     18
+    ],
+    [
+     48,
+     306
+    ],
+    [
+     57,
+     403
+    ],
+    [
+     64,
+     432
+    ],
+    [
+     72,
+     37
+    ],
+    [
+     80,
+     542
+    ]
+   ],
+   "evolutions": []
+  }
+ ]
+}

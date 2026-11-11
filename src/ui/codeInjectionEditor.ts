@@ -78,7 +78,8 @@ import { getCascadePersonalMigrationStatus, migrateCascadePersonalData } from ".
 import { detectMoveExpansionPatch } from "../pokeweb/moveExpansionPatch";
 import moveAnimationCredits from "../assets/data/white2upgradeGen6MoveAnimationsCredits.json";
 import { MEGA_CREDITS, canUseMegaEvolutionInstaller, getMegaEvolutionStatus, setMegaEvolutionConfig, stageMegaEvolution, uninstallMegaEvolution, type MegaRoute } from "../pokeweb/megaEvolutionModel";
-import { getMegaContentStatus, installMegaContent, megaSpriteCredits, stageMegaAnimation } from "../pokeweb/megaContentModel";
+import { MEGA_RING_ITEM, getMegaContentStatus, installMegaContent, megaSpriteCredits, stageMegaAnimation, stageMegaRing } from "../pokeweb/megaContentModel";
+import { REGIONAL_FORMS, getRegionalFormsStatus, installRegionalForms, regionalFamilies } from "../pokeweb/regionalFormsModel";
 import { downloadBytes } from "../pokeweb/fileSystemModel";
 import { getIntroSkipStatus, stageIntroSkip, uninstallIntroSkip } from "../pokeweb/introSkipModel";
 import { TESTING_PATCHES, getTestingPatchStatus, installTestingPatch, uninstallTestingPatch, type TestingPatchId } from "../pokeweb/testingPatchesModel";
@@ -166,9 +167,11 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const bw1HmStatus = detectForgettableHmPatch(project);
   const cascadeStatus = getCascadePersonalMigrationStatus(project);
   const megaContentStatus = getMegaContentStatus(project);
+  const regionalStatus = getRegionalFormsStatus(project);
+  const families = regionalStatus.supported ? regionalFamilies(project) : [];
   const megaConfig = project.codeInjection?.megaEvolution;
   // One button: Item Expansion, the PWAN runtime, the Mega runtime, the Mega Pokémon and their stones and routes.
-  const megaInstallEnabled = megaContentStatus.installed ? megaStatus.updateAvailable || megaContentStatus.animationMissing : megaContentStatus.ready;
+  const megaInstallEnabled = megaContentStatus.installed ? megaStatus.updateAvailable || megaContentStatus.animationMissing || megaContentStatus.ringMissing : megaContentStatus.ready;
   const forgettableHmsSupported = forgettableHmsStatus !== "unsupported";
   const infiniteCandyStatus = getInfiniteCandyStatus(project, pendingCandyItemIds.get(project));
   const infiniteCandyItemId = infiniteCandyStatus.itemId ?? getInstalledInfiniteCandyItemId(project) ?? 622;
@@ -459,7 +462,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-panel__header">
             <div>
               <h2>Item Expansion</h2>
-              <p>Item IDs up to 1023 and pokebw2's shared bag: one pool of 1,023 distinct items instead of fixed pockets. Items 639–1023 exist once they are named in the item editor. Uses a new save format: convert existing saves below. Pal Pad, Wi-Fi friend and Unity Tower data stop being saved.</p>
+              <p>Item IDs up to 1023 and pokebw2's shared bag: one pool of 1,023 distinct items instead of fixed pockets. Items ${project.session.baseRom === "BW" ? "627" : "639"}–1023 exist once they are named in the item editor. Uses a new save format: convert existing saves below. ${project.session.baseRom === "BW" ? "Pal Pad, Wi-Fi friend and trade history" : "Pal Pad, Wi-Fi friend and Unity Tower"} data stop being saved.</p>
             </div>
             ${renderInlineStatus(!itemExpansionStatus.supported ? "Unsupported" : itemExpansionStatus.installed ? itemExpansionStatus.updateAvailable ? "Update Available" : "Installed" : itemExpansionStatus.compatible ? "Ready" : "Incompatible", { className: "code-injection-status" })}
           </div>
@@ -532,14 +535,14 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-panel__header">
             <div>
               <h2>Added-Form Evolution Support</h2>
-              <p>Allows evolution NARC targets to reference appended personal-form IDs while storing the evolved Pokemon as a safe base species and form.</p>
+              <p>Evolution by form: each form evolves by its own evolution record (Galarian Darumaka into Galarian Darmanitan), and an evolution target can be an added form's record. Retail evolves every form as its base form does.</p>
             </div>
             ${renderInlineStatus(formEvolutionInstalled ? "Installed" : formEvolutionStatus === "unsupported" ? "Unsupported" : "Not Installed", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
-            <div><span>Runtime</span><strong>${formEvolutionStatus === "unsupported" ? "B2/W2 only" : `FormEvolution${escapeHtml(project.session.baseVersion)}.dll`}</strong></div>
-            <div><span>Module Path</span><strong>${formEvolutionInstalled ? `patches/FormEvolution${escapeHtml(project.session.baseVersion)}.dll` : "Pending"}</strong></div>
-            <div><span>Installation</span><strong>Installer or Add Form</strong></div>
+            <div><span>Runtime</span><strong>${formEvolutionStatus === "unsupported" ? "B/W/B2/W2 only" : `FormEvolution${escapeHtml(project.session.baseVersion)}.dll + FormEvolutionCore${escapeHtml(project.session.baseVersion)}.dll`}</strong></div>
+            <div><span>Module Path</span><strong>${formEvolutionInstalled ? "patches/" : "Pending"}</strong></div>
+            <div><span>Installation</span><strong>Installer or Regional Forms</strong></div>
             <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
           </div>
           <div class="code-injection-note">
@@ -547,8 +550,8 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               formEvolutionInstalled
                 ? "The bundled form-evolution DLL is active in this project and will be included in the exported ROM."
                 : formEvolutionStatus === "unsupported"
-                  ? "The bundled form-evolution runtime currently supports Black 2 and White 2."
-                  : "Install here or use Add Form in the Pokemon editor. PMC is installed automatically if needed."
+                  ? "The bundled form-evolution runtime supports US Black, White, Black 2 and White 2."
+                  : "Install here; Regional Forms installs it too. An earlier FormEvolution DLL is updated. PMC is installed automatically if needed."
             }
           </div>
           <div class="code-injection-actions">
@@ -814,7 +817,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             ${renderInlineStatus(fairyStatus === "patched" ? "Installed" : fairyStatus === "unsupported" ? "Unsupported" : "Ready", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
-            <div><span>ROM</span><strong>Black 2 / White 2</strong></div>
+            <div><span>ROM</span><strong>Black / White and Black 2 / White 2</strong></div>
             <div><span>Installed by</span><strong>This card, Move Expansion or Mega Evolution</strong></div>
           </div>
           <div class="code-injection-actions">
@@ -879,6 +882,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               <label><span>“Fervent wish” message</span><input id="mega-msg-wish" type="number" min="0" max="65535" value="${megaConfig.messages.wish}"></label>
               <label><span>Animation</span><input id="mega-animation" type="number" min="0" max="65535" value="${megaConfig.animationMove}" title="0 plays the native form change"></label>
               <label><span>Trainers Mega Evolve</span><input id="mega-auto-foes" type="checkbox" ${megaConfig.autoFoes ? "checked" : ""}></label>
+              <label><span>Key item needed</span><input id="mega-ring-item" type="number" min="0" max="1023" value="${megaConfig.ringItem ?? 0}" title="The player Mega Evolves only with this item in the bag (the Mega Ring, ${MEGA_RING_ITEM}); 0: no item needed"></label>
             </div>
           </details>` : ""}
           ${megaContentStatus.supported ? `<details class="code-injection-mega-credits">
@@ -890,7 +894,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           </details>` : ""}
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-mega-btn" type="button" ${megaInstallEnabled ? "" : "disabled"}${megaInstallEnabled || !megaContentStatus.message ? "" : ` title="${escapeHtml(megaContentStatus.message)}"`}>
-              ${megaContentStatus.installed ? megaStatus.updateAvailable || megaContentStatus.animationMissing ? "Update Mega Evolution" : "Mega Evolution Installed" : "Install Mega Evolution"}
+              ${megaContentStatus.installed ? megaStatus.updateAvailable || megaContentStatus.animationMissing || megaContentStatus.ringMissing ? "Update Mega Evolution" : "Mega Evolution Installed" : "Install Mega Evolution"}
             </button>
             <button class="btn -default" id="add-mega-route-btn" type="button" ${megaConfig ? "" : "disabled"}>Add Route</button>
             <button class="btn -default" id="save-mega-routes-btn" type="button" ${megaConfig ? "" : "disabled"}>Save Routes</button>
@@ -899,6 +903,36 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           </div>
         </section>
         ` : ""}
+        ${canUseMegaEvolutionInstaller() ? `<section class="code-injection-panel" ${patchVisibility(regionalStatus.supported)}>
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Regional Forms</h2>
+              <p>Adds regional forms of Gen 1-5 Pokémon as alt forms including: stats, types, abilities, level-up moves, TM and tutor moves, evolutions, animated sprites and icons.</p>
+            </div>
+            ${renderInlineStatus(!regionalStatus.supported ? "Unsupported" : regionalStatus.installedForms ? regionalStatus.installedForms >= REGIONAL_FORMS.length ? "Installed" : "Partly Installed" : "Ready", { className: "code-injection-status" })}
+          </div>
+          <div class="code-injection-facts">
+            <div><span>Forms</span><strong>${REGIONAL_FORMS.length} in ${families.length} families</strong></div>
+            <div><span>Installed</span><strong>${regionalStatus.installedForms || "—"}</strong></div>
+            <div><span>Installs with it</span><strong>Fairy Type Support, Move Expansion, animated sprites, evolution by form</strong></div>
+            <div><span>Data</span><strong>White2Upgrade; sprites from the PWAN library</strong></div>
+          </div>
+          <details class="code-injection-regional-families" open>
+            <summary>Families (${families.filter((family) => family.installed.length < family.forms.length).length} to install)</summary>
+            <p class="code-injection-regional-hint">Uncheck a family you already made your own forms for. Abilities the ability library can't add keep the base form's; moves the ROM doesn't have are left out.</p>
+            <div class="code-injection-regional-list">${families.map((family) => {
+              const done = family.installed.length === family.forms.length;
+              return `<label class="${family.otherForms.length ? "-warning" : ""}"><input type="checkbox" data-regional-family="${family.id}" ${done ? "disabled" : "checked"}>
+                <span><strong>${escapeHtml(family.name)}</strong> ${escapeHtml(family.forms.map((form) => form.name).join(", "))}${done ? " (installed)" : family.installed.length ? ` (${family.installed.length} installed)` : ""}${family.otherForms.length ? `<em>Has added forms: ${escapeHtml(family.otherForms.join(", "))}</em>` : ""}</span></label>`;
+            }).join("")}</div>
+          </details>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-regional-forms-btn" type="button" ${regionalStatus.ready ? "" : "disabled"}>Install Regional Forms</button>
+            <button class="btn -default" id="regional-select-all-btn" type="button">Select All</button>
+            <button class="btn -default" id="regional-select-none-btn" type="button">Select None</button>
+            <div class="code-injection-note" id="regional-forms-note" aria-live="polite">${regionalStatus.ready ? "" : escapeHtml(regionalStatus.message)}</div>
+          </div>
+        </section>` : ""}
         </section>
         <section class="code-injection-tab-panel" id="code-injection-panel-add-ons" role="tabpanel" aria-labelledby="code-injection-tab-add-ons" tabindex="0" ${activeTab === "add-ons" ? "" : "hidden"}>
         <section class="code-injection-panel" ${patchVisibility(infiniteCandyStatus.supported)}>
@@ -1459,6 +1493,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       messages: { reacting: number("#mega-msg-reacting"), evolved: number("#mega-msg-evolved"), wish: number("#mega-msg-wish") },
       animationMove: number("#mega-animation"),
       autoFoes: root.querySelector<HTMLInputElement>("#mega-auto-foes")?.checked ?? true,
+      ringItem: number("#mega-ring-item"),
     });
     onDirty();
     renderCodeInjectionEditor(project, root, onDirty);
@@ -1475,6 +1510,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           const changes: string[] = [];
           if (getMegaEvolutionStatus(candidate).updateAvailable) changes.push(`${(await stageMegaEvolution(candidate)).dll} updated`);
           if (contentStatus.animationMissing) { await stageMegaAnimation(candidate); changes.push("transformation animation added"); }
+          if (contentStatus.ringMissing) { await stageMegaRing(candidate); changes.push(`the Mega Ring added (item ${MEGA_RING_ITEM}; the player needs it to Mega Evolve)`); }
           return changes;
         });
         onDirty();
@@ -1490,7 +1526,9 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       const skipped = report.skipped;
       const notes = [
         `${report.forms.length} Mega Pokémon, their ${report.stones} Mega Stones, routes and the transformation animation installed.`,
-        report.moveExpansion === "installed" ? `Move Expansion${report.fairyTypeInstalled ? " and Fairy Type Support were" : " was"} installed (Mega Rayquaza's Dragon Ascent${report.fairyTypeInstalled ? ", the Fairy Megas' type" : ""}).` : report.moveExpansion === "unavailable" ? "Move Expansion couldn't be installed on this ROM, so Mega Rayquaza was skipped." : "",
+        `The player needs the Mega Ring (Key Items, item ${MEGA_RING_ITEM}) to Mega Evolve; the test-battle saves have it.`,
+        report.fairyTypeInstalled ? "Fairy Type Support was installed (the Fairy Megas' type)." : "",
+        report.moveExpansion === "installed" ? "Move Expansion was installed (Mega Rayquaza's Dragon Ascent)." : report.moveExpansion === "unavailable" ? "Move Expansion couldn't be installed on this ROM, so Mega Rayquaza was skipped." : "",
         itemsWereInstalled ? "" : "Item Expansion was installed: convert existing saves on the Item Expansion card.",
         report.abilitiesAdded.length ? `Abilities added: ${report.abilitiesAdded.join(", ")}.` : "",
         skipped.length ? `Skipped: ${skipped.map((skip) => `${skip.name} (${skip.reason})`).join("; ")}.` : "",
@@ -1503,6 +1541,41 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       megaButton.disabled = false;
       megaButton.textContent = previousText;
       const note = megaNote();
+      if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+  const regionalNote = () => root.querySelector<HTMLDivElement>("#regional-forms-note");
+  const familyBoxes = () => [...root.querySelectorAll<HTMLInputElement>("[data-regional-family]")].filter((box) => !box.disabled);
+  root.querySelector<HTMLButtonElement>("#regional-select-all-btn")?.addEventListener("click", () => familyBoxes().forEach((box) => { box.checked = true; }));
+  root.querySelector<HTMLButtonElement>("#regional-select-none-btn")?.addEventListener("click", () => familyBoxes().forEach((box) => { box.checked = false; }));
+  const regionalButton = root.querySelector<HTMLButtonElement>("#install-regional-forms-btn");
+  regionalButton?.addEventListener("click", async () => {
+    const chosen = familyBoxes().filter((box) => box.checked).map((box) => Number(box.dataset.regionalFamily));
+    const note = regionalNote();
+    if (!chosen.length) { if (note) note.textContent = "Choose at least one family."; return; }
+    const previousText = regionalButton.textContent ?? "Install Regional Forms";
+    try {
+      regionalButton.disabled = true;
+      regionalButton.textContent = "Installing...";
+      const report = await installRegionalForms(project, (stage) => install(stage), chosen);
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+      const notes = [
+        `${report.forms.length} regional forms installed, with evolution by form (FormEvolution${project.session.baseVersion}.dll).`,
+        report.zenMode ? `Galarian Darmanitan has Zen Mode (RegionalZenMode${project.session.baseVersion}.dll).` : "",
+        report.fairyTypeInstalled ? "Fairy Type Support was installed." : "",
+        report.moveExpansion === "installed" ? "Move Expansion was installed (the forms' newer moves)." : report.moveExpansion === "unavailable" ? "Move Expansion couldn't be installed on this ROM." : "",
+        report.abilitiesAdded.length ? `Abilities added: ${report.abilitiesAdded.join(", ")}.` : "",
+        report.abilityFallbacks.length ? `Kept the base form's ability: ${report.abilityFallbacks.join("; ")}.` : "",
+        report.movesLeftOut.length ? `Moves left out: ${report.movesLeftOut.join(", ")}.` : "",
+        report.noEvolution.length ? `Don't evolve (their evolution is a newer Pokémon): ${report.noEvolution.join(", ")}.` : "",
+        report.skipped.length ? `Skipped: ${report.skipped.map((skip) => `${skip.name} (${skip.reason})`).join("; ")}.` : "",
+      ].filter(Boolean);
+      const refreshed = regionalNote();
+      if (refreshed) refreshed.textContent = notes.join(" ");
+    } catch (error) {
+      regionalButton.disabled = false;
+      regionalButton.textContent = previousText;
       if (note) note.textContent = error instanceof Error ? error.message : String(error);
     }
   });

@@ -1,5 +1,5 @@
 import { canUseMegaEvolutionInstaller, isMegaEvolutionInstalled, MEGA_ROUTE_CAPACITY, setMegaEvolutionConfig, type MegaRoute } from "./megaEvolutionModel";
-import { BW2_MESSAGE_BANKS } from "./constants";
+import { BW2_MESSAGE_BANKS, BW_MESSAGE_BANKS } from "./constants";
 import { findPokemonPersonalFormOwner, pokemonSpeciesLabel } from "./pokemonLabels";
 import { decodeRecord, type ProjectState } from "./projectStore";
 import { commitTextBank, getTextBank, parseTextEntryId } from "./textModel";
@@ -12,7 +12,7 @@ import { commitTextBank, getTextBank, parseTextEntryId } from "./textModel";
 export type MegaEditorRoute = { index: number; route: MegaRoute; problem?: string };
 export type MegaFormOption = { form: number; personalId: number; label: string };
 export type MegaEditorState = {
-  /** Black 2 / White 2 on localhost, like the Code Injection card. */
+  /** Black / White and Black 2 / White 2 on localhost, like the Code Injection card. */
   available: boolean;
   installed: boolean;
   species: number;
@@ -29,7 +29,8 @@ export type MegaEditorState = {
 export const FIRST_MEGA_STONE_ID = 657;
 
 export function megaEditorAvailable(project: ProjectState, hostname?: string): boolean {
-  return project.session.baseRom === "BW2" && project.session.generation !== "gen4" && canUseMegaEvolutionInstaller(hostname);
+  return (project.session.baseRom === "BW2" || project.session.baseRom === "BW") && project.session.generation !== "gen4" &&
+    canUseMegaEvolutionInstaller(hostname);
 }
 
 /** The species and form index of a personal record (form 0 for a base species). */
@@ -65,7 +66,8 @@ export function megaFormSuffix(formName: string, baseName: string): string {
  */
 export function nameMegaForm(project: ProjectState, personalId: number, suffix: string): void {
   const owner = findPokemonPersonalFormOwner(project, personalId);
-  const bankId = BW2_MESSAGE_BANKS.find(([, name]) => name === "pokedex")?.[0];
+  const banks = project.session.baseRom === "BW" ? BW_MESSAGE_BANKS : BW2_MESSAGE_BANKS;
+  const bankId = banks.find(([, name]) => name === "pokedex")?.[0];
   if (!owner || typeof bankId !== "number" || !project.narcs.message_texts) return;
   const name = `${pokemonSpeciesLabel(project, owner.speciesId)}-${suffix}`;
   const bank = getTextBank(project, "message_texts", bankId);

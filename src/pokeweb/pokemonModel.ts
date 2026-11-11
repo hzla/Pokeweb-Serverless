@@ -893,6 +893,32 @@ function updateLearnsetField(project: ProjectState, raw: RawRecord, readable: Re
   return { value, rawValue, movePreview: getMovePreview(project, rawValue) };
 }
 
+/** Replaces a record's level-up learnset (installers); entries past the game's limit are dropped. */
+export function setPokemonLearnset(project: ProjectState, speciesId: number, entries: Array<{ moveId: number; level: number }>): void {
+  const record = decodeRecord(project, "learnsets", speciesId);
+  if (!record.raw || !record.readable) throw new Error(`Unable to update learnsets ${speciesId}`);
+  applyLearnsetEntries(project, record.raw, record.readable, entries, learnsetMoveLimit(project));
+  markDirty(project, "learnsets", speciesId);
+}
+
+/** Replaces a record's evolutions (installers): {method, param, target} rows, the rest of the slots cleared. */
+export function setPokemonEvolutions(project: ProjectState, speciesId: number, rows: Array<{ method: number; param: number; target: number }>): void {
+  const record = decodeRecord(project, "evolutions", speciesId);
+  if (!record.raw || !record.readable) throw new Error(`Unable to update evolutions ${speciesId}`);
+  const slots = evolutionSlotCount(project);
+  if (rows.length > slots) throw new Error(`At most ${slots} evolutions fit a record.`);
+  for (let slot = 0; slot < slots; slot++) {
+    const row = rows[slot] ?? { method: 0, param: 0, target: 0 };
+    record.raw[`method_${slot}`] = row.method;
+    record.raw[`param_${slot}`] = row.param;
+    record.raw[`target_${slot}`] = row.target;
+    record.readable[`method_${slot}`] = EVO_METHODS[row.method] ?? row.method;
+    record.readable[`param_${slot}`] = formatEvolutionParam(project, row.method, row.param);
+    record.readable[`target_${slot}`] = pokemonSpeciesLabel(project, row.target);
+  }
+  markDirty(project, "evolutions", speciesId);
+}
+
 function applyLearnsetEntries(project: ProjectState, raw: RawRecord, readable: ReadableRecord, entries: Array<{ moveId: number; level: number }>, limit = learnsetMoveLimit(project)): void {
   for (let index = 0; index < WHITE2UPGRADE_LEARNSET_MAX_MOVES; index += 1) {
     delete raw[`move_id_${index}`];

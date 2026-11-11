@@ -187,6 +187,16 @@ describe("full-size streams", () => {
     expect([full.x0, full.y0]).toEqual([-64 + 3, -64 + 7 - 2]); // the canvas is scaled with the art
   });
 
+  it("numbers its colours as a given PWAN palette", () => {
+    const art = frame(0, 100, 100, { x: 0, y: 0, w: 100, h: 50, color: [248, 0, 0] });
+    for (let y = 50; y < 100; y++) for (let x = 0; x < 100; x++) art.pixels.set([0, 240, 8, 255], (y * 100 + x) * 4);
+    const palette = Uint16Array.from({ length: 16 }, (_, n) => (n === 3 ? 31 : n === 7 ? 31 << 5 : 0));
+    const info = parseFullSizeMani(compileFramesToFullSizeStream([art], { side: "front", palette }).mani);
+    expect(Array.from(info.palette.subarray(1))).toEqual(Array.from(palette.subarray(1)));
+    expect(info.frames[0]![0]! & 31).toBe(3); // red: exact
+    expect(info.frames[0]![60 * 128]! & 31).toBe(7); // (0, 240, 8): the nearest, green
+  });
+
   it("moves and retimes a full-size stream", () => {
     const full = compileFramesToFullSizeStream([frame(0, 100, 100, { x: 0, y: 0, w: 100, h: 100, color: [248, 248, 0] })], { side: "front" });
     const moved = parseFullSizeMani(adjustFullSizeMani(full.mani, { dx: 5, dy: -4, durationScale: 2 }));

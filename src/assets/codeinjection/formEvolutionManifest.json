@@ -1,0 +1,157 @@
+{
+  "games": {
+    "W2": {
+      "core": {
+        "fileName": "FormEvolutionCoreW2.dll",
+        "size": 608,
+        "sha256": "c80dfb318d58f89a422982a463439be0e544e6fdcfe44aeadf78613f0aa42df3",
+        "targets": [
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "ARM9",
+            "address": "0x20207d0"
+          },
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "ARM9",
+            "address": "0x202086e"
+          }
+        ],
+        "literals": []
+      },
+      "demo": {
+        "fileName": "FormEvolutionW2.dll",
+        "size": 656,
+        "sha256": "919e312cf25309de0210504e7867672427fa5f225d6154c13438dc6e624c07ea",
+        "targets": [
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "284",
+            "address": "0x21e359c"
+          },
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "284",
+            "address": "0x21e4e62"
+          }
+        ],
+        "literals": []
+      }
+    },
+    "B2": {
+      "core": {
+        "fileName": "FormEvolutionCoreB2.dll",
+        "size": 608,
+        "sha256": "dbcb2662983fa386cb8c6c03aa68c4e49d6cb02f94a7784ea0c0795a0672bb94",
+        "targets": [
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "ARM9",
+            "address": "0x20207a4"
+          },
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "ARM9",
+            "address": "0x2020842"
+          }
+        ],
+        "literals": []
+      },
+      "demo": {
+        "fileName": "FormEvolutionB2.dll",
+        "size": 656,
+        "sha256": "1fff16a62a68f246c06045f871da5fd8de318c897d89585d395b25a2e0d1df74",
+        "targets": [
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "284",
+            "address": "0x21e355c"
+          },
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "284",
+            "address": "0x21e4e22"
+          }
+        ],
+        "literals": []
+      }
+    },
+    "B": {
+      "core": {
+        "fileName": "FormEvolutionCoreB.dll",
+        "size": 608,
+        "sha256": "20b33595f7f3df31f5847673985a912e4019cd04c48f855f10b37a53dd1909c3",
+        "targets": [
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "ARM9",
+            "address": "0x201b2cc"
+          },
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "ARM9",
+            "address": "0x201b36a"
+          }
+        ],
+        "literals": []
+      },
+      "demo": {
+        "fileName": "FormEvolutionB.dll",
+        "size": 640,
+        "sha256": "57a8cc7e3a8ae15f8ef8f0f3f2757152e0a3fab6b29bfc33fd57b49ecc9cb121",
+        "targets": [
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "195",
+            "address": "0x2204400"
+          },
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "195",
+            "address": "0x2205cc6"
+          }
+        ],
+        "literals": []
+      }
+    },
+    "W": {
+      "core": {
+        "fileName": "FormEvolutionCoreW.dll",
+        "size": 608,
+        "sha256": "9d2fdcdc3df6abe28856c6f01671602146e02159f74b596bfb181d62043da132",
+        "targets": [
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "ARM9",
+            "address": "0x201b2e8"
+          },
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "ARM9",
+            "address": "0x201b386"
+          }
+        ],
+        "literals": []
+      },
+      "demo": {
+        "fileName": "FormEvolutionW.dll",
+        "size": 640,
+        "sha256": "ea2e5e5969c1bd4e081a4f88fb9072ece9ff6a1e077826dfba2f3e1c11628f13",
+        "targets": [
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "195",
+            "address": "0x2204420"
+          },
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "195",
+            "address": "0x2205ce6"
+          }
+        ],
+        "literals": []
+      }
+    }
+  },
+  "version": "2.0.0"
+}

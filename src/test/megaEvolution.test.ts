@@ -4,7 +4,7 @@ import manifest from "../assets/codeinjection/megaEvolutionManifest.json";
 import { MEGA_ROUTE_CAPACITY, writeMegaEvolutionTable, type MegaEvolutionConfig } from "../pokeweb/megaEvolutionModel";
 import { parseRpm } from "../pokeweb/rpm";
 
-const dll = (game: "W2" | "B2") => new Uint8Array(readFileSync(new URL(`../assets/codeinjection/PokewebMega${game}.dll`, import.meta.url)));
+const dll = (game: "W2" | "B2" | "B" | "W") => new Uint8Array(readFileSync(new URL(`../assets/codeinjection/PokewebMega${game}.dll`, import.meta.url)));
 
 const config: MegaEvolutionConfig = {
   version: 1,
@@ -15,38 +15,59 @@ const config: MegaEvolutionConfig = {
   ],
   messages: { reacting: 1153, evolved: 1156, wish: 1451 },
   animationMove: 737,
+  ringItem: 124,
   revealFrame: 244,
   autoFoes: false,
 };
 
 describe("Mega Evolution runtime", () => {
-  for (const game of ["W2", "B2"] as const) {
-    it(`${game}: hooks only battle overlay 167 and carries one route table`, () => {
+  for (const game of ["W2", "B2", "B", "W"] as const) {
+    // Black 2 / White 2 hook three call sites; Black / White also the form change's two (its own are short thunks).
+    const overlay = game.endsWith("2") ? "167" : "93";
+    const callSites = game.endsWith("2") ? 3 : 5;
+    it(`${game}: hooks only battle overlay ${overlay} and carries one route table`, () => {
       const rpm = parseRpm(dll(game), { allowedMagics: ["DLXF"] });
       const modules = new Set(rpm.relocations.map((relocation) => relocation.target.module).filter((module) => module !== "base"));
-      expect([...modules]).toEqual(["167"]);
+      expect([...modules]).toEqual([overlay]);
       expect(rpm.metadata.PMCGameID).toBe(game);
       const targets = manifest.games[game].targets;
       expect(targets).toHaveLength(8);
-      expect(targets.filter((target) => target.kind === "THUMB_BRANCH_LINK")).toHaveLength(3);
+      expect(targets.filter((target) => target.kind === "THUMB_BRANCH_LINK")).toHaveLength(callSites);
     });
 
     it(`${game}: writes routes, messages and options into the PWMG table`, () => {
       const source = dll(game);
       const out = writeMegaEvolutionTable(source, config);
       const at = manifest.games[game].tableOffset;
-      const view = new DataView(out.buffer, out.byteOffset + at, 24 + MEGA_ROUTE_CAPACITY * 8);
+      const view = new DataView(out.buffer, out.byteOffset + at, 28 + MEGA_ROUTE_CAPACITY * 8);
       expect(view.getUint32(0, true)).toBe(0x474d5750);
+      expect(view.getUint16(4, true)).toBe(2); // version 2: the ring item, routes at +28
+      expect(view.getUint16(24, true)).toBe(124);
       expect(view.getUint16(6, true)).toBe(3);
       expect([view.getUint16(8, true), view.getUint16(10, true), view.getUint16(12, true), view.getUint16(14, true)]).toEqual([1153, 1156, 1451, 737]);
       expect(view.getUint16(16, true)).toBe(1357); // the build's SE defaults are kept
       expect(view.getUint16(22, true)).toBe(0);
-      expect([view.getUint16(24 + 8, true), view.getUint16(26 + 8, true), view.getUint8(28 + 8), view.getUint8(29 + 8)]).toEqual([6, 661, 0, 2]);
-      expect(view.getUint8(30 + 16)).toBe(1);
+      expect([view.getUint16(28 + 8, true), view.getUint16(30 + 8, true), view.getUint8(32 + 8), view.getUint8(33 + 8)]).toEqual([6, 661, 0, 2]);
+      expect(view.getUint8(34 + 16)).toBe(1);
       // Only the table changes.
-      out.forEach((byte, index) => { if (index < at || index >= at + 24 + MEGA_ROUTE_CAPACITY * 8) expect(byte).toBe(source[index]); });
+      out.forEach((byte, index) => { if (index < at || index >= at + 28 + MEGA_ROUTE_CAPACITY * 8) expect(byte).toBe(source[index]); });
+    });
+
+    it(`${game}: still writes a version 1 table (a DLL staged before the Mega Ring) with routes at +24`, () => {
+      const source = dll(game).slice();
+      const at = manifest.games[game].tableOffset;
+      new DataView(source.buffer, source.byteOffset + at, 8).setUint16(4, 1, true);
+      const view = new DataView(writeMegaEvolutionTable(source, config).buffer, at, 24 + MEGA_ROUTE_CAPACITY * 8);
+      expect([view.getUint16(24 + 8, true), view.getUint16(26 + 8, true)]).toEqual([6, 661]);
     });
   }
+
+  it("Black and White hook the same battle code at their own addresses", () => {
+    const kinds = (game: "B" | "W") => manifest.games[game].targets.map((target) => `${target.kind} ${target.segment}`);
+    expect(kinds("B")).toEqual(kinds("W"));
+    expect(manifest.games.B.targets.map((target) => target.address)).not.toEqual(manifest.games.W.targets.map((target) => target.address));
+    expect(manifest.games.B.tableOffset).toBe(manifest.games.W.tableOffset);
+  });
 
   it("refuses more routes than the runtime holds", () => {
     const routes = Array.from({ length: MEGA_ROUTE_CAPACITY + 1 }, (_, index) => ({ species: index + 1, trigger: 1, sourceForm: 0, targetForm: 1 }));

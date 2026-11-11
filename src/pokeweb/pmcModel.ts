@@ -87,8 +87,14 @@ const DOUBLE_BATTLE_FIX_B2_URL = new URL("../assets/codeinjection/DoubleBattleFi
 const DOUBLE_BATTLE_FIX_W2_URL = new URL("../assets/codeinjection/DoubleBattleFixW2.dll", import.meta.url);
 const MAIN_MENU_SKIP_B2_URL = new URL("../assets/codeinjection/MainMenuSkipB2.dll", import.meta.url);
 const MAIN_MENU_SKIP_W2_URL = new URL("../assets/codeinjection/MainMenuSkipW2.dll", import.meta.url);
-const FORM_EVOLUTION_B2_URL = new URL("../assets/codeinjection/FormEvolutionB2.dll", import.meta.url);
-const FORM_EVOLUTION_W2_URL = new URL("../assets/codeinjection/FormEvolutionW2.dll", import.meta.url);
+// The form evolution runtime (runtime/form-evolution): FormEvolution<game>.dll (evolution scene) and
+// FormEvolutionCore<game>.dll (the evolution check, resident).
+const FORM_EVOLUTION_URLS: Record<FormEvolutionVersion, { demo: URL; core: URL }> = {
+  B: { demo: new URL("../assets/codeinjection/FormEvolutionB.dll", import.meta.url), core: new URL("../assets/codeinjection/FormEvolutionCoreB.dll", import.meta.url) },
+  W: { demo: new URL("../assets/codeinjection/FormEvolutionW.dll", import.meta.url), core: new URL("../assets/codeinjection/FormEvolutionCoreW.dll", import.meta.url) },
+  B2: { demo: new URL("../assets/codeinjection/FormEvolutionB2.dll", import.meta.url), core: new URL("../assets/codeinjection/FormEvolutionCoreB2.dll", import.meta.url) },
+  W2: { demo: new URL("../assets/codeinjection/FormEvolutionW2.dll", import.meta.url), core: new URL("../assets/codeinjection/FormEvolutionCoreW2.dll", import.meta.url) },
+};
 const BGM_TOGGLE_B_URL = new URL("../assets/codeinjection/BgmToggleB.dll", import.meta.url);
 const BGM_TOGGLE_W_URL = new URL("../assets/codeinjection/BgmToggleW.dll", import.meta.url);
 const BGM_TOGGLE_B2_URL = new URL("../assets/codeinjection/BgmToggleB2.dll", import.meta.url);
@@ -106,10 +112,13 @@ const MAIN_MENU_SKIP_FILENAMES: Record<"B2" | "W2", string> = {
   W2: "MainMenuSkipW2.dll",
 };
 
-const FORM_EVOLUTION_FILENAMES: Record<"B2" | "W2", string> = {
-  B2: "FormEvolutionB2.dll",
-  W2: "FormEvolutionW2.dll",
-};
+type FormEvolutionVersion = "B" | "W" | "B2" | "W2";
+const formEvolutionFileNames = (version: FormEvolutionVersion) => ({ demo: `FormEvolution${version}.dll`, core: `FormEvolutionCore${version}.dll` });
+function formEvolutionVersion(project: ProjectState): FormEvolutionVersion | undefined {
+  const version = project.session.baseVersion;
+  return (project.session.baseRom === "BW2" && (version === "B2" || version === "W2")) || (project.session.baseRom === "BW" && (version === "B" || version === "W"))
+    ? version : undefined;
+}
 
 const BGM_TOGGLE_FILENAMES: Record<BgmMusicVersion, string> = {
   B: "BgmToggleB.dll", W: "BgmToggleW.dll",
@@ -606,30 +615,50 @@ export async function prepareBw2TestBattleCodeInjection(project: ProjectState): 
   return stageBundledMainMenuSkipDll(project);
 }
 
-export async function prepareBw2FormEvolutionCodeInjection(project: ProjectState): Promise<CodeInjectionDllInstallResult> {
-  if (project.session.baseRom !== "BW2" || (project.session.baseVersion !== "B2" && project.session.baseVersion !== "W2")) {
-    throw new Error("Safe personal-form evolution targets currently require a Black 2 or White 2 ROM.");
-  }
-
+/**
+ * Evolution by form, all four games: each form evolves by its own evolution record, and an evolution target can be a
+ * form's personal record (the evolved Pokémon is then that species in that form). Replaces the earlier Black 2 /
+ * White 2 runtime of the same name, which only resolved such targets.
+ */
+export async function prepareFormEvolutionCodeInjection(project: ProjectState): Promise<CodeInjectionDllInstallResult> {
+  const version = formEvolutionVersion(project);
+  if (!version) throw new Error("Evolution by form supports US Black, White, Black 2 and White 2.");
   if (!getPmcInstallStatus(project).installed) await installBundledPmc(project);
-
-  const version = project.session.baseVersion;
-  const fileName = FORM_EVOLUTION_FILENAMES[version];
-  const path = `patches/${fileName}`;
-  const existing = listCodeInjectionDlls(project).find((module) => module.path.toLowerCase() === path.toLowerCase());
-  if (existing) return existing;
-
-  const response = await fetch(version === "B2" ? FORM_EVOLUTION_B2_URL : FORM_EVOLUTION_W2_URL);
-  if (!response.ok) throw new Error(`Could not load bundled ${version} form-evolution runtime (${response.status})`);
-  const result = stageCodeInjectionDll(project, fileName, new Uint8Array(await response.arrayBuffer()), "patches");
+  const names = formEvolutionFileNames(version);
+  const staged: CodeInjectionDllInstallResult[] = [];
+  for (const part of ["core", "demo"] as const) {
+    const response = await fetch(FORM_EVOLUTION_URLS[version][part]);
+    if (!response.ok) throw new Error(`Could not load bundled ${names[part]} (${response.status})`);
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    const existing = listCodeInjectionDlls(project).find((module) => module.path.toLowerCase() === `patches/${names[part]}`.toLowerCase());
+    // The same version is kept; an earlier one (the Black 2 / White 2 runtime) is replaced at its path.
+    if (existing && sameBytes(stagedOrRomDll(project, existing.path), bytes)) { staged.push(existing); continue; }
+    staged.push(stageCodeInjectionDll(project, names[part], bytes, "patches"));
+  }
   recordGenericChange(
     project,
     "code_injection",
-    `${fileName} staged so evolution targets can safely reference personal-form IDs.`,
+    `${names.demo} and ${names.core} staged: each form evolves by its own evolution record, and evolution targets can be form records.`,
     "Form Evolution Runtime",
     { key: "code-injection:form-evolution" },
   );
-  return result;
+  return staged[1]!;
+}
+
+/** The earlier name (Black 2 / White 2 only). */
+export const prepareBw2FormEvolutionCodeInjection = prepareFormEvolutionCodeInjection;
+
+function sameBytes(a: Uint8Array | undefined, b: Uint8Array): boolean {
+  return Boolean(a) && a!.length === b.length && a!.every((value, index) => value === b[index]);
+}
+
+function stagedOrRomDll(project: ProjectState, path: string): Uint8Array | undefined {
+  const added = Object.keys(project.fileSystem?.additions ?? {}).find((candidate) => candidate.toLowerCase() === path.toLowerCase());
+  if (added) return project.fileSystem!.additions![added];
+  if (!project.originalRomBytes) return undefined;
+  const rom = new NintendoDSRom(project.originalRomBytes, { fileData: "view" });
+  const id = rom.filenames.idOf(path);
+  return id === undefined ? undefined : getRomFileBytes(project, rom, id);
 }
 
 export async function installBundledBgmToggleDll(project: ProjectState, options: { preserveShortcut?: boolean } = {}): Promise<CodeInjectionDllInstallResult> {
@@ -819,12 +848,13 @@ export function readBgmRuntimeConfig(bytes: Uint8Array): BgmRuntimeConfig | unde
   }
 }
 
+/** "patched" when both parts are staged; the earlier Black 2 / White 2 runtime alone (no core) counts as unpatched. */
 export function detectBundledFormEvolutionDll(project: ProjectState): "patched" | "unpatched" | "unsupported" {
-  if (project.session.baseRom !== "BW2" || (project.session.baseVersion !== "B2" && project.session.baseVersion !== "W2")) {
-    return "unsupported";
-  }
-  const path = `patches/${FORM_EVOLUTION_FILENAMES[project.session.baseVersion]}`;
-  return listCodeInjectionDlls(project).some((module) => module.path.toLowerCase() === path.toLowerCase()) ? "patched" : "unpatched";
+  const version = formEvolutionVersion(project);
+  if (!version) return "unsupported";
+  const names = formEvolutionFileNames(version);
+  const has = (name: string) => listCodeInjectionDlls(project).some((module) => module.path.toLowerCase() === `patches/${name}`.toLowerCase());
+  return has(names.demo) && has(names.core) ? "patched" : "unpatched";
 }
 
 export function detectBundledBgmToggleDll(project: ProjectState): "patched" | "unpatched" | "unsupported" {

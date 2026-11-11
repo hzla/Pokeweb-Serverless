@@ -13,7 +13,7 @@ import { escapeHtml } from "./dom";
 /**
  * Mega Evolution section of the Pokémon editor's Evolutions tab: the Mega routes from the selected form (trigger item
  * or move, Mega form), a New form shortcut, New Mega Stone, and, for a Mega form, what it is reached from.
- * Black 2 / White 2 on localhost only, like the Code Injection card.
+ * Black / White and Black 2 / White 2 on localhost only, like the Code Injection card.
  */
 
 export type PokemonMegaPanelOptions = {

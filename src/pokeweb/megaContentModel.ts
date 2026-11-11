@@ -4,13 +4,13 @@ import { recordGenericChange } from "./actionChangelog";
 import { ABILITY_IMPORT_LIBRARY } from "./abilityLibrary";
 import { createCustomAbilities } from "./abilityEffectsModel";
 import { loadCodeInjectionNarcs } from "./codeInjectionInstall";
-import { getItemExpansionStatus, isItemExpansionInstalled, ITEM_TEXT_BANKS, stageItemExpansion } from "./itemExpansionModel";
+import { getItemExpansionStatus, isItemExpansionInstalled, itemFamily, stageItemExpansion } from "./itemExpansionModel";
 import { writeItemSprite } from "./itemSpriteModel";
 import { megaFormSuffix, nameMegaForm } from "./megaEditorModel";
 import { getMegaEvolutionStatus, isMegaEvolutionInstalled, materializeMegaEvolutionTable, megaEvolutionVersion, stageMegaEvolution, type MegaRoute } from "./megaEvolutionModel";
 import { allocateMoveExpansionParticleAssets, detectMoveExpansionPatch } from "./moveExpansionPatch";
 import { addPokemonForm } from "./pokemonFormModel";
-import { addMoveExpansion, detectFairyTypePatch } from "./romPatchModel";
+import { addFairyTypeSupport, addMoveExpansion, detectFairyTypePatch } from "./romPatchModel";
 import { updatePokemonField } from "./pokemonModel";
 import { installPokemonIconPayload, resolvePokemonIconAddress } from "./pokemonSpriteModel";
 import { decodeRecord, markDirty, type ProjectState } from "./projectStore";
@@ -26,6 +26,10 @@ import { addTextEntries, commitTextBank, getTextBank } from "./textModel";
  * Stones (item IDs 657-780, with the item expansion), animated sprites and icons, Hibiki's transformation
  * animation, the battle messages and the routes, all from the user's White2Upgrade / pokebw2 work
  * (runtime/mega-evolution/content/build_content.py builds the package).
+ *
+ * Black / White take the same package: their sprite, icon, item and battle-effect archives have Black 2 / White 2's
+ * formats (the Mega sprites stream through the animated sprite streaming runtime); the battle messages go to Black /
+ * White's own bank and the animation script drops the Black 2 / White 2-only background commands.
  */
 
 type SpriteSource = { source: string; credits: string };
@@ -61,7 +65,8 @@ type MegaContent = {
 const CONTENT_ZIP_URL = new URL("../assets/mega/megaContent.zip", import.meta.url);
 export const MEGA_CONTENT = contentJson as unknown as MegaContent;
 export const MEGA_CONTENT_VERSION = 1;
-const BATTLE_MESSAGE_BANK = 18;
+/** The battle's "set" messages (player / wild / foe triplets, command 0x5b): the same bank in both games' order. */
+const battleMessageBank = (project: ProjectState) => (project.session.baseRom === "BW" ? 14 : 18);
 const STONE_ITEM_TEMPLATE = 229; // Everstone: a held item without a battle function
 const PLACEHOLDER = "???";
 
@@ -72,6 +77,8 @@ export type MegaContentStatus = {
   forms: number;
   /** The Mega Pokémon are installed but the transformation animation isn't (installed before it could be). */
   animationMissing: boolean;
+  /** The Mega Pokémon were installed before the Mega Ring was part of the package (set ringItem to 0 to go without). */
+  ringMissing: boolean;
   message: string;
 };
 
@@ -85,7 +92,7 @@ export type MegaContentReport = {
   animation: boolean;
   /** Move Expansion, which Mega Rayquaza (Dragon Ascent) needs: installed by this install, already there, or not possible. */
   moveExpansion?: "installed" | "present" | "unavailable";
-  /** Fairy Type Support came with Move Expansion in this install. */
+  /** Fairy Type Support was installed with the Mega Pokémon. */
   fairyTypeInstalled?: boolean;
 };
 
@@ -93,8 +100,9 @@ export function getMegaContentStatus(project: ProjectState): MegaContentStatus {
   const supported = Boolean(megaEvolutionVersion(project));
   const installed = Boolean(project.codeInjection?.megaEvolution?.content);
   const status: MegaContentStatus = { supported, installed, ready: false, forms: project.codeInjection?.megaEvolution?.content?.forms.length ?? 0,
-    animationMissing: installed && !project.codeInjection?.megaEvolution?.animationMove, message: "" };
-  if (!supported) return { ...status, message: "Mega Pokémon support US Black 2 and White 2." };
+    animationMissing: installed && !project.codeInjection?.megaEvolution?.animationMove,
+    ringMissing: installed && project.codeInjection?.megaEvolution?.ringItem === undefined, message: "" };
+  if (!supported) return { ...status, message: "Mega Pokémon support US Black, White, Black 2 and White 2." };
   if (installed) return { ...status, message: `${status.forms} Mega forms are installed.` };
   if (!isItemExpansionInstalled(project)) {
     const items = getItemExpansionStatus(project); // installed with the Mega content: the Mega Stones use item IDs 657-780
@@ -134,7 +142,8 @@ function normalize(name: string): string {
  * National ability IDs as this ROM knows them: retail IDs as they are, newer ones by name or created from the ability
  * library, all new ones in one runtime build. Unknown IDs map to undefined (the form keeps its base ability there).
  */
-async function resolveAbilities(project: ProjectState, forms: readonly MegaContentForm[], report: MegaContentReport): Promise<Map<number, number | undefined>> {
+export async function resolveAbilities(project: ProjectState, forms: ReadonlyArray<Pick<MegaContentForm, "abilities" | "abilityNames" | "abilityDescriptions">>,
+  report: Pick<MegaContentReport, "abilitiesAdded">): Promise<Map<number, number | undefined>> {
   const resolved = new Map<number, number | undefined>();
   const names = project.texts.banks.abilities ?? [];
   const toCreate: Array<{ national: number; name: string; rules: (typeof ABILITY_IMPORT_LIBRARY)[number]["rule"]; description?: string }> = [];
@@ -160,12 +169,13 @@ function setPersonal(project: ProjectState, personalId: number, field: string, v
 }
 
 function appendTriplets(project: ProjectState, texts: string[][]): number {
-  const bank = getTextBank(project, "message_texts", BATTLE_MESSAGE_BANK);
+  const bankId = battleMessageBank(project);
+  const bank = getTextBank(project, "message_texts", bankId);
   const first = bank.length;
-  addTextEntries(project, "message_texts", BATTLE_MESSAGE_BANK, texts.length * 3);
-  const grown = getTextBank(project, "message_texts", BATTLE_MESSAGE_BANK);
+  addTextEntries(project, "message_texts", bankId, texts.length * 3);
+  const grown = getTextBank(project, "message_texts", bankId);
   texts.flat().forEach((text, index) => { grown[first + index][1] = text; });
-  commitTextBank(project, "message_texts", BATTLE_MESSAGE_BANK);
+  commitTextBank(project, "message_texts", bankId);
   return first;
 }
 
@@ -205,11 +215,12 @@ function article(name: string): string {
 
 function installStones(project: ProjectState, romBytes: Uint8Array, files: Record<string, Uint8Array>, stones: MegaContentStone[]): void {
   const store = project.narcs.items!;
+  const textBanks = itemFamily(project).textBanks;
   const banks = {
-    names: getTextBank(project, "message_texts", ITEM_TEXT_BANKS.names),
-    descriptions: getTextBank(project, "message_texts", ITEM_TEXT_BANKS.descriptions),
-    plurals: getTextBank(project, "message_texts", ITEM_TEXT_BANKS.plurals),
-    articles: getTextBank(project, "message_texts", ITEM_TEXT_BANKS.articles),
+    names: getTextBank(project, "message_texts", textBanks.names),
+    descriptions: getTextBank(project, "message_texts", textBanks.descriptions),
+    plurals: getTextBank(project, "message_texts", textBanks.plurals),
+    articles: getTextBank(project, "message_texts", textBanks.articles),
   };
   for (const stone of stones) {
     const current = banks.names[stone.id]?.[1]?.trim() ?? "";
@@ -226,11 +237,58 @@ function installStones(project: ProjectState, romBytes: Uint8Array, files: Recor
     banks.plurals[stone.id][1] = `${stone.name}s`;
     banks.articles[stone.id][1] = article(stone.name);
   }
-  for (const bank of Object.values(ITEM_TEXT_BANKS)) commitTextBank(project, "message_texts", bank);
+  for (const bank of Object.values(textBanks)) commitTextBank(project, "message_texts", bank);
   for (const stone of stones) {
     const pixels = new Uint8ClampedArray(file(files, stone.icon ?? MEGA_CONTENT.genericStoneIcon));
     writeItemSprite(project, romBytes, stone.id, { width: 32, height: 32, pixels }, 0, 0, false);
   }
+}
+
+/**
+ * The Mega Ring: the key item the player needs in the bag to Mega Evolve (the runtime's ringItem). White2Upgrade's
+ * item: ID 124, an unused retail slot in all four games (so a retail save can hold it), its data (Key Items, important,
+ * no price, sort index 23), text and icon.
+ */
+export const MEGA_RING_ITEM = 124;
+const MEGA_RING = {
+  name: "Mega Ring",
+  plural: "Mega Rings",
+  description: "This ring contains an untold power that\\nsomehow enables Pokémon carrying Mega\\nStones to Mega Evolve in battle.",
+};
+
+/**
+ * Black 2 / White 2 read a retail item's pocket from ARM9's table (pokebw2's sItemPockets; the item expansion's bag
+ * validator too), Black / White from the item data (the expansion's PWIP table is filled from it at export).
+ */
+const BW2_ITEM_POCKET_TABLE: Partial<Record<string, number>> = { B2: 0x0208f4d0, W2: 0x0208f4fc };
+const KEY_ITEMS_POCKET = 4;
+
+function installMegaRing(project: ProjectState, romBytes: Uint8Array, files: Record<string, Uint8Array>): void {
+  const textBanks = itemFamily(project).textBanks;
+  const names = getTextBank(project, "message_texts", textBanks.names);
+  const current = names[MEGA_RING_ITEM]?.[1]?.trim() ?? "";
+  if (current && current !== PLACEHOLDER && current !== MEGA_RING.name) {
+    throw new Error(`Item ${MEGA_RING_ITEM} is already "${current}"; the Mega Ring needs that ID.`);
+  }
+  const record = stoneRecord(project);
+  record[8] = 0x3f; record[9] = 0x02; // natural gift type none (31), important, field pocket Key Items (4)
+  record[13] = 0; record[15] = 23; // item class 0, sort index 23
+  project.narcs.items!.rawFiles[MEGA_RING_ITEM] = record;
+  project.narcs.items!.records.delete(MEGA_RING_ITEM);
+  markDirty(project, "items", MEGA_RING_ITEM);
+  const pocketTable = BW2_ITEM_POCKET_TABLE[project.session.baseVersion];
+  if (pocketTable !== undefined) {
+    if (!project.arm9.length) throw new Error("Reload the ROM before installing the Mega Ring.");
+    project.arm9[pocketTable - new NintendoDSRom(romBytes, { fileData: "view" }).arm9RamAddress + MEGA_RING_ITEM] = KEY_ITEMS_POCKET;
+    project.arm9Dirty = true;
+  }
+  names[MEGA_RING_ITEM][1] = MEGA_RING.name;
+  getTextBank(project, "message_texts", textBanks.descriptions)[MEGA_RING_ITEM][1] = MEGA_RING.description;
+  getTextBank(project, "message_texts", textBanks.plurals)[MEGA_RING_ITEM][1] = MEGA_RING.plural;
+  getTextBank(project, "message_texts", textBanks.articles)[MEGA_RING_ITEM][1] = article(MEGA_RING.name);
+  for (const bank of Object.values(textBanks)) commitTextBank(project, "message_texts", bank);
+  // The package's generic stone icon is White2Upgrade's Mega Ring icon.
+  writeItemSprite(project, romBytes, MEGA_RING_ITEM, { width: 32, height: 32, pixels: new Uint8ClampedArray(file(files, MEGA_CONTENT.genericStoneIcon)) }, 0, 0, false);
 }
 
 /** Custom Mega Stones go after the package's stones (657-780), in Item Expansion's free placeholder slots. */
@@ -250,7 +308,7 @@ export async function stageCustomMegaStone(project: ProjectState, stone: { name:
   if (!project.originalRomBytes) throw new Error("Reload the ROM before adding a Mega Stone.");
   const rom = new NintendoDSRom(project.originalRomBytes, { fileData: "view" });
   loadCodeInjectionNarcs(project, rom, ["items", "message_texts"]);
-  const names = getTextBank(project, "message_texts", ITEM_TEXT_BANKS.names);
+  const names = getTextBank(project, "message_texts", itemFamily(project).textBanks.names);
   const taken = names.findIndex((entry, id) => id > 0 && entry?.[1]?.trim().toLowerCase() === name.toLowerCase());
   if (taken > 0) throw new Error(`Item ${taken} is already called ${name}.`);
   let id: number = CUSTOM_MEGA_STONE_IDS.first;
@@ -267,12 +325,14 @@ export async function stageCustomMegaStone(project: ProjectState, stone: { name:
 }
 
 /** Hibiki's animation, with its particles appended to the SPA archive, as a member past the move expansion's 1,000. */
-const BATTLE_EFFECT_FIRST = 0x231; // effect IDs from here read the battle-effect archive a/0/6/6 (ID - 0x231)
+const BATTLE_EFFECT_FIRST = 0x231; // effect IDs from here read the battle-effect archive (ID - 0x231): a/0/6/6, a/0/6/7 in Black / White
 
 /**
- * Hibiki's transformation animation and its particles. With Move Expansion it goes past member 1,000 of the move
- * animations (played as its ID + 115, the expansion's routing); without it, at the end of the battle-effect archive,
- * which the retail engine plays for any effect ID from 0x231 (ID - 0x231). Returns the effect ID for the table.
+ * Hibiki's transformation animation and its particles. With Move Expansion on Black 2 / White 2 it goes past member
+ * 1,000 of the move animations (played as its ID + 115, the expansion's routing); otherwise at the end of the
+ * battle-effect archive, which the retail engine plays for any effect ID from 0x231 (ID - 0x231). Black / White's
+ * Move Expansion routes expanded moves through the move command (the runtime's direct call never passes it) and
+ * leaves effect IDs from 0x231 alone, so Black / White always use the battle-effect archive. Returns the effect ID.
  */
 function installAnimation(project: ProjectState, files: Record<string, Uint8Array>, remap: (bytes: Uint8Array, map: Map<number, number>) => Uint8Array,
   viaMoveExpansion: boolean): number {
@@ -304,10 +364,11 @@ function installAnimation(project: ProjectState, files: Record<string, Uint8Arra
 }
 
 async function stageAnimation(project: ProjectState, rom: NintendoDSRom, files: Record<string, Uint8Array>): Promise<number> {
-  const viaMoveExpansion = detectMoveExpansionPatch(project) === "patched";
+  const viaMoveExpansion = project.session.baseRom !== "BW" && detectMoveExpansionPatch(project) === "patched";
   loadCodeInjectionNarcs(project, rom, ["move_spas", viaMoveExpansion ? "move_animations" : "battle_animations"]);
   const { remapMoveAnimationAssets } = await import("./moveAnimationModel");
-  return installAnimation(project, files, (bytes, map) => remapMoveAnimationAssets(bytes, map, new Map(), "BW2").bytes, viaMoveExpansion);
+  const target = project.session.baseRom === "BW" ? "BW" : "BW2";
+  return installAnimation(project, files, (bytes, map) => remapMoveAnimationAssets(bytes, map, new Map(), target).bytes, viaMoveExpansion);
 }
 
 /** Adds the transformation animation to a project whose Mega Pokémon were installed without it. */
@@ -320,6 +381,19 @@ export async function stageMegaAnimation(project: ProjectState): Promise<number>
   materializeMegaEvolutionTable(project);
   recordGenericChange(project, "code_injection", "Mega Evolution: Hibiki's transformation animation.", "Mega Evolution", { key: "code-injection:mega-animation" });
   return animationMove;
+}
+
+/** Adds the Mega Ring to a project whose Mega Pokémon predate it, and makes Mega Evolution need it. */
+export async function stageMegaRing(project: ProjectState): Promise<void> {
+  const config = project.codeInjection?.megaEvolution;
+  if (!config?.content) throw new Error("Install Mega Evolution first.");
+  if (!project.originalRomBytes) throw new Error("Reload the ROM before installing the Mega content.");
+  loadCodeInjectionNarcs(project, new NintendoDSRom(project.originalRomBytes, { fileData: "view" }), ["message_texts", "items"]);
+  installMegaRing(project, project.originalRomBytes, await loadContentFiles());
+  project.codeInjection!.megaEvolution = { ...config, ringItem: MEGA_RING_ITEM };
+  materializeMegaEvolutionTable(project);
+  recordGenericChange(project, "code_injection", `Mega Evolution: the Mega Ring (item ${MEGA_RING_ITEM}), needed to Mega Evolve.`, "Mega Evolution",
+    { key: "code-injection:mega-ring" });
 }
 
 /**
@@ -412,6 +486,7 @@ export async function stageMegaContent(project: ProjectState): Promise<MegaConte
   const stones = MEGA_CONTENT.stones.filter((stone) => usedStones.has(stone.id));
   installStones(project, project.originalRomBytes, files, stones);
   report.stones = stones.length;
+  installMegaRing(project, project.originalRomBytes, files);
 
   const messages = installMessages(project);
   const animationMove = await stageAnimation(project, rom, files);
@@ -426,11 +501,12 @@ export async function stageMegaContent(project: ProjectState): Promise<MegaConte
     animationMove,
     revealFrame: MEGA_CONTENT.animation.revealFrame,
     autoFoes: true,
+    ringItem: MEGA_RING_ITEM,
     content: { version: MEGA_CONTENT_VERSION, forms: formsInstalled, stones: stones.map((stone) => stone.id) },
   };
   materializeMegaEvolutionTable(project);
   recordGenericChange(project, "code_injection",
-    `Mega content: ${formsInstalled.length} Mega forms, ${stones.length} Mega Stones${animationMove ? ", Hibiki's transformation animation" : ""}. ` +
+    `Mega content: ${formsInstalled.length} Mega forms, ${stones.length} Mega Stones, the Mega Ring (item ${MEGA_RING_ITEM}, needed to Mega Evolve)${animationMove ? ", Hibiki's transformation animation" : ""}. ` +
     `Mega Evolution by Dararo; battle UI and animation by Hibiki; sprites by ${[...new Set(formsInstalled.flatMap((form) => [form.credits.front, form.credits.back]))]
       .filter((credit) => credit !== "—").join("; ")}.`,
     "Mega Evolution", { key: "code-injection:mega-content" });
@@ -445,12 +521,14 @@ export async function installMegaContent(
   const status = getMegaContentStatus(project);
   if (!status.ready) throw new Error(status.message);
   if (!hasPwanRuntimeDll(project)) await installPwanRuntime(project);
-  // Move Expansion first, so the content adds Mega Rayquaza (Dragon Ascent) and routes the animation through it.
+  // Fairy Type Support first, so the Fairy Megas get their type (and Move Expansion its Fairy moves); then Move
+  // Expansion, so the content adds Mega Rayquaza (Dragon Ascent) and, on Black 2 / White 2, routes the animation.
+  const fairyBefore = detectFairyTypePatch(project);
+  if (fairyBefore === "unpatched") await addFairyTypeSupport(project, { updateModernFairyTypings: true });
   let moveExpansion: MegaContentReport["moveExpansion"] = "present";
   const moveState = detectMoveExpansionPatch(project);
-  const fairyBefore = detectFairyTypePatch(project);
   if (moveState === "unpatched" || moveState === "routing-only") {
-    await addMoveExpansion(project); // with Fairy Type Support, so the Fairy Megas get their type
+    await addMoveExpansion(project);
     moveExpansion = "installed";
   } else if (moveState !== "patched") {
     moveExpansion = "unavailable";

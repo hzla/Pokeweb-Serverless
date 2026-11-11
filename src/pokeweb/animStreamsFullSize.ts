@@ -97,7 +97,18 @@ export function placeFullSizeBox(side: FullSizeSide, canvasWidth: number, box: {
   return { x0: x0 + Math.round(offsetX), y0: y0 + Math.round(offsetY) };
 }
 
-export type FullSizeCompileOptions = { side: FullSizeSide; colorPreset?: PwanColorPreset; offsetX?: number; offsetY?: number };
+export type FullSizeCompileOptions = {
+  side: FullSizeSide;
+  colorPreset?: PwanColorPreset;
+  offsetX?: number;
+  offsetY?: number;
+  /**
+   * Use these colours (16 BGR555 entries, a PWAN palette: 0 transparent, 1..15 the art) instead of quantizing the art
+   * again; each pixel takes the nearest. With the side's 96x96 PWAN palette, the stream and the carrier's native
+   * palette (written from the PWAN) number their colours alike, so the carrier's 4 bpp sheet shows true colours.
+   */
+  palette?: Uint16Array;
+};
 
 export function compileGifToFullSizeStream(bytes: Uint8Array, options: FullSizeCompileOptions): FullSizeCompileResult {
   return compileFramesToFullSizeStream(decodeGifFrames(bytes), options);
@@ -125,10 +136,20 @@ export function compileFramesToFullSizeStream(sourceFrames: AnimationAnalysisFra
     }
     return { ...frame, width: box.width, height: box.height, pixels };
   });
-  const quantized = prepareRgb555PaletteFrames(applyPwanColorPreset(cropped, options.colorPreset ?? "none"), 15);
-  warnings.push(...quantized.warnings);
-  const colors = quantized.palette.slice(0, 15).map(bgr555);
-  const lookup = new Map(colors.map((color, n) => [color, n + 1]));
+  const adjusted = applyPwanColorPreset(cropped, options.colorPreset ?? "none");
+  let colors: number[], pixelFrames: AnimationAnalysisFrame[];
+  if (options.palette) {
+    if (options.palette.length !== 16) throw new Error("A full-size palette has 16 entries");
+    colors = Array.from(options.palette.subarray(1, 16));
+    pixelFrames = adjusted;
+  } else {
+    const quantized = prepareRgb555PaletteFrames(adjusted, 15);
+    warnings.push(...quantized.warnings);
+    colors = quantized.palette.slice(0, 15).map(bgr555);
+    pixelFrames = quantized.frames;
+  }
+  const lookup = new Map<number, number>();
+  colors.forEach((color, n) => { if (!lookup.has(color)) lookup.set(color, n + 1); });
   const nearest = (color: number): number => {
     let best = 1, distance = Infinity;
     colors.forEach((other, n) => {
@@ -138,7 +159,7 @@ export function compileFramesToFullSizeStream(sourceFrames: AnimationAnalysisFra
     return best;
   };
   const unique: Uint8Array[] = [], keys = new Map<string, number>(), sequence: Array<{ frame: number; duration: number }> = [];
-  quantized.frames.forEach((frame, n) => {
+  pixelFrames.forEach((frame, n) => {
     const texels = new Uint8Array(box.height * ROW);
     for (let y = 0; y < box.height; y++) {
       for (let x = 0; x < box.width; x++) {

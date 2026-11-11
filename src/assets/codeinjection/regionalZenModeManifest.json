@@ -1,0 +1,101 @@
+{
+  "games": {
+    "W2": {
+      "fileName": "RegionalZenModeW2.dll",
+      "size": 704,
+      "sha256": "f9c98f87281a4a6974658cb73ccded58a6dfe37a2370aaa30223cfb26f7e3e55",
+      "targets": [
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "167",
+          "address": "0x21c1fde"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "167",
+          "address": "0x21c201a"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "167",
+          "address": "0x21c2072"
+        }
+      ],
+      "literals": [],
+      "configOffset": 212
+    },
+    "B2": {
+      "fileName": "RegionalZenModeB2.dll",
+      "size": 704,
+      "sha256": "ea1753b7a821193af02bb4622e8309fb809d15bf91a3b3875b5232a79120205d",
+      "targets": [
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "167",
+          "address": "0x21c1f9e"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "167",
+          "address": "0x21c1fda"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "167",
+          "address": "0x21c2032"
+        }
+      ],
+      "literals": [],
+      "configOffset": 212
+    },
+    "B": {
+      "fileName": "RegionalZenModeB.dll",
+      "size": 704,
+      "sha256": "53e1c5db1f9aedb8bbca3e1136e76f281b5ff5519072c03041dbc21d7429e3e8",
+      "targets": [
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "93",
+          "address": "0x21dc776"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "93",
+          "address": "0x21dc7b2"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "93",
+          "address": "0x21dc80a"
+        }
+      ],
+      "literals": [],
+      "configOffset": 212
+    },
+    "W": {
+      "fileName": "RegionalZenModeW.dll",
+      "size": 704,
+      "sha256": "c79da6ffb0ac94139a1fe3393f4bf0d35507fc96f47f3c79785687e9433dea5f",
+      "targets": [
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "93",
+          "address": "0x21dc796"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "93",
+          "address": "0x21dc7d2"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "93",
+          "address": "0x21dc82a"
+        }
+      ],
+      "literals": [],
+      "configOffset": 212
+    }
+  },
+  "version": "1.0.0"
+}

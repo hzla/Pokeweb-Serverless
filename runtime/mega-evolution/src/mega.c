@@ -506,6 +506,23 @@ static u8 SelectableForm(BattleMon *mon) {
     return form;
 }
 
+// The player Mega Evolves only with the Mega Ring (gPwMegaConfig.ringItem) in the bag. Checked once per battle: the
+// DLL loads with the battle overlay, so sRing starts at 0 (not checked yet); 1 has it, 2 does not.
+static u8 sRing;
+
+static BOOL PlayerHasRing(BtlvCore *core) {
+    void *bag;
+
+    if (gPwMegaConfig.ringItem == 0) {
+        return TRUE;
+    }
+    if (sRing == 0) {
+        bag = GetBagSave(CORE_MAIN_MODULE(core));
+        sRing = bag != NULL && BagSave_CheckAmount(bag, gPwMegaConfig.ringItem, 1, HEAPID_BATTLE) ? 1 : 2;
+    }
+    return sRing == 1;
+}
+
 static void Toggle(BattleMon *mon, u8 form) {
     if (sSelection[MON_ID(mon)] != NO_FORM) {
         sSelection[MON_ID(mon)] = NO_FORM;
@@ -520,7 +537,7 @@ static void Toggle(BattleMon *mon, u8 form) {
 // button arms the Mega Evolution; the chosen fight action carries the form to the server.
 BOOL HOOK_WAIT_MOVE_SELECT(BtlvCore *core) {
     BattleMon *mon = CORE_MON(core);
-    u8 form = SelectableForm(mon);
+    u8 form = PlayerHasRing(core) ? SelectableForm(mon) : NO_FORM;
     BOOL startHeld = (GCTX_HIDGetHeldKeys() & PAD_BUTTON_START) != 0;
     BOOL touchHeld = form != NO_FORM && GFL_HIDGetTouchHeldRect(sButtonRect) == 0;
     BattleAction *action;

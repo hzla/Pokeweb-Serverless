@@ -8,6 +8,7 @@ import { buildPwanArchive } from "../pokeweb/pwanAnimationModel";
 import { PWAN_CARRIER_METADATA_OFFSETS, PWAN_FRONT_NCEC_Y, type PwanCarrierTemplate } from "../pokeweb/pwanCarrierPatch";
 import { PWAN_FRAME_BYTES, PWAN_HEIGHT, PWAN_PALETTE_COLORS, PWAN_WIDTH, pwanPalette } from "../pokeweb/pwanCompiler";
 import { compressLz11Literal } from "../pokeweb/pokemonSpriteModel";
+import { compileFramesToFullSizeStream, parseFullSizeMani } from "../pokeweb/animStreamsFullSize";
 import { importPwanLibraryEntry, importPwanLibraryEntryFromLoadedLibrary, parsePwanLibraryArchive, decodePwanLibraryPayload, loadPwanLibrary, resetPwanLibraryCacheForTests, type PwanLibraryManifest } from "../pokeweb/pwanLibraryModel";
 import type { NarcStore, ProjectState, PwanAnimationOverride } from "../pokeweb/projectStore";
 
@@ -111,6 +112,27 @@ describe("pwanLibraryModel", () => {
     expect(project.arm9[0x8c578 + 2]).toBe(0x12);
   });
 
+  it("carries a side's full-size stream from its archive member into the import", () => {
+    const source = makeOverride(4, makePwanBytes(2), makePwanBytes(3));
+    const entry = makeEntry("4-0-4", 4, 0, 4, true, true);
+    const archive = new NARC(buildPwanArchive([source]));
+    const art = new Uint8ClampedArray(110 * 100 * 4).fill(255);
+    const full = compileFramesToFullSizeStream([{ index: 0, width: 110, height: 100, delayMs: 100, pixels: art }], { side: "front", palette: pwanPalette(source.front!.pwanBytes) });
+    entry.fullSize = { front: { memberId: archive.files.length, width: 110, height: 100 } };
+    archive.files.push(full.mani);
+    const library = parsePwanLibraryArchive(makeManifest([entry]), archive.save());
+    expect(library.overridesByEntryId.get(entry.id)?.front?.fullSizeMani).toEqual(full.mani);
+    expect(library.overridesByEntryId.get(entry.id)?.back?.fullSizeMani).toBeUndefined();
+
+    const saved = importPwanLibraryEntryFromLoadedLibrary(makeProject(), 2, entry.id, library, makeCarrier());
+    expect(saved.front?.fullSizeMani).toEqual(full.mani);
+    expect(saved.front?.pwanBytes).toEqual(source.front?.pwanBytes); // the 96x96 version stays for the PWAN runtime
+    expect(saved.back?.fullSizeMani).toBeUndefined();
+
+    entry.fullSize = { front: { memberId: entry.fullSize.front!.memberId, width: 96, height: 100 } };
+    expect(() => parsePwanLibraryArchive(makeManifest([entry]), archive.save())).toThrow("not 96x100");
+  });
+
   it("uses the Black 2 carrier set for bundled community imports", async () => {
     const source = makeOverride(4, makePwanBytes(2), makePwanBytes(3));
     const entry = makeEntry("4-0-4", 4, 0, 4, true, true);
@@ -175,7 +197,25 @@ describe("pwanLibraryModel", () => {
       source.credits.length > 0 && source.creditBasis.length > 0 && !source.source.startsWith('/') && !source.source.includes('..'))).toBe(true);
     expect(megaCharizardX?.spriteSources?.find(source => source.side === 'front')?.credits).toBe('Smogon Sprite Project; hexagonereal');
     expect(megaCharizardX?.credits).not.toContain('diegotoon20');
+    // Sides whose source art is over 96x96 (Gen 7+ and the new Megas) stream at full size; pixel art upscaled to a
+    // larger canvas (retromc's 5x GIFs) does not.
+    const fullSides = manifest.entries.flatMap(entry => (["front", "back"] as const).filter(side => entry.fullSize?.[side]).map(side => ({ entry, side })));
+    expect(fullSides).toHaveLength(94);
+    for (const { entry, side } of fullSides) {
+      const record = entry.fullSize![side]!;
+      const data = loaded.overridesByEntryId.get(entry.id)![side]!;
+      const info = parseFullSizeMani(data.fullSizeMani!);
+      expect([info.width, info.height]).toEqual([record.width, record.height]);
+      expect(Math.max(info.width, info.height)).toBeGreaterThan(96);
+      expect(Math.max(info.width, info.height)).toBeLessThanOrEqual(128);
+      expect(Array.from(info.palette.subarray(1))).toEqual(Array.from(pwanPalette(data.pwanBytes).subarray(1)));
+      expect(entry.notes).toContain(`${side} ${record.width}x${record.height}`);
+    }
+    const gyarados = manifest.entries.find(entry => entry.name === 'Mega Gyarados')!;
+    expect(gyarados.fullSize).toMatchObject({ front: { width: 128, height: 118 }, back: { width: 128, height: 115 } });
+    expect(fullSides.filter(({ entry, side }) => entry.spriteSources?.find(source => source.side === side)?.source.startsWith('retromc/'))).toEqual([]);
     const report = JSON.parse(readFileSync(new URL('../assets/pwan/library/build-report.json', import.meta.url), 'utf8'));
+    expect(report.fullSize).toMatchObject({ preset: 'gen5', fullSizeSides: 94, ownSizePwanSides: 8 });
     expect(report.refresh).toMatchObject({preset: 'gen5', textureFormat: 'TEX4', visibleColors: 15});
     expect(report.credits.perSideSources).toBe(true);
     expect(archiveBytes.length).toBe(manifest.archiveBytes);

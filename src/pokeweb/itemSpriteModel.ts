@@ -83,16 +83,21 @@ function checkFormats(graphic: Uint8Array, palette: Uint8Array) {
   if (readAscii(graphic, 0, 4) !== "RGCN" || readAscii(graphic, 16, 4) !== "RAHC" || readU32(graphic, 32) !== 16 || readU32(graphic, 40) !== 512 || graphic.length < 48 + 512) throw Error("Unsupported item graphic layout.");
   if (readAscii(palette, 0, 4) !== "RLCN" || readAscii(palette, 16, 4) !== "TTLP" || readU32(palette, 32) < 32 || palette.length < 72) throw Error("Unsupported item palette layout.");
 }
-/** Items 639-1023 (item expansion) keep their icon members in the project, not in the 639-entry ARM9 table. */
-const EXPANDED_ICON_NONE: [number, number] = [1021, 1022];
+/**
+ * Items above the native range (item expansion: 639-1023, or 627-1023 on Black / White) keep their icon members in
+ * the project, not in the ARM9 table (639 entries, 627 on Black / White).
+ */
+const nativeItemCount = (project: ProjectState) => project.session.baseRom === "BW" ? 627 : 639;
+const expandedIconNone = (project: ProjectState): [number, number] => project.session.baseRom === "BW" ? [1001, 1002] : [1021, 1022];
 function iconMembers(project: ProjectState, table: number, itemId: number): [number, number] {
-  if (itemId < 639) return [readU16(project.arm9, table + itemId * 4), readU16(project.arm9, table + itemId * 4 + 2)];
-  return project.codeInjection?.itemExpansion?.icons?.[itemId] ?? EXPANDED_ICON_NONE;
+  if (itemId < nativeItemCount(project)) return [readU16(project.arm9, table + itemId * 4), readU16(project.arm9, table + itemId * 4 + 2)];
+  return project.codeInjection?.itemExpansion?.icons?.[itemId] ?? expandedIconNone(project);
 }
 function files(project: ProjectState, romBytes: Uint8Array, itemId: number) {
   const a = archive(project, romBytes);
-  const limit = project.codeInjection?.itemExpansion ? 1024 : 639;
-  if (!Number.isInteger(itemId) || itemId < 1 || itemId >= limit) throw Error(limit === 639 ? "Item ID is outside the native icon table." : "Item ID is outside the expanded item range.");
+  const native = nativeItemCount(project);
+  const limit = project.codeInjection?.itemExpansion ? 1024 : native;
+  if (!Number.isInteger(itemId) || itemId < 1 || itemId >= limit) throw Error(limit === native ? "Item ID is outside the native icon table." : "Item ID is outside the expanded item range.");
   const [graphicId, paletteId] = iconMembers(project, a.table, itemId);
   const graphic = a.narc.files[graphicId], palette = a.narc.files[paletteId];
   if (!graphic || !palette) throw Error("Item sprite is missing."); checkFormats(graphic, palette); return { ...a, graphic, palette };
@@ -116,7 +121,7 @@ export function writeItemSprite(project: ProjectState, romBytes: Uint8Array, ite
   const index = (bytes: Uint8Array) => { const existing = narc.files.findIndex(member => same(member, bytes)); if (existing >= 0) return existing; if (narc.files.length >= 65536) throw Error("Item sprite archive is full."); narc.files.push(bytes); return narc.files.length - 1; };
   const graphicId = index(g), paletteId = index(p), output = narc.save();
   setRomFileReplacement(project, fileId, output);
-  if (itemId >= 639) {
+  if (itemId >= nativeItemCount(project)) {
     const state = project.codeInjection!.itemExpansion!;
     state.icons = { ...state.icons, [itemId]: [graphicId, paletteId] };
   } else { writeU16(project.arm9, table + itemId * 4, graphicId); writeU16(project.arm9, table + itemId * 4 + 2, paletteId); project.arm9Dirty = true; }

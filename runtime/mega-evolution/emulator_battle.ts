@@ -1,4 +1,4 @@
-// Mega Evolution check on a clean US White 2 / Black 2 ROM (desmond, headless).
+// Mega Evolution check on a clean US White 2 / Black 2 / Black / White ROM (desmond, headless).
 // npx vite-node runtime/mega-evolution/emulator_battle.ts /path/clean.nds [--giratina] [--touch] [--no-mega] [--dll path]
 //
 // Installs Mega Evolution through the model with two test routes (Rotom holding Leftovers -> Heat Rotom, Giratina
@@ -23,9 +23,10 @@ const argv = process.argv.slice(2);
 const option = (name: string) => { const i = argv.indexOf(name); return i < 0 ? undefined : argv[i + 1]; };
 const romPath = argv[0];
 const romBytesIn = new Uint8Array(await readFile(romPath));
-const game = String.fromCharCode(...romBytesIn.subarray(0x0c, 0x10)) === "IREO" ? "B2" : "W2";
+const GAMES: Record<string, string> = { IREO: "B2", IRDO: "W2", IRBO: "B", IRAO: "W" };
+const game = GAMES[String.fromCharCode(...romBytesIn.subarray(0x0c, 0x10))] ?? "W2";
 const dllPath = option("--dll");
-const trainerId = Number(option("--trainer") ?? 156);
+const trainerId = Number(option("--trainer") ?? (game.endsWith("2") ? 156 : 1));
 const label = option("--name") ?? `${basename(romPath, ".nds")}-${argv.includes("--touch") ? "touch" : "start"}${argv.includes("--no-mega") ? "-nomega" : ""}`;
 const output = fileURLToPath(new URL(`./build/emulator/${label}/`, import.meta.url));
 await mkdir(output, { recursive: true });

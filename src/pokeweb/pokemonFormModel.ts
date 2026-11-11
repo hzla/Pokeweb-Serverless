@@ -330,7 +330,8 @@ export function addPokemonForm(project: ProjectState, requestedSpeciesId: number
     emptyEvolutionRecord(project, evolutions, speciesId),
   );
   evolutionCopies.forEach((bytes) => appendFile(project, evolutions, "evolutions", bytes));
-  appendPokemonFormNames(project, pokemonNameBankId, speciesId, appendPersonalId, personalCopies.length);
+  // Relocated forms keep their own names; the new form starts with the base name.
+  appendPokemonFormNames(project, pokemonNameBankId, appendPersonalId, [...(extendsActiveTail ? [] : oldFormPersonalIds), speciesId]);
 
   for (let id = appendPersonalId; id < appendPersonalId + personalCopies.length; id += 1) clearNestedFormMetadata(project, id, newFormCount);
 
@@ -355,6 +356,10 @@ export function addPokemonForm(project: ProjectState, requestedSpeciesId: number
     setPokemonIconPaletteAssignment(project, targetSpriteId, "female", pair.female);
   });
 
+  // Evolutions into a relocated form (a target naming its personal record) follow it.
+  if (!extendsActiveTail && oldFirstPersonalId > 0 && oldFormPersonalIds.length) {
+    remapEvolutionTargets(project, new Map(oldFormPersonalIds.map((id, index) => [id, appendPersonalId + index])));
+  }
   updatePokemonField(project, speciesId, "personal", "form_id", String(personalStartId));
   updatePokemonField(project, speciesId, "personal", "form", String(formSpriteOffset));
   updatePokemonField(project, speciesId, "personal", "num_forms", String(newFormCount));
@@ -386,6 +391,26 @@ export function addPokemonForm(project: ProjectState, requestedSpeciesId: number
   };
 }
 
+function remapEvolutionTargets(project: ProjectState, moved: Map<number, number>): void {
+  const store = project.narcs.evolutions;
+  if (!store) return;
+  for (let id = 0; id < store.rawFiles.length; id++) {
+    if (!store.rawFiles[id]?.length) continue;
+    const record = decodeRecord(project, "evolutions", id);
+    if (!record.raw) continue;
+    let changed = false;
+    for (const field of Object.keys(record.raw)) {
+      if (!field.startsWith("target_")) continue;
+      const next = moved.get(Number(record.raw[field]));
+      if (next === undefined) continue;
+      record.raw[field] = next;
+      if (record.readable) record.readable[field] = pokemonSpeciesLabel(project, next);
+      changed = true;
+    }
+    if (changed) markDirty(project, "evolutions", id);
+  }
+}
+
 function requirePokemonNameBankId(project: ProjectState): number {
   const mappings = project.session.baseRom === "BW2" ? BW2_MESSAGE_BANKS : BW_MESSAGE_BANKS;
   const mapping = mappings.find(([, name]) => name === "pokedex");
@@ -393,7 +418,9 @@ function requirePokemonNameBankId(project: ProjectState): number {
   return mapping[0];
 }
 
-function appendPokemonFormNames(project: ProjectState, bankId: number, speciesId: number, firstPersonalId: number, count: number): void {
+/** Names personal entries firstPersonalId.. after `sources` (one personal ID each: a relocated form's old entry, or the species). */
+function appendPokemonFormNames(project: ProjectState, bankId: number, firstPersonalId: number, sources: number[]): void {
+  const count = sources.length;
   const bank = getTextBank(project, "message_texts", bankId);
   const parsed = bank.map((entry) => ({ entry, id: parseTextEntryId(entry[0]) }));
   const numEntries = Math.max(0, ...parsed.map(({ id }) => id.entry + 1));
@@ -401,16 +428,16 @@ function appendPokemonFormNames(project: ProjectState, bankId: number, speciesId
   if (numEntries < requiredEntries) addTextEntries(project, "message_texts", bankId, requiredEntries - numEntries);
 
   const expanded = getTextBank(project, "message_texts", bankId);
-  const sourceByBlock = new Map(
-    expanded
-      .map((entry) => ({ entry, id: parseTextEntryId(entry[0]) }))
-      .filter(({ id }) => id.entry === speciesId)
-      .map(({ entry, id }) => [id.block, entry[1]] as const),
-  );
+  const textOf = new Map(expanded.map((entry) => {
+    const id = parseTextEntryId(entry[0]);
+    return [`${id.entry}:${id.block}`, entry[1]] as const;
+  }));
+  const species = sources[count - 1]!;
   for (const entry of expanded) {
     const id = parseTextEntryId(entry[0]);
     if (id.entry < firstPersonalId || id.entry >= requiredEntries) continue;
-    entry[1] = sourceByBlock.get(id.block) ?? sourceByBlock.get(0) ?? "";
+    const source = sources[id.entry - firstPersonalId]!;
+    entry[1] = textOf.get(`${source}:${id.block}`) ?? textOf.get(`${species}:${id.block}`) ?? textOf.get(`${species}:0`) ?? "";
   }
   commitTextBank(project, "message_texts", bankId);
   recordGenericChange(project, "message_texts", `Copied the base Pokemon name to personal entries ${firstPersonalId}-${requiredEntries - 1}.`, `Text Bank ${bankId}`, {

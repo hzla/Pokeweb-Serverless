@@ -1,12 +1,17 @@
 /**
- * Black 2 / White 2 save formats for the Pokeweb item expansion.
+ * Black 2 / White 2 and Black / White save formats for the Pokeweb item expansion.
  *
- * The expanded format keeps the retail 512 KiB file, both 0x26000-byte main copies at 0x0 / 0x26000, the retail
- * footer position (used size 0x25fa4) and every extra save at 0x4c000+. Only two blocks change size:
+ * Black 2 / White 2: the expanded format keeps the retail 512 KiB file, both 0x26000-byte main copies at 0x0 /
+ * 0x26000, the retail footer position (used size 0x25fa4) and every extra save at 0x4c000+. Only two blocks change
+ * size:
  *   block 25 (bag)                     0x9ec -> 0x1080  pokebw2's shared 1,023-slot pool (version word 2)
  *   block 31 (Pal Pad trade history)   0xd54 -> 0x6fc   Pal Pad is disabled; the first 0x6fc bytes (where Battle
  *                                                       Log keeps its records) are retained
  * so blocks 26-31 move by 0x700 and nothing else moves. The footer magic is "PWI2".
+ *
+ * Black / White (family "BW1"): the same scheme on its 0x24000-byte copies (used size 0x23f9c, 69 blocks). The bag
+ * grows from 0x9c0 to 0x1000 (version word "PWB1" and 1,023 slots; Black / White have no Free Space) and block 31
+ * (trade history) shrinks from 0xd54 to 0x6fc, so blocks 26-31 again move by 0x700.
  *
  * Conversion is pure: it never mutates its input, and it validates the whole source before producing output.
  */
@@ -24,8 +29,10 @@ export const EXPANDED_BAG_SIZE = 0x1080;
 export const EXPANDED_PAL_PAD_SIZE = 0x6fc;
 export const BAG_POOL_SLOTS = 1023;
 export const BAG_POOL_VERSION = 2;
-const CRC_TABLE_SIZE = 0x94;
-const BLOCK_COUNT = 73;
+export const BW1_EXPANDED_BAG_SIZE = 0x1000;
+export const BW1_BAG_POOL_VERSION = 0x31425750; // "PWB1"
+
+export type SaveFamily = "BW2" | "BW1";
 
 /** Retail Black 2 / White 2 main-save block payload sizes (pokebw2 save_table.c). */
 const RETAIL_BLOCK_SIZES = [
@@ -41,30 +48,77 @@ const RETAIL_FREE_SPACE_OFFSET = 0x998;
 const RETAIL_FREE_SPACE_WORDS = 21;
 const EXPANDED_FREE_SPACE_OFFSET = 0x1000;
 
+/** Retail Black / White main-save block payload sizes (aletheia: the size callbacks of the main save's table). */
+const BW1_RETAIL_BLOCK_SIZES = [
+  992, 4080, 4080, 4080, 4080, 4080, 4080, 4080, 4080, 4080, 4080, 4080, 4080, 4080, 4080, 4080, 4080, 4080, 4080,
+  4080, 4080, 4080, 4080, 4080, 4080, 2496, 1332, 104, 156, 4920, 1988, 3412, 44, 1624, 2708, 428, 1004, 92, 480,
+  168, 1120, 5120, 676, 732, 844, 1004, 248, 764, 148, 860, 460, 360, 236, 432, 28, 1236, 52, 60, 428, 2960, 156,
+  2128, 40, 644, 16, 92, 364, 64, 252,
+];
+
+type FamilySpec = {
+  regionSize: number;
+  usedSize: number;
+  blockSizes: number[];
+  crcTableSize: number;
+  expandedBagSize: number;
+  poolVersion: number;
+  /** Free Space bits (Black 2 / White 2 only). */
+  freeSpace: boolean;
+  /** PlayerInfo.version values of the family's games. */
+  gameVersions: number[];
+  gameName: string;
+  /** The last retail item ID. */
+  nativeLast: number;
+};
+
+const FAMILIES: Record<SaveFamily, FamilySpec> = {
+  BW2: { regionSize: SAVE_REGION_SIZE, usedSize: SAVE_USED_SIZE, blockSizes: RETAIL_BLOCK_SIZES, crcTableSize: 0x94,
+    expandedBagSize: EXPANDED_BAG_SIZE, poolVersion: BAG_POOL_VERSION, freeSpace: true, gameVersions: [22, 23],
+    gameName: "Black 2 / White 2", nativeLast: 638 },
+  BW1: { regionSize: 0x24000, usedSize: 0x23f9c, blockSizes: BW1_RETAIL_BLOCK_SIZES, crcTableSize: 0x8c,
+    expandedBagSize: BW1_EXPANDED_BAG_SIZE, poolVersion: BW1_BAG_POOL_VERSION, freeSpace: false, gameVersions: [20, 21],
+    gameName: "Black / White", nativeLast: 626 },
+};
+
 export type SaveLayout = {
+  family: SaveFamily;
   format: "retail" | "expanded";
   magic: number;
+  regionSize: number;
+  usedSize: number;
   blocks: Array<{ offset: number; size: number }>;
   crcOffset: number;
   footerOffset: number;
 };
 
-function buildLayout(format: SaveLayout["format"]): SaveLayout {
+function buildLayout(format: SaveLayout["format"], family: SaveFamily = "BW2"): SaveLayout {
+  const spec = FAMILIES[family];
   const blocks: SaveLayout["blocks"] = [];
   let offset = 0;
-  RETAIL_BLOCK_SIZES.forEach((retailSize, index) => {
-    const size = format === "expanded" && index === BAG_BLOCK ? EXPANDED_BAG_SIZE
+  spec.blockSizes.forEach((retailSize, index) => {
+    const size = format === "expanded" && index === BAG_BLOCK ? spec.expandedBagSize
       : format === "expanded" && index === PAL_PAD_BLOCK ? EXPANDED_PAL_PAD_SIZE : retailSize;
     blocks.push({ offset, size });
     offset = (offset + size + 4 + 0xff) & ~0xff;
   });
-  const layout = { format, magic: format === "retail" ? RETAIL_SAVE_MAGIC : EXPANDED_SAVE_MAGIC, blocks, crcOffset: offset, footerOffset: offset + CRC_TABLE_SIZE };
-  if (layout.footerOffset + 0x10 !== SAVE_USED_SIZE) throw new Error("Save layout does not end at the retail footer.");
+  const layout = { family, format, magic: format === "retail" ? RETAIL_SAVE_MAGIC : EXPANDED_SAVE_MAGIC,
+    regionSize: spec.regionSize, usedSize: spec.usedSize, blocks, crcOffset: offset, footerOffset: offset + spec.crcTableSize };
+  if (layout.footerOffset + 0x10 !== spec.usedSize) throw new Error("Save layout does not end at the retail footer.");
   return layout;
 }
 
 export const RETAIL_SAVE_LAYOUT = buildLayout("retail");
 export const EXPANDED_SAVE_LAYOUT = buildLayout("expanded");
+export const BW1_RETAIL_SAVE_LAYOUT = buildLayout("retail", "BW1");
+export const BW1_EXPANDED_SAVE_LAYOUT = buildLayout("expanded", "BW1");
+const LAYOUTS: Record<SaveFamily, { retail: SaveLayout; expanded: SaveLayout }> = {
+  BW2: { retail: RETAIL_SAVE_LAYOUT, expanded: EXPANDED_SAVE_LAYOUT },
+  BW1: { retail: BW1_RETAIL_SAVE_LAYOUT, expanded: BW1_EXPANDED_SAVE_LAYOUT },
+};
+export function saveLayout(family: SaveFamily, format: SaveLayout["format"]): SaveLayout {
+  return LAYOUTS[family][format];
+}
 /** How far blocks 26-31 (party, trainer, player position, Wi-Fi) move in the expanded format: 0x700. */
 export const PARTY_BLOCK_SHIFT = EXPANDED_SAVE_LAYOUT.blocks[26].offset - RETAIL_SAVE_LAYOUT.blocks[26].offset;
 
@@ -86,21 +140,28 @@ export function crc16(data: Uint8Array): number {
 }
 
 function hasSignature(data: Uint8Array, base: number, layout: SaveLayout): boolean {
-  return u32(data, base + layout.footerOffset + 4) === SAVE_USED_SIZE && u32(data, base + layout.footerOffset + 8) === layout.magic;
+  return u32(data, base + layout.footerOffset + 4) === layout.usedSize && u32(data, base + layout.footerOffset + 8) === layout.magic;
 }
 
-/** The format of a raw 512 KiB save, by its footers (the game applies the same rules at boot). */
-export function detectSaveFormat(data: Uint8Array): SaveFormat {
+/** The format of a raw 512 KiB save of a family, by its footers (the game applies the same rules at boot). */
+export function detectSaveFormat(data: Uint8Array, family: SaveFamily = "BW2"): SaveFormat {
   if (data.length !== SAVE_FILE_SIZE) return "unknown";
-  const retail = [0, SAVE_REGION_SIZE].some((base) => hasSignature(data, base, RETAIL_SAVE_LAYOUT));
-  const expanded = [0, SAVE_REGION_SIZE].some((base) => hasSignature(data, base, EXPANDED_SAVE_LAYOUT));
+  const { retail: retailLayout, expanded: expandedLayout } = LAYOUTS[family];
+  const region = retailLayout.regionSize;
+  const retail = [0, region].some((base) => hasSignature(data, base, retailLayout));
+  const expanded = [0, region].some((base) => hasSignature(data, base, expandedLayout));
   if (retail && expanded) return "mixed";
   if (retail) return "retail";
   if (expanded) return "expanded";
   const fill = data[0];
   if (fill !== 0 && fill !== 0xff) return "unknown";
-  for (let i = 0; i < 2 * SAVE_REGION_SIZE; i++) if (data[i] !== fill) return "unknown";
+  for (let i = 0; i < 2 * region; i++) if (data[i] !== fill) return "unknown";
   return "empty";
+}
+
+/** Whether a raw save uses the expanded item format of either family (its party block moves by 0x700). */
+export function isExpandedItemSave(data: Uint8Array): boolean {
+  return detectSaveFormat(data, "BW2") === "expanded" || detectSaveFormat(data, "BW1") === "expanded";
 }
 
 type Recovered = { payloads: Uint8Array[]; counts: number[]; generation: number; copy: number; recoveredBlocks: number };
@@ -114,21 +175,21 @@ function footerStatus(data: Uint8Array, base: number, layout: SaveLayout): { sta
 
 /** Selects one committed CRC-table generation (native rules) and its blocks, never mixing generations. */
 export function recoverSave(data: Uint8Array, layout: SaveLayout): Recovered {
-  const checks = [0, 1].map((copy) => footerStatus(data, copy * SAVE_REGION_SIZE, layout));
+  const checks = [0, 1].map((copy) => footerStatus(data, copy * layout.regionSize, layout));
   if (!checks.some((check) => check.status === 0)) throw new Error("Neither main save copy has a valid footer.");
   const [main, backup] = checks;
   const preferMain = main.status === 0 && ((main.count === 0 && backup.count === 0xffffffff) || main.count >= backup.count || backup.status !== 0);
   for (const candidate of preferMain ? [0, 1] : [1, 0]) {
     if (checks[candidate].status !== 0) continue;
-    const tableBase = candidate * SAVE_REGION_SIZE + layout.crcOffset;
+    const tableBase = candidate * layout.regionSize + layout.crcOffset;
     const payloads: Uint8Array[] = [], counts: number[] = [];
     let recoveredBlocks = 0;
-    for (let index = 0; index < BLOCK_COUNT; index++) {
+    for (let index = 0; index < layout.blocks.length; index++) {
       const block = layout.blocks[index];
       const expected = u16(data, tableBase + index * 2);
       const valid: Array<{ copy: number; payload: Uint8Array; count: number }> = [];
       for (const copy of [0, 1]) {
-        const start = copy * SAVE_REGION_SIZE + block.offset;
+        const start = copy * layout.regionSize + block.offset;
         const payload = data.slice(start, start + block.size);
         const checksum = u16(data, start + block.size + 2);
         if (checksum === expected && crc16(payload) === checksum) valid.push({ copy, payload, count: u16(data, start + block.size) });
@@ -139,14 +200,14 @@ export function recoverSave(data: Uint8Array, layout: SaveLayout): Recovered {
       payloads.push(chosen.payload);
       counts.push(chosen.count);
     }
-    if (payloads.length === BLOCK_COUNT) return { payloads, counts, generation: checks[candidate].count, copy: candidate, recoveredBlocks };
+    if (payloads.length === layout.blocks.length) return { payloads, counts, generation: checks[candidate].count, copy: candidate, recoveredBlocks };
   }
   throw new Error("No coherent main save generation can be recovered.");
 }
 
 /** Writes both main copies (identical) and keeps every byte from the extra-save area on. */
 export function encodeSave(source: Uint8Array, layout: SaveLayout, payloads: Uint8Array[], counts: number[], generation: number): Uint8Array {
-  const region = new Uint8Array(SAVE_REGION_SIZE).fill(0xff);
+  const region = new Uint8Array(layout.regionSize).fill(0xff);
   layout.blocks.forEach((block, index) => {
     const payload = payloads[index];
     if (payload.length !== block.size) throw new Error(`Save block ${index} has the wrong size.`);
@@ -158,13 +219,13 @@ export function encodeSave(source: Uint8Array, layout: SaveLayout, payloads: Uin
   });
   const table = region.subarray(layout.crcOffset, layout.footerOffset);
   put32(region, layout.footerOffset, generation);
-  put32(region, layout.footerOffset + 4, SAVE_USED_SIZE);
+  put32(region, layout.footerOffset + 4, layout.usedSize);
   put32(region, layout.footerOffset + 8, layout.magic);
   put16(region, layout.footerOffset + 12, 0);
   put16(region, layout.footerOffset + 14, crc16(table));
   const output = source.slice();
   output.set(region, 0);
-  output.set(region, SAVE_REGION_SIZE);
+  output.set(region, layout.regionSize);
   return output;
 }
 
@@ -173,6 +234,8 @@ export type ItemSaveRules = {
   pocketOf: (item: number) => number | undefined;
   /** Most of an item one slot holds (999, or 1 for TMs/HMs). */
   maxCount?: (item: number) => number;
+  /** The save family (default Black 2 / White 2). */
+  family?: SaveFamily;
 };
 
 export type ItemSaveConversionReport = {
@@ -183,7 +246,7 @@ export type ItemSaveConversionReport = {
   recoveredBlocks: number;
   bagItems: number;
   palPadBattleLogKept: boolean;
-  /** PlayerInfo.version of the save: 22 White 2, 23 Black 2. */
+  /** PlayerInfo.version of the save: 20 White, 21 Black, 22 White 2, 23 Black 2. */
   gameVersion: number;
 };
 
@@ -191,18 +254,20 @@ function maxCountFor(rules: ItemSaveRules, item: number, pocket: number): number
   return rules.maxCount?.(item) ?? (pocket === 2 ? 1 : 999);
 }
 
-function checkGame(payloads: Uint8Array[]): number {
-  // TrainerDataSave.config is four bytes; PlayerInfo.version is its byte 27. Black 2 and White 2 share the save
-  // format (and load each other's saves), so either is accepted; anything else is not a Black 2 / White 2 save.
+function checkGame(payloads: Uint8Array[], family: SaveFamily): number {
+  // TrainerDataSave.config is four bytes; PlayerInfo.version is its byte 27 (the same in Black / White). The two
+  // games of a family share the save format (and load each other's saves), so either is accepted.
   const version = payloads[TRAINER_BLOCK][4 + 27];
-  if (version !== 22 && version !== 23) throw new Error(`This is not a Black 2 / White 2 save (game version ${version}).`);
+  const spec = FAMILIES[family];
+  if (!spec.gameVersions.includes(version)) throw new Error(`This is not a ${spec.gameName} save (game version ${version}).`);
   return version;
 }
 
 /** Retail bag -> pool, ordered by the ROM's pockets (the in-game validator requires that order). */
 function convertBag(payload: Uint8Array, rules: ItemSaveRules): { bag: Uint8Array; count: number } {
-  if (payload.length !== RETAIL_BLOCK_SIZES[BAG_BLOCK]) throw new Error("Wrong retail bag size.");
-  if (u32(payload, RETAIL_FREE_SPACE_OFFSET) & 1) throw new Error("The bag marks the empty item as Free Space.");
+  const spec = FAMILIES[rules.family ?? "BW2"];
+  if (payload.length !== spec.blockSizes[BAG_BLOCK]) throw new Error("Wrong retail bag size.");
+  if (spec.freeSpace && u32(payload, RETAIL_FREE_SPACE_OFFSET) & 1) throw new Error("The bag marks the empty item as Free Space.");
   const byPocket: Array<Array<[number, number]>> = [[], [], [], [], []];
   const seen = new Set<number>();
   let offset = 0;
@@ -221,11 +286,11 @@ function convertBag(payload: Uint8Array, rules: ItemSaveRules): { bag: Uint8Arra
       byPocket[pocket].push([item, count]);
     }
   }
-  const bag = new Uint8Array(EXPANDED_BAG_SIZE);
-  put32(bag, 0, BAG_POOL_VERSION);
+  const bag = new Uint8Array(spec.expandedBagSize);
+  put32(bag, 0, spec.poolVersion);
   let slot = 0;
   for (const rows of byPocket) for (const [item, count] of rows) { put16(bag, 4 + slot * 4, item); put16(bag, 6 + slot * 4, count); slot++; }
-  bag.set(payload.subarray(RETAIL_FREE_SPACE_OFFSET, RETAIL_FREE_SPACE_OFFSET + RETAIL_FREE_SPACE_WORDS * 4), EXPANDED_FREE_SPACE_OFFSET);
+  if (spec.freeSpace) bag.set(payload.subarray(RETAIL_FREE_SPACE_OFFSET, RETAIL_FREE_SPACE_OFFSET + RETAIL_FREE_SPACE_WORDS * 4), EXPANDED_FREE_SPACE_OFFSET);
   return { bag, count: slot };
 }
 
@@ -241,25 +306,27 @@ function shrinkPalPad(payload: Uint8Array): { block: Uint8Array; kept: boolean }
 /** Retail save -> expanded item save. Throws (without output) on anything it cannot convert exactly. */
 export function convertSaveToExpanded(data: Uint8Array, rules: ItemSaveRules): { bytes: Uint8Array; report: ItemSaveConversionReport } {
   if (data.length !== SAVE_FILE_SIZE) throw new Error("Expected a raw 512 KiB .sav (not an emulator container).");
-  const format = detectSaveFormat(data);
+  const family = rules.family ?? "BW2";
+  const format = detectSaveFormat(data, family);
   if (format === "expanded") throw new Error("This save already uses the expanded item format.");
   if (format === "mixed") throw new Error("This save has both formats; restore the original file.");
-  if (format !== "retail") throw new Error("No retail Black 2 / White 2 save footer was found.");
-  const recovered = recoverSave(data, RETAIL_SAVE_LAYOUT);
-  const gameVersion = checkGame(recovered.payloads);
+  if (format !== "retail") throw new Error(`No retail ${FAMILIES[family].gameName} save footer was found.`);
+  const recovered = recoverSave(data, LAYOUTS[family].retail);
+  const gameVersion = checkGame(recovered.payloads, family);
   const { bag, count } = convertBag(recovered.payloads[BAG_BLOCK], rules);
   const palPad = shrinkPalPad(recovered.payloads[PAL_PAD_BLOCK]);
   const payloads = recovered.payloads.slice();
   payloads[BAG_BLOCK] = bag;
   payloads[PAL_PAD_BLOCK] = palPad.block;
-  const bytes = encodeSave(data, EXPANDED_SAVE_LAYOUT, payloads, recovered.counts, recovered.generation);
+  const bytes = encodeSave(data, LAYOUTS[family].expanded, payloads, recovered.counts, recovered.generation);
   return { bytes, report: { sourceFormat: format, targetFormat: "expanded", generation: recovered.generation, selectedCopy: recovered.copy, recoveredBlocks: recovered.recoveredBlocks, bagItems: count, palPadBattleLogKept: palPad.kept, gameVersion } };
 }
 
-/** Checks an expanded bag the way the game does at boot (W2U_BagValidate). */
+/** Checks an expanded bag the way the game does at boot (W2U_BagValidate / PwBag_Validate). */
 export function validateExpandedBag(bag: Uint8Array, rules: ItemSaveRules): string | undefined {
-  if (bag.length !== EXPANDED_BAG_SIZE || u32(bag, 0) !== BAG_POOL_VERSION) return "The bag is not a version-2 pool.";
-  if (u32(bag, EXPANDED_FREE_SPACE_OFFSET) & 1) return "The bag marks the empty item as Free Space.";
+  const spec = FAMILIES[rules.family ?? "BW2"];
+  if (bag.length !== spec.expandedBagSize || u32(bag, 0) !== spec.poolVersion) return "The bag is not an expanded item pool.";
+  if (spec.freeSpace && u32(bag, EXPANDED_FREE_SPACE_OFFSET) & 1) return "The bag marks the empty item as Free Space.";
   const seen = new Set<number>();
   let ended = false, lastPocket = 0;
   for (let slot = 0; slot < BAG_POOL_SLOTS; slot++) {
@@ -278,19 +345,21 @@ export function validateExpandedBag(bag: Uint8Array, rules: ItemSaveRules): stri
 }
 
 /**
- * Expanded save -> retail save (for uninstalling). Fails when the bag holds an item above 638, or more distinct items
- * in a pocket than the retail pocket has slots.
+ * Expanded save -> retail save (for uninstalling). Fails when the bag holds an item above the retail range (638, or
+ * 626 on Black / White), or more distinct items in a pocket than the retail pocket has slots.
  */
 export function convertSaveToRetail(data: Uint8Array, rules: ItemSaveRules): { bytes: Uint8Array; report: ItemSaveConversionReport } {
   if (data.length !== SAVE_FILE_SIZE) throw new Error("Expected a raw 512 KiB .sav (not an emulator container).");
-  const format = detectSaveFormat(data);
+  const family = rules.family ?? "BW2";
+  const spec = FAMILIES[family];
+  const format = detectSaveFormat(data, family);
   if (format !== "expanded") throw new Error("This save does not use the expanded item format.");
-  const recovered = recoverSave(data, EXPANDED_SAVE_LAYOUT);
-  const gameVersion = checkGame(recovered.payloads);
+  const recovered = recoverSave(data, LAYOUTS[family].expanded);
+  const gameVersion = checkGame(recovered.payloads, family);
   const pool = recovered.payloads[BAG_BLOCK];
   const problem = validateExpandedBag(pool, rules);
   if (problem) throw new Error(problem);
-  const bag = new Uint8Array(RETAIL_BLOCK_SIZES[BAG_BLOCK]);
+  const bag = new Uint8Array(spec.blockSizes[BAG_BLOCK]);
   const fill = new Map<number, number>(RETAIL_POCKETS.map(([pocket]) => [pocket, 0]));
   const starts = new Map<number, [number, number]>();
   let offset = 0;
@@ -299,7 +368,7 @@ export function convertSaveToRetail(data: Uint8Array, rules: ItemSaveRules): { b
   for (let slot = 0; slot < BAG_POOL_SLOTS; slot++) {
     const item = u16(pool, 4 + slot * 4), count = u16(pool, 6 + slot * 4);
     if (!item) break;
-    if (item > 638) throw new Error(`Item ${item} cannot be stored in a retail save.`);
+    if (item > spec.nativeLast) throw new Error(`Item ${item} cannot be stored in a retail save.`);
     const pocket = rules.pocketOf(item)!;
     const [start, slots] = starts.get(pocket)!;
     const used = fill.get(pocket)!;
@@ -309,14 +378,60 @@ export function convertSaveToRetail(data: Uint8Array, rules: ItemSaveRules): { b
     fill.set(pocket, used + 1);
     items++;
   }
-  for (let word = 0; word < RETAIL_FREE_SPACE_WORDS; word++) put32(bag, RETAIL_FREE_SPACE_OFFSET + word * 4, u32(pool, EXPANDED_FREE_SPACE_OFFSET + word * 4));
-  for (let word = RETAIL_FREE_SPACE_WORDS; word < 32; word++) if (u32(pool, EXPANDED_FREE_SPACE_OFFSET + word * 4)) throw new Error("Free Space holds an item above 671.");
-  const palPad = new Uint8Array(RETAIL_BLOCK_SIZES[PAL_PAD_BLOCK]);
+  if (spec.freeSpace) {
+    for (let word = 0; word < RETAIL_FREE_SPACE_WORDS; word++) put32(bag, RETAIL_FREE_SPACE_OFFSET + word * 4, u32(pool, EXPANDED_FREE_SPACE_OFFSET + word * 4));
+    for (let word = RETAIL_FREE_SPACE_WORDS; word < 32; word++) if (u32(pool, EXPANDED_FREE_SPACE_OFFSET + word * 4)) throw new Error("Free Space holds an item above 671.");
+  }
+  const palPad = new Uint8Array(spec.blockSizes[PAL_PAD_BLOCK]);
   const kept = u32(recovered.payloads[PAL_PAD_BLOCK], 0) === BATTLE_LOG_MAGIC;
   if (kept) palPad.set(recovered.payloads[PAL_PAD_BLOCK]);
   const payloads = recovered.payloads.slice();
   payloads[BAG_BLOCK] = bag;
   payloads[PAL_PAD_BLOCK] = palPad;
-  const bytes = encodeSave(data, RETAIL_SAVE_LAYOUT, payloads, recovered.counts, recovered.generation);
+  const bytes = encodeSave(data, LAYOUTS[family].retail, payloads, recovered.counts, recovered.generation);
   return { bytes, report: { sourceFormat: format, targetFormat: "retail", generation: recovered.generation, selectedCopy: recovered.copy, recoveredBlocks: recovered.recoveredBlocks, bagItems: items, palPadBattleLogKept: kept, gameVersion } };
+}
+
+/** The retail bag's slots of a pocket (0 items, 1 medicine, 2 TMs/HMs, 3 berries, 4 key items) in a retail save. */
+export function retailPocketItems(data: Uint8Array, family: SaveFamily, pocket: number): Array<[number, number]> {
+  const recovered = recoverSave(data, LAYOUTS[family].retail);
+  const bag = recovered.payloads[BAG_BLOCK];
+  let offset = 0;
+  for (const [id, slots] of RETAIL_POCKETS) {
+    if (id === pocket) {
+      const out: Array<[number, number]> = [];
+      for (let i = 0; i < slots; i++) if (u16(bag, offset + i * 4)) out.push([u16(bag, offset + i * 4), u16(bag, offset + i * 4 + 2)]);
+      return out;
+    }
+    offset += slots * 4;
+  }
+  throw new Error(`No bag pocket ${pocket}.`);
+}
+
+/**
+ * Puts an item in a retail save's bag pocket (the first empty slot), unless the pocket already holds it. Both main
+ * copies are rewritten with valid checksums; the rest of the file is kept. Used for the bundled test saves.
+ */
+export function addRetailBagItem(data: Uint8Array, family: SaveFamily, pocket: number, item: number, count = 1): { bytes: Uint8Array; added: boolean } {
+  if (detectSaveFormat(data, family) !== "retail") throw new Error(`Expected a retail ${FAMILIES[family].gameName} save.`);
+  const recovered = recoverSave(data, LAYOUTS[family].retail);
+  const bag = recovered.payloads[BAG_BLOCK].slice();
+  let offset = 0;
+  for (const [id, slots] of RETAIL_POCKETS) {
+    if (id === pocket) {
+      for (let i = 0; i < slots; i++) if (u16(bag, offset + i * 4) === item) return { bytes: data, added: false };
+      for (let i = 0; i < slots; i++) {
+        const at = offset + i * 4;
+        if (u16(bag, at) !== 0) continue;
+        put16(bag, at, item);
+        put16(bag, at + 2, count);
+        const payloads = recovered.payloads.slice();
+        payloads[BAG_BLOCK] = bag;
+        return { bytes: encodeSave(data, LAYOUTS[family].retail, payloads, recovered.counts, recovered.generation), added: true };
+      }
+      throw new Error(`Bag pocket ${pocket} is full.`);
+    }
+    offset += slots * 4;
+  }
+  throw new Error(`No bag pocket ${pocket}.`);
 }

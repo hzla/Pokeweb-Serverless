@@ -370,7 +370,11 @@ export function importTrainerPokemonShowdownText(project: ProjectState, trainerI
   const count = Number(trdata.raw.num_pokemon ?? 0);
   if (slot < 0 || slot >= count) throw new Error("Trainer Pokemon slot does not exist");
 
-  const speciesId = findPokemonValueIndex(project, parsed.species);
+  // A form's own name ("Raticate-Alola") names its personal record: the trainer gets the species in that form.
+  const matched = findPokemonValueIndex(project, parsed.species);
+  const owner = formRecordOwner(project, matched);
+  const speciesId = owner?.species ?? matched;
+  if (owner && parsed.form === undefined) parsed.form = owner.form;
   trpok.raw[`species_id_${slot}`] = speciesId;
   trpok.raw[`level_${slot}`] = parsed.level ?? 100;
   trpok.raw[`ivs_${slot}`] = parsed.ivs ?? 255;
@@ -1045,6 +1049,18 @@ function findPokemonValueIndex(project: ProjectState, inputValue: string): numbe
     if (normalizeName(String(pokemonName(project, speciesId))) === normalizedInput) return speciesId;
   }
   throw new Error(`Unknown Pokemon: ${inputValue}`);
+}
+
+/** The species and form whose added-form personal record `personalId` is, if it is one. */
+function formRecordOwner(project: ProjectState, personalId: number): { species: number; form: number } | undefined {
+  const count = project.narcs.personal?.fileCount ?? 0;
+  if (personalId <= 0 || personalId >= count) return undefined;
+  for (let species = 1; species < Math.min(count, 1024); species += 1) {
+    const raw = decodeRecord(project, "personal", species).raw;
+    const first = Number(raw?.form_id ?? 0), forms = Number(raw?.num_forms ?? 1);
+    if (first > 0 && species !== personalId && personalId >= first && personalId < first + forms - 1) return { species, form: personalId - first + 1 };
+  }
+  return undefined;
 }
 
 function normalizedSpeciesId(speciesId: number): number {

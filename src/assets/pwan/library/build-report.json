@@ -3,7 +3,7 @@
   "sourceRom": "White2Upgrade.nds",
   "iconSourceRom": "White2Upgrade.nds",
   "archivePath": "zz_pokeweb_pwan/pwan.narc",
-  "archiveBytes": 120503404,
+  "archiveBytes": 131205460,
   "entryCount": 596,
   "sideCount": {
     "front": 596,
@@ -56,9 +56,9 @@
   },
   "distribution": {
     "encoding": "gzip",
-    "compressedBytes": 12873891,
-    "archiveBytes": 122168880,
-    "archiveSha256": "e9de2f23e8362b34dc3ba35114b07e7e6c9ddfff020e9316220e456e1085d230"
+    "compressedBytes": 17738037,
+    "archiveBytes": 131205460,
+    "archiveSha256": "3251cb7e3f77af82e4f0ca4d6a203661026fb8f2ebb273d9682fdadd6599933b"
   },
   "gmaxMegas": {
     "addedEntries": 33,
@@ -106,5 +106,2639 @@
     "MEGA_METAGROSS front: essentials_gifs/Front/METAGROSS_1.gif (12 frames, 7 unique, 15 colours) — Gen 5-inspired color preset applied: +15% saturation and +10% contrast; review the preview for clipped highlights or lost shades",
     "MEGA_METAGROSS back: essentials_gifs/Back/METAGROSS_1.gif (14 frames, 8 unique, 8 colours) — Gen 5-inspired color preset applied: +15% saturation and +10% contrast; review the preview for clipped highlights or lost shades",
     "MEGA_GALLADE back: essentials_gifs/Back/GALLADE_1.gif (29 frames, 8 unique, 15 colours) — Gen 5-inspired color preset applied: +15% saturation and +10% contrast; review the preview for clipped highlights or lost shades"
-  ]
+  ],
+  "fullSize": {
+    "script": "scripts/reimport-pwan-library-full-size.ts",
+    "preset": "gen5",
+    "fullSizeSides": 94,
+    "ownSizePwanSides": 8,
+    "loadedFullSizeSides": 94,
+    "fullSizeMembers": 92,
+    "archiveBytes": 131205460,
+    "sides": [
+      {
+        "entry": "681-1-887",
+        "name": "Aegislash Blade",
+        "side": "front",
+        "source": "skidmarc25/aegislash-blade.gif",
+        "canvas": {
+          "width": 115,
+          "height": 115
+        },
+        "art": {
+          "width": 101,
+          "height": 87
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 101,
+        "height": 87,
+        "x0": -46,
+        "y0": -92,
+        "lift": 5,
+        "liftApplied": 5,
+        "uniqueFrames": 49,
+        "bytes": 96464,
+        "memberId": 4315,
+        "warnings": []
+      },
+      {
+        "entry": "103-1-1124",
+        "name": "Alolan Exeggutor",
+        "side": "front",
+        "source": "gen7-sprite-work/downloads/exeggutor-front.gif",
+        "canvas": {
+          "width": 113,
+          "height": 102
+        },
+        "art": {
+          "width": 113,
+          "height": 102
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 113,
+        "height": 102,
+        "x0": -56,
+        "y0": -94,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 53,
+        "bytes": 125060,
+        "memberId": 4316,
+        "warnings": []
+      },
+      {
+        "entry": "103-1-1124",
+        "name": "Alolan Exeggutor",
+        "side": "back",
+        "source": "gen7-sprite-work/downloads/exeggutor-back.gif",
+        "canvas": {
+          "width": 109,
+          "height": 100
+        },
+        "art": {
+          "width": 109,
+          "height": 100
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 109,
+        "height": 100,
+        "x0": -54,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 53,
+        "bytes": 118836,
+        "memberId": 4317,
+        "warnings": []
+      },
+      {
+        "entry": "26-3-1099",
+        "name": "Alolan Raichu",
+        "side": "front",
+        "source": "gen7-sprite-work/downloads/raichu-front.gif",
+        "canvas": {
+          "width": 105,
+          "height": 96
+        },
+        "art": {
+          "width": 105,
+          "height": 96
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 105,
+        "height": 96,
+        "x0": -52,
+        "y0": -94,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 40,
+        "bytes": 80672,
+        "memberId": 4318,
+        "warnings": []
+      },
+      {
+        "entry": "26-3-1099",
+        "name": "Alolan Raichu",
+        "side": "back",
+        "source": "gen7-sprite-work/downloads/raichu-back.gif",
+        "canvas": {
+          "width": 123,
+          "height": 93
+        },
+        "art": {
+          "width": 123,
+          "height": 93
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 123,
+        "height": 93,
+        "x0": -61,
+        "y0": -86,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 40,
+        "bytes": 73868,
+        "memberId": 4319,
+        "warnings": []
+      },
+      {
+        "entry": "806-0-1284",
+        "name": "Blacephalon",
+        "side": "front",
+        "source": "gen7-sprite-work/downloads/blacephalon-front.gif",
+        "canvas": {
+          "width": 100,
+          "height": 143
+        },
+        "art": {
+          "width": 100,
+          "height": 143
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 90,
+        "height": 128,
+        "x0": -45,
+        "y0": -120,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 57,
+        "bytes": 141556,
+        "memberId": 4320,
+        "warnings": [
+          "The art is larger than 128x128; it was scaled to 90x128 (nearest neighbour)."
+        ]
+      },
+      {
+        "entry": "806-0-1284",
+        "name": "Blacephalon",
+        "side": "back",
+        "source": "gen7-sprite-work/downloads/blacephalon-back.gif",
+        "canvas": {
+          "width": 85,
+          "height": 144
+        },
+        "art": {
+          "width": 85,
+          "height": 144
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 76,
+        "height": 128,
+        "x0": -38,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 56,
+        "bytes": 138800,
+        "memberId": 4321,
+        "warnings": [
+          "The art is larger than 128x128; it was scaled to 76x128 (nearest neighbour)."
+        ]
+      },
+      {
+        "entry": "797-0-1275",
+        "name": "Celesteela",
+        "side": "front",
+        "source": "gen7-sprite-work/downloads/celesteela-front.gif",
+        "canvas": {
+          "width": 100,
+          "height": 117
+        },
+        "art": {
+          "width": 100,
+          "height": 117
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 100,
+        "height": 117,
+        "x0": -50,
+        "y0": -109,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 39,
+        "bytes": 113604,
+        "memberId": 4322,
+        "warnings": []
+      },
+      {
+        "entry": "797-0-1275",
+        "name": "Celesteela",
+        "side": "back",
+        "source": "gen7-sprite-work/downloads/celesteela-back.gif",
+        "canvas": {
+          "width": 101,
+          "height": 117
+        },
+        "art": {
+          "width": 101,
+          "height": 117
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 101,
+        "height": 117,
+        "x0": -50,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 39,
+        "bytes": 103392,
+        "memberId": 4323,
+        "warnings": []
+      },
+      {
+        "entry": "693-0-693",
+        "name": "Clawitzer",
+        "side": "front",
+        "source": "gen6-sprite-work/downloads/clawitzer/clawitzer-front.gif",
+        "canvas": {
+          "width": 118,
+          "height": 90
+        },
+        "art": {
+          "width": 118,
+          "height": 90
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 118,
+        "height": 90,
+        "x0": -59,
+        "y0": -90,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 34,
+        "bytes": 71768,
+        "memberId": 4324,
+        "warnings": []
+      },
+      {
+        "entry": "693-0-693",
+        "name": "Clawitzer",
+        "side": "back",
+        "source": "gen6-sprite-work/downloads/clawitzer/clawitzer-back.gif",
+        "canvas": {
+          "width": 111,
+          "height": 83
+        },
+        "art": {
+          "width": 111,
+          "height": 83
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 111,
+        "height": 83,
+        "x0": -55,
+        "y0": -76,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 35,
+        "bytes": 65616,
+        "memberId": 4325,
+        "warnings": []
+      },
+      {
+        "entry": "740-0-1218",
+        "name": "Crabominable",
+        "side": "front",
+        "source": "gen7-sprite-work/downloads/crabominable-front.gif",
+        "canvas": {
+          "width": 101,
+          "height": 86
+        },
+        "art": {
+          "width": 101,
+          "height": 86
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 101,
+        "height": 86,
+        "x0": -50,
+        "y0": -86,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 42,
+        "bytes": 100444,
+        "memberId": 4326,
+        "warnings": []
+      },
+      {
+        "entry": "740-0-1218",
+        "name": "Crabominable",
+        "side": "back",
+        "source": "gen7-sprite-work/downloads/crabominable-back.gif",
+        "canvas": {
+          "width": 99,
+          "height": 86
+        },
+        "art": {
+          "width": 99,
+          "height": 86
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 99,
+        "height": 86,
+        "x0": -49,
+        "y0": -79,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 42,
+        "bytes": 81148,
+        "memberId": 4327,
+        "warnings": []
+      },
+      {
+        "entry": "723-0-1201",
+        "name": "Dartrix",
+        "side": "front",
+        "source": "snivy101/datrix-front.gif",
+        "canvas": {
+          "width": 96,
+          "height": 96
+        },
+        "art": {
+          "width": 61,
+          "height": 55
+        },
+        "timing": 1,
+        "transparencyRepaired": true,
+        "shift": 0,
+        "mode": "pwan at own size"
+      },
+      {
+        "entry": "691-0-691",
+        "name": "Dragalge",
+        "side": "front",
+        "source": "gen6-sprite-work/downloads/dragalge/dragalge-front.gif",
+        "canvas": {
+          "width": 98,
+          "height": 98
+        },
+        "art": {
+          "width": 98,
+          "height": 98
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 98,
+        "height": 98,
+        "x0": -49,
+        "y0": -94,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 26,
+        "bytes": 55244,
+        "memberId": 4328,
+        "warnings": []
+      },
+      {
+        "entry": "720-1-896",
+        "name": "Hoopa Unbound",
+        "side": "back",
+        "source": "diego-gifs/hoopa-unbound-back.gif",
+        "canvas": {
+          "width": 110,
+          "height": 110
+        },
+        "art": {
+          "width": 97,
+          "height": 106
+        },
+        "timing": 2,
+        "mode": "full size",
+        "width": 97,
+        "height": 106,
+        "x0": -52,
+        "y0": -88,
+        "lift": 3,
+        "liftApplied": 0,
+        "uniqueFrames": 24,
+        "bytes": 63256,
+        "memberId": 4329,
+        "warnings": []
+      },
+      {
+        "entry": "707-0-707",
+        "name": "Klefki",
+        "side": "front",
+        "source": "gen6-sprite-work/downloads/klefki/klefki-front.gif",
+        "canvas": {
+          "width": 108,
+          "height": 97
+        },
+        "art": {
+          "width": 108,
+          "height": 97
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 108,
+        "height": 97,
+        "x0": -54,
+        "y0": -94,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 99,
+        "bytes": 199924,
+        "memberId": 4330,
+        "warnings": []
+      },
+      {
+        "entry": "707-0-707",
+        "name": "Klefki",
+        "side": "back",
+        "source": "gen6-sprite-work/downloads/klefki/klefki-back.gif",
+        "canvas": {
+          "width": 108,
+          "height": 96
+        },
+        "art": {
+          "width": 108,
+          "height": 96
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 108,
+        "height": 96,
+        "x0": -54,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 98,
+        "bytes": 184568,
+        "memberId": 4331,
+        "warnings": []
+      },
+      {
+        "entry": "784-0-1262",
+        "name": "Kommo-o",
+        "side": "front",
+        "source": "gen7-sprite-work/downloads/kommoo-front.gif",
+        "canvas": {
+          "width": 108,
+          "height": 88
+        },
+        "art": {
+          "width": 108,
+          "height": 88
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 108,
+        "height": 88,
+        "x0": -54,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 41,
+        "bytes": 107356,
+        "memberId": 4332,
+        "warnings": []
+      },
+      {
+        "entry": "784-0-1262",
+        "name": "Kommo-o",
+        "side": "back",
+        "source": "gen7-sprite-work/downloads/kommoo-back.gif",
+        "canvas": {
+          "width": 112,
+          "height": 86
+        },
+        "art": {
+          "width": 112,
+          "height": 86
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 112,
+        "height": 86,
+        "x0": -56,
+        "y0": -79,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 41,
+        "bytes": 95244,
+        "memberId": 4333,
+        "warnings": []
+      },
+      {
+        "entry": "792-0-1270",
+        "name": "Lunala",
+        "side": "front",
+        "source": "gen7-sprite-work/downloads/lunala-front.gif",
+        "canvas": {
+          "width": 103,
+          "height": 109
+        },
+        "art": {
+          "width": 103,
+          "height": 109
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 103,
+        "height": 109,
+        "x0": -51,
+        "y0": -101,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 50,
+        "bytes": 139060,
+        "memberId": 4334,
+        "warnings": []
+      },
+      {
+        "entry": "792-0-1270",
+        "name": "Lunala",
+        "side": "back",
+        "source": "gen7-sprite-work/downloads/lunala-back.gif",
+        "canvas": {
+          "width": 110,
+          "height": 109
+        },
+        "art": {
+          "width": 110,
+          "height": 109
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 110,
+        "height": 109,
+        "x0": -55,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 50,
+        "bytes": 128396,
+        "memberId": 4335,
+        "warnings": []
+      },
+      {
+        "entry": "65-1-736",
+        "name": "Mega Alakazam",
+        "side": "front",
+        "source": "gen6-sprite-work/downloads/alakazam/alakazam-front.gif",
+        "canvas": {
+          "width": 96,
+          "height": 100
+        },
+        "art": {
+          "width": 88,
+          "height": 98
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 88,
+        "height": 98,
+        "x0": -44,
+        "y0": -94,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 88,
+        "bytes": 214384,
+        "memberId": 4336,
+        "warnings": []
+      },
+      {
+        "entry": "65-1-736",
+        "name": "Mega Alakazam",
+        "side": "back",
+        "source": "aranousqui20-newmegas/alakazam-mega-back.gif",
+        "canvas": {
+          "width": 97,
+          "height": 109
+        },
+        "art": {
+          "width": 97,
+          "height": 109
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 97,
+        "height": 109,
+        "x0": -48,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 41,
+        "bytes": 97368,
+        "memberId": 4337,
+        "warnings": []
+      },
+      {
+        "entry": "334-1-789",
+        "name": "Mega Altaria",
+        "side": "front",
+        "source": "ghasty-megas/altaria-mega-front.gif",
+        "canvas": {
+          "width": 120,
+          "height": 120
+        },
+        "art": {
+          "width": 111,
+          "height": 112
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 111,
+        "height": 112,
+        "x0": -54,
+        "y0": -104,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 24,
+        "bytes": 62432,
+        "memberId": 4338,
+        "warnings": []
+      },
+      {
+        "entry": "334-1-789",
+        "name": "Mega Altaria",
+        "side": "back",
+        "source": "ghasty-megas/altaria-mega-back.gif",
+        "canvas": {
+          "width": 104,
+          "height": 104
+        },
+        "art": {
+          "width": 102,
+          "height": 99
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 102,
+        "height": 99,
+        "x0": -51,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 10,
+        "bytes": 20344,
+        "memberId": 4339,
+        "warnings": []
+      },
+      {
+        "entry": "354-1-793",
+        "name": "Mega Banette",
+        "side": "back",
+        "source": "aranousqui20-newmegas/banette-mega-back.gif",
+        "canvas": {
+          "width": 99,
+          "height": 85
+        },
+        "art": {
+          "width": 99,
+          "height": 85
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 99,
+        "height": 85,
+        "x0": -49,
+        "y0": -88,
+        "lift": 16,
+        "liftApplied": 10,
+        "uniqueFrames": 48,
+        "bytes": 96372,
+        "memberId": 4340,
+        "warnings": []
+      },
+      {
+        "entry": "689-1-1078",
+        "name": "Mega Barbaracle",
+        "side": "back",
+        "source": "Aronousqui20/barbaracle-mega-back.gif",
+        "canvas": {
+          "width": 92,
+          "height": 98
+        },
+        "art": {
+          "width": 92,
+          "height": 98
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 92,
+        "height": 98,
+        "x0": -46,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 59,
+        "bytes": 148376,
+        "memberId": 4341,
+        "warnings": []
+      },
+      {
+        "entry": "998-1-1094",
+        "name": "Mega Baxcalibur",
+        "side": "back",
+        "source": "Aronousqui20/baxcalibur-mega-back.gif",
+        "canvas": {
+          "width": 134,
+          "height": 122
+        },
+        "art": {
+          "width": 134,
+          "height": 122
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 128,
+        "height": 117,
+        "x0": -64,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 59,
+        "bytes": 157716,
+        "memberId": 4342,
+        "warnings": [
+          "The art is larger than 128x128; it was scaled to 128x117 (nearest neighbour)."
+        ]
+      },
+      {
+        "entry": "15-1-728",
+        "name": "Mega Beedrill",
+        "side": "front",
+        "source": "gen6-sprite-work/downloads/beedrill/beedrill-front.gif",
+        "canvas": {
+          "width": 103,
+          "height": 88
+        },
+        "art": {
+          "width": 103,
+          "height": 88
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 103,
+        "height": 88,
+        "x0": -51,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 65,
+        "bytes": 139108,
+        "memberId": 4343,
+        "warnings": []
+      },
+      {
+        "entry": "257-1-779",
+        "name": "Mega Blaziken",
+        "side": "front",
+        "source": "gen6-sprite-work/downloads/blaziken/blaziken-front.gif",
+        "canvas": {
+          "width": 114,
+          "height": 115
+        },
+        "art": {
+          "width": 114,
+          "height": 115
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 114,
+        "height": 115,
+        "x0": -57,
+        "y0": -107,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 35,
+        "bytes": 91848,
+        "memberId": 4344,
+        "warnings": []
+      },
+      {
+        "entry": "6-1-725",
+        "name": "Mega Charizard X",
+        "side": "front",
+        "source": "gen6-sprite-work/downloads/charizard-x/charizard-x-front.gif",
+        "canvas": {
+          "width": 105,
+          "height": 94
+        },
+        "art": {
+          "width": 105,
+          "height": 94
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 105,
+        "height": 94,
+        "x0": -52,
+        "y0": -94,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 41,
+        "bytes": 94472,
+        "memberId": 4345,
+        "warnings": []
+      },
+      {
+        "entry": "652-1-1065",
+        "name": "Mega Chesnaught",
+        "side": "back",
+        "source": "Aronousqui20/chesnaught-mega-back.gif",
+        "canvas": {
+          "width": 125,
+          "height": 159
+        },
+        "art": {
+          "width": 125,
+          "height": 159
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 101,
+        "height": 128,
+        "x0": -50,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 39,
+        "bytes": 100940,
+        "memberId": 4346,
+        "warnings": [
+          "The art is larger than 128x128; it was scaled to 101x128 (nearest neighbour)."
+        ]
+      },
+      {
+        "entry": "358-1-1047",
+        "name": "Mega Chimecho",
+        "side": "back",
+        "source": "Aronousqui20/chimecho-mega-back.gif",
+        "canvas": {
+          "width": 117,
+          "height": 103
+        },
+        "art": {
+          "width": 117,
+          "height": 103
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 117,
+        "height": 103,
+        "x0": -58,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 36,
+        "bytes": 93576,
+        "memberId": 4347,
+        "warnings": []
+      },
+      {
+        "entry": "740-1-1082",
+        "name": "Mega Crabominable",
+        "side": "back",
+        "source": "Aronousqui20/crabominable-mega-back.gif",
+        "canvas": {
+          "width": 122,
+          "height": 110
+        },
+        "art": {
+          "width": 122,
+          "height": 110
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 122,
+        "height": 110,
+        "x0": -61,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 41,
+        "bytes": 108384,
+        "memberId": 4348,
+        "warnings": []
+      },
+      {
+        "entry": "491-1-1057",
+        "name": "Mega Darkrai",
+        "side": "back",
+        "source": "Aronousqui20/darkrai-mega-back.gif",
+        "canvas": {
+          "width": 132,
+          "height": 107
+        },
+        "art": {
+          "width": 132,
+          "height": 107
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 128,
+        "height": 104,
+        "x0": -64,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 49,
+        "bytes": 95956,
+        "memberId": 4349,
+        "warnings": [
+          "The art is larger than 128x128; it was scaled to 128x104 (nearest neighbour)."
+        ]
+      },
+      {
+        "entry": "655-1-1066",
+        "name": "Mega Delphox",
+        "side": "back",
+        "source": "Aronousqui20/delphox-mega-back.gif",
+        "canvas": {
+          "width": 150,
+          "height": 139
+        },
+        "art": {
+          "width": 150,
+          "height": 139
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 128,
+        "height": 119,
+        "x0": -64,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 42,
+        "bytes": 114540,
+        "memberId": 4350,
+        "warnings": [
+          "The art is larger than 128x128; it was scaled to 128x119 (nearest neighbour)."
+        ]
+      },
+      {
+        "entry": "780-1-1084",
+        "name": "Mega Drampa",
+        "side": "back",
+        "source": "Aronousqui20/drampa-mega-back.gif",
+        "canvas": {
+          "width": 120,
+          "height": 125
+        },
+        "art": {
+          "width": 119,
+          "height": 125
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 119,
+        "height": 125,
+        "x0": -59,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 44,
+        "bytes": 114968,
+        "memberId": 4351,
+        "warnings": []
+      },
+      {
+        "entry": "604-1-1062",
+        "name": "Mega Eelektross",
+        "side": "back",
+        "source": "Aronousqui20/eelektross-mega-back.gif",
+        "canvas": {
+          "width": 129,
+          "height": 112
+        },
+        "art": {
+          "width": 129,
+          "height": 112
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 128,
+        "height": 111,
+        "x0": -64,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 60,
+        "bytes": 139732,
+        "memberId": 4352,
+        "warnings": [
+          "The art is larger than 128x128; it was scaled to 128x111 (nearest neighbour)."
+        ]
+      },
+      {
+        "entry": "500-1-1058",
+        "name": "Mega Emboar",
+        "side": "back",
+        "source": "Aronousqui20/emboar-mega-back.gif",
+        "canvas": {
+          "width": 127,
+          "height": 113
+        },
+        "art": {
+          "width": 127,
+          "height": 113
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 127,
+        "height": 113,
+        "x0": -63,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 36,
+        "bytes": 98236,
+        "memberId": 4353,
+        "warnings": []
+      },
+      {
+        "entry": "530-1-1059",
+        "name": "Mega Excadrill",
+        "side": "back",
+        "source": "Aronousqui20/excadrill-mega-back.gif",
+        "canvas": {
+          "width": 112,
+          "height": 80
+        },
+        "art": {
+          "width": 112,
+          "height": 79
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 112,
+        "height": 79,
+        "x0": -56,
+        "y0": -72,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 35,
+        "bytes": 70420,
+        "memberId": 4354,
+        "warnings": []
+      },
+      {
+        "entry": "870-1-1088",
+        "name": "Mega Falinks",
+        "side": "back",
+        "source": "Aronousqui20/falinks-mega-back.gif",
+        "canvas": {
+          "width": 119,
+          "height": 92
+        },
+        "art": {
+          "width": 119,
+          "height": 92
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 119,
+        "height": 92,
+        "x0": -59,
+        "y0": -85,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 29,
+        "bytes": 63792,
+        "memberId": 4355,
+        "warnings": []
+      },
+      {
+        "entry": "160-1-1045",
+        "name": "Mega Feraligatr",
+        "side": "back",
+        "source": "Aronousqui20/feraligatr-mega-back.gif",
+        "canvas": {
+          "width": 104,
+          "height": 107
+        },
+        "art": {
+          "width": 104,
+          "height": 107
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 104,
+        "height": 107,
+        "x0": -52,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 59,
+        "bytes": 136152,
+        "memberId": 4356,
+        "warnings": []
+      },
+      {
+        "entry": "478-1-1055",
+        "name": "Mega Froslass",
+        "side": "back",
+        "source": "Aronousqui20/froslass-mega-back.gif",
+        "canvas": {
+          "width": 112,
+          "height": 103
+        },
+        "art": {
+          "width": 112,
+          "height": 103
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 112,
+        "height": 103,
+        "x0": -56,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 55,
+        "bytes": 120420,
+        "memberId": 4357,
+        "warnings": []
+      },
+      {
+        "entry": "445-2-1052",
+        "name": "Mega Garchomp Z",
+        "side": "back",
+        "source": "Aronousqui20/garchomp-megaz-back.gif",
+        "canvas": {
+          "width": 159,
+          "height": 112
+        },
+        "art": {
+          "width": 159,
+          "height": 112
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 128,
+        "height": 90,
+        "x0": -64,
+        "y0": -83,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 35,
+        "bytes": 69888,
+        "memberId": 4358,
+        "warnings": [
+          "The art is larger than 128x128; it was scaled to 128x90 (nearest neighbour)."
+        ]
+      },
+      {
+        "entry": "970-1-1090",
+        "name": "Mega Glimmora",
+        "side": "back",
+        "source": "Aronousqui20/glimmora-mega-back.gif",
+        "canvas": {
+          "width": 143,
+          "height": 155
+        },
+        "art": {
+          "width": 143,
+          "height": 155
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 118,
+        "height": 128,
+        "x0": -59,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 30,
+        "bytes": 77024,
+        "memberId": 4359,
+        "warnings": [
+          "The art is larger than 128x128; it was scaled to 118x128 (nearest neighbour)."
+        ]
+      },
+      {
+        "entry": "768-1-1083",
+        "name": "Mega Golisopod",
+        "side": "back",
+        "source": "Aronousqui20/golisopod-mega-back.gif",
+        "canvas": {
+          "width": 102,
+          "height": 97
+        },
+        "art": {
+          "width": 102,
+          "height": 97
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 102,
+        "height": 97,
+        "x0": -51,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 24,
+        "bytes": 61584,
+        "memberId": 4360,
+        "warnings": []
+      },
+      {
+        "entry": "623-1-1064",
+        "name": "Mega Golurk",
+        "side": "back",
+        "source": "Aronousqui20/golurk-mega-back.gif",
+        "canvas": {
+          "width": 129,
+          "height": 103
+        },
+        "art": {
+          "width": 129,
+          "height": 103
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 128,
+        "height": 102,
+        "x0": -64,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 60,
+        "bytes": 153436,
+        "memberId": 4361,
+        "warnings": [
+          "The art is larger than 128x128; it was scaled to 128x102 (nearest neighbour)."
+        ]
+      },
+      {
+        "entry": "658-1-1180",
+        "name": "Mega Greninja",
+        "side": "back",
+        "source": "Aronousqui20/greninja-mega-back.gif",
+        "canvas": {
+          "width": 93,
+          "height": 117
+        },
+        "art": {
+          "width": 93,
+          "height": 117
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 93,
+        "height": 117,
+        "x0": -46,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 48,
+        "bytes": 109476,
+        "memberId": 4362,
+        "warnings": []
+      },
+      {
+        "entry": "130-1-741",
+        "name": "Mega Gyarados",
+        "side": "front",
+        "source": "aranousqui20-newmegas/gyarados-mega-front.gif",
+        "canvas": {
+          "width": 152,
+          "height": 140
+        },
+        "art": {
+          "width": 152,
+          "height": 140
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 128,
+        "height": 118,
+        "x0": -64,
+        "y0": -110,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 47,
+        "bytes": 128136,
+        "memberId": 4363,
+        "warnings": [
+          "The art is larger than 128x128; it was scaled to 128x118 (nearest neighbour)."
+        ]
+      },
+      {
+        "entry": "130-1-741",
+        "name": "Mega Gyarados",
+        "side": "back",
+        "source": "aranousqui20-newmegas/gyarados-mega-back.gif",
+        "canvas": {
+          "width": 145,
+          "height": 130
+        },
+        "art": {
+          "width": 145,
+          "height": 130
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 128,
+        "height": 115,
+        "x0": -64,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 47,
+        "bytes": 123364,
+        "memberId": 4364,
+        "warnings": [
+          "The art is larger than 128x128; it was scaled to 128x115 (nearest neighbour)."
+        ]
+      },
+      {
+        "entry": "701-1-1080",
+        "name": "Mega Hawlucha",
+        "side": "back",
+        "source": "Aronousqui20/hawlucha-mega-back.gif",
+        "canvas": {
+          "width": 107,
+          "height": 106
+        },
+        "art": {
+          "width": 107,
+          "height": 87
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 107,
+        "height": 87,
+        "x0": -53,
+        "y0": -80,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 29,
+        "bytes": 61960,
+        "memberId": 4365,
+        "warnings": []
+      },
+      {
+        "entry": "485-1-1056",
+        "name": "Mega Heatran",
+        "side": "back",
+        "source": "Aronousqui20/heatran-mega-back.gif",
+        "canvas": {
+          "width": 134,
+          "height": 126
+        },
+        "art": {
+          "width": 134,
+          "height": 110
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 128,
+        "height": 105,
+        "x0": -64,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 33,
+        "bytes": 79440,
+        "memberId": 4366,
+        "warnings": [
+          "The art is larger than 128x128; it was scaled to 128x105 (nearest neighbour)."
+        ]
+      },
+      {
+        "entry": "214-1-775",
+        "name": "Mega Heracross",
+        "side": "front",
+        "source": "aranousqui20-newmegas/heracross-mega-front.gif",
+        "canvas": {
+          "width": 116,
+          "height": 92
+        },
+        "art": {
+          "width": 116,
+          "height": 92
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 116,
+        "height": 92,
+        "x0": -58,
+        "y0": -92,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 47,
+        "bytes": 103920,
+        "memberId": 4367,
+        "warnings": []
+      },
+      {
+        "entry": "214-1-775",
+        "name": "Mega Heracross",
+        "side": "back",
+        "source": "aranousqui20-newmegas/heracross-mega-back.gif",
+        "canvas": {
+          "width": 99,
+          "height": 90
+        },
+        "art": {
+          "width": 99,
+          "height": 90
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 99,
+        "height": 90,
+        "x0": -49,
+        "y0": -83,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 47,
+        "bytes": 93104,
+        "memberId": 4368,
+        "warnings": []
+      },
+      {
+        "entry": "380-1-798",
+        "name": "Mega Latias",
+        "side": "front",
+        "source": "gen6-sprite-work/downloads/latias/latias-front.gif",
+        "canvas": {
+          "width": 94,
+          "height": 109
+        },
+        "art": {
+          "width": 94,
+          "height": 109
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 94,
+        "height": 109,
+        "x0": -47,
+        "y0": -101,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 48,
+        "bytes": 104756,
+        "memberId": 4369,
+        "warnings": []
+      },
+      {
+        "entry": "381-1-799",
+        "name": "Mega Latios",
+        "side": "front",
+        "source": "gen6-sprite-work/downloads/latios/latios-front.gif",
+        "canvas": {
+          "width": 100,
+          "height": 104
+        },
+        "art": {
+          "width": 100,
+          "height": 104
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 100,
+        "height": 104,
+        "x0": -50,
+        "y0": -96,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 48,
+        "bytes": 101528,
+        "memberId": 4370,
+        "warnings": []
+      },
+      {
+        "entry": "687-1-1077",
+        "name": "Mega Malamar",
+        "side": "back",
+        "source": "Aronousqui20/malamar-mega-back.gif",
+        "canvas": {
+          "width": 159,
+          "height": 114
+        },
+        "art": {
+          "width": 157,
+          "height": 114
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 128,
+        "height": 93,
+        "x0": -63,
+        "y0": -86,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 38,
+        "bytes": 74360,
+        "memberId": 4371,
+        "warnings": [
+          "The art is larger than 128x128; it was scaled to 128x93 (nearest neighbour)."
+        ]
+      },
+      {
+        "entry": "310-1-786",
+        "name": "Mega Manectric",
+        "side": "back",
+        "source": "aranousqui20-newmegas/manectric-mega-back.gif",
+        "canvas": {
+          "width": 103,
+          "height": 85
+        },
+        "art": {
+          "width": 103,
+          "height": 85
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 103,
+        "height": 85,
+        "x0": -51,
+        "y0": -78,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 48,
+        "bytes": 91708,
+        "memberId": 4372,
+        "warnings": []
+      },
+      {
+        "entry": "18-1-729",
+        "name": "Mega Pidgeot",
+        "side": "front",
+        "source": "aranousqui20-newmegas/pidgeot-mega-front.gif",
+        "canvas": {
+          "width": 163,
+          "height": 98
+        },
+        "art": {
+          "width": 163,
+          "height": 98
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 128,
+        "height": 77,
+        "x0": -64,
+        "y0": -77,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 48,
+        "bytes": 89244,
+        "memberId": 4373,
+        "warnings": [
+          "The art is larger than 128x128; it was scaled to 128x77 (nearest neighbour)."
+        ]
+      },
+      {
+        "entry": "18-1-729",
+        "name": "Mega Pidgeot",
+        "side": "back",
+        "source": "aranousqui20-newmegas/pidgeot-mega-back.gif",
+        "canvas": {
+          "width": 166,
+          "height": 116
+        },
+        "art": {
+          "width": 166,
+          "height": 116
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 128,
+        "height": 89,
+        "x0": -64,
+        "y0": -82,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 48,
+        "bytes": 100600,
+        "memberId": 4374,
+        "warnings": [
+          "The art is larger than 128x128; it was scaled to 128x89 (nearest neighbour)."
+        ]
+      },
+      {
+        "entry": "127-1-740",
+        "name": "Mega Pinsir",
+        "side": "front",
+        "source": "aranousqui20-newmegas/pinsir-mega-front.gif",
+        "canvas": {
+          "width": 117,
+          "height": 94
+        },
+        "art": {
+          "width": 117,
+          "height": 94
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 117,
+        "height": 94,
+        "x0": -58,
+        "y0": -94,
+        "lift": 14,
+        "liftApplied": 0,
+        "uniqueFrames": 47,
+        "bytes": 117272,
+        "memberId": 4375,
+        "warnings": []
+      },
+      {
+        "entry": "668-1-1068",
+        "name": "Mega Pyroar",
+        "side": "back",
+        "source": "Aronousqui20/pyroar-mega-back.gif",
+        "canvas": {
+          "width": 100,
+          "height": 101
+        },
+        "art": {
+          "width": 100,
+          "height": 101
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 100,
+        "height": 101,
+        "x0": -50,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 42,
+        "bytes": 89544,
+        "memberId": 4376,
+        "warnings": []
+      },
+      {
+        "entry": "26-1-1097",
+        "name": "Mega Raichu X",
+        "side": "back",
+        "source": "Aronousqui20/raichu-megax-back.gif",
+        "canvas": {
+          "width": 121,
+          "height": 102
+        },
+        "art": {
+          "width": 121,
+          "height": 102
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 121,
+        "height": 102,
+        "x0": -60,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 24,
+        "bytes": 48804,
+        "memberId": 4377,
+        "warnings": []
+      },
+      {
+        "entry": "384-1-802",
+        "name": "Mega Rayquaza",
+        "side": "front",
+        "source": "smogon-megas/rayquaza-mega-front.gif",
+        "canvas": {
+          "width": 100,
+          "height": 108
+        },
+        "art": {
+          "width": 100,
+          "height": 108
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 100,
+        "height": 108,
+        "x0": -50,
+        "y0": -100,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 12,
+        "bytes": 35444,
+        "memberId": 4378,
+        "warnings": []
+      },
+      {
+        "entry": "373-1-796",
+        "name": "Mega Salamence",
+        "side": "front",
+        "source": "gen6-sprite-work/downloads/salamence/salamence-front.gif",
+        "canvas": {
+          "width": 108,
+          "height": 77
+        },
+        "art": {
+          "width": 108,
+          "height": 77
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 108,
+        "height": 77,
+        "x0": -54,
+        "y0": -77,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 42,
+        "bytes": 83752,
+        "memberId": 4379,
+        "warnings": []
+      },
+      {
+        "entry": "373-1-796",
+        "name": "Mega Salamence",
+        "side": "back",
+        "source": "aranousqui20-newmegas/salamence-mega-back.gif",
+        "canvas": {
+          "width": 130,
+          "height": 89
+        },
+        "art": {
+          "width": 130,
+          "height": 88
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 128,
+        "height": 87,
+        "x0": -64,
+        "y0": -86,
+        "lift": 6,
+        "liftApplied": 6,
+        "uniqueFrames": 42,
+        "bytes": 78876,
+        "memberId": 4380,
+        "warnings": [
+          "The art is larger than 128x128; it was scaled to 128x87 (nearest neighbour)."
+        ]
+      },
+      {
+        "entry": "545-1-1060",
+        "name": "Mega Scolipede",
+        "side": "back",
+        "source": "Aronousqui20/skolipede-mega-back.gif",
+        "canvas": {
+          "width": 84,
+          "height": 103
+        },
+        "art": {
+          "width": 84,
+          "height": 103
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 84,
+        "height": 103,
+        "x0": -42,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 35,
+        "bytes": 82164,
+        "memberId": 4381,
+        "warnings": []
+      },
+      {
+        "entry": "227-1-1046",
+        "name": "Mega Skarmory",
+        "side": "back",
+        "source": "Aronousqui20/skarmory-mega-back.gif",
+        "canvas": {
+          "width": 78,
+          "height": 107
+        },
+        "art": {
+          "width": 78,
+          "height": 107
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 78,
+        "height": 107,
+        "x0": -39,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 11,
+        "bytes": 25684,
+        "memberId": 4382,
+        "warnings": []
+      },
+      {
+        "entry": "398-1-1050",
+        "name": "Mega Staraptor",
+        "side": "back",
+        "source": "Aronousqui20/staraptor-mega-back.gif",
+        "canvas": {
+          "width": 134,
+          "height": 130
+        },
+        "art": {
+          "width": 134,
+          "height": 130
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 128,
+        "height": 124,
+        "x0": -64,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 24,
+        "bytes": 63884,
+        "memberId": 4383,
+        "warnings": [
+          "The art is larger than 128x128; it was scaled to 128x124 (nearest neighbour)."
+        ]
+      },
+      {
+        "entry": "208-1-773",
+        "name": "Mega Steelix",
+        "side": "back",
+        "source": "aranousqui20-newmegas/steelix-mega-back.gif",
+        "canvas": {
+          "width": 115,
+          "height": 127
+        },
+        "art": {
+          "width": 115,
+          "height": 127
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 115,
+        "height": 127,
+        "x0": -57,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 48,
+        "bytes": 151452,
+        "memberId": 4384,
+        "warnings": []
+      },
+      {
+        "entry": "978-1-1091",
+        "name": "Mega Tatsugiri (Curly Form)",
+        "side": "back",
+        "source": "Aronousqui20/tatsugiri-mega-back.gif",
+        "canvas": {
+          "width": 119,
+          "height": 77
+        },
+        "art": {
+          "width": 119,
+          "height": 77
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 119,
+        "height": 77,
+        "x0": -59,
+        "y0": -70,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 60,
+        "bytes": 108628,
+        "memberId": 4385,
+        "warnings": []
+      },
+      {
+        "entry": "978-2-1092",
+        "name": "Mega Tatsugiri (Droopy Form)",
+        "side": "back",
+        "source": "Aronousqui20/tatsugiri-mega-back.gif",
+        "canvas": {
+          "width": 119,
+          "height": 77
+        },
+        "art": {
+          "width": 119,
+          "height": 77
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 119,
+        "height": 77,
+        "x0": -59,
+        "y0": -70,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 60,
+        "bytes": 108628,
+        "memberId": 4385,
+        "warnings": []
+      },
+      {
+        "entry": "978-3-1093",
+        "name": "Mega Tatsugiri (Stretchy Form)",
+        "side": "back",
+        "source": "Aronousqui20/tatsugiri-mega-back.gif",
+        "canvas": {
+          "width": 119,
+          "height": 77
+        },
+        "art": {
+          "width": 119,
+          "height": 77
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 119,
+        "height": 77,
+        "x0": -59,
+        "y0": -70,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 60,
+        "bytes": 108628,
+        "memberId": 4385,
+        "warnings": []
+      },
+      {
+        "entry": "248-1-777",
+        "name": "Mega Tyranitar",
+        "side": "back",
+        "source": "gen6-sprite-work/downloads/tyranitar/tyranitar-back.gif",
+        "canvas": {
+          "width": 88,
+          "height": 101
+        },
+        "art": {
+          "width": 88,
+          "height": 101
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 88,
+        "height": 101,
+        "x0": -44,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 44,
+        "bytes": 94944,
+        "memberId": 4386,
+        "warnings": []
+      },
+      {
+        "entry": "71-1-1041",
+        "name": "Mega Victreebel",
+        "side": "back",
+        "source": "Aronousqui20/victreebel-mega-back.gif",
+        "canvas": {
+          "width": 70,
+          "height": 127
+        },
+        "art": {
+          "width": 70,
+          "height": 127
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 70,
+        "height": 127,
+        "x0": -35,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 57,
+        "bytes": 153744,
+        "memberId": 4387,
+        "warnings": []
+      },
+      {
+        "entry": "807-1-1087",
+        "name": "Mega Zeraora",
+        "side": "back",
+        "source": "Aronousqui20/zeraora-mega-back.gif",
+        "canvas": {
+          "width": 128,
+          "height": 139
+        },
+        "art": {
+          "width": 108,
+          "height": 109
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 108,
+        "height": 109,
+        "x0": -64,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 44,
+        "bytes": 115656,
+        "memberId": 4388,
+        "warnings": []
+      },
+      {
+        "entry": "718-3-1081",
+        "name": "Mega Zygarde",
+        "side": "back",
+        "source": "Aronousqui20/zygarde-mega-back.gif",
+        "canvas": {
+          "width": 108,
+          "height": 113
+        },
+        "art": {
+          "width": 108,
+          "height": 113
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 108,
+        "height": 113,
+        "x0": -54,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 53,
+        "bytes": 140096,
+        "memberId": 4389,
+        "warnings": []
+      },
+      {
+        "entry": "809-0-1287",
+        "name": "Melmetal",
+        "side": "front",
+        "source": "gen7-sprite-work/downloads/melmetal-front.gif",
+        "canvas": {
+          "width": 116,
+          "height": 96
+        },
+        "art": {
+          "width": 101,
+          "height": 75
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 101,
+        "height": 75,
+        "x0": -52,
+        "y0": -75,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 9,
+        "bytes": 20400,
+        "memberId": 4390,
+        "warnings": []
+      },
+      {
+        "entry": "774-11-1193",
+        "name": "Minior Blue Core",
+        "side": "front",
+        "source": "gen7-sprite-work/downloads/miniorblue-front.gif",
+        "canvas": {
+          "width": 96,
+          "height": 96
+        },
+        "art": {
+          "width": 84,
+          "height": 50
+        },
+        "timing": 1,
+        "shift": 0,
+        "mode": "pwan at own size"
+      },
+      {
+        "entry": "774-11-1193",
+        "name": "Minior Blue Core",
+        "side": "back",
+        "source": "gen7-sprite-work/downloads/miniorblue-back.gif",
+        "canvas": {
+          "width": 96,
+          "height": 96
+        },
+        "art": {
+          "width": 80,
+          "height": 50
+        },
+        "timing": 1,
+        "shift": 0,
+        "mode": "pwan at own size"
+      },
+      {
+        "entry": "800-0-1278",
+        "name": "Necrozma",
+        "side": "back",
+        "source": "gen7-sprite-work/downloads/necrozma-back.gif",
+        "canvas": {
+          "width": 98,
+          "height": 88
+        },
+        "art": {
+          "width": 98,
+          "height": 88
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 98,
+        "height": 88,
+        "x0": -49,
+        "y0": -81,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 30,
+        "bytes": 67668,
+        "memberId": 4391,
+        "warnings": []
+      },
+      {
+        "entry": "715-0-715",
+        "name": "Noivern",
+        "side": "front",
+        "source": "diego-gifs/noivern-front.gif",
+        "canvas": {
+          "width": 182,
+          "height": 182
+        },
+        "art": {
+          "width": 154,
+          "height": 146
+        },
+        "timing": 2,
+        "mode": "full size",
+        "width": 128,
+        "height": 121,
+        "x0": -63,
+        "y0": -113,
+        "lift": 11,
+        "liftApplied": 0,
+        "uniqueFrames": 12,
+        "bytes": 30604,
+        "memberId": 4392,
+        "warnings": [
+          "The art is larger than 128x128; it was scaled to 128x121 (nearest neighbour)."
+        ]
+      },
+      {
+        "entry": "715-0-715",
+        "name": "Noivern",
+        "side": "back",
+        "source": "diego-gifs/noivern-back.gif",
+        "canvas": {
+          "width": 182,
+          "height": 182
+        },
+        "art": {
+          "width": 182,
+          "height": 139
+        },
+        "timing": 2,
+        "mode": "full size",
+        "width": 128,
+        "height": 97,
+        "x0": -64,
+        "y0": -88,
+        "lift": 5,
+        "liftApplied": 0,
+        "uniqueFrames": 7,
+        "bytes": 12652,
+        "memberId": 4393,
+        "warnings": [
+          "The art is larger than 128x128; it was scaled to 128x97 (nearest neighbour)."
+        ]
+      },
+      {
+        "entry": "757-0-1235",
+        "name": "Salandit",
+        "side": "front",
+        "source": "snivy101/salandit-front.gif",
+        "canvas": {
+          "width": 96,
+          "height": 96
+        },
+        "art": {
+          "width": 67,
+          "height": 44
+        },
+        "timing": 1,
+        "transparencyRepaired": true,
+        "shift": 22,
+        "mode": "pwan at own size"
+      },
+      {
+        "entry": "791-0-1269",
+        "name": "Solgaleo",
+        "side": "front",
+        "source": "gen7-sprite-work/downloads/solgaleo-front.gif",
+        "canvas": {
+          "width": 99,
+          "height": 91
+        },
+        "art": {
+          "width": 99,
+          "height": 91
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 99,
+        "height": 91,
+        "x0": -49,
+        "y0": -91,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 40,
+        "bytes": 94256,
+        "memberId": 4394,
+        "warnings": []
+      },
+      {
+        "entry": "791-0-1269",
+        "name": "Solgaleo",
+        "side": "back",
+        "source": "gen7-sprite-work/downloads/solgaleo-back.gif",
+        "canvas": {
+          "width": 104,
+          "height": 87
+        },
+        "art": {
+          "width": 104,
+          "height": 87
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 104,
+        "height": 87,
+        "x0": -52,
+        "y0": -80,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 40,
+        "bytes": 84212,
+        "memberId": 4395,
+        "warnings": []
+      },
+      {
+        "entry": "805-0-1283",
+        "name": "Stakataka",
+        "side": "front",
+        "source": "gen7-sprite-work/downloads/stakataka-front.gif",
+        "canvas": {
+          "width": 100,
+          "height": 100
+        },
+        "art": {
+          "width": 96,
+          "height": 93
+        },
+        "timing": 1,
+        "shift": 4,
+        "mode": "pwan at own size"
+      },
+      {
+        "entry": "663-0-663",
+        "name": "Talonflame",
+        "side": "front",
+        "source": "gen6-sprite-work/downloads/talonflame/talonflame-front.gif",
+        "canvas": {
+          "width": 128,
+          "height": 96
+        },
+        "art": {
+          "width": 121,
+          "height": 93
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 121,
+        "height": 93,
+        "x0": -63,
+        "y0": -94,
+        "lift": 1,
+        "liftApplied": 1,
+        "uniqueFrames": 9,
+        "bytes": 17888,
+        "memberId": 4396,
+        "warnings": []
+      },
+      {
+        "entry": "663-0-663",
+        "name": "Talonflame",
+        "side": "back",
+        "source": "gen6-sprite-work/downloads/talonflame/talonflame-back.gif",
+        "canvas": {
+          "width": 128,
+          "height": 96
+        },
+        "art": {
+          "width": 116,
+          "height": 93
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 116,
+        "height": 93,
+        "x0": -56,
+        "y0": -87,
+        "lift": 1,
+        "liftApplied": 1,
+        "uniqueFrames": 9,
+        "bytes": 16984,
+        "memberId": 4397,
+        "warnings": []
+      },
+      {
+        "entry": "787-0-1265",
+        "name": "Tapu Bulu",
+        "side": "back",
+        "source": "gen7-sprite-work/downloads/tapubulu-back.gif",
+        "canvas": {
+          "width": 91,
+          "height": 98
+        },
+        "art": {
+          "width": 91,
+          "height": 98
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 91,
+        "height": 98,
+        "x0": -45,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 42,
+        "bytes": 81612,
+        "memberId": 4398,
+        "warnings": []
+      },
+      {
+        "entry": "785-0-1263",
+        "name": "Tapu Koko",
+        "side": "front",
+        "source": "gen7-sprite-work/downloads/tapukoko-front.gif",
+        "canvas": {
+          "width": 100,
+          "height": 100
+        },
+        "art": {
+          "width": 89,
+          "height": 82
+        },
+        "timing": 1,
+        "shift": 0,
+        "mode": "pwan at own size"
+      },
+      {
+        "entry": "785-0-1263",
+        "name": "Tapu Koko",
+        "side": "back",
+        "source": "gen7-sprite-work/downloads/tapukoko-back.gif",
+        "canvas": {
+          "width": 100,
+          "height": 100
+        },
+        "art": {
+          "width": 86,
+          "height": 85
+        },
+        "timing": 1,
+        "transparencyRepaired": true,
+        "shift": 0,
+        "mode": "pwan at own size"
+      },
+      {
+        "entry": "786-0-1264",
+        "name": "Tapu Lele",
+        "side": "back",
+        "source": "gen7-sprite-work/downloads/tapulele-back.gif",
+        "canvas": {
+          "width": 100,
+          "height": 100
+        },
+        "art": {
+          "width": 58,
+          "height": 76
+        },
+        "timing": 1,
+        "shift": 0,
+        "mode": "pwan at own size"
+      },
+      {
+        "entry": "697-0-697",
+        "name": "Tyrantrum",
+        "side": "front",
+        "source": "gen6-sprite-work/downloads/tyrantrum/tyrantrum-front.gif",
+        "canvas": {
+          "width": 100,
+          "height": 82
+        },
+        "art": {
+          "width": 100,
+          "height": 82
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 100,
+        "height": 82,
+        "x0": -50,
+        "y0": -82,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 57,
+        "bytes": 125180,
+        "memberId": 4399,
+        "warnings": []
+      },
+      {
+        "entry": "697-0-697",
+        "name": "Tyrantrum",
+        "side": "back",
+        "source": "gen6-sprite-work/downloads/tyrantrum/tyrantrum-back.gif",
+        "canvas": {
+          "width": 100,
+          "height": 78
+        },
+        "art": {
+          "width": 100,
+          "height": 78
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 100,
+        "height": 78,
+        "x0": -50,
+        "y0": -71,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 52,
+        "bytes": 100308,
+        "memberId": 4400,
+        "warnings": []
+      },
+      {
+        "entry": "746-1-1197",
+        "name": "Wishiwashi School",
+        "side": "front",
+        "source": "gen7-sprite-work/downloads/wishiwashischool-front.gif",
+        "canvas": {
+          "width": 104,
+          "height": 89
+        },
+        "art": {
+          "width": 104,
+          "height": 89
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 104,
+        "height": 89,
+        "x0": -52,
+        "y0": -94,
+        "lift": 7,
+        "liftApplied": 5,
+        "uniqueFrames": 20,
+        "bytes": 44808,
+        "memberId": 4401,
+        "warnings": []
+      },
+      {
+        "entry": "746-1-1197",
+        "name": "Wishiwashi School",
+        "side": "back",
+        "source": "gen7-sprite-work/downloads/wishiwashischool-back.gif",
+        "canvas": {
+          "width": 100,
+          "height": 111
+        },
+        "art": {
+          "width": 100,
+          "height": 111
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 100,
+        "height": 111,
+        "x0": -50,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 20,
+        "bytes": 47684,
+        "memberId": 4402,
+        "warnings": []
+      },
+      {
+        "entry": "796-0-1274",
+        "name": "Xurkitree",
+        "side": "front",
+        "source": "gen7-sprite-work/downloads/xurkitree-front.gif",
+        "canvas": {
+          "width": 102,
+          "height": 101
+        },
+        "art": {
+          "width": 102,
+          "height": 101
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 102,
+        "height": 101,
+        "x0": -51,
+        "y0": -94,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 66,
+        "bytes": 175400,
+        "memberId": 4403,
+        "warnings": []
+      },
+      {
+        "entry": "796-0-1274",
+        "name": "Xurkitree",
+        "side": "back",
+        "source": "gen7-sprite-work/downloads/xurkitree-back.gif",
+        "canvas": {
+          "width": 92,
+          "height": 100
+        },
+        "art": {
+          "width": 92,
+          "height": 100
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 92,
+        "height": 100,
+        "x0": -46,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 67,
+        "bytes": 178368,
+        "memberId": 4404,
+        "warnings": []
+      },
+      {
+        "entry": "142-1-723",
+        "name": "Mega Aerodactyl",
+        "side": "front",
+        "source": "aranousqui20-newmegas/aerodactyle-mega-front.gif",
+        "canvas": {
+          "width": 118,
+          "height": 103
+        },
+        "art": {
+          "width": 118,
+          "height": 103
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 118,
+        "height": 103,
+        "x0": -59,
+        "y0": -95,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 39,
+        "bytes": 94632,
+        "memberId": 4405,
+        "warnings": []
+      },
+      {
+        "entry": "142-1-723",
+        "name": "Mega Aerodactyl",
+        "side": "back",
+        "source": "aranousqui20-newmegas/aerodactyl-mega-back.gif",
+        "canvas": {
+          "width": 127,
+          "height": 106
+        },
+        "art": {
+          "width": 127,
+          "height": 106
+        },
+        "timing": 1,
+        "mode": "full size",
+        "width": 127,
+        "height": 106,
+        "x0": -63,
+        "y0": -88,
+        "lift": 0,
+        "liftApplied": 0,
+        "uniqueFrames": 41,
+        "bytes": 92176,
+        "memberId": 4406,
+        "warnings": []
+      }
+    ]
+  }
 }

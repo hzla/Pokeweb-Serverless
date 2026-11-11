@@ -556,3 +556,19 @@
 .code-injection-settings > .code-injection-note { grid-column: 1 / -1; justify-self: start; }
 .code-injection-settings select:focus-visible,
 .code-injection-settings input:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+
+.code-injection-regional-families { margin-top: 16px; }
+.code-injection-regional-families summary { cursor: pointer; font-size: 13px; color: #d6d7e2; }
+.code-injection-regional-hint { color: #d6d7e2; font-size: 12px; line-height: 1.45; margin: 10px 0; }
+.code-injection-regional-list {
+  display: grid;
+  gap: 8px 16px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  max-height: 360px;
+  overflow-y: auto;
+}
+.code-injection-regional-list label { align-items: start; display: flex; font-size: 13px; gap: 8px; line-height: 1.4; min-width: 0; }
+.code-injection-regional-list label input { margin-top: 3px; }
+.code-injection-regional-list label span { min-width: 0; overflow-wrap: anywhere; color: #d6d7e2; }
+.code-injection-regional-list label strong { color: #f2f2f2; font-weight: 500; }
+.code-injection-regional-list label em { color: var(--amber); display: block; font-size: 12px; font-style: normal; }
