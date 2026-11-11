@@ -69,8 +69,9 @@ export async function loadBundledPwanCarrierTemplate(version: "W2" | "B2" = "W2"
 }
 
 export function applyPwanCarrierPatch(project: ProjectState, override: PwanAnimationOverride, carrier: PwanCarrierTemplate): void {
-  if (project.session.baseVersion !== "W2" && project.session.baseVersion !== "B2") {
-    throw new Error("PWAN animated sprite overrides require a compatible Pokemon Black 2 or White 2 ROM.");
+  // Black / White (streaming runtime only) share Black 2 / White 2's sprite archive layout and formats.
+  if (!["B", "W", "B2", "W2"].includes(project.session.baseVersion)) {
+    throw new Error("PWAN animated sprite overrides require a compatible Pokemon Black, White, Black 2 or White 2 ROM.");
   }
   const store = project.narcs.pokemon_sprites;
   if (!store) throw new Error("Pokemon Sprites must be loaded before applying PWAN carrier patches.");

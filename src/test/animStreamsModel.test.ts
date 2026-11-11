@@ -18,6 +18,8 @@ import { parseW2Anim, W2ANIM_MORPH, W2ANIM_OWN_PALETTES, W2ANIM_TICKS, W2ANIM_TR
 import { adjustFullSizeMani, compileFramesToFullSizeStream, fullSizePreviewPwan, parseFullSizeMani } from "../pokeweb/animStreamsFullSize";
 import type { AnimationAnalysisFrame } from "../pokeweb/gifAnimationFrames";
 import manifest from "../assets/codeinjection/animStreamsManifest.json";
+import { isW2AnimProject } from "../pokeweb/w2animAnimationModel";
+import { getTrainerPwanRuntimeStatus } from "../pokeweb/trainerPwanAnimationModel";
 
 /** A PWAN in the compiler's layout: 0x30 header, palette, timeline, 4608-byte frames. */
 function makePwan(frames: number[], timeline: Array<[frame: number, ticks: number]>, palette = Array.from({ length: 16 }, (_, n) => n * 0x421)): Uint8Array {
@@ -115,13 +117,31 @@ describe("animStreamsModel", () => {
     expect([...index.subarray(16)]).toEqual([3, 0, 0x20, 3, 0, 6, 0, 0x42, 700 & 255, 700 >> 8]);
   });
 
-  it("ships a runtime for each game matching its manifest, with all sixteen hooks", () => {
-    for (const game of ["W2", "B2"] as const) {
+  it("ships a runtime for each game matching its manifest, with all its hooks", () => {
+    // Black 2 / White 2 add the evolution morph's four hooks.
+    for (const [game, hooks] of [["B", 12], ["W", 12], ["W2", 16], ["B2", 16]] as const) {
       const bytes = readFileSync(new URL(`../assets/codeinjection/${ANIM_STREAMS_FILENAMES[game]}`, import.meta.url));
       expect(createHash("sha256").update(bytes).digest("hex")).toBe(manifest.games[game].sha256);
-      expect(manifest.games[game].hooks).toHaveLength(16);
-      expect(new Set(manifest.games[game].hooks.map((hook) => hook.address)).size).toBe(16);
+      expect(manifest.games[game].hooks).toHaveLength(hooks);
+      expect(new Set(manifest.games[game].hooks.map((hook) => hook.address)).size).toBe(hooks);
     }
+  });
+
+  it("streams Black / White trainers from their own trainer archive", () => {
+    const [entry] = trainerStreamEntries([{ graphicIndex: 3, animation: side(makePwan([1], [[0, 1]])) }], 90, 72);
+    expect(entry).toMatchObject({ arc: 72, sheetFile: 25, shinyNclrFile: 720 });
+  });
+
+  it("keeps a Black / White ROM's streams Pokeweb's and offers trainers the shared runtime", () => {
+    const project = {
+      session: { baseVersion: "B", baseRom: "BW" }, romInfo: { idCode: "IRBO" }, arm9: new Uint8Array(), overlays: {}, narcs: {},
+      fileSystem: { replacements: {}, additions: {} },
+    } as unknown as ProjectState;
+    expect(getTrainerPwanRuntimeStatus(project)).toMatchObject({ supported: true, installed: false });
+    project.fileSystem!.additions!["w2anim/streams.bin"] = new Uint8Array(4);
+    project.fileSystem!.additions!["patches/PokewebAnimStreamsB.dll"] = readFileSync(new URL("../assets/codeinjection/PokewebAnimStreamsB.dll", import.meta.url));
+    expect(isW2AnimProject(project)).toBe(false);
+    expect(getTrainerPwanRuntimeStatus(project)).toMatchObject({ supported: true, installed: true });
   });
 
   it("treats the PWAN runtimes as its own and other DLLs on its hook sites as conflicts", () => {

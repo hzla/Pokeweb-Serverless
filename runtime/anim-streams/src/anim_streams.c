@@ -37,12 +37,26 @@
 #include "nitro/fs.h"
 #include "hooks.h"
 
-void LoadMCSSGraphicsData(void *sys, int slot, u32 *params);
-void MCSSSys_Update(void *sys);
-void MCSS_FreeFiles(void *spr);
-void *MCSSSys_AddPartyPkm(void *sys, const void *pp, int dir, s32 x, s32 y, s32 z);
-void ShinkaDemoView_UpdatePieces(void *work);
-void ShinkaDemoView_DrawPieces(void *work);
+// Game functions under neutral names; build.py binds each to the game's own symbol (pokebw2 names for Black 2 /
+// White 2, aletheia names for Black / White):
+//   McssLoad          LoadMCSSGraphicsData        MCSS_LoadResource      (sys, slot, params)
+//   McssUpdate        MCSSSys_Update              MCSS_Main
+//   McssFreeFiles     MCSS_FreeFiles              MCSS_FreeResource
+//   HeapAlloc         GFL_HeapAllocate            GFL_HEAP_Alloc         (heap, size, clear, file, line)
+//   HeapFree          GFL_HeapFree                GFL_HEAP_Free
+//   AddUploadTask     GFL_VBlankTCBAdd            GFL_USE_AddMainTask    (MCSS's own uploads run in this list)
+//   RemoveUploadTask  GFL_TCBRemove               TCB_DeleteTask
+//   FsLength          FS_GetFileLength            FS_GetLength
+// The evolution morph hooks (ANIM_STREAMS_MORPH) exist only in Black 2 / White 2: Black / White's evolution scene
+// builds its particle grid from the sprite's static sheet (the carrier's first frame).
+void McssLoad(void *sys, int slot, u32 *params);
+void McssUpdate(void *sys);
+void McssFreeFiles(void *spr);
+#ifdef ANIM_STREAMS_MORPH
+void *McssAddPartyPkm(void *sys, const void *pp, int dir, s32 x, s32 y, s32 z);
+void MorphUpdatePieces(void *work);
+void MorphDrawPieces(void *work);
+#endif
 void MI_UncompressLZ8(const void *src, void *dst);
 void DC_FlushRange(const void *addr, u32 size);
 void GX_BeginLoadTex(void);
@@ -51,12 +65,13 @@ void GX_EndLoadTex(void);
 void GX_BeginLoadTexPltt(void);
 void GX_LoadTexPltt(const void *src, u32 offset, u32 size);
 void GX_EndLoadTexPltt(void);
-void *GFL_HeapAllocate(u16 heapId, u32 size, BOOL clear, const char *file, u16 line);
-void GFL_HeapFree(void *p);
+void *HeapAlloc(u16 heapId, u32 size, BOOL clear, const char *file, u16 line);
+void HeapFree(void *p);
 typedef struct TCB TCB;
 typedef void (*TCBFunc)(TCB *tcb, void *data);
-TCB *GFL_VBlankTCBAdd(TCBFunc func, void *data, u32 priority);
-BOOL GFL_TCBRemove(TCB *tcb);
+TCB *AddUploadTask(TCBFunc func, void *data, u32 priority);
+BOOL RemoveUploadTask(TCB *tcb);
+u32 FsLength(FSFile *file);
 BOOL OS_IsRunOnTwl(void);
 
 #define STREAMS_MAGIC 0x53413257u // 'W2AS'
@@ -140,8 +155,10 @@ static FSFile sFile;
 static BOOL sFileOpen;
 static u32 sFileSize;
 static u8 sUploadCursor;
+#ifdef ANIM_STREAMS_MORPH
 static u8 sEvoAdds;
 static void *sEvoSys;
+#endif
 
 static SeqEntry *Seq(Stream *s) { return (SeqEntry *)s->meta; }
 static FrameEntry *Frames(Stream *s) { return (FrameEntry *)(s->meta + s->seqCount * sizeof(SeqEntry)); }
@@ -169,7 +186,7 @@ static BOOL Read(u32 offset, void *dst, u32 size) {
             FS_InitFile(&sFile);
             if (!FS_OpenFile(&sFile, sStreamsPath)) return FALSE;
             sFileOpen = TRUE;
-            sFileSize = FS_GetFileLength(&sFile);
+            sFileSize = FsLength(&sFile);
         }
         if (offset > sFileSize || size > sFileSize - offset) return FALSE;
         if (!size) return TRUE;
@@ -213,9 +230,9 @@ static BOOL FindEntry(u16 arc, u32 sheet, IndexEntry *out) {
 }
 
 static void FreeBuffers(Stream *s) {
-    if (s->meta) GFL_HeapFree(s->meta);
-    if (s->lz) GFL_HeapFree(s->lz);
-    if (s->staging) GFL_HeapFree(s->staging);
+    if (s->meta) HeapFree(s->meta);
+    if (s->lz) HeapFree(s->lz);
+    if (s->staging) HeapFree(s->staging);
     s->meta = s->lz = s->staging = NULL;
 }
 
@@ -233,7 +250,7 @@ static void Free(Stream *s) {
     FreeBuffers(s);
     for (i = 0; i < MAX_STREAMS; i++) any |= sStreams[i].active != 0;
     if (!any && sVBlankTask) {
-        GFL_TCBRemove(sVBlankTask);
+        RemoveUploadTask(sVBlankTask);
         sVBlankTask = NULL;
     }
 }
@@ -259,7 +276,7 @@ static void SetA3I5(u8 *spr) {
 static void VBlankUpload(TCB *task, void *unused);
 
 static void EnsureVBlankTask(void) {
-    if (!sVBlankTask) sVBlankTask = GFL_VBlankTCBAdd(VBlankUpload, NULL, 0);
+    if (!sVBlankTask) sVBlankTask = AddUploadTask(VBlankUpload, NULL, 0);
 }
 
 static void VBlankUpload(TCB *task, void *unused) {
@@ -274,8 +291,8 @@ static void VBlankUpload(TCB *task, void *unused) {
     u16 vcount;
     (void)unused;
     if (next != head && *(u32 *)(next + 12) == 0) {
-        GFL_TCBRemove(task);
-        sVBlankTask = GFL_VBlankTCBAdd(VBlankUpload, NULL, 0);
+        RemoveUploadTask(task);
+        sVBlankTask = AddUploadTask(VBlankUpload, NULL, 0);
         return;
     }
     vcount = VCOUNT();
@@ -501,7 +518,7 @@ static void Register(void *sys, int slot, const IndexEntry *entry, BOOL shiny) {
     s->uniqueCount = h.uniqueCount;
     s->rowBytes = (h.flags & MANI_TEX4) ? (u16)(h.boxW / 2) : (u16)A3I5_ROW_BYTES;
     s->lz = s->staging = NULL;
-    s->meta = (u8 *)GFL_HeapAllocate(heap, metaSize, FALSE, "w2anim", __LINE__);
+    s->meta = (u8 *)HeapAlloc(heap, metaSize, FALSE, "w2anim", __LINE__);
     if (!s->meta) return;
     if (!Read(entry->maniOffset + h.seqOffset, s->meta, seqBytes) ||
         !Read(entry->maniOffset + h.framesOffset, s->meta + seqBytes, h.uniqueCount * sizeof(FrameEntry)))
@@ -543,8 +560,8 @@ static void Register(void *sys, int slot, const IndexEntry *entry, BOOL shiny) {
     s->seqPos = 0;
     s->elapsed = 0;
     s->shown = NO_FRAME;
-    s->lz = (u8 *)GFL_HeapAllocate(heap, (maxBlob + 3) & ~3u, FALSE, "w2anim", __LINE__);
-    s->staging = s->lz ? (u8 *)GFL_HeapAllocate(heap, h.boxH * s->rowBytes, FALSE, "w2anim", __LINE__) : NULL;
+    s->lz = (u8 *)HeapAlloc(heap, (maxBlob + 3) & ~3u, FALSE, "w2anim", __LINE__);
+    s->staging = s->lz ? (u8 *)HeapAlloc(heap, h.boxH * s->rowBytes, FALSE, "w2anim", __LINE__) : NULL;
     if (!s->lz || !s->staging) {
         // No room to animate: an A3I5 sprite is still primed (its first frame and colours instead of the carrier's
         // 4 bpp sheet) and kept as a still, without buffers, so the A3I5 format is set again once MCSS's own upload
@@ -614,6 +631,7 @@ static void Tick(void *sys, BOOL firstFrameOnly) {
     }
 }
 
+#ifdef ANIM_STREAMS_MORPH
 // ---- evolution (ov284): the morph renderer -----------------------------------------------------------------
 // Its work (+0x58) holds a manager with the two Pokemon (+0x08 before, +0x0C after); each has a GFL bitmap (+0x10 ->
 // +0x00: 128x128 4 bpp, 64 bytes a row, high nibble = left pixel) uploaded to texture VRAM +0x14, and a palette (+0x2C
@@ -724,7 +742,9 @@ static void TagEvolution(void *spr, u8 role) {
         if (sStreams[i].active && sStreams[i].spr == spr) sStreams[i].role = role;
 }
 
-// LoadMCSSGraphicsData(sys, slot, params): params = {arc, ncbr, nclr, ncer, nanr, nmcr, nmar, ncec, heap flag}.
+#endif // ANIM_STREAMS_MORPH
+
+// McssLoad(sys, slot, params): params = {arc, ncbr, nclr, ncer, nanr, nmcr, nmar, ncec, heap flag}.
 static void LoadAndRegister(void *sys, int slot, u32 *params) {
     IndexEntry entry;
     BOOL found;
@@ -743,7 +763,7 @@ static void LoadAndRegister(void *sys, int slot, u32 *params) {
         carrier[6] = b + 5;
         carrier[7] = b + 6;
         carrier[8] = params[8];
-        LoadMCSSGraphicsData(sys, slot, carrier);
+        McssLoad(sys, slot, carrier);
     } else if (found && (entry.flags & ENTRY_CARRIER)) {
         u32 b = entry.shinyNclrFile; // the carrier block's first file: its front set
         u32 carrier[9];
@@ -756,9 +776,9 @@ static void LoadAndRegister(void *sys, int slot, u32 *params) {
         carrier[6] = b + 7;
         carrier[7] = b + 8;
         carrier[8] = params[8];
-        LoadMCSSGraphicsData(sys, slot, carrier);
+        McssLoad(sys, slot, carrier);
     } else {
-        LoadMCSSGraphicsData(sys, slot, params);
+        McssLoad(sys, slot, params);
     }
     if (found)
         Register(sys, slot, &entry,
@@ -771,19 +791,19 @@ void HOOK_LOAD_RELOAD(void *sys, int slot, u32 *params) { LoadAndRegister(sys, s
 void HOOK_LOAD_ADD(void *sys, int slot, u32 *params) { LoadAndRegister(sys, slot, params); }
 void HOOK_LOAD_MOSAIC(void *sys, int slot, u32 *params) { LoadAndRegister(sys, slot, params); }
 
-// MCSSSys_Remove(sys, spr) +0x8: bl MCSS_FreeFiles(spr) - also reached from MCSSSys_Exit.
+// MCSSSys_Remove(sys, spr) +0x8: bl McssFreeFiles(spr) - also reached from MCSSSys_Exit.
 void HOOK_REMOVE(void *spr) {
     u32 i;
     for (i = 0; i < MAX_STREAMS; i++)
         if (sStreams[i].active && sStreams[i].spr == spr) Free(&sStreams[i]);
-    MCSS_FreeFiles(spr);
+    McssFreeFiles(spr);
 }
 
 // Every caller of MCSSSys_Update (one per screen that draws MCSS sprites): tick the streams right after MCSS's own
 // animations.
 #define MCSS_UPDATE_CALLER(name)                                                                                        \
     void name(void *sys) {                                                                                             \
-        MCSSSys_Update(sys);                                                                                           \
+        McssUpdate(sys);                                                                                           \
         Tick(sys, FALSE);                                                                                              \
     }
 MCSS_UPDATE_CALLER(HOOK_UPDATE_BATTLE)
@@ -794,13 +814,14 @@ MCSS_UPDATE_CALLER(HOOK_UPDATE_INTRO)
 MCSS_UPDATE_CALLER(HOOK_UPDATE_ZUKAN)
 MCSS_UPDATE_CALLER(HOOK_UPDATE_EGG)
 void HOOK_UPDATE_HALL_OF_FAME(void *sys) { // Hall of Fame: the first frame only
-    MCSSSys_Update(sys);
+    McssUpdate(sys);
     Tick(sys, TRUE);
 }
 
+#ifdef ANIM_STREAMS_MORPH
 // Evolution (ov284): the scene adds the Pokemon before, then after (a loop of two calls), or only the one after.
 void *HOOK_EVO_ADD_PAIR(void *sys, const void *pp, int dir, s32 x, s32 y, s32 z) {
-    void *spr = MCSSSys_AddPartyPkm(sys, pp, dir, x, y, z);
+    void *spr = McssAddPartyPkm(sys, pp, dir, x, y, z);
     if (sys != sEvoSys) { // a new scene starts with the Pokemon before
         sEvoSys = sys;
         sEvoAdds = 0;
@@ -809,17 +830,18 @@ void *HOOK_EVO_ADD_PAIR(void *sys, const void *pp, int dir, s32 x, s32 y, s32 z)
     return spr;
 }
 void *HOOK_EVO_ADD_AFTER(void *sys, const void *pp, int dir, s32 x, s32 y, s32 z) {
-    void *spr = MCSSSys_AddPartyPkm(sys, pp, dir, x, y, z);
+    void *spr = McssAddPartyPkm(sys, pp, dir, x, y, z);
     TagEvolution(spr, 2);
     return spr;
 }
 // The morph renderer's update and draw: the streams' frames and palettes go into its bitmaps after its own update and
 // again right before it draws (its fade changes the palette every frame).
 void HOOK_EVO_MORPH_UPDATE(void *work) {
-    ShinkaDemoView_UpdatePieces(work);
+    MorphUpdatePieces(work);
     MorphUpdate(work);
 }
 void HOOK_EVO_MORPH_DRAW(void *work) {
     MorphUpdate(work);
-    ShinkaDemoView_DrawPieces(work);
+    MorphDrawPieces(work);
 }
+#endif // ANIM_STREAMS_MORPH

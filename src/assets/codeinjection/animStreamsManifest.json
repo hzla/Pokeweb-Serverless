@@ -2,228 +2,342 @@
   "version": 1,
   "streamsPath": "w2anim/streams.bin",
   "games": {
-    "W2": {
-      "fileName": "PokewebAnimStreamsW2.dll",
-      "size": 7008,
-      "sha256": "bf78ff931be4ae0a56f471f203f91eefc5c0397a9a6af33add6c28966a957f0e",
+    "B": {
+      "fileName": "PokewebAnimStreamsB.dll",
+      "size": 5712,
+      "sha256": "1d5ab06163253356909dabe4a90141f1f4a8f53b0c666962eff44adedaa3f36f",
       "targets": [
         {
           "kind": "THUMB_BRANCH_LINK",
-          "segment": "168",
-          "address": "0x21e692c"
+          "segment": "119",
+          "address": "0x21dce4c"
         },
         {
           "kind": "THUMB_BRANCH_LINK",
-          "segment": "194",
-          "address": "0x21bbc20"
+          "segment": "131",
+          "address": "0x21d4604"
         },
         {
           "kind": "THUMB_BRANCH_LINK",
-          "segment": "207",
-          "address": "0x21b3384"
+          "segment": "180",
+          "address": "0x21b66f2"
         },
         {
           "kind": "THUMB_BRANCH_LINK",
-          "segment": "265",
-          "address": "0x2199ef6"
+          "segment": "195",
+          "address": "0x2206014"
         },
         {
           "kind": "THUMB_BRANCH_LINK",
-          "segment": "284",
-          "address": "0x21e51b0"
+          "segment": "204",
+          "address": "0x21bf616"
         },
         {
           "kind": "THUMB_BRANCH_LINK",
-          "segment": "284",
-          "address": "0x21e51b6"
+          "segment": "208",
+          "address": "0x21c4204"
         },
         {
           "kind": "THUMB_BRANCH_LINK",
-          "segment": "284",
-          "address": "0x21e51d8"
+          "segment": "215",
+          "address": "0x21f69f8"
         },
         {
           "kind": "THUMB_BRANCH_LINK",
-          "segment": "284",
-          "address": "0x21e5364"
-        },
-        {
-          "kind": "THUMB_BRANCH_LINK",
-          "segment": "284",
-          "address": "0x21e53ae"
-        },
-        {
-          "kind": "THUMB_BRANCH_LINK",
-          "segment": "294",
-          "address": "0x21a3662"
-        },
-        {
-          "kind": "THUMB_BRANCH_LINK",
-          "segment": "298",
-          "address": "0x21a80bc"
-        },
-        {
-          "kind": "THUMB_BRANCH_LINK",
-          "segment": "307",
-          "address": "0x21dee3e"
+          "segment": "94",
+          "address": "0x21febf4"
         },
         {
           "kind": "THUMB_BRANCH_LINK",
           "segment": "ARM9",
-          "address": "0x2019c32"
+          "address": "0x2014d26"
         },
         {
           "kind": "THUMB_BRANCH_LINK",
           "segment": "ARM9",
-          "address": "0x201aa84"
+          "address": "0x2015b76"
         },
         {
           "kind": "THUMB_BRANCH_LINK",
           "segment": "ARM9",
-          "address": "0x201aab4"
+          "address": "0x2015bac"
         },
         {
           "kind": "THUMB_BRANCH_LINK",
           "segment": "ARM9",
-          "address": "0x201afbe"
+          "address": "0x20160b6"
         }
       ],
       "literals": [],
       "hooks": [
         {
           "id": "HOOK_LOAD_RELOAD",
-          "caller": "MCSS_Reload",
-          "callee": "LoadMCSSGraphicsData",
+          "caller": "MCSS_ReloadResource",
+          "callee": "MCSS_LoadResource",
           "segment": "ARM9",
-          "address": "0x02019c32",
-          "expectedHex": "01f04bfb"
+          "address": "0x02014d26",
+          "expectedHex": "01f04dfb"
         },
         {
           "id": "HOOK_LOAD_ADD",
-          "caller": "MCSSSys_Add",
-          "callee": "LoadMCSSGraphicsData",
+          "caller": "MCSS_Add",
+          "callee": "MCSS_LoadResource",
           "segment": "ARM9",
-          "address": "0x0201aa84",
-          "expectedHex": "00f022fc"
+          "address": "0x02015b76",
+          "expectedHex": "00f025fc"
         },
         {
           "id": "HOOK_LOAD_MOSAIC",
           "caller": "MCSS_SetMosaic",
-          "callee": "LoadMCSSGraphicsData",
+          "callee": "MCSS_LoadResource",
           "segment": "ARM9",
-          "address": "0x0201afbe",
+          "address": "0x020160b6",
           "expectedHex": "00f085f9"
         },
         {
           "id": "HOOK_REMOVE",
-          "caller": "MCSSSys_Remove",
-          "callee": "MCSS_FreeFiles",
+          "caller": "MCSS_Del",
+          "callee": "MCSS_FreeResource",
           "segment": "ARM9",
-          "address": "0x0201aab4",
+          "address": "0x02015bac",
           "expectedHex": "00f0f8ff"
         },
         {
           "id": "HOOK_UPDATE_BATTLE",
-          "caller": "BtlvMcss_Main",
-          "callee": "MCSSSys_Update",
-          "segment": "168",
-          "address": "0x021e692c",
-          "expectedHex": "33f6f2f8"
+          "caller": "BTLV_MCSS_Update",
+          "callee": "MCSS_Main",
+          "segment": "94",
+          "address": "0x021febf4",
+          "expectedHex": "16f608f8"
         },
         {
           "id": "HOOK_UPDATE_TRADE",
-          "caller": "PokemonTrade_ProcMain",
-          "callee": "MCSSSys_Update",
-          "segment": "194",
-          "address": "0x021bbc20",
-          "expectedHex": "5df678ff"
+          "caller": "POKETRADE_PROC_Main",
+          "callee": "MCSS_Main",
+          "segment": "119",
+          "address": "0x021dce4c",
+          "expectedHex": "37f6dcfe"
         },
         {
           "id": "HOOK_UPDATE_SUMMARY",
-          "caller": "PStatus_Main",
-          "callee": "MCSSSys_Update",
-          "segment": "207",
-          "address": "0x021b3384",
-          "expectedHex": "66f6c6fb"
+          "caller": "P_STATUS_MainSeq",
+          "callee": "MCSS_Main",
+          "segment": "131",
+          "address": "0x021d4604",
+          "expectedHex": "40f600fb"
         },
         {
           "id": "HOOK_UPDATE_HALL_OF_FAME",
-          "caller": "DDemoMain_Main3D",
-          "callee": "MCSSSys_Update",
-          "segment": "265",
-          "address": "0x02199ef6",
-          "expectedHex": "7ff60dfe"
+          "caller": "HALL_OF_FAME_DrawMonSprite3d",
+          "callee": "MCSS_Main",
+          "segment": "180",
+          "address": "0x021b66f2",
+          "expectedHex": "5ef689fa"
         },
         {
           "id": "HOOK_UPDATE_EVOLUTION",
-          "caller": "ShinkaDemoView_Update",
-          "callee": "MCSSSys_Update",
-          "segment": "284",
-          "address": "0x021e51b0",
-          "expectedHex": "34f6b0fc"
+          "caller": "SHINKA_DEMO_VIEW_Main",
+          "callee": "MCSS_Main",
+          "segment": "195",
+          "address": "0x02206014",
+          "expectedHex": "0ef6f8fd"
         },
         {
           "id": "HOOK_UPDATE_INTRO",
-          "caller": "IntroMcss_Draw",
-          "callee": "MCSSSys_Update",
-          "segment": "294",
-          "address": "0x021a3662",
-          "expectedHex": "76f657fa"
+          "caller": "INTRO_MCSS_Main",
+          "callee": "MCSS_Main",
+          "segment": "204",
+          "address": "0x021bf616",
+          "expectedHex": "55f6f7fa"
         },
         {
           "id": "HOOK_UPDATE_ZUKAN",
-          "caller": "ZukanDetailForm_Main",
-          "callee": "MCSSSys_Update",
-          "segment": "298",
-          "address": "0x021a80bc",
-          "expectedHex": "71f62afd"
+          "caller": "ZUKAN_DETAIL_FORM_Main",
+          "callee": "MCSS_Main",
+          "segment": "208",
+          "address": "0x021c4204",
+          "expectedHex": "50f600fd"
         },
         {
           "id": "HOOK_UPDATE_EGG",
-          "caller": "EggDemoView_Update",
-          "callee": "MCSSSys_Update",
-          "segment": "307",
-          "address": "0x021dee3e",
-          "expectedHex": "3af669fe"
+          "caller": "EGG_DEMO_VIEW_Update",
+          "callee": "MCSS_Main",
+          "segment": "215",
+          "address": "0x021f69f8",
+          "expectedHex": "1ef606f9"
+        }
+      ]
+    },
+    "W": {
+      "fileName": "PokewebAnimStreamsW.dll",
+      "size": 5712,
+      "sha256": "ea5c589dae4b1cdefab486fbc2fc0576caaaff8603e7c11d6b12e8122b9ec9b1",
+      "targets": [
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "119",
+          "address": "0x21dce6c"
         },
         {
-          "id": "HOOK_EVO_MORPH_UPDATE",
-          "caller": "ShinkaDemoView_Update",
-          "callee": "ShinkaDemoView_UpdatePieces",
-          "segment": "284",
-          "address": "0x021e51b6",
-          "expectedHex": "00f0f3fa"
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "131",
+          "address": "0x21d4624"
         },
         {
-          "id": "HOOK_EVO_MORPH_DRAW",
-          "caller": "ShinkaDemoView_Draw",
-          "callee": "ShinkaDemoView_DrawPieces",
-          "segment": "284",
-          "address": "0x021e51d8",
-          "expectedHex": "00f012fb"
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "180",
+          "address": "0x21b6712"
         },
         {
-          "id": "HOOK_EVO_ADD_PAIR",
-          "caller": "ShinkaDemoView_AddMcss",
-          "callee": "MCSSSys_AddPartyPkm",
-          "segment": "284",
-          "address": "0x021e5364",
-          "expectedHex": "36f608ff"
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "195",
+          "address": "0x2206034"
         },
         {
-          "id": "HOOK_EVO_ADD_AFTER",
-          "caller": "ShinkaDemoView_AddMcss",
-          "callee": "MCSSSys_AddPartyPkm",
-          "segment": "284",
-          "address": "0x021e53ae",
-          "expectedHex": "36f6e3fe"
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "204",
+          "address": "0x21bf656"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "208",
+          "address": "0x21c4224"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "215",
+          "address": "0x21f6a18"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "94",
+          "address": "0x21fec14"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "ARM9",
+          "address": "0x2014d42"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "ARM9",
+          "address": "0x2015b92"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "ARM9",
+          "address": "0x2015bc8"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "ARM9",
+          "address": "0x20160d2"
+        }
+      ],
+      "literals": [],
+      "hooks": [
+        {
+          "id": "HOOK_LOAD_RELOAD",
+          "caller": "MCSS_ReloadResource",
+          "callee": "MCSS_LoadResource",
+          "segment": "ARM9",
+          "address": "0x02014d42",
+          "expectedHex": "01f04dfb"
+        },
+        {
+          "id": "HOOK_LOAD_ADD",
+          "caller": "MCSS_Add",
+          "callee": "MCSS_LoadResource",
+          "segment": "ARM9",
+          "address": "0x02015b92",
+          "expectedHex": "00f025fc"
+        },
+        {
+          "id": "HOOK_LOAD_MOSAIC",
+          "caller": "MCSS_SetMosaic",
+          "callee": "MCSS_LoadResource",
+          "segment": "ARM9",
+          "address": "0x020160d2",
+          "expectedHex": "00f085f9"
+        },
+        {
+          "id": "HOOK_REMOVE",
+          "caller": "MCSS_Del",
+          "callee": "MCSS_FreeResource",
+          "segment": "ARM9",
+          "address": "0x02015bc8",
+          "expectedHex": "00f0f8ff"
+        },
+        {
+          "id": "HOOK_UPDATE_BATTLE",
+          "caller": "BTLV_MCSS_Update",
+          "callee": "MCSS_Main",
+          "segment": "94",
+          "address": "0x021fec14",
+          "expectedHex": "16f606f8"
+        },
+        {
+          "id": "HOOK_UPDATE_TRADE",
+          "caller": "POKETRADE_PROC_Main",
+          "callee": "MCSS_Main",
+          "segment": "119",
+          "address": "0x021dce6c",
+          "expectedHex": "37f6dafe"
+        },
+        {
+          "id": "HOOK_UPDATE_SUMMARY",
+          "caller": "P_STATUS_MainSeq",
+          "callee": "MCSS_Main",
+          "segment": "131",
+          "address": "0x021d4624",
+          "expectedHex": "40f6fefa"
+        },
+        {
+          "id": "HOOK_UPDATE_HALL_OF_FAME",
+          "caller": "HALL_OF_FAME_DrawMonSprite3d",
+          "callee": "MCSS_Main",
+          "segment": "180",
+          "address": "0x021b6712",
+          "expectedHex": "5ef687fa"
+        },
+        {
+          "id": "HOOK_UPDATE_EVOLUTION",
+          "caller": "SHINKA_DEMO_VIEW_Main",
+          "callee": "MCSS_Main",
+          "segment": "195",
+          "address": "0x02206034",
+          "expectedHex": "0ef6f6fd"
+        },
+        {
+          "id": "HOOK_UPDATE_INTRO",
+          "caller": "INTRO_MCSS_Main",
+          "callee": "MCSS_Main",
+          "segment": "204",
+          "address": "0x021bf656",
+          "expectedHex": "55f6e5fa"
+        },
+        {
+          "id": "HOOK_UPDATE_ZUKAN",
+          "caller": "ZUKAN_DETAIL_FORM_Main",
+          "callee": "MCSS_Main",
+          "segment": "208",
+          "address": "0x021c4224",
+          "expectedHex": "50f6fefc"
+        },
+        {
+          "id": "HOOK_UPDATE_EGG",
+          "caller": "EGG_DEMO_VIEW_Update",
+          "callee": "MCSS_Main",
+          "segment": "215",
+          "address": "0x021f6a18",
+          "expectedHex": "1ef604f9"
         }
       ]
     },
     "B2": {
       "fileName": "PokewebAnimStreamsB2.dll",
       "size": 7008,
-      "sha256": "fd1b879687acb201bbae1f29db6fb59af0684384ba76aa65d198b342ac2ef12c",
+      "sha256": "cb123f137adef9fc7fdd2d17452ba621f8380c586267da5b63920bdaed53d7ae",
       "targets": [
         {
           "kind": "THUMB_BRANCH_LINK",
@@ -435,6 +549,224 @@
           "segment": "284",
           "address": "0x021e536e",
           "expectedHex": "36f6edfe"
+        }
+      ]
+    },
+    "W2": {
+      "fileName": "PokewebAnimStreamsW2.dll",
+      "size": 7008,
+      "sha256": "7fc26039e2e9bc3d44d23fd015d5a4a7f452a9a739390ca8c9ab5c8bb66d61c8",
+      "targets": [
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "168",
+          "address": "0x21e692c"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "194",
+          "address": "0x21bbc20"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "207",
+          "address": "0x21b3384"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "265",
+          "address": "0x2199ef6"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "284",
+          "address": "0x21e51b0"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "284",
+          "address": "0x21e51b6"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "284",
+          "address": "0x21e51d8"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "284",
+          "address": "0x21e5364"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "284",
+          "address": "0x21e53ae"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "294",
+          "address": "0x21a3662"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "298",
+          "address": "0x21a80bc"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "307",
+          "address": "0x21dee3e"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "ARM9",
+          "address": "0x2019c32"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "ARM9",
+          "address": "0x201aa84"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "ARM9",
+          "address": "0x201aab4"
+        },
+        {
+          "kind": "THUMB_BRANCH_LINK",
+          "segment": "ARM9",
+          "address": "0x201afbe"
+        }
+      ],
+      "literals": [],
+      "hooks": [
+        {
+          "id": "HOOK_LOAD_RELOAD",
+          "caller": "MCSS_Reload",
+          "callee": "LoadMCSSGraphicsData",
+          "segment": "ARM9",
+          "address": "0x02019c32",
+          "expectedHex": "01f04bfb"
+        },
+        {
+          "id": "HOOK_LOAD_ADD",
+          "caller": "MCSSSys_Add",
+          "callee": "LoadMCSSGraphicsData",
+          "segment": "ARM9",
+          "address": "0x0201aa84",
+          "expectedHex": "00f022fc"
+        },
+        {
+          "id": "HOOK_LOAD_MOSAIC",
+          "caller": "MCSS_SetMosaic",
+          "callee": "LoadMCSSGraphicsData",
+          "segment": "ARM9",
+          "address": "0x0201afbe",
+          "expectedHex": "00f085f9"
+        },
+        {
+          "id": "HOOK_REMOVE",
+          "caller": "MCSSSys_Remove",
+          "callee": "MCSS_FreeFiles",
+          "segment": "ARM9",
+          "address": "0x0201aab4",
+          "expectedHex": "00f0f8ff"
+        },
+        {
+          "id": "HOOK_UPDATE_BATTLE",
+          "caller": "BtlvMcss_Main",
+          "callee": "MCSSSys_Update",
+          "segment": "168",
+          "address": "0x021e692c",
+          "expectedHex": "33f6f2f8"
+        },
+        {
+          "id": "HOOK_UPDATE_TRADE",
+          "caller": "PokemonTrade_ProcMain",
+          "callee": "MCSSSys_Update",
+          "segment": "194",
+          "address": "0x021bbc20",
+          "expectedHex": "5df678ff"
+        },
+        {
+          "id": "HOOK_UPDATE_SUMMARY",
+          "caller": "PStatus_Main",
+          "callee": "MCSSSys_Update",
+          "segment": "207",
+          "address": "0x021b3384",
+          "expectedHex": "66f6c6fb"
+        },
+        {
+          "id": "HOOK_UPDATE_HALL_OF_FAME",
+          "caller": "DDemoMain_Main3D",
+          "callee": "MCSSSys_Update",
+          "segment": "265",
+          "address": "0x02199ef6",
+          "expectedHex": "7ff60dfe"
+        },
+        {
+          "id": "HOOK_UPDATE_EVOLUTION",
+          "caller": "ShinkaDemoView_Update",
+          "callee": "MCSSSys_Update",
+          "segment": "284",
+          "address": "0x021e51b0",
+          "expectedHex": "34f6b0fc"
+        },
+        {
+          "id": "HOOK_UPDATE_INTRO",
+          "caller": "IntroMcss_Draw",
+          "callee": "MCSSSys_Update",
+          "segment": "294",
+          "address": "0x021a3662",
+          "expectedHex": "76f657fa"
+        },
+        {
+          "id": "HOOK_UPDATE_ZUKAN",
+          "caller": "ZukanDetailForm_Main",
+          "callee": "MCSSSys_Update",
+          "segment": "298",
+          "address": "0x021a80bc",
+          "expectedHex": "71f62afd"
+        },
+        {
+          "id": "HOOK_UPDATE_EGG",
+          "caller": "EggDemoView_Update",
+          "callee": "MCSSSys_Update",
+          "segment": "307",
+          "address": "0x021dee3e",
+          "expectedHex": "3af669fe"
+        },
+        {
+          "id": "HOOK_EVO_MORPH_UPDATE",
+          "caller": "ShinkaDemoView_Update",
+          "callee": "ShinkaDemoView_UpdatePieces",
+          "segment": "284",
+          "address": "0x021e51b6",
+          "expectedHex": "00f0f3fa"
+        },
+        {
+          "id": "HOOK_EVO_MORPH_DRAW",
+          "caller": "ShinkaDemoView_Draw",
+          "callee": "ShinkaDemoView_DrawPieces",
+          "segment": "284",
+          "address": "0x021e51d8",
+          "expectedHex": "00f012fb"
+        },
+        {
+          "id": "HOOK_EVO_ADD_PAIR",
+          "caller": "ShinkaDemoView_AddMcss",
+          "callee": "MCSSSys_AddPartyPkm",
+          "segment": "284",
+          "address": "0x021e5364",
+          "expectedHex": "36f608ff"
+        },
+        {
+          "id": "HOOK_EVO_ADD_AFTER",
+          "caller": "ShinkaDemoView_AddMcss",
+          "callee": "MCSSSys_AddPartyPkm",
+          "segment": "284",
+          "address": "0x021e53ae",
+          "expectedHex": "36f6e3fe"
         }
       ]
     }

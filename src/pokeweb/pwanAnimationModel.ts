@@ -172,8 +172,8 @@ export function hydratePwanAnimationsFromRom(project: ProjectState, rom: Nintend
 export function getPwanRuntimeStatus(project: ProjectState): PwanRuntimeStatus {
   if (isW2AnimProject(project)) return { supported: true, installed: true, pmcInstalled: true, legacyInstalled: false,
     message: "w2anim is resident in this ROM. Animation edits use W2AS streams; no PWAN runtime is installed." };
-  if (project.session.baseVersion !== "W2" && project.session.baseVersion !== "B2") {
-    return { supported: false, installed: false, message: "PWAN animation injection supports stock US Black 2 and White 2 projects." };
+  if (!["B", "W", "W2", "B2"].includes(project.session.baseVersion)) {
+    return { supported: false, installed: false, message: "Animated sprites support stock US Black, White, Black 2 and White 2 projects." };
   }
   const pmc = getPmcInstallStatus(project);
   if (hasAnimStreamsRuntime(project)) {
@@ -234,15 +234,15 @@ export async function installPwanRuntime(project: ProjectState): Promise<void> {
 async function stagePwanRuntime(project: ProjectState): Promise<void> {
   const natureEnabled = isNaturePaletteRuntimeInstalled(project);
   if (isW2AnimProject(project)) throw new Error("This ROM uses w2anim; installing PWAN would overwrite its renderer hooks");
-  if (project.session.baseVersion !== "W2" && project.session.baseVersion !== "B2") {
-    throw new Error("PWAN animation injection supports stock US Black 2 and White 2 projects.");
+  if (!["B", "W", "W2", "B2"].includes(project.session.baseVersion)) {
+    throw new Error("Animated sprites support stock US Black, White, Black 2 and White 2 projects.");
   }
   if (project.originalRomBytes) {
     const compatibility = detectAnimStreamsCompatibility(project);
     if (!compatibility.compatible) throw new Error(pwanCompatibilityFailureSummary(compatibility));
   }
   const { removed } = await stageAnimStreamsRuntime(project);
-  if (natureEnabled) await stageNaturePaletteRuntime(project, false);
+  if (natureEnabled && (project.session.baseVersion === "W2" || project.session.baseVersion === "B2")) await stageNaturePaletteRuntime(project, false);
   recordGenericChange(project, "code_injection",
     removed.length ? `Animated sprite streaming runtime installed; replaced ${removed.map((path) => path.replace(/^patches\//u, "")).join(", ")}.` : "Animated sprite streaming runtime installed.",
     "PWAN Runtime", { key: "pwan-runtime" });
@@ -893,8 +893,8 @@ function validatePwanSpeciesId(speciesId: number): void {
 
 function validatePwanSpeciesTarget(project: ProjectState, target: PwanSpeciesTarget): void {
   validatePwanSpeciesId(target.speciesId);
-  if (project.session?.baseVersion === "B2" && target.speciesId > 649) {
-    throw new Error("Black 2 PWAN imports support vanilla Gen 5 species only (1-649).");
+  if (["B", "W", "B2"].includes(project.session?.baseVersion ?? "") && target.speciesId > 649) {
+    throw new Error("Black, White and Black 2 PWAN imports support vanilla Gen 5 species only (1-649).");
   }
   validatePwanAssetIndex(project, target.assetIndex);
 }

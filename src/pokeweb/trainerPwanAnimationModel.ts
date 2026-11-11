@@ -63,12 +63,17 @@ export function hasTrainerPwanRuntimeDll(project: ProjectState): boolean {
 export function getTrainerPwanRuntimeStatus(project: ProjectState): TrainerPwanRuntimeStatus {
   if (isW2AnimProject(project)) return { supported: true, installed: true, pmcInstalled: true,
     message: "w2anim is resident; trainer edits use its W2AS carrier streams, not PWAN DLLs." };
-  if (project.session.baseVersion !== "W2" && project.session.baseVersion !== "B2") {
-    return { supported: false, installed: false, message: "Animated trainer PWAN support is available for stock US Black 2 and White 2 projects." };
+  const streamingOnly = project.session.baseVersion === "B" || project.session.baseVersion === "W";
+  if (project.session.baseVersion !== "W2" && project.session.baseVersion !== "B2" && !streamingOnly) {
+    return { supported: false, installed: false, message: "Animated trainer PWAN support is available for stock US Black, White, Black 2 and White 2 projects." };
   }
   const pmcInstalled = getPmcInstallStatus(project).installed;
   if (hasAnimStreamsRuntime(project)) return { supported: true, installed: true, pmcInstalled,
     message: "Animated trainers stream with the animated sprite runtime (installed with PWAN GIF Support)." };
+  // Black / White never had the split trainer PWAN DLLs: trainers use the streaming runtime only.
+  if (streamingOnly) return { supported: true, installed: false, pmcInstalled,
+    message: pmcInstalled ? "PMC is installed; install the animated sprite streaming runtime next (it animates trainers too)."
+      : "Installing animated trainer support installs the animated sprite streaming runtime and PMC." };
   const installed = hasTrainerPwanRuntimeDll(project);
   return {
     supported: true,
@@ -85,7 +90,7 @@ export function getTrainerPwanRuntimeStatus(project: ProjectState): TrainerPwanR
 /** Trainers stream with the same runtime as Pokémon: installing trainer support installs (or upgrades to) it. */
 export async function installTrainerPwanRuntime(project: ProjectState): Promise<void> {
   if (isW2AnimProject(project)) throw new Error("This ROM uses w2anim; installing trainer PWAN would overwrite its renderer hooks");
-  if (project.session.baseVersion === "W2" || project.session.baseVersion === "B2") {
+  if (["W2", "B2", "W", "B"].includes(project.session.baseVersion)) {
     if (!hasAnimStreamsRuntime(project)) await (await import("./pwanAnimationModel")).installPwanRuntime(project);
     return;
   }

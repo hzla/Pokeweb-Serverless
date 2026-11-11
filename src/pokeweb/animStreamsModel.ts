@@ -26,14 +26,18 @@ import { parseRpm } from "./rpm";
 
 export const ANIM_STREAMS_PATH = W2ANIM_PATH;
 export const ANIM_STREAMS_INDEX_PATH = "w2anim/pokeweb_index.bin";
-export const ANIM_STREAMS_FILENAMES = { W2: "PokewebAnimStreamsW2.dll", B2: "PokewebAnimStreamsB2.dll" } as const;
+export const ANIM_STREAMS_FILENAMES = {
+  B: "PokewebAnimStreamsB.dll", W: "PokewebAnimStreamsW.dll", W2: "PokewebAnimStreamsW2.dll", B2: "PokewebAnimStreamsB2.dll",
+} as const;
 export const LEGACY_PWAN_FILENAMES = {
+  B: [], W: [], // Black and White never had the PWAN runtimes
   W2: ["PokewebPwanSummaryW2.dll", "PokewebPwanBattleW2.dll", "PokewebPwanMiscW2.dll", "PokewebPwanTrainerW2.dll", "PokewebPwanLegacyRetiredW2.dll", "PokewebPwanW2.dll"],
   B2: ["PokewebPwanSummaryB2.dll", "PokewebPwanBattleB2.dll", "PokewebPwanMiscB2.dll", "PokewebPwanTrainerB2.dll"],
 } as const;
 const LEGACY_PWAN_ARCHIVE_PATH = "zz_pokeweb_pwan/pwan.narc";
 const ARC_POKEGRA = 4;
-const ARC_TRAINER = 71;
+/** The trainer sprite archive (front): arc 72 in Black / White, 71 in Black 2 / White 2. */
+const trainerArc = (game: Game | undefined): number => (game === "B" || game === "W" ? 72 : 71);
 const FILES_PER_SPRITE = 20;
 const FILES_PER_TRAINER = 8;
 const FRAME_BYTES = 4608;
@@ -45,13 +49,15 @@ const INDEX_ENTRY_BYTES = 5;
 
 type Game = keyof typeof ANIM_STREAMS_FILENAMES;
 const urls: Record<Game, URL> = {
+  B: new URL("../assets/codeinjection/PokewebAnimStreamsB.dll", import.meta.url),
+  W: new URL("../assets/codeinjection/PokewebAnimStreamsW.dll", import.meta.url),
   W2: new URL("../assets/codeinjection/PokewebAnimStreamsW2.dll", import.meta.url),
   B2: new URL("../assets/codeinjection/PokewebAnimStreamsB2.dll", import.meta.url),
 };
 
 function gameOf(project: ProjectState): Game | undefined {
   const game = project.session.baseVersion;
-  return game === "W2" || game === "B2" ? game : undefined;
+  return game === "B" || game === "W" || game === "W2" || game === "B2" ? game : undefined;
 }
 
 export function animStreamsRuntimePath(project: ProjectState): string | undefined {
@@ -109,7 +115,7 @@ export function detectAnimStreamsCompatibility(project: ProjectState): PwanCompa
   const game = gameOf(project);
   if (!game) return { compatible: false, supportedBase: false, passed: 0, failed: 1, missing: 0,
     checks: [{ id: "base-rom", label: "Base ROM", group: "ROM", module: "arm9", address: 0, windowStart: 0, expectedHex: "", status: "unsupported",
-      message: "Animated sprites support US Black 2 and White 2." }] };
+      message: "Animated sprites support US Black, White, Black 2 and White 2." }] };
   const signatures = hookSignatures(game);
   const report = checkCompatibilitySignatures(project, signatures);
   const ours = new Set([animStreamsRuntimePath(project)!, ...legacyPwanRuntimePaths(project)].map((path) => path.toLowerCase()));
@@ -155,7 +161,7 @@ function tombstone(project: ProjectState, fileId: number, path: string): void {
  */
 export async function stageAnimStreamsRuntime(project: ProjectState): Promise<{ removed: string[] }> {
   const game = gameOf(project);
-  if (!game) throw new Error("Animated sprites support US Black 2 and White 2.");
+  if (!game) throw new Error("Animated sprites support US Black, White, Black 2 and White 2.");
   const bytes = await loadAnimStreamsRuntime(game);
   if (!getPmcInstallStatus(project).installed) await installBundledPmc(project);
   const removed = legacyPwanRuntimePaths(project);
@@ -309,10 +315,10 @@ export function applyFullSizeBlockFiles(project: ProjectState, overrides: PwanAn
 }
 
 /** Trainers stream into Pokeweb's 96x96 trainer carrier graphic (the PWAN runtime's), always with their own palette. */
-export function trainerStreamEntries(overrides: TrainerPwanAnimationOverride[], carrierGraphicIndex: number): AnimStreamEntry[] {
+export function trainerStreamEntries(overrides: TrainerPwanAnimationOverride[], carrierGraphicIndex: number, arc = trainerArc("W2")): AnimStreamEntry[] {
   return overrides.map((override) => {
     const pal = pwanPalette(override.animation.pwanBytes);
-    return { arc: ARC_TRAINER, flags: W2ANIM_TRAINER_CARRIER, sheetFile: override.graphicIndex * FILES_PER_TRAINER + 1,
+    return { arc, flags: W2ANIM_TRAINER_CARRIER, sheetFile: override.graphicIndex * FILES_PER_TRAINER + 1,
       shinyNclrFile: carrierGraphicIndex * FILES_PER_TRAINER, mani: pwanToMani(override.animation.pwanBytes, { normal: pal, shiny: pal }) };
   });
 }
@@ -382,12 +388,13 @@ export function hydrateAnimStreamsFromRom(project: ProjectState, rom: NintendoDS
       return front || back ? [{ speciesId, formIndex, assetIndex: assetIndex === speciesId ? undefined : assetIndex, front, back,
         nativePaletteSource: back ? "back" as const : "front" as const, carrierTemplate: "w2u-gen6-placeholder" as const }] : [];
     });
-    const trainerEntries = archive.entries.filter((e) => e.arc === ARC_TRAINER && e.flags & W2ANIM_TRAINER_CARRIER);
+    const arcTrainer = trainerArc(game);
+    const trainerEntries = archive.entries.filter((e) => e.arc === arcTrainer && e.flags & W2ANIM_TRAINER_CARRIER);
     trainers.overrides = trainerEntries.flatMap((entry) => {
       const mani = archive.manis.get(entry.maniOffset);
       if (!mani?.normalPalette || (entry.sheetFile - 1) % FILES_PER_TRAINER) return [];
       const graphicIndex = (entry.sheetFile - 1) / FILES_PER_TRAINER;
-      return [{ graphicIndex, animation: sideFromPwan(maniToPwan(archive, mani, mani.normalPalette), `${ANIM_STREAMS_PATH}:${ARC_TRAINER}:${entry.sheetFile}`) }];
+      return [{ graphicIndex, animation: sideFromPwan(maniToPwan(archive, mani, mani.normalPalette), `${ANIM_STREAMS_PATH}:${arcTrainer}:${entry.sheetFile}`) }];
     });
     if (trainerEntries[0]) trainers.carrierGraphicIndex = trainerEntries[0].shinyNclrFile / FILES_PER_TRAINER;
     state.detectedArchive = { path: ANIM_STREAMS_PATH, version: 1, count: state.overrides.length };
@@ -419,7 +426,7 @@ export function writeAnimStreams(project: ProjectState, rom: NintendoDSRom | und
   const entries = [...pokemonStreamEntries(project, input.pokemon)];
   if (input.trainers.length) {
     if (input.trainerCarrierGraphicIndex === undefined) throw new Error("Animated trainers need the trainer carrier graphic.");
-    entries.push(...trainerStreamEntries(input.trainers, input.trainerCarrierGraphicIndex));
+    entries.push(...trainerStreamEntries(input.trainers, input.trainerCarrierGraphicIndex, trainerArc(gameOf(project))));
   }
   const streams = buildAnimStreamsFile(entries);
   writeFile(project, rom, ANIM_STREAMS_PATH, streams);

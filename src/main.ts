@@ -2862,7 +2862,7 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
       : nextRoute === "mastersheet"
         ? ` title="${project?.session.baseRom === "BW" || project?.session.baseRom === "BW2" ? `Missing: ${requirements.filter((name) => !project?.narcs[name]).join(", ")}` : "Mastersheet generation is currently Gen 5-only"}"`
       : nextRoute === "animatedSprites"
-        ? ` title="${project?.session.baseVersion === "B2" || project?.session.baseVersion === "W2" ? "Load Personal Data and install PWAN GIF Support from Code Injection" : "Animated Sprites supports stock US Black 2 and White 2"}"`
+        ? ` title="${project && ["B", "W", "B2", "W2"].includes(project.session.baseVersion) ? "Load Personal Data and install PWAN GIF Support from Code Injection" : "Animated Sprites supports stock US Black, White, Black 2 and White 2"}"`
         : nextRoute === "types"
           ? ` title="${project?.session.baseRom === "BW" || project?.session.baseRom === "BW2" ? "Load the Moves NARC to extract the type chart overlay" : "Type chart editing is currently Gen V-only"}"`
         : nextRoute === "tutorMoves"

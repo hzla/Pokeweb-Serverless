@@ -123,9 +123,7 @@ export function renderPwanAnimationEditor(project: ProjectState, root: HTMLEleme
             activeSpeciesId === undefined
               ? isW2AnimProject(project)
                 ? "w2anim GIF authoring for White 2 integration ROMs"
-                : project.session.baseVersion === "B2"
-                ? "PWAN GIF overrides for stock US Black 2"
-                : "PWAN GIF overrides for stock US White 2"
+                : `PWAN GIF overrides for stock US ${({ B: "Black", W: "White", B2: "Black 2" } as Record<string, string>)[project.session.baseVersion] ?? "White 2"}`
               : `#${activeSpeciesId} ${escapeHtml(speciesLabel(project, activeSpeciesId))}`
           }</div>
         </div>
@@ -1324,20 +1322,23 @@ function canvasBlob(canvas: HTMLCanvasElement, type: string): Promise<Blob> {
 }
 
 function renderEditorForm(project: ProjectState, speciesOptions: string): string {
-  const black2 = project.session.baseVersion === "B2";
+  const idCode = ({ B: "IRBO", W: "IRAO", B2: "IREO", W2: "IRDO" } as Record<string, string>)[project.session.baseVersion] ?? "IRDO";
+  const streaming = hasAnimStreamsRuntime(project);
   return `
     <div class="pwan-editor-grid">
       ${renderPwanImportForm(project, speciesOptions)}
       <div class="pwan-panel">
         <div class="pwan-section-title">
           <h2>Export Contract</h2>
-          <span>${black2 ? "IREO full" : "IRDO full"}</span>
+          <span>${idCode} full</span>
         </div>
         <div class="pwan-contract">
-          <div><strong>GIF input</strong><span>Compiled to 96x96, 4bpp, 16-color PWAN.</span></div>
+          <div><strong>GIF input</strong><span>Compiled to 96x96, 4bpp, 16-color PWAN${streaming ? ", or kept at full size up to 128x128" : ""}.</span></div>
           <div><strong>Native carrier</strong><span>Species pokegra metadata and fallback frames are patched at export.</span></div>
-          <div><strong>Runtime config</strong><span><code>zz_pokeweb_pwan/pwan.narc</code> stores config plus imported sides.</span></div>
-          ${black2 ? `<div><strong>Display scope</strong><span>Imported sprites animate in battles, summaries, evolution, egg hatch, and supported non-battle views.</span></div>` : ""}
+          <div><strong>Runtime data</strong><span>${streaming
+            ? "<code>w2anim/streams.bin</code> streams every imported side (compressed, deduplicated frames)."
+            : "<code>zz_pokeweb_pwan/pwan.narc</code> stores config plus imported sides."}</span></div>
+          <div><strong>Display scope</strong><span>Imported sprites animate in battles, summaries, evolution, egg hatch, and supported non-battle views.</span></div>
         </div>
       </div>
     </div>

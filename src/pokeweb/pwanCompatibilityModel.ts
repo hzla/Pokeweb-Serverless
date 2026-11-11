@@ -170,7 +170,7 @@ export function checkCompatibilitySignatures(project: ProjectState, signatures: 
   const originalOverlays = loadOriginalOverlays(rom, overlayIds);
   const arm9BaseAddress = rom?.arm9RamAddress ?? DEFAULT_W2_ARM9_BASE_ADDRESS;
   const arm9 = project.arm9.length > 0 ? project.arm9 : rom ? decompressCode(rom.arm9) : project.arm9;
-  const baseLabel = version === "B2" ? "Black 2" : "White 2";
+  const baseLabel = ({ B: "Black", W: "White", B2: "Black 2", W2: "White 2" } as Record<string, string>)[version] ?? version;
   const checks = signatures.map((signature) => checkSignature(project, signature, originalOverlays, arm9, arm9BaseAddress, baseLabel));
   const passed = checks.filter((check) => check.status === "matched").length;
   const missing = checks.filter((check) => check.status === "missing").length;

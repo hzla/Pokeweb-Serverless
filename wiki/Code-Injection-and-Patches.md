@@ -20,7 +20,7 @@ Use these tools carefully. They modify ARM9, overlays, or ROM files at known byt
 |---|---|---|
 | General patches | Original ROM bytes | Pokeweb must be able to compare the target bytes against the supported patch signatures. |
 | PMC runtime | Black 2 / White 2 code files | PMC is the runtime used by several injected DLL-style patches. |
-| PWAN GIF support | Clean US Black 2 (`IREO`) or White 2 (`IRDO`) code layout | One streaming runtime per version (`PokewebAnimStreamsB2.dll` / `PokewebAnimStreamsW2.dll`) for Pokémon and trainers, in every view that draws battle-style sprites. |
+| PWAN GIF support | Clean US Black (`IRBO`), White (`IRAO`), Black 2 (`IREO`) or White 2 (`IRDO`) code layout | One streaming runtime per version (`PokewebAnimStreams{B,W,B2,W2}.dll`) for Pokémon and trainers, in every view that draws battle-style sprites. In Black and White the evolution scene's particle effect shows the first frame. |
 | Trainer battle log | US Black 2 (`IREO`), White 2 (`IRDO`), or the corresponding Upgrade ROM | Uses a version-specific DLL, PMC, save blocks 29–31, the evolution NARC, and summary text bank 179. |
 | Enhanced Party Menu and Battle Log Integration | US Black 2 or White 2 with the current matching Battle Counters DLL | Adds EVOLVE and RELEARN to the field party menu, post-battle KO evolution, and KO learnsets. |
 | Single-NPC double battle fix | Black 2 / White 2 with PMC support | The fix is installed as a bundled DLXF patch. |
@@ -39,7 +39,7 @@ Use these tools carefully. They modify ARM9, overlays, or ROM files at known byt
 | PMC overlay | Shows the overlay used by the runtime. | `overlay_316` |
 | PMC base address | Shows where the runtime is expected to live in memory. | `0x023C8000` |
 | PWAN GIF status | Shows whether Pokeweb can install the animated-sprite runtime, or `Update` when the ROM still has the older split PWAN runtime. | `Ready`, `Installed`, `Update`, `Unsupported`, `Incompatible` |
-| Install PWAN GIF Support / Update to Streaming Runtime | Stages the streaming runtime. On a ROM with the older PWAN runtime it removes `PokewebPwan{Battle,Summary,Misc,Trainer}`; at export every existing animation (Pokémon and trainers) is converted to streams and `zz_pokeweb_pwan/pwan.narc` is removed. Nature palettes switch to their native renderer. | `PokewebAnimStreamsW2.dll` or `PokewebAnimStreamsB2.dll`, `w2anim/streams.bin` |
+| Install PWAN GIF Support / Update to Streaming Runtime | Stages the streaming runtime (`PokewebAnimStreamsB.dll`, `W`, `B2` or `W2`). On a ROM with the older PWAN runtime it removes `PokewebPwan{Battle,Summary,Misc,Trainer}`; at export every existing animation (Pokémon and trainers) is converted to streams and `zz_pokeweb_pwan/pwan.narc` is removed. Nature palettes switch to their native renderer. | `PokewebAnimStreamsW2.dll` or `PokewebAnimStreamsB2.dll`, `w2anim/streams.bin` |
 | Uninstall PWAN GIF Support | Removes the runtime and its streams; imported animations stay in the project. | |
 | Install Battle Log | Checks six ARM9/battle/summary regions, installs PMC if needed, stages the version-specific stripped battle and summary DLLs, and generates ancestry from current evolution data. | US Black 2, White 2, Black2Upgrade, or White2Upgrade |
 | Uninstall Battle Log | Removes the staged battle and summary DLLs, removes or restores generated ancestry data, and restores normal Pal Pad/Wi-Fi save handling. Existing log records in the save remain untouched. | Available before the staged DLLs are exported and reloaded as part of a ROM. |

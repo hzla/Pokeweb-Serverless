@@ -221,7 +221,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const pwanCompatibility = detectAnimStreamsCompatibility(project);
   const pwanCanInstall = pwanRuntimeStatus.supported && pwanCompatibility.compatible;
   const trainerPwanStatus = getTrainerPwanRuntimeStatus(project);
-  const trainerPwanCompatibility = project.session.baseVersion === "W2" || project.session.baseVersion === "B2" ? pwanCompatibility : detectTrainerPwanCompatibility(project);
+  const trainerPwanCompatibility = ["W2", "B2", "W", "B"].includes(project.session.baseVersion) ? pwanCompatibility : detectTrainerPwanCompatibility(project);
   const trainerPwanInstalled = trainerPwanStatus.supported && trainerPwanStatus.installed;
   const trainerPwanCanInstall = trainerPwanStatus.supported && (trainerPwanCompatibility.compatible || (!project.originalRomBytes && trainerPwanCompatibility.checks.every((check) => check.status === "missing")));
   const trainerPwanCanUninstall = trainerPwanInstalled && canUninstallTrainerPwanRuntime(project);
@@ -2005,7 +2005,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
 
 function renderPwanCompatibilityDetails(project: ProjectState, report: PwanCompatibilityReport): string {
   if (report.compatible) {
-    return `<div class="code-injection-compat-ok">All ${report.passed} PWAN hook regions match the stock ${project.session.baseVersion === "B2" ? "Black 2" : "White 2"} snapshot.</div>`;
+    return `<div class="code-injection-compat-ok">All ${report.passed} PWAN hook regions match the stock ${({ B: "Black", W: "White", B2: "Black 2" } as Record<string, string>)[project.session.baseVersion] ?? "White 2"} snapshot.</div>`;
   }
   return `
     <div class="code-injection-compat-list" aria-label="PWAN compatibility failures">
