@@ -58,6 +58,9 @@ export type NarcName =
   | "pokemon_icons"
   | "subway_sets"
   | "subway_trainers"
+  | "pwt_trainer_table"
+  | "pwt_regular_leads"
+  | "pwt_regular_rosters"
   | "pwt_sets_0"
   | "pwt_sets_3"
   | "pwt_sets_6"
@@ -198,6 +201,9 @@ export const BW2_NARCS: NarcDefinition[] = [
   { path: "a/2/0/2", name: "starter_sprites" },
   { path: "a/2/1/1", name: "subway_sets" },
   { path: "a/2/1/2", name: "subway_trainers" },
+  { path: "a/2/4/7", name: "pwt_trainer_table" },
+  { path: "a/2/4/8", name: "pwt_regular_leads" },
+  { path: "a/2/4/9", name: "pwt_regular_rosters" },
   { path: "a/2/5/0", name: "pwt_sets_0" },
   { path: "a/2/5/1", name: "pwt_map_1" },
   { path: "a/2/5/2", name: "pwt_map_2" },

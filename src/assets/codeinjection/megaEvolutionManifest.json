@@ -1,11 +1,11 @@
 {
-  "version": 2,
+  "version": 3,
   "tableTag": "PWMG",
   "games": {
     "W2": {
       "fileName": "PokewebMegaW2.dll",
-      "size": 11520,
-      "sha256": "6e8976c398166b401bc7544285703554e854ad7620a177d21a262ce0937b152e",
+      "size": 11616,
+      "sha256": "10d87b324a7b6af389f1040842772e80f88b7e5595f1554c48f1ce2b6741c076",
       "targets": [
         {
           "kind": "THUMB_BRANCH",
@@ -49,12 +49,12 @@
         }
       ],
       "literals": [],
-      "tableOffset": 7272
+      "tableOffset": 7356
     },
     "B2": {
       "fileName": "PokewebMegaB2.dll",
-      "size": 11520,
-      "sha256": "d3e1b93230499e647324bbd83e3fbb9c1a1c858cbcf66c4d2b41f3e414dee9c9",
+      "size": 11616,
+      "sha256": "1cb16f635ba8d78cc305c0a3c4a2b6c6918c2392c1adc1c5c56fa0225f223f67",
       "targets": [
         {
           "kind": "THUMB_BRANCH",
@@ -98,12 +98,12 @@
         }
       ],
       "literals": [],
-      "tableOffset": 7272
+      "tableOffset": 7356
     },
     "B": {
       "fileName": "PokewebMegaB.dll",
-      "size": 11456,
-      "sha256": "22fec175d88a2c525cd8f3b99edf81b7c51b43f4584ceb1a3894b8cb5a6d586b",
+      "size": 11568,
+      "sha256": "560dcaac13f9d03451a48ae885ec200e82c375ad376bd6022acc02c25297b53a",
       "targets": [
         {
           "kind": "THUMB_BRANCH",
@@ -147,12 +147,12 @@
         }
       ],
       "literals": [],
-      "tableOffset": 7284
+      "tableOffset": 7364
     },
     "W": {
       "fileName": "PokewebMegaW.dll",
-      "size": 11456,
-      "sha256": "afa05b9451e4f888c806ba064ca080f5073cb5d2c6ffa92c513489c4d4faa4f2",
+      "size": 11568,
+      "sha256": "18bf0f3ec35bf503a043945400ce049ccbabca75cc83bf6e386a268c83f8bc01",
       "targets": [
         {
           "kind": "THUMB_BRANCH",
@@ -196,7 +196,7 @@
         }
       ],
       "literals": [],
-      "tableOffset": 7284
+      "tableOffset": 7364
     }
   }
 }

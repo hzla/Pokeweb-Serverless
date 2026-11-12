@@ -114,6 +114,8 @@ import { renderTrainerSpriteEditor, stopTrainerSpriteEditorPlayback } from "./ui
 import { renderPlayerTrainerBackSpritePreview, stopPlayerTrainerBackSpritePlayback } from "./ui/playerTrainerBackSpritePreview";
 import { renderTrainerMusicEditor, stopTrainerMusicEditorPlayback } from "./ui/trainerMusicEditor";
 import { renderBattleFacilityEditor } from "./ui/battleFacilityEditor";
+import { renderSubwayEditor } from "./ui/subwayEditor";
+import { renderPwtEditor } from "./ui/pwtEditor";
 import { renderGrottoEditor } from "./ui/grottoEditor";
 import { renderMartEditor } from "./ui/martGrottoEditor";
 import { bw1MartsSupported } from "./pokeweb/bw1MartModel";
@@ -165,6 +167,7 @@ type AppRoute =
   | "trainerSprites"
   | "playerBackSprite"
   | "facilities"
+  | "pwt"
   | "wbtFacilities"
   | "encounters"
   | "moves"
@@ -212,6 +215,8 @@ type AppHistoryState = {
   pokemonSpriteFormIndex?: number;
   trainerSpriteClassId?: number;
   pwanAnimationSpeciesId?: number;
+  pwtView?: string;
+  subwayView?: string;
 };
 type SaveFileHandleLike = {
   createWritable: () => Promise<{
@@ -289,6 +294,7 @@ const APP_ROUTES: AppRoute[] = [
   "trainerSprites",
   "playerBackSprite",
   "facilities",
+  "pwt",
   "wbtFacilities",
   "encounters",
   "moves",
@@ -347,6 +353,7 @@ const EDITOR_REQUIREMENTS: Record<
   trainerSprites: ["trdata"],
   playerBackSprite: [],
   facilities: ["moves", "items"],
+  pwt: ["moves", "items"],
   wbtFacilities: ["moves", "items"],
   encounters: ["encounters", "personal"],
   moves: ["moves"],
@@ -415,14 +422,17 @@ const NARC_LABELS: Partial<Record<NarcName, string>> = {
   ingame_trades: "In-game Trades (Scripted Pokemon)",
   subway_sets: "Battle Subway Sets",
   subway_trainers: "Battle Subway Trainers",
-  pwt_sets_0: "PWT Sets 0",
-  pwt_sets_3: "PWT Sets 3",
-  pwt_sets_6: "PWT Sets 6",
-  pwt_sets_7: "PWT Sets 7",
-  pwt_map_1: "PWT Map 1",
-  pwt_map_2: "PWT Map 2",
-  pwt_tr1: "PWT 1v1 Choices",
-  pwt_tr6: "PWT 6v6 Choices",
+  pwt_trainer_table: "PWT Trainers",
+  pwt_regular_leads: "PWT Regular Lead Pokemon",
+  pwt_regular_rosters: "PWT Regular Rosters",
+  pwt_sets_0: "PWT Regular Sets",
+  pwt_sets_3: "PWT Leaders Sets",
+  pwt_sets_6: "PWT Masters Sets",
+  pwt_sets_7: "PWT Rental Pokemon",
+  pwt_map_1: "PWT Leaders Lead Pokemon",
+  pwt_map_2: "PWT Leaders Rosters",
+  pwt_tr1: "PWT Masters Lead Pokemon",
+  pwt_tr6: "PWT Masters Rosters",
   regulations: "Battle Regulations",
   wbt_sets: "Black Tower / White Treehollow Sets",
   wbt_trainers: "Black Tower / White Treehollow Trainers",
@@ -446,6 +456,9 @@ const NARC_LOAD_SECTIONS: NarcLoadSection[] = [
     names: [
       "subway_sets",
       "subway_trainers",
+      "pwt_trainer_table",
+      "pwt_regular_leads",
+      "pwt_regular_rosters",
       "pwt_sets_0",
       "pwt_sets_3",
       "pwt_sets_6",
@@ -478,6 +491,8 @@ let homeTabs: ReturnType<typeof attachHomeTabs> | undefined;
 let activeOverworldId: number | undefined;
 let activeOverworldHeaderId: number | undefined;
 let activeHeaderRowId: number | undefined;
+let activePwtView: string | undefined;
+let activeSubwayView: string | undefined;
 let activeMapZoneId: number | undefined;
 let activeCutsceneSequenceId: number | undefined;
 let activeCutsceneSceneId: string | undefined;
@@ -588,6 +603,8 @@ async function boot(): Promise<void> {
   activeOverworldId = initialState.overworldId;
   activeOverworldHeaderId = initialState.overworldHeaderId;
   activeHeaderRowId = initialState.headerRowId;
+  activePwtView = initialState.pwtView;
+  activeSubwayView = initialState.subwayView;
   activeMapZoneId = initialState.mapZoneId;
   activeCutsceneSequenceId = initialState.cutsceneSequenceId;
   activeCutsceneSceneId = initialState.cutsceneSceneId;
@@ -1139,11 +1156,38 @@ function renderApp(): void {
   }
 
   if (route === "facilities") {
-    renderBattleFacilityEditor(project, content, () => {
-      dirty = true;
-      scheduleSave(project!);
-      renderDirtyIndicator();
-    }, { group: "subwayPwt" });
+    renderSubwayEditor(project, content, {
+      view: activeSubwayView,
+      onDirty: () => {
+        dirty = true;
+        scheduleSave(project!);
+        renderDirtyIndicator();
+      },
+      // Opening a trainer or pool adds a history entry, so Back returns to the train.
+      onNavigate: (view, push) => {
+        if (activeSubwayView === view && window.location.hash === `#facilities/${view}`) return;
+        activeSubwayView = view;
+        syncBrowserHistory(!push);
+      },
+    });
+    return;
+  }
+
+  if (route === "pwt") {
+    void renderPwtEditor(project, content, {
+      view: activePwtView,
+      onDirty: () => {
+        dirty = true;
+        scheduleSave(project!);
+        renderDirtyIndicator();
+      },
+      // Opening a trainer from a tournament adds a history entry, so Back returns to the bracket.
+      onNavigate: (view, push) => {
+        if (activePwtView === view && window.location.hash === `#pwt/${view}`) return;
+        activePwtView = view;
+        syncBrowserHistory(!push);
+      },
+    });
     return;
   }
 
@@ -1555,7 +1599,8 @@ function renderMoreMenu(): string {
 function renderTrainersMenu(): string {
   const trainerRoutes: Array<[Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds" | "pokemonSprites">, string]> = project && !isGen4Project(project)
     ? [
-      ["facilities", "Subway / PWT"],
+      ["pwt", "World Tournament"],
+      ["facilities", "Battle Subway"],
       ["wbtFacilities", "Black Tower / White Treehollow"],
       ["trainerMusic", "Trainer music"],
       ...(project?.session.baseRom === "BW2" ? [["playerBackSprite", "Player back sprite"] as ["playerBackSprite", string]] : []),
@@ -2800,6 +2845,7 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
       (EDITOR_REQUIREMENTS.facilities.every((name) => project?.narcs[name]) && hasFacilityData)
     );
   }
+  if (nextRoute === "pwt") return project.session.baseRom === "BW2" && EDITOR_REQUIREMENTS.pwt.every((name) => project?.narcs[name]) && Boolean(project.narcs.message_texts);
   if (nextRoute === "wbtFacilities" && project.session.baseRom !== "BW2") return false;
   if (nextRoute === "wbtFacilities") {
     return EDITOR_REQUIREMENTS.wbtFacilities.every((name) => project?.narcs[name]) && Boolean(project.narcs.wbt_sets || project.narcs.wbt_trainers || project.narcs.wbt_area_pools);
@@ -2871,6 +2917,8 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
           ? ` title="${project?.session.baseRom === "BW" || project?.session.baseRom === "BW2" ? "Load the Moves NARC to extract the effect handler table" : "Move effect handlers are currently Gen 5-only"}"`
         : nextRoute === "facilities"
           ? ` title="${project?.session.baseRom === "BW2" ? "Load Moves, Items, and at least one facility set NARC" : "Battle facility editing is currently BW2-only"}"`
+        : nextRoute === "pwt"
+          ? ` title="${project?.session.baseRom === "BW2" ? "Load Moves and Items" : "The World Tournament is in Black 2 and White 2 only"}"`
         : nextRoute === "wbtFacilities"
           ? ` title="${project?.session.baseRom === "BW2" ? "Load Moves, Items, and Black Tower / White Treehollow facility NARCs" : "Battle facility editing is currently BW2-only"}"`
           : ` title="Missing: ${requirements.filter((name) => !project?.narcs[name]).join(", ")}"`;
@@ -2911,6 +2959,8 @@ function applyRouteState(nextState: AppHistoryState, options: { replace?: boolea
   activeOverworldId = nextState.overworldId;
   activeOverworldHeaderId = nextState.overworldHeaderId;
   if (nextState.headerRowId !== undefined) activeHeaderRowId = nextState.headerRowId;
+  if (nextState.pwtView !== undefined) activePwtView = nextState.pwtView;
+  if (nextState.subwayView !== undefined) activeSubwayView = nextState.subwayView;
   activeMapZoneId = nextState.mapZoneId;
   activeCutsceneSequenceId = nextState.cutsceneSequenceId;
   activeCutsceneSceneId = nextState.cutsceneSceneId;
@@ -2966,6 +3016,8 @@ function currentHistoryState(): AppHistoryState {
   if (route === "upload") return { route, homeTab: activeHomeTab };
   if (route === "matrixEditor") return { route, matrixHeaderId: activeMatrixHeaderId };
   if (route === "headers") return { route, headerRowId: activeHeaderRowId };
+  if (route === "pwt") return { route, pwtView: activePwtView };
+  if (route === "facilities") return { route, subwayView: activeSubwayView };
   if (route === "overworlds") return { route, overworldId: activeOverworldId, overworldHeaderId: activeOverworldHeaderId };
   if (route === "maps3d") return { route, mapZoneId: activeMapZoneId, mapId: activeMapId, mapMatrixCell: activeMapMatrixCell };
   if (route === "cutscenes") return { route, cutsceneSequenceId: activeCutsceneSequenceId, cutsceneSceneId: activeCutsceneSceneId };
@@ -2995,6 +3047,8 @@ function routeUrl(
   if (nextRoute === "matrixEditor" && activeMatrixHeaderId !== undefined) return `#matrixEditor/header/${activeMatrixHeaderId}`;
   // The URL shows the header ID users see (row - 1).
   if (nextRoute === "headers" && activeHeaderRowId !== undefined) return `#headers/${activeHeaderRowId - 1}`;
+  if (nextRoute === "pwt" && activePwtView) return `#pwt/${activePwtView}`;
+  if (nextRoute === "facilities" && activeSubwayView) return `#facilities/${activeSubwayView}`;
   if (nextRoute === "cutscenes" && cutsceneSceneId) return `#cutscenes/scene/${encodeURIComponent(cutsceneSceneId)}`;
   if (nextRoute === "cutscenes" && cutsceneSequenceId !== undefined) return `#cutscenes/${cutsceneSequenceId}`;
   if (nextRoute === "overworlds" && overworldId !== undefined) return `#overworlds/${overworldId}${overworldHeaderId === undefined ? "" : `/${overworldHeaderId}`}`;
@@ -3025,6 +3079,8 @@ function routeStateFromUrl(): AppHistoryState | undefined {
     cutsceneSceneId: routeName === "cutscenes" && idText === "scene" && extraText && /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(extraText) ? extraText : undefined,
     matrixHeaderId: routeName === "matrixEditor" && idText === "header" && Number.isSafeInteger(formIndex) && formIndex! >= 0 ? formIndex : undefined,
     headerRowId: routeName === "headers" && Number.isSafeInteger(id) && id! >= 0 ? id! + 1 : undefined,
+    pwtView: routeName === "pwt" && idText && /^[a-z0-9-]{1,12}$/u.test(idText) ? idText : undefined,
+    subwayView: routeName === "facilities" && idText && /^[a-z0-9-]{1,12}$/u.test(idText) ? idText : undefined,
     overworldId: routeName === "overworlds" && Number.isSafeInteger(id) ? id : undefined,
     overworldHeaderId: routeName === "overworlds" && Number.isSafeInteger(formIndex) && formIndex! >= 0 ? formIndex : undefined,
     mapZoneId: routeName === "maps3d" && Number.isSafeInteger(id) && id! >= 0 ? id : undefined,
@@ -3077,6 +3133,8 @@ function routeStateFromHistory(value: unknown): AppHistoryState | undefined {
     pokemonSpriteFormIndex: Number.isSafeInteger(maybe.pokemonSpriteFormIndex) ? maybe.pokemonSpriteFormIndex : undefined,
     trainerSpriteClassId: Number.isSafeInteger(maybe.trainerSpriteClassId) ? maybe.trainerSpriteClassId : undefined,
     pwanAnimationSpeciesId: Number.isSafeInteger(maybe.pwanAnimationSpeciesId) ? maybe.pwanAnimationSpeciesId : undefined,
+    pwtView: maybe.route === "pwt" && typeof maybe.pwtView === "string" && /^[a-z0-9-]{1,12}$/u.test(maybe.pwtView) ? maybe.pwtView : undefined,
+    subwayView: maybe.route === "facilities" && typeof maybe.subwayView === "string" && /^[a-z0-9-]{1,12}$/u.test(maybe.subwayView) ? maybe.subwayView : undefined,
   };
 }
 

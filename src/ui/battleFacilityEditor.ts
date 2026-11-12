@@ -50,6 +50,8 @@ type FacilityKind = "set" | "choice" | "regulation" | "areaPool";
 
 type BattleFacilityEditorOptions = {
   group?: BattleFacilityGroup;
+  /** Runs after every render, including the editor's own re-renders (the Battle Subway page adds its back link). */
+  afterRender?: (root: HTMLElement) => void;
 };
 
 type GroupState = {
@@ -65,6 +67,17 @@ const groupStates: Record<BattleFacilityGroup, GroupState> = {
   subwayPwt: { mode: "sets", search: "", selected: {} },
   wbt: { mode: "sets", search: "", selected: {} },
 };
+
+/** Opens the raw editor on one record next time it renders (the Battle Subway page links here for regulations). */
+export function focusFacilityRecord(group: BattleFacilityGroup, mode: "sets" | "choices" | "regulations", id: number, archive?: FacilitySetNarcName | FacilityChoiceNarcName): void {
+  const state = groupStates[group];
+  state.mode = mode;
+  state.search = "";
+  if (mode === "sets" && archive) state.setNarc = archive as FacilitySetNarcName;
+  if (mode === "choices" && archive) state.choiceNarc = archive as FacilityChoiceNarcName;
+  const key = `${mode}:${mode === "sets" ? state.setNarc ?? archive : mode === "choices" ? state.choiceNarc ?? archive : ""}`;
+  state.selected[key] = id;
+}
 
 const REGULATION_LEVEL_RULES: Array<[number, string]> = [[0, "Normal"], [1, "Minimum"], [2, "Maximum"], [3, "Scale down"], [4, "Set level"], [5, "Scale up"]];
 const REGULATION_BATTLE_TYPES: Array<[number, string]> = [[0, "Single"], [1, "Double"], [2, "Triple"], [3, "Rotation"], [4, "Multi"], [5, "Shooter"]];
@@ -214,14 +227,20 @@ export function renderBattleFacilityEditor(project: ProjectState, root: HTMLElem
   const initial = remembered !== undefined && ids.includes(remembered) ? remembered : ids[0];
   if (initial === undefined) detail.innerHTML = `<p class="td-empty">No records in this archive.</p>`;
   else select(initial, true);
+  options.afterRender?.(root);
 }
 
 // ---------- List ----------
 
 function renderArchiveSelect(state: GroupState, setNarcs: FacilitySetNarcName[], choiceNarcs: FacilityChoiceNarcName[]): string {
-  const choose = <T extends string>(names: T[], current: T | undefined, labels: Record<T, string>) => names.length > 1
-    ? `<select data-facility-archive aria-label="Archive">${names.map((name) => `<option value="${name}"${name === current ? " selected" : ""}>${escapeHtml(labels[name])}</option>`).join("")}</select>`
-    : "";
+  // PWT archives are listed raw under their own heading; the World Tournament page is the friendly view.
+  const choose = <T extends string>(names: T[], current: T | undefined, labels: Record<T, string>) => {
+    if (names.length <= 1) return "";
+    const option = (name: T) => `<option value="${name}"${name === current ? " selected" : ""}>${escapeHtml(labels[name])}</option>`;
+    const pwt = names.filter((name) => name.startsWith("pwt_"));
+    const other = names.filter((name) => !name.startsWith("pwt_"));
+    return `<select data-facility-archive aria-label="Archive">${other.map(option).join("")}${pwt.length ? `<optgroup label="World Tournament (raw files)">${pwt.map(option).join("")}</optgroup>` : ""}</select>`;
+  };
   if (state.mode === "sets") return choose(setNarcs, state.setNarc, FACILITY_SET_LABELS);
   if (state.mode === "choices" || state.mode === "bosses") return choose(choiceNarcs, state.choiceNarc, FACILITY_CHOICE_LABELS);
   return "";
@@ -347,7 +366,8 @@ function pokemonIcon(spriteSlug: string, className: string, title = ""): string 
 function renderGuide(group: BattleFacilityGroup): string {
   if (group === "subwayPwt") {
     return `
-      <p><strong>Choices → Sets.</strong> Each trainer choice lists the set IDs it can draw from; a set is one Pokémon build. PWT maps hold tournament and trainer assignments.</p>
+      <p><strong>Choices → Sets.</strong> Each trainer choice lists the set IDs it can draw from; a set is one Pokémon build.</p>
+      <p><strong>World Tournament</strong> files are listed raw here. Edit tournaments and trainer teams on the <a href="#pwt">World Tournament</a> page.</p>
       <p><strong>Regulations</strong> set battle rules such as level, format and party size. They don't pick opponents or teams.</p>
     `;
   }

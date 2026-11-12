@@ -4,10 +4,12 @@ import { NATURES, type NarcName } from "./constants";
 import { findPokemonSpeciesId, pokemonSpeciesLabel, pokemonSpeciesNameOptions } from "./pokemonLabels";
 import { markDirty, type ProjectState } from "./projectStore";
 import { pokemonSpriteSlug } from "./spriteSlug";
+import { cleanDisplayText } from "./text";
+import { getTextBank } from "./textModel";
 
 export type BattleFacilityGroup = "subwayPwt" | "wbt";
 export type FacilitySetNarcName = "subway_sets" | "pwt_sets_0" | "pwt_sets_3" | "pwt_sets_6" | "pwt_sets_7" | "wbt_sets";
-export type FacilityChoiceNarcName = "subway_trainers" | "pwt_map_1" | "pwt_map_2" | "pwt_tr1" | "pwt_tr6" | "wbt_trainers";
+export type FacilityChoiceNarcName = "subway_trainers" | "pwt_regular_leads" | "pwt_regular_rosters" | "pwt_map_1" | "pwt_map_2" | "pwt_tr1" | "pwt_tr6" | "wbt_trainers";
 export type FacilityAreaPoolNarcName = "wbt_area_pools";
 
 export type BattleFacilitySet = {
@@ -98,7 +100,7 @@ export type BattleFacilityAutofills = {
 };
 
 export const SUBWAY_PWT_SET_NARCS: FacilitySetNarcName[] = ["subway_sets", "pwt_sets_0", "pwt_sets_3", "pwt_sets_6", "pwt_sets_7"];
-export const SUBWAY_PWT_CHOICE_NARCS: FacilityChoiceNarcName[] = ["subway_trainers", "pwt_map_1", "pwt_map_2", "pwt_tr1", "pwt_tr6"];
+export const SUBWAY_PWT_CHOICE_NARCS: FacilityChoiceNarcName[] = ["subway_trainers", "pwt_regular_leads", "pwt_regular_rosters", "pwt_map_1", "pwt_map_2", "pwt_tr1", "pwt_tr6"];
 export const WBT_SET_NARCS: FacilitySetNarcName[] = ["wbt_sets"];
 export const WBT_CHOICE_NARCS: FacilityChoiceNarcName[] = ["wbt_trainers"];
 export const FACILITY_SET_NARCS: FacilitySetNarcName[] = [...SUBWAY_PWT_SET_NARCS, ...WBT_SET_NARCS];
@@ -106,19 +108,21 @@ export const FACILITY_CHOICE_NARCS: FacilityChoiceNarcName[] = [...SUBWAY_PWT_CH
 
 export const FACILITY_SET_LABELS: Record<FacilitySetNarcName, string> = {
   subway_sets: "Battle Subway Sets",
-  pwt_sets_0: "PWT Sets 0",
-  pwt_sets_3: "PWT Sets 3",
-  pwt_sets_6: "PWT Sets 6",
-  pwt_sets_7: "PWT Sets 7",
+  pwt_sets_0: "PWT Regular Sets",
+  pwt_sets_3: "PWT Leaders Sets",
+  pwt_sets_6: "PWT Masters Sets",
+  pwt_sets_7: "PWT Rental Pokémon",
   wbt_sets: "Black Tower / White Treehollow Sets",
 };
 
 export const FACILITY_CHOICE_LABELS: Record<FacilityChoiceNarcName, string> = {
   subway_trainers: "Battle Subway Trainers",
-  pwt_map_1: "PWT Map 1",
-  pwt_map_2: "PWT Map 2",
-  pwt_tr1: "PWT 1v1 Choices",
-  pwt_tr6: "PWT 6v6 Choices",
+  pwt_regular_leads: "PWT Regular Lead Pokémon",
+  pwt_regular_rosters: "PWT Regular Rosters",
+  pwt_map_1: "PWT Leaders Lead Pokémon",
+  pwt_map_2: "PWT Leaders Rosters",
+  pwt_tr1: "PWT Masters Lead Pokémon",
+  pwt_tr6: "PWT Masters Rosters",
   wbt_trainers: "Black Tower / White Treehollow Trainers",
 };
 
@@ -360,9 +364,9 @@ export function getFacilityChoiceRecord(project: ProjectState, narc: FacilityCho
   return {
     id,
     narc,
-    label: `${FACILITY_CHOICE_LABELS[narc]} ${id}`,
+    label: isPwtChoiceNarc(narc) ? pwtRecordName(project, id) : `${FACILITY_CHOICE_LABELS[narc]} ${id}`,
     trainerType,
-    trainerTypeName: facilityChoiceUsesTrainerClass(narc) ? trainerTypeName(project, trainerType) : `Header ${trainerType}`,
+    trainerTypeName: facilityChoiceUsesTrainerClass(narc) ? trainerTypeName(project, trainerType) : isPwtChoiceNarc(narc) ? pwtRecordName(project, id) : `Header ${trainerType}`,
     count,
     setIds: declaredSetIds,
     extraValues,
@@ -631,18 +635,38 @@ export function isBossFacilityChoice(choice: BattleFacilityChoiceRecord): boolea
   return choice.narc === "wbt_trainers" && choice.count === 3 && choice.byteLength === 10;
 }
 
+/** The set archive a record's set IDs point into. Each PWT pool's leads and rosters use that pool's sets. */
+const SET_LIBRARY_FOR_CHOICE: Record<FacilityChoiceNarcName, FacilitySetNarcName> = {
+  subway_trainers: "subway_sets",
+  wbt_trainers: "wbt_sets",
+  pwt_regular_leads: "pwt_sets_0",
+  pwt_regular_rosters: "pwt_sets_0",
+  pwt_map_1: "pwt_sets_3",
+  pwt_map_2: "pwt_sets_3",
+  pwt_tr1: "pwt_sets_6",
+  pwt_tr6: "pwt_sets_6",
+};
+
 export function defaultSetLibraryForChoice(project: ProjectState, narc: FacilityChoiceNarcName): FacilitySetNarcName | undefined {
-  const candidates: FacilitySetNarcName[] =
-    narc === "subway_trainers"
-      ? ["subway_sets"]
-      : narc === "wbt_trainers"
-        ? ["wbt_sets"]
-      : narc === "pwt_tr1"
-        ? ["pwt_sets_3", "pwt_sets_0", "pwt_sets_6", "pwt_sets_7"]
-      : narc === "pwt_tr6"
-        ? ["pwt_sets_6", "pwt_sets_3", "pwt_sets_0", "pwt_sets_7"]
-      : ["pwt_sets_0", "pwt_sets_3", "pwt_sets_6", "pwt_sets_7"];
-  return candidates.find((name) => Boolean(project.narcs[name]));
+  const library = SET_LIBRARY_FOR_CHOICE[narc];
+  return project.narcs[library] ? library : undefined;
+}
+
+export function isPwtChoiceNarc(narc: FacilityChoiceNarcName): boolean {
+  return narc.startsWith("pwt_");
+}
+
+/** PWT lead and roster files are read at trainer row + 1; file 0 is a placeholder. */
+function pwtRecordName(project: ProjectState, id: number): string {
+  if (id === 0) return "Placeholder";
+  let name = "";
+  try {
+    const entry = getTextBank(project, "message_texts", 409)[id - 1];
+    name = entry ? cleanDisplayText(entry[1]).trim() : "";
+  } catch {
+    // Names are optional; the row number still identifies the trainer.
+  }
+  return name || `Trainer ${id - 1}`;
 }
 
 function setNarcsForGroup(group?: BattleFacilityGroup): FacilitySetNarcName[] {

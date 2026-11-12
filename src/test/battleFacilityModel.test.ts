@@ -59,32 +59,40 @@ describe("battleFacilityModel", () => {
     expect(project.narcs.subway_sets?.dirty.has(0)).toBe(true);
   });
 
-  it("parses variable-length trainer choice and mapping records", () => {
+  it("parses PWT lead and roster records against their own pool's sets", () => {
     const project = makeProject({
       pwt_sets_3: [packSet({ species: 1, moves: [1, 2, 3, 4], evSpread: 0, nature: 0, item: 0, form: 0 })],
-      pwt_tr1: [packChoice([12, 2, 0, 999])],
-      pwt_tr6: [packChoice([12, 6, 0, 1, 2, 3, 4, 5])],
+      pwt_sets_6: [packSet({ species: 2, moves: [1, 2, 3, 4], evSpread: 0, nature: 0, item: 0, form: 0 })],
+      pwt_map_1: [packChoice([12, 2, 0, 999])],
+      pwt_map_2: [packChoice([12, 6, 0, 1, 2, 3, 4, 5])],
+      pwt_tr6: [packChoice([2, 1, 0])],
     });
 
-    expect(getFacilityChoiceRecord(project, "pwt_tr1", 0)).toMatchObject({
+    // Leaders leads/rosters (a/2/5/1, a/2/5/2) use the Leaders sets (a/2/5/3); Masters (a/2/5/4, a/2/5/5) use a/2/5/6.
+    expect(defaultSetLibraryForChoice(project, "pwt_map_1")).toBe("pwt_sets_3");
+    expect(defaultSetLibraryForChoice(project, "pwt_map_2")).toBe("pwt_sets_3");
+    expect(defaultSetLibraryForChoice(project, "pwt_tr1")).toBe("pwt_sets_6");
+    expect(defaultSetLibraryForChoice(project, "pwt_regular_rosters")).toBeUndefined();
+    expect(defaultSetLibraryForChoice(project, "pwt_tr6")).toBe("pwt_sets_6");
+
+    expect(getFacilityChoiceRecord(project, "pwt_map_1", 0)).toMatchObject({
       trainerType: 12,
-      trainerTypeName: "Header 12",
+      trainerTypeName: "Placeholder",
       count: 2,
       setIds: [0, 999],
       invalidSetIds: [999],
       byteLength: 8,
     });
-    expect(getFacilityChoiceRecord(project, "pwt_tr6", 0)).toMatchObject({
+    expect(getFacilityChoiceRecord(project, "pwt_map_2", 0)).toMatchObject({
       trainerType: 12,
-      trainerTypeName: "Header 12",
       count: 6,
       setIds: [0, 1, 2, 3, 4, 5],
       byteLength: 16,
     });
 
-    updateFacilityChoiceField(project, "pwt_tr1", 0, "set_1", "0");
-    expect(getFacilityChoiceRecord(project, "pwt_tr1", 0).invalidSetIds).toEqual([]);
-    expect(project.narcs.pwt_tr1?.dirty.has(0)).toBe(true);
+    updateFacilityChoiceField(project, "pwt_map_1", 0, "set_1", "0");
+    expect(getFacilityChoiceRecord(project, "pwt_map_1", 0).invalidSetIds).toEqual([]);
+    expect(project.narcs.pwt_map_1?.dirty.has(0)).toBe(true);
   });
 
   it("parses WBT sets, trainer choices, and boss records", () => {

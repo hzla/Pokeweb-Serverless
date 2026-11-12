@@ -220,13 +220,14 @@ export type CodeInjectionState = {
   /** Mega Evolution (runtime/mega-evolution): routes and settings written into the DLL's PWMG table. */
   megaEvolution?: {
     version: number;
-    routes: Array<{ species: number; trigger: number; sourceForm: number; targetForm: number; moveTrigger?: boolean }>;
+    routes: Array<{ species: number; trigger: number; sourceForm: number; targetForm: number; moveTrigger?: boolean; megaClass?: number }>;
     messages: { reacting: number; evolved: number; wish: number };
     animationMove: number;
     revealFrame: number;
     autoFoes: boolean;
     /** The key item the player needs to Mega Evolve (the Mega Ring); 0 or absent: none. */
     ringItem?: number;
+    universalStones?: number;
     /** The Mega content package (megaContentModel): the forms and stones it added. */
     content?: {
       version: number;

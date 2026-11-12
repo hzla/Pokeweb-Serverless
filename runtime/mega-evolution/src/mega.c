@@ -52,6 +52,13 @@ static BOOL KnowsMove(BattleMon *mon, u16 move) {
     return FALSE;
 }
 
+// A universal stone (Megite, Megite X ...) triggers every route of its class, whatever the route's own trigger.
+static BOOL UniversalStoneFits(const PwMegaRoute *route, u16 item) {
+    u16 first = gPwMegaConfig.universalItem;
+
+    return first != 0 && route->megaClass != 0 && item == first + route->megaClass - 1;
+}
+
 static const PwMegaRoute *RouteFor(BattleMon *mon) {
     u32 i;
     u32 count = gPwMegaConfig.count < PW_MEGA_MAX_ROUTES ? gPwMegaConfig.count : PW_MEGA_MAX_ROUTES;
@@ -62,8 +69,9 @@ static const PwMegaRoute *RouteFor(BattleMon *mon) {
         if (route->species != MON_SPECIES(mon) || route->sourceForm != MON_FORM(mon)) {
             continue;
         }
-        if ((route->flags & PW_MEGA_ROUTE_MOVE) ? KnowsMove(mon, route->trigger)
-                                                 : route->trigger == MON_HELD_ITEM(mon)) {
+        if (((route->flags & PW_MEGA_ROUTE_MOVE) ? KnowsMove(mon, route->trigger)
+                                                  : route->trigger == MON_HELD_ITEM(mon)) ||
+            UniversalStoneFits(route, MON_HELD_ITEM(mon))) {
             return route;
         }
     }
@@ -92,7 +100,8 @@ static BOOL ProtectsItem(u16 species, u16 item) {
     for (i = 0; i < count && item != 0; i++) {
         const PwMegaRoute *route = &gPwMegaConfig.routes[i];
 
-        if (route->species == species && !(route->flags & PW_MEGA_ROUTE_MOVE) && route->trigger == item) {
+        if (route->species == species &&
+            ((!(route->flags & PW_MEGA_ROUTE_MOVE) && route->trigger == item) || UniversalStoneFits(route, item))) {
             return TRUE;
         }
     }
@@ -287,7 +296,8 @@ static void MegaEvolve(BtlServerFlow *flow, BattleMon *mon, u8 form, const PwMeg
     u32 args[3];
     u32 state;
 
-    if (route->flags & PW_MEGA_ROUTE_MOVE) {
+    // A move-triggered route the Pokémon takes with a universal stone gets the stone's message.
+    if ((route->flags & PW_MEGA_ROUTE_MOVE) && !UniversalStoneFits(route, MON_HELD_ITEM(mon))) {
         if (gPwMegaConfig.msgWish) {
             args[0] = monId;
             args[1] = MonIDToClientID(monId);

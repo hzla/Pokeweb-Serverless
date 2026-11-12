@@ -172,7 +172,7 @@ typedef struct {
     u8 sourceForm;
     u8 targetForm;
     u8 flags;
-    u8 reserved;
+    u8 megaClass; // the universal stone that also triggers this route: 1 Megite, 2 X, 3 Y, 4 Z, 5 G; 0 none
 } PwMegaRoute;
 
 typedef struct {
@@ -188,7 +188,7 @@ typedef struct {
     u16 revealFrame;   // the frame of the animation at which the Mega sprite replaces the base sprite
     u16 options;       // bit 0: trainers the game controls (opponents, partners) Mega Evolve whenever they can
     u16 ringItem;      // the key item the player needs in the bag to Mega Evolve (the Mega Ring); 0: none needed
-    u16 reserved;
+    u16 universalItem; // the first of the universal stones, in class order (Megite, X, Y, Z, G); 0: none
     PwMegaRoute routes[PW_MEGA_MAX_ROUTES];
 } PwMegaConfig;
 

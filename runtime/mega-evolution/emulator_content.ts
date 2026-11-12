@@ -1,11 +1,12 @@
 // Mega content check on a clean US White 2 / Black 2 / Black / White ROM (desmond, headless).
-// npx vite-node runtime/mega-evolution/emulator_content.ts /path/clean.nds [--move-expansion] [--foe] [--name label]
+// npx vite-node runtime/mega-evolution/emulator_content.ts /path/clean.nds [--move-expansion] [--foe] [--gmax] [--name label]
 //
 // Installs Item Expansion and the Mega content (PWAN runtime, Mega runtime, 71 forms, stones, messages; with
 // --move-expansion also the Move Expansion and Hibiki's animation), then starts a test battle with Charizard holding
 // Charizardite X. The player arms the Mega with START and picks the first move. With --foe the trainer's first
 // Pokémon is a Charizard holding Charizardite Y and the player's Pokémon has no stone (the AI Megas on its own).
-// Reports both sides' BattleMons (form, types, ability) and saves screenshots to build/emulator/<label>/.
+// Reports both sides' BattleMons (form, types, ability) and saves screenshots to build/emulator/<label>/. --gmax also
+// installs the G-Max Megas (e.g. --team "Gengar @ Megite G" --species 94).
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -46,10 +47,11 @@ if (argv.includes("--no-move-expansion")) {
   if (!hasPwanRuntimeDll(project)) await installPwanRuntime(project);
   report = await installCodeInjectionPatch(project, (staged) => stageMegaContent(staged));
 } else {
-  report = await installMegaContent(project, (stage) => installCodeInjectionPatch(project, stage));
+  report = await installMegaContent(project, (stage) => installCodeInjectionPatch(project, stage), { gmax: argv.includes("--gmax") });
 }
 console.log(`content installed in ${Date.now() - started} ms:`, JSON.stringify({ forms: report.forms.length, stones: report.stones, skipped: report.skipped,
-  abilitiesAdded: report.abilitiesAdded, abilityFallbacks: report.abilityFallbacks, typeFallbacks: report.typeFallbacks.length, animation: report.animation }));
+  abilitiesAdded: report.abilitiesAdded, abilityFallbacks: report.abilityFallbacks, typeFallbacks: report.typeFallbacks.length, animation: report.animation,
+  universalStones: report.universalStones, gmax: report.gmax }));
 const charizard = report.forms.filter((form) => form.species === 6);
 console.log("charizard forms:", JSON.stringify(charizard), "routes:", project.codeInjection?.megaEvolution?.routes.length,
   "messages:", JSON.stringify(project.codeInjection?.megaEvolution?.messages), "animation:", project.codeInjection?.megaEvolution?.animationMove);

@@ -1,0 +1,284 @@
+/* Battle Subway page. Shares the World Tournament page's cards, set cards and rules strip (pwtData.css). */
+
+#facility-data.subway-data .subway-slot {
+  margin: 8px 0;
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius);
+  background: var(--ink-1);
+}
+
+#facility-data.subway-data .subway-slot.-boss {
+  border-color: var(--amber);
+}
+
+#facility-data.subway-data .subway-slot-head {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) auto auto 16px;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+#facility-data.subway-data .subway-slot-head.-static {
+  grid-template-columns: 120px minmax(0, 1fr) auto;
+  cursor: default;
+}
+
+#facility-data.subway-data .subway-slot-head:hover:not(.-static) {
+  background: var(--ink-2);
+}
+
+#facility-data.subway-data .subway-slot.-open > .subway-slot-head {
+  border-bottom: 1px solid var(--ink-3);
+}
+
+#facility-data.subway-data .subway-slot-label {
+  display: grid;
+}
+
+#facility-data.subway-data .subway-slot-label small,
+#facility-data.subway-data .subway-slot-meta,
+#facility-data.subway-data .subway-pool-label small,
+#facility-data.subway-data .subway-boss-name small {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+#facility-data.subway-data .subway-strip {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+#facility-data.subway-data .subway-mini canvas {
+  display: block;
+  width: 36px;
+  height: 36px;
+  image-rendering: pixelated;
+}
+
+#facility-data.subway-data .subway-mini.-big canvas {
+  width: 48px;
+  height: 48px;
+}
+
+#facility-data.subway-data .subway-chip {
+  padding: 2px 9px;
+  border: 1px solid var(--ink-3);
+  border-radius: 999px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+#facility-data.subway-data .subway-caret {
+  color: var(--text-muted);
+}
+
+#facility-data.subway-data .subway-slot-body {
+  display: grid;
+  gap: 10px;
+  padding: 10px 12px 12px;
+}
+
+#facility-data.subway-data .subway-pools {
+  display: grid;
+  gap: 6px;
+}
+
+#facility-data.subway-data .subway-pool-row {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px;
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius);
+  background: var(--ink-0);
+  color: inherit;
+  text-decoration: none;
+}
+
+#facility-data.subway-data .subway-pool-row:hover {
+  border-color: var(--field-line-hover);
+  background: var(--ink-2);
+}
+
+#facility-data.subway-data .subway-pool-label {
+  display: grid;
+}
+
+#facility-data.subway-data .subway-icons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  min-width: 0;
+}
+
+#facility-data.subway-data .subway-boss-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+#facility-data.subway-data .subway-boss {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 10px 4px 4px;
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius);
+  color: inherit;
+  text-decoration: none;
+}
+
+#facility-data.subway-data .subway-boss:hover {
+  border-color: var(--field-line-hover);
+  background: var(--ink-2);
+}
+
+#facility-data.subway-data .subway-boss-name {
+  display: grid;
+}
+
+#facility-data.subway-data .subway-appears,
+#facility-data.subway-data .subway-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 4px;
+}
+
+#facility-data.subway-data .subway-person {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px 2px 2px;
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius);
+  color: inherit;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+#facility-data.subway-data .subway-person:hover {
+  border-color: var(--field-line-hover);
+  background: var(--ink-2);
+}
+
+#facility-data.subway-data .subway-person canvas {
+  width: 28px;
+  height: 28px;
+}
+
+#facility-data.subway-data .subway-class {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+
+#facility-data.subway-data .subway-class [contenteditable] {
+  min-width: 80px;
+  padding: 0 4px;
+  border-bottom: 1px dashed var(--field-line);
+}
+
+#facility-data.subway-data .subway-class [data-autocomplete] {
+  position: relative;
+  display: inline-block;
+}
+
+#facility-data.subway-data .subway-class .suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 30;
+  min-width: 240px;
+}
+
+/* Quotes beside the in-game preview, like the main Trainers editor */
+#facility-data.subway-data .subway-quotes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  align-items: start;
+  gap: 24px;
+}
+
+#facility-data.subway-data .subway-quotes .td-line {
+  grid-template-columns: 120px minmax(0, 1fr) 0;
+}
+
+#facility-data.subway-data .subway-quotes .td-line > .tx-edit {
+  min-width: 0;
+}
+
+#facility-data.subway-data .subway-quotes .td-line.is-selected > .md-label {
+  color: var(--text);
+}
+
+#facility-data.subway-data .subway-quote-preview {
+  position: sticky;
+  top: 0;
+  display: grid;
+  gap: 8px;
+  margin-top: 28px;
+  padding: 12px;
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius);
+  background: var(--ink-1);
+}
+
+#facility-data.subway-data .subway-shared-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  margin: 10px 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* Long lists show their first two dozen sets until "Show all". */
+#facility-data.subway-data .subway-sets:not(.-all) > .pwt-set:nth-of-type(n + 25) {
+  display: none;
+}
+
+#facility-data.subway-data .subway-show-all {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+@media (max-width: 1100px) {
+  #facility-data.subway-data .subway-quotes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #facility-data.subway-data .subway-quote-preview {
+    position: static;
+    margin-top: 0;
+  }
+
+  #facility-data.subway-data .subway-slot-head {
+    grid-template-columns: 100px minmax(0, 1fr) 16px;
+  }
+
+  #facility-data.subway-data .subway-slot-head .subway-slot-meta,
+  #facility-data.subway-data .subway-slot-head .subway-chip {
+    display: none;
+  }
+}
+
+/* "‹ Battle Subway" above the raw editor's filters */
+#facility-data .subway-raw-back {
+  display: inline-block;
+  margin-bottom: 8px;
+}

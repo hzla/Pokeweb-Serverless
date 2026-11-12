@@ -2,6 +2,7 @@ import manifest from "../assets/codeinjection/megaEvolutionManifest.json";
 import { recordGenericChange } from "./actionChangelog";
 import { canOpenMapStudio } from "./mapStudioAccess";
 import { canRemoveStagedCodeInjectionDll, detectBlack2UpgradeDlls, detectWhite2UpgradeDlls, listCodeInjectionDlls, removeStagedCodeInjectionDll, stageCodeInjectionDll } from "./pmcModel";
+import { pokemonSpeciesLabel } from "./pokemonLabels";
 import { decodeRecord, type ProjectState } from "./projectStore";
 import { parseRpm } from "./rpm";
 
@@ -13,6 +14,10 @@ import { parseRpm } from "./rpm";
  * once per side per battle: the player arms it on the move screen (START or the touch button), opposing trainers
  * do it automatically. Megas happen before the first move of the turn and the turn order is then recalculated
  * (Generation 7). The form, its ability and stats last until the battle ends, then the party gets its own back.
+ *
+ * Universal stones (Megite, Megite X, Y, Z and G, five consecutive item IDs from `universalStones`) also trigger
+ * every route whose Mega form is named that way: "-Mega", "-Mega-X", "-Mega-Y", "-Mega-Z" or "-Mega-G". The class is
+ * read from the form's name whenever the table is written (so Megas added in the Pokémon editor get it too).
  *
  * Credits: Dararo (original Mega Evolution implementation), Hibiki (Battle UI and transformation animation), both
  * from White2Upgrade.
@@ -27,6 +32,8 @@ export type MegaRoute = {
   sourceForm: number;
   targetForm: number;
   moveTrigger?: boolean;
+  /** The universal stone class of the Mega form (1 Megite ... 5 Megite G; 0 none), kept from the last table write. */
+  megaClass?: number;
 };
 
 export type MegaEvolutionConfig = {
@@ -40,6 +47,8 @@ export type MegaEvolutionConfig = {
   autoFoes: boolean;
   /** The key item the player needs in the bag to Mega Evolve (the Mega Ring); 0 or absent: none needed. */
   ringItem?: number;
+  /** The first of the five universal stones (Megite, Megite X, Y, Z, G); 0 or absent: none. */
+  universalStones?: number;
   /** Set by the Mega content package (megaContentModel). */
   content?: {
     version: number;
@@ -202,7 +211,10 @@ export function writeMegaEvolutionTable(bytes: Uint8Array, config: MegaEvolution
   view.setUint16(14, config.animationMove, true);
   view.setUint16(20, config.revealFrame, true);
   view.setUint16(22, config.autoFoes ? 1 : 0, true);
-  if (header >= 28) view.setUint16(24, config.ringItem ?? 0, true);
+  if (header >= 28) {
+    view.setUint16(24, config.ringItem ?? 0, true);
+    view.setUint16(26, config.universalStones ?? 0, true);
+  }
   for (let index = 0; index < MEGA_ROUTE_CAPACITY; index++) {
     const route = config.routes[index];
     const o = header + index * 8;
@@ -211,9 +223,29 @@ export function writeMegaEvolutionTable(bytes: Uint8Array, config: MegaEvolution
     view.setUint8(o + 4, route?.sourceForm ?? 0);
     view.setUint8(o + 5, route?.targetForm ?? 0);
     view.setUint8(o + 6, route?.moveTrigger ? 1 : 0);
-    view.setUint8(o + 7, 0);
+    view.setUint8(o + 7, config.universalStones ? route?.megaClass ?? 0 : 0);
   }
   return out;
+}
+
+export const UNIVERSAL_STONE_CLASSES = ["", "X", "Y", "Z", "G"] as const;
+
+/** The universal stone class of a Mega form's name: "Charizard-Mega-X" or "Mega Charizard X" → 2; 0 if not a Mega. */
+export function megaClassOf(label: string): number {
+  const match = /-Mega(?:-([XYZG]))?$/iu.exec(label.trim()) ?? /^Mega\s.+?(?:\s([XYZG]))?$/iu.exec(label.trim());
+  return match ? UNIVERSAL_STONE_CLASSES.indexOf((match[1] ?? "").toUpperCase() as (typeof UNIVERSAL_STONE_CLASSES)[number]) + 1 : 0;
+}
+
+/** A route's class from its Mega form's name (the name bank, else the Mega package's name); undefined if unreadable. */
+function routeClass(project: ProjectState, route: MegaRoute): number | undefined {
+  try {
+    const first = Number(decodeRecord(project, "personal", route.species).raw?.form_id ?? 0);
+    const label = first > 0 ? pokemonSpeciesLabel(project, first + route.targetForm - 1) : "";
+    const packaged = project.codeInjection?.megaEvolution?.content?.forms.find((form) => form.species === route.species && form.form === route.targetForm)?.name;
+    return megaClassOf(label) || megaClassOf(packaged ?? "");
+  } catch {
+    return undefined;
+  }
 }
 
 /** Writes the project's routes into the staged DLL; called on install, on edits and before every export. */
@@ -223,6 +255,9 @@ export function materializeMegaEvolutionTable(project: ProjectState): void {
   const path = version && stagedPath(project, version);
   const additions = project.fileSystem?.additions;
   if (!version || !config || !path || !additions) return;
+  if (config.universalStones && project.narcs.personal) {
+    for (const route of config.routes) route.megaClass = routeClass(project, route) ?? route.megaClass;
+  }
   additions[path] = writeMegaEvolutionTable(additions[path], config);
 }
 

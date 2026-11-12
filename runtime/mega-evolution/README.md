@@ -86,9 +86,23 @@ Black 2 / White 2's. Overlay 95 (`BTL_ID_IsArceusPlate`, `BTL_ID_IsGenesectDrive
 
 Patched by Pokeweb on install, on every route edit and before export:
 `magic, version u16, count u16, msgReacting, msgEvolved, msgWish, animationMove, seArm, seDisarm, revealFrame,
-options, ringItem, reserved` (u16 each), then 192 routes of `species u16, trigger u16, sourceForm u8, targetForm u8, flags u8 (1: move
-trigger), reserved u8`. Version 1 (no `ringItem`, routes at +24) is still written for a project whose staged DLL
+options, ringItem, universalItem` (u16 each), then 192 routes of `species u16, trigger u16, sourceForm u8, targetForm u8, flags u8 (1: move
+trigger), megaClass u8`. Version 1 (no `ringItem`, routes at +24) is still written for a project whose staged DLL
 predates version 2, until its Update button stages the new DLL.
+
+## Universal stones (DLL version 3)
+
+`universalItem` is the first of five consecutive item IDs: Megite, Megite X, Megite Y, Megite Z and Megite G. A route
+whose `megaClass` is n (1-5) is also triggered by item `universalItem + n - 1`, whatever its own trigger (a stone or
+Mega Rayquaza's move). Such a stone is protected from Knock Off and Trick like the route's own stone. When a
+move-triggered route is taken with a universal stone, the "reacting" message is shown.
+
+Pokeweb sets the class whenever it writes the table. It reads the class from the name of the route's Mega form:
+- "-Mega" → 1, "-Mega-X" → 2, "-Mega-Y" → 3, "-Mega-Z" → 4 and "-Mega-G" → 5;
+- or the package's "Mega Charizard X" form.
+
+So Megas added in the Pokémon editor work with the Megites when they are named that way. The table stays version 2:
+a version 2 DLL ignores both fields, and `universalItem` 0 turns them off.
 
 ## Build and check
 
@@ -96,7 +110,7 @@ predates version 2, until its Update button stages the new DLL.
     python3 runtime/mega-evolution/build.py --test-routes   # a DLL with built-in test routes, build/ only
     ALETHEIA=... BW1_ROM_B=... BW1_ROM_W=... python3 runtime/mega-evolution/build.py --game B --game W
     npx vite-node runtime/mega-evolution/emulator_battle.ts /path/clean.nds [--giratina] [--touch] [--dll path]
-    npx vite-node runtime/mega-evolution/emulator_content.ts /path/clean.nds [--foe] [--no-animation] [--native] [--no-move-expansion]
+    npx vite-node runtime/mega-evolution/emulator_content.ts /path/clean.nds [--foe] [--no-animation] [--native] [--no-move-expansion] [--gmax] [--team TEXT --species N]
 
 The emulator check installs through the model with two test routes that need no content: Rotom holding Leftovers
 changes into Heat Rotom (types, stats), Giratina holding Leftovers into Origin Forme (ability Pressure → Levitate,
@@ -139,6 +153,21 @@ icons and animation):
 - Mega Rayquaza (Dragon Ascent from Move Expansion, which the install adds first when the ROM doesn't have it;
   skipped if Move Expansion can't be installed).
 - One route per Mega.
+- The universal stones (Megite, Megite X, Y, Z and G; `UNIVERSAL_STONES`), always: five consecutive free item IDs
+  from 740 (the package's range above its own stones), else from 781. They use the generic stone icon. Projects whose
+  Mega Pokémon predate them get them with Update Mega Evolution.
+- With the card's **Include G-Max Megas** checkbox (unchecked by default), 13 G-Max Megas (`GMAX_MEGAS`).
+  - **Source:** White2Upgrade's import of the G-Max artwork, the PWAN library's `GMAX_MEGA_` entries of species
+    1-649.
+  - **Stats:** the base form's stats, types and abilities (White2Upgrade's policy; `addPokemonForm` copies the base
+    record).
+  - **Names and stones:** a species that already has a Mega gets "-Mega-G" and "<its stone> G" with that stone's
+    icon. These are Venusaurite G, Charizardite G (Charizardite X's icon), Blastoisinite G and Gengarite G. The
+    others get "-Mega" and an "-ite" stone with the generic icon: Butterfreeite, Pikachuite, Meowthite,
+    Machampite, Kinglerite, Laprasite, Eeveeite, Snorlaxite and Garbodorite.
+  - **Item IDs:** from the same free slots, after the universal stones.
+  - **Adding them later:** on an installed project, checking the box turns the button into Update Mega Evolution,
+    which adds the missing ones (`stageMegaExtras`).
 
 Verified in desmond (`emulator_content.ts`, White 2 and Black 2): the install adds 70 forms and 70 stones without
 Move Expansion (Mega Rayquaza skipped) and 71 with it; Charizard holding Charizardite X becomes Mega Charizard X
@@ -186,3 +215,10 @@ from before the ring gets it with Update Mega Evolution. The bundled test saves 
 did. Verified in desmond: with the ring, Charizard Mega Evolves on White 2 and Black; with `--ring-item 125` (an
 item the save lacks) the MEGA button is gone and START does nothing (White); `--bag` shows the Mega Ring with its
 icon and description in Key Items (White, Black 2).
+
+Universal stones and G-Max Megas (`emulator_content.ts --gmax --team "<Pokémon> @ <stone>"`):
+- White 2: Megite → Mega Venusaur; Megite X → Mega Charizard X; Megite G → Gengar's G-Max Mega; Butterfreeite → Butterfree's
+  G-Max Mega. The stone's "reacting" message is shown, then the G-Max sprite.
+- Black 2: Megite Z → Mega Garchomp Z.
+- White: Megite X → Mega Charizard X.
+- Black: Megite G → Gengar's G-Max Mega.

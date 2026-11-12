@@ -127,12 +127,12 @@ def main():
     args = parser.parse_args()
     cfg = json.loads((REPO / "runtime/item-expansion/games.json").read_text())
     out_root = HERE / "build"
-    shipped = {"version": 2, "tableTag": "PWMG", "games": {}}
+    shipped = {"version": 3, "tableTag": "PWMG", "games": {}}
     for game in args.game or [*cfg["games"], "B", "W"]:
         if game in ("B", "W"):
-            manifest = build_bw1_game(game, 2, out_root, args.test_routes)
+            manifest = build_bw1_game(game, 3, out_root, args.test_routes)
         else:
-            manifest = build_game(game, cfg["games"][game], 2, out_root, args.test_routes)
+            manifest = build_game(game, cfg["games"][game], 3, out_root, args.test_routes)
         shipped["games"][game] = manifest
         print(f"{game} {manifest['fileName']}: {manifest['size']} bytes, {len(manifest['targets'])} targets, "
               f"table at 0x{manifest['tableOffset']:x}")

@@ -7,7 +7,7 @@ import { loadCodeInjectionNarcs } from "./codeInjectionInstall";
 import { getItemExpansionStatus, isItemExpansionInstalled, itemFamily, stageItemExpansion } from "./itemExpansionModel";
 import { writeItemSprite } from "./itemSpriteModel";
 import { megaFormSuffix, nameMegaForm } from "./megaEditorModel";
-import { getMegaEvolutionStatus, isMegaEvolutionInstalled, materializeMegaEvolutionTable, megaEvolutionVersion, stageMegaEvolution, type MegaRoute } from "./megaEvolutionModel";
+import { UNIVERSAL_STONE_CLASSES, getMegaEvolutionStatus, isMegaEvolutionInstalled, materializeMegaEvolutionTable, megaEvolutionVersion, stageMegaEvolution, type MegaRoute } from "./megaEvolutionModel";
 import { allocateMoveExpansionParticleAssets, detectMoveExpansionPatch } from "./moveExpansionPatch";
 import { addPokemonForm } from "./pokemonFormModel";
 import { addFairyTypeSupport, addMoveExpansion, detectFairyTypePatch } from "./romPatchModel";
@@ -16,7 +16,7 @@ import { installPokemonIconPayload, resolvePokemonIconAddress } from "./pokemonS
 import { decodeRecord, markDirty, type ProjectState } from "./projectStore";
 import { applyPwanCarrierPatch, loadBundledPwanCarrierTemplate } from "./pwanCarrierPatch";
 import { buildPwanOverrideSideFromPwanBytes, findPwanOverrideForSpecies, hasPwanRuntimeDll, installPwanRuntime, resolvePwanSpeciesTarget, upsertPwanOverrideSide } from "./pwanAnimationModel";
-import { importPwanLibraryEntryFromLoadedLibrary, loadPwanLibrary } from "./pwanLibraryModel";
+import { importPwanLibraryEntryFromLoadedLibrary, listLoadedPwanLibraryEntries, loadPwanLibrary } from "./pwanLibraryModel";
 import { NintendoDSRom } from "../nds/rom";
 import { loadActiveRomBytes } from "./persistence";
 import { addTextEntries, commitTextBank, getTextBank } from "./textModel";
@@ -79,6 +79,10 @@ export type MegaContentStatus = {
   animationMissing: boolean;
   /** The Mega Pokémon were installed before the Mega Ring was part of the package (set ringItem to 0 to go without). */
   ringMissing: boolean;
+  /** The Mega Pokémon were installed before the universal stones (Megite, Megite X, Y, Z, G). */
+  universalMissing: boolean;
+  /** G-Max Megas installed (of GMAX_MEGAS). */
+  gmaxForms: number;
   message: string;
 };
 
@@ -94,6 +98,15 @@ export type MegaContentReport = {
   moveExpansion?: "installed" | "present" | "unavailable";
   /** Fairy Type Support was installed with the Mega Pokémon. */
   fairyTypeInstalled?: boolean;
+  /** The universal stones' item IDs (Megite, Megite X, Y, Z, G), when this install added them. */
+  universalStones?: number[];
+  /** G-Max Megas this install added. */
+  gmax?: string[];
+};
+
+export type MegaContentOptions = {
+  /** Also install the G-Max Megas (G-Max artwork as Megas with the base form's stats, types and abilities). */
+  gmax?: boolean;
 };
 
 export function getMegaContentStatus(project: ProjectState): MegaContentStatus {
@@ -101,7 +114,9 @@ export function getMegaContentStatus(project: ProjectState): MegaContentStatus {
   const installed = Boolean(project.codeInjection?.megaEvolution?.content);
   const status: MegaContentStatus = { supported, installed, ready: false, forms: project.codeInjection?.megaEvolution?.content?.forms.length ?? 0,
     animationMissing: installed && !project.codeInjection?.megaEvolution?.animationMove,
-    ringMissing: installed && project.codeInjection?.megaEvolution?.ringItem === undefined, message: "" };
+    ringMissing: installed && project.codeInjection?.megaEvolution?.ringItem === undefined,
+    universalMissing: installed && !project.codeInjection?.megaEvolution?.universalStones,
+    gmaxForms: project.codeInjection?.megaEvolution?.content?.forms.filter((form) => form.key.startsWith("GMAX_MEGA_")).length ?? 0, message: "" };
   if (!supported) return { ...status, message: "Mega Pokémon support US Black, White, Black 2 and White 2." };
   if (installed) return { ...status, message: `${status.forms} Mega forms are installed.` };
   if (!isItemExpansionInstalled(project)) {
@@ -324,6 +339,126 @@ export async function stageCustomMegaStone(project: ProjectState, stone: { name:
   return id;
 }
 
+/**
+ * The universal stones: each lets any Pokémon Mega Evolve into its Mega form of that kind ("-Mega", "-Mega-X" ...;
+ * megaEvolutionModel's route classes). Five consecutive item IDs, in class order.
+ */
+export const UNIVERSAL_STONES = UNIVERSAL_STONE_CLASSES.map((kind) => {
+  const name = kind ? `Megite ${kind}` : "Megite";
+  return { name, description: `A Mega Stone for any Pokémon with\\na Mega${kind ? ` ${kind}` : ""} form: hold it, and it can\\nMega Evolve in battle.` };
+});
+
+/**
+ * G-Max artwork as Megas (White2Upgrade's import, the PWAN library's "GMAX_MEGA_" entries of species 1-649), with the
+ * base form's stats, types and abilities. A species that already has a Mega gets "-Mega-G" and "<its stone> G"; the
+ * others get "-Mega" and a stone of their own.
+ */
+export const GMAX_MEGAS: ReadonlyArray<{ key: string; species: number; stone: string; iconOf?: string }> = [
+  { key: "GMAX_MEGA_VENUSAUR_2", species: 3, stone: "Venusaurite G", iconOf: "Venusaurite" },
+  { key: "GMAX_MEGA_CHARIZARD_3", species: 6, stone: "Charizardite G", iconOf: "Charizardite X" },
+  { key: "GMAX_MEGA_BLASTOISE_2", species: 9, stone: "Blastoisinite G", iconOf: "Blastoisinite" },
+  { key: "GMAX_MEGA_BUTTERFREE_1", species: 12, stone: "Butterfreeite" },
+  { key: "GMAX_MEGA_PIKACHU_17", species: 25, stone: "Pikachuite" },
+  { key: "GMAX_MEGA_MEOWTH_3", species: 52, stone: "Meowthite" },
+  { key: "GMAX_MEGA_MACHAMP_1", species: 68, stone: "Machampite" },
+  { key: "GMAX_MEGA_GENGAR_2", species: 94, stone: "Gengarite G", iconOf: "Gengarite" },
+  { key: "GMAX_MEGA_KINGLER_1", species: 99, stone: "Kinglerite" },
+  { key: "GMAX_MEGA_LAPRAS_1", species: 131, stone: "Laprasite" },
+  { key: "GMAX_MEGA_EEVEE_2", species: 133, stone: "Eeveeite" },
+  { key: "GMAX_MEGA_SNORLAX_1", species: 143, stone: "Snorlaxite" },
+  { key: "GMAX_MEGA_GARBODOR_1", species: 569, stone: "Garbodorite" },
+];
+
+/** Free item slots for the added stones: the rest of the package's range (740-780), then the custom stones' range. */
+const EXTRA_STONE_RANGES: Array<[number, number]> = [[740, 780], [CUSTOM_MEGA_STONE_IDS.first, CUSTOM_MEGA_STONE_IDS.last]];
+
+function freeItemIds(project: ProjectState, count: number, consecutive: boolean, taken: Set<number>): number[] {
+  const names = getTextBank(project, "message_texts", itemFamily(project).textBanks.names);
+  const free = (id: number) => !taken.has(id) && Boolean(names[id] && project.narcs.items!.rawFiles[id]) &&
+    (!names[id][1]?.trim() || names[id][1].trim() === PLACEHOLDER);
+  const out: number[] = [];
+  for (const [first, last] of EXTRA_STONE_RANGES) {
+    for (let id = first; id <= last && out.length < count; id++) {
+      if (!free(id)) { if (consecutive) out.length = 0; continue; }
+      out.push(id);
+    }
+    if (out.length === count) break;
+    if (consecutive) out.length = 0;
+  }
+  if (out.length < count) throw new Error(`No ${consecutive ? `${count} consecutive` : count} free item slots for the Mega Stones (740-1023).`);
+  out.forEach((id) => taken.add(id));
+  return out;
+}
+
+/**
+ * The universal stones (if missing) and, with `gmax`, the G-Max Megas that are missing, with their stones and routes.
+ * On a staged project whose Mega content is installed (stageMegaContent calls it; so does Update Mega Evolution).
+ */
+export async function stageMegaExtras(project: ProjectState, options: MegaContentOptions = {}): Promise<{
+  universalStones?: number[]; gmax: MegaContentReport["forms"]; stones: number;
+}> {
+  const config = project.codeInjection?.megaEvolution;
+  if (!config?.content) throw new Error("Install Mega Evolution first.");
+  if (!project.originalRomBytes) throw new Error("Reload the ROM before installing the Mega content.");
+  const rom = new NintendoDSRom(project.originalRomBytes, { fileData: "view" });
+  loadCodeInjectionNarcs(project, rom, ["personal", "learnsets", "evolutions", "pokemon_sprites", "pokemon_icons", "message_texts", "items"]);
+  const files = await loadContentFiles();
+  const taken = new Set<number>();
+  const result: { universalStones?: number[]; gmax: MegaContentReport["forms"]; stones: number } = { gmax: [], stones: 0 };
+  const stones: MegaContentStone[] = [];
+  let universalStones = config.universalStones;
+  if (!universalStones) {
+    const ids = freeItemIds(project, UNIVERSAL_STONES.length, true, taken);
+    UNIVERSAL_STONES.forEach((stone, index) => stones.push({ id: ids[index], key: `UNIVERSAL_${index}`, name: stone.name, forms: [], description: stone.description }));
+    universalStones = ids[0];
+    result.universalStones = ids;
+  }
+  const routes: MegaRoute[] = [];
+  const formsInstalled: NonNullable<typeof config.content>["forms"] = [];
+  if (options.gmax) {
+    const library = await loadPwanLibrary();
+    const carrier = await loadBundledPwanCarrierTemplate(project.session.baseVersion === "B2" ? "B2" : "W2");
+    const have = new Set(config.content.forms.map((form) => form.key));
+    for (const gmax of GMAX_MEGAS) {
+      if (have.has(gmax.key) || !decodeRecord(project, "personal", gmax.species).raw) continue;
+      const entry = listLoadedPwanLibraryEntries(library).find((candidate) => candidate.key === gmax.key);
+      if (!entry) throw new Error(`The PWAN library has no ${gmax.key}.`);
+      const baseName = entry.name.split("-")[0];
+      const suffix = entry.name.slice(baseName.length + 1); // "Mega" or "Mega-G"
+      const name = `Mega ${baseName}${suffix === "Mega-G" ? " G" : ""}`;
+      // addPokemonForm copies the base form's personal record: the base form's stats, types and abilities.
+      const added = addPokemonForm(project, gmax.species);
+      nameMegaForm(project, added.personalId, suffix);
+      importPwanLibraryEntryFromLoadedLibrary(project, added.personalId, entry.id, library, carrier);
+      const [id] = freeItemIds(project, 1, false, taken);
+      const icon = gmax.iconOf ? MEGA_CONTENT.stones.find((stone) => stone.name === gmax.iconOf)?.icon : undefined;
+      stones.push({ id, key: `${gmax.key}_STONE`, name: gmax.stone, forms: [gmax.key], icon,
+        description: `One of the mysterious Mega Stones.\\nHave ${baseName} hold it, and it\\ncan Mega Evolve in battle.` });
+      routes.push({ species: gmax.species, trigger: id, sourceForm: 0, targetForm: added.formIndex });
+      const credits = { front: entry.credits ?? "—", back: entry.credits ?? "—" };
+      formsInstalled.push({ key: gmax.key, name, species: gmax.species, form: added.formIndex, credits });
+      result.gmax.push({ key: gmax.key, name, species: gmax.species, form: added.formIndex, trigger: `item ${id}`, credits: `front: ${credits.front}; back: ${credits.back}` });
+    }
+  }
+  if (stones.length) installStones(project, project.originalRomBytes, files, stones);
+  result.stones = stones.length - (result.universalStones?.length ?? 0);
+  project.codeInjection!.megaEvolution = {
+    ...config,
+    universalStones,
+    routes: [...config.routes, ...routes],
+    content: { ...config.content, forms: [...config.content.forms, ...formsInstalled], stones: [...config.content.stones, ...stones.map((stone) => stone.id)] },
+  };
+  materializeMegaEvolutionTable(project);
+  if (stones.length) {
+    recordGenericChange(project, "code_injection",
+      [result.universalStones ? `universal stones ${UNIVERSAL_STONES.map((stone) => stone.name).join(", ")} (items ${result.universalStones[0]}-${result.universalStones.at(-1)})` : "",
+        result.gmax.length ? `${result.gmax.length} G-Max Megas (${result.gmax.map((form) => form.name).join(", ")}; the base forms' stats; sprites by Smogon/Sprites Animados Contributors)` : ""]
+        .filter(Boolean).join("; ").replace(/^./u, (first) => `Mega Evolution: ${first}`) + ".",
+      "Mega Evolution", { key: "code-injection:mega-extras" });
+  }
+  return result;
+}
+
 /** Hibiki's animation, with its particles appended to the SPA archive, as a member past the move expansion's 1,000. */
 const BATTLE_EFFECT_FIRST = 0x231; // effect IDs from here read the battle-effect archive (ID - 0x231): a/0/6/6, a/0/6/7 in Black / White
 
@@ -401,7 +536,7 @@ export async function stageMegaRing(project: ProjectState): Promise<void> {
  * Mega form whose species exists. Needs Item Expansion; the PWAN runtime must be installed first
  * (installMegaContent does both).
  */
-export async function stageMegaContent(project: ProjectState): Promise<MegaContentReport> {
+export async function stageMegaContent(project: ProjectState, options: MegaContentOptions = {}): Promise<MegaContentReport> {
   const status = getMegaContentStatus(project);
   if (!status.ready) throw new Error(status.message);
   if (!project.originalRomBytes) throw new Error("Reload the ROM before installing the Mega content.");
@@ -504,6 +639,11 @@ export async function stageMegaContent(project: ProjectState): Promise<MegaConte
     ringItem: MEGA_RING_ITEM,
     content: { version: MEGA_CONTENT_VERSION, forms: formsInstalled, stones: stones.map((stone) => stone.id) },
   };
+  const extras = await stageMegaExtras(project, options);
+  report.universalStones = extras.universalStones;
+  report.gmax = extras.gmax.map((form) => form.name);
+  report.stones += extras.stones;
+  report.forms.push(...extras.gmax);
   materializeMegaEvolutionTable(project);
   recordGenericChange(project, "code_injection",
     `Mega content: ${formsInstalled.length} Mega forms, ${stones.length} Mega Stones, the Mega Ring (item ${MEGA_RING_ITEM}, needed to Mega Evolve)${animationMove ? ", Hibiki's transformation animation" : ""}. ` +
@@ -517,6 +657,7 @@ export async function stageMegaContent(project: ProjectState): Promise<MegaConte
 export async function installMegaContent(
   project: ProjectState,
   install: (stage: (staged: ProjectState) => Promise<MegaContentReport>) => Promise<MegaContentReport>,
+  options: MegaContentOptions = {},
 ): Promise<MegaContentReport> {
   const status = getMegaContentStatus(project);
   if (!status.ready) throw new Error(status.message);
@@ -533,6 +674,6 @@ export async function installMegaContent(
   } else if (moveState !== "patched") {
     moveExpansion = "unavailable";
   }
-  const report = await install((staged) => stageMegaContent(staged));
+  const report = await install((staged) => stageMegaContent(staged, options));
   return { ...report, moveExpansion, fairyTypeInstalled: fairyBefore === "unpatched" && detectFairyTypePatch(project) === "patched" };
 }

@@ -49,48 +49,33 @@ const TRAINER_SPRITE_PALETTE_FILE = 7;
 const TRAINER_SPRITE_CANVAS_WIDTH = 256;
 const TRAINER_SPRITE_CANVAS_HEIGHT = 256;
 const GX_OBJVRAMMODE_CHAR_2D = 0x000000;
-const BW2_PWT_TRAINER_CLASS_FIRST = 112;
-const BW2_PWT_GRAPHIC_FIRST = 94;
-const BW2_PWT_UNIQUE_CLASS_BLOCK_1_LAST = 146;
-const BW2_PWT_UNIQUE_CLASS_BLOCK_2_FIRST = 167;
-const BW2_PWT_UNIQUE_CLASS_BLOCK_2_LAST = 204;
-const BW2_PWT_UNIQUE_GRAPHIC_BLOCK_2_FIRST = 129;
-const BW2_POKESTAR_UNIQUE_CLASS_FIRST = 211;
-const BW2_POKESTAR_UNIQUE_CLASS_LAST = 226;
-const BW2_POKESTAR_UNIQUE_GRAPHIC_FIRST = 169;
-const BW2_SHARED_TRAINER_GRAPHIC_INDEX: Partial<Record<number, number>> = {
-  147: 17, // Pokémon Breeder M: Brent
-  148: 17, // Pokémon Breeder M: Abed
-  149: 18, // Pokémon Breeder F: Abigail
-  150: 18, // Pokémon Breeder F: Bess
-  151: 24, // Pokémon Ranger M: Daneil
-  152: 24, // Pokémon Ranger M: Carlen
-  153: 25, // Pokémon Ranger F: Carleigh
-  154: 25, // Pokémon Ranger F: Danelle
-  155: 87, // Subway Boss: Ingo
-  157: 49, // Ace Trainer M: Frederick
-  158: 49, // Ace Trainer M: Gaius
-  159: 48, // Ace Trainer F: Gail
-  160: 48, // Ace Trainer F: Freira
-  161: 69, // Veteran M: Harmon / Jariel
-  162: 69, // Veteran M: Ellas / Ira
-  163: 70, // Veteran F: Elie / Iria
-  164: 70, // Veteran F: Harmony / Janna
-  165: 92, // Subway Boss: Emmet
-  195: 148, // Colress (PWT graphic)
-  196: 73, // GAME FREAK Nishino (Hiker)
-  197: 97, // Cheren (Gym Leader graphic)
-  227: 185, // Benga
-  234: 187, // Red
-  235: 186, // Colress
-};
-export const TRAINER_SPRITE_FILE_FORMATS = ["NCGR", "NCBR", "NCER", "NANR", "NMCR", "NMAR", "NCEC", "NCLR"] as const;
-const BW2_TRAINER_CLASS_GRAPHIC_INDEX = [
-  0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
-  33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 40, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62,
-  63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 71, 4, 70,
-  74, 75, 69, 42, 41, 91, 40, 92, 93, 94,
+// The game's own class -> sprite table is TRAINER_CLASS_RESOURCES in
+// src/system/tr_tool.c (arm9 .rodata): 236 entries of { u8 sprite; u8 sex;
+// u16 eyeBgm }. This is the vanilla White 2 / Black 2 sprite column, used when
+// the table can't be found in the loaded ROM's code.
+const BW2_TRAINER_CLASS_RESOURCE_COUNT = 236;
+const BW2_TRAINER_CLASS_RESOURCE_SIZE = 4;
+const BW2_VANILLA_TRAINER_CLASS_SPRITES = [
+  0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+  24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 40,
+  47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70,
+  71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 71, 4, 70, 74,
+  75, 69, 42, 41, 91, 40, 92, 93, 51, 73, 35, 36, 69, 70, 49, 48, 94, 95, 96, 97, 98, 99, 100, 101,
+  102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125,
+  126, 127, 128, 17, 17, 18, 18, 24, 24, 25, 25, 87, 87, 49, 49, 48, 48, 69, 69, 70, 70, 92, 92, 129,
+  130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153,
+  154, 155, 156, 148, 73, 97, 155, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173,
+  174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 50, 63, 46, 43, 186, 32, 187, 148,
 ];
+// Sprite and sex bytes of the first 16 table entries; the table opens with
+// the paired M/F classes, which mods leave alone, so this finds it even when
+// later entries were remapped.
+const BW2_TRAINER_CLASS_RESOURCE_SIGNATURE: Array<[number, number]> = [
+  [0, 0], [1, 1], [2, 0], [3, 1], [4, 0], [5, 1], [6, 1], [7, 0],
+  [8, 0], [9, 1], [10, 0], [11, 0], [12, 0], [13, 1], [14, 1], [15, 0],
+];
+const trainerClassSpriteTableCache = new WeakMap<Uint8Array, number[] | null>();
+export const TRAINER_SPRITE_FILE_FORMATS = ["NCGR", "NCBR", "NCER", "NANR", "NMCR", "NMAR", "NCEC", "NCLR"] as const;
 
 export type TrainerSpriteAnimationFrame = {
   index: number;
@@ -896,25 +881,37 @@ function trainerClassSpriteFiles(project: ProjectState, trainerClassId: number):
 
 function trainerClassGraphicIndex(project: ProjectState, trainerClassId: number): number {
   if (project.session.baseRom !== "BW2") return trainerClassId;
-  // BW2's special-class range contains two unique-graphic blocks separated
-  // by Black Tower / White Treehollow bosses that reuse ordinary class art.
-  if (trainerClassId >= BW2_PWT_TRAINER_CLASS_FIRST && trainerClassId <= BW2_PWT_UNIQUE_CLASS_BLOCK_1_LAST) {
-    return BW2_PWT_GRAPHIC_FIRST + trainerClassId - BW2_PWT_TRAINER_CLASS_FIRST;
+  return bw2TrainerClassSprites(project)[trainerClassId] ?? trainerClassId;
+}
+
+function bw2TrainerClassSprites(project: ProjectState): number[] {
+  const fromRom = project.arm9 ? readTrainerClassSpriteTable(project.arm9) : null;
+  return fromRom ?? BW2_VANILLA_TRAINER_CLASS_SPRITES;
+}
+
+/** Finds TRAINER_CLASS_RESOURCES in decompressed arm9 and returns its sprite column. */
+export function readTrainerClassSpriteTable(arm9: Uint8Array): number[] | null {
+  const cached = trainerClassSpriteTableCache.get(arm9);
+  if (cached !== undefined) return cached;
+  let table: number[] | null = null;
+  const tableBytes = BW2_TRAINER_CLASS_RESOURCE_COUNT * BW2_TRAINER_CLASS_RESOURCE_SIZE;
+  const [firstSprite, firstSex] = BW2_TRAINER_CLASS_RESOURCE_SIGNATURE[0];
+  for (let offset = 0; offset + tableBytes <= arm9.length; offset += 2) {
+    if (arm9[offset] !== firstSprite || arm9[offset + 1] !== firstSex) continue;
+    const matches = BW2_TRAINER_CLASS_RESOURCE_SIGNATURE.every(
+      ([sprite, sex], index) => arm9[offset + index * 4] === sprite && arm9[offset + index * 4 + 1] === sex,
+    );
+    if (!matches) continue;
+    table = Array.from({ length: BW2_TRAINER_CLASS_RESOURCE_COUNT }, (_unused, index) => arm9[offset + index * BW2_TRAINER_CLASS_RESOURCE_SIZE]);
+    break;
   }
-  const sharedGraphicIndex = BW2_SHARED_TRAINER_GRAPHIC_INDEX[trainerClassId];
-  if (sharedGraphicIndex !== undefined) return sharedGraphicIndex;
-  if (trainerClassId >= BW2_PWT_UNIQUE_CLASS_BLOCK_2_FIRST && trainerClassId <= BW2_PWT_UNIQUE_CLASS_BLOCK_2_LAST) {
-    return BW2_PWT_UNIQUE_GRAPHIC_BLOCK_2_FIRST + trainerClassId - BW2_PWT_UNIQUE_CLASS_BLOCK_2_FIRST;
-  }
-  if (trainerClassId >= BW2_POKESTAR_UNIQUE_CLASS_FIRST && trainerClassId <= BW2_POKESTAR_UNIQUE_CLASS_LAST) {
-    return BW2_POKESTAR_UNIQUE_GRAPHIC_FIRST + trainerClassId - BW2_POKESTAR_UNIQUE_CLASS_FIRST;
-  }
-  return BW2_TRAINER_CLASS_GRAPHIC_INDEX[trainerClassId] ?? trainerClassId;
+  trainerClassSpriteTableCache.set(arm9, table);
+  return table;
 }
 
 function trainerClassIdsForGraphic(project: ProjectState, graphicIndex: number): number[] {
   if (project.session.baseRom !== "BW2") return [graphicIndex];
-  const classCount = Math.max(project.texts?.banks?.tr_classes?.length ?? 0, BW2_TRAINER_CLASS_GRAPHIC_INDEX.length);
+  const classCount = Math.max(project.texts?.banks?.tr_classes?.length ?? 0, BW2_TRAINER_CLASS_RESOURCE_COUNT);
   return Array.from({ length: classCount }, (_unused, trainerClassId) => trainerClassId).filter(
     (trainerClassId) => trainerClassGraphicIndex(project, trainerClassId) === graphicIndex,
   );

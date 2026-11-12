@@ -572,3 +572,4 @@
 .code-injection-regional-list label span { min-width: 0; overflow-wrap: anywhere; color: #d6d7e2; }
 .code-injection-regional-list label strong { color: #f2f2f2; font-weight: 500; }
 .code-injection-regional-list label em { color: var(--amber); display: block; font-size: 12px; font-style: normal; }
+.code-injection-mega-gmax { display: inline-flex; align-items: center; gap: 6px; color: #d6d7e2; font-size: 13px; margin-right: 8px; }

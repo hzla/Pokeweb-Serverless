@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import manifest from "../assets/codeinjection/megaEvolutionManifest.json";
-import { MEGA_ROUTE_CAPACITY, writeMegaEvolutionTable, type MegaEvolutionConfig } from "../pokeweb/megaEvolutionModel";
+import { MEGA_ROUTE_CAPACITY, megaClassOf, writeMegaEvolutionTable, type MegaEvolutionConfig } from "../pokeweb/megaEvolutionModel";
 import { parseRpm } from "../pokeweb/rpm";
 
 const dll = (game: "W2" | "B2" | "B" | "W") => new Uint8Array(readFileSync(new URL(`../assets/codeinjection/PokewebMega${game}.dll`, import.meta.url)));
@@ -53,6 +53,17 @@ describe("Mega Evolution runtime", () => {
       out.forEach((byte, index) => { if (index < at || index >= at + 28 + MEGA_ROUTE_CAPACITY * 8) expect(byte).toBe(source[index]); });
     });
 
+    it(`${game}: writes the universal stones and each route's class`, () => {
+      const routes = config.routes.map((route, index) => ({ ...route, megaClass: [2, 3, 1][index] }));
+      const at = manifest.games[game].tableOffset;
+      const read = (universalStones?: number) => {
+        const view = new DataView(writeMegaEvolutionTable(dll(game), { ...config, routes, universalStones }).buffer, at, 28 + MEGA_ROUTE_CAPACITY * 8);
+        return [view.getUint16(26, true), ...routes.map((_, index) => view.getUint8(28 + index * 8 + 7))];
+      };
+      expect(read(740)).toEqual([740, 2, 3, 1]);
+      expect(read(undefined)).toEqual([0, 0, 0, 0]); // no universal stones: no classes
+    });
+
     it(`${game}: still writes a version 1 table (a DLL staged before the Mega Ring) with routes at +24`, () => {
       const source = dll(game).slice();
       const at = manifest.games[game].tableOffset;
@@ -67,6 +78,11 @@ describe("Mega Evolution runtime", () => {
     expect(kinds("B")).toEqual(kinds("W"));
     expect(manifest.games.B.targets.map((target) => target.address)).not.toEqual(manifest.games.W.targets.map((target) => target.address));
     expect(manifest.games.B.tableOffset).toBe(manifest.games.W.tableOffset);
+  });
+
+  it("reads a Mega form's universal stone class from its name", () => {
+    expect(["Charizard-Mega-X", "Mega Charizard X", "Venusaur-Mega", "Mega Venusaur", "Venusaur-Mega-G", "Mega Absol Z", "Rayquaza-Mega",
+      "Mega Mewtwo Y", "Rotom-Heat", "Charizard"].map(megaClassOf)).toEqual([2, 2, 1, 1, 5, 4, 1, 3, 0, 0]);
   });
 
   it("refuses more routes than the runtime holds", () => {

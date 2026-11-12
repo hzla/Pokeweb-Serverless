@@ -78,7 +78,7 @@ import { getCascadePersonalMigrationStatus, migrateCascadePersonalData } from ".
 import { detectMoveExpansionPatch } from "../pokeweb/moveExpansionPatch";
 import moveAnimationCredits from "../assets/data/white2upgradeGen6MoveAnimationsCredits.json";
 import { MEGA_CREDITS, canUseMegaEvolutionInstaller, getMegaEvolutionStatus, setMegaEvolutionConfig, stageMegaEvolution, uninstallMegaEvolution, type MegaRoute } from "../pokeweb/megaEvolutionModel";
-import { MEGA_RING_ITEM, getMegaContentStatus, installMegaContent, megaSpriteCredits, stageMegaAnimation, stageMegaRing } from "../pokeweb/megaContentModel";
+import { GMAX_MEGAS, MEGA_RING_ITEM, UNIVERSAL_STONES, getMegaContentStatus, installMegaContent, megaSpriteCredits, stageMegaAnimation, stageMegaExtras, stageMegaRing } from "../pokeweb/megaContentModel";
 import { REGIONAL_FORMS, getRegionalFormsStatus, installRegionalForms, regionalFamilies } from "../pokeweb/regionalFormsModel";
 import { downloadBytes } from "../pokeweb/fileSystemModel";
 import { getIntroSkipStatus, stageIntroSkip, uninstallIntroSkip } from "../pokeweb/introSkipModel";
@@ -171,7 +171,9 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const families = regionalStatus.supported ? regionalFamilies(project) : [];
   const megaConfig = project.codeInjection?.megaEvolution;
   // One button: Item Expansion, the PWAN runtime, the Mega runtime, the Mega Pokémon and their stones and routes.
-  const megaInstallEnabled = megaContentStatus.installed ? megaStatus.updateAvailable || megaContentStatus.animationMissing || megaContentStatus.ringMissing : megaContentStatus.ready;
+  const megaNeedsUpdate = megaStatus.updateAvailable || megaContentStatus.animationMissing || megaContentStatus.ringMissing || megaContentStatus.universalMissing;
+  const gmaxComplete = megaContentStatus.gmaxForms >= GMAX_MEGAS.length;
+  const megaInstallEnabled = megaContentStatus.installed ? megaNeedsUpdate : megaContentStatus.ready;
   const forgettableHmsSupported = forgettableHmsStatus !== "unsupported";
   const infiniteCandyStatus = getInfiniteCandyStatus(project, pendingCandyItemIds.get(project));
   const infiniteCandyItemId = infiniteCandyStatus.itemId ?? getInstalledInfiniteCandyItemId(project) ?? 622;
@@ -861,6 +863,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div><span>Routes</span><strong>${megaStatus.installed ? megaStatus.routes : "—"}</strong></div>
             <div><span>Turn order</span><strong>Generation 7</strong></div>
             <div><span>Mega Pokémon</span><strong>${megaContentStatus.installed ? `${megaContentStatus.forms} installed` : megaContentStatus.ready ? "Ready" : "—"}</strong></div>
+            <div><span>Universal stones</span><strong>${UNIVERSAL_STONES.map((stone) => escapeHtml(stone.name)).join(", ")}</strong></div>
             <div><span>Credits</span><strong>${MEGA_CREDITS.map((credit) => `${escapeHtml(credit.name)} (${escapeHtml(credit.role)})`).join("; ")}</strong></div>
           </div>
           ${megaConfig ? `<details class="code-injection-mega-routes">
@@ -893,8 +896,11 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             </table>
           </details>` : ""}
           <div class="code-injection-actions">
+            <label class="code-injection-mega-gmax" title="G-Max artwork as Megas, with the base form's stats, types and abilities: ${GMAX_MEGAS.length} Pokémon, each with its own stone (Venusaurite G, Butterfreeite ...)">
+              <input type="checkbox" id="mega-gmax" ${gmaxComplete ? "checked disabled" : ""} ${megaContentStatus.supported ? "" : "disabled"}> Include G-Max Megas${megaContentStatus.gmaxForms ? ` (${megaContentStatus.gmaxForms} installed)` : ""}
+            </label>
             <button class="btn -primary" id="install-mega-btn" type="button" ${megaInstallEnabled ? "" : "disabled"}${megaInstallEnabled || !megaContentStatus.message ? "" : ` title="${escapeHtml(megaContentStatus.message)}"`}>
-              ${megaContentStatus.installed ? megaStatus.updateAvailable || megaContentStatus.animationMissing || megaContentStatus.ringMissing ? "Update Mega Evolution" : "Mega Evolution Installed" : "Install Mega Evolution"}
+              ${megaContentStatus.installed ? megaNeedsUpdate ? "Update Mega Evolution" : "Mega Evolution Installed" : "Install Mega Evolution"}
             </button>
             <button class="btn -default" id="add-mega-route-btn" type="button" ${megaConfig ? "" : "disabled"}>Add Route</button>
             <button class="btn -default" id="save-mega-routes-btn" type="button" ${megaConfig ? "" : "disabled"}>Save Routes</button>
@@ -1499,6 +1505,17 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     renderCodeInjectionEditor(project, root, onDirty);
   };
   const megaButton = root.querySelector<HTMLButtonElement>("#install-mega-btn");
+  const gmaxBox = root.querySelector<HTMLInputElement>("#mega-gmax");
+  // On an installed project, checking G-Max Megas makes the button add them.
+  gmaxBox?.addEventListener("change", () => {
+    const contentStatus = getMegaContentStatus(project);
+    if (!megaButton || !contentStatus.installed) return;
+    const status = getMegaEvolutionStatus(project);
+    const needed = status.updateAvailable || contentStatus.animationMissing || contentStatus.ringMissing || contentStatus.universalMissing ||
+      (gmaxBox.checked && contentStatus.gmaxForms < GMAX_MEGAS.length);
+    megaButton.disabled = !needed;
+    megaButton.textContent = needed ? "Update Mega Evolution" : "Mega Evolution Installed";
+  });
   megaButton?.addEventListener("click", async () => {
     const previousText = megaButton.textContent ?? "Install Mega Evolution";
     try {
@@ -1511,6 +1528,12 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           if (getMegaEvolutionStatus(candidate).updateAvailable) changes.push(`${(await stageMegaEvolution(candidate)).dll} updated`);
           if (contentStatus.animationMissing) { await stageMegaAnimation(candidate); changes.push("transformation animation added"); }
           if (contentStatus.ringMissing) { await stageMegaRing(candidate); changes.push(`the Mega Ring added (item ${MEGA_RING_ITEM}; the player needs it to Mega Evolve)`); }
+          const gmax = Boolean(gmaxBox?.checked) && contentStatus.gmaxForms < GMAX_MEGAS.length;
+          if (contentStatus.universalMissing || gmax) {
+            const extras = await stageMegaExtras(candidate, { gmax });
+            if (extras.universalStones) changes.push(`${UNIVERSAL_STONES.map((stone) => stone.name).join(", ")} added (items ${extras.universalStones[0]}-${extras.universalStones.at(-1)})`);
+            if (extras.gmax.length) changes.push(`${extras.gmax.length} G-Max Megas and their stones added`);
+          }
           return changes;
         });
         onDirty();
@@ -1520,13 +1543,15 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         return;
       }
       const itemsWereInstalled = isItemExpansionInstalled(project);
-      const report = await installMegaContent(project, (stage) => install(stage));
+      const report = await installMegaContent(project, (stage) => install(stage), { gmax: Boolean(gmaxBox?.checked) });
       onDirty();
       renderCodeInjectionEditor(project, root, onDirty);
       const skipped = report.skipped;
       const notes = [
         `${report.forms.length} Mega Pokémon, their ${report.stones} Mega Stones, routes and the transformation animation installed.`,
         `The player needs the Mega Ring (Key Items, item ${MEGA_RING_ITEM}) to Mega Evolve; the test-battle saves have it.`,
+        report.universalStones ? `Universal stones: ${UNIVERSAL_STONES.map((stone) => stone.name).join(", ")} (items ${report.universalStones[0]}-${report.universalStones.at(-1)}).` : "",
+        report.gmax?.length ? `G-Max Megas: ${report.gmax.join(", ")}.` : "",
         report.fairyTypeInstalled ? "Fairy Type Support was installed (the Fairy Megas' type)." : "",
         report.moveExpansion === "installed" ? "Move Expansion was installed (Mega Rayquaza's Dragon Ascent)." : report.moveExpansion === "unavailable" ? "Move Expansion couldn't be installed on this ROM, so Mega Rayquaza was skipped." : "",
         itemsWereInstalled ? "" : "Item Expansion was installed: convert existing saves on the Item Expansion card.",

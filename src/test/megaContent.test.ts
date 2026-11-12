@@ -2,7 +2,9 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { unzipSync } from "fflate";
 import { describe, expect, it } from "vitest";
-import { MEGA_CONTENT, MEGA_RING_ITEM, megaSpriteCredits } from "../pokeweb/megaContentModel";
+import { GMAX_MEGAS, MEGA_CONTENT, MEGA_RING_ITEM, UNIVERSAL_STONES, megaSpriteCredits } from "../pokeweb/megaContentModel";
+import { megaClassOf } from "../pokeweb/megaEvolutionModel";
+import type { PwanLibraryManifest } from "../pokeweb/pwanLibraryModel";
 import { detectSaveFormat, retailPocketItems } from "../pokeweb/itemSaveFormat";
 import { rawSaveBytesFromDesmumeDsv } from "../pokeweb/testBattle";
 
@@ -79,5 +81,29 @@ describe("Mega Ring", () => {
   it("uses White2Upgrade's ID, an unused retail slot, and its icon", () => {
     expect(MEGA_RING_ITEM).toBe(124);
     expect(files[MEGA_CONTENT.genericStoneIcon]).toHaveLength(32 * 32 * 4);
+  });
+});
+
+describe("G-Max Megas and universal stones", () => {
+  const library = JSON.parse(readFileSync(new URL("../assets/pwan/library/manifest.json", import.meta.url), "utf8")) as PwanLibraryManifest;
+
+  it("takes the 13 G-Max Megas of species 1-649 from the PWAN library, named -Mega-G where the species has a Mega", () => {
+    const entries = library.entries.filter((entry) => entry.key.startsWith("GMAX_MEGA_") && entry.speciesId <= 649);
+    expect(GMAX_MEGAS.map((gmax) => gmax.key).sort()).toEqual(entries.map((entry) => entry.key).sort());
+    const hasMega = new Set(MEGA_CONTENT.forms.map((form) => form.species));
+    for (const gmax of GMAX_MEGAS) {
+      const entry = entries.find((candidate) => candidate.key === gmax.key)!;
+      expect(entry).toMatchObject({ speciesId: gmax.species, hasFront: true, hasBack: true });
+      expect(entry.icon).toBeTruthy();
+      expect(megaClassOf(entry.name), entry.name).toBe(hasMega.has(gmax.species) ? 5 : 1);
+      expect(gmax.stone.endsWith(" G")).toBe(hasMega.has(gmax.species));
+      expect(gmax.stone.length).toBeLessThanOrEqual(16);
+      if (gmax.iconOf) expect(files[MEGA_CONTENT.stones.find((stone) => stone.name === gmax.iconOf)!.icon!]).toBeTruthy();
+    }
+  });
+
+  it("has a universal stone per class, Megite to Megite G, with descriptions that fit the bag", () => {
+    expect(UNIVERSAL_STONES.map((stone) => stone.name)).toEqual(["Megite", "Megite X", "Megite Y", "Megite Z", "Megite G"]);
+    for (const stone of UNIVERSAL_STONES) for (const line of stone.description.split("\\n")) expect(line.length).toBeLessThanOrEqual(34);
   });
 });
