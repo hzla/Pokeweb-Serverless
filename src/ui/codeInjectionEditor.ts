@@ -93,6 +93,7 @@ import {
 import { loadActiveRomBytes } from "../pokeweb/persistence";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
+import { creditHtml } from "./creditLinks";
 
 const codeInjectionHydrationProjects = new WeakSet<ProjectState>();
 const typeIconSolidPreview = new URL("../assets/codeinjection/type-icons-solid-preview.png", import.meta.url).href;
@@ -342,6 +343,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         </section>
       </aside>
       <main class="code-injection-main">
+        <p class="code-injection-ai-notice">The patches in this section were researched, developed, and/or ported from existing patches with AI assistance. Artistic assets are sourced from real artists and credited. No image generation models were used. For questions on how specific patches were implemented or how one could recreate features from the patches here without AI assistance (software engineering basics and C++ familiarity is recommended), you can ask in the discord linked on the top right.</p>
         <div class="code-injection-tabs" role="tablist" aria-label="Patch categories">
           ${codeInjectionTabs.map(tab => `<button class="code-injection-tab ${activeTab === tab.id ? "-active" : ""}" type="button" role="tab" id="code-injection-tab-${tab.id}" aria-controls="code-injection-panel-${tab.id}" aria-selected="${activeTab === tab.id}" tabindex="${activeTab === tab.id ? 0 : -1}" data-code-injection-tab="${tab.id}">${tab.label}</button>`).join("")}
         </div>
@@ -892,7 +894,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <summary>Mega sprite credits</summary>
             <table class="code-injection-table">
               <thead><tr><th>Mega</th><th>Front</th><th>Back</th></tr></thead>
-              <tbody>${megaSpriteCredits().map((credit) => `<tr><td>${escapeHtml(credit.name)}</td><td>${escapeHtml(credit.front)}</td><td>${escapeHtml(credit.back)}</td></tr>`).join("")}</tbody>
+              <tbody>${megaSpriteCredits().map((credit) => `<tr><td>${escapeHtml(credit.name)}</td><td>${creditHtml(credit.front)}</td><td>${creditHtml(credit.back)}</td></tr>`).join("")}</tbody>
             </table>
           </details>` : ""}
           <div class="code-injection-actions">

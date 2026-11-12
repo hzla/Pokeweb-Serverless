@@ -139,6 +139,18 @@
   padding: 24px;
 }
 
+.code-injection-ai-notice {
+  background: var(--ink-1, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--ink-3);
+  border-left: 3px solid #69d6bd;
+  border-radius: 6px;
+  color: #c9cbd6;
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0 0 16px;
+  padding: 10px 14px;
+}
+
 .code-injection-tabs {
   border-bottom: 1px solid var(--ink-3);
   display: flex;

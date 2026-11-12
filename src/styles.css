@@ -1316,3 +1316,7 @@ pre {
 .dirty-indicator__marker { color: var(--amber); }
 .dirty-indicator:hover { border-bottom-color: var(--amber); color: var(--amber); }
 .dirty-indicator:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+
+/* Credited artists' names linking to their pages (src/ui/creditLinks.ts). */
+.credit-link { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.credit-link:hover { opacity: 0.8; }

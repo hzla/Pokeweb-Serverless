@@ -76,6 +76,7 @@ import {
 } from "../pokeweb/pokemonSpriteModel";
 import { pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
 import { formatBytes, escapeHtml } from "./dom";
+import { creditHtml } from "./creditLinks";
 import { installPwanGifImportPreview, renderPwanGifImportPreview } from "./pwanGifImportPreview";
 
 type PwanAnimationEditorOptions = {
@@ -1446,7 +1447,7 @@ function renderPwanLibraryEntryDetails(entry: PwanLibraryEntry): string {
         <span>Asset ${entry.assetIndex}</span>
         ${entry.icon ? `<span>Icon included</span>` : ""}
       </div>
-      <div><strong>Credits</strong><span>${escapeHtml(entry.credits || "Missing credit")}</span></div>
+      <div><strong>Credits</strong><span>${entry.credits ? creditHtml(entry.credits) : "Missing credit"}</span></div>
       ${pwanLibraryFullSizeText(entry) ? `<div><strong>Full size</strong><span>${escapeHtml(pwanLibraryFullSizeText(entry))}</span></div>` : ""}
       ${entry.notes ? `<div><strong>Notes</strong><span>${escapeHtml(entry.notes)}</span></div>` : ""}
     </div>
