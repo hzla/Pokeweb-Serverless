@@ -180,10 +180,11 @@ canvas {
   left: 16px;
   bottom: 16px;
   z-index: 10;
-  width: min(720px, calc(100vw - var(--pokeweb-opponent-panel-width) - 64px));
+  /* Include the unchanged horizontal padding and borders in the half-width. */
+  width: calc(min(720px, 100vw - var(--pokeweb-opponent-panel-width) - 64px) / 2 - 13px);
   max-height: 34vh;
   margin: 0;
-  overflow: hidden;
+  overflow: auto;
   padding: 10px 12px;
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 8px;
@@ -191,6 +192,7 @@ canvas {
   color: #cbd5e1;
   font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
   pointer-events: auto;
   user-select: text;
 }
@@ -378,7 +380,7 @@ canvas {
   }
 
   #pokeweb-debug-log {
-    width: min(520px, calc(100vw - 32px));
+    width: 247px;
   }
 }
 

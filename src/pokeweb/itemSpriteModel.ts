@@ -93,17 +93,18 @@ function iconMembers(project: ProjectState, table: number, itemId: number): [num
   if (itemId < nativeItemCount(project)) return [readU16(project.arm9, table + itemId * 4), readU16(project.arm9, table + itemId * 4 + 2)];
   return project.codeInjection?.itemExpansion?.icons?.[itemId] ?? expandedIconNone(project);
 }
-function files(project: ProjectState, romBytes: Uint8Array, itemId: number) {
+function files(project: ProjectState, romBytes: Uint8Array, itemId: number, paletteOverride?: number) {
   const a = archive(project, romBytes);
   const native = nativeItemCount(project);
   const limit = project.codeInjection?.itemExpansion ? 1024 : native;
   if (!Number.isInteger(itemId) || itemId < 1 || itemId >= limit) throw Error(limit === native ? "Item ID is outside the native icon table." : "Item ID is outside the expanded item range.");
   const [graphicId, paletteId] = iconMembers(project, a.table, itemId);
-  const graphic = a.narc.files[graphicId], palette = a.narc.files[paletteId];
+  const graphic = a.narc.files[graphicId], palette = a.narc.files[paletteOverride ?? paletteId];
   if (!graphic || !palette) throw Error("Item sprite is missing."); checkFormats(graphic, palette); return { ...a, graphic, palette };
 }
-export function readItemSprite(project: ProjectState, romBytes: Uint8Array, itemId: number): RgbaImageData {
-  const { graphic, palette } = files(project, romBytes, itemId), pixels = new Uint8ClampedArray(SIZE * SIZE * 4);
+/** `paletteOverride` draws the item's graphic with another palette member, e.g. a TM disc in a type's colour. */
+export function readItemSprite(project: ProjectState, romBytes: Uint8Array, itemId: number, paletteOverride?: number): RgbaImageData {
+  const { graphic, palette } = files(project, romBytes, itemId, paletteOverride), pixels = new Uint8ClampedArray(SIZE * SIZE * 4);
   for (let y = 0; y < SIZE; ++y) for (let x = 0; x < SIZE; ++x) {
     const tile = (y >> 3) * 4 + (x >> 3), v = graphic[48 + tile * 32 + (y & 7) * 4 + ((x & 7) >> 1)], i = x & 1 ? v >> 4 : v & 15;
     if (!i) continue; const c = readU16(palette, 40 + i * 2), dst = (y * SIZE + x) * 4;

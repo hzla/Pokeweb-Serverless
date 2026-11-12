@@ -39,6 +39,7 @@ import { parseHeaders } from "./headerModel";
 import { ensureMoveEffectHandlerStore, moveEffectHandlerOverlayId } from "./moveEffectHandlerModel";
 import { detectPmcInstallFromRom } from "./pmcModel";
 import { decodeStandaloneStreamManifest, STANDALONE_STREAM_MANIFEST_PATH } from "./standaloneStreamManifest";
+import { hydrateMastersheetFromRom } from "./mastersheetRomFile";
 import { hydratePwanAnimationsFromRom } from "./pwanAnimationModel";
 import { hydrateW2AnimFromRom } from "./w2animAnimationModel";
 import { hydrateAnimStreamsFromRom } from "./animStreamsModel";
@@ -153,6 +154,8 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
     hydrateMoveEffectsSource(project, rom);
     hydrateFlyDestinationsFromRom(project, rom);
   }
+  // A ROM exported with its mastersheet brings it back.
+  hydrateMastersheetFromRom(project, rom);
 
   const selectedNarcs = new Set<NarcName>(options.selectedNarcs ?? []);
   const shouldExtract = (definition: NarcDefinition) => definition.required || selectedNarcs.size === 0 || selectedNarcs.has(definition.name);

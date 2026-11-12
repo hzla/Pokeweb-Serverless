@@ -13,7 +13,9 @@
  * grows from 0x9c0 to 0x1000 (version word "PWB1" and 1,023 slots; Black / White have no Free Space) and block 31
  * (trade history) shrinks from 0xd54 to 0x6fc, so blocks 26-31 again move by 0x700.
  *
- * Conversion is pure: it never mutates its input, and it validates the whole source before producing output.
+ * Retail -> expanded conversion is internal: the editor's test battles, test warps and quick launch build retail saves
+ * and convert them when the ROM has the expansion. It is pure: it never mutates its input, and it validates the whole
+ * source before producing output. (The expansion has never shipped, so there is no user-facing save converter.)
  */
 
 export const SAVE_FILE_SIZE = 0x80000;
@@ -342,54 +344,6 @@ export function validateExpandedBag(bag: Uint8Array, rules: ItemSaveRules): stri
     lastPocket = pocket;
   }
   return undefined;
-}
-
-/**
- * Expanded save -> retail save (for uninstalling). Fails when the bag holds an item above the retail range (638, or
- * 626 on Black / White), or more distinct items in a pocket than the retail pocket has slots.
- */
-export function convertSaveToRetail(data: Uint8Array, rules: ItemSaveRules): { bytes: Uint8Array; report: ItemSaveConversionReport } {
-  if (data.length !== SAVE_FILE_SIZE) throw new Error("Expected a raw 512 KiB .sav (not an emulator container).");
-  const family = rules.family ?? "BW2";
-  const spec = FAMILIES[family];
-  const format = detectSaveFormat(data, family);
-  if (format !== "expanded") throw new Error("This save does not use the expanded item format.");
-  const recovered = recoverSave(data, LAYOUTS[family].expanded);
-  const gameVersion = checkGame(recovered.payloads, family);
-  const pool = recovered.payloads[BAG_BLOCK];
-  const problem = validateExpandedBag(pool, rules);
-  if (problem) throw new Error(problem);
-  const bag = new Uint8Array(spec.blockSizes[BAG_BLOCK]);
-  const fill = new Map<number, number>(RETAIL_POCKETS.map(([pocket]) => [pocket, 0]));
-  const starts = new Map<number, [number, number]>();
-  let offset = 0;
-  for (const [pocket, slots] of RETAIL_POCKETS) { starts.set(pocket, [offset, slots]); offset += slots * 4; }
-  let items = 0;
-  for (let slot = 0; slot < BAG_POOL_SLOTS; slot++) {
-    const item = u16(pool, 4 + slot * 4), count = u16(pool, 6 + slot * 4);
-    if (!item) break;
-    if (item > spec.nativeLast) throw new Error(`Item ${item} cannot be stored in a retail save.`);
-    const pocket = rules.pocketOf(item)!;
-    const [start, slots] = starts.get(pocket)!;
-    const used = fill.get(pocket)!;
-    if (used >= slots) throw new Error(`Pocket ${pocket} holds more items than its ${slots} retail slots.`);
-    put16(bag, start + used * 4, item);
-    put16(bag, start + used * 4 + 2, count);
-    fill.set(pocket, used + 1);
-    items++;
-  }
-  if (spec.freeSpace) {
-    for (let word = 0; word < RETAIL_FREE_SPACE_WORDS; word++) put32(bag, RETAIL_FREE_SPACE_OFFSET + word * 4, u32(pool, EXPANDED_FREE_SPACE_OFFSET + word * 4));
-    for (let word = RETAIL_FREE_SPACE_WORDS; word < 32; word++) if (u32(pool, EXPANDED_FREE_SPACE_OFFSET + word * 4)) throw new Error("Free Space holds an item above 671.");
-  }
-  const palPad = new Uint8Array(spec.blockSizes[PAL_PAD_BLOCK]);
-  const kept = u32(recovered.payloads[PAL_PAD_BLOCK], 0) === BATTLE_LOG_MAGIC;
-  if (kept) palPad.set(recovered.payloads[PAL_PAD_BLOCK]);
-  const payloads = recovered.payloads.slice();
-  payloads[BAG_BLOCK] = bag;
-  payloads[PAL_PAD_BLOCK] = palPad;
-  const bytes = encodeSave(data, LAYOUTS[family].retail, payloads, recovered.counts, recovered.generation);
-  return { bytes, report: { sourceFormat: format, targetFormat: "retail", generation: recovered.generation, selectedCopy: recovered.copy, recoveredBlocks: recovered.recoveredBlocks, bagItems: items, palPadBattleLogKept: kept, gameVersion } };
 }
 
 /** The retail bag's slots of a pocket (0 items, 1 medicine, 2 TMs/HMs, 3 berries, 4 key items) in a retail save. */

@@ -15,6 +15,7 @@ import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { ensureMoveEffectHandlerStore, moveEffectHandlerOverlayId, moveEffectHandlerTableOffset, moveEffectHandlerTableLayout } from "./moveEffectHandlerModel";
 import { BW2_TUTOR_MOVE_OVERLAY_ID, BW2_TUTOR_MOVE_TABLE_LENGTH, tutorMoveTableOffset } from "./tutorMoveModel";
+import { hydrateMastersheetFromRom } from "./mastersheetRomFile";
 import { hydratePwanAnimationsFromRom } from "./pwanAnimationModel";
 import { hydrateW2AnimFromRom } from "./w2animAnimationModel";
 import { hydrateAnimStreamsFromRom } from "./animStreamsModel";
@@ -317,6 +318,7 @@ async function hydratePersistedProject(project: ProjectState, availableSource?: 
   hydrateItemEffectsSource(project, rom);
   hydrateAbilityEffectsSource(project, rom);
   hydrateMoveEffectsSource(project, rom);
+  hydrateMastersheetFromRom(project, rom);
   if (project.arm9.length === 0) project.arm9 = decompressCode(rom.arm9);
   hydrateNaturePalettes(project, rom);
   hydrateNaturePaletteRuntime(project, rom);

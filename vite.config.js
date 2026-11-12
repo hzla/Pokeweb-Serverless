@@ -36,6 +36,7 @@ export default defineConfig(({ mode }) => {
           main: "index.html",
           hgMoveAnimation: "hg-move-animation.html",
           testBattleEmulator: "test-battle-emulator.html",
+          mastersheet: "mastersheet.html",
         },
       },
     },

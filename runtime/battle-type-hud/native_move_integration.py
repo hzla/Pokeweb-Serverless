@@ -66,7 +66,7 @@ for y in range(96):
 assert counts.get(11,0)>10 and counts.get(12,0)>10,counts
 # Bitmap flush's native queue/allocator metadata must match exactly.
 source=m.read_long(m.read_long(biw+0x64)+20);transfer=m.read_long(m.read_long(biw+0x64)+24)
-allowed=[(pixels,pixels+12288),(ms,ms+20)]
+allowed=[(pixels,pixels+12288),(ms,ms+rpm['bss'])]
 for z in (source,transfer):allowed.extend((z+i*2,z+i*2+2) for i in (219,220))
 ra=bytearray(a.mem_read(0x2000000,0x400000));rb=bytes(b.mem_read(0x2000000,0x400000))
 for lo,hi in allowed:ra[lo-0x2000000:hi-0x2000000]=rb[lo-0x2000000:hi-0x2000000]

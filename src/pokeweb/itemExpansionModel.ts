@@ -6,8 +6,7 @@ import { battleLogSaveGuard, type BattleLogGuardVersion } from "./battleLogSaveG
 import { loadCodeInjectionNarcs } from "./codeInjectionInstall";
 import { getRomFileBytes, setRomFileReplacement } from "./fileSystemModel";
 import {
-  convertSaveToExpanded, convertSaveToRetail, detectSaveFormat, validateExpandedBag, type ItemSaveConversionReport,
-  type ItemSaveRules, type SaveFamily,
+  convertSaveToExpanded, detectSaveFormat, validateExpandedBag, type ItemSaveRules, type SaveFamily,
 } from "./itemSaveFormat";
 import { canRemoveStagedCodeInjectionDll, detectBlack2UpgradeDlls, detectWhite2UpgradeDlls, listCodeInjectionDlls, removeStagedCodeInjectionDll, stageCodeInjectionDll } from "./pmcModel";
 import { markDirty, type ProjectState } from "./projectStore";
@@ -338,12 +337,12 @@ export async function stageItemExpansion(project: ProjectState): Promise<ItemExp
   project.codeInjection.itemExpansion = { version: manifest.version, icons: project.codeInjection.itemExpansion?.icons ?? {} };
   materializeItemExpansionTables(project, rom);
   recordGenericChange(project, "code_injection",
-    `Item expansion v${manifest.version}: item IDs up to 1023 (${addedItemSlots} new placeholder slots), the shared 1,023-slot bag and its save format, Pal Pad / Wi-Fi save blocks isolated. Existing saves must be converted.`,
+    `Item expansion v${manifest.version}: item IDs up to 1023 (${addedItemSlots} new placeholder slots), the shared 1,023-slot bag and its save format, Pal Pad / Wi-Fi save blocks repurposed.`,
     "Item Expansion", { key: "code-injection:item-expansion" });
   return { addedItemSlots, dlls: parts.map(([part]) => game.dlls[part]!.fileName) };
 }
 
-/** Removes the runtime. The padded data stays (it is inert without the runtime); saves must be converted back. */
+/** Removes the runtime. The padded data stays (it is inert without the runtime). */
 export function uninstallItemExpansion(project: ProjectState): void {
   const version = itemExpansionVersion(project);
   if (!version) return;
@@ -352,10 +351,10 @@ export function uninstallItemExpansion(project: ProjectState): void {
   }
   for (const part of stagedPaths(project, version)) removeStagedCodeInjectionDll(project, dllPath(version, part));
   if (project.codeInjection) delete project.codeInjection.itemExpansion;
-  recordGenericChange(project, "code_injection", "Item expansion removed. Convert saves back to the retail format.", "Item Expansion", { key: "code-injection:item-expansion" });
+  recordGenericChange(project, "code_injection", "Item expansion removed.", "Item Expansion", { key: "code-injection:item-expansion" });
 }
 
-/** The conversion rules for this project's ROM: its pockets, from item data (equal to the ARM9 table in retail). */
+/** The save rules for this project's ROM (used to build test-battle saves): its pockets, from item data (equal to the ARM9 table in retail). */
 export function itemSaveRules(project: ProjectState): ItemSaveRules {
   const store = project.narcs.items;
   if (!store) throw new Error("Item data is not loaded.");
@@ -375,16 +374,6 @@ export function itemSaveRules(project: ProjectState): ItemSaveRules {
 /** Checks an expanded bag block (the pool) the way the game does at boot; undefined when it is valid. */
 export function validateBagForProject(project: ProjectState, bag: Uint8Array): string | undefined {
   return validateExpandedBag(bag, itemSaveRules(project));
-}
-
-export type SaveConversion = { bytes: Uint8Array; report: ItemSaveConversionReport };
-
-export function convertSaveForItemExpansion(project: ProjectState, save: Uint8Array): SaveConversion {
-  return convertSaveToExpanded(save, itemSaveRules(project));
-}
-
-export function convertSaveFromItemExpansion(project: ProjectState, save: Uint8Array): SaveConversion {
-  return convertSaveToRetail(save, itemSaveRules(project));
 }
 
 /** For tools that build retail-layout saves (test battles, warps, quick launch): convert when the ROM needs it. */

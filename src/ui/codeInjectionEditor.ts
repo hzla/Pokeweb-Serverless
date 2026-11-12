@@ -72,7 +72,7 @@ import { getLevelCapsStatus, installLevelCaps } from "../pokeweb/levelCapsModel"
 import { getTrainerLevelCapsStatus, installTrainerLevelCaps } from "../pokeweb/trainerLevelCapsModel";
 import { getForgettableHmsPmcStatus, stageForgettableHmsPmc } from "../pokeweb/forgettableHmsRuntime";
 import { getAutorunStatus, stageAutorun, uninstallAutorun } from "../pokeweb/autorunModel";
-import { convertSaveForItemExpansion, convertSaveFromItemExpansion, getItemExpansionStatus, isItemExpansionInstalled, stageItemExpansion, uninstallItemExpansion } from "../pokeweb/itemExpansionModel";
+import { getItemExpansionStatus, isItemExpansionInstalled, stageItemExpansion, uninstallItemExpansion } from "../pokeweb/itemExpansionModel";
 import { addFairyTypeSupport, addMoveExpansion, detectFairyTypePatch, detectForgettableHmPatch, detectSpecifyTrainerNaturesPatch, makeHmsForgettable, specifyTrainerNatures, type RomPatchApplyResult } from "../pokeweb/romPatchModel";
 import { getCascadePersonalMigrationStatus, migrateCascadePersonalData } from "../pokeweb/cascadeWhitePersonalModel";
 import { detectMoveExpansionPatch } from "../pokeweb/moveExpansionPatch";
@@ -80,7 +80,6 @@ import moveAnimationCredits from "../assets/data/white2upgradeGen6MoveAnimations
 import { MEGA_CREDITS, canUseMegaEvolutionInstaller, getMegaEvolutionStatus, setMegaEvolutionConfig, stageMegaEvolution, uninstallMegaEvolution, type MegaRoute } from "../pokeweb/megaEvolutionModel";
 import { GMAX_MEGAS, MEGA_RING_ITEM, UNIVERSAL_STONES, getMegaContentStatus, installMegaContent, megaSpriteCredits, stageMegaAnimation, stageMegaExtras, stageMegaRing } from "../pokeweb/megaContentModel";
 import { REGIONAL_FORMS, getRegionalFormsStatus, installRegionalForms, regionalFamilies } from "../pokeweb/regionalFormsModel";
-import { downloadBytes } from "../pokeweb/fileSystemModel";
 import { getIntroSkipStatus, stageIntroSkip, uninstallIntroSkip } from "../pokeweb/introSkipModel";
 import { TESTING_PATCHES, getTestingPatchStatus, installTestingPatch, uninstallTestingPatch, type TestingPatchId } from "../pokeweb/testingPatchesModel";
 import { getBattleTypeHudStatus, installBattleTypeHud, uninstallBattleTypeHud, getMoveEffectivenessStatus, installMoveEffectiveness, uninstallMoveEffectiveness, DEFAULT_MOVE_HIGHLIGHT_COLORS, type MoveHighlightColors, type TypeIconVariant } from "../pokeweb/battleTypeHudModel";
@@ -466,7 +465,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-panel__header">
             <div>
               <h2>Item Expansion</h2>
-              <p>Item IDs up to 1023 and pokebw2's shared bag: one pool of 1,023 distinct items instead of fixed pockets. Items ${project.session.baseRom === "BW" ? "627" : "639"}–1023 exist once they are named in the item editor. Uses a new save format: convert existing saves below. ${project.session.baseRom === "BW" ? "Pal Pad, Wi-Fi friend and trade history" : "Pal Pad, Wi-Fi friend and Unity Tower"} data stop being saved.</p>
+              <p>Expands item IDs to 1023. Repurposes the ${project.session.baseRom === "BW" ? "Pal Pad, Wi-Fi friend and trade history" : "Pal Pad, Wi-Fi friend and Unity Tower"} data in the save file.</p>
             </div>
             ${renderInlineStatus(!itemExpansionStatus.supported ? "Unsupported" : itemExpansionStatus.installed ? itemExpansionStatus.updateAvailable ? "Update Available" : "Installed" : itemExpansionStatus.compatible ? "Ready" : "Incompatible", { className: "code-injection-status" })}
           </div>
@@ -480,10 +479,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <button class="btn -primary" id="install-item-expansion-btn" type="button" ${itemExpansionStatus.compatible && (!itemExpansionStatus.installed || itemExpansionStatus.updateAvailable) ? "" : "disabled"}${itemExpansionStatus.compatible || !itemExpansionStatus.message ? "" : ` title="${escapeHtml(itemExpansionStatus.message)}"`}>
               ${itemExpansionStatus.installed ? itemExpansionStatus.updateAvailable ? "Update Item Expansion" : "Item Expansion Installed" : "Install Item Expansion"}
             </button>
-            <button class="btn -default" id="convert-item-save-btn" type="button" ${itemExpansionStatus.installed ? "" : "disabled"}>Convert Save to Expanded…</button>
-            <button class="btn -default" id="revert-item-save-btn" type="button" ${itemExpansionStatus.installed ? "" : "disabled"}>Convert Save to Retail…</button>
             <button class="btn -default -remove" id="uninstall-item-expansion-btn" type="button" ${itemExpansionStatus.canUninstall ? "" : "disabled"}>Uninstall Item Expansion</button>
-            <input id="item-expansion-save-input" type="file" accept=".sav" hidden />
             <div class="code-injection-note" id="item-expansion-note" aria-live="polite"></div>
           </div>
         </section>
@@ -1446,32 +1442,10 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       onDirty();
       renderCodeInjectionEditor(project, root, onDirty);
       const refreshedNote = root.querySelector<HTMLDivElement>("#item-expansion-note");
-      if (refreshedNote) refreshedNote.textContent = `Item expansion staged (${result.addedItemSlots} new item slots). Export the ROM, and convert existing saves before using them with it.`;
+      if (refreshedNote) refreshedNote.textContent = `Item expansion staged (${result.addedItemSlots} new item slots). Export the ROM to apply it.`;
     } catch (error) {
       itemExpansionButton.disabled = false;
       itemExpansionButton.textContent = previousText;
-      if (note) note.textContent = error instanceof Error ? error.message : String(error);
-    }
-  });
-  const itemSaveInput = root.querySelector<HTMLInputElement>("#item-expansion-save-input");
-  let itemSaveDirection: "expanded" | "retail" = "expanded";
-  for (const [id, direction] of [["#convert-item-save-btn", "expanded"], ["#revert-item-save-btn", "retail"]] as const) {
-    root.querySelector<HTMLButtonElement>(id)?.addEventListener("click", () => {
-      itemSaveDirection = direction;
-      if (itemSaveInput) { itemSaveInput.value = ""; itemSaveInput.click(); }
-    });
-  }
-  itemSaveInput?.addEventListener("change", async () => {
-    const note = root.querySelector<HTMLDivElement>("#item-expansion-note");
-    const file = itemSaveInput.files?.[0];
-    if (!file) return;
-    try {
-      const source = new Uint8Array(await file.arrayBuffer());
-      const { bytes, report } = itemSaveDirection === "expanded" ? convertSaveForItemExpansion(project, source) : convertSaveFromItemExpansion(project, source);
-      const name = file.name.replace(/\.sav$/iu, "") + (itemSaveDirection === "expanded" ? "-expanded-items.sav" : "-retail.sav");
-      downloadBytes(bytes, name);
-      if (note) note.textContent = `Converted ${file.name} (${report.bagItems} bag items${report.palPadBattleLogKept ? ", Battle Log records kept" : ""}) to ${name}. The original file is unchanged.`;
-    } catch (error) {
       if (note) note.textContent = error instanceof Error ? error.message : String(error);
     }
   });
@@ -1556,7 +1530,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         report.gmax?.length ? `G-Max Megas: ${report.gmax.join(", ")}.` : "",
         report.fairyTypeInstalled ? "Fairy Type Support was installed (the Fairy Megas' type)." : "",
         report.moveExpansion === "installed" ? "Move Expansion was installed (Mega Rayquaza's Dragon Ascent)." : report.moveExpansion === "unavailable" ? "Move Expansion couldn't be installed on this ROM, so Mega Rayquaza was skipped." : "",
-        itemsWereInstalled ? "" : "Item Expansion was installed: convert existing saves on the Item Expansion card.",
+        itemsWereInstalled ? "" : "Item Expansion was installed too.",
         report.abilitiesAdded.length ? `Abilities added: ${report.abilitiesAdded.join(", ")}.` : "",
         skipped.length ? `Skipped: ${skipped.map((skip) => `${skip.name} (${skip.reason})`).join("; ")}.` : "",
         report.abilityFallbacks.length ? `Kept the base ability: ${report.abilityFallbacks.join("; ")}.` : "",

@@ -67,9 +67,9 @@
     },
     "move-effectiveness": {
       "dsChecks": [
-        "Independent installation and custom-color export/reopen",
-        "12 custom-color sessions and 12 enemy/ally/spread target sessions",
-        "Native live type changes; compiled mechanics readers and neutral fallbacks"
+        "Live doubles and triples place the white move name and stock border at touch-screen (1, 172)",
+        "ExtremeSpeed retains every pixel of the retail 72-by-13 glyphs; Back and confirmation unmap BG6 and release the palette",
+        "Back restores the stock footer tiles; compiled checks cover occupied footer fallback, teardown, and retail mechanics"
       ],
       "games": {
         "B": {
@@ -77,9 +77,9 @@
           "revision": 0,
           "dsAccepted": true,
           "liveDsiAccepted": false,
-          "nativeProfileSha256": "5680a6e0ba521a8da255e111276af2bb42c62d403527d8218f6fa157e57be0b3",
+          "nativeProfileSha256": "18ed2dbfadeecf8ee18208405c9e1eed5b34c8adb8f2b16c5e57a22134833ed7",
           "artifacts": {
-            "MoveEffectivenessB.dll": "f3d3d00679078d8846905da9ff30e2a43d88f2db7fe025c37878dfad31d3765c"
+            "MoveEffectivenessB.dll": "4e4c8ef6905793cb76aabcb233d3ccb12dd365683e1a4d9bf4ae0ad59a0d070a"
           }
         },
         "W": {
@@ -87,12 +87,13 @@
           "revision": 0,
           "dsAccepted": true,
           "liveDsiAccepted": false,
-          "nativeProfileSha256": "dae8c5d6bb045c8d21b632d6dc37d876b50ac2462f16b8106e754f7fe48605d4",
+          "nativeProfileSha256": "a764d39f053c35dadc5b7131d99906533b6798958326bb734c112a98dcdf0002",
           "artifacts": {
-            "MoveEffectivenessW.dll": "f021d83f005b920190446d04bf97cb6cbfb5a5a9b4af5b2cb8a0fe5449a83a5f"
+            "MoveEffectivenessW.dll": "30deca0f3084be8cf3315cfebfe29f38d899460617200017f8934cad4ef995ed"
           }
         }
-      }
+      },
+      "acceptedOn": "2026-11-12"
     },
     "learnset-viewer": {
       "dsChecks": [

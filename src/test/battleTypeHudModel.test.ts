@@ -255,7 +255,7 @@ describe("Battle HUD bundled installer", () => {
     expect(customized.length).toBe(original.length);
     const rpm = parseRpm(customized, { allowedMagics: ["DLXF"] });
     const base = parseRpm(original, { allowedMagics: ["DLXF"] });
-    const offset = manifest.moveGames[v].builds["0.4.1"].colorOffset;
+    const offset = manifest.moveGames[v].builds["0.4.7"].colorOffset;
     const changed = [...rpm.code.keys()].filter(i => rpm.code[i] !== base.code[i]);
     expect(changed.length).toBeGreaterThan(0);
     expect(changed.every(i => i >= offset && i < offset + 6)).toBe(true);
@@ -285,7 +285,7 @@ describe("Battle HUD bundled installer", () => {
     const original = new Uint8Array(readFileSync(new URL("../assets/codeinjection/MoveEffectivenessW2.dll", import.meta.url)));
     const rpm = parseRpm(original, { allowedMagics: ["DLXF"] });
     if (mutation === "code") rpm.code[0] ^= 1;
-    else if (mutation === "color high bit") rpm.code[manifest.moveGames.W2.builds["0.4.1"].colorOffset + 1] |= 0x80;
+    else if (mutation === "color high bit") rpm.code[manifest.moveGames.W2.builds["0.4.7"].colorOffset + 1] |= 0x80;
     else rpm.bssSize = 0;
     stageCodeInjectionDll(p, "CustomPreview.dll", writeRpm(rpm, { ident: "DLXF" }));
     expect(getMoveEffectivenessStatus(p).compatible).toBe(false);

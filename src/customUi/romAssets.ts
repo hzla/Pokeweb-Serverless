@@ -10,6 +10,7 @@ import { findPwanOverrideForSpecies } from "../pokeweb/pwanAnimationModel";
 import { pwanFrameRgbaImage } from "../pokeweb/pwanCompiler";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { typeNamesForProject } from "../pokeweb/constants";
+import { typeIconPalettes } from "../pokeweb/typeIconPalettes";
 import { NativeFont, decodePng, type Assets, type Image } from "./assets";
 import type { Project } from "./document";
 import { learnsetTemplate } from "./learnsetTemplate";
@@ -93,12 +94,12 @@ export function romAssets(project: ProjectState, rom: NintendoDSRom, design: Pro
       if (key.startsWith("rom:summary:")) return summaryArtwork(summary ?? narc("a/0/7/7"), key.slice(4), rom.idCode.startsWith("IRE"));
       if (key.startsWith("import:")) { const id = key.slice(7), asset = design.document.assets.find(a => a.id === id) ?? native?.document.assets.find(a => a.id === id), file = asset && (design.files[asset.path] ?? native?.files[asset.path]); return file ? decodePng(file) : undefined; }
       if (key.startsWith("type:")) {
-        const type = Number(key.slice(5)), table = [0, 0, 1, 1, 0, 0, 2, 1, 0, 0, 1, 2, 0, 1, 1, 2, 0, 0];
+        const type = Number(key.slice(5)), table = typeIconPalettes(project.arm9);
         if (type >= 0 && type < table.length) return effect(types[34 + type], types[33], types[60], types[63], table[type], 0, false);
       }
       if (key.startsWith("type-name:")) {
         const names = typeNamesForProject(project), type = names.findIndex(n => n.toLowerCase() === key.slice(10).toLowerCase());
-        const table = [0, 0, 1, 1, 0, 0, 2, 1, 0, 0, 1, 2, 0, 1, 1, 2, 0, 0];
+        const table = typeIconPalettes(project.arm9);
         if (type >= 0 && type < table.length) return effect(types[34 + type], types[33], types[60], types[63], table[type], 0, false);
       }
     }); },

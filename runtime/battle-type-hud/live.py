@@ -27,7 +27,8 @@ def report(emu,game,rom_path=None,module="TypeIcons"):
     if 0x02200000<=base<0x02400000:
         state=base+len(rpm['code']) # each standalone module has exactly one BSS object
         if module=='MoveEffectiveness':
-            out.update(module_code_base=hex(base),state_address=hex(state),failure=emu.memory.read_byte(state+19),input=hex(emu.memory.read_long(state)))
+            failure_offset=16 if rpm['metadata'].get('PMCVersion') in ('0.4.4','0.4.5','0.4.6','0.4.7') else 18 if rpm['bss']==24 else 19
+            out.update(module_code_base=hex(base),state_address=hex(state),failure=emu.memory.read_byte(state+failure_offset),input=hex(emu.memory.read_long(state)))
             return out
         out.update(module_code_base=hex(base),state_address=hex(state),failure=emu.memory.read_byte(state+360),
                    redraws=emu.memory.read_short(state+362),bindings=emu.memory.read_byte(state+361))

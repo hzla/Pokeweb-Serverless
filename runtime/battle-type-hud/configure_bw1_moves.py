@@ -15,6 +15,13 @@ BINDINGS = {name: ICON_BINDINGS[name] for name in
 BINDINGS.update({
     'MoveDraw': (94, 0x02204cc1, 0x760),
     'MoveClear': (94, 0x022056b5, 0xe0),
+    'MoveDestroyInput': (94, 0x022023d1, 36),
+    'MoveDestroy': (94, 0x02205f65, 40),
+    'MoveWindowCreate': (0, 0x020450f0, 76),
+    'MoveWindowMap': (0, 0x02045374, 56),
+    'MoveWindowUnmap': (0, 0x020456f8, 48),
+    'MoveWindowDelete': (0, 0x020452e8, 76),
+    'MoveBgCommit': (0, 0x020409b4, 32),
     'MoveKey': (94, 0x02206141, 0x420),
     'CreateScreen': (94, 0x0220270d, 0x48),
     'GetMainModule': (94, 0x021f8755, 16),
@@ -58,6 +65,10 @@ def main():
         assert clear in thumb_calls(base, data, functions['MoveClear'])
         hooks.append({'kind': 'THUMB_BRANCH_LINK', 'name': 'MoveClear', 'address': clear,
                       'bytes': data[clear - base:clear - base + 4].hex()})
+        destroy = (functions['MoveDestroyInput'] & ~1) + 4
+        assert destroy in thumb_calls(base, data, functions['MoveDestroy'])
+        hooks.append({'kind': 'THUMB_BRANCH_LINK', 'name': 'MoveDestroy', 'address': destroy,
+                      'bytes': data[destroy - base:destroy - base + 4].hex()})
         old_path = HERE / f'profile-MoveEffectiveness-{game}.json'
         old = json.loads(old_path.read_text()) if old_path.exists() else {}
         profile = {'game': game, 'rom_code': code.decode(), 'revision': 0, 'dsAccepted': False,
@@ -87,13 +98,14 @@ def main():
                   for key, value in profile['layout'].items() if isinstance(value, int)]
         (HERE / 'build' / f'addresses-MoveEffectiveness-{game}.h').write_text('\n'.join(lines) + '\n')
         signatures = {'MoveDraw': 'void* b, const unsigned short* p', 'MoveClear': 'void* b, unsigned t',
+                      'MoveDestroy': 'void* b',
                       'MoveKey': 'void* b, void* tp, const signed char* k, const void* m, int h, unsigned f'}
-        arguments = {'MoveDraw': 'b,p', 'MoveClear': 'b,t', 'MoveKey': 'b,tp,k,m,h,f'}
+        arguments = {'MoveDraw': 'b,p', 'MoveClear': 'b,t', 'MoveDestroy': 'b', 'MoveKey': 'b,tp,k,m,h,f'}
         wrappers = [f'extern "C" {"int" if h["name"] == "MoveKey" else "void"} '
                     f'{h["kind"]}_94_0x{h["address"]:X}({signatures[h["name"]]}) '
                     f'{{ return Hud{h["name"]}({arguments[h["name"]]}); }}' for h in hooks]
         (HERE / 'build' / f'hooks-MoveEffectiveness-{game}.h').write_text('\n'.join(wrappers) + '\n')
-        print(game, len(functions), 'native bindings and five independent move hooks pinned; port pending')
+        print(game, len(functions), 'native bindings and', len(hooks), 'move hooks pinned')
 
 
 if __name__ == '__main__':

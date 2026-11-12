@@ -11,12 +11,16 @@ def run(*args): subprocess.run([str(a) for a in args],check=True)
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--bw1',action='store_true',help='Build BW1 Type Icons; bundling checks the DS acceptance ledger.')
+    parser.add_argument('--moves',action='store_true',help='Build only BW2 Move Effectiveness.')
     parser.add_argument('--bw1-moves',action='store_true',help='Build BW1 Move Effectiveness; bundling checks the DS acceptance ledger.')
     parser.add_argument('--bw1-moves-trace',action='store_true',help='Build private target-selection diagnostic DLLs; never bundle.')
+    parser.add_argument('--moves-tune',action='store_true',help='Build a separate White 2 ROM patch for positioning the doubles move label.')
     parser.add_argument('--redux',action='store_true',help='Build and bundle the checked White 2 Redux graphics profile.')
     parser.add_argument('--redux-rom',type=Path,help='Prepare the Redux profile from a local US White 2 ROM, then build it.')
     options=parser.parse_args()
     redux=options.redux or options.redux_rom is not None
+    if options.moves_tune and (redux or options.moves or options.bw1 or options.bw1_moves or options.bw1_moves_trace):
+        parser.error('--moves-tune builds a separate module')
     if redux:
         assert not (options.bw1 or options.bw1_moves or options.bw1_moves_trace), 'Redux targets White 2 only.'
         from redux_profile import prepare, bundle
@@ -29,8 +33,13 @@ def main():
         ('TypeIcons','battle_type_hud.cpp',364,17,None,'0.3.18'),
         ('TypeIconsCircular','battle_type_hud.cpp',364,17,'ICON_VARIANT_CIRCULAR','0.3.18-circular'),
         ('TypeIconsSolid','battle_type_hud.cpp',364,17,'ICON_VARIANT_SOLID','0.3.24-solid'),
-        ('MoveEffectiveness','move_effectiveness.cpp',20,5,None,'0.4.1'),
+        ('MoveEffectiveness','move_effectiveness.cpp',24,6,None,'0.4.7'),
     )
+    if options.moves:
+        assert not (options.bw1 or options.bw1_moves or options.bw1_moves_trace or redux)
+        modules=tuple(m for m in modules if m[0]=='MoveEffectiveness')
+    if options.moves_tune:
+        modules=(('MoveEffectivenessTune','move_effectiveness.cpp',28,6,'MOVE_LABEL_TUNE','0.4.7-tune'),)
     if redux:
         modules=tuple((*m[:-1],m[-1]+'-redux') for m in modules if m[0].startswith('TypeIcons'))
     if options.bw1:
@@ -40,12 +49,12 @@ def main():
     if options.bw1_moves or options.bw1_moves_trace:
         assert not options.bw1, 'Select one BW1 component at a time.'
         modules=(('MoveEffectivenessTrace' if options.bw1_moves_trace else 'MoveEffectiveness',
-                  'move_effectiveness.cpp',56 if options.bw1_moves_trace else 28,5,
+                  'move_effectiveness.cpp',60 if options.bw1_moves_trace else 32,6,
                   'BW1_MOVE_TRACE' if options.bw1_moves_trace else None,
-                  '0.1.1-bw1-moves-trace' if options.bw1_moves_trace else '0.1.1-bw1-moves-candidate'),)
+                  '0.1.6-bw1-moves-trace' if options.bw1_moves_trace else '0.1.6-bw1-moves-candidate'),)
     bw1=options.bw1 or options.bw1_moves or options.bw1_moves_trace
     games=('B','W') if bw1 else ('B2','W2')
-    if redux: games=('W2',)
+    if redux or options.moves_tune: games=('W2',)
     overlay='94' if bw1 else '168'
     esdb=build/'esdb-bw1.yml' if bw1 else HERE/'esdb.yml'
     if bw1:esdb.write_text('Segments:\n  - ID: 0\n    Name: "94"\n    Type: OVERLAY\nSymbols: []\n')
@@ -105,9 +114,15 @@ def main():
                     ds_gameplay_accepted=False,dsi_gameplay_accepted=False)
             elif options.bw1_moves:
                 reports[dll.name].update(ds_gameplay_accepted=False,dsi_gameplay_accepted=False)
+            if module.startswith('MoveEffectiveness'):
+                label_vram=3456 if options.moves_tune else 1632
+                reports[dll.name].update(battle_heap_allocations=3,added_graphics_vram_bytes=label_vram,
+                    added_palette_banks=1,added_graphics_vram_max_bytes=label_vram)
         (build/(name+'.disassembly.txt')).write_bytes(subprocess.check_output(
             [str(TOOLS/'arm-none-eabi-objdump'),'-dr',str(elf)]))
-    report_name='memory-report-redux.json' if redux else 'memory-report-bw1-moves-trace.json' if options.bw1_moves_trace else 'memory-report-bw1-moves.json' if options.bw1_moves else 'memory-report-bw1.json' if options.bw1 else 'memory-report.json'
+    report_name='memory-report-moves-tune.json' if options.moves_tune else 'memory-report-redux.json' if redux else 'memory-report-bw1-moves-trace.json' if options.bw1_moves_trace else 'memory-report-bw1-moves.json' if options.bw1_moves else 'memory-report-bw1.json' if options.bw1 else 'memory-report.json'
+    if options.moves and (build/report_name).exists():
+        reports={**json.loads((build/report_name).read_text()),**reports}
     (build/report_name).write_text(json.dumps(reports,indent=2)+'\n')
     if redux: bundle()
     print(json.dumps(reports,indent=2))

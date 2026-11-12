@@ -259,7 +259,7 @@ export function attachPokemonMegaSection(container: HTMLElement, project: Projec
       button.textContent = "Installing…";
       void installMegaContent(project, (stage) => installCodeInjectionPatch(project, stage)).then((report) => {
         options.onDirty?.();
-        statusMessages.set(project, { personalId: personalIdOf(section), text: `Mega Evolution installed: ${report.forms.length} Mega Pokémon and their Mega Stones. Convert existing saves on Code Injection → Item Expansion.` });
+        statusMessages.set(project, { personalId: personalIdOf(section), text: `Mega Evolution installed: ${report.forms.length} Mega Pokémon and their Mega Stones.` });
         options.rerender(personalIdOf(section));
       }).catch((error) => fail(section, error));
       return;

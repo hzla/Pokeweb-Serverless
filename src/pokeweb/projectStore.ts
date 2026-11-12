@@ -81,6 +81,14 @@ export type DocGeneratorState = {
   romTitle: string;
   mastersheetMarkdown?: string;
   mastersheetHighlights?: MastersheetHighlightMap;
+  /** Export saves the mastersheet in the ROM (zz_pokeweb/mastersheet.bin). Unset means on. */
+  mastersheetInRom?: boolean;
+  /** The source ROM's saved mastersheet this project has already taken or declined, so it isn't offered again. */
+  mastersheetRomSourceHash?: string;
+  /** Session only: the source ROM's saved mastersheet when it differs from the project's, for the editor to offer. */
+  mastersheetRomPending?: { romTitle?: string; markdown: string; highlights?: MastersheetHighlightMap; hash: string };
+  /** Session only: why the source ROM's saved mastersheet couldn't be read. */
+  mastersheetRomError?: string;
   trainerLocations: Record<string, string[]>;
   trainerLocationSources?: Record<string, Array<{ location: string; overworldId: number }>>;
   trainerDiffs: Record<string, number>;

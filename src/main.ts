@@ -35,6 +35,7 @@ import { renderMatrixEditor, stopMatrixEditor } from "./ui/matrixEditor";
 import { canUseMatrixEditor, loadMatrixEditorData } from "./pokeweb/matrixModel";
 import type { Map3dMatrixCell } from "./pokeweb/map3dModel";
 import { canOpenMapStudio } from "./pokeweb/mapStudioAccess";
+import { canOpenMastersheetViewer } from "./pokeweb/mastersheetViewerAccess";
 import "./styles/legacyPokemonSprites.css";
 import "./styles/legacyStarters.css";
 import "./styles/fileSystem.css";
@@ -1416,6 +1417,8 @@ function renderApp(): void {
         scheduleSave(project!);
         renderDirtyIndicator();
       },
+      // The viewer reads the saved project, so write pending edits first.
+      beforeOpenViewer: () => scheduleSave.flush(project!),
     });
     return;
   }
@@ -2264,6 +2267,7 @@ function renderUpload(root: HTMLElement): void {
           <a href="${homeTabUrl("changelog")}" id="home-tab-changelog" class="home-tab" role="tab" aria-selected="false" aria-controls="home-panel-changelog" tabindex="-1" data-home-tab="changelog">Changelog Generator</a>
           <a href="${homeTabUrl("about")}" id="home-tab-about" class="home-tab" role="tab" aria-selected="false" aria-controls="home-panel-about" tabindex="-1" data-home-tab="about">About</a>
           <a href="${homeTabUrl("ai-use-disclaimer")}" id="home-tab-ai-use-disclaimer" class="home-tab" role="tab" aria-selected="false" aria-controls="home-panel-ai-use-disclaimer" tabindex="-1" data-home-tab="ai-use-disclaimer">AI Use Disclaimer</a>
+          ${canOpenMastersheetViewer() ? `<a href="./mastersheet.html" class="home-tab home-tab--link" title="Read a ROM hack's mastersheet, with maps and sprites from the game">Mastersheet Viewer</a>` : ""}
         </nav>
         <section id="home-panel-upload" class="home-tab-panel" role="tabpanel" aria-labelledby="home-tab-upload" data-home-panel="upload">
         <div class="upload-panel">

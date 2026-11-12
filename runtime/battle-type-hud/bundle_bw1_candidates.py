@@ -26,8 +26,8 @@ def bundle_moves():
         data = (HERE / 'build' / name).read_bytes()
         rpm = read_rpm(data)
         debug = read_rpm((HERE / 'build' / f'MoveEffectiveness{game}.debug.dll').read_bytes())
-        assert rpm['bss'] == 28 and all(not s['attributes'] & 2 for s in rpm['symbols'])
-        assert len([r for r in rpm['relocations'] if r['module'] != 'base']) == 5
+        assert rpm['bss'] == 32 and all(not s['attributes'] & 2 for s in rpm['symbols'])
+        assert len([r for r in rpm['relocations'] if r['module'] != 'base']) == 6
         assert all(r['module'] in ('base', '94') for r in rpm['relocations'])
         digest = hashlib.sha256(data).hexdigest()
         for extended in (False, True):

@@ -117,7 +117,7 @@ class Harness:
         for base,data in blobs.values():self.c.mem_write(base,bytes(data))
         rpm=read_rpm((HERE/'build'/f'{module}{game}.dll').read_bytes())
         debug=read_rpm((HERE/'build'/f'{module}{game}.debug.dll').read_bytes())
-        assert rpm['code']==debug['code'] and rpm['bss']==debug['bss']==(364 if module.startswith('TypeIcons') else 20)
+        assert rpm['code']==debug['code'] and rpm['bss']==debug['bss']==(364 if module.startswith('TypeIcons') else 24)
         self.c.mem_write(BASE,rpm['code']+b'\0'*rpm['bss'])
         self.entries={}
         for r in rpm['relocations']:
@@ -169,7 +169,7 @@ class Harness:
                 any(0x06408060+p*0x100<=address and address+size<=0x06408080+p*0x100 for p in range(9))), 'foreign graphics/digit write'
         self.writes.append((address,size))
     def paletteWrite(self,c,access,address,size,value,user):
-        assert size==2 and address in [0x05000200+b*32+i*2 for b in range(6) for i in (4,15)]+[0x05000400+i*2 for i in (219,220,221)],'unrelated palette write'
+        assert size==2 and address in [0x05000200+b*32+i*2 for b in range(6) for i in (4,15)]+[0x05000400+i*2 for i in (*range(219,222),*range(225,240))],'unrelated palette write'
     def stub(self,c,pc,size,name):
         args=[c.reg_read(r) for r in REGS];result=0
         if name in ('Add','AddPP'):

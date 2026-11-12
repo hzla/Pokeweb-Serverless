@@ -3,6 +3,7 @@
   "rom_code": "IRDO",
   "overlay_base": 35510944,
   "functions": {
+    "IsDsi": 34057400,
     "Add": 35584736,
     "AddPP": 35585200,
     "Main": 35584196,
@@ -18,6 +19,13 @@
     "ViewSrc": 35369124,
     "MoveDraw": 35575900,
     "MoveClear": 35578496,
+    "MoveDestroyInput": 35563256,
+    "MoveDestroy": 35580696,
+    "MoveWindowCreate": 33849580,
+    "MoveWindowMap": 33850008,
+    "MoveWindowUnmap": 33850592,
+    "MoveWindowDelete": 33849916,
+    "MoveBgCommit": 33836988,
     "MoveKey": 35581180,
     "CreateScreen": 35564156,
     "GetMainModule": 35520876,
@@ -41,10 +49,15 @@
     "GaugePosition": 35587852,
     "SpriteInit": 33870180,
     "CellInit": 33870424,
-    "CellSelect": 33952132,
-    "IsDsi": 34057400
+    "CellSelect": 33952132
   },
   "signatures": [
+    {
+      "name": "IsDsi",
+      "segment": 0,
+      "address": 34057400,
+      "bytes": "0948c06900280bd108480178032008400121012800d00021034841600121c161014840687047c046c4c4140200400004"
+    },
     {
       "name": "Add",
       "segment": 168,
@@ -134,6 +147,48 @@
       "segment": 168,
       "address": 35578496,
       "bytes": "70b584b0051ce96e02208143e96600232649181cea185b1c5054082bfadb244900242a18401c54540428fadb2b263601"
+    },
+    {
+      "name": "MoveDestroyInput",
+      "segment": 168,
+      "address": 35563256,
+      "bytes": "f8b5051c04f00cfa281c04f071f9281c04f0f4f9281c03f0afff281c04f0eaf84126b600"
+    },
+    {
+      "name": "MoveDestroy",
+      "segment": 168,
+      "address": 35580696,
+      "bytes": "f8b57f27061c0024bf00a0003518e859002803d05df602fb0020e851641c042cf3dbf8bdf0b599b0"
+    },
+    {
+      "name": "MoveWindowCreate",
+      "segment": 0,
+      "address": 33849580,
+      "bytes": "f0b585b0061c0f1c04921d1cfdf7cafb00280aa804d10078291c0024414303e000780124684341000aaa127a301c4901fcf738fa0021c94388420fd00aa909782b1c00910aa90979019102900394049a301c391c"
+    },
+    {
+      "name": "MoveWindowMap",
+      "segment": 0,
+      "address": 33850008,
+      "bytes": "f8b588b006904179807948430004060c06984489407a0007000c079006988078fdf7e0fa01281fd0"
+    },
+    {
+      "name": "MoveWindowUnmap",
+      "segment": 0,
+      "address": 33850592,
+      "bytes": "00b583b0031c5879002100909879019002919878da781b79fdf79af803b000bd"
+    },
+    {
+      "name": "MoveWindowDelete",
+      "segment": 0,
+      "address": 33849916,
+      "bytes": "10b5041c208861790004c00f03d1a0790a1c424302e0a07948434200a07861895201fcf719fae068fef750fe201cf2f705f810bd"
+    },
+    {
+      "name": "MoveBgCommit",
+      "segment": 0,
+      "address": 33836988,
+      "bytes": "08b52c21021c4a43044909688b189968da681b6900f004f808bdc046"
     },
     {
       "name": "MoveKey",
@@ -290,12 +345,6 @@
       "segment": 168,
       "address": 35601968,
       "bytes": "d80078002c002800d800620030001400dc0075002c002700e000880028003a00"
-    },
-    {
-      "name": "IsDsi",
-      "segment": 0,
-      "address": 34057400,
-      "bytes": "0948c06900280bd108480178032008400121012800d00021034841600121c161014840687047c046c4c4140200400004"
     }
   ],
   "hooks": [
@@ -430,6 +479,12 @@
       "name": "MoveClear",
       "address": 35564166,
       "bytes": "03f0fbfb"
+    },
+    {
+      "kind": "THUMB_BRANCH_LINK",
+      "name": "MoveDestroy",
+      "address": 35563260,
+      "bytes": "04f00cfa"
     }
   ],
   "resources": {

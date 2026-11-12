@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BAG_BLOCK, BW1_BAG_POOL_VERSION, BW1_EXPANDED_SAVE_LAYOUT, BW1_RETAIL_SAVE_LAYOUT, EXPANDED_SAVE_LAYOUT, PAL_PAD_BLOCK,
-  PARTY_BLOCK_SHIFT, RETAIL_SAVE_LAYOUT, TRAINER_BLOCK, SAVE_EXTRA_START, convertSaveToExpanded, convertSaveToRetail,
+  PARTY_BLOCK_SHIFT, RETAIL_SAVE_LAYOUT, TRAINER_BLOCK, SAVE_EXTRA_START, convertSaveToExpanded,
   crc16, detectSaveFormat, encodeSave, isExpandedItemSave, recoverSave, validateExpandedBag, type ItemSaveRules,
 } from "../pokeweb/itemSaveFormat";
 
@@ -48,7 +48,7 @@ describe("item save format", () => {
     expect(EXPANDED_SAVE_LAYOUT.blocks[PAL_PAD_BLOCK].size).toBe(0x6fc);
   });
 
-  it("converts a retail save to the pool, ordered by pocket, and back without loss", () => {
+  it("converts a retail save to the pool, ordered by pocket", () => {
     const source = retailSave();
     expect(detectSaveFormat(source)).toBe("retail");
     const { bytes, report } = convertSaveToExpanded(source, rules);
@@ -65,9 +65,6 @@ describe("item save format", () => {
     for (let index = 0; index < 73; index++) {
       if (index !== BAG_BLOCK && index !== PAL_PAD_BLOCK) expect(expanded.payloads[index]).toEqual(original.payloads[index]);
     }
-    const back = recoverSave(convertSaveToRetail(bytes, rules).bytes, RETAIL_SAVE_LAYOUT);
-    expect(back.payloads[BAG_BLOCK].subarray(0, 4)).toEqual(original.payloads[BAG_BLOCK].subarray(0, 4));
-    expect(back.payloads[BAG_BLOCK].subarray(0x998)).toEqual(original.payloads[BAG_BLOCK].subarray(0x998));
   });
 
   it("keeps Battle Log records and drops other Pal Pad data", () => {
@@ -90,7 +87,7 @@ describe("item save format", () => {
     expect(() => convertSaveToExpanded(retailSave().subarray(0, 0x40000), rules)).toThrow(/512 KiB/);
   });
 
-  it("refuses to downgrade a bag holding an item above 638", () => {
+  it("accepts a bag holding an item above 638", () => {
     const converted = convertSaveToExpanded(retailSave(), rules);
     const recovered = recoverSave(converted.bytes, EXPANDED_SAVE_LAYOUT);
     const bag = recovered.payloads[BAG_BLOCK].slice();
@@ -99,7 +96,7 @@ describe("item save format", () => {
     recovered.payloads[BAG_BLOCK] = bag;
     const withNew = encodeSave(converted.bytes, EXPANDED_SAVE_LAYOUT, recovered.payloads, recovered.counts, recovered.generation);
     expect(validateExpandedBag(bag, rules)).toBeUndefined();
-    expect(() => convertSaveToRetail(withNew, rules)).toThrow(/700/);
+    expect(detectSaveFormat(withNew)).toBe("expanded");
   });
 
   it("recovers the newest valid generation when one copy is damaged", () => {
@@ -145,7 +142,7 @@ describe("Black / White item save format", () => {
     expect(BW1_EXPANDED_SAVE_LAYOUT.blocks[PAL_PAD_BLOCK].size).toBe(0x6fc);
   });
 
-  it("converts a Black save to the pool and back, and tells the families apart", () => {
+  it("converts a Black save to the pool, and tells the families apart", () => {
     const source = bw1RetailSave();
     expect(detectSaveFormat(source, "BW1")).toBe("retail");
     expect(detectSaveFormat(source)).toBe("unknown");
@@ -159,12 +156,10 @@ describe("Black / White item save format", () => {
     expect([0, 1, 2, 3, 4, 5].map((slot) => bag[4 + slot * 4] | (bag[5 + slot * 4] << 8))).toEqual([1, 2, 17, 328, 149, 442]);
     expect(validateExpandedBag(bag, bw1Rules)).toBeUndefined();
     const original = recoverSave(source, BW1_RETAIL_SAVE_LAYOUT);
-    const back = recoverSave(convertSaveToRetail(bytes, bw1Rules).bytes, BW1_RETAIL_SAVE_LAYOUT);
-    expect(back.payloads[BAG_BLOCK].subarray(0, 0x998)).toEqual(original.payloads[BAG_BLOCK].subarray(0, 0x998));
-    expect(back.payloads[27]).toEqual(original.payloads[27]);
+    expect(recoverSave(bytes, BW1_EXPANDED_SAVE_LAYOUT).payloads[27]).toEqual(original.payloads[27]);
   });
 
-  it("refuses Black 2 / White 2 saves and items above 626 on the way back", () => {
+  it("refuses Black 2 / White 2 saves and accepts items above 626", () => {
     expect(() => convertSaveToExpanded(bw1RetailSave(22), bw1Rules)).toThrow(/not a Black \/ White save/);
     const converted = convertSaveToExpanded(bw1RetailSave(), bw1Rules).bytes;
     const recovered = recoverSave(converted, BW1_EXPANDED_SAVE_LAYOUT);
@@ -175,6 +170,6 @@ describe("Black / White item save format", () => {
     const rules630: ItemSaveRules = { ...bw1Rules, pocketOf: (item) => (item === 630 ? 0 : bw1Rules.pocketOf(item)) };
     const withNew = encodeSave(converted, BW1_EXPANDED_SAVE_LAYOUT, recovered.payloads, recovered.counts, recovered.generation);
     expect(validateExpandedBag(bag, rules630)).toBeUndefined();
-    expect(() => convertSaveToRetail(withNew, rules630)).toThrow(/630/);
+    expect(detectSaveFormat(withNew, "BW1")).toBe("expanded");
   });
 });

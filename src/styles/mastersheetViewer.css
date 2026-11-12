@@ -1,0 +1,1866 @@
+/*
+ * Mastersheet Viewer: the Black 2 / White 2 battle touch screen.
+ * Charcoal dot-grid ground, square frames, hexagonal command buttons. Colour carries meaning, as it does in battle:
+ * FIGHT red for trainers, BAG yellow for items, POKÉMON green for Pokémon, RUN blue for navigation, and type colours
+ * for types. Colours are the game's own (battle palette 360, a/0/1/1). Text is Barlow, Pokeweb's typeface.
+ * Game-derived shapes sit on the DS pixel grid at 2 CSS px per DS pixel: 2 px borders, 8 px chevrons, 8 px grid.
+ */
+
+@font-face { font-family: "Barlow"; font-weight: 400; font-display: swap; src: url("../assets/fonts/barlow-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Barlow"; font-weight: 500; font-display: swap; src: url("../assets/fonts/barlow-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "Barlow"; font-weight: 600; font-display: swap; src: url("../assets/fonts/barlow-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Semi Condensed"; font-weight: 500; font-display: swap; src: url("../assets/fonts/barlow-semi-condensed-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Semi Condensed"; font-weight: 600; font-display: swap; src: url("../assets/fonts/barlow-semi-condensed-latin-600-normal.woff2") format("woff2"); }
+
+:root {
+  /* Battle charcoal: the fill of the command buttons. */
+  --msv-black: #181818;
+  --msv-ground: #202020;
+  --msv-panel: #282828;
+  --msv-raised: #303030;
+  --msv-edge: #484848;
+  --msv-dim: #606060;
+  --msv-text: #f0f0f8;
+  --msv-muted: #a0a0a0;
+  --msv-plate: #c8c8d0;
+  /* Command colours, bright and shade. */
+  --msv-fight: #f82018;
+  --msv-fight-shade: #901818;
+  --msv-bag: #f8c828;
+  --msv-bag-shade: #907008;
+  --msv-mon: #70d830;
+  --msv-mon-shade: #207008;
+  --msv-run: #20a0f8;
+  --msv-run-shade: #005890;
+  /* Menu selection (Bag and option menus): navy when unselected, blue with a light edge and cyan text when selected. */
+  --msv-menu: #393950;
+  --msv-menu-edge: #9c9cac;
+  --msv-menu-on: #275988;
+  --msv-menu-on-edge: #b3cdd5;
+  --msv-selected: #74dbe5;
+  /* Gauges: a teal-framed track with a grey fill that ends in a chevron. */
+  --msv-gauge-track: #2b3131;
+  --msv-gauge-fill: #4c5252;
+  --msv-gauge-edge: #77b3b4;
+  /* Changed and new moves, abilities and items: the old mastersheet's yellow italic, in the game's yellow. */
+  --msv-mark: #f8c828;
+  --msv-font: "Barlow", system-ui, sans-serif;
+  --msv-cond: "Barlow Semi Condensed", "Barlow", sans-serif;
+  /* The dot grids, drawn as 8 px tiles (4 DS pixels): squares with 2 px lines, as inside the battle buttons. */
+  --msv-grid-ground: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23202020'/%3E%3Crect x='2' y='2' width='6' height='6' fill='%23242424'/%3E%3C/svg%3E");
+  --msv-grid-button: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23202020'/%3E%3Crect x='2' y='2' width='6' height='6' fill='%23303030'/%3E%3C/svg%3E");
+  /* Black with dim teal crosses, as behind the game's menus: 16 DS pixels apart. */
+  --msv-grid-cross: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Crect width='32' height='32' fill='%23000'/%3E%3Cpath d='M15 10h2v12h-2zM10 15h12v2H10z' fill='%23203831'/%3E%3C/svg%3E");
+  --msv-grid-button-hover: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23282828'/%3E%3Crect x='2' y='2' width='6' height='6' fill='%23383838'/%3E%3C/svg%3E");
+  color-scheme: dark;
+}
+
+.msv-body {
+  margin: 0;
+  background: var(--msv-ground) var(--msv-grid-ground);
+  color: var(--msv-text);
+  font: 400 15px/1.5 var(--msv-font);
+  font-variant-numeric: tabular-nums;
+}
+
+.msv-body * {
+  box-sizing: border-box;
+}
+
+.msv-body button,
+.msv-body input {
+  margin: 0;
+  font: inherit;
+  color: inherit;
+}
+
+.msv-body a {
+  color: inherit;
+}
+
+.msv-body :focus-visible {
+  outline: 2px solid var(--msv-text);
+  outline-offset: 2px;
+}
+
+.msv-body img {
+  image-rendering: pixelated;
+}
+
+/* Images that haven't loaded yet keep their space and show nothing, rather than a broken-image icon. */
+.msv-body img:not([src]) {
+  visibility: hidden;
+}
+
+/* ---------- Hexagonal buttons (battle commands, moves, tabs) ---------- */
+
+.msv-hex {
+  --hex-edge: var(--msv-dim);
+  --hex-cut: 8px;
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 28px;
+  padding: 0 calc(var(--hex-cut) + 8px);
+  border: 0;
+  background: var(--hex-edge);
+  color: var(--msv-text);
+  cursor: pointer;
+  font: 600 14px/1 var(--msv-font);
+  text-decoration: none;
+  clip-path: polygon(var(--hex-cut) 0, calc(100% - var(--hex-cut)) 0, 100% 50%, calc(100% - var(--hex-cut)) 100%, var(--hex-cut) 100%, 0 50%);
+}
+
+/* The dot-grid face inside the coloured edge. */
+.msv-hex::before {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  z-index: -1;
+  background: var(--msv-grid-button);
+  clip-path: polygon(calc(var(--hex-cut) - 1px) 0, calc(100% - var(--hex-cut) + 1px) 0, 100% 50%, calc(100% - var(--hex-cut) + 1px) 100%, calc(var(--hex-cut) - 1px) 100%, 0 50%);
+}
+
+.msv-hex[hidden] {
+  display: none;
+}
+
+.msv-hex > span {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.msv-hex:hover::before {
+  background: var(--msv-grid-button-hover);
+}
+
+/* Pressed: the button drops a DS pixel, as on the touch screen. */
+.msv-hex:active {
+  transform: translateY(2px);
+}
+
+/* The clip-path hides outlines, so keyboard focus lights the edge white instead. */
+.msv-hex:focus-visible {
+  --hex-edge: var(--msv-text);
+  outline: none;
+}
+
+/* Menu buttons: navy and grey when idle, blue with a light edge when hovered or chosen. */
+.msv-hex:is(.-nav, .-tab) {
+  --hex-edge: var(--msv-menu-edge);
+  --hex-fill: var(--msv-menu);
+}
+
+.msv-hex:is(.-nav, .-tab)::before {
+  background: var(--hex-fill);
+}
+
+.msv-hex.-nav:hover,
+.msv-hex.-tab:hover,
+.msv-hex.-tab:is([aria-selected="true"], [aria-pressed="true"]) {
+  --hex-edge: var(--msv-menu-on-edge);
+  --hex-fill: var(--msv-menu-on);
+}
+
+.msv-hex:is(.-nav, .-tab):focus-visible {
+  --hex-edge: var(--msv-text);
+}
+
+.msv-hex.-fight {
+  --hex-edge: var(--msv-fight);
+}
+
+.msv-hex.-move {
+  --hex-edge: var(--type, var(--msv-dim));
+  --hex-cut: 8px;
+  width: 100%;
+  min-height: 28px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.msv-hex.-move.-changed > span,
+.msv-hex.-move.-new > span,
+.msv-hex.-move.-minor > span {
+  color: var(--msv-mark);
+  font-style: italic;
+}
+
+.msv-hex.-move.-empty {
+  --hex-edge: var(--msv-panel);
+  color: var(--msv-dim);
+  cursor: default;
+}
+
+.msv-hex.-move.-empty::before {
+  background: var(--msv-ground);
+}
+
+.msv-hex.-tab {
+  --hex-cut: 6px;
+  min-height: 26px;
+  padding: 0 14px;
+  color: var(--msv-menu-edge);
+  font-size: 13px;
+}
+
+.msv-hex.-tab:is([aria-selected="true"], [aria-pressed="true"]) {
+  color: var(--msv-text);
+}
+
+/* ---------- Title bars and bands ---------- */
+
+.msv-titlebar {
+  --accent: var(--msv-dim);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 36px;
+  margin: 0;
+  padding: 0 12px 0 14px;
+  border-bottom: 2px solid var(--msv-text);
+  background: var(--msv-black);
+}
+
+.msv-titlebar > :is(h1, h2, h3) {
+  overflow: hidden;
+  min-width: 0;
+  margin: 0;
+  font: 600 18px/1.25 var(--msv-font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.msv-titlebar > :is(h1, h2, h3) + * {
+  margin-left: auto;
+}
+
+.msv-titlebar.-page {
+  min-height: 52px;
+  margin-bottom: 20px;
+}
+
+.msv-titlebar.-page > h1 {
+  font-size: 28px;
+}
+
+.msv-titlebar.-run {
+  --accent: var(--msv-run);
+}
+
+.msv-titlebar.-fight {
+  --accent: var(--msv-fight);
+}
+
+.msv-titlebar.-bag {
+  --accent: var(--msv-bag);
+}
+
+.msv-titlebar.-mon {
+  --accent: var(--msv-mon);
+}
+
+.msv-titlebar__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px 10px;
+  margin: 0;
+  color: var(--msv-muted);
+  font-size: 14px;
+}
+
+.msv-hatch {
+  flex: none;
+  width: 40px;
+  height: 16px;
+  margin-left: 4px;
+  fill: var(--accent);
+}
+
+.msv-titlebar > :is(h1, h2, h3) + .msv-hatch {
+  margin-left: auto;
+}
+
+/* A short label in a square plate: level caps, roles, battle types. */
+.msv-plate,
+.msv-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border: 2px solid var(--msv-edge);
+  background: var(--msv-panel);
+  color: var(--msv-text);
+  font: 600 13px/1 var(--msv-cond);
+  white-space: nowrap;
+}
+
+.msv-tag.-mandatory {
+  border-color: var(--msv-fight);
+  background: var(--msv-fight-shade);
+}
+
+.msv-tag.-optional {
+  border-color: var(--msv-mon-shade);
+}
+
+.msv-tag.-rematch {
+  border-color: var(--msv-bag-shade);
+}
+
+.msv-tag.-changed,
+.msv-tag.-new,
+.msv-tag.-minor {
+  border-color: var(--msv-bag-shade);
+  color: var(--msv-mark);
+}
+
+/* Section band: the slanted strip that heads Pokédex lists. */
+.msv-band {
+  --accent: var(--msv-dim);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 30px;
+  margin: 32px 0 12px;
+  padding: 0 24px 0 12px;
+  background: var(--msv-raised);
+  font: 600 15px/1.2 var(--msv-font);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
+}
+
+.msv-band > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.msv-band .msv-hatch {
+  margin-left: auto;
+}
+
+.msv-band.-mon {
+  --accent: var(--msv-mon);
+}
+
+.msv-band.-bag {
+  --accent: var(--msv-bag);
+}
+
+.msv-band.-fight {
+  --accent: var(--msv-fight);
+}
+
+/* ---------- Type plates ---------- */
+
+.msv-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+
+.msv-type {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  height: 18px;
+  padding: 0 6px;
+  border: 2px solid color-mix(in srgb, var(--type) 60%, #000);
+  background: var(--type);
+  color: var(--msv-black);
+  font: 600 11px/1 var(--msv-cond);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.msv-type.-light-ink {
+  color: var(--msv-text);
+}
+
+/* Until the ROM's icon loads, its image is a 1 px placeholder inside the plate, so the lazy loader can still see it. */
+.msv-type {
+  position: relative;
+}
+
+.msv-type > img:not([src]) {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.msv-type:not(.-icon) > img[src] {
+  display: none;
+}
+
+/* Once the ROM's icon has loaded it replaces the plate: drawn at 2×, no frame of its own. */
+.msv-type.-icon {
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.msv-type.-icon > img {
+  display: block;
+}
+
+.msv-type.-icon > .msv-type__text {
+  display: none;
+}
+
+/* ---------- Open screen ---------- */
+
+.msv-open {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px 16px;
+}
+
+.msv-open__card {
+  width: min(560px, 100%);
+  border: 2px solid var(--msv-black);
+  background: var(--msv-panel);
+}
+
+.msv-open__body {
+  padding: 20px 20px 24px;
+}
+
+.msv-open__body p {
+  margin: 0 0 18px;
+  max-width: 60ch;
+}
+
+.msv-open__drop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  margin-bottom: 18px;
+  padding: 18px;
+  border: 2px dashed var(--msv-edge);
+  background: var(--msv-ground);
+  cursor: pointer;
+}
+
+.msv-open__drop.-over,
+.msv-open__drop:hover {
+  border-color: var(--msv-fight);
+}
+
+.msv-open__drop:focus-within {
+  outline: 2px solid var(--msv-text);
+  outline-offset: 2px;
+}
+
+.msv-open__drop .msv-hex {
+  min-height: 40px;
+  font-size: 16px;
+}
+
+.msv-open__hint,
+.msv-open__body .msv-open__note {
+  color: var(--msv-muted);
+}
+
+.msv-open__body .msv-open__note {
+  margin: 0;
+  font-size: 14px;
+}
+
+.msv-open__problem {
+  margin: 18px 0 0;
+  padding: 10px 12px;
+  border: 2px solid var(--msv-fight);
+  background: var(--msv-black);
+}
+
+.msv-open__status {
+  color: var(--msv-muted);
+}
+
+/* ---------- Shell ---------- */
+
+.msv {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.msv.-drawer-open {
+  grid-template-columns: 280px minmax(0, 1fr) 420px;
+}
+
+.msv-bar {
+  display: none;
+}
+
+.msv-main {
+  min-width: 0;
+  outline: none;
+}
+
+.msv-page {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 24px 32px 64px;
+}
+
+/* ---------- Contents panel ---------- */
+
+.msv-outline {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  border-right: 2px solid var(--msv-black);
+  background: #000 var(--msv-grid-cross);
+}
+
+.msv-brand {
+  display: grid;
+  gap: 2px;
+  padding: 10px 14px;
+  border-bottom: 2px solid var(--msv-text);
+  background: var(--msv-black);
+  text-decoration: none;
+}
+
+.msv-brand__title {
+  overflow: hidden;
+  font: 600 18px/1.25 var(--msv-font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.msv-brand__sub {
+  color: var(--msv-muted);
+  font-size: 13px;
+}
+
+/* The Pokédex search field: a slim box with chevron ends. */
+.msv-search {
+  position: relative;
+  isolation: isolate;
+  margin: 12px 12px 8px;
+  padding: 2px;
+  background: var(--msv-edge);
+  clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 8px 100%, 0 50%);
+}
+
+.msv-search:focus-within {
+  background: var(--msv-text);
+}
+
+.msv-search input {
+  display: block;
+  width: 100%;
+  height: 30px;
+  padding: 0 14px;
+  border: 0;
+  background: var(--msv-black);
+  outline: none;
+  clip-path: polygon(7px 0, calc(100% - 7px) 0, 100% 50%, calc(100% - 7px) 100%, 7px 100%, 0 50%);
+}
+
+.msv-search input::placeholder {
+  color: var(--msv-muted);
+}
+
+.msv-nav {
+  flex: 1;
+  overflow: auto;
+  padding: 4px 0 24px;
+}
+
+.msv-split {
+  margin-top: 10px;
+}
+
+/* Split heading: a band with the level cap at the right. */
+.msv-split__head {
+  display: grid;
+  gap: 2px;
+  min-height: 30px;
+  margin-right: 12px;
+  padding: 5px 20px 5px 12px;
+  background: var(--msv-raised);
+  text-decoration: none;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 12px) 100%, 0 100%);
+}
+
+.msv-split__name {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.msv-split__detail {
+  color: var(--msv-muted);
+  font: 500 13px/1.25 var(--msv-cond);
+}
+
+.msv-split ul {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Area rows: the Pokédex list's slanted rows. The current page gets the Bag cursor's corner brackets. */
+.msv-nav__link {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  margin: 2px 12px 2px 8px;
+  padding: 4px 18px 4px 12px;
+  color: var(--msv-muted);
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.msv-nav__link:hover {
+  background: var(--msv-menu);
+  color: var(--msv-text);
+}
+
+.msv-nav__link[aria-current="page"],
+.msv-split__head[aria-current="page"] .msv-split__name {
+  color: var(--msv-selected);
+}
+
+.msv-nav__link[aria-current="page"] {
+  background: var(--msv-menu-on);
+  font-weight: 600;
+}
+
+.msv-nav__link[aria-current="page"]::after,
+.msv-mon__sprite:focus-visible::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border: 2px solid var(--msv-fight);
+  /* Only the corners of the frame show: the Bag's selection cursor. */
+  -webkit-mask: var(--msv-corner) top left / 8px 8px no-repeat, var(--msv-corner) top right / 8px 8px no-repeat, var(--msv-corner) bottom left / 8px 8px no-repeat, var(--msv-corner) bottom right / 8px 8px no-repeat;
+  mask: var(--msv-corner) top left / 8px 8px no-repeat, var(--msv-corner) top right / 8px 8px no-repeat, var(--msv-corner) bottom left / 8px 8px no-repeat, var(--msv-corner) bottom right / 8px 8px no-repeat;
+}
+
+:root {
+  --msv-corner: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8'/%3E%3C/svg%3E");
+}
+
+.msv-results {
+  margin: 0;
+  padding: 0 12px 0 8px;
+  list-style: none;
+}
+
+.msv-results a {
+  display: grid;
+  padding: 6px 12px;
+  text-decoration: none;
+}
+
+.msv-results a:hover {
+  background: var(--msv-panel);
+}
+
+.msv-results__where {
+  color: var(--msv-muted);
+  font-size: 13px;
+}
+
+.msv-outline__foot {
+  padding: 12px;
+  border-top: 2px solid var(--msv-black);
+}
+
+.msv-outline__foot .msv-hex {
+  width: 100%;
+}
+
+/* ---------- Page text ---------- */
+
+.msv-text,
+.msv-list,
+.msv-pickups__lead {
+  max-width: 72ch;
+}
+
+.msv-text {
+  margin: 0 0 12px;
+}
+
+.msv-list {
+  margin: 0 0 16px;
+  padding-left: 22px;
+}
+
+.msv-list li + li {
+  margin-top: 4px;
+}
+
+.msv-page a:not(.msv-hex) {
+  color: var(--msv-run);
+}
+
+.msv-h4 {
+  margin: 24px 0 8px;
+  font: 600 16px/1.3 var(--msv-font);
+}
+
+.msv-notice {
+  margin: 16px 0;
+  padding: 10px 14px;
+  border: 2px solid var(--notice, var(--msv-edge));
+  background: var(--msv-black);
+}
+
+.msv-notice p {
+  margin: 4px 0 0;
+}
+
+.msv-empty {
+  color: var(--msv-muted);
+}
+
+.msv-plain {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.msv-plain:hover,
+.msv-mon__name:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.msv-plain.-changed,
+.msv-plain.-new,
+.msv-plain.-minor,
+.msv-abilities strong:is(.-changed, .-new, .-minor) {
+  color: var(--msv-mark);
+  font-style: italic;
+}
+
+.msv-pager {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 48px;
+}
+
+.msv-hex.-pager {
+  max-width: 48%;
+  min-height: 44px;
+}
+
+.msv-hex.-pager small {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--msv-muted);
+  font: 500 12px/1 var(--msv-cond);
+}
+
+/* ---------- Items and gifts: Bag buttons ---------- */
+
+.msv-pickups {
+  margin: 0 0 8px;
+}
+
+.msv-pickups__lead {
+  margin: 0 0 12px;
+  color: var(--msv-muted);
+}
+
+.msv-bag-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 6px 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.msv-bag {
+  --hex-edge: var(--msv-bag-shade);
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 4px 16px 4px 10px;
+  border: 0;
+  background: var(--hex-edge);
+  color: var(--msv-text);
+  text-align: left;
+  clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 8px 100%, 0 50%);
+}
+
+.msv-bag::before {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  z-index: -1;
+  background: var(--msv-grid-button);
+  clip-path: polygon(7px 0, calc(100% - 7px) 0, 100% 50%, calc(100% - 7px) 100%, 7px 100%, 0 50%);
+}
+
+button.msv-bag {
+  cursor: pointer;
+}
+
+button.msv-bag:hover {
+  --hex-edge: var(--msv-bag);
+}
+
+button.msv-bag:hover::before {
+  background: var(--msv-grid-button-hover);
+}
+
+button.msv-bag:focus-visible {
+  --hex-edge: var(--msv-text);
+  outline: none;
+}
+
+.msv-bag.-mon {
+  --hex-edge: var(--msv-mon-shade);
+}
+
+/* Item entries are free-form: the icon is just a picture, the text is the author's, and nothing opens. */
+.msv-bag.-static {
+  align-items: center;
+  min-height: 48px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.msv-bag__desc {
+  overflow-wrap: anywhere;
+}
+
+button.msv-bag.-mon:hover {
+  --hex-edge: var(--msv-mon);
+}
+
+/* The light slanted plate the Bag puts each item icon on. */
+.msv-bag__plate {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 52px;
+  height: 36px;
+  padding-right: 8px;
+  background: var(--msv-plate);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+}
+
+.msv-bag__text {
+  display: grid;
+  min-width: 0;
+}
+
+.msv-bag__name,
+.msv-bag__note {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.msv-bag__name {
+  font-weight: 600;
+}
+
+.msv-bag__note {
+  color: var(--msv-muted);
+  font-size: 13px;
+}
+
+.msv-item-icon img {
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+
+.msv-item-icon.-large img {
+  width: 48px;
+  height: 48px;
+}
+
+.msv-icon img {
+  display: block;
+  width: 32px;
+  height: 32px;
+}
+
+/* ---------- Wild Pokémon ---------- */
+
+.msv-wild {
+  container: wild / inline-size;
+  margin: 0 0 8px;
+}
+
+.msv-wild__layout.-with-map {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 300px);
+  gap: 20px;
+  align-items: start;
+}
+
+.msv-wild__data {
+  min-width: 0;
+}
+
+/* Too narrow for the table and the map side by side: the map goes under the table. */
+@container wild (max-width: 760px) {
+  .msv-wild__layout.-with-map {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .msv-wild__map {
+    position: static;
+    max-width: 320px;
+  }
+}
+
+.msv-wild__where {
+  margin: -4px 0 10px;
+  color: var(--msv-muted);
+  font-size: 14px;
+}
+
+.msv-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px 16px;
+  margin-bottom: 10px;
+}
+
+.msv-tabs__group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.msv-wild__table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 2px;
+}
+
+.msv-wild__table th,
+.msv-wild__table td {
+  padding: 4px 10px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.msv-wild__table thead th {
+  padding-top: 0;
+  padding-bottom: 2px;
+  color: var(--msv-muted);
+  font: 500 13px/1.2 var(--msv-cond);
+}
+
+.msv-wild__table tbody tr {
+  background: var(--msv-panel);
+}
+
+.msv-wild__table tbody tr:hover {
+  background: var(--msv-raised);
+}
+
+.msv-wild__table .-num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.msv-wild__table td.-num {
+  font: 600 14px/1 var(--msv-cond);
+}
+
+.msv-mon-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-weight: 600;
+  text-align: left;
+}
+
+.msv-mon-link:hover span {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.msv-mon-link .msv-icon img {
+  margin: -4px 0;
+}
+
+/* Chance: the game's gauge, a teal-framed track whose grey fill ends in a chevron. */
+.msv-chance {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.msv-chance__bar {
+  display: block;
+  width: 84px;
+  height: 14px;
+  padding: 2px;
+  border: 2px solid var(--msv-gauge-edge);
+  background: var(--msv-gauge-track);
+  outline: 2px solid #292938;
+}
+
+.msv-chance__bar > span {
+  display: block;
+  min-width: 6px;
+  height: 100%;
+  background: var(--msv-gauge-fill);
+  clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 50%, calc(100% - 4px) 100%, 0 100%);
+}
+
+.msv-wild__map {
+  position: sticky;
+  top: 16px;
+  margin: 46px 0 0;
+  border: 2px solid var(--msv-black);
+  background: var(--msv-black);
+}
+
+.msv-wild__map figcaption {
+  padding: 4px 10px;
+  border-top: 2px solid var(--msv-text);
+  font-weight: 600;
+}
+
+.msv-wild__map button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: var(--msv-black);
+  cursor: zoom-in;
+}
+
+.msv-map {
+  display: block;
+  min-height: 120px;
+}
+
+.msv-wild__map img,
+.msv-detail.-map .msv-map img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* ---------- Trainers ---------- */
+
+.msv-trainer {
+  container: trainer / inline-size;
+  margin: 0 0 20px;
+  border: 2px solid var(--msv-black);
+  background: var(--msv-panel);
+  scroll-margin-top: 16px;
+}
+
+.msv-trainer__class {
+  color: var(--msv-muted);
+  font-weight: 500;
+}
+
+.msv-balls {
+  display: flex;
+  flex: none;
+  gap: 2px;
+}
+
+.msv-balls svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+}
+
+.msv-trainer__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+}
+
+.msv-trainer__tags:empty {
+  display: none;
+}
+
+/* The trainer is the first column of the party row: scene on top, notes underneath, so no space goes unused. */
+.msv-trainer__body {
+  display: grid;
+  grid-template-columns: 152px minmax(0, 1fr);
+  gap: 6px;
+  padding: 10px;
+}
+
+.msv-trainer__info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* Scene thumbnails are 74 × 55 DS pixels at 2×, framed: 152 × 114. */
+.msv-trainer__art {
+  display: grid;
+  flex: none;
+  place-items: end center;
+  width: 152px;
+  height: 114px;
+  overflow: hidden;
+  border: 2px solid var(--msv-black);
+  background: var(--msv-black);
+}
+
+.msv-trainer__art img {
+  display: block;
+}
+
+.msv-scene img {
+  width: 148px;
+  height: 110px;
+}
+
+.msv-battle-sprite img {
+  max-width: 148px;
+  max-height: 110px;
+  object-fit: contain;
+  object-position: center bottom;
+}
+
+.msv-trainer__notes {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+/* Six party columns, always: rows have fixed heights so they line up across a party and down the page. */
+.msv-party {
+  --mon-sprite: 112px;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.msv-mon {
+  display: grid;
+  grid-template-rows: var(--mon-sprite) 24px 28px 24px 32px 24px auto;
+  row-gap: 4px;
+  min-width: 0;
+  padding: 6px 6px 8px;
+  border: 2px solid var(--msv-black);
+  background: var(--msv-ground) var(--msv-grid-ground);
+}
+
+.msv-mon.-empty {
+  border-color: transparent;
+  background: none;
+}
+
+.msv-mon > * {
+  min-width: 0;
+}
+
+/* Sprites stand on a shared baseline. */
+.msv-mon__sprite {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.msv-mon__sprite:focus-visible {
+  outline: none;
+}
+
+.msv-front img {
+  display: block;
+  max-width: 100%;
+  max-height: var(--mon-sprite);
+  object-fit: contain;
+  object-position: center bottom;
+}
+
+.msv-mon__id {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+}
+
+.msv-mon__name {
+  overflow: hidden;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: 600 15px/24px var(--msv-font);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.msv-mon__level {
+  flex: none;
+  margin-left: auto;
+  color: var(--msv-muted);
+  font: 600 14px/24px var(--msv-cond);
+}
+
+.msv-mon .msv-types {
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.msv-mon .msv-type:not(.-icon) {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.msv-mon__fact {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 2px solid var(--msv-panel);
+  background: none;
+  font-size: 14px;
+  line-height: 22px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.msv-mon__fact > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+button.msv-mon__fact {
+  cursor: pointer;
+}
+
+.msv-held .msv-item-icon img {
+  width: 24px;
+  height: 24px;
+}
+
+.msv-held.-none,
+.msv-mon__nature {
+  color: var(--msv-muted);
+}
+
+.msv-moves {
+  display: grid;
+  grid-auto-rows: 28px;
+  gap: 4px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/*
+ * The card is the container. Six party columns need 128 px each beside the 152 px trainer column (a 980 px card);
+ * narrower cards get two rows of three, and phones put the trainer above the party, in rows of two.
+ */
+@container trainer (max-width: 979px) {
+  .msv-party {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  /* Free slots only hold the six-column line-up; in wrapped rows they'd just leave gaps. */
+  .msv-mon.-empty {
+    display: none;
+  }
+}
+
+@container trainer (max-width: 579px) {
+  .msv-trainer__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .msv-trainer__info {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .msv-party {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ---------- Detail drawer ---------- */
+
+.msv-drawer {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  border-left: 2px solid var(--msv-black);
+  background: var(--msv-panel);
+}
+
+.msv-drawer[hidden] {
+  display: none;
+}
+
+.msv-drawer__bar {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--msv-black);
+  background: var(--msv-ground);
+}
+
+.msv-drawer__bar [data-drawer-close] {
+  margin-left: auto;
+}
+
+.msv-drawer__body {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+}
+
+.msv-detail section {
+  margin-top: 4px;
+}
+
+.msv-detail .msv-band {
+  margin-top: 20px;
+}
+
+.msv-detail__hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 180px;
+  margin-bottom: 4px;
+  padding: 12px;
+  border: 2px solid var(--msv-black);
+  background: #000 var(--msv-grid-cross);
+}
+
+.msv-detail__hero.-item {
+  min-height: 0;
+  justify-content: flex-start;
+}
+
+.msv-detail__hero .msv-front img {
+  max-height: none;
+}
+
+.msv-detail__tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 0;
+}
+
+.msv-detail__desc {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 2px solid var(--msv-black);
+  background: var(--msv-ground);
+}
+
+.msv-detail__stats,
+.msv-detail__facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px;
+  margin: 12px 0 0;
+}
+
+.msv-detail__stats > div,
+.msv-detail__facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--msv-ground);
+}
+
+.msv-detail__stats dt,
+.msv-detail__facts dt {
+  color: var(--msv-muted);
+}
+
+.msv-detail__stats dd,
+.msv-detail__facts dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+
+.msv-stats {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+}
+
+.msv-stats > div {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 3px 10px;
+  background: var(--msv-ground);
+}
+
+.msv-stats dt {
+  color: var(--msv-muted);
+  font: 500 13px/1.2 var(--msv-cond);
+}
+
+.msv-stats dd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.msv-stats__value {
+  width: 32px;
+  font: 600 14px/1 var(--msv-cond);
+  text-align: right;
+}
+
+.msv-stats__bar {
+  flex: 1;
+  height: 14px;
+  padding: 2px;
+  border: 2px solid var(--msv-gauge-edge);
+  background: var(--msv-gauge-track);
+}
+
+.msv-stats__bar > span {
+  display: block;
+  min-width: 6px;
+  height: 100%;
+  background: var(--msv-gauge-fill);
+  clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 50%, calc(100% - 4px) 100%, 0 100%);
+}
+
+.msv-stats .-total dd {
+  font-weight: 600;
+}
+
+.msv-abilities,
+.msv-evolutions,
+.msv-found {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.msv-abilities li,
+.msv-evolutions li,
+.msv-found li {
+  padding: 8px 10px;
+  background: var(--msv-ground);
+}
+
+.msv-abilities li + li,
+.msv-evolutions li + li,
+.msv-found li + li {
+  margin-top: 2px;
+}
+
+.msv-abilities p {
+  margin: 4px 0 0;
+  color: var(--msv-muted);
+}
+
+.msv-abilities .msv-tag {
+  margin-left: 8px;
+}
+
+.msv-evolutions li,
+.msv-found li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.msv-evolutions span,
+.msv-found span {
+  color: var(--msv-muted);
+}
+
+.msv-found a {
+  color: var(--msv-run);
+  font-weight: 600;
+}
+
+.msv-learnset {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 2px;
+}
+
+.msv-learnset th,
+.msv-learnset td {
+  padding: 4px 8px;
+  text-align: left;
+}
+
+.msv-learnset thead th {
+  color: var(--msv-muted);
+  font: 500 13px/1.2 var(--msv-cond);
+}
+
+.msv-learnset tbody tr {
+  background: var(--msv-ground);
+}
+
+.msv-learnset .-num {
+  text-align: right;
+  font-family: var(--msv-cond);
+}
+
+/* ---------- Dex ---------- */
+
+/* The dex tab: the field menu's Pokédex icon, mirrored, on a pull tab fixed to the right edge. It sits on the
+   panel's edge while the panel is out. */
+.msv-dex-tab {
+  position: fixed;
+  top: 12px;
+  right: 0;
+  z-index: 36;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 52px;
+  padding: 0;
+  border: 2px solid var(--msv-menu-edge);
+  border-right: 0;
+  background: var(--msv-black) var(--msv-grid-ground);
+  cursor: pointer;
+}
+
+.msv-dex-tab:hover,
+.msv-dex-tab[aria-expanded="true"] {
+  border-color: var(--msv-menu-on-edge);
+  background: var(--msv-menu-on);
+}
+
+.msv-dex-tab:focus-visible {
+  outline: 2px solid var(--msv-text);
+  outline-offset: -6px;
+}
+
+.msv-dex-tab > img {
+  display: block;
+}
+
+.msv-dex-tab > img:not([src]) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+}
+
+.msv-dex-tab.-icon > .msv-dex-tab__text {
+  display: none;
+}
+
+.msv-dex-tab__text {
+  font: 600 13px/1 var(--msv-cond);
+}
+
+.msv.-drawer-open .msv-dex-tab {
+  right: 420px;
+}
+
+/* Keep the page clear of the tab. */
+.msv-page {
+  padding-right: 64px;
+}
+
+.msv-dex__field {
+  margin: 12px 0 8px;
+}
+
+.msv-dex__tabs {
+  margin-bottom: 4px;
+}
+
+.msv-dex__results > section > .msv-band:first-child,
+.msv-dex__results > .msv-dex__list:first-child {
+  margin-top: 12px;
+}
+
+.msv-dex__list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.msv-dex__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 36px;
+  padding: 2px 10px;
+  border: 0;
+  background: var(--msv-ground);
+  color: var(--msv-text);
+  cursor: pointer;
+  text-align: left;
+  text-decoration: none;
+}
+
+.msv-dex__row:hover {
+  background: var(--msv-menu);
+}
+
+.msv-dex__row:focus-visible {
+  outline-offset: -2px;
+}
+
+.msv-dex__row .msv-icon img {
+  margin: -4px 0;
+}
+
+.msv-dex__name {
+  overflow: hidden;
+  min-width: 0;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.msv-dex__name:is(.-changed, .-new, .-minor) {
+  color: var(--msv-mark);
+  font-style: italic;
+}
+
+.msv-dex__row .msv-types,
+.msv-dex__note {
+  flex: none;
+  margin-left: auto;
+}
+
+.msv-dex__row .msv-types + .msv-dex__note {
+  margin-left: 0;
+}
+
+.msv-dex__note {
+  color: var(--msv-muted);
+  font-size: 13px;
+}
+
+.msv-dex__hint {
+  margin: 12px 0;
+  color: var(--msv-muted);
+}
+
+.msv-dex__more {
+  margin-top: 6px;
+}
+
+.msv-found__link {
+  color: var(--msv-mon);
+  font-weight: 600;
+}
+
+.msv-found__count {
+  margin-right: auto;
+  color: var(--msv-text);
+  font: 600 13px/1.4 var(--msv-cond);
+}
+
+/* A wild table in the drawer drops its type column and sits above its map. */
+.msv-drawer .msv-wild__table :is(th, td):nth-child(2) {
+  display: none;
+}
+
+.msv-drawer .msv-chance__bar {
+  width: 56px;
+}
+
+.msv-wild__map.-drawer {
+  position: static;
+  margin: 12px 0 0;
+}
+
+/* ---------- Narrow screens ---------- */
+
+@media (max-width: 1599px) {
+  .msv.-drawer-open {
+    grid-template-columns: 280px minmax(0, 1fr);
+  }
+
+  /* The drawer covers the page instead of squeezing it; a solid frame separates the two. */
+  .msv-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    width: min(420px, 100vw);
+    height: auto;
+    border-left: 2px solid var(--msv-text);
+  }
+}
+
+@media (max-width: 860px) {
+  .msv,
+  .msv.-drawer-open {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .msv-bar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    border-bottom: 2px solid var(--msv-text);
+    background: var(--msv-black);
+  }
+
+  .msv-bar__title {
+    overflow: hidden;
+    font: 600 17px/1.2 var(--msv-font);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .msv-outline {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 40;
+    width: min(320px, 88vw);
+    border-right: 2px solid var(--msv-text);
+    transform: translateX(-100%);
+    visibility: hidden;
+  }
+
+  .msv.-outline-open .msv-outline {
+    transform: none;
+    visibility: visible;
+  }
+
+  .msv-drawer {
+    top: auto;
+    width: 100vw;
+    height: 85vh;
+    border-left: 0;
+    border-top: 2px solid var(--msv-text);
+  }
+
+  .msv-page {
+    padding: 16px 16px 48px;
+  }
+
+  .msv-bar {
+    padding-right: 64px;
+  }
+
+  .msv-dex-tab,
+  .msv.-drawer-open .msv-dex-tab {
+    top: 0;
+    right: 0;
+    height: 48px;
+  }
+
+  .msv-titlebar.-page > h1 {
+    font-size: 22px;
+  }
+
+  .msv-titlebar.-page {
+    flex-wrap: wrap;
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+
+  .msv-trainer .msv-titlebar {
+    flex-wrap: wrap;
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+
+  .msv-wild__table th:nth-child(2),
+  .msv-wild__table td:nth-child(2) {
+    display: none;
+  }
+
+  .msv-chance__bar {
+    width: 48px;
+  }
+}
+
+/* Slide panels in, briefly, from the side they live on. */
+@media (prefers-reduced-motion: no-preference) {
+  .msv-outline,
+  .msv-drawer {
+    transition: transform 100ms steps(4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .msv-hex:active {
+    transform: none;
+  }
+}

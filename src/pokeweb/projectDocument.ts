@@ -49,7 +49,7 @@ export type ProjectDocument = {
   /** Small name lists used by unloaded editors; decoded text banks stay in the session. */
   texts: Pick<TextState, "banks">;
   tms?: Pick<TmState, "offset" | "byteLength" | "raw" | "dirty">;
-  docs?: Pick<DocGeneratorState, "romTitle" | "mastersheetMarkdown" | "mastersheetHighlights">;
+  docs?: Pick<DocGeneratorState, "romTitle" | "mastersheetMarkdown" | "mastersheetHighlights" | "mastersheetInRom" | "mastersheetRomSourceHash">;
   scriptDrafts?: Record<number, Bw2ScriptDraft>;
   cgearButtons?: import("../cgearButtons/document").Project;
   systemShops?: import("../systemShops/document").Project;
@@ -108,7 +108,8 @@ export function createProjectDocument(project: ProjectSession, hasMatchingSource
     tms: project.tms ? { offset: project.tms.offset, byteLength: project.tms.byteLength,
       raw: project.tms.raw, dirty: project.tms.dirty } : undefined,
     docs: project.docs ? { romTitle: project.docs.romTitle, mastersheetMarkdown: project.docs.mastersheetMarkdown,
-      mastersheetHighlights: project.docs.mastersheetHighlights } : undefined,
+      mastersheetHighlights: project.docs.mastersheetHighlights, mastersheetInRom: project.docs.mastersheetInRom,
+      mastersheetRomSourceHash: project.docs.mastersheetRomSourceHash } : undefined,
     scriptDrafts: project.bw2ScriptEditor?.drafts,
     cgearButtons: project.cgearButtons, systemShops: project.systemShops, customUi: project.customUi, uiScreens: project.uiScreens,
     cutsceneAuthoring: project.cutsceneAuthoring,

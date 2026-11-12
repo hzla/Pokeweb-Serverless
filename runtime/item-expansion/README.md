@@ -23,10 +23,10 @@ Tower data stop being saved; Battle Log (which uses the real blocks) keeps worki
 
 Same 512 KiB file, same copies (0x0, 0x26000), same footer position (0x25fa4), same extra saves (0x4c000+). Blocks
 are 0x100-aligned and retail uses every page, so the bag's 7 extra pages come from block 31 (14 → 7 pages). Blocks
-26–31 move by 0x700; PC boxes and blocks 32+ do not move. Saves are converted in Pokeweb (Code Injection > Item
-Expansion), both ways, never in place. A ROM with the expansion stops with a message on a retail-format or unknown
-save before anything is written. Pokeweb's own test-battle, warp and quick-launch saves are converted
-automatically (`adaptSaveForProject`).
+26–31 move by 0x700; PC boxes and blocks 32+ do not move. The expansion has never shipped, so Pokeweb has
+no user-facing save converter. A ROM with the expansion stops with a message on a retail-format or unknown save
+before anything is written. Pokeweb's own test-battle, warp and quick-launch saves are converted automatically
+(`adaptSaveForProject`, retail to expanded only).
 
 Audit of save writers (BW2): blocks 29–31 accessors (guarded); the save system's own size/init callbacks for block 31
 (`PalPadFriendList_GetSize` literal → 0x6fc, which also bounds `PalPadFriendList_Init`); Mystery Gift outside data

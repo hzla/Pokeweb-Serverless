@@ -12,7 +12,7 @@ void* moveAttacker(void* biw) {
         const unsigned slot=(field<u32>(biw,MoveState)>>19)&3;
         return slot<3?field<void*>(biw,MoveRotationMons+slot*4):nullptr;
     }
-    return moveTarget(gBattleMoveHud.selectedSlot>>2);
+    return moveTarget(gBattleMoveHud.attackerView);
 }
 int affinityPart(unsigned type,unsigned defendType,unsigned reveal,bool scrappy,bool flatGround) {
     unsigned aff=reinterpret_cast<unsigned(*)(unsigned,unsigned)>(NativeTypeAffinity)(type,(defendType<<8)|defendType);

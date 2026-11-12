@@ -26,6 +26,7 @@ import {
   repairLegacyPmcRootFnt,
   repairLegacyBw1PmcBootCalls,
 } from "./pmcModel";
+import { materializeMastersheetRomFile } from "./mastersheetRomFile";
 import { materializePwanAnimations } from "./pwanAnimationModel";
 import { isW2AnimProject, materializeW2AnimAnimations } from "./w2animAnimationModel";
 import { getDirtyStarterOverlayIds } from "./starterModel";
@@ -82,6 +83,7 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
   repairLegacyBw1PmcBootCalls(project, rom);
   if (isW2AnimProject(project)) await materializeW2AnimAnimations(project, rom);
   else await materializePwanAnimations(project, rom);
+  materializeMastersheetRomFile(project, rom);
   pruneRedundantPatchesKeepAddition(project, rom);
   repairPokemonIconPaletteAssignmentPlacement(project);
   repairAppendedPokemonFormNames(project);

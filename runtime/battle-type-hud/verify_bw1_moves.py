@@ -49,7 +49,7 @@ class Harness:
             assert bytes(self.c.mem_read(sig['address'], len(bytes.fromhex(sig['bytes'])))).hex() == sig['bytes']
         rpm = read_rpm((HERE / 'build' / f'{module}{game}.dll').read_bytes())
         debug = read_rpm((HERE / 'build' / f'{module}{game}.debug.dll').read_bytes())
-        assert rpm['code'] == debug['code'] and rpm['bss'] == debug['bss'] == 28
+        assert rpm['code'] == debug['code'] and rpm['bss'] == debug['bss'] == 32
         assert all(not symbol['attributes'] & 2 for symbol in rpm['symbols'])
         self.c.mem_write(BASE, rpm['code'] + bytes(rpm['bss']))
         self.entries = {}
@@ -66,7 +66,7 @@ class Harness:
                 hook = next(h for h in self.profile['hooks'] if h['address'] == relocation['address'])
                 self.entries.setdefault(hook['name'], []).append((relocation['type'], relocation['address'], target))
                 self.c.mem_write(relocation['address'], thumb_bl(relocation['address'], target))
-        assert sum(map(len, self.entries.values())) == 5
+        assert sum(map(len, self.entries.values())) == 6
         self.state = BASE + next(s['address'] for s in debug['symbols'] if s['name'] == 'gBattleMoveHud')
         mode = self.profile['functions']['IsDsi']
         mode_state = self.get(mode + 68)
@@ -76,7 +76,7 @@ class Harness:
         self.c.hook_add(UC_HOOK_MEM_WRITE, self.palette_write, begin=0x05000000, end=0x05000fff)
 
     def palette_write(self, cpu, access, address, size, value, user):
-        assert size == 2 and address in [0x05000400 + i * 2 for i in (219, 220, 221)]
+        assert size == 2 and address in [0x05000400 + i * 2 for i in (*range(219, 222), *range(225, 240))]
 
 
 def main():
@@ -89,9 +89,9 @@ def main():
                            'dsGameplayAccepted': False, 'dsiGameplayAccepted': False,
                            'dllSha256': hashlib.sha256((HERE / 'build' / f'MoveEffectiveness{game}.dll').read_bytes()).hexdigest(),
                            'checks': result})
-            print(f'{game}/{"extended" if extended else "DS"}: five wrappers and retail mechanics fixtures passed; gameplay pending')
+            print(f'{game}/{"extended" if extended else "DS"}: move UI and retail mechanics fixtures passed; gameplay pending')
     (HERE / 'build/move-verification-bw1.json').write_text(json.dumps({
-        'checks': checks, 'writableStateBytes': 28,
+        'checks': checks, 'writableStateBytes': 32,
         'fixtureLimitations': __doc__.strip()}, indent=2) + '\n')
 
 

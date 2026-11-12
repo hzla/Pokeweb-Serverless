@@ -1114,7 +1114,10 @@ function installDebugLog(): (message: string) => void {
   const append = (message: string) => {
     lines.push(`${new Date().toLocaleTimeString()} ${message}`);
     while (lines.length > 14) lines.shift();
-    if (log) log.textContent = lines.join("\n");
+    if (log) {
+      log.textContent = lines.join("\n");
+      log.scrollTop = log.scrollHeight;
+    }
   };
   for (const level of ["log", "warn", "error"] as const) {
     const original = console[level].bind(console);

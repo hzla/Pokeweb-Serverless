@@ -604,3 +604,54 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Save in the ROM */
+.mastersheet-rom {
+  border-bottom: 1px solid var(--ink-3);
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  padding: 12px 16px;
+}
+
+.mastersheet-rom__toggle {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  font-weight: 500;
+  gap: 8px;
+}
+
+.mastersheet-rom__note,
+.mastersheet-rom__error,
+.mastersheet-rom__conflict p {
+  color: var(--text-muted);
+  line-height: 1.35;
+  margin: 0;
+}
+
+.mastersheet-rom__note:empty {
+  display: none;
+}
+
+.mastersheet-rom__error {
+  color: #ffb86c;
+}
+
+.mastersheet-rom__conflict {
+  border: 1px solid #ffb86c;
+  border-radius: var(--radius);
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.mastersheet-rom__conflict p {
+  color: var(--text);
+}
+
+.mastersheet-rom__choices {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+}

@@ -19,6 +19,13 @@ FUNCTIONS = {
     'ViewSrc': (167, 0x21bb0a4, 22),
     'MoveDraw': (168, 0x21ed85c, 48),
     'MoveClear': (168, 0x21ee280, 48),
+    'MoveDestroyInput': (168, 0x21ea6f8, 36),
+    'MoveDestroy': (168, 0x21eeb18, 40),
+    'MoveWindowCreate': (0, 0x20480ec, 84),
+    'MoveWindowMap': (0, 0x2048298, 40),
+    'MoveWindowUnmap': (0, 0x20484e0, 32),
+    'MoveWindowDelete': (0, 0x204823c, 52),
+    'MoveBgCommit': (0, 0x2044fbc, 28),
     'MoveKey': (168, 0x21eecfc, 64),
     'CreateScreen': (168, 0x21eaa7c, 48),
     'GetMainModule': (168, 0x21e016c, 10),
@@ -110,6 +117,9 @@ def main():
         site=found['CreateScreen']+10
         assert site in branches(base,data,found['MoveClear'])
         hooks.append(dict(kind='THUMB_BRANCH_LINK',name='MoveClear',address=site,bytes=data[site-base:site-base+4].hex()))
+        site=found['MoveDestroyInput']+4
+        assert site in branches(base,data,found['MoveDestroy'])
+        hooks.append(dict(kind='THUMB_BRANCH_LINK',name='MoveDestroy',address=site,bytes=data[site-base:site-base+4].hex()))
         narc=ndspy.narc.NARC(rom.getFileByName('a/0/1/1'))
         resources={}
         for n in (*range(430,447),456,457,458):
@@ -141,10 +151,11 @@ def main():
               'SexDraw':'void* g, void* p','LevelDraw':'void* g, void* p',
               'MoveDraw':'void* b, const unsigned short* p',
               'MoveClear':'void* b, unsigned t',
+              'MoveDestroy':'void* b',
               'MoveKey':'void* b, void* tp, const signed char* k, const void* m, int h, unsigned f'}
         args={'Add':'g,m,b,t,p','AddPP':'g,m,b,t,p','Main':'g','Del':'g,p','Release':'g','Status':'g,s,p'}
         args.update(NameDraw='g,p,pp',SexDraw='g,p',LevelDraw='g,p')
-        args.update(MoveDraw='b,p',MoveClear='b,t',MoveKey='b,tp,k,m,h,f')
+        args.update(MoveDraw='b,p',MoveClear='b,t',MoveDestroy='b',MoveKey='b,tp,k,m,h,f')
         for h in hooks:
             ret='int' if h['name']=='MoveKey' else 'void'
             wrappers.append(f'extern "C" {ret} {h["kind"]}_168_0x{h["address"]:X}({sigs[h["name"]]}) {{ return Hud{h["name"]}({args[h["name"]]}); }}')

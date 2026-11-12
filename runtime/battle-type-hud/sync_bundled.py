@@ -1,26 +1,31 @@
 """Publish independent, verified icon and move-preview modules into Pokeweb."""
 from pathlib import Path
-import hashlib,json,shutil,os
+import argparse,hashlib,json,shutil,os
 from rpm_read import read_rpm
 HERE=Path(__file__).resolve().parent
 ROOT=Path(os.environ.get('BTH_WORKSPACE_ROOT',HERE.parents[2] if HERE.parent.name=='runtime' else HERE.parents[1]))
 APP=ROOT/'Pokeweb-Serverless';ASSETS=APP/'src/assets/codeinjection';RUNTIME=APP/'runtime/battle-type-hud'
-version='0.4.24'
+parser=argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--moves',action='store_true',help='Sync only BW2 Move Effectiveness.')
+options=parser.parse_args()
+version='0.4.30'
 manifest=json.loads((ASSETS/'battleTypeHudManifest.json').read_text())
 manifest['version']=version;manifest.setdefault('moveGames',{})
 memory=json.loads((HERE/'build/memory-report.json').read_text())
-verified=json.loads((HERE/'build/verification.json').read_text())
-alignment=json.loads((HERE/'build/player-alignment-verification.json').read_text())
-enemy_names=json.loads((HERE/'build/enemy-name-verification.json').read_text())
 move_verified=json.loads((HERE/'build/move-verification.json').read_text())
-circular_verified=json.loads((HERE/'build/circular-verification.json').read_text())
-solid_verified=json.loads((HERE/'build/solid-verification.json').read_text())
 dsi_verified=json.loads((HERE/'build/dsi-verification.json').read_text())
+modules=[('MoveEffectiveness','moveGames',24,6,'0.4.7')]
+if not options.moves:
+ verified=json.loads((HERE/'build/verification.json').read_text())
+ alignment=json.loads((HERE/'build/player-alignment-verification.json').read_text())
+ enemy_names=json.loads((HERE/'build/enemy-name-verification.json').read_text())
+ circular_verified=json.loads((HERE/'build/circular-verification.json').read_text())
+ solid_verified=json.loads((HERE/'build/solid-verification.json').read_text())
+ modules.insert(0,('TypeIcons','games',364,17,'0.3.18'))
 icon_names={'IsDsi','Add','AddPP','Main','Del','Release','Status','GetPfd','GetRule','GetProxy','PalAddr','PPGet','EffectiveTypes','ViewSrc','HpNumberBinding','NameDraw','SexDraw','LevelDraw','GaugePosition','EnemyPositions','EnemyTriplePositions','SpriteInit','CellInit','CellSelect'}
 for game in ('B2','W2'):
  full=json.loads((HERE/f'profile-{game}.json').read_text())
- for module,key,state,hooks in (('TypeIcons','games',364,17),('MoveEffectiveness','moveGames',20,5)):
-  component_version='0.3.18' if module=='TypeIcons' else '0.4.1'
+ for module,key,state,hooks,component_version in modules:
   name=module+game+'.dll';data=(HERE/'build'/name).read_bytes();rpm=read_rpm(data)
   assert rpm['bss']==state and len([r for r in rpm['relocations'] if r['module']!='base'])==hooks
   assert all(r['module'] in ('base','168') for r in rpm['relocations']) and all(not s['attributes']&2 for s in rpm['symbols'])
@@ -74,6 +79,9 @@ for game in ('B2','W2'):
   profile['builds'][component_version]=build
   manifest[key][game]=profile;(ASSETS/name).write_bytes(data)
 (ASSETS/'battleTypeHudManifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+if options.moves:
+ print('Bundled BW2 Move Effectiveness Preview '+modules[0][4]+'.')
+ raise SystemExit(0)
 panel_changes=json.loads((ASSETS/'battleTypeHudPanelExpansion.json').read_text())
 panel_changes.update(json.loads((HERE/'panel-expansion.json').read_text()))
 (ASSETS/'battleTypeHudPanelExpansion.json').write_text(json.dumps(panel_changes,indent=2)+'\n')

@@ -82,6 +82,12 @@ const TM_TYPE_PALETTES: Partial<Record<string, number>> = {
   Dark: 407,
 };
 
+/** The item palette that colours a TM disc for a move type ("Fire"), as the game's TM icons do. */
+export function tmTypePalette(type: string): number | undefined {
+  const key = Object.keys(TM_TYPE_PALETTES).find((name) => name.toLowerCase() === type.trim().toLowerCase());
+  return key === undefined ? undefined : TM_TYPE_PALETTES[key];
+}
+
 export const TM_FIELDS = [
   ...Array.from({ length: 92 }, (_, index) => `tm_${index + 1}`),
   ...Array.from({ length: 6 }, (_, index) => `hm_${index + 1}`),

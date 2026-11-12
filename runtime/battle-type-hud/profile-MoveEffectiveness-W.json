@@ -16,6 +16,13 @@
     "CheckSick": 35480293,
     "MoveDraw": 35671265,
     "MoveClear": 35673813,
+    "MoveDestroyInput": 35660785,
+    "MoveDestroy": 35676037,
+    "MoveWindowCreate": 33837320,
+    "MoveWindowMap": 33837964,
+    "MoveWindowUnmap": 33838864,
+    "MoveWindowDelete": 33837824,
+    "MoveBgCommit": 33819084,
     "MoveKey": 35676513,
     "CreateScreen": 35661613,
     "GetMainModule": 35620725,
@@ -80,6 +87,48 @@
       "segment": 94,
       "address": 35673812,
       "bytes": "70b584b0051ce96e02208143e96600232649181cea185b1c5054082bfadb244900242a18401c54540428fadb8b26b600a859211c3ef634ea301f28583ff61cee301c08302858211c3ef62aea301d28583ff612ee281c00f02bfc281c00f00afd281c00f00dfb20220092019202940420211c02233bf6e6ed00940194029428683e220390686e02211202231c1cf680f8009401940294286807220390686e08211202231c1cf674f804b070bd5a02000062020000002802d11d2000027047814202d1112080017047022904dc012820d153208001704707290adc012802d00228"
+    },
+    {
+      "name": "MoveDestroyInput",
+      "segment": 94,
+      "address": 35660784,
+      "bytes": "f8b5051c03f0c6fd281c03f029fd281c03f0aefd281c03f067fb281c03f0a2fc4126b600"
+    },
+    {
+      "name": "MoveDestroy",
+      "segment": 94,
+      "address": 35676036,
+      "bytes": "f8b57f27061c0024bf00a0003518e859002803d045f618ea0020e851641c042cf3dbf8bdf8b598b0"
+    },
+    {
+      "name": "MoveWindowCreate",
+      "segment": 0,
+      "address": 33837320,
+      "bytes": "f0412de910d04de20080a0e10170a0e10260a0e10350a0e163f1ffeb000050e32800dd050040a0033020dde5950001002800dd150140a013950000108010a0110800a0e18112a0e132eaffeb"
+    },
+    {
+      "name": "MoveWindowMap",
+      "segment": 0,
+      "address": 33837964,
+      "bytes": "f8432de918d04de20090a0e10530d9e50610d9e50920d9e50200d9e5830161e10118a0e12188a0e1024ea0e1ba50d9e1b5f0ffeb010050e3"
+    },
+    {
+      "name": "MoveWindowUnmap",
+      "segment": 0,
+      "address": 33838864,
+      "bytes": "00402de90cd04de20030a0e10500d3e50010a0e300008de50600d3e503008de90200d3e50320d3e50430d3e5f5eeffeb"
+    },
+    {
+      "name": "MoveWindowDelete",
+      "segment": 0,
+      "address": 33837824,
+      "bytes": "10402de90040a0e1b000d4e10510d4e50008a0e1a00fb0e10600d4e581006201810060118020a0110200d4e5ba10d4e18222a0e108eaffeb0c0094e520f9ffeb0400a0e11fadffeb1080bde8"
+    },
+    {
+      "name": "MoveBgCommit",
+      "segment": 0,
+      "address": 33819084,
+      "bytes": "1c209fe52c10a0e3002092e514c09fe5902123e0081093e50c2093e5103093e5"
     },
     {
       "name": "MoveKey",
@@ -202,6 +251,12 @@
       "name": "MoveClear",
       "address": 35661622,
       "bytes": "02f0cdff"
+    },
+    {
+      "kind": "THUMB_BRANCH_LINK",
+      "name": "MoveDestroy",
+      "address": 35660788,
+      "bytes": "03f0c6fd"
     }
   ],
   "resources": {},
@@ -221,8 +276,8 @@
     "selectedSlots": 580,
     "moveArray": 620,
     "rotationMons": 676,
-    "verification": "Retail creation/clear/key instructions and scoped DS input captures; full gameplay pending",
-    "targetEntries": "Native BW1 key rows may repeat the same target ID; count distinct nonnegative IDs for single/spread fallback. Black live triple capture recorded four copies of ID 3."
+    "targetEntries": "BW1 key rows can repeat target IDs; distinct IDs determine the single-target fallback. A Black live triple capture recorded four copies of ID 3.",
+    "verification": "Retail creation/clear/key instructions and scoped DS input captures; full gameplay pending"
   },
   "mechanics": {
     "battlePokemon": {
