@@ -112,12 +112,14 @@ export function mastersheetRomFileForProject(project: ProjectState): Uint8Array 
 export function materializeMastersheetRomFile(project: ProjectState, rom: NintendoDSRom): void {
   const bytes = mastersheetRomFileForProject(project);
   const fileId = rom.filenames.idOf(MASTERSHEET_ROM_PATH);
-  const fileSystem = ensureFileSystemState(project);
   if (fileId === undefined) {
-    if (bytes) fileSystem.additions![MASTERSHEET_ROM_PATH] = bytes;
-    else delete fileSystem.additions![MASTERSHEET_ROM_PATH];
+    if (bytes) ensureFileSystemState(project).additions![MASTERSHEET_ROM_PATH] = bytes;
+    // Nothing to add or remove: leave a project without filesystem edits untouched, since other features
+    // (map import's review guard) compare it before and after an export.
+    else if (project.fileSystem?.additions) delete project.fileSystem.additions[MASTERSHEET_ROM_PATH];
     return;
   }
+  const fileSystem = ensureFileSystemState(project);
   delete fileSystem.additions![MASTERSHEET_ROM_PATH];
   if (bytes) {
     fileSystem.replacements[fileId] = bytes;
