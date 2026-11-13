@@ -522,7 +522,7 @@ export function enrichItemLocations(project: ProjectState): EnrichmentResult {
     const npcCount = Number(raw.npc_count ?? 0);
     for (let npc = 0; npc < npcCount; npc += 1) {
       const scriptId = Number(raw[`npc_${npc}_script_id`] ?? 0);
-      if (scriptId <= 7000 || scriptId > 7400) continue;
+      if (scriptId < GROUND_ITEM_SCRIPT_FIRST || scriptId > GROUND_ITEM_SCRIPT_LAST) continue;
       const itemId = scriptMap.get(scriptId);
       if (itemId === undefined) continue;
       addUnique(docs.itemLocations, itemId, location);
@@ -572,10 +572,17 @@ export function parseTrainerBattleScripts(
   return unique(trainerIds);
 }
 
+/** The global item ball scripts: script 7000 + n runs entry n of this file (ov012 / ov010 GLOBAL_SCRIPT_TABLE). */
+export const GROUND_ITEM_SCRIPT_FIRST = 7000;
+export const GROUND_ITEM_SCRIPT_LAST = 7799;
+export function groundItemScriptFileId(project: ProjectState): number {
+  return project.session.baseRom === "BW2" ? 1240 : 864;
+}
+
 export function buildGroundItemScriptMap(project: ProjectState): Map<number, number> {
   const store = project.narcs.scripts;
   if (!store) throw new Error("Scripts NARC is not loaded.");
-  const scriptFileId = project.session.baseRom === "BW2" ? 1240 : 864;
+  const scriptFileId = groundItemScriptFileId(project);
   const bytes = store.rawFiles[scriptFileId];
   if (!bytes) throw new Error(`Global item script file ${scriptFileId} is not loaded.`);
   return parseGroundItemScripts(bytes);

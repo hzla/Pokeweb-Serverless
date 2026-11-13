@@ -129,8 +129,8 @@ export type SpeciesExpansionStatus = {
 };
 
 /**
- * The Species Expansion card is experimental: it is shown, and installs, only when Pokeweb runs locally (localhost),
- * like Map Studio. The installer itself (installSpeciesExpansion) has no gate, for the build and test scripts.
+ * The Species Expansion card is experimental: it is shown, and installs, only locally or once unlocked
+ * (aiFeatureAccess.ts), like Map Studio. The installer itself (installSpeciesExpansion) has no gate, for the build and test scripts.
  */
 export function canUseSpeciesExpansionInstaller(hostname = typeof location === "undefined" ? "" : location.hostname): boolean {
   return canOpenMapStudio(hostname);

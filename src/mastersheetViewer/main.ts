@@ -2,6 +2,7 @@ import "../styles/mastersheetViewer.css";
 import { buildMastersheetDocument } from "../pokeweb/mastersheetDocument";
 import { hasAuthoredMastersheet } from "../pokeweb/mastersheetRomFile";
 import { canOpenMastersheetViewer } from "../pokeweb/mastersheetViewerAccess";
+import { applyAiFeaturesParam } from "../pokeweb/aiFeatureAccess";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { ImageCache, RomAssetProvider } from "./assets";
 import { mountViewer } from "./app";
@@ -17,6 +18,7 @@ const root = document.getElementById("mastersheet-viewer")!;
 const HATCH = `<svg class="msv-hatch" viewBox="0 0 40 16" aria-hidden="true" focusable="false"><path d="M0 16 6 0h4L4 16ZM10 16 16 0h4l-6 16ZM20 16 26 0h4l-6 16ZM30 16 36 0h4l-6 16Z"/></svg>`;
 
 async function boot(): Promise<void> {
+  applyAiFeaturesParam();
   if (!canOpenMastersheetViewer()) {
     root.innerHTML = `
       <main class="msv-open">

@@ -1,10 +1,11 @@
 /**
  * Gen 5 theme (experimental branch): marks what a button does by its label, so the stylesheet can colour it the way
  * the game colours its commands, without touching the pages that render the buttons:
- * - "Add …" and "+ …" buttons get `-g5-add` (green), and a leading "+" (`-g5-add-mark`) unless the label has one
+ * - "Add …" and "+ …" buttons get `-g5-add` (green), and a leading "+" (`-g5-add-mark`) unless the label has one. A bare
+ *   "+" (zoom, steppers) adds nothing, so it stays plain
  * - "Delete …", "Remove …", "Uninstall …" and "Disable …" buttons get `-g5-remove` (red), like the pages' own `-danger` buttons
  */
-const ADD = /^(?:\+|add\b)/iu;
+const ADD = /^(?:\+\s*\S|add\b)/iu;
 const REMOVE = /^(?:delete|remove|uninstall|disable)\b/iu;
 
 export function attachGen5ButtonRoles(root: HTMLElement): void {

@@ -5,6 +5,7 @@ import {
   moveOverworldEntity,
   NPC_FIELDS,
   OVERWORLD_ENTITY_KINDS,
+  spriteDirectionOffset,
   updateMapPermissionTiles,
   updateMapTile,
   updateOverworldEntityField,
@@ -26,6 +27,8 @@ import type { OverworldTestWarpSelection } from "../pokeweb/testOverworldWarp";
 import { escapeHtml, selectText } from "./dom";
 import { changedKeys } from "./detailFields";
 import { installPicker } from "./trainerInteractions";
+import { openItemShortcut, openSpritePicker, openTrainerShortcut, spriteClassLabels } from "./overworldShortcuts";
+import { buildTrainerOverworldIndex, supportsOverworldShortcuts } from "../pokeweb/overworldShortcutModel";
 import { publicAsset } from "../assetUrl";
 import { gen4PermissionTileFill } from "./gen4MapPreviewRenderer";
 import type { OverworldMapRender } from "./overworldMapRenderer";
@@ -232,6 +235,7 @@ export function renderOverworldEditor(
 ): void {
   let scene = getOverworldScene(project, overworldId, headerRowId);
   const isGen4 = isGen4Project(project);
+  const shortcuts = supportsOverworldShortcuts(project);
   const tileLayerLabels = isGen4 ? { flag: "Type", movement: "Collision" } : { flag: "Flag", movement: "Movement" };
   let activeKind: OverworldEntityKind = "npc";
   let activeSidebarTab: SidebarTab = "npc";
@@ -278,6 +282,8 @@ export function renderOverworldEditor(
             <div class="ow-pick-actions" id="entity-command-buttons">
               <button class="btn sm -default" id="add-entity" type="button">Add NPC</button>
               <button class="btn sm -default" id="del-entity" type="button" title="Delete (Del)">Delete</button>
+              ${shortcuts ? `<button class="btn sm -default" id="add-trainer" type="button" title="Place a trainer that battles on sight">+ Trainer</button>
+              <button class="btn sm -default" id="add-item" type="button" title="Place an item ball">+ Item</button>` : ""}
             </div>
           </div>
           <div class="ow-fields" id="entity-fields"></div>
@@ -325,6 +331,7 @@ export function renderOverworldEditor(
             <button class="btn sm -default" id="zoom-fit" type="button" title="Fit the map">Fit</button>
           </div>
           ${isGen4 ? "" : `<button class="btn sm -default" id="toggle-matrix" type="button" aria-pressed="${layerPrefs.matrix}" title="Permissions matrix">Matrix</button>`}
+          ${testWarpHtml ? `<button class="btn sm -default" id="warp-pick" type="button" aria-pressed="false" title="Click a tile on the map to open the game there">Open Game &amp; Warp Here</button>` : ""}
         </div>
         ${isGen4 ? "" : `<div class="ow-legend" id="ow-legend" ${layerPrefs.permissions ? "" : "hidden"}>${renderPermissionLegend()}</div>`}
         <div class="ow-body">
@@ -836,11 +843,29 @@ export function renderOverworldEditor(
     if (changed > 0) onDirty?.();
   }
 
-  testWarpButton?.addEventListener("click", async () => {
-    if (!selectedTile || !onTestWarp || testWarpButton.disabled) return;
-    const selection = { overworldId, ...selectedTile };
-    testWarpButton.disabled = true;
-    testWarpButton.textContent = "Building...";
+  // ---------- Test warp: build the ROM and open the emulator with a warp to a tile ----------
+  const warpPickButton = root.querySelector<HTMLButtonElement>("#warp-pick");
+  const WARP_PICK_LABEL = "Open Game & Warp Here";
+  let warpPicking = false;
+  let warpRunning = false;
+
+  function setWarpPicking(on: boolean): void {
+    warpPicking = on;
+    stageEl.classList.toggle("-warp-pick", on);
+    if (!warpPickButton) return;
+    warpPickButton.setAttribute("aria-pressed", String(on));
+    warpPickButton.textContent = on ? "Click a tile… (Esc cancels)" : WARP_PICK_LABEL;
+  }
+
+  async function runTestWarp(tile: PermissionTileSelection): Promise<void> {
+    if (!onTestWarp || warpRunning) return;
+    const selection = { overworldId, ...tile };
+    warpRunning = true;
+    for (const button of [testWarpButton, warpPickButton]) {
+      if (!button) continue;
+      button.disabled = true;
+      button.textContent = "Building...";
+    }
     if (testWarpStatus) testWarpStatus.textContent = "Building ROM and preparing the test warp...";
     try {
       commitPermissionPaint();
@@ -849,9 +874,32 @@ export function renderOverworldEditor(
     } catch (error) {
       if (testWarpStatus) testWarpStatus.textContent = error instanceof Error ? error.message : String(error);
     } finally {
-      testWarpButton.disabled = false;
-      testWarpButton.textContent = "Test Warp to Here";
+      warpRunning = false;
+      if (testWarpButton) {
+        testWarpButton.disabled = false;
+        testWarpButton.textContent = "Test Warp to Here";
+      }
+      if (warpPickButton) {
+        warpPickButton.disabled = false;
+        warpPickButton.textContent = WARP_PICK_LABEL;
+      }
     }
+  }
+
+  testWarpButton?.addEventListener("click", () => {
+    if (selectedTile && !testWarpButton.disabled) void runTestWarp(selectedTile);
+  });
+
+  // Picking a tile works in the permissions view, where the map shows where the player can stand.
+  warpPickButton?.addEventListener("click", () => {
+    if (warpRunning) return;
+    if (warpPicking) {
+      setWarpPicking(false);
+      return;
+    }
+    if (activeSidebarTab !== "permissions") root.querySelector<HTMLButtonElement>('.ow-entity-tab[data-sidebar-tab="permissions"]')?.click();
+    if (!layerPrefs.permissions) setLayer("permissions", true);
+    setWarpPicking(true);
   });
 
   function paintCanvasTileAt(clientX: number, clientY: number): void {
@@ -1088,6 +1136,20 @@ export function renderOverworldEditor(
   }
 
   function bindEntityFieldEvents(host: HTMLElement): void {
+    host.querySelector<HTMLButtonElement>("[data-sprite-picker]")?.addEventListener("click", () => {
+      const selection = selectedEntity;
+      const entity = visibleEntityBySelection(selection);
+      if (!selection || entity?.kind !== "npc") return;
+      openSpritePicker(root, {
+        current: entity.spriteId,
+        labels: spriteClassLabels(project, buildTrainerOverworldIndex(project)),
+        onPick: (spriteId) => {
+          updateOverworldEntityField(project, overworldId, selection, "overworld_sprite", spriteId);
+          reloadScene();
+          onDirty?.();
+        },
+      });
+    });
     host.querySelectorAll<HTMLSelectElement>(".sidebar-field-select").forEach((select) => {
       select.addEventListener("change", () => {
         const key = select.dataset.fieldKey;
@@ -1242,6 +1304,10 @@ export function renderOverworldEditor(
     }
 
     if (addButton) addButton.textContent = `Add ${entityKindLabel(activeKind)}`;
+    const trainerButton = root.querySelector<HTMLButtonElement>("#add-trainer");
+    if (trainerButton) trainerButton.hidden = activeKind !== "npc";
+    const itemButton = root.querySelector<HTMLButtonElement>("#add-item");
+    if (itemButton) itemButton.hidden = activeKind !== "npc";
     if (deleteButton) deleteButton.disabled = !entity || entity.kind !== activeKind;
     updatePermissionPanel();
   };
@@ -1286,6 +1352,38 @@ export function renderOverworldEditor(
   }
 
   root.querySelector<HTMLButtonElement>("#add-entity")?.addEventListener("click", addEntity);
+  root.querySelector<HTMLButtonElement>("#add-trainer")?.addEventListener("click", () => {
+    if (activeSidebarTab === "permissions") return;
+    const labels = overworldFileOptions(project);
+    openTrainerShortcut(root, project, {
+      overworldId,
+      position: defaultNewEntityPosition(),
+      overworldLabel: (id) => labels[id] ?? `Overworld ${id}`,
+      onPlaced: (indexes) => {
+        activeKind = "npc";
+        activeSidebarTab = "npc";
+        selectedEntity = { kind: "npc", index: indexes[0]! };
+        reloadScene();
+        revealEntity(selectedEntity);
+        onDirty?.();
+      },
+    });
+  });
+  root.querySelector<HTMLButtonElement>("#add-item")?.addEventListener("click", () => {
+    if (activeSidebarTab === "permissions") return;
+    openItemShortcut(root, project, {
+      overworldId,
+      position: defaultNewEntityPosition(),
+      onPlaced: (index) => {
+        activeKind = "npc";
+        activeSidebarTab = "npc";
+        selectedEntity = { kind: "npc", index };
+        reloadScene();
+        revealEntity(selectedEntity);
+        onDirty?.();
+      },
+    });
+  });
   root.querySelector<HTMLButtonElement>("#del-entity")?.addEventListener("click", deleteSelectedEntity);
   root.querySelector<HTMLButtonElement>("#entity-prev")?.addEventListener("click", () => stepEntity(-1));
   root.querySelector<HTMLButtonElement>("#entity-next")?.addEventListener("click", () => stepEntity(1));
@@ -1300,6 +1398,7 @@ export function renderOverworldEditor(
       const tab = button.dataset.sidebarTab as SidebarTab | undefined;
       if (!tab || tab === activeSidebarTab) return;
       const leavingPermissions = activeSidebarTab === "permissions";
+      if (leavingPermissions) setWarpPicking(false);
       activeSidebarTab = tab;
       if (tab === "permissions") {
         if (!layerPrefs.permissions) setLayer("permissions", true);
@@ -1427,7 +1526,7 @@ export function renderOverworldEditor(
     if (event.button !== 0 && event.button !== 1) return;
     state.dragStartX = event.clientX;
     state.dragStartY = event.clientY;
-    if (event.button === 0 && tilesActive() && permissionBrush.painting) {
+    if (event.button === 0 && tilesActive() && permissionBrush.painting && !warpPicking) {
       event.preventDefault();
       pendingPaintEdits.clear();
       state.paintingPermissions = true;
@@ -1471,6 +1570,14 @@ export function renderOverworldEditor(
     state.draggingMap = false;
     stageEl.classList.remove("-panning");
     if (moved >= 4 || event.button !== 0) return;
+    if (warpPicking) {
+      const tile = tileAt(scene, screenToWorld(event.clientX, event.clientY));
+      if (!tile) return;
+      setWarpPicking(false);
+      selectPermissionTile(tile, true);
+      void runTestWarp(tile);
+      return;
+    }
     if (tilesActive()) {
       selectPermissionTile(tileAt(scene, screenToWorld(event.clientX, event.clientY)), true);
       return;
@@ -1551,6 +1658,11 @@ export function renderOverworldEditor(
       return;
     }
     if (isTextEntryTarget(event.target) || event.metaKey || event.ctrlKey || event.altKey) return;
+    if (warpPicking && event.key === "Escape") {
+      event.preventDefault();
+      setWarpPicking(false);
+      return;
+    }
     if (isGen4 && event.key === "Tab" && !isEditableTarget(event.target)) {
       event.preventDefault();
       setViewMode(state.viewMode === "permissions" ? "map" : "permissions");
@@ -1641,6 +1753,9 @@ function renderSpritePreview(project: ProjectState, npc: OverworldNpc): string {
   const src = isGen4 ? romSprite : publicAsset(`images/overworlds/${npc.spriteSlug}.png`);
   if (!src) return `<span class="ow-sprite-preview -missing" aria-hidden="true"></span>`;
   const attrs = isGen4 ? `data-rom-sprite="true"` : `onerror="this.hidden=true;this.parentElement?.classList.add('-missing')"`;
+  if (!isGen4 && supportsOverworldShortcuts(project)) {
+    return `<button class="ow-sprite-preview -pick" type="button" data-sprite-picker data-dir="${npc.direction}" title="Choose a sprite" aria-label="Choose a sprite"><img class="overworld-sprite" src="${escapeHtml(src)}" alt="" ${attrs}></button>`;
+  }
   return `<span class="ow-sprite-preview" data-dir="${npc.direction}" aria-hidden="true"><img class="overworld-sprite" src="${escapeHtml(src)}" alt="" ${attrs}></span>`;
 }
 
@@ -2140,14 +2255,6 @@ export function adjustSpriteDirections(root: HTMLElement): void {
   });
 }
 
-function spriteDirectionOffset(frameCount: number, direction: number): number | "f" {
-  let offsets: Array<number | "f"> = [0, 0, 0, 0];
-  if (frameCount >= 12) offsets = [0, 3, 6, 9];
-  if (frameCount === 16) offsets = [0, 4, 8, 12];
-  if (frameCount === 2) offsets = [0, 4, 8, 12];
-  if (frameCount === 6 || frameCount === 7 || frameCount === 9) offsets = [0, 3, 5, "f"];
-  return offsets[Math.min(Math.max(direction, 0), offsets.length - 1)] ?? 0;
-}
 
 function parseU16Input(value: string): number | undefined {
   const text = value.trim();

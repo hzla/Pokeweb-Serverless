@@ -460,8 +460,29 @@ export function mapPermissionColor(permission: number): { color: string; label: 
   );
 }
 
+/**
+ * Which frame of an overworld sprite sheet faces a direction (0 up, 1 down, 2 left, 3 right), by the sheet's frame
+ * count. "f" is the left frame flipped, for sheets that draw no right-facing frame.
+ */
+export function spriteDirectionOffset(frameCount: number, direction: number): number | "f" {
+  let offsets: Array<number | "f"> = [0, 0, 0, 0];
+  if (frameCount >= 12) offsets = [0, 3, 6, 9];
+  if (frameCount === 16) offsets = [0, 4, 8, 12];
+  if (frameCount === 2) offsets = [0, 4, 8, 12];
+  // Four frames: one per facing. Eight: two per facing (most Pokémon).
+  if (frameCount === 4) offsets = [0, 1, 2, 3];
+  if (frameCount === 8) offsets = [0, 2, 4, 6];
+  if (frameCount === 6 || frameCount === 7 || frameCount === 9) offsets = [0, 3, 5, "f"];
+  return offsets[Math.min(Math.max(direction, 0), offsets.length - 1)] ?? 0;
+}
+
 export function spriteSlugForOverworldSprite(spriteId: number): string {
   return spriteMap[String(spriteId)] ?? String(spriteId);
+}
+
+/** Every overworld sprite with a bundled image, by id. */
+export function overworldSpriteIds(): number[] {
+  return Object.keys(spriteMap).map(Number).sort((a, b) => a - b);
 }
 
 export function groupByteLength(group: keyof typeof OVERWORLD_GROUP_FORMATS): number {

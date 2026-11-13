@@ -139,7 +139,7 @@ export function megaEvolutionConflicts(project: ProjectState): string[] {
   return conflicts;
 }
 
-/** The Mega Evolution card is experimental: like Map Studio, it is shown only when Pokeweb runs on localhost. */
+/** The Mega Evolution card is experimental: like Map Studio, it is shown only locally or once unlocked (aiFeatureAccess.ts). */
 export function canUseMegaEvolutionInstaller(hostname = typeof location === "undefined" ? "" : location.hostname): boolean {
   return canOpenMapStudio(hostname);
 }

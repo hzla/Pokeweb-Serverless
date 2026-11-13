@@ -97,12 +97,17 @@
   gap: 6px;
 }
 
-#overworld-editor :is(#add-entity, #del-entity) {
+#overworld-editor .ow-pick-actions [hidden] {
+  display: none;
+}
+
+/* Plain grey unless the theme gives the button a role colour (the Gen 5 theme paints "+" buttons green). */
+#overworld-editor :is(#add-entity, #del-entity, #add-trainer, #add-item):not(.-g5-add) {
   background: var(--ink-2);
   color: var(--text);
 }
 
-#overworld-editor :is(#add-entity, #del-entity):hover:not(:disabled) {
+#overworld-editor :is(#add-entity, #del-entity, #add-trainer, #add-item):not(.-g5-add):hover:not(:disabled) {
   background: var(--ink-3);
 }
 
@@ -679,4 +684,320 @@
 
 #overworld-editor [data-autocomplete] .suggestions > div.is-active {
   background: var(--ink-3);
+}
+
+/* ---------- Shortcut dialogs: + Trainer and the sprite grid ---------- */
+
+#overworld-editor .ow-sprite-preview.-pick {
+  padding: 0;
+  border: 1px solid var(--field-line);
+  cursor: pointer;
+}
+
+#overworld-editor .ow-sprite-preview.-pick:hover,
+#overworld-editor .ow-sprite-preview.-pick:focus-visible {
+  border-color: var(--amber);
+  outline: none;
+}
+
+#overworld-editor .ow-dialog {
+  box-sizing: border-box;
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius);
+  background: var(--ink-1);
+  color: var(--text);
+  box-shadow: 0 24px 80px rgb(0 0 0 / 45%);
+}
+
+#overworld-editor .ow-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+#overworld-editor .ow-dialog.-sprites {
+  width: min(900px, calc(100vw - 32px));
+  height: min(720px, calc(100vh - 48px));
+}
+
+#overworld-editor .ow-dialog::backdrop {
+  background: rgb(10 12 18 / 72%);
+}
+
+#overworld-editor .ow-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 12px 10px 16px;
+  border-bottom: 1px solid var(--ink-3);
+}
+
+#overworld-editor .ow-dialog-head h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+#overworld-editor .ow-dialog-body {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px 16px;
+  overflow-y: auto;
+}
+
+#overworld-editor .ow-dialog-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+#overworld-editor .ow-dialog-grid .ow-row {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+#overworld-editor .ow-dialog .ow-row {
+  grid-template-columns: 72px minmax(0, 1fr);
+}
+
+#overworld-editor .ow-dialog .ow-file-picker .suggestions {
+  max-height: 300px;
+}
+
+#overworld-editor .ow-dialog-note {
+  margin: 0;
+  line-height: 1.4;
+}
+
+#overworld-editor .ow-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Sprite frames: one square frame of a sheet, drawn at twice the DS size. */
+#overworld-editor .ow-sprite-frame {
+  position: relative;
+  display: block;
+  width: 64px;
+  height: 64px;
+  overflow: hidden;
+}
+
+#overworld-editor .ow-sprite-frame img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  image-rendering: pixelated;
+}
+
+#overworld-editor .ow-sprite-frame.-missing {
+  background: repeating-linear-gradient(45deg, var(--ink-0) 0 4px, var(--ink-2) 4px 8px);
+}
+
+#overworld-editor .ow-sprite-button {
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius);
+  background: var(--ink-0);
+  cursor: pointer;
+}
+
+#overworld-editor .ow-sprite-button .ow-sprite-frame {
+  width: 32px;
+  height: 32px;
+}
+
+#overworld-editor .ow-sprite-button.-large .ow-sprite-frame {
+  width: 64px;
+  height: 64px;
+}
+
+#overworld-editor .ow-sprite-button:hover,
+#overworld-editor .ow-sprite-button:focus-visible {
+  border-color: var(--amber);
+  outline: none;
+}
+
+/* The trainer card: sprite, name and party. */
+#overworld-editor .ow-trainer-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 10px;
+  border-radius: var(--radius);
+  background: var(--ink-0);
+}
+
+#overworld-editor .ow-trainer-card[hidden] {
+  display: none;
+}
+
+#overworld-editor .ow-trainer-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+#overworld-editor .ow-trainer-name {
+  font-weight: 600;
+}
+
+#overworld-editor .ow-trainer-party {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+#overworld-editor .ow-trainer-mon {
+  display: grid;
+  justify-items: center;
+  width: 44px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+#overworld-editor .ow-trainer-mon .wild {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 32px;
+}
+
+#overworld-editor .ow-trainer-mon :is(canvas, img) {
+  max-width: 40px;
+  max-height: 32px;
+  image-rendering: pixelated;
+}
+
+#overworld-editor .ow-trainer-placed {
+  color: var(--amber);
+  font-size: 13px;
+}
+
+#overworld-editor .ow-trainer-pair {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius);
+}
+
+#overworld-editor .ow-trainer-pair[hidden] {
+  display: none;
+}
+
+#overworld-editor .ow-trainer-pair legend {
+  padding: 0 4px;
+}
+
+#overworld-editor .ow-trainer-pair label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#overworld-editor .ow-trainer-partner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+#overworld-editor .ow-trainer-partner[hidden] {
+  display: none;
+}
+
+/* The sprite grid. */
+#overworld-editor .ow-dialog-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--ink-3);
+}
+
+#overworld-editor .ow-dialog-tools .ow-input {
+  flex: 0 1 320px;
+}
+
+#overworld-editor .ow-sprite-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: 6px;
+  align-content: start;
+  min-height: 0;
+  padding: 12px 16px 16px;
+  overflow-y: auto;
+}
+
+#overworld-editor .ow-sprite-cell {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 4px 2px 3px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: var(--ink-0);
+  color: var(--text-muted);
+  font: 12px/1 var(--font);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+#overworld-editor .ow-sprite-cell[hidden] {
+  display: none;
+}
+
+#overworld-editor .ow-sprite-cell:hover,
+#overworld-editor .ow-sprite-cell:focus-visible {
+  border-color: var(--field-line-hover);
+  color: var(--text);
+  outline: none;
+}
+
+#overworld-editor .ow-sprite-cell.is-current {
+  border-color: var(--amber);
+  color: var(--text);
+}
+
+#overworld-editor .ow-item-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border-radius: var(--radius);
+  background: var(--ink-0);
+}
+
+#overworld-editor .ow-item-icon {
+  width: 48px;
+  height: 48px;
+  image-rendering: pixelated;
+}
+
+#overworld-editor .ow-dialog-note.-bad {
+  color: var(--danger, #ff8a80);
+}
+
+/* The pickers' suggestion lists drop below the dialog instead of scrolling inside it. */
+#overworld-editor .ow-dialog:not(.-sprites),
+#overworld-editor .ow-dialog:not(.-sprites) .ow-dialog-body {
+  overflow: visible;
+}
+
+/* "Open Game & Warp Here": while it waits for a tile, the map takes a crosshair. */
+#overworld-editor .overworld-stage.-warp-pick .overworld-map {
+  cursor: crosshair;
 }

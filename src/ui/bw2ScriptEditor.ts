@@ -6,7 +6,7 @@ import type { ProjectState } from "../pokeweb/projectStore";
 import { buildBw2ScriptSourceContext, bw2ScriptMovementReferenceAt } from "../pokeweb/bw2ScriptContextModel";
 import { bw2ScriptCommandHelp, bw2MovementCommandHelp } from "../pokeweb/bw2ScriptCommandHelp";
 import { bw2WorkAlias } from "../pokeweb/bw2ScriptCompiler/workAliases";
-import { canUseLocalRomBridge } from "../pokeweb/localRomBridge";
+import { canUseAiFeatures } from "../pokeweb/aiFeatureAccess";
 import { resolveBw2ScriptOverlay, type Bw2ScriptOverlayContext } from "../pokeweb/bw2ScriptOverlayContext";
 import { bw2ScriptPartPosition, bw2ScriptFullPosition, joinBw2ScriptSource, splitBw2ScriptSource, type Bw2ScriptSourcePart, type Bw2ScriptSourceParts } from "../pokeweb/bw2ScriptSourceParts";
 import { escapeHtml, formatBytes } from "./dom";
@@ -25,7 +25,7 @@ export function stopBw2ScriptEditor(): void { dispose?.(); dispose = undefined; 
 
 export function renderBw2ScriptEditor(project: ProjectState, root: HTMLElement, options: Options): void {
   stopBw2ScriptEditor();
-  if (!canUseLocalRomBridge()) {
+  if (!canUseAiFeatures()) {
     root.innerHTML = '<section class="bw2-script-empty"><h1>BW2 Scripts</h1><p>The script editor is available only on localhost.</p></section>';
     return;
   }

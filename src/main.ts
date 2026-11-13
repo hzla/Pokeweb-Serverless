@@ -35,6 +35,7 @@ import { renderMatrixEditor, stopMatrixEditor } from "./ui/matrixEditor";
 import { canUseMatrixEditor, loadMatrixEditorData } from "./pokeweb/matrixModel";
 import type { Map3dMatrixCell } from "./pokeweb/map3dModel";
 import { canOpenMapStudio } from "./pokeweb/mapStudioAccess";
+import { applyAiFeaturesParam, canUseAiFeatures } from "./pokeweb/aiFeatureAccess";
 import { canOpenMastersheetViewer } from "./pokeweb/mastersheetViewerAccess";
 import "./styles/legacyPokemonSprites.css";
 import "./styles/legacyStarters.css";
@@ -564,6 +565,7 @@ installIntegrationConsoleApi(
   },
 );
 
+applyAiFeaturesParam();
 installQuickLaunchHotkey();
 void boot();
 
@@ -1571,7 +1573,7 @@ function renderMapsMenu(): string {
   const active = route === "mapStudio" || route === "maps3d" || route === "buildings" || route === "cutscenes" || route === "field-scenes" || route === "battleBackgrounds" || route === "townMap";
   return `<div class="header-more ${active ? "-active" : ""}">
     <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Maps</button>
-    <div class="header-more-menu">${navItem("maps3d", "Map editor")}${project?.session.baseRom === "BW2" ? navItem("townMap", "Town map") : ""}${canOpenMapStudio() ? navItem("mapStudio", "Map studio") : ""}${navItem("buildings", "Buildings")}${navItem("battleBackgrounds", "Battle backgrounds")}${canUseLocalRomBridge() ? navItem("cutscenes", "Cutscenes") + navItem("field-scenes", "Field tours") : ""}</div>
+    <div class="header-more-menu">${navItem("maps3d", "Map editor")}${project?.session.baseRom === "BW2" ? navItem("townMap", "Town map") : ""}${canOpenMapStudio() ? navItem("mapStudio", "Map studio") : ""}${navItem("buildings", "Buildings")}${navItem("battleBackgrounds", "Battle backgrounds")}${canUseAiFeatures() ? navItem("cutscenes", "Cutscenes") + navItem("field-scenes", "Field tours") : ""}</div>
   </div>`;
 }
 
@@ -1594,7 +1596,7 @@ function renderMoreMenu(): string {
   ];
   if (project?.session.baseRom === "BW2") {
     moreRoutes.splice(4, 0, ["titleScreen", "Title screen"]);
-    if (canUseLocalRomBridge()) moreRoutes.splice(5, 0, ["uiScreens", "UI screens"]);
+    if (canUseAiFeatures()) moreRoutes.splice(5, 0, ["uiScreens", "UI screens"]);
   }
   const active = moreRoutes.some(([moreRoute]) => route === moreRoute);
   return `
@@ -1704,7 +1706,7 @@ function renderTextsMenu(): string {
       <div class="header-more-menu">
         ${storyAvailable ? navItem("storyText", "Story text") : ""}
         ${navItem("infoText", "Message text")}
-        ${canUseLocalRomBridge() && project?.session.baseRom === "BW2" ? navItem("bw2Scripts", "BW2 Scripts") : ""}
+        ${canUseAiFeatures() && project?.session.baseRom === "BW2" ? navItem("bw2Scripts", "BW2 Scripts") : ""}
       </div>
     </div>
   `;
@@ -2779,12 +2781,12 @@ function hasAnyRomChanges(currentProject: ProjectState): boolean {
 function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds">): boolean {
   if (nextRoute === "mapStudio") return canOpenMapStudio();
   if (!project) return false;
-  if (nextRoute === "bw2Scripts") return canUseLocalRomBridge() && hasExportBase && project.session.baseRom === "BW2" && !isGen4Project(project) && Boolean(project.narcs.scripts);
+  if (nextRoute === "bw2Scripts") return canUseAiFeatures() && hasExportBase && project.session.baseRom === "BW2" && !isGen4Project(project) && Boolean(project.narcs.scripts);
   if (nextRoute === "changelog") return true;
   if (nextRoute === "cgearButtons") return (project.session.baseRom === "BW" || project.session.baseRom === "BW2") && hasExportBase;
   if (nextRoute === "flagReference") return project.session.baseRom === "BW" || project.session.baseRom === "BW2";
   if (nextRoute === "systemShops") return project.session.baseRom === "BW2" && hasExportBase;
-  if (nextRoute === "uiScreens") return canUseLocalRomBridge() && project.session.baseRom === "BW2" && hasExportBase;
+  if (nextRoute === "uiScreens") return canUseAiFeatures() && project.session.baseRom === "BW2" && hasExportBase;
   if (nextRoute === "customUi") return false;
   if (nextRoute === "titleScreen") return project.session.baseRom === "BW2" && hasExportBase;
   if (nextRoute === "trainerMusic") return isGen5Project(project);

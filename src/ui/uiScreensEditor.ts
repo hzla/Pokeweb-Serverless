@@ -1,5 +1,5 @@
 import type { ProjectState } from "../pokeweb/projectStore";
-import { canUseLocalRomBridge } from "../pokeweb/localRomBridge";
+import { canUseAiFeatures } from "../pokeweb/aiFeatureAccess";
 import { decodePng, type Image } from "../customUi/assets";
 import { COMMANDS, DIRECTIONS, moveButton, neighbor, swapButtons, type Button, type Design, type Direction, type Rect } from "../nativeUi/document";
 import { SCREEN_ADAPTERS } from "../nativeUi/registry";
@@ -23,7 +23,7 @@ function select(values: [string, string][], value: string, changed: (value: stri
 }
 export async function renderUiScreensEditor(project: ProjectState, root: HTMLElement, onDirty: () => void): Promise<void> {
   stopUiScreensEditor();
-  if (!canUseLocalRomBridge()) {
+  if (!canUseAiFeatures()) {
     root.replaceChildren(el("p", "UI screens are available only on localhost."));
     return;
   }

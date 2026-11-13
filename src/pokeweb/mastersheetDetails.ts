@@ -1,4 +1,4 @@
-import { buildGroundItemScriptMap } from "./docGeneratorModel";
+import { buildGroundItemScriptMap, GROUND_ITEM_SCRIPT_FIRST, GROUND_ITEM_SCRIPT_LAST } from "./docGeneratorModel";
 import { parseHeaders } from "./headerModel";
 import { getMartCount, getMartRecord } from "./martGrottoModel";
 import { getPokemonCount, getPokemonExportRecord, getPokemonSummaryRecord, isPokemonPersonalRecord } from "./pokemonModel";
@@ -159,7 +159,7 @@ export const ITEM_SOURCE_LABELS: Record<MsItemSourceKind, string> = {
 /**
  * Every source of every item, read once from the ROM: the same sources as the doc generators' item locations
  * (enrichItemLocations), kept structured.
- * - Ground items: overworld NPCs running item scripts 7001–7400, which give the item named in the global item script
+ * - Ground items: overworld NPCs running item scripts 7000–7799, which give the item named in the global item script
  * - Wild held items: personal data item slots
  * - Trainer rewards: trainer data
  * - Mart stock: mart data
@@ -202,7 +202,7 @@ export function getMastersheetItemSources(project: ProjectState): Map<number, Ms
       const zoneName = zoneByOverworld.get(overworldId) || `Overworld ${overworldId}`;
       for (let npc = 0; npc < Number(raw.npc_count ?? 0); npc += 1) {
         const scriptId = Number(raw[`npc_${npc}_script_id`] ?? 0);
-        if (scriptId <= 7000 || scriptId > 7400) continue;
+        if (scriptId < GROUND_ITEM_SCRIPT_FIRST || scriptId > GROUND_ITEM_SCRIPT_LAST) continue;
         const itemId = scriptMap.get(scriptId);
         if (itemId !== undefined) add(itemId, { kind: "ground", place: zoneName, zoneName });
       }
