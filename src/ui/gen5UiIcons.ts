@@ -1,5 +1,6 @@
 import { typeNamesForProject } from "../pokeweb/constants";
-import { categoryIconImage, ensureGen5RomBytes, gameTextImage, gen5UiImageUrl, hasGen5RomBytes, MOVE_CATEGORY_ICON_ORDER, tmDiscImage, typeIconImage } from "../pokeweb/gen5UiImages";
+import { categoryIconImage, ensureGen5RomBytes, gen5UiImageUrl, hasGen5RomBytes, MOVE_CATEGORY_ICON_ORDER, tmDiscImage, typeIconImage } from "../pokeweb/gen5UiImages";
+import { menuLabelUrl } from "../pokeweb/gen5MenuFont";
 import type { ProjectState } from "../pokeweb/projectStore";
 
 /**
@@ -8,7 +9,8 @@ import type { ProjectState } from "../pokeweb/projectStore";
  * category labels (`.move-cat`, the category filter buttons), wherever pages render them, and a TM disc in the TMs
  * type's colour beside each TM and HM number. The text stays in the element for search, copying and screen readers;
  * the stylesheet shows the icon instead. Editable type pickers show their text again while focused. A ROM without an
- * icon keeps the plain plate. The homepage's menu options get their labels drawn in the game's own font.
+ * icon keeps the plain plate. The homepage's menu options get their labels drawn in the game's own font, which is
+ * baked in (gen5MenuFont.ts) since the homepage only shows when no ROM is loaded.
  */
 
 /** Elements that show a type, and the type name each shows. */
@@ -56,6 +58,7 @@ export function attachGen5UiIcons(root: HTMLElement, currentProject: () => Proje
 
   const scan = () => {
     scheduled = false;
+    scanMenuLabels();
     const project = currentProject();
     if (!project) return;
     if (!hasGen5RomBytes(project)) {
@@ -93,29 +96,22 @@ export function attachGen5UiIcons(root: HTMLElement, currentProject: () => Proje
     for (const element of root.querySelectorAll<HTMLElement>(".cat-filters .btn[data-mcat]")) {
       applyCategory(project, element, element.dataset.mcat?.trim().toLowerCase() ?? "");
     }
-    // The main menu's options, in capitals as the game prints them.
+  };
+
+  /** The main menu's options, in capitals as the game prints them. Needs no ROM. */
+  const scanMenuLabels = () => {
     for (const element of root.querySelectorAll<HTMLElement>(".upload-page .home-tab")) {
       const label = element.textContent?.trim().toUpperCase() ?? "";
       if (element.dataset.g5Label === label) continue;
       element.dataset.g5Label = label;
-      void gen5UiImageUrl(project, `text:${label}`, () => gameTextImage(project, label)).then((url) => applyLabel(element, url, label));
+      void menuLabelUrl(label).then((image) => {
+        if (!image || element.dataset.g5Label !== label) return;
+        element.style.setProperty("--g5-label", `url("${image.url}")`);
+        element.style.setProperty("--g5-label-w", `${image.width * 2}px`);
+        element.style.setProperty("--g5-label-h", `${image.height * 2}px`);
+        element.classList.add("-g5-label");
+      });
     }
-  };
-
-  const applyLabel = async (element: HTMLElement, url: string | undefined, label: string) => {
-    if (!url) return;
-    const image = new Image();
-    image.src = url;
-    try {
-      await image.decode();
-    } catch {
-      return;
-    }
-    if (element.dataset.g5Label !== label) return;
-    element.style.setProperty("--g5-label", `url("${url}")`);
-    element.style.setProperty("--g5-label-w", `${image.naturalWidth * 2}px`);
-    element.style.setProperty("--g5-label-h", `${image.naturalHeight * 2}px`);
-    element.classList.add("-g5-label");
   };
 
   const applyCategory = (project: ProjectState, element: HTMLElement, label: string) => {
