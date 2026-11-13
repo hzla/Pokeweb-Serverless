@@ -243,6 +243,15 @@ function context(project: ProjectState) {
     return { project, source, overlay, resolver, dispatcher, files, availableNative, signatures, profiles, overlayModule: String(overlayId) };
 }
 type Context = ReturnType<typeof context>;
+/**
+ * Mega Evolution replaces GiratinaArceusGenesectItemCheck whole (a Mega Stone can't be removed, swapped or knocked off
+ * its species), keeping its arguments and result: calls into it, and service pointers to it, reach the replacement,
+ * which is the check the rules should see. A copied body would bypass it, so copies still count as a conflict.
+ */
+export function isVerifiedMegaItemCheckImport(version: string, path: string, name: string, address: number, start: number, type: string): boolean {
+    return name === "GiratinaArceusGenesectItemCheck" && start === address && type === "THUMB_BRANCH"
+        && ["W2", "B2", "W", "B"].includes(version) && path.toLowerCase() === `patches/pokewebmega${version.toLowerCase()}.dll`;
+}
 function assertUnhooked(c: Context, name: string, address: number, size: number, copied = false, skipItemMoveParam = false): void {
     const module = c.signatures[name].module;
     for (const [path, bytes] of c.files) {
@@ -265,6 +274,7 @@ function assertUnhooked(c: Context, name: string, address: number, size: number,
                 if (!copied && isVerifiedMoveServiceImport(c.project, path, bytes, name, address)) continue;
                 // Import the installed RPC's transparent ordinary-call path. A
                 // copied body would bypass it; another hook would overwrite it.
+                if (!copied && isVerifiedMegaItemCheckImport(c.project.session.baseVersion, path, name, address, start, r.target.type)) continue;
                 if (!copied && name === "IsFainted" && module === "167" && start === address
                     && r.target.type === "THUMB_BRANCH"
                     && isVerifiedBattleCounterImport(c.project.session.baseVersion, path, bytes, address)) continue;
