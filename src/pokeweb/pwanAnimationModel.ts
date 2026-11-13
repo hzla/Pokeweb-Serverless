@@ -1,3 +1,4 @@
+import { isAddedSpecies } from "./speciesExpansionIds";
 import { recordGenericChange } from "./actionChangelog";
 import { installCodeInjectionPatch } from "./codeInjectionInstall";
 import { protectPwanNaturePalettes } from "./naturePaletteModel";
@@ -893,7 +894,7 @@ function validatePwanSpeciesId(speciesId: number): void {
 
 function validatePwanSpeciesTarget(project: ProjectState, target: PwanSpeciesTarget): void {
   validatePwanSpeciesId(target.speciesId);
-  if (["B", "W", "B2"].includes(project.session?.baseVersion ?? "") && target.speciesId > 649) {
+  if (["B", "W", "B2"].includes(project.session?.baseVersion ?? "") && target.speciesId > 649 && !isAddedSpecies(project, target.speciesId)) {
     throw new Error("Black, White and Black 2 PWAN imports support vanilla Gen 5 species only (1-649).");
   }
   validatePwanAssetIndex(project, target.assetIndex);

@@ -1,3 +1,4 @@
+import { storedSpeciesId } from "./speciesExpansionIds";
 import { readU32 } from "../nds/binary";
 import { moveHandlerTableFormat } from "./formats";
 import type { Folder } from "../nds/fnt";
@@ -219,6 +220,21 @@ export type CodeInjectionState = {
     version: number;
     /** Icon archive members (character, palette) of items 639-1023 that have their own icon. */
     icons?: Record<number, [number, number]>;
+  };
+  /** Species expansion (speciesExpansionModel): species 687 onwards (national + 37). Index = species - 687. */
+  speciesExpansion?: {
+    version: number;
+    count: number;
+    /** The personal file of the regional Pokédex table (retail 709). */
+    regionalDexFile: number;
+    /** Form records (retail 685 onwards) moved this far to make room. */
+    formShift: number;
+    sprites: number[];
+    cries: number[];
+    /** Legendary and mythical species: banned where battle rules ban retail's legendaries. */
+    restricted?: number[];
+    /** Mythical species: left out of the national Pokédex's completion. */
+    mythical?: number[];
   };
   /** Regional forms (regionalFormsModel): the forms the package added, by its keys. */
   regionalForms?: {
@@ -951,7 +967,7 @@ function toReadable(name: NarcName, raw: RawRecord, project: ProjectState, id: n
   }
   if (name === "trpok") {
     for (const key of Object.keys(raw)) {
-      if (key.startsWith("species_id_")) readable[key] = pick("pokedex", raw[key] % 1024, String(raw[key]));
+      if (key.startsWith("species_id_")) readable[key] = pick("pokedex", storedSpeciesId(project, raw[key]), String(raw[key]));
       if (key.startsWith("item_id_")) readable[key] = pick("items", raw[key], String(raw[key]));
       if (key.startsWith("move_")) readable[key] = pick("moves", raw[key], String(raw[key]));
       if (key.startsWith("ability_")) {

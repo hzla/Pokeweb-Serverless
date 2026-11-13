@@ -1,0 +1,457 @@
+{
+  "version": "1.0.0",
+  "games": {
+    "W2": {
+      "core": {
+        "fileName": "SpeciesExpansionW2.dll",
+        "size": 5952,
+        "sha256": "68f6c624fe952eb0f52a0005517dbf0a0d8cb11fce074e208663c6404a306c33",
+        "targets": [
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x2006c70"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x200b6f4"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x200ce8c"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x200d164"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x200d200"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x200d214"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x200d568"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x200d660"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x200d6b4"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x200d72c"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x200d7f4"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x200d85c"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x200da2c"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x200da74"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x200db5c"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x2020454"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x2020fc0"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x2021060"
+          },
+          {
+            "kind": "THUMB_BRANCH_SAFESTACK",
+            "segment": "ARM9",
+            "address": "0x2006cc8"
+          },
+          {
+            "kind": "THUMB_BRANCH_SAFESTACK",
+            "segment": "ARM9",
+            "address": "0x200d220"
+          },
+          {
+            "kind": "THUMB_BRANCH_SAFESTACK",
+            "segment": "ARM9",
+            "address": "0x200d3c8"
+          },
+          {
+            "kind": "THUMB_BRANCH_SAFESTACK",
+            "segment": "ARM9",
+            "address": "0x200d8d4"
+          },
+          {
+            "kind": "THUMB_BRANCH_SAFESTACK",
+            "segment": "ARM9",
+            "address": "0x2033bdc"
+          }
+        ],
+        "literals": [],
+        "configOffset": 2760
+      },
+      "summary": {
+        "fileName": "SpeciesExpansionSummaryW2.dll",
+        "size": 368,
+        "sha256": "3386d1f6b427f9bd121bc54ae1fe2a542765dcd68f80506f7d3284c9646150c9",
+        "targets": [
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "207",
+            "address": "0x21b6df4"
+          }
+        ],
+        "literals": []
+      },
+      "box": {
+        "fileName": "SpeciesExpansionBoxW2.dll",
+        "size": 368,
+        "sha256": "2488f4e02263284807a5bd2a905d00aec54795a83eb0f1ae5a79496a82516e9f",
+        "targets": [
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "255",
+            "address": "0x21ce554"
+          }
+        ],
+        "literals": []
+      },
+      "dexList": {
+        "fileName": "SpeciesExpansionDexListW2.dll",
+        "size": 1472,
+        "sha256": "92d798bbb8ef6cf9478308aa854b27bd7c847d15d5d9010abddc02efe2bfc28a",
+        "targets": [
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "299",
+            "address": "0x21a0364"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "299",
+            "address": "0x21a0528"
+          },
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "299",
+            "address": "0x21a12d8"
+          },
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "299",
+            "address": "0x21a130e"
+          },
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "299",
+            "address": "0x21a1372"
+          },
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "299",
+            "address": "0x21a13de"
+          },
+          {
+            "kind": "THUMB_BRANCH_SAFESTACK",
+            "segment": "299",
+            "address": "0x21a0554"
+          }
+        ],
+        "literals": []
+      },
+      "dexSearch": {
+        "fileName": "SpeciesExpansionDexSearchW2.dll",
+        "size": 720,
+        "sha256": "0868daaf861df0ce43928dde593cb16b12365c7be58985c64ee4dee96ca8d9fd",
+        "targets": [
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "302",
+            "address": "0x21ae250"
+          },
+          {
+            "kind": "THUMB_BRANCH_SAFESTACK",
+            "segment": "302",
+            "address": "0x21ae320"
+          }
+        ],
+        "literals": []
+      },
+      "dexInfo": {
+        "fileName": "SpeciesExpansionDexInfoW2.dll",
+        "size": 368,
+        "sha256": "dd6d7a825b73fda0b6d3844364ba9e8a2ae2484b1e48faf0d8b3888dd3f8523f",
+        "targets": [
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "296",
+            "address": "0x219e440"
+          }
+        ],
+        "literals": []
+      }
+    },
+    "B2": {
+      "core": {
+        "fileName": "SpeciesExpansionB2.dll",
+        "size": 5952,
+        "sha256": "93ec0ad49e52f7e4d2c2ea428b518f64f6239666eea44f31c01faff403e53880",
+        "targets": [
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x2006c70"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x200b6f4"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x200ce8c"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x200d164"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x200d200"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x200d214"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x200d568"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x200d660"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x200d6b4"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x200d72c"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x200d7f4"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x200d85c"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x200da2c"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x200da74"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x200db5c"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x2020428"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x2020f94"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "ARM9",
+            "address": "0x2021034"
+          },
+          {
+            "kind": "THUMB_BRANCH_SAFESTACK",
+            "segment": "ARM9",
+            "address": "0x2006cc8"
+          },
+          {
+            "kind": "THUMB_BRANCH_SAFESTACK",
+            "segment": "ARM9",
+            "address": "0x200d220"
+          },
+          {
+            "kind": "THUMB_BRANCH_SAFESTACK",
+            "segment": "ARM9",
+            "address": "0x200d3c8"
+          },
+          {
+            "kind": "THUMB_BRANCH_SAFESTACK",
+            "segment": "ARM9",
+            "address": "0x200d8d4"
+          },
+          {
+            "kind": "THUMB_BRANCH_SAFESTACK",
+            "segment": "ARM9",
+            "address": "0x2033bb0"
+          }
+        ],
+        "literals": [],
+        "configOffset": 2760
+      },
+      "summary": {
+        "fileName": "SpeciesExpansionSummaryB2.dll",
+        "size": 368,
+        "sha256": "04b8bd588a32988387f612ae932f0abd922723809473acc111b54cdb4e95b676",
+        "targets": [
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "207",
+            "address": "0x21b6db4"
+          }
+        ],
+        "literals": []
+      },
+      "box": {
+        "fileName": "SpeciesExpansionBoxB2.dll",
+        "size": 368,
+        "sha256": "41d04aca674bbf7c78d5ab4a10d81e78ce51244879b9f98ab9dd451902a421ad",
+        "targets": [
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "255",
+            "address": "0x21ce514"
+          }
+        ],
+        "literals": []
+      },
+      "dexList": {
+        "fileName": "SpeciesExpansionDexListB2.dll",
+        "size": 1472,
+        "sha256": "285d0dc2ab3d958cf7a5b6f20e4fdb2da8f8f0931d16c8875b71ba7cb381aa3d",
+        "targets": [
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "299",
+            "address": "0x21a0324"
+          },
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "299",
+            "address": "0x21a04e8"
+          },
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "299",
+            "address": "0x21a1298"
+          },
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "299",
+            "address": "0x21a12ce"
+          },
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "299",
+            "address": "0x21a1332"
+          },
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "299",
+            "address": "0x21a139e"
+          },
+          {
+            "kind": "THUMB_BRANCH_SAFESTACK",
+            "segment": "299",
+            "address": "0x21a0514"
+          }
+        ],
+        "literals": []
+      },
+      "dexSearch": {
+        "fileName": "SpeciesExpansionDexSearchB2.dll",
+        "size": 720,
+        "sha256": "504e28140175b51d01e9a8bf3f95bc8f83e6e425fd0b639121fc22aca201c3f3",
+        "targets": [
+          {
+            "kind": "THUMB_BRANCH",
+            "segment": "302",
+            "address": "0x21ae210"
+          },
+          {
+            "kind": "THUMB_BRANCH_SAFESTACK",
+            "segment": "302",
+            "address": "0x21ae2e0"
+          }
+        ],
+        "literals": []
+      },
+      "dexInfo": {
+        "fileName": "SpeciesExpansionDexInfoB2.dll",
+        "size": 368,
+        "sha256": "13e2183643f5f6c499fb456c07ed43235c1e917bca2852ae477e8d4375b12c63",
+        "targets": [
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "296",
+            "address": "0x219e400"
+          }
+        ],
+        "literals": []
+      }
+    }
+  }
+}
