@@ -2272,10 +2272,6 @@ function renderUpload(root: HTMLElement): void {
             <input id="rom-input" type="file" accept=".nds" />
           </label>
           ${canUseLocalRomBridge() ? `<button class="btn -default local-rom-open-btn" id="local-rom-open-btn" type="button">Open Local ROM...</button>` : ""}
-          <label class="upload-options">
-            <input id="fairy-input" type="checkbox" />
-            <span>Fairy ROM offsets</span>
-          </label>
           <details class="narc-picker">
             <summary><h2>NARCs to Load</h2></summary>
             <div class="narc-picker__header">
@@ -2402,13 +2398,11 @@ function renderUpload(root: HTMLElement): void {
   const input = root.querySelector<HTMLInputElement>("#rom-input");
   attachDsiRomRepairCard(root, (bytes, filename) => downloadBlob(bytesBlob(bytes, "application/octet-stream"), filename));
   const localRomButton = root.querySelector<HTMLButtonElement>("#local-rom-open-btn");
-  const fairyInput = root.querySelector<HTMLInputElement>("#fairy-input");
   const repairInput = root.querySelector<HTMLInputElement>("#repair-rom-input");
   const repairButton = root.querySelector<HTMLButtonElement>("#repair-rom-btn");
   const repairStatus = root.querySelector<HTMLDivElement>("#repair-status");
   const changelogBeforeInput = root.querySelector<HTMLInputElement>("#changelog-before-input");
   const changelogAfterInput = root.querySelector<HTMLInputElement>("#changelog-after-input");
-  const changelogFairyInput = root.querySelector<HTMLInputElement>("#changelog-fairy-input");
   const generateChangelogButton = root.querySelector<HTMLButtonElement>("#generate-changelog-btn");
   const downloadChangelogButton = root.querySelector<HTMLButtonElement>("#download-changelog-btn");
   const downloadChangelogTextButton = root.querySelector<HTMLButtonElement>("#download-changelog-txt-btn");
@@ -2490,7 +2484,7 @@ function renderUpload(root: HTMLElement): void {
         statusText(status, "Local ROM selection cancelled.");
         return;
       }
-      await loadLocalRomIntoEditor(localRom, root, status, fairyInput, input, localRomButton);
+      await loadLocalRomIntoEditor(localRom, root, status, input, localRomButton);
     } catch (error) {
       statusText(status, error instanceof Error ? error.message : String(error));
     } finally {
@@ -2509,12 +2503,12 @@ function renderUpload(root: HTMLElement): void {
     };
     try {
       input.disabled = true;
-      if (fairyInput) fairyInput.disabled = true;
       updateUploadStatus("Starting ROM load");
       await waitForNextPaint();
       const selectedNarcs = getSelectedNarcs(root);
       await finishActiveProjectSaves();
-      project = await loadProjectFromRomFile(file, { fairy: fairyInput?.checked ?? false, selectedNarcs }, updateUploadStatus);
+      // Fairy-patched ROMs are detected while loading (loader.ts).
+      project = await loadProjectFromRomFile(file, { selectedNarcs }, updateUploadStatus);
       resetActionChangelog(project);
       dirty = false;
       updateUploadStatus("Saving project in browser storage");
@@ -2532,7 +2526,6 @@ function renderUpload(root: HTMLElement): void {
       progressOverlay.setError(message);
     } finally {
       input.disabled = false;
-      if (fairyInput) fairyInput.disabled = false;
       input.value = "";
     }
   });
@@ -2566,7 +2559,7 @@ function renderUpload(root: HTMLElement): void {
       const result = await generateChangelogFromRomFiles(
         beforeFile,
         afterFile,
-        { fairy: changelogFairyInput?.checked ?? false, selectedNarcs },
+        { selectedNarcs },
         (message) => statusText(changelogStatus, message),
       );
       generatedChangelog = result;
@@ -2627,7 +2620,6 @@ async function loadLocalRomIntoEditor(
   localRom: LocalRomFile,
   root: HTMLElement,
   status: HTMLElement | null | undefined,
-  fairyInput: HTMLInputElement | null,
   fileInput: HTMLInputElement | null,
   localRomButton: HTMLButtonElement,
 ): Promise<void> {
@@ -2638,13 +2630,12 @@ async function loadLocalRomIntoEditor(
   };
   try {
     fileInput?.setAttribute("disabled", "true");
-    if (fairyInput) fairyInput.disabled = true;
     localRomButton.disabled = true;
     updateUploadStatus("Starting ROM load");
     await waitForNextPaint();
     const selectedNarcs = getSelectedNarcs(root);
     await finishActiveProjectSaves();
-    project = await loadProjectFromRomBytes(localRom.bytes, localRom.fileName, { fairy: fairyInput?.checked ?? false, selectedNarcs }, updateUploadStatus);
+    project = await loadProjectFromRomBytes(localRom.bytes, localRom.fileName, { selectedNarcs }, updateUploadStatus);
     rememberLocalRomPath(localRom.path);
     hydrateProject(project);
     resetActionChangelog(project);
@@ -2663,7 +2654,6 @@ async function loadLocalRomIntoEditor(
     progressOverlay.setError(message);
   } finally {
     fileInput?.removeAttribute("disabled");
-    if (fairyInput) fairyInput.disabled = false;
     localRomButton.disabled = false;
   }
 }
@@ -3299,7 +3289,7 @@ function setChangelogBusy(root: HTMLElement, busy: boolean): void {
   root.querySelectorAll<HTMLButtonElement>("#download-changelog-btn, #download-changelog-txt-btn").forEach((button) => {
     button.disabled = busy || !hasDocuments;
   });
-  root.querySelectorAll<HTMLInputElement>("#changelog-before-input, #changelog-after-input, #changelog-fairy-input, .changelog-narc-input").forEach((input) => {
+  root.querySelectorAll<HTMLInputElement>("#changelog-before-input, #changelog-after-input, .changelog-narc-input").forEach((input) => {
     input.disabled = busy;
   });
   root.querySelectorAll<HTMLButtonElement>("[data-changelog-select]").forEach((button) => { button.disabled = busy; });

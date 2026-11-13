@@ -2,9 +2,7 @@ import { writeU32 } from "../nds/binary";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { getRomFileBytes } from "./fileSystemModel";
-import { parseBw2DialogueFont, type DialogueFont } from "./bw2DialoguePreview";
 import { readItemSprite } from "./itemSpriteModel";
-import { parseNitroPalette, type NitroPaletteData } from "./nitroBg";
 import { parseNitroCellEffect } from "./nitroCell";
 import { decompressNitro, type RgbaImageData } from "./pokemonSpriteModel";
 import type { ProjectState } from "./projectStore";
@@ -16,9 +14,8 @@ import { typeIconPalettes } from "./typeIconPalettes";
  * - type icons and move category icons, from the menus' archive (a/0/8/2, APP_MENU_COMMON)
  * - TM discs coloured by type, from the item icons
  * - the field menu's Pokédex icon (a/0/7/0, ARCID_FIELD_MENU)
- * - a line of text in the game's own font (a/0/2/3)
- * Every image except text is trimmed to its pixels. Nothing is bundled: a ROM without one of these throws, and
- * callers fall back.
+ * Every image is trimmed to its pixels. Nothing is bundled: a ROM without one of these throws, and callers fall back.
+ * (The homepage's menu font is the one exception, baked into gen5MenuFont.ts.)
  */
 
 const archives = new WeakMap<ProjectState, Map<string, Uint8Array[]>>();
@@ -127,41 +124,6 @@ export function pokedexIconImage(project: ProjectState, mirrored = false): RgbaI
   if (!frame) throw new Error("The ROM's Pokédex icon couldn't be read.");
   const image = trimImage({ width: frame.width, height: frame.height, pixels: new Uint8ClampedArray(frame.rgba) });
   return mirrored ? mirrorImage(image) : image;
-}
-
-const fonts = new WeakMap<ProjectState, { font: DialogueFont; lightInk: NitroPaletteData }>();
-
-/**
- * One line of text in the game's own font (a/0/2/3 file 0), in its light ink (file 7, the palette the menus use on
- * dark panels), at 1×. Characters the font lacks use its fallback glyph. The full line height is kept, so labels
- * drawn this way share a baseline.
- */
-export function gameTextImage(project: ProjectState, text: string): RgbaImageData {
-  let cached = fonts.get(project);
-  if (!cached) {
-    const files = archive(project, "a/0/2/3");
-    if (!files[0] || !files[7]) throw new Error("The ROM has no game font.");
-    cached = { font: parseBw2DialogueFont(files[0]), lightInk: parseNitroPalette(files[7]) };
-    fonts.set(project, cached);
-  }
-  const { font, lightInk } = cached;
-  const glyphs = [...text].map((char) => font.glyphs.get(char.codePointAt(0) ?? 0) ?? font.fallback);
-  const width = Math.max(1, glyphs.reduce((sum, glyph) => sum + glyph.advance, 0));
-  const height = font.height;
-  const pixels = new Uint8ClampedArray(width * height * 4);
-  let x = 0;
-  for (const glyph of glyphs) {
-    for (let y = 0; y < height; y += 1) {
-      for (let gx = 0; gx < glyph.width; gx += 1) {
-        const value = glyph.pixels[y * font.width + gx]!;
-        const px = x + glyph.left + gx;
-        if (!value || px < 0 || px >= width) continue;
-        pixels.set(lightInk[value] ?? [255, 255, 255, 255], (y * width + px) * 4);
-      }
-    }
-    x += glyph.advance;
-  }
-  return { width, height, pixels };
 }
 
 /** Crop to the opaque pixels. */

@@ -121,13 +121,11 @@ function showOpenScreen(problem?: string): void {
       <div class="msv-open__card">
         <header class="msv-titlebar -fight"><h1>Mastersheet Viewer</h1>${HATCH}</header>
         <div class="msv-open__body">
-          <p>Open a ROM hack to read its mastersheet: every trainer, wild Pokémon and item, with maps and sprites drawn from the game itself.</p>
           <label class="msv-open__drop" id="msv-drop">
             <input type="file" accept=".nds" id="msv-file" hidden />
             <span class="msv-hex -fight"><span>Choose ROM file</span></span>
             <span class="msv-open__hint">or drop a .nds file here</span>
           </label>
-          <p class="msv-open__note">Your ROM stays on this device. Nothing is uploaded.</p>
           ${problem ? `<p class="msv-open__problem" role="alert">${escapeText(problem)}</p>` : ""}
         </div>
       </div>

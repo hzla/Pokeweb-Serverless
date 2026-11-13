@@ -107,8 +107,8 @@ html .upload-page .home-tab::after {
   clip-path: polygon(100% 0, 100% 100%, 0 100%);
 }
 
-/* With a ROM to read it from, the label is drawn in the game's own font at 2× (gen5UiIcons.ts); the text stays for
-   screen readers and search. Without one, the condensed capitals above stand in. */
+/* The label is drawn in the game's own font at 2× (gen5UiIcons.ts, from the baked font in gen5MenuFont.ts); the text
+   stays for screen readers and search. Until it draws, the condensed capitals above stand in. */
 html .upload-page .home-tab.-g5-label {
   color: transparent;
 }
@@ -215,12 +215,6 @@ html .upload-page .upload-dropzone {
   cursor: pointer;
 }
 
-html .upload-page .upload-dropzone::after {
-  content: "Choose a file, or drop a .nds ROM here";
-  color: var(--g5-muted);
-  font: 500 14px/1.3 var(--g5-font);
-}
-
 /* The file input covers the box, so a click opens the picker and a dropped file lands on it. */
 html .upload-page .upload-dropzone input[type="file"] {
   position: absolute;
@@ -244,10 +238,6 @@ html .upload-page .upload-dropzone:focus-within {
 html .upload-page .upload-panel > .local-rom-open-btn {
   width: 100%;
   margin-top: 10px;
-}
-
-html .upload-page .upload-options {
-  margin-top: 12px;
 }
 
 /* File pickers inside the tools (Repair, Translation, Changelog) as menu buttons rather than the browser's own. */

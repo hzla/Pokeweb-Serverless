@@ -18,13 +18,11 @@ export function selectedChangelogNarcsFromPicker(root: HTMLElement): NarcName[] 
 
 export function renderChangelogGenerator(): string {
   return `<div class="upload-panel changelog-generator">
-    <div class="changelog-generator__header"><h2>Changelog Generator</h2>
-      <p>Compare two ROMs and download PDF or TXT changes for the NARCs you choose. PDFs include extracted Pokemon icons; TXT files use ASCII tables.</p></div>
+    <div class="changelog-generator__header"><h2>Changelog Generator</h2></div>
     <div class="changelog-generator__inputs">
       <label class="changelog-file"><span>Original ROM</span><input id="changelog-before-input" type="file" accept=".nds"></label>
       <label class="changelog-file"><span>Modified ROM</span><input id="changelog-after-input" type="file" accept=".nds"></label>
     </div>
-    <label class="upload-options changelog-option"><input id="changelog-fairy-input" type="checkbox"><span>Fairy ROM offsets</span></label>
     <fieldset class="changelog-narc-picker"><legend>NARCs to compare</legend>
       <div class="changelog-narc-picker__header"><p>All supported NARCs are selected by default.</p>
         <div class="changelog-actions"><button class="btn -default" type="button" data-changelog-select="all">Select all</button>
