@@ -11,8 +11,8 @@ export function stopFlyDestinationEditor(): void { dispose?.(); dispose = undefi
 
 export function renderFlyDestinationEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void): void {
   stopFlyDestinationEditor();
-  let mapPreview: Bw2MapPreview | undefined, stopped = false, selectedIndex: number | undefined;
-  dispose = () => { stopped = true; mapPreview?.destroy(); if (selectedIndex !== undefined) selectedMemory.set(project, selectedIndex); };
+  let mapPreview: Bw2MapPreview | undefined, stopped = false, selectedIndex = 0, remembering = false;
+  dispose = () => { stopped = true; mapPreview?.destroy(); if (remembering) selectedMemory.set(project, selectedIndex); };
   let destinations: FlyDestination[];
   try { destinations = getFlyDestinations(project); }
   catch (error) {
@@ -21,6 +21,7 @@ export function renderFlyDestinationEditor(project: ProjectState, root: HTMLElem
   }
   const remembered = selectedMemory.get(project);
   selectedIndex = remembered !== undefined && destinations.some(entry => entry.index === remembered) ? remembered : destinations.find(entry => entry.enabled)?.index ?? 0;
+  remembering = true;
   const status = getFlyDestinationStatus(project);
   const drafts = new Map<number, FlyDestinationEdit>();
   let search = "", filter = "all", busy = false;
