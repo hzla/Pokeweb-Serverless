@@ -21,7 +21,6 @@ import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 import { attachMoveInteractions, installMoveEditableFields, installMoveTextFields, type MoveOptions } from "./moveItemInteractions";
 import "../styles/moveData.css";
-import { attachW2uSyncButton, renderW2uSyncButton } from "./w2uLocalSync";
 import { publicAsset } from "../assetUrl";
 
 type MoveDetailTab = "data" | "effects" | "text";
@@ -69,7 +68,6 @@ export function renderMoveEditor(
     actions.innerHTML = recipes ? renderMoveRuntimeUpdate(project) + renderAbilityRuntimeUpdate(project) : "";
     compactRuntimeActions(actions);
   }
-  const w2u = renderW2uSyncButton(project, ["moves"]);
 
   root.innerHTML = `
     <div class="move-data" id="move-data">
@@ -84,8 +82,6 @@ export function renderMoveEditor(
         </div>
         <div class="md-list-head" aria-hidden="true"><span>#</span><span>Name</span><span>Type</span><span>Pow</span></div>
         <div class="md-rows" id="move-list" role="listbox" aria-label="Moves" tabindex="0">${renderMoveListRows(project)}</div>
-        <div class="md-list-foot" data-move-count></div>
-        ${w2u ? `<details class="md-tools"><summary>W2U sync</summary>${w2u}</details>` : ""}
       </aside>
       <section class="md-detail" id="move-detail"></section>
       <div class="move-command-reference" id="move-command-reference" hidden></div>
@@ -94,7 +90,6 @@ export function renderMoveEditor(
 
   const list = root.querySelector<HTMLElement>("#move-list")!;
   const detail = root.querySelector<HTMLElement>("#move-detail")!;
-  const countLabel = root.querySelector<HTMLElement>("[data-move-count]")!;
   const runtimeChanged = () => {
     refreshMoveRuntimeUpdate(actions, project);
     refreshAbilityRuntimeUpdate(actions, project);
@@ -109,8 +104,7 @@ export function renderMoveEditor(
     autofills: getMoveAutofills(project),
     renderExpanded: (moveId) => renderMoveDataPanel(project, moveId),
     renderTextPanel: (moveId) => renderMoveTextPanel(getMoveTextInfo(project, moveId)),
-    onFiltered: (visible) => {
-      countLabel.textContent = visible.length === moveCount ? `${moveCount} moves` : `${visible.length} of ${moveCount} moves`;
+    onFiltered: () => {
       updateMoveFilterCounts(root);
     },
   };
@@ -190,7 +184,6 @@ export function renderMoveEditor(
 
   select(selection.moveId, true);
   attachMoveInteractions(root, project, options);
-  attachW2uSyncButton(root, project);
   installMoveRuntimeUpdate(actions, project, runtimeChanged);
   installAbilityRuntimeUpdate(actions, project, runtimeChanged);
   installMoveDllFlags(root, project, runtimeChanged);

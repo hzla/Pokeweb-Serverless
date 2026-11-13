@@ -3,7 +3,7 @@ import { dsiRepairedRomFilename, repairDsiRom } from "../pokeweb/dsiRomRepairMod
 export function renderDsiRomRepairCard(): string {
   return `<section class="upload-panel repair-tool dsi-repair-tool" aria-labelledby="dsi-repair-title">
     <h2 id="dsi-repair-title">DSi ROM Repair</h2>
-    <p class="dsi-repair-description">Restore DSi data damaged by older Pokeweb exports, including missing headers, integrity tables, and DSi programs.</p>
+    <p class="dsi-repair-description">Restore DSi data via vanilla rom transfer</p>
     <label class="changelog-file">
       <span>Damaged or edited ROM</span>
       <input id="dsi-repair-source" type="file" accept=".nds" />

@@ -4,6 +4,8 @@ import { execFileSync } from "node:child_process";
 import { createW2uLocalBridgePlugin } from "./scripts/w2u-local-bridge.js";
 import { runtimeReleaseDates } from "./scripts/runtime-release-dates.js";
 import { QUICK_TEST_FILES } from "./scripts/quick-test-files.js";
+import { gen5TypeScale } from "./src/styles/gen5/typeScale.js";
+import { gen5AccentText } from "./src/styles/gen5/accentText.js";
 
 export default defineConfig(({ mode }) => {
   const isCodexDev = mode === "codex-dev";
@@ -22,6 +24,8 @@ export default defineConfig(({ mode }) => {
       __POKEWEB_BUILD_ID__: JSON.stringify(buildId),
       __POKEWEB_RUNTIME_RELEASE_DATES__: JSON.stringify(runtimeReleaseDates(fileURLToPath(new URL(".", import.meta.url)))),
     },
+    // Gen 5 theme: larger type across the editor, and accent-coloured text in a readable blue.
+    css: { postcss: { plugins: [gen5TypeScale(), gen5AccentText()] } },
     plugins: [
       createW2uLocalBridgePlugin({
         devRomPath: isCodexDev ? process.env.POKEWEB_DEV_ROM || "../cleanwhite2.nds" : undefined,

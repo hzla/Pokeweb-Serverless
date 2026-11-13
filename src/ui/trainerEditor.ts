@@ -28,7 +28,6 @@ import { observeNearViewport } from "./nearViewport";
 import { requestEncounterRoll } from "./encounterRollModal";
 import { TRAINER_SPRITE_RENDER_VERSION, renderTrainerListRowContent } from "./trainerDetail";
 import { attachTrainerDetail, writeClipboardText, type TrainerSelection } from "./trainerInteractions";
-import { attachW2uSyncButton, renderW2uSyncButton } from "./w2uLocalSync";
 import { getPokemonIconImage, type PokemonIconVariant, type RgbaImageData } from "../pokeweb/pokemonSpriteModel";
 import "../styles/moveData.css";
 import "../styles/trainerData.css";
@@ -78,7 +77,6 @@ export function renderTrainerEditor(
     project.session.baseRom === "BW2" ? `<div class="td-tool"><div class="filter-title">Field conditions</div>${renderTrainerFieldInstaller(trainerFieldStatus, true)}</div>` : "",
     renderTrainerNaturePatchPanel(project, trainerNaturePatchStatus),
     renderTrainerScriptArchivePanel(project),
-    renderW2uSyncButton(project, ["trainers"]),
   ].filter(Boolean).join("");
 
   root.innerHTML = `
@@ -100,7 +98,6 @@ export function renderTrainerEditor(
         <div class="md-rows" id="trainer-list" role="listbox" aria-label="Trainers" tabindex="0">
           ${records.map((trainer) => renderTrainerListRow(project, trainer)).join("")}
         </div>
-        <div class="md-list-foot" data-trainer-count></div>
         ${tools ? `<details class="md-tools"><summary>Tools</summary><div class="td-tools">${tools}</div></details>` : ""}
       </aside>
       <section class="md-detail" id="trainer-detail"></section>
@@ -132,7 +129,6 @@ export function renderTrainerEditor(
   const list = root.querySelector<HTMLElement>("#trainer-list")!;
   const detail = root.querySelector<HTMLElement>("#trainer-detail")!;
   const drawer = root.querySelector<HTMLElement>("[data-test-team-drawer]")!;
-  const countLabel = root.querySelector<HTMLElement>("[data-trainer-count]")!;
   const searchInput = root.querySelector<HTMLInputElement>("#search-text")!;
   const classFilter = root.querySelector<HTMLSelectElement>('[data-trainer-filter="class"]')!;
   const battleFilter = root.querySelector<HTMLSelectElement>('[data-trainer-filter="battle"]')!;
@@ -166,7 +162,6 @@ export function renderTrainerEditor(
     const terms = searchInput.value.split(",").map((term) => term.trim().toLowerCase()).filter(Boolean);
     const classId = classFilter.value;
     const battle = battleFilter.value;
-    let visible = 0;
     list.querySelectorAll<HTMLElement>("[data-trainer-row]").forEach((row) => {
       const trainerId = Number(row.dataset.trainerRow);
       let show = (!classId || row.dataset.classId === classId) && (!battle || row.dataset.battleType === battle);
@@ -182,9 +177,7 @@ export function renderTrainerEditor(
         show = terms.some((term) => haystack!.includes(term));
       }
       row.style.display = show ? "" : "none";
-      if (show) visible += 1;
     });
-    countLabel.textContent = visible === ids.length ? `${ids.length} trainers` : `${visible} of ${ids.length} trainers`;
   };
 
   const select = (trainerId: number, fromKeyboard = false) => {
@@ -256,7 +249,6 @@ export function renderTrainerEditor(
     onDirty?.();
     renderTrainerEditor(project, root, onDirty, onTestBattle, onOpenTrainerSprite, onOpenPlayerBackSprite);
   });
-  attachW2uSyncButton(root, project);
   installTestBattleTeamPersistence(project, root);
   installTrainerSaveReader(project, root);
   filter();

@@ -204,7 +204,6 @@ export function renderHeaderEditor(project: ProjectState, root: HTMLElement, opt
         <div class="md-rows" id="header-list" role="listbox" aria-label="Map headers" tabindex="0">
           ${rowIds.map((rowId) => `<div class="md-row hd-row" data-header-row="${rowId}" role="option" aria-selected="false">${renderHeaderListRow(headers.rows[rowId], rowId)}</div>`).join("")}
         </div>
-        <div class="md-list-foot" id="header-count"></div>
       </aside>
       <section class="md-detail" id="header-detail"></section>
     </div>
@@ -213,20 +212,16 @@ export function renderHeaderEditor(project: ProjectState, root: HTMLElement, opt
   const list = root.querySelector<HTMLElement>("#header-list")!;
   const detail = root.querySelector<HTMLElement>("#header-detail")!;
   const search = root.querySelector<HTMLInputElement>("#header-search")!;
-  const count = root.querySelector<HTMLElement>("#header-count")!;
   const rows = [...list.querySelectorAll<HTMLElement>("[data-header-row]")];
 
   const applyFilter = () => {
     const text = view.search.trim();
-    let shown = 0;
     rows.forEach((element) => {
       const rowId = Number(element.dataset.headerRow);
       const row = headers.rows[rowId];
       const visible = !text || String(rowId - 1) === text || (row ? headerMatchesSearch(row, text) : false);
       element.style.display = visible ? "" : "none";
-      if (visible) shown += 1;
     });
-    count.textContent = text ? `${shown} of ${rows.length} headers` : `${rows.length} headers`;
   };
 
   const markSelection = (scroll: boolean) => {
@@ -347,7 +342,7 @@ function renderHeaderDetail(project: ProjectState, rowId: number, row: HeaderRow
       <nav class="hd-links" data-header-links aria-label="Open referenced data">${renderHeaderLinks(project, row, options, gen4)}</nav>
       <div class="expanded-header show-flex hd-sections">
         <div class="header-detail-grid">
-          <section class="header-detail-section">
+          <section class="header-detail-section" data-section="location">
             <div class="header-detail-section-title">Location</div>
             <div class="header-detail-section-fields">
               <div class="header-detail-field">
@@ -390,9 +385,14 @@ export function renderHeaderLinks(project: ProjectState, row: HeaderRow, options
   ].join("");
 }
 
+/** "Scripts & Text" → "scripts-text": names the section for the stylesheet. */
+function headerSectionKey(title: string): string {
+  return title.toLowerCase().replace(/[^a-z0-9]+/gu, "-").replace(/^-|-$/gu, "");
+}
+
 function renderHeaderDetailSection(rowId: number, row: HeaderRow, title: string, items: readonly HeaderDetailItem[]): string {
   return `
-    <section class="header-detail-section">
+    <section class="header-detail-section" data-section="${headerSectionKey(title)}">
       <div class="header-detail-section-title">${escapeHtml(title)}</div>
       <div class="header-detail-section-fields">
         ${items.map((item) => renderHeaderDetailItem(rowId, row, item)).join("")}

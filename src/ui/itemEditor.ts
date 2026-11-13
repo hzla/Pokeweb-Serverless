@@ -78,7 +78,6 @@ export function renderItemEditor(project: ProjectState, root: HTMLElement, onDir
         <div class="md-rows" id="item-list" role="listbox" aria-label="Items" tabindex="0">
           ${ids.map((id) => renderItemRow(project, id)).join("")}
         </div>
-        <div class="md-list-foot" data-item-count></div>
       </aside>
       <section class="md-detail" id="item-detail"></section>
     </div>
@@ -86,19 +85,15 @@ export function renderItemEditor(project: ProjectState, root: HTMLElement, onDir
 
   const list = root.querySelector<HTMLElement>("#item-list")!;
   const detail = root.querySelector<HTMLElement>("#item-detail")!;
-  const countLabel = root.querySelector<HTMLElement>("[data-item-count]")!;
   const searchInput = root.querySelector<HTMLInputElement>("#item-search")!;
   const pocketSelect = root.querySelector<HTMLSelectElement>("[data-item-pocket]")!;
 
   const filter = () => {
-    let visible = 0;
     list.querySelectorAll<HTMLElement>("[data-item]").forEach((row) => {
       let show = !state.pocket || row.dataset.pocket === state.pocket;
       if (show && state.search.trim()) show = itemMatchesSearch(getItemRecord(project, Number(row.dataset.item)), state.search);
       row.style.display = show ? "" : "none";
-      if (show) visible += 1;
     });
-    countLabel.textContent = visible === ids.length ? `${ids.length} items` : `${visible} of ${ids.length} items`;
   };
 
   const refreshRow = (id: number) => {

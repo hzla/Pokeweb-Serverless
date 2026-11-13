@@ -53,8 +53,9 @@ export function attachHomeTabs(root: HTMLElement, options: {
         activate(tab);
         return;
       }
-      const next = event.key === "ArrowRight" ? (index + 1) % tabs.length
-        : event.key === "ArrowLeft" ? (index + tabs.length - 1) % tabs.length
+      // Left/right for a row of tabs, up/down for the main menu's column.
+      const next = event.key === "ArrowRight" || event.key === "ArrowDown" ? (index + 1) % tabs.length
+        : event.key === "ArrowLeft" || event.key === "ArrowUp" ? (index + tabs.length - 1) % tabs.length
         : event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : -1;
       if (next < 0) return;
       event.preventDefault();

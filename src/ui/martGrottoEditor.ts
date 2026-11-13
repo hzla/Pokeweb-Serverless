@@ -35,7 +35,6 @@ export function renderMartEditor(project: ProjectState, root: HTMLElement, onDir
         <div class="md-rows" id="mart-list" role="listbox" aria-label="Marts" tabindex="0">
           ${Array.from({ length: count }, (_unused, id) => renderMartRow(project, id)).join("")}
         </div>
-        <div class="md-list-foot" data-mart-count></div>
       </aside>
       <section class="md-detail" id="mart-detail"></section>
     </div>
@@ -43,17 +42,13 @@ export function renderMartEditor(project: ProjectState, root: HTMLElement, onDir
 
   const list = root.querySelector<HTMLElement>("#mart-list")!;
   const detail = root.querySelector<HTMLElement>("#mart-detail")!;
-  const countLabel = root.querySelector<HTMLElement>("[data-mart-count]")!;
   const searchInput = root.querySelector<HTMLInputElement>("#mart-search")!;
 
   const filter = () => {
-    let visible = 0;
     list.querySelectorAll<HTMLElement>("[data-mart]").forEach((row) => {
       const show = !state.search.trim() || martMatchesSearch(getMartRecord(project, Number(row.dataset.mart)), state.search);
       row.style.display = show ? "" : "none";
-      if (show) visible += 1;
     });
-    countLabel.textContent = visible === count ? `${count} marts` : `${visible} of ${count} marts`;
   };
 
   const refreshRow = (id: number) => {

@@ -59,7 +59,6 @@ export function renderGrottoEditor(project: ProjectState, root: HTMLElement, onD
         <div class="md-rows" id="grotto-list" role="listbox" aria-label="Hidden grottos" tabindex="0">
           ${Array.from({ length: count }, (_unused, id) => renderGrottoRow(project, id)).join("")}
         </div>
-        <div class="md-list-foot" data-grotto-count></div>
       </aside>
       <section class="md-detail" id="grotto-detail"></section>
     </div>
@@ -67,7 +66,6 @@ export function renderGrottoEditor(project: ProjectState, root: HTMLElement, onD
 
   const list = root.querySelector<HTMLElement>("#grotto-list")!;
   const detail = root.querySelector<HTMLElement>("#grotto-detail")!;
-  const countLabel = root.querySelector<HTMLElement>("[data-grotto-count]")!;
   const searchInput = root.querySelector<HTMLInputElement>("#grotto-search")!;
 
   const isLinked = (id: number) => {
@@ -80,13 +78,10 @@ export function renderGrottoEditor(project: ProjectState, root: HTMLElement, onD
   };
 
   const filter = () => {
-    let visible = 0;
     list.querySelectorAll<HTMLElement>("[data-grotto]").forEach((row) => {
       const show = !state.search.trim() || grottoMatchesSearch(getGrottoRecord(project, Number(row.dataset.grotto)), state.search);
       row.style.display = show ? "" : "none";
-      if (show) visible += 1;
     });
-    countLabel.textContent = visible === count ? `${count} grottos` : `${visible} of ${count} grottos`;
   };
 
   const refreshRow = (id: number) => {

@@ -404,7 +404,6 @@ export function renderPokemonSpriteWorkspace(
             )
             .join("")}
         </div>
-        <div class="md-list-foot" id="sprite-count"></div>
       </aside>
       <section class="md-detail sp-detail" id="sprite-detail"></section>
     </div>
@@ -412,21 +411,17 @@ export function renderPokemonSpriteWorkspace(
   const list = root.querySelector<HTMLElement>("#sprite-list")!;
   const detail = root.querySelector<HTMLElement>("#sprite-detail")!;
   const search = root.querySelector<HTMLInputElement>("#sprite-search")!;
-  const count = root.querySelector<HTMLElement>("#sprite-count")!;
   const rows = [...list.querySelectorAll<HTMLElement>("[data-sprite-row]")];
   const keyOf = (value: { speciesId: number; formIndex: number }) => `${value.speciesId}:${value.formIndex}`;
 
   const applyFilter = () => {
     const terms = spriteListView.search.trim().toLowerCase().split(/\s+/u).filter(Boolean);
-    let shown = 0;
     rows.forEach((row, index) => {
       const entry = entries[index]!;
       // A matching base species keeps its forms visible; a matching form keeps its row.
       const visible = terms.every((term) => entry.haystack.includes(term));
       row.style.display = visible ? "" : "none";
-      if (visible) shown += 1;
     });
-    count.textContent = terms.length ? `${shown} of ${rows.length} sprites` : `${rows.length} sprites`;
   };
 
   const markSelection = (scroll: boolean) => {

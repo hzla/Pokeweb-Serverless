@@ -101,7 +101,7 @@ export async function renderPwtEditor(project: ProjectState, root: HTMLElement, 
           <input class="md-search" type="search" value="${escapeHtml(state.search)}" placeholder="Search trainers or Pokémon" autocomplete="off" spellcheck="false" aria-label="Search trainers or Pokémon">
         </div>
         <div class="md-rows" role="listbox" aria-label="Tournaments" tabindex="0"></div>
-        <div class="md-list-foot pwt-foot"><span data-pwt-count></span><a href="#facilities/raw" title="The underlying lead, roster and set archives">Raw files</a></div>
+        <div class="md-list-foot pwt-foot"><a href="#facilities/raw" title="The underlying lead, roster and set archives">Raw files</a></div>
       </aside>
       <section class="md-detail pwt-detail" aria-live="polite"></section>
     </div>
@@ -109,7 +109,6 @@ export async function renderPwtEditor(project: ProjectState, root: HTMLElement, 
   const list = root.querySelector<HTMLElement>(".md-rows")!;
   const detail = root.querySelector<HTMLElement>(".pwt-detail")!;
   const search = root.querySelector<HTMLInputElement>(".md-search")!;
-  const count = root.querySelector<HTMLElement>("[data-pwt-count]")!;
   const autofills = getFacilityAutofills(project) as unknown as Record<string, string[]>;
 
   const renderList = () => {
@@ -119,10 +118,8 @@ export async function renderPwtEditor(project: ProjectState, root: HTMLElement, 
       list.innerHTML = matches.length
         ? matches.map((trainer) => trainerRow(trainer, view === `tr${trainer.index}`)).join("")
         : `<p class="td-empty pwt-empty">No trainer or Pokémon matches “${escapeHtml(state.search)}”.</p>`;
-      count.textContent = `${matches.length} trainer${matches.length === 1 ? "" : "s"}`;
     } else {
       list.innerHTML = renderTournamentList(project, view);
-      count.textContent = "";
     }
     installTrainerSpriteRendering(project, list);
   };

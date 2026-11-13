@@ -44,7 +44,6 @@ import { attachPokemonMegaSection, renderPokemonMegaSection } from "./pokemonMeg
 import "../styles/moveData.css";
 import "../styles/pokemonData.css";
 import { observeNearViewport } from "./nearViewport";
-import { attachW2uSyncButton, renderW2uSyncButton } from "./w2uLocalSync";
 import { pokemonSpriteSlug } from "../pokeweb/spriteSlug";
 import { publicAsset } from "../assetUrl";
 import { installPokemonCryPanel, renderPokemonCryPanel } from "./pokemonCryEditor";
@@ -100,7 +99,6 @@ export function renderPokemonEditor(
   pokemonDataSelection.set(project, selection);
   const pageActions = document.getElementById("page-actions");
   if (pageActions) pageActions.innerHTML = "";
-  const w2u = renderW2uSyncButton(project, ["personal", "learnsets", "evolutions"]);
 
   root.innerHTML = `
     <div class="pokemon-data" id="pokemon-data">
@@ -116,8 +114,6 @@ export function renderPokemonEditor(
         <div class="md-rows" id="pokemon-list" role="listbox" aria-label="Pokemon" tabindex="0">
           ${ids.map((id) => `<div class="md-row" data-pokemon-row="${id}" role="option" aria-selected="false">${renderPokemonListRowContent(project, id)}</div>`).join("")}
         </div>
-        <div class="md-list-foot" data-pokemon-count></div>
-        ${w2u ? `<details class="md-tools"><summary>W2U sync</summary>${w2u}</details>` : ""}
       </aside>
       <section class="md-detail" id="pokemon-detail"></section>
     </div>
@@ -125,7 +121,6 @@ export function renderPokemonEditor(
 
   const list = root.querySelector<HTMLElement>("#pokemon-list")!;
   const detail = root.querySelector<HTMLElement>("#pokemon-detail")!;
-  const countLabel = root.querySelector<HTMLElement>("[data-pokemon-count]")!;
   const rerender = (speciesId: number) => {
     selection.speciesId = speciesId;
     renderPokemonEditor(project, root, onDirty, onOpenSprites, onOpenPwan, onEnsureFormAssets);
@@ -142,8 +137,7 @@ export function renderPokemonEditor(
     onEnsureFormAssets,
     onFormAdded: (result: AddPokemonFormResult) => rerender(result.personalId),
     onFormDeleted: (result: DeletePokemonFormResult) => rerender(result.speciesId),
-    onFiltered: (visible) => {
-      countLabel.textContent = visible.length === ids.length ? `${ids.length} Pokémon` : `${visible.length} of ${ids.length} Pokémon`;
+    onFiltered: () => {
       updatePokemonFilterCounts(root);
     },
     onBulkApplied: (speciesIds) => {
@@ -233,7 +227,6 @@ export function renderPokemonEditor(
     root.querySelectorAll<HTMLDetailsElement>(".md-filter[open]").forEach((filter) => { if (!filter.contains(event.target as Node)) filter.open = false; });
   });
 
-  attachW2uSyncButton(root, project);
   select(selection.speciesId, true);
 }
 
@@ -356,7 +349,7 @@ function renderPokemonDetail(project: ProjectState, speciesId: number, showPwan:
       <header class="pd-head">
         <div class="pd-sprite pokemon-card__img">${renderPokemonCardSprite(project, speciesId, name)}</div>
         <div class="pd-ident">
-          <div class="pd-title"><h1>${escapeHtml(name)}</h1></div>
+          <div class="pd-title"><span class="pd-num">#${String(speciesId).padStart(3, "0")}</span><h1>${escapeHtml(name)}</h1></div>
           <div class="pd-types" data-mark-fields="personal:type_1 personal:type_2">
             ${editable("personal", "type_1", type1, `type-plate pokemon-type -${typeClass(type1)}`, { autofill: "types", label: "Type 1" })}
             ${editable("personal", "type_2", type2, `type-plate pokemon-type -${typeClass(type2)}`, { autofill: "types", label: "Type 2" })}
@@ -576,7 +569,6 @@ function renderExpanded(project: ProjectState, record: PokemonEditorRecord): str
             ${personalRow(record, "num_forms", "Number of forms")}
           </div>
           <div class="pd-form-actions">
-            <p class="pd-note">Adding a form copies this Pokémon's personal data, learnset, sprites and icons into a new stat-bearing form. Its evolutions start empty.</p>
             <div class="personal-form-actions">
               <button class="btn sm personal-add-form" data-add-pokemon-form type="button" ${addFormReady ? "" : "disabled"} title="${addFormReady ? "Generate and append all files for a new form" : "Load Personal, Learnsets, Evolutions, Pokemon Sprites, Pokemon Icons, and Message Texts to add a form"}">Add form</button>
               ${deleteFormButton}

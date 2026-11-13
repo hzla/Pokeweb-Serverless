@@ -98,7 +98,6 @@ export function renderEncounterEditor(project: ProjectState, root: HTMLElement, 
         <div class="md-rows" id="encounter-list" role="listbox" aria-label="Encounter areas" tabindex="0">
           ${Array.from({ length: count }, (_unused, id) => renderAreaRow(project, id)).join("")}
         </div>
-        <div class="md-list-foot" data-encounter-count></div>
       </aside>
       <section class="md-detail" id="encounter-detail"></section>
     </div>
@@ -106,7 +105,6 @@ export function renderEncounterEditor(project: ProjectState, root: HTMLElement, 
 
   const list = root.querySelector<HTMLElement>("#encounter-list")!;
   const detail = root.querySelector<HTMLElement>("#encounter-detail")!;
-  const countLabel = root.querySelector<HTMLElement>("[data-encounter-count]")!;
   const searchInput = root.querySelector<HTMLInputElement>("#encounter-search")!;
   const filterSelect = root.querySelector<HTMLSelectElement>("[data-encounter-filter]")!;
 
@@ -121,16 +119,13 @@ export function renderEncounterEditor(project: ProjectState, root: HTMLElement, 
   };
 
   const filter = () => {
-    let visible = 0;
     list.querySelectorAll<HTMLElement>("[data-area]").forEach((row) => {
       const id = Number(row.dataset.area);
       let show = state.filter === "all"
         || (state.filter === "seasonal" ? row.dataset.seasonal === "true" : (row.dataset.terrain ?? "").split(" ").includes(state.filter));
       if (show && state.search.trim()) show = encounterMatchesSearch(getEncounterRecord(project, id), state.search);
       row.style.display = show ? "" : "none";
-      if (show) visible += 1;
     });
-    countLabel.textContent = visible === count ? `${count} areas` : `${visible} of ${count} areas`;
   };
 
   const refreshRow = (id: number) => {

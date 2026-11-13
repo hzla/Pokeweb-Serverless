@@ -56,14 +56,12 @@ function mount(project: ProjectState, root: HTMLElement, onDirty?: () => void): 
         <div class="md-rows" id="dex-area-list" role="listbox" aria-label="Pokémon" tabindex="0">
           ${Array.from({ length: count }, (_unused, i) => row(i + 1)).join("")}
         </div>
-        <div class="md-list-foot" data-dex-area-count></div>
       </aside>
       <section class="md-detail" id="dex-area-detail"></section>
     </div>`;
 
   const list = root.querySelector<HTMLElement>("#dex-area-list")!;
   const detail = root.querySelector<HTMLElement>("#dex-area-detail")!;
-  const countLabel = root.querySelector<HTMLElement>("[data-dex-area-count]")!;
 
   function areaCount(species: number): number {
     const seasons = readDexArea(project, species);
@@ -82,15 +80,12 @@ function mount(project: ProjectState, root: HTMLElement, onDirty?: () => void): 
 
   function filter(): void {
     const query = state.search.trim().toLowerCase();
-    let visible = 0;
     list.querySelectorAll<HTMLElement>("[data-species]").forEach((element) => {
       const species = Number(element.dataset.species), areas = Number(element.dataset.areas);
       let show = state.filter === "all" || (state.filter === "found" ? areas > 0 : areas === 0);
       if (show && query) show = String(species) === query || name(species).toLowerCase().includes(query);
       element.style.display = show ? "" : "none";
-      if (show) visible += 1;
     });
-    countLabel.textContent = `${visible} of ${count} Pokémon`;
   }
 
   function refreshRow(species: number): void {
