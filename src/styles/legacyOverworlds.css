@@ -74,7 +74,7 @@
   background: var(--amber);
 }
 
-#add-entity {
+#add-entity:not(.-g5-add) {
   background: #1abc9c;
 }
 

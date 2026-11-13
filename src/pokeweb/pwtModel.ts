@@ -291,6 +291,11 @@ export function battleClassForObjCode(objCode: number): number | undefined {
   return CLASS_OBJ_CODES.find(([, obj]) => obj === objCode)?.[0];
 }
 
+/** The overworld model the game gives a battle trainer class, if its table has one. */
+export function objCodeForBattleClass(trainerClass: number): number | undefined {
+  return CLASS_OBJ_CODES.find(([cls]) => cls === trainerClass)?.[1];
+}
+
 export type PwtTrainerField = "name" | "type" | "gender" | "objCode" | "trainerClass" | "exclusive" | "expertType" | "rank" | "hasLead" | "bgm" | "winBgm" | `tournament_${number}`;
 
 /** Edits one trainer row (or its name) and records the change. */

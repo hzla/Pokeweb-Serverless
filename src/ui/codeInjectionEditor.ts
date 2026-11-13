@@ -545,8 +545,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-facts">
             <div><span>Runtime</span><strong>${formEvolutionStatus === "unsupported" ? "B/W/B2/W2 only" : `FormEvolution${escapeHtml(project.session.baseVersion)}.dll + FormEvolutionCore${escapeHtml(project.session.baseVersion)}.dll`}</strong></div>
             <div><span>Module Path</span><strong>${formEvolutionInstalled ? "patches/" : "Pending"}</strong></div>
-            <div><span>Installation</span><strong>Installer or Regional Forms</strong></div>
-            <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
+            <div><span>Dependencies</span><strong>PMC (${status.installed ? "installed" : "installed with it"})</strong></div>
           </div>
           <div class="code-injection-note">
             ${
@@ -554,7 +553,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
                 ? "The bundled form-evolution DLL is active in this project and will be included in the exported ROM."
                 : formEvolutionStatus === "unsupported"
                   ? "The bundled form-evolution runtime supports US Black, White, Black 2 and White 2."
-                  : "Install here; Regional Forms installs it too. An earlier FormEvolution DLL is updated. PMC is installed automatically if needed."
+                  : "An earlier FormEvolution DLL is updated. PMC is installed automatically if needed."
             }
           </div>
           <div class="code-injection-actions">
@@ -821,7 +820,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           </div>
           <div class="code-injection-facts">
             <div><span>ROM</span><strong>Black / White and Black 2 / White 2</strong></div>
-            <div><span>Installed by</span><strong>This card, Move Expansion or Mega Evolution</strong></div>
+            <div><span>Dependencies</span><strong>None</strong></div>
           </div>
           <div class="code-injection-actions">
             <label><input id="fairy-modern-typings-checkbox" type="checkbox" checked> Update Pokémon and move typings</label>
@@ -840,8 +839,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           </div>
           <div class="code-injection-facts">
             <div><span>Move slots</span><strong>1,000</strong></div>
-            <div><span>Fairy Type</span><strong>${fairyStatus === "patched" ? "Installed" : fairyStatus === "unsupported" ? "Not available" : "Installed with it"}</strong></div>
-            <div><span>Installed by</span><strong>This card or Mega Evolution</strong></div>
+            <div><span>Dependencies</span><strong>Fairy Type Support (${fairyStatus === "patched" ? "installed" : fairyStatus === "unsupported" ? "not available" : "installed with it"})</strong></div>
           </div>
           <div class="code-injection-actions">
             <label><input id="move-expansion-animations-checkbox" type="checkbox" ${project.patches?.applied?.moveExpansionBundledAnimations || project.patches?.applied?.moveExpansionGen6Animations ? "checked" : ""}> Include Gen 6-9 Animations</label>
@@ -863,6 +861,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-facts">
             <div><span>Routes</span><strong>${megaStatus.installed ? megaStatus.routes : "—"}</strong></div>
             <div><span>Turn order</span><strong>Generation 7</strong></div>
+            <div><span>Dependencies</span><strong>Item Expansion, PWAN GIF Support, Fairy Type Support, Move Expansion (installed with it)</strong></div>
             <div><span>Mega Pokémon</span><strong>${megaContentStatus.installed ? `${megaContentStatus.forms} installed` : megaContentStatus.ready ? "Ready" : "—"}</strong></div>
             <div><span>Universal stones</span><strong>${UNIVERSAL_STONES.map((stone) => escapeHtml(stone.name)).join(", ")}</strong></div>
             <div><span>Credits</span><strong>${MEGA_CREDITS.map((credit) => `${escapeHtml(credit.name)} (${escapeHtml(credit.role)})`).join("; ")}</strong></div>
@@ -921,7 +920,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-facts">
             <div><span>Forms</span><strong>${REGIONAL_FORMS.length} in ${families.length} families</strong></div>
             <div><span>Installed</span><strong>${regionalStatus.installedForms || "—"}</strong></div>
-            <div><span>Installs with it</span><strong>Fairy Type Support, Move Expansion, animated sprites, evolution by form</strong></div>
+            <div><span>Dependencies</span><strong>Fairy Type Support, Move Expansion, PWAN GIF Support, Added-Form Evolution Support (installed with it)</strong></div>
             <div><span>Data</span><strong>White2Upgrade; sprites from the PWAN library</strong></div>
           </div>
           <details class="code-injection-regional-families" open>
@@ -951,7 +950,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-facts">
             <div><span>Installed</span><strong>${speciesStatus.installed ? `${speciesStatus.count} species` : "—"}</strong></div>
             <div><span>Numbering</span><strong>ROM species = national + 37 (Chespin is 687); summaries and the PC show national numbers</strong></div>
-            <div><span>Installs with it</span><strong>Fairy Type Support, Move Expansion, animated sprites</strong></div>
+            <div><span>Dependencies</span><strong>Fairy Type Support, Move Expansion, PWAN GIF Support (installed with it)</strong></div>
             <div><span>Data</span><strong>White2Upgrade; sprites from the PWAN library; cries are a similar Pokémon's</strong></div>
           </div>
           <div class="code-injection-actions">
