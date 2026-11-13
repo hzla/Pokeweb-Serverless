@@ -1,3 +1,4 @@
+import { storedSpeciesId } from "./speciesExpansionIds";
 import { cloneTrainerFieldConditions } from "./trainerFieldConditionsModel";
 import { cloneTrainerLevelCap } from "./trainerLevelCapsModel";
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
@@ -314,7 +315,7 @@ export function autofillTrainerPokemonMoves(project: ProjectState, trainerId: nu
   const count = Number(trdata.raw.num_pokemon ?? 0);
   if (slot < 0 || slot >= count) throw new Error("Trainer Pokemon slot does not exist");
 
-  const speciesId = Number(trpok.raw[`species_id_${slot}`] ?? 0) % 1024;
+  const speciesId = storedSpeciesId(project, Number(trpok.raw[`species_id_${slot}`] ?? 0));
   const level = Number(trpok.raw[`level_${slot}`] ?? 0);
   if (speciesId <= 0 || speciesId >= project.narcs.learnsets.fileCount || !project.narcs.learnsets.rawFiles[speciesId]) {
     throw new Error("No learnset is available for this Pokemon");
@@ -412,7 +413,7 @@ export function importTrainerPokemonShowdownText(project: ProjectState, trainerI
 
 export function getAutofilledTrainerPokemonMoveIds(project: ProjectState, speciesId: number, level: number): number[] {
   if (!project.narcs.learnsets) throw new Error("Learnsets are not loaded");
-  const learnsetSpeciesId = speciesId % 1024;
+  const learnsetSpeciesId = storedSpeciesId(project, speciesId);
   if (learnsetSpeciesId <= 0 || learnsetSpeciesId >= project.narcs.learnsets.fileCount || !project.narcs.learnsets.rawFiles[learnsetSpeciesId]) {
     throw new Error("No learnset is available for this Pokemon");
   }
@@ -704,7 +705,7 @@ export function resolveTrainerPokemonGender(project: ProjectState, trainerId: nu
   if (!trdata.raw || !trpok.raw) return "";
   const speciesId = Number(trpok.raw[`species_id_${slot}`] ?? 0);
   if (speciesId === 0 || !project.narcs.personal) return "";
-  const personalId = normalizedSpeciesId(speciesId);
+  const personalId = storedSpeciesId(project, speciesId);
   if (personalId >= project.narcs.personal.fileCount) return "";
   const personal = decodeRecord(project, "personal", personalId);
   if (!personal.raw) return "";
@@ -1011,7 +1012,7 @@ function parseClassId(project: ProjectState, value: string): number {
 function abilityName(project: ProjectState, speciesId: number, abilitySlot: number, form = 0): string | number {
   const cascadeAbility = cascadeWhiteTrainerAbilityName(project, speciesId, abilitySlot, form);
   if (cascadeAbility) return cascadeAbility;
-  const personalId = normalizedSpeciesId(speciesId);
+  const personalId = storedSpeciesId(project, speciesId);
   if (!project.narcs.personal || personalId >= project.narcs.personal.fileCount) return "";
   const personal = decodeRecord(project, "personal", personalId);
   const slot = Math.min(Math.max(abilitySlot, 1), 3);
@@ -1036,7 +1037,7 @@ function pokemonNameAutofills(project: ProjectState): string[] {
 }
 
 function pokemonName(project: ProjectState, speciesId: number): string | number {
-  const personalId = normalizedSpeciesId(speciesId);
+  const personalId = storedSpeciesId(project, speciesId);
   return cascadeWhitePersonalName(project, personalId) ?? project.texts.banks.pokedex?.[personalId] ?? speciesId;
 }
 
@@ -1061,10 +1062,6 @@ function formRecordOwner(project: ProjectState, personalId: number): { species: 
     if (first > 0 && species !== personalId && personalId >= first && personalId < first + forms - 1) return { species, form: personalId - first + 1 };
   }
   return undefined;
-}
-
-function normalizedSpeciesId(speciesId: number): number {
-  return speciesId % 1024;
 }
 
 function templateHasMoves(template: number): boolean {

@@ -11,6 +11,7 @@ import * as levelCapsModel from "../pokeweb/levelCapsModel";
 import * as trainerLevelCapsModel from "../pokeweb/trainerLevelCapsModel";
 import * as pmcModel from "../pokeweb/pmcModel";
 import * as megaEvolutionModel from "../pokeweb/megaEvolutionModel";
+import * as speciesExpansionModel from "../pokeweb/speciesExpansionModel";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -333,6 +334,7 @@ describe("code-injection patch categories", () => {
 
   it("places every patch in its functional tab and keeps PMC in the sidebar", () => {
     vi.spyOn(megaEvolutionModel, "canUseMegaEvolutionInstaller").mockReturnValue(true);
+    vi.spyOn(speciesExpansionModel, "canUseSpeciesExpansionInstaller").mockReturnValue(true);
     const html = renderFixture("W2");
     const headings = (section: string) => [...section.matchAll(/<h2>([^<]+)<\/h2>/g)].map(match => match[1]);
     const panelIds = ["infrastructure", "graphics", "quality-of-life", "major-features", "add-ons", "debug-helpers"];
@@ -354,7 +356,7 @@ describe("code-injection patch categories", () => {
       "Nature Palettes", "Summary IV/EV Viewer", "Enhanced Party Menu and Battle Log Integration", "Type Icons", "Party Menu Learnset/Dex Viewer", "Move Effectiveness Preview", "C-Gear Quick Actions", "Pokenav",
     ]);
     expect(headings(panels[2])).toEqual(["Instant Fast Text", "Background Music Toggle", "Forgettable HMs", "Make HM Moves Forgettable", "Autorun", "Skip Intro"]);
-    expect(headings(panels[3])).toEqual(["Fairy Type Support", "Move Expansion", "Mega Evolution", "Regional Forms"]);
+    expect(headings(panels[3])).toEqual(["Fairy Type Support", "Move Expansion", "Mega Evolution", "Regional Forms", "Species Expansion"]);
     expect(headings(panels[4])).toEqual([
       "Infinite Rare Candy", "Hard Level Caps", "Trainer Level Caps",
       "Trainer Field Conditions", "Nuzlocke Style Encounters", "Porta PC",
@@ -387,5 +389,17 @@ describe("code-injection patch categories", () => {
     vi.restoreAllMocks();
     for (const host of ["localhost", "127.0.0.1", "::1", "[::1]"]) expect(megaEvolutionModel.canUseMegaEvolutionInstaller(host)).toBe(true);
     for (const host of ["", "hzla.github.io", "localhost.example"]) expect(megaEvolutionModel.canUseMegaEvolutionInstaller(host)).toBe(false);
+  });
+
+  it("shows Species Expansion only when Pokeweb runs locally, on its own gate", () => {
+    vi.spyOn(megaEvolutionModel, "canUseMegaEvolutionInstaller").mockReturnValue(true);
+    vi.spyOn(speciesExpansionModel, "canUseSpeciesExpansionInstaller").mockReturnValue(false);
+    const html = renderFixture("W2");
+    expect(html).toContain("<h2>Mega Evolution</h2>");
+    expect(html).not.toContain("<h2>Species Expansion</h2>");
+    expect(html).not.toContain('id="install-species-expansion-btn"');
+    vi.restoreAllMocks();
+    for (const host of ["localhost", "127.0.0.1", "::1", "[::1]"]) expect(speciesExpansionModel.canUseSpeciesExpansionInstaller(host)).toBe(true);
+    for (const host of ["", "hzla.github.io", "localhost.example"]) expect(speciesExpansionModel.canUseSpeciesExpansionInstaller(host)).toBe(false);
   });
 });
