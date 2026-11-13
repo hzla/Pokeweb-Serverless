@@ -1,0 +1,1198 @@
+/*
+ * Gen 5 theme for the Pokeweb editor (experimental, gen5-ui branch).
+ * Loaded after unova.css. It first maps Pokeweb's tokens onto the Gen 5 palette, so every page changes colour at
+ * once, then re-skins the shared controls in the shapes of the Black 2 / White 2 touch screen. Page code is untouched;
+ * selectors carry one extra `html` so they win over the Unova layer. Pages with their own ID selectors get matching
+ * rules further down (the Pokémon page first).
+ *
+ * Decisions: primary actions in menu blue, field values stay Pokeweb's teal, no shadows, no rounded corners.
+ */
+
+@import "./gen5/tokens.css";
+@import "./gen5/mainMenu.css";
+
+/* ---------- Tokens: Pokeweb's names, Gen 5 values ---------- */
+
+html:root {
+  --ink-0: var(--g5-ground);
+  --ink-1: var(--g5-panel);
+  --ink-2: var(--g5-raised);
+  --ink-3: var(--g5-edge);
+  --row-hover: var(--g5-menu);
+  --field: var(--g5-black);
+  --field-line: var(--g5-edge);
+  --field-line-hover: var(--g5-menu-edge);
+  --text: var(--g5-text);
+  --text-muted: var(--g5-muted);
+  /* The one accent becomes the menus' selection blue; text on it is white. */
+  --amber: var(--g5-menu-on);
+  --amber-hover: #2f6aa0;
+  --on-amber: var(--g5-text);
+  /* As text (headings, links, focus outlines) the accent is the light blue the folder tabs stand on. */
+  --amber-text: #8cc0f0;
+  --danger: var(--g5-fight);
+  --success: var(--g5-mon);
+  --radius: 0;
+  /* The hexagon every button and tab is cut to, and its inner face 2 px in. */
+  --g5-hex: polygon(var(--g5-cut, 8px) 0, calc(100% - var(--g5-cut, 8px)) 0, 100% 50%, calc(100% - var(--g5-cut, 8px)) 100%, var(--g5-cut, 8px) 100%, 0 50%);
+  --g5-hex-face: polygon(calc(var(--g5-cut, 8px) - 1px) 0, calc(100% - var(--g5-cut, 8px) + 1px) 0, 100% 50%, calc(100% - var(--g5-cut, 8px) + 1px) 100%, calc(var(--g5-cut, 8px) - 1px) 100%, 0 50%);
+  /* Diagonal hatching at the end of title bars and bands, in the menu edge grey. */
+  --g5-hatch: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='16'%3E%3Cpath d='M0 16 6 0h4L4 16ZM10 16 16 0h4l-6 16ZM20 16 26 0h4l-6 16ZM30 16 36 0h4l-6 16Z' fill='%239c9cac'/%3E%3C/svg%3E");
+  --g5-hatch-blue: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='16'%3E%3Cpath d='M0 16 6 0h4L4 16ZM10 16 16 0h4l-6 16ZM20 16 26 0h4l-6 16ZM30 16 36 0h4l-6 16Z' fill='%2320a0f8'/%3E%3C/svg%3E");
+}
+
+html body {
+  background: var(--g5-ground) var(--g5-grid-ground);
+}
+
+html #content-container {
+  background: var(--g5-ground) var(--g5-grid-ground);
+}
+
+/* ---------- App chrome: a black title bar over a touch-bar row ---------- */
+
+html #header.app-chrome {
+  background: var(--g5-black);
+}
+
+html .app-chrome .topbar {
+  border-bottom: 2px solid var(--g5-text);
+  background: var(--g5-black);
+}
+
+html .app-chrome .brand::after {
+  content: "";
+  display: inline-block;
+  width: 40px;
+  height: 16px;
+  margin-left: 10px;
+  vertical-align: -3px;
+  background: var(--g5-hatch-blue) no-repeat;
+}
+
+html .app-chrome .rom-chip {
+  border: 2px solid var(--g5-edge);
+  background: var(--g5-panel);
+}
+
+html .app-chrome .header-left > .header-item.-active,
+html .app-chrome .header-left > .header-more.-active > .header-more-trigger {
+  color: var(--g5-selected);
+}
+
+/* The active section's underline: a 3 px bar in the selection blue's light edge, square ends. */
+html .app-chrome .header-left > .header-item.-active::after,
+html .app-chrome .header-left > .header-more.-active > .header-more-trigger::after {
+  background: var(--g5-selected);
+  clip-path: none;
+}
+
+html .app-chrome .subnav {
+  align-items: center;
+  border-bottom: 2px solid var(--g5-black);
+  background: var(--g5-panel);
+}
+
+html .app-chrome .subnav-tabs {
+  align-items: center;
+  gap: 4px;
+}
+
+/* ---------- Hexagonal tabs and buttons ---------- */
+
+html :is(.uv-tab, .app-chrome .subnav-tabs > .header-item) {
+  --g5-cut: 6px;
+  --g5-edge-color: var(--g5-menu-edge);
+  --g5-face: var(--g5-menu);
+  position: relative;
+  isolation: isolate;
+  height: 26px;
+  padding: 0 16px;
+  background: var(--g5-edge-color);
+  color: var(--g5-menu-edge);
+  font: 600 13px/1 var(--font);
+  clip-path: var(--g5-hex);
+}
+
+html :is(.uv-tab, .app-chrome .subnav-tabs > .header-item)::before {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  z-index: -1;
+  background: var(--g5-face);
+  clip-path: var(--g5-hex-face);
+}
+
+html :is(.uv-tab, .app-chrome .subnav-tabs > .header-item):hover,
+html :is(.uv-tab.is-active, .uv-tab[aria-selected="true"], .app-chrome .subnav-tabs > .header-item.-active) {
+  --g5-edge-color: var(--g5-menu-on-edge);
+  --g5-face: var(--g5-menu-on);
+  background: var(--g5-edge-color);
+  color: var(--g5-text);
+}
+
+html :is(.uv-tab, .app-chrome .subnav-tabs > .header-item):focus-visible {
+  --g5-edge-color: var(--g5-text);
+  outline: none;
+}
+
+html .btn {
+  --g5-cut: 8px;
+  --g5-edge-color: var(--g5-menu-edge);
+  --g5-face: var(--g5-menu);
+  position: relative;
+  isolation: isolate;
+  min-height: 30px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 0;
+  background: var(--g5-edge-color);
+  color: var(--g5-text);
+  clip-path: var(--g5-hex);
+}
+
+html .btn::before {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  z-index: -1;
+  background: var(--g5-face);
+  clip-path: var(--g5-hex-face);
+}
+
+html .btn:hover:not(:disabled),
+html .btn.-default.-active,
+html .btn[aria-pressed="true"] {
+  --g5-edge-color: var(--g5-menu-on-edge);
+  border: 0;
+  background: var(--g5-edge-color);
+}
+
+/* Primary: the menus' selection blue, filled. */
+html .btn.-primary {
+  --g5-edge-color: var(--g5-menu-on-edge);
+  --g5-face: var(--g5-menu-on);
+  border: 0;
+  background: var(--g5-edge-color);
+  color: var(--g5-text);
+}
+
+html .btn.-primary:hover:not(:disabled) {
+  --g5-edge-color: var(--g5-text);
+  --g5-face: #2f6aa0;
+  background: var(--g5-edge-color);
+}
+
+/*
+ * What a button does, in the game's command colours: blue for the main action (above), green for anything that adds,
+ * red for anything that removes. gen5ButtonRoles.ts tags "Add …" buttons -g5-add and "Delete / Remove / Disable …"
+ * buttons -g5-remove from their labels (Uninstall too).
+ */
+html .btn:is(.-danger, .-remove, .-g5-remove) {
+  --g5-edge-color: var(--g5-fight);
+  --g5-face: var(--g5-ground);
+  border: 0;
+  background: var(--g5-edge-color);
+  color: #ff8a80;
+}
+
+html .btn:is(.-danger, .-remove, .-g5-remove):hover:not(:disabled) {
+  --g5-edge-color: #ff6a60;
+  --g5-face: #3a1414;
+  background: var(--g5-edge-color);
+}
+
+html .btn.-g5-add {
+  --g5-edge-color: var(--g5-mon);
+  --g5-face: var(--g5-ground);
+  border: 0;
+  background: var(--g5-edge-color);
+  color: #b8f090;
+}
+
+html .btn.-g5-add:hover:not(:disabled) {
+  --g5-edge-color: #a8f070;
+  --g5-face: #1c3010;
+  background: var(--g5-edge-color);
+}
+
+/* A main action that adds: filled green. */
+html .btn.-g5-add.-primary {
+  --g5-face: var(--g5-mon-shade);
+  color: var(--g5-text);
+}
+
+/* Code Injection and Following Pokémon paint their action buttons directly; give them back the theme's frame. */
+html .code-injection-actions .btn:is(.-primary, .-default, .-remove) {
+  border: 0;
+  background: var(--g5-edge-color);
+}
+
+html .code-injection-actions .btn.-primary {
+  color: var(--g5-text);
+}
+
+html .code-injection-actions .btn.-remove {
+  color: #ff8a80;
+}
+
+html .btn.-g5-add-mark::after {
+  content: "+";
+  order: -1;
+  font-weight: 700;
+}
+
+html .btn.-ghost {
+  --g5-edge-color: transparent;
+  --g5-face: transparent;
+  background: transparent;
+  color: var(--g5-muted);
+}
+
+/* Disabled: a plain grey frame and grey text, still readable; whatever colour the button has otherwise. */
+html .btn.btn:is(:disabled, .disabled) {
+  --g5-edge-color: var(--g5-edge);
+  --g5-face: var(--g5-ground);
+  background: var(--g5-edge-color);
+  color: #8c8c8c;
+  cursor: not-allowed;
+  /* Several pages fade disabled buttons too; the grey frame says it already. */
+  opacity: 1;
+}
+
+html .btn:active:not(:disabled) {
+  transform: translateY(2px);
+}
+
+/* Focus can't be an outline on a clipped shape: the edge turns white. */
+html .btn:focus-visible {
+  --g5-edge-color: var(--g5-text);
+  background: var(--g5-edge-color);
+  outline: none;
+}
+
+html .btn.sm {
+  --g5-cut: 6px;
+  min-height: 24px;
+  padding: 0 12px;
+}
+
+/* ---------- Bands (section bars) ---------- */
+
+html .section-bar {
+  height: 28px;
+  padding: 0 70px 0 12px;
+  background: var(--g5-raised);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
+}
+
+/* The amber edge becomes the hatching at the right end. */
+html .section-bar::before {
+  inset: 6px 22px 6px auto;
+  width: 40px;
+  height: 16px;
+  background: var(--g5-hatch) no-repeat;
+}
+
+/* ---------- Fields: square, framed, black; values stay teal ---------- */
+
+html #content-container [contenteditable="true"]:not(.btn):not(.type-plate):not(.text-line),
+html #content-container input:is([type="text"], [type="number"], [type="search"], [type="url"], :not([type])),
+html #content-container select,
+html #content-container textarea,
+html .filter-input {
+  border: 2px solid var(--g5-edge);
+  border-radius: 0;
+  background-color: var(--g5-black);
+}
+
+html #content-container [contenteditable="true"]:not(.btn):not(.text-line):hover,
+html #content-container :is(input, select, textarea):hover {
+  border-color: var(--g5-menu-edge);
+}
+
+html #content-container :is(input, select, textarea, [contenteditable="true"]):focus,
+html .filter-input:focus {
+  border-color: var(--g5-selected);
+  box-shadow: none;
+}
+
+/* ---------- Checkboxes: the menus' dark box with a red tick ---------- */
+
+html #content-container input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--g5-dim);
+  border-radius: 0;
+  background: var(--g5-ground);
+}
+
+html #content-container input[type="checkbox"]:checked {
+  border-color: var(--g5-menu-edge);
+  background: var(--g5-black);
+}
+
+html #content-container input[type="checkbox"]:checked::after {
+  width: 5px;
+  height: 10px;
+  margin-top: -3px;
+  border: solid var(--g5-fight);
+  border-width: 0 3px 3px 0;
+}
+
+html #content-container input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--g5-selected);
+}
+
+/* ---------- Menus and pop-ups: a light frame instead of a shadow ---------- */
+
+html :is(.project-menu-list, [data-autocomplete] .suggestions) {
+  border: 2px solid var(--g5-menu-edge);
+  border-radius: 0;
+  background: var(--g5-black);
+  box-shadow: none;
+}
+
+html [data-autocomplete] .suggestions > div:hover,
+html [data-autocomplete] .suggestions > div.is-current {
+  background: var(--g5-menu-on);
+  color: var(--g5-text);
+}
+
+/* ---------- Type plates and move categories: the ROM's own icons ---------- */
+
+/* gen5UiIcons.ts sets --g5-icon on plates whose type the ROM has an icon for; it's drawn at 2×. */
+html .type-plate.-g5-icon {
+  min-width: 64px;
+  height: 24px;
+  padding: 0;
+  background: var(--g5-icon) center / 64px 24px no-repeat;
+  color: transparent;
+  font-size: 0;
+  clip-path: none;
+  image-rendering: pixelated;
+}
+
+/* Small plates use the same 2× icon: 1.5× would leave uneven pixels. */
+html .type-plate.sm.-g5-icon {
+  min-width: 64px;
+  width: 64px;
+  height: 24px;
+}
+
+/* Editable type pickers (Pokémon and move headers) show the icon until focused, then their text to type in. */
+html #content-container [contenteditable="true"].type-plate.-g5-icon:not(:focus),
+html #content-container :is(#pokemon-data .pd-types, .md-title) .type-plate.-g5-icon[contenteditable="true"]:not(:focus) {
+  min-width: 64px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: var(--g5-icon) center / 64px 24px no-repeat;
+  color: transparent;
+  font-size: 0;
+  clip-path: none;
+}
+
+html #content-container [contenteditable="true"].type-plate.-g5-icon:focus {
+  min-width: 84px;
+  padding: 0 12px;
+  font-size: 11px;
+}
+
+/* The Pokémon list's type column fits two 2× icons. */
+html #pokemon-data .pd-row-types {
+  gap: 4px;
+}
+
+html #pokemon-data .pd-row-types .type-plate.sm.-g5-icon {
+  min-width: 64px;
+  padding: 0;
+}
+
+html .move-cat.-g5-icon {
+  display: block;
+  width: 64px;
+  height: 28px;
+  overflow: hidden;
+  background: var(--g5-icon) left center / 64px 28px no-repeat;
+  color: transparent;
+  font-size: 0;
+  image-rendering: pixelated;
+}
+
+/* ---------- Shared list and detail pages ---------- */
+
+/*
+ * Grid in the gaps: content sits on flat surfaces, and the dot grid shows only where there's nothing to read (page
+ * margins, around the detail panel, under a short list), the way the game's grids sit behind its solid menus.
+ */
+html :is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data, .move-anim-data) .md-list {
+  border-right: 2px solid var(--g5-black);
+  background: var(--g5-ground) var(--g5-grid-ground);
+}
+
+/* The rows sit on a flat strip that ends with the last row, so a filtered list shows the grid below it. */
+html :is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data, .move-anim-data) .md-rows {
+  flex: 0 1 auto;
+  background: var(--g5-black);
+}
+
+html :is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data, .move-anim-data) :is(.md-list-foot, .md-tools) {
+  background: var(--g5-panel);
+}
+
+/* Each page's detail is one framed panel; pages without a wrapper frame their header and notes. */
+html :is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data, .move-anim-data) .md-detail > :is(article, .hd-detail),
+html #music-data .mu-head,
+html #facility-data :is(.pwt-head, .pwt-note) {
+  padding: 12px;
+  border: 2px solid var(--g5-black);
+  background: var(--g5-panel);
+}
+
+/* pokemonData.css strips the Pokémon card with an id selector, and its background with !important. */
+html #pokemon-data .md-detail > .pd-card {
+  padding: 12px;
+  border: 2px solid var(--g5-black);
+  background: var(--g5-panel) !important;
+}
+
+html :is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data, .move-anim-data) .md-filters {
+  border-bottom: 2px solid var(--g5-black);
+  background: var(--g5-panel);
+}
+
+/* Each row is cut to the hexagon in its edge colour; ::after is its dark face 2 px inside. */
+html :is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data, .move-anim-data) .md-row {
+  --g5-cut: 8px;
+  --g5-edge-color: var(--g5-dim);
+  --g5-face: var(--g5-panel);
+  isolation: isolate;
+  margin: 3px 6px 0;
+  padding: 0 14px;
+  background: var(--g5-edge-color);
+  clip-path: var(--g5-hex);
+}
+
+html :is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data, .move-anim-data) .md-row::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  z-index: -1;
+  background: var(--g5-face);
+  clip-path: var(--g5-hex-face);
+}
+
+html :is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data, .move-anim-data) .md-row:hover {
+  --g5-edge-color: var(--g5-menu-edge);
+  --g5-face: var(--g5-menu);
+  background: var(--g5-edge-color);
+}
+
+/* Selected: the menus' blue with its light edge. */
+html :is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data, .move-anim-data) .md-row.is-selected {
+  --g5-edge-color: var(--g5-menu-on-edge);
+  --g5-face: var(--g5-menu-on);
+  background: var(--g5-edge-color);
+  color: var(--g5-selected);
+}
+
+html :is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data, .move-anim-data) .md-row.is-selected::before {
+  display: none;
+}
+
+/* Keyboard focus in the list: the selected row's edge turns white. */
+html :is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data, .move-anim-data) .md-rows:focus-visible .md-row.is-selected {
+  --g5-edge-color: var(--g5-text);
+  box-shadow: none;
+}
+
+html :is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data, .move-anim-data) .md-rows {
+  padding-bottom: 6px;
+}
+
+html :is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data, .move-anim-data) .md-row.is-selected .md-row-id {
+  color: var(--g5-text);
+}
+
+/* Changed marks are the old mastersheet's yellow. */
+html :is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data, .move-anim-data) .md-edits {
+  color: var(--g5-mark);
+}
+
+html :is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data, .move-anim-data) .md-edits::before {
+  background: var(--g5-mark);
+}
+
+html :is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data, .move-anim-data) .md-filter-pop {
+  border: 2px solid var(--g5-menu-edge);
+  background: var(--g5-black);
+  box-shadow: none;
+}
+
+html :is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data, .move-anim-data) .md-panels {
+  border: 2px solid var(--g5-black);
+  border-top: 0;
+  background: var(--g5-panel);
+}
+
+/* ---------- The Pokémon page: a Pokédex entry ---------- */
+
+/* The sprite on the cross grid, framed like the Pokédex's picture panel. */
+html #pokemon-data .pd-sprite {
+  border: 2px solid var(--g5-black);
+  background: #000 var(--g5-grid-cross);
+}
+
+/* Name and number in a title bar with hatching. */
+html #pokemon-data .pd-title {
+  align-items: center;
+  min-height: 40px;
+  padding: 0 12px;
+  border-bottom: 2px solid var(--g5-text);
+  background: var(--g5-black) var(--g5-hatch-blue) no-repeat right 12px center;
+}
+
+html #pokemon-data .pd-title h1 {
+  font-size: 22px;
+}
+
+html #pokemon-data .pd-num {
+  color: var(--g5-selected);
+  font: 600 18px/1 var(--font-cond);
+}
+
+/* The two type icons at 2×. */
+html #pokemon-data .pd-types {
+  gap: 8px;
+  min-height: 24px;
+}
+
+/* Base stats as the menus' gauges: teal frame, the fill ending in a chevron (its colour still says how high). */
+html #pokemon-data .pd-stats th {
+  font: 600 13px/1.2 var(--font-cond);
+}
+
+html #pokemon-data .pd-stat-bar {
+  height: 14px;
+  padding: 2px;
+  border: 2px solid var(--g5-gauge-edge);
+  background: var(--g5-gauge-track);
+  outline: 2px solid #292938;
+}
+
+html #pokemon-data .pd-stat-bar > span {
+  min-width: 6px;
+  clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 50%, calc(100% - 4px) 100%, 0 100%);
+}
+
+html #pokemon-data .pd-total td:nth-child(2) {
+  color: var(--g5-text);
+}
+
+/* The tab row starts flush under the header. */
+html #pokemon-data .pd-tabs {
+  margin-top: 20px;
+}
+
+html #pokemon-data .pd-tab-edits:not(:empty) {
+  color: var(--g5-mark);
+}
+
+/* Learnset rows: the move's type colour runs down the select's left edge, like a battle move button's frame. */
+html #content-container #pokemon-data .pd-move-row :is(.move-name, [data-autocomplete] .move-name) {
+  border-left-width: 6px;
+}
+
+html #content-container #pokemon-data .pd-move-row:has(.type-plate.-normal) .move-name { border-left-color: #a8a878; }
+html #content-container #pokemon-data .pd-move-row:has(.type-plate.-fire) .move-name { border-left-color: #f08030; }
+html #content-container #pokemon-data .pd-move-row:has(.type-plate.-water) .move-name { border-left-color: #6890f0; }
+html #content-container #pokemon-data .pd-move-row:has(.type-plate.-grass) .move-name { border-left-color: #78c850; }
+html #content-container #pokemon-data .pd-move-row:has(.type-plate.-electric) .move-name { border-left-color: #f8d030; }
+html #content-container #pokemon-data .pd-move-row:has(.type-plate.-ice) .move-name { border-left-color: #98d8d8; }
+html #content-container #pokemon-data .pd-move-row:has(.type-plate.-fighting) .move-name { border-left-color: #c03028; }
+html #content-container #pokemon-data .pd-move-row:has(.type-plate.-poison) .move-name { border-left-color: #a040a0; }
+html #content-container #pokemon-data .pd-move-row:has(.type-plate.-ground) .move-name { border-left-color: #e0c068; }
+html #content-container #pokemon-data .pd-move-row:has(.type-plate.-flying) .move-name { border-left-color: #a890f0; }
+html #content-container #pokemon-data .pd-move-row:has(.type-plate.-psychic) .move-name { border-left-color: #f85888; }
+html #content-container #pokemon-data .pd-move-row:has(.type-plate.-bug) .move-name { border-left-color: #a8b820; }
+html #content-container #pokemon-data .pd-move-row:has(.type-plate.-rock) .move-name { border-left-color: #b8a038; }
+html #content-container #pokemon-data .pd-move-row:has(.type-plate.-ghost) .move-name { border-left-color: #705898; }
+html #content-container #pokemon-data .pd-move-row:has(.type-plate.-dragon) .move-name { border-left-color: #7038f8; }
+html #content-container #pokemon-data .pd-move-row:has(.type-plate.-dark) .move-name { border-left-color: #705848; }
+html #content-container #pokemon-data .pd-move-row:has(.type-plate.-steel) .move-name { border-left-color: #b8b8d0; }
+html #content-container #pokemon-data .pd-move-row:has(.type-plate.-fairy) .move-name { border-left-color: #ee99ac; }
+
+/* ---------- Headers: compact cards, colour-coded by what they control ---------- */
+
+/*
+ * The game's four command colours as categories: green for the map and world, yellow for scripts and text, blue for
+ * camera, display and sound, red for battle. The reference links at the top use the same colours as the cards
+ * they relate to.
+ */
+html #header-data :is(.header-detail-section, .hd-link) {
+  --g5-cat: var(--g5-edge);
+}
+
+html #header-data .header-detail-section:is([data-section="location"], [data-section="map-identity"], [data-section="default-start"], [data-section="hgss-world-map"]),
+html #header-data .hd-link:is([data-open-ref="overworld"], [data-open-ref="map"], [data-open-ref="matrix"]) {
+  --g5-cat: var(--g5-mon);
+}
+
+html #header-data .header-detail-section[data-section="scripts-text"],
+html #header-data .hd-link:is([data-open-ref="text"], [data-open-ref="script"]) {
+  --g5-cat: var(--g5-bag);
+}
+
+html #header-data .header-detail-section:is([data-section="camera-nameplate"], [data-section="seasonal-music"], [data-section="audio-camera"]) {
+  --g5-cat: var(--g5-run);
+}
+
+html #header-data .header-detail-section:is([data-section="movement-battle"], [data-section="behavior"]),
+html #header-data .hd-link[data-open-ref="encounters"] {
+  --g5-cat: var(--g5-fight);
+}
+
+/* Cards stack to their own height in up to three columns, instead of stretching to the tallest beside them. */
+html #header-data .header-detail-grid {
+  display: block;
+  columns: 3 300px;
+  column-gap: 10px;
+}
+
+html #header-data .header-detail-section {
+  display: block;
+  margin: 0 0 10px;
+  padding: 0;
+  border: 2px solid var(--g5-black);
+  border-radius: 0;
+  background: var(--g5-ground);
+  break-inside: avoid;
+}
+
+/* The title is a black band with the category colour at its left end and in its hatching. */
+html #header-data .header-detail-section-title {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 26px;
+  margin: 0;
+  padding: 0 60px 0 10px;
+  border-left: 6px solid var(--g5-cat);
+  background: var(--g5-black);
+  color: var(--g5-text);
+  font: 600 14px/1 var(--g5-cond);
+  letter-spacing: 0.02em;
+}
+
+html #header-data .header-detail-section-title::after {
+  content: "";
+  position: absolute;
+  inset: 5px 10px 5px auto;
+  width: 40px;
+  background: var(--g5-cat);
+  -webkit-mask: var(--g5-hatch) no-repeat center / 40px 16px;
+  mask: var(--g5-hatch) no-repeat center / 40px 16px;
+}
+
+html #header-data .header-detail-section-fields {
+  gap: 2px;
+  padding: 6px 10px 8px;
+}
+
+html #header-data .header-detail-field {
+  grid-template-columns: minmax(0, 1fr) 110px;
+  gap: 8px;
+  min-height: 28px;
+}
+
+html #header-data .header-detail-field.-packed {
+  grid-template-columns: 1fr;
+  gap: 4px;
+  padding-top: 4px;
+}
+
+html #header-data .header-detail-label {
+  color: var(--g5-muted);
+  font-weight: 500;
+}
+
+html #header-data [data-section="location"] .header-detail-field {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+/* Packed flags: two to a row, as small framed chips. */
+html #header-data .header-flag-editor {
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 4px;
+}
+
+html #header-data :is(.header-flag-check, .header-flag-number) {
+  min-height: 28px;
+  padding: 2px 8px;
+  border: 0;
+  background: var(--g5-panel);
+}
+
+/* Reference links: framed chips with the category colour down their left edge. */
+html #header-data .hd-links {
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+html #header-data .hd-link {
+  padding: 5px 10px;
+  border: 2px solid var(--g5-black);
+  border-left: 6px solid var(--g5-cat);
+  border-radius: 0;
+  background: var(--g5-ground);
+  color: var(--g5-muted);
+}
+
+html #header-data .hd-link:hover {
+  border-color: var(--g5-menu-on-edge);
+  border-left-color: var(--g5-cat);
+  background: var(--g5-menu);
+  color: var(--g5-text);
+}
+
+html #header-data .hd-link:focus-visible {
+  outline: 2px solid var(--g5-text);
+  outline-offset: 0;
+}
+
+html #header-data .hd-head {
+  margin-bottom: 10px;
+}
+
+/* ---------- TMs and Tutors: the ROM's icons and tighter rows ---------- */
+
+/* The TM list's type labels and the type filters show the ROM's type icon instead of a hexagon. */
+html :is(.move-type > .btn, .type-filters .btn[data-ptype]).-g5-icon,
+html #moves .move-type > .btn.-g5-icon {
+  width: 64px;
+  min-height: 0;
+  height: 24px;
+  padding: 0;
+  background: var(--g5-icon) center / 64px 24px no-repeat;
+  color: transparent;
+  font-size: 0;
+  clip-path: none;
+  image-rendering: pixelated;
+}
+
+html :is(.move-type > .btn, .type-filters .btn[data-ptype]).-g5-icon::before {
+  display: none;
+}
+
+html :is(.move-type > .btn, .type-filters .btn[data-ptype]).-g5-icon:focus-visible {
+  outline: 2px solid var(--g5-text);
+  outline-offset: 1px;
+}
+
+/* Type filters: a grid of icons; once any is on, the others dim and the chosen ones get a cyan frame. */
+html .tm-filter .type-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 64px);
+  justify-content: center;
+  gap: 6px;
+}
+
+html .type-filters .btn[data-ptype].-g5-icon[aria-pressed="true"] {
+  outline: 2px solid var(--g5-selected);
+  outline-offset: 1px;
+}
+
+html .type-filters:has([aria-pressed="true"]) .btn[data-ptype].-g5-icon:not([aria-pressed="true"]) {
+  opacity: 0.45;
+}
+
+/* Category filters: ordinary small toggles. */
+html .tm-filter .cat-filters {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+html .move-filter .cat-filters .btn-3.-default {
+  --g5-cut: 6px;
+  width: auto;
+  min-height: 28px;
+  padding: 0 14px;
+  border: 0;
+  background: var(--g5-edge-color);
+}
+
+html .move-filter .cat-filters .btn-3.-default:is(.-active, [aria-pressed="true"]) {
+  --g5-edge-color: var(--g5-menu-on-edge);
+  --g5-face: var(--g5-menu-on);
+  border: 0;
+  background: var(--g5-edge-color);
+}
+
+/* With the ROM's category icon in place, the button shows the icon on its face instead of the old image. */
+html .move-filter .cat-filters .btn-3.-g5-icon img {
+  display: none;
+}
+
+html .move-filter .cat-filters .btn-3.-g5-icon {
+  width: 72px;
+  padding: 0;
+}
+
+html .move-filter .cat-filters .btn-3.-g5-icon::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--g5-icon) center / 64px 28px no-repeat;
+  image-rendering: pixelated;
+}
+
+html .move-filter .cat-filters:has(:is(.-active, [aria-pressed="true"])) .btn-3.-g5-icon:not(.-active, [aria-pressed="true"]) {
+  opacity: 0.45;
+}
+
+/* TM and HM numbers carry the disc in their type's colour. */
+html .move-cat.-g5-disc,
+html #moves.tm-list .move-cat.-g5-disc {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+html .move-cat.-g5-disc::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  background: var(--g5-disc) center / contain no-repeat;
+  image-rendering: pixelated;
+}
+
+/* Rows: about 34 px instead of 60–100. */
+html :is(.tm-list, .tutor-move-list) > .expanded-field {
+  padding: 2px 0;
+  font-size: 15px;
+}
+
+html :is(.tm-list, .tutor-move-list) .move-effect {
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+html .tutor-move-row > .expanded-field-main,
+html #moves > .tm-card > .expanded-field-main {
+  min-height: 34px;
+}
+
+/* A tutor's name is plain text in its column, not a card. */
+html .tutor-move-list .tutor-group {
+  width: auto;
+  padding: 0;
+  border: 0;
+  white-space: nowrap;
+}
+
+/* ---------- Type chart: effectiveness at a glance ---------- */
+
+html .type-chart-wrap {
+  padding: 10px;
+  border: 2px solid var(--g5-black);
+  background: var(--g5-panel);
+}
+
+html :is(.type-chart-corner, .type-chart-heading, .type-chart-cell) {
+  border-radius: 0;
+  box-shadow: none;
+  text-shadow: none;
+}
+
+html .type-chart-corner {
+  background: transparent;
+}
+
+/* Headings show the ROM's type icon. */
+html .type-chart-heading.-g5-icon {
+  background: var(--g5-icon) center / 64px 24px no-repeat;
+  color: transparent;
+  font-size: 0;
+  image-rendering: pixelated;
+}
+
+html .type-chart-heading.-row.-g5-icon {
+  background-position: left 4px center;
+}
+
+/*
+ * Cells: neutral (×1) recedes; ×2 is the POKÉMON command's green, ×½ the FIGHT red's shade, ×0 black. The select
+ * keeps the value and its picker; only the colours change.
+ */
+html .type-chart-cell {
+  padding: 0;
+  border: 0;
+  background: var(--g5-ground);
+}
+
+html #content-container .type-chart-cell select {
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 2px solid transparent;
+  background: transparent;
+  color: #6c6c6c;
+  font: 600 16px/1 var(--g5-cond);
+}
+
+html #content-container .type-chart-cell select:hover {
+  border-color: var(--g5-menu-edge);
+}
+
+html #content-container .type-chart-cell select:focus {
+  border-color: var(--g5-selected);
+}
+
+html .type-chart-cell:has(select[data-value="8"]) {
+  background: var(--g5-mon-shade);
+}
+
+html #content-container .type-chart-cell select[data-value="8"] {
+  color: #c8f8a0;
+}
+
+html .type-chart-cell:has(select[data-value="2"]) {
+  background: var(--g5-fight-shade);
+}
+
+html #content-container .type-chart-cell select[data-value="2"] {
+  color: #ffc0b8;
+}
+
+html .type-chart-cell:has(select[data-value="0"]) {
+  background: #000;
+  box-shadow: inset 0 0 0 2px var(--g5-edge);
+}
+
+html #content-container .type-chart-cell select[data-value="0"] {
+  color: var(--g5-text);
+}
+
+/* ---------- Older pages: Abilities, Following Pokémon, Texts ---------- */
+
+/* Abilities: the same Bag list rows as every other list. */
+html .ability-list {
+  gap: 0;
+  padding-bottom: 6px;
+  background: var(--g5-black);
+}
+
+html .ability-list-item {
+  --g5-cut: 8px;
+  --g5-edge-color: var(--g5-dim);
+  --g5-face: var(--g5-panel);
+  position: relative;
+  isolation: isolate;
+  align-items: center;
+  min-height: 34px;
+  margin: 3px 6px 0;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 0;
+  background: var(--g5-edge-color);
+  clip-path: var(--g5-hex);
+}
+
+html .ability-list-item::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  z-index: -1;
+  background: var(--g5-face);
+  clip-path: var(--g5-hex-face);
+}
+
+html .ability-list-item:hover {
+  --g5-edge-color: var(--g5-menu-edge);
+  --g5-face: var(--g5-menu);
+  background: var(--g5-edge-color);
+}
+
+html .ability-list-item.-active {
+  --g5-edge-color: var(--g5-menu-on-edge);
+  --g5-face: var(--g5-menu-on);
+  background: var(--g5-edge-color);
+  color: var(--g5-selected);
+}
+
+html .ability-list-item:focus-visible {
+  --g5-edge-color: var(--g5-text);
+  outline: none;
+}
+
+/* Texts: the sidebar is a form, so it sits on flat ground; the messages are one framed panel. */
+html .text-data .md-list.tx-side {
+  background: var(--g5-ground);
+}
+
+html .text-data .tx-main > .tx-head {
+  margin: 0;
+  padding: 12px 12px 8px;
+  border: 2px solid var(--g5-black);
+  border-bottom: 0;
+  background: var(--g5-panel);
+}
+
+html .text-data .tx-main > .tx-rows {
+  padding: 0 12px 12px;
+  border: 2px solid var(--g5-black);
+  border-top: 0;
+  background: var(--g5-panel);
+}
+
+/* ---------- Tabs: the field menu's folder tabs, layered ---------- */
+
+/*
+ * Page tabs (under the top bar) and the tab rows inside editors are folder tabs: a straight left side, a flat top and
+ * the 45° slope of the field menu buttons' notch, with their diagonal shading. They overlap like a stack of folders,
+ * each tucking its slope over the next. The open tab is taller, sits on top, and takes the colour of the page below
+ * it, cutting through the light line its row stands on, so tab and page read as one piece.
+ * --ft-line is that line's colour; --ft-panel is the colour of whatever the row opens onto.
+ */
+html :is(.md-tabs, .following-interaction-tabs, .code-injection-tabs, .app-chrome .subnav-tabs) {
+  --ft-line: #8cc0f0;
+  --ft-panel: var(--g5-panel);
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+  min-height: 0;
+  height: auto;
+  margin-bottom: 0;
+  padding: 6px 0 2px 6px;
+  border: 0;
+  background: transparent;
+  box-shadow: inset 0 -2px 0 var(--ft-line);
+  /* A row too long for its space scrolls sideways rather than cutting tabs off. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+html :is(.md-tabs > .uv-tab, .following-interaction-tabs > .following-interaction-tab, .code-injection-tabs > .code-injection-tab, .app-chrome .subnav-tabs > .header-item) {
+  --ft-slope: 14px;
+  --g5-edge-color: #5a5a5a;
+  --g5-face: #1c1c1c;
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  width: auto;
+  min-width: 0;
+  height: 30px;
+  margin: 0 -10px 0 0;
+  padding: 0 calc(var(--ft-slope) + 12px) 0 14px;
+  border: 0;
+  border-radius: 0;
+  background: var(--g5-edge-color);
+  box-shadow: none;
+  color: #9a9aa4;
+  font: 600 14px/1 var(--font);
+  clip-path: polygon(0 100%, 0 0, calc(100% - var(--ft-slope)) 0, 100% 100%);
+}
+
+/* The face, 2 px inside, with the field menu's lighter lower-right corner. */
+html :is(.md-tabs > .uv-tab, .following-interaction-tabs > .following-interaction-tab, .code-injection-tabs > .code-injection-tab, .app-chrome .subnav-tabs > .header-item)::before {
+  content: "";
+  position: absolute;
+  inset: 2px 2px 0;
+  z-index: -1;
+  background: linear-gradient(162deg, var(--g5-face) 64%, color-mix(in srgb, var(--g5-face), white 7%) 64%);
+  clip-path: polygon(0 100%, 0 0, calc(100% - var(--ft-slope) + 1px) 0, calc(100% - 1px) 100%);
+}
+
+html :is(.md-tabs > .uv-tab, .following-interaction-tabs > .following-interaction-tab, .code-injection-tabs > .code-injection-tab, .app-chrome .subnav-tabs > .header-item):nth-child(1) { z-index: 20; }
+html :is(.md-tabs > .uv-tab, .following-interaction-tabs > .following-interaction-tab, .code-injection-tabs > .code-injection-tab, .app-chrome .subnav-tabs > .header-item):nth-child(2) { z-index: 19; }
+html :is(.md-tabs > .uv-tab, .following-interaction-tabs > .following-interaction-tab, .code-injection-tabs > .code-injection-tab, .app-chrome .subnav-tabs > .header-item):nth-child(3) { z-index: 18; }
+html :is(.md-tabs > .uv-tab, .following-interaction-tabs > .following-interaction-tab, .code-injection-tabs > .code-injection-tab, .app-chrome .subnav-tabs > .header-item):nth-child(4) { z-index: 17; }
+html :is(.md-tabs > .uv-tab, .following-interaction-tabs > .following-interaction-tab, .code-injection-tabs > .code-injection-tab, .app-chrome .subnav-tabs > .header-item):nth-child(5) { z-index: 16; }
+html :is(.md-tabs > .uv-tab, .following-interaction-tabs > .following-interaction-tab, .code-injection-tabs > .code-injection-tab, .app-chrome .subnav-tabs > .header-item):nth-child(6) { z-index: 15; }
+html :is(.md-tabs > .uv-tab, .following-interaction-tabs > .following-interaction-tab, .code-injection-tabs > .code-injection-tab, .app-chrome .subnav-tabs > .header-item):nth-child(7) { z-index: 14; }
+html :is(.md-tabs > .uv-tab, .following-interaction-tabs > .following-interaction-tab, .code-injection-tabs > .code-injection-tab, .app-chrome .subnav-tabs > .header-item):nth-child(8) { z-index: 13; }
+html :is(.md-tabs > .uv-tab, .following-interaction-tabs > .following-interaction-tab, .code-injection-tabs > .code-injection-tab, .app-chrome .subnav-tabs > .header-item):nth-child(9) { z-index: 12; }
+html :is(.md-tabs > .uv-tab, .following-interaction-tabs > .following-interaction-tab, .code-injection-tabs > .code-injection-tab, .app-chrome .subnav-tabs > .header-item):nth-child(10) { z-index: 11; }
+html :is(.md-tabs > .uv-tab, .following-interaction-tabs > .following-interaction-tab, .code-injection-tabs > .code-injection-tab, .app-chrome .subnav-tabs > .header-item):nth-child(11) { z-index: 10; }
+html :is(.md-tabs > .uv-tab, .following-interaction-tabs > .following-interaction-tab, .code-injection-tabs > .code-injection-tab, .app-chrome .subnav-tabs > .header-item):nth-child(12) { z-index: 9; }
+html :is(.md-tabs > .uv-tab, .following-interaction-tabs > .following-interaction-tab, .code-injection-tabs > .code-injection-tab, .app-chrome .subnav-tabs > .header-item):nth-child(13) { z-index: 8; }
+html :is(.md-tabs > .uv-tab, .following-interaction-tabs > .following-interaction-tab, .code-injection-tabs > .code-injection-tab, .app-chrome .subnav-tabs > .header-item):nth-child(14) { z-index: 7; }
+html :is(.md-tabs > .uv-tab, .following-interaction-tabs > .following-interaction-tab, .code-injection-tabs > .code-injection-tab, .app-chrome .subnav-tabs > .header-item):nth-child(15) { z-index: 6; }
+html :is(.md-tabs > .uv-tab, .following-interaction-tabs > .following-interaction-tab, .code-injection-tabs > .code-injection-tab, .app-chrome .subnav-tabs > .header-item):nth-child(16) { z-index: 5; }
+
+/* The last tab keeps its full width, so a row that clips its overflow doesn't cut off its slope. */
+html :is(.md-tabs > .uv-tab, .following-interaction-tabs > .following-interaction-tab, .code-injection-tabs > .code-injection-tab, .app-chrome .subnav-tabs > .header-item):last-child {
+  margin-right: 0;
+}
+
+html :is(.md-tabs > .uv-tab, .following-interaction-tabs > .following-interaction-tab, .code-injection-tabs > .code-injection-tab, .app-chrome .subnav-tabs > .header-item):hover {
+  --g5-edge-color: var(--g5-menu-edge);
+  --g5-face: #2a2a36;
+  background: var(--g5-edge-color);
+  color: var(--g5-text);
+}
+
+html :is(.md-tabs > .uv-tab, .following-interaction-tabs > .following-interaction-tab, .code-injection-tabs > .code-injection-tab, .app-chrome .subnav-tabs > .header-item):is(.is-active, .-active, [aria-selected="true"]) {
+  --g5-edge-color: var(--ft-line);
+  --g5-face: var(--ft-panel);
+  z-index: 40;
+  height: 35px;
+  margin-bottom: -2px;
+  background: var(--g5-edge-color);
+  color: var(--g5-selected);
+}
+
+html :is(.md-tabs > .uv-tab, .following-interaction-tabs > .following-interaction-tab, .code-injection-tabs > .code-injection-tab, .app-chrome .subnav-tabs > .header-item):is(.is-active, .-active, [aria-selected="true"])::before {
+  background: var(--g5-face);
+}
+
+html :is(.md-tabs > .uv-tab, .following-interaction-tabs > .following-interaction-tab, .code-injection-tabs > .code-injection-tab, .app-chrome .subnav-tabs > .header-item):focus-visible {
+  --g5-edge-color: var(--g5-text);
+  outline: none;
+}
+
+/* The page tabs open onto the page itself. */
+html .app-chrome .subnav {
+  align-items: flex-end;
+  background: var(--g5-black);
+  box-shadow: inset 0 -2px 0 #8cc0f0;
+}
+
+html .app-chrome .subnav-tabs {
+  --ft-panel: var(--g5-ground);
+  min-width: 0;
+  align-self: flex-end;
+  padding-top: 0;
+  box-shadow: none;
+}
+
+html .app-chrome .subnav .page-actions {
+  align-self: center;
+}
+
+/* Following Pokémon's tabs open onto its raised rule panel; Code Injection's onto the page. */
+html .following-interaction-tabs {
+  --ft-panel: var(--g5-raised);
+}
+
+
+/* Folder tabs don't wrap well, so Code Injection's row stays on one line. */
+html .code-injection-tabs {
+  --ft-panel: var(--g5-ground);
+  flex-wrap: nowrap;
+}
+
+/* Its labels are long, so its tabs are a little tighter. */
+html .code-injection-tabs > .code-injection-tab.code-injection-tab {
+  padding: 0 calc(var(--ft-slope) + 8px) 0 10px;
+  font-size: 13px;
+}

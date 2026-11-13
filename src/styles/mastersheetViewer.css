@@ -6,6 +6,8 @@
  * Game-derived shapes sit on the DS pixel grid at 2 CSS px per DS pixel: 2 px borders, 8 px chevrons, 8 px grid.
  */
 
+@import "./gen5/tokens.css";
+
 @font-face { font-family: "Barlow"; font-weight: 400; font-display: swap; src: url("../assets/fonts/barlow-latin-400-normal.woff2") format("woff2"); }
 @font-face { font-family: "Barlow"; font-weight: 500; font-display: swap; src: url("../assets/fonts/barlow-latin-500-normal.woff2") format("woff2"); }
 @font-face { font-family: "Barlow"; font-weight: 600; font-display: swap; src: url("../assets/fonts/barlow-latin-600-normal.woff2") format("woff2"); }
@@ -13,45 +15,38 @@
 @font-face { font-family: "Barlow Semi Condensed"; font-weight: 600; font-display: swap; src: url("../assets/fonts/barlow-semi-condensed-latin-600-normal.woff2") format("woff2"); }
 
 :root {
-  /* Battle charcoal: the fill of the command buttons. */
-  --msv-black: #181818;
-  --msv-ground: #202020;
-  --msv-panel: #282828;
-  --msv-raised: #303030;
-  --msv-edge: #484848;
-  --msv-dim: #606060;
-  --msv-text: #f0f0f8;
-  --msv-muted: #a0a0a0;
-  --msv-plate: #c8c8d0;
-  /* Command colours, bright and shade. */
-  --msv-fight: #f82018;
-  --msv-fight-shade: #901818;
-  --msv-bag: #f8c828;
-  --msv-bag-shade: #907008;
-  --msv-mon: #70d830;
-  --msv-mon-shade: #207008;
-  --msv-run: #20a0f8;
-  --msv-run-shade: #005890;
-  /* Menu selection (Bag and option menus): navy when unselected, blue with a light edge and cyan text when selected. */
-  --msv-menu: #393950;
-  --msv-menu-edge: #9c9cac;
-  --msv-menu-on: #275988;
-  --msv-menu-on-edge: #b3cdd5;
-  --msv-selected: #74dbe5;
-  /* Gauges: a teal-framed track with a grey fill that ends in a chevron. */
-  --msv-gauge-track: #2b3131;
-  --msv-gauge-fill: #4c5252;
-  --msv-gauge-edge: #77b3b4;
-  /* Changed and new moves, abilities and items: the old mastersheet's yellow italic, in the game's yellow. */
-  --msv-mark: #f8c828;
-  --msv-font: "Barlow", system-ui, sans-serif;
-  --msv-cond: "Barlow Semi Condensed", "Barlow", sans-serif;
-  /* The dot grids, drawn as 8 px tiles (4 DS pixels): squares with 2 px lines, as inside the battle buttons. */
-  --msv-grid-ground: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23202020'/%3E%3Crect x='2' y='2' width='6' height='6' fill='%23242424'/%3E%3C/svg%3E");
-  --msv-grid-button: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23202020'/%3E%3Crect x='2' y='2' width='6' height='6' fill='%23303030'/%3E%3C/svg%3E");
-  /* Black with dim teal crosses, as behind the game's menus: 16 DS pixels apart. */
-  --msv-grid-cross: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Crect width='32' height='32' fill='%23000'/%3E%3Cpath d='M15 10h2v12h-2zM10 15h12v2H10z' fill='%23203831'/%3E%3C/svg%3E");
-  --msv-grid-button-hover: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23282828'/%3E%3Crect x='2' y='2' width='6' height='6' fill='%23383838'/%3E%3C/svg%3E");
+  --msv-black: var(--g5-black);
+  --msv-ground: var(--g5-ground);
+  --msv-panel: var(--g5-panel);
+  --msv-raised: var(--g5-raised);
+  --msv-edge: var(--g5-edge);
+  --msv-dim: var(--g5-dim);
+  --msv-text: var(--g5-text);
+  --msv-muted: var(--g5-muted);
+  --msv-plate: var(--g5-plate);
+  --msv-fight: var(--g5-fight);
+  --msv-fight-shade: var(--g5-fight-shade);
+  --msv-bag: var(--g5-bag);
+  --msv-bag-shade: var(--g5-bag-shade);
+  --msv-mon: var(--g5-mon);
+  --msv-mon-shade: var(--g5-mon-shade);
+  --msv-run: var(--g5-run);
+  --msv-run-shade: var(--g5-run-shade);
+  --msv-menu: var(--g5-menu);
+  --msv-menu-edge: var(--g5-menu-edge);
+  --msv-menu-on: var(--g5-menu-on);
+  --msv-menu-on-edge: var(--g5-menu-on-edge);
+  --msv-selected: var(--g5-selected);
+  --msv-gauge-track: var(--g5-gauge-track);
+  --msv-gauge-fill: var(--g5-gauge-fill);
+  --msv-gauge-edge: var(--g5-gauge-edge);
+  --msv-mark: var(--g5-mark);
+  --msv-font: var(--g5-font);
+  --msv-cond: var(--g5-cond);
+  --msv-grid-ground: var(--g5-grid-ground);
+  --msv-grid-button: var(--g5-grid-button);
+  --msv-grid-cross: var(--g5-grid-cross);
+  --msv-grid-button-hover: var(--g5-grid-button-hover);
   color-scheme: dark;
 }
 
@@ -662,7 +657,7 @@
 }
 
 :root {
-  --msv-corner: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8'/%3E%3C/svg%3E");
+  --msv-corner: var(--g5-corner);
 }
 
 .msv-results {

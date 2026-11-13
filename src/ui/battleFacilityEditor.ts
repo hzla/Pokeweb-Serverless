@@ -117,7 +117,6 @@ export function renderBattleFacilityEditor(project: ProjectState, root: HTMLElem
           <input class="md-search" id="facility-search-text" type="search" value="${escapeHtml(state.search)}" placeholder="${escapeHtml(searchPlaceholder(state.mode))}" autocomplete="off" spellcheck="false" aria-label="Search records">
         </div>
         <div class="md-rows" id="facility-list" role="listbox" aria-label="Records" tabindex="0">${renderRows(project, state)}</div>
-        <div class="md-list-foot" data-facility-count></div>
         <details class="md-tools"><summary>How these connect</summary><div class="fd-guide">${renderGuide(group)}</div></details>
       </aside>
       <section class="md-detail" id="facility-detail"></section>
@@ -126,22 +125,17 @@ export function renderBattleFacilityEditor(project: ProjectState, root: HTMLElem
 
   const list = root.querySelector<HTMLElement>("#facility-list")!;
   const detail = root.querySelector<HTMLElement>("#facility-detail")!;
-  const countLabel = root.querySelector<HTMLElement>("[data-facility-count]")!;
   const searchInput = root.querySelector<HTMLInputElement>("#facility-search-text")!;
   const listKey = () => `${state.mode}:${state.mode === "sets" ? state.setNarc : state.mode === "choices" || state.mode === "bosses" ? state.choiceNarc : ""}`;
   const rerender = () => renderBattleFacilityEditor(project, root, onDirty, options);
 
   const filter = () => {
     const query = state.search;
-    let visible = 0;
     const rows = [...list.querySelectorAll<HTMLElement>("[data-record]")];
     rows.forEach((row) => {
       const show = !query.trim() || recordMatches(project, state, Number(row.dataset.record), query);
       row.style.display = show ? "" : "none";
-      if (show) visible += 1;
     });
-    const noun = state.mode === "sets" ? "sets" : state.mode === "regulations" ? "regulations" : state.mode === "areaPools" ? "area configs" : group === "wbt" ? "trainers" : "choices";
-    countLabel.textContent = visible === rows.length ? `${rows.length} ${noun}` : `${visible} of ${rows.length} ${noun}`;
   };
 
   const refreshRow = (id: number) => {

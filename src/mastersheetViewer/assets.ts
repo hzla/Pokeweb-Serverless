@@ -2,13 +2,7 @@ import type { MastersheetDocument, MsPlacement } from "../pokeweb/mastersheetDoc
 import type { ProjectState } from "../pokeweb/projectStore";
 import type { RgbaImageData } from "../pokeweb/pokemonSpriteModel";
 import { FieldSnapshotRenderer } from "./sceneRenderer";
-import { NARC } from "../nds/narc";
-import { writeU32 } from "../nds/binary";
-import { NintendoDSRom } from "../nds/rom";
-import { getRomFileBytes } from "../pokeweb/fileSystemModel";
-import { parseNitroCellEffect } from "../pokeweb/nitroCell";
-import { typeIconPalettes } from "../pokeweb/typeIconPalettes";
-import { decompressNitro } from "../pokeweb/pokemonSpriteModel";
+import { pokedexIconImage, tmDiscImage, typeIconImage } from "../pokeweb/gen5UiImages";
 
 /**
  * Every image the viewer shows has a fixed key, which doubles as its file name in a future static export:
@@ -54,7 +48,6 @@ export class RomAssetProvider implements AssetProvider {
   private urls = new Map<AssetKey, Promise<string>>();
   private renderer: FieldSnapshotRenderer;
   private trainerSpritesReady?: Promise<boolean>;
-  private menuFiles?: Uint8Array[];
 
   constructor(private project: ProjectState, private document: MastersheetDocument, private cache?: ImageCache) {
     this.renderer = new FieldSnapshotRenderer(project);
@@ -82,12 +75,7 @@ export class RomAssetProvider implements AssetProvider {
         const { readItemSprite } = await import("../pokeweb/itemSpriteModel");
         if (!this.project.originalRomBytes) throw new Error("The ROM isn't loaded.");
         const tmType = /^tm-([a-z]+)\.png$/u.exec(name)?.[1];
-        if (tmType) {
-          const { tmTypePalette } = await import("../pokeweb/tmModel");
-          const palette = tmTypePalette(tmType);
-          if (palette === undefined) throw new Error(`No TM colour for ${tmType}.`);
-          return png(trim(readItemSprite(this.project, this.project.originalRomBytes, 328, palette)));
-        }
+        if (tmType) return png(tmDiscImage(this.project, tmType));
         return png(trim(readItemSprite(this.project, this.project.originalRomBytes, numbers[0]!)));
       }
       case "trainers": {
@@ -99,9 +87,9 @@ export class RomAssetProvider implements AssetProvider {
       case "maps":
         return this.cached(key, () => this.renderer.zoneTopDown(numbers[0]!));
       case "types":
-        return png(this.typeIcon(numbers[0]!));
+        return png(typeIconImage(this.project, numbers[0]!));
       case "ui":
-        if (name === "dex-tab.png") return png(mirror(this.dexIcon()));
+        if (name === "dex-tab.png") return png(pokedexIconImage(this.project, true));
         break;
       case "scenes": {
         const placement = this.placement(numbers[0]!);
@@ -110,54 +98,6 @@ export class RomAssetProvider implements AssetProvider {
       }
     }
     throw new Error(`Unknown image ${key}`);
-  }
-
-  /**
-   * The type icon the game's menus draw (app menu archive a/0/8/2): graphics 0x22 + type, palette file 0x21 with
-   * a palette per type from the ROM's own table (so a hack's Fairy icon gets its colour), cell 0x3c and animation 0x3f.
-   * The same decode as Pokeweb's custom UI (src/customUi/romAssets.ts).
-   */
-  private typeIcon(type: number): RgbaImageData {
-    const PALETTE_OF_TYPE = typeIconPalettes(this.project.arm9);
-    if (!(type >= 0 && type < PALETTE_OF_TYPE.length)) throw new Error(`No icon for type ${type}.`);
-    if (!this.project.originalRomBytes) throw new Error("The ROM isn't loaded.");
-    if (!this.menuFiles) {
-      const rom = new NintendoDSRom(this.project.originalRomBytes);
-      const id = rom.filenames.idOf("a/0/8/2");
-      if (id === undefined) throw new Error("The ROM has no menu graphics archive.");
-      this.menuFiles = new NARC(getRomFileBytes(this.project, rom, id)).files;
-    }
-    const files = this.menuFiles;
-    const char = files[0x22 + type], palette = files[0x21], cell = files[0x3c], animation = files[0x3f];
-    const paletteId = PALETTE_OF_TYPE[type]!;
-    if (!char || !palette || !cell || !animation || 40 + 32 * (paletteId + 1) > palette.length) throw new Error(`The ROM has no icon for type ${type}.`);
-    const colors = palette.slice();
-    colors.set(palette.subarray(40 + paletteId * 32, 72 + paletteId * 32), 40);
-    const mappedCell = cell.slice();
-    // BW2 loads these under GX_OBJVRAMMODE_CHAR_1D_32K; the NCER's mapping hint is zero.
-    writeU32(mappedCell, 32, 0x10);
-    const frame = parseNitroCellEffect("mastersheet-type", 0, 0, 0, 0, char, colors, mappedCell, animation, { originCentered: false }).sequences[0]?.frames[0];
-    if (!frame) throw new Error(`The ROM's icon for type ${type} couldn't be read.`);
-    return trim({ width: frame.width, height: frame.height, pixels: new Uint8ClampedArray(frame.rgba) });
-  }
-
-  /**
-   * The Pokédex icon of the touch-screen field menu (a/0/7/0, ARCID_FIELD_MENU): the pink variant, graphics 0x0e,
-   * cell 0x1e, animation 0x29, palette file 2 (field_menu.c's FIELD_MENU_ICON_FILES and LoadResources).
-   */
-  private dexIcon(): RgbaImageData {
-    if (!this.project.originalRomBytes) throw new Error("The ROM isn't loaded.");
-    const rom = new NintendoDSRom(this.project.originalRomBytes);
-    const id = rom.filenames.idOf("a/0/7/0");
-    if (id === undefined) throw new Error("The ROM has no field menu archive.");
-    const files = new NARC(getRomFileBytes(this.project, rom, id)).files.map(expandNitro);
-    const char = files[0x0e], palette = files[2], cell = files[0x1e], animation = files[0x29];
-    if (!char || !palette || !cell || !animation) throw new Error("The ROM's Pokédex icon is missing.");
-    const mappedCell = cell.slice();
-    writeU32(mappedCell, 32, 0x10);
-    const frame = parseNitroCellEffect("mastersheet-dex-tab", 0, 0, 0, 0, char, palette, mappedCell, animation, { originCentered: false }).sequences[0]?.frames[0];
-    if (!frame) throw new Error("The ROM's Pokédex icon couldn't be read.");
-    return trim({ width: frame.width, height: frame.height, pixels: new Uint8ClampedArray(frame.rgba) });
   }
 
   private placement(trainerId: number): MsPlacement | undefined {
@@ -263,21 +203,6 @@ function trim(image: RgbaImageData): RgbaImageData {
   const out = new Uint8ClampedArray(w * h * 4);
   for (let y = 0; y < h; y += 1) out.set(pixels.subarray(((top + y) * width + left) * 4, ((top + y) * width + left + w) * 4), y * w * 4);
   return { width: w, height: h, pixels: out };
-}
-
-/** Flip left to right. */
-function mirror(image: RgbaImageData): RgbaImageData {
-  const { width, height, pixels } = image;
-  const out = new Uint8ClampedArray(pixels.length);
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) out.set(pixels.subarray((y * width + x) * 4, (y * width + x) * 4 + 4), (y * width + width - 1 - x) * 4);
-  }
-  return { width, height, pixels: out };
-}
-
-/** Field menu files are LZ-compressed; the menu archive's type icons aren't. */
-function expandNitro(bytes: Uint8Array): Uint8Array {
-  return bytes[0] === 0x10 || bytes[0] === 0x11 ? decompressNitro(bytes) : bytes;
 }
 
 function png(image: RgbaImageData): Promise<Blob> {

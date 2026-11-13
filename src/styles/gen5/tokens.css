@@ -1,0 +1,49 @@
+/*
+ * Gen 5 design tokens, shared by the Mastersheet Viewer and the Gen 5 editor theme.
+ * Colours are the game's own: battle palette 360 (a/0/1/1) for the charcoal and the command colours, the Bag and
+ * option menus for selection, and the menus' gauges. Shapes sit on the DS pixel grid at 2 CSS px per DS pixel.
+ */
+
+:root {
+  /* Battle charcoal: the fill of the command buttons. */
+  --g5-black: #181818;
+  --g5-ground: #202020;
+  --g5-panel: #282828;
+  --g5-raised: #303030;
+  --g5-edge: #484848;
+  --g5-dim: #606060;
+  --g5-text: #f0f0f8;
+  --g5-muted: #a0a0a0;
+  --g5-plate: #c8c8d0;
+  /* Command colours, bright and shade. */
+  --g5-fight: #f82018;
+  --g5-fight-shade: #901818;
+  --g5-bag: #f8c828;
+  --g5-bag-shade: #907008;
+  --g5-mon: #70d830;
+  --g5-mon-shade: #207008;
+  --g5-run: #20a0f8;
+  --g5-run-shade: #005890;
+  /* Menu selection (Bag and option menus): navy when unselected, blue with a light edge and cyan text when selected. */
+  --g5-menu: #393950;
+  --g5-menu-edge: #9c9cac;
+  --g5-menu-on: #275988;
+  --g5-menu-on-edge: #b3cdd5;
+  --g5-selected: #74dbe5;
+  /* Gauges: a teal-framed track with a grey fill that ends in a chevron. */
+  --g5-gauge-track: #2b3131;
+  --g5-gauge-fill: #4c5252;
+  --g5-gauge-edge: #77b3b4;
+  /* Changed and new moves, abilities and items: the old mastersheet's yellow italic, in the game's yellow. */
+  --g5-mark: #f8c828;
+  --g5-font: "Barlow", system-ui, sans-serif;
+  --g5-cond: "Barlow Semi Condensed", "Barlow", sans-serif;
+  /* The dot grids, drawn as 8 px tiles (4 DS pixels): squares with 2 px lines, as inside the battle buttons. */
+  --g5-grid-ground: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23202020'/%3E%3Crect x='2' y='2' width='6' height='6' fill='%23242424'/%3E%3C/svg%3E");
+  --g5-grid-button: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23202020'/%3E%3Crect x='2' y='2' width='6' height='6' fill='%23303030'/%3E%3C/svg%3E");
+  /* Black with dim teal crosses, as behind the game's menus: 16 DS pixels apart. */
+  --g5-grid-cross: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Crect width='32' height='32' fill='%23000'/%3E%3Cpath d='M15 10h2v12h-2zM10 15h12v2H10z' fill='%23203831'/%3E%3C/svg%3E");
+  --g5-grid-button-hover: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23282828'/%3E%3Crect x='2' y='2' width='6' height='6' fill='%23383838'/%3E%3C/svg%3E");
+  /* One 8 px corner of the Bag's selection cursor, for masks. */
+  --g5-corner: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8'/%3E%3C/svg%3E");
+}

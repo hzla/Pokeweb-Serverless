@@ -138,6 +138,10 @@ import { attachTranslationCard, renderTranslationCard } from "./ui/translation";
 import { exportChangelogPdf, exportChangelogText, attachChangelogNarcPicker, renderChangelogGenerator, renderGeneratedChangelog, selectedChangelogNarcsFromPicker } from "./ui/changelogGenerator";
 // Loaded last so the shared Unova controls win over every legacy stylesheet.
 import "./styles/unova.css";
+// Experimental Gen 5 theme (gen5-ui branch): re-skins the Unova controls, so it loads after them.
+import "./styles/gen5Theme.css";
+import { attachGen5UiIcons } from "./ui/gen5UiIcons";
+import { attachGen5ButtonRoles } from "./ui/gen5ButtonRoles";
 
 type AppRoute =
   | "upload"
@@ -486,6 +490,9 @@ const aboutPanelMarkup = appRoot.querySelector<HTMLElement>("#home-panel-about")
 const defaultDocumentTitle = document.title;
 
 let project: ProjectState | undefined;
+// Gen 5 theme: the ROM's type and move category icons in every type plate and category label.
+attachGen5UiIcons(document.body, () => project);
+attachGen5ButtonRoles(document.body);
 let route: AppRoute = "upload";
 let activeHomeTab: HomeTab = "upload";
 let homeTabs: ReturnType<typeof attachHomeTabs> | undefined;
@@ -1469,9 +1476,7 @@ function renderNav(): string {
         <nav class="header-left" aria-label="Sections">
           ${renderHeadersMenu()}
           ${renderMapsMenu()}
-          ${project.session.baseRom === "BW2" ? renderWeatherMenu() : ""}
           ${renderPokemonMenu()}
-          ${navItem("followingPokemon", "Following Pokémon")}
           ${renderTrainersMenu()}
           ${renderEncountersMenu()}
           ${renderMovesMenu()}
@@ -1553,10 +1558,12 @@ function attachProjectMenu(): void {
 }
 
 function renderHeadersMenu(): string {
-  const active = route === "headers" || route === "overworlds" || route === "flyDestinations" || route === "matrixEditor";
+  // BW2's weather editors live here: weather is assigned per area and zone.
+  const weather = project?.session.baseRom === "BW2";
+  const active = route === "headers" || route === "overworlds" || route === "flyDestinations" || route === "matrixEditor" || (weather && (route === "weather" || route === "weatherGraphics"));
   return `<div class="header-more ${active ? "-active" : ""}">
     <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Headers</button>
-    <div class="header-more-menu">${navItem("headers", "Headers")}${navItem("overworlds", "Overworlds", 0)}${project?.session.baseRom === "BW2" ? navItem("flyDestinations", "Fly destinations") : ""}${project && isGen5Project(project) ? navItem("matrixEditor", "Matrix editor") : ""}</div>
+    <div class="header-more-menu">${navItem("headers", "Headers")}${navItem("overworlds", "Overworlds", 0)}${project?.session.baseRom === "BW2" ? navItem("flyDestinations", "Fly destinations") : ""}${project && isGen5Project(project) ? navItem("matrixEditor", "Matrix editor") : ""}${weather ? navItem("weather", "Weather areas") + navItem("weatherGraphics", "Weather graphics") : ""}</div>
   </div>`;
 }
 
@@ -1578,6 +1585,7 @@ function renderMoreMenu(): string {
   const moreRoutes: Array<[Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds" | "pokemonSprites">, string]> = [
     ["randomizer", "Randomizer"],
     ["starters", "Scripted Pokémon"],
+    ["followingPokemon", "Following Pokémon"],
     ["types", "Type chart"],
     ["music", "Music"],
     ["fileSystem", "File system"],
@@ -1585,8 +1593,8 @@ function renderMoreMenu(): string {
     ["flagReference", "Flag reference"],
   ];
   if (project?.session.baseRom === "BW2") {
-    moreRoutes.splice(3, 0, ["titleScreen", "Title screen"]);
-    if (canUseLocalRomBridge()) moreRoutes.splice(4, 0, ["uiScreens", "UI screens"]);
+    moreRoutes.splice(4, 0, ["titleScreen", "Title screen"]);
+    if (canUseLocalRomBridge()) moreRoutes.splice(5, 0, ["uiScreens", "UI screens"]);
   }
   const active = moreRoutes.some(([moreRoute]) => route === moreRoute);
   return `
@@ -1616,19 +1624,6 @@ function renderTrainersMenu(): string {
       <div class="header-more-menu">
         ${navItem("trainers", "Main trainers")}
         ${trainerRoutes.map(([trainerRoute, label]) => navItem(trainerRoute, label)).join("")}
-      </div>
-    </div>
-  `;
-}
-
-function renderWeatherMenu(): string {
-  const active = route === "weather" || route === "weatherGraphics";
-  return `
-    <div class="header-more ${active ? "-active" : ""}">
-      <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Weather</button>
-      <div class="header-more-menu">
-        ${navItem("weather", "Area assignments")}
-        ${navItem("weatherGraphics", "Graphics editor")}
       </div>
     </div>
   `;
@@ -2260,7 +2255,7 @@ function renderUpload(root: HTMLElement): void {
   root.innerHTML = `
     <section class="upload-page">
       <div class="home-shell">
-        <nav class="home-tabs" role="tablist" aria-label="Homepage tools">
+        <nav class="home-tabs" role="tablist" aria-label="Homepage tools" aria-orientation="vertical">
           <a href="${homeTabUrl("upload")}" id="home-tab-upload" class="home-tab" role="tab" aria-selected="true" aria-controls="home-panel-upload" data-home-tab="upload">ROM Upload</a>
           <a href="${homeTabUrl("repair")}" id="home-tab-repair" class="home-tab" role="tab" aria-selected="false" aria-controls="home-panel-repair" tabindex="-1" data-home-tab="repair">Repair</a>
           <a href="${homeTabUrl("translation")}" id="home-tab-translation" class="home-tab" role="tab" aria-selected="false" aria-controls="home-panel-translation" tabindex="-1" data-home-tab="translation">Translation</a>

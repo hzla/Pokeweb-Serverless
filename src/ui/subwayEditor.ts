@@ -114,7 +114,7 @@ export function renderSubwayEditor(project: ProjectState, root: HTMLElement, opt
           <input class="md-search" type="search" value="${escapeHtml(state.search)}" placeholder="Search trainers or Pokémon" autocomplete="off" spellcheck="false" aria-label="Search trainers or Pokémon">
         </div>
         <div class="md-rows" role="listbox" aria-label="Battle Subway" tabindex="0"></div>
-        <div class="md-list-foot pwt-foot"><span data-subway-count></span><a href="#facilities/raw" data-view="raw" title="Trainer, set and regulation records one by one, plus the World Tournament archives">Raw files</a></div>
+        <div class="md-list-foot pwt-foot"><a href="#facilities/raw" data-view="raw" title="Trainer, set and regulation records one by one, plus the World Tournament archives">Raw files</a></div>
       </aside>
       <section class="md-detail pwt-detail" aria-live="polite"></section>
     </div>
@@ -122,7 +122,6 @@ export function renderSubwayEditor(project: ProjectState, root: HTMLElement, opt
   const list = root.querySelector<HTMLElement>(".md-rows")!;
   const detail = root.querySelector<HTMLElement>(".pwt-detail")!;
   const search = root.querySelector<HTMLInputElement>(".md-search")!;
-  const count = root.querySelector<HTMLElement>("[data-subway-count]")!;
   const autofills = getFacilityAutofills(project) as unknown as Record<string, string[]>;
   let setOptions: string[] | undefined;
 
@@ -133,10 +132,8 @@ export function renderSubwayEditor(project: ProjectState, root: HTMLElement, opt
       list.innerHTML = matches.length
         ? matches.map((trainer) => trainerRow(trainer, view === `tr${trainer.id}`)).join("")
         : `<p class="td-empty pwt-empty">No trainer or Pokémon matches “${escapeHtml(state.search)}”.</p>`;
-      count.textContent = `${matches.length} trainer${matches.length === 1 ? "" : "s"}`;
     } else {
       list.innerHTML = renderNav(project, view);
-      count.textContent = `${getSubwayTrainerCount(project)} trainers`;
     }
     installTrainerSpriteRendering(project, list);
   };

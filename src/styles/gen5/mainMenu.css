@@ -1,0 +1,297 @@
+/*
+ * Gen 5 theme (experimental branch): the homepage as Black 2 / White 2's main menu.
+ * - Background: black with the menu's scanlines, and the Unova emblem large at the left edge where the game has its
+ *   Poké Ball, in the same muted red and grey; both fixed to the window.
+ * - Every homepage tab is a menu option: a dark box in a light double frame with a small corner triangle; the
+ *   selected one has the cyan frame.
+ * - The selected option grows in place into its content, the way CONTINUE grows into the save card. The tabs and
+ *   panels stay where main.ts renders them; the shell is a flex column and `order` puts each panel under its option.
+ */
+
+html .upload-page {
+  --mm-frame: #efefef;
+  --mm-frame-edge: #636363;
+  --mm-on: #c8f8f0;
+  --mm-on-edge: #66d3c6;
+  --mm-fill: rgb(16 16 16 / 78%);
+  --mm-fill-on: #3b4249;
+  --mm-body: #22272c;
+  --mm-corner: #66737a;
+  /* The menu's scanlines (1 DS pixel dark, 1 light), running a shade darker over the emblem. */
+  --mm-lines: repeating-linear-gradient(to bottom, #101010 0 2px, #292929 2px 4px);
+  --mm-lines-over: repeating-linear-gradient(to bottom, transparent 0 2px, rgb(0 0 0 / 12%) 2px 4px);
+  --mm-emblem: url("./unova-emblem.svg");
+  display: block;
+  min-height: 100vh;
+  /* The page runs up under the fixed top bar, whose empty sub-tab row is hidden here. */
+  padding: 76px 24px 48px;
+  /*
+   * Scanlines and the emblem are fixed to the window: they cover the whole background and stay put while the menu
+   * scrolls, like the game's screen. The emblem sits large and cut off by the left edge, where the game has its
+   * Poké Ball.
+   */
+  background:
+    var(--mm-lines-over),
+    var(--mm-emblem) left max(-22vh, -220px) top 50% / auto min(118vh, 1180px) no-repeat,
+    var(--mm-lines);
+  background-attachment: fixed;
+}
+
+/* No sub-tabs on the homepage, so no sub-tab row; the menu's background shows right up to the top bar. */
+html body:has(.upload-page) #header .subnav {
+  display: none;
+}
+
+html #content-container:has(> .upload-page) {
+  padding-top: 0;
+}
+
+html .upload-page .home-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  /* Centred and wide, so the tools inside read comfortably; it covers part of the emblem, as the game's menu does. */
+  width: min(980px, 100%);
+  margin: 0 auto;
+}
+
+/* The tab list's items become the menu's own rows. */
+html .upload-page .home-tabs {
+  display: contents;
+}
+
+html .upload-page #home-tab-upload { order: 1; }
+html .upload-page #home-panel-upload { order: 2; }
+html .upload-page #home-tab-repair { order: 3; }
+html .upload-page #home-panel-repair { order: 4; }
+html .upload-page #home-tab-translation { order: 5; }
+html .upload-page #home-panel-translation { order: 6; }
+html .upload-page #home-tab-changelog { order: 7; }
+html .upload-page #home-panel-changelog { order: 8; }
+html .upload-page #home-tab-about { order: 9; }
+html .upload-page #home-panel-about { order: 10; }
+html .upload-page #home-tab-ai-use-disclaimer { order: 11; }
+html .upload-page #home-panel-ai-use-disclaimer { order: 12; }
+html .upload-page .home-tab--link { order: 13; }
+html .upload-page .home-footer { order: 14; }
+
+/* ---------- Menu options ---------- */
+
+html .upload-page .home-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  margin: 2px;
+  padding: 0 40px 0 16px;
+  border: 2px solid var(--mm-frame);
+  border-radius: 0;
+  background: var(--mm-fill);
+  box-shadow: 0 0 0 2px var(--mm-frame-edge), inset 0 0 0 2px var(--mm-frame-edge);
+  color: var(--g5-text);
+  font: 600 20px/1 var(--g5-cond);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+/* The small triangle in each option's lower right corner. */
+html .upload-page .home-tab::after {
+  content: "";
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 12px;
+  height: 12px;
+  background: var(--mm-corner);
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+
+/* With a ROM to read it from, the label is drawn in the game's own font at 2× (gen5UiIcons.ts); the text stays for
+   screen readers and search. Without one, the condensed capitals above stand in. */
+html .upload-page .home-tab.-g5-label {
+  color: transparent;
+}
+
+html .upload-page .home-tab.-g5-label::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 16px;
+  width: var(--g5-label-w);
+  height: var(--g5-label-h);
+  background: var(--g5-label) 0 0 / 100% 100% no-repeat;
+  transform: translateY(-50%);
+  image-rendering: pixelated;
+}
+
+html .upload-page .home-tab:hover {
+  background: rgb(40 44 48 / 88%);
+}
+
+html .upload-page .home-tab[aria-selected="true"] {
+  border-color: var(--mm-on);
+  background: var(--mm-fill-on);
+  box-shadow: 0 0 0 2px var(--mm-on-edge), inset 0 0 0 2px var(--mm-on-edge);
+}
+
+html .upload-page .home-tab:focus-visible {
+  outline: 2px solid var(--g5-text);
+  outline-offset: 4px;
+}
+
+/* ---------- The grown option: its content, inside the same cyan frame ---------- */
+
+html .upload-page .home-tab[aria-selected="true"]:has(+ *) {
+  margin-bottom: 0;
+}
+
+html .upload-page .home-tab-panel:not([hidden]) {
+  margin: -10px 2px 2px;
+  padding: 16px 18px 18px;
+  border: 2px solid var(--mm-on);
+  border-top: 0;
+  background: var(--mm-body);
+  box-shadow: 0 0 0 2px var(--mm-on-edge), inset 0 0 0 2px var(--mm-on-edge);
+  clip-path: inset(0 -4px -4px);
+  animation: mm-grow 160ms steps(4, end);
+  /* Long sections (About, the AI use disclaimer, the NARC list) scroll inside, so every option stays in view. */
+  max-height: max(260px, 42vh);
+  overflow-y: auto;
+  scrollbar-color: var(--mm-corner) transparent;
+}
+
+/* Growing downward, in a few steps like the DS menus. */
+@keyframes mm-grow {
+  from { clip-path: inset(0 -4px 100%); }
+  to { clip-path: inset(0 -4px -4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html .upload-page .home-tab-panel:not([hidden]) {
+    animation: none;
+  }
+}
+
+/* The cards inside lose their own frames; the menu frame holds them. */
+html .upload-page .home-tab-panel :is(.upload-panel, .dsi-repair-card, .translation-card) {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+html .upload-page .home-tab-panel .upload-panel + .upload-panel,
+html .upload-page .home-tab-panel > * + * {
+  margin-top: 16px;
+}
+
+/* The option already names the panel; the page title stays for screen readers and search. */
+html .upload-page #home-panel-upload h1 {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---------- ROM upload: one big drop target ---------- */
+
+html .upload-page .upload-dropzone {
+  position: relative;
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  min-height: 132px;
+  padding: 20px;
+  border: 2px solid var(--g5-edge);
+  border-radius: 0;
+  background: rgb(0 0 0 / 45%) var(--g5-grid-ground);
+  color: var(--g5-text);
+  font: 600 18px/1.2 var(--g5-cond);
+  text-align: center;
+  cursor: pointer;
+}
+
+html .upload-page .upload-dropzone::after {
+  content: "Choose a file, or drop a .nds ROM here";
+  color: var(--g5-muted);
+  font: 500 14px/1.3 var(--g5-font);
+}
+
+/* The file input covers the box, so a click opens the picker and a dropped file lands on it. */
+html .upload-page .upload-dropzone input[type="file"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+html .upload-page .upload-dropzone:hover {
+  border-color: var(--mm-on-edge);
+}
+
+html .upload-page .upload-dropzone:focus-within {
+  border-color: var(--mm-on);
+  outline: 2px solid var(--mm-on-edge);
+  outline-offset: 2px;
+}
+
+html .upload-page .upload-panel > .local-rom-open-btn {
+  width: 100%;
+  margin-top: 10px;
+}
+
+html .upload-page .upload-options {
+  margin-top: 12px;
+}
+
+/* File pickers inside the tools (Repair, Translation, Changelog) as menu buttons rather than the browser's own. */
+html .upload-page input[type="file"]::file-selector-button {
+  margin-right: 10px;
+  padding: 5px 14px;
+  border: 2px solid var(--g5-menu-edge);
+  border-radius: 0;
+  background: var(--g5-menu);
+  color: var(--g5-text);
+  font: 600 14px/1.2 var(--g5-font);
+  cursor: pointer;
+}
+
+html .upload-page input[type="file"]:hover::file-selector-button {
+  border-color: var(--g5-menu-on-edge);
+  background: var(--g5-menu-on);
+}
+
+html .upload-page input[type="file"] {
+  color: var(--g5-muted);
+}
+
+/* ---------- Footer ---------- */
+
+html .upload-page .home-footer {
+  justify-content: flex-start;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 0;
+}
+
+html .upload-page .home-footer p {
+  color: var(--g5-muted);
+}
+
+/* ---------- Narrow screens: the emblem stays behind, the menu takes the width ---------- */
+
+@media (max-width: 900px) {
+  html .upload-page {
+    padding: 68px 16px 56px;
+  }
+
+  html .upload-page {
+    background-position: 0 0, left -40vh top 50%, 0 0;
+  }
+}

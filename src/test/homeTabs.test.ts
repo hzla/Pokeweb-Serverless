@@ -98,7 +98,12 @@ describe("homepage tab navigation", () => {
     f.tabs[2].events.keydown(event({ key: " " }));
     expect(f.active()).toEqual(["translation"]);
     expect(f.onSelect).toHaveBeenLastCalledWith("translation");
-    const otherKey = event({ key: "ArrowDown" });
+    // The Gen 5 main menu stacks the options, so up and down step through them too.
+    f.tabs[2].events.keydown(event({ key: "ArrowDown" }));
+    expect(f.active()).toEqual(["changelog"]);
+    f.tabs[3].events.keydown(event({ key: "ArrowUp" }));
+    expect(f.active()).toEqual(["translation"]);
+    const otherKey = event({ key: "PageDown" });
     f.tabs[2].events.keydown(otherKey);
     expect(otherKey.preventDefault).not.toHaveBeenCalled();
   });

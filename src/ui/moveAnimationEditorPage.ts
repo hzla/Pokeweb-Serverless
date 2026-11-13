@@ -272,7 +272,6 @@ export function renderMoveAnimationPage(project: ProjectState, root: HTMLElement
           </div>
         </div>
         <div class="md-rows" role="listbox" aria-label="Moves" tabindex="0">${renderMoveRows(project)}</div>
-        <div class="md-list-foot" data-ma-count></div>
       </aside>
       <section class="md-detail ma-detail" id="moves" data-ma-detail></section>
     </div>
@@ -282,7 +281,6 @@ export function renderMoveAnimationPage(project: ProjectState, root: HTMLElement
   const detail = page.querySelector<HTMLElement>("[data-ma-detail]")!;
   const search = page.querySelector<HTMLInputElement>(".md-search")!;
   const editedToggle = page.querySelector<HTMLButtonElement>("[data-ma-edited-only]")!;
-  const count = page.querySelector<HTMLElement>("[data-ma-count]")!;
   let currentId = Number.isSafeInteger(moveId) && moveId >= 0 && moveId < moveCount ? moveId : 0;
   const context: PageContext = { scenes: new Map() };
   let pendingFrame = 0;
@@ -290,15 +288,12 @@ export function renderMoveAnimationPage(project: ProjectState, root: HTMLElement
 
   const applyFilter = () => {
     const query = state.search.trim().toLowerCase();
-    let shown = 0;
     list.querySelectorAll<HTMLElement>("[data-ma-row]").forEach((row) => {
       const id = Number(row.dataset.maRow);
       const visible = (!state.editedOnly || row.classList.contains("-edited"))
         && (!query || String(id) === query || (row.dataset.name ?? "").includes(query));
       row.hidden = !visible;
-      if (visible) shown += 1;
     });
-    count.textContent = shown === moveCount ? `${moveCount} moves` : `${shown} of ${moveCount} moves`;
   };
   const markSelected = (scroll: boolean) => {
     list.querySelectorAll<HTMLElement>("[data-ma-row]").forEach((row) => {
