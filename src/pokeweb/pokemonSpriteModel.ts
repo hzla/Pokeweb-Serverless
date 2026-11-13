@@ -1,3 +1,4 @@
+import { expansionSpriteOf, speciesExpansionConfig } from "./speciesExpansionIds";
 import { concatBytes, readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { NintendoDSRom } from "../nds/rom";
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
@@ -261,6 +262,8 @@ export function resolvePokemonSpriteId(project: ProjectState, speciesId: number,
   if (formIndex <= 0) {
     const formOwner = findPokemonPersonalFormOwner(project, speciesId);
     if (formOwner) return formSpriteStart + formOwner.formSpriteOffset + formOwner.formIndex - 1;
+    const added = expansionSpriteOf(project, speciesId);
+    if (added !== undefined) return added;
     if (usesExpandedPokegra) {
       if (speciesId >= W2U_GEN7_SPECIES_START && speciesId <= W2U_GEN7_SPECIES_END) {
         return W2U_GEN7_STATIC_SPRITE_START + speciesId - W2U_GEN7_SPECIES_START;
@@ -278,7 +281,8 @@ export function resolvePokemonSpriteId(project: ProjectState, speciesId: number,
 }
 
 function usesW2uExpandedPokegra(project: ProjectState): boolean {
-  return project.session.baseRom === "BW2" && (project.narcs.personal?.fileCount ?? 0) > 1024;
+  // The species expansion's personal archive is as long, but keeps retail's sprite layout.
+  return project.session.baseRom === "BW2" && !speciesExpansionConfig(project) && (project.narcs.personal?.fileCount ?? 0) > 1024;
 }
 
 export function getPokemonSpriteEntry(project: ProjectState, spriteId: number): PokemonSpriteEntry {

@@ -1,3 +1,4 @@
+import { storedSpeciesId } from "./speciesExpansionIds";
 import vanillaAbilitiesText from "../assets/data/vanilla_abilities.txt?raw";
 import vanillaItemsText from "../assets/data/vanilla_items.txt?raw";
 import vanillaMovesText from "../assets/data/vanilla_moves.txt?raw";
@@ -1022,7 +1023,7 @@ export function trainerPokemonExportAbility(project: ProjectState, pok: TrainerP
   if (resolvedSlot > 3) return titleizeAbility(cascadeWhiteTrainerAbilityName(project, pok.speciesId, resolvedSlot, pok.form) ?? pok.abilityName);
   const baseName = resolvedBaseName ?? pokemonExportName(project, pok.speciesId);
   const altPersonalId = TRAINER_FORM_ABILITY_EXCLUSIONS.has(baseName) ? undefined : trainerAltFormPersonalId(project, pok.speciesId, pok.form);
-  const record = safePokemonSummaryRecord(project, altPersonalId ?? pok.speciesId % 1024);
+  const record = safePokemonSummaryRecord(project, altPersonalId ?? storedSpeciesId(project, pok.speciesId));
   const slot = Math.min(Math.max(resolvedSlot, 1), 3);
   let ability = record?.personal[`ability_${slot}`];
   // Empty ordinary slots use the first ability of the selected personal form.

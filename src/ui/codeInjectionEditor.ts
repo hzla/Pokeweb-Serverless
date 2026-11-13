@@ -80,6 +80,8 @@ import moveAnimationCredits from "../assets/data/white2upgradeGen6MoveAnimations
 import { MEGA_CREDITS, canUseMegaEvolutionInstaller, getMegaEvolutionStatus, setMegaEvolutionConfig, stageMegaEvolution, uninstallMegaEvolution, type MegaRoute } from "../pokeweb/megaEvolutionModel";
 import { GMAX_MEGAS, MEGA_RING_ITEM, UNIVERSAL_STONES, getMegaContentStatus, installMegaContent, megaSpriteCredits, stageMegaAnimation, stageMegaExtras, stageMegaRing } from "../pokeweb/megaContentModel";
 import { REGIONAL_FORMS, getRegionalFormsStatus, installRegionalForms, regionalFamilies } from "../pokeweb/regionalFormsModel";
+import { canUseSpeciesExpansionInstaller, getSpeciesExpansionStatus, installSpeciesExpansion } from "../pokeweb/speciesExpansionModel";
+import { downloadBytes } from "../pokeweb/fileSystemModel";
 import { getIntroSkipStatus, stageIntroSkip, uninstallIntroSkip } from "../pokeweb/introSkipModel";
 import { TESTING_PATCHES, getTestingPatchStatus, installTestingPatch, uninstallTestingPatch, type TestingPatchId } from "../pokeweb/testingPatchesModel";
 import { getBattleTypeHudStatus, installBattleTypeHud, uninstallBattleTypeHud, getMoveEffectivenessStatus, installMoveEffectiveness, uninstallMoveEffectiveness, DEFAULT_MOVE_HIGHLIGHT_COLORS, type MoveHighlightColors, type TypeIconVariant } from "../pokeweb/battleTypeHudModel";
@@ -169,6 +171,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const megaContentStatus = getMegaContentStatus(project);
   const regionalStatus = getRegionalFormsStatus(project);
   const families = regionalStatus.supported ? regionalFamilies(project) : [];
+  const speciesStatus = getSpeciesExpansionStatus(project);
   const megaConfig = project.codeInjection?.megaEvolution;
   // One button: Item Expansion, the PWAN runtime, the Mega runtime, the Mega Pokémon and their stones and routes.
   const megaNeedsUpdate = megaStatus.updateAvailable || megaContentStatus.animationMissing || megaContentStatus.ringMissing || megaContentStatus.universalMissing;
@@ -937,6 +940,25 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div class="code-injection-note" id="regional-forms-note" aria-live="polite">${regionalStatus.ready ? "" : escapeHtml(regionalStatus.message)}</div>
           </div>
         </section>` : ""}
+        ${canUseSpeciesExpansionInstaller() ? `<section class="code-injection-panel" ${patchVisibility(speciesStatus.supported)}>
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Species Expansion</h2>
+              <p>Adds the Pokémon after Genesect (national 650 onward) as new species including: stats, types, abilities, level-up moves, TM and tutor moves, evolutions, animated sprites, icons and Pokédex entries. Experimental: available only when Pokeweb runs locally.</p>
+            </div>
+            ${renderInlineStatus(!speciesStatus.supported ? "Unsupported" : speciesStatus.installed ? "Installed" : "Ready", { className: "code-injection-status" })}
+          </div>
+          <div class="code-injection-facts">
+            <div><span>Installed</span><strong>${speciesStatus.installed ? `${speciesStatus.count} species` : "—"}</strong></div>
+            <div><span>Numbering</span><strong>ROM species = national + 37 (Chespin is 687); summaries and the PC show national numbers</strong></div>
+            <div><span>Installs with it</span><strong>Fairy Type Support, Move Expansion, animated sprites</strong></div>
+            <div><span>Data</span><strong>White2Upgrade; sprites from the PWAN library; cries are a similar Pokémon's</strong></div>
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-species-expansion-btn" type="button" ${speciesStatus.ready ? "" : "disabled"}>${speciesStatus.installed ? "Species Expansion Installed" : "Install Species Expansion"}</button>
+            <div class="code-injection-note" id="species-expansion-note" aria-live="polite">${speciesStatus.ready ? "" : escapeHtml(speciesStatus.message)}</div>
+          </div>
+        </section>` : ""}
         </section>
         <section class="code-injection-tab-panel" id="code-injection-panel-add-ons" role="tabpanel" aria-labelledby="code-injection-tab-add-ons" tabindex="0" ${activeTab === "add-ons" ? "" : "hidden"}>
         <section class="code-injection-panel" ${patchVisibility(infiniteCandyStatus.supported)}>
@@ -1577,6 +1599,38 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     } catch (error) {
       regionalButton.disabled = false;
       regionalButton.textContent = previousText;
+      if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+  const speciesButton = root.querySelector<HTMLButtonElement>("#install-species-expansion-btn");
+  speciesButton?.addEventListener("click", async () => {
+    const note = root.querySelector<HTMLDivElement>("#species-expansion-note");
+    if (!canUseSpeciesExpansionInstaller()) {
+      if (note) note.textContent = "Species Expansion can be installed only when Pokeweb runs locally.";
+      return;
+    }
+    const previousText = speciesButton.textContent ?? "Install Species Expansion";
+    try {
+      speciesButton.disabled = true;
+      speciesButton.textContent = "Installing...";
+      const report = await installSpeciesExpansion(project, (stage) => install(stage));
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+      const notes = [
+        `${report.species} species installed (SpeciesExpansion${project.session.baseVersion}.dll); ${report.formsMoved} form records moved after them.`,
+        report.fairyTypeInstalled ? "Fairy Type Support was installed." : "",
+        report.moveExpansion === "installed" ? "Move Expansion was installed (their newer moves)." : report.moveExpansion === "unavailable" ? "Move Expansion couldn't be installed on this ROM." : "",
+        report.abilitiesAdded.length ? `Abilities added: ${report.abilitiesAdded.join(", ")}.` : "",
+        report.abilityFallbacks.length ? `Abilities the library can't add (another of theirs is used): ${report.abilityFallbacks.join("; ")}.` : "",
+        report.movesLeftOut.length ? `Moves left out: ${report.movesLeftOut.join(", ")}.` : "",
+        report.evolutionsLeftOut.length ? `Evolutions left out: ${report.evolutionsLeftOut.join("; ")}.` : "",
+        report.spriteStandIns.length ? `${report.spriteStandIns.join("; ")}.` : "",
+      ].filter(Boolean);
+      const refreshed = root.querySelector<HTMLDivElement>("#species-expansion-note");
+      if (refreshed) refreshed.textContent = notes.join(" ");
+    } catch (error) {
+      speciesButton.disabled = false;
+      speciesButton.textContent = previousText;
       if (note) note.textContent = error instanceof Error ? error.message : String(error);
     }
   });

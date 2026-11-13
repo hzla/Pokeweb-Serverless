@@ -1,3 +1,4 @@
+import { nationalNumberOf, speciesExpansionConfig } from "./speciesExpansionIds";
 import { readU16, writeU16 } from "../nds/binary";
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
 import { cascadeWhitePersonalName } from "./cascadeWhiteModel";
@@ -227,7 +228,8 @@ export function getPokemonPersonalIds(project: ProjectState): number[] {
 
 export function usesWhite2UpgradePokemonData(project: ProjectState): boolean {
   if (project.session.baseRom !== "BW2") return false;
-  if ((project.narcs.personal?.fileCount ?? 0) >= WHITE2UPGRADE_MIN_PERSONAL_FILES) return true;
+  // The species expansion's personal archive is as long, with retail's record layouts.
+  if (!speciesExpansionConfig(project) && (project.narcs.personal?.fileCount ?? 0) >= WHITE2UPGRADE_MIN_PERSONAL_FILES) return true;
   if (project.narcs.evolutions?.rawFiles.some((file) => file.length >= WHITE2UPGRADE_EVOLUTION_RECORD_LENGTH)) return true;
   return usesExpandedBw2Data(project);
 }
@@ -273,7 +275,7 @@ export function getPokemonSummaryRecord(project: ProjectState, id: number): Poke
 
   return {
     id,
-    gen: pokemonGeneration(id),
+    gen: pokemonGeneration(nationalNumberOf(project, id)),
     personal: personalRecord.readable,
     rawPersonal: personalRecord.raw,
   };
@@ -1165,10 +1167,15 @@ function titleize(value: string | number): string | number {
     .join("");
 }
 
+/** The generation of a national number (an added species' is its own; retail's form records count as Gen 5). */
 function pokemonGeneration(id: number): number {
   if (id <= 151) return 1;
   if (id <= 251) return 2;
   if (id <= 386) return 3;
   if (id <= 493) return 4;
-  return 5;
+  if (id <= 649 || id > 1025) return 5;
+  if (id <= 721) return 6;
+  if (id <= 809) return 7;
+  if (id <= 905) return 8;
+  return 9;
 }
