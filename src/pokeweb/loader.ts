@@ -1,3 +1,4 @@
+import { hydrateSpeciesExpansion } from "./speciesExpansionIds";
 import { hydrateMoveEffectsSource } from "./moveEffectsModel";
 import { hydrateAbilityEffectsSource } from "./abilityEffectsModel";
 import { hydrateTrainerFieldConditionsSources } from "./trainerFieldConditionsModel";
@@ -130,6 +131,7 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
   };
   if (isGen5BaseRom(version.baseRom)) {
     project.codeInjection = detectPmcInstallFromRom(rom);
+    hydrateSpeciesExpansion(project, rom);
     const standaloneManifestId = rom.filenames.idOf(STANDALONE_STREAM_MANIFEST_PATH);
     if (standaloneManifestId !== undefined) {
       try { project.codeInjection!.standaloneStreams = decodeStandaloneStreamManifest(rom.files[standaloneManifestId]); }

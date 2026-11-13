@@ -9,6 +9,7 @@ dist/
 *.nds
 *.sav
 !src/assets/testbattle/test.sav
+!runtime/species-expansion/samples/*.sav
 *.dsv
 !src/assets/testbattle/Black2Upgrade.dsv
 !src/assets/testbattle/White2Upgrade.dsv
@@ -26,6 +27,7 @@ runtime/item-effects/build/
 runtime/item-expansion/build/
 runtime/mega-evolution/build/
 runtime/regional-forms/build/
+runtime/species-expansion/build/
 runtime/tag-battle-stabilization/build/
 runtime/double-battle-fix/build/
 runtime/porta-pc/build/

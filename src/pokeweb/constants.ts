@@ -33,6 +33,9 @@ export type NarcName =
   | "learnsets"
   | "evolutions"
   | "egg_moves"
+  | "baby_species"
+  | "pokedex_search"
+  | "pokemon_footprints"
   | "moves"
   | "move_animations"
   | "battle_animations"
@@ -182,6 +185,9 @@ export const BW2_NARCS: NarcDefinition[] = [
   { path: "a/0/1/8", name: "learnsets" },
   { path: "a/0/1/9", name: "evolutions" },
   { path: "a/1/2/4", name: "egg_moves" },
+  { path: "a/0/2/0", name: "baby_species" },
+  { path: "a/0/9/7", name: "pokedex_search" },
+  { path: "a/1/6/5", name: "pokemon_footprints" },
   { path: "a/0/2/1", name: "moves" },
   { path: "a/0/2/4", name: "items" },
   { path: "a/0/8/9", name: "trtext_table" },

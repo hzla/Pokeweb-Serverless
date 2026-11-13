@@ -1,3 +1,4 @@
+import { isAddedSpecies, nationalNumberOf, speciesExpansionConfig } from "../pokeweb/speciesExpansionIds";
 import { isGen4Project, typeNamesForProject } from "../pokeweb/constants";
 import { cascadeWhiteTrainerAbilityName, detectCascadeWhiteRom } from "../pokeweb/cascadeWhiteModel";
 import { hasCascadePersonalData } from "../pokeweb/cascadeWhitePersonalModel";
@@ -109,7 +110,7 @@ export function renderPokemonEditor(
           <input class="md-search" id="search-text" type="search" placeholder="Search Pokémon, moves, abilities" autocomplete="off" spellcheck="false" aria-label="Search Pokemon">
           <div class="md-chips">
             ${renderPokemonFilter("Type", "type-filters", typeNamesForProject(project).map((type) => `<button class="type-plate -${typeClass(type)} md-type-toggle" data-ptype="${type.toLowerCase()}" type="button" aria-pressed="false">${escapeHtml(type)}</button>`).join(""))}
-            ${renderPokemonFilter("Generation", "gen-filters", [1, 2, 3, 4, 5].map((gen) => `<button class="btn sm" data-gen="${gen}" type="button" aria-pressed="false">Gen ${gen}</button>`).join(""))}
+            ${renderPokemonFilter("Generation", "gen-filters", (speciesExpansionConfig(project) ? [1, 2, 3, 4, 5, 6, 7, 8, 9] : [1, 2, 3, 4, 5]).map((gen) => `<button class="btn sm" data-gen="${gen}" type="button" aria-pressed="false">Gen ${gen}</button>`).join(""))}
           </div>
         </div>
         <div class="md-list-head" aria-hidden="true"><span>#</span><span></span><span>Name</span><span>Type</span></div>
@@ -268,7 +269,7 @@ function renderPokemonListRowContent(project: ProjectState, speciesId: number): 
   const type2 = String(record.personal.type_2 ?? "");
   const edits = editedPokemonFields(project, speciesId).size;
   return `
-    <span class="md-row-id">${speciesId}</span>
+    ${isAddedSpecies(project, speciesId) ? `<span class="md-row-id" title="National No. ${nationalNumberOf(project, speciesId)}; ROM species ${speciesId}">${speciesId}</span>` : `<span class="md-row-id">${speciesId}</span>`}
     <img class="pd-row-icon" src="${publicAsset(`images/pokesprite/${pokemonSpriteSlug(name)}.png`)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
     <span class="md-row-name">${escapeHtml(name)}${edits ? `<span class="md-edits" title="${edits} change${edits === 1 ? "" : "s"}">${edits}</span>` : ""}</span>
     <span class="pd-row-types"><span class="type-plate sm -${typeClass(type1)}">${escapeHtml(type1)}</span>${type2 && type2 !== type1 ? `<span class="type-plate sm -${typeClass(type2)}">${escapeHtml(type2)}</span>` : ""}</span>
@@ -356,7 +357,7 @@ function renderPokemonDetail(project: ProjectState, speciesId: number, showPwan:
       <header class="pd-head">
         <div class="pd-sprite pokemon-card__img">${renderPokemonCardSprite(project, speciesId, name)}</div>
         <div class="pd-ident">
-          <div class="pd-title"><h1>${escapeHtml(name)}</h1></div>
+          <div class="pd-title"><h1>${escapeHtml(name)}</h1>${isAddedSpecies(project, speciesId) ? `<span class="pd-hint" title="ROM species ${speciesId}">National No. ${nationalNumberOf(project, speciesId)}</span>` : ""}</div>
           <div class="pd-types" data-mark-fields="personal:type_1 personal:type_2">
             ${editable("personal", "type_1", type1, `type-plate pokemon-type -${typeClass(type1)}`, { autofill: "types", label: "Type 1" })}
             ${editable("personal", "type_2", type2, `type-plate pokemon-type -${typeClass(type2)}`, { autofill: "types", label: "Type 2" })}

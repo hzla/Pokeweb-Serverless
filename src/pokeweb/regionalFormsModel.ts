@@ -1,3 +1,4 @@
+import { firstAppendedFormRecord } from "./speciesExpansionIds";
 import contentJson from "../assets/data/regionalForms.json";
 import zenModeManifest from "../assets/codeinjection/regionalZenModeManifest.json";
 import { recordGenericChange } from "./actionChangelog";
@@ -63,7 +64,6 @@ const ZEN_MODE_URLS = {
   B2: new URL("../assets/codeinjection/RegionalZenModeB2.dll", import.meta.url),
   W2: new URL("../assets/codeinjection/RegionalZenModeW2.dll", import.meta.url),
 } as const;
-const FIRST_APPENDED_FORM = { BW: 669, BW2: 710 } as const;
 /** An evolution that cannot happen ("use item 0"): a form that does not evolve though its species does. */
 const NO_EVOLUTION = { method: 8, param: 0 };
 
@@ -133,7 +133,7 @@ export function regionalFamilies(project: ProjectState): RegionalFamily[] {
   // Without the personal data loaded, the forms this project's installs recorded.
   const installed = project.narcs.personal ? installedForms(project)
     : new Map((project.codeInjection?.regionalForms?.forms ?? []).map((form) => [form.key, form]));
-  const firstAppended = FIRST_APPENDED_FORM[project.session.baseRom === "BW" ? "BW" : "BW2"];
+  const firstAppended = firstAppendedFormRecord(project);
   const families = new Map<number, RegionalFamily>();
   for (const form of REGIONAL_FORMS) {
     let family = families.get(form.family);

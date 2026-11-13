@@ -1,3 +1,4 @@
+import { firstAppendedFormRecord } from "./speciesExpansionIds";
 import { recordGenericChange } from "./actionChangelog";
 import { BW2_MESSAGE_BANKS, BW_MESSAGE_BANKS, isGen4Project, type NarcName } from "./constants";
 import { findPokemonPersonalFormOwner, pokemonSpeciesLabel } from "./pokemonLabels";
@@ -25,8 +26,6 @@ const MAX_FORM_COUNT = 31;
 const BW_ALT_FORM_SPRITE_START = 652;
 const BW2_ALT_FORM_SPRITE_START = 685;
 const W2U_ALT_FORM_SPRITE_START = 724;
-const BW_FIRST_APPENDED_FORM_PERSONAL_ID = 669;
-const BW2_FIRST_APPENDED_FORM_PERSONAL_ID = 710;
 
 type FileSnapshot = Uint8Array;
 type IconPair = { male: Uint8Array; female: Uint8Array };
@@ -94,7 +93,7 @@ export function getPokemonFormDeletionAvailability(project: ProjectState, reques
   if (owner.formIndex !== formCount - 1) {
     return { deletable: false, reason: "Delete this Pokemon's forms in reverse order, starting with its last form." };
   }
-  const firstAppendedId = project.session.baseRom === "BW2" ? BW2_FIRST_APPENDED_FORM_PERSONAL_ID : BW_FIRST_APPENDED_FORM_PERSONAL_ID;
+  const firstAppendedId = firstAppendedFormRecord(project);
   if (requestedPersonalId < firstAppendedId) {
     return { deletable: false, reason: "Only appended forms can be deleted; original ROM forms are protected." };
   }
@@ -448,7 +447,7 @@ function appendPokemonFormNames(project: ProjectState, bankId: number, firstPers
 export function repairAppendedPokemonFormNames(project: ProjectState): boolean {
   if (project.session.baseRom !== "BW2" || !project.narcs.personal || !project.narcs.message_texts) return false;
   const forms = getPokemonPersonalIds(project)
-    .filter((personalId) => personalId >= BW2_FIRST_APPENDED_FORM_PERSONAL_ID)
+    .filter((personalId) => personalId >= firstAppendedFormRecord(project))
     .map((personalId) => ({ personalId, owner: findPokemonPersonalFormOwner(project, personalId) }))
     .filter((form): form is { personalId: number; owner: NonNullable<typeof form.owner> } => Boolean(form.owner));
   if (forms.length === 0) return false;
@@ -606,11 +605,11 @@ function padStoreToIndex(
   return count;
 }
 
-function emptyLearnsetRecord(): Uint8Array {
+export function emptyLearnsetRecord(): Uint8Array {
   return Uint8Array.of(0xff, 0xff, 0xff, 0xff);
 }
 
-function emptyEvolutionRecord(project: ProjectState, store: NarcStore, speciesId: number): Uint8Array {
+export function emptyEvolutionRecord(project: ProjectState, store: NarcStore, speciesId: number): Uint8Array {
   const sourceLength = store.rawFiles[speciesId]?.length ?? 0;
   const expectedLength = evolutionSlotCount(project) * 6;
   return new Uint8Array(Math.max(sourceLength, expectedLength));
