@@ -26,6 +26,8 @@ import { escapeHtml } from "./dom";
 import { renderWeatherResourceFootprint } from "./weatherResourceFootprint";
 
 let activeWeatherEditorStop: (() => void) | undefined;
+/** The weather and filters last shown, so leaving the tab and coming back returns to them. */
+const viewMemory = new WeakMap<ProjectState, { selectedEffectId: number; searchText: string; weatherFilter: string }>();
 
 export function stopOverworldWeatherEditorPreview(): void {
   activeWeatherEditorStop?.();
@@ -35,9 +37,10 @@ export function stopOverworldWeatherEditorPreview(): void {
 export function renderOverworldWeatherEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void): () => void {
   stopOverworldWeatherEditorPreview();
   if (!project.headers) throw new Error("Header data has not been parsed");
-  let selectedEffectId = 0;
-  let searchText = "";
-  let weatherFilter = "all";
+  const remembered = viewMemory.get(project);
+  let selectedEffectId = remembered?.selectedEffectId ?? 0;
+  let searchText = remembered?.searchText ?? "";
+  let weatherFilter = remembered?.weatherFilter ?? "all";
   const selectedRows = new Set<number>();
   let stopPreview = () => {};
   let previewRequest = 0;
@@ -262,7 +265,7 @@ export function renderOverworldWeatherEditor(project: ProjectState, root: HTMLEl
     calendarError = error instanceof Error ? error.message : String(error);
     renderPage();
   });
-  const stop = () => { disposed = true; previewRequest += 1; stopPreview(); };
+  const stop = () => { disposed = true; previewRequest += 1; stopPreview(); viewMemory.set(project, { selectedEffectId, searchText, weatherFilter }); };
   activeWeatherEditorStop = stop;
   return stop;
 }

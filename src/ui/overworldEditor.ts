@@ -29,6 +29,7 @@ import { changedKeys } from "./detailFields";
 import { installPicker } from "./trainerInteractions";
 import { openItemShortcut, openSpritePicker, openTrainerShortcut, spriteClassLabels } from "./overworldShortcuts";
 import { buildTrainerOverworldIndex, supportsOverworldShortcuts } from "../pokeweb/overworldShortcutModel";
+import { overworldZoneScriptFile, resolveScriptId, type ScriptTarget } from "../pokeweb/scriptIdModel";
 import { publicAsset } from "../assetUrl";
 import { gen4PermissionTileFill } from "./gen4MapPreviewRenderer";
 import type { OverworldMapRender } from "./overworldMapRenderer";
@@ -48,6 +49,10 @@ const MAX_ZOOM = 3;
 
 type OverworldViewMode = "permissions" | "map";
 type SidebarTab = OverworldEntityKind | "permissions";
+
+/** What each overworld had open, so leaving for another tab and coming back lands on the same entity and tab. */
+type OverworldViewMemory = { kind: OverworldEntityKind; tab: SidebarTab; selection?: OverworldEntitySelection };
+const viewMemory = new WeakMap<ProjectState, Map<number, OverworldViewMemory>>();
 type SidebarFieldOption = { value: number; label: string };
 type FieldGroup = "identity" | "behaviour" | "destination" | "event" | "position" | "advanced";
 type SidebarField = {
@@ -232,14 +237,21 @@ export function renderOverworldEditor(
   onTestWarp?: (selection: OverworldTestWarpSelection) => Promise<void>,
   headerRowId?: number,
   onOpenOverworld?: (overworldId: number) => void,
+  onOpenScript?: (target: ScriptTarget) => void,
 ): void {
   let scene = getOverworldScene(project, overworldId, headerRowId);
   const isGen4 = isGen4Project(project);
   const shortcuts = supportsOverworldShortcuts(project);
   const tileLayerLabels = isGen4 ? { flag: "Type", movement: "Collision" } : { flag: "Flag", movement: "Movement" };
-  let activeKind: OverworldEntityKind = "npc";
-  let activeSidebarTab: SidebarTab = "npc";
-  let selectedEntity: OverworldEntitySelection | undefined = scene.npcs[0] ? { kind: "npc", index: scene.npcs[0].index } : undefined;
+  const memories = viewMemory.get(project) ?? new Map<number, OverworldViewMemory>();
+  viewMemory.set(project, memories);
+  const remembered = memories.get(overworldId);
+  let activeKind: OverworldEntityKind = remembered?.kind ?? "npc";
+  let activeSidebarTab: SidebarTab = remembered?.tab === "permissions" && isGen4Project(project) ? activeKind : remembered?.tab ?? "npc";
+  let selectedEntity: OverworldEntitySelection | undefined =
+    remembered?.selection && entityBySelection(scene, remembered.selection)
+      ? remembered.selection
+      : scene.npcs[0] ? { kind: "npc", index: scene.npcs[0].index } : undefined;
   let selectedTile: PermissionTileSelection | undefined;
   let activeCellKey = isGen4 ? initialActiveCellKey(scene, selectedEntity) : "";
   const permissionBrush = { tileClass: 0, flags: 0, painting: false };
@@ -1135,7 +1147,17 @@ export function renderOverworldEditor(
     if (tileEditor) tileEditor.style.display = "none";
   }
 
+  const scriptTarget = onOpenScript
+    ? (scriptId: number) => resolveScriptId(project, scriptId, overworldZoneScriptFile(project, overworldId, headerRowId))
+    : undefined;
+
   function bindEntityFieldEvents(host: HTMLElement): void {
+    host.querySelector<HTMLButtonElement>("[data-open-script]")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      const input = (event.currentTarget as HTMLElement).closest(".ow-row")?.querySelector<HTMLInputElement>("input[data-field-key]");
+      const target = input && scriptTarget ? scriptTarget(Number(input.value)) : undefined;
+      if (target) onOpenScript?.(target);
+    });
     host.querySelector<HTMLButtonElement>("[data-sprite-picker]")?.addEventListener("click", () => {
       const selection = selectedEntity;
       const entity = visibleEntityBySelection(selection);
@@ -1254,6 +1276,7 @@ export function renderOverworldEditor(
   }
 
   const fillSidebar = () => {
+    memories.set(overworldId, { kind: activeKind, tab: activeSidebarTab, selection: selectedEntity });
     updateCellNav();
     updateEntityTabs(root, activeSidebarTab);
     const addButton = root.querySelector<HTMLButtonElement>("#add-entity");
@@ -1285,7 +1308,7 @@ export function renderOverworldEditor(
     const entity = visibleEntityBySelection(selectedEntity);
     const fieldsHost = root.querySelector<HTMLDivElement>("#entity-fields");
     if (fieldsHost) {
-      fieldsHost.innerHTML = entity ? renderEntityFields(project, overworldId, entity, isGen4, scene.raw) : "";
+      fieldsHost.innerHTML = entity ? renderEntityFields(project, overworldId, entity, isGen4, scene.raw, scriptTarget) : "";
       if (entity) {
         bindEntityFieldEvents(fieldsHost);
         adjustSpriteDirections(fieldsHost);
@@ -1722,7 +1745,14 @@ function renderFieldControl(field: SidebarField, value: number, edited: boolean)
   `;
 }
 
-function renderEntityFields(project: ProjectState, overworldId: number, entity: OverworldEntity, isGen4: boolean, raw: Record<string, unknown>): string {
+function renderEntityFields(
+  project: ProjectState,
+  overworldId: number,
+  entity: OverworldEntity,
+  isGen4: boolean,
+  raw: Record<string, unknown>,
+  scriptTarget?: (scriptId: number) => ScriptTarget | undefined,
+): string {
   const edited = changedKeys(project.actionChangelog?.entries, `overworld:${overworldId}:${entity.kind}:${entity.index}:`);
   const fields = sidebarFields(entity, isGen4);
   const groups = new Map<FieldGroup, SidebarField[]>();
@@ -1735,6 +1765,12 @@ function renderEntityFields(project: ProjectState, overworldId: number, entity: 
           const control = renderFieldControl(field, value, edited.has(field.key));
           if (entity.kind === "npc" && field.key === "overworld_sprite") {
             return control.replace("</label>", `${renderSpritePreview(project, entity)}</label>`).replace('class="ow-row', 'class="ow-row -sprite');
+          }
+          if (scriptTarget && (field.key === "script_id" || field.key === "script")) {
+            const target = scriptTarget(value);
+            const title = target ? `Open script file ${target.fileId}, entry ${target.entry}` : "No script to open";
+            const link = `<button class="btn sm -ghost ow-script-link" type="button" data-open-script ${target ? "" : "disabled"} title="${escapeHtml(title)}">Open</button>`;
+            return control.replace("</label>", `${link}</label>`).replace('class="ow-row', 'class="ow-row -script');
           }
           return control;
         })

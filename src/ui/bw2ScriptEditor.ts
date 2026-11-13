@@ -17,8 +17,15 @@ import { installBw2ScriptTexts, type Bw2ScriptTexts } from "./bw2ScriptTexts";
 import { addBw2ScriptEntry, removeBw2ScriptEntry, clearBw2ScriptEntry, addBw2ScriptMovement, removeBw2ScriptMovement, type Bw2ScriptStructureEdit } from "../pokeweb/bw2ScriptStructure";
 import { prepareBw2ScriptEntryResources } from "../pokeweb/bw2ScriptEntryReferences";
 
-type Options = { onApply: () => void; onDraftChange: () => void };
+type Options = {
+  onApply: () => void;
+  onDraftChange: () => void;
+  /** Decompile a file when it opens without a draft of its own, so it is ready to read and edit. */
+  autoDecompile?: boolean;
+};
 let dispose: (() => void) | undefined;
+/** Where the cursor was in each file, so leaving the tab and coming back returns to the same line. */
+const cursorMemory = new WeakMap<ProjectState, Map<number, number>>();
 const counted = (count: number, unit: string, plural = `${unit}s`): string => `${count} ${count === 1 ? unit : plural}`;
 
 export function stopBw2ScriptEditor(): void { dispose?.(); dispose = undefined; }
@@ -342,18 +349,33 @@ export function renderBw2ScriptEditor(project: ProjectState, root: HTMLElement, 
     };
     selectPart("script");
     if (editor.getCursor) updateCursor(editor.getCursor());
+    // A file opens decompiled: there is nothing to edit until it is, and a draft of the user's own stays as it is.
     if (state.drafts[fileId]) validate();
+    else if (options.autoDecompile && count > 0) decompileFromRom();
+    const focus = state.focusEntry;
+    delete state.focusEntry;
+    const line = cursorMemory.get(project)?.get(fileId);
+    if (focus !== undefined) showEntry(focus);
+    else if (line !== undefined && line > 1) editor.focusError({ line, column: 1 });
   }
-  selector.addEventListener("change", () => {
-    const next = Number(selector.value);
-    if (!Number.isInteger(next) || !files.some((file) => file.id === next)) return;
-    fileId = next;
-    state.selectedFileId = fileId;
-    options.onDraftChange();
-    openFile();
-  });
-  compileButton.addEventListener("click", validate);
-  root.querySelector<HTMLButtonElement>("#bw2-decompile")?.addEventListener("click", () => {
+  function rememberCursor(): void {
+    if (!editor) return;
+    const lines = cursorMemory.get(project) ?? new Map<number, number>();
+    cursorMemory.set(project, lines);
+    try { lines.set(fileId, editor.getCursor().line); } catch { /* A closed editor has no cursor to keep. */ }
+  }
+  /** Puts the cursor on the script that runs as this entry. */
+  function showEntry(entry: number): void {
+    const definition = sourceContext.definitions.find((candidate) => candidate.kind === "script" && candidate.entries.includes(entry));
+    if (!definition) {
+      status!.className = "";
+      status!.textContent = `Entry ${entry} isn't in this file's source.`;
+      return;
+    }
+    editor?.focusError({ line: definition.line, column: 1 });
+    if (sectionSelect) sectionSelect.value = String(definition.line);
+  }
+  function decompileFromRom(): void {
     clearTimer();
     if (stopped || !editor) return;
     try {
@@ -361,9 +383,20 @@ export function renderBw2ScriptEditor(project: ProjectState, root: HTMLElement, 
       editor.setValue(result.source);
       options.onDraftChange();
       validate();
-      draftStatus.textContent = `Imported from ROM · ${counted(result.stats.structuredBlocks, "recovered block")}`;
+      draftStatus!.textContent = `Imported from ROM · ${counted(result.stats.structuredBlocks, "recovered block")}`;
     } catch (error) { showError(error); }
+  }
+  selector.addEventListener("change", () => {
+    const next = Number(selector.value);
+    if (!Number.isInteger(next) || !files.some((file) => file.id === next)) return;
+    rememberCursor();
+    fileId = next;
+    state.selectedFileId = fileId;
+    options.onDraftChange();
+    openFile();
   });
+  compileButton.addEventListener("click", validate);
+  root.querySelector<HTMLButtonElement>("#bw2-decompile")?.addEventListener("click", decompileFromRom);
   applyButton.addEventListener("click", () => {
     clearTimer();
     if (stopped || !editor) return;
@@ -378,6 +411,6 @@ export function renderBw2ScriptEditor(project: ProjectState, root: HTMLElement, 
     } catch (error) { showError(error); }
   });
   errorButton.addEventListener("click", () => { if (lastError) editor?.focusError(lastError); });
-  dispose = () => { stopped = true; clearTimer(); editor?.destroy(); mapPreview?.destroy(); texts?.destroy(); editor = undefined; mapPreview = undefined; texts = undefined; };
+  dispose = () => { rememberCursor(); stopped = true; clearTimer(); editor?.destroy(); mapPreview?.destroy(); texts?.destroy(); editor = undefined; mapPreview = undefined; texts = undefined; };
   openFile();
 }

@@ -8,6 +8,8 @@ import { installMatrixThumbnails } from "./matrixThumbnails";
 import { installMatrixSeasons } from "./matrixSeasons";
 
 let dispose: (() => void) | undefined;
+/** The matrix and cells last open, so leaving the tab and coming back returns to them. */
+const matrixMemory = new WeakMap<object, { id: number; anchor: number; selection: number[]; seasonsOpen: boolean }>();
 export function stopMatrixEditor(): void { dispose?.(); dispose = undefined; }
 
 export function parseMatrixInput(value: string): number {
@@ -45,9 +47,10 @@ export type MatrixEditorNavigation = {
 
 export function renderMatrixEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void, navigation: MatrixEditorNavigation = {}, initial: { matrixId?: number; headerId?: number; seasons?: boolean } = {}): void {
   stopMatrixEditor();
-  let id = initial.matrixId ?? 0, snapshot: MatrixSnapshot | undefined, anchor = 0, selection = [0], cellSize = 72;
-  let initialHeader = initial.headerId, preferredHeader = initial.headerId, seasonsOpen = initial.seasons ?? false;
-  let fitted: "width" | "all" | false = "width";
+  const remembered = initial.matrixId === undefined && initial.headerId === undefined ? matrixMemory.get(project) : undefined;
+  let id = initial.matrixId ?? remembered?.id ?? 0, snapshot: MatrixSnapshot | undefined, anchor = remembered?.anchor ?? 0, selection = remembered?.selection ?? [0], cellSize = 72;
+  let initialHeader = initial.headerId, preferredHeader = initial.headerId, seasonsOpen = initial.seasons ?? remembered?.seasonsOpen ?? false;
+  let fitted: "width" | "all" | false = remembered && id !== 0 ? "all" : "width";
   let matrixZeroThumbnails = false;
   let inlineEdit: { input: HTMLInputElement; button: HTMLButtonElement } | undefined;
   const node = <T extends HTMLElement = HTMLElement>(selector: string): T => root.querySelector<T>(selector)!;
@@ -347,6 +350,6 @@ export function renderMatrixEditor(project: ProjectState, root: HTMLElement, onD
   const observer = new ResizeObserver(() => { if (fitted && !inlineEdit) fit(); }); observer.observe(node(".matrix-viewport"));
   const onResize = () => { if (fitted && !inlineEdit) fit(); };
   window.addEventListener("resize", onResize);
-  dispose = () => { cancelInlineEdit(); thumbnails.destroy(); seasons.destroy(); observer.disconnect(); window.removeEventListener("resize", onResize); root.removeEventListener("click", onClick); root.removeEventListener("submit", onSubmit); root.removeEventListener("input", onInput); root.removeEventListener("dblclick", onDoubleClick); root.removeEventListener("keydown", onKeyDown); node("#matrix-index").removeEventListener("change", onChange); node("#matrix-zero-thumbnails").removeEventListener("change", onThumbnailChange); };
+  dispose = () => { matrixMemory.set(project, { id, anchor, selection, seasonsOpen }); cancelInlineEdit(); thumbnails.destroy(); seasons.destroy(); observer.disconnect(); window.removeEventListener("resize", onResize); root.removeEventListener("click", onClick); root.removeEventListener("submit", onSubmit); root.removeEventListener("input", onInput); root.removeEventListener("dblclick", onDoubleClick); root.removeEventListener("keydown", onKeyDown); node("#matrix-index").removeEventListener("change", onChange); node("#matrix-zero-thumbnails").removeEventListener("change", onThumbnailChange); };
   render();
 }

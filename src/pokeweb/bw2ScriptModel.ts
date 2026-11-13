@@ -18,6 +18,8 @@ export type Bw2ScriptDraft = { source: string; appliedSource?: string; entryMapp
 
 export type Bw2ScriptEditorState = {
   selectedFileId?: number;
+  /** An entry to show once the editor opens (a link from another editor); cleared when used. */
+  focusEntry?: number;
   drafts: Record<number, Bw2ScriptDraft>;
 };
 
