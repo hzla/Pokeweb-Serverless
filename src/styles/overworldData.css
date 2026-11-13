@@ -170,6 +170,11 @@
   grid-template-columns: 112px minmax(0, 1fr) 32px;
 }
 
+/* Script fields carry a link to the script in the script editor. */
+#overworld-editor .ow-row.-script {
+  grid-template-columns: 112px minmax(0, 1fr) auto;
+}
+
 #overworld-editor .ow-label {
   overflow: hidden;
   color: var(--text-muted);

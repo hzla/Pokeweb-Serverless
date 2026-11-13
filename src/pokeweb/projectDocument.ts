@@ -81,6 +81,18 @@ type ProjectFieldClassificationCheck = MustBeNever<Exclude<
 
 /** Materialize authored dictionaries first. Retained buffers are borrowed until
  * IndexedDB's synchronous put serialization; do not hold this as a second state. */
+/**
+ * Script drafts worth saving. A draft that is only a decompile of the current bytes, never edited or applied since,
+ * is left out: the script editor decompiles a file when it opens, so it makes the same draft again.
+ */
+function savedBw2ScriptDrafts(drafts: Record<number, Bw2ScriptDraft> | undefined): Record<number, Bw2ScriptDraft> | undefined {
+  if (!drafts) return undefined;
+  const untouched = (draft: Bw2ScriptDraft) =>
+    draft.imported !== undefined && draft.source === draft.imported.baselineSource && draft.appliedSource === draft.source && !draft.entryMapping;
+  const kept = Object.entries(drafts).filter(([, draft]) => !untouched(draft));
+  return kept.length ? Object.fromEntries(kept) : undefined;
+}
+
 export function createProjectDocument(project: ProjectSession, hasMatchingSource: boolean): ProjectDocument {
   materializeProjectEdits(project);
   const dirtyOverlayIds = new Set(project.patches?.dirtyOverlayIds ?? []);
@@ -110,7 +122,7 @@ export function createProjectDocument(project: ProjectSession, hasMatchingSource
     docs: project.docs ? { romTitle: project.docs.romTitle, mastersheetMarkdown: project.docs.mastersheetMarkdown,
       mastersheetHighlights: project.docs.mastersheetHighlights, mastersheetInRom: project.docs.mastersheetInRom,
       mastersheetRomSourceHash: project.docs.mastersheetRomSourceHash } : undefined,
-    scriptDrafts: project.bw2ScriptEditor?.drafts,
+    scriptDrafts: savedBw2ScriptDrafts(project.bw2ScriptEditor?.drafts),
     cgearButtons: project.cgearButtons, systemShops: project.systemShops, customUi: project.customUi, uiScreens: project.uiScreens,
     cutsceneAuthoring: project.cutsceneAuthoring,
     fieldScenes: project.fieldScenes,

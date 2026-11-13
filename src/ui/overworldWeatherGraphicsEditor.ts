@@ -33,6 +33,8 @@ import { mountWeatherPreview } from "./overworldWeatherEditor";
 import { renderWeatherResourceFootprint } from "./weatherResourceFootprint";
 
 let activeStop: (() => void) | undefined;
+/** The effect and parts last open, so leaving the tab and coming back returns to them. */
+const viewMemory = new WeakMap<ProjectState, Omit<EditorState, "status" | "error">>();
 
 type EditorState = {
   effectId: number;
@@ -67,20 +69,29 @@ export async function renderOverworldWeatherGraphicsEditor(
 ): Promise<void> {
   stopOverworldWeatherGraphicsEditor();
   const initial = getWeatherEffects(project).find((effect) => effect.id === 2) ?? getWeatherEffects(project)[0];
-  const state: EditorState = {
-    effectId: initial?.id ?? 0,
-    paletteBank: 0,
-    sequenceIndex: 0,
-    cellIndex: 0,
-    oamIndex: 0,
-    lightingRecordIndex: 0,
-    status: "",
-    error: false,
-  };
+  const remembered = viewMemory.get(project);
+  const state: EditorState = remembered && getWeatherEffects(project).some((effect) => effect.id === remembered.effectId)
+    ? { ...remembered, status: "", error: false }
+    : {
+        effectId: initial?.id ?? 0,
+        paletteBank: 0,
+        sequenceIndex: 0,
+        cellIndex: 0,
+        oamIndex: 0,
+        lightingRecordIndex: 0,
+        status: "",
+        error: false,
+      };
   let disposed = false;
   let previewStop = () => {};
   let request = 0;
-  const stop = () => { disposed = true; request += 1; previewStop(); };
+  const stop = () => {
+    disposed = true;
+    request += 1;
+    previewStop();
+    const { status: _status, error: _error, ...view } = state;
+    viewMemory.set(project, view);
+  };
   activeStop = stop;
 
   const render = async (): Promise<void> => {

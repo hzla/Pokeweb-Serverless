@@ -499,6 +499,8 @@ let activeHomeTab: HomeTab = "upload";
 let homeTabs: ReturnType<typeof attachHomeTabs> | undefined;
 let activeOverworldId: number | undefined;
 let activeOverworldHeaderId: number | undefined;
+/** The overworld last open, which the Overworlds tab returns to from the other tabs. */
+let lastOverworld: { overworldId: number; overworldHeaderId?: number } | undefined;
 let activeHeaderRowId: number | undefined;
 let activePwtView: string | undefined;
 let activeSubwayView: string | undefined;
@@ -612,6 +614,7 @@ async function boot(): Promise<void> {
   activeHomeTab = homeTabOrDefault(initialState.homeTab);
   activeOverworldId = initialState.overworldId;
   activeOverworldHeaderId = initialState.overworldHeaderId;
+  if (activeOverworldId !== undefined) lastOverworld = { overworldId: activeOverworldId, overworldHeaderId: activeOverworldHeaderId };
   activeHeaderRowId = initialState.headerRowId;
   activePwtView = initialState.pwtView;
   activeSubwayView = initialState.subwayView;
@@ -906,6 +909,7 @@ function renderApp(): void {
     void prepareBw2ScriptOverlayContext(scriptProject).then(() => {
       if (!content.isConnected || route !== "bw2Scripts" || project !== scriptProject) return;
       renderBw2ScriptEditor(scriptProject, content, {
+        autoDecompile: true,
         onApply: () => { dirty = true; scheduleSave(scriptProject); renderDirtyIndicator(); },
         onDraftChange: () => { scheduleSave(scriptProject); },
       });
@@ -965,6 +969,12 @@ function renderApp(): void {
       launchOverworldTestWarp,
       activeOverworldHeaderId === undefined ? undefined : activeOverworldHeaderId + 1,
       (overworldId) => openOverworld(overworldId),
+      canVisit("bw2Scripts") ? (target) => {
+        const state = (project!.bw2ScriptEditor ??= { drafts: {} });
+        state.selectedFileId = target.fileId;
+        state.focusEntry = target.entry;
+        applyRouteState({ route: "bw2Scripts" });
+      } : undefined,
     );
     return;
   }
@@ -1562,10 +1572,11 @@ function attachProjectMenu(): void {
 function renderHeadersMenu(): string {
   // BW2's weather editors live here: weather is assigned per area and zone.
   const weather = project?.session.baseRom === "BW2";
-  const active = route === "headers" || route === "overworlds" || route === "flyDestinations" || route === "matrixEditor" || (weather && (route === "weather" || route === "weatherGraphics"));
+  const scripts = canUseAiFeatures() && project?.session.baseRom === "BW2";
+  const active = route === "headers" || route === "overworlds" || (scripts && route === "bw2Scripts") || route === "flyDestinations" || route === "matrixEditor" || (weather && (route === "weather" || route === "weatherGraphics"));
   return `<div class="header-more ${active ? "-active" : ""}">
     <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Headers</button>
-    <div class="header-more-menu">${navItem("headers", "Headers")}${navItem("overworlds", "Overworlds", 0)}${project?.session.baseRom === "BW2" ? navItem("flyDestinations", "Fly destinations") : ""}${project && isGen5Project(project) ? navItem("matrixEditor", "Matrix editor") : ""}${weather ? navItem("weather", "Weather areas") + navItem("weatherGraphics", "Weather graphics") : ""}</div>
+    <div class="header-more-menu">${navItem("headers", "Headers")}${navItem("overworlds", "Overworlds", lastOverworld ? undefined : 0)}${scripts ? navItem("bw2Scripts", "Scripts") : ""}${project?.session.baseRom === "BW2" ? navItem("flyDestinations", "Fly destinations") : ""}${project && isGen5Project(project) ? navItem("matrixEditor", "Matrix editor") : ""}${weather ? navItem("weather", "Weather areas") + navItem("weatherGraphics", "Weather graphics") : ""}</div>
   </div>`;
 }
 
@@ -1699,14 +1710,13 @@ function renderMovesMenu(): string {
 
 function renderTextsMenu(): string {
   const storyAvailable = project ? !isGen4Project(project) : false;
-  const active = (storyAvailable && route === "storyText") || route === "infoText" || route === "bw2Scripts";
+  const active = (storyAvailable && route === "storyText") || route === "infoText";
   return `
     <div class="header-more ${active ? "-active" : ""}">
       <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Texts</button>
       <div class="header-more-menu">
         ${storyAvailable ? navItem("storyText", "Story text") : ""}
         ${navItem("infoText", "Message text")}
-        ${canUseAiFeatures() && project?.session.baseRom === "BW2" ? navItem("bw2Scripts", "BW2 Scripts") : ""}
       </div>
     </div>
   `;
@@ -2144,7 +2154,12 @@ function errorMessage(error: unknown): string {
 }
 
 function navigate(nextRoute: AppRoute): void {
-  applyRouteState({ route: nextRoute, overworldId: activeOverworldId });
+  // The Overworlds tab goes back to the overworld last open (and the header it was opened from).
+  if (nextRoute === "overworlds" && lastOverworld) {
+    applyRouteState({ route: nextRoute, ...lastOverworld });
+    return;
+  }
+  applyRouteState({ route: nextRoute, overworldId: activeOverworldId, overworldHeaderId: activeOverworldHeaderId });
 }
 
 function openOverworld(overworldId: number): void {
@@ -2965,6 +2980,7 @@ function applyRouteState(nextState: AppHistoryState, options: { replace?: boolea
   activePwanAnimationSpeciesId = nextState.pwanAnimationSpeciesId;
   route = safeRoute(project ? requestedRoute : "upload");
   if (route !== "overworlds" && nextState.route !== "overworlds") activeOverworldId = nextState.overworldId;
+  if (route === "overworlds" && activeOverworldId !== undefined) lastOverworld = { overworldId: activeOverworldId, overworldHeaderId: activeOverworldHeaderId };
   syncRouteStorage();
   if (!options.fromHistory) syncBrowserHistory(options.replace ?? false);
   renderApp();
@@ -2972,7 +2988,8 @@ function applyRouteState(nextState: AppHistoryState, options: { replace?: boolea
 
 function syncRouteStorage(): void {
   window.localStorage.setItem(ROUTE_KEY, route);
-  if (activeOverworldId !== undefined) window.localStorage.setItem(OVERWORLD_ROUTE_KEY, String(activeOverworldId));
+  const overworldId = activeOverworldId ?? lastOverworld?.overworldId;
+  if (overworldId !== undefined) window.localStorage.setItem(OVERWORLD_ROUTE_KEY, String(overworldId));
   else window.localStorage.removeItem(OVERWORLD_ROUTE_KEY);
   if (activeMoveAnimationMoveId !== undefined) window.localStorage.setItem(MOVE_ANIMATION_ROUTE_KEY, String(activeMoveAnimationMoveId));
   else window.localStorage.removeItem(MOVE_ANIMATION_ROUTE_KEY);

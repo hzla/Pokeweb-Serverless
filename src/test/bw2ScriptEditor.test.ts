@@ -18,7 +18,7 @@ const SOURCE = "script :main, entry: 1 do\n  nop\nend\n";
 const REPLACEMENT = "script :main, entry: 1 do\n  face_player\nend\n";
 
 type Node = { value: string; textContent: string; innerHTML: string; disabled: boolean; hidden: boolean; className: string; attributes: Record<string, string>; querySelector: () => undefined; setAttribute: (name: string, value: string) => void; focus: () => void; selectedOptions: { textContent: string }[]; listeners: Record<string, () => unknown>; addEventListener: (event: string, action: () => unknown) => void };
-function fixture(version: "BW2" | "BW" = "BW2") {
+function fixture(version: "BW2" | "BW" = "BW2", extra: { autoDecompile?: boolean; focusEntry?: number } = {}) {
   const project: ProjectState = {
     session: { romName: "test", baseVersion: version === "BW2" ? "W2" : "W", baseRom: version, fairy: false, fileIds: {}, blacklist: [] },
     romInfo: { title: "test", idCode: "TEST", fileName: "fixture.nds", size: 1 },
@@ -32,7 +32,8 @@ function fixture(version: "BW2" | "BW" = "BW2") {
     nodes.set(`#bw2-${id}`, { value: "0", textContent: "", innerHTML: "", disabled: false, hidden: false, className: "", attributes, querySelector: () => undefined, setAttribute: (name, value) => { attributes[name] = value; }, focus: vi.fn(), selectedOptions: [{ textContent: "" }], listeners, addEventListener: (event, action) => { listeners[event] = action; } });
   }
   const root = { innerHTML: "", querySelector: (selector: string) => nodes.get(selector) };
-  const options = { onApply: vi.fn(), onDraftChange: vi.fn() };
+  const options = { onApply: vi.fn(), onDraftChange: vi.fn(), autoDecompile: extra.autoDecompile };
+  if (extra.focusEntry !== undefined) project.bw2ScriptEditor = { drafts: {}, selectedFileId: 0, focusEntry: extra.focusEntry };
   const previews: { setFocus: ReturnType<typeof vi.fn>; destroy: ReturnType<typeof vi.fn> }[] = [];
   vi.mocked(installBw2ScriptMapPreview).mockImplementation(() => { const preview = { setFocus: vi.fn(), destroy: vi.fn() }; previews.push(preview); return preview; });
   const editors: { getValue: () => string; setValue: (source: string) => void; setError: ReturnType<typeof vi.fn>; focusError: ReturnType<typeof vi.fn>; destroy: ReturnType<typeof vi.fn>; getCursor: () => { line: number; column: number; word: string; text: string }; moveCursor: (line: number, word: string) => void; doubleClick: (line: number, word: string) => boolean }[] = [];
@@ -265,6 +266,19 @@ describe("BW2 script editor interactions", () => {
     f.node("decompile").listeners.click();
     expect(f.node("compile-status").textContent).toContain("Byte-identical");
     expect(f.definitionsEditors[0].getValue()).not.toContain("overlay");
+  });
+
+  it("decompiles a file without a draft when it opens, and shows a linked entry", () => {
+    const f = fixture("BW2", { autoDecompile: true, focusEntry: 1 });
+    expect(f.editors[0].getValue()).toContain("entry: 1");
+    expect(f.node("draft-state").textContent).toContain("Imported from ROM");
+    expect(f.project.bw2ScriptEditor!.focusEntry).toBeUndefined();
+    const line = f.editors[0].getValue().split("\n").findIndex((text) => text.includes("entry: 1")) + 1;
+    expect(f.editors[0].focusError).toHaveBeenLastCalledWith({ line, column: 1 });
+    // A draft of the user's own is kept rather than decompiled over.
+    f.editors[0].setValue(REPLACEMENT);
+    f.render();
+    expect(f.editors.at(-1)!.getValue()).toBe(REPLACEMENT);
   });
 
   it("starts with apply disabled and a compact sidebar", () => {

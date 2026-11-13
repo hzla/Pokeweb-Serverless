@@ -5,19 +5,22 @@ import { escapeHtml } from "./dom";
 import { installBw2MapPreview, type Bw2MapPreview } from "./bw2MapPreview";
 
 let dispose: (() => void) | undefined;
+/** The destination last open, so leaving the tab and coming back returns to it. */
+const selectedMemory = new WeakMap<ProjectState, number>();
 export function stopFlyDestinationEditor(): void { dispose?.(); dispose = undefined; }
 
 export function renderFlyDestinationEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void): void {
   stopFlyDestinationEditor();
-  let mapPreview: Bw2MapPreview | undefined, stopped = false;
-  dispose = () => { stopped = true; mapPreview?.destroy(); };
+  let mapPreview: Bw2MapPreview | undefined, stopped = false, selectedIndex: number | undefined;
+  dispose = () => { stopped = true; mapPreview?.destroy(); if (selectedIndex !== undefined) selectedMemory.set(project, selectedIndex); };
   let destinations: FlyDestination[];
   try { destinations = getFlyDestinations(project); }
   catch (error) {
     root.innerHTML = `<div class="fly-editor"><h1>Fly Destinations</h1><p>${escapeHtml(error instanceof Error ? error.message : "Fly destinations could not be loaded.")}</p></div>`;
     return;
   }
-  let selectedIndex = destinations.find(entry => entry.enabled)?.index ?? 0;
+  const remembered = selectedMemory.get(project);
+  selectedIndex = remembered !== undefined && destinations.some(entry => entry.index === remembered) ? remembered : destinations.find(entry => entry.enabled)?.index ?? 0;
   const status = getFlyDestinationStatus(project);
   const drafts = new Map<number, FlyDestinationEdit>();
   let search = "", filter = "all", busy = false;
