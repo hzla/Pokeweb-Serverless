@@ -3,6 +3,7 @@ import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { getRomFileBytes } from "./fileSystemModel";
 import { readItemSprite } from "./itemSpriteModel";
+import { parseNitroBackground } from "./nitroBg";
 import { parseNitroCellEffect } from "./nitroCell";
 import { decompressNitro, type RgbaImageData } from "./pokemonSpriteModel";
 import type { ProjectState } from "./projectStore";
@@ -51,6 +52,31 @@ export function ensureGen5RomBytes(project: ProjectState): Promise<boolean> {
     loadingRoms.set(project, loading);
   }
   return loading;
+}
+
+/**
+ * A Gym Leader's portrait from the badge case (ov186 badge_view.c: trainer card graphics a/0/3/9, characters 28,
+ * screen 38): eight banners across the top screen, 32 × 80 each from the second tile row. A won badge loads that
+ * leader's colours from palette file 0 (BadgeView_LoadBadgePalette), so they're drawn in those. BW2's badge case only.
+ */
+export function badgeLeaderImage(project: ProjectState, leader: number): RgbaImageData {
+  if (!(leader >= 0 && leader < 8)) throw new Error(`No Gym Leader ${leader}.`);
+  const files = archive(project, "a/0/3/9");
+  const [tiles, screen, palette] = [files[28], files[38], files[0]];
+  if (!tiles || !screen || !palette) throw new Error("The ROM has no badge case.");
+  const background = parseNitroBackground(38, screen, tiles, palette, { transparentIndexZero: true });
+  const width = 32, height = 80, left = leader * 32, top = 8;
+  const pixels = new Uint8ClampedArray(width * height * 4);
+  for (let y = 0; y < height; y++) {
+    const from = ((top + y) * background.width + left) * 4;
+    pixels.set(background.rgba.subarray(from, from + width * 4), y * width * 4);
+  }
+  return { width, height, pixels };
+}
+
+/** A NARC of the project's ROM, its files decompressed. The ROM must be loaded (ensureGen5RomBytes). */
+export function gen5RomArchive(project: ProjectState, path: string): Uint8Array[] {
+  return archive(project, path);
 }
 
 function archive(project: ProjectState, path: string): Uint8Array[] {

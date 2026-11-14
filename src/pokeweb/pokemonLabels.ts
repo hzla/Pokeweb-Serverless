@@ -2,6 +2,7 @@ import { cascadeWhitePersonalName } from "./cascadeWhiteModel";
 import { pokemonFormSpeciesLabel } from "./pokemonFormLabels";
 import { getPokemonCount, getPokemonPersonalIds, isPokemonPersonalRecord, isPokemonReferenceId } from "./pokemonModel";
 import { decodeRecord, type NarcStore, type ProjectState } from "./projectStore";
+import { isAbsentExpansionSlot } from "./speciesExpansionIds";
 import type { FieldSpec } from "./formats";
 
 const FIRST_GEN5_FORM_PERSONAL_ID = 650;
@@ -39,7 +40,8 @@ export function pokemonSpeciesNameOptions(project: ProjectState): string[] {
   const personalIds = getPokemonPersonalIds(project);
   const textCount = project.texts.banks.pokedex?.length ?? 0;
   const ids = new Set([...Array.from({ length: textCount }, (_unused, speciesId) => speciesId), ...personalIds]);
-  return [...ids].sort((a, b) => a - b).map((speciesId) => pokemonBaseSpeciesLabel(project, speciesId));
+  return [...ids].sort((a, b) => a - b).filter((speciesId) => !isAbsentExpansionSlot(project, speciesId))
+    .map((speciesId) => pokemonBaseSpeciesLabel(project, speciesId));
 }
 
 export function pokemonBaseSpeciesNameOptions(project: ProjectState): string[] {
@@ -48,7 +50,7 @@ export function pokemonBaseSpeciesNameOptions(project: ProjectState): string[] {
   const ids = new Set([...Array.from({ length: textCount }, (_unused, speciesId) => speciesId), ...personalIds]);
   const names = [...ids]
     .sort((a, b) => a - b)
-    .filter((speciesId) => !findPokemonPersonalFormOwner(project, speciesId))
+    .filter((speciesId) => !findPokemonPersonalFormOwner(project, speciesId) && !isAbsentExpansionSlot(project, speciesId))
     .map((speciesId) => pokemonBaseSpeciesLabel(project, speciesId));
   return [...new Set(names)];
 }

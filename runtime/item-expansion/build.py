@@ -26,7 +26,7 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 WORKSPACE = REPO.parent
 sys.path.insert(0, str(HERE))
-from generate import generate  # noqa: E402
+from generate import SOURCE_PATH_MAP, generate  # noqa: E402
 
 TOOLS = Path(os.environ.get(
     "ARM_TOOLCHAIN_BIN", WORKSPACE / "toolchains/arm-gnu-toolchain-14.2.rel1-darwin-arm64-arm-none-eabi/bin"))
@@ -36,7 +36,7 @@ VENDOR = HERE / "pokebw2"
 INCLUDES = [HERE / "include", HERE / "src", None, VENDOR / "include", VENDOR / "lib/nitro/include",
             VENDOR / "lib/nnsys/include", VENDOR / "lib/twl/include"]
 DEFINES = ["WHITE2", "W2U_EXPANDED_ITEMS"]
-CFLAGS = ["-std=gnu99", "-mthumb", "-mcpu=arm946e-s", "-Os", "-ffreestanding", "-fno-builtin", "-fno-short-enums",
+CFLAGS = [SOURCE_PATH_MAP, "-std=gnu99", "-mthumb", "-mcpu=arm946e-s", "-Os", "-ffreestanding", "-fno-builtin", "-fno-short-enums",
           "-ffunction-sections", "-fdata-sections", "-fno-jump-tables", "-fno-unwind-tables",
           "-fno-asynchronous-unwind-tables", "-D__thumb", "-Wall", "-Wno-unused-function", "-Wno-unused-variable",
           "-Wno-missing-braces", "-Wno-pointer-sign", "-Wno-unused-but-set-variable", "-Wno-parentheses",

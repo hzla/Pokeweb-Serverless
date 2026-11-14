@@ -1,4 +1,4 @@
-import { nationalNumberOf, speciesExpansionConfig } from "./speciesExpansionIds";
+import { isAbsentExpansionSlot, nationalNumberOf, speciesExpansionConfig } from "./speciesExpansionIds";
 import { readU16, writeU16 } from "../nds/binary";
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
 import { cascadeWhitePersonalName } from "./cascadeWhiteModel";
@@ -211,6 +211,8 @@ export function getPokemonCount(project: ProjectState): number {
 export function isPokemonPersonalRecord(project: ProjectState, id: number): boolean {
   const store = project.narcs.personal;
   if (!store || !Number.isInteger(id) || id < 0 || id >= store.rawFiles.length) return false;
+  // A species expansion slot the user left out holds a blank record, and is no species.
+  if (isAbsentExpansionSlot(project, id)) return false;
   const format = project.formats.personal;
   if (!format) return Boolean(store.rawFiles[id]);
   const recordLength = format.reduce((sum, [size]) => sum + size, 0);

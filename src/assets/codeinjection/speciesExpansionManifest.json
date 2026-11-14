@@ -4,8 +4,8 @@
     "W2": {
       "core": {
         "fileName": "SpeciesExpansionW2.dll",
-        "size": 5952,
-        "sha256": "68f6c624fe952eb0f52a0005517dbf0a0d8cb11fce074e208663c6404a306c33",
+        "size": 5968,
+        "sha256": "0f659d602fafb4f9315b00af6b0f7bbe8c4a81bce20e437549884661c48df72f",
         "targets": [
           {
             "kind": "THUMB_BRANCH",
@@ -124,7 +124,7 @@
           }
         ],
         "literals": [],
-        "configOffset": 2760
+        "configOffset": 2788
       },
       "summary": {
         "fileName": "SpeciesExpansionSummaryW2.dll",
@@ -198,7 +198,7 @@
       "dexSearch": {
         "fileName": "SpeciesExpansionDexSearchW2.dll",
         "size": 720,
-        "sha256": "0868daaf861df0ce43928dde593cb16b12365c7be58985c64ee4dee96ca8d9fd",
+        "sha256": "44b83b5d22d8df65dd1ad1852bf1d2a33673cd62c8eb1a05d79c2fa32c656f88",
         "targets": [
           {
             "kind": "THUMB_BRANCH",
@@ -230,8 +230,8 @@
     "B2": {
       "core": {
         "fileName": "SpeciesExpansionB2.dll",
-        "size": 5952,
-        "sha256": "93ec0ad49e52f7e4d2c2ea428b518f64f6239666eea44f31c01faff403e53880",
+        "size": 5968,
+        "sha256": "706dc7aeeb5dbb94f936ddccc6c4ad5b06a9788fd4dcc4f3e59f5a1c2eb6309e",
         "targets": [
           {
             "kind": "THUMB_BRANCH",
@@ -350,7 +350,7 @@
           }
         ],
         "literals": [],
-        "configOffset": 2760
+        "configOffset": 2788
       },
       "summary": {
         "fileName": "SpeciesExpansionSummaryB2.dll",
@@ -424,7 +424,7 @@
       "dexSearch": {
         "fileName": "SpeciesExpansionDexSearchB2.dll",
         "size": 720,
-        "sha256": "504e28140175b51d01e9a8bf3f95bc8f83e6e425fd0b639121fc22aca201c3f3",
+        "sha256": "98ff14efcab6d52c62569582724e28dfed881e24f776222da67aa54f8a97b076",
         "targets": [
           {
             "kind": "THUMB_BRANCH",

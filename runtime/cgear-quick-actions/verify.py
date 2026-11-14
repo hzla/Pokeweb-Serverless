@@ -3,7 +3,7 @@
 This is a CPU/ownership harness, not evidence of DS graphics or travel behavior.
 """
 
-import json, struct, subprocess, re
+import json, struct, subprocess, re, sys
 from functools import lru_cache
 from pathlib import Path
 import ndspy.rom, ndspy.codeCompression, ndspy.narc
@@ -11,6 +11,40 @@ from elftools.elf.elffile import ELFFile
 from unicorn import Uc, UC_ARCH_ARM, UC_MODE_THUMB, UC_HOOK_CODE
 from unicorn.arm_const import *
 from build import HERE, WS, BUILD, TOOLS, APIS, NATIVE, CALLS
+
+sys.path.insert(0, str(HERE.parent / "battle-type-hud"))
+from rpm_read import read_rpm, thumb_bl
+
+
+def loadItemExpansion(h):
+    """Run the bundled core, including its Thumb and ARM calls into retail."""
+    base = 0x02370000
+    module = read_rpm((HERE.parents[1] / f"src/assets/codeinjection/PokewebItemsCore{h.game}.dll").read_bytes())
+    h.write(base, module["code"] + bytes(module["bss"]))
+    for relocation in module["relocations"]:
+        symbol = module["symbols"][relocation["symbol"]]
+        target = symbol["address"] + (0 if symbol["attributes"] & 4 else base)
+        site = relocation["address"] + (base if relocation["module"] == "base" else 0)
+        kind = relocation["type"]
+        if kind == "OFFSET":
+            h.put(site, target | (symbol["type"] == 3))
+        elif kind == "FULL_COPY":
+            assert not symbol["attributes"] & 4
+            h.write(site, module["code"][symbol["address"]:symbol["address"] + symbol["size"]])
+        elif kind == "THUMB_BRANCH_LINK":
+            if symbol["type"] == 3:
+                h.write(site, thumb_bl(site, target))
+            else:
+                assert symbol["type"] == 2 and target % 4 == 0
+                offset = target - ((site + 4) & ~3)
+                assert -(1 << 22) <= offset < (1 << 22)
+                h.write(site, struct.pack("<HH", 0xf000 | (offset >> 12 & 0x7ff),
+                                          0xe800 | (offset >> 1 & 0x7fe)))
+        else:
+            assert kind == "THUMB_BRANCH" and symbol["type"] == 3 and site % 4 == 0
+            h.write(site, bytes.fromhex("004b1847") + struct.pack("<I", target | 1))
+    h.uc.ctl_flush_tb()
+
 
 REGS = [UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3]
 SAVED = [
@@ -2213,6 +2247,41 @@ for game in ("W2", "B2"):
         if selection:
             assert h.call("QaShopPrice", 0) == 1
             assert h.call("QaShopBalance", native) == 47
+    # Switch this live shop request to the actual expanded Bag DLL. Removing
+    # the last currency shifts items across the old 0x9ec snapshot boundary.
+    loadItemExpansion(h)
+    h.functions.pop(h.arm(0x2008474))
+    assert h.call(h.arm(0x2007FD0)) == 0x1080
+    expanded = bytearray(0x1080)
+    struct.pack_into("<I", expanded, 0, 2)
+    pockets = h.word(h.arm(0x20088F8))
+    pool = sorted((item for item in range(1, 639) if item != 329), key=lambda item: h.byte(pockets + item))
+    for i, item in enumerate(pool):
+        struct.pack_into("<HH", expanded, 4 + i * 4, item, 1)
+    # A Free Space bit and neighboring memory must survive rollback.
+    struct.pack_into("<I", expanded, 0x1000 + (638 // 32) * 4, 1 << (638 % 32))
+    h.write(bag, expanded + b"sentinel")
+    h.instructionLimit = 5000000
+    assert h.call("QaShopBalance", native) == 1
+    assert h.call(h.arm(0x2008474), bag, 93, 1, 21) == 1
+    h.write(native + 0x224, struct.pack("<H", 329))
+    failedAdditions = []
+    def failAfterPayment(args):
+        assert args == [bag, 329, 1, 21]
+        assert h.uc.mem_read(bag + 0x9ec, 4) != expanded[0x9ec:0x9f0]
+        failedAdditions.append(args)
+        return 0
+    h.functions[h.arm(0x2008268)] = failAfterPayment
+    h.call("QaShopPay", native, 1)
+    assert h.call("QaShopAdd", bag, 329, 1, 21) == 0
+    assert len(failedAdditions) == 1
+    assert bytes(h.uc.mem_read(bag, 0x1088)) == expanded + b"sentinel"
+    h.functions.pop(h.arm(0x2008268))
+    h.call("QaShopPay", native, 1)
+    assert h.call("QaShopAdd", bag, 329, 1, 21) == 1
+    assert h.call("QaShopBalance", native) == 0
+    assert h.call(h.arm(0x2008538), bag, 329, 21) == 1
+    assert bytes(h.uc.mem_read(bag + 0x1080, 8)) == b"sentinel"
     # An allocation failure while rebuilding the picker exits cleanly instead
     # of displaying an unrelated native text bank or retaining a locked field.
     h.fail = h.attempts + 1
@@ -2222,7 +2291,7 @@ for game in ("W2", "B2"):
     finish(e, child)
     h.call("QaCGearExit", SUB)
     assert not h.allocations
-    print(game, "System Shop picker/ownership, visibility/priority, allocation cleanup, native TM bag/payment rollback and mixed renderers passed")
+    print(game, "System Shop picker/ownership, visibility/priority, allocation cleanup, native TM payment, expanded Bag rollback and mixed renderers passed")
 
 
 # Condition filtering snapshots visible source indices so hidden rows never

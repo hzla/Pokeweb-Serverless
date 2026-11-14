@@ -18,7 +18,7 @@ Each species also gets:
   legendaries ban these too. Ultra Beasts and Paradox Pokémon are not restricted. `mythical`: left out of the
   national Pokédex's completion, as retail's mythical species are.
 
-Writes src/assets/data/speciesExpansion.json. Pokeweb numbers a species national + 37 in the ROM (687 onwards).
+Writes src/assets/data/speciesExpansion.json and its index (speciesExpansionIndex.json: national, name, family). Pokeweb numbers a species national + 37 in the ROM (687 onwards).
 """
 import argparse
 import json
@@ -29,6 +29,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[3]
 LIBRARY = REPO / "src/assets/pwan/library/manifest.json"
 OUT = REPO / "src/assets/data/speciesExpansion.json"
+INDEX = REPO / "src/assets/data/speciesExpansionIndex.json"
 FIRST, LAST = 650, 1023
 LAST_RETAIL = 649
 LAST_MOVE = 559
@@ -170,6 +171,13 @@ def main():
                                "source": "White2Upgrade data/pml; PWAN library sprites and icons", "species": out},
                               indent=1, ensure_ascii=False) + "\n")
     print(f"{len(out)} species -> {OUT.relative_to(REPO)}; without library sprites: {missing}")
+    write_index(out)
+
+
+def write_index(species):
+    """The installer card's list (bundled with the editor; the package itself is fetched on install)."""
+    INDEX.write_text(json.dumps([[s["national"], s["name"], s["family"]] for s in species], ensure_ascii=False,
+                                separators=(",", ":")) + "\n")
 
 
 METHODS = {"METHOD_FRIENDSHIP": 1, "METHOD_FRIENDSHIP_DAY": 2, "METHOD_FRIENDSHIP_NIGHT": 3, "METHOD_LEVELUP": 4,

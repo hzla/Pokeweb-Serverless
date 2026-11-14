@@ -18,14 +18,14 @@ TOOLS = Path(
     )
 )
 JAR = Path(os.environ.get("RPM_TOOL_JAR", WS / "White2Upgrade/CTRMap.jar"))
-VERSION = "0.5.9"
+VERSION = "0.5.10"
 # Every native import is an explicit US address. No reference source is a build
 # dependency. Verified early getters share addresses; the saved flag helper
 # and the later imported helpers differ by 44.
 APIS = [
     0x2048828, 0x2048800, 0x2048788, 0x204A960, 0x20136C0,
     0x204BBE4, 0x2026548, 0x2026AC0, 0x20228B4, 0x2021D54,
-    0x200C9BC, 0x2008538, 0x2008238, 0x2008268, 0x200842C, 0x20095A0,
+    0x2007FD0, 0x200C9BC, 0x2008538, 0x2008238, 0x2008268, 0x200842C, 0x20095A0,
     0x2016A98,
     0x204AC84,
     0x2042F58,

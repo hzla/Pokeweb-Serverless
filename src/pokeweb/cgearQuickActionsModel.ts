@@ -23,6 +23,7 @@ import { parseRpm, type RpmModule } from "./rpm";
 import { ensureSystemShops, hydrateSystemShops, stageSystemShops } from "./systemShopsModel";
 import { findReduxRepel, isReduxRepel } from "./cgearReduxModel";
 import { sha256Hex } from "../nds/sha256";
+import { isVerifiedItemExpansionModule } from "./itemExpansionModel";
 import followingWhite2 from "../assets/following/runtime.json";
 import followingBlack2 from "../assets/following/black2/runtime.json";
 import followingUpgrade from "../assets/following/white2upgrade/runtime.json";
@@ -103,16 +104,23 @@ function nativePatterns(project:ProjectState,rom:NintendoDSRom):Uint8Array {
   }
   return out;
 }
-function conflicts(rpm: RpmModule, profile: Profile, followingCore = false): boolean {
+// These entry points keep their calling convention when the verified
+// expanded Bag and shop renderer replace the retail implementations.
+const sharedBagEntryPoints = new Set([0x2007fd0, 0x2008238, 0x2008268, 0x200842c, 0x2008474, 0x2008538]);
+function conflicts(rpm: RpmModule, profile: Profile, followingCore: boolean, itemExpansion: boolean): boolean {
   const sharedMusic=rpm.metadata.PMCGameID===(profile.idCode==="IRDO"?"W2":"B2")
     && ["3.0.0","3.0.1"].includes(String(rpm.metadata.PMCVersion))
     && rpm.symbols.some(s=>s.nameHash===0x59ce771e&&(s.attributes&1)&&s.size===32);
   return rpm.relocations.some(({ target, sourceSymbolIndex }) => {
     const size = target.type === "FULL_COPY" ? rpm.symbols[sourceSymbolIndex]?.size ?? 0
       : target.type === "THUMB_BRANCH_SAFESTACK" ? 16 : target.type === "THUMB_BRANCH" ? 12 : 4;
+    // Verified Item Expansion replaces callees while preserving their ABI.
     // The follower wraps two event functions within this read-only signature;
     // C-Gear uses the same native event ABI but does not write at those sites.
-    return profile.signatures.some(s => !(sharedMusic&&s.label==="Shared music runtime hook")
+    return profile.signatures.some(s => !(itemExpansion && !s.patchSize && (
+      s.label === "Native bag add/remove ownership" || s.label === "Native shop balance/price renderers"
+      || (s.label === "Native API" && s.module === "ARM9" && sharedBagEntryPoints.has(s.address))))
+      && !(sharedMusic&&s.label==="Shared music runtime hook")
       && !(followingCore && s.label === "Native event allocation and destruction layout" && target.module === "ARM9"
         && target.type === "FULL_COPY" && size === 8 && [0x02016cf8, 0x02016d08].includes(target.address)) && s.module === target.module
       && target.address < s.address + s.expectedHex.length / 2 && target.address + size > s.address);
@@ -174,14 +182,16 @@ export function getCGearQuickActionsStatus(project: ProjectState): CGearQuickAct
     let bytes: Uint8Array | undefined;
     try {bytes = bytesAt(project, rom, entry.path);if (bytes) rpm = parseRpm(bytes, { allowedMagics: ["DLXF"] });} catch { /* Names still checked below. */ }
     if (!bytes && !redux && entry.path === `patches/${uiFieldCompanion(profile)?.fileName}`) continue;
-    if (!redux && rpm && matchesUiFieldCompanion(rpm, manifest.games[v], v, manifest.version)) continue;
+    if (!redux && rpm && [manifest, ...manifest.previousVersions].some(bundle =>
+      entry.path === `patches/${uiFieldCompanion(bundle.games[v])?.fileName}`
+      && matchesUiFieldCompanion(rpm!, bundle.games[v], v, bundle.version))) continue;
     if (redux && entry.target === "patches" && entry.path === redux.path && rpm && isReduxRepel(rpm)) continue;
     if (entry.target === "patches" && rpm && recognized(rpm, v)) {
-      if (rpm.metadata.PMCVersion === reduxManifest.version && !redux) return { ...state, installed: true,
+      if (String(rpm.metadata.PMCVersion).endsWith("-redux") && !redux) return { ...state, installed: true,
         message: "The Redux C-Gear adapter requires its matching Redux repel runtime. Restore that runtime before updating." };
       owned.push(entry.path);state.updateAvailable=rpm.metadata.PMCVersion!==targetVersion;
     }
-    else if ((rpm && conflicts(rpm, profile, isVerifiedFollowingCore(entry.path, bytes, v))) || /^CGearQuickActions(?:Field)?[WB]2\.dll$/iu.test(entry.fileName)) {
+    else if ((rpm && conflicts(rpm, profile, isVerifiedFollowingCore(entry.path, bytes, v), isVerifiedItemExpansionModule(entry.path, bytes, v))) || /^CGearQuickActions(?:Field)?[WB]2\.dll$/iu.test(entry.fileName)) {
       return { ...state, message: `Conflicting C-Gear, encounter, or field action code in ${entry.path}. Remove that conflicting module or use a compatible version.` };
     }
   }
@@ -367,7 +377,7 @@ export async function installCGearQuickActions(project: ProjectState, options:CG
   if (!dllResponse.ok || !archiveResponse.ok) throw new Error("Could not load the bundled Quick Actions files.");
   const [dll, graphics] = await Promise.all([dllResponse.arrayBuffer().then(b => new Uint8Array(b)), archiveResponse.arrayBuffer().then(b => new Uint8Array(b))]);
   if (await hash(dll) !== profile.sha256)
-    throw new Error(`Quick Actions bundle failed its integrity check: ${profile.fileName} does not match version ${manifest.version}. Restore or rebuild the bundled C-Gear files together.`);
+    throw new Error(`Quick Actions bundle failed its integrity check: ${profile.fileName} does not match version ${status.runtimeVersion}. Restore or rebuild the bundled C-Gear files together.`);
   if (await hash(graphics) !== manifest.archiveSha256)
     throw new Error(`Quick Actions bundle failed its integrity check: cgearQuickActions.narc does not match version ${manifest.version}. Restore or rebuild the bundled C-Gear files together.`);
   if (!recognized(parseRpm(dll, { allowedMagics: ["DLXF"] }), v) || !archiveState(graphics))

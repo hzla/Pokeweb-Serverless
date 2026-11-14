@@ -21,6 +21,8 @@ import {
 } from "../pokeweb/mastersheetDetails";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { typeNamesForProject } from "../pokeweb/constants";
+import { installMoveFrames } from "./moveFrames";
+import { installNewMark } from "./newMark";
 import { assetKeys, type AssetProvider } from "./assets";
 
 /**
@@ -86,6 +88,8 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
     </div>
   `;
   const shell = root.querySelector<HTMLElement>(".msv")!;
+  void installMoveFrames(context.project, shell);
+  void installNewMark(context.project, shell);
   const nav = root.querySelector<HTMLElement>(".msv-nav")!;
   const main = root.querySelector<HTMLElement>(".msv-main")!;
   const drawer = root.querySelector<HTMLElement>(".msv-drawer")!;
@@ -149,20 +153,23 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
     const intro = doc.pages.filter((page) => page.kind === "intro" && !page.splitId);
     nav.innerHTML = `
       ${intro.map((page) => navLink(page)).join("")}
-      ${doc.splits.map((split) => {
+      ${doc.splits.map((split, splitIndex) => {
+        // BW2 splits are the eight Gym Leaders in order: the first eight wear their badge case portraits.
+        const leader = context.project.session.baseRom === "BW2" && splitIndex < 8 ? splitIndex : undefined;
         const splitIntro = doc.pages.find((page) => page.splitId === split.id && page.kind === "intro");
         const pages = split.pageIds.map((id) => doc.pages[pageIndex.get(id)!]!);
         const open = pages.some((page) => page.id === currentPage) || splitIntro?.id === currentPage;
         return `
           <section class="msv-split${open ? " -current" : ""}">
-            <a class="msv-split__head" href="#/${esc(splitIntro?.id ?? pages[0]?.id ?? "")}"${splitIntro?.id === currentPage ? ' aria-current="page"' : ""}>
+            <a class="msv-split__head${leader === undefined ? "" : " -leader"}" href="#/${esc(splitIntro?.id ?? pages[0]?.id ?? "")}"${splitIntro?.id === currentPage ? ' aria-current="page"' : ""}>
+              ${leader === undefined ? "" : `<span class="msv-split__leader">${asset(assetKeys.leader(leader), "", "")}</span>`}
               <span class="msv-split__name">${esc(split.title)}</span>
-              ${split.detail ? `<span class="msv-split__detail">${esc(split.detail)}</span>` : ""}
             </a>
             <ul>${pages.map((page) => `<li>${navLink(page)}</li>`).join("")}</ul>
           </section>`;
       }).join("")}
     `;
+    hydrateAssets(nav);
     nav.querySelector('[aria-current="page"]')?.scrollIntoView({ block: "nearest" });
   };
 
@@ -273,8 +280,8 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
       <h3 class="msv-band -mon"><span>Wild Pokémon</span>${hatch()}</h3>
       ${uniqueNames(table.zones.map((zone) => zone.name)).length > 1 ? `<p class="msv-wild__where">Used on ${esc(uniqueNames(table.zones.map((zone) => zone.name)).join(", "))}</p>` : ""}
       <div class="msv-tabs">
-        <div class="msv-tabs__group" role="tablist" aria-label="Encounter method">${season.methods.map((entry) => `<button type="button" class="msv-hex -tab" role="tab" aria-selected="${entry.kind === method.kind}" data-method="${entry.kind}"><span>${esc(entry.label)}</span></button>`).join("")}</div>
-        ${table.seasons.length > 1 ? `<div class="msv-tabs__group" aria-label="Season">${table.seasons.map((entry) => `<button type="button" class="msv-hex -tab -season" aria-pressed="${entry.season === season.season}" data-season="${entry.season}"><span>${esc(SEASON_LABELS[entry.season] ?? entry.season)}</span></button>`).join("")}</div>` : ""}
+        <div class="msv-folders" role="tablist" aria-label="Encounter method">${season.methods.map((entry) => `<button type="button" class="msv-folder" role="tab" aria-selected="${entry.kind === method.kind}" data-method="${entry.kind}"><span>${esc(entry.label)}</span></button>`).join("")}</div>
+        ${table.seasons.length > 1 ? `<div class="msv-tabs__group -seasons" aria-label="Season">${table.seasons.map((entry) => `<button type="button" class="msv-hex -tab -season" aria-pressed="${entry.season === season.season}" data-season="${entry.season}"><span>${esc(SEASON_LABELS[entry.season] ?? entry.season)}</span></button>`).join("")}</div>` : ""}
       </div>
       <table class="msv-wild__table">
         <thead><tr><th scope="col">Pokémon</th><th scope="col">Type</th><th scope="col" class="-num">Level</th><th scope="col" class="-num">Chance</th></tr></thead>
@@ -339,12 +346,13 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
           : `<span class="msv-mon__fact msv-held -none" title="No held item"><span>No item</span></span>`}
         <span class="msv-mon__fact msv-mon__nature" title="Nature: ${esc(mon.nature)}">${esc(mon.nature)}</span>
         <ul class="msv-moves">${Array.from({ length: 4 }, (_, index) => mon.moves[index]).map((ref) => {
-          if (!ref) return `<li><span class="msv-hex -move -empty"><span>—</span></span></li>`;
+          if (!ref) return `<li><span class="msv-hex -move -empty msv-move" style="${moveFrameStyle("none")}"><span>—</span></span></li>`;
           const move = doc.moves[ref.id];
           const type = (move?.type ?? "").toLowerCase();
           const mark = highlightOf(highlights, ref.name);
           const label = mark === "new" ? "New in this hack" : mark ? "Changed in this hack" : "";
-          return `<li><button type="button" class="msv-hex -move${mark ? ` -${mark}` : ""}" style="--type:${TYPE_COLORS[type] ?? "#a0a0a0"}" data-open="move-${ref.id}" title="${esc([ref.name, move?.type, label].filter(Boolean).join(", "))}"><span>${esc(ref.name)}</span></button></li>`;
+          const typeIndex = typeIndexByName.get(normalizeName(move?.type ?? ""));
+          return `<li><button type="button" class="msv-hex -move msv-move${mark ? ` -${mark}` : ""}" style="--type:${TYPE_COLORS[type] ?? "#a0a0a0"};${moveFrameStyle(typeIndex === undefined ? "none" : String(typeIndex))}" data-open="move-${ref.id}" title="${esc([ref.name, move?.type, label].filter(Boolean).join(", "))}"><span>${esc(ref.name)}</span></button></li>`;
         }).join("")}</ul>
       </li>
     `;
@@ -457,7 +465,7 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
       return `
         <div class="msv-detail -move">
           <header class="msv-titlebar"><h2>${esc(move.name)}</h2>${hatch()}</header>
-          <p class="msv-detail__tags">${typeChips([move.type])}<span class="msv-tag">${esc(move.category)}</span>${mark ? `<span class="msv-tag -${mark}">${mark === "new" ? "New in this hack" : "Changed in this hack"}</span>` : ""}</p>
+          <p class="msv-detail__tags">${typeChips([move.type])}<span class="msv-tag">${esc(move.category)}</span>${mark === "new" ? newMark() : mark ? `<span class="msv-tag -${mark}">Changed in this hack</span>` : ""}</p>
           <dl class="msv-detail__stats">
             <div><dt>Power</dt><dd>${move.power || "—"}</dd></div>
             <div><dt>Accuracy</dt><dd>${move.accuracy ? `${move.accuracy}%` : "—"}</dd></div>
@@ -620,7 +628,7 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
     <div class="msv-detail -dex">
       <header class="msv-titlebar -run"><h2>Dex</h2>${hatch()}</header>
       <div class="msv-search msv-dex__field"><input type="search" value="${esc(dex.query)}" placeholder="Pokémon, move, item, ability or area" aria-label="Look up in the dex" autocomplete="off" spellcheck="false" /></div>
-      <div class="msv-tabs__group msv-dex__tabs" role="tablist" aria-label="What to look up">${DEX_CATEGORIES.map(([key, label]) => `<button type="button" class="msv-hex -tab" role="tab" aria-selected="${key === dex.category}" data-dex-category="${key}"><span>${esc(label)}</span></button>`).join("")}</div>
+      <div class="msv-folders msv-dex__tabs" role="tablist" aria-label="What to look up">${DEX_CATEGORIES.map(([key, label]) => `<button type="button" class="msv-folder" role="tab" aria-selected="${key === dex.category}" data-dex-category="${key}"><span>${esc(label)}</span></button>`).join("")}</div>
       <div class="msv-dex__results" aria-live="polite">${renderDexResults()}</div>
     </div>`;
 
@@ -844,6 +852,16 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
 
 function asset(key: string, alt: string, className: string): string {
   return `<span class="msv-asset ${className}"><img data-asset="${esc(key)}" alt="${esc(alt)}" decoding="async"></span>`;
+}
+
+/** The start menu's hopping red NEW!, for anything new in this hack (newMark.ts draws it from the ROM). */
+function newMark(): string {
+  return `<span class="msv-new" role="img" aria-label="New in this hack" title="New in this hack"><span>New!</span></span>`;
+}
+
+/** The move frame images for a type (moveFrames.ts sets them on the viewer once drawn). */
+function moveFrameStyle(type: string): string {
+  return `--msv-move-l:var(--msv-move-${type}-l);--msv-move-m:var(--msv-move-${type}-m);--msv-move-r:var(--msv-move-${type}-r)`;
 }
 
 /** Types as the game draws them: its own type icons from the ROM, with a coloured plate as the fallback. */

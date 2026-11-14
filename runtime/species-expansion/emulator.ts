@@ -1,6 +1,8 @@
 // Species expansion check on a clean US Black 2 / White 2 ROM (desmond, headless).
 // npx vite-node runtime/species-expansion/emulator.ts /path/clean.nds [--team TEXT] [--foe TEXT] [--frames N]
 //   [--name label] [--after STEPS] [--retail] [--drop core,summary,box] [--watch auto|ADDRESS] [--dex] [--save PATH] [--last SPECIES]
+//   [--species NATIONALS] [--add NATIONALS]
+// --species installs only those (as "650-652,658,1023"); --add installs more after the reload (and reloads again).
 //
 // Installs the species expansion (Fairy Type Support, Move Expansion and the animated sprite runtime with it), checks
 // the staged data (moved form records, names, the regional Pokédex table), exports, reloads (the numbering is read
@@ -39,19 +41,25 @@ const output = fileURLToPath(new URL(`./build/emulator/${label}/`, import.meta.u
 await mkdir(output, { recursive: true });
 globalThis.fetch = (async (input: RequestInfo | URL) => new Response(new Uint8Array(await readFile(new URL(input instanceof Request ? input.url : String(input)))))) as typeof fetch;
 
+const nationals = (text: string | undefined) => text?.split(",").flatMap((part) => {
+  const [from, to] = part.split("-").map(Number);
+  return Array.from({ length: (to ?? from!) - from! + 1 }, (_, i) => from! + i);
+});
+const chosen = nationals(option("--species"));
+const present = (national: number) => !chosen || chosen.includes(national) || (nationals(option("--add")) ?? []).includes(national);
 let project = await loadProjectFromRomBytes(new Uint8Array(await readFile(romPath)), basename(romPath), { selectedNarcs: [] });
 if (!retail) {
   const started = Date.now();
-  const report = await installSpeciesExpansion(project, (stage) => installCodeInjectionPatch(project, stage));
+  const report = await installSpeciesExpansion(project, (stage) => installCodeInjectionPatch(project, stage), chosen);
   console.log(`installed in ${Date.now() - started} ms:`, JSON.stringify({ ...report, movesLeftOut: report.movesLeftOut.length,
     movesLeftOutSample: report.movesLeftOut.slice(0, 5) }));
   const check = (where: string, p: typeof project) => {
     const personal = p.narcs.personal!;
     assert.equal(personal.rawFiles[1087]!.length, 1063 * 2, `${where}: regional Pokédex table`);
     assert.equal(Number(decodeRecord(p, "personal", 386).raw!.form_id), 1063, `${where}: Deoxys' first form`);
-    assert.equal(Number(decodeRecord(p, "personal", 687).raw!.base_hp), 56, `${where}: Chespin's HP`);
-    assert.equal(p.texts.banks.pokedex?.[687], "Chespin", `${where}: Chespin's name`);
-    assert.equal(getTextBank(p, "message_texts", 486).find((entry) => entry[0] === "0_1060")?.[1], "IRON CROWN", `${where}: upper-case name`);
+    if (present(650)) assert.equal(Number(decodeRecord(p, "personal", 687).raw!.base_hp), 56, `${where}: Chespin's HP`);
+    if (present(650)) assert.equal(p.texts.banks.pokedex?.[687], "Chespin", `${where}: Chespin's name`);
+    if (present(1023)) assert.equal(getTextBank(p, "message_texts", 486).find((entry) => entry[0] === "0_1060")?.[1], "IRON CROWN", `${where}: upper-case name`);
     assert(!usesWhite2UpgradePokemonData(p), `${where}: not read as White2Upgrade`);
     assert.equal(pokemonSpeciesLabel(p, 1063), "Deoxys-Attack", `${where}: Deoxys-Attack at 1063`);
     console.log(where, "sprites", resolvePokemonSpriteId(p, 687), resolvePokemonSpriteId(p, 1060), "Deoxys-Attack", resolvePokemonSpriteId(p, 386, 1),
@@ -68,6 +76,23 @@ if (!retail) {
   const exported = await exportModifiedRom(project);
   project = await loadProjectFromRomBytes(exported, "species-expansion.nds", { selectedNarcs: ["personal", "message_texts", "pokemon_sprites", "moves"] });
   if (!option("--drop")) check("reloaded", project);
+  const more = nationals(option("--add"));
+  if (more) {
+    const added = await installSpeciesExpansion(project, (stage) => installCodeInjectionPatch(project, stage), more);
+    console.log("added:", JSON.stringify({ ...added, movesLeftOut: added.movesLeftOut.length }));
+    project = await loadProjectFromRomBytes(await exportModifiedRom(project), "species-expansion.nds", { selectedNarcs: ["personal", "message_texts", "pokemon_sprites", "moves"] });
+    check("reloaded after --add", project);
+  }
+  if (chosen) {
+    loadCodeInjectionNarcs(project, new NintendoDSRom(project.originalRomBytes!, { fileData: "view" }), ["evolutions", "baby_species", "pokedex_search"]);
+    const evolutions = (species: number) => { const raw = decodeRecord(project, "evolutions", species).raw!; return [0, 1, 2].map((slot) => raw[`target_${slot}`]).filter(Boolean).join("/"); };
+    const babies = project.narcs.baby_species!.rawFiles;
+    const list = project.narcs.pokedex_search!.rawFiles[4]!;
+    console.log("installed", JSON.stringify(project.codeInjection!.speciesExpansion!.sprites.flatMap((sprite, i) => (sprite ? [i + 650] : []))),
+      "evolutions 687/693/694/695", [687, 693, 694, 695].map(evolutions).join(" | "),
+      "babies 693/694/695", [693, 694, 695].map((s) => babies[s]![0]! | babies[s]![1]! << 8).join(","),
+      "dex list tail", Array.from({ length: 12 }, (_, i) => list[list.length - 24 + i * 2]! | list[list.length - 23 + i * 2]! << 8).join(","));
+  }
 }
 const rom = new NintendoDSRom(project.originalRomBytes!, { fileData: "view" });
 const trainerId = Number(option("--trainer") ?? (project.session.baseRom === "BW" ? 1 : 156));

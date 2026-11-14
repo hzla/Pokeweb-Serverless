@@ -11,6 +11,22 @@ names), and checks for an Egg against 650 in many places. The added species keep
 national + 37**, so Chespin is 687 and Iron Crown 1060 (Pecharunt will be 1062). The summary's and the PC's "No." show
 the national number, and so does Pokeweb (the Pokémon editor's card and the list's tooltip).
 
+## Choosing species
+
+The card lists the package by evolution family: a user installs all of it or only some species, and can add more
+later. Every species keeps its number whether it's installed or not, so nothing is renumbered:
+
+- The first install moves the form records past all 374 slots and leaves a blank record (and empty names) in each slot
+  left out. The table's entry for a left-out slot has no sprite block (0): the runtime treats it as no species (a bad
+  species to the Pokédex, not counted for completion, banned by battle rules), and Pokeweb hides it from the editors
+  (`isAbsentExpansionSlot`, `isPokemonPersonalRecord`).
+- The Pokédex lists only installed species (a/0/9/7's national list; overlay 302's national count is 649 + installed).
+- Evolutions into a species that isn't installed wait: a later install adds them to the installed species. Eggs hatch
+  into the earliest installed species of the family.
+- A later install skips the dependencies and the structural changes, fills its slots, re-stages the runtime with the
+  new table and adds the species to the Pokédex lists. Installed species can't be removed (trainers, encounters and
+  saves may use them).
+
 ## What the installer changes
 
 - **Records at the species' own number**, as retail's are: personal, learnset and evolution records, the three name
@@ -82,7 +98,7 @@ White 2 and Black 2 (the full list to Iron Crown, entries, the search and its or
 ```sh
 python3 runtime/species-expansion/build.py [--game W2|B2] [--test]
 python3 runtime/species-expansion/content/build_content.py --w2u /path/to/White2Upgrade
-npx vite-node runtime/species-expansion/emulator.ts /path/clean.nds [--team TEXT] [--foe TEXT] [--retail] [--watch auto] [--dex] [--save PATH] [--last SPECIES]
+npx vite-node runtime/species-expansion/emulator.ts /path/clean.nds [--team TEXT] [--foe TEXT] [--retail] [--watch auto] [--dex] [--save PATH] [--last SPECIES] [--species 650-652,1023] [--add 653-655]
 npx vite-node runtime/species-expansion/sample-save.ts /path/clean-white2.nds
 ```
 
@@ -90,6 +106,9 @@ The emulator check installs on a clean ROM, checks the staged and reloaded data,
 one point short of level 16, beats a Chansey and evolves into Quilladin. Verified on White 2 and Black 2: battle
 sprites (Chespin, Iron Crown), evolution, party icon and plate, summary (No. 651, sprite, type, ability). `--dex`
 gives the save the national Pokédex with national 650-655 caught and Iron Crown seen, for checking the Pokédex.
+`--species` installs only some species and `--add` more after the reload: verified on White 2 (Chespin's line,
+Froakie, Greninja and Iron Crown, then Frogadier: Froakie's evolution came back, the list showed only those) and
+Black 2 (Chespin's line and Iron Crown, then Fennekin's line), with Chespin still evolving in battle.
 
 ## Not yet done
 

@@ -530,22 +530,34 @@
   margin-top: 0;
 }
 
-:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-ai-special {
-  margin-top: 8px;
-  padding-left: 8px;
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-ai-group {
+  margin: 8px 0 2px;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 12px;
 }
 
-:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-ai-special > summary {
+/* Folded rows: empty battle items and the rarely used AI flags, one line each until opened. */
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-fold {
+  margin-top: 4px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-fold > summary {
   padding: 4px 0;
+  color: var(--text-muted);
+  font-size: 13px;
   cursor: pointer;
 }
 
-:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-ai-special .td-checks {
-  padding-left: 0;
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-fold > summary:hover {
   color: var(--text);
-  font-size: 14px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-fold > summary .md-unit {
+  margin-left: 6px;
+}
+
+:is(#trainer-data, #facility-data, #encounter-data, #item-data) .td-fold[open] > summary {
+  margin-bottom: 4px;
 }
 
 /* Full-width sections */

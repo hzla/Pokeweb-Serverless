@@ -1,4 +1,8 @@
 import manifest from "../assets/codeinjection/itemExpansionManifest.json";
+import cgearManifest from "../assets/codeinjection/cgearQuickActionsManifest.json";
+import cgearReduxManifest from "../assets/codeinjection/cgearQuickActionsReduxManifest.json";
+import { readU16 } from "../nds/binary";
+import { sha256Hex } from "../nds/sha256";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { recordGenericChange } from "./actionChangelog";
@@ -137,6 +141,12 @@ export function getItemExpansionStatus(project: ProjectState): ItemExpansionStat
   if (detectWhite2UpgradeDlls(project) || detectBlack2UpgradeDlls(project)) {
     return { ...status, message: "White 2 Upgrade / Black 2 Upgrade manage their own items and save format." };
   }
+  if (version === "B2" || version === "W2") {
+    const oldCGear = listCodeInjectionDlls(project).some(module =>
+      /^CGearQuickActions[WB]2\.dll$/iu.test(module.fileName)
+      && module.version !== cgearManifest.version && module.version !== cgearReduxManifest.version);
+    if (oldCGear) return { ...status, message: "Update C-Gear Quick Actions before installing Item Expansion so shop purchases can use the expanded Bag." };
+  }
   status.compatible = true;
   if (project.narcs.items && project.narcs.message_texts) status.authoredExtraItems = catalogFor(project).filter((entry) => entry.authored).length;
   status.message = status.installed ? "Item expansion is installed." : "Ready to install.";
@@ -152,11 +162,6 @@ async function fetchBytes(url: URL): Promise<Uint8Array> {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Could not load ${url.pathname.split("/").pop()}.`);
   return new Uint8Array(await response.arrayBuffer());
-}
-
-async function sha256Hex(bytes: Uint8Array): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>);
-  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 /** Pads the item data archive and the four item text banks to 1,024 entries. Idempotent. */
@@ -237,6 +242,28 @@ function findTag(bytes: Uint8Array, tag: string, version: number): number {
     if (code.every((c, n) => bytes[i + n] === c) && bytes[i + 4] === version && bytes[i + 5] === 0) return i;
   }
   return -1;
+}
+
+/** Verify code and relocations while allowing the item tables rewritten by the editor. */
+export function isVerifiedItemExpansionModule(path: string, bytes: Uint8Array | undefined, version: ItemExpansionVersion): boolean {
+  if (!bytes) return false;
+  const dll = [games[version]?.dlls.core, games[version]?.dlls.field]
+    .find(part => part && path === `patches/${part.fileName}`);
+  if (!dll || bytes.length !== dll.size) return false;
+  const normalized = bytes.slice();
+  const family = familyOf(version);
+  const catalog = findTag(bytes, "PWIC", 1);
+  const extra = ITEM_CAPACITY - family.nativeCount;
+  if (catalog < 0 || readU16(bytes, catalog + 6) !== family.nativeCount || readU16(bytes, catalog + 8) !== extra
+    || catalog + 12 + extra * 8 > bytes.length) return false;
+  // Bundled tables start zeroed. Keep their headers and every other byte in the hash.
+  normalized.fill(0, catalog + 12, catalog + 12 + extra * 8);
+  if (family.pocketTable) {
+    const pockets = findTag(bytes, "PWIP", 1);
+    if (pockets < 0 || readU16(bytes, pockets + 6) !== family.nativeCount || pockets + 8 + family.nativeCount > bytes.length) return false;
+    normalized.fill(0, pockets + 8, pockets + 8 + family.nativeCount);
+  }
+  return sha256Hex(normalized) === dll.sha256;
 }
 
 function writeTables(bytes: Uint8Array, catalog: ItemCatalogEntry[], nativeCount: number, ranks?: number[], pockets?: number[]): Uint8Array {
@@ -323,7 +350,7 @@ export async function stageItemExpansion(project: ProjectState): Promise<ItemExp
   const game = games[version]!;
   const parts = await Promise.all(partsOf(version).map(async (part) => [part, await fetchBytes(DLL_URLS[version][part]!)] as const));
   for (const [part, bytes] of parts) {
-    if ((await sha256Hex(bytes)) !== game.dlls[part]!.sha256) throw new Error(`Bundled ${game.dlls[part]!.fileName} is invalid; reload Pokeweb.`);
+    if (sha256Hex(bytes) !== game.dlls[part]!.sha256) throw new Error(`Bundled ${game.dlls[part]!.fileName} is invalid; reload Pokeweb.`);
   }
   const guard = battleLogSaveGuard(version as BattleLogGuardVersion);
   const guardBytes = await fetchBytes(new URL(guard.url));

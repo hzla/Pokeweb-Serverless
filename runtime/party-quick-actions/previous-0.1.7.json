@@ -1,0 +1,189 @@
+{
+  "version": "0.1.7",
+  "archivePath": "party-tools/ui.narc",
+  "games": {
+    "W2": {
+      "idCode": "IRDO",
+      "fileName": "PartyQuickActionsW2.dll",
+      "sha256": "49c611fdde3bba93b5d949a27154913a4c6195dcef9e55347e2ed8f8d34bf34c",
+      "codeFingerprint": "b1a2aa08",
+      "bssSize": 480,
+      "signatures": [
+        {
+          "label": "PaRequest",
+          "module": "12",
+          "address": 34977850,
+          "expectedHex": "d9f621fa",
+          "patchSize": 4
+        },
+        {
+          "label": "PaInit",
+          "module": "165",
+          "address": 35232382,
+          "expectedHex": "00f0a3f8",
+          "patchSize": 4
+        },
+        {
+          "label": "PaEnd",
+          "module": "165",
+          "address": 35232432,
+          "expectedHex": "00f09af9",
+          "patchSize": 4
+        },
+        {
+          "label": "PaTick",
+          "module": "165",
+          "address": 35232692,
+          "expectedHex": "00f08cf9",
+          "patchSize": 4
+        },
+        {
+          "label": "PaIdle",
+          "module": "165",
+          "address": 35233600,
+          "expectedHex": "01f002fe",
+          "patchSize": 4
+        },
+        {
+          "label": "PaPrompt",
+          "module": "165",
+          "address": 35238478,
+          "expectedHex": "04f017fb",
+          "patchSize": 4
+        },
+        {
+          "label": "PaSubtract",
+          "module": "165",
+          "address": 35238976,
+          "expectedHex": "03f022f9",
+          "patchSize": 4
+        },
+        {
+          "label": "PaPartyReturn",
+          "module": "12",
+          "address": 35048420,
+          "expectedHex": "0dba1502",
+          "patchSize": 4
+        },
+        {
+          "label": "PaEvolutionReturn",
+          "module": "12",
+          "address": 35048684,
+          "expectedHex": "e5c31502",
+          "patchSize": 4
+        }
+      ],
+      "exports": [],
+      "field": {
+        "fileName": "PartyQuickActionsFieldW2.dll",
+        "sha256": "6ecebf0abc67c7c40715781fb4eca49109c22e2d5d091f9edda300e79965faaa",
+        "codeFingerprint": "e71971e8",
+        "bssSize": 12,
+        "exports": [
+          "PokewebPartyFlagRequest",
+          "PokewebPartyFlagWork",
+          "PokewebPartyEvolutionOwner"
+        ]
+      }
+    },
+    "B2": {
+      "idCode": "IREO",
+      "fileName": "PartyQuickActionsB2.dll",
+      "sha256": "f6b3e19acf5ae2c82bff0ec8dd30caeb48b73a354037f79a4b7a6331959f7171",
+      "codeFingerprint": "cc32cdb2",
+      "bssSize": 480,
+      "signatures": [
+        {
+          "label": "PaRequest",
+          "module": "12",
+          "address": 34977786,
+          "expectedHex": "d9f62bfa",
+          "patchSize": 4
+        },
+        {
+          "label": "PaInit",
+          "module": "165",
+          "address": 35232318,
+          "expectedHex": "00f0a3f8",
+          "patchSize": 4
+        },
+        {
+          "label": "PaEnd",
+          "module": "165",
+          "address": 35232368,
+          "expectedHex": "00f09af9",
+          "patchSize": 4
+        },
+        {
+          "label": "PaTick",
+          "module": "165",
+          "address": 35232628,
+          "expectedHex": "00f08cf9",
+          "patchSize": 4
+        },
+        {
+          "label": "PaIdle",
+          "module": "165",
+          "address": 35233536,
+          "expectedHex": "01f002fe",
+          "patchSize": 4
+        },
+        {
+          "label": "PaPrompt",
+          "module": "165",
+          "address": 35238414,
+          "expectedHex": "04f017fb",
+          "patchSize": 4
+        },
+        {
+          "label": "PaSubtract",
+          "module": "165",
+          "address": 35238912,
+          "expectedHex": "03f022f9",
+          "patchSize": 4
+        },
+        {
+          "label": "PaPartyReturn",
+          "module": "12",
+          "address": 35048356,
+          "expectedHex": "cdb91502",
+          "patchSize": 4
+        },
+        {
+          "label": "PaEvolutionReturn",
+          "module": "12",
+          "address": 35048620,
+          "expectedHex": "a5c31502",
+          "patchSize": 4
+        }
+      ],
+      "exports": [],
+      "field": {
+        "fileName": "PartyQuickActionsFieldB2.dll",
+        "sha256": "f47a58c193ab13c7e4dd0d746685a48b04f5110af080a5f1b4483f2dca9a8ddb",
+        "codeFingerprint": "f974c50d",
+        "bssSize": 12,
+        "exports": [
+          "PokewebPartyFlagRequest",
+          "PokewebPartyFlagWork",
+          "PokewebPartyEvolutionOwner"
+        ]
+      }
+    }
+  },
+  "archiveSha256": "1e233bcb5d041acfd29885867f21c0104a988ceba0db3ec9258c38872764b77b",
+  "graphicsFingerprints": [
+    "00869def",
+    "41739f66",
+    "2664f6d5",
+    "4f35b0fc",
+    "cb9e5c70",
+    "e9a86eae",
+    "e74452dd",
+    "365bcef0",
+    "ce7b2a02",
+    "e4ae2260",
+    "da76f076",
+    "233a7573"
+  ]
+}

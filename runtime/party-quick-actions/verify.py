@@ -39,7 +39,7 @@ class Harness:
   add(0x2199bc8,lambda x:1);add(0x2199ed0,lambda x:0);add(0x2199de8,lambda x:1);add(0x219bb48,self.original)
   self.sounds=[];self.paletteUploads=[];self.printed=[];self.nickname='Oshawott'
   self.members={};self.writes=[]
-  self.hideFlag=0;self.sectionFlags=[0]*5;self.configVersion=3;self.flagReads=[];self.nativePrompts=0
+  self.hideFlag=0;self.sectionFlags=[0]*5;self.configVersion=3 if self.bw1 else 4;self.candyItem=622;self.flagReads=[];self.nativePrompts=0
   self.flagWork=W+0x3000
   add(0x20191d8,self.flag);add(0x219f880,self.prompt)
   add(0x2017394,lambda x:self.flagWork);add(0x2034c80,lambda x:REQ)
@@ -89,7 +89,7 @@ class Harness:
  def flag(self,a):
   assert a[0]==self.flagWork and 1<=a[1]<=self.maxFlag
   self.flagReads.append(a[1]);return bool(self.val(self.flagWork+self.flagOffset+(a[1]>>3),1)&(1<<(a[1]&7)))
- def ownsCandy(self,a):assert a==[W+0x1400,622,1,23];return self.hasCandy
+ def ownsCandy(self,a):assert a==[W+0x1400,self.candyItem,1,23];return self.hasCandy
  def showActor(self,a):self.actorVisibility[a[0]]=bool(a[1])
  def createActor(self,a):
   p=self.allocate([0,228]);data=self.val(self.u.reg_read(UC_ARM_REG_SP))
@@ -142,6 +142,7 @@ class Harness:
   sum=0x51415050^int(self.enabled)^self.hideFlag
   for flag in self.sectionFlags:sum^=flag
   config=struct.pack('<11I',0x51415050,3,44,int(self.enabled),self.hideFlag,*self.sectionFlags,sum) if self.configVersion==3 else struct.pack('<6I',0x51415050,2,24,int(self.enabled),self.hideFlag,0x51415050^int(self.enabled)^self.hideFlag) if self.configVersion==2 else struct.pack('<5I',0x51415050,1,20,int(self.enabled),0x51415050^int(self.enabled))
+  if self.configVersion==4:config=struct.pack('<12I',0x51415050,4,48,int(self.enabled),self.hideFlag,*self.sectionFlags,self.candyItem,sum^self.candyItem)
   data=self.archive.files[a[1]] if a[1] else config
   p=self.allocate([0,len(data)])
   if p:self.u.mem_write(p,bytes(data))
@@ -159,6 +160,7 @@ class Harness:
   self.put(self.session,0x53504150);self.put(self.session+4,W);self.put(self.session+76,0xffffffff);self.put(self.session+80,0xffffffff);self.put(self.session+334,255,1)
   for i in range(8):self.put(self.session+44+i*4,0xffffffff)
   self.put(self.session+444,0xffffffff)
+  if not self.bw1:self.put(self.session+474,self.candyItem,2)
  def art(self,i):return self.val(self.session+(440 if i==8 else 84+i*4))
  def frame(self,touch=None,keys=0,pressed=0,raw=False):
   self.touch=touch;self.keys=keys;self.pressed=pressed;self.call('PaTick',W)
@@ -428,6 +430,18 @@ def main(games=('W2','B2')):
   h.call('PaEnd',W);assert not(h.owned or h.charHandles or h.palHandles or h.animHandles),'section toolbar leaked resources'
   h=Harness(g);h.sectionFlags=[0,0,0,0,h.maxFlag];h.call('PaInit',W)
   assert not h.val(h.session+4) and not h.owned and h.nativePrompts,'section flags without request ownership must retain native UI'
+  if not a.bw1:
+   for item in (113,638):
+    h=Harness(g);h.candyItem=item;h.hasCandy=False;h.call('PaInit',W)
+    assert h.val(h.session+468,2)&1==0
+    h.hasCandy=True;h.frame(raw=True)
+    assert h.val(h.session+468,2)&1
+    h.frame((13,180),raw=True)
+    assert h.effects==1 and h.val(REQ+0x44)==5 and h.val(REQ+0x54,2)==item
+    h.call('PaEnd',W);assert not h.owned
+   for item in (0,50,639):
+    h=Harness(g);h.candyItem=item;h.call('PaInit',W)
+    assert not h.val(h.session+4) and not h.owned
   h=Harness(g);h.seed();h.frame((18,180));h.put(REQ+0x50,5);h.call('PaEnd',W)
   field=W+0x1000;h.call('PaPartyReturn',field,REQ);assert h.call('PaEvolutionReturn',field)==4 and h.val(field+4)==0 and h.val(field+12)==0
   if h.bw1:

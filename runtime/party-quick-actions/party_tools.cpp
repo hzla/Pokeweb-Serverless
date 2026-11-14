@@ -9,7 +9,11 @@ template<class F>F api(u32 a){return reinterpret_cast<F>(nativeAddress(a)|1);}
 template<class F>F ov(u32 a){return reinterpret_cast<F>(overlayAddress(a)|1);}
 #endif
 constexpr u32 INVALID=0xffffffff;
-struct Session {u32 magic;void* work;void* unit;void* actors[8];u32 chars[8],palette,animation;void* art[8];void* task;u8 held,edge,hp,slot,candy,visible,pressed,error;u16 repeat;u8 dirty,nativePrompt;u16 oldItem;u32 oldMode;void* request;u16 frame[92];u8 frameSaved,frameHidden,hasCandy,nav,navItem,reserved,border,confirm;void* confirmText;u16 colors[48];void* restoreActor;void* restoreArt;u32 restoreChar;u32 sectionFlags[5];u16 mask;u8 visibleCount,layoutReady,layoutChanged;} session;
+struct Session {u32 magic;void* work;void* unit;void* actors[8];u32 chars[8],palette,animation;void* art[8];void* task;u8 held,edge,hp,slot,candy,visible,pressed,error;u16 repeat;u8 dirty,nativePrompt;u16 oldItem;u32 oldMode;void* request;u16 frame[92];u8 frameSaved,frameHidden,hasCandy,nav,navItem,reserved,border,confirm;void* confirmText;u16 colors[48];void* restoreActor;void* restoreArt;u32 restoreChar;u32 sectionFlags[5];u16 mask;u8 visibleCount,layoutReady,layoutChanged;
+#if !defined(GAME_B) && !defined(GAME_W)
+ u16 candyItem;
+#endif
+} session;
 static_assert(__builtin_offsetof(Session,hp)==122);
 static_assert(__builtin_offsetof(Session,hasCandy)==330);
 static_assert(__builtin_offsetof(Session,confirmText)==336);
@@ -18,6 +22,13 @@ static_assert(__builtin_offsetof(Session,restoreActor)==436);
 static_assert(__builtin_offsetof(Session,sectionFlags)==448);
 static_assert(__builtin_offsetof(Session,mask)==468);
 constexpr u32 BUTTONS=9,RESTORE=8;
+u16 candyItemId(){
+#if defined(GAME_B) || defined(GAME_W)
+ return 622;
+#else
+ return session.candyItem;
+#endif
+}
 void*& actor(u32 i){return i==RESTORE?session.restoreActor:session.actors[i];}
 void*& art(u32 i){return i==RESTORE?session.restoreArt:session.art[i];}
 u32& character(u32 i){return i==RESTORE?session.restoreChar:session.chars[i];}
@@ -58,7 +69,7 @@ void* fallbackWork;
 void clear(void* p,u32 n){for(u32 i=0;i<n;i++)at<u8>(p,i)=0;}
 void* request(void* w){return at<void*>(w,Profile::Request);}
 bool eligible(void* w){return w&&at<u32>(request(w),Profile::Mode)==0;}
-bool ownsCandy(void* w){void* bag=at<void*>(request(w),4);return bag&&api<u32(*)(void*,u32,u32,u32)>(0x2008474)(bag,622,1,at<u16>(w,0));}
+bool ownsCandy(void* w){void* bag=at<void*>(request(w),4);return bag&&api<u32(*)(void*,u32,u32,u32)>(0x2008474)(bag,candyItemId(),1,at<u16>(w,0));}
 u32 get(void* p,u32 f){return api<u32(*)(void*,u32,void*)>(0x201cd24)(p,f,nullptr);}
 void* selected(void* w,u32 slot){void* p=at<void*>(request(w),0);if(slot>=6||slot>=api<u32(*)(void*)>(0x201fe24)(p))return nullptr;void* mon=api<void*(*)(void*,u32)>(0x201ff34)(p,slot);return get(mon,76)?nullptr:mon;}
 void hideCancel(void* w){for(u32 offset=Profile::CancelFirst;offset<=Profile::CancelLast;offset+=4){void* actor=at<void*>(w,offset);if(actor)api<void(*)(void*,u32)>(0x204c150)(actor,0);}}
@@ -120,8 +131,18 @@ bool configuredOn(void* w,void* c){
  if(!c||at<u32>(c,0)!=0x51415050||at<u32>(c,12)!=1)return false;
  if(at<u32>(c,4)==1)return at<u32>(c,8)==20&&at<u32>(c,16)==(0x51415050^1);
  u32 version=at<u32>(c,4),size=at<u32>(c,8);
+#if defined(GAME_B) || defined(GAME_W)
  if((version!=2||size!=24)&&(version!=3||size!=44))return false;
  u32 sum=0x51415050^1,flags=version==3?6:1;bool owned=false;
+#else
+ if((version!=2||size!=24)&&(version!=3||size!=44)&&(version!=4||size!=48))return false;
+ u32 sum=0x51415050^1,flags=version>=3?6:1;bool owned=false;
+ if(version==4){
+  u32 item=at<u32>(c,40);
+  if(!item||item==50||item>638)return false;
+  sum^=item;
+ }
+#endif
  for(u32 i=0;i<flags;i++){u32 flag=at<u32>(c,16+i*4);if(flag>Profile::MaxSaveFlag)return false;sum^=flag;owned|=flag!=0;}
  if(at<u32>(c,size-4)!=sum)return false;
  if(!owned)return true;
@@ -172,7 +193,15 @@ void attach(void* w){
  if(!api<u32(*)(void*,const char*)>(0x2070ecc)(h,"rom:/party-tools/ui.narc")){api<void(*)(void*)>(0x203a278)(h);dispose();return;}
  api<void(*)(void*)>(0x204aac8)(h);
  void* config=api<void*(*)(void*,u32,u32)>(0x204ab48)(h,0,heap);bool on=configuredOn(w,config);
+#if defined(GAME_B) || defined(GAME_W)
  if(on&&at<u32>(config,4)==3)for(u32 i=0;i<5;i++)session.sectionFlags[i]=at<u32>(config,20+i*4);
+#else
+ if(on){
+  u32 version=at<u32>(config,4);
+  session.candyItem=version==4?at<u32>(config,40):622;
+  if(version>=3)for(u32 i=0;i<5;i++)session.sectionFlags[i]=at<u32>(config,20+i*4);
+ }
+#endif
  if(config)api<void(*)(void*)>(0x203a278)(config);
  if(on)refreshLayout(w);
  #if defined(GAME_B) || defined(GAME_W)
@@ -214,7 +243,7 @@ void candy(void* w,void* mon,u32 slot){
  if(!ownsCandy(w)||get(mon,158)>=100)return;
  promptHidden(w,false);
  session.request=request(w);session.oldMode=at<u32>(session.request,Profile::Mode);session.oldItem=at<u16>(session.request,Profile::Item);session.candy=1;
- at<u32>(session.request,Profile::Mode)=5;at<u16>(session.request,Profile::Item)=622;at<u32>(session.request,Profile::Selected)=slot;at<void*>(w,Profile::Pokemon)=mon;
+ at<u32>(session.request,Profile::Mode)=5;at<u16>(session.request,Profile::Item)=candyItemId();at<u32>(session.request,Profile::Selected)=slot;at<void*>(w,Profile::Pokemon)=mon;
  // Enter the native medicine route after its selection check. It owns level
  // changes, stats, friendship, learned moves, messages and evolution checks.
  ov<void(*)(void*)>(0x219b30c)(w);

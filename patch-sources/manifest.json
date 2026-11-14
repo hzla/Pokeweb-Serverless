@@ -6474,14 +6474,22 @@
       "artifacts": [
         {
           "name": "PartyQuickActionsB2.dll",
-          "sha256": "eb7318758b8d8386b2a588ab60143323a8f8501755c84b39a015cb6a383a1cdc"
+          "sha256": "563057652590bcbabea2a5a89055ca66bc0f65e1759f123799453a9b2178f8ac"
         },
         {
           "name": "PartyQuickActionsW2.dll",
-          "sha256": "054b8a3f3dcff37cfb5a21ae27a13930097a892278c9377097ca8befac140a70"
+          "sha256": "ee7c2d63c68e2e2540535b948c3822934a326396032bd46911549732a01e1c8c"
+        },
+        {
+          "name": "PartyQuickActionsFieldB2.dll",
+          "sha256": "2922c97f1cf5f1fb1fc68baaded058fd66df6c2323189df55c0208a5acc135fc"
+        },
+        {
+          "name": "PartyQuickActionsFieldW2.dll",
+          "sha256": "ab917e802329af52f7b860a924f25b54c5d1b4d117c1678d56bf9e3b2c95f1df"
         }
       ],
-      "note": "Independent English revision-0 BW2 PMC toolbar 0.1.6 with nine transparent bottom-bar controls, native Full Restore art with cancellable confirmation before healing non-fainted party members with the potion recovery sound, optional read-only whole-toolbar and five-section saved-flag gating, compacted left-aligned icons with matching touch/navigation, and native menu fallback, confirmed XP edging and nickname acknowledgement, L/A navigation with the native party movement sound, a one-pixel selector following the native fade, status toggles, required Infinite Candy and in-place migration from 0.1.0/0.1.1/0.1.2/0.1.3/0.1.4/0.1.5. Retail profile, compiled CPU, installer and DS emulator evidence are recorded separately. Native graphics are extracted by the builder; source exports omit ROMs, saves and emulator captures. Hardware and general hack compatibility remain unverified.",
+      "note": "BW2 Party Toolbar uses the verified Infinite Candy item ID stored in its private configuration. The installer migrates previous versions and retains saved visibility settings. The BW1 toolbar uses the separate item 622 release.",
       "status": "source-available",
       "files": [
         {
@@ -6491,7 +6499,7 @@
             "path": "runtime/party-quick-actions/build.py"
           },
           "kind": "build-tool",
-          "sha256": "62b887ee222dff9ebe55bdf139b83becda9992e3a464ececc5153cc357f2ba2f",
+          "sha256": "e36b905966c944e517eb87d6a4d216d6a247807e0eea476bb79ea61f461bb2dd",
           "normalized": false
         },
         {
@@ -6501,7 +6509,7 @@
             "path": "runtime/party-quick-actions/emulator.ts"
           },
           "kind": "build-tool",
-          "sha256": "93bc3af7558e97b96c3e3326dd9a8fdf48b42492f7793057679e06a434df9a50",
+          "sha256": "8c0d3fdfe13e87a4da270318981746f5baf43f87aad4bbe04622fa9c10cc701a",
           "normalized": false
         },
         {
@@ -6511,7 +6519,7 @@
             "path": "runtime/party-quick-actions/party_tools.cpp"
           },
           "kind": "source",
-          "sha256": "f5d2ad8a8db6a86be79f6401578d7b3d19932d4474c5e1922a4ad3f6d5a4ed99",
+          "sha256": "a91782f4fd2cc7e03b07fea26c74e09b1779fcfe5fb51af25ee0bfef760ab06e",
           "normalized": false
         },
         {
@@ -6581,7 +6589,7 @@
             "path": "runtime/party-quick-actions/README.md"
           },
           "kind": "documentation",
-          "sha256": "33e306e8349a7b531555babe220f9b7da74b416228c08e2b7219135b86e5c7e1",
+          "sha256": "4103bc4632e7450d4c57e16f46c6271c3bc6ce41f4338fe2fd883c4c67f59491",
           "normalized": false
         },
         {
@@ -6591,7 +6599,7 @@
             "path": "runtime/party-quick-actions/verify.py"
           },
           "kind": "test",
-          "sha256": "9a460aa551cba318d84136dad6928858839f81ec381d9fab6d5d52ea0b48a2a7",
+          "sha256": "2001e23015d1e11476e4633242b37673c095e1f66a6af3a8bcfcee877c12013d",
           "normalized": false
         },
         {
@@ -6601,7 +6609,7 @@
             "path": "src/pokeweb/partyQuickActionsModel.ts"
           },
           "kind": "support-only",
-          "sha256": "a17b4a3b0358a64728431a55cd5baf3745d7f5a8c37a52ba56bf10e862537978",
+          "sha256": "cc3f47f56f646c00888ba4063c30fae21f719556c4eff0440b696c505ff4f4fb",
           "normalized": false
         },
         {
@@ -6611,7 +6619,7 @@
             "path": "src/test/partyQuickActionsModel.test.ts"
           },
           "kind": "test",
-          "sha256": "124eea10968032bbfb2d70b8bc30a5ed422ecd9ccda4c01e900c704bb21d52ec",
+          "sha256": "6ab0cf0c11bbc570a0fb112dbb1d68c8ccc11d3e7c6e399c16ab32643604d952",
           "normalized": false
         },
         {
@@ -6621,7 +6629,17 @@
             "path": "src/assets/codeinjection/partyQuickActionsManifest.json"
           },
           "kind": "metadata",
-          "sha256": "702e35e0fdd93d2cd79116b56c3d1e829641f905ced3f2f65578697e960a8baa",
+          "sha256": "78d4cf4acd266c06a48065e8f3773562b0dea9043412b51d6edba4da2ab4a774",
+          "normalized": false
+        },
+        {
+          "path": "party-quick-actions/previous-0.1.7.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/party-quick-actions/previous-0.1.7.json"
+          },
+          "kind": "metadata",
+          "sha256": "ecc7d8464f9c50ee164ba8c22e9a85b3d832568b47ab0d08eb91e3d03a87156c",
           "normalized": false
         }
       ]
@@ -6632,15 +6650,15 @@
       "artifacts": [
         {
           "name": "CGearQuickActionsB2.dll",
-          "sha256": "2615424cedd3f4cee2ea3ed533e19dfd442236269e7ea38f34f471387eae098f"
+          "sha256": "4061b492ed3590ef25cc461f4d9edeea02a04e152672986d0aeceb71bfeda567"
         },
         {
           "name": "CGearQuickActionsW2.dll",
-          "sha256": "0a594464bad3c2d3aee3e86d49f49f5f66861a46721541f4b39671aaa617f86e"
+          "sha256": "ae0c4bab8a1ce089a65beaf4b97413a69601f5a5dd840d7d3d51656d81c8f0ac"
         },
         {
           "name": "CGearQuickActionsReduxW2.dll",
-          "sha256": "facc28310f107d904ecd213c1f9e1b210bf09700d0c62155be8cfed495004521"
+          "sha256": "e2240b2d20eb699d4f7aa48d4d22801079a24fb2c60368c7d9b5333f443acd2e"
         },
         {
           "name": "CGearQuickActionsB.dll",
@@ -6649,9 +6667,17 @@
         {
           "name": "CGearQuickActionsW.dll",
           "sha256": "d67c6328efd3bcd065db64ec21764467d10ce2b068289e0cbc9e5762b9d2bd91"
+        },
+        {
+          "name": "CGearQuickActionsFieldB2.dll",
+          "sha256": "ad1397c5e5a933f686ac99a3ffec257e4aa325cd0e6d394e65c4e47b131f8a9f"
+        },
+        {
+          "name": "CGearQuickActionsFieldW2.dll",
+          "sha256": "0afda19f206493d0a2b78e74cf5e86b040f9a994ac996419f3ee8f8d16474137"
         }
       ],
-      "note": "BW2 0.5.8 includes the System Shop picker with optional native Pokémart visibility, custom inventories/prices, stackable-item currencies, native TM rendering, currency balance icon and optional per-item badge/save-flag conditions. Pokémart is included by default in existing projects. Inventory defaults remain unrestricted, and visible stock/prices share a stable row map. BW1 remains 0.1.3-bw1 without System Shop. Both retain HM02-gated native Fly without a learned-move requirement. BW2 retains the outer-rim 12-degree skin dial and moving marker while hiding the digital clock and chevron decal; shared geometry and compiled graphics are inventoried here. It retains the optional Nuzlocke snapshot provider to the Pokenav application action; its shared viewer sources are inventoried separately. Bundle hashes/versions are tested together. Source availability does not establish hardware acceptance.",
+      "note": "BW2 C-Gear Quick Actions supports the bundled Item Expansion runtime and uses the active Bag size for shop purchase rollback. BW1 supports the bundled expanded Bag ownership API. C-Gear configurations retain their saved layouts and shop settings through updates.",
       "status": "source-available",
       "files": [
         {
@@ -6671,7 +6697,7 @@
             "path": "runtime/cgear-quick-actions/build_redux.py"
           },
           "kind": "build-tool",
-          "sha256": "21ee2fe0ec69c16f3ef096e9563884c36e7d3dc59498c6579c1972c54bdb79a3",
+          "sha256": "aa1bf2649719a7578dc00189d67d4a21241e4041693b2055b823e74554ca469b",
           "normalized": false
         },
         {
@@ -6681,7 +6707,7 @@
             "path": "runtime/cgear-quick-actions/build.py"
           },
           "kind": "build-tool",
-          "sha256": "81e9f45fd5c1e86990c442648b1d5399f5efd977efb1e4047e90cb07a1a23f07",
+          "sha256": "07b6a7d8dc3f72f489c115da35674ccc5ab9d1b187e0d2af6e0099a2d7690004",
           "normalized": false
         },
         {
@@ -6741,7 +6767,7 @@
             "path": "runtime/cgear-quick-actions/emulator.ts"
           },
           "kind": "build-tool",
-          "sha256": "4c07cf234f5db1015766b5e5694a60ec5d6b3a3a4e98cdd09a2a7f8dc5444831",
+          "sha256": "70678fff433822d8e65db3c1f64feedc49609250ba773eaef7d0ce41c1b20dd7",
           "normalized": false
         },
         {
@@ -6761,7 +6787,7 @@
             "path": "runtime/cgear-quick-actions/native_addresses.h"
           },
           "kind": "source",
-          "sha256": "aba125b7471df481d8448e5080090f4bbc2e928f9bfdfa254430624572317cde",
+          "sha256": "186b60fa097083cd5ad769c601808b2874535cddfaac872a70589ce2ba6f9dfe",
           "normalized": false
         },
         {
@@ -6791,7 +6817,7 @@
             "path": "runtime/cgear-quick-actions/previous.json"
           },
           "kind": "metadata",
-          "sha256": "e18b7b0c4abd78b9baa875542dbd012af543c987d40cba4aafab3ae92fa2e0d3",
+          "sha256": "34ad9c95b62727cdcb7fb64c5f7c0f8ae070c99aafb139841216273abde46ade",
           "normalized": false
         },
         {
@@ -6821,7 +6847,7 @@
             "path": "runtime/cgear-quick-actions/quick_actions.cpp"
           },
           "kind": "source",
-          "sha256": "fc2ec2f45c6b228f39be2fe8ff069f63ae1154b0d1dd0912d5cf2cd5f89bb4e9",
+          "sha256": "b25fdf8c8c9ec4d7adcf8f2439b52fd7ad08049e1be38c4f6b79ea1429744550",
           "normalized": false
         },
         {
@@ -6831,7 +6857,7 @@
             "path": "runtime/cgear-quick-actions/README.md"
           },
           "kind": "documentation",
-          "sha256": "6ac0d9e362962cb0f9c7373316c33a4b9081246432f5d05bdf21e3ca1236cdcf",
+          "sha256": "f84a37d612bab03428146f29bd6caade903f64d83a399c32ccc29ebdfd28323b",
           "normalized": false
         },
         {
@@ -6841,7 +6867,7 @@
             "path": "runtime/cgear-quick-actions/redux-profile.json"
           },
           "kind": "metadata",
-          "sha256": "476cc516ba928f1a2bf92b9ef3cea37cba7d6a07469114a04e3e0c58d26fa1a9",
+          "sha256": "6eb44b6a98eb6c838cfc152bf043e21ccf341ba9bddd7613b22c1355f5de9c37",
           "normalized": false
         },
         {
@@ -6901,7 +6927,7 @@
             "path": "runtime/cgear-quick-actions/verify.py"
           },
           "kind": "test",
-          "sha256": "b91b2e05c47eeb8bdb9dda9f971bbcf5e21f892a66a952573c3af98dbf1e6e55",
+          "sha256": "567af463084a082ad16d9f99f9e9c4a26f0243f6da6951d4f9e106d8da801dfd",
           "normalized": false
         },
         {
@@ -6951,7 +6977,7 @@
             "path": "runtime/cgear-quick-actions/bw2/requests.inc"
           },
           "kind": "source",
-          "sha256": "cb9f971a0e7e9138663efd02e6a4851ea3d5b473ab7264fc6c99843a5661144a",
+          "sha256": "54593b152e6b2e8dc2390b99321c29cbc93a82e857bd7059df435ffc01bb9c95",
           "normalized": false
         },
         {
@@ -6971,7 +6997,7 @@
             "path": "runtime/cgear-quick-actions/bw2/session.inc"
           },
           "kind": "source",
-          "sha256": "1eda86e60f9939ce4d577776eb8ca8b4e3e1a668e75a008ce08b9cc3aa3d38f1",
+          "sha256": "dfaabfa57979e59bfc83cd1e7e957df44c9a39444adba82613e1c2a665d65e3f",
           "normalized": false
         },
         {
@@ -6981,7 +7007,7 @@
             "path": "runtime/cgear-quick-actions/bw2/shop.inc"
           },
           "kind": "source",
-          "sha256": "74fda3cb52c30e35c4fb72602fee9bd301b6c692e19d36dc24a3d990d4894ba0",
+          "sha256": "3c45e3873683745350752ffd81da3898e80740ec7e63088ab51435af68a8a004",
           "normalized": false
         },
         {
@@ -7211,7 +7237,7 @@
             "path": "src/test/cgearQuickActionsModel.test.ts"
           },
           "kind": "test",
-          "sha256": "36cc20ff66c962f676beea93757d278abed7852a1607c530b983d5ce7de3fccb",
+          "sha256": "46587d50498c7619bd25b9185bf56867b4bc2ba0f1e524ac549885e7d89e7b34",
           "normalized": false
         },
         {
@@ -7221,7 +7247,7 @@
             "path": "src/test/cgearQuickActionsBw1.test.ts"
           },
           "kind": "test",
-          "sha256": "b1c435033b58e4e6947505784a7c9fa2017e52bd417f9a59585707557c4f928b",
+          "sha256": "7e264b30343cbe72bc70cafc34f79fc38c0da27f62a7c03e4d74e77d0d85f32e",
           "normalized": false
         },
         {
@@ -7231,7 +7257,7 @@
             "path": "src/pokeweb/cgearQuickActionsModel.ts"
           },
           "kind": "support-only",
-          "sha256": "832697b3df947d09ac0bc1518e656c097c6e76359103b95fe121cd417f0d1c9f",
+          "sha256": "6e5a8acf8e5309f2b74fd523a81a5c77d9b0ad67e8f5938efe809ebea2ae01a8",
           "normalized": false
         },
         {
@@ -7321,7 +7347,7 @@
             "path": "src/pokeweb/tmModel.ts"
           },
           "kind": "support-only",
-          "sha256": "01ea54aaab2519cb779577907905a60843d620af3caf38f781d72af703511dd6",
+          "sha256": "d9e18df0a988ea8ec6da56edc87afe1f12309abafe822f315bf465a71dbcf171",
           "normalized": false
         },
         {
@@ -7361,7 +7387,7 @@
             "path": "src/test/cgearBundle.test.ts"
           },
           "kind": "test",
-          "sha256": "821266e21f28bbefbc41285a880ba90684a91f9c869c94174aa184bb2119deb0",
+          "sha256": "4e65333f3c4835ed2663069b4280d98a692711df71a9d3bb74f93a46e22ff1db",
           "normalized": false
         },
         {
@@ -7381,7 +7407,7 @@
             "path": "src/assets/codeinjection/cgearQuickActionsManifest.json"
           },
           "kind": "metadata",
-          "sha256": "264292dcfe7f5068be0ef04fcbc7f31ea654960c0eff896d98954dfcf3d0cf8b",
+          "sha256": "18ff1e5638fa17402534ec0837b46155f1ba12ec212f6a7c463b079bc88fcf60",
           "normalized": false
         },
         {
@@ -7391,7 +7417,17 @@
             "path": "src/assets/codeinjection/cgearQuickActionsReduxManifest.json"
           },
           "kind": "metadata",
-          "sha256": "404f5de832b0572668e6f9f1aeb69d9e7665f858230655fef8d1aa944c51ee36",
+          "sha256": "98175f2b747e261e9a32d930c6b80d913e104a8d1412f647923e1de26f8d9d3b",
+          "normalized": false
+        },
+        {
+          "path": "cgear-quick-actions/integration/cgearQuickActionsBw1Model.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/cgearQuickActionsBw1Model.ts"
+          },
+          "kind": "support-only",
+          "sha256": "6a091ebe63002ea5c09c9082dd63814fff9de1f008765b0c9f88cb9dbdf28730",
           "normalized": false
         }
       ]

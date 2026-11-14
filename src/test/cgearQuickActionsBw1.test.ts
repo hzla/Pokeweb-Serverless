@@ -84,6 +84,17 @@ describe.each(["B","W"]as const)("BW1 C-Gear %s",game=>{
   disableCGearQuickActions(p);expect(getCGearQuickActionsStatus(p).enabled).toBe(false);
   removeCGearQuickActions(p);expect(getCGearQuickActionsStatus(p).installed).toBe(false);
  });
+ it("accepts the verified item expansion Bag API and rejects altered code",async()=>{
+  const p=project(game);assets();
+  const name=`PokewebItemsCore${game}.dll`,path=`patches/${name}`;
+  const core=new Uint8Array(readFileSync(new URL(`../assets/codeinjection/${name}`,import.meta.url)));
+  p.fileSystem={replacements:{},additions:{[path]:core}};
+  await installCGearQuickActions(p);
+  expect(getCGearQuickActionsStatus(project(game,await exportModifiedRom(p)))).toMatchObject({compatible:true,installed:true});
+  const changed=core.slice();changed[changed.length-1]^=1;
+  p.fileSystem.additions![path]=changed;
+  expect(getCGearQuickActionsStatus(p)).toMatchObject({compatible:false,message:expect.stringContaining(name)});
+ });
  it("exports an uninstalled draft and installs it after reopening",async()=>{
   const p=project(game);ensureCGearButtons(p).document.buttons[0].label="DRAFT";
   const reopened=project(game,await exportModifiedRom(p));

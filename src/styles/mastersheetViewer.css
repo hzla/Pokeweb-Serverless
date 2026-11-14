@@ -41,8 +41,11 @@
   --msv-gauge-fill: var(--g5-gauge-fill);
   --msv-gauge-edge: var(--g5-gauge-edge);
   --msv-mark: var(--g5-mark);
-  --msv-font: var(--g5-font);
-  --msv-cond: var(--g5-cond);
+  /* The game's own fonts, built from the ROM when it opens (gameFonts.ts); Barlow until then. One glyph pixel is one
+     CSS pixel at 16px; text is set at 1.5× (24px), and page titles at 3× (48px). On a 2× display each game pixel is
+     then exactly 3 screen pixels. */
+  --msv-font: "Gen5 Text", var(--g5-font);
+  --msv-cond: "Gen5 Small", var(--g5-cond);
   --msv-grid-ground: var(--g5-grid-ground);
   --msv-grid-button: var(--g5-grid-button);
   --msv-grid-cross: var(--g5-grid-cross);
@@ -54,7 +57,7 @@
   margin: 0;
   background: var(--msv-ground) var(--msv-grid-ground);
   color: var(--msv-text);
-  font: 400 15px/1.5 var(--msv-font);
+  font: 400 24px/1.5 var(--msv-font);
   font-variant-numeric: tabular-nums;
 }
 
@@ -104,7 +107,7 @@
   background: var(--hex-edge);
   color: var(--msv-text);
   cursor: pointer;
-  font: 600 14px/1 var(--msv-font);
+  font: 600 24px/1 var(--msv-font);
   text-decoration: none;
   clip-path: polygon(var(--hex-cut) 0, calc(100% - var(--hex-cut)) 0, 100% 50%, calc(100% - var(--hex-cut)) 100%, var(--hex-cut) 100%, 0 50%);
 }
@@ -176,7 +179,7 @@
   width: 100%;
   min-height: 28px;
   padding: 0 12px;
-  font-size: 13px;
+  font-size: 24px;
 }
 
 .msv-hex.-move.-changed > span,
@@ -201,11 +204,104 @@
   min-height: 26px;
   padding: 0 14px;
   color: var(--msv-menu-edge);
-  font-size: 13px;
+  font-size: 24px;
 }
 
 .msv-hex.-tab:is([aria-selected="true"], [aria-pressed="true"]) {
   color: var(--msv-text);
+}
+
+/* ---------- Folder tabs (as in the Pokeweb editor) ---------- */
+
+/*
+ * Rows of tabs that switch what's shown below them are the field menu's folder tabs, as in Pokeweb's editor: a straight
+ * left side, a flat top and the 45° slope of the menu buttons' notch, with their diagonal shading. They overlap like a
+ * stack of folders, each tucking its slope over the next. The open tab is taller, sits on top and takes the colour of
+ * what it opens onto, cutting through the light line the row stands on.
+ * --ft-panel is the colour below the row.
+ */
+.msv-folders {
+  --ft-line: #8cc0f0;
+  --ft-panel: var(--msv-ground);
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  min-width: 0;
+  padding: 6px 0 2px 2px;
+  box-shadow: inset 0 -2px 0 var(--ft-line);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.msv-folder {
+  --ft-slope: 14px;
+  --ft-edge: #5a5a5a;
+  --ft-face: #1c1c1c;
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  height: 30px;
+  margin: 0 -10px 0 0;
+  padding: 0 calc(var(--ft-slope) + 12px) 0 14px;
+  border: 0;
+  background: var(--ft-edge);
+  color: #9a9aa4;
+  cursor: pointer;
+  font: 600 24px/1 var(--msv-font);
+  white-space: nowrap;
+  clip-path: polygon(0 100%, 0 0, calc(100% - var(--ft-slope)) 0, 100% 100%);
+}
+
+/* The face, 2 px inside, with the field menu's lighter lower-right corner. */
+.msv-folder::before {
+  content: "";
+  position: absolute;
+  inset: 2px 2px 0;
+  z-index: -1;
+  background: linear-gradient(162deg, var(--ft-face) 64%, color-mix(in srgb, var(--ft-face), white 7%) 64%);
+  clip-path: polygon(0 100%, 0 0, calc(100% - var(--ft-slope) + 1px) 0, calc(100% - 1px) 100%);
+}
+
+.msv-folder:nth-child(1) { z-index: 10; }
+.msv-folder:nth-child(2) { z-index: 9; }
+.msv-folder:nth-child(3) { z-index: 8; }
+.msv-folder:nth-child(4) { z-index: 7; }
+.msv-folder:nth-child(5) { z-index: 6; }
+.msv-folder:nth-child(6) { z-index: 5; }
+.msv-folder:nth-child(7) { z-index: 4; }
+.msv-folder:nth-child(8) { z-index: 3; }
+.msv-folder:nth-child(9) { z-index: 2; }
+
+.msv-folder:last-child {
+  margin-right: 0;
+}
+
+.msv-folder:hover {
+  --ft-edge: var(--msv-menu-edge);
+  --ft-face: #2a2a36;
+  color: var(--msv-text);
+}
+
+.msv-folder[aria-selected="true"] {
+  --ft-edge: var(--ft-line);
+  z-index: 20;
+  height: 35px;
+  margin-bottom: -2px;
+  color: var(--msv-selected);
+}
+
+.msv-folder[aria-selected="true"]::before {
+  background: var(--ft-panel);
+}
+
+/* The clip-path hides outlines, so keyboard focus lights the edge white instead. */
+.msv-folder:focus-visible {
+  --ft-edge: var(--msv-text);
+  outline: none;
 }
 
 /* ---------- Title bars and bands ---------- */
@@ -226,7 +322,7 @@
   overflow: hidden;
   min-width: 0;
   margin: 0;
-  font: 600 18px/1.25 var(--msv-font);
+  font: 600 24px/1.25 var(--msv-font);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -241,7 +337,7 @@
 }
 
 .msv-titlebar.-page > h1 {
-  font-size: 28px;
+  font-size: 48px;
 }
 
 .msv-titlebar.-run {
@@ -268,7 +364,7 @@
   gap: 4px 10px;
   margin: 0;
   color: var(--msv-muted);
-  font-size: 14px;
+  font-size: 24px;
 }
 
 .msv-hatch {
@@ -293,7 +389,7 @@
   border: 2px solid var(--msv-edge);
   background: var(--msv-panel);
   color: var(--msv-text);
-  font: 600 13px/1 var(--msv-cond);
+  font: 600 24px/1 var(--msv-cond);
   white-space: nowrap;
 }
 
@@ -317,6 +413,43 @@
   color: var(--msv-mark);
 }
 
+/*
+ * New in this hack: the start menu's red NEW!, hopping as it does in the game (newMark.ts), at 1.5× like the text.
+ * Until it's drawn, or on a ROM without it, the word itself in the game's red.
+ */
+.msv-new {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  color: #f82818;
+  font-weight: 700;
+  text-shadow: 1.5px 1.5px #f8b0a8;
+}
+
+.msv.-new-mark .msv-new {
+  --msv-new-w: calc(var(--msv-new-px-w) * 1.5px);
+  width: var(--msv-new-w);
+  height: calc(var(--msv-new-px-h) * 1.5px);
+  background: var(--msv-new-strip) 0 0 / calc(var(--msv-new-w) * var(--msv-new-frames)) 100% no-repeat;
+  image-rendering: pixelated;
+  animation: msv-new-hop var(--msv-new-duration) step-end infinite;
+}
+
+.msv.-new-mark .msv-new > span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .msv.-new-mark .msv-new {
+    animation: none;
+    background-position-x: calc(var(--msv-new-w) * (1 - var(--msv-new-frames)));
+  }
+}
+
 /* Section band: the slanted strip that heads Pokédex lists. */
 .msv-band {
   --accent: var(--msv-dim);
@@ -327,7 +460,7 @@
   margin: 32px 0 12px;
   padding: 0 24px 0 12px;
   background: var(--msv-raised);
-  font: 600 15px/1.2 var(--msv-font);
+  font: 600 24px/1.2 var(--msv-font);
   clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
 }
 
@@ -372,8 +505,7 @@
   border: 2px solid color-mix(in srgb, var(--type) 60%, #000);
   background: var(--type);
   color: var(--msv-black);
-  font: 600 11px/1 var(--msv-cond);
-  letter-spacing: 0.04em;
+  font: 600 24px/1 var(--msv-cond);
   text-transform: uppercase;
 }
 
@@ -463,7 +595,7 @@
 
 .msv-open__drop .msv-hex {
   min-height: 40px;
-  font-size: 16px;
+  font-size: 24px;
 }
 
 .msv-open__hint {
@@ -531,14 +663,14 @@
 
 .msv-brand__title {
   overflow: hidden;
-  font: 600 18px/1.25 var(--msv-font);
+  font: 600 24px/1.25 var(--msv-font);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .msv-brand__sub {
   color: var(--msv-muted);
-  font-size: 13px;
+  font-size: 24px;
 }
 
 /* The Pokédex search field: a slim box with chevron ends. */
@@ -580,10 +712,11 @@
   margin-top: 10px;
 }
 
-/* Split heading: a band with the level cap at the right. */
+/* Split heading: a band with the split's title. BW2's first eight wear their Gym Leader's badge case portrait. */
 .msv-split__head {
-  display: grid;
-  gap: 2px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   min-height: 30px;
   margin-right: 12px;
   padding: 5px 20px 5px 12px;
@@ -599,9 +732,29 @@
   white-space: nowrap;
 }
 
-.msv-split__detail {
-  color: var(--msv-muted);
-  font: 500 13px/1.25 var(--msv-cond);
+/* The portrait fills the band's height, its banner point at the band's foot. */
+.msv-split__head.-leader {
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 8px;
+}
+
+.msv-split__leader {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 120px;
+}
+
+/* 1.5×, like the text. */
+.msv-split__leader img {
+  display: block;
+  width: 48px;
+  height: 120px;
+  image-rendering: pixelated;
+}
+
+.msv-split__leader:has(.-missing) {
+  display: none;
 }
 
 .msv-split ul {
@@ -672,7 +825,7 @@
 
 .msv-results__where {
   color: var(--msv-muted);
-  font-size: 13px;
+  font-size: 24px;
 }
 
 .msv-outline__foot {
@@ -711,7 +864,7 @@
 
 .msv-h4 {
   margin: 24px 0 8px;
-  font: 600 16px/1.3 var(--msv-font);
+  font: 600 24px/1.3 var(--msv-font);
 }
 
 .msv-notice {
@@ -767,7 +920,7 @@
   display: block;
   margin-bottom: 2px;
   color: var(--msv-muted);
-  font: 500 12px/1 var(--msv-cond);
+  font: 500 24px/1 var(--msv-cond);
 }
 
 /* ---------- Items and gifts: Bag buttons ---------- */
@@ -883,7 +1036,7 @@ button.msv-bag.-mon:hover {
 
 .msv-bag__note {
   color: var(--msv-muted);
-  font-size: 13px;
+  font-size: 24px;
 }
 
 .msv-item-icon img {
@@ -936,15 +1089,23 @@ button.msv-bag.-mon:hover {
 .msv-wild__where {
   margin: -4px 0 10px;
   color: var(--msv-muted);
-  font-size: 14px;
+  font-size: 24px;
 }
 
+/*
+ * The encounter methods are folder tabs over the table. The seasons, when the area has them, are a row of toggles
+ * above, at the right, so the tabs keep the full width.
+ */
 .msv-tabs {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 6px 16px;
-  margin-bottom: 10px;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.msv-tabs__group.-seasons {
+  order: -1;
+  align-self: flex-end;
 }
 
 .msv-tabs__group {
@@ -970,7 +1131,7 @@ button.msv-bag.-mon:hover {
   padding-top: 0;
   padding-bottom: 2px;
   color: var(--msv-muted);
-  font: 500 13px/1.2 var(--msv-cond);
+  font: 500 24px/1.2 var(--msv-cond);
 }
 
 .msv-wild__table tbody tr {
@@ -987,7 +1148,7 @@ button.msv-bag.-mon:hover {
 }
 
 .msv-wild__table td.-num {
-  font: 600 14px/1 var(--msv-cond);
+  font: 600 24px/1 var(--msv-cond);
 }
 
 .msv-mon-link {
@@ -1155,7 +1316,7 @@ button.msv-bag.-mon:hover {
 
 .msv-trainer__notes {
   margin: 0;
-  font-size: 14px;
+  font-size: 24px;
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
@@ -1229,7 +1390,7 @@ button.msv-bag.-mon:hover {
   border: 0;
   background: none;
   cursor: pointer;
-  font: 600 15px/24px var(--msv-font);
+  font: 600 24px/24px var(--msv-font);
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1239,7 +1400,7 @@ button.msv-bag.-mon:hover {
   flex: none;
   margin-left: auto;
   color: var(--msv-muted);
-  font: 600 14px/24px var(--msv-cond);
+  font: 600 24px/24px var(--msv-cond);
 }
 
 .msv-mon .msv-types {
@@ -1262,7 +1423,7 @@ button.msv-bag.-mon:hover {
   border: 0;
   border-bottom: 2px solid var(--msv-panel);
   background: none;
-  font-size: 14px;
+  font-size: 24px;
   line-height: 22px;
   text-align: left;
   text-overflow: ellipsis;
@@ -1295,6 +1456,69 @@ button.msv-mon__fact {
   margin: 2px 0 0;
   padding: 0;
   list-style: none;
+}
+
+/*
+ * With the ROM's move frames drawn (moveFrames.ts), moves wear the Move Effectiveness patch's nameplate, at 1.5× like
+ * the text: its left end, the dot-grid middle repeated, its right end. The middle paints only between the ends
+ * (content box); the width is a whole number of grid periods so the grid meets the right end in step.
+ */
+.msv.-move-frames .msv-moves {
+  --msv-move-scale: 1.5;
+  grid-auto-rows: calc(19px * var(--msv-move-scale));
+  gap: 3px;
+}
+
+.msv.-move-frames .msv-move {
+  --s: var(--msv-move-scale, 1.5);
+  position: relative;
+  display: block;
+  width: 100%;
+  width: round(down, 100%, calc(3px * var(--s)));
+  height: calc(19px * var(--s));
+  min-height: 0;
+  padding: 0 calc(22px * var(--s)) 0 calc(24px * var(--s));
+  background:
+    var(--msv-move-l) left top / calc(24px * var(--s)) 100% no-repeat border-box,
+    var(--msv-move-r) right top / calc(22px * var(--s)) 100% no-repeat border-box,
+    var(--msv-move-m) left top / calc(3px * var(--s)) 100% repeat-x content-box;
+  color: #f8f8f8;
+  font: 400 24px/calc(19px * var(--s)) var(--msv-font);
+  text-shadow: 1.5px 0 #585858, 0 1.5px #585858, 1.5px 1.5px #585858;
+  image-rendering: pixelated;
+  clip-path: none;
+}
+
+.msv.-move-frames .msv-move::before {
+  content: none;
+}
+
+.msv.-move-frames .msv-move > span {
+  position: absolute;
+  inset: 0 8px;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.msv.-move-frames .msv-move:hover {
+  filter: brightness(1.2);
+}
+
+.msv.-move-frames .msv-move:focus-visible {
+  outline: 2px solid var(--msv-text);
+  outline-offset: 1px;
+}
+
+.msv.-move-frames .msv-move:is(.-changed, .-new, .-minor) > span {
+  color: var(--msv-mark);
+  font-style: normal;
+}
+
+.msv.-move-frames .msv-move.-empty {
+  color: var(--msv-dim);
+  text-shadow: none;
 }
 
 /*
@@ -1452,7 +1676,7 @@ button.msv-mon__fact {
 
 .msv-stats dt {
   color: var(--msv-muted);
-  font: 500 13px/1.2 var(--msv-cond);
+  font: 500 24px/1.2 var(--msv-cond);
 }
 
 .msv-stats dd {
@@ -1464,7 +1688,7 @@ button.msv-mon__fact {
 
 .msv-stats__value {
   width: 32px;
-  font: 600 14px/1 var(--msv-cond);
+  font: 600 24px/1 var(--msv-cond);
   text-align: right;
 }
 
@@ -1550,7 +1774,7 @@ button.msv-mon__fact {
 
 .msv-learnset thead th {
   color: var(--msv-muted);
-  font: 500 13px/1.2 var(--msv-cond);
+  font: 500 24px/1.2 var(--msv-cond);
 }
 
 .msv-learnset tbody tr {
@@ -1608,7 +1832,7 @@ button.msv-mon__fact {
 }
 
 .msv-dex-tab__text {
-  font: 600 13px/1 var(--msv-cond);
+  font: 600 24px/1 var(--msv-cond);
 }
 
 .msv.-drawer-open .msv-dex-tab {
@@ -1624,8 +1848,16 @@ button.msv-mon__fact {
   margin: 12px 0 8px;
 }
 
+/* The dex's lists open onto the drawer. Six of them share its width, so they are a little tighter. */
 .msv-dex__tabs {
-  margin-bottom: 4px;
+  --ft-panel: var(--msv-panel);
+  margin: 4px 0 4px;
+}
+
+.msv-dex__tabs > .msv-folder {
+  --ft-slope: 12px;
+  padding: 0 calc(var(--ft-slope) + 8px) 0 10px;
+  font-size: 24px;
 }
 
 .msv-dex__results > section > .msv-band:first-child,
@@ -1693,7 +1925,7 @@ button.msv-mon__fact {
 
 .msv-dex__note {
   color: var(--msv-muted);
-  font-size: 13px;
+  font-size: 24px;
 }
 
 .msv-dex__hint {
@@ -1713,7 +1945,7 @@ button.msv-mon__fact {
 .msv-found__count {
   margin-right: auto;
   color: var(--msv-text);
-  font: 600 13px/1.4 var(--msv-cond);
+  font: 600 24px/1.4 var(--msv-cond);
 }
 
 /* A wild table in the drawer drops its type column and sits above its map. */
@@ -1770,7 +2002,7 @@ button.msv-mon__fact {
 
   .msv-bar__title {
     overflow: hidden;
-    font: 600 17px/1.2 var(--msv-font);
+    font: 600 24px/1.2 var(--msv-font);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -1815,7 +2047,7 @@ button.msv-mon__fact {
   }
 
   .msv-titlebar.-page > h1 {
-    font-size: 22px;
+    font-size: 48px;
   }
 
   .msv-titlebar.-page {

@@ -12,6 +12,7 @@ import * as trainerLevelCapsModel from "../pokeweb/trainerLevelCapsModel";
 import * as pmcModel from "../pokeweb/pmcModel";
 import * as megaEvolutionModel from "../pokeweb/megaEvolutionModel";
 import * as speciesExpansionModel from "../pokeweb/speciesExpansionModel";
+import * as abilityExpansionModel from "../pokeweb/abilityExpansionModel";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -401,5 +402,48 @@ describe("code-injection patch categories", () => {
     vi.restoreAllMocks();
     for (const host of ["localhost", "127.0.0.1", "::1", "[::1]"]) expect(speciesExpansionModel.canUseSpeciesExpansionInstaller(host)).toBe(true);
     for (const host of ["", "hzla.github.io", "localhost.example"]) expect(speciesExpansionModel.canUseSpeciesExpansionInstaller(host)).toBe(false);
+  });
+
+  it("lets the user pick species, and add more to a partial install", () => {
+    vi.spyOn(speciesExpansionModel, "canUseSpeciesExpansionInstaller").mockReturnValue(true);
+    const families = [
+      { family: 650, label: "Chespin", generation: 6 as const, members: [{ national: 650, name: "Chespin", installed: false }, { national: 651, name: "Quilladin", installed: false }] },
+      { family: 133, label: "Eevee's line", generation: 6 as const, members: [{ national: 700, name: "Sylveon", installed: false }] },
+    ];
+    const fresh = { supported: true, installed: false, ready: true, count: 0, nationals: [], message: "Ready to install." };
+    vi.spyOn(speciesExpansionModel, "getSpeciesExpansionStatus").mockReturnValue(fresh);
+    vi.spyOn(speciesExpansionModel, "speciesExpansionFamilies").mockReturnValue(families);
+    let html = renderFixture("W2");
+    expect(html).toContain("Install Selected Species");
+    expect(html).toMatch(/data-species-expansion="650" checked>/u); // all chosen by default
+    expect(html).toContain("<strong>Eevee&#039;s line</strong>");
+    families[0]!.members[0]!.installed = true;
+    vi.mocked(speciesExpansionModel.getSpeciesExpansionStatus).mockReturnValue({ ...fresh, installed: true, count: 1, nationals: [650], message: "1 of 3 species are installed." });
+    html = renderFixture("W2");
+    expect(html).toContain("Add Selected Species");
+    expect(html).toMatch(/data-species-expansion="650" checked disabled>/u);
+    expect(html).toMatch(/data-species-expansion="651" >/u); // nothing new chosen by default
+    expect(html).toContain("Partly Installed");
+    vi.restoreAllMocks();
+  });
+
+  it("shows Ability Expansion's ability table only behind its gate", () => {
+    vi.spyOn(abilityExpansionModel, "canUseAbilityExpansionInstaller").mockReturnValue(false);
+    expect(renderFixture("W2")).not.toContain("<h2>Ability Expansion</h2>");
+    vi.spyOn(abilityExpansionModel, "canUseAbilityExpansionInstaller").mockReturnValue(true);
+    vi.spyOn(abilityExpansionModel, "getAbilityExpansionStatus").mockReturnValue({ supported: true, ready: true, installed: 1, freeSlots: 90, message: "" });
+    vi.spyOn(abilityExpansionModel, "abilityExpansionRows").mockReturnValue([
+      { id: 170, name: "Magician", label: "Magician", generation: 6, description: "Steals the item of a\nPokémon it hits.", installedAs: 165 },
+      { id: 306, name: "SupersweetSyrup", label: "Supersweet Syrup", generation: 9, description: "Lowers foes' evasion when\nit first enters." },
+    ]);
+    const html = renderFixture("W2");
+    expect(html).toContain("<h2>Ability Expansion</h2>");
+    expect(html).toContain("<td>Installed (#165)</td>");
+    expect(html).toMatch(/data-ability-expansion="170"[^>]*checked disabled/u);
+    expect(html).toMatch(/data-ability-expansion="306" aria-label="Add SupersweetSyrup" >/u);
+    expect(html).toContain("<strong>Supersweet Syrup</strong>");
+    expect(html).toContain("Lowers foes&#039; evasion when it first enters.");
+    expect(html).toContain('id="install-ability-expansion-btn" type="button" disabled');
+    vi.restoreAllMocks();
   });
 });

@@ -26,6 +26,8 @@ export const TRAINER_SPRITE_RENDER_VERSION = "gen5-mcss-ncec-v2";
 
 /** Flags that only matter for scripted or special encounters; folded away by default. */
 const SPECIAL_AI_FLAGS = new Set(["Roaming Pokemon", "Safari Zone", "Catching Demo"]);
+/** The flags nearly every trainer uses; the rest fold away until needed. */
+const COMMON_AI_FLAGS = new Set(["Prioritize Effectiveness", "Evaluate Attacks", "Expert", "Double Battle"]);
 
 /** Readable names for trainer dialogue slots, keyed by text type id. */
 const TRAINER_TEXT_LABELS: Record<number, string> = {
@@ -313,13 +315,19 @@ function renderTrainerSettings(project: ProjectState, trainer: TrainerRecord): s
       <span>${escapeHtml(sentenceCase(flag))}</span>
     </label>
   `;
-  const regular = TRAINER_AIS.filter((flag) => !SPECIAL_AI_FLAGS.has(flag));
+  const flagOn = (flag: string) => Number(trainer.readable[flag]) > 0;
+  const common = TRAINER_AIS.filter((flag) => COMMON_AI_FLAGS.has(flag));
+  const more = TRAINER_AIS.filter((flag) => !COMMON_AI_FLAGS.has(flag) && !SPECIAL_AI_FLAGS.has(flag));
   const special = TRAINER_AIS.filter((flag) => SPECIAL_AI_FLAGS.has(flag));
-  const specialOn = special.filter((flag) => Number(trainer.readable[flag]) > 0).length;
+  const moreOn = [...more, ...special].filter(flagOn).length;
+  const battleItems = [1, 2, 3, 4].map((n) => formRow(`Battle item ${n}`, `data:item_${n}`, editable("trdata", `item_${n}`, trainer.readable[`item_${n}`], "", { autofill: "items" }))).join("");
+  // Most trainers carry no battle items, so four empty rows fold into one line until one is wanted.
+  const noBattleItems = [1, 2, 3, 4].every((n) => Number(trainer.raw[`item_${n}`] ?? 0) === 0);
   return `
     <div class="section-bar">Trainer</div>
+    ${noBattleItems ? `<details class="td-fold td-battle-items"><summary>Battle items <span class="md-unit">None</span></summary><div class="md-form">${battleItems}</div></details>` : ""}
     <div class="md-form">
-      ${[1, 2, 3, 4].map((n) => formRow(`Battle item ${n}`, `data:item_${n}`, editable("trdata", `item_${n}`, trainer.readable[`item_${n}`], "", { autofill: "items" }))).join("")}
+      ${noBattleItems ? "" : battleItems}
       ${formRow("Prize money", "data:money", editable("trdata", "money", trainer.readable.money, "", { type: "int-255" }))}
       ${formRow("Reward item", "data:reward_item", editable("trdata", "reward_item", trainer.readable.reward_item, "", { autofill: "items" }))}
       ${renderTrainerLevelCapSetting(project, trainer.id)}
@@ -330,9 +338,11 @@ function renderTrainerSettings(project: ProjectState, trainer: TrainerRecord): s
       ${checkRow("has_items", "Held items", trainer.hasItems)}
     </div>
     <div class="section-bar md-gap">AI</div>
-    <div class="td-checks td-ai">${regular.map(aiRow).join("")}</div>
-    <details class="td-ai-special"${specialOn ? " open" : ""}>
-      <summary>Special encounters${specialOn ? ` (${specialOn} on)` : ""}</summary>
+    <div class="td-checks td-ai">${common.map(aiRow).join("")}</div>
+    <details class="td-fold td-ai-more"${moreOn ? " open" : ""}>
+      <summary>More AI flags${moreOn ? ` <span class="md-unit">${moreOn} on</span>` : ""}</summary>
+      <div class="td-checks td-ai">${more.map(aiRow).join("")}</div>
+      <div class="td-ai-group">Special encounters</div>
       <div class="td-checks td-ai">${special.map(aiRow).join("")}</div>
     </details>
   `;

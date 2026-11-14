@@ -80,7 +80,8 @@ import moveAnimationCredits from "../assets/data/white2upgradeGen6MoveAnimations
 import { MEGA_CREDITS, canUseMegaEvolutionInstaller, getMegaEvolutionStatus, setMegaEvolutionConfig, stageMegaEvolution, uninstallMegaEvolution, type MegaRoute } from "../pokeweb/megaEvolutionModel";
 import { GMAX_MEGAS, MEGA_RING_ITEM, UNIVERSAL_STONES, getMegaContentStatus, installMegaContent, megaSpriteCredits, stageMegaAnimation, stageMegaExtras, stageMegaRing } from "../pokeweb/megaContentModel";
 import { REGIONAL_FORMS, getRegionalFormsStatus, installRegionalForms, regionalFamilies } from "../pokeweb/regionalFormsModel";
-import { canUseSpeciesExpansionInstaller, getSpeciesExpansionStatus, installSpeciesExpansion } from "../pokeweb/speciesExpansionModel";
+import { canUseSpeciesExpansionInstaller, getSpeciesExpansionStatus, installSpeciesExpansion, speciesExpansionFamilies } from "../pokeweb/speciesExpansionModel";
+import { abilityExpansionRows, canUseAbilityExpansionInstaller, getAbilityExpansionStatus, stageAbilityExpansion } from "../pokeweb/abilityExpansionModel";
 import { downloadBytes } from "../pokeweb/fileSystemModel";
 import { getIntroSkipStatus, stageIntroSkip, uninstallIntroSkip } from "../pokeweb/introSkipModel";
 import { TESTING_PATCHES, getTestingPatchStatus, installTestingPatch, uninstallTestingPatch, type TestingPatchId } from "../pokeweb/testingPatchesModel";
@@ -172,6 +173,10 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const regionalStatus = getRegionalFormsStatus(project);
   const families = regionalStatus.supported ? regionalFamilies(project) : [];
   const speciesStatus = getSpeciesExpansionStatus(project);
+  const speciesFamilies = speciesStatus.supported && canUseSpeciesExpansionInstaller() ? speciesExpansionFamilies(project) : [];
+  const speciesTotal = speciesFamilies.reduce((sum, family) => sum + family.members.length, 0);
+  const abilityStatus = canUseAbilityExpansionInstaller() ? getAbilityExpansionStatus(project) : undefined;
+  const abilityRows = abilityStatus?.supported ? abilityExpansionRows(project) : [];
   const megaConfig = project.codeInjection?.megaEvolution;
   // One button: Item Expansion, the PWAN runtime, the Mega runtime, the Mega Pokémon and their stones and routes.
   const megaNeedsUpdate = megaStatus.updateAvailable || megaContentStatus.animationMissing || megaContentStatus.ringMissing || megaContentStatus.universalMissing;
@@ -851,6 +856,45 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             ${moveAnimationCredits.map(({ author, count }) => `<strong>${escapeHtml(author)} (${count})</strong>`).join("")}
           </div>
         </section>
+        ${abilityStatus ? `<section class="code-injection-panel" ${patchVisibility(abilityStatus.supported)}>
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Ability Expansion</h2>
+              <p>Adds the Gen 6-9 abilities you choose from the ability library as new abilities, with their names, descriptions and effects. Effects are built from the library's ability rules, so some are approximations; you can edit any of them in the Abilities editor afterwards.</p>
+            </div>
+            ${renderInlineStatus(!abilityStatus.supported ? "Unsupported" : abilityStatus.installed >= abilityRows.length ? "Installed" : abilityStatus.installed ? "Partly Installed" : "Ready", { className: "code-injection-status" })}
+          </div>
+          <div class="code-injection-facts">
+            <div><span>Abilities</span><strong>${abilityRows.length} in the library</strong></div>
+            <div><span>Installed</span><strong>${abilityStatus.installed || "—"}</strong></div>
+            <div><span>Free ability IDs</span><strong>${abilityStatus.freeSlots}</strong></div>
+            <div><span>Dependencies</span><strong>None</strong></div>
+          </div>
+          <details class="code-injection-ability-picker" open>
+            <summary>Abilities (<span id="ability-expansion-count">0</span> selected)</summary>
+            <div class="code-injection-ability-filters" role="group" aria-label="Filter abilities by generation">
+              ${["all", "6", "7", "8", "9"].map((gen) => `<button class="btn sm" type="button" data-ability-gen="${gen}" aria-pressed="${gen === "all"}">${gen === "all" ? "All" : `Gen ${gen}`}</button>`).join("")}
+            </div>
+            <div class="code-injection-ability-table">
+              <table>
+                <thead><tr><th scope="col"><span class="sr-only">Add</span></th><th scope="col">Ability</th><th scope="col">Gen</th><th scope="col">Description</th><th scope="col">Status</th></tr></thead>
+                <tbody>${abilityRows.map((row) => `<tr data-ability-row data-gen="${row.generation}" class="${row.installedAs !== undefined ? "-installed" : ""}">
+                  <td><input type="checkbox" data-ability-expansion="${row.id}" aria-label="Add ${escapeHtml(row.name)}" ${row.installedAs !== undefined ? "checked disabled" : ""}></td>
+                  <td><strong>${escapeHtml(row.label)}</strong>${row.group ? `<small>${escapeHtml(row.group)}</small>` : ""}</td>
+                  <td>${row.generation}</td>
+                  <td>${escapeHtml(row.description.replace(/\n/gu, " "))}</td>
+                  <td>${row.installedAs !== undefined ? `Installed (#${row.installedAs})` : "Not installed"}</td>
+                </tr>`).join("")}</tbody>
+              </table>
+            </div>
+          </details>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-ability-expansion-btn" type="button" disabled>Install Selected Abilities</button>
+            <button class="btn -default" id="ability-select-all-btn" type="button">Select All Shown</button>
+            <button class="btn -default" id="ability-select-none-btn" type="button">Select None</button>
+            <div class="code-injection-note" id="ability-expansion-note" aria-live="polite">${abilityStatus.ready ? "" : escapeHtml(abilityStatus.message)}</div>
+          </div>
+        </section>` : ""}
         ${canUseMegaEvolutionInstaller() ? `<section class="code-injection-panel" ${patchVisibility(megaStatus.supported)}>
           <div class="code-injection-panel__header">
             <div>
@@ -945,16 +989,32 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               <h2>Species Expansion</h2>
               <p>Adds the Pokémon after Genesect (national 650 onward) as new species including: stats, types, abilities, level-up moves, TM and tutor moves, evolutions, animated sprites, icons and Pokédex entries. Experimental: available only when Pokeweb runs locally.</p>
             </div>
-            ${renderInlineStatus(!speciesStatus.supported ? "Unsupported" : speciesStatus.installed ? "Installed" : "Ready", { className: "code-injection-status" })}
+            ${renderInlineStatus(!speciesStatus.supported ? "Unsupported" : !speciesStatus.installed ? "Ready" : speciesStatus.ready ? "Partly Installed" : "Installed", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
-            <div><span>Installed</span><strong>${speciesStatus.installed ? `${speciesStatus.count} species` : "—"}</strong></div>
-            <div><span>Numbering</span><strong>ROM species = national + 37 (Chespin is 687); summaries and the PC show national numbers</strong></div>
+            <div><span>Installed</span><strong>${speciesStatus.installed ? `${speciesStatus.count} of ${speciesTotal} species` : "—"}</strong></div>
+            <div><span>Numbering</span><strong>ROM species = national + 37 (Chespin is 687), installed or not; summaries and the PC show national numbers</strong></div>
             <div><span>Dependencies</span><strong>Fairy Type Support, Move Expansion, PWAN GIF Support (installed with it)</strong></div>
             <div><span>Data</span><strong>White2Upgrade; sprites from the PWAN library; cries are a similar Pokémon's</strong></div>
           </div>
+          ${speciesFamilies.length ? `<details class="code-injection-species-picker"${speciesStatus.ready ? " open" : ""}>
+            <summary>Species (<span id="species-expansion-count">0</span> selected)</summary>
+            <p class="code-injection-species-hint">Pick whole evolution lines or single species. Species you leave out can be added later; an evolution into one of them starts working once it's installed. Species can't be removed once installed.</p>
+            <div class="code-injection-ability-filters" role="group" aria-label="Filter species by generation">
+              ${["all", "6", "7", "8", "9"].map((gen) => `<button class="btn sm" type="button" data-species-gen="${gen}" aria-pressed="${gen === "all"}">${gen === "all" ? "All" : `Gen ${gen}`}</button>`).join("")}
+              <input class="code-injection-species-search" id="species-expansion-search" type="search" placeholder="Find a Pokémon" aria-label="Find a Pokémon">
+            </div>
+            <div class="code-injection-species-list">
+              ${speciesFamilies.map((family) => `<div class="code-injection-species-family" data-species-family="${family.family}" data-gen="${family.generation}" data-names="${escapeHtml(family.members.map((member) => member.name.toLowerCase()).join(" "))}">
+                <label class="code-injection-species-family__toggle"><input type="checkbox" data-species-family-toggle="${family.family}" ${family.members.every((member) => member.installed) ? "checked disabled" : ""}> <strong>${escapeHtml(family.label)}</strong></label>
+                <div class="code-injection-species-members">${family.members.map((member) => `<label class="${member.installed ? "-installed" : ""}"><input type="checkbox" data-species-expansion="${member.national}" ${member.installed ? "checked disabled" : speciesStatus.installed ? "" : "checked"}> <span>#${member.national}</span> ${escapeHtml(member.name)}</label>`).join("")}</div>
+              </div>`).join("")}
+            </div>
+          </details>` : ""}
           <div class="code-injection-actions">
-            <button class="btn -primary" id="install-species-expansion-btn" type="button" ${speciesStatus.ready ? "" : "disabled"}>${speciesStatus.installed ? "Species Expansion Installed" : "Install Species Expansion"}</button>
+            <button class="btn -primary" id="install-species-expansion-btn" type="button" ${speciesStatus.ready ? "" : "disabled"}>${!speciesStatus.installed ? "Install Selected Species" : speciesStatus.ready ? "Add Selected Species" : "Species Expansion Installed"}</button>
+            ${speciesStatus.ready && speciesFamilies.length ? `<button class="btn -default" id="species-select-all-btn" type="button">Select All Shown</button>
+            <button class="btn -default" id="species-select-none-btn" type="button">Select None</button>` : ""}
             <div class="code-injection-note" id="species-expansion-note" aria-live="polite">${speciesStatus.ready ? "" : escapeHtml(speciesStatus.message)}</div>
           </div>
         </section>` : ""}
@@ -1566,6 +1626,50 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       if (note) note.textContent = error instanceof Error ? error.message : String(error);
     }
   });
+  const abilityButton = root.querySelector<HTMLButtonElement>("#install-ability-expansion-btn");
+  const abilityBoxes = () => [...root.querySelectorAll<HTMLInputElement>("[data-ability-expansion]")].filter((box) => !box.disabled);
+  const abilityNote = () => root.querySelector<HTMLDivElement>("#ability-expansion-note");
+  const refreshAbilitySelection = () => {
+    const chosen = abilityBoxes().filter((box) => box.checked).length;
+    const free = abilityStatus?.freeSlots ?? 0;
+    const count = root.querySelector("#ability-expansion-count");
+    if (count) count.textContent = String(chosen);
+    if (abilityButton) abilityButton.disabled = !abilityStatus?.ready || !chosen || chosen > free;
+    const note = abilityNote();
+    if (note && abilityStatus?.ready) note.textContent = chosen > free ? `Only ${free} ability IDs are free: choose ${chosen - free} fewer.` : "";
+  };
+  root.querySelectorAll<HTMLInputElement>("[data-ability-expansion]").forEach((box) => box.addEventListener("change", refreshAbilitySelection));
+  const shownAbilityBoxes = () => abilityBoxes().filter((box) => !box.closest<HTMLElement>("[data-ability-row]")?.hidden);
+  root.querySelector("#ability-select-all-btn")?.addEventListener("click", () => { shownAbilityBoxes().forEach((box) => { box.checked = true; }); refreshAbilitySelection(); });
+  root.querySelector("#ability-select-none-btn")?.addEventListener("click", () => { abilityBoxes().forEach((box) => { box.checked = false; }); refreshAbilitySelection(); });
+  root.querySelectorAll<HTMLButtonElement>("[data-ability-gen]").forEach((button) => button.addEventListener("click", () => {
+    const gen = button.dataset.abilityGen!;
+    root.querySelectorAll<HTMLButtonElement>("[data-ability-gen]").forEach((other) => other.setAttribute("aria-pressed", String(other === button)));
+    root.querySelectorAll<HTMLElement>("[data-ability-row]").forEach((row) => { row.hidden = gen !== "all" && row.dataset.gen !== gen; });
+  }));
+  abilityButton?.addEventListener("click", async () => {
+    const chosen = abilityBoxes().filter((box) => box.checked).map((box) => Number(box.dataset.abilityExpansion));
+    const note = abilityNote();
+    if (!chosen.length) { if (note) note.textContent = "Choose at least one ability."; return; }
+    const previousText = abilityButton.textContent ?? "Install Selected Abilities";
+    try {
+      abilityButton.disabled = true;
+      abilityButton.textContent = "Installing...";
+      const report = await install((staged) => stageAbilityExpansion(staged, chosen));
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+      const notes = [
+        report.added.length ? `Abilities added: ${report.added.map((ability) => `${ability.name} (#${ability.id})`).join(", ")}.` : "No abilities added.",
+        report.skipped.length ? `Skipped: ${report.skipped.join("; ")}.` : "",
+      ].filter(Boolean);
+      const refreshed = abilityNote();
+      if (refreshed) refreshed.textContent = notes.join(" ");
+    } catch (error) {
+      abilityButton.disabled = false;
+      abilityButton.textContent = previousText;
+      if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
   const regionalNote = () => root.querySelector<HTMLDivElement>("#regional-forms-note");
   const familyBoxes = () => [...root.querySelectorAll<HTMLInputElement>("[data-regional-family]")].filter((box) => !box.disabled);
   root.querySelector<HTMLButtonElement>("#regional-select-all-btn")?.addEventListener("click", () => familyBoxes().forEach((box) => { box.checked = true; }));
@@ -1602,6 +1706,42 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     }
   });
   const speciesButton = root.querySelector<HTMLButtonElement>("#install-species-expansion-btn");
+  const speciesBoxes = () => [...root.querySelectorAll<HTMLInputElement>("[data-species-expansion]")].filter((box) => !box.disabled);
+  const refreshSpeciesSelection = () => {
+    const chosen = speciesBoxes().filter((box) => box.checked).length;
+    const count = root.querySelector("#species-expansion-count");
+    if (count) count.textContent = String(chosen);
+    if (speciesButton && speciesStatus.ready) speciesButton.disabled = !chosen;
+    root.querySelectorAll<HTMLInputElement>("[data-species-family-toggle]").forEach((toggle) => {
+      if (toggle.disabled) return;
+      const members = [...root.querySelectorAll<HTMLInputElement>(`[data-species-family="${toggle.dataset.speciesFamilyToggle}"] [data-species-expansion]`)].filter((box) => !box.disabled);
+      toggle.checked = members.every((box) => box.checked);
+      toggle.indeterminate = !toggle.checked && members.some((box) => box.checked);
+    });
+  };
+  root.querySelectorAll<HTMLInputElement>("[data-species-expansion]").forEach((box) => box.addEventListener("change", refreshSpeciesSelection));
+  root.querySelectorAll<HTMLInputElement>("[data-species-family-toggle]").forEach((toggle) => toggle.addEventListener("change", () => {
+    root.querySelectorAll<HTMLInputElement>(`[data-species-family="${toggle.dataset.speciesFamilyToggle}"] [data-species-expansion]`)
+      .forEach((box) => { if (!box.disabled) box.checked = toggle.checked; });
+    refreshSpeciesSelection();
+  }));
+  const shownSpeciesBoxes = () => speciesBoxes().filter((box) => !box.closest<HTMLElement>("[data-species-family]")?.hidden);
+  root.querySelector("#species-select-all-btn")?.addEventListener("click", () => { shownSpeciesBoxes().forEach((box) => { box.checked = true; }); refreshSpeciesSelection(); });
+  root.querySelector("#species-select-none-btn")?.addEventListener("click", () => { speciesBoxes().forEach((box) => { box.checked = false; }); refreshSpeciesSelection(); });
+  let speciesGen = "all";
+  const filterSpecies = () => {
+    const query = (root.querySelector<HTMLInputElement>("#species-expansion-search")?.value ?? "").trim().toLowerCase();
+    root.querySelectorAll<HTMLElement>("[data-species-family]").forEach((row) => {
+      row.hidden = (speciesGen !== "all" && row.dataset.gen !== speciesGen) || (query !== "" && !(row.dataset.names ?? "").includes(query));
+    });
+  };
+  root.querySelectorAll<HTMLButtonElement>("[data-species-gen]").forEach((button) => button.addEventListener("click", () => {
+    speciesGen = button.dataset.speciesGen!;
+    root.querySelectorAll<HTMLButtonElement>("[data-species-gen]").forEach((other) => other.setAttribute("aria-pressed", String(other === button)));
+    filterSpecies();
+  }));
+  root.querySelector("#species-expansion-search")?.addEventListener("input", filterSpecies);
+  refreshSpeciesSelection();
   speciesButton?.addEventListener("click", async () => {
     const note = root.querySelector<HTMLDivElement>("#species-expansion-note");
     if (!canUseSpeciesExpansionInstaller()) {
@@ -1612,17 +1752,20 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     try {
       speciesButton.disabled = true;
       speciesButton.textContent = "Installing...";
-      const report = await installSpeciesExpansion(project, (stage) => install(stage));
+      const chosen = speciesBoxes().filter((box) => box.checked).map((box) => Number(box.dataset.speciesExpansion));
+      if (!chosen.length) throw new Error("Choose at least one species.");
+      const report = await installSpeciesExpansion(project, (stage) => install(stage), chosen);
       onDirty();
       renderCodeInjectionEditor(project, root, onDirty);
       const notes = [
-        `${report.species} species installed (SpeciesExpansion${project.session.baseVersion}.dll); ${report.formsMoved} form records moved after them.`,
+        `${report.species} species installed (SpeciesExpansion${project.session.baseVersion}.dll)${report.formsMoved ? `; ${report.formsMoved} form records moved after them` : ""}.`,
         report.fairyTypeInstalled ? "Fairy Type Support was installed." : "",
         report.moveExpansion === "installed" ? "Move Expansion was installed (their newer moves)." : report.moveExpansion === "unavailable" ? "Move Expansion couldn't be installed on this ROM." : "",
         report.abilitiesAdded.length ? `Abilities added: ${report.abilitiesAdded.join(", ")}.` : "",
         report.abilityFallbacks.length ? `Abilities the library can't add (another of theirs is used): ${report.abilityFallbacks.join("; ")}.` : "",
         report.movesLeftOut.length ? `Moves left out: ${report.movesLeftOut.join(", ")}.` : "",
         report.evolutionsLeftOut.length ? `Evolutions left out: ${report.evolutionsLeftOut.join("; ")}.` : "",
+        report.evolutionsWaiting?.length ? `Evolutions waiting for species you left out: ${report.evolutionsWaiting.join("; ")}.` : "",
         report.spriteStandIns.length ? `${report.spriteStandIns.join("; ")}.` : "",
       ].filter(Boolean);
       const refreshed = root.querySelector<HTMLDivElement>("#species-expansion-note");

@@ -1,11 +1,12 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { ExpansionSpecies } from "../pokeweb/speciesExpansionModel";
-import { patchFieldSpeciesGuardCode } from "../pokeweb/speciesExpansionModel";
+import { getSpeciesExpansionStatus, patchFieldSpeciesGuardCode, speciesExpansionFamilies, speciesGeneration } from "../pokeweb/speciesExpansionModel";
 import {
-  expansionSpeciesOf, expansionSpriteOf, firstAppendedFormRecord, isAddedSpecies, nationalNumberOf, readSpeciesExpansionTable,
-  storedSpeciesId,
+  expansionSpeciesOf, expansionSpriteOf, firstAppendedFormRecord, installedExpansionNationals, isAbsentExpansionSlot, isAddedSpecies,
+  isExpansionSlot, nationalNumberOf, readSpeciesExpansionTable, storedSpeciesId,
 } from "../pokeweb/speciesExpansionIds";
+import { isPokemonPersonalRecord } from "../pokeweb/pokemonModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import type { PwanLibraryManifest } from "../pokeweb/pwanLibraryModel";
 
@@ -110,5 +111,65 @@ describe("Field species check", () => {
     expect([...patched.subarray(8)]).toEqual([...retail.subarray(8)]);
     expect([...patchFieldSpeciesGuardCode(patched, 1062).subarray(2, 8)]).toEqual([132, 0x20, 0xc0, 0x00, 6, 0x30]); // again
     expect(() => patchFieldSpeciesGuardCode(Uint8Array.of(0, 1, 2, 3), 1060)).toThrow(/not found/u);
+  });
+});
+
+describe("Species expansion with some species left out", () => {
+  // Chespin's line and Iron Crown installed; Fennekin's line left out (no sprite block).
+  const partial = () => {
+    const sprites = Array.from({ length: 374 }, () => 0);
+    [0, 1, 2].forEach((i) => { sprites[i] = 754 + i; });
+    sprites[373] = 757;
+    return {
+      codeInjection: { speciesExpansion: { version: 1, count: 374, regionalDexFile: 1087, formShift: 378, sprites, cries: [] } },
+      session: { baseRom: "BW2", baseVersion: "W2" },
+      texts: { banks: { pokedex: ["", "Bulbasaur"] } },
+      narcs: { personal: { rawFiles: Array.from({ length: 1100 }, () => new Uint8Array(76)) } },
+      formats: {},
+    } as unknown as ProjectState;
+  };
+
+  it("keeps every species' number and tells installed species from left-out slots", () => {
+    const project = partial();
+    expect(installedExpansionNationals(project)).toEqual([650, 651, 652, 1023]);
+    expect(isAddedSpecies(project, 689)).toBe(true);
+    expect(isAddedSpecies(project, 690)).toBe(false); // Fennekin
+    expect(isExpansionSlot(project, 690)).toBe(true);
+    expect(isAbsentExpansionSlot(project, 690)).toBe(true);
+    expect(isAbsentExpansionSlot(project, 1060)).toBe(false);
+    expect(nationalNumberOf(project, 690)).toBe(653);
+    expect(isPokemonPersonalRecord(project, 690)).toBe(false); // hidden from the editors
+    expect(isPokemonPersonalRecord(project, 689)).toBe(true);
+    expect(isPokemonPersonalRecord(project, 600)).toBe(true);
+    expect(getSpeciesExpansionStatus(project)).toMatchObject({ installed: true, ready: true, count: 4, message: "4 of 374 species are installed." });
+    project.codeInjection!.speciesExpansion!.sprites.fill(800);
+    expect(getSpeciesExpansionStatus(project)).toMatchObject({ ready: false, count: 374, message: "All 374 species are installed (national 650-1023)." });
+  });
+
+  it("reads a partial table back from the DLL", () => {
+    const entry = manifest.games.W2.core;
+    const bytes = new Uint8Array(readFileSync(new URL(`../assets/codeinjection/${entry.fileName}`, import.meta.url)));
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    view.setUint16(entry.configOffset! + 6, 3, true);
+    view.setUint16(entry.configOffset! + 8, 1087, true);
+    [[754, 252], [0, 253], [755, 254]].forEach(([sprite, cry], i) => {
+      view.setUint16(entry.configOffset! + 12 + i * 4, sprite!, true);
+      view.setUint16(entry.configOffset! + 14 + i * 4, cry!, true);
+    });
+    const config = readSpeciesExpansionTable(bytes)!;
+    expect(installedExpansionNationals({ codeInjection: { speciesExpansion: config } })).toEqual([650, 652]);
+  });
+
+  it("lists the package by evolution family for the installer card", () => {
+    const families = speciesExpansionFamilies(partial());
+    expect(families.reduce((sum, family) => sum + family.members.length, 0)).toBe(content.species.length);
+    expect(families[0]).toEqual({ family: 650, label: "Chespin", generation: 6, members: [
+      { national: 650, name: "Chespin", installed: true }, { national: 651, name: "Quilladin", installed: true }, { national: 652, name: "Chesnaught", installed: true }] });
+    const index = families.flatMap((family) => family.members.map((member) => [member.national, member.name, family.family]));
+    expect(index.sort((a, b) => Number(a[0]) - Number(b[0]))).toEqual(content.species.map((entry) => [entry.national, entry.name, entry.family]));
+    const project = partial();
+    project.texts.banks.pokedex![133] = "Eevee";
+    expect(speciesExpansionFamilies(project).find((family) => family.family === 133)).toMatchObject({ label: "Eevee's line", members: [{ name: "Sylveon" }] });
+    expect([721, 722, 809, 810, 905, 906].map(speciesGeneration)).toEqual([6, 7, 7, 8, 8, 9]);
   });
 });

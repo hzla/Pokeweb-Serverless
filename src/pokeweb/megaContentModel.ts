@@ -153,6 +153,12 @@ function normalize(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/gu, "");
 }
 
+/** The library's template for an ability name (its label or in-game name, ignoring case, spaces and punctuation). */
+export function abilityTemplateNamed(name: string): (typeof ABILITY_IMPORT_LIBRARY)[number] | undefined {
+  const key = normalize(name);
+  return ABILITY_IMPORT_LIBRARY.find((entry) => normalize(entry.label) === key || normalize(entry.defaultName) === key);
+}
+
 /**
  * National ability IDs as this ROM knows them: retail IDs as they are, newer ones by name or created from the ability
  * library, all new ones in one runtime build. Unknown IDs map to undefined (the form keeps its base ability there).
@@ -169,7 +175,9 @@ export async function resolveAbilities(project: ProjectState, forms: ReadonlyArr
       const name = form.abilityNames[String(id)];
       const existing = name ? names.findIndex((candidate) => normalize(candidate ?? "") === normalize(name)) : -1;
       if (existing > 0) { resolved.set(id, existing); continue; }
-      const template = name ? ABILITY_IMPORT_LIBRARY.find((entry) => entry.id === id) : undefined;
+      // By name: the content's IDs come from White2Upgrade, whose numbering differs for a few Gen 9 abilities
+      // (Supersweet Syrup 300, Hospitality 301, Toxic Chain 302), so an ID can name another library ability.
+      const template = name ? abilityTemplateNamed(name) : undefined;
       if (!template) { resolved.set(id, undefined); continue; }
       toCreate.push({ national: id, name: template.defaultName, rules: template.rule, description: form.abilityDescriptions[String(id)] });
     }

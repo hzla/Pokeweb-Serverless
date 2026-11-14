@@ -1,6 +1,6 @@
 // One owned shop session. Native VM/window lifetimes stay native. Stock and
 // payment adapters act only while this parent owns the matching shop request.
-constexpr u32 ShopRecordSize = 424, BagBytes = 0x9ec;
+constexpr u32 ShopRecordSize = 424, RetailBagBytes = 0x9ec, ExpandedBagBytes = 0x1080;
 struct ShopWork {
     u16 heap, count;
     u8 *config, *script, *menu, *messages;
@@ -12,7 +12,7 @@ struct ShopWork {
     void* icon;
     u8* iconArt;
     u32 iconChar, iconPalette;
-    u8 bagBackup[BagBytes];
+    u8 bagBackup[ExpandedBagBytes];
 };
 CG_SHARED(ShopWork*, activeShop);
 
@@ -345,17 +345,21 @@ u32 shopAdd(void* bag, u32 itemId, u32 quantity, u32 heap) {
         work->failed = 3;
         return 0;
     }
-    if (!api<u32 (*)(void*, u32, u32, u32)>(CG_BAG_CAN_ADD)(bag, itemId, quantity, heap)) {
+    // The native getter returns the active save-block size, including the
+    // larger pool used by Item Expansion. Preserve its entire state on failure.
+    u32 bagBytes = api<u32 (*)()>(CG_BAG_BLOCK_SIZE)();
+    if ((bagBytes != RetailBagBytes && bagBytes != ExpandedBagBytes) ||
+        !api<u32 (*)(void*, u32, u32, u32)>(CG_BAG_CAN_ADD)(bag, itemId, quantity, heap)) {
         work->failed = 10;
         return 0;
     }
-    for (u32 i = 0; i < BagBytes; ++i)
+    for (u32 i = 0; i < bagBytes; ++i)
         work->bagBackup[i] = at<u8>(bag, i);
-    bool paid = !currency || api<u32 (*)(void*, u32, u32)>(CG_BAG_REMOVE)(bag, currency, cost);
+    bool paid = !currency || api<u32 (*)(void*, u32, u32, u32)>(CG_BAG_REMOVE)(bag, currency, cost, heap);
     bool added =
         paid && api<u32 (*)(void*, u32, u32, u32)>(CG_BAG_ADD)(bag, itemId, quantity, heap);
     if (!added) {
-        for (u32 i = 0; i < BagBytes; ++i)
+        for (u32 i = 0; i < bagBytes; ++i)
             at<u8>(bag, i) = work->bagBackup[i];
         work->failed = paid ? 10 : 3;
         return 0;

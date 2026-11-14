@@ -13,6 +13,7 @@ import { loadActiveRomBytes } from "./persistence";
 import { adoptExistingPmcInstall, canRemoveStagedCodeInjectionDll, getPmcInstallStatus, installPmcBytes, listCodeInjectionDlls, loadBundledPmcBytes, removeStagedCodeInjectionDll, stageCodeInjectionDll, type CodeInjectionDllInstallResult } from "./pmcModel";
 import type { ProjectState } from "./projectStore";
 import { parseRpm, type RpmModule } from "./rpm";
+import { isVerifiedItemExpansionModule } from "./itemExpansionModel";
 type Version="B"|"W";
 export const CGEAR_QUICK_ACTIONS_BW1_VERSION=manifest.version;
 type Profile=typeof manifest.games.B;
@@ -36,10 +37,10 @@ function recognized(rpm:RpmModule,version:Version):boolean{
  const actual=rpm.relocations.filter(r=>r.target.module!=="base").map(r=>`${r.target.module}:${r.target.address}:${r.target.type}`).sort();
  return expected.join("|")===actual.join("|");
 }
-function conflicts(rpm:RpmModule,profile:Profile):boolean{
+function conflicts(rpm:RpmModule,profile:Profile,itemExpansion:boolean):boolean{
  return rpm.relocations.some(({target,sourceSymbolIndex})=>{
   const size=target.type==="FULL_COPY"?rpm.symbols[sourceSymbolIndex]?.size??0:target.type==="THUMB_BRANCH_SAFESTACK"?16:target.type==="THUMB_BRANCH"?12:4;
-  return profile.signatures.some(s=>s.module===target.module&&target.address<s.address+s.expectedHex.length/2&&target.address+size>s.address);
+  return profile.signatures.some(s=>!(itemExpansion&&!s.patchSize&&s.label==="Native HasItem")&&s.module===target.module&&target.address<s.address+s.expectedHex.length/2&&target.address+size>s.address);
  });
 }
 export function getBw1CGearStatus(project:ProjectState):CGearQuickActionsStatus{
@@ -50,9 +51,9 @@ export function getBw1CGearStatus(project:ProjectState):CGearQuickActionsStatus{
  const profile=manifest.games[v];if((rom?.idCode??project.romInfo.idCode)!==profile.idCode||(rom&&rom.data[0x1e]!==0))return state;
  state.supported=true;const owned:string[]=[];let older=false;
  for(const entry of listCodeInjectionDlls(project)){
-  let rpm:RpmModule|undefined;try{const bytes=dllBytes(project,rom,entry.path);if(bytes)rpm=parseRpm(bytes,{allowedMagics:["DLXF"]});}catch{/* Detect an unrecognized named module below. */}
+  let rpm:RpmModule|undefined,bytes:Uint8Array|undefined;try{bytes=dllBytes(project,rom,entry.path);if(bytes)rpm=parseRpm(bytes,{allowedMagics:["DLXF"]});}catch{/* Detect an unrecognized named module below. */}
   if(entry.target==="patches"&&rpm&&recognized(rpm,v)){owned.push(entry.path);older=rpm.metadata.PMCVersion!==manifest.version;}
-  else if(rpm&&conflicts(rpm,profile)||/^CGearQuickActions[WB](?:2)?\.dll$/iu.test(entry.fileName))return {...state,message:`Conflicting C-Gear, encounter, or field action code in ${entry.path}. Remove the conflicting module before installing.`};
+  else if(rpm&&conflicts(rpm,profile,isVerifiedItemExpansionModule(entry.path,bytes,v))||/^CGearQuickActions[WB](?:2)?\.dll$/iu.test(entry.fileName))return {...state,message:`Conflicting C-Gear, encounter, or field action code in ${entry.path}. Remove the conflicting module before installing.`};
  }
  state.installed=owned.length>0;state.dllPath=owned[0];state.updateAvailable=state.installed&&older;
  if(owned.length>1)return {...state,message:"Multiple C-Gear runtimes are present. Remove the duplicate before updating."};

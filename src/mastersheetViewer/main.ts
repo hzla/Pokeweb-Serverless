@@ -6,6 +6,7 @@ import { applyAiFeaturesParam } from "../pokeweb/aiFeatureAccess";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { ImageCache, RomAssetProvider } from "./assets";
 import { mountViewer } from "./app";
+import { installGameFonts } from "./gameFonts";
 import { clearLastRom, loadLastRom, saveLastRom } from "./romStore";
 
 /**
@@ -110,6 +111,7 @@ function start(project: ProjectState, cache?: ImageCache, onOpenAnotherRom?: () 
   const document = buildMastersheetDocument(project);
   const assets = new RomAssetProvider(project, document, cache);
   window.document.title = `${document.title} mastersheet`;
+  void installGameFonts(project);
   mountViewer(root, { project, document, assets, onOpenAnotherRom: onOpenAnotherRom && (() => void onOpenAnotherRom()) });
 }
 

@@ -95,9 +95,12 @@ void *getChatterVoice(void *chatter);
 void PerapVoice_Decode(void *dest, void *src);
 extern const PokeVoiceFormEntry POKE_VOICE_EXTRA_ENTRIES[6];
 
+// An added species that is installed: a slot the user left out has no sprite block (0), and is no species at all
+// (the Pokédex treats it as a bad species, so it can't be registered or counted).
 static const volatile AddedSpecies *Added(u32 species) {
     u32 index = species - FIRST_ADDED;
-    return species >= FIRST_ADDED && index < sSpecies.count && index < CAPACITY ? &sSpecies.species[index] : 0;
+    if (species < FIRST_ADDED || index >= sSpecies.count || index >= CAPACITY) return 0;
+    return sSpecies.species[index].sprite ? &sSpecies.species[index] : 0;
 }
 
 // GetPokemonDataIDBase: the first file of the sprite, the direction's and the sex's offsets.
@@ -547,7 +550,7 @@ u16 HOOK_DEX_CAUGHT_PERMISSIVE(u8 *dex) {
 
 BOOL HOOK_DEX_COMPLETE_NATIONAL(u8 *dex) {
     u32 i, needed = DEX_NATIONAL_COMPLETE;
-    for (i = 0; i < sSpecies.count && i < CAPACITY; i++) needed += (sSpecies.species[i].cry & MYTHICAL) == 0;
+    for (i = 0; i < sSpecies.count && i < CAPACITY; i++) needed += sSpecies.species[i].sprite && (sSpecies.species[i].cry & MYTHICAL) == 0;
     return HOOK_DEX_CAUGHT_PERMISSIVE(dex) >= needed;
 }
 

@@ -1,6 +1,9 @@
 import { deepStrictEqual } from "node:assert";
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import itemExpansion from "../assets/codeinjection/itemExpansionManifest.json";
+import { installCodeInjectionPatch } from "../pokeweb/codeInjectionInstall";
+import { getItemExpansionStatus, stageItemExpansion } from "../pokeweb/itemExpansionModel";
 import manifest from "../assets/codeinjection/cgearQuickActionsManifest.json";
 import redux from "../assets/codeinjection/cgearQuickActionsReduxManifest.json";
 import { readU16, writeU16, writeU32 } from "../nds/binary";
@@ -25,6 +28,7 @@ import { ensureSystemShops, hydrateSystemShops } from "../pokeweb/systemShopsMod
 import { newShop, tmTestShop } from "../systemShops/document";
 import { recover as recoverShops, ARCHIVE as SHOP_ARCHIVE } from "../systemShops/compiler";
 import { encodeGen5TextBank } from "../pokeweb/text";
+import { updateTextEntry } from "../pokeweb/textModel";
 type Version = "W2" | "B2";
 afterEach(() => vi.unstubAllGlobals());
 function assets() {
@@ -56,7 +60,8 @@ function makeProject(v: Version, bytes?: Uint8Array): ProjectState {
     scripts.files[1244]=new Uint8Array(readFileSync(new URL("./fixtures/cgear-pc-script.bin",import.meta.url)));
     scripts.files[1247]=new Uint8Array(readFileSync(new URL("./fixtures/cgear-shop-script.bin",import.meta.url)));
     const stock=new NARC(),counts=new NARC();stock.files=Array.from({length:6},()=>new Uint8Array([4,0,17,0]));counts.files=[new Uint8Array(6).fill(2)];
-    const names=new NARC(),messages=new NARC();names.files=Array.from({length:65},()=>new Uint8Array());messages.files=Array.from({length:614},()=>new Uint8Array());
+    const names=new NARC(),messages=new NARC();names.files=Array.from({length:483},()=>new Uint8Array());messages.files=Array.from({length:614},()=>new Uint8Array());
+    for(const bank of [63,481,482]) names.files[bank]=encodeGen5TextBank([["0_0","",0]]);
     names.files[64]=encodeGen5TextBank(Array.from({length:639},(_,i)=>[`0_${i}`,i===93?'Heart Scale':`Item ${i}`,0]));
     messages.files[613]=encodeGen5TextBank(Array.from({length:35},(_,i)=>[`0_${i}`,`Text ${i}`,0]));
     r.files.push(buttonNative().save(),stock.save(),counts.save(),font.save(),buttonItems().save(),icons.save(),scripts.save(),names.save(),messages.save());
@@ -200,6 +205,44 @@ function legacyControls(arc:NARC){
   writeU32(arc.files[0],24,fingerprint(new Uint8Array(arc.files.slice(1,12).flatMap(b=>Array.from(b)))));
 }
 describe.each(["W2","B2"] as const)("C-Gear Quick Actions %s", v => {
+  it.each(["Item Expansion first", "C-Gear first"])("co-installs both patches with %s and reopens the exported ROM", async order => {
+    const p = makeProject(v); assets();
+    const rom = new NintendoDSRom(p.originalRomBytes!);
+    const pockets = new NARC(); pockets.files = [new Uint8Array(639)];
+    const newRom = rom.save({ addedFiles: [{ path: "a/2/2/8", bytes: pockets.save() }] });
+    const project = makeProject(v, newRom);
+    const installItems = () => installCodeInjectionPatch(project, stageItemExpansion);
+    if (order === "Item Expansion first") {
+      await installItems();
+      await installCGearQuickActions(project);
+    } else {
+      await installCGearQuickActions(project);
+      await installItems();
+    }
+    updateTextEntry(project, "message_texts", 64, 700, "Test Expansion Item");
+    expect(getCGearQuickActionsStatus(project)).toMatchObject({ compatible: true, installed: true });
+    const path = `patches/${itemExpansion.games[v].dlls.core.fileName}`;
+    const bytes = project.fileSystem!.additions![path];
+    // The catalog is mutable, but changing anything else in the bundled module
+    // still leaves its Bag hooks subject to the ordinary conflict check.
+    const changed = bytes.slice();
+    changed[changed.length - 1] ^= 1;
+    project.fileSystem!.additions![path] = changed;
+    expect(getCGearQuickActionsStatus(project)).toMatchObject({ compatible: false, message: expect.stringContaining(path) });
+    project.fileSystem!.additions![path] = bytes;
+    const reopened = makeProject(v, await exportModifiedRom(project));
+    expect(getCGearQuickActionsStatus(reopened)).toMatchObject({ compatible: true, installed: true, enabled: true });
+    await installCGearQuickActions(reopened);
+  });
+  it("requires updating a legacy C-Gear shop runtime before installing Item Expansion", async () => {
+    const p = makeProject(v); assets();
+    p.fileSystem = { replacements: {}, additions: {
+      [`patches/CGearQuickActions${v}.dll`]: new Uint8Array(readFileSync(new URL(`./fixtures/cgear-quick-actions-v0.5.7/CGearQuickActions${v}.dll`, import.meta.url))),
+    } };
+    const reopened = makeProject(v, await exportModifiedRom(p));
+    expect(getItemExpansionStatus(reopened)).toMatchObject({ compatible: false, message: expect.stringContaining("Update C-Gear") });
+    await expect(stageItemExpansion(reopened)).rejects.toThrow(/Update C-Gear/u);
+  });
   it("repairs a missing field companion atomically and rejects a changed companion", async () => {
     const p = makeProject(v); assets(); await installCGearQuickActions(p);
     const path = `patches/${manifest.games[v].field.fileName}`;

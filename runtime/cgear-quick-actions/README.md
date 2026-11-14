@@ -30,6 +30,10 @@ include TMs; custom prices do not alter ordinary item data. Draft stock is not
 active until applied. Canonical formats are in `src/cgearButtons/document.ts`
 and `src/systemShops/document.ts`.
 
+C-Gear supports the bundled Item Expansion runtimes. In BW2, update C-Gear
+Quick Actions before adding Item Expansion to an existing installation. Shop
+purchases use the active Bag layout for rollback.
+
 The Pokémart option reads the ROM's ordinary shop inventories. Applying BW2
 C-Gear changes automatically synchronizes every vanilla mart's item count from
 its inventory, including pending edits and newly added shop records. Empty
@@ -40,8 +44,7 @@ Build/check with `npm run cgear:build`, `npm run cgear:verify` and
 `npm run cgear:verify-rom -- /path/input.nds`; use `cgear:build-bw1` and
 `cgear:verify-bw1` for BW1. Redux uses `build_redux.py`. The local
 [button authoring guide](../../docs/cgear-buttons/index.html) covers native
-graphics/input integration. Other revisions, expanded item tables and arbitrary
-native application edits need separate bindings and gameplay checks.
+graphics/input integration. Other revisions and arbitrary native application edits need separate bindings and gameplay checks.
 
 Stock US BW2 uses separate UI and field-callback DLLs. The UI loads with field/C-Gear
 overlays 36/79 and unloads during battle. The smaller overlay-12 companion owns

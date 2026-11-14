@@ -120,12 +120,15 @@ function insertSorted(list: Sized[], added: readonly Sized[], before: (a: Sized,
   return out;
 }
 
-/** Installs the Pokédex data of the added species (the text banks are committed by the caller). */
-export function stagePokedexData(project: ProjectState, content: readonly DexContent[]): void {
+/**
+ * Installs the Pokédex data of added species (the text banks are committed by the caller). The first install (`first`)
+ * also moves retail's form entries; a later one adds more species to the lists it made.
+ */
+export function stagePokedexData(project: ProjectState, content: readonly DexContent[], { first = true }: { first?: boolean } = {}): void {
   const species = (entry: DexContent) => entry.national + NATIONAL_OFFSET;
 
   // Texts by message: retail's forms move past the added species, which take their own number.
-  for (const bankId of TEXT_BANKS) shiftTextEntries(project, bankId, FIRST_FORM_TEXT, FORM_TEXT_SHIFT);
+  if (first) for (const bankId of TEXT_BANKS) shiftTextEntries(project, bankId, FIRST_FORM_TEXT, FORM_TEXT_SHIFT);
   const texts: Record<number, Map<number, string>> = { 442: new Map(), 451: new Map(), 471: new Map(), 464: new Map() };
   for (const entry of content) {
     texts[442].set(species(entry), entry.dex.description);
@@ -137,14 +140,18 @@ export function stagePokedexData(project: ProjectState, content: readonly DexCon
 
   // The search archive.
   const search = store(project, "pokedex_search");
-  const chain = u16s(search.rawFiles[SEARCH.chain]!);
-  const nextChain = new Array<number>(FIRST_FORM_TEXT + FORM_TEXT_SHIFT + (chain.length - FIRST_FORM_TEXT)).fill(0);
-  chain.forEach((next, index) => { nextChain[moved(index)] = next ? moved(next) : 0; });
-  setFile(project, "pokedex_search", SEARCH.chain, bytesOf(nextChain));
-
   const shapes = Array.from(search.rawFiles[SEARCH.shapes]!);
-  const nextShapes = new Array<number>(nextChain.length).fill(0);
-  shapes.forEach((shape, index) => { nextShapes[moved(index)] = shape; });
+  let nextShapes = shapes;
+  if (first) {
+    const chain = u16s(search.rawFiles[SEARCH.chain]!);
+    const nextChain = new Array<number>(FIRST_FORM_TEXT + FORM_TEXT_SHIFT + (chain.length - FIRST_FORM_TEXT)).fill(0);
+    chain.forEach((next, index) => { nextChain[moved(index)] = next ? moved(next) : 0; });
+    setFile(project, "pokedex_search", SEARCH.chain, bytesOf(nextChain));
+    nextShapes = new Array<number>(nextChain.length).fill(0);
+    shapes.forEach((shape, index) => { nextShapes[moved(index)] = shape; });
+  } else {
+    nextShapes = shapes.slice();
+  }
   // No shape data for the added species: the shape of the species whose cry stands in for theirs.
   for (const entry of content) nextShapes[species(entry)] = shapes[entry.cry] ?? 0;
   setFile(project, "pokedex_search", SEARCH.shapes, Uint8Array.from(nextShapes));
@@ -154,7 +161,8 @@ export function stagePokedexData(project: ProjectState, content: readonly DexCon
   for (const entry of content) initials[species(entry)] = initialOf(entry.name);
   setFile(project, "pokedex_search", SEARCH.initials, Uint8Array.from(initials));
 
-  const nationalOrder = [...u16s(search.rawFiles[SEARCH.national]!), ...content.map(species)];
+  // Only installed species are listed: a user can leave some out.
+  const nationalOrder = [...new Set([...u16s(search.rawFiles[SEARCH.national]!), ...content.map(species)])].sort((a, b) => a - b);
   setFile(project, "pokedex_search", SEARCH.order, bytesOf(nationalOrder));
   setFile(project, "pokedex_search", SEARCH.national, bytesOf(nationalOrder));
 
@@ -173,9 +181,10 @@ export function stagePokedexData(project: ProjectState, content: readonly DexCon
     [SEARCH.heaviest, (a, b) => a.weight > b.weight], [SEARCH.lightest, (a, b) => a.weight < b.weight],
   ];
   for (const [file, before] of orders) {
-    // Retail's entries hold the form above bit 10; they are re-encoded with the form above bit 11.
+    // Retail's entries hold the form above bit 10; they are re-encoded with the form above bit 11 (a later install's are).
+    const shift = first ? RETAIL_FORM_SHIFT : FORM_SHIFT_BITS;
     const list = u16s(search.rawFiles[file]!).map((value) => {
-      const speciesId = value & ((1 << RETAIL_FORM_SHIFT) - 1), form = value >> RETAIL_FORM_SHIFT;
+      const speciesId = value & ((1 << shift) - 1), form = value >> shift;
       return sized(speciesId | form << FORM_SHIFT_BITS, speciesId, form);
     });
     setFile(project, "pokedex_search", file, bytesOf(insertSorted(list, added, before).map((entry) => entry.value)));

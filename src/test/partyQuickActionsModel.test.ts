@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { deepStrictEqual } from "node:assert";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import manifest from "../assets/codeinjection/partyQuickActionsManifest.json";
-import { writeU16, writeU32 } from "../nds/binary";
+import { readU32, writeU16, writeU32 } from "../nds/binary";
 import { Folder, addFilePath } from "../nds/fnt";
 import { NARC } from "../nds/narc";
 import * as pmc from "../pokeweb/pmcModel";
@@ -51,7 +51,7 @@ function project(v: "W2" | "B2", bytes?: Uint8Array): ProjectState {
         const itemNarc = new NARC(); itemNarc.files = Array.from({ length: 623 }, () => new Uint8Array(36));
         itemNarc.files[622] = new Uint8Array(Buffer.from("00000000000000001f020000000000ff0000000000000000000000000000000000000000", "hex"));
         const texts = new NARC(); texts.files = Array.from({ length: 65 }, () => encodeGen5TextBank([["0_0", "", 0]]));
-        for (const bank of [63, 64]) texts.files[bank] = encodeGen5TextBank(Array.from({ length: 623 }, (_, id) => [`0_${id}`, id === 622 ? "???" : `Item ${id}`, 0]));
+        for (const bank of [63, 64]) texts.files[bank] = encodeGen5TextBank(Array.from({ length: 623 }, (_, id) => [`0_${id}`, id === 622 || id === 113 ? "???" : `Item ${id}`, 0]));
         r.files[0] = texts.save(); r.files[1] = itemNarc.save();
         r.files[2] = new Uint8Array(readFileSync(new URL("./fixtures/party-quick-actions-dependency-icons.narc", import.meta.url)));
         for (const [path, id] of [["a/0/0/2", 0], ["a/0/2/4", 1], ["a/0/2/5", 2]] as const) r.filenames = addFilePath(r.filenames, path, id);
@@ -119,6 +119,38 @@ for (const v of ["B2", "W2"] as const)
             await expect(installPartyQuickActions(p)).rejects.toThrow(/Conflicting/);
             deepStrictEqual(structuredClone(p), before);
         });
+        it("uses the configured Candy ID when installing, disabling and reopening", async () => {
+            const p = project(v); assets();
+            await installInfiniteCandy(p, 113);
+            const path = `patches/InfiniteCandy${v}.dll`;
+            const candy = p.fileSystem!.additions![path].slice();
+            await installPartyQuickActions(p);
+            deepStrictEqual(p.fileSystem!.additions![path], candy);
+            expect(getPartyQuickActionsStatus(p)).toMatchObject({ enabled: true, candyCompatible: true });
+            const archive = new NARC(p.fileSystem!.additions![manifest.archivePath]);
+            expect(readU32(archive.files[0], 40)).toBe(113);
+            const rom = new NintendoDSRom(await exportModifiedRom(p));
+            const reopened = project(v, rom.data);
+            expect(getPartyQuickActionsStatus(reopened)).toMatchObject({ enabled: true, candyCompatible: true, updateAvailable: false });
+            disablePartyQuickActions(reopened);
+            expect(getPartyQuickActionsStatus(reopened).enabled).toBe(false);
+            await installPartyQuickActions(reopened);
+            const config = new NARC(reopened.fileSystem!.replacements[rom.fileId(manifest.archivePath)]).files[0];
+            expect(readU32(config, 40)).toBe(113);
+        });
+        it("installs the available fallback Candy slot when 622 is occupied", async () => {
+            const p = project(v); assets();
+            const rom = new NintendoDSRom(p.originalRomBytes!);
+            const items = new NARC(rom.getFileByName("a/0/2/4"));
+            items.files[622][0] = 1;
+            p.fileSystem!.replacements[rom.fileId("a/0/2/4")] = items.save();
+            expect(getInfiniteCandyStatus(p)).toMatchObject({ compatible: true, installed: false, itemId: 113 });
+            await installPartyQuickActions(p);
+            const archive = new NARC(p.fileSystem!.additions![manifest.archivePath]);
+            expect(readU32(archive.files[0], 40)).toBe(113);
+            expect(p.narcs.items!.rawFiles[622][0]).toBe(1);
+            expect(getInfiniteCandyStatus(p)).toMatchObject({ compatible: true, installed: true, itemId: 113 });
+        });
         it("rolls back item, icon and text edits if toolbar staging fails after installing the dependency", async () => {
             const p = project(v), before = structuredClone(p); assets();
             const stage = pmc.stageCodeInjectionDll;
@@ -161,7 +193,7 @@ for (const v of ["B2", "W2"] as const)
             await installPartyQuickActions(p, { hideFlag: 0x05ed, sectionHideFlags: flags });
             expect(getPartyQuickActionsStatus(p)).toMatchObject({ hideFlag: 0x05ed, sectionHideFlags: flags });
             const archive = new NARC(p.fileSystem!.additions![manifest.archivePath]);
-            expect(archive.files[0]).toHaveLength(44);
+            expect(archive.files[0]).toHaveLength(48);
             const reopened = project(v, await exportModifiedRom(p));
             expect(getPartyQuickActionsStatus(reopened).sectionHideFlags).toEqual(flags);
             disablePartyQuickActions(reopened);

@@ -268,7 +268,7 @@
         "bag": {
           "fileName": "PokewebItemsBagW2.dll",
           "size": 16336,
-          "sha256": "3e20c298ad371619b575b7521e894ddee5429b6c8e55463ab9e5a5cd8494f629",
+          "sha256": "3d5bbfb546426727fc345d634e0a7ade1d1bb35a6376b646a0ef27a4f23b2aaa",
           "targets": [
             {
               "kind": "THUMB_BRANCH",
@@ -396,7 +396,7 @@
         "battleBag": {
           "fileName": "PokewebItemsBattleBagW2.dll",
           "size": 8304,
-          "sha256": "858ec01c373c52298f4f4921a23274d4fe008d365e130d94806079de55e56d3b",
+          "sha256": "de10d9ab16fdc37ef78c433849cc8aad3de56e0e20bae27d3a87619b2f799610",
           "targets": [
             {
               "kind": "THUMB_BRANCH",
@@ -796,7 +796,7 @@
         "bag": {
           "fileName": "PokewebItemsBagB2.dll",
           "size": 16336,
-          "sha256": "16015f65f78c0994435cb8b2845fe7121da224230371554ec6b2c082dd1be341",
+          "sha256": "4b41af4591d386df421d7ec189ce366770518d25a1c8fcb0d2f4f721d9777eb5",
           "targets": [
             {
               "kind": "THUMB_BRANCH",
@@ -924,7 +924,7 @@
         "battleBag": {
           "fileName": "PokewebItemsBattleBagB2.dll",
           "size": 8304,
-          "sha256": "ba0151163f1451633d578ee57992334ba9e71b5c5b0b077c2c0af052f794fdd0",
+          "sha256": "b7fe78289146a0047ea7575e3923e65dbb471e03d2ca2c972cdc8b36b4e3e185",
           "targets": [
             {
               "kind": "THUMB_BRANCH",

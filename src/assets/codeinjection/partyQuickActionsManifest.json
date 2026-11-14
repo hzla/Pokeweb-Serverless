@@ -1,12 +1,12 @@
 {
-  "version": "0.1.7",
+  "version": "0.1.8",
   "archivePath": "party-tools/ui.narc",
   "games": {
     "W2": {
       "idCode": "IRDO",
       "fileName": "PartyQuickActionsW2.dll",
-      "sha256": "49c611fdde3bba93b5d949a27154913a4c6195dcef9e55347e2ed8f8d34bf34c",
-      "codeFingerprint": "b1a2aa08",
+      "sha256": "ee7c2d63c68e2e2540535b948c3822934a326396032bd46911549732a01e1c8c",
+      "codeFingerprint": "d51c8aec",
       "bssSize": 480,
       "signatures": [
         {
@@ -692,7 +692,7 @@
       "exports": [],
       "field": {
         "fileName": "PartyQuickActionsFieldW2.dll",
-        "sha256": "6ecebf0abc67c7c40715781fb4eca49109c22e2d5d091f9edda300e79965faaa",
+        "sha256": "ab917e802329af52f7b860a924f25b54c5d1b4d117c1678d56bf9e3b2c95f1df",
         "codeFingerprint": "e71971e8",
         "bssSize": 12,
         "exports": [
@@ -705,8 +705,8 @@
     "B2": {
       "idCode": "IREO",
       "fileName": "PartyQuickActionsB2.dll",
-      "sha256": "f6b3e19acf5ae2c82bff0ec8dd30caeb48b73a354037f79a4b7a6331959f7171",
-      "codeFingerprint": "cc32cdb2",
+      "sha256": "563057652590bcbabea2a5a89055ca66bc0f65e1759f123799453a9b2178f8ac",
+      "codeFingerprint": "0d0a0aad",
       "bssSize": 480,
       "signatures": [
         {
@@ -1392,7 +1392,7 @@
       "exports": [],
       "field": {
         "fileName": "PartyQuickActionsFieldB2.dll",
-        "sha256": "f47a58c193ab13c7e4dd0d746685a48b04f5110af080a5f1b4483f2dca9a8ddb",
+        "sha256": "2922c97f1cf5f1fb1fc68baaded058fd66df6c2323189df55c0208a5acc135fc",
         "codeFingerprint": "f974c50d",
         "bssSize": 12,
         "exports": [
@@ -1403,7 +1403,7 @@
       }
     }
   },
-  "archiveSha256": "1e233bcb5d041acfd29885867f21c0104a988ceba0db3ec9258c38872764b77b",
+  "archiveSha256": "9df0b57c7a6a3ace07587f3b3c3bb6ab68cf65eea64758d62e5282d324dc9274",
   "graphicsFingerprints": [
     "00869def",
     "41739f66",

@@ -1,4 +1,5 @@
 import { uiFieldCompanion, matchesUiFieldCompanion, loadUiFieldCompanion, type UiFieldCompanion } from "./uiRuntimeCompanion";
+import previous17 from "../../runtime/party-quick-actions/previous-0.1.7.json";
 import previous16 from "../../runtime/party-quick-actions/previous-0.1.6.json";
 import manifest from "../assets/codeinjection/partyQuickActionsManifest.json";
 import bw1Manifest from "../assets/codeinjection/partyQuickActionsBw1Manifest.json";
@@ -16,7 +17,7 @@ import { NintendoDSRom } from "../nds/rom";
 import { addRomFile, getRomFileBytes } from "./fileSystemModel";
 import { loadActiveRomBytes } from "./persistence";
 import { recordGenericChange } from "./actionChangelog";
-import { getInfiniteCandyStatus, installInfiniteCandy } from "./infiniteCandyModel";
+import { getInfiniteCandyStatus, getInstalledInfiniteCandyItemId, INFINITE_CANDY_ITEM_ID, installInfiniteCandy } from "./infiniteCandyModel";
 import { adoptExistingPmcInstall, getPmcInstallStatus, installPmcBytes, listCodeInjectionDlls, loadBundledPmcBytes, stageCodeInjectionDll } from "./pmcModel";
 import { createNarcStore, type ProjectState } from "./projectStore";
 import { parseRpm, type RpmModule } from "./rpm";
@@ -56,7 +57,7 @@ const fieldUrls = { W2: new URL("../assets/codeinjection/PartyQuickActionsFieldW
   B2: new URL("../assets/codeinjection/PartyQuickActionsFieldB2.dll", import.meta.url) };
 const archiveUrl = new URL("../assets/codeinjection/partyQuickActions.narc", import.meta.url);
 const archiveUrls = { B: new URL("../assets/codeinjection/partyQuickActionsB.narc", import.meta.url), W: new URL("../assets/codeinjection/partyQuickActionsW.narc", import.meta.url), B2: archiveUrl, W2: archiveUrl };
-const bundles: Bundle[] = [manifest, previous, previous11, previous12, previous13, previous14, previous15, previous16, bw1Manifest];
+const bundles: Bundle[] = [manifest, previous, previous11, previous12, previous13, previous14, previous15, previous16, previous17, bw1Manifest];
 const currentBundle = (version: Version): Bundle => version === "B" || version === "W" ? bw1Manifest : manifest;
 const graphics = (bundle: Bundle, version: Version) => bundle.games[version]?.graphicsFingerprints ?? bundle.graphicsFingerprints ?? [];
 export const getPartyToolbarMaxSaveFlag = (version: string) => version === "B" || version === "W" ? 2911 : PARTY_QUICK_ACTIONS_MAX_SAVE_FLAG;
@@ -131,21 +132,25 @@ function configuration(bytes: Uint8Array, version: Version) {
   const archive = new NARC(bytes), header = archive.files[0];
   const legacy = header?.length === 20 && readU32(header, 4) === 1 && readU32(header, 8) === 20;
   const wholeFlag = header?.length === 24 && readU32(header, 4) === 2 && readU32(header, 8) === 24;
-  const sections = header?.length === 44 && readU32(header, 4) === 3 && readU32(header, 8) === 44;
+  const configuredCandy = (version === "B2" || version === "W2")
+    && header?.length === 48 && readU32(header, 4) === 4 && readU32(header, 8) === 48;
+  const sections = configuredCandy || (header?.length === 44 && readU32(header, 4) === 3 && readU32(header, 8) === 44);
+  const candyItemId = configuredCandy ? readU32(header, 40) : INFINITE_CANDY_ITEM_ID;
   const flag = wholeFlag || sections ? readU32(header, 16) : 0;
   const sectionHideFlags = emptySectionFlags();
   if (sections) PARTY_TOOLBAR_SECTIONS.forEach(({ id }, i) => { sectionHideFlags[id] = readU32(header, 20 + i * 4) || null; });
   const flags = [flag, ...Object.values(sectionHideFlags).map(value => value ?? 0)];
-  const sum = flags.reduce((checksum, value) => checksum ^ value, 0x51415050 ^ (header ? readU32(header, 12) : 0));
+  const sum = flags.reduce((checksum, value) => checksum ^ value, 0x51415050 ^ (header ? readU32(header, 12) : 0) ^ (configuredCandy ? candyItemId : 0));
   if (!bundles.some(bundle => bundle.games[version] && archive.files.length === graphics(bundle, version).length + 1) || !header || (!legacy && !wholeFlag && !sections)
       || readU32(header, 0) !== 0x51415050 || readU32(header, 12) > 1 || flags.some(value => value > getPartyToolbarMaxSaveFlag(version))
-      || readU32(header, sections ? 40 : wholeFlag ? 20 : 16) !== sum) {
+      || !candyItemId || candyItemId === 50 || candyItemId > 638
+      || readU32(header, header.length - 4) !== sum) {
     throw new Error("Unrecognized Party toolbar archive. Restore its private graphics archive.");
   }
   if (!bundles.some(bundle => bundle.games[version] && archive.files.length === graphics(bundle, version).length + 1 && archive.files.slice(1).every((file, index) => fingerprint(file) === graphics(bundle, version)[index]))) {
     throw new Error("Party toolbar graphics are altered or incomplete. Restore the private graphics archive.");
   }
-  return { enabled: !!readU32(header, 12), hideFlag: flag || null, sectionHideFlags };
+  return { enabled: !!readU32(header, 12), hideFlag: flag || null, sectionHideFlags, candyItemId };
 }
 
 export function getPartyQuickActionsStatus(p: ProjectState): PartyQuickActionsStatus {
@@ -164,6 +169,7 @@ export function getPartyQuickActionsStatus(p: ProjectState): PartyQuickActionsSt
     if (r.idCode !== profile.idCode || r.data[0x1e])
       return state;
     state.supported = true;
+    let configuredCandyItemId: number | undefined;
     for (const entry of listCodeInjectionDlls(p)) {
       const b = bytesAt(p, r, entry.path);
       let rpm: RpmModule | undefined;
@@ -173,7 +179,11 @@ export function getPartyQuickActionsStatus(p: ProjectState): PartyQuickActionsSt
       }
       catch { }
       if (!b && entry.path === `patches/${uiFieldCompanion(profile)?.fileName}`) continue;
-      if (rpm && matchesUiFieldCompanion(rpm, profile, v, bundle.version)) continue;
+      if (rpm && bundles.some(candidate => {
+        const companionProfile = candidate.games[v];
+        return companionProfile && entry.path === `patches/${uiFieldCompanion(companionProfile)?.fileName}`
+          && matchesUiFieldCompanion(rpm!, companionProfile, v, candidate.version);
+      })) continue;
       if (rpm && recognized(rpm, v) && entry.target === "patches") {
         if (state.installed)
           throw new Error("Duplicate Party toolbar modules. Remove the duplicate before installing.");
@@ -194,7 +204,9 @@ export function getPartyQuickActionsStatus(p: ProjectState): PartyQuickActionsSt
     }
     const archive = bytesAt(p, r, manifest.archivePath);
     if (archive) {
-      Object.assign(state, configuration(archive, v));
+      const { candyItemId, ...settings } = configuration(archive, v);
+      configuredCandyItemId = candyItemId;
+      Object.assign(state, settings);
       if (state.installed && new NARC(archive).files.slice(1).some((file, index) => fingerprint(file) !== graphics(bundle, v)[index])) state.updateAvailable = true;
     }
     else if (state.installed)
@@ -215,11 +227,12 @@ export function getPartyQuickActionsStatus(p: ProjectState): PartyQuickActionsSt
     loadCandyArchives(dependencyProject, r);
     const candy = getInfiniteCandyStatus(dependencyProject);
     state.candyInstalled = candy.installed;
-    state.candyCompatible = candy.supported && candy.compatible && candy.itemId === 622;
-    if (state.installed && !candy.installed) state.updateAvailable = true;
-    state.message = !state.candyCompatible ? candy.itemId !== undefined && candy.itemId !== 622
-      ? "This Party Toolbar build requires Infinite Candy at item 622."
-      : `Requires Infinite Rare Candy: ${candy.message}` : state.updateAvailable ? "Party toolbar update available." : state.installed ? (state.enabled ? "Party toolbar enabled. Candy requires Infinite Candy in Key Items; tap a status again to clear it." : "Party toolbar disabled.") : "Native hooks match. Installs Infinite Rare Candy and PMC when needed.";
+    state.candyCompatible = candy.supported && candy.compatible;
+    if (state.installed && (!candy.installed || configuredCandyItemId !== candy.itemId)) state.updateAvailable = true;
+    state.message = !state.candyCompatible ? `Requires Infinite Rare Candy: ${candy.message}`
+      : state.updateAvailable ? "Party toolbar update available."
+      : state.installed ? (state.enabled ? "Party toolbar enabled. Candy requires Infinite Candy in Key Items; tap a status again to clear it." : "Party toolbar disabled.")
+      : "Native hooks match. Installs Infinite Rare Candy and PMC when needed.";
   }
   catch (e) {
     state.message = (e as Error).message;
@@ -266,7 +279,7 @@ export async function installPartyQuickActions(p: ProjectState, options: PartyQu
     writeU32(configuredArchive.files[0], 20 + i * 4, sectionHideFlags[id] ?? 0);
   });
   writeU32(configuredArchive.files[0], 16, hideFlag);
-  writeU32(configuredArchive.files[0], 40, Object.values(sectionHideFlags).reduce<number>((sum, flag) => sum ^ (flag ?? 0), 0x51415050 ^ 1 ^ hideFlag));
+
   // Commit only after the PMC, module and private archive have all staged successfully.
   const staged: ProjectState = { ...input, arm9: p.arm9.slice(), overlays: Object.fromEntries(Object.entries(p.overlays).map(([id, b]) => [id, b?.slice()])), narcs: structuredClone(p.narcs), texts: structuredClone(p.texts), fileSystem: structuredClone(p.fileSystem), codeInjection: structuredClone(p.codeInjection), patches: structuredClone(p.patches), actionChangelog: structuredClone(p.actionChangelog) };
   adoptExistingPmcInstall(staged, romBytes);
@@ -274,6 +287,11 @@ export async function installPartyQuickActions(p: ProjectState, options: PartyQu
     installPmcBytes(staged, await loadBundledPmcBytes(v), romBytes);
   loadCandyArchives(staged, r);
   if (!s.candyInstalled) await installInfiniteCandy(staged);
+  const candyItemId = getInstalledInfiniteCandyItemId(staged);
+  if (candyItemId === undefined) throw new Error("Could not verify the installed Infinite Rare Candy item ID.");
+  const header = configuredArchive.files[0];
+  if (readU32(header, 4) === 4) writeU32(header, 40, candyItemId);
+  updateConfigurationChecksum(header);
   const field = uiFieldCompanion(profile);
   if (field && (v === "B2" || v === "W2")) {
     const bytes = await loadUiFieldCompanion(profile, fieldUrls[v]);
@@ -286,15 +304,19 @@ export async function installPartyQuickActions(p: ProjectState, options: PartyQu
   Object.assign(p, { originalRomBytes: romBytes, arm9: staged.arm9, arm9Dirty: staged.arm9Dirty, overlays: staged.overlays, narcs: staged.narcs, texts: staged.texts, fileSystem: staged.fileSystem, codeInjection: staged.codeInjection, patches: staged.patches, actionChangelog: staged.actionChangelog });
   return result;
 }
+function updateConfigurationChecksum(header: Uint8Array): void {
+  let checksum = readU32(header, 0) ^ readU32(header, 12);
+  for (let offset = 16; offset < header.length - 4; offset += 4) checksum ^= readU32(header, offset);
+  writeU32(header, header.length - 4, checksum);
+}
+
 export function disablePartyQuickActions(project: ProjectState) {
   const status = getPartyQuickActionsStatus(project);
   if (!status.installed || !status.compatible || !project.originalRomBytes) throw new Error(status.message);
   const rom = new NintendoDSRom(project.originalRomBytes, { fileData: "view" });
   const archive = new NARC(bytesAt(project, rom, manifest.archivePath)!);
   writeU32(archive.files[0], 12, 0);
-  const version = readU32(archive.files[0], 4);
-  const flags = version === 3 ? [16, 20, 24, 28, 32, 36] : version === 2 ? [16] : [];
-  writeU32(archive.files[0], version === 3 ? 40 : version === 2 ? 20 : 16, flags.reduce((sum, offset) => sum ^ readU32(archive.files[0], offset), 0x51415050));
+  updateConfigurationChecksum(archive.files[0]);
   stageArchive(project, rom, archive.save());
   recordGenericChange(project, "code_injection", "Party toolbar disabled.", "Party Toolbar", { key: "code-injection:party-quick-actions" });
 }

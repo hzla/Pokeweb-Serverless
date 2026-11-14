@@ -16,9 +16,30 @@ export function speciesExpansionConfig(project: Pick<ProjectState, "codeInjectio
   return project.codeInjection?.speciesExpansion;
 }
 
-export function isAddedSpecies(project: Pick<ProjectState, "codeInjection">, species: number): boolean {
+/**
+ * Whether a species number is one of the expansion's slots (national 650 onwards), installed or not. A user can install
+ * only some species: each keeps its number, and the slots left out have no sprite block (0 in the table).
+ */
+export function isExpansionSlot(project: Pick<ProjectState, "codeInjection">, species: number): boolean {
   const config = speciesExpansionConfig(project);
   return Boolean(config) && species >= FIRST_ADDED_SPECIES && species < FIRST_ADDED_SPECIES + config!.count;
+}
+
+/** An installed added species. */
+export function isAddedSpecies(project: Pick<ProjectState, "codeInjection">, species: number): boolean {
+  return isExpansionSlot(project, species) && Boolean(speciesExpansionConfig(project)!.sprites[species - FIRST_ADDED_SPECIES]);
+}
+
+/** A slot the user left out: no species, hidden from the editors. */
+export function isAbsentExpansionSlot(project: Pick<ProjectState, "codeInjection">, species: number): boolean {
+  return isExpansionSlot(project, species) && !isAddedSpecies(project, species);
+}
+
+/** The national numbers of the installed added species. */
+export function installedExpansionNationals(project: Pick<ProjectState, "codeInjection">): number[] {
+  const config = speciesExpansionConfig(project);
+  if (!config) return [];
+  return config.sprites.flatMap((sprite, index) => (sprite ? [FIRST_ADDED_SPECIES + index - NATIONAL_OFFSET] : []));
 }
 
 /** The species of a national number (650 onwards: + 37). */
@@ -28,7 +49,7 @@ export function expansionSpeciesOf(national: number): number {
 
 /** The national number of a species: an added species' is 37 less. */
 export function nationalNumberOf(project: Pick<ProjectState, "codeInjection">, species: number): number {
-  return isAddedSpecies(project, species) ? species - NATIONAL_OFFSET : species;
+  return isExpansionSlot(project, species) ? species - NATIONAL_OFFSET : species;
 }
 
 /** The sprite block of an added species (form 0). */

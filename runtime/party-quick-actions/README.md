@@ -2,9 +2,10 @@
 
 Install under **Code Injection → Graphical/UI Enhancements → Enhanced Party Menu**.
 Supports checked US revision-0 Black/White and Black 2/White 2 with separate
-native adapters. Infinite Candy item 622 is required for its Candy control;
-the BW2 installer stages that dependency atomically. Enhanced Party Menu and
-Battle Log are otherwise optional.
+native adapters. The installer stages Infinite Candy as a dependency and the
+Candy control appears when the player owns that item. In BW2 the toolbar uses
+the ID configured in the Infinite Candy patch. Black and White use item 622.
+Enhanced Party Menu and Battle Log are optional.
 
 Touch an icon or press L to navigate the toolbar with Left/Right and A; B/L
 returns to party selection. The selected Pokémon stays locked while navigating.
@@ -25,7 +26,9 @@ target and remaining icons pack left. Visibility changes cancel incompatible
 pending actions without modifying Pokémon. Disable restores the native prompt
 and leaves previous Pokémon changes intact.
 
-The private archive is `party-tools/ui.narc`. Native resources are owned until
+The private archive is `party-tools/ui.narc`. BW2 configuration version 4 stores
+the Candy item ID along with the saved flags. Older configurations use 622.
+Native resources are owned until
 their queued uploads/applications finish; partial failures release resources and
 retain the native menu. Build/check with `npm run partytools:build` and
 `npm run partytools:verify`; BW1 uses the `:build-bw1` / `:verify-bw1` variants.

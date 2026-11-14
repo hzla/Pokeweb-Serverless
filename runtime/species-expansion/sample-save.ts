@@ -15,7 +15,7 @@ import { getTestBattleConfigForProject, loadTestBattleSave } from "../../src/pok
 import { patchTestBattleSavePlayerParty } from "../../src/pokeweb/testBattleTeam";
 import { adaptSaveForProject } from "../../src/pokeweb/itemExpansionModel";
 import { decodeRecord } from "../../src/pokeweb/projectStore";
-import { expansionSpeciesOf } from "../../src/pokeweb/speciesExpansionIds";
+import { expansionSpeciesOf, installedExpansionNationals } from "../../src/pokeweb/speciesExpansionIds";
 import { editPokedexSave, registerPokedexSpecies, setNationalPokedex } from "../../src/pokeweb/speciesExpansionSaveModel";
 
 const TEAM = `Greninja
@@ -73,8 +73,8 @@ await mkdir(output, { recursive: true });
   const party = patchTestBattleSavePlayerParty((await loadTestBattleSave(config)).rawSaveBytes, project, TEAM, config.baseRom);
   const save = editPokedexSave(adaptSaveForProject(project, party), (dex) => {
     setNationalPokedex(dex);
-    const last = 649 + project.codeInjection!.speciesExpansion!.count; // the package's last (Iron Crown, 1023)
-    for (let national = 1; national <= last; national++) {
+    // Every installed species (the script installs them all: 1-1023).
+    for (const national of [...Array.from({ length: 649 }, (_, i) => i + 1), ...installedExpansionNationals(project)]) {
       const gender = Number(decodeRecord(project, "personal", expansionSpeciesOf(national)).raw!.gender);
       registerPokedexSpecies(dex, national, true, gender === 254);
     }

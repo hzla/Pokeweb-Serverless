@@ -1,4 +1,5 @@
 import manifestJson from "../assets/codeinjection/speciesExpansionManifest.json";
+import indexJson from "../assets/data/speciesExpansionIndex.json";
 import { recordGenericChange } from "./actionChangelog";
 import { loadCodeInjectionNarcs } from "./codeInjectionInstall";
 import { canOpenMapStudio } from "./mapStudioAccess";
@@ -18,7 +19,7 @@ import { commitTextBank, getTextBank, parseTextEntryId } from "./textModel";
 import { materializeProjectEdits } from "./projectMaterialize";
 import { hydrateMissingOverlays } from "./persistence";
 import { patchDexSearchCode, stagePokedexData } from "./speciesExpansionDexModel";
-import { FIRST_ADDED_SPECIES, NATIONAL_OFFSET, expansionSpeciesOf } from "./speciesExpansionIds";
+import { FIRST_ADDED_SPECIES, NATIONAL_OFFSET, expansionSpeciesOf, installedExpansionNationals } from "./speciesExpansionIds";
 import type { NarcName } from "./constants";
 import type { Gen5TextEntry } from "./text";
 
@@ -124,7 +125,10 @@ export type SpeciesExpansionStatus = {
   supported: boolean;
   installed: boolean;
   ready: boolean;
+  /** The installed added species. */
   count: number;
+  /** National numbers of the installed added species. */
+  nationals: number[];
   message: string;
 };
 
@@ -139,17 +143,55 @@ export function canUseSpeciesExpansionInstaller(hostname = typeof location === "
 export function getSpeciesExpansionStatus(project: ProjectState): SpeciesExpansionStatus {
   const config = project.codeInjection?.speciesExpansion;
   const supported = project.session.baseVersion === "W2" || project.session.baseVersion === "B2";
-  const base = { supported, installed: Boolean(config), ready: false, count: config?.count ?? 0 };
+  const nationals = installedExpansionNationals(project);
+  const base = { supported, installed: Boolean(config), ready: false, count: nationals.length, nationals };
   if (!supported) return { ...base, message: "The species expansion supports US Black 2 and White 2." };
-  if (config) return { ...base, message: `${config.count} species are installed (national 650-${649 + config.count}).` };
+  if (config) {
+    // Some species can be installed now and others later: each keeps its number.
+    if (nationals.length < config.count) return { ...base, ready: true, message: `${nationals.length} of ${config.count} species are installed.` };
+    return { ...base, message: `All ${config.count} species are installed (national 650-${649 + config.count}).` };
+  }
   if (usesWhite2UpgradePokemonData(project) || detectWhite2UpgradeDlls(project) || detectBlack2UpgradeDlls(project)) {
     return { ...base, message: "White 2 Upgrade / Black 2 Upgrade ROMs have their own species." };
   }
   return { ...base, ready: true, message: "Ready to install." };
 }
 
+/** The package's species ([national, name, family base]), bundled for the installer card. */
+const SPECIES_INDEX = indexJson as Array<[number, string, number]>;
+
+export type SpeciesExpansionFamily = {
+  /** The family's base species (national; retail's for a new evolution of an old species, as Eevee's Sylveon). */
+  family: number;
+  label: string;
+  generation: 6 | 7 | 8 | 9;
+  members: Array<{ national: number; name: string; installed: boolean }>;
+};
+
+export function speciesGeneration(national: number): 6 | 7 | 8 | 9 {
+  return national <= 721 ? 6 : national <= 809 ? 7 : national <= 905 ? 8 : 9;
+}
+
+/** The package's species by evolution family, in national order, with what's installed. */
+export function speciesExpansionFamilies(project: ProjectState): SpeciesExpansionFamily[] {
+  const installed = new Set(installedExpansionNationals(project));
+  const families = new Map<number, SpeciesExpansionFamily>();
+  for (const [national, name, family] of SPECIES_INDEX) {
+    let entry = families.get(family);
+    if (!entry) {
+      const base = family <= SPECIES_LAST_RETAIL ? project.texts.banks.pokedex?.[family] : undefined;
+      entry = { family, label: base ? `${base}'s line` : name, generation: speciesGeneration(national), members: [] };
+      families.set(family, entry);
+    }
+    entry.members.push({ national, name, installed: installed.has(national) });
+  }
+  return [...families.values()];
+}
+
 export type SpeciesExpansionReport = {
   species: number;
+  /** Added species' evolutions into species that aren't installed (they come back when those are). */
+  evolutionsWaiting?: string[];
   formsMoved: number;
   abilitiesAdded: string[];
   abilityFallbacks: string[];
@@ -398,46 +440,106 @@ async function stageRuntime(project: ProjectState, config: NonNullable<NonNullab
   }
 }
 
-/** Installs the added species into a staged project (Fairy Type Support, Move Expansion and PWAN first). */
-export async function stageSpeciesExpansion(project: ProjectState): Promise<SpeciesExpansionReport> {
+/** A blank record for a slot the user leaves out: no species (the editors hide it, the runtime treats it as none). */
+function writeAbsentSlot(project: ProjectState, species: number): void {
+  const personal = store(project, "personal");
+  personal.rawFiles[species] = new Uint8Array(personal.rawFiles[1]!.length);
+  personal.records.delete(species);
+  markDirty(project, "personal", species);
+  const learnsets = store(project, "learnsets"), evolutions = store(project, "evolutions");
+  learnsets.rawFiles[species] = emptyLearnsetRecord();
+  learnsets.records.delete(species);
+  markDirty(project, "learnsets", species);
+  evolutions.rawFiles[species] = emptyEvolutionRecord(project, evolutions, 1);
+  evolutions.records.delete(species);
+  markDirty(project, "evolutions", species);
+}
+
+type EvolutionRow = { method: number; param: number; target: number };
+
+function evolutionRows(project: ProjectState, species: number): EvolutionRow[] {
+  const raw = decodeRecord(project, "evolutions", species).raw ?? {};
+  const rows: EvolutionRow[] = [];
+  for (let slot = 0; `method_${slot}` in raw; slot++) {
+    const method = Number(raw[`method_${slot}`]);
+    if (method) rows.push({ method, param: Number(raw[`param_${slot}`]), target: Number(raw[`target_${slot}`]) });
+  }
+  return rows;
+}
+
+/** An added species' evolutions in the ROM's numbering; a row into a species that isn't installed waits (undefined). */
+function contentEvolutions(entry: ExpansionSpecies, moveByName: ReadonlyMap<string, number>, report: SpeciesExpansionReport): Array<EvolutionRow & { national: number }> {
+  return entry.evolutions.flatMap((row) => {
+    let param = row.param;
+    if (row.method === 21 && param > LAST_RETAIL_MOVE) {
+      const move = moveByName.get(normalize(row.moveName ?? ""));
+      if (move === undefined) { report.evolutionsLeftOut.push(`${entry.name}: knows ${row.moveName}`); return []; }
+      param = move;
+    }
+    if (row.method === 22) param = expansionSpeciesOf(param);
+    return [{ method: row.method, param, target: expansionSpeciesOf(row.species), national: row.species }];
+  });
+}
+
+/**
+ * Installs added species into a staged project (Fairy Type Support, Move Expansion and PWAN first): `nationals`, or all.
+ * Every species keeps its number (national + 37), installed or not: the first install moves the form records past
+ * all of them and leaves blank slots for the ones left out, which a later install fills in.
+ */
+export async function stageSpeciesExpansion(project: ProjectState, nationals?: readonly number[]): Promise<SpeciesExpansionReport> {
   const status = getSpeciesExpansionStatus(project);
   if (!status.ready) throw new Error(status.message);
   if (!project.originalRomBytes) throw new Error("Reload the ROM before installing the species expansion.");
   const rom = new NintendoDSRom(project.originalRomBytes, { fileData: "view" });
   loadCodeInjectionNarcs(project, rom, ["personal", "learnsets", "evolutions", "egg_moves", "baby_species", "pokemon_sprites",
     "pokemon_icons", "message_texts", "pokedex_search", "pokemon_footprints", "town_map_species_habitats"]);
-  const [library, carrier] = await Promise.all([loadPwanLibrary(), loadBundledPwanCarrierTemplate(project.session.baseVersion === "B2" ? "B2" : "W2")]);
   const content = await loadExpansionSpecies();
+  const installedBefore = new Set(status.nationals);
+  const chosen = new Set(nationals ?? content.map((entry) => entry.national));
+  const adding = content.filter((entry) => chosen.has(entry.national) && !installedBefore.has(entry.national));
+  if (!adding.length) throw new Error("Choose at least one species that isn't installed yet.");
+  const present = new Set([...installedBefore, ...adding.map((entry) => entry.national)]);
+  const [library, carrier] = await Promise.all([loadPwanLibrary(), loadBundledPwanCarrierTemplate(project.session.baseVersion === "B2" ? "B2" : "W2")]);
   const report: SpeciesExpansionReport = { species: 0, formsMoved: 0, abilitiesAdded: [], abilityFallbacks: [], movesLeftOut: [],
-    evolutionsLeftOut: [], spriteStandIns: [] };
+    evolutionsLeftOut: [], evolutionsWaiting: [], spriteStandIns: [] };
   const typeCount = detectFairyTypePatch(project) === "patched" ? 18 : 17;
   const moveByName = new Map<string, number>();
   (project.texts.banks.moves ?? []).forEach((name, id) => { if (id > 0 && name && !moveByName.has(normalize(name))) moveByName.set(normalize(name), id); });
 
   // Abilities first: one the ROM lacks is added through a staged install of its own, which replaces the project's state.
-  const abilities = await resolveAbilities(project, content, report);
+  const abilities = await resolveAbilities(project, adding, report);
   // Byte copies and moves below: pending record edits first.
   materializeProjectEdits(project);
-  report.formsMoved = moveFormRecords(project);
-  const regionalDexFile = RETAIL_REGIONAL_DEX_FILE + FORM_SHIFT;
-  // The configuration from here on: with it, the long personal archive is not read as White2Upgrade's, and the sprite
-  // model resolves an added species' sprite block.
-  const sprites: number[] = [], cries: number[] = [];
-  const restricted = content.filter((entry) => entry.restricted).map((entry) => expansionSpeciesOf(entry.national));
-  const mythical = content.filter((entry) => entry.mythical).map((entry) => expansionSpeciesOf(entry.national));
-  const config = { version: SPECIES_EXPANSION_VERSION, count: content.length, regionalDexFile, formShift: FORM_SHIFT, sprites, cries, restricted, mythical };
-  project.codeInjection ??= {};
-  project.codeInjection.speciesExpansion = config;
-  const last = FIRST_ADDED_SPECIES + content.length - 1;
-  growRegionalDex(project, regionalDexFile, LAST_ADDED_SPECIES + 1);
-
+  const first = !project.codeInjection?.speciesExpansion;
   const learnsets = store(project, "learnsets"), evolutions = store(project, "evolutions");
   const eggMoves = store(project, "egg_moves"), babies = store(project, "baby_species");
-  while (eggMoves.rawFiles.length < FIRST_ADDED_SPECIES) eggMoves.rawFiles.push(u16(0));
-  while (babies.rawFiles.length < FIRST_ADDED_SPECIES) babies.rawFiles.push(u16(babies.rawFiles.length));
+  let config = project.codeInjection?.speciesExpansion;
+  if (!config) {
+    report.formsMoved = moveFormRecords(project);
+    const regionalDexFile = RETAIL_REGIONAL_DEX_FILE + FORM_SHIFT;
+    // The configuration from here on: with it, the long personal archive is not read as White2Upgrade's, and the
+    // sprite model resolves an added species' sprite block. A slot without a sprite block (0) is left out.
+    const restricted = content.filter((entry) => entry.restricted).map((entry) => expansionSpeciesOf(entry.national));
+    const mythical = content.filter((entry) => entry.mythical).map((entry) => expansionSpeciesOf(entry.national));
+    config = { version: SPECIES_EXPANSION_VERSION, count: content.length, regionalDexFile, formShift: FORM_SHIFT,
+      sprites: content.map(() => 0), cries: content.map((entry) => entry.cry), restricted, mythical };
+    project.codeInjection ??= {};
+    project.codeInjection.speciesExpansion = config;
+    growRegionalDex(project, regionalDexFile, LAST_ADDED_SPECIES + 1);
+    while (eggMoves.rawFiles.length < FIRST_ADDED_SPECIES) eggMoves.rawFiles.push(u16(0));
+    while (babies.rawFiles.length < FIRST_ADDED_SPECIES) babies.rawFiles.push(u16(babies.rawFiles.length));
+    for (const entry of content) {
+      const species = expansionSpeciesOf(entry.national);
+      eggMoves.rawFiles[species] = u16(0);
+      babies.rawFiles[species] = u16(species);
+      if (!present.has(entry.national)) writeAbsentSlot(project, species);
+    }
+  }
+  const last = FIRST_ADDED_SPECIES + config.count - 1;
   const names = new Map<number, Map<number, string>>(SPECIES_NAME_BANKS.map((id) => [id, new Map()]));
+  if (first) for (const entry of content) if (!present.has(entry.national)) for (const id of SPECIES_NAME_BANKS) names.get(id)!.set(expansionSpeciesOf(entry.national), "");
 
-  for (const entry of content) {
+  for (const entry of adding) {
     const species = expansionSpeciesOf(entry.national);
     writePersonal(project, species, entry, typeCount);
     const record = decodeRecord(project, "personal", species).raw!;
@@ -466,17 +568,24 @@ export async function stageSpeciesExpansion(project: ProjectState): Promise<Spec
     names.get(483)!.set(species, `VAR(48385)${/^[aeiou]/iu.test(entry.name) ? "an" : "a"} VAR(65280, 255)${entry.name}`);
     names.get(486)!.set(species, entry.name.toUpperCase());
     eggMoves.rawFiles[species] = u16(0);
-    babies.rawFiles[species] = u16(expansionSpeciesOf(entry.family));
 
-    const block = addSpriteBlock(project);
-    sprites.push(block);
-    cries.push(entry.cry);
+    config.sprites[species - FIRST_ADDED_SPECIES] = addSpriteBlock(project);
+    config.cries[species - FIRST_ADDED_SPECIES] = entry.cry;
     if (entry.spriteStandIn) report.spriteStandIns.push(`${entry.name} uses ${content.find((other) => other.national === entry.spriteStandIn)?.name}'s sprite`);
     report.species++;
   }
+  // Eggs hatch into the earliest installed species of the family (Froakie's line without Froakie: Frogadier).
+  const families = new Set(adding.map((entry) => entry.family));
+  for (const entry of content) {
+    if (!present.has(entry.national) || !families.has(entry.family)) continue;
+    const base = entry.family <= SPECIES_LAST_RETAIL ? entry.family
+      : content.filter((other) => other.family === entry.family && present.has(other.national))
+        .sort((a, b) => a.personal.stage - b.personal.stage || a.national - b.national)[0]!.national;
+    babies.rawFiles[expansionSpeciesOf(entry.national)] = u16(expansionSpeciesOf(base));
+  }
   for (const id of SPECIES_NAME_BANKS) setNameEntries(project, id, names.get(id)!);
   // The Pokédex: its texts, lists, footprints and area maps.
-  stagePokedexData(project, content);
+  stagePokedexData(project, adding, { first });
   for (const id of DEX_TEXT_BANKS) commitTextBank(project, "message_texts", id);
   for (const target of [eggMoves, babies]) {
     target.fileCount = target.rawFiles.length;
@@ -484,32 +593,40 @@ export async function stageSpeciesExpansion(project: ProjectState): Promise<Spec
     markDirty(project, target.name, FIRST_ADDED_SPECIES);
   }
 
-  for (const entry of content) {
+  // Evolutions into species that aren't installed wait for them: an installed species gets them when they come.
+  const waiting = (entry: ExpansionSpecies, national: number) => `${entry.name} → ${content.find((other) => other.national === national)?.name ?? national}`;
+  for (const entry of adding) {
     const species = expansionSpeciesOf(entry.national);
-    const rows = entry.evolutions.flatMap((row) => {
-      let param = row.param;
-      if (row.method === 21 && param > LAST_RETAIL_MOVE) {
-        const move = moveByName.get(normalize(row.moveName ?? ""));
-        if (move === undefined) { report.evolutionsLeftOut.push(`${entry.name}: knows ${row.moveName}`); return []; }
-        param = move;
-      }
-      if (row.method === 22) param = expansionSpeciesOf(param);
-      return [{ method: row.method, param, target: expansionSpeciesOf(row.species) }];
+    const rows = contentEvolutions(entry, moveByName, report).filter((row) => {
+      if (present.has(row.national) || row.national <= SPECIES_LAST_RETAIL) return true;
+      report.evolutionsWaiting!.push(waiting(entry, row.national));
+      return false;
     });
-    setPokemonEvolutions(project, species, rows);
+    setPokemonEvolutions(project, species, rows.map(({ method, param, target }) => ({ method, param, target })));
     if (entry.library) importPwanLibraryEntryFromLoadedLibrary(project, species, entry.library, library, carrier);
+  }
+  const added = new Set(adding.map((entry) => entry.national));
+  for (const entry of content) {
+    if (!installedBefore.has(entry.national)) continue;
+    const species = expansionSpeciesOf(entry.national);
+    const current = evolutionRows(project, species);
+    const arriving = contentEvolutions(entry, moveByName, { ...report, evolutionsLeftOut: [] })
+      .filter((row) => added.has(row.national) && !current.some((other) => other.target === row.target));
+    if (arriving.length) setPokemonEvolutions(project, species, [...current, ...arriving.map(({ method, param, target }) => ({ method, param, target }))]);
   }
 
   await stageRuntime(project, config);
   patchFieldSpeciesGuard(project, rom, last);
   hydrateMissingOverlays(project, rom, [DEX_SEARCH_OVERLAY]);
-  project.overlays[DEX_SEARCH_OVERLAY] = patchDexSearchCode(project.overlays[DEX_SEARCH_OVERLAY]!, SPECIES_LAST_RETAIL + content.length);
+  project.overlays[DEX_SEARCH_OVERLAY] = patchDexSearchCode(project.overlays[DEX_SEARCH_OVERLAY]!, SPECIES_LAST_RETAIL + present.size);
   if (!project.patches!.dirtyOverlayIds.includes(DEX_SEARCH_OVERLAY)) project.patches!.dirtyOverlayIds.push(DEX_SEARCH_OVERLAY);
-  const credits = [...new Set(content.flatMap((entry) => [entry.credits.front, entry.credits.back]).filter((credit): credit is string => Boolean(credit)))];
+  const credits = [...new Set(adding.flatMap((entry) => [entry.credits.front, entry.credits.back]).filter((credit): credit is string => Boolean(credit)))];
+  const which = adding.length === content.length ? `national 650-${649 + content.length}` : adding.map((entry) => entry.name).join(", ");
   recordGenericChange(project, "code_injection",
-    `Species expansion: ${report.species} species added (national 650-${649 + report.species}, ROM species ${FIRST_ADDED_SPECIES}-${last}); ` +
-    `${report.formsMoved} form records and the regional Pokédex table moved by ${FORM_SHIFT}. Data from White2Upgrade; sprites by ${credits.join("; ")}.`,
-    "Species Expansion", { key: "code-injection:species-expansion" });
+    `Species expansion: ${report.species} species added (${which}; ROM species = national + ${NATIONAL_OFFSET})` +
+    (first ? `; ${report.formsMoved} form records and the regional Pokédex table moved by ${FORM_SHIFT}` : "") +
+    `. Data from White2Upgrade; sprites by ${credits.join("; ")}.`,
+    "Species Expansion", { key: `code-injection:species-expansion:${[...present].sort((a, b) => a - b).join(",")}` });
   return report;
 }
 
@@ -517,9 +634,12 @@ export async function stageSpeciesExpansion(project: ProjectState): Promise<Spec
 export async function installSpeciesExpansion(
   project: ProjectState,
   install: (stage: (staged: ProjectState) => Promise<SpeciesExpansionReport>) => Promise<SpeciesExpansionReport>,
+  nationals?: readonly number[],
 ): Promise<SpeciesExpansionReport> {
   const status = getSpeciesExpansionStatus(project);
   if (!status.ready) throw new Error(status.message);
+  // Adding species to an installed expansion: its dependencies came with the first install.
+  if (status.installed) return install((staged) => stageSpeciesExpansion(staged, nationals));
   if (!hasPwanRuntimeDll(project)) await installPwanRuntime(project);
   const fairyBefore = detectFairyTypePatch(project);
   if (fairyBefore === "unpatched") await addFairyTypeSupport(project, { updateModernFairyTypings: true });
@@ -531,7 +651,7 @@ export async function installSpeciesExpansion(
   } else if (moveState !== "patched") {
     moveExpansion = "unavailable";
   }
-  const report = await install((staged) => stageSpeciesExpansion(staged));
+  const report = await install((staged) => stageSpeciesExpansion(staged, nationals));
   return { ...report, moveExpansion, fairyTypeInstalled: fairyBefore === "unpatched" && detectFairyTypePatch(project) === "patched" };
 }
 

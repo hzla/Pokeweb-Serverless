@@ -17,6 +17,8 @@ import re
 import subprocess
 from pathlib import Path
 
+# Keep heap diagnostics readable without embedding the build machine's checkout.
+SOURCE_PATH_MAP = f"-ffile-prefix-map={Path(__file__).resolve().parents[2]}/="
 NATIVE_SUFFIX = "__retail"
 KEYWORDS = {"if", "while", "for", "switch", "return", "sizeof"}
 FUNC = re.compile(r"(?m)^([A-Za-z_][\w \t\*]*?)\b(\w+)\s*\(([^;{}]*?)\)\s*\{")
@@ -70,7 +72,8 @@ def functions(text):
 
 
 def preprocess(source, includes, defines, compiler):
-    args = [compiler, "-E", "-P", "-std=gnu99", "-mthumb", "-D__thumb"] + [f"-D{d}" for d in defines]
+    args = [compiler, "-E", "-P", SOURCE_PATH_MAP, "-std=gnu99", "-mthumb", "-D__thumb"]
+    args += [f"-D{d}" for d in defines]
     for inc in includes:
         args += ["-I", str(inc)]
     return subprocess.check_output(args + [str(source)]).decode()

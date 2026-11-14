@@ -2,7 +2,7 @@ import type { MastersheetDocument, MsPlacement } from "../pokeweb/mastersheetDoc
 import type { ProjectState } from "../pokeweb/projectStore";
 import type { RgbaImageData } from "../pokeweb/pokemonSpriteModel";
 import { FieldSnapshotRenderer } from "./sceneRenderer";
-import { pokedexIconImage, tmDiscImage, typeIconImage } from "../pokeweb/gen5UiImages";
+import { badgeLeaderImage, pokedexIconImage, tmDiscImage, typeIconImage } from "../pokeweb/gen5UiImages";
 
 /**
  * Every image the viewer shows has a fixed key, which doubles as its file name in a future static export:
@@ -15,6 +15,7 @@ import { pokedexIconImage, tmDiscImage, typeIconImage } from "../pokeweb/gen5UiI
  *   scenes/trainer-<id>.webp       trainer standing on the map
  *   types/<type>.png               the game's type icon (32 × 16), by type index
  *   ui/dex-tab.png                 the field menu's Pokédex icon, mirrored, for the dex tab
+ *   ui/leader-<n>.png              Gym Leader n's portrait from the badge case (BW2), for the split headers
  *
  * The live provider draws them from the ROM. Map and scene renders are kept in IndexedDB between visits when the
  * viewer opened a ROM file (keyed by the ROM's SHA-256); sprites are quick and stay in memory.
@@ -35,6 +36,7 @@ export const assetKeys = {
   scene: (trainerId: number) => `scenes/trainer-${trainerId}.webp`,
   type: (typeIndex: number) => `types/${typeIndex}.png`,
   dexTab: "ui/dex-tab.png",
+  leader: (index: number) => `ui/leader-${index}.png`,
 };
 
 /**
@@ -90,6 +92,7 @@ export class RomAssetProvider implements AssetProvider {
         return png(typeIconImage(this.project, numbers[0]!));
       case "ui":
         if (name === "dex-tab.png") return png(pokedexIconImage(this.project, true));
+        if (/^leader-\d\.png$/u.test(name)) return png(badgeLeaderImage(this.project, numbers[0]!));
         break;
       case "scenes": {
         const placement = this.placement(numbers[0]!);
