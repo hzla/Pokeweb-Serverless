@@ -353,7 +353,7 @@ export function readPaintedMapGrass(file: Uint8Array) {
     tiles,
     matchesSourceTerrain(sourceFile: Uint8Array) {
       const source = terrainModelLayout(sourceFile);
-      const originalShapes = layout.shapes.filter(shape => !brushLayer(shape.name) && !/^[tls][12]_/.test(shape.name));
+      const originalShapes = layout.shapes.filter(shape => !brushLayer(shape.name) && !/^[tlskf][12]_/.test(shape.name));
       return source.scale === layout.scale &&
         equalMapBytes(source.original.subarray(64, source.sbcAt), layout.original.subarray(64, layout.sbcAt)) &&
         source.shapes.length === originalShapes.length && source.shapes.every((shape, i) =>

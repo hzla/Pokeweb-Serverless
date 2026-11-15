@@ -3,6 +3,8 @@ import { NintendoDSRom } from "../nds/rom";
 import { buildModelPrimitives, decodeTexture, extractGameFreakContainer, parseAreaHeader, readNitroResources, type DecodedTexture, type Map3dPrimitive } from "./map3dModel";
 import { GRASS_LAYERS, type MapGrassKind } from "./mapGrassGeometry";
 import { LEDGE_DONORS, type LedgeDirection } from "./mapLedges";
+import type { MapFenceType } from "./mapFences";
+import type { MapPropType } from "./mapProps";
 import type { MapStampType } from "./mapStampCatalog";
 import type { MapTreeType } from "./mapTreeCatalog";
 import { activeRomMatchesProject, loadActiveRomBytes } from "./persistence";
@@ -98,4 +100,50 @@ export async function stampPreview(project: ProjectState, type: MapStampType, se
     if (art?.every(primitive => primitive.material.texture)) return art;
   }
   return undefined;
+}
+
+/** A vanilla thick grass patch (map 62, area 38), drawn with the season's textures. */
+export async function thickGrassPreview(project: ProjectState, materials: readonly string[], season: MatrixSeason) {
+  const source = await sourceRom(project);
+  if (!source) return undefined;
+  const pack = parseAreaHeader(source.areas, seasonalAreaId("BW2", 38, season)).texturesId;
+  return donorPrimitives(source, 62, pack, materials, { x0: -256, x1: 256, z0: -256, z1: 256 });
+}
+
+/** A fence's donor run, drawn with its area's textures for the season. */
+export async function fencePreview(project: ProjectState, type: MapFenceType, season: MatrixSeason) {
+  const source = await sourceRom(project);
+  if (!source) return undefined;
+  const donor = type.donors.find(entry => entry.axis === "x") ?? type.donors[0];
+  const [x0, x1, z0, z1] = donor.box;
+  const start = MATRIX_SEASONS.indexOf(season);
+  for (const step of [0, 1, 2, 3]) {
+    const pack = parseAreaHeader(source.areas, seasonalAreaId("BW2", donor.area, MATRIX_SEASONS[(start - step + 4) % 4])).texturesId;
+    // The game draws long runs as single faces, so show the whole run.
+    const art = donorPrimitives(source, donor.map, pack, type.materials, { x0, x1, z0, z1 });
+    if (!art?.every(primitive => primitive.material.texture)) continue;
+    if (donor.axis === "x") return art;
+    // A fence the game only runs north–south is shown turned, face on like the others.
+    return art.map(primitive => {
+      const positions = primitive.positions.slice();
+      for (let i = 0; i < positions.length; i += 3) [positions[i], positions[i + 2]] = [primitive.positions[i + 2], -primitive.positions[i]];
+      return { ...primitive, positions };
+    });
+  }
+  return undefined;
+}
+
+/** A prop's building model from its donor area's bundle, with the bundle's textures (not seasonal). */
+export async function propPreview(project: ProjectState, type: MapPropType) {
+  const source = await sourceRom(project);
+  if (!source) return undefined;
+  const area = parseAreaHeader(source.areas, type.donor.area);
+  const bundle = new NARC(source.rom.getFileByName("a/2/2/5")).files[area.buildingsId], textures = new NARC(source.rom.getFileByName("a/1/7/4")).files[area.buildingsId];
+  if (!bundle?.length || !textures?.length) return undefined;
+  const files = extractGameFreakContainer(bundle).files, count = files.length / 2;
+  const index = files.slice(0, count).findIndex(meta => (meta[0] | (meta[1] << 8)) === type.donor.uid);
+  if (index < 0) return undefined;
+  const model = readNitroResources(files[count + index]), bank = readNitroResources(textures);
+  const art = buildModelPrimitives({ ...model, textures: [...model.textures, ...bank.textures], palettes: [...model.palettes, ...bank.palettes] }, []);
+  return art.length ? art.map(primitive => ({ ...primitive, textureAnimation: undefined })) : undefined;
 }

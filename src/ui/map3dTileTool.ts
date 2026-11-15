@@ -18,8 +18,8 @@ const dims = (footprint: Footprint): [number, number] => {
   const value = footprint();
   return typeof value === "number" ? [Math.max(1, value), Math.max(1, value)] : [Math.max(1, value[0]), Math.max(1, value[1])];
 };
-/** Line brushes draw one straight run of tiles from where the drag starts, along a row ("x") or a column ("z"). */
-type LineAxis = () => "x" | "z" | undefined;
+/** Line brushes draw one straight run of tiles from where the drag starts, along a row ("x"), a column ("z"), or whichever the drag mostly follows ("auto"). */
+type LineAxis = () => "x" | "z" | "auto" | undefined;
 
 export function installMap3dTileTool(
   canvas: HTMLCanvasElement, view: View, brushEnabled: () => boolean, onStroke: (tiles: Map3dTile[]) => void,
@@ -161,9 +161,11 @@ export function installMap3dTileTool(
   }
 
   /** Replace the stroke with the straight run from where it started to the cursor, kept inside the starting chunk. */
-  function drawLine(hit: Hit, axis: "x" | "z") {
+  function drawLine(hit: Hit, lineAxis: "x" | "z" | "auto") {
     lineStart ??= hit;
     const start = lineStart;
+    // "auto" follows the drag's main direction.
+    const axis = lineAxis !== "auto" ? lineAxis : Math.abs(hit.x - start.x) >= Math.abs(hit.z - start.z) ? "x" : "z";
     const chunk = Math.floor((axis === "x" ? start.x : start.z) / CHUNK_TILES) * CHUNK_TILES;
     const target = Math.min(Math.max(axis === "x" ? hit.x : hit.z, chunk), chunk + CHUNK_TILES - 1);
     const from = axis === "x" ? start.x : start.z;

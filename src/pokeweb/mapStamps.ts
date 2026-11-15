@@ -97,7 +97,7 @@ export function appendMapStamps(modelFile: Uint8Array, stamps: readonly StampPla
 export type PlacedMapStamp = { type?: MapStampType; member: BrushMember; tileIndex: number; rotation: StampRotation };
 
 /** The tiles a stamp's turned footprint covers, or undefined when it crosses the chunk edge. */
-export function stampTiles(type: MapStampType, rotation: StampRotation, tileIndex: number) {
+export function stampTiles(type: Pick<MapStampType, "blocked">, rotation: StampRotation, tileIndex: number) {
   const [width, depth] = stampSize(type, rotation), x = tileIndex % 32, y = Math.floor(tileIndex / 32);
   if (x + width > 32 || y + depth > 32) return undefined;
   return Array.from({ length: width * depth }, (_, i) => ({ index: (y + Math.floor(i / width)) * 32 + x + i % width, blocked: stampBlocked(type, rotation, i % width, Math.floor(i / width)) }));
@@ -130,19 +130,9 @@ function stampAssets(source: Uint8Array, rom: NintendoDSRom, type: MapStampType,
     const files = extractGameFreakContainer(donor).files;
     const ground = snapGround(gen5HeightAt(files[1], type.donor.tileY * 32 + type.donor.tileX, 0, 0, game) * 16);
     const template = cutMapStamp(files[0], type, ground);
-    const packs = new NARC(rom.getFileByName(MAP_TEXTURES_PATH)).files, areas = rom.getFileByName(AREA_PATH);
+    const areas = rom.getFileByName(AREA_PATH);
     const names = template.parts.map(part => part.record.textureName).filter((name): name is string => !!name);
-    const candidates = MATRIX_SEASONS.map(season => {
-      const id = parseAreaHeader(areas, seasonalAreaId(game, type.donor.area, season)).texturesId;
-      const bank = packs[id]?.length ? readNitroResources(packs[id]) : undefined;
-      return bank && names.every(name => bank.textures.some(texture => texture.name === name)) ? bank : undefined;
-    });
-    const fallback = candidates.find(Boolean);
-    ensure(fallback, `The source ROM is missing the ${type.label.toLowerCase()}'s textures.`);
-    const banks = Object.fromEntries(MATRIX_SEASONS.map((season, i) => {
-      const nearest = candidates[i] ?? [1, 2, 3].map(step => candidates[(i - step + 4) % 4]).find(Boolean) ?? fallback;
-      return [season, nearest];
-    })) as Record<MatrixSeason, Bank>;
+    const banks = donorSeasonBanks(rom, game, type.donor.area, names, type.label);
     const srtIndex = parseAreaHeader(areas, seasonalAreaId(game, type.donor.area, "spring")).srtAnimeIdx;
     const srt = srtIndex === 255 ? undefined : new NARC(rom.getFileByName(SRT_PATH)).files[srtIndex];
     let tracks = new Set<string>();
@@ -152,6 +142,22 @@ function stampAssets(source: Uint8Array, rom: NintendoDSRom, type: MapStampType,
     cache.set(type.id, assets);
   }
   return assets;
+}
+
+/** Per season, the donor area's texture pack; a season without the textures uses the nearest one that has them. */
+export function donorSeasonBanks(rom: NintendoDSRom, game: "BW" | "BW2", area: number, names: readonly string[], label: string): Record<MatrixSeason, Bank> {
+  const packs = new NARC(rom.getFileByName(MAP_TEXTURES_PATH)).files, areas = rom.getFileByName(AREA_PATH);
+  const candidates = MATRIX_SEASONS.map(season => {
+    const id = parseAreaHeader(areas, seasonalAreaId(game, area, season)).texturesId;
+    const bank = packs[id]?.length ? readNitroResources(packs[id]) : undefined;
+    return bank && names.every(name => bank.textures.some(texture => texture.name === name)) ? bank : undefined;
+  });
+  const fallback = candidates.find(Boolean);
+  ensure(fallback, `The source ROM is missing the ${label.toLowerCase()}'s textures.`);
+  return Object.fromEntries(MATRIX_SEASONS.map((season, i) => {
+    const nearest = candidates[i] ?? [1, 2, 3].map(step => candidates[(i - step + 4) % 4]).find(Boolean) ?? fallback;
+    return [season, nearest];
+  })) as Record<MatrixSeason, Bank>;
 }
 
 const textureLike = (a: Bank["textures"][number], b: Bank["textures"][number]) =>
@@ -166,7 +172,7 @@ function paletteBytes(bank: Bank, name: string | undefined, format: number) {
  * Bind each stamp material to texture names every destination pack can hold. A pack that already has a different
  * texture or palette under the donor's name (another area's "stake", say) gets the art under a new name instead.
  */
-function stampBindings(records: readonly NativeMaterialRecord[], packs: readonly { bank: Bank; donor: Bank }[]) {
+export function stampBindings(records: readonly NativeMaterialRecord[], packs: readonly { bank: Bank; donor: Bank }[]) {
   return records.map(record => {
     const texture = record.textureName, palette = record.paletteName;
     if (!texture) return { record, binding: {} as NativeTextureBinding };

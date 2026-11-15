@@ -104,6 +104,9 @@ export const MAP_STAMP_TYPES: readonly MapStampType[] = [
   { id: "wooden-gate", label: "Large wooden gate", category: "Misc", rotatable: true,
     donor: { map: 285, area: 214, tileX: 11, tileY: 21, box: [-69, 19, 80, 93], faces: 156 },
     materials: ["gate"], blocked: [".#...#."] },
+  { id: "caution-barrier", label: "Caution barrier", category: "Fencing", rotatable: true,
+    donor: { map: 48, area: 34, tileX: 6, tileY: 12, box: [-150, -128, -63, -53], faces: 10 },
+    materials: ["saku_001"], blocked: ["##"] },
 ];
 
 export function mapStampTypes(game: string | undefined) {
@@ -117,13 +120,13 @@ export function mapStampType(id: string) {
 export type StampRotation = 0 | 1 | 2 | 3;
 
 /** Footprint in tiles after turning `rotation` quarter turns clockwise (seen from above, north up). */
-export function stampSize(type: MapStampType, rotation: StampRotation = 0): [width: number, depth: number] {
+export function stampSize(type: Pick<MapStampType, "blocked">, rotation: StampRotation = 0): [width: number, depth: number] {
   const width = type.blocked[0].length, depth = type.blocked.length;
   return rotation % 2 ? [depth, width] : [width, depth];
 }
 
 /** Whether a tile of the turned footprint is blocked. */
-export function stampBlocked(type: MapStampType, rotation: StampRotation, x: number, z: number) {
+export function stampBlocked(type: Pick<MapStampType, "blocked">, rotation: StampRotation, x: number, z: number) {
   const width = type.blocked[0].length, depth = type.blocked.length;
   let [u, v] = [x, z];
   // Undo each clockwise quarter turn: (x, z) came from (z, depth - 1 - x) in the footprint before it.

@@ -330,5 +330,5 @@ export function readBrushPieces(file: Uint8Array, kind: BrushKind) {
 
 /** Shapes added by any map brush, which grass's source-terrain check must ignore. */
 export function isBrushShape(name: string) {
-  return /^[tls][12]_/.test(name);
+  return /^[tlskf][12]_/.test(name);
 }

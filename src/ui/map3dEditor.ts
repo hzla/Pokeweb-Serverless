@@ -44,6 +44,9 @@ import { createBrushThumbnailRenderer, grassSwatch } from "./mapBrushThumbnails"
 import type { LedgeDirection, LedgeSkipReason, LedgeStroke } from "../pokeweb/mapLedges";
 import { MAP_STAMP_CATEGORIES, mapStampTypes, stampSize, type MapStampCategory, type MapStampType, type StampRotation } from "../pokeweb/mapStampCatalog";
 import type { StampSkipReason, StampStroke } from "../pokeweb/mapStamps";
+import type { ThickGrassKind, ThickGrassSkipReason, ThickGrassStroke } from "../pokeweb/mapThickGrass";
+import { mapFenceTypes, type FenceSkipReason, type FenceStroke, type MapFenceType } from "../pokeweb/mapFences";
+import { mapPropTypes, type MapPropType, type PropSkipReason, type PropStroke } from "../pokeweb/mapProps";
 import type { MapHeightEdit } from "../pokeweb/mapHeightEdit";
 import { openTestBattleEmulator } from '../pokeweb/testBattleEmulatorLauncher';
 import type { MapCameraTestPosition } from '../pokeweb/mapCameraTest';
@@ -87,6 +90,23 @@ const LEDGE_SKIP_LABELS: Record<LedgeSkipReason, string> = {
   "no-placed-ledge": "no ledge drawn with the brush",
   "changed-ledge": "ledge changed since it was drawn",
 };
+const PROP_SKIP_LABELS: Record<PropSkipReason, string> = {
+  ...TREE_SKIP_LABELS,
+  occupied: "overlapping another model",
+  "changed-prop": "model changed since it was placed",
+  interior: "an indoor map (models come from outdoor bundles)",
+};
+const FENCE_SKIP_LABELS: Record<FenceSkipReason, string> = {
+  ...TREE_SKIP_LABELS,
+  occupied: "overlapping another fence",
+  "too-short": "a fence needs at least 2 tiles",
+  "changed-fence": "fence changed since it was drawn",
+};
+const THICK_SKIP_LABELS: Record<ThickGrassSkipReason, string> = {
+  ...TREE_SKIP_LABELS,
+  "existing-grass": "grass already there",
+  "changed-grass": "thick grass changed since it was painted",
+};
 const STAMP_SKIP_LABELS: Record<StampSkipReason, string> = {
   ...TREE_SKIP_LABELS,
   occupied: "overlapping another object",
@@ -94,9 +114,9 @@ const STAMP_SKIP_LABELS: Record<StampSkipReason, string> = {
   "changed-stamp": "object changed since it was placed",
 };
 /** What a drag does with the Paint or Erase tool: paint grass, plant a tree, draw a ledge, place an object, or erase brush art. */
-type BrushMode = "paint" | "tree" | "ledge" | "stamp" | "erase";
+type BrushMode = "paint" | "tree" | "ledge" | "stamp" | "thick" | "fence" | "prop" | "erase";
 /** A swatch in the paint palette. */
-type PaintBrush = { id: string; category: MapStampCategory; label: string; mode: Exclude<BrushMode, "erase">; grass?: MapGrassKind; tree?: MapTreeType; stamp?: MapStampType; note: string };
+type PaintBrush = { id: string; category: MapStampCategory; label: string; mode: Exclude<BrushMode, "erase">; grass?: MapGrassKind; tree?: MapTreeType; stamp?: MapStampType; thick?: ThickGrassKind; fence?: MapFenceType; prop?: MapPropType; note: string };
 const PAINT_BRUSH_KEY = "pokeweb.maps3d.paintBrush";
 const GAME_NOCLIP_KEY = "pokeweb.maps3d.gameTestWalkThroughWalls";
 const ERASE_NATIVE_KEY = "pokeweb.maps3d.eraseNativeArt";
@@ -230,6 +250,7 @@ const TOOL_ICONS = {
   erase: toolIcon('<path d="M9.3 2.6l4.1 4.1a1 1 0 0 1 0 1.4L8 13.5H4.6L2.6 11.5a1 1 0 0 1 0-1.4z" /><path d="M5.8 6.1l4.1 4.1M8 13.5h6" />'),
   collision: toolIcon('<rect x="2" y="2" width="12" height="12" rx="1" /><path d="M2 6.7h12M2 11.3h12M6.7 2v12M11.3 2v12" />'),
   ledgeAdd: toolIcon('<path d="M1.5 8.5h5.5l2 5h5.5" /><path d="M12.5 1.8v5M10 4.3h5" />'),
+  fenceAdd: toolIcon('<path d="M2.5 14.5V6l1.5-1.5L5.5 6v8.5M7 14.5V6l1.5-1.5L10 6v8.5M1.5 8.5h10M1.5 12h10" /><path d="M13 1.8v4.5M10.8 4h4.4" />'),
   stampAdd: toolIcon('<path d="M5 14.5V5.5M3 5.5h4M5 3.2a1.2 1.2 0 1 0 0-.1" /><path d="M2.5 14.5h6" /><path d="M12.5 1.8v5M10 4.3h5" />'),
   ledgeRemove: toolIcon('<path d="M1.5 8.5h5.5l2 5h5.5" /><path d="M10 4.3h5" />'),
   camera: toolIcon('<rect x="1.5" y="4.5" width="13" height="9" rx="1.5" /><path d="M5.5 4.5l1-2h3l1 2" /><circle cx="8" cy="9" r="2.4" />'),
@@ -278,7 +299,18 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   const paintBrushes: PaintBrush[] = treeTypes.length ? [
     { id: "grass", category: "Vegetation", label: "Grass", mode: "paint", grass: "regular", note: "Tall grass with wild encounters. Drag over tiles." },
     { id: "dark-grass", category: "Vegetation", label: "Dark grass", mode: "paint", grass: "dark", note: "Dark grass: wild double battles. Drag over tiles." },
+    ...(project.session.baseRom === "BW2" ? [
+      { id: "thick-green", category: "Vegetation", label: "Thick grass", mode: "thick", thick: "green", note: "Tall, thick grass with wild encounters (class 8). Drag over tiles; the edges follow the painted outline." },
+      { id: "thick-teal", category: "Vegetation", label: "Teal thick grass", mode: "thick", thick: "teal", note: "Tall, thick grass with wild encounters (class 9). Drag over tiles; the edges follow the painted outline." },
+    ] satisfies PaintBrush[] : []),
     ...treeTypes.map((tree): PaintBrush => ({ id: `tree-${tree.id}`, category: "Vegetation", label: tree.label, mode: "tree", tree, note: `${tree.size}×${tree.size} tiles, blocks movement. Click or drag to plant.` })),
+    ...mapFenceTypes(project.session.baseRom).map((fence): PaintBrush => ({ id: `fence-${fence.id}`, category: "Fencing", label: fence.label, mode: "fence", fence,
+      note: "Blocks movement. Hold and drag along a row or a column to draw it (at least 2 tiles)." })),
+    ...mapPropTypes(project.session.baseRom).map((prop): PaintBrush => {
+      const [width, depth] = stampSize(prop);
+      return { id: `prop-${prop.id}`, category: prop.category, label: prop.label, mode: "prop", prop,
+        note: `Building model, ${width}×${depth} ${width * depth === 1 ? "tile" : "tiles"}, blocks movement. Click to place${prop.rotatable ? "; turn it with T" : ""}.` };
+    }),
     { id: "ledge", category: "Misc", label: "Ledge", mode: "ledge", note: "One-way hop. Hold and drag along a column (left/right) or a row (up/down)." },
     ...mapStampTypes(project.session.baseRom).map((stamp): PaintBrush => {
       const [width, depth] = stampSize(stamp);
@@ -296,7 +328,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     const groups = MAP_STAMP_CATEGORIES.map(category => {
       const brushes = paintBrushes.filter(brush => brush.category === category);
       return brushes.length ? `<section class="mx-brush-group" aria-label="${category}"><h3>${category}</h3><div class="mx-brushes">${brushes.map(brush =>
-        `<button class="mx-brush" type="button" data-brush="${brush.id}" aria-pressed="false" title="${escapeHtml(brush.label)}"><span class="mx-brush-art">${brush.mode === "tree" ? TOOL_ICONS.treeAdd : brush.mode === "ledge" ? TOOL_ICONS.ledgeAdd : brush.mode === "stamp" ? TOOL_ICONS.stampAdd : TOOL_ICONS.grassAdd}</span><span class="mx-brush-label">${escapeHtml(brush.label)}</span></button>`).join("")}</div></section>` : "";
+        `<button class="mx-brush" type="button" data-brush="${brush.id}" aria-pressed="false" title="${escapeHtml(brush.label)}"><span class="mx-brush-art">${brush.mode === "tree" ? TOOL_ICONS.treeAdd : brush.mode === "ledge" ? TOOL_ICONS.ledgeAdd : brush.mode === "stamp" || brush.mode === "prop" ? TOOL_ICONS.stampAdd : brush.mode === "fence" ? TOOL_ICONS.fenceAdd : TOOL_ICONS.grassAdd}</span><span class="mx-brush-label">${escapeHtml(brush.label)}</span></button>`).join("")}</div></section>` : "";
     }).join("");
     const arrows: [LedgeDirection, string, string][] = [["up", "↑", "Hop up"], ["left", "←", "Hop left"], ["right", "→", "Hop right"], ["down", "↓", "Hop down"]];
     return `<aside class="mx-palette" id="map3d-palette" aria-label="Paint palette">
@@ -778,8 +810,8 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
           tiles => { if (collisionBrush) void paintCollisionTiles(tiles); else void finishGrassStroke(tiles); },
           () => { if (warpDestination) setWarpPicking(); else setTool("select"); },
           () => !!warpDestination,
-          () => grassMode === "tree" ? paintBrush?.tree?.size ?? 1 : grassMode === "stamp" && paintBrush?.stamp ? stampSize(paintBrush.stamp, currentStampRotation()) : 1,
-          () => grassMode !== "ledge" ? undefined : ledgeDirectionValue === "up" || ledgeDirectionValue === "down" ? "x" : "z");
+          () => grassMode === "tree" ? paintBrush?.tree?.size ?? 1 : grassMode === "stamp" && paintBrush?.stamp ? stampSize(paintBrush.stamp, currentStampRotation()) : grassMode === "prop" && paintBrush?.prop ? stampSize(paintBrush.prop, currentStampRotation()) : 1,
+          () => grassMode === "fence" ? "auto" : grassMode !== "ledge" ? undefined : ledgeDirectionValue === "up" || ledgeDirectionValue === "down" ? "x" : "z");
       }
       state.permissionPicking = sidebarTabs.active !== "buildings" && sidebarTabs.active !== "camera";
       state.onBuildingPick = selectBuilding;
@@ -1011,9 +1043,10 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   function updateTileToolHints() {
     if (dragLabel) dragLabel.textContent = warpDestination ? "Click the tile to warp to · Drag: pan · Esc: cancel"
       : grassMode === "tree" ? `Click or drag to plant: ${paintBrush?.label.toLowerCase()} · Shift-drag: pan · Esc: Select`
-      : grassMode === "stamp" ? `Click to place: ${paintBrush?.label.toLowerCase()}${paintBrush?.stamp?.rotatable ? " · T: turn" : ""} · Shift-drag: pan · Esc: Select`
+      : grassMode === "fence" ? `Hold and drag along a row or a column to draw: ${paintBrush?.label.toLowerCase()} · Shift-drag: pan · Esc: Select`
+      : grassMode === "stamp" || grassMode === "prop" ? `Click to place: ${paintBrush?.label.toLowerCase()}${brushTurns() ? " · T: turn" : ""} · Shift-drag: pan · Esc: Select`
       : grassMode === "ledge" ? `Hold and drag along a ${ledgeDirectionValue === "up" || ledgeDirectionValue === "down" ? "row" : "column"} to draw a ledge · Shift-drag: pan · Esc: Select`
-      : grassMode === "erase" ? `Drag over grass, trees, ledges or objects${eraseNative?.checked ? "" : " you painted"} to erase them · Shift-drag: pan · Esc: Select`
+      : grassMode === "erase" ? `Drag over grass, trees, ledges, fences or objects${eraseNative?.checked ? "" : " you painted"} to erase them · Shift-drag: pan · Esc: Select`
         : grassMode ? `Drag over tiles to paint: ${paintBrush?.label.toLowerCase()} · Shift-drag: pan · Esc: Select`
           : collisionBrush ? "Drag over tiles to paint · Shift-drag: pan · Esc: Select"
             : cameraTool ? "Pick a camera tool · Shift-drag: pan · Esc: Select"
@@ -1121,18 +1154,23 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     root.querySelector<HTMLElement>('[data-brush-option="surface"]')?.toggleAttribute("hidden", !(erasing || paintBrush?.grass));
     root.querySelector<HTMLElement>('[data-brush-option="direction"]')?.toggleAttribute("hidden", erasing || paintBrush?.mode !== "ledge");
     root.querySelector<HTMLElement>('[data-brush-option="native"]')?.toggleAttribute("hidden", !erasing);
-    root.querySelector<HTMLElement>('[data-brush-option="rotate"]')?.toggleAttribute("hidden", erasing || !paintBrush?.stamp?.rotatable);
+    root.querySelector<HTMLElement>('[data-brush-option="rotate"]')?.toggleAttribute("hidden", erasing || !brushTurns());
     const turn = root.querySelector<HTMLElement>("#map3d-stamp-turn");
     if (turn) turn.textContent = `${currentStampRotation() * 90}°`;
   }
 
   function currentStampRotation(): StampRotation {
-    return paintBrush?.stamp?.rotatable ? stampRotation : 0;
+    return brushTurns() ? stampRotation : 0;
+  }
+
+  /** Whether the chosen object or model can be turned. */
+  function brushTurns() {
+    return Boolean(paintBrush?.stamp?.rotatable || paintBrush?.prop?.rotatable);
   }
 
   /** Turn the object brush a quarter turn (clockwise for 1). */
   function turnStamp(step: 1 | -1) {
-    if (!paintBrush?.stamp?.rotatable) return;
+    if (!brushTurns()) return;
     stampRotation = ((stampRotation + step + 4) % 4) as StampRotation;
     state?.tileTool?.reset();
     syncPalette();
@@ -1176,6 +1214,9 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
         if (!url) {
           if (brush.grass) { const layers = await preview.grassPreview(project, brush.grass, season); url = layers?.length ? grassSwatch(layers) : undefined; }
           else if (brush.tree) { const art = await preview.treePreview(project, brush.tree, season); url = art && thumbnailRenderer?.render(art, "tree"); }
+          else if (brush.prop) { const art = await preview.propPreview(project, brush.prop); url = art && thumbnailRenderer?.render(art, "tree"); }
+          else if (brush.fence) { const art = await preview.fencePreview(project, brush.fence, season); url = art && thumbnailRenderer?.render(art, "tree"); }
+          else if (brush.thick) { const art = await preview.thickGrassPreview(project, brush.thick === "green" ? ["nagakusa01a", "nagakusa01b"] : ["nagakusa02a", "nagakusa02b"], season); url = art && thumbnailRenderer?.render(art, "tree"); }
           else if (brush.stamp) { const art = await preview.stampPreview(project, brush.stamp, season); url = art && thumbnailRenderer?.render(art, "tree"); }
           else { const art = await preview.ledgePreview(project, "down", "spring"); url = art && thumbnailRenderer?.render(art, "ledge"); }
           if (url) thumbnailCache.set(key, url);
@@ -1195,6 +1236,9 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     if (mode === "tree") return finishTreeStroke(data, mode, tiles);
     if (mode === "ledge") return finishLedgeStroke(data, mode, tiles);
     if (mode === "stamp") return finishStampStroke(data, tiles);
+    if (mode === "thick") return finishThickStroke(data, tiles);
+    if (mode === "fence") return finishFenceStroke(data, tiles);
+    if (mode === "prop") return finishPropStroke(data, tiles);
     if (mode === "erase") return finishErase(data, tiles);
     const kind = paintBrush?.grass ?? "regular";
     const choice = grassSurface?.value;
@@ -1341,6 +1385,141 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     }
   }
 
+  async function finishThickStroke(data: Map3dSceneData, tiles: Map3dTile[]) {
+    const kind = paintBrush?.thick;
+    if (!kind) return;
+    grassBusy = true;
+    refreshImportButtons();
+    if (exportStatus) exportStatus.textContent = "Painting thick grass…";
+    try {
+      const { strokeThickGrass } = await import("../pokeweb/mapThickGrass");
+      const isCurrent = () => activeData === data && grassMode === "thick" && !!canvasWrap?.isConnected;
+      const stroke = await strokeThickGrass(project, data, tiles, kind, { isCurrent });
+      if (stroke.count) {
+        history.push({ label: "Paint thick grass", undo: () => replayThick(stroke, true), redo: () => replayThick(stroke, false) });
+        onDirty?.();
+        await load(data.zoneId, true);
+      }
+      if (exportStatus) {
+        const done = stroke.count ? `Painted thick grass on ${stroke.count} ${stroke.count === 1 ? "tile" : "tiles"}.` : "No thick grass painted.";
+        const skipped = stroke.skipReasons.map(({ count, reason, season }) => {
+          const label = THICK_SKIP_LABELS[reason] + (season ? ` in ${season[0].toUpperCase()}${season.slice(1)}` : "");
+          return stroke.skipReasons.length === 1 ? label : `${count} ${label}`;
+        });
+        exportStatus.textContent = done + (skipped.length ? ` Skipped ${stroke.skipped} (${skipped.join(", ")}).` : "");
+      }
+    } catch (error) {
+      if (exportStatus) exportStatus.textContent = error instanceof Error ? error.message : String(error);
+    } finally {
+      grassBusy = false;
+      refreshImportButtons();
+    }
+  }
+
+  async function finishFenceStroke(data: Map3dSceneData, tiles: Map3dTile[]) {
+    const fence = paintBrush?.fence;
+    if (!fence) return;
+    grassBusy = true;
+    refreshImportButtons();
+    if (exportStatus) exportStatus.textContent = `Drawing ${fence.label.toLowerCase()}…`;
+    try {
+      const { placeMapFence } = await import("../pokeweb/mapFences");
+      const isCurrent = () => activeData === data && grassMode === "fence" && !!canvasWrap?.isConnected;
+      const stroke = await placeMapFence(project, data, tiles, fence.id, { isCurrent });
+      if (stroke.count) {
+        history.push({ label: `Draw ${fence.label.toLowerCase()}`, undo: () => replayFences(stroke, true), redo: () => replayFences(stroke, false) });
+        onDirty?.();
+        await load(data.zoneId, true);
+      }
+      if (exportStatus) {
+        const done = stroke.count ? `Drew a ${tiles.length}-tile ${fence.label.toLowerCase()}.` : "No fence drawn.";
+        const skipped = stroke.skipReasons.map(({ reason, season }) => FENCE_SKIP_LABELS[reason] + (season ? ` in ${season[0].toUpperCase()}${season.slice(1)}` : ""));
+        exportStatus.textContent = done + (skipped.length ? ` (${skipped.join(", ")})` : "");
+      }
+    } catch (error) {
+      if (exportStatus) exportStatus.textContent = error instanceof Error ? error.message : String(error);
+    } finally {
+      grassBusy = false;
+      refreshImportButtons();
+    }
+  }
+
+  async function finishPropStroke(data: Map3dSceneData, tiles: Map3dTile[]) {
+    const prop = paintBrush?.prop, rotation = currentStampRotation();
+    if (!prop) return;
+    grassBusy = true;
+    refreshImportButtons();
+    if (exportStatus) exportStatus.textContent = `Placing ${prop.label.toLowerCase()}…`;
+    try {
+      const { placeMapProps } = await import("../pokeweb/mapProps");
+      const isCurrent = () => activeData === data && grassMode === "prop" && !!canvasWrap?.isConnected;
+      const stroke = await placeMapProps(project, data, tiles, prop.id, rotation, { isCurrent });
+      if (stroke.count) {
+        history.push({ label: `Place ${prop.label.toLowerCase()}`, undo: () => replayProps(stroke, true), redo: () => replayProps(stroke, false) });
+        onDirty?.();
+        await load(data.zoneId, true);
+      }
+      if (exportStatus) {
+        const done = stroke.count ? `Placed ${prop.label.toLowerCase()}${stroke.count > 1 ? ` × ${stroke.count}` : ""}.` : "Nothing placed.";
+        const skipped = stroke.skipReasons.map(({ count, reason, season }) => {
+          const label = PROP_SKIP_LABELS[reason] + (season ? ` in ${season[0].toUpperCase()}${season.slice(1)}` : "");
+          return stroke.skipReasons.length === 1 ? label : `${count} ${label}`;
+        });
+        exportStatus.textContent = done + (skipped.length ? ` Skipped ${stroke.skipped} (${skipped.join(", ")}).` : "");
+      }
+    } catch (error) {
+      if (exportStatus) exportStatus.textContent = error instanceof Error ? error.message : String(error);
+    } finally {
+      grassBusy = false;
+      refreshImportButtons();
+    }
+  }
+
+  async function replayProps(stroke: PropStroke, undo: boolean) {
+    grassBusy = true;
+    refreshImportButtons();
+    try {
+      const { redoMapProps, undoMapProps } = await import("../pokeweb/mapProps");
+      if (undo) undoMapProps(project, stroke);
+      else redoMapProps(project, stroke);
+      onDirty?.();
+    } finally {
+      grassBusy = false;
+      refreshImportButtons();
+    }
+    await load(activeZone, true);
+  }
+
+  async function replayFences(stroke: FenceStroke, undo: boolean) {
+    grassBusy = true;
+    refreshImportButtons();
+    try {
+      const { redoMapFences, undoMapFences } = await import("../pokeweb/mapFences");
+      if (undo) undoMapFences(project, stroke);
+      else redoMapFences(project, stroke);
+      onDirty?.();
+    } finally {
+      grassBusy = false;
+      refreshImportButtons();
+    }
+    await load(activeZone, true);
+  }
+
+  async function replayThick(stroke: ThickGrassStroke, undo: boolean) {
+    grassBusy = true;
+    refreshImportButtons();
+    try {
+      const { redoThickGrass, undoThickGrass } = await import("../pokeweb/mapThickGrass");
+      if (undo) undoThickGrass(project, stroke);
+      else redoThickGrass(project, stroke);
+      onDirty?.();
+    } finally {
+      grassBusy = false;
+      refreshImportButtons();
+    }
+    await load(activeZone, true);
+  }
+
   async function replayStamps(stroke: StampStroke, undo: boolean) {
     grassBusy = true;
     refreshImportButtons();
@@ -1407,6 +1586,20 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
       const stamps = await removeMapStamps(project, data, tiles, { isCurrent });
       if (stamps.count) { undoers.push(() => undoMapStamps(project, stamps)); redoers.push(() => redoMapStamps(project, stamps)); done.push(noun(stamps.count, "object", "objects")); }
       describe(stamps.skipReasons, STAMP_SKIP_LABELS);
+      if (project.session.baseRom === "BW2") {
+        const { removeMapProps, undoMapProps, redoMapProps } = await import("../pokeweb/mapProps");
+        const props = await removeMapProps(project, data, tiles, { isCurrent });
+        if (props.count) { undoers.push(() => undoMapProps(project, props)); redoers.push(() => redoMapProps(project, props)); done.push(noun(props.count, "model", "models")); }
+        describe(props.skipReasons, PROP_SKIP_LABELS);
+        const { removeMapFences, undoMapFences, redoMapFences } = await import("../pokeweb/mapFences");
+        const fences = await removeMapFences(project, data, tiles, { isCurrent });
+        if (fences.count) { undoers.push(() => undoMapFences(project, fences)); redoers.push(() => redoMapFences(project, fences)); done.push(noun(fences.count, "fence", "fences")); }
+        describe(fences.skipReasons, FENCE_SKIP_LABELS);
+        const { strokeThickGrass, undoThickGrass, redoThickGrass } = await import("../pokeweb/mapThickGrass");
+        const thick = await strokeThickGrass(project, data, tiles, undefined, { isCurrent });
+        if (thick.count) { undoers.push(() => undoThickGrass(project, thick)); redoers.push(() => redoThickGrass(project, thick)); done.push(noun(thick.count, "thick grass tile", "thick grass tiles")); }
+        describe(thick.skipReasons, THICK_SKIP_LABELS);
+      }
       const ledges = await removeMapLedges(project, data, tiles, { isCurrent });
       if (ledges.count) { undoers.push(() => undoMapLedges(project, ledges)); redoers.push(() => redoMapLedges(project, ledges)); done.push(noun(ledges.count, "ledge", "ledges")); }
       describe(ledges.skipReasons, LEDGE_SKIP_LABELS);
@@ -1791,7 +1984,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     const target = event.target as HTMLElement;
     if (event.key === "Escape" && placingUid !== undefined) { setBuildingPlacement(undefined); setStatus(""); return; }
     if (!event.metaKey && !event.ctrlKey && !event.altKey && !target.closest("input, textarea, select, [contenteditable=true]")) {
-      if (event.key.toLowerCase() === "t" && grassMode === "stamp" && paintBrush?.stamp?.rotatable) { event.preventDefault(); turnStamp(event.shiftKey ? -1 : 1); return; }
+      if (event.key.toLowerCase() === "t" && (grassMode === "stamp" || grassMode === "prop") && brushTurns()) { event.preventDefault(); turnStamp(event.shiftKey ? -1 : 1); return; }
       const tool = ({ v: "select", b: "paint", e: "erase", c: "collision", r: "camera" } as Record<string, MapTool>)[event.key.toLowerCase()];
       const button = tool && toolButtons.find(candidate => candidate.dataset.mapTool === tool);
       if (button && !button.disabled) { event.preventDefault(); setTool(tool); return; }

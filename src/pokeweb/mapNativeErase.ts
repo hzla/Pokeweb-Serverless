@@ -102,6 +102,11 @@ function tidy(face: Face): Face[] {
   return points.slice(1, -1).map((_, i) => [points[0], points[i + 1], points[i + 2]]);
 }
 
+/** The part of a face between two lines across one ground axis (x or z), as tidy faces. */
+export function clipBetween(face: Face, axis: 0 | 2, lo: number, hi: number): Face[] {
+  return tidy(clip(clip(face, axis, lo, false), axis, hi, true));
+}
+
 /** A face with a rectangle (in the ground plane) cut out of it. */
 export function cutRect(face: Face, rect: Rect): Face[] {
   const box = bounds(face);
