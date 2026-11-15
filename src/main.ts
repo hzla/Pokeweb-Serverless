@@ -28,6 +28,7 @@ import "./styles/legacyOverworlds.css";
 import "./styles/legacyDocGenerators.css";
 import "./styles/legacyMastersheet.css";
 import "./styles/legacyMap3d.css";
+import "./styles/mapEditor.css";
 import "./styles/nativeCutscene.css";
 import "./styles/cutsceneTimeline.css";
 import "./styles/matrixEditor.css";
@@ -1062,7 +1063,21 @@ function renderApp(): void {
           dirty = true;
           scheduleSave(project!);
           renderDirtyIndicator();
-        }, activeMapZoneId === undefined && !activeMapMatrixCell ? undefined : { zoneId: activeMapZoneId, mapId: activeMapId, matrixCell: activeMapMatrixCell });
+        }, activeMapZoneId === undefined && !activeMapMatrixCell ? undefined : { zoneId: activeMapZoneId, mapId: activeMapId, matrixCell: activeMapMatrixCell }, {
+          openOverworld: canVisit("overworlds") ? (overworldId, headerId) => applyRouteState({ route: "overworlds", overworldId, overworldHeaderId: headerId }) : undefined,
+          openText: canVisit("storyText") ? (bankId) => {
+            selectTextBank(project!, "story_texts", bankId);
+            applyRouteState({ route: "storyText" });
+          } : undefined,
+          openScript: canVisit("bw2Scripts") ? (scriptId) => {
+            (project!.bw2ScriptEditor ??= { drafts: {} }).selectedFileId = scriptId;
+            applyRouteState({ route: "bw2Scripts" });
+          } : undefined,
+          openEncounters: canVisit("encounters") ? (encounterId) => {
+            selectEncounterArea(project!, encounterId);
+            applyRouteState({ route: "encounters" });
+          } : undefined,
+        });
       }
     }).catch((error) => {
       if (route === "maps3d") renderMap3dEditorLoadError(content, error);
@@ -1135,7 +1150,7 @@ function renderApp(): void {
         scheduleSave(project!);
         renderDirtyIndicator();
       },
-      (trainerId, showdownText) => launchTestBattle(trainerId, showdownText),
+      (trainerId, showdownText, rosterSource) => launchTestBattle(trainerId, showdownText, rosterSource),
       openTrainerSprites,
       () => navigate("playerBackSprite"),
     );
@@ -1998,7 +2013,7 @@ async function launchBattleEnvironmentTest(selection: BattleEnvironmentTestSelec
   } catch (error) { emulator.close(); throw error; }
 }
 
-async function launchTestBattle(trainerId: number, showdownText = ""): Promise<void> {
+async function launchTestBattle(trainerId: number, showdownText = "", rosterSource?: number): Promise<void> {
   if (!project) return;
   if (!hasExportBase) throw new Error("This saved project does not include the original ROM bytes. Please load the ROM again before exporting.");
 
@@ -2006,7 +2021,7 @@ async function launchTestBattle(trainerId: number, showdownText = ""): Promise<v
   const baseName = project.session.romName || "pokeweb";
   try {
     await scheduleSave.flush(project);
-    const { romBytes, saveBytes } = await buildTestBattleDownloads(project, trainerId, { playerTeamText: showdownText });
+    const { romBytes, saveBytes } = await buildTestBattleDownloads(project, trainerId, { playerTeamText: showdownText, rosterSource });
     await emulator.launch({
       romName: `${baseName}-test-battle-trainer-${trainerId}.nds`,
       saveName: `${baseName}-test-battle-trainer-${trainerId}.sav`,

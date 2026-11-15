@@ -2,7 +2,7 @@ import { concatBytes, readAscii, readU16, readU32, writeU16, writeU32 } from "..
 import { align, ensure, nitroBlocks, readDictionary, writeDictionary, writeNitroFile } from "./nitroResourceWriter";
 
 export type ImportTexture = { name: string; width: number; height: number; rgba: Uint8Array };
-export type EncodedTexture = { name: string; width: number; height: number; params: number; pixels: Uint8Array; palette: Uint8Array; quantized: boolean };
+export type EncodedTexture = { name: string; paletteName?: string; width: number; height: number; params: number; pixels: Uint8Array; palette: Uint8Array; quantized: boolean };
 export type EncodedPalette = {name:string;bytes:Uint8Array};
 const rgb = (v: number) => [v & 31, (v >>> 5) & 31, (v >>> 10) & 31];
 /** Weighted median-cut in the DS's native RGB555 color space. */
@@ -72,23 +72,32 @@ export function appendNitroTextures(template: Uint8Array, images: EncodedTexture
   const compressed = bank(36, 28), compressedIndices = old.slice(readU32(old, 40), readU32(old, 40) + compressed.length / 2);
   let texLength = texData[0].length, paletteLength = paletteData[0].length;
   for (const image of images) {
-    const existing = textures.find(t => t.name === image.name), existingPalette = palettes.find(p => p.name === image.name);
-    if (existing || existingPalette) {
+    const paletteName = image.paletteName ?? image.name;
+    const existing = textures.find(t => t.name === image.name), existingPalette = palettes.find(p => p.name === paletteName);
+    if (existing || (existingPalette && image.paletteName === undefined)) {
       ensure(existing && existingPalette, "Imported texture name collides with an existing resource.");
-      const params = readU32(existing.data, 0), pixelOffset = (params & 0xffff) * 8, paletteOffset = readU16(existingPalette.data, 0) * 8;
-      ensure((params & 0xffff0000) === image.params && image.pixels.every((v, i) => texData[0][pixelOffset + i] === v) && image.palette.every((v, i) => paletteData[0][paletteOffset + i] === v), "Imported texture name collides with different native pixels.");
-      continue;
+      const params = readU32(existing.data, 0), pixelOffset = (params & 0xffff) * 8;
+      ensure((params & 0xffff0000) === image.params && image.pixels.every((v, i) => texData[0][pixelOffset + i] === v), "Imported texture name collides with different native pixels.");
     }
+    if (existingPalette) {
+      const paletteOffset = readU16(existingPalette.data, 0) * 8;
+      ensure(image.palette.every((v, i) => paletteData[0][paletteOffset + i] === v), "Imported palette name collides with different native colors.");
+    }
+    if (existing) continue;
     const tex = new Uint8Array(8), pal = new Uint8Array(4);
     writeU32(tex, 0, image.params | (texLength / 8)); writeU32(tex, 4, (image.width | image.height << 11 | 0x80000000) >>> 0);
     // The dictionary stores offsets in 8-byte units, but the runtime halves
     // them for every format except 4-color textures (which we do not emit).
     // Align each palette to 16 bytes or hardware reads the preceding colors.
-    const padding = align(paletteLength, 16) - paletteLength;
-    if (padding) { paletteData.push(new Uint8Array(padding)); paletteLength += padding; }
-    writeU16(pal, 0, paletteLength / 8);
-    textures.push({ name: image.name, data: tex }); palettes.push({ name: image.name, data: pal });
-    texData.push(image.pixels); paletteData.push(image.palette); texLength += image.pixels.length; paletteLength += image.palette.length;
+    if (!existingPalette) {
+      const padding = align(paletteLength, 16) - paletteLength;
+      if (padding) { paletteData.push(new Uint8Array(padding)); paletteLength += padding; }
+      writeU16(pal, 0, paletteLength / 8);
+      palettes.push({ name: paletteName, data: pal });
+      paletteData.push(image.palette); paletteLength += image.palette.length;
+    }
+    textures.push({ name: image.name, data: tex });
+    texData.push(image.pixels); texLength += image.pixels.length;
   }
   for(const palette of extraPalettes){
     ensure(!palettes.some(p=>p.name===palette.name)&&palette.bytes.length%8===0,'Invalid or duplicate extra palette.');

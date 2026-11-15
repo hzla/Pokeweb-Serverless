@@ -11,36 +11,52 @@ type InspectorActions = {
   edit: (field: Map3dBuildingField, value: number) => boolean;
   add: (input: Map3dNewBuilding) => void;
   remove: () => void;
+  /** Start (or, with false, stop) waiting for a click on the map to place a new building of this model. */
+  place?: (uid: number | undefined) => void;
 };
 
 export function createMap3dBuildingInspector(host: HTMLElement, actions: InspectorActions) {
   host.innerHTML = `
-    <strong>Building Inspector</strong>
-    <div class="map3d-building-note" id="map3d-building-count">Load a map to inspect its placed buildings.</div>
-    <input class="filter-input" id="map3d-building-search" type="search" aria-label="Search buildings" placeholder="Search model, placement, chunk" disabled />
-    <select class="filter-input map3d-building-list" id="map3d-building-list" aria-label="Placed buildings" size="5" disabled></select>
-    <div class="map3d-building-actions">
-      <button class="ow-tool" id="map3d-building-focus" type="button" disabled>Focus</button>
-      <button class="ow-tool" id="map3d-building-clear" type="button" disabled>Clear</button>
+    <div class="mx-block">
+      <div class="mx-group-head">
+        <span class="mx-group-title" id="map3d-building-count">Load a map to see its buildings.</span>
+        ${actions.editable ? '<button class="btn sm -primary" id="map3d-building-place" type="button" aria-pressed="false" disabled title="Choose a model, then click the map where it goes">+ Building</button>' : ""}
+      </div>
+      <input class="mx-input mx-search" id="map3d-building-search" type="search" aria-label="Search buildings" placeholder="Search by model, name or chunk" disabled />
+      <select class="mx-select map3d-building-list" id="map3d-building-list" aria-label="Placed buildings" size="7" disabled></select>
+      ${actions.editable ? `<div class="mx-row -place" id="map3d-building-place-row">
+        <label class="mx-label" for="map3d-building-new-model">New model</label>
+        <select class="mx-select" id="map3d-building-new-model" aria-label="New building model"></select>
+      </div>` : ""}
     </div>
-    ${actions.editable ? `<button class="ow-tool map3d-building-delete" id="map3d-building-delete" type="button" disabled>Delete selected building</button>
-    <details class="map3d-building-create" id="map3d-building-create">
-      <summary>Add a building</summary>
-      <fieldset id="map3d-building-new-fields" disabled>
-        <label>Model UID<select id="map3d-building-new-model" aria-label="New building model" required></select></label>
-        <label>Map chunk<select id="map3d-building-new-chunk" aria-label="New building chunk" required></select></label>
-        ${["X", "Y", "Z"].map((axis) => `<label>World ${axis}${axis === "Y" ? " (height)" : ""}<input id="map3d-building-new-${axis.toLowerCase()}" type="number" aria-label="New building world ${axis}" step="any" required /></label>`).join("")}
-        <label>Rotation Y<input id="map3d-building-new-rotation" type="number" aria-label="New building rotation Y" min="0" max="360" step="any" value="0" required /></label>
-        <button class="ow-tool" id="map3d-building-add" type="button">Add building</button>
+    <div class="mx-block" id="map3d-building-selected" hidden>
+      <div class="mx-group-head">
+        <span class="mx-group-title" id="map3d-building-heading">Building</span>
+        <span class="mx-actions -tight">
+          <button class="btn sm -ghost" id="map3d-building-focus" type="button" disabled>Focus</button>
+          <button class="btn sm -ghost" id="map3d-building-clear" type="button" disabled>Deselect</button>
+        </span>
+      </div>
+      <div class="mx-flags">
+        <label class="mx-flag"><input id="map3d-building-isolate" type="checkbox" disabled /><span>Isolate</span></label>
+        <label class="mx-flag" title="Hide the other buildings but keep the terrain"><input id="map3d-building-hide-others" type="checkbox" disabled /><span>Hide others</span></label>
+      </div>
+      <div id="map3d-building-details" class="map3d-building-details"></div>
+      <div id="map3d-building-edit-status" class="mx-note" role="status"></div>
+      ${actions.editable ? '<div class="mx-actions"><button class="btn sm -remove map3d-building-delete" id="map3d-building-delete" type="button" disabled>Delete building</button></div>' : ""}
+    </div>
+    <p class="mx-note" id="map3d-building-hint">Click a building on the map, or pick one from the list.</p>
+    ${actions.editable ? `<details class="mx-block mx-advanced map3d-building-create" id="map3d-building-create">
+      <summary>Add at exact coordinates</summary>
+      <fieldset class="mx-grid" id="map3d-building-new-fields" disabled>
+        <label class="mx-row"><span class="mx-label">Map chunk</span><select class="mx-select" id="map3d-building-new-chunk" aria-label="New building chunk" required></select></label>
+        ${["X", "Y", "Z"].map((axis) => `<label class="mx-row"><span class="mx-label">World ${axis}${axis === "Y" ? " (height)" : ""}</span><input class="mx-input" id="map3d-building-new-${axis.toLowerCase()}" type="number" aria-label="New building world ${axis}" step="any" required /></label>`).join("")}
+        <label class="mx-row"><span class="mx-label">Rotation Y</span><input class="mx-input" id="map3d-building-new-rotation" type="number" aria-label="New building rotation Y" min="0" max="360" step="any" value="0" required /></label>
+        <div class="mx-actions"><button class="btn sm -primary" id="map3d-building-add" type="button">+ Add building</button></div>
       </fieldset>
-      <div class="map3d-building-note">Choose a model and chunk, then position it in game units. Defaults are beside the selection, or at the chunk center. Changes affect every use of this chunk. Collision tiles and warps are edited separately.</div>
-      <div id="map3d-building-create-status" class="map3d-building-note" role="status"></div>
+      <p class="mx-note">Uses the New model above. Positions are in game units (16 per tile). Changes affect every use of this chunk; collision tiles and warps are edited separately.</p>
+      <div id="map3d-building-create-status" class="mx-note" role="status"></div>
     </details>` : ""}
-    <label class="map3d-check"><input id="map3d-building-isolate" type="checkbox" disabled /> Isolate selected building</label>
-    <label class="map3d-check"><input id="map3d-building-hide-others" type="checkbox" disabled /> Hide other buildings</label>
-    <div class="map3d-building-note">Hide other buildings keeps the map visible.</div>
-    <div id="map3d-building-details" class="map3d-building-details">Select a building from the list or click it in the map. Turn off the collision overlay to pick buildings.</div>
-    <div id="map3d-building-edit-status" class="map3d-building-note" role="status"></div>
   `;
   const list = host.querySelector<HTMLSelectElement>("#map3d-building-list")!;
   const search = host.querySelector<HTMLInputElement>("#map3d-building-search")!;
@@ -60,13 +76,18 @@ export function createMap3dBuildingInspector(host: HTMLElement, actions: Inspect
   const newY = host.querySelector<HTMLInputElement>("#map3d-building-new-y");
   const newZ = host.querySelector<HTMLInputElement>("#map3d-building-new-z");
   const newRotation = host.querySelector<HTMLInputElement>("#map3d-building-new-rotation");
+  const place = host.querySelector<HTMLButtonElement>("#map3d-building-place");
+  const selectedBlock = host.querySelector<HTMLElement>("#map3d-building-selected")!;
+  const heading = host.querySelector<HTMLElement>("#map3d-building-heading")!;
+  const hint = host.querySelector<HTMLElement>("#map3d-building-hint")!;
+  let placing = false;
   let data: Map3dSceneData | undefined;
   let selected: number | undefined;
 
   function renderList() {
     const query = search.value.trim().toLowerCase();
     const entries = data?.buildings.flatMap((building, index) => {
-      const label = buildingLabel(building, index);
+      const label = buildingLabel(building, index, data);
       return !query || `${label} uid ${building.uid} source ${building.sourceChunkId}`.toLowerCase().includes(query)
         ? [`<option value="${index}">${escapeHtml(label)}</option>`] : [];
     }) ?? [];
@@ -74,8 +95,8 @@ export function createMap3dBuildingInspector(host: HTMLElement, actions: Inspect
     list.value = selected === undefined ? "" : String(selected);
     list.disabled = entries.length === 0;
     count.textContent = data
-      ? `${data.buildings.length} loaded placements${data.buildingPlacementCount === undefined ? "" : ` / ${data.buildingPlacementCount} total`}${query ? ` · ${entries.length} matches` : ""}`
-      : "Load a map to inspect its placed buildings.";
+      ? `${data.buildings.length} building${data.buildings.length === 1 ? "" : "s"}${data.buildingPlacementCount !== undefined && data.buildingPlacementCount !== data.buildings.length ? ` of ${data.buildingPlacementCount} placed` : ""}${query ? ` · ${entries.length} match${entries.length === 1 ? "" : "es"}` : ""}`
+      : "Load a map to see its buildings.";
   }
 
   function select(index: number | undefined) {
@@ -91,9 +112,10 @@ export function createMap3dBuildingInspector(host: HTMLElement, actions: Inspect
     if (remove) remove.disabled = !building || building.placementIndex === undefined || !building.chunkOrigin;
     if (!building) isolate.checked = hideOthers.checked = false;
     status.textContent = "";
-    details.innerHTML = building
-      ? renderBuildingDetails(building, index!, data!, actions.editable)
-      : "Select a building from the list or click it in the map. Turn off the collision overlay to pick buildings.";
+    selectedBlock.hidden = !building;
+    hint.hidden = Boolean(building);
+    heading.textContent = building ? buildingLabel(building, index!, data) : "Building";
+    details.innerHTML = building ? renderBuildingDetails(building, index!, data!, actions.editable) : "";
     setNewPosition(building);
   }
 
@@ -115,22 +137,26 @@ export function createMap3dBuildingInspector(host: HTMLElement, actions: Inspect
     try {
       actions.remove();
       status.classList.remove("map3d-building-error");
-      status.textContent = "Building deleted. Changes are saved with the project.";
+      status.textContent = "";
     } catch (error) {
       status.classList.add("map3d-building-error");
       status.textContent = error instanceof Error ? error.message : String(error);
     }
   });
   newChunk?.addEventListener("change", () => setNewPosition());
+  place?.addEventListener("click", () => {
+    if (placing) { actions.place?.(undefined); return; }
+    if (!newModel?.value) return;
+    actions.place?.(Number(newModel.value));
+  });
   host.querySelector("#map3d-building-add")?.addEventListener("click", () => {
     if (!createFields || !newChunk || !newModel || !newX || !newY || !newZ || !newRotation || !createStatus) return;
     try {
       if (![newChunk, newModel, newX, newY, newZ, newRotation].every((input) => input.value.trim() !== "" && input.reportValidity())) throw new Error("Complete each field with a valid value.");
       actions.add({ chunkIndex: Number(newChunk.value), uid: Number(newModel.value), worldX: Number(newX.value), worldY: Number(newY.value), worldZ: Number(newZ.value), rotationY: Number(newRotation.value) });
-      host.querySelector<HTMLDetailsElement>("#map3d-building-create")!.open = false;
       createStatus.textContent = "";
       status.classList.remove("map3d-building-error");
-      status.textContent = "Building added and selected. Adjust its placement below.";
+      status.textContent = "Building added. Adjust its placement below.";
     } catch (error) {
       createStatus.classList.add("map3d-building-error");
       createStatus.textContent = error instanceof Error ? error.message : String(error);
@@ -167,7 +193,7 @@ export function createMap3dBuildingInspector(host: HTMLElement, actions: Inspect
       const changed = actions.edit(input.dataset.buildingField as Map3dBuildingField, Number(input.value));
       input.removeAttribute("aria-invalid");
       status.classList.remove("map3d-building-error");
-      status.textContent = changed ? "Placement updated. Changes are saved with the project." : "";
+      status.textContent = changed ? "Saved." : "";
       refresh(input);
     } catch (error) {
       input.setAttribute("aria-invalid", "true");
@@ -199,22 +225,36 @@ export function createMap3dBuildingInspector(host: HTMLElement, actions: Inspect
       search.value = "";
       search.disabled = !next?.buildings.length;
       if (newModel && newChunk && createFields && createStatus) {
-        newModel.innerHTML = (next?.buildingModels ?? []).map((model) => `<option value="${model.uid}">UID ${model.uid}</option>`).join("");
+        newModel.innerHTML = (next?.buildingModels ?? []).map((model) => `<option value="${model.uid}">${escapeHtml(modelLabel(model.uid, next))}</option>`).join("");
         newChunk.innerHTML = (next?.chunks ?? []).map((chunk, i) => `<option value="${i}">Chunk ${chunk.chunkId} · Cell ${chunk.matrixX}, ${chunk.matrixY}</option>`).join("");
         createFields.disabled = !next?.buildingModels?.length || !next.chunks.length;
         createStatus.textContent = next && createFields.disabled ? "No building models or editable chunks are available for this map." : "";
+        if (place) place.disabled = createFields.disabled;
       }
       renderList();
       select(undefined);
-      if (message) details.textContent = message;
-      else if (next && !next.buildings.length) details.textContent = next.buildingModels?.length ? "No buildings are placed here. Use Add a building to place one." : "No building models are available for this map. Check the map diagnostics for missing resources.";
+      if (message) hint.textContent = message;
+      else if (next && !next.buildings.length) hint.textContent = next.buildingModels?.length ? (actions.editable ? "No buildings are placed here. Use + Building to place one." : "No buildings are placed here.") : "No building models are available for this map. Check the warnings below the map.";
+      else hint.textContent = "Click a building on the map, or pick one from the list.";
+    },
+    /** Show whether the map is waiting for a click to place a building. */
+    setPlacing(active: boolean) {
+      placing = active;
+      if (!place) return;
+      place.setAttribute("aria-pressed", String(active));
+      place.textContent = active ? "Click the map… (Esc)" : "+ Building";
     },
   };
 }
 
-function buildingLabel(building: Map3dBuilding, index: number): string {
-  const model = building.modelId === undefined ? `UID ${building.uid}` : `Model ${building.modelId}`;
-  return `${index + 1}. ${model} · Chunk ${building.chunkId} · Placement ${building.placementIndex ?? "?"}`;
+function modelLabel(uid: number, data: Pick<Map3dSceneData, "buildingModels"> | undefined): string {
+  const name = data?.buildingModels?.find((model) => model.uid === uid)?.name;
+  return name ? `${name} (${uid})` : `Model ${uid}`;
+}
+
+function buildingLabel(building: Map3dBuilding, index: number, data?: Pick<Map3dSceneData, "buildingModels">): string {
+  const model = building.modelId === undefined ? modelLabel(building.uid, data) : `Model ${building.modelId}`;
+  return `${index + 1}. ${model} · Chunk ${building.chunkId}`;
 }
 
 export function renderBuildingDetails(building: Map3dBuilding, index: number, data: Pick<Map3dSceneData, "chunks" | "buildingsId" | "buildingModels">, editable = false): string {
@@ -240,14 +280,13 @@ export function renderBuildingDetails(building: Map3dBuilding, index: number, da
     const texture = primitive.material.texture;
     return texture ? [`${texture.name} (${texture.width} × ${texture.height})`] : [];
   }))];
-  return `<strong>Building ${index + 1}</strong>
-    <div class="map3d-building-note">${editable ? "Edit placements to update the preview immediately." : "Read-only placement data; editing supports BW/BW2."} Coordinates use game units (16 per tile); Y is height.${editable ? " Edits affect every use of this chunk. Positions snap to 1/4096 of a unit; rotation uses the game's precision." : ""}</div>
+  return `<div class="map3d-building-note">${editable ? "Edits save as you type and affect every use of this chunk." : "Read-only placement data; editing supports BW and BW2."} 16 units per tile; Y is height.</div>
     <dl>${fields.map(([label, value, field]) => {
       let content = escapeHtml(`${typeof value === "number" ? formatNumber(value) : value}${field === "rotationY" ? "°" : ""}`);
       if (editable && field) {
         const attributes = `aria-label="${escapeHtml(label)}" data-building-field="${field}"`;
         content = field === "uid"
-          ? `<select ${attributes}>${(data.buildingModels ?? []).map((model) => `<option value="${model.uid}"${model.uid === value ? " selected" : ""}>${model.uid}</option>`).join("")}</select>`
+          ? `<select ${attributes}>${(data.buildingModels ?? []).map((model) => `<option value="${model.uid}"${model.uid === value ? " selected" : ""}>${escapeHtml(modelLabel(model.uid, data))}</option>`).join("")}</select>`
           : `<input type="number" ${attributes} value="${value}" step="any"${field === "rotationY" ? ' min="0" max="360"' : ""} />`;
       }
       return `<dt>${escapeHtml(label)}</dt><dd>${content}</dd>`;

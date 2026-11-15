@@ -58,6 +58,10 @@ export type ProjectDocument = {
   cutsceneAuthoring?: import("./cutsceneScene").CutsceneAuthoringState;
   fieldScenes?: import("./fieldScene").FieldSceneAuthoring;
   map3dAreaEdits?: Map3dAreaEditState;
+  mapGrassOriginalPermissions?: import("./mapGrass").MapGrassOriginalPermissions;
+  mapTreeOriginalPermissions?: import("./mapTrees").MapTreeOriginalPermissions;
+  mapLedgeOriginalPermissions?: import("./mapLedges").MapLedgeOriginalPermissions;
+  mapStampOriginalPermissions?: import("./mapStamps").MapStampOriginalPermissions;
   fileSystem?: FileSystemEditState;
   codeInjection?: CodeInjectionState;
   overworldWeather?: OverworldWeatherState;
@@ -126,7 +130,7 @@ export function createProjectDocument(project: ProjectSession, hasMatchingSource
     cgearButtons: project.cgearButtons, systemShops: project.systemShops, customUi: project.customUi, uiScreens: project.uiScreens,
     cutsceneAuthoring: project.cutsceneAuthoring,
     fieldScenes: project.fieldScenes,
-    map3dAreaEdits: project.map3dAreaEdits, fileSystem: project.fileSystem,
+    map3dAreaEdits: project.map3dAreaEdits, mapGrassOriginalPermissions: project.mapGrassOriginalPermissions, mapTreeOriginalPermissions: project.mapTreeOriginalPermissions, mapLedgeOriginalPermissions: project.mapLedgeOriginalPermissions, mapStampOriginalPermissions: project.mapStampOriginalPermissions, fileSystem: project.fileSystem,
     codeInjection: project.codeInjection, overworldWeather: project.overworldWeather,
     pwanAnimations: project.pwanAnimations,
     // Source bytes can be reloaded, but authoring baselines/targets must survive

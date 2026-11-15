@@ -247,7 +247,7 @@ function renderGiftsBlock(element: MastersheetElement): string {
           const name = String(mon ?? "");
           const desc = String(descriptions[index] ?? "");
           return `
-      <div class="ms-cell ms-gift-cell" data-species-name="${escapeAttr(name)}">
+      <div class="ms-cell ms-gift-cell${desc ? "" : " -no-desc"}" data-species-name="${escapeAttr(name)}">
         <div class="ms-cell-top"><img src="${escapeAttr(buildPokeSpriteSrc(name))}" loading="lazy" alt="${escapeAttr(name)}" onerror="this.onerror=null; this.src='${escapeAttr(publicAsset("images/pokesprite/-.png"))}'"></div>
         ${desc ? `<div class="ms-cell-bottom"><div class="ms-gift-desc">${escapeHtml(desc)}</div></div>` : `<div class="ms-cell-bottom"></div>`}
       </div>`;

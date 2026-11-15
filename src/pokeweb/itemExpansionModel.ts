@@ -37,6 +37,11 @@ export const NATIVE_ITEM_COUNT = 639;
 export const ITEM_TEXT_BANKS = { descriptions: 63, names: 64, articles: 481, plurals: 482 } as const;
 const PLACEHOLDER = "???";
 
+/** Item text for native prompts that need the name with an indefinite article. */
+export function expandedItemArticle(name: string): string {
+  return `VAR(48385)${/^[aeiou]/iu.test(name) ? "an" : "a"} VAR(65280, 255)${name}`;
+}
+
 type ItemFamily = {
   save: SaveFamily;
   nativeCount: number;
@@ -266,6 +271,27 @@ export function isVerifiedItemExpansionModule(path: string, bytes: Uint8Array | 
   return sha256Hex(normalized) === dll.sha256;
 }
 
+/** Recover the installed catalog and icon assignments when a ROM is opened as a new project. */
+export function hydrateItemExpansionFromRom(project: ProjectState, rom: NintendoDSRom): void {
+  const version = itemExpansionVersion(project);
+  if (!version || project.codeInjection?.itemExpansion) return;
+  const files = partsOf(version).map(part => rom.filenames.idOf(dllPath(version, part)));
+  if (files.some(id => id === undefined || !getRomFileBytes(project, rom, id).length)) return;
+  const path = dllPath(version, "core");
+  const bytes = getRomFileBytes(project, rom, files[0]!);
+  if (!isVerifiedItemExpansionModule(path, bytes, version)) return;
+  const family = familyOf(version);
+  const catalog = findTag(bytes, "PWIC", 1);
+  const icons: Record<number, [number, number]> = {};
+  for (let id = family.nativeCount; id < ITEM_CAPACITY; id++) {
+    const entry = catalog + 12 + (id - family.nativeCount) * 8;
+    const graphic = readU16(bytes, entry), palette = readU16(bytes, entry + 2);
+    if ((graphic || palette) && (graphic !== family.iconNone[0] || palette !== family.iconNone[1])) icons[id] = [graphic, palette];
+  }
+  project.codeInjection ??= {};
+  project.codeInjection.itemExpansion = { version: manifest.version, icons };
+}
+
 function writeTables(bytes: Uint8Array, catalog: ItemCatalogEntry[], nativeCount: number, ranks?: number[], pockets?: number[]): Uint8Array {
   const out = bytes.slice();
   const at = findTag(out, "PWIC", 1);
@@ -323,8 +349,13 @@ export function materializeItemExpansionTables(project: ProjectState, rom: Ninte
   const additions = project.fileSystem?.additions ?? {};
   for (const part of stagedPaths(project, version)) {
     const path = Object.keys(additions).find((candidate) => candidate.toLowerCase() === dllPath(version, part).toLowerCase());
-    if (!path || !family.tableParts.includes(part)) continue;
-    additions[path] = writeTables(additions[path], catalog, family.nativeCount, part === "bag" && !family.pocketTable ? ranks : undefined, pockets);
+    if (!family.tableParts.includes(part)) continue;
+    const fileId = rom.filenames.idOf(dllPath(version, part));
+    const current = path ? additions[path] : fileId === undefined ? undefined : getRomFileBytes(project, rom, fileId);
+    if (!current) continue;
+    const next = writeTables(current, catalog, family.nativeCount, part === "bag" && !family.pocketTable ? ranks : undefined, pockets);
+    if (path) additions[path] = next;
+    else if (fileId !== undefined && current.some((byte, index) => byte !== next[index])) setRomFileReplacement(project, fileId, next);
   }
   const { id, narc } = battlePocketArchive(project, rom);
   const flags = narc.files[0] ?? new Uint8Array();

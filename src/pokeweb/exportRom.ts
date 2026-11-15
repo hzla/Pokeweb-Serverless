@@ -1,3 +1,4 @@
+import { materializeTrainerRosters } from "./trainerRosterModel";
 import { materializeCGearButtonSource } from "./cgearButtonsModel";
 import { materializeSystemShopSource } from "./systemShopsModel";
 import { materializeCustomUiSource } from "./customUiModel";
@@ -72,6 +73,7 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
   hydrateKoMoveLearnsetFromRom(project, rom);
   const repairedLegacyPmcRootFnt = repairLegacyPmcRootFnt(project, rom);
   materializeProjectEdits(project);
+  materializeTrainerRosters(project, rom);
   materializeCustomUiSource(project, rom);
   materializeCGearButtonSource(project, rom);
   materializeSystemShopSource(project, rom);

@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { organizeMap3dSidebar } from "./map3dSidebar";
+import { setupMap3dTabs } from "./map3dSidebar";
 import { Map3dCameraEditor, cameraViewport } from "./map3dCameraEditor";
 import type { CameraPose } from "../pokeweb/fieldCameraModel";
 import { Map3dTexturePreview } from "./map3dTexturePreview";
@@ -13,6 +13,8 @@ import {
   addMap3dBuilding,
   deleteMap3dBuilding,
   updateMap3dZoneMetadata,
+  readMap3dChunkBytes,
+  restoreMap3dChunkBytes,
   type Map3dAreaMetadata,
   type Map3dEntityOverlay,
   type Map3dPermissionEdit,
@@ -21,18 +23,83 @@ import {
   type Map3dSeason,
   type Map3dZoneMetadata,
   type Map3dMatrixCell,
+  type Map3dTile,
 } from "../pokeweb/map3dModel";
 import { isGen4Project } from "../pokeweb/constants";
 import { buildGen4Map3dScene, ensureGen4Map3dResources, saveGen4Map3dPermissionEdits } from "../pokeweb/gen4Map3dModel";
 import { clampU16, formatHex16, GEN5_PERMISSION_FLAGS, gen5PermissionColorNumber } from "../pokeweb/gen5PermissionModel";
+import { GEN5_TILE_CLASS_GROUPS, gen5TileClassName } from "../pokeweb/gen5TileClasses";
+import { MapEditHistory, type MapEdit } from "./map3dHistory";
+import { assignWeatherToArea, getAssignableWeatherEffects, getHeaderWeatherId, getWeatherEffects } from "../pokeweb/overworldWeatherModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 import { createMap3dBuildingInspector, pickMap3dBuilding } from "./map3dBuildingInspector";
 import type { MapGlbImport } from "../pokeweb/mapGlbImport";
-import type { Gen5MapImport } from "../pokeweb/gen5MapImport";
+import { installMap3dTileTool } from "./map3dTileTool";
+import type { GrassSkipReason, GrassStroke, MapGrassSurface } from "../pokeweb/mapGrass";
+import type { TreeSkipReason, TreeStroke } from "../pokeweb/mapTrees";
+import { mapTreeTypes, type MapTreeType } from "../pokeweb/mapTreeCatalog";
+import type { MapGrassKind } from "../pokeweb/mapGrassGeometry";
+import { createBrushThumbnailRenderer, grassSwatch } from "./mapBrushThumbnails";
+import type { LedgeDirection, LedgeSkipReason, LedgeStroke } from "../pokeweb/mapLedges";
+import { MAP_STAMP_CATEGORIES, mapStampTypes, stampSize, type MapStampCategory, type MapStampType, type StampRotation } from "../pokeweb/mapStampCatalog";
+import type { StampSkipReason, StampStroke } from "../pokeweb/mapStamps";
 import type { MapHeightEdit } from "../pokeweb/mapHeightEdit";
 import { openTestBattleEmulator } from '../pokeweb/testBattleEmulatorLauncher';
 import type { MapCameraTestPosition } from '../pokeweb/mapCameraTest';
+
+const GRASS_SKIP_LABELS: Record<GrassSkipReason, string> = {
+  "already-matching": "already the selected grass type",
+  "existing-grass": "existing grass permissions",
+  blocked: "tiles that block movement",
+  water: "water",
+  "special-terrain": "special terrain",
+  "split-height": "split walking height",
+  "multiple-surfaces": "choose Upper or Lower for stacked surfaces",
+  "no-stacked-surface": "no stacked surface",
+  "crossing-surfaces": "walking surfaces cross within the tile",
+  "missing-map": "missing map data",
+  "outside-map": "outside the editable map",
+  "no-painted-grass": "no brush-painted grass",
+  "missing-original-permissions": "original permissions unavailable",
+  "changed-grass": "painted grass layers changed",
+};
+
+const TREE_SKIP_LABELS: Record<TreeSkipReason, string> = {
+  occupied: "overlapping another tree",
+  blocked: "tiles that block movement",
+  water: "water",
+  "existing-grass": "grass (remove it first)",
+  "special-terrain": "special terrain",
+  "split-height": "split walking height",
+  "uneven-ground": "ground that isn't level",
+  "multiple-surfaces": "two walking levels",
+  "missing-map": "missing map data",
+  "outside-map": "outside the editable map",
+  "no-placed-tree": "no tree placed with the brush",
+  "missing-original-permissions": "saved tiles unavailable",
+  "changed-tree": "tree changed since it was placed",
+};
+const LEDGE_SKIP_LABELS: Record<LedgeSkipReason, string> = {
+  ...TREE_SKIP_LABELS,
+  occupied: "overlapping another ledge",
+  "too-short": "a ledge needs at least 2 tiles",
+  "no-placed-ledge": "no ledge drawn with the brush",
+  "changed-ledge": "ledge changed since it was drawn",
+};
+const STAMP_SKIP_LABELS: Record<StampSkipReason, string> = {
+  ...TREE_SKIP_LABELS,
+  occupied: "overlapping another object",
+  "no-placed-stamp": "no object placed with the brush",
+  "changed-stamp": "object changed since it was placed",
+};
+/** What a drag does with the Paint or Erase tool: paint grass, plant a tree, draw a ledge, place an object, or erase brush art. */
+type BrushMode = "paint" | "tree" | "ledge" | "stamp" | "erase";
+/** A swatch in the paint palette. */
+type PaintBrush = { id: string; category: MapStampCategory; label: string; mode: Exclude<BrushMode, "erase">; grass?: MapGrassKind; tree?: MapTreeType; stamp?: MapStampType; note: string };
+const PAINT_BRUSH_KEY = "pokeweb.maps3d.paintBrush";
+const GAME_NOCLIP_KEY = "pokeweb.maps3d.gameTestWalkThroughWalls";
+const ERASE_NATIVE_KEY = "pokeweb.maps3d.eraseNativeArt";
 
 const PERMISSION_TILE_SIZE = 16;
 const MAP3D_VIEW_STORAGE_KEY = "pokeweb.maps3d.lastView";
@@ -54,6 +121,12 @@ type RendererState = {
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
+  tileCamera: THREE.OrthographicCamera;
+  tileMode: boolean;
+  tileTool?: ReturnType<typeof installMap3dTileTool>;
+  onWarpTilePick?: (tile: Map3dTile | undefined) => void;
+  /** Set while "+ Building" waits for a click: gets the terrain point under the pointer. */
+  onPlacePick?: (point: THREE.Vector3 | undefined) => void;
   fieldCamera?: Map3dCameraEditor;
   cameraPose?: CameraPose;
   group: THREE.Group;
@@ -142,7 +215,42 @@ type Map3dLayerSettings = {
   showMovementPreview: boolean;
 };
 
-export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void, initialTarget?: { zoneId?: number; mapId?: number; matrixCell?: Map3dMatrixCell }): void {
+/** Where the Map tab's Open buttons go. A button shows only when its link is given. */
+/** Line icons for the tool group, drawn in the button's text colour. */
+const toolIcon = (body: string) => `<svg class="mx-tool-icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+const GRASS_BLADES = '<path d="M2.5 14c.3-2.6 0-4.6-1-6.2M5.2 14c0-3.2.6-5.9 2.1-7.9M8 14c.2-1.7.9-3.1 2.4-4.1M1 14.5h10" />';
+const TOOL_ICONS = {
+  select: toolIcon('<path d="M3.5 2v10.8l2.9-2.7 2 3.9 1.9-.9-2-3.9 4-.2z" />'),
+  brush: toolIcon('<path d="M13.7 2.3a1 1 0 0 0-1.4 0L7 7.6 8.4 9l5.3-5.3a1 1 0 0 0 0-1.4z" /><path d="M6.2 8.4c-1.8 0-2.6 1.1-2.8 2.4-.2 1.2-.7 1.9-1.6 2.2 2.6 1 5.6.4 6.2-1.9.3-1.1-.4-2-1.8-2.7z" />'),
+  grassAdd: toolIcon(`${GRASS_BLADES}<path d="M12.5 1.8v5M10 4.3h5" />`),
+  grassRemove: toolIcon(`${GRASS_BLADES}<path d="M10 4.3h5" />`),
+  treeAdd: toolIcon('<path d="M6 14.5v-3.2" /><path d="M6 11.3c-2.6 0-4.5-1.6-4.5-3.8 0-1.5.9-2.6 2-3.1C3.8 2.8 4.8 1.8 6 1.8s2.2 1 2.5 2.6c1.1.5 2 1.6 2 3.1 0 2.2-1.9 3.8-4.5 3.8z" /><path d="M12.5 9.5v5M10 12h5" />'),
+  treeRemove: toolIcon('<path d="M6 14.5v-3.2" /><path d="M6 11.3c-2.6 0-4.5-1.6-4.5-3.8 0-1.5.9-2.6 2-3.1C3.8 2.8 4.8 1.8 6 1.8s2.2 1 2.5 2.6c1.1.5 2 1.6 2 3.1 0 2.2-1.9 3.8-4.5 3.8z" /><path d="M10 12h5" />'),
+  paint: toolIcon('<path d="M13.7 2.3a1 1 0 0 0-1.4 0L7 7.6 8.4 9l5.3-5.3a1 1 0 0 0 0-1.4z" /><path d="M6.2 8.4c-1.8 0-2.6 1.1-2.8 2.4-.2 1.2-.7 1.9-1.6 2.2 2.6 1 5.6.4 6.2-1.9.3-1.1-.4-2-1.8-2.7z" />'),
+  erase: toolIcon('<path d="M9.3 2.6l4.1 4.1a1 1 0 0 1 0 1.4L8 13.5H4.6L2.6 11.5a1 1 0 0 1 0-1.4z" /><path d="M5.8 6.1l4.1 4.1M8 13.5h6" />'),
+  collision: toolIcon('<rect x="2" y="2" width="12" height="12" rx="1" /><path d="M2 6.7h12M2 11.3h12M6.7 2v12M11.3 2v12" />'),
+  ledgeAdd: toolIcon('<path d="M1.5 8.5h5.5l2 5h5.5" /><path d="M12.5 1.8v5M10 4.3h5" />'),
+  stampAdd: toolIcon('<path d="M5 14.5V5.5M3 5.5h4M5 3.2a1.2 1.2 0 1 0 0-.1" /><path d="M2.5 14.5h6" /><path d="M12.5 1.8v5M10 4.3h5" />'),
+  ledgeRemove: toolIcon('<path d="M1.5 8.5h5.5l2 5h5.5" /><path d="M10 4.3h5" />'),
+  camera: toolIcon('<rect x="1.5" y="4.5" width="13" height="9" rx="1.5" /><path d="M5.5 4.5l1-2h3l1 2" /><circle cx="8" cy="9" r="2.4" />'),
+};
+
+const SEASON_ICONS = {
+  spring: toolIcon('<path d="M8 14.5V8.5" /><path d="M8 10.5c-3 0-4.8-1.8-4.8-4.6 2.9 0 4.8 1.8 4.8 4.6z" /><path d="M8 8.5c0-2.9 1.8-4.8 4.8-4.8 0 2.9-1.9 4.8-4.8 4.8z" />'),
+  summer: toolIcon('<circle cx="8" cy="8" r="2.8" /><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1" />'),
+  autumn: toolIcon('<path d="M13.5 2.5C6.5 2.5 2.5 5.8 2.5 10.2c0 1.8 1.2 3.3 3.3 3.3 4.6 0 7.7-4 7.7-11z" /><path d="M2 14.5l7.5-7.5" />'),
+  winter: toolIcon('<path d="M8 1.5v13M2.4 4.75l11.2 6.5M2.4 11.25l11.2-6.5" /><path d="M6.3 2.6L8 4l1.7-1.4M6.3 13.4L8 12l1.7 1.4M2.6 6.9l2.1-.4-.8-2M13.4 9.1l-2.1.4.8 2M3.9 11.5l.8-2-2.1-.4M12.1 4.5l-.8 2 2.1.4" />'),
+};
+
+export type Map3dEditorLinks = {
+  /** headerId is the header's index, as the overworld route takes it. */
+  openOverworld?: (overworldsId: number, headerId: number) => void;
+  openScript?: (scriptId: number) => void;
+  openText?: (textBankId: number) => void;
+  openEncounters?: (encounterId: number) => void;
+};
+
+export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void, initialTarget?: { zoneId?: number; mapId?: number; matrixCell?: Map3dMatrixCell }, links?: Map3dEditorLinks): void {
   let zones = getMap3dZones(project);
   const rememberedView = readRememberedMap3dView(project, zones.map((zone) => zone.zoneId));
   const layerSettings = readMap3dLayerSettings(project);
@@ -158,189 +266,326 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   let exporting = false;
   let importing = false;
   let pendingImport: MapGlbImport | undefined;
-  let lastImport: MapGlbImport | undefined;
-  let lastNativeImport: Gen5MapImport | undefined;
-  let lastHeightEdit: MapHeightEdit | undefined;
   let testingMap = false;
+  let preparingWarp = false;
+  let warpDestination: ((tile: Map3dTile) => MapCameraTestPosition) | undefined;
+  let grassMode: BrushMode | undefined;
+  let grassBusy = false;
   const lockedControls = new Map<HTMLInputElement | HTMLSelectElement | HTMLButtonElement, boolean>();
-  const dirtyPermissionEdits = new Map<string, Map3dPermissionEdit>();
+
+  const gen4 = isGen4Project(project);
+  const treeTypes = gen4 ? [] : mapTreeTypes(project.session.baseRom);
+  const paintBrushes: PaintBrush[] = treeTypes.length ? [
+    { id: "grass", category: "Vegetation", label: "Grass", mode: "paint", grass: "regular", note: "Tall grass with wild encounters. Drag over tiles." },
+    { id: "dark-grass", category: "Vegetation", label: "Dark grass", mode: "paint", grass: "dark", note: "Dark grass: wild double battles. Drag over tiles." },
+    ...treeTypes.map((tree): PaintBrush => ({ id: `tree-${tree.id}`, category: "Vegetation", label: tree.label, mode: "tree", tree, note: `${tree.size}×${tree.size} tiles, blocks movement. Click or drag to plant.` })),
+    { id: "ledge", category: "Misc", label: "Ledge", mode: "ledge", note: "One-way hop. Hold and drag along a column (left/right) or a row (up/down)." },
+    ...mapStampTypes(project.session.baseRom).map((stamp): PaintBrush => {
+      const [width, depth] = stampSize(stamp);
+      const blocks = stamp.blocked.join("").includes("#");
+      return { id: `stamp-${stamp.id}`, category: stamp.category, label: stamp.label, mode: "stamp", stamp,
+        note: `${width}×${depth} ${width * depth === 1 ? "tile" : "tiles"}${blocks ? ", blocks movement" : ""}. Click to place${stamp.rotatable ? "; turn it with T" : ""}.` };
+    }),
+  ] : [];
+  let paintBrush = paintBrushes.find(brush => brush.id === readStoredText(PAINT_BRUSH_KEY)) ?? paintBrushes[0];
+  let ledgeDirectionValue: LedgeDirection = "left";
+  let stampRotation: StampRotation = 0;
+  const railButton = (tool: string, label: string, key: string, title: string, icon: string, disabled = false) =>
+    `<button class="mx-rail-tool" type="button" data-map-tool="${tool}" aria-pressed="${tool === "select"}" aria-label="${label} (${key})" title="${label} (${key}) — ${title}"${disabled ? " disabled" : ""}>${icon}<span>${label}</span></button>`;
+  const paletteMarkup = () => {
+    const groups = MAP_STAMP_CATEGORIES.map(category => {
+      const brushes = paintBrushes.filter(brush => brush.category === category);
+      return brushes.length ? `<section class="mx-brush-group" aria-label="${category}"><h3>${category}</h3><div class="mx-brushes">${brushes.map(brush =>
+        `<button class="mx-brush" type="button" data-brush="${brush.id}" aria-pressed="false" title="${escapeHtml(brush.label)}"><span class="mx-brush-art">${brush.mode === "tree" ? TOOL_ICONS.treeAdd : brush.mode === "ledge" ? TOOL_ICONS.ledgeAdd : brush.mode === "stamp" ? TOOL_ICONS.stampAdd : TOOL_ICONS.grassAdd}</span><span class="mx-brush-label">${escapeHtml(brush.label)}</span></button>`).join("")}</div></section>` : "";
+    }).join("");
+    const arrows: [LedgeDirection, string, string][] = [["up", "↑", "Hop up"], ["left", "←", "Hop left"], ["right", "→", "Hop right"], ["down", "↓", "Hop down"]];
+    return `<aside class="mx-palette" id="map3d-palette" aria-label="Paint palette">
+      <header class="mx-palette-head"><span>Paint</span><span class="mx-palette-season" id="map3d-palette-season"></span></header>
+      <div class="mx-palette-body">
+        ${groups}
+      </div>
+      <section class="mx-brush-options" aria-label="Brush options">
+          <h3 id="map3d-brush-name"></h3>
+          <p class="mx-note" id="map3d-brush-note"></p>
+          <label class="mx-row" data-brush-option="surface"><span class="mx-label">Surface</span><select id="map3d-grass-surface" class="mx-select -compact" aria-label="Grass surface"><option value="auto">Auto</option><option value="upper">Upper (bridge)</option><option value="lower">Lower</option></select></label>
+          <label class="mx-menu-check" data-brush-option="native"><input type="checkbox" id="map3d-erase-native" ${readStoredText(ERASE_NATIVE_KEY) === "on" ? "checked" : ""} /> Also erase native elements</label>
+          <div class="mx-row" data-brush-option="direction"><span class="mx-label">Hop</span><div class="mx-arrows" role="group" aria-label="Hop direction">${arrows.map(([value, glyph, label]) => `<button class="mx-tool -small" type="button" data-ledge-direction="${value}" aria-pressed="${value === "left"}" aria-label="${label}" title="${label}">${glyph}</button>`).join("")}</div></div>
+          <div class="mx-row" data-brush-option="rotate"><span class="mx-label">Turn</span><div class="mx-turn" role="group" aria-label="Turn the object"><button class="mx-tool -small" type="button" data-stamp-turn="-1" aria-label="Turn left" title="Turn left (Shift+T)">⟲</button><output id="map3d-stamp-turn" aria-live="polite">0°</output><button class="mx-tool -small" type="button" data-stamp-turn="1" aria-label="Turn right" title="Turn right (T)">⟳</button></div></div>
+      </section>
+    </aside>`;
+  };
+  const flagChip = (flag: (typeof GEN5_PERMISSION_FLAGS)[number]) =>
+    `<label class="mx-flag"><input type="checkbox" data-flag="${flag.bit}" /><span>${escapeHtml(flag.label.replace(/^Unknown /u, "0x"))}</span></label>`;
+  const layerChip = (id: string, label: string, dot: string, checked: boolean, title: string) =>
+    `<label class="mx-chip" title="${escapeHtml(title)}"><input id="${id}" type="checkbox" ${checkedAttr(checked)} /><span class="mx-chip-dot -${dot}"></span>${escapeHtml(label)}</label>`;
+  const row = (label: string, control: string, extra = "") => `<label class="mx-row${extra}"><span class="mx-label">${label}</span>${control}</label>`;
+  const numberField = (id: string, min: number, max: number, readonly = false) =>
+    `<input class="mx-input" id="${id}" type="number" min="${min}" max="${max}" step="1" ${readonly ? "readonly tabindex=\"-1\"" : ""} />`;
+  const linkedField = (id: string, label: string, max: number, open: string) =>
+    `<div class="mx-row -link"><label class="mx-label" for="${id}">${label}</label>${numberField(id, 0, max)}<button class="btn sm -ghost" type="button" data-map-open="${open}" hidden>Open</button></div>`;
 
   root.innerHTML = `
-    <div class="pokemon-filter map3d-sidebar">
-      <div class="filter-title">Maps</div>
-      <section id="map3d-import-review" class="map3d-building-inspector" aria-label="Review map import" hidden></section>
-      <input class="filter-input" id="map3d-search" type="text" placeholder="Search zones" />
-      <select class="filter-input map3d-zone-select" id="map3d-zone">
-        ${matrixCellOption()}
-        ${zones.map((zone) => `<option value="${zone.zoneId}" ${!activeMatrixCell && zone.zoneId === activeZone ? "selected" : ""}>${escapeHtml(zone.label)}</option>`).join("")}
-      </select>
-      <div class="map3d-metadata-note" id="map3d-opened-map" hidden></div>
-      <div class="map3d-field" id="map3d-season-picker">
-        <span id="map3d-season-label">Season</span>
-        <div class="map3d-season-buttons" role="group" aria-labelledby="map3d-season-label">
-          ${(["spring", "summer", "autumn", "winter"] as const).map(season => `<button type="button" data-map3d-season="${season}" aria-pressed="${activeSeason === season}">${season[0].toUpperCase() + season.slice(1)}</button>`).join("")}
-        </div>
-      </div>
-      ${isGen4Project(project) ? '' : '<label class="map3d-toggle"><input id="map3d-show-neighbors" type="checkbox" /> Neighboring scenery</label><div class="map3d-metadata-note">Surrounding terrain and backdrops are shown for reference. They are excluded from editing and map export.</div>'}
-      ${isGen4Project(project) ? '' : `<section class="map3d-building-inspector" aria-label="Texture animation preview">
-        <label class="map3d-toggle"><input id="map3d-animate-textures" type="checkbox" checked /> Texture animation preview</label>
-        <div><button class="ow-tool" id="map3d-textures-play" type="button" disabled>Pause textures</button> <button class="ow-tool" id="map3d-textures-reset" type="button" disabled>Restart textures</button></div>
-        <label class="map3d-field">Texture frame<input id="map3d-textures-frame" type="range" min="0" max="0" value="0" disabled /></label>
-        <div class="map3d-metadata-note" id="map3d-textures-status">Load a map to preview its texture animations.</div>
-      </section>`}
-      <section class="map3d-building-inspector" id="map3d-camera-inspector" aria-label="Map camera"></section>
-      <section class="map3d-building-inspector" id="map3d-building-inspector" aria-label="Building inspector"></section>
-      <div class="map3d-metadata-editor">
-        <strong>Zone / Area Metadata</strong>
-        <div class="map3d-metadata-note">
-          Headers choose the zone, matrix, scripts, text, encounters, and source area. Area rows choose the 3D texture/building resources.
-        </div>
-        <label class="map3d-field">
-          <span>Location name</span>
-          <input class="filter-input" id="map3d-meta-location" type="text" />
-        </label>
-        <div class="map3d-meta-grid">
-          ${metadataNumberInput("map3d-meta-matrix", "Matrix", 0, 65535)}
-          ${metadataNumberInput("map3d-meta-area-source", "Source area", 0, 65535)}
-          ${metadataNumberInput("map3d-meta-overworlds", "Overworlds", 0, 65535)}
-          ${metadataNumberInput("map3d-meta-script", "Scripts", 0, 65535)}
-          ${metadataNumberInput("map3d-meta-text", "Text bank", 0, 65535)}
-          ${metadataNumberInput("map3d-meta-encounter", "Encounters", 0, 65535)}
-          ${metadataNumberInput("map3d-meta-map-type", "Map type", 0, 255)}
-          ${metadataNumberInput("map3d-meta-weather", "Weather", 0, 255)}
-        </div>
-        <details class="map3d-tile-guide">
-          <summary>More Header Fields</summary>
-          <div class="map3d-meta-grid map3d-meta-grid-spaced">
-            ${metadataNumberInput("map3d-meta-parent", "Parent map", 0, 65535)}
-            ${metadataNumberInput("map3d-meta-level-script", "Level script", 0, 65535)}
-            ${metadataNumberInput("map3d-meta-camera", "Camera", 0, 255)}
-            ${metadataNumberInput("map3d-meta-flags", "Header flags", 0, 255)}
+    <div id="map-editor" class="mx-shell${gen4 ? " -gen4" : ""}">
+      <aside class="mx-side" aria-label="Map">
+        <header class="mx-head">
+          <div class="mx-pick-row">
+            <button class="btn sm -ghost" type="button" data-zone-step="-1" aria-label="Previous map" title="Previous map">&lsaquo;</button>
+            <select class="mx-select" id="map3d-zone" aria-label="Map">
+              ${matrixCellOption()}
+              ${zones.map((zone) => `<option value="${zone.zoneId}" ${!activeMatrixCell && zone.zoneId === activeZone ? "selected" : ""}>${escapeHtml(zone.label)}</option>`).join("")}
+            </select>
+            <button class="btn sm -ghost" type="button" data-zone-step="1" aria-label="Next map" title="Next map">&rsaquo;</button>
           </div>
-        </details>
-        <div class="map3d-meta-section-title">Loaded Area Row</div>
-        <div class="map3d-meta-grid">
-          <label class="map3d-field">
-            <span>Concrete area</span>
-            <input class="filter-input" id="map3d-meta-area-loaded" type="number" disabled />
-          </label>
-          ${metadataNumberInput("map3d-meta-texture-pack", "Texture pack", 0, 65535)}
-          ${metadataNumberInput("map3d-meta-buildings", "Building bundle", 0, 65535)}
-          ${metadataNumberInput("map3d-meta-srt", "SRT anim", 0, 255)}
-          ${metadataNumberInput("map3d-meta-pat", "PAT anim", 0, 255)}
-          <label class="map3d-check map3d-meta-check">
-            <input id="map3d-meta-exterior" type="checkbox" />
-            <span>Exterior area</span>
-          </label>
+          <input class="mx-input mx-search" id="map3d-search" type="search" placeholder="Filter maps by name or zone" aria-label="Filter maps" />
+          <h1 id="map3d-title">Loading map…</h1>
+          <div class="mx-sub" id="map3d-subtitle"></div>
+          <div class="mx-sub" id="map3d-opened-map" hidden></div>
+        </header>
+        <section id="map3d-import-review" class="mx-block mx-review" aria-label="Review map import" hidden></section>
+        <div class="md-tabs mx-tabs" role="tablist" aria-label="Edit">
+          <button class="uv-tab" type="button" role="tab" id="map3d-tab-map" data-map-tab="map" aria-controls="map3d-panel-map">Map</button>
+          <button class="uv-tab" type="button" role="tab" id="map3d-tab-collisions" data-map-tab="collisions" aria-controls="map3d-panel-collisions">Collisions</button>
+          <button class="uv-tab" type="button" role="tab" id="map3d-tab-buildings" data-map-tab="buildings" aria-controls="map3d-panel-buildings">Buildings</button>
+          ${gen4 ? "" : `<button class="uv-tab" type="button" role="tab" id="map3d-tab-camera" data-map-tab="camera" aria-controls="map3d-panel-camera">Camera</button>`}
         </div>
-        <button class="ow-tool map3d-load-button" id="map3d-meta-save" type="button">Save Metadata</button>
-      </div>
-      <div class="map3d-layer-grid">
-        <label class="map3d-check"><input id="map3d-show-buildings" type="checkbox" ${checkedAttr(layerSettings.showBuildings)} /> Buildings</label>
-        <label class="map3d-check"><input id="map3d-show-building-bounds" type="checkbox" ${checkedAttr(layerSettings.showBuildingBounds)} /> Building bounds</label>
-        <label class="map3d-check"><input id="map3d-show-npcs" type="checkbox" ${checkedAttr(layerSettings.showNpcs)} /> NPC models</label>
-        <label class="map3d-check"><input id="map3d-show-entities" type="checkbox" ${checkedAttr(layerSettings.showEntities)} /> Entity overlays</label>
-        <label class="map3d-check"><input id="map3d-show-permissions" type="checkbox" ${checkedAttr(layerSettings.showPermissions)} /> Collision overlay</label>
-        <label class="map3d-check"><input id="map3d-preview-movement" type="checkbox" ${checkedAttr(layerSettings.showMovementPreview)} /> Movement preview</label>
-      </div>
-      <div class="map3d-permission-editor">
-        <strong>Collision / Permissions</strong>
-        <label class="map3d-field">
-          <span>Tile class</span>
-          <input class="filter-input" id="map3d-permission-class" type="number" min="0" max="65535" step="1" value="0" />
-        </label>
-        <details class="map3d-tile-guide">
-          <summary>Tile Class Guide</summary>
-          <div class="map3d-tile-guide-grid">
-            <div><strong>0, 17, 19</strong><span>Normal walkable ground variants.</span></div>
-            <div><strong>1, 18</strong><span>Not-move / blocked tile classes.</span></div>
-            <div><strong>2, 3, 30</strong><span>Ground variants, including seasonal ground.</span></div>
-            <div><strong>4-13, 22, 33-35</strong><span>Encounter terrain: grass, long grass, cave, ground, desert, room.</span></div>
-            <div><strong>14-16, 24</strong><span>Snow and ice surfaces.</span></div>
-            <div><strong>20-23, 28, 66</strong><span>Puddles, shoals, marsh, and deep marsh.</span></div>
-            <div><strong>11, 12, 25, 35, 124</strong><span>Sand, desert, and drift sand.</span></div>
-            <div><strong>27</strong><span>Mirror floor.</span></div>
-            <div><strong>29</strong><span>Strength/boulder hole.</span></div>
-            <div><strong>31, 32</strong><span>Lawn and bridge special surfaces.</span></div>
-            <div><strong>48-51</strong><span>Gimmick floors: electric, floating, electric rock, up/down floor.</span></div>
-            <div><strong>61-68</strong><span>Water, sea, waterfall, shore, deep sea.</span></div>
-            <div><strong>81-88</strong><span>Directional no-move wall classes.</span></div>
-            <div><strong>114-121</strong><span>Jump and forced-move directional tiles.</span></div>
-            <div><strong>148-156, 176</strong><span>Currents and diving behavior.</span></div>
-            <div><strong>160-168</strong><span>Slippery/ice movement, slip jumps, turn tiles, hybrid change.</span></div>
-            <div><strong>190, 191</strong><span>Ooze/swamp and ooze stairs.</span></div>
-            <div><strong>212-226</strong><span>Indoor/object interactions: counter, PC, TV, shelves, vending machine.</span></div>
-            <div><strong>255</strong><span>No attribute / invalid attribute.</span></div>
+        <div class="mx-panels">
+          <section class="mx-panel map3d-metadata-editor" id="map3d-panel-map" role="tabpanel" aria-labelledby="map3d-tab-map">
+            <p class="mx-note mx-unassigned-note">This matrix cell has no header of its own. Assign it to a zone in the matrix editor to edit its settings.</p>
+            <div class="mx-block">
+              <div class="mx-group-title">Location</div>
+              ${row("Name", `<select class="mx-select" id="map3d-meta-location"></select>`)}
+              ${gen4 ? "" : row("Weather", `<select class="mx-select" id="map3d-meta-weather-effect"></select>`)}
+            </div>
+            <div class="mx-block">
+              <div class="mx-group-title">Linked data</div>
+              ${linkedField("map3d-meta-overworlds", "Overworld", 65535, "overworld")}
+              ${linkedField("map3d-meta-script", "Scripts", 65535, "script")}
+              ${linkedField("map3d-meta-level-script", "Level script", 65535, "level-script")}
+              ${linkedField("map3d-meta-text", "Text bank", 65535, "text")}
+              ${linkedField("map3d-meta-encounter", "Encounters", 65535, "encounters")}
+            </div>
+            <details class="mx-block mx-advanced">
+              <summary>Advanced</summary>
+              <div class="mx-grid">
+                ${row("Matrix", numberField("map3d-meta-matrix", 0, 65535))}
+                ${row("Source area", numberField("map3d-meta-area-source", 0, 65535))}
+                ${row("Map type", numberField("map3d-meta-map-type", 0, 255))}
+                ${row("Parent map", numberField("map3d-meta-parent", 0, 65535))}
+                ${row("Weather byte", numberField("map3d-meta-weather", 0, 255))}
+                ${row("Camera", numberField("map3d-meta-camera", 0, 255))}
+                ${row("Header flags", numberField("map3d-meta-flags", 0, 255))}
+              </div>
+              <div class="mx-group-title -spaced">Area resources</div>
+              <div class="mx-grid">
+                ${row("Area row", numberField("map3d-meta-area-loaded", 0, 65535, true))}
+                ${row("Texture pack", numberField("map3d-meta-texture-pack", 0, 65535))}
+                ${row("Building bundle", numberField("map3d-meta-buildings", 0, 65535))}
+                ${row("SRT anim", numberField("map3d-meta-srt", 0, 255))}
+                ${row("PAT anim", numberField("map3d-meta-pat", 0, 255))}
+                <label class="mx-row -check"><span class="mx-label">Exterior</span><input id="map3d-meta-exterior" type="checkbox" /></label>
+              </div>
+              <p class="mx-note">Headers choose the zone's matrix, scripts, text and encounters; the area row chooses its textures and buildings.</p>
+            </details>
+          </section>
+          <section class="mx-panel map3d-permission-editor" id="map3d-panel-collisions" role="tabpanel" aria-labelledby="map3d-tab-collisions" hidden>
+            <div class="mx-block">
+              <div class="mx-tile-card" id="map3d-permission-selected">Click a tile on the map to see and edit it.</div>
+            </div>
+            <div class="mx-block">
+              <div class="mx-group-title">Tile values</div>
+              <div class="mx-row"><label class="mx-label" for="map3d-permission-class-select">Class</label>
+                <div class="mx-class-pick">
+                  <select class="mx-select" id="map3d-permission-class-select" aria-label="Tile class by name">
+                    ${GEN5_TILE_CLASS_GROUPS.map((group) => `<optgroup label="${escapeHtml(group.label)}">${group.classes.map(([value, name]) => `<option value="${value}">${value} · ${escapeHtml(name)}</option>`).join("")}</optgroup>`).join("")}
+                    <option value="other" hidden>Other</option>
+                  </select>
+                  <input class="mx-input -number" id="map3d-permission-class" type="number" min="0" max="65535" step="1" value="0" aria-label="Tile class number" />
+                </div>
+              </div>
+              <div class="mx-row -top"><span class="mx-label">Flags</span>
+                <div class="mx-flags map3d-flag-grid">${GEN5_PERMISSION_FLAGS.filter((flag) => flag.bit <= 0x80).map(flagChip).join("")}</div>
+              </div>
+              <details class="mx-advanced -inline">
+                <summary>More flags <span class="mx-hex" id="map3d-permission-flag-value">0x0000</span></summary>
+                <div class="mx-flags">${GEN5_PERMISSION_FLAGS.filter((flag) => flag.bit > 0x80).map(flagChip).join("")}</div>
+              </details>
+              <div class="mx-actions">
+                <button class="btn sm -primary" id="map3d-permission-apply" type="button">Apply to selected tile</button>
+              </div>
+              <p class="mx-note">Pick the <strong>Collision brush</strong> tool above the map to paint these values by dragging.</p>
+            </div>
+            ${gen4 ? "" : `<div class="mx-block">
+              <div class="mx-group-title">Walking heights</div>
+              <p class="mx-note">Rebuild a chunk's walking heights from its terrain model.</p>
+              <div class="mx-actions"><button class="btn sm" id="map3d-height-generate" type="button" disabled>Generate walking heights…</button></div>
+            </div>`}
+          </section>
+          <section class="mx-panel" id="map3d-panel-buildings" role="tabpanel" aria-labelledby="map3d-tab-buildings" hidden>
+            <div class="mx-buildings map3d-building-inspector" id="map3d-building-inspector" aria-label="Buildings"></div>
+          </section>
+          ${gen4 ? "" : `<section class="mx-panel" id="map3d-panel-camera" role="tabpanel" aria-labelledby="map3d-tab-camera" hidden>
+            <div class="mx-camera map3d-building-inspector" id="map3d-camera-inspector" aria-label="Map camera"></div>
+          </section>`}
+        </div>
+      </aside>
+      <section class="mx-main map3d-view">
+        <div class="mx-toolbar">
+          <div class="mx-group" role="group" aria-label="Layers">
+            ${layerChip("map3d-show-buildings", "Buildings", "building", layerSettings.showBuildings, "Show buildings")}
+            ${layerChip("map3d-show-npcs", "NPCs", "npc", layerSettings.showNpcs, "Show NPC models")}
+            ${layerChip("map3d-show-entities", "Events", "entity", layerSettings.showEntities, "Show warps, triggers and other event markers")}
+            ${layerChip("map3d-show-permissions", "Collisions", "permissions", layerSettings.showPermissions, "Show the collision overlay")}
+            ${layerChip("map3d-show-building-bounds", "Bounds", "bounds", layerSettings.showBuildingBounds, "Show building bounding boxes")}
+            ${layerChip("map3d-preview-movement", "Movement", "movement", layerSettings.showMovementPreview, "Animate NPC movement")}
+            ${gen4 ? "" : layerChip("map3d-show-neighbors", "Neighbors", "neighbors", false, "Show surrounding terrain for reference; it isn't edited or exported")}
           </div>
-        </details>
-        <div class="map3d-field">
-          <span>Flags</span>
-          <div class="map3d-flag-grid">
-            ${GEN5_PERMISSION_FLAGS.map(
-              (flag) => `
-                <label class="map3d-check map3d-flag-check">
-                  <input type="checkbox" data-flag="${flag.bit}" />
-                  <span>${flag.label}</span>
-                </label>
-              `,
-            ).join("")}
+          <span class="mx-spacer"></span>
+          <div class="mx-group" role="group" aria-label="History">
+            <button class="btn sm -ghost" id="map3d-undo" type="button" aria-label="Undo" title="Undo (⌘Z)" disabled>↶ Undo</button>
+            <button class="btn sm -ghost" id="map3d-redo" type="button" aria-label="Redo" title="Redo (⇧⌘Z)" disabled>↷ Redo</button>
           </div>
-          <div class="map3d-flag-value" id="map3d-permission-flag-value">Calculated flags: 0x0000</div>
+          <div class="mx-group" role="group" aria-label="View">
+            <button class="btn sm -ghost" id="map3d-reset" type="button" title="Frame the whole map">Reset view</button>
+            <button class="btn sm -ghost" id="map3d-topdown" type="button" title="Look straight down">Top down</button>
+          </div>
+          <div class="mx-group mx-seasons" role="group" aria-label="Season">
+            ${(["spring", "summer", "autumn", "winter"] as const).map(season => `<button class="mx-season" type="button" data-map3d-season="${season}" aria-pressed="${activeSeason === season}">${SEASON_ICONS[season]}${season[0].toUpperCase() + season.slice(1)}</button>`).join("")}
+          </div>
+          ${gen4 ? "" : `<span class="mx-split">
+            <button class="btn sm -primary" id="map3d-game-test" type="button" aria-pressed="false" disabled title="Pick a tile, then play from there in the emulator">Open Game &amp; Warp Here</button>
+            <details class="mx-menu mx-split-menu" id="map3d-game-options">
+              <summary class="btn sm -primary" aria-label="Game test options" title="Game test options">▾</summary>
+              <div class="mx-menu-list">
+                <label class="mx-menu-check"><input type="checkbox" id="map3d-game-noclip" ${readStoredText(GAME_NOCLIP_KEY) === "off" ? "" : "checked"} /> Walk through walls</label>
+                <p class="mx-note">Off keeps the game's normal collisions, so you test the map as players walk it. Pick a walkable tile.</p>
+              </div>
+            </details>
+          </span>`}
+          <details class="mx-menu" id="map3d-files">
+            <summary class="btn sm -ghost">Files</summary>
+            <div class="mx-menu-list" role="menu">
+              <button class="mx-menu-item" id="map3d-export" type="button" role="menuitem" disabled title="Export the loaded map and season, including terrain, buildings, and textures">Export for Blender (.glb)</button>
+              ${project.session.baseRom === "BW2" ? '<button class="mx-menu-item" id="map3d-import" type="button" role="menuitem" disabled>Import edited map (.glb)</button><input id="map3d-import-file" type="file" accept=".glb" hidden />' : ""}
+              ${gen4 ? "" : '<button class="mx-menu-item" id="map3d-native-folder" type="button" role="menuitem" disabled>Open DS Map Studio folder…</button><button class="mx-menu-item" id="map3d-native-import" type="button" role="menuitem" disabled>Import DS Map Studio map…</button>'}
+            </div>
+          </details>
         </div>
-        <label class="map3d-check"><input id="map3d-permission-paint" type="checkbox" /> Paint on click</label>
-        <button class="ow-tool map3d-load-button" id="map3d-permission-apply" type="button">Apply To Selected</button>
-        <button class="ow-tool map3d-load-button" id="map3d-permission-save" type="button">Save Permission Edits</button>
-        ${isGen4Project(project) ? "" : '<button class="ow-tool map3d-load-button" id="map3d-height-generate" type="button" disabled>Generate walking heights…</button><button class="ow-tool map3d-load-button" id="map3d-height-undo" type="button" disabled>Undo generated heights</button>'}
-        <div class="map3d-permission-selected" id="map3d-permission-selected">Load a map, enable the overlay, then click a tile.</div>
-      </div>
-    </div>
-    <div class="pokemon-list map3d-view">
-      <div class="map3d-toolbar">
-        <div class="map3d-toolbar-buttons">
-          <button class="ow-tool" id="map3d-reset" type="button">Reset View</button>
-          <button class="ow-tool" id="map3d-topdown" type="button">Top Down</button>
-          ${isGen4Project(project) ? '' : '<button class="ow-tool" id="map3d-game-test" type="button" disabled>Test in game</button>'}
-          <button class="ow-tool" id="map3d-export" type="button" disabled title="Export the loaded map and season, including terrain, buildings, and textures">Export for Blender (.glb)</button>
-          ${project.session.baseRom === "BW2" ? '<button class="ow-tool" id="map3d-import" type="button" disabled>Import edited map GLB</button><input id="map3d-import-file" type="file" accept=".glb" hidden />' : ''}
-          ${isGen4Project(project) ? '' : '<button class="ow-tool" id="map3d-native-folder" type="button" disabled>Open map folder…</button><button class="ow-tool" id="map3d-native-import" type="button" disabled>Import DS Map Studio map</button><button class="ow-tool" id="map3d-import-undo" type="button" disabled>Undo map import</button>'}
+        <div class="mx-workspace${paintBrushes.length ? "" : " -no-palette"}">
+          <nav class="mx-rail" role="toolbar" aria-orientation="vertical" aria-label="Tools">
+            ${railButton("select", "Select", "V", "Orbit the camera; click a building or tile to edit it", TOOL_ICONS.select)}
+            ${paintBrushes.length ? `${railButton("paint", "Paint", "B", "Paint the brush chosen in the palette", TOOL_ICONS.paint, true)}
+            ${railButton("erase", "Erase", "E", "Drag to erase grass, trees and ledges painted with the brushes", TOOL_ICONS.erase, true)}` : ""}
+            <span class="mx-rail-gap"></span>
+            ${railButton("collision", "Collision brush", "C", "Drag over tiles to paint the collision values from the Collisions tab", TOOL_ICONS.collision)}
+            ${gen4 ? "" : railButton("camera", "Camera regions", "R", "Edit the map camera's regions", TOOL_ICONS.camera)}
+          </nav>
+        <div class="mx-stage">
+          <div class="map3d-canvas-wrap" id="map3d-canvas-wrap"></div>
+          <div class="mx-hud" data-map3d-hud></div>
+          <div class="mx-tool-hints" id="map3d-tool-options">
+            <span class="mx-hint" id="map3d-drag-label">Drag: rotate · Shift-drag: pan · Click a building or tile to edit it</span>
+            <span class="mx-hint" id="map3d-collision-brush" hidden></span>
+            ${gen4 ? "" : `<span class="mx-group" id="map3d-camera-modes" role="group" aria-label="Camera tool" hidden>
+              <button class="mx-tool -small" type="button" data-camera-mode="move" aria-pressed="false" title="Drag a region to move it; drag a gold corner to resize">Move / resize</button>
+              <button class="mx-tool -small" type="button" data-camera-mode="draw" aria-pressed="false" title="Drag over the map to draw a new region">Draw region</button>
+              <button class="mx-tool -small" type="button" data-camera-mode="walk" aria-pressed="false" title="Click a tile, then walk with the arrow keys to preview the camera">Walk</button>
+              <button class="mx-tool -small" type="button" data-camera-mode="pick" aria-pressed="false" title="Click the terrain to choose the preview position">Pick point</button>
+            </span>`}
+          </div>
+          <div class="mx-corner">
+            ${gen4 ? "" : `<details class="mx-pop">
+              <summary class="btn sm -ghost" title="Texture animation preview">Textures</summary>
+              <div class="mx-pop-body">
+                <label class="mx-row -check"><span class="mx-label">Animate</span><input id="map3d-animate-textures" type="checkbox" checked /></label>
+                <div class="mx-actions"><button class="btn sm" id="map3d-textures-play" type="button" disabled>Pause</button><button class="btn sm" id="map3d-textures-reset" type="button" disabled>Restart</button></div>
+                <input id="map3d-textures-frame" type="range" min="0" max="0" value="0" disabled aria-label="Texture frame" />
+                <p class="mx-note" id="map3d-textures-status">Load a map to preview its texture animations.</p>
+              </div>
+            </details>`}
+            <details class="mx-pop">
+              <summary class="btn sm -ghost" title="Camera position">Camera info</summary>
+              <div class="mx-pop-body">
+                <output id="map3d-camera-values" class="mx-mono" aria-live="off"></output>
+                <button class="btn sm" id="map3d-copy-camera" type="button">Copy coordinates</button>
+              </div>
+            </details>
+            <details class="mx-pop">
+              <summary class="btn sm -ghost" aria-label="Controls" title="Controls">?</summary>
+              <div class="mx-pop-body mx-controls">
+                <div><kbd>Drag</kbd> rotate (pan with the brush tools)</div>
+                <div id="map3d-shift-pan-hint"><kbd>Shift</kbd> + drag pan</div>
+                <div><kbd>Arrows</kbd> pan</div>
+                <div><kbd>Wheel</kbd> or pinch zoom</div>
+                <div data-map3d-inspect-hint><kbd>Click</kbd> a building or collision tile to edit it</div>
+                <div><kbd>Esc</kbd> back to Select</div>
+                <div><kbd>⌘Z</kbd> / <kbd>⇧⌘Z</kbd> undo / redo</div>
+              </div>
+            </details>
+          </div>
         </div>
-        <div class="map3d-export-status" id="map3d-export-status" role="status" aria-live="polite"></div>
-        <details class="map3d-controls map3d-camera-readout" open>
-          <summary>Live camera</summary>
-          <output id="map3d-camera-values" aria-live="off" style="display:block;white-space:pre-wrap;font:12px monospace"></output>
-          <button class="ow-tool" id="map3d-copy-camera" type="button">Copy camera coordinates</button>
-        </details>
-        <div class="map3d-controls">
-          <strong>Controls</strong>
-          <div>Drag: rotate</div>
-          <div>Shift + drag: pan</div>
-          <div>Arrow keys: pan</div>
-          <div>Trackpad pinch or wheel: zoom</div>
-          <div>Click a building: inspect placement</div>
-          <div>Collision overlay: click a tile to edit</div>
+          ${paintBrushes.length ? paletteMarkup() : ""}
         </div>
-      </div>
-      <div class="map3d-canvas-wrap" id="map3d-canvas-wrap"></div>
-      <div class="map3d-warnings" id="map3d-warnings"></div>
+        <footer class="mx-status">
+          <span class="mx-stats" id="map3d-stats"></span>
+          <span class="mx-message map3d-export-status" id="map3d-export-status" role="status" aria-live="polite"></span>
+          <div class="mx-warnings" id="map3d-warnings"></div>
+        </footer>
+      </section>
     </div>
   `;
 
   const select = root.querySelector<HTMLSelectElement>("#map3d-zone");
   const exportButton = root.querySelector<HTMLButtonElement>("#map3d-export");
   const exportStatus = root.querySelector<HTMLDivElement>("#map3d-export-status");
+  const grassSurface = root.querySelector<HTMLSelectElement>("#map3d-grass-surface");
+  const swatches = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-brush]"));
+  const ledgeArrows = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-ledge-direction]"));
+  const eraseNative = root.querySelector<HTMLInputElement>("#map3d-erase-native");
+  eraseNative?.addEventListener("change", () => { writeStoredText(ERASE_NATIVE_KEY, eraseNative.checked ? "on" : "off"); updateTileToolHints(); });
   const cameraValues=root.querySelector<HTMLOutputElement>('#map3d-camera-values')!;
-  function cameraCoordinates(){if(!state)return;const c=state.camera,p=state.cameraPose,t=p?new THREE.Vector3(p.target.x,p.target.y,p.target.z):state.target,delta=c.position.clone().sub(t),round=(v:number)=>Math.round(v*10000)/10000;
-    return {zoneId:state.currentData?.zoneId,mode:p?'game camera':'free view',position:c.position.toArray().map(round),target:t.toArray().map(round),pitch:round(Math.atan2(delta.y,Math.hypot(delta.x,delta.z))*180/Math.PI),yaw:round((Math.atan2(delta.x,delta.z)*180/Math.PI+360)%360),distance:round(delta.length()),fov:round(c.fov),aspect:round(c.aspect)};
+  const dragLabel = root.querySelector<HTMLElement>("#map3d-drag-label");
+  const shiftPanHint = root.querySelector<HTMLElement>("#map3d-shift-pan-hint");
+  const inspectHints = root.querySelectorAll<HTMLElement>("[data-map3d-inspect-hint]");
+  function cameraCoordinates() {
+    if (!state) return;
+    const overhead = state.tileMode;
+    const camera = overhead ? state.tileCamera : state.camera;
+    const pose = overhead ? undefined : state.cameraPose;
+    const target = pose ? new THREE.Vector3(pose.target.x, pose.target.y, pose.target.z) : state.target;
+    const delta = camera.position.clone().sub(target);
+    const round = (value: number) => Math.round(value * 10000) / 10000;
+    return {
+      zoneId: state.currentData?.zoneId,
+      mode: overhead ? "overhead" : pose ? "game camera" : "free view",
+      position: camera.position.toArray().map(round),
+      target: target.toArray().map(round),
+      pitch: round(THREE.MathUtils.radToDeg(Math.atan2(delta.y, Math.hypot(delta.x, delta.z)))),
+      yaw: round(THREE.MathUtils.radToDeg(Math.atan2(delta.x, delta.z)) + 360) % 360,
+      distance: round(overhead ? state.distance : delta.length()),
+      fov: overhead ? undefined : state.camera.fov,
+      aspect: round(state.camera.aspect),
+    };
   }
-  function updateCameraReadout(){const p=cameraCoordinates();if(!p)return;const text=`Position X/Y/Z: ${p.position.join(', ')}\nLook at X/Y/Z: ${p.target.join(', ')}\nPitch ${p.pitch}° · Yaw ${p.yaw}° · Distance ${p.distance}\nFOV ${p.fov}° · Aspect ${p.aspect}`;if(cameraValues.textContent!==text)cameraValues.textContent=text;}
+  function updateCameraReadout() {
+    const view = cameraCoordinates();
+    if (!view) return;
+    const lens = view.fov === undefined ? "Orthographic" : `FOV ${view.fov}°`;
+    const text = [
+      `Position X/Y/Z: ${view.position.join(", ")}`,
+      `Look at X/Y/Z: ${view.target.join(", ")}`,
+      `Pitch ${view.pitch}° · Yaw ${view.yaw}° · Distance ${view.distance}`,
+      `${lens} · Aspect ${view.aspect}`,
+    ].join("\n");
+    if (cameraValues.textContent !== text) cameraValues.textContent = text;
+  }
   root.querySelector<HTMLButtonElement>('#map3d-copy-camera')!.addEventListener('click',()=>{const p=cameraCoordinates();if(!p)return;const text=JSON.stringify(p,null,2),field=document.createElement('textarea');field.value=text;field.style.cssText='position:fixed;left:-10000px;top:0';root.append(field);field.select();const copied=document.execCommand('copy');field.remove();if(copied)setStatus('Camera coordinates copied.');else void navigator.clipboard.writeText(text).then(()=>setStatus('Camera coordinates copied.')).catch(()=>setStatus('Unable to copy. The live camera coordinates remain visible above.'));});
   const importButton = root.querySelector<HTMLButtonElement>("#map3d-import");
   const nativeImportButton = root.querySelector<HTMLButtonElement>("#map3d-native-import");
   const nativeFolderButton = root.querySelector<HTMLButtonElement>("#map3d-native-folder");
-  const importUndo = root.querySelector<HTMLButtonElement>("#map3d-import-undo");
   const heightGenerate = root.querySelector<HTMLButtonElement>("#map3d-height-generate");
-  const heightUndo = root.querySelector<HTMLButtonElement>("#map3d-height-undo");
   const mapGameTest = root.querySelector<HTMLButtonElement>("#map3d-game-test");
+  const gameNoclip = root.querySelector<HTMLInputElement>("#map3d-game-noclip");
+  gameNoclip?.addEventListener("change", () => writeStoredText(GAME_NOCLIP_KEY, gameNoclip.checked ? "on" : "off"));
   const importFile = root.querySelector<HTMLInputElement>("#map3d-import-file");
   const importReview = root.querySelector<HTMLElement>("#map3d-import-review")!;
   const seasonButtons = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-map3d-season]"));
@@ -351,7 +596,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   const texturesStatus = root.querySelector<HTMLElement>("#map3d-textures-status");
   const refreshTextureControls = () => {
     const preview = state?.texturePreview, count = preview?.count ?? 0, enabled = Boolean(preview?.enabled && count);
-    if (texturesPlay) { texturesPlay.disabled = !enabled; texturesPlay.textContent = preview?.playing ? "Pause textures" : "Play textures"; }
+    if (texturesPlay) { texturesPlay.disabled = !enabled; texturesPlay.textContent = preview?.playing ? "Pause" : "Play"; }
     if (texturesReset) texturesReset.disabled = !enabled;
     if (texturesFrame) {
       texturesFrame.disabled = !enabled;
@@ -361,9 +606,10 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     const text = count ? `${count} animated surfaces · Frame ${texturesFrame?.value ?? 0} · 30 fps` : "No supported texture animations in this view.";
     if (texturesStatus && texturesStatus.textContent !== text) texturesStatus.textContent = text;
   };
-  const metadataSave = root.querySelector<HTMLButtonElement>("#map3d-meta-save");
+  const metadataPanel = root.querySelector<HTMLElement>("#map3d-panel-map")!;
+  const weatherEffect = root.querySelector<HTMLSelectElement>("#map3d-meta-weather-effect");
   const metadataFields = {
-    location: root.querySelector<HTMLInputElement>("#map3d-meta-location"),
+    location: root.querySelector<HTMLSelectElement>("#map3d-meta-location"),
     matrix: root.querySelector<HTMLInputElement>("#map3d-meta-matrix"),
     sourceArea: root.querySelector<HTMLInputElement>("#map3d-meta-area-source"),
     overworlds: root.querySelector<HTMLInputElement>("#map3d-meta-overworlds"),
@@ -390,22 +636,40 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   const showPermissions = root.querySelector<HTMLInputElement>("#map3d-show-permissions");
   const showMovementPreview = root.querySelector<HTMLInputElement>("#map3d-preview-movement");
   const permissionClass = root.querySelector<HTMLInputElement>("#map3d-permission-class");
-  const permissionFlagInputs = Array.from(root.querySelectorAll<HTMLInputElement>(".map3d-flag-check input"));
-  const permissionFlagValue = root.querySelector<HTMLDivElement>("#map3d-permission-flag-value");
-  const permissionPaint = root.querySelector<HTMLInputElement>("#map3d-permission-paint");
+  const permissionClassSelect = root.querySelector<HTMLSelectElement>("#map3d-permission-class-select");
+  const permissionFlagInputs = Array.from(root.querySelectorAll<HTMLInputElement>(".map3d-permission-editor [data-flag]"));
+  const permissionFlagValue = root.querySelector<HTMLElement>("#map3d-permission-flag-value");
   const permissionApply = root.querySelector<HTMLButtonElement>("#map3d-permission-apply");
-  const permissionSave = root.querySelector<HTMLButtonElement>("#map3d-permission-save");
   const permissionSelected = root.querySelector<HTMLDivElement>("#map3d-permission-selected");
+  const collisionBrushHint = root.querySelector<HTMLElement>("#map3d-collision-brush");
+  const cameraModes = root.querySelector<HTMLElement>("#map3d-camera-modes");
+  const toolButtons = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-map-tool]"));
+  const undoButton = root.querySelector<HTMLButtonElement>("#map3d-undo");
+  const redoButton = root.querySelector<HTMLButtonElement>("#map3d-redo");
+  const titleHost = root.querySelector<HTMLElement>("#map3d-title");
+  const subtitleHost = root.querySelector<HTMLElement>("#map3d-subtitle");
+  const statsHost = root.querySelector<HTMLElement>("#map3d-stats");
   const search = root.querySelector<HTMLInputElement>("#map3d-search");
   const canvasWrap = root.querySelector<HTMLDivElement>("#map3d-canvas-wrap");
   const warningsHost = root.querySelector<HTMLDivElement>("#map3d-warnings");
   if (!select || !canvasWrap) return;
   const zoneSelect = select;
-  const sidebarTabs = organizeMap3dSidebar(root, tab => {
+  /** One history for every edit in the editor; each edit is saved as it happens. */
+  const history = new MapEditHistory(refreshHistoryButtons);
+  /** The mouse tool: Select (orbit and pick), a brush (collisions, grass) or camera regions. */
+  type MapTool = "select" | "paint" | "erase" | "collision" | "camera";
+  let collisionBrush = false;
+  let cameraTool = false;
+  let historyScope = "";
+  const sidebarTabs = setupMap3dTabs(root, tab => {
+    if (tab === "camera") {
+      if (grassMode) setGrassMode();
+      if (collisionBrush) setCollisionBrush(false);
+      if (warpDestination) setWarpPicking();
+    } else if (cameraTool) setCameraTool(false);
     state?.fieldCamera?.setActive(tab === "camera");
-    if (state) state.permissionPicking = tab === "view" || tab === "collisions";
-    if (tab === "collisions" && showPermissions) { showPermissions.checked = true; applyCurrentLayerSettings(); }
-    if (tab !== "collisions" && permissionPaint) permissionPaint.checked = false;
+    if (state) state.permissionPicking = tab !== "buildings" && tab !== "camera";
+    if (tab === "collisions" && showPermissions && !showPermissions.checked) { showPermissions.checked = true; applyCurrentLayerSettings(); }
   });
   const buildingInspector = createMap3dBuildingInspector(root.querySelector<HTMLElement>("#map3d-building-inspector")!, {
     select: selectBuilding,
@@ -414,35 +678,45 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     add: (input) => {
       if (pendingImport || importing) throw new Error("Apply or cancel the map import before editing placements.");
       if (!state || !activeData) throw new Error("Load a map before adding a building.");
-      const index = addMap3dBuilding(project, activeData, input);
-      refreshBuildingPlacements(index);
+      const data = activeData, chunk = data.chunks[input.chunkIndex];
+      if (!chunk) throw new Error("Choose a loaded map chunk.");
+      recordBuildingEdit("Add building", chunk.chunkId, () => refreshBuildingPlacements(addMap3dBuilding(project, data, input)));
     },
     remove: () => {
       if (pendingImport || importing) throw new Error("Apply or cancel the map import before editing placements.");
       if (!state || !activeData || state.selectedBuildingIndex === undefined) throw new Error("Select a building to delete.");
-      deleteMap3dBuilding(project, activeData, state.selectedBuildingIndex);
-      refreshBuildingPlacements(undefined);
+      const data = activeData, index = state.selectedBuildingIndex, building = data.buildings[index];
+      if (!building) throw new Error("Select a building to delete.");
+      recordBuildingEdit("Delete building", building.chunkId, () => {
+        deleteMap3dBuilding(project, data, index);
+        refreshBuildingPlacements(undefined);
+      });
     },
     edit: (field, value) => {
       if (pendingImport || importing) return false;
       if (!state || !activeData || state.selectedBuildingIndex === undefined) return false;
-      const changed = updateMap3dBuilding(project, activeData, state.selectedBuildingIndex, field, value);
-      if (!changed.length) return false;
-      for (const index of changed) {
-        const building = activeData.buildings[index];
-        const group = state.buildingGroup.children[index] as THREE.Group;
-        group.position.set(building.worldX, building.worldY, building.worldZ);
-        group.rotation.y = THREE.MathUtils.degToRad(building.rotationY);
-        if (field === "uid") {
-          clearGroup(group);
-          addPrimitivesToGroup(group, building.primitives, new Map());
+      const data = activeData, index = state.selectedBuildingIndex, building = data.buildings[index];
+      if (!building) return false;
+      let changed: number[] = [];
+      recordBuildingEdit("Move building", building.chunkId, () => {
+        changed = updateMap3dBuilding(project, data, index, field, value);
+        for (const changedIndex of changed) {
+          const placed = data.buildings[changedIndex];
+          const group = state!.buildingGroup.children[changedIndex] as THREE.Group;
+          group.position.set(placed.worldX, placed.worldY, placed.worldZ);
+          group.rotation.y = THREE.MathUtils.degToRad(placed.rotationY);
+          if (field === "uid") {
+            clearGroup(group);
+            addPrimitivesToGroup(group, placed.primitives, new Map());
+          }
         }
-      }
-      refreshBuildingBounds(state, activeData);
-      applyCurrentLayerSettings(false);
-      onDirty?.();
-      return true;
+        refreshBuildingBounds(state!, data);
+        applyCurrentLayerSettings(false);
+        onDirty?.();
+      }, `${building.chunkId}:${building.placementIndex}:${field}`, index);
+      return changed.length > 0;
     },
+    place: (uid) => setBuildingPlacement(uid),
     hideOthers: (enabled) => {
       if (!state) return;
       state.hideOtherBuildings = enabled && state.selectedBuildingIndex !== undefined;
@@ -459,13 +733,23 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
 
   const setStatus = (message: string) => {
     if (message) console.info(`[Maps 3D] ${message}`);
+    if (exportStatus) exportStatus.textContent = message;
   };
 
-  const load = async (zoneId: number) => {
+  const load = async (zoneId: number, preserveGrassView = false) => {
+    const view = preserveGrassView && state
+      ? { target: state.target.clone(), pitch: state.pitch, yaw: state.yaw, distance: state.distance } : undefined;
+    if (!preserveGrassView) setGrassMode();
+    setWarpPicking();
+    if (placingUid !== undefined) setBuildingPlacement(undefined);
+    // Undo steps belong to the map they were made on.
+    const scope = activeMatrixCell ? `cell:${activeMatrixCell.matrixId}:${activeMatrixCell.x}:${activeMatrixCell.y}` : `zone:${zoneId}`;
+    if (scope !== historyScope) { history.clear(); historyScope = scope; lastBuildingEdit = undefined; }
     clearImportReview();
     const token = ++loadToken;
     activeZone = zoneId;
     activeData = undefined;
+    refreshImportButtons();
     buildingInspector.setData(undefined, "Loading map buildings…");
     if (state) {
       state.fieldCamera?.clear();
@@ -479,9 +763,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     if (exportButton) exportButton.disabled = true;
     if (importButton) importButton.disabled = true;
     if (nativeImportButton) nativeImportButton.disabled = true;
-    if (importUndo) importUndo.disabled = true;
-    if (exportStatus) exportStatus.textContent = "";
-    setStatus("Loading map assets...");
+    setStatus("Loading map…");
     try {
       const data = await loadMap3dEditorZone(project, zoneId, activeSeason, (message) => {
         if (token === loadToken) setStatus(message);
@@ -489,19 +771,33 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
       if (token !== loadToken) return;
       activeData = data;
       activeZone = data.zoneId;
-      dirtyPermissionEdits.clear();
       state ??= createRenderer(canvasWrap);state.onCameraUpdate=updateCameraReadout;
-      state.permissionPicking = sidebarTabs.active === "view" || sidebarTabs.active === "collisions";
+      if (!state.tileTool) {
+        state.tileTool = installMap3dTileTool(state.renderer.domElement, state,
+          () => (!!grassMode || collisionBrush) && !grassBusy && !importing && !exporting && !pendingImport && !testingMap && !history.busy && !!activeData && !state?.cameraPose && lockedControls.size === 0,
+          tiles => { if (collisionBrush) void paintCollisionTiles(tiles); else void finishGrassStroke(tiles); },
+          () => { if (warpDestination) setWarpPicking(); else setTool("select"); },
+          () => !!warpDestination,
+          () => grassMode === "tree" ? paintBrush?.tree?.size ?? 1 : grassMode === "stamp" && paintBrush?.stamp ? stampSize(paintBrush.stamp, currentStampRotation()) : 1,
+          () => grassMode !== "ledge" ? undefined : ledgeDirectionValue === "up" || ledgeDirectionValue === "down" ? "x" : "z");
+      }
+      state.permissionPicking = sidebarTabs.active !== "buildings" && sidebarTabs.active !== "camera";
       state.onBuildingPick = selectBuilding;
       state.onPermissionPick = (selection) => {
         sidebarTabs.select("collisions");
         selectPermissionTile(selection);
-        if (permissionPaint?.checked) applyPermissionBrush();
       };
       renderSceneData(state, data);
-      state.fieldCamera ??= new Map3dCameraEditor(project, root.querySelector<HTMLElement>("#map3d-camera-inspector")!, state, onDirty,project.session.baseVersion==='W2'&&project.romInfo.idCode==='IRDO'?testInGame:undefined);
+      if (paintBrushes.length) void refreshSwatchArt();
+      state.fieldCamera ??= new Map3dCameraEditor(project, root.querySelector<HTMLElement>("#map3d-camera-inspector")!, state, onDirty,project.session.baseVersion==='W2'&&project.romInfo.idCode==='IRDO'?testCameraInGame:undefined, {
+        recorded: (label, undo, redo) => history.push({ label, undo, redo }),
+        modeChanged: refreshCameraModes,
+      });
       state.fieldCamera.setActive(sidebarTabs.active === "camera");
-      void state.fieldCamera.load(data);
+      const camera = state.fieldCamera;
+      void camera.load(data).then(() => {
+        if (cameraTool && camera.mode === "navigate" && token === loadToken) camera.setMode("move");
+      });
       state.onTextureFrame = refreshTextureControls;
       state.texturePreview.setEnabled(animateTextures?.checked ?? false);
       refreshTextureControls();
@@ -517,13 +813,20 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
         openedMap.textContent = chunk ? `Map ${initialTarget!.mapId} · Header ${zoneId}` : `Map ${initialTarget!.mapId} is not present in this header’s current matrix.`;
         if (chunk) { state.target.set(chunk.worldX, chunk.worldY ?? 0, chunk.worldZ); state.distance = Math.max(200, data.chunkSpan * 1.5); }
       }
+      if (state && view) {
+        state.target.copy(view.target);
+        state.pitch = view.pitch;
+        state.yaw = view.yaw;
+        state.distance = view.distance;
+      }
       buildingInspector.setData(data);
-      root.querySelector<HTMLElement>(".map3d-metadata-editor")!.hidden = Boolean(data.matrixCell);
+      metadataPanel.classList.toggle("-unassigned", Boolean(data.matrixCell));
       if (!data.matrixCell) writeMetadataForm(getMap3dZoneMetadata(project, zoneId), data);
-      renderMap3dDiagnostics(warningsHost, data);
+      writeHeading(data);
+      renderMap3dDiagnostics(warningsHost, statsHost, data);
       applyCurrentLayerSettings(false);
       if (!data.matrixCell) rememberMap3dView(project, zoneId, activeSeason);
-      setStatus(data.label);
+      setStatus("");
       if (exportButton) exportButton.disabled = exporting;
       refreshImportButtons();
     } catch (error) {
@@ -531,8 +834,9 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
       activeData = undefined;
       const message = error instanceof Error ? error.message : String(error);
       buildingInspector.setData(undefined, `Map load failed: ${message}`);
-      setStatus(message);
-      if (warningsHost) warningsHost.innerHTML = `<strong>Map load failed</strong><div>${escapeHtml(message)}</div>`;
+      setStatus(`Map load failed: ${message}`);
+      if (warningsHost) warningsHost.innerHTML = "";
+      if (titleHost) titleHost.textContent = "Map load failed";
       state ??= createRenderer(canvasWrap);
       clearGroup(state.terrainGroup);
       state.texturePreview.clear();
@@ -548,6 +852,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   };
 
   select.addEventListener("change", () => {
+    if (select.value === "current") return;
     if (select.value !== "matrix-cell") {
       activeZone = Number(select.value);
       activeMatrixCell = undefined;
@@ -555,27 +860,111 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     }
     void load(activeZone);
   });
-  async function testInGame(position?:MapCameraTestPosition){
-    const data=activeData;
-    if(!data||position&&data.zoneId!==position.zoneId)throw new Error('Reload the map before testing.');
-    if(importing||pendingImport)throw new Error('Apply or cancel the map import before testing.');
-    if(dirtyPermissionEdits.size)throw new Error('Save permission edits before testing.');
-    if(testingMap)return;
-    const emulator=openTestBattleEmulator({mode:'field'});
-    testingMap=true;refreshImportButtons();
-    if(exportStatus)exportStatus.textContent='Preparing game test…';
-    try{
-      const {resolveMapCameraTestPosition}=await import('../pokeweb/mapCameraTest');
-      const {bottomLeftMapTestTile,buildMapExploreTestDownloads}=await import('../pokeweb/mapExploreTest');
-      const destination=position?resolveMapCameraTestPosition(data,{x:position.tileX*16+8,y:position.height,z:position.tileZ*16+8},position.facing):bottomLeftMapTestTile(project,data);
-      const result=await buildMapExploreTestDownloads(project,destination);
-      const name=`${project.session.romName||project.session.baseVersion}-map-test-${destination.zoneId}-${destination.tileX}-${destination.tileZ}`;
-      await emulator.launch({romName:`${name}.nds`,saveName:`${name}.dsv`,trainerId:0,testLabel:`Zone ${destination.zoneId} · Tile ${destination.tileX}, ${destination.tileZ} — Continue, then press Down · Walk Through Walls on`,romBytes:result.romBytes,saveBytes:result.saveBytes});
-      if(exportStatus&&activeData===data)exportStatus.textContent=`Continue, then press Down → Zone ${destination.zoneId} · Tile ${destination.tileX}, ${destination.tileZ} · Walk Through Walls on for this test`;
-    }catch(error){emulator.close();if(exportStatus&&activeData===data)exportStatus.textContent=`Game test failed: ${error instanceof Error?error.message:String(error)}`;throw error;}
-    finally{testingMap=false;refreshImportButtons();}
+  function setWarpPicking(destination?: typeof warpDestination) {
+    warpDestination = destination;
+    if (state) {
+      state.onWarpTilePick = destination ? pickWarpTile : undefined;
+      state.tileMode = Boolean(grassMode || collisionBrush || destination);
+      state.dragging = false;
+    }
+    if (mapGameTest) {
+      mapGameTest.setAttribute("aria-pressed", String(Boolean(destination)));
+      mapGameTest.textContent = destination ? "Click a tile… (Esc cancels)" : "Open Game & Warp Here";
+    }
+    canvasWrap?.classList.toggle("map3d-warp-pick", Boolean(destination));
+    updateTileToolHints();
+    if (destination) {
+      if (sidebarTabs.active === "camera") sidebarTabs.select("map");
+      state?.fieldCamera?.freeView();
+      if (state?.isolateBuilding) selectBuilding(undefined);
+      state?.renderer.domElement.focus({ preventScroll: true });
+    } else if (exportStatus) {
+      exportStatus.textContent = "";
+    }
   }
-  mapGameTest?.addEventListener("click",()=>{void testInGame().catch(error=>setStatus(error instanceof Error?error.message:String(error)));});
+
+  mapGameTest?.addEventListener("click", async () => {
+    if (warpDestination) { setWarpPicking(); return; }
+    const data = activeData;
+    if (!data || preparingWarp || testingMap || grassBusy || importing || exporting || pendingImport || lockedControls.size) return;
+    const tab = sidebarTabs.active;
+    preparingWarp = true;
+    refreshImportButtons();
+    try {
+      const { prepareMapExploreDestination } = await import("../pokeweb/mapExploreDestination");
+      const destination = await prepareMapExploreDestination(project, data);
+      if (activeData !== data || sidebarTabs.active !== tab || !canvasWrap?.isConnected) return;
+      setGrassMode();
+      setCollisionBrush(false);
+      if (exportStatus) exportStatus.textContent = "";
+      setWarpPicking(destination);
+    } catch (error) {
+      if (exportStatus && activeData === data) exportStatus.textContent = error instanceof Error ? error.message : String(error);
+    } finally {
+      preparingWarp = false;
+      refreshImportButtons();
+    }
+  });
+
+  function pickWarpTile(tile: Map3dTile | undefined) {
+    if (!warpDestination || !activeData || state?.currentData !== activeData ||
+      importing || exporting || pendingImport || grassBusy || lockedControls.size) return;
+    try {
+      if (!tile) throw new Error("Select a tile in the loaded map.");
+      if (gameNoclip && !gameNoclip.checked) {
+        const blocked = (dx: number, dy: number) => {
+          const x = tile.matrixX * 32 + tile.tileX + dx, y = tile.matrixY * 32 + tile.tileY + dy;
+          const chunk = activeData?.chunks.find(c => c.matrixX === Math.floor(x / 32) && c.matrixY === Math.floor(y / 32));
+          const permissions = chunk?.permissions, at = permissions?.tiles[(y % 32) * permissions.width + x % 32];
+          return !at || Boolean(at.flags & 1);
+        };
+        if (blocked(0, 0)) throw new Error("That tile blocks movement in game. Pick a walkable tile, or turn on Walk through walls.");
+        if ([[0, -1], [0, 1], [-1, 0], [1, 0]].every(([dx, dy]) => blocked(dx, dy))) throw new Error("Every tile next to that one blocks movement, so you'd be stuck. Pick another tile, or turn on Walk through walls.");
+      }
+      const destination = warpDestination(tile);
+      setWarpPicking();
+      void testInGame(destination).catch(error => {
+        if (exportStatus) exportStatus.textContent = error instanceof Error ? error.message : String(error);
+      });
+    } catch (error) {
+      if (exportStatus) exportStatus.textContent = error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  async function testCameraInGame(position: MapCameraTestPosition) {
+    const data = activeData;
+    if (!data || data.zoneId !== position.zoneId || data.matrixCell) throw new Error("Reload the map before testing.");
+    return testInGame(position);
+  }
+
+  /** Build the disposable test ROM and open it; returns what to do in game. */
+  async function testInGame(destination: MapCameraTestPosition): Promise<string | undefined> {
+    const data = activeData;
+    if (!data) throw new Error("Reload the map before testing.");
+    if (importing || pendingImport || exporting || grassBusy || lockedControls.size) throw new Error("Finish the current map edit before testing.");
+    if (testingMap) return;
+    const emulator = openTestBattleEmulator({ mode: "field" });
+    testingMap = true;
+    refreshImportButtons();
+    if (exportStatus) exportStatus.textContent = "Preparing game test…";
+    try {
+      const { buildMapExploreTestDownloads } = await import("../pokeweb/mapExploreTest");
+      const { romBytes, saveBytes, walkThroughWalls, menuSkip } = await buildMapExploreTestDownloads(project, destination, { walkThroughWalls: gameNoclip?.checked ?? true });
+      const instruction = menuSkip ? "Press Down" : "Continue, then press Down", walls = `Walk Through Walls ${walkThroughWalls ? "on" : "off"}`;
+      const name = `${project.session.romName || project.session.baseVersion}-map-test-${destination.zoneId}-${destination.tileX}-${destination.tileZ}`;
+      const label = `Zone ${destination.zoneId} · Tile ${destination.tileX}, ${destination.tileZ}`;
+      await emulator.launch({ romName: `${name}.nds`, saveName: `${name}.dsv`, trainerId: 0,
+        testLabel: `${label} — ${instruction} · ${walls}`, romBytes, saveBytes });
+      if (exportStatus && activeData === data) exportStatus.textContent = `${instruction} → ${label} · ${walls} for this test`;
+      return `${instruction} to warp.`;
+    } catch (error) {
+      emulator.close();
+      if (activeData === data) throw error;
+    } finally {
+      testingMap = false;
+      refreshImportButtons();
+    }
+  }
   root.querySelector<HTMLInputElement>("#map3d-show-neighbors")?.addEventListener("change", (event) => {
     includeNeighbors = (event.target as HTMLInputElement).checked;
     void load(activeZone);
@@ -587,7 +976,6 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
 
   exportButton?.addEventListener("click", async () => {
     if (!activeData || exporting || importing || pendingImport) return;
-    if (dirtyPermissionEdits.size) { if (exportStatus) exportStatus.textContent = "Save permission edits before exporting a map for Blender."; return; }
     const data = activeData;
     exporting = true;
     refreshImportButtons();
@@ -620,15 +1008,485 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     }
   });
 
+  function updateTileToolHints() {
+    if (dragLabel) dragLabel.textContent = warpDestination ? "Click the tile to warp to · Drag: pan · Esc: cancel"
+      : grassMode === "tree" ? `Click or drag to plant: ${paintBrush?.label.toLowerCase()} · Shift-drag: pan · Esc: Select`
+      : grassMode === "stamp" ? `Click to place: ${paintBrush?.label.toLowerCase()}${paintBrush?.stamp?.rotatable ? " · T: turn" : ""} · Shift-drag: pan · Esc: Select`
+      : grassMode === "ledge" ? `Hold and drag along a ${ledgeDirectionValue === "up" || ledgeDirectionValue === "down" ? "row" : "column"} to draw a ledge · Shift-drag: pan · Esc: Select`
+      : grassMode === "erase" ? `Drag over grass, trees, ledges or objects${eraseNative?.checked ? "" : " you painted"} to erase them · Shift-drag: pan · Esc: Select`
+        : grassMode ? `Drag over tiles to paint: ${paintBrush?.label.toLowerCase()} · Shift-drag: pan · Esc: Select`
+          : collisionBrush ? "Drag over tiles to paint · Shift-drag: pan · Esc: Select"
+            : cameraTool ? "Pick a camera tool · Shift-drag: pan · Esc: Select"
+              : "Drag: rotate · Shift-drag: pan · Click a building or tile to edit it";
+    if (shiftPanHint) shiftPanHint.hidden = Boolean(warpDestination);
+    inspectHints.forEach(hint => { hint.hidden = Boolean(grassMode || collisionBrush || warpDestination); });
+    syncToolButtons();
+  }
+
+  /** Press the button of the tool in use and show its options beside the tools. */
+  function syncToolButtons() {
+    const tool: MapTool = grassMode === "erase" ? "erase" : grassMode ? "paint" : collisionBrush ? "collision" : cameraTool ? "camera" : "select";
+    for (const button of toolButtons) button.setAttribute("aria-pressed", String(button.dataset.mapTool === tool));
+    syncPalette();
+    if (cameraModes) cameraModes.hidden = !cameraTool;
+    if (collisionBrushHint) {
+      collisionBrushHint.hidden = !collisionBrush;
+      const tileClass = clampU16(Number(permissionClass?.value ?? 0));
+      const name = gen5TileClassName(tileClass);
+      collisionBrushHint.textContent = `Paints class ${tileClass}${name ? ` (${name})` : ""} · flags ${formatHex16(readFlagCheckboxes())} — set them in the Collisions tab`;
+    }
+  }
+
+  function setTool(tool: MapTool) {
+    if (tool !== "paint" && tool !== "erase" && grassMode) setGrassMode();
+    if (tool !== "collision" && collisionBrush) setCollisionBrush(false);
+    if (tool !== "camera" && cameraTool) setCameraTool(false);
+    if (tool === "paint" && paintBrush) setGrassMode(paintBrush.mode);
+    else if (tool === "erase") setGrassMode("erase");
+    else if (tool === "collision") setCollisionBrush(true);
+    else if (tool === "camera") setCameraTool(true);
+    updateTileToolHints();
+  }
+
+  /** The collision brush paints the Collisions tab's class and flags over the tiles a drag covers, in the overhead view. */
+  function setCollisionBrush(enabled: boolean) {
+    if (enabled && warpDestination) setWarpPicking();
+    if (enabled && grassMode) setGrassMode();
+    collisionBrush = enabled;
+    if (state) {
+      state.tileMode = Boolean(grassMode || collisionBrush || warpDestination);
+      state.dragging = false;
+      state.tileTool?.reset();
+    }
+    canvasWrap?.classList.toggle("map3d-grass-active", Boolean(grassMode || collisionBrush));
+    if (enabled) {
+      if (sidebarTabs.active === "camera") sidebarTabs.select("collisions");
+      if (showPermissions && !showPermissions.checked) { showPermissions.checked = true; applyCurrentLayerSettings(); }
+      state?.fieldCamera?.freeView();
+      if (state?.isolateBuilding) selectBuilding(undefined);
+      state?.renderer.domElement.focus({ preventScroll: true });
+    }
+    updateTileToolHints();
+  }
+
+  /** Camera regions: the Camera tab, with its region tools beside the tool buttons. */
+  function setCameraTool(enabled: boolean) {
+    cameraTool = enabled;
+    if (enabled) {
+      if (grassMode) setGrassMode();
+      if (collisionBrush) setCollisionBrush(false);
+      if (warpDestination) setWarpPicking();
+      if (sidebarTabs.active !== "camera") sidebarTabs.select("camera");
+      if (state?.fieldCamera?.mode === "navigate") state.fieldCamera.setMode("move");
+    } else state?.fieldCamera?.setMode("navigate");
+    refreshCameraModes();
+    updateTileToolHints();
+  }
+
+  function refreshCameraModes() {
+    const mode = state?.fieldCamera?.mode ?? "navigate";
+    for (const button of root.querySelectorAll<HTMLButtonElement>("[data-camera-mode]")) button.setAttribute("aria-pressed", String(button.dataset.cameraMode === mode));
+  }
+
+  function setGrassMode(mode?: BrushMode) {
+    if (mode && warpDestination) setWarpPicking();
+    const enabled = Boolean(mode);
+    grassMode = mode;
+    if (mode) { collisionBrush = false; cameraTool = false; state?.fieldCamera?.setMode("navigate"); }
+    if (state) {
+      state.tileMode = Boolean(mode || collisionBrush || warpDestination);
+      state.dragging = false;
+      state.tileTool?.reset();
+    }
+    updateTileToolHints();
+    canvasWrap?.classList.toggle("map3d-grass-active", enabled);
+    if (enabled) {
+      if (sidebarTabs.active === "camera") sidebarTabs.select("map");
+      state?.fieldCamera?.freeView();
+      if (state?.isolateBuilding) selectBuilding(undefined);
+      state?.renderer.domElement.focus({ preventScroll: true });
+    }
+  }
+
+  // ---------- Paint palette ----------
+
+  /** Mark the chosen swatch and show its options; Erase uses the grass surface option too. */
+  function syncPalette() {
+    for (const swatch of swatches) swatch.setAttribute("aria-pressed", String(swatch.dataset.brush === paintBrush?.id && grassMode !== "erase"));
+    for (const arrow of ledgeArrows) arrow.setAttribute("aria-pressed", String(arrow.dataset.ledgeDirection === ledgeDirectionValue));
+    const name = root.querySelector<HTMLElement>("#map3d-brush-name"), note = root.querySelector<HTMLElement>("#map3d-brush-note");
+    const erasing = grassMode === "erase";
+    if (name) name.textContent = erasing ? "Erase" : paintBrush?.label ?? "";
+    if (note) note.textContent = erasing ? "Remove painted elements" : paintBrush?.note ?? "";
+    root.querySelector<HTMLElement>('[data-brush-option="surface"]')?.toggleAttribute("hidden", !(erasing || paintBrush?.grass));
+    root.querySelector<HTMLElement>('[data-brush-option="direction"]')?.toggleAttribute("hidden", erasing || paintBrush?.mode !== "ledge");
+    root.querySelector<HTMLElement>('[data-brush-option="native"]')?.toggleAttribute("hidden", !erasing);
+    root.querySelector<HTMLElement>('[data-brush-option="rotate"]')?.toggleAttribute("hidden", erasing || !paintBrush?.stamp?.rotatable);
+    const turn = root.querySelector<HTMLElement>("#map3d-stamp-turn");
+    if (turn) turn.textContent = `${currentStampRotation() * 90}°`;
+  }
+
+  function currentStampRotation(): StampRotation {
+    return paintBrush?.stamp?.rotatable ? stampRotation : 0;
+  }
+
+  /** Turn the object brush a quarter turn (clockwise for 1). */
+  function turnStamp(step: 1 | -1) {
+    if (!paintBrush?.stamp?.rotatable) return;
+    stampRotation = ((stampRotation + step + 4) % 4) as StampRotation;
+    state?.tileTool?.reset();
+    syncPalette();
+  }
+
+  function choosePaintBrush(id: string) {
+    const next = paintBrushes.find(brush => brush.id === id);
+    if (!next) return;
+    paintBrush = next;
+    writeStoredText(PAINT_BRUSH_KEY, next.id);
+    if (exportStatus) exportStatus.textContent = "";
+    setTool("paint");
+  }
+
+  for (const swatch of swatches) swatch.addEventListener("click", () => choosePaintBrush(swatch.dataset.brush!));
+  for (const button of root.querySelectorAll<HTMLButtonElement>("[data-stamp-turn]")) button.addEventListener("click", () => {
+    turnStamp(button.dataset.stampTurn === "-1" ? -1 : 1);
+    state?.renderer.domElement.focus({ preventScroll: true });
+  });
+  for (const arrow of ledgeArrows) arrow.addEventListener("click", () => {
+    ledgeDirectionValue = arrow.dataset.ledgeDirection as LedgeDirection;
+    if (paintBrush?.mode !== "ledge" || grassMode !== "ledge") choosePaintBrush("ledge");
+    state?.tileTool?.reset();
+    updateTileToolHints();
+    state?.renderer.domElement.focus({ preventScroll: true });
+  });
+
+  /** Swatches show the game's art for the season on screen, drawn from the source ROM. */
+  const thumbnailRenderer = paintBrushes.length ? createBrushThumbnailRenderer() : undefined;
+  const thumbnailCache = new Map<string, string>();
+  let thumbnailToken = 0;
+  async function refreshSwatchArt() {
+    const token = ++thumbnailToken, season = activeSeason;
+    const seasonLabel = root.querySelector<HTMLElement>("#map3d-palette-season");
+    if (seasonLabel) seasonLabel.textContent = season[0].toUpperCase() + season.slice(1);
+    const preview = await import("../pokeweb/mapBrushPreview");
+    for (const brush of paintBrushes) {
+      const key = `${brush.id}:${brush.mode === "ledge" ? "" : season}`;
+      let url = thumbnailCache.get(key);
+      try {
+        if (!url) {
+          if (brush.grass) { const layers = await preview.grassPreview(project, brush.grass, season); url = layers?.length ? grassSwatch(layers) : undefined; }
+          else if (brush.tree) { const art = await preview.treePreview(project, brush.tree, season); url = art && thumbnailRenderer?.render(art, "tree"); }
+          else if (brush.stamp) { const art = await preview.stampPreview(project, brush.stamp, season); url = art && thumbnailRenderer?.render(art, "tree"); }
+          else { const art = await preview.ledgePreview(project, "down", "spring"); url = art && thumbnailRenderer?.render(art, "ledge"); }
+          if (url) thumbnailCache.set(key, url);
+        }
+      } catch {
+        url = undefined; // Keep the icon when the source ROM is unavailable.
+      }
+      if (token !== thumbnailToken || !root.isConnected) return;
+      const art = root.querySelector<HTMLElement>(`[data-brush="${brush.id}"] .mx-brush-art`);
+      if (art && url) art.innerHTML = `<img src="${url}" alt="" draggable="false" />`;
+    }
+  }
+
+  async function finishGrassStroke(tiles: Map3dTile[]) {
+    const data = activeData, mode = grassMode;
+    if (!data || grassBusy || importing || exporting || pendingImport || !mode) return;
+    if (mode === "tree") return finishTreeStroke(data, mode, tiles);
+    if (mode === "ledge") return finishLedgeStroke(data, mode, tiles);
+    if (mode === "stamp") return finishStampStroke(data, tiles);
+    if (mode === "erase") return finishErase(data, tiles);
+    const kind = paintBrush?.grass ?? "regular";
+    const choice = grassSurface?.value;
+    const surface: MapGrassSurface = choice === "upper" || choice === "lower" ? choice : "auto";
+    grassBusy = true;
+    refreshImportButtons();
+    if (exportStatus) exportStatus.textContent = "Painting grass…";
+    try {
+      const { paintMapGrass } = await import("../pokeweb/mapGrass");
+      const isCurrent = () => activeData === data && grassMode === mode && !!canvasWrap?.isConnected;
+      const stroke = await paintMapGrass(project, data, tiles, kind, { surface, isCurrent });
+      if (stroke.count) {
+        history.push({
+          label: "Plant grass",
+          undo: () => replayGrass(stroke, true),
+          redo: () => replayGrass(stroke, false),
+        });
+        onDirty?.();
+        await load(data.zoneId, true);
+      }
+      if (exportStatus) {
+        const done = stroke.count ? `Painted grass on ${stroke.count} ${stroke.count === 1 ? "tile" : "tiles"}.` : "No grass painted.";
+        const skipped = stroke.skipReasons.map(({ count, reason, season }) => {
+          const where = season ? ` in ${season[0].toUpperCase()}${season.slice(1)}` : "";
+          const label = GRASS_SKIP_LABELS[reason] + where;
+          return stroke.skipReasons.length === 1 ? label : `${count} ${label}`;
+        });
+        const detail = skipped.length ? ` Skipped ${stroke.skipped} ${stroke.skipped === 1 ? "tile" : "tiles"} (${skipped.join(", ")}).` : "";
+        const recovered = stroke.sourceFallbackCount
+          ? ` Used source ROM permissions for ${stroke.sourceFallbackCount} older ${stroke.sourceFallbackCount === 1 ? "tile" : "tiles"}.` : "";
+        exportStatus.textContent = done + detail + recovered;
+      }
+    } catch (error) {
+      if (exportStatus) exportStatus.textContent = error instanceof Error ? error.message : String(error);
+    } finally {
+      grassBusy = false;
+      refreshImportButtons();
+    }
+  }
+
+  async function finishTreeStroke(data: Map3dSceneData, mode: "tree", tiles: Map3dTile[]) {
+    const typeId = paintBrush?.tree?.id ?? "";
+    grassBusy = true;
+    refreshImportButtons();
+    if (exportStatus) exportStatus.textContent = mode === "tree" ? "Planting trees…" : "Removing trees…";
+    try {
+      const { placeMapTrees, removeMapTrees } = await import("../pokeweb/mapTrees");
+      const isCurrent = () => activeData === data && grassMode === mode && !!canvasWrap?.isConnected;
+      const stroke = mode === "tree" ? await placeMapTrees(project, data, tiles, typeId, { isCurrent })
+        : await removeMapTrees(project, data, tiles, { isCurrent });
+      if (stroke.count) {
+        history.push({
+          label: mode === "tree" ? "Plant trees" : "Remove trees",
+          undo: () => replayTrees(stroke, true),
+          redo: () => replayTrees(stroke, false),
+        });
+        onDirty?.();
+        await load(data.zoneId, true);
+      }
+      if (exportStatus) {
+        const noun = (count: number) => `${count} ${count === 1 ? "tree" : "trees"}`;
+        const done = stroke.count ? `${mode === "tree" ? "Planted" : "Removed"} ${noun(stroke.count)}.`
+          : mode === "tree" ? "No trees planted." : "No trees removed.";
+        const skipped = stroke.skipReasons.map(({ count, reason, season }) => {
+          const label = TREE_SKIP_LABELS[reason] + (season ? ` in ${season[0].toUpperCase()}${season.slice(1)}` : "");
+          return stroke.skipReasons.length === 1 ? label : `${count} ${label}`;
+        });
+        exportStatus.textContent = done + (skipped.length ? ` Skipped ${stroke.skipped} (${skipped.join(", ")}).` : "");
+      }
+    } catch (error) {
+      if (exportStatus) exportStatus.textContent = error instanceof Error ? error.message : String(error);
+    } finally {
+      grassBusy = false;
+      refreshImportButtons();
+    }
+  }
+
+  async function finishLedgeStroke(data: Map3dSceneData, mode: "ledge", tiles: Map3dTile[]) {
+    const direction = ledgeDirectionValue;
+    grassBusy = true;
+    refreshImportButtons();
+    if (exportStatus) exportStatus.textContent = mode === "ledge" ? "Drawing ledge…" : "Removing ledges…";
+    try {
+      const { placeMapLedge, removeMapLedges } = await import("../pokeweb/mapLedges");
+      const isCurrent = () => activeData === data && grassMode === mode && !!canvasWrap?.isConnected;
+      const stroke = mode === "ledge" ? await placeMapLedge(project, data, tiles, direction, { isCurrent })
+        : await removeMapLedges(project, data, tiles, { isCurrent });
+      if (stroke.count) {
+        history.push({
+          label: mode === "ledge" ? "Draw ledge" : "Remove ledges",
+          undo: () => replayLedges(stroke, true),
+          redo: () => replayLedges(stroke, false),
+        });
+        onDirty?.();
+        await load(data.zoneId, true);
+      }
+      if (exportStatus) {
+        const noun = (count: number) => `${count} ${count === 1 ? "ledge" : "ledges"}`;
+        const done = mode === "ledge" ? stroke.count ? `Drew a ${tiles.length}-tile ledge.` : "No ledge drawn."
+          : stroke.count ? `Removed ${noun(stroke.count)}.` : "No ledges removed.";
+        const skipped = stroke.skipReasons.map(({ count, reason, season }) => {
+          const label = LEDGE_SKIP_LABELS[reason] + (season ? ` in ${season[0].toUpperCase()}${season.slice(1)}` : "");
+          return stroke.skipReasons.length === 1 ? label : `${count} ${label}`;
+        });
+        exportStatus.textContent = done + (skipped.length ? ` (${skipped.join(", ")})` : "");
+      }
+    } catch (error) {
+      if (exportStatus) exportStatus.textContent = error instanceof Error ? error.message : String(error);
+    } finally {
+      grassBusy = false;
+      refreshImportButtons();
+    }
+  }
+
+  async function finishStampStroke(data: Map3dSceneData, tiles: Map3dTile[]) {
+    const stamp = paintBrush?.stamp, rotation = currentStampRotation();
+    if (!stamp) return;
+    grassBusy = true;
+    refreshImportButtons();
+    if (exportStatus) exportStatus.textContent = `Placing ${stamp.label.toLowerCase()}…`;
+    try {
+      const { placeMapStamps } = await import("../pokeweb/mapStamps");
+      const isCurrent = () => activeData === data && grassMode === "stamp" && !!canvasWrap?.isConnected;
+      const stroke = await placeMapStamps(project, data, tiles, stamp.id, rotation, { isCurrent });
+      if (stroke.count) {
+        history.push({ label: `Place ${stamp.label.toLowerCase()}`, undo: () => replayStamps(stroke, true), redo: () => replayStamps(stroke, false) });
+        onDirty?.();
+        await load(data.zoneId, true);
+      }
+      if (exportStatus) {
+        const done = stroke.count ? `Placed ${stamp.label.toLowerCase()}${stroke.count > 1 ? ` × ${stroke.count}` : ""}.` : "Nothing placed.";
+        const skipped = stroke.skipReasons.map(({ count, reason, season }) => {
+          const label = STAMP_SKIP_LABELS[reason] + (season ? ` in ${season[0].toUpperCase()}${season.slice(1)}` : "");
+          return stroke.skipReasons.length === 1 ? label : `${count} ${label}`;
+        });
+        const still = stroke.stillAreas ? " This map's area has no texture animation file, so the art stays still here." : "";
+        exportStatus.textContent = done + (skipped.length ? ` Skipped ${stroke.skipped} (${skipped.join(", ")}).` : "") + still;
+      }
+    } catch (error) {
+      if (exportStatus) exportStatus.textContent = error instanceof Error ? error.message : String(error);
+    } finally {
+      grassBusy = false;
+      refreshImportButtons();
+    }
+  }
+
+  async function replayStamps(stroke: StampStroke, undo: boolean) {
+    grassBusy = true;
+    refreshImportButtons();
+    try {
+      const { redoMapStamps, undoMapStamps } = await import("../pokeweb/mapStamps");
+      if (undo) undoMapStamps(project, stroke);
+      else redoMapStamps(project, stroke);
+      onDirty?.();
+    } finally {
+      grassBusy = false;
+      refreshImportButtons();
+    }
+    await load(activeZone, true);
+  }
+
+  async function replayLedges(stroke: LedgeStroke, undo: boolean) {
+    grassBusy = true;
+    refreshImportButtons();
+    try {
+      const { redoMapLedges, undoMapLedges } = await import("../pokeweb/mapLedges");
+      if (undo) undoMapLedges(project, stroke);
+      else redoMapLedges(project, stroke);
+      onDirty?.();
+    } finally {
+      grassBusy = false;
+      refreshImportButtons();
+    }
+    await load(activeZone, true);
+  }
+
+  async function replayTrees(stroke: TreeStroke, undo: boolean) {
+    grassBusy = true;
+    refreshImportButtons();
+    try {
+      const { redoMapTrees, undoMapTrees } = await import("../pokeweb/mapTrees");
+      if (undo) undoMapTrees(project, stroke);
+      else redoMapTrees(project, stroke);
+      onDirty?.();
+    } finally {
+      grassBusy = false;
+      refreshImportButtons();
+    }
+    await load(activeZone, true);
+  }
+
+  /** Erase: remove brush-placed objects, ledges, trees and grass under the drag as one undoable edit. */
+  async function finishErase(data: Map3dSceneData, tiles: Map3dTile[]) {
+    const choice = grassSurface?.value;
+    const surface: MapGrassSurface = choice === "upper" || choice === "lower" ? choice : "auto";
+    grassBusy = true;
+    refreshImportButtons();
+    if (exportStatus) exportStatus.textContent = "Erasing…";
+    const undoers: (() => void)[] = [], redoers: (() => void)[] = [];
+    const done: string[] = [], skipped: string[] = [];
+    try {
+      const [{ removeMapLedges, undoMapLedges, redoMapLedges }, { removeMapTrees, undoMapTrees, redoMapTrees }, { removeMapGrass, undoMapGrass, redoMapGrass }] =
+        await Promise.all([import("../pokeweb/mapLedges"), import("../pokeweb/mapTrees"), import("../pokeweb/mapGrass")]);
+      const isCurrent = () => activeData === data && grassMode === "erase" && !!canvasWrap?.isConnected;
+      const noun = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+      const describe = <R extends string>(reasons: { reason: R; count: number; season?: string }[], labels: Record<R, string>, ignore: R[] = []) => {
+        for (const { reason, count, season } of reasons) if (!ignore.includes(reason)) skipped.push(`${count} ${labels[reason]}${season ? ` in ${season[0].toUpperCase()}${season.slice(1)}` : ""}`);
+      };
+      const { removeMapStamps, undoMapStamps, redoMapStamps } = await import("../pokeweb/mapStamps");
+      const stamps = await removeMapStamps(project, data, tiles, { isCurrent });
+      if (stamps.count) { undoers.push(() => undoMapStamps(project, stamps)); redoers.push(() => redoMapStamps(project, stamps)); done.push(noun(stamps.count, "object", "objects")); }
+      describe(stamps.skipReasons, STAMP_SKIP_LABELS);
+      const ledges = await removeMapLedges(project, data, tiles, { isCurrent });
+      if (ledges.count) { undoers.push(() => undoMapLedges(project, ledges)); redoers.push(() => redoMapLedges(project, ledges)); done.push(noun(ledges.count, "ledge", "ledges")); }
+      describe(ledges.skipReasons, LEDGE_SKIP_LABELS);
+      const trees = await removeMapTrees(project, data, tiles, { isCurrent });
+      if (trees.count) { undoers.push(() => undoMapTrees(project, trees)); redoers.push(() => redoMapTrees(project, trees)); done.push(noun(trees.count, "tree", "trees")); }
+      describe(trees.skipReasons, TREE_SKIP_LABELS);
+      const grass = await removeMapGrass(project, data, tiles, { surface, isCurrent });
+      if (grass.count) { undoers.push(() => undoMapGrass(project, grass)); redoers.push(() => redoMapGrass(project, grass)); done.push(noun(grass.count, "grass tile", "grass tiles")); }
+      describe(grass.skipReasons, GRASS_SKIP_LABELS, ["no-painted-grass", "outside-map"]);
+      if (eraseNative?.checked) {
+        const { eraseNativeMapArt, undoNativeErase, redoNativeErase } = await import("../pokeweb/mapNativeErase");
+        const native = await eraseNativeMapArt(project, data, tiles, { isCurrent });
+        if (native.maps.length) {
+          undoers.push(() => undoNativeErase(project, native));
+          redoers.push(() => redoNativeErase(project, native));
+          if (native.trees) done.push(noun(native.trees, "of the map's trees", "of the map's trees"));
+          if (native.grassTiles) done.push(noun(native.grassTiles, "of the map's grass tiles", "of the map's grass tiles"));
+        }
+      }
+      if (undoers.length) {
+        history.push({
+          label: "Erase",
+          undo: () => replayEdits([...undoers].reverse()),
+          redo: () => replayEdits(redoers),
+        });
+        onDirty?.();
+        await load(data.zoneId, true);
+      }
+      if (exportStatus) exportStatus.textContent = (done.length ? `Erased ${done.join(", ")}.` : "Nothing painted here to erase.") + (skipped.length ? ` Skipped ${skipped.join(", ")}.` : "");
+    } catch (error) {
+      if (exportStatus) exportStatus.textContent = error instanceof Error ? error.message : String(error);
+    } finally {
+      grassBusy = false;
+      refreshImportButtons();
+    }
+  }
+
+  async function replayEdits(steps: (() => void)[]) {
+    grassBusy = true;
+    refreshImportButtons();
+    try {
+      for (const step of steps) step();
+      onDirty?.();
+    } finally {
+      grassBusy = false;
+      refreshImportButtons();
+    }
+    await load(activeZone, true);
+  }
+
+  /** Undo or redo a grass stroke from the history, then show the result. */
+  async function replayGrass(stroke: GrassStroke, undo: boolean) {
+    grassBusy = true;
+    refreshImportButtons();
+    try {
+      const { redoMapGrass, undoMapGrass } = await import("../pokeweb/mapGrass");
+      if (undo) undoMapGrass(project, stroke);
+      else redoMapGrass(project, stroke);
+      onDirty?.();
+    } finally {
+      grassBusy = false;
+      refreshImportButtons();
+    }
+    await load(activeZone, true);
+  }
+
   function refreshImportButtons() {
-    if (importButton) importButton.disabled = !activeData || importing || exporting || !!pendingImport;
-    if (nativeImportButton) nativeImportButton.disabled = !activeData || importing || exporting || !!pendingImport;
-    if (nativeFolderButton) nativeFolderButton.disabled = !activeData || importing || exporting || !!pendingImport;
-    if (importUndo) importUndo.disabled = !activeData || importing || !!pendingImport || (!lastNativeImport && (lastImport?.original.zoneId !== activeZone || lastImport.original.season !== activeSeason));
-    if (exportButton) exportButton.disabled = !activeData || importing || exporting || !!pendingImport;
-    if (heightGenerate) heightGenerate.disabled = !activeData || importing || exporting || !!pendingImport;
-    if (heightUndo) heightUndo.disabled = !lastHeightEdit?.applied || importing || exporting || !!pendingImport;
-    if (mapGameTest) mapGameTest.disabled = !activeData || importing || exporting || testingMap || !!pendingImport;
+    const busy = grassBusy || importing || exporting || testingMap || !!pendingImport;
+    const grassDisabled = !activeData?.chunks.some(chunk => chunk.permissions) || busy || preparingWarp;
+    for (const button of toolButtons) if (button.dataset.mapTool === "paint" || button.dataset.mapTool === "erase") button.disabled = grassDisabled;
+    for (const swatch of swatches) swatch.disabled = grassDisabled;
+    if (grassSurface) grassSurface.disabled = busy;
+    if (importButton) importButton.disabled = !activeData || grassBusy || importing || exporting || !!pendingImport;
+    if (nativeImportButton) nativeImportButton.disabled = !activeData || grassBusy || importing || exporting || !!pendingImport;
+    if (nativeFolderButton) nativeFolderButton.disabled = !activeData || grassBusy || importing || exporting || !!pendingImport;
+    if (exportButton) exportButton.disabled = !activeData || grassBusy || importing || exporting || !!pendingImport;
+    if (heightGenerate) heightGenerate.disabled = !activeData || grassBusy || importing || exporting || !!pendingImport;
+    if (mapGameTest) mapGameTest.disabled = grassDisabled;
+    for (const button of toolButtons) if (button.dataset.mapTool === "collision" || button.dataset.mapTool === "camera") button.disabled = !activeData || busy;
+    refreshHistoryButtons();
   }
   function clearImportReview() {
     pendingImport = undefined; importReview.hidden = true;
@@ -644,7 +1502,6 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   }
   heightGenerate?.addEventListener("click", async () => {
     if (!activeData || importing || exporting || pendingImport) return;
-    if (dirtyPermissionEdits.size) { setStatus("Save permission edits before generating walking heights."); return; }
     const data = activeData, locks = new Map<HTMLInputElement | HTMLSelectElement | HTMLButtonElement, boolean>();
     importing = true; refreshImportButtons();
     try {
@@ -652,25 +1509,26 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
       openMapHeightDialog(project, root, data, {
         lock(locked) {
           importing = locked;
-          if (locked) for (const control of root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>(".map3d-sidebar input, .map3d-sidebar select, .map3d-sidebar button, .map3d-toolbar button")) { locks.set(control, control.disabled); control.disabled = true; }
+          if (locked) for (const control of root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>(".mx-side input, .mx-side select, .mx-side button, .mx-toolbar button, .mx-toolbar select")) { locks.set(control, control.disabled); control.disabled = true; }
           else { for (const [control, disabled] of locks) control.disabled = disabled; locks.clear(); }
           refreshImportButtons();
         },
         preview: showImportPreview,
         restore() { if (state && activeData) { renderSceneData(state, activeData); buildingInspector.setData(activeData); applyCurrentLayerSettings(false); } },
-        async applied(edit) { lastHeightEdit = edit; onDirty?.(); await load(activeZone); setStatus("Walking heights applied. Export the ROM to test movement."); },
+        async applied(edit) {
+          history.push({ label: "Generate walking heights", undo: () => replayHeights(edit, true), redo: () => replayHeights(edit, false) });
+          onDirty?.(); await load(activeZone); setStatus("Walking heights applied. Export the ROM to test movement.");
+        },
       });
     } catch (error) { importing = false; refreshImportButtons(); setStatus(error instanceof Error ? error.message : String(error)); }
   });
-  heightUndo?.addEventListener("click", async () => {
-    if (!lastHeightEdit || importing || pendingImport) return;
-    try { (await import("../pokeweb/mapHeightEdit")).applyMapHeightEdit(project, lastHeightEdit, true); lastHeightEdit = undefined; onDirty?.(); await load(activeZone); setStatus("Generated walking heights undone."); }
-    catch (error) { setStatus(error instanceof Error ? error.message : String(error)); }
-    refreshImportButtons();
-  });
+  async function replayHeights(edit: MapHeightEdit, undo: boolean) {
+    (await import("../pokeweb/mapHeightEdit")).applyMapHeightEdit(project, edit, undo);
+    onDirty?.();
+    await load(activeZone, true);
+  }
   async function openNativeImport(openFolder = false) {
     if (!activeData || importing || exporting || pendingImport) return;
-    if (dirtyPermissionEdits.size) { if (exportStatus) exportStatus.textContent = "Save permission edits before importing a map."; return; }
     const data = activeData, locks = new Map<HTMLInputElement | HTMLSelectElement | HTMLButtonElement, boolean>();
     importing = true; refreshImportButtons();
     try {
@@ -679,7 +1537,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
         y: data.matrixCell?.y ?? data.chunks[0]?.matrixY ?? 0, headerId: data.zoneId, season: data.season }, {
         lock(locked) {
           importing = locked;
-          if (locked) for (const control of root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>(".map3d-sidebar input, .map3d-sidebar select, .map3d-sidebar button, .map3d-toolbar button")) {
+          if (locked) for (const control of root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>(".mx-side input, .mx-side select, .mx-side button, .mx-toolbar button, .mx-toolbar select")) {
             locks.set(control, control.disabled); control.disabled = true;
           }
           else { for (const [control, disabled] of locks) control.disabled = disabled; locks.clear(); }
@@ -688,7 +1546,11 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
         preview: showImportPreview,
         restore() { if (state && activeData) { renderSceneData(state, activeData); buildingInspector.setData(activeData); applyCurrentLayerSettings(false); } },
         async applied(result) {
-          lastNativeImport = result; lastImport = undefined; activeMatrixCell = undefined; activeSeason = result.target.season;
+          activeMatrixCell = undefined; activeSeason = result.target.season;
+          history.push({ label: "DS Map Studio import", undo: async () => {
+            await (await import("../pokeweb/gen5MapImport")).undoGen5MapImport(project, result);
+            onDirty?.(); await load(activeZone);
+          } });
           if (select) select.value = String(result.target.headerId);
           for (const choice of seasonButtons) choice.setAttribute("aria-pressed", String(choice.dataset.map3dSeason === activeSeason));
           onDirty?.(); await load(result.target.headerId);
@@ -700,7 +1562,6 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   nativeImportButton?.addEventListener("click", () => { void openNativeImport(); });
   nativeFolderButton?.addEventListener("click", () => { void openNativeImport(true); });
   importButton?.addEventListener("click", () => {
-    if (dirtyPermissionEdits.size) { if (exportStatus) exportStatus.textContent = "Save permission edits before importing a map."; return; }
     if (activeData && !importing && !pendingImport) importFile?.click();
   });
   importFile?.addEventListener("change", async () => {
@@ -716,7 +1577,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
       if (activeData !== data || !canvasWrap.isConnected) return;
       if (!result.patches.length) { if (exportStatus) exportStatus.textContent = "No supported changes found. All native map resources remain unchanged."; return; }
       pendingImport = result;
-      for (const control of root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>(".map3d-sidebar input, .map3d-sidebar select, .map3d-sidebar button")) {
+      for (const control of root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>(".mx-side input, .mx-side select, .mx-side button, .mx-toolbar button, .mx-toolbar select")) {
         if (importReview.contains(control)) continue;
         lockedControls.set(control, control.disabled); control.disabled = true;
       }
@@ -725,7 +1586,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
         <p>Placements: ${result.moved} moved · ${result.added} added · ${result.deleted} deleted</p>
         <p>Color textures, basic materials, geometry, and placements are imported. Existing material animations, collision, walking heights, NPCs, and warps are retained. Blender lighting and post-processing are not game assets.</p>
         ${result.notes.map(note => `<p>${escapeHtml(note)}</p>`).join("")}
-        <div class="map3d-building-actions"><button class="ow-tool" type="button" data-map-import="original">Show original</button><button class="ow-tool" type="button" data-map-import="converted">Show converted</button><button class="ow-tool" type="button" data-map-import="apply">Apply map import</button><button class="ow-tool" type="button" data-map-import="cancel">Cancel</button></div>`;
+        <div class="map3d-building-actions"><button class="btn sm -ghost" type="button" data-map-import="original">Show original</button><button class="btn sm -ghost" type="button" data-map-import="converted">Show converted</button><button class="btn sm -primary" type="button" data-map-import="apply">Apply map import</button><button class="btn sm" type="button" data-map-import="cancel">Cancel</button></div>`;
       importReview.hidden = false;
       showImportPreview(result.converted);
       if (exportStatus) exportStatus.textContent = "Previewing converted game assets. Review shared-resource changes and placement deletions before applying.";
@@ -741,23 +1602,20 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     importing = true; refreshImportButtons();
     try {
       await (await import("../pokeweb/mapGlbImport")).applyMapGlbImport(project, result);
-      lastImport = result; lastNativeImport = undefined; onDirty?.(); clearImportReview(); await load(activeZone);
-      if (exportStatus) exportStatus.textContent = "Map import applied. Export the ROM to test it in-game. Undo map import is available while this editor stays open.";
+      history.push({ label: "Map import", undo: () => replayGlbImport(result, true), redo: () => replayGlbImport(result, false) });
+      onDirty?.(); clearImportReview(); await load(activeZone);
+      if (exportStatus) exportStatus.textContent = "Map import applied. Export the ROM to test it in-game. Undo restores the previous resources while you stay on this map.";
     } catch (error) { if (exportStatus) exportStatus.textContent = `Apply failed: ${error instanceof Error ? error.message : error}`; }
     finally { importing = false; refreshImportButtons(); }
   });
-  importUndo?.addEventListener("click", async () => {
-    if ((!lastImport && !lastNativeImport) || importing || pendingImport) return;
-    if (dirtyPermissionEdits.size) { if (exportStatus) exportStatus.textContent = "Save permission edits before undoing the map import."; return; }
+  async function replayGlbImport(result: MapGlbImport, undo: boolean) {
     importing = true; refreshImportButtons();
     try {
-      if (lastNativeImport) { await (await import("../pokeweb/gen5MapImport")).undoGen5MapImport(project, lastNativeImport); lastNativeImport = undefined; }
-      else await (await import("../pokeweb/mapGlbImport")).applyMapGlbImport(project, lastImport!, true);
-      lastImport = undefined; onDirty?.(); await load(activeZone);
-      if (exportStatus) exportStatus.textContent = "Restored all resources from before the map import.";
-    } catch (error) { if (exportStatus) exportStatus.textContent = `Undo failed: ${error instanceof Error ? error.message : error}`; }
-    finally { importing = false; refreshImportButtons(); }
-  });
+      await (await import("../pokeweb/mapGlbImport")).applyMapGlbImport(project, result, undo);
+      onDirty?.();
+    } finally { importing = false; refreshImportButtons(); }
+    await load(activeZone);
+  }
 
   for (const button of seasonButtons) button.addEventListener("click", () => {
     const season = button.dataset.map3dSeason;
@@ -791,60 +1649,248 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     applyCurrentLayerSettings();
   });
 
-  permissionPaint?.addEventListener("change", () => {
-    if (!permissionPaint.checked || !showPermissions) return;
-    showPermissions.checked = true;
-    applyCurrentLayerSettings();
-  });
-
   for (const input of permissionFlagInputs) {
     input.addEventListener("change", () => {
       updateFlagValueDisplay();
+      syncToolButtons();
     });
   }
+
+  // The class picker and the number beside it show the same value; the picker names the common classes.
+  permissionClassSelect?.addEventListener("change", () => {
+    if (permissionClass && permissionClassSelect.value !== "other") permissionClass.value = permissionClassSelect.value;
+    syncToolButtons();
+  });
+  permissionClass?.addEventListener("input", () => { syncClassPicker(); syncToolButtons(); });
 
   permissionApply?.addEventListener("click", () => {
     applyPermissionBrush();
   });
 
-  permissionSave?.addEventListener("click", async () => {
-    if (dirtyPermissionEdits.size === 0) {
-      setStatus("No permission edits to save.");
-      return;
-    }
+  // ---------- Map settings: saved as they change ----------
+
+  const zoneMetadataInputs: Array<[HTMLInputElement | HTMLSelectElement | null, keyof Map3dZoneMetadata]> = [
+    [metadataFields.location, "locationName"], [metadataFields.matrix, "matrixId"], [metadataFields.sourceArea, "areaId"],
+    [metadataFields.overworlds, "overworldsId"], [metadataFields.script, "scriptId"], [metadataFields.text, "textBankId"],
+    [metadataFields.encounter, "encounterId"], [metadataFields.mapType, "mapType"], [metadataFields.weather, "weatherId"],
+    [metadataFields.parent, "parentMapId"], [metadataFields.levelScript, "levelScriptId"], [metadataFields.camera, "cameraId"],
+    [metadataFields.flags, "flags"],
+  ];
+  const areaMetadataInputs = [metadataFields.texturePack, metadataFields.buildings, metadataFields.srt, metadataFields.pat, metadataFields.exterior];
+  const sceneMetadataInputs = new Set<HTMLInputElement | HTMLSelectElement | null>([metadataFields.matrix, metadataFields.sourceArea, ...areaMetadataInputs]);
+  for (const input of [...zoneMetadataInputs.map(([input]) => input), ...areaMetadataInputs]) {
+    input?.addEventListener("change", () => saveMetadata(sceneMetadataInputs.has(input)));
+  }
+
+  /** Save the Map tab as one edit: only the fields that changed, undoable together. */
+  function saveMetadata(reload: boolean) {
+    const data = activeData;
+    if (!data || data.matrixCell || pendingImport || importing) return;
+    const zoneId = activeZone, areaId = data.areaId;
     try {
-      const edits = [...dirtyPermissionEdits.values()];
-      if (isGen4Project(project)) saveGen4Map3dPermissionEdits(project, edits);
-      else await saveMap3dPermissionEdits(project, edits);
-      const saved = dirtyPermissionEdits.size;
-      dirtyPermissionEdits.clear();
-      onDirty?.();
-      setStatus(`Saved ${saved} permission edit${saved === 1 ? "" : "s"}.`);
+      const zoneBefore = getMap3dZoneMetadata(project, zoneId), areaBefore = { ...data.areaMetadata };
+      const zoneForm = readZoneMetadataForm(), areaForm = readAreaMetadataForm();
+      const zoneChanges = Object.fromEntries(Object.entries(zoneForm).filter(([key, value]) => String(zoneBefore[key as keyof Map3dZoneMetadata]) !== String(value)));
+      const areaChanges = Object.fromEntries(Object.entries(areaForm).filter(([key, value]) => areaBefore[key as keyof Map3dAreaMetadata] !== value)) as Partial<Map3dAreaMetadata>;
+      if (!Object.keys(zoneChanges).length && !Object.keys(areaChanges).length) return;
+      writeMetadata(zoneId, areaId, zoneChanges, areaChanges);
+      const zoneAfter = Object.fromEntries(Object.keys(zoneChanges).map((key) => [key, getMap3dZoneMetadata(project, zoneId)[key as keyof Map3dZoneMetadata]]));
+      const zoneUndo = Object.fromEntries(Object.keys(zoneChanges).map((key) => [key, zoneBefore[key as keyof Map3dZoneMetadata]]));
+      const areaUndo = Object.fromEntries(Object.keys(areaChanges).map((key) => [key, areaBefore[key as keyof Map3dAreaMetadata]])) as Partial<Map3dAreaMetadata>;
+      history.push({
+        label: "Change map settings",
+        undo: () => restoreMetadata(zoneId, areaId, zoneUndo, areaUndo, reload),
+        redo: () => restoreMetadata(zoneId, areaId, zoneAfter, areaChanges, reload),
+      });
+      afterMetadataChange(reload);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error));
+      writeMetadataForm(getMap3dZoneMetadata(project, zoneId), data);
+    }
+  }
+
+  function writeMetadata(zoneId: number, areaId: number, zone: Partial<Record<keyof Map3dZoneMetadata, string | number>>, area: Partial<Map3dAreaMetadata>) {
+    if (Object.keys(zone).length) updateMap3dZoneMetadata(project, zoneId, zone);
+    if (Object.keys(area).length) {
+      const current = activeData?.areaId === areaId ? activeData.areaMetadata : getMap3dAreaMetadataFor(areaId);
+      const next = updateMap3dAreaMetadata(project, areaId, current, area);
+      if (activeData?.areaId === areaId) activeData.areaMetadata = next;
+    }
+  }
+
+  function getMap3dAreaMetadataFor(areaId: number): Map3dAreaMetadata {
+    const edited = project.map3dAreaEdits?.[String(areaId)];
+    if (edited) return edited;
+    if (activeData?.areaId === areaId) return activeData.areaMetadata;
+    throw new Error("Open the map that uses this area to undo its change.");
+  }
+
+  async function restoreMetadata(zoneId: number, areaId: number, zone: Partial<Record<keyof Map3dZoneMetadata, string | number>>, area: Partial<Map3dAreaMetadata>, reload: boolean) {
+    writeMetadata(zoneId, areaId, zone, area);
+    afterMetadataChange(reload && zoneId === activeZone);
+    if (!reload && activeData && zoneId === activeZone) writeMetadataForm(getMap3dZoneMetadata(project, zoneId), activeData);
+  }
+
+  function afterMetadataChange(reload: boolean) {
+    zones = getMap3dZones(project);
+    refreshZoneSelect(search?.value ?? "");
+    onDirty?.();
+    if (activeData) writeHeading(activeData);
+    if (reload) void load(activeZone, true);
+    else setStatus("Saved.");
+  }
+
+  weatherEffect?.addEventListener("change", () => {
+    const data = activeData;
+    if (!data || data.matrixCell) return;
+    const zoneId = activeZone, rowId = getMap3dZoneMetadata(project, zoneId).rowId;
+    const row = project.headers?.rows[rowId];
+    const before = row ? getHeaderWeatherId(row) : 0, after = Number(weatherEffect.value);
+    const write = (weatherId: number) => {
+      assignWeatherToArea(project, rowId, weatherId);
+      afterMetadataChange(false);
+      if (activeData && activeZone === zoneId) writeMetadataForm(getMap3dZoneMetadata(project, zoneId), activeData);
+    };
+    try {
+      write(after);
+      history.push({ label: "Change weather", undo: () => write(before), redo: () => write(after) });
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : String(error));
+      writeHeading(data);
     }
   });
 
-  metadataSave?.addEventListener("click", () => {
-    if (!activeData || activeData.matrixCell) {
-      setStatus("Load a map before editing metadata.");
-      return;
-    }
-    try {
-      updateMap3dZoneMetadata(project, activeZone, readZoneMetadataForm());
-      updateMap3dAreaMetadata(project, activeData.areaId, activeData.areaMetadata, readAreaMetadataForm());
-      zones = getMap3dZones(project);
-      refreshZoneSelect(search?.value ?? "");
-      onDirty?.();
-      setStatus("Saved metadata. Reloading map assets...");
-      void load(activeZone);
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : String(error));
-    }
+  root.querySelector(".mx-panel.map3d-metadata-editor")?.addEventListener("click", (event) => {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-map-open]");
+    if (!button || !activeData || activeData.matrixCell) return;
+    const meta = getMap3dZoneMetadata(project, activeZone);
+    const kind = button.dataset.mapOpen;
+    if (kind === "overworld") links?.openOverworld?.(meta.overworldsId, meta.rowId - 1);
+    else if (kind === "script") links?.openScript?.(meta.scriptId);
+    else if (kind === "level-script") links?.openScript?.(meta.levelScriptId);
+    else if (kind === "text") links?.openText?.(meta.textBankId);
+    else if (kind === "encounters") links?.openEncounters?.(meta.encounterId);
   });
+
+  // ---------- Toolbar ----------
+
+  for (const button of toolButtons) {
+    const tool = button.dataset.mapTool as MapTool;
+    button.addEventListener("click", () => setTool(tool === "select" || button.getAttribute("aria-pressed") !== "true" ? tool : "select"));
+  }
+  for (const button of root.querySelectorAll<HTMLButtonElement>("[data-camera-mode]")) {
+    button.addEventListener("click", () => {
+      state?.fieldCamera?.setMode(button.dataset.cameraMode as "move" | "draw" | "walk" | "pick");
+      refreshCameraModes();
+    });
+  }
+
+  undoButton?.addEventListener("click", () => { void stepHistory("undo"); });
+  redoButton?.addEventListener("click", () => { void stepHistory("redo"); });
+  root.addEventListener("keydown", (event) => {
+    const target = event.target as HTMLElement;
+    if (event.key === "Escape" && placingUid !== undefined) { setBuildingPlacement(undefined); setStatus(""); return; }
+    if (!event.metaKey && !event.ctrlKey && !event.altKey && !target.closest("input, textarea, select, [contenteditable=true]")) {
+      if (event.key.toLowerCase() === "t" && grassMode === "stamp" && paintBrush?.stamp?.rotatable) { event.preventDefault(); turnStamp(event.shiftKey ? -1 : 1); return; }
+      const tool = ({ v: "select", b: "paint", e: "erase", c: "collision", r: "camera" } as Record<string, MapTool>)[event.key.toLowerCase()];
+      const button = tool && toolButtons.find(candidate => candidate.dataset.mapTool === tool);
+      if (button && !button.disabled) { event.preventDefault(); setTool(tool); return; }
+    }
+    if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
+    if (target.closest("input:not([type=checkbox]):not([type=range]), textarea, select, [contenteditable=true]")) return;
+    const key = event.key.toLowerCase();
+    if (key !== "z" && key !== "y") return;
+    event.preventDefault();
+    void stepHistory(key === "y" || event.shiftKey ? "redo" : "undo");
+  });
+
+  async function stepHistory(direction: "undo" | "redo") {
+    if (grassBusy || importing || exporting || pendingImport || testingMap) return;
+    try {
+      const message = direction === "undo" ? await history.undo() : await history.redo();
+      if (message) setStatus(message);
+    } catch (error) {
+      setStatus(`Couldn't ${direction}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  function refreshHistoryButtons() {
+    const blocked = history.busy || grassBusy || importing || exporting || !!pendingImport || testingMap;
+    if (undoButton) {
+      undoButton.disabled = blocked || !history.undoLabel;
+      undoButton.title = history.undoLabel ? `Undo ${history.undoLabel.toLowerCase()} (⌘Z)` : "Nothing to undo";
+    }
+    if (redoButton) {
+      redoButton.disabled = blocked || !history.redoLabel;
+      redoButton.title = history.redoLabel ? `Redo ${history.redoLabel.toLowerCase()} (⇧⌘Z)` : "Nothing to redo";
+    }
+  }
+
+  for (const button of root.querySelectorAll<HTMLButtonElement>("[data-zone-step]")) {
+    button.addEventListener("click", () => {
+      const options = Array.from(zoneSelect.options).filter((option) => /^\d+$/.test(option.value));
+      const index = options.findIndex((option) => option.value === String(activeZone));
+      const next = options[index < 0 ? 0 : (index + Number(button.dataset.zoneStep) + options.length) % options.length];
+      if (!next) return;
+      zoneSelect.value = next.value;
+      zoneSelect.dispatchEvent(new Event("change"));
+    });
+  }
+
+  // The Files menu closes once an item is chosen, or on a click elsewhere.
+  const filesMenu = root.querySelector<HTMLDetailsElement>("#map3d-files");
+  filesMenu?.addEventListener("click", (event) => {
+    if ((event.target as HTMLElement).closest(".mx-menu-item")) filesMenu.open = false;
+  });
+  const closeMenus = (event: PointerEvent) => {
+    if (!root.isConnected || !root.contains(zoneSelect)) { document.removeEventListener("pointerdown", closeMenus, true); thumbnailRenderer?.dispose(); return; }
+    for (const menu of root.querySelectorAll<HTMLDetailsElement>(".mx-menu[open], .mx-pop[open]")) {
+      if (!menu.contains(event.target as Node)) menu.open = false;
+    }
+  };
+  document.addEventListener("pointerdown", closeMenus, true);
+
+  function writeHeading(data: Map3dSceneData) {
+    const meta = data.matrixCell ? undefined : getMap3dZoneMetadata(project, data.zoneId);
+    if (titleHost) titleHost.textContent = meta?.locationName || data.label;
+    if (subtitleHost) {
+      const season = data.season ? `${data.season[0]!.toUpperCase()}${data.season.slice(1)}` : "";
+      subtitleHost.textContent = data.matrixCell
+        ? `Matrix ${data.sourceMatrixId} · cell ${data.matrixCell.x}, ${data.matrixCell.y}${season ? ` · ${season}` : ""}`
+        : `Zone ${data.zoneId} · Matrix ${meta!.matrixId}${data.areaMetadata.isExterior ? "" : " · Interior"}${season && !gen4 ? ` · ${season}` : ""}`;
+    }
+    for (const button of root.querySelectorAll<HTMLButtonElement>("[data-map-open]")) {
+      const kind = button.dataset.mapOpen;
+      button.hidden = Boolean(data.matrixCell) || !(kind === "overworld" ? links?.openOverworld : kind === "text" ? links?.openText : kind === "encounters" ? links?.openEncounters : links?.openScript);
+    }
+    if (weatherEffect && meta) {
+      try {
+        const row = project.headers?.rows[meta.rowId];
+        const current = row ? getHeaderWeatherId(row) : 0;
+        const effects = getAssignableWeatherEffects(project);
+        if (!effects.some((effect) => effect.id === current)) effects.push(...getWeatherEffects(project).filter((effect) => effect.id === current));
+        weatherEffect.innerHTML = effects.map((effect) => `<option value="${effect.id}"${effect.id === current ? " selected" : ""}>${escapeHtml(effect.name)}</option>`).join("")
+          || `<option value="${current}">Weather ${current}</option>`;
+        weatherEffect.disabled = false;
+      } catch {
+        weatherEffect.innerHTML = `<option>Unavailable</option>`;
+        weatherEffect.disabled = true;
+      }
+    }
+  }
 
   search?.addEventListener("input", () => {
     refreshZoneSelect(search.value);
+  });
+  // Enter opens the first matching map.
+  search?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    const first = Array.from(zoneSelect.options).find((option) => /^\d+$/.test(option.value));
+    if (!first) return;
+    event.preventDefault();
+    if (Number(first.value) === activeZone && !activeMatrixCell) return;
+    zoneSelect.value = first.value;
+    zoneSelect.dispatchEvent(new Event("change"));
   });
 
   root.querySelector<HTMLButtonElement>("#map3d-reset")?.addEventListener("click", () => {
@@ -855,8 +1901,83 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     if (state) topDownGroup(state);
   });
 
-  if (zones.length === 0) setStatus("No parsed headers are available.");
-  else void load(initialZone);
+
+  /** Coalesces typing into one building field into a single undo step. */
+  let lastBuildingEdit: { key: string; at: number; entry: MapEdit; after: Uint8Array } | undefined;
+
+  /**
+   * Run a building edit and add an undo step that puts the chunk file back byte for byte, then reloads the map. Edits
+   * with the same key made within a moment of each other (typing a number) share one step.
+   */
+  function recordBuildingEdit(label: string, chunkId: number, action: () => void, key?: string, reselect?: number): void {
+    const before = readMap3dChunkBytes(project, chunkId);
+    action();
+    const after = readMap3dChunkBytes(project, chunkId);
+    setStatus("Saved.");
+    if (!before || !after) return;
+    const now = performance.now();
+    if (key && lastBuildingEdit?.key === key && now - lastBuildingEdit.at < 2000 && history.isLatest(lastBuildingEdit.entry)) {
+      lastBuildingEdit.after = after;
+      lastBuildingEdit.at = now;
+      return;
+    }
+    const record = { key: key ?? "", at: now, after, entry: undefined as unknown as MapEdit };
+    record.entry = {
+      label,
+      undo: () => replayBuildingBytes(chunkId, before, reselect),
+      redo: () => replayBuildingBytes(chunkId, record.after, reselect),
+    };
+    lastBuildingEdit = key ? record : undefined;
+    history.push(record.entry);
+  }
+
+  async function replayBuildingBytes(chunkId: number, bytes: Uint8Array, reselect?: number) {
+    restoreMap3dChunkBytes(project, chunkId, bytes);
+    onDirty?.();
+    await load(activeZone, true);
+    if (reselect !== undefined && activeData?.buildings[reselect]) selectBuilding(reselect);
+  }
+
+  /** "+ Building": wait for a click on the terrain, then place the chosen model there. */
+  let placingUid: number | undefined;
+  function setBuildingPlacement(uid: number | undefined) {
+    placingUid = uid;
+    if (uid !== undefined) {
+      if (grassMode) setGrassMode();
+      if (collisionBrush) setCollisionBrush(false);
+      if (warpDestination) setWarpPicking();
+      if (state) state.permissionPicking = false;
+      setStatus("Click the map where the new building goes. Esc cancels.");
+    } else if (state) state.permissionPicking = sidebarTabs.active !== "buildings" && sidebarTabs.active !== "camera";
+    if (state) state.onPlacePick = uid === undefined ? undefined : placeBuildingAt;
+    canvasWrap?.classList.toggle("map3d-warp-pick", uid !== undefined || Boolean(warpDestination));
+    buildingInspector.setPlacing(uid !== undefined);
+  }
+
+  function placeBuildingAt(point: THREE.Vector3 | undefined) {
+    const uid = placingUid, data = activeData;
+    if (uid === undefined || !data) return;
+    if (!point) { setStatus("Click on the map's terrain to place the building."); return; }
+    // Chunk origins are their centres, so the nearest one holds the point.
+    let chunkIndex = -1, best = Infinity;
+    for (const [index, chunk] of data.chunks.entries()) {
+      const distance = Math.max(Math.abs(point.x - chunk.worldX), Math.abs(point.z - chunk.worldZ));
+      if (distance < best) { best = distance; chunkIndex = index; }
+    }
+    setBuildingPlacement(undefined);
+    if (chunkIndex < 0 || best > data.chunkSpan / 2 + 1) { setStatus("That point is outside the map's chunks."); return; }
+    const snap = (value: number) => Math.round(value);
+    try {
+      const chunkId = data.chunks[chunkIndex]!.chunkId;
+      recordBuildingEdit("Add building", chunkId, () => refreshBuildingPlacements(addMap3dBuilding(project, data, {
+        chunkIndex, uid, worldX: snap(point.x), worldY: snap(point.y), worldZ: snap(point.z), rotationY: 0,
+      })));
+      sidebarTabs.select("buildings");
+      setStatus("Building added. Adjust it in the Buildings tab.");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : String(error));
+    }
+  }
 
   function selectBuilding(index: number | undefined): void {
     if (!state || !activeData || pendingImport || importing) return;
@@ -881,7 +2002,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     buildingInspector.refreshPlacements(index);
     refreshTextureControls();
     applyCurrentLayerSettings(false);
-    renderMap3dDiagnostics(warningsHost, activeData);
+    renderMap3dDiagnostics(warningsHost, statsHost, activeData);
     onDirty?.();
   }
 
@@ -889,19 +2010,108 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     if (!state || pendingImport || importing) return;
     state.selectedPermission = selection;
     const tile = selection.tile;
-    if (permissionPaint?.checked !== true) {
+    // While the brush is on, picking a tile must not overwrite the values being painted.
+    if (!collisionBrush) {
       if (permissionClass) permissionClass.value = String(tile.tileClass);
+      syncClassPicker();
       setFlagCheckboxes(tile.flags);
     }
-    if (permissionSelected) {
-      permissionSelected.innerHTML = `
-        <div>Chunk ${selection.chunkId} / Tile ${selection.tileX}, ${selection.tileY}</div>
-        <div>Matrix cell: ${selection.matrixX}, ${selection.matrixY}</div>
-        <div>Class: ${tile.tileClass} / Flags: ${formatHex16(tile.flags)}</div>
-        <div>Height type: ${tile.heightType} / Slope: ${tile.slope} / Height: ${tile.height}</div>
-      `;
-    }
+    writeTileCard(selection);
     updatePermissionSelectionMarker(state);
+    syncToolButtons();
+  }
+
+  function writeTileCard(selection: PermissionSelection): void {
+    if (!permissionSelected) return;
+    const tile = selection.tile;
+    const name = gen4 ? undefined : gen5TileClassName(tile.tileClass);
+    const flags = GEN5_PERMISSION_FLAGS.filter((flag) => (tile.flags & flag.bit) !== 0).map((flag) => flag.label);
+    const color = `#${gen5PermissionColorNumber(tile).toString(16).padStart(6, "0")}`;
+    permissionSelected.innerHTML = `
+      <div class="mx-tile-head"><span class="mx-swatch" style="background:${color}"></span><strong>${escapeHtml(name ?? `Class ${tile.tileClass}`)}</strong><span class="mx-hex">${tile.tileClass}</span></div>
+      <div class="mx-tile-meta">${escapeHtml(flags.length ? flags.join(", ") : "No flags")} <span class="mx-hex">${formatHex16(tile.flags)}</span></div>
+      <div class="mx-tile-meta">Tile ${selection.tileX}, ${selection.tileY} · Chunk ${selection.chunkId} · Cell ${selection.matrixX}, ${selection.matrixY}</div>
+      <div class="mx-tile-meta">Height ${tile.height} · Type ${tile.heightType} · Slope ${tile.slope}</div>
+    `;
+  }
+
+  /** Show the class number in the named picker, or "Other" when it has no name. */
+  function syncClassPicker(): void {
+    if (!permissionClassSelect || !permissionClass) return;
+    const value = permissionClass.value.trim();
+    const known = Array.from(permissionClassSelect.options).some((option) => option.value === value && option.value !== "other");
+    permissionClassSelect.value = known ? value : "other";
+  }
+
+  function applyPermissionBrush(): void {
+    const selection = state?.selectedPermission;
+    if (!selection) {
+      setStatus("Click a collision tile on the map first.");
+      return;
+    }
+    void paintCollisionTiles([{ matrixX: selection.matrixX, matrixY: selection.matrixY, tileX: selection.tileX, tileY: selection.tileY }], "Edit collision tile");
+  }
+
+  /** Give the tiles the Collisions tab's class and flags, save at once, and add one undo step for the whole stroke. */
+  async function paintCollisionTiles(tiles: Map3dTile[], label = "Paint collisions"): Promise<void> {
+    const data = activeData;
+    if (!data || grassBusy || importing || exporting || pendingImport || testingMap) return;
+    const tileClass = clampU16(Number(permissionClass?.value ?? 0));
+    const flags = readFlagCheckboxes();
+    const before: Map3dPermissionEdit[] = [], after: Map3dPermissionEdit[] = [];
+    const seen = new Set<string>();
+    for (const target of tiles) {
+      const chunk = data.chunks.find((candidate) => candidate.matrixX === target.matrixX && candidate.matrixY === target.matrixY && candidate.permissions);
+      const permissions = chunk?.permissions;
+      if (!chunk || !permissions || target.tileX < 0 || target.tileY < 0 || target.tileX >= permissions.width) continue;
+      const key = permissionEditKey(chunk.chunkId, target.tileX, target.tileY);
+      const tile = permissions.tiles[target.tileY * permissions.width + target.tileX];
+      if (seen.has(key) || !tile) continue;
+      seen.add(key);
+      if (tile.tileClass === tileClass && tile.flags === flags) continue;
+      const at = { chunkId: chunk.chunkId, tileX: target.tileX, tileY: target.tileY };
+      before.push({ ...at, tileClass: tile.tileClass, flags: tile.flags });
+      after.push({ ...at, tileClass, flags });
+    }
+    if (!after.length) {
+      setStatus(seen.size ? "Those tiles already have these values." : "No collision tiles there.");
+      return;
+    }
+    try {
+      await writeCollisions(after);
+      history.push({ label, undo: () => writeCollisions(before), redo: () => writeCollisions(after) });
+      setStatus(after.length === 1 ? `Saved tile ${after[0]!.tileX}, ${after[0]!.tileY}.` : `Saved ${after.length} tiles.`);
+    } catch (error) {
+      setStatus(`Couldn't save collisions: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /** Save collision values and show them on every loaded copy of each chunk. */
+  async function writeCollisions(edits: Map3dPermissionEdit[]): Promise<void> {
+    grassBusy = true;
+    refreshImportButtons();
+    try {
+      if (gen4) saveGen4Map3dPermissionEdits(project, edits);
+      else await saveMap3dPermissionEdits(project, edits);
+      const data = activeData;
+      if (data) {
+        for (const edit of edits) {
+          for (const chunk of data.chunks) {
+            if (chunk.chunkId !== edit.chunkId || !chunk.permissions) continue;
+            const tile = chunk.permissions.tiles[edit.tileY * chunk.permissions.width + edit.tileX];
+            if (tile) { tile.tileClass = edit.tileClass; tile.flags = edit.flags; }
+          }
+        }
+        if (state?.currentData === data) {
+          renderPermissionOverlays(state, data);
+          if (state.selectedPermission) selectPermissionTile(state.selectedPermission);
+        }
+      }
+      onDirty?.();
+    } finally {
+      grassBusy = false;
+      refreshImportButtons();
+    }
   }
 
   function currentLayerSettings(): Map3dLayerSettings {
@@ -924,35 +2134,6 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     if (persist) rememberMap3dLayerSettings(project, settings);
   }
 
-  function applyPermissionBrush(): void {
-    if (pendingImport || importing) return;
-    if (!state?.selectedPermission || !activeData) {
-      setStatus("Select a collision tile first.");
-      return;
-    }
-    const tileClass = clampU16(Number(permissionClass?.value ?? 0));
-    const flags = readFlagCheckboxes();
-    const selection = state.selectedPermission;
-    for (const chunk of activeData.chunks) {
-      if (chunk.chunkId !== selection.chunkId || !chunk.permissions) continue;
-      const tile = chunk.permissions.tiles[selection.tileY * chunk.permissions.width + selection.tileX];
-      if (!tile) continue;
-      tile.tileClass = tileClass;
-      tile.flags = flags;
-      selection.tile = tile;
-    }
-    dirtyPermissionEdits.set(permissionEditKey(selection.chunkId, selection.tileX, selection.tileY), {
-      chunkId: selection.chunkId,
-      tileX: selection.tileX,
-      tileY: selection.tileY,
-      tileClass,
-      flags,
-    });
-    renderPermissionOverlays(state, activeData);
-    selectPermissionTile(selection);
-    setStatus(`Edited chunk ${selection.chunkId} tile ${selection.tileX}, ${selection.tileY}.`);
-  }
-
   function setFlagCheckboxes(flags: number): void {
     for (const input of permissionFlagInputs) {
       input.checked = (flags & Number(input.dataset.flag ?? 0)) !== 0;
@@ -965,11 +2146,18 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   }
 
   function updateFlagValueDisplay(): void {
-    if (permissionFlagValue) permissionFlagValue.textContent = `Calculated flags: ${formatHex16(readFlagCheckboxes())}`;
+    if (permissionFlagValue) permissionFlagValue.textContent = formatHex16(readFlagCheckboxes());
   }
 
   function writeMetadataForm(zone: Map3dZoneMetadata, data: Map3dSceneData): void {
-    if (metadataFields.location) metadataFields.location.value = zone.locationName;
+    const location = metadataFields.location;
+    if (location) {
+      // Headers can only use names from the game's location list.
+      const names = [...new Set(project.texts.banks.locations ?? [])];
+      if (!names.includes(zone.locationName)) names.unshift(zone.locationName);
+      if (location.options.length !== names.length) location.innerHTML = names.map((name) => `<option>${escapeHtml(name)}</option>`).join("");
+      location.value = zone.locationName;
+    }
     setInputValue(metadataFields.matrix, zone.matrixId);
     setInputValue(metadataFields.sourceArea, zone.areaId);
     setInputValue(metadataFields.overworlds, zone.overworldsId);
@@ -1020,8 +2208,13 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
 
   function refreshZoneSelect(queryText: string): void {
     const query = queryText.trim().toLowerCase();
-    zoneSelect.innerHTML = matrixCellOption() + zones
-      .filter((zone) => zone.label.toLowerCase().includes(query) || String(zone.zoneId).includes(query))
+    const matches = zones.filter((zone) => zone.label.toLowerCase().includes(query) || String(zone.zoneId).includes(query));
+    // When the filter hides the map on screen, keep it as the selected entry so picking any match (even the only
+    // one) is a change.
+    const shown = activeMatrixCell || matches.some((zone) => zone.zoneId === activeZone);
+    const current = zones.find((zone) => zone.zoneId === activeZone);
+    const placeholder = shown || !current ? "" : `<option value="current" selected>${escapeHtml(current.label)} (showing)</option>`;
+    zoneSelect.innerHTML = matrixCellOption() + placeholder + matches
       .map((zone) => `<option value="${zone.zoneId}" ${!activeMatrixCell && zone.zoneId === activeZone ? "selected" : ""}>${escapeHtml(zone.label)}</option>`)
       .join("");
   }
@@ -1031,6 +2224,10 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     const label = activeData?.matrixCell ? activeData.label : `Matrix ${activeMatrixCell.matrixId} (${activeMatrixCell.x}, ${activeMatrixCell.y})`;
     return `<option value="matrix-cell" selected>${escapeHtml(label)} · Unassigned header</option>`;
   }
+
+  // Last, so every helper above is defined before the first load runs.
+  if (zones.length === 0) setStatus("No parsed headers are available.");
+  else void load(initialZone);
 }
 
 async function loadMap3dEditorZone(project: ProjectState, zoneId: number, season: Map3dSeason, onProgress?: (message: string) => void, matrixCell?: Map3dMatrixCell, includeNeighbors = false): Promise<Map3dSceneData> {
@@ -1042,46 +2239,34 @@ async function loadMap3dEditorZone(project: ProjectState, zoneId: number, season
   return buildGen4Map3dScene(project, metadata.matrixId, { headerId: zoneId, label: metadata.locationName, locationGroup: true });
 }
 
-function renderMap3dDiagnostics(host: HTMLDivElement | null, data: Map3dSceneData): void {
-  if (!host) return;
+/** The status bar's map stats, and a Warnings button that opens the load warnings and unresolved buildings. */
+function renderMap3dDiagnostics(host: HTMLDivElement | null, statsHost: HTMLElement | null, data: Map3dSceneData): void {
   const diagnostics = data.buildingDiagnostics ?? [];
   const placementCount = data.buildingPlacementCount ?? data.buildingCount;
   const failedBuildings = diagnostics.filter((entry) => entry.status !== "rendered");
-  if (data.warnings.length === 0 && placementCount === 0) {
+  if (statsHost) {
+    const parts = [
+      `${data.chunkCount} chunk${data.chunkCount === 1 ? "" : "s"}`,
+      placementCount === data.buildingCount ? `${data.buildingCount} building${data.buildingCount === 1 ? "" : "s"}` : `${data.buildingCount} of ${placementCount} buildings shown`,
+      `${data.textureCount} textured primitive${data.textureCount === 1 ? "" : "s"}`,
+    ];
+    if (data.neighboringScenery) parts.push(`${data.neighboringScenery.chunks.length} neighbor chunk${data.neighboringScenery.chunks.length === 1 ? "" : "s"}`);
+    statsHost.textContent = parts.join(", ");
+  }
+  if (!host) return;
+  const count = data.warnings.length + failedBuildings.length;
+  if (count === 0) {
     host.innerHTML = "";
     return;
   }
-
-  const lines = [
-    `<strong>${escapeHtml(data.label)}</strong>`,
-    `<div>Chunks: ${data.chunkCount} / Buildings: ${data.buildingCount}/${placementCount} rendered / Textured primitives: ${data.textureCount}</div>`,
-    ...(data.neighboringScenery ? [`<div>Neighboring scenery: ${data.neighboringScenery.chunks.length} chunks / ${data.neighboringScenery.buildings.length} props · reference only</div>`] : []),
-  ];
-
-  if (diagnostics.length > 0) {
-    const rendered = diagnostics.filter((entry) => entry.status === "rendered").length;
-    const failedSummary = failedBuildings.length === 0 ? `all ${rendered} placement${rendered === 1 ? "" : "s"} decoded` : `${failedBuildings.length} unresolved placement${failedBuildings.length === 1 ? "" : "s"}`;
-    lines.push(`<div>Building audit: ${failedSummary}</div>`);
-    if (failedBuildings.length > 0) {
-      lines.push(
-        `<details open><summary>Unresolved buildings</summary>${failedBuildings
-          .slice(0, 24)
-          .map((entry) => `<div>${formatBuildingDiagnostic(entry)}</div>`)
-          .join("")}${failedBuildings.length > 24 ? `<div>...${failedBuildings.length - 24} more</div>` : ""}</details>`,
-      );
-    }
-  }
-
-  if (data.warnings.length > 0) {
-    lines.push(
-      `<details ${failedBuildings.length === 0 ? "" : "open"}><summary>${data.warnings.length} warning${data.warnings.length === 1 ? "" : "s"}</summary>${data.warnings
-        .slice(0, 24)
-        .map((warning) => `<div>${escapeHtml(warning)}</div>`)
-        .join("")}${data.warnings.length > 24 ? `<div>...${data.warnings.length - 24} more</div>` : ""}</details>`,
-    );
-  }
-
-  host.innerHTML = lines.join("");
+  const list = (items: string[]) => items.slice(0, 24).map((item) => `<li>${item}</li>`).join("") + (items.length > 24 ? `<li>…and ${items.length - 24} more</li>` : "");
+  host.innerHTML = `<details class="mx-pop -up">
+    <summary class="btn sm -ghost mx-warn-button">${count} warning${count === 1 ? "" : "s"}</summary>
+    <div class="mx-pop-body mx-warning-list">
+      ${failedBuildings.length ? `<div class="mx-group-title">Unresolved buildings</div><ul>${list(failedBuildings.map(formatBuildingDiagnostic))}</ul>` : ""}
+      ${data.warnings.length ? `<div class="mx-group-title">While loading</div><ul>${list(data.warnings.map((warning) => escapeHtml(warning)))}</ul>` : ""}
+    </div>
+  </details>`;
 }
 
 function formatBuildingDiagnostic(entry: NonNullable<Map3dSceneData["buildingDiagnostics"]>[number]): string {
@@ -1091,15 +2276,6 @@ function formatBuildingDiagnostic(entry: NonNullable<Map3dSceneData["buildingDia
       ? `${entry.primitiveCount ?? 0} primitive${entry.primitiveCount === 1 ? "" : "s"}, ${entry.triangleCount ?? 0} triangle${entry.triangleCount === 1 ? "" : "s"}`
       : (entry.message ?? "");
   return escapeHtml(detail ? `${base} (${detail})` : base);
-}
-
-function metadataNumberInput(id: string, label: string, min: number, max: number): string {
-  return `
-    <label class="map3d-field">
-      <span>${label}</span>
-      <input class="filter-input" id="${id}" type="number" min="${min}" max="${max}" step="1" />
-    </label>
-  `;
 }
 
 function setInputValue(input: HTMLInputElement | null | undefined, value: number): void {
@@ -1147,6 +2323,8 @@ function createRenderer(container: HTMLElement): RendererState {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x20232a);
   const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 100000);
+  const tileCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 32768);
+  tileCamera.up.set(0, 0, -1);
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(window.devicePixelRatio || 1);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -1172,6 +2350,8 @@ function createRenderer(container: HTMLElement): RendererState {
     renderer,
     scene,
     camera,
+    tileCamera,
+    tileMode: false,
     group,
     terrainGroup,
     neighboringSceneryGroup,
@@ -1233,9 +2413,23 @@ function createRenderer(container: HTMLElement): RendererState {
     camera.position.set(state.target.x + Math.sin(state.yaw) * r, state.target.y + y, state.target.z + Math.cos(state.yaw) * r);
     camera.lookAt(state.target);
   };
+  const updateTileCamera = () => {
+    // Use the same center and nominal zoom as the free camera.
+    const halfHeight = state.distance * Math.tan(THREE.MathUtils.degToRad(55 / 2));
+    tileCamera.left = -halfHeight * camera.aspect;
+    tileCamera.right = -tileCamera.left;
+    tileCamera.top = halfHeight;
+    tileCamera.bottom = -halfHeight;
+    tileCamera.position.copy(state.target);
+    tileCamera.position.y += 8192;
+    tileCamera.lookAt(state.target);
+    tileCamera.updateProjectionMatrix();
+    tileCamera.updateMatrixWorld();
+  };
   const animate = () => {
     if (!container.isConnected) {
       state.fieldCamera?.dispose();
+      state.tileTool?.dispose();
       state.texturePreview.clear();
       clearGroup(group);
       grid.geometry.dispose();
@@ -1245,16 +2439,18 @@ function createRenderer(container: HTMLElement): RendererState {
     }
     resize();
     updateCamera();
+    if (state.tileMode) updateTileCamera();
+    state.tileTool?.update();
     state.onCameraUpdate?.();
     updateNpcMovementPreview(state, performance.now());
     if (state.texturePreview.update(performance.now())) state.onTextureFrame?.();
-    renderer.render(scene, camera);
+    renderer.render(scene, state.tileMode ? tileCamera : camera);
     state.animationId = window.requestAnimationFrame(animate);
   };
 
   renderer.domElement.addEventListener("pointerdown", (event) => {
     state.dragging = true;
-    state.dragMode = event.shiftKey ? "pan" : "rotate";
+    state.dragMode = state.tileMode || event.shiftKey ? "pan" : "rotate";
     state.lastX = event.clientX;
     state.lastY = event.clientY;
     state.startX = event.clientX;
@@ -1276,7 +2472,16 @@ function createRenderer(container: HTMLElement): RendererState {
   });
   renderer.domElement.addEventListener("pointerup", (event) => {
     const moved = Math.hypot(event.clientX - state.startX, event.clientY - state.startY);
-    if (state.dragging && state.dragMode === "rotate" && moved < 4 && state.currentData) {
+    if (state.dragging && state.onWarpTilePick && event.button === 0 && !event.shiftKey && moved < 4) {
+      state.onWarpTilePick(state.tileTool?.pickTile(event.clientX, event.clientY));
+    } else if (state.dragging && state.dragMode === "rotate" && moved < 4 && state.currentData && state.onPlacePick) {
+      const rect = state.renderer.domElement.getBoundingClientRect();
+      state.pointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
+      state.raycaster.setFromCamera(state.pointer, state.camera);
+      const terrain: THREE.Object3D[] = [];
+      state.terrainGroup.traverseVisible((object) => { if (object instanceof THREE.Mesh) terrain.push(object); });
+      state.onPlacePick(state.raycaster.intersectObjects(terrain, false)[0]?.point);
+    } else if (state.dragging && state.dragMode === "rotate" && moved < 4 && state.currentData) {
       if (state.permissionGroup.visible && state.permissionPicking) pickPermissionTile(state, event);
       else {
         const rect = state.renderer.domElement.getBoundingClientRect();
@@ -1288,6 +2493,7 @@ function createRenderer(container: HTMLElement): RendererState {
     state.dragging = false;
   });
   renderer.domElement.addEventListener("pointercancel", () => { state.dragging = false; });
+  renderer.domElement.addEventListener("contextmenu", event => { if (state.tileMode) event.preventDefault(); });
   renderer.domElement.addEventListener(
     "wheel",
     (event) => {
@@ -1303,8 +2509,8 @@ function createRenderer(container: HTMLElement): RendererState {
     if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
     event.preventDefault();
     const panStep = Math.max(16, state.distance * 0.035);
-    const forward = new THREE.Vector3();
-    camera.getWorldDirection(forward);
+    const forward = new THREE.Vector3(0, 0, -1);
+    if (!state.tileMode) camera.getWorldDirection(forward);
     forward.y = 0;
     if (forward.lengthSq() === 0) forward.set(0, 0, -1);
     forward.normalize();
@@ -1350,6 +2556,12 @@ function pickPermissionTile(state: RendererState, event: PointerEvent): void {
 }
 
 function panCameraTarget(state: RendererState, camera: THREE.PerspectiveCamera, dx: number, dy: number): void {
+  if (state.tileMode) {
+    const unitsPerPixel = 2 * state.tileCamera.top / Math.max(1, state.renderer.domElement.clientHeight);
+    state.target.x -= dx * unitsPerPixel;
+    state.target.z -= dy * unitsPerPixel;
+    return;
+  }
   const panScale = Math.max(0.08, state.distance * 0.0018);
   const forward = new THREE.Vector3();
   camera.getWorldDirection(forward);
@@ -2241,6 +3453,16 @@ function topDownGroup(state: RendererState): void {
     const fitX = size.x / (2 * Math.tan(fov / 2) * Math.max(0.1, state.camera.aspect));
     state.distance = Math.max(220, Math.max(fitX, fitZ, size.y) * 1.2);
   }
-  state.yaw = 0;
-  state.pitch = Math.PI / 2 - 0.001;
+  if (!state.tileMode) {
+    state.yaw = 0;
+    state.pitch = Math.PI / 2 - 0.001;
+  }
+}
+
+function readStoredText(key: string): string | undefined {
+  try { return localStorage.getItem(key) ?? undefined; } catch { return undefined; }
+}
+
+function writeStoredText(key: string, value: string) {
+  try { localStorage.setItem(key, value); } catch { /* Browser storage is a convenience only. */ }
 }

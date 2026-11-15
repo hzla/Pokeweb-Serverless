@@ -493,18 +493,20 @@
   text-align: center;
 }
 
-#mastersheet .ms-gift-cell:has(.ms-cell-bottom:empty) .ms-cell-top {
+/* -no-desc comes from the renderer. It replaced :has(.ms-cell-bottom:empty), which made Chrome restyle every
+   image on the page (the trainer list's party icons too) after any DOM change. */
+#mastersheet .ms-gift-cell.-no-desc .ms-cell-top {
   align-items: center;
   display: flex;
   flex: 1 1 auto;
   justify-content: center;
 }
 
-#mastersheet .ms-gift-cell:has(.ms-cell-bottom:empty) .ms-cell-bottom {
+#mastersheet .ms-gift-cell.-no-desc .ms-cell-bottom {
   display: none;
 }
 
-#mastersheet .ms-gift-cell:has(.ms-cell-bottom:empty) .ms-cell-top img {
+#mastersheet .ms-gift-cell.-no-desc .ms-cell-top img {
   height: 120px;
   width: 120px;
 }

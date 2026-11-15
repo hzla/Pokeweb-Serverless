@@ -4,7 +4,7 @@ import { recordGenericChange } from "./actionChangelog";
 import { ABILITY_IMPORT_LIBRARY } from "./abilityLibrary";
 import { createCustomAbilities } from "./abilityEffectsModel";
 import { loadCodeInjectionNarcs } from "./codeInjectionInstall";
-import { getItemExpansionStatus, isItemExpansionInstalled, itemFamily, stageItemExpansion } from "./itemExpansionModel";
+import { getItemExpansionStatus, isItemExpansionInstalled, expandedItemArticle, itemFamily, stageItemExpansion } from "./itemExpansionModel";
 import { writeItemSprite } from "./itemSpriteModel";
 import { megaFormSuffix, nameMegaForm } from "./megaEditorModel";
 import { UNIVERSAL_STONE_CLASSES, getMegaEvolutionStatus, isMegaEvolutionInstalled, materializeMegaEvolutionTable, megaEvolutionVersion, stageMegaEvolution, type MegaRoute } from "./megaEvolutionModel";
@@ -232,10 +232,6 @@ function stoneRecord(project: ProjectState): Uint8Array {
   return record;
 }
 
-function article(name: string): string {
-  return `VAR(48385)${/^[aeiou]/iu.test(name) ? "an" : "a"} VAR(65280, 255)${name}`;
-}
-
 function installStones(project: ProjectState, romBytes: Uint8Array, files: Record<string, Uint8Array>, stones: MegaContentStone[]): void {
   const store = project.narcs.items!;
   const textBanks = itemFamily(project).textBanks;
@@ -258,7 +254,7 @@ function installStones(project: ProjectState, romBytes: Uint8Array, files: Recor
     banks.names[stone.id][1] = stone.name;
     banks.descriptions[stone.id][1] = stone.description;
     banks.plurals[stone.id][1] = `${stone.name}s`;
-    banks.articles[stone.id][1] = article(stone.name);
+    banks.articles[stone.id][1] = expandedItemArticle(stone.name);
   }
   for (const bank of Object.values(textBanks)) commitTextBank(project, "message_texts", bank);
   for (const stone of stones) {
@@ -308,7 +304,7 @@ function installMegaRing(project: ProjectState, romBytes: Uint8Array, files: Rec
   names[MEGA_RING_ITEM][1] = MEGA_RING.name;
   getTextBank(project, "message_texts", textBanks.descriptions)[MEGA_RING_ITEM][1] = MEGA_RING.description;
   getTextBank(project, "message_texts", textBanks.plurals)[MEGA_RING_ITEM][1] = MEGA_RING.plural;
-  getTextBank(project, "message_texts", textBanks.articles)[MEGA_RING_ITEM][1] = article(MEGA_RING.name);
+  getTextBank(project, "message_texts", textBanks.articles)[MEGA_RING_ITEM][1] = expandedItemArticle(MEGA_RING.name);
   for (const bank of Object.values(textBanks)) commitTextBank(project, "message_texts", bank);
   // The package's generic stone icon is White2Upgrade's Mega Ring icon.
   writeItemSprite(project, romBytes, MEGA_RING_ITEM, { width: 32, height: 32, pixels: new Uint8ClampedArray(file(files, MEGA_CONTENT.genericStoneIcon)) }, 0, 0, false);

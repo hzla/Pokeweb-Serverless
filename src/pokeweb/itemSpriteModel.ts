@@ -119,12 +119,42 @@ export function writeItemSprite(project: ProjectState, romBytes: Uint8Array, ite
     const tile = (y >> 3) * 4 + (x >> 3), at = 48 + tile * 32 + (y & 7) * 4 + ((x & 7) >> 1), value = prepared.indices[y * SIZE + x]; g[at] |= value << (x & 1 ? 4 : 0);
   }
   for (let i = 0; i < 16; ++i) { const c = prepared.colors[i - 1]; writeU16(p, 40 + i * 2, c ? (c.r >> 3) | (c.g >> 3) << 5 | (c.b >> 3) << 10 : 0); }
-  const index = (bytes: Uint8Array) => { const existing = narc.files.findIndex(member => same(member, bytes)); if (existing >= 0) return existing; if (narc.files.length >= 65536) throw Error("Item sprite archive is full."); narc.files.push(bytes); return narc.files.length - 1; };
-  const graphicId = index(g), paletteId = index(p), output = narc.save();
+  const graphicId = appendIconMember(narc, g), paletteId = appendIconMember(narc, p), output = narc.save();
   setRomFileReplacement(project, fileId, output);
   if (itemId >= nativeItemCount(project)) {
     const state = project.codeInjection!.itemExpansion!;
     state.icons = { ...state.icons, [itemId]: [graphicId, paletteId] };
   } else { writeU16(project.arm9, table + itemId * 4, graphicId); writeU16(project.arm9, table + itemId * 4 + 2, paletteId); project.arm9Dirty = true; }
   recordGenericChange(project, "items", "Item sprite imported.", `Item ${itemId}`, { key: `item:${itemId}:sprite` });
+}
+
+function appendIconMember(narc: NARC, bytes: Uint8Array): number {
+  const existing = narc.files.findIndex(member => same(member, bytes));
+  if (existing >= 0) return existing;
+  if (narc.files.length >= 65536) throw Error("Item sprite archive is full.");
+  narc.files.push(bytes);
+  return narc.files.length - 1;
+}
+
+/** Add baked DS icons to expanded item slots in one archive write. */
+export function writeExpandedItemIcons(project: ProjectState, romBytes: Uint8Array, ids: readonly number[], data: Uint8Array): void {
+  const state = project.codeInjection?.itemExpansion;
+  const native = nativeItemCount(project);
+  if (!state || ids.some(id => !Number.isInteger(id) || id < native || id >= 1024) || data.length !== ids.length * 544) {
+    throw new Error("Invalid expanded item icon pack.");
+  }
+  const { narc, fileId } = archive(project, romBytes);
+  const [graphicId, paletteId] = expandedIconNone(project);
+  const graphic = narc.files[graphicId], palette = narc.files[paletteId];
+  if (!graphic || !palette) throw new Error("Missing expanded item icon template.");
+  checkFormats(graphic, palette);
+  const icons = { ...state.icons };
+  ids.forEach((id, i) => {
+    const at = i * 544, g = graphic.slice(), p = palette.slice();
+    g.set(data.subarray(at, at + 512), 48);
+    p.set(data.subarray(at + 512, at + 544), 40);
+    icons[id] = [appendIconMember(narc, g), appendIconMember(narc, p)];
+  });
+  setRomFileReplacement(project, fileId, narc.save());
+  state.icons = icons;
 }

@@ -1,5 +1,6 @@
 import type { ProjectState } from "../pokeweb/projectStore";
 import type { Map3dSceneData, Map3dPrimitive } from "../pokeweb/map3dModel";
+import { isMapGrassSurface } from "../pokeweb/mapGrassGeometry";
 import { readGen5MapBin } from "../pokeweb/gen5MapImportFormats";
 import { applyMapHeightEdit, prepareMapHeightEdit, type GeneratedMapHeights, type MapHeightEdit } from "../pokeweb/mapHeightEdit";
 import { materializeProjectEdits } from "../pokeweb/projectMaterialize";
@@ -40,7 +41,7 @@ export function openMapHeightDialog(project: ProjectState, root: HTMLElement, sc
       const generated = await new Promise<GeneratedMapHeights>((resolve, reject) => {
         worker!.onmessage = e => e.data.error ? reject(new Error(e.data.error)) : resolve(e.data.result);
         worker!.onerror = e => reject(new Error(e.message));
-        worker!.postMessage([chunk.primitives.map(p => ({ positions: p.positions, indices: p.indices })), parsed.files[1], parsed.placements === 3 ? parsed.files[2] : undefined, project.session.baseRom]);
+        worker!.postMessage([chunk.primitives.filter(p => !isMapGrassSurface(p.material.name)).map(p => ({ positions: p.positions, indices: p.indices })), parsed.files[1], parsed.placements === 3 ? parsed.files[2] : undefined, project.session.baseRom]);
       });
       if (closed || generation !== epoch || worker === undefined) return; worker.terminate(); worker = undefined; result = generated;
       const coordinates = (indices: number[]) => indices.slice(0, 8).map(i => `${i % 32},${Math.floor(i / 32)}`).join(" · ");

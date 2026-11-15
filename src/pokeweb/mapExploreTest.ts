@@ -6,7 +6,8 @@ import { installMapCameraTestWarp, type MapCameraTestPosition } from "./mapCamer
 import { getTestBattleConfigForProject, loadTestBattleSave, toDesmumeDsv } from "./testBattle";
 import { exportModifiedRom } from "./exportRom";
 import { loadActiveRomBytes } from "./persistence";
-import { installMapTestWalkRuntime, mapTestProfile } from "./mapTestRuntime";
+import { installMapTestWalkRuntime, mapTestProfile, validateMapTestNativeCode } from "./mapTestRuntime";
+import { prepareBw2TestBattleCodeInjection } from "./pmcModel";
 import { isWaterLikePermission } from "./gen5PermissionModel";
 import { gen5HeightAt } from "./gen5MapHeightGeneration";
 import { readGen5MapBin } from "./gen5MapImportFormats";
@@ -29,12 +30,22 @@ export function bottomLeftMapTestTile(project: ProjectState, data: Map3dSceneDat
   if (!position) throw new Error("This map has no dry walkable tile for the player to land on.");
   return position;
 }
-/** Work on a detached project. Temporary warp/PMC/DLL changes never enter normal saves or exports. */
-export async function buildMapExploreTestDownloads(project: ProjectState, destination: MapCameraTestPosition) {
+export type MapExploreTestOptions = {
+  /** Always-on collision bypass in the test ROM (default on). Off keeps the game's collisions, including any toggle patch the project has. */
+  walkThroughWalls?: boolean;
+};
+
+/**
+ * Work on a detached project. Temporary warp/PMC/DLL changes never enter normal saves or exports. Black 2 and White 2
+ * test ROMs also get the bundled main menu skip, so the save loads straight into the field; then press Down.
+ */
+export async function buildMapExploreTestDownloads(project: ProjectState, destination: MapCameraTestPosition, { walkThroughWalls = true }: MapExploreTestOptions = {}) {
   mapTestProfile(project);
   const source = project.originalRomBytes ?? await loadActiveRomBytes(); if (!source) throw new Error("Reconnect the source ROM before testing.");
   const temporary = structuredClone({ ...project, originalRomBytes: undefined }) as ProjectState; temporary.originalRomBytes = source;
-  await installMapTestWalkRuntime(temporary,source);
+  if (walkThroughWalls) await installMapTestWalkRuntime(temporary,source);
+  else validateMapTestNativeCode(temporary,source);
+  const menuSkip = Boolean(await prepareBw2TestBattleCodeInjection(temporary));
   const config = getTestBattleConfigForProject(temporary), [romBytes,save] = await Promise.all([exportModifiedRom(temporary,{preserveOriginalLength:true}),loadTestBattleSave(config)]);
   const rom = new NintendoDSRom(romBytes,{fileData:"view"}), headers = new NARC(rom.getFileByName(config.paths.headers)).files[0];
   const format = project.formats.headers; if (!format) throw new Error("Unsupported map header layout."); let size = 0; const offsets: Record<string,number> = {};
@@ -47,5 +58,5 @@ export async function buildMapExploreTestDownloads(project: ProjectState, destin
   const warp = installMapCameraTestWarp(scripts.files[scriptId],events.files[eventId],save,destination);
   scripts.files[scriptId] = warp.scripts; events.files[eventId] = warp.events;
   return { romBytes: rom.save({ files: new Map([[scriptsId,scripts.save()],[eventsId,events.save()]]),preserveOriginalLength:true }), saveBytes: toDesmumeDsv(adaptSaveForProject(project, save.rawSaveBytes)), destination,
-    trigger: { zoneId: save.zoneId, tileX: save.gridX, tileZ: save.gridZ, scriptId,eventId,entryId:warp.entryId }, walkThroughWalls: true };
+    trigger: { zoneId: save.zoneId, tileX: save.gridX, tileZ: save.gridZ, scriptId,eventId,entryId:warp.entryId }, walkThroughWalls, menuSkip };
 }

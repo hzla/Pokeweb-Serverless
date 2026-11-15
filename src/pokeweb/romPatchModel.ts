@@ -12,6 +12,9 @@ import { getPmcInstallStatus, installBundledPmc, listCodeInjectionDlls, stageCod
 export { detectMoveExpansionPatch } from "./moveExpansionPatch";
 
 export type RomPatchId =
+  | "challengeModeStats"
+  | "earlyChallengeMode"
+  | "earlyNationalDex"
   | "removeDustCloudGems"
   | "removeDustCloudItems"
   | "forgettableHms"

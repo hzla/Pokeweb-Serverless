@@ -2,6 +2,7 @@ import { writeU32 } from "../nds/binary";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { getRomFileBytes } from "./fileSystemModel";
+import { parseBw2DialogueFont } from "./bw2DialoguePreview";
 import { readItemSprite } from "./itemSpriteModel";
 import { parseNitroBackground } from "./nitroBg";
 import { parseNitroCellEffect } from "./nitroCell";
@@ -125,6 +126,42 @@ export function categoryIconImage(project: ProjectState, category: number): Rgba
   if (!(category >= 0 && category < PALETTES.length)) throw new Error(`No icon for category ${category}.`);
   const files = archive(project, "a/0/8/2");
   return menuIcon(files[0x38 + category], files[0x21], files[0x3c], files[0x3f], PALETTES[category]!, `icon for category ${category}`);
+}
+
+/**
+ * Status condition icons, by the game's sequence numbers (APP_STATUS_ICON_*, app_menu_common.h): 0 Pokérus,
+ * 1 PAR, 2 FRZ, 3 SLP, 4 PSN, 5 BRN, 6 FNT, 7 the darker PSN of a badly poisoned Pokémon.
+ */
+export const STATUS_ICON = { pokerus: 0, paralysis: 1, freeze: 2, sleep: 3, poison: 4, burn: 5, fainted: 6, toxic: 7 } as const;
+
+/** A status icon as the party menus draw it (characters 12, palette 11, cells 13, animation 16; ov287 b_plist_obj.c), 32 × 8. */
+export function statusIconImage(project: ProjectState, icon: number): RgbaImageData {
+  const files = archive(project, "a/0/8/2");
+  const [char, palette, cell, animation] = [files[12], files[11], files[13], files[16]];
+  if (!char || !palette || !cell || !animation) throw new Error("The ROM has no status icons.");
+  const mappedCell = cell.slice();
+  writeU32(mappedCell, 32, 0x10);
+  const frame = parseNitroCellEffect("gen5-status-icons", 0, 0, 0, 0, char, palette, mappedCell, animation, { originCentered: false }).sequences[icon]?.frames[0];
+  if (!frame) throw new Error(`The ROM has no status icon ${icon}.`);
+  return trimImage({ width: frame.width, height: frame.height, pixels: new Uint8ClampedArray(frame.rgba) });
+}
+
+/** The menus' gender colours: blue ♂ and red ♀, each with its shadow. */
+const GENDER_COLORS = { male: [[64, 136, 248], [24, 64, 160]], female: [[248, 88, 80], [160, 40, 40]] } as const;
+
+/** ♂ or ♀ from the game's text font (a/0/2/3 file 0), in the colour the menus print it. */
+export function genderIconImage(project: ProjectState, gender: "male" | "female"): RgbaImageData {
+  const font = parseBw2DialogueFont(archive(project, "a/0/2/3")[0] ?? new Uint8Array());
+  const glyph = font.glyphs.get(gender === "male" ? 0x2642 : 0x2640);
+  if (!glyph) throw new Error("The ROM's font has no gender symbols.");
+  const [ink, shadow] = GENDER_COLORS[gender];
+  const pixels = new Uint8ClampedArray(font.width * font.height * 4);
+  glyph.pixels.forEach((value, index) => {
+    const color = value === 1 ? ink : value === 2 ? shadow : undefined;
+    if (!color) return;
+    pixels.set([...color, 255], index * 4);
+  });
+  return trimImage({ width: font.width, height: font.height, pixels });
 }
 
 /** TM01's disc graphic in the palette the game gives a TM of this type ("Fire"). */

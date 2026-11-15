@@ -1,0 +1,638 @@
+{
+  "B": {
+    "fileName": "PokewebTrainingItemsB.dll",
+    "size": 2672,
+    "sha256": "7e7d34db048a62e94fb468bda3df671bf88ecfdbc71147e7f582a186d7fc1fc7",
+    "targets": [
+      {
+        "kind": "THUMB_BRANCH_LINK",
+        "segment": "91",
+        "address": "0x21b85c8"
+      },
+      {
+        "kind": "THUMB_BRANCH_LINK",
+        "segment": "ARM9",
+        "address": "0x2017946"
+      },
+      {
+        "kind": "THUMB_BRANCH_LINK",
+        "segment": "ARM9",
+        "address": "0x2017a02"
+      }
+    ],
+    "literals": [],
+    "checks": [
+      {
+        "segment": "91",
+        "address": 35358152,
+        "bytes": "fff77cfb"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33651014,
+        "bytes": "00f083f9"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33651202,
+        "bytes": "00f025f9"
+      },
+      {
+        "segment": "91",
+        "address": 35355844,
+        "bytes": "f8b50a25041cad01"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33651792,
+        "bytes": "f8b50c1c6f210022"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33652156,
+        "bytes": "10b5021c91880024"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33652196,
+        "bytes": "38b5051caa880024"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33659960,
+        "bytes": "3e231b031940490b"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33652360,
+        "bytes": "70b5051c0c1c161c"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33652324,
+        "bytes": "70b5051c0c1c161c"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33652252,
+        "bytes": "70b5051c0c1c161c"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33652288,
+        "bytes": "70b5051c0c1c161c"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33654192,
+        "bytes": "10b50a1c041c7021"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33654212,
+        "bytes": "38b5051cfff7b2fb"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33660048,
+        "bytes": "10b5141cfff7deff"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33586972,
+        "bytes": "f0b583b0061c0f1c"
+      },
+      {
+        "segment": "91",
+        "address": 35362696,
+        "bytes": "f8b50f1c5124161c"
+      },
+      {
+        "segment": "91",
+        "address": 35364384,
+        "bytes": "10b51521041c0901"
+      },
+      {
+        "segment": "91",
+        "address": 35364420,
+        "bytes": "70b50a26051cb601"
+      },
+      {
+        "segment": "91",
+        "address": 35370916,
+        "bytes": "10b50c1c20680428"
+      },
+      {
+        "segment": "91",
+        "address": 35362820,
+        "bytes": "0922027353229200"
+      },
+      {
+        "segment": "91",
+        "address": 35369472,
+        "bytes": "f0b583b00c1c0090"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33579492,
+        "bytes": "0021014bc9431847"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33773016,
+        "bytes": "08109fe5001091e5"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33840832,
+        "bytes": "70402de90050a0e1"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33716088,
+        "bytes": "f8b5051ca2200090"
+      }
+    ],
+    "legacy": {
+      "size": 2128,
+      "sha256": "1d1885de17d681b08263f94b26c2dfb4c3fdf87fb422109063fe50cd30ab51cb"
+    }
+  },
+  "W": {
+    "fileName": "PokewebTrainingItemsW.dll",
+    "size": 2672,
+    "sha256": "1efdf8c2f8ad888bafb4a8cfd97fb0cd440ca036012c331ca573e79bd0d76981",
+    "targets": [
+      {
+        "kind": "THUMB_BRANCH_LINK",
+        "segment": "91",
+        "address": "0x21b85e8"
+      },
+      {
+        "kind": "THUMB_BRANCH_LINK",
+        "segment": "ARM9",
+        "address": "0x2017962"
+      },
+      {
+        "kind": "THUMB_BRANCH_LINK",
+        "segment": "ARM9",
+        "address": "0x2017a1e"
+      }
+    ],
+    "literals": [],
+    "checks": [
+      {
+        "segment": "91",
+        "address": 35358184,
+        "bytes": "fff77cfb"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33651042,
+        "bytes": "00f083f9"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33651230,
+        "bytes": "00f025f9"
+      },
+      {
+        "segment": "91",
+        "address": 35355876,
+        "bytes": "f8b50a25041cad01"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33651820,
+        "bytes": "f8b50c1c6f210022"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33652184,
+        "bytes": "10b5021c91880024"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33652224,
+        "bytes": "38b5051caa880024"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33659988,
+        "bytes": "3e231b031940490b"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33652388,
+        "bytes": "70b5051c0c1c161c"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33652352,
+        "bytes": "70b5051c0c1c161c"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33652280,
+        "bytes": "70b5051c0c1c161c"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33652316,
+        "bytes": "70b5051c0c1c161c"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33654220,
+        "bytes": "10b50a1c041c7021"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33654240,
+        "bytes": "38b5051cfff7b2fb"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33660076,
+        "bytes": "10b5141cfff7deff"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33586972,
+        "bytes": "f0b583b0061c0f1c"
+      },
+      {
+        "segment": "91",
+        "address": 35362728,
+        "bytes": "f8b50f1c5124161c"
+      },
+      {
+        "segment": "91",
+        "address": 35364416,
+        "bytes": "10b51521041c0901"
+      },
+      {
+        "segment": "91",
+        "address": 35364452,
+        "bytes": "70b50a26051cb601"
+      },
+      {
+        "segment": "91",
+        "address": 35370948,
+        "bytes": "10b50c1c20680428"
+      },
+      {
+        "segment": "91",
+        "address": 35362852,
+        "bytes": "0922027353229200"
+      },
+      {
+        "segment": "91",
+        "address": 35369504,
+        "bytes": "f0b583b00c1c0090"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33579492,
+        "bytes": "0021014bc9431847"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33773040,
+        "bytes": "08109fe5001091e5"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33840856,
+        "bytes": "70402de90050a0e1"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33716112,
+        "bytes": "f8b5051ca2200090"
+      }
+    ],
+    "legacy": {
+      "size": 2128,
+      "sha256": "b85fe26d1992bd3c52dcc2f50c15271ee6015da8179a654974a709db50f3c069"
+    }
+  },
+  "B2": {
+    "fileName": "PokewebTrainingItemsB2.dll",
+    "size": 2672,
+    "sha256": "a15b5687b965acb2e3e6740cfd20329a85a7505a5a27264a6cddbf4a13f63640",
+    "targets": [
+      {
+        "kind": "THUMB_BRANCH_LINK",
+        "segment": "165",
+        "address": "0x219bd3c"
+      },
+      {
+        "kind": "THUMB_BRANCH_LINK",
+        "segment": "ARM9",
+        "address": "0x201c822"
+      },
+      {
+        "kind": "THUMB_BRANCH_LINK",
+        "segment": "ARM9",
+        "address": "0x201c8de"
+      }
+    ],
+    "literals": [],
+    "checks": [
+      {
+        "segment": "165",
+        "address": 35241276,
+        "bytes": "fff7c6fa"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33671202,
+        "bytes": "00f083f9"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33671390,
+        "bytes": "00f025f9"
+      },
+      {
+        "segment": "165",
+        "address": 35238604,
+        "bytes": "f8b5a325041cad00"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33671980,
+        "bytes": "f8b50c1c6f210022"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33672344,
+        "bytes": "10b5021c91880024"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33672384,
+        "bytes": "38b5051caa880024"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33681092,
+        "bytes": "3e231b031940490b"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33672584,
+        "bytes": "70b5051c0c1c161c"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33672512,
+        "bytes": "70b5051c0c1c161c"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33672440,
+        "bytes": "70b5051c0c1c161c"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33672476,
+        "bytes": "70b5051c0c1c161c"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33674720,
+        "bytes": "10b50a1c041c7021"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33674740,
+        "bytes": "38b5051cfff708fb"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33681180,
+        "bytes": "10b5141cfff7deff"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33588268,
+        "bytes": "70b582b0051c0e1c"
+      },
+      {
+        "segment": "165",
+        "address": 35247948,
+        "bytes": "f8b50f1c5224161c"
+      },
+      {
+        "segment": "165",
+        "address": 35249652,
+        "bytes": "10b55521041c8900"
+      },
+      {
+        "segment": "165",
+        "address": 35249688,
+        "bytes": "70b5a326051cb600"
+      },
+      {
+        "segment": "165",
+        "address": 35256316,
+        "bytes": "10b50c1c20680428"
+      },
+      {
+        "segment": "165",
+        "address": 35248084,
+        "bytes": "0922027315221201"
+      },
+      {
+        "segment": "165",
+        "address": 35254864,
+        "bytes": "f0b583b00c1c0090"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33579604,
+        "bytes": "0021014bc9431847"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33805668,
+        "bytes": "024909683c310870"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33851788,
+        "bytes": "70b5051c0c1c00f0"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33741172,
+        "bytes": "f8b5051ca2200090"
+      }
+    ],
+    "legacy": {
+      "size": 2128,
+      "sha256": "4732284b3b8bc846425dc728cd9ec5f680550f5ec1b0d84c8fe0146ff8b3fb28"
+    }
+  },
+  "W2": {
+    "fileName": "PokewebTrainingItemsW2.dll",
+    "size": 2672,
+    "sha256": "0aac73ebd75ea806eda14dd1c1b65b105024994ec700204d0cd1537e681bf356",
+    "targets": [
+      {
+        "kind": "THUMB_BRANCH_LINK",
+        "segment": "165",
+        "address": "0x219bd7c"
+      },
+      {
+        "kind": "THUMB_BRANCH_LINK",
+        "segment": "ARM9",
+        "address": "0x201c84e"
+      },
+      {
+        "kind": "THUMB_BRANCH_LINK",
+        "segment": "ARM9",
+        "address": "0x201c90a"
+      }
+    ],
+    "literals": [],
+    "checks": [
+      {
+        "segment": "165",
+        "address": 35241340,
+        "bytes": "fff7c6fa"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33671246,
+        "bytes": "00f083f9"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33671434,
+        "bytes": "00f025f9"
+      },
+      {
+        "segment": "165",
+        "address": 35238668,
+        "bytes": "f8b5a325041cad00"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33672024,
+        "bytes": "f8b50c1c6f210022"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33672388,
+        "bytes": "10b5021c91880024"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33672428,
+        "bytes": "38b5051caa880024"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33681136,
+        "bytes": "3e231b031940490b"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33672628,
+        "bytes": "70b5051c0c1c161c"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33672556,
+        "bytes": "70b5051c0c1c161c"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33672484,
+        "bytes": "70b5051c0c1c161c"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33672520,
+        "bytes": "70b5051c0c1c161c"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33674764,
+        "bytes": "10b50a1c041c7021"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33674784,
+        "bytes": "38b5051cfff708fb"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33681224,
+        "bytes": "10b5141cfff7deff"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33588268,
+        "bytes": "70b582b0051c0e1c"
+      },
+      {
+        "segment": "165",
+        "address": 35248012,
+        "bytes": "f8b50f1c5224161c"
+      },
+      {
+        "segment": "165",
+        "address": 35249716,
+        "bytes": "10b55521041c8900"
+      },
+      {
+        "segment": "165",
+        "address": 35249752,
+        "bytes": "70b5a326051cb600"
+      },
+      {
+        "segment": "165",
+        "address": 35256380,
+        "bytes": "10b50c1c20680428"
+      },
+      {
+        "segment": "165",
+        "address": 35248148,
+        "bytes": "0922027315221201"
+      },
+      {
+        "segment": "165",
+        "address": 35254928,
+        "bytes": "f0b583b00c1c0090"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33579604,
+        "bytes": "0021014bc9431847"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33805712,
+        "bytes": "024909683c310870"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33851832,
+        "bytes": "70b5051c0c1c00f0"
+      },
+      {
+        "segment": "ARM9",
+        "address": 33741216,
+        "bytes": "f8b5051ca2200090"
+      }
+    ],
+    "legacy": {
+      "size": 2128,
+      "sha256": "449cad9c22957cab9bbe1b4f0633e06a289b75189633f49401a5700147966142"
+    }
+  }
+}

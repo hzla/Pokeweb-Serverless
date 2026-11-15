@@ -4,7 +4,8 @@ import { renderInlineStatus } from "./inlineStatus";
 import { publicAsset } from "../assetUrl";
 import { BATTLE_TYPES, isGen5Project } from "../pokeweb/constants";
 import { enrichTrainerLocations } from "../pokeweb/docGeneratorModel";
-import { detectSpecifyTrainerNaturesPatch, specifyTrainerNatures } from "../pokeweb/romPatchModel";
+import { getTrainerCustomizationStatus, installTrainerCustomization } from "../pokeweb/trainerCustomizationModel";
+import { detectSpecifyTrainerNaturesPatch } from "../pokeweb/romPatchModel";
 import { readGen5SavePokemon, type Gen5SavePokemon } from "../pokeweb/gen5SaveReader";
 import { parseShowdownTeam } from "../pokeweb/testBattleTeam";
 import { ensureTrainerSpriteStore, getTrainerClassSpriteImage, hasGen5TrainerSprites } from "../pokeweb/trainerSpriteModel";
@@ -53,12 +54,13 @@ export function renderTrainerEditor(
   project: ProjectState,
   root: HTMLElement,
   onDirty?: () => void,
-  onTestBattle?: (trainerId: number, showdownText: string) => Promise<void>,
+  onTestBattle?: (trainerId: number, showdownText: string, rosterSource?: number) => Promise<void>,
   onOpenTrainerSprite?: (trainerClassId: number) => void,
   onOpenPlayerBackSprite?: () => void,
 ): void {
   const trainerFieldStatus = getTrainerFieldConditionsStatus(project);
   const trainerNaturePatchStatus = detectSpecifyTrainerNaturesPatch(project);
+  const customizationStatus = getTrainerCustomizationStatus(project);
   const savedTestBattleTeamText = getTrainerTestBattleTeamText(project);
   autoEnrichTrainerLocations(project);
 
@@ -75,7 +77,7 @@ export function renderTrainerEditor(
     .sort((a, b) => String(classNames[a] ?? a).localeCompare(String(classNames[b] ?? b)) || a - b);
   const tools = [
     project.session.baseRom === "BW2" ? `<div class="td-tool"><div class="filter-title">Field conditions</div>${renderTrainerFieldInstaller(trainerFieldStatus, true)}</div>` : "",
-    renderTrainerNaturePatchPanel(project, trainerNaturePatchStatus),
+    renderTrainerNaturePatchPanel(project, customizationStatus),
     renderTrainerScriptArchivePanel(project),
   ].filter(Boolean).join("");
 
@@ -155,7 +157,23 @@ export function renderTrainerEditor(
     onTrainerChanged: refreshRow,
     getTestTeamText: () => getTrainerTestBattleTeamText(project, root),
     autofills: getTrainerAutofills(project),
-    natureField: trainerNaturePatchStatus === "patched",
+    natureField: trainerNaturePatchStatus === "patched" || trainerNaturePatchStatus === "legacy",
+    onOpenTrainer: (trainerId) => {
+      if (!ids.includes(trainerId)) return;
+      const row = list.querySelector<HTMLElement>(`[data-trainer-row="${trainerId}"]`);
+      if (row?.style.display === "none") {
+        searchInput.value = "";
+        classFilter.value = "";
+        battleFilter.value = "";
+        filter();
+      }
+      select(trainerId, true);
+    },
+    onInstallCustomization: async () => {
+      await installTrainerCustomization(project);
+      onDirty?.();
+      renderTrainerEditor(project, root, onDirty, onTestBattle, onOpenTrainerSprite, onOpenPlayerBackSprite);
+    },
   });
 
   const filter = () => {
@@ -181,7 +199,10 @@ export function renderTrainerEditor(
   };
 
   const select = (trainerId: number, fromKeyboard = false) => {
-    if (selection.trainerId !== trainerId) selection.slot = 0;
+    if (selection.trainerId !== trainerId) {
+      selection.slot = 0;
+      selection.roster = undefined;
+    }
     selection.trainerId = trainerId;
     controller.render();
     list.querySelectorAll<HTMLElement>("[data-trainer-row]").forEach((row) => {
@@ -244,7 +265,7 @@ export function renderTrainerEditor(
   installTrainerSpriteRendering(project, root);
   installTrainerPokemonIconRendering(project, root);
   installTrainerScriptArchiveControl(project, root, onDirty, onTestBattle, onOpenTrainerSprite, onOpenPlayerBackSprite);
-  installTrainerNaturePatchControl(project, root, onDirty, onTestBattle, onOpenTrainerSprite, onOpenPlayerBackSprite, trainerNaturePatchStatus);
+  installTrainerNaturePatchControl(project, root, onDirty, onTestBattle, onOpenTrainerSprite, onOpenPlayerBackSprite, customizationStatus);
   attachTrainerFieldInstaller(project, root, () => {
     onDirty?.();
     renderTrainerEditor(project, root, onDirty, onTestBattle, onOpenTrainerSprite, onOpenPlayerBackSprite);
@@ -706,12 +727,12 @@ function renderTrainerScriptArchivePanel(project: ProjectState): string {
   `;
 }
 
-function renderTrainerNaturePatchPanel(project: ProjectState, status: ReturnType<typeof detectSpecifyTrainerNaturesPatch>): string {
+function renderTrainerNaturePatchPanel(project: ProjectState, status: ReturnType<typeof getTrainerCustomizationStatus>): string {
   if (status === "unsupported") return "";
-  const buttonDisabled = status === "patched" ? "disabled" : "";
+  const buttonDisabled = status === "ready" || status === "upgrade" ? "" : "disabled";
   return `
     <div class="trainer-nature-patch-panel">
-      <div class="filter-title">Trainer natures</div>
+      <div class="filter-title">Trainer Customization</div>
       <div class="trainer-nature-patch-status">
         ${renderInlineStatus(trainerNatureStatusLabel(status), { className: "patch-badge" })}
         <span>${escapeHtml(project.session.baseVersion)}</span>
@@ -725,7 +746,7 @@ function installTrainerScriptArchiveControl(
   project: ProjectState,
   root: HTMLElement,
   onDirty: (() => void) | undefined,
-  onTestBattle: ((trainerId: number, showdownText: string) => Promise<void>) | undefined,
+  onTestBattle: ((trainerId: number, showdownText: string, rosterSource?: number) => Promise<void>) | undefined,
   onOpenTrainerSprite: ((trainerClassId: number) => void) | undefined,
   onOpenPlayerBackSprite?: () => void,
 ): void {
@@ -752,21 +773,20 @@ function installTrainerNaturePatchControl(
   project: ProjectState,
   root: HTMLElement,
   onDirty: (() => void) | undefined,
-  onTestBattle: ((trainerId: number, showdownText: string) => Promise<void>) | undefined,
+  onTestBattle: ((trainerId: number, showdownText: string, rosterSource?: number) => Promise<void>) | undefined,
   onOpenTrainerSprite: ((trainerClassId: number) => void) | undefined,
   onOpenPlayerBackSprite: (() => void) | undefined,
-  status: ReturnType<typeof detectSpecifyTrainerNaturesPatch>,
+  status: ReturnType<typeof getTrainerCustomizationStatus>,
 ): void {
   const button = root.querySelector<HTMLButtonElement>("#trainer-nature-patch-btn");
-  if (!button || status === "patched") return;
+  if (!button || (status !== "ready" && status !== "upgrade")) return;
   button.addEventListener("click", async () => {
-    if (!window.confirm("Install the PMC trainer nature runtime? Existing inline trainer nature hooks will be migrated.\n\nExport the ROM after applying to keep this change.")) return;
     const previousText = button.textContent ?? trainerNatureButtonLabel(status);
     button.disabled = true;
     button.textContent = "Applying...";
     try {
-      const result = await specifyTrainerNatures(project);
-      if (result.status === "applied") onDirty?.();
+      await installTrainerCustomization(project);
+      onDirty?.();
       renderTrainerEditor(project, root, onDirty, onTestBattle, onOpenTrainerSprite, onOpenPlayerBackSprite);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : String(error));
@@ -789,17 +809,17 @@ function trainerScriptArchiveStatusLabel(status: TrainerScriptArchiveStatus): st
 }
 
 
-function trainerNatureStatusLabel(status: ReturnType<typeof detectSpecifyTrainerNaturesPatch>): string {
-  if (status === "patched") return "Applied";
-  if (status === "legacy") return "Migration available";
-  if (status === "unknown") return "Signature unknown";
+function trainerNatureStatusLabel(status: ReturnType<typeof getTrainerCustomizationStatus>): string {
+  if (status === "installed") return "Installed";
+  if (status === "upgrade") return "Upgrade available";
+  if (status === "unknown") return "Unavailable";
   if (status === "unsupported") return "Unsupported";
   return "Ready";
 }
 
-function trainerNatureButtonLabel(status: ReturnType<typeof detectSpecifyTrainerNaturesPatch>): string {
-  if (status === "patched") return "Applied";
-  if (status === "legacy") return "Migrate patch";
-  return "Apply patch";
+function trainerNatureButtonLabel(status: ReturnType<typeof getTrainerCustomizationStatus>): string {
+  if (status === "installed") return "Installed";
+  if (status === "upgrade") return "Upgrade patch";
+  return "Install patch";
 }
 

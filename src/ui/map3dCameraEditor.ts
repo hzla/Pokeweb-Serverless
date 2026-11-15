@@ -11,7 +11,15 @@ type CameraView = {
   scene: THREE.Scene; renderer: THREE.WebGLRenderer; camera: THREE.PerspectiveCamera; terrainGroup: THREE.Group;
   target: THREE.Vector3; distance: number; yaw: number; pitch: number; cameraPose?: CameraPose;
 };
-type Mode = "navigate" | "move" | "draw" | "pick" | "walk";
+export type Map3dCameraMode = "navigate" | "move" | "draw" | "pick" | "walk";
+type Mode = Map3dCameraMode;
+/** Lets the map editor own undo/redo and the mouse tool buttons. */
+export type Map3dCameraHooks = {
+  /** A saved edit, for the editor's undo history. Without this the camera panel keeps its own Undo and Redo. */
+  recorded?: (label: string, undo: () => void, redo: () => void) => void;
+  /** The mouse tool changed, from the panel or from the keyboard. */
+  modeChanged?: () => void;
+};
 type Drag = { start: THREE.Vector3; before: Uint8Array; index: number; rect: CameraRectangle; corner?: number; drawing?: boolean };
 const num = (value: number) => String(Math.round(value * 10000) / 10000);
 const input = (name: string, label: string, value: number, step = "any") => `<label class="map3d-field"><span>${label}</span><input class="filter-input" type="number" name="${name}" value="${num(value)}" step="${step}" required /></label>`;
@@ -34,7 +42,7 @@ export class Map3dCameraEditor {
   private facing: CameraWalkDirection = "down";
   private autoHeight = true;
   private lastWalkStep = 0;
-  private mode: Mode = "navigate";
+  private toolMode: Mode = "navigate";
   private drag?: Drag;
   private undo: Uint8Array[] = [];
   private redo: Uint8Array[] = [];
@@ -50,16 +58,18 @@ export class Map3dCameraEditor {
   private listeners = new AbortController();
   private testing = false;
 
-  constructor(private project: ProjectState, private host: HTMLElement, private state: CameraView, private onDirty?: () => void, private onTestInGame?: (position:MapCameraTestPosition)=>Promise<void>) {
+  constructor(private project: ProjectState, private host: HTMLElement, private state: CameraView, private onDirty?: () => void, private onTestInGame?: (position:MapCameraTestPosition)=>Promise<string|void>, private hooks: Map3dCameraHooks = {}) {
     state.scene.add(this.overlay);
     this.overlay.name = "editor-camera-regions";
     const canvas = state.renderer.domElement, options = { capture: true, signal: this.listeners.signal };
     this.locationHud.className = "map3d-camera-location";
     this.locationHud.hidden = true;
     this.locationHud.setAttribute("aria-label", "Camera preview position");
-    this.locationHud.innerHTML = `<strong data-camera-location-title></strong><span data-camera-location-coordinates role="status"></span><span data-camera-location-cell></span><span data-camera-location-help></span><button class="ow-tool" type="button">Locate on map</button>${onTestInGame?'<button class="ow-tool" data-camera-test type="button" disabled>Test in game</button>':''}`;
+    this.locationHud.innerHTML = `<strong data-camera-location-title></strong><span data-camera-location-coordinates role="status"></span><span data-camera-location-cell></span><span data-camera-location-help></span><button class="btn sm" type="button">Locate on map</button>${onTestInGame?'<button class="btn sm" data-camera-test type="button" disabled>Test in game</button>':''}`;
+    const hud = canvas.closest(".map3d-view")?.querySelector("[data-map3d-hud]");
     const toolbar = canvas.closest(".map3d-view")?.querySelector(".map3d-toolbar");
-    if (toolbar) toolbar.insertBefore(this.locationHud, toolbar.querySelector(".map3d-controls"));
+    if (hud) hud.append(this.locationHud);
+    else if (toolbar) toolbar.insertBefore(this.locationHud, toolbar.querySelector(".map3d-controls"));
     else canvas.parentElement?.append(this.locationHud);
     this.locationHud.querySelector("button")!.addEventListener("click", () => this.safe(() => {
       if (this.state.cameraPose) {
@@ -83,20 +93,36 @@ export class Map3dCameraEditor {
   }
 
   freeView(): void { this.leavePreview(); }
+  get mode(): Map3dCameraMode { return this.toolMode; }
+  private get embedded(): boolean { return Boolean(this.hooks.recorded); }
+  /** Choose the mouse tool: move or resize regions, draw one, walk the preview camera or pick a preview point. */
+  setMode(mode: Map3dCameraMode): void {
+    if (!this.doc && (mode === "move" || mode === "draw")) mode = "navigate";
+    this.leavePreview(); this.toolMode = mode;
+    if (mode === "walk") this.notice = "Click a tile to begin walking the camera.";
+    if (mode === "move" || mode === "draw") this.visible = true;
+    this.render(); this.drawOverlay();
+  }
+  /** Put the regions back to an encoded snapshot without adding to the history (undo and redo). */
+  restore(bytes: Uint8Array): void {
+    if (!this.doc) throw new Error("Wait for the map camera to load.");
+    this.commit(decodeCameraRegions(bytes), encodeCameraRegions(this.doc.regions), false);
+  }
   private async testInGame():Promise<void>{
     if(!this.onTestInGame||this.testing||!this.active||!this.doc||!this.data||!this.state.cameraPose||!this.pointSelected)return;
     const token=this.token,position:MapCameraTestPosition={zoneId:this.doc.zoneId,tileX:Math.floor(this.point.x/16),tileZ:Math.floor(this.point.z/16),height:this.point.y,facing:this.facing};
     this.testing=true;this.updateLocation();
-    try{await this.onTestInGame(position);if(token===this.token&&!this.disposed)this.notice='Continue, then press Down to warp.';}
+    try{const hint=await this.onTestInGame(position);if(token===this.token&&!this.disposed)this.notice=hint||'Continue, then press Down to warp.';}
     catch(error){if(token===this.token&&!this.disposed)this.notice=error instanceof Error?error.message:String(error);}
     finally{this.testing=false;if(!this.disposed){this.updateLocation();this.render();}}
   }
   setActive(active: boolean): void {
     if (this.active === active) return;
     this.active = active;
+    if (active && this.embedded && !this.visible) { this.visible = true; this.render(); }
     if (!active) {
-      const wasWalking = this.mode === "walk";
-      this.cancelDrag(); this.mode = "navigate"; this.state.cameraPose = undefined;
+      const wasWalking = this.toolMode === "walk";
+      this.cancelDrag(); this.toolMode = "navigate"; this.state.cameraPose = undefined;
       if (wasWalking) this.render();
       else { const control = this.host.querySelector<HTMLSelectElement>('[name="mode"]'); if (control) control.value = "navigate"; }
     }
@@ -106,7 +132,7 @@ export class Map3dCameraEditor {
   clear(): void {
     this.token++; this.cancelDrag(); this.clearPlayer(); this.doc = undefined; this.data = undefined; this.selected = -1;
     this.pointSelected = false;
-    this.mode = "navigate"; this.state.cameraPose = undefined; this.error = "Loading map camera…"; this.notice = "";
+    this.toolMode = "navigate"; this.state.cameraPose = undefined; this.error = "Loading map camera…"; this.notice = "";
     this.undo = []; this.redo = []; this.drawOverlay(); this.render();
   }
 
@@ -146,23 +172,24 @@ export class Map3dCameraEditor {
   private render(): void {
     if (!this.doc) {
       this.host.innerHTML = `<strong>Map camera · White 2</strong><div class="map3d-metadata-note" role="status">${escapeHtml(this.error)}</div>`;
+      this.hooks.modeChanged?.();
       return;
     }
-    const doc = this.doc, r = this.rectangle(), editable = this.editable(), editing = this.mode !== "walk";
+    const doc = this.doc, r = this.rectangle(), editable = this.editable(), editing = this.toolMode !== "walk";
     this.host.innerHTML = `<strong>Map camera · White 2</strong>
       <div class="map3d-metadata-note">Preset ${doc.presetId} · ${doc.regions.length} regions${doc.memberId === undefined ? "" : ` · Camera set ${doc.memberId}`}</div>
       ${editable && editing ? `<label class="map3d-toggle"><input name="visible" type="checkbox" ${this.visible ? "checked" : ""} /> Show camera regions</label>
       <label class="map3d-field"><span>Region, in game priority order</span><select name="region" class="filter-input"><option value="-1">Select a region</option>${doc.regions.map((region, i) => `<option value="${i}" ${i === this.selected ? "selected" : ""}>${i + 1}. ${region.kind === "rectangle" ? `${region.width} × ${region.height} at ${region.x}, ${region.z}` : `Unsupported shape ${region.type}`}</option>`).join("")}</select></label>` : ""}
-      ${!doc.regions.length ? '<div class="map3d-metadata-note">No regions yet. Draw a rectangle or use Add rectangle to create one.</div>' : ""}
+      ${!doc.regions.length ? '<div class="map3d-metadata-note">No regions yet. Draw one with the Camera regions tool (R) beside the map, or use + Region.</div>' : ""}
       ${doc.sharedZones.length > 1 ? `<div class="map3d-metadata-note">Shared by zones ${doc.sharedZones.join(", ")}. Saving creates an independent camera set for this zone.</div>` : ""}
-      <label class="map3d-field"><span>Mouse tool · Shift-drag pans</span><select name="mode" class="filter-input">
-        <option value="navigate" ${this.mode === "navigate" ? "selected" : ""}>Navigate</option>
-        ${editable ? `<option value="move" ${this.mode === "move" ? "selected" : ""}>Select / move / resize region</option><option value="draw" ${this.mode === "draw" ? "selected" : ""}>Draw rectangle</option>` : ""}
-        <option value="walk" ${this.mode === "walk" ? "selected" : ""}>Walk camera · click and arrow keys</option>
-        <option value="pick" ${this.mode === "pick" ? "selected" : ""}>Pick camera coordinate</option></select></label>
-      <div class="map3d-metadata-note">${this.mode === "walk" ? "Click a tile to snap immediately. Arrow keys move one tile in the map's north/south/east/west directions. Escape returns to free view." : this.mode === "move" ? "Drag inside a region to move it; drag a gold corner to resize. Release to save. Escape cancels the drag." : this.mode === "draw" ? "Drag over the map to create a rectangle. Release to save. Escape cancels the drag." : this.mode === "pick" ? "Click the terrain, then choose Snap camera." : "Choose a mouse tool to edit regions or pick a preview coordinate."}</div>
-      ${editable && editing ? `<div class="map3d-camera-actions"><button class="ow-tool" data-action="add" type="button">Add rectangle</button><button class="ow-tool" data-action="delete" type="button" ${this.selected < 0 ? "disabled" : ""}>Delete</button></div>
-      <div class="map3d-camera-actions"><button class="ow-tool" data-action="undo" type="button" ${!this.undo.length ? "disabled" : ""}>Undo camera edit</button><button class="ow-tool" data-action="redo" type="button" ${!this.redo.length ? "disabled" : ""}>Redo</button></div>` : ""}
+      ${this.embedded ? "" : `<label class="map3d-field"><span>Mouse tool · Shift-drag pans</span><select name="mode" class="filter-input">
+        <option value="navigate" ${this.toolMode === "navigate" ? "selected" : ""}>Navigate</option>
+        ${editable ? `<option value="move" ${this.toolMode === "move" ? "selected" : ""}>Select / move / resize region</option><option value="draw" ${this.toolMode === "draw" ? "selected" : ""}>Draw rectangle</option>` : ""}
+        <option value="walk" ${this.toolMode === "walk" ? "selected" : ""}>Walk camera · click and arrow keys</option>
+        <option value="pick" ${this.toolMode === "pick" ? "selected" : ""}>Pick camera coordinate</option></select></label>`}
+      <div class="map3d-metadata-note">${this.toolMode === "walk" ? "Click a tile to snap immediately. Arrow keys move one tile in the map's north/south/east/west directions. Escape returns to free view." : this.toolMode === "move" ? "Drag inside a region to move it; drag a gold corner to resize. Release to save. Escape cancels the drag." : this.toolMode === "draw" ? "Drag over the map to create a rectangle. Release to save. Escape cancels the drag." : this.toolMode === "pick" ? "Click the terrain, then choose Snap camera." : this.embedded ? "Pick the Camera regions tool (R) beside the map to move, draw or walk." : "Choose a mouse tool to edit regions or pick a preview coordinate."}</div>
+      ${editable && editing ? `<div class="map3d-camera-actions"><button class="btn sm -primary" data-action="add" type="button">+ Region</button><button class="btn sm -remove" data-action="delete" type="button" ${this.selected < 0 ? "disabled" : ""}>Delete</button></div>
+      ${this.embedded ? "" : `<div class="map3d-camera-actions"><button class="btn sm" data-action="undo" type="button" ${!this.undo.length ? "disabled" : ""}>Undo camera edit</button><button class="btn sm" data-action="redo" type="button" ${!this.redo.length ? "disabled" : ""}>Redo</button></div>`}` : ""}
       ${r && editing ? `<form data-camera-region><div class="map3d-meta-grid">
         ${input("x", "West (tile X)", r.x, "1")}${input("z", "North (tile Z)", r.z, "1")}${input("width", "Width (tiles)", r.width, "1")}${input("height", "Height (tiles)", r.height, "1")}
         </div><label class="map3d-field"><span>Interpolation direction</span><select name="axis" class="filter-input"><option value="z" ${r.axis === "z" ? "selected" : ""}>North → south</option><option value="x" ${r.axis === "x" ? "selected" : ""}>West → east</option></select></label>
@@ -170,25 +197,22 @@ export class Map3dCameraEditor {
         ${input(`${key}-pitch`, "Pitch (degrees)", r[key].pitch)}${input(`${key}-yaw`, "Yaw (degrees)", r[key].yaw)}${input(`${key}-distance`, "Distance (world units)", r[key].distance)}${input(`${key}-fov`, "Field of view (degrees)", r[key].fov)}
         ${input(`${key}-offset-x`, "Target offset X", r[key].offset.x)}${input(`${key}-offset-y`, "Target offset Y", r[key].offset.y)}${input(`${key}-offset-z`, "Target offset Z", r[key].offset.z)}</div></details>`).join("")}
         <details><summary>Native transition settings</summary><div class="map3d-meta-grid">${input("stay", "Stay function", r.stay, "1")}${input("enter", "Enter function", r.enter, "1")}${input("exit", "Exit function", r.exit, "1")}</div><label><input name="delay" type="checkbox" ${r.disableDelay ? "checked" : ""} /> Disable delay manager</label></details>
-        <div class="map3d-camera-actions"><button class="ow-tool" type="submit">Apply region</button><button class="ow-tool" type="button" data-action="focus">Frame region</button></div>
-        <div class="map3d-camera-actions"><button class="ow-tool" type="button" data-action="earlier" ${this.selected === 0 ? "disabled" : ""}>Higher priority</button><button class="ow-tool" type="button" data-action="later" ${this.selected === doc.regions.length - 1 ? "disabled" : ""}>Lower priority</button></div></form>` : ""}
+        <div class="map3d-camera-actions"><button class="btn sm" type="submit">Apply region</button><button class="btn sm" type="button" data-action="focus">Frame region</button></div>
+        <div class="map3d-camera-actions"><button class="btn sm" type="button" data-action="earlier" ${this.selected === 0 ? "disabled" : ""}>Higher priority</button><button class="btn sm" type="button" data-action="later" ${this.selected === doc.regions.length - 1 ? "disabled" : ""}>Lower priority</button></div></form>` : ""}
       ${editing ? `<label class="map3d-field"><span>Region overlay height (world Y)</span><input name="overlay-height" class="filter-input" type="number" step="any" value="${num(this.overlayHeight)}" /></label>` : ""}
-      ${this.mode === "walk" ? `<label class="map3d-toggle"><input name="auto-height" type="checkbox" ${this.autoHeight ? "checked" : ""} /> Follow terrain height</label>
+      ${this.toolMode === "walk" ? `<label class="map3d-toggle"><input name="auto-height" type="checkbox" ${this.autoHeight ? "checked" : ""} /> Follow terrain height</label>
       <label class="map3d-field"><span>Player billboard</span><select name="player-gender" class="filter-input"><option value="male" ${this.playerGender === "male" ? "selected" : ""}>Male player</option><option value="female" ${this.playerGender === "female" ? "selected" : ""}>Female player</option></select></label>
       <div class="map3d-metadata-note">Walk preview stays in the loaded zone and ignores collisions, events and warps. Turn off Follow terrain height to keep the entered player height.</div>` : ""}
       <strong>Snap to map camera</strong><div class="map3d-metadata-note">Snap camera shows the player and starts arrow-key walking. Click another terrain tile to move the preview there.</div><div class="map3d-meta-grid">${input("point-x", "Tile X", this.point.x / 16)}${input("point-z", "Tile Z", this.point.z / 16)}${input("point-y", "Player height (world Y)", this.point.y)}</div>
-      <div class="map3d-camera-actions"><button class="ow-tool" type="button" data-action="preview">Snap camera</button><button class="ow-tool" type="button" data-action="free">Free view</button></div>
+      <div class="map3d-camera-actions"><button class="btn sm" type="button" data-action="preview">Snap camera</button><button class="btn sm" type="button" data-action="free">Free view</button></div>
       <div class="map3d-metadata-note">Camera coordinates use the whole matrix: 32 tiles per chunk, 16 world units per tile. Region bounds ignore player height.</div>
       <div class="map3d-metadata-note">Map camera, framed at 4:3. Pick terrain to estimate player height, or enter it above. Script overrides, rails and transition timing are not simulated. A stationary pose has been checked in an emulator; exact screen framing is not guaranteed.</div>
       <div class="map3d-camera-status" role="status">${escapeHtml(this.notice)}</div>`;
-    this.field("mode").addEventListener("change", () => {
-      const mode = this.field("mode").value as Mode;
-      this.leavePreview(); this.mode = mode;
-      if (mode === "walk") this.notice = "Click a tile to begin walking the camera.";
-      if (this.mode === "move" || this.mode === "draw") this.visible = true;
-      this.render(); this.drawOverlay();
+    this.host.querySelector('[name="mode"]')?.addEventListener("change", () => {
+      this.setMode(this.field("mode").value as Mode);
       const scroller = this.host.closest<HTMLElement>(".map3d-tab-panels"); if (scroller) scroller.scrollTop = 0;
     });
+    this.hooks.modeChanged?.();
     this.host.querySelector('[name="auto-height"]')?.addEventListener("change", () => { this.autoHeight = (this.field("auto-height") as HTMLInputElement).checked; });
     this.host.querySelector('[name="player-gender"]')?.addEventListener("change", () => { this.playerGender = this.field("player-gender").value as "male" | "female"; this.loadPlayer(); this.updatePlayer(); });
     this.host.querySelector('[name="visible"]')?.addEventListener("change", () => { this.visible = (this.field("visible") as HTMLInputElement).checked; this.drawOverlay(); });
@@ -218,9 +242,12 @@ export class Map3dCameraEditor {
     try {
       saveFieldCamera(this.project, doc, next);
     } catch (error) { doc.regions = decodeCameraRegions(doc.baseline); this.drawOverlay(); throw error; }
-    if (history) { this.undo.push(before); if (this.undo.length > 50) this.undo.shift(); this.redo = []; }
+    if (history && this.hooks.recorded) {
+      const after = encodeCameraRegions(doc.regions);
+      this.hooks.recorded("Edit camera regions", () => this.restore(before), () => this.restore(after));
+    } else if (history) { this.undo.push(before); if (this.undo.length > 50) this.undo.shift(); this.redo = []; }
     this.selected = Math.min(this.selected, doc.regions.length - 1);
-    this.notice = "Camera regions saved to the project. Export ROM to play these changes.";
+    this.notice = "Saved.";
     this.onDirty?.(); this.drawOverlay(); this.render();
     if (this.state.cameraPose) this.preview();
   }
@@ -283,7 +310,7 @@ export class Map3dCameraEditor {
   }
   private updatePlayer(): void {
     if (!this.player) return;
-    this.player.visible = this.active && this.mode === "walk" && this.pointSelected;
+    this.player.visible = this.active && this.toolMode === "walk" && this.pointSelected;
     this.player.position.copy(this.point); this.player.position.y += 0.2;
     this.player.material.map = this.playerTextures.get(this.facing) ?? this.playerTextures.values().next().value ?? null;
     this.player.material.needsUpdate = true;
@@ -297,12 +324,12 @@ export class Map3dCameraEditor {
     const doc = this.doc!;
     const pose = evaluateFieldCamera(doc.preset, doc.regions, this.point, doc.boundaries);
     this.pointSelected = true;
-    this.state.cameraPose = pose; this.mode = "walk";
-    this.notice = `Map camera · ${pose.regionIndex === undefined ? `default preset ${doc.presetId}` : `region ${pose.regionIndex + 1}, ${num(pose.weight * 100)}%`} · 4:3${this.mode === "walk" ? ` · Tile ${Math.floor(this.point.x / 16)}, ${Math.floor(this.point.z / 16)} · Arrow keys to walk` : ""}`;
+    this.state.cameraPose = pose; this.toolMode = "walk";
+    this.notice = `Map camera · ${pose.regionIndex === undefined ? `default preset ${doc.presetId}` : `region ${pose.regionIndex + 1}, ${num(pose.weight * 100)}%`} · 4:3${this.toolMode === "walk" ? ` · Tile ${Math.floor(this.point.x / 16)}, ${Math.floor(this.point.z / 16)} · Arrow keys to walk` : ""}`;
     this.drawOverlay();
   }
   private leavePreview = (): void => {
-    if (this.state.cameraPose || this.mode === "walk") { this.state.cameraPose = undefined; this.mode = "navigate"; this.notice = "Free view"; this.drawOverlay(); this.render(); }
+    if (this.state.cameraPose || this.toolMode === "walk") { this.state.cameraPose = undefined; this.toolMode = "navigate"; this.notice = "Free view"; this.drawOverlay(); this.render(); }
   };
   private ray(event: PointerEvent): THREE.Raycaster {
     const rect = this.state.renderer.domElement.getBoundingClientRect(), ray = new THREE.Raycaster();
@@ -316,7 +343,7 @@ export class Map3dCameraEditor {
   private pointerDown = (event: PointerEvent): void => {
     if (!this.active || event.button !== 0) return;
     if (event.shiftKey) { this.leavePreview(); return; }
-    if (this.doc && this.mode === "walk") {
+    if (this.doc && this.toolMode === "walk") {
       this.consume(event); this.state.renderer.domElement.focus({ preventScroll: true });
       const hit = this.ray(event).intersectObject(this.state.terrainGroup, true)[0]; if (!hit) return;
       const centered = cameraWalkTileCenter(hit.point);
@@ -328,14 +355,14 @@ export class Map3dCameraEditor {
       }); return;
     }
     if (this.state.cameraPose) { this.leavePreview(); return; }
-    if (!this.doc || this.mode === "navigate") return;
+    if (!this.doc || this.toolMode === "navigate") return;
     this.consume(event); const p = this.planePoint(event); if (!p) return;
-    if (this.mode === "pick") {
+    if (this.toolMode === "pick") {
       const hit = this.ray(event).intersectObject(this.state.terrainGroup, true)[0];
-      this.point.copy(hit?.point ?? p); this.pointSelected = true; this.mode = "navigate"; this.notice = "Coordinate selected. Snap camera to preview it."; this.drawOverlay(); this.render(); return;
+      this.point.copy(hit?.point ?? p); this.pointSelected = true; this.toolMode = "navigate"; this.notice = "Coordinate selected. Snap camera to preview it."; this.drawOverlay(); this.render(); return;
     }
     const doc = this.doc, before = encodeCameraRegions(doc.regions);
-    if (this.mode === "draw") {
+    if (this.toolMode === "draw") {
       const r = createCameraRectangle(doc.preset, Math.max(0, Math.floor(p.x / 16)), Math.max(0, Math.floor(p.z / 16)));
       doc.regions.push(r); this.selected = doc.regions.length - 1;
       this.drag = { start: p, before, index: this.selected, rect: structuredClone(r), drawing: true };
@@ -381,7 +408,7 @@ export class Map3dCameraEditor {
   private pointerCancel = (): void => { this.cancelDrag(); this.drawOverlay(); this.render(); };
   private keyDown = (event: KeyboardEvent): void => {
     if (!this.active) return;
-    if ((this.mode === "walk" || this.state.cameraPose) && CAMERA_WALK_KEYS[event.key] && !event.altKey && !event.ctrlKey && !event.metaKey) {
+    if ((this.toolMode === "walk" || this.state.cameraPose) && CAMERA_WALK_KEYS[event.key] && !event.altKey && !event.ctrlKey && !event.metaKey) {
       event.preventDefault(); event.stopImmediatePropagation();
       if (event.repeat && performance.now() - this.lastWalkStep < 100) return;
       this.lastWalkStep = performance.now();
@@ -395,7 +422,7 @@ export class Map3dCameraEditor {
       }); return;
     }
     if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) this.leavePreview();
-    if (event.key === "Escape") { this.cancelDrag(); this.mode = "navigate"; this.leavePreview(); this.drawOverlay(); this.render(); }
+    if (event.key === "Escape") { this.cancelDrag(); this.toolMode = "navigate"; this.leavePreview(); this.drawOverlay(); this.render(); }
   };
   private clearOverlay(): void {
     this.overlay.traverse(object => {

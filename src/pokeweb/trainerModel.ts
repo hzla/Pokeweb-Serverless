@@ -1,4 +1,6 @@
 import { storedSpeciesId } from "./speciesExpansionIds";
+import { remapTrainerPoolMembers } from "./trainerRosterModel";
+import { remapTrainerMemberSettings } from "./trainerCustomizationModel";
 import { cloneTrainerFieldConditions } from "./trainerFieldConditionsModel";
 import { cloneTrainerLevelCap } from "./trainerLevelCapsModel";
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
@@ -133,6 +135,7 @@ export function addTrainer(project: ProjectState, templateTrainerId?: number): T
 
   cloneTrainerFieldConditions(project, sourceTrainerId, trainerId);
   cloneTrainerLevelCap(project, sourceTrainerId, trainerId);
+  remapTrainerMemberSettings(project, sourceTrainerId, trainerId, Array.from({ length: 6 }, (_, slot) => slot));
   trdataStore.rawFiles.push(trdataBytes);
   trdataStore.fileCount = trdataStore.rawFiles.length;
   trdataStore.records.set(trainerId, { id: trainerId, bytes: trdataBytes, raw: trdataRaw, readable: {} });
@@ -402,6 +405,7 @@ export function importTrainerPokemonShowdownText(project: ProjectState, trainerI
   }
 
   syncTrainerReadable(project, trainerId, trdata.raw, trdata.readable);
+  remapTrainerMemberSettings(project, trainerId, trainerId, Array.from({ length: count }, (_, index) => index === slot ? undefined : index));
   syncTrainerPokemonReadable(project, trainerId, trpok.raw, trpok.readable);
   recordGenericChange(project, "trpok", `${trainerChangelogSubject(project, trainerId)} Pokemon ${slot + 1} was imported from Showdown text.`, trainerChangelogSubject(project, trainerId), {
     key: `trainer:${trainerId}:pokemon:${slot}:showdown-import`,
@@ -547,6 +551,10 @@ export function deleteTrainerPokemon(project: ProjectState, trainerId: number, s
   const count = Number(trdata.raw.num_pokemon ?? 0);
   if (slot < 0 || slot >= count) throw new Error("Trainer Pokemon slot does not exist");
 
+  const remaining = Array.from({ length: count }, (_, index) => index);
+  remaining.splice(slot, 1);
+  remapTrainerPoolMembers(project, trainerId, remaining);
+  remapTrainerMemberSettings(project, trainerId, trainerId, remaining);
   const fields = ["ivs", "ability", "level", "padding", "species_id", "form", "item_id", "move_1", "move_2", "move_3", "move_4"];
   for (let current = slot; current < count - 1; current += 1) {
     for (const field of fields) {
@@ -600,6 +608,11 @@ export function moveTrainerPokemon(project: ProjectState, trainerId: number, fro
   if (from === to) return getTrainerRecord(project, trainerId);
   const partyOrder = () => Array.from({ length: count }, (_unused, slot) => pokemonName(project, Number(trpok.raw?.[`species_id_${slot}`] ?? 0))).join(", ");
   const before = partyOrder();
+  const order = Array.from({ length: count }, (_, index) => index);
+  order.splice(from, 1);
+  order.splice(to, 0, from);
+  remapTrainerPoolMembers(project, trainerId, order);
+  remapTrainerMemberSettings(project, trainerId, trainerId, order);
   const step = to > from ? 1 : -1;
   for (let current = from; current !== to; current += step) swapTrainerPokemonRaw(trpok.raw, current, current + step);
   syncTrainerPokemonReadable(project, trainerId, trpok.raw, trpok.readable);
@@ -620,6 +633,10 @@ export function duplicateTrainerPokemon(project: ProjectState, trainerId: number
   if (slot < 0 || slot >= count) throw new Error("Trainer Pokemon slot does not exist");
   if (count >= 6) throw new Error("Trainer parties cannot exceed 6 Pokemon");
 
+  const order = Array.from({ length: count }, (_, index) => index);
+  order.splice(slot + 1, 0, slot);
+  remapTrainerPoolMembers(project, trainerId, order);
+  remapTrainerMemberSettings(project, trainerId, trainerId, order);
   for (const field of TRAINER_POKEMON_FIELDS) {
     const value = trpok.raw[`${field}_${slot}`];
     if (value !== undefined) trpok.raw[`${field}_${count}`] = value;
@@ -650,6 +667,10 @@ export function importTrainerTeamShowdownText(project: ProjectState, trainerId: 
   if (blocks.length > 6) throw new Error("Trainer parties cannot exceed 6 Pokemon");
   // Parse everything first so a bad set does not leave the party half replaced.
   blocks.forEach((block) => findPokemonValueIndex(project, parseTrainerPokemonShowdownImport(block).species));
+  const currentCount = project.trpokInfo[trainerId]?.numPokemon ?? 0;
+  if (blocks.length < currentCount) {
+    remapTrainerPoolMembers(project, trainerId, Array.from({ length: blocks.length }, (_, slot) => slot));
+  }
   blocks.forEach((block, slot) => {
     if (slot >= getTrainerRecord(project, trainerId, { includeTexts: false }).party.length) addTrainerPokemon(project, trainerId);
     importTrainerPokemonShowdownText(project, trainerId, slot, block);

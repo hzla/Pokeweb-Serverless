@@ -55,6 +55,7 @@ const MMDL_BILLBOARD_SIZES = [
 export type Map3dSeason = "spring" | "summer" | "autumn" | "winter";
 
 export type Map3dMatrixCell = { matrixId: number; x: number; y: number };
+export type Map3dTile = { matrixX: number; matrixY: number; tileX: number; tileY: number };
 
 /** Decoded zones kept for quick revisits (each holds geometry and textures). */
 const ZONE_CACHE_LIMIT = 4;
@@ -285,7 +286,7 @@ export type Map3dSceneData = {
   chunks: Map3dChunk[];
   neighboringScenery?: { chunks: Map3dChunk[]; buildings: Map3dBuilding[] };
   buildings: Map3dBuilding[];
-  buildingModels?: Array<{ uid: number; primitives: Map3dPrimitive[] }>;
+  buildingModels?: Array<{ uid: number; name?: string; primitives: Map3dPrimitive[] }>;
   buildingDiagnostics?: Map3dBuildingDiagnostic[];
   entities: Map3dEntityOverlay[];
   npcModels: Map3dNpcModel[];
@@ -346,6 +347,7 @@ type MapReplaceEntry = {
 
 type BuildingResource = {
   uid: number;
+  name?: string;
   primitives: Map3dPrimitive[];
 };
 
@@ -1022,7 +1024,7 @@ async function loadArchives(project: ProjectState): Promise<LazyArchives> {
     chunks: new NARC(rom.getFileByName(MAP_CHUNKS_PATH)),
     chunksFileId: rom.fileId(MAP_CHUNKS_PATH),
     mapReplace: firstFile(new NARC(rom.getFileByName(MAP_REPLACE_PATH))) ?? new Uint8Array(),
-    areaTable: rom.getFileByName(AREA_TABLE_PATH).slice(),
+    areaTable: getRomFileBytes(project, rom, rom.fileId(AREA_TABLE_PATH)).slice(),
     textures: currentArchive(MAP_TEXTURES_PATH),
     textureSrt: currentArchive(MAP_SRT_PATH),
     texturePat: currentArchive(MAP_PAT_PATH),
@@ -1214,6 +1216,7 @@ function loadBuildingsForZone(
         const resources = combineResources(modelResources, textureResources);
         resourcesByUid.set(uid, {
           uid,
+          name: readNitroModelNames(modelBytes).join(" / ") || undefined,
           primitives: buildModelPrimitives(resources, warnings, { textureAnimations: loadPropTextureAnimations(meta, resources, uid, warnings) }),
         });
       } catch (error) {
@@ -1320,6 +1323,17 @@ function commitBuildingTable(project: ProjectState, chunkId: number, bytes: Uint
   if (record) record.bytes = bytes;
   markDirty(project, "maps", chunkId);
   map3dLoader.clearCache();
+}
+
+/** A copy of a chunk's file, for undoing building edits byte for byte. */
+export function readMap3dChunkBytes(project: ProjectState, chunkId: number): Uint8Array | undefined {
+  return project.narcs.maps?.rawFiles[chunkId]?.slice();
+}
+
+/** Put back a chunk file read with readMap3dChunkBytes. Reload the map afterwards to see it. */
+export function restoreMap3dChunkBytes(project: ProjectState, chunkId: number, bytes: Uint8Array): void {
+  if (!project.narcs.maps) throw new Error("Reload the map before undoing building edits.");
+  commitBuildingTable(project, chunkId, bytes.slice());
 }
 
 /** Append to the native table, even if some existing models could not be rendered. */
@@ -2310,7 +2324,7 @@ function parseRenderOps(data: Uint8Array, offset: number): RenderOp[] {
     const kind = opcode & 0x1f;
     const option = opcode & 0xe0;
     if (kind === 1) break;
-    const paramLength = renderParamLength(opcode, data, cursor);
+    const paramLength = nitroRenderParamLength(opcode, data, cursor);
     const params = data.slice(cursor, cursor + paramLength);
     cursor += paramLength;
     if (kind === 0x03) ops.push({ kind: "load", stack: params[0] ?? 0 });
@@ -2331,7 +2345,7 @@ function parseRenderOps(data: Uint8Array, offset: number): RenderOp[] {
   return ops;
 }
 
-function renderParamLength(opcode: number, data: Uint8Array, cursor: number): number {
+export function nitroRenderParamLength(opcode: number, data: Uint8Array, cursor: number): number {
   const kind = opcode & 0x1f;
   const option = opcode & 0xe0;
   if (kind === 0x06) return 3 + (option === 0x60 ? 2 : option === 0x20 || option === 0x40 ? 1 : 0);

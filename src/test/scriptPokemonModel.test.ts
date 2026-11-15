@@ -6,8 +6,10 @@ import { GEN5_INGAME_TRADE_FIELDS } from "../pokeweb/ingameTradeModel";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
 import {
   applyGen5ScriptPokemonGroup,
+  findScriptPokemonShinyLocks,
   GEN5_WILD_BATTLE_FLAGS,
   GEN5_WILD_BATTLE_KNOWN_FLAG_MASK,
+  removeScriptPokemonShinyLock,
   scanGen5ScriptPokemon,
 } from "../pokeweb/scriptPokemonModel";
 
@@ -91,6 +93,51 @@ describe("gen5ScriptPokemonScanner", () => {
 });
 
 describe("scriptPokemonModel", () => {
+  it("removes a wild lock without changing other battle flags or a shared script variable", () => {
+    const flags = 0x0119;
+    const project = makeProject({ scripts: [makeScriptFile(bytes(
+      ...words(0x28, 0x8020, 0x0109, 0x13, 0x8020, 0x0010),
+      ...words(0x1f), 0, 10, 0, 0, 0,
+      ...words(0x174, 643, 50, 0x8020, 0x02),
+      ...words(0x174, 644, 50, 0x8020, 0x02),
+    ))], trades: [] });
+    const read = () => findScriptPokemonShinyLocks(project, scanGen5ScriptPokemon(project).groups);
+    const [lock, other] = read();
+    expect(lock?.edit?.before).toBe(flags);
+    expect(other?.edit?.before).toBe(flags);
+    expect(removeScriptPokemonShinyLock(project, lock!.group.key, lock!.acquisition.id).scriptsChanged).toEqual([0]);
+    expect(readU16(project.narcs.scripts!.rawFiles[0]!, lock!.edit!.offset)).toBe(0x0109);
+    expect(read().map(row => row.acquisition.id)).toEqual([other!.acquisition.id]);
+    expect(() => removeScriptPokemonShinyLock(project, lock!.group.key, lock!.acquisition.id)).toThrow(/no longer available/);
+  });
+
+  it("removes an extended gift lock and ignores matching bytes after a script return", () => {
+    const project = makeProject({ scripts: [makeScriptFile(bytes(...words(
+      0x10e, 0x8010, 570, 0, 10, 2, 2, 0, 0, 4,
+      0x02,
+      0x174, 643, 50, 0x11,
+    )))], trades: [] });
+    const locks = findScriptPokemonShinyLocks(project, scanGen5ScriptPokemon(project).groups);
+    expect(locks).toHaveLength(1);
+    const lock = locks[0]!;
+    expect(lock.acquisition.kind).toBe("party_gift_ex");
+    removeScriptPokemonShinyLock(project, lock.group.key, lock.acquisition.id);
+    expect(readU16(project.narcs.scripts!.rawFiles[0]!, lock.edit!.offset)).toBe(2);
+  });
+
+  it("does not flatten divergent flags when a conditional path adds a battle flag", () => {
+    const project = makeProject({ scripts: [makeScriptFile(bytes(
+      ...words(0x28, 0x8020, 0x10),
+      ...words(0x1f), 0, 6, 0, 0, 0,
+      ...words(0x13, 0x8020, 0x0100),
+      ...words(0x174, 643, 50, 0x8020, 0x02),
+    ))], trades: [] });
+    const locks = findScriptPokemonShinyLocks(project, scanGen5ScriptPokemon(project).groups);
+    expect(locks).toHaveLength(1);
+    expect(locks[0]?.edit).toBeUndefined();
+    expect(locks[0]?.reason).toMatch(/differs across script paths/);
+  });
+
   it("labels source-defined gift enums and decomposes the wild battle flag mask", () => {
     const project = makeProject({
       scripts: [makeScriptFile(bytes(

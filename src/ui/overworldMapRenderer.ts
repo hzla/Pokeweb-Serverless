@@ -234,7 +234,7 @@ function isBlankMapCanvas(context: CanvasRenderingContext2D, width: number, heig
   return true;
 }
 
-function addPrimitivesToGroup(
+export function addPrimitivesToGroup(
   group: THREE.Group,
   primitives: Map3dPrimitive[],
   textureCache: Map<string, THREE.DataTexture>,
@@ -298,7 +298,7 @@ function textureWrapMode(repeat: boolean, flip: boolean): THREE.Wrapping {
   return flip ? THREE.MirroredRepeatWrapping : THREE.RepeatWrapping;
 }
 
-function clearGroup(group: THREE.Group): void {
+export function clearGroup(group: THREE.Group): void {
   for (const child of [...group.children]) {
     group.remove(child);
     child.traverse((object) => {

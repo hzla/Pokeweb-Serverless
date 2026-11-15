@@ -1,0 +1,330 @@
+{
+  "B2": {
+    "gameCode": "IREO",
+    "version": "2.6.0",
+    "hook": 35245458,
+    "sha256": "7a7abf9e2722a869668ec7b391a8bb829eac9bc4c91118e5f8743b3e8ad74784",
+    "previousSha256": "e9c9406d219edd77f858ac5a8462d1e3720b342675a5327d2c9bd82599e6a5e5",
+    "weightedSha256": "78d294c12ea62e805dbd4fe911ff78bf12b0b4e0d39c03367165ccf5669e8f47",
+    "conditionalSha256": "03f9ee4a3310f489af634e47cc3296b0591068e0a1deedc3567de0ab1b74d2f2",
+    "linkedPoolsSha256": "6d6e998f3727aa58c001c3e512f000b2a135bfef1d3999db1baff5a8fa64aac7",
+    "directPoolsSha256": "78f4a8f38730a7a91db66c715a298b6211babb508df861f1243b8da365bc3eb1",
+    "fixedPartiesSha256": "32bec2170e380b701e4262706870baf5ea9332677ac92f30b51fe5a0873bf034",
+    "legacySha256": "a4ce5c8bdab4bf5eefa07faedfc70cc4c42e0ab8886fa53eca2ea594d484f7cf",
+    "arm9": [
+      {
+        "address": 33672440,
+        "size": 12,
+        "sha256": "518877078022ab67f93601082909685249b1ece905ccc79589bf0ff1eec96d18"
+      },
+      {
+        "address": 33672476,
+        "size": 12,
+        "sha256": "f4e79db8a467224b50f01d4431b1f5244f1e3086d3f09cfd5f401f30ea1a9087"
+      },
+      {
+        "address": 34134120,
+        "size": 12,
+        "sha256": "cb499a76d721493bbd4f0c911a8b04057b2596639f60289b2d9e046b5610d5ec"
+      },
+      {
+        "address": 33753280,
+        "size": 116,
+        "sha256": "18ba36c010bd87aebc99e235cc18e3af7a2b36eb6d17c19766317d1b664c8b12"
+      },
+      {
+        "address": 34047912,
+        "size": 12,
+        "sha256": "60c941f96477acb4e6683b0ad0701a4c8d0848dfb4f133180c1150270348657b"
+      },
+      {
+        "address": 33684788,
+        "size": 56,
+        "sha256": "a59e5c4734a524f9760e042dcbac5385aac183da6463da2957c3f03f60743907"
+      },
+      {
+        "address": 33752800,
+        "size": 68,
+        "sha256": "ec9e0275039d914d2d02b4f797fa92ae3d4ffbaa4dc1c42f4fd43f453f7d5b19"
+      },
+      {
+        "address": 33752868,
+        "size": 16,
+        "sha256": "e35ea1708c19028228270927303422598f9a3707e8fe412366068fe2e4d2eff2"
+      },
+      {
+        "address": 33684984,
+        "size": 4,
+        "sha256": "a78fc9996461c9de89dede305a4ebaddf18e69f73df2a59a239610bf4bdef4cd"
+      },
+      {
+        "address": 33685256,
+        "size": 10,
+        "sha256": "57f8bbf352a790e7dee6c60d37ebac620aad2c5e64e32bf3a18a682d10d61c9b"
+      },
+      {
+        "address": 33657260,
+        "size": 44,
+        "sha256": "228dd6041702afa881b85825cc9083928662910cfc272dc56b0a9e737d107135"
+      },
+      {
+        "address": 33657492,
+        "size": 12,
+        "sha256": "3596a3320baf92460a5f74a2993f0e3d12cc428ec9b7d1b9a7e1d0d9c56605ab"
+      },
+      {
+        "address": 34016380,
+        "size": 12,
+        "sha256": "618af014c9c9473d7eb343ec712d29dddd0d197106d9d20d421d49d0652a6967"
+      },
+      {
+        "address": 34016928,
+        "size": 12,
+        "sha256": "6f4d9294e12f90bd54e049e5ead2ed5f9ff614b3c629311d4af265d26d6488ec"
+      },
+      {
+        "address": 34016832,
+        "size": 12,
+        "sha256": "c0506409d11af23a6ac31ee62c3975d32d15e0cd8a0cc9de551d3fe8509ed746"
+      },
+      {
+        "address": 34016704,
+        "size": 12,
+        "sha256": "5655f99a7b5c351bda006ed35c6567098587f1e1da1eab25910ef0eacfa83259"
+      },
+      {
+        "address": 34016808,
+        "size": 12,
+        "sha256": "a7e167b4cac5aa5b37b7cc818ce875d9170980420520c69c14ae0eedfa732939"
+      },
+      {
+        "address": 34016692,
+        "size": 12,
+        "sha256": "5d771132fce6eb1bc970b6e73d0184d4b288ecb12f621006f96c51f156986d4c"
+      }
+    ],
+    "setup": [
+      {
+        "address": 33651860,
+        "size": 22,
+        "sha256": "fb7b69c7ee427fe277544481a372d741988003b0dcbd0536490dd2df0ee27068"
+      },
+      {
+        "address": 33651948,
+        "size": 14,
+        "sha256": "aab1155771148f73a39571cf475f22d9f20f33e125f85c4b3ef72524ca35e7fd"
+      },
+      {
+        "address": 33652308,
+        "size": 92,
+        "sha256": "2600fae557592dbf6761ccf419e410893768872e674cf926dc4b95b34c167d1a"
+      },
+      {
+        "address": 33653388,
+        "size": 384,
+        "sha256": "8fc7d3f0158134bb38c610d90e9a9b385b488ff41b71a453e2f0c9ef08f8e0d1"
+      },
+      {
+        "address": 33576776,
+        "size": 56,
+        "sha256": "dd1b9974864500298f1187a68fd36c92e03a31ec9e4e6bdca92c200d8cff335a"
+      },
+      {
+        "address": 33649500,
+        "size": 8,
+        "sha256": "49c026e0154b8d8b387f6ab6b7a75548e56183b57df51cd6f736b28ab2b350b2"
+      },
+      {
+        "address": 33649556,
+        "size": 8,
+        "sha256": "8cbd86784bbfcebc0854397ab6c764092f398b4a07ada27a09323a0a49510df4"
+      },
+      {
+        "address": 33652610,
+        "size": 2,
+        "sha256": "a208f83fecbc2d9e953ed5dc1c329e3279eb5f0220be3400808b01b2c31ec90c"
+      }
+    ],
+    "overlay": [
+      {
+        "address": 35245372,
+        "size": 96,
+        "sha256": "f315be08fdeb37ae5c1b227c71eebc67370b160b1d636c0078ed3cdc08c7793b"
+      },
+      {
+        "address": 35366276,
+        "size": 264,
+        "sha256": "8d59fc427e4dba225daedf7d6979df0f92890770796f7ebb18c854c764cd6135"
+      },
+      {
+        "address": 35447448,
+        "size": 28,
+        "sha256": "8e9f2294a51f9f3f5ae0b4ff5f495855dcf981d1a57cf6331d96cdea95f970ee"
+      }
+    ]
+  },
+  "W2": {
+    "gameCode": "IRDO",
+    "version": "2.6.0",
+    "hook": 35245522,
+    "sha256": "d9d6176b48c3704a89da37708a1d8ff2ea0feebe3e6aa375bd1d959c98102184",
+    "previousSha256": "22a2ffb6dd7a56b92b560725e94806b68ad9050f9907fb9f7d3734577d5f9328",
+    "weightedSha256": "3b74353330cec72d879505c775e6f14c56872847e1a844ddfdec29b12379acf1",
+    "conditionalSha256": "96b1fb068bb87121c4f9eeab21de6566c18b4c3c82f7a80f1ca8ff0a99607668",
+    "linkedPoolsSha256": "dcb9bbb77a43d96b6d7190905078b9e63feaef9f810492befcd2d583125d1975",
+    "directPoolsSha256": "5ccc43e52b9693bf758675c3438a131505145c45f7dc6266aa035e81f388792b",
+    "fixedPartiesSha256": "e34b0cc0556a28aac7506eea008c8e278f9b78862f024a0bb4b6bbc568ae2c2c",
+    "legacySha256": "5f6b0fa9d34056ca556ed1745d48ee4f45a09b6d9c1ccd28eb1887375d68b774",
+    "arm9": [
+      {
+        "address": 33672484,
+        "size": 12,
+        "sha256": "518877078022ab67f93601082909685249b1ece905ccc79589bf0ff1eec96d18"
+      },
+      {
+        "address": 33672520,
+        "size": 12,
+        "sha256": "f4e79db8a467224b50f01d4431b1f5244f1e3086d3f09cfd5f401f30ea1a9087"
+      },
+      {
+        "address": 34134164,
+        "size": 12,
+        "sha256": "cb499a76d721493bbd4f0c911a8b04057b2596639f60289b2d9e046b5610d5ec"
+      },
+      {
+        "address": 33753324,
+        "size": 116,
+        "sha256": "18ba36c010bd87aebc99e235cc18e3af7a2b36eb6d17c19766317d1b664c8b12"
+      },
+      {
+        "address": 34047956,
+        "size": 12,
+        "sha256": "60c941f96477acb4e6683b0ad0701a4c8d0848dfb4f133180c1150270348657b"
+      },
+      {
+        "address": 33684832,
+        "size": 56,
+        "sha256": "a59e5c4734a524f9760e042dcbac5385aac183da6463da2957c3f03f60743907"
+      },
+      {
+        "address": 33752844,
+        "size": 68,
+        "sha256": "ec9e0275039d914d2d02b4f797fa92ae3d4ffbaa4dc1c42f4fd43f453f7d5b19"
+      },
+      {
+        "address": 33752912,
+        "size": 16,
+        "sha256": "ec7d313edbb290581aa1c873720999841e7879f9f2c449bc6410519f765ac4cb"
+      },
+      {
+        "address": 33685028,
+        "size": 4,
+        "sha256": "a78fc9996461c9de89dede305a4ebaddf18e69f73df2a59a239610bf4bdef4cd"
+      },
+      {
+        "address": 33685300,
+        "size": 10,
+        "sha256": "57f8bbf352a790e7dee6c60d37ebac620aad2c5e64e32bf3a18a682d10d61c9b"
+      },
+      {
+        "address": 33657304,
+        "size": 44,
+        "sha256": "228dd6041702afa881b85825cc9083928662910cfc272dc56b0a9e737d107135"
+      },
+      {
+        "address": 33657536,
+        "size": 12,
+        "sha256": "3596a3320baf92460a5f74a2993f0e3d12cc428ec9b7d1b9a7e1d0d9c56605ab"
+      },
+      {
+        "address": 34016424,
+        "size": 12,
+        "sha256": "618af014c9c9473d7eb343ec712d29dddd0d197106d9d20d421d49d0652a6967"
+      },
+      {
+        "address": 34016972,
+        "size": 12,
+        "sha256": "7defe078ff393110a2263b936ed3cae7d848e474f048aa5be79efcb0b4b6cc78"
+      },
+      {
+        "address": 34016876,
+        "size": 12,
+        "sha256": "c0506409d11af23a6ac31ee62c3975d32d15e0cd8a0cc9de551d3fe8509ed746"
+      },
+      {
+        "address": 34016748,
+        "size": 12,
+        "sha256": "5655f99a7b5c351bda006ed35c6567098587f1e1da1eab25910ef0eacfa83259"
+      },
+      {
+        "address": 34016852,
+        "size": 12,
+        "sha256": "a7e167b4cac5aa5b37b7cc818ce875d9170980420520c69c14ae0eedfa732939"
+      },
+      {
+        "address": 34016736,
+        "size": 12,
+        "sha256": "967369509406c72b8f1572698a22802c51a8200fc781b6c50ab6e58c50f1d420"
+      }
+    ],
+    "setup": [
+      {
+        "address": 33651860,
+        "size": 22,
+        "sha256": "ffb3ed2176f0058ec562dd872b28485e7f45e4b44bd0537b380656af17cca7fe"
+      },
+      {
+        "address": 33651948,
+        "size": 14,
+        "sha256": "14c16307cfea7f15d374f153f0df3043e2a267d2b0b45ecf6f78ad97c5fb3efb"
+      },
+      {
+        "address": 33652308,
+        "size": 92,
+        "sha256": "4b972c9c1cb88ae127aba63ae8d19cfa25ac699252326f95813de77ff1e84567"
+      },
+      {
+        "address": 33653388,
+        "size": 384,
+        "sha256": "8fc7d3f0158134bb38c610d90e9a9b385b488ff41b71a453e2f0c9ef08f8e0d1"
+      },
+      {
+        "address": 33576776,
+        "size": 56,
+        "sha256": "2c52fd7a7e3e1e1b14444af6e7829d9053e24679a1d95dcb016307e867e38e25"
+      },
+      {
+        "address": 33649500,
+        "size": 8,
+        "sha256": "49c026e0154b8d8b387f6ab6b7a75548e56183b57df51cd6f736b28ab2b350b2"
+      },
+      {
+        "address": 33649556,
+        "size": 8,
+        "sha256": "8cbd86784bbfcebc0854397ab6c764092f398b4a07ada27a09323a0a49510df4"
+      },
+      {
+        "address": 33652610,
+        "size": 2,
+        "sha256": "a208f83fecbc2d9e953ed5dc1c329e3279eb5f0220be3400808b01b2c31ec90c"
+      }
+    ],
+    "overlay": [
+      {
+        "address": 35245436,
+        "size": 96,
+        "sha256": "720408f26ca4adf7c07ab12ee6978b208dbd1cd0952632901c293e3997f05836"
+      },
+      {
+        "address": 35366340,
+        "size": 264,
+        "sha256": "b450d16923cbfc65c656a80f306b15e6a0b2d15eb8af622be96ea2d99b7f5a08"
+      },
+      {
+        "address": 35447512,
+        "size": 28,
+        "sha256": "8e9f2294a51f9f3f5ae0b4ff5f495855dcf981d1a57cf6331d96cdea95f970ee"
+      }
+    ]
+  }
+}

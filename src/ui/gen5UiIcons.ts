@@ -1,5 +1,5 @@
 import { typeNamesForProject } from "../pokeweb/constants";
-import { categoryIconImage, ensureGen5RomBytes, gen5UiImageUrl, hasGen5RomBytes, MOVE_CATEGORY_ICON_ORDER, tmDiscImage, typeIconImage } from "../pokeweb/gen5UiImages";
+import { categoryIconImage, ensureGen5RomBytes, gen5UiImageUrl, genderIconImage, hasGen5RomBytes, MOVE_CATEGORY_ICON_ORDER, statusIconImage, tmDiscImage, typeIconImage } from "../pokeweb/gen5UiImages";
 import { menuLabelUrl } from "../pokeweb/gen5MenuFont";
 import type { ProjectState } from "../pokeweb/projectStore";
 
@@ -95,6 +95,18 @@ export function attachGen5UiIcons(root: HTMLElement, currentProject: () => Proje
     }
     for (const element of root.querySelectorAll<HTMLElement>(".cat-filters .btn[data-mcat]")) {
       applyCategory(project, element, element.dataset.mcat?.trim().toLowerCase() ?? "");
+    }
+    // Other menu graphics, named on the element: data-g5-ui="status:3" (a status icon) or "gender:male".
+    for (const element of root.querySelectorAll<HTMLElement>("[data-g5-ui]")) {
+      const label = element.dataset.g5Ui ?? "";
+      if (element.dataset.g5Icon === label) continue;
+      element.dataset.g5Icon = label;
+      const [kind, value = ""] = label.split(":");
+      const draw = kind === "status" ? () => statusIconImage(project, Number(value))
+        : kind === "gender" && (value === "male" || value === "female") ? () => genderIconImage(project, value)
+          : undefined;
+      if (!draw) continue;
+      void gen5UiImageUrl(project, label, draw).then((url) => apply(element, url, label));
     }
   };
 

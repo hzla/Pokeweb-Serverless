@@ -1,5 +1,6 @@
 import { readU16, writeU16, writeU32 } from "../nds/binary";
 import { recordFieldChange } from "./actionChangelog";
+import { gen5ResolvedScriptOperands, gen5ScriptCommandOffsets } from "./gen5ScriptCommands";
 import {
   scanGen5ScriptPokemonCommands,
   type ScriptPokemonCommand,
@@ -19,6 +20,10 @@ import { detectStartersFromScriptBytes, findStarterScriptFileIds } from "./start
 
 const WORD_SET_POKE_SPECIES = 0x57;
 const WORD_SET_POKE_SPECIES_WITH_ARTICLE = 0x58;
+const FORCE_SHINY_BATTLE_FLAG = 0x0002;
+const FORCE_NON_SHINY_BATTLE_FLAG = 0x0010;
+const NON_SHINY_GIFT_POLICY = 0;
+const RANDOM_GIFT_SHINY_POLICY = 2;
 
 export type { ScriptValueRef } from "./gen5ScriptPokemonScanner";
 
@@ -74,20 +79,20 @@ export const GEN5_WILD_BATTLE_FLAGS: readonly ScriptPokemonBitFlag[] = [
     exclusiveWith: 0x0001,
   },
   {
-    value: 0x0002,
-    mask: 0x0002,
+    value: FORCE_SHINY_BATTLE_FLAG,
+    mask: FORCE_SHINY_BATTLE_FLAG,
     category: "Pokemon",
     label: "Force shiny",
     description: "Generate a shiny Pokemon.",
-    exclusiveWith: 0x0010,
+    exclusiveWith: FORCE_NON_SHINY_BATTLE_FLAG,
   },
   {
-    value: 0x0010,
-    mask: 0x0010,
+    value: FORCE_NON_SHINY_BATTLE_FLAG,
+    mask: FORCE_NON_SHINY_BATTLE_FLAG,
     category: "Pokemon",
     label: "Force non-shiny",
     description: "Prevent the Pokemon from being shiny.",
-    exclusiveWith: 0x0002,
+    exclusiveWith: FORCE_SHINY_BATTLE_FLAG,
   },
   {
     value: 0x0004,
@@ -195,6 +200,13 @@ export type ScriptPokemonApplyResult = {
   warnings: string[];
 };
 
+export type ScriptPokemonShinyLock = {
+  group: ScriptPokemonGroup;
+  acquisition: ScriptPokemonAcquisition;
+  edit?: { offset: number; before: number; value: number; label: string };
+  reason?: string;
+};
+
 type TradeCommandReference = {
   fileId: number;
   entryIndex: number;
@@ -284,6 +296,88 @@ export function scanGen5ScriptPokemon(project: ProjectState): ScriptPokemonScanR
     });
   }
   return { groups, diagnostics: dedupeProjectDiagnostics(diagnostics) };
+}
+
+/** The shortcut writes the command operand, leaving any shared work variable intact. */
+export function findScriptPokemonShinyLocks(project: ProjectState, groups: ScriptPokemonGroup[]): ScriptPokemonShinyLock[] {
+  const locks: ScriptPokemonShinyLock[] = [];
+  for (const group of groups) {
+    if (group.scriptFileId === undefined) continue;
+    const bytes = project.narcs.scripts?.rawFiles[group.scriptFileId];
+    if (!bytes) continue;
+    let reachable: Set<number> | undefined;
+    let resolved: Map<number, Set<number>> | undefined;
+    const seen = new Set<number>();
+    for (const { acquisitions } of group.entries) {
+      for (const acquisition of acquisitions) {
+        if (acquisition.commandOffset === undefined || acquisition.kind === "trade") continue;
+        const flags = acquisition.fields.find(field => field.name === "battleFlags");
+        const policy = acquisition.fields.find(field => field.name === "shiny");
+        if (!flags && !policy) continue;
+        const commandOffset = acquisition.commandOffset;
+        const offset = commandOffset + (flags ? acquisition.kind === "wild_battle_ex" ? 8 : 6 : 14);
+        if (seen.has(offset)) continue;
+        reachable ??= new Set(gen5ScriptCommandOffsets(bytes, project.session.baseRom));
+        if (!reachable.has(commandOffset)) continue;
+        const raw = readU16(bytes, offset);
+        let values = [raw];
+        if (raw >= 0x4000 && raw < 0xff00) {
+          if (!resolved) {
+            const operands = gen5ResolvedScriptOperands(bytes, project.session.baseRom, {
+              0x178: project.session.baseRom === "BW" ? [6] : [],
+              0x174: project.session.baseRom === "BW2" ? [6] : [],
+              0x297: project.session.baseRom === "BW2" ? [8] : [],
+              0x10e: [14],
+              0x123: [14],
+            }, { requireKnownOnAllPaths: true });
+            resolved = new Map();
+            for (const operand of operands) {
+              const address = operand.offset + operand.operandOffset;
+              const known = resolved.get(address) ?? new Set<number>();
+              for (const value of operand.values) known.add(value);
+              resolved.set(address, known);
+            }
+          }
+          values = [...(resolved.get(offset) ?? [])];
+        }
+        const isLocked = (value: number) => flags
+          ? Boolean(value & FORCE_NON_SHINY_BATTLE_FLAG)
+          : value === NON_SHINY_GIFT_POLICY;
+        if (!values.some(isLocked)) continue;
+        seen.add(offset);
+        const lock: ScriptPokemonShinyLock = { group, acquisition };
+        const before = values[0]!;
+        const value = flags ? before & ~FORCE_NON_SHINY_BATTLE_FLAG : RANDOM_GIFT_SHINY_POLICY;
+        if (values.length !== 1) {
+          lock.reason = "Shiny policy differs across script paths.";
+        } else if (flags && (before & FORCE_SHINY_BATTLE_FLAG)) {
+          lock.reason = "The script sets both shiny flags.";
+        } else if (value >= 0x4000) {
+          lock.reason = "The remaining flags cannot be written as a script literal.";
+        } else {
+          lock.edit = { offset, before, value, label: (flags ?? policy)!.label };
+        }
+        locks.push(lock);
+      }
+    }
+  }
+  return locks;
+}
+
+export function removeScriptPokemonShinyLock(project: ProjectState, groupKey: string, acquisitionId: string): ScriptPokemonApplyResult {
+  const group = scanGen5ScriptPokemon(project).groups.find(candidate => candidate.key === groupKey);
+  const lock = group && findScriptPokemonShinyLocks(project, [group]).find(candidate => candidate.acquisition.id === acquisitionId);
+  if (!lock?.edit) throw new Error(lock?.reason ?? "This shiny lock is no longer available.");
+  const fileId = lock.group.scriptFileId!;
+  const scripts = project.narcs.scripts!;
+  const bytes = scripts.rawFiles[fileId]!.slice();
+  const { offset, before, value, label } = lock.edit;
+  writeU16(bytes, offset, value);
+  scripts.rawFiles[fileId] = bytes;
+  scripts.records.delete(fileId);
+  markDirty(project, "scripts", fileId);
+  recordFieldChange(project, "scripts", `Script ${fileId}`, label, before, value, { key: `script-pokemon:script:${fileId}:${offset}` });
+  return { scriptsChanged: [fileId], tradesChanged: [], fieldsChanged: 1, warnings: [] };
 }
 
 export function applyGen5ScriptPokemonGroup(
@@ -564,9 +658,9 @@ const GIFT_GENDER_OPTIONS: readonly ScriptPokemonFieldOption[] = [
 ];
 
 const GIFT_SHINY_OPTIONS: readonly ScriptPokemonFieldOption[] = [
-  { value: 0, label: "Force non-shiny" },
+  { value: NON_SHINY_GIFT_POLICY, label: "Force non-shiny" },
   { value: 1, label: "Force shiny" },
-  { value: 2, label: "Either / random" },
+  { value: RANDOM_GIFT_SHINY_POLICY, label: "Either / random" },
 ];
 
 const ABILITY_SLOT_OPTIONS: readonly ScriptPokemonFieldOption[] = [

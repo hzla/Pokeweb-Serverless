@@ -8,6 +8,8 @@ import { compileMoveAnimation, getMoveAnimationTargetInfo } from "./moveAnimatio
 import { listCodeInjectionDlls, prepareBw2TestBattleCodeInjection, stageCodeInjectionDll } from "./pmcModel";
 import { detectBw2Upgrade } from "./black2UpgradeModel";
 import { configureHarnessRuntime, patchHarnessExpandedPartyGuard, patchHarnessSave, patchHarnessTrainer, validateHarnessRom } from "./battleHarness";
+import { decodeTrainerPools, TRAINER_POOLS_PATH } from "./trainerPartyPools";
+import { setTrainerRosterChoices, setTrainerRosterRules, shareTrainerRosterSources } from "./trainerRosterModel";
 import { loadActiveRomBytes } from "./persistence";
 import type { ProjectState } from "./projectStore";
 import { normalizeTestBattleSavePartyNicknames, patchTestBattleSavePlayerFirstMove, patchTestBattleSavePlayerParty } from "./testBattleTeam";
@@ -100,6 +102,8 @@ export type TestBattleSaveKind = "bw" | "bw2" | "white2-upgrade" | "black2-upgra
 
 export type TestBattleBuildOptions = {
   playerTeamText?: string;
+  /** Fight this roster (Trainer Customization: a trainer ID, or a party or pool ID with bit 15 set) instead of the game's own pick. */
+  rosterSource?: number;
 };
 
 export type MoveTestBattleBuildOptions = {
@@ -197,7 +201,7 @@ export async function buildTestBattleDownloads(project: ProjectState, trainerId:
   const config = getTestBattleConfigForProject(project);
 
   if (supportsAutomaticTestBattle(project)) {
-    const [romBytes, save] = await Promise.all([exportAutomaticTestBattleRom(project, trainerId), loadTestBattleSave(config)]);
+    const [romBytes, save] = await Promise.all([exportAutomaticTestBattleRom(project, trainerId, options.rosterSource), loadTestBattleSave(config)]);
     const badges = patchTestBattleSaveBadges(save.rawSaveBytes, config);
     const animations = patchTestBattleSaveMoveAnimations(badges, config);
     const party = patchTestBattleSavePlayerParty(animations, project, options.playerTeamText ?? "", config.baseRom);
@@ -286,8 +290,9 @@ async function stageBattleHarness(project: ProjectState, trainerId: number, rule
   stageCodeInjectionDll(project, BATTLE_HARNESS_FILENAME, configureHarnessRuntime(new Uint8Array(await response.arrayBuffer()), trainerId, rule));
 }
 
-async function exportAutomaticTestBattleRom(project: ProjectState, trainerId: number): Promise<Uint8Array> {
+async function exportAutomaticTestBattleRom(project: ProjectState, trainerId: number, rosterSource?: number): Promise<Uint8Array> {
   const temporaryProject = structuredClone(project) as ProjectState;
+  if (rosterSource !== undefined) forceTestBattleRoster(project, temporaryProject, trainerId, rosterSource);
   const bytes = project.originalRomBytes ?? await loadActiveRomBytes();
   if (!bytes) throw new Error("Reload the ROM before preparing an automatic Test Battle.");
   temporaryProject.originalRomBytes = bytes;
@@ -298,6 +303,13 @@ async function exportAutomaticTestBattleRom(project: ProjectState, trainerId: nu
   await prepareBw2TestBattleCodeInjection(temporaryProject);
   await stageBattleHarness(temporaryProject, trainerId, rule);
   return exportModifiedRom(temporaryProject, { preserveOriginalLength: true });
+}
+
+/** Make the test battle field one roster: the original party with no variations, or that roster as the only choice. */
+function forceTestBattleRoster(project: ProjectState, temporaryProject: ProjectState, trainerId: number, rosterSource: number): void {
+  shareTrainerRosterSources(project, temporaryProject);
+  setTrainerRosterRules(temporaryProject, trainerId, []);
+  setTrainerRosterChoices(temporaryProject, trainerId, rosterSource === trainerId ? [] : [{ rosterId: rosterSource, weight: 1 }]);
 }
 
 export async function loadHgAnimationTestBattleSave(kind: HgTestBattleSaveKind): Promise<Uint8Array> {
@@ -347,6 +359,12 @@ function patchTestBattleTrainerSlot(romBytes: Uint8Array, project: ProjectState,
   if (trainerId === TEST_BATTLE_BASE_TRAINER_ID) return romBytes;
 
   const rom = new NintendoDSRom(romBytes);
+  // The test NPC already uses the selected trainer's own script. Preserve the
+  // legacy proxy slot when a saved party pool needs it as a Pokémon source.
+  const poolsFile = rom.filenames.idOf(TRAINER_POOLS_PATH);
+  if (poolsFile !== undefined && [...decodeTrainerPools(rom.files[poolsFile]).values()]
+    .some(pool => pool.members.some(member => "trainerId" in member && member.trainerId === TEST_BATTLE_BASE_TRAINER_ID))) return romBytes;
+
   const trdataFileId = project.narcs.trdata?.fileId ?? project.session.fileIds.trdata ?? rom.fileId(config.paths.trdata);
   const trpokFileId = project.narcs.trpok?.fileId ?? project.session.fileIds.trpok ?? rom.fileId(config.paths.trpok);
   const trdata = copyTrainerNarcEntry(rom.files[trdataFileId], trainerId, "trainer data");

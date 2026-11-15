@@ -381,6 +381,15 @@
   max-width: calc(100% - 28px);
 }
 
+.map3d-toolbar {
+  pointer-events: none;
+}
+
+.map3d-toolbar-buttons > *,
+.map3d-toolbar > details {
+  pointer-events: auto;
+}
+
 .map3d-toolbar-buttons {
   display: flex;
   flex-wrap: wrap;
@@ -532,3 +541,13 @@
 .map3d-folder-files dd { margin: 0; overflow-wrap: anywhere; }
 .map3d-native-import [data-native-status] { margin: 12px 0; }
 .map3d-native-import .map3d-building-actions { position: sticky; bottom: -20px; padding: 12px 0; background: var(--bg-panel, #20242c); }
+
+.map3d-grass-active canvas,
+.map3d-warp-pick canvas {
+  cursor: crosshair;
+}
+
+:is(#map3d-add-grass, #map3d-remove-grass, #map3d-game-test)[aria-pressed="true"] {
+  outline: 2px solid currentColor;
+  outline-offset: -2px;
+}

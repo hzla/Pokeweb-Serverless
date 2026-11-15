@@ -65,7 +65,7 @@ export function gen5ResolvedScriptOperands(
   bytes: Uint8Array,
   baseRom: BaseRom,
   commandOperands: Readonly<Record<number, readonly number[]>>,
-  options: ScriptWalkOptions = {},
+  options: ScriptWalkOptions & { requireKnownOnAllPaths?: boolean } = {},
 ): ResolvedScriptOperand[] {
   if (baseRom !== "BW" && baseRom !== "BW2") return [];
   const entries = gen5ScriptEntries(bytes);
@@ -85,13 +85,14 @@ export function gen5ResolvedScriptOperands(
       }
     }
   }
-  // Include variables copied into a tracked trainer operand.
+  // Include variables copied into a tracked operand.
   let addedDependency = true;
   while (addedDependency) {
     addedDependency = false;
     for (const offset of reachableOffsets) {
       const command = readU16(bytes, offset);
-      if (command !== 0x29 && command !== 0x2a) continue;
+      if (command !== 0x29 && command !== 0x2a
+        && !(options.requireKnownOnAllPaths && (command === 0x12 || command === 0x13))) continue;
       if (!trackedWork.has(readU16(bytes, offset + 2))) continue;
       const source = readU16(bytes, offset + 4);
       if (source >= 0x4000 && !trackedWork.has(source)) {
@@ -105,6 +106,7 @@ export function gen5ResolvedScriptOperands(
   const pending: PendingPath[] = [...new Set(starts)].map((offset) => ({ offset, state: new Map() }));
   const visited = new Set<string>();
   const resolved: ResolvedScriptOperand[] = [];
+  const unresolved = new Set<string>();
 
   const clone = (state: WorkState): WorkState => new Map(state);
   const valueOf = (raw: number, state: WorkState): number | undefined => raw < 0x4000 ? raw : state.get(raw);
@@ -117,6 +119,7 @@ export function gen5ResolvedScriptOperands(
       const key = `${offset}|${stateKey(state)}`;
       if (visited.has(key)) break;
       visited.add(key);
+      if (options.requireKnownOnAllPaths && visited.size > 100_000) return [];
       const command = readU16(bytes, offset);
       const size = gen5ScriptCommandSize(command, baseRom, options.overlayId);
       if (!size || offset + size > bytes.length) break;
@@ -125,9 +128,16 @@ export function gen5ResolvedScriptOperands(
         if (operandOffset + 2 > size) continue;
         const value = valueOf(readU16(bytes, offset + operandOffset), state);
         if (value !== undefined) resolved.push({ offset, command, operandOffset, values: [value] });
+        else if (options.requireKnownOnAllPaths) unresolved.add(`${offset}:${operandOffset}`);
       }
 
-      if (command >= 0x26 && command <= 0x2d && size >= 6) {
+      if (options.requireKnownOnAllPaths && (command === 0x12 || command === 0x13)) {
+        const destination = readU16(bytes, offset + 2);
+        const before = state.get(destination);
+        const operand = valueOf(readU16(bytes, offset + 4), state);
+        if (before === undefined || operand === undefined) state.delete(destination);
+        else state.set(destination, (command === 0x12 ? before & operand : before | operand) & 0xffff);
+      } else if (command >= 0x26 && command <= 0x2d && size >= 6) {
         const destination = readU16(bytes, offset + 2);
         const operand = readU16(bytes, offset + 4);
         const source = valueOf(operand, state);
@@ -138,6 +148,15 @@ export function gen5ResolvedScriptOperands(
             else state.set(destination, source);
           } else state.delete(destination);
         }
+      } else if (options.requireKnownOnAllPaths) {
+        if (command === 0x03 || command === 0x1b || command === 0x1c) state.clear();
+        else {
+          // Unmodeled commands can write work arguments. Invalidate any tracked
+          // work IDs in their operands, which may begin at an odd alignment.
+          for (let operand = offset + 2; operand + 2 <= offset + size; operand += 1) {
+            state.delete(readU16(bytes, operand));
+          }
+        }
       }
 
       if (command === 0x02 || command === 0x05 || command === 0x1d) break;
@@ -145,11 +164,14 @@ export function gen5ResolvedScriptOperands(
         const target = branchTarget(offset, size);
         if (target >= tableEnd && target + 2 <= bytes.length) pending.push({ offset: target, state: clone(state) });
         if (command === 0x1e) break;
+        if (options.requireKnownOnAllPaths && (command === 0x04 || command === 0x20)) state.clear();
       }
       offset += size;
     }
   }
-  return resolved;
+  return options.requireKnownOnAllPaths
+    ? resolved.filter(value => !unresolved.has(`${value.offset}:${value.operandOffset}`))
+    : resolved;
 }
 
 // Command byte lengths (including the opcode), indexed by opcode; 0 means unknown.

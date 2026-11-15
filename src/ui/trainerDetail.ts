@@ -1,3 +1,9 @@
+import { renderRosterHub } from "./trainerRosterHub";
+import { listTrainerRosters, originalRosterKey, poolRecord, rosterPool, trainerHasRosterVariants, type RosterKey } from "../pokeweb/trainerRosterHub";
+import { TRAINER_POOL_GROUPS, TRAINER_POOL_MAX_MEMBERS, trainerPoolGroupBit, type TrainerPartyPool, type TrainerPoolMember } from "../pokeweb/trainerPartyPools";
+import { hasTrainerMemberCustomization, getTrainerMemberSettings, type TrainerMemberSettings } from "../pokeweb/trainerCustomizationModel";
+import { STATUS_ICON } from "../pokeweb/gen5UiImages";
+import { trainerFormOptions, trainerGenderAvailability, trainerMaxHp, trainerStartingHp } from "../pokeweb/trainerSlotFacts";
 import { publicAsset } from "../assetUrl";
 import { BATTLE_TYPES, NATURES, TRAINER_AIS, TRAINER_GENDERS, isGen5Project } from "../pokeweb/constants";
 import { getMovePreview } from "../pokeweb/pokemonModel";
@@ -12,6 +18,7 @@ import {
   getTrainerPokemonAbilityOptions,
   getTrainerRecord,
   resolveTrainerPokemonGender,
+  trainerPokemonSpriteSlug,
   type TrainerPokemonSlot,
   type TrainerRecord,
 } from "../pokeweb/trainerModel";
@@ -85,7 +92,7 @@ export function renderTrainerListRowContent(project: ProjectState, trainerOrId: 
     <span class="td-row-sprite">${renderTrainerSpriteImage(project, trainer)}</span>
     <span class="td-row-main">
       <span class="td-row-line">
-        <span class="md-row-name">${escapeHtml(trainerDisplayName(trainer))}${edits ? `<span class="md-edits" title="${edits} change${edits === 1 ? "" : "s"}">${edits}</span>` : ""}</span>
+        <span class="md-row-name">${escapeHtml(trainerDisplayName(trainer))}${safe(() => trainerHasRosterVariants(project, trainer.id), false) ? `<span class="td-row-dice" title="Has alternate parties, pools or rules" aria-label="Varies between battles">⚄</span>` : ""}${edits ? `<span class="md-edits" title="${edits} change${edits === 1 ? "" : "s"}">${edits}</span>` : ""}</span>
         <span class="td-row-lv">${escapeHtml(trainerLevelRange(trainer))}</span>
       </span>
       <span class="td-row-line">
@@ -143,9 +150,39 @@ function hasItem(value: unknown): boolean {
 
 // ---------- Detail ----------
 
-export function renderTrainerDetail(project: ProjectState, trainerId: number, selectedSlot: number, natureField: boolean): string {
+/** The roster the party cards and slot editor show: the trainer's own party, an alternate party, a pool, or another trainer's party. */
+export type RosterView = {
+  key: RosterKey;
+  kind: "original" | "party" | "pool" | "trainer";
+  record: TrainerRecord;
+  poolId?: number;
+  pool?: TrainerPartyPool;
+  /** Another trainer's party: shown, edited there. */
+  readonly: boolean;
+  limit: number;
+};
+
+export function rosterView(project: ProjectState, trainerId: number, key: RosterKey, selectedSlot: number): RosterView {
+  const original = (): RosterView => ({ key: originalRosterKey, kind: "original", record: getTrainerRecord(project, trainerId, { includeTexts: false }), readonly: false, limit: 6 });
+  if (key === originalRosterKey) return original();
+  const tab = safe(() => listTrainerRosters(project, trainerId).find((entry) => entry.key === key), undefined);
+  if (!tab || tab.kind === "original") return original();
+  if (tab.kind === "trainer") {
+    return { key, kind: "trainer", record: getTrainerRecord(project, tab.source, { includeTexts: false }), readonly: true, limit: 6 };
+  }
+  const pool = tab.poolId === undefined ? undefined : rosterPool(project, tab.poolId);
+  if (!pool) return original();
+  return {
+    key, kind: tab.kind, poolId: tab.poolId, pool, readonly: false, limit: tab.kind === "party" ? 6 : TRAINER_POOL_MAX_MEMBERS,
+    record: poolRecord(project, trainerId, pool, selectedSlot),
+  };
+}
+
+export function renderTrainerDetail(project: ProjectState, trainerId: number, selectedSlot: number, natureField: boolean, rosterKey: RosterKey = originalRosterKey): string {
   const trainer = getTrainerRecord(project, trainerId, { includeTexts: true });
-  const slot = trainer.party.find((pok) => pok.slot === selectedSlot) ?? trainer.party[0];
+  const view = rosterView(project, trainerId, rosterKey, selectedSlot);
+  const party = view.record;
+  const slot = party.party.find((pok) => pok.slot === selectedSlot) ?? party.party[0];
   const fieldSettings = project.session.baseRom === "BW2" ? renderTrainerFieldSettings(project, trainer.id) : "";
   return `
     <article class="trainer-card td-card" data-index="${trainer.id}">
@@ -166,6 +203,9 @@ export function renderTrainerDetail(project: ProjectState, trainerId: number, se
           </div>
         </div>
         <div class="td-head-actions">
+          ${safe(() => trainerHasRosterVariants(project, trainer.id), false) ? `<select class="td-test-roster" data-test-roster aria-label="Roster to fight in Test battle" title="Which roster Test battle fights">
+            <option value="shown">Fight the roster shown</option><option value="game">Fight the game's pick</option>
+          </select>` : ""}
           <button class="btn -primary" type="button" data-trainer-test>Test battle</button>
           <button class="btn" type="button" data-team-copy ${trainer.party.length ? "" : "disabled"}>Copy team</button>
           <button class="btn" type="button" data-team-import>Import team</button>
@@ -173,9 +213,10 @@ export function renderTrainerDetail(project: ProjectState, trainerId: number, se
       </header>
       <div class="td-body">
         <section class="td-party" aria-label="Party">
-          <div class="section-bar">Party<span class="td-bar-note">${trainer.party.length} of 6</span></div>
-          <div class="td-strip" data-party-strip>${renderTrainerPartyStrip(project, trainer, slot?.slot ?? -1)}</div>
-          <div class="td-slot" data-slot-editor>${slot ? renderTrainerSlotEditor(project, trainer, slot, natureField) : renderEmptyParty()}</div>
+          <div class="section-bar">Party<span class="td-bar-note">${partyNote(view)}</span></div>
+          <div class="td-roster-hub" data-roster-hub>${safe(() => renderRosterHub(project, trainer.id, view.key), "")}</div>
+          <div class="td-strip${view.kind === "pool" ? " -pool" : ""}" data-party-strip>${renderTrainerPartyStrip(project, party, slot?.slot ?? -1, view)}</div>
+          <div class="td-slot" data-slot-editor>${slot ? renderTrainerSlotEditor(project, party, slot, natureField, view) : renderEmptyParty(view)}</div>
         </section>
         <aside class="td-settings" aria-label="Trainer settings">
           ${renderTrainerSettings(project, trainer)}
@@ -195,7 +236,14 @@ export function renderTrainerDetail(project: ProjectState, trainerId: number, se
   `;
 }
 
-function renderEmptyParty(): string {
+export function partyNote(view: RosterView): string {
+  if (view.kind === "pool") return `draws ${view.pool?.size ?? 0} of ${view.record.party.length} candidates`;
+  return `${view.record.party.length} of 6`;
+}
+
+export function renderEmptyParty(view?: RosterView): string {
+  if (view?.kind === "pool") return `<p class="td-empty">This pool has no candidates. Add Pokémon for the game to draw from.</p>`;
+  if (view?.kind === "party") return `<p class="td-empty">This party is empty. Add a Pokémon.</p>`;
   return `<p class="td-empty">This trainer has no Pokémon. Add one to start building the party.</p>`;
 }
 
@@ -210,43 +258,207 @@ function renderTrainerLocation(project: ProjectState, trainerId: number): string
   return `<span class="td-meta-field td-location"><span class="md-label">Location</span>${value}</span>`;
 }
 
-export function renderTrainerPartyStrip(project: ProjectState, trainer: TrainerRecord, selectedSlot: number): string {
+const POOL_TAGS = ["", "Lead", "Ace"];
+
+export function renderTrainerPartyStrip(project: ProjectState, trainer: TrainerRecord, selectedSlot: number, view?: RosterView): string {
   const cards = trainer.party.map((pok) => {
     const selected = pok.slot === selectedSlot;
     const item = trainer.hasItems && hasItem(pok.itemName) ? String(pok.itemName) : "";
+    const member = view?.pool?.members[pok.slot];
+    const tag = member && view?.kind === "pool" && !view.pool?.slotGroups ? POOL_TAGS[member.role] ?? "" : "";
+    const groups = member && view?.pool?.slotGroups ? TRAINER_POOL_GROUPS
+      .filter((_name, index) => (member.groups ?? 0) & trainerPoolGroupBit(index + 1)).join(" · ") : "";
+    const linked = member && !("pokemon" in member) ? `#${member.trainerId}` : "";
+    const settings = member && "pokemon" in member ? member.pokemon.settings : view && view.kind !== "original" ? undefined : safe(() => hasTrainerMemberCustomization(project) ? getTrainerMemberSettings(project, trainer.id, pok.slot) : undefined, undefined);
     return `
-      <button class="td-mon${selected ? " is-selected" : ""}" type="button" role="tab" aria-selected="${selected}" data-slot="${pok.slot}" data-mark-prefix="pokemon:${pok.slot}:">
+      <button class="td-mon${selected ? " is-selected" : ""}" type="button" role="tab" aria-selected="${selected}" data-slot="${pok.slot}"${view && view.kind !== "original" ? "" : ` data-mark-prefix="pokemon:${pok.slot}:"`}>
         ${item ? `<img class="td-item-icon" src="${itemIconSrc(item)}" alt="${escapeHtml(item)}" title="${escapeHtml(item)}" onerror="this.remove()">` : ""}
+        ${groups ? `<span class="td-mon-tag" aria-label="Groups ${groups}">${groups}</span>` : ""}
+        ${tag ? `<span class="td-mon-tag -${tag.toLowerCase()}">${tag}</span>` : ""}
+        ${linked ? `<span class="td-mon-link" title="Linked from trainer ${escapeHtml(linked)}">${escapeHtml(linked)}</span>` : ""}
         <span class="td-mon-icon trainer-poks">${renderPartyIcon(project, pok, "td-mon-sprite")}</span>
-        <span class="td-mon-name">${escapeHtml(pok.speciesName)}</span>
-        <span class="td-mon-meta">Lv ${pok.level}</span>
+        <span class="td-mon-name">${settings?.shiny === 1 ? `<span class="td-shiny-mark" title="Shiny">✦</span>` : ""}${escapeHtml(pok.speciesName)}</span>
+        <span class="td-mon-meta">Lv ${pok.level}${renderCardCondition(project, pok, settings)}</span>
       </button>
     `;
   });
-  if (trainer.party.length < 6) {
-    cards.push(`<button class="td-mon td-mon-add" type="button" data-party-add><span class="td-mon-plus" aria-hidden="true">+</span><span>Add Pokémon</span></button>`);
+  if (!view?.readonly && trainer.party.length < (view?.limit ?? 6)) {
+    cards.push(`<button class="td-mon td-mon-add" type="button" data-party-add><span class="td-mon-plus" aria-hidden="true">+</span><span>${view?.kind === "pool" ? "Add candidate" : "Add Pokémon"}</span></button>`);
   }
   return cards.join("");
 }
 
-export function renderTrainerSlotEditor(project: ProjectState, trainer: TrainerRecord, pok: TrainerPokemonSlot, natureField: boolean): string {
+/** A party card's status icon and a small HP bar when the Pokémon starts the battle hurt. */
+function renderCardCondition(project: ProjectState, pok: TrainerPokemonSlot, settings: TrainerMemberSettings | undefined): string {
+  if (!settings) return "";
+  const choice = STATUS_CHOICES[settings.status];
+  const status = choice?.icon === undefined ? "" : `<span class="td-status-icon td-card-status" data-g5-ui="status:${choice.icon}" title="${escapeHtml(choice.label)}">${choice.text}</span>`;
+  const max = settings.hpMode ? safe(() => trainerMaxHp(project, pok.speciesId, pok.form, pok.level, pok.ivs), undefined) : undefined;
+  const share = !settings.hpMode ? 100 : max ? (trainerStartingHp(max, settings.hpMode, settings.hp) / max) * 100 : settings.hpMode === 1 ? settings.hp : 100;
+  const hp = share < 100 ? `<span class="td-card-hp" title="Starts at ${Math.round(share)}% HP"><span class="${share > 50 ? "-high" : share > 20 ? "-mid" : "-low"}" style="width:${share.toFixed(1)}%"></span></span>` : "";
+  return status || hp ? ` ${status}${hp}` : "";
+}
+
+/** A row of buttons that pick one value; the pressed one is the current value. */
+type Choice = { value: string | number; content: string; title?: string; pressed: boolean; disabled?: boolean; className?: string };
+function choiceButtons(attribute: string, field: string, choices: Choice[], label: string): string {
+  return `<span class="td-choices" role="group" aria-label="${escapeHtml(label)}">${choices.map((choice) => `<button class="td-choice${choice.className ? ` ${choice.className}` : ""}" type="button" ${attribute}="${escapeHtml(field)}" data-value="${escapeHtml(String(choice.value))}" aria-pressed="${choice.pressed}"${choice.title ? ` title="${escapeHtml(choice.title)}" aria-label="${escapeHtml(choice.title)}"` : ""}${choice.disabled ? " disabled" : ""}>${choice.content}</button>`).join("")}</span>`;
+}
+
+/** Status options in the patch's order, with the menus' icon for each (gen5UiImages STATUS_ICON). */
+const STATUS_CHOICES: ReadonlyArray<{ label: string; icon?: number; text: string }> = [
+  { label: "No status", text: "None" },
+  { label: "Paralysis", icon: STATUS_ICON.paralysis, text: "PAR" },
+  { label: "Sleep", icon: STATUS_ICON.sleep, text: "SLP" },
+  { label: "Freeze", icon: STATUS_ICON.freeze, text: "FRZ" },
+  { label: "Burn", icon: STATUS_ICON.burn, text: "BRN" },
+  { label: "Poison", icon: STATUS_ICON.poison, text: "PSN" },
+  { label: "Toxic (badly poisoned)", icon: STATUS_ICON.toxic, text: "TOX" },
+];
+
+/** Shininess, starting HP and starting status: Trainer Customization's per-Pokémon battle settings. */
+function renderTrainerCustomization(project: ProjectState, trainerId: number, pok: TrainerPokemonSlot, override?: TrainerMemberSettings): string {
+  if (!hasTrainerMemberCustomization(project)) return "";
+  const slot = pok.slot;
+  const settings = override ?? getTrainerMemberSettings(project, trainerId, slot);
+  const mark = (field: keyof TrainerMemberSettings) => (override ? "" : `pokemon:${slot}:customization:${field}`);
+  // Trainer Pokémon are never shiny unless set, so "Never shiny" reads as Default.
+  const shiny = choiceButtons("data-member-choice", "shiny", [
+    { value: 0, content: "Default", pressed: settings.shiny !== 1 },
+    { value: 1, content: `<span class="td-shiny-mark" aria-hidden="true">✦</span>Shiny`, pressed: settings.shiny === 1 },
+  ], "Shininess");
+  const status = choiceButtons("data-member-choice", "status", STATUS_CHOICES.map((choice, index) => ({
+    value: index,
+    title: choice.label,
+    pressed: settings.status === index,
+    className: choice.icon === undefined ? "" : "-status",
+    content: choice.icon === undefined ? choice.text : `<span class="td-status-icon" data-g5-ui="status:${choice.icon}">${choice.text}</span>`,
+  })), "Starting status");
+  const sleep = settings.status === 2
+    ? `<span class="td-sleep"><span class="md-unit">Turns</span>${choiceButtons("data-member-choice", "sleepTurns", ["Random", "1", "2", "3"].map((label, index) => ({ value: index, content: label, pressed: settings.sleepTurns === index })), "Sleep turns")}</span>`
+    : "";
+  return `
+    ${formRow("Shiny", mark("shiny"), shiny)}
+    ${formRow("Pre-Dmg", override ? "" : `${mark("hpMode")}|${mark("hp")}`, renderHpBar(project, pok, settings))}
+    ${formRow("Pre-Status", override ? "" : `${mark("status")}|${mark("sleepTurns")}`, `<span class="td-status-row">${status}${sleep}</span>`)}
+  `;
+}
+
+/**
+ * Starting HP as the game's HP bar: drag it to start at a share of the maximum, or type an exact number. The number
+ * is worked out from the Pokémon's base HP, level and IVs (trainer Pokémon have no EVs).
+ */
+function renderHpBar(project: ProjectState, pok: TrainerPokemonSlot, settings: TrainerMemberSettings): string {
+  const max = trainerMaxHp(project, pok.speciesId, pok.form, pok.level, pok.ivs);
+  const percent = settings.hpMode === 1 ? settings.hp : settings.hpMode === 2 && max ? Math.min(100, (settings.hp / max) * 100) : 100;
+  const current = max === undefined ? undefined : trainerStartingHp(max, settings.hpMode, settings.hp);
+  const share = current !== undefined && max ? (current / max) * 100 : percent;
+  const tone = share > 50 ? "-high" : share > 20 ? "-mid" : "-low";
+  const mode = settings.hpMode === 0 ? "Full" : settings.hpMode === 1 ? `${settings.hp}%` : "Exact";
+  const valueText = current === undefined ? `${Math.round(percent)}%` : `${current} of ${max} HP`;
+  return `<span class="td-hp" data-hp-max="${max ?? ""}">
+    <span class="td-hp-bar" role="slider" tabindex="0" aria-label="Starting HP" aria-valuemin="1" aria-valuemax="100" aria-valuenow="${Math.round(percent)}" aria-valuetext="${escapeHtml(valueText)}" title="Drag to set the starting HP">
+      <span class="td-hp-tag" aria-hidden="true">HP</span>
+      <span class="td-hp-track"><span class="td-hp-fill ${tone}" style="width:${share.toFixed(2)}%"></span></span>
+    </span>
+    ${current === undefined
+      ? `<span class="md-unit">${escapeHtml(valueText)}</span>`
+      : `<input class="td-hp-number" type="number" min="1" max="${max}" value="${current}" data-hp-exact aria-label="Starting HP (exact)"><span class="md-unit">/ ${max}</span>`}
+    <span class="md-unit td-hp-mode">${escapeHtml(mode)}</span>
+  </span>`;
+}
+
+function renderGenderChoices(project: ProjectState, trainer: TrainerRecord, pok: TrainerPokemonSlot, ownParty = true): string {
+  const defaultGender = ownParty ? safe(() => resolveTrainerPokemonGender(project, trainer.id, pok.slot), "") : "";
+  const can = safe(() => trainerGenderAvailability(project, pok.speciesId, pok.form), { male: true, female: true });
+  const icon = (gender: "male" | "female") => `<span class="td-gender-icon -${gender}" data-g5-ui="gender:${gender}">${gender === "male" ? "♂" : "♀"}</span>`;
+  return choiceButtons("data-slot-choice", `gender_${pok.slot}`, [
+    { value: "Default", content: "Default", title: defaultGender ? `Default (${defaultGender.toLowerCase()})` : "Default", pressed: pok.gender === "Default" || !TRAINER_GENDERS.includes(pok.gender) },
+    { value: "Male", content: icon("male"), title: "Male", pressed: pok.gender === "Male", disabled: !can.male && pok.gender !== "Male" },
+    { value: "Female", content: icon("female"), title: "Female", pressed: pok.gender === "Female", disabled: !can.female && pok.gender !== "Female" },
+  ], "Gender");
+}
+
+function renderAbilityChoices(project: ProjectState, pok: TrainerPokemonSlot): string {
+  const options = getTrainerPokemonAbilityOptions(project, pok);
+  const nameOf = (label: string) => label.includes(": ") ? label.slice(label.indexOf(": ") + 2) : "";
+  const seen = new Set<string>();
+  const choices: Choice[] = [];
+  for (const option of options) {
+    const pressed = option.slot === pok.abilitySlot;
+    if (option.slot === 0) {
+      choices.push({ value: 0, content: "Default", title: option.label, pressed });
+      continue;
+    }
+    const name = nameOf(option.label);
+    // A slot without its own ability (or repeating an earlier one) only shows while it is the one chosen.
+    if (!pressed && (!name || name === "-" || seen.has(name.toLowerCase()))) continue;
+    seen.add(name.toLowerCase());
+    const tag = option.slot === 3 ? "H" : option.slot >= 4 ? `AI${option.slot - 3}` : "";
+    choices.push({ value: option.slot, content: `${escapeHtml(titleCaseName(name || option.label))}${tag ? `<span class="td-choice-tag">${tag}</span>` : ""}`, title: option.label, pressed });
+  }
+  return choiceButtons("data-slot-choice", `ability_${pok.slot}`, choices, "Ability");
+}
+
+/** Up to six forms get a button each, showing the form's icon; species with more (Unown, Arceus) keep the number field. */
+const MAX_FORM_BUTTONS = 6;
+function renderFormField(project: ProjectState, pok: TrainerPokemonSlot): string {
+  const forms = safe(() => trainerFormOptions(project, pok.speciesId, pok.speciesName), [] as ReturnType<typeof trainerFormOptions>);
+  const current = forms.find((entry) => entry.form === pok.form);
+  if (forms.length > 1 && forms.length <= MAX_FORM_BUTTONS && current) {
+    return `<span class="td-forms trainer-poks">${choiceButtons("data-slot-choice", `form_${pok.slot}`, forms.map(({ form, label }) => ({
+      value: form,
+      title: `${label} (form ${form})`,
+      pressed: form === pok.form,
+      className: "-form",
+      content: renderPartyIcon(project, { ...pok, form, spriteSlug: trainerPokemonSpriteSlug(pok.speciesName, form) }, "td-form-icon"),
+    })), "Form")}<span class="md-unit td-form-name">${escapeHtml(current.label)}</span></span>`;
+  }
+  const name = forms.length > 1 ? current?.label ?? "Not a form of this species" : "";
+  return `${editable("trpok", `form_${pok.slot}`, pok.form, "", { type: "int-255" })}${name ? `<span class="md-unit td-form-name">${escapeHtml(name)}</span>` : ""}`;
+}
+
+function titleCaseName(name: string): string {
+  return name === name.toUpperCase() ? name.toLowerCase().replace(/(^|[\s-])\p{L}/gu, (letter) => letter.toUpperCase()) : name;
+}
+
+function renderPoolPlacement(pool: TrainerPartyPool, member: TrainerPoolMember): string {
+  if (pool.slotGroups) {
+    return formRow("Groups", "", choiceButtons("data-pool-group", "group", TRAINER_POOL_GROUPS.map((name, index) => ({
+      value: index + 1,
+      content: name,
+      title: `Group ${name}`,
+      pressed: Boolean((member.groups ?? 0) & trainerPoolGroupBit(index + 1)),
+    })), "Candidate groups"));
+  }
+  return formRow("Tag", "", choiceButtons("data-pool-role", "role", POOL_TAGS.map((label, index) => ({
+    value: index, content: label || "Any slot", pressed: member.role === index,
+    title: ["Any slot in the middle", "Leads the party", "Comes out last"][index],
+  })), "Tag"));
+}
+
+export function renderTrainerSlotEditor(project: ProjectState, trainer: TrainerRecord, pok: TrainerPokemonSlot, natureField: boolean, view?: RosterView): string {
   const s = pok.slot;
   const iv = Math.floor((pok.ivs * 31) / 255);
-  const abilityOptions = getTrainerPokemonAbilityOptions(project, pok).map((option) => [String(option.slot), option.label] as [string, string]);
-  const defaultGender = safe(() => resolveTrainerPokemonGender(project, trainer.id, s), "");
-  const genderOptions = TRAINER_GENDERS.map((gender) => [gender, gender === "Default" && defaultGender ? `Default (${defaultGender.toLowerCase()})` : gender] as [string, string]);
-  const full = trainer.party.length >= 6;
+  const own = !view || view.kind === "original";
+  const full = trainer.party.length >= (view?.limit ?? 6);
   const last = trainer.party.length - 1;
-  const mark = (field: string) => `pokemon:${s}:${field}_${s}`;
+  // Changelog marks belong to the trainer's own party; other rosters have no per-field history.
+  const mark = (field: string) => (own ? `pokemon:${s}:${field}_${s}` : "");
+  const member = view?.pool?.members[s];
+  if (view?.readonly) return renderReadonlySlot(project, pok, view);
+  if (member && !("pokemon" in member)) return renderLinkedMember(project, pok, view!, member);
+  const battleStart = renderTrainerCustomization(project, trainer.id, pok, member && "pokemon" in member ? member.pokemon.settings : undefined);
+  const tagRow = view?.kind === "pool" && view.pool && member ? renderPoolPlacement(view.pool, member) : "";
   return `
     <div class="td-slot-head">
-      <h2>Pokémon ${s + 1}<span class="td-slot-species" data-derived="species">${escapeHtml(pok.speciesName)}</span></h2>
+      <h2>${view?.kind === "pool" ? "Candidate" : "Pokémon"} ${s + 1}<span class="td-slot-species" data-derived="species">${escapeHtml(pok.speciesName)}</span></h2>
       <div class="td-slot-actions">
         <button class="btn sm -ghost" type="button" data-slot-move="-1" title="Move left" aria-label="Move left" ${s === 0 ? "disabled" : ""}>←</button>
         <button class="btn sm -ghost" type="button" data-slot-move="1" title="Move right" aria-label="Move right" ${s === last ? "disabled" : ""}>→</button>
         <button class="btn sm" type="button" data-slot-duplicate ${full ? 'disabled title="The party is full"' : ""}>Duplicate</button>
-        <button class="btn sm" type="button" data-slot-copy title="Copy this set as Showdown text">Copy</button>
-        <button class="btn sm" type="button" data-slot-import title="Replace this set from Showdown text">Import</button>
+        ${own ? `<button class="btn sm" type="button" data-slot-copy title="Copy this set as Showdown text">Copy</button>
+        <button class="btn sm" type="button" data-slot-import title="Replace this set from Showdown text">Import</button>` : ""}
         <button class="btn sm -remove" type="button" data-slot-delete>Delete</button>
       </div>
     </div>
@@ -254,22 +466,46 @@ export function renderTrainerSlotEditor(project: ProjectState, trainer: TrainerR
       <div class="md-form">
         ${formRow("Species", mark("species_id"), editable("trpok", `species_id_${s}`, pok.speciesName, "td-species", { autofill: "pokemon_names" }))}
         ${formRow("Level", mark("level"), editable("trpok", `level_${s}`, pok.level, "", { type: "int-100" }))}
-        ${formRow("Form", mark("form"), editable("trpok", `form_${s}`, pok.form, "", { type: "int-255" }))}
-        ${formRow("Gender", mark("gender"), select(`gender_${s}`, genderOptions, pok.gender, "data-slot-select"))}
-        ${formRow("Ability", mark("ability"), select(`ability_${s}`, abilityOptions, String(pok.abilitySlot), "data-slot-select"))}
-        ${formRow("IV difficulty", mark("ivs"), `${editable("trpok", `ivs_${s}`, pok.ivs, "", { type: "int-255" })}<span class="md-unit" data-derived="iv">IV ${iv} in every stat</span>`)}
-        ${natureField
-          ? formRow("Nature", mark("nature"), select(`nature_${s}`, [["Auto", `Auto${pok.natureSetting === "Auto" ? ` (${pok.nature})` : ""}`], ...NATURES.map((nature) => [nature, nature] as [string, string])], pok.natureSetting, "data-slot-select"))
-          : formRow("Nature", "", `<span class="td-readonly" data-derived="nature">${escapeHtml(pok.nature)}</span><span class="md-unit" title="Without the trainer nature patch the game derives the nature from the trainer, class and Pokémon. Apply the patch under Tools to choose one.">derived</span>`)}
+        ${formRow("Form", mark("form"), `<span class="td-derived-value" data-derived="form">${renderFormField(project, pok)}</span>`)}
+        ${formRow("Gender", mark("gender"), `<span class="td-derived-value" data-derived="gender">${renderGenderChoices(project, trainer, pok, own)}</span>`)}
+        ${formRow("Ability", mark("ability"), `<span class="td-derived-value" data-derived="ability">${renderAbilityChoices(project, pok)}</span>`)}
+        ${formRow("IVs", mark("ivs"), `${editable("trpok", `ivs_${s}`, pok.ivs, "", { type: "int-255" })}<span class="md-unit" data-derived="iv">IV ${iv} in every stat</span>`)}
+        ${natureField || !own
+          ? formRow("Nature", mark("nature"), select(`nature_${s}`, [["Auto", `Auto${pok.natureSetting === "Auto" && pok.nature && pok.nature !== "Auto" ? ` (${pok.nature})` : ""}`], ...NATURES.map((nature) => [nature, nature] as [string, string])], pok.natureSetting, "data-slot-select"))
+          : formRow("Nature", "", `<span class="td-readonly" data-derived="nature">${escapeHtml(pok.nature)}</span><span class="md-unit" title="Without the trainer nature patch the game derives the nature from the trainer, class and Pokémon. Install Trainer Customization under Tools to choose one.">derived</span>`)}
       </div>
       <div class="td-moves">
         ${renderSlotMoves(project, trainer, pok)}
         <div class="md-form td-held">
-          ${formRow("Held item", mark("item_id"), editable("trpok", `item_id_${s}`, trainer.hasItems ? pok.itemName : "", "", { autofill: "items", placeholder: trainer.hasItems ? "" : "None" }))}
+          ${formRow("Held item", mark("item_id"), editable("trpok", `item_id_${s}`, trainer.hasItems ? pok.itemName : "", "", { autofill: "items", placeholder: "None" }))}
         </div>
       </div>
+      ${battleStart || tagRow ? `<div class="md-form td-battle-start" data-derived="battle-start">${tagRow}${battleStart}</div>` : ""}
     </div>
   `;
+}
+
+function renderReadonlySlot(project: ProjectState, pok: TrainerPokemonSlot, view: RosterView): string {
+  const owner = view.record.id;
+  return `<div class="td-slot-head"><h2>Pokémon ${pok.slot + 1}<span class="td-slot-species">${escapeHtml(pok.speciesName)}</span></h2></div>
+    <p class="td-roster-note">Lv ${pok.level}${pok.itemName && hasItem(pok.itemName) ? ` · holds ${escapeHtml(String(pok.itemName))}` : ""}${pok.moves.some((move) => hasItem(move)) ? ` · ${pok.moves.filter((move) => hasItem(move)).map((move) => escapeHtml(String(move))).join(", ")}` : ""}</p>
+    <p class="td-roster-note">This party belongs to trainer #${owner}; edit it there. <a href="#" data-roster-open-trainer="${owner}">Open trainer #${owner}</a></p>`;
+}
+
+function renderLinkedMember(project: ProjectState, pok: TrainerPokemonSlot, view: RosterView, member: { trainerId: number; slot: number; role: number }): string {
+  const last = view.record.party.length - 1;
+  return `<div class="td-slot-head">
+      <h2>Candidate ${pok.slot + 1}<span class="td-slot-species">${escapeHtml(pok.speciesName)}</span></h2>
+      <div class="td-slot-actions">
+        <button class="btn sm -ghost" type="button" data-slot-move="-1" title="Move left" aria-label="Move left" ${pok.slot === 0 ? "disabled" : ""}>←</button>
+        <button class="btn sm -ghost" type="button" data-slot-move="1" title="Move right" aria-label="Move right" ${pok.slot === last ? "disabled" : ""}>→</button>
+        <button class="btn sm -remove" type="button" data-slot-delete>Remove</button>
+      </div>
+    </div>
+    <p class="td-roster-note">Linked from trainer #${member.trainerId}'s Pokémon ${member.slot + 1}: its species, level, moves and settings come from there.
+      <a href="#" data-roster-open-trainer="${member.trainerId}">Open trainer #${member.trainerId}</a>
+      <button class="btn sm" type="button" data-pool-unlink>Copy into this pool</button></p>
+    <div class="md-form">${view.pool ? renderPoolPlacement(view.pool, member) : ""}</div>`;
 }
 
 function renderSlotMoves(project: ProjectState, trainer: TrainerRecord, pok: TrainerPokemonSlot): string {

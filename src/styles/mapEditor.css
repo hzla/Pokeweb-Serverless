@@ -1,0 +1,1413 @@
+/*
+ * Map Editor (#maps3d): sidebar with Map / Collisions / Buildings / Camera tabs, a two-row toolbar above the 3D view
+ * (layers, history, view, season, game test, Files; then the mouse tool and its options), corner popovers and a slim
+ * status bar. Follows the Overworld editor's layout and tokens. Everything is scoped to #map-editor so the legacy
+ * map3d styles used by the Buildings route stay as they are.
+ */
+
+#map-editor {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  width: 100%;
+  height: calc(100vh - var(--chrome-h));
+  margin-top: -10px;
+  overflow: hidden;
+  font-size: 14px;
+}
+
+#map-editor [hidden] {
+  display: none !important;
+}
+
+#map-editor summary {
+  list-style: none;
+}
+
+#map-editor summary::-webkit-details-marker {
+  display: none;
+}
+
+/* ---------- Sidebar ---------- */
+
+#map-editor .mx-side {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-right: 1px solid var(--ink-3);
+  background: var(--ink-1);
+}
+
+#map-editor .mx-head {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px 12px;
+}
+
+#map-editor .mx-head h1 {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+#map-editor .mx-sub {
+  margin-top: -4px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+#map-editor .mx-pick-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 4px;
+  align-items: center;
+}
+
+#map-editor .mx-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  flex: 0 0 auto;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--ink-3);
+  background: var(--ink-1);
+}
+
+#map-editor .mx-tabs .uv-tab {
+  flex: 1 1 auto;
+  justify-content: center;
+  padding: 0 6px;
+  font-size: 13px;
+}
+
+#map-editor .mx-panels {
+  flex: 1 0 auto;
+}
+
+/* The panels reuse legacy class names for their scripts; drop the legacy card look. */
+#map-editor .mx-panel {
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--text);
+  font-size: 14px;
+}
+
+#map-editor .mx-block {
+  display: grid;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--ink-3);
+}
+
+#map-editor .mx-group-title,
+#map-editor .mx-advanced > summary {
+  color: var(--text-muted);
+  font: 600 12px/1 var(--font-cond);
+  letter-spacing: 0.02em;
+}
+
+#map-editor .mx-group-title.-spaced {
+  margin-top: 6px;
+}
+
+#map-editor .mx-group-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 28px;
+}
+
+#map-editor .mx-group-head > .mx-group-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+#map-editor .mx-group-head > .mx-actions {
+  flex-wrap: nowrap;
+}
+
+#map-editor .mx-advanced > summary {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  cursor: pointer;
+}
+
+#map-editor .mx-advanced > summary::before {
+  content: "";
+  width: 0;
+  height: 0;
+  border: 4px solid transparent;
+  border-left: 5px solid currentColor;
+  transition: transform 120ms ease;
+}
+
+#map-editor .mx-advanced[open] > summary::before {
+  transform: rotate(90deg) translateX(2px);
+}
+
+#map-editor .mx-advanced[open] > summary {
+  margin-bottom: 8px;
+}
+
+#map-editor .mx-advanced.-inline {
+  padding: 2px 0 0;
+}
+
+#map-editor .mx-grid {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+#map-editor .mx-row {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+#map-editor .mx-row.-link {
+  grid-template-columns: 112px minmax(0, 1fr) auto;
+}
+
+#map-editor .mx-row.-top {
+  align-items: start;
+}
+
+#map-editor .mx-row.-top > .mx-label {
+  padding-top: 6px;
+}
+
+#map-editor .mx-row.-check input {
+  justify-self: start;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--amber);
+}
+
+#map-editor .mx-label {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#map-editor .mx-input,
+#map-editor .mx-select,
+#map-editor .mx-camera .filter-input,
+#map-editor .map3d-building-details :is(input, select) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius);
+  background: var(--field);
+  color: var(--text);
+  font: 14px/1 var(--font);
+  text-align: left;
+}
+
+#map-editor input.mx-input[type="number"],
+#map-editor .mx-camera input.filter-input,
+#map-editor .map3d-building-details input {
+  color: var(--value);
+  font-variant-numeric: tabular-nums;
+}
+
+#map-editor :is(.mx-input, .mx-select, .mx-camera .filter-input, .map3d-building-details :is(input, select)):hover:not(:disabled) {
+  border-color: var(--field-line-hover);
+}
+
+#map-editor :is(.mx-input, .mx-select, .mx-camera .filter-input, .map3d-building-details :is(input, select)):focus {
+  border-color: var(--amber);
+  outline: none;
+}
+
+#map-editor :is(.mx-input, .mx-select):disabled {
+  opacity: 0.55;
+}
+
+#map-editor .mx-input[readonly] {
+  border-color: transparent;
+  background: none;
+  color: var(--text-muted);
+}
+
+#map-editor [aria-invalid="true"] {
+  border-color: var(--danger) !important;
+}
+
+#map-editor .mx-select.-compact {
+  width: auto;
+  height: 28px;
+  font-size: 13px;
+}
+
+#map-editor select.mx-select[size] {
+  height: auto;
+  padding: 4px;
+  font-size: 13px;
+}
+
+#map-editor select.mx-select[size] option {
+  padding: 5px 6px;
+  border-radius: 2px;
+}
+
+#map-editor .mx-search {
+  height: 28px;
+  font-size: 13px;
+}
+
+#map-editor .mx-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+#map-editor .mx-note:empty {
+  display: none;
+}
+
+#map-editor .mx-note strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+#map-editor .mx-hex {
+  color: var(--text-muted);
+  font: 500 12px/1 var(--font-cond);
+  font-variant-numeric: tabular-nums;
+}
+
+#map-editor .mx-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+#map-editor .mx-actions.-tight {
+  gap: 4px;
+}
+
+/* Map tab: a matrix cell without its own header shows a note instead of fields. */
+#map-editor .mx-unassigned-note {
+  display: none;
+  margin: 12px 16px 0;
+}
+
+#map-editor .mx-panel.-unassigned .mx-unassigned-note {
+  display: block;
+}
+
+#map-editor .mx-panel.-unassigned .mx-block {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* Collisions tab */
+
+#map-editor .mx-tile-card {
+  display: grid;
+  gap: 4px;
+  min-height: 40px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+#map-editor .mx-tile-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--text);
+  font-size: 15px;
+}
+
+#map-editor .mx-tile-head strong {
+  font-weight: 600;
+}
+
+#map-editor .mx-tile-meta {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+#map-editor .mx-swatch {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  border: 1px solid rgb(0 0 0 / 35%);
+  border-radius: 2px;
+}
+
+#map-editor .mx-class-pick {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px;
+  gap: 6px;
+}
+
+#map-editor .mx-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+#map-editor .mx-flag {
+  position: relative;
+  padding: 5px 9px;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  user-select: none;
+}
+
+#map-editor .mx-flag input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#map-editor .mx-flag:hover {
+  color: var(--text);
+}
+
+#map-editor .mx-flag:has(input:checked) {
+  border-color: var(--value);
+  background: rgb(26 188 156 / 14%);
+  color: var(--text);
+}
+
+#map-editor .mx-flag:has(input:focus-visible) {
+  outline: 2px solid var(--amber);
+  outline-offset: 1px;
+}
+
+#map-editor .mx-flag:has(input:disabled) {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Import review, shown in the sidebar while a map import waits to be applied or cancelled. */
+#map-editor .mx-review {
+  border-top: 1px solid var(--ink-3);
+  background: var(--ink-2);
+  font-size: 13px;
+}
+
+#map-editor .mx-review .map3d-building-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* ---------- Buildings tab ---------- */
+
+#map-editor .mx-buildings,
+#map-editor .mx-camera {
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--text);
+  font-size: 13px;
+}
+
+#map-editor .mx-buildings > .mx-note {
+  padding: 12px 16px;
+}
+
+#map-editor .mx-row.-place {
+  grid-template-columns: 90px minmax(0, 1fr);
+}
+
+#map-editor #map3d-building-place[aria-pressed="true"] {
+  outline: 2px solid var(--amber);
+  outline-offset: 1px;
+}
+
+#map-editor .map3d-building-list {
+  min-height: 150px;
+}
+
+#map-editor .map3d-building-note,
+#map-editor .mx-camera .map3d-metadata-note {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+#map-editor .map3d-building-details {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+}
+
+#map-editor .map3d-building-details dl {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 6px 10px;
+  align-items: center;
+  margin: 0;
+}
+
+#map-editor .map3d-building-details dt {
+  overflow: hidden;
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#map-editor .map3d-building-details dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+#map-editor .map3d-building-details details > summary {
+  color: var(--text-muted);
+  cursor: pointer;
+  font: 600 12px/1.6 var(--font-cond);
+}
+
+#map-editor .map3d-building-details ul {
+  margin: 4px 0 8px;
+  padding-left: 18px;
+  color: var(--text-muted);
+}
+
+#map-editor .map3d-building-error {
+  color: var(--danger);
+}
+
+/* ---------- Camera tab: the camera editor's own markup ---------- */
+
+#map-editor .mx-camera {
+  display: grid;
+  gap: 10px;
+  padding: 12px 16px 16px;
+}
+
+#map-editor .mx-camera > strong {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font: 600 12px/1 var(--font-cond);
+  letter-spacing: 0.02em;
+}
+
+#map-editor .mx-camera > strong:first-child {
+  margin-top: 0;
+}
+
+#map-editor .mx-camera .map3d-field {
+  display: grid;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+#map-editor .mx-camera .map3d-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+#map-editor .mx-camera form {
+  display: grid;
+  gap: 10px;
+  padding: 10px 0;
+  border-block: 1px solid var(--ink-3);
+}
+
+#map-editor .mx-camera details > summary {
+  color: var(--text-muted);
+  cursor: pointer;
+  font: 600 12px/1.6 var(--font-cond);
+}
+
+#map-editor .mx-camera details[open] > summary {
+  margin-bottom: 6px;
+}
+
+#map-editor .mx-camera .map3d-camera-endpoint {
+  padding-top: 6px;
+  border-top: 1px solid var(--ink-3);
+}
+
+#map-editor .mx-camera .map3d-toggle,
+#map-editor .mx-camera form label:has(> input[type="checkbox"]) {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--text);
+  font-size: 13px;
+}
+
+#map-editor .mx-camera input[type="checkbox"] {
+  accent-color: var(--amber);
+}
+
+#map-editor .mx-camera .map3d-camera-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+#map-editor .mx-camera .map3d-camera-actions button {
+  flex: 0 0 auto;
+  min-height: 0;
+}
+
+#map-editor .mx-camera .map3d-camera-status {
+  color: var(--amber);
+  font-size: 12px;
+}
+
+#map-editor .mx-camera .map3d-camera-status:empty {
+  display: none;
+}
+
+/* ---------- Map area ---------- */
+
+#map-editor .mx-main {
+  display: flex;
+  flex-direction: column;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  background: var(--ink-0);
+}
+
+#map-editor .mx-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--ink-3);
+  background: var(--ink-1);
+}
+
+#map-editor .mx-toolbar.mx-tools {
+  gap: 8px 12px;
+  padding-block: 6px;
+  background: var(--ink-2);
+}
+
+#map-editor .mx-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+#map-editor .mx-spacer {
+  flex: 1 1 0;
+}
+
+/* Layer chips, as on the Overworld editor */
+#map-editor .mx-chip {
+  position: relative;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  user-select: none;
+}
+
+#map-editor .mx-chip input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#map-editor .mx-chip:hover {
+  color: var(--text);
+}
+
+#map-editor .mx-chip:has(input:checked) {
+  border-color: var(--field-line-hover);
+  background: var(--ink-2);
+  color: var(--text);
+}
+
+#map-editor .mx-chip:has(input:focus-visible) {
+  outline: 2px solid var(--amber);
+  outline-offset: -2px;
+}
+
+#map-editor .mx-chip:has(input:disabled) {
+  opacity: 0.5;
+  cursor: default;
+}
+
+#map-editor .mx-chip-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  opacity: 0.35;
+}
+
+#map-editor .mx-chip:has(input:checked) .mx-chip-dot {
+  opacity: 1;
+}
+
+#map-editor .mx-chip-dot.-building { background: #c8a2ff; }
+#map-editor .mx-chip-dot.-npc { background: var(--amber); }
+#map-editor .mx-chip-dot.-entity { background: #2ecc71; }
+#map-editor .mx-chip-dot.-permissions { background: conic-gradient(#ff4d4f, #3da5ff, #42d66b, #ffc857, #ff4d4f); }
+#map-editor .mx-chip-dot.-bounds { border: 1.5px solid #ffd166; background: none; }
+#map-editor .mx-chip-dot.-movement { border-radius: 50%; background: #59c2ff; }
+#map-editor .mx-chip-dot.-neighbors { background: repeating-linear-gradient(45deg, #8d97a8 0 2px, transparent 2px 4px); }
+
+/* Segmented buttons: seasons, mouse tools, camera modes */
+#map-editor .mx-seasons,
+#map-editor .mx-tool-group,
+#map-editor #map3d-camera-modes {
+  flex-wrap: nowrap;
+  gap: 0;
+}
+
+#map-editor .mx-season,
+#map-editor .mx-tool {
+  height: 28px;
+  margin-left: -1px;
+  padding: 0 10px;
+  border: 1px solid var(--field-line);
+  border-radius: 0;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font: 13px/1 var(--font);
+  white-space: nowrap;
+}
+
+#map-editor :is(.mx-season, .mx-tool):has(.mx-tool-icon) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#map-editor .mx-tool-icon {
+  flex: none;
+  opacity: 0.8;
+}
+
+#map-editor :is(.mx-season, .mx-tool)[aria-pressed="true"] .mx-tool-icon {
+  color: var(--amber);
+  opacity: 1;
+}
+
+#map-editor .mx-tool.-small {
+  height: 26px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+#map-editor :is(.mx-season, .mx-tool):first-child {
+  margin-left: 0;
+  border-radius: var(--radius) 0 0 var(--radius);
+}
+
+#map-editor :is(.mx-season, .mx-tool):last-child {
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+#map-editor :is(.mx-season, .mx-tool):hover:not(:disabled) {
+  color: var(--text);
+}
+
+#map-editor :is(.mx-season, .mx-tool)[aria-pressed="true"] {
+  position: relative;
+  z-index: 1;
+  border-color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 14%, transparent);
+  color: var(--text);
+}
+
+#map-editor :is(.mx-season, .mx-tool):focus-visible {
+  position: relative;
+  z-index: 2;
+  outline: 2px solid var(--amber);
+  outline-offset: 1px;
+}
+
+#map-editor :is(.mx-season, .mx-tool):disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+#map-editor .mx-options {
+  display: flex;
+  flex: 1 1 280px;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+#map-editor .mx-hint {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+#map-editor #map3d-collision-brush {
+  color: var(--text);
+}
+
+#map-editor #map3d-game-test[aria-pressed="true"] {
+  outline: 2px solid var(--amber);
+  outline-offset: 1px;
+}
+
+/* Files menu */
+#map-editor .mx-menu {
+  position: relative;
+}
+
+#map-editor .mx-menu > summary::after {
+  content: "";
+  margin-left: 6px;
+  border: 4px solid transparent;
+  border-top: 5px solid currentColor;
+  transform: translateY(2px);
+}
+
+#map-editor .mx-menu-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  display: grid;
+  min-width: 240px;
+  padding: 4px;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius);
+  background: var(--ink-1);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 45%);
+}
+
+#map-editor .mx-menu-item {
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  font: 13px/1.2 var(--font);
+  text-align: left;
+}
+
+#map-editor .mx-menu-item:hover:not(:disabled),
+#map-editor .mx-menu-item:focus-visible {
+  background: var(--ink-2);
+  outline: none;
+}
+
+#map-editor .mx-menu-item:disabled {
+  color: var(--text-muted);
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* The 3D view and what floats over it */
+#map-editor .mx-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+#map-editor .mx-stage .map3d-canvas-wrap {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+}
+
+#map-editor .mx-hud {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 3;
+  display: grid;
+  gap: 8px;
+  max-width: min(320px, calc(100% - 24px));
+  pointer-events: none;
+}
+
+#map-editor .mx-hud > * {
+  pointer-events: auto;
+}
+
+#map-editor .map3d-camera-location {
+  display: grid;
+  gap: 5px;
+  padding: 10px 12px;
+  border: 1px solid var(--field-line);
+  border-left: 3px solid var(--amber);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--ink-1) 94%, transparent);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+#map-editor .map3d-camera-location strong {
+  color: var(--amber);
+  font-size: 13px;
+}
+
+#map-editor .map3d-camera-location [data-camera-location-cell],
+#map-editor .map3d-camera-location [data-camera-location-help] {
+  color: var(--text-muted);
+}
+
+#map-editor .map3d-camera-location button {
+  justify-self: start;
+}
+
+#map-editor .mx-corner {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 4;
+  display: flex;
+  gap: 4px;
+}
+
+#map-editor .mx-corner .btn,
+#map-editor .mx-warn-button {
+  background: color-mix(in srgb, var(--ink-1) 88%, transparent);
+}
+
+#map-editor .mx-pop {
+  position: relative;
+}
+
+#map-editor .mx-pop[open] > summary {
+  border-color: var(--amber);
+}
+
+#map-editor .mx-pop-body {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  display: grid;
+  gap: 8px;
+  width: 280px;
+  padding: 12px;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius);
+  background: var(--ink-1);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 45%);
+  color: var(--text);
+  font-size: 13px;
+}
+
+#map-editor .mx-pop.-up .mx-pop-body {
+  top: auto;
+  right: 0;
+  bottom: calc(100% + 6px);
+  width: min(560px, 70vw);
+  max-height: 45vh;
+  overflow: auto;
+}
+
+#map-editor .mx-pop-body input[type="range"] {
+  width: 100%;
+  accent-color: var(--amber);
+}
+
+#map-editor .mx-mono {
+  display: block;
+  color: var(--value);
+  font: 500 12px/1.5 var(--font-cond);
+  font-variant-numeric: tabular-nums;
+  white-space: pre-wrap;
+}
+
+#map-editor .mx-controls {
+  gap: 6px;
+  color: var(--text-muted);
+}
+
+#map-editor .mx-controls kbd {
+  display: inline-block;
+  min-width: 14px;
+  margin-right: 4px;
+  padding: 2px 5px;
+  border: 1px solid var(--field-line);
+  border-radius: 2px;
+  background: var(--ink-2);
+  color: var(--text);
+  font: 500 11px/1.2 var(--font-cond);
+  text-align: center;
+}
+
+/* Status bar */
+#map-editor .mx-status {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 14px;
+  align-items: center;
+  min-height: 34px;
+  padding: 3px 12px;
+  border-top: 1px solid var(--ink-3);
+  background: var(--ink-1);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+#map-editor .mx-stats {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+#map-editor .mx-status .mx-message {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#map-editor .mx-status .mx-message:empty {
+  display: block;
+}
+
+#map-editor .mx-warnings {
+  position: static;
+  flex: 0 0 auto;
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  background: none;
+  color: inherit;
+}
+
+#map-editor .mx-warnings:empty {
+  display: none;
+}
+
+#map-editor .mx-warn-button {
+  color: var(--amber);
+}
+
+#map-editor .mx-warning-list {
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+#map-editor .mx-warning-list ul {
+  margin: 0 0 6px;
+  padding-left: 18px;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1180px) {
+  #map-editor {
+    grid-template-columns: 300px minmax(0, 1fr);
+  }
+
+  #map-editor .mx-row,
+  #map-editor .map3d-building-details dl {
+    grid-template-columns: 96px minmax(0, 1fr);
+  }
+
+  #map-editor .mx-row.-link {
+    grid-template-columns: 96px minmax(0, 1fr) auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #map-editor .mx-advanced > summary::before {
+    transition: none;
+  }
+}
+
+/* Workspace: tool rail | 3D view | paint palette */
+#map-editor .mx-workspace {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: 48px minmax(0, 1fr) 220px;
+  min-height: 0;
+}
+
+#map-editor .mx-workspace.-no-palette {
+  grid-template-columns: 48px minmax(0, 1fr);
+}
+
+#map-editor .mx-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  padding: 8px 0;
+  border-right: 1px solid var(--ink-3);
+  background: var(--ink-1);
+}
+
+#map-editor .mx-rail-gap {
+  width: 24px;
+  height: 1px;
+  margin: 4px 0;
+  background: var(--ink-3);
+}
+
+#map-editor .mx-rail-tool {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+#map-editor .mx-rail-tool span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+#map-editor .mx-rail-tool .mx-tool-icon {
+  width: 20px;
+  height: 20px;
+  opacity: 1;
+}
+
+#map-editor .mx-rail-tool:hover:not(:disabled) {
+  border-color: var(--field-line);
+  color: var(--text);
+}
+
+#map-editor .mx-rail-tool[aria-pressed="true"] {
+  border-color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 18%, transparent);
+  color: var(--text);
+}
+
+#map-editor .mx-rail-tool[aria-pressed="true"] .mx-tool-icon {
+  color: var(--amber-text);
+}
+
+#map-editor .mx-rail-tool:focus-visible,
+#map-editor .mx-brush:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 1px;
+}
+
+#map-editor .mx-rail-tool:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Hints and tool modes over the bottom-left of the 3D view */
+#map-editor .mx-tool-hints {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  max-width: calc(100% - 20px);
+  pointer-events: none;
+}
+
+#map-editor .mx-tool-hints > * {
+  pointer-events: auto;
+}
+
+#map-editor .mx-tool-hints .mx-hint {
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--ink-1) 88%, transparent);
+  pointer-events: none;
+}
+
+#map-editor .mx-tool-hints .mx-group {
+  background: var(--ink-1);
+}
+
+/* Paint palette */
+#map-editor .mx-palette {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-left: 1px solid var(--ink-3);
+  background: var(--ink-1);
+}
+
+#map-editor .mx-palette-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--ink-3);
+  color: var(--text);
+  font: 600 15px/1.2 var(--font-cond);
+}
+
+#map-editor .mx-palette-season {
+  color: var(--text-muted);
+  font: 400 12px/1.2 var(--font);
+}
+
+#map-editor .mx-palette-body {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 10px 12px 16px;
+  overflow-y: auto;
+}
+
+#map-editor .mx-palette h3 {
+  margin: 0 0 6px;
+  color: var(--text-muted);
+  font: 600 12px/1.2 var(--font-cond);
+  letter-spacing: 0.02em;
+}
+
+#map-editor .mx-brushes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+#map-editor .mx-brush {
+  display: grid;
+  gap: 4px;
+  padding: 4px 4px 6px;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius);
+  background: var(--ink-0);
+  color: var(--text-muted);
+  cursor: pointer;
+  font: 12px/1.2 var(--font);
+  text-align: center;
+}
+
+#map-editor .mx-brush:hover:not(:disabled) {
+  border-color: var(--field-line-hover);
+  color: var(--text);
+}
+
+#map-editor .mx-brush[aria-pressed="true"] {
+  border-color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 16%, var(--ink-0));
+  color: var(--text);
+}
+
+#map-editor .mx-brush:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+#map-editor .mx-brush-art {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: var(--ink-2);
+  color: var(--text-muted);
+}
+
+#map-editor .mx-brush-art .mx-tool-icon {
+  width: 28px;
+  height: 28px;
+  opacity: 0.5;
+}
+
+#map-editor .mx-brush-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+/* Brush options stay pinned under the scrolling swatches, so Turn and the other options are always in reach. */
+#map-editor .mx-brush-options {
+  display: grid;
+  flex: none;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--ink-3);
+  background: var(--ink-1);
+  box-shadow: 0 -6px 12px -8px rgb(0 0 0 / 0.45);
+}
+
+#map-editor .mx-brush-options h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+}
+
+#map-editor .mx-brush-options .mx-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+#map-editor .mx-brush-options .mx-row {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+#map-editor .mx-brush-options [hidden] {
+  display: none;
+}
+
+#map-editor .mx-arrows {
+  display: grid;
+  grid-template-columns: repeat(3, 30px);
+  grid-template-areas: ". up ." "left down right";
+  gap: 3px;
+}
+
+#map-editor .mx-arrows .mx-tool {
+  width: 30px;
+  height: 26px;
+  margin: 0;
+  padding: 0;
+  border-radius: var(--radius);
+  font-size: 15px;
+}
+
+#map-editor .mx-arrows [data-ledge-direction="up"] { grid-area: up; }
+#map-editor .mx-arrows [data-ledge-direction="left"] { grid-area: left; }
+#map-editor .mx-arrows [data-ledge-direction="down"] { grid-area: down; }
+#map-editor .mx-arrows [data-ledge-direction="right"] { grid-area: right; }
+
+#map-editor .mx-turn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#map-editor .mx-turn .mx-tool {
+  width: 30px;
+  height: 26px;
+  margin: 0;
+  padding: 0;
+  border-radius: var(--radius);
+  font-size: 15px;
+}
+
+#map-editor .mx-turn output {
+  min-width: 34px;
+  color: var(--text);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+@media (max-width: 1100px) {
+  #map-editor .mx-workspace {
+    grid-template-columns: 48px minmax(0, 1fr) 176px;
+  }
+}
+
+/* Open Game & Warp Here with its options menu */
+#map-editor .mx-split {
+  display: inline-flex;
+  align-items: stretch;
+}
+
+#map-editor .mx-split > .btn {
+  margin-right: 1px;
+}
+
+#map-editor .mx-split-menu > summary {
+  padding: 0 7px;
+  list-style: none;
+}
+
+#map-editor .mx-split-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+#map-editor .mx-split-menu .mx-menu-list {
+  width: 250px;
+  padding: 10px 12px;
+}
+
+#map-editor .mx-menu-check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+#map-editor .mx-menu-check input {
+  accent-color: var(--amber);
+}
+
+#map-editor .mx-split-menu .mx-note {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}

@@ -71,9 +71,16 @@ import { getInfiniteCandyStatus, getInstalledInfiniteCandyItemId, installInfinit
 import { getLevelCapsStatus, installLevelCaps } from "../pokeweb/levelCapsModel";
 import { getTrainerLevelCapsStatus, installTrainerLevelCaps } from "../pokeweb/trainerLevelCapsModel";
 import { getForgettableHmsPmcStatus, stageForgettableHmsPmc } from "../pokeweb/forgettableHmsRuntime";
+import { getShinyOddsStatus, SHINY_ODDS_MAX_ROLLS, stageShinyOdds, wildShinyChance } from "../pokeweb/shinyOddsModel";
+import { getTrainerCustomizationStatus, installTrainerCustomization } from "../pokeweb/trainerCustomizationModel";
+import { applyChallengeModeStatsFix, getChallengeModeStatsStatus } from "../pokeweb/challengeModeStatsModel";
+import { applyEarlyChallengeMode, getEarlyChallengeModeStatus } from "../pokeweb/earlyChallengeModeModel";
+import { applyEarlyNationalDex, getEarlyNationalDexStatus } from "../pokeweb/earlyNationalDexModel";
+import { getPwtSixPokemonStatus, installPwtSixPokemon } from "../pokeweb/pwtSixPokemonRuntime";
 import { getAutorunStatus, stageAutorun, uninstallAutorun } from "../pokeweb/autorunModel";
 import { getItemExpansionStatus, isItemExpansionInstalled, stageItemExpansion, uninstallItemExpansion } from "../pokeweb/itemExpansionModel";
-import { addFairyTypeSupport, addMoveExpansion, detectFairyTypePatch, detectForgettableHmPatch, detectSpecifyTrainerNaturesPatch, makeHmsForgettable, specifyTrainerNatures, type RomPatchApplyResult } from "../pokeweb/romPatchModel";
+import { getTrainingItemsStatus, stageTrainingItems } from "../pokeweb/trainingItemsModel";
+import { addFairyTypeSupport, addMoveExpansion, detectFairyTypePatch, detectForgettableHmPatch, makeHmsForgettable, type RomPatchApplyResult } from "../pokeweb/romPatchModel";
 import { getCascadePersonalMigrationStatus, migrateCascadePersonalData } from "../pokeweb/cascadeWhitePersonalModel";
 import { detectMoveExpansionPatch } from "../pokeweb/moveExpansionPatch";
 import moveAnimationCredits from "../assets/data/white2upgradeGen6MoveAnimationsCredits.json";
@@ -160,11 +167,17 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const bgmToggleStatus = detectBundledBgmToggleDll(project);
   const bgmToggleSupported = bgmToggleStatus !== "unsupported";
   const forgettableHmsStatus = getForgettableHmsPmcStatus(project);
+  const shinyOddsStatus = getShinyOddsStatus(project);
+  const challengeStats = getChallengeModeStatsStatus(project);
+  const earlyChallengeMode = getEarlyChallengeModeStatus(project);
+  const earlyNationalDex = getEarlyNationalDexStatus(project);
+  const pwtSixPokemonStatus = getPwtSixPokemonStatus(project);
   const autorunStatus = getAutorunStatus(project);
   const itemExpansionStatus = getItemExpansionStatus(project);
+  const trainingItemsStatus = getTrainingItemsStatus(project);
   const introSkipStatus = getIntroSkipStatus(project);
   const megaStatus = getMegaEvolutionStatus(project);
-  const trainerNatureStatus = detectSpecifyTrainerNaturesPatch(project);
+  const trainerCustomization = getTrainerCustomizationStatus(project);
   const moveExpansionStatus = detectMoveExpansionPatch(project);
   const fairyStatus = detectFairyTypePatch(project);
   const bw1HmStatus = detectForgettableHmPatch(project);
@@ -487,6 +500,14 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <button class="btn -primary" id="install-item-expansion-btn" type="button" ${itemExpansionStatus.compatible && (!itemExpansionStatus.installed || itemExpansionStatus.updateAvailable) ? "" : "disabled"}${itemExpansionStatus.compatible || !itemExpansionStatus.message ? "" : ` title="${escapeHtml(itemExpansionStatus.message)}"`}>
               ${itemExpansionStatus.installed ? itemExpansionStatus.updateAvailable ? "Update Item Expansion" : "Item Expansion Installed" : "Install Item Expansion"}
             </button>
+            ${!itemExpansionStatus.installed && trainingItemsStatus === "available" ? `
+              <label><input type="checkbox" id="include-training-items" ${itemExpansionStatus.compatible ? "" : "disabled"}> Include Training Items</label>
+            ` : ""}
+            ${itemExpansionStatus.installed ? `
+              <button class="btn -default" id="install-training-items-btn" type="button" ${itemExpansionStatus.compatible && (trainingItemsStatus === "available" || trainingItemsStatus === "update") ? "" : "disabled"}>
+                ${trainingItemsStatus === "installed" ? "Training Items Installed" : trainingItemsStatus === "update" ? "Update Training Items" : "Add Training Items"}
+              </button>
+            ` : ""}
             <button class="btn -default -remove" id="uninstall-item-expansion-btn" type="button" ${itemExpansionStatus.canUninstall ? "" : "disabled"}>Uninstall Item Expansion</button>
             <div class="code-injection-note" id="item-expansion-note" aria-live="polite"></div>
           </div>
@@ -566,17 +587,17 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div class="code-injection-note" id="form-evolution-note" aria-live="polite"></div>
           </div>
         </section>
-        <section class="code-injection-panel" ${patchVisibility(trainerNatureStatus !== "unsupported")}>
+        <section class="code-injection-panel" ${patchVisibility(trainerCustomization !== "unsupported")}>
           <div class="code-injection-panel__header">
             <div>
-              <h2>Specify Trainer Pokémon Natures</h2>
-              <p>Lets trainer Pokémon use the Nature field from the trainer editor through a PMC runtime while preserving vanilla behavior when set to Auto.</p>
+              <h2>Trainer Customization</h2>
+              <p>Edit trainer Pokémon and roster variations in the Trainer editor.</p>
             </div>
-            ${renderInlineStatus(trainerNatureStatus === "patched" ? "Installed" : trainerNatureStatus === "legacy" ? "Migration Available" : trainerNatureStatus === "unsupported" ? "Unsupported" : trainerNatureStatus === "unknown" ? "Incompatible" : "Ready", { className: "code-injection-status" })}
+            ${renderInlineStatus(({ installed: "Installed", upgrade: "Upgrade available", unsupported: "Unsupported", unknown: "Unavailable", ready: "Ready" })[trainerCustomization], { className: "code-injection-status" })}
           </div>
           <div class="code-injection-actions">
-            <button class="btn -primary" id="install-trainer-natures-btn" type="button" ${trainerNatureStatus === "unpatched" || trainerNatureStatus === "legacy" ? "" : "disabled"}${trainerNatureStatus === "unknown" ? ' title="Could not verify the trainer Pokémon setup call sites; this ROM may contain a conflicting trainer code patch."' : ""}>
-              ${trainerNatureStatus === "patched" ? "Trainer Natures Installed" : trainerNatureStatus === "legacy" ? "Migrate Trainer Natures" : "Install Trainer Natures"}
+            <button class="btn -primary" id="install-trainer-natures-btn" type="button" ${trainerCustomization === "ready" || trainerCustomization === "upgrade" ? "" : "disabled"}>
+              ${trainerCustomization === "installed" ? "Installed" : trainerCustomization === "upgrade" ? "Upgrade Trainer Customization" : "Install Trainer Customization"}
             </button>
             <div class="code-injection-note" id="trainer-natures-note" aria-live="polite"></div>
           </div>
@@ -733,6 +754,64 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               ${bgmToggleStatus === "patched" ? "Reinstall Music Toggle" : "Install Music Toggle"}
             </button>
             <div class="code-injection-note" id="bgm-toggle-note" aria-live="polite"></div>
+          </div>
+        </section>
+        <section class="code-injection-panel" ${patchVisibility(shinyOddsStatus.supported)}>
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Shiny Odds</h2>
+              <p>Wild Pokémon · Base odds before Shiny Charm and Pass Power</p>
+              ${shinyOddsStatus.message ? `<p>${escapeHtml(shinyOddsStatus.message)}</p>` : ""}
+            </div>
+            ${renderInlineStatus(shinyOddsStatus.rolls !== undefined ? "Installed" : shinyOddsStatus.compatible ? "Ready" : "Unavailable", { className: "code-injection-status" })}
+          </div>
+          <div class="code-injection-actions">
+            <label>PID rolls <input id="shiny-odds-rolls" type="number" min="1" max="${SHINY_ODDS_MAX_ROLLS}" step="1" required value="${shinyOddsStatus.rolls ?? 1}" ${shinyOddsStatus.compatible ? "" : "disabled"}></label>
+            <output id="shiny-odds-preview" for="shiny-odds-rolls">${formatShinyOdds(shinyOddsStatus.rolls ?? 1)}</output>
+            <button class="btn -primary" id="apply-shiny-odds-btn" type="button" disabled>Apply Odds</button>
+            <div class="code-injection-note" id="shiny-odds-note" aria-live="polite"></div>
+          </div>
+        </section>
+        <section class="code-injection-panel" ${patchVisibility(challengeStats.state !== "unsupported")}>
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Challenge Mode Stat Fix</h2>
+              <p>Recalculates opposing Pokémon’s stats at their adjusted levels in Easy and Challenge Mode.</p>
+              ${challengeStats.message ? `<p>${escapeHtml(challengeStats.message)}</p>` : ""}
+            </div>
+            ${renderInlineStatus({ unsupported: "Unsupported", unavailable: "Unavailable", ready: "Ready", installed: "Installed" }[challengeStats.state], { className: "code-injection-status" })}
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="apply-challenge-stats-btn" type="button" ${challengeStats.state === "ready" ? "" : "disabled"}>Apply Stat Fix</button>
+            <div class="code-injection-note" id="challenge-stats-note" aria-live="polite"></div>
+          </div>
+        </section>
+        <section class="code-injection-panel" ${patchVisibility(earlyChallengeMode.state !== "unsupported")}>
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Early Challenge Mode</h2>
+              <p>Makes Challenge Mode selectable in Unova Link before starting a new game.</p>
+              ${earlyChallengeMode.message ? `<p>${escapeHtml(earlyChallengeMode.message)}</p>` : ""}
+            </div>
+            ${renderInlineStatus({ unsupported: "Unsupported", unavailable: "Unavailable", ready: "Ready", installed: "Installed" }[earlyChallengeMode.state], { className: "code-injection-status" })}
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="apply-early-challenge-btn" type="button" ${earlyChallengeMode.state === "ready" ? "" : "disabled"}>Apply Patch</button>
+            <div class="code-injection-note" id="early-challenge-note" aria-live="polite"></div>
+          </div>
+        </section>
+        <section class="code-injection-panel" ${patchVisibility(earlyNationalDex.state !== "unsupported")}>
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Early National Pokédex</h2>
+              <p>Unlocks the National Pokédex and Habitat List when Bianca gives you the Pokédex.</p>
+              ${earlyNationalDex.message ? `<p>${escapeHtml(earlyNationalDex.message)}</p>` : ""}
+            </div>
+            ${renderInlineStatus({ unsupported: "Unsupported", unavailable: "Unavailable", ready: "Ready", installed: "Installed" }[earlyNationalDex.state], { className: "code-injection-status" })}
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="apply-early-national-dex-btn" type="button" ${earlyNationalDex.state === "ready" ? "" : "disabled"}>Apply Patch</button>
+            <div class="code-injection-note" id="early-national-dex-note" aria-live="polite"></div>
           </div>
         </section>
         <section class="code-injection-panel" ${patchVisibility(forgettableHmsSupported)}>
@@ -1020,6 +1099,19 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         </section>` : ""}
         </section>
         <section class="code-injection-tab-panel" id="code-injection-panel-add-ons" role="tabpanel" aria-labelledby="code-injection-tab-add-ons" tabindex="0" ${activeTab === "add-ons" ? "" : "hidden"}>
+        <section class="code-injection-panel" ${patchVisibility(pwtSixPokemonStatus !== "unsupported")}>
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Six-Pokémon PWT</h2>
+              <p>Repeatable built-in tournaments use six Pokémon per side in every battle format.</p>
+            </div>
+            ${renderInlineStatus(pwtSixPokemonStatus === "installed" ? "Installed" : pwtSixPokemonStatus === "ready" ? "Ready" : "Unsupported", { className: "code-injection-status" })}
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-pwt-six-pokemon-btn" type="button" ${pwtSixPokemonStatus === "ready" ? "" : "disabled"}>Install Six-Pokémon PWT</button>
+            <div class="code-injection-note" id="pwt-six-pokemon-note" aria-live="polite"></div>
+          </div>
+        </section>
         <section class="code-injection-panel" ${patchVisibility(infiniteCandyStatus.supported)}>
           <div class="code-injection-panel__header">
             <div>
@@ -1190,6 +1282,32 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     onDirty?.();
     renderCodeInjectionEditor(project, root, onDirty);
   });
+  const shinyRolls = root.querySelector<HTMLInputElement>("#shiny-odds-rolls");
+  const shinyApply = root.querySelector<HTMLButtonElement>("#apply-shiny-odds-btn");
+  const shinyPreview = root.querySelector<HTMLOutputElement>("#shiny-odds-preview");
+  const shinyNote = root.querySelector<HTMLElement>("#shiny-odds-note");
+  shinyRolls?.addEventListener("input", () => {
+    if (shinyApply) shinyApply.disabled = !shinyRolls.validity.valid || shinyRolls.valueAsNumber === (shinyOddsStatus.rolls ?? 1);
+    if (shinyPreview) shinyPreview.value = shinyRolls.validity.valid ? formatShinyOdds(shinyRolls.valueAsNumber) : "";
+  });
+  shinyApply?.addEventListener("click", async () => {
+    if (!shinyRolls?.reportValidity()) return;
+    const rolls = shinyRolls.valueAsNumber;
+    shinyApply.disabled = true;
+    shinyRolls.disabled = true;
+    if (shinyNote) shinyNote.textContent = "Applying…";
+    try {
+      const changed = await install(staged => stageShinyOdds(staged, rolls));
+      if (changed) onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+      const note = root.querySelector<HTMLElement>("#shiny-odds-note");
+      if (note) note.textContent = "Export the ROM to apply the new odds.";
+    } catch (error) {
+      shinyApply.disabled = false;
+      shinyRolls.disabled = false;
+      if (shinyNote) shinyNote.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
   const button = root.querySelector<HTMLButtonElement>("#install-pmc-btn");
   const note = root.querySelector<HTMLDivElement>("#pmc-install-note");
   const expandHeapButton = root.querySelector<HTMLButtonElement>("#expand-pmc-heap-btn");
@@ -1352,11 +1470,10 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     }
   });
 
-  /** ROM patches (not PMC modules) that used to live on the Patches page: confirm, apply to the project, re-render. */
-  const romPatchButton = (buttonId: string, noteId: string, confirmText: string, apply: () => Promise<RomPatchApplyResult>) => {
+  const romPatchButton = (buttonId: string, noteId: string, confirmText: string | undefined, apply: () => Promise<RomPatchApplyResult>) => {
     root.querySelector<HTMLButtonElement>(`#${buttonId}`)?.addEventListener("click", async (event) => {
       const button = event.currentTarget as HTMLButtonElement;
-      if (!window.confirm(`${confirmText}\n\nExport the ROM after applying to keep this change.`)) return;
+      if (confirmText && !window.confirm(`${confirmText}\n\nExport the ROM after applying to keep this change.`)) return;
       const previousText = button.textContent ?? "";
       button.disabled = true;
       button.textContent = "Applying...";
@@ -1374,6 +1491,9 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       }
     });
   };
+  romPatchButton("apply-challenge-stats-btn", "challenge-stats-note", undefined, () => applyChallengeModeStatsFix(project));
+  romPatchButton("apply-early-challenge-btn", "early-challenge-note", undefined, () => applyEarlyChallengeMode(project));
+  romPatchButton("apply-early-national-dex-btn", "early-national-dex-note", undefined, () => applyEarlyNationalDex(project));
   romPatchButton("add-fairy-type-btn", "fairy-type-note", "Apply this ROM patch to add Fairy Type Support?",
     () => addFairyTypeSupport(project, { updateModernFairyTypings: root.querySelector<HTMLInputElement>("#fairy-modern-typings-checkbox")?.checked ?? true }));
   romPatchButton("make-hms-forgettable-btn", "bw1-hms-note", "Apply this ARM9 patch to make HM moves forgettable?", () => makeHmsForgettable(project));
@@ -1406,11 +1526,11 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     const button = event.currentTarget as HTMLButtonElement;
     button.disabled = true;
     try {
-      const result = await install(candidate => specifyTrainerNatures(candidate));
+      await installTrainerCustomization(project);
       onDirty();
       renderCodeInjectionEditor(project, root, onDirty);
       const note = root.querySelector("#trainer-natures-note");
-      if (note && result.summary) note.textContent = result.summary;
+      if (note) note.textContent = "Export the ROM to apply Trainer Customization.";
     } catch (error) {
       button.disabled = false;
       const note = root.querySelector("#trainer-natures-note");
@@ -1512,24 +1632,47 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     }
   });
 
-  const itemExpansionButton = root.querySelector<HTMLButtonElement>("#install-item-expansion-btn");
-  itemExpansionButton?.addEventListener("click", async () => {
-    const note = root.querySelector<HTMLDivElement>("#item-expansion-note");
-    const previousText = itemExpansionButton.textContent ?? "Install Item Expansion";
+  const pwtSixPokemonButton = root.querySelector<HTMLButtonElement>("#install-pwt-six-pokemon-btn");
+  pwtSixPokemonButton?.addEventListener("click", async () => {
+    const note = root.querySelector<HTMLDivElement>("#pwt-six-pokemon-note");
+    pwtSixPokemonButton.disabled = true;
+    if (note) note.textContent = "Installing…";
     try {
-      itemExpansionButton.disabled = true;
-      itemExpansionButton.textContent = "Installing...";
-      const result = await install(candidate => stageItemExpansion(candidate));
+      await installPwtSixPokemon(project);
       onDirty();
       renderCodeInjectionEditor(project, root, onDirty);
-      const refreshedNote = root.querySelector<HTMLDivElement>("#item-expansion-note");
-      if (refreshedNote) refreshedNote.textContent = `Item expansion staged (${result.addedItemSlots} new item slots). Export the ROM to apply it.`;
+      const refreshedNote = root.querySelector<HTMLDivElement>("#pwt-six-pokemon-note");
+      if (refreshedNote) refreshedNote.textContent = "Export the ROM to apply this patch.";
     } catch (error) {
-      itemExpansionButton.disabled = false;
-      itemExpansionButton.textContent = previousText;
+      pwtSixPokemonButton.disabled = false;
       if (note) note.textContent = error instanceof Error ? error.message : String(error);
     }
   });
+
+  const itemExpansionButton = root.querySelector<HTMLButtonElement>("#install-item-expansion-btn");
+  const installTrainingItemsButton = root.querySelector<HTMLButtonElement>("#install-training-items-btn");
+  const applyItemExpansion = async (button: HTMLButtonElement, withTrainingItems: boolean) => {
+    const note = root.querySelector<HTMLDivElement>("#item-expansion-note");
+    const previousText = button.textContent;
+    try {
+      button.disabled = true;
+      button.textContent = "Installing...";
+      const message = withTrainingItems
+        ? `Training Items staged (${(await install(stageTrainingItems)).length} items). Export the ROM to apply them.`
+        : `Item expansion staged (${(await install(stageItemExpansion)).addedItemSlots} new item slots). Export the ROM to apply it.`;
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+      const refreshedNote = root.querySelector<HTMLDivElement>("#item-expansion-note");
+      if (refreshedNote) refreshedNote.textContent = message;
+    } catch (error) {
+      button.disabled = false;
+      button.textContent = previousText;
+      if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
+  };
+  itemExpansionButton?.addEventListener("click", () =>
+    applyItemExpansion(itemExpansionButton, root.querySelector<HTMLInputElement>("#include-training-items")?.checked ?? false));
+  installTrainingItemsButton?.addEventListener("click", () => applyItemExpansion(installTrainingItemsButton, true));
   root.querySelector<HTMLButtonElement>("#uninstall-item-expansion-btn")?.addEventListener("click", async () => {
     const note = root.querySelector<HTMLDivElement>("#item-expansion-note");
     try {
@@ -2271,6 +2414,10 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       if (dllNote) dllNote.textContent = error instanceof Error ? error.message : String(error);
     }
   });
+}
+
+function formatShinyOdds(rolls: number): string {
+  return `${rolls === 1 ? "" : "≈ "}1 in ${Math.round(1 / wildShinyChance(rolls)).toLocaleString()}`;
 }
 
 function renderPwanCompatibilityDetails(project: ProjectState, report: PwanCompatibilityReport): string {

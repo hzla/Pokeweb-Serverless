@@ -1,4 +1,5 @@
 import { publicAsset } from "../assetUrl";
+import { getPwtSixPokemonStatus } from "../pokeweb/pwtSixPokemonRuntime";
 import {
   evStatLabels,
   getFacilityAutofills,
@@ -487,6 +488,8 @@ function renderTournament(project: ProjectState, tournament: PwtTournament, expe
   const pool = PWT_POOLS[tournament.pool];
   const styles = PWT_STYLES.map((style, index) => ({ ...style, bp: tournament.battlePoints[index] ?? 0 }));
   const singlesOnly = tournament.id === 11;
+  const brought = singlesOnly ? "3 (Single only)" : tournament.membership === "download" ? "Varies"
+    : getPwtSixPokemonStatus(project) === "installed" ? "6 / 6 / 6 / 6" : styles.map((style) => style.brought).join(" / ");
   const typePicker = tournament.id === 2 ? `
     <div class="pwt-types" role="tablist" aria-label="Type">
       ${PWT_TYPE_NAMES.map((name, type) => `<button class="type-plate sm -${name.toLowerCase()} pwt-type${expertType === type ? " is-active" : ""}" type="button" role="tab" aria-selected="${expertType === type}" data-open="t2-${type}">${name}</button>`).join("")}
@@ -503,7 +506,7 @@ function renderTournament(project: ProjectState, tournament: PwtTournament, expe
     </header>
     <div class="pwt-rules">
       <div><span>Level</span><strong>${tournament.level}</strong></div>
-      <div><span>Pokémon brought</span><strong>${singlesOnly ? "3 (Single only)" : styles.map((style) => style.brought).join(" / ")}</strong>${singlesOnly ? "" : `<small>Single / Double / Triple / Rotation</small>`}</div>
+      <div><span>Pokémon brought</span><strong>${brought}</strong>${singlesOnly || tournament.membership === "download" ? "" : `<small>Single / Double / Triple / Rotation</small>`}</div>
       <div><span>Battle Points</span><strong>${styles.some((style) => style.bp) ? styles.map((style) => style.bp).join(" / ") : "—"}</strong></div>
       <div><span>Opens</span><strong class="pwt-rule-text">${escapeHtml(tournament.unlock)}</strong></div>
       <div><span>Regulations</span><strong class="pwt-rule-text">${tournament.regulations.length ? tournament.regulations.map((id) => `#${id}`).join(", ") : "—"}</strong>${tournament.regulations.length ? `<small><a href="#facilities/raw" data-regulation="${tournament.regulations[0]}">Edit rules</a></small>` : ""}</div>

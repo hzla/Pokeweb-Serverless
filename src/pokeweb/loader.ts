@@ -1,6 +1,9 @@
 import { hydrateSpeciesExpansion } from "./speciesExpansionIds";
+import { hydrateItemExpansionFromRom } from "./itemExpansionModel";
 import { hydrateMoveEffectsSource } from "./moveEffectsModel";
 import { hydrateAbilityEffectsSource } from "./abilityEffectsModel";
+import { hydrateTrainerRosters } from "./trainerRosterModel";
+import { hydrateTrainerCustomizationSources } from "./trainerCustomizationModel";
 import { hydrateTrainerFieldConditionsSources } from "./trainerFieldConditionsModel";
 import { hydrateTrainerLevelCapsSources } from "./trainerLevelCapsModel";
 import { hydrateNaturePalettes } from "./naturePaletteModel";
@@ -132,6 +135,7 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
   };
   if (isGen5BaseRom(version.baseRom)) {
     project.codeInjection = detectPmcInstallFromRom(rom);
+    hydrateItemExpansionFromRom(project, rom);
     hydrateSpeciesExpansion(project, rom);
     const standaloneManifestId = rom.filenames.idOf(STANDALONE_STREAM_MANIFEST_PATH);
     if (standaloneManifestId !== undefined) {
@@ -148,6 +152,8 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
     hydrateKoMoveLearnsetFromRom(project, rom);
     hydrateTrainerLocationTables(project, rom);
     hydrateTrainerFieldConditionsSources(project, rom);
+    hydrateTrainerCustomizationSources(project, rom);
+    hydrateTrainerRosters(project, rom);
     hydrateTrainerLevelCapsSources(project, rom);
     hydrateNaturePalettes(project, rom);
     hydrateNaturePaletteRuntime(project, rom);

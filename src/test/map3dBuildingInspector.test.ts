@@ -57,7 +57,7 @@ describe("building placement details", () => {
 
   it("shows source IDs, exact placement coordinates, rotation and offsets from the actual chunk origin", () => {
     const html = renderBuildingDetails(building, 2, { chunks: [chunk], buildingsId: 7 });
-    expect(html).toContain("Building 3");
+    expect(html).toContain("16 units per tile");
     expect(html).toContain("<dt>Placement index</dt><dd>0</dd>");
     expect(html).toContain("<dt>World X</dt><dd>800.5</dd>");
     expect(html).toContain("<dt>World Y (height)</dt><dd>64.25</dd>");
@@ -79,12 +79,13 @@ describe("building placement details", () => {
     const editableBuilding = { ...building, modelId: undefined, chunkOrigin: { x: 768, y: 0, z: 1280, matrixX: 1, matrixY: 2 } };
     const html = renderBuildingDetails(editableBuilding, 0, {
       chunks: [chunk, { ...chunk, worldX: 1280 }], buildingsId: 7,
-      buildingModels: [{ uid: 8, primitives: building.primitives }, { uid: 258, primitives: building.primitives }],
+      buildingModels: [{ uid: 8, primitives: building.primitives }, { uid: 258, name: "roof<b>", primitives: building.primitives }],
     }, true);
     expect(html).toContain('data-building-field="worldX" value="800.5"');
     expect(html).toContain('data-building-field="localX" value="32.5"');
     expect(html).toContain('data-building-field="rotationY" value="90" step="any" min="0" max="360"');
-    expect(html).toContain('<option value="8" selected>8</option><option value="258">258</option>');
+    // Model names come from the ROM, so they are escaped.
+    expect(html).toContain('<option value="8" selected>Model 8</option><option value="258">roof&lt;b&gt; (258)</option>');
     expect(html).toContain("<dt>Placement index</dt><dd>0</dd>");
     expect(html).toContain("<dt>Chunk ID</dt><dd>4</dd>");
     expect(renderBuildingDetails(building, 0, { chunks: [chunk], buildingsId: 7 }, true)).not.toContain("<input");

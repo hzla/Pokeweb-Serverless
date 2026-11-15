@@ -55,6 +55,10 @@ export type ProjectSession = {
   tms?: TmState;
   docs?: DocGeneratorState;
   map3dAreaEdits?: Map3dAreaEditState;
+  mapGrassOriginalPermissions?: import("./mapGrass").MapGrassOriginalPermissions;
+  mapTreeOriginalPermissions?: import("./mapTrees").MapTreeOriginalPermissions;
+  mapLedgeOriginalPermissions?: import("./mapLedges").MapLedgeOriginalPermissions;
+  mapStampOriginalPermissions?: import("./mapStamps").MapStampOriginalPermissions;
   fileSystem?: FileSystemEditState;
   /** Small ROM-backed archive retained when autosave releases originalRomBytes. */
   koMoveLearnsetSource?: { fileId: number; bytes: Uint8Array };
@@ -101,7 +105,7 @@ export function openProjectSession(document: ProjectDocument): ProjectSession {
     cgearButtons: document.cgearButtons, systemShops: document.systemShops, customUi: document.customUi, uiScreens: document.uiScreens,
     cutsceneAuthoring: document.cutsceneAuthoring,
     fieldScenes: document.fieldScenes,
-    map3dAreaEdits: document.map3dAreaEdits, fileSystem: document.fileSystem,
+    map3dAreaEdits: document.map3dAreaEdits, mapGrassOriginalPermissions: document.mapGrassOriginalPermissions, mapTreeOriginalPermissions: document.mapTreeOriginalPermissions, mapLedgeOriginalPermissions: document.mapLedgeOriginalPermissions, mapStampOriginalPermissions: document.mapStampOriginalPermissions, fileSystem: document.fileSystem,
     codeInjection: document.codeInjection, overworldWeather: document.overworldWeather,
     pwanAnimations: document.pwanAnimations, w2animAnimations,
     trainerPwanAnimations: document.trainerPwanAnimations, starters: document.starters,

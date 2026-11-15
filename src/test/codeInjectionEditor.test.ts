@@ -351,15 +351,15 @@ describe("code-injection patch categories", () => {
 
     expect(headings(panels[0])).toEqual([
       "PWAN GIF Support", "Trainer PWAN GIF Support", "Overworld Weather Runtime", "Trainer Battle Log", "Item Expansion",
-      "Single-NPC Double Battle Fix", "Tag Battle Stabilization", "Added-Form Evolution Support", "Specify Trainer Pokémon Natures",
+      "Single-NPC Double Battle Fix", "Tag Battle Stabilization", "Added-Form Evolution Support", "Trainer Customization",
     ]);
     expect(headings(panels[1])).toEqual([
       "Nature Palettes", "Summary IV/EV Viewer", "Enhanced Party Menu and Battle Log Integration", "Type Icons", "Party Menu Learnset/Dex Viewer", "Move Effectiveness Preview", "C-Gear Quick Actions", "Pokenav",
     ]);
-    expect(headings(panels[2])).toEqual(["Instant Fast Text", "Background Music Toggle", "Forgettable HMs", "Make HM Moves Forgettable", "Autorun", "Skip Intro"]);
+    expect(headings(panels[2])).toEqual(["Instant Fast Text", "Background Music Toggle", "Shiny Odds", "Challenge Mode Stat Fix", "Early Challenge Mode", "Early National Pokédex", "Forgettable HMs", "Make HM Moves Forgettable", "Autorun", "Skip Intro"]);
     expect(headings(panels[3])).toEqual(["Fairy Type Support", "Move Expansion", "Mega Evolution", "Regional Forms", "Species Expansion"]);
     expect(headings(panels[4])).toEqual([
-      "Infinite Rare Candy", "Hard Level Caps", "Trainer Level Caps",
+      "Six-Pokémon PWT", "Infinite Rare Candy", "Hard Level Caps", "Trainer Level Caps",
       "Trainer Field Conditions", "Nuzlocke Style Encounters", "Porta PC",
     ]);
     expect(headings(panels[5])).toEqual(["Debug Save Flag", "Walk Through Walls", "Instant Battle Victory"]);

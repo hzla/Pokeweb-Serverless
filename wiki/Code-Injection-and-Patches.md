@@ -74,10 +74,11 @@ These are direct ROM edits rather than PMC modules; each asks for confirmation a
 |---|---|---|---|---|
 | Fairy Type Support | Major Features/Expansions | Black / White and Black 2 / White 2 | Adds Fairy as an extra usable type and can update Pokemon and move typings. Black / White use Frost's Black Fairy patch (ported to White by `runtime/fairy-bw1/`). Installed automatically by Move Expansion and Mega Evolution. | Add Fairy-type Clefairy, Togepi, or Ralts-line behavior. |
 | Move Expansion | Major Features/Expansions | Black / White / Black 2 / White 2 | 1,000 move slots and the data of the Gen 6-9 moves (base power, accuracy, status effects; no special move handlers), with Fairy Type Support where available; optionally the move animations. | Give Pokémon Moonblast or Play Rough. |
+| Early Challenge Mode | Quality of Life | US Black 2 / White 2, revision 0 | Makes Challenge Mode selectable from the title menu under **Unova Link → Key System → Key System Settings → Set Difficulty**. Normal Mode is the default. | Select Challenge Mode before starting a new game. |
 | Make HM Moves Forgettable | Quality of Life | Black / White | Edits ARM9 so HMs can be forgotten. For Black 2 / White 2, use **Forgettable HMs** on the same tab. | Let players remove Cut or Surf without special handling. |
 | Editable Cascade AI Abilities | Infrastructure and Dependencies | Cascade White | See *Cascade personal-data migration* above. | |
 
-Dust-cloud rewards (including removing gems or items) are edited in the [Phenomena editor](Phenomena), which has editable encounter chances and item lists for dust clouds and flying shadows. Specify Trainer Pokémon Natures moved to Code Injection > Infrastructure and Dependencies.
+Dust-cloud rewards (including removing gems or items) are edited in the [Phenomena editor](Phenomena), which has editable encounter chances and item lists for dust clouds and flying shadows. Trainer Customization is under Code Injection > Infrastructure and Dependencies.
 
 ## Status Labels
 
@@ -112,12 +113,13 @@ Normal **Export ROM** remains available and does not opt into the conversion.
 4. Apply the patch only if it is shown as ready or supported.
 5. Export the ROM and test the changed behavior in-game.
 
-### Enable trainer natures
+### Customize trainer Pokémon
 
-1. Use a supported Black 2 / White 2 ROM.
-2. Open Code Injection > Infrastructure and Dependencies and choose **Install Trainer Natures** (PMC is installed automatically; an older inline natures patch is migrated).
-3. Open the Trainer editor.
-4. Set each Pokemon's `Nature` field, or leave it as `Auto` to preserve normal behavior.
+1. Load a US Black 2 or White 2 revision-0 ROM.
+2. Open Code Injection > Infrastructure and Dependencies and choose **Install Trainer Customization** or **Upgrade Trainer Customization**. The Trainer editor also offers it under **Tools** and above the party.
+3. Open the Trainer editor and select a Pokémon to set its nature, shininess, starting HP and status.
+4. Use **+ Party**, **+ Pool** and **Link…** above the party cards to add rosters. Each roster gets a tab with its share of battles. Add **Rules** under the tabs to pick a roster from the player's party, level or starter. Changes save as you make them.
+5. Export the ROM.
 
 ### Stabilize larger tag battles
 

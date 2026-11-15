@@ -1,3 +1,7 @@
+import { decodeTrainerPools, trainerPoolSource, TRAINER_POOLS_PATH, type TrainerPartyPool } from "../pokeweb/trainerPartyPools";
+import { getTrainerPartyPools, setTrainerPartyPool, getTrainerRosterChoices, getTrainerRosterRules, materializeTrainerRosters, setTrainerRosterChoices, setTrainerRosterRules, type TrainerRosterRule } from "../pokeweb/trainerRosterModel";
+import type { NintendoDSRom } from "../nds/rom";
+import { getTrainerMemberSettings, updateTrainerMemberSettings } from "../pokeweb/trainerCustomizationModel";
 import { TRAINER_FIELD_CONDITIONS_PATH } from "../pokeweb/trainerFieldConditionsModel";
 import { describe, expect, it } from "vitest";
 import type { NarcName } from "../pokeweb/constants";
@@ -242,6 +246,174 @@ describe("trainerModel", () => {
     materializeProjectEdits(project);
     expect(project.narcs.trpok!.rawFiles[1][2]).toBe(42);
     expect(project.narcs.trpok!.rawFiles[1][3]).toBe(14);
+  });
+
+  it("keeps battle-start settings with the party member through moving, duplicating, and deleting", () => {
+    const project = makeProject(0);
+    addTrainerPokemon(project, 1);
+    updateTrainerMemberSettings(project, 1, 0, "shiny", 1);
+    updateTrainerMemberSettings(project, 1, 1, "status", 2);
+    updateTrainerMemberSettings(project, 1, 1, "sleepTurns", 3);
+    moveTrainerPokemon(project, 1, 1, 0);
+    duplicateTrainerPokemon(project, 1, 0);
+    deleteTrainerPokemon(project, 1, 0);
+    expect(getTrainerMemberSettings(project, 1, 0)).toMatchObject({ shiny: 0, status: 2, sleepTurns: 3 });
+    expect(getTrainerMemberSettings(project, 1, 1)).toMatchObject({ shiny: 1, status: 0, sleepTurns: 0 });
+    expect(getTrainerMemberSettings(project, 1, 2)).toMatchObject({ shiny: 0, status: 0, sleepTurns: 0 });
+  });
+
+  it("keeps weighted roster references distinct and rejects an empty donor on export", () => {
+    const project = makeProject(0);
+    const donor = addTrainer(project, 1);
+    const choices = [{ rosterId: 1, weight: 1 }, { rosterId: donor.id, weight: 3 }];
+    setTrainerRosterChoices(project, 1, choices);
+    expect(getTrainerRosterChoices(project, 1)).toEqual(choices);
+    expect(() => setTrainerRosterChoices(project, 1, [...choices, { rosterId: donor.id, weight: 1 }])).toThrow(/distinct trainer ID/);
+    expect(getTrainerRosterChoices(project, 1)).toEqual(choices);
+    for (let slot = donor.party.length - 1; slot >= 0; slot--) deleteTrainerPokemon(project, donor.id, slot);
+    materializeProjectEdits(project);
+    const rom = { filenames: { idOf: () => undefined } } as unknown as NintendoDSRom;
+    expect(() => materializeTrainerRosters(project, rom)).toThrow(`invalid or empty roster ${donor.id}`);
+  });
+
+  it("persists ordered conditional rules alongside the weighted fallback", () => {
+    const project = makeProject(0);
+    const donor = addTrainer(project, 1);
+    const fallback = [{ rosterId: 1, weight: 1 }];
+    const rules: TrainerRosterRule[] = [
+      { match: "all", conditions: [
+        { kind: 0, comparison: 0, subject: 25, value: 0 },
+        { kind: 1, comparison: 4, subject: 10, value: 2 },
+      ], choices: [{ rosterId: donor.id, weight: 3 }] },
+      { match: "any", conditions: [
+        { kind: 2, comparison: 5, subject: 0, value: 50 },
+        { kind: 3, comparison: 1, subject: 0, value: 0 },
+      ], choices: fallback },
+    ];
+    setTrainerRosterChoices(project, 1, fallback);
+    setTrainerRosterRules(project, 1, rules);
+    expect(getTrainerRosterRules(project, 1)).toEqual(rules);
+    const badRule = { ...rules[0], conditions: [{ kind: 1, comparison: 0, subject: 10, value: 7 }] };
+    expect(() => setTrainerRosterRules(project, 1, [badRule])).toThrow(/value and comparison/);
+    expect(getTrainerRosterRules(project, 1)).toEqual(rules);
+    setTrainerRosterRules(project, 1, []);
+    expect(getTrainerRosterRules(project, 1)).toEqual([]);
+    expect(getTrainerRosterChoices(project, 1)).toEqual(fallback);
+  });
+
+  it("shares a pool between roster lists and preserves its referenced Pokémon through slot edits", () => {
+    const project = makeProject(0);
+    const donor = addTrainer(project, 1).id;
+    addTrainerPokemon(project, donor);
+    updateTrainerPokemonField(project, donor, 1, "species_id_1", "Ivysaur");
+    const pool: TrainerPartyPool = {
+      size: 2, roleSlots: 1, speciesRule: 1, itemClause: true, itemExceptions: [],
+      members: [{ trainerId: donor, slot: 0, role: 1 }, { trainerId: donor, slot: 1, role: 2 }],
+    };
+    setTrainerPartyPool(project, 1, pool);
+    const choices = [{ rosterId: trainerPoolSource(1), weight: 1 }];
+    setTrainerRosterChoices(project, 1, choices);
+    setTrainerRosterRules(project, donor, [{
+      match: "all", conditions: [{ kind: 0, comparison: 0, subject: 1, value: 0 }], choices,
+    }]);
+    expect(() => setTrainerPartyPool(project, 1, undefined)).toThrow(/roster choices/);
+    expect(() => deleteTrainerPokemon(project, donor, 0)).toThrow(/Pool #1/);
+    moveTrainerPokemon(project, donor, 0, 1);
+    duplicateTrainerPokemon(project, donor, 0);
+    expect(getTrainerPartyPools(project).get(1)?.members).toMatchObject([{ slot: 2, role: 1 }, { slot: 0, role: 2 }]);
+    deleteTrainerPokemon(project, donor, 1);
+    expect(getTrainerPartyPools(project).get(1)?.members).toMatchObject([{ slot: 1, role: 1 }, { slot: 0, role: 2 }]);
+    expect(getTrainerRosterChoices(project, 1)).toEqual(choices);
+    expect(getTrainerRosterRules(project, donor)[0].choices).toEqual(choices);
+  });
+
+  it("rechecks pool species, forms and item exceptions against edited trainer archives on export", () => {
+    const project = makeProject(3);
+    const donor = addTrainer(project, 1).id;
+    const pool: TrainerPartyPool = {
+      size: 2, roleSlots: 2, speciesRule: 2, itemClause: true, itemExceptions: [1],
+      members: [{ trainerId: 1, slot: 0, role: 1 }, { trainerId: donor, slot: 0, role: 2 }],
+    };
+    const fields = decodeRecord(project, "trpok", donor).raw!;
+    fields.form_0 = 1;
+    expect(() => setTrainerPartyPool(project, 1, { ...pool, speciesRule: 1 })).toThrow(/cannot fill/);
+    expect(() => setTrainerPartyPool(project, 1, { ...pool, itemExceptions: [] })).toThrow(/cannot fill/);
+    setTrainerPartyPool(project, 1, pool);
+    const rom = { filenames: { idOf: () => undefined } } as unknown as NintendoDSRom;
+    const compiled = () => decodeTrainerPools(project.fileSystem?.additions?.[TRAINER_POOLS_PATH]).get(1);
+    expect(compiled()).toMatchObject({ size: 2, leads: 1, aces: 1, fallback: [0, 1] });
+    fields.form_0 = 2;
+    materializeProjectEdits(project);
+    materializeTrainerRosters(project, rom);
+    expect(compiled()?.members[1].form).toBe(2);
+    fields.form_0 = 0;
+    materializeProjectEdits(project);
+    expect(() => materializeTrainerRosters(project, rom)).toThrow(/cannot fill/);
+  });
+
+  it("saves and edits standalone pool Pokémon alongside legacy trainer slots", () => {
+    const project = makeProject(3);
+    const linked = { trainerId: 1, slot: 0, role: 1 };
+    const pool: TrainerPartyPool = { size: 1, roleSlots: 1, speciesRule: 1, itemClause: true, itemExceptions: [], members: [linked] };
+    const bytes = () => project.fileSystem!.additions![TRAINER_POOLS_PATH];
+    setTrainerPartyPool(project, 1, pool);
+    expect(readU16(bytes(), 4)).toBe(1);
+    const direct = { role: 2, pokemon: {
+      species: 2, form: 0, item: 0, level: 45, ivs: 180, gender: 2, ability: 3, nature: 4,
+      moves: [5, 0, 0, 0], settings: { shiny: 1, status: 2, sleepTurns: 3, hpMode: 2, hp: 17 },
+    } };
+    pool.size = 2;
+    pool.members.push(direct);
+    setTrainerPartyPool(project, 1, pool);
+    expect(readU16(bytes(), 4)).toBe(2);
+    const updated = getTrainerPartyPools(project).get(1)!;
+    expect(updated.members).toMatchObject([linked, direct]);
+    const member = updated.members[1];
+    if (!("pokemon" in member)) throw new Error("Expected a standalone candidate");
+    member.pokemon.level = 38;
+    member.pokemon.item = 1;
+    expect(() => setTrainerPartyPool(project, 1, updated)).toThrow(/cannot fill/);
+    member.pokemon.item = 0;
+    setTrainerPartyPool(project, 1, updated);
+    expect(decodeTrainerPools(bytes()).get(1)?.members[1]).toMatchObject({ pokemon: { level: 38, settings: { hp: 17 } } });
+    expect(project.narcs.trdata!.fileCount).toBe(2);
+    expect(project.trpokInfo[1].numPokemon).toBe(1);
+  });
+
+  it("keeps a fixed alternate party in authored order and restricts it to its trainer", () => {
+    const project = makeProject(0);
+    const other = addTrainer(project, 1).id;
+    const pokemon = { species: 1, form: 0, item: 1, level: 30, ivs: 0, gender: 0, ability: 0, nature: 0,
+      moves: [0, 0, 0, 0], settings: { shiny: 0, status: 0, sleepTurns: 0, hpMode: 0, hp: 0 } };
+    setTrainerPartyPool(project, 1, {
+      size: 1, roleSlots: 1, speciesRule: 0, itemClause: false, itemExceptions: [],
+      members: [{ trainerId: other, slot: 0, role: 0 }],
+    });
+    const alternate: TrainerPartyPool = {
+      owner: 1, size: 3, roleSlots: 1, speciesRule: 0, itemClause: false, itemExceptions: [],
+      members: [2, 1, 2].map(species => ({ role: 0, pokemon: { ...pokemon, species } })),
+    };
+    setTrainerPartyPool(project, 256, alternate);
+    const bytes = () => project.fileSystem!.additions![TRAINER_POOLS_PATH];
+    const saved = decodeTrainerPools(bytes());
+    expect(readU16(bytes(), 4)).toBe(3);
+    expect(saved.get(1)?.members).toMatchObject([{ trainerId: other }]);
+    expect(saved.get(256)).toMatchObject({ owner: 1, fallback: [0, 1, 2], members: alternate.members });
+
+    const choices = [{ rosterId: trainerPoolSource(256), weight: 2 }, { rosterId: 1, weight: 1 }];
+    const rules: TrainerRosterRule[] = [{ match: "all", conditions: [{ kind: 0, comparison: 0, subject: 1, value: 0 }], choices }];
+    setTrainerRosterChoices(project, 1, choices);
+    setTrainerRosterRules(project, 1, rules);
+    expect(() => setTrainerRosterChoices(project, other, choices)).toThrow(/belonging to this trainer/);
+    expect(() => setTrainerRosterRules(project, other, rules)).toThrow(/belonging to this trainer/);
+    expect(() => setTrainerPartyPool(project, 256, undefined)).toThrow(/roster choices/);
+    expect(() => setTrainerPartyPool(project, 256, { ...alternate, owner: other })).toThrow(/cannot change trainers/);
+    expect(project.narcs.trdata!.fileCount).toBe(3);
+    expect(getTrainerRosterChoices(project, 1)).toEqual(choices);
+    setTrainerRosterChoices(project, 1, []);
+    setTrainerRosterRules(project, 1, []);
+    setTrainerPartyPool(project, 256, undefined);
+    expect(readU16(bytes(), 4)).toBe(1);
   });
 
   it("treats invalid stored trainer Pokemon nature bytes as Auto", () => {

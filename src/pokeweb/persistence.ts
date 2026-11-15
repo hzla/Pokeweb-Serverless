@@ -1,5 +1,8 @@
 import { hydrateMoveEffectsSource } from "./moveEffectsModel";
+import { hydrateItemExpansionFromRom } from "./itemExpansionModel";
 import { hydrateAbilityEffectsSource } from "./abilityEffectsModel";
+import { hydrateTrainerRosters } from "./trainerRosterModel";
+import { hydrateTrainerCustomizationSources } from "./trainerCustomizationModel";
 import { hydrateTrainerFieldConditionsSources } from "./trainerFieldConditionsModel";
 import { hydrateTrainerLevelCapsSources } from "./trainerLevelCapsModel";
 import { hydrateNaturePalettes } from "./naturePaletteModel";
@@ -314,8 +317,11 @@ async function hydratePersistedProject(project: ProjectState, availableSource?: 
   hydrateKoMoveLearnsetFromRom(project, rom);
   hydrateTrainerLocationTables(project, rom);
   hydrateTrainerFieldConditionsSources(project, rom);
+  hydrateTrainerCustomizationSources(project, rom);
+  hydrateTrainerRosters(project, rom);
   hydrateTrainerLevelCapsSources(project, rom);
   hydrateItemEffectsSource(project, rom);
+  hydrateItemExpansionFromRom(project, rom);
   hydrateAbilityEffectsSource(project, rom);
   hydrateMoveEffectsSource(project, rom);
   hydrateMastersheetFromRom(project, rom);

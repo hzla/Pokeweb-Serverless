@@ -1,3 +1,9 @@
+import { attachRosterHub, clearPoolRoll, ensureRosterLists, renderRosterHub } from "./trainerRosterHub";
+import {
+  autofillPoolMemberMoves, editPoolMemberField, editRosterPool, newPoolMember, originalRosterKey, poolPokemonFromTrainerSlot, setPoolMemberSetting, trainerHasRosterVariants,
+  type RosterKey,
+} from "../pokeweb/trainerRosterHub";
+import { trainerPoolGroupBit, trainerPoolSource, type TrainerPartyPool, type TrainerPoolPokemon } from "../pokeweb/trainerPartyPools";
 import {
   addTrainerPokemon,
   autofillTrainerPokemonMoves,
@@ -13,6 +19,7 @@ import {
   updateTrainerField,
   updateTrainerPokemonField,
 } from "../pokeweb/trainerModel";
+import { getTrainerMemberSettings, updateTrainerMemberSettings, type TrainerMemberSettings } from "../pokeweb/trainerCustomizationModel";
 import { updateTrainerText } from "../pokeweb/trainerTextModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml, selectText } from "./dom";
@@ -22,19 +29,28 @@ import { installBw2DialoguePreview, type Bw2DialoguePreview } from "./bw2Dialogu
 import { assumedDialogueVariables, installGameTextEditor } from "./textHighlight";
 import {
   editedTrainerFields,
+  partyNote,
+  renderEmptyParty,
   renderTrainerDetail,
+  rosterView,
   renderTrainerDialogue,
   renderTrainerPartyStrip,
   renderTrainerSlotEditor,
   renderTrainerSpriteImage,
 } from "./trainerDetail";
 
-export type TrainerSelection = { trainerId: number; slot: number };
+/** The open trainer, the roster tab shown (its own party unless set) and the selected Pokémon in it. */
+export type TrainerSelection = { trainerId: number; slot: number; roster?: RosterKey };
 
 export type TrainerDetailOptions = {
   onDirty?: () => void;
-  onTestBattle?: (trainerId: number, showdownText: string) => Promise<void>;
+  /** rosterSource: the roster to fight (a trainer ID, or a party or pool ID with bit 15 set); the game's own choice when omitted. */
+  onTestBattle?: (trainerId: number, showdownText: string, rosterSource?: number) => Promise<void>;
   onOpenTrainerSprite?: (trainerClassId: number) => void;
+  /** Open another trainer in the editor. */
+  onOpenTrainer?: (trainerId: number) => void;
+  /** Install or update Trainer Customization, then redraw the editor. */
+  onInstallCustomization?: () => Promise<void>;
   /** Called after any change to a trainer so its list row can be redrawn. */
   onTrainerChanged?: (trainerId: number) => void;
   getTestTeamText: () => string;
@@ -59,6 +75,35 @@ export function attachTrainerDetail(
   controllers.set(detail, controller);
   const { signal } = controller;
   const trainerId = () => selection.trainerId;
+  const view = () => rosterView(project, trainerId(), selection.roster ?? originalRosterKey, selection.slot);
+  /** The selected party or pool member's own Pokémon, when the open roster is an alternate party or pool. */
+  const poolPokemon = (pool: TrainerPartyPool): TrainerPoolPokemon => {
+    const member = pool.members[selection.slot];
+    if (!member || !("pokemon" in member)) throw new Error("This candidate is linked from another trainer; edit it there or copy it into the pool.");
+    return member.pokemon;
+  };
+  /** Change the open alternate party or pool. A change that leaves it unable to build a team stays a draft. */
+  const editPool = (change: (pool: TrainerPartyPool) => void) => {
+    const current = view();
+    if (current.poolId === undefined) throw new Error("Choose an alternate party or pool first.");
+    const result = editRosterPool(project, current.poolId, change);
+    clearPoolRoll(project, current.poolId);
+    renderHub();
+    return result;
+  };
+  const renderHub = () => {
+    const hub = detail.querySelector<HTMLElement>("[data-roster-hub]");
+    if (hub) {
+      try {
+        hub.innerHTML = renderRosterHub(project, trainerId(), view().key);
+        ensureRosterLists(project, detail);
+      } catch {
+        hub.innerHTML = "";
+      }
+    }
+    const note = detail.querySelector<HTMLElement>(".td-party .td-bar-note");
+    if (note) note.textContent = partyNote(view());
+  };
 
   const changed = () => {
     options.onDirty?.();
@@ -80,10 +125,13 @@ export function attachTrainerDetail(
 
   const render = () => {
     const scrollTop = detail.scrollTop;
-    const trainer = getTrainerRecord(project, trainerId(), { includeTexts: false });
+    const current = view();
+    selection.roster = current.key;
+    const trainer = current.record;
     if (!trainer.party.some((pok) => pok.slot === selection.slot)) selection.slot = trainer.party.length ? 0 : -1;
-    detail.innerHTML = renderTrainerDetail(project, trainerId(), selection.slot, options.natureField);
+    detail.innerHTML = renderTrainerDetail(project, trainerId(), selection.slot, options.natureField, current.key);
     installFields(detail);
+    ensureRosterLists(project, detail);
     installDialoguePreview();
     refreshMarks();
     detail.scrollTop = scrollTop;
@@ -91,20 +139,26 @@ export function attachTrainerDetail(
 
   /** Re-render the strip and slot editor after a structural party change. */
   const renderParty = () => {
-    const trainer = getTrainerRecord(project, trainerId(), { includeTexts: false });
-    if (!trainer.party.some((pok) => pok.slot === selection.slot)) selection.slot = trainer.party.length ? Math.min(Math.max(selection.slot, 0), trainer.party.length - 1) : -1;
+    let current = view();
+    let trainer = current.record;
+    if (!trainer.party.some((pok) => pok.slot === selection.slot)) {
+      selection.slot = trainer.party.length ? Math.min(Math.max(selection.slot, 0), trainer.party.length - 1) : -1;
+      current = view();
+      trainer = current.record;
+    }
+    selection.roster = current.key;
     const strip = detail.querySelector<HTMLElement>("[data-party-strip]");
     const editor = detail.querySelector<HTMLElement>("[data-slot-editor]");
     const pok = trainer.party.find((slot) => slot.slot === selection.slot);
-    if (strip) strip.innerHTML = renderTrainerPartyStrip(project, trainer, selection.slot);
+    if (strip) {
+      strip.innerHTML = renderTrainerPartyStrip(project, trainer, selection.slot, current);
+      strip.classList.toggle("-pool", current.kind === "pool");
+    }
     if (editor) {
-      editor.innerHTML = pok
-        ? renderTrainerSlotEditor(project, trainer, pok, options.natureField)
-        : `<p class="td-empty">This trainer has no Pokémon. Add one to start building the party.</p>`;
+      editor.innerHTML = pok ? renderTrainerSlotEditor(project, trainer, pok, options.natureField, current) : renderEmptyParty(current);
       installFields(editor);
     }
-    const note = detail.querySelector<HTMLElement>(".td-party .td-bar-note");
-    if (note) note.textContent = `${trainer.party.length} of 6`;
+    renderHub();
     const copyTeam = detail.querySelector<HTMLButtonElement>("[data-team-copy]");
     if (copyTeam) copyTeam.disabled = trainer.party.length === 0;
     refreshMarks();
@@ -115,12 +169,13 @@ export function attachTrainerDetail(
    * so a click that ended the edit still lands on its target.
    */
   const refreshSlotDerived = () => {
-    const trainer = getTrainerRecord(project, trainerId(), { includeTexts: false });
+    const current = view();
+    const trainer = current.record;
     const pok = trainer.party.find((slot) => slot.slot === selection.slot);
     const editor = detail.querySelector<HTMLElement>("[data-slot-editor]");
     if (!pok || !editor) return;
     const next = document.createElement("template");
-    next.innerHTML = renderTrainerSlotEditor(project, trainer, pok, options.natureField);
+    next.innerHTML = renderTrainerSlotEditor(project, trainer, pok, options.natureField, current);
     next.content.querySelectorAll<HTMLElement>("[data-derived]").forEach((source) => {
       const target = editor.querySelector<HTMLElement>(`[data-derived="${source.dataset.derived}"]`);
       if (target) target.innerHTML = source.innerHTML;
@@ -139,9 +194,10 @@ export function attachTrainerDetail(
       if (source.dataset.placeholder) target.dataset.placeholder = source.dataset.placeholder;
       else delete target.dataset.placeholder;
     });
+    installFields(editor);
     editor.querySelectorAll<HTMLElement>(".td-move-table tbody tr").forEach((row) => row.classList.toggle("-default", !trainer.hasMoves));
     const strip = document.createElement("template");
-    strip.innerHTML = renderTrainerPartyStrip(project, trainer, selection.slot);
+    strip.innerHTML = renderTrainerPartyStrip(project, trainer, selection.slot, current);
     const card = detail.querySelector<HTMLElement>(`[data-party-strip] [data-slot="${pok.slot}"]`);
     const nextCard = strip.content.querySelector<HTMLElement>(`[data-slot="${pok.slot}"]`);
     if (card && nextCard) card.innerHTML = nextCard.innerHTML;
@@ -199,6 +255,12 @@ export function attachTrainerDetail(
         const wasUsed = field.closest(".td-unused") === null;
         updateTrainerText(project, trainerId(), Number(match[1]), nextValue);
         if (wasUsed !== (nextValue !== "")) window.setTimeout(renderDialogue, 0);
+      } else if (view().pool) {
+        let shown: string | number = nextValue;
+        const result = editPool((pool) => { shown = editPoolMemberField(project, poolPokemon(pool), fieldName, nextValue); });
+        field.textContent = String(shown);
+        if (!result.saved) field.title = `Not saved yet: ${result.problem}`;
+        refreshSlotDerived();
       } else {
         if (/^move_[1-4]_\d+$/u.test(fieldName)) fillDefaultMovesBeforeEnabling();
         const result = updateTrainerPokemonField(project, trainerId(), selection.slot, fieldName, nextValue);
@@ -348,6 +410,27 @@ export function attachTrainerDetail(
 
     const button = target.closest<HTMLButtonElement>("button");
     if (!button || button.disabled) return;
+    const choice = button.dataset.slotChoice ?? button.dataset.memberChoice;
+    if (choice !== undefined) {
+      if (button.getAttribute("aria-pressed") === "true") return;
+      try {
+        if (view().pool) {
+          editPool((pool) => {
+            const pokemon = poolPokemon(pool);
+            if (button.dataset.slotChoice !== undefined) editPoolMemberField(project, pokemon, choice, button.dataset.value ?? "");
+            else setPoolMemberSetting(pokemon, choice as keyof TrainerMemberSettings, Number(button.dataset.value));
+          });
+        } else if (button.dataset.slotChoice !== undefined) updateTrainerPokemonField(project, id, selection.slot, choice, button.dataset.value ?? "");
+        else updateTrainerMemberSettings(project, id, selection.slot, choice as keyof TrainerMemberSettings, Number(button.dataset.value));
+        changed();
+      } catch (error) {
+        window.alert(error instanceof Error ? error.message : String(error));
+      }
+      refreshSlotDerived();
+      const attribute = button.dataset.slotChoice !== undefined ? "data-slot-choice" : "data-member-choice";
+      detail.querySelector<HTMLElement>(`[data-slot-editor] [${attribute}="${CSS.escape(choice)}"][data-value="${CSS.escape(button.dataset.value ?? "")}"]`)?.focus();
+      return;
+    }
     const run = (action: () => void, after: () => void = renderParty) => {
       try {
         action();
@@ -358,6 +441,46 @@ export function attachTrainerDetail(
       }
     };
 
+    const poolView = view();
+    if (poolView.pool && button.matches("[data-party-add], [data-slot-move], [data-slot-duplicate], [data-slot-delete], [data-slot-autofill], [data-pool-role], [data-pool-group], [data-pool-unlink]")) {
+      run(() => {
+        editPool((pool) => {
+          const members = pool.members;
+          const slot = selection.slot;
+          if (button.matches("[data-party-add]")) {
+            const previous = members[members.length - 1];
+            const member = newPoolMember(project, previous && "pokemon" in previous ? previous.pokemon : undefined);
+            if (pool.slotGroups) member.groups = trainerPoolGroupBit(pool.slotGroups[0]);
+            members.push(member);
+            selection.slot = members.length - 1;
+          } else if (button.matches("[data-slot-move]")) {
+            const to = slot + Number(button.dataset.slotMove);
+            if (!members[to]) return;
+            [members[slot], members[to]] = [members[to]!, members[slot]!];
+            selection.slot = to;
+          } else if (button.matches("[data-slot-duplicate]")) {
+            const member = members[slot];
+            if (!member) return;
+            members.splice(slot + 1, 0, structuredClone(member));
+            selection.slot = slot + 1;
+          } else if (button.matches("[data-slot-delete]")) {
+            members.splice(slot, 1);
+          } else if (button.matches("[data-slot-autofill]")) {
+            autofillPoolMemberMoves(project, poolPokemon(pool));
+          } else if (button.matches("[data-pool-role]")) {
+            const member = members[slot];
+            if (member) member.role = Number(button.dataset.value);
+          } else if (button.matches("[data-pool-group]")) {
+            const member = members[slot];
+            if (member && pool.slotGroups) member.groups = (member.groups ?? 0) ^ trainerPoolGroupBit(Number(button.dataset.value));
+          } else if (button.matches("[data-pool-unlink]")) {
+            const member = members[slot];
+            if (member && !("pokemon" in member)) members[slot] = { role: member.role, groups: member.groups, pokemon: poolPokemonFromTrainerSlot(project, member.trainerId, member.slot) };
+          }
+        });
+      });
+      return;
+    }
     if (button.matches("[data-party-add]")) {
       run(() => {
         selection.slot = addTrainerPokemon(project, id).slot;
@@ -404,7 +527,12 @@ export function attachTrainerDetail(
       try {
         button.disabled = true;
         button.textContent = "Building…";
-        await options.onTestBattle(id, options.getTestTeamText());
+        // With variations, fight the roster on screen unless "Game's pick" is chosen.
+        const current = view();
+        const gamePick = detail.querySelector<HTMLSelectElement>("[data-test-roster]")?.value !== "shown";
+        const source = gamePick || !trainerHasRosterVariants(project, id) ? undefined
+          : current.kind === "original" ? id : current.kind === "trainer" ? current.record.id : current.poolId === undefined ? undefined : trainerPoolSource(current.poolId);
+        await options.onTestBattle(id, options.getTestTeamText(), source);
       } catch (error) {
         window.alert(error instanceof Error ? error.message : String(error));
       } finally {
@@ -433,7 +561,19 @@ export function attachTrainerDetail(
     const target = event.target as HTMLElement;
     const id = trainerId();
     try {
-      if (target instanceof HTMLSelectElement && target.dataset.trainerSelect) {
+      if (target instanceof HTMLInputElement && target.dataset.hpExact !== undefined) {
+        const max = Number(target.closest<HTMLElement>(".td-hp")?.dataset.hpMax);
+        const value = Math.round(target.valueAsNumber);
+        if (!(value >= 1) || !(max >= 1)) {
+          refreshSlotDerived();
+          return;
+        }
+        setStartingHp(value >= max ? 0 : 2, Math.min(value, max));
+      } else if ((target instanceof HTMLSelectElement || target instanceof HTMLInputElement) && target.dataset.trainerCustomization) {
+        const field = target.dataset.trainerCustomization as keyof TrainerMemberSettings;
+        updateTrainerMemberSettings(project, id, selection.slot, field, Number(target.value));
+        if (field === "hpMode" || field === "status") renderParty();
+      } else if (target instanceof HTMLSelectElement && target.dataset.trainerSelect) {
         updateTrainerField(project, id, target.dataset.trainerSelect, target.value);
       } else if (target instanceof HTMLSelectElement && target.dataset.slotSelect) {
         updateTrainerPokemonField(project, id, selection.slot, target.dataset.slotSelect, target.value);
@@ -468,6 +608,104 @@ export function attachTrainerDetail(
     if (updated > 0) options.onDirty?.();
   }, { signal });
 
+  /** Starting HP: 100% is full HP, anything less a percentage, or an exact number typed beside the bar. */
+  const setStartingHp = (mode: number, hp: number) => {
+    const id = trainerId();
+    if (view().pool) {
+      editPool((pool) => {
+        const pokemon = poolPokemon(pool);
+        setPoolMemberSetting(pokemon, "hpMode", mode);
+        if (mode) setPoolMemberSetting(pokemon, "hp", hp);
+      });
+    } else {
+      if (getTrainerMemberSettings(project, id, selection.slot).hpMode !== mode) updateTrainerMemberSettings(project, id, selection.slot, "hpMode", mode);
+      if (mode && getTrainerMemberSettings(project, id, selection.slot).hp !== hp) updateTrainerMemberSettings(project, id, selection.slot, "hp", hp);
+    }
+    refreshSlotDerived();
+  };
+  const commitHpPercent = (percent: number) => {
+    try {
+      setStartingHp(percent >= 100 ? 0 : 1, percent);
+      changed();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : String(error));
+      refreshSlotDerived();
+    }
+  };
+  /** Show a percentage on the bar while it is dragged, before it is saved. */
+  const previewHp = (bar: HTMLElement, percent: number) => {
+    const hp = bar.closest<HTMLElement>(".td-hp");
+    const max = Number(hp?.dataset.hpMax);
+    const fill = bar.querySelector<HTMLElement>(".td-hp-fill");
+    const current = max >= 1 ? (percent >= 100 ? max : Math.max(1, Math.floor((max * percent) / 100))) : undefined;
+    const share = current !== undefined ? (current / max) * 100 : percent;
+    if (fill) {
+      fill.style.width = `${share}%`;
+      fill.classList.remove("-high", "-mid", "-low");
+      fill.classList.add(share > 50 ? "-high" : share > 20 ? "-mid" : "-low");
+    }
+    const number = hp?.querySelector<HTMLInputElement>("[data-hp-exact]");
+    if (number && current !== undefined) number.value = String(current);
+    const mode = hp?.querySelector<HTMLElement>(".td-hp-mode");
+    if (mode) mode.textContent = percent >= 100 ? "Full" : `${percent}%`;
+    bar.setAttribute("aria-valuenow", String(percent));
+  };
+  const percentAt = (bar: HTMLElement, clientX: number) => {
+    const track = bar.querySelector<HTMLElement>(".td-hp-track")?.getBoundingClientRect();
+    if (!track || !track.width) return 100;
+    return Math.max(1, Math.min(100, Math.round(((clientX - track.left) / track.width) * 100)));
+  };
+  detail.addEventListener("pointerdown", (event) => {
+    const bar = (event.target as HTMLElement).closest<HTMLElement>(".td-hp-bar");
+    if (!bar || event.button !== 0) return;
+    event.preventDefault();
+    bar.focus();
+    bar.setPointerCapture(event.pointerId);
+    let percent = percentAt(bar, event.clientX);
+    previewHp(bar, percent);
+    const move = (next: PointerEvent) => {
+      percent = percentAt(bar, next.clientX);
+      previewHp(bar, percent);
+    };
+    const end = () => {
+      bar.removeEventListener("pointermove", move);
+      bar.removeEventListener("pointerup", end);
+      bar.removeEventListener("pointercancel", end);
+      commitHpPercent(percent);
+      detail.querySelector<HTMLElement>("[data-slot-editor] .td-hp-bar")?.focus();
+    };
+    bar.addEventListener("pointermove", move);
+    bar.addEventListener("pointerup", end);
+    bar.addEventListener("pointercancel", end);
+  }, { signal });
+  detail.addEventListener("keydown", (event) => {
+    const bar = (event.target as HTMLElement).closest<HTMLElement>(".td-hp-bar");
+    if (!bar) return;
+    const now = Number(bar.getAttribute("aria-valuenow")) || 100;
+    const steps: Record<string, number> = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1, PageDown: -10, PageUp: 10 };
+    const next = event.key === "Home" ? 1 : event.key === "End" ? 100 : steps[event.key] === undefined ? undefined : Math.max(1, Math.min(100, now + steps[event.key]!));
+    if (next === undefined) return;
+    event.preventDefault();
+    commitHpPercent(next);
+    detail.querySelector<HTMLElement>("[data-slot-editor] .td-hp-bar")?.focus();
+  }, { signal });
+
+  attachRosterHub(project, detail, {
+    trainerId,
+    active: () => view().key,
+    select: (key) => {
+      if (selection.roster === key) return;
+      selection.roster = key;
+      selection.slot = 0;
+      renderParty();
+    },
+    rerender: renderParty,
+    changed,
+    openTrainer: (id) => options.onOpenTrainer?.(id),
+    install: async () => {
+      await options.onInstallCustomization?.();
+    },
+  }, signal);
   attachTrainerFieldSettings(project, detail, options.onDirty);
   attachTrainerLevelCapSetting(project, detail, changed);
   return { render };

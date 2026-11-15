@@ -40,6 +40,10 @@ The Starters editor changes the three starter Pokemon and updates related script
 | Use custom starter sprites | First import/edit the Pokemon's own sprite files, then apply the starter change so starter sprites are copied from the updated source. |
 | Fix detection warning | Reload the ROM with Starter Sprites and required overlays selected, then reopen Starters. |
 
+## Shiny Locks
+
+Open **Scripted Pokémon → Shiny Locks** to find recognized non-shiny policies in scripted wild encounters and extended gifts. **Remove Shiny Lock** enables the encounter's normal shiny roll and preserves its other battle flags. A variable-based policy can be removed when the editor proves the same value on all decoded paths. The shortcut changes the encounter operand directly, so other uses of the variable keep their settings. The list covers scripts the editor can decode and does not include locks implemented by native code.
+
 ## Caveats
 
 The editor expects exactly three starters. If current starters cannot be detected from scripts or overlays, it uses vanilla Snivy, Tepig, and Oshawott as the baseline. Applying changes requires the relevant starter overlay to be loaded.

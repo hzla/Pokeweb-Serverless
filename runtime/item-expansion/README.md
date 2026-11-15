@@ -40,6 +40,33 @@ battle-pocket archive 228 to 1,024 entries. An ID above 638 exists when it has a
 pocket and battle pockets come from its item data, its icon from the item sprite editor. Pokeweb rewrites the
 `PWIC` catalog in each DLL and archive 228 before every export.
 
+## Optional Training Items
+
+Select **Include Training Items** before installing Item Expansion in Code Injection, or use **Add Training Items**
+on an existing installation. The pack uses 29 unused expanded item IDs above the fixed Mega Stone range.
+Add the items to the game through the usual shop or gift editors. Players use them from the Medicine pocket.
+
+- The 25 mints set the Pokémon’s actual nature. The Silver Bottle Cap sets one chosen IV to 31 and the Gold
+  Bottle Cap sets all six to 31. The game recalculates the Pokémon’s stats after a nature or IV change.
+- Ability Capsule switches between a Pokémon’s two distinct regular Abilities. Ability Patch grants a distinct
+  Hidden Ability or switches a Hidden Ability back to the first regular Ability. The chosen slot stays with the
+  Pokémon through evolution and form changes. A species or form missing that slot uses its first available
+  regular Ability until the chosen slot becomes available again.
+- Using an item consumes one only when its effect succeeds. The items work at any level and are unavailable to Eggs.
+
+The pack includes icons from the bundled pokeemerald-expansion sprite library.
+[Sprite credits](https://github.com/rh-hideout/pokeemerald-expansion/blob/master/CREDITS.md)
+
+Use **Update Training Items** to upgrade a ROM with the original pack. The upgrade keeps item IDs and text.
+Use an Ability Capsule or Ability Patch with the updated runtime to record a choice going forward.
+
+`PokewebTrainingItems{B,W,B2,W2}.dll` carries the item IDs and dialog range, adds the party-menu actions, and
+hooks the two native ability refresh calls. The Pokémon’s chosen slot is stored in an unused byte of its
+checksummed PK5 data. The personality value and save layout stay the same.
+Build with `python3 runtime/item-expansion/training/build.py` using the US revision-0 ROMs and the same
+symbol inputs as Item Expansion. Rebuild the icon bundle with `python3 runtime/item-expansion/training/icons.py`
+(Pillow required).
+
 ## How the DLLs are built
 
     POKEBW2_CONFIG=~/Repos/pokebw2/config POKEBW2_EXTRACT=~/Repos/pokebw2/extract python3 runtime/item-expansion/build.py
