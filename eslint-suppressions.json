@@ -1,0 +1,482 @@
+{
+  "src/pokeweb/animStreamsFullSize.ts": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/pokeweb/battleLogModel.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/pokeweb/black2UpgradeModel.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/pokeweb/buildingGlb.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 3
+    }
+  },
+  "src/pokeweb/changelogModel.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/pokeweb/dexAreaModel.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/pokeweb/editSession.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/pokeweb/expandedRigAtlasPatch.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/pokeweb/gen4EventModel.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/pokeweb/generalPatchModel.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/pokeweb/glbMaterialImport.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "src/pokeweb/itemEffectsModel.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/pokeweb/map3dModel.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/pokeweb/mapGlbImport.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/pokeweb/mapStudioFormats.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 7
+    }
+  },
+  "src/pokeweb/menuEvolutionModel.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/pokeweb/moveAnimationModel.ts": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/pokeweb/moveExpansionAssetOptimization.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/pokeweb/moveExpansionPatch.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/pokeweb/nitroSound/index.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/pokeweb/nitroSpa.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/pokeweb/overworldModel.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/pokeweb/overworldWeatherLightingModel.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/pokeweb/platinumMoveAnimationPreviewModel.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/pokeweb/pmcModel.ts": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/pokeweb/pokemonSpriteModel.ts": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/pokeweb/romRepairModel.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/pokeweb/starterModel.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/pokeweb/testBattleTeam.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/pokeweb/titleScreenModel.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/pokeweb/translationScripts.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/test/animationAssetModel.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "src/test/animationImportRouting.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "src/test/buildingImport.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 13
+    }
+  },
+  "src/test/mapGlbImport.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 5
+    }
+  },
+  "src/test/pwanCompilerClient.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 6
+    }
+  },
+  "src/test/pwanGifImportPreview.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 3
+    }
+  },
+  "src/ui/battleFacilityEditor.ts": {
+    "no-restricted-properties": {
+      "count": 3
+    }
+  },
+  "src/ui/buildingEditor.ts": {
+    "no-restricted-properties": {
+      "count": 1
+    }
+  },
+  "src/ui/bw2ScriptEditor.ts": {
+    "no-restricted-globals": {
+      "count": 1
+    }
+  },
+  "src/ui/changelogPdfDownload.ts": {
+    "no-restricted-properties": {
+      "count": 1
+    }
+  },
+  "src/ui/changelogView.ts": {
+    "no-restricted-properties": {
+      "count": 2
+    }
+  },
+  "src/ui/detailFields.ts": {
+    "no-restricted-properties": {
+      "count": 1
+    }
+  },
+  "src/ui/dexAreaEditor.ts": {
+    "no-restricted-properties": {
+      "count": 2
+    }
+  },
+  "src/ui/docGenerators.ts": {
+    "no-restricted-properties": {
+      "count": 1
+    }
+  },
+  "src/ui/dsiRomRepair.ts": {
+    "no-restricted-properties": {
+      "count": 1
+    }
+  },
+  "src/ui/encounterEditor.ts": {
+    "no-restricted-properties": {
+      "count": 4
+    }
+  },
+  "src/ui/encounterInteractions.ts": {
+    "no-restricted-properties": {
+      "count": 1
+    }
+  },
+  "src/ui/fileSystemEditor.ts": {
+    "no-restricted-properties": {
+      "count": 9
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/ui/followingPokemonEditor.ts": {
+    "no-restricted-properties": {
+      "count": 1
+    }
+  },
+  "src/ui/grottoEditor.ts": {
+    "no-restricted-properties": {
+      "count": 2
+    }
+  },
+  "src/ui/headerBattleEnvironmentEditor.ts": {
+    "no-restricted-properties": {
+      "count": 5
+    }
+  },
+  "src/ui/headerEditor.ts": {
+    "no-restricted-properties": {
+      "count": 1
+    }
+  },
+  "src/ui/itemEditor.ts": {
+    "no-restricted-properties": {
+      "count": 2
+    }
+  },
+  "src/ui/lazyDescriptionPreview.ts": {
+    "no-restricted-globals": {
+      "count": 1
+    }
+  },
+  "src/ui/legacyInteractions.ts": {
+    "no-restricted-properties": {
+      "count": 1
+    }
+  },
+  "src/ui/map3dEditor.ts": {
+    "no-restricted-properties": {
+      "count": 1
+    }
+  },
+  "src/ui/mapStudioEditor.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 2
+    },
+    "no-restricted-globals": {
+      "count": 1
+    },
+    "no-restricted-properties": {
+      "count": 1
+    }
+  },
+  "src/ui/martGrottoEditor.ts": {
+    "no-restricted-properties": {
+      "count": 4
+    }
+  },
+  "src/ui/martGrottoInteractions.ts": {
+    "no-restricted-properties": {
+      "count": 1
+    }
+  },
+  "src/ui/mastersheetEditor.ts": {
+    "no-restricted-properties": {
+      "count": 2
+    }
+  },
+  "src/ui/matrixSeasons.ts": {
+    "no-restricted-globals": {
+      "count": 1
+    }
+  },
+  "src/ui/matrixThumbnails.ts": {
+    "no-restricted-globals": {
+      "count": 1
+    }
+  },
+  "src/ui/moveAnimationCodeEditor.ts": {
+    "no-restricted-properties": {
+      "count": 1
+    }
+  },
+  "src/ui/moveAnimationEditorPage.ts": {
+    "no-restricted-properties": {
+      "count": 5
+    }
+  },
+  "src/ui/moveItemEditor.ts": {
+    "no-restricted-properties": {
+      "count": 1
+    }
+  },
+  "src/ui/moveItemInteractions.ts": {
+    "no-restricted-properties": {
+      "count": 1
+    }
+  },
+  "src/ui/moveSpaEditor.ts": {
+    "no-restricted-properties": {
+      "count": 3
+    }
+  },
+  "src/ui/musicEditor.ts": {
+    "no-restricted-properties": {
+      "count": 1
+    }
+  },
+  "src/ui/overworldEditor.ts": {
+    "no-restricted-properties": {
+      "count": 4
+    }
+  },
+  "src/ui/overworldShortcuts.ts": {
+    "no-restricted-properties": {
+      "count": 2
+    }
+  },
+  "src/ui/overworldWeatherGraphicsEditor.ts": {
+    "no-restricted-globals": {
+      "count": 1
+    }
+  },
+  "src/ui/pokemonEditor.ts": {
+    "no-restricted-properties": {
+      "count": 2
+    }
+  },
+  "src/ui/pokemonInteractions.ts": {
+    "no-restricted-properties": {
+      "count": 7
+    }
+  },
+  "src/ui/pokemonSpriteEditor.ts": {
+    "no-restricted-properties": {
+      "count": 5
+    }
+  },
+  "src/ui/pwanAnimationEditor.ts": {
+    "no-restricted-properties": {
+      "count": 3
+    },
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/ui/pwtEditor.ts": {
+    "no-restricted-properties": {
+      "count": 5
+    }
+  },
+  "src/ui/subwayEditor.ts": {
+    "no-restricted-properties": {
+      "count": 5
+    }
+  },
+  "src/ui/textEditor.ts": {
+    "no-restricted-properties": {
+      "count": 3
+    }
+  },
+  "src/ui/titleScreenEditor.ts": {
+    "no-restricted-globals": {
+      "count": 1
+    }
+  },
+  "src/ui/titleScreenPngImport.ts": {
+    "no-restricted-properties": {
+      "count": 1
+    }
+  },
+  "src/ui/tmInteractions.ts": {
+    "no-restricted-properties": {
+      "count": 2
+    }
+  },
+  "src/ui/townMapEditor.ts": {
+    "no-restricted-globals": {
+      "count": 1
+    }
+  },
+  "src/ui/townMapPaintTools.ts": {
+    "no-restricted-globals": {
+      "count": 1
+    }
+  },
+  "src/ui/trainerEditor.ts": {
+    "no-restricted-properties": {
+      "count": 4
+    }
+  },
+  "src/ui/trainerInteractions.ts": {
+    "no-restricted-properties": {
+      "count": 17
+    }
+  },
+  "src/ui/trainerRosterHub.ts": {
+    "no-restricted-properties": {
+      "count": 1
+    }
+  },
+  "src/ui/trainerSpriteEditor.ts": {
+    "no-restricted-properties": {
+      "count": 1
+    }
+  },
+  "src/ui/translation.ts": {
+    "no-restricted-properties": {
+      "count": 2
+    }
+  },
+  "src/ui/tutorMoveEditor.ts": {
+    "no-restricted-properties": {
+      "count": 1
+    }
+  },
+  "src/ui/uiScreensEditor.ts": {
+    "no-restricted-globals": {
+      "count": 2
+    }
+  },
+  "src/ui/w2uLocalSync.ts": {
+    "no-restricted-properties": {
+      "count": 2
+    }
+  },
+  "src/ui/zoneThumbnails.ts": {
+    "no-restricted-globals": {
+      "count": 1
+    }
+  }
+}

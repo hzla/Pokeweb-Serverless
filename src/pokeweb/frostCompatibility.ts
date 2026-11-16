@@ -68,6 +68,10 @@ export function exportFrostCompatibleRom(bytes: Uint8Array, options: FrostExport
   }
   if (count === retailCount && rom.filenames.firstId === count) {
     validateNamedFiles(rom, count, reject);
+    if (rom.hasRetailOverlayLayout()) {
+      const files = frostSparseFormFiles(rom);
+      return complete(files.size ? rom.save({ forDsi: options.forDsi, files, preserveDataLayout: true }) : bytes);
+    }
     const { table, files } = recompressRetailOverlays(rom, retailCount);
     return complete(files.size ? rom.save({
       forDsi: options.forDsi, arm9OverlayTable: table, files, preserveOriginalLength: true,
@@ -115,6 +119,7 @@ export function exportFrostCompatibleRom(bytes: Uint8Array, options: FrostExport
     files,
     ...(!alreadyReserved ? { insertedFiles: [{ fileId: retailCount, bytes: image }] } : {}),
     priorityFileIds: [retailCount],
+    preserveBw2PmcLayout: true,
     preserveOriginalLength: true,
   }));
 }

@@ -1,20 +1,19 @@
-import { readU16, writeU16 } from "../nds/binary";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
-import { recordGenericChange } from "./actionChangelog";
 import { getRomFileBytes } from "./fileSystemModel";
 import { gen5HeightAt } from "./gen5MapHeightGeneration";
 import { equalMapBytes, readGen5MapBin } from "./gen5MapImportFormats";
 import { isGrassLikePermission, isWaterLikePermission, type Gen5PermissionTileLike } from "./gen5PermissionModel";
-import { extractGameFreakContainer, invalidateMap3dAssets, packGameFreakContainer, parseAreaHeader, readNitroResources, type Map3dSceneData, type Map3dTile } from "./map3dModel";
+import { extractGameFreakContainer, packGameFreakContainer, parseAreaHeader, readNitroResources, type Map3dSceneData, type Map3dTile } from "./map3dModel";
 import { appendMapGrass, GRASS_LAYERS, GRASS_TILE_CLASSES, grassTileKey, readPaintedMapGrass, type GrassPermissionMember, type GrassQuad, type MapGrassKind } from "./mapGrassGeometry";
 import { mapGrassPlacement } from "./mapGrassPlacement";
 import { loadMatrixEditorData } from "./matrixModel";
 import { ensure, materialRecords } from "./nitroResourceWriter";
 import { appendNitroTextures, type EncodedPalette, type EncodedTexture } from "./nitroTextureWriter";
 import { activeRomMatchesProject, loadActiveRomBytes } from "./persistence";
-import { createNarcStore, markDirty, type ProjectState } from "./projectStore";
+import { createNarcStore, type ProjectState } from "./projectStore";
 import { getMapReplacementBytes, MATRIX_SEASONS, replacementRules, resolveSeasonalMatrix, seasonalAreaId, type MatrixSeason } from "./seasonalMatrixModel";
+import { countedAs, emptyBrushStroke, permission, redoBrushStroke, startBrushStroke, undoBrushStroke, writeBrushStroke, writePermission, type BrushStrokeKind, type BrushStroke } from "./mapBrushStroke";
 
 export type MapGrassTile = Map3dTile;
 export type MapGrassSurface = "auto" | "upper" | "lower";
@@ -80,43 +79,9 @@ export type MapGrassOriginalPermission = Gen5PermissionTileLike & {
 };
 type ChunkOriginalPermissions = Record<number, MapGrassOriginalPermission>;
 export type MapGrassOriginalPermissions = Record<number, ChunkOriginalPermissions>;
-type MapChange = { id: number; before: Uint8Array; after: Uint8Array };
-type GrassMapChange = MapChange & { permissionsBefore?: ChunkOriginalPermissions; permissionsAfter?: ChunkOriginalPermissions };
 export type GrassSkipReason = "already-matching" | "existing-grass" | "blocked" | "water" | "special-terrain" | "split-height" | "multiple-surfaces" | "no-stacked-surface" | "crossing-surfaces" | "missing-map" | "outside-map" | "no-painted-grass" | "missing-original-permissions" | "changed-grass";
-type GrassSkip = { reason: GrassSkipReason; count: number; season?: MatrixSeason };
-export type GrassStroke = {
-  action: "paint" | "remove";
-  maps: GrassMapChange[];
-  textures: MapChange[];
-  count: number;
-  skipped: number;
-  skipReasons: GrassSkip[];
-  sourceFallbackCount: number;
-};
-
-function grassStroke(action: GrassStroke["action"]) {
-  const result: GrassStroke = { action, maps: [], textures: [], count: 0, skipped: 0, skipReasons: [], sourceFallbackCount: 0 };
-  return {
-    result,
-    skip(reason: GrassSkipReason, season?: MatrixSeason) {
-      result.skipped++;
-      const group = result.skipReasons.find(entry => entry.reason === reason && entry.season === season);
-      if (group) group.count++;
-      else result.skipReasons.push({ reason, count: 1, ...(season ? { season } : {}) });
-    },
-  };
-}
-
-function permission(bytes: Uint8Array, index: number): Gen5PermissionTileLike {
-  const at = 8 + index * 8;
-  return { tileClass: readU16(bytes, at), flags: readU16(bytes, at + 2) };
-}
-
-function writePermission(bytes: Uint8Array, index: number, tileClass: number, flags: number) {
-  const at = 8 + index * 8;
-  writeU16(bytes, at, tileClass);
-  writeU16(bytes, at + 2, flags);
-}
+/** `sourceFallbackCount` counts tiles painted before originals were saved, restored from the source ROM instead. */
+export type GrassStroke = BrushStroke<"paint" | "remove", GrassSkipReason, ChunkOriginalPermissions> & { sourceFallbackCount: number };
 
 const paintedFlags = (flags: number) => (flags & ~0x0088) | GRASS_FLAGS;
 const blocked = (tile: Gen5PermissionTileLike) => Boolean(tile.flags & 1) || [1, 18].includes(tile.tileClass);
@@ -283,7 +248,7 @@ export async function paintMapGrass(
   { surface = "auto", isCurrent = () => true, allowBlocked = false }: GrassStrokeOptions = {},
 ): Promise<GrassStroke> {
   ensure(kind === "regular" || kind === "dark", "Choose a grass type.");
-  const { result, skip } = grassStroke("paint");
+  const { result, skip } = startBrushStroke<GrassStroke>({ ...emptyBrushStroke("paint"), sourceFallbackCount: 0 });
   if (!tiles.length) return result;
   const context = await grassContext(project, scene, isCurrent);
   ensure(isCurrent(), "The map changed during the grass stroke. Try the stroke again.");
@@ -346,25 +311,25 @@ export async function paintMapGrass(
     const { signature, files, placements } = contents.get(id)!;
     files[1] = files[1].slice();
     if (placements === 3) files[2] = files[2].slice();
-    const permissionsBefore = project.mapGrassOriginalPermissions?.[id];
-    const permissionsAfter = { ...permissionsBefore };
+    const originalsBefore = project.mapGrassOriginalPermissions?.[id];
+    const originalsAfter = { ...originalsBefore };
     const quads: Record<GrassPermissionMember, GrassQuad[]> = { 1: [], 2: [] };
     for (const [key, { index, member, mirrored, quad }] of tiles) {
       const collision = files[member];
       const first = permission(collision, index);
       const original: MapGrassOriginalPermission = { kind, ...first };
       const art = blocked(first);
-      if (!art) writePermission(collision, index, GRASS_TILE_CLASSES[kind], paintedFlags(first.flags));
+      if (!art) writePermission(collision, index, { tileClass: GRASS_TILE_CLASSES[kind], flags: paintedFlags(first.flags) });
       if (mirrored) {
         const second = permission(files[2], index);
         original.secondary = second;
-        if (!art) writePermission(files[2], index, GRASS_TILE_CLASSES[kind], paintedFlags(second.flags));
+        if (!art) writePermission(files[2], index, { tileClass: GRASS_TILE_CLASSES[kind], flags: paintedFlags(second.flags) });
       }
-      permissionsAfter[key] = original;
+      originalsAfter[key] = original;
       quads[member].push(quad);
     }
     for (const member of [1, 2] as const) files[0] = appendMapGrass(files[0], kind, quads[member], stock.materials, member);
-    result.maps.push({ id, before: maps.rawFiles[id].slice(), after: packGameFreakContainer(signature, files), permissionsBefore, permissionsAfter });
+    result.maps.push({ id, before: maps.rawFiles[id].slice(), after: packGameFreakContainer(signature, files), originalsBefore, originalsAfter });
   }
   const textureStore = project.narcs.map_textures
     ?? createNarcStore("map_textures", MAP_TEXTURES_PATH, textureId, new NARC(getRomFileBytes(project, rom, textureId)));
@@ -385,7 +350,7 @@ export async function paintMapGrass(
     project.narcs.map_textures = textureStore;
     project.session.fileIds.map_textures = textureId;
   }
-  writeGrassStroke(project, result, false);
+  writeBrushStroke(project, GRASS, result, false);
   return result;
 }
 
@@ -423,7 +388,7 @@ export async function removeMapGrass(
   project: ProjectState, scene: Map3dSceneData, tiles: readonly MapGrassTile[],
   { surface = "auto", isCurrent = () => true }: GrassStrokeOptions = {},
 ): Promise<GrassStroke> {
-  const { result, skip } = grassStroke("remove");
+  const { result, skip } = startBrushStroke<GrassStroke>({ ...emptyBrushStroke("remove"), sourceFallbackCount: 0 });
   if (!tiles.length) return result;
   const context = await grassContext(project, scene, isCurrent);
   ensure(isCurrent(), "The map changed during the grass stroke. Try the stroke again.");
@@ -503,62 +468,28 @@ export async function removeMapGrass(
     const files = bin.files.slice();
     files[1] = files[1].slice();
     if (bin.placements === 3) files[2] = files[2].slice();
-    const permissionsBefore = project.mapGrassOriginalPermissions?.[id];
-    const permissions = { ...permissionsBefore };
+    const originalsBefore = project.mapGrassOriginalPermissions?.[id];
+    const permissions = { ...originalsBefore };
     for (const [key, { index, member, original }] of tiles) {
-      writePermission(files[member], index, original.tileClass, original.flags);
-      if (original.secondary) writePermission(files[2], index, original.secondary.tileClass, original.secondary.flags);
+      writePermission(files[member], index, original);
+      if (original.secondary) writePermission(files[2], index, original.secondary);
       delete permissions[key];
     }
     files[0] = grass.remove(new Set(tiles.keys()));
-    const permissionsAfter = Object.keys(permissions).length ? permissions : undefined;
-    result.maps.push({ id, before: maps.rawFiles[id].slice(), after: packGameFreakContainer(bin.signature, files), permissionsBefore, permissionsAfter });
+    const originalsAfter = Object.keys(permissions).length ? permissions : undefined;
+    result.maps.push({ id, before: maps.rawFiles[id].slice(), after: packGameFreakContainer(bin.signature, files), originalsBefore, originalsAfter });
   }
-  if (result.count) writeGrassStroke(project, result, false);
+  if (result.count) writeBrushStroke(project, GRASS, result, false);
   return result;
 }
 
-function writeGrassStroke(project: ProjectState, stroke: GrassStroke, undo: boolean) {
-  for (const [name, changes] of [["maps", stroke.maps], ["map_textures", stroke.textures]] as const) {
-    for (const { id, before, after } of changes) {
-      const store = project.narcs[name]!;
-      store.rawFiles[id] = (undo ? before : after).slice();
-      store.records.delete(id);
-      markDirty(project, name, id);
-    }
-  }
-  const originals = { ...project.mapGrassOriginalPermissions };
-  for (const { id, permissionsBefore, permissionsAfter } of stroke.maps) {
-    const permissions = undo ? permissionsBefore : permissionsAfter;
-    if (permissions) originals[id] = permissions;
-    else delete originals[id];
-  }
-  project.mapGrassOriginalPermissions = Object.keys(originals).length ? originals : undefined;
-  if (stroke.textures.length) invalidateMap3dAssets();
-  const action = stroke.action === "remove" ? "Removed grass from" : "Painted grass on";
-  recordGenericChange(project, "maps3d", `${undo ? "Undid a grass edit on" : action} ${stroke.count} tile${stroke.count === 1 ? "" : "s"}.`,
-    stroke.action === "remove" ? "Remove Grass" : "Add Grass");
-}
+const GRASS: BrushStrokeKind<GrassStroke> = {
+  originals: "mapGrassOriginalPermissions",
+  thing: "grass",
+  counted: countedAs("tile"),
+  actions: { paint: { done: "Painted grass on", label: "Add Grass" }, remove: { done: "Removed grass from", label: "Remove Grass" } },
+};
 
-export function undoMapGrass(project: ProjectState, stroke: GrassStroke) {
-  if (!stroke.count) return;
-  for (const [name, changes] of [["maps", stroke.maps], ["map_textures", stroke.textures]] as const) {
-    const store = project.narcs[name];
-    ensure(!changes.length || (store && changes.every(({ id, after }) => store.rawFiles[id] && equalMapBytes(store.rawFiles[id], after))), "Map resources changed after this grass stroke.");
-  }
-  ensure(stroke.maps.every(change => project.mapGrassOriginalPermissions?.[change.id] === change.permissionsAfter),
-    "The saved original permissions changed after this grass stroke.");
-  writeGrassStroke(project, stroke, true);
-}
-
+export const undoMapGrass = (project: ProjectState, stroke: GrassStroke) => undoBrushStroke(project, GRASS, stroke);
 /** Re-apply a stroke that undoMapGrass took back, as long as nothing changed those maps since. */
-export function redoMapGrass(project: ProjectState, stroke: GrassStroke) {
-  if (!stroke.count) return;
-  for (const [name, changes] of [["maps", stroke.maps], ["map_textures", stroke.textures]] as const) {
-    const store = project.narcs[name];
-    ensure(!changes.length || (store && changes.every(({ id, before }) => store.rawFiles[id] && equalMapBytes(store.rawFiles[id], before))), "Map resources changed after this grass stroke was undone.");
-  }
-  ensure(stroke.maps.every(change => project.mapGrassOriginalPermissions?.[change.id] === change.permissionsBefore),
-    "The saved original permissions changed after this grass stroke was undone.");
-  writeGrassStroke(project, stroke, false);
-}
+export const redoMapGrass = (project: ProjectState, stroke: GrassStroke) => redoBrushStroke(project, GRASS, stroke);

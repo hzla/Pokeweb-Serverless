@@ -1,4 +1,4 @@
-import { concatBytes, readU16, readU32 } from "../nds/binary";
+import { concatBytes, readU16, readU32, toS16 } from "../nds/binary";
 import { readNitroResources } from "./map3dModel";
 import { extendGrassDraws, packGrassCommands, terrainModelLayout, writeTerrainModel, type GpuCommand, type ModelBox, type TerrainModelLayout } from "./mapGrassGeometry";
 import { ensure, materialRecords, replaceMaterialRecords, type NativeMaterialRecord } from "./nitroResourceWriter";
@@ -44,16 +44,15 @@ function readCommands(list: Uint8Array, error: string): GpuCommand[] {
   return commands;
 }
 
-const s16 = (value: number) => (value << 16) >> 16;
 const s10 = (value: number) => (value << 22) >> 22;
 
 function position(op: number, params: number[], last: readonly number[]): [number, number, number] {
   const [a, b] = params;
-  if (op === 0x23) return [s16(a) / 4096, s16(a >>> 16) / 4096, s16(b) / 4096];
+  if (op === 0x23) return [toS16(a) / 4096, toS16(a >>> 16) / 4096, toS16(b) / 4096];
   if (op === 0x24) return [s10(a) / 64, s10(a >>> 10) / 64, s10(a >>> 20) / 64];
-  if (op === 0x25) return [s16(a) / 4096, s16(a >>> 16) / 4096, last[2]];
-  if (op === 0x26) return [s16(a) / 4096, last[1], s16(a >>> 16) / 4096];
-  if (op === 0x27) return [last[0], s16(a) / 4096, s16(a >>> 16) / 4096];
+  if (op === 0x25) return [toS16(a) / 4096, toS16(a >>> 16) / 4096, last[2]];
+  if (op === 0x26) return [toS16(a) / 4096, last[1], toS16(a >>> 16) / 4096];
+  if (op === 0x27) return [last[0], toS16(a) / 4096, toS16(a >>> 16) / 4096];
   return [last[0] + s10(a) / 4096, last[1] + s10(a >>> 10) / 4096, last[2] + s10(a >>> 20) / 4096];
 }
 
@@ -141,7 +140,7 @@ export function textureSteps(faces: readonly (readonly BrushVertex[])[], next: r
     const deltas = face.flatMap(vertex => {
       const other = later.get(positionKey(vertex));
       if (vertex.texcoord === undefined || other === undefined) return [];
-      return [[s16(other) - s16(vertex.texcoord), s16(other >>> 16) - s16(vertex.texcoord >>> 16)]];
+      return [[toS16(other) - toS16(vertex.texcoord), toS16(other >>> 16) - toS16(vertex.texcoord >>> 16)]];
     });
     return deltas.length === face.length && deltas.every(([s, t]) => Math.abs(s - deltas[0][0]) <= 2 && Math.abs(t - deltas[0][1]) <= 2)
       ? [deltas[0][0], deltas[0][1]] : [0, 0];
@@ -155,7 +154,7 @@ export function stepTextures(faces: readonly (readonly BrushVertex[])[], steps: 
     if (!step || !count || (!step[0] && !step[1])) return [...face];
     return face.map(vertex => vertex.texcoord === undefined ? vertex : {
       ...vertex,
-      texcoord: (((s16(vertex.texcoord) + count * step[0]) & 0xffff) | (((s16(vertex.texcoord >>> 16) + count * step[1]) & 0xffff) << 16)) >>> 0,
+      texcoord: (((toS16(vertex.texcoord) + count * step[0]) & 0xffff) | (((toS16(vertex.texcoord >>> 16) + count * step[1]) & 0xffff) << 16)) >>> 0,
     });
   });
 }

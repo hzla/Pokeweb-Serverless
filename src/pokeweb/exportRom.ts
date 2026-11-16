@@ -152,6 +152,8 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
     .filter((fileId): fileId is number => fileId !== undefined);
   const out = rom.save({
     forDsi: options.forDsi,
+    preserveDataLayout: true,
+    preserveBw2PmcLayout: true,
     allowDamagedDsi: options.allowDamagedDsi ?? true,
     onWarning: options.onWarning,
     arm9,

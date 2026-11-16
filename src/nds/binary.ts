@@ -16,6 +16,19 @@ export function readU16(data: Uint8Array, offset: number): number {
   return (data[offset] ?? 0) | ((data[offset + 1] ?? 0) << 8);
 }
 
+/** Reinterprets the low 16 bits of `value` as a signed number. */
+export function toS16(value: number): number {
+  return (value << 16) >> 16;
+}
+
+export function readS16(data: Uint8Array, offset: number): number {
+  return toS16(readU16(data, offset));
+}
+
+export function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
+  return a === b || (a.length === b.length && a.every((value, index) => value === b[index]));
+}
+
 export function readU32(data: Uint8Array, offset: number): number {
   return (
     (data[offset] ?? 0) |

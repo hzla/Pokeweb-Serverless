@@ -1,18 +1,17 @@
-import { readU16, writeU16 } from "../nds/binary";
 import { NARC } from "../nds/narc";
 import type { NintendoDSRom } from "../nds/rom";
-import { recordGenericChange } from "./actionChangelog";
 import { getRomFileBytes } from "./fileSystemModel";
 import { gen5HeightAt } from "./gen5MapHeightGeneration";
 import { equalMapBytes, readGen5MapBin } from "./gen5MapImportFormats";
 import type { Gen5PermissionTileLike } from "./gen5PermissionModel";
-import { extractGameFreakContainer, invalidateMap3dAssets, packGameFreakContainer, readNitroResources, type Map3dSceneData, type Map3dTile } from "./map3dModel";
+import { extractGameFreakContainer, packGameFreakContainer, readNitroResources, type Map3dSceneData, type Map3dTile } from "./map3dModel";
+import { countedAs, emptyBrushStroke, permission, redoBrushStroke, startBrushStroke, undoBrushStroke, writeBrushStroke, writePermission, type BrushStrokeKind, type BrushStroke } from "./mapBrushStroke";
 import { mapBrushContext, texturePacksFor, type MapBrushContext } from "./mapGrass";
 import { mapTreeType, type MapTreeType } from "./mapTreeCatalog";
-import { appendMapTrees, cutMapTree, readPlacedMapTrees, treeTileKey, type MapTreeTemplate, type TreeMember, type TreePlacement } from "./mapTreeGeometry";
+import { appendMapTrees, cutMapTree, readPlacedMapTrees, treeTileKey, type MapTreeTemplate, type TreePlacement } from "./mapTreeGeometry";
 import { ensure } from "./nitroResourceWriter";
 import { appendNitroTextures, type EncodedPalette, type EncodedTexture } from "./nitroTextureWriter";
-import { createNarcStore, markDirty, type ProjectState } from "./projectStore";
+import { createNarcStore, type ProjectState } from "./projectStore";
 import { MATRIX_SEASONS, type MatrixSeason } from "./seasonalMatrixModel";
 
 const MAPS_PATH = "a/0/0/8";
@@ -30,36 +29,9 @@ type ChunkTreeOriginals = Record<number, MapTreeOriginal>;
 export type MapTreeOriginalPermissions = Record<number, ChunkTreeOriginals>;
 
 export type TreeSkipReason = "occupied" | "blocked" | "water" | "existing-grass" | "special-terrain" | "split-height" | "uneven-ground" | "multiple-surfaces" | "missing-map" | "outside-map" | "no-placed-tree" | "missing-original-permissions" | "changed-tree";
-type TreeSkip = { reason: TreeSkipReason; count: number; season?: MatrixSeason };
-type MapChange = { id: number; before: Uint8Array; after: Uint8Array };
-type TreeMapChange = MapChange & { originalsBefore?: ChunkTreeOriginals; originalsAfter?: ChunkTreeOriginals };
-export type TreeStroke = { action: "place" | "remove"; maps: TreeMapChange[]; textures: MapChange[]; count: number; skipped: number; skipReasons: TreeSkip[] };
+export type TreeStroke = BrushStroke<"place" | "remove", TreeSkipReason, ChunkTreeOriginals>;
 /** `allowBlocked` also paints over tiles that already block movement (scenery the player never reaches); they stay blocked. */
 type TreeStrokeOptions = { isCurrent?: () => boolean; allowBlocked?: boolean };
-
-function treeStroke(action: TreeStroke["action"]) {
-  const result: TreeStroke = { action, maps: [], textures: [], count: 0, skipped: 0, skipReasons: [] };
-  return {
-    result,
-    skip(reason: TreeSkipReason, season?: MatrixSeason) {
-      result.skipped++;
-      const group = result.skipReasons.find(entry => entry.reason === reason && entry.season === season);
-      if (group) group.count++;
-      else result.skipReasons.push({ reason, count: 1, ...(season ? { season } : {}) });
-    },
-  };
-}
-
-export function permission(bytes: Uint8Array, index: number): Gen5PermissionTileLike {
-  const at = 8 + index * 8;
-  return { tileClass: readU16(bytes, at), flags: readU16(bytes, at + 2) };
-}
-
-export function writePermission(bytes: Uint8Array, index: number, { tileClass, flags }: Gen5PermissionTileLike) {
-  const at = 8 + index * 8;
-  writeU16(bytes, at, tileClass);
-  writeU16(bytes, at + 2, flags);
-}
 
 const flat = 1e-3;
 /**
@@ -210,7 +182,7 @@ export async function placeMapTrees(project: ProjectState, scene: Map3dSceneData
   const found = mapTreeType(typeId);
   ensure(found?.games.includes(project.session.baseRom as "BW" | "BW2"), "Choose a tree type for this game.");
   const type: MapTreeType = found!;
-  const { result, skip } = treeStroke("place");
+  const { result, skip } = startBrushStroke<TreeStroke>(emptyBrushStroke("place"));
   if (!anchors.length) return result;
   const context = await mapBrushContext(project, scene, isCurrent, "tree");
   ensure(isCurrent(), "The map changed while placing trees. Try again.");
@@ -283,13 +255,13 @@ export async function placeMapTrees(project: ProjectState, scene: Map3dSceneData
     project.narcs.map_textures = textureStore;
     project.session.fileIds.map_textures = textureId;
   }
-  writeTreeStroke(project, result, false);
+  writeBrushStroke(project, TREES, result, false);
   return result;
 }
 
 /** Remove brush-placed trees that cover any of the given tiles, restoring the tiles they replaced. */
 export async function removeMapTrees(project: ProjectState, scene: Map3dSceneData, tiles: readonly Map3dTile[], { isCurrent = () => true }: TreeStrokeOptions = {}): Promise<TreeStroke> {
-  const { result, skip } = treeStroke("remove");
+  const { result, skip } = startBrushStroke<TreeStroke>(emptyBrushStroke("remove"));
   if (!tiles.length) return result;
   const context = await mapBrushContext(project, scene, isCurrent, "tree");
   ensure(isCurrent(), "The map changed while removing trees. Try again.");
@@ -354,52 +326,19 @@ export async function removeMapTrees(project: ProjectState, scene: Map3dSceneDat
     const originalsAfter = Object.keys(originals).length ? originals : undefined;
     result.maps.push({ id, before: maps.rawFiles[id].slice(), after: packGameFreakContainer(bin.signature, files), originalsBefore, originalsAfter });
   }
-  if (result.count) writeTreeStroke(project, result, false);
+  if (result.count) writeBrushStroke(project, TREES, result, false);
   return result;
 }
 
-function writeTreeStroke(project: ProjectState, stroke: TreeStroke, undo: boolean) {
-  for (const [name, changes] of [["maps", stroke.maps], ["map_textures", stroke.textures]] as const) {
-    for (const { id, before, after } of changes) {
-      const store = project.narcs[name]!;
-      store.rawFiles[id] = (undo ? before : after).slice();
-      store.records.delete(id);
-      markDirty(project, name, id);
-    }
-  }
-  const originals = { ...project.mapTreeOriginalPermissions };
-  for (const { id, originalsBefore, originalsAfter } of stroke.maps) {
-    const next = undo ? originalsBefore : originalsAfter;
-    if (next) originals[id] = next;
-    else delete originals[id];
-  }
-  project.mapTreeOriginalPermissions = Object.keys(originals).length ? originals : undefined;
-  if (stroke.textures.length) invalidateMap3dAssets();
-  const noun = `${stroke.count} tree${stroke.count === 1 ? "" : "s"}`;
-  recordGenericChange(project, "maps3d", undo ? `Undid a tree edit (${noun}).` : stroke.action === "remove" ? `Removed ${noun}.` : `Placed ${noun}.`,
-    stroke.action === "remove" ? "Remove Trees" : "Place Trees");
-}
+const TREES: BrushStrokeKind<TreeStroke> = {
+  originals: "mapTreeOriginalPermissions",
+  thing: "tree",
+  counted: countedAs("tree"),
+  actions: { place: { done: "Placed", label: "Place Trees" }, remove: { done: "Removed", label: "Remove Trees" } },
+};
 
-function assertStoresMatch(project: ProjectState, stroke: TreeStroke, side: "before" | "after", message: string) {
-  for (const [name, changes] of [["maps", stroke.maps], ["map_textures", stroke.textures]] as const) {
-    const store = project.narcs[name];
-    ensure(!changes.length || (store && changes.every(change => store.rawFiles[change.id] && equalMapBytes(store.rawFiles[change.id], change[side]))), message);
-  }
-}
-
-export function undoMapTrees(project: ProjectState, stroke: TreeStroke) {
-  if (!stroke.count) return;
-  assertStoresMatch(project, stroke, "after", "Map resources changed after this tree edit.");
-  ensure(stroke.maps.every(change => project.mapTreeOriginalPermissions?.[change.id] === change.originalsAfter), "The saved tree tiles changed after this tree edit.");
-  writeTreeStroke(project, stroke, true);
-}
-
-export function redoMapTrees(project: ProjectState, stroke: TreeStroke) {
-  if (!stroke.count) return;
-  assertStoresMatch(project, stroke, "before", "Map resources changed after this tree edit was undone.");
-  ensure(stroke.maps.every(change => project.mapTreeOriginalPermissions?.[change.id] === change.originalsBefore), "The saved tree tiles changed after this tree edit was undone.");
-  writeTreeStroke(project, stroke, false);
-}
+export const undoMapTrees = (project: ProjectState, stroke: TreeStroke) => undoBrushStroke(project, TREES, stroke);
+export const redoMapTrees = (project: ProjectState, stroke: TreeStroke) => redoBrushStroke(project, TREES, stroke);
 
 /** Describe skipped footprints for the status line. */
 export function describeTreeSkips(stroke: TreeStroke) {

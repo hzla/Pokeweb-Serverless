@@ -1,4 +1,5 @@
 import type { BrushVertex } from "./mapBrushGeometry";
+import { toS16 } from "../nds/binary";
 
 /**
  * Merging map brush faces. A brush builds its art tile by tile; neighbouring faces that lie in one plane, light the
@@ -6,7 +7,6 @@ import type { BrushVertex } from "./mapBrushGeometry";
  * fences and grass, so edits cost about as many polygons as the game's own art.
  */
 
-const s16 = (value: number) => (value << 16) >> 16;
 
 const EPSILON = 1e-3;
 type Vec3 = readonly [number, number, number];
@@ -15,7 +15,7 @@ const cross = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0
 const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const length = (a: Vec3) => Math.sqrt(dot(a, a));
 const samePosition = (a: Vec3, b: Vec3) => Math.abs(a[0] - b[0]) < EPSILON && Math.abs(a[1] - b[1]) < EPSILON && Math.abs(a[2] - b[2]) < EPSILON;
-const uv = (vertex: BrushVertex): [number, number] | undefined => vertex.texcoord === undefined ? undefined : [s16(vertex.texcoord), s16(vertex.texcoord >>> 16)];
+const uv = (vertex: BrushVertex): [number, number] | undefined => vertex.texcoord === undefined ? undefined : [toS16(vertex.texcoord), toS16(vertex.texcoord >>> 16)];
 
 /** Texture coordinates within a sixteenth of a texel: what clipping a long face at a tile edge can leave apart. */
 function sameTexcoord(a: BrushVertex, b: BrushVertex) {

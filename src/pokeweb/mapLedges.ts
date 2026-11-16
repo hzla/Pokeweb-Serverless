@@ -1,16 +1,16 @@
 import { NARC } from "../nds/narc";
 import type { NintendoDSRom } from "../nds/rom";
-import { recordGenericChange } from "./actionChangelog";
 import { getRomFileBytes } from "./fileSystemModel";
 import { gen5HeightAt } from "./gen5MapHeightGeneration";
 import { equalMapBytes, readGen5MapBin } from "./gen5MapImportFormats";
-import { extractGameFreakContainer, invalidateMap3dAssets, packGameFreakContainer, readNitroResources, type Map3dSceneData, type Map3dTile } from "./map3dModel";
+import { extractGameFreakContainer, packGameFreakContainer, readNitroResources, type Map3dSceneData, type Map3dTile } from "./map3dModel";
 import { appendBrushPieces, brushPieceKey, nativeFaces, readBrushPieces, rootIsIdentity, type BrushKind, type BrushPart, type BrushVertex } from "./mapBrushGeometry";
 import { mapBrushContext, texturePacksFor } from "./mapGrass";
-import { addNativeTextures, brushDestinations, permission, snapGround, treeSite, writePermission, type MapTreeOriginalTile, type TreeSkipReason } from "./mapTrees";
+import { addNativeTextures, brushDestinations, snapGround, treeSite, type MapTreeOriginalTile, type TreeSkipReason } from "./mapTrees";
 import { ensure } from "./nitroResourceWriter";
-import { createNarcStore, markDirty, type ProjectState } from "./projectStore";
-import { MATRIX_SEASONS, type MatrixSeason } from "./seasonalMatrixModel";
+import { createNarcStore, type ProjectState } from "./projectStore";
+import { type MatrixSeason } from "./seasonalMatrixModel";
+import { countedAs, emptyBrushStroke, permission, redoBrushStroke, startBrushStroke, undoBrushStroke, writeBrushStroke, writePermission, type BrushStrokeKind, type BrushStroke } from "./mapBrushStroke";
 
 /**
  * One-way ledges. Each direction is cut from one vanilla ledge (the user's own source ROM): its first tile, one
@@ -139,22 +139,7 @@ export type MapLedgeOriginal = { direction: LedgeDirection; tiles: MapTreeOrigin
 type ChunkLedgeOriginals = Record<number, MapLedgeOriginal>;
 export type MapLedgeOriginalPermissions = Record<number, ChunkLedgeOriginals>;
 export type LedgeSkipReason = TreeSkipReason | "too-short" | "no-placed-ledge" | "changed-ledge";
-type MapChange = { id: number; before: Uint8Array; after: Uint8Array };
-type LedgeMapChange = MapChange & { originalsBefore?: ChunkLedgeOriginals; originalsAfter?: ChunkLedgeOriginals };
-export type LedgeStroke = { action: "place" | "remove"; maps: LedgeMapChange[]; textures: MapChange[]; count: number; skipped: number; skipReasons: { reason: LedgeSkipReason; count: number; season?: MatrixSeason }[] };
-
-function ledgeStroke(action: LedgeStroke["action"]) {
-  const result: LedgeStroke = { action, maps: [], textures: [], count: 0, skipped: 0, skipReasons: [] };
-  return {
-    result,
-    skip(reason: LedgeSkipReason, season?: MatrixSeason) {
-      result.skipped++;
-      const group = result.skipReasons.find(entry => entry.reason === reason && entry.season === season);
-      if (group) group.count++;
-      else result.skipReasons.push({ reason, count: 1, ...(season ? { season } : {}) });
-    },
-  };
-}
+export type LedgeStroke = BrushStroke<"place" | "remove", LedgeSkipReason, ChunkLedgeOriginals>;
 
 const stockLedges = new WeakMap<Uint8Array, { templates: Map<LedgeDirection, LedgeTemplate>; bank?: ReturnType<typeof readNitroResources> }>();
 
@@ -185,7 +170,7 @@ function ledgeTemplate(source: Uint8Array, rom: NintendoDSRom, direction: LedgeD
  */
 export async function placeMapLedge(project: ProjectState, scene: Map3dSceneData, tiles: readonly Map3dTile[], direction: LedgeDirection, { isCurrent = () => true }: { isCurrent?: () => boolean } = {}): Promise<LedgeStroke> {
   ensure(LEDGE_DIRECTIONS.includes(direction), "Choose a ledge direction.");
-  const { result, skip } = ledgeStroke("place");
+  const { result, skip } = startBrushStroke<LedgeStroke>(emptyBrushStroke("place"));
   if (!tiles.length) return result;
   const first = tiles[0], z = alongZ(direction);
   const run = tiles.filter(tile => tile.matrixX === first.matrixX && tile.matrixY === first.matrixY && (z ? tile.tileX === first.tileX : tile.tileY === first.tileY));
@@ -239,13 +224,13 @@ export async function placeMapLedge(project: ProjectState, scene: Map3dSceneData
     project.narcs.map_textures = textureStore;
     project.session.fileIds.map_textures = textureId;
   }
-  writeLedgeStroke(project, result, false);
+  writeBrushStroke(project, LEDGES, result, false);
   return result;
 }
 
 /** Remove brush-drawn ledges that cover any of the given tiles, restoring the tiles they replaced. */
 export async function removeMapLedges(project: ProjectState, scene: Map3dSceneData, tiles: readonly Map3dTile[], { isCurrent = () => true }: { isCurrent?: () => boolean } = {}): Promise<LedgeStroke> {
-  const { result, skip } = ledgeStroke("remove");
+  const { result, skip } = startBrushStroke<LedgeStroke>(emptyBrushStroke("remove"));
   if (!tiles.length) return result;
   const context = await mapBrushContext(project, scene, isCurrent, "ledge");
   ensure(isCurrent(), "The map changed while removing ledges. Try again.");
@@ -303,49 +288,17 @@ export async function removeMapLedges(project: ProjectState, scene: Map3dSceneDa
     files[0] = placed.remove(new Set(ledges.keys()));
     result.maps.push({ id, before: maps.rawFiles[id].slice(), after: packGameFreakContainer(bin.signature, files), originalsBefore, originalsAfter: Object.keys(originals).length ? originals : undefined });
   }
-  if (result.count) writeLedgeStroke(project, result, false);
+  if (result.count) writeBrushStroke(project, LEDGES, result, false);
   return result;
 }
 
-function writeLedgeStroke(project: ProjectState, stroke: LedgeStroke, undo: boolean) {
-  for (const [name, changes] of [["maps", stroke.maps], ["map_textures", stroke.textures]] as const) {
-    for (const { id, before, after } of changes) {
-      const store = project.narcs[name]!;
-      store.rawFiles[id] = (undo ? before : after).slice();
-      store.records.delete(id);
-      markDirty(project, name, id);
-    }
-  }
-  const originals = { ...project.mapLedgeOriginalPermissions };
-  for (const { id, originalsBefore, originalsAfter } of stroke.maps) {
-    const next = undo ? originalsBefore : originalsAfter;
-    if (next) originals[id] = next;
-    else delete originals[id];
-  }
-  project.mapLedgeOriginalPermissions = Object.keys(originals).length ? originals : undefined;
-  if (stroke.textures.length) invalidateMap3dAssets();
-  const noun = `${stroke.count} ledge${stroke.count === 1 ? "" : "s"}`;
-  recordGenericChange(project, "maps3d", undo ? `Undid a ledge edit (${noun}).` : stroke.action === "remove" ? `Removed ${noun}.` : `Drew ${noun}.`,
-    stroke.action === "remove" ? "Remove Ledges" : "Draw Ledge");
-}
+const LEDGES: BrushStrokeKind<LedgeStroke> = {
+  originals: "mapLedgeOriginalPermissions",
+  thing: "ledge",
+  counted: countedAs("ledge"),
+  actions: { place: { done: "Drew", label: "Draw Ledge" }, remove: { done: "Removed", label: "Remove Ledges" } },
+};
 
-function assertStoresMatch(project: ProjectState, stroke: LedgeStroke, side: "before" | "after", message: string) {
-  for (const [name, changes] of [["maps", stroke.maps], ["map_textures", stroke.textures]] as const) {
-    const store = project.narcs[name];
-    ensure(!changes.length || (store && changes.every(change => store.rawFiles[change.id] && equalMapBytes(store.rawFiles[change.id], change[side]))), message);
-  }
-}
+export const undoMapLedges = (project: ProjectState, stroke: LedgeStroke) => undoBrushStroke(project, LEDGES, stroke);
+export const redoMapLedges = (project: ProjectState, stroke: LedgeStroke) => redoBrushStroke(project, LEDGES, stroke);
 
-export function undoMapLedges(project: ProjectState, stroke: LedgeStroke) {
-  if (!stroke.count) return;
-  assertStoresMatch(project, stroke, "after", "Map resources changed after this ledge edit.");
-  ensure(stroke.maps.every(change => project.mapLedgeOriginalPermissions?.[change.id] === change.originalsAfter), "The saved ledge tiles changed after this ledge edit.");
-  writeLedgeStroke(project, stroke, true);
-}
-
-export function redoMapLedges(project: ProjectState, stroke: LedgeStroke) {
-  if (!stroke.count) return;
-  assertStoresMatch(project, stroke, "before", "Map resources changed after this ledge edit was undone.");
-  ensure(stroke.maps.every(change => project.mapLedgeOriginalPermissions?.[change.id] === change.originalsBefore), "The saved ledge tiles changed after this ledge edit was undone.");
-  writeLedgeStroke(project, stroke, false);
-}

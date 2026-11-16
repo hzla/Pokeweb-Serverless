@@ -1,19 +1,19 @@
 import { NARC } from "../nds/narc";
 import type { NintendoDSRom } from "../nds/rom";
-import { recordGenericChange } from "./actionChangelog";
 import { getRomFileBytes } from "./fileSystemModel";
 import { gen5HeightAt } from "./gen5MapHeightGeneration";
 import { equalMapBytes, readGen5MapBin } from "./gen5MapImportFormats";
-import { extractGameFreakContainer, invalidateMap3dAssets, packGameFreakContainer, parseAreaHeader, readNitroResources, type Map3dSceneData, type Map3dTile } from "./map3dModel";
+import { extractGameFreakContainer, packGameFreakContainer, parseAreaHeader, readNitroResources, type Map3dSceneData, type Map3dTile } from "./map3dModel";
 import { appendBrushPieces, brushPieceKey, nativeFaces, readBrushPieces, rootIsIdentity, type BrushKind, type BrushMember, type BrushPart, type BrushVertex } from "./mapBrushGeometry";
 import { areasFor, mapBrushContext, texturePacksFor } from "./mapGrass";
 import { getRomFileBytes as romFileBytes, setRomFileReplacement } from "./fileSystemModel";
 import { appendSrtTracks, srtTrackNames } from "./mapTextureSrt";
 import { MAP_STAMP_TYPES, mapStampType, stampBlocked, stampSize, type MapStampType, type StampRotation } from "./mapStampCatalog";
-import { addNativeTextures, brushDestinations, PALETTE_BYTES, permission, snapGround, TREE_TILE, treeSite, writePermission, type MapTreeOriginalTile, type NativeTextureBinding, type TreeSkipReason } from "./mapTrees";
+import { addNativeTextures, brushDestinations, PALETTE_BYTES, snapGround, TREE_TILE, treeSite, type MapTreeOriginalTile, type NativeTextureBinding, type TreeSkipReason } from "./mapTrees";
 import { ensure, type NativeMaterialRecord } from "./nitroResourceWriter";
-import { createNarcStore, markDirty, type ProjectState } from "./projectStore";
+import { createNarcStore, type ProjectState } from "./projectStore";
 import { MATRIX_SEASONS, seasonalAreaId, type MatrixSeason } from "./seasonalMatrixModel";
+import { countedAs, emptyBrushStroke, permission, redoBrushStroke, startBrushStroke, undoBrushStroke, writeBrushStroke, writePermission, type BrushFileChange, type BrushStrokeKind, type BrushStroke } from "./mapBrushStroke";
 
 /**
  * Stamps: single native objects (see mapStampCatalog) cut from the source ROM and placed on a footprint, turned in
@@ -204,27 +204,12 @@ export type MapStampOriginal = { type: string; rotation: StampRotation; tiles: M
 type ChunkStampOriginals = Record<number, MapStampOriginal>;
 export type MapStampOriginalPermissions = Record<number, ChunkStampOriginals>;
 export type StampSkipReason = TreeSkipReason | "no-placed-stamp" | "changed-stamp";
-type MapChange = { id: number; before: Uint8Array; after: Uint8Array };
-type StampMapChange = MapChange & { originalsBefore?: ChunkStampOriginals; originalsAfter?: ChunkStampOriginals };
 /**
  * `animations` replaces the whole texture animation archive when the stamp's native animation was added to the
  * destination areas; `stillAreas` counts destination areas with no animation file, where the art stays still.
  */
-export type StampStroke = { action: "place" | "remove"; maps: StampMapChange[]; textures: MapChange[]; animations?: MapChange; stillAreas?: number; count: number; skipped: number; skipReasons: { reason: StampSkipReason; count: number; season?: MatrixSeason }[] };
+export type StampStroke = BrushStroke<"place" | "remove", StampSkipReason, ChunkStampOriginals> & { animations?: BrushFileChange; stillAreas?: number };
 type StampStrokeOptions = { isCurrent?: () => boolean; allowBlocked?: boolean };
-
-function stampStroke(action: StampStroke["action"]) {
-  const result: StampStroke = { action, maps: [], textures: [], count: 0, skipped: 0, skipReasons: [] };
-  return {
-    result,
-    skip(reason: StampSkipReason, season?: MatrixSeason) {
-      result.skipped++;
-      const group = result.skipReasons.find(entry => entry.reason === reason && entry.season === season);
-      if (group) group.count++;
-      else result.skipReasons.push({ reason, count: 1, ...(season ? { season } : {}) });
-    },
-  };
-}
 
 /** Tiles covered by stamps already in a chunk. */
 function stampedTiles(model: Uint8Array) {
@@ -244,7 +229,7 @@ export async function placeMapStamps(project: ProjectState, scene: Map3dSceneDat
   ensure(found && project.session.baseRom === "BW2", "Choose an object for this game.");
   const type: MapStampType = found!;
   const turn = (type.rotatable ? rotation : 0) as StampRotation;
-  const { result, skip } = stampStroke("place");
+  const { result, skip } = startBrushStroke<StampStroke>(emptyBrushStroke("place"));
   if (!anchors.length) return result;
   const context = await mapBrushContext(project, scene, isCurrent, "stamp");
   ensure(isCurrent(), "The map changed while placing objects. Try again.");
@@ -334,13 +319,13 @@ export async function placeMapStamps(project: ProjectState, scene: Map3dSceneDat
     }
     if (changed) result.animations = { id: srtId, before: before.slice(), after: archive.save() };
   }
-  writeStampStroke(project, result, false);
+  writeBrushStroke(project, STAMPS, result, false);
   return result;
 }
 
 /** Remove brush-placed stamps whose footprint covers any of the given tiles, restoring the tiles they blocked. */
 export async function removeMapStamps(project: ProjectState, scene: Map3dSceneData, tiles: readonly Map3dTile[], { isCurrent = () => true }: StampStrokeOptions = {}): Promise<StampStroke> {
-  const { result, skip } = stampStroke("remove");
+  const { result, skip } = startBrushStroke<StampStroke>(emptyBrushStroke("remove"));
   if (!tiles.length) return result;
   const context = await mapBrushContext(project, scene, isCurrent, "stamp");
   ensure(isCurrent(), "The map changed while removing objects. Try again.");
@@ -398,59 +383,30 @@ export async function removeMapStamps(project: ProjectState, scene: Map3dSceneDa
     files[0] = placed.remove(new Set(stamps.keys()));
     result.maps.push({ id, before: maps.rawFiles[id].slice(), after: packGameFreakContainer(bin.signature, files), originalsBefore, originalsAfter: Object.keys(originals).length ? originals : undefined });
   }
-  if (result.count) writeStampStroke(project, result, false);
+  if (result.count) writeBrushStroke(project, STAMPS, result, false);
   return result;
 }
 
-function writeStampStroke(project: ProjectState, stroke: StampStroke, undo: boolean) {
-  for (const [name, changes] of [["maps", stroke.maps], ["map_textures", stroke.textures]] as const) {
-    for (const { id, before, after } of changes) {
-      const store = project.narcs[name]!;
-      store.rawFiles[id] = (undo ? before : after).slice();
-      store.records.delete(id);
-      markDirty(project, name, id);
-    }
-  }
-  if (stroke.animations) setRomFileReplacement(project, stroke.animations.id, (undo ? stroke.animations.before : stroke.animations.after).slice());
-  const originals = { ...project.mapStampOriginalPermissions };
-  for (const { id, originalsBefore, originalsAfter } of stroke.maps) {
-    const next = undo ? originalsBefore : originalsAfter;
-    if (next) originals[id] = next;
-    else delete originals[id];
-  }
-  project.mapStampOriginalPermissions = Object.keys(originals).length ? originals : undefined;
-  if (stroke.textures.length || stroke.animations) invalidateMap3dAssets();
-  const noun = `${stroke.count} object${stroke.count === 1 ? "" : "s"}`;
-  recordGenericChange(project, "maps3d", undo ? `Undid an object edit (${noun}).` : stroke.action === "remove" ? `Removed ${noun}.` : `Placed ${noun}.`,
-    stroke.action === "remove" ? "Remove Objects" : "Place Objects");
-}
+const STAMPS: BrushStrokeKind<StampStroke> = {
+  originals: "mapStampOriginalPermissions",
+  thing: "object",
+  counted: countedAs("object"),
+  actions: { place: { done: "Placed", label: "Place Objects" }, remove: { done: "Removed", label: "Remove Objects" } },
+  changesAssets: stroke => !!(stroke.textures.length || stroke.animations),
+  extra: {
+    what: "Map texture animations",
+    matches(project, stroke, side) {
+      if (!stroke.animations) return true;
+      const current = project.fileSystem?.replacements?.[stroke.animations.id];
+      // Before the first edit the archive may still be the ROM's own file, which has no replacement entry.
+      return current ? equalMapBytes(current, stroke.animations[side]) : side === "before";
+    },
+    write(project, stroke, undo) {
+      if (stroke.animations) setRomFileReplacement(project, stroke.animations.id, (undo ? stroke.animations.before : stroke.animations.after).slice());
+    },
+  },
+};
 
-function assertStoresMatch(project: ProjectState, stroke: StampStroke, side: "before" | "after", message: string) {
-  for (const [name, changes] of [["maps", stroke.maps], ["map_textures", stroke.textures]] as const) {
-    const store = project.narcs[name];
-    ensure(!changes.length || (store && changes.every(change => store.rawFiles[change.id] && equalMapBytes(store.rawFiles[change.id], change[side]))), message);
-  }
-}
+export const undoMapStamps = (project: ProjectState, stroke: StampStroke) => undoBrushStroke(project, STAMPS, stroke);
+export const redoMapStamps = (project: ProjectState, stroke: StampStroke) => redoBrushStroke(project, STAMPS, stroke);
 
-function assertAnimationsMatch(project: ProjectState, stroke: StampStroke, side: "before" | "after", message: string) {
-  if (!stroke.animations) return;
-  const current = project.fileSystem?.replacements?.[stroke.animations.id];
-  // Before the first edit the archive may still be the ROM's own file, which has no replacement entry.
-  ensure(current ? equalMapBytes(current, stroke.animations[side]) : side === "before", message);
-}
-
-export function undoMapStamps(project: ProjectState, stroke: StampStroke) {
-  if (!stroke.count) return;
-  assertStoresMatch(project, stroke, "after", "Map resources changed after this object edit.");
-  assertAnimationsMatch(project, stroke, "after", "Map texture animations changed after this object edit.");
-  ensure(stroke.maps.every(change => project.mapStampOriginalPermissions?.[change.id] === change.originalsAfter), "The saved object tiles changed after this object edit.");
-  writeStampStroke(project, stroke, true);
-}
-
-export function redoMapStamps(project: ProjectState, stroke: StampStroke) {
-  if (!stroke.count) return;
-  assertStoresMatch(project, stroke, "before", "Map resources changed after this object edit was undone.");
-  assertAnimationsMatch(project, stroke, "before", "Map texture animations changed after this object edit was undone.");
-  ensure(stroke.maps.every(change => project.mapStampOriginalPermissions?.[change.id] === change.originalsBefore), "The saved object tiles changed after this object edit was undone.");
-  writeStampStroke(project, stroke, false);
-}

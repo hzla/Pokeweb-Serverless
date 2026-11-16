@@ -1,19 +1,19 @@
 import { concatBytes, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { NARC } from "../nds/narc";
 import type { NintendoDSRom } from "../nds/rom";
-import { recordGenericChange } from "./actionChangelog";
 import { invalidateBuildingLibrary } from "./buildingLibraryModel";
 import { getRomFileBytes } from "./fileSystemModel";
 import { equalMapBytes, readGen5MapBin } from "./gen5MapImportFormats";
-import { extractGameFreakContainer, invalidateMap3dAssets, mapBuildingMember, packGameFreakContainer, parseAreaHeader, readNitroResources, type Map3dSceneData, type Map3dTile } from "./map3dModel";
+import { extractGameFreakContainer, mapBuildingMember, packGameFreakContainer, parseAreaHeader, readNitroResources, type Map3dSceneData, type Map3dTile } from "./map3dModel";
 import { areasFor, mapBrushContext } from "./mapGrass";
 import type { MapStampCategory, StampRotation } from "./mapStampCatalog";
 import { stampSize, stampBlocked } from "./mapStampCatalog";
-import { addNativeTextures, brushDestinations, PALETTE_BYTES, permission, TREE_TILE, treeSite, writePermission, type MapTreeOriginalTile, type TreeSkipReason } from "./mapTrees";
+import { addNativeTextures, brushDestinations, PALETTE_BYTES, TREE_TILE, treeSite, type MapTreeOriginalTile, type TreeSkipReason } from "./mapTrees";
 import { ensure, materialRecords } from "./nitroResourceWriter";
 import type { NarcName } from "./constants";
-import { createNarcStore, markDirty, type ProjectState } from "./projectStore";
+import { createNarcStore, type ProjectState } from "./projectStore";
 import type { MatrixSeason } from "./seasonalMatrixModel";
+import { countedAs, permission, redoBrushStroke, startBrushStroke, undoBrushStroke, writeBrushStroke, writePermission, type BrushStrokeKind, type BrushStoreChange, type BrushStroke } from "./mapBrushStroke";
 
 /**
  * Props: small building models (topiaries, a fountain, a gateway) placed like objects. The model, its metadata
@@ -113,22 +113,8 @@ export type MapPropOriginal = { type: string; rotation: StampRotation; record: s
 type ChunkPropOriginals = Record<number, MapPropOriginal>;
 export type MapPropOriginals = Record<number, ChunkPropOriginals>;
 export type PropSkipReason = TreeSkipReason | "changed-prop" | "interior";
-type Change = { store: NarcName; id: number; before: Uint8Array; after: Uint8Array };
-type MapChange = { id: number; before: Uint8Array; after: Uint8Array; originalsBefore?: ChunkPropOriginals; originalsAfter?: ChunkPropOriginals };
-export type PropStroke = { action: "place" | "remove"; maps: MapChange[]; archives: Change[]; count: number; skipped: number; skipReasons: { reason: PropSkipReason; count: number; season?: MatrixSeason }[] };
-
-function propStroke(action: PropStroke["action"]) {
-  const result: PropStroke = { action, maps: [], archives: [], count: 0, skipped: 0, skipReasons: [] };
-  return {
-    result,
-    skip(reason: PropSkipReason, season?: MatrixSeason) {
-      result.skipped++;
-      const group = result.skipReasons.find(entry => entry.reason === reason && entry.season === season);
-      if (group) group.count++;
-      else result.skipReasons.push({ reason, count: 1, ...(season ? { season } : {}) });
-    },
-  };
-}
+/** Models change the area's building archives (`archives`), not the map texture packs. */
+export type PropStroke = Omit<BrushStroke<"place" | "remove", PropSkipReason, ChunkPropOriginals>, "textures"> & { archives: BrushStoreChange[] };
 
 const propKey = (tileIndex: number, rotation: StampRotation, type: MapPropType) => tileIndex | (rotation << 10) | ((MAP_PROP_TYPES.indexOf(type) + 1) << 12);
 const hex = (bytes: Uint8Array) => Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
@@ -174,7 +160,7 @@ export async function placeMapProps(project: ProjectState, scene: Map3dSceneData
   const type = MAP_PROP_TYPES.find(entry => entry.id === typeId);
   ensure(type && project.session.baseRom === "BW2", "Choose a model for this game.");
   const turn = (type!.rotatable ? rotation : 0) as StampRotation;
-  const { result, skip } = propStroke("place");
+  const { result, skip } = startBrushStroke<PropStroke>({ action: "place", maps: [], archives: [], count: 0, skipped: 0, skipReasons: [] });
   if (!anchors.length) return result;
   const context = await mapBrushContext(project, scene, isCurrent, "model");
   ensure(isCurrent(), "The map changed while placing models. Try again.");
@@ -268,13 +254,13 @@ export async function placeMapProps(project: ProjectState, scene: Map3dSceneData
     }
     result.maps.push({ id, before: maps.rawFiles[id].slice(), after: packGameFreakContainer(signature, files), originalsBefore, originalsAfter });
   }
-  writePropStroke(project, result, false);
+  writeBrushStroke(project, PROPS, result, false);
   return result;
 }
 
 /** Remove brush-placed props whose footprint covers any of the tiles, restoring the tiles they blocked. */
 export async function removeMapProps(project: ProjectState, scene: Map3dSceneData, tiles: readonly Map3dTile[], { isCurrent = () => true }: { isCurrent?: () => boolean } = {}): Promise<PropStroke> {
-  const { result, skip } = propStroke("remove");
+  const { result, skip } = startBrushStroke<PropStroke>({ action: "remove", maps: [], archives: [], count: 0, skipped: 0, skipReasons: [] });
   if (!tiles.length || !project.mapPropOriginals) return result;
   const context = await mapBrushContext(project, scene, isCurrent, "model");
   ensure(isCurrent(), "The map changed while removing models. Try again.");
@@ -326,48 +312,21 @@ export async function removeMapProps(project: ProjectState, scene: Map3dSceneDat
     }
     result.maps.push({ id, before: maps.rawFiles[id].slice(), after: packGameFreakContainer(bin.signature, files), originalsBefore, originalsAfter: Object.keys(originals).length ? originals : undefined });
   }
-  if (result.count) writePropStroke(project, result, false);
+  if (result.count) writeBrushStroke(project, PROPS, result, false);
   return result;
 }
 
-function writePropStroke(project: ProjectState, stroke: PropStroke, undo: boolean) {
-  const changes: Change[] = [...stroke.maps.map(change => ({ ...change, store: "maps" as NarcName })), ...stroke.archives];
-  for (const { store: name, id, before, after } of changes) {
-    const store = project.narcs[name];
-    ensure(store, "Reload the map before editing models.");
-    store.rawFiles[id] = (undo ? before : after).slice();
-    store.records.delete(id);
-    markDirty(project, name, id);
-  }
-  const originals = { ...project.mapPropOriginals };
-  for (const { id, originalsBefore, originalsAfter } of stroke.maps) {
-    const next = undo ? originalsBefore : originalsAfter;
-    if (next) originals[id] = next;
-    else delete originals[id];
-  }
-  project.mapPropOriginals = Object.keys(originals).length ? originals : undefined;
-  if (stroke.archives.length) invalidateBuildingLibrary(project);
-  invalidateMap3dAssets();
-  const noun = `${stroke.count} model${stroke.count === 1 ? "" : "s"}`;
-  recordGenericChange(project, "maps3d", undo ? `Undid a model edit (${noun}).` : stroke.action === "remove" ? `Removed ${noun}.` : `Placed ${noun}.`,
-    stroke.action === "remove" ? "Remove Models" : "Place Models");
-}
+const PROPS: BrushStrokeKind<PropStroke> = {
+  originals: "mapPropOriginals",
+  thing: "model",
+  counted: countedAs("model"),
+  actions: { place: { done: "Placed", label: "Place Models" }, remove: { done: "Removed", label: "Remove Models" } },
+  changesAssets: () => true,
+  afterWrite(project, stroke) {
+    if (stroke.archives.length) invalidateBuildingLibrary(project);
+  },
+};
 
-function assertStoresMatch(project: ProjectState, stroke: PropStroke, side: "before" | "after", message: string) {
-  const changes: Change[] = [...stroke.maps.map(change => ({ ...change, store: "maps" as NarcName })), ...stroke.archives];
-  ensure(changes.every(change => { const bytes = project.narcs[change.store]?.rawFiles[change.id]; return bytes && equalMapBytes(bytes, change[side]); }), message);
-}
+export const undoMapProps = (project: ProjectState, stroke: PropStroke) => undoBrushStroke(project, PROPS, stroke);
+export const redoMapProps = (project: ProjectState, stroke: PropStroke) => redoBrushStroke(project, PROPS, stroke);
 
-export function undoMapProps(project: ProjectState, stroke: PropStroke) {
-  if (!stroke.count) return;
-  assertStoresMatch(project, stroke, "after", "Map resources changed after this model edit.");
-  ensure(stroke.maps.every(change => project.mapPropOriginals?.[change.id] === change.originalsAfter), "The saved model tiles changed after this edit.");
-  writePropStroke(project, stroke, true);
-}
-
-export function redoMapProps(project: ProjectState, stroke: PropStroke) {
-  if (!stroke.count) return;
-  assertStoresMatch(project, stroke, "before", "Map resources changed after this model edit was undone.");
-  ensure(stroke.maps.every(change => project.mapPropOriginals?.[change.id] === change.originalsBefore), "The saved model tiles changed after this edit was undone.");
-  writePropStroke(project, stroke, false);
-}

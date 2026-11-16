@@ -1,19 +1,20 @@
+import { toS16 } from "../nds/binary";
 import { NARC } from "../nds/narc";
 import type { NintendoDSRom } from "../nds/rom";
-import { recordGenericChange } from "./actionChangelog";
 import { getRomFileBytes } from "./fileSystemModel";
 import { gen5HeightAt } from "./gen5MapHeightGeneration";
 import { equalMapBytes, readGen5MapBin } from "./gen5MapImportFormats";
-import { extractGameFreakContainer, invalidateMap3dAssets, packGameFreakContainer, readNitroResources, type Map3dSceneData, type Map3dTile } from "./map3dModel";
+import { extractGameFreakContainer, packGameFreakContainer, readNitroResources, type Map3dSceneData, type Map3dTile } from "./map3dModel";
 import { appendBrushPieces, brushPieceKey, MERGED_PIECE_PAYLOAD, nativeFaces, readBrushPieces, rootIsIdentity, writeTileBrush, type BrushKind, type BrushPart, type BrushPiece, type BrushVertex } from "./mapBrushGeometry";
 import { mapBrushContext, texturePacksFor } from "./mapGrass";
 import { clipBetween } from "./mapNativeErase";
 import { donorSeasonBanks, stampBindings } from "./mapStamps";
-import { addNativeTextures, brushDestinations, cornerHeights, permission, snapGround, TREE_TILE, treeSite, writePermission, type MapTreeOriginalTile, type TreeSkipReason } from "./mapTrees";
+import { addNativeTextures, brushDestinations, cornerHeights, snapGround, TREE_TILE, treeSite, type MapTreeOriginalTile, type TreeSkipReason } from "./mapTrees";
 import type { Gen5PermissionTileLike } from "./gen5PermissionModel";
 import { ensure } from "./nitroResourceWriter";
-import { createNarcStore, markDirty, type ProjectState } from "./projectStore";
+import { createNarcStore, type ProjectState } from "./projectStore";
 import type { MatrixSeason } from "./seasonalMatrixModel";
+import { countedAs, emptyBrushStroke, permission, redoBrushStroke, startBrushStroke, undoBrushStroke, writeBrushStroke, writePermission, type BrushStrokeKind, type BrushStroke } from "./mapBrushStroke";
 
 /**
  * Fences and railings, drawn as a straight line like ledges. Each fence is cut from a vanilla run in the user's own
@@ -107,8 +108,7 @@ function continuePiece(faces: FencePiece, steps: number, part: FencePart, role: 
 }
 export type FenceTemplate = { type: MapFenceType; axis: FenceAxis; parts: FencePart[] };
 
-const s16 = (value: number) => (value << 16) >> 16;
-const texcoordParts = (texcoord: number) => [s16(texcoord), s16(texcoord >>> 16)] as const;
+const texcoordParts = (texcoord: number) => [toS16(texcoord), toS16(texcoord >>> 16)] as const;
 const packTexcoord = (s: number, t: number) => (((Math.round(s) & 0xffff) | ((Math.round(t) & 0xffff) << 16)) >>> 0);
 const s10 = (value: number) => (value << 22) >> 22;
 
@@ -266,22 +266,7 @@ export type MapFenceOriginal = { type: string; tiles: MapTreeOriginalTile[] };
 type ChunkFenceOriginals = Record<number, MapFenceOriginal>;
 export type MapFenceOriginalPermissions = Record<number, ChunkFenceOriginals>;
 export type FenceSkipReason = TreeSkipReason | "too-short" | "changed-fence";
-type MapChange = { id: number; before: Uint8Array; after: Uint8Array };
-type FenceMapChange = MapChange & { originalsBefore?: ChunkFenceOriginals; originalsAfter?: ChunkFenceOriginals };
-export type FenceStroke = { action: "place" | "remove"; maps: FenceMapChange[]; textures: MapChange[]; count: number; skipped: number; skipReasons: { reason: FenceSkipReason; count: number; season?: MatrixSeason }[] };
-
-function fenceStroke(action: FenceStroke["action"]) {
-  const result: FenceStroke = { action, maps: [], textures: [], count: 0, skipped: 0, skipReasons: [] };
-  return {
-    result,
-    skip(reason: FenceSkipReason, season?: MatrixSeason) {
-      result.skipped++;
-      const group = result.skipReasons.find(entry => entry.reason === reason && entry.season === season);
-      if (group) group.count++;
-      else result.skipReasons.push({ reason, count: 1, ...(season ? { season } : {}) });
-    },
-  };
-}
+export type FenceStroke = BrushStroke<"place" | "remove", FenceSkipReason, ChunkFenceOriginals>;
 
 type FenceAssets = { template: FenceTemplate; banks: ReturnType<typeof donorSeasonBanks> };
 const stockFences = new WeakMap<Uint8Array, Map<string, FenceAssets>>();
@@ -314,7 +299,7 @@ function fenceAssets(source: Uint8Array, rom: NintendoDSRom, type: MapFenceType,
 export async function placeMapFence(project: ProjectState, scene: Map3dSceneData, tiles: readonly Map3dTile[], typeId: string, { isCurrent = () => true, allowBlocked = false }: { isCurrent?: () => boolean; allowBlocked?: boolean } = {}): Promise<FenceStroke> {
   const type = MAP_FENCE_TYPES.find(entry => entry.id === typeId);
   ensure(type && project.session.baseRom === "BW2", "Choose a fence for this game.");
-  const { result, skip } = fenceStroke("place");
+  const { result, skip } = startBrushStroke<FenceStroke>(emptyBrushStroke("place"));
   if (!tiles.length) return result;
   const first = tiles[0];
   const run = tiles.filter(tile => tile.matrixX === first.matrixX && tile.matrixY === first.matrixY);
@@ -376,13 +361,13 @@ export async function placeMapFence(project: ProjectState, scene: Map3dSceneData
     project.narcs.map_textures = textureStore;
     project.session.fileIds.map_textures = textureId;
   }
-  writeFenceStroke(project, result, false);
+  writeBrushStroke(project, FENCES, result, false);
   return result;
 }
 
 /** Remove brush-drawn fences that cover any of the given tiles, restoring the tiles they replaced. */
 export async function removeMapFences(project: ProjectState, scene: Map3dSceneData, tiles: readonly Map3dTile[], { isCurrent = () => true }: { isCurrent?: () => boolean } = {}): Promise<FenceStroke> {
-  const { result, skip } = fenceStroke("remove");
+  const { result, skip } = startBrushStroke<FenceStroke>(emptyBrushStroke("remove"));
   if (!tiles.length) return result;
   const context = await mapBrushContext(project, scene, isCurrent, "fence");
   ensure(isCurrent(), "The map changed while removing fences. Try again.");
@@ -440,52 +425,19 @@ export async function removeMapFences(project: ProjectState, scene: Map3dSceneDa
     files[0] = placed.remove(new Set(fences.keys()));
     result.maps.push({ id, before: maps.rawFiles[id].slice(), after: packGameFreakContainer(bin.signature, files), originalsBefore, originalsAfter: Object.keys(originals).length ? originals : undefined });
   }
-  if (result.count) writeFenceStroke(project, result, false);
+  if (result.count) writeBrushStroke(project, FENCES, result, false);
   return result;
 }
 
-function writeFenceStroke(project: ProjectState, stroke: FenceStroke, undo: boolean) {
-  for (const [name, changes] of [["maps", stroke.maps], ["map_textures", stroke.textures]] as const) {
-    for (const { id, before, after } of changes) {
-      const store = project.narcs[name]!;
-      store.rawFiles[id] = (undo ? before : after).slice();
-      store.records.delete(id);
-      markDirty(project, name, id);
-    }
-  }
-  const originals = { ...project.mapFenceOriginalPermissions };
-  for (const { id, originalsBefore, originalsAfter } of stroke.maps) {
-    const next = undo ? originalsBefore : originalsAfter;
-    if (next) originals[id] = next;
-    else delete originals[id];
-  }
-  project.mapFenceOriginalPermissions = Object.keys(originals).length ? originals : undefined;
-  if (stroke.textures.length) invalidateMap3dAssets();
-  const noun = `${stroke.count} fence${stroke.count === 1 ? "" : "s"}`;
-  recordGenericChange(project, "maps3d", undo ? `Undid a fence edit (${noun}).` : stroke.action === "remove" ? `Removed ${noun}.` : `Drew ${noun}.`,
-    stroke.action === "remove" ? "Remove Fences" : "Draw Fence");
-}
+const FENCES: BrushStrokeKind<FenceStroke> = {
+  originals: "mapFenceOriginalPermissions",
+  thing: "fence",
+  counted: countedAs("fence"),
+  actions: { place: { done: "Drew", label: "Draw Fence" }, remove: { done: "Removed", label: "Remove Fences" } },
+};
 
-function assertStoresMatch(project: ProjectState, stroke: FenceStroke, side: "before" | "after", message: string) {
-  for (const [name, changes] of [["maps", stroke.maps], ["map_textures", stroke.textures]] as const) {
-    const store = project.narcs[name];
-    ensure(!changes.length || (store && changes.every(change => store.rawFiles[change.id] && equalMapBytes(store.rawFiles[change.id], change[side]))), message);
-  }
-}
-
-export function undoMapFences(project: ProjectState, stroke: FenceStroke) {
-  if (!stroke.count) return;
-  assertStoresMatch(project, stroke, "after", "Map resources changed after this fence edit.");
-  ensure(stroke.maps.every(change => project.mapFenceOriginalPermissions?.[change.id] === change.originalsAfter), "The saved fence tiles changed after this fence edit.");
-  writeFenceStroke(project, stroke, true);
-}
-
-export function redoMapFences(project: ProjectState, stroke: FenceStroke) {
-  if (!stroke.count) return;
-  assertStoresMatch(project, stroke, "before", "Map resources changed after this fence edit was undone.");
-  ensure(stroke.maps.every(change => project.mapFenceOriginalPermissions?.[change.id] === change.originalsBefore), "The saved fence tiles changed after this fence edit was undone.");
-  writeFenceStroke(project, stroke, false);
-}
+export const undoMapFences = (project: ProjectState, stroke: FenceStroke) => undoBrushStroke(project, FENCES, stroke);
+export const redoMapFences = (project: ProjectState, stroke: FenceStroke) => redoBrushStroke(project, FENCES, stroke);
 
 // ---------- Connected fences ----------
 
@@ -606,19 +558,11 @@ export function rebuildFenceTiles(model: Uint8Array, collision: Uint8Array, afte
 type FenceTileOriginal = Gen5PermissionTileLike & { type: string; secondary?: Gen5PermissionTileLike };
 type ChunkFenceTileOriginals = Record<number, FenceTileOriginal>;
 export type MapFenceTileOriginals = Record<number, ChunkFenceTileOriginals>;
-type FenceTileMapChange = MapChange & { originalsBefore?: ChunkFenceTileOriginals; originalsAfter?: ChunkFenceTileOriginals };
-export type FenceTileStroke = { action: "paint" | "erase"; maps: FenceTileMapChange[]; textures: MapChange[]; count: number; skipped: number; skipReasons: { reason: FenceSkipReason; count: number; season?: MatrixSeason }[] };
+export type FenceTileStroke = BrushStroke<"paint" | "erase", FenceSkipReason, ChunkFenceTileOriginals>;
 
-/** Fence (`typeId`) or unfence (no type) the tiles, in every seasonal variant of their chunks. */
 /** Draw or erase fence tiles. Drawing over the same fence with the other end style restyles those tiles. */
 export async function strokeFenceTiles(project: ProjectState, scene: Map3dSceneData, tiles: readonly Map3dTile[], typeId: string | undefined, { isCurrent = () => true, allowBlocked = false, ends = "corner" }: { isCurrent?: () => boolean; allowBlocked?: boolean; ends?: FenceEnds } = {}): Promise<FenceTileStroke> {
-  const result: FenceTileStroke = { action: typeId ? "paint" : "erase", maps: [], textures: [], count: 0, skipped: 0, skipReasons: [] };
-  const skip = (reason: FenceSkipReason, season?: MatrixSeason) => {
-    result.skipped++;
-    const group = result.skipReasons.find(entry => entry.reason === reason && entry.season === season);
-    if (group) group.count++;
-    else result.skipReasons.push({ reason, count: 1, ...(season ? { season } : {}) });
-  };
+  const { result, skip } = startBrushStroke<FenceTileStroke>(emptyBrushStroke(typeId ? "paint" : "erase"));
   if (!tiles.length) return result;
   const type = typeId ? MAP_FENCE_TYPES.find(entry => entry.id === typeId) : undefined;
   ensure(project.session.baseRom === "BW2" && (!typeId || type), "Choose a fence for this game.");
@@ -756,49 +700,16 @@ export async function strokeFenceTiles(project: ProjectState, scene: Map3dSceneD
     result.maps.push({ id, before: maps.rawFiles[id].slice(), after: packGameFreakContainer(entry.bin.signature, files), originalsBefore,
       originalsAfter: Object.keys(entry.originals).length ? entry.originals : undefined });
   }
-  writeFenceTileStroke(project, result, false);
+  writeBrushStroke(project, FENCE_TILES, result, false);
   return result;
 }
 
-function writeFenceTileStroke(project: ProjectState, stroke: FenceTileStroke, undo: boolean) {
-  for (const [name, changes] of [["maps", stroke.maps], ["map_textures", stroke.textures]] as const) {
-    for (const { id, before, after } of changes) {
-      const store = project.narcs[name]!;
-      store.rawFiles[id] = (undo ? before : after).slice();
-      store.records.delete(id);
-      markDirty(project, name, id);
-    }
-  }
-  const originals = { ...project.mapFenceTileOriginals };
-  for (const { id, originalsBefore, originalsAfter } of stroke.maps) {
-    const next = undo ? originalsBefore : originalsAfter;
-    if (next) originals[id] = next;
-    else delete originals[id];
-  }
-  project.mapFenceTileOriginals = Object.keys(originals).length ? originals : undefined;
-  if (stroke.textures.length) invalidateMap3dAssets();
-  const noun = `${stroke.count} fence tile${stroke.count === 1 ? "" : "s"}`;
-  recordGenericChange(project, "maps3d", undo ? `Undid a fence edit (${noun}).` : stroke.action === "erase" ? `Erased ${noun}.` : `Drew ${noun}.`,
-    stroke.action === "erase" ? "Erase Fence" : "Draw Fence");
-}
+const FENCE_TILES: BrushStrokeKind<FenceTileStroke> = {
+  originals: "mapFenceTileOriginals",
+  thing: "fence",
+  counted: countedAs("fence tile"),
+  actions: { paint: { done: "Drew", label: "Draw Fence" }, erase: { done: "Erased", label: "Erase Fence" } },
+};
 
-function assertFenceTileStores(project: ProjectState, stroke: FenceTileStroke, side: "before" | "after", message: string) {
-  for (const [name, changes] of [["maps", stroke.maps], ["map_textures", stroke.textures]] as const) {
-    const store = project.narcs[name];
-    ensure(!changes.length || (store && changes.every(change => store.rawFiles[change.id] && equalMapBytes(store.rawFiles[change.id], change[side]))), message);
-  }
-}
-
-export function undoFenceTiles(project: ProjectState, stroke: FenceTileStroke) {
-  if (!stroke.count) return;
-  assertFenceTileStores(project, stroke, "after", "Map resources changed after this fence edit.");
-  ensure(stroke.maps.every(change => project.mapFenceTileOriginals?.[change.id] === change.originalsAfter), "The saved fence tiles changed after this fence edit.");
-  writeFenceTileStroke(project, stroke, true);
-}
-
-export function redoFenceTiles(project: ProjectState, stroke: FenceTileStroke) {
-  if (!stroke.count) return;
-  assertFenceTileStores(project, stroke, "before", "Map resources changed after this fence edit was undone.");
-  ensure(stroke.maps.every(change => project.mapFenceTileOriginals?.[change.id] === change.originalsBefore), "The saved fence tiles changed after this fence edit was undone.");
-  writeFenceTileStroke(project, stroke, false);
-}
+export const undoFenceTiles = (project: ProjectState, stroke: FenceTileStroke) => undoBrushStroke(project, FENCE_TILES, stroke);
+export const redoFenceTiles = (project: ProjectState, stroke: FenceTileStroke) => redoBrushStroke(project, FENCE_TILES, stroke);

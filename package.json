@@ -10,6 +10,8 @@
     "test": "vitest run",
     "test:quick": "vitest run --mode quick",
     "test:rom": "vitest run --mode rom",
+    "lint": "eslint src",
+    "lint:prune": "eslint src --prune-suppressions",
     "rom:validate": "vite-node scripts/validate-rom-data.ts",
     "abilities:build": "python3 runtime/ability-effects/build.py",
     "abilities:verify-rom": "vite-node runtime/ability-effects/build_cases.ts",
@@ -192,7 +194,10 @@
     "@types/node": "^25.6.2",
     "@types/pngjs": "^6.0.5",
     "@types/three": "^0.184.1",
+    "eslint": "^9.39.5",
+    "globals": "^17.14.0",
     "typescript": "^5.8.3",
+    "typescript-eslint": "^8.72.2",
     "vitest": "^2.1.9"
   }
 }

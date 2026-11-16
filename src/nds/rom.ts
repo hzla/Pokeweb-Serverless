@@ -34,6 +34,10 @@ export type RomSaveOptions = {
   addedFiles?: Array<{ path: string; bytes: Uint8Array }>;
   /** File IDs to place first; other files retain their incoming physical order. IDs never change. */
   priorityFileIds?: number[];
+  /** Keep retail program and overlay offsets when only existing data files change. */
+  preserveDataLayout?: boolean;
+  /** Reuse native US Black 2 and White 2 program and overlay positions across PMC rebuilds. */
+  preserveBw2PmcLayout?: boolean;
   alignFntFirstFileToArm9OverlayCount?: boolean;
   minimumLength?: number;
   preserveOriginalLength?: boolean;
@@ -106,6 +110,24 @@ export class NintendoDSRom {
   loadArm9Overlays(ids?: number[]): Map<number, Overlay> {
     const wanted = ids ? new Set(ids) : undefined;
     return loadOverlayTable(this.arm9OverlayTable, (_overlayId, fileId) => this.files[fileId], wanted);
+  }
+
+  hasRetailOverlayLayout(): boolean {
+    if (!/^(IRA|IRB|IRD|IRE)/u.test(this.idCode) || this.data[0x12] !== 2
+      || readU32(this.data, 0x20) !== 0x4000 || this.arm7OverlayTable.length !== 0) return false;
+    const count = /^(IRD|IRE)/u.test(this.idCode) ? 344 : 237;
+    if (this.arm9OverlayTable.length !== count * 32 || this.filenames.firstId !== count) return false;
+    const afterArm9 = readU32(this.data, 0x20) + this.arm9.length;
+    const arm7At = readU32(this.data, 0x30), fatAt = readU32(this.data, 0x48);
+    // Retail AP patches can address overlay bytes by absolute ROM offset.
+    // The general writer puts these same overlays after ARM7.
+    for (let id = 0; id < count; id += 1) {
+      const row = id * 32, slot = fatAt + id * 8;
+      const start = readU32(this.data, slot), end = readU32(this.data, slot + 4);
+      if (readU32(this.arm9OverlayTable, row) !== id || readU32(this.arm9OverlayTable, row + 24) !== id
+        || start < afterArm9 || end <= start || end > arm7At) return false;
+    }
+    return true;
   }
 
   save(options: RomSaveOptions = {}): Uint8Array {
@@ -197,6 +219,13 @@ export class NintendoDSRom {
       if (!this.hasClearedTwlMetadata()) options.onWarning?.(damagedDsiExportWarning(this.data));
     }
     const minimumLength = Math.max(options.preserveOriginalLength ? this.data.length : 0, checkedMinimumLength(options.minimumLength));
+    const dataLayout = this.planDataOnlyLayout(options, digestSource);
+    const pmcLayout = options.preserveBw2PmcLayout && this.planBw2PmcLayout(
+      arm9Bytes, arm9OverlayTableBytes, arm7OverlayTableBytes, files, placementRanks, headerSize,
+    );
+    const trailingFileOrder = pmcLayout
+      ? physicalFileOrder.filter((id) => !pmcLayout.overlayStarts.has(id))
+      : physicalFileOrder;
 
     // Plan the complete layout before allocating. Large exports otherwise
     // force the growable writer to double past the requested size and then
@@ -208,17 +237,22 @@ export class NintendoDSRom {
     const planOptionalSection = (length: number, alignment = 0x200): void => {
       if (length > 0) planSection(length, alignment);
     };
-    planSection(arm9Bytes.length);
-    planOptionalSection(arm9OverlayTableBytes.length);
-    planSection(this.arm7.length);
-    planOptionalSection(arm7OverlayTableBytes.length);
-    planSection(fntData.length);
-    planSection(fatLength);
-    planOptionalSection(this.banner.length);
-    for (const id of physicalFileOrder) planSection(files[id].length);
+    if (dataLayout) {
+      plannedCursor = dataLayout.end;
+    } else {
+      planSection(arm9Bytes.length);
+      if (pmcLayout) plannedCursor = pmcLayout.arm7At;
+      else planOptionalSection(arm9OverlayTableBytes.length);
+      planSection(this.arm7.length);
+      planOptionalSection(arm7OverlayTableBytes.length);
+      planSection(fntData.length);
+      planSection(fatLength);
+      planOptionalSection(this.banner.length);
+      for (const id of trailingFileOrder) planSection(files[id].length);
+    }
     const plannedFileEnd = align(plannedCursor, 4);
     const digestLayout = digestSource ? planDsiDigest(digestSource, plannedFileEnd) : undefined;
-    const plannedApplicationEnd = digestLayout?.end ?? plannedFileEnd;
+    const plannedApplicationEnd = Math.max(digestLayout?.end ?? plannedFileEnd, dataLayout?.previousApplicationEnd ?? 0);
     plannedCursor = plannedApplicationEnd;
     if (twlSections.length > 0) {
       plannedCursor = align(plannedCursor, NTR_TWL_ALIGNMENT);
@@ -244,31 +278,43 @@ export class NintendoDSRom {
     const writeOptionalSection = (bytes: Uint8Array, alignment = 0x200): { offset: number; length: number } =>
       bytes.length > 0 ? writeSection(bytes, alignment) : { offset: 0, length: 0 };
 
-    const arm9 = writeSection(arm9Bytes);
-    const arm9OverlayTable = writeOptionalSection(arm9OverlayTableBytes);
-    const arm7 = writeSection(this.arm7);
-    const arm7OverlayTable = writeOptionalSection(arm7OverlayTableBytes);
-    const fnt = writeSection(fntData);
+    const writeProgramSection = (bytes: Uint8Array, offsetField: number, optional = false) => {
+      if (dataLayout) return { offset: readU32(this.data, offsetField), length: bytes.length };
+      return optional ? writeOptionalSection(bytes) : writeSection(bytes);
+    };
+    const arm9 = writeProgramSection(arm9Bytes, 0x20);
+    if (pmcLayout) cursor = pmcLayout.tableAt;
+    const arm9OverlayTable = writeProgramSection(arm9OverlayTableBytes, 0x50, true);
+    if (pmcLayout) cursor = pmcLayout.arm7At;
+    const arm7 = writeProgramSection(this.arm7, 0x30);
+    const arm7OverlayTable = writeProgramSection(arm7OverlayTableBytes, 0x58, true);
+    const fnt = writeProgramSection(fntData, 0x40);
+    const fatOffset = dataLayout ? readU32(this.data, 0x48) : align(cursor, 0x200);
+    if (!dataLayout) cursor = checkedAdd(fatOffset, fatLength);
+    const banner = writeProgramSection(this.banner, 0x68, true);
 
-    cursor = align(cursor, 0x200);
-    const fatOffset = cursor;
-    writer.writeAt(fatOffset, new Uint8Array(fatLength));
-    cursor = checkedAdd(cursor, fatLength);
-
-    const banner = this.banner.length > 0 ? writeSection(this.banner) : { offset: 0, length: 0 };
-
-    physicalFileOrder.forEach((id) => {
-      const file = files[id];
-      cursor = align(cursor, 0x200);
-      const start = cursor;
+    const writeFileAt = (id: number, start: number, file: Uint8Array) => {
       writer.writeAt(start, file);
-      cursor = checkedAdd(cursor, file.length);
       writeU32(writer.buffer, fatOffset + id * 8, start);
-      writeU32(writer.buffer, fatOffset + id * 8 + 4, cursor);
-    });
+      writeU32(writer.buffer, fatOffset + id * 8 + 4, start + file.length);
+    };
+    if (dataLayout) {
+      writer.writeAt(0, this.data.subarray(0, dataLayout.sourceEnd));
+      for (const { id, start, bytes } of dataLayout.replacements) writeFileAt(id, start, bytes);
+      cursor = dataLayout.end;
+    } else {
+      if (pmcLayout) {
+        for (const [id, start] of pmcLayout.overlayStarts) writeFileAt(id, start, files[id]);
+      }
+      for (const id of trailingFileOrder) {
+        const start = align(cursor, 0x200);
+        writeFileAt(id, start, files[id]);
+        cursor = checkedAdd(start, files[id].length);
+      }
+    }
 
     const fileEnd = align(cursor, 4);
-    const applicationEnd = digestLayout?.end ?? fileEnd;
+    const applicationEnd = Math.max(digestLayout?.end ?? fileEnd, dataLayout?.previousApplicationEnd ?? 0);
     cursor = applicationEnd;
     const twlSectionWrites: Array<{ offsetField: number; offset: number }> = [];
     let twlRegionStart = 0;
@@ -348,10 +394,118 @@ export class NintendoDSRom {
     }
     out[0x14] = romDeviceCapacityByte(romLength, this.data[0x14] ?? 0);
 
-    if (arm9.offset < 0x8000 && out.length >= 0x8000) writeU16(out, 0x6c, crc16(out.subarray(arm9.offset, 0x8000)));
+    // The retail field describes cartridge data. Keep it when the secure
+    // area is unchanged, including on dumps that store decrypted bytes.
+    if (!dataLayout && arm9.offset < 0x8000 && out.length >= 0x8000) writeU16(out, 0x6c, crc16(out.subarray(arm9.offset, 0x8000)));
     writeU16(out, 0x15c, crc16(out.subarray(0xc0, 0xc0 + 156)));
     writeU16(out, 0x15e, crc16(out.subarray(0, 0x15e)));
     return out;
+  }
+
+  private planBw2PmcLayout(
+    arm9: Uint8Array, table: Uint8Array, arm7Table: Uint8Array,
+    files: Uint8Array[], originalStarts: number[], headerSize: number,
+  ) {
+    const nativeCount = 344, rowSize = 32;
+    const pmcRow = nativeCount * rowSize, pmcTableLength = pmcRow + rowSize;
+    if ((this.idCode !== "IREO" && this.idCode !== "IRDO") || this.data[0x12] !== 2 || this.data[0x1e] !== 0
+      || headerSize !== 0x4000 || readU32(this.data, 0x20) !== 0x4000 || this.arm9RamAddress !== 0x02004000
+      || this.arm7OverlayTable.length !== 0 || arm7Table.length !== 0
+      || table.length !== pmcTableLength
+      || (this.arm9OverlayTable.length !== pmcRow && this.arm9OverlayTable.length !== pmcTableLength)) return undefined;
+    const pmc = files[readU32(table, pmcRow + 24)];
+    if (readU32(table, pmcRow) !== nativeCount || !pmc || readAscii(pmc, 0, 4) !== "RPM0"
+      || readU32(table, pmcRow + 8) !== pmc.length) return undefined;
+
+    const oldTableAt = readU32(this.data, 0x50), oldArm7At = readU32(this.data, 0x30);
+    if (oldTableAt < headerSize + this.arm9.length || oldArm7At + this.arm7.length > this.data.length
+      || oldTableAt % 0x200 || oldArm7At % 0x200) return undefined;
+    const overlays = Array.from({ length: nativeCount }, (_, id) => ({ id, start: originalStarts[id] }))
+      .sort((a, b) => a.start - b.start);
+    const overlayStarts = new Map<number, number>();
+    const moved: number[] = [];
+    const tableAt = Math.max(oldTableAt, align(headerSize + arm9.length, 0x200));
+    let originalEnd = oldTableAt + this.arm9OverlayTable.length;
+    let end = tableAt + table.length;
+    // Retain each fitting native overlay's FAT position even if ARM9 or the
+    // larger table pushes an early overlay out of its original slot.
+    for (const [index, { id, start }] of overlays.entries()) {
+      const row = id * rowSize;
+      if (readU32(this.arm9OverlayTable, row) !== id || readU32(this.arm9OverlayTable, row + 24) !== id
+        || readU32(table, row) !== id || readU32(table, row + 24) !== id
+        || !this.files[id]?.length || !files[id]?.length || start < originalEnd) return undefined;
+      originalEnd = start + this.files[id].length;
+      const nextStart = overlays[index + 1]?.start ?? oldArm7At;
+      if (originalEnd > nextStart) return undefined;
+      if (start < end || start + files[id].length > nextStart) {
+        moved.push(id);
+      } else {
+        overlayStarts.set(id, start);
+        end = start + files[id].length;
+      }
+    }
+    // Without a surviving native position, use the regular repacker.
+    if (!overlayStarts.size) return undefined;
+    for (const id of moved) {
+      const start = align(end, 0x200);
+      overlayStarts.set(id, start);
+      end = start + files[id].length;
+    }
+    return { tableAt, overlayStarts, arm7At: Math.max(oldArm7At, align(end, 0x200)) };
+  }
+
+  private planDataOnlyLayout(options: RomSaveOptions, digest: DsiDigestSource | undefined) {
+    if (!options.preserveDataLayout || options.forDsi === false || options.arm9 || options.arm9OverlayTable
+      || options.arm7OverlayTable || options.filenames || options.alignFntFirstFileToArm9OverlayCount
+      || options.insertedFiles?.length || options.addedFiles?.length || options.priorityFileIds?.length
+      || !this.hasRetailOverlayLayout()) return undefined;
+    try {
+      validateDsRomSections(this.data);
+    } catch {
+      return undefined;
+    }
+
+    const sections = [
+      [0x20, this.arm9], [0x30, this.arm7], [0x40, this.fntData],
+      [0x50, this.arm9OverlayTable], [0x58, this.arm7OverlayTable], [0x68, this.banner],
+    ] as const;
+    const fatAt = readU32(this.data, 0x48), fatSize = readU32(this.data, 0x4c);
+    if (this.files.length * 8 !== fatSize) return undefined;
+    const spans = [{ start: fatAt, end: fatAt + fatSize }];
+    for (const [field, bytes] of sections) {
+      if (bytes.length === 0) continue;
+      const start = readU32(this.data, field);
+      if (!bytes.every((byte, index) => this.data[start + index] === byte)) return undefined;
+      spans.push({ start, end: start + bytes.length });
+    }
+    let fileEnd = 0;
+    for (let id = 0; id < this.files.length; id += 1) {
+      const slot = fatAt + id * 8, file = this.files[id];
+      const start = readU32(this.data, slot), end = readU32(this.data, slot + 4);
+      const sourceView = file.buffer === this.data.buffer && file.byteOffset === this.data.byteOffset + start;
+      if (file.length !== end - start || (!sourceView && !file.every((byte, index) => this.data[start + index] === byte))) return undefined;
+      fileEnd = Math.max(fileEnd, end);
+      if (start !== end) spans.push({ start, end });
+    }
+    spans.sort((a, b) => a.start - b.start);
+    if (spans.some((span, index) => index > 0 && span.start < spans[index - 1].end)) return undefined;
+    const sourceEnd = Math.max(fileEnd, spans.at(-1)!.end, digest ? digest.ntrStart + readU32(this.data, 0x1e4) : 0);
+    if (digest && sourceEnd > digest.regionStart) return undefined;
+    const replacements: Array<{ id: number; start: number; bytes: Uint8Array }> = [];
+    let end = sourceEnd;
+    for (const [id, bytes] of options.files ?? []) {
+      // A FAT slot before the first named file can contain executable code.
+      if (!Number.isInteger(id) || id < this.filenames.firstId || id >= this.files.length) return undefined;
+      const originalStart = readU32(this.data, fatAt + id * 8);
+      const grows = bytes.length > this.files[id].length;
+      // Appending a larger data file avoids shifting the files after its slot.
+      const start = grows ? align(end, 0x200) : originalStart;
+      if (grows) end = checkedAdd(start, bytes.length);
+      replacements.push({ id, start, bytes });
+    }
+    const previousEnd = readU32(this.data, 0x80);
+    const previousApplicationEnd = digest && previousEnd <= digest.regionStart ? previousEnd : 0;
+    return { sourceEnd, end, replacements, previousApplicationEnd };
   }
 
   private twlSections(): Array<{ offsetField: number; sourceOffset: number; length: number }> {

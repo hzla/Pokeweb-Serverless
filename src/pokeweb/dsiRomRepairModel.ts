@@ -99,7 +99,9 @@ export async function repairDsiRom(source: Uint8Array, donor: Uint8Array, onProg
   writeU32(restored, 0x210, length);
 
   await onProgress?.("Rebuilding integrity tables for the edited game content…");
-  const bytes = new NintendoDSRom(restored, { fileData: "view" }).save({ forDsi: true });
+  const bytes = new NintendoDSRom(restored, { fileData: "view" }).save({
+    forDsi: true, preserveDataLayout: true, preserveBw2PmcLayout: true,
+  });
   await onProgress?.("Verifying the repaired layout…");
   validateDsRomSections(bytes);
   if (!readDsiDigestSource(bytes)) throw new Error("The repaired DSi integrity tables could not be verified. No ROM was downloaded.");

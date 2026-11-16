@@ -1,8 +1,9 @@
-import { concatBytes, readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
+import { concatBytes, equalBytes, readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { extractGameFreakContainer, readNitroResources } from "./map3dModel";
 import { align, ensure, materialRecords, nitroBlocks, readDictionary, replaceMaterialRecords, writeDictionary, writeNitroFile } from "./nitroResourceWriter";
 
-export const equalMapBytes = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((v, i) => v === b[i]);
+/** Kept for existing callers; new code imports equalBytes from src/nds/binary.ts. */
+export const equalMapBytes = equalBytes;
 
 /** Validate before using permissive preview readers on user-selected binaries. */
 export function validateMapNitro(bytes: Uint8Array, stamp: "BMD0" | "BTX0"): Uint8Array[] {

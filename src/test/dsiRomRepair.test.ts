@@ -1,6 +1,8 @@
 import { deepStrictEqual } from "node:assert";
 import { describe, expect, it } from "vitest";
-import { readU16, readU32, writeU32 } from "../nds/binary";
+import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
+import { planDsiDigest, readDsiDigestSource, writeDsiDigest } from "../nds/dsiDigest";
+import { Folder, saveFnt } from "../nds/fnt";
 import { NintendoDSRom, crc16 } from "../nds/rom";
 import type { DsiExportWarning } from "../nds/dsiWarning";
 import { repairDsiRom, dsiRepairedRomFilename } from "../pokeweb/dsiRomRepairModel";
@@ -10,6 +12,126 @@ import { renderDsiRomRepairCard } from "../ui/dsiRomRepair";
 import { bytes, makeTwlRom, verifyAllDigests } from "./fixtures/dsiRom";
 
 const games = [["IRBO", "Black"], ["IRAO", "White"], ["IREO", "Black 2"], ["IRDO", "White 2"]] as const;
+
+describe("retail-layout data exports", () => {
+  it.each([false, true])("preserves early overlays and ARM7 (Frost export: %s)", async (frostCompatibility) => {
+    const source = makeRetailLayoutFixture();
+    const project = makeProject(source);
+    const before = source.slice();
+    const sameSize = bytes(0x100).reverse();
+    project.fileSystem = { replacements: { 344: sameSize } };
+    const sameSizeExport = await exportModifiedRom(project, { frostCompatibility });
+    expect(readU16(sameSizeExport, 0x15e)).toBe(readU16(source, 0x15e));
+    expect(readU32(sameSizeExport, 0x10400 + 344 * 8)).toBe(0x11000);
+    deepStrictEqual(new NintendoDSRom(sameSizeExport).getFileByName("file.bin"), sameSize);
+    verifyAllDigests(sameSizeExport);
+
+    const grown = bytes(0x82000);
+    project.fileSystem.replacements = { 344: grown };
+    const output = await exportModifiedRom(project, { frostCompatibility });
+    expect(readU32(output, 0x10400 + 344 * 8)).toBe(0x14000);
+    expect(readU32(output, 0x1c0)).toBeGreaterThan(readU32(source, 0x1c0));
+    for (const rom of [output, (await repairDsiRom(output, source)).bytes]) {
+      for (const offset of [0x20, 0x30, 0x40, 0x48, 0x50]) expect(readU32(rom, offset)).toBe(readU32(source, offset));
+      deepStrictEqual(rom.subarray(0x4000, 0x10400 + 344 * 8), source.subarray(0x4000, 0x10400 + 344 * 8));
+      deepStrictEqual(new NintendoDSRom(rom).getFileByName("file.bin"), grown);
+      verifyAllDigests(rom);
+    }
+    deepStrictEqual(source, before);
+  });
+
+  it("keeps the retail layout when exporting and repairing a stripped source", async () => {
+    const donor = makeRetailLayoutFixture();
+    const stripped = donor.slice(0, 0x14000);
+    stripped.fill(0, 0x1c0, 0x230);
+    stripped[0x1c] &= ~6;
+    const project = makeProject(stripped);
+    const edited = bytes(0x200);
+    project.fileSystem = { replacements: { 344: edited } };
+    const output = await exportModifiedRom(project, { frostCompatibility: true });
+    const repaired = (await repairDsiRom(output, donor)).bytes;
+    for (const bytes of [output, repaired]) {
+      const rom = new NintendoDSRom(bytes);
+      expect(rom.hasRetailOverlayLayout()).toBe(true);
+      expect(readU32(bytes, 0x10400 + 11 * 8)).toBe(0x82c0);
+      deepStrictEqual(rom.getFileByName("file.bin"), edited);
+    }
+    verifyAllDigests(repaired);
+  });
+
+  it("uses the regular rebuild if an executable overlay is replaced", () => {
+    const source = makeRetailLayoutFixture();
+    const rom = new NintendoDSRom(source, { fileData: "view" });
+    const image = bytes(0x40).reverse();
+    const output = rom.save({ preserveDataLayout: true, files: new Map([[11, image]]) });
+    const rebuilt = new NintendoDSRom(output);
+    expect(rebuilt.hasRetailOverlayLayout()).toBe(false);
+    deepStrictEqual(rebuilt.files[11], image);
+    verifyAllDigests(output);
+  });
+});
+
+it.each(["IREO", "IRDO"])("keeps fitting %s overlay offsets through PMC export and DSi repair", async (code) => {
+  const donor = makeRetailLayoutFixture(code);
+  const stripped = donor.slice(0, 0x14000);
+  stripped.fill(0, 0x1c0, 0x230);
+  stripped[0x1c] &= ~6;
+  const project = makeProject(stripped);
+  const overlayPath = "overlay/overlay_0344.bin";
+  const pmc = new TextEncoder().encode("RPM0 fixture");
+  project.codeInjection = { pmc: { overlayId: 344, overlayBaseAddress: 0x02100000, overlayPath } };
+  project.fileSystem = { replacements: {}, additions: { [overlayPath]: pmc } };
+  const arm9 = new Uint8Array(0x1440);
+  arm9.set(project.arm9);
+  project.arm9 = arm9;
+  project.arm9Dirty = true;
+  project.arm9Compressed = false;
+  const exported = await exportModifiedRom(project);
+  const repaired = (await repairDsiRom(exported, donor)).bytes;
+
+  for (const output of [exported, repaired]) {
+    const rom = new NintendoDSRom(output);
+    const fatAt = readU32(output, 0x48);
+    expect(readU32(output, 0x20)).toBe(0x4000);
+    expect(readU32(output, 0x50)).toBe(0x5600);
+    expect(readU32(output, fatAt + 11 * 8)).toBe(0x82c0);
+    expect(readU32(output, fatAt)).toBeGreaterThan(0x82c0);
+    expect(readU32(output, fatAt)).toBeLessThan(readU32(output, 0x30));
+    deepStrictEqual(rom.arm9, arm9);
+    deepStrictEqual(rom.files[0], bytes(0x40));
+    deepStrictEqual(rom.getFileByName(overlayPath), pmc);
+  }
+  verifyAllDigests(repaired);
+});
+
+function makeRetailLayoutFixture(code = "IREO"): Uint8Array {
+  const source = makeTwlRom(code), digest = readDsiDigestSource(source)!;
+  digest.twlHashes = digest.twlHashes.slice();
+  source[0x14] = 3;
+  source.copyWithin(0x10000, 0x5000, 0x5100);
+  const fnt = saveFnt(new Folder({ firstId: 344, files: ["file.bin"] }));
+  source.set(fnt, 0x10200);
+  for (const [field, value] of [[0x30, 0x10000], [0x40, 0x10200], [0x44, fnt.length],
+    [0x48, 0x10400], [0x4c, 345 * 8], [0x50, 0x5000], [0x54, 344 * 32]]) writeU32(source, field, value);
+  source.fill(0, 0x5000, 0x5000 + 344 * 32);
+  for (let id = 0; id < 344; id += 1) {
+    const row = 0x5000 + id * 32, start = 0x8000 + id * 0x40;
+    writeU32(source, row, id);
+    writeU32(source, row + 24, id);
+    writeU32(source, 0x10400 + id * 8, start);
+    writeU32(source, 0x10404 + id * 8, start + 0x40);
+    source.set(bytes(0x40), start);
+  }
+  writeU32(source, 0x10400 + 344 * 8, 0x11000);
+  writeU32(source, 0x10404 + 344 * 8, 0x11100);
+  source.set(bytes(0x100), 0x11000);
+  const layout = planDsiDigest(digest, 0x14000);
+  writeDsiDigest(source, digest, layout, 0x80000);
+  writeU32(source, 0x80, layout.end);
+  writeU16(source, 0x15c, crc16(source.subarray(0xc0, 0x15c)));
+  writeU16(source, 0x15e, crc16(source.subarray(0, 0x15e)));
+  return source;
+}
 
 describe("damaged DSi exports", () => {
   it.each(games)("silently exports already-stripped %s ROMs and retains donor repair support", async (code) => {

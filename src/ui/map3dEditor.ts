@@ -36,20 +36,33 @@ import { escapeHtml } from "./dom";
 import { createMap3dBuildingInspector, pickMap3dBuilding } from "./map3dBuildingInspector";
 import type { MapGlbImport } from "../pokeweb/mapGlbImport";
 import { installMap3dTileTool } from "./map3dTileTool";
-import type { GrassSkipReason, GrassStroke, MapGrassSurface } from "../pokeweb/mapGrass";
-import type { TreeSkipReason, TreeStroke } from "../pokeweb/mapTrees";
+import type { GrassSkipReason, MapGrassSurface } from "../pokeweb/mapGrass";
+import type { TreeSkipReason } from "../pokeweb/mapTrees";
 import { mapTreeTypes, type MapTreeType } from "../pokeweb/mapTreeCatalog";
 import type { MapGrassKind } from "../pokeweb/mapGrassGeometry";
 import { createBrushThumbnailRenderer, grassSwatch } from "./mapBrushThumbnails";
-import type { LedgeDirection, LedgeSkipReason, LedgeStroke } from "../pokeweb/mapLedges";
+import type { LedgeDirection, LedgeSkipReason } from "../pokeweb/mapLedges";
 import { MAP_STAMP_CATEGORIES, mapStampTypes, stampSize, type MapStampCategory, type MapStampType, type StampRotation } from "../pokeweb/mapStampCatalog";
-import type { StampSkipReason, StampStroke } from "../pokeweb/mapStamps";
-import type { ThickGrassKind, ThickGrassSkipReason, ThickGrassStroke } from "../pokeweb/mapThickGrass";
-import { mapFenceTypes, type FenceSkipReason, type FenceTileStroke, type MapFenceType } from "../pokeweb/mapFences";
-import { mapPropTypes, type MapPropType, type PropSkipReason, type PropStroke } from "../pokeweb/mapProps";
+import type { StampSkipReason } from "../pokeweb/mapStamps";
+import type { ThickGrassKind, ThickGrassSkipReason } from "../pokeweb/mapThickGrass";
+import { mapFenceTypes, type FenceSkipReason, type MapFenceType } from "../pokeweb/mapFences";
+import { mapPropTypes, type MapPropType, type PropSkipReason } from "../pokeweb/mapProps";
 import type { MapHeightEdit } from "../pokeweb/mapHeightEdit";
 import { openTestBattleEmulator } from '../pokeweb/testBattleEmulatorLauncher';
 import type { MapCameraTestPosition } from '../pokeweb/mapCameraTest';
+
+const counted = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+const inSeason = (season?: string) => season ? ` in ${season[0]!.toUpperCase()}${season.slice(1)}` : "";
+
+/** " Skipped 3 (2 are blocked, 1 is water)." for a stroke's status line, or "" when nothing was skipped. */
+function skippedNote<R extends string>(stroke: { skipped: number; skipReasons: { reason: R; count: number; season?: string }[] }, labels: Record<R, string>, unit?: string) {
+  if (!stroke.skipReasons.length) return "";
+  const reasons = stroke.skipReasons.map(({ count, reason, season }) => {
+    const label = labels[reason] + inSeason(season);
+    return stroke.skipReasons.length === 1 ? label : `${count} ${label}`;
+  });
+  return ` Skipped ${unit ? counted(stroke.skipped, unit, `${unit}s`) : stroke.skipped} (${reasons.join(", ")}).`;
+}
 
 const GRASS_SKIP_LABELS: Record<GrassSkipReason, string> = {
   "already-matching": "already the selected grass type",
@@ -1257,339 +1270,119 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   async function finishGrassStroke(tiles: Map3dTile[]) {
     const data = activeData, mode = grassMode;
     if (!data || grassBusy || importing || exporting || pendingImport || !mode) return;
-    if (mode === "tree") return finishTreeStroke(data, mode, tiles);
-    if (mode === "ledge") return finishLedgeStroke(data, mode, tiles);
-    if (mode === "stamp") return finishStampStroke(data, tiles);
-    if (mode === "thick") return finishThickStroke(data, tiles);
-    if (mode === "fence") return finishFenceStroke(data, tiles);
-    if (mode === "prop") return finishPropStroke(data, tiles);
+    const isCurrent = () => activeData === data && grassMode === mode && !!canvasWrap?.isConnected;
+    if (mode === "tree") {
+      const typeId = paintBrush?.tree?.id ?? "";
+      return runStroke(data, "Planting trees…", async () => {
+        const { placeMapTrees, undoMapTrees, redoMapTrees } = await import("../pokeweb/mapTrees");
+        const stroke = await placeMapTrees(project, data, tiles, typeId, { isCurrent, allowBlocked: allowBlocked() });
+        return {
+          stroke, label: "Plant trees", undo: () => undoMapTrees(project, stroke), redo: () => redoMapTrees(project, stroke),
+          status: (stroke.count ? `Planted ${counted(stroke.count, "tree", "trees")}.` : "No trees planted.") + skippedNote(stroke, TREE_SKIP_LABELS),
+        };
+      });
+    }
+    if (mode === "ledge") {
+      const direction = ledgeDirectionValue;
+      return runStroke(data, "Drawing ledge…", async () => {
+        const { placeMapLedge, undoMapLedges, redoMapLedges } = await import("../pokeweb/mapLedges");
+        const stroke = await placeMapLedge(project, data, tiles, direction, { isCurrent });
+        return {
+          stroke, label: "Draw ledge", undo: () => undoMapLedges(project, stroke), redo: () => redoMapLedges(project, stroke),
+          status: (stroke.count ? `Drew a ${tiles.length}-tile ledge.` : "No ledge drawn.") + skippedNote(stroke, LEDGE_SKIP_LABELS),
+        };
+      });
+    }
+    if (mode === "stamp") {
+      const stamp = paintBrush?.stamp, rotation = currentStampRotation();
+      if (!stamp) return;
+      const name = stamp.label.toLowerCase();
+      return runStroke(data, `Placing ${name}…`, async () => {
+        const { placeMapStamps, undoMapStamps, redoMapStamps } = await import("../pokeweb/mapStamps");
+        const stroke = await placeMapStamps(project, data, tiles, stamp.id, rotation, { isCurrent, allowBlocked: allowBlocked() });
+        const still = stroke.stillAreas ? " This map's area has no texture animation file, so the art stays still here." : "";
+        return {
+          stroke, label: `Place ${name}`, undo: () => undoMapStamps(project, stroke), redo: () => redoMapStamps(project, stroke),
+          status: (stroke.count ? `Placed ${name}${stroke.count > 1 ? ` × ${stroke.count}` : ""}.` : "Nothing placed.") + skippedNote(stroke, STAMP_SKIP_LABELS) + still,
+        };
+      });
+    }
+    if (mode === "thick") {
+      const kind = paintBrush?.thick;
+      if (!kind) return;
+      return runStroke(data, "Painting thick grass…", async () => {
+        const { strokeThickGrass, undoThickGrass, redoThickGrass } = await import("../pokeweb/mapThickGrass");
+        const stroke = await strokeThickGrass(project, data, tiles, kind, { isCurrent, allowBlocked: allowBlocked() });
+        return {
+          stroke, label: "Paint thick grass", undo: () => undoThickGrass(project, stroke), redo: () => redoThickGrass(project, stroke),
+          status: (stroke.count ? `Painted thick grass on ${counted(stroke.count, "tile", "tiles")}.` : "No thick grass painted.") + skippedNote(stroke, THICK_SKIP_LABELS),
+        };
+      });
+    }
+    if (mode === "fence") {
+      const fence = paintBrush?.fence;
+      if (!fence) return;
+      const name = fence.label.toLowerCase(), ends = fence.turnedEnds ? fenceEndStyle() : "corner";
+      return runStroke(data, `Drawing ${name}…`, async () => {
+        const { strokeFenceTiles, undoFenceTiles, redoFenceTiles } = await import("../pokeweb/mapFences");
+        const stroke = await strokeFenceTiles(project, data, tiles, fence.id, { isCurrent, allowBlocked: allowBlocked(), ends });
+        return {
+          stroke, label: `Draw ${name}`, undo: () => undoFenceTiles(project, stroke), redo: () => redoFenceTiles(project, stroke),
+          status: (stroke.count ? `Drew ${counted(stroke.count, "tile", "tiles")} of ${name}.` : "No fence drawn.") + skippedNote(stroke, FENCE_SKIP_LABELS),
+        };
+      });
+    }
+    if (mode === "prop") {
+      const prop = paintBrush?.prop, rotation = currentStampRotation();
+      if (!prop) return;
+      const name = prop.label.toLowerCase();
+      return runStroke(data, `Placing ${name}…`, async () => {
+        const { placeMapProps, undoMapProps, redoMapProps } = await import("../pokeweb/mapProps");
+        const stroke = await placeMapProps(project, data, tiles, prop.id, rotation, { isCurrent, allowBlocked: allowBlocked() });
+        return {
+          stroke, label: `Place ${name}`, undo: () => undoMapProps(project, stroke), redo: () => redoMapProps(project, stroke),
+          status: (stroke.count ? `Placed ${name}${stroke.count > 1 ? ` × ${stroke.count}` : ""}.` : "Nothing placed.") + skippedNote(stroke, PROP_SKIP_LABELS),
+        };
+      });
+    }
     if (mode === "erase") return finishErase(data, tiles);
     const kind = paintBrush?.grass ?? "regular";
     const choice = grassSurface?.value;
     const surface: MapGrassSurface = choice === "upper" || choice === "lower" ? choice : "auto";
-    grassBusy = true;
-    refreshImportButtons();
-    if (exportStatus) exportStatus.textContent = "Painting grass…";
-    try {
-      const { paintMapGrass } = await import("../pokeweb/mapGrass");
-      const isCurrent = () => activeData === data && grassMode === mode && !!canvasWrap?.isConnected;
+    return runStroke(data, "Painting grass…", async () => {
+      const { paintMapGrass, undoMapGrass, redoMapGrass } = await import("../pokeweb/mapGrass");
       const stroke = await paintMapGrass(project, data, tiles, kind, { surface, isCurrent, allowBlocked: allowBlocked() });
+      const fallback = stroke.sourceFallbackCount;
+      const recovered = fallback ? ` Used source ROM permissions for ${fallback} older ${fallback === 1 ? "tile" : "tiles"}.` : "";
+      return {
+        stroke, label: "Plant grass", undo: () => undoMapGrass(project, stroke), redo: () => redoMapGrass(project, stroke),
+        status: (stroke.count ? `Painted grass on ${counted(stroke.count, "tile", "tiles")}.` : "No grass painted.") + skippedNote(stroke, GRASS_SKIP_LABELS, "tile") + recovered,
+      };
+    });
+  }
+
+  /**
+   * Run one brush stroke: show `busy`, then put the stroke on the history when it changed something, reload the map,
+   * and show its status. Errors go to the status line.
+   */
+  async function runStroke(data: Map3dSceneData, busy: string, run: () => Promise<{ stroke: { count: number }; label: string; undo: () => void; redo: () => void; status: string }>) {
+    grassBusy = true;
+    refreshImportButtons();
+    if (exportStatus) exportStatus.textContent = busy;
+    try {
+      const { stroke, label, undo, redo, status } = await run();
       if (stroke.count) {
-        history.push({
-          label: "Plant grass",
-          undo: () => replayGrass(stroke, true),
-          redo: () => replayGrass(stroke, false),
-        });
+        history.push({ label, undo: () => replayEdits([undo]), redo: () => replayEdits([redo]) });
         onDirty?.();
         await load(data.zoneId, true);
       }
-      if (exportStatus) {
-        const done = stroke.count ? `Painted grass on ${stroke.count} ${stroke.count === 1 ? "tile" : "tiles"}.` : "No grass painted.";
-        const skipped = stroke.skipReasons.map(({ count, reason, season }) => {
-          const where = season ? ` in ${season[0].toUpperCase()}${season.slice(1)}` : "";
-          const label = GRASS_SKIP_LABELS[reason] + where;
-          return stroke.skipReasons.length === 1 ? label : `${count} ${label}`;
-        });
-        const detail = skipped.length ? ` Skipped ${stroke.skipped} ${stroke.skipped === 1 ? "tile" : "tiles"} (${skipped.join(", ")}).` : "";
-        const recovered = stroke.sourceFallbackCount
-          ? ` Used source ROM permissions for ${stroke.sourceFallbackCount} older ${stroke.sourceFallbackCount === 1 ? "tile" : "tiles"}.` : "";
-        exportStatus.textContent = done + detail + recovered;
-      }
+      if (exportStatus) exportStatus.textContent = status;
     } catch (error) {
       if (exportStatus) exportStatus.textContent = error instanceof Error ? error.message : String(error);
     } finally {
       grassBusy = false;
       refreshImportButtons();
     }
-  }
-
-  async function finishTreeStroke(data: Map3dSceneData, mode: "tree", tiles: Map3dTile[]) {
-    const typeId = paintBrush?.tree?.id ?? "";
-    grassBusy = true;
-    refreshImportButtons();
-    if (exportStatus) exportStatus.textContent = mode === "tree" ? "Planting trees…" : "Removing trees…";
-    try {
-      const { placeMapTrees, removeMapTrees } = await import("../pokeweb/mapTrees");
-      const isCurrent = () => activeData === data && grassMode === mode && !!canvasWrap?.isConnected;
-      const stroke = mode === "tree" ? await placeMapTrees(project, data, tiles, typeId, { isCurrent, allowBlocked: allowBlocked() })
-        : await removeMapTrees(project, data, tiles, { isCurrent });
-      if (stroke.count) {
-        history.push({
-          label: mode === "tree" ? "Plant trees" : "Remove trees",
-          undo: () => replayTrees(stroke, true),
-          redo: () => replayTrees(stroke, false),
-        });
-        onDirty?.();
-        await load(data.zoneId, true);
-      }
-      if (exportStatus) {
-        const noun = (count: number) => `${count} ${count === 1 ? "tree" : "trees"}`;
-        const done = stroke.count ? `${mode === "tree" ? "Planted" : "Removed"} ${noun(stroke.count)}.`
-          : mode === "tree" ? "No trees planted." : "No trees removed.";
-        const skipped = stroke.skipReasons.map(({ count, reason, season }) => {
-          const label = TREE_SKIP_LABELS[reason] + (season ? ` in ${season[0].toUpperCase()}${season.slice(1)}` : "");
-          return stroke.skipReasons.length === 1 ? label : `${count} ${label}`;
-        });
-        exportStatus.textContent = done + (skipped.length ? ` Skipped ${stroke.skipped} (${skipped.join(", ")}).` : "");
-      }
-    } catch (error) {
-      if (exportStatus) exportStatus.textContent = error instanceof Error ? error.message : String(error);
-    } finally {
-      grassBusy = false;
-      refreshImportButtons();
-    }
-  }
-
-  async function finishLedgeStroke(data: Map3dSceneData, mode: "ledge", tiles: Map3dTile[]) {
-    const direction = ledgeDirectionValue;
-    grassBusy = true;
-    refreshImportButtons();
-    if (exportStatus) exportStatus.textContent = mode === "ledge" ? "Drawing ledge…" : "Removing ledges…";
-    try {
-      const { placeMapLedge, removeMapLedges } = await import("../pokeweb/mapLedges");
-      const isCurrent = () => activeData === data && grassMode === mode && !!canvasWrap?.isConnected;
-      const stroke = mode === "ledge" ? await placeMapLedge(project, data, tiles, direction, { isCurrent })
-        : await removeMapLedges(project, data, tiles, { isCurrent });
-      if (stroke.count) {
-        history.push({
-          label: mode === "ledge" ? "Draw ledge" : "Remove ledges",
-          undo: () => replayLedges(stroke, true),
-          redo: () => replayLedges(stroke, false),
-        });
-        onDirty?.();
-        await load(data.zoneId, true);
-      }
-      if (exportStatus) {
-        const noun = (count: number) => `${count} ${count === 1 ? "ledge" : "ledges"}`;
-        const done = mode === "ledge" ? stroke.count ? `Drew a ${tiles.length}-tile ledge.` : "No ledge drawn."
-          : stroke.count ? `Removed ${noun(stroke.count)}.` : "No ledges removed.";
-        const skipped = stroke.skipReasons.map(({ count, reason, season }) => {
-          const label = LEDGE_SKIP_LABELS[reason] + (season ? ` in ${season[0].toUpperCase()}${season.slice(1)}` : "");
-          return stroke.skipReasons.length === 1 ? label : `${count} ${label}`;
-        });
-        exportStatus.textContent = done + (skipped.length ? ` (${skipped.join(", ")})` : "");
-      }
-    } catch (error) {
-      if (exportStatus) exportStatus.textContent = error instanceof Error ? error.message : String(error);
-    } finally {
-      grassBusy = false;
-      refreshImportButtons();
-    }
-  }
-
-  async function finishStampStroke(data: Map3dSceneData, tiles: Map3dTile[]) {
-    const stamp = paintBrush?.stamp, rotation = currentStampRotation();
-    if (!stamp) return;
-    grassBusy = true;
-    refreshImportButtons();
-    if (exportStatus) exportStatus.textContent = `Placing ${stamp.label.toLowerCase()}…`;
-    try {
-      const { placeMapStamps } = await import("../pokeweb/mapStamps");
-      const isCurrent = () => activeData === data && grassMode === "stamp" && !!canvasWrap?.isConnected;
-      const stroke = await placeMapStamps(project, data, tiles, stamp.id, rotation, { isCurrent, allowBlocked: allowBlocked() });
-      if (stroke.count) {
-        history.push({ label: `Place ${stamp.label.toLowerCase()}`, undo: () => replayStamps(stroke, true), redo: () => replayStamps(stroke, false) });
-        onDirty?.();
-        await load(data.zoneId, true);
-      }
-      if (exportStatus) {
-        const done = stroke.count ? `Placed ${stamp.label.toLowerCase()}${stroke.count > 1 ? ` × ${stroke.count}` : ""}.` : "Nothing placed.";
-        const skipped = stroke.skipReasons.map(({ count, reason, season }) => {
-          const label = STAMP_SKIP_LABELS[reason] + (season ? ` in ${season[0].toUpperCase()}${season.slice(1)}` : "");
-          return stroke.skipReasons.length === 1 ? label : `${count} ${label}`;
-        });
-        const still = stroke.stillAreas ? " This map's area has no texture animation file, so the art stays still here." : "";
-        exportStatus.textContent = done + (skipped.length ? ` Skipped ${stroke.skipped} (${skipped.join(", ")}).` : "") + still;
-      }
-    } catch (error) {
-      if (exportStatus) exportStatus.textContent = error instanceof Error ? error.message : String(error);
-    } finally {
-      grassBusy = false;
-      refreshImportButtons();
-    }
-  }
-
-  async function finishThickStroke(data: Map3dSceneData, tiles: Map3dTile[]) {
-    const kind = paintBrush?.thick;
-    if (!kind) return;
-    grassBusy = true;
-    refreshImportButtons();
-    if (exportStatus) exportStatus.textContent = "Painting thick grass…";
-    try {
-      const { strokeThickGrass } = await import("../pokeweb/mapThickGrass");
-      const isCurrent = () => activeData === data && grassMode === "thick" && !!canvasWrap?.isConnected;
-      const stroke = await strokeThickGrass(project, data, tiles, kind, { isCurrent, allowBlocked: allowBlocked() });
-      if (stroke.count) {
-        history.push({ label: "Paint thick grass", undo: () => replayThick(stroke, true), redo: () => replayThick(stroke, false) });
-        onDirty?.();
-        await load(data.zoneId, true);
-      }
-      if (exportStatus) {
-        const done = stroke.count ? `Painted thick grass on ${stroke.count} ${stroke.count === 1 ? "tile" : "tiles"}.` : "No thick grass painted.";
-        const skipped = stroke.skipReasons.map(({ count, reason, season }) => {
-          const label = THICK_SKIP_LABELS[reason] + (season ? ` in ${season[0].toUpperCase()}${season.slice(1)}` : "");
-          return stroke.skipReasons.length === 1 ? label : `${count} ${label}`;
-        });
-        exportStatus.textContent = done + (skipped.length ? ` Skipped ${stroke.skipped} (${skipped.join(", ")}).` : "");
-      }
-    } catch (error) {
-      if (exportStatus) exportStatus.textContent = error instanceof Error ? error.message : String(error);
-    } finally {
-      grassBusy = false;
-      refreshImportButtons();
-    }
-  }
-
-  async function finishFenceStroke(data: Map3dSceneData, tiles: Map3dTile[]) {
-    const fence = paintBrush?.fence;
-    if (!fence) return;
-    grassBusy = true;
-    refreshImportButtons();
-    if (exportStatus) exportStatus.textContent = `Drawing ${fence.label.toLowerCase()}…`;
-    try {
-      const { strokeFenceTiles } = await import("../pokeweb/mapFences");
-      const isCurrent = () => activeData === data && grassMode === "fence" && !!canvasWrap?.isConnected;
-      const stroke = await strokeFenceTiles(project, data, tiles, fence.id, { isCurrent, allowBlocked: allowBlocked(), ends: fence.turnedEnds ? fenceEndStyle() : "corner" });
-      if (stroke.count) {
-        history.push({ label: `Draw ${fence.label.toLowerCase()}`, undo: () => replayFences(stroke, true), redo: () => replayFences(stroke, false) });
-        onDirty?.();
-        await load(data.zoneId, true);
-      }
-      if (exportStatus) {
-        const done = stroke.count ? `Drew ${stroke.count} ${stroke.count === 1 ? "tile" : "tiles"} of ${fence.label.toLowerCase()}.` : "No fence drawn.";
-        const skipped = stroke.skipReasons.map(({ count, reason, season }) => {
-          const label = FENCE_SKIP_LABELS[reason] + (season ? ` in ${season[0].toUpperCase()}${season.slice(1)}` : "");
-          return stroke.skipReasons.length === 1 ? label : `${count} ${label}`;
-        });
-        exportStatus.textContent = done + (skipped.length ? ` Skipped ${stroke.skipped} (${skipped.join(", ")}).` : "");
-      }
-    } catch (error) {
-      if (exportStatus) exportStatus.textContent = error instanceof Error ? error.message : String(error);
-    } finally {
-      grassBusy = false;
-      refreshImportButtons();
-    }
-  }
-
-  async function finishPropStroke(data: Map3dSceneData, tiles: Map3dTile[]) {
-    const prop = paintBrush?.prop, rotation = currentStampRotation();
-    if (!prop) return;
-    grassBusy = true;
-    refreshImportButtons();
-    if (exportStatus) exportStatus.textContent = `Placing ${prop.label.toLowerCase()}…`;
-    try {
-      const { placeMapProps } = await import("../pokeweb/mapProps");
-      const isCurrent = () => activeData === data && grassMode === "prop" && !!canvasWrap?.isConnected;
-      const stroke = await placeMapProps(project, data, tiles, prop.id, rotation, { isCurrent, allowBlocked: allowBlocked() });
-      if (stroke.count) {
-        history.push({ label: `Place ${prop.label.toLowerCase()}`, undo: () => replayProps(stroke, true), redo: () => replayProps(stroke, false) });
-        onDirty?.();
-        await load(data.zoneId, true);
-      }
-      if (exportStatus) {
-        const done = stroke.count ? `Placed ${prop.label.toLowerCase()}${stroke.count > 1 ? ` × ${stroke.count}` : ""}.` : "Nothing placed.";
-        const skipped = stroke.skipReasons.map(({ count, reason, season }) => {
-          const label = PROP_SKIP_LABELS[reason] + (season ? ` in ${season[0].toUpperCase()}${season.slice(1)}` : "");
-          return stroke.skipReasons.length === 1 ? label : `${count} ${label}`;
-        });
-        exportStatus.textContent = done + (skipped.length ? ` Skipped ${stroke.skipped} (${skipped.join(", ")}).` : "");
-      }
-    } catch (error) {
-      if (exportStatus) exportStatus.textContent = error instanceof Error ? error.message : String(error);
-    } finally {
-      grassBusy = false;
-      refreshImportButtons();
-    }
-  }
-
-  async function replayProps(stroke: PropStroke, undo: boolean) {
-    grassBusy = true;
-    refreshImportButtons();
-    try {
-      const { redoMapProps, undoMapProps } = await import("../pokeweb/mapProps");
-      if (undo) undoMapProps(project, stroke);
-      else redoMapProps(project, stroke);
-      onDirty?.();
-    } finally {
-      grassBusy = false;
-      refreshImportButtons();
-    }
-    await load(activeZone, true);
-  }
-
-  async function replayFences(stroke: FenceTileStroke, undo: boolean) {
-    grassBusy = true;
-    refreshImportButtons();
-    try {
-      const { redoFenceTiles, undoFenceTiles } = await import("../pokeweb/mapFences");
-      if (undo) undoFenceTiles(project, stroke);
-      else redoFenceTiles(project, stroke);
-      onDirty?.();
-    } finally {
-      grassBusy = false;
-      refreshImportButtons();
-    }
-    await load(activeZone, true);
-  }
-
-  async function replayThick(stroke: ThickGrassStroke, undo: boolean) {
-    grassBusy = true;
-    refreshImportButtons();
-    try {
-      const { redoThickGrass, undoThickGrass } = await import("../pokeweb/mapThickGrass");
-      if (undo) undoThickGrass(project, stroke);
-      else redoThickGrass(project, stroke);
-      onDirty?.();
-    } finally {
-      grassBusy = false;
-      refreshImportButtons();
-    }
-    await load(activeZone, true);
-  }
-
-  async function replayStamps(stroke: StampStroke, undo: boolean) {
-    grassBusy = true;
-    refreshImportButtons();
-    try {
-      const { redoMapStamps, undoMapStamps } = await import("../pokeweb/mapStamps");
-      if (undo) undoMapStamps(project, stroke);
-      else redoMapStamps(project, stroke);
-      onDirty?.();
-    } finally {
-      grassBusy = false;
-      refreshImportButtons();
-    }
-    await load(activeZone, true);
-  }
-
-  async function replayLedges(stroke: LedgeStroke, undo: boolean) {
-    grassBusy = true;
-    refreshImportButtons();
-    try {
-      const { redoMapLedges, undoMapLedges } = await import("../pokeweb/mapLedges");
-      if (undo) undoMapLedges(project, stroke);
-      else redoMapLedges(project, stroke);
-      onDirty?.();
-    } finally {
-      grassBusy = false;
-      refreshImportButtons();
-    }
-    await load(activeZone, true);
-  }
-
-  async function replayTrees(stroke: TreeStroke, undo: boolean) {
-    grassBusy = true;
-    refreshImportButtons();
-    try {
-      const { redoMapTrees, undoMapTrees } = await import("../pokeweb/mapTrees");
-      if (undo) undoMapTrees(project, stroke);
-      else redoMapTrees(project, stroke);
-      onDirty?.();
-    } finally {
-      grassBusy = false;
-      refreshImportButtons();
-    }
-    await load(activeZone, true);
   }
 
   /** Erase: remove brush-placed objects, ledges, trees and grass under the drag as one undoable edit. */
@@ -1605,9 +1398,9 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
       const [{ removeMapLedges, undoMapLedges, redoMapLedges }, { removeMapTrees, undoMapTrees, redoMapTrees }, { removeMapGrass, undoMapGrass, redoMapGrass }] =
         await Promise.all([import("../pokeweb/mapLedges"), import("../pokeweb/mapTrees"), import("../pokeweb/mapGrass")]);
       const isCurrent = () => activeData === data && grassMode === "erase" && !!canvasWrap?.isConnected;
-      const noun = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+      const noun = counted;
       const describe = <R extends string>(reasons: { reason: R; count: number; season?: string }[], labels: Record<R, string>, ignore: R[] = []) => {
-        for (const { reason, count, season } of reasons) if (!ignore.includes(reason)) skipped.push(`${count} ${labels[reason]}${season ? ` in ${season[0].toUpperCase()}${season.slice(1)}` : ""}`);
+        for (const { reason, count, season } of reasons) if (!ignore.includes(reason)) skipped.push(`${count} ${labels[reason]}${inSeason(season)}`);
       };
       const { removeMapStamps, undoMapStamps, redoMapStamps } = await import("../pokeweb/mapStamps");
       const stamps = await removeMapStamps(project, data, tiles, { isCurrent });
@@ -1681,21 +1474,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     await load(activeZone, true);
   }
 
-  /** Undo or redo a grass stroke from the history, then show the result. */
-  async function replayGrass(stroke: GrassStroke, undo: boolean) {
-    grassBusy = true;
-    refreshImportButtons();
-    try {
-      const { redoMapGrass, undoMapGrass } = await import("../pokeweb/mapGrass");
-      if (undo) undoMapGrass(project, stroke);
-      else redoMapGrass(project, stroke);
-      onDirty?.();
-    } finally {
-      grassBusy = false;
-      refreshImportButtons();
-    }
-    await load(activeZone, true);
-  }
+
 
   function refreshImportButtons() {
     const busy = grassBusy || importing || exporting || testingMap || !!pendingImport;

@@ -1,4 +1,4 @@
-import { readU16 } from "../nds/binary";
+import { readU16, toS16 } from "../nds/binary";
 import { recordGenericChange } from "./actionChangelog";
 import { equalMapBytes, readGen5MapBin } from "./gen5MapImportFormats";
 import type { Gen5PermissionTileLike } from "./gen5PermissionModel";
@@ -6,7 +6,8 @@ import { packGameFreakContainer, type Map3dSceneData, type Map3dTile } from "./m
 import { countDisplayList, decodeFaces, encodeFaceCommands, shapeMaterials, type BrushVertex } from "./mapBrushGeometry";
 import { mapBrushContext } from "./mapGrass";
 import { GRASS_Z_OFFSET, packGrassCommands, terrainModelLayout, writeTerrainModel } from "./mapGrassGeometry";
-import { brushDestinations, permission, treeGround, writePermission } from "./mapTrees";
+import { permission, writePermission } from "./mapBrushStroke";
+import { brushDestinations, treeGround } from "./mapTrees";
 import { ensure, materialRecords } from "./nitroResourceWriter";
 import { markDirty, type ProjectState } from "./projectStore";
 
@@ -37,7 +38,6 @@ const tileRect = (index: number): Rect => {
 
 // ---------- Cutting faces ----------
 
-const s16 = (value: number) => (value << 16) >> 16;
 const s10 = (value: number) => (value << 22) >> 22;
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
@@ -57,7 +57,7 @@ function mixNormal(a: number, b: number, t: number) {
 function between(a: BrushVertex, b: BrushVertex, t: number): BrushVertex {
   const vertex: BrushVertex = { ...a, position: [0, 1, 2].map(i => lerp(a.position[i], b.position[i], t)) as [number, number, number] };
   if (a.texcoord !== undefined && b.texcoord !== undefined) {
-    const u = Math.round(lerp(s16(a.texcoord), s16(b.texcoord), t)), v = Math.round(lerp(s16(a.texcoord >>> 16), s16(b.texcoord >>> 16), t));
+    const u = Math.round(lerp(toS16(a.texcoord), toS16(b.texcoord), t)), v = Math.round(lerp(toS16(a.texcoord >>> 16), toS16(b.texcoord >>> 16), t));
     vertex.texcoord = ((u & 0xffff) | ((v & 0xffff) << 16)) >>> 0;
   }
   if (a.color !== undefined && b.color !== undefined && a.color !== b.color) vertex.color = mixColor(a.color, b.color, t);

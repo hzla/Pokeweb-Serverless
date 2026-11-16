@@ -1,19 +1,19 @@
 import { NARC } from "../nds/narc";
 import type { NintendoDSRom } from "../nds/rom";
-import { recordGenericChange } from "./actionChangelog";
 import { getRomFileBytes } from "./fileSystemModel";
 import { gen5HeightAt } from "./gen5MapHeightGeneration";
 import type { Gen5PermissionTileLike } from "./gen5PermissionModel";
 import { equalMapBytes, readGen5MapBin } from "./gen5MapImportFormats";
-import { extractGameFreakContainer, invalidateMap3dAssets, packGameFreakContainer, readNitroResources, type Map3dSceneData, type Map3dTile } from "./map3dModel";
-import { brushPieceKey, MERGED_PIECE_PAYLOAD, nativeFaces, readBrushPieces, rootIsIdentity, stepTextures, textureSteps, writeTileBrush, type BrushKind, type BrushPart, type BrushPiece, type BrushVertex, type TextureStep } from "./mapBrushGeometry";
+import { extractGameFreakContainer, packGameFreakContainer, readNitroResources, type Map3dSceneData, type Map3dTile } from "./map3dModel";
+import { MERGED_PIECE_PAYLOAD, nativeFaces, readBrushPieces, rootIsIdentity, stepTextures, textureSteps, writeTileBrush, type BrushKind, type BrushPart, type BrushPiece, type BrushVertex, type TextureStep } from "./mapBrushGeometry";
 import { mapBrushContext, texturePacksFor } from "./mapGrass";
 import { clipBetween } from "./mapNativeErase";
 import { donorSeasonBanks, stampBindings } from "./mapStamps";
-import { addNativeTextures, brushDestinations, cornerHeights, permission, snapGround, treeSite, writePermission, type TreeSkipReason } from "./mapTrees";
+import { addNativeTextures, brushDestinations, cornerHeights, snapGround, treeSite, type TreeSkipReason } from "./mapTrees";
 import { ensure } from "./nitroResourceWriter";
-import { createNarcStore, markDirty, type ProjectState } from "./projectStore";
+import { createNarcStore, type ProjectState } from "./projectStore";
 import { type MatrixSeason } from "./seasonalMatrixModel";
+import { countedAs, emptyBrushStroke, permission, redoBrushStroke, startBrushStroke, undoBrushStroke, writeBrushStroke, writePermission, type BrushStrokeKind, type BrushStroke } from "./mapBrushStroke";
 
 /**
  * Thick grass (the tall "nagakusa" patches). Natively a patch is a raised mat of grass: a flat top a little above the
@@ -201,22 +201,7 @@ type OriginalTile = Gen5PermissionTileLike & { kind: ThickGrassKind; secondary?:
 type ChunkOriginals = Record<number, OriginalTile>;
 export type MapThickGrassOriginalPermissions = Record<number, ChunkOriginals>;
 export type ThickGrassSkipReason = TreeSkipReason | "missing-original-permissions" | "changed-grass";
-type MapChange = { id: number; before: Uint8Array; after: Uint8Array };
-type ThickMapChange = MapChange & { originalsBefore?: ChunkOriginals; originalsAfter?: ChunkOriginals };
-export type ThickGrassStroke = { action: "paint" | "erase"; maps: ThickMapChange[]; textures: MapChange[]; count: number; skipped: number; skipReasons: { reason: ThickGrassSkipReason; count: number; season?: MatrixSeason }[] };
-
-function thickStroke(action: ThickGrassStroke["action"]) {
-  const result: ThickGrassStroke = { action, maps: [], textures: [], count: 0, skipped: 0, skipReasons: [] };
-  return {
-    result,
-    skip(reason: ThickGrassSkipReason, season?: MatrixSeason) {
-      result.skipped++;
-      const group = result.skipReasons.find(entry => entry.reason === reason && entry.season === season);
-      if (group) group.count++;
-      else result.skipReasons.push({ reason, count: 1, ...(season ? { season } : {}) });
-    },
-  };
-}
+export type ThickGrassStroke = BrushStroke<"paint" | "erase", ThickGrassSkipReason, ChunkOriginals>;
 
 type Assets = { templates: Record<ThickGrassKind, ThickGrassTemplate>; banks: ReturnType<typeof donorSeasonBanks> };
 const stock = new WeakMap<Uint8Array, Assets>();
@@ -238,7 +223,7 @@ function thickAssets(source: Uint8Array, rom: NintendoDSRom, game: "BW" | "BW2")
 
 /** Paint (`kind`) or erase (no kind) thick grass on the tiles, in every seasonal variant of their chunks. */
 export async function strokeThickGrass(project: ProjectState, scene: Map3dSceneData, tiles: readonly Map3dTile[], kind: ThickGrassKind | undefined, { isCurrent = () => true, allowBlocked = false }: { isCurrent?: () => boolean; allowBlocked?: boolean } = {}): Promise<ThickGrassStroke> {
-  const { result, skip } = thickStroke(kind ? "paint" : "erase");
+  const { result, skip } = startBrushStroke<ThickGrassStroke>(emptyBrushStroke(kind ? "paint" : "erase"));
   if (!tiles.length) return result;
   ensure(project.session.baseRom === "BW2", "Thick grass is available in Black 2 and White 2.");
   const context = await mapBrushContext(project, scene, isCurrent, "thick grass");
@@ -347,49 +332,17 @@ export async function strokeThickGrass(project: ProjectState, scene: Map3dSceneD
       project.session.fileIds.map_textures = textureId;
     }
   }
-  writeThickStroke(project, result, false);
+  writeBrushStroke(project, THICK_GRASS_STROKES, result, false);
   return result;
 }
 
-function writeThickStroke(project: ProjectState, stroke: ThickGrassStroke, undo: boolean) {
-  for (const [name, changes] of [["maps", stroke.maps], ["map_textures", stroke.textures]] as const) {
-    for (const { id, before, after } of changes) {
-      const store = project.narcs[name]!;
-      store.rawFiles[id] = (undo ? before : after).slice();
-      store.records.delete(id);
-      markDirty(project, name, id);
-    }
-  }
-  const originals = { ...project.mapThickGrassOriginalPermissions };
-  for (const { id, originalsBefore, originalsAfter } of stroke.maps) {
-    const next = undo ? originalsBefore : originalsAfter;
-    if (next) originals[id] = next;
-    else delete originals[id];
-  }
-  project.mapThickGrassOriginalPermissions = Object.keys(originals).length ? originals : undefined;
-  if (stroke.textures.length) invalidateMap3dAssets();
-  const noun = `${stroke.count} thick grass tile${stroke.count === 1 ? "" : "s"}`;
-  recordGenericChange(project, "maps3d", undo ? `Undid a thick grass edit (${noun}).` : stroke.action === "erase" ? `Erased ${noun}.` : `Painted ${noun}.`,
-    stroke.action === "erase" ? "Erase Thick Grass" : "Paint Thick Grass");
-}
+const THICK_GRASS_STROKES: BrushStrokeKind<ThickGrassStroke> = {
+  originals: "mapThickGrassOriginalPermissions",
+  thing: "thick grass",
+  counted: countedAs("thick grass tile"),
+  actions: { paint: { done: "Painted", label: "Paint Thick Grass" }, erase: { done: "Erased", label: "Erase Thick Grass" } },
+};
 
-function assertStoresMatch(project: ProjectState, stroke: ThickGrassStroke, side: "before" | "after", message: string) {
-  for (const [name, changes] of [["maps", stroke.maps], ["map_textures", stroke.textures]] as const) {
-    const store = project.narcs[name];
-    ensure(!changes.length || (store && changes.every(change => store.rawFiles[change.id] && equalMapBytes(store.rawFiles[change.id], change[side]))), message);
-  }
-}
+export const undoThickGrass = (project: ProjectState, stroke: ThickGrassStroke) => undoBrushStroke(project, THICK_GRASS_STROKES, stroke);
+export const redoThickGrass = (project: ProjectState, stroke: ThickGrassStroke) => redoBrushStroke(project, THICK_GRASS_STROKES, stroke);
 
-export function undoThickGrass(project: ProjectState, stroke: ThickGrassStroke) {
-  if (!stroke.count) return;
-  assertStoresMatch(project, stroke, "after", "Map resources changed after this thick grass edit.");
-  ensure(stroke.maps.every(change => project.mapThickGrassOriginalPermissions?.[change.id] === change.originalsAfter), "The saved thick grass tiles changed after this edit.");
-  writeThickStroke(project, stroke, true);
-}
-
-export function redoThickGrass(project: ProjectState, stroke: ThickGrassStroke) {
-  if (!stroke.count) return;
-  assertStoresMatch(project, stroke, "before", "Map resources changed after this thick grass edit was undone.");
-  ensure(stroke.maps.every(change => project.mapThickGrassOriginalPermissions?.[change.id] === change.originalsBefore), "The saved thick grass tiles changed after this edit was undone.");
-  writeThickStroke(project, stroke, false);
-}
