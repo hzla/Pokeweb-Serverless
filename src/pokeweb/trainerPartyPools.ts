@@ -1,5 +1,6 @@
 import { readTrainerMemberSettings, validTrainerMemberSettings, writeTrainerMemberSettings, type TrainerMemberSettings } from "./trainerMemberSettings";
 import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
+import type { TrainerMovePools } from "./trainerMovePools";
 
 export const TRAINER_POOLS_PATH = "battle/trainer-party-pools.bin";
 export const TRAINER_POOL_MAX_ID = 255;
@@ -31,6 +32,8 @@ export type TrainerPoolPokemon = {
   level: number; ivs: number; ability: number; gender: number; nature: number;
   moves: number[];
   settings: TrainerMemberSettings;
+  /** Alternatives for each move slot, kept in battle/trainer-move-pools.bin under the pool and candidate. */
+  movePools?: TrainerMovePools;
 };
 export type TrainerPoolMember = TrainerPoolReference | { role: number; groups?: number; pokemon: TrainerPoolPokemon };
 export type TrainerPartyPool = {
@@ -166,12 +169,12 @@ export function compileTrainerPool(id: number, pool: TrainerPartyPool, resolve: 
     throw new Error(`${label} needs distinct held item exception IDs from 1 to 65,535.`);
 
   if (slotGroups && (slotGroups.length !== size || slotGroups.some(group => !within(group, 1, SLOT_COUNT))))
-    throw new Error(`${label} needs a group for every party slot.`);
+    throw new Error(`${label} needs a pool (A–F) for every party slot.`);
   const seen = new Set<number>();
   const members = pool.members.map(member => {
     const { role, groups } = member;
     if (!within(groups ?? 0, 0, slotGroups ? (1 << SLOT_COUNT) - 1 : 0))
-      throw new Error(`${label} has invalid candidate groups.`);
+      throw new Error(`${label} has invalid slot pools.`);
     const membership = slotGroups && groups ? { groups } : {};
     if (!within(role, 0, 2)) throw new Error(`${label} needs valid candidate tags.`);
     if ("pokemon" in member) {
@@ -195,7 +198,7 @@ export function compileTrainerPool(id: number, pool: TrainerPartyPool, resolve: 
 
   if (slotGroups) {
     const fallback = findSlotPoolTeam(pool, members);
-    if (!fallback) throw new Error(`${label} can't fill every slot with its groups and duplicate rules.`);
+    if (!fallback) throw new Error(`${label} can't fill every slot with its slot pools and duplicate rules.`);
     return { slotGroups, size, roleSlots, speciesRule, itemClause, itemExceptions, members, leads: 0, aces: 0, fallback };
   }
 

@@ -64,6 +64,7 @@ export type ProjectDocument = {
   mapStampOriginalPermissions?: import("./mapStamps").MapStampOriginalPermissions;
   mapThickGrassOriginalPermissions?: import("./mapThickGrass").MapThickGrassOriginalPermissions;
   mapFenceOriginalPermissions?: import("./mapFences").MapFenceOriginalPermissions;
+  mapFenceTileOriginals?: import("./mapFences").MapFenceTileOriginals;
   mapPropOriginals?: import("./mapProps").MapPropOriginals;
   fileSystem?: FileSystemEditState;
   codeInjection?: CodeInjectionState;
@@ -133,7 +134,7 @@ export function createProjectDocument(project: ProjectSession, hasMatchingSource
     cgearButtons: project.cgearButtons, systemShops: project.systemShops, customUi: project.customUi, uiScreens: project.uiScreens,
     cutsceneAuthoring: project.cutsceneAuthoring,
     fieldScenes: project.fieldScenes,
-    map3dAreaEdits: project.map3dAreaEdits, mapGrassOriginalPermissions: project.mapGrassOriginalPermissions, mapTreeOriginalPermissions: project.mapTreeOriginalPermissions, mapLedgeOriginalPermissions: project.mapLedgeOriginalPermissions, mapStampOriginalPermissions: project.mapStampOriginalPermissions, mapThickGrassOriginalPermissions: project.mapThickGrassOriginalPermissions, mapFenceOriginalPermissions: project.mapFenceOriginalPermissions, mapPropOriginals: project.mapPropOriginals, fileSystem: project.fileSystem,
+    map3dAreaEdits: project.map3dAreaEdits, mapGrassOriginalPermissions: project.mapGrassOriginalPermissions, mapTreeOriginalPermissions: project.mapTreeOriginalPermissions, mapLedgeOriginalPermissions: project.mapLedgeOriginalPermissions, mapStampOriginalPermissions: project.mapStampOriginalPermissions, mapThickGrassOriginalPermissions: project.mapThickGrassOriginalPermissions, mapFenceOriginalPermissions: project.mapFenceOriginalPermissions, mapFenceTileOriginals: project.mapFenceTileOriginals, mapPropOriginals: project.mapPropOriginals, fileSystem: project.fileSystem,
     codeInjection: project.codeInjection, overworldWeather: project.overworldWeather,
     pwanAnimations: project.pwanAnimations,
     // Source bytes can be reloaded, but authoring baselines/targets must survive

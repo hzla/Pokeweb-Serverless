@@ -1,5 +1,5 @@
 import { storedSpeciesId } from "./speciesExpansionIds";
-import { remapTrainerPoolMembers } from "./trainerRosterModel";
+import { remapTrainerPoolMembers, remapTrainerSlotMovePools } from "./trainerRosterModel";
 import { remapTrainerMemberSettings } from "./trainerCustomizationModel";
 import { cloneTrainerFieldConditions } from "./trainerFieldConditionsModel";
 import { cloneTrainerLevelCap } from "./trainerLevelCapsModel";
@@ -136,6 +136,7 @@ export function addTrainer(project: ProjectState, templateTrainerId?: number): T
   cloneTrainerFieldConditions(project, sourceTrainerId, trainerId);
   cloneTrainerLevelCap(project, sourceTrainerId, trainerId);
   remapTrainerMemberSettings(project, sourceTrainerId, trainerId, Array.from({ length: 6 }, (_, slot) => slot));
+  remapTrainerSlotMovePools(project, sourceTrainerId, trainerId, Array.from({ length: 6 }, (_, slot) => slot));
   trdataStore.rawFiles.push(trdataBytes);
   trdataStore.fileCount = trdataStore.rawFiles.length;
   trdataStore.records.set(trainerId, { id: trainerId, bytes: trdataBytes, raw: trdataRaw, readable: {} });
@@ -406,6 +407,7 @@ export function importTrainerPokemonShowdownText(project: ProjectState, trainerI
 
   syncTrainerReadable(project, trainerId, trdata.raw, trdata.readable);
   remapTrainerMemberSettings(project, trainerId, trainerId, Array.from({ length: count }, (_, index) => index === slot ? undefined : index));
+  remapTrainerSlotMovePools(project, trainerId, trainerId, Array.from({ length: count }, (_, index) => index === slot ? undefined : index));
   syncTrainerPokemonReadable(project, trainerId, trpok.raw, trpok.readable);
   recordGenericChange(project, "trpok", `${trainerChangelogSubject(project, trainerId)} Pokemon ${slot + 1} was imported from Showdown text.`, trainerChangelogSubject(project, trainerId), {
     key: `trainer:${trainerId}:pokemon:${slot}:showdown-import`,
@@ -555,6 +557,7 @@ export function deleteTrainerPokemon(project: ProjectState, trainerId: number, s
   remaining.splice(slot, 1);
   remapTrainerPoolMembers(project, trainerId, remaining);
   remapTrainerMemberSettings(project, trainerId, trainerId, remaining);
+  remapTrainerSlotMovePools(project, trainerId, trainerId, remaining);
   const fields = ["ivs", "ability", "level", "padding", "species_id", "form", "item_id", "move_1", "move_2", "move_3", "move_4"];
   for (let current = slot; current < count - 1; current += 1) {
     for (const field of fields) {
@@ -613,6 +616,7 @@ export function moveTrainerPokemon(project: ProjectState, trainerId: number, fro
   order.splice(to, 0, from);
   remapTrainerPoolMembers(project, trainerId, order);
   remapTrainerMemberSettings(project, trainerId, trainerId, order);
+  remapTrainerSlotMovePools(project, trainerId, trainerId, order);
   const step = to > from ? 1 : -1;
   for (let current = from; current !== to; current += step) swapTrainerPokemonRaw(trpok.raw, current, current + step);
   syncTrainerPokemonReadable(project, trainerId, trpok.raw, trpok.readable);
@@ -637,6 +641,7 @@ export function duplicateTrainerPokemon(project: ProjectState, trainerId: number
   order.splice(slot + 1, 0, slot);
   remapTrainerPoolMembers(project, trainerId, order);
   remapTrainerMemberSettings(project, trainerId, trainerId, order);
+  remapTrainerSlotMovePools(project, trainerId, trainerId, order);
   for (const field of TRAINER_POKEMON_FIELDS) {
     const value = trpok.raw[`${field}_${slot}`];
     if (value !== undefined) trpok.raw[`${field}_${count}`] = value;

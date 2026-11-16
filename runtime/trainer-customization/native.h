@@ -50,8 +50,13 @@ struct TrainerPoolMember {
     u32 slot() const { return bytes[2] & 7; }
     u32 format() const { return bytes[3]; }
 };
-struct TrainerPoolParty { u32 size; TrainerPoolMember members[6]; };
+// index holds each member's candidate number in its pool row, for per-candidate data such as move pools.
+struct TrainerPoolParty { u32 size; TrainerPoolMember members[6]; u8 index[6]; };
 
+// Forget which Pokémon had their moves rolled for a battle setup being cleared.
+void forgetRolledMoves(const u8* setup);
 bool selectTrainerPool(u32 id, u32 trainer, u32 minimum, TrainerPoolParty& result);
 bool buildTrainerPool(const TrainerPoolParty& pool, u32 original, void* party, u32 heap);
-u32 trainerRosterSource(const u8* setup, u32 client, u32 original, u32& slot, const u8*& direct);
+// Which roster a battle Pokémon came from. movesKey names its move pools: the source trainer ID or the
+// pool source (bit 15 set) in the upper bits and the party slot or pool candidate in the low 8 bits.
+u32 trainerRosterSource(const u8* setup, u32 client, u32 original, u32& slot, const u8*& direct, u32& movesKey);

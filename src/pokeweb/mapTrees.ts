@@ -34,7 +34,8 @@ type TreeSkip = { reason: TreeSkipReason; count: number; season?: MatrixSeason }
 type MapChange = { id: number; before: Uint8Array; after: Uint8Array };
 type TreeMapChange = MapChange & { originalsBefore?: ChunkTreeOriginals; originalsAfter?: ChunkTreeOriginals };
 export type TreeStroke = { action: "place" | "remove"; maps: TreeMapChange[]; textures: MapChange[]; count: number; skipped: number; skipReasons: TreeSkip[] };
-type TreeStrokeOptions = { isCurrent?: () => boolean };
+/** `allowBlocked` also paints over tiles that already block movement (scenery the player never reaches); they stay blocked. */
+type TreeStrokeOptions = { isCurrent?: () => boolean; allowBlocked?: boolean };
 
 function treeStroke(action: TreeStroke["action"]) {
   const result: TreeStroke = { action, maps: [], textures: [], count: 0, skipped: 0, skipReasons: [] };
@@ -96,13 +97,14 @@ export function samePlane(primary: Uint8Array, secondary: Uint8Array, index: num
 }
 
 /** Check every footprint tile in one map; return the ground height and whether the second collision layer mirrors the first. */
-export function treeSite(map: MapBin, tiles: readonly number[], game: "BW" | "BW2"): { ground: number; mirrored: boolean } | TreeSkipReason {
+export function treeSite(map: MapBin, tiles: readonly number[], game: "BW" | "BW2", { allowBlocked = false } = {}): { ground: number; mirrored: boolean } | TreeSkipReason {
+  const usable = (status: true | TreeSkipReason) => status === true || (allowBlocked && status === "blocked");
   const [primary, secondary] = map.files.slice(1, 3);
   const mirrored = map.placements === 3;
   let ground: number | undefined;
   for (const index of tiles) {
     const status = treeGround(permission(primary, index));
-    if (status !== true) return status;
+    if (!usable(status)) return status as TreeSkipReason;
     if ((primary[4 + index * 8] & 3) === 2) return "split-height";
     let heights: number[];
     try { heights = cornerHeights(primary, index, game); } catch { return "special-terrain"; }
@@ -111,7 +113,7 @@ export function treeSite(map: MapBin, tiles: readonly number[], game: "BW" | "BW
     if (mirrored) {
       if (!samePlane(primary, secondary, index, game)) return "multiple-surfaces";
       const second = treeGround(permission(secondary, index));
-      if (second !== true) return second;
+      if (!usable(second)) return second as TreeSkipReason;
     }
   }
   return { ground: snapGround(ground!), mirrored };
@@ -204,7 +206,7 @@ export function* brushDestinations(scene: Map3dSceneData, anchors: readonly Map3
  * Plant a native tree with its top-left footprint tile at each anchor. Every seasonal variant of the chunk gets the
  * tree and blocked tiles, and every texture pack that can draw the chunk gets the tree's textures for its season.
  */
-export async function placeMapTrees(project: ProjectState, scene: Map3dSceneData, anchors: readonly Map3dTile[], typeId: string, { isCurrent = () => true }: TreeStrokeOptions = {}): Promise<TreeStroke> {
+export async function placeMapTrees(project: ProjectState, scene: Map3dSceneData, anchors: readonly Map3dTile[], typeId: string, { isCurrent = () => true, allowBlocked = false }: TreeStrokeOptions = {}): Promise<TreeStroke> {
   const found = mapTreeType(typeId);
   ensure(found?.games.includes(project.session.baseRom as "BW" | "BW2"), "Choose a tree type for this game.");
   const type: MapTreeType = found!;
@@ -228,7 +230,7 @@ export async function placeMapTrees(project: ProjectState, scene: Map3dSceneData
       if (tiles.some(tile => occupied.get(id)?.has(tile))) { failure = { reason: "occupied", season }; break; }
       let map = contents.get(id);
       if (!map) { map = readGen5MapBin(bytes); contents.set(id, map); }
-      const site = treeSite(map, tiles, game);
+      const site = treeSite(map, tiles, game, { allowBlocked });
       if (typeof site === "string") { failure = { reason: site, season }; break; }
       stroke.push({ id, ...site });
     }

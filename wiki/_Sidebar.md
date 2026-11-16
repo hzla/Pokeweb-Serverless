@@ -9,6 +9,7 @@
     * [Evolutions](Pokemon-Evolutions)
     * [Sprites and Animations](Pokemon-Sprites-and-Animations)
   * [Trainers](Trainers)
+    * [Trainer Customization](Trainer-Customization)
   * [Battle Facilities](Battle-Facilities)
   * [Encounters](Encounters)
   * Moves

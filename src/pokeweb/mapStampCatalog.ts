@@ -5,7 +5,8 @@
  * source ROM. Its textures come from the donor area's texture packs. The face count guards against an edited donor.
  */
 export type MapStampCategory = "Fencing" | "Lighting" | "Vegetation" | "Misc";
-export const MAP_STAMP_CATEGORIES: readonly MapStampCategory[] = ["Fencing", "Lighting", "Vegetation", "Misc"];
+/** Palette order, top to bottom. */
+export const MAP_STAMP_CATEGORIES: readonly MapStampCategory[] = ["Vegetation", "Fencing", "Lighting", "Misc"];
 
 export type MapStampType = {
   id: string;

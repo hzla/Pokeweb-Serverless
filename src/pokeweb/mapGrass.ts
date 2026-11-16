@@ -18,7 +18,8 @@ import { getMapReplacementBytes, MATRIX_SEASONS, replacementRules, resolveSeason
 
 export type MapGrassTile = Map3dTile;
 export type MapGrassSurface = "auto" | "upper" | "lower";
-type GrassStrokeOptions = { surface?: MapGrassSurface; isCurrent?: () => boolean };
+/** `allowBlocked` paints over tiles that already block movement as art only: those tiles keep their permissions. */
+type GrassStrokeOptions = { surface?: MapGrassSurface; isCurrent?: () => boolean; allowBlocked?: boolean };
 type GrassMapBin = ReturnType<typeof readGen5MapBin>;
 const GRASS_FLAGS = 0x0004 | 0x0020; // Encounter and grass behavior.
 const MAP_TEXTURES_PATH = "a/0/1/4";
@@ -279,7 +280,7 @@ type GrassPaintTile = GrassSurfaceSelection & { index: number; quad: GrassQuad }
 /** Commit native model, permission and texture changes together after all seasonal variants validate. */
 export async function paintMapGrass(
   project: ProjectState, scene: Map3dSceneData, tiles: readonly MapGrassTile[], kind: MapGrassKind,
-  { surface = "auto", isCurrent = () => true }: GrassStrokeOptions = {},
+  { surface = "auto", isCurrent = () => true, allowBlocked = false }: GrassStrokeOptions = {},
 ): Promise<GrassStroke> {
   ensure(kind === "regular" || kind === "dark", "Choose a grass type.");
   const { result, skip } = grassStroke("paint");
@@ -301,8 +302,14 @@ export async function paintMapGrass(
       if (!map) { map = readGen5MapBin(bytes); contents.set(id, map); }
       const selected = selectGrassSurface(map, index, surface, game);
       if (typeof selected === "string") { failure = { reason: selected, season }; break; }
-      const collision = map.files[selected.member], ground = groundStatus(permission(collision, index), kind);
+      const collision = map.files[selected.member];
+      let ground = groundStatus(permission(collision, index), kind);
       if (ground === "matching") continue;
+      if (ground === "blocked" && allowBlocked) {
+        // Art over blocked scenery: skip tiles that already carry painted grass.
+        if (readPaintedMapGrass(map.files[0]).tiles.has(grassTileKey(index, selected.member))) continue;
+        ground = "ground";
+      }
       if (ground !== "ground") { failure = { reason: ground, season }; break; }
       if (splitWalkingPlane(collision, index)) { failure = { reason: "split-height", season }; break; }
       if (selected.mirrored) {
@@ -346,11 +353,12 @@ export async function paintMapGrass(
       const collision = files[member];
       const first = permission(collision, index);
       const original: MapGrassOriginalPermission = { kind, ...first };
-      writePermission(collision, index, GRASS_TILE_CLASSES[kind], paintedFlags(first.flags));
+      const art = blocked(first);
+      if (!art) writePermission(collision, index, GRASS_TILE_CLASSES[kind], paintedFlags(first.flags));
       if (mirrored) {
         const second = permission(files[2], index);
         original.secondary = second;
-        writePermission(files[2], index, GRASS_TILE_CLASSES[kind], paintedFlags(second.flags));
+        if (!art) writePermission(files[2], index, GRASS_TILE_CLASSES[kind], paintedFlags(second.flags));
       }
       permissionsAfter[key] = original;
       quads[member].push(quad);

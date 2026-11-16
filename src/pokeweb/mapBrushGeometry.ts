@@ -2,6 +2,8 @@ import { concatBytes, readU16, readU32 } from "../nds/binary";
 import { readNitroResources } from "./map3dModel";
 import { extendGrassDraws, packGrassCommands, terrainModelLayout, writeTerrainModel, type GpuCommand, type ModelBox, type TerrainModelLayout } from "./mapGrassGeometry";
 import { ensure, materialRecords, replaceMaterialRecords, type NativeMaterialRecord } from "./nitroResourceWriter";
+import { mergeBrushFaces } from "./mapFaceMerge";
+export { mergeBrushFaces } from "./mapFaceMerge";
 
 /**
  * Pieces of native terrain art (trees, ledges) added by a map brush. They live in their own terrain shapes, one per
@@ -120,6 +122,44 @@ export function nativeFaces(file: Uint8Array, materials: readonly string[], tool
   return parts;
 }
 
+// ---------- Continuing textures along runs ----------
+
+export type TextureStep = [number, number];
+const positionKey = (vertex: BrushVertex) => vertex.position.map(n => n.toFixed(2)).join(",");
+
+/**
+ * How far each face's texture moves per tile along a native run: the same face cut from the next tile (positions
+ * relative to each tile) is compared vertex by vertex. A face clipped from one long native face gets that face's
+ * step; a face the game repeats on every tile gets none, so placing it on any tile matches the game's art.
+ */
+export function textureSteps(faces: readonly (readonly BrushVertex[])[], next: readonly (readonly BrushVertex[])[]): TextureStep[] {
+  return faces.map(face => {
+    const shape = face.map(positionKey).sort().join("|");
+    const match = next.find(other => other.length === face.length && other.map(positionKey).sort().join("|") === shape);
+    if (!match) return [0, 0];
+    const later = new Map(match.map(vertex => [positionKey(vertex), vertex.texcoord]));
+    const deltas = face.flatMap(vertex => {
+      const other = later.get(positionKey(vertex));
+      if (vertex.texcoord === undefined || other === undefined) return [];
+      return [[s16(other) - s16(vertex.texcoord), s16(other >>> 16) - s16(vertex.texcoord >>> 16)]];
+    });
+    return deltas.length === face.length && deltas.every(([s, t]) => Math.abs(s - deltas[0][0]) <= 2 && Math.abs(t - deltas[0][1]) <= 2)
+      ? [deltas[0][0], deltas[0][1]] : [0, 0];
+  });
+}
+
+/** Faces with each one's texture moved `count` tiles along by its step. */
+export function stepTextures(faces: readonly (readonly BrushVertex[])[], steps: readonly TextureStep[] | undefined, count: number): BrushVertex[][] {
+  return faces.map((face, i) => {
+    const step = steps?.[i];
+    if (!step || !count || (!step[0] && !step[1])) return [...face];
+    return face.map(vertex => vertex.texcoord === undefined ? vertex : {
+      ...vertex,
+      texcoord: (((s16(vertex.texcoord) + count * step[0]) & 0xffff) | (((s16(vertex.texcoord >>> 16) + count * step[1]) & 0xffff) << 16)) >>> 0,
+    });
+  });
+}
+
 /** GPU commands drawing faces as independent triangles and quads, every vertex with its own latched attributes. */
 export function encodeFaceCommands(faces: readonly (readonly BrushVertex[])[], scale: number, tool: string): GpuCommand[] {
   const coord = (value: number) => {
@@ -147,7 +187,10 @@ export function encodeFaceCommands(faces: readonly (readonly BrushVertex[])[], s
 }
 
 function pieceCommands(magic: number, payload: number, part: BrushPart, scale: number, tool: string): GpuCommand[] {
-  return [{ op: 0x22, params: [((magic << 24) | (payload & 0xffffff)) >>> 0] }, ...encodeFaceCommands(part.faces, scale, tool)];
+  const tag = { op: 0x22, params: [((magic << 24) | (payload & 0xffffff)) >>> 0] };
+  // A piece with no faces is only its tag, in an empty primitive (which draws nothing).
+  if (!part.faces.length) return [tag, { op: 0x40, params: [1] }, { op: 0x41, params: [] }];
+  return [tag, ...encodeFaceCommands(part.faces, scale, tool)];
 }
 
 /** Vertices, polygons and quads a native display list submits, as the model header counts them. */
@@ -197,8 +240,10 @@ function rootStored(file: Uint8Array) {
 }
 
 /** Add brush pieces to a terrain model. The native node data, material records and display lists are kept. */
-export function appendBrushPieces(modelFile: Uint8Array, kind: BrushKind, pieces: readonly BrushPiece[], member: BrushMember = 1) {
-  if (!pieces.length) return modelFile;
+export function appendBrushPieces(modelFile: Uint8Array, kind: BrushKind, given: readonly BrushPiece[], member: BrushMember = 1) {
+  if (!given.length) return modelFile;
+  // Each piece draws as few polygons as it can; the tag still marks the whole piece.
+  const pieces = given.map(piece => ({ ...piece, parts: piece.parts.map(part => ({ ...part, faces: mergeBrushFaces(part.faces) })) }));
   ensure(rootIsIdentity(modelFile), `This chunk has a transformed root node the ${kind.tool} cannot extend.`);
   const records = materialRecords(modelFile), originalMaterialCount = records.length;
   const prefix = kind.prefixes[member];
@@ -213,7 +258,8 @@ export function appendBrushPieces(modelFile: Uint8Array, kind: BrushKind, pieces
     let record = nativeName && (!native || same(native, source)) ? native : records.find(record => record.name === name);
     const materialName = nativeName && (!native || same(native, source)) ? source.name : name;
     if (record) {
-      ensure(same(record, source), `A custom material conflicts with the ${kind.tool}.`);
+      // The brush's own prefixed material keeps the texture it was first bound to (a renamed copy, after a clash).
+      ensure(same(record, source) || (!nativeName && record.name === name), `A custom material conflicts with the ${kind.tool}.`);
     } else {
       record = { ...source, name: materialName };
       records.push(record);
@@ -328,7 +374,31 @@ export function readBrushPieces(file: Uint8Array, kind: BrushKind) {
   };
 }
 
+/** The payload of the piece that holds a tile brush's merged faces; the tiles' own pieces carry only their tags. */
+export const MERGED_PIECE_PAYLOAD = 0xffffff;
+
+/**
+ * Write a tile brush's pieces for a whole chunk (member 1): each tile keeps its own tag so it can be read back and
+ * changed, while all their faces go into one piece and are merged across tiles. A straight fence or a patch of grass
+ * then draws as a few long faces, as the game's own maps do, instead of a set of faces per tile.
+ */
+export function writeTileBrush(modelFile: Uint8Array, kind: BrushKind, tiles: readonly BrushPiece[]) {
+  const placed = readBrushPieces(modelFile, kind);
+  const keys = new Set([...placed.pieces].flatMap(([key, piece]) => piece.member === 1 ? [key] : []));
+  const file = keys.size ? placed.remove(keys) : modelFile;
+  if (!tiles.length) return file;
+  const parts = new Map<string, BrushPart>();
+  for (const piece of tiles) for (const part of piece.parts) {
+    const key = `${part.record.name}|${part.nativeName ? 1 : 0}`;
+    const existing = parts.get(key);
+    if (existing) existing.faces.push(...part.faces);
+    else parts.set(key, { ...part, faces: [...part.faces] });
+  }
+  const tags = tiles.map(piece => ({ payload: piece.payload, parts: [{ ...piece.parts[0]!, faces: [] }] }));
+  return appendBrushPieces(file, kind, [...tags, { payload: MERGED_PIECE_PAYLOAD, parts: [...parts.values()].filter(part => part.faces.length) }], 1);
+}
+
 /** Shapes added by any map brush, which grass's source-terrain check must ignore. */
 export function isBrushShape(name: string) {
-  return /^[tlskf][12]_/.test(name);
+  return /^[tlskfw][12]_/.test(name);
 }

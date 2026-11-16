@@ -201,6 +201,7 @@ bool selectTrainerPool(u32 id, u32 trainer, u32 minimum, TrainerPoolParty& resul
         auto& member = result.members[slot];
         const u32 bytes = pool.entrySize < DirectPoolMemberSize ? pool.entrySize : DirectPoolMemberSize;
         for (u32 byte = 0; byte < bytes; ++byte) member.bytes[byte] = data[byte];
+        result.index[slot] = choices[slot];
     }
     return true;
 }

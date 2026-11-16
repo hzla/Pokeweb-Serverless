@@ -211,7 +211,7 @@ type StampMapChange = MapChange & { originalsBefore?: ChunkStampOriginals; origi
  * destination areas; `stillAreas` counts destination areas with no animation file, where the art stays still.
  */
 export type StampStroke = { action: "place" | "remove"; maps: StampMapChange[]; textures: MapChange[]; animations?: MapChange; stillAreas?: number; count: number; skipped: number; skipReasons: { reason: StampSkipReason; count: number; season?: MatrixSeason }[] };
-type StampStrokeOptions = { isCurrent?: () => boolean };
+type StampStrokeOptions = { isCurrent?: () => boolean; allowBlocked?: boolean };
 
 function stampStroke(action: StampStroke["action"]) {
   const result: StampStroke = { action, maps: [], textures: [], count: 0, skipped: 0, skipReasons: [] };
@@ -239,7 +239,7 @@ function stampedTiles(model: Uint8Array) {
  * Place a stamp with its turned footprint's top-left tile at each anchor. Every seasonal variant of the chunk gets
  * it, and every texture pack that can draw the chunk gets its textures for that season.
  */
-export async function placeMapStamps(project: ProjectState, scene: Map3dSceneData, anchors: readonly Map3dTile[], typeId: string, rotation: StampRotation, { isCurrent = () => true }: StampStrokeOptions = {}): Promise<StampStroke> {
+export async function placeMapStamps(project: ProjectState, scene: Map3dSceneData, anchors: readonly Map3dTile[], typeId: string, rotation: StampRotation, { isCurrent = () => true, allowBlocked = false }: StampStrokeOptions = {}): Promise<StampStroke> {
   const found = mapStampType(typeId);
   ensure(found && project.session.baseRom === "BW2", "Choose an object for this game.");
   const type: MapStampType = found!;
@@ -263,7 +263,7 @@ export async function placeMapStamps(project: ProjectState, scene: Map3dSceneDat
       let content = contents.get(id);
       if (!content) { const map = readGen5MapBin(bytes); content = { map, covered: stampedTiles(map.files[0]) }; contents.set(id, content); }
       if (tiles.some(tile => content!.covered.has(tile.index))) { failure = { reason: "occupied", season }; break; }
-      const site = treeSite(content.map, tiles.map(tile => tile.index), game);
+      const site = treeSite(content.map, tiles.map(tile => tile.index), game, { allowBlocked });
       if (typeof site === "string") { failure = { reason: site, season }; break; }
       stroke.push({ id, ...site });
     }

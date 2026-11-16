@@ -2,7 +2,7 @@ import { typeNamesForProject } from "../pokeweb/constants";
 import { pokemonBaseSpeciesNameOptions, findPokemonBaseSpeciesId, pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { getStarterEditorState } from "../pokeweb/starterModel";
-import { getTrainerCustomizationStatus, hasTrainerPartyPools } from "../pokeweb/trainerCustomizationModel";
+import { trainerCustomizationAvailable, trainerCustomizationNeedsInstall } from "../pokeweb/trainerCustomizationModel";
 import { getTrainerRecord, trainerPokemonSpriteSlug, type TrainerPokemonSlot } from "../pokeweb/trainerModel";
 import { isTrainerPoolSource, trainerPoolSource, TRAINER_POOL_GROUPS, TRAINER_POOL_MAX_ID, TRAINER_POOL_SPECIES_RULES } from "../pokeweb/trainerPartyPools";
 import {
@@ -22,19 +22,13 @@ import { renderPartyIcon } from "./trainerDetail";
  * one (its share of battles, a pool's draw rules), and the rules that pick between them, written as sentences.
  */
 
+/** The wiki guide to alternate parties, pools, rules and move pools. */
+const TRAINER_CUSTOMIZATION_GUIDE = "https://github.com/hzla/Pokeweb-Serverless/wiki/Trainer-Customization";
+
 const percent = new Intl.NumberFormat("en", { style: "percent", maximumFractionDigits: 1 });
 
 /** Rolled sample teams, by pool ID, until the pool changes or another is rolled. */
 const rolls = new WeakMap<ProjectState, Map<number, number[] | "none">>();
-
-export function renderRosterInstallPrompt(project: ProjectState): string {
-  const status = getTrainerCustomizationStatus(project);
-  if (status !== "ready" && status !== "upgrade") return "";
-  return `<div class="td-roster-prompt">
-    <span>${status === "upgrade" ? "Update Trainer Customization to use" : "Install Trainer Customization for"} alternate parties, random pools, shininess, starting HP and status.</span>
-    <button class="btn sm -primary" type="button" data-roster-install>${status === "upgrade" ? "Update patch" : "Install"}</button>
-  </div>`;
-}
 
 function chanceText(tab: RosterTab): string {
   if (tab.weight > 0) return percent.format(tab.chance);
@@ -58,7 +52,8 @@ function tabIcons(project: ProjectState, trainer: number, tab: RosterTab): strin
 }
 
 export function renderRosterHub(project: ProjectState, trainer: number, active: RosterKey): string {
-  if (!hasTrainerPartyPools(project) || trainer < 1 || trainer >= TRAINER_ROSTER_ID_LIMIT) return renderRosterInstallPrompt(project);
+  // The hub shows whenever Trainer Customization can be used; the first edit installs it.
+  if (!trainerCustomizationAvailable(project) || trainer < 1 || trainer >= TRAINER_ROSTER_ID_LIMIT) return "";
   let tabs: RosterTab[];
   try {
     tabs = listTrainerRosters(project, trainer);
@@ -75,11 +70,12 @@ export function renderRosterHub(project: ProjectState, trainer: number, active: 
           <span class="td-roster-name">${escapeHtml(tab.label)}</span>
           <span class="td-roster-size">${tab.kind === "pool" ? `${tab.size}/${tab.candidates}` : `${tab.size} mon${tab.size === 1 ? "" : "s"}`}</span>
           <span class="td-roster-chance${tab.weight ? "" : " -off"}">${chanceText(tab)}</span>
-        </button>`).join("")}</div>` : `<span class="td-roster-solo">One party${tabs[0]?.rules ? "" : " — add an alternate party or a random pool to vary it"}</span>`}
+        </button>`).join("")}</div>` : ""}
       <div class="td-roster-actions">
         <button class="btn sm" type="button" data-roster-new="party" title="A second fixed party for this trainer, starting as a copy of the original">+ Party</button>
         <button class="btn sm" type="button" data-roster-new="pool" title="A pool of candidates the game draws a team from, starting with this party">+ Pool</button>
         <button class="btn sm -ghost" type="button" data-roster-link-open title="Use another trainer's party or a pool other trainers use">Link…</button>
+        <a class="td-roster-help" href="${TRAINER_CUSTOMIZATION_GUIDE}" target="_blank" rel="noopener noreferrer" title="Alternate parties, pools, rules and move pools, explained on the wiki">How to Use</a>
       </div>
     </div>
     <form class="td-roster-link" data-roster-link hidden>
@@ -144,14 +140,13 @@ function renderRosterControls(project: ProjectState, trainer: number, tab: Roste
   const unusedPool = tab.kind === "pool" && !tab.sharedWith?.length && !tab.weight && !tab.rules
     ? `<button class="btn sm -remove" type="button" data-roster-delete-pool>Delete pool</button>` : "";
   const problem = tab.problem ? `<p class="td-roster-problem" role="alert">Not saved yet: ${escapeHtml(tab.problem)} The ROM keeps the last version that worked. <button class="btn sm -ghost" type="button" data-roster-discard>Undo changes</button></p>` : "";
-  const perSlotAvailable = tab.kind === "pool" && getTrainerCustomizationStatus(project) === "installed";
   const settings = tab.kind === "pool" && pool ? `
     <div class="td-pool-settings">
       <label>Draws <select data-pool-setting="size">${[1, 2, 3, 4, 5, 6].map((n) => `<option value="${n}"${n === pool.size ? " selected" : ""}${n > pool.members.length ? " disabled" : ""}>${n}</option>`).join("")}</select> of ${pool.members.length}</label>
-      ${perSlotAvailable ? `<label>Draw mode <select data-pool-setting="mode">
+      <label>Draw mode <select data-pool-setting="mode">
         <option value="roles"${pool.slotGroups ? "" : " selected"}>Lead / Ace</option>
         <option value="slots"${pool.slotGroups ? " selected" : ""}>Per slot</option>
-      </select></label>` : '<button class="btn sm" type="button" data-roster-install>Upgrade for per-slot pools</button>'}
+      </select></label>
       ${pool.slotGroups ? "" : `<label>Lead and Ace slots <select data-pool-setting="roleSlots"><option value="1"${pool.roleSlots === 1 ? " selected" : ""}>Up to 1 each</option><option value="2"${pool.roleSlots === 2 ? " selected" : ""}>Up to 2 each</option></select></label>`}
       <label>Species <select data-pool-setting="speciesRule">${TRAINER_POOL_SPECIES_RULES.map((label, index) => `<option value="${index}"${index === pool.speciesRule ? " selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></label>
       <label class="md-check"><input type="checkbox" data-pool-setting="itemClause"${pool.itemClause ? " checked" : ""}> No repeated held items</label>
@@ -159,7 +154,7 @@ function renderRosterControls(project: ProjectState, trainer: number, tab: Roste
     </div>
     ${pool.slotGroups ? `<div class="td-pool-settings" role="group" aria-label="Party slot groups">${pool.slotGroups.map((group, slot) =>
       `<label>Slot ${slot + 1} <select data-pool-setting="slotGroup" data-pool-slot="${slot}">${TRAINER_POOL_GROUPS.map((name, index) =>
-        `<option value="${index + 1}"${group === index + 1 ? " selected" : ""}>Group ${name}</option>`).join("")}</select></label>`).join("")}</div>` : ""}
+        `<option value="${index + 1}"${group === index + 1 ? " selected" : ""}>Pool ${name}</option>`).join("")}</select></label>`).join("")}</div>` : ""}
     ${renderRoll(project, tab.poolId!, pool)}` : "";
   const linked = tab.kind === "trainer" ? `<p class="td-roster-note">This is ${escapeHtml(trainerLabel(project, tab.source))}'s party; edit it there. <a href="#" data-roster-open-trainer="${tab.source}">Open ${escapeHtml(trainerLabel(project, tab.source))}</a></p>` : "";
   return `<div class="td-roster-controls" data-roster-controls="${escapeHtml(tab.key)}">
@@ -221,6 +216,8 @@ function renderCondition(project: ProjectState, condition: TrainerRosterConditio
 function renderRules(project: ProjectState, trainer: number, tabs: RosterTab[]): string {
   const rules = rosterRules(project, trainer);
   const draft = ruleDraft(project, trainer);
+  // Rules choose between rosters, so they only show once the trainer has another roster (or already has rules).
+  if (tabs.length <= 1 && !rules.length && !draft) return "";
   const choosable = tabs.map((tab) => ({ value: tab.source, label: tab.label }));
   const ruleHtml = rules.map((rule, index) => `
     <div class="td-rule" data-rule-index="${index}">
@@ -305,6 +302,8 @@ export type RosterHubContext = {
   changed: () => void;
   openTrainer: (trainerId: number) => void;
   install: () => Promise<void>;
+  /** Run an edit that needs Trainer Customization, installing or updating it first when it isn't yet. */
+  withCustomization: (edit: () => void) => void;
 };
 
 export function attachRosterHub(project: ProjectState, detail: HTMLElement, context: RosterHubContext, signal: AbortSignal): void {
@@ -369,6 +368,16 @@ export function attachRosterHub(project: ProjectState, detail: HTMLElement, cont
       });
       return;
     }
+    if (element.dataset.rosterLinkOpen !== undefined || element.dataset.rosterLinkClose !== undefined || element.dataset.rosterDiscard !== undefined || element.dataset.rosterRoll !== undefined) {
+      editRoster(element, trainer);
+      return;
+    }
+    if (trainerCustomizationNeedsInstall(project)) message("Installing Trainer Customization…");
+    context.withCustomization(() => editRoster(element, trainer));
+  }, { signal });
+
+  /** Roster edits from the hub's buttons. Opening the link form, discarding and rolling don't change the ROM. */
+  const editRoster = (element: HTMLElement, trainer: number) => {
     if (element.dataset.rosterNew !== undefined) {
       run(() => {
         const id = element.dataset.rosterNew === "party" ? createAlternateParty(project, trainer) : createPool(project, trainer);
@@ -456,21 +465,34 @@ export function attachRosterHub(project: ProjectState, detail: HTMLElement, cont
       case "remove-choice": rule?.choices.splice(index.choice, 1); break;
       }
     });
-  }, { signal });
+  };
 
   detail.addEventListener("submit", (event) => {
     const form = (event.target as HTMLElement).closest<HTMLFormElement>("[data-roster-link]");
     if (!form) return;
     event.preventDefault();
     const trainer = context.trainerId();
-    run(() => {
-      const source = parseLinkSource(project, String(new FormData(form).get("source") ?? ""));
+    const text = String(new FormData(form).get("source") ?? "");
+    context.withCustomization(() => run(() => {
+      const source = parseLinkSource(project, text);
       linkRoster(project, trainer, source);
       context.select(rosterKeyFor(trainer, source));
-    });
+    }));
   }, { signal });
 
   const onChange = (event: Event) => {
+    if (!trainerCustomizationNeedsInstall(project)) {
+      applyChange(event);
+      return;
+    }
+    const control = event.target as HTMLInputElement | HTMLSelectElement;
+    const roster = control.dataset.rosterWeight !== undefined || control.dataset.poolSetting !== undefined || (control.dataset.ruleField !== undefined && control.closest(".td-rules"));
+    // Until the patch is in, wait for the committed value; the install then redraws the editor.
+    if (!roster || event.type !== "change") return;
+    message("Installing Trainer Customization…");
+    context.withCustomization(() => applyChange(event));
+  };
+  const applyChange = (event: Event) => {
     const control = event.target as HTMLInputElement | HTMLSelectElement;
     const trainer = context.trainerId();
     if (control.dataset.rosterWeight !== undefined) {

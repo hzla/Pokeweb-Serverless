@@ -82,10 +82,25 @@ export function getTrainerCustomizationStatus(project: ProjectState): Status {
   if (module) {
     const hash = moduleHash(module);
     if (hash === manifest[game].sha256) return state === "legacy" ? "upgrade" : "installed";
-    if ([manifest[game].legacySha256, manifest[game].previousSha256, manifest[game].weightedSha256, manifest[game].conditionalSha256, manifest[game].linkedPoolsSha256, manifest[game].directPoolsSha256, manifest[game].fixedPartiesSha256].includes(hash)) return "upgrade";
+    if ([manifest[game].legacySha256, manifest[game].previousSha256, manifest[game].weightedSha256, manifest[game].conditionalSha256, manifest[game].linkedPoolsSha256, manifest[game].directPoolsSha256, manifest[game].fixedPartiesSha256, manifest[game].slotPoolsSha256].includes(hash)) return "upgrade";
     return "unknown";
   }
   return state === "legacy" || state === "patched" ? "upgrade" : state === "unpatched" ? "ready" : "unknown";
+}
+
+/**
+ * Whether the editor offers Trainer Customization's features: it is installed, or it can be installed or updated
+ * here. Editors show the controls either way and install the patch the first time one is used.
+ */
+export function trainerCustomizationAvailable(project: ProjectState): boolean {
+  const status = getTrainerCustomizationStatus(project);
+  return status === "installed" || status === "ready" || status === "upgrade";
+}
+
+/** True when an edit needs Trainer Customization installed (or updated) first. */
+export function trainerCustomizationNeedsInstall(project: ProjectState): boolean {
+  const status = getTrainerCustomizationStatus(project);
+  return status === "ready" || status === "upgrade";
 }
 
 export function hasTrainerMemberCustomization(project: ProjectState): boolean {
@@ -94,35 +109,43 @@ export function hasTrainerMemberCustomization(project: ProjectState): boolean {
   const module = file(project, `patches/${dllName(game)}`);
   if (!module) return false;
   const hash = moduleHash(module);
-  return [manifest[game].sha256, manifest[game].previousSha256, manifest[game].weightedSha256, manifest[game].conditionalSha256, manifest[game].linkedPoolsSha256, manifest[game].directPoolsSha256, manifest[game].fixedPartiesSha256].includes(hash);
+  return [manifest[game].sha256, manifest[game].previousSha256, manifest[game].weightedSha256, manifest[game].conditionalSha256, manifest[game].linkedPoolsSha256, manifest[game].directPoolsSha256, manifest[game].fixedPartiesSha256, manifest[game].slotPoolsSha256].includes(hash);
 }
 
 export function hasWeightedTrainerRosters(project: ProjectState): boolean {
   const game = gameFor(project);
   if (!game || (project.originalRomBytes && project.originalRomBytes[0x1e] !== 0)) return false;
   const module = file(project, `patches/${dllName(game)}`);
-  return !!module && [manifest[game].sha256, manifest[game].weightedSha256, manifest[game].conditionalSha256, manifest[game].linkedPoolsSha256, manifest[game].directPoolsSha256, manifest[game].fixedPartiesSha256].includes(moduleHash(module));
+  return !!module && [manifest[game].sha256, manifest[game].weightedSha256, manifest[game].conditionalSha256, manifest[game].linkedPoolsSha256, manifest[game].directPoolsSha256, manifest[game].fixedPartiesSha256, manifest[game].slotPoolsSha256].includes(moduleHash(module));
 }
 
 export function hasConditionalTrainerRosters(project: ProjectState): boolean {
   const game = gameFor(project);
   if (!game || (project.originalRomBytes && project.originalRomBytes[0x1e] !== 0)) return false;
   const module = file(project, `patches/${dllName(game)}`);
-  return !!module && [manifest[game].sha256, manifest[game].conditionalSha256, manifest[game].linkedPoolsSha256, manifest[game].directPoolsSha256, manifest[game].fixedPartiesSha256].includes(moduleHash(module));
+  return !!module && [manifest[game].sha256, manifest[game].conditionalSha256, manifest[game].linkedPoolsSha256, manifest[game].directPoolsSha256, manifest[game].fixedPartiesSha256, manifest[game].slotPoolsSha256].includes(moduleHash(module));
+}
+
+/** Per-slot move pools: the current runtime rolls each move slot from its alternatives. */
+export function hasTrainerMovePools(project: ProjectState): boolean {
+  const game = gameFor(project);
+  if (!game || (project.originalRomBytes && project.originalRomBytes[0x1e] !== 0)) return false;
+  const module = file(project, `patches/${dllName(game)}`);
+  return !!module && moduleHash(module) === manifest[game].sha256;
 }
 
 export function hasTrainerPartyPools(project: ProjectState): boolean {
   const game = gameFor(project);
   if (!game || (project.originalRomBytes && project.originalRomBytes[0x1e] !== 0)) return false;
   const module = file(project, `patches/${dllName(game)}`);
-  return !!module && [manifest[game].sha256, manifest[game].linkedPoolsSha256, manifest[game].directPoolsSha256, manifest[game].fixedPartiesSha256].includes(moduleHash(module));
+  return !!module && [manifest[game].sha256, manifest[game].linkedPoolsSha256, manifest[game].directPoolsSha256, manifest[game].fixedPartiesSha256, manifest[game].slotPoolsSha256].includes(moduleHash(module));
 }
 
 export function hasDirectTrainerPoolPokemon(project: ProjectState): boolean {
   const game = gameFor(project);
   if (!game || (project.originalRomBytes && project.originalRomBytes[0x1e] !== 0)) return false;
   const module = file(project, `patches/${dllName(game)}`);
-  return !!module && [manifest[game].sha256, manifest[game].directPoolsSha256, manifest[game].fixedPartiesSha256].includes(moduleHash(module));
+  return !!module && [manifest[game].sha256, manifest[game].directPoolsSha256, manifest[game].fixedPartiesSha256, manifest[game].slotPoolsSha256].includes(moduleHash(module));
 }
 
 function count(bytes: Uint8Array): number {
@@ -232,7 +255,7 @@ export function installTrainerCustomization(project: ProjectState) {
     const existing = readProjectFile(staged, path, rom);
     const existingHash = existing && sha256Hex(existing);
     if (existingHash === data.sha256 && detectSpecifyTrainerNaturesPatch(staged) !== "legacy") return;
-    if (existingHash && ![data.legacySha256, data.previousSha256, data.weightedSha256, data.conditionalSha256, data.linkedPoolsSha256, data.directPoolsSha256, data.fixedPartiesSha256, data.sha256].includes(existingHash)) {
+    if (existingHash && ![data.legacySha256, data.previousSha256, data.weightedSha256, data.conditionalSha256, data.linkedPoolsSha256, data.directPoolsSha256, data.fixedPartiesSha256, data.slotPoolsSha256, data.sha256].includes(existingHash)) {
       throw new Error("An unrecognized trainer nature DLL is already installed.");
     }
     const previousTable = readProjectFile(staged, PATH, rom);

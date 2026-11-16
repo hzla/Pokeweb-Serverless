@@ -6,7 +6,7 @@ import { gen5HeightAt } from "./gen5MapHeightGeneration";
 import type { Gen5PermissionTileLike } from "./gen5PermissionModel";
 import { equalMapBytes, readGen5MapBin } from "./gen5MapImportFormats";
 import { extractGameFreakContainer, invalidateMap3dAssets, packGameFreakContainer, readNitroResources, type Map3dSceneData, type Map3dTile } from "./map3dModel";
-import { appendBrushPieces, brushPieceKey, nativeFaces, readBrushPieces, rootIsIdentity, type BrushKind, type BrushPart, type BrushPiece, type BrushVertex } from "./mapBrushGeometry";
+import { brushPieceKey, MERGED_PIECE_PAYLOAD, nativeFaces, readBrushPieces, rootIsIdentity, stepTextures, textureSteps, writeTileBrush, type BrushKind, type BrushPart, type BrushPiece, type BrushVertex, type TextureStep } from "./mapBrushGeometry";
 import { mapBrushContext, texturePacksFor } from "./mapGrass";
 import { clipBetween } from "./mapNativeErase";
 import { donorSeasonBanks, stampBindings } from "./mapStamps";
@@ -38,8 +38,12 @@ const MAP_TEXTURES_PATH = "a/0/1/4";
 type Face = BrushVertex[];
 type Side = "north" | "south" | "west" | "east";
 const SIDES: readonly Side[] = ["north", "south", "west", "east"];
-/** Skirt faces for one tile of one side, relative to that tile's top-left corner and the ground. */
-type Segment = { start: Face[]; middle: Face[]; end: Face[] };
+/**
+ * Skirt faces for one tile of one side, relative to that tile's top-left corner and the ground. `steps` (per face)
+ * and `origin` (the donor tile each was cut from, along the side) continue the native skirt's texture to any tile.
+ */
+type Role = "start" | "middle" | "end";
+type Segment = { start: Face[]; middle: Face[]; end: Face[]; steps?: Record<Role, TextureStep[]>; origin?: Record<Role, number> };
 export type ThickGrassTemplate = {
   kind: ThickGrassKind;
   top: BrushPart; side: BrushPart;
@@ -80,17 +84,35 @@ export function cutThickGrass(donorModel: Uint8Array, kind: ThickGrassKind, grou
     bySide.set(sideOf, [...(bySide.get(sideOf) ?? []), face]);
   }
   const pieces = new Map<string, Face[]>();
+  const steps = new Map<string, TextureStep[]>(), origins = new Map<string, number>();
   for (const [sideOf, faces] of bySide) {
     const alongX = sideOf === "north" || sideOf === "south", axis = alongX ? 0 : 2, count = alongX ? DONOR.width : DONOR.depth;
-    for (const [role, t] of [["start", 0], ["middle", 1], ["end", count - 1]] as const) {
+    // One tile of the side, relative to the tile, with the index of the native face each piece came from.
+    const cutAt = (t: number) => {
       const ox = alongX ? x0 + t * TILE : sideOf === "west" ? x0 : x1 - TILE;
       const oz = alongX ? (sideOf === "north" ? z0 : z1 - TILE) : z0 + t * TILE;
       const lo = alongX ? ox : oz;
-      pieces.set(`${sideOf}:${role}`, shift(faces.flatMap(face => clipBetween(face, axis, lo, lo + TILE)), -ox, -ground, -oz));
+      const out: Face[] = [], sources: number[] = [];
+      faces.forEach((face, source) => { for (const piece of clipBetween(face, axis, lo, lo + TILE)) { out.push(piece); sources.push(source); } });
+      return { faces: shift(out, -ox, -ground, -oz), sources };
+    };
+    const middle = cutAt(1), middleSteps = textureSteps(middle.faces, cutAt(2).faces);
+    const bySource = new Map<number, TextureStep>();
+    middle.sources.forEach((source, i) => { if (!bySource.has(source)) bySource.set(source, middleSteps[i]); });
+    for (const [role, t] of [["start", 0], ["middle", 1], ["end", count - 1]] as const) {
+      const cut = role === "middle" ? middle : cutAt(t);
+      pieces.set(`${sideOf}:${role}`, cut.faces);
+      steps.set(`${sideOf}:${role}`, role === "middle" ? middleSteps : cut.sources.map(source => bySource.get(source) ?? [0, 0]));
+      origins.set(`${sideOf}:${role}`, (alongX ? DONOR.tileX : DONOR.tileY) + t);
     }
   }
   const edges = Object.fromEntries(SIDES.map(sideName => {
-    const segment = Object.fromEntries((["start", "middle", "end"] as const).map(role => [role, pieces.get(`${sideName}:${role}`) ?? []])) as Segment;
+    const roles = ["start", "middle", "end"] as const;
+    const segment: Segment = {
+      ...Object.fromEntries(roles.map(role => [role, pieces.get(`${sideName}:${role}`) ?? []])) as Pick<Segment, Role>,
+      steps: Object.fromEntries(roles.map(role => [role, steps.get(`${sideName}:${role}`) ?? []])) as Record<Role, TextureStep[]>,
+      origin: Object.fromEntries(roles.map(role => [role, origins.get(`${sideName}:${role}`) ?? 0])) as Record<Role, number>,
+    };
     ensure(segment.start.length && segment.middle.length && segment.end.length, changed);
     return [sideName, segment];
   })) as Record<Side, Segment>;
@@ -123,8 +145,11 @@ export function thickGrassTile(template: ThickGrassTemplate, tileIndex: number, 
     const alongX = sideName === "north" || sideName === "south", axis = alongX ? 0 : 2;
     const startTurns = alongX ? open.west : open.north, endTurns = alongX ? open.east : open.south;
     const segment = template.edges[sideName];
-    skirt.push(...(startTurns ? segment.start : segment.middle).flatMap(face => clipBetween(face, axis, 0, TILE / 2)));
-    skirt.push(...(endTurns ? segment.end : segment.middle).flatMap(face => clipBetween(face, axis, TILE / 2, TILE)));
+    // Each piece continues the native skirt's texture to this tile, so a straight side can draw as one long face.
+    const along = alongX ? tileIndex % 32 : Math.floor(tileIndex / 32);
+    const piece = (role: Role) => stepTextures(segment[role], segment.steps?.[role], along - (segment.origin?.[role] ?? along));
+    skirt.push(...piece(startTurns ? "start" : "middle").flatMap(face => clipBetween(face, axis, 0, TILE / 2)));
+    skirt.push(...piece(endTurns ? "end" : "middle").flatMap(face => clipBetween(face, axis, TILE / 2, TILE)));
   }
   return {
     payload: thickPayload(tileIndex, template.kind),
@@ -138,7 +163,7 @@ export function readPlacedThickGrass(file: Uint8Array) {
   const read = readBrushPieces(file, THICK_GRASS_BRUSH);
   const tiles = new Map<number, { kind: ThickGrassKind; key: number }>();
   for (const [key, { payload, member }] of read.pieces) {
-    if (member !== 1) continue;
+    if (member !== 1 || payload === MERGED_PIECE_PAYLOAD) continue;
     tiles.set(payload & 1023, { kind: THICK_GRASS_KINDS[(payload >>> 10) & 3] ?? "green", key });
   }
   return { tiles, remove: read.remove };
@@ -150,21 +175,15 @@ const neighbours = (index: number) => ({
 });
 
 /**
- * Rebuild the thick grass pieces of a chunk model after its painted tiles change from `before` to `after`: the
- * changed tiles and their neighbours are removed and drawn again with their new outline.
+ * Redraw a chunk's thick grass after `changed` tiles change, so every outline follows the painted area. The whole
+ * chunk is written again with its faces merged across tiles (`writeTileBrush`): a patch's top becomes a few large
+ * faces and each skirt a long one, as the game draws its own patches.
  */
 export function rebuildThickGrass(model: Uint8Array, collision: Uint8Array, after: ReadonlyMap<number, ThickGrassKind>, changed: ReadonlySet<number>,
   templates: Readonly<Partial<Record<ThickGrassKind, ThickGrassTemplate>>>, game: "BW" | "BW2") {
-  const placed = readPlacedThickGrass(model);
-  const affected = new Set<number>();
-  for (const index of changed) {
-    affected.add(index);
-    for (const near of Object.values(neighbours(index))) if (near !== undefined) affected.add(near);
-  }
-  const removeKeys = new Set([...affected].flatMap(index => placed.tiles.has(index) ? [placed.tiles.get(index)!.key] : []));
-  let file = removeKeys.size ? placed.remove(removeKeys) : model;
+  void changed;
   const pieces: BrushPiece[] = [];
-  for (const index of [...affected].sort((a, b) => a - b)) {
+  for (const index of [...after.keys()].sort((a, b) => a - b)) {
     const kind = after.get(index);
     if (!kind) continue;
     const template = templates[kind];
@@ -173,8 +192,7 @@ export function rebuildThickGrass(model: Uint8Array, collision: Uint8Array, afte
     const open = Object.fromEntries(SIDES.map(sideName => [sideName, near[sideName] === undefined || after.get(near[sideName]!) !== kind])) as Open;
     pieces.push(thickGrassTile(template, index, snapGround(cornerHeights(collision, index, game)[0]), open));
   }
-  file = appendBrushPieces(file, THICK_GRASS_BRUSH, pieces, 1);
-  return file;
+  return writeTileBrush(model, THICK_GRASS_BRUSH, pieces);
 }
 
 // ---------- Strokes ----------
@@ -219,7 +237,7 @@ function thickAssets(source: Uint8Array, rom: NintendoDSRom, game: "BW" | "BW2")
 }
 
 /** Paint (`kind`) or erase (no kind) thick grass on the tiles, in every seasonal variant of their chunks. */
-export async function strokeThickGrass(project: ProjectState, scene: Map3dSceneData, tiles: readonly Map3dTile[], kind: ThickGrassKind | undefined, { isCurrent = () => true }: { isCurrent?: () => boolean } = {}): Promise<ThickGrassStroke> {
+export async function strokeThickGrass(project: ProjectState, scene: Map3dSceneData, tiles: readonly Map3dTile[], kind: ThickGrassKind | undefined, { isCurrent = () => true, allowBlocked = false }: { isCurrent?: () => boolean; allowBlocked?: boolean } = {}): Promise<ThickGrassStroke> {
   const { result, skip } = thickStroke(kind ? "paint" : "erase");
   if (!tiles.length) return result;
   ensure(project.session.baseRom === "BW2", "Thick grass is available in Black 2 and White 2.");
@@ -248,7 +266,7 @@ export async function strokeThickGrass(project: ProjectState, scene: Map3dSceneD
       for (const { id, season } of variants) {
         const { bin, painted } = chunk(id);
         if (painted.has(tileIndex)) { failure = { reason: "existing-grass", season }; break; }
-        const site = treeSite(bin, [tileIndex], game);
+        const site = treeSite(bin, [tileIndex], game, { allowBlocked });
         if (typeof site === "string") { failure = { reason: site, season }; break; }
       }
       if (failure) { skip(failure.reason, failure.season); continue; }
@@ -292,6 +310,8 @@ export async function strokeThickGrass(project: ProjectState, scene: Map3dSceneD
     for (const index of entry.changed) {
       const saved = entry.originals[index];
       if (entry.painted.has(index)) {
+        // Scenery that already blocks movement keeps its tile: the grass there is only art.
+        if (saved && saved.flags & 1) continue;
         const tile = THICK_GRASS[entry.painted.get(index)!].tile;
         writePermission(files[1], index, tile);
         if (entry.bin.placements === 3) writePermission(files[2], index, tile);

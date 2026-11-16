@@ -1,8 +1,10 @@
 import { renderRosterHub } from "./trainerRosterHub";
 import { listTrainerRosters, originalRosterKey, poolRecord, rosterPool, trainerHasRosterVariants, type RosterKey } from "../pokeweb/trainerRosterHub";
 import { TRAINER_POOL_GROUPS, TRAINER_POOL_MAX_MEMBERS, trainerPoolGroupBit, type TrainerPartyPool, type TrainerPoolMember } from "../pokeweb/trainerPartyPools";
-import { hasTrainerMemberCustomization, getTrainerMemberSettings, type TrainerMemberSettings } from "../pokeweb/trainerCustomizationModel";
+import { hasTrainerMemberCustomization, getTrainerMemberSettings, trainerCustomizationAvailable, type TrainerMemberSettings } from "../pokeweb/trainerCustomizationModel";
 import { STATUS_ICON } from "../pokeweb/gen5UiImages";
+import { getTrainerSlotMovePools } from "../pokeweb/trainerRosterModel";
+import { hasMoveAlternatives, TRAINER_MOVE_SLOT_MAX, trainerMovePoolProblem, trainerMoveSlotChances, type TrainerMovePools } from "../pokeweb/trainerMovePools";
 import { trainerFormOptions, trainerGenderAvailability, trainerMaxHp, trainerStartingHp } from "../pokeweb/trainerSlotFacts";
 import { publicAsset } from "../assetUrl";
 import { BATTLE_TYPES, NATURES, TRAINER_AIS, TRAINER_GENDERS, isGen5Project } from "../pokeweb/constants";
@@ -270,14 +272,17 @@ export function renderTrainerPartyStrip(project: ProjectState, trainer: TrainerR
       .filter((_name, index) => (member.groups ?? 0) & trainerPoolGroupBit(index + 1)).join(" · ") : "";
     const linked = member && !("pokemon" in member) ? `#${member.trainerId}` : "";
     const settings = member && "pokemon" in member ? member.pokemon.settings : view && view.kind !== "original" ? undefined : safe(() => hasTrainerMemberCustomization(project) ? getTrainerMemberSettings(project, trainer.id, pok.slot) : undefined, undefined);
+    const movePools = member ? ("pokemon" in member ? member.pokemon.movePools : safe(() => getTrainerSlotMovePools(project, member.trainerId, member.slot), undefined))
+      : view && view.kind !== "original" ? undefined : safe(() => getTrainerSlotMovePools(project, trainer.id, pok.slot), undefined);
+    const dice = hasMoveAlternatives(movePools) ? `<span class="td-mon-dice" title="Its moves vary between battles" aria-label="Moves vary">⚄</span>` : "";
     return `
       <button class="td-mon${selected ? " is-selected" : ""}" type="button" role="tab" aria-selected="${selected}" data-slot="${pok.slot}"${view && view.kind !== "original" ? "" : ` data-mark-prefix="pokemon:${pok.slot}:"`}>
         ${item ? `<img class="td-item-icon" src="${itemIconSrc(item)}" alt="${escapeHtml(item)}" title="${escapeHtml(item)}" onerror="this.remove()">` : ""}
-        ${groups ? `<span class="td-mon-tag" aria-label="Groups ${groups}">${groups}</span>` : ""}
+        ${groups ? `<span class="td-mon-tag" aria-label="Pools ${groups}">${groups}</span>` : ""}
         ${tag ? `<span class="td-mon-tag -${tag.toLowerCase()}">${tag}</span>` : ""}
         ${linked ? `<span class="td-mon-link" title="Linked from trainer ${escapeHtml(linked)}">${escapeHtml(linked)}</span>` : ""}
         <span class="td-mon-icon trainer-poks">${renderPartyIcon(project, pok, "td-mon-sprite")}</span>
-        <span class="td-mon-name">${settings?.shiny === 1 ? `<span class="td-shiny-mark" title="Shiny">✦</span>` : ""}${escapeHtml(pok.speciesName)}</span>
+        <span class="td-mon-name">${settings?.shiny === 1 ? `<span class="td-shiny-mark" title="Shiny">✦</span>` : ""}${escapeHtml(pok.speciesName)}${dice}</span>
         <span class="td-mon-meta">Lv ${pok.level}${renderCardCondition(project, pok, settings)}</span>
       </button>
     `;
@@ -318,7 +323,8 @@ const STATUS_CHOICES: ReadonlyArray<{ label: string; icon?: number; text: string
 
 /** Shininess, starting HP and starting status: Trainer Customization's per-Pokémon battle settings. */
 function renderTrainerCustomization(project: ProjectState, trainerId: number, pok: TrainerPokemonSlot, override?: TrainerMemberSettings): string {
-  if (!hasTrainerMemberCustomization(project)) return "";
+  // Shown whenever the patch can be used; the first change installs it.
+  if (!trainerCustomizationAvailable(project)) return "";
   const slot = pok.slot;
   const settings = override ?? getTrainerMemberSettings(project, trainerId, slot);
   const mark = (field: keyof TrainerMemberSettings) => (override ? "" : `pokemon:${slot}:customization:${field}`);
@@ -424,12 +430,12 @@ function titleCaseName(name: string): string {
 
 function renderPoolPlacement(pool: TrainerPartyPool, member: TrainerPoolMember): string {
   if (pool.slotGroups) {
-    return formRow("Groups", "", choiceButtons("data-pool-group", "group", TRAINER_POOL_GROUPS.map((name, index) => ({
+    return formRow("Pools", "", choiceButtons("data-pool-group", "group", TRAINER_POOL_GROUPS.map((name, index) => ({
       value: index + 1,
       content: name,
-      title: `Group ${name}`,
+      title: `Pool ${name}`,
       pressed: Boolean((member.groups ?? 0) & trainerPoolGroupBit(index + 1)),
-    })), "Candidate groups"));
+    })), "Slot pools"));
   }
   return formRow("Tag", "", choiceButtons("data-pool-role", "role", POOL_TAGS.map((label, index) => ({
     value: index, content: label || "Any slot", pressed: member.role === index,
@@ -475,7 +481,7 @@ export function renderTrainerSlotEditor(project: ProjectState, trainer: TrainerR
           : formRow("Nature", "", `<span class="td-readonly" data-derived="nature">${escapeHtml(pok.nature)}</span><span class="md-unit" title="Without the trainer nature patch the game derives the nature from the trainer, class and Pokémon. Install Trainer Customization under Tools to choose one.">derived</span>`)}
       </div>
       <div class="td-moves">
-        ${renderSlotMoves(project, trainer, pok)}
+        ${renderSlotMoves(project, trainer, pok, member && "pokemon" in member ? member.pokemon.movePools : own ? safe(() => getTrainerSlotMovePools(project, trainer.id, s), undefined) : undefined)}
         <div class="md-form td-held">
           ${formRow("Held item", mark("item_id"), editable("trpok", `item_id_${s}`, trainer.hasItems ? pok.itemName : "", "", { autofill: "items", placeholder: "None" }))}
         </div>
@@ -508,10 +514,73 @@ function renderLinkedMember(project: ProjectState, pok: TrainerPokemonSlot, view
     <div class="md-form">${view.pool ? renderPoolPlacement(view.pool, member) : ""}</div>`;
 }
 
-function renderSlotMoves(project: ProjectState, trainer: TrainerRecord, pok: TrainerPokemonSlot): string {
+/** A move's type, category and power cells. */
+function moveCells(project: ProjectState, moveId: number, index: string): string {
+  const preview = moveId > 0 ? getMovePreview(project, moveId) : undefined;
+  return `
+    <td data-derived="m${index}-type">${preview?.type ? `<span class="type-plate sm -${typeClass(preview.type)}">${escapeHtml(preview.type)}</span>` : ""}</td>
+    <td class="td-move-cat" data-derived="m${index}-cat">${escapeHtml(titleize(preview?.category ?? ""))}</td>
+    <td class="r" data-derived="m${index}-pow">${escapeHtml(String(preview?.power ?? "") === "0" ? "—" : String(preview?.power ?? ""))}</td>`;
+}
+
+const percentFormat = new Intl.NumberFormat("en", { style: "percent", maximumFractionDigits: 0 });
+
+/** A move or alternative's weight, with its share of the slot's rolls. */
+function moveWeight(slot: number, option: number | "own", weight: number, chance: number, editable: boolean): string {
+  return `<span class="td-move-weight"><input type="number" min="${option === "own" ? 0 : 1}" max="65535" step="1" value="${weight}" data-move-weight="${slot}:${option}" aria-label="Weight"${editable ? "" : " disabled"}><span class="md-unit">${percentFormat.format(chance)}</span></span>`;
+}
+
+/** An empty alternative row for a move slot, filled in by typing a move. */
+export function renderNewMoveAlternative(slot: number): string {
+  return `<tr class="td-move-alt -new" data-move-alt-row="${slot}">
+    <td><span class="td-move-alt-cell"><span class="td-move-or" aria-hidden="true">or</span>${editable("trmove", `movealt_${slot}_new`, "", "td-move", { autofill: "move_names", label: `Alternative to move ${slot + 1}` })}</span></td>
+    <td colspan="5"></td>
+  </tr>`;
+}
+
+function renderSlotMoves(project: ProjectState, trainer: TrainerRecord, pok: TrainerPokemonSlot, movePools?: TrainerMovePools): string {
   const moveNames = project.texts?.banks.moves ?? [];
   const defaults = trainer.hasMoves ? [] : safe(() => getAutofilledTrainerPokemonMoveIds(project, pok.speciesId, pok.level), [] as number[]);
+  // Alternatives need Trainer Customization (installed on first use) and moves of the Pokémon's own to vary from.
+  const varied = hasMoveAlternatives(movePools);
+  const canEdit = (trainer.hasMoves || varied) && trainerCustomizationAvailable(project);
+  // Saved alternatives stay visible (read-only) even when the patch can't be updated here.
+  const alternatives = canEdit || varied;
+  const ownMoves = [0, 1, 2, 3].map((index) => (trainer.hasMoves ? Math.max(0, moveNames.indexOf(String(pok.moves[index] ?? ""))) : 0));
   const rows = [0, 1, 2, 3].map((index) => {
+    const slot = movePools?.[index];
+    const alts = slot?.alternatives ?? [];
+    const chances = slot && alts.length ? trainerMoveSlotChances(slot, ownMoves[index]!) : [];
+    const altRows = alts.map((alt, k) => `
+      <tr class="td-move-alt" data-move-alt-row="${index}">
+        <td><span class="td-move-alt-cell"><span class="td-move-or" aria-hidden="true">or</span>${editable("trmove", `movealt_${index}_${k}`, moveNames[alt.move] ?? alt.move, "td-move", { autofill: "move_names", label: `Alternative ${k + 1} to move ${index + 1}` })}</span></td>
+        ${moveCells(project, alt.move, `${index}-${k}`)}
+        <td class="td-move-odds">${moveWeight(index, k, alt.weight, chances[k + 1]?.chance ?? 0, canEdit)}</td>
+        <td class="td-move-more">${canEdit ? `<button class="td-move-button" type="button" data-move-alt-remove="${index}:${k}" title="Remove this alternative" aria-label="Remove alternative ${k + 1} to move ${index + 1}">×</button>` : ""}</td>
+      </tr>`).join("");
+    const extra = alternatives ? `
+        <td class="td-move-odds">${alts.length ? moveWeight(index, "own", slot!.weight, chances[0]?.chance ?? 0, canEdit) : ""}</td>
+        <td class="td-move-more">${canEdit && alts.length < TRAINER_MOVE_SLOT_MAX ? `<button class="td-move-button" type="button" data-move-alt-add="${index}" title="Add a move this slot can use instead" aria-label="Add an alternative to move ${index + 1}">+</button>` : ""}</td>` : "";
+    return renderSlotMoveRow(project, trainer, pok, index, moveNames, defaults, extra) + altRows;
+  }).join("");
+  const problem = varied && movePools ? trainerMovePoolProblem(movePools, ownMoves) : undefined;
+  return `
+    <table class="md-table td-move-table${alternatives ? " -alternatives" : ""}" aria-label="Moves">
+      <thead><tr><th>Moves</th><th>Type</th><th>Category</th><th class="r">Power</th>${alternatives ? `<th class="td-move-odds">${varied ? "Weight" : ""}</th><th class="td-move-more"></th>` : ""}</tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    ${problem ? `<p class="td-roster-problem" role="alert">${escapeHtml(problem)} The game keeps this Pokémon's own moves until it can.</p>` : ""}
+    ${varied ? `<p class="td-move-note">Each battle rolls one move per slot by weight, never the same move twice.</p>` : ""}
+    <div class="td-moves-foot">
+      <button class="btn sm" type="button" data-slot-autofill title="Fill with the last four level-up moves at this level">Autofill moves</button>
+    </div>
+  `;
+}
+
+/** A Pokémon's own move in one slot; `extra` holds the alternative cells when the table has them. */
+function renderSlotMoveRow(
+  project: ProjectState, trainer: TrainerRecord, pok: TrainerPokemonSlot, index: number, moveNames: readonly string[], defaults: readonly number[], extra: string,
+): string {
     const field = `move_${index + 1}_${pok.slot}`;
     const name = trainer.hasMoves ? String(pok.moves[index] ?? "") : "";
     const defaultId = defaults[index] ?? 0;
@@ -519,23 +588,13 @@ function renderSlotMoves(project: ProjectState, trainer: TrainerRecord, pok: Tra
     const preview = previewId > 0 ? getMovePreview(project, previewId) : undefined;
     const placeholder = !trainer.hasMoves && defaultId > 0 ? moveNames[defaultId] ?? "" : "";
     return `
-      <tr data-mark-fields="pokemon:${pok.slot}:${field}|pokemon:${pok.slot}:autofill-moves"${trainer.hasMoves ? "" : ' class="-default"'}>
+      <tr data-move-row="${index}" data-mark-fields="pokemon:${pok.slot}:${field}|pokemon:${pok.slot}:autofill-moves|pokemon:${pok.slot}:move-pools"${trainer.hasMoves ? "" : ' class="-default"'}>
         <td>${editable("trpok", field, name, "td-move", { autofill: "move_names", placeholder })}</td>
         <td data-derived="m${index}-type">${preview?.type ? `<span class="type-plate sm -${typeClass(preview.type)}">${escapeHtml(preview.type)}</span>` : ""}</td>
         <td class="td-move-cat" data-derived="m${index}-cat">${escapeHtml(titleize(preview?.category ?? ""))}</td>
-        <td class="r" data-derived="m${index}-pow">${escapeHtml(String(preview?.power ?? "") === "0" ? "—" : String(preview?.power ?? ""))}</td>
+        <td class="r" data-derived="m${index}-pow">${escapeHtml(String(preview?.power ?? "") === "0" ? "—" : String(preview?.power ?? ""))}</td>${extra}
       </tr>
     `;
-  }).join("");
-  return `
-    <table class="md-table td-move-table" aria-label="Moves">
-      <thead><tr><th>Moves</th><th>Type</th><th>Category</th><th class="r">Power</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
-    <div class="td-moves-foot">
-      <button class="btn sm" type="button" data-slot-autofill title="Fill with the last four level-up moves at this level">Autofill moves</button>
-    </div>
-  `;
 }
 
 function renderTrainerSettings(project: ProjectState, trainer: TrainerRecord): string {
@@ -615,7 +674,7 @@ function select(field: string, options: Array<[string, string]>, current: string
 }
 
 function editable(
-  narc: "trdata" | "trpok" | "trtext",
+  narc: "trdata" | "trpok" | "trtext" | "trmove",
   field: string,
   value: unknown,
   className: string,

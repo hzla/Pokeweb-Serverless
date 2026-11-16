@@ -1,7 +1,7 @@
 import { NATURES, TRAINER_GENDERS } from "./constants";
 import { findPokemonBaseSpeciesId, pokemonSpeciesLabel } from "./pokemonLabels";
 import { decodeRecord, type ProjectState } from "./projectStore";
-import { getTrainerMemberSettings, hasTrainerPartyPools } from "./trainerCustomizationModel";
+import { getTrainerMemberSettings, hasTrainerPartyPools, trainerCustomizationAvailable } from "./trainerCustomizationModel";
 import { changeTrainerMemberSetting, DEFAULT_TRAINER_MEMBER_SETTINGS, type TrainerMemberSettings } from "./trainerMemberSettings";
 import { getAutofilledTrainerPokemonMoveIds, getTrainerPokemonAbilityOptions, getTrainerRecord, trainerPokemonSpriteSlug, type TrainerPokemonSlot, type TrainerRecord } from "./trainerModel";
 import {
@@ -9,9 +9,10 @@ import {
   type TrainerPartyPool, type TrainerPoolMember, type TrainerPoolPokemon,
 } from "./trainerPartyPools";
 import {
-  getTrainerPartyPools, getTrainerRosterChoices, getTrainerRosterRules, setTrainerPartyPool, setTrainerRosterChoices, setTrainerRosterRules, trainerRosterTables,
+  getTrainerPartyPools, getTrainerSlotMovePools, getTrainerRosterChoices, getTrainerRosterRules, setTrainerPartyPool, setTrainerRosterChoices, setTrainerRosterRules, trainerRosterTables,
   TRAINER_ROSTER_ID_LIMIT, TRAINER_ROSTER_MAX_CHOICES, type TrainerRosterChoice, type TrainerRosterRule,
 } from "./trainerRosterModel";
+import { changeOwnMove, withoutOwnMoves, type TrainerMovePools } from "./trainerMovePools";
 
 /*
  * The roster hub: everything a trainer can field, as one list of tabs. The trainer's own party ("original"), its
@@ -130,7 +131,8 @@ export function rosterSourceUsers(project: ProjectState, source: number): number
 }
 
 export function listTrainerRosters(project: ProjectState, trainer: number): RosterTab[] {
-  if (!hasTrainerPartyPools(project)) return [];
+  // Before the patch is installed there are no roster tables yet, so a trainer has just its own party.
+  if (!hasTrainerPartyPools(project) && !trainerCustomizationAvailable(project)) return [];
   const choices = getTrainerRosterChoices(project, trainer);
   const rules = ruleDraft(project, trainer)?.rules ?? getTrainerRosterRules(project, trainer);
   const pools = getTrainerPartyPools(project);
@@ -211,7 +213,13 @@ export function poolPokemonFromTrainerSlot(project: ProjectState, trainer: numbe
     nature: nature <= 25 ? nature : 0,
     moves: [1, 2, 3, 4].map((move) => (info && info.template & 1 ? value(`move_${move}`) : 0)),
     settings: getTrainerMemberSettings(project, trainer, slot),
+    ...movePoolsOf(project, trainer, slot),
   };
+}
+
+function movePoolsOf(project: ProjectState, trainer: number, slot: number): { movePools?: TrainerMovePools } {
+  const movePools = getTrainerSlotMovePools(project, trainer, slot);
+  return movePools ? { movePools: structuredClone(movePools) } : {};
 }
 
 function originalMembers(project: ProjectState, trainer: number): TrainerPoolMember[] {
@@ -431,7 +439,11 @@ export function editPoolMemberField(project: ProjectState, pokemon: TrainerPoolP
     const move = /^move_([1-4])$/u.exec(name);
     if (!move) throw new Error(`Unsupported field: ${field}`);
     const id = resolveName(project.texts.banks.moves ?? [], input, "move");
-    pokemon.moves[Number(move[1]) - 1] = id;
+    const slot = Number(move[1]) - 1;
+    const movePools = changeOwnMove(pokemon.movePools, slot, pokemon.moves[slot] ?? 0, id);
+    if (movePools) pokemon.movePools = movePools;
+    else delete pokemon.movePools;
+    pokemon.moves[slot] = id;
     return moveName(project, id);
   }
   }
@@ -465,6 +477,9 @@ export function newPoolMember(project: ProjectState, from?: TrainerPoolPokemon):
 export function autofillPoolMemberMoves(project: ProjectState, pokemon: TrainerPoolPokemon): void {
   const moves = getAutofilledTrainerPokemonMoveIds(project, pokemon.species, pokemon.level);
   pokemon.moves = [0, 1, 2, 3].map((index) => moves[index] ?? 0);
+  const movePools = withoutOwnMoves(pokemon.movePools, pokemon.moves);
+  if (movePools) pokemon.movePools = movePools;
+  else delete pokemon.movePools;
 }
 
 export const POOL_MEMBER_LIMIT = (pool: TrainerPartyPool) => (pool.owner !== undefined ? 6 : TRAINER_POOL_MAX_MEMBERS);

@@ -4,7 +4,7 @@ import { renderInlineStatus } from "./inlineStatus";
 import { publicAsset } from "../assetUrl";
 import { BATTLE_TYPES, isGen5Project } from "../pokeweb/constants";
 import { enrichTrainerLocations } from "../pokeweb/docGeneratorModel";
-import { getTrainerCustomizationStatus, installTrainerCustomization } from "../pokeweb/trainerCustomizationModel";
+import { getTrainerCustomizationStatus, installTrainerCustomization, trainerCustomizationAvailable } from "../pokeweb/trainerCustomizationModel";
 import { detectSpecifyTrainerNaturesPatch } from "../pokeweb/romPatchModel";
 import { readGen5SavePokemon, type Gen5SavePokemon } from "../pokeweb/gen5SaveReader";
 import { parseShowdownTeam } from "../pokeweb/testBattleTeam";
@@ -157,7 +157,9 @@ export function renderTrainerEditor(
     onTrainerChanged: refreshRow,
     getTestTeamText: () => getTrainerTestBattleTeamText(project, root),
     autofills: getTrainerAutofills(project),
-    natureField: trainerNaturePatchStatus === "patched" || trainerNaturePatchStatus === "legacy",
+    natureNative: trainerNaturePatchStatus === "patched" || trainerNaturePatchStatus === "legacy",
+    // Trainer Customization sets natures too; choosing one installs it when it isn't in yet.
+    natureField: trainerNaturePatchStatus === "patched" || trainerNaturePatchStatus === "legacy" || trainerCustomizationAvailable(project),
     onOpenTrainer: (trainerId) => {
       if (!ids.includes(trainerId)) return;
       const row = list.querySelector<HTMLElement>(`[data-trainer-row="${trainerId}"]`);
@@ -169,11 +171,11 @@ export function renderTrainerEditor(
       }
       select(trainerId, true);
     },
-    onInstallCustomization: async () => {
+    installCustomization: async () => {
       await installTrainerCustomization(project);
       onDirty?.();
-      renderTrainerEditor(project, root, onDirty, onTestBattle, onOpenTrainerSprite, onOpenPlayerBackSprite);
     },
+    onCustomizationInstalled: () => renderTrainerEditor(project, root, onDirty, onTestBattle, onOpenTrainerSprite, onOpenPlayerBackSprite),
   });
 
   const filter = () => {

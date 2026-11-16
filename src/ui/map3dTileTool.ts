@@ -18,8 +18,11 @@ const dims = (footprint: Footprint): [number, number] => {
   const value = footprint();
   return typeof value === "number" ? [Math.max(1, value), Math.max(1, value)] : [Math.max(1, value[0]), Math.max(1, value[1])];
 };
-/** Line brushes draw one straight run of tiles from where the drag starts, along a row ("x"), a column ("z"), or whichever the drag mostly follows ("auto"). */
-type LineAxis = () => "x" | "z" | "auto" | undefined;
+/**
+ * Line brushes draw one straight run of tiles from where the drag starts, along a row ("x"), a column ("z"), or whichever the drag
+ * mostly follows ("auto"). "path" takes every tile the drag crosses, stepping only between edge-sharing tiles, so turns make corners.
+ */
+type LineAxis = () => "x" | "z" | "auto" | "path" | undefined;
 
 export function installMap3dTileTool(
   canvas: HTMLCanvasElement, view: View, brushEnabled: () => boolean, onStroke: (tiles: Map3dTile[]) => void,
@@ -180,6 +183,18 @@ export function installMap3dTileTool(
   function sample() {
     const hit = cursor && pick(cursor);
     const axis = lineAxis();
+    if (axis === "path") {
+      if (last && hit) {
+        let { x, z } = last;
+        while (x !== hit.x || z !== hit.z) {
+          if (Math.abs(hit.x - x) >= Math.abs(hit.z - z)) x += Math.sign(hit.x - x);
+          else z += Math.sign(hit.z - z);
+          add(x, z);
+        }
+      } else if (hit) add(hit.x, hit.z);
+      last = hit;
+      return;
+    }
     if (axis) {
       if (hit) drawLine(hit, axis);
       last = hit;

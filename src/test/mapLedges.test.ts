@@ -20,7 +20,7 @@ function template(model: Uint8Array, direction: LedgeDirection): LedgeTemplate {
   const record = { ...materialRecords(model)[0], name: "dansa01a", textureName: "dansa01a", paletteName: "dansa01a_pl" };
   const shapeHeader = terrainModelLayout(model).shapes[0].header.slice();
   const piece = (mark: number) => ({ record, shapeHeader, faces: [[[0, 0, 8], [16, 0, 8], [16, 4, 10], [0, 4, 10]].map(([a, y, c]) => ({ position: [a, y, c] as const, texcoord: mark }))] });
-  return { direction, pieces: { start: piece(1), middle: piece(2), end: piece(3) } };
+  return { direction, pieces: { start: piece(16), middle: piece(32), end: piece(48) } };
 }
 
 describe("map ledges", () => {
@@ -32,12 +32,12 @@ describe("map ledges", () => {
     ]);
     const layout = terrainModelLayout(placed);
     const faces = decodeFaces(layout.shapes.find(shape => shape.name === "l1_dansa01a")!.list, layout.scale);
-    // Left/right ledges run down a column: along is z, across is x.
-    expect(faces.slice(0, 5).map(face => [face[0].texcoord, face[0].position])).toEqual([
-      [1, [-88, 16, -192]], [2, [-88, 16, -176]], [2, [-88, 16, -160]], [2, [-88, 16, -144]], [3, [-88, 16, -128]],
+    // Left/right ledges run down a column: along is z, across is x. The three middle tiles draw as one face.
+    expect(faces.slice(0, 3).map(face => [face[0].texcoord, Math.min(...face.map(v => v.position[2])), Math.max(...face.map(v => v.position[2]))])).toEqual([
+      [16, -192, -176], [32, -176, -128], [48, -128, -112],
     ]);
     // Up/down ledges run along a row: along is x, across is z.
-    expect(faces.slice(5).map(face => [face[0].texcoord, face[0].position])).toEqual([[1, [-208, 0, 72]], [3, [-192, 0, 72]]]);
+    expect(faces.slice(3).map(face => [face[0].texcoord, face[0].position])).toEqual([[16, [-208, 0, 72]], [48, [-192, 0, 72]]]);
     const read = readPlacedLedges(placed);
     expect([...read.ledges.values()]).toEqual([
       { member: 1, startIndex: 138, length: 5, direction: "left" },

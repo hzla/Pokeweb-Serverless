@@ -13,6 +13,7 @@ import {
   PWAN_W2_RUNTIME_PATHS,
 } from "../pokeweb/pwanAnimationModel";
 import { compileGifToPwan } from "../pokeweb/pwanCompiler";
+import { hasAnimStreamsRuntime } from "../pokeweb/animStreamsModel";
 import {
   buildTrainerPwanConfig,
   buildTrainerPwanOverride,
@@ -25,6 +26,7 @@ import {
   TRAINER_PWAN_CONFIG_MEMBER_ID,
   TRAINER_PWAN_CONFIG_VERSION,
   TRAINER_PWAN_W2_RUNTIME_PATH,
+  getTrainerPwanRuntimeStatus,
   hasTrainerPwanRuntimeDll,
   installTrainerPwanRuntime,
   uninstallTrainerPwanRuntime,
@@ -299,7 +301,7 @@ describe("trainerPwanAnimationModel", () => {
     });
   }
 
-  it.skipIf(!romFixtureExists(new URL("../../../cleanwhite2.nds", import.meta.url)))("installs and removes the standalone trainer DLL without staging Pokémon PWAN modules", async () => {
+  it.skipIf(!romFixtureExists(new URL("../../../cleanwhite2.nds", import.meta.url)))("installs the shared animated sprite runtime for White 2 trainers instead of the retired trainer DLL", async () => {
     const romUrl = new URL("../../../cleanwhite2.nds", import.meta.url);
 
     const project = await loadProjectFromRomBytes(new Uint8Array(readFileSync(romUrl)), "cleanwhite2.nds", { selectedNarcs: ["trainer_sprites"] });
@@ -309,14 +311,18 @@ describe("trainerPwanAnimationModel", () => {
       return new Response(readFileSync(new URL(`../assets/codeinjection/${name}`, import.meta.url)), { status: 200 });
     }));
 
+    // Trainers animate through the streaming runtime shared with Pokémon sprites; the split trainer DLL is retired.
     await installTrainerPwanRuntime(project);
-    expect(hasTrainerPwanRuntimeDll(project)).toBe(true);
-    expect(project.fileSystem?.additions?.[TRAINER_PWAN_W2_RUNTIME_PATH]?.slice(0, 4)).toEqual(Uint8Array.of(0x44, 0x4c, 0x58, 0x46));
-    expect(project.codeInjection.modules?.filter((module) => /Pwan/u.test(module.fileName))).toHaveLength(1);
-
-    uninstallTrainerPwanRuntime(project);
+    expect(hasAnimStreamsRuntime(project)).toBe(true);
     expect(hasTrainerPwanRuntimeDll(project)).toBe(false);
-    expect(project.trainerPwanAnimations?.overrides).toEqual([]);
+    expect(project.fileSystem?.additions?.[TRAINER_PWAN_W2_RUNTIME_PATH]).toBeUndefined();
+    expect(getTrainerPwanRuntimeStatus(project)).toMatchObject({ supported: true, installed: true });
+
+    // Installing again leaves the shared runtime as it is, and it can only be removed with PWAN GIF Support.
+    const modules = project.codeInjection.modules?.length;
+    await installTrainerPwanRuntime(project);
+    expect(project.codeInjection.modules?.length).toBe(modules);
+    expect(() => uninstallTrainerPwanRuntime(project)).toThrow(/share the animated sprite runtime/u);
   });
 });
 

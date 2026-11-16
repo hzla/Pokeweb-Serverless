@@ -45,7 +45,7 @@ import type { LedgeDirection, LedgeSkipReason, LedgeStroke } from "../pokeweb/ma
 import { MAP_STAMP_CATEGORIES, mapStampTypes, stampSize, type MapStampCategory, type MapStampType, type StampRotation } from "../pokeweb/mapStampCatalog";
 import type { StampSkipReason, StampStroke } from "../pokeweb/mapStamps";
 import type { ThickGrassKind, ThickGrassSkipReason, ThickGrassStroke } from "../pokeweb/mapThickGrass";
-import { mapFenceTypes, type FenceSkipReason, type FenceStroke, type MapFenceType } from "../pokeweb/mapFences";
+import { mapFenceTypes, type FenceSkipReason, type FenceTileStroke, type MapFenceType } from "../pokeweb/mapFences";
 import { mapPropTypes, type MapPropType, type PropSkipReason, type PropStroke } from "../pokeweb/mapProps";
 import type { MapHeightEdit } from "../pokeweb/mapHeightEdit";
 import { openTestBattleEmulator } from '../pokeweb/testBattleEmulatorLauncher';
@@ -54,7 +54,7 @@ import type { MapCameraTestPosition } from '../pokeweb/mapCameraTest';
 const GRASS_SKIP_LABELS: Record<GrassSkipReason, string> = {
   "already-matching": "already the selected grass type",
   "existing-grass": "existing grass permissions",
-  blocked: "tiles that block movement",
+  blocked: "tiles that block movement — turn on Paint on blocked scenery to paint there anyway",
   water: "water",
   "special-terrain": "special terrain",
   "split-height": "split walking height",
@@ -70,7 +70,7 @@ const GRASS_SKIP_LABELS: Record<GrassSkipReason, string> = {
 
 const TREE_SKIP_LABELS: Record<TreeSkipReason, string> = {
   occupied: "overlapping another tree",
-  blocked: "tiles that block movement",
+  blocked: "tiles that block movement — turn on Paint on blocked scenery to paint there anyway",
   water: "water",
   "existing-grass": "grass (remove it first)",
   "special-terrain": "special terrain",
@@ -118,8 +118,11 @@ type BrushMode = "paint" | "tree" | "ledge" | "stamp" | "thick" | "fence" | "pro
 /** A swatch in the paint palette. */
 type PaintBrush = { id: string; category: MapStampCategory; label: string; mode: Exclude<BrushMode, "erase">; grass?: MapGrassKind; tree?: MapTreeType; stamp?: MapStampType; thick?: ThickGrassKind; fence?: MapFenceType; prop?: MapPropType; note: string };
 const PAINT_BRUSH_KEY = "pokeweb.maps3d.paintBrush";
+const PALETTE_COLLAPSED_KEY = "pokeweb.maps3d.paletteCollapsed";
+const PAINT_BLOCKED_KEY = "pokeweb.maps3d.paintBlockedScenery";
 const GAME_NOCLIP_KEY = "pokeweb.maps3d.gameTestWalkThroughWalls";
 const ERASE_NATIVE_KEY = "pokeweb.maps3d.eraseNativeArt";
+const FENCE_ENDS_KEY = "pokeweb.maps3d.fenceEnds";
 
 const PERMISSION_TILE_SIZE = 16;
 const MAP3D_VIEW_STORAGE_KEY = "pokeweb.maps3d.lastView";
@@ -305,7 +308,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     ] satisfies PaintBrush[] : []),
     ...treeTypes.map((tree): PaintBrush => ({ id: `tree-${tree.id}`, category: "Vegetation", label: tree.label, mode: "tree", tree, note: `${tree.size}×${tree.size} tiles, blocks movement. Click or drag to plant.` })),
     ...mapFenceTypes(project.session.baseRom).map((fence): PaintBrush => ({ id: `fence-${fence.id}`, category: "Fencing", label: fence.label, mode: "fence", fence,
-      note: "Blocks movement. Hold and drag along a row or a column to draw it (at least 2 tiles)." })),
+      note: `Blocks movement. Drag any path: turns become corners, and it joins fences of the same kind next to it.${fence.turnedEnds ? " Drag over a fence to change its ends." : ""}` })),
     ...mapPropTypes(project.session.baseRom).map((prop): PaintBrush => {
       const [width, depth] = stampSize(prop);
       return { id: `prop-${prop.id}`, category: prop.category, label: prop.label, mode: "prop", prop,
@@ -320,6 +323,8 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     }),
   ] : [];
   let paintBrush = paintBrushes.find(brush => brush.id === readStoredText(PAINT_BRUSH_KEY)) ?? paintBrushes[0];
+  /** Palette categories the user folded away, remembered between sessions. */
+  const collapsedGroups = new Set((readStoredText(PALETTE_COLLAPSED_KEY) ?? "").split(",").filter(Boolean));
   let ledgeDirectionValue: LedgeDirection = "left";
   let stampRotation: StampRotation = 0;
   const railButton = (tool: string, label: string, key: string, title: string, icon: string, disabled = false) =>
@@ -327,7 +332,8 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   const paletteMarkup = () => {
     const groups = MAP_STAMP_CATEGORIES.map(category => {
       const brushes = paintBrushes.filter(brush => brush.category === category);
-      return brushes.length ? `<section class="mx-brush-group" aria-label="${category}"><h3>${category}</h3><div class="mx-brushes">${brushes.map(brush =>
+      const open = !collapsedGroups.has(category), id = `map3d-brushes-${category.toLowerCase()}`;
+      return brushes.length ? `<section class="mx-brush-group" aria-label="${category}"><h3><button class="mx-group-toggle" type="button" data-brush-group="${category}" aria-expanded="${open}" aria-controls="${id}"><svg class="mx-group-chevron" viewBox="0 0 10 10" width="10" height="10" aria-hidden="true" focusable="false"><path d="M3 2l4 3-4 3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>${category}<span class="mx-group-count">${brushes.length}</span></button></h3><div class="mx-brushes" id="${id}"${open ? "" : " hidden"}>${brushes.map(brush =>
         `<button class="mx-brush" type="button" data-brush="${brush.id}" aria-pressed="false" title="${escapeHtml(brush.label)}"><span class="mx-brush-art">${brush.mode === "tree" ? TOOL_ICONS.treeAdd : brush.mode === "ledge" ? TOOL_ICONS.ledgeAdd : brush.mode === "stamp" || brush.mode === "prop" ? TOOL_ICONS.stampAdd : brush.mode === "fence" ? TOOL_ICONS.fenceAdd : TOOL_ICONS.grassAdd}</span><span class="mx-brush-label">${escapeHtml(brush.label)}</span></button>`).join("")}</div></section>` : "";
     }).join("");
     const arrows: [LedgeDirection, string, string][] = [["up", "↑", "Hop up"], ["left", "←", "Hop left"], ["right", "→", "Hop right"], ["down", "↓", "Hop down"]];
@@ -340,6 +346,8 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
           <h3 id="map3d-brush-name"></h3>
           <p class="mx-note" id="map3d-brush-note"></p>
           <label class="mx-row" data-brush-option="surface"><span class="mx-label">Surface</span><select id="map3d-grass-surface" class="mx-select -compact" aria-label="Grass surface"><option value="auto">Auto</option><option value="upper">Upper (bridge)</option><option value="lower">Lower</option></select></label>
+          <label class="mx-menu-check" data-brush-option="blocked" title="Also paint on tiles the player can't walk on, such as raised or fenced-off scenery. Their collision is left as it is."><input type="checkbox" id="map3d-paint-blocked" ${readStoredText(PAINT_BLOCKED_KEY) === "on" ? "checked" : ""} /> Paint on blocked scenery</label>
+          <label class="mx-row" data-brush-option="ends" title="How a fence looks where it stops. Drag over a fence you drew to give it the other ends."><span class="mx-label">Ends</span><select id="map3d-fence-ends" class="mx-select -compact" aria-label="Fence ends"><option value="corner">Corner start</option><option value="straight"${readStoredText(FENCE_ENDS_KEY) === "straight" ? " selected" : ""}>Straight</option></select></label>
           <label class="mx-menu-check" data-brush-option="native"><input type="checkbox" id="map3d-erase-native" ${readStoredText(ERASE_NATIVE_KEY) === "on" ? "checked" : ""} /> Also erase native elements</label>
           <div class="mx-row" data-brush-option="direction"><span class="mx-label">Hop</span><div class="mx-arrows" role="group" aria-label="Hop direction">${arrows.map(([value, glyph, label]) => `<button class="mx-tool -small" type="button" data-ledge-direction="${value}" aria-pressed="${value === "left"}" aria-label="${label}" title="${label}">${glyph}</button>`).join("")}</div></div>
           <div class="mx-row" data-brush-option="rotate"><span class="mx-label">Turn</span><div class="mx-turn" role="group" aria-label="Turn the object"><button class="mx-tool -small" type="button" data-stamp-turn="-1" aria-label="Turn left" title="Turn left (Shift+T)">⟲</button><output id="map3d-stamp-turn" aria-live="polite">0°</output><button class="mx-tool -small" type="button" data-stamp-turn="1" aria-label="Turn right" title="Turn right (T)">⟳</button></div></div>
@@ -573,6 +581,12 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   const swatches = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-brush]"));
   const ledgeArrows = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-ledge-direction]"));
   const eraseNative = root.querySelector<HTMLInputElement>("#map3d-erase-native");
+  const paintBlocked = root.querySelector<HTMLInputElement>("#map3d-paint-blocked");
+  paintBlocked?.addEventListener("change", () => writeStoredText(PAINT_BLOCKED_KEY, paintBlocked.checked ? "on" : "off"));
+  const allowBlocked = () => Boolean(paintBlocked?.checked);
+  const fenceEnds = root.querySelector<HTMLSelectElement>("#map3d-fence-ends");
+  fenceEnds?.addEventListener("change", () => writeStoredText(FENCE_ENDS_KEY, fenceEnds.value));
+  const fenceEndStyle = () => (fenceEnds?.value === "straight" ? "straight" : "corner") as "corner" | "straight";
   eraseNative?.addEventListener("change", () => { writeStoredText(ERASE_NATIVE_KEY, eraseNative.checked ? "on" : "off"); updateTileToolHints(); });
   const cameraValues=root.querySelector<HTMLOutputElement>('#map3d-camera-values')!;
   const dragLabel = root.querySelector<HTMLElement>("#map3d-drag-label");
@@ -811,7 +825,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
           () => { if (warpDestination) setWarpPicking(); else setTool("select"); },
           () => !!warpDestination,
           () => grassMode === "tree" ? paintBrush?.tree?.size ?? 1 : grassMode === "stamp" && paintBrush?.stamp ? stampSize(paintBrush.stamp, currentStampRotation()) : grassMode === "prop" && paintBrush?.prop ? stampSize(paintBrush.prop, currentStampRotation()) : 1,
-          () => grassMode === "fence" ? "auto" : grassMode !== "ledge" ? undefined : ledgeDirectionValue === "up" || ledgeDirectionValue === "down" ? "x" : "z");
+          () => grassMode === "fence" ? "path" : grassMode !== "ledge" ? undefined : ledgeDirectionValue === "up" || ledgeDirectionValue === "down" ? "x" : "z");
       }
       state.permissionPicking = sidebarTabs.active !== "buildings" && sidebarTabs.active !== "camera";
       state.onBuildingPick = selectBuilding;
@@ -1043,7 +1057,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   function updateTileToolHints() {
     if (dragLabel) dragLabel.textContent = warpDestination ? "Click the tile to warp to · Drag: pan · Esc: cancel"
       : grassMode === "tree" ? `Click or drag to plant: ${paintBrush?.label.toLowerCase()} · Shift-drag: pan · Esc: Select`
-      : grassMode === "fence" ? `Hold and drag along a row or a column to draw: ${paintBrush?.label.toLowerCase()} · Shift-drag: pan · Esc: Select`
+      : grassMode === "fence" ? `Drag a path to draw: ${paintBrush?.label.toLowerCase()} — turns become corners · Shift-drag: pan · Esc: Select`
       : grassMode === "stamp" || grassMode === "prop" ? `Click to place: ${paintBrush?.label.toLowerCase()}${brushTurns() ? " · T: turn" : ""} · Shift-drag: pan · Esc: Select`
       : grassMode === "ledge" ? `Hold and drag along a ${ledgeDirectionValue === "up" || ledgeDirectionValue === "down" ? "row" : "column"} to draw a ledge · Shift-drag: pan · Esc: Select`
       : grassMode === "erase" ? `Drag over grass, trees, ledges, fences or objects${eraseNative?.checked ? "" : " you painted"} to erase them · Shift-drag: pan · Esc: Select`
@@ -1153,7 +1167,9 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     if (note) note.textContent = erasing ? "Remove painted elements" : paintBrush?.note ?? "";
     root.querySelector<HTMLElement>('[data-brush-option="surface"]')?.toggleAttribute("hidden", !(erasing || paintBrush?.grass));
     root.querySelector<HTMLElement>('[data-brush-option="direction"]')?.toggleAttribute("hidden", erasing || paintBrush?.mode !== "ledge");
+    root.querySelector<HTMLElement>('[data-brush-option="ends"]')?.toggleAttribute("hidden", erasing || paintBrush?.mode !== "fence" || !paintBrush.fence?.turnedEnds);
     root.querySelector<HTMLElement>('[data-brush-option="native"]')?.toggleAttribute("hidden", !erasing);
+    root.querySelector<HTMLElement>('[data-brush-option="blocked"]')?.toggleAttribute("hidden", erasing || !paintBrush || paintBrush.mode === "ledge");
     root.querySelector<HTMLElement>('[data-brush-option="rotate"]')?.toggleAttribute("hidden", erasing || !brushTurns());
     const turn = root.querySelector<HTMLElement>("#map3d-stamp-turn");
     if (turn) turn.textContent = `${currentStampRotation() * 90}°`;
@@ -1186,6 +1202,14 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   }
 
   for (const swatch of swatches) swatch.addEventListener("click", () => choosePaintBrush(swatch.dataset.brush!));
+  for (const toggle of root.querySelectorAll<HTMLButtonElement>("[data-brush-group]")) toggle.addEventListener("click", () => {
+    const category = toggle.dataset.brushGroup!, open = toggle.getAttribute("aria-expanded") !== "true";
+    toggle.setAttribute("aria-expanded", String(open));
+    root.querySelector<HTMLElement>(`#${toggle.getAttribute("aria-controls")}`)?.toggleAttribute("hidden", !open);
+    if (open) collapsedGroups.delete(category);
+    else collapsedGroups.add(category);
+    writeStoredText(PALETTE_COLLAPSED_KEY, [...collapsedGroups].join(","));
+  });
   for (const button of root.querySelectorAll<HTMLButtonElement>("[data-stamp-turn]")) button.addEventListener("click", () => {
     turnStamp(button.dataset.stampTurn === "-1" ? -1 : 1);
     state?.renderer.domElement.focus({ preventScroll: true });
@@ -1249,7 +1273,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     try {
       const { paintMapGrass } = await import("../pokeweb/mapGrass");
       const isCurrent = () => activeData === data && grassMode === mode && !!canvasWrap?.isConnected;
-      const stroke = await paintMapGrass(project, data, tiles, kind, { surface, isCurrent });
+      const stroke = await paintMapGrass(project, data, tiles, kind, { surface, isCurrent, allowBlocked: allowBlocked() });
       if (stroke.count) {
         history.push({
           label: "Plant grass",
@@ -1287,7 +1311,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     try {
       const { placeMapTrees, removeMapTrees } = await import("../pokeweb/mapTrees");
       const isCurrent = () => activeData === data && grassMode === mode && !!canvasWrap?.isConnected;
-      const stroke = mode === "tree" ? await placeMapTrees(project, data, tiles, typeId, { isCurrent })
+      const stroke = mode === "tree" ? await placeMapTrees(project, data, tiles, typeId, { isCurrent, allowBlocked: allowBlocked() })
         : await removeMapTrees(project, data, tiles, { isCurrent });
       if (stroke.count) {
         history.push({
@@ -1362,7 +1386,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     try {
       const { placeMapStamps } = await import("../pokeweb/mapStamps");
       const isCurrent = () => activeData === data && grassMode === "stamp" && !!canvasWrap?.isConnected;
-      const stroke = await placeMapStamps(project, data, tiles, stamp.id, rotation, { isCurrent });
+      const stroke = await placeMapStamps(project, data, tiles, stamp.id, rotation, { isCurrent, allowBlocked: allowBlocked() });
       if (stroke.count) {
         history.push({ label: `Place ${stamp.label.toLowerCase()}`, undo: () => replayStamps(stroke, true), redo: () => replayStamps(stroke, false) });
         onDirty?.();
@@ -1394,7 +1418,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     try {
       const { strokeThickGrass } = await import("../pokeweb/mapThickGrass");
       const isCurrent = () => activeData === data && grassMode === "thick" && !!canvasWrap?.isConnected;
-      const stroke = await strokeThickGrass(project, data, tiles, kind, { isCurrent });
+      const stroke = await strokeThickGrass(project, data, tiles, kind, { isCurrent, allowBlocked: allowBlocked() });
       if (stroke.count) {
         history.push({ label: "Paint thick grass", undo: () => replayThick(stroke, true), redo: () => replayThick(stroke, false) });
         onDirty?.();
@@ -1423,18 +1447,21 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     refreshImportButtons();
     if (exportStatus) exportStatus.textContent = `Drawing ${fence.label.toLowerCase()}…`;
     try {
-      const { placeMapFence } = await import("../pokeweb/mapFences");
+      const { strokeFenceTiles } = await import("../pokeweb/mapFences");
       const isCurrent = () => activeData === data && grassMode === "fence" && !!canvasWrap?.isConnected;
-      const stroke = await placeMapFence(project, data, tiles, fence.id, { isCurrent });
+      const stroke = await strokeFenceTiles(project, data, tiles, fence.id, { isCurrent, allowBlocked: allowBlocked(), ends: fence.turnedEnds ? fenceEndStyle() : "corner" });
       if (stroke.count) {
         history.push({ label: `Draw ${fence.label.toLowerCase()}`, undo: () => replayFences(stroke, true), redo: () => replayFences(stroke, false) });
         onDirty?.();
         await load(data.zoneId, true);
       }
       if (exportStatus) {
-        const done = stroke.count ? `Drew a ${tiles.length}-tile ${fence.label.toLowerCase()}.` : "No fence drawn.";
-        const skipped = stroke.skipReasons.map(({ reason, season }) => FENCE_SKIP_LABELS[reason] + (season ? ` in ${season[0].toUpperCase()}${season.slice(1)}` : ""));
-        exportStatus.textContent = done + (skipped.length ? ` (${skipped.join(", ")})` : "");
+        const done = stroke.count ? `Drew ${stroke.count} ${stroke.count === 1 ? "tile" : "tiles"} of ${fence.label.toLowerCase()}.` : "No fence drawn.";
+        const skipped = stroke.skipReasons.map(({ count, reason, season }) => {
+          const label = FENCE_SKIP_LABELS[reason] + (season ? ` in ${season[0].toUpperCase()}${season.slice(1)}` : "");
+          return stroke.skipReasons.length === 1 ? label : `${count} ${label}`;
+        });
+        exportStatus.textContent = done + (skipped.length ? ` Skipped ${stroke.skipped} (${skipped.join(", ")}).` : "");
       }
     } catch (error) {
       if (exportStatus) exportStatus.textContent = error instanceof Error ? error.message : String(error);
@@ -1453,7 +1480,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     try {
       const { placeMapProps } = await import("../pokeweb/mapProps");
       const isCurrent = () => activeData === data && grassMode === "prop" && !!canvasWrap?.isConnected;
-      const stroke = await placeMapProps(project, data, tiles, prop.id, rotation, { isCurrent });
+      const stroke = await placeMapProps(project, data, tiles, prop.id, rotation, { isCurrent, allowBlocked: allowBlocked() });
       if (stroke.count) {
         history.push({ label: `Place ${prop.label.toLowerCase()}`, undo: () => replayProps(stroke, true), redo: () => replayProps(stroke, false) });
         onDirty?.();
@@ -1490,13 +1517,13 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     await load(activeZone, true);
   }
 
-  async function replayFences(stroke: FenceStroke, undo: boolean) {
+  async function replayFences(stroke: FenceTileStroke, undo: boolean) {
     grassBusy = true;
     refreshImportButtons();
     try {
-      const { redoMapFences, undoMapFences } = await import("../pokeweb/mapFences");
-      if (undo) undoMapFences(project, stroke);
-      else redoMapFences(project, stroke);
+      const { redoFenceTiles, undoFenceTiles } = await import("../pokeweb/mapFences");
+      if (undo) undoFenceTiles(project, stroke);
+      else redoFenceTiles(project, stroke);
       onDirty?.();
     } finally {
       grassBusy = false;
@@ -1591,7 +1618,11 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
         const props = await removeMapProps(project, data, tiles, { isCurrent });
         if (props.count) { undoers.push(() => undoMapProps(project, props)); redoers.push(() => redoMapProps(project, props)); done.push(noun(props.count, "model", "models")); }
         describe(props.skipReasons, PROP_SKIP_LABELS);
-        const { removeMapFences, undoMapFences, redoMapFences } = await import("../pokeweb/mapFences");
+        const { removeMapFences, undoMapFences, redoMapFences, strokeFenceTiles, undoFenceTiles, redoFenceTiles } = await import("../pokeweb/mapFences");
+        const fenceTiles = await strokeFenceTiles(project, data, tiles, undefined, { isCurrent });
+        if (fenceTiles.count) { undoers.push(() => undoFenceTiles(project, fenceTiles)); redoers.push(() => redoFenceTiles(project, fenceTiles)); done.push(noun(fenceTiles.count, "fence tile", "fence tiles")); }
+        describe(fenceTiles.skipReasons, FENCE_SKIP_LABELS);
+        // Fences drawn as single straight runs before fences joined up.
         const fences = await removeMapFences(project, data, tiles, { isCurrent });
         if (fences.count) { undoers.push(() => undoMapFences(project, fences)); redoers.push(() => redoMapFences(project, fences)); done.push(noun(fences.count, "fence", "fences")); }
         describe(fences.skipReasons, FENCE_SKIP_LABELS);

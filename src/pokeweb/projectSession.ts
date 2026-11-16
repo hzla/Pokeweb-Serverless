@@ -61,6 +61,7 @@ export type ProjectSession = {
   mapStampOriginalPermissions?: import("./mapStamps").MapStampOriginalPermissions;
   mapThickGrassOriginalPermissions?: import("./mapThickGrass").MapThickGrassOriginalPermissions;
   mapFenceOriginalPermissions?: import("./mapFences").MapFenceOriginalPermissions;
+  mapFenceTileOriginals?: import("./mapFences").MapFenceTileOriginals;
   mapPropOriginals?: import("./mapProps").MapPropOriginals;
   fileSystem?: FileSystemEditState;
   /** Small ROM-backed archive retained when autosave releases originalRomBytes. */
@@ -108,7 +109,7 @@ export function openProjectSession(document: ProjectDocument): ProjectSession {
     cgearButtons: document.cgearButtons, systemShops: document.systemShops, customUi: document.customUi, uiScreens: document.uiScreens,
     cutsceneAuthoring: document.cutsceneAuthoring,
     fieldScenes: document.fieldScenes,
-    map3dAreaEdits: document.map3dAreaEdits, mapGrassOriginalPermissions: document.mapGrassOriginalPermissions, mapTreeOriginalPermissions: document.mapTreeOriginalPermissions, mapLedgeOriginalPermissions: document.mapLedgeOriginalPermissions, mapStampOriginalPermissions: document.mapStampOriginalPermissions, mapThickGrassOriginalPermissions: document.mapThickGrassOriginalPermissions, mapFenceOriginalPermissions: document.mapFenceOriginalPermissions, mapPropOriginals: document.mapPropOriginals, fileSystem: document.fileSystem,
+    map3dAreaEdits: document.map3dAreaEdits, mapGrassOriginalPermissions: document.mapGrassOriginalPermissions, mapTreeOriginalPermissions: document.mapTreeOriginalPermissions, mapLedgeOriginalPermissions: document.mapLedgeOriginalPermissions, mapStampOriginalPermissions: document.mapStampOriginalPermissions, mapThickGrassOriginalPermissions: document.mapThickGrassOriginalPermissions, mapFenceOriginalPermissions: document.mapFenceOriginalPermissions, mapFenceTileOriginals: document.mapFenceTileOriginals, mapPropOriginals: document.mapPropOriginals, fileSystem: document.fileSystem,
     codeInjection: document.codeInjection, overworldWeather: document.overworldWeather,
     pwanAnimations: document.pwanAnimations, w2animAnimations,
     trainerPwanAnimations: document.trainerPwanAnimations, starters: document.starters,

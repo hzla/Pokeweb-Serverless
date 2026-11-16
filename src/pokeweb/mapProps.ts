@@ -170,7 +170,7 @@ function archiveStore(project: ProjectState, rom: NintendoDSRom, name: NarcName,
 }
 
 /** Place a prop with its turned footprint's top-left tile at each anchor, in every seasonal variant of the chunk. */
-export async function placeMapProps(project: ProjectState, scene: Map3dSceneData, anchors: readonly Map3dTile[], typeId: string, rotation: StampRotation, { isCurrent = () => true }: { isCurrent?: () => boolean } = {}): Promise<PropStroke> {
+export async function placeMapProps(project: ProjectState, scene: Map3dSceneData, anchors: readonly Map3dTile[], typeId: string, rotation: StampRotation, { isCurrent = () => true, allowBlocked = false }: { isCurrent?: () => boolean; allowBlocked?: boolean } = {}): Promise<PropStroke> {
   const type = MAP_PROP_TYPES.find(entry => entry.id === typeId);
   ensure(type && project.session.baseRom === "BW2", "Choose a model for this game.");
   const turn = (type!.rotatable ? rotation : 0) as StampRotation;
@@ -199,7 +199,7 @@ export async function placeMapProps(project: ProjectState, scene: Map3dSceneData
       let map = contents.get(id);
       if (!map) { map = readGen5MapBin(bytes); contents.set(id, map); }
       if (tiles.some(tile => occupied.get(id)?.has(tile.index))) { failure = { reason: "occupied", season }; break; }
-      const site = treeSite(map, tiles.map(tile => tile.index), game);
+      const site = treeSite(map, tiles.map(tile => tile.index), game, { allowBlocked });
       if (typeof site === "string") { failure = { reason: site, season }; break; }
       stroke.push({ id, ...site });
     }

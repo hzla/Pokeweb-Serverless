@@ -19,8 +19,10 @@ import {
   updateTrainerField,
   updateTrainerPokemonField,
 } from "../pokeweb/trainerModel";
-import { getTrainerMemberSettings, updateTrainerMemberSettings, type TrainerMemberSettings } from "../pokeweb/trainerCustomizationModel";
+import { getTrainerCustomizationStatus, getTrainerMemberSettings, trainerCustomizationNeedsInstall, updateTrainerMemberSettings, type TrainerMemberSettings } from "../pokeweb/trainerCustomizationModel";
 import { updateTrainerText } from "../pokeweb/trainerTextModel";
+import { followTrainerSlotMoves, getTrainerSlotMovePools, setTrainerSlotMovePools, trainerSlotMoves } from "../pokeweb/trainerRosterModel";
+import { emptyTrainerMovePools, hasMoveAlternatives, TRAINER_MOVE_WEIGHT_MAX, type TrainerMovePools } from "../pokeweb/trainerMovePools";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml, selectText } from "./dom";
 import { attachTrainerFieldSettings } from "./trainerFieldConditions";
@@ -33,6 +35,7 @@ import {
   renderEmptyParty,
   renderTrainerDetail,
   rosterView,
+  renderNewMoveAlternative,
   renderTrainerDialogue,
   renderTrainerPartyStrip,
   renderTrainerSlotEditor,
@@ -49,13 +52,17 @@ export type TrainerDetailOptions = {
   onOpenTrainerSprite?: (trainerClassId: number) => void;
   /** Open another trainer in the editor. */
   onOpenTrainer?: (trainerId: number) => void;
-  /** Install or update Trainer Customization, then redraw the editor. */
-  onInstallCustomization?: () => Promise<void>;
+  /** Install or update Trainer Customization (without redrawing). Edits that need the patch call this first. */
+  installCustomization?: () => Promise<void>;
+  /** Redraw the whole editor once an edit has installed Trainer Customization. */
+  onCustomizationInstalled?: () => void;
   /** Called after any change to a trainer so its list row can be redrawn. */
   onTrainerChanged?: (trainerId: number) => void;
   getTestTeamText: () => string;
   autofills: Record<string, string[]>;
   natureField: boolean;
+  /** The ROM has its own trainer nature patch, so choosing a nature doesn't need Trainer Customization. */
+  natureNative?: boolean;
 };
 
 export type TrainerDetailController = {
@@ -226,6 +233,10 @@ export function attachTrainerDetail(
     const fieldName = field.dataset.fieldName;
     if (!narc || !fieldName) return false;
     let nextValue = field.textContent?.trim() ?? "";
+    if (narc === "trmove" && fieldName.endsWith("_new") && !nextValue) {
+      field.closest("tr")?.remove();
+      return false;
+    }
     const pickedValue = field.dataset.commitValue;
     if (pickedValue !== undefined && field.dataset.commitLabel === nextValue) nextValue = pickedValue;
     else if (nextValue === initialValue) {
@@ -255,17 +266,40 @@ export function attachTrainerDetail(
         const wasUsed = field.closest(".td-unused") === null;
         updateTrainerText(project, trainerId(), Number(match[1]), nextValue);
         if (wasUsed !== (nextValue !== "")) window.setTimeout(renderDialogue, 0);
+      } else if (narc === "trmove") {
+        const match = /^movealt_([0-3])_(\d+|new)$/u.exec(fieldName);
+        if (!match) throw new Error(`Unsupported move field: ${fieldName}`);
+        const slot = Number(match[1]), index = match[2] === "new" ? -1 : Number(match[2]);
+        const move = resolveMove(nextValue);
+        withCustomization(() => editMoves((pools, moves) => {
+          const alternatives = pools[slot]!.alternatives;
+          if (move && (move === moves[slot] || alternatives.some((option, other) => other !== index && option.move === move)))
+            throw new Error(`${nextValue} is already a choice for move ${slot + 1}.`);
+          if (index < 0) {
+            if (move) alternatives.push({ move, weight: 1 });
+          } else if (!move) alternatives.splice(index, 1);
+          else alternatives[index]!.move = move;
+        }));
+        return true;
       } else if (view().pool) {
         let shown: string | number = nextValue;
+        const member = view().pool?.members[selection.slot];
+        const varied = !!member && "pokemon" in member && hasMoveAlternatives(member.pokemon.movePools);
         const result = editPool((pool) => { shown = editPoolMemberField(project, poolPokemon(pool), fieldName, nextValue); });
         field.textContent = String(shown);
         if (!result.saved) field.title = `Not saved yet: ${result.problem}`;
-        refreshSlotDerived();
+        if (varied && /^move_[1-4]_\d+$/u.test(fieldName)) window.setTimeout(renderParty, 0);
+        else refreshSlotDerived();
       } else {
-        if (/^move_[1-4]_\d+$/u.test(fieldName)) fillDefaultMovesBeforeEnabling();
+        const moveField = /^move_[1-4]_\d+$/u.test(fieldName);
+        if (moveField) fillDefaultMovesBeforeEnabling();
+        const previousMoves = trainerSlotMoves(project, trainerId(), selection.slot);
         const result = updateTrainerPokemonField(project, trainerId(), selection.slot, fieldName, nextValue);
         field.textContent = String(result.value);
+        const varied = moveField && hasMoveAlternatives(getTrainerSlotMovePools(project, trainerId(), selection.slot));
+        if (varied) followTrainerSlotMoves(project, trainerId(), selection.slot, previousMoves);
         if (flagsChanged(before)) window.setTimeout(render, 0);
+        else if (varied) window.setTimeout(renderParty, 0);
         else refreshSlotDerived();
       }
       field.classList.remove("invalid");
@@ -410,25 +444,33 @@ export function attachTrainerDetail(
 
     const button = target.closest<HTMLButtonElement>("button");
     if (!button || button.disabled) return;
+    if (button.dataset.moveAltAdd !== undefined) {
+      const slot = Number(button.dataset.moveAltAdd);
+      // Put the new row under the slot's own move and its alternatives.
+      let last = detail.querySelector<HTMLElement>(`[data-slot-editor] tr[data-move-row="${slot}"]`);
+      while (last?.nextElementSibling?.classList.contains("td-move-alt")) last = last.nextElementSibling as HTMLElement;
+      const existing = detail.querySelector<HTMLElement>(`[data-slot-editor] tr.-new[data-move-alt-row="${slot}"] [contenteditable]`);
+      if (existing) {
+        existing.focus();
+        return;
+      }
+      if (!last) return;
+      last.insertAdjacentHTML("afterend", renderNewMoveAlternative(slot));
+      const row = last.nextElementSibling as HTMLElement;
+      installFields(row);
+      row.querySelector<HTMLElement>("[contenteditable]")?.focus();
+      return;
+    }
+    if (button.dataset.moveAltRemove !== undefined) {
+      const [slot, index] = button.dataset.moveAltRemove.split(":").map(Number) as [number, number];
+      withCustomization(() => editMoves((pools) => { pools[slot]!.alternatives.splice(index, 1); }));
+      return;
+    }
     const choice = button.dataset.slotChoice ?? button.dataset.memberChoice;
     if (choice !== undefined) {
       if (button.getAttribute("aria-pressed") === "true") return;
-      try {
-        if (view().pool) {
-          editPool((pool) => {
-            const pokemon = poolPokemon(pool);
-            if (button.dataset.slotChoice !== undefined) editPoolMemberField(project, pokemon, choice, button.dataset.value ?? "");
-            else setPoolMemberSetting(pokemon, choice as keyof TrainerMemberSettings, Number(button.dataset.value));
-          });
-        } else if (button.dataset.slotChoice !== undefined) updateTrainerPokemonField(project, id, selection.slot, choice, button.dataset.value ?? "");
-        else updateTrainerMemberSettings(project, id, selection.slot, choice as keyof TrainerMemberSettings, Number(button.dataset.value));
-        changed();
-      } catch (error) {
-        window.alert(error instanceof Error ? error.message : String(error));
-      }
-      refreshSlotDerived();
-      const attribute = button.dataset.slotChoice !== undefined ? "data-slot-choice" : "data-member-choice";
-      detail.querySelector<HTMLElement>(`[data-slot-editor] [${attribute}="${CSS.escape(choice)}"][data-value="${CSS.escape(button.dataset.value ?? "")}"]`)?.focus();
+      if (button.dataset.memberChoice !== undefined && !view().pool) withCustomization(() => applyChoice(button, choice));
+      else applyChoice(button, choice);
       return;
     }
     const run = (action: () => void, after: () => void = renderParty) => {
@@ -501,7 +543,9 @@ export function attachTrainerDetail(
       });
     } else if (button.matches("[data-slot-autofill]")) {
       run(() => {
+        const previousMoves = trainerSlotMoves(project, id, selection.slot);
         autofillTrainerPokemonMoves(project, id, selection.slot);
+        followTrainerSlotMoves(project, id, selection.slot, previousMoves);
       }, render);
     } else if (button.matches("[data-slot-copy]")) {
       await copyWithFeedback(button, () => formatTrainerPokemonShowdownText(project, id, selection.slot));
@@ -559,6 +603,28 @@ export function attachTrainerDetail(
 
   detail.addEventListener("change", (event) => {
     const target = event.target as HTMLElement;
+    if (target instanceof HTMLInputElement && target.dataset.moveWeight) {
+      const [slot, option] = target.dataset.moveWeight.split(":") as [string, string];
+      const weight = Math.round(target.valueAsNumber);
+      const own = option === "own";
+      if (!(weight >= (own ? 0 : 1) && weight <= TRAINER_MOVE_WEIGHT_MAX)) {
+        renderParty();
+        return;
+      }
+      withCustomization(() => editMoves((pools) => {
+        const entry = pools[Number(slot)]!;
+        if (own) entry.weight = weight;
+        else entry.alternatives[Number(option)]!.weight = weight;
+      }));
+      return;
+    }
+    // Trainer Customization's settings, and the nature when only the patch can set it, install the patch first.
+    const customization = target.dataset.hpExact !== undefined || target.dataset.trainerCustomization !== undefined
+      || (target.dataset.slotSelect?.startsWith("nature") && getTrainerCustomizationStatus(project) === "ready" && !options.natureNative);
+    if (customization && !view().pool && (pendingEdits || trainerCustomizationNeedsInstall(project))) withCustomization(() => applyChange(target));
+    else applyChange(target);
+  }, { signal });
+  const applyChange = (target: HTMLElement) => {
     const id = trainerId();
     try {
       if (target instanceof HTMLInputElement && target.dataset.hpExact !== undefined) {
@@ -594,7 +660,7 @@ export function attachTrainerDetail(
       window.alert(error instanceof Error ? error.message : String(error));
       render();
     }
-  }, { signal });
+  };
 
   detail.addEventListener("contextmenu", (event) => {
     const input = (event.target as HTMLElement).closest(".td-ai-flag")?.querySelector<HTMLInputElement>("input[data-trainer-ai]");
@@ -608,6 +674,94 @@ export function attachTrainerDetail(
     if (updated > 0) options.onDirty?.();
   }, { signal });
 
+  /**
+   * Run an edit that needs Trainer Customization. When the patch isn't installed (or is an older version), it is
+   * installed first, the edit is applied, and the whole editor is redrawn so every control the patch adds shows.
+   * Edits made while the install runs wait for it.
+   */
+  let pendingEdits: Array<() => void> | undefined;
+  const withCustomization = (edit: () => void) => {
+    if (pendingEdits) {
+      pendingEdits.push(edit);
+      return;
+    }
+    if (!options.installCustomization || !trainerCustomizationNeedsInstall(project)) {
+      edit();
+      return;
+    }
+    const edits = pendingEdits = [edit];
+    detail.setAttribute("aria-busy", "true");
+    void options.installCustomization().then(() => {
+      pendingEdits = undefined;
+      for (const queued of edits) {
+        try {
+          queued();
+        } catch (error) {
+          window.alert(error instanceof Error ? error.message : String(error));
+        }
+      }
+      detail.removeAttribute("aria-busy");
+      if (options.onCustomizationInstalled) options.onCustomizationInstalled();
+      else render();
+    }, (error: unknown) => {
+      pendingEdits = undefined;
+      detail.removeAttribute("aria-busy");
+      window.alert(`Trainer Customization couldn't be installed: ${error instanceof Error ? error.message : String(error)}`);
+      render();
+    });
+  };
+  /** Change the selected Pokémon's move alternatives, in its trainer's party or its alternate party or pool. */
+  const editMoves = (change: (pools: TrainerMovePools, moves: readonly number[]) => void) => {
+    try {
+      if (view().pool) {
+        editPool((pool) => {
+          const pokemon = poolPokemon(pool);
+          const next = structuredClone(pokemon.movePools ?? emptyTrainerMovePools());
+          change(next, pokemon.moves);
+          if (hasMoveAlternatives(next)) pokemon.movePools = next;
+          else delete pokemon.movePools;
+        });
+      } else {
+        const id = trainerId();
+        const next = structuredClone(getTrainerSlotMovePools(project, id, selection.slot) ?? emptyTrainerMovePools());
+        change(next, trainerSlotMoves(project, id, selection.slot));
+        setTrainerSlotMovePools(project, id, selection.slot, next);
+      }
+      changed();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : String(error));
+    }
+    renderParty();
+  };
+  const resolveMove = (text: string) => {
+    const names = project.texts.banks.moves ?? [];
+    const value = text.trim();
+    if (!value || /^(none|-+)$/iu.test(value)) return 0;
+    if (/^\d+$/u.test(value) && Number(value) > 0 && Number(value) < names.length) return Number(value);
+    const id = names.findIndex((name, index) => index > 0 && String(name).toLowerCase() === value.toLowerCase());
+    if (id > 0) return id;
+    throw new Error(`Unknown move: ${text}`);
+  };
+  /** A pressed choice button in the slot editor: a Pokémon field, or a Trainer Customization setting. */
+  const applyChoice = (button: HTMLButtonElement, choice: string) => {
+    const id = trainerId();
+    try {
+      if (view().pool) {
+        editPool((pool) => {
+          const pokemon = poolPokemon(pool);
+          if (button.dataset.slotChoice !== undefined) editPoolMemberField(project, pokemon, choice, button.dataset.value ?? "");
+          else setPoolMemberSetting(pokemon, choice as keyof TrainerMemberSettings, Number(button.dataset.value));
+        });
+      } else if (button.dataset.slotChoice !== undefined) updateTrainerPokemonField(project, id, selection.slot, choice, button.dataset.value ?? "");
+      else updateTrainerMemberSettings(project, id, selection.slot, choice as keyof TrainerMemberSettings, Number(button.dataset.value));
+      changed();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : String(error));
+    }
+    refreshSlotDerived();
+    const attribute = button.dataset.slotChoice !== undefined ? "data-slot-choice" : "data-member-choice";
+    detail.querySelector<HTMLElement>(`[data-slot-editor] [${attribute}="${CSS.escape(choice)}"][data-value="${CSS.escape(button.dataset.value ?? "")}"]`)?.focus();
+  };
   /** Starting HP: 100% is full HP, anything less a percentage, or an exact number typed beside the bar. */
   const setStartingHp = (mode: number, hp: number) => {
     const id = trainerId();
@@ -623,7 +777,7 @@ export function attachTrainerDetail(
     }
     refreshSlotDerived();
   };
-  const commitHpPercent = (percent: number) => {
+  const commitHpPercent = (percent: number) => withCustomization(() => {
     try {
       setStartingHp(percent >= 100 ? 0 : 1, percent);
       changed();
@@ -631,7 +785,7 @@ export function attachTrainerDetail(
       window.alert(error instanceof Error ? error.message : String(error));
       refreshSlotDerived();
     }
-  };
+  });
   /** Show a percentage on the bar while it is dragged, before it is saved. */
   const previewHp = (bar: HTMLElement, percent: number) => {
     const hp = bar.closest<HTMLElement>(".td-hp");
@@ -703,8 +857,11 @@ export function attachTrainerDetail(
     changed,
     openTrainer: (id) => options.onOpenTrainer?.(id),
     install: async () => {
-      await options.onInstallCustomization?.();
+      await options.installCustomization?.();
+      if (options.onCustomizationInstalled) options.onCustomizationInstalled();
+      else render();
     },
+    withCustomization,
   }, signal);
   attachTrainerFieldSettings(project, detail, options.onDirty);
   attachTrainerLevelCapSetting(project, detail, changed);

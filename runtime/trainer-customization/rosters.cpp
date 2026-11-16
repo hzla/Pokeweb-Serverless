@@ -22,24 +22,34 @@ static int findSetup(const u8* setup) {
     return -1;
 }
 
-u32 trainerRosterSource(const u8* setup, u32 client, u32 original, u32& slot, const u8*& direct) {
+u32 trainerRosterSource(const u8* setup, u32 client, u32 original, u32& slot, const u8*& direct, u32& movesKey) {
     const int index = findSetup(setup);
+    movesKey = (original << 8) | slot;
     if (index < 0) return original;
     const u32 chosen = selections[index].source[client >> 1];
     if (isPool(chosen)) {
         const auto& pool = selections[index].pool[client >> 1];
         if (slot >= pool.size) return original;
         const auto& member = pool.members[slot];
-        if (!member.trainer()) direct = member.bytes + 22;
+        // A pool's own Pokémon keep their move pools under the pool; linked ones use their source slot's.
+        if (!member.trainer()) {
+            direct = member.bytes + 22;
+            movesKey = (chosen << 8) | pool.index[slot];
+        } else {
+            movesKey = (member.trainer() << 8) | member.slot();
+        }
         slot = member.slot();
         return member.trainer();
     }
-    return chosen >= RetailRoster ? original : chosen;
+    const u32 source = chosen >= RetailRoster ? original : chosen;
+    movesKey = (source << 8) | slot;
+    return source;
 }
 
 extern "C" void* ClearTrainerRosters(u8* setup, int value, u32 size) {
     const int index = findSetup(setup);
     if (index >= 0) selections[index].setup = nullptr;
+    forgetRolledMoves(setup);
     const auto clear = reinterpret_cast<void*(*)(void*, int, u32)>(PARTY_FUNCTION(0x020787d4));
     return clear(setup, value, size);
 }

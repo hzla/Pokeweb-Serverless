@@ -1,15 +1,16 @@
 {
   "B2": {
     "gameCode": "IREO",
-    "version": "2.6.0",
+    "version": "2.7.0",
     "hook": 35245458,
-    "sha256": "7a7abf9e2722a869668ec7b391a8bb829eac9bc4c91118e5f8743b3e8ad74784",
+    "sha256": "7bbaa641cd4453a670326f31be41b11e8108c31298a4c5745ebf3ef9bcd26887",
     "previousSha256": "e9c9406d219edd77f858ac5a8462d1e3720b342675a5327d2c9bd82599e6a5e5",
     "weightedSha256": "78d294c12ea62e805dbd4fe911ff78bf12b0b4e0d39c03367165ccf5669e8f47",
     "conditionalSha256": "03f9ee4a3310f489af634e47cc3296b0591068e0a1deedc3567de0ab1b74d2f2",
     "linkedPoolsSha256": "6d6e998f3727aa58c001c3e512f000b2a135bfef1d3999db1baff5a8fa64aac7",
     "directPoolsSha256": "78f4a8f38730a7a91db66c715a298b6211babb508df861f1243b8da365bc3eb1",
     "fixedPartiesSha256": "32bec2170e380b701e4262706870baf5ea9332677ac92f30b51fe5a0873bf034",
+    "slotPoolsSha256": "7a7abf9e2722a869668ec7b391a8bb829eac9bc4c91118e5f8743b3e8ad74784",
     "legacySha256": "a4ce5c8bdab4bf5eefa07faedfc70cc4c42e0ab8886fa53eca2ea594d484f7cf",
     "arm9": [
       {
@@ -165,15 +166,16 @@
   },
   "W2": {
     "gameCode": "IRDO",
-    "version": "2.6.0",
+    "version": "2.7.0",
     "hook": 35245522,
-    "sha256": "d9d6176b48c3704a89da37708a1d8ff2ea0feebe3e6aa375bd1d959c98102184",
+    "sha256": "82b64bc478f1592f5e6abfce7429ad6a66dceef966cb23e58db172178bb39ec1",
     "previousSha256": "22a2ffb6dd7a56b92b560725e94806b68ad9050f9907fb9f7d3734577d5f9328",
     "weightedSha256": "3b74353330cec72d879505c775e6f14c56872847e1a844ddfdec29b12379acf1",
     "conditionalSha256": "96b1fb068bb87121c4f9eeab21de6566c18b4c3c82f7a80f1ca8ff0a99607668",
     "linkedPoolsSha256": "dcb9bbb77a43d96b6d7190905078b9e63feaef9f810492befcd2d583125d1975",
     "directPoolsSha256": "5ccc43e52b9693bf758675c3438a131505145c45f7dc6266aa035e81f388792b",
     "fixedPartiesSha256": "e34b0cc0556a28aac7506eea008c8e278f9b78862f024a0bb4b6bbc568ae2c2c",
+    "slotPoolsSha256": "d9d6176b48c3704a89da37708a1d8ff2ea0feebe3e6aa375bd1d959c98102184",
     "legacySha256": "5f6b0fa9d34056ca556ed1745d48ee4f45a09b6d9c1ccd28eb1887375d68b774",
     "arm9": [
       {

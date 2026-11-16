@@ -5,11 +5,12 @@ import { getRomFileBytes } from "./fileSystemModel";
 import { gen5HeightAt } from "./gen5MapHeightGeneration";
 import { equalMapBytes, readGen5MapBin } from "./gen5MapImportFormats";
 import { extractGameFreakContainer, invalidateMap3dAssets, packGameFreakContainer, readNitroResources, type Map3dSceneData, type Map3dTile } from "./map3dModel";
-import { appendBrushPieces, brushPieceKey, nativeFaces, readBrushPieces, rootIsIdentity, type BrushKind, type BrushPart, type BrushVertex } from "./mapBrushGeometry";
+import { appendBrushPieces, brushPieceKey, MERGED_PIECE_PAYLOAD, nativeFaces, readBrushPieces, rootIsIdentity, writeTileBrush, type BrushKind, type BrushPart, type BrushPiece, type BrushVertex } from "./mapBrushGeometry";
 import { mapBrushContext, texturePacksFor } from "./mapGrass";
 import { clipBetween } from "./mapNativeErase";
 import { donorSeasonBanks, stampBindings } from "./mapStamps";
-import { addNativeTextures, brushDestinations, permission, snapGround, TREE_TILE, treeSite, writePermission, type MapTreeOriginalTile, type TreeSkipReason } from "./mapTrees";
+import { addNativeTextures, brushDestinations, cornerHeights, permission, snapGround, TREE_TILE, treeSite, writePermission, type MapTreeOriginalTile, type TreeSkipReason } from "./mapTrees";
+import type { Gen5PermissionTileLike } from "./gen5PermissionModel";
 import { ensure } from "./nitroResourceWriter";
 import { createNarcStore, markDirty, type ProjectState } from "./projectStore";
 import type { MatrixSeason } from "./seasonalMatrixModel";
@@ -24,18 +25,19 @@ import type { MatrixSeason } from "./seasonalMatrixModel";
 export type FenceAxis = "x" | "z";
 /** `box` is [x0, x1, z0, z1] around the run's faces; `start` and `length` are its tiles along the axis, `across` the tile it stands in. An open end runs into the next chunk, so the middle tile stands in for it. */
 export type FenceDonor = { axis: FenceAxis; map: number; area: number; box: readonly [number, number, number, number]; faces: number; start: number; length: number; across: number; openStart?: boolean; openEnd?: boolean };
-export type MapFenceType = { id: string; label: string; materials: readonly string[]; donors: readonly FenceDonor[] };
+/** `turnedEnds`: the game's end piece carries the start of a turn, so connected fences offer straight ends. */
+export type MapFenceType = { id: string; label: string; materials: readonly string[]; donors: readonly FenceDonor[]; turnedEnds?: true };
 
 /** Black 2 / White 2 fences. Order matters: placed fences store their catalog index. */
 export const MAP_FENCE_TYPES: readonly MapFenceType[] = [
   { id: "striaton-fence", label: "Striaton fence", materials: ["c01saku", "saku01a"],
     donors: [
       { axis: "x", map: 10, area: 6, box: [-160, 16, 165, 175], faces: 6, start: 6, length: 11, across: 26 } ] },
-  { id: "pointy-white-fence", label: "Pointy white fence", materials: ["saku01a"],
+  { id: "pointy-white-fence", label: "Pointy white fence", materials: ["saku01a"], turnedEnds: true,
     donors: [
       { axis: "x", map: 64, area: 42, box: [-112, -16, -216, -206], faces: 6, start: 9, length: 6, across: 2 },
       { axis: "z", map: 66, area: 42, box: [192, 205, 19, 80], faces: 18, start: 17, length: 4, across: 28 } ] },
-  { id: "orange-fence", label: "Orange fence", materials: ["out07saku"],
+  { id: "orange-fence", label: "Orange fence", materials: ["out07saku"], turnedEnds: true,
     donors: [
       { axis: "x", map: 41, area: 26, box: [-208, -112, 115, 125], faces: 6, start: 3, length: 6, across: 23 },
       { axis: "z", map: 41, area: 26, box: [64, 77, 40, 125], faces: 12, start: 18, length: 6, across: 20 } ] },
@@ -82,13 +84,42 @@ type Face = BrushVertex[];
 /** One tile of fence, in the drawn axis's frame: positions relative to the tile's top-left corner and the ground. */
 type FencePiece = Face[];
 /** Per material: the start, middle and end tiles, and how far its texture coordinates move per tile along the run. */
-type FencePart = { part: BrushPart; start: FencePiece; middle: FencePiece; end: FencePiece; slope: [number, number]; period: [number, number]; donorStart: number; donorEnd: number };
+type Slope = [number, number];
+/**
+ * `faceSlopes`, per face of each piece, overrides the part's `slope`: a rail clipped from one long face continues its
+ * own texture, while a post the game repeats on every tile keeps the same coordinates.
+ */
+type FencePart = { part: BrushPart; start: FencePiece; middle: FencePiece; end: FencePiece; slope: Slope; period: [number, number]; donorStart: number; donorEnd: number;
+  faceSlopes?: Record<"start" | "middle" | "end", Slope[]> };
+
+/** A piece's faces with their texture moved `steps` tiles along the run. */
+function continuePiece(faces: FencePiece, steps: number, part: FencePart, role: "start" | "middle" | "end"): FencePiece {
+  return faces.map((face, i) => {
+    const slope = part.faceSlopes?.[role][i] ?? part.slope;
+    const shift = [0, 1].map(axis => continueTexture(steps * slope[axis], part.period[axis]));
+    if (!shift[0] && !shift[1]) return face;
+    return face.map(vertex => {
+      if (vertex.texcoord === undefined) return vertex;
+      const [s, t] = texcoordParts(vertex.texcoord);
+      return { ...vertex, texcoord: packTexcoord(s + shift[0], t + shift[1]) };
+    });
+  });
+}
 export type FenceTemplate = { type: MapFenceType; axis: FenceAxis; parts: FencePart[] };
 
 const s16 = (value: number) => (value << 16) >> 16;
 const texcoordParts = (texcoord: number) => [s16(texcoord), s16(texcoord >>> 16)] as const;
 const packTexcoord = (s: number, t: number) => (((Math.round(s) & 0xffff) | ((Math.round(t) & 0xffff) << 16)) >>> 0);
 const s10 = (value: number) => (value << 22) >> 22;
+
+/**
+ * How far a tile's texture coordinates move to continue the run's texture. They keep running along the run, as the
+ * game's long fence faces do, so neighbouring tiles can be drawn as one face; only a shift that nears the edge of the
+ * coordinate range is brought back by whole texture repeats.
+ */
+export function continueTexture(raw: number, period: number) {
+  return period && Math.abs(raw) > 12288 ? raw - Math.round(raw / period) * period : raw;
+}
 
 /** A quarter turn about y of a piece in its tile: x→z turns clockwise ((x, z) → (16 − z, x)), z→x anticlockwise. */
 function turnPiece(faces: FencePiece, to: FenceAxis): FencePiece {
@@ -126,10 +157,41 @@ export function cutFence(donorModel: Uint8Array, type: MapFenceType, donor: Fenc
     return local(faces.flatMap(face => clipBetween(face, axis, lo, hi)), t);
   };
   const last = donor.length - 1, middle = Math.min(1, last);
+  // Clipped faces with the index of the native face each came from.
+  const cutTagged = (faces: readonly Face[], t: number, open: "before" | "after" | "none") => {
+    const out: Face[] = [], sources: number[] = [];
+    faces.forEach((face, source) => { for (const piece of cut([face], t, open)) { out.push(piece); sources.push(source); } });
+    return { faces: out, sources };
+  };
+  const positionKey = (v: BrushVertex) => v.position.map(n => n.toFixed(2)).join(",");
   const parts = native.map((source): FencePart => {
-    const mid = cut(source.faces, middle, "none");
-    const start = donor.openStart ? mid : cut(source.faces, 0, "before");
-    const end = donor.openEnd ? mid : cut(source.faces, last, "after");
+    const midTagged = cutTagged(source.faces, middle, "none");
+    const startTagged = donor.openStart ? midTagged : cutTagged(source.faces, 0, "before");
+    const endTagged = donor.openEnd ? midTagged : cutTagged(source.faces, last, "after");
+    const mid = midTagged.faces, start = startTagged.faces, end = endTagged.faces;
+    // Each middle face's texture step per tile: compare it with the same face cut from the next tile. Start and end
+    // faces cut from the same native face take its step; faces of their own (an end post) keep their coordinates.
+    const midSlopes: Slope[] = mid.map(() => [0, 0]);
+    if (donor.length >= 4) {
+      const next = cut(source.faces, middle + 1, "none");
+      mid.forEach((face, i) => {
+        const shape = face.map(positionKey).sort().join("|");
+        const match = next.find(other => other.length === face.length && other.map(positionKey).sort().join("|") === shape);
+        if (!match) return;
+        const later = new Map(match.map(v => [positionKey(v), v.texcoord]));
+        const deltas = face.flatMap(v => {
+          const other = later.get(positionKey(v));
+          if (v.texcoord === undefined || other === undefined) return [];
+          const [a, b] = texcoordParts(v.texcoord), [c, d] = texcoordParts(other);
+          return [[c - a, d - b]];
+        });
+        if (deltas.length === face.length && deltas.every(([s, t]) => Math.abs(s - deltas[0][0]) <= 2 && Math.abs(t - deltas[0][1]) <= 2)) midSlopes[i] = [deltas[0][0], deltas[0][1]];
+      });
+    }
+    const bySource = new Map<number, Slope>();
+    midTagged.sources.forEach((source, i) => { if (!bySource.has(source)) bySource.set(source, midSlopes[i]); });
+    const slopesOf = (tagged: { sources: number[] }): Slope[] => tagged.sources.map(source => bySource.get(source) ?? [0, 0]);
+    const faceSlopes = { start: donor.openStart ? midSlopes : slopesOf(startTagged), middle: midSlopes, end: donor.openEnd ? midSlopes : slopesOf(endTagged) };
     // Texture slope per tile: the same vertex one tile further along, where the run is long enough to show it.
     let slope: [number, number] = [0, 0];
     if (donor.length >= 4) {
@@ -145,7 +207,7 @@ export function cutFence(donorModel: Uint8Array, type: MapFenceType, donor: Fenc
       if (deltas.length && deltas.every(([s, t]) => Math.abs(s - deltas[0][0]) <= 2 && Math.abs(t - deltas[0][1]) <= 2)) slope = [deltas[0][0], deltas[0][1]];
     }
     const [w, h] = textureSize(source.record.textureName);
-    return { part: { ...source, faces: [] }, start, middle: mid, end, slope, period: [w * 16, h * 16], donorStart: donor.openStart ? middle : 0, donorEnd: donor.openEnd ? middle : last };
+    return { part: { ...source, faces: [] }, start, middle: mid, end, slope, period: [w * 16, h * 16], donorStart: donor.openStart ? middle : 0, donorEnd: donor.openEnd ? middle : last, faceSlopes };
   });
   return { type, axis: donor.axis, parts };
 }
@@ -172,21 +234,15 @@ export function appendMapFences(modelFile: Uint8Array, fences: readonly FencePla
     const { axis } = template, tileX = startIndex % 32, tileY = Math.floor(startIndex / 32);
     return {
       payload: fencePayload(startIndex, length, axis, template.type),
-      parts: template.parts.map(({ part, start, middle, end, slope, period, donorStart, donorEnd }) => ({
-        ...part,
+      parts: template.parts.map((fencePart) => ({
+        ...fencePart.part,
         faces: Array.from({ length }, (_, k) => {
-          const [piece, donorIndex] = k === 0 ? [start, donorStart] : k === length - 1 ? [end, donorEnd] : [middle, Math.min(1, donorEnd)];
-          // Continue the texture along the run, moved by whole repeats so the numbers stay small.
-          const shift = [0, 1].map(i => { const raw = (k - donorIndex) * slope[i]; return period[i] ? raw - Math.round(raw / period[i]) * period[i] : raw; });
+          const { start, middle, end, donorStart, donorEnd } = fencePart;
+          const [piece, donorIndex, role] = k === 0 ? [start, donorStart, "start" as const] : k === length - 1 ? [end, donorEnd, "end" as const] : [middle, Math.min(1, donorEnd), "middle" as const];
+          // Continue the texture along the run.
           const ox = (tileX - 16) * TILE + (axis === "x" ? k * TILE : 0), oz = (tileY - 16) * TILE + (axis === "z" ? k * TILE : 0);
-          return piece.map(face => face.map(vertex => {
-            const moved: BrushVertex = { ...vertex, position: [ox + vertex.position[0], ground + vertex.position[1], oz + vertex.position[2]] };
-            if (vertex.texcoord !== undefined && (shift[0] || shift[1])) {
-              const [s, t] = texcoordParts(vertex.texcoord);
-              moved.texcoord = packTexcoord(s + shift[0], t + shift[1]);
-            }
-            return moved;
-          }));
+          return continuePiece(piece, k - donorIndex, fencePart, role).map(face => face.map(vertex =>
+            ({ ...vertex, position: [ox + vertex.position[0], ground + vertex.position[1], oz + vertex.position[2]] as const })));
         }).flat(),
       })),
     };
@@ -255,7 +311,7 @@ function fenceAssets(source: Uint8Array, rom: NintendoDSRom, type: MapFenceType,
 }
 
 /** Draw a fence over a straight run of tiles along the drag's main direction. */
-export async function placeMapFence(project: ProjectState, scene: Map3dSceneData, tiles: readonly Map3dTile[], typeId: string, { isCurrent = () => true }: { isCurrent?: () => boolean } = {}): Promise<FenceStroke> {
+export async function placeMapFence(project: ProjectState, scene: Map3dSceneData, tiles: readonly Map3dTile[], typeId: string, { isCurrent = () => true, allowBlocked = false }: { isCurrent?: () => boolean; allowBlocked?: boolean } = {}): Promise<FenceStroke> {
   const type = MAP_FENCE_TYPES.find(entry => entry.id === typeId);
   ensure(type && project.session.baseRom === "BW2", "Choose a fence for this game.");
   const { result, skip } = fenceStroke("place");
@@ -280,7 +336,7 @@ export async function placeMapFence(project: ProjectState, scene: Map3dSceneData
     const bytes = maps.rawFiles[id];
     if (!bytes?.length) { skip("missing-map", season); return result; }
     const map = readGen5MapBin(bytes);
-    const site = treeSite(map, covered, game);
+    const site = treeSite(map, covered, game, { allowBlocked });
     if (typeof site === "string") { skip(site, season); return result; }
     sites.push({ id, map, ...site });
   }
@@ -429,4 +485,320 @@ export function redoMapFences(project: ProjectState, stroke: FenceStroke) {
   assertStoresMatch(project, stroke, "before", "Map resources changed after this fence edit was undone.");
   ensure(stroke.maps.every(change => project.mapFenceOriginalPermissions?.[change.id] === change.originalsBefore), "The saved fence tiles changed after this fence edit was undone.");
   writeFenceStroke(project, stroke, false);
+}
+
+// ---------- Connected fences ----------
+
+/**
+ * Fences drawn tile by tile that join up: each fenced tile looks at its four neighbours (same fence, same chunk) and
+ * draws a straight run, an end with its end post, a corner, a T or a cross. Drawing an L, U or closed square makes
+ * the turns corners, and a new stretch drawn next to an old one connects to it. Painting or erasing a tile rebuilds
+ * its neighbours. Texture coordinates follow the tile's position, so runs stay continuous whatever their shape.
+ */
+export const FENCE_TILE_BRUSH: BrushKind = { prefixes: { 1: "w1_", 2: "w2_" }, magic: 0x79, tool: "fence brush" };
+
+/** Both directions' templates and where each run's line sits inside its tile (z for east–west runs, x for north–south ones). */
+export type FenceKit = { type: MapFenceType; x: FenceTemplate; z: FenceTemplate; lineX: number; lineZ: number };
+type Neighbours = { north: boolean; south: boolean; west: boolean; east: boolean };
+
+function lineOf(template: FenceTemplate, axis: 0 | 2) {
+  const values = template.parts.flatMap(part => part.middle.flat().map(vertex => vertex.position[axis]));
+  return values.length ? (Math.min(...values) + Math.max(...values)) / 2 : TILE / 2;
+}
+
+export function fenceKit(type: MapFenceType, x: FenceTemplate, z: FenceTemplate): FenceKit {
+  return { type, x, z, lineX: lineOf(x, 2), lineZ: lineOf(z, 0) };
+}
+
+/**
+ * How a fence ends where it stops: "corner" keeps the game's own end piece, which for several fences carries the stub
+ * of a turn; "straight" keeps only what lies in line with the run (its rails and posts), so the fence just stops.
+ */
+export type FenceEnds = "corner" | "straight";
+const STRAIGHT_ENDS = 1 << 18;
+const fenceTilePayload = (tileIndex: number, type: MapFenceType, ends: FenceEnds) =>
+  tileIndex | ((MAP_FENCE_TYPES.indexOf(type) + 1) << 10) | (ends === "straight" ? STRAIGHT_ENDS : 0);
+
+/** Drop the faces of an end piece that leave the band the run's middle tiles occupy across it. */
+function inLine(faces: FencePiece, template: FenceTemplate): FencePiece {
+  const across = template.axis === "x" ? 2 : 0;
+  const values = template.parts.flatMap(part => part.middle.flat().map(vertex => vertex.position[across]));
+  if (!values.length) return faces;
+  const lo = Math.min(...values) - 0.5, hi = Math.max(...values) + 0.5;
+  return faces.filter(face => face.every(vertex => vertex.position[across] >= lo && vertex.position[across] <= hi));
+}
+
+/** One fenced tile, in chunk units. */
+export function fenceTilePiece(kit: FenceKit, tileIndex: number, ground: number, near: Neighbours, ends: FenceEnds = "corner"): BrushPiece {
+  const tileX = tileIndex % 32, tileY = Math.floor(tileIndex / 32);
+  const ox = (tileX - 16) * TILE, oz = (tileY - 16) * TILE;
+  const alongX = near.west || near.east, alongZ = near.north || near.south;
+  // Which pieces each part draws: [template, piece, donor tile index, clip range along the run].
+  // Which faces each part draws, with its texture continued to this tile along the run.
+  type Pick = { template: FenceTemplate; take: (part: FencePart) => Face[] };
+  const picks: Pick[] = [];
+  const run = (template: FenceTemplate, before: boolean, after: boolean, range?: [number, number]) => {
+    const axis = template.axis === "x" ? 0 : 2, along = template.axis === "x" ? tileX : tileY;
+    picks.push({ template, take: part => {
+      const start = () => continuePiece(part.start, along - part.donorStart, part, "start");
+      const end = () => continuePiece(part.end, along - part.donorEnd, part, "end");
+      const native = before && after ? continuePiece(part.middle, along - Math.min(1, part.donorEnd), part, "middle") : after ? start() : before ? end()
+        : [...start().flatMap(face => clipBetween(face, axis, -1e6, TILE / 2)), ...end().flatMap(face => clipBetween(face, axis, TILE / 2, 1e6))];
+      const piece = ends === "straight" && !(before && after) ? inLine(native, template) : native;
+      return range ? piece.flatMap(face => clipBetween(face, axis, range[0], range[1])) : piece;
+    } });
+  };
+  if (alongX && alongZ) {
+    // A corner, T or cross: each connected side's half of the straight run, meeting where the two lines cross.
+    if (near.west) run(kit.x, true, true, [-1e6, kit.lineZ]);
+    if (near.east) run(kit.x, true, true, [kit.lineZ, 1e6]);
+    if (near.north) run(kit.z, true, true, [-1e6, kit.lineX]);
+    if (near.south) run(kit.z, true, true, [kit.lineX, 1e6]);
+  } else if (alongZ) run(kit.z, near.north, near.south);
+  else run(kit.x, near.west, near.east);
+  const parts = new Map<string, BrushPart>();
+  for (const { template, take } of picks) {
+    for (const part of template.parts) {
+      const placed = take(part).map(face => face.map((vertex): BrushVertex =>
+        ({ ...vertex, position: [ox + vertex.position[0], ground + vertex.position[1], oz + vertex.position[2]] })));
+      const existing = parts.get(part.part.record.name);
+      if (existing) existing.faces.push(...placed);
+      else parts.set(part.part.record.name, { ...part.part, faces: placed });
+    }
+  }
+  return { payload: fenceTilePayload(tileIndex, kit.type, ends), parts: [...parts.values()].filter(part => part.faces.length) };
+}
+
+export function readPlacedFenceTiles(file: Uint8Array) {
+  const read = readBrushPieces(file, FENCE_TILE_BRUSH);
+  const tiles = new Map<number, { type?: MapFenceType; key: number; ends: FenceEnds }>();
+  for (const [key, { payload, member }] of read.pieces) {
+    if (member === 1 && payload !== MERGED_PIECE_PAYLOAD) tiles.set(payload & 1023, { type: MAP_FENCE_TYPES[((payload >>> 10) & 255) - 1], key, ends: payload & STRAIGHT_ENDS ? "straight" : "corner" });
+  }
+  return { tiles, remove: read.remove };
+}
+
+const neighbourTiles = (index: number) => ({
+  north: index >= 32 ? index - 32 : undefined, south: index < 992 ? index + 32 : undefined,
+  west: index % 32 ? index - 1 : undefined, east: index % 32 < 31 ? index + 1 : undefined,
+});
+
+/**
+ * Redraw a chunk's fence tiles after `changed` tiles change, so every tile joins the fence around it. The whole
+ * chunk's fence is written again with its faces merged across tiles (`writeTileBrush`).
+ */
+export function rebuildFenceTiles(model: Uint8Array, collision: Uint8Array, after: ReadonlyMap<number, string>, changed: ReadonlySet<number>,
+  kits: ReadonlyMap<string, FenceKit>, game: "BW" | "BW2", straight: ReadonlySet<number> = new Set()) {
+  void changed;
+  const pieces: BrushPiece[] = [];
+  for (const index of [...after.keys()].sort((a, b) => a - b)) {
+    const typeId = after.get(index);
+    if (!typeId) continue;
+    const kit = kits.get(typeId);
+    ensure(kit, "Missing fence template.");
+    const near = neighbourTiles(index);
+    const joined = Object.fromEntries((["north", "south", "west", "east"] as const).map(side => [side, near[side] !== undefined && after.get(near[side]!) === typeId])) as Neighbours;
+    pieces.push(fenceTilePiece(kit!, index, snapGround(cornerHeights(collision, index, game)[0]), joined, straight.has(index) ? "straight" : "corner"));
+  }
+  return writeTileBrush(model, FENCE_TILE_BRUSH, pieces);
+}
+
+type FenceTileOriginal = Gen5PermissionTileLike & { type: string; secondary?: Gen5PermissionTileLike };
+type ChunkFenceTileOriginals = Record<number, FenceTileOriginal>;
+export type MapFenceTileOriginals = Record<number, ChunkFenceTileOriginals>;
+type FenceTileMapChange = MapChange & { originalsBefore?: ChunkFenceTileOriginals; originalsAfter?: ChunkFenceTileOriginals };
+export type FenceTileStroke = { action: "paint" | "erase"; maps: FenceTileMapChange[]; textures: MapChange[]; count: number; skipped: number; skipReasons: { reason: FenceSkipReason; count: number; season?: MatrixSeason }[] };
+
+/** Fence (`typeId`) or unfence (no type) the tiles, in every seasonal variant of their chunks. */
+/** Draw or erase fence tiles. Drawing over the same fence with the other end style restyles those tiles. */
+export async function strokeFenceTiles(project: ProjectState, scene: Map3dSceneData, tiles: readonly Map3dTile[], typeId: string | undefined, { isCurrent = () => true, allowBlocked = false, ends = "corner" }: { isCurrent?: () => boolean; allowBlocked?: boolean; ends?: FenceEnds } = {}): Promise<FenceTileStroke> {
+  const result: FenceTileStroke = { action: typeId ? "paint" : "erase", maps: [], textures: [], count: 0, skipped: 0, skipReasons: [] };
+  const skip = (reason: FenceSkipReason, season?: MatrixSeason) => {
+    result.skipped++;
+    const group = result.skipReasons.find(entry => entry.reason === reason && entry.season === season);
+    if (group) group.count++;
+    else result.skipReasons.push({ reason, count: 1, ...(season ? { season } : {}) });
+  };
+  if (!tiles.length) return result;
+  const type = typeId ? MAP_FENCE_TYPES.find(entry => entry.id === typeId) : undefined;
+  ensure(project.session.baseRom === "BW2" && (!typeId || type), "Choose a fence for this game.");
+  const context = await mapBrushContext(project, scene, isCurrent, "fence");
+  ensure(isCurrent(), "The map changed while drawing the fence. Try again.");
+  const { game, source, rom, maps, textureId } = context;
+  type Chunk = { bin: ReturnType<typeof readGen5MapBin>; fenced: Map<number, string>; straight: Set<number>; changed: Set<number>; originals: ChunkFenceTileOriginals };
+  const chunks = new Map<number, Chunk>();
+  const chunk = (id: number) => {
+    let entry = chunks.get(id);
+    if (!entry) {
+      const bin = readGen5MapBin(maps.rawFiles[id]);
+      const placed = readPlacedFenceTiles(bin.files[0]);
+      entry = { bin, fenced: new Map([...placed.tiles].flatMap(([index, tile]) => tile.type ? [[index, tile.type.id] as const] : [])),
+        straight: new Set([...placed.tiles].flatMap(([index, tile]) => tile.ends === "straight" ? [index] : [])), changed: new Set(), originals: { ...project.mapFenceTileOriginals?.[id] } };
+      chunks.set(id, entry);
+    }
+    return entry;
+  };
+  for (const { tileIndex, variants } of brushDestinations(scene, tiles, context, skip)) {
+    if (variants.some(({ id }) => !maps.rawFiles[id]?.length)) { skip("missing-map"); continue; }
+    const current = chunk(variants[0].id);
+    if (type) {
+      if (current.fenced.get(tileIndex) === type.id) {
+        // The same fence: only its end style can change.
+        if (current.straight.has(tileIndex) === (ends === "straight")) continue;
+        for (const { id } of variants) {
+          const entry = chunk(id);
+          if (entry.fenced.get(tileIndex) !== type.id) continue;
+          if (ends === "straight") entry.straight.add(tileIndex);
+          else entry.straight.delete(tileIndex);
+          entry.changed.add(tileIndex);
+        }
+        result.count++;
+        continue;
+      }
+      let failure: { reason: FenceSkipReason; season?: MatrixSeason } | undefined;
+      for (const { id, season } of variants) {
+        const { bin, fenced } = chunk(id);
+        if (fenced.has(tileIndex)) { failure = { reason: "occupied", season }; break; }
+        const site = treeSite(bin, [tileIndex], game, { allowBlocked });
+        if (typeof site === "string") { failure = { reason: site, season }; break; }
+      }
+      if (failure) { skip(failure.reason, failure.season); continue; }
+      for (const { id } of variants) {
+        const entry = chunk(id), files = entry.bin.files;
+        const original: FenceTileOriginal = { type: type.id, ...permission(files[1], tileIndex) };
+        if (entry.bin.placements === 3) original.secondary = permission(files[2], tileIndex);
+        entry.originals[tileIndex] = original;
+        entry.fenced.set(tileIndex, type.id);
+        if (ends === "straight") entry.straight.add(tileIndex);
+        else entry.straight.delete(tileIndex);
+        entry.changed.add(tileIndex);
+      }
+      result.count++;
+    } else {
+      if (!current.fenced.has(tileIndex)) continue;
+      let failure: { reason: FenceSkipReason; season?: MatrixSeason } | undefined;
+      for (const { id, season } of variants) {
+        const entry = chunk(id);
+        if (!entry.fenced.has(tileIndex)) continue;
+        const saved = entry.originals[tileIndex];
+        if (!saved) { failure = { reason: "missing-original-permissions", season }; break; }
+        if (saved.type !== entry.fenced.get(tileIndex)) { failure = { reason: "changed-fence", season }; break; }
+      }
+      if (failure) { skip(failure.reason, failure.season); continue; }
+      for (const { id } of variants) {
+        const entry = chunk(id);
+        if (!entry.fenced.has(tileIndex)) continue;
+        entry.fenced.delete(tileIndex);
+        entry.straight.delete(tileIndex);
+        entry.changed.add(tileIndex);
+      }
+      result.count++;
+    }
+  }
+  const touched = [...chunks].filter(([, entry]) => entry.changed.size);
+  if (!touched.length) return result;
+
+  // Templates for every fence in the rebuilt chunks, both directions each: a chunk's fence is written whole.
+  const kits = new Map<string, FenceKit>();
+  const banksById = new Map<string, ReturnType<typeof donorSeasonBanks>[]>();
+  const needed = new Set<string>();
+  for (const [, entry] of touched) for (const id of entry.fenced.values()) needed.add(id);
+  for (const id of needed) {
+    const fence = MAP_FENCE_TYPES.find(entry => entry.id === id);
+    ensure(fence, `Unknown fence ${id}.`);
+    const x = fenceAssets(source, rom, fence!, "x", game), z = fenceAssets(source, rom, fence!, "z", game);
+    kits.set(id, fenceKit(fence!, x.template, z.template));
+    banksById.set(id, [x.banks, z.banks]);
+  }
+  if (type) {
+    // Textures are copied before the pieces so a renamed copy is what the pieces bind to.
+    const textureStore = project.narcs.map_textures
+      ?? createNarcStore("map_textures", MAP_TEXTURES_PATH, textureId, new NARC(getRomFileBytes(project, rom, textureId)));
+    const kit = kits.get(type.id)!, [xBanks, zBanks] = banksById.get(type.id)!;
+    const records = [...new Map([...kit.x.parts, ...kit.z.parts].map(part => [part.part.record.name, part.part.record])).values()];
+    const packs = [...texturePacksFor(project, context, new Set(touched.map(([id]) => id)))].map(([id, season]) => {
+      const bytes = textureStore.rawFiles[id];
+      ensure(bytes, `Map texture pack ${id} is missing.`);
+      return { id, season, bytes, bank: readNitroResources(bytes), donor: xBanks[season] };
+    });
+    const bound = stampBindings(records, packs);
+    const renamed = new Map(records.map((record, i) => [record.name, bound[i].record]));
+    const rebind = (template: FenceTemplate): FenceTemplate => ({ ...template, parts: template.parts.map(part => ({ ...part, part: { ...part.part, record: renamed.get(part.part.record.name) ?? part.part.record } })) });
+    kits.set(type.id, { ...kit, x: rebind(kit.x), z: rebind(kit.z) });
+    for (const { id, season, bytes } of packs) {
+      let after = addNativeTextures(bytes, xBanks[season], bound.map(entry => entry.binding));
+      if (zBanks !== xBanks) after = addNativeTextures(after, zBanks[season], bound.map(entry => entry.binding));
+      if (!equalMapBytes(after, bytes)) result.textures.push({ id, before: bytes.slice(), after });
+    }
+    if (result.textures.length) {
+      project.narcs.map_textures = textureStore;
+      project.session.fileIds.map_textures = textureId;
+    }
+  }
+
+  for (const [id, entry] of touched) {
+    const files = entry.bin.files.slice();
+    files[1] = files[1].slice();
+    if (entry.bin.placements === 3) files[2] = files[2].slice();
+    const originalsBefore = project.mapFenceTileOriginals?.[id];
+    for (const index of entry.changed) {
+      const saved = entry.originals[index];
+      if (entry.fenced.has(index)) {
+        writePermission(files[1], index, TREE_TILE);
+        if (entry.bin.placements === 3) writePermission(files[2], index, TREE_TILE);
+      } else if (saved) {
+        writePermission(files[1], index, saved);
+        if (saved.secondary) writePermission(files[2], index, saved.secondary);
+        delete entry.originals[index];
+      }
+    }
+    files[0] = rebuildFenceTiles(files[0], files[1], entry.fenced, entry.changed, kits, game, entry.straight);
+    result.maps.push({ id, before: maps.rawFiles[id].slice(), after: packGameFreakContainer(entry.bin.signature, files), originalsBefore,
+      originalsAfter: Object.keys(entry.originals).length ? entry.originals : undefined });
+  }
+  writeFenceTileStroke(project, result, false);
+  return result;
+}
+
+function writeFenceTileStroke(project: ProjectState, stroke: FenceTileStroke, undo: boolean) {
+  for (const [name, changes] of [["maps", stroke.maps], ["map_textures", stroke.textures]] as const) {
+    for (const { id, before, after } of changes) {
+      const store = project.narcs[name]!;
+      store.rawFiles[id] = (undo ? before : after).slice();
+      store.records.delete(id);
+      markDirty(project, name, id);
+    }
+  }
+  const originals = { ...project.mapFenceTileOriginals };
+  for (const { id, originalsBefore, originalsAfter } of stroke.maps) {
+    const next = undo ? originalsBefore : originalsAfter;
+    if (next) originals[id] = next;
+    else delete originals[id];
+  }
+  project.mapFenceTileOriginals = Object.keys(originals).length ? originals : undefined;
+  if (stroke.textures.length) invalidateMap3dAssets();
+  const noun = `${stroke.count} fence tile${stroke.count === 1 ? "" : "s"}`;
+  recordGenericChange(project, "maps3d", undo ? `Undid a fence edit (${noun}).` : stroke.action === "erase" ? `Erased ${noun}.` : `Drew ${noun}.`,
+    stroke.action === "erase" ? "Erase Fence" : "Draw Fence");
+}
+
+function assertFenceTileStores(project: ProjectState, stroke: FenceTileStroke, side: "before" | "after", message: string) {
+  for (const [name, changes] of [["maps", stroke.maps], ["map_textures", stroke.textures]] as const) {
+    const store = project.narcs[name];
+    ensure(!changes.length || (store && changes.every(change => store.rawFiles[change.id] && equalMapBytes(store.rawFiles[change.id], change[side]))), message);
+  }
+}
+
+export function undoFenceTiles(project: ProjectState, stroke: FenceTileStroke) {
+  if (!stroke.count) return;
+  assertFenceTileStores(project, stroke, "after", "Map resources changed after this fence edit.");
+  ensure(stroke.maps.every(change => project.mapFenceTileOriginals?.[change.id] === change.originalsAfter), "The saved fence tiles changed after this fence edit.");
+  writeFenceTileStroke(project, stroke, true);
+}
+
+export function redoFenceTiles(project: ProjectState, stroke: FenceTileStroke) {
+  if (!stroke.count) return;
+  assertFenceTileStores(project, stroke, "before", "Map resources changed after this fence edit was undone.");
+  ensure(stroke.maps.every(change => project.mapFenceTileOriginals?.[change.id] === change.originalsBefore), "The saved fence tiles changed after this fence edit was undone.");
+  writeFenceTileStroke(project, stroke, false);
 }

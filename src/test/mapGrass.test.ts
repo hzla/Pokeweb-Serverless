@@ -146,6 +146,31 @@ describe.each(["BW", "BW2"] as const)("%s grass painting", game => {
     for (const change of regular.maps) expect(project.narcs.maps!.rawFiles[change.id]).toEqual(change.before);
   });
 
+  it("draws a patch as merged quads and keeps every tile erasable", () => {
+    const project = grassProject(game);
+    const rom = new NintendoDSRom(project.originalRomBytes!);
+    const donor = readGen5MapBin(new NARC(rom.getFileByName("a/0/0/8")).files[16]);
+    const { files } = readGen5MapBin(project.narcs.maps!.rawFiles[0]);
+    const polygons = (model: Uint8Array) => {
+      const mdl = nitroBlocks(model)[0], offset = readU32(readDictionary(mdl, 8)[0].data, 0);
+      return mdl[offset + 38] | (mdl[offset + 39] << 8);
+    };
+    const before = polygons(files[0]);
+    // A flat 3×2 patch, painted in two strokes.
+    const quad = (x: number, z: number) => ({ x: x * 16, z: z * 16, heights: [4, 4, 4, 4], layerLifts: [8, 6, 2] });
+    let model = appendMapGrass(files[0], "regular", [quad(0, 0), quad(1, 0), quad(2, 0)], materialRecords(donor.files[0]));
+    model = appendMapGrass(model, "regular", [quad(0, 1), quad(1, 1), quad(2, 1)], materialRecords(donor.files[0]));
+    const tiles = [0, 1, 2, 32, 33, 34].map(i => 16 * 32 + 16 + i);
+    expect([...readPaintedMapGrass(model).tiles.keys()].sort((a, b) => a - b)).toEqual(tiles);
+    // One quad per layer for the whole patch instead of one per tile.
+    expect(polygons(model) - before).toBe(3);
+    // Erasing a corner leaves an L, drawn as two quads per layer.
+    const erased = readPaintedMapGrass(model).remove(new Set([tiles[5]]));
+    expect([...readPaintedMapGrass(erased).tiles.keys()].sort((a, b) => a - b)).toEqual(tiles.slice(0, 5));
+    expect(polygons(erased) - before).toBe(6);
+    expect(polygons(readPaintedMapGrass(erased).remove(new Set(tiles))) - before).toBe(0);
+  });
+
   it("matches a nearby native dark grass patch's layer heights and tile offset", async () => {
     const project = grassProject(game);
     const rom = new NintendoDSRom(project.originalRomBytes!);
