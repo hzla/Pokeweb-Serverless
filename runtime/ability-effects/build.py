@@ -10,7 +10,7 @@ BUILD=HERE/'build';BUILD.mkdir(exist_ok=True)
 def run(*args):subprocess.run([str(arg) for arg in args],check=True)
 if len(sys.argv)==1:
     # Released bundles are verification inputs, not current build outputs.
-    run(sys.executable,HERE/'build.py','--form-conversion-only')
+    run(sys.executable,HERE/'build.py','--zen-mode-messages-only')
     raise SystemExit(0)
 run(sys.executable,HERE/'generate_move_classes.py')
 
@@ -36,14 +36,15 @@ source_path=ROOT/'src/assets/data/abilityRuleRuntimeStatSource.json'
 source={}
 compact_path=ROOT/'src/assets/data/abilityRuleRuntimeCompact.json'
 compact={}
-form_conversion='--form-conversion-only' in sys.argv
+zen_mode_messages='--zen-mode-messages-only' in sys.argv
+form_conversion='--form-conversion-only' in sys.argv or zen_mode_messages
 status_extensions='--status-extensions-only' in sys.argv or form_conversion
 weather_moves='--weather-moves-only' in sys.argv or status_extensions
 protect='--protect-only' in sys.argv or weather_moves
 strikes='--strikes-only' in sys.argv or protect
 environment='--environment-only' in sys.argv or strikes
 native_flags='--native-flags-only' in sys.argv or environment
-native_flags_path=ROOT/('src/assets/data/abilityRuleRuntimeFormConversion.json' if form_conversion else 'src/assets/data/abilityRuleRuntimeStatusExtensions.json' if status_extensions else 'src/assets/data/abilityRuleRuntimeWeatherMoves.json' if weather_moves else 'src/assets/data/abilityRuleRuntimeProtect.json' if protect else 'src/assets/data/abilityRuleRuntimeStrikes.json' if strikes else 'src/assets/data/abilityRuleRuntimeEnvironment.json' if environment else 'src/assets/data/abilityRuleRuntimeNativeFlags.json')
+native_flags_path=ROOT/('src/assets/data/abilityRuleRuntimeZenModeMessages.json' if zen_mode_messages else 'src/assets/data/abilityRuleRuntimeFormConversion.json' if form_conversion else 'src/assets/data/abilityRuleRuntimeStatusExtensions.json' if status_extensions else 'src/assets/data/abilityRuleRuntimeWeatherMoves.json' if weather_moves else 'src/assets/data/abilityRuleRuntimeProtect.json' if protect else 'src/assets/data/abilityRuleRuntimeStrikes.json' if strikes else 'src/assets/data/abilityRuleRuntimeEnvironment.json' if environment else 'src/assets/data/abilityRuleRuntimeNativeFlags.json')
 compact_mode='--compact-only' in sys.argv or native_flags
 variants=[(suffix,defines,asset,False)for suffix,defines,asset in variants]+[(suffix+'-optimized',defines+['-DABILITY_FILTER_EVENTS'],asset,True)for suffix,defines,asset in variants]
 variants=[(suffix,defines,asset,fast,slots) for suffix,defines,asset,fast in variants for slots in ([4,8,16] if compact_mode else [16])]
@@ -70,6 +71,7 @@ for suffix,defines,asset,fast,slots in variants:
         if status_extensions: suffix+='-status-extensions';defines+=['-DABILITY_STATUS_EXTENSIONS']
         if form_conversion and '-DABILITY_RECIPES' in defines:
             suffix+='-form-conversion';defines+=['-DABILITY_FORM_CONVERSION']
+            if zen_mode_messages: suffix+='-zen-mode-messages';defines+=['-DABILITY_ZEN_MODE_MESSAGES']
             if os.environ.get('ABILITY_FORM_CONVERSION_TEST')=='1': defines+=['-DABILITY_FORM_CONVERSION_TEST']
         if status_extensions and os.environ.get('ABILITY_STATUS_TEST')=='1': defines+=['-DABILITY_STATUS_TEST']
         if weather_moves and os.environ.get('ABILITY_WEATHER_TEST')=='1': defines+=['-DABILITY_WEATHER_TEST']

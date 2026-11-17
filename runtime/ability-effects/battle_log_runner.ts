@@ -9,16 +9,17 @@ import {PNG} from "pngjs";
 import {toDesmumeDsv} from "../../src/pokeweb/testBattle";
 
 export type LogEntry={event:number;a:number;d:number;x:number;move:number;y:number;value:number};
-export type RunOptions={tag:string;frames:number;shots:boolean;evidence?:string;logCapacity?:number};
+export type RunOptions={tag:string;frames:number;shots:boolean;evidence?:string;logCapacity?:number;texts?:readonly string[]};
+type BattleResult={entries:LogEntry[];frames:number;seenTexts:string[]};
 const A=128;
 
-export async function runLoggedBattle(directory:string,spec:any,options:RunOptions):Promise<{entries:LogEntry[];frames:number}>{
+export async function runLoggedBattle(directory:string,spec:any,options:RunOptions):Promise<BattleResult>{
  const rom=new Uint8Array(await readFile(`${directory}/${spec.rom}`));
  const save=new Uint8Array(await readFile(`${directory}/saves/${spec.label}.sav`));
  return runLoggedBattleBytes(rom,save,spec,options);
 }
 
-export async function runLoggedBattleBytes(rom:Uint8Array,rawSave:Uint8Array,spec:any,options:RunOptions):Promise<{entries:LogEntry[];frames:number}>{
+export async function runLoggedBattleBytes(rom:Uint8Array,rawSave:Uint8Array,spec:any,options:RunOptions):Promise<BattleResult>{
  const {tag,frames,shots,evidence}=options;
  const corePath=fileURLToPath(new URL("../../public/desmond/desmond.js",import.meta.url)),generated=await readFile(corePath,"utf8");
  let ready!:()=>void;const initialized=new Promise<void>(r=>ready=r);
@@ -30,6 +31,13 @@ export async function runLoggedBattleBytes(rom:Uint8Array,rawSave:Uint8Array,spe
  core.HEAPU8.set(save,core._savGetPointer(save.length));core._savUpdateChangeFlag();
  if(core._loadROM(size)!==1)throw new Error("ROM rejected");
  const ram=()=>Buffer.from(core.HEAPU8.buffer,core._getSymbol(7)>>>0,0x400000);
+ const pendingTexts=new Map(options.texts?.map(text=>[text,Buffer.from(text,"utf16le")]));
+ const seenTexts:string[]=[];
+ const readTexts=()=>{
+  if(!pendingTexts.size)return;
+  const memory=ram();
+  for(const [text,bytes] of pendingTexts)if(memory.includes(bytes)){seenTexts.push(text);pendingTexts.delete(text);}
+ };
  const read=():LogEntry[]=>{
   const m=ram(),hits:LogEntry[][]=[];
   for(let at=m.indexOf(Buffer.from(tag));at>=0;at=m.indexOf(Buffer.from(tag),at+4)){
@@ -45,10 +53,12 @@ export async function runLoggedBattleBytes(rom:Uint8Array,rawSave:Uint8Array,spe
  const turnMove:number[]|undefined=spec.turnMove,turns=spec.menuCount??1;
  let frame=0,started=false;
  for(;frame<frames;++frame){
-  const log=frame%30===0?read():undefined;
+  const sample=frame%30===0;
+  const log=sample?read():undefined;
+  if(sample&&started)readTexts();
   if(log?.length)started=true;
   const playerMoves=log?log.filter(e=>e.event===3&&e.a===0).length:0;
-  if(log&&playerMoves>=turns&&log.filter(e=>e.event===3).length>=(spec.battleType==="Doubles"?4:2)*turns){/* every battler acted */ frame+=600;for(let k=0;k<600;++k)core._runFrame(1,(frame+k)%12<3?A:0,0,0,0);break;}
+  if(log&&playerMoves>=turns&&log.filter(e=>e.event===3).length>=(spec.battleType==="Doubles"?4:2)*turns){/* every battler acted */ frame+=600;for(let k=0;k<600;++k){core._runFrame(1,(frame+k)%12<3?A:0,0,0,0);if(k%30===0)readTexts();}break;}
   let keys=0,touch:[number,number]|undefined;
   // BW1 fixtures start the battle by talking to the trainer; A also picks
   // move 1, which every multi-turn case uses first.
@@ -68,6 +78,6 @@ export async function runLoggedBattleBytes(rom:Uint8Array,rawSave:Uint8Array,spe
   if(shots&&frame>=600&&frame%30===0)await capture(`s${frame}`);
  }
  await capture("end");
- return {entries:read(),frames:frame};
+ return {entries:read(),frames:frame,seenTexts};
 }
 

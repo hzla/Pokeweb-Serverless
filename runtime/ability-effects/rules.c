@@ -199,7 +199,9 @@ static void guardMessage(void*f,u8 owner,u8 target,u32 message){
 }
 #ifdef ABILITY_RECIPES
 #ifdef ABILITY_ACTION_RESULTS
-#ifdef ABILITY_STATUS_EXTENSIONS
+#if defined(ABILITY_ZEN_MODE_MESSAGES)
+PUBLIC const volatile u16 AbilityPresentationMessages[35]={0};
+#elif defined(ABILITY_STATUS_EXTENSIONS)
 PUBLIC const volatile u16 AbilityPresentationMessages[34]={0};
 #else
 PUBLIC const volatile u16 AbilityPresentationMessages[33]={0};

@@ -61,10 +61,22 @@ static void zenMode(void *flow, u8 owner, const volatile u8 *effect, u32 event, 
     if (event == 0x78) command[2] |= 0x80; // Native form-change ability popup.
     command[4] = owner;
     command[5] = destination;
-    FN(11,void(*)(void*,u8,u16))(command + 8,1,destination == target ? 0xb9 : 0xba);
-    FN(12,void(*)(void*,u32))(command + 8,owner);
+    u16 message = destination == target ? 0xb9 : 0xba;
+    u32 argument = owner;
+#ifdef ABILITY_ZEN_MODE_MESSAGES
+    u16 custom = AbilityPresentationMessages[34];
+    if (custom) {
+        message = custom + (destination == source);
+        argument = currentAbility;
+    }
+#endif
+    FN(11,void(*)(void*,u8,u16))(command + 8,1,message);
+    FN(12,void(*)(void*,u32))(command + 8,argument);
     POP(flow,command);
     if (STAT(mon,0x13) == destination) {
+#if defined(ABILITY_FORM_CONVERSION_TEST) && defined(ABILITY_ZEN_MODE_MESSAGES)
+        formConversionLog(0xfa,owner,0,0,message,destination,argument);
+#endif
         work[0] = destination == target;
         setParty(party,10,partyAbility);
         *battleAbility = currentAbility;

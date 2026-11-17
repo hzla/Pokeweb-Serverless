@@ -41,7 +41,8 @@ same species using the native battle form-change action. Set the species ID,
 starting form, target form and HP threshold. At or below the threshold, the
 holder changes form at the end of the turn if its activation conditions pass.
 It reverts above the threshold, when the conditions stop matching, or when
-the ability is suppressed or lost.
+the ability is suppressed or lost. Both form-change messages use the ability’s
+current name.
 
 **Set a field condition on entry** starts Trick Room, Gravity, Water Sport,
 Mud Sport, Wonder Room or Magic Room on entry/ability gain. Choose 1–63 turns
@@ -281,18 +282,18 @@ Aura entry notices use the configured type's display name, including Fairy and
 renamed types, without relying on Gen 5's native type-name formatter.
 
 Build from the repository root with `python3 runtime/ability-effects/build.py`
-(the default builds the v16 `--form-conversion-only` bundle,
-`src/assets/data/abilityRuleRuntimeFormConversion.json`).
+(the default builds the v17 `--zen-mode-messages-only` bundle,
+`src/assets/data/abilityRuleRuntimeZenModeMessages.json`).
 The original templates remain available for strict verification of older exports;
 the default build updates only the current bundle, including its 4-, 8- and
-16-slot work variants. `--status-extensions-only`, `--weather-moves-only`,
+16-slot work variants. `--form-conversion-only`, `--status-extensions-only`, `--weather-moves-only`,
 `--protect-only`, `--native-flags-only`, `--compact-only`, `--stat-source-only`,
 `--action-results-only`, `--custom-flags-only`, `--messages-only`, `--move-classes-only` and `--optimized-only`
 rebuild retained bundles for verification of older exports;
 released bundles must remain byte-identical when making a new runtime. Consolidated
 execution records use shared immutable data. The
 `PokewebAbilityCompact: 1` and `PokewebAbilityWorkSlots` metadata identify the
-execution format and selected work capacity. Versions 1–15 remain readable through
+execution format and selected work capacity. Versions 1–16 remain readable through
 their retained bundles. **Update Ability Runtime** rebuilds them from their saved
 editor recipes.
 New modules retain `PokewebAbilityDispatchVersion: 2` and the 16-byte effect stride.
