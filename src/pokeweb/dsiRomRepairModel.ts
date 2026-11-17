@@ -2,13 +2,18 @@ import { readAscii, readU32, writeU16, writeU32 } from "../nds/binary";
 import { digestHmacFromRom, readDsiDigestSource } from "../nds/dsiDigest";
 import { NintendoDSRom } from "../nds/rom";
 import { validateDsRomSections } from "../nds/romValidation";
+import { planBw2ApFix } from "./bw2ApFixModel";
 
 const REPAIR_GAMES = { IRBO: "Black", IRAO: "White", IREO: "Black 2", IRDO: "White 2" } as const;
 export type DsiRomRepairResult = { bytes: Uint8Array; game: typeof REPAIR_GAMES[keyof typeof REPAIR_GAMES] };
+export type DsiRomRepairOptions = { applyApFix?: boolean };
 const align = (value: number, alignment: number) => Math.ceil(value / alignment) * alignment;
 
 /** Recover from a user-supplied donor; no retail ROM or firmware data is bundled. */
-export async function repairDsiRom(source: Uint8Array, donor: Uint8Array, onProgress?: (message: string) => void | Promise<void>): Promise<DsiRomRepairResult> {
+export async function repairDsiRom(
+  source: Uint8Array, donor: Uint8Array, onProgress?: (message: string) => void | Promise<void>,
+  options: DsiRomRepairOptions = {},
+): Promise<DsiRomRepairResult> {
   await onProgress?.("Checking game, revision, and native DS files…");
   validateDsRomSections(source);
   validateDsRomSections(donor);
@@ -64,6 +69,8 @@ export async function repairDsiRom(source: Uint8Array, donor: Uint8Array, onProg
     throw new Error("The edited ROM does not retain a compatible native DSi digest configuration. This hack cannot be repaired with the selected clean ROM.");
   }
 
+  const edited = options.applyApFix ? new NintendoDSRom(source, { fileData: "view" }) : undefined;
+  const apFix = edited && planBw2ApFix(gameCode, edited.arm9OverlayTable, (id) => edited.files[id]);
   await onProgress?.("Restoring DSi programs and encryption metadata…");
   // The staging header still describes the donor's NTR span. A compacted
   // or smaller edited input must not place donor tables inside that span.
@@ -101,6 +108,7 @@ export async function repairDsiRom(source: Uint8Array, donor: Uint8Array, onProg
   await onProgress?.("Rebuilding integrity tables for the edited game content…");
   const bytes = new NintendoDSRom(restored, { fileData: "view" }).save({
     forDsi: true, preserveDataLayout: true, preserveBw2PmcLayout: true,
+    ...(apFix ? { arm9OverlayTable: apFix.table, files: apFix.files } : {}),
   });
   await onProgress?.("Verifying the repaired layout…");
   validateDsRomSections(bytes);

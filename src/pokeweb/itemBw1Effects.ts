@@ -1,4 +1,5 @@
 import { hasItemSelection, resolveItemSelection } from "./itemSelectionBindings";
+import { isVerifiedModernStatusImport } from "./frostbiteSnowModel";
 import black from "../assets/data/abilityBindingsB1.json";
 import white from "../assets/data/abilityBindingsW1.json";
 import {NintendoDSRom} from "../nds/rom";
@@ -44,6 +45,7 @@ function context(project:ProjectState){
  for(const[path,bytes]of Object.entries(project.fileSystem?.additions??{}))if(path.toLowerCase().endsWith(".dll"))files.set(path,bytes);
  function check(address:number,size:number,service?:string){for(const[path,bytes]of files){if(path===dllPath)continue;let rpm:RpmModule;try{rpm=parseRpm(bytes,{allowedMagics:["DLXF"]});}catch{continue;}
   for(const r of rpm.relocations){if(r.target.module!=="93")continue;const start=r.target.address&~1,count=r.target.type==="OFFSET"?4:r.target.type==="FULL_COPY"?rpm.symbols[r.sourceSymbolIndex]?.size??0:16;if(start<address+size&&start+count>address){
+   if(service&&isVerifiedModernStatusImport(path,rpm,service,address,r))continue;
    // The ability runtime's simulated move weather keeps the native query's contract.
    if(service==="ServerEvent_GetWeather"&&start===address&&r.target.type==="THUMB_BRANCH"&&isVerifiedAbilityWeatherImport(project,path,bytes,address))continue;
    throw Error(`Conflicting native item hook: ${path}.`);}}

@@ -22,7 +22,8 @@ import {
   testBattleOverworldYFromSaveGridY,
   supportsAutomaticTestBattle,
 } from "../pokeweb/testBattle";
-import { decryptPk5Party } from "../pokeweb/testBattleTeam";
+import { decryptPk5Party, decryptPk5Stored } from "../pokeweb/testBattleTeam";
+import { RETAIL_SAVE_LAYOUT } from "../pokeweb/itemSaveFormat";
 import { decodeGen5TextBank, encodeGen5TextBank } from "../pokeweb/text";
 
 const whiteSave = new Uint8Array(readFileSync(new URL("../assets/testbattle/white.dsv", import.meta.url)));
@@ -44,6 +45,25 @@ describe("testBattle", () => {
       const bagChecksum=crc16Ccitt(save.subarray(half+0x18400,half+0x18dec));
       expect(readLe16(save,half+0x18dee)).toBe(bagChecksum);expect(readLe16(save,half+0x25f32)).toBe(bagChecksum);
       expect(readLe16(save,half+0x25fa2)).toBe(crc16Ccitt(save.subarray(half+0x25f00,half+0x25f94)));
+    }
+  });
+
+  it("leaves room to catch Pokémon with the full Quick Launch party", () => {
+    for (const half of [0, RETAIL_SAVE_LAYOUT.regionSize]) {
+      expect(readLe32(white2Save, half + RETAIL_SAVE_LAYOUT.blocks[26]!.offset + 4)).toBe(6);
+      let freeSlots = 0;
+      for (let box = 1; box <= 24; box++) {
+        const { offset, size } = RETAIL_SAVE_LAYOUT.blocks[box]!;
+        const data = white2Save.subarray(half + offset, half + offset + size);
+        const checksum = crc16Ccitt(data);
+        expect(readLe16(white2Save, half + offset + size + 2)).toBe(checksum);
+        expect(readLe16(white2Save, half + RETAIL_SAVE_LAYOUT.crcOffset + box * 2)).toBe(checksum);
+        for (let at = 0; at < data.length; at += 136) {
+          const pokemon = decryptPk5Stored(data.subarray(at, at + 136));
+          if (readLe16(pokemon, 8) === 0) freeSlots++;
+        }
+      }
+      expect(freeSlots).toBeGreaterThanOrEqual(6);
     }
   });
   it("uses automatic battle boot only for the audited White 2 executable family", () => {

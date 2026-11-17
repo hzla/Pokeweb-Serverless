@@ -24,6 +24,8 @@ It restores the donor's extended metadata at `0x180–0x1000`, encryption flags,
 
 Matching donors are mandatory: Black cannot use White or Black 2 as a donor. Damaged donors, changed native program addresses, and unsupported header layouts are rejected before producing a download. Original inputs are never overwritten. No additional BIOS or NAND upload is needed.
 
+TWiLight Menu++ may require a DSiWare donor at launch when started through a DSiWare exploit that locks the console's memory mapping. That requirement applies to intact retail dumps and repaired ROMs. On a DSi with Unlaunch, start TWiLight Menu++ through Unlaunch to use the unlocked launch path. [nds-bootstrap donor requirements](https://wiki.ds-homebrew.com/nds-bootstrap/faq#what-is-a-donor-rom) · [TWiLight Menu++ DSi setup](https://wiki.ds-homebrew.com/twilightmenu/installing-dsi#autobooting-with-unlaunch)
+
 The current shared exporter already preserves DSi resources for BW1 as well as BW2. This change extends the repair tool and its messages to BW1; it does not introduce a separate BW1 serializer.
 
 ## Verification

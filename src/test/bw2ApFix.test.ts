@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
+import { NintendoDSRom } from "../nds/rom";
 import { planBw2ApFix } from "../pokeweb/bw2ApFixModel";
+import { repairDsiRom } from "../pokeweb/dsiRomRepairModel";
+import { makeTwlRom, verifyAllDigests } from "./fixtures/dsiRom";
 
 function fixture() {
   const table = new Uint8Array(4 * 32);
@@ -64,5 +67,29 @@ describe("Black 2 and White 2 AP fix", () => {
     writeU32(card, 0x14, 0x4a33b5f8);
     writeU32(table, 3 * 32 + 4, 0x02130220);
     expect(() => planBw2ApFix("IREO", table, (id) => files.get(id))).toThrow(/overlay 165.*no room/);
+  });
+
+  it.each(["IREO", "IRDO"])("repairs DSi and patches only the edited ROM's AP overlays in %s", async (gameCode) => {
+    const donor = makeTwlRom(gameCode);
+    const original = new NintendoDSRom(donor);
+    const { table, files } = fixture();
+    const editedFile = Uint8Array.of(5, 3, 7, 9);
+    const addedFiles = [...files].map(([id, bytes], index) => {
+      writeU32(table, index * 32 + 24, original.files.length + index);
+      return { path: `overlays/file-${id}.bin`, bytes };
+    });
+    const source = original.save({ forDsi: false, arm9OverlayTable: table, addedFiles, files: new Map([[0, editedFile]]) });
+    const before = new NintendoDSRom(source);
+    const { bytes } = await repairDsiRom(source, donor, undefined, { applyApFix: true });
+    const after = new NintendoDSRom(bytes);
+
+    expect(after.arm9).toEqual(before.arm9);
+    expect(after.arm7).toEqual(before.arm7);
+    expect(after.files[0]).toEqual(editedFile);
+    expect(after.files).toHaveLength(before.files.length);
+    expect(after.files.flatMap((file, id) => Buffer.from(file).equals(Buffer.from(before.files[id])) ? [] : [id]))
+      .toEqual([1, 2, 3]);
+    expect(planBw2ApFix(gameCode, after.arm9OverlayTable, (id) => after.files[id])).toBeUndefined();
+    verifyAllDigests(bytes);
   });
 });

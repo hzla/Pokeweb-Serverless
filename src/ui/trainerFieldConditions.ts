@@ -1,3 +1,4 @@
+import { frostbiteSnowLabel } from "../pokeweb/frostbiteSnowModel";
 import {
   getTrainerFieldConditions, getTrainerFieldConditionsStatus, installTrainerFieldConditions,
   TRAINER_FIELD_WEATHERS, TRAINER_GLOBAL_CONDITIONS, TRAINER_SIDE_CONDITIONS, updateTrainerFieldCondition,
@@ -43,7 +44,7 @@ export function renderTrainerFieldSettings(project: ProjectState, trainerId: num
       ${!status.compatible ? `<p role="alert">${escapeHtml(status.message)}</p>` : ""}
       <div class="trainer-field-columns">
         <fieldset><legend>Whole field</legend>
-          <label class="trainer-field-select">Weather<select data-trainer-field="weather" ${disabled}>${TRAINER_FIELD_WEATHERS.map((name, value) => `<option value="${value}" ${value === c.weather ? "selected" : ""}>${name}</option>`).join("")}</select></label>
+          <label class="trainer-field-select">Weather<select data-trainer-field="weather" ${disabled}>${TRAINER_FIELD_WEATHERS.map((name, value) => `<option value="${value}" ${value === c.weather ? "selected" : ""}>${frostbiteSnowLabel(project, name)}</option>`).join("")}</select></label>
           ${TRAINER_GLOBAL_CONDITIONS.map(({ id, label }) => toggle(`fields_${id}`, label, Boolean(c.fields & (1 << id)))).join("")}
         </fieldset>
         ${(["player", "opponent"] as const).map(side => `<fieldset><legend>${side === "player" ? "Player side" : "Opposing side"}</legend>

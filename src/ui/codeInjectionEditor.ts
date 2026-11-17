@@ -4,6 +4,7 @@ import { naturePalettesSupported } from "../pokeweb/naturePaletteModel";
 import {getPmcMemoryEstimate} from "../pokeweb/pmcMemoryModel";
 import { typeIconPreview, DEFAULT_TYPE_ICON_BORDER, DEFAULT_BW1_TYPE_ICON_BORDER } from "../pokeweb/typeIconAppearance";
 import { getTrainerFieldConditionsStatus } from "../pokeweb/trainerFieldConditionsModel";
+import { frostbiteSnowStatus, installFrostbiteSnowPatch } from "../pokeweb/frostbiteSnowModel";
 import { attachTrainerFieldInstaller, renderTrainerFieldInstaller } from "./trainerFieldConditions";
 import { getDebugSaveFlagStatus, installDebugSaveFlag, parseDebugSaveFlag } from "../pokeweb/debugSaveFlagModel";
 import { renderInlineStatus } from "./inlineStatus";
@@ -94,6 +95,7 @@ import { downloadBytes } from "../pokeweb/fileSystemModel";
 import { getIntroSkipStatus, stageIntroSkip, uninstallIntroSkip } from "../pokeweb/introSkipModel";
 import { TESTING_PATCHES, getTestingPatchStatus, installTestingPatch, uninstallTestingPatch, type TestingPatchId } from "../pokeweb/testingPatchesModel";
 import { getBattleTypeHudStatus, installBattleTypeHud, uninstallBattleTypeHud, getMoveEffectivenessStatus, installMoveEffectiveness, uninstallMoveEffectiveness, DEFAULT_MOVE_HIGHLIGHT_COLORS, type MoveHighlightColors, type TypeIconVariant } from "../pokeweb/battleTypeHudModel";
+import { getQuickPokeBallStatus, installQuickPokeBall, uninstallQuickPokeBall } from "../pokeweb/quickPokeBallModel";
 import { detectAnimStreamsCompatibility } from "../pokeweb/animStreamsModel";
 import {
   pwanCompatibilityFailureSummary,
@@ -122,6 +124,10 @@ const patchShowcases = {
   ],
   moves: [
     [new URL("../assets/codeinjection/showcase/move-effectiveness.png", import.meta.url).href, "Move names colored for super-effective, resisted, immune, and neutral attacks against Gyarados", 256, 94],
+  ],
+  quickPokeBall: [
+    [new URL("../assets/codeinjection/showcase/quick-poke-ball-idle.png", import.meta.url).href, "Black 2 wild battle with the Quick Poké Ball tab showing 12 Poké Balls", 256, 134],
+    [new URL("../assets/codeinjection/showcase/quick-poke-ball-cycling.png", import.meta.url).href, "The tab highlights in blue while cycling balls, with the Master Ball selected", 256, 134],
   ],
   pokenav: [
     [new URL("../assets/codeinjection/showcase/pokenav-info.png", import.meta.url).href, "Pokenav species stats, abilities, and Patrat's combined 50% encounter chance", 250, 133],
@@ -219,6 +225,20 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       </div></section>`;
   };
   const trainerFieldStatus = getTrainerFieldConditionsStatus(project);
+  const frostbiteSnowCards = (["frostbite", "snow", "modern_status"] as const).map(id => {
+    const state = frostbiteSnowStatus(project, id);
+    const name = id === "snow" ? "Snow" : id === "frostbite" ? "Frostbite" : "Modern Status Effects";
+    const description = id === "snow" ? "Replaces Hail with Snow and gives Ice types 1.5× Defense."
+      : id === "frostbite" ? "Replaces Freeze with a status that reduces special damage and chips HP each turn."
+      : "Applies Pokémon Champions status rules. Frostbite takes precedence when installed.";
+    const action = state.updateAvailable ? `Update ${name}` : `Install ${name}`;
+    return `<section class="code-injection-panel" ${patchVisibility(state.supported)}>
+      <div class="code-injection-panel__header"><div><h2>${name}</h2><p>${description}</p></div>
+        ${renderInlineStatus(state.updateAvailable ? "Update available" : state.installed ? "Installed" : state.supported ? "Ready" : "Unsupported", { className: "code-injection-status" })}</div>
+      <div class="code-injection-actions"><button class="btn -primary" type="button" data-install-battle-climate="${id}" ${state.supported && (!state.installed || state.updateAvailable) ? "" : "disabled"}>${action}</button>
+      <div class="code-injection-note" role="status"></div></div>
+    </section>`;
+  }).join("");
   const tagBattleStatus = getTagBattleStabilizationStatus(project);
   const tagBattleCanInstall = tagBattleStatus.supported && tagBattleStatus.compatible && !tagBattleStatus.installed;
   const portaPcStatus = getPortaPcStatus(project);
@@ -233,6 +253,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     borderColor: battleHudStatus.borderColor ?? (project.session.baseRom === "BW" ? DEFAULT_BW1_TYPE_ICON_BORDER : DEFAULT_TYPE_ICON_BORDER),
   };
   const moveEffectivenessStatus = getMoveEffectivenessStatus(project);
+  const quickPokeBall = getQuickPokeBallStatus(project);
   const moveColors = moveEffectivenessStatus.colors ?? DEFAULT_MOVE_HIGHLIGHT_COLORS;
   const portaPcCanInstall = portaPcStatus.supported && portaPcStatus.compatible
     && (!portaPcStatus.installed || portaPcStatus.updateAvailable);
@@ -736,6 +757,19 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         </section>
         </section>
         <section class="code-injection-tab-panel" id="code-injection-panel-quality-of-life" role="tabpanel" aria-labelledby="code-injection-tab-quality-of-life" tabindex="0" ${activeTab === "quality-of-life" ? "" : "hidden"}>
+        <section class="code-injection-panel" ${patchVisibility(quickPokeBall.supported)}>
+          <div class="code-injection-panel__header">
+            <div><h2>Quick Poké Ball</h2><p>Wild singles only. Tap L to throw. Hold L + D-pad to cycle. Press B while holding L to cancel.</p></div>
+            ${renderInlineStatus(!quickPokeBall.supported ? "Unsupported" : !quickPokeBall.compatible ? "Incompatible" : quickPokeBall.updateAvailable ? "Update Available" : quickPokeBall.installed ? "Installed" : "Ready", { className: "code-injection-status" })}
+          </div>
+          ${renderPatchShowcase("quickPokeBall")}
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-quick-poke-ball-btn" type="button" ${quickPokeBall.compatible ? "" : "disabled"}>${quickPokeBall.updateAvailable ? "Update" : quickPokeBall.installed ? "Reinstall" : "Install"}</button>
+            <button class="btn -default" id="uninstall-quick-poke-ball-btn" type="button" ${quickPokeBall.canUninstall ? "" : "disabled"}>Remove staged patch</button>
+            <div class="code-injection-note" id="quick-poke-ball-note" aria-live="polite"></div>
+          </div>
+          ${quickPokeBall.message && !quickPokeBall.installed ? `<div class="code-injection-note">${escapeHtml(quickPokeBall.message)}</div>` : ""}
+        </section>
         ${testingPatchCard("instant-fast-text")}
         <section class="code-injection-panel" ${patchVisibility(bgmToggleSupported)}>
           <div class="code-injection-panel__header">
@@ -911,6 +945,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         </section>
         </section>
         <section class="code-injection-tab-panel" id="code-injection-panel-major-features" role="tabpanel" aria-labelledby="code-injection-tab-major-features" tabindex="0" ${activeTab === "major-features" ? "" : "hidden"}>
+        ${frostbiteSnowCards}
         <section class="code-injection-panel" ${patchVisibility(fairyStatus !== "unsupported")}>
           <div class="code-injection-panel__header">
             <div>
@@ -1261,6 +1296,22 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     });
   };
   applyPatchVisibility(showUnsupported);
+  root.querySelectorAll<HTMLButtonElement>("[data-install-battle-climate]").forEach(button => {
+    button.addEventListener("click", async () => {
+      const id = button.dataset.installBattleClimate;
+      if (id !== "frostbite" && id !== "snow" && id !== "modern_status") return;
+      const note = button.parentElement!.querySelector<HTMLElement>("[role=status]")!;
+      button.disabled = true;
+      note.textContent = frostbiteSnowStatus(project, id).updateAvailable ? "Updating…" : "Installing…";
+      try {
+        if (await installFrostbiteSnowPatch(project, id)) onDirty();
+        renderCodeInjectionEditor(project, root, onDirty);
+      } catch (error) {
+        note.textContent = error instanceof Error ? error.message : String(error);
+        button.disabled = false;
+      }
+    });
+  });
   const unsupportedToggle = root.querySelector<HTMLInputElement>("#show-unsupported-patches");
   unsupportedToggle?.addEventListener("change", () => {
     showUnsupportedCodeInjectionPatches.set(project, unsupportedToggle.checked);
@@ -2309,6 +2360,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   for (const [id, installAction, uninstall] of [
     ["battle-hud", installBattleTypeHud, uninstallBattleTypeHud],
     ["move-effectiveness", installMoveEffectiveness, uninstallMoveEffectiveness],
+    ["quick-poke-ball", installQuickPokeBall, uninstallQuickPokeBall],
   ] as const) {
     for (const [verb, action] of [["install", installAction], ["uninstall", uninstall]] as const) {
       const button = root.querySelector<HTMLButtonElement>(`#${verb}-${id}-btn`);

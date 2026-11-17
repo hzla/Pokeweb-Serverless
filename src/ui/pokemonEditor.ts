@@ -50,6 +50,7 @@ import { publicAsset } from "../assetUrl";
 import { installPokemonCryPanel, renderPokemonCryPanel } from "./pokemonCryEditor";
 import {
   getPokemonKoMoves,
+  koMoveMirrorSource,
   KO_MOVE_LEARNSET_MAX_MOVES,
   type KoMoveLearnsetEntry,
 } from "../pokeweb/koMoveLearnsetModel";
@@ -216,6 +217,11 @@ export function renderPokemonEditor(
   // Field commits happen on focusout/change; resync the list row, header and marks after them.
   const resync = () => window.setTimeout(() => refreshPokemonEditState(project, root, selection.speciesId), 0);
   attachPokemonMegaSection(detail, project, { onDirty, rerender, select: (speciesId) => select(speciesId, true), onEnsureFormAssets });
+  // A Mega form's KO moves are its base form's: the panel links there.
+  detail.addEventListener("click", (event) => {
+    const link = (event.target as HTMLElement).closest<HTMLElement>("[data-ko-mirror-goto]");
+    if (link) select(Number(link.dataset.koMirrorGoto), true);
+  });
   detail.addEventListener("focusout", resync);
   detail.addEventListener("change", resync);
   root.querySelectorAll<HTMLDetailsElement>(".md-filter").forEach((filter) => {
@@ -541,6 +547,7 @@ function renderExpanded(project: ProjectState, record: PokemonEditorRecord): str
   const canAddLearnsetMove = record.learnset.length < learnsetLimit;
   const koMovesAvailable = isKoMoveEditorAvailable(project);
   const koMoves = koMovesAvailable ? getPokemonKoMoves(project, record.id) : [];
+  const koMirror = koMovesAvailable ? koMoveMirrorSource(project, record.id) : undefined;
   const addFormReady =
     !isGen4Project(project) &&
     Boolean(
@@ -592,7 +599,7 @@ function renderExpanded(project: ProjectState, record: PokemonEditorRecord): str
         </div>
         ${renderMoveTable("Level", record.learnset.map((move) => renderLearnsetMove(move, canAddLearnsetMove)).join(""))}
       </div>
-      ${koMovesAvailable ? renderKoMoves(koMoves, learnsetSpeciesMax) : ""}
+      ${koMovesAvailable ? renderKoMoves(koMoves, learnsetSpeciesMax, koMirror === undefined ? undefined : { id: koMirror, name: pokemonSpeciesLabel(project, koMirror) }) : ""}
     </div>
     <div class="expanded-card-content expanded-tms">
       ${renderCompatibilityCopyToolbar("tm", "TM/HM", personalSpeciesMax, `${tmsEnabled} of ${record.tmCompatibility.length} compatible`)}
@@ -769,7 +776,17 @@ function renderLearnsetMove(move: LearnsetMove, canInsert: boolean): string {
   `;
 }
 
-function renderKoMoves(moves: KoMoveLearnsetEntry[], speciesMax: number): string {
+function renderKoMoves(moves: KoMoveLearnsetEntry[], speciesMax: number, mirror?: { id: number; name: string }): string {
+  if (mirror) {
+    // A Mega form: its KOs count toward its base form's KO moves, which it shows read-only.
+    return `
+    <div class="learnset-panel ko-move-panel">
+      <div class="section-bar md-gap">KO moves</div>
+      <p class="pd-hint">While Mega Evolved, KOs count toward ${escapeHtml(mirror.name)}'s KO moves. <button class="pd-mega-link" type="button" data-ko-mirror-goto="${mirror.id}">Edit them on ${escapeHtml(mirror.name)}</button>.</p>
+      ${moves.length ? renderMoveTable("KOs", moves.map((move) => renderKoMoveReadOnly(move)).join("")) : ""}
+    </div>
+  `;
+  }
   const canInsert = moves.length < KO_MOVE_LEARNSET_MAX_MOVES;
   return `
     <div class="learnset-panel ko-move-panel">
@@ -785,6 +802,20 @@ function renderKoMoves(moves: KoMoveLearnsetEntry[], speciesMax: number): string
         <span class="learnset-count">${moves.length} of ${KO_MOVE_LEARNSET_MAX_MOVES} moves</span>
       </div>
       ${renderMoveTable("KOs", moves.map((move) => renderKoMove(move, canInsert)).join(""))}
+    </div>
+  `;
+}
+
+function renderKoMoveReadOnly(move: KoMoveLearnsetEntry): string {
+  return `
+    <div class="expanded-field multi learnset-row ko-move-row pd-move-row">
+      <div class="move-level">${move.koCount}</div>
+      <div class="move-name">${escapeHtml(move.moveName)}</div>
+      <div class="move-type"><span class="type-plate sm -${typeClass(move.type)}">${escapeHtml(String(move.type))}</span></div>
+      <div class="move-cat">${escapeHtml(titleize(String(move.category)))}</div>
+      <div class="move-power">${escapeHtml(String(move.power))}</div>
+      <div class="move-accuracy">${escapeHtml(String(move.accuracy))}</div>
+      <div class="learnset-row-actions"></div>
     </div>
   `;
 }

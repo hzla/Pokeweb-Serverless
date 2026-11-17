@@ -1,3 +1,4 @@
+import { frostbiteSnowLabel } from "../pokeweb/frostbiteSnowModel";
 import { displayAbilityName } from "../pokeweb/abilityTextModel";
 import { inspectCustomMoveFlags } from "../pokeweb/abilityEffectsModel";
 import { customMoveFlagFilter, customMoveFlagId, type CustomMoveFlag } from "../pokeweb/customMoveFlags";
@@ -24,25 +25,25 @@ export type RuleFormOptions = {
 };
 
 const option = (value: string | number, label: string, selected: string | number) => `<option value="${value}" ${value === selected ? "selected" : ""}>${escapeHtml(label)}</option>`;
-function group(node: ItemRuleCondition, types: string[], path = "", depth = 0): string {
+function group(node: ItemRuleCondition, types: string[], climate: (label: string) => string, path = "", depth = 0): string {
   if (node.kind === "group") return `<fieldset data-rule-group data-rule-path="${path}" class="item-rule-group">
     <legend>${depth ? "Group" : "Activation conditions"}</legend>
     <div class="item-rule-group-tools"><select data-rule-mode aria-label="${depth ? "Group" : "Activation"} condition logic">${option("all", "All (AND)", node.mode)}${option("any", "Any (OR)", node.mode)}</select>
       <button type="button" class="btn -default" data-rule-action="add-condition" data-rule-path="${path}" ${node.children.length >= 8 ? "disabled" : ""}>+ Condition</button>
       <button type="button" class="btn -default" data-rule-action="add-group" data-rule-path="${path}" ${depth >= 3 || node.children.length >= 8 ? "disabled" : ""}>+ Group</button>
       ${depth ? `<button type="button" class="btn -default" data-rule-action="remove-condition" data-rule-path="${path}" aria-label="Remove condition group">Remove</button>` : ""}</div>
-    <div data-rule-children>${node.children.length ? node.children.map((child, index) => group(child, types, path ? `${path}.${index}` : String(index), depth + 1)).join("") : `<span class="item-native-hint">${depth ? "Add a condition" : "Always active"}</span>`}</div>
+    <div data-rule-children>${node.children.length ? node.children.map((child, index) => group(child, types, climate, path ? `${path}.${index}` : String(index), depth + 1)).join("") : `<span class="item-native-hint">${depth ? "Add a condition" : "Always active"}</span>`}</div>
   </fieldset>`;
   return `<div class="item-rule-condition" data-rule-condition data-rule-kind="${node.kind}" data-rule-path="${path}">
     <select data-rule-condition-kind aria-label="Condition type">${option("hp", "Holder HP", node.kind)}${option("type", "Holder type", node.kind)}${option("weather", "Weather", node.kind)}${option("species", "Holder species", node.kind)}${option("status", "Holder status", node.kind)}${option("moveType", "Move type", node.kind)}${option("category", "Move category", node.kind)}</select>
     ${node.kind === "hp" ? `<select data-rule-comparison aria-label="HP comparison">${[["lt", "Below (<)"], ["lte", "At most (≤)"], ["gt", "Above (>)"], ["gte", "At least (≥)"]].map(([v, label]) => option(v, label, node.comparison)).join("")}</select><label class="item-rule-value"><input data-rule-condition-value aria-label="HP percent" type="number" min="0" max="100" step="1" value="${node.percent}"><span>%</span></label>`
-      : `<select data-rule-negate aria-label="Condition comparison">${option(0, "Is", Number(Boolean(node.negate)))}${option(1, "Is not", Number(Boolean(node.negate)))}</select>${node.kind === "species" ? `<input data-rule-condition-value aria-label="Species ID" type="number" min="1" max="1023" value="${node.value}">` : `<select data-rule-condition-value aria-label="Condition value">${(node.kind === "type" || node.kind === "moveType" ? types : node.kind === "weather" ? ITEM_RULE_WEATHER : node.kind === "category" ? ["Status", "Physical", "Special"] : ["None", ...ITEM_RULE_STATUS_LABELS.slice(0, 6)]).map((label, id) => option(id, label, node.value)).join("")}</select>`}`}
+      : `<select data-rule-negate aria-label="Condition comparison">${option(0, "Is", Number(Boolean(node.negate)))}${option(1, "Is not", Number(Boolean(node.negate)))}</select>${node.kind === "species" ? `<input data-rule-condition-value aria-label="Species ID" type="number" min="1" max="1023" value="${node.value}">` : `<select data-rule-condition-value aria-label="Condition value">${(node.kind === "type" || node.kind === "moveType" ? types : node.kind === "weather" ? ITEM_RULE_WEATHER : node.kind === "category" ? ["Status", "Physical", "Special"] : ["None", ...ITEM_RULE_STATUS_LABELS.slice(0, 6)]).map((label, id) => option(id, climate(label), node.value)).join("")}</select>`}`}
     <button type="button" class="btn -default" data-rule-action="remove-condition" data-rule-path="${path}" aria-label="Remove condition">×</button>
   </div>`;
 }
-function effectFields(effect: ItemRuleEffect, index: number, types: string[], options: RuleFormOptions, abilityNames: string[] = [], customFlags: readonly CustomMoveFlag[] = []): string {
+function effectFields(effect: ItemRuleEffect, index: number, types: string[], climate: (label: string) => string, options: RuleFormOptions, abilityNames: string[] = [], customFlags: readonly CustomMoveFlag[] = []): string {
   const definition = (options.definitions ?? ITEM_RULE_EFFECTS).find(d => d.kind === effect.kind)!;
-  const select = (attribute: string, label: string, labels: readonly string[], selected: number, first = 0) => `<label><span>${label}</span><select ${attribute} aria-label="Effect ${index + 1} ${label.toLowerCase()}">${labels.map((text, i) => option(i + first, text, selected)).join("")}</select></label>`;
+  const select = (attribute: string, label: string, labels: readonly string[], selected: number, first = 0) => `<label><span>${label}</span><select ${attribute} aria-label="Effect ${index + 1} ${label.toLowerCase()}">${labels.map((text, i) => option(i + first, climate(text), selected)).join("")}</select></label>`;
   const number = `<label class="item-rule-value"><input data-rule-effect-value aria-label="Effect ${index + 1} value" type="number" min="${effect.kind.startsWith("native:") ? 1 : effect.kind.startsWith("nativeAbility:") ? .125 : definition.min}" max="${definition.max}" step="${definition.step}" value="${effect.value}"><span>${definition.unit}</span></label>`;
   const native = effect.kind.startsWith("native:") || effect.kind.startsWith("nativeAbility:");
   let fields = effect.kind === "status" ? select("data-rule-effect-value", "Status", ITEM_RULE_STATUS_LABELS, effect.value, 1)
@@ -60,7 +61,7 @@ function effectFields(effect: ItemRuleEffect, index: number, types: string[], op
   if (effect.kind === "moveType") fields += `<label><span>Move ID (0 = any)</span><input data-rule-move aria-label="Move type filter" type="number" min="0" max="1023" value="${effect.move ?? 0}"></label>`;
   const profile = nativeAbilityProfile(effect.kind), library=libraryAbilityEffect(effect.kind)??recipeAbilityEffect(effect.kind)??itemRecipeEffect(effect.kind);
   if (profile?.stats) fields += select("data-rule-stat", "Stat lowered", ITEM_RULE_STAT_LABELS, effect.stat ?? profile.stats[0].original, 1);
-  if (profile?.weather) fields += `<label><span>Weather check</span><select data-rule-native-weather aria-label="Native weather check">${option(-1, "Original", effect.weather ?? -1)}${ITEM_RULE_WEATHER.map((text, id) => option(id, text, effect.weather ?? -1)).join("")}</select></label>`;
+  if (profile?.weather) fields += `<label><span>Weather check</span><select data-rule-native-weather aria-label="Native weather check">${option(-1, "Original", effect.weather ?? -1)}${ITEM_RULE_WEATHER.map((text, id) => option(id, climate(text), effect.weather ?? -1)).join("")}</select></label>`;
   if (profile?.chances) fields += `<label><span>Activation chance (%)</span><input type="number" data-rule-native-chance aria-label="Native activation chance" min="1" max="100" placeholder="Original" value="${effect.chance ?? ""}"></label>`;
   for (const control of profile?.parameters ?? library?.parameters ?? []) {
     if(control.when){const current=effect.parameters?.[control.when.key]??library?.parameters.find(p=>p.key===control.when!.key)?.original;if(Array.isArray(control.when.value)?!control.when.value.includes(current!):current!==control.when.value)continue;}
@@ -69,13 +70,16 @@ function effectFields(effect: ItemRuleEffect, index: number, types: string[], op
     if(control.kind==="conditionSet"||control.kind==="typeSet"||control.kind==="damageSet"){
       const labels=control.kind==="conditionSet"?ABILITY_PROTECTED_CONDITION_LABELS:control.kind==="damageSet"?ABILITY_DAMAGE_SOURCE_LABELS:types;
       const mask=effect.parameters?.[control.key]??(control.kind==="typeSet"?1<<(effect.parameters?.type??0):control.original);
-      fields+=`<fieldset class="ability-rule-set"><legend>${escapeHtml(control.label)}</legend>${labels.map((label,bit)=>`<label><input type="checkbox" data-rule-set="${control.key}" value="${1<<bit}" ${mask&(1<<bit)?"checked":""}>${escapeHtml(label)}</label>`).join("")}</fieldset>`;continue;
+      fields+=`<fieldset class="ability-rule-set"><legend>${escapeHtml(control.label)}</legend>${labels.map((label,bit)=>`<label><input type="checkbox" data-rule-set="${control.key}" value="${1<<bit}" ${mask&(1<<bit)?"checked":""}>${escapeHtml(climate(label))}</label>`).join("")}</fieldset>`;continue;
     }
     if(effect.kind==="abilityRecipe:statGroup"&&control.key==="attackStages"||effect.kind==="itemRecipe:hitStats"&&control.key==="attack")fields+='<fieldset class="ability-rule-stats"><legend>Stat changes</legend>';
     const value=effect.parameters?.[control.key], labels=control.kind==="ability"?abilityNames:control.kind==="type"?types:control.kind==="weather"?ITEM_RULE_WEATHER:control.kind==="category"?["Status","Physical","Special"]:control.kind==="stat"?["",...ITEM_RULE_STAT_LABELS,"All stats"]:control.kind==="status"||control.kind==="majorStatus"?["","Paralysis","Sleep","Freeze","Burn","Poison","Confusion","Infatuation"]:undefined;
     const custom=options.ability&&library&&control.key==="moveClass"?new Map(customFlags.map(flag=>[customMoveFlagFilter(flag.id),`Custom: ${flag.name}`])):new Map<number,string>();
     if(control.key==="moveClass"&&value!==undefined&&customMoveFlagId(value)!==undefined&&!custom.has(value))custom.set(value,`Missing custom flag ${value-13}`);
-    const text=(id:number)=>custom.get(id)??control.labels?.[id]??(control.kind==="type"&&id===17&&id>=types.length?"Fairy (unavailable)":id===14&&control.kind==="status"?"Yawn":(control.kind==="ability"?`${id} · ${labels?.[id]||`Ability ${id}`}`:labels?.[id]??String(id)));
+    const text = (id: number) => custom.get(id) ?? (control.kind === "ability"
+      ? `${id} · ${labels?.[id] || `Ability ${id}`}`
+      : climate(control.labels?.[id] ?? (control.kind === "type" && id === 17 && id >= types.length
+        ? "Fairy (unavailable)" : id === 14 && control.kind === "status" ? "Yawn" : labels?.[id] ?? String(id))));
     const values=[...(control.choices??Array.from({length:control.max-control.min+1},(_,i)=>control.min+i)),...custom.keys()].filter(id=>control.kind!=="type"||id<types.length||control.labels?.[id]!==undefined);
     if(control.kind==="type"&&value!==undefined&&!values.includes(value))values.push(value);
     const original=`Original (${labels||control.choices?text(control.original):Number(control.original.toFixed(3))})`;
@@ -93,10 +97,11 @@ function portableItemOptions(project:ProjectState,options:RuleFormOptions):RuleF
 }
 export function renderItemRuleForm(project: ProjectState, rule: ItemRuleSet, options: RuleFormOptions = {}): string {
   options=portableItemOptions(project,options);
+  const climate = (label: string) => frostbiteSnowLabel(project, label);
   const customFlags=options.ability?inspectCustomMoveFlags(project).registry.flags:[];
   const root = rule.conditions.kind === "group" ? rule.conditions : { kind: "group" as const, mode: "all" as const, children: [rule.conditions] };
   const presets=options.presets??ITEM_RULE_PRESETS,groups=[...new Set(presets.map(p=>"group"in p?p.group:undefined))];
-  const choices=groups.map(name=>`${name?`<optgroup label="${escapeHtml(name)}">`:""}${presets.filter(p=>("group"in p?p.group:undefined)===name).map(p=>option(p.id,p.label,"")).join("")}${name?"</optgroup>":""}`).join("");
+  const choices=groups.map(name=>`${name?`<optgroup label="${escapeHtml(name)}">`:""}${presets.filter(p=>("group"in p?p.group:undefined)===name).map(p=>option(p.id,climate(p.label),"")).join("")}${name?"</optgroup>":""}`).join("");
   return `<div class="item-rule-form" data-item-rule-form>
     ${options.ability ? `<p class="ability-effects-help">Abilities are made up of “effects”. You can import an effect template from an existing ability below, or click “+ Effect” to manually add a custom effect or the effect of an existing ability. Once an effect is added, you can further adjust its parameters.</p>` : ""}
     <div class="item-rule-preset"><select data-rule-preset aria-label="${options.ability ? "Import ability effects" : "Import item effects"}"><option value="">Import effects…</option>${choices}</select><button type="button" class="btn -default" data-rule-action="preset">Import Effect Template</button></div>
@@ -104,8 +109,8 @@ export function renderItemRuleForm(project: ProjectState, rule: ItemRuleSet, opt
     <div data-rule-effects>${rule.effects.map((effect, index) => `<div class="item-rule-effect" data-rule-effect data-rule-effect-kind="${effect.kind}" data-rule-index="${index}">
       <div class="item-rule-effect-heading"><select data-rule-effect-kind aria-label="Effect ${index + 1}">${[false, true].map(native => `<optgroup label="${native ? options.ability ? "Copied ability handlers" : "Native item behaviors" : "Adjustable primitives"}">${(options.definitions ?? ITEM_RULE_EFFECTS).filter(d => Boolean(d.nativeItem) === native).map(d => option(d.kind, d.label, effect.kind)).join("")}</optgroup>`).join("")}</select>
       <button type="button" class="btn -default" data-rule-action="remove-effect" data-rule-index="${index}" aria-label="Remove effect ${index + 1}" ${rule.effects.length === 1 ? "disabled" : ""}>×</button></div>
-      <div class="item-rule-effect-fields">${effectFields(effect, index, typeNamesForProject(project), options, (project.texts.banks.abilities??[]).map((name,id)=>displayAbilityName(id,name)),customFlags)}</div></div>`).join("")}</div>
-    ${group(root, typeNamesForProject(project))}
+      <div class="item-rule-effect-fields">${effectFields(effect, index, typeNamesForProject(project), climate, options, (project.texts.banks.abilities??[]).map((name,id)=>displayAbilityName(id,name)),customFlags)}</div></div>`).join("")}</div>
+    ${group(root, typeNamesForProject(project), climate)}
     ${options.ability ? "" : `<label class="item-rule-consumable"><input type="checkbox" data-rule-consumable ${rule.consumable ? "checked" : ""}>Consume on first successful effect</label>`}
     <button type="button" class="btn -default" data-rule-action="apply">${options.ability?"Apply ability":"Apply custom effects"}</button>
     <span data-rule-feedback class="item-native-feedback" role="status" aria-live="polite"></span>

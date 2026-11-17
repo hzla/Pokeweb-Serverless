@@ -77,6 +77,22 @@ describe("moveItemModel", () => {
     expect(() => updateMoveEffectId(project, 1, "-1")).toThrow(/between 0 and/u);
   });
 
+  it("labels the native Freeze result as Frostbite only when the Frostbite patch is installed", () => {
+    const project = makeProject();
+    expect(getMoveAutofills(project).result_effects[3]).toBe("Chance to freeze");
+    expect(updateMoveField(project, 1, "result_effect", "Chance to freeze").rawValue).toBe(3);
+
+    project.codeInjection = { modules: [{ path: "patches/Snow.dll", fileName: "Snow.dll", target: "patches" }] };
+    expect(getMoveAutofills(project).result_effects[3]).toBe("Chance to freeze");
+
+    project.codeInjection = { modules: [{ path: "patches/Frostbite.dll", fileName: "Frostbite.dll", target: "patches" }] };
+    expect(getMoveAutofills(project).result_effects[3]).toBe("Chance for frostbite");
+    expect(getMoveRecord(project, 1).readable.result_effect).toBe("Chance for frostbite");
+    updateMoveField(project, 1, "result_effect", "None");
+    expect(updateMoveField(project, 1, "result_effect", "Chance for frostbite").rawValue).toBe(3);
+    expect(getMoveRecord(project, 1).raw.result_effect).toBe(3);
+  });
+
   it("keeps every AI effect description unique under the selector's case-insensitive lookup", () => {
     expect(EFFECTS).toHaveLength(338);
     expect(EFFECTS.every((label) => label.length > 0 && label === label.trim())).toBe(true);

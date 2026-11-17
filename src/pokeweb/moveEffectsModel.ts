@@ -7,6 +7,7 @@ import { sha256Hex } from "../nds/sha256";
 import { encodeMoveRecipeBook, decodeMoveRecipeBook } from "./moveRecipeBook";
 import { CURRENT_ABILITY_RUNTIME_VERSION, inspectAbilityEffects, isVerifiedAbilityMoveParamImport, isVerifiedAbilityWeatherImport, upgradeAbilityRuntime } from "./abilityEffectsModel";
 import { isVerifiedItemMoveParamImport, isVerifiedItemSelectionImport } from "./itemEffectsModel";
+import { isVerifiedModernStatusImport } from "./frostbiteSnowModel";
 import bindings from "../assets/data/moveRecipeBindings.json";
 import black1Bindings from "../assets/data/moveRecipeBindingsB1.json";
 import white1Bindings from "../assets/data/moveRecipeBindingsW1.json";
@@ -240,6 +241,7 @@ function checkHook(c: Context, name: string, address: number, size: number) {
       if (relocation.target.module !== (c.signatures[name].module === "ARM9" ? "0" : c.overlayModule)) continue;
       const start = relocation.target.address & ~1, length = relocation.target.type === "FULL_COPY" ? module.symbols[relocation.sourceSymbolIndex]?.size ?? 0 : relocation.target.type === "OFFSET" ? 4 : 16;
       if (start < address + size && start + length > address) {
+        if (isVerifiedModernStatusImport(path, module, name, address, relocation)) continue;
         if(name==="HistorySelect"&&relocation.target.type==="THUMB_BRANCH_LINK"&&isVerifiedItemSelectionImport(c.project,path,bytes,start))continue;
         if(name==="ServerEvent_GetMoveParam"&&start===address&&relocation.target.type==="THUMB_BRANCH"&&(isVerifiedAbilityMoveParamImport(c.project,path,bytes,address)||isVerifiedItemMoveParamImport(c.project,path,bytes,address)))continue;
         if(name==="ServerEvent_GetWeather"&&start===address&&relocation.target.type==="THUMB_BRANCH"&&isVerifiedAbilityWeatherImport(c.project,path,bytes,address))continue;

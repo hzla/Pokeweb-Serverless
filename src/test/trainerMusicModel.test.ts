@@ -64,6 +64,23 @@ describe("trainerMusicModel", () => {
     expect(model.assignments.every((assignment) => assignment.editable)).toBe(true);
   });
 
+  it("preserves customized Black 2/White 2 metadata when reassigning an approach theme", () => {
+    const project = makeProject("B2", 0x1000);
+    const tableOffset = 0x200;
+    writeBw2Table(project, tableOffset);
+    for (let record = 0; record < BW2_TRAINER_MUSIC_METADATA_SIGNATURE.length; record += 1) {
+      project.arm9[tableOffset + record * 4 + 1] = 0x6a;
+    }
+    const model = createTrainerMusicModel(project, makeSdat(true));
+    const assignment = model.assignments[2];
+    const expected = project.arm9.slice();
+    writeU16(expected, tableOffset + 2 * 4 + 2, 1243);
+
+    assignTrainerEyeTheme(project, model, assignment, 1243);
+
+    expect(project.arm9).toEqual(expected);
+  });
+
   it("filters classes by name, class id, and effective theme", () => {
     const project = makeProject("W", 0x800);
     project.texts.banks.tr_classes![2] = "Youngster";

@@ -14,6 +14,11 @@ import * as megaEvolutionModel from "../pokeweb/megaEvolutionModel";
 import * as speciesExpansionModel from "../pokeweb/speciesExpansionModel";
 import * as abilityExpansionModel from "../pokeweb/abilityExpansionModel";
 import * as bw2ApFix from "../pokeweb/bw2ApFixModel";
+import { readFileSync } from "node:fs";
+import manifest from "../assets/codeinjection/quickPokeBallManifest.json";
+import { NARC } from "../nds/narc";
+import { addRomFile } from "../pokeweb/fileSystemModel";
+import { getQuickPokeBallStatus, uninstallQuickPokeBall } from "../pokeweb/quickPokeBallModel";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -173,6 +178,67 @@ function renderFixture(version: "W2" | "B2" | "B" | "W", pmcInstalled = false): 
   renderCodeInjectionEditor(project, root as unknown as HTMLElement, () => {});
   return root.innerHTML;
 }
+
+describe("Quick Poké Ball bundle", () => {
+  const bundle = (name: string) => new Uint8Array(readFileSync(new URL(`../assets/codeinjection/${name}`, import.meta.url)));
+
+  it.each(["B", "W", "B2", "W2"] as const)("recognizes and removes the staged %s DLL and matching art together", async version => {
+    const project = makeProject(version);
+    project.originalRomBytes = undefined;
+    const dllPath = `patches/${manifest.games[version].fileName}`;
+    addRomFile(project, dllPath, bundle(manifest.games[version].fileName));
+    expect(getQuickPokeBallStatus(project)).toMatchObject({ installed: false, compatible: true, canUninstall: true });
+    addRomFile(project, manifest.archivePath, bundle("quickPokeBall.narc"));
+    expect(getQuickPokeBallStatus(project)).toMatchObject({ installed: true, compatible: true, canUninstall: true });
+    await uninstallQuickPokeBall(project);
+    expect(project.fileSystem?.additions).toEqual({});
+  });
+
+  it("recognizes reserialized graphics and rejects changed sprite bytes", () => {
+    const project = makeProject("W2");
+    project.originalRomBytes = undefined;
+    addRomFile(project, `patches/${manifest.games.W2.fileName}`, bundle(manifest.games.W2.fileName));
+    const archive = new NARC(bundle("quickPokeBall.narc"));
+    addRomFile(project, manifest.archivePath, archive.save());
+    expect(getQuickPokeBallStatus(project)).toMatchObject({ installed: true, compatible: true });
+    archive.files[3]![12] ^= 1;
+    addRomFile(project, manifest.archivePath, archive.save());
+    expect(getQuickPokeBallStatus(project)).toMatchObject({ installed: false, compatible: false });
+  });
+
+  it("keeps the arrow backing and quantity area inside every tab's border", () => {
+    const archive = new NARC(bundle("quickPokeBall.narc"));
+    for (const sprite of archive.files.slice(3)) {
+      const pixel = (x: number, y: number) => {
+        const offset = (Math.floor(y / 8) * 4 + Math.floor(x / 8)) * 32 + (y % 8) * 4 + Math.floor(x % 8 / 2);
+        return (sprite[offset]! >>> ((x % 2) * 4)) & 15;
+      };
+      for (let y = 14; y < 29; y++) {
+        expect(pixel(27, y)).toBe(2 + ((13 + Math.floor(y / 2)) & 1));
+        expect([pixel(28, y), pixel(29, y), pixel(30, y), pixel(31, y)]).toEqual([4, 4, 5, 6]);
+      }
+      expect([pixel(24, 15), pixel(24, 26)]).toEqual([7, 7]);
+      for (let y = 31; y <= 35; y++) {
+        for (let x = 7; x <= 21; x++) {
+          expect(pixel(x, y)).toBe(2 + ((Math.floor(x / 2) + Math.floor(y / 2)) & 1));
+        }
+        expect(pixel(30, y)).toBe(5);
+      }
+      expect(pixel(14, 40)).toBe(4);
+    }
+  });
+
+  it("rejects a different module claiming the same battle hooks", () => {
+    const project = makeProject("W2");
+    project.originalRomBytes = undefined;
+    const changedDll = bundle(manifest.games.W2.fileName);
+    changedDll[32] ^= 1;
+    addRomFile(project, "patches/OtherBattlePatch.dll", changedDll);
+    expect(getQuickPokeBallStatus(project)).toMatchObject({
+      compatible: false, message: "Quick Poké Ball conflicts with patches/OtherBattlePatch.dll.",
+    });
+  });
+});
 
 describe("archived save-menu patch", () => {
   it.each(["B", "W", "B2", "W2"] as const)("offers no save-menu installer or settings on %s", version => {
@@ -374,8 +440,8 @@ describe("code-injection patch categories", () => {
     expect(headings(panels[1])).toEqual([
       "Nature Palettes", "Summary IV/EV Viewer", "Enhanced Party Menu and Battle Log Integration", "Type Icons", "Party Menu Learnset/Dex Viewer", "Move Effectiveness Preview", "C-Gear Quick Actions", "Pokenav",
     ]);
-    expect(headings(panels[2])).toEqual(["Instant Fast Text", "Background Music Toggle", "Shiny Odds", "Black 2 / White 2 AP Fix", "Challenge Mode Stat Fix", "Early Challenge Mode", "Early National Pokédex", "Forgettable HMs", "Make HM Moves Forgettable", "Autorun", "Skip Intro"]);
-    expect(headings(panels[3])).toEqual(["Fairy Type Support", "Move Expansion", "Mega Evolution", "Regional Forms", "Species Expansion"]);
+    expect(headings(panels[2])).toEqual(["Quick Poké Ball", "Instant Fast Text", "Background Music Toggle", "Shiny Odds", "Black 2 / White 2 AP Fix", "Challenge Mode Stat Fix", "Early Challenge Mode", "Early National Pokédex", "Forgettable HMs", "Make HM Moves Forgettable", "Autorun", "Skip Intro"]);
+    expect(headings(panels[3])).toEqual(["Frostbite", "Snow", "Modern Status Effects", "Fairy Type Support", "Move Expansion", "Mega Evolution", "Regional Forms", "Species Expansion"]);
     expect(headings(panels[4])).toEqual([
       "Six-Pokémon PWT", "Infinite Rare Candy", "Hard Level Caps", "Trainer Level Caps",
       "Trainer Field Conditions", "Nuzlocke Style Encounters", "Porta PC",

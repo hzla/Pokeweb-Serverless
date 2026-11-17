@@ -1,4 +1,5 @@
 import manifestJson from "../assets/codeinjection/speciesExpansionManifest.json";
+import { insertKoMoveLearnsetMembers } from "./koMoveLearnsetModel";
 import indexJson from "../assets/data/speciesExpansionIndex.json";
 import { recordGenericChange } from "./actionChangelog";
 import { loadCodeInjectionNarcs } from "./codeInjectionInstall";
@@ -228,6 +229,8 @@ function moveFormRecords(project: ProjectState): number {
   const personal = store(project, "personal");
   const moved = personal.rawFiles.length - FIRST_FORM_RECORD;
   insertFiles(project, "personal", FIRST_FORM_RECORD, FORM_SHIFT, () => new Uint8Array());
+  // Menu Evolution's KO moves are read at the personal record too: theirs move with the records.
+  insertKoMoveLearnsetMembers(project, FIRST_FORM_RECORD, FORM_SHIFT);
   for (const name of ["learnsets", "evolutions"] as const) {
     const length = store(project, name).rawFiles.length;
     if (length > FIRST_FORM_RECORD) insertFiles(project, name, FIRST_FORM_RECORD, FORM_SHIFT, () => new Uint8Array());

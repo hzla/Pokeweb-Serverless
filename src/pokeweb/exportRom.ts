@@ -42,7 +42,7 @@ import { repairPokemonIconPaletteAssignmentPlacement } from "./pokemonSpriteMode
 import { repairAppendedPokemonFormNames } from "./pokemonFormModel";
 import type { ProjectState } from "./projectStore";
 import { assertFrostPmcRuntimeCopiesAgree, exportFrostCompatibleRom, type FrostCompatibilityWarning } from "./frostCompatibility";
-import { hydrateKoMoveLearnsetFromRom } from "./koMoveLearnsetModel";
+import { hydrateKoMoveLearnsetFromRom, syncKoMoveLearnsetWithPersonal } from "./koMoveLearnsetModel";
 
 export { materializeProjectEdits } from "./projectMaterialize";
 
@@ -74,6 +74,8 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
   hydrateKoMoveLearnsetFromRom(project, rom);
   const repairedLegacyPmcRootFnt = repairLegacyPmcRootFnt(project, rom);
   materializeProjectEdits(project);
+  // Forms and species added after the KO moves: one past the KO learnset archive's end crashes after a KO.
+  syncKoMoveLearnsetWithPersonal(project, rom);
   materializeTrainerRosters(project, rom);
   materializeCustomUiSource(project, rom);
   materializeCGearButtonSource(project, rom);

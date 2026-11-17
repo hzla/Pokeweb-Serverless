@@ -3,8 +3,13 @@ import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { recordGenericChange } from "./actionChangelog";
 import { addRomFile, setRomFileReplacement } from "./fileSystemModel";
+import { megaEvolutionRoutes } from "./megaEvolutionModel";
 import { getMovePreview, type LearnsetMove } from "./pokemonModel";
 import type { ProjectState } from "./projectStore";
+
+const PERSONAL_PATH = "a/0/1/6";
+/** Retail Black 2 / White 2's first form record: the species expansion moves the records from here on. */
+const RETAIL_FIRST_FORM_RECORD = 685;
 
 // A dedicated new folder lets NitroFS append this archive without renumbering
 // any existing file IDs (members inside an existing folder must stay contiguous).
@@ -68,6 +73,8 @@ export function ensureKoMoveLearnsetNarc(project: ProjectState): { path: string;
   const existing = currentKoLearnsetBytes(project);
   const narc = existing ? new NARC(existing) : new NARC();
   let changed = !existing;
+  if (existing && followPersonalRecords(project, narc, project.narcs.personal?.rawFiles)) changed = true;
+  if (existing && mirrorMegaForms(narc, megaKoMirrors(project, project.narcs.personal?.rawFiles))) changed = true;
   while (narc.files.length < minimumMembers) {
     narc.files.push(emptyKoMoveMember());
     changed = true;
@@ -78,10 +85,101 @@ export function ensureKoMoveLearnsetNarc(project: ProjectState): { path: string;
   return { path: KO_MOVE_LEARNSET_PATH, members: narc.files.length, bytes: bytes.length };
 }
 
+/**
+ * Keeps the KO learnset archive in step with the personal archive. The Battle Counters runtime reads it at the
+ * Pokémon's personal record (species + form) after every KO, and a record past its end fails an assertion (the error
+ * screen): forms added after the KO moves were installed (Mega Evolution, Regional Forms, the editor) and the species
+ * expansion's records did that.
+ * - Missing members are added empty: a permanent form (a regional one) has KO moves of its own.
+ * - A Mega form's member is its source form's: a KO while Mega Evolved counts toward the base form's KO moves.
+ * - A species expansion installed before its installer moved the form records' members has them moved now.
+ * Returns whether the archive changed.
+ */
+export function syncKoMoveLearnsetWithPersonal(project: ProjectState, rom?: NintendoDSRom): boolean {
+  const existing = currentKoLearnsetBytes(project);
+  if (!existing) return false;
+  const personalId = rom?.filenames.idOf(PERSONAL_PATH);
+  const personal = project.narcs.personal?.rawFiles
+    ?? (personalId !== undefined ? new NARC(project.fileSystem?.replacements?.[personalId] ?? rom!.files[personalId]).files : undefined);
+  if (!personal) return false;
+  const narc = new NARC(existing);
+  const grown = followPersonalRecords(project, narc, personal);
+  const mirrored = mirrorMegaForms(narc, megaKoMirrors(project, personal, rom));
+  if (!grown && !mirrored) return false;
+  validateKoMoveNarc(narc);
+  stageKoLearnsetBytes(project, narc.save());
+  return true;
+}
+
+/** Inserts empty members at `at` (the species expansion moves the personal form records from there by `count`). */
+export function insertKoMoveLearnsetMembers(project: ProjectState, at: number, count: number): void {
+  const existing = currentKoLearnsetBytes(project);
+  if (!existing) return;
+  const narc = new NARC(existing);
+  if (narc.files.length <= at) return;
+  narc.files.splice(at, 0, ...Array.from({ length: count }, emptyKoMoveMember));
+  stageKoLearnsetBytes(project, narc.save());
+}
+
+/** The base form whose KO moves a Mega form uses (personal IDs), or undefined for any other Pokémon. */
+export function koMoveMirrorSource(project: ProjectState, speciesId: number): number | undefined {
+  return megaKoMirrors(project, project.narcs.personal?.rawFiles).get(speciesId);
+}
+
+function followPersonalRecords(project: ProjectState, narc: NARC, personal: readonly Uint8Array[] | undefined): boolean {
+  if (!personal?.length) return false;
+  let changed = false;
+  // A species expansion installed before its installer moved these members: its records moved past the added species.
+  const expansion = project.codeInjection?.speciesExpansion;
+  if (expansion && narc.files.length > RETAIL_FIRST_FORM_RECORD && narc.files.length < RETAIL_FIRST_FORM_RECORD + expansion.formShift) {
+    narc.files.splice(RETAIL_FIRST_FORM_RECORD, 0, ...Array.from({ length: expansion.formShift }, emptyKoMoveMember));
+    changed = true;
+  }
+  while (narc.files.length < personal.length) {
+    narc.files.push(emptyKoMoveMember());
+    changed = true;
+  }
+  return changed;
+}
+
+/** Mega form → source form, as personal IDs (a species record names its first form record, u16 at 0x1c). */
+function megaKoMirrors(project: ProjectState, personal: readonly Uint8Array[] | undefined, rom?: NintendoDSRom): Map<number, number> {
+  const mirrors = new Map<number, number>();
+  if (!personal?.length) return mirrors;
+  const recordOf = (species: number, form: number) => {
+    if (!form) return species;
+    const record = personal[species];
+    const first = record && record.length >= 0x1e ? readU16(record, 0x1c) : 0;
+    return first ? first + form - 1 : undefined;
+  };
+  for (const route of megaEvolutionRoutes(project, rom)) {
+    const target = recordOf(route.species, route.targetForm), source = recordOf(route.species, route.sourceForm);
+    if (target !== undefined && source !== undefined && target !== source && target < personal.length) mirrors.set(target, source);
+  }
+  return mirrors;
+}
+
+function mirrorMegaForms(narc: NARC, mirrors: ReadonlyMap<number, number>): boolean {
+  let changed = false;
+  for (const [target, source] of mirrors) {
+    const from = narc.files[source];
+    if (!from || target >= narc.files.length || bytesEqual(narc.files[target]!, from)) continue;
+    narc.files[target] = from.slice();
+    changed = true;
+  }
+  return changed;
+}
+
+function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
+  return a.length === b.length && a.every((byte, index) => byte === b[index]);
+}
+
 export function getPokemonKoMoves(project: ProjectState, speciesId: number): KoMoveLearnsetEntry[] {
   const narc = loadKoMoveNarc(project);
-  if (!narc || speciesId < 0 || speciesId >= narc.files.length) return [];
-  return decodeKoMoveMember(project, narc.files[speciesId]!);
+  // A Mega form shows its base form's (what the runtime gets: the export copies them).
+  const member = koMoveMirrorSource(project, speciesId) ?? speciesId;
+  if (!narc || member < 0 || member >= narc.files.length) return [];
+  return decodeKoMoveMember(project, narc.files[member]!);
 }
 
 export function appendPokemonKoMove(project: ProjectState, speciesId: number): KoMoveLearnsetEntry[] {
@@ -167,7 +265,11 @@ function writePokemonEntries(
   if (!Number.isInteger(speciesId) || speciesId < 0 || speciesId >= narc.files.length) {
     throw new Error(`No KO learnset is available for species ${speciesId}`);
   }
+  const mirrors = megaKoMirrors(project, project.narcs.personal?.rawFiles);
+  const base = mirrors.get(speciesId);
+  if (base !== undefined) throw new Error(`A Mega form uses its base form's KO moves: edit Pokémon ${base}'s.`);
   narc.files[speciesId] = encodeEntries(entries);
+  mirrorMegaForms(narc, mirrors);
   stageKoLearnsetBytes(project, narc.save());
   recordGenericChange(project, "learnsets", `Pokemon ${speciesId} ${description}`, `Pokemon ${speciesId} KO Moves`, {
     key: `pokemon:${speciesId}:ko-learnset`,

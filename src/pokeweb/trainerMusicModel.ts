@@ -99,7 +99,8 @@ export const BW_TRAINER_EYE_SOURCE_MAPPING: ReadonlyArray<readonly [trainerClass
 /**
  * Non-music byte 0 from each verified Black 2/White 2 four-byte record.
  * This is deliberately separate from trainer sprite routing: special classes
- * use different metadata here. Byte 1 is validated as the 0/1 gender field.
+ * use different metadata here. Byte 1 may be customized, and assignment
+ * edits only write the sequence ID in bytes 2–3.
  */
 export const BW2_TRAINER_MUSIC_METADATA_SIGNATURE: readonly number[] = [
   0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
@@ -354,7 +355,6 @@ function matchesBw2Table(project: ProjectState, offset: number): boolean {
   for (let trainerClassId = 0; trainerClassId < BW2_TRAINER_CLASS_COUNT; trainerClassId += 1) {
     const recordOffset = offset + trainerClassId * 4;
     if (project.arm9[recordOffset] !== BW2_TRAINER_MUSIC_METADATA_SIGNATURE[trainerClassId]) return false;
-    if (project.arm9[recordOffset + 1] > 1) return false;
   }
   return true;
 }

@@ -210,8 +210,8 @@ Jolly Nature
 
     for (const half of [0, 0x26000]) {
       const party = half + 0x18e00;
-      expect(patched[party]).toBe(1);
-      expect(patched[party + 4]).toBe(1);
+      expect(readLe32(patched, party)).toBe(6);
+      expect(readLe32(patched, party + 4)).toBe(1);
       expect(readLe16(patched, half + 0x19336)).toBe(crc16Ccitt(patched.subarray(party, party + 0x534)));
       expect(readLe16(patched, half + 0x25f34)).toBe(readLe16(patched, half + 0x19336));
       expect(readLe16(patched, half + 0x25fa2)).toBe(crc16Ccitt(patched.subarray(half + 0x25f00, half + 0x25f00 + 0x94)));
@@ -254,8 +254,8 @@ Jolly Nature
 
     for (const half of [0, 0x24000]) {
       const party = half + 0x18e00;
-      expect(patched[party]).toBe(1);
-      expect(patched[party + 4]).toBe(1);
+      expect(readLe32(patched, party)).toBe(6);
+      expect(readLe32(patched, party + 4)).toBe(1);
       expect(readLe16(patched, half + 0x19336)).toBe(crc16Ccitt(patched.subarray(party, party + 0x534)));
       expect(readLe16(patched, half + 0x23f34)).toBe(readLe16(patched, half + 0x19336));
       expect(readLe16(patched, half + 0x23f9a)).toBe(crc16Ccitt(patched.subarray(half + 0x23f00, half + 0x23f00 + 0x8c)));

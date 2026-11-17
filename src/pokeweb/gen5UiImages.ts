@@ -136,7 +136,7 @@ export const STATUS_ICON = { pokerus: 0, paralysis: 1, freeze: 2, sleep: 3, pois
 
 /** A status icon as the party menus draw it (characters 12, palette 11, cells 13, animation 16; ov287 b_plist_obj.c), 32 × 8. */
 export function statusIconImage(project: ProjectState, icon: number): RgbaImageData {
-  const files = archive(project, "a/0/8/2");
+  const files = archive(project, project.session.baseRom === "BW" ? "a/0/8/3" : "a/0/8/2");
   const [char, palette, cell, animation] = [files[12], files[11], files[13], files[16]];
   if (!char || !palette || !cell || !animation) throw new Error("The ROM has no status icons.");
   const mappedCell = cell.slice();

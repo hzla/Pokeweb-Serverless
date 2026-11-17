@@ -1,5 +1,6 @@
 import { estimateRpmMemory } from "./rpmMemory";
 import { isVerifiedMoveFieldSwitchImport, isVerifiedMoveServiceImport } from "./moveEffectsModel";
+import { isVerifiedModernStatusImport } from "./frostbiteSnowModel";
 import { chainAbilityMoveParam } from "./battleMoveParamChain";
 import { normalizeAbilityDescription, updateAbilityDescription } from "./abilityTextModel";
 import { isVerifiedItemMoveParamFollower, prepareItemMoveParamForAbility } from "./itemEffectsModel";
@@ -277,6 +278,7 @@ function assertUnhooked(c: Context, name: string, address: number, size: number,
             if (start < address + size && start + count > address) {
                 if(name==="IsMonTrapped"&&isVerifiedMoveFieldSwitchImport(c.project,path,bytes,address,size))continue;
                 if (!copied && isVerifiedMoveServiceImport(c.project, path, bytes, name, address)) continue;
+                if (!copied && isVerifiedModernStatusImport(path, rpm, name, address, r)) continue;
                 // Import the installed RPC's transparent ordinary-call path. A
                 // copied body would bypass it; another hook would overwrite it.
                 if (!copied && isVerifiedMegaItemCheckImport(c.project.session.baseVersion, path, name, address, start, r.target.type)) continue;

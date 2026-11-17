@@ -206,3 +206,4 @@ runtime/field-season/build/
 /runtime/town-map/build/
 
 !src/test/fixtures/ability-runtime-v6/*.dll
+/runtime/quick-poke-ball/build/

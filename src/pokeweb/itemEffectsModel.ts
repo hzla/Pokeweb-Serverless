@@ -1,4 +1,5 @@
 import { hasItemSelection, resolveItemSelection } from "./itemSelectionBindings";
+import { isVerifiedModernStatusImport } from "./frostbiteSnowModel";
 import {hydrateBw1ItemSource,inspectBw1ItemEffect,buildBw1ItemModule,configureBw1ItemRules,clearBw1ItemRules,checkedBw1ItemRule,readBw1ItemRules} from "./itemBw1Effects";
 import {battleRuntimeResolver} from "./battleRuntimeBindings";
 import {itemMessageIds} from "./itemBattleMessages";
@@ -265,6 +266,7 @@ function assertNoConflict(c: Context, address: number, size: number, except: rea
       const start = relocation.target.address & ~1, count = relocation.target.type === "FULL_COPY" ? rpm.symbols[relocation.sourceSymbolIndex]?.size ?? 0
         : relocation.target.type === "OFFSET" ? 4 : 16;
       if (start < address + size && start + count > address) {
+        if (importedService && isVerifiedModernStatusImport(path, rpm, importedService, address, relocation)) continue;
         if(importedService==="IsMonTrapped"&&isVerifiedMoveFieldSwitchImport(c.project,path,bytes,address,size))continue;
         if (start === address && relocation.target.type === "THUMB_BRANCH") {
           if (importedService === "IsMonTrapped" && isVerifiedAbilityClientTrapImport(c.project, path, address, size)) continue;

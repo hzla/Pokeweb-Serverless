@@ -6,6 +6,7 @@ import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { recordGenericChange } from "./actionChangelog";
 import { BW2_NARCS, BW_NARCS, HEADER_NARCS, isGen5BaseRom, type Gen5BaseRom, type NarcName } from "./constants";
+import { loadCodeInjectionNarcs } from "./codeInjectionInstall";
 import { loadActiveRomBytes } from "./persistence";
 import { commitTextBank, getTextBank, parseTextEntryId } from "./textModel";
 import { createNarcStore, markDirty, type NarcStore, type ProjectState } from "./projectStore";
@@ -1040,6 +1041,24 @@ export function allocateMoveExpansionParticleAssets(
     particleIdMap.set(particle.sourceParticleId, targetId);
   }
   return { particleIdMap, addedIds };
+}
+
+/** Snowscape uses one particle resource and has no called animations. */
+export async function installSnowscapeAnimation(project: ProjectState, targetMoveId: number): Promise<void> {
+  const bundle = await loadMoveExpansionAnimationBundle();
+  const move = bundle.moves.find(entry => entry.sourceMoveId === 883);
+  if (!move || !bundle.completeAssets) throw new Error("The bundled move animation and its assets are required.");
+  const original = project.originalRomBytes ?? await loadActiveRomBytes();
+  if (!original) throw new Error("Reload the ROM before installing animation assets.");
+  loadCodeInjectionNarcs(project, new NintendoDSRom(original, { fileData: "view" }), ["move_animations", "move_spas"]);
+  const animations = project.narcs.move_animations!;
+  if (!animations.rawFiles[targetMoveId]) throw new Error("The destination move animation is missing.");
+  await installBundledMoveAnimations(project, animations, project.narcs.move_spas!, {
+    completeAssets: true,
+    moves: [{ ...move, targetMoveId }],
+    particles: bundle.particles.filter(asset => move.particleIds.includes(asset.sourceParticleId)),
+    backgrounds: bundle.backgrounds.filter(asset => move.backgroundIds.includes(asset.sourceBackgroundId)),
+  });
 }
 
 async function installBundledMoveAnimations(

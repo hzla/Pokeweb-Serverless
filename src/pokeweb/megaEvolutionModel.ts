@@ -196,6 +196,28 @@ function findTable(bytes: Uint8Array): number {
   return -1;
 }
 
+/**
+ * The project's Mega routes, else the ones in the ROM's Mega Evolution DLL (a project made from a ROM that has it).
+ */
+export function megaEvolutionRoutes(project: ProjectState, rom?: { filenames: { idOf(path: string): number | undefined }; files: Uint8Array[] }): MegaRoute[] {
+  const routes = project.codeInjection?.megaEvolution?.routes;
+  if (routes) return routes;
+  const version = megaEvolutionVersion(project);
+  if (!version) return [];
+  const staged = stagedPath(project, version);
+  const fileId = rom?.filenames.idOf(dllPath(version));
+  const bytes = staged ? project.fileSystem!.additions![staged] : fileId === undefined ? undefined : project.fileSystem?.replacements?.[fileId] ?? rom!.files[fileId];
+  if (!bytes) return [];
+  const at = findTable(bytes);
+  if (at < 0) return [];
+  const view = new DataView(bytes.buffer, bytes.byteOffset + at);
+  const header = headerSize(view.getUint16(4, true));
+  return Array.from({ length: Math.min(view.getUint16(6, true), MEGA_ROUTE_CAPACITY) }, (_, index) => ({
+    species: view.getUint16(header + index * 8, true), trigger: view.getUint16(header + index * 8 + 2, true),
+    sourceForm: view.getUint8(header + index * 8 + 4), targetForm: view.getUint8(header + index * 8 + 5),
+  }));
+}
+
 /** The DLL with the project's routes and settings written into its PWMG table. */
 export function writeMegaEvolutionTable(bytes: Uint8Array, config: MegaEvolutionConfig): Uint8Array {
   const out = bytes.slice();

@@ -9,7 +9,7 @@ import {PNG} from "pngjs";
 import {toDesmumeDsv} from "../../src/pokeweb/testBattle";
 
 export type LogEntry={event:number;a:number;d:number;x:number;move:number;y:number;value:number};
-export type RunOptions={tag:string;frames:number;shots:boolean;evidence?:string;logCapacity?:number;texts?:readonly string[]};
+export type RunOptions={tag:string;frames:number;shots:boolean;evidence?:string;logCapacity?:number;texts?:readonly string[];observeMemory?:(memory:Buffer)=>void;sampleMemory?:(memory:Buffer)=>void};
 type BattleResult={entries:LogEntry[];frames:number;seenTexts:string[]};
 const A=128;
 
@@ -55,7 +55,7 @@ export async function runLoggedBattleBytes(rom:Uint8Array,rawSave:Uint8Array,spe
  for(;frame<frames;++frame){
   const sample=frame%30===0;
   const log=sample?read():undefined;
-  if(sample&&started)readTexts();
+  if(sample){readTexts();options.sampleMemory?.(ram());}
   if(log?.length)started=true;
   const playerMoves=log?log.filter(e=>e.event===3&&e.a===0).length:0;
   if(log&&playerMoves>=turns&&log.filter(e=>e.event===3).length>=(spec.battleType==="Doubles"?4:2)*turns){/* every battler acted */ frame+=600;for(let k=0;k<600;++k){core._runFrame(1,(frame+k)%12<3?A:0,0,0,0);if(k%30===0)readTexts();}break;}
@@ -78,6 +78,7 @@ export async function runLoggedBattleBytes(rom:Uint8Array,rawSave:Uint8Array,spe
   if(shots&&frame>=600&&frame%30===0)await capture(`s${frame}`);
  }
  await capture("end");
+ options.observeMemory?.(ram());
  return {entries:read(),frames:frame,seenTexts};
 }
 

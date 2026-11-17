@@ -1,3 +1,4 @@
+import { frostbiteSnowLabel } from "../pokeweb/frostbiteSnowModel";
 import { renderRosterHub } from "./trainerRosterHub";
 import { listTrainerRosters, originalRosterKey, poolRecord, rosterPool, trainerHasRosterVariants, type RosterKey } from "../pokeweb/trainerRosterHub";
 import { TRAINER_POOL_GROUPS, TRAINER_POOL_MAX_MEMBERS, trainerPoolGroupBit, type TrainerPartyPool, type TrainerPoolMember } from "../pokeweb/trainerPartyPools";
@@ -297,7 +298,7 @@ export function renderTrainerPartyStrip(project: ProjectState, trainer: TrainerR
 function renderCardCondition(project: ProjectState, pok: TrainerPokemonSlot, settings: TrainerMemberSettings | undefined): string {
   if (!settings) return "";
   const choice = STATUS_CHOICES[settings.status];
-  const status = choice?.icon === undefined ? "" : `<span class="td-status-icon td-card-status" data-g5-ui="status:${choice.icon}" title="${escapeHtml(choice.label)}">${choice.text}</span>`;
+  const status = choice?.icon === undefined ? "" : `<span class="td-status-icon td-card-status" data-g5-ui="status:${choice.icon}" title="${escapeHtml(frostbiteSnowLabel(project, choice.label))}">${choice.text}</span>`;
   const max = settings.hpMode ? safe(() => trainerMaxHp(project, pok.speciesId, pok.form, pok.level, pok.ivs), undefined) : undefined;
   const share = !settings.hpMode ? 100 : max ? (trainerStartingHp(max, settings.hpMode, settings.hp) / max) * 100 : settings.hpMode === 1 ? settings.hp : 100;
   const hp = share < 100 ? `<span class="td-card-hp" title="Starts at ${Math.round(share)}% HP"><span class="${share > 50 ? "-high" : share > 20 ? "-mid" : "-low"}" style="width:${share.toFixed(1)}%"></span></span>` : "";
@@ -335,7 +336,7 @@ function renderTrainerCustomization(project: ProjectState, trainerId: number, po
   ], "Shininess");
   const status = choiceButtons("data-member-choice", "status", STATUS_CHOICES.map((choice, index) => ({
     value: index,
-    title: choice.label,
+    title: frostbiteSnowLabel(project, choice.label),
     pressed: settings.status === index,
     className: choice.icon === undefined ? "" : "-status",
     content: choice.icon === undefined ? choice.text : `<span class="td-status-icon" data-g5-ui="status:${choice.icon}">${choice.text}</span>`,

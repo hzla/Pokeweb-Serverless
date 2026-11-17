@@ -448,8 +448,8 @@ function patchPartyHalf(out: Uint8Array, layout: TestBattlePartySaveLayout, half
   const partyOffset = halfOffset + TEST_BATTLE_PARTY_BLOCK_OFFSET;
   const trainer = readSaveTrainerIdentity(out, halfOffset);
   const template = firstTemplatePokemon(out, partyOffset);
-  out[partyOffset] = team.length;
-  out[partyOffset + 4] = team.length;
+  writeLe32(out, partyOffset, MAX_PARTY_SIZE);
+  writeLe32(out, partyOffset + 4, team.length);
 
   for (let slot = 0; slot < MAX_PARTY_SIZE; slot += 1) {
     const slotOffset = partyOffset + 8 + slot * PK5_PARTY_SIZE;

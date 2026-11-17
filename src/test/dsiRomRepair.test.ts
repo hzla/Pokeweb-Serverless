@@ -354,7 +354,9 @@ describe("donor DSi repair", () => {
     expect(dsiRepairedRomFilename("my-hack.NDS")).toBe("my-hack-dsi-repaired.nds");
     const card = renderDsiRomRepairCard();
     expect(card).toContain("DSi ROM Repair");
-    expect(card).toContain("Matching clean Black / White / Black 2 / White 2 ROM");
+    expect(card).toContain("Edited or damaged ROM to repair");
+    expect(card).toContain("Matching clean donor ROM");
+    expect(card).toContain('id="dsi-repair-ap-fix" type="checkbox"');
     expect(card.match(/type="file"/gu)).toHaveLength(2);
     expect(card).toContain('id="dsi-repair-download" type="button" disabled');
     expect(card).toContain('role="status"');

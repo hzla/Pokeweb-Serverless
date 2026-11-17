@@ -4,6 +4,7 @@ import effectsText from "../assets/data/effects.txt?raw";
 import resultEffectsText from "../assets/data/result_effects.txt?raw";
 import { projectEditSession, type PreparedEdit } from "./editSession";
 import { EFFECT_CATEGORIES, PROPERTIES, STATS, STATUSES, TARGETS, moveCategoryNamesForProject, typeNamesForProject } from "./constants";
+import { frostbiteSnowLabel } from "./frostbiteSnowModel";
 import { prepareMoveAnimationCopy } from "./moveAnimationModel";
 import { getMoveExpansionSourceMoveId, MOVE_EXPANSION_FIRST_USABLE_ID, usesFrostMoveExpansionLayout } from "./moveExpansionPatch";
 import { decodeRecord, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
@@ -232,13 +233,17 @@ export function getItemRecord(project: ProjectState, id: number): ItemRecord {
   return { id, raw: record.raw, readable: record.readable };
 }
 
+function resultEffectsFor(project: ProjectState): string[] {
+  return RESULT_EFFECTS.map(label => frostbiteSnowLabel(project, label));
+}
+
 export function getMoveAutofills(project?: ProjectState): Record<string, string[]> {
   return {
     types: project ? typeNamesForProject(project) : [],
     categories: project ? moveCategoryNamesForProject(project) : [],
     effect_cats: EFFECT_CATEGORIES,
     effects: EFFECTS,
-    result_effects: RESULT_EFFECTS,
+    result_effects: project ? resultEffectsFor(project) : RESULT_EFFECTS,
     status_types: STATUSES,
     targets: TARGETS,
     stats: STATS,
@@ -275,8 +280,10 @@ export function prepareMoveField(project: ProjectState, moveId: number, field: s
     rawValue = findValueIndex(EFFECT_CATEGORIES, String(value), "effect category");
     displayValue = EFFECT_CATEGORIES[rawValue];
   } else if (field === "result_effect") {
-    rawValue = String(value) === TRI_ATTACK_RESULT ? 65535 : findValueIndex(RESULT_EFFECTS, String(value), "result effect");
-    displayValue = rawValue === 65535 ? TRI_ATTACK_RESULT : RESULT_EFFECTS[rawValue];
+    const label = frostbiteSnowLabel(project, String(value));
+    const effects = resultEffectsFor(project);
+    rawValue = label === TRI_ATTACK_RESULT ? 65535 : findValueIndex(effects, label, "result effect");
+    displayValue = rawValue === 65535 ? TRI_ATTACK_RESULT : effects[rawValue];
   } else if (field === "effect") {
     rawValue = findValueIndex(EFFECTS, String(value), "effect");
     displayValue = EFFECTS[rawValue];
@@ -394,7 +401,9 @@ export function syncMoveReadable(project: ProjectState, raw: RawRecord, readable
   readable.type = typeNamesForProject(project)[raw.type] ?? raw.type;
   readable.effect_category = EFFECT_CATEGORIES[raw.effect_category] ?? raw.effect_category;
   readable.category = moveCategoryNamesForProject(project)[raw.category] ?? raw.category;
-  readable.result_effect = raw.result_effect === 65535 ? TRI_ATTACK_RESULT : (RESULT_EFFECTS[raw.result_effect] ?? raw.result_effect);
+  const resultEffect = RESULT_EFFECTS[raw.result_effect];
+  readable.result_effect = raw.result_effect === 65535 ? TRI_ATTACK_RESULT
+    : resultEffect === undefined ? raw.result_effect : frostbiteSnowLabel(project, resultEffect);
   readable.effect = EFFECTS[raw.effect] ?? raw.effect;
   readable.status = STATUSES[raw.status] ?? raw.status;
   readable.recoil = raw.recoil > 0 ? 256 - raw.recoil : raw.recoil;
