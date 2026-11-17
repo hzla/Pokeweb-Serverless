@@ -9,17 +9,23 @@ import {PNG} from "pngjs";
 import {toDesmumeDsv} from "../../src/pokeweb/testBattle";
 
 export type LogEntry={event:number;a:number;d:number;x:number;move:number;y:number;value:number};
-export type RunOptions={tag:string;frames:number;shots:boolean;evidence:string;logCapacity?:number};
+export type RunOptions={tag:string;frames:number;shots:boolean;evidence?:string;logCapacity?:number};
 const A=128;
 
 export async function runLoggedBattle(directory:string,spec:any,options:RunOptions):Promise<{entries:LogEntry[];frames:number}>{
+ const rom=new Uint8Array(await readFile(`${directory}/${spec.rom}`));
+ const save=new Uint8Array(await readFile(`${directory}/saves/${spec.label}.sav`));
+ return runLoggedBattleBytes(rom,save,spec,options);
+}
+
+export async function runLoggedBattleBytes(rom:Uint8Array,rawSave:Uint8Array,spec:any,options:RunOptions):Promise<{entries:LogEntry[];frames:number}>{
  const {tag,frames,shots,evidence}=options;
  const corePath=fileURLToPath(new URL("../../public/desmond/desmond.js",import.meta.url)),generated=await readFile(corePath,"utf8");
  let ready!:()=>void;const initialized=new Promise<void>(r=>ready=r);
  const context=vm.createContext({Module:{noInitialRun:true,onRuntimeInitialized:ready},require:createRequire(import.meta.url),process,Buffer,URL,TextDecoder,TextEncoder,setTimeout,clearTimeout,performance,wasmReady(){},__dirname:fileURLToPath(new URL("../../public/desmond",import.meta.url)),__filename:corePath,console:{log(){},warn(){},error(){},info(){},debug(){}}});
  vm.runInContext(generated.slice(generated.indexOf("var Module=typeof Module")),context);await initialized;
  const core=context.Module;core._main(0,0);
- const rom=new Uint8Array(await readFile(`${directory}/${spec.rom}`)),save=toDesmumeDsv(new Uint8Array(await readFile(`${directory}/saves/${spec.label}.sav`)));
+ const save=toDesmumeDsv(rawSave);
  const size=Math.max(rom.length,128*1024*2**rom[0x14]!),ptr=core._prepareRomBuffer(size);core.HEAPU8.set(rom,ptr);core.HEAPU8.fill(255,ptr+rom.length,ptr+size);
  core.HEAPU8.set(save,core._savGetPointer(save.length));core._savUpdateChangeFlag();
  if(core._loadROM(size)!==1)throw new Error("ROM rejected");
@@ -35,7 +41,7 @@ export async function runLoggedBattle(directory:string,spec:any,options:RunOptio
   }
   return hits.sort((p,q)=>q.length-p.length)[0]??[];
  };
- const capture=async(name:string)=>{const fb=core._getSymbol(4)>>>0,png=new PNG({width:256,height:384});png.data=Buffer.from(core.HEAPU8.subarray(fb,fb+256*384*4));await writeFile(`${evidence}${spec.label}-${name}.png`,PNG.sync.write(png));};
+ const capture=async(name:string)=>{if(!evidence)return;const fb=core._getSymbol(4)>>>0,png=new PNG({width:256,height:384});png.data=Buffer.from(core.HEAPU8.subarray(fb,fb+256*384*4));await writeFile(`${evidence}${spec.label}-${name}.png`,PNG.sync.write(png));};
  const turnMove:number[]|undefined=spec.turnMove,turns=spec.menuCount??1;
  let frame=0,started=false;
  for(;frame<frames;++frame){

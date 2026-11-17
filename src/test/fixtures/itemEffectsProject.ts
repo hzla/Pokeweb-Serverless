@@ -1,6 +1,7 @@
 import status from "../../assets/data/abilityStatusBindings.json";
 import environment from "../../assets/data/abilityEnvironmentBindings.json";
 import strikes from "../../assets/data/abilityStrikeBindings.json";
+import formConversion from "../../assets/data/abilityFormConversionBindings.json";
 import scopedBindings from "../../assets/data/abilityScopedBindings.json";
 import recipeBindings from "../../assets/data/abilityRecipeBindings.json";
 import abilityBindings from "../../assets/data/abilityBindings.json";
@@ -96,6 +97,29 @@ export function makeItemEffectsProject(shift = 0, relocateBy = 0, extended = fal
     for(const name of ["HandlerMoldBreakerSkipCheck","HandlerMoldBreaker"]){
       const signature=(abilityBindings.functions as Record<string,{hex:string;calls:{offset:number;target:string}[]}>)[name];if(!signature||offsets.has(name))continue;
       offsets.set(name,cursor);const bytes=Uint8Array.from(signature.hex.match(/../gu)!,v=>parseInt(v,16));data.set(bytes,cursor);cursor=(cursor+bytes.length+3)&~3;
+    }
+  }
+  if (ability && extended) {
+    for (const [name, signature] of Object.entries(formConversion)) {
+      const code = Uint8Array.from(Buffer.from(signature.hex, "hex"));
+      if (signature.module === "ARM9") {
+        armOffsets.set(name, armCursor);
+        arm9.set(code, armCursor);
+        armCursor = (armCursor + code.length + 3) & ~3;
+      } else {
+        offsets.set(name, cursor);
+        data.set(code, cursor);
+        cursor = (cursor + code.length + 3) & ~3;
+      }
+    }
+    for (const [name, signature] of Object.entries(formConversion)) {
+      for (const { offset, target } of signature.calls) {
+        const at = offsets.get(name)! + offset;
+        const address = offsets.has(target) ? base + offsets.get(target)! : 0x02000000 + armOffsets.get(target)!;
+        const delta = address - (base + at + 4);
+        writeU16(data, at, 0xf000 | (delta >> 12) & 0x7ff);
+        writeU16(data, at + 2, 0xf800 | (delta >> 1) & 0x7ff);
+      }
     }
   }
   const overlay = data.slice(0, cursor);

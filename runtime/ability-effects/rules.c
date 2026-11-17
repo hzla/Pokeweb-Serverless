@@ -252,7 +252,18 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
  if(r&&7-(*(u32*)((u8*)item+0x14)>>24)==5)scopedObserve(f,owner,r,event);
 #endif
 #endif
+#ifdef ABILITY_FORM_CONVERSION
+ if(!r||r[0]>ABILITY_EFFECT_SLOTS||owner>=32)return;
+ if(!active(r,f,MON(f,owner))){
+  if(event==0x55||event==0x78||event==0x6a||event==0x89){
+   const volatile u8*z=effects(r);
+   for(u32 n=0;n<r[0];++n,z+=16)if(z[0]==178)zenMode(f,owner,z,event,nativeWork[owner][n],0);
+  }
+  return;
+ }
+#else
  if(!r||r[0]>ABILITY_EFFECT_SLOTS||owner>=32||!active(r,f,MON(f,owner)))return;
+#endif
 #ifdef ABILITY_POPUP_GROUPS
 #ifdef ABILITY_STAT_SOURCE
  PopupGroup group={f,owner,0,0,popupGroup};
@@ -294,6 +305,9 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
   if(kind>=174&&kind<=177){extensionEffect(f,owner,e,event);continue;}
   #endif
   if(kind==165){abilityStatGuard(f,owner,e,event);continue;}
+#ifdef ABILITY_FORM_CONVERSION
+  if(kind==178){zenMode(f,owner,e,event,nativeWork[owner][n],1);continue;}
+#endif
 #endif
   if(kind>=135&&kind<=153){recipeEffect(item,f,owner,e,event,nativeWork[owner][n],used);if(kind==136&&e[1]==0&&e[9]&&onEntry(event,owner)&&!preview(f))mark=1;continue;}
 #endif

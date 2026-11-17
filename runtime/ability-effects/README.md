@@ -32,6 +32,17 @@ apply independently. Move-type filters on power, damage, immunity, priority and 
 reactions accept several checked types. These imports use the same primitives as
 manually created effects.
 
+**Convert move type and power** defaults to **Holder**. Select **Everyone on the
+field** to apply it to eligible moves used by either side. Only the effect that
+changed the move’s type supplies its power multiplier.
+
+The **Zen Mode** template changes the holder between two existing forms of the
+same species using the native battle form-change action. Set the species ID,
+starting form, target form and HP threshold. At or below the threshold, the
+holder changes form at the end of the turn if its activation conditions pass.
+It reverts above the threshold, when the conditions stop matching, or when
+the ability is suppressed or lost.
+
 **Set a field condition on entry** starts Trick Room, Gravity, Water Sport,
 Mud Sport, Wonder Room or Magic Room on entry/ability gain. Choose 1–63 turns
 or 0 for permanent; an active condition can be left unchanged or toggled off.
@@ -270,20 +281,20 @@ Aura entry notices use the configured type's display name, including Fairy and
 renamed types, without relying on Gen 5's native type-name formatter.
 
 Build from the repository root with `python3 runtime/ability-effects/build.py`
-(the default builds the v15 `--status-extensions-only` bundle,
-`src/assets/data/abilityRuleRuntimeStatusExtensions.json`; the v14 `--weather-moves-only`,
-v13 `--protect-only` and
-v12 strikes bundles are retained unchanged for verifying older exports).
+(the default builds the v16 `--form-conversion-only` bundle,
+`src/assets/data/abilityRuleRuntimeFormConversion.json`).
 The original templates remain available for strict verification of older exports;
-the default build updates only the current bundle (`--status-extensions-only`),
-including its 4-, 8- and 16-slot work variants. `--native-flags-only`, `--compact-only`, `--stat-source-only`,
+the default build updates only the current bundle, including its 4-, 8- and
+16-slot work variants. `--status-extensions-only`, `--weather-moves-only`,
+`--protect-only`, `--native-flags-only`, `--compact-only`, `--stat-source-only`,
 `--action-results-only`, `--custom-flags-only`, `--messages-only`, `--move-classes-only` and `--optimized-only`
 rebuild retained bundles for verification of older exports;
 released bundles must remain byte-identical when making a new runtime. Consolidated
 execution records use shared immutable data. The
 `PokewebAbilityCompact: 1` and `PokewebAbilityWorkSlots` metadata identify the
-execution format and selected work capacity. Versions 1–13 remain readable through
-their retained bundles and can be updated while preserving editor recipes.
+execution format and selected work capacity. Versions 1–15 remain readable through
+their retained bundles. **Update Ability Runtime** rebuilds them from their saved
+editor recipes.
 New modules retain `PokewebAbilityDispatchVersion: 2` and the 16-byte effect stride.
 `python3 runtime/ability-effects/test_compact.py --current` checks the consolidated
 ARM operations and each work variant with isolated native-service doubles.

@@ -21,6 +21,7 @@ export const ABILITY_NATIVE_EFFECTS = NATIVE_ABILITY_PROFILES.map(p => ({ kind: 
 export function validateAbilityRule(input: AbilityRuleSet): AbilityRuleSet {
     if (!input || !Array.isArray(input.effects) || input.effects.length < 1 || input.effects.length > 16)
         throw new Error("Choose one to sixteen ability effects.");
+    if(input.effects.filter(effect=>effect?.kind==="abilityRecipe:zenMode").length>1)throw Error("Choose at most one HP-triggered form change.");
     if(input.effects.filter(effect=>effect?.kind==="abilityRecipe:additionalStrike").length>1)throw Error("Choose at most one additional strike effect.");
     const conditions = validateItemRule({ effects: [{ kind: "attack", value: 1 }], conditions: input.conditions, consumable: false }).conditions;
     const effects = input.effects.map(effect => {
@@ -43,6 +44,7 @@ export function validateAbilityRule(input: AbilityRuleSet): AbilityRuleSet {
                 let order=parameters.statOrder??0;const seen=new Set<number>();
                 for(let n=0;n<7;n++,order>>>=3){const stat=order&7;if(stat&&seen.has(stat))throw Error("Duplicate stat in grouped order.");if(stat)seen.add(stat);}
             }
+            if(library.code===178&&(parameters.sourceForm??0)===(parameters.targetForm??1))throw Error("Choose different starting and target forms.");
             if(library.code===175&&(parameters.minTurns??2)>(parameters.maxTurns??5))throw Error("Minimum duration must not exceed maximum duration.");
             if(library.code===144&&(parameters.format??0)===1&&(!Number.isInteger(effect.value)||effect.value<1))throw new Error("Choose a positive whole healing divisor.");
             return {kind:effect.kind,value:effect.value,bypassable:effect.bypassable??library.bypassable,...(Object.keys(parameters).length?{parameters}:{})};
@@ -111,6 +113,7 @@ export function encodeAbilityRules(entries: ReadonlyMap<number, AbilityRuleSet>,
             const recipe=recipeAbilityEffect(e.kind);
             if(recipe){
                 const row=Array(16).fill(0),value=Math.round(e.value*recipe.scale);row[0]=recipe.code;row[2]=value&255;row[3]=value>>>8&255;row[7]=Number(e.bypassable);
+                if(recipe.code===178){const species=recipeAbilityParameter(e,"species");row[1]=species&255;row[4]=species>>>8;row[5]=recipeAbilityParameter(e,"sourceForm");row[6]=recipeAbilityParameter(e,"targetForm");bytes.push(...row);continue;}
                 if(recipe.code===166){const p=(key:string)=>recipeAbilityParameter(e,key),mask=p("conditionMask");row[1]=mask&255;row[4]=mask>>>8;row[5]=p("scope");row[6]=p("protectedType");row[8]=p("cure");row[9]=p("excludeSelf");bytes.push(...row);continue;}
                 if(recipe.code===167){
                     const p=(key:string)=>recipeAbilityParameter(e,key);let stages=0;ABILITY_GROUP_STAGE_KEYS.forEach((key,index)=>stages|=(p(key)&15)<<(index*4));
@@ -148,6 +151,7 @@ export const ABILITY_RULE_PRESETS: Array<{
     label: string;
     rule: AbilityRuleSet;
 }> = [
+    { id: 161, label: "Zen Mode", rule: { ...EMPTY_ABILITY_RULE, effects: [{ kind: "abilityRecipe:zenMode", value: 50 }] } },
     { id: 98, label: "Magic Guard", rule: { ...EMPTY_ABILITY_RULE, effects: [{ kind: "abilityRecipe:damageGuard", value: 1, parameters: {sources:16383} }] } },
     { id: 37, label: "Huge Power", rule: { ...EMPTY_ABILITY_RULE, effects: [{ kind: "attack", value: 2 }] } },
     { id: 3, label: "Speed Boost", rule: { ...EMPTY_ABILITY_RULE, effects: [{ kind: "statStage", stat: 5, value: 1, trigger: "turnEnd", target: "holder", chance: 100 }] } },

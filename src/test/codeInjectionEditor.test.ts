@@ -13,8 +13,26 @@ import * as pmcModel from "../pokeweb/pmcModel";
 import * as megaEvolutionModel from "../pokeweb/megaEvolutionModel";
 import * as speciesExpansionModel from "../pokeweb/speciesExpansionModel";
 import * as abilityExpansionModel from "../pokeweb/abilityExpansionModel";
+import * as bw2ApFix from "../pokeweb/bw2ApFixModel";
 
 afterEach(() => vi.restoreAllMocks());
+
+it.each([["B2", "black2ApFix"], ["W2", "white2ApFix"]] as const)("enables the %s AP fix on export only when requested", async (version, patchId) => {
+  const project = makeProject(version);
+  const setApFix = vi.spyOn(bw2ApFix, "setBw2ApFix");
+  let click = async (_event: { currentTarget: unknown }) => {};
+  const button = { disabled: false, textContent: "Enable on Export", addEventListener: (_event: string, fn: typeof click) => { click = fn; } };
+  const root = { innerHTML: "", querySelectorAll: () => [], querySelector: (selector: string) =>
+    selector === "#apply-bw2-ap-fix-btn" ? button : null };
+  const dirty = vi.fn();
+  renderCodeInjectionEditor(project, root as unknown as HTMLElement, dirty);
+  expect(setApFix).not.toHaveBeenCalled();
+  await click({ currentTarget: button });
+  expect(setApFix).toHaveBeenCalledWith(project, true);
+  expect(project.patches?.applied?.[patchId]).toBe(true);
+  expect(root.innerHTML).toContain("Disable on Export");
+  expect(dirty).toHaveBeenCalledOnce();
+});
 
 describe("optional PMC heap expansion", () => {
   it.each(["B", "W", "B2", "W2"] as const)("shows a separate opt-in sidebar action for %s", version => {
@@ -356,7 +374,7 @@ describe("code-injection patch categories", () => {
     expect(headings(panels[1])).toEqual([
       "Nature Palettes", "Summary IV/EV Viewer", "Enhanced Party Menu and Battle Log Integration", "Type Icons", "Party Menu Learnset/Dex Viewer", "Move Effectiveness Preview", "C-Gear Quick Actions", "Pokenav",
     ]);
-    expect(headings(panels[2])).toEqual(["Instant Fast Text", "Background Music Toggle", "Shiny Odds", "Challenge Mode Stat Fix", "Early Challenge Mode", "Early National Pokédex", "Forgettable HMs", "Make HM Moves Forgettable", "Autorun", "Skip Intro"]);
+    expect(headings(panels[2])).toEqual(["Instant Fast Text", "Background Music Toggle", "Shiny Odds", "Black 2 / White 2 AP Fix", "Challenge Mode Stat Fix", "Early Challenge Mode", "Early National Pokédex", "Forgettable HMs", "Make HM Moves Forgettable", "Autorun", "Skip Intro"]);
     expect(headings(panels[3])).toEqual(["Fairy Type Support", "Move Expansion", "Mega Evolution", "Regional Forms", "Species Expansion"]);
     expect(headings(panels[4])).toEqual([
       "Six-Pokémon PWT", "Infinite Rare Candy", "Hard Level Caps", "Trainer Level Caps",

@@ -20,8 +20,11 @@ describe("standalone ability imports",()=>{
   const {project}=makeItemEffectsProject(shift,move,true,true),before=project.overlays[167]!.slice();
   const rules=new Map(ABILITY_IMPORT_LIBRARY.map((t,i)=>[i<91?165+i:164-(i-91),t.rule])),rpm=buildAbilityRuleModule(project,rules);
   expect(rpm.code.length+rpm.bssSize).toBeLessThanOrEqual(65536);expect(writeRpm(rpm,{ident:"DLXF"}).length+rpm.code.length+rpm.bssSize).toBeLessThanOrEqual(112*1024);
-  // Shared adapters, move weather, status-source dispatch and the checked immunity site.
-  expect(rpm.relocations.filter(r=>r.target.module==="167")).toHaveLength(15);expect(project.overlays[167]).toEqual(before);
+  // Shared adapters, including the checked move-power adapter for conversion.
+  const hooks = rpm.relocations.filter(r => r.target.module === "167");
+  expect(hooks).toHaveLength(16);
+  expect(hooks.some(r => rpm.symbols[r.sourceSymbolIndex]?.name === "AbilityRecipePower")).toBe(true);
+  expect(project.overlays[167]).toEqual(before);
   project.fileSystem={replacements:{},additions:{[ABILITY_EFFECTS_DLL_PATH]:writeRpm(rpm,{ident:"DLXF"})}};
   expect(inspectAbilityEffects(project).rules).toEqual(rules);
   const changed=structuredClone(rpm);changed.code[changed.code.length-1]^=1;project.fileSystem.additions![ABILITY_EFFECTS_DLL_PATH]=writeRpm(changed,{ident:"DLXF"});expect(inspectAbilityEffects(project).editable).toBe(false);

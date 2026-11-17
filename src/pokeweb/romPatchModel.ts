@@ -12,6 +12,8 @@ import { getPmcInstallStatus, installBundledPmc, listCodeInjectionDlls, stageCod
 export { detectMoveExpansionPatch } from "./moveExpansionPatch";
 
 export type RomPatchId =
+  | "black2ApFix"
+  | "white2ApFix"
   | "challengeModeStats"
   | "earlyChallengeMode"
   | "earlyNationalDex"

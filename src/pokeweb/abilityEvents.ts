@@ -4,7 +4,7 @@ import { recipeAbilityEffect, recipeAbilityParameter } from "./abilityRecipeEffe
 import { libraryAbilityEffect } from "./abilityLibraryEffects";
 
 /** Native event subscriptions, including state observers that run before conditions. */
-export function abilityRuleEvents(rule: AbilityRuleSet, profiles: NativeAbilityProfile[], battleMessages = true): number[] {
+export function abilityRuleEvents(rule: AbilityRuleSet, profiles: NativeAbilityProfile[], battleMessages = true, formConversion = false): number[] {
   const events = new Set<number>();
   const add = (...ids: number[]) => ids.forEach(id => events.add(id));
   for (const effect of rule.effects) {
@@ -21,7 +21,8 @@ export function abilityRuleEvents(rule: AbilityRuleSet, profiles: NativeAbilityP
     if (recipe) {
       const p = (key: string) => recipeAbilityParameter(effect, key);
       switch (recipe.code) {
-        case 135: add(0x28, 0x38); break;
+        case 135: add(0x28); if (!formConversion) add(0x38); break;
+        case 178: add(0x55, 0x6a, 0x78, 0x89); break;
         case 136: case 167:
           switch (p("activation")) {
             case 0: add(0x55, 0x8a); break;

@@ -78,7 +78,16 @@ static void scopedConsume(void*,u8,u32);
 static void actionObserve(void*,u8,const volatile u8*,u32);
 static u32 actionMoveMatches(const volatile u8*,const u32*);
 #endif
+#ifdef ABILITY_FORM_CONVERSION
+#include "form_conversion.c"
+#endif
 PUBLIC void AbilityRecipeInit(void){
+#ifdef ABILITY_FORM_CONVERSION
+ moveConversion=powerConversion=0;
+#ifdef ABILITY_FORM_CONVERSION_TEST
+ AbilityFormConversionTest.count=0;
+#endif
+#endif
 #ifdef ABILITY_STATUS_EXTENSIONS
  extensionsInit();
 #endif
@@ -121,7 +130,21 @@ PUBLIC void AbilityRecipeHandlers(void*f,u32 event,u32 factor,u32 check){
 #ifdef ABILITY_WEATHER_MOVES
  weatherBefore(f,event);
 #endif
+#ifdef ABILITY_FORM_CONVERSION
+ u32 conversion=powerConversion;
+ if(event==0x38 && conversion){POWER_MUL(conversion);powerConversion=0;}
+#endif
  RX(22,void(*)(void*,u32,u32,u32))(f,event,factor,check);entrySource=previous;
+#ifdef ABILITY_FORM_CONVERSION
+ powerConversion=conversion;
+#ifdef ABILITY_FORM_CONVERSION_TEST
+ if(!preview(f)){
+  if(event==3){u8 user=VALUE(3);formConversionLog(3,user,0,0,VALUE(0x12),STAT(MON(f,user),0x13),STAT(MON(f,user),13));}
+  if(event==0x38){u8 user=VALUE(3);formConversionLog(0x38,user,VALUE(4),VALUE(0x16),VALUE(0x12),STAT(MON(f,user),0x13),VALUE(0x31));}
+  if(event==0x78){for(u8 id=0;id<12;++id)if(present(f,id)&&STAT(MON(f,id),13))formConversionLog(0x78,id,0,0,0,STAT(MON(f,id),0x13),STAT(MON(f,id),13));}
+ }
+#endif
+#endif
 #ifdef ABILITY_STATUS_EXTENSIONS
  extensionsAfter(f,event);
  if(event==0x68)statusScope=statusFrame.previous;
@@ -140,7 +163,15 @@ PUBLIC void AbilityRecipeHandlers(void*f,u32 event,u32 factor,u32 check){
 #endif
 }
 PUBLIC void AbilityRecipeMoveParam(void*f,u16 move,void*mon,void*param){
- u32 previous=recipeMove;recipeMove=move;RX(1,void(*)(void*,u16,void*,void*))(f,move,mon,param);recipeMove=previous;
+ u32 previous=recipeMove;recipeMove=move;
+#ifdef ABILITY_FORM_CONVERSION
+ u32 saved=moveConversion;moveConversion=0;
+#endif
+ RX(1,void(*)(void*,u16,void*,void*))(f,move,mon,param);recipeMove=previous;
+#ifdef ABILITY_FORM_CONVERSION
+ *(u32*)((u8*)param+MOVE_PARAM_FLAGS)|=moveConversion;
+ moveConversion=saved;
+#endif
 }
 PUBLIC void AbilityRecipeCriticalHandlers(void*f,u32 event){
  RX(6,void(*)(void*,u32))(f,event);if(event==0x36&&VALUE(0x41))recipeCritical=0;
@@ -271,8 +302,14 @@ static void recipeEffect(void*item,void*f,u8 owner,const volatile u8*e,u32 event
   /* These moves choose their type after the initial move-parameter event. */
   if(move==237||move==311||move==363||move==449||move==546||e[4]!=18&&original!=e[4])return;
   if(!conversionMatch(e[1],move,e[7]))return;
+#ifdef ABILITY_FORM_CONVERSION
+  u8 user=VALUE(2);
+  if(event==0x28&&original!=e[5]&&hp&&(user==owner||e[6]&&present(f,owner)&&present(f,user))
+     &&REWRITE(0x16,e[5]))moveConversion=(v<<CONVERSION_RATIO_SHIFT)|(e[5]<<CONVERSION_TYPE_SHIFT);
+#else
   if(event==0x28&&VALUE(2)==owner)REWRITE(0x16,e[5]);
   if(event==0x38&&VALUE(3)==owner&&VALUE(0x16)==e[5])POWER_MUL(v);
+#endif
   return;
  }
  if(kind==136){

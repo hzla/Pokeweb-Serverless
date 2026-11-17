@@ -74,6 +74,7 @@ import { getForgettableHmsPmcStatus, stageForgettableHmsPmc } from "../pokeweb/f
 import { getShinyOddsStatus, SHINY_ODDS_MAX_ROLLS, stageShinyOdds, wildShinyChance } from "../pokeweb/shinyOddsModel";
 import { getTrainerCustomizationStatus, installTrainerCustomization } from "../pokeweb/trainerCustomizationModel";
 import { applyChallengeModeStatsFix, getChallengeModeStatsStatus } from "../pokeweb/challengeModeStatsModel";
+import { getBw2ApFixStatus, setBw2ApFix } from "../pokeweb/bw2ApFixModel";
 import { applyEarlyChallengeMode, getEarlyChallengeModeStatus } from "../pokeweb/earlyChallengeModeModel";
 import { applyEarlyNationalDex, getEarlyNationalDexStatus } from "../pokeweb/earlyNationalDexModel";
 import { getPwtSixPokemonStatus, installPwtSixPokemon } from "../pokeweb/pwtSixPokemonRuntime";
@@ -169,6 +170,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const forgettableHmsStatus = getForgettableHmsPmcStatus(project);
   const shinyOddsStatus = getShinyOddsStatus(project);
   const challengeStats = getChallengeModeStatsStatus(project);
+  const bw2ApFix = getBw2ApFixStatus(project);
   const earlyChallengeMode = getEarlyChallengeModeStatus(project);
   const earlyNationalDex = getEarlyNationalDexStatus(project);
   const pwtSixPokemonStatus = getPwtSixPokemonStatus(project);
@@ -770,6 +772,21 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <output id="shiny-odds-preview" for="shiny-odds-rolls">${formatShinyOdds(shinyOddsStatus.rolls ?? 1)}</output>
             <button class="btn -primary" id="apply-shiny-odds-btn" type="button" disabled>Apply Odds</button>
             <div class="code-injection-note" id="shiny-odds-note" aria-live="polite"></div>
+          </div>
+        </section>
+        <section class="code-injection-panel" ${patchVisibility(bw2ApFix !== "unsupported")}>
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Black 2 / White 2 AP Fix</h2>
+              <p>Applies the AP fix to the current ROM code on export.</p>
+            </div>
+            ${renderInlineStatus({ unsupported: "Unsupported", ready: "Off", enabled: "Enabled" }[bw2ApFix], { className: "code-injection-status" })}
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="apply-bw2-ap-fix-btn" type="button" ${bw2ApFix === "unsupported" ? "disabled" : ""}>
+              ${bw2ApFix === "enabled" ? "Disable on Export" : "Enable on Export"}
+            </button>
+            <div class="code-injection-note" id="bw2-ap-fix-note" aria-live="polite"></div>
           </div>
         </section>
         <section class="code-injection-panel" ${patchVisibility(challengeStats.state !== "unsupported")}>
@@ -1491,6 +1508,8 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       }
     });
   };
+  romPatchButton("apply-bw2-ap-fix-btn", "bw2-ap-fix-note", undefined,
+    () => setBw2ApFix(project, bw2ApFix !== "enabled"));
   romPatchButton("apply-challenge-stats-btn", "challenge-stats-note", undefined, () => applyChallengeModeStatsFix(project));
   romPatchButton("apply-early-challenge-btn", "early-challenge-note", undefined, () => applyEarlyChallengeMode(project));
   romPatchButton("apply-early-national-dex-btn", "early-national-dex-note", undefined, () => applyEarlyNationalDex(project));

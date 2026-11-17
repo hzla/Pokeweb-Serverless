@@ -32,6 +32,7 @@ import { materializePwanAnimations } from "./pwanAnimationModel";
 import { isW2AnimProject, materializeW2AnimAnimations } from "./w2animAnimationModel";
 import { getDirtyStarterOverlayIds } from "./starterModel";
 import { getDirtyPatchOverlayIds } from "./romPatchModel";
+import { getBw2ApFixStatus, planBw2ApFix } from "./bw2ApFixModel";
 import { moveEffectHandlerOverlayId, moveEffectHandlerTableOffset, moveEffectHandlerTableLayout } from "./moveEffectHandlerModel";
 import { moveHandlerOverlay } from "./nativeMoveRegistry";
 import { BW2_TUTOR_MOVE_OVERLAY_ID, tutorMoveTableOffset } from "./tutorMoveModel";
@@ -356,11 +357,15 @@ function patchOverlayFiles(project: ProjectState, rom: NintendoDSRom, fileReplac
     writeU32(table, offset + 8, data.length);
     writeU32(table, offset + 28, (flags & ~1) << 24);
   }
+  const apFix = getBw2ApFixStatus(project) === "enabled"
+    ? planBw2ApFix(rom.idCode, table, (id) => fileReplacements.get(id) ?? rom.files[id])
+    : undefined;
+  for (const [id, bytes] of apFix?.files ?? []) fileReplacements.set(id, bytes);
   const pmcId = project.codeInjection?.pmc?.overlayId;
-  const packed = recompressOverlayFiles(table, (_, id) => fileReplacements.get(id) ?? rom.files[id],
+  const packed = recompressOverlayFiles(apFix?.table ?? table, (_, id) => fileReplacements.get(id) ?? rom.files[id],
     new Set(pmcId === undefined ? [] : [pmcId]));
   for (const [id, bytes] of packed.files) fileReplacements.set(id, bytes);
-  return overlayReplacements.size || packed.files.size ? packed.table : undefined;
+  return overlayReplacements.size || apFix || packed.files.size ? packed.table : undefined;
 }
 
 function patchOverlayBackedStore(project: ProjectState, name: NarcName, overlayId: number, overlayReplacements: Map<number, Uint8Array>): void {

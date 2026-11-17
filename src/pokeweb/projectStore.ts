@@ -416,6 +416,8 @@ export type PatchState = {
   dirtyOverlayIds: number[];
   arm9OverlayTable?: Uint8Array;
   applied?: {
+    black2ApFix?: boolean;
+    white2ApFix?: boolean;
     removeDustCloudGems?: boolean;
     removeDustCloudItems?: boolean;
     forgettableHms?: boolean;
