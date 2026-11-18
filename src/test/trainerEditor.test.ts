@@ -45,6 +45,30 @@ describe("trainer list and detail", () => {
     expect(renderTrainerListRowContent(project, 1)).toContain("Lv 12–15");
   });
 
+  it("only offers Balance report locally or with the AI feature unlock", () => {
+    trainer.raw.battle_type_1 = 0;
+    const location = { hostname: "hosted.example", search: "" };
+    const getItem = vi.fn<() => string | null>().mockReturnValue(null);
+    vi.stubGlobal("location", location);
+    vi.stubGlobal("localStorage", { getItem });
+    try {
+      const detail = () => renderTrainerDetail(project, 1, 0, true);
+      expect(detail()).not.toContain("data-balance-report");
+      expect(detail()).toContain("data-trainer-test");
+      location.search = "?okWithAI=true";
+      expect(detail()).toContain("data-balance-report");
+      getItem.mockReturnValue("true");
+      location.search = "";
+      expect(detail()).toContain("data-balance-report");
+      location.search = "?okWithAI=false";
+      expect(detail()).not.toContain("data-balance-report");
+      location.hostname = "localhost";
+      expect(detail()).toContain("data-balance-report");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("renders trainer settings, AI flags, dialogue and only the selected Pokemon's editor", () => {
     trainer.party[1].level = 42;
     const detail = renderTrainerDetail(project, 1, 1, true);

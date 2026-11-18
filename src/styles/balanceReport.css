@@ -1,0 +1,55 @@
+.balance-report {
+  background: var(--ink-0);
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius, 0);
+  color: var(--text);
+  width: min(820px, calc(100vw - 28px));
+  max-height: calc(100dvh - 28px);
+  box-sizing: border-box;
+  padding: clamp(12px, 3vw, 24px);
+}
+.balance-report::backdrop { background: rgb(0 0 0 / .65); }
+.balance-report :is(h2, h3, p, ul) { margin: 0; }
+.balance-report :is([hidden]) { display: none; }
+.balance-report input:not([type="checkbox"]) {
+  background: var(--ink-1);
+  color: var(--text);
+  border: 1px solid var(--field-line);
+  border-radius: 5px;
+  padding: 6px 8px;
+  font: inherit;
+}
+.balance-report input[type="number"] { width: 5em; }
+.balance-report input[type="search"] { flex: 1; min-width: 12em; }
+.balance-report-head,
+.balance-report-controls,
+.balance-report-suggest,
+.balance-report-table-tools,
+.balance-report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.balance-report-head { justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+.balance-report-form,
+.balance-report-results { display: grid; gap: 12px; }
+.balance-report-tables { min-width: 0; padding: 8px 12px 12px; border: 1px solid var(--field-line); border-radius: var(--radius, 0); }
+.balance-report-table-list { margin-top: 8px; max-height: min(32dvh, 280px); overflow: auto; }
+.balance-report-table-list label { display: flex; align-items: start; gap: 8px; padding: 5px 0; }
+.balance-report-table-list small { display: block; }
+.balance-report :is(small, .balance-report-assumptions p, .balance-report-actions span, .balance-report-catches) { color: var(--text-muted); }
+.balance-report-evolution > :not(summary) { margin-top: 8px; }
+.balance-report-evolution fieldset { min-width: 0; border: 1px solid var(--field-line); padding: 8px 12px; }
+.balance-report-evolution-items { display: flex; flex-wrap: wrap; gap: 6px 16px; max-height: 160px; overflow: auto; }
+.balance-report-evolution-items label { display: inline-flex; align-items: baseline; gap: 4px; }
+.balance-report-assumptions p { margin-top: 8px; }
+.balance-report-actions { justify-content: flex-end; }
+.balance-report-actions span { flex: 1 1 200px; }
+.balance-report-results { margin-top: 18px; border-top: 1px solid var(--field-line); padding-top: 14px; }
+.balance-report-slot { padding: 8px 0; border-bottom: 1px solid var(--field-line); }
+.balance-report-slot summary > span { float: right; padding-left: 8px; color: var(--text-muted); }
+.balance-report-slot > :not(summary) { margin-top: 8px; }
+.balance-report-omitted { color: var(--text-muted); }
+.balance-report-answers { display: grid; gap: 10px; padding-left: 20px; }
+.balance-report-catches { padding-left: 20px; }

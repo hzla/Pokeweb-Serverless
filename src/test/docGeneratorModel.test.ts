@@ -3,13 +3,13 @@ import { strFromU8, unzipSync } from "fflate";
 import { NARC } from "../nds/narc";
 import { BW2_MESSAGE_BANKS, type NarcName } from "../pokeweb/constants";
 import {
-  GEN5_CALC_BRIDGE_CONFIG,
   generateCalcDownload,
   generateCalcBridgePayload,
   generateDexDownloads,
   generateTextDocsDownload,
   enrichItemLocations,
   enrichTrainerLocations,
+  getCalcBridgeConfig,
   parseGroundItemScripts,
   parseTrainerBattleScripts,
   trainerPokemonExportName,
@@ -100,7 +100,18 @@ describe("docGeneratorModel", () => {
 
     expect(payload).toMatchObject({
       type: "ddex:calc-sync",
-      config: GEN5_CALC_BRIDGE_CONFIG,
+      config: {
+        gen: 5,
+        damageGen: 5,
+        typeChart: 5,
+        critGen: 5,
+        switchIn: 5,
+        gameSwitchIn: 5,
+        sourceType: "full",
+        baseGame: "BW2",
+        mechanics: "vanilla",
+        customPoks: true,
+      },
       fileName: "voltwhiteplus_npoint_data.js",
       sourceGen: 5,
       title: "Volt White Plus",
@@ -108,6 +119,12 @@ describe("docGeneratorModel", () => {
     expect(payload.scriptText.startsWith("var backup_data = ")).toBe(true);
     expect(payload.scriptText.endsWith(";")).toBe(true);
     expect(payload.scriptText).toContain('"title": "Volt White Plus"');
+  });
+
+  it("selects the Nintendo DS save reader family from the ROM base", () => {
+    expect(getCalcBridgeConfig("BW").baseGame).toBe("BW");
+    expect(getCalcBridgeConfig("BW2").baseGame).toBe("BW2");
+    expect(getCalcBridgeConfig("Pt").baseGame).toBe("");
   });
 
   it("exports trainer NARC member indexes as calc trainer IDs", () => {

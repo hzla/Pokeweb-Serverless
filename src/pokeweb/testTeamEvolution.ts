@@ -20,7 +20,7 @@ type EvolutionState = TestTeamEvolution & {
   personalId: number;
 };
 
-type EvolutionEdge = {
+export type EvolutionEdge = {
   method: number;
   param: number;
   targetPersonalId: number;
@@ -150,7 +150,7 @@ function collectEvolutionBranches(
   ));
 }
 
-function evolutionEdges(project: ProjectState, personalId: number): EvolutionEdge[] {
+export function evolutionEdges(project: ProjectState, personalId: number): EvolutionEdge[] {
   if (!project.narcs.evolutions?.rawFiles[personalId]) return [];
   try {
     const raw = decodeRecord(project, "evolutions", personalId).raw;

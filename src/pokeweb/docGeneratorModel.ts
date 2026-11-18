@@ -14,8 +14,10 @@ import {
   ENCOUNTER_WATER_FIELDS,
   ENCOUNTER_WATER_PERCENTAGES,
   isGen4Project,
+  isGen5BaseRom,
   TYPES,
   type BaseRom,
+  type Gen5BaseRom,
 } from "./constants";
 import { cascadeWhitePersonalName, cascadeWhiteTrainerAbilityName } from "./cascadeWhiteModel";
 import { getEncounterCount, getEncounterRecord } from "./encounterModel";
@@ -68,7 +70,7 @@ export type CalcBridgeConfig = {
   switchIn: 5;
   gameSwitchIn: 5;
   sourceType: "full";
-  baseGame: "BW";
+  baseGame: Gen5BaseRom | "";
   mechanics: "vanilla";
   customPoks: true;
 };
@@ -101,18 +103,20 @@ const USER_TARGETS = new Set(["User", "User's party", "User's side of field"]);
 const NON_BATTLER_TARGETS = new Set(["Entire Field", "Field Itself", "Opponent's side of field", "User's party", "User's side of field"]);
 const derivedFormIndexCache = new WeakMap<ProjectState, DerivedFormIndexCacheEntry>();
 
-export const GEN5_CALC_BRIDGE_CONFIG: CalcBridgeConfig = {
-  gen: 5,
-  damageGen: 5,
-  typeChart: 5,
-  critGen: 5,
-  switchIn: 5,
-  gameSwitchIn: 5,
-  sourceType: "full",
-  baseGame: "BW",
-  mechanics: "vanilla",
-  customPoks: true,
-};
+export function getCalcBridgeConfig(baseRom: BaseRom): CalcBridgeConfig {
+  return {
+    gen: 5,
+    damageGen: 5,
+    typeChart: 5,
+    critGen: 5,
+    switchIn: 5,
+    gameSwitchIn: 5,
+    sourceType: "full",
+    baseGame: isGen5BaseRom(baseRom) ? baseRom : "",
+    mechanics: "vanilla",
+    customPoks: true,
+  };
+}
 
 const SHOWDOWN_SUBS: Record<string, string> = {
   Bubblebeam: "Bubble Beam",
@@ -425,7 +429,7 @@ export function generateCalcBridgePayload(project: ProjectState, title: string):
   const { payload, itemValidation } = buildCalcPayload(project, exportTitle);
   return {
     type: "ddex:calc-sync",
-    config: { ...GEN5_CALC_BRIDGE_CONFIG },
+    config: getCalcBridgeConfig(project.session.baseRom),
     fileName: `${safeFilename(exportTitle)}_npoint_data.js`,
     sourceGen: 5,
     scriptText: `var backup_data = ${JSON.stringify(payload, null, 2)};`,
@@ -1894,7 +1898,7 @@ function toId(value: string): string {
   return value.toLowerCase().replace(/é/gu, "e").replace(/[^a-z0-9]+/gu, "");
 }
 
-function showdownName(value: unknown): string {
+export function showdownName(value: unknown): string {
   const titled = titleizeName(value).replace(/^Hp(?=\s)/u, "HP");
   return SHOWDOWN_SUBS[titled] ?? titled;
 }

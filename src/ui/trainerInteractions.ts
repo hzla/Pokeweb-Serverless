@@ -1,4 +1,5 @@
 import { attachRosterHub, clearPoolRoll, ensureRosterLists, renderRosterHub } from "./trainerRosterHub";
+import { canUseAiFeatures } from "../pokeweb/aiFeatureAccess";
 import {
   autofillPoolMemberMoves, editPoolMemberField, editRosterPool, newPoolMember, originalRosterKey, poolPokemonFromTrainerSlot, setPoolMemberSetting, trainerHasRosterVariants,
   type RosterKey,
@@ -566,6 +567,16 @@ export function attachTrainerDetail(
       run(() => {
         updateTrainerText(project, id, Number(button.dataset.textDelete), "");
       }, renderDialogue);
+    } else if (button.matches("[data-balance-report]") && canUseAiFeatures()) {
+      try {
+        button.disabled = true;
+        const { openBalanceReport } = await import("./balanceReportDialog");
+        if (button.isConnected && trainerId() === id) openBalanceReport(project, getTrainerRecord(project, id, { includeTexts: false }), button);
+      } catch (error) {
+        window.alert(error instanceof Error ? error.message : String(error));
+      } finally {
+        button.disabled = false;
+      }
     } else if (button.matches("[data-trainer-test]") && options.onTestBattle) {
       const label = button.textContent ?? "Test battle";
       try {
@@ -641,6 +652,10 @@ export function attachTrainerDetail(
         if (field === "hpMode" || field === "status") renderParty();
       } else if (target instanceof HTMLSelectElement && target.dataset.trainerSelect) {
         updateTrainerField(project, id, target.dataset.trainerSelect, target.value);
+        if (target.dataset.trainerSelect === "battle_type_1") {
+          render();
+          detail.querySelector<HTMLSelectElement>('[data-trainer-select="battle_type_1"]')?.focus();
+        }
       } else if (target instanceof HTMLSelectElement && target.dataset.slotSelect) {
         updateTrainerPokemonField(project, id, selection.slot, target.dataset.slotSelect, target.value);
         refreshSlotDerived();

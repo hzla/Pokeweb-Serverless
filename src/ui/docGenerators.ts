@@ -2,12 +2,13 @@ import {
   enrichItemLocations,
   enrichTrainerLocations,
   ensureDocs,
-  GEN5_CALC_BRIDGE_CONFIG,
   generateCalcBridgePayload,
   generateCalcDownload,
   generateDexDownloads,
   generateTextDocsDownload,
+  getCalcBridgeConfig,
   setDocRomTitle,
+  type CalcBridgeConfig,
   type CalcBridgePayload,
   type DownloadFile,
 } from "../pokeweb/docGeneratorModel";
@@ -146,7 +147,7 @@ export function renderDocGenerators(project: ProjectState, root: HTMLElement, op
   });
 
   openCalcButton?.addEventListener("click", () => {
-    openCalc(status);
+    openCalc(getCalcBridgeConfig(project.session.baseRom), status);
   });
 
   syncCalcButton?.addEventListener("click", () => {
@@ -230,8 +231,8 @@ function handleCalcBridgeMessage(event: MessageEvent): void {
   }
 }
 
-function openCalc(status: HTMLElement | null): boolean {
-  const calcWindow = window.open(buildCalcBridgeUrl(), "pokeweb-dynamic-calc");
+function openCalc(config: CalcBridgeConfig, status: HTMLElement | null): boolean {
+  const calcWindow = window.open(buildCalcBridgeUrl(config), "pokeweb-dynamic-calc");
   if (!calcWindow) {
     setCalcBridgeStatus("The calc tab was blocked. Allow pop-ups and try again.", status);
     return false;
@@ -289,15 +290,16 @@ function postCalcBridgePayload(payload: CalcBridgePayload): boolean {
   return true;
 }
 
-function buildCalcBridgeUrl(): string {
+function buildCalcBridgeUrl(config: CalcBridgeConfig): string {
   const url = new URL(getCalcBridgePath(), getCalcBridgeOrigin());
   url.searchParams.set("dev", "1");
   url.searchParams.set("forceBlankConfig", "1");
-  url.searchParams.set("gen", String(GEN5_CALC_BRIDGE_CONFIG.gen));
-  url.searchParams.set("dmgGen", String(GEN5_CALC_BRIDGE_CONFIG.damageGen));
-  url.searchParams.set("types", String(GEN5_CALC_BRIDGE_CONFIG.typeChart));
-  url.searchParams.set("critGen", String(GEN5_CALC_BRIDGE_CONFIG.critGen));
-  url.searchParams.set("switchIn", String(GEN5_CALC_BRIDGE_CONFIG.switchIn));
+  url.searchParams.set("gen", String(config.gen));
+  url.searchParams.set("dmgGen", String(config.damageGen));
+  url.searchParams.set("types", String(config.typeChart));
+  url.searchParams.set("critGen", String(config.critGen));
+  url.searchParams.set("switchIn", String(config.switchIn));
+  if (config.baseGame) url.searchParams.set("baseGame", config.baseGame);
   url.searchParams.set("ddexBridgeOrigin", window.location.origin);
   return url.toString();
 }

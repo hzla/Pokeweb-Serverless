@@ -1,4 +1,5 @@
 import { frostbiteSnowLabel } from "../pokeweb/frostbiteSnowModel";
+import { canUseAiFeatures } from "../pokeweb/aiFeatureAccess";
 import { renderRosterHub } from "./trainerRosterHub";
 import { listTrainerRosters, originalRosterKey, poolRecord, rosterPool, trainerHasRosterVariants, type RosterKey } from "../pokeweb/trainerRosterHub";
 import { TRAINER_POOL_GROUPS, TRAINER_POOL_MAX_MEMBERS, trainerPoolGroupBit, type TrainerPartyPool, type TrainerPoolMember } from "../pokeweb/trainerPartyPools";
@@ -210,6 +211,7 @@ export function renderTrainerDetail(project: ProjectState, trainerId: number, se
             <option value="shown">Fight the roster shown</option><option value="game">Fight the game's pick</option>
           </select>` : ""}
           <button class="btn -primary" type="button" data-trainer-test>Test battle</button>
+          ${isGen5Project(project) && trainer.raw.battle_type_1 === 0 && trainer.party.length && canUseAiFeatures() ? '<button class="btn" type="button" data-balance-report>Balance report</button>' : ""}
           <button class="btn" type="button" data-team-copy ${trainer.party.length ? "" : "disabled"}>Copy team</button>
           <button class="btn" type="button" data-team-import>Import team</button>
         </div>
