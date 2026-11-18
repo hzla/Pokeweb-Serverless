@@ -37,7 +37,7 @@ import {
   type PokemonTextSection,
 } from "../pokeweb/pokemonTextModel";
 import { getPokemonCardFrontSpriteImage } from "../pokeweb/pokemonCardSpriteModel";
-import type { RgbaImageData } from "../pokeweb/pokemonSpriteModel";
+import { getPokemonIconImage, getPokemonIconPaletteAssignment, resolvePokemonIconAddress, type RgbaImageData } from "../pokeweb/pokemonSpriteModel";
 import type { ProjectState, ReadableRecord } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 import { attachPokemonInteractions } from "./pokemonInteractions";
@@ -56,8 +56,12 @@ import {
 } from "../pokeweb/koMoveLearnsetModel";
 import { isKoMoveEditorAvailable } from "../pokeweb/menuEvolutionModel";
 
-const POKEMON_CARD_SPRITE_RENDER_VERSION = "personal-front-sprite-v2";
-const pokemonCardSpriteInstallations = new WeakMap<HTMLElement, { disconnect: () => void }>();
+const pokemonIconObservers = new WeakMap<HTMLElement, () => void>();
+
+export function stopPokemonIconRendering(root: HTMLElement): void {
+  pokemonIconObservers.get(root)?.();
+  pokemonIconObservers.delete(root);
+}
 
 type PokemonTab = "personal" | "learnset" | "tms" | "tutors" | "egg-moves" | "evos" | "names" | "cry";
 
@@ -95,6 +99,7 @@ export function renderPokemonEditor(
   onOpenPwan?: (speciesId: number) => void,
   onEnsureFormAssets?: () => Promise<void>,
 ): void {
+  stopPokemonIconRendering(root);
   const ids = pokemonPersonalDisplayIds(project);
   const selection = pokemonDataSelection.get(project) ?? { speciesId: ids.includes(1) ? 1 : ids[0] ?? 0, tab: "personal" as PokemonTab };
   if (!ids.includes(selection.speciesId)) selection.speciesId = ids.includes(1) ? 1 : ids[0] ?? 0;
@@ -174,7 +179,10 @@ export function renderPokemonEditor(
     selection.speciesId = speciesId;
     detail.innerHTML = renderPokemonDetail(project, speciesId, Boolean(onOpenPwan));
     interactions.installCard(detail);
-    installPokemonCardSpriteRendering(project, detail);
+    const sprite = detail.querySelector<HTMLElement>(".pd-sprite")!;
+    if (project.narcs.pokemon_sprites || project.pwanAnimations?.overrides.some((override) => override.front)) {
+      drawPokemonImage(sprite, () => getPokemonCardFrontSpriteImage(project, speciesId));
+    }
     list.querySelectorAll<HTMLElement>("[data-pokemon-row]").forEach((row) => {
       const active = Number(row.dataset.pokemonRow) === speciesId;
       row.classList.toggle("is-selected", active);
@@ -235,6 +243,16 @@ export function renderPokemonEditor(
   });
 
   select(selection.speciesId, true);
+  if (project.narcs.pokemon_icons) {
+    pokemonIconObservers.set(root, observeNearViewport(list, ".pd-row-icon", (slot) => {
+      const speciesId = Number(slot.closest<HTMLElement>("[data-pokemon-row]")?.dataset.pokemonRow);
+      drawPokemonImage(slot, () => {
+        const { archiveSpriteId, paletteKey } = resolvePokemonIconAddress(project, speciesId);
+        const palette = getPokemonIconPaletteAssignment(project, paletteKey, "male").paletteId;
+        return getPokemonIconImage(project, archiveSpriteId, "male", palette);
+      }, 32);
+    }));
+  }
 }
 
 function renderPokemonFilter(label: string, groupClass: string, buttons: string): string {
@@ -269,7 +287,7 @@ function renderPokemonListRowContent(project: ProjectState, speciesId: number): 
   const edits = editedPokemonFields(project, speciesId).size;
   return `
     ${isAddedSpecies(project, speciesId) ? `<span class="md-row-id" title="National No. ${nationalNumberOf(project, speciesId)}; ROM species ${speciesId}">${speciesId}</span>` : `<span class="md-row-id">${speciesId}</span>`}
-    <img class="pd-row-icon" src="${publicAsset(`images/pokesprite/${pokemonSpriteSlug(name)}.png`)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+    <span class="pd-row-icon" aria-hidden="true">${renderBundledPokemonImage(name)}</span>
     <span class="md-row-name">${escapeHtml(name)}${edits ? `<span class="md-edits" title="${edits} change${edits === 1 ? "" : "s"}">${edits}</span>` : ""}</span>
     <span class="pd-row-types"><span class="type-plate sm -${typeClass(type1)}">${escapeHtml(type1)}</span>${type2 && type2 !== type1 ? `<span class="type-plate sm -${typeClass(type2)}">${escapeHtml(type2)}</span>` : ""}</span>
   `;
@@ -277,7 +295,10 @@ function renderPokemonListRowContent(project: ProjectState, speciesId: number): 
 
 function refreshPokemonListRow(project: ProjectState, root: HTMLElement, speciesId: number): void {
   const row = root.querySelector<HTMLElement>(`[data-pokemon-row="${speciesId}"]`);
-  if (row) row.innerHTML = renderPokemonListRowContent(project, speciesId);
+  if (!row) return;
+  const romIcon = row.querySelector(".pd-row-icon canvas");
+  row.innerHTML = renderPokemonListRowContent(project, speciesId);
+  if (romIcon) row.querySelector(".pd-row-icon")?.replaceChildren(romIcon);
 }
 
 function refreshPokemonEditState(project: ProjectState, root: HTMLElement, speciesId: number): void {
@@ -354,7 +375,7 @@ function renderPokemonDetail(project: ProjectState, speciesId: number, showPwan:
   return `
     <article class="pokemon-card filterable pd-card" data-index="${speciesId}">
       <header class="pd-head">
-        <div class="pd-sprite pokemon-card__img">${renderPokemonCardSprite(project, speciesId, name)}</div>
+        <div class="pd-sprite pokemon-card__img" aria-hidden="true">${renderBundledPokemonImage(name)}</div>
         <div class="pd-ident">
           <div class="pd-title">${isAddedSpecies(project, speciesId) ? `<span class="pd-num" title="National No. ${nationalNumberOf(project, speciesId)}; ROM species ${speciesId}">#${String(nationalNumberOf(project, speciesId)).padStart(3, "0")}</span>` : `<span class="pd-num">#${String(speciesId).padStart(3, "0")}</span>`}<h1>${escapeHtml(name)}</h1></div>
           <div class="pd-types" data-mark-fields="personal:type_1 personal:type_2">
@@ -460,72 +481,28 @@ function renderPokemonTextLine(line: PokemonTextLine): string {
   `;
 }
 
-function renderPokemonCardSprite(project: ProjectState, speciesId: number, name: string): string {
-  const fallbackSrc = publicAsset(`images/pokesprite/${pokemonSpriteSlug(name)}.png`);
-  const fallback = `<img class="pokemon-card-fallback-sprite" src="${fallbackSrc}" alt="" loading="lazy" onerror="this.style.display='none'">`;
-  const hasPwanFront = Boolean(project.pwanAnimations?.overrides.some((override) => override.front && (override.speciesId === speciesId || override.assetIndex === speciesId)));
-  if (!hasPwanFront && !project.narcs.pokemon_sprites) return fallback;
-  return `<canvas class="pokemon-card-rom-sprite" data-pokemon-species-id="${speciesId}" data-pokemon-sprite-version="${POKEMON_CARD_SPRITE_RENDER_VERSION}" width="96" height="96" aria-hidden="true"></canvas>${fallback}`;
+function renderBundledPokemonImage(name: string): string {
+  const url = publicAsset(`images/pokesprite/${pokemonSpriteSlug(name)}.png`);
+  return `<img src="${url}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`;
 }
 
-function installPokemonCardSpriteRendering(project: ProjectState, root: HTMLElement): void {
-  pokemonCardSpriteInstallations.get(root)?.disconnect();
-  if (!project.narcs.pokemon_sprites && !project.pwanAnimations?.overrides.some((override) => override.front)) return;
-
-  const imageCache = new Map<number, Promise<RgbaImageData | undefined>>();
-  const loadImage = (speciesId: number): Promise<RgbaImageData | undefined> => {
-    let cached = imageCache.get(speciesId);
-    if (!cached) {
-      cached = Promise.resolve()
-        .then(() => getPokemonCardFrontSpriteImage(project, speciesId))
-        .catch((error) => {
-          console.warn(`Failed to render Pokemon sprite ${speciesId}`, error);
-          return undefined;
-        });
-      imageCache.set(speciesId, cached);
-      // Scrolling through the whole ROM should not retain every decoded sprite.
-      if (imageCache.size > 32) imageCache.delete(imageCache.keys().next().value!);
-    }
-    return cached;
-  };
-
-  const renderCanvas = async (canvas: HTMLCanvasElement): Promise<void> => {
-    if (
-      (canvas.dataset.pokemonSpriteRendered === "true" && canvas.dataset.pokemonSpriteVersion === POKEMON_CARD_SPRITE_RENDER_VERSION) ||
-      canvas.dataset.pokemonSpriteRendered === "loading"
-    ) {
-      return;
-    }
-    const speciesId = Number(canvas.dataset.pokemonSpeciesId);
-    if (!Number.isInteger(speciesId)) return;
-    canvas.dataset.pokemonSpriteVersion = POKEMON_CARD_SPRITE_RENDER_VERSION;
-    canvas.dataset.pokemonSpriteRendered = "loading";
-    const image = await loadImage(speciesId);
-    if (!canvas.isConnected) return;
-    if (!image) {
-      canvas.hidden = true;
-      canvas.dataset.pokemonSpriteRendered = "missing";
-      return;
-    }
+function drawPokemonImage(slot: HTMLElement, loadImage: () => RgbaImageData | undefined, maxHeight?: number): void {
+  if (slot.firstElementChild instanceof HTMLCanvasElement) return;
+  try {
+    const image = loadImage();
+    if (!image) return;
+    const canvas = document.createElement("canvas");
     canvas.width = image.width;
-    canvas.height = image.height;
-    const pixels = new Uint8ClampedArray(image.pixels.length);
-    pixels.set(image.pixels);
-    canvas.getContext("2d")?.putImageData(new ImageData(pixels, image.width, image.height), 0, 0);
-    canvas.classList.add("-loaded");
-    canvas.closest<HTMLElement>(".pokemon-card__img")?.classList.add("-rom-loaded");
-    canvas.dataset.pokemonSpriteRendered = "true";
-  };
-
-  const disconnectImages = observeNearViewport(root, "canvas.pokemon-card-rom-sprite", (canvas) => {
-    void renderCanvas(canvas as HTMLCanvasElement);
-  });
-
-  pokemonCardSpriteInstallations.set(root, {
-    disconnect: () => {
-      disconnectImages();
-    },
-  });
+    canvas.height = Math.min(image.height, maxHeight ?? image.height);
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    const frame = context.createImageData(canvas.width, canvas.height);
+    frame.data.set(image.pixels.subarray(0, frame.data.length));
+    context.putImageData(frame, 0, 0);
+    slot.replaceChildren(canvas);
+  } catch {
+    // Missing or unreadable ROM art keeps the bundled image.
+  }
 }
 
 export function renderCascadeAbilitySlots(project: ProjectState, speciesId: number): string {

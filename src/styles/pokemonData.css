@@ -14,6 +14,12 @@
 #pokemon-data .pd-row-icon {
   width: 28px;
   height: 28px;
+}
+
+#pokemon-data .pd-row-icon > :is(img, canvas) {
+  display: block;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   image-rendering: pixelated;
 }
@@ -71,14 +77,6 @@
   height: 96px;
   image-rendering: pixelated;
   object-fit: contain;
-}
-
-#pokemon-data .pd-sprite.-rom-loaded .pokemon-card-fallback-sprite {
-  display: none;
-}
-
-#pokemon-data .pd-sprite canvas:not(.-loaded) {
-  display: none;
 }
 
 #pokemon-data .pd-ident {

@@ -104,7 +104,7 @@ import { renderMoveBackgroundEditor } from "./ui/moveBackgroundEditor";
 import { renderBattleBackgroundEditor } from "./ui/battleBackgroundEditor";
 import { buildBattleEnvironmentTestDownloads, type BattleEnvironmentTestSelection } from "./pokeweb/battleEnvironmentTest";
 import { renderTitleScreenEditor, stopTitleScreenEditor } from "./ui/titleScreenEditor";
-import { renderPokemonEditor } from "./ui/pokemonEditor";
+import { renderPokemonEditor, stopPokemonIconRendering } from "./ui/pokemonEditor";
 import { renderPokemonSpriteWorkspace } from "./ui/pokemonSpriteEditor";
 import { renderPwanAnimationEditor } from "./ui/pwanAnimationEditor";
 import { getPwanRuntimeStatus } from "./pokeweb/pwanAnimationModel";
@@ -743,7 +743,10 @@ function renderApp(): void {
   stopMapStudioView?.(); stopMapStudioView = undefined;
   syncProjectEditSubscription();
   const previousContent = document.getElementById("content-container");
-  if (previousContent) stopTrainerImageRendering(previousContent);
+  if (previousContent) {
+    stopTrainerImageRendering(previousContent);
+    stopPokemonIconRendering(previousContent);
+  }
   stopTitleScreenEditor();
   stopCustomUiEditor();
   stopUiScreensEditor();
@@ -1086,11 +1089,23 @@ function renderApp(): void {
   }
 
   if (route === "pokemon") {
-    renderPokemonEditor(project, content, () => {
-      dirty = true;
-      scheduleSave(project!);
-      renderDirtyIndicator();
-    }, openPokemonSprites, canOpenPwanFromPokemon() ? openPwanAnimations : undefined, ensurePokemonFormAssets);
+    const currentProject = project;
+    const render = () => {
+      if (project !== currentProject || route !== "pokemon" || !content.isConnected) return;
+      renderPokemonEditor(currentProject, content, () => {
+        dirty = true;
+        scheduleSave(currentProject);
+        renderDirtyIndicator();
+      }, openPokemonSprites, canOpenPwanFromPokemon() ? openPwanAnimations : undefined, ensurePokemonFormAssets);
+    };
+    if (isGen5Project(currentProject) && hasExportBase && (!currentProject.narcs.pokemon_sprites || !currentProject.narcs.pokemon_icons)) {
+      content.innerHTML = `<div class="file-system-empty" role="status">Loading Pokémon…</div>`;
+      void ensurePokemonSpriteNarcs(currentProject)
+        .catch((error) => console.warn("Could not load Pokémon graphics", error))
+        .then(render);
+    } else {
+      render();
+    }
     return;
   }
 
@@ -2207,9 +2222,11 @@ function canOpenPwanFromPokemon(): boolean {
 }
 
 async function openPwanAnimationsAsync(speciesId: number): Promise<void> {
-  if (!project || !canOpenPwanFromPokemon()) return;
+  const currentProject = project;
+  if (!currentProject || !canOpenPwanFromPokemon()) return;
   try {
-    await ensurePokemonSpriteNarcs();
+    await ensurePokemonSpriteNarcs(currentProject);
+    if (project !== currentProject) return;
     applyRouteState({ route: "animatedSprites", pwanAnimationSpeciesId: speciesId });
   } catch (error) {
     window.alert(error instanceof Error ? error.message : String(error));
@@ -2217,9 +2234,11 @@ async function openPwanAnimationsAsync(speciesId: number): Promise<void> {
 }
 
 async function openPokemonSpritesAsync(speciesId: number, formIndex = 0): Promise<void> {
-  if (!project) return;
+  const currentProject = project;
+  if (!currentProject) return;
   try {
-    await ensurePokemonSpriteNarcs();
+    await ensurePokemonSpriteNarcs(currentProject);
+    if (project !== currentProject) return;
     applyRouteState({ route: "pokemonSprites", pokemonSpriteSpeciesId: speciesId, pokemonSpriteFormIndex: formIndex });
   } catch (error) {
     window.alert(error instanceof Error ? error.message : String(error));
@@ -2248,31 +2267,42 @@ async function renderBw1Marts(current: ProjectState, content: HTMLElement, onDir
   renderMartEditor(current, content, onDirty);
 }
 
-async function ensurePokemonSpriteNarcs(): Promise<void> {
-  if (!project) return;
-  if (project.narcs.pokemon_sprites && project.narcs.pokemon_icons) return;
+async function ensurePokemonSpriteNarcs(currentProject: ProjectState): Promise<void> {
+  if (currentProject.narcs.pokemon_sprites && currentProject.narcs.pokemon_icons) return;
 
-  const bytes = project.originalRomBytes ?? (await loadActiveRomBytes());
-  if (!bytes) throw new Error("Pokemon sprite data is not loaded. Reload the ROM once, then open the paintbrush editor again.");
+  const bytes = currentProject.originalRomBytes ?? (await activeRomMatchesProject(currentProject) ? await loadActiveRomBytes() : undefined);
+  if (project !== currentProject) return;
+  if (!bytes) throw new Error("Reconnect the source ROM to load Pokémon graphics.");
 
   const rom = new NintendoDSRom(bytes, { fileData: "view" });
+  let loaded = false;
+  const errors: unknown[] = [];
   for (const definition of [
     { path: "a/0/0/4", name: "pokemon_sprites" as const },
     { path: "a/0/0/7", name: "pokemon_icons" as const },
   ]) {
-    if (project.narcs[definition.name]) continue;
-    const fileId = rom.fileId(definition.path);
-    project.session.fileIds[definition.name] = fileId;
-    project.session.blacklist = project.session.blacklist.filter((name) => name !== definition.name);
-    project.narcs[definition.name] = createNarcStore(definition.name, definition.path, fileId, new NARC(rom.files[fileId]));
+    const { name, path } = definition;
+    if (currentProject.narcs[name]) continue;
+    try {
+      const fileId = rom.fileId(path);
+      const narc = new NARC(currentProject.fileSystem?.replacements?.[fileId] ?? rom.files[fileId]);
+      currentProject.narcs[name] = createNarcStore(name, path, fileId, narc);
+      currentProject.session.fileIds[name] = fileId;
+      currentProject.session.blacklist = currentProject.session.blacklist.filter((excluded) => excluded !== name);
+      loaded = true;
+    } catch (error) {
+      errors.push(error);
+    }
   }
-  await saveActiveProject(project);
+  if (loaded) await saveActiveProject(currentProject);
+  if (errors.length) throw errors[0];
 }
 
 async function ensurePokemonFormAssets(): Promise<void> {
-  if (!project) return;
-  await ensurePokemonSpriteNarcs();
-  if (project.session.baseRom === "BW2") await prepareBw2FormEvolutionCodeInjection(project);
+  const currentProject = project;
+  if (!currentProject) return;
+  await ensurePokemonSpriteNarcs(currentProject);
+  if (project === currentProject && currentProject.session.baseRom === "BW2") await prepareBw2FormEvolutionCodeInjection(currentProject);
 }
 
 function renderUpload(root: HTMLElement): void {
