@@ -117,10 +117,7 @@ export function typeIconImage(project: ProjectState, type: number): RgbaImageDat
   return menuIcon(files[0x22 + type], files[0x21], files[0x3c], files[0x3f], palettes[type]!, `icon for type ${type}`);
 }
 
-/** Move category icons in the order the game numbers them: 0 physical, 1 special, 2 status. */
-export const MOVE_CATEGORY_ICON_ORDER = ["Physical", "Special", "Status"] as const;
-
-/** The move category icon (graphics 0x38 + category, palette per AppMenuCommon_GetCategoryIconPaletteIndex). */
+/** Graphics 0x38–0x3a follow the Gen 5 move data order (Status, Physical, Special). */
 export function categoryIconImage(project: ProjectState, category: number): RgbaImageData {
   const PALETTES = [0, 0, 1];
   if (!(category >= 0 && category < PALETTES.length)) throw new Error(`No icon for category ${category}.`);

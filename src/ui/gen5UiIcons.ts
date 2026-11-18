@@ -1,5 +1,5 @@
-import { typeNamesForProject } from "../pokeweb/constants";
-import { categoryIconImage, ensureGen5RomBytes, gen5UiImageUrl, genderIconImage, hasGen5RomBytes, MOVE_CATEGORY_ICON_ORDER, statusIconImage, tmDiscImage, typeIconImage } from "../pokeweb/gen5UiImages";
+import { CATEGORIES, typeNamesForProject } from "../pokeweb/constants";
+import { categoryIconImage, ensureGen5RomBytes, gen5UiImageUrl, genderIconImage, hasGen5RomBytes, statusIconImage, tmDiscImage, typeIconImage } from "../pokeweb/gen5UiImages";
 import { menuLabelUrl } from "../pokeweb/gen5MenuFont";
 import type { ProjectState } from "../pokeweb/projectStore";
 
@@ -129,7 +129,7 @@ export function attachGen5UiIcons(root: HTMLElement, currentProject: () => Proje
   const applyCategory = (project: ProjectState, element: HTMLElement, label: string) => {
     if (element.dataset.g5Icon === label) return;
     element.dataset.g5Icon = label;
-    const category = MOVE_CATEGORY_ICON_ORDER.findIndex((name) => name.toLowerCase() === label);
+    const category = CATEGORIES.findIndex((name) => name.toLowerCase() === label);
     if (category < 0) {
       apply(element, undefined, label);
       return;
