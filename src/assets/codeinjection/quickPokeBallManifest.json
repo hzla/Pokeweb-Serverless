@@ -1,5 +1,5 @@
 {
-  "version": "1.0.1",
+  "version": "1.0.2",
   "archivePath": "quick-poke-ball/tab.narc",
   "archiveSha256": "ced5bc63915f8c5754295ddbdb92c640283185d6ae4e2bbd2b5c2ba267f90903",
   "archiveMembers": [
@@ -32,7 +32,7 @@
     "W2": {
       "fileName": "QuickPokeBallW2.dll",
       "size": 4864,
-      "sha256": "3b4073310ebcd5dbf3d3530909a41267c18aa9dc9d7c677a729a3652218270b1",
+      "sha256": "0439afa8bf974b15b0a2fe1749a614a7ba6cb96e86b6207efac42dbf9519c2ff",
       "targets": [
         {
           "kind": "THUMB_BRANCH_LINK",
@@ -62,8 +62,16 @@
       ],
       "literals": [],
       "idCode": "IRDO",
-      "previousRuntimeSha256": "8fb18cba2164396b95b7aca78f13a437276239d2468944a7a234ca6dafb52e58",
-      "previousRuntimeSize": 4672,
+      "previousRuntimes": [
+        {
+          "sha256": "8fb18cba2164396b95b7aca78f13a437276239d2468944a7a234ca6dafb52e58",
+          "size": 4672
+        },
+        {
+          "sha256": "3b4073310ebcd5dbf3d3530909a41267c18aa9dc9d7c677a729a3652218270b1",
+          "size": 4864
+        }
+      ],
       "hooks": [
         {
           "label": "HOOK_POLL",
@@ -207,7 +215,7 @@
     "B2": {
       "fileName": "QuickPokeBallB2.dll",
       "size": 4864,
-      "sha256": "c2360c8796d800216473aa29960d839d0b5270c252311b8224fb9f9027285625",
+      "sha256": "9a0c9b21742003b9b8048247b11870f41cceb14c5275912f2268819582a83236",
       "targets": [
         {
           "kind": "THUMB_BRANCH_LINK",
@@ -237,8 +245,16 @@
       ],
       "literals": [],
       "idCode": "IREO",
-      "previousRuntimeSha256": "2929a1fb006e2ec83fc71c026096359492725f20d80e488c8947c644fa60c953",
-      "previousRuntimeSize": 4672,
+      "previousRuntimes": [
+        {
+          "sha256": "2929a1fb006e2ec83fc71c026096359492725f20d80e488c8947c644fa60c953",
+          "size": 4672
+        },
+        {
+          "sha256": "c2360c8796d800216473aa29960d839d0b5270c252311b8224fb9f9027285625",
+          "size": 4864
+        }
+      ],
       "hooks": [
         {
           "label": "HOOK_POLL",
@@ -382,7 +398,7 @@
     "B": {
       "fileName": "QuickPokeBallB.dll",
       "size": 4832,
-      "sha256": "289ec211a2064f1386b9a199152be167a4523b025b4236917c568c03d0a9f6a6",
+      "sha256": "04bab512fd059e4912be108c331a26e0460ae5a2099b6c6238062f9a880f7dda",
       "targets": [
         {
           "kind": "THUMB_BRANCH_LINK",
@@ -412,6 +428,12 @@
       ],
       "literals": [],
       "idCode": "IRBO",
+      "previousRuntimes": [
+        {
+          "sha256": "289ec211a2064f1386b9a199152be167a4523b025b4236917c568c03d0a9f6a6",
+          "size": 4832
+        }
+      ],
       "hooks": [
         {
           "label": "HOOK_POLL",
@@ -541,7 +563,7 @@
     "W": {
       "fileName": "QuickPokeBallW.dll",
       "size": 4832,
-      "sha256": "d0cf49df0685cad545a4a8318d972fdcac0d16aaa9791035ac95a78f370de8bd",
+      "sha256": "8d3a715213dada5abfecfac2ed79fd7f04b4ee605d21c918fe74dc41a7f62beb",
       "targets": [
         {
           "kind": "THUMB_BRANCH_LINK",
@@ -571,6 +593,12 @@
       ],
       "literals": [],
       "idCode": "IRAO",
+      "previousRuntimes": [
+        {
+          "sha256": "d0cf49df0685cad545a4a8318d972fdcac0d16aaa9791035ac95a78f370de8bd",
+          "size": 4832
+        }
+      ],
       "hooks": [
         {
           "label": "HOOK_POLL",

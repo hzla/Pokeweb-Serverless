@@ -1,4 +1,5 @@
 import { findPwanOverrideForSpecies } from "./pwanAnimationModel";
+import { ensurePwanSidePreview } from "./animStreamsFullSize";
 import { pwanFrameRgbaImage } from "./pwanCompiler";
 import { getPokemonSpriteImage, resolvePokemonSpriteId, type RgbaImageData } from "./pokemonSpriteModel";
 import type { ProjectState } from "./projectStore";
@@ -7,7 +8,7 @@ export function getPokemonCardFrontSpriteImage(project: ProjectState, speciesId:
   const pwanFront = findPwanOverrideForSpecies(project, speciesId)?.front;
   if (pwanFront) {
     try {
-      return pwanFrameRgbaImage(pwanFront.pwanBytes);
+      return pwanFrameRgbaImage(ensurePwanSidePreview(pwanFront));
     } catch {
       // Keep native and bundled sprites available for malformed legacy PWAN data.
     }

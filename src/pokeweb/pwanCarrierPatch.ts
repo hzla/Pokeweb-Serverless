@@ -1,5 +1,6 @@
 import { readU32, writeU16, writeU32 } from "../nds/binary";
 import { recordGenericChange } from "./actionChangelog";
+import { ensurePwanSidePreview } from "./animStreamsFullSize";
 import { compressLz11Literal, decompressNitro } from "./pokemonSpriteModel";
 import type { ProjectState, PwanAnimationOverride } from "./projectStore";
 import { markDirty } from "./projectStore";
@@ -91,11 +92,13 @@ export function applyPwanCarrierPatch(project: ProjectState, override: PwanAnima
 
   const paletteSide = override.nativePaletteSource === "front" && override.front ? override.front : override.nativePaletteSource === "back" && override.back ? override.back : override.front ?? override.back;
   if (!paletteSide) throw new Error(`PWAN override for species ${override.speciesId} does not include an imported side.`);
-  const paletteSource = paletteSide.pwanBytes;
+  const paletteSource = ensurePwanSidePreview(paletteSide);
   const nativePalette = pwanPalette(paletteSource);
-  if (override.front) patchSide(project, base, 0, override.front.pwanBytes, nativePalette);
-  if (override.back) patchSide(project, base, 9, override.back.pwanBytes, nativePalette);
-  patchCarrierNcec(project, base, override.back?.pwanBytes, Boolean(override.front), Boolean(override.back));
+  const front = override.front && ensurePwanSidePreview(override.front);
+  const back = override.back && ensurePwanSidePreview(override.back);
+  if (front) patchSide(project, base, 0, front, nativePalette);
+  if (back) patchSide(project, base, 9, back, nativePalette);
+  patchCarrierNcec(project, base, back, Boolean(front), Boolean(back));
 
   if (override.front) patchPalette(project, base + 18, nativePalette);
   if (override.back) patchPalette(project, base + 19, nativePalette);

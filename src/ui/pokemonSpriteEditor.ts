@@ -1,5 +1,5 @@
 import { NATURE_NAMES, rgb555, type NaturePaletteSource, type NaturePaletteTarget } from "../pokeweb/naturePaletteData";
-import { getNaturePalette, naturePaletteBase, naturePalettesSupported, resetNaturePalette, setNaturePalette } from "../pokeweb/naturePaletteModel";
+import { availablePwanNaturePaletteSides, getNaturePalette, naturePaletteBase, naturePalettesSupported, resetNaturePalette, setNaturePalette } from "../pokeweb/naturePaletteModel";
 import { attachNaturePaletteInstaller, renderNaturePaletteInstaller } from "./naturePaletteInstaller";
 import {
   genderedPokemonIcons,
@@ -72,6 +72,7 @@ import {
   type PokemonFlipbookSamplingStrategy,
 } from "../pokeweb/pokemonFlipbookRig";
 import { PWAN_HEIGHT, PWAN_WIDTH, pwanFramePixels, pwanTimeline } from "../pokeweb/pwanCompiler";
+import { ensurePwanSidePreview } from "../pokeweb/animStreamsFullSize";
 import { findPwanOverrideForSpecies, getPwanRuntimeStatus } from "../pokeweb/pwanAnimationModel";
 import { w2animPokemonPreviewPalette } from "../pokeweb/w2animAnimationModel";
 import { getPokemonPersonalIds } from "../pokeweb/pokemonModel";
@@ -2800,13 +2801,14 @@ function activePwanAnimationPreview(project: ProjectState, root?: HTMLElement): 
   if (!override) return undefined;
   const side = override[state.animationSide];
   if (!side) return undefined;
+  const pwanBytes = ensurePwanSidePreview(side);
   const source = state.animationSide === "front" ? "pwan-front" : "pwan-back";
   const draft = root && state.paletteNature >= 0 && state.paletteSource === source && root.querySelector(`[data-palette="${state.previewPaletteKind}"]`)
     ? Uint16Array.from(readPaletteInputs(root, state.previewPaletteKind), rgb555) : undefined;
-  const key = `${speciesId}:${state.formIndex ?? 0}:${state.animationSide}:${state.previewPaletteKind}:${state.paletteNature}:${side.sourceFileName}:${side.pwanBytes.length}:${side.timelineCount}:${side.totalTicks}:${draft?.join(",") ?? ""}`;
+  const key = `${speciesId}:${state.formIndex ?? 0}:${state.animationSide}:${state.previewPaletteKind}:${state.paletteNature}:${side.sourceFileName}:${pwanBytes.length}:${side.timelineCount}:${side.totalTicks}:${draft?.join(",") ?? ""}`;
   const cached = pwanPreviewCache.get(key);
   if (cached) return cached;
-  const timeline = pwanTimeline(side.pwanBytes);
+  const timeline = pwanTimeline(pwanBytes);
   if (timeline.length === 0) return undefined;
   const frameImages = new Map<number, HTMLCanvasElement>();
   let palette = w2animPokemonPreviewPalette(project, override.speciesId, override.formIndex ?? 0,
@@ -2821,7 +2823,7 @@ function activePwanAnimationPreview(project: ProjectState, root?: HTMLElement): 
   const frames = timeline.map((entry) => {
     let image = frameImages.get(entry.frameIndex);
     if (!image) {
-      image = imageToCanvas(pwanIndexedPixelsToRgba(pwanFramePixels(side.pwanBytes, entry.frameIndex), palette));
+      image = imageToCanvas(pwanIndexedPixelsToRgba(pwanFramePixels(pwanBytes, entry.frameIndex), palette));
       frameImages.set(entry.frameIndex, image);
     }
     return { frameIndex: entry.frameIndex, ticks: Math.max(1, entry.ticks), image };
@@ -4462,8 +4464,8 @@ function natureSpriteImage(project: ProjectState, spriteId: number, variant: Pok
 function renderNaturePaletteControls(project: ProjectState, spriteId: number): string {
   if (!naturePalettesSupported(project)) return "";
   const sources: Array<[NaturePaletteSource, string]> = [["native", "Native"]];
-  for (const [source, label] of [["pwan-front", "PWAN Front"], ["pwan-back", "PWAN Back"]] as const) {
-    try { naturePaletteBase(project, spriteId, source, false); sources.push([source, label]); } catch { /* No imported side. */ }
+  for (const side of availablePwanNaturePaletteSides(project, spriteId)) {
+    sources.push([`pwan-${side}`, side === "front" ? "PWAN Front" : "PWAN Back"]);
   }
   return `<div class="sprite-actions nature-palette-controls">
     <label class="sprite-field"><span>Palette</span><select id="palette-nature"><option value="-1" ${state.paletteNature < 0 ? "selected" : ""}>Base</option>${NATURE_NAMES.map((name, i) => `<option value="${i}" ${state.paletteNature === i ? "selected" : ""}>${name}</option>`).join("")}</select></label>

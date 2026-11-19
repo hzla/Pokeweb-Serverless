@@ -214,7 +214,7 @@ static s32 openTab(u16 heap) {
         goto failure;
     tab.unit = ClActUnit_Create(1, 0, heap);
     if (tab.unit) {
-        const ActorSetup setup = {0, 55, 0, 0, 0};
+        const ActorSetup setup = {0, 57, 0, 0, 0};
         void *actor = ClActor_Create(tab.unit, tab.chars, tab.palette, tab.anim, &setup, MainDisplay, heap);
         if (actor) {
             ClActor_SetAutoAnim(actor, 0);

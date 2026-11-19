@@ -39,6 +39,18 @@ type Profile = {
 const manifest = manifestData as { version: string; games: Record<Version, Profile> };
 const isVersion = (v: unknown): v is Version => v === "B" || v === "W" || v === "B2" || v === "W2";
 const isBw1 = (v: Version) => v === "B" || v === "W";
+async function loadCompanion(url: URL, group: Group, version: Version): Promise<Uint8Array> {
+  if (url.protocol === "data:") {
+    const base64 = url.pathname.slice(url.pathname.indexOf(",") + 1);
+    return Uint8Array.from(atob(base64), byte => byte.charCodeAt(0));
+  }
+  const response = await fetch(url);
+  if (!response.ok) {
+    const retry = response.status === 404 ? " Reload Pokeweb and try again." : "";
+    throw new Error(`Could not load the Learnset ${group} companion for ${version} (HTTP ${response.status}).${retry}`);
+  }
+  return new Uint8Array(await response.arrayBuffer());
+}
 const MAGIC = [0x4c, 0x53, 0x56, 0x4d, 0x53, 0x47, 0x31, 0];
 export type LearnsetMessageIds = { menu: number; empty: number; error: number };
 export type LearnsetUpperLayout = "classic" | "three-cards";
@@ -296,14 +308,13 @@ export async function installLearnsetViewer(project: ProjectState, options: {
     const data = archives.get(path)!.files[resource.member];
     if (!data || await sha256(data) !== resource.sha256) throw new Error(`Unsupported tutor graphics member ${resource.member}; the LEARNSET divider cannot be safely adjusted.`);
   }
-  // Fetch and validate both before touching text, PMC, or staged files.
+  // Load and validate both before touching text, PMC, or staged files.
   const modules = await Promise.all(URLS[version].map(async (url, i) => {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Could not load Learnset companion (${response.status}).`);
-    const data = new Uint8Array(await response.arrayBuffer());
-    const expectedHash = profile.modules?.[i === 0 ? "Menu" : "Viewer"].sha256;
+    const group = i === 0 ? "Menu" : "Viewer";
+    const data = await loadCompanion(url, group, version);
+    const expectedHash = profile.modules?.[group].sha256;
     if (expectedHash && await sha256(data) !== expectedHash) throw new Error("The bundled Learnset companion failed its integrity check.");
-    if (!validModule(parseRpm(data, { allowedMagics: ["DLXF"] }), version, i === 0 ? "Menu" : "Viewer")) throw new Error("The bundled Learnset companion failed verification.");
+    if (!validModule(parseRpm(data, { allowedMagics: ["DLXF"] }), version, group)) throw new Error("The bundled Learnset companion failed verification.");
     configOffset(data);
     if (i === 1) infoConfigOffset(data);
     return data;

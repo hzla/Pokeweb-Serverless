@@ -26,6 +26,7 @@ import { compileGifToPwanAsync } from "./pwanCompilerClient";
 import { detectPwanRuntimeCompatibility, pwanCompatibilityFailureSummary } from "./pwanCompatibilityModel";
 import { hydrateW2AnimPokemonTarget, isW2AnimProject, materializeW2AnimAnimations } from "./w2animAnimationModel";
 import { animStreamsRuntimePath, applyFullSizeBlockFiles, detectAnimStreamsCompatibility, hasAnimStreamsRuntime, legacyPwanRuntimePaths, stageAnimStreamsRuntime, unstageAnimStreamsRuntime, writeAnimStreams } from "./animStreamsModel";
+import { ensurePwanSidePreview } from "./animStreamsFullSize";
 import {
   buildTrainerPwanConfig,
   getTrainerPwanRuntimeStatus,
@@ -465,7 +466,7 @@ export function buildPwanOverrideSideFromPwanBytes(
 }
 
 export function ensurePwanOverrideSideVisibleHeight(side: PwanOverrideSide): number {
-  side.visibleHeight ??= pwanVisibleHeight(side.pwanBytes);
+  side.visibleHeight ??= pwanVisibleHeight(ensurePwanSidePreview(side));
   return side.visibleHeight;
 }
 
@@ -474,7 +475,7 @@ export function ensurePwanOverrideBackNcecY(override: PwanAnimationOverride): 43
     override.backNcecY = undefined;
     return undefined;
   }
-  override.backNcecY ??= deriveBackNcecY(override.back.pwanBytes, ensurePwanOverrideSideVisibleHeight(override.back));
+  override.backNcecY ??= deriveBackNcecY(ensurePwanSidePreview(override.back), ensurePwanOverrideSideVisibleHeight(override.back));
   return override.backNcecY;
 }
 
@@ -567,7 +568,7 @@ export function setPwanOverrideSideSpeed(
     sideData.speedScale = nextSpeed;
     return sideData;
   }
-  const scaled = scalePwanTimelineSpeed(sideData.pwanBytes, previousSpeed / nextSpeed);
+  const scaled = scalePwanTimelineSpeed(ensurePwanSidePreview(sideData), previousSpeed / nextSpeed);
   sideData.pwanBytes = scaled.pwanBytes;
   if (sideData.offsetBasePwanBytes) sideData.offsetBasePwanBytes = scalePwanTimelineSpeed(sideData.offsetBasePwanBytes, previousSpeed / nextSpeed).pwanBytes;
   sideData.totalTicks = scaled.totalTicks;
@@ -599,7 +600,7 @@ export function setPwanOverrideSideOffset(
   const nextX = normalizePwanOffset(offsetX);
   const nextY = normalizePwanOffset(offsetY);
   if ((sideData.offsetX ?? 0) === nextX && (sideData.offsetY ?? 0) === nextY) return sideData;
-  sideData.offsetBasePwanBytes ??= sideData.pwanBytes.slice();
+  sideData.offsetBasePwanBytes ??= ensurePwanSidePreview(sideData).slice();
   const shifted = shiftPwanFrames(sideData.offsetBasePwanBytes, nextX, nextY);
   sideData.pwanBytes = shifted.pwanBytes;
   sideData.visibleHeight = shifted.visibleHeight;
@@ -739,8 +740,8 @@ export function mergePwanArchive(
     files = [buildPwanConfig(active)];
     for (const override of active) {
       const assetIndex = pwanAssetIndex(override);
-      if (override.front) files[pwanArchiveMemberId(assetIndex, "front")] = override.front.pwanBytes;
-      if (override.back) files[pwanArchiveMemberId(assetIndex, "back")] = override.back.pwanBytes;
+      if (override.front) files[pwanArchiveMemberId(assetIndex, "front")] = ensurePwanSidePreview(override.front);
+      if (override.back) files[pwanArchiveMemberId(assetIndex, "back")] = ensurePwanSidePreview(override.back);
     }
   }
   const trainer = updates.trainer;
@@ -930,7 +931,7 @@ function normalizePwanOverride(override: PwanAnimationOverride, options: { defer
     ...override,
     nativePaletteSource,
     carrierTemplate: "w2u-gen6-placeholder",
-    backNcecY: override.back ? override.backNcecY ?? (options.deferBackNcecY ? undefined : deriveBackNcecY(override.back.pwanBytes)) : undefined,
+    backNcecY: override.back ? override.backNcecY ?? (options.deferBackNcecY ? undefined : deriveBackNcecY(ensurePwanSidePreview(override.back))) : undefined,
     notes: pwanOverrideNotes(override),
   };
 }

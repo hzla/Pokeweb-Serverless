@@ -1441,6 +1441,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
           redoers.push(() => redoNativeErase(project, native));
           if (native.trees) done.push(noun(native.trees, "of the map's trees", "of the map's trees"));
           if (native.grassTiles) done.push(noun(native.grassTiles, "of the map's grass tiles", "of the map's grass tiles"));
+          if (native.ledges) done.push(noun(native.ledges, "of the map's ledges", "of the map's ledges"));
         }
       }
       if (undoers.length) {

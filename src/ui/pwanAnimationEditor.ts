@@ -1,4 +1,4 @@
-import { adjustFullSizeMani, compileGifToFullSizeStream, gifFitsPwan } from "../pokeweb/animStreamsFullSize";
+import { adjustFullSizeMani, compileGifToFullSizeStream, ensurePwanSidePreview, gifFitsPwan } from "../pokeweb/animStreamsFullSize";
 import { hasAnimStreamsRuntime } from "../pokeweb/animStreamsModel";
 import { withPwanSidePalettes, type PwanSidePalettes } from "../pokeweb/pwanSidePalettes";
 import { installPwanSidePalettePanel, renderPwanSidePalettePanel, type PwanSidePalettePanel } from "./pwanSidePaletteEditor";
@@ -346,6 +346,7 @@ type PwanPixelEditorState = {
 function startPwanPreview(project: ProjectState, speciesId: number, previewSide: PwanSide, canvas: HTMLCanvasElement, side: PwanOverrideSide, options: PwanAnimationEditorOptions): void {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
+  ensurePwanSidePreview(side);
   const panel = canvas.closest<HTMLElement>("[data-pwan-side-panel]");
   const draft: PwanSideDraft = {
     base: clonePwanSide(side),
@@ -886,9 +887,9 @@ function startPwanPreview(project: ProjectState, speciesId: number, previewSide:
   schedulePlayback();
 }
 
-function buildPwanPreviewFrames(side: PwanOverrideSide, palette = side.paletteBgr555): PwanPreviewFrame[] {
-  return pwanTimeline(side.pwanBytes).map((entry) => ({
-    image: pwanFrameCanvas(side, entry.frameIndex, palette),
+function buildPwanPreviewFrames(side: PwanOverrideSide, palette?: Uint16Array): PwanPreviewFrame[] {
+  return pwanTimeline(ensurePwanSidePreview(side)).map((entry) => ({
+    image: pwanFrameCanvas(side, entry.frameIndex, palette ?? side.paletteBgr555),
     frameIndex: entry.frameIndex,
     ticks: Math.max(1, entry.ticks),
   }));
@@ -1589,7 +1590,7 @@ function renderSpeciesSidePanel(project: ProjectState, speciesId: number, side: 
   const title = side === "front" ? "Front" : "Back";
   const inputId = `pwan-${side}-gif`;
   const statusId = `pwan-${side}-status`;
-  const timelineCount = data ? pwanTimeline(data.pwanBytes).length : 0;
+  const timelineCount = data ? pwanTimeline(ensurePwanSidePreview(data)).length : 0;
   const framesPerSecond = data ? normalizePwanFps(data.framesPerSecond ?? pwanFramesPerSecond(data.pwanBytes)) : 10;
   const frameScale = data ? normalizePwanFrameScale(data.scale ?? 1) : 1;
   const frameScaleMode = data ? normalizePwanFrameScaleMode(data.scaleMode) : "nearest";
@@ -1955,7 +1956,7 @@ function renderSpeciesSideSummaryRow(label: string, side: PwanOverrideSide | und
       <span>Scale ${formatPwanFrameScale(side.scale ?? 1)}</span>
       <span>${formatPwanScaleMode(side)}</span>
       <span>Offset ${normalizePwanOffset(side.offsetX ?? 0)}, ${normalizePwanOffset(side.offsetY ?? 0)}</span>
-      <span>${formatBytes(side.pwanBytes.length)}</span>
+      <span>${formatBytes((side.fullSizeMani ?? side.pwanBytes).length)}</span>
     </div>
   `;
 }

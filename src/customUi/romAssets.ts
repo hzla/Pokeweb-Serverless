@@ -8,6 +8,7 @@ import { decodeGen5TextBank } from "../pokeweb/text";
 import { getTextBank } from "../pokeweb/textModel";
 import { findPwanOverrideForSpecies } from "../pokeweb/pwanAnimationModel";
 import { pwanFrameRgbaImage } from "../pokeweb/pwanCompiler";
+import { ensurePwanSidePreview } from "../pokeweb/animStreamsFullSize";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { typeNamesForProject } from "../pokeweb/constants";
 import { typeIconPalettes } from "../pokeweb/typeIconPalettes";
@@ -67,7 +68,7 @@ export function romAssets(project: ProjectState, rom: NintendoDSRom, design: Pro
     nativeSummary: summary ? nativeSummaryArt(summary, types, fontFiles[5], rom.idCode.startsWith("IRE"), typeNamesForProject(project)) : undefined,
     pokemonSprite(pokemon) { return read(`sprite:${pokemon.species}:${pokemon.form}:${pokemon.gender}:${!!pokemon.shiny}:${pokemon.egg}`, () => {
       if (pokemon.egg) return;
-      try { const front = findPwanOverrideForSpecies(resourceProject, pokemon.species, pokemon.form)?.front; if (front && !pokemon.shiny) return pwanFrameRgbaImage(front.pwanBytes); } catch { /* Fall back to the native static front. */ }
+      try { const front = findPwanOverrideForSpecies(resourceProject, pokemon.species, pokemon.form)?.front; if (front && !pokemon.shiny) return pwanFrameRgbaImage(ensurePwanSidePreview(front)); } catch { /* Fall back to the native static front. */ }
       const path = "a/0/0/4";
       resourceProject.narcs.pokemon_sprites ??= { name: "pokemon_sprites", fileId: rom.filenames.idOf(path)!, sourcePath: path, fileCount: 0, rawFiles: narc(path), records: new Map(), dirty: new Set() };
       try {

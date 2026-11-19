@@ -1,5 +1,6 @@
 import { NintendoDSRom } from "../nds/rom";
 import { recordGenericChange } from "./actionChangelog";
+import { ensurePwanSidePreview } from "./animStreamsFullSize";
 import { addRomFile, getRomFileBytes, setRomFileReplacement } from "./fileSystemModel";
 import { getPokemonPalettes, resolvePokemonSpriteId, type RgbColor } from "./pokemonSpriteModel";
 import { pwanPalette } from "./pwanCompiler";
@@ -49,13 +50,26 @@ export function getNaturePaletteRecords(project: ProjectState): NaturePaletteRec
   const file = naturePaletteFile(project);
   return file ? decodeNaturePalettes(file) : [];
 }
+function pwanOverrideForNaturePalette(project: ProjectState, spriteId: number): PwanAnimationOverride | undefined {
+  // Runtime keys use the native sprite form, rather than PWAN's separate asset index.
+  return project.pwanAnimations?.overrides.find(o => resolvePokemonSpriteId(project, o.speciesId, o.formIndex ?? 0) === spriteId);
+}
+export function availablePwanNaturePaletteSides(project: ProjectState, spriteId: number): Array<"front" | "back"> {
+  let override: PwanAnimationOverride | undefined;
+  try { override = pwanOverrideForNaturePalette(project, spriteId); } catch { return []; }
+  return (["front", "back"] as const).filter((side) => {
+    const data = override?.[side];
+    if (!data) return false;
+    if (data.fullSizeMani && data.pwanBytes.length === 0) return true;
+    try { pwanPalette(data.pwanBytes); return true; } catch { return false; }
+  });
+}
 export function naturePaletteBase(project: ProjectState, spriteId: number, source: NaturePaletteSource, shiny: boolean): RgbColor[] {
   if (source === "native") return getPokemonPalettes(project, spriteId)[shiny ? "shiny" : "normal"];
   const side = source === "pwan-front" ? "front" : "back";
-  // Runtime keys use the native sprite form, rather than PWAN's separate asset index.
-  const override = project.pwanAnimations?.overrides.find(o => resolvePokemonSpriteId(project, o.speciesId, o.formIndex ?? 0) === spriteId);
-  if (!override?.[side]) throw new Error(`No PWAN ${side} palette exists for this form.`);
-  return Array.from(pwanPalette(override[side]!.pwanBytes), rgbFrom555);
+  const data = pwanOverrideForNaturePalette(project, spriteId)?.[side];
+  if (!data) throw new Error(`No PWAN ${side} palette exists for this form.`);
+  return Array.from(pwanPalette(ensurePwanSidePreview(data)), rgbFrom555);
 }
 export function getNaturePalette(project: ProjectState, target: NaturePaletteTarget, base = naturePaletteBase(project, target.spriteId, target.source, target.shiny)): { palette: RgbColor[]; mask: number } {
   const key = naturePaletteKey(target), record = getNaturePaletteRecords(project).find(r => r.key === key);
@@ -104,14 +118,18 @@ export function protectPwanNaturePalettes(project: ProjectState, previous: PwanA
   const changed: NaturePaletteSource[] = [];
   let count = 0;
   for (const side of ["front", "back"] as const) {
-    if (!next[side]) continue;
-    const a = previous?.[side] && pwanPalette(previous[side]!.pwanBytes), b = pwanPalette(next[side]!.pwanBytes);
+    const before = previous?.[side], after = next[side];
+    if (!after || before === after) continue;
+    const source = `pwan-${side}` as const;
+    const affected = records.filter(r => { const t = naturePaletteTarget(r.key); return t.spriteId === spriteId && t.source === source; }).length;
+    if (!affected) continue;
+    const previousBytes = before && ensurePwanSidePreview(before), nextBytes = ensurePwanSidePreview(after);
+    const a = previousBytes && pwanPalette(previousBytes), b = pwanPalette(nextBytes);
     if (a && a.every((color, i) => color === b[i])) continue;
     // Recoloured art keeps its colour numbers, so nature variations still apply to it.
-    if (previous?.[side] && sameArtIgnoringPalettes(previous[side]!.pwanBytes, next[side]!.pwanBytes)) continue;
-    const source = `pwan-${side}` as NaturePaletteSource;
-    const affected = records.filter(r => { const t = naturePaletteTarget(r.key); return t.spriteId === spriteId && t.source === source; }).length;
-    if (affected) { changed.push(source); count += affected; }
+    if (previousBytes && sameArtIgnoringPalettes(previousBytes, nextBytes)) continue;
+    changed.push(source);
+    count += affected;
   }
   if (!changed.length) return;
   if (!reset) throw new NaturePaletteReplacementError(count, changed.map(s => s.replace("pwan-", "PWAN ")));

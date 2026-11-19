@@ -1,5 +1,5 @@
 import { readAscii, readU16, readU32, writeU16 } from "../nds/binary";
-import { parseFullSizeMani } from "./animStreamsFullSize";
+import { ensurePwanSidePreview, parseFullSizeMani } from "./animStreamsFullSize";
 import { rgb555, rgbFrom555 } from "./naturePaletteData";
 import type { RgbColor } from "./pokemonSpriteModel";
 import type { PwanOverrideSide } from "./projectStore";
@@ -90,7 +90,9 @@ export function withPwanSidePalettes(side: PwanOverrideSide, palettes: PwanSideP
     if (readAscii(mani, 0, 4) !== "MANI" || paletteAt + 64 > mani.length) throw new Error("The full-size stream is damaged.");
     normal.forEach((color, n) => writeU16(mani, paletteAt + n * 2, color));
     shiny.forEach((color, n) => writeU16(mani, paletteAt + 32 + n * 2, color));
-    const preview = pwanPalette(side.pwanBytes);
+    // Compile the old colours before calculating the palette's preview mapping.
+    const previewSide = side.pwanBytes.length ? side : { ...side };
+    const preview = pwanPalette(ensurePwanSidePreview(previewSide));
     const previewNormal = preview.slice(), previewShiny = preview.slice();
     for (let p = 1; p < 16; p++) {
       const k = nearestColorIndex(preview[p]!, old.normal);
@@ -98,7 +100,7 @@ export function withPwanSidePalettes(side: PwanOverrideSide, palettes: PwanSideP
       previewShiny[p] = shiny[k] === normal[k] ? previewNormal[p]! : shiny[k]!;
     }
     return {
-      ...withPreviewPalette(side, previewNormal),
+      ...withPreviewPalette(previewSide, previewNormal),
       fullSizeMani: mani,
       shinyPaletteBgr555: sameColors(previewShiny, previewNormal) ? undefined : previewShiny,
     };

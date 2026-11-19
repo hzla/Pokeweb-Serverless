@@ -6,6 +6,7 @@ import {
 } from "./pokemonSpriteModel";
 import { findPwanOverrideForSpecies } from "./pwanAnimationModel";
 import { pwanFrameRgbaImage, pwanTimeline, validatePwan } from "./pwanCompiler";
+import { ensurePwanSidePreview } from "./animStreamsFullSize";
 import type { ProjectState } from "./projectStore";
 
 export type PokemonBattleSpritePart = {
@@ -29,7 +30,7 @@ export function loadPokemonBattleSpriteAnimation(
   if (project.session.baseRom !== "BW" && project.session.baseRom !== "BW2") return undefined;
   try {
     const override = findPwanOverrideForSpecies(project, speciesId, formIndex)?.[side];
-    if (override) return createPwanBattleSpriteAnimation(override.pwanBytes);
+    if (override) return createPwanBattleSpriteAnimation(ensurePwanSidePreview(override));
   } catch {
     // Missing or invalid custom data must not hide a usable native sprite.
   }

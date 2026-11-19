@@ -126,7 +126,7 @@ const patchShowcases = {
     [new URL("../assets/codeinjection/showcase/move-effectiveness.png", import.meta.url).href, "Move names colored for super-effective, resisted, immune, and neutral attacks against Gyarados", 256, 94],
   ],
   quickPokeBall: [
-    [new URL("../assets/codeinjection/showcase/quick-poke-ball-idle.png", import.meta.url).href, "Black 2 wild battle with the Quick Poké Ball tab showing 12 Poké Balls", 256, 134],
+    [new URL("../assets/codeinjection/showcase/quick-poke-ball-idle.png", import.meta.url).href, "White 2 wild battle with the Quick Poké Ball tab showing 12 Poké Balls", 256, 134],
     [new URL("../assets/codeinjection/showcase/quick-poke-ball-cycling.png", import.meta.url).href, "The tab highlights in blue while cycling balls, with the Master Ball selected", 256, 134],
   ],
   pokenav: [

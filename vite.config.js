@@ -32,9 +32,13 @@ export default defineConfig(({ mode }) => {
       }),
     ],
     build: {
-      // Keep even very small DLXF modules as independently fetchable binary
-      // assets. Black2Upgrade companions are intentionally tiny after strip.
-      assetsInlineLimit: (filePath) => (filePath.toLowerCase().endsWith(".dll") ? false : undefined),
+      assetsInlineLimit: (filePath) => {
+        // Keep the release-specific Learnset pair with the installer so
+        // an open tab can still install after Pages replaces its assets.
+        if (/[/\\]codeinjection[/\\]Learnset(?:Menu|Viewer)(?:B2?|W2?)\.dll$/u.test(filePath)) return true;
+        // Other DLXF modules remain independently fetchable binaries.
+        return filePath.toLowerCase().endsWith(".dll") ? false : undefined;
+      },
       rollupOptions: {
         input: {
           main: "index.html",

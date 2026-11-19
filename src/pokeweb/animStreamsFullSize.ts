@@ -1,6 +1,7 @@
 import { readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { decodeGifFrames, type AnimationAnalysisFrame } from "./gifAnimationFrames";
 import { compressLz11Literal, decompressNitro } from "./pokemonSpriteModel";
+import type { PwanOverrideSide } from "./projectStore";
 import { applyPwanColorPreset, compilePwanAnimationFrames, prepareRgb555PaletteFrames, type PwanColorPreset, type PwanCompileResult } from "./pwanCompiler";
 import { decodeW2AnimLz, encodeW2AnimLz10 } from "./w2animCodec";
 
@@ -274,6 +275,22 @@ export function fullSizePreviewPwan(mani: Uint8Array): PwanCompileResult {
     return { ...frame, width: side, height: side, pixels };
   });
   return compilePwanAnimationFrames(cropped);
+}
+
+/** Compile a ROM-hydrated side once, when a caller first needs 96x96 pixels. */
+export function ensurePwanSidePreview(side: PwanOverrideSide): Uint8Array {
+  if (side.pwanBytes.length || !side.fullSizeMani) return side.pwanBytes;
+  const { pwanBytes, timelineCount, uniqueFrameCount, totalTicks, paletteBgr555 } = fullSizePreviewPwan(side.fullSizeMani);
+  Object.assign(side, {
+    pwanBytes,
+    frameCount: timelineCount,
+    timelineCount,
+    uniqueFrameCount,
+    totalTicks,
+    paletteBgr555,
+    framesPerSecond: timelineCount * 60 / totalTicks,
+  });
+  return pwanBytes;
 }
 
 // ---- the sprite block's side files ---------------------------------------------------------------------------

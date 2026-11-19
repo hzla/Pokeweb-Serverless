@@ -2,11 +2,14 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { writeU16, writeU32 } from "../nds/binary";
+import { Folder } from "../nds/fnt";
+import { NintendoDSRom } from "../nds/rom";
 import {
   ANIM_STREAMS_FILENAMES,
   buildAnimStreamsFile,
   buildAnimStreamsIndex,
   detectAnimStreamsCompatibility,
+  hydrateAnimStreamsFromRom,
   legacyPwanRuntimePaths,
   maniToPwan,
   pokemonStreamEntries,
@@ -15,7 +18,7 @@ import {
 } from "../pokeweb/animStreamsModel";
 import type { ProjectState, PwanAnimationOverride, PwanOverrideSide } from "../pokeweb/projectStore";
 import { parseW2Anim, W2ANIM_MORPH, W2ANIM_OWN_PALETTES, W2ANIM_TICKS, W2ANIM_TRAINER_CARRIER } from "../pokeweb/w2animCodec";
-import { adjustFullSizeMani, compileFramesToFullSizeStream, fullSizePreviewPwan, parseFullSizeMani } from "../pokeweb/animStreamsFullSize";
+import { adjustFullSizeMani, compileFramesToFullSizeStream, ensurePwanSidePreview, fullSizePreviewPwan, parseFullSizeMani } from "../pokeweb/animStreamsFullSize";
 import type { AnimationAnalysisFrame } from "../pokeweb/gifAnimationFrames";
 import manifest from "../assets/codeinjection/animStreamsManifest.json";
 import { isW2AnimProject } from "../pokeweb/w2animAnimationModel";
@@ -164,6 +167,45 @@ describe("full-size streams", () => {
     for (let y = art.y; y < art.y + art.h; y++) for (let x = art.x; x < art.x + art.w; x++) pixels.set([...art.color, 255], (y * width + x) * 4);
     return { index, width, height, delayMs: 100, pixels };
   };
+
+  it("hydrates full-size streams without previews and compiles only the requested side", () => {
+    const frames = [
+      frame(0, 120, 100, { x: 0, y: 0, w: 120, h: 100, color: [248, 0, 0] }),
+      frame(1, 120, 100, { x: 0, y: 0, w: 120, h: 100, color: [0, 248, 0] }),
+    ];
+    const { mani } = compileFramesToFullSizeStream(frames, { side: "front" });
+    const stream = (sheetFile: number) => ({ arc: 4, flags: 0, sheetFile, shinyNclrFile: 39, mani });
+    const rom = new NintendoDSRom(new Uint8Array(0x200));
+    rom.filenames = new Folder({ folders: [
+      ["patches", new Folder({ firstId: 0, files: [ANIM_STREAMS_FILENAMES.B2] })],
+      ["w2anim", new Folder({ firstId: 1, files: ["streams.bin", "pokeweb_index.bin"] })],
+    ] });
+    const indexSide = side(new Uint8Array());
+    rom.files = [
+      new Uint8Array(),
+      buildAnimStreamsFile([stream(22), stream(31)]),
+      buildAnimStreamsIndex([{
+        speciesId: 1, front: indexSide, back: indexSide,
+        nativePaletteSource: "back", carrierTemplate: "w2u-gen6-placeholder",
+      }]),
+    ];
+    const project = spriteProject({});
+    expect(hydrateAnimStreamsFromRom(project, rom)).toBe(true);
+    expect(project.pwanAnimations?.loadError).toBeUndefined();
+    const overrides = structuredClone(project.pwanAnimations!.overrides);
+    const { front, back } = overrides[0]!;
+    expect(front?.pwanBytes).toHaveLength(0);
+    expect(back?.pwanBytes).toHaveLength(0);
+    expect(front?.timelineCount).toBe(2);
+    expect(pokemonStreamEntries(project, overrides).map((entry) => entry.mani)).toEqual([mani, mani]);
+    expect(front?.pwanBytes).toHaveLength(0);
+
+    const preview = ensurePwanSidePreview(front!);
+    expect(preview).toEqual(fullSizePreviewPwan(mani).pwanBytes);
+    expect(ensurePwanSidePreview(front!)).toBe(preview);
+    expect(front?.fullSizeMani).toEqual(mani);
+    expect(back?.pwanBytes).toHaveLength(0);
+  });
 
   it("keeps art larger than 96x96 at its size, stands a front on the ground point and round-trips", () => {
     const frames = [frame(0, 140, 120, { x: 10, y: 5, w: 120, h: 110, color: [248, 0, 0] }), frame(1, 140, 120, { x: 12, y: 5, w: 118, h: 110, color: [0, 248, 0] })];

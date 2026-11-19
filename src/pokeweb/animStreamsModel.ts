@@ -10,7 +10,7 @@ import { decodeW2AnimFrame, encodeW2AnimMani, parseW2Anim, W2ANIM_MORPH, W2ANIM_
   W2ANIM_TRAINER_CARRIER, type W2AnimArchive, type W2AnimMani } from "./w2animCodec";
 import { w2animEditorToLinear, w2animLinearToEditor } from "./w2animAnimationModel";
 import manifest from "../assets/codeinjection/animStreamsManifest.json";
-import { fullSizeBlockFiles, fullSizePreviewPwan } from "./animStreamsFullSize";
+import { fullSizeBlockFiles } from "./animStreamsFullSize";
 import { checkCompatibilitySignatures, type PwanCompatibilityCheck, type PwanCompatibilityReport, type PwanCompatibilitySignature } from "./pwanCompatibilityModel";
 import { parseRpm } from "./rpm";
 
@@ -377,9 +377,18 @@ export function hydrateAnimStreamsFromRom(project: ProjectState, rom: NintendoDS
       const entry = archive.entries.find((e) => e.arc === arc && e.sheetFile === sheetFile);
       const mani = entry && archive.manis.get(entry.maniOffset);
       if (!entry || !mani) return undefined;
-      if (mani.flags & W2ANIM_MORPH) { // full size: the MANI as it is, and a 96x96 preview
-        const raw = archive.bytes.slice(mani.offset, mani.end);
-        return { ...sideFromPwan(fullSizePreviewPwan(raw).pwanBytes, `${ANIM_STREAMS_PATH}:${arc}:${sheetFile}`), fullSizeMani: raw };
+      if (mani.flags & W2ANIM_MORPH) {
+        if (!mani.normalPalette) throw new Error("A full-size stream requires its own palette.");
+        const timelineCount = mani.sequence.length;
+        const totalTicks = mani.sequence.reduce((sum, step) => sum + step.duration, 0);
+        return {
+          sourceFileName: `${ANIM_STREAMS_PATH}:${arc}:${sheetFile}`,
+          sourceGifBytes: new Uint8Array(), pwanBytes: new Uint8Array(),
+          fullSizeMani: archive.bytes.slice(mani.offset, mani.end),
+          frameCount: timelineCount, timelineCount, uniqueFrameCount: mani.frames.length, totalTicks,
+          paletteBgr555: mani.normalPalette.slice(), speedScale: 1, framesPerSecond: timelineCount * 60 / totalTicks,
+          scale: 1, offsetX: 0, offsetY: 0,
+        };
       }
       const palette = mani.normalPalette ?? readPalette(sprites?.files[Math.floor(sheetFile / FILES_PER_SPRITE) * FILES_PER_SPRITE + 18]);
       if (!palette) return undefined;

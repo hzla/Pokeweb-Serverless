@@ -68,8 +68,6 @@ export function getQuickPokeBallStatus(project: ProjectState, bytes = project.or
   if (version !== "B" && version !== "W" && version !== "B2" && version !== "W2") return state;
   if (project.session.baseRom !== (version === "B" || version === "W" ? "BW" : "BW2")) return state;
   const profile = manifest.games[version];
-  const previousHash = "previousRuntimeSha256" in profile ? profile.previousRuntimeSha256 : undefined;
-  const previousSize = "previousRuntimeSize" in profile ? profile.previousRuntimeSize : undefined;
   let rom: NintendoDSRom | undefined;
   try {
     if (bytes) rom = new NintendoDSRom(bytes, { fileData: "view" });
@@ -85,11 +83,12 @@ export function getQuickPokeBallStatus(project: ProjectState, bytes = project.or
     const data = romFile(project, rom, entry.path);
     if (!data && !rom) continue; // IndexedDB-backed projects are checked again during installation.
     const hash = entry.target === "patches" && data &&
-      (data.length === profile.size || data.length === previousSize) ? sha256Hex(data) : undefined;
-    if (hash && (hash === profile.sha256 || hash === previousHash)) {
+      (data.length === profile.size || profile.previousRuntimes.some(previous => data.length === previous.size)) ? sha256Hex(data) : undefined;
+    const recognizedPrevious = hash && profile.previousRuntimes.some(previous => hash === previous.sha256);
+    if (hash && (hash === profile.sha256 || recognizedPrevious)) {
       if (dllPath) return { ...state, message: "Multiple Quick Poké Ball modules are installed." };
       dllPath = entry.path;
-      previousRuntime = hash === previousHash;
+      previousRuntime = !!recognizedPrevious;
       continue;
     }
     if (/^quickpokeball[wb]2?(?:\.debug)?\.dll$/iu.test(entry.fileName))

@@ -12,16 +12,25 @@ import { ensure, materialRecords } from "./nitroResourceWriter";
 import { markDirty, type ProjectState } from "./projectStore";
 
 /**
- * Erasing the map's own grass and trees. Native art is part of the terrain's display lists, often one long face
- * across many tiles (a grass rectangle, a row of tree cards), so erasing cuts the faces: what lies inside the erased
- * area goes, the rest is kept with its texture coordinates interpolated. The ground under the art is already there.
- * The game keeps no record of what a tree or grass tile replaced, so those tiles take the most common plain ground
- * value around them.
+ * Erasing the map's own grass, trees and ledges. Native art is part of the terrain's display lists, often one long
+ * face across many tiles (a grass rectangle, a row of tree cards, a ledge's lip), so erasing cuts the faces: what lies
+ * inside the erased area goes, the rest is kept with its texture coordinates interpolated. The ground under the art is
+ * already there (a ledge is a lip on flat ground; its jump tiles do the hopping). The game keeps no record of what a
+ * tree, grass or ledge tile replaced, so those tiles take the most common plain ground value around them. Shapes the
+ * brushes added are left to their own erasers.
  */
 const TILE = 16;
 const TREE_MATERIAL = /^ki\d/;
 const GRASS_MATERIALS = new Set(["kusa_ec1", "kusa_ec2", "kusa_ec3", "kusa_ec1s", "kusa_ec2s"]);
 const GRASS_CLASSES = new Set([4, 5, 6]);
+const LEDGE_MATERIAL = /^dansa/;
+/** Shapes the tree, ledge, fence, stamp and thick grass brushes add (t1_, l2_, …): their own erasers handle them. */
+const BRUSH_SHAPE = /^[tlfswk][12]_/;
+/** Ledge jump classes: 114 and 115 hop right and left (the ledge runs along z), 116 and 117 hop up and down. */
+const isLedgeClass = (tileClass: number) => tileClass >= 114 && tileClass <= 117;
+const ledgeRunsAlongZ = (tileClass: number) => tileClass === 114 || tileClass === 115;
+/** How far a ledge's lip may lean out of its tiles, across the ledge (up ledges lean about a quarter tile). */
+const LEDGE_OVERHANG = TILE / 2;
 const EPS = 1e-4;
 
 type Rect = { x0: number; x1: number; z0: number; z1: number };
@@ -141,17 +150,55 @@ export function nativeTreeAt(faces: readonly { face: BrushVertex[]; size: number
   return undefined;
 }
 
+// ---------- Finding native ledges ----------
+
+/**
+ * The native ledges the tiles touch, whole: every tile of each run of same-direction jump tiles along its length,
+ * with the rectangle to cut its art from. The rectangle reaches half a tile across the ledge, except toward another
+ * ledge tile, so a lip leaning out of its row goes too.
+ */
+export function nativeLedgesAt(per: Uint8Array, tiles: ReadonlySet<number>): { tiles: Set<number>; rects: Rect[]; ledges: number } {
+  const classAt = (x: number, z: number) => x < 0 || z < 0 || x > 31 || z > 31 ? 0 : permission(per, z * 32 + x).tileClass;
+  const found = new Set<number>(), rects: Rect[] = [];
+  let ledges = 0;
+  for (const index of tiles) {
+    const tileClass = permission(per, index).tileClass;
+    if (!isLedgeClass(tileClass) || found.has(index)) continue;
+    ledges++;
+    const alongZ = ledgeRunsAlongZ(tileClass), x = index % 32, z = Math.floor(index / 32);
+    const step = (n: number) => alongZ ? [x, z + n] as const : [x + n, z] as const;
+    let lo = 0, hi = 0;
+    while (classAt(...step(lo - 1)) === tileClass) lo--;
+    while (classAt(...step(hi + 1)) === tileClass) hi++;
+    for (let n = lo; n <= hi; n++) {
+      const [tx, tz] = step(n), rect = tileRect(tz * 32 + tx);
+      found.add(tz * 32 + tx);
+      const reach = (dx: number, dz: number) => isLedgeClass(classAt(tx + dx, tz + dz)) ? 0 : LEDGE_OVERHANG;
+      rects.push(alongZ
+        ? { ...rect, x0: rect.x0 - reach(-1, 0), x1: rect.x1 + reach(1, 0) }
+        : { ...rect, z0: rect.z0 - reach(0, -1), z1: rect.z1 + reach(0, 1) });
+    }
+  }
+  return { tiles: found, rects, ledges };
+}
+
 // ---------- One terrain model ----------
 
-/** Cut native trees covering any of the tiles, and native grass on the tiles, out of a terrain model. */
-export function eraseNativeArt(modelFile: Uint8Array, tiles: ReadonlySet<number>): { file: Uint8Array; treeTiles: Set<number>; trees: number; grassTiles: Set<number> } {
+export type NativeArtErase = { file: Uint8Array; treeTiles: Set<number>; trees: number; grassTiles: Set<number>; ledgeTiles: Set<number>; ledges: number };
+
+/**
+ * Cut native trees covering any of the tiles, native grass on the tiles, and native ledges touching the tiles out of
+ * a terrain model. Ledges are found from the chunk's collision (`per`); without it none are erased.
+ */
+export function eraseNativeArt(modelFile: Uint8Array, tiles: ReadonlySet<number>, per?: Uint8Array): NativeArtErase {
   const layout = terrainModelLayout(modelFile, "eraser"), records = materialRecords(modelFile);
   const draws = shapeMaterials(modelFile).draws;
-  const shapeFaces = new Map<number, { kind: "tree" | "grass"; size: number; faces: BrushVertex[][] }>();
+  const shapeFaces = new Map<number, { kind: "tree" | "grass" | "ledge"; size: number; faces: BrushVertex[][] }>();
+  const ledgesHere = per ? nativeLedgesAt(per, tiles) : { tiles: new Set<number>(), rects: [], ledges: 0 };
   for (const { shape, material } of draws) {
     const name = records[material]?.name ?? "";
-    const kind = TREE_MATERIAL.test(name) ? "tree" : GRASS_MATERIALS.has(name) ? "grass" : undefined;
-    if (!kind || shapeFaces.has(shape)) continue;
+    const kind = TREE_MATERIAL.test(name) ? "tree" : GRASS_MATERIALS.has(name) ? "grass" : LEDGE_MATERIAL.test(name) && ledgesHere.ledges ? "ledge" : undefined;
+    if (!kind || shapeFaces.has(shape) || BRUSH_SHAPE.test(layout.shapes[shape]?.name ?? "")) continue;
     shapeFaces.set(shape, { kind, size: /^ki\d\d[a-d]x?1$/.test(name) ? 3 * TILE : 2 * TILE, faces: decodeFaces(layout.shapes[shape].list, layout.scale) });
   }
   // Trees: every tree whose footprint holds an erased tile, whole.
@@ -185,6 +232,12 @@ export function eraseNativeArt(modelFile: Uint8Array, tiles: ReadonlySet<number>
         if (pieces.length !== 1 || pieces[0] !== face) changed = true;
         return pieces;
       }
+      if (kind === "ledge") {
+        let pieces: Face[] = [face];
+        for (const rect of ledgesHere.rects) pieces = pieces.flatMap(piece => cutRect(piece, rect));
+        if (pieces.length !== 1 || pieces[0] !== face) changed = true;
+        return pieces;
+      }
       let pieces: Face[] = [face];
       for (const { index, rect } of grassRects) {
         const next = pieces.flatMap(piece => cutRect(piece, rect));
@@ -200,11 +253,12 @@ export function eraseNativeArt(modelFile: Uint8Array, tiles: ReadonlySet<number>
     delta = { vertices: delta.vertices + after.vertices - before.vertices, polygons: delta.polygons + after.polygons - before.polygons, quads: delta.quads + after.quads - before.quads };
     lists.set(source.name, list);
   }
-  if (!lists.size) return { file: modelFile, treeTiles, trees: trees.length, grassTiles };
+  const ledgeResult = { ledgeTiles: ledgesHere.tiles, ledges: ledgesHere.ledges };
+  if (!lists.size) return { file: modelFile, treeTiles, trees: trees.length, grassTiles, ...ledgeResult };
   ensure(readU16(layout.original, 38) + delta.polygons <= 2048 && readU16(layout.original, 36) + delta.vertices <= 6144,
     "Cutting this art would pass the DS geometry limit for the chunk. Erase a whole patch at once, or a smaller area.");
   const next = { ...layout, shapes: layout.shapes.map(shape => ({ ...shape, list: lists.get(shape.name) ?? shape.list })) };
-  return { file: writeTerrainModel(modelFile, next, layout.sbc, delta), treeTiles, trees: trees.length, grassTiles };
+  return { file: writeTerrainModel(modelFile, next, layout.sbc, delta), treeTiles, trees: trees.length, grassTiles, ...ledgeResult };
 }
 
 // ---------- Tiles ----------
@@ -231,11 +285,11 @@ export function surroundingGround(per: Uint8Array, erased: ReadonlySet<number>):
   return { tileClass: 0, flags: 0 };
 }
 
-function restoreTiles(per: Uint8Array, treeTiles: ReadonlySet<number>, grassTiles: ReadonlySet<number>) {
-  const erased = new Set([...treeTiles, ...grassTiles]);
+function restoreTiles(per: Uint8Array, treeTiles: ReadonlySet<number>, grassTiles: ReadonlySet<number>, ledgeTiles: ReadonlySet<number>) {
+  const erased = new Set([...treeTiles, ...grassTiles, ...ledgeTiles]);
   const changed = [...erased].filter(index => {
     const tile = permission(per, index);
-    return (treeTiles.has(index) && isTreeTile(tile)) || (grassTiles.has(index) && isGrassTile(tile));
+    return (treeTiles.has(index) && isTreeTile(tile)) || (grassTiles.has(index) && isGrassTile(tile)) || (ledgeTiles.has(index) && isLedgeClass(tile.tileClass));
   });
   if (!changed.length) return 0;
   const ground = surroundingGround(per, erased);
@@ -246,11 +300,11 @@ function restoreTiles(per: Uint8Array, treeTiles: ReadonlySet<number>, grassTile
 // ---------- Strokes ----------
 
 type MapChange = { id: number; before: Uint8Array; after: Uint8Array };
-export type NativeEraseStroke = { maps: MapChange[]; trees: number; grassTiles: number };
+export type NativeEraseStroke = { maps: MapChange[]; trees: number; grassTiles: number; ledges: number };
 
-/** Erase the map's own trees and grass under the tiles, in every seasonal variant of each chunk. */
+/** Erase the map's own trees, grass and ledges under the tiles, in every seasonal variant of each chunk. */
 export async function eraseNativeMapArt(project: ProjectState, scene: Map3dSceneData, tiles: readonly Map3dTile[], { isCurrent = () => true }: { isCurrent?: () => boolean } = {}): Promise<NativeEraseStroke> {
-  const result: NativeEraseStroke = { maps: [], trees: 0, grassTiles: 0 };
+  const result: NativeEraseStroke = { maps: [], trees: 0, grassTiles: 0, ledges: 0 };
   if (!tiles.length) return result;
   const context = await mapBrushContext(project, scene, isCurrent, "eraser");
   ensure(isCurrent(), "The map changed while erasing. Try again.");
@@ -267,17 +321,18 @@ export async function eraseNativeMapArt(project: ProjectState, scene: Map3dScene
     const bytes = context.maps.rawFiles[id];
     if (!bytes?.length) continue;
     const map = readGen5MapBin(bytes);
-    const art = eraseNativeArt(map.files[0], indices);
-    if (art.file === map.files[0]) continue;
+    const art = eraseNativeArt(map.files[0], indices, map.files[1]);
+    // A ledge's jump tiles go even where the chunk draws no lip for them.
+    if (art.file === map.files[0] && !art.ledgeTiles.size) continue;
     const files = map.files.slice();
     files[0] = art.file;
     files[1] = files[1].slice();
-    restoreTiles(files[1], art.treeTiles, art.grassTiles);
-    if (map.placements === 3) { files[2] = files[2].slice(); restoreTiles(files[2], art.treeTiles, art.grassTiles); }
+    restoreTiles(files[1], art.treeTiles, art.grassTiles, art.ledgeTiles);
+    if (map.placements === 3) { files[2] = files[2].slice(); restoreTiles(files[2], art.treeTiles, art.grassTiles, art.ledgeTiles); }
     const after = packGameFreakContainer(map.signature, files);
     if (equalMapBytes(after, bytes)) continue;
     result.maps.push({ id, before: bytes.slice(), after });
-    if (active) { result.trees += art.trees; result.grassTiles += art.grassTiles.size; }
+    if (active) { result.trees += art.trees; result.grassTiles += art.grassTiles.size; result.ledges += art.ledges; }
   }
   if (result.maps.length) writeNativeErase(project, result, false);
   return result;
@@ -290,7 +345,11 @@ function writeNativeErase(project: ProjectState, stroke: NativeEraseStroke, undo
     store.records.delete(id);
     markDirty(project, "maps", id);
   }
-  const parts = [stroke.trees && `${stroke.trees} tree${stroke.trees === 1 ? "" : "s"}`, stroke.grassTiles && `${stroke.grassTiles} grass tile${stroke.grassTiles === 1 ? "" : "s"}`].filter(Boolean).join(" and ") || "native art";
+  const parts = [
+    stroke.trees && `${stroke.trees} tree${stroke.trees === 1 ? "" : "s"}`,
+    stroke.grassTiles && `${stroke.grassTiles} grass tile${stroke.grassTiles === 1 ? "" : "s"}`,
+    stroke.ledges && `${stroke.ledges} ledge${stroke.ledges === 1 ? "" : "s"}`,
+  ].filter(Boolean).join(", ") || "native art";
   recordGenericChange(project, "maps3d", undo ? `Restored the map's own ${parts}.` : `Erased the map's own ${parts}.`, "Erase Native Art");
 }
 

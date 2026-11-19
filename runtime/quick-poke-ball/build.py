@@ -13,10 +13,18 @@ import ndspy.rom
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 ASSETS = ROOT / "src/assets/codeinjection"
-VERSION = "1.0.1"
-PREVIOUS_RUNTIME_SHA256 = {
-    "B2": "2929a1fb006e2ec83fc71c026096359492725f20d80e488c8947c644fa60c953",
-    "W2": "8fb18cba2164396b95b7aca78f13a437276239d2468944a7a234ca6dafb52e58",
+VERSION = "1.0.2"
+PREVIOUS_RUNTIMES = {
+    "B2": [
+        {"sha256": "2929a1fb006e2ec83fc71c026096359492725f20d80e488c8947c644fa60c953", "size": 4672},
+        {"sha256": "c2360c8796d800216473aa29960d839d0b5270c252311b8224fb9f9027285625", "size": 4864},
+    ],
+    "W2": [
+        {"sha256": "8fb18cba2164396b95b7aca78f13a437276239d2468944a7a234ca6dafb52e58", "size": 4672},
+        {"sha256": "3b4073310ebcd5dbf3d3530909a41267c18aa9dc9d7c677a729a3652218270b1", "size": 4864},
+    ],
+    "B": [{"sha256": "289ec211a2064f1386b9a199152be167a4523b025b4236917c568c03d0a9f6a6", "size": 4832}],
+    "W": [{"sha256": "d0cf49df0685cad545a4a8318d972fdcac0d16aaa9791035ac95a78f370de8bd", "size": 4832}],
 }
 # SHA-256 of each older archive's ordered, concatenated member hashes.
 PREVIOUS_ARCHIVE_MEMBER_DIGESTS = [
@@ -98,7 +106,7 @@ def build(game, cfg, rom):
         data = retail.read(segment, address, size)
         abi.append(dict(label=name, overlay=int(segment), address=address, sha256=hashlib.sha256(data).hexdigest(), size=size))
     return {**shared.describe(dll, dump, [], None), "idCode": rom.idCode.decode(),
-            "previousRuntimeSha256": PREVIOUS_RUNTIME_SHA256[game], "previousRuntimeSize": 4672,
+            "previousRuntimes": PREVIOUS_RUNTIMES[game],
             "hooks": signatures, "abi": abi}, dll, build_archive(rom, retail.arm)
 
 
@@ -134,6 +142,7 @@ def build_bw1(game, inputs, black, rom):
         abi.append(dict(label=name, overlay=int(segment), address=address,
                         sha256=hashlib.sha256(code).hexdigest(), size=len(code)))
     return {**shared.describe(dll, dump, [], None), "idCode": rom.idCode.decode(),
+            "previousRuntimes": PREVIOUS_RUNTIMES[game],
             "hooks": signatures, "abi": abi}, dll, build_archive(rom, inputs.binaries.arm9)
 
 
