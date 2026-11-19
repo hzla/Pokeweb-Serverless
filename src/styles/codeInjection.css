@@ -379,6 +379,12 @@
 .type-icon-variant-preview:hover { border-color: var(--amber); }
 .type-icon-variant-preview:focus-visible { outline: 3px solid var(--amber); outline-offset: 3px; }
 .type-icon-variant-caption { display: block; }
+.type-icon-variant-previews.learnset-layout-previews {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  margin: 16px 0;
+  max-width: 560px;
+}
+.learnset-layout-previews img { height: auto; max-height: 192px; }
 .type-icon-border-color { display: flex; align-items: center; gap: 12px; margin-top: 14px; font-weight: 700; }
 .type-icon-border-color[hidden] { display: none; }
 .type-icon-border-color input { width: 56px; height: 34px; padding: 2px; cursor: pointer; }

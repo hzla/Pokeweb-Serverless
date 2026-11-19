@@ -12,6 +12,13 @@ the lower panel lists level-up moves and PP. L/R browses family, D-pad Left/Righ
 changes party member, and A pages evolution requirements. Browsing never teaches
 moves, evolves Pokémon or spends items; RELEARN remains native.
 
+On Black 2 and White 2, choose **Classic** or **Three cards** in Code
+Injection under **Party Menu Learnset/Dex Viewer**, then install, update, or
+apply the layout. Three cards uses eight-pixel gaps between the upper panels
+and extends the grid behind the move list. Both BW2 layouts show PP as
+`15 PP`. New BW2 installs default to Three cards. Updates preserve the installed layout.
+Black and White use Classic.
+
 Two companions share private text IDs without replacing tutor strings. Installer
 staging is atomic; updates preserve private IDs and edited text. Only newly staged
 modules can be physically removed. BW2 companions also host Pokenav's separate

@@ -27,7 +27,8 @@ BASE, DATA, RESOURCE, STOP, STACK = 0x02e00000, 0x02e80000, 0x02ea0000, 0x02ee00
 
 for game, delta, filename in [('W2', 0, 'cleanwhite2.nds'), ('B2', 0x2c, 'cleanblack2.nds')]:
     rom = ndspy.rom.NintendoDSRom.fromFile(Path(os.environ.get(f'LEARNSET_{game}_ROM', WORKSPACE/filename)))
-    resource = bytes(ndspy.narc.NARC(rom.getFileByName('a/1/2/5')).files[2])
+    files = ndspy.narc.NARC(rom.getFileByName('a/1/2/5')).files
+    resource = bytes(files[2])
     assert resource[:4] == b'RCSN' and len(resource) == 2084
     expected = bytearray(resource[36:])
     for y in range(8, 21):
@@ -37,6 +38,7 @@ for game, delta, filename in [('W2', 0, 'cleanwhite2.nds'), ('B2', 0x2c, 'cleanb
     c = Uc(UC_ARCH_ARM, UC_MODE_THUMB)
     c.ctl_set_cpu_model(UC_CPU_ARM_946)
     c.mem_map(0x02000000, 0x1000000)
+    c.mem_map(0x05000000, 0x1000)
     captured_mode = game == 'W2' and len(sys.argv) > 1
     if captured_mode:
         captured = read_ram(Path(sys.argv[1]))
@@ -70,6 +72,7 @@ for game, delta, filename in [('W2', 0, 'cleanwhite2.nds'), ('B2', 0x2c, 'cleanb
     write32(symbols['_ZN12_GLOBAL__N_16activeE'], DATA+0x1000)
     r = lambda n: c.reg_read(REGS[n])
     video = bytearray(4096)
+    characters = bytearray(files[1][48:48+8192])
     freed = []
     def ret(value=0):
         c.reg_write(REGS[0], value)
@@ -90,6 +93,10 @@ for game, delta, filename in [('W2', 0, 'cleanwhite2.nds'), ('B2', 0x2c, 'cleanb
         elif pc == 0x20461c4-delta:  # Final hardware transfer boundary.
             assert r(0) == 7 and r(2) == 0 and r(3) in (2048, 4096)
             video[:r(3)] = c.mem_read(r(1), r(3))
+            ret()
+        elif pc == 0x2046258-delta:  # Native character loader after tile-offset conversion.
+            assert r(0) == 7 and r(3) == 128*32 and r(3)+r(2) <= len(characters)
+            characters[r(3):r(3)+r(2)] = c.mem_read(r(1), r(2))
             ret()
     c.hook_add(UC_HOOK_CODE, intercept)
     def call(address, args):
@@ -120,3 +127,41 @@ for game, delta, filename in [('W2', 0, 'cleanwhite2.nds'), ('B2', 0x2c, 'cleanb
     assert before[buffer-0x02000000+2048:] == after[buffer-0x02000000+2048:]
     assert freed == [RESOURCE]
     print(game, 'old green-screen path reproduced; fixed CPU map and repeated native redraws match retail tiles + 24px divider; other game RAM unchanged')
+    if not captured_mode and any('LowerGridCharacters' in name for name in symbols):
+        config = symbols['learnsetConfig']+22
+        c.mem_write(config, b'\x01\x00')
+        palette_base = 0x05000400
+        native_palette = bytes(files[0][40:40+struct.unpack_from('<I',files[0],32)[0]])
+        c.mem_write(palette_base,native_palette)
+        call(symbols['LearnsetScreen'], [0x2200000, 2, 7, 0, 2048, 0, 79])
+        grid = bytes(c.mem_read(buffer, 2048))
+        assert grid != expected and grid == video[:2048]
+        assert grid[:8*64] == expected[:8*64] and grid[21*64:] == expected[21*64:]
+        assert bytes(c.mem_read(palette_base,len(native_palette))) == native_palette
+        colors = struct.unpack('<112H',c.mem_read(palette_base,224))
+        original_chars = files[1][48:]
+        def pixel(raw, entry, x, y):
+            tx, ty = (x&7)^(7 if entry&1024 else 0), (y&7)^(7 if entry&2048 else 0)
+            return (raw[(entry&1023)*32+ty*4+tx//2]>>(4*(tx&1)))&15
+        pixels = []
+        for y in range(192):
+            for x in range(256):
+                pos = ((y//8)*32+x//8)*2
+                before_tile = struct.unpack_from('<H',expected,pos)[0]
+                after_tile = struct.unpack_from('<H',grid,pos)[0]
+                native_ink = pixel(original_chars,before_tile,x,y)
+                actual = colors[(after_tile>>12)*16+pixel(characters,after_tile,x,y)]
+                if 64<=y<168 and native_ink in (8,9):
+                    expected_color = 0x24e6 if x%32==0 else 0x1cc5 if x%8==0 or y%8==0 else 0x1884
+                else:
+                    expected_color = colors[(before_tile>>12)*16+native_ink]
+                assert actual == expected_color, (x,y,hex(actual),hex(expected_color))
+                pixels.extend(((actual>>shift)&31)*255//31 for shift in (0,5,10))
+        from verify_info import png
+        png(BUILD/f'lower-grid-{game}.png',256,192,pixels)
+        call(0x2044fbd-delta,[7])
+        assert video[:2048] == grid
+        c.mem_write(DATA+0x1000+242,b'\x57\x50')
+        call(symbols['LearnsetScreen'], [0x2200000, 2, 7, 0, 2048, 0, 79])
+        assert video[:2048] == expected
+        print(game, 'Three cards grid colors, original panels and controls, buffered redraw, and Classic Custom UI background passed')

@@ -54,7 +54,7 @@ export function drawNativeLearnsetMoves(
     if (type >= 0 && native.sprites[`type-${type}`]) sprite(`type-${type}`, 47, y + 8);
     else diagnostics.push({ severity: "warning", code: "move-type", screen, element: native.element, message: `The native tutor has no icon for type ${move.type}.` });
     label(learnsetMoveLabel(move.level ?? 0, move.name, assets), { x: 66, y, width: 106, height: 16 }, true);
-    label(`PP ${move.pp}`, { x: 184, y, width: 48, height: 16 });
+    label(`${move.pp} PP`, { x: 184, y, width: 48, height: 16 });
   }
   const row = list.index - list.scroll;
   if (selected && row >= 0 && row < 4 && state.focus !== `${native.element}_close`) {

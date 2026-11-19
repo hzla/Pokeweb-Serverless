@@ -1,5 +1,5 @@
 {
-  "version": "1.8.0",
+  "version": "1.10.0",
   "games": {
     "B": {
       "game": "B",
@@ -7825,6 +7825,18 @@
         {
           "member": 17,
           "sha256": "4bca85979ec752e1dfd242d52f30b3a42bd8b667a6edfc6db671ae4d117c29c1"
+        },
+        {
+          "member": 3,
+          "sha256": "66e5a9055229a010ce993cc8ed977985d0367bb971c2f98e96a16bf4d0e5e036"
+        }
+      ],
+      "apis": [
+        {
+          "label": "Tutor BG character upload",
+          "segment": "ARM9",
+          "entry": 33837229,
+          "expectedHex": "38b5084c25682c2444432c19a47f002c03d15b0101f0caf838bd9b0101f0c6f8"
         }
       ]
     },
@@ -8224,6 +8236,18 @@
         {
           "member": 17,
           "sha256": "4bca85979ec752e1dfd242d52f30b3a42bd8b667a6edfc6db671ae4d117c29c1"
+        },
+        {
+          "member": 3,
+          "sha256": "66e5a9055229a010ce993cc8ed977985d0367bb971c2f98e96a16bf4d0e5e036"
+        }
+      ],
+      "apis": [
+        {
+          "label": "Tutor BG character upload",
+          "segment": "ARM9",
+          "entry": 33837185,
+          "expectedHex": "38b5084c25682c2444432c19a47f002c03d15b0101f0caf838bd9b0101f0c6f8"
         }
       ]
     }

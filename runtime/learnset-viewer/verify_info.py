@@ -247,7 +247,9 @@ class Harness:
         font=getattr(self,'fonts',{}).get(struct.unpack('<I',self.c.mem_read(self.c.reg_read(UC_ARM_REG_SP),4))[0],self.font)
         width,glyph=font.text(text)
         assert x<256 and x+width<=256 and y+15<=192,(x,y,text,width)
-        if y>=136 and not getattr(self,'styled',False):assert y in (140,156,172),('evolution text baseline',x,y,text)
+        if y>=136 and not getattr(self,'styled',False):
+            baselines=(144,161,177) if getattr(self,'three_cards',False) else (140,156,172)
+            assert y in baselines,('evolution text baseline',x,y,text)
         self.draws.append((x,y,text))
         color=struct.unpack('<I',self.c.mem_read(self.c.reg_read(UC_ARM_REG_SP)+4,4))[0]
         self.colors.append((x,y,text,color))
@@ -286,7 +288,8 @@ class Harness:
                         color=pal[index];at=((y0+y)*256+x0+x)*3
                         out[at:at+3]=[((color>>shift)&31)*255//31 for shift in (0,5,10)]
         png(BUILD/f'info-{self.game}-{name}.png',256,192,out)
-    def start(self):
+    def start(self,three_cards=False):
+        self.three_cards=three_cards
         self.draws=[];self.colors=[]
         before=bytes(self.c.mem_read(REQUEST,260))
         untouched_palettes=bytes(self.c.mem_read(0x5000200,1536))
@@ -295,8 +298,9 @@ class Harness:
         assert bytes(self.c.mem_read(0x2300500,220))==bytes([0xa5])*220
         assert bytes(self.c.mem_read(REQUEST,260))==before
         assert bytes(self.c.mem_read(0x5000200,1536))==untouched_palettes, 'Sub BG and both OBJ palettes must remain untouched'
-        self.check_background()
-        if not self.fail_alloc:self.check_header()
+        if not three_cards:
+            self.check_background()
+            if not self.fail_alloc:self.check_header()
     def pixel(self,x,y):
         at=((y//8)*32+x//8)*32+(y%8)*4+(x%8)//2
         return (self.c.mem_read(PIXELS+at,1)[0]>>((x&1)*4))&15
@@ -512,9 +516,105 @@ def rom_name(h,name):
     # BW1 retail species names use uppercase; preserve them in the renderer.
     return next((n for n in h.messages[90] if n.casefold()==name.casefold()),name)
 
+def check_three_cards(h):
+    config=h.symbols['learnsetConfig']+22
+    def metagross_pixels():
+        return b''.join(h.c.mem_read(PIXELS+(tile_y*32+27)*32,128) for tile_y in range(4,8))
+    def rgb555(r,g,b):return (r>>3)|((g>>3)<<5)|((b>>3)<<10)
+    for layout in (0,1):
+        h.reset();h.species=376
+        personal=ndspy.narc.NARC(h.files['a/0/1/6'])
+        record=bytearray(personal.files[376])
+        record[24:27]=bytes([26,29,135]) # Levitate, Clear Body, Light Metal
+        personal.files[376]=record
+        h.files['a/0/1/6']=bytes(personal.save())
+        h.c.mem_write(config,struct.pack('<H',layout))
+        h.start(three_cards=bool(layout))
+        h.preview('three-cards' if layout else 'classic')
+        if layout:
+            for x,y,dx,dy in [(106,90,1,0),(170,69,0,1),(80,136,0,1)]:
+                grid=(1,3,5)
+                assert all(h.pixel(x+i*dx,y+i*dy) in grid for i in range(8))
+                assert h.pixel(x-dx,y-dy) not in grid and h.pixel(x+8*dx,y+8*dy) not in grid
+            assert [t for x,y,t in h.draws if x==120 and y in (88,103,118)]==['Levitate','Clear Body','Light Metal']
+            assert any(y==118 and color==0x31c0 for x,y,t,color in h.colors)
+            assert (14,144,'Does not evolve further.') in h.draws
+            assert any(x==14 and y==161 and 'Metang' in t for x,y,t in h.draws)
+            assert all(h.pixel(0,y)==5 for y in range(144,192))
+            assert all(h.pixel(1,y)==(3 if y%8==0 else 1) for y in range(144,192))
+            for tile_x,bank in [(15,10),(21,11),(27,12)]:
+                assert all(h.u16(MAP+(tile_y*32+x)*2)>>12==bank
+                           for tile_y in range(4,8) for x in range(tile_x,tile_x+4))
+            icons=ndspy.narc.NARC(h.files['a/0/0/7']).files
+            member=h.call(0x2020fc1-h.delta,376,0,0,0)
+            palette_index=h.call(0x2021061-h.delta,376,0,0,0)
+            native_palette=struct.unpack_from('<16H',icons[0],40+32*palette_index)
+            selected_palette=struct.unpack('<16H',h.c.mem_read(0x5000000+12*32,32))
+            def check_pose(pose):
+                original=icons[member][48+pose*512:560+pose*512]
+                for i,(source,target) in enumerate(zip(original,metagross_pixels())):
+                    row=(i//128)*8+(i%32)//4
+                    for shift in (0,4):
+                        src,dst=(source>>shift)&15,(target>>shift)&15
+                        if src:
+                            assert src==dst and selected_palette[dst]==native_palette[src]
+                        elif not row:
+                            assert dst==0
+                        else:
+                            expected=rgb555(174,184,192) if row<3 else rgb555(213,228,227)
+                            assert dst and selected_palette[dst]==expected
+            check_pose(0)
+            assert h.pixel(213,40)==2 and h.pixel(248,40)==13 and h.pixel(217,64)==7
+            selected=metagross_pixels()
+            palettes=bytes(h.c.mem_read(0x5000000,2048))
+            for _ in range(8):h.call('_Z9infoInputPv',WORK)
+            assert metagross_pixels()!=selected
+            assert bytes(h.c.mem_read(0x5000000,2048))==palettes
+            check_pose(1)
+            assert h.pixel(106,90) in grid and h.pixel(170,71) in grid
+        else:
+            assert (8,140,'Does not evolve further.') in h.draws
+        h.end()
+    h.reset();h.species=376
+    icons=ndspy.narc.NARC(h.files['a/0/0/7'])
+    member=h.call(0x2020fc1-h.delta,376,0,0,0)
+    saturated=bytearray(icons.files[member])
+    saturated[48:56]=bytes(16*i+(i+1) for i in range(0,16,2))
+    icons.files[member]=saturated
+    h.files['a/0/0/7']=bytes(icons.save())
+    h.start(three_cards=True)
+    assert metagross_pixels()==saturated[48:560]
+    assert h.pixel(214,40)==h.pixel(248,40)==9 and h.pixel(217,64)==7
+    h.end()
+    h.reset();h.species=136
+    method=next(i for i,(key,_) in enumerate(MESSAGES) if key=='Method8')
+    detail='Use the named item while this Pokemon is in your party and follow the special evolution requirements described by the current ROM. Read the rest on continuation pages.'
+    h.messages[401][len(h.messages[401])-len(MESSAGES)+method]=detail
+    h.start(three_cards=True)
+    page_count=int(next(t for x,y,t in h.draws if y==144 and t.startswith('A ')).split('/')[1])
+    assert page_count>1
+    parts=[]
+    for page in range(page_count):
+        assert (14,144,'Does not evolve further.') in h.draws
+        assert any(y==144 and t==f'A {page+1}/{page_count}' for x,y,t in h.draws)
+        for x,y,t in h.draws:
+            if y not in (161,177) or not t:continue
+            assert x==14 and x+h.font.text(t)[0]<=248
+            parts.append(t)
+        h.draws=[];h.keys=1;h.call('_Z9infoInputPv',WORK)
+    assert ' '.join(parts)=='From Eevee: '+detail,parts
+    h.end()
+    h.c.mem_write(config,b'\0\0')
+    h.three_cards=False
+    print(h.game,'Classic and Three cards, gaps, paging, three abilities and recessed selection across both icon poses passed',flush=True)
+
 reports={}
 for game in (['B','W'] if '--bw1' in sys.argv else ['W2','B2']) if __name__=='__main__' else []:
     h=Harness(game)
+    if (not h.bw1 and (len(sys.argv)==1 or '--three-cards' in sys.argv)
+        and any('threeCards' in name for name in h.symbols)):
+        check_three_cards(h)
+        if '--three-cards' in sys.argv:continue
     if '--pokenav-only' in sys.argv:
         context=0x2306000
         expected=ndspy.narc.NARC(h.files['a/0/0/7']).files[0][40:136]

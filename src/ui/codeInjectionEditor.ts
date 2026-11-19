@@ -66,7 +66,7 @@ import { CGEAR_QUICK_ACTIONS_VERSION, getCGearQuickActionsStatus, installCGearQu
 import { CGEAR_QUICK_ACTIONS_BW1_VERSION } from "../pokeweb/cgearQuickActionsBw1Model";
 import { getPokenavStatus, installPokenav, disablePokenav } from "../pokeweb/pokenavModel";
 import { getNuzlockeEncountersStatus,installNuzlockeEncounters,disableNuzlockeEncounters } from "../pokeweb/nuzlockeEncountersModel";
-import { getLearnsetViewerStatus, installLearnsetViewer, uninstallLearnsetViewer } from "../pokeweb/learnsetViewerModel";
+import { getLearnsetViewerStatus, installLearnsetViewer, uninstallLearnsetViewer, type LearnsetUpperLayout } from "../pokeweb/learnsetViewerModel";
 import { getSummaryStatViewerStatus, installSummaryStatViewer, uninstallSummaryStatViewer, SUMMARY_STAT_VIEWER_VERSION } from "../pokeweb/summaryStatViewerModel";
 import { getInfiniteCandyStatus, getInstalledInfiniteCandyItemId, installInfiniteCandy } from "../pokeweb/infiniteCandyModel";
 import { getLevelCapsStatus, installLevelCaps } from "../pokeweb/levelCapsModel";
@@ -154,6 +154,11 @@ const activeCodeInjectionTabs = new WeakMap<HTMLElement, CodeInjectionTab>();
 const showUnsupportedCodeInjectionPatches = new WeakMap<ProjectState, boolean>();
 
 const pendingTypeIcons = new WeakMap<ProjectState, { variant: TypeIconVariant; borderColor: string }>();
+const pendingLearnsetLayouts = new WeakMap<ProjectState, LearnsetUpperLayout>();
+const learnsetLayouts = [
+  ["classic", "Classic", new URL("../assets/codeinjection/showcase/learnset-classic.png", import.meta.url).href],
+  ["three-cards", "Three cards", new URL("../assets/codeinjection/showcase/learnset-three-cards.png", import.meta.url).href],
+] as const;
 const pendingCandyItemIds = new WeakMap<ProjectState, number>();
 
 export function renderCodeInjectionEditor(project: ProjectState, root: HTMLElement, onDirty: () => void): void {
@@ -244,6 +249,11 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const portaPcStatus = getPortaPcStatus(project);
   const quickActionsStatus = getCGearQuickActionsStatus(project);
   const learnsetStatus = getLearnsetViewerStatus(project);
+  const canChooseLearnsetLayout = learnsetStatus.supported && project.session.baseRom === "BW2";
+  const installedLearnsetLayout = learnsetStatus.upperLayout ?? "three-cards";
+  let learnsetUpperLayout = pendingLearnsetLayouts.get(project) ?? installedLearnsetLayout;
+  const learnsetInstallLabel = () => learnsetStatus.updateAvailable ? "Update" : learnsetStatus.partial ? "Repair"
+    : !learnsetStatus.installed ? "Install" : learnsetUpperLayout !== installedLearnsetLayout ? "Apply Layout" : "Reinstall";
   const pokenavStatus = getPokenavStatus(project);
   const nuzlockeStatus = getNuzlockeEncountersStatus(project);
   const summaryStatStatus = getSummaryStatViewerStatus(project);
@@ -707,14 +717,19 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             </div>
             ${renderInlineStatus(learnsetStatus.partial ? "Incomplete" : learnsetStatus.updateAvailable ? "Update Available" : learnsetStatus.installed ? "Installed" : learnsetStatus.compatible ? "Ready" : learnsetStatus.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}
           </div>
-          ${renderPatchShowcase("learnset")}
+          ${canChooseLearnsetLayout ? `<div class="type-icon-variant-previews learnset-layout-previews" role="group" aria-label="Learnset top screen layout">
+            ${learnsetLayouts.map(([layout, label, preview]) => `<button type="button" class="type-icon-variant-preview ${learnsetUpperLayout === layout ? "is-selected" : ""}" data-learnset-upper-layout="${layout}" aria-pressed="${learnsetUpperLayout === layout}">
+              <span class="type-icon-variant-caption">${label}</span>
+              <img src="${preview}" alt="" width="256" height="192" loading="lazy" decoding="async">
+            </button>`).join("")}
+          </div>` : renderPatchShowcase("learnset")}
           <div class="code-injection-facts">
             <div><span>ROM</span><strong>US W2 / B2 · vanilla or Upgrade</strong></div>
             <div><span>Dependency</span><strong>PMC only</strong></div>
             <div><span>Full party menu</span><strong>LEARNSET is hidden</strong></div>
           </div>
           <div class="code-injection-actions">
-            <button class="btn -primary" id="install-learnset-viewer-btn" type="button" ${learnsetStatus.supported && learnsetStatus.compatible ? "" : "disabled"}>${learnsetStatus.updateAvailable ? "Update" : learnsetStatus.partial ? "Repair" : learnsetStatus.installed ? "Reinstall" : "Install"}</button>
+            <button class="btn -primary" id="install-learnset-viewer-btn" type="button" ${learnsetStatus.supported && learnsetStatus.compatible ? "" : "disabled"}>${learnsetInstallLabel()}</button>
             <button class="btn -default" id="uninstall-learnset-viewer-btn" type="button" ${learnsetStatus.canUninstall ? "" : "disabled"} title="Only staged companions can be removed; built-in ROM files cannot yet be deleted.">Uninstall</button>
             <div class="code-injection-note" id="learnset-viewer-note" aria-live="polite"></div>
           </div>
@@ -2422,21 +2437,38 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       input.dispatchEvent(new Event("input"));
     });
   });
+  const learnsetLayoutCards = root.querySelectorAll<HTMLButtonElement>("[data-learnset-upper-layout]");
+  learnsetLayoutCards.forEach(card => card.addEventListener("click", () => {
+    learnsetUpperLayout = card.dataset.learnsetUpperLayout === "classic" ? "classic" : "three-cards";
+    pendingLearnsetLayouts.set(project, learnsetUpperLayout);
+    learnsetLayoutCards.forEach(choice => {
+      const selected = choice.dataset.learnsetUpperLayout === learnsetUpperLayout;
+      choice.classList.toggle("is-selected", selected);
+      choice.setAttribute("aria-pressed", String(selected));
+    });
+    const action = root.querySelector("#install-learnset-viewer-btn");
+    if (action) action.textContent = learnsetInstallLabel();
+  }));
   for (const [selector, action] of [
-    ["#install-learnset-viewer-btn", () => install(candidate => installLearnsetViewer(candidate))],
+    ["#install-learnset-viewer-btn", () => install(candidate => installLearnsetViewer(candidate, {
+      upperLayout: canChooseLearnsetLayout ? learnsetUpperLayout : undefined,
+    }))],
     ["#uninstall-learnset-viewer-btn", () => uninstallLearnsetViewer(project)],
   ] as const) {
     const button = root.querySelector<HTMLButtonElement>(selector);
     button?.addEventListener("click", async () => {
       button.disabled = true;
       const note = root.querySelector<HTMLDivElement>("#learnset-viewer-note");
+      learnsetLayoutCards.forEach(card => { card.disabled = true; });
       if (note) note.textContent = "Checking and updating the LEARNSET companions...";
       try {
         await action();
+        pendingLearnsetLayouts.delete(project);
         onDirty();
         renderCodeInjectionEditor(project, root, onDirty);
       } catch (error) {
         button.disabled = false;
+        learnsetLayoutCards.forEach(card => { card.disabled = false; });
         if (note) note.textContent = error instanceof Error ? error.message : String(error);
       }
     });

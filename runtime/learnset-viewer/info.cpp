@@ -52,6 +52,12 @@ struct InfoState : InfoView {
 };
 InfoState* state;
 u32 customRegions=63;
+bool threeCards=false;
+struct RecessedInk { u8 tint,rim; };
+RecessedInk selectedIconInk;
+constexpr u32 ThreeCardFooterLeft=12, EvolutionTextRight=248;
+u32 evolutionTextX(){return threeCards?ThreeCardFooterLeft+2:8;}
+u32 evolutionTextWidth(){return EvolutionTextRight-evolutionTextX();}
 
 // The game's asserting NARC reader is not used for user-edited data.
 // Bounds are checked before every filesystem read, including empty members.
@@ -498,7 +504,7 @@ void load(Request* request) {
         do {
             if(state->pageCount>=128)break;
             state->pages[state->pageCount++]={u16(offset),u8(i),fromParent};
-            for(u32 n=0;n<2;++n)offset=wrapInfo(state->requirements[i],offset,line,128,240,measure);
+            for(u32 n=0;n<2;++n)offset=wrapInfo(state->requirements[i],offset,line,128,evolutionTextWidth(),measure);
         }while(state->requirements[i][offset]!=End);
     }
     // A selected stage's verified navigation hint must not leak into another
@@ -511,6 +517,7 @@ constexpr u16 colors[16]={rgb(48,50,65),rgb(48,50,65),rgb(32,33,43),rgb(24,27,31
     rgb(180,184,192),rgb(218,218,222),rgb(238,175,62),rgb(255,219,149),
     rgb(205,158,247),0,0,rgb(239,244,240)};
 constexpr u16 HiddenAbilityColor=rgb(120,72,160);
+constexpr u16 RecessTint=rgb(213,228,227), RecessRim=rgb(174,184,192), RecessLip=rgb(82,143,135);
 constexpr u32 InsetInk=13;
 constexpr u32 InsetTextInk=(6<<10)|(14<<5), HiddenAbilityInk=(12<<10)|(14<<5);
 u32 iconX(u32 index){return (state->chain.count==3?120:state->chain.count==2?144:168)+index*48;}
@@ -518,18 +525,68 @@ u32 iconX(u32 index){return (state->chain.count==3?120:state->chain.count==2?144
 constexpr u32 CardTop=46, CardBottom=81, IconY=48, StatY=41, StatStep=15,
     AbilityY=84, UpperBottom=131, GutterY=132, EvolutionY=140;
 constexpr u32 StatInk=InsetTextInk;
+constexpr u32 ThreeCardGap=8, ThreeCardTop=31, FamilyBottom=68,
+    AbilitiesTop=FamilyBottom+1+ThreeCardGap, ThreeCardBottom=135,
+    StatsRight=105, FamilyLeft=StatsRight+1+ThreeCardGap,
+    ThreeCardEvolutionY=ThreeCardBottom+1+ThreeCardGap, ThreeCardIconY=32, ThreeCardAbilityY=88;
+u32 upperIconY(){return threeCards?ThreeCardIconY:IconY;}
+RecessedInk spareIconInk(const u8* frames) {
+    // Palette entry zero is transparent in the DS bitmap. Find free opaque
+    // colors common to both poses, so idle ticks only upload character data.
+    u32 used=1;
+    for(u32 i=0;i<1024;++i)used|=(1u<<(frames[i]&15))|(1u<<(frames[i]>>4));
+    RecessedInk ink{};
+    for(u32 i=15;i>0;--i)if(!(used&(1u<<i))) {
+        if(!ink.tint)ink.tint=u8(i);
+        else {ink.rim=u8(i);break;}
+    }
+    return ink;
+}
+void drawRecessedTile(u8* data,u32 x,bool hasIcon) {
+    // Custom icons can use every opaque palette entry. In that case the lip
+    // alone marks selection while preserving all of the original colors.
+    if(!hasIcon || selectedIconInk.tint) {
+        for(u32 row=0;row<34;++row) {
+            const u32 cut=row<3?3-row:row>=31?row-30:0;
+            infoRect(data,x-3+cut,33+row,38-2*cut,1,2);
+        }
+        for(u32 row=0;row<30;++row) {
+            const u32 cut=row<2?2-row:row>=28?row-27:0;
+            infoRect(data,x-2+cut,35+row,36-2*cut,1,13);
+        }
+    }
+    infoRect(data,x-1,64,34,1,7);
+    infoRect(data,x,65,32,1,7);
+    infoRect(data,x+1,66,30,1,2);
+}
 // POKEICON_ANM_HPMAX in both US a/0/0/7 NANRs is cells 0/1, eight ticks each.
 // These informational species icons use healthy idle, not party HP/status.
 constexpr u32 IconFrameTicks=8;
 bool drawIconPixels(u8* data) {
     bool changed=false;
+    const u32 tileY=upperIconY()/8;
     for(u32 i=0;i<state->chain.count;++i) {
         const u32 slot=state->iconSlots[i],x=iconX(i);
         if(!state->iconsValid[slot])continue;
-        const u8* frame=state->icons[slot]+(i==state->chain.selected?state->iconFrame*512:0);
+        const bool selected=i==state->chain.selected;
+        const u8* frame=state->icons[slot]+(selected?state->iconFrame*512:0);
+        const RecessedInk ink=threeCards && selected?selectedIconInk:RecessedInk{};
         for(u32 t=0;t<16;++t) {
             const u32 tx=t%4,ty=t/4;
-            for(u32 b=0;b<32;++b)data[((IconY/8+ty)*32+x/8+tx)*32+b]=frame[t*32+b];
+            u8* dest=data+((tileY+ty)*32+x/8+tx)*32;
+            const u8* src=frame+t*32;
+            if(!ink.tint) {
+                for(u32 b=0;b<32;++b)dest[b]=src[b];
+                continue;
+            }
+            for(u32 y=0;y<8;++y) {
+                const u32 row=ty*8+y;
+                const u8 matte=row==0?0:row<3 && ink.rim?ink.rim:ink.tint;
+                for(u32 b=y*4;b<y*4+4;++b) {
+                    const u8 pixels=src[b];
+                    dest[b]=pixels|(pixels&15?0:matte)|(pixels&240?0:matte<<4);
+                }
+            }
         }
         changed=true;
     }
@@ -632,9 +689,83 @@ void background(u8* data) {
     }
     infoRect(data,27,139,229,1,3);
 }
+void cardFace(u8* data,u32 left,u32 top,u32 right,u32 bottom,u32 entryCut,u32 exitCut) {
+    for(u32 y=top;y<=bottom;++y) {
+        const u32 start=left+(y<top+entryCut?top+entryCut-y:0);
+        const u32 end=right-(y>bottom-exitCut?y-(bottom-exitCut):0);
+        infoRect(data,start,y,end-start+1,1,y==top+1?15:y==bottom?4:y==top||y==bottom-1?2:9);
+        infoPixel(data,start,y,2);
+        infoPixel(data,end,y,4);
+    }
+}
+void abilityTab(u8* data) {
+    // Small custom lettering fits above three rows of native-size text.
+    constexpr u8 rows[5][9]={
+        {14,30,7,8,7,31,7,31,15},
+        {17,17,2,8,2,4,2,16,16},
+        {31,30,2,8,2,4,2,30,14},
+        {17,17,2,8,2,4,2,16,1},
+        {17,30,7,15,7,4,7,31,30},
+    };
+    for(u32 y=0;y<10;++y)infoRect(data,117,78+y,58-(y>3?y-3:0),1,4);
+    constexpr u8 widths[9]={5,5,3,4,3,5,3,5,5};
+    u32 x=121;
+    for(u32 i=0;i<9;++i) {
+        for(u32 y=0;y<5;++y)for(u32 bit=0;bit<widths[i];++bit)
+            if(rows[y][i]&(1u<<(widths[i]-1-bit)))infoPixel(data,x+bit,80+y,15);
+        x+=widths[i]+1;
+    }
+}
+void threeCardBackground(u8* data) {
+    native<void(*)(u32,u32)>(0x2044cc5,0x2044c99)(3,0);
+    volatile u16* palette=reinterpret_cast<volatile u16*>(0x05000000);
+    const volatile u16* subBg=reinterpret_cast<const volatile u16*>(0x05000400);
+    const u16 face=subBg[17], foreground=palette[15*16+1], shadow=palette[15*16+2];
+    const u16 cardColors[16]={face,ThreeCardGridBase,RecessRim,ThreeCardGridMinor,
+        rgb(66,75,90),ThreeCardGridMajor,foreground,RecessLip,colors[8],face,
+        colors[10],colors[11],HiddenAbilityColor,RecessTint,shadow,rgb(248,250,250)};
+    palette[0]=face;
+    for(u32 i=0;i<16;++i) {
+        palette[9*16+i]=palette[8*16+i]=palette[13*16+i]=cardColors[i];
+        palette[14*16+i]=colors[i];
+    }
+    for(const auto& color:TutorBackgroundColors)palette[14*16+color.index]=color.value;
+    palette[14*16+1]=cardColors[1];palette[14*16+3]=cardColors[3];palette[14*16+5]=cardColors[5];
+    palette[8*16+6]=palette[15*16+15];palette[8*16+14]=rgb(33,33,40);
+    palette[8*16+13]=rgb(66,75,96);
+    palette[13*16+2]=rgb(33,33,40);palette[13*16+4]=rgb(112,126,139);
+    palette[13*16+10]=rgb(71,81,99);palette[13*16+13]=rgb(52,60,76);
+
+    infoRect(data,0,0,256,192,1);
+    for(u32 y=24;y<192;y+=8)infoRect(data,0,y,256,1,3);
+    for(u32 x=0;x<256;x+=8)infoRect(data,x,23,1,192-23,x%32?3:5);
+    for(const auto& row:TutorBackgroundRuns)if(row.y<23)
+        infoRect(data,0,row.y,256,row.height<23-row.y?row.height:23-row.y,row.color);
+    cardFace(data,2,ThreeCardTop,StatsRight,ThreeCardBottom,0,5);
+    cardFace(data,FamilyLeft,ThreeCardTop,253,FamilyBottom,4,3);
+    cardFace(data,FamilyLeft,AbilitiesTop,253,ThreeCardBottom,3,9);
+    if((customRegions&2) && state->statsValid)for(u32 y=33;y<ThreeCardBottom-1;++y)
+        infoRect(data,3,y,(y<38?27+y-33:32)-3,1,13);
+    if(customRegions&8)abilityTab(data);
+    for(u32 y=ThreeCardEvolutionY;y<192;++y) {
+        const u32 left=y<ThreeCardEvolutionY+8?ThreeCardFooterLeft-(y-ThreeCardEvolutionY):4;
+        infoRect(data,left,y,256-left,1,y==ThreeCardEvolutionY?4:10);
+        if(y>ThreeCardEvolutionY && y<160) {
+            const u32 end=155+y-ThreeCardEvolutionY;
+            infoRect(data,left,y,end-left,1,13);
+            infoPixel(data,end,y,4);
+        }
+        infoPixel(data,left,y,4);
+    }
+    infoRect(data,4,160,252,1,4);
+}
 u16* paletteMap() {
     u16* map=native<u16*(*)(u32)>(0x2045841,0x2045815)(2);
-    if(map)for(u32 y=5;y<24;++y)for(u32 x=0;x<32;++x)
+    if(map && threeCards)for(u32 y=3;y<24;++y)for(u32 x=0;x<32;++x) {
+        const u32 bank=y>=18?13:x<4 && y>=4 && (customRegions&2) && state->statsValid?8:9;
+        map[y*32+x]=u16((map[y*32+x]&0x0fff)|(bank<<12));
+    }
+    else if(map)for(u32 y=5;y<24;++y)for(u32 x=0;x<32;++x)
         map[y*32+x]=u16((map[y*32+x]&0x0fff)|((x>=14 && y>=10 && y<17?8:y<16?9:13)<<12));
     return map;
 }
@@ -659,55 +790,73 @@ void render() {
     if(!data)return;
     // A full opaque BG2 panel covers retail BG3; disable BG3 so transparent
     // icon pixels cannot reveal the old move bars or name plate underneath.
-    background(data);
+    if(threeCards)threeCardBackground(data);
+    else background(data);
+    const u32 iconY=upperIconY(), evolutionY=threeCards?ThreeCardEvolutionY:EvolutionY;
     volatile u16* palette=reinterpret_cast<volatile u16*>(0x05000000);
     if(customRegions&1)put(state->title,8,4);
     if((customRegions&1) && state->partyCue[0]!=End)put(state->partyCue,248-int(measure(state->partyCue)),4,(7<<10)|(3<<5));
     u16 text[128];
     if((customRegions&2) && state->statsValid)for(u32 i=0;i<6;++i) {
-        const u32 y=StatY+StatStep*i;put(state->labels[i],6,y,StatInk);
+        const u32 y=threeCards?33+17*i:StatY+StatStep*i, barX=threeCards?56:57;
+        if(threeCards) {
+            copyText(text,128,state->labels[i]);ellipsis(text,25);put(text,6,y,StatInk);
+            if(i){infoRect(data,4,y-1,27,1,4);infoRect(data,34,y-1,69,1,2);}
+        } else put(state->labels[i],6,y,StatInk);
         number(text,state->stats[i]);put(text,52-int(measure(text)),y,StatInk);
-        infoRect(data,57,y+4,46,8,8);
-        infoRect(data,57,y+4,statBar(state->stats[i]),8,10);
-        infoRect(data,57,y+4,statBar(state->stats[i]),2,11);
+        infoRect(data,barX,y+4,46,8,8);
+        infoRect(data,barX,y+4,statBar(state->stats[i]),8,10);
+        infoRect(data,barX,y+4,statBar(state->stats[i]),2,11);
     } else if(customRegions&2) {
         copyText(text,128,state->statsUnavailable);ellipsis(text,96);put(text,6,64,StatInk);
     }
+    selectedIconInk={};
     for(u32 i=0;(customRegions&4) && i<state->chain.count;++i) {
         const u32 x=iconX(i),slot=state->iconSlots[i];
         // Only the selected identity gets a frame. All native 32x32 icons
         // remain tile-aligned and unscaled, with no opaque default cards.
-        if(i==state->chain.selected) {
+        if(i==state->chain.selected && threeCards) {
+            if(state->iconsValid[slot])selectedIconInk=spareIconInk(state->icons[slot]);
+            drawRecessedTile(data,x,state->iconsValid[slot]);
+        } else if(i==state->chain.selected) {
             infoRect(data,x-2,CardTop,36,CardBottom-CardTop+1,7);
             infoRect(data,x-1,CardTop+1,34,CardBottom-CardTop-1,InsetInk);
         }
         if(state->iconsValid[slot]) {
             for(u32 t=0;t<16;++t)palette[(10+i)*16+t]=state->palettes[slot][t];
-        } else {asciiText(text,128,"?");put(text,x+12,IconY+8,InsetTextInk);}
+            if(threeCards && i==state->chain.selected) {
+                if(selectedIconInk.tint)palette[(10+i)*16+selectedIconInk.tint]=RecessTint;
+                if(selectedIconInk.rim)palette[(10+i)*16+selectedIconInk.rim]=RecessRim;
+            }
+        } else {asciiText(text,128,"?");put(text,x+12,iconY+8,InsetTextInk);}
         if(i+1<state->chain.count) {
             // A wider, explicit right-pointing arrow; no change to chain order.
-            infoRect(data,x+35,IconY+15,10,2,4);
-            for(u32 d=1;d<4;++d) {infoPixel(data,x+44-d,IconY+15-d,4);infoPixel(data,x+44-d,IconY+16+d,4);}
+            infoRect(data,x+35,iconY+15,10,2,4);
+            for(u32 d=1;d<4;++d) {infoPixel(data,x+44-d,iconY+15-d,4);infoPixel(data,x+44-d,iconY+16+d,4);}
         }
     }
     if(customRegions&4)drawIconPixels(data);
     for(u32 dot=0;(customRegions&4) && dot<3;++dot) {
-        if(state->chain.before)infoPixel(data,iconX(0)-7+dot*2,IconY+15,4);
-        if(state->chain.after)infoPixel(data,iconX(state->chain.count-1)+34+dot*2,IconY+15,4);
+        const u32 y=threeCards?44+dot*3:iconY+15;
+        if(state->chain.before)infoPixel(data,threeCards?115:iconX(0)-7+dot*2,y,4);
+        if(state->chain.after)infoPixel(data,threeCards?252:iconX(state->chain.count-1)+34+dot*2,y,4);
     }
     const u32 count=state->abilities.count?state->abilities.count:1;
     for(u32 i=0;(customRegions&8) && i<count;++i) {
         copyText(text,128,state->abilityNames[i]);
         if(state->abilities.count)infoTitleCase(text);
-        ellipsis(text,132);
-        put(text,120,AbilityY+16*i,state->abilities.hidden[i]?HiddenAbilityInk:InsetTextInk);
+        const u32 y=threeCards?ThreeCardAbilityY+15*i:AbilityY+16*i;
+        if(threeCards && i)infoRect(data,117,y,133,1,2);
+        ellipsis(text,threeCards?124:132);
+        put(text,120,y,state->abilities.hidden[i]?HiddenAbilityInk:InsetTextInk);
     }
+    const u32 footerX=evolutionTextX(), footerWidth=evolutionTextWidth(), detailY=evolutionY+(threeCards?1:0);
     if((customRegions&16) && state->pageCount) {
-        u32 headerWidth=240;
+        u32 headerWidth=footerWidth;
         if(state->pageCount>1) {
             asciiText(text,128,"A ");u32 n=2;n+=decimal(text+n,state->page+1);text[n++]='/';n+=decimal(text+n,state->pageCount);
             text[n]=End;
-            const u32 width=measure(text);put(text,248-int(width),EvolutionY);headerWidth-=width+8;
+            const u32 width=measure(text);put(text,EvolutionTextRight-int(width),evolutionY);headerWidth-=width+8;
         }
         const Page& p=state->pages[state->page];
         if(p.incoming)copyText(text,128,state->status);
@@ -716,12 +865,12 @@ void render() {
             ellipsis(a,(headerWidth-20)/2);ellipsis(b,(headerWidth-20)/2);u32 n=copyText(text,128,a);
             text[n++]=' ';text[n++]=0x2192;text[n++]=' ';copyText(text+n,128-n,b);
         }
-        ellipsis(text,headerWidth);put(text,8,EvolutionY);
+        ellipsis(text,headerWidth);put(text,footerX,evolutionY);
         u32 offset=p.offset;
-        for(u32 row=0;row<2;++row) {offset=wrapInfo(state->requirements[p.option],offset,text,128,240,measure);put(text,8,EvolutionY+16+row*16);}
+        for(u32 row=0;row<2;++row) {offset=wrapInfo(state->requirements[p.option],offset,text,128,footerWidth,measure);put(text,footerX,detailY+16+row*16);}
     } else if(customRegions&16) {
         u32 offset=0;
-        for(u32 row=0;row<3;++row){offset=wrapInfo(state->status,offset,text,128,240,measure);put(text,8,EvolutionY+row*16);}
+        for(u32 row=0;row<3;++row){offset=wrapInfo(state->status,offset,text,128,footerWidth,measure);put(text,footerX,row?detailY+row*16:evolutionY);}
     }
     void* window=at<void*>(state->work,0x38);
     native<void(*)(void*)>(0x2048271,0x2048245)(window);
@@ -730,7 +879,7 @@ void render() {
     // rectangles their original ROM palettes in the *CPU* map before upload.
     u16* map=paletteMap();
     if(map)for(u32 i=0;(customRegions&4) && i<state->chain.count;++i)if(state->iconsValid[state->iconSlots[i]])
-        for(u32 y=IconY/8;y<IconY/8+4;++y)for(u32 x=iconX(i)/8;x<iconX(i)/8+4;++x)
+        for(u32 y=iconY/8;y<iconY/8+4;++y)for(u32 x=iconX(i)/8;x<iconX(i)/8+4;++x)
             map[y*32+x]=u16((map[y*32+x]&0x0fff)|((10+i)<<12));
     native<void(*)(u32)>(0x2045ba9,0x2045b7d)(2);
 }
@@ -767,6 +916,7 @@ void infoInit(void* work,Request* request,const InfoContext* context) {
         return;
     }
     *state={};state->work=work;state->encounter=context!=nullptr;if(context)state->context=*context;
+    threeCards=!state->encounter && threeCardLayout(*request);
 #if !defined(GAME_B) && !defined(GAME_W)
     if(context){state->data=static_cast<SessionData*>(alloc(1,sizeof(SessionData)));if(state->data)*state->data={};}
 #endif
@@ -803,7 +953,7 @@ bool infoNavigate(void* work,Request* request,bool forward) {
     request->nextView=next;request->nextSlot=BrowseFamily;
     return true;
 }
-void infoEnd() {customRegions=63;InfoState* old=state;state=nullptr;if(old){release(old->graph);
+void infoEnd() {customRegions=63;threeCards=false;InfoState* old=state;state=nullptr;if(old){release(old->graph);
 #if !defined(GAME_B) && !defined(GAME_W)
     if(old->data){for(auto& f:old->data->files)release(f.data);for(auto& f:old->data->banks)release(f.data);release(old->data);}
 #endif

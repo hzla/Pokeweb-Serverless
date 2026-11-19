@@ -278,9 +278,11 @@ export function pokemonStreamEntries(project: ProjectState, overrides: PwanAnima
       let mani = data.fullSizeMani;
       if (!mani) {
         const pal = pwanPalette(data.pwanBytes);
-        const own = !samePalette(pal, normal) || !samePalette(pal, shiny);
+        const shinyColors = data.shinyPaletteBgr555?.length === 16 ? data.shinyPaletteBgr555 : undefined;
+        const own = Boolean(shinyColors) || !samePalette(pal, normal) || !samePalette(pal, shiny);
         const palette = pal.slice(); palette[0] = normal?.[0] ?? pal[0]!;
-        mani = pwanToMani(data.pwanBytes, own ? { normal: palette, shiny: palette } : undefined);
+        const shinyPalette = shinyColors ? shinyColors.slice() : palette.slice(); shinyPalette[0] = palette[0]!;
+        mani = pwanToMani(data.pwanBytes, own ? { normal: palette, shiny: shinyPalette } : undefined);
       }
       const entry = { arc: ARC_POKEGRA, flags: 0, sheetFile: base + member, shinyNclrFile: base + 19, mani };
       entries.push(entry);
@@ -381,7 +383,9 @@ export function hydrateAnimStreamsFromRom(project: ProjectState, rom: NintendoDS
       }
       const palette = mani.normalPalette ?? readPalette(sprites?.files[Math.floor(sheetFile / FILES_PER_SPRITE) * FILES_PER_SPRITE + 18]);
       if (!palette) return undefined;
-      return sideFromPwan(maniToPwan(archive, mani, palette), `${ANIM_STREAMS_PATH}:${arc}:${sheetFile}`);
+      const restored = sideFromPwan(maniToPwan(archive, mani, palette), `${ANIM_STREAMS_PATH}:${arc}:${sheetFile}`);
+      const shiny = mani.normalPalette && mani.shinyPalette && !samePalette(mani.normalPalette, mani.shinyPalette) ? mani.shinyPalette.slice() : undefined;
+      return shiny ? { ...restored, shinyPaletteBgr555: shiny } : restored;
     };
     state.overrides = index.flatMap(({ speciesId, formIndex, assetIndex }) => {
       const front = side(assetIndex * FILES_PER_SPRITE + 2, ARC_POKEGRA), back = side(assetIndex * FILES_PER_SPRITE + 11, ARC_POKEGRA);

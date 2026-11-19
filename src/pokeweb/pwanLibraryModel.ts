@@ -258,6 +258,7 @@ function clonePwanSide(side: PwanOverrideSide): PwanOverrideSide {
     scaleBasePwanBytes: side.scaleBasePwanBytes?.slice(),
     offsetBasePwanBytes: side.offsetBasePwanBytes?.slice(),
     paletteBgr555: side.paletteBgr555.slice(),
+    shinyPaletteBgr555: side.shinyPaletteBgr555?.slice(),
     notes: side.notes ? [...side.notes] : undefined,
   };
 }

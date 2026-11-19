@@ -1193,3 +1193,172 @@
 .pwan-page .btn.-primary { background: var(--amber); border-color: var(--amber); color: var(--on-amber); }
 .pwan-warning { background: var(--ink-0); border: 0; border-left: 3px solid #ffb86c; border-radius: 0; color: #d6d7e2; }
 .pwan-empty { background: transparent; border: 0; color: #d6d7e2; }
+
+/* Colors panel: a side's 16 colours for normal and shiny Pokémon, with the art showing where each is used. */
+.pwan-colors {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #333a4c;
+  border-radius: 6px;
+  padding: 8px;
+  background: rgb(18 22 32 / 48%);
+}
+
+.pwan-colors-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pwan-colors-head h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.pwan-colors-kind {
+  display: flex;
+  gap: 4px;
+}
+
+.pwan-colors-kind .pwan-segment-button {
+  min-height: 26px;
+  padding: 3px 10px;
+}
+
+.pwan-colors-hint,
+.pwan-colors-note {
+  margin: 0;
+  color: var(--pwan-muted);
+  font-size: 12px;
+}
+
+.pwan-colors-note.-error {
+  color: #ff8f8f;
+}
+
+.pwan-colors-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.pwan-colors-art {
+  max-width: 100%;
+  width: 192px;
+  border: 1px solid #333a4c;
+  border-radius: 4px;
+  background:
+    linear-gradient(45deg, #2b3142 25%, transparent 25%),
+    linear-gradient(-45deg, #2b3142 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #2b3142 75%),
+    linear-gradient(-45deg, transparent 75%, #2b3142 75%);
+  background-color: #1f2433;
+  background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+  background-size: 12px 12px;
+  image-rendering: pixelated;
+  cursor: crosshair;
+}
+
+.pwan-colors-side {
+  display: grid;
+  flex: 1 1 220px;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pwan-colors-swatches {
+  display: grid;
+  grid-template-columns: repeat(8, 28px);
+  gap: 5px;
+}
+
+.pwan-colors-swatch {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgb(238 242 251 / 24%);
+  border-radius: 4px;
+  padding: 0;
+  background-clip: padding-box;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 35%);
+  cursor: pointer;
+}
+
+.pwan-colors-swatch span {
+  position: absolute;
+  right: 2px;
+  bottom: 1px;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: 0 0 2px #000, 0 0 2px #000;
+}
+
+.pwan-colors-swatch:hover:not(:disabled),
+.pwan-colors-swatch.-active {
+  border-color: var(--pwan-accent);
+  box-shadow: 0 0 0 2px rgb(26 188 156 / 35%), inset 0 0 0 1px rgb(0 0 0 / 42%);
+}
+
+.pwan-colors-swatch.-transparent {
+  background:
+    linear-gradient(45deg, #50576a 25%, transparent 25%),
+    linear-gradient(-45deg, #50576a 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #50576a 75%),
+    linear-gradient(-45deg, transparent 75%, #50576a 75%);
+  background-color: #252b3b;
+  background-position: 0 0, 0 5px, 5px -5px, -5px 0;
+  background-size: 10px 10px;
+  cursor: default;
+}
+
+.pwan-colors-edit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.pwan-colors-picker {
+  width: 40px;
+  height: 30px;
+  border: 1px solid #3b4254;
+  border-radius: 4px;
+  padding: 2px;
+  background: var(--pwan-panel-strong);
+  cursor: pointer;
+}
+
+.pwan-colors-hex {
+  width: 84px;
+  border: 1px solid #3b4254;
+  border-radius: 4px;
+  padding: 5px 6px;
+  background: var(--pwan-panel-strong);
+  color: inherit;
+  font: inherit;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+.pwan-colors-555 {
+  color: var(--pwan-muted);
+  font-size: 12px;
+}
+
+.pwan-colors-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.pwan-colors-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+}

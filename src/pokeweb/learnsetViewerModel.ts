@@ -14,7 +14,7 @@ import type { ProjectState } from "./projectStore";
 import { parseRpm, type RpmModule } from "./rpm";
 import { addTextEntries, commitTextBank, getTextBank, parseTextEntryId } from "./textModel";
 
-export const LEARNSET_VIEWER_VERSION = "1.8.0";
+export const LEARNSET_VIEWER_VERSION = manifestData.version;
 export const LEARNSET_INFO_MESSAGES = infoMessages;
 const URLS = {
   W2: [new URL("../assets/codeinjection/LearnsetMenuW2.dll", import.meta.url), new URL("../assets/codeinjection/LearnsetViewerW2.dll", import.meta.url)],
@@ -41,10 +41,12 @@ const isVersion = (v: unknown): v is Version => v === "B" || v === "W" || v === 
 const isBw1 = (v: Version) => v === "B" || v === "W";
 const MAGIC = [0x4c, 0x53, 0x56, 0x4d, 0x53, 0x47, 0x31, 0];
 export type LearnsetMessageIds = { menu: number; empty: number; error: number };
+export type LearnsetUpperLayout = "classic" | "three-cards";
 export type LearnsetViewerStatus = {
   supported: boolean; compatible: boolean; checked: boolean; installed: boolean; partial: boolean;
   updateAvailable: boolean; canUninstall: boolean; pmcInstalled: boolean; message: string;
   messageIds?: LearnsetMessageIds;
+  upperLayout?: LearnsetUpperLayout;
 };
 export function learnsetViewerPaths(version: Version): string[] {
   return [`patches/LearnsetMenu${version}.dll`, `patches/LearnsetViewer${version}.dll`];
@@ -66,6 +68,15 @@ export function configureLearnsetViewerDll(bytes: Uint8Array, ids: LearnsetMessa
     writeU16(output, offset + 12 + i * 4, value ^ 0xffff);
   }
   return output;
+}
+export function readLearnsetUpperLayout(bytes: Uint8Array): LearnsetUpperLayout | undefined {
+  try {
+    const value = readU16(bytes, configOffset(bytes) + 22);
+    return value === 0 ? "classic" : value === 1 ? "three-cards" : undefined;
+  } catch { return; }
+}
+function configureLearnsetUpperLayout(bytes: Uint8Array, layout: LearnsetUpperLayout): void {
+  writeU16(bytes, configOffset(bytes) + 22, layout === "three-cards" ? 1 : 0);
 }
 function infoConfigOffset(bytes: Uint8Array): number {
   const marker = new TextEncoder().encode("LSVINF1\0");
@@ -198,7 +209,8 @@ export function getLearnsetViewerStatus(project: ProjectState, bytes = project.o
       if (isBw1(version) && !recognizedModule(rpm, version, group)) return { ...status,
         message: `Unrecognized Learnset companion: ${module.path}. Restore its verified DLL before updating.` };
       const ids = readConfiguration(data);
-      if (!validModule(rpm, version, group) || !ids || (group === "Viewer" && !validInfoConfiguration(data))) status.updateAvailable = true;
+      if (group === "Viewer") status.upperLayout = isBw1(version) ? "classic" : readLearnsetUpperLayout(data);
+      if (!validModule(rpm, version, group) || !ids || (group === "Viewer" && (!validInfoConfiguration(data) || !status.upperLayout))) status.updateAvailable = true;
       if (ids && status.messageIds && (ids.menu !== status.messageIds.menu || ids.empty !== status.messageIds.empty || ids.error !== status.messageIds.error)) status.updateAvailable = true;
       status.messageIds ??= ids;
       continue;
@@ -251,7 +263,9 @@ function ensureMessage(project: ProjectState, bankId: number, value: string): nu
   commitTextBank(project, "message_texts", bankId);
   return id;
 }
-export async function installLearnsetViewer(project: ProjectState, options: { enableCommand?: boolean } = {}): Promise<LearnsetMessageIds> {
+export async function installLearnsetViewer(project: ProjectState, options: {
+  enableCommand?: boolean; upperLayout?: LearnsetUpperLayout;
+} = {}): Promise<LearnsetMessageIds> {
   const romBytes = project.originalRomBytes ?? await loadActiveRomBytes();
   if (!romBytes) throw new Error("Reload the ROM before installing Learnset Viewer.");
   const staged: ProjectState = { ...project, originalRomBytes: romBytes, arm9: project.arm9.slice(),
@@ -267,6 +281,9 @@ export async function installLearnsetViewer(project: ProjectState, options: { en
   const paths = learnsetViewerPaths(version);
   const priorMenu = moduleBytes(staged, rom, paths[0]);
   const priorViewer = moduleBytes(staged, rom, paths[1]);
+  if (isBw1(version) && options.upperLayout === "three-cards") throw new Error("The three-card layout is available for Black 2 and White 2.");
+  const upperLayout = isBw1(version) ? "classic" : options.upperLayout
+    ?? (priorViewer ? status.upperLayout ?? "classic" : "three-cards");
   const custom = priorMenu && readCustomUiConfig(priorMenu);
   const archives = new Map<string, NARC>();
   for (const resource of profile.resources) {
@@ -313,7 +330,11 @@ export async function installLearnsetViewer(project: ProjectState, options: { en
   paths.forEach((path, i) => {
     let configured = configureLearnsetViewerDll(modules[i]!, ids);
     if (custom?.validMenu || options.enableCommand === false) configured = configureCustomUi(configured, custom?.enabled ?? false, custom?.validMenu ? custom.menu : ids.menu, options.enableCommand ?? true);
-    stageCodeInjectionDll(staged, path.split("/").pop()!, i === 1 ? configureLearnsetInfoDll(configured, infoMessageIds) : configured, "patches", romBytes);
+    if (i === 1) {
+      configured = configureLearnsetInfoDll(configured, infoMessageIds);
+      if (!isBw1(version)) configureLearnsetUpperLayout(configured, upperLayout);
+    }
+    stageCodeInjectionDll(staged, path.split("/").pop()!, configured, "patches", romBytes);
   });
   staged.codeInjection ??= {};
   staged.codeInjection.learnsetViewer = { runtimeVersion: profile.version ?? LEARNSET_VIEWER_VERSION, menuBankId: menuBank, viewerBankId: viewerBank, messageIds: ids, infoMessageIds };

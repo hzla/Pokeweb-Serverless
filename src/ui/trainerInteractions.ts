@@ -21,8 +21,9 @@ import {
   updateTrainerPokemonField,
 } from "../pokeweb/trainerModel";
 import { getTrainerCustomizationStatus, getTrainerMemberSettings, trainerCustomizationNeedsInstall, updateTrainerMemberSettings, type TrainerMemberSettings } from "../pokeweb/trainerCustomizationModel";
+import { validateTrainerNickname } from "../pokeweb/trainerNicknames";
 import { updateTrainerText } from "../pokeweb/trainerTextModel";
-import { followTrainerSlotMoves, getTrainerSlotMovePools, setTrainerSlotMovePools, trainerSlotMoves } from "../pokeweb/trainerRosterModel";
+import { followTrainerSlotMoves, getTrainerSlotMovePools, getTrainerSlotNickname, setTrainerSlotNickname, setTrainerSlotMovePools, trainerSlotMoves } from "../pokeweb/trainerRosterModel";
 import { emptyTrainerMovePools, hasMoveAlternatives, TRAINER_MOVE_WEIGHT_MAX, type TrainerMovePools } from "../pokeweb/trainerMovePools";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml, selectText } from "./dom";
@@ -605,6 +606,11 @@ export function attachTrainerDetail(
   };
 
   detail.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && event.target instanceof HTMLInputElement && event.target.dataset.trainerNickname !== undefined) {
+      event.preventDefault();
+      event.target.blur();
+      return;
+    }
     const card = (event.target as HTMLElement).closest<HTMLElement>("[data-party-strip] [data-slot]");
     if (!card || (event.key !== "ArrowLeft" && event.key !== "ArrowRight")) return;
     event.preventDefault();
@@ -614,6 +620,43 @@ export function attachTrainerDetail(
 
   detail.addEventListener("change", (event) => {
     const target = event.target as HTMLElement;
+    if (target instanceof HTMLInputElement && target.dataset.trainerNickname !== undefined) {
+      const nickname = target.value.trim();
+      try {
+        validateTrainerNickname(nickname);
+      } catch (error) {
+        target.value = target.defaultValue;
+        window.alert(error instanceof Error ? error.message : String(error));
+        return;
+      }
+      const current = view();
+      const slot = selection.slot;
+      const member = current.pool?.members[slot];
+      const previous = member && "pokemon" in member ? member.pokemon.nickname ?? "" : getTrainerSlotNickname(project, trainerId(), slot);
+      if (nickname === previous) {
+        target.value = nickname;
+        return;
+      }
+      const id = trainerId(), poolId = current.poolId;
+      withCustomization(() => {
+        try {
+          if (poolId === undefined) setTrainerSlotNickname(project, id, slot, nickname);
+          else {
+            editRosterPool(project, poolId, pool => {
+              const candidate = pool.members[slot];
+              if (!candidate || !("pokemon" in candidate)) throw new Error("Choose an editable pool candidate.");
+              if (nickname) candidate.pokemon.nickname = nickname;
+              else delete candidate.pokemon.nickname;
+            });
+          }
+          changed();
+        } catch (error) {
+          window.alert(error instanceof Error ? error.message : String(error));
+        }
+        renderParty();
+      });
+      return;
+    }
     if (target instanceof HTMLInputElement && target.dataset.moveWeight) {
       const [slot, option] = target.dataset.moveWeight.split(":") as [string, string];
       const weight = Math.round(target.valueAsNumber);

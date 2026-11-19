@@ -65,10 +65,21 @@ inline void* stringCreate(u32 size) { return native<void*(*)(u32,u32)>(0x204855d
 inline void stringSet(void* p, const u16* text) { native<void(*)(void*,const u16*)>(0x2048641,0x2048615)(p,text); }
 inline const u16* stringText(void* p) { return native<const u16*(*)(void*)>(0x204871d,0x20486f1)(p); }
 struct Config {
-    u8 magic[8]; u16 version; u16 menu; u16 menuXor; u16 empty; u16 emptyXor; u16 error; u16 errorXor; u16 reserved;
+    u8 magic[8]; u16 version; u16 menu; u16 menuXor; u16 empty; u16 emptyXor; u16 error; u16 errorXor; u16 upperLayout;
 };
 static_assert(sizeof(Config) == 24, "Installer config");
 extern "C" volatile Config learnsetConfig;
+inline bool threeCardLayout(const Request& request) {
+#if defined(GAME_B) || defined(GAME_W)
+    (void)request;
+    return false;
+#else
+    return request.reserved!=0x5057 && learnsetConfig.upperLayout==1;
+#endif
+}
+constexpr u16 ThreeCardGridBase=4|(4<<5)|(6<<10);
+constexpr u16 ThreeCardGridMinor=5|(6<<5)|(7<<10);
+constexpr u16 ThreeCardGridMajor=6|(7<<5)|(9<<10);
 inline bool configured(u16 value, u16 inverse) { return value != End && u16(value ^ inverse) == End; }
 
 // Shared bounded reader: field initialization uses heap 4; in-place viewer

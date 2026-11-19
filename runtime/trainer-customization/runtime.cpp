@@ -40,6 +40,48 @@ static void put(void* mon, u32 field, u32 value) {
     thumb<void(*)(void*, u32, u32)>(PARTY_FUNCTION(0x0201cd48))(mon, field, value);
 }
 
+// PWTN has a 16-byte header and sorted records containing a 32-bit member key
+// followed by eleven UTF-16 units, including the native 0xFFFF terminator.
+static bool validNickname(const u16* name) {
+    for (u32 i = 0; i < 11; ++i) {
+        const u32 unit = name[i];
+        if (unit == 0xffff) return i != 0;
+        if (unit < 0x20 || (unit >= 0x7f && unit <= 0x9f) || (unit >= 0xd800 && unit <= 0xdfff) || unit >= 0xfff0)
+            return false;
+    }
+    return false;
+}
+
+static void setNickname(void* mon, u32 key) {
+    RomFile file;
+    if (!file.open("rom:/battle/trainer-nicknames.bin")) return;
+    u8 header[16], entryKey[4];
+    u16 name[11];
+    constexpr u32 stride = sizeof(entryKey) + sizeof(name);
+    bool found = false;
+    if (file.read(header, sizeof(header)) && word(header) == 0x4e545750 && half(header + 4) == 1
+        && half(header + 6) == stride && !word(header + 12)) {
+        const u32 count = word(header + 8);
+        if (count <= 0x100000 && file.length() == sizeof(header) + count * stride) {
+            u32 low = 0, high = count;
+            while (low < high) {
+                const u32 middle = (low + high) / 2;
+                if (!file.seek(sizeof(header) + middle * stride) || !file.read(entryKey, sizeof(entryKey))) break;
+                const u32 current = word(entryKey);
+                if (current < key) low = middle + 1;
+                else if (current > key) high = middle;
+                else {
+                    found = file.read(name, sizeof(name)) && validNickname(name);
+                    break;
+                }
+            }
+        }
+    }
+    file.close();
+    // The native raw nickname setter copies the string and updates the nickname flag.
+    if (found) put(mon, 0x74, reinterpret_cast<u32>(name));
+}
+
 // battle/trainer-move-pools.bin: a 16-byte header (PWMP, version 1, key size 8, key count, payload size), keys
 // sorted by source and index (u16 source, u8 index, u8 zero, u32 payload offset), then one entry per key: four
 // alternative counts, four 16-bit weights for each slot's own move, and the alternatives as 16-bit move and weight.
@@ -196,9 +238,10 @@ extern "C" __attribute__((visibility("default"))) u8* CustomizeBattleMon(
     if (!trainer) return create(mon, monId, heap);
     const u8* direct = nullptr;
     const u32 partySlot = slot;
-    u32 movesKey = 0;
-    const u32 source = trainerRosterSource(setup, client, word(trainer), slot, direct, movesKey);
-    rollMoves(setup, client, partySlot, mon, movesKey);
+    u32 memberKey = 0;
+    const u32 source = trainerRosterSource(setup, client, word(trainer), slot, direct, memberKey);
+    rollMoves(setup, client, partySlot, mon, memberKey);
+    setNickname(mon, memberKey);
     if (direct) {
         settings = {direct[0], direct[1], direct[2], direct[3], {direct[4], direct[5]}};
     } else if (!readSettings(source, slot, settings)) {

@@ -1,9 +1,9 @@
 {
   "B2": {
     "gameCode": "IREO",
-    "version": "2.7.0",
+    "version": "2.8.0",
     "hook": 35245458,
-    "sha256": "7bbaa641cd4453a670326f31be41b11e8108c31298a4c5745ebf3ef9bcd26887",
+    "sha256": "e742e3b2b3c586e03700a19cae5470ef1ce78f0ee1978c7051b77b496feebabd",
     "previousSha256": "e9c9406d219edd77f858ac5a8462d1e3720b342675a5327d2c9bd82599e6a5e5",
     "weightedSha256": "78d294c12ea62e805dbd4fe911ff78bf12b0b4e0d39c03367165ccf5669e8f47",
     "conditionalSha256": "03f9ee4a3310f489af634e47cc3296b0591068e0a1deedc3567de0ab1b74d2f2",
@@ -11,6 +11,7 @@
     "directPoolsSha256": "78f4a8f38730a7a91db66c715a298b6211babb508df861f1243b8da365bc3eb1",
     "fixedPartiesSha256": "32bec2170e380b701e4262706870baf5ea9332677ac92f30b51fe5a0873bf034",
     "slotPoolsSha256": "7a7abf9e2722a869668ec7b391a8bb829eac9bc4c91118e5f8743b3e8ad74784",
+    "movePoolsSha256": "7bbaa641cd4453a670326f31be41b11e8108c31298a4c5745ebf3ef9bcd26887",
     "legacySha256": "a4ce5c8bdab4bf5eefa07faedfc70cc4c42e0ab8886fa53eca2ea594d484f7cf",
     "arm9": [
       {
@@ -22,6 +23,11 @@
         "address": 33672476,
         "size": 12,
         "sha256": "f4e79db8a467224b50f01d4431b1f5244f1e3086d3f09cfd5f401f30ea1a9087"
+      },
+      {
+        "address": 33679674,
+        "size": 20,
+        "sha256": "b1f930a707eca97923230324d0b88e57e2eee1fb5d95e1154b710b0b26dd573c"
       },
       {
         "address": 34134120,
@@ -166,9 +172,9 @@
   },
   "W2": {
     "gameCode": "IRDO",
-    "version": "2.7.0",
+    "version": "2.8.0",
     "hook": 35245522,
-    "sha256": "82b64bc478f1592f5e6abfce7429ad6a66dceef966cb23e58db172178bb39ec1",
+    "sha256": "467c451492255066803735f25ecba497a721208754cc04599f94e3f1fba5730f",
     "previousSha256": "22a2ffb6dd7a56b92b560725e94806b68ad9050f9907fb9f7d3734577d5f9328",
     "weightedSha256": "3b74353330cec72d879505c775e6f14c56872847e1a844ddfdec29b12379acf1",
     "conditionalSha256": "96b1fb068bb87121c4f9eeab21de6566c18b4c3c82f7a80f1ca8ff0a99607668",
@@ -176,6 +182,7 @@
     "directPoolsSha256": "5ccc43e52b9693bf758675c3438a131505145c45f7dc6266aa035e81f388792b",
     "fixedPartiesSha256": "e34b0cc0556a28aac7506eea008c8e278f9b78862f024a0bb4b6bbc568ae2c2c",
     "slotPoolsSha256": "d9d6176b48c3704a89da37708a1d8ff2ea0feebe3e6aa375bd1d959c98102184",
+    "movePoolsSha256": "82b64bc478f1592f5e6abfce7429ad6a66dceef966cb23e58db172178bb39ec1",
     "legacySha256": "5f6b0fa9d34056ca556ed1745d48ee4f45a09b6d9c1ccd28eb1887375d68b774",
     "arm9": [
       {
@@ -187,6 +194,11 @@
         "address": 33672520,
         "size": 12,
         "sha256": "f4e79db8a467224b50f01d4431b1f5244f1e3086d3f09cfd5f401f30ea1a9087"
+      },
+      {
+        "address": 33679718,
+        "size": 20,
+        "sha256": "b1f930a707eca97923230324d0b88e57e2eee1fb5d95e1154b710b0b26dd573c"
       },
       {
         "address": 34134164,

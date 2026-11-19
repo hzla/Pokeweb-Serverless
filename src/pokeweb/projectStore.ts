@@ -289,6 +289,12 @@ export type PwanOverrideSide = {
   timelineCount: number;
   totalTicks: number;
   paletteBgr555: Uint16Array;
+  /**
+   * Shiny colours for a 96x96 side under the streaming runtime, numbered like `paletteBgr555` (index 0 unused); none
+   * means shiny Pokémon show the normal colours. A full-size side keeps its shiny colours in `fullSizeMani`, and this
+   * then only colours its 96x96 preview (pwanSidePalettes.ts).
+   */
+  shinyPaletteBgr555?: Uint16Array;
   speedScale?: number;
   framesPerSecond?: number;
   scale?: number;

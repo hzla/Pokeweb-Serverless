@@ -3,10 +3,10 @@ import { readU16 } from "../nds/binary";
 import { decodeTrainerPools, findSlotPoolTeam, TRAINER_POOLS_PATH, trainerPoolSource, type TrainerPartyPool } from "../pokeweb/trainerPartyPools";
 import {
   copyPoolForTrainer, createAlternateParty, createPool, editPoolMemberField, editRosterPool, linkRoster, removeRoster, rollPoolTeam,
-  rosterPool, rosterPoolProblem, rosterRules, ruleDraft, saveRules, setRosterWeight,
+  poolPokemonFromTrainerSlot, rosterPool, rosterPoolProblem, rosterRules, ruleDraft, saveRules, setRosterWeight,
 } from "../pokeweb/trainerRosterHub";
-import { getTrainerPartyPools, getTrainerRosterChoices, getTrainerRosterRules } from "../pokeweb/trainerRosterModel";
-import { addTrainer, addTrainerPokemon, updateTrainerPokemonField } from "../pokeweb/trainerModel";
+import { getTrainerPartyPools, getTrainerRosterChoices, getTrainerRosterRules, getTrainerSlotNickname, setTrainerSlotNickname } from "../pokeweb/trainerRosterModel";
+import { addTrainer, addTrainerPokemon, deleteTrainerPokemon, duplicateTrainerPokemon, moveTrainerPokemon, updateTrainerPokemonField } from "../pokeweb/trainerModel";
 import { trainerMaxHp, trainerStartingHp } from "../pokeweb/trainerSlotFacts";
 import { makeTrainerTestProject } from "./trainerTestProject";
 
@@ -146,6 +146,41 @@ describe("roster hub", () => {
     expect(drawing(0.999, 0.999)).toEqual([0, 2]);
     expect(drawing(0, 0.999)).toEqual([1, 0]);
     expect(drawing(0, 0)).toEqual([1, 2]);
+  });
+
+  it("preserves trainer nicknames when slots are copied, moved, deleted, or used to create an alternate", () => {
+    const project = makeTrainerTestProject();
+    setTrainerSlotNickname(project, 1, 0, "Éclair");
+    expect(() => setTrainerSlotNickname(project, 1, 0, "Elevenchars")).toThrow(/at most 10/);
+    expect(() => setTrainerSlotNickname(project, 1, 0, "Bolt 🐾")).toThrow(/DS text/);
+    duplicateTrainerPokemon(project, 1, 0);
+    setTrainerSlotNickname(project, 1, 1, "Sparky");
+    moveTrainerPokemon(project, 1, 0, 1);
+    expect(getTrainerSlotNickname(project, 1, 0)).toBe("Sparky");
+    expect(getTrainerSlotNickname(project, 1, 1)).toBe("Éclair");
+    const clone = addTrainer(project, 1).id;
+    expect(getTrainerSlotNickname(project, clone, 1)).toBe("Éclair");
+    deleteTrainerPokemon(project, 1, 0);
+    expect(getTrainerSlotNickname(project, 1, 0)).toBe("Éclair");
+    expect(getTrainerSlotNickname(project, 1, 1)).toBe("");
+
+    const alternate = createAlternateParty(project, 1);
+    const pool = createPool(project, 1);
+    expect(poolPokemonFromTrainerSlot(project, 1, 0).nickname).toBe("Éclair");
+    expect(getTrainerPartyPools(project).get(alternate)?.members[0]).toMatchObject({ pokemon: { nickname: "Éclair" } });
+    expect(editRosterPool(project, pool, (draft) => {
+      const member = draft.members[0];
+      if (member && "pokemon" in member) member.pokemon.nickname = "Seed";
+    }).saved).toBe(true);
+    setTrainerSlotNickname(project, 1, 0, "");
+    expect(getTrainerSlotNickname(project, 1, 0)).toBe("");
+    expect(getTrainerPartyPools(project).get(pool)?.members[0]).toMatchObject({ pokemon: { nickname: "Seed" } });
+    expect(getTrainerPartyPools(project).get(alternate)?.members[0]).toMatchObject({ pokemon: { nickname: "Éclair" } });
+    editRosterPool(project, pool, (draft) => {
+      const member = draft.members[0];
+      if (member && "pokemon" in member) delete member.pokemon.nickname;
+    });
+    expect(getTrainerPartyPools(project).get(pool)?.members[0]).not.toHaveProperty("pokemon.nickname");
   });
 
   it("works out maximum and starting HP like the battle does", () => {

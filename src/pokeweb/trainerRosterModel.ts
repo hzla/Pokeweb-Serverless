@@ -16,6 +16,8 @@ import {
   trainerMovePoolSource, type TrainerMovePools,
 } from "./trainerMovePools";
 
+import { decodeTrainerNicknames, encodeTrainerNicknames, TRAINER_NICKNAMES_PATH, validateTrainerNickname } from "./trainerNicknames";
+
 export const TRAINER_ROSTERS_PATH = "battle/trainer-rosters.bin";
 const RULES_PATH = "battle/trainer-roster-rules.bin";
 export const TRAINER_ROSTER_MAX_RULES = 8;
@@ -42,7 +44,7 @@ const sources = new WeakMap<ProjectState, Map<string, { fileId: number; bytes: U
 export function hydrateTrainerRosters(project: ProjectState, rom: NintendoDSRom): void {
   if (project.session.baseRom !== "BW2") return;
   const files = new Map<string, { fileId: number; bytes: Uint8Array }>();
-  for (const path of [TRAINER_ROSTERS_PATH, RULES_PATH, TRAINER_POOLS_PATH, TRAINER_MOVE_POOLS_PATH]) {
+  for (const path of [TRAINER_ROSTERS_PATH, RULES_PATH, TRAINER_POOLS_PATH, TRAINER_MOVE_POOLS_PATH, TRAINER_NICKNAMES_PATH]) {
     const fileId = rom.filenames.idOf(path);
     if (fileId !== undefined) files.set(path, { fileId, bytes: rom.files[fileId].slice() });
   }
@@ -298,15 +300,78 @@ export function setTrainerRosterRules(project: ProjectState, trainer: number, ru
 export function getTrainerPartyPools(project: ProjectState): Map<number, TrainerPartyPool> {
   const pools: Map<number, TrainerPartyPool> = decodeTrainerPools(currentTable(project, undefined, TRAINER_POOLS_PATH));
   const moves = readMovePools(project);
-  if (moves.size) {
+  const names = readNicknames(project);
+  if (moves.size || names.size) {
     for (const [id, pool] of pools) {
+      const source = trainerPoolSource(id);
       pool.members.forEach((member, index) => {
-        const value = "pokemon" in member ? moves.get(trainerMovePoolKey(trainerPoolSource(id), index)) : undefined;
-        if (value && "pokemon" in member) member.pokemon.movePools = value;
+        if (!("pokemon" in member)) return;
+        const key = trainerMovePoolKey(source, index);
+        const alternatives = moves.get(key);
+        const nickname = names.get(key);
+        if (alternatives) member.pokemon.movePools = alternatives;
+        if (nickname) member.pokemon.nickname = nickname;
       });
     }
   }
   return pools;
+}
+
+const nicknameCache = new WeakMap<Uint8Array, ReadonlyMap<number, string>>();
+
+function readNicknames(project: ProjectState): ReadonlyMap<number, string> {
+  const bytes = currentTable(project, undefined, TRAINER_NICKNAMES_PATH);
+  if (!bytes) return new Map();
+  const cached = nicknameCache.get(bytes);
+  if (cached) return cached;
+  let names: Map<number, string>;
+  try {
+    names = decodeTrainerNicknames(bytes);
+  } catch {
+    names = new Map();
+  }
+  nicknameCache.set(bytes, names);
+  return names;
+}
+
+function saveNicknames(project: ProjectState, names: ReadonlyMap<number, string>): void {
+  const current = currentTable(project, undefined, TRAINER_NICKNAMES_PATH);
+  if (!current && !names.size) return;
+  const bytes = encodeTrainerNicknames(names);
+  if (current?.length === bytes.length && bytes.every((byte, index) => byte === current[index])) return;
+  stageTable(project, bytes, undefined, TRAINER_NICKNAMES_PATH);
+}
+
+export function getTrainerSlotNickname(project: ProjectState, trainer: number, slot: number): string {
+  return readNicknames(project).get(trainerMovePoolKey(trainer, slot)) ?? "";
+}
+
+export function setTrainerSlotNickname(project: ProjectState, trainer: number, slot: number, nickname: string): void {
+  validateTrainer(project, trainer);
+  if (!Number.isInteger(slot) || slot < 0 || slot >= Math.min(project.trpokInfo[trainer]?.numPokemon ?? 0, 6))
+    throw new Error("Trainer Pokémon slot does not exist.");
+  validateTrainerNickname(nickname);
+  const names = decodeTrainerNicknames(currentTable(project, undefined, TRAINER_NICKNAMES_PATH));
+  const key = trainerMovePoolKey(trainer, slot);
+  const previous = names.get(key) ?? "";
+  if (previous === nickname) return;
+  if (nickname) names.set(key, nickname);
+  else names.delete(key);
+  saveNicknames(project, names);
+  recordFieldChange(project, "trpok", `Trainer ${trainer}`, `Pokémon ${slot + 1} nickname`, previous, nickname,
+    { key: `trainer:${trainer}:pokemon:${slot}:nickname` });
+}
+
+export function remapTrainerSlotNicknames(project: ProjectState, sourceId: number, targetId: number, slots: readonly (number | undefined)[]): void {
+  const saved = readNicknames(project);
+  if (!saved.size) return;
+  const names = new Map(saved);
+  const moved = slots.map(slot => slot === undefined ? undefined : names.get(trainerMovePoolKey(sourceId, slot)));
+  for (let slot = 0; slot < 6; ++slot) names.delete(trainerMovePoolKey(targetId, slot));
+  moved.forEach((name, slot) => {
+    if (name && slot < 6) names.set(trainerMovePoolKey(targetId, slot), name);
+  });
+  saveNicknames(project, names);
 }
 
 // ---------- Move pools ----------
@@ -443,6 +508,18 @@ export function setTrainerPartyPool(project: ProjectState, id: number, pool: Tra
     pools.delete(id);
   }
   const before = describePool(previous && getTrainerPartyPools(project).get(id));
+  const nicknameSource = trainerPoolSource(id);
+  const existingNicknames = currentTable(project, undefined, TRAINER_NICKNAMES_PATH);
+  const hasNicknames = pool?.members.some(member => "pokemon" in member && member.pokemon.nickname);
+  if (existingNicknames || hasNicknames) {
+    const names = decodeTrainerNicknames(existingNicknames);
+    for (const key of names.keys()) if (trainerMovePoolSource(key) === nicknameSource) names.delete(key);
+    pool?.members.forEach((member, index) => {
+      if ("pokemon" in member && member.pokemon.nickname)
+        names.set(trainerMovePoolKey(nicknameSource, index), member.pokemon.nickname);
+    });
+    saveNicknames(project, names);
+  }
   savePoolMovePools(project, id, pool);
   const bytes = encodeTrainerPools(pools);
   const after = describePool(pool);

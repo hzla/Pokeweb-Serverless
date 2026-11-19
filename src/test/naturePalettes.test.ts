@@ -24,12 +24,14 @@ function project() {
   p.narcs.pokemon_sprites = { name: "pokemon_sprites", fileId: 90, sourcePath: "a/0/0/4", fileCount: files.length, rawFiles: files, dirty: new Set(), records: new Map() };
   return p;
 }
-function pwan(color: number) {
+/** `pixel` fills the frame: a different value stands for newly imported art, the same one for recoloured art. */
+function pwan(color: number, pixel = 0) {
   const bytes = new Uint8Array(40 + 32 + 4 + 0x1200);
   bytes.set([80,87,65,78]); writeU16(bytes,4,1); writeU16(bytes,6,96); writeU16(bytes,8,96); writeU16(bytes,10,4); writeU16(bytes,12,1); writeU16(bytes,14,1);
   for (const [at,value] of [[16,1],[20,0x1200],[24,16],[28,40],[32,72],[36,76]]) writeU32(bytes,at,value);
   for (let i=0;i<16;++i) writeU16(bytes,40+i*2,i===5?color:rgb555(base[i]));
   writeU16(bytes,74,1);
+  bytes.fill(pixel,76);
   return buildPwanOverrideSideFromPwanBytes(bytes,"fixture.gif");
 }
 describe("nature palette data", () => {
@@ -111,9 +113,12 @@ describe("nature palette project data", () => {
     const records=[target,{...target,source:"pwan-front" as const},{...target,source:"pwan-back" as const}].map(t=>paletteDelta(t,naturePaletteBase(p,607,t.source,false),changed())!);
     p.fileSystem!.additions![NATURE_PALETTE_PATH]=encodeNaturePalettes(records);
     protectPwanNaturePalettes(p,previous,{...previous,front:pwan(1234)});
-    expect(()=>protectPwanNaturePalettes(p,previous,{...previous,front:pwan(1235)})).toThrow(NaturePaletteReplacementError);
+    // Recoloured art keeps its colour numbers, so its variants stay.
+    protectPwanNaturePalettes(p,previous,{...previous,front:pwan(1235)});
     expect(getNaturePaletteRecords(p)).toHaveLength(3);
-    protectPwanNaturePalettes(p,previous,{...previous,front:pwan(1235)},true);
+    expect(()=>protectPwanNaturePalettes(p,previous,{...previous,front:pwan(1235,0x11)})).toThrow(NaturePaletteReplacementError);
+    expect(getNaturePaletteRecords(p)).toHaveLength(3);
+    protectPwanNaturePalettes(p,previous,{...previous,front:pwan(1235,0x11)},true);
     expect(getNaturePaletteRecords(p).map(r=>naturePaletteTarget(r.key).source)).toEqual(["native","pwan-back"]);
   });
   it("rejects authoring on unsupported profiles",()=>{

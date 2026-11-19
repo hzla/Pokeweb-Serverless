@@ -5,6 +5,7 @@ import { getPokemonPalettes, resolvePokemonSpriteId, type RgbColor } from "./pok
 import { pwanPalette } from "./pwanCompiler";
 import type { ProjectState, PwanAnimationOverride } from "./projectStore";
 import { applyPaletteDelta, decodeNaturePalettes, encodeNaturePalettes, NATURE_PALETTE_PATH, naturePaletteKey, naturePaletteTarget, paletteDelta, rgbFrom555, type NaturePaletteRecord, type NaturePaletteSource, type NaturePaletteTarget } from "./naturePaletteData";
+import { sameArtIgnoringPalettes } from "./pwanSidePalettes";
 
 const sources = new WeakMap<ProjectState, { id?: number; bytes?: Uint8Array; revision: number }>();
 const romCache = new WeakMap<Uint8Array, NintendoDSRom>();
@@ -106,6 +107,8 @@ export function protectPwanNaturePalettes(project: ProjectState, previous: PwanA
     if (!next[side]) continue;
     const a = previous?.[side] && pwanPalette(previous[side]!.pwanBytes), b = pwanPalette(next[side]!.pwanBytes);
     if (a && a.every((color, i) => color === b[i])) continue;
+    // Recoloured art keeps its colour numbers, so nature variations still apply to it.
+    if (previous?.[side] && sameArtIgnoringPalettes(previous[side]!.pwanBytes, next[side]!.pwanBytes)) continue;
     const source = `pwan-${side}` as NaturePaletteSource;
     const affected = records.filter(r => { const t = naturePaletteTarget(r.key); return t.spriteId === spriteId && t.source === source; }).length;
     if (affected) { changed.push(source); count += affected; }

@@ -1,5 +1,7 @@
 import { adjustFullSizeMani, compileGifToFullSizeStream, gifFitsPwan } from "../pokeweb/animStreamsFullSize";
 import { hasAnimStreamsRuntime } from "../pokeweb/animStreamsModel";
+import { withPwanSidePalettes, type PwanSidePalettes } from "../pokeweb/pwanSidePalettes";
+import { installPwanSidePalettePanel, renderPwanSidePalettePanel, type PwanSidePalettePanel } from "./pwanSidePaletteEditor";
 import { NaturePaletteReplacementError } from "../pokeweb/naturePaletteModel";
 import { renderInlineStatus } from "./inlineStatus";
 import type { ProjectState, PwanAnimationOverride, PwanOverrideSide, PwanPaletteSource } from "../pokeweb/projectStore";
@@ -325,6 +327,8 @@ type PwanSideDraft = {
   offsetY: number;
   pixelDirty: boolean;
   dirty: boolean;
+  /** Colour edits from the Colors panel, applied again whenever the draft is rebuilt from its base. */
+  palettes?: PwanSidePalettes;
 };
 
 type PwanPixelTool = "pick" | "draw" | "erase" | "lasso";
@@ -364,7 +368,10 @@ function startPwanPreview(project: ProjectState, speciesId: number, previewSide:
     lassoDraftPoints: [],
     drawingLasso: false,
   };
-  let frames = buildPwanPreviewFrames(draft.side);
+  let previewShiny = false;
+  let colorsPanel: PwanSidePalettePanel | undefined;
+  const previewFrames = () => buildPwanPreviewFrames(draft.side, previewShiny ? draft.side.shinyPaletteBgr555 ?? draft.side.paletteBgr555 : draft.side.paletteBgr555);
+  let frames = previewFrames();
   let frameIndex = 0;
   let playbackTick = 0;
   let playing = frames.length > 1;
@@ -417,6 +424,7 @@ function startPwanPreview(project: ProjectState, speciesId: number, previewSide:
     ctx.drawImage(frame.image, 0, 0, canvas.width, canvas.height);
     drawComparisonOverlay(ctx, overlay, playbackTick);
     drawPwanPixelEditorOverlay(ctx, pixelEditor);
+    colorsPanel?.refresh();
   };
   const syncControls = () => {
     const disabled = frames.length === 0;
@@ -488,6 +496,7 @@ function startPwanPreview(project: ProjectState, speciesId: number, previewSide:
     panel?.querySelectorAll<HTMLButtonElement>(`[data-pwan-pixel-color='${previewSide}']`).forEach((button) => {
       const index = Number(button.dataset.pwanPixelColorIndex ?? 0);
       const selected = index === pixelEditor.colorIndex;
+      button.style.background = pwanPaletteSwatchBackground(draft.side.paletteBgr555[index] ?? 0, index);
       button.classList.toggle("-active", selected);
       button.setAttribute("aria-pressed", String(selected));
       button.disabled = disabled;
@@ -505,7 +514,7 @@ function startPwanPreview(project: ProjectState, speciesId: number, previewSide:
     canvas.classList.toggle("-lasso-tool", !disabled && pixelEditor.tool === "lasso");
   };
   const reloadFrames = () => {
-    frames = buildPwanPreviewFrames(draft.side);
+    frames = previewFrames();
     frameIndex = clampFrameIndex(frameIndex, frames.length);
     playbackTick = pwanPreviewFrameStartTick(frames, frameIndex);
   };
@@ -532,6 +541,7 @@ function startPwanPreview(project: ProjectState, speciesId: number, previewSide:
       offsetX: draft.offsetX,
       offsetY: draft.offsetY,
     };
+    if (draft.palettes) draft.side = withPwanSidePalettes(draft.side, draft.palettes);
     draft.dirty = draft.pixelDirty || !pwanDraftMatchesBase(draft);
     reloadFrames();
     draw();
@@ -805,7 +815,7 @@ function startPwanPreview(project: ProjectState, speciesId: number, previewSide:
           delete sideData.fullSizeMani;
           fullSizeNote = " The side now streams at 96x96: pixel and scale edits apply to the 96x96 version only.";
         } else {
-          sideData.fullSizeMani = adjustFullSizeMani(draft.base.fullSizeMani, {
+          sideData.fullSizeMani = adjustFullSizeMani(draft.side.fullSizeMani ?? draft.base.fullSizeMani, {
             dx: draft.offsetX - (draft.base.offsetX ?? 0), dy: draft.offsetY - (draft.base.offsetY ?? 0),
             durationScale: draft.base.framesPerSecond && draft.framesPerSecond ? draft.base.framesPerSecond / draft.framesPerSecond : 1,
           });
@@ -820,9 +830,13 @@ function startPwanPreview(project: ProjectState, speciesId: number, previewSide:
         sideData,
         nativePaletteSource: previewSide,
       }));
-      draft.base = clonePwanSide(draft.side);
+      draft.base = clonePwanSide(sideData);
+      draft.side = clonePwanSide(sideData);
+      draft.palettes = undefined;
       draft.pixelDirty = false;
       draft.dirty = false;
+      reloadFrames();
+      draw();
       syncControls();
       options.onDirty?.();
       setStatus(status, `Applied ${previewSide} PWAN edits.${fullSizeNote}`);
@@ -842,14 +856,39 @@ function startPwanPreview(project: ProjectState, speciesId: number, previewSide:
     setStatus(status, `Exported ${previewSide} frame ${frameIndex + 1} PNG.`);
   });
 
+  if (panel) {
+    colorsPanel = installPwanSidePalettePanel(panel, {
+      side: () => draft.side,
+      step: () => clampFrameIndex(frameIndex, frames.length),
+      setPalettes: (palettes) => {
+        try {
+          draft.palettes = palettes;
+          draft.side = withPwanSidePalettes(draft.side, palettes);
+        } catch (error) {
+          setStatus(status, error instanceof Error ? error.message : String(error), true);
+          return;
+        }
+        draft.dirty = draft.pixelDirty || !pwanDraftMatchesBase(draft);
+        reloadFrames();
+        draw();
+        syncControls();
+      },
+      showShiny: (shiny) => {
+        previewShiny = shiny;
+        reloadFrames();
+        draw();
+      },
+    });
+  }
+
   draw();
   syncControls();
   schedulePlayback();
 }
 
-function buildPwanPreviewFrames(side: PwanOverrideSide): PwanPreviewFrame[] {
+function buildPwanPreviewFrames(side: PwanOverrideSide, palette = side.paletteBgr555): PwanPreviewFrame[] {
   return pwanTimeline(side.pwanBytes).map((entry) => ({
-    image: pwanFrameCanvas(side, entry.frameIndex),
+    image: pwanFrameCanvas(side, entry.frameIndex, palette),
     frameIndex: entry.frameIndex,
     ticks: Math.max(1, entry.ticks),
   }));
@@ -1124,6 +1163,8 @@ function clonePwanSide(side: PwanOverrideSide): PwanOverrideSide {
     scaleBasePwanBytes: side.scaleBasePwanBytes?.slice(),
     offsetBasePwanBytes: side.offsetBasePwanBytes?.slice(),
     paletteBgr555: side.paletteBgr555.slice(),
+    shinyPaletteBgr555: side.shinyPaletteBgr555?.slice(),
+    ...(side.fullSizeMani ? { fullSizeMani: side.fullSizeMani.slice() } : {}),
     notes: side.notes ? [...side.notes] : undefined,
   };
 }
@@ -1136,8 +1177,18 @@ function pwanDraftMatchesBase(draft: PwanSideDraft): boolean {
     normalizePwanFrameScaleMode(draft.side.scaleMode) === normalizePwanFrameScaleMode(draft.base.scaleMode) &&
     normalizePwanOutlineThreshold(draft.side.outlineThreshold ?? 48) === normalizePwanOutlineThreshold(draft.base.outlineThreshold ?? 48) &&
     Math.abs(normalizePwanFps(draft.side.framesPerSecond ?? pwanFramesPerSecond(draft.side.pwanBytes)) - normalizePwanFps(draft.base.framesPerSecond ?? pwanFramesPerSecond(draft.base.pwanBytes))) < 0.05 &&
-    bytesEqual(draft.side.pwanBytes, draft.base.pwanBytes)
+    bytesEqual(draft.side.pwanBytes, draft.base.pwanBytes) &&
+    optionalBytesEqual(draft.side.fullSizeMani, draft.base.fullSizeMani) &&
+    optionalColorsEqual(draft.side.shinyPaletteBgr555, draft.base.shinyPaletteBgr555)
   );
+}
+
+function optionalBytesEqual(left: Uint8Array | undefined, right: Uint8Array | undefined): boolean {
+  return left === right || (!!left && !!right && bytesEqual(left, right));
+}
+
+function optionalColorsEqual(left: Uint16Array | undefined, right: Uint16Array | undefined): boolean {
+  return left === right || (!!left && !!right && left.length === right.length && left.every((color, n) => color === right[n]));
 }
 
 function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
@@ -1259,13 +1310,13 @@ function hexByte(value: number): string {
   return Math.max(0, Math.min(255, Math.round(value))).toString(16).padStart(2, "0");
 }
 
-function pwanFrameCanvas(side: PwanOverrideSide, frameIndex: number): HTMLCanvasElement {
+function pwanFrameCanvas(side: PwanOverrideSide, frameIndex: number, palette = side.paletteBgr555): HTMLCanvasElement {
   const pixels = pwanFramePixels(side.pwanBytes, frameIndex);
   const imageData = new ImageData(PWAN_WIDTH, PWAN_HEIGHT);
   for (let y = 0; y < PWAN_HEIGHT; y += 1) {
     for (let x = 0; x < PWAN_WIDTH; x += 1) {
       const colorIndex = pixels[y]?.[x] ?? 0;
-      const color = bgr555ToRgb(side.paletteBgr555[colorIndex] ?? 0);
+      const color = bgr555ToRgb(palette[colorIndex] ?? 0);
       const offset = (y * PWAN_WIDTH + x) * 4;
       imageData.data[offset] = color.r;
       imageData.data[offset + 1] = color.g;
@@ -1604,6 +1655,7 @@ function renderSpeciesSidePanel(project: ProjectState, speciesId: number, side: 
                   <button class="btn -default" data-pwan-download-png="${side}" type="button">Export PNG</button>
                 </div>
                 ${renderPwanPixelEditorControls(side, data)}
+                ${renderPwanSidePalettePanel(side, data, hasAnimStreamsRuntime(project))}
               </div>
             </div>`
           : `<div class="pwan-empty">No ${side} PWAN imported for ${escapeHtml(speciesLabel(project, speciesId))}.</div>`

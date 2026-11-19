@@ -133,6 +133,11 @@ describe("standalone LEARNSET companions", () => {
       project.overlays[258] = changed;
       expect(getLearnsetViewerStatus(project).compatible).toBe(false);
       delete project.overlays[258];
+      const upload = manifest.games[version].apis[0]!;
+      const uploadOffset = (upload.entry & ~1) - rom.arm9RamAddress;
+      project.arm9[uploadOffset] ^= 1;
+      expect(getLearnsetViewerStatus(project).message).toContain("Tutor BG character upload");
+      project.arm9[uploadOffset] ^= 1;
       uninstallLearnsetViewer(project);
       expect(getLearnsetViewerStatus(project).installed).toBe(false);
       expect(project.fileSystem!.additions![`patches/MenuEvolution${version}.dll`]).toBeDefined();
@@ -155,8 +160,13 @@ function add(project: ProjectState, name: string, bytes: Uint8Array) {
 }
 function fixture(version: "W2" | "B2"): ProjectState {
   const rom = new NintendoDSRom(new Uint8Array(0x200));
-  rom.data.set(new TextEncoder().encode(manifest.games[version].idCode), 12);
-  rom.arm9 = new Uint8Array(16); rom.arm9RamAddress = 0x2004000; writeU32(rom.data, 0x28, rom.arm9RamAddress);
+  const profile = manifest.games[version];
+  rom.data.set(new TextEncoder().encode(profile.idCode), 12);
+  rom.arm9RamAddress = 0x2004000; writeU32(rom.data, 0x28, rom.arm9RamAddress);
+  const apis = profile.apis.filter(api => api.segment === "ARM9");
+  const arm9End = Math.max(...apis.map(api => (api.entry & ~1) + api.expectedHex.length / 2));
+  rom.arm9 = new Uint8Array(arm9End - rom.arm9RamAddress + 16);
+  for (const api of apis) rom.arm9.set(Buffer.from(api.expectedHex, "hex"), (api.entry & ~1) - rom.arm9RamAddress);
   rom.arm7 = new Uint8Array(4); rom.arm9OverlayTable = new Uint8Array(259 * 32);
   rom.files = Array.from({ length: 260 }, () => new Uint8Array(4));
   rom.filenames = new Folder({ files: ["base.bin"], firstId: 259 });

@@ -9,7 +9,7 @@ import {
   type TrainerPartyPool, type TrainerPoolMember, type TrainerPoolPokemon,
 } from "./trainerPartyPools";
 import {
-  getTrainerPartyPools, getTrainerSlotMovePools, getTrainerRosterChoices, getTrainerRosterRules, setTrainerPartyPool, setTrainerRosterChoices, setTrainerRosterRules, trainerRosterTables,
+  getTrainerPartyPools, getTrainerSlotMovePools, getTrainerSlotNickname, getTrainerRosterChoices, getTrainerRosterRules, setTrainerPartyPool, setTrainerRosterChoices, setTrainerRosterRules, trainerRosterTables,
   TRAINER_ROSTER_ID_LIMIT, TRAINER_ROSTER_MAX_CHOICES, type TrainerRosterChoice, type TrainerRosterRule,
 } from "./trainerRosterModel";
 import { changeOwnMove, withoutOwnMoves, type TrainerMovePools } from "./trainerMovePools";
@@ -207,12 +207,14 @@ export function poolPokemonFromTrainerSlot(project: ProjectState, trainer: numbe
   const value = (key: string) => Number(fields[`${key}_${slot}`] ?? 0);
   const packed = value("ability") === 255 ? 0 : value("ability");
   const nature = value("padding");
+  const nickname = getTrainerSlotNickname(project, trainer, slot);
   return {
     species: value("species_id"), form: value("form"), item: info && info.template & 2 ? value("item_id") : 0,
     level: Math.max(1, value("level")), ivs: value("ivs"), gender: Math.min(packed & 15, 2), ability: packed >> 4,
     nature: nature <= 25 ? nature : 0,
     moves: [1, 2, 3, 4].map((move) => (info && info.template & 1 ? value(`move_${move}`) : 0)),
     settings: getTrainerMemberSettings(project, trainer, slot),
+    ...(nickname ? { nickname } : {}),
     ...movePoolsOf(project, trainer, slot),
   };
 }

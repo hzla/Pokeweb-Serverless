@@ -4,8 +4,9 @@ import { renderRosterHub } from "./trainerRosterHub";
 import { listTrainerRosters, originalRosterKey, poolRecord, rosterPool, trainerHasRosterVariants, type RosterKey } from "../pokeweb/trainerRosterHub";
 import { TRAINER_POOL_GROUPS, TRAINER_POOL_MAX_MEMBERS, trainerPoolGroupBit, type TrainerPartyPool, type TrainerPoolMember } from "../pokeweb/trainerPartyPools";
 import { hasTrainerMemberCustomization, getTrainerMemberSettings, trainerCustomizationAvailable, type TrainerMemberSettings } from "../pokeweb/trainerCustomizationModel";
+import { TRAINER_NICKNAME_MAX_LENGTH } from "../pokeweb/trainerNicknames";
 import { STATUS_ICON } from "../pokeweb/gen5UiImages";
-import { getTrainerSlotMovePools } from "../pokeweb/trainerRosterModel";
+import { getTrainerSlotMovePools, getTrainerSlotNickname } from "../pokeweb/trainerRosterModel";
 import { hasMoveAlternatives, TRAINER_MOVE_SLOT_MAX, trainerMovePoolProblem, trainerMoveSlotChances, type TrainerMovePools } from "../pokeweb/trainerMovePools";
 import { trainerFormOptions, trainerGenderAvailability, trainerMaxHp, trainerStartingHp } from "../pokeweb/trainerSlotFacts";
 import { publicAsset } from "../assetUrl";
@@ -270,6 +271,8 @@ export function renderTrainerPartyStrip(project: ProjectState, trainer: TrainerR
     const selected = pok.slot === selectedSlot;
     const item = trainer.hasItems && hasItem(pok.itemName) ? String(pok.itemName) : "";
     const member = view?.pool?.members[pok.slot];
+    const nickname = member ? ("pokemon" in member ? member.pokemon.nickname : getTrainerSlotNickname(project, member.trainerId, member.slot))
+      : getTrainerSlotNickname(project, trainer.id, pok.slot);
     const tag = member && view?.kind === "pool" && !view.pool?.slotGroups ? POOL_TAGS[member.role] ?? "" : "";
     const groups = member && view?.pool?.slotGroups ? TRAINER_POOL_GROUPS
       .filter((_name, index) => (member.groups ?? 0) & trainerPoolGroupBit(index + 1)).join(" · ") : "";
@@ -285,8 +288,8 @@ export function renderTrainerPartyStrip(project: ProjectState, trainer: TrainerR
         ${tag ? `<span class="td-mon-tag -${tag.toLowerCase()}">${tag}</span>` : ""}
         ${linked ? `<span class="td-mon-link" title="Linked from trainer ${escapeHtml(linked)}">${escapeHtml(linked)}</span>` : ""}
         <span class="td-mon-icon trainer-poks">${renderPartyIcon(project, pok, "td-mon-sprite")}</span>
-        <span class="td-mon-name">${settings?.shiny === 1 ? `<span class="td-shiny-mark" title="Shiny">✦</span>` : ""}${escapeHtml(pok.speciesName)}${dice}</span>
-        <span class="td-mon-meta">Lv ${pok.level}${renderCardCondition(project, pok, settings)}</span>
+        <span class="td-mon-name">${settings?.shiny === 1 ? `<span class="td-shiny-mark" title="Shiny">✦</span>` : ""}${escapeHtml(nickname || pok.speciesName)}${dice}</span>
+        <span class="td-mon-meta">${nickname ? `${escapeHtml(pok.speciesName)} · ` : ""}Lv ${pok.level}${renderCardCondition(project, pok, settings)}</span>
       </button>
     `;
   });
@@ -325,11 +328,12 @@ const STATUS_CHOICES: ReadonlyArray<{ label: string; icon?: number; text: string
 ];
 
 /** Shininess, starting HP and starting status: Trainer Customization's per-Pokémon battle settings. */
-function renderTrainerCustomization(project: ProjectState, trainerId: number, pok: TrainerPokemonSlot, override?: TrainerMemberSettings): string {
+function renderTrainerCustomization(project: ProjectState, trainerId: number, pok: TrainerPokemonSlot, override?: TrainerMemberSettings, nickname?: string): string {
   // Shown whenever the patch can be used; the first change installs it.
   if (!trainerCustomizationAvailable(project)) return "";
   const slot = pok.slot;
   const settings = override ?? getTrainerMemberSettings(project, trainerId, slot);
+  const name = nickname ?? getTrainerSlotNickname(project, trainerId, slot);
   const mark = (field: keyof TrainerMemberSettings) => (override ? "" : `pokemon:${slot}:customization:${field}`);
   // Trainer Pokémon are never shiny unless set, so "Never shiny" reads as Default.
   const shiny = choiceButtons("data-member-choice", "shiny", [
@@ -347,6 +351,8 @@ function renderTrainerCustomization(project: ProjectState, trainerId: number, po
     ? `<span class="td-sleep"><span class="md-unit">Turns</span>${choiceButtons("data-member-choice", "sleepTurns", ["Random", "1", "2", "3"].map((label, index) => ({ value: index, content: label, pressed: settings.sleepTurns === index })), "Sleep turns")}</span>`
     : "";
   return `
+    ${formRow("Nickname", override ? "" : `pokemon:${slot}:nickname`, `<input type="text" aria-label="Nickname" data-trainer-nickname maxlength="${TRAINER_NICKNAME_MAX_LENGTH}"
+      value="${escapeHtml(name)}" placeholder="${escapeHtml(pok.speciesName)}">`)}
     ${formRow("Shiny", mark("shiny"), shiny)}
     ${formRow("Pre-Dmg", override ? "" : `${mark("hpMode")}|${mark("hp")}`, renderHpBar(project, pok, settings))}
     ${formRow("Pre-Status", override ? "" : `${mark("status")}|${mark("sleepTurns")}`, `<span class="td-status-row">${status}${sleep}</span>`)}
@@ -457,7 +463,8 @@ export function renderTrainerSlotEditor(project: ProjectState, trainer: TrainerR
   const member = view?.pool?.members[s];
   if (view?.readonly) return renderReadonlySlot(project, pok, view);
   if (member && !("pokemon" in member)) return renderLinkedMember(project, pok, view!, member);
-  const battleStart = renderTrainerCustomization(project, trainer.id, pok, member && "pokemon" in member ? member.pokemon.settings : undefined);
+  const pokemon = member && "pokemon" in member ? member.pokemon : undefined;
+  const battleStart = renderTrainerCustomization(project, trainer.id, pok, pokemon?.settings, pokemon ? pokemon.nickname ?? "" : undefined);
   const tagRow = view?.kind === "pool" && view.pool && member ? renderPoolPlacement(view.pool, member) : "";
   return `
     <div class="td-slot-head">
@@ -496,15 +503,17 @@ export function renderTrainerSlotEditor(project: ProjectState, trainer: TrainerR
 
 function renderReadonlySlot(project: ProjectState, pok: TrainerPokemonSlot, view: RosterView): string {
   const owner = view.record.id;
-  return `<div class="td-slot-head"><h2>Pokémon ${pok.slot + 1}<span class="td-slot-species">${escapeHtml(pok.speciesName)}</span></h2></div>
+  const nickname = getTrainerSlotNickname(project, owner, pok.slot);
+  return `<div class="td-slot-head"><h2>Pokémon ${pok.slot + 1}<span class="td-slot-species">${escapeHtml(nickname ? `${nickname} (${pok.speciesName})` : pok.speciesName)}</span></h2></div>
     <p class="td-roster-note">Lv ${pok.level}${pok.itemName && hasItem(pok.itemName) ? ` · holds ${escapeHtml(String(pok.itemName))}` : ""}${pok.moves.some((move) => hasItem(move)) ? ` · ${pok.moves.filter((move) => hasItem(move)).map((move) => escapeHtml(String(move))).join(", ")}` : ""}</p>
     <p class="td-roster-note">This party belongs to trainer #${owner}; edit it there. <a href="#" data-roster-open-trainer="${owner}">Open trainer #${owner}</a></p>`;
 }
 
 function renderLinkedMember(project: ProjectState, pok: TrainerPokemonSlot, view: RosterView, member: { trainerId: number; slot: number; role: number }): string {
   const last = view.record.party.length - 1;
+  const nickname = getTrainerSlotNickname(project, member.trainerId, member.slot);
   return `<div class="td-slot-head">
-      <h2>Candidate ${pok.slot + 1}<span class="td-slot-species">${escapeHtml(pok.speciesName)}</span></h2>
+      <h2>Candidate ${pok.slot + 1}<span class="td-slot-species">${escapeHtml(nickname ? `${nickname} (${pok.speciesName})` : pok.speciesName)}</span></h2>
       <div class="td-slot-actions">
         <button class="btn sm -ghost" type="button" data-slot-move="-1" title="Move left" aria-label="Move left" ${pok.slot === 0 ? "disabled" : ""}>←</button>
         <button class="btn sm -ghost" type="button" data-slot-move="1" title="Move right" aria-label="Move right" ${pok.slot === last ? "disabled" : ""}>→</button>

@@ -32,6 +32,7 @@ export type TrainerPoolPokemon = {
   level: number; ivs: number; ability: number; gender: number; nature: number;
   moves: number[];
   settings: TrainerMemberSettings;
+  nickname?: string;
   /** Alternatives for each move slot, kept in battle/trainer-move-pools.bin under the pool and candidate. */
   movePools?: TrainerMovePools;
 };

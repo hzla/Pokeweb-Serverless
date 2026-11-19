@@ -14,7 +14,7 @@ import tempfile
 import ndspy.rom
 import ndspy.narc
 import ndspy.codeCompression
-from background import profile, palette_index, header as background_header
+from background import profile, palette_index, header as background_header, lower_grid_header
 from generated import write_info_messages
 
 HERE = Path(__file__).resolve().parent
@@ -47,7 +47,7 @@ def calls(data, base, target):
 
 BUILD.mkdir(parents=True, exist_ok=True)
 ASSETS.mkdir(parents=True, exist_ok=True)
-VERSION = "1.8.0"
+VERSION = "1.10.0"
 write_info_messages(BUILD)
 # PMC's priority-chain array has five entries (0..PMC_PATCH=4). Priority 5
 # writes past it and never reaches the overlay activation chain.
@@ -207,8 +207,17 @@ for game,filename,delta in [("W2","cleanwhite2.nds",0),("B2","cleanblack2.nds",0
     if background_rows is not None: assert rows==background_rows, 'US W2/B2 tutor backgrounds differ'
     background_rows=rows
     (BUILD/'info_background.generated.h').write_text(background_header(rows))
+    grid_header=lower_grid_header(graphics.files)
+    if game=='W2': lower_grid=grid_header
+    else: assert grid_header==lower_grid, 'US tutor lower grid assets differ'
+    (BUILD/'lower_grid.generated.h').write_text(grid_header)
     resources=[{"member":n,"sha256":hashlib.sha256(graphics.files[n]).hexdigest()} for n in [0,1,2,4,5,7,8,17]]
-    manifest["games"][game]={"idCode":bytes(rom.idCode).decode(),"hooks":signatures,"resources":resources}
+    resources.append({"member":3,"sha256":hashlib.sha256(graphics.files[3]).hexdigest()})
+    char_upload=0x20450ac-arm_delta
+    at=char_upload-rom.arm9RamAddress
+    apis=[{"label":"Tutor BG character upload","segment":"ARM9","entry":char_upload|1,
+           "expectedHex":bytes(arm9[at:at+32]).hex()}]
+    manifest["games"][game]={"idCode":bytes(rom.idCode).decode(),"hooks":signatures,"resources":resources,"apis":apis}
     esdb=BUILD/f"symbols_{game}.yml"
     esdb.write_text("Segments:\n  - ID: 0\n    Name: ARM9\n    Type: EXECUTABLE\nSymbols: []\n")
     for group,asm in [("Menu",menu),("Viewer",viewer)]:

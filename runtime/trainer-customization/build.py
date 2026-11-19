@@ -14,7 +14,7 @@ WORKSPACE = REPO.parent
 TOOLS = Path(os.environ.get("ARM_TOOLCHAIN_BIN", WORKSPACE / "toolchains/arm-gnu-toolchain-14.2.rel1-darwin-arm64-arm-none-eabi/bin"))
 JAR = Path(os.environ.get("RPM_TOOL_JAR", WORKSPACE / "pw2-build-work/ctrmap/CTRMap.jar"))
 ASSETS = REPO / "src/assets/codeinjection"
-VERSION = "2.7.0"
+VERSION = "2.8.0"
 WEIGHTED = {
     "B2": "78d294c12ea62e805dbd4fe911ff78bf12b0b4e0d39c03367165ccf5669e8f47",
     "W2": "3b74353330cec72d879505c775e6f14c56872847e1a844ddfdec29b12379acf1",
@@ -42,6 +42,10 @@ FIXED_PARTIES = {
 SLOT_POOLS = {
     "B2": "7a7abf9e2722a869668ec7b391a8bb829eac9bc4c91118e5f8743b3e8ad74784",
     "W2": "d9d6176b48c3704a89da37708a1d8ff2ea0feebe3e6aa375bd1d959c98102184",
+}
+MOVE_POOLS = {
+    "B2": "7bbaa641cd4453a670326f31be41b11e8108c31298a4c5745ebf3ef9bcd26887",
+    "W2": "82b64bc478f1592f5e6abfce7429ad6a66dceef966cb23e58db172178bb39ec1",
 }
 MANIFEST = {}
 # Keep machine paths out of __FILE__ and debug info; the output is stripped as well.
@@ -102,9 +106,10 @@ for game, basename, code in (("B2", "cleanblack2", b"IREO"), ("W2", "cleanwhite2
         directPoolsSha256=DIRECT_POOLS[game],
         fixedPartiesSha256=FIXED_PARTIES[game],
         slotPoolsSha256=SLOT_POOLS[game],
+        movePoolsSha256=MOVE_POOLS[game],
         legacySha256=digest((ASSETS / f"TrainerNature{game}.dll").read_bytes()),
         arm9=[signature(rom.arm9RamAddress, arm9, address - (44 if black else 0), size)
-              for address, size in [(0x0201cd24, 12), (0x0201cd48, 12), (0x0208d894, 12),
+              for address, size in [(0x0201cd24, 12), (0x0201cd48, 12), (0x0201e966, 20), (0x0208d894, 12),
                                     (0x020308ec, 0x74), (0x020787d4, 12),
                                     (0x0201fd60, 0x38), (0x0203070c, 0x44), (0x02030750, 16),
                                     (0x0201fe24, 4), (0x0201ff34, 10), (0x020191d8, 0x2c), (0x020192c0, 12),

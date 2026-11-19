@@ -35,6 +35,8 @@ assert(before.compatible, before.message);
 const oldTutor = structuredClone(getTextBank(project, "message_texts", 401));
 const first = await installLearnsetViewer(project);
 const allocatedInfoIds = project.codeInjection!.learnsetViewer!.infoMessageIds!.slice();
+const firstLayout = getLearnsetViewerStatus(project).upperLayout;
+assert.equal(firstLayout, before.upperLayout ?? "three-cards");
 allocatedInfoIds.forEach((id, i) => assert.equal(getTextBank(project, "message_texts", 401)[id]![1], LEARNSET_INFO_MESSAGES[i]![1], "Private info ID points at outdated text"));
 assert.equal(getLearnsetViewerStatus(project).updateAvailable, false, "Companion update did not replace the old metadata");
 if (before.messageIds) assert.deepEqual(first, before.messageIds, "Updating must preserve allocated message IDs");
@@ -50,6 +52,13 @@ if (getLearnsetViewerStatus(project).canUninstall) {
   assert(!getLearnsetViewerStatus(project).installed);
   assert.deepEqual(await installLearnsetViewer(project), first);
 }
+const otherLayout = firstLayout === "three-cards" ? "classic" : "three-cards";
+assert.deepEqual(await installLearnsetViewer(project, { upperLayout: otherLayout }), first);
+assert.equal(getLearnsetViewerStatus(project).upperLayout, otherLayout);
+assert.deepEqual(await installLearnsetViewer(project), first);
+assert.equal(getLearnsetViewerStatus(project).upperLayout, otherLayout);
+assert.deepEqual(await installLearnsetViewer(project, { upperLayout: firstLayout }), first);
+assert.deepEqual(project.codeInjection!.learnsetViewer!.infoMessageIds, allocatedInfoIds);
 if (existingPmc) assert.deepEqual(project.arm9, arm9BeforeLearnset, "LEARNSET changed ARM9 while an existing PMC loader was installed");
 if (process.argv.includes("--enhanced-last")) await enhanced();
 assert(getLearnsetViewerStatus(project).compatible, getLearnsetViewerStatus(project).message);
@@ -82,6 +91,7 @@ const reloaded = await loadProjectFromRomBytes(output, "learnset-check.nds", { s
 const status = getLearnsetViewerStatus(reloaded);
 assert(status.installed && status.compatible && !status.updateAvailable && !status.canUninstall, JSON.stringify(status));
 assert.deepEqual(status.messageIds, first);
+assert.equal(status.upperLayout, firstLayout);
 const outputIndex = process.argv.indexOf("--output");
 if (outputIndex !== -1) {
   const path = process.argv[outputIndex + 1];
@@ -89,4 +99,4 @@ if (outputIndex !== -1) {
   await writeFile(path, output, { flag: "wx" }); // never overwrite an existing ROM
   console.log("Created", basename(path));
 }
-console.log(version, "LEARNSET install, idempotence, removal/reinstall, private messages/graphics, enhanced-menu coexistence, export and reload passed.");
+console.log(version, "LEARNSET install, layout switching, private messages/graphics, removal/reinstall, export and reload passed.");

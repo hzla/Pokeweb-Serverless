@@ -3,6 +3,7 @@
 #if !defined(GAME_B) && !defined(GAME_W)
 #include "../pokenav/view.h"
 #include "../pokenav/style.h"
+#include "lower_grid.generated.h"
 #else
 inline bool pokenavActive(){return false;}
 inline bool pokenavBegin(void*,Request**){return false;}
@@ -173,9 +174,9 @@ extern "C" void LearnsetDrawLine(void* work,u8 scroll,u8 pos) {
     });
     stringSet(buffer,text);
     draw(work,11,nameInset,pos*24,buffer,0x3c40);
-    text[0]='P'; text[1]='P'; text[2]=' ';
     const u32 pp=native<u32(*)(u32,u32)>(0x20216dd,0x20216b1)(active->list.entries[index].moveId,0);
-    text[3+decimal(text+3,pp)]=End;
+    u32 ppLength=decimal(text,pp);
+    text[ppLength++]=' ';text[ppLength++]='P';text[ppLength++]='P';text[ppLength]=End;
     stringSet(buffer,text);
     draw(work,11,120,pos*24,buffer,0x440);
     flush(at<void*>(work,0x30));
@@ -236,10 +237,24 @@ extern "C" void LearnsetScreen(void* arc,u32 member,u32 frame,u32 offset,u32 len
         row[22]=row[19]; row[21]=row[18];
         row[18]=row[19]=row[20]=row[17];
     }
+    const u32 size=length ? length : at<u32>(screen,8);
+#if !defined(GAME_B) && !defined(GAME_W)
+    if(threeCardLayout(*active) && offset==0 && size==2048) {
+        // Frame 7 already has the retail art. Upload only the new tile
+        // characters in unused slots and put their colors past the native
+        // palette upload, so the opening fade sees the completed palette.
+        native<void(*)(u32,const void*,u32,u32)>(0x20450ad,0x2045081)(
+            frame,LowerGridCharacters,sizeof(LowerGridCharacters),LowerGridFirstTile);
+        volatile u16* palette=reinterpret_cast<volatile u16*>(0x05000400)+LowerGridBank*16;
+        for(u32 i=0;i<16;++i)palette[i]=LowerGridPalette[i];
+        palette[3]=ThreeCardGridMajor;palette[8]=ThreeCardGridMinor;palette[9]=ThreeCardGridBase;
+        for(u32 i=0;i<sizeof(LowerGridMap);++i)
+            if(LowerGridMap[i])tiles[LowerGridMapStart+i]=u16((LowerGridBank<<12)|LowerGridMap[i]);
+    }
+#endif
     // Match TransVramScreen's buffered path. Direct LoadScreen writes VRAM
     // only: the tutor subsequently uploads its CPU-side map, which would
     // otherwise still be all zeroes and erase the background.
-    const u32 size=length ? length : at<u32>(screen,8);
     if (native<void*(*)(u32)>(0x2045841,0x2045815)(frame)) {
         native<void(*)(u32,const void*,u32,u32)>(0x204508d,0x2045061)(frame,tiles,size,offset);
         native<void(*)(u32)>(0x2044fbd,0x2044f91)(frame);

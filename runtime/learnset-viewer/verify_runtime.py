@@ -254,7 +254,7 @@ for game,ovdelta,delta in ([("B",0,0),("W",0,0)] if bw1 else [("W2",0,0),("B2",0
                     assert label[1:3]==(2,0), 'Two-pixel icon gap must not move the row vertically'
                     assert label[3].startswith(f'{level} - ') and len(label[3])*6<=106 and label[4]==0x3c40
                     if len(name)>20:assert label[3].endswith('...')
-                    assert pp==(0x2254000,120,0,'PP 20',0x440) and ppcalls[-1]==(10,0), (pp,ppcalls[-1])
+                    assert pp==(0x2254000,120,0,'20 PP',0x440) and ppcalls[-1]==(10,0), (pp,ppcalls[-1])
             # Four visible rows at a nonzero scroll position, not four copies
             # of the first row; move IDs remain independent from display text.
             uc.mem_write(request+164,struct.pack('<H',6))
