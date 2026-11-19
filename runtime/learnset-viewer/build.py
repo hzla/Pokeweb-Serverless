@@ -47,7 +47,7 @@ def calls(data, base, target):
 
 BUILD.mkdir(parents=True, exist_ok=True)
 ASSETS.mkdir(parents=True, exist_ok=True)
-VERSION = "1.10.0"
+VERSION = "1.10.1"
 write_info_messages(BUILD)
 # PMC's priority-chain array has five entries (0..PMC_PATCH=4). Priority 5
 # writes past it and never reaches the overlay activation chain.
@@ -213,10 +213,21 @@ for game,filename,delta in [("W2","cleanwhite2.nds",0),("B2","cleanblack2.nds",0
     (BUILD/'lower_grid.generated.h').write_text(grid_header)
     resources=[{"member":n,"sha256":hashlib.sha256(graphics.files[n]).hexdigest()} for n in [0,1,2,4,5,7,8,17]]
     resources.append({"member":3,"sha256":hashlib.sha256(graphics.files[3]).hexdigest()})
-    char_upload=0x20450ac-arm_delta
-    at=char_upload-rom.arm9RamAddress
-    apis=[{"label":"Tutor BG character upload","segment":"ARM9","entry":char_upload|1,
-           "expectedHex":bytes(arm9[at:at+32]).hex()}]
+    wireless_main=0x203e864-arm_delta
+    at=wireless_main-rom.arm9RamAddress
+    assert arm9[at:at+16].hex()=='08b503484068002801d0fff76dfe08bd'
+    assert struct.unpack_from('<I',arm9,at+16)[0] == (0x021418d0 if game=='W2' else 0x02141890)
+    wireless_draw=0x203e54c-arm_delta
+    at=wireless_draw-rom.arm9RamAddress
+    # The wireless object's x halfword at +4 feeds the 9-bit OAM position.
+    assert arm9[at+0x46:at+0x5c].hex()=='e388a1881b061d0e0123c9059b07c9092b4319439160'
+    apis=[]
+    for label,address,length in [('Tutor BG character upload',0x20450ac-arm_delta,32),
+                                 ('Wireless icon state',wireless_main,20),
+                                 ('Wireless icon position',wireless_draw+0x46,22)]:
+        at=address-rom.arm9RamAddress
+        apis.append({"label":label,"segment":"ARM9","entry":address|1,
+                     "expectedHex":bytes(arm9[at:at+length]).hex()})
     manifest["games"][game]={"idCode":bytes(rom.idCode).decode(),"hooks":signatures,"resources":resources,"apis":apis}
     esdb=BUILD/f"symbols_{game}.yml"
     esdb.write_text("Segments:\n  - ID: 0\n    Name: ARM9\n    Type: EXECUTABLE\nSymbols: []\n")

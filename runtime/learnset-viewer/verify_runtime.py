@@ -224,6 +224,9 @@ for game,ovdelta,delta in ([("B",0,0),("W",0,0)] if bw1 else [("W2",0,0),("B2",0
     stubs[0x204af7c-delta]=lambda:(logs.append(('native-screen',r(0),r(1),r(2),r(3),*[u32(uc.reg_read(UC_ARM_REG_SP)+i*4) for i in range(3)])),ret())
     stubs[0x219a7f0-ovdelta]=lambda:(logs.append('native-row'),ret())
     stubs[0x219a4c4-ovdelta]=lambda:(logs.append('native-fixed-text'),ret())
+    hides_wireless=any('hiddenWirelessIcon' in name for name in symbols)
+    wireless_pointer=0x21418d4 if game=='W2' else 0x2141894
+    wireless_icon,replacement_icon=0x227f000,0x227f020
     for present,custom in [(False,False),(True,False),(True,True)]:
         table=native_address(0x219b9e8) if bw1 else 0x219b9e8-ovdelta
         callbacks=[symbols['Viewer:LearnsetViewer'+s] for s in ['Init','Main','End']]
@@ -236,7 +239,12 @@ for game,ovdelta,delta in ([("B",0,0),("W",0,0)] if bw1 else [("W2",0,0),("B2",0
         assert u16(request+242)==(0x5057 if custom else 0)
         assert uc.mem_read(request+240,2)==b'\x02\xff'
         saved=bytes(uc.mem_read(0x2220000,220))
+        if hides_wireless:
+            w32(wireless_pointer,wireless_icon)
+            uc.mem_write(wireless_icon,struct.pack('<IHH12x',3,240,0))
         assert call(u32(bridge),[0x2243000,seq,request,viewerwork])==1
+        if hides_wireless:
+            assert u16(wireless_icon+4)==(256 if present and not custom else 240)
         if present:
             assert uc.mem_read(request+0x19,1)==b'\x01'
             assert u16(request+36)==10 and u16(request+38)==0 and u16(request+40)==53
@@ -285,7 +293,16 @@ for game,ovdelta,delta in ([("B",0,0),("W",0,0)] if bw1 else [("W2",0,0),("B2",0
             buffered[0]=False
             call(hook,[0x2230000,2,7,0,2048,0,79]);assert transfers[-1][3]==data
             buffered[0]=True
+        if hides_wireless and present and not custom:
+            uc.mem_write(replacement_icon,struct.pack('<IHH12x',2,232,8))
+            w32(wireless_pointer,replacement_icon)
+            w32(seq,1);call(u32(bridge+4),[0x2243000,seq,request,viewerwork])
+            assert bytes(uc.mem_read(replacement_icon,8))==struct.pack('<IHH',2,256,8)
         assert call(u32(bridge+8),[0x2243000,seq,request,viewerwork])==1
+        if hides_wireless:
+            current=u32(wireless_pointer)
+            assert u16(current+4)==(232 if present and not custom else 240)
+            w32(wireless_pointer,0)
         w32(seq,13);call('Menu:LearnsetDispatch',[0x2205000,seq,eventwork]);assert freed.count(request)==1 and u32(seq)==11
         call('Menu:LearnsetDispatch',[0x2205000,seq,eventwork]);assert u32(partydata+request_slot)==2 and u32(seq)==12
         assert bytes(uc.mem_read(0x2220000,220))==saved

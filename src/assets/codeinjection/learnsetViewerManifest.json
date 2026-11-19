@@ -1,5 +1,5 @@
 {
-  "version": "1.10.0",
+  "version": "1.10.1",
   "games": {
     "B": {
       "game": "B",
@@ -7837,6 +7837,18 @@
           "segment": "ARM9",
           "entry": 33837229,
           "expectedHex": "38b5084c25682c2444432c19a47f002c03d15b0101f0caf838bd9b0101f0c6f8"
+        },
+        {
+          "label": "Wireless icon state",
+          "segment": "ARM9",
+          "entry": 33810533,
+          "expectedHex": "08b503484068002801d0fff76dfe08bdd0181402"
+        },
+        {
+          "label": "Wireless icon position",
+          "segment": "ARM9",
+          "entry": 33809811,
+          "expectedHex": "e388a1881b061d0e0123c9059b07c9092b4319439160"
         }
       ]
     },
@@ -8248,6 +8260,18 @@
           "segment": "ARM9",
           "entry": 33837185,
           "expectedHex": "38b5084c25682c2444432c19a47f002c03d15b0101f0caf838bd9b0101f0c6f8"
+        },
+        {
+          "label": "Wireless icon state",
+          "segment": "ARM9",
+          "entry": 33810489,
+          "expectedHex": "08b503484068002801d0fff76dfe08bd90181402"
+        },
+        {
+          "label": "Wireless icon position",
+          "segment": "ARM9",
+          "entry": 33809767,
+          "expectedHex": "e388a1881b061d0e0123c9059b07c9092b4319439160"
         }
       ]
     }

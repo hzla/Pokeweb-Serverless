@@ -18,6 +18,34 @@ namespace {
 Request* active;
 struct MenuLine {void* text;u32 id;};
 bool ours(void* work) { return active && work && at<void*>(work,0)==&active->tutor; }
+#if !defined(GAME_B) && !defined(GAME_W)
+constexpr u16 OffscreenWirelessX=256;
+void* hiddenWirelessIcon;
+u16 wirelessIconX;
+void* wirelessIcon() {
+    return *native<void* volatile*>(0x021418d4,0x02141894);
+}
+void hideWirelessIcon() {
+    if(!active || active->reserved==0x5057 || pokenavActive())return;
+    void* icon=wirelessIcon();
+    if(icon!=hiddenWirelessIcon)hiddenWirelessIcon=nullptr;
+    if(!icon)return;
+    auto& x=at<volatile u16>(icon,4);
+    if(x==OffscreenWirelessX)return;
+    hiddenWirelessIcon=icon;
+    wirelessIconX=x;
+    // The game's VBlank renderer still owns this sprite. Move only its
+    // on-screen coordinate so network activity and other OAM keep running.
+    x=OffscreenWirelessX;
+}
+void restoreWirelessIcon() {
+    if(hiddenWirelessIcon && wirelessIcon()==hiddenWirelessIcon) {
+        auto& x=at<volatile u16>(hiddenWirelessIcon,4);
+        if(x==OffscreenWirelessX)x=wirelessIconX;
+    }
+    hiddenWirelessIcon=nullptr;
+}
+#endif
 void* bitmap(void* window) { return native<void*(*)(void*)>(0x2048521,0x20484f5)(window); }
 void flush(void* window) {
     // US inlined GFL_BMPWIN_MakeTransWindow_VBlank sequence.
@@ -84,11 +112,15 @@ extern "C" void LearnsetOpeningFade(u32 mode,u32 main,u32 sub,u32 color,u32 dura
     // windows. Pokenav presents both completed surfaces together instead.
     // Keep the original fade for party/native tutors and the fallback UI.
     if(pokenavActive()&&pokenav::ui::available())return;
+    hideWirelessIcon();
     native<void(*)(u32,u32,u32,u32,u32,u32,u32)>(0x20279e1,0x20279b5)(mode,main,sub,color,duration,timing,heap);
 }
 #endif
 extern "C" u32 LearnsetViewerInit(void* proc,int* seq,void* data,void* work) {
     infoEnd();
+#if !defined(GAME_B) && !defined(GAME_W)
+    restoreWirelessIcon();
+#endif
     active=0;
 #if !defined(GAME_B) && !defined(GAME_W)
     if(data && at<u32>(data,0)==pokenav::Magic){
@@ -106,6 +138,9 @@ extern "C" u32 LearnsetViewerInit(void* proc,int* seq,void* data,void* work) {
         active=request;
         tutor->mode=1;
         request->viewerStarted=1;
+#if !defined(GAME_B) && !defined(GAME_W)
+        hideWirelessIcon();
+#endif
     }
     return native<Proc>(0x2199901,0x21998c1)(proc,seq,data,work);
 }
@@ -122,6 +157,9 @@ extern "C" u32 LearnsetViewerMain(void* proc,int* seq,void* data,void* work) {
         return native<Proc>(0x2199975,0x2199935)(proc,seq,active,work);
     }
     if (ours(work)) {
+#if !defined(GAME_B) && !defined(GAME_W)
+        hideWirelessIcon();
+#endif
         // Defense in depth: never enter learn, replace, yes/no, or summary
         // states, even if a future input hook accidentally returns one.
         if (*seq==14) *seq=8;
@@ -150,6 +188,9 @@ extern "C" u32 LearnsetViewerEnd(void* proc,int* seq,void* data,void* work) {
     infoEnd();
     if(pokenavActive()){pokenavStop();const u32 result=native<Proc>(0x2199a51,0x2199a11)(proc,seq,active,work);pokenavEnd();active=nullptr;return result;}
     const u32 result=native<Proc>(0x2199a51,0x2199a11)(proc,seq,data,work);
+#if !defined(GAME_B) && !defined(GAME_W)
+    restoreWirelessIcon();
+#endif
     if (active && data==active) active->viewerStarted=0;
     active=0;
     return result;
