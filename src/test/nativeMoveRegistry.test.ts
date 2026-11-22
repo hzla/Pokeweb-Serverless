@@ -1,7 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { readU32, writeU32 } from "../nds/binary";
+import { NintendoDSRom } from "../nds/rom";
+import * as moveRegistry from "../pokeweb/nativeMoveRegistry";
 import { nativeMoveAssignments, readNativeMoveRegistry, moveHandlerOverlay, moveRegistryDispatcherSignature } from "../pokeweb/nativeMoveRegistry";
 import { battleRuntimeResolver } from "../pokeweb/battleRuntimeBindings";
+import { hydrateMoveEffectsSource, inspectMoveEffects, MOVE_EFFECTS_DLL_PATH } from "../pokeweb/moveEffectsModel";
 import black from "../assets/data/moveRecipeBindingsB1.json";
 import white from "../assets/data/moveRecipeBindingsW1.json";
 import bw2 from "../assets/data/moveRecipeBindings.json";
@@ -17,6 +20,46 @@ function fixture(count = 384) {
   return { overlay, dispatcher, layout, entry, inspect };
 }
 describe("native move registry", () => {
+  it("reuses a verified move inspection until the runtime files or battle code change", () => {
+    const signature = black.functions.MoveEvent_AddItem;
+    const overlay = Buffer.alloc(0x200);
+    overlay.set(Buffer.from(signature.hex, "hex"));
+    writeU32(overlay, 108, base + 0x100);
+    writeU32(overlay, 112, 1);
+    writeU32(overlay, 116, base + 0x104);
+    const romBytes = new Uint8Array(0x1000);
+    romBytes.set(new TextEncoder().encode("IRBO"), 12);
+    writeU32(romBytes, 0x28, armBase);
+    writeU32(romBytes, 0x50, 0x400);
+    writeU32(romBytes, 0x54, 32);
+    writeU32(romBytes, 0x400, 93);
+    writeU32(romBytes, 0x404, base);
+    const additions: Record<string, Uint8Array> = {};
+    const project = {
+      session: { baseRom: "BW", baseVersion: "B" },
+      arm9: new Uint8Array(4),
+      overlays: { 93: overlay },
+      narcs: { moves: { fileCount: 1 } },
+      fileSystem: { additions, replacements: {} },
+    } as unknown as ProjectState;
+    hydrateMoveEffectsSource(project, new NintendoDSRom(romBytes));
+    const validate = vi.spyOn(moveRegistry, "nativeMoveAssignments");
+    try {
+      expect(inspectMoveEffects(project)).toMatchObject({ editable: true, message: "Native behavior" });
+      expect(inspectMoveEffects(project).editable).toBe(true);
+      expect(validate).toHaveBeenCalledTimes(1);
+
+      additions[MOVE_EFFECTS_DLL_PATH] = Uint8Array.of(0);
+      expect(inspectMoveEffects(project).editable).toBe(false);
+      expect(validate).toHaveBeenCalledTimes(2);
+      delete additions[MOVE_EFFECTS_DLL_PATH];
+      overlay[0] ^= 1;
+      expect(inspectMoveEffects(project).editable).toBe(false);
+    } finally {
+      validate.mockRestore();
+    }
+  });
+
   it.each([black, white, bw2])("accepts a changed capacity literal while retaining the dispatcher instruction checks ($overlay)", catalog => {
     const signature = moveRegistryDispatcherSignature(catalog.functions.MoveEvent_AddItem), code = Uint8Array.from(signature.hex.match(/../gu)!, h => parseInt(h, 16));
     writeU32(code, 112, 512);

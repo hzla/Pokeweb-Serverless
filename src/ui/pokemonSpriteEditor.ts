@@ -6,6 +6,7 @@ import {
   getPokemonIconImage,
   getPokemonIconPaletteAssignment,
   getPokemonIconPalettes,
+  getPokemonIconThumbnail,
   getPokemonAnimation,
   getPokemonCellBank,
   getPokemonMultiCellAnimation,
@@ -85,6 +86,7 @@ import { concatBytes } from "../nds/binary";
 import { parsePokemonCustomSpriteBundle } from "../pokeweb/pokemonSpriteWriters";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
+import { observeNearViewport } from "./nearViewport";
 import { installPwanImportFormEvents, renderPwanImportPanel } from "./pwanAnimationEditor";
 import { unzipSync } from "fflate";
 
@@ -347,6 +349,12 @@ const ANIMATION_ROTATE_HIT_RADIUS = 24;
 
 const spriteListView = { search: "", scrollTop: 0 };
 let spriteListCache: { project: ProjectState; revision: number; entries: SpriteListEntry[] } | undefined;
+const spriteIconObservers = new WeakMap<HTMLElement, () => void>();
+
+export function stopPokemonSpriteIconRendering(root: HTMLElement): void {
+  spriteIconObservers.get(root)?.();
+  spriteIconObservers.delete(root);
+}
 
 function spriteListEntries(project: ProjectState): SpriteListEntry[] {
   const revision = project.narcs.personal?.revision ?? 0;
@@ -385,6 +393,7 @@ export function renderPokemonSpriteWorkspace(
   formIndex: number,
   options: RenderOptions = {},
 ): void {
+  stopPokemonSpriteIconRendering(root);
   const owner = findPokemonPersonalFormOwner(project, speciesId);
   let selected = owner ? { speciesId: owner.speciesId, formIndex: owner.formIndex } : { speciesId, formIndex };
   const entries = spriteListEntries(project);
@@ -401,7 +410,7 @@ export function renderPokemonSpriteWorkspace(
             .map(
               (entry) => `<div class="md-row sp-row ${entry.formLabel ? "-form" : ""}" data-sprite-row="${entry.speciesId}:${entry.formIndex}" role="option" aria-selected="false">
                 <span class="md-row-id">${entry.formLabel ? "" : entry.speciesId}</span>
-                <img class="sp-row-icon" src="${publicAsset(`images/pokesprite/${entry.slug}.png`)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+                <span class="sp-row-icon" data-bundled-icon="${escapeHtml(publicAsset(`images/pokesprite/${entry.slug}.png`))}" aria-hidden="true"></span>
                 <span class="md-row-name">${escapeHtml(entry.formLabel ? entry.formLabel : entry.name)}${entry.formLabel ? `<span class="sp-row-base">${escapeHtml(entry.name)}</span>` : ""}</span>
               </div>`,
             )
@@ -416,6 +425,27 @@ export function renderPokemonSpriteWorkspace(
   const search = root.querySelector<HTMLInputElement>("#sprite-search")!;
   const rows = [...list.querySelectorAll<HTMLElement>("[data-sprite-row]")];
   const keyOf = (value: { speciesId: number; formIndex: number }) => `${value.speciesId}:${value.formIndex}`;
+  const drawRowIcon = (slot: HTMLElement) => {
+    const [id, form] = (slot.closest<HTMLElement>("[data-sprite-row]")?.dataset.spriteRow ?? "").split(":").map(Number);
+    try {
+      const image = getPokemonIconThumbnail(project, id, form);
+      if (image) {
+        const canvas = document.createElement("canvas");
+        if (drawImageToCanvas(canvas, image)) {
+          slot.replaceChildren(canvas);
+          return;
+        }
+      }
+    } catch {
+      // Keep the bundled thumbnail when the ROM icon cannot be decoded.
+    }
+    if (slot.firstElementChild instanceof HTMLImageElement) return;
+    const fallback = document.createElement("img");
+    fallback.alt = "";
+    fallback.addEventListener("error", () => { fallback.style.visibility = "hidden"; });
+    fallback.src = slot.dataset.bundledIcon!;
+    slot.replaceChildren(fallback);
+  };
 
   const applyFilter = () => {
     const terms = spriteListView.search.trim().toLowerCase().split(/\s+/u).filter(Boolean);
@@ -442,11 +472,21 @@ export function renderPokemonSpriteWorkspace(
     onNavigateSpecies: (id) => select({ speciesId: id, formIndex: 0 }),
     onNavigateForm: (form) => select({ speciesId: selected.speciesId, formIndex: form }),
   };
+  const renderDetail = ({ speciesId: id, formIndex: form }: typeof selected) => {
+    const iconSlots = list.querySelectorAll<HTMLElement>(`[data-sprite-row^="${id}:"] .sp-row-icon`);
+    renderPokemonSpriteEditor(project, detail, id, form, {
+      ...detailOptions,
+      onDirty: () => {
+        for (const slot of iconSlots) if (slot.firstElementChild) drawRowIcon(slot);
+        options.onDirty?.();
+      },
+    });
+  };
   const select = (next: { speciesId: number; formIndex: number }, scroll = true) => {
     selected = next;
     markSelection(scroll);
     options.onSelect?.(next.speciesId, next.formIndex);
-    renderPokemonSpriteEditor(project, detail, next.speciesId, next.formIndex, detailOptions);
+    renderDetail(next);
   };
 
   list.addEventListener("click", (event) => {
@@ -497,7 +537,8 @@ export function renderPokemonSpriteWorkspace(
   applyFilter();
   list.scrollTop = spriteListView.scrollTop;
   markSelection(true);
-  renderPokemonSpriteEditor(project, detail, selected.speciesId, selected.formIndex, detailOptions);
+  spriteIconObservers.set(root, observeNearViewport(list, ".sp-row-icon", drawRowIcon));
+  renderDetail(selected);
 }
 
 export function renderPokemonSpriteEditor(
@@ -5087,12 +5128,13 @@ function loadImage(url: string): Promise<HTMLImageElement> {
   });
 }
 
-function drawImageToCanvas(canvas: HTMLCanvasElement, image: RgbaImageData): void {
+function drawImageToCanvas(canvas: HTMLCanvasElement, image: RgbaImageData): boolean {
   canvas.width = image.width;
   canvas.height = image.height;
   const ctx = canvas.getContext("2d");
-  if (!ctx) return;
+  if (!ctx) return false;
   ctx.putImageData(new ImageData(new Uint8ClampedArray(image.pixels), image.width, image.height), 0, 0);
+  return true;
 }
 
 function emptyRgbaImage(width: number, height: number): RgbaImageData {

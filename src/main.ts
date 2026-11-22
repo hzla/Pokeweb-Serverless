@@ -105,7 +105,7 @@ import { renderBattleBackgroundEditor } from "./ui/battleBackgroundEditor";
 import { buildBattleEnvironmentTestDownloads, type BattleEnvironmentTestSelection } from "./pokeweb/battleEnvironmentTest";
 import { renderTitleScreenEditor, stopTitleScreenEditor } from "./ui/titleScreenEditor";
 import { renderPokemonEditor, stopPokemonIconRendering } from "./ui/pokemonEditor";
-import { renderPokemonSpriteWorkspace } from "./ui/pokemonSpriteEditor";
+import { renderPokemonSpriteWorkspace, stopPokemonSpriteIconRendering } from "./ui/pokemonSpriteEditor";
 import { renderPwanAnimationEditor } from "./ui/pwanAnimationEditor";
 import { getPwanRuntimeStatus } from "./pokeweb/pwanAnimationModel";
 import { renderStarterEditor } from "./ui/starterEditor";
@@ -754,6 +754,7 @@ function renderApp(): void {
   if (previousContent) {
     stopTrainerImageRendering(previousContent);
     stopPokemonIconRendering(previousContent);
+    stopPokemonSpriteIconRendering(previousContent);
   }
   stopTitleScreenEditor();
   stopCustomUiEditor();

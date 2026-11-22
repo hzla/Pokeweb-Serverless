@@ -412,6 +412,30 @@ export function getPokemonIconImage(project: ProjectState, spriteId: number, var
   return decodeIconImage(file, palette);
 }
 
+export function getPokemonIconThumbnail(project: ProjectState, speciesId: number, formIndex: number): RgbaImageData | undefined {
+  const files = project.narcs.pokemon_icons?.rawFiles;
+  if (!files?.[0]?.length) return undefined;
+  const base = decodeRecord(project, "personal", speciesId).raw;
+  const firstFormId = Number(base?.form_id ?? 0);
+  const formId = firstFormId > 0 && formIndex > 0 ? firstFormId + formIndex - 1 : speciesId;
+  const form = formId !== speciesId && project.narcs.personal?.rawFiles[formId]?.length
+    ? decodeRecord(project, "personal", formId).raw : base;
+  const gender = Number(form?.gender ?? 0);
+  // Palette-only forms use the base party icon.
+  const iconForm = (Number(base?.color) & 0x80) !== 0 ? 0 : formIndex;
+  const { archiveSpriteId, paletteKey } = resolvePokemonIconAddress(project, speciesId, iconForm);
+  const graphicVariant = gender === 254 && genderedPokemonIcons(project, archiveSpriteId) ? "female" : "male";
+  if (!files[iconFileIndex(project, archiveSpriteId, graphicVariant)]?.length) return undefined;
+  const palette = getPokemonIconPaletteAssignment(project, paletteKey, gender >= 254 ? "female" : "male").paletteId;
+  const image = getPokemonIconImage(project, archiveSpriteId, graphicVariant, palette);
+  const height = image.height / 2;
+  const frameLength = image.width * height * 4;
+  for (const pixels of [image.pixels.subarray(0, frameLength), image.pixels.subarray(frameLength)]) {
+    if (pixels.some((value, index) => index % 4 === 3 && value > 0)) return { width: image.width, height, pixels };
+  }
+  return undefined;
+}
+
 export function setPokemonIconImage(project: ProjectState, spriteId: number, variant: PokemonIconVariant, paletteId: number, image: RgbaImageData): void {
   if (image.width !== 32 || image.height !== 64) throw new Error("Icon image must be 32 x 64");
   const store = project.narcs.pokemon_icons;

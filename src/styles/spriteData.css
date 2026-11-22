@@ -28,6 +28,12 @@
 #sprite-data .sp-row-icon {
   width: 32px;
   height: 32px;
+}
+
+#sprite-data .sp-row-icon > :is(img, canvas) {
+  display: block;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   image-rendering: pixelated;
 }

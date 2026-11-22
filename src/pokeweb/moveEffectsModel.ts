@@ -43,7 +43,7 @@ import { ensureFileSystemState, setRomFileReplacement } from "./fileSystemModel"
 import { installCodeInjectionPatch, loadCodeInjectionNarcs } from "./codeInjectionInstall";
 import { addTextEntries, commitTextBank, getTextBank, parseTextEntryId } from "./textModel";
 import { stageCodeInjectionDll } from "./pmcModel";
-import { decodeRecord, markDirty, type ProjectState } from "./projectStore";
+import { decodeRecord, markDirty, type NarcStore, type ProjectState } from "./projectStore";
 import { recordGenericChange } from "./actionChangelog";
 import { typeChartTypeCount } from "./typeChartModel";
 import { moveHistoryInitCall, moveHistoryProtectCall } from "./moveHistoryBindings";
@@ -125,9 +125,28 @@ function isLegacyRule(rule:MoveRuleSet):boolean {
     (e.kind!=="native"||[113,115,215].includes(e.value))&&Object.keys(e.parameters??{}).every(key=>({statStage:["stat"],heal:["denominator"],stages:["operation"]}as Record<string,string[]>)[e.kind]?.includes(key)));
 }
 export const MOVE_RECIPE_MANAGED_FIELDS = ["effect_category", "result_effect", "effect_chance", "status", "min_turns", "max_turns", "healing", "recoil", "flinch", ...[1, 2, 3].flatMap(n => [`stat_${n}`, `magnitude_${n}`, `stat_chance_${n}`])];
-const same = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((v, i) => v === b[i]);
+function same(a: Uint8Array, b: Uint8Array): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
 const bytesHex = (bytes:Uint8Array) => Array.from(bytes,byte=>byte.toString(16).padStart(2,"0")).join("");
 export const supportsMoveRecipes = (project: ProjectState) => project.session.baseRom === "BW2" || project.session.baseRom === "BW";
+
+function moveEffectFiles(project: ProjectState, source: Source): Map<string, Uint8Array> {
+  const files = new Map(source.files);
+  for (const [path, id] of source.ids) {
+    const replacement = project.fileSystem?.replacements?.[id];
+    if (replacement) files.set(path, replacement);
+  }
+  for (const [path, bytes] of Object.entries(project.fileSystem?.additions ?? {})) {
+    if (path.toLowerCase().endsWith(".dll") || path === MOVE_RECIPE_BOOK_PATH) files.set(path, bytes);
+  }
+  return files;
+}
 
 function context(project: ProjectState, requireMoves = true) {
   if (!supportsMoveRecipes(project)) throw Error("Move recipes currently support Black, White, Black 2 and White 2.");
@@ -197,9 +216,7 @@ function context(project: ProjectState, requireMoves = true) {
     getter.events.forEach((e, n) => resolver.seed(e.handler, readU32(overlay, eventAt + n * 8 + 4) & ~1));
     getters.set(id, { ...getter, address });
   }
-  const files = new Map(source.files);
-  for(const[path,id]of source.ids)if(project.fileSystem?.replacements?.[id])files.set(path,project.fileSystem.replacements[id]);
-  for (const [name, data] of Object.entries(project.fileSystem?.additions ?? {})) if (name.toLowerCase().endsWith(".dll")||name===MOVE_RECIPE_BOOK_PATH) files.set(name, data);
+  const files = moveEffectFiles(project, source);
   const abilityCatalog=source.game==="IRBO"?black1Bindings.abilityCatalog:source.game==="IRAO"?white1Bindings.abilityCatalog:abilityContracts;
   return { project, source, base, overlay, resolver, getters, assignments, files, signatures:nativeSignatures, overlayModule:String(overlayId), abilityCatalog, catalog, moveCount: project.narcs.moves?.fileCount ?? 65535 };
 }
@@ -705,13 +722,84 @@ export function buildMoveRuleModule(project: ProjectState, rules: ReadonlyMap<nu
   return moduleFor(context(project), { rules: new Map(rules), originals: snapshots });
 }
 export type MoveEffectsInspection={editable:boolean;rules:Map<number,MoveRuleSet>;message:string;runtimeVersion?:number;packagingVersion?:number;updateAvailable:boolean};
+type MoveEffectsInspectionInputs = {
+  settings: readonly unknown[];
+  binaries: Array<Uint8Array | undefined>;
+  files: ReadonlyMap<string, Uint8Array>;
+  hitCounts: number[];
+};
+const verifiedMoveEffects = new WeakMap<ProjectState, {
+  result: MoveEffectsInspection;
+  inputs: MoveEffectsInspectionInputs;
+  hitCountMoves: number[];
+}>();
+
+function moveEffectsInspectionInputs(project: ProjectState, source: Source, hitCountMoves: readonly number[]): MoveEffectsInspectionInputs {
+  const sequel = project.session.baseRom === "BW2";
+  const handlers = project.narcs.move_effects_table;
+  // Item and ability hooks can participate in move runtime verification.
+  const storeState = (store: NarcStore | undefined) => [store, store?.revision, store?.fileCount, store?.rawFiles];
+  return {
+    settings: [
+      source, project.session.baseRom, project.session.baseVersion, project.session.fairy,
+      project.narcs.moves?.fileCount, handlers?.dirty.has(0), handlers?.sourcePath,
+      ...storeState(handlers), ...storeState(project.narcs.items), ...storeState(project.narcs.message_texts),
+    ],
+    binaries: [
+      project.arm9, project.patches?.arm9OverlayTable, handlers?.rawFiles[0],
+      project.overlays[sequel ? 167 : 93], project.overlays[sequel ? 169 : 95],
+      source.sideOverlay && project.fileSystem?.replacements?.[source.sideOverlay.fileId],
+    ],
+    files: moveEffectFiles(project, source),
+    hitCounts: hitCountMoves.map(id => Number(decodeRecord(project, "moves", id).raw?.hits ?? 0)),
+  };
+}
+
+function sameMoveEffectsInputs(next: MoveEffectsInspectionInputs, previous: MoveEffectsInspectionInputs): boolean {
+  return next.settings.every((value, i) => value === previous.settings[i])
+    && next.hitCounts.every((value, i) => value === previous.hitCounts[i])
+    && next.binaries.every((bytes, i) => {
+      const snapshot = previous.binaries[i];
+      return bytes && snapshot ? same(bytes, snapshot) : bytes === snapshot;
+    })
+    && next.files.size === previous.files.size
+    && [...next.files].every(([path, bytes]) => {
+      const snapshot = previous.files.get(path);
+      return snapshot !== undefined && same(bytes, snapshot);
+    });
+}
+
 function moveRuntimeNeedsUpdate(saved:Saved):boolean {
   if(saved.runtimeVersion===undefined)return false;
   const expected=moveUsesSideCondition(saved.rules)?12:[...saved.rules.values()].some(r=>r.effects.some(e=>e.kind==="modernKnockOff"))?11:hasPersistent(saved.rules)?10:hasHistory(saved.rules)?8:7;
   return saved.packagingVersion!==CURRENT_MOVE_PACKAGING||saved.runtimeVersion!==expected;
 }
 export function inspectMoveEffects(project: ProjectState): MoveEffectsInspection {
-  try { const c = context(project), saved = stored(c); return { editable: true, rules: saved.rules, message: saved.rules.size ? "Custom effects · Shared DLL" : "Native behavior",runtimeVersion:saved.runtimeVersion,packagingVersion:saved.packagingVersion,updateAvailable:moveRuntimeNeedsUpdate(saved) }; }
+  try {
+    const source = sources.get(project);
+    const cached = verifiedMoveEffects.get(project);
+    if (source && cached && sameMoveEffectsInputs(moveEffectsInspectionInputs(project, source, cached.hitCountMoves), cached.inputs)) {
+      return structuredClone(cached.result);
+    }
+    const c = context(project);
+    const saved = stored(c);
+    const result: MoveEffectsInspection = {
+      editable: true, rules: saved.rules, message: saved.rules.size ? "Custom effects · Shared DLL" : "Native behavior",
+      runtimeVersion: saved.runtimeVersion, packagingVersion: saved.packagingVersion, updateAvailable: moveRuntimeNeedsUpdate(saved),
+    };
+    const hitCountMoves = [...saved.rules].filter(([, rule]) => rule.effects.some(effect => effect.kind === "drainEachHit")).map(([id]) => id);
+    const inputs = moveEffectsInspectionInputs(project, c.source, hitCountMoves);
+    // Snapshot mutable buffers so in-place binary edits also invalidate the inspection.
+    verifiedMoveEffects.set(project, {
+      result: structuredClone(result), hitCountMoves,
+      inputs: {
+        ...inputs,
+        binaries: inputs.binaries.map(bytes => bytes && new Uint8Array(bytes)),
+        files: new Map([...inputs.files].map(([path, bytes]) => [path, new Uint8Array(bytes)])),
+      },
+    });
+    return result;
+  }
   catch (error) { return { editable: false, rules: new Map(), message: error instanceof Error ? error.message : String(error),updateAvailable:false }; }
 }
 function writeFields(project: ProjectState, id: number, fields: Snapshot) {

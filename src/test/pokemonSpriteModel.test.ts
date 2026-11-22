@@ -13,6 +13,7 @@ import {
   getPokemonMultiCells,
   getPokemonIconImage,
   getPokemonIconPaletteAssignment,
+  getPokemonIconThumbnail,
   getPokemonPalettes,
   getPokemonRigAtlasDimensions,
   getPokemonSpriteFormOptions,
@@ -347,6 +348,27 @@ describe("pokemonSpriteModel", () => {
     expect([...getPokemonIconImage(project, 1, "male").pixels.slice(0, 4)]).toEqual([8, 8, 8, 255]);
     expect([...getPokemonIconImage(project, 1, "female").pixels.slice(0, 4)]).toEqual([255, 0, 0, 255]);
     expect(icons[11]).toHaveLength(0);
+  });
+
+  it("uses a form's ROM icon and palette in thumbnails, with a fallback for missing artwork", () => {
+    const project = makeProject();
+    const personal = project.narcs.personal!.rawFiles;
+    const icons = project.narcs.pokemon_icons!.rawFiles;
+    personal[1] = packRows(project.formats.personal!, [{ form_id: 2, num_forms: 2, form: 3 }]);
+    personal[2] = packRows(project.formats.personal!, [{ gender: 254 }]);
+    const formIconFile = 8 + 688 * 2;
+    icons[formIconFile] = makeIconFile();
+    writeU16(icons[0], 40 + 32 + 2, rgb555(31, 0, 0));
+    setPokemonIconPaletteAssignment(project, 1, "male", 0);
+    setPokemonIconPaletteAssignment(project, 688, "female", 1);
+
+    expect([...getPokemonIconThumbnail(project, 1, 0)!.pixels.slice(0, 4)]).toEqual([8, 8, 8, 255]);
+    const form = getPokemonIconThumbnail(project, 1, 1)!;
+    expect([form.width, form.height, ...form.pixels.slice(0, 4)]).toEqual([32, 32, 255, 0, 0, 255]);
+    icons[formIconFile] = new Uint8Array();
+    expect(getPokemonIconThumbnail(project, 1, 1)).toBeUndefined();
+    icons[formIconFile] = new Uint8Array(1072);
+    expect(getPokemonIconThumbnail(project, 1, 1)).toBeUndefined();
   });
 
   it("parses and edits NitroPaint NANR animation frames", () => {
