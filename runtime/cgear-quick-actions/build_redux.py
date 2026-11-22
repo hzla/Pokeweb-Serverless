@@ -101,7 +101,7 @@ def main():
     source = out / f'{stem}.s'; source.write_text('\n'.join(asm) + '\n')
     flags = ['-std=c++17','-mthumb','-march=armv5t','-mlong-calls','-Os','-Wall','-Wextra','-Werror',
         '-fno-jump-tables','-fvisibility=hidden','-fno-exceptions','-fno-rtti','-fno-unwind-tables',
-        '-fno-asynchronous-unwind-tables','-ffreestanding','-fno-builtin','-DGAME_W2','-DCGEAR_REDUX','-I',out]
+        '-fno-asynchronous-unwind-tables','-ffreestanding','-fno-builtin','-DGAME_W2','-DCGEAR_REDUX','-DNUZLOCKE_PREVIEW_CACHE','-I',out]
     run(TOOLS / 'arm-none-eabi-g++', *flags, '-c', HERE / 'quick_actions.cpp', '-o', out / f'{stem}.o')
     run(TOOLS / 'arm-none-eabi-as', '-mthumb', '-march=armv5t', source, '-o', out / 'hooks.o')
     extra = []

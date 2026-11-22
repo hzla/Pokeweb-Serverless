@@ -31,7 +31,8 @@ export function validateSurfAdjustments(registryBytes: Uint8Array, adjustments: 
 /** One ROM-resident NARC member. Native code seeks directly to the chosen
  * 12-byte land or 8-byte Surf row; it never loads this archive into heap. */
 export function encodeFollowerPositioningNarc(registry: FollowerRegistry, registryBytes: Uint8Array,
-  landAnchors?: Uint8Array, surfRegistryBytes?: Uint8Array, surfAdjustments: FollowerSurfAdjustments = {}): Uint8Array {
+  landAnchors?: Uint8Array, surfRegistryBytes?: Uint8Array, surfAdjustments: FollowerSurfAdjustments = {}, maxDirectionalGap = FOLLOWER_MAX_DIRECTIONAL_GAP): Uint8Array {
+  if (maxDirectionalGap !== 12 && maxDirectionalGap !== 20) throw new Error("Unsupported follower positioning capability.");
   const landCount = registry.descriptorCount - 1008, surfCount = surfRegistryBytes ? readU16(surfRegistryBytes, 8) : 0;
   if (landCount < 0 || landCount > 6144 || Boolean(landAnchors) !== Boolean(surfRegistryBytes) ||
       (landAnchors && (landAnchors.length !== 16 + landCount * 8 || readU32(landAnchors, 8) !== followerCrc32(registryBytes))) ||
@@ -48,8 +49,8 @@ export function encodeFollowerPositioningNarc(registry: FollowerRegistry, regist
     if (row < 0 || row >= landCount || usedRows.has(row)) throw new Error(`Duplicate positioning row for ${followerKey(entry.key)}.`);
     usedRows.add(row);
     const at = HEADER + row * LAND_STRIDE;
-    const gaps = entry.directionalGaps ?? followerDefaultDirectionalGaps(entry);
-    if (gaps.length !== 4 || gaps.some(value => !Number.isInteger(value) || value < 0 || value > FOLLOWER_MAX_DIRECTIONAL_GAP)) throw new Error("Invalid directional gap.");
+    const gaps = entry.directionalGaps ?? followerDefaultDirectionalGaps(entry, maxDirectionalGap);
+    if (gaps.length !== 4 || gaps.some(value => !Number.isInteger(value) || value < 0 || value > maxDirectionalGap)) throw new Error("Invalid directional gap.");
     member.set(gaps, at);
     if (entry.riderAdjustments) checkRider(entry.riderAdjustments);
     for (let i = 0; i < 8; ++i) {

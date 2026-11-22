@@ -1,0 +1,1447 @@
+/*
+ * The Mastersheet Viewer's edit mode (src/mastersheetViewer/editor). Same Gen 5 vocabulary as the viewer: menu blue
+ * for what is chosen, the bright teal of the game's menu cursor for the block being edited, battle colours for
+ * kinds of thing, 2 px lines, no shadows or rounding.
+ */
+
+:root {
+  --mse-teal: #74dbe5;
+  --mse-teal-dim: #3a8e98;
+  --mse-bar-height: 58px;
+  --mse-danger: #ff8a80;
+}
+
+/* ---------- Edit tab and toolbar ---------- */
+
+.msv-side-tab.-edit {
+  top: 132px;
+}
+
+.msv-side-tab.-edit[aria-pressed="true"] {
+  border-color: var(--msv-menu-on-edge);
+  background: var(--msv-menu-on);
+}
+
+.msv-main__bar[hidden] {
+  display: none;
+}
+
+.msv-main__bar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+.mse-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  min-height: 58px;
+  margin-right: 64px;
+  padding: 10px 14px;
+  border-bottom: 2px solid var(--msv-text);
+  background: var(--msv-black);
+}
+
+.mse-bar__group {
+  display: flex;
+  gap: 6px;
+}
+
+.mse-bar__spacer {
+  flex: 1;
+}
+
+.mse-bar__state {
+  color: var(--msv-muted);
+  font: var(--msv-size) / 1.1 var(--msv-cond);
+}
+
+.mse-bar__state.-error {
+  color: var(--mse-danger);
+}
+
+.mse-bar__problems {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px;
+  border: 0;
+  background: none;
+  color: var(--msv-bag);
+  font: var(--msv-size) / 1.1 var(--msv-cond);
+  cursor: pointer;
+}
+
+.mse-bar__problems:hover span {
+  text-decoration: underline;
+}
+
+.mse-bar .msv-hex:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+/* ---------- Blocks: selection, frame, toolbar ---------- */
+
+.msv-page.mse-page {
+  position: relative;
+}
+
+/* Everything drawn over the page lives here: bands and tiles clip what is inside them, so nothing is put in a block. */
+.mse-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.mse-overlay > .mse-addline,
+.mse-overlay > .mse-tools,
+.mse-grip,
+.mse-entryx {
+  pointer-events: auto;
+}
+
+.mse-frame {
+  position: absolute;
+}
+
+.mse-frame[hidden],
+.mse-tools[hidden],
+.mse-addline[hidden],
+.mse-grip[hidden] {
+  display: none;
+}
+
+.mse-frame.-hover {
+  outline: 2px solid var(--msv-menu-edge);
+  outline-offset: 6px;
+}
+
+/* The game's menu cursor: a bright teal frame, doubled. */
+.mse-frame.-selected {
+  outline: 2px solid var(--mse-teal);
+  outline-offset: 6px;
+  box-shadow: 0 0 0 10px var(--msv-ground), 0 0 0 12px var(--mse-teal);
+}
+
+.mse-grip {
+  position: absolute;
+  left: 2px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 28px;
+  color: var(--msv-muted);
+  cursor: grab;
+  opacity: 0.55;
+}
+
+.mse-grip:hover {
+  color: var(--msv-text);
+  opacity: 1;
+}
+
+/* The selected block's toolbar sits on the frame's bottom edge, at its right, in room made under the block. */
+.msv-page > .mse-room {
+  margin-bottom: var(--mse-room, 48px) !important;
+}
+
+/* The selected block's toolbar sits on the frame's bottom edge, at its right. */
+.mse-tools {
+  position: absolute;
+  z-index: 6;
+  display: flex;
+  flex-wrap: wrap;
+  max-width: 100%;
+  border: 2px solid var(--msv-menu-edge);
+  background: var(--msv-menu);
+}
+
+.mse-tools > * + * {
+  border-left: 2px solid var(--msv-menu-edge);
+}
+
+.mse-tools > button,
+.mse-tools__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 11px;
+  font: var(--msv-size) / 1 var(--msv-cond);
+  white-space: nowrap;
+}
+
+.mse-tools > button {
+  border-top: 0;
+  border-right: 0;
+  border-bottom: 0;
+  background: none;
+  color: var(--msv-text);
+  cursor: pointer;
+}
+
+.mse-tools > button:first-child {
+  border-left: 0;
+}
+
+.mse-tools__label {
+  color: var(--msv-muted);
+}
+
+.mse-tools > button:hover:not(:disabled),
+.mse-tools > button:focus-visible,
+.mse-tools > button[aria-pressed="true"] {
+  background: var(--msv-menu-on);
+  color: var(--mse-teal);
+  outline: none;
+}
+
+.mse-tools > button.-primary {
+  color: var(--mse-teal);
+}
+
+.mse-tools > button:disabled {
+  color: var(--msv-dim);
+  cursor: default;
+}
+
+.mse-tools > button.-danger {
+  color: var(--mse-danger);
+}
+
+.mse-tools .mse-swatches {
+  align-items: center;
+  padding: 0 8px;
+}
+
+.mse-tools .mse-swatch {
+  width: 20px;
+  height: 20px;
+}
+
+.mse-hexinput {
+  width: 96px;
+  height: 24px;
+  margin-left: 4px;
+  padding: 0 6px;
+  border: 2px solid var(--msv-edge);
+  background: var(--msv-black);
+  color: var(--msv-text);
+  font: var(--msv-size) / 1 var(--msv-menlo, monospace);
+}
+
+.mse-hexinput:focus {
+  border-color: var(--mse-teal);
+  outline: none;
+}
+
+.mse-addline {
+  position: absolute;
+  left: var(--mse-left, 32px);
+  right: var(--mse-right, 64px);
+  height: 0;
+  border-top: 2px dashed var(--mse-teal-dim);
+}
+
+.mse-addline.-drop {
+  border-top-style: solid;
+  border-top-color: var(--mse-teal);
+}
+
+.mse-addline.-drop > button {
+  display: none;
+}
+
+/* Centred with `translate`, which a pressed button's own transform doesn't undo. */
+.mse-addline__button {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  translate: -50% -50%;
+}
+
+/* ---------- Editing in place ---------- */
+
+/* What can be typed into shows a dashed teal line under it; while typing, a teal box. */
+.mse-page [data-edit] {
+  cursor: text;
+  text-decoration: underline dashed var(--mse-teal-dim) 2px;
+  text-underline-offset: 5px;
+}
+
+.mse-page [data-edit]:focus {
+  background: #0d1719;
+  outline: 2px solid var(--mse-teal);
+  outline-offset: 3px;
+  text-decoration: none;
+}
+
+/* On a notice's light fill, the box being typed in stays light. */
+.mse-page .msv-notice [data-edit]:focus {
+  background: rgb(255 255 255 / 0.6);
+}
+
+.mse-page .msv-notice [data-edit]:empty::before {
+  color: color-mix(in srgb, var(--notice-text) 45%, transparent);
+}
+
+/* A band's title clips what hangs under it: the line comes up close. */
+.mse-page .msv-band > [data-edit] {
+  min-width: 3ch;
+  text-underline-offset: 3px;
+}
+
+/* Inside bands and title bars, which clip: the box stays inside. */
+.mse-page .msv-band > [data-edit]:focus,
+.mse-page .msv-titlebar [data-edit]:focus {
+  outline-offset: -2px;
+}
+
+.mse-page [data-edit]:empty::before {
+  content: attr(data-placeholder);
+  color: var(--msv-dim);
+}
+
+.mse-page ul[data-edit] {
+  text-decoration: none;
+}
+
+.mse-page ul[data-edit] > li {
+  text-decoration: underline dashed var(--mse-teal-dim) 2px;
+  text-underline-offset: 5px;
+}
+
+.mse-page ul[data-edit]:focus > li {
+  text-decoration: none;
+}
+
+.mse-page ul[data-edit] > li:empty::before {
+  content: "New bullet";
+  color: var(--msv-dim);
+}
+
+.mse-page [data-rich] a.-open {
+  background: var(--msv-menu-on);
+  outline: 2px solid var(--mse-teal);
+  outline-offset: 1px;
+}
+
+.mse-editing .msv-pickups__lead[data-edit] {
+  min-height: 1.3em;
+}
+
+.mse-editing .msv-gift__note[data-edit] {
+  min-height: 1.3em;
+}
+
+/* What is picked from the ROM (a trainer, a wild table, a Pokémon): a button with a caret, opening a picker under it. */
+.mse-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  border-bottom: 2px dashed var(--mse-teal-dim);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mse-pick > svg {
+  flex: none;
+  color: var(--mse-teal);
+}
+
+.mse-pick:hover,
+.mse-pick:focus-visible,
+.mse-pick.-open {
+  background: #0d1719;
+  border-bottom-color: transparent;
+  outline: 2px solid var(--mse-teal);
+  outline-offset: -2px;
+}
+
+.msv-band > .mse-pick {
+  overflow: hidden;
+  font: var(--msv-size) / 1.2 var(--msv-cond);
+  white-space: nowrap;
+}
+
+.mse-pick__id {
+  color: var(--msv-muted);
+}
+
+.mse-placeholder {
+  color: var(--msv-dim);
+}
+
+.msv-mon__name.mse-pick {
+  gap: 6px;
+}
+
+.mse-editing [data-entry-icon],
+.mse-editing [data-entry-species] {
+  cursor: pointer;
+}
+
+.mse-editing [data-entry-icon]:hover,
+.mse-editing [data-entry-species]:hover {
+  filter: brightness(1.2);
+}
+
+.mse-editing [data-entry-at].-drop-before {
+  filter: brightness(1.5);
+}
+
+/* Mandatory or optional, in a trainer's title bar. */
+.mse-seg {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.mse-seg__chip {
+  height: 24px;
+  padding: 0 10px;
+  border: 2px solid var(--msv-menu-edge);
+  background: var(--msv-menu);
+  color: var(--msv-text);
+  font: calc(var(--msv-size) * 0.9) / 1 var(--msv-cond);
+  cursor: pointer;
+}
+
+.mse-seg__chip[aria-pressed="true"] {
+  border-color: var(--msv-menu-on-edge);
+  background: var(--msv-menu-on);
+  color: var(--mse-teal);
+}
+
+/* Adding to a list: a tile in the bag grid, a card in the party. */
+.mse-addtile,
+.mse-addcard {
+  list-style: none;
+}
+
+.mse-addtile > button,
+.mse-addcard > button {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  min-height: 52px;
+  border: 2px dashed var(--mse-teal-dim);
+  background: none;
+  color: var(--mse-teal);
+  font: var(--msv-size) / 1.2 var(--msv-cond);
+  cursor: pointer;
+}
+
+.mse-addcard > button {
+  min-height: 160px;
+}
+
+.mse-addcard b {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.mse-addtile > button:hover,
+.mse-addtile > button:focus-visible,
+.mse-addtile > button.-open,
+.mse-addcard > button:hover,
+.mse-addcard > button:focus-visible,
+.mse-addcard > button.-open {
+  border-style: solid;
+  border-color: var(--mse-teal);
+  background: #0d1719;
+  outline: none;
+}
+
+.mse-badges {
+  position: absolute;
+  inset: 0;
+}
+
+.mse-entryx {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 2px solid var(--msv-menu-edge);
+  background: var(--msv-black);
+  color: var(--msv-muted);
+  font: 600 15px / 1 var(--msv-cond);
+  cursor: pointer;
+}
+
+.mse-entryx:hover,
+.mse-entryx:focus-visible {
+  border-color: var(--mse-danger);
+  color: var(--mse-danger);
+  outline: none;
+}
+
+/* A trainer or table not picked yet. */
+.mse-newcard__body {
+  display: grid;
+  place-items: center;
+  min-height: 150px;
+  padding: 16px;
+  border: 2px dashed var(--msv-edge);
+  border-top: 0;
+  color: var(--msv-muted);
+  font: var(--msv-size) / 1.4 var(--msv-cond);
+  text-align: center;
+}
+
+.msv-wild.mse-newcard > .msv-band {
+  margin-bottom: 0;
+}
+
+/* The page's title, its split and level cap, renamed where they show. */
+.msv.-editing .msv-page > header [data-header-edit] {
+  cursor: text;
+}
+
+.msv.-editing .msv-page > header [data-header-edit].-editing {
+  background: #0d1719;
+  outline: 2px solid var(--mse-teal);
+  outline-offset: -2px;
+  text-overflow: clip;
+}
+
+.msv-plate.mse-ghostplate {
+  border-style: dashed;
+  background: none;
+  color: var(--msv-muted);
+}
+
+/* ---------- Pickers ---------- */
+
+.mse-pop {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  width: min(560px, calc(100% - 16px));
+  max-height: min(520px, 72vh);
+  padding: 8px;
+  border: 2px solid var(--msv-menu-edge);
+  background: var(--msv-black);
+}
+
+.mse-pop.-species,
+.mse-pop.-zone {
+  width: min(420px, calc(100% - 16px));
+}
+
+.mse-pop > .msv-search {
+  flex: none;
+  margin: 0 0 6px;
+}
+
+.mse-pop .msv-search input {
+  color: var(--msv-text);
+}
+
+.mse-pop__body {
+  min-height: 0;
+  overflow: auto;
+}
+
+.mse-pop__note {
+  margin: 4px 2px 6px;
+  color: var(--msv-muted);
+  font: calc(var(--msv-size) * 0.9) / 1.3 var(--msv-cond);
+}
+
+.mse-pop__head {
+  margin: 8px 2px 4px;
+  color: var(--msv-muted);
+  font: var(--msv-size) / 1.2 var(--msv-cond);
+}
+
+.mse-pop__label {
+  display: grid;
+  gap: 4px;
+  margin: 2px 2px 8px;
+  color: var(--msv-muted);
+  font: var(--msv-size) / 1.1 var(--msv-cond);
+}
+
+.mse-pop__label .msv-search {
+  margin: 0;
+}
+
+.mse-pop__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.mse-options {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mse-option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 10px;
+  width: 100%;
+  padding: 6px 10px;
+  border: 2px solid transparent;
+  background: var(--msv-ground);
+  color: var(--msv-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.mse-option.-line {
+  align-items: center;
+  padding: 3px 10px;
+}
+
+.mse-option:hover,
+.mse-option.-active {
+  border-color: var(--msv-menu-edge);
+  outline: none;
+}
+
+.mse-option.-on {
+  border-color: var(--msv-menu-on-edge);
+  background: var(--msv-menu-on);
+}
+
+.mse-option__name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  font: 600 var(--msv-size) / 1.2 var(--msv-font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mse-option.-on .mse-option__name {
+  color: var(--mse-teal);
+}
+
+.mse-option__id {
+  color: var(--msv-muted);
+  font: var(--msv-size) / 1.2 var(--msv-cond);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.mse-option__icons {
+  display: flex;
+  grid-column: 1 / -1;
+  min-height: 30px;
+}
+
+.mse-option__icons .msv-icon,
+.mse-ghostcard__party .msv-icon {
+  margin: -4px -2px -6px;
+}
+
+.mse-option__meta {
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--msv-muted);
+  font: calc(var(--msv-size) * 0.9) / 1.25 var(--msv-cond);
+}
+
+.mse-tag {
+  padding: 0 6px;
+  border: 2px solid var(--mse-teal-dim);
+  color: var(--mse-teal);
+  font: calc(var(--msv-size) * 0.85) / 1.25 var(--msv-cond);
+  white-space: nowrap;
+}
+
+/* TM discs in each type's colour. */
+.mse-typegrid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.mse-typecell {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 6px 2px;
+  border: 2px solid transparent;
+  background: var(--msv-ground);
+  color: var(--msv-muted);
+  font: calc(var(--msv-size) * 0.8) / 1.1 var(--msv-cond);
+  cursor: pointer;
+}
+
+.mse-typecell:hover,
+.mse-typecell.-active {
+  border-color: var(--msv-menu-edge);
+  color: var(--msv-text);
+}
+
+.mse-typecell.-on {
+  border-color: var(--msv-menu-on-edge);
+  background: var(--msv-menu-on);
+  color: var(--mse-teal);
+}
+
+/* ---------- Adding blocks ---------- */
+
+.mse-addstrip {
+  margin: 14px 0;
+  padding: 10px 12px;
+  border: 2px dashed var(--mse-teal);
+  background: #0d1719;
+}
+
+.mse-addstrip__head {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  color: var(--mse-teal);
+  font: var(--msv-size) / 1.2 var(--msv-cond);
+}
+
+.mse-kinds {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.mse-kind {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 10px;
+  padding: 8px 10px;
+  border: 2px solid var(--msv-menu-edge);
+  background: var(--msv-menu);
+  color: var(--msv-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.mse-kind:hover,
+.mse-kind:focus-visible {
+  border-color: var(--msv-menu-on-edge);
+  background: var(--msv-menu-on);
+  outline: none;
+}
+
+.mse-kind:hover b,
+.mse-kind:focus-visible b {
+  color: var(--mse-teal);
+}
+
+.mse-kind i {
+  grid-row: span 2;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--msv-black);
+  outline: 2px solid var(--msv-edge);
+}
+
+.mse-kind b {
+  font: 600 var(--msv-size) / 1.2 var(--msv-font);
+}
+
+.mse-kind small {
+  color: var(--msv-muted);
+  font: calc(var(--msv-size) * 0.8) / 1.25 var(--msv-cond);
+}
+
+.mse-empty {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0 24px;
+  padding: 16px;
+  border: 2px dashed var(--mse-teal-dim);
+  color: var(--msv-muted);
+}
+
+.mse-empty > p {
+  margin: 0;
+}
+
+/* ---------- Fill from the ROM, in the page ---------- */
+
+.mse-fill {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin: 16px 0 20px;
+  padding: 10px 14px;
+  border: 2px solid var(--mse-teal-dim);
+  background: #0d1719;
+  color: var(--msv-text);
+}
+
+.mse-fill__text {
+  flex: 1 1 340px;
+  min-width: 0;
+}
+
+.mse-fill__text > p {
+  margin: 0;
+}
+
+.mse-fill__from,
+.mse-fill__more {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin-top: 6px !important;
+  color: var(--msv-muted);
+  font: calc(var(--msv-size) * 0.9) / 1.3 var(--msv-cond);
+}
+
+.mse-fill__hint {
+  flex-basis: 100%;
+}
+
+.mse-fill__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.mse-ghosts {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.mse-ghostcard {
+  display: grid;
+  grid-template-columns: minmax(150px, 220px) auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 10px 14px;
+  border: 2px dashed var(--mse-teal);
+  background: #0d1719;
+}
+
+.mse-ghostcard.-skipped,
+.mse-ghost.-skipped {
+  border-color: var(--msv-edge);
+}
+
+.mse-ghostcard.-skipped > :not(.mse-ghostcard__actions) {
+  opacity: 0.5;
+}
+
+.mse-ghostcard__who {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mse-ghostcard__who b {
+  font: 600 var(--msv-size) / 1.2 var(--msv-font);
+}
+
+.mse-ghostcard__who small,
+.mse-ghostcard__why {
+  color: var(--msv-muted);
+  font: calc(var(--msv-size) * 0.9) / 1.3 var(--msv-cond);
+}
+
+.mse-ghostcard__party {
+  display: flex;
+}
+
+.mse-ghostcard__actions,
+.mse-ghost__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.msv-bag.mse-ghost {
+  border: 2px dashed var(--mse-teal);
+}
+
+.msv-bag.mse-ghost .msv-bag__plate,
+.msv-bag.mse-ghost .msv-bag__desc {
+  opacity: 0.55;
+}
+
+.msv-bag.mse-ghost .msv-bag__text {
+  display: grid;
+  gap: 6px;
+}
+
+.mse-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 1px 4px 1px 10px;
+  border: 2px solid var(--msv-menu-on-edge);
+  background: var(--msv-menu-on);
+  color: var(--mse-teal);
+  font: var(--msv-size) / 1.2 var(--msv-cond);
+}
+
+.mse-chip > span {
+  color: var(--msv-text);
+}
+
+.mse-chip__x {
+  padding: 0 6px;
+  border: 0;
+  background: none;
+  color: var(--msv-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.mse-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--mse-teal);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ---------- Menus ---------- */
+
+.mse-menu {
+  position: fixed;
+  z-index: 60;
+  display: grid;
+  gap: 2px;
+  width: 280px;
+  max-height: calc(100vh - 16px);
+  overflow: auto;
+  padding: 6px;
+  border: 2px solid var(--msv-menu-edge);
+  background: var(--msv-black);
+}
+
+.mse-menu__head {
+  padding: 4px 6px 6px;
+  color: var(--msv-muted);
+  font: var(--msv-size) / 1.2 var(--msv-cond);
+}
+
+.mse-menu__head.-ask {
+  color: var(--msv-text);
+}
+
+.mse-menu__item {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 6px 10px;
+  border: 2px solid var(--msv-menu-edge);
+  background: var(--msv-menu);
+  color: var(--msv-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.mse-menu__item:hover,
+.mse-menu__item:focus-visible {
+  border-color: var(--msv-menu-on-edge);
+  background: var(--msv-menu-on);
+  outline: none;
+}
+
+.mse-menu__item:hover .mse-menu__name,
+.mse-menu__item:focus-visible .mse-menu__name {
+  color: var(--mse-teal);
+}
+
+.mse-menu__item.-danger .mse-menu__name {
+  color: var(--mse-danger);
+}
+
+.mse-menu__name {
+  font: 600 var(--msv-size) / 1.2 var(--msv-font);
+}
+
+.mse-menu__hint {
+  overflow: hidden;
+  color: var(--msv-muted);
+  font: calc(var(--msv-size) * 0.85) / 1.3 var(--msv-cond);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mse-menu__sep {
+  height: 2px;
+  margin: 4px 0;
+  background: var(--msv-edge);
+}
+
+.mse-menu__sub {
+  display: grid;
+  gap: 2px;
+  padding: 4px 0 4px 12px;
+}
+
+/* ---------- Panel: Problems and Coverage ---------- */
+
+.mse-note {
+  margin: 6px 0 0;
+  color: var(--msv-muted);
+  font: calc(var(--msv-size) * 0.9) / 1.35 var(--msv-cond);
+}
+
+.mse-wait::after {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: 8px;
+  background: var(--mse-teal);
+}
+
+.mse-count {
+  margin-left: 8px;
+  color: var(--msv-muted);
+  font: var(--msv-size) / 1 var(--msv-cond);
+}
+
+/* Notice colours. */
+.mse-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mse-swatch {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 2px solid var(--msv-black);
+  outline: 2px solid var(--msv-edge);
+  background: var(--swatch, transparent);
+  cursor: pointer;
+}
+
+.mse-swatch.-none {
+  background: linear-gradient(135deg, transparent 45%, var(--msv-muted) 45% 55%, transparent 55%);
+}
+
+.mse-swatch.-on {
+  outline-color: var(--mse-teal);
+}
+
+.mse-coverage {
+  display: grid;
+  gap: 2px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mse-coverage > li,
+.mse-coverage summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 10px;
+  background: var(--msv-ground);
+  font: var(--msv-size) / 1.3 var(--msv-cond);
+}
+
+.mse-coverage > li:has(details) {
+  display: block;
+  padding: 0;
+}
+
+.mse-coverage summary {
+  cursor: pointer;
+}
+
+.mse-coverage details ul {
+  margin: 0;
+  padding: 2px 0 6px 20px;
+  list-style: none;
+}
+
+.mse-coverage details li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 10px;
+  color: var(--msv-muted);
+  font: var(--msv-size) / 1.3 var(--msv-cond);
+}
+
+.mse-problems {
+  display: grid;
+  gap: 2px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mse-problem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 2px solid transparent;
+  background: var(--msv-ground);
+  color: var(--msv-bag);
+  text-align: left;
+  font: var(--msv-size) / 1.3 var(--msv-font);
+  cursor: pointer;
+}
+
+.mse-problem:hover {
+  border-color: var(--msv-menu-edge);
+}
+
+.mse-problem__line {
+  color: var(--msv-muted);
+  font: var(--msv-size) / 1.3 var(--msv-cond);
+  white-space: nowrap;
+}
+
+/* ---------- Outline ---------- */
+
+.msv.-editing .msv-nav li,
+.msv.-editing .msv-split {
+  position: relative;
+}
+
+.mse-nav-more {
+  position: absolute;
+  top: 50%;
+  right: 22px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 2px solid transparent;
+  background: none;
+  color: var(--msv-muted);
+  font: 600 var(--msv-size) / 1 var(--msv-cond);
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+
+.mse-nav-more.-split {
+  top: 22px;
+}
+
+.mse-nav-more:hover,
+.mse-nav-more:focus-visible {
+  border-color: var(--msv-menu-edge);
+  background: var(--msv-menu);
+  color: var(--msv-text);
+  outline: none;
+}
+
+.msv-nav li.-drop-before,
+.msv-split.-drop-before > ul > li:last-child {
+  box-shadow: 0 -2px 0 var(--mse-teal);
+}
+
+.msv-nav li[draggable="true"] {
+  cursor: grab;
+}
+
+.mse-nav-add {
+  display: block;
+  width: calc(100% - 14px);
+  margin: 2px 14px 2px 0;
+  padding: 5px 12px;
+  border: 2px dashed var(--mse-teal-dim);
+  background: none;
+  color: var(--mse-teal);
+  font: var(--msv-size) / 1.2 var(--msv-cond);
+  text-align: left;
+  cursor: pointer;
+}
+
+.mse-nav-add:hover,
+.mse-nav-add:focus-visible {
+  border-style: solid;
+  outline: none;
+}
+
+.mse-nav-add.-split {
+  margin-top: 12px;
+}
+
+/* Renaming in the outline. */
+.mse-nav-input {
+  display: block;
+  width: calc(100% - 14px);
+  margin: 2px 14px 2px 0;
+  padding: 6px 10px;
+  border: 2px solid var(--mse-teal);
+  background: var(--msv-black);
+  color: var(--msv-text);
+  font: var(--msv-size) / 1.2 var(--msv-font);
+}
+
+.mse-nav-input:focus {
+  outline: none;
+}
+
+.mse-hidden {
+  display: none !important;
+}
+
+/* ---------- Template ---------- */
+
+.msv.-template .msv-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) min(600px, 46%);
+  grid-template-rows: auto 1fr;
+  align-items: start;
+}
+
+.msv.-template .msv-main__bar {
+  grid-column: 1 / -1;
+}
+
+.msv.-template .msv-main__page {
+  min-width: 0;
+}
+
+.msv.-template .msv-page {
+  padding-right: 24px;
+}
+
+.mse-code {
+  position: sticky;
+  top: var(--mse-bar-height);
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--mse-bar-height));
+  margin-right: 56px;
+  border-left: 2px solid var(--msv-text);
+  background: #141414;
+}
+
+.mse-code__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 2px solid var(--msv-edge);
+  background: var(--msv-black);
+  color: var(--msv-muted);
+  font: var(--msv-size) / 1 var(--msv-cond);
+}
+
+.mse-code__editor {
+  flex: 1;
+  min-height: 0;
+}
+
+.mse-code .cm-editor {
+  height: 100%;
+  color: #d8d8e0;
+  font: 15px / 22px var(--msv-menlo, monospace);
+}
+
+.mse-code .cm-scroller {
+  font: inherit;
+}
+
+.mse-code .cm-gutters {
+  border-right: 0;
+  background: #141414;
+  color: #5c5c68;
+}
+
+.mse-code .cm-activeLine,
+.mse-code .cm-activeLineGutter {
+  background: #1d1d22;
+}
+
+.mse-code .cm-cursor {
+  border-left: 2px solid var(--mse-teal);
+}
+
+.mse-code .cm-selectionBackground,
+.mse-code .cm-focused .cm-selectionBackground {
+  background: #2f4f6e !important;
+}
+
+.mse-code .mse-cm-selected {
+  background: #1e3a55;
+  box-shadow: inset 3px 0 0 var(--mse-teal);
+}
+
+.mse-code .mse-cm-h1,
+.mse-code .mse-cm-h2 {
+  color: #fff;
+  font-weight: 700;
+}
+
+.mse-code .mse-cm-h3 {
+  color: #f0f0f8;
+  font-weight: 700;
+}
+
+.mse-code .mse-cm-directive {
+  font-weight: 700;
+}
+
+.mse-code .mse-cm-tr .mse-cm-directive {
+  color: #ff6a60;
+}
+
+.mse-code .mse-cm-enc .mse-cm-directive {
+  color: #70d830;
+}
+
+.mse-code .mse-cm-list .mse-cm-directive,
+.mse-code .mse-cm-end {
+  color: #f8c828;
+}
+
+.mse-code .mse-cm-notif .mse-cm-directive {
+  color: #c89ad8;
+}
+
+.mse-code .mse-cm-zones {
+  color: #8c8c98;
+}
+
+.mse-code .mse-cm-zones .mse-cm-directive {
+  color: var(--mse-teal);
+}
+
+.mse-code .mse-cm-ref {
+  color: #f8a8a0;
+}
+
+.mse-code .mse-cm-desc,
+.mse-code .mse-cm-li {
+  color: #c8c8d0;
+}
+
+.mse-code .mse-cm-has-problem {
+  text-decoration: underline wavy #f8c828;
+  text-underline-offset: 4px;
+}
+
+.mse-cm-problems {
+  width: 16px;
+}
+
+.mse-cm-problem {
+  display: inline-block;
+  width: 14px;
+  color: #f8c828;
+  font-weight: 700;
+  text-align: center;
+  cursor: help;
+}
+
+.mse-code .cm-tooltip-autocomplete {
+  border: 2px solid var(--msv-menu-edge);
+  background: var(--msv-black);
+  color: var(--msv-text);
+}
+
+.mse-code .cm-tooltip-autocomplete > ul > li[aria-selected] {
+  background: var(--msv-menu-on);
+  color: var(--mse-teal);
+}
+
+.mse-code .cm-completionDetail {
+  margin-left: 12px;
+  color: var(--msv-muted);
+  font-style: normal;
+}
+
+@media (max-width: 1100px) {
+  .msv.-template .msv-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mse-code {
+    position: relative;
+    top: 0;
+    height: 60vh;
+    margin-right: 0;
+    border-top: 2px solid var(--msv-text);
+    border-left: 0;
+  }
+}
+
+@media (max-width: 860px) {
+  .mse-bar {
+    margin-right: 0;
+  }
+
+  .msv-side-tab.-edit,
+  .msv.-drawer-open .msv-side-tab.-edit {
+    top: 0;
+    right: 96px;
+  }
+
+  .mse-grip {
+    display: none;
+  }
+
+  .mse-kinds {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mse-ghostcard {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mse-typegrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/*
+ * Phones: the Contents bar makes room for a third tab when the Edit tab shows, and the edit bar sticks under it (the
+ * tabs are pinned to the top right, over the Contents bar).
+ */
+@media (max-width: 860px) {
+  .msv:has(> .msv-side-tab.-edit:not([hidden])) .msv-bar {
+    padding-right: 160px;
+  }
+
+  .msv-main__bar {
+    top: 48px;
+  }
+
+  .mse-bar {
+    gap: 6px 8px;
+    min-height: 0;
+    padding: 8px 12px;
+  }
+}

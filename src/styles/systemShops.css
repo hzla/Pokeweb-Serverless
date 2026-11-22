@@ -41,16 +41,16 @@
 }
 .ss-layout aside,
 .ss-layout article {
-  background: #202631;
-  border: 1px solid #46505e;
-  border-radius: 10px;
+  background: var(--g5-panel);
+  border: 2px solid var(--g5-black);
+  border-radius: 0;
   padding: 20px;
   min-width: 0;
 }
 .system-shops button {
   font: inherit;
   border: 1px solid #516070;
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 10px 14px;
   cursor: pointer;
 }
@@ -88,8 +88,8 @@
   color: #e9f1ff;
 }
 .ss-shop.-selected {
-  border-color: #65dac1;
-  background: #17483f;
+  border-color: var(--g5-menu-on-edge);
+  background: var(--g5-menu-on);
 }
 .system-shops .ss-native {
   display: flex;
@@ -125,7 +125,7 @@
   border: 1px solid #63718a;
   background: #141b25;
   color: #f4f7fd;
-  border-radius: 5px;
+  border-radius: var(--radius);
   padding: 9px;
   font: inherit;
 }

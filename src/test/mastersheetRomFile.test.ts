@@ -9,8 +9,10 @@ import {
   hasAuthoredMastersheet,
   hydrateMastersheetFromRom,
   materializeMastersheetRomFile,
+  readMastersheetFromRom,
   resolveMastersheetRomConflict,
   setMastersheetSavesInRom,
+  writeMastersheetIntoRom,
 } from "../pokeweb/mastersheetRomFile";
 import { createProjectDocument } from "../pokeweb/projectDocument";
 import type { ProjectState } from "../pokeweb/projectStore";
@@ -100,6 +102,19 @@ describe("mastersheet saved in the ROM", () => {
     hydrateMastersheetFromRom(other, rom);
     resolveMastersheetRomConflict(other, "rom");
     expect(other.docs).toMatchObject({ mastersheetMarkdown: SHEET.markdown, mastersheetRomPending: undefined });
+  });
+
+  it("saves a new sheet into a ROM, leaving every other file as it was", () => {
+    const source = romWith([{ path: MASTERSHEET_ROM_PATH, bytes: encodeMastersheetRomFile(SHEET) }]);
+    const edited = { ...SHEET, markdown: `${SHEET.markdown}\n## Route 21\n!enc 14\n`.repeat(50) };
+    const saved = writeMastersheetIntoRom(source, edited);
+    expect(readMastersheetFromRom(saved)).toEqual(edited);
+    const before = new NintendoDSRom(source);
+    const after = new NintendoDSRom(saved);
+    const sheetId = after.filenames.idOf(MASTERSHEET_ROM_PATH)!;
+    expect(after.files.length).toBe(before.files.length);
+    for (let id = 0; id < after.files.length; id += 1) if (id !== sheetId) expect(after.files[id]).toEqual(before.files[id]);
+    expect(() => writeMastersheetIntoRom(romWith([]), edited)).toThrow(/no saved mastersheet/u);
   });
 
   it("reports a damaged ROM copy without touching the project's", () => {

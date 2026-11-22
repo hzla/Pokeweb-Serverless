@@ -7,6 +7,7 @@ import { readU16,writeU32 } from "../nds/binary";
 import { writeRpm } from "../pokeweb/rpm";
 import { renderItemRuleForm } from "../ui/itemRuleEditor";
 import { ABILITY_RULE_EFFECTS,ABILITY_NATIVE_EFFECTS } from "../pokeweb/abilityRules";
+import { validateItemRule, EMPTY_ITEM_RULE, type ItemRuleCondition } from "../pokeweb/itemRules";
 import { makeItemEffectsProject } from "./fixtures/itemEffectsProject";
 
 describe("composable ability rules",()=>{
@@ -19,6 +20,77 @@ describe("composable ability rules",()=>{
   const rule=validateAbilityRule({effects:[{kind:"defense",value:2},{kind:"healFlat",value:5},{kind:"specialDefense",value:1.5,bypassable:false}],conditions:{kind:"group",mode:"all",children:[{kind:"hp",comparison:"lt",percent:50},{kind:"group",mode:"any",children:[{kind:"type",value:17},{kind:"weather",value:3}]}]}});
   expect(rule.effects.map(e=>e.bypassable)).toEqual([true,false,false]);expect(rule.conditions.kind).toBe("group");
   const bytes=encodeAbilityRules(new Map([[255,rule]])),at=readU16(bytes,510),effects=at+4+bytes[at+1]*4;expect([bytes[effects+7],bytes[effects+23],bytes[effects+39]]).toEqual([1,0,0]);
+ });
+ it("encodes and reloads separate effect trees with shared-opponent matching", () => {
+  const condition: ItemRuleCondition = {kind:"group",mode:"all",scope:"anyOpponent",children:[
+   {kind:"type",value:10,subject:"anyOpponent"},
+   {kind:"knowsMove",value:57,subject:"anyOpponent"},
+  ]};
+  const rules = validateAbilityRule({ ...EMPTY_ABILITY_RULE, effects: [
+   { kind:"attack",value:1.5,conditions:condition },
+   { kind:"attack",value:1.5,conditions:{kind:"hp",comparison:"lte",percent:50} },
+   { kind:"defense",value:2 },
+  ] });
+  const bytes = encodeAbilityRules(new Map([[165,rules]]), true, () => [0x3b]);
+  const record = readU16(bytes,165 * 2), effectIndex = record + 4 + bytes[record+1] * 4 + 48;
+  const conditionAt = record + readU16(bytes,effectIndex);
+  expect(bytes[record+2]).toBe(1);
+  expect(readU16(bytes,effectIndex+4)).toBe(0);
+  expect([...bytes.slice(conditionAt,conditionAt+17)]).toEqual([0,3,1,0,10,4,10,0,11,4,57,0,130,2,0,0,0x3b]);
+
+  const {project} = makeItemEffectsProject(0,0,true,true);
+  const module = buildAbilityRuleModule(project,new Map([[165,rules]]));
+  const baseline = buildAbilityRuleModule(project,new Map([[165,EMPTY_ABILITY_RULE]]));
+  const hooks = (dll: typeof module) => dll.relocations.filter(r => r.target.module !== "base").map(r => r.target);
+  expect(hooks(module)).toEqual(hooks(baseline));
+  project.fileSystem={additions:{[ABILITY_EFFECTS_DLL_PATH]:writeRpm(module,{ident:"DLXF"})},replacements:{}};
+  expect(inspectAbilityEffects(project).rules.get(165)).toEqual(rules);
+  const html = renderItemRuleForm(project,{...rules,consumable:false},{ability:true,definitions:ABILITY_RULE_EFFECTS});
+  for (const label of ["Effect conditions", "Same active opponent", "Opponent involved", "Knows move"])
+   expect(html).toContain(label);
+  expect(() => validateAbilityRule({...rules,conditions:{kind:"knowsMove",value:0}})).toThrow(/Pokémon condition/u);
+  expect(() => validateItemRule({...EMPTY_ITEM_RULE,conditions:condition})).toThrow(/opponent/u);
+ });
+ it("shares field and side predicates between the ability and item forms", () => {
+  const conditions: ItemRuleCondition = {kind:"group",mode:"any",children:[
+   {kind:"fieldEffect",value:1},
+   {kind:"sideEffect",value:6,side:"opposing",layers:2,negate:true},
+  ]};
+  const rule = validateAbilityRule({...EMPTY_ABILITY_RULE,conditions});
+  const bytes = encodeAbilityRules(new Map([[1,rule]]));
+  expect([...bytes.slice(516,528)]).toEqual([8,0,1,0,9,1,6,5,129,2,0,0]);
+  const {project} = makeItemEffectsProject();
+  const abilityForm = renderItemRuleForm(project,{...rule,consumable:false},{ability:true,definitions:ABILITY_RULE_EFFECTS});
+  for (const label of ["Trick Room","Tailwind","Spikes","Opposing side","2 layers","Fewer than"])
+   expect(abilityForm).toContain(label);
+  const itemRule = validateItemRule({...EMPTY_ITEM_RULE,conditions});
+  expect(itemRule.conditions).toEqual(rule.conditions);
+  expect(renderItemRuleForm(project,itemRule)).toContain("2 layers");
+ });
+ it("rejects invalid field IDs and side layer counts", () => {
+  const invalid: ItemRuleCondition[] = [
+   {kind:"fieldEffect",value:3},
+   {kind:"sideEffect",value:9,side:"own"},
+   {kind:"sideEffect",value:4,side:"own",layers:2},
+   {kind:"sideEffect",value:6,side:"own",layers:0},
+   {kind:"sideEffect",value:7,side:"opposing",layers:3},
+  ];
+  for (const conditions of invalid)
+   expect(() => validateAbilityRule({...EMPTY_ABILITY_RULE,conditions})).toThrow(/activation condition/u);
+ });
+ it("uses checked native field readers without adding battle hooks", () => {
+  const {project, offsets} = makeItemEffectsProject(0,0,true,true);
+  const rule = validateAbilityRule({...EMPTY_ABILITY_RULE,conditions:{kind:"group",mode:"all",children:[
+   {kind:"fieldEffect",value:1}, {kind:"sideEffect",value:4,side:"own"},
+  ]}});
+  const runtime = buildAbilityRuleModule(project,new Map([[165,rule]]));
+  const baseline = buildAbilityRuleModule(project,new Map([[165,EMPTY_ABILITY_RULE]]));
+  const hookTargets = (dll: typeof runtime) => dll.relocations.filter(r => r.target.module !== "base").map(r => r.target);
+  expect(hookTargets(runtime)).toEqual(hookTargets(baseline));
+  project.fileSystem={additions:{[ABILITY_EFFECTS_DLL_PATH]:writeRpm(runtime,{ident:"DLXF"})},replacements:{}};
+  expect(inspectAbilityEffects(project).rules.get(165)).toEqual(rule);
+  project.overlays[167]![offsets.get("AbilityReadFieldEffect")!] ^= 1;
+  expect(inspectAbilityEffects(project).message).toMatch(/native field-state read/u);
  });
  it("validates native weather/multiplier/chance edits against the actual operands",()=>{
   expect(validateAbilityRule({effects:[{kind:"nativeAbility:146",value:2.5,weather:3}],conditions:EMPTY_ABILITY_RULE.conditions}).effects[0]).toMatchObject({weather:3,value:2.5});

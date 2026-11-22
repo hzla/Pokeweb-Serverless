@@ -23,6 +23,19 @@ retain them; unsafe scenes, doors, battles and genuine actor conflicts recall
 them. In eligible local singles, a healthy grounded follower matching party slot
 1 can remain out for the native battle opening. Other formats use normal recall.
 
+US White 2 uses the native9 movement and rendering adapters in both packages.
+Walking follows recorded world and rail headings, with continuous reversals and
+native camera-sector facing. Body and textured ground shadow share their rail
+anchor. Shadow size follows the widest opaque artwork frame and is cached per
+appearance; unsupported resources retain native sizing. Native9 supports gaps
+through 20 world units and suppresses 64-pixel walking followers indoors. Updates
+preserve explicitly authored gaps. Black 2, Italian White 2 and White2Upgrade use
+their existing profile-specific movement and rendering adapters.
+
+Native9 reads dialogue and gift files into size-checked game-event heap buffers
+when a conversation starts. The conversation releases them on completion,
+cancellation, startup failure or field teardown.
+
 Artwork uses two columns (idle/step) and four direction rows: 64×128 sheets for
 32-pixel poses or 128×256 for 64-pixel poses, transparency and at most 15 opaque
 BGR555 colors per pose. Species/form/gender/shiny mapping is explicit. Walking

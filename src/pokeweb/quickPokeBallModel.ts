@@ -17,6 +17,12 @@ const dllUrls = {
   B2: new URL("../assets/codeinjection/QuickPokeBallB2.dll", import.meta.url),
   W2: new URL("../assets/codeinjection/QuickPokeBallW2.dll", import.meta.url),
 };
+const sessionUrls = {
+  B: new URL("../assets/codeinjection/QuickPokeBallSessionB.dll", import.meta.url),
+  W: new URL("../assets/codeinjection/QuickPokeBallSessionW.dll", import.meta.url),
+  B2: new URL("../assets/codeinjection/QuickPokeBallSessionB2.dll", import.meta.url),
+  W2: new URL("../assets/codeinjection/QuickPokeBallSessionW2.dll", import.meta.url),
+};
 const archiveUrl = new URL("../assets/codeinjection/quickPokeBall.narc", import.meta.url);
 
 function romFile(project: ProjectState, rom: NintendoDSRom | undefined, path: string) {
@@ -59,6 +65,7 @@ type QuickPokeBallStatus = {
   canUninstall: boolean;
   message: string;
   dllPath?: string;
+  sessionPath?: string;
 };
 
 export function getQuickPokeBallStatus(project: ProjectState, bytes = project.originalRomBytes): QuickPokeBallStatus {
@@ -78,12 +85,19 @@ export function getQuickPokeBallStatus(project: ProjectState, bytes = project.or
   state.supported = true;
 
   let dllPath: string | undefined;
+  let sessionPath: string | undefined;
   let previousRuntime = false;
   for (const entry of listCodeInjectionDlls(project)) {
     const data = romFile(project, rom, entry.path);
     if (!data && !rom) continue; // IndexedDB-backed projects are checked again during installation.
     const hash = entry.target === "patches" && data &&
-      (data.length === profile.size || profile.previousRuntimes.some(previous => data.length === previous.size)) ? sha256Hex(data) : undefined;
+      (data.length === profile.size || data.length === profile.session.size ||
+        profile.previousRuntimes.some(previous => data.length === previous.size)) ? sha256Hex(data) : undefined;
+    if (hash === profile.session.sha256) {
+      if (sessionPath) return { ...state, message: "Multiple Quick Poké Ball session modules are installed." };
+      sessionPath = entry.path;
+      continue;
+    }
     const recognizedPrevious = hash && profile.previousRuntimes.some(previous => hash === previous.sha256);
     if (hash && (hash === profile.sha256 || recognizedPrevious)) {
       if (dllPath) return { ...state, message: "Multiple Quick Poké Ball modules are installed." };
@@ -91,7 +105,7 @@ export function getQuickPokeBallStatus(project: ProjectState, bytes = project.or
       previousRuntime = !!recognizedPrevious;
       continue;
     }
-    if (/^quickpokeball[wb]2?(?:\.debug)?\.dll$/iu.test(entry.fileName))
+    if (/^quickpokeball(?:session)?[wb]2?(?:\.debug)?\.dll$/iu.test(entry.fileName))
       return { ...state, message: `Quick Poké Ball does not recognize ${entry.path}.` };
     if (!data || entry.target !== "patches") continue;
     try {
@@ -107,9 +121,10 @@ export function getQuickPokeBallStatus(project: ProjectState, bytes = project.or
   const graphics = archive && archiveVersion(archive);
   if (archive && !graphics)
     return { ...state, message: `Quick Poké Ball does not recognize ${manifest.archivePath}.` };
-  state.installed = !!dllPath && !!archive;
+  state.installed = !!dllPath && !!archive && (previousRuntime || !!sessionPath);
   state.updateAvailable = previousRuntime || (state.installed && graphics === "previous");
-  state.canUninstall = !!dllPath && canRemoveStagedCodeInjectionDll(project, dllPath);
+  const paths = [dllPath, sessionPath].filter((path): path is string => path !== undefined);
+  state.canUninstall = paths.length > 0 && paths.every(path => canRemoveStagedCodeInjectionDll(project, path));
 
   if (rom) {
     try {
@@ -136,8 +151,10 @@ export function getQuickPokeBallStatus(project: ProjectState, bytes = project.or
   }
 
   const message = state.updateAvailable ? "Update available." : state.installed ? "Installed."
-    : dllPath ? "Graphics missing. Reinstall to repair." : "";
-  return { ...state, compatible: true, message, dllPath };
+    : dllPath && !sessionPath ? "Session module missing. Reinstall to repair."
+    : dllPath ? "Graphics missing. Reinstall to repair."
+    : sessionPath ? "Battle module missing. Reinstall to repair." : "";
+  return { ...state, compatible: true, message, dllPath, sessionPath };
 }
 
 async function readBundle(url: URL, expected: string) {
@@ -154,11 +171,13 @@ export async function installQuickPokeBall(project: ProjectState) {
     if (!status.compatible) throw new Error(status.message);
     const version = staged.session.baseVersion as keyof typeof dllUrls;
     const profile = manifest.games[version];
-    const [dll, archive] = await Promise.all([
+    const [dll, session, archive] = await Promise.all([
       readBundle(dllUrls[version], profile.sha256),
+      readBundle(sessionUrls[version], profile.session.sha256),
       readBundle(archiveUrl, manifest.archiveSha256),
     ]);
     const rom = new NintendoDSRom(staged.originalRomBytes!, { fileData: "view" });
+    if (!status.sessionPath) stageCodeInjectionDll(staged, profile.session.fileName, session);
     if (!status.dllPath || status.updateAvailable)
       stageCodeInjectionDll(staged, status.dllPath?.split("/").at(-1) ?? profile.fileName, dll);
     const fileId = rom.filenames.idOf(manifest.archivePath);
@@ -172,8 +191,9 @@ export async function installQuickPokeBall(project: ProjectState) {
 export async function uninstallQuickPokeBall(project: ProjectState) {
   await withProjectMutationLock(project, () => {
     const status = getQuickPokeBallStatus(project);
-    if (!status.dllPath || !status.canUninstall) throw new Error("Only a staged Quick Poké Ball installation can be removed.");
-    removeStagedCodeInjectionDll(project, status.dllPath);
+    if (!status.canUninstall) throw new Error("Only a staged Quick Poké Ball installation can be removed.");
+    if (status.dllPath) removeStagedCodeInjectionDll(project, status.dllPath);
+    if (status.sessionPath) removeStagedCodeInjectionDll(project, status.sessionPath);
     delete project.fileSystem?.additions?.[manifest.archivePath];
     recordGenericChange(project, "code_injection", "Removed the staged Quick Poké Ball patch.", "Quick Poké Ball", { key: "code-injection:quick-poke-ball" });
   });

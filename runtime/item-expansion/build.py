@@ -224,14 +224,15 @@ def libgcc():
                                     "-print-libgcc-file-name"]).decode().strip()
 
 
-def link_dll(out, name, objects, roots, symbols, segments, game, version, hook_segments):
+def link_dll(out, name, objects, roots, symbols, segments, game, version, hook_segments, *, imports=(), priority=4):
     stage = out / f"{name}.gc.elf"
     run(tool("arm-none-eabi-ld"), "-r", "--gc-sections", *[f"--undefined={r}" for r in roots], *objects, "-o", stage)
     elf = out / f"{name}.elf"
-    absolute = absolute_symbols(undefined_symbols(stage), symbols, segments, out, name)
+    absolute = absolute_symbols([symbol for symbol in undefined_symbols(stage) if symbol not in imports],
+                                symbols, segments, out, name)
     run(tool("arm-none-eabi-ld"), "-r", stage, absolute, "-o", elf)
-    if undefined_symbols(elf):
-        raise RuntimeError(f"{name}: unresolved {undefined_symbols(elf)}")
+    if set(undefined_symbols(elf)) != set(imports):
+        raise RuntimeError(f"{name}: unexpected unresolved symbols {undefined_symbols(elf)}")
     esdb = out / f"{name}.esdb.yml"
     rows = ["Segments:"]
     for index, segment in enumerate(hook_segments):
@@ -239,7 +240,7 @@ def link_dll(out, name, objects, roots, symbols, segments, game, version, hook_s
                  "    Type: EXECUTABLE" if segment == "ARM9" else "    Type: OVERLAY"]
     esdb.write_text("\n".join(rows) + "\nSymbols: []\n")
     meta = out / f"{name}.meta.yml"
-    meta.write_text(f"PMCGameID: {game}\nPMCModulePriority: 4\nPMCVersion: {version}\n")
+    meta.write_text(f"PMCGameID: {game}\nPMCModulePriority: {priority}\nPMCVersion: {version}\n")
     dll = out / f"{name}.dll"
     dll.unlink(missing_ok=True)
     run("java", "-cp", JAR, "rpm.cli.RPMTool", "-i", elf, "--fourcc", "DLXF", "-o", dll, "--esdb", esdb, "--meta",
@@ -247,7 +248,7 @@ def link_dll(out, name, objects, roots, symbols, segments, game, version, hook_s
     dump = subprocess.check_output(["java", "-cp", str(JAR), "rpm.cli.RPMDump", "--fourcc", "DLXF", "-i",
                                     str(dll)], stderr=subprocess.DEVNULL).decode()
     (out / f"{name}.dump.txt").write_text(dump)
-    if "Import symbol" in dump:
+    if not imports and "Import symbol" in dump:
         raise RuntimeError(f"{name}: unresolved imports remain")
     for kind, segment, address in re.findall(r"Target: (THUMB_BRANCH(?:_SAFESTACK)?) @ (\S+) :: (\S+)", dump):
         need = 16 if kind.endswith("SAFESTACK") else 12  # libRPM's patch sizes, as Pokeweb budgets them

@@ -1,10 +1,16 @@
 #include <stdint.h>
+
+#ifndef PMC_HEAP_CAP_KIB
+#define PMC_HEAP_CAP_KIB 200u
+#endif
+
 /* Called before BW1 creates its two static game heaps. DSi uses its native
  * TWL table; the copied DS table is not selected there. No heap API calls. */
 __attribute__((visibility("default"))) uint32_t PmcHeapBudget(uint32_t *specs, uint32_t lo, uint32_t hi) {
+    const uint32_t pmc_bytes = PMC_HEAP_CAP_KIB * 1024u;
     if (hi > 0x02400000u) return 1;
-    if (hi < 200u * 1024u || lo > hi - 200u * 1024u) return 0;
-    uint32_t available = hi - 200u * 1024u - lo;
+    if (hi < pmc_bytes || lo > hi - pmc_bytes) return 0;
+    uint32_t available = hi - pmc_bytes - lo;
     uint32_t needed = specs[0] + specs[2] + 0x6000u;
     if (needed <= available) return 1;
     uint32_t cut = (needed - available + 31u) & ~31u;

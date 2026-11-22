@@ -79,12 +79,49 @@ export class FieldSnapshotRenderer {
   }
 
   /**
+   * Where to show a trainer. Cutscene trainers often have an extra copy parked off the map, which a script walks in
+   * (or swaps for a talk-to NPC that starts the battle itself), so the first NPC running the trainer's battle script
+   * on the map wins. With none on it, an NPC in that zone wearing the trainer's sprite on the map stands in, facing
+   * its own way; failing that, the first placement as it is.
+   */
+  private async standingPlacement(placements: MsPlacement[]): Promise<{ data: Map3dSceneData; placement: MsPlacement }> {
+    let first: { data: Map3dSceneData; placement: MsPlacement } | undefined;
+    for (const zoneId of [...new Set(placements.map((placement) => placement.zoneId))]) {
+      const data = await loadMap3dZone(this.project, zoneId, { season: "spring", cache: false });
+      const here = placements.filter((placement) => placement.zoneId === zoneId);
+      const onMap = (tileX: number, tileZ: number) =>
+        data.chunks.some((chunk) => chunk.matrixX === Math.floor(tileX / 32) && chunk.matrixY === Math.floor(tileZ / 32));
+      first ??= { data, placement: here[0]! };
+      const standing = here.find((placement) => onMap(placement.tileX, placement.tileZ));
+      if (standing) return { data, placement: standing };
+      const parked = new Set(here.map((placement) => placement.npcIndex));
+      const standIn = data.npcModels.find((model) => model.objCode === here[0]!.objCode && !parked.has(model.uid) &&
+        onMap(Math.floor(model.x / 16), Math.floor(model.z / 16)));
+      if (standIn) {
+        return {
+          data,
+          placement: {
+            ...here[0]!,
+            npcIndex: standIn.uid,
+            tileX: Math.floor(standIn.x / 16),
+            tileZ: Math.floor(standIn.z / 16),
+            height: Math.floor(standIn.y / 16),
+            direction: standIn.movement.initialDirection,
+          },
+        };
+      }
+    }
+    return first!;
+  }
+
+  /**
    * A trainer where they stand, seen through the zone's game camera centred on them (as if the player stood
    * there), at the DS's 256×192, cropped around the trainer and enlarged 3× with hard pixels.
    */
-  trainerScene(placement: MsPlacement, options: { crop?: [number, number]; scale?: number } = {}): Promise<Blob> {
+  trainerScene(placements: MsPlacement[], options: { crop?: [number, number]; scale?: number } = {}): Promise<Blob> {
     return this.enqueue(async () => {
-      const data = await loadMap3dZone(this.project, placement.zoneId, { season: "spring", cache: false });
+      if (!placements.length) throw new Error("This trainer doesn't stand on the map.");
+      const { data, placement } = await this.standingPlacement(placements);
       const { scene, dispose } = buildScene(data);
       const extra: Array<{ dispose(): void }> = [];
       try {
@@ -96,6 +133,8 @@ export class FieldSnapshotRenderer {
         const texture = frames?.framesByDirection[direction]?.[0] ?? frames?.framesByDirection.down?.[0];
         if (!frames || !texture) throw new Error("This trainer's overworld sprite couldn't be read.");
 
+        // The map alone, before the trainer is added, for checking the camera's line of sight.
+        const mapObjects = [...scene.children];
         const shadow = this.shadowPrimitives();
         if (shadow) {
           const group = new THREE.Group();
@@ -123,7 +162,7 @@ export class FieldSnapshotRenderer {
         scene.add(sprite);
         extra.push(spriteTexture, spriteMaterial);
 
-        const pose = await this.cameraPose(placement.zoneId, position);
+        const pose = clearViewPose(await this.cameraPose(placement.zoneId, position), position.clone().add(new THREE.Vector3(0, frames.height / 2, 0)), mapObjects);
         const camera = new THREE.PerspectiveCamera(pose.fov, DS_WIDTH / DS_HEIGHT, pose.near, pose.far);
         camera.position.set(pose.position.x, pose.position.y, pose.position.z);
         camera.lookAt(pose.target.x, pose.target.y, pose.target.z);
@@ -274,6 +313,48 @@ function createRenderer(): THREE.WebGLRenderer {
   renderer.setPixelRatio(1);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   return renderer;
+}
+
+/**
+ * The camera pose, moved when the map stands between it and the trainer. The zone's camera fits a walk across open
+ * ground; in round rooms the game's rail camera instead circles with the player (Celestial Tower), so the grid camera
+ * can end up behind a wall. The pose keeps its height and turns about the trainer in 45° steps, nearest first, to the
+ * first one that sees the trainer. When none does (the trainer stands near the wall), it takes the turn with the most
+ * room and comes in to just short of what's in the way.
+ */
+function clearViewPose(pose: CameraPose, subject: THREE.Vector3, objects: THREE.Object3D[]): CameraPose {
+  // Nothing has been drawn yet, so place the map's pieces in the world before tracing through them.
+  for (const object of objects) object.updateMatrixWorld(true);
+  const raycaster = new THREE.Raycaster();
+  /** How far from the trainer toward `position` the view is clear (faces count from either side). */
+  const clearDistance = (position: THREE.Vector3) => {
+    const toCamera = position.clone().sub(subject);
+    const distance = toCamera.length();
+    raycaster.set(subject, toCamera.clone().normalize());
+    raycaster.far = distance;
+    const outward = raycaster.intersectObjects(objects, true)[0]?.distance ?? distance;
+    raycaster.set(position, toCamera.clone().negate().normalize());
+    raycaster.far = distance - 4;
+    const inward = raycaster.intersectObjects(objects, true)[0]?.distance;
+    return Math.min(outward, inward === undefined ? distance : distance - inward);
+  };
+  const start = new THREE.Vector3(pose.position.x, pose.position.y, pose.position.z);
+  const offset = start.clone().sub(subject);
+  const full = offset.length();
+  const turn = (vector: { x: number; y: number; z: number }, degrees: number) =>
+    new THREE.Vector3(vector.x, vector.y, vector.z).sub(subject).applyAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(degrees)).add(subject);
+  let best = { degrees: 0, room: -1 };
+  for (const degrees of [0, 45, -45, 90, -90, 135, -135, 180]) {
+    const room = clearDistance(turn(start, degrees));
+    if (room >= full - 4) { best = { degrees, room: full }; break; }
+    if (room > best.room) best = { degrees, room };
+  }
+  // Too little room anywhere to frame the trainer: leave the pose as it was.
+  if (best.room < 48) return pose;
+  const scale = Math.min(1, (best.room - 12) / full);
+  const position = subject.clone().add(offset.clone().multiplyScalar(scale).applyAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(best.degrees)));
+  const target = turn(pose.target, best.degrees);
+  return { ...pose, position: { x: position.x, y: position.y, z: position.z }, target: { x: target.x, y: target.y, z: target.z } };
 }
 
 function shiftPose(pose: CameraPose, shift: number): CameraPose {

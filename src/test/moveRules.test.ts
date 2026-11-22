@@ -1,7 +1,7 @@
 import { encodeMoveRecipeBook, decodeMoveRecipeBook } from "../pokeweb/moveRecipeBook";
 import { describe, expect, it } from "vitest";
 import { readU16, readU32 } from "../nds/binary";
-import { checkedMoveEventList, MOVE_ALWAYS, EMPTY_MOVE_RULE, newMoveEffect, validateMoveRule, validateMoveRuleCategory, validateMoveRuleHits, validateMoveCondition, moveRecipeEvents, movePrerequisiteEvent, encodeMoveRules, type MoveCondition } from "../pokeweb/moveRules";
+import { checkedMoveEventList, MOVE_ALWAYS, EMPTY_MOVE_RULE, newMoveEffect, validateMoveRule, validateMoveRuleCategory, validateMoveRuleHits, validateMoveCondition, moveRecipeEvents, movePrerequisiteEvent, encodeMoveRules, encodeMoveConditions, type MoveCondition } from "../pokeweb/moveRules";
 import { MOVE_RECIPE_LIBRARY, moveRecipeTemplate } from "../pokeweb/moveRecipeLibrary";
 import expansion from "../assets/data/white2upgradeMoveExpansion.json";
 import { MOVE_STAGE2A_CANDIDATES,MOVE_STAGE2A_ENABLED } from "../pokeweb/moveRecipeLibrary2A";
@@ -11,6 +11,14 @@ import { MOVE_HISTORY_CANDIDATES } from "../pokeweb/moveRecipeLibraryHistory";
 import { zlibSync } from "fflate";
 
 describe("bounded move recipes", () => {
+ it("encodes side checks relative to the user and runs side-only prerequisites before targeting", () => {
+  const side: MoveCondition = {kind:"sideEffect", value:6, side:"opposing", layers:2, negate:true};
+  const rule = validateMoveRule({...EMPTY_MOVE_RULE, effects:[{...newMoveEffect(),conditions:side}], prerequisites:side});
+  expect(movePrerequisiteEvent(rule.prerequisites)).toBe(0x1f);
+  expect(encodeMoveConditions(side)).toEqual([29,1,1,0,6,5,0,0]);
+  expect(() => validateMoveCondition({...side, value:4})).toThrow(/activation condition/u);
+  expect(() => validateMoveCondition({...side, value:7, layers:3})).toThrow(/activation condition/u);
+ });
  it("bounds entry hazards and exchanges without secondary-effect rolls",()=>{
   const web=newMoveEffect("entryStatHazard"),swap=newMoveEffect("swapSideEffects");
   const rule=(effect:typeof web)=>({...EMPTY_MOVE_RULE,effects:[effect]});

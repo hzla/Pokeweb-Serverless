@@ -6,14 +6,25 @@ sys.path.insert(0,str(HERE.parent/'learnset-viewer'))
 from verify_info import Harness,TOOLS
 from elftools.elf.elffile import ELFFile
 import ndspy.narc
-subprocess.run(['clang++','-std=c++17','-Wall','-Wextra','-Werror',HERE/'test_logic.cpp','-o',BUILD/'test-logic'],check=True)
-subprocess.run([BUILD/'test-logic'],check=True)
+preview_only='--preview' in sys.argv
+BUILD.mkdir(exist_ok=True)
+if not preview_only:
+ subprocess.run(['clang++','-std=c++17','-Wall','-Wextra','-Werror',HERE/'test_logic.cpp','-o',BUILD/'test-logic'],check=True)
+ subprocess.run([BUILD/'test-logic'],check=True)
 
 for game in ('W2','B2'):
  h=Harness(game);h.instruction_limit=60000000;delta=64 if game=='B2' else 0
  overlay=h.rom.loadArm9Overlays([36])[36];h.c.mem_write(overlay.ramAddress,bytes(overlay.data))
- linked=BUILD/f'verify-{game}.elf'
- subprocess.run([TOOLS/'arm-none-eabi-ld','-Ttext','0x02340000','-Tdata','0x02380000','-e','NuzlockeGenerate',BUILD/f'NuzlockeStyleEncounters{game}.elf','-o',linked],check=True,capture_output=True)
+ if preview_only:
+  cgear_build=HERE.parent/'cgear-quick-actions/build'
+  preview_symbol='_ZN8nuzlocke15snapshotPreviewEPvPhRb'
+  objects=[cgear_build/f'runtime{game}.o',cgear_build/f'memory{game}.o']
+  entry=preview_symbol
+ else:
+  objects=[BUILD/f'NuzlockeStyleEncounters{game}.elf']
+  entry='NuzlockeGenerate'
+ linked=BUILD/f'verify-{game}{"-preview" if preview_only else ""}.elf'
+ subprocess.run([TOOLS/'arm-none-eabi-ld','-Ttext','0x02340000','-Tdata','0x02380000','-e',entry,*objects,'-o',linked],check=True,capture_output=True)
  with linked.open('rb') as stream:
   elf=ELFFile(stream);h.symbols={s.name:s['st_value'] for s in elf.get_section_by_name('.symtab').iter_symbols() if s.name and s['st_shndx']!='SHN_UNDEF'}
   for s in elf.iter_sections():
@@ -49,6 +60,32 @@ for game in ('W2','B2'):
   assert h.call('_ZN8nuzlocke8snapshotEPvPh',game_data,mask),(h.reads,h.opened,[(n,bytes(h.c.mem_read(a+8192,8)).hex()) for n,a in h.symbols.items() if n.endswith('5cacheE')])
   return bytes(h.c.mem_read(mask,256))
  def has(bits,i):return bool(bits[i//8]&(1<<(i&7)))
+ if preview_only:
+  assert not any(n.endswith('5cacheE') for n in h.symbols), 'Preview reserves a static family table'
+  def preview(valid,prevent=False):
+   policy=mask+256
+   h.c.mem_write(mask,b'\xa5'*257)
+   before=bytes(h.c.mem_read(dex,0x4dc))
+   assert h.call(preview_symbol,game_data,mask,policy)==int(valid)
+   assert bytes(h.c.mem_read(policy,1))==bytes([prevent])
+   assert bytes(h.c.mem_read(dex,0x4dc))==before
+   assert not h.allocations and not h.opened
+   bits=bytes(h.c.mem_read(mask,256))
+   if not valid:assert bits==b'\xa5'*256
+   return bits
+  config(prevent=True);caught(1)
+  bits=preview(True,True);assert all(has(bits,i) for i in (1,2,3)) and not has(bits,133)
+  config();caught(134)
+  bits=preview(True);assert all(has(bits,i) for i in (133,134,135,136,196,197,470,471)) and not has(bits,1)
+  family_bytes=len(ndspy.narc.NARC(h.files['a/0/1/6']).files)*2
+  h.fail_alloc_sizes={family_bytes};preview(False);h.fail_alloc_sizes.clear()
+  h.fail_alloc=True;preview(False);h.fail_alloc=False
+  config(False);preview(False);config()
+  companion=h.files.pop(module_key);h.peak=0;preview(False);assert h.peak==0;h.files[module_key]=companion
+  evo_key='rom:/a/0/1/9';arc=ndspy.narc.NARC(h.files[evo_key]);arc.files[1]=b'bad';h.files[evo_key]=bytes(arc.save())
+  preview(False)
+  print(game,'on-demand Pokenav family preview, live caught state, allocation failures and cleanup passed',flush=True)
+  continue
  caught(1);bits=snapshot();assert all(has(bits,i) for i in (1,2,3)) and not has(bits,4)
  assert not h.opened and not h.allocations
  caught(134);bits=snapshot();assert all(has(bits,i) for i in (133,134,135,136,196,197,470,471))

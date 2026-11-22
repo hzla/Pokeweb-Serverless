@@ -18,12 +18,18 @@ import {
   type MsItemSourceKind,
   getMastersheetMoveDetail,
   getMastersheetPokemonDetail,
+  type MsMoveDetail,
 } from "../pokeweb/mastersheetDetails";
-import type { ProjectState } from "../pokeweb/projectStore";
+import { findPokemonPersonalFormOwner } from "../pokeweb/pokemonLabels";
+import { loadVanillaWhite2Stats, vanillaMove, vanillaPokemonStats, type VanillaData } from "../pokeweb/vanillaWhite2Stats";
+import { decodeRecord, type ProjectState } from "../pokeweb/projectStore";
+import { cleanDisplayText } from "../pokeweb/text";
 import { typeNamesForProject } from "../pokeweb/constants";
 import { installMoveFrames } from "./moveFrames";
-import { installNewMark } from "./newMark";
+import { noticeFrameStyle } from "./noticeFrames";
 import { assetKeys, type AssetProvider } from "./assets";
+import type { HackMark } from "./hackMarks";
+import { gameFontsAvailable, TEXT_SIZES, updateViewerSettings, viewerSettings, type ViewerFont, type ViewerTextSize } from "./settings";
 
 /**
  * The viewer UI: a sticky outline of splits and areas, one area per page, and a drawer for Pokémon, move,
@@ -36,9 +42,50 @@ export type ViewerContext = {
   assets: AssetProvider;
   /** ROM-file mode: forget the remembered ROM and go back to the open screen. */
   onOpenAnotherRom?: () => void;
+  /** The editor, when this sheet can be edited (editor.ts). */
+  editing?: ViewerEditingHooks;
 };
 
-type Detail = { kind: "pokemon" | "move" | "item" | "ability" | "map" | "wild" | "dex"; id: string };
+/** How the editor joins in: it decorates what the viewer draws and fills the panel with its forms. */
+export type ViewerEditingHooks = {
+  /** Whether edit mode is on. */
+  active(): boolean;
+  toggle(): void;
+  /** After the page is drawn or patched. */
+  pageRendered(host: HTMLElement, page: MsPage | undefined): void;
+  /**
+   * The source line where the block being typed into starts, if any: a patch leaves its element as it is (the editor
+   * owns it while it is edited in place) until `redrawBlock`.
+   */
+  heldBlock(): number | undefined;
+  /** After the outline is drawn. */
+  navRendered(nav: HTMLElement): void;
+  renderPanel(id: string): string;
+  panelRendered(body: HTMLElement, id: string): void;
+  /** A panel that should stay open (and be redrawn) when the page changes. */
+  keepPanel(id: string): boolean;
+  panelClosed(): void;
+};
+
+export type ViewerController = {
+  /** Shows a changed document: the page and outline are patched in place, keeping scroll. */
+  update(next: MastersheetDocument, options?: { page?: string; line?: number }): void;
+  document(): MastersheetDocument;
+  currentPage(): MsPage | undefined;
+  /** `replace` moves without a history entry (following the template's cursor). */
+  goToPage(pageId: string, anchor?: string, replace?: boolean): void;
+  openPanel(id: string): void;
+  refreshPanel(): void;
+  closePanel(): void;
+  panelId(): string | undefined;
+  refreshNav(): void;
+  hydrate(scope: HTMLElement): void;
+  /** Draws again the block that starts on `start` (all its elements), as the viewer shows it; false if it isn't on the page. */
+  redrawBlock(start: number): boolean;
+  elements: { shell: HTMLElement; main: HTMLElement; bar: HTMLElement; pageHost: HTMLElement; nav: HTMLElement; drawerBody: HTMLElement; editTab?: HTMLElement };
+};
+
+type Detail = { kind: "pokemon" | "move" | "item" | "ability" | "map" | "wild" | "dex" | "settings" | "edit"; id: string };
 type DexCategory = "all" | "pokemon" | "move" | "item" | "ability" | "area";
 type DexEntry = { kind: Exclude<DexCategory, "all">; id: string; name: string; terms: string; note?: string; page?: string };
 const DEX_CATEGORIES: Array<[DexCategory, string]> = [["all", "All"], ["pokemon", "Pokémon"], ["move", "Moves"], ["item", "Items"], ["ability", "Abilities"], ["area", "Areas"]];
@@ -56,12 +103,12 @@ let typeIndexByName = new Map<string, number>();
 const ROLE_LABELS: Record<string, string> = { mandatory: "Mandatory", optional: "Optional", rematch: "Rematch" };
 const SEASON_LABELS: Record<string, string> = { spring: "Spring", summer: "Summer", fall: "Autumn", winter: "Winter" };
 
-export function mountViewer(root: HTMLElement, context: ViewerContext): void {
-  const { document: doc } = context;
+export function mountViewer(root: HTMLElement, context: ViewerContext): ViewerController {
+  let doc = context.document;
   typeIndexByName = new Map(typeNamesForProject(context.project).map((name, index) => [normalizeName(name), index]));
-  const pageIndex = new Map(doc.pages.map((page, index) => [page.id, index]));
-  const highlights = highlightIndex(doc);
-  const search = buildSearchIndex(doc);
+  let pageIndex = new Map(doc.pages.map((page, index) => [page.id, index]));
+  let highlights = highlightIndex(doc);
+  let search = buildSearchIndex(doc);
   const encounterState = new Map<number, { method: string; season: string }>();
   let observer: IntersectionObserver | undefined;
 
@@ -77,10 +124,16 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
         <nav class="msv-nav" aria-label="Splits and areas"></nav>
         ${context.onOpenAnotherRom ? `<div class="msv-outline__foot"><button class="msv-hex -nav" type="button" data-open-another-rom><span>Open another ROM</span></button></div>` : ""}
       </aside>
-      <main class="msv-main" tabindex="-1"></main>
-      <button class="msv-dex-tab" type="button" data-dex-tab aria-expanded="false" aria-controls="msv-drawer" title="Dex: look up any Pokémon, move, item, ability or wild area (/)">
-        <img data-asset="${assetKeys.dexTab}" alt="" decoding="async"><span class="msv-dex-tab__text">Dex</span>
+      <main class="msv-main" tabindex="-1"><div class="msv-main__bar" hidden></div><div class="msv-main__page"></div></main>
+      <button class="msv-side-tab -dex" type="button" data-dex-tab aria-expanded="false" aria-controls="msv-drawer" title="Dex: look up any Pokémon, move, item, ability or wild area (/)">
+        <img data-asset="${assetKeys.dexTab}" alt="" decoding="async"><span class="msv-side-tab__text">Dex</span>
       </button>
+      <button class="msv-side-tab -settings" type="button" data-settings-tab aria-expanded="false" aria-controls="msv-drawer" title="Settings">
+        <img data-asset="${assetKeys.settingsTab}" alt="" decoding="async"><span class="msv-side-tab__text">Settings</span>
+      </button>
+      ${context.editing ? `<button class="msv-side-tab -edit" type="button" data-edit-tab aria-pressed="false" title="Edit this sheet">
+        <img data-asset="${assetKeys.editTab}" alt="" decoding="async"><span class="msv-side-tab__text">Edit</span>
+      </button>` : ""}
       <aside class="msv-drawer" id="msv-drawer" aria-label="Details" hidden>
         <div class="msv-drawer__bar"><button class="msv-hex -nav" type="button" data-drawer-back hidden><span>Back</span></button><button class="msv-hex -nav" type="button" data-open="dex-all" data-drawer-dex><span>Dex</span></button><button class="msv-hex -nav" type="button" data-drawer-close><span>Close</span></button></div>
         <div class="msv-drawer__body"></div>
@@ -89,20 +142,48 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
   `;
   const shell = root.querySelector<HTMLElement>(".msv")!;
   void installMoveFrames(context.project, shell);
-  void installNewMark(context.project, shell);
   const nav = root.querySelector<HTMLElement>(".msv-nav")!;
   const main = root.querySelector<HTMLElement>(".msv-main")!;
+  const bar = root.querySelector<HTMLElement>(".msv-main__bar")!;
+  const pageHost = root.querySelector<HTMLElement>(".msv-main__page")!;
+  const editTab = root.querySelector<HTMLElement>("[data-edit-tab]") ?? undefined;
   const drawer = root.querySelector<HTMLElement>(".msv-drawer")!;
   const drawerBody = root.querySelector<HTMLElement>(".msv-drawer__body")!;
   const searchInput = root.querySelector<HTMLInputElement>(".msv-search input")!;
   const outlineToggle = root.querySelector<HTMLButtonElement>("[data-toggle-outline]")!;
   const drawerBack = root.querySelector<HTMLButtonElement>("[data-drawer-back]")!;
   const dexTab = root.querySelector<HTMLButtonElement>("[data-dex-tab]")!;
+  const settingsTab = root.querySelector<HTMLButtonElement>("[data-settings-tab]")!;
   let drawerStack: Detail[] = [];
   /** History entries this page pushed for open details, so Close can step back over them. */
   let pushedDetails = 0;
   let currentPage = "";
-  const catalog = createMastersheetCatalog(context.project, doc);
+  let catalog = createMastersheetCatalog(context.project, doc);
+
+  /*
+   * Vanilla White 2's numbers, for showing what a BW2 hack changed. They load after the viewer opens; a detail open
+   * by then is drawn again with them.
+   */
+  let vanilla: VanillaData | undefined;
+  if (context.project.session.baseRom === "BW2") {
+    void loadVanillaWhite2Stats().then((table) => {
+      vanilla = table;
+      const current = drawerStack[drawerStack.length - 1];
+      if (!drawer.hidden && current && (current.kind === "move" || current.kind === "pokemon")) {
+        drawerBody.innerHTML = renderDetail(current);
+        hydrateAssets(drawerBody);
+      }
+    }).catch((error: unknown) => console.warn("Vanilla White 2 stats couldn't be loaded.", error));
+  }
+
+  /** A Pokémon's vanilla base stats, by its species' name and form number in this ROM. */
+  const vanillaStatsFor = (personalId: number) => {
+    if (!vanilla) return undefined;
+    const names = context.project.texts.banks.pokedex ?? [];
+    const owner = findPokemonPersonalFormOwner(context.project, personalId) ?? { speciesId: personalId, formIndex: 0 };
+    const name = String(names[owner.speciesId] ?? "");
+    return name ? vanillaPokemonStats(vanilla, name, owner.formIndex) : undefined;
+  };
   const tableById = (id: number) => doc.encounters[id] ?? catalog.encounter(id);
   const dex = { category: "all" as DexCategory, query: "" };
   let dexIndex: DexEntry[] | undefined;
@@ -115,26 +196,55 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
     const [path = "", query = ""] = window.location.hash.replace(/^#\/?/u, "").split("?");
     const [page = "", anchor] = path.split("/");
     const d = new URLSearchParams(query).get("d");
-    const match = d ? /^(pokemon|move|item|ability|map|wild|dex)-(.+)$/u.exec(d) : null;
+    const match = d ? /^(pokemon|move|item|ability|map|wild|dex|settings)-(.+)$/u.exec(d) : null;
     return { page: decodeURIComponent(page), anchor: anchor ? decodeURIComponent(anchor) : undefined, detail: match ? { kind: match[1] as Detail["kind"], id: match[2]! } : undefined };
   };
 
   const hrefFor = (page: string, anchor?: string, detail?: Detail) =>
     `#/${encodeURIComponent(page)}${anchor ? `/${encodeURIComponent(anchor)}` : ""}${detail ? `?d=${detail.kind}-${encodeURIComponent(detail.id)}` : ""}`;
 
+  /*
+   * The viewer scrolls the page itself: only a move to another page, or to another place on it, scrolls. Opening,
+   * stepping back through and closing details leave the page where it is. Each history entry keeps the page's scroll
+   * position, so stepping back to an earlier page returns to where you were on it.
+   */
+  try {
+    history.scrollRestoration = "manual";
+  } catch {
+    // Not settable here; the browser keeps restoring scroll itself.
+  }
+  let currentAnchor: string | undefined;
+  let scrollSaveTimer = 0;
+  window.addEventListener("scroll", () => {
+    window.clearTimeout(scrollSaveTimer);
+    scrollSaveTimer = window.setTimeout(() => {
+      const state = (history.state ?? {}) as Record<string, unknown>;
+      history.replaceState({ ...state, scrollY: window.scrollY }, "");
+    }, 250);
+  }, { passive: true });
+
   const route = () => {
     const { page, anchor, detail } = parseHash();
     const target = pageIndex.has(page) ? page : doc.pages[0]?.id ?? "";
+    const savedScroll = (history.state as { scrollY?: number } | null)?.scrollY;
     if (target !== currentPage) {
       currentPage = target;
+      currentAnchor = undefined;
       renderPage(target);
       renderNav();
       // The window scrolls, not <main>.
-      if (!anchor) window.scrollTo({ top: 0 });
+      if (!anchor) window.scrollTo({ top: savedScroll ?? 0 });
     }
-    if (anchor) window.requestAnimationFrame(() => root.querySelector(`#${CSS.escape(anchor)}`)?.scrollIntoView({ block: "start" }));
+    if (anchor && anchor !== currentAnchor) {
+      window.requestAnimationFrame(() => {
+        if (savedScroll !== undefined) window.scrollTo({ top: savedScroll });
+        else root.querySelector(`#${CSS.escape(anchor)}`)?.scrollIntoView({ block: "start" });
+      });
+    }
+    currentAnchor = anchor;
     if (detail) openDetail(detail, false);
-    else closeDrawer(false);
+    // The editor's area and split forms, Fill and Problems stay out (left as they are) when the page changes.
+    else if (!(shownDetail?.kind === "edit" && context.editing?.keepPanel(shownDetail.id))) closeDrawer(false);
     shell.classList.remove("-outline-open");
     outlineToggle.setAttribute("aria-expanded", "false");
   };
@@ -148,20 +258,23 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
       nav.innerHTML = results.length
         ? `<ul class="msv-results">${results.map((result) => `<li><a href="${hrefFor(result.page, result.anchor)}"><span class="msv-results__name">${esc(result.label)}</span><span class="msv-results__where">${esc(result.where)}</span></a></li>`).join("")}</ul>`
         : `<p class="msv-empty">Nothing matches “${esc(query)}”.</p>`;
+      lastNavHtml = "";
       return;
     }
     const intro = doc.pages.filter((page) => page.kind === "intro" && !page.splitId);
-    nav.innerHTML = `
+    const editing = Boolean(context.editing?.active());
+    // In edit mode the outline lists empty splits too, so areas can be added to them.
+    const html = `
       ${intro.map((page) => navLink(page)).join("")}
-      ${doc.splits.map((split, splitIndex) => {
+      ${(editing ? doc.allSplits : doc.splits).map((split, splitIndex) => {
         // BW2 splits are the eight Gym Leaders in order: the first eight wear their badge case portraits.
         const leader = context.project.session.baseRom === "BW2" && splitIndex < 8 ? splitIndex : undefined;
         const splitIntro = doc.pages.find((page) => page.splitId === split.id && page.kind === "intro");
         const pages = split.pageIds.map((id) => doc.pages[pageIndex.get(id)!]!);
         const open = pages.some((page) => page.id === currentPage) || splitIntro?.id === currentPage;
         return `
-          <section class="msv-split${open ? " -current" : ""}">
-            <a class="msv-split__head${leader === undefined ? "" : " -leader"}" href="#/${esc(splitIntro?.id ?? pages[0]?.id ?? "")}"${splitIntro?.id === currentPage ? ' aria-current="page"' : ""}>
+          <section class="msv-split${open ? " -current" : ""}" data-split="${esc(split.id)}">
+            <a class="msv-split__head${leader === undefined ? "" : " -leader"}" href="#/${esc(splitIntro?.id ?? pages[0]?.id ?? "")}"${splitIntro?.id === currentPage ? ' aria-current="page"' : ""}${splitIntro ? ` data-page="${esc(splitIntro.id)}"` : ""}>
               ${leader === undefined ? "" : `<span class="msv-split__leader">${asset(assetKeys.leader(leader), "", "")}</span>`}
               <span class="msv-split__name">${esc(split.title)}</span>
             </a>
@@ -169,41 +282,105 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
           </section>`;
       }).join("")}
     `;
+    // Redrawing an unchanged outline would reload its portraits; leave it be.
+    if (html === lastNavHtml && nav.dataset.editing === String(editing)) return;
+    lastNavHtml = html;
+    nav.innerHTML = html;
+    nav.dataset.editing = String(editing);
     hydrateAssets(nav);
+    context.editing?.navRendered(nav);
     nav.querySelector('[aria-current="page"]')?.scrollIntoView({ block: "nearest" });
   };
+  let lastNavHtml = "";
 
-  const navLink = (page: MsPage) => `<a class="msv-nav__link" href="#/${esc(page.id)}"${page.id === currentPage ? ' aria-current="page"' : ""}>${esc(page.title)}</a>`;
+  const navLink = (page: MsPage) => `<a class="msv-nav__link" href="#/${esc(page.id)}" data-page="${esc(page.id)}"${page.id === currentPage ? ' aria-current="page"' : ""}>${esc(page.title)}</a>`;
 
   // ---------- Pages ----------
 
-  const renderPage = (pageId: string) => {
-    observer?.disconnect();
+  /** What the page shows now, as the HTML of each part, so a changed document only redraws the blocks that changed. */
+  let rendered: { pageId: string; head: string; blocks: string[]; tail: string } | undefined;
+
+  const renderPage = (pageId: string, patch = false) => {
     const page = doc.pages[pageIndex.get(pageId)!];
     if (!page) {
-      main.innerHTML = `<p class="msv-empty">This mastersheet has no pages yet.</p>`;
+      observer?.disconnect();
+      rendered = undefined;
+      pageHost.innerHTML = `<p class="msv-empty">This mastersheet has no pages yet.</p>`;
+      context.editing?.pageRendered(pageHost, undefined);
       return;
     }
     const index = pageIndex.get(pageId)!;
-    const split = doc.splits.find((candidate) => candidate.id === page.splitId);
+    const split = doc.splits.find((candidate) => candidate.id === page.splitId) ?? doc.allSplits.find((candidate) => candidate.id === page.splitId);
     const previous = doc.pages[index - 1];
     const next = doc.pages[index + 1];
-    main.innerHTML = `
-      <article class="msv-page${page.kind === "intro" ? " -intro" : ""}">
+    const head = `
         <header class="msv-titlebar -page -run">
           <h1>${esc(page.title)}</h1>
           ${split && (page.kind === "area" || split.detail) ? `<p class="msv-titlebar__meta">${page.kind === "area" ? `<span>${esc(split.title)}</span>` : ""}${split.detail ? `<span class="msv-plate">${esc(split.detail)}</span>` : ""}</p>` : ""}
           ${hatch()}
-        </header>
-        ${page.blocks.map((block) => renderBlock(block, page)).join("")}
-        ${doc.pages.length === 1 && !page.blocks.length ? `<p class="msv-empty">This mastersheet has nothing in it yet. Write it in Pokeweb's Mastersheet editor; splits start with "#" and areas with "##".</p>` : ""}
+        </header>`;
+    const blocks = page.blocks.map((block) => renderBlock(block, page).trim());
+    const tail = `
+        ${doc.pages.length === 1 && !page.blocks.length && !context.editing?.active() ? `<p class="msv-empty">This mastersheet has nothing in it yet. Write it in Pokeweb's Mastersheet editor; splits start with "#" and areas with "##".</p>` : ""}
         <nav class="msv-pager" aria-label="Pages">
           ${previous ? `<a class="msv-hex -nav -pager" href="#/${esc(previous.id)}" rel="prev"><span><small>Previous</small>${esc(previous.title)}</span></a>` : "<span></span>"}
           ${next ? `<a class="msv-hex -nav -pager" href="#/${esc(next.id)}" rel="next"><span><small>Next</small>${esc(next.title)}</span></a>` : "<span></span>"}
-        </nav>
-      </article>
-    `;
-    hydrateAssets(main);
+        </nav>`;
+    const article = pageHost.querySelector<HTMLElement>(":scope > .msv-page");
+    if (patch && rendered?.pageId === pageId && article) {
+      const held = context.editing?.heldBlock();
+      const keep = new Set(held === undefined ? [] : page.blocks.flatMap((block, n) => (block.src.start === held ? [n] : [])));
+      patchPage(article, rendered, { pageId, head, blocks, tail }, keep);
+    } else {
+      observer?.disconnect();
+      pageHost.innerHTML = `<article class="msv-page${page.kind === "intro" ? " -intro" : ""}">${head}${blocks.map((html, n) => markBlock(html, n)).join("")}<div class="msv-page__tail">${tail}</div></article>`;
+    }
+    rendered = { pageId, head, blocks, tail };
+    hydrateAssets(pageHost);
+    context.editing?.pageRendered(pageHost, page);
+  };
+
+  /** Gives a block's element its place in the page (`data-block`), which the editor maps back to the source. */
+  const markBlock = (html: string, index: number) => html.replace(/^<([a-z0-9]+)/iu, `<$1 data-block="${index}"`);
+
+  const elementFrom = (html: string): Element => {
+    const template = document.createElement("template");
+    template.innerHTML = html.trim();
+    return template.content.firstElementChild ?? document.createElement("div");
+  };
+
+  /**
+   * Replaces only what differs: the title bar, the run of blocks between an unchanged start and end, the pager. Blocks
+   * in `keep` (one being typed into) stay as they are, as long as the run keeps its length.
+   */
+  const patchPage = (article: HTMLElement, before: NonNullable<typeof rendered>, after: NonNullable<typeof rendered>, keep: Set<number>) => {
+    if (before.head !== after.head) article.querySelector(":scope > header")?.replaceWith(elementFrom(after.head));
+    const elements = [...article.querySelectorAll<HTMLElement>(":scope > [data-block]")];
+    let start = 0;
+    while (start < before.blocks.length && start < after.blocks.length && before.blocks[start] === after.blocks[start]) start += 1;
+    let endBefore = before.blocks.length;
+    let endAfter = after.blocks.length;
+    while (endBefore > start && endAfter > start && before.blocks[endBefore - 1] === after.blocks[endAfter - 1]) {
+      endBefore -= 1;
+      endAfter -= 1;
+    }
+    const anchor = elements[endBefore] ?? article.querySelector(":scope > .msv-page__tail");
+    const kept = endBefore - start === endAfter - start ? [...keep].filter((index) => index >= start && index < endBefore) : [];
+    for (const [offset, element] of elements.slice(start, endBefore).entries()) if (!kept.includes(start + offset)) element.remove();
+    after.blocks.slice(start, endAfter).forEach((html, offset) => {
+      const index = start + offset;
+      if (kept.includes(index)) return;
+      // In front of the next kept element, else where the run ends.
+      const next = kept.find((candidate) => candidate > index);
+      article.insertBefore(elementFrom(markBlock(html, 0)), next === undefined ? anchor : elements[next]!);
+    });
+    [...article.querySelectorAll<HTMLElement>(":scope > [data-block]")].forEach((element, index) => {
+      element.dataset.block = String(index);
+    });
+    if (before.tail !== after.tail) {
+      const tail = article.querySelector<HTMLElement>(":scope > .msv-page__tail");
+      if (tail) tail.innerHTML = after.tail;
+    }
   };
 
   const renderBlock = (block: MsBlock, page: MsPage): string => {
@@ -215,7 +392,7 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
       case "list":
         return `<ul class="msv-list">${block.items.map((item) => `<li>${inline(item)}</li>`).join("")}</ul>`;
       case "notice":
-        return `<aside class="msv-notice"${block.color ? ` style="--notice:${esc(block.color)}"` : ""}><strong>${esc(sentenceCase(block.title))}</strong><p>${esc(block.text)}</p></aside>`;
+        return `<aside class="msv-notice -${block.frame}" style="${esc(noticeFrameStyle(block.frame, block.color))}"><strong>${esc(sentenceCase(block.title))}</strong><p>${esc(block.text)}</p></aside>`;
       case "items":
         return `
           <section class="msv-pickups">
@@ -223,6 +400,7 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
             ${block.description ? `<p class="msv-pickups__lead">${esc(block.description)}</p>` : ""}
             <ul class="msv-bag-grid">${block.entries.map((entry) => `
               <li class="msv-bag -static">
+                <span class="msv-bag__face" aria-hidden="true"></span>
                 <span class="msv-bag__plate">${entry.tmType ? asset(assetKeys.tm(entry.tmType), "", "msv-item-icon") : entry.itemId !== undefined ? asset(assetKeys.item(entry.itemId), "", "msv-item-icon") : ""}</span>
                 <span class="msv-bag__text"><span class="msv-bag__desc">${esc(entry.note?.trim() || entry.name)}</span></span>
               </li>`).join("")}
@@ -233,11 +411,7 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
           <section class="msv-pickups -gifts">
             <h3 class="msv-band -mon"><span>${esc(block.title || "Gift Pokémon")}</span>${hatch()}</h3>
             ${block.description ? `<p class="msv-pickups__lead">${esc(block.description)}</p>` : ""}
-            <ul class="msv-bag-grid">${block.entries.map((entry) => {
-              const mon = entry.personalId !== undefined ? doc.pokemon[entry.personalId] : undefined;
-              const inner = `<span class="msv-bag__plate">${mon ? asset(assetKeys.icon(mon.species, mon.form), "", "msv-icon") : ""}</span><span class="msv-bag__text"><span class="msv-bag__desc">${esc(entry.note?.trim() || mon?.name || entry.name)}</span></span>`;
-              return `<li>${mon ? `<button type="button" class="msv-bag -mon" data-open="pokemon-${mon.personalId}">${inner}</button>` : `<div class="msv-bag -mon">${inner}</div>`}</li>`;
-            }).join("")}</ul>
+            ${renderGiftList(block.entries)}
           </section>`;
       case "encounter":
         return renderEncounter(block.tableId, page);
@@ -289,13 +463,36 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
           <tr>
             <th scope="row"><button type="button" class="msv-mon-link" data-open="pokemon-${row.personalId}">${asset(assetKeys.icon(row.species, row.form), "", "msv-icon")}<span>${esc(row.name)}</span></button></th>
             <td>${typeChips(doc.pokemon[row.personalId]?.types ?? [])}</td>
-            <td class="-num">${row.minLevel === row.maxLevel ? row.minLevel : `${row.minLevel}–${row.maxLevel}`}</td>
-            <td class="-num"><span class="msv-chance"><span class="msv-chance__bar" aria-hidden="true"><span style="width:${Math.min(100, row.chance)}%"></span></span>${row.chance}%</span></td>
+            <td class="-num -level">${row.minLevel === row.maxLevel ? row.minLevel : `${row.minLevel}–${row.maxLevel}`}</td>
+            <td class="-num">${row.chance}%</td>
           </tr>`).join("")}
         </tbody>
       </table>
     `;
   };
+
+  /**
+   * Gift Pokémon as party cards, like a trainer's team: front sprite, name and types, and the author's note where a
+   * trainer's Pokémon shows its moves (left out when it only repeats the name). Cards line up in the party columns,
+   * six to a row like a party; longer lists carry on in more rows.
+   */
+  const renderGiftList = (entries: Extract<MsBlock, { kind: "gifts" }>["entries"]): string =>
+    Array.from({ length: Math.ceil(entries.length / 6) }, (_, row) => renderGiftRow(entries.slice(row * 6, row * 6 + 6))).join("");
+
+  const renderGiftRow = (entries: Extract<MsBlock, { kind: "gifts" }>["entries"]): string => `
+    <ol class="msv-party -gifts">${entries.map((entry) => {
+      const mon = entry.personalId !== undefined ? doc.pokemon[entry.personalId] : undefined;
+      const name = mon?.name ?? entry.name;
+      const note = entry.note?.trim() ?? "";
+      const open = mon ? ` data-open="pokemon-${mon.personalId}"` : "";
+      return `
+      <li class="msv-mon -gift">
+        ${mon ? `<button type="button" class="msv-mon__sprite"${open} aria-label="${esc(name)} details">${asset(assetKeys.pokemon(mon.species, mon.form), "", "msv-front")}</button>` : `<span class="msv-mon__sprite"></span>`}
+        <p class="msv-mon__id">${mon ? `<button type="button" class="msv-mon__name"${open} title="${esc(name)}">${esc(name)}</button>` : `<span class="msv-mon__name">${esc(name)}</span>`}</p>
+        ${typeChips(mon?.types ?? [])}
+        ${note && normalizeName(note) !== normalizeName(name) ? `<p class="msv-gift__note">${esc(note)}</p>` : ""}
+      </li>`;
+    }).join("")}</ol>`;
 
   const renderTrainer = (block: Extract<MsBlock, { kind: "trainer" }>): string => {
     const trainer = doc.trainers[block.trainerId];
@@ -360,15 +557,23 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
 
   // ---------- Drawer ----------
 
-  const openDetail = (detail: Detail, push: boolean) => {
+  const sameDetail = (a: Detail | undefined, b: Detail | undefined) => Boolean(a && b && a.kind === b.kind && a.id === b.id);
+  /** What the panel is showing now, if it is out. */
+  let shownDetail: Detail | undefined;
+
+  /**
+   * Shows a detail in the panel. `push` adds it to the panel's history (Back steps out of it); otherwise it replaces
+   * what's there, unless it is what's there already, which is then left as it is (scroll included).
+   */
+  const openDetail = (detail: Detail, push: boolean, redraw = false) => {
     if (push) {
       drawerStack.push(detail);
       pushedDetails += 1;
       const { page, anchor } = parseHash();
       history.pushState(null, "", hrefFor(page || currentPage, anchor, detail));
     } else {
-      const last = drawerStack[drawerStack.length - 1];
-      if (!last || last.kind !== detail.kind || last.id !== detail.id) drawerStack = [detail];
+      if (!drawer.hidden && sameDetail(shownDetail, detail) && !redraw) return;
+      if (!sameDetail(drawerStack[drawerStack.length - 1], detail)) drawerStack = [detail];
     }
     if (drawer.hidden) {
       keepReadingPlace(() => {
@@ -376,11 +581,23 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
         shell.classList.add("-drawer-open");
       });
     }
-    dexTab.setAttribute("aria-expanded", "true");
+    // Each tab shows as pulled while the panel holds what it opens: settings for the cog, the editor's forms for
+    // neither, anything else for the dex.
+    dexTab.setAttribute("aria-expanded", String(detail.kind !== "settings" && detail.kind !== "edit"));
+    settingsTab.setAttribute("aria-expanded", String(detail.kind === "settings"));
     drawerBack.hidden = drawerStack.length < 2;
+    const sameEditPanel = detail.kind === "edit" && sameDetail(shownDetail, detail);
+    const scroll = drawerBody.scrollTop;
     drawerBody.innerHTML = renderDetail(detail);
-    drawerBody.scrollTop = 0;
+    shownDetail = detail;
+    // A redrawn form keeps its scroll.
+    drawerBody.scrollTop = sameEditPanel ? scroll : 0;
     hydrateAssets(drawerBody);
+    if (detail.kind === "edit") {
+      drawer.querySelector<HTMLElement>("[data-drawer-dex]")!.hidden = true;
+      context.editing?.panelRendered(drawerBody, detail.id);
+      return;
+    }
     drawer.querySelector<HTMLElement>("[data-drawer-dex]")!.hidden = detail.kind === "dex";
     if (detail.kind === "dex") {
       const input = drawerBody.querySelector<HTMLInputElement>(".msv-dex__field input");
@@ -414,7 +631,11 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
       shell.classList.remove("-drawer-open");
     });
     dexTab.setAttribute("aria-expanded", "false");
+    settingsTab.setAttribute("aria-expanded", "false");
+    const wasEditing = shownDetail?.kind === "edit";
     drawerStack = [];
+    shownDetail = undefined;
+    if (wasEditing) context.editing?.panelClosed();
     if (updateUrl) {
       if (pushedDetails > 0) {
         const steps = pushedDetails;
@@ -422,7 +643,7 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
         history.go(-steps);
       } else {
         const { page, anchor } = parseHash();
-        history.replaceState(null, "", hrefFor(page || currentPage, anchor));
+        history.replaceState(history.state, "", hrefFor(page || currentPage, anchor));
       }
     }
   };
@@ -441,7 +662,7 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
             ${asset(assetKeys.pokemon(mon?.species ?? info.personalId, mon?.form ?? 0), "", "msv-front -large")}
             ${typeChips(info.types)}
           </div>
-          <section><h3 class="msv-band"><span>Base stats</span>${hatch()}</h3>${statBars(info.stats)}</section>
+          <section><h3 class="msv-band"><span>Base stats</span>${hatch()}</h3>${statBars(info.stats, vanillaStatsFor(info.personalId))}</section>
           <section><h3 class="msv-band"><span>Abilities</span>${hatch()}</h3><ul class="msv-abilities">${info.abilities.map((ability) => `<li><strong class="${markClass(highlights, ability.name).trim()}">${esc(displayName(ability.name))}</strong>${ability.hidden ? `<span class="msv-tag">Hidden</span>` : ""}<p>${esc(ability.description)}</p></li>`).join("")}</ul></section>
           ${info.evolutions.length ? `<section><h3 class="msv-band"><span>Evolves into</span>${hatch()}</h3><ul class="msv-evolutions">${info.evolutions.map((evolution) => `<li><button type="button" class="msv-plain" data-open="pokemon-${evolution.targetId}">${esc(evolution.target)}</button><span>${esc(evolution.method)}</span></li>`).join("")}</ul></section>` : ""}
           ${found.length ? `<section><h3 class="msv-band -mon"><span>Where to find it in this sheet</span>${hatch()}</h3><ul class="msv-found">${found.map((entry) => `<li><a href="${hrefFor(entry.page, entry.anchor)}">${esc(entry.label)}</a><span>${esc(entry.detail)}</span></li>`).join("")}</ul></section>` : ""}
@@ -462,20 +683,26 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
       const move = getMastersheetMoveDetail(project, Number(detail.id));
       if (!move) return `<p class="msv-empty">This move couldn't be read.</p>`;
       const mark = highlightOf(highlights, move.name);
+      const was = vanilla && vanillaMove(vanilla, move.name);
+      const accuracy = (value: number) => (value === 0 || value > 100 ? "—" : `${value}%`);
+      const effects = moveEffectRows(move);
       return `
         <div class="msv-detail -move">
           <header class="msv-titlebar"><h2>${esc(move.name)}</h2>${hatch()}</header>
-          <p class="msv-detail__tags">${typeChips([move.type])}<span class="msv-tag">${esc(move.category)}</span>${mark === "new" ? newMark() : mark ? `<span class="msv-tag -${mark}">Changed in this hack</span>` : ""}</p>
+          <p class="msv-detail__tags">${typeChips([move.type])}${categoryChip(move.category)}${mark ? hackMark(mark === "new" ? "new" : "changed") : ""}</p>
           <dl class="msv-detail__stats">
-            <div><dt>Power</dt><dd>${move.power || "—"}</dd></div>
-            <div><dt>Accuracy</dt><dd>${move.accuracy ? `${move.accuracy}%` : "—"}</dd></div>
-            <div><dt>PP</dt><dd>${move.pp}</dd></div>
+            <div><dt>Power</dt><dd>${move.power || "—"}${was ? delta(move.power, was.power, (value) => (value ? String(value) : "—")) : ""}</dd></div>
+            <div><dt>Accuracy</dt><dd>${accuracy(move.accuracy)}${was ? delta(move.accuracy > 100 ? 0 : move.accuracy, was.accuracy > 100 ? 0 : was.accuracy, () => accuracy(was.accuracy)) : ""}</dd></div>
+            <div><dt>PP</dt><dd>${move.pp}${was ? delta(move.pp, was.pp, String) : ""}</dd></div>
             <div><dt>Priority</dt><dd>${move.priority > 0 ? `+${move.priority}` : move.priority}</dd></div>
-            ${move.effectChance ? `<div><dt>Effect chance</dt><dd>${move.effectChance}%</dd></div>` : ""}
           </dl>
           ${move.description ? `<p class="msv-detail__desc">${esc(move.description)}</p>` : ""}
+          ${effects.length ? `<section><h3 class="msv-band"><span>Effects</span>${hatch()}</h3><dl class="msv-effects">${effects.map(([label, value]) => `<div><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`).join("")}</dl></section>` : ""}
+          ${move.flags.length ? `<section><h3 class="msv-band"><span>Flags</span>${hatch()}</h3><ul class="msv-flags">${move.flags.map((flag) => `<li class="msv-tag">${esc(flag)}</li>`).join("")}</ul></section>` : ""}
         </div>`;
     }
+    if (detail.kind === "settings") return renderSettings();
+    if (detail.kind === "edit") return context.editing?.renderPanel(detail.id) ?? "";
     if (detail.kind === "dex") {
       if (DEX_CATEGORIES.some(([key]) => key === detail.id)) dex.category = detail.id as DexCategory;
       return renderDex();
@@ -592,7 +819,7 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
       }
       case "move": {
         const move = getMastersheetMove(project, Number(entry.id));
-        return `<li><button type="button" class="msv-dex__row" data-open="move-${entry.id}"><span class="msv-dex__name${markClass(highlights, entry.name)}">${esc(entry.name)}</span>${typeChips(move ? [move.type] : [])}<span class="msv-dex__note">${esc(move ? `${move.category}${move.power ? `, ${move.power}` : ""}` : "")}</span></button></li>`;
+        return `<li><button type="button" class="msv-dex__row" data-open="move-${entry.id}"><span class="msv-dex__name${markClass(highlights, entry.name)}">${esc(entry.name)}</span>${typeChips(move ? [move.type] : [])}${move ? categoryChip(move.category) : ""}<span class="msv-dex__note">${move?.power ? esc(String(move.power)) : ""}</span></button></li>`;
       }
       case "item":
         return `<li><button type="button" class="msv-dex__row" data-open="item-${entry.id}">${asset(assetKeys.item(Number(entry.id)), "", "msv-item-icon")}<span class="msv-dex__name">${esc(entry.name)}</span></button></li>`;
@@ -622,6 +849,35 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
     if (!matches.length) return `<p class="msv-dex__hint">No ${esc(DEX_CATEGORIES.find(([key]) => key === category)![1].toLowerCase())} match “${esc(query)}”.</p>`;
     const shown = matches.slice(0, 200);
     return `<ul class="msv-dex__list">${shown.map(dexRow).join("")}</ul>${matches.length > shown.length ? `<p class="msv-dex__hint">Showing ${shown.length} of ${matches.length}. Type to narrow the list.</p>` : ""}`;
+  };
+
+  // ---------- Settings ----------
+
+  /** The viewer's settings (settings.ts). Each setting is a section; its choices are toggle buttons. */
+  const renderSettings = (): string => {
+    const settings = viewerSettings();
+    const gameFonts = gameFontsAvailable();
+    const choice = (setting: string, value: string, on: boolean, label: string, className = "", disabled = false) =>
+      `<button type="button" class="msv-hex -tab${className}" aria-pressed="${on}" data-setting="${setting}" data-value="${value}"${disabled ? " disabled" : ""}><span>${esc(label)}</span></button>`;
+    return `
+      <div class="msv-detail -settings">
+        <header class="msv-titlebar -mon"><h2>Settings</h2>${hatch()}</header>
+        <section class="msv-setting">
+          <h3 class="msv-band -mon"><span>Font</span>${hatch()}</h3>
+          <div class="msv-setting__choices" role="group" aria-label="Font">
+            ${choice("font", "game", gameFonts && settings.font === "game", "Game font", " -game-font", !gameFonts)}
+            ${choice("font", "barlow", settings.font === "barlow" || (!gameFonts && settings.font === "game"), "Barlow", " -barlow")}
+            ${choice("font", "menlo", settings.font === "menlo", "Menlo", " -menlo")}
+          </div>
+          ${gameFonts ? "" : `<p class="msv-setting__note">This ROM's font couldn't be read, so the game font shows as Barlow.</p>`}
+        </section>
+        <section class="msv-setting">
+          <h3 class="msv-band -mon"><span>Text size</span>${hatch()}</h3>
+          <div class="msv-setting__choices" role="group" aria-label="Text size">
+            ${TEXT_SIZES.map((size) => choice("textSize", size.id, settings.textSize === size.id, size.label)).join("")}
+          </div>
+        </section>
+      </div>`;
   };
 
   const renderDex = (): string => `
@@ -667,17 +923,50 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
   /** Wild areas in the game that the sheet doesn't cover. */
   const renderWildElsewhere = (personalId: number): string => {
     const inSheet = new Set(doc.pages.flatMap((page) => page.blocks.flatMap((block) => block.kind === "encounter" ? [block.tableId] : [])));
-    const elsewhere = wildTablesFor(personalId).filter((entry) => !inSheet.has(entry.tableId));
+    const elsewhere = evolutionLine(personalId).flatMap((id) =>
+      wildTablesFor(id).filter((entry) => !inSheet.has(entry.tableId)).map((entry) => ({ ...entry, who: id === personalId ? "" : `${pokemonName(id)}: ` })));
     if (!elsewhere.length) return "";
     return `<section><h3 class="msv-band"><span>Wild elsewhere in the game</span>${hatch()}</h3><ul class="msv-found">${elsewhere.map((entry) => {
       const table = tableById(entry.tableId);
       const name = uniqueNames((table?.zones ?? []).map((zone) => zone.name)).join(", ") || table?.name || `Table ${entry.tableId}`;
-      return `<li><button type="button" class="msv-plain msv-found__link" data-open="wild-${entry.tableId}">${esc(name)}</button><span>${esc(`${[...entry.methods].join(", ")}, Lv ${entry.min === entry.max ? entry.min : `${entry.min}–${entry.max}`}`)}</span></li>`;
+      return `<li><button type="button" class="msv-plain msv-found__link" data-open="wild-${entry.tableId}">${esc(name)}</button><span>${esc(`${entry.who}${[...entry.methods].join(", ")}, Lv ${entry.min === entry.max ? entry.min : `${entry.min}–${entry.max}`}`)}</span></li>`;
     }).join("")}</ul></section>`;
   };
 
+  /** Species that evolve into each species, from the ROM's evolution data: built once, when first asked. */
+  let preEvolutionIndex: Map<number, number[]> | undefined;
+
+  /** A Pokémon and the ones it evolves from, nearest first (Charizard, Charmeleon, Charmander). */
+  const evolutionLine = (personalId: number): number[] => {
+    if (!preEvolutionIndex) {
+      preEvolutionIndex = new Map();
+      const count = context.project.narcs.evolutions?.fileCount ?? 0;
+      for (let source = 1; source < count; source++) {
+        const raw = decodeRecord(context.project, "evolutions", source).raw ?? {};
+        for (let n = 0; n < 7; n++) {
+          const target = Number(raw[`target_${n}`] ?? 0);
+          if (target > 0 && Number(raw[`method_${n}`] ?? 0) > 0 && target !== source) {
+            preEvolutionIndex.set(target, [...(preEvolutionIndex.get(target) ?? []), source]);
+          }
+        }
+      }
+    }
+    const line = [personalId];
+    for (let index = 0; index < line.length; index++) {
+      for (const source of preEvolutionIndex.get(line[index]!) ?? []) if (!line.includes(source)) line.push(source);
+    }
+    return line;
+  };
+
+  const pokemonName = (personalId: number) =>
+    doc.pokemon[personalId]?.name ?? cleanDisplayText(String(context.project.texts.banks.pokedex?.[personalId] ?? `#${personalId}`));
+
+  /** Pages where a Pokémon, or one it evolves from, is wild or a gift. */
+  const whereFound = (personalId: number) => evolutionLine(personalId).flatMap((id) =>
+    whereFoundOne(id).map((entry) => (id === personalId ? entry : { ...entry, detail: `${pokemonName(id)}: ${entry.detail}` })));
+
   /** Pages where a Pokémon is wild or a gift. */
-  const whereFound = (personalId: number): Array<{ page: string; anchor?: string; label: string; detail: string }> => {
+  const whereFoundOne = (personalId: number): Array<{ page: string; anchor?: string; label: string; detail: string }> => {
     const out: Array<{ page: string; anchor?: string; label: string; detail: string }> = [];
     for (const page of doc.pages) {
       for (const block of page.blocks) {
@@ -705,7 +994,12 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
   // ---------- Images ----------
 
   const hydrateAssets = (scope: HTMLElement) => {
-    const images = [...scope.querySelectorAll<HTMLImageElement>("img[data-asset]:not([src])")];
+    // Images already made (a patched page redrawing a block) load straight away; the rest as they near the screen.
+    const images = [...scope.querySelectorAll<HTMLImageElement>("img[data-asset]:not([src])")].filter((image) => {
+      if (!context.assets.peek?.(image.dataset.asset!)) return true;
+      loadImage(image);
+      return false;
+    });
     if (!images.length) return;
     observer ??= new IntersectionObserver((entries) => {
       for (const entry of entries) {
@@ -722,8 +1016,8 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
     const key = image.dataset.asset!;
     image.closest(".msv-asset")?.classList.add("-loading");
     context.assets.url(key).then((url) => {
-      if (image.closest(".msv-dex-tab")) {
-        image.addEventListener("load", () => image.closest(".msv-dex-tab")?.classList.add("-icon"), { once: true });
+      if (image.closest(".msv-side-tab")) {
+        image.addEventListener("load", () => image.closest(".msv-side-tab")?.classList.add("-icon"), { once: true });
       }
       if (image.closest(".msv-battle-sprite")) {
         image.addEventListener("load", () => {
@@ -731,11 +1025,12 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
           image.style.height = `${image.naturalHeight * 2}px`;
         }, { once: true });
       }
-      if (image.closest(".msv-type")) {
+      if (image.closest(".msv-type, .msv-category, .msv-mark")) {
+        // Menu icons and the hack marks: drawn at 2×, replacing the words shown until they load.
         image.addEventListener("load", () => {
           image.style.width = `${image.naturalWidth * 2}px`;
           image.style.height = `${image.naturalHeight * 2}px`;
-          image.closest(".msv-type")?.classList.add("-icon");
+          image.closest(".msv-type, .msv-category, .msv-mark")?.classList.add("-icon");
         }, { once: true });
       }
       if (image.closest(".msv-front")) {
@@ -758,16 +1053,44 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
 
   root.addEventListener("click", (event) => {
     const target = event.target as HTMLElement;
+    // With the panel out, links to places in the sheet keep it out, showing what it shows: the page moves under it.
+    const pageLink = target.closest<HTMLAnchorElement>('a[href^="#/"]');
+    const showing = drawerStack[drawerStack.length - 1];
+    if (pageLink && !drawer.hidden && showing && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+      event.preventDefault();
+      const [path = ""] = pageLink.getAttribute("href")!.replace(/^#\/?/u, "").split("?");
+      const [page = "", anchor] = path.split("/").map((part) => decodeURIComponent(part));
+      // The details opened so far stay in the panel; its Back now steps through them there.
+      pushedDetails = 0;
+      window.location.hash = hrefFor(page, anchor, showing);
+      return;
+    }
     const open = target.closest<HTMLElement>("[data-open]");
     if (open) {
       const [kind, ...rest] = open.dataset.open!.split("-");
       openDetail({ kind: kind as Detail["kind"], id: rest.join("-") }, true);
       return;
     }
-    if (target.closest("[data-dex-tab]")) {
-      // The tab pulls the panel out (to the dex) and pushes it back in.
-      if (drawer.hidden) openDetail({ kind: "dex", id: dex.category }, true);
-      else closeDrawer(true);
+    if (target.closest("[data-edit-tab]")) {
+      context.editing?.toggle();
+      return;
+    }
+    const sideTab = target.closest<HTMLElement>("[data-dex-tab], [data-settings-tab]");
+    if (sideTab) {
+      // A tab pulls the panel out (to the dex, or to the settings) and pushes it back in. With the panel out on the
+      // other tab's view, it turns the panel to its own.
+      const settings = sideTab.matches("[data-settings-tab]");
+      const showing = drawer.hidden ? undefined : drawerStack[drawerStack.length - 1]?.kind;
+      if (showing !== undefined && (showing === "settings") === settings) closeDrawer(true);
+      else openDetail(settings ? { kind: "settings", id: "viewer" } : { kind: "dex", id: dex.category }, true);
+      return;
+    }
+    const setting = target.closest<HTMLButtonElement>("[data-setting]");
+    if (setting && !setting.disabled) {
+      if (setting.dataset.setting === "font") updateViewerSettings({ font: setting.dataset.value as ViewerFont });
+      if (setting.dataset.setting === "textSize") updateViewerSettings({ textSize: setting.dataset.value as ViewerTextSize });
+      drawerBody.innerHTML = renderSettings();
+      drawerBody.querySelector<HTMLElement>(`[data-setting="${setting.dataset.setting}"][data-value="${setting.dataset.value}"]`)?.focus({ preventScroll: true });
       return;
     }
     const dexCategory = target.closest<HTMLElement>("[data-dex-category]");
@@ -796,7 +1119,17 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
       return;
     }
     if (target.closest("[data-drawer-back]")) {
-      history.back();
+      // Step back through the browser's history while the panel's details are what it holds; after a move to
+      // another place in the sheet, step back in the panel alone, leaving the page where it is.
+      if (pushedDetails > 0) {
+        history.back();
+      } else if (drawerStack.length > 1) {
+        drawerStack.pop();
+        const previous = drawerStack[drawerStack.length - 1]!;
+        const { page, anchor } = parseHash();
+        history.replaceState(history.state, "", hrefFor(page || currentPage, anchor, previous));
+        openDetail(previous, false, true);
+      }
       return;
     }
     if (target.closest("[data-toggle-outline]")) {
@@ -839,13 +1172,92 @@ export function mountViewer(root: HTMLElement, context: ViewerContext): void {
   window.addEventListener("popstate", () => {
     const { detail } = parseHash();
     if (pushedDetails > 0) pushedDetails -= 1;
-    if (detail && drawerStack.length > 1) drawerStack.pop();
+    // Stepping back to the detail before this one: the panel steps back with it.
+    if (detail && sameDetail(drawerStack[drawerStack.length - 2], detail)) drawerStack.pop();
     route();
   });
   window.addEventListener("hashchange", route);
 
   route();
   hydrateAssets(dexTab);
+  hydrateAssets(settingsTab);
+  if (editTab) hydrateAssets(editTab);
+
+  const pageForLine = (line: number) => doc.pages.find((page) => line >= page.src.start && line < page.src.end);
+
+  return {
+    update(next, options = {}) {
+      const previousIndex = pageIndex.get(currentPage) ?? 0;
+      doc = next;
+      pageIndex = new Map(doc.pages.map((page, index) => [page.id, index]));
+      highlights = highlightIndex(doc);
+      search = buildSearchIndex(doc);
+      catalog = createMastersheetCatalog(context.project, doc);
+      dexIndex = undefined;
+      // The page being edited can be renamed (its ID follows its title): follow it by the edited line.
+      const byLine = options.line !== undefined ? pageForLine(options.line)?.id : undefined;
+      const target = (options.page && pageIndex.has(options.page) ? options.page : undefined)
+        ?? (pageIndex.has(currentPage) ? currentPage : undefined)
+        ?? byLine
+        ?? doc.pages[Math.min(previousIndex, doc.pages.length - 1)]?.id
+        ?? "";
+      if (target !== currentPage) {
+        currentPage = target;
+        currentAnchor = undefined;
+        const { detail } = parseHash();
+        history.replaceState(history.state, "", hrefFor(target, undefined, detail));
+        renderPage(target);
+      } else {
+        renderPage(target, true);
+      }
+      renderNav();
+    },
+    document: () => doc,
+    currentPage: () => doc.pages[pageIndex.get(currentPage) ?? -1],
+    goToPage(pageId, anchor, replace = false) {
+      const href = hrefFor(pageId, anchor, shownDetail?.kind === "edit" ? undefined : parseHash().detail);
+      if (!replace) {
+        window.location.hash = href;
+        return;
+      }
+      history.replaceState(history.state, "", href);
+      route();
+    },
+    openPanel(id) {
+      openDetail({ kind: "edit", id }, false, true);
+    },
+    refreshPanel() {
+      if (shownDetail?.kind === "edit" && !drawer.hidden) openDetail(shownDetail, false, true);
+    },
+    closePanel() {
+      if (shownDetail?.kind === "edit") closeDrawer(true);
+    },
+    panelId: () => (shownDetail?.kind === "edit" && !drawer.hidden ? shownDetail.id : undefined),
+    refreshNav() {
+      lastNavHtml = "";
+      renderNav();
+    },
+    hydrate: hydrateAssets,
+    redrawBlock(start) {
+      const page = doc.pages[pageIndex.get(currentPage) ?? -1];
+      const article = pageHost.querySelector<HTMLElement>(":scope > .msv-page");
+      if (!page || !article || rendered?.pageId !== page.id) return false;
+      const elements = [...article.querySelectorAll<HTMLElement>(":scope > [data-block]")];
+      let found = false;
+      page.blocks.forEach((block, index) => {
+        const element = elements[index];
+        if (block.src.start !== start || !element) return;
+        const html = renderBlock(block, page).trim();
+        rendered!.blocks[index] = html;
+        const fresh = elementFrom(markBlock(html, index)) as HTMLElement;
+        element.replaceWith(fresh);
+        hydrateAssets(fresh);
+        found = true;
+      });
+      return found;
+    },
+    elements: { shell, main, bar, pageHost, nav, drawerBody, editTab },
+  };
 }
 
 // ---------- Helpers ----------
@@ -854,10 +1266,21 @@ function asset(key: string, alt: string, className: string): string {
   return `<span class="msv-asset ${className}"><img data-asset="${esc(key)}" alt="${esc(alt)}" decoding="async"></span>`;
 }
 
-/** The start menu's hopping red NEW!, for anything new in this hack (newMark.ts draws it from the ROM). */
-function newMark(): string {
-  return `<span class="msv-new" role="img" aria-label="New in this hack" title="New in this hack"><span>New!</span></span>`;
+/** The start menu's red NEW!, or CHANGED! lettered the same way (hackMarks.ts), for what a hack added or changed. */
+function hackMark(mark: HackMark): string {
+  const label = mark === "new" ? "New in this hack" : "Changed in this hack";
+  return `<span class="msv-mark -${mark}" title="${label}"><img data-asset="${assetKeys.mark(mark)}" alt="${label}" decoding="async"><span class="msv-mark__text" aria-hidden="true">${mark === "new" ? "New!" : "Changed!"}</span></span>`;
 }
+
+/** The menus' move category icon (Physical, Special, Status), with the word until it loads. */
+function categoryChip(category: string): string {
+  const index = CATEGORY_ICONS.indexOf(category.toLowerCase());
+  if (index < 0) return category ? `<span class="msv-tag">${esc(category)}</span>` : "";
+  return `<span class="msv-category" title="${esc(category)}"><img data-asset="${assetKeys.category(index)}" alt="${esc(category)}" decoding="async"><span class="msv-category__text" aria-hidden="true">${esc(category)}</span></span>`;
+}
+
+/** The game's move data order, which the icons follow (gen5UiImages.ts categoryIconImage). */
+const CATEGORY_ICONS = ["status", "physical", "special"];
 
 /** The move frame images for a type (moveFrames.ts sets them on the viewer once drawn). */
 function moveFrameStyle(type: string): string {
@@ -892,11 +1315,46 @@ function displayName(name: string): string {
   return titleCase(name);
 }
 
-function statBars(stats: { hp: number; atk: number; def: number; spa: number; spd: number; spe: number }): string {
-  const rows: Array<[string, number]> = [["HP", stats.hp], ["Attack", stats.atk], ["Defense", stats.def], ["Sp. Atk", stats.spa], ["Sp. Def", stats.spd], ["Speed", stats.spe]];
-  const total = rows.reduce((sum, [, value]) => sum + value, 0);
+type BaseStats = { hp: number; atk: number; def: number; spa: number; spd: number; spe: number };
+
+/** Base stats as bars, each with how far it moved from vanilla White 2 when that is known. */
+function statBars(stats: BaseStats, was?: BaseStats): string {
+  const keys: Array<[string, keyof BaseStats]> = [["HP", "hp"], ["Attack", "atk"], ["Defense", "def"], ["Sp. Atk", "spa"], ["Sp. Def", "spd"], ["Speed", "spe"]];
+  const sum = (values: BaseStats) => keys.reduce((total, [, key]) => total + values[key], 0);
+  const changed = was && keys.some(([, key]) => stats[key] !== was[key]);
+  const change = (now: number, before: number) => (changed ? delta(now, before, String) || `<span class="msv-delta"></span>` : "");
   // Bars are measured against 180 and snap to 2 px steps, the DS pixel grid.
-  return `<dl class="msv-stats">${rows.map(([label, value]) => `<div><dt>${label}</dt><dd><span class="msv-stats__value">${value}</span><span class="msv-stats__bar" aria-hidden="true"><span style="width:${Math.min(100, Math.round(value / 1.8 / 2) * 2)}%"></span></span></dd></div>`).join("")}<div class="-total"><dt>Total</dt><dd><span class="msv-stats__value">${total}</span></dd></div></dl>`;
+  return `<dl class="msv-stats${changed ? " -deltas" : ""}">${keys.map(([label, key]) => `<div><dt>${label}</dt><dd><span class="msv-stats__value">${stats[key]}</span><span class="msv-stats__bar" aria-hidden="true"><span style="width:${Math.min(100, Math.round(stats[key] / 1.8 / 2) * 2)}%"></span></span>${changed ? change(stats[key], was[key]) : ""}</dd></div>`).join("")}<div class="-total"><dt>Total</dt><dd><span class="msv-stats__value">${sum(stats)}</span>${changed ? `<span class="msv-stats__spacer"></span>${change(sum(stats), sum(was))}` : ""}</dd></div></dl>`;
+}
+
+/**
+ * How a number moved from vanilla White 2: "+15" or "−10", with the vanilla value in its tooltip; nothing when it
+ * didn't. `format` writes the vanilla value.
+ */
+function delta(now: number, before: number, format: (value: number) => string): string {
+  if (now === before) return "";
+  const difference = now - before;
+  return `<span class="msv-delta ${difference > 0 ? "-up" : "-down"}" title="White 2: ${esc(format(before))}">${difference > 0 ? "+" : "−"}${Math.abs(difference)}</span>`;
+}
+
+/** The move's added effects as label and value rows, the ones it has. */
+function moveEffectRows(move: MsMoveDetail): Array<[string, string]> {
+  const rows: Array<[string, string]> = [];
+  const range = (span: { min: number; max: number }) => (span.min === span.max ? String(span.max) : `${span.min}–${span.max}`);
+  if (move.effect) rows.push(["Effect", move.effect]);
+  if (move.secondary) rows.push(["Added effect", move.effectChance ? `${move.secondary}, ${move.effectChance}%` : move.secondary]);
+  for (const change of move.statChanges) {
+    rows.push(["Stat change", `${change.stat} ${change.stages > 0 ? "+" : "−"}${Math.abs(change.stages)}${change.chance < 100 ? `, ${change.chance}%` : ""}`]);
+  }
+  if (move.statusTurns) rows.push(["Lasts", `${range(move.statusTurns)} turns`]);
+  if (move.flinch) rows.push(["Flinch", `${move.flinch}%`]);
+  if (move.critStage) rows.push(["Critical-hit ratio", `+${move.critStage}`]);
+  if (move.hits) rows.push(["Hits", `${range(move.hits)} times`]);
+  if (move.recoil) rows.push(["Recoil", `${move.recoil}% of damage dealt`]);
+  if (move.drain) rows.push(["Drains", `${move.drain}% of damage dealt`]);
+  if (move.healing) rows.push(["Heals", `${move.healing}% of max HP`]);
+  if (move.target) rows.push(["Target", move.target]);
+  return rows;
 }
 
 function inline(parts: MsInline[]): string {

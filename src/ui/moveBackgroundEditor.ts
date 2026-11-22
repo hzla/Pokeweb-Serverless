@@ -47,11 +47,6 @@ export function renderMoveBackgroundEditor(project: ProjectState, root: HTMLElem
           </label>
         </div>
         ${status ? `<div class="move-background-status -${status.tone}" role="status" aria-live="polite">${escapeHtml(status.message)}</div>` : ""}
-        <div class="move-background-catalog-summary">
-          <strong>${backgrounds.length}</strong>
-          <span>background entr${backgrounds.length === 1 ? "y" : "ies"}</span>
-          <small>${referencedCatalog.backgrounds.length} referenced · ${referencedCatalog.scannedScriptCount} script${referencedCatalog.scannedScriptCount === 1 ? "" : "s"} scanned${referencedCatalog.skippedScriptCount ? ` · ${referencedCatalog.skippedScriptCount} skipped` : ""}</small>
-        </div>
         ${selected ? renderSidebarReferences(selected) : ""}
       </aside>
       <main class="pokemon-list move-background-content">
@@ -205,34 +200,20 @@ function renderLoadedBackground(
       <article class="move-background-preview-card -battle">
         <div class="move-background-preview-title">
           <div><strong>Battle View</strong><span>DS viewport · tiled to 256×192</span></div>
-          <code>256×192</code>
         </div>
         <div class="move-background-canvas-frame"><canvas data-move-background-preview="battle" aria-label="Background ${backgroundReference.backgroundId} battle view"></canvas></div>
       </article>
       <article class="move-background-preview-card -source">
         <div class="move-background-preview-title">
           <div><strong>Source Map</strong><span>Decoded NSCR tile map</span></div>
-          <code>${background.width}×${background.height}</code>
         </div>
         <div class="move-background-canvas-frame"><canvas data-move-background-preview="source" aria-label="Background ${backgroundReference.backgroundId} source map"></canvas></div>
       </article>
     </div>
     ${importReport ? renderImportReport(importReport) : ""}
-    <div class="move-background-metadata">
-      ${metadataItem("Background ID", String(backgroundReference.backgroundId))}
-      ${metadataItem("Source size", `${background.width} × ${background.height}`)}
-      ${metadataItem("Color depth", `${background.indexed.bitsPerPixel} bpp`)}
-      ${metadataItem("Transparency", background.hasTransparency ? "Index 0" : "Opaque")}
-      ${metadataItem("Tile count", String(background.indexed.tilePixels.length))}
-      ${metadataItem("Palette colors", String(background.indexed.palette.length))}
-      ${metadataItem("Palette base", `Bank ${background.indexed.paletteBankOffset}`)}
-    </div>
+    <p class="move-background-facts">${background.width} × ${background.height} · ${background.indexed.bitsPerPixel} bpp · ${background.indexed.palette.length} colors from palette bank ${background.indexed.paletteBankOffset} · ${background.hasTransparency ? "index 0 transparent" : "opaque"} · ${background.indexed.tilePixels.length} tiles</p>
     ${background.warnings.length ? `<section class="move-background-warnings"><strong>Decoder notes</strong><ul>${background.warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join("")}</ul></section>` : ""}
   `;
-}
-
-function metadataItem(label: string, value: string): string {
-  return `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
 }
 
 function renderImportReport(report: MoveBackgroundImportReport): string {

@@ -18,7 +18,7 @@
 .battle-background-tabs {
   background: #20232d;
   border: 1px solid #444b60;
-  border-radius: 7px;
+  border-radius: var(--radius);
   display: grid;
   gap: 3px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -28,7 +28,7 @@
 .battle-background-tabs button {
   background: transparent;
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--radius);
   color: #9fa8bc;
   cursor: pointer;
   font: inherit;
@@ -117,12 +117,9 @@
 .battle-background-viewer.-scene .battle-background-header-badges { flex-direction: row; flex-wrap: wrap; font-size: 12px; gap: 14px; }
 
 .battle-background-catalog-summary {
-  background: #303448;
-  border: 1px solid #454b62;
-  border-radius: 6px;
   display: grid;
   gap: 2px;
-  padding: 12px;
+  padding: 0;
 }
 
 .battle-background-catalog-summary strong {
@@ -149,13 +146,10 @@
 }
 
 .battle-background-shape-summary {
-  background: #292d3b;
-  border: 1px solid #444b60;
-  border-radius: 6px;
   color: #9fa8bc;
   display: grid;
   gap: 7px;
-  padding: 12px;
+  padding: 0;
 }
 
 .battle-background-shape-summary strong {
@@ -174,11 +168,9 @@
 }
 
 .battle-platform-object-note {
-  background: #26343b;
-  border: 1px solid #3d5d66;
-  border-radius: 6px;
   color: #aebfcc;
-  padding: 12px;
+  padding: 0;
+  color: var(--text-muted);
 }
 
 .battle-platform-object-note p {
@@ -199,7 +191,6 @@
   color: #f2f2f2;
   font-size: 12px;
   font-weight: 700;
-  text-transform: uppercase;
 }
 
 .battle-background-format-note p {
@@ -207,7 +198,6 @@
 }
 
 .battle-background-content {
-  background: #20232d;
   margin-left: 280px;
   min-height: calc(100vh - var(--chrome-h));
   padding: 0;
@@ -217,12 +207,15 @@
 .battle-background-viewer {
   display: grid;
   gap: 20px;
-  padding: 32px clamp(20px, 4vw, 64px) 48px;
+  margin: 16px;
+  padding: 16px 20px 20px;
+  border: 2px solid var(--g5-black);
+  background: var(--g5-panel);
 }
 
 .battle-background-header {
   align-items: end;
-  border-bottom: 1px solid #3e4355;
+  border-bottom: 2px solid var(--g5-black);
   display: flex;
   gap: 20px;
   justify-content: space-between;
@@ -276,13 +269,10 @@
 }
 
 .battle-background-preview-card {
-  background: #292d3b;
-  border: 1px solid #42485b;
-  border-radius: 6px;
   display: grid;
   gap: 12px;
   min-width: 0;
-  padding: 14px;
+  padding: 0;
 }
 
 .battle-background-toolbar {
@@ -322,7 +312,7 @@
   aspect-ratio: 4 / 3;
   background: #202431;
   border: 1px solid #10131b;
-  border-radius: 6px;
+  border-radius: var(--radius);
   min-height: 360px;
   overflow: hidden;
   position: relative;
@@ -352,20 +342,16 @@
 }
 
 .battle-background-metadata-item {
-  background: #292d3b;
-  border: 1px solid #404659;
-  border-radius: 6px;
   display: grid;
   gap: 5px;
   min-width: 0;
-  padding: 10px;
+  padding: 0;
 }
 
 .battle-background-metadata-item span {
   color: #929cb2;
   font-size: 10px;
   font-weight: 700;
-  text-transform: uppercase;
 }
 
 .battle-background-metadata-item strong {
@@ -390,23 +376,17 @@
 }
 
 .battle-platform-preview-note {
-  background: #26343b;
-  border-left: 3px solid #50c3a5;
-  border-radius: 4px;
-  color: #b9c7cf;
+  color: var(--text-muted);
   font-size: 11px;
   line-height: 1.5;
   margin-top: -8px;
-  padding: 9px 12px;
 }
 
 .battle-environment-usage {
-  background: #292d3b;
-  border: 1px solid #444b60;
-  border-radius: 6px;
   display: grid;
   gap: 10px;
-  padding: 11px;
+  padding: 12px 0 0;
+  border-top: 2px solid var(--g5-black);
 }
 
 .battle-environment-usage > header {
@@ -423,8 +403,6 @@
   color: #50c3a5;
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
 }
 
 .battle-environment-usage h2 {
@@ -460,13 +438,11 @@
 
 .battle-environment-usage-card {
   align-items: start;
-  background: #2b303f;
-  border: 1px solid #454c61;
-  border-radius: 7px;
   display: grid;
   gap: 8px;
   grid-template-columns: 1fr;
-  padding: 9px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--g5-edge);
 }
 
 .battle-environment-usage-location,
@@ -502,7 +478,7 @@
 .battle-environment-usage-empty {
   background: #292d3b;
   border: 1px dashed #4a5268;
-  border-radius: 6px;
+  border-radius: var(--radius);
   color: #aeb7ca;
   font-size: 12px;
   padding: 18px;
@@ -514,12 +490,10 @@
 }
 
 .battle-background-textures {
-  background: #252936;
-  border: 1px solid #404659;
-  border-radius: 10px;
   display: grid;
   gap: 16px;
-  padding: 18px;
+  padding: 16px 0 0;
+  border-top: 2px solid var(--g5-black);
 }
 
 .battle-background-textures > header {
@@ -538,8 +512,6 @@
   color: #50c3a5;
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
 }
 
 .battle-background-textures h2 {
@@ -563,13 +535,11 @@
 }
 
 .battle-background-texture-card {
-  background: #2b303f;
-  border: 1px solid #454c61;
-  border-radius: 8px;
   display: grid;
   grid-template-columns: minmax(120px, 168px) minmax(0, 1fr);
   min-width: 0;
   overflow: hidden;
+  background: var(--g5-ground);
 }
 
 .battle-background-texture-preview {
@@ -634,12 +604,9 @@
 }
 
 .battle-background-texture-facts span {
-  background: #222632;
-  border: 1px solid #3c4355;
-  border-radius: 4px;
   color: #aeb7ca;
   font-size: 9px;
-  padding: 4px 5px;
+  padding: 0;
 }
 
 .battle-background-texture-body dl {
@@ -676,7 +643,7 @@
 .battle-background-empty {
   background: #292d3b;
   border: 1px solid #42485b;
-  border-radius: 8px;
+  border-radius: var(--radius);
   color: #b8c0d2;
   padding: 24px;
 }
@@ -702,7 +669,7 @@
 .battle-background-warnings {
   background: #342f2c;
   border: 1px solid #655345;
-  border-radius: 6px;
+  border-radius: var(--radius);
   color: #ffd7a1;
   font-size: 12px;
   padding: 12px 14px;

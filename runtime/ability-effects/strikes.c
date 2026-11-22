@@ -28,7 +28,7 @@ PUBLIC void AbilityStrikeCount(void*f,void*mon,u32 move,u8*hit,const u8*param,vo
  /* Conditions see the resolved move type and category, even though the native
   * hit-count event has already popped its temporary event-variable frame. */
  RX(7,void(*)(u32))(0x501);RX(9,void(*)(u32,u32))(0x12,move);RX(9,void(*)(u32,u32))(0x16,param[6]);RX(9,void(*)(u32,u32))(0x1a,*(const u32*)(param+8));
- u32 enabled=active(r,f,mon);RX(8,void(*)(u32))(0x501);
+ u32 enabled=EFFECT_ENABLED(r,selected,f,mon,s->owner,0,CONDITION_NO_FOE);RX(8,void(*)(u32))(0x501);
  if(!enabled)return;
  hit[0]=2;hit[2]=0;hit[3]=1;s->ratio=half(selected+2);
 }

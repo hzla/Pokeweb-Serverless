@@ -89,7 +89,7 @@ const TREE_SKIP_LABELS: Record<TreeSkipReason, string> = {
   "special-terrain": "special terrain",
   "split-height": "split walking height",
   "uneven-ground": "ground that isn't level",
-  "multiple-surfaces": "two walking levels",
+  "multiple-surfaces": "2 walking levels",
   "missing-map": "missing map data",
   "outside-map": "outside the editable map",
   "no-placed-tree": "no tree placed with the brush",
@@ -3421,10 +3421,19 @@ function disposeMaterial(material: THREE.Material): void {
   material.dispose();
 }
 
+/**
+ * The map's own extent: its terrain and buildings. NPCs and markers are left out, since cutscene actors are often
+ * parked far off the map (tile 65520, i.e. -16, in Celestial Tower), which would frame empty space.
+ */
+function mapBounds(state: RendererState): THREE.Box3 {
+  const box = new THREE.Box3().setFromObject(state.terrainGroup).union(new THREE.Box3().setFromObject(state.buildingGroup));
+  return box.isEmpty() ? new THREE.Box3().setFromObject(state.group) : box;
+}
+
 function frameGroup(state: RendererState): void {
   state.fieldCamera?.freeView();
   if (state.isolateBuilding) { focusSelectedBuilding(state); return; }
-  const box = new THREE.Box3().setFromObject(state.group);
+  const box = mapBounds(state);
   if (box.isEmpty()) {
     state.target.set(0, 0, 0);
     state.distance = 1200;
@@ -3440,9 +3449,8 @@ function frameGroup(state: RendererState): void {
 
 function topDownGroup(state: RendererState): void {
   state.fieldCamera?.freeView();
-  const target = state.isolateBuilding && state.selectedBuildingIndex !== undefined
-    ? state.buildingGroup.children[state.selectedBuildingIndex] ?? state.group : state.group;
-  const box = new THREE.Box3().setFromObject(target);
+  const building = state.isolateBuilding && state.selectedBuildingIndex !== undefined ? state.buildingGroup.children[state.selectedBuildingIndex] : undefined;
+  const box = building ? new THREE.Box3().setFromObject(building) : mapBounds(state);
   if (box.isEmpty()) {
     state.target.set(0, 0, 0);
     state.distance = 1200;

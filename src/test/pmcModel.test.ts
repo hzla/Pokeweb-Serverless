@@ -8,6 +8,8 @@ import { Folder, saveFnt } from "../nds/fnt";
 import { NintendoDSRom } from "../nds/rom";
 import { exportModifiedRom } from "../pokeweb/exportRom";
 import { exportFrostCompatibleRom } from "../pokeweb/frostCompatibility";
+import { ICON_PALETTE_RELOCATION_HEADER_SIZE, ICON_PALETTE_RELOCATION_MAGIC,
+  WHITE_2_ICON_PALETTE_POINTER_OFFSET } from "../pokeweb/pokemonIconPaletteRuntime";
 import {
   adoptExistingPmcInstall,
   detectBundledFormEvolutionDll,
@@ -44,7 +46,11 @@ import { parseRpm, writeRelocationDataByType, writeRpm } from "../pokeweb/rpm";
 import type { ProjectState } from "../pokeweb/projectStore";
 
 const pmcB2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/PMC_B2.rpm", import.meta.url)));
+const pmcB2LegacyExpansion = new Uint8Array(readFileSync(new URL("../assets/codeinjection/PMC_B2_200.rpm", import.meta.url)));
+const pmcB2Compact = new Uint8Array(readFileSync(new URL("../assets/codeinjection/PMC_B2_220.rpm", import.meta.url)));
 const pmcW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/PMC_W2.rpm", import.meta.url)));
+const pmcW2LegacyExpansion = new Uint8Array(readFileSync(new URL("../assets/codeinjection/PMC_W2_200.rpm", import.meta.url)));
+const pmcW2Compact = new Uint8Array(readFileSync(new URL("../assets/codeinjection/PMC_W2_220.rpm", import.meta.url)));
 const doubleBattleFixB2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/DoubleBattleFixB2.dll", import.meta.url)));
 const doubleBattleFixW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/DoubleBattleFixW2.dll", import.meta.url)));
 const mainMenuSkipB2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/MainMenuSkipB2.dll", import.meta.url)));
@@ -265,7 +271,7 @@ describe("PMC installer", () => {
       const patchBytes = structuredClone(Object.entries(project.fileSystem!.additions!).filter(([path]) => path.startsWith("patches/")));
       await expandPmcHeapAllocation(project);
       expect(getPmcHeapExpansionStatus(project)).toMatchObject({ available: false, expanded: true });
-      expect(getPmcInstallStatus(project)).toMatchObject({ version: "13.2.4-heap200" });
+      expect(getPmcInstallStatus(project)).toMatchObject({ version: "13.2.4-heap220" });
       for (const [path, dll] of patchBytes) expect(project.fileSystem!.additions![path]).toEqual(dll);
       const state = structuredClone(project.fileSystem);
       await expandPmcHeapAllocation(project); expect(project.fileSystem).toEqual(state);
@@ -275,6 +281,106 @@ describe("PMC installer", () => {
       expect(getPmcHeapExpansionStatus(reopened)).toMatchObject({ available: false, expanded: true });
       await expandPmcHeapAllocation(reopened);
       for (const [path, dll] of patchBytes) expect(rom.getFileByName(path)).toEqual(dll);
+    });
+  });
+
+  it.each(["B2", "W2"] as const)("upgrades an exported 200 KiB %s install and round-trips both reservation layouts", async version => {
+    await withBundledCodeInjectionFetch(async () => {
+      const clean = makeBw2LikeRom();
+      if (version === "B2") clean[14] = 69;
+      const project = makeProject(clean, version);
+      installPmcBytes(project, version === "B2" ? pmcB2LegacyExpansion : pmcW2LegacyExpansion, clean);
+      const dllName = `BgmToggle${version}.dll`;
+      const dll = version === "B2" ? bgmToggleB2 : bgmToggleW2;
+      stageCodeInjectionDll(project, dllName, dll);
+      const oldBytes = await exportModifiedRom(project);
+      const oldRom = new NintendoDSRom(oldBytes);
+      const row = 344 * 32;
+      expect(readU32(oldRom.arm9OverlayTable, row + 12)).toBe(0x5000);
+      const reopened = makeProject(oldBytes, version);
+      reopened.arm9 = decompressCode(oldRom.arm9);
+      reopened.codeInjection = detectPmcInstallFromRom(oldRom);
+      expect(getPmcHeapExpansionStatus(reopened)).toMatchObject({ available: true, capKiB: 200, targetCapKiB: 220 });
+      await expandPmcHeapAllocation(reopened);
+      const compactBytes = await exportModifiedRom(reopened);
+      const compact = new NintendoDSRom(compactBytes);
+      const base = readU32(oldRom.arm9OverlayTable, row + 4);
+      expect(readU32(compact.arm9OverlayTable, row + 4)).toBe(base);
+      expect(readU32(compact.arm9OverlayTable, row + 8)).toBe(0x3000);
+      expect(readU32(compact.arm9OverlayTable, row + 12)).toBe(0);
+      const arenaLiteral = version === "B2" ? 0x0207b3f0 : 0x0207b41c;
+      expect(readU32(decompressCode(compact.arm9), arenaLiteral - compact.arm9RamAddress)).toBe(base + 0x3000);
+      expect(compact.getFileByName(`patches/${dllName}`)).toEqual(dll);
+      const frost = new NintendoDSRom(exportFrostCompatibleRom(compactBytes));
+      expect(readU32(frost.arm9OverlayTable, row + 12)).toBe(0);
+      expect(getPmcUpdateConfirmationMessage(reopened, compactBytes)).toBeUndefined();
+
+      const damaged = compact.arm9OverlayTable.slice();
+      writeU32(damaged, row + 12, 0x5000);
+      const repaired = new NintendoDSRom(repairRomNarcs(compact.save({ arm9OverlayTable: damaged })).bytes);
+      expect(readU32(repaired.arm9OverlayTable, row + 12)).toBe(0);
+      expect(repaired.arm9).toEqual(compact.arm9);
+    });
+  });
+
+  it("rejects the compact bundle on another game or revision and detects an overlapping startup arena", async () => {
+    const clean = makeBw2LikeRom();
+    clean[30] = 1;
+    expect(() => installPmcBytes(makeProject(clean, "W2"), pmcW2Compact, clean)).toThrow(/revision-0/);
+    const white = clean.slice();
+    white.set(new TextEncoder().encode("IRAO"), 12);
+    const bw1 = makeProject(white, "W2");
+    bw1.session.baseRom = "BW";
+    bw1.session.baseVersion = "W";
+    expect(() => installPmcBytes(bw1, pmcW2Compact, white)).toThrow(/revision-0/);
+    white[30] = 0;
+    expect(() => installPmcBytes(bw1, pmcB2Compact, white)).toThrow(/matching/);
+    expect(() => installPmcBytes(bw1, pmcW2Compact, white)).toThrow(/main boot hook/);
+    clean[30] = 0;
+    const project = makeProject(clean, "W2");
+    expect(() => installPmcBytes(project, pmcB2Compact, clean)).toThrow(/matching/);
+    const installed = installPmcBytes(project, pmcW2Compact, clean);
+    writeU32(project.arm9, 0x7b41c, installed.overlayBaseAddress + 0x2800);
+    await expect(exportModifiedRom(project)).rejects.toThrow(/overlaps the native startup arena/);
+  });
+
+  it("preserves a relocated White 2 icon palette when upgrading a legacy PMC reservation", async () => {
+    await withBundledCodeInjectionFetch(async () => {
+      const clean = makeBw2LikeRom(), project = makeProject(clean, "W2");
+      const { overlayBaseAddress } = installPmcBytes(project, pmcW2LegacyExpansion, clean);
+      const ram = new NintendoDSRom(clean).arm9RamAddress;
+      const marker = overlayBaseAddress + PMC_OVERLAY_RESERVED_SIZE - ram;
+      const table = marker + ICON_PALETTE_RELOCATION_HEADER_SIZE;
+      const capacity = 20;
+      const relocated = new Uint8Array(table + capacity);
+      relocated.set(project.arm9);
+      relocated.set(ICON_PALETTE_RELOCATION_MAGIC, marker);
+      writeU32(relocated, marker + 8, capacity);
+      writeU32(relocated, marker + 12, WHITE_2_ICON_PALETTE_POINTER_OFFSET);
+      relocated.fill(0x21, table);
+      writeU32(relocated, WHITE_2_ICON_PALETTE_POINTER_OFFSET, ram + table);
+      const arenaOffset = 0x0207b41c - ram;
+      writeU32(relocated, arenaOffset, ram + relocated.length);
+      project.arm9 = relocated;
+      const oldBytes = await exportModifiedRom(project);
+      const oldRom = new NintendoDSRom(oldBytes);
+      const reopened = makeProject(oldBytes, "W2");
+      reopened.arm9 = decompressCode(oldRom.arm9);
+      reopened.codeInjection = detectPmcInstallFromRom(oldRom);
+
+      const overlapping = { ...reopened, arm9: reopened.arm9.slice() };
+      overlapping.arm9[overlayBaseAddress - ram + 4] = 1;
+      await expect(expandPmcHeapAllocation(overlapping)).rejects.toThrow(/unrecognized changes/);
+
+      await expandPmcHeapAllocation(reopened);
+      const compact = new NintendoDSRom(await exportModifiedRom(reopened));
+      const arm9 = decompressCode(compact.arm9);
+      expect(readU32(arm9, WHITE_2_ICON_PALETTE_POINTER_OFFSET)).toBe(ram + table);
+      expect(arm9.subarray(marker)).toEqual(relocated.subarray(marker));
+      const heapStart = ram + align(relocated.length, 32);
+      expect(readU32(arm9, arenaOffset)).toBe(heapStart);
+      expect(readU32(compact.getFileByName("overlay/overlay_0344.bin"), 0x3c)).toBe(heapStart);
+      expect(readU32(compact.arm9OverlayTable, 344 * 32 + 4)).toBe(overlayBaseAddress);
     });
   });
 
@@ -1267,7 +1373,10 @@ async function withBundledCodeInjectionFetch(run: () => Promise<void>): Promise<
     const fileName = url.pathname.split("/").pop();
     if (fileName === "PMC_B2.rpm") return new Response(pmcB2);
     if (fileName === "PMC_W2.rpm") return new Response(pmcW2);
-    if (fileName === "PMC_B2_200.rpm" || fileName === "PMC_W2_200.rpm") return new Response(new Uint8Array(readFileSync(new URL(`../assets/codeinjection/${fileName}`, import.meta.url))));
+    if (fileName === "PMC_W2_200.rpm") return new Response(pmcW2LegacyExpansion);
+    if (fileName === "PMC_W2_220.rpm") return new Response(pmcW2Compact);
+    if (fileName === "PMC_B2_200.rpm") return new Response(pmcB2LegacyExpansion);
+    if (fileName === "PMC_B2_220.rpm") return new Response(pmcB2Compact);
     if (fileName === "MainMenuSkipB2.dll") return new Response(mainMenuSkipB2);
     if (fileName === "MainMenuSkipW2.dll") return new Response(mainMenuSkipW2);
     if (fileName === "FormEvolutionB2.dll") return new Response(formEvolutionB2);

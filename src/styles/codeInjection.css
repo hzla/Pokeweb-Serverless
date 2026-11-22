@@ -58,7 +58,7 @@
 .pmc-capacity h3 {font-size: 14px; margin: 0;}
 .pmc-capacity-label {align-items: baseline; display: flex; flex-wrap: wrap; gap: 4px 10px; justify-content: space-between; font-size: 12px;}
 .pmc-capacity-phase {display: grid; gap: 6px;}
-.pmc-capacity-track {background: #191b26; border-radius: 4px; height: 10px; overflow: hidden; position: relative;}
+.pmc-capacity-track {background: #191b26; border-radius: var(--radius); height: 10px; overflow: hidden; position: relative;}
 .pmc-capacity-track span {height: 100%; left: 0; position: absolute; top: 0;}
 .pmc-capacity-peak {background: #696078;}
 .pmc-capacity-used {background: #69d6bd;}
@@ -140,15 +140,10 @@
 }
 
 .code-injection-ai-notice {
-  background: var(--ink-1, rgba(255, 255, 255, 0.03));
-  border: 1px solid var(--ink-3);
-  border-left: 3px solid #69d6bd;
-  border-radius: 6px;
-  color: #c9cbd6;
+  color: var(--text-muted);
   font-size: 13px;
   line-height: 1.5;
   margin: 0 0 16px;
-  padding: 10px 14px;
 }
 
 .code-injection-tabs {
@@ -190,7 +185,7 @@
 .code-injection-panel {
   background: var(--ink-2);
   border: 1px solid var(--ink-3);
-  border-radius: 6px;
+  border-radius: var(--radius);
   margin-bottom: 18px;
   max-width: 900px;
   padding: 18px;
@@ -217,7 +212,7 @@
   align-items: center;
   background: var(--ink-0);
   border: 1px solid var(--ink-3);
-  border-radius: 6px;
+  border-radius: var(--radius);
   display: flex;
   flex-wrap: wrap;
   gap: 14px;
@@ -288,7 +283,7 @@
 .party-toolbar-flag input {
   background: var(--ink-0);
   border: 1px solid var(--field-line);
-  border-radius: 4px;
+  border-radius: var(--radius);
   color: #f2f2f2;
   max-width: 100%;
   padding: 8px 10px;
@@ -302,7 +297,7 @@
 
 .party-toolbar-section-flags {
   border: 1px solid var(--field-line);
-  border-radius: 6px;
+  border-radius: var(--radius);
   display: grid;
   flex-basis: 100%;
   gap: 12px;
@@ -347,7 +342,7 @@
 .type-icon-variant-preview {
   background: var(--ink-0);
   border: 2px solid rgb(98 114 164 / 48%);
-  border-radius: 8px;
+  border-radius: var(--radius);
   margin: 0;
   min-width: 0;
   padding: 10px;
@@ -408,7 +403,7 @@
   font-size: 13px;
   margin-top: 14px;
   padding: 0 0 0 10px;
-  border-left: 3px solid #50fa7b;
+  border-left: 3px solid var(--success);
 }
 
 .code-injection-compat-list {
@@ -561,7 +556,7 @@
 .code-injection-settings input {
   background: var(--ink-0);
   border: 1px solid #55586d;
-  border-radius: 4px;
+  border-radius: var(--radius);
   color: #f2f2f2;
   font: inherit;
   min-width: 0;
@@ -593,8 +588,8 @@
 .code-injection-species-picker { margin-top: 16px; }
 .code-injection-species-picker summary { cursor: pointer; font-size: 13px; color: #d6d7e2; }
 .code-injection-species-hint { color: #aeb0bd; font-size: 13px; margin: 8px 0 0; }
-.code-injection-species-search { background: #24252b; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 4px; color: #f2f2f2; font-size: 13px; margin-left: auto; min-width: 180px; padding: 4px 8px; }
-.code-injection-species-list { border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 6px; max-height: 420px; overflow: auto; }
+.code-injection-species-search { background: #24252b; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: var(--radius); color: #f2f2f2; font-size: 13px; margin-left: auto; min-width: 180px; padding: 4px 8px; }
+.code-injection-species-list { border: 1px solid rgba(255, 255, 255, 0.12); border-radius: var(--radius); max-height: 420px; overflow: auto; }
 .code-injection-species-family { align-items: baseline; border-bottom: 1px solid rgba(255, 255, 255, 0.08); display: grid; gap: 4px 12px; grid-template-columns: minmax(150px, 190px) 1fr; padding: 6px 10px; }
 .code-injection-species-family[hidden] { display: none; }
 .code-injection-species-family__toggle { color: #f2f2f2; font-size: 13px; }
@@ -611,7 +606,7 @@
 .code-injection-ability-picker summary { cursor: pointer; font-size: 13px; color: #d6d7e2; }
 .code-injection-ability-filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
 .code-injection-ability-filters .btn[aria-pressed="true"] { border-color: var(--amber); color: var(--amber); }
-.code-injection-ability-table { max-height: 420px; overflow: auto; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 6px; }
+.code-injection-ability-table { max-height: 420px; overflow: auto; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: var(--radius); }
 .code-injection-ability-table table { border-collapse: collapse; font-size: 13px; width: 100%; }
 .code-injection-ability-table th { background: #2a2b33; color: #d6d7e2; font-weight: 500; position: sticky; text-align: left; top: 0; z-index: 1; }
 .code-injection-ability-table th,

@@ -12,7 +12,7 @@ function appendConditions<T extends Condition>(current: T, incoming: T, maxNodes
   else {
     const children: Condition[] = [];
     for (const node of [current, incoming]) {
-      if (node.kind === "group" && node.mode === "all") children.push(...node.children);
+      if (node.kind === "group" && node.mode === "all" && !("scope" in node && node.scope)) children.push(...node.children);
       else children.push(node);
     }
     // A full root can still fit as two intact subgroups within the same bounds.

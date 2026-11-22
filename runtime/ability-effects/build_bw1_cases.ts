@@ -14,9 +14,9 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { NintendoDSRom } from "../../src/nds/rom";
 import { getTextBank,parseTextEntryId } from "../../src/pokeweb/textModel";
-import { NARC } from "../../src/nds/narc";
+import { addDoubleTrainerPartner } from "./battle_log_runner";
 import {decodeRecord,markDirty} from "../../src/pokeweb/projectStore";
-import { readU16, readU32, writeU16, writeU32 } from "../../src/nds/binary";
+import { readU16, readU32 } from "../../src/nds/binary";
 import { loadProjectFromRomBytes } from "../../src/pokeweb/loader";
 import { configureAbilityRuleSets, inspectAbilityEffects, hydrateAbilityEffectsSource, ABILITY_EFFECTS_DLL_PATH, ABILITY_RULE_API, buildAbilityRuleModule } from "../../src/pokeweb/abilityEffectsModel";
 import { configureMoveDllFlags } from "../../src/pokeweb/abilityEffectsModel";
@@ -28,7 +28,7 @@ import { exportModifiedRom } from "../../src/pokeweb/exportRom";
 import { createProjectDocument } from "../../src/pokeweb/projectDocument";
 import { openProjectSession } from "../../src/pokeweb/projectSession";
 import { parseRpm } from "../../src/pokeweb/rpm";
-import { buildTestBattleDownloads, rawSaveBytesFromDesmumeDsv, getTestBattleConfig, refreshTestBattleSaveBlockChecksum } from "../../src/pokeweb/testBattle";
+import { buildTestBattleDownloads, rawSaveBytesFromDesmumeDsv } from "../../src/pokeweb/testBattle";
 import { decryptPk5Party } from "../../src/pokeweb/testBattleTeam";
 import { battleRuntimeResolver } from "../../src/pokeweb/battleRuntimeBindings";
 import blackBindings from "../../src/assets/data/abilityBindingsB1.json";
@@ -257,22 +257,8 @@ for(const[index,spec]of cases.entries()){
  if(only&&!only.includes(spec.label))continue;
  const enemies=spec.enemies??[mon()];patchHarnessTrainer(project,parseHarnessConfig({trainerId:2,battleType:spec.battleType??"Singles",trainer:{team:enemies,ai:0}}));
  const downloads=await buildTestBattleDownloads(project,2);
- if(spec.battleType==="Doubles"){
-  // BW1's normal double-trainer launch requires a second field NPC with the
-  // same trainer ID. Add the partner to this disposable fixture, using retail
-  // data and the ordinary battle script rather than a battle-engine hook.
-  const fixture=new NintendoDSRom(downloads.romBytes,{fileData:"view"}),path="a/1/2/5",archive=new NARC(fixture.getFileByName(path)),before=new NARC(rom.getFileByName(path));let partners=0;
-  archive.files.forEach((bytes,i)=>{if(bytes.length!==before.files[i].length+36)return;const end=8+bytes[4]*20+bytes[5]*36,first=bytes.slice(end-36,end);if(readU16(first,10)!==3002)return;const partner=first.slice();writeU16(partner,0,readU16(first,0)+1);writeU16(partner,28,readU16(first,28)+1);const expanded=new Uint8Array(bytes.length+36);expanded.set(bytes.subarray(0,end));expanded.set(partner,end);expanded.set(bytes.subarray(end),end+36);expanded[5]++;writeU32(expanded,0,readU32(bytes,0)+36);archive.files[i]=expanded;partners++;});
-  assert(partners>0,"Double-trainer field partner fixture missing");downloads.romBytes=fixture.save({files:new Map([[fixture.fileId(path),archive.save()]]),preserveOriginalLength:true});
- }
  const save=patchHarnessSave(rawSaveBytesFromDesmumeDsv(downloads.saveBytes),project,parseHarnessConfig({trainerId:2,player:{team:[{speciesId:spec.playerSpecies??1,level:50,moves:spec.playerMoves??[150],abilityId:spec.abilityId,itemId:0,...(spec.playerGender===undefined?{}:{gender:spec.playerGender}),...(spec.hp===undefined?{}:{currentHp:spec.hp}),...(spec.playerStatus?{status:spec.playerStatus}:{})},...(spec.ally?[spec.ally]:[]),...(spec.bench??[])]}}));
- if(spec.battleType==="Doubles")for(const half of [0,0x24000]){
-  // The bundled save restores field actors, so the partner also needs its own
-  // actor record. Preserve the first actor and every unrelated saved actor.
-  const slots=Array.from({length:64},(_,n)=>half+0x1e200+n*80),first=slots.find(at=>(readU32(save,at)&1)&&readU16(save,at+24)===3002),free=slots.find(at=>!(readU32(save,at)&1));assert(first!==undefined&&free!==undefined);
-  save.set(save.slice(first,first+80),free);save[free+8]=save[first+8]+1;for(const field of [32,38])writeU16(save,free+field,readU16(save,first+field)+1);
-  refreshTestBattleSaveBlockChecksum(save,getTestBattleConfig("BW").saveLayout,half,0x1e200,0x1400,0x1f602,41);
- }
+ if(spec.battleType==="Doubles")downloads.romBytes=addDoubleTrainerPartner(downloads.romBytes,rom,save,"BW",2);
  const raw=decryptPk5Party(save.subarray(0x18e08,0x18e08+220)),label=`${String(index).padStart(3,"0")}-${spec.label}`,filename=`battle-${sha(new TextEncoder().encode(JSON.stringify([spec.battleType,enemies]))).slice(0,16)}.nds`;
  await writeFile(`${out}/saves/${label}.sav`,save);if(!hashes[filename]){await writeFile(`${out}/${filename}`,downloads.romBytes);hashes[filename]=sha(downloads.romBytes);}
  fixtures.push({...spec,enemyCount:enemies.length,label,speciesId:spec.playerSpecies??1,maxHp:readU16(raw,0x90),hp:spec.hp??readU16(raw,0x90),rom:filename});

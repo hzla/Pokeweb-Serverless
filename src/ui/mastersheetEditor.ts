@@ -1,4 +1,5 @@
 import { canOpenMastersheetViewer } from "../pokeweb/mastersheetViewerAccess";
+import { announceMastersheet } from "../pokeweb/mastersheetSync";
 import {
   buildMastersheetPreview,
   enrichMastersheetTrainerLocations,
@@ -31,8 +32,14 @@ type RenderOptions = {
 
 const RENDER_DEBOUNCE_MS = 150;
 
+/**
+ * The Mastersheet page. Where the Mastersheet Viewer is available, the sheet is written there (it edits in place,
+ * with the template beside it), so this page keeps the calc export, Import JS and the ROM option, and opens the
+ * viewer. Elsewhere it is the template editor with the calc preview.
+ */
 export function renderMastersheetEditor(project: ProjectState, root: HTMLElement, options: RenderOptions = {}): void {
   const initialMarkdown = ensureMastersheetMarkdown(project);
+  const viewerMode = canOpenMastersheetViewer();
   let enrichmentStatus = "";
 
   root.innerHTML = `
@@ -44,18 +51,27 @@ export function renderMastersheetEditor(project: ProjectState, root: HTMLElement
             <button class="btn -default" id="mastersheet-import-btn" type="button">Import JS</button>
             <button class="btn -default" id="mastersheet-download-btn" type="button">Download JS</button>
             <button class="btn -default" id="mastersheet-copy-btn" type="button">Copy JS</button>
-            ${canOpenMastersheetViewer() ? `<button class="btn -default" id="mastersheet-viewer-btn" type="button" title="The new viewer, with maps and sprites from the ROM">Open in viewer</button>` : ""}
             <input id="mastersheet-import-input" type="file" accept=".js,text/javascript,application/javascript,.txt,text/plain" hidden>
           </div>
         </div>
         <div class="mastersheet-rom" id="mastersheet-rom"></div>
         <div class="mastersheet-status" id="mastersheet-status">Ready.</div>
-        <div class="mastersheet-toc" id="mastersheet-toc"></div>
+        ${viewerMode ? "" : `<div class="mastersheet-toc" id="mastersheet-toc"></div>`}
       </aside>
+      ${viewerMode ? `
+      <main class="mastersheet-launch">
+        <div class="mastersheet-launch__card">
+          <h2>Edit in the Mastersheet Viewer</h2>
+          <p>The viewer shows the sheet the way players read it, with maps, trainer scenes and sprites from this ROM, and edits it in place: add trainers, wild Pokémon, items, Pokémon lists, notices and text from the ROM's own data, fill an area from what the game puts there, or edit the template beside the sheet.</p>
+          <p>Changes save into this project as you make them.</p>
+          <button class="btn -primary" id="mastersheet-viewer-btn" type="button">Open in viewer</button>
+          <p class="mastersheet-launch__summary" id="mastersheet-summary"></p>
+        </div>
+      </main>` : `
       <main class="mastersheet-preview-panel" id="mastersheet-preview-panel">
         <div class="mastersheet-preview" id="mastersheet"></div>
-      </main>
-      <aside class="mastersheet-editor-panel">
+      </main>`}
+      <aside class="mastersheet-editor-panel"${viewerMode ? " hidden" : ""}>
         <textarea id="mastersheet-source" spellcheck="false">${escapeHtml(initialMarkdown)}</textarea>
       </aside>
     </section>
@@ -86,8 +102,25 @@ export function renderMastersheetEditor(project: ProjectState, root: HTMLElement
     }
   };
 
+  const summary = root.querySelector<HTMLElement>("#mastersheet-summary");
+
   const refreshPreview = (): void => {
-    if (!textarea || !preview || !toc || !previewPanel) return;
+    if (!textarea) return;
+    if (!preview || !toc || !previewPanel) {
+      // Viewer mode: no preview here, just the checks the calc export needs and a summary.
+      setMastersheetMarkdown(project, textarea.value);
+      lastExport = buildMastersheetPreview(project, textarea.value);
+      const blocking = lastExport.warnings.some((warning) => warning.blocking);
+      if (downloadButton) downloadButton.disabled = blocking;
+      if (copyButton) copyButton.disabled = blocking;
+      renderStatus(status, lastExport.warnings, enrichmentStatus);
+      if (summary) {
+        const count = (tag: string) => lastExport!.masterData.filter((element) => element.tag === tag).length;
+        summary.textContent = `${count("h2")} areas · ${count("trainer")} trainers · ${count("encounter")} wild areas`;
+      }
+      renderRomPanel();
+      return;
+    }
     const markdown = textarea.value;
     setMastersheetMarkdown(project, markdown);
     lastExport = buildMastersheetPreview(project, markdown);
@@ -143,7 +176,10 @@ export function renderMastersheetEditor(project: ProjectState, root: HTMLElement
     if (!button || !textarea) return;
     const choice = button.dataset.romChoice === "rom" ? "rom" : "project";
     resolveMastersheetRomConflict(project, choice);
-    if (choice === "rom") textarea.value = ensureMastersheetMarkdown(project);
+    if (choice === "rom") {
+      textarea.value = ensureMastersheetMarkdown(project);
+      announceMastersheet(textarea.value);
+    }
     refreshPreview();
     if (status) status.textContent = choice === "rom" ? "Loaded the mastersheet saved in the ROM." : "Kept this project's mastersheet.";
     options.onDirty?.();
@@ -170,6 +206,8 @@ export function renderMastersheetEditor(project: ProjectState, root: HTMLElement
       setMastersheetMarkdown(project, markdown);
       setMastersheetHighlights(project, mastersheetHighlightsFromLegacyJs(source));
       refreshPreview();
+      // An open viewer takes the imported sheet (unless it has unsaved edits of its own).
+      announceMastersheet(markdown);
       if (status && !lastExport?.warnings.length) status.textContent = `Imported ${file.name}.`;
       options.onDirty?.();
     } catch (error) {

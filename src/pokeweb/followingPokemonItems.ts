@@ -3,8 +3,8 @@ import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { followerCrc32 } from "./followingPokemonModel";
 import { decodeFollowerTileBounds, encodeFollowerTileBounds, followerHasTileBounds, validateFollowerTileBounds, type FollowerTileBounds } from "./followingPokemonTileBounds";
 
-/** A private, single-member archive. Its member is loaded into the existing 4 KiB
- * conversation-rule scratch page only while an A interaction is being chosen. */
+/** A private, single-member archive. The conversation reads it to choose a
+ * gift and keeps the selected rule available through its message. */
 export const FOLLOWER_ITEM_NARC_PATH = "following/contextual-items.narc";
 export const FOLLOWER_ITEM_ABI = 2;
 export const FOLLOWER_ITEM_MAX_WORDS = 192;

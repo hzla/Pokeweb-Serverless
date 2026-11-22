@@ -165,12 +165,17 @@ const additions = [
   },
   {
     name: 'level-caps', title: 'Hard level caps',
-    artifacts: ['HardLevelCapsB2.dll', 'HardLevelCapsW2.dll', 'TrainerLevelCapsB2.dll', 'TrainerLevelCapsW2.dll'],
-    note: 'US Black 2 / White 2 PMC modules. Runtime source, builder, verifier, and installer are inventoried; availability does not establish historical binary reproducibility.',
+    artifacts: [
+      'HardLevelCapsB.dll', 'HardLevelCapsW.dll', 'HardLevelCapsB2.dll', 'HardLevelCapsW2.dll',
+      'TrainerLevelCapsB.dll', 'TrainerLevelCapsW.dll', 'TrainerLevelCapsB2.dll', 'TrainerLevelCapsW2.dll',
+    ],
+    note: 'US revision-0 Black, White, Black 2 and White 2 PMC modules. Runtime source, builder, verifier, and installer are inventoried; availability does not establish historical binary reproducibility.',
     extra: [
       file('level-caps', 'integration/levelCapsModel.ts', 'support-only', 'src/pokeweb/levelCapsModel.ts'),
+      file('level-caps', 'integration/levelCapsRuntime.ts', 'source', 'src/pokeweb/levelCapsRuntime.ts'),
       file('level-caps', 'integration/trainerLevelCapsModel.ts', 'source', 'src/pokeweb/trainerLevelCapsModel.ts'),
       file('level-caps', 'integration/trainerLevelCaps.ts', 'source', 'src/ui/trainerLevelCaps.ts'),
+      file('level-caps', 'metadata/levelCapsManifest.json', 'metadata', 'src/assets/codeinjection/levelCapsManifest.json'),
       file('level-caps', 'metadata/trainerLevelCapsManifest.json', 'metadata', 'src/assets/codeinjection/trainerLevelCapsManifest.json'),
       file('level-caps', 'tests/trainerLevelCaps.test.ts', 'test', 'src/test/trainerLevelCaps.test.ts'),
       file('level-caps', 'tests/verify-trainer-level-caps.ts', 'test', 'scripts/verify-trainer-level-caps.ts'),
@@ -206,6 +211,12 @@ const additions = [
       file('instant-text', 'tools/shared-build.py', 'build-tool', 'runtime/debug-helpers/build.py'),
       file('instant-text', 'tests/shared-verify.py', 'test', 'runtime/debug-helpers/verify.py'),
     ],
+  },
+  {
+    name: 'rotation-ai', title: 'Rotation Battle AI',
+    artifacts: ['RotationBattleAIB.dll', 'RotationBattleAIW.dll', 'RotationBattleAIB2.dll', 'RotationBattleAIW2.dll', 'rotationBattleAiManifest.json'],
+    note: 'Pokeweb runtime for US revision-0 Black, White, Black 2, and White 2. Scores legal moves across the three rotation slots against the opposing front Pokémon.',
+    extra: [file('rotation-ai', 'integration/rotationBattleAiModel.ts', 'source', 'src/pokeweb/rotationBattleAiModel.ts')],
   },
   {
     name: 'trainer-field-conditions', title: 'Trainer battle field conditions',
@@ -285,8 +296,8 @@ const additions = [
   },
   {
     name: 'cgear-quick-actions', title: 'C-Gear Buttons and Quick Actions',
-    artifacts: ['CGearQuickActionsB2.dll', 'CGearQuickActionsW2.dll', 'CGearQuickActionsReduxW2.dll', 'CGearQuickActionsB.dll', 'CGearQuickActionsW.dll'],
-    note: 'BW2 0.5.8 includes the System Shop picker with optional native Pokémart visibility, custom inventories/prices, stackable-item currencies, native TM rendering, currency balance icon and optional per-item badge/save-flag conditions. Pokémart is included by default in existing projects. Inventory defaults remain unrestricted, and visible stock/prices share a stable row map. BW1 remains 0.1.3-bw1 without System Shop. Both retain HM02-gated native Fly without a learned-move requirement. BW2 retains the outer-rim 12-degree skin dial and moving marker while hiding the digital clock and chevron decal; shared geometry and compiled graphics are inventoried here. It retains the optional Nuzlocke snapshot provider to the Pokenav application action; its shared viewer sources are inventoried separately. Bundle hashes/versions are tested together. Source availability does not establish hardware acceptance.',
+    artifacts: ['CGearQuickActionsB2.dll', 'CGearQuickActionsW2.dll', 'CGearQuickActionsReduxW2.dll', 'CGearQuickActionsB.dll', 'CGearQuickActionsW.dll', 'CGearQuickActionsFieldB2.dll', 'CGearQuickActionsFieldW2.dll'],
+    note: 'BW2 C-Gear Quick Actions supports the bundled Item Expansion runtime and uses the active Bag size for shop purchase rollback. BW1 supports the bundled expanded Bag ownership API. C-Gear configurations retain their saved layouts and shop settings through updates. Pokenav builds its optional Nuzlocke family table on demand.',
     extra: [
       ...fs.readdirSync(path.join(app, 'runtime/cgear-quick-actions/bw2')).filter(name => name.endsWith('.inc')).sort().map(name => file('cgear-quick-actions', `bw2/${name}`)),
       file('cgear-quick-actions', '.clang-format', 'metadata'),
@@ -298,6 +309,7 @@ const additions = [
       file('cgear-quick-actions', 'tests/cgearDial.test.ts', 'test', 'src/test/cgearDial.test.ts'),
       ...['cgearButtons', 'cgearQuickActionsModel', 'cgearQuickActionsBw1'].map(name => file('cgear-quick-actions', `tests/${name}.test.ts`, 'test', `src/test/${name}.test.ts`)),
       file('cgear-quick-actions', 'integration/cgearQuickActionsModel.ts', 'support-only', 'src/pokeweb/cgearQuickActionsModel.ts'),
+      file('cgear-quick-actions', 'integration/cgearQuickActionsBw1Model.ts', 'support-only', 'src/pokeweb/cgearQuickActionsBw1Model.ts'),
       file('cgear-quick-actions', 'integration/cgearButtonsModel.ts', 'support-only', 'src/pokeweb/cgearButtonsModel.ts'),
       file('cgear-quick-actions', 'build/generate-system-shop-bindings.ts', 'build-tool', 'scripts/generate-system-shop-bindings.ts'),
       file('cgear-quick-actions', 'tests/verify-system-shop-demo.ts', 'test', 'scripts/verify-system-shop-demo.ts'),
@@ -415,9 +427,9 @@ for (const group of additions) {
 }
 const pmcPatch = manifest.patches.find(patch => patch.name === 'pmc');
 if (!pmcPatch) throw Error('PMC source provenance is missing');
-for (const name of ['PMC_W2I.rpm', 'PMC_B2_200.rpm', 'PMC_W2_200.rpm', 'PMC_W2I_200.rpm'])
+for (const name of ['PMC_W2I.rpm', 'PMC_B2_200.rpm', 'PMC_W2_200.rpm', 'PMC_W2I_200.rpm', 'PMC_W2_220.rpm', 'PMC_B2_220.rpm'])
   if (!pmcPatch.artifacts.some(artifact => artifact.name === name)) pmcPatch.artifacts.push({ name });
-pmcPatch.note = 'W2I retargets the pinned W2 loader through the Pokeweb adapter. Optional 200 KiB packages derive from the retained original bundles; BW1 uses a bounded startup-budget adapter. B2/W2 framework sources remain in the PMC checkout. External toolchains and libraries are not vendored.';
+pmcPatch.note = 'W2I retargets the W2 loader through the Pokeweb adapter. Optional heap packages derive from the original bundles. US revision-0 Black, White, Black 2 and White 2 support a 12 KiB reservation with a 220 KiB cap. BW1 retargets the W2 packages and uses a bounded startup-budget adapter. B2/W2 framework sources remain in the PMC checkout.';
 for (const [name, origin] of [
   ['build-italian-pmc.ts', 'scripts/build-italian-pmc.ts'],
   ['inspect-pmc.ts', 'scripts/inspect-pmc.ts'],

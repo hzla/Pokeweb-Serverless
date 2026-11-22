@@ -46,6 +46,9 @@
      then exactly 3 screen pixels. */
   --msv-font: "Gen5 Text", var(--g5-font);
   --msv-cond: "Gen5 Small", var(--g5-cond);
+  /* Text sizes follow the settings panel's text size (settings.ts sets --msv-text-scale on <html>). */
+  --msv-size: calc(24px * var(--msv-text-scale, 1));
+  --msv-size-title: calc(48px * var(--msv-text-scale, 1));
   --msv-grid-ground: var(--g5-grid-ground);
   --msv-grid-button: var(--g5-grid-button);
   --msv-grid-cross: var(--g5-grid-cross);
@@ -53,11 +56,38 @@
   color-scheme: dark;
 }
 
+/* Barlow, from the settings panel (settings.ts), or when the ROM's fonts can't be read. It is set smaller than the
+   game font, whose 24px is 1.5× a 16px pixel grid. */
+:root.msv-font-barlow {
+  --msv-font: var(--g5-font);
+  --msv-cond: var(--g5-cond);
+  --msv-size: calc(18px * var(--msv-text-scale, 1));
+  --msv-size-title: calc(34px * var(--msv-text-scale, 1));
+}
+
+/* Menlo, from the settings panel: macOS's monospace font, with others like it elsewhere. Wide, so set smaller still. */
+:root.msv-font-menlo {
+  --msv-font: var(--msv-menlo);
+  --msv-cond: var(--msv-menlo);
+  --msv-size: calc(16px * var(--msv-text-scale, 1));
+  --msv-size-title: calc(30px * var(--msv-text-scale, 1));
+}
+
+/* Menlo's Regular face up to weight 650 and Bold above, as with the game font (gameFonts.ts), so the viewer's
+   semibold names stay Regular. Macs use their installed Menlo; elsewhere the bundled DejaVu Sans Mono, which Menlo is
+   drawn from, stands in (Latin subset; licence in assets/fonts/LICENSE_DEJAVU). */
+@font-face { font-family: "Msv Menlo"; font-weight: 100 650; font-display: swap; src: local("Menlo-Regular"), local("Menlo Regular"), url("../assets/fonts/dejavu-sans-mono-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Msv Menlo"; font-weight: 651 1000; font-display: swap; src: local("Menlo-Bold"), local("Menlo Bold"), url("../assets/fonts/dejavu-sans-mono-latin-700-normal.woff2") format("woff2"); }
+
+:root {
+  --msv-menlo: "Msv Menlo", monospace;
+}
+
 .msv-body {
   margin: 0;
   background: var(--msv-ground) var(--msv-grid-ground);
   color: var(--msv-text);
-  font: 400 24px/1.5 var(--msv-font);
+  font: 400 var(--msv-size)/1.5 var(--msv-font);
   font-variant-numeric: tabular-nums;
 }
 
@@ -107,7 +137,7 @@
   background: var(--hex-edge);
   color: var(--msv-text);
   cursor: pointer;
-  font: 600 24px/1 var(--msv-font);
+  font: 600 var(--msv-size)/1 var(--msv-font);
   text-decoration: none;
   clip-path: polygon(var(--hex-cut) 0, calc(100% - var(--hex-cut)) 0, 100% 50%, calc(100% - var(--hex-cut)) 100%, var(--hex-cut) 100%, 0 50%);
 }
@@ -179,7 +209,7 @@
   width: 100%;
   min-height: 28px;
   padding: 0 12px;
-  font-size: 24px;
+  font-size: var(--msv-size);
 }
 
 .msv-hex.-move.-changed > span,
@@ -204,7 +234,7 @@
   min-height: 26px;
   padding: 0 14px;
   color: var(--msv-menu-edge);
-  font-size: 24px;
+  font-size: var(--msv-size);
 }
 
 .msv-hex.-tab:is([aria-selected="true"], [aria-pressed="true"]) {
@@ -244,14 +274,14 @@
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  height: 30px;
+  height: max(30px, calc(var(--msv-size) + 6px));
   margin: 0 -10px 0 0;
   padding: 0 calc(var(--ft-slope) + 12px) 0 14px;
   border: 0;
   background: var(--ft-edge);
   color: #9a9aa4;
   cursor: pointer;
-  font: 600 24px/1 var(--msv-font);
+  font: 600 var(--msv-size)/1 var(--msv-font);
   white-space: nowrap;
   clip-path: polygon(0 100%, 0 0, calc(100% - var(--ft-slope)) 0, 100% 100%);
 }
@@ -322,7 +352,7 @@
   overflow: hidden;
   min-width: 0;
   margin: 0;
-  font: 600 24px/1.25 var(--msv-font);
+  font: 600 var(--msv-size)/1.25 var(--msv-font);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -336,8 +366,13 @@
   margin-bottom: 20px;
 }
 
+/* A page's title is never cut short: it wraps onto more lines instead. */
 .msv-titlebar.-page > h1 {
-  font-size: 48px;
+  padding: 4px 0;
+  font-size: var(--msv-size-title);
+  line-height: 1.1;
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
 .msv-titlebar.-run {
@@ -364,7 +399,7 @@
   gap: 4px 10px;
   margin: 0;
   color: var(--msv-muted);
-  font-size: 24px;
+  font-size: var(--msv-size);
 }
 
 .msv-hatch {
@@ -389,7 +424,7 @@
   border: 2px solid var(--msv-edge);
   background: var(--msv-panel);
   color: var(--msv-text);
-  font: 600 24px/1 var(--msv-cond);
+  font: 600 var(--msv-size)/1 var(--msv-cond);
   white-space: nowrap;
 }
 
@@ -414,11 +449,10 @@
 }
 
 /*
- * New in this hack: the start menu's red NEW!, hopping as it does in the game (newMark.ts), at 1.5× like the text.
- * Until it's drawn, or on a ROM without it, the word itself in the game's red.
+ * What a hack added or changed: the start menu's red NEW!, or CHANGED! lettered the same way (hackMarks.ts), still,
+ * at 2× like the menu icons. Until the image loads, the word in the game's red.
  */
-.msv-new {
-  position: relative;
+.msv-mark {
   display: inline-flex;
   align-items: center;
   color: #f82818;
@@ -426,28 +460,53 @@
   text-shadow: 1.5px 1.5px #f8b0a8;
 }
 
-.msv.-new-mark .msv-new {
-  --msv-new-w: calc(var(--msv-new-px-w) * 1.5px);
-  width: var(--msv-new-w);
-  height: calc(var(--msv-new-px-h) * 1.5px);
-  background: var(--msv-new-strip) 0 0 / calc(var(--msv-new-w) * var(--msv-new-frames)) 100% no-repeat;
-  image-rendering: pixelated;
-  animation: msv-new-hop var(--msv-new-duration) step-end infinite;
-}
-
-.msv.-new-mark .msv-new > span {
+.msv-mark > img:not([src]) {
   position: absolute;
   width: 1px;
   height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .msv.-new-mark .msv-new {
-    animation: none;
-    background-position-x: calc(var(--msv-new-w) * (1 - var(--msv-new-frames)));
-  }
+.msv-mark:not(.-icon) > img[src],
+.msv-mark.-icon > .msv-mark__text {
+  display: none;
+}
+
+.msv-mark.-icon > img {
+  display: block;
+}
+
+/* The menus' move category icon, drawn at 2× once loaded; the category's name in a plate until then. */
+.msv-category {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border: 2px solid var(--msv-edge);
+  background: var(--msv-panel);
+  font: 600 var(--msv-size)/1 var(--msv-cond);
+}
+
+.msv-category > img:not([src]) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+}
+
+.msv-category:not(.-icon) > img[src],
+.msv-category.-icon > .msv-category__text {
+  display: none;
+}
+
+.msv-category.-icon {
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.msv-category.-icon > img {
+  display: block;
 }
 
 /* Section band: the slanted strip that heads Pokédex lists. */
@@ -460,7 +519,7 @@
   margin: 32px 0 12px;
   padding: 0 24px 0 12px;
   background: var(--msv-raised);
-  font: 600 24px/1.2 var(--msv-font);
+  font: 600 var(--msv-size)/1.2 var(--msv-font);
   clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
 }
 
@@ -505,7 +564,7 @@
   border: 2px solid color-mix(in srgb, var(--type) 60%, #000);
   background: var(--type);
   color: var(--msv-black);
-  font: 600 24px/1 var(--msv-cond);
+  font: 600 var(--msv-size)/1 var(--msv-cond);
   text-transform: uppercase;
 }
 
@@ -595,7 +654,7 @@
 
 .msv-open__drop .msv-hex {
   min-height: 40px;
-  font-size: 24px;
+  font-size: var(--msv-size);
 }
 
 .msv-open__hint {
@@ -663,14 +722,14 @@
 
 .msv-brand__title {
   overflow: hidden;
-  font: 600 24px/1.25 var(--msv-font);
+  font: 600 var(--msv-size)/1.25 var(--msv-font);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .msv-brand__sub {
   color: var(--msv-muted);
-  font-size: 24px;
+  font-size: var(--msv-size);
 }
 
 /* The Pokédex search field: a slim box with chevron ends. */
@@ -763,42 +822,72 @@
   list-style: none;
 }
 
-/* Area rows: the Pokédex list's slanted rows. The current page gets the Bag cursor's corner brackets. */
+/*
+ * Area rows: each on its own dark grey plate with a slanted right end, like the split bands and the game's menu lists,
+ * so the text never sits on the cross pattern; it shows only in the gaps between plates. A plate is its edge colour
+ * (the link's background) with the face laid over it, --nav-edge-width in from the edge.
+ */
 .msv-nav__link {
+  --nav-face: #262626;
+  --nav-bevel: #3a3a3a;
+  --nav-edge: var(--nav-face);
+  --nav-edge-width: 0px;
+  --nav-slant: 10px;
   position: relative;
+  isolation: isolate;
   display: block;
   overflow: hidden;
-  margin: 2px 12px 2px 8px;
+  /* Flush left, like the split bands, so every row starts on the same edge. */
+  margin: 4px 12px 4px 0;
   padding: 4px 18px 4px 12px;
-  color: var(--msv-muted);
+  background: var(--nav-edge);
+  color: var(--msv-text);
   text-decoration: none;
   text-overflow: ellipsis;
   white-space: nowrap;
+  clip-path: polygon(0 0, 100% 0, calc(100% - var(--nav-slant)) 100%, 0 100%);
+}
+
+.msv-nav__link::before {
+  content: "";
+  position: absolute;
+  inset: var(--nav-edge-width);
+  z-index: -1;
+  background: var(--nav-face);
+  box-shadow: inset 0 2px 0 var(--nav-bevel);
+  clip-path: polygon(0 0, 100% 0, calc(100% - var(--nav-slant)) 100%, 0 100%);
 }
 
 .msv-nav__link:hover {
-  background: var(--msv-menu);
-  color: var(--msv-text);
+  --nav-face: var(--msv-menu);
+  --nav-bevel: #4a4a64;
 }
 
-.msv-nav__link[aria-current="page"],
+/* The clip-path hides outlines, so keyboard focus draws the plate's edge white. */
+.msv-nav__link:focus-visible {
+  --nav-edge: var(--msv-text);
+  --nav-edge-width: 2px;
+  outline: none;
+}
+
 .msv-split__head[aria-current="page"] .msv-split__name {
   color: var(--msv-selected);
 }
 
 .msv-nav__link[aria-current="page"] {
-  background: var(--msv-menu-on);
+  --nav-face: var(--msv-menu-on);
+  --nav-bevel: #3a74a8;
+  color: var(--msv-selected);
   font-weight: 600;
 }
 
-.msv-nav__link[aria-current="page"]::after,
+/* The Bag's selection cursor: only the corners of a red frame show. */
 .msv-mon__sprite:focus-visible::after {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
   border: 2px solid var(--msv-fight);
-  /* Only the corners of the frame show: the Bag's selection cursor. */
   -webkit-mask: var(--msv-corner) top left / 8px 8px no-repeat, var(--msv-corner) top right / 8px 8px no-repeat, var(--msv-corner) bottom left / 8px 8px no-repeat, var(--msv-corner) bottom right / 8px 8px no-repeat;
   mask: var(--msv-corner) top left / 8px 8px no-repeat, var(--msv-corner) top right / 8px 8px no-repeat, var(--msv-corner) bottom left / 8px 8px no-repeat, var(--msv-corner) bottom right / 8px 8px no-repeat;
 }
@@ -825,7 +914,7 @@
 
 .msv-results__where {
   color: var(--msv-muted);
-  font-size: 24px;
+  font-size: var(--msv-size);
 }
 
 .msv-outline__foot {
@@ -842,7 +931,7 @@
 .msv-text,
 .msv-list,
 .msv-pickups__lead {
-  max-width: 72ch;
+  max-width: 100ch;
 }
 
 .msv-text {
@@ -864,14 +953,32 @@
 
 .msv-h4 {
   margin: 24px 0 8px;
-  font: 600 24px/1.3 var(--msv-font);
+  font: 600 var(--msv-size)/1.3 var(--msv-font);
 }
 
+/*
+ * Notices in the game's own text boxes (noticeFrames.ts): a signpost or the light system message, drawn from a
+ * nine-slice at 2×, in a palette its colour picks. Text is dark on the box's fill, with the game's shadow.
+ */
 .msv-notice {
   margin: 16px 0;
-  padding: 10px 14px;
-  border: 2px solid var(--notice, var(--msv-edge));
-  background: var(--msv-black);
+  border-style: solid;
+  border-width: var(--notice-width);
+  border-image: var(--notice-frame) var(--notice-slice) fill / var(--notice-width) / 0 stretch;
+  color: var(--notice-text);
+  text-shadow: 1px 1px 0 var(--notice-shadow);
+}
+
+.msv-notice.-sign {
+  padding: 2px 8px 2px 6px;
+}
+
+.msv-notice.-system {
+  padding: 8px 16px;
+}
+
+.msv-notice strong {
+  color: var(--notice-title);
 }
 
 .msv-notice p {
@@ -920,7 +1027,7 @@
   display: block;
   margin-bottom: 2px;
   color: var(--msv-muted);
-  font: 500 24px/1 var(--msv-cond);
+  font: 500 var(--msv-size)/1 var(--msv-cond);
 }
 
 /* ---------- Items and gifts: Bag buttons ---------- */
@@ -969,41 +1076,93 @@
   clip-path: polygon(7px 0, calc(100% - 7px) 0, 100% 50%, calc(100% - 7px) 100%, 7px 100%, 0 50%);
 }
 
-button.msv-bag {
-  cursor: pointer;
-}
-
-button.msv-bag:hover {
-  --hex-edge: var(--msv-bag);
-}
-
-button.msv-bag:hover::before {
-  background: var(--msv-grid-button-hover);
-}
-
-button.msv-bag:focus-visible {
-  --hex-edge: var(--msv-text);
-  outline: none;
-}
-
-.msv-bag.-mon {
-  --hex-edge: var(--msv-mon-shade);
-}
-
-/* Item entries are free-form: the icon is just a picture, the text is the author's, and nothing opens. */
+/*
+ * Item entries are free-form: the icon is just a picture, the text is the author's, and nothing opens. Each one is
+ * drawn like a row of the Bag's item list, a DS pixel (2px) per line: a frame-black outline and light grey rim with
+ * shallow chevron ends; inside the rim, the icon's grey cap on the left and the text's box on flat dark grey (no dot
+ * grid), a light grey line between them. Colours are the Bag screen's.
+ */
 .msv-bag.-static {
+  --bag-frame: #282828;
+  --bag-rim: #b0b0b0;
+  --bag-bevel: #808080;
+  --bag-face: #303030;
+  --bag-cut: 10px;
+  --bag-cap-cut: 6px;
+  --bag-cap-width: 60px;
   align-items: center;
-  min-height: 48px;
-  padding-top: 6px;
-  padding-bottom: 6px;
+  gap: 12px;
+  min-height: 52px;
+  padding: 8px 20px 8px 4px;
+  background: var(--bag-frame);
+  clip-path: polygon(var(--bag-cut) 0, calc(100% - var(--bag-cut)) 0, 100% 50%, calc(100% - var(--bag-cut)) 100%, var(--bag-cut) 100%, 0 50%);
+}
+
+/* The light grey rim inside the frame; it also shows as the line between the cap and the text box. */
+.msv-bag.-static::before {
+  background: var(--bag-rim);
+  clip-path: polygon(calc(var(--bag-cut) - 1px) 0, calc(100% - var(--bag-cut) + 1px) 0, 100% 50%, calc(100% - var(--bag-cut) + 1px) 100%, calc(var(--bag-cut) - 1px) 100%, 0 50%);
+}
+
+/*
+ * The text's box: a frame-black border all round and the flat face inside it. Its left end points into the cap's
+ * notch, 2px clear of it.
+ */
+.msv-bag.-static .msv-bag__face {
+  --face: polygon(var(--bag-cap-cut) 0, calc(100% - var(--bag-cut) + 2px) 0, 100% 50%, calc(100% - var(--bag-cut) + 2px) 100%, var(--bag-cap-cut) 100%, 0 50%);
+  position: absolute;
+  inset: 4px 4px 4px calc(4px + var(--bag-cap-width) + 2px - var(--bag-cap-cut));
+  z-index: -1;
+  background: var(--bag-frame);
+  clip-path: var(--face);
+}
+
+.msv-bag.-static .msv-bag__face::before {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  background: var(--bag-face);
+  clip-path: polygon(var(--bag-cap-cut) 0, calc(100% - var(--bag-cut) + 3px) 0, 100% 50%, calc(100% - var(--bag-cut) + 3px) 100%, var(--bag-cap-cut) 100%, 0 50%);
+}
+
+/*
+ * The icon's cap fills the row's left end inside the rim and ends in a notch, its right edge angling in to a point:
+ * a mid-grey bevel round its top, left and bottom, light grey inside, and the Bag's black divider down the notch.
+ */
+.msv-bag.-static .msv-bag__plate {
+  --cap: polygon(calc(var(--bag-cut) - 2px) 0, 100% 0, calc(100% - var(--bag-cap-cut)) 50%, 100% 100%, calc(var(--bag-cut) - 2px) 100%, 0 50%);
+  position: relative;
+  isolation: isolate;
+  align-self: stretch;
+  width: var(--bag-cap-width);
+  height: auto;
+  margin: -4px 0;
+  padding: 0 10px 0 2px;
+  background: var(--bag-frame);
+  clip-path: var(--cap);
+}
+
+.msv-bag.-static .msv-bag__plate::before,
+.msv-bag.-static .msv-bag__plate::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+}
+
+.msv-bag.-static .msv-bag__plate::before {
+  inset: 0 2px 0 0;
+  background: var(--bag-bevel);
+  clip-path: var(--cap);
+}
+
+.msv-bag.-static .msv-bag__plate::after {
+  inset: 2px 4px 2px 2px;
+  background: var(--bag-rim);
+  clip-path: polygon(calc(var(--bag-cut) - 3px) 0, 100% 0, calc(100% - var(--bag-cap-cut) + 1px) 50%, 100% 100%, calc(var(--bag-cut) - 3px) 100%, 0 50%);
 }
 
 .msv-bag__desc {
   overflow-wrap: anywhere;
-}
-
-button.msv-bag.-mon:hover {
-  --hex-edge: var(--msv-mon);
 }
 
 /* The light slanted plate the Bag puts each item icon on. */
@@ -1036,7 +1195,7 @@ button.msv-bag.-mon:hover {
 
 .msv-bag__note {
   color: var(--msv-muted);
-  font-size: 24px;
+  font-size: var(--msv-size);
 }
 
 .msv-item-icon img {
@@ -1089,7 +1248,7 @@ button.msv-bag.-mon:hover {
 .msv-wild__where {
   margin: -4px 0 10px;
   color: var(--msv-muted);
-  font-size: 24px;
+  font-size: var(--msv-size);
 }
 
 /*
@@ -1131,7 +1290,7 @@ button.msv-bag.-mon:hover {
   padding-top: 0;
   padding-bottom: 2px;
   color: var(--msv-muted);
-  font: 500 24px/1.2 var(--msv-cond);
+  font: 500 var(--msv-size)/1.2 var(--msv-cond);
 }
 
 .msv-wild__table tbody tr {
@@ -1148,7 +1307,12 @@ button.msv-bag.-mon:hover {
 }
 
 .msv-wild__table td.-num {
-  font: 600 24px/1 var(--msv-cond);
+  font: 600 var(--msv-size)/1 var(--msv-cond);
+}
+
+/* Levels are what a player scans the table for, so they are set larger: 28px with the game font. */
+.msv-wild__table td.-level {
+  font-size: calc(var(--msv-size) * 7 / 6);
 }
 
 .msv-mon-link {
@@ -1173,31 +1337,6 @@ button.msv-bag.-mon:hover {
 }
 
 /* Chance: the game's gauge, a teal-framed track whose grey fill ends in a chevron. */
-.msv-chance {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.msv-chance__bar {
-  display: block;
-  width: 84px;
-  height: 14px;
-  padding: 2px;
-  border: 2px solid var(--msv-gauge-edge);
-  background: var(--msv-gauge-track);
-  outline: 2px solid #292938;
-}
-
-.msv-chance__bar > span {
-  display: block;
-  min-width: 6px;
-  height: 100%;
-  background: var(--msv-gauge-fill);
-  clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 50%, calc(100% - 4px) 100%, 0 100%);
-}
-
 .msv-wild__map {
   position: sticky;
   top: 16px;
@@ -1316,33 +1455,42 @@ button.msv-bag.-mon:hover {
 
 .msv-trainer__notes {
   margin: 0;
-  font-size: 24px;
+  font-size: var(--msv-size);
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
 
-/* Six party columns, always: rows have fixed heights so they line up across a party and down the page. */
+/*
+ * Six party slots in a line; rows have fixed heights so they line up across a party. Each card is a sixth of the line
+ * (so parties line up down the page), and grows to fit its text when it needs more, taking the room of the free slots
+ * first. Only when the line is full do the widest cards give way and cut their text short.
+ */
 .msv-party {
   --mon-sprite: 112px;
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 6px;
+  --party-gap: 6px;
+  display: flex;
+  gap: var(--party-gap);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .msv-mon {
+  /* One line of text: 24px, or the text's size when the settings make it larger. */
+  --mon-line: max(24px, var(--msv-size));
   display: grid;
-  grid-template-rows: var(--mon-sprite) 24px 28px 24px 32px 24px auto;
+  grid-template-rows: var(--mon-sprite) var(--mon-line) 28px var(--mon-line) max(32px, calc(var(--mon-line) + 4px)) var(--mon-line) auto;
   row-gap: 4px;
-  min-width: 0;
+  flex: 0 1 auto;
+  min-width: calc((100% - 5 * var(--party-gap)) / 6);
   padding: 6px 6px 8px;
   border: 2px solid var(--msv-black);
   background: var(--msv-ground) var(--msv-grid-ground);
 }
 
 .msv-mon.-empty {
+  flex: 1 1 0;
+  min-width: 0;
   border-color: transparent;
   background: none;
 }
@@ -1390,7 +1538,7 @@ button.msv-bag.-mon:hover {
   border: 0;
   background: none;
   cursor: pointer;
-  font: 600 24px/24px var(--msv-font);
+  font: 600 var(--msv-size)/var(--mon-line) var(--msv-font);
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1400,7 +1548,7 @@ button.msv-bag.-mon:hover {
   flex: none;
   margin-left: auto;
   color: var(--msv-muted);
-  font: 600 24px/24px var(--msv-cond);
+  font: 600 var(--msv-size)/var(--mon-line) var(--msv-cond);
 }
 
 .msv-mon .msv-types {
@@ -1423,8 +1571,8 @@ button.msv-bag.-mon:hover {
   border: 0;
   border-bottom: 2px solid var(--msv-panel);
   background: none;
-  font-size: 24px;
-  line-height: 22px;
+  font-size: var(--msv-size);
+  line-height: calc(var(--mon-line) - 2px);
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1451,7 +1599,9 @@ button.msv-mon__fact {
 
 .msv-moves {
   display: grid;
-  grid-auto-rows: 28px;
+  /* The column may be narrower than the longest name, which then ends in an ellipsis. */
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: max(28px, calc(var(--msv-size) + 4px));
   gap: 4px;
   margin: 2px 0 0;
   padding: 0;
@@ -1461,10 +1611,11 @@ button.msv-mon__fact {
 /*
  * With the ROM's move frames drawn (moveFrames.ts), moves wear the Move Effectiveness patch's nameplate, at 1.5× like
  * the text: its left end, the dot-grid middle repeated, its right end. The middle paints only between the ends
- * (content box); the width is a whole number of grid periods so the grid meets the right end in step.
+ * (content box); the width is a whole number of grid periods so the grid meets the right end in step. The plate grows
+ * with the text size setting (2× at Larger), so the name keeps fitting inside it.
  */
 .msv.-move-frames .msv-moves {
-  --msv-move-scale: 1.5;
+  --msv-move-scale: calc(1.5 * var(--msv-text-scale, 1));
   grid-auto-rows: calc(19px * var(--msv-move-scale));
   gap: 3px;
 }
@@ -1474,7 +1625,8 @@ button.msv-mon__fact {
   position: relative;
   display: block;
   width: 100%;
-  width: round(down, 100%, calc(3px * var(--s)));
+  /* Rounded down to whole grid periods from the slot's full width, padding included (see below). */
+  width: round(down, calc(100% + 3px * var(--s)), calc(3px * var(--s)));
   height: calc(19px * var(--s));
   min-height: 0;
   padding: 0 calc(22px * var(--s)) 0 calc(24px * var(--s));
@@ -1483,7 +1635,7 @@ button.msv-mon__fact {
     var(--msv-move-r) right top / calc(22px * var(--s)) 100% no-repeat border-box,
     var(--msv-move-m) left top / calc(3px * var(--s)) 100% repeat-x content-box;
   color: #f8f8f8;
-  font: 400 24px/calc(19px * var(--s)) var(--msv-font);
+  font: 400 var(--msv-size)/calc(19px * var(--s)) var(--msv-font);
   text-shadow: 1.5px 0 #585858, 0 1.5px #585858, 1.5px 1.5px #585858;
   image-rendering: pixelated;
   clip-path: none;
@@ -1493,9 +1645,17 @@ button.msv-mon__fact {
   content: none;
 }
 
+/* A grid period of padding: a card sizing itself to its move names leaves room for the width's rounding, so the
+   rounding never cuts a name it made room for. The plate still spans the slot's full width. */
+.msv.-move-frames .msv-moves > li {
+  padding-right: calc(3px * var(--s));
+}
+
+/* The name runs over the plate's ends to within a few pixels of its edges. It stays in the flow, so a party card
+   measures it when sizing itself. */
 .msv.-move-frames .msv-move > span {
-  position: absolute;
-  inset: 0 8px;
+  display: block;
+  margin: 0 calc(8px * var(--s) / 1.5 - 22px * var(--s)) 0 calc(8px * var(--s) / 1.5 - 24px * var(--s));
   overflow: hidden;
   text-align: center;
   text-overflow: ellipsis;
@@ -1527,7 +1687,12 @@ button.msv-mon__fact {
  */
 @container trainer (max-width: 979px) {
   .msv-party {
+    display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .msv-mon {
+    min-width: 0;
   }
 
   /* Free slots only hold the six-column line-up; in wrapped rows they'd just leave gaps. */
@@ -1676,7 +1841,7 @@ button.msv-mon__fact {
 
 .msv-stats dt {
   color: var(--msv-muted);
-  font: 500 24px/1.2 var(--msv-cond);
+  font: 500 var(--msv-size)/1.2 var(--msv-cond);
 }
 
 .msv-stats dd {
@@ -1688,7 +1853,7 @@ button.msv-mon__fact {
 
 .msv-stats__value {
   width: 32px;
-  font: 600 24px/1 var(--msv-cond);
+  font: 600 var(--msv-size)/1 var(--msv-cond);
   text-align: right;
 }
 
@@ -1710,6 +1875,64 @@ button.msv-mon__fact {
 
 .msv-stats .-total dd {
   font-weight: 600;
+}
+
+/* With changes from vanilla, each row ends in its change; the total's spacer stands in for its missing bar. */
+.msv-stats__spacer {
+  flex: 1;
+}
+
+.msv-stats.-deltas .msv-delta {
+  flex: none;
+  width: 3em;
+  text-align: right;
+}
+
+/* How far a number moved from vanilla White 2: green up, red down, the vanilla value in its tooltip. */
+.msv-delta {
+  margin-left: 6px;
+  font: 600 var(--msv-size)/1 var(--msv-cond);
+  white-space: nowrap;
+}
+
+.msv-delta.-up {
+  color: #70d830;
+}
+
+.msv-delta.-down {
+  color: #f87060;
+}
+
+/* A move's added effects: one label and value per row, the value free to wrap. */
+.msv-effects {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+}
+
+.msv-effects > div {
+  display: grid;
+  grid-template-columns: minmax(7em, max-content) minmax(0, 1fr);
+  gap: 12px;
+  padding: 6px 10px;
+  background: var(--msv-ground);
+}
+
+.msv-effects dt {
+  color: var(--msv-muted);
+}
+
+.msv-effects dd {
+  margin: 0;
+}
+
+.msv-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .msv-abilities,
@@ -1774,7 +1997,7 @@ button.msv-mon__fact {
 
 .msv-learnset thead th {
   color: var(--msv-muted);
-  font: 500 24px/1.2 var(--msv-cond);
+  font: 500 var(--msv-size)/1.2 var(--msv-cond);
 }
 
 .msv-learnset tbody tr {
@@ -1788,9 +2011,9 @@ button.msv-mon__fact {
 
 /* ---------- Dex ---------- */
 
-/* The dex tab: the field menu's Pokédex icon, mirrored, on a pull tab fixed to the right edge. It sits on the
-   panel's edge while the panel is out. */
-.msv-dex-tab {
+/* The side tabs: pull tabs fixed to the right edge, one under the other, that sit on the panel's edge while it is
+   out. The dex tab carries the field menu's Pokédex icon, mirrored; the settings tab a cog drawn the same way. */
+.msv-side-tab {
   position: fixed;
   top: 12px;
   right: 0;
@@ -1799,6 +2022,7 @@ button.msv-mon__fact {
   place-items: center;
   width: 48px;
   height: 52px;
+  overflow: hidden;
   padding: 0;
   border: 2px solid var(--msv-menu-edge);
   border-right: 0;
@@ -1806,42 +2030,82 @@ button.msv-mon__fact {
   cursor: pointer;
 }
 
-.msv-dex-tab:hover,
-.msv-dex-tab[aria-expanded="true"] {
+.msv-side-tab.-settings {
+  top: 72px;
+}
+
+.msv-side-tab:hover,
+.msv-side-tab[aria-expanded="true"] {
   border-color: var(--msv-menu-on-edge);
   background: var(--msv-menu-on);
 }
 
-.msv-dex-tab:focus-visible {
+.msv-side-tab:focus-visible {
   outline: 2px solid var(--msv-text);
   outline-offset: -6px;
 }
 
-.msv-dex-tab > img {
+.msv-side-tab > img {
   display: block;
 }
 
-.msv-dex-tab > img:not([src]) {
+.msv-side-tab > img:not([src]) {
   position: absolute;
   width: 1px;
   height: 1px;
 }
 
-.msv-dex-tab.-icon > .msv-dex-tab__text {
+.msv-side-tab.-icon > .msv-side-tab__text {
   display: none;
 }
 
-.msv-dex-tab__text {
-  font: 600 24px/1 var(--msv-cond);
+.msv-side-tab__text {
+  font: 600 var(--msv-size)/1 var(--msv-cond);
 }
 
-.msv.-drawer-open .msv-dex-tab {
+.msv.-drawer-open .msv-side-tab {
   right: 420px;
 }
 
-/* Keep the page clear of the tab. */
+/* Keep the page clear of the tabs. */
 .msv-page {
   padding-right: 64px;
+}
+
+/* ---------- Settings ---------- */
+
+.msv-setting__choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 8px;
+}
+
+/* Each font choice is set in its own font, whatever the viewer is showing. */
+.msv-setting__choices .-game-font > span {
+  font-family: "Gen5 Text", var(--g5-font);
+  font-size: calc(24px * var(--msv-text-scale, 1));
+}
+
+.msv-setting__choices .-barlow > span {
+  font-family: var(--g5-font);
+  font-size: calc(18px * var(--msv-text-scale, 1));
+}
+
+.msv-setting__choices .-menlo > span {
+  font-family: var(--msv-menlo);
+  font-size: calc(16px * var(--msv-text-scale, 1));
+  font-weight: 400;
+}
+
+.msv-setting__choices .msv-hex:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.msv-setting__note {
+  margin: 0;
+  color: var(--msv-muted);
 }
 
 .msv-dex__field {
@@ -1857,7 +2121,7 @@ button.msv-mon__fact {
 .msv-dex__tabs > .msv-folder {
   --ft-slope: 12px;
   padding: 0 calc(var(--ft-slope) + 8px) 0 10px;
-  font-size: 24px;
+  font-size: var(--msv-size);
 }
 
 .msv-dex__results > section > .msv-band:first-child,
@@ -1919,13 +2183,24 @@ button.msv-mon__fact {
   margin-left: auto;
 }
 
-.msv-dex__row .msv-types + .msv-dex__note {
+.msv-dex__row .msv-types + .msv-dex__note,
+.msv-dex__row .msv-types + .msv-category {
   margin-left: 0;
+}
+
+.msv-dex__row .msv-category {
+  flex: none;
+}
+
+.msv-dex__row .msv-category + .msv-dex__note {
+  min-width: 2.5em;
+  margin-left: 0;
+  text-align: right;
 }
 
 .msv-dex__note {
   color: var(--msv-muted);
-  font-size: 24px;
+  font-size: var(--msv-size);
 }
 
 .msv-dex__hint {
@@ -1945,16 +2220,12 @@ button.msv-mon__fact {
 .msv-found__count {
   margin-right: auto;
   color: var(--msv-text);
-  font: 600 24px/1.4 var(--msv-cond);
+  font: 600 var(--msv-size)/1.4 var(--msv-cond);
 }
 
 /* A wild table in the drawer drops its type column and sits above its map. */
 .msv-drawer .msv-wild__table :is(th, td):nth-child(2) {
   display: none;
-}
-
-.msv-drawer .msv-chance__bar {
-  width: 56px;
 }
 
 .msv-wild__map.-drawer {
@@ -2002,7 +2273,7 @@ button.msv-mon__fact {
 
   .msv-bar__title {
     overflow: hidden;
-    font: 600 24px/1.2 var(--msv-font);
+    font: 600 var(--msv-size)/1.2 var(--msv-font);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -2036,18 +2307,24 @@ button.msv-mon__fact {
   }
 
   .msv-bar {
-    padding-right: 64px;
+    padding-right: 112px;
   }
 
-  .msv-dex-tab,
-  .msv.-drawer-open .msv-dex-tab {
+  .msv-side-tab,
+  .msv.-drawer-open .msv-side-tab {
     top: 0;
     right: 0;
     height: 48px;
   }
 
+  .msv-side-tab.-settings,
+  .msv.-drawer-open .msv-side-tab.-settings {
+    top: 0;
+    right: 48px;
+  }
+
   .msv-titlebar.-page > h1 {
-    font-size: 48px;
+    font-size: var(--msv-size-title);
   }
 
   .msv-titlebar.-page {
@@ -2066,10 +2343,6 @@ button.msv-mon__fact {
   .msv-wild__table td:nth-child(2) {
     display: none;
   }
-
-  .msv-chance__bar {
-    width: 48px;
-  }
 }
 
 /* Slide panels in, briefly, from the side they live on. */
@@ -2084,4 +2357,34 @@ button.msv-mon__fact {
   .msv-hex:active {
     transform: none;
   }
+}
+
+/* ---------- Gift Pokémon ---------- */
+
+/* Party cards, like a trainer's team (renderGiftList). The section is its own container, so the party's narrow-card
+   rules (rows of three, then two) apply to it as they do to a trainer card. */
+.msv-pickups.-gifts {
+  container: trainer / inline-size;
+}
+
+.msv-party.-gifts {
+  margin-top: 8px;
+}
+
+/* Rows of six in a long list. */
+.msv-party.-gifts + .msv-party.-gifts {
+  margin-top: 6px;
+}
+
+.msv-mon.-gift {
+  grid-template-rows: var(--mon-sprite) var(--mon-line) 28px auto;
+  border-color: var(--msv-mon-shade);
+}
+
+.msv-gift__note {
+  margin: 0;
+  padding-top: 4px;
+  border-top: 2px solid var(--msv-panel);
+  color: var(--msv-muted);
+  overflow-wrap: break-word;
 }

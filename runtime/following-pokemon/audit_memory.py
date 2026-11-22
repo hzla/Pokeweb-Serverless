@@ -38,7 +38,9 @@ def audit(profile,rom_path):
   value=struct.unpack_from('<I' if version in (2,4) else '<H',data,32+i*(12 if version in (2,4) else 24))[0]
   species[value>>11 if version in (2,4) else value]+=1
  sizes={o['name']:o['bytes'] for o in objects}
- assert sizes['fwfield_page']==1024 and sizes['dataBytes']==8192 and sizes['contextBytes']==4096
+ assert sizes['fwfield_page']==1024
+ expected_buffers=(4,4) if profile=='stock' else (8192,4096)
+ assert (sizes['dataBytes'],sizes['contextBytes'])==expected_buffers
  assert sizes['fwfield_follower']==1856
  assert sizes['fwfield_index']==(1025 if profile=='white2upgrade' else 651)*2
  allocatedRegistry=0
@@ -72,7 +74,8 @@ def audit(profile,rom_path):
              largestObjects=sorted(objects,key=lambda o:o['bytes'],reverse=True)[:15],
              fixedPayloadBytes=total,registryBytes=len(data),registryRecords=count,
              registryHeapBytes=allocatedRegistry,pageBytes=sizes['fwfield_page'],indexBytes=sizes['fwfield_index'],
-             conversationCapacity=sizes['dataBytes'],contextualCapacity=sizes['contextBytes'],giftScratchCapacity=sizes['contextBytes'],
+             conversationCapacity=8192,contextualCapacity=4096,giftScratchCapacity=4096,
+             conversationStorageBytes=sizes['dataBytes']+sizes['contextBytes'],
              largestSpeciesGroups=species.most_common(5),maxSpeciesBytesAtRuntimeStride=max(species.values())*(12 if version in (2,4) else 24),
              directoryBytesAt16BitRowOffsets=(max(species)+2)*2,
              conversationBytes=len(rom.getFileByName('following/interactions.bin')),contextualBytes=len(rom.getFileByName('following/contextual-dialogues.narc')),giftBytes=len(rom.getFileByName('following/contextual-items.narc')))

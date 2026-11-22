@@ -1,5 +1,5 @@
 {
-  "version": "1.0.2",
+  "version": "1.0.3",
   "archivePath": "quick-poke-ball/tab.narc",
   "archiveSha256": "ced5bc63915f8c5754295ddbdb92c640283185d6ae4e2bbd2b5c2ba267f90903",
   "archiveMembers": [
@@ -31,8 +31,8 @@
   "games": {
     "W2": {
       "fileName": "QuickPokeBallW2.dll",
-      "size": 4864,
-      "sha256": "0439afa8bf974b15b0a2fe1749a614a7ba6cb96e86b6207efac42dbf9519c2ff",
+      "size": 4752,
+      "sha256": "6ca448790815210686634291df98e5f3527cf6cfcb0b5db640939f7cd542bc01",
       "targets": [
         {
           "kind": "THUMB_BRANCH_LINK",
@@ -53,14 +53,22 @@
           "kind": "THUMB_BRANCH_LINK",
           "segment": "167",
           "address": "0x21b3776"
-        },
-        {
-          "kind": "THUMB_BRANCH_LINK",
-          "segment": "ARM9",
-          "address": "0x2017002"
         }
       ],
       "literals": [],
+      "session": {
+        "fileName": "QuickPokeBallSessionW2.dll",
+        "size": 368,
+        "sha256": "ea54a72f35c9ca658cde03d3b573f1fededd061fd5d8e44cf9d3da88d1718125",
+        "targets": [
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "ARM9",
+            "address": "0x2017002"
+          }
+        ],
+        "literals": []
+      },
       "idCode": "IRDO",
       "previousRuntimes": [
         {
@@ -69,6 +77,10 @@
         },
         {
           "sha256": "3b4073310ebcd5dbf3d3530909a41267c18aa9dc9d7c677a729a3652218270b1",
+          "size": 4864
+        },
+        {
+          "sha256": "0439afa8bf974b15b0a2fe1749a614a7ba6cb96e86b6207efac42dbf9519c2ff",
           "size": 4864
         }
       ],
@@ -214,8 +226,8 @@
     },
     "B2": {
       "fileName": "QuickPokeBallB2.dll",
-      "size": 4864,
-      "sha256": "9a0c9b21742003b9b8048247b11870f41cceb14c5275912f2268819582a83236",
+      "size": 4752,
+      "sha256": "7aefe55ca9566df26f220f8011cee1139839b5fb580046836d65cb53b1e0b7c6",
       "targets": [
         {
           "kind": "THUMB_BRANCH_LINK",
@@ -236,14 +248,22 @@
           "kind": "THUMB_BRANCH_LINK",
           "segment": "167",
           "address": "0x21b3736"
-        },
-        {
-          "kind": "THUMB_BRANCH_LINK",
-          "segment": "ARM9",
-          "address": "0x2017002"
         }
       ],
       "literals": [],
+      "session": {
+        "fileName": "QuickPokeBallSessionB2.dll",
+        "size": 368,
+        "sha256": "a05a5c4bce6844a88b1ff479957c2237af5a1aad00f38e6223c5a7c4fcb02bb3",
+        "targets": [
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "ARM9",
+            "address": "0x2017002"
+          }
+        ],
+        "literals": []
+      },
       "idCode": "IREO",
       "previousRuntimes": [
         {
@@ -252,6 +272,10 @@
         },
         {
           "sha256": "c2360c8796d800216473aa29960d839d0b5270c252311b8224fb9f9027285625",
+          "size": 4864
+        },
+        {
+          "sha256": "9a0c9b21742003b9b8048247b11870f41cceb14c5275912f2268819582a83236",
           "size": 4864
         }
       ],
@@ -397,8 +421,8 @@
     },
     "B": {
       "fileName": "QuickPokeBallB.dll",
-      "size": 4832,
-      "sha256": "04bab512fd059e4912be108c331a26e0460ae5a2099b6c6238062f9a880f7dda",
+      "size": 4720,
+      "sha256": "f510156008691a414b94a071d87b7698ef55926589cd8199e2ad3764026999ed",
       "targets": [
         {
           "kind": "THUMB_BRANCH_LINK",
@@ -419,18 +443,30 @@
           "kind": "THUMB_BRANCH_LINK",
           "segment": "93",
           "address": "0x21ce5de"
-        },
-        {
-          "kind": "THUMB_BRANCH_LINK",
-          "segment": "ARM9",
-          "address": "0x2012606"
         }
       ],
       "literals": [],
+      "session": {
+        "fileName": "QuickPokeBallSessionB.dll",
+        "size": 368,
+        "sha256": "ec107e4b6d05db222e02fcdbc22e618481e9330ad799c4fab7b9d8f9d6fb2886",
+        "targets": [
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "ARM9",
+            "address": "0x2012606"
+          }
+        ],
+        "literals": []
+      },
       "idCode": "IRBO",
       "previousRuntimes": [
         {
           "sha256": "289ec211a2064f1386b9a199152be167a4523b025b4236917c568c03d0a9f6a6",
+          "size": 4832
+        },
+        {
+          "sha256": "04bab512fd059e4912be108c331a26e0460ae5a2099b6c6238062f9a880f7dda",
           "size": 4832
         }
       ],
@@ -562,8 +598,8 @@
     },
     "W": {
       "fileName": "QuickPokeBallW.dll",
-      "size": 4832,
-      "sha256": "8d3a715213dada5abfecfac2ed79fd7f04b4ee605d21c918fe74dc41a7f62beb",
+      "size": 4720,
+      "sha256": "043a61a92c12e7c52be32686f35d7c29829f5a00de5aebffcce86e2f7f256fa0",
       "targets": [
         {
           "kind": "THUMB_BRANCH_LINK",
@@ -584,18 +620,30 @@
           "kind": "THUMB_BRANCH_LINK",
           "segment": "93",
           "address": "0x21ce5fe"
-        },
-        {
-          "kind": "THUMB_BRANCH_LINK",
-          "segment": "ARM9",
-          "address": "0x2012606"
         }
       ],
       "literals": [],
+      "session": {
+        "fileName": "QuickPokeBallSessionW.dll",
+        "size": 368,
+        "sha256": "4f6f00004e18db80e01a3b15c9b04379e392e634f47aaf08248eaf921844bafd",
+        "targets": [
+          {
+            "kind": "THUMB_BRANCH_LINK",
+            "segment": "ARM9",
+            "address": "0x2012606"
+          }
+        ],
+        "literals": []
+      },
       "idCode": "IRAO",
       "previousRuntimes": [
         {
           "sha256": "d0cf49df0685cad545a4a8318d972fdcac0d16aaa9791035ac95a78f370de8bd",
+          "size": 4832
+        },
+        {
+          "sha256": "8d3a715213dada5abfecfac2ed79fd7f04b4ee605d21c918fe74dc41a7f62beb",
           "size": 4832
         }
       ],

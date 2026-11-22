@@ -3,6 +3,8 @@ import { digestHmacFromRom, readDsiDigestSource } from "../nds/dsiDigest";
 import { NintendoDSRom } from "../nds/rom";
 import { validateDsRomSections } from "../nds/romValidation";
 import { planBw2ApFix } from "./bw2ApFixModel";
+import { detectPmcInstallFromRom } from "./pmcModel";
+import { FIVE_BOX_PMC_VERSION } from "./pmcFiveBoxRuntime";
 
 const REPAIR_GAMES = { IRBO: "Black", IRAO: "White", IREO: "Black 2", IRDO: "White 2" } as const;
 export type DsiRomRepairResult = { bytes: Uint8Array; game: typeof REPAIR_GAMES[keyof typeof REPAIR_GAMES] };
@@ -20,6 +22,10 @@ export async function repairDsiRom(
   const gameCode = readAscii(source, 0x0c, 4);
   if (!Object.prototype.hasOwnProperty.call(REPAIR_GAMES, gameCode) || source[0x12] !== 2) {
     throw new Error("DSi ROM Repair supports English Black, White, Black 2, and White 2 and compatible hacks.");
+  }
+  const edited = new NintendoDSRom(source, { fileData: "view" });
+  if (detectPmcInstallFromRom(edited)?.pmc?.version === FIVE_BOX_PMC_VERSION) {
+    throw Error("Restore 24 PC Boxes in Pokeweb and export before restoring DSi support.");
   }
   const game = REPAIR_GAMES[gameCode as keyof typeof REPAIR_GAMES];
   if (readAscii(donor, 0x0c, 4) !== gameCode || donor[0x12] !== 2 || donor[0x1e] !== source[0x1e]) {
@@ -69,8 +75,7 @@ export async function repairDsiRom(
     throw new Error("The edited ROM does not retain a compatible native DSi digest configuration. This hack cannot be repaired with the selected clean ROM.");
   }
 
-  const edited = options.applyApFix ? new NintendoDSRom(source, { fileData: "view" }) : undefined;
-  const apFix = edited && planBw2ApFix(gameCode, edited.arm9OverlayTable, (id) => edited.files[id]);
+  const apFix = options.applyApFix ? planBw2ApFix(gameCode, edited.arm9OverlayTable, (id) => edited.files[id]) : undefined;
   await onProgress?.("Restoring DSi programs and encryption metadata…");
   // The staging header still describes the donor's NTR span. A compacted
   // or smaller edited input must not place donor tables inside that span.

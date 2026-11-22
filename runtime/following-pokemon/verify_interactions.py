@@ -66,10 +66,14 @@ def context_archive(before=0,after=0,abi=2,bounds=None):
  narc=ndspy.narc.NARC();narc.files=[bytes(member)];return narc.save()
 assets={"rom:/following/interactions.bin":(HERE.parents[1]/'src/assets/following/interactions.bin').read_bytes(),"rom:/following/emotes.narc":(HERE.parents[1]/'src/assets/following/interaction-emotes.narc').read_bytes(),"rom:/following/contextual-items.narc":gift_archive()}
 files={};calls=[];alloc=[];frees=[];held=pressed=0;free_bytes=131072;provider=0;controller=0;blocked=0;fail='';resource_counter=0;emote_draws=0;print_done=1;close_done=1
+conversation_buffers={}
+buffer_slots=(0x02280000,0x02282000)
+buffer_requests=[]
 native_addresses={0x02006254,0x02070ca8,0x02070ecc,0x02070dec,0x02070e6c,0x02070de0,0x0203a2d4,0x02180578,0x02195728,0x0219a9d0,0x0219aacc,0x0215e4f0,0x02016cb4,0x02016d08,0x02167098,0x02194b88,0x02194f18,0x0215e8e4,0x02194d8c,0x0215e150,0x021676fc,0x0219a5d8,0x0203df4c,0x0203df28,0x02005cbc,0x020069f4,0x02006b5c,0x021804d0,0x02180500,0x0204855c,0x02048590,0x02048640,0x021887d8,0x02188814,0x02188834,0x02188858,0x021888c4,0x02188a08,0x020493f0,0x02049430,0x02049560,0x0204e598,0x0204e55c,0x0204ebdc,0x0218151c,0x02181aa0,0x02017354,0x0201735c,0x0201fe24,0x0201ff34,0x0201cd24,0x0201ccc4,0x0201ccec,0x0201eef0,0x02008238,0x02008268}
 bag_adds=[]
 native_addresses.add(0x02008ddc) # SaveData_GetConfig for the Options Off bit.
 native_addresses.add(0x0204964c) # Optional CPU texture data for bubble bounds.
+native_addresses.update((0x02039dc8,0x02039fbc,0x0203a278))
 terrain_attr=0
 grass_entries=[]
 shoal_entries=[]
@@ -77,6 +81,8 @@ terrain_queries=[]
 def native(u,pc,size,user):
  global resource_counter,emote_draws
  if pc not in native_addresses:return
+ # Scene tests use this same native free routine for retail event work.
+ if pc==0x0203a278 and u.reg_read(UC_ARM_REG_R0) not in buffer_slots:return
  assert u.reg_read(UC_ARM_REG_SP)%8==0,hex(pc)
  r=[u.reg_read(x) for x in [UC_ARM_REG_R0,UC_ARM_REG_R1,UC_ARM_REG_R2,UC_ARM_REG_R3]];r0,r1,r2,r3=r;calls.append((pc,*r));result=1
  if pc==0x02194b88 and os.environ.get('FOLLOWING_PROFILE','stock')=='stock':
@@ -103,7 +109,23 @@ def native(u,pc,size,user):
  if pc==0x02070dec:result=len(assets[files[r0][0]])
  if pc==0x02070e6c:
   path,off=files[r0];content=assets[path][off:off+r2];u.mem_write(r1,content);files[r0][1]+=len(content);result=len(content)
+  if fail=='short-data' and path=='rom:/following/interactions.bin':result-=1
  if pc==0x0203a2d4:result=free_bytes
+ if pc==0x02039fbc:
+  assert r0==4
+  result=0 if fail=='fragmented' else free_bytes
+ if pc==0x02039dc8:
+  assert r0==4 and 48<=r1<=8192
+  buffer_requests.append(r1)
+  result=0
+  if fail!='buffer':
+   result=next(address for address in buffer_slots if address not in conversation_buffers)
+   conversation_buffers[result]=r1
+   alloc.append(('conversation buffer',result))
+ if pc==0x0203a278:
+  size=conversation_buffers.pop(r0)
+  u.mem_write(r0,bytes([0xA5])*size)
+  frees.append(('conversation buffer',r0))
  if pc==0x02008ddc:result=SAVE_OPTIONS
  if pc==0x02017354:assert r0==GAMEDATA;result=BAG
  if pc==0x0201735c:result=PARTY if r0==GAMEDATA else 0
@@ -202,7 +224,9 @@ def tick():
  done=call(u32(EVENT+4),[EVENT,EVENT+8,EVENT+0x20])
  if done:put(GAME+0x18,0);frees.append(('event',EVENT))
  return done
-def balanced():assert collections.Counter(alloc)==collections.Counter(frees),(collections.Counter(alloc)-collections.Counter(frees),collections.Counter(frees)-collections.Counter(alloc))
+def balanced():
+ assert not conversation_buffers
+ assert collections.Counter(alloc)==collections.Counter(frees),(collections.Counter(alloc)-collections.Counter(frees),collections.Counter(frees)-collections.Counter(alloc))
 # Actual branch veneers forward native providers and leave retail event priority intact.
 provider=FOREIGN
 for name,args in [('THUMB_BRANCH_LINK_36_0x021818bc',[GAME,FIELD,SNAP,SNAP+4]),('THUMB_BRANCH_LINK_36_0x02181a6c',[GAME,FIELD])]:assert call(name,args)==FOREIGN
@@ -513,6 +537,14 @@ for isgift in (False,True):
 assets[item_path]=original_items
 print(f'Tile-bound interactions passed: {bound_cases} player/follower coordinate and inclusive edge/outside cases, four facings, matrix Y distinct from elevation, bounded animations and unchanged one-time gift claims; native services mocked.')
 call('fwt_unload');setup();fail='data';assert not begin();balanced()
+if NATIVE_BEHAVIOR:
+ for failure in ('buffer','fragmented','short-data'):
+  setup();fail=failure;assert not begin();balanced()
+ fail='';setup(0,151,427);buffer_requests.clear();assert begin()==EVENT
+ assert buffer_requests==[len(assets['rom:/following/interactions.bin']),len(assets[item_path])]
+ assert len(conversation_buffers)==2
+ call('fwt_unload');balanced()
+ call('fwt_unload');balanced()
 print(f'Packaged interaction checks passed: ABI, priority veneers, four-direction reach, {cross_facing_cases} independent-facing corner cases and safety rejections, {len(reactions)} randomly selected rules, {CYCLES} simulated conversations, all 9 interruption stages, nested event ownership and resource failures. Native services mocked; no DS game run.')
 
 if '--state' in sys.argv:

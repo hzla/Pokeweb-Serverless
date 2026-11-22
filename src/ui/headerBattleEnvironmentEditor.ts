@@ -225,8 +225,7 @@ function openEnvironmentDialog(
     <form class="header-battle-environment-dialog" role="dialog" aria-modal="true" aria-labelledby="header-battle-environment-title">
       <header>
         <div>
-          <span>${mode === "custom" ? "Header-specific clone" : "Shared zone-spec row"}</span>
-          <h2 id="header-battle-environment-title">${mode === "custom" ? `Customize Header ${rowId - 1}` : `Edit ${escapeHtml(typeOptionLabel(sourceTypeIndex))}`}</h2>
+          <h2 id="header-battle-environment-title">${mode === "custom" ? `Customize Header ${rowId - 1} only` : `Edit shared row: ${escapeHtml(typeOptionLabel(sourceTypeIndex))}`}</h2>
         </div>
         <button class="header-battle-dialog-close" type="button" aria-label="Close">×</button>
       </header>

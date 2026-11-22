@@ -14,7 +14,7 @@
 #moves .custom-move-flag-manager { margin-top: 22px; border-top: 1px solid var(--ink-3); padding-top: 16px; }
 #moves .custom-move-flag-manager summary { color: #bc96ef; cursor: pointer; font-size: 15px; }
 #moves .custom-move-flag-create { display: flex; gap: 12px; margin: 18px 0; max-width: 530px; }
-#moves .custom-move-flag-manager input { background: #272936; border: 1px solid #656c82; border-radius: 5px; color: #f2f2f5; font: inherit; padding: 10px 12px; min-width: 0; }
+#moves .custom-move-flag-manager input { background: #272936; border: 1px solid #656c82; border-radius: var(--radius); color: #f2f2f5; font: inherit; padding: 10px 12px; min-width: 0; }
 #moves .custom-move-flag-create input { flex: 1; }
 #moves .custom-move-flag-list { display: grid; gap: 12px; max-width: 740px; }
 #moves .custom-move-flag-row { display: grid; grid-template-columns: minmax(100px, 1fr) 85px auto auto; align-items: center; gap: 12px; }

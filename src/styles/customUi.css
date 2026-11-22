@@ -19,13 +19,13 @@
 .cui-toolbar-group + .cui-toolbar-group { padding-left: 12px; border-left: 1px solid #404753; }
 .cui-rom-actions { margin-left: auto; }
 .cui-columns { display: grid; grid-template-columns: 230px minmax(256px, 1fr) 320px; gap: 20px; margin-top: 16px; align-items: start; }
-.cui-sidebar, .cui-properties, .cui-access-panel { min-width: 0; padding: 14px; background: #20252d; border: 1px solid #404753; border-radius: 8px; }
+.cui-sidebar, .cui-properties, .cui-access-panel { min-width: 0; padding: 14px; background: #20252d; border: 1px solid #404753; border-radius: var(--radius); }
 .cui-sidebar { max-height: 85vh; overflow: auto; }
 .cui-properties { max-height: 55vh; overflow: auto; }
 .cui-right-rail { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
 .cui-editor h2 { font-size: 14px; margin: 16px 0 8px; }
 .cui-properties > h2:first-child, .cui-access-panel > h2:first-child { margin-top: 0; }
-.cui-editor button, .cui-editor select, .cui-editor input, .cui-editor textarea { font: inherit; font-size: 13px; color: #e6ebf0; background: #303744; border: 1px solid #555f6c; border-radius: 4px; padding: 6px 8px; }
+.cui-editor button, .cui-editor select, .cui-editor input, .cui-editor textarea { font: inherit; font-size: 13px; color: #e6ebf0; background: #303744; border: 1px solid #555f6c; border-radius: var(--radius); padding: 6px 8px; }
 .cui-editor button { cursor: pointer; }
 .cui-editor button:hover:not(:disabled) { border-color: #9aa8ba; filter: brightness(1.12); }
 .cui-editor button:disabled { opacity: .45; cursor: default; }
@@ -91,7 +91,7 @@
 .cui-access-panel { font-size: 12px; line-height: 1.5; }
 .cui-access-note { color: #afb9c7; }
 .cui-access-cards { display: flex; flex-direction: column; }
-.cui-access-cards fieldset { min-width: 0; margin: 6px 0; border-radius: 5px; }
+.cui-access-cards fieldset { min-width: 0; margin: 6px 0; border-radius: var(--radius); }
 .cui-access-cards legend { font-weight: 600; }
 .cui-key-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
 .cui-access-canvas { width: 100%; max-width: 384px; image-rendering: pixelated; touch-action: none; border: 1px solid #57677b; }

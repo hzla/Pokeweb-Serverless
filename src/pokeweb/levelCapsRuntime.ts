@@ -6,7 +6,8 @@ import { listCodeInjectionDlls } from "./pmcModel";
 import type { ProjectState } from "./projectStore";
 import { parseRpm, writeRpm, type RpmModule } from "./rpm";
 
-export type LevelCapsVersion = "B2" | "W2";
+export type LevelCapsVersion = keyof typeof manifest.games;
+export const isLevelCapsVersion = (version: string): version is LevelCapsVersion => Object.hasOwn(manifest.games, version);
 export type LevelCapsRuntime = { itemId: number; legacy: boolean; path: string; fileName: string };
 const TYPES = ["NULL", "VALUE", "FUNCTION_ARM", "FUNCTION_THM", "SECTION"] as const;
 const hex = (bytes: Uint8Array) => Array.from(bytes, v => v.toString(16).padStart(2, "0")).join("");
@@ -36,7 +37,7 @@ export function inspectLevelCapsRuntime(rpm: RpmModule, game: LevelCapsVersion):
 }
 export function getLevelCapsRuntime(project: ProjectState): LevelCapsRuntime | undefined {
   const version = project.session.baseVersion;
-  if ((version !== "B2" && version !== "W2") || !project.originalRomBytes) return;
+  if (!isLevelCapsVersion(version) || !project.originalRomBytes) return;
   const entry = listCodeInjectionDlls(project).find(m => m.target === "patches" && m.fileName.toLowerCase() === `hardlevelcaps${version}.dll`.toLowerCase());
   if (!entry) return;
   try {

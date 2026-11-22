@@ -11,11 +11,33 @@ import {
 import { type ProjectState } from "./projectStore";
 import { parseRpm, type RpmModule } from "./rpm";
 import { getInstalledInfiniteCandyItemId } from "./infiniteCandyModel";
-import { configureLevelCapsRuntime, getLevelCapsRuntime, inspectLevelCapsRuntime } from "./levelCapsRuntime";
+import { configureLevelCapsRuntime, getLevelCapsRuntime, inspectLevelCapsRuntime, isLevelCapsVersion } from "./levelCapsRuntime";
 
 export const LEVEL_CAP_WORK_VARIABLE = 16415;
 
 const LAYOUTS = {
+  B: {
+    idCode: "IRBO", fileName: "HardLevelCapsB.dll",
+    url: new URL("../assets/codeinjection/HardLevelCapsB.dll", import.meta.url),
+    hooks: [
+      { overlay: 21, address: 0x021c341c, bytes: "f8b582b0051ca868", type: "THUMB_BRANCH" },
+      { overlay: 91, address: 0x021bdd78, bytes: "f8b586b0171c1a04", type: "THUMB_BRANCH" },
+      { overlay: 21, address: 0x021c3298, bytes: "00f04af9", type: "THUMB_BRANCH_LINK" },
+      { overlay: 21, address: 0x021c3588, bytes: "54f65afc", type: "THUMB_BRANCH_LINK" },
+      { overlay: 93, address: 0x021cb50e, bytes: "45f62bfe", type: "THUMB_BRANCH_LINK" },
+    ],
+  },
+  W: {
+    idCode: "IRAO", fileName: "HardLevelCapsW.dll",
+    url: new URL("../assets/codeinjection/HardLevelCapsW.dll", import.meta.url),
+    hooks: [
+      { overlay: 21, address: 0x021c3434, bytes: "f8b582b0051ca868", type: "THUMB_BRANCH" },
+      { overlay: 91, address: 0x021bdd98, bytes: "f8b586b0171c1a04", type: "THUMB_BRANCH" },
+      { overlay: 21, address: 0x021c32b0, bytes: "00f04af9", type: "THUMB_BRANCH_LINK" },
+      { overlay: 21, address: 0x021c35a0, bytes: "54f65cfc", type: "THUMB_BRANCH_LINK" },
+      { overlay: 93, address: 0x021cb52e, bytes: "45f61bfe", type: "THUMB_BRANCH_LINK" },
+    ],
+  },
   B2: {
     idCode: "IREO", fileName: "HardLevelCapsB2.dll",
     url: new URL("../assets/codeinjection/HardLevelCapsB2.dll", import.meta.url),
@@ -54,13 +76,13 @@ export type LevelCapsStatus = {
 export function getLevelCapsStatus(project: ProjectState): LevelCapsStatus {
   const unsupported = (message: string): LevelCapsStatus => ({ supported: false, compatible: false, installed: false, message });
   const version = project.session.baseVersion;
-  if (project.session.baseRom !== "BW2" || (version !== "B2" && version !== "W2")) {
-    return unsupported("Hard Level Caps supports US Black 2 and White 2 only.");
+  if (!isLevelCapsVersion(version) || project.session.baseRom !== (version.length === 1 ? "BW" : "BW2")) {
+    return unsupported("Hard Level Caps supports US Black, White, Black 2 and White 2.");
   }
   const layout = LAYOUTS[version];
   const candyItemId = getInstalledInfiniteCandyItemId(project);
   if (project.romInfo.idCode !== layout.idCode) {
-    return unsupported("Hard Level Caps requires a US Black 2 or White 2 ROM.");
+    return unsupported("Hard Level Caps requires a supported US ROM.");
   }
   if (detectWhite2UpgradeDlls(project) || detectBlack2UpgradeDlls(project)) {
     return unsupported("This build is for the stock BW2 battle and Day Care code, not the upgrade patches.");
@@ -79,16 +101,16 @@ export function getLevelCapsStatus(project: ProjectState): LevelCapsStatus {
     return { supported: true, compatible: false, installed, message: "Reload the ROM to verify the battle, Day Care, and item hooks." };
   }
   try {
-    const rom = new NintendoDSRom(project.originalRomBytes);
-    if (rom.idCode !== layout.idCode) throw new Error("ROM version differs from the project.");
+    const rom = new NintendoDSRom(project.originalRomBytes, { fileData: "view" });
+    if (rom.idCode !== layout.idCode || rom.data[0x1e] !== 0) return unsupported("Hard Level Caps requires a US revision-0 ROM.");
     const overlays = loadOverlayTable(project.patches?.arm9OverlayTable ?? rom.arm9OverlayTable,
-      (_id, fileId) => getRomFileBytes(project, rom, fileId), new Set([36, 165, 167]));
+      (_id, fileId) => getRomFileBytes(project, rom, fileId), new Set(layout.hooks.map(hook => hook.overlay)));
     for (const hook of layout.hooks) {
       const overlay = overlays.get(hook.overlay);
       const bytes = project.overlays[hook.overlay] ?? overlay?.data;
       if (!overlay || !bytes || toHex(bytes.subarray(hook.address - overlay.ramAddress,
         hook.address - overlay.ramAddress + hook.bytes.length / 2)) !== hook.bytes) {
-        return { supported: true, compatible: false, installed, message: "The battle, Day Care, or item code differs from the audited US BW2 ROM." };
+        return { supported: true, compatible: false, installed, message: "The battle, Day Care, or item code differs from the audited US ROM." };
       }
     }
     for (const module of modules) {
@@ -112,7 +134,7 @@ export function getLevelCapsStatus(project: ProjectState): LevelCapsStatus {
       }
     }
   } catch {
-    return { supported: true, compatible: false, installed, message: "Could not verify the stock BW2 hook locations." };
+    return { supported: true, compatible: false, installed, message: "Could not verify the stock hook locations." };
   }
   const updateAvailable = Boolean(runtime && (runtime.legacy || (candyItemId !== undefined && runtime.itemId !== candyItemId)));
   return {
@@ -140,7 +162,7 @@ async function stageLevelCaps(project: ProjectState, itemId: number, fileName: s
 /** Synchronize an existing cap runtime while the Candy installer is staging its atomic changes. */
 export async function synchronizeLevelCapsForCandy(project: ProjectState, itemId: number): Promise<void> {
   const version = project.session.baseVersion;
-  if (version !== "B2" && version !== "W2") return;
+  if (!isLevelCapsVersion(version)) return;
   const entry = listCodeInjectionDlls(project).find(m => m.target === "patches" && m.fileName.toLowerCase() === `hardlevelcaps${version}.dll`.toLowerCase());
   if (!entry) return;
   const runtime = getLevelCapsRuntime(project);

@@ -2,7 +2,16 @@ import { tmTypePalette } from "./tmModel";
 import { ENCOUNTER_SEASONS } from "./constants";
 import { decodeRecord, type MastersheetHighlightMap, type ProjectState, type RawRecord } from "./projectStore";
 import { encounterPercentFor, encounterSlotCount, getEncounterCount, type EncounterKind } from "./encounterModel";
-import { ensureMastersheetMarkdown, parseMastersheetMarkdown, type MastersheetElement, type MastersheetInlinePart, type MastersheetWarning } from "./mastersheetModel";
+import {
+  createMastersheetReferenceCache,
+  ensureMastersheetMarkdown,
+  parseMastersheetMarkdown,
+  type MastersheetElement,
+  type MastersheetInlinePart,
+  type MastersheetReferenceCache,
+  type MastersheetSourceRange,
+  type MastersheetWarning,
+} from "./mastersheetModel";
 import { parseHeaders } from "./headerModel";
 import { getTrainerCount, getTrainerRecord, getAutofilledTrainerPokemonMoveIds, type TrainerPokemonSlot } from "./trainerModel";
 import { getPokemonSummaryRecord } from "./pokemonModel";
@@ -20,7 +29,12 @@ import { getTextBank } from "./textModel";
 
 export type MsInline = MastersheetInlinePart;
 
-export type MsBlock =
+/** Source lines (0-based, `end` exclusive), so the editor can find what it shows. */
+export type MsSourceRange = MastersheetSourceRange;
+
+export type MsBlock = MsBlockContent & { src: MsSourceRange };
+
+export type MsBlockContent =
   | { kind: "heading"; id: string; level: 3 | 4; text: string }
   | { kind: "text"; parts: MsInline[] }
   | { kind: "list"; items: MsInline[][] }
@@ -32,7 +46,7 @@ export type MsBlock =
    */
   | { kind: "items"; title: string; description: string; entries: Array<{ name: string; itemId?: number; tmType?: string; note?: string }> }
   | { kind: "gifts"; title: string; description: string; entries: Array<{ name: string; personalId?: number; note?: string }> }
-  | { kind: "notice"; title: string; text: string; color?: string };
+  | { kind: "notice"; title: string; text: string; color?: string; frame: "sign" | "system" };
 
 export type MsTrainerRole = "mandatory" | "optional" | "rematch" | "other";
 
@@ -42,9 +56,27 @@ export type MsPage = {
   title: string;
   splitId?: string;
   blocks: MsBlock[];
+  /** From its heading (the sheet's first line for the introduction) to the next page. */
+  src: MsSourceRange;
+  /** The `#`/`##` line naming it; none for an introduction that has no title line. */
+  headingLine?: number;
+  /** Zones linked with `!zones` under the heading, for Fill from the ROM. */
+  zones: number[];
+  zonesLine?: number;
+  /** Fill suggestions marked not needed (`!skip`): "tr 180", "enc 44", "item 417". */
+  skips: string[];
+  skipLine?: number;
 };
 
-export type MsSplit = { id: string; title: string; detail?: string; pageIds: string[] };
+export type MsSplit = {
+  id: string;
+  title: string;
+  detail?: string;
+  pageIds: string[];
+  /** From its `#` line to the next split. */
+  src: MsSourceRange;
+  headingLine: number;
+};
 
 export type MsMoveRef = { id: number; name: string };
 
@@ -114,6 +146,8 @@ export type MastersheetDocument = {
   title: string;
   baseRom: string;
   splits: MsSplit[];
+  /** Every split, with those the outline leaves out because nothing is in them yet (the editor shows them). */
+  allSplits: MsSplit[];
   pages: MsPage[];
   trainers: Record<number, MsTrainer>;
   encounters: Record<number, MsEncounterTable>;
@@ -121,7 +155,21 @@ export type MastersheetDocument = {
   moves: Record<number, MsMove>;
   highlights: MastersheetHighlightMap;
   warnings: MastersheetWarning[];
+  /** The sheet's title line, when its first line is a `#` title. */
+  titleLine?: number;
+  /** Lines in the source. */
+  lineCount: number;
 };
+
+/**
+ * What stays useful from one build to the next while a sheet is edited: resolved trainers, tables, Pokémon and
+ * moves, and the parser's reference lookups. The ROM doesn't change while it is open, so nothing goes stale.
+ */
+export type MastersheetBuildCache = { references: MastersheetReferenceCache; resolver?: unknown };
+
+export function createMastersheetBuildCache(): MastersheetBuildCache {
+  return { references: createMastersheetReferenceCache() };
+}
 
 export const ENCOUNTER_METHOD_LABELS: Partial<Record<EncounterKind, string>> = {
   grass: "Grass",
@@ -129,8 +177,8 @@ export const ENCOUNTER_METHOD_LABELS: Partial<Record<EncounterKind, string>> = {
   grass_special: "Shaking grass",
   surf: "Surfing",
   surf_special: "Rippling water",
-  super_rod: "Fishing",
-  super_rod_special: "Fishing (ripples)",
+  super_rod: "Rod",
+  super_rod_special: "Rod (ripples)",
 };
 const BW_METHODS: EncounterKind[] = ["grass", "grass_doubles", "grass_special", "surf", "surf_special", "super_rod", "super_rod_special"];
 
@@ -144,6 +192,12 @@ const TM01_ITEM_ID = 328;
 export type MastersheetCatalog = {
   /** The wild table with this ID, whether or not the sheet uses it. */
   encounter(id: number): MsEncounterTable | undefined;
+  /** Any trainer in the ROM, whether or not the sheet uses it. */
+  trainer(id: number): MsTrainer | undefined;
+  trainerCount(): number;
+  /** Item and species IDs by name, the way the sheet's lists resolve them. */
+  itemId(name: string): number | undefined;
+  speciesId(name: string): number | undefined;
   /** IDs of every wild table that at least one zone uses, in ID order. */
   wildTableIds(): number[];
   pokemon(personalId: number): MsPokemon | undefined;
@@ -153,43 +207,70 @@ export function createMastersheetCatalog(project: ProjectState, document?: Maste
   const resolver = new Resolver(project);
   if (document) {
     Object.assign(resolver.encounters, document.encounters);
+    Object.assign(resolver.trainers, document.trainers);
     Object.assign(resolver.pokemon, document.pokemon);
   }
   let ids: number[] | undefined;
   return {
     encounter: (id) => resolver.encounter(id),
+    trainer: (id) => resolver.trainer(id),
+    trainerCount: () => getTrainerCount(project),
+    itemId: (name) => resolver.itemId(name),
+    speciesId: (name) => resolver.speciesId(name),
     wildTableIds: () => (ids ??= [...resolver.encounterZones().keys()].filter((id) => id < getEncounterCount(project)).sort((a, b) => a - b)),
     pokemon: (personalId) => resolver.pokemonEntry(personalId),
   };
 }
 
-export function buildMastersheetDocument(project: ProjectState, markdown = ensureMastersheetMarkdown(project)): MastersheetDocument {
-  const parsed = parseMastersheetMarkdown(markdown, project);
-  const resolver = new Resolver(project);
-  const { splits, pages, title } = buildPages(parsed.masterData, resolver);
+export function buildMastersheetDocument(project: ProjectState, markdown = ensureMastersheetMarkdown(project), cache?: MastersheetBuildCache): MastersheetDocument {
+  const parsed = parseMastersheetMarkdown(markdown, project, cache?.references);
+  let resolver = cache?.resolver instanceof Resolver ? cache.resolver : undefined;
+  if (!resolver) {
+    resolver = new Resolver(project);
+    if (cache) cache.resolver = resolver;
+  }
+  const lineCount = markdown.replace(/\r\n?/gu, "\n").split("\n").length;
+  const { splits, allSplits, pages, title, titleLine } = buildPages(parsed.masterData, parsed.sourceRanges, lineCount, resolver);
+  // A shared resolver remembers everything it has read; the document lists only what this sheet uses.
+  const trainers: Record<number, MsTrainer> = {};
+  const encounters: Record<number, MsEncounterTable> = {};
   for (const page of pages) {
     for (const block of page.blocks) {
-      if (block.kind === "trainer") resolver.trainer(block.trainerId);
-      if (block.kind === "encounter") resolver.encounter(block.tableId);
+      if (block.kind === "trainer") {
+        const trainer = resolver.trainer(block.trainerId);
+        if (trainer) trainers[block.trainerId] = trainer;
+      }
+      if (block.kind === "encounter") {
+        const table = resolver.encounter(block.tableId);
+        if (table) encounters[block.tableId] = table;
+      }
     }
   }
   return {
     title: title || project.docs?.romTitle || project.session.romName,
     baseRom: project.session.baseRom,
     splits,
+    allSplits,
     pages,
-    trainers: resolver.trainers,
-    encounters: resolver.encounters,
+    trainers,
+    encounters,
     pokemon: resolver.pokemon,
     moves: resolver.moves,
     highlights: project.docs?.mastersheetHighlights ?? {},
     warnings: parsed.warnings,
+    titleLine,
+    lineCount,
   };
 }
 
 // ---------- Pages ----------
 
-function buildPages(elements: MastersheetElement[], resolver: Resolver): { splits: MsSplit[]; pages: MsPage[]; title: string } {
+function buildPages(
+  elements: MastersheetElement[],
+  ranges: MsSourceRange[],
+  lineCount: number,
+  resolver: Resolver,
+): { splits: MsSplit[]; allSplits: MsSplit[]; pages: MsPage[]; title: string; titleLine?: number } {
   const splits: MsSplit[] = [];
   const pages: MsPage[] = [];
   const ids = new Set<string>();
@@ -201,44 +282,52 @@ function buildPages(elements: MastersheetElement[], resolver: Resolver): { split
     return id;
   };
   let title = "";
+  let titleLine: number | undefined;
   let split: MsSplit | undefined;
-  let page: MsPage = { id: uniqueId("introduction", ""), kind: "intro", title: "Introduction", blocks: [] };
+  let page: MsPage = { id: uniqueId("introduction", ""), kind: "intro", title: "Introduction", blocks: [], src: { start: 0, end: lineCount }, zones: [], skips: [] };
   pages.push(page);
-  let list: MsInline[][] | undefined;
+  let list: Extract<MsBlock, { kind: "list" }> | undefined;
   let gap = false;
   const push = (block: MsBlock) => {
     list = undefined;
     page.blocks.push(block);
     gap = false;
   };
+  const startPage = (next: MsPage) => {
+    page.src.end = next.src.start;
+    pages.push(next);
+    page = next;
+    list = undefined;
+  };
 
-  for (const element of elements) {
+  elements.forEach((element, index) => {
+    const range = ranges[index] ?? { start: 0, end: 0 };
+    const src = { start: range.start, end: range.end };
     const text = inlineText(element);
     switch (element.tag) {
       case "h1": {
         if (!title && !splits.length && !page.blocks.length) {
           title = text;
+          titleLine = range.start;
           page.title = text;
+          page.headingLine = range.start;
           break;
         }
         const { name, detail } = splitTitle(text);
-        split = { id: uniqueId(name, "split-"), title: name, detail, pageIds: [] };
+        if (split) split.src.end = range.start;
+        split = { id: uniqueId(name, "split-"), title: name, detail, pageIds: [], src: { start: range.start, end: lineCount }, headingLine: range.start };
         splits.push(split);
         // Text under a split heading before its first area becomes that split's own page.
-        page = { id: uniqueId(name, ""), kind: "intro", title: name, splitId: split.id, blocks: [] };
-        pages.push(page);
-        list = undefined;
+        startPage({ id: uniqueId(name, ""), kind: "intro", title: name, splitId: split.id, blocks: [], src: { start: range.start, end: lineCount }, headingLine: range.start, zones: [], skips: [] });
         break;
       }
       case "h2":
-        page = { id: uniqueId(text, ""), kind: "area", title: text, splitId: split?.id, blocks: [] };
-        pages.push(page);
+        startPage({ id: uniqueId(text, ""), kind: "area", title: text, splitId: split?.id, blocks: [], src: { start: range.start, end: lineCount }, headingLine: range.start, zones: [], skips: [] });
         split?.pageIds.push(page.id);
-        list = undefined;
         break;
       case "h3":
       case "h4":
-        push({ kind: "heading", id: uniqueId(text, `${page.id}--`), level: element.tag === "h3" ? 3 : 4, text });
+        push({ kind: "heading", id: uniqueId(text, `${page.id}--`), level: element.tag === "h3" ? 3 : 4, text, src });
         break;
       case "p":
         if (!text.trim()) {
@@ -246,24 +335,38 @@ function buildPages(elements: MastersheetElement[], resolver: Resolver): { split
           list = undefined;
           break;
         }
-        push({ kind: "text", parts: inlineParts(element) });
+        push({ kind: "text", parts: inlineParts(element), src });
         break;
       case "li":
         if (!list || gap) {
-          list = [];
-          page.blocks.push({ kind: "list", items: list });
+          list = { kind: "list", items: [], src };
+          page.blocks.push(list);
           gap = false;
+        } else {
+          list.src.end = range.end;
         }
-        list.push(inlineParts(element));
+        list.items.push(inlineParts(element));
         break;
       case "br":
         gap = true;
         break;
+      case "zones":
+        if (page.zonesLine === undefined) {
+          page.zones = Array.isArray(element.zones) ? element.zones.map(Number) : [];
+          page.zonesLine = range.start;
+        }
+        break;
+      case "skip":
+        if (page.skipLine === undefined) {
+          page.skips = Array.isArray(element.skips) ? element.skips.map(String) : [];
+          page.skipLine = range.start;
+        }
+        break;
       case "trainer":
-        push({ kind: "trainer", trainerId: Number(element.id), role: trainerRole(element.class), notes: noteParts(element) });
+        push({ kind: "trainer", trainerId: Number(element.id), role: trainerRole(element.class), notes: noteParts(element), src });
         break;
       case "encounter":
-        push({ kind: "encounter", tableId: Number(element.id) });
+        push({ kind: "encounter", tableId: Number(element.id), src });
         break;
       case "items":
         push({
@@ -275,6 +378,7 @@ function buildPages(elements: MastersheetElement[], resolver: Resolver): { split
             if (tmType && tmTypePalette(tmType) !== undefined) return { name, tmType: titleCase(tmType), itemId: TM01_ITEM_ID, note };
             return { name: resolver.itemName(name) ?? name, itemId: resolver.itemId(name), note };
           }),
+          src,
         });
         break;
       case "gifts":
@@ -287,19 +391,20 @@ function buildPages(elements: MastersheetElement[], resolver: Resolver): { split
             if (personalId !== undefined) resolver.pokemonEntry(personalId);
             return { name: personalId !== undefined ? resolver.pokemonEntry(personalId)?.name ?? name : name, personalId, note };
           }),
+          src,
         });
         break;
       case "notif":
-        push({ kind: "notice", title: String(element.notificationTitle ?? ""), text: String(element.text ?? ""), color: typeof element.fontColor === "string" ? element.fontColor : undefined });
+        push({ kind: "notice", title: String(element.notificationTitle ?? ""), text: String(element.text ?? ""), color: typeof element.fontColor === "string" ? element.fontColor : undefined, frame: element.noticeFrame === "system" ? "system" : "sign", src });
         break;
     }
-  }
+  });
   // An introduction with nothing in it (sheets that open straight into a split) isn't a page.
   const kept = pages.filter((candidate) => candidate.kind === "area" || candidate.blocks.length || (candidate === pages[0] && !splits.length));
   // A split with no areas and no text of its own (an "end of content" marker) stays out of the outline.
   const keptIds = new Set(kept.map((candidate) => candidate.id));
   const keptSplits = splits.filter((candidate) => candidate.pageIds.length || kept.some((entry) => entry.splitId === candidate.id && keptIds.has(entry.id)));
-  return { splits: keptSplits, pages: kept, title };
+  return { splits: keptSplits, allSplits: splits, pages: kept, title, titleLine };
 }
 
 /** "Cheren Split (Level Cap 15)" → name "Cheren Split", detail "Level Cap 15". */

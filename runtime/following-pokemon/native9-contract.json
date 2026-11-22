@@ -1,0 +1,246 @@
+{
+  "gameCode": "IRDO",
+  "revision": 0,
+  "nativeAdapters": [
+    {
+      "id": "native9-native-camera-view",
+      "segment": "ARM9",
+      "address": 34026324,
+      "expectedHex": "f0432de924d04de20080a0e1004098e5000092e50170a0e1004044e0049098e5046092e5081098e5069049e0080092e518508de2002041e00500a0e10510a0e10360a0e118408de51c908de520208de5b50300eb0c908de20700a0e10510a0e10920a0e1410300eb0900a0e10910a0e1ad0300eb00408de20500a0e10910a0e10420a0e1390300eb0c209de50910a0e1002086e500209de50800a0e1042086e518209de5082086e510209de50c2086e504209de5102086e51c209de5142086e514209de5182086e508209de51c2086e520209de5202086e5040300eb000060e2240086e50410a0e10800a0e1ff0200eb000060e2280086e50510a0e10800a0e1fa0200eb000060e22c0086e524d08de2f083bde8"
+    },
+    {
+      "id": "native9-field-native-light",
+      "segment": "36",
+      "address": 35128540,
+      "expectedHex": "40697047"
+    },
+    {
+      "id": "native9-native-light-direction",
+      "segment": "ARM9",
+      "address": 33859468,
+      "expectedHex": "cb00c118c05a108048885080888890807047"
+    },
+    {
+      "id": "native9-native-light-color",
+      "segment": "ARM9",
+      "address": 33859512,
+      "expectedHex": "c9004018c08810807047"
+    },
+    {
+      "id": "native9-native-cached-projection",
+      "segment": "ARM9",
+      "address": 33853416,
+      "expectedHex": "38b584b04c4a056813684c4cdd61456813684b491d62856813685d62c56813689d6205691368dd62456913681d63856913685d63c369106883631368d869002805d0012827d002284dd004b038bd9a6b586b002a10d100900120000301900291186a596a9a6a1b6b2af034ede16f5020814304b0e16738bd009001920291186a596a9a6a1b6b2af026ede16f5020814304b0e16738bd9a6b186b002a12d10090586b01900120000302900391186a596a9a6adb6a2af0f2ebe16f5020814304b0e16738bd0090586b019002920391186a596a9a6adb6a2af0e2ebe16f5020814304b0e16738bd9a6b186b002a12d10090586b01900120000302900391186a596a9a6adb6a2af08cede16f5020814304b0e16738bd0090586b019002920391186a596a9a6adb6a2af07cede16f50208143e16704b038bdc04664191402cc3a1402543a1402"
+    },
+    {
+      "id": "native9-native-projection-flush",
+      "segment": "ARM9",
+      "address": 33970104,
+      "expectedHex": "08b507493e220868091d02f0c1fa05490120ca6f824302208243ca6708bdc0464c3a1402cc3a1402"
+    },
+    {
+      "id": "native9-field-initial-polygon-order",
+      "segment": "36",
+      "address": 35129040,
+      "expectedHex": "f8b51c4d0e2328881b4e1c4c304028802988b01c0522014010200843288028881b020027204028802988b01c014008200843288000200021f4f6ccfb1048760c06601048f4f614fc00201f21321c00230097f4f615fc0c48f4f602fc28881c3c0a49204028800a48016001200021c8f67ffdf8bd60000004fdcffffffbcf000058030004909f1c02349f1c020000ffbf80050004"
+    },
+    {
+      "id": "native9-swap-buffer-parameters",
+      "segment": "ARM9",
+      "address": 33854016,
+      "expectedHex": "034a136880331860106884300160704764191402"
+    },
+    {
+      "id": "native9-shadow-world-vector-normalize",
+      "segment": "ARM9",
+      "address": 34030208,
+      "expectedHex": "f84f2de9042090e5003090e59262c7e09363e7e0082090e5e8509fe59262e7e00230a0e3b030c5e10040a0e3104085e50134a0e3143085e5186085e50721a0e11c7085e50130a0e3b033c5e10641a0e1384085e5262f82e13c2085e5b023d5e1020912e3fcffff1a9c209fe500c092e5343042e2b020d3e1020912e3fcffff1a88709fe5008090e5006097e5204090e9963c82e0cc0fa0e1962022e004b097e593a889e0c84fa0e19b2c22e0939429e0929829e0c50fa0e1937586e0936026e000a09ae2010aa9e2c046a0e1004081e5ce0fa0e1934e8ce093c02ce0926526e0000097e2010aa6e2c036a0e192ce2ce0000094e2010aace2c006a0e1043081e5080081e5f88fbde880020004b4020004a0020004"
+    },
+    {
+      "id": "native9-native-billboard-draw",
+      "segment": "ARM9",
+      "address": 33879684,
+      "expectedHex": "4068014b1847c046ddeb04020fb408b5021c5068936928224a43995804aafff7"
+    },
+    {
+      "id": "native9-shadow-task-create",
+      "segment": "36",
+      "address": 35273824,
+      "expectedHex": "f8b58eb0051c0c1cfff74eff016861604168a160211c40680c31c4f7a5f80120002602ab01af3e8200037882b8821320b8750120079008901e605e609e6003cb09aa03c21868012310600c960d946168032000900869896905aa0904090cabf697fb011c0a486161814204d1281cfff7effe0eb0f8bd02203870606801aa4069aaf6f0fe281cfff7f5fe0eb0f8bdc046ffff0000"
+    },
+    {
+      "id": "native9-shadow-task-update",
+      "segment": "36",
+      "address": 35274004,
+      "expectedHex": "38b50c1c051ca0680c31c4f763f8002803d1281cfff7c2fe38bda068c3f704fac3f780fb002803d1281cfff7b7fe38bda068c3f70bfc012806d00221a0688903c3f772f9002802d00120206038bd0020206038bd"
+    },
+    {
+      "id": "native9-shadow-task-position",
+      "segment": "36",
+      "address": 35274088,
+      "expectedHex": "f8b588b00d1ca8686e69c4f73ff9041c2868002844d101200190a86805a9c3f7d7fa02afa868391cc3f722fb05a8391c021cd0f621f9e078f6300006000e01281bd8a868c3f750f974f6f8fe002806d0a868391cc3f7cefa0020039003e00020029003900490e079002801d11148039005a802a9021cd0f6fff86868311c406901aaaaf683fe012006990003081806906868311c406905aaaaf628fe08b0f8bd002000906868311c406900aaaaf66efe08b0f8bd"
+    },
+    {
+      "id": "native9-rail-world-facing",
+      "segment": "36",
+      "address": 35211748,
+      "expectedHex": "f8b582b0041c0d1cd2f764fb00af011c201c3a1c01f05ef8002600ac6680381c391cdff6c6eca05f0426a15fdff6c0fd411b01d5b003091802480913405c02b0f8bdc04698f31c02"
+    },
+    {
+      "id": "native9-actor-nogrid-mapper",
+      "segment": "12",
+      "address": 35024872,
+      "expectedHex": "c06b7047"
+    },
+    {
+      "id": "native9-field-camera-system",
+      "segment": "36",
+      "address": 35128532,
+      "expectedHex": "00697047"
+    },
+    {
+      "id": "native9-field-g3d-camera",
+      "segment": "36",
+      "address": 35152628,
+      "expectedHex": "c0687047"
+    },
+    {
+      "id": "native9-mapper-has-rail-data",
+      "segment": "36",
+      "address": 35339612,
+      "expectedHex": "08b50068fcf7f4fa002801d0012008bd002008bd"
+    },
+    {
+      "id": "native9-rail-heading-vector",
+      "segment": "36",
+      "address": 35216056,
+      "expectedHex": "f8b58cb0151c0c1cfff7cafd061c291c1af0b8ff301c1af0f9ff81001e4802274018205cea5f41001c48d317405a00114400601c41001a48465ef117301cf7f6a0ed021c0b1c0021b80210184b411a05000b104368800420ea5f285e695e03af0091019202900e496200895e381c321cdcf652fd00ac201c391c221cddf64ce8201c211cdef6a0eb029a0199009828806980aa800cb0f8bd88f71c02d0f61c02e8460902"
+    },
+    {
+      "id": "native9-rail-heading-normalize",
+      "segment": "ARM9",
+      "address": 34030484,
+      "expectedHex": "f84f2de9f040d0e1f220d0e1f430d0e108519fe5820266e1840467e10220a0e3b020c5e10020a0e3102085e50124a0e3c64fa0e1066097e0830363e1c74fa4e0036096e0142085e5c33fa4e0186085e50321a0e11c3085e50130a0e3b033c5e10641a0e1384085e5262f82e13c2085e5b023d5e1020912e3fcffff1aa0209fe500c092e5343042e2b020d3e1020912e3fcffff1a8c709fe5f080d0e1006097e5f250d0e1963c82e0f4e0d0e1cc0fa0e193a889e0c84fa0e1962022e004b097e5c50fa0e1937586e09b2c22e000a09ae2939429e0936026e0929829e0010aa9e2c046a0e1ce0fa0e1b040c1e1934e8ce093c02ce0000097e2926526e0010aa6e2c036a0e192ce2ce0000094e2010aace2c006a0e1b230c1e1b400c1e1f88fbde880020004b4020004a0020004"
+    },
+    {
+      "id": "native9-rail-heading-angle",
+      "segment": "ARM9",
+      "address": 34030996,
+      "expectedHex": "10b5002826dd002910dd814203dd021c002401204ae0814205da0a1c011c0124a403002042e00220000310bd0fda4942814204da01240a1c011ca403e9e7814202dd021c0224ebe70620000310bd0120800310bd23da404200290eda4942814202dd021c1f4cd4e7814203da0a1c011c1d4cd6e70a20000310bd0ddd814203da0a1c011c184cc4e7814202dd021c0024c7e70e20000310bd0320800310bd002901db002010bd0220800310bd002901d1002010bd00280ad0101cfff7e5fb401141000a48405e20180004000c10bd101cfff7dafb401141000448405e201a0004000c10bd0080ffff00c0ffffe8860902"
+    },
+    {
+      "id": "native9-rail-facing-sectors",
+      "segment": "36",
+      "address": 35451800,
+      "expectedHex": "01030303030303000002020202020201"
+    },
+    {
+      "id": "native9-rail-input-angles",
+      "segment": "36",
+      "address": 35452624,
+      "expectedHex": "00000080004000c0"
+    },
+    {
+      "id": "native9-tile-flags",
+      "segment": "36",
+      "address": 35269172,
+      "expectedHex": "000c0004000c7047"
+    },
+    {
+      "id": "native9-draw-status",
+      "segment": "12",
+      "address": 35025204,
+      "expectedHex": "41857047"
+    },
+    {
+      "id": "native9-moving-start",
+      "segment": "12",
+      "address": 35026160,
+      "expectedHex": "014b10211847c04629701602"
+    },
+    {
+      "id": "native9-moving-stop",
+      "segment": "12",
+      "address": 35026172,
+      "expectedHex": "014b10211847c04631701602"
+    },
+    {
+      "id": "native9-zone-matrix",
+      "segment": "ARM9",
+      "address": 33655024,
+      "expectedHex": "08b5fff7c1ff808808bd"
+    },
+    {
+      "id": "native9-effects",
+      "segment": "36",
+      "address": 35128652,
+      "expectedHex": "9c3000687047"
+    },
+    {
+      "id": "native9-exterior",
+      "segment": "36",
+      "address": 35272568,
+      "expectedHex": "c07d7047"
+    },
+    {
+      "id": "native9-world-position",
+      "segment": "12",
+      "address": 35025736,
+      "expectedHex": "0b1c021c03cb443203c2186810607047"
+    },
+    {
+      "id": "native9-face",
+      "segment": "12",
+      "address": 35025048,
+      "expectedHex": "028b828301837047"
+    },
+    {
+      "id": "native9-billboard-index",
+      "segment": "12",
+      "address": 35025472,
+      "expectedHex": "08b5021c903212685269002a01d0904708bd002008bd"
+    },
+    {
+      "id": "native9-shadow-group",
+      "segment": "12",
+      "address": 35027020,
+      "expectedHex": "38b5051c0c1c00f021f8002800d0002481352c7038bd"
+    },
+    {
+      "id": "native9-terrain-attribute",
+      "segment": "12",
+      "address": 34990308,
+      "expectedHex": "38b584b0141c002500aa2560"
+    },
+    {
+      "id": "native9-height",
+      "segment": "12",
+      "address": 34990344,
+      "expectedHex": "38b584b0141c002500aa2560"
+    },
+    {
+      "id": "native9-grid-collision",
+      "segment": "12",
+      "address": 34989296,
+      "expectedHex": "f8b582b00c1c061c08f0f6fe"
+    },
+    {
+      "id": "native9-conversation-heap-allocate",
+      "segment": "ARM9",
+      "address": 33791432,
+      "expectedHex": "f8b582b0051c022080030f1c284202d00324e44300e004241a481b4e"
+    },
+    {
+      "id": "native9-conversation-heap-largest-block",
+      "segment": "ARM9",
+      "address": 33791932,
+      "expectedHex": "08b50949084009490a89904202d30120c88107e00022ca81fff76afd042125f0"
+    },
+    {
+      "id": "native9-conversation-heap-free",
+      "segment": "ARM9",
+      "address": 33792632,
+      "expectedHex": "10b5041c00f0caf8201cfff7e9fd10bd"
+    }
+  ]
+}

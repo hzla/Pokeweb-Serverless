@@ -9,6 +9,7 @@ export const MOVE_CONDITION_REFERENCE: Readonly<Record<Exclude<MoveCondition["ki
   species: { label: "Species", description: "Check the Pokémon’s species ID." },
   ability: { label: "Ability", description: "Check the Pokémon’s effective ability ID." },
   field: { label: "Field effect", description: "Check for an active native field effect." },
+  sideEffect: { label: "Side condition", description: "Check a condition or hazard layer count on the user’s side or the opposing side." },
   effectiveness: { label: "Type effectiveness", description: "Check final type effectiveness during damage calculation." },
   targetActed: { label: "Has acted", description: "Check whether the Pokémon has already acted this turn." },
   firstTurn: { label: "First turn on field", description: "Check whether this is the Pokémon’s first turn on the field." },

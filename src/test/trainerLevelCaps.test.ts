@@ -15,7 +15,7 @@ import {
 import { renderTrainerLevelCapSetting, attachTrainerLevelCapSetting } from "../ui/trainerLevelCaps";
 
 afterEach(() => vi.restoreAllMocks());
-type Game = "B2" | "W2";
+type Game = keyof typeof profiles;
 const bundle = (game: Game, base = false) => new Uint8Array(readFileSync(new URL(`../assets/codeinjection/${base ? "HardLevelCaps" : "TrainerLevelCaps"}${game}.dll`, import.meta.url)));
 function fixture(game: Game, installed = true): ProjectState {
   const p = profiles[game], rom = new NintendoDSRom(new Uint8Array(0x200));
@@ -23,10 +23,10 @@ function fixture(game: Game, installed = true): ProjectState {
   rom.arm9 = new Uint8Array(4); rom.arm7 = new Uint8Array(4); rom.arm9RamAddress = 0x02004000;
   rom.files = [new Uint8Array(Buffer.from(p.expectedHex, "hex"))]; rom.filenames = new Folder();
   rom.arm9OverlayTable = new Uint8Array(32);
-  writeU32(rom.arm9OverlayTable, 0, 12); writeU32(rom.arm9OverlayTable, 4, p.signatureAddress); writeU32(rom.arm9OverlayTable, 8, rom.files[0].length);
+  writeU32(rom.arm9OverlayTable, 0, p.overlay); writeU32(rom.arm9OverlayTable, 4, p.signatureAddress); writeU32(rom.arm9OverlayTable, 8, rom.files[0].length);
   const project: ProjectState = {
     originalRomBytes: rom.save(), arm9: rom.arm9, overlays: {},
-    session: { baseRom: "BW2", baseVersion: game, romName: "fixture", fairy: false, fileIds: {}, blacklist: [] },
+    session: { baseRom: game.length === 1 ? "BW" : "BW2", baseVersion: game, romName: "fixture", fairy: false, fileIds: {}, blacklist: [] },
     romInfo: { idCode: p.idCode, title: "fixture", fileName: "fixture.nds", size: 0 },
     narcs: {}, formats: {}, texts: { banks: {} }, trpokInfo: [],
     codeInjection: { pmc: { overlayId: 344, overlayBaseAddress: 0x021fd1c0, overlayPath: "overlay/overlay_0344.bin", symbolPath: "codeinjection/RPMSYM-PMC.rpm" } },
@@ -62,13 +62,13 @@ describe("trainer level cap table", () => {
   });
 });
 
-describe.each(["B2", "W2"] as const)("trainer cap editor %s", game => {
+describe.each(["B", "W", "B2", "W2"] as const)("trainer cap editor %s", game => {
   it("recognizes only the exact shipped runtime, symbols, metadata and hook", () => {
     const rpm = parseRpm(bundle(game), { allowedMagics: ["DLXF"] });
     expect(isTrainerLevelCapsModule(rpm, game)).toBe(true);
     expect(isTrainerLevelCapsModule(rpm, game === "W2" ? "B2" : "W2")).toBe(false);
     expect(rpm.relocations.filter(r => r.target.module !== "base").map(r => r.target)).toEqual([
-      { module: "12", address: profiles[game].hookAddress, type: "THUMB_BRANCH_LINK" },
+      { module: String(profiles[game].overlay), address: profiles[game].hookAddress, type: "THUMB_BRANCH_LINK" },
     ]);
     rpm.symbols[0].address += 2; expect(isTrainerLevelCapsModule(rpm, game)).toBe(false);
   });
@@ -116,7 +116,7 @@ describe.each(["B2", "W2"] as const)("trainer cap editor %s", game => {
     let p = fixture(game);
     delete p.fileSystem!.additions![`patches/HardLevelCaps${game}.dll`]; p.codeInjection!.modules = p.codeInjection!.modules!.filter(m => m.fileName !== `HardLevelCaps${game}.dll`);
     expect(getTrainerLevelCapsStatus(p).message).toContain("Install Hard Level Caps first");
-    p = fixture(game); p.overlays[12] = new Uint8Array(40);
+    p = fixture(game); p.overlays[profiles[game].overlay] = new Uint8Array(40);
     expect(getTrainerLevelCapsStatus(p).compatible).toBe(false);
     p = fixture(game, false); stageCodeInjectionDll(p, "Renamed.dll", bundle(game));
     expect(getTrainerLevelCapsStatus(p).message).toContain("standard");
@@ -126,7 +126,7 @@ describe.each(["B2", "W2"] as const)("trainer cap editor %s", game => {
     p = fixture(game, false); stageCodeInjectionDll(p, "Other.dll", writeRpm(rpm, { ident: "DLXF" }));
     expect(getTrainerLevelCapsStatus(p).message).toContain("Conflicting");
     p = fixture(game, false);
-    const hook = rpm.relocations.find(r => r.target.module === "12")!;
+    const hook = rpm.relocations.find(r => r.target.module === String(profiles[game].overlay))!;
     hook.target.address = profiles[game].signatureAddress; hook.target.type = "THUMB_BRANCH";
     stageCodeInjectionDll(p, "Other.dll", writeRpm(rpm, { ident: "DLXF" }));
     expect(getTrainerLevelCapsStatus(p).message).toContain("Conflicting");

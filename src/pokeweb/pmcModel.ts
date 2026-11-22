@@ -2,6 +2,7 @@ import { readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { decompressCode } from "../nds/codeCompression";
 import { cloneFolder, type Folder } from "../nds/fnt";
 import { NintendoDSRom } from "../nds/rom";
+import { readRelocatedIconPalette, WHITE_2_ICON_PALETTE_POINTER_OFFSET } from "./pokemonIconPaletteRuntime";
 import { recordGenericChange } from "./actionChangelog";
 import { assertBlack1DoubleBattleFixCompatible, assertBlack1DoubleBattleFixDll } from "./doubleBattleFixCompatibility";
 import { addRomFile, getRomFileBytes, setRomFileReplacement } from "./fileSystemModel";
@@ -25,7 +26,12 @@ import {
 } from "./rpm";
 import bgmBw1Manifest from "../assets/codeinjection/bgmBw1Manifest.json";
 import italianPmcContract from "../../runtime/following-pokemon/italy-pmc-contract.json";
-import { adaptExpandedBw1PmcBoot, EXPANDED_PMC_HEAP_KIB } from "./pmcHeapRuntime";
+import { adaptExpandedBw1PmcBoot, COMPACT_BW1_PMC_VERSION, COMPACT_PMC_HEAP_KIB, COMPACT_PMC_VERSION, EXPANDED_PMC_HEAP_KIB } from "./pmcHeapRuntime";
+import {
+  addFiveBoxPayload, assertFiveBoxDllCompatible, assertFiveBoxTarget, fiveBoxPmcEnabled,
+  FIVE_BOX_PC_OVERLAY, FIVE_BOX_PMC_CAP_KIB, FIVE_BOX_PMC_OVERLAY_SIZE, FIVE_BOX_PMC_VERSION,
+  hasLegacyFiveBoxHooks, isFiveBoxLoaderImage, normalizeLegacyFiveBoxRuntime, planFiveBoxNative,
+} from "./pmcFiveBoxRuntime";
 
 export type PmcInstallStatus =
   | { installed: false; supported: boolean; message: string }
@@ -81,6 +87,8 @@ const PMC_W2_URL = new URL("../assets/codeinjection/PMC_W2.rpm", import.meta.url
 const PMC_W2I_URL = new URL("../assets/codeinjection/PMC_W2I.rpm", import.meta.url);
 const PMC_B2_200_URL = new URL("../assets/codeinjection/PMC_B2_200.rpm", import.meta.url);
 const PMC_W2_200_URL = new URL("../assets/codeinjection/PMC_W2_200.rpm", import.meta.url);
+const PMC_B2_220_URL = new URL("../assets/codeinjection/PMC_B2_220.rpm", import.meta.url);
+const PMC_W2_220_URL = new URL("../assets/codeinjection/PMC_W2_220.rpm", import.meta.url);
 const PMC_W2I_200_URL = new URL("../assets/codeinjection/PMC_W2I_200.rpm", import.meta.url);
 const DOUBLE_BATTLE_FIX_B_URL = new URL("../assets/codeinjection/DoubleBattleFixB.dll", import.meta.url);
 const DOUBLE_BATTLE_FIX_B2_URL = new URL("../assets/codeinjection/DoubleBattleFixB2.dll", import.meta.url);
@@ -267,72 +275,197 @@ const BW1_PMC_LAYOUTS: Record<Bw1Version, Bw1PmcLayout> = {
   },
 };
 
+const W2_ARENA_LITERAL = 0x0207b41c;
+// The W2 loader's FULL_COPY_ARM9_0x0207B41C_ResizeMemoryForOvl344 word.
+const W2_PMC_ARENA_WORD = 0x3c;
+
+const COMPACT_PMC_TARGETS = new Map([
+  ["IREO", { gameId: "B2", family: "BW2", sourceGameId: "B2", arenaLiteral: 0x0207b3f0, url: PMC_B2_220_URL }],
+  ["IRDO", { gameId: "W2", family: "BW2", sourceGameId: "W2", arenaLiteral: W2_ARENA_LITERAL, url: PMC_W2_220_URL }],
+  ["IRBO", { gameId: "B", family: "BW", sourceGameId: "W2", arenaLiteral: BW1_PMC_LAYOUTS.B.hookTargets.heapStart, url: PMC_W2_220_URL }],
+  ["IRAO", { gameId: "W", family: "BW", sourceGameId: "W2", arenaLiteral: BW1_PMC_LAYOUTS.W.hookTargets.heapStart, url: PMC_W2_220_URL }],
+]);
+
 export async function installBundledPmc(project: ProjectState): Promise<PmcInstallResult> {
   const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
   if (!romBytes) throw new Error("Reload the ROM before installing PMC.");
   const idCode = readAscii(romBytes, 12, 4);
-  const expanded = getPmcInstallStatus(project);
-  return installPmcBytes(project, await loadBundledPmcBytes(project.session.baseVersion, idCode, expanded.installed && Boolean(expanded.version?.includes("-heap200"))), romBytes);
+  const status = getPmcInstallStatus(project);
+  const version = status.installed ? status.version : undefined;
+  const expanded = bundledHeapChoice(version);
+  return installPmcBytes(project, await loadBundledPmcBytes(project.session.baseVersion, idCode, expanded), romBytes);
 }
 
-export async function loadBundledPmcBytes(version: ProjectState["session"]["baseVersion"], idCode?: string, expanded = false): Promise<Uint8Array> {
-  const url = expanded ? idCode === "IRDI" ? PMC_W2I_200_URL : version === "B2" ? PMC_B2_200_URL : PMC_W2_200_URL
-    : idCode === "IRDI" ? PMC_W2I_URL : version === "B2" ? PMC_B2_URL : PMC_W2_URL;
+function bundledHeapChoice(version: string | undefined): boolean | 220 {
+  return isCompactPmcVersion(version) || version === FIVE_BOX_PMC_VERSION
+    ? COMPACT_PMC_HEAP_KIB : Boolean(version?.includes("-heap200"));
+}
+
+export async function loadBundledPmcBytes(version: ProjectState["session"]["baseVersion"], idCode?: string, expanded: boolean | 220 = false): Promise<Uint8Array> {
+  let url: URL;
+  if (expanded === COMPACT_PMC_HEAP_KIB) {
+    const target = COMPACT_PMC_TARGETS.get(idCode ?? "");
+    if (!target || target.gameId !== version) throw Error("Compact PMC requires US Black, White, Black 2 or White 2.");
+    url = target.url;
+  } else if (expanded) {
+    url = idCode === "IRDI" ? PMC_W2I_200_URL : version === "B2" ? PMC_B2_200_URL : PMC_W2_200_URL;
+  } else {
+    url = idCode === "IRDI" ? PMC_W2I_URL : version === "B2" ? PMC_B2_URL : PMC_W2_URL;
+  }
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Could not load bundled PMC binary (${response.status})`);
   return new Uint8Array(await response.arrayBuffer());
 }
 
-export function getPmcHeapExpansionStatus(project: ProjectState): { available: boolean; expanded: boolean; message: string } {
+export function getPmcHeapExpansionStatus(project: ProjectState) {
   const status = getPmcInstallStatus(project);
-  if (!status.installed) return { available: false, expanded: false, message: "Install PMC first." };
-  const code = project.romInfo?.idCode ?? "";
-  const supported = ["IRBO", "IRAO", "IREO", "IRDO", "IRDI"].includes(code) && (!project.originalRomBytes || project.originalRomBytes[30] === 0);
-  if (!supported) return { available: false, expanded: false, message: "This PMC expansion requires a supported revision-0 ROM." };
-  const expanded = status.version === "13.2.4-heap200" || status.version === "13.2.4-heap200-bw1" || status.version === "13.2.4-w2i-heap200";
-  const recognized = expanded || status.version === "13.2.4" || status.version === "13.2.4-bw1" || status.version === "13.2.4-w2i";
-  return { available: recognized && !expanded, expanded, message: !recognized ? "Update PMC to the current bundled version before expansion." : expanded ? "Expanded allocation installed (up to 200 KiB)." : "Reserve up to 200 KiB for PMC; existing patches are preserved." };
+  const code = project.originalRomBytes ? readAscii(project.originalRomBytes, 12, 4) : project.romInfo?.idCode ?? "";
+  const revision = project.originalRomBytes?.[30] ?? 0;
+  if (fiveBoxPmcEnabled(project)) {
+    return { available: false, expanded: true, capKiB: FIVE_BOX_PMC_CAP_KIB, targetCapKiB: FIVE_BOX_PMC_CAP_KIB,
+      message: "Five-Box Mode includes the PMC heap expansion." };
+  }
+  const targetCapKiB = isCompactPmcTarget(code, revision) ? COMPACT_PMC_HEAP_KIB : EXPANDED_PMC_HEAP_KIB;
+  const version = status.installed ? status.version : undefined;
+  const capKiB = isCompactPmcVersion(version) ? COMPACT_PMC_HEAP_KIB
+    : ["13.2.4-heap200", "13.2.4-heap200-bw1", "13.2.4-w2i-heap200"].includes(version ?? "") ? EXPANDED_PMC_HEAP_KIB : 160;
+  const expanded = capKiB > 160;
+  const result = { available: false, expanded, capKiB, targetCapKiB };
+  if (!status.installed) return { ...result, message: "Install PMC first." };
+  if (revision !== 0 || !["IRBO", "IRAO", "IREO", "IRDO", "IRDI"].includes(code) || capKiB > targetCapKiB) {
+    return { ...result, expanded: false, message: "This PMC expansion requires a supported revision-0 ROM." };
+  }
+  if (!expanded && !["13.2.4", "13.2.4-bw1", "13.2.4-w2i"].includes(version ?? "")) {
+    return { ...result, message: "Update PMC to the current bundled version before expansion." };
+  }
+  return capKiB === targetCapKiB
+    ? { ...result, message: `Expanded allocation installed (up to ${capKiB} KiB).` }
+    : { ...result, available: true, message: `Expand PMC to a ${targetCapKiB} KiB cap.` };
+}
+
+export function getFiveBoxPmcStatus(project: ProjectState) {
+  const game = project.originalRomBytes ? readAscii(project.originalRomBytes, 12, 4) : project.romInfo?.idCode;
+  const enabled = fiveBoxPmcEnabled(project);
+  const ram = project.originalRomBytes ? readU32(project.originalRomBytes, 0x28) : 0x02004000;
+  return { supported: project.session.baseVersion === "W2" && game === "IRDO" && (project.originalRomBytes?.[30] ?? 0) === 0,
+    enabled, legacy: enabled && hasLegacyFiveBoxHooks(project.arm9, ram) };
+}
+
+export async function setFiveBoxPmcMode(project: ProjectState, enabled: boolean): Promise<PmcInstallResult> {
+  if (!getFiveBoxPmcStatus(project).supported) throw Error("Five-Box Mode requires US White 2 revision 0.");
+  const { installCodeInjectionPatch } = await import("./codeInjectionInstall");
+  return installCodeInjectionPatch(project, async staged => {
+    const rom = new NintendoDSRom(staged.originalRomBytes!, { fileData: "view" });
+    const installed = getPmcInstallStatus(staged);
+    if (!installed.installed) throw Error("Install PMC first.");
+    const { oldSymbols } = await verifyBundledPmc(staged, rom, installed);
+    const result = installPmcBytes(staged, await loadBundledPmcBytes("W2", rom.idCode, 220), rom.data, enabled);
+    assertPmcExportsPreserved(oldSymbols, stagedRomPath(staged, rom, PMC_SYMBOL_PATH)!);
+    recordGenericChange(staged, "code_injection", enabled ? "Enabled Five-Box Mode." : "Restored 24 PC boxes.",
+      "PMC", { key: "code-injection:pmc-five-box" });
+    return result;
+  });
+}
+
+function stagedRomPath(project: ProjectState, rom: NintendoDSRom, path: string): Uint8Array | undefined {
+  const added = project.fileSystem?.additions?.[path];
+  if (added) return added;
+  const id = rom.filenames.idOf(path);
+  return id === undefined ? undefined : getRomFileBytes(project, rom, id);
+}
+
+async function verifyBundledPmc(staged: ProjectState, rom: NintendoDSRom, installed: Extract<PmcInstallStatus, { installed: true }>) {
+  const overlayPath = overlayPathForId(installed.overlayId);
+  const table = staged.patches?.arm9OverlayTable ?? rom.arm9OverlayTable;
+  const row = findOverlayEntry(table, installed.overlayId);
+  const oldImage = stagedRomPath(staged, rom, overlayPath)
+    ?? (row === undefined ? undefined : getRomFileBytes(staged, rom, readU32(table, row + 24)));
+  const oldSymbols = stagedRomPath(staged, rom, PMC_SYMBOL_PATH);
+  if (!oldImage || !oldSymbols) throw Error("The active PMC overlay or symbols are missing.");
+  if (row !== undefined && !staged.fileSystem?.additions?.[overlayPath]) {
+    const active = getRomFileBytes(staged, rom, readU32(table, row + 24));
+    const sourceId = rom.filenames.idOf(overlayPath);
+    // An already-staged update will repoint the row during export.
+    if (sourceId !== undefined && !staged.fileSystem?.replacements?.[sourceId] && !bytesEqual(oldImage, active)) {
+      throw Error("The active PMC overlay differs from its named copy.");
+    }
+  }
+  const checked: ProjectState = { ...staged, arm9: staged.arm9.slice(), overlays: structuredClone(staged.overlays),
+    fileSystem: structuredClone(staged.fileSystem), patches: structuredClone(staged.patches),
+    codeInjection: structuredClone(staged.codeInjection), actionChangelog: structuredClone(staged.actionChangelog) };
+  const bundle = await loadBundledPmcBytes(staged.session.baseVersion, rom.idCode, bundledHeapChoice(installed.version));
+  installPmcBytes(checked, bundle, rom.data);
+  const expectedImage = stagedRomPath(checked, rom, overlayPath), expectedSymbols = stagedRomPath(checked, rom, PMC_SYMBOL_PATH);
+  const base = checked.codeInjection!.pmc!.overlayBaseAddress!;
+  const legacy = installed.version === FIVE_BOX_PMC_VERSION
+    ? normalizeLegacyFiveBoxRuntime(oldImage, staged.arm9, base, rom.arm9RamAddress) : undefined;
+  const activeImage = legacy?.image ?? oldImage, activeArm9 = legacy?.arm9 ?? staged.arm9;
+  const matchingExecutable = expectedImage && (
+    (bytesEqual(activeImage, expectedImage) && bytesEqual(activeArm9, checked.arm9)) ||
+    matchesLegacyIconPaletteArena(rom, activeArm9, activeImage, checked.arm9, expectedImage,
+      base, pmcOverlayReservationForVersion(installed.version)));
+  if (!matchingExecutable || !expectedSymbols || !bytesEqual(oldSymbols, expectedSymbols) ||
+      Object.entries(staged.overlays).some(([id, data]) => data && checked.overlays[Number(id)] && !bytesEqual(data, checked.overlays[Number(id)]!))) {
+    throw Error("The active PMC loader or its hooks have unrecognized changes. Update PMC before changing its heap profile.");
+  }
+  return { oldImage, oldSymbols, checked };
+}
+
+function matchesLegacyIconPaletteArena(rom: NintendoDSRom, arm9: Uint8Array, image: Uint8Array,
+  expectedArm9: Uint8Array, expectedImage: Uint8Array, overlayBase: number, reservation: number): boolean {
+  const palette = w2IconPaletteAfterPmc(rom, arm9, overlayBase, reservation);
+  if (!palette) return false;
+  // Older palette expansion updated the native heap literal and left the RPM's copy at the palette marker.
+  const arenaOffset = W2_ARENA_LITERAL - rom.arm9RamAddress;
+  const oldFloor = align(rom.arm9RamAddress + arm9.length, 4);
+  if (readU32(arm9, arenaOffset) !== oldFloor || readU32(image, W2_PMC_ARENA_WORD) !== palette) return false;
+  const originalArm9 = expectedArm9.slice(), originalImage = expectedImage.slice();
+  writeU32(originalArm9, arenaOffset, oldFloor);
+  writeU32(originalImage, W2_PMC_ARENA_WORD, palette);
+  return bytesEqual(arm9, originalArm9) && bytesEqual(image, originalImage);
+}
+
+function assertFiveBoxModules(project: ProjectState, rom: NintendoDSRom): void {
+  for (const module of listCodeInjectionDlls(project)) {
+    const bytes = stagedRomPath(project, rom, module.path);
+    if (bytes?.length) assertFiveBoxDllCompatible(bytes, module.path);
+  }
+}
+
+function assertPmcExportsPreserved(oldSymbols: Uint8Array, newSymbols: Uint8Array): void {
+  const before = parseRpm(oldSymbols), after = parseRpm(newSymbols);
+  for (const symbol of before.symbols.filter(s => s.attributes & 1)) {
+    const next = after.symbols.find(s => s.name === symbol.name && s.attributes & 1);
+    if (!next || next.address !== symbol.address || next.type !== symbol.type) throw Error("Changing the PMC heap profile would move an existing patch service.");
+  }
+}
+
+export function validateFiveBoxPmcExport(project: ProjectState, rom: NintendoDSRom): void {
+  if (!fiveBoxPmcEnabled(project)) return;
+  assertFiveBoxTarget(rom, project.codeInjection!.pmc!.overlayBaseAddress ?? 0);
+  planFiveBoxNative(project, rom, true, true);
+  assertFiveBoxModules(project, rom);
 }
 
 /** Explicit opt-in. Verify the active loader and hooks, then publish atomically. */
 export async function expandPmcHeapAllocation(project: ProjectState): Promise<PmcInstallResult> {
   const state = getPmcHeapExpansionStatus(project);
-  if (!state.available && !state.expanded) throw Error(state.message);
+  if (fiveBoxPmcEnabled(project)) throw Error(state.message);
+  if (!state.available && (!state.expanded || state.capKiB !== state.targetCapKiB)) throw Error(state.message);
   const { installCodeInjectionPatch } = await import("./codeInjectionInstall");
   return installCodeInjectionPatch(project, async staged => {
     const romBytes = staged.originalRomBytes!;
     const rom = new NintendoDSRom(romBytes, { fileData: "view" });
     const installed = getPmcInstallStatus(staged);
     if (!installed.installed) throw Error("Install PMC first.");
-    const pathBytes = (path: string, state = staged): Uint8Array | undefined => {
-      const added = state.fileSystem?.additions?.[path];
-      if (added) return added;
-      const id = rom.filenames.idOf(path);
-      return id === undefined ? undefined : getRomFileBytes(state, rom, id);
-    };
-    const row = findOverlayEntry(staged.patches?.arm9OverlayTable ?? rom.arm9OverlayTable, installed.overlayId);
-    const oldImage = staged.fileSystem?.additions?.[overlayPathForId(installed.overlayId)]
-      ?? (row === undefined ? undefined : getRomFileBytes(staged, rom, readU32(staged.patches?.arm9OverlayTable ?? rom.arm9OverlayTable, row + 24)));
-    if (!oldImage) throw Error("The active PMC overlay is missing.");
-    const oldSymbols = pathBytes(PMC_SYMBOL_PATH);
-    if (!oldSymbols) throw Error("The active PMC symbols are missing.");
-    const checked: ProjectState = { ...staged, arm9: staged.arm9.slice(), overlays: structuredClone(staged.overlays), fileSystem: structuredClone(staged.fileSystem), patches: structuredClone(staged.patches), codeInjection: structuredClone(staged.codeInjection), actionChangelog: structuredClone(staged.actionChangelog) };
-    const current = await loadBundledPmcBytes(staged.session.baseVersion, rom.idCode, state.expanded);
-    installPmcBytes(checked, current, romBytes);
-    const expectedImage = pathBytes(overlayPathForId(installed.overlayId), checked), expectedSymbols = pathBytes(PMC_SYMBOL_PATH, checked);
-    if (!expectedImage || !expectedSymbols || !bytesEqual(oldImage, expectedImage) || !bytesEqual(oldSymbols, expectedSymbols) || !bytesEqual(staged.arm9, checked.arm9)
-      || Object.entries(staged.overlays).some(([id, data]) => data && checked.overlays[Number(id)] && !bytesEqual(data, checked.overlays[Number(id)]!))) {
-      throw Error("The active PMC loader or its hooks have unrecognized changes; expansion was not applied.");
-    }
-    if (state.expanded) return { overlayId: installed.overlayId, overlayBaseAddress: checked.codeInjection!.pmc!.overlayBaseAddress!, version: installed.version, gameId: installed.gameId, symbolPath: PMC_SYMBOL_PATH };
+    const pathBytes = (path: string) => stagedRomPath(staged, rom, path);
+    const { oldImage, oldSymbols, checked } = await verifyBundledPmc(staged, rom, installed);
+    if (!state.available) return { overlayId: installed.overlayId, overlayBaseAddress: checked.codeInjection!.pmc!.overlayBaseAddress!, version: installed.version, gameId: installed.gameId, symbolPath: PMC_SYMBOL_PATH };
     const previousArm9 = staged.arm9.slice();
-    const result = installPmcBytes(staged, await loadBundledPmcBytes(staged.session.baseVersion, rom.idCode, true), romBytes);
+    const result = installPmcBytes(staged, await loadBundledPmcBytes(staged.session.baseVersion, rom.idCode,
+      state.targetCapKiB === COMPACT_PMC_HEAP_KIB ? state.targetCapKiB : true), romBytes);
     const nextImage = pathBytes(overlayPathForId(installed.overlayId))!;
-    const before = parseRpm(oldSymbols), after = parseRpm(pathBytes(PMC_SYMBOL_PATH)!);
-    for (const symbol of before.symbols.filter(s => s.attributes & 1)) {
-      const next = after.symbols.find(s => s.name === symbol.name && s.attributes & 1);
-      if (!next || next.address !== symbol.address || next.type !== symbol.type) throw Error("PMC expansion would move an existing patch service.");
-    }
+    assertPmcExportsPreserved(oldSymbols, pathBytes(PMC_SYMBOL_PATH)!);
     for (const module of listCodeInjectionDlls(staged)) {
       const bytes = pathBytes(module.path);
       if (!bytes || readAscii(bytes, 0, 4) !== "DLXF") continue;
@@ -346,7 +479,7 @@ export async function expandPmcHeapAllocation(project: ProjectState): Promise<Pm
         if (at < 0 || at + size > previous.length || !bytesEqual(previous.subarray(at, at + size), next.subarray(at, at + size))) throw Error(`PMC expansion conflicts with ${module.path}.`);
       }
     }
-    recordGenericChange(staged, "code_injection", `Expanded PMC allocation to ${EXPANDED_PMC_HEAP_KIB} KiB.`, "PMC", { key: "code-injection:pmc-heap" });
+    recordGenericChange(staged, "code_injection", `Expanded PMC allocation to ${state.targetCapKiB} KiB.`, "PMC", { key: "code-injection:pmc-heap" });
     return result;
   });
 }
@@ -363,12 +496,24 @@ function validateItalianPmcInstallSites(arm9: Uint8Array, rom: NintendoDSRom, ro
   }
 }
 
-export function installPmcBytes(project: ProjectState, rpmBytes: Uint8Array, romBytes: Uint8Array): PmcInstallResult {
+export function installPmcBytes(project: ProjectState, rpmBytes: Uint8Array, romBytes: Uint8Array,
+  fiveBox = fiveBoxPmcEnabled(project)): PmcInstallResult {
   if (project.session.baseRom !== "BW" && project.session.baseRom !== "BW2") {
     throw new Error("Bundled PMC installation is only available for Gen V Black/White ROMs.");
   }
-  const rom = new NintendoDSRom(romBytes);
+  const rom = new NintendoDSRom(romBytes, { fileData: "view" });
   const rpm = cloneRpm(parseRpm(rpmBytes));
+  const compact = rpm.metadata.PMCVersion === COMPACT_PMC_VERSION;
+  const wasFiveBox = fiveBoxPmcEnabled(project);
+  if (fiveBox && (!compact || rom.idCode !== "IRDO")) throw Error("Five-Box Mode requires the compact US White 2 PMC loader.");
+  if (isCompactPmcVersion(rpm.metadata.PMCVersion) || rpm.metadata.PokewebPmcHeapKiB === COMPACT_PMC_HEAP_KIB) {
+    const target = COMPACT_PMC_TARGETS.get(rom.idCode);
+    if (!compact || !target || rom.data[30] !== 0 || project.session.baseVersion !== target.gameId
+      || project.session.baseRom !== target.family || rpm.metadata.PMCGameID !== target.sourceGameId
+      || rpm.metadata.PokewebPmcHeapKiB !== COMPACT_PMC_HEAP_KIB) {
+      throw Error("Compact PMC requires the matching US revision-0 loader.");
+    }
+  }
   const activeArm9 = project.arm9.length > 0 ? project.arm9 : decompressCode(rom.arm9);
   const existingOverlayId = readPmcOverlayId(project, rom);
   const bw1Version = project.session.baseRom === "BW" && (project.session.baseVersion === "B" || project.session.baseVersion === "W")
@@ -378,16 +523,20 @@ export function installPmcBytes(project: ProjectState, rpmBytes: Uint8Array, rom
   if (bw1Version) {
     retargetPmcForBw1(rpm, bw1Version);
     validateBw1PmcInstallSites(activeArm9, rom.arm9RamAddress, bw1Version, existingOverlayId !== undefined);
-    if (rpm.metadata.PokewebPmcHeapKiB === EXPANDED_PMC_HEAP_KIB) {
+    if (usesBw1StartupHeapCopy(rpm)) {
       const { specs, literal } = resolveBw1StartupHeapSpecs(project, rom, activeArm9, bw1Version);
       adaptExpandedBw1PmcBoot(rpm, rpm.symbols.findIndex(s => s.name === "GFLAppInit"), specs, literal);
     } else {
       const id = rom.filenames.idOf(PMC_SYMBOL_PATH), previous = project.fileSystem?.additions?.[PMC_SYMBOL_PATH] ?? (id === undefined ? undefined : getRomFileBytes(project, rom, id));
-      if (previous && parseRpm(previous).metadata.PokewebPmcHeapKiB === EXPANDED_PMC_HEAP_KIB) restoreStartupTable = resolveBw1StartupHeapSpecs(project, rom, activeArm9, bw1Version);
+      if (previous && usesBw1StartupHeapCopy(parseRpm(previous))) restoreStartupTable = resolveBw1StartupHeapSpecs(project, rom, activeArm9, bw1Version);
     }
   }
   if (rom.idCode === "IRDI" && existingOverlayId === undefined) validateItalianPmcInstallSites(activeArm9, rom, romBytes);
   const gameId = stringMeta(rpm, "PMCGameID");
+  if (fiveBox) {
+    rpm.metadata.PMCVersion = FIVE_BOX_PMC_VERSION;
+    rpm.metadata.PokewebPmcHeapKiB = FIVE_BOX_PMC_CAP_KIB;
+  }
   const version = stringMeta(rpm, "PMCVersion");
   const expectedGameId = rom.idCode === "IRDI" ? "W2I" : project.session.baseVersion;
   if (gameId && gameId !== expectedGameId) throw new Error(`This PMC binary is for ${gameId}, but the loaded ROM is ${expectedGameId}.`);
@@ -400,13 +549,24 @@ export function installPmcBytes(project: ProjectState, rpmBytes: Uint8Array, rom
     throw new Error(`BW1 PMC requires overlay 237, but the next available overlay is ${overlayId}.`);
   }
   const existingEntry = findOverlayEntry(rom.arm9OverlayTable, overlayId);
-  const previousMaxOverlayEnd = maxOverlayEnd(rom.arm9OverlayTable);
+  const previousMaxOverlayEnd = maxOverlayEnd(compact ? project.patches?.arm9OverlayTable ?? rom.arm9OverlayTable : rom.arm9OverlayTable,
+    compact ? overlayId : undefined);
   const arm9ReservedEnd = align(rom.arm9RamAddress + activeArm9.length, 0x20);
   const newOverlayFloor = previousMaxOverlayEnd + (bw1Version ? BW1_PMC_LAYOUTS[bw1Version].overlayBaseExtra : 0);
-  const overlayBaseAddress = existingEntry
+  const stagedPmc = project.codeInjection?.pmc;
+  const stagedBase = stagedPmc?.overlayId === overlayId ? stagedPmc.overlayBaseAddress : undefined;
+  const overlayBaseAddress = existingEntry !== undefined
     ? readU32(rom.arm9OverlayTable, existingEntry + 4)
-    : Math.max(newOverlayFloor, arm9ReservedEnd);
-  const heapStart = Math.max(previousMaxOverlayEnd, arm9ReservedEnd, overlayBaseAddress + PMC_OVERLAY_RESERVED_SIZE);
+    : stagedBase ?? Math.max(newOverlayFloor, arm9ReservedEnd);
+  const reservedSize = pmcOverlayReservationForVersion(version);
+  if (compact && (previousMaxOverlayEnd > overlayBaseAddress ||
+      (arm9ReservedEnd > overlayBaseAddress && !w2IconPaletteAfterPmc(rom, activeArm9, overlayBaseAddress, reservedSize)))) {
+    throw Error("The current PMC load address overlaps native code. Compact PMC cannot preserve the existing bindings.");
+  }
+  if (fiveBox || wasFiveBox) assertFiveBoxTarget(rom, overlayBaseAddress);
+  if (fiveBox) assertFiveBoxModules(project, rom);
+  const nativePlan = fiveBox || wasFiveBox ? planFiveBoxNative(project, rom, wasFiveBox, fiveBox) : undefined;
+  const heapStart = Math.max(previousMaxOverlayEnd, arm9ReservedEnd, overlayBaseAddress + reservedSize);
   const overlayPath = overlayPathForId(overlayId);
 
   const heapSymbol =
@@ -418,6 +578,16 @@ export function installPmcBytes(project: ProjectState, rpmBytes: Uint8Array, rom
   setRpmBaseAddress(rpm, overlayBaseAddress);
   updateRpmCodeImageForBase(rpm);
   rpm.metadata.SymbolFile = "RPMSYM-PMC.rpm";
+  if (nativePlan) {
+    project.arm9 = nativePlan.arm9;
+    project.overlays[FIVE_BOX_PC_OVERLAY] = nativePlan.pc;
+    const patches = project.patches ??= { dirtyOverlayIds: [], applied: {} };
+    const table = (patches.arm9OverlayTable ?? rom.arm9OverlayTable).slice();
+    const flagsOffset = FIVE_BOX_PC_OVERLAY * 32 + 28;
+    writeU32(table, flagsOffset, readU32(table, flagsOffset) & 0xfe000000);
+    patches.arm9OverlayTable = table;
+    if (!patches.dirtyOverlayIds.includes(FIVE_BOX_PC_OVERLAY)) patches.dirtyOverlayIds.push(FIVE_BOX_PC_OVERLAY);
+  }
   applyExternalRelocations(project, rom, rpm);
   if (restoreStartupTable) writeU32(project.arm9, restoreStartupTable.literal - rom.arm9RamAddress, restoreStartupTable.sourceAddress);
   if (bw1Version) applyBw1PmcBytePatch(project.arm9, rom.arm9RamAddress, bw1Version);
@@ -426,7 +596,8 @@ export function installPmcBytes(project: ProjectState, rpmBytes: Uint8Array, rom
   const codeRpm = createCodeOnlyRpm(rpm);
   const symbolBytes = writeRpm(symbolRpm);
   const codeBytes = writeRpm(codeRpm, { writeBss: true });
-  const overlayBytes = buildPmcOverlay(overlayBaseAddress, codeBytes);
+  const compactOverlay = buildPmcOverlay(overlayBaseAddress, codeBytes);
+  const overlayBytes = fiveBox ? addFiveBoxPayload(compactOverlay) : compactOverlay;
 
   stageRomPath(project, rom, PMC_OVERLAY_ID_PATH, asciiBytes(String(overlayId)));
   stageRomPath(project, rom, PMC_SYMBOL_PATH, symbolBytes);
@@ -943,8 +1114,10 @@ export function getPmcUpdateConfirmationMessage(project: ProjectState, romBytes:
         ? `The current PMC executable is not stored at “${expectedPath}”.`
         : `The overlay row uses file ${fileId}, while “${expectedPath}” is file ${expectedFileId}.`);
     }
-    if (fileSize + bssSize !== PMC_OVERLAY_RESERVED_SIZE) {
-      reasons.push(`Its declared memory range is ${hex(fileSize + bssSize)}, not Pokeweb’s ${hex(PMC_OVERLAY_RESERVED_SIZE)} reserved range.`);
+    const version = detectPmcInstallFromRom(rom)?.pmc?.version;
+    const expectedSize = pmcOverlayReservationForVersion(version);
+    if (fileSize + bssSize !== expectedSize) {
+      reasons.push(`Its declared memory range is ${hex(fileSize + bssSize)}, not Pokeweb’s ${hex(expectedSize)} reserved range.`);
     }
   }
 
@@ -958,7 +1131,7 @@ export function getPmcUpdateConfirmationMessage(project: ProjectState, romBytes:
     "Updating PMC in Pokeweb will:",
     `• Replace the PMC executable and ${PMC_SYMBOL_PATH} with Pokeweb’s bundled runtime.`,
     "• Reapply PMC hooks to ARM9 and target overlays and recalculate the heap-start patch.",
-    `• Write the PMC executable at “${expectedPath}” and reserve ${hex(PMC_OVERLAY_RESERVED_SIZE)} bytes for its overlay.`,
+    `• Write the PMC executable at “${expectedPath}” with the selected loader’s overlay reservation.`,
     "• Keep existing files under patches/ and lib/, but compatibility with the replaced PMC cannot be guaranteed.",
     "",
     "This is a replacement, not a merge or repair, and is not required to install the Overworld Weather Runtime.",
@@ -978,6 +1151,7 @@ export function stageCodeInjectionDll(
   if (!status.installed) throw new Error("Install PMC before adding patch DLLs.");
   const safeName = sanitizeDllFilename(fileName);
   validateCodeInjectionDll(bytes);
+  if (fiveBoxPmcEnabled(project)) assertFiveBoxDllCompatible(bytes, `${target}/${safeName}`);
 
   let version: string | undefined;
   let gameId: string | undefined;
@@ -1214,19 +1388,91 @@ export type LegacyPmcRomStructureRepair = {
   repairedRootFnt: boolean;
 };
 
+function isCompactPmcTarget(idCode: string, revision: number): boolean {
+  return revision === 0 && COMPACT_PMC_TARGETS.has(idCode);
+}
+
+function isCompactPmcVersion(version: unknown): boolean {
+  return version === COMPACT_PMC_VERSION || version === COMPACT_BW1_PMC_VERSION;
+}
+
+export function pmcOverlayReservationForVersion(version: unknown): number {
+  if (version === FIVE_BOX_PMC_VERSION) return FIVE_BOX_PMC_OVERLAY_SIZE;
+  return isCompactPmcVersion(version) ? PMC_OVERLAY_SIZE : PMC_OVERLAY_RESERVED_SIZE;
+}
+
+function w2IconPaletteAfterPmc(rom: NintendoDSRom, arm9: Uint8Array, base: number, reservation: number): number | undefined {
+  if (rom.idCode !== "IRDO" || rom.data[30] !== 0) return undefined;
+  const ram = rom.arm9RamAddress;
+  const palette = readRelocatedIconPalette(arm9, ram, WHITE_2_ICON_PALETTE_POINTER_OFFSET);
+  if (!palette || palette.offset + palette.capacity !== arm9.length ||
+      palette.markerOffset + ram < base + reservation || base < ram || ram + arm9.length >= 0x02400000 ||
+      arm9.subarray(base - ram, base + reservation - ram).some(byte => byte !== 0) ||
+      arm9.subarray(palette.offset).some(byte => (byte & 0xf) > 2 || (byte >>> 4) > 2)) return undefined;
+  return palette.markerOffset + ram;
+}
+
+/** Resolve the reservation from the actual loader and verify the DS arena boundary before writing its row. */
+export function getPmcOverlayReservation(
+  rom: NintendoDSRom, image: Uint8Array, base: number, version?: string, activeArm9?: Uint8Array,
+): number {
+  const target = rom.data[30] === 0 ? COMPACT_PMC_TARGETS.get(rom.idCode) : undefined;
+  if (!target && !isCompactPmcVersion(version)) return PMC_OVERLAY_RESERVED_SIZE;
+  let metadata: RpmModule["metadata"] | undefined;
+  try { metadata = parseRpm(image).metadata; } catch { /* Keep support for older PMC overlay containers. */ }
+  if (version === FIVE_BOX_PMC_VERSION || metadata?.PMCVersion === FIVE_BOX_PMC_VERSION) {
+    const arm9 = activeArm9?.length ? activeArm9 : decompressCode(rom.arm9);
+    const reservationEnd = base + FIVE_BOX_PMC_OVERLAY_SIZE;
+    const arm9End = rom.arm9RamAddress + arm9.length;
+    const palette = w2IconPaletteAfterPmc(rom, arm9, base, FIVE_BOX_PMC_OVERLAY_SIZE);
+    const floor = readU32(arm9, W2_ARENA_LITERAL - rom.arm9RamAddress);
+    const loaderFloor = readU32(image, W2_PMC_ARENA_WORD);
+    const validFloor = palette
+      ? (floor === align(arm9End, 32) && loaderFloor === floor) || (floor === align(arm9End, 4) && loaderFloor === palette)
+      : arm9End <= base && floor === reservationEnd && loaderFloor === reservationEnd;
+    if (rom.idCode !== "IRDO" || !target || (version && version !== FIVE_BOX_PMC_VERSION) ||
+        metadata?.PMCVersion !== FIVE_BOX_PMC_VERSION || metadata.PMCGameID !== "W2" ||
+        metadata.PokewebPmcHeapKiB !== FIVE_BOX_PMC_CAP_KIB || !isFiveBoxLoaderImage(image, base, arm9, rom.arm9RamAddress) || !validFloor) {
+      throw Error("The Five-Box Mode loader image and startup reservation do not match.");
+    }
+    return FIVE_BOX_PMC_OVERLAY_SIZE;
+  }
+  const compact = isCompactPmcVersion(metadata?.PMCVersion);
+  const expectedVersion = target?.family === "BW" ? COMPACT_BW1_PMC_VERSION : COMPACT_PMC_VERSION;
+  if ((version && (isCompactPmcVersion(version) !== compact || (compact && version !== expectedVersion)))
+    || (compact && (!target || metadata?.PMCVersion !== expectedVersion || metadata.PMCGameID !== target.gameId
+      || metadata.PokewebPmcHeapKiB !== COMPACT_PMC_HEAP_KIB || image.length !== PMC_OVERLAY_SIZE))) {
+    throw Error("The PMC loader image and its reservation profile do not match.");
+  }
+  const reservation = pmcOverlayReservationForVersion(metadata?.PMCVersion);
+  const arm9 = activeArm9?.length ? activeArm9 : decompressCode(rom.arm9);
+  const at = target ? target.arenaLiteral - rom.arm9RamAddress : -1;
+  const floor = at >= 0 && at + 4 <= arm9.length ? readU32(arm9, at) : 0;
+  const knownFloor = floor >= 0x02000000 && floor < 0x02400000;
+  if ((compact && !knownFloor) || (knownFloor && floor < base + reservation)) {
+    throw Error("The PMC overlay reservation overlaps the native startup arena. Update PMC before exporting or repairing this ROM.");
+  }
+  return reservation;
+}
+
 export function repairLegacyPmcRomStructure(rom: NintendoDSRom): LegacyPmcRomStructureRepair {
   const pmc = detectPmcInstallFromRom(rom)?.pmc;
   if (!pmc) return { detected: false, repairedOverlayLayout: false, repairedRootFnt: false };
 
   let arm9OverlayTable: Uint8Array | undefined;
   const entry = findOverlayEntry(rom.arm9OverlayTable, pmc.overlayId);
-  const overlayBytes = getRomPathBytes(rom, pmc.overlayPath);
-  if (entry !== undefined && overlayBytes && overlayBytes.length <= PMC_OVERLAY_RESERVED_SIZE) {
-    const expectedBssSize = PMC_OVERLAY_RESERVED_SIZE - overlayBytes.length;
-    if (readU32(rom.arm9OverlayTable, entry + 8) !== overlayBytes.length || readU32(rom.arm9OverlayTable, entry + 12) !== expectedBssSize) {
-      arm9OverlayTable = rom.arm9OverlayTable.slice();
-      writeU32(arm9OverlayTable, entry + 8, overlayBytes.length);
-      writeU32(arm9OverlayTable, entry + 12, expectedBssSize);
+  if (entry !== undefined) {
+    const overlayBytes = getRomPathBytes(rom, pmc.overlayPath)
+      ?? ((isCompactPmcVersion(pmc.version) || pmc.version === FIVE_BOX_PMC_VERSION)
+        ? rom.files[readU32(rom.arm9OverlayTable, entry + 24)] : undefined);
+    const reservation = overlayBytes ? getPmcOverlayReservation(rom, overlayBytes, readU32(rom.arm9OverlayTable, entry + 4), pmc.version) : undefined;
+    if (reservation !== undefined && overlayBytes && overlayBytes.length <= reservation) {
+      const expectedBssSize = reservation - overlayBytes.length;
+      if (readU32(rom.arm9OverlayTable, entry + 8) !== overlayBytes.length || readU32(rom.arm9OverlayTable, entry + 12) !== expectedBssSize) {
+        arm9OverlayTable = rom.arm9OverlayTable.slice();
+        writeU32(arm9OverlayTable, entry + 8, overlayBytes.length);
+        writeU32(arm9OverlayTable, entry + 12, expectedBssSize);
+      }
     }
   }
 
@@ -1261,10 +1507,24 @@ export function buildCodeInjectionOverlayTable(
   const overlayBaseAddress = stagedPmc?.overlayBaseAddress
     ?? (existingEntry === undefined ? undefined : readU32(baseTable, existingEntry + 4));
   if (overlayBaseAddress === undefined) return undefined;
-  const overlayBytes = project.fileSystem?.additions?.[overlayPath] ?? getRomPathBytes(rom, overlayPath);
-  if (!overlayBytes) return undefined;
-  if (overlayBytes.length > PMC_OVERLAY_RESERVED_SIZE) {
-    throw new Error(`PMC overlay is larger than its reserved memory range (${hex(overlayBytes.length)} > ${hex(PMC_OVERLAY_RESERVED_SIZE)}).`);
+  const namedId = rom.filenames.idOf(overlayPath);
+  const overlayBytes = project.fileSystem?.additions?.[overlayPath]
+    ?? (namedId === undefined ? undefined : getRomFileBytes(project, rom, namedId));
+  if (!overlayBytes) {
+    if (isCompactPmcVersion(stagedPmc?.version) || stagedPmc?.version === FIVE_BOX_PMC_VERSION) {
+      if (existingEntry === undefined) throw Error("The compact PMC overlay is missing.");
+      const active = rom.files[readU32(baseTable, existingEntry + 24)];
+      const expected = stagedPmc?.version === FIVE_BOX_PMC_VERSION ? FIVE_BOX_PMC_OVERLAY_SIZE : PMC_OVERLAY_SIZE;
+      if (!active || readU32(baseTable, existingEntry + 8) !== expected || readU32(baseTable, existingEntry + 12) !== 0) {
+        throw Error("The compact PMC overlay row needs repair before export.");
+      }
+      getPmcOverlayReservation(rom, active, overlayBaseAddress, stagedPmc?.version, project.arm9);
+    }
+    return undefined;
+  }
+  const reservation = getPmcOverlayReservation(rom, overlayBytes, overlayBaseAddress, stagedPmc?.version, project.arm9);
+  if (overlayBytes.length > reservation) {
+    throw new Error(`PMC overlay is larger than its reserved memory range (${hex(overlayBytes.length)} > ${hex(reservation)}).`);
   }
   const fileId = resolveFileId?.(overlayPath) ?? fileIdForPathWithAdditions(project, rom, overlayPath);
   const table = existingEntry === undefined ? appendOverlayEntry(baseTable) : baseTable.slice();
@@ -1275,7 +1535,7 @@ export function buildCodeInjectionOverlayTable(
   // remainder of PMC's reserved address range must be BSS; declaring the full
   // 0x8000 as file-backed code makes a 0x3000 PMC image fail with a short read.
   writeU32(table, offset + 8, overlayBytes.length);
-  writeU32(table, offset + 12, PMC_OVERLAY_RESERVED_SIZE - overlayBytes.length);
+  writeU32(table, offset + 12, reservation - overlayBytes.length);
   writeU32(table, offset + 16, overlayBaseAddress);
   writeU32(table, offset + 20, overlayBaseAddress);
   writeU32(table, offset + 24, fileId);
@@ -1467,6 +1727,11 @@ function retargetPmcForBw1(rpm: RpmModule, version: Bw1Version): void {
   writeU16(rpm.code, 0x4ac, 0x46c0);
 }
 
+function usesBw1StartupHeapCopy(rpm: RpmModule): boolean {
+  return rpm.metadata.PokewebPmcHeapKiB === EXPANDED_PMC_HEAP_KIB
+    || (rpm.metadata.PokewebPmcHeapKiB === COMPACT_PMC_HEAP_KIB && rpm.metadata.PMCVersion === COMPACT_BW1_PMC_VERSION);
+}
+
 function resolveBw1StartupHeapSpecs(project: ProjectState, rom: NintendoDSRom, arm9: Uint8Array, version: Bw1Version): { specs: Uint8Array; literal: number; sourceAddress: number } {
   const base = rom.arm9RamAddress, entry = BW1_PMC_LAYOUTS[version].symbols.GFLAppInit.address & ~1, at = entry - base;
   const twlLoad = readU16(arm9, at + 0x4c), dsLoad = readU16(arm9, at + 0x50);
@@ -1480,7 +1745,7 @@ function resolveBw1StartupHeapSpecs(project: ProjectState, rom: NintendoDSRom, a
   if (current !== dsAddress) {
     const id = rom.filenames.idOf(PMC_SYMBOL_PATH), bytes = project.fileSystem?.additions?.[PMC_SYMBOL_PATH] ?? (id === undefined ? undefined : getRomFileBytes(project, rom, id));
     const previous = bytes && parseRpm(bytes), copy = previous && previous.symbols.find(s => s.name === "__PokewebBw1HeapSpecs");
-    if (!previous || previous.metadata.PokewebPmcHeapKiB !== EXPANDED_PMC_HEAP_KIB || !copy || previous.baseAddress + 32 + copy.address !== current) throw Error("The BW1 startup heap table has an unrecognized redirection.");
+    if (!previous || !usesBw1StartupHeapCopy(previous) || !copy || previous.baseAddress + 32 + copy.address !== current) throw Error("The BW1 startup heap table has an unrecognized redirection.");
   }
   const specs = arm9.slice(offset, offset + 16), heap0 = readU32(specs, 0), heap1 = readU32(specs, 8);
   if (heap0 < 0x4000 || heap0 > 0x100000 || heap1 < 0x80000 || heap1 > 0x300000 || heap0 & 31 || heap1 & 31) throw Error("Unrecognized BW1 startup heap budgets.");
@@ -1672,12 +1937,13 @@ function findOverlayEntry(table: Uint8Array, overlayId: number): number | undefi
   return undefined;
 }
 
-function maxOverlayEnd(table: Uint8Array): number {
+function maxOverlayEnd(table: Uint8Array, compactPmcId?: number): number {
   let max = 0;
   for (let offset = 0; offset + 32 <= table.length; offset += 32) {
     const address = readU32(table, offset + 4);
-    if ((address & 0xfff00000) > 0x02300000) continue;
-    max = Math.max(max, address + readU32(table, offset + 8));
+    if ((address & 0xfff00000) > 0x02300000 || readU32(table, offset) === compactPmcId) continue;
+    const bss = compactPmcId === undefined ? 0 : readU32(table, offset + 12);
+    max = Math.max(max, address + readU32(table, offset + 8) + bss);
   }
   return align(max, 16);
 }

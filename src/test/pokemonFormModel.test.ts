@@ -12,7 +12,7 @@ import { findPokemonPersonalFormOwner, pokemonPersonalDisplayIds } from "../poke
 import { getPokemonCount, getPokemonPersonalIds, setPokemonEvolutions, updatePokemonField } from "../pokeweb/pokemonModel";
 import { BW2_MESSAGE_BANKS } from "../pokeweb/constants";
 import { commitTextBank, getTextBank, parseTextEntryId } from "../pokeweb/textModel";
-import { getPokemonIconPaletteAssignment, repairPokemonIconPaletteAssignmentPlacement, resolvePokemonSpriteId } from "../pokeweb/pokemonSpriteModel";
+import { getPokemonIconPaletteAssignment, repairPokemonIconPaletteAssignmentPlacement, resolvePokemonIconAddress, resolvePokemonSpriteId, setPokemonIconPaletteAssignment } from "../pokeweb/pokemonSpriteModel";
 import { materializeProjectEdits } from "../pokeweb/projectMaterialize";
 import { decodeRecord, type NarcStore, type ProjectState } from "../pokeweb/projectStore";
 import { decodeGen5TextBank, encodeGen5TextBank, type Gen5TextEntry } from "../pokeweb/text";
@@ -95,6 +95,34 @@ describe("pokemonFormModel", () => {
       expect(project.narcs[name]!.dirty.size).toBeGreaterThan(0);
       expect(project.narcs[name]!.fileCount).toBe(project.narcs[name]!.rawFiles.length);
     }
+  });
+
+  it("edits independent base and form palette nibbles in the active White 2 table after Add Form", () => {
+    const project = makeRetailBw2Project();
+    const form = addPokemonForm(project, SPINDA_ID);
+    const baseKey = resolvePokemonIconAddress(project, SPINDA_ID).paletteKey;
+    const formKey = resolvePokemonIconAddress(project, form.personalId).paletteKey;
+    expect(formKey).toBe(resolvePokemonIconAddress(project, SPINDA_ID, form.formIndex).paletteKey);
+    const table = readU32(project.arm9, BW2_ICON_PALETTE_POINTER_OFFSET) - GEN5_ARM9_RAM_ADDRESS;
+
+    setPokemonIconPaletteAssignment(project, baseKey, "male", 0);
+    setPokemonIconPaletteAssignment(project, formKey, "female", 1);
+    expect(project.arm9[table + SPINDA_ID]).toBe(0x20);
+    expect(project.arm9[table + form.spriteId + 2]).toBe(0x11);
+    expect(project.arm9[BW2_ICON_PALETTE_OFFSET + SPINDA_ID]).toBe(0x21);
+  });
+
+  it("sets both palette assignments in a relocated Black table when the low nibble is already correct", () => {
+    const project = makeRetailBw2Project("BW");
+    const form = addPokemonForm(project, SPINDA_ID);
+    const formKey = resolvePokemonIconAddress(project, form.personalId).paletteKey;
+    const table = readU32(project.arm9, 0x17be4) - GEN5_ARM9_RAM_ADDRESS;
+    setPokemonIconPaletteAssignment(project, formKey, "male", 0);
+    expect(project.arm9[table + formKey]).toBe(0x20);
+
+    setPokemonIconPaletteAssignment(project, formKey, "both", 0);
+    expect(project.arm9[table + formKey]).toBe(0);
+    expect(project.arm9[table + SPINDA_ID]).toBe(0x21);
   });
 
   it("continues appending aligned form blocks without adding another 709 filler", () => {

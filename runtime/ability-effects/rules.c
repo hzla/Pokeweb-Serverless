@@ -56,23 +56,133 @@ static u32 variable(u32 key,s32 *out){return FN(26,u32(*)(u32,s32*))(key,out);}
 static u32 preview(void*f){return SIM(f)||PREVIEW(f);}
 #ifdef ABILITY_FILTER_EVENTS
 #include "conditions.h"
-typedef struct {void*flow,*mon;} ConditionContext;
+#ifdef ABILITY_FIELD_CONDITIONS
+/* Read the same native field and side state used by moves and the trainer patch. */
+PUBLIC const volatile u32 AbilityFieldConditionApi[3]={0};
+#define FIELD_API(i,t) ((t)(uintptr_t)AbilityFieldConditionApi[i])
+#endif
+typedef struct {
+ void*flow,*mon;
+ u8 owner;
+#ifdef ABILITY_EFFECT_CONDITIONS
+ u16 opponent;
+ u8 weather;
+ u32 opponents;
+ ConditionEvaluator evaluator;
+#endif
+} ConditionContext;
+#ifdef ABILITY_EFFECT_CONDITIONS
+PUBLIC const volatile u32 AbilityPokemonConditionApi[3]={0}; /* slot, ally, active */
+#define COND_API(i,t) ((t)(uintptr_t)AbilityPokemonConditionApi[i])
+static u8 conditionWeatherReading;
+static u32 conditionOpponents(void*context,u32 from){
+ ConditionContext*c=context;
+ if(c->opponents==0xffffffff){
+  c->opponents=0;
+  for(u8 id=0;id<24;++id)
+   if(id!=c->owner&&!COND_API(1,u32(*)(u8,u8))(c->owner,id)&&COND_API(2,u32(*)(void*,u8))(c->flow,id)){
+    void*mon=MON(c->flow,id);if(mon&&STAT(mon,13))c->opponents|=1u<<id;
+   }
+ }
+ for(u32 id=from;id<24;++id)if(c->opponents&(1u<<id))return id;
+ return 24;
+}
+#define CONDITION_AUTO_FOE 255
+#define CONDITION_NO_FOE 24
+static u32 eventFoe(u8 owner,u32 event){
+ s32 actor,target;
+ if(!variable(3,&actor)||!variable(event==0x5b||event==0x5c||event==0x5d?2:4,&target))return CONDITION_NO_FOE;
+ if(actor==owner&&(u32)target<24&&!COND_API(1,u32(*)(u8,u8))(owner,target))return target;
+ if(target==owner&&(u32)actor<24&&!COND_API(1,u32(*)(u8,u8))(owner,actor))return actor;
+ return CONDITION_NO_FOE;
+}
+static u32 pokemonCondition(void*mon,u32 kind,u32 value,u32 negate){
+ if(!mon)return 0;
+ u32 found=0;
+ if(kind==10)found=FN(5,u32(*)(u32,u32))(FN(4,u32(*)(void*))(mon),value)!=0;
+ else for(u32 slot=0;slot<4;++slot)if(COND_API(0,u32(*)(void*,u32))(mon,slot)==value){found=1;break;}
+ return found!=negate;
+}
+#endif
 static u32 conditionLeaf(const volatile u8*p,void*context){
  ConditionContext*c=context;void*f=c->flow,*mon=c->mon;
  u32 result=0,v=half(p+2);s32 x;
  if(p[0]==1){u32 hp=STAT(mon,13)*100,max=STAT(mon,14)*v;result=p[1]==0?hp<max:p[1]==1?hp<=max:p[1]==2?hp>max:hp>=max;}
  else if(p[0]==2){u32 pair=FN(4,u32(*)(void*))(mon);result=FN(5,u32(*)(u32,u32))(pair,v)!=0;}
- else if(p[0]==3)result=FN(6,u32(*)(void*))(f)==v;
+ else if(p[0]==3){
+#ifdef ABILITY_EFFECT_CONDITIONS
+  if(c->weather==255){
+   if(conditionWeatherReading)return 0;
+   ++conditionWeatherReading;c->weather=FN(6,u32(*)(void*))(f);--conditionWeatherReading;
+  }
+  result=c->weather==v;
+#else
+  result=FN(6,u32(*)(void*))(f)==v;
+#endif
+ }
  else if(p[0]==4)result=FN(29,u32(*)(void*))(mon)==v;
  else if(p[0]==5)result=variable(0x16,&x)&&(u32)x==v;
  else if(p[0]==6){if(variable(0x1a,&x))result=(u32)x==v;else if(variable(0x12,&x))result=FN(17,u32(*)(u32))(x)==v;}
  else if(p[0]==7){if(v)result=CHECK(mon,v);else{result=1;for(u32 n=1;n<=5;++n)if(CHECK(mon,n))result=0;}}
+#ifdef ABILITY_FIELD_CONDITIONS
+ else if(p[0]==8)result=FIELD_API(0,u32(*)(u32))(v)!=0;
+ else if(p[0]==9){
+  u8 side=FIELD_API(1,u32(*)(u8))(c->owner)^((v>>8)&1);
+  result=FIELD_API(2,u32(*)(void*,u8,u32))(f,side,v&255)>=(v>>9);
+ }
+#endif
+#ifdef ABILITY_EFFECT_CONDITIONS
+ else if(p[0]==10||p[0]==11){
+  u32 subject=p[1]>>1,negate=p[1]&1;
+  if(!subject)return pokemonCondition(mon,p[0],v,negate);
+  if(subject==1){
+   if(c->opponent>=32)c->opponent=eventFoe(c->owner,c->opponent-32);
+   return c->opponent<24&&!COND_API(1,u32(*)(u8,u8))(c->owner,c->opponent)&&pokemonCondition(MON(f,c->opponent),p[0],v,negate);
+  }
+  if(c->evaluator.candidate<24)return pokemonCondition(MON(f,c->evaluator.candidate),p[0],v,negate);
+  for(u32 id=conditionOpponents(c,0);id<24;id=conditionOpponents(c,id+1))
+   if(pokemonCondition(MON(f,id),p[0],v,negate))return 1;
+  return 0;
+ }
+#endif
  if(p[0]>=2&&p[0]<128&&p[1])result=!result;
  return result;
 }
-static u32 active(const volatile u8*r,void*f,void*mon){ConditionContext c={f,mon};return conditionTree(r,conditionLeaf,&c);}
+#ifdef ABILITY_EFFECT_CONDITIONS
+static void conditionContext(ConditionContext*c,void*f,void*mon,u8 owner,u32 event,u32 foe){
+ c->flow=f;c->mon=mon;c->owner=owner;c->weather=255;c->opponents=0xffffffff;
+ c->opponent=foe;
+ c->evaluator=(ConditionEvaluator){conditionLeaf,conditionOpponents,c,CONDITION_NO_FOE};
+ /* Resolve event variables lazily, and only if a predicate asks for a foe. */
+ if(c->opponent==CONDITION_AUTO_FOE)c->opponent=event?32+event:CONDITION_NO_FOE;
+}
+static const volatile u8* effectPredicate(const volatile u8*r,const volatile u8*e){
+ if(!r[2])return 0;
+ const volatile u8*start=effects(r);
+ u32 offset=half(start+r[0]*16+(e-start)/8);
+ return offset?r+offset:0;
+}
+static u32 eligibleEffect(const volatile u8*r,const volatile u8*e,ConditionContext*c,u32 event){
+ const volatile u8*p=effectPredicate(r,e);
+ if(!p)return 1;
+ if(event&&p[2]){
+  const volatile u8*events=p+4+4*p[1];u32 n=0;
+  while(n<p[2]&&events[n]!=event)++n;
+  if(n==p[2])return 0;
+ }
+ return conditionTree(p,&c->evaluator);
+}
+static inline u32 abilityEffectEnabled(const volatile u8*r,const volatile u8*e,void*f,void*mon,u8 owner,u32 event,u32 foe){
+ ConditionContext c;conditionContext(&c,f,mon,owner,event,foe);
+ return conditionTree(r,&c.evaluator)&&eligibleEffect(r,e,&c,0);
+}
+#define EFFECT_ENABLED(r,e,f,mon,owner,event,foe) abilityEffectEnabled(r,e,f,mon,owner,event,foe)
 #else
-static u32 active(const volatile u8*r,void*f,void*mon){
+static u32 active(const volatile u8*r,void*f,void*mon,u8 owner){ConditionContext c={f,mon,owner};return conditionTree(r,conditionLeaf,&c);}
+#endif
+#else
+static u32 active(const volatile u8*r,void*f,void*mon,u8 owner){
+ (void)owner;
  u8 stack[32];u32 top=0;
  for(u32 i=0;i<r[1];++i){
   const volatile u8*p=r+4+i*4;u32 result=0,v=half(p+2);s32 x;
@@ -90,6 +200,9 @@ static u32 active(const volatile u8*r,void*f,void*mon){
  }
  return top==1&&stack[0];
 }
+#endif
+#ifndef ABILITY_EFFECT_CONDITIONS
+#define EFFECT_ENABLED(r,e,f,mon,owner,event,foe) active(r,f,mon,owner)
 #endif
 static u32 typeMatch(void*mon,u32 type){return FN(5,u32(*)(u32,u32))(FN(4,u32(*)(void*))(mon),type);}
 #ifdef ABILITY_CLIENT_TRAPS
@@ -227,13 +340,20 @@ static void abilityNotice(void*f,u8 owner,u32 slot,u8 subject,u32 argument){
 #ifdef ABILITY_ACTIONS
 #include "actions.c"
 #endif
-static void healing(void*item,void*f,u8 owner,const volatile u8*r,u32 event){
+static void healing(void*item,void*f,u8 owner,const volatile u8*r,u32 event
+#ifdef ABILITY_EFFECT_CONDITIONS
+,ConditionContext*conditions
+#endif
+){
  if(VALUE(2)!=owner||preview(f))return;
  void*mon=MON(f,owner);u32 hp=STAT(mon,13),maximum=STAT(mon,14),amount=0;
  if(!hp||hp>=maximum)return;
  const volatile u8*e=effects(r);
  for(u32 n=0;n<r[0];++n,e+=16){u32 kind=e[0],v=half(e+2),a=0;
   if(kind<7||kind>9||bypassed(item,f,event,e))continue;
+#ifdef ABILITY_EFFECT_CONDITIONS
+  if(!eligibleEffect(r,e,conditions,event))continue;
+#endif
   if(kind==7)a=divide(maximum*v,10000);
   if(kind==8)a=v;
   if(kind==9)a=divide(maximum,v);
@@ -254,9 +374,21 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
  if(r&&7-(*(u32*)((u8*)item+0x14)>>24)==5)scopedObserve(f,owner,r,event);
 #endif
 #endif
-#ifdef ABILITY_FORM_CONVERSION
+#ifdef ABILITY_EFFECT_CONDITIONS
  if(!r||r[0]>ABILITY_EFFECT_SLOTS||owner>=32)return;
- if(!active(r,f,MON(f,owner))){
+ ConditionContext conditions;conditionContext(&conditions,f,MON(f,owner),owner,event,CONDITION_AUTO_FOE);
+ if(!conditionTree(r,&conditions.evaluator)){
+#ifdef ABILITY_FORM_CONVERSION
+   if(event==0x55||event==0x78||event==0x6a||event==0x89){
+    const volatile u8*z=effects(r);
+    for(u32 n=0;n<r[0];++n,z+=16)if(z[0]==178)zenMode(f,owner,z,event,nativeWork[owner][n],0);
+   }
+#endif
+   return;
+ }
+#elif defined(ABILITY_FORM_CONVERSION)
+ if(!r||r[0]>ABILITY_EFFECT_SLOTS||owner>=32)return;
+ if(!active(r,f,MON(f,owner),owner)){
   if(event==0x55||event==0x78||event==0x6a||event==0x89){
    const volatile u8*z=effects(r);
    for(u32 n=0;n<r[0];++n,z+=16)if(z[0]==178)zenMode(f,owner,z,event,nativeWork[owner][n],0);
@@ -264,7 +396,7 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
   return;
  }
 #else
- if(!r||r[0]>ABILITY_EFFECT_SLOTS||owner>=32||!active(r,f,MON(f,owner)))return;
+ if(!r||r[0]>ABILITY_EFFECT_SLOTS||owner>=32||!active(r,f,MON(f,owner),owner))return;
 #endif
 #ifdef ABILITY_POPUP_GROUPS
 #ifdef ABILITY_STAT_SOURCE
@@ -291,6 +423,15 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
  e[15]?e[15]:5)!=7-(*(u32*)((u8*)item+0x14)>>24))continue;
 #endif
   u32 kind=e[0],v=half(e+2),yes=0;if(bypassed(item,f,event,e))continue;
+#ifdef ABILITY_EFFECT_CONDITIONS
+  /* Healing collapses eligible rows into one native work item below. */
+  if((kind<7||kind>9)&&!eligibleEffect(r,e,&conditions,event)){
+#ifdef ABILITY_FORM_CONVERSION
+   if(kind==178)zenMode(f,owner,e,event,nativeWork[owner][n],0);
+#endif
+   continue;
+  }
+#endif
 #if defined(ABILITY_ENVIRONMENT) && defined(ABILITY_RECIPES)
   if(kind==168||kind==169){environmentEntry(f,owner,e,event);continue;}
   if(kind==170){environmentStatusBlocked|=environmentDamageGuard(f,owner,e,event);continue;}
@@ -357,7 +498,11 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
  /* Immunity wins over later minimum-one modifiers in the same activation. */
  if(environmentStatusBlocked)REWRITE(0x32,0);
 #endif
- if(event==0x77)healing(item,f,owner,r,event);
+ if(event==0x77)healing(item,f,owner,r,event
+#ifdef ABILITY_EFFECT_CONDITIONS
+ ,&conditions
+#endif
+ );
 #ifdef ABILITY_POPUP_GROUPS
  closePopupGroup(&group);popupGroup=group.previous;
 #endif

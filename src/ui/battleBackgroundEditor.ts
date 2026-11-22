@@ -303,7 +303,7 @@ function renderSidebarLocationUsage(
   return `
     <section class="battle-environment-usage">
       <header>
-        <div><span>Header → zone-spec lookup</span><h2>Used in locations</h2></div>
+        <div><h2 title="Header → zone-spec lookup">Used in locations</h2></div>
         <p>${usageError ? "Could not trace the loaded headers." : `${usages.length} location${usages.length === 1 ? "" : "s"} · ${headerCount} header${headerCount === 1 ? "" : "s"} can select ${kind} ${tableIndex}.`}</p>
       </header>
       ${summary}
@@ -389,7 +389,7 @@ function renderTextureGallery(scene: BattleModelScene): string {
   return `
     <section class="battle-background-textures">
       <header>
-        <div><span>Embedded TEX0 resources</span><h2>Related textures</h2></div>
+        <div><h2 title="Embedded TEX0 resources">Related textures</h2></div>
         <p>Indexes are the texture dictionary positions inside NSBMD member ${scene.resourceId}.</p>
       </header>
       <div class="battle-background-texture-grid">${scene.textures.map(renderTextureCard).join("")}</div>

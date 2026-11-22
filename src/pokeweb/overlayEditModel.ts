@@ -6,6 +6,7 @@ import { recordGenericChange } from "./actionChangelog";
 import type { NarcName } from "./constants";
 import { moveEffectHandlerOverlayId } from "./moveEffectHandlerModel";
 import type { ProjectState } from "./projectStore";
+import { FIVE_BOX_PC_OVERLAY, fiveBoxPmcEnabled } from "./pmcFiveBoxRuntime";
 import { BW2_TUTOR_MOVE_OVERLAY_ID } from "./tutorMoveModel";
 import { isRomFsTypeChartStore, typeChartOverlayId } from "./typeChartModel";
 
@@ -52,7 +53,8 @@ export function listOverlayInfos(project: ProjectState, rom: Pick<NintendoDSRom,
       fileId: readU32(table, offset + 24),
       compressed: Boolean(flags & 1),
       signed: Boolean(flags & 2),
-      readOnlyReason: overlayId === pmcId ? "This overlay holds the PMC code-injection loader. Manage it from the Code Injection page." : undefined,
+      readOnlyReason: overlayId === pmcId ? "This overlay holds the PMC code-injection loader. Manage it from the Code Injection page."
+        : overlayId === FIVE_BOX_PC_OVERLAY && fiveBoxPmcEnabled(project) ? "Five-Box Mode controls this PC overlay." : undefined,
     });
   }
   return infos.sort((a, b) => a.overlayId - b.overlayId);

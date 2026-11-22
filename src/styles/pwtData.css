@@ -97,11 +97,10 @@
   font-weight: 400;
 }
 
-#facility-data.pwt-data .pwt-kicker {
+#facility-data.pwt-data .pwt-lede {
+  margin: 4px 0 0;
   color: var(--text-muted);
-  font: 600 12px/1 var(--font-cond);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-size: 14px;
 }
 
 #facility-data.pwt-data .pwt-rules {

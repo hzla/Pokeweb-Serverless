@@ -24,6 +24,7 @@ export function makeItemEffectsProject(shift = 0, relocateBy = 0, extended = fal
   let cursor = 0x100 + shift;
   const catalog = extended ? { ...bindings.functions, ...native.functions, ...(ability ? {...abilityBindings.functions,...recipeBindings.functions,...clientBindings.functions} : {}) } : profiles.functions;
   const armOffsets = new Map<string, number>(), arm9 = new Uint8Array(0x10000);
+  const { IsFieldEffectActive: _field, AbilityReadFieldEffect, ...environmentServices } = environment.profiles.BW2;
   let armCursor = 0x100;
   for (const [name, signature] of Object.entries(catalog)) {
     const bytes = Uint8Array.from(signature.hex.match(/../gu)!, byte => Number.parseInt(byte, 16));
@@ -83,7 +84,7 @@ export function makeItemEffectsProject(shift = 0, relocateBy = 0, extended = fal
     }
   }
   if(ability&&extended){
-    const extra={...environment.profiles.BW2,...strikes.profiles.BW2,...status.profiles.BW2};
+    const extra={...environmentServices,...strikes.profiles.BW2,...status.profiles.BW2};
     for(const[name,signature]of Object.entries(extra)){offsets.set(name,cursor);const bytes=Uint8Array.from(signature.hex.match(/../gu)!,v=>parseInt(v,16));data.set(bytes,cursor);cursor=(cursor+bytes.length+3)&~3;}
     for(const[name,signature]of Object.entries(extra))for(const call of signature.calls){const at=offsets.get(name)!,delta=offsets.get(call.target)!-(at+call.offset+4);writeU16(data,at+call.offset,0xf000|(delta>>12)&0x7ff);writeU16(data,at+call.offset+2,0xf800|(delta>>1)&0x7ff);}
   }
@@ -121,6 +122,12 @@ export function makeItemEffectsProject(shift = 0, relocateBy = 0, extended = fal
         writeU16(data, at + 2, 0xf800 | (delta >> 1) & 0x7ff);
       }
     }
+    // Keep the new field reader after the services used by legacy DLL fixtures.
+    const getter = Uint8Array.from(Buffer.from(AbilityReadFieldEffect.hex, "hex"));
+    offsets.set("AbilityReadFieldEffect", cursor);
+    writeU32(data, offsets.get("IsFieldEffectActive")! + 12, base + cursor + 1);
+    data.set(getter, cursor);
+    cursor += getter.length;
   }
   const overlay = data.slice(0, cursor);
   const items = new NARC(); items.files = Array.from({ length: 639 }, () => new Uint8Array(36));

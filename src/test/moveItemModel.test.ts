@@ -93,6 +93,17 @@ describe("moveItemModel", () => {
     expect(getMoveRecord(project, 1).raw.result_effect).toBe(3);
   });
 
+  it("labels every added effect by its condition ID, Nightmare through Mean Look", () => {
+    const project = makeProject();
+    const effects = getMoveAutofills(project).result_effects;
+    expect(effects).toHaveLength(23);
+    expect(effects.every((label) => label.length > 0)).toBe(true);
+    expect([effects[9], effects[12], effects[17], effects[22]]).toEqual(["Nightmare effect", "Torment effect", "Forsight effect", "Prevents escape"]);
+    expect(updateMoveField(project, 1, "result_effect", "Torment effect").rawValue).toBe(12);
+    expect(getMoveRecord(project, 1).readable.result_effect).toBe("Torment effect");
+    expect(updateMoveField(project, 1, "result_effect", "Taunt effect").rawValue).toBe(11);
+  });
+
   it("keeps every AI effect description unique under the selector's case-insensitive lookup", () => {
     expect(EFFECTS).toHaveLength(338);
     expect(EFFECTS.every((label) => label.length > 0 && label === label.trim())).toBe(true);

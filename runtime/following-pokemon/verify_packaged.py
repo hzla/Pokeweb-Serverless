@@ -135,6 +135,9 @@ def audit(dll,elf):
 
 def execute(dll,elf):
  code,bss,symbols,rels,functions,count=audit(dll,elf)
+ native='fwn_route_step' in functions
+ # Native route interpolation rounds fixed-point ratios within 1/256 world unit.
+ tolerance=16 if native else 0
  args_regs=[UC_ARM_REG_R0,UC_ARM_REG_R1,UC_ARM_REG_R2,UC_ARM_REG_R3]
  saved_regs=[UC_ARM_REG_R4,UC_ARM_REG_R5,UC_ARM_REG_R6,UC_ARM_REG_R7,UC_ARM_REG_R8,UC_ARM_REG_R9,UC_ARM_REG_R10,UC_ARM_REG_R11]
  stop=0x02008000;stack=0x023f0000;sample=0x02208000;other=sample+64;trail=0x02210000;out=sample+128
@@ -175,7 +178,7 @@ def execute(dll,elf):
   for x in range(1,33):
    point(sample,x*4096,0);result=call('fw_trail_push',[trail,sample,out,6])[0]
    assert result==int(x>=22)
-   if x>=22:assert struct.unpack('<i',uc.mem_read(out,4))[0]==(x-22)*4096
+   if x>=22:assert abs(struct.unpack('<i',uc.mem_read(out,4))[0]-(x-22)*4096)<=tolerance
   # Both cardinal axes, speeds, reversals and bends execute in the final RPM.
   for axis in (0,1):
    for sign in (-1,1):
@@ -185,7 +188,7 @@ def execute(dll,elf):
       point(sample,0 if axis else sign*v,sign*v if axis else 0)
       result=call('fw_trail_push',[trail,sample,out,6])[0]
       assert result==int(v>=gap)
-      if result:assert struct.unpack('<iii',uc.mem_read(out,12))[2 if axis else 0]==sign*(v-gap)
+      if result:assert abs(struct.unpack('<iii',uc.mem_read(out,12))[2 if axis else 0]-sign*(v-gap))<=tolerance
   call('fw_trail_clear',[trail]);poses=[];last=-1;x=z=0
   for i in range(180):
    if i:
@@ -194,7 +197,11 @@ def execute(dll,elf):
    point(sample,x,z);poses.append((x,0,z));result=call('fw_trail_push',[trail,sample,out,6])[0]
    assert result in (0,1)
    if result:
-    pose=struct.unpack('<iii',uc.mem_read(out,12));at=poses.index(pose)
+    pose=struct.unpack('<iii',uc.mem_read(out,12))
+    if native:
+     # Interpolated poses must remain on a recorded segment through each bend.
+     at=next(j for j,(a,b) in enumerate(zip(poses,poses[1:])) if all(min(a[k],b[k])<=pose[k]<=max(a[k],b[k]) for k in range(3)))
+    else:at=poses.index(pose)
     assert at>=last and (last<0 or at-last<=2);last=at
  print(f'Packaged DLL: {count} immediate calls valid; multiply/divide, directional idle gate, stationary startup and walking trail pass at three load addresses. No DS game run.')
 

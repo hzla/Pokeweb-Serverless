@@ -152,7 +152,7 @@ function renderPokemonData(settings: RandomizerSettings): string {
         ${checkControl("Abilities follow evolutions", "pokemon.abilitiesFollowEvolutions", settings.pokemon.abilitiesFollowEvolutions)}
         ${checkControl("Allow Wonder Guard", "pokemon.allowWonderGuard", settings.pokemon.allowWonderGuard)}
         ${checkControl("Ban negative abilities", "pokemon.banNegativeAbilities", settings.pokemon.banNegativeAbilities)}
-        ${checkControl("Ensure two abilities", "pokemon.ensureTwoAbilities", settings.pokemon.ensureTwoAbilities)}
+        ${checkControl("Ensure 2 abilities", "pokemon.ensureTwoAbilities", settings.pokemon.ensureTwoAbilities)}
       </div>
     `,
     true,
@@ -171,7 +171,7 @@ function renderEvolutions(settings: RandomizerSettings, enabled: boolean): strin
       <div class="randomizer-options">
         ${checkControl("Similar strength", "evolutions.similarStrength", settings.evolutions.similarStrength)}
         ${checkControl("Same typing", "evolutions.sameType", settings.evolutions.sameType)}
-        ${checkControl("Limit to three stages", "evolutions.maxThreeStages", settings.evolutions.maxThreeStages)}
+        ${checkControl("Limit to 3 stages", "evolutions.maxThreeStages", settings.evolutions.maxThreeStages)}
         ${checkControl("Force change", "evolutions.forceChange", settings.evolutions.forceChange)}
         ${checkControl("Force BST growth", "evolutions.forceGrowth", settings.evolutions.forceGrowth)}
         ${checkControl("No convergence", "evolutions.noConvergence", settings.evolutions.noConvergence)}
@@ -254,7 +254,7 @@ function renderStarters(settings: RandomizerSettings, enabled: boolean): string 
       <div class="randomizer-grid">
         ${selectControl("Starter mode", "starters.mode", settings.starters.mode, [
           ["unchanged", "Unchanged"], ["random", "Completely random"], ["random-basic", "Random basic Pokémon"],
-          ["random-two-evolutions", "Random with two evolutions"],
+          ["random-two-evolutions", "Random with 2 evolutions"],
         ])}
       </div>
       <div class="randomizer-options">

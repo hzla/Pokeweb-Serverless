@@ -1,0 +1,261 @@
+{
+  "version": "1.0.0",
+  "games": {
+    "B": {
+      "idCode": "IRBO",
+      "fileName": "RotationBattleAIB.dll",
+      "sha256": "c6d2ce96fe992d041c5431339e1762cd5c770e1c2a95b31640aa8b1ad0653741",
+      "hooks": [
+        {
+          "overlay": 93,
+          "address": 35586068,
+          "type": "OFFSET"
+        },
+        {
+          "overlay": 93,
+          "address": 35457080,
+          "type": "THUMB_BRANCH_LINK"
+        }
+      ],
+      "signatures": [
+        {
+          "overlay": 93,
+          "address": 35586068,
+          "hex": "71071d02"
+        },
+        {
+          "overlay": 93,
+          "address": 35456880,
+          "hex": "f8b584b00d1c2968041c032918d84918"
+        },
+        {
+          "overlay": 93,
+          "address": 35457068,
+          "hex": "2068e7f7abfe032819d1201cfff746ff061c012e13d0"
+        },
+        {
+          "overlay": 93,
+          "address": 35457396,
+          "hex": "2860002004b0f8bd"
+        },
+        {
+          "overlay": 93,
+          "address": 35452956,
+          "hex": "f8b582b00e1c0090301c151c"
+        },
+        {
+          "overlay": 93,
+          "address": 35421716,
+          "hex": "f0b58db0051c0e1c171c1c1c"
+        },
+        {
+          "overlay": 93,
+          "address": 35484676,
+          "hex": "18b40b4a5268002a0fd001239b07141c3b342478844205d114698c4202d194691c4394615268002af1d118bc7047c046b03c1f02"
+        },
+        {
+          "overlay": 96,
+          "address": 35160252,
+          "hex": "f8b50e1c171c89f62ff9041c0025257065806570a56344300570201c45300570201c94300770206c0421e063"
+        },
+        {
+          "overlay": 96,
+          "address": 35160396,
+          "hex": "f8b586b00d1c943109780090281c02f0"
+        }
+      ]
+    },
+    "W": {
+      "idCode": "IRAO",
+      "fileName": "RotationBattleAIW.dll",
+      "sha256": "894ae5ababba4c88ec4794525ce2dfa5a653c159704e5666b484a86d360ef942",
+      "hooks": [
+        {
+          "overlay": 93,
+          "address": 35586100,
+          "type": "OFFSET"
+        },
+        {
+          "overlay": 93,
+          "address": 35457112,
+          "type": "THUMB_BRANCH_LINK"
+        }
+      ],
+      "signatures": [
+        {
+          "overlay": 93,
+          "address": 35586100,
+          "hex": "91071d02"
+        },
+        {
+          "overlay": 93,
+          "address": 35456912,
+          "hex": "f8b584b00d1c2968041c032918d84918"
+        },
+        {
+          "overlay": 93,
+          "address": 35457100,
+          "hex": "2068e7f7abfe032819d1201cfff746ff061c012e13d0"
+        },
+        {
+          "overlay": 93,
+          "address": 35457428,
+          "hex": "2860002004b0f8bd"
+        },
+        {
+          "overlay": 93,
+          "address": 35452988,
+          "hex": "f8b582b00e1c0090301c151c"
+        },
+        {
+          "overlay": 93,
+          "address": 35421748,
+          "hex": "f0b58db0051c0e1c171c1c1c"
+        },
+        {
+          "overlay": 93,
+          "address": 35484708,
+          "hex": "18b40b4a5268002a0fd001239b07141c3b342478844205d114698c4202d194691c4394615268002af1d118bc7047c046d03c1f02"
+        },
+        {
+          "overlay": 96,
+          "address": 35160284,
+          "hex": "f8b50e1c171c89f61ff9041c0025257065806570a56344300570201c45300570201c94300770206c0421e063"
+        },
+        {
+          "overlay": 96,
+          "address": 35160428,
+          "hex": "f8b586b00d1c943109780090281c02f0"
+        }
+      ]
+    },
+    "B2": {
+      "idCode": "IREO",
+      "fileName": "RotationBattleAIB2.dll",
+      "sha256": "5b6cfb9de745d3c36837ba43c136df8ae00d4e4a3bb64a7176d2ecf49ae5162d",
+      "hooks": [
+        {
+          "overlay": 167,
+          "address": 35483800,
+          "type": "OFFSET"
+        },
+        {
+          "overlay": 167,
+          "address": 35347086,
+          "type": "THUMB_BRANCH_LINK"
+        }
+      ],
+      "signatures": [
+        {
+          "overlay": 167,
+          "address": 35483800,
+          "hex": "ad591b02"
+        },
+        {
+          "overlay": 167,
+          "address": 35346860,
+          "hex": "f8b584b00d1c2968041c042925d84918"
+        },
+        {
+          "overlay": 167,
+          "address": 35347074,
+          "hex": "2068e6f77cf9032819d1201cfff739ff061c012e13d0"
+        },
+        {
+          "overlay": 167,
+          "address": 35347424,
+          "hex": "2860002004b0f8bd"
+        },
+        {
+          "overlay": 167,
+          "address": 35342884,
+          "hex": "f8b582b00e1c0090301c151c"
+        },
+        {
+          "overlay": 167,
+          "address": 35305812,
+          "hex": "f0b58db0051c0e1c171c1c1c"
+        },
+        {
+          "overlay": 167,
+          "address": 35376148,
+          "hex": "18b40b4a5268002a0fd001239b07141c3b342478844205d114698c4202d194691c4394615268002af1d118bc7047c04694b11d02"
+        },
+        {
+          "overlay": 170,
+          "address": 35125180,
+          "hex": "f8b50e1c171c96f60bf9041c0025257065806570a56344300570201c45300570201c94300770206c0421e063"
+        },
+        {
+          "overlay": 170,
+          "address": 35125324,
+          "hex": "f8b586b00d1c943109780090281c02f0"
+        }
+      ]
+    },
+    "W2": {
+      "idCode": "IRDO",
+      "fileName": "RotationBattleAIW2.dll",
+      "sha256": "ab56bb5a55d6902d42250f2706bdece584bab3c299310702aa9c92b0df4e5f2a",
+      "hooks": [
+        {
+          "overlay": 167,
+          "address": 35483864,
+          "type": "OFFSET"
+        },
+        {
+          "overlay": 167,
+          "address": 35347150,
+          "type": "THUMB_BRANCH_LINK"
+        }
+      ],
+      "signatures": [
+        {
+          "overlay": 167,
+          "address": 35483864,
+          "hex": "ed591b02"
+        },
+        {
+          "overlay": 167,
+          "address": 35346924,
+          "hex": "f8b584b00d1c2968041c042925d84918"
+        },
+        {
+          "overlay": 167,
+          "address": 35347138,
+          "hex": "2068e6f77cf9032819d1201cfff739ff061c012e13d0"
+        },
+        {
+          "overlay": 167,
+          "address": 35347488,
+          "hex": "2860002004b0f8bd"
+        },
+        {
+          "overlay": 167,
+          "address": 35342948,
+          "hex": "f8b582b00e1c0090301c151c"
+        },
+        {
+          "overlay": 167,
+          "address": 35305876,
+          "hex": "f0b58db0051c0e1c171c1c1c"
+        },
+        {
+          "overlay": 167,
+          "address": 35376212,
+          "hex": "18b40b4a5268002a0fd001239b07141c3b342478844205d114698c4202d194691c4394615268002af1d118bc7047c046d4b11d02"
+        },
+        {
+          "overlay": 170,
+          "address": 35125244,
+          "hex": "f8b50e1c171c96f6ebf8041c0025257065806570a56344300570201c45300570201c94300770206c0421e063"
+        },
+        {
+          "overlay": 170,
+          "address": 35125388,
+          "hex": "f8b586b00d1c943109780090281c02f0"
+        }
+      ]
+    }
+  }
+}

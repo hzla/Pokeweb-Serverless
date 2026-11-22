@@ -15,8 +15,41 @@ import { getAutofilledTrainerPokemonMoveIds, getTrainerCount, getTrainerRecord, 
 export type MastersheetInlinePart = { type: "text"; text: string } | { type: "link"; text: string; href: string };
 
 export type MastersheetElement = Record<string, unknown> & {
-  tag: "h1" | "h2" | "h3" | "h4" | "p" | "li" | "br" | "trainer" | "encounter" | "gifts" | "items" | "notif";
+  tag: "h1" | "h2" | "h3" | "h4" | "p" | "li" | "br" | "trainer" | "encounter" | "gifts" | "items" | "notif" | "zones" | "skip";
 };
+
+/** Lines a parsed element came from: 0-based, `end` exclusive. */
+export type MastersheetSourceRange = { start: number; end: number };
+
+/**
+ * Lookups the parser repeats on every rebuild while a sheet is edited: trainer and encounter references by their
+ * written token. The ROM doesn't change while a sheet is edited, so an answer stays right for the session.
+ */
+export type MastersheetReferenceCache = {
+  trainers: Map<string, number | undefined>;
+  encounters: Map<string, number | undefined>;
+};
+
+export function createMastersheetReferenceCache(): MastersheetReferenceCache {
+  return { trainers: new Map(), encounters: new Map() };
+}
+
+/** Viewer-only lines (`!zones`, `!skip`), which the calc export leaves out. */
+const VIEWER_ONLY_TAGS = new Set<MastersheetElement["tag"]>(["zones", "skip"]);
+
+/**
+ * `!skip tr 180, enc 44, item 417`: what Fill from the ROM suggests for a page that its author marked not needed.
+ * Keys come back as "tr 180", "enc 44" and "item 417".
+ */
+export function parseMastersheetSkips(payload: string): { keys: string[]; invalid: boolean } {
+  const tokens = payload.split(",").map((token) => token.trim()).filter(Boolean);
+  const keys: string[] = [];
+  for (const token of tokens) {
+    const match = /^(tr|enc|item)\s*(\d+)$/iu.exec(token);
+    if (match) keys.push(`${match[1]!.toLowerCase()} ${Number(match[2])}`);
+  }
+  return { keys: [...new Set(keys)], invalid: keys.length !== tokens.length };
+}
 
 export type MastersheetWarning = {
   line: number;
@@ -26,6 +59,8 @@ export type MastersheetWarning = {
 
 export type MastersheetParseResult = {
   masterData: MastersheetElement[];
+  /** Where each element of `masterData` came from in the source, index for index. */
+  sourceRanges: MastersheetSourceRange[];
   warnings: MastersheetWarning[];
   trainerPointers: Record<string, { id: number; prev?: number; next?: number }>;
 };
@@ -33,7 +68,7 @@ export type MastersheetParseResult = {
 export type MastersheetTrainerRecord = Record<string, unknown> | null;
 export type MastersheetEncounterRecord = { id: number; name: string; wilds: string[]; locations: string[] } | null;
 
-export type MastersheetExport = MastersheetParseResult & {
+export type MastersheetExport = Omit<MastersheetParseResult, "sourceRanges"> & {
   encountersById: MastersheetEncounterRecord[];
   highlights: MastersheetHighlightMap;
   trainersById: MastersheetTrainerRecord[];
@@ -72,9 +107,25 @@ export function enrichMastersheetTrainerLocations(project: ProjectState): string
   return result.message;
 }
 
-export function parseMastersheetMarkdown(markdown: string, project?: ProjectState): MastersheetParseResult {
+export function parseMastersheetMarkdown(markdown: string, project?: ProjectState, references?: MastersheetReferenceCache): MastersheetParseResult {
   const source = markdown.replace(/\r\n?/gu, "\n").split("\n");
-  const masterData: MastersheetElement[] = [];
+  const elements: MastersheetElement[] = [];
+  const sourceRanges: MastersheetSourceRange[] = [];
+  let lineStart = 0;
+  let lineEnd = 1;
+  // Every element pushed while a line (or a multi-line block) is read is marked with those lines.
+  const masterData = {
+    push(...added: MastersheetElement[]) {
+      for (const element of added) {
+        elements.push(element);
+        sourceRanges.push({ start: lineStart, end: lineEnd });
+      }
+      return elements.length;
+    },
+    get length() {
+      return elements.length;
+    },
+  };
   const warnings: MastersheetWarning[] = [];
   const trainerLinks: Array<{ id: number; prev?: number; next?: number }> = [];
   let previousTrainerId: number | undefined;
@@ -86,6 +137,8 @@ export function parseMastersheetMarkdown(markdown: string, project?: ProjectStat
     const rawLine = source[index] ?? "";
     const line = rawLine.replace(/\t/gu, "  ").trimEnd();
     const stripped = line.trim();
+    lineStart = index;
+    lineEnd = index + 1;
 
     if (stripped === "") {
       masterData.push({ tag: "p", content: "", content_parts: [{ type: "text", text: "" }] });
@@ -103,6 +156,7 @@ export function parseMastersheetMarkdown(markdown: string, project?: ProjectStat
       const title = stripped.slice("!gifts".length).trim();
       const block = parseBlockList(source, index + 1);
       if (!block.ended) warnings.push({ line: lineNumber, message: `!gifts "${title || "(untitled)"}" is missing an end line.`, blocking: false });
+      lineEnd = block.ended ? block.endIndex + 1 : block.endIndex;
       masterData.push({
         tag: "gifts",
         giftsTitle: title,
@@ -118,6 +172,7 @@ export function parseMastersheetMarkdown(markdown: string, project?: ProjectStat
       const title = stripped.slice("!items".length).trim();
       const block = parseBlockList(source, index + 1);
       if (!block.ended) warnings.push({ line: lineNumber, message: `!items "${title || "(untitled)"}" is missing an end line.`, blocking: false });
+      lineEnd = block.ended ? block.endIndex + 1 : block.endIndex;
       masterData.push({
         tag: "items",
         itemsTitle: title,
@@ -129,9 +184,33 @@ export function parseMastersheetMarkdown(markdown: string, project?: ProjectStat
       continue;
     }
 
+    if (/^!zones(\s|$)/u.test(stripped)) {
+      const tokens = stripped.slice("!zones".length).split(/[\s,]+/u).filter(Boolean);
+      const zones = tokens.map(Number).filter((zone) => Number.isInteger(zone) && zone >= 0);
+      if (zones.length !== tokens.length) warnings.push({ line: lineNumber, message: "!zones takes zone numbers, separated by commas.", blocking: false });
+      masterData.push({ tag: "zones", zones });
+      index += 1;
+      continue;
+    }
+
+    if (/^!skip(\s|$)/u.test(stripped)) {
+      const { keys, invalid } = parseMastersheetSkips(stripped.slice("!skip".length));
+      if (invalid) warnings.push({ line: lineNumber, message: "!skip takes tr, enc or item and a number, separated by commas: !skip tr 180, item 417.", blocking: false });
+      masterData.push({ tag: "skip", skips: keys });
+      index += 1;
+      continue;
+    }
+
     if (stripped.startsWith("!notif")) {
       const payload = stripped.slice("!notif".length).trim();
       const parts = payload.split(",").map((part) => part.trim());
+      // `frame=sign` (the default) or `frame=system`: the game's text box the viewer draws it in.
+      const option = parts.length >= 2 ? /^frame\s*=\s*(\S*)$/iu.exec(parts.at(-1)!) : null;
+      const frame = option?.[1]?.toLowerCase();
+      if (option) {
+        parts.pop();
+        if (frame !== "sign" && frame !== "system") warnings.push({ line: lineNumber, message: "!notif frame= takes sign or system: !notif Title, text, #427b9c, frame=system.", blocking: false });
+      }
       const title = parts[0] ?? "";
       const last = parts.at(-1);
       const hasColor = parts.length >= 3 && isColorToken(last);
@@ -142,6 +221,7 @@ export function parseMastersheetMarkdown(markdown: string, project?: ProjectStat
         text: textParts.join(",").trim(),
       };
       if (hasColor && last) element.fontColor = last;
+      if (frame === "sign" || frame === "system") element.noticeFrame = frame;
       masterData.push(element);
       index += 1;
       continue;
@@ -158,7 +238,7 @@ export function parseMastersheetMarkdown(markdown: string, project?: ProjectStat
     } else if (line.startsWith("- ") || line.startsWith("* ")) {
       pushInlineElement(masterData, "li", line.slice(2));
     } else if (line.startsWith("!tr")) {
-      const trainerElement = parseTrainerElement(line, lineNumber, project, warnings);
+      const trainerElement = parseTrainerElement(line, lineNumber, project, warnings, references);
       const trainerId = Number(trainerElement.id ?? 0);
       const trainerLink: { id: number; prev?: number; next?: number } = { id: trainerId, prev: previousTrainerId };
       if (previousTrainerIndex !== undefined) trainerLinks[previousTrainerIndex].next = trainerId;
@@ -167,7 +247,7 @@ export function parseMastersheetMarkdown(markdown: string, project?: ProjectStat
       trainerLinks.push(trainerLink);
       masterData.push(trainerElement);
     } else if (line.startsWith("!enc")) {
-      masterData.push(parseEncounterElement(line, lineNumber, project, warnings));
+      masterData.push(parseEncounterElement(line, lineNumber, project, warnings, references));
     } else {
       const chunks = splitWithLineBreaks(line);
       if (chunks.length > 1) {
@@ -190,13 +270,23 @@ export function parseMastersheetMarkdown(markdown: string, project?: ProjectStat
     trainerPointers[String(trainer.id)] = trainer;
   });
 
-  return { masterData, warnings, trainerPointers };
+  return { masterData: elements, sourceRanges, warnings, trainerPointers };
+}
+
+/** The elements the calc sheet gets: everything but the viewer's own lines and a notice's frame. */
+function calcElements(masterData: MastersheetElement[]): MastersheetElement[] {
+  return masterData.filter((element) => !VIEWER_ONLY_TAGS.has(element.tag)).map((element) => {
+    if (element.tag !== "notif" || !("noticeFrame" in element)) return element;
+    const { noticeFrame: _frame, ...rest } = element;
+    return rest as MastersheetElement;
+  });
 }
 
 export function buildMastersheetExport(project: ProjectState, markdown = ensureMastersheetMarkdown(project)): MastersheetExport {
-  const parsed = parseMastersheetMarkdown(markdown, project);
+  const { sourceRanges: _ranges, ...parsed } = parseMastersheetMarkdown(markdown, project);
   return {
     ...parsed,
+    masterData: calcElements(parsed.masterData),
     encountersById: buildMastersheetEncountersById(project),
     highlights: classifyMastersheetMoveHighlights(project, ensureDocs(project).mastersheetHighlights),
     trainersById: buildMastersheetTrainersById(project),
@@ -204,7 +294,8 @@ export function buildMastersheetExport(project: ProjectState, markdown = ensureM
 }
 
 export function buildMastersheetPreview(project: ProjectState, markdown = ensureMastersheetMarkdown(project)): MastersheetExport {
-  const parsed = parseMastersheetMarkdown(markdown, project);
+  const { sourceRanges: _ranges, ...all } = parseMastersheetMarkdown(markdown, project);
+  const parsed = { ...all, masterData: calcElements(all.masterData) };
   const trainerIds = referencedElementIds(parsed.masterData, "trainer");
   const encounterIds = referencedElementIds(parsed.masterData, "encounter");
   return {
@@ -252,7 +343,7 @@ export function mastersheetMarkdownFromMasterData(masterData: unknown): string {
   return `${lines.join("\n").replace(/\s+$/u, "")}\n`;
 }
 
-function pushInlineElement(masterData: MastersheetElement[], tag: "h1" | "h2" | "h3" | "h4" | "p" | "li", content: string): void {
+function pushInlineElement(masterData: { push(element: MastersheetElement): unknown }, tag: "h1" | "h2" | "h3" | "h4" | "p" | "li", content: string): void {
   masterData.push({ tag, content, content_parts: parseInline(content) });
 }
 
@@ -285,6 +376,10 @@ function mastersheetElementToMarkdown(value: unknown): string {
     }
     case "encounter":
       return `!enc ${String(value.id ?? 0)}`;
+    case "zones":
+      return `!zones ${(Array.isArray(value.zones) ? value.zones : []).join(", ")}`;
+    case "skip":
+      return `!skip ${(Array.isArray(value.skips) ? value.skips : []).join(", ")}`;
     case "items":
       return blockListToMarkdown("!items", value.itemsTitle, value.itemsDescription, value.itemList, value.itemDescriptions);
     case "gifts":
@@ -293,6 +388,7 @@ function mastersheetElementToMarkdown(value: unknown): string {
       const parts = [String(value.notificationTitle ?? "").trim(), String(value.text ?? "").trim()].filter((part) => part !== "");
       const color = String(value.fontColor ?? "").trim();
       if (color) parts.push(color);
+      if (value.noticeFrame === "sign" || value.noticeFrame === "system") parts.push(`frame=${value.noticeFrame}`);
       return `!notif ${parts.join(", ")}`;
     }
     default:
@@ -496,6 +592,7 @@ function parseTrainerElement(
   lineNumber: number,
   project: ProjectState | undefined,
   warnings: MastersheetWarning[],
+  references?: MastersheetReferenceCache,
 ): MastersheetElement {
   const tokens = line.trim().split(/\s+/u);
   const token = tokens[1] ?? "";
@@ -507,7 +604,7 @@ function parseTrainerElement(
     element.notes_parts = parseInline(notes.join(" "));
   }
 
-  const id = resolveTrainerReference(token, project);
+  const id = cachedReference(references?.trainers, token, () => resolveTrainerReference(token, project));
   element.id = id ?? 0;
   if (id === undefined) {
     warnings.push({ line: lineNumber, message: `Unable to resolve trainer reference "${token || "(missing)"}".`, blocking: true });
@@ -520,13 +617,22 @@ function parseEncounterElement(
   lineNumber: number,
   project: ProjectState | undefined,
   warnings: MastersheetWarning[],
+  references?: MastersheetReferenceCache,
 ): MastersheetElement {
   const token = line.slice(5).trim();
-  const id = resolveEncounterReference(token, project);
+  const id = cachedReference(references?.encounters, token, () => resolveEncounterReference(token, project));
   if (id === undefined) {
     warnings.push({ line: lineNumber, message: `Unable to resolve encounter reference "${token || "(missing)"}".`, blocking: true });
   }
   return { tag: "encounter", id: id ?? 0 };
+}
+
+function cachedReference(cache: Map<string, number | undefined> | undefined, token: string, resolve: () => number | undefined): number | undefined {
+  if (!cache) return resolve();
+  if (cache.has(token)) return cache.get(token);
+  const id = resolve();
+  cache.set(token, id);
+  return id;
 }
 
 function resolveTrainerReference(token: string, project: ProjectState | undefined): number | undefined {
@@ -773,6 +879,10 @@ function mergeTextParts(parts: MastersheetInlinePart[]): MastersheetInlinePart[]
 
 function splitWithLineBreaks(text: string): string[] {
   return text.split(/\s*<br>\s*/iu);
+}
+
+export function parseMastersheetBlockList(source: string[], startIndex: number): BlockListParseResult {
+  return parseBlockList(source, startIndex);
 }
 
 function parseBlockList(source: string[], startIndex: number): BlockListParseResult {

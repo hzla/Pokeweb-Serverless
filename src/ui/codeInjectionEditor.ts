@@ -7,7 +7,7 @@ import { getTrainerFieldConditionsStatus } from "../pokeweb/trainerFieldConditio
 import { frostbiteSnowStatus, installFrostbiteSnowPatch } from "../pokeweb/frostbiteSnowModel";
 import { attachTrainerFieldInstaller, renderTrainerFieldInstaller } from "./trainerFieldConditions";
 import { getDebugSaveFlagStatus, installDebugSaveFlag, parseDebugSaveFlag } from "../pokeweb/debugSaveFlagModel";
-import { renderInlineStatus } from "./inlineStatus";
+import { renderInlineStatus as renderStatusBadge } from "./inlineStatus";
 import { installCodeInjectionPatch, withProjectMutationLock } from "../pokeweb/codeInjectionInstall";
 import { getPartyQuickActionsStatus, installPartyQuickActions, disablePartyQuickActions, parsePartyToolbarHideFlag, PARTY_TOOLBAR_SECTIONS } from "../pokeweb/partyQuickActionsModel";
 import {
@@ -17,6 +17,8 @@ import {
   detectBundledOverworldWeatherRuntime,
   getPmcInstallStatus,
   getPmcHeapExpansionStatus,
+  getFiveBoxPmcStatus,
+  setFiveBoxPmcMode,
   expandPmcHeapAllocation,
   getPmcUpdateConfirmationMessage,
   installBundledOverworldWeatherRuntime,
@@ -61,6 +63,7 @@ import {
   installTagBattleStabilization,
   uninstallTagBattleStabilization,
 } from "../pokeweb/tagBattleStabilizationModel";
+import { getRotationBattleAiStatus, stageRotationBattleAi, uninstallRotationBattleAi } from "../pokeweb/rotationBattleAiModel";
 import { getPortaPcStatus, installPortaPc, uninstallPortaPc } from "../pokeweb/portaPcModel";
 import { CGEAR_QUICK_ACTIONS_VERSION, getCGearQuickActionsStatus, installCGearQuickActions, disableCGearQuickActions, removeCGearQuickActions } from "../pokeweb/cgearQuickActionsModel";
 import { CGEAR_QUICK_ACTIONS_BW1_VERSION } from "../pokeweb/cgearQuickActionsBw1Model";
@@ -106,6 +109,11 @@ import { loadActiveRomBytes } from "../pokeweb/persistence";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 import { creditHtml } from "./creditLinks";
+
+/** A card without a badge is ready to install: "Ready" only restated that nothing is installed yet. */
+function renderInlineStatus(label: string, options?: Parameters<typeof renderStatusBadge>[1]): string {
+  return label === "Ready" ? "" : renderStatusBadge(label, options);
+}
 
 const codeInjectionHydrationProjects = new WeakSet<ProjectState>();
 const typeIconSolidPreview = new URL("../assets/codeinjection/type-icons-solid-preview.png", import.meta.url).href;
@@ -169,6 +177,13 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const emptyCategoryMessage = `<div class="code-injection-empty" data-code-injection-empty hidden>No supported patches in this category. Enable “Show unsupported patches” in the sidebar to view all patches.</div>`;
   const status = getPmcInstallStatus(project);
   const heapExpansion = getPmcHeapExpansionStatus(project);
+  const heapExpansionLabel = heapExpansion.available
+    ? `Expand PMC Heap Allocation (+${heapExpansion.targetCapKiB - heapExpansion.capKiB}kb)`
+    : "Expand PMC Heap Allocation";
+  const fiveBox = getFiveBoxPmcStatus(project);
+  const fiveBoxDetail = fiveBox.legacy ? "Update PMC to migrate Pokémon from boxes 6–24."
+    : fiveBox.enabled ? "DS-mode export. Saving clears boxes 6–24 after moving any Pokémon that fit into Box 5."
+      : "Repurposes PC box 6-24 for more PMC Heap";
   const install = <T>(stage: (candidate: ProjectState) => T | Promise<T>) => installCodeInjectionPatch(project, stage);
   const modules = listCodeInjectionDlls(project);
   const memory=status.installed?getPmcMemoryEstimate(project):undefined;
@@ -245,6 +260,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     </section>`;
   }).join("");
   const tagBattleStatus = getTagBattleStabilizationStatus(project);
+  const rotationBattleAi = getRotationBattleAiStatus(project);
   const tagBattleCanInstall = tagBattleStatus.supported && tagBattleStatus.compatible && !tagBattleStatus.installed;
   const portaPcStatus = getPortaPcStatus(project);
   const quickActionsStatus = getCGearQuickActionsStatus(project);
@@ -359,12 +375,14 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           </div>
           <div class="code-injection-facts">
             <div><span>Version</span><strong>${status.installed && status.version ? escapeHtml(status.version) : "—"}</strong></div>
-            ${heapExpansion.expanded ? `<div><span>Heap cap</span><strong>200 KiB</strong></div>` : ""}
+            ${fiveBox.enabled ? `<div><span>PC storage</span><strong>5 boxes · 150 slots</strong></div>` : heapExpansion.expanded ? `<div><span>Heap cap</span><strong>${heapExpansion.capKiB} KiB</strong></div>` : ""}
           </div>
-          ${memory?renderPmcCapacity(memory,project.session.baseRom==="BW"):""}
+          ${memory?renderPmcCapacity(memory,project.session.baseRom==="BW",fiveBox.enabled):""}
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-pmc-btn" type="button" ${status.supported ? "" : "disabled"}>${status.installed ? "Update PMC" : "Install PMC"}</button>
-            <button class="btn -default" id="expand-pmc-heap-btn" type="button" ${heapExpansion.available ? "" : "disabled"} title="${escapeHtml(heapExpansion.message)}">Expand PMC Heap Allocation</button>
+            ${fiveBox.enabled ? "" : `<button class="btn -default" id="expand-pmc-heap-btn" type="button" ${heapExpansion.available ? "" : "disabled"} title="${escapeHtml(heapExpansion.message)}">${heapExpansionLabel}</button>`}
+            ${fiveBox.supported ? `<button class="btn -default" id="five-box-pmc-btn" type="button" aria-describedby="five-box-pmc-detail">${fiveBox.enabled ? "Restore 24 PC Boxes" : "Enable Five-Box Mode (+72kb)"}</button>
+            <small id="five-box-pmc-detail">${fiveBoxDetail}</small>` : ""}
             <div class="code-injection-note" id="pmc-install-note" aria-live="polite"></div>
           </div>
         </section>
@@ -593,6 +611,19 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div class="code-injection-note" id="tag-battle-stabilization-note" aria-live="polite"></div>
           </div>
         </section>
+        <section class="code-injection-panel" ${patchVisibility(rotationBattleAi.supported)}>
+          <div class="code-injection-panel__header">
+            <div><h2>Rotation Battle AI</h2><p>Scores all three rotation slots against your current front Pokémon.</p></div>
+            ${renderInlineStatus(rotationBattleAi.installed ? "Installed" : rotationBattleAi.compatible ? "Ready" : rotationBattleAi.supported ? "Unavailable" : "Unsupported", { className: "code-injection-status" })}
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-rotation-battle-ai-btn" type="button"
+              ${rotationBattleAi.compatible && !rotationBattleAi.installed ? "" : "disabled"}>Install Rotation Battle AI</button>
+            ${rotationBattleAi.canUninstall ? '<button class="btn -default" id="uninstall-rotation-battle-ai-btn" type="button">Remove staged patch</button>' : ""}
+            <div class="code-injection-note" id="rotation-battle-ai-note" role="status">${escapeHtml(rotationBattleAi.message)}</div>
+          </div>
+        </section>
+
         <section class="code-injection-panel" ${patchVisibility(formEvolutionStatus !== "unsupported")}>
           <div class="code-injection-panel__header">
             <div>
@@ -1210,7 +1241,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             ${renderInlineStatus(levelCapsStatus.updateAvailable ? "Update Available" : levelCapsStatus.installed ? "Installed" : levelCapsStatus.compatible ? "Ready" : levelCapsStatus.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
-            <div><span>ROM</span><strong>US Black 2 / White 2</strong></div>
+            <div><span>ROM</span><strong>US Black / White / Black 2 / White 2</strong></div>
             <div><span>Cap variable</span><strong>16415</strong></div>
             <div><span>Default</span><strong>100</strong></div>
             <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
@@ -1394,8 +1425,29 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const button = root.querySelector<HTMLButtonElement>("#install-pmc-btn");
   const note = root.querySelector<HTMLDivElement>("#pmc-install-note");
   const expandHeapButton = root.querySelector<HTMLButtonElement>("#expand-pmc-heap-btn");
+  const fiveBoxButton = root.querySelector<HTMLButtonElement>("#five-box-pmc-btn");
+  fiveBoxButton?.addEventListener("click", async () => {
+    fiveBoxButton.disabled = true;
+    if (button) button.disabled = true;
+    if (expandHeapButton) expandHeapButton.disabled = true;
+    if (note) note.textContent = "Verifying the ROM and installed patches…";
+    try {
+      await setFiveBoxPmcMode(project, !fiveBox.enabled);
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+      const refreshed = root.querySelector<HTMLDivElement>("#pmc-install-note");
+      if (refreshed) refreshed.textContent = fiveBox.enabled ? "24 boxes restored. Export and restart from an in-game save."
+        : "Five-Box Mode enabled. Export and restart from an in-game save.";
+    } catch (error) {
+      fiveBoxButton.disabled = false;
+      if (button) button.disabled = !status.supported;
+      if (expandHeapButton) expandHeapButton.disabled = !heapExpansion.available;
+      if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
   expandHeapButton?.addEventListener("click", async () => {
     expandHeapButton.disabled = true;
+    if (fiveBoxButton) fiveBoxButton.disabled = true;
     if (button) button.disabled = true;
     if (note) note.textContent = "Verifying PMC and installed patches…";
     try {
@@ -1406,6 +1458,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       if (refreshed) refreshed.textContent = "Expanded allocation installed. Export and restart from a normal save.";
     } catch (error) {
       expandHeapButton.disabled = !getPmcHeapExpansionStatus(project).available;
+      if (fiveBoxButton) fiveBoxButton.disabled = false;
       if (button) button.disabled = !getPmcInstallStatus(project).supported;
       if (note) note.textContent = error instanceof Error ? error.message : String(error);
     }
@@ -1423,6 +1476,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         }
       }
       button.disabled = true;
+      if (fiveBoxButton) fiveBoxButton.disabled = true;
       if (expandHeapButton) expandHeapButton.disabled = true;
       button.textContent = "Installing...";
       if (note) note.textContent = "Installing the runtime and preparing patch folders...";
@@ -1433,6 +1487,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       if (refreshedNote) refreshedNote.textContent = `PMC ${result.version ?? "runtime"} installed.`;
     } catch (error) {
       button.disabled = false;
+      if (fiveBoxButton) fiveBoxButton.disabled = false;
       if (expandHeapButton) expandHeapButton.disabled = !getPmcHeapExpansionStatus(project).available;
       button.textContent = previousText;
       if (note) note.textContent = error instanceof Error ? error.message : String(error);
@@ -2192,6 +2247,27 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       if (tagBattleNote) tagBattleNote.textContent = error instanceof Error ? error.message : String(error);
     }
   });
+
+  for (const [id, action] of [
+    ["install", () => install(stageRotationBattleAi)],
+    ["uninstall", () => uninstallRotationBattleAi(project)],
+  ] as const) {
+    root.querySelector<HTMLButtonElement>(`#${id}-rotation-battle-ai-btn`)?.addEventListener("click", async (event) => {
+      const button = event.currentTarget as HTMLButtonElement;
+      const note = root.querySelector<HTMLDivElement>("#rotation-battle-ai-note");
+      button.disabled = true;
+      try {
+        await action();
+        onDirty();
+        renderCodeInjectionEditor(project, root, onDirty);
+        const refreshedNote = root.querySelector<HTMLDivElement>("#rotation-battle-ai-note");
+        if (refreshedNote && id === "install") refreshedNote.textContent = "Staged. Export the ROM to apply the patch.";
+      } catch (error) {
+        button.disabled = false;
+        if (note) note.textContent = error instanceof Error ? error.message : String(error);
+      }
+    });
+  }
 
   for (const [id, action] of [
     ["install", () => install(candidate => installCGearQuickActions(candidate))],

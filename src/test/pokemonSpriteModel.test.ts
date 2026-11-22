@@ -152,6 +152,9 @@ describe("pokemonSpriteModel", () => {
     expect(project.fileSystem.additions?.["pokeicon_palette_map.bin"]?.[1076]).toBe(0x12);
     expect(getPokemonIconPaletteAssignment(project, 1076, "male")).toEqual({ editable: true, paletteId: 2 });
     expect(getPokemonIconPaletteAssignment(project, 1076, "female")).toEqual({ editable: true, paletteId: 1 });
+
+    setPokemonIconPaletteAssignment(project, 1076, "both", 2);
+    expect(project.fileSystem.additions?.["pokeicon_palette_map.bin"]?.[1076]).toBe(0x22);
     expect(project.arm9Dirty).not.toBe(true);
   });
 
@@ -331,6 +334,19 @@ describe("pokemonSpriteModel", () => {
 
     expect(project.narcs.pokemon_icons!.dirty.has(10)).toBe(true);
     expect(() => setPokemonIconImage(project, 1, "male", 0, { width: 31, height: 64, pixels: new Uint8ClampedArray(31 * 64 * 4) })).toThrow(/32 x 64/u);
+  });
+
+  it("previews shared icon artwork with the female palette assignment", () => {
+    const project = makeProject();
+    const icons = project.narcs.pokemon_icons!.rawFiles;
+    icons[11] = new Uint8Array();
+    writeU16(icons[0], 40 + 32 + 2, rgb555(31, 0, 0));
+    setPokemonIconPaletteAssignment(project, 1, "male", 0);
+    setPokemonIconPaletteAssignment(project, 1, "female", 1);
+
+    expect([...getPokemonIconImage(project, 1, "male").pixels.slice(0, 4)]).toEqual([8, 8, 8, 255]);
+    expect([...getPokemonIconImage(project, 1, "female").pixels.slice(0, 4)]).toEqual([255, 0, 0, 255]);
+    expect(icons[11]).toHaveLength(0);
   });
 
   it("parses and edits NitroPaint NANR animation frames", () => {

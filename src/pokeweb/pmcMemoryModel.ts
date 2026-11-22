@@ -1,5 +1,6 @@
 import {NintendoDSRom} from "../nds/rom";
 import {getPmcHeapExpansionStatus,listCodeInjectionDlls} from "./pmcModel";
+import {FIVE_BOX_PMC_ESTIMATE_KIB,fiveBoxPmcEnabled} from "./pmcFiveBoxRuntime";
 import type {ProjectState} from "./projectStore";
 import {estimateRpmMemory,type RpmMemoryEstimate} from "./rpmMemory";
 
@@ -60,5 +61,6 @@ export function getPmcMemoryEstimate(project:ProjectState):PmcMemoryEstimate {
     const startupPeak=PMC_BASE_ALLOCATION_BYTES+residentLoads+Math.max(0,...modules.filter(m=>m.scope!=="resident").map(m=>m.loadAllocationBytes));
     return {residentBytes,loadingPeakBytes:Math.max(loadingPeakBytes,startupPeak),modules:selected.map(m=>m.path)};
   };
-  return {capBytes:(getPmcHeapExpansionStatus(project).expanded?200:160)*1024,battle:phase("battle"),overworld:phase("overworld"),modules,unknown,issues,conservative};
+  const capKiB=fiveBoxPmcEnabled(project)?FIVE_BOX_PMC_ESTIMATE_KIB:getPmcHeapExpansionStatus(project).capKiB;
+  return {capBytes:capKiB*1024,battle:phase("battle"),overworld:phase("overworld"),modules,unknown,issues,conservative};
 }

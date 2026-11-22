@@ -6,12 +6,45 @@ import {createRequire} from "node:module";
 import {fileURLToPath} from "node:url";
 import vm from "node:vm";
 import {PNG} from "pngjs";
-import {toDesmumeDsv} from "../../src/pokeweb/testBattle";
+import { getTestBattleConfig, refreshTestBattleSaveBlockChecksum, testBattleScriptIdForTrainer, toDesmumeDsv } from "../../src/pokeweb/testBattle";
+import type { BaseRom } from "../../src/pokeweb/constants";
+import { readU16, readU32, writeU16, writeU32 } from "../../src/nds/binary";
+import { NARC } from "../../src/nds/narc";
+import { NintendoDSRom } from "../../src/nds/rom";
 
 export type LogEntry={event:number;a:number;d:number;x:number;move:number;y:number;value:number};
 export type RunOptions={tag:string;frames:number;shots:boolean;evidence?:string;logCapacity?:number;texts?:readonly string[];observeMemory?:(memory:Buffer)=>void;sampleMemory?:(memory:Buffer)=>void};
 type BattleResult={entries:LogEntry[];frames:number;seenTexts:string[]};
 const A=128;
+
+/** The ordinary overworld double-battle script expects two actors with
+ * the same trainer script ID. Add its partner to the ROM and its saved map. */
+export function addDoubleTrainerPartner(romBytes: Uint8Array, base: NintendoDSRom, save: Uint8Array, game: BaseRom, trainerId: number): Uint8Array {
+ const config = getTestBattleConfig(game), script = testBattleScriptIdForTrainer(trainerId);
+ const fixture = new NintendoDSRom(romBytes,{fileData:"view"}), path = config.paths.overworlds;
+ const archive = new NARC(fixture.getFileByName(path)), original = new NARC(base.getFileByName(path));
+ let partners = 0;
+ for (const [i, bytes] of archive.files.entries()) {
+  if (bytes.length !== original.files[i].length+36) continue;
+  const end = 8+bytes[4]*20+bytes[5]*36, partner = bytes.slice(end-36,end);
+  if (readU16(partner,10)!==script) continue;
+  writeU16(partner,0,readU16(partner,0)+1);writeU16(partner,28,readU16(partner,28)+1);
+  const expanded = new Uint8Array(bytes.length+36);
+  expanded.set(bytes.subarray(0,end));expanded.set(partner,end);expanded.set(bytes.subarray(end),end+36);
+  expanded[5]++;writeU32(expanded,0,readU32(bytes,0)+36);archive.files[i]=expanded;partners++;
+ }
+ if (!partners) throw Error("Double-trainer field partner fixture missing.");
+ for (const half of [0,config.saveLayout.saveHalfOffset]) {
+  const slots = Array.from({length:64},(_,n)=>half+0x1e200+n*80);
+  const first = slots.find(at=>(readU32(save,at)&1)&&readU16(save,at+24)===script);
+  const free = slots.find(at=>!(readU32(save,at)&1));
+  if (first===undefined||free===undefined) throw Error("Double-trainer actor slot missing.");
+  save.set(save.slice(first,first+80),free);save[free+8]=save[first+8]+1;
+  for (const field of [32,38]) writeU16(save,free+field,readU16(save,first+field)+1);
+  refreshTestBattleSaveBlockChecksum(save,config.saveLayout,half,0x1e200,0x1400,0x1f602,41);
+ }
+ return fixture.save({files:new Map([[fixture.fileId(path),archive.save()]]),preserveOriginalLength:true});
+}
 
 export async function runLoggedBattle(directory:string,spec:any,options:RunOptions):Promise<BattleResult>{
  const rom=new Uint8Array(await readFile(`${directory}/${spec.rom}`));

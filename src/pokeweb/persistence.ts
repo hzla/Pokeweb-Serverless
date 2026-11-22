@@ -92,6 +92,24 @@ export async function loadActiveProject(): Promise<ProjectState | undefined> {
   return project;
 }
 
+/**
+ * Saves a new mastersheet into the stored project without touching the rest of it. The Mastersheet Viewer edits
+ * the sheet while the editor tab may hold newer edits to everything else; writing its whole copy would undo them.
+ */
+export async function saveActiveProjectMastersheet(markdown: string): Promise<void> {
+  const db = await openDb();
+  try {
+    const transaction = db.transaction(PROJECT_STORE_NAME, "readwrite");
+    const store = transaction.objectStore(PROJECT_STORE_NAME);
+    const complete = transactionToPromise(transaction);
+    const stored = await requestToPromise<unknown>(store.get(ACTIVE_PROJECT_KEY));
+    if (!stored || typeof stored !== "object") throw new Error("There's no project saved in this browser.");
+    const value = stored as { docs?: Record<string, unknown> };
+    value.docs = { romTitle: "", ...(value.docs ?? {}), mastersheetMarkdown: markdown };
+    await Promise.all([requestToPromise(store.put(value, ACTIVE_PROJECT_KEY)), complete]);
+  } finally { db.close(); }
+}
+
 export async function clearActiveProject(): Promise<void> {
   releaseActiveRomBytes();
   const db = await openDb();

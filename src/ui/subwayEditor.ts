@@ -572,12 +572,12 @@ function renderTrain(project: ProjectState, state: PageState, train: SubwayTrain
   const battlesNote = train.series === "normal" ? "Beating the boss opens the Super train" : train.series === "super" ? "Boss at battle 49" : "";
   const head = `
     <header class="pwt-head">
-      <div class="pwt-kicker">${train.series === "normal" ? "Normal train · 3 rounds of 7 battles" : train.series === "super" ? "Super train · rounds of 7 battles, no limit" : "Downloaded train"}</div>
       <h1>${escapeHtml(train.name)}</h1>
+      <p class="pwt-lede">${train.series === "normal" ? "Normal train · 3 rounds of 7 battles" : train.series === "super" ? "Super train · rounds of 7 battles, no limit" : "Downloaded train"}</p>
     </header>
     <div class="pwt-rules">
       <div><span>Level</span><strong>50</strong></div>
-      <div><span>Pokémon brought</span><strong>${brought}</strong>${train.brought === 2 ? "<small>Two trainers per side</small>" : ""}</div>
+      <div><span>Pokémon brought</span><strong>${brought}</strong>${train.brought === 2 ? "<small>2 trainers per side</small>" : ""}</div>
       <div><span>Battles</span><strong>${battles}</strong>${battlesNote ? `<small>${battlesNote}</small>` : ""}</div>
       <div><span>Battle Points</span><strong class="pwt-rule-text">${escapeHtml(train.battlePoints)}</strong></div>
       <div><span>Regulation</span><strong class="pwt-rule-text">#${train.regulation} ${escapeHtml(train.regulationName)}</strong><small><a href="#facilities/raw" data-open="raw" data-regulation="${train.regulation}">Edit rules</a></small></div>
@@ -657,7 +657,7 @@ function renderBossSlot(project: ProjectState, entry: SubwaySlot, train: SubwayT
 function renderBosses(project: ProjectState): string {
   const trains = SUBWAY_TRAINS.filter((train) => train.bosses.length);
   return `
-    <header class="pwt-head"><div class="pwt-kicker">Battle Subway</div><h1>Ingo &amp; Emmet</h1></header>
+    <header class="pwt-head"><h1>Ingo &amp; Emmet</h1></header>
     <p class="pwt-note">Each train ends with a boss: battle 21 on the normal trains and battle 49 on the Super trains. Multi trains face Ingo and Emmet together. Their teams have exactly as many Pokémon as they bring, so every set always appears.</p>
     ${trains.map((train) => `
       <div class="section-bar md-gap">${escapeHtml(train.name)}<span class="td-bar-note">${train.series === "normal" ? "Battle 21" : "Battle 49"}</span></div>
@@ -668,7 +668,7 @@ function renderBosses(project: ProjectState): string {
 
 function renderGroup(project: ProjectState, title: string, note: string, trainers: SubwayTrainer[]): string {
   return `
-    <header class="pwt-head"><div class="pwt-kicker">Battle Subway</div><h1>${escapeHtml(title)}</h1></header>
+    <header class="pwt-head"><h1>${escapeHtml(title)}</h1></header>
     <p class="pwt-note">${escapeHtml(note)}</p>
     <div class="section-bar md-gap">Trainers<span class="td-bar-note">${trainers.length}</span></div>
     <div class="pwt-cards">${trainers.map((trainer) => trainerCard(project, trainer, true)).join("")}</div>
@@ -778,7 +778,7 @@ function speciesWarning(project: ProjectState, trainer: SubwayTrainer, setIds: n
 function renderPools(project: ProjectState): string {
   const pools = getSubwayPools(project);
   return `
-    <header class="pwt-head"><div class="pwt-kicker">Battle Subway</div><h1>Pokémon pools</h1></header>
+    <header class="pwt-head"><h1>Pokémon pools</h1></header>
     <p class="pwt-note">Trainers with exactly the same Pokémon list share a pool. Editing a pool changes every trainer in it; a trainer's own page changes only that trainer.</p>
     <div class="section-bar md-gap">Pools<span class="td-bar-note">${pools.length}</span></div>
     <div class="subway-pools">${pools.map((pool) => {
@@ -806,7 +806,7 @@ function renderPool(project: ProjectState, state: PageState, trainerId: number):
   const strictest = trainers.reduce((worst, trainer) => (speciesNeeded(trainer) > speciesNeeded(worst) ? trainer : worst), trainers[0]!);
   return `
     <a class="pwt-back" href="#facilities/${back}" data-open="${back}">‹ ${escapeHtml(backLabel(project, back))}</a>
-    <header class="pwt-head"><div class="pwt-kicker">Pokémon pool</div><h1>${trainers.length === 1 ? `${escapeHtml(trainers[0]!.name)}'s Pokémon` : `Shared by ${trainers.length} trainers`}</h1></header>
+    <header class="pwt-head"><h1>${trainers.length === 1 ? `${escapeHtml(trainers[0]!.name)}'s Pokémon` : `Shared by ${trainers.length} trainers`}</h1></header>
     <p class="pwt-note">${trainers.length === 1 ? "Only this trainer uses this exact list." : `Adding or removing a Pokémon here changes the list of all ${trainers.length} trainers. To change one of them alone, open that trainer.`}</p>
     <p class="fd-warning" data-subway-status hidden></p>
     <div class="section-bar md-gap">Trainers<span class="td-bar-note">${trainers.length}</span></div>
@@ -850,7 +850,7 @@ function renderAddRow(targets: number[]): string {
 
 function renderSets(project: ProjectState, state: PageState, unusedOnly: boolean): string {
   return `
-    <header class="pwt-head"><div class="pwt-kicker">Battle Subway</div><h1>${unusedOnly ? "Unused sets" : "All sets"}</h1></header>
+    <header class="pwt-head"><h1>${unusedOnly ? "Unused sets" : "All sets"}</h1></header>
     <p class="pwt-note">${unusedOnly ? "No trainer's list names these sets. Add them to a trainer or pool to use them." : "Every Battle Subway set. Editing one changes it for every trainer whose list names it."}</p>
     <input class="md-search pwt-rental-search" type="search" value="${escapeHtml(state.setSearch)}" placeholder="Search Pokémon, moves, items" data-set-search aria-label="Search sets">
     <div data-set-results>${renderSetLibrary(project, state.setSearch, unusedOnly)}</div>

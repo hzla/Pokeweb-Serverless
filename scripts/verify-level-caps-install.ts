@@ -8,7 +8,7 @@ import { loadProjectFromRomBytes } from "../src/pokeweb/loader";
 import { parseRpm } from "../src/pokeweb/rpm";
 
 const paths = process.argv.slice(2);
-if (paths.length !== 2) throw new Error("Usage: npm run levelcaps:verify-rom -- cleanblack2.nds cleanwhite2.nds");
+if (!paths.length) throw new Error("Usage: npm run levelcaps:verify-rom -- <clean US ROM.nds> [...]");
 const originalFetch = globalThis.fetch;
 globalThis.fetch = (async (input: RequestInfo | URL) => {
   const url = input instanceof Request ? new URL(input.url) : new URL(String(input));
@@ -19,17 +19,20 @@ globalThis.fetch = (async (input: RequestInfo | URL) => {
 try {
   for (const path of paths) {
     const source = new Uint8Array(await readFile(path));
-    const original = new NintendoDSRom(source);
-    if (original.idCode !== "IREO" && original.idCode !== "IRDO") throw new Error(`${path}: expected US BW2`);
-    const version = original.idCode === "IREO" ? "B2" : "W2";
+    const original = new NintendoDSRom(source, { fileData: "view" });
+    const versions: Record<string, string> = { IRBO: "B", IRAO: "W", IREO: "B2", IRDO: "W2" };
+    const version = versions[original.idCode];
+    if (!version) throw new Error(`${path}: expected US Black, White, Black 2 or White 2`);
     const project = await loadProjectFromRomBytes(source, basename(path), { selectedNarcs: ["items", "message_texts"] });
     const before = getLevelCapsStatus(project);
     if (!before.compatible || before.installed) throw new Error(`${version}: ${before.message}`);
-    const upgradePath = `patches/${version === "B2" ? "Black2Upgrade" : "White2Upgrade"}.dll`;
-    const modules = (project.codeInjection ??= {}).modules ??= [];
-    modules.push({ path: upgradePath, target: "patches", fileName: upgradePath.split("/").pop()! });
-    if (getLevelCapsStatus(project).supported) throw new Error(`${version}: upgrade ROM reservation was not rejected`);
-    modules.pop();
+    if (version.length === 2) {
+      const upgradePath = `patches/${version === "B2" ? "Black2Upgrade" : "White2Upgrade"}.dll`;
+      const modules = (project.codeInjection ??= {}).modules ??= [];
+      modules.push({ path: upgradePath, target: "patches", fileName: upgradePath.split("/").pop()! });
+      if (getLevelCapsStatus(project).supported) throw new Error(`${version}: upgrade ROM reservation was not rejected`);
+      modules.pop();
+    }
 
     const installed = await installLevelCaps(project);
     if (installed.path !== `patches/HardLevelCaps${version}.dll`) throw new Error(`${version}: wrong DLL path`);
@@ -40,8 +43,8 @@ try {
       throw new Error(`${version}: combined installation is incompatible`);
     }
 
-    const exported = new NintendoDSRom(await exportModifiedRom(project));
-    for (const id of [36, 165, 167]) {
+    const exported = new NintendoDSRom(await exportModifiedRom(project), { fileData: "view" });
+    for (const id of version.length === 1 ? [21, 91, 93] : [36, 165, 167]) {
       const prior = original.loadArm9Overlays([id]).get(id)!.data;
       const after = exported.loadArm9Overlays([id]).get(id)!.data;
       if (!same(prior, after)) throw new Error(`${version}: native overlay ${id} changed instead of using PMC`);

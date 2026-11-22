@@ -1,8 +1,11 @@
-import type { MastersheetDocument, MsPlacement } from "../pokeweb/mastersheetDocument";
+import type { MastersheetDocument } from "../pokeweb/mastersheetDocument";
 import type { ProjectState } from "../pokeweb/projectStore";
 import type { RgbaImageData } from "../pokeweb/pokemonSpriteModel";
 import { FieldSnapshotRenderer } from "./sceneRenderer";
-import { badgeLeaderImage, pokedexIconImage, tmDiscImage, typeIconImage } from "../pokeweb/gen5UiImages";
+import { hackMarkImage, type HackMark } from "./hackMarks";
+import { settingsCogImage } from "./settingsCog";
+import { editPencilImage } from "./editPencil";
+import { badgeLeaderImage, categoryIconImage, pokedexIconImage, tmDiscImage, typeIconImage } from "../pokeweb/gen5UiImages";
 
 /**
  * Every image the viewer shows has a fixed key, which doubles as its file name in a future static export:
@@ -14,7 +17,11 @@ import { badgeLeaderImage, pokedexIconImage, tmDiscImage, typeIconImage } from "
  *   maps/zone-<id>.webp            top-down map
  *   scenes/trainer-<id>.webp       trainer standing on the map
  *   types/<type>.png               the game's type icon (32 × 16), by type index
+ *   categories/<n>.png             the game's move category icon: 0 Status, 1 Physical, 2 Special
  *   ui/dex-tab.png                 the field menu's Pokédex icon, mirrored, for the dex tab
+ *   ui/settings-tab.png            a cog in the field menu's style, for the settings tab (settingsCog.ts)
+ *   ui/edit-tab.png                a pencil in the same style, for the editor's tab (editPencil.ts)
+ *   ui/mark-new.png, mark-changed.png  the red NEW! and CHANGED! for what a hack added or changed (hackMarks.ts)
  *   ui/leader-<n>.png              Gym Leader n's portrait from the badge case (BW2), for the split headers
  *
  * The live provider draws them from the ROM. Map and scene renders are kept in IndexedDB between visits when the
@@ -24,6 +31,8 @@ export type AssetKey = string;
 
 export interface AssetProvider {
   url(key: AssetKey): Promise<string>;
+  /** The URL when it is ready already, so a redrawn page shows images it had without waiting a frame. */
+  peek?(key: AssetKey): string | undefined;
 }
 
 export const assetKeys = {
@@ -35,7 +44,11 @@ export const assetKeys = {
   map: (zoneId: number) => `maps/zone-${zoneId}.webp`,
   scene: (trainerId: number) => `scenes/trainer-${trainerId}.webp`,
   type: (typeIndex: number) => `types/${typeIndex}.png`,
+  category: (index: number) => `categories/${index}.png`,
   dexTab: "ui/dex-tab.png",
+  settingsTab: "ui/settings-tab.png",
+  editTab: "ui/edit-tab.png",
+  mark: (mark: HackMark) => `ui/mark-${mark}.png`,
   leader: (index: number) => `ui/leader-${index}.png`,
 };
 
@@ -43,11 +56,15 @@ export const assetKeys = {
  * Bump when renders change so cached images are redrawn.
  * 3: trainer scenes cropped to 74 × 55 at 2×, the trainer card's first column.
  * 4: map thumbnails show the zone's NPCs.
+ * 5: trainer scenes skip copies of a trainer parked off the map.
+ * 6: trainer scenes turn the camera when the map hides the trainer (Celestial Tower).
+ * 7: ...and bring it in front of the wall when no turn clears it.
  */
-const RENDER_VERSION = 4;
+const RENDER_VERSION = 7;
 
 export class RomAssetProvider implements AssetProvider {
   private urls = new Map<AssetKey, Promise<string>>();
+  private ready = new Map<AssetKey, string>();
   private renderer: FieldSnapshotRenderer;
   private trainerSpritesReady?: Promise<boolean>;
 
@@ -58,11 +75,24 @@ export class RomAssetProvider implements AssetProvider {
   url(key: AssetKey): Promise<string> {
     let url = this.urls.get(key);
     if (!url) {
-      url = this.create(key).then((blob) => URL.createObjectURL(blob));
+      url = this.create(key).then((blob) => {
+        const objectUrl = URL.createObjectURL(blob);
+        this.ready.set(key, objectUrl);
+        return objectUrl;
+      });
       this.urls.set(key, url);
       url.catch(() => this.urls.delete(key));
     }
     return url;
+  }
+
+  peek(key: AssetKey): string | undefined {
+    return this.ready.get(key);
+  }
+
+  /** The sheet changed in the editor: trainer scenes come from the document's placements. */
+  setDocument(document: MastersheetDocument): void {
+    this.document = document;
   }
 
   private async create(key: AssetKey): Promise<Blob> {
@@ -90,21 +120,22 @@ export class RomAssetProvider implements AssetProvider {
         return this.cached(key, () => this.renderer.zoneTopDown(numbers[0]!));
       case "types":
         return png(typeIconImage(this.project, numbers[0]!));
+      case "categories":
+        return png(categoryIconImage(this.project, numbers[0]!));
       case "ui":
         if (name === "dex-tab.png") return png(pokedexIconImage(this.project, true));
+        if (name === "settings-tab.png") return png(settingsCogImage());
+        if (name === "edit-tab.png") return png(editPencilImage());
+        if (name === "mark-new.png" || name === "mark-changed.png") return png(hackMarkImage(name === "mark-new.png" ? "new" : "changed"));
         if (/^leader-\d\.png$/u.test(name)) return png(badgeLeaderImage(this.project, numbers[0]!));
         break;
       case "scenes": {
-        const placement = this.placement(numbers[0]!);
-        if (!placement) throw new Error("This trainer doesn't stand on the map.");
-        return this.cached(key, () => this.renderer.trainerScene(placement, { crop: [74, 55], scale: 2 }));
+        const placements = this.document.trainers[numbers[0]!]?.placements ?? [];
+        if (!placements.length) throw new Error("This trainer doesn't stand on the map.");
+        return this.cached(key, () => this.renderer.trainerScene(placements, { crop: [74, 55], scale: 2 }));
       }
     }
     throw new Error(`Unknown image ${key}`);
-  }
-
-  private placement(trainerId: number): MsPlacement | undefined {
-    return this.document.trainers[trainerId]?.placements[0];
   }
 
   private async sprite(load: () => Promise<RgbaImageData>): Promise<RgbaImageData> {
@@ -124,6 +155,7 @@ export class RomAssetProvider implements AssetProvider {
     this.renderer.dispose();
     for (const url of this.urls.values()) url.then(URL.revokeObjectURL, () => undefined);
     this.urls.clear();
+    this.ready.clear();
   }
 }
 

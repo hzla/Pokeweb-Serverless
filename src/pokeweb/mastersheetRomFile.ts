@@ -1,6 +1,6 @@
 import { unzlibSync, zlibSync } from "fflate";
 import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
-import type { NintendoDSRom } from "../nds/rom";
+import { NintendoDSRom } from "../nds/rom";
 import { ensureDocs } from "./docGeneratorModel";
 import { ensureFileSystemState } from "./fileSystemModel";
 import type { MastersheetHighlightMap, ProjectState } from "./projectStore";
@@ -96,6 +96,31 @@ export function mastersheetSavesInRom(project: ProjectState): boolean {
 
 export function setMastersheetSavesInRom(project: ProjectState, enabled: boolean): void {
   ensureDocs(project).mastersheetInRom = enabled;
+}
+
+/**
+ * The Mastersheet Viewer's "Save ROM": the same ROM with only its saved mastersheet replaced. Every other file keeps
+ * its bytes, so a hack opened in the viewer comes back exactly as it was apart from the sheet. Only ROMs that already
+ * carry a mastersheet open in the viewer, so the file is always there to replace.
+ */
+export function writeMastersheetIntoRom(romBytes: Uint8Array, data: MastersheetRomData): Uint8Array {
+  const rom = new NintendoDSRom(romBytes, { fileData: "view" });
+  const fileId = rom.filenames.idOf(MASTERSHEET_ROM_PATH);
+  if (fileId === undefined) throw new Error("This ROM has no saved mastersheet to replace. Add one in Pokeweb's Mastersheet editor and export the ROM first.");
+  return rom.save({
+    files: new Map([[fileId, encodeMastersheetRomFile(data)]]),
+    preserveDataLayout: true,
+    preserveBw2PmcLayout: true,
+    allowDamagedDsi: true,
+  });
+}
+
+/** The mastersheet a ROM carries, if it has one that can be read. */
+export function readMastersheetFromRom(romBytes: Uint8Array): MastersheetRomData | undefined {
+  const rom = new NintendoDSRom(romBytes, { fileData: "view" });
+  const fileId = rom.filenames.idOf(MASTERSHEET_ROM_PATH);
+  const bytes = fileId === undefined ? undefined : rom.files[fileId];
+  return bytes?.length ? decodeMastersheetRomFile(bytes) : undefined;
 }
 
 /** The file export would write, or undefined when nothing is saved. */

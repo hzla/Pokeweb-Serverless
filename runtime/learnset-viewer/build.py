@@ -47,7 +47,7 @@ def calls(data, base, target):
 
 BUILD.mkdir(parents=True, exist_ok=True)
 ASSETS.mkdir(parents=True, exist_ok=True)
-VERSION = "1.10.1"
+VERSION = "1.11.0"
 write_info_messages(BUILD)
 # PMC's priority-chain array has five entries (0..PMC_PATCH=4). Priority 5
 # writes past it and never reaches the overlay activation chain.

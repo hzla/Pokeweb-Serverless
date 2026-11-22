@@ -515,6 +515,11 @@ html :is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-da
   color: var(--g5-text);
 }
 
+/* Secondary text in the selected row (level, power, price, count): grey on menu blue read at 2.8:1. The pages set it with id selectors. */
+html :is(#move-data, #pokemon-data, #trainer-data, #facility-data, #encounter-data, #item-data, #text-data, #sprite-data, #header-data, #music-data, #move-anim-data) .md-row.is-selected :is(.md-row-pow, .pwt-row-meta, .it-row-price, .td-row-lv, .td-row-class) {
+  color: var(--g5-text);
+}
+
 /* Changed marks are the old mastersheet's yellow. */
 html :is(.move-data, .pokemon-data, .trainer-data, .facility-data, .encounter-data, .item-data, .text-data, .sprite-data, .header-data, .music-data, .move-anim-data) .md-edits {
   color: var(--g5-mark);

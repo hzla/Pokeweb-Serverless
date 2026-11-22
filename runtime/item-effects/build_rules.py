@@ -9,9 +9,9 @@ JAR=Path(os.environ.get('RPM_TOOL_JAR',WORKSPACE/'pw2-build-work/ctrmap/CTRMap.j
 BUILD=HERE/'build';BUILD.mkdir(exist_ok=True)
 def run(*args):subprocess.run([str(arg) for arg in args],check=True)
 legacy='--legacy' in sys.argv
-version=3 if legacy else 4 if '--v4' in sys.argv else 5 if '--v5' in sys.argv else 6 if '--v6' in sys.argv else 7
+version=3 if legacy else 4 if '--v4' in sys.argv else 5 if '--v5' in sys.argv else 6 if '--v6' in sys.argv else 7 if '--v7' in sys.argv else 8
 run(TOOLS/'arm-none-eabi-gcc','-std=c11','-mthumb','-mcpu=arm946e-s','-Os','-Wall','-Wextra','-Werror','-Wno-parentheses',
-    '-ffreestanding','-fno-builtin','-fno-jump-tables','-fno-unwind-tables','-fno-asynchronous-unwind-tables','-fvisibility=hidden','-c',HERE/('rules.c' if legacy else f'rules_v{version}.c'),'-o',BUILD/'rules.o')
+    '-ffreestanding','-fno-builtin','-fno-jump-tables','-fno-unwind-tables','-fno-asynchronous-unwind-tables','-fvisibility=hidden',*(['-DITEM_FIELD_CONDITIONS'] if version==8 else []),'-c',HERE/('rules.c' if legacy else f'rules_v{min(version,7)}.c'),'-o',BUILD/'rules.o')
 (BUILD/'rules-meta.yml').write_text(f'PMCVersion: item-rules-{version}\nPMCModulePriority: 4\n')
 (BUILD/'rules-symbols.yml').write_text('Segments:\n  - ID: 0\n    Name: ARM9\n    Type: EXECUTABLE\nSymbols: []\n')
 dll=BUILD/'rules-template.dll';dll.unlink(missing_ok=True)

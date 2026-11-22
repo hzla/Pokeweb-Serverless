@@ -7,8 +7,8 @@ export type WeatherResourceFootprintItem = {
 };
 
 export function renderWeatherResourceFootprint(items: readonly WeatherResourceFootprintItem[], transplantSummary: string): string {
-  return `<section class="weather-resource-footprint" aria-label="Resource footprint">
-    <div class="weather-resource-footprint-title">Transplant / resource footprint</div>
+  return `<details class="weather-resource-footprint">
+    <summary class="weather-resource-footprint-title">Transplant / resource footprint</summary>
     <p class="weather-transplant-summary">${escapeHtml(transplantSummary)}</p>
     <div class="weather-resource-footprint-list">
       ${items.map((item) => `<div class="weather-resource-footprint-row">
@@ -16,5 +16,5 @@ export function renderWeatherResourceFootprint(items: readonly WeatherResourceFo
         <div><code>${escapeHtml(item.target)}</code><small>${escapeHtml(item.description)}</small></div>
       </div>`).join("")}
     </div>
-  </section>`;
+  </details>`;
 }

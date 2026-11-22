@@ -34,7 +34,7 @@
   background: #121620;
   border: 1px solid rgb(248 255 255 / 16%);
   border-left-color: rgb(248 255 255 / 7%);
-  border-radius: 0 7px 7px 0;
+  border-radius: 0 var(--radius) var(--radius) 0;
   box-shadow: 8px 0 18px rgb(0 0 0 / 30%), 0 1px 0 rgb(255 255 255 / 7%) inset;
   color: #f8ffff;
   cursor: pointer;
@@ -121,7 +121,6 @@
 .sprite-field span {
   color: #c9c9d3;
   font-size: 12px;
-  text-transform: uppercase;
 }
 
 .sprite-field.-checkbox {
@@ -149,7 +148,7 @@
 .gif-segmented-buttons {
   background: #242638;
   border: 1px solid #3b4254;
-  border-radius: 5px;
+  border-radius: var(--radius);
   display: flex;
   gap: 4px;
   padding: 3px;
@@ -211,7 +210,7 @@
 .gif-flipbook-panel {
   background: rgb(56 58 89 / 72%);
   border: 1px solid var(--ink-3);
-  border-radius: 6px;
+  border-radius: var(--radius);
   display: grid;
   gap: 10px;
   padding: 12px;
@@ -255,7 +254,7 @@
 .sprite-field textarea {
   background: #282d3b;
   border: 1px solid #3b4254;
-  border-radius: 4px;
+  border-radius: var(--radius);
   color: #eef2fb;
   font-size: 13px;
   line-height: 1.2;
@@ -323,13 +322,12 @@
   font-size: 11px;
   font-weight: 700;
   justify-content: flex-start;
-  text-transform: uppercase;
 }
 
 .animation-step-field input {
   background: #242638;
   border: 1px solid var(--ink-3);
-  border-radius: 4px;
+  border-radius: var(--radius);
   color: #eef2fb;
   font-size: 13px;
   min-height: 28px;
@@ -415,14 +413,13 @@
   color: #c9c9d3;
   font-size: 12px;
   font-weight: 700;
-  text-transform: uppercase;
 }
 
 .sprite-bundle-drop {
   align-items: center;
   background: rgb(248 255 255 / 5%);
   border: 1px dashed rgb(248 255 255 / 38%);
-  border-radius: 6px;
+  border-radius: var(--radius);
   color: #f8ffff;
   cursor: pointer;
   display: grid;
@@ -468,7 +465,7 @@
 .gif-manual-sampling {
   background: rgb(8 10 16 / 18%);
   border: 1px solid var(--ink-3);
-  border-radius: 6px;
+  border-radius: var(--radius);
   display: grid;
   gap: 8px;
   padding: 10px;
@@ -477,7 +474,7 @@
 #gif-viewer-canvas {
   background: #1f2333;
   border: 1px solid var(--ink-3);
-  border-radius: 4px;
+  border-radius: var(--radius);
   display: block;
   height: 136px;
   width: 192px;
@@ -545,7 +542,6 @@
   color: #aeb4c6;
   font-size: 11px;
   font-weight: 700;
-  text-transform: uppercase;
 }
 
 .gif-flipbook-stats strong {
@@ -754,7 +750,7 @@
 .sprite-preview-item {
   background: var(--ink-2);
   border: 1px solid var(--ink-3);
-  border-radius: 6px;
+  border-radius: var(--radius);
   display: grid;
   gap: 8px;
   justify-items: center;
@@ -821,7 +817,7 @@
   align-content: start;
   background: rgba(18, 22, 32, 0.36);
   border: 1px solid rgba(80, 88, 112, 0.55);
-  border-radius: 4px;
+  border-radius: var(--radius);
   display: grid;
   gap: 8px;
   padding: 8px;
@@ -871,7 +867,7 @@
 .palette-row input {
   background: #282d3b;
   border: 1px solid #3b4254;
-  border-radius: 4px;
+  border-radius: var(--radius);
   color: #eef2fb;
   font-size: 12px;
   line-height: 1.2;
@@ -905,7 +901,7 @@
 .icon-preview-wrap {
   background: var(--ink-2);
   border: 1px solid var(--ink-3);
-  border-radius: 6px;
+  border-radius: var(--radius);
   display: grid;
   justify-items: center;
   padding: 12px;
@@ -966,7 +962,7 @@
   align-self: start;
   background: var(--ink-2);
   border: 1px solid var(--ink-3);
-  border-radius: 6px;
+  border-radius: var(--radius);
   box-shadow: none;
   color: #eef2fb;
   min-width: 0;
@@ -1013,7 +1009,7 @@
 .sprite-editor-page .animation-workbench .pwan-form input[type="file"]::file-selector-button {
   background: #202532;
   border: 1px solid #4b5265;
-  border-radius: 4px;
+  border-radius: var(--radius);
   color: #eef2fb;
   font: inherit;
   margin-right: 8px;
@@ -1078,7 +1074,7 @@
 .ncec-metadata-panel {
   background: #222736;
   border: 1px solid #34394b;
-  border-radius: 6px;
+  border-radius: var(--radius);
   margin-bottom: 14px;
   padding: 12px;
 }
@@ -1091,7 +1087,7 @@
 
 .ncec-stop-nodes {
   border: 1px solid #3b4254;
-  border-radius: 5px;
+  border-radius: var(--radius);
   margin-top: 12px;
   padding: 10px;
 }
@@ -1117,7 +1113,7 @@
   align-items: flex-start;
   background: #282d3b;
   border: 1px solid #3b4254;
-  border-radius: 4px;
+  border-radius: var(--radius);
   display: flex;
   gap: 9px;
   padding: 8px;
@@ -1172,7 +1168,7 @@
 
 .animation-file-sequence {
   border: 1px solid #34394b;
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 12px;
 }
 
@@ -1203,7 +1199,7 @@
 .animation-file-table select {
   background: #282d3b;
   border: 1px solid #3b4254;
-  border-radius: 4px;
+  border-radius: var(--radius);
   color: #eef2fb;
   min-height: 28px;
   padding: 3px 6px;
@@ -1491,7 +1487,7 @@
 .animation-controls {
   background: var(--ink-2);
   border: 1px solid var(--ink-3);
-  border-radius: 6px;
+  border-radius: var(--radius);
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   padding: 14px;
@@ -1521,7 +1517,7 @@
 .rig-controls {
   background: var(--ink-2);
   border: 1px solid var(--ink-3);
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 14px;
 }
 

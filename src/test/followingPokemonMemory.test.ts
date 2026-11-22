@@ -4,6 +4,7 @@ import { NintendoDSRom } from "../nds/rom";
 import { NARC } from "../nds/narc";
 import { writeU32 } from "../nds/binary";
 import contract from "../../runtime/following-pokemon/contract.json";
+import native9Contract from "../../runtime/following-pokemon/native9-contract.json";
 import bw2PmcContract from "../../runtime/following-pokemon/bw2-pmc-contract.json";
 import { loadActiveRomBytes } from "../pokeweb/persistence";
 import type { ProjectState } from "../pokeweb/projectStore";
@@ -58,7 +59,7 @@ function fixture(upgrade = true) {
 
 function compatibleStockFixture(): { project: ProjectState; rom: FollowerRom } {
   const base = 0x02004000;
-  const sites = [...contract.hooks, ...contract.nativeAdapters];
+  const sites = [...contract.hooks, ...contract.nativeAdapters, ...native9Contract.nativeAdapters];
   const pmcSites: Array<{ segment?: string; address: number; expectedHex: string }> = [
     ...bw2PmcContract.profiles.IRDO.hooks, ...bw2PmcContract.profiles.IRDO.imports,
   ];
@@ -115,6 +116,14 @@ describe("Following Pokémon ROM memory", () => {
     const report = await checkFollowerCompatibility(project, rom);
     expect(report.compatible).toBe(false);
     expect(report.checks.find(check => check.name === hook.id)?.passed).toBe(false);
+  });
+  it("rejects modified native9 shadow bindings before installation", async () => {
+    const { project, rom } = compatibleStockFixture();
+    const adapter = native9Contract.nativeAdapters.find(site => site.id === "native9-native-billboard-draw")!;
+    project.arm9[adapter.address - rom.arm9RamAddress] ^= 1;
+    const report = await checkFollowerCompatibility(project, rom);
+    expect(report.compatible).toBe(false);
+    expect(report.checks.find(check => check.name === adapter.id)?.passed).toBe(false);
   });
   it("shares one stored ROM read across page checks, rules, and rule saves", async () => {
     const { project } = fixture();

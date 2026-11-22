@@ -23,7 +23,14 @@ PUBLIC u32 AbilityClientTrapped(void*client,void*mon,u8*trapper,u16*ability){
  for(u32 n=0;n<count;++n){
   u32 id=effective[n];if(id>=256||!AbilityClientTrapTypes[id])continue;
   const volatile u8*r=record(id);void*serverMon=MON(clientFlow,ids[n]);
-  if(!r||!serverMon||!STAT(serverMon,13)||!active(r,clientFlow,serverMon))continue;
+  if(!r||!serverMon||!STAT(serverMon,13))continue;
+#ifdef ABILITY_EFFECT_CONDITIONS
+  const volatile u8*e=effects(r);u32 enabled=0;
+  for(u32 k=0;k<r[0];++k,e+=16)if(e[0]==128&&e[12]==42&&EFFECT_ENABLED(r,e,clientFlow,serverMon,ids[n],0,owner)){enabled=1;break;}
+  if(!enabled)continue;
+#else
+  if(!active(r,clientFlow,serverMon,ids[n]))continue;
+#endif
   if(CLIENT(4,u32(*)(void*,u32))(mon,AbilityClientTrapTypes[id]-1)){
    if(trapper){*trapper=ids[n];}
    if(ability){*ability=(u16)id;}

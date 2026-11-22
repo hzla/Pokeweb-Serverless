@@ -35,7 +35,7 @@
 
 .text-filter .filter-check .checkmark {
   background: #f2f2f2;
-  border-radius: 4px;
+  border-radius: var(--radius);
   flex: 0 0 auto;
   height: 28px;
   inset: auto;
@@ -86,7 +86,7 @@
 .text-replace {
   background: var(--ink-0);
   border: 1px solid var(--field-line);
-  border-radius: 8px;
+  border-radius: var(--radius);
   margin: 0 18px 24px;
   padding: 18px;
   font-size: 16px;
@@ -116,7 +116,7 @@
 .text-replace select {
   background: var(--ink-2);
   border: 1px solid var(--field-line);
-  border-radius: 4px;
+  border-radius: var(--radius);
   box-sizing: border-box;
   color: #f2f2f2;
   font: inherit;
@@ -171,7 +171,7 @@
 .text-replace-confirm {
   background: var(--ink-0);
   border: 1px solid var(--amber);
-  border-radius: 8px;
+  border-radius: var(--radius);
   color: #f2f2f2;
   font-size: 16px;
   line-height: 1.5;
@@ -186,7 +186,7 @@
 
 .text-replace-confirm pre {
   background: var(--ink-2);
-  border-radius: 4px;
+  border-radius: var(--radius);
   font: inherit;
   overflow-wrap: anywhere;
   padding: 14px;

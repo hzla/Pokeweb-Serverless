@@ -77,3 +77,20 @@
   height: 24px;
   width: 24px;
 }
+
+/* File facts about the animation, closed until someone needs them. */
+.player-back-details {
+  align-self: start;
+  min-width: 0;
+}
+
+.player-back-details > summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 4px 0;
+}
+
+.player-back-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}

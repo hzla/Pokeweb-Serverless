@@ -27,17 +27,14 @@
 
 .starter-grid {
   display: grid;
-  gap: 14px;
+  gap: 24px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   margin: 0 auto;
   max-width: 980px;
 }
 
 .starter-slot {
-  background: rgba(40, 42, 54, 0.76);
-  border: 1px solid rgba(242, 242, 242, 0.1);
-  border-radius: 8px;
-  padding: 16px;
+  padding: 0;
 }
 
 .starter-slot-head {
@@ -62,9 +59,8 @@
 
 .starter-graphic-stage {
   align-items: center;
-  background: var(--ink-0);
-  border: 1px solid var(--ink-3);
-  border-radius: 6px;
+  background: var(--g5-ground);
+  border-radius: var(--radius);
   display: flex;
   height: 116px;
   justify-content: center;
@@ -94,14 +90,12 @@
   color: rgba(242, 242, 242, 0.55);
   font-size: 10px;
   font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .starter-slot select {
   background: var(--ink-0);
   border: 1px solid rgba(242, 242, 242, 0.18);
-  border-radius: 6px;
+  border-radius: var(--radius);
   color: #f8f8f2;
   font-size: 14px;
   min-height: 42px;
@@ -130,6 +124,9 @@
 .script-pokemon-tab-panel {
   margin: 0 auto;
   max-width: 1180px;
+  padding: 16px 20px 20px;
+  border: 2px solid var(--g5-black);
+  background: var(--g5-panel);
 }
 
 .script-pokemon-tab-panel[hidden] {
@@ -195,8 +192,7 @@
   color: #f8f8f2;
 }
 
-.script-pokemon-tab:focus-visible,
-.starter-page .primary-button:focus-visible {
+.script-pokemon-tab:focus-visible {
   outline: 2px solid #f1fa8c;
   outline-offset: 2px;
 }
@@ -210,32 +206,6 @@
 .script-pokemon-tab.-active > span {
   background: transparent;
   color: #d6d7e2;
-}
-
-.starter-page .primary-button {
-  background: #1abc9c;
-  border: 1px solid #1abc9c;
-  border-radius: 3px;
-  color: #f1f1f1;
-  cursor: pointer;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0;
-  min-height: 40px;
-  padding: 10px 17px;
-  text-transform: none;
-  transition: filter 120ms ease;
-}
-
-.starter-page .primary-button:hover:not(:disabled) {
-  filter: brightness(1.06);
-}
-
-.starter-page .primary-button:disabled {
-  cursor: not-allowed;
-  filter: saturate(0.3);
-  opacity: 0.48;
 }
 
 .script-pokemon-heading {
@@ -261,11 +231,9 @@
 }
 
 .script-pokemon-group {
-  background: rgba(40, 42, 54, 0.76);
-  border: 1px solid rgba(242, 242, 242, 0.12);
-  border-radius: 8px;
   margin-bottom: 12px;
   overflow: hidden;
+  border-bottom: 2px solid var(--g5-black);
 }
 
 .script-pokemon-group > summary {
@@ -311,7 +279,7 @@
   align-items: center;
   background: rgba(30, 31, 42, 0.78);
   border: 1px solid rgba(242, 242, 242, 0.1);
-  border-radius: 6px;
+  border-radius: var(--radius);
   display: inline-flex;
   flex: 0 0 36px;
   height: 36px;
@@ -346,7 +314,6 @@
 }
 
 .script-pokemon-group-body {
-  border-top: 1px solid rgba(242, 242, 242, 0.1);
   padding: 16px;
 }
 
@@ -361,11 +328,9 @@
 }
 
 .script-pokemon-card {
-  background: rgba(30, 31, 42, 0.75);
-  border: 1px solid rgba(242, 242, 242, 0.08);
-  border-radius: 7px;
   margin-bottom: 10px;
   padding: 13px;
+  background: var(--g5-ground);
 }
 
 .script-pokemon-card-head {
@@ -405,7 +370,7 @@
 .script-pokemon-field select {
   background: var(--ink-0);
   border: 1px solid rgba(242, 242, 242, 0.18);
-  border-radius: 5px;
+  border-radius: var(--radius);
   color: #f8f8f2;
   min-height: 37px;
   min-width: 0;
@@ -435,8 +400,7 @@
 }
 
 .script-pokemon-bitfield fieldset {
-  border: 1px solid rgba(242, 242, 242, 0.1);
-  border-radius: 6px;
+  border-radius: var(--radius);
   display: flex;
   flex-direction: column;
   gap: 7px;
@@ -449,9 +413,7 @@
   color: rgba(242, 242, 242, 0.76);
   font-size: 11px;
   font-weight: 900;
-  letter-spacing: 0.04em;
   padding: 0 5px;
-  text-transform: uppercase;
 }
 
 .script-pokemon-bitflag {
@@ -578,7 +540,7 @@
 .trade-text-shortcut textarea {
   background: var(--ink-0);
   border: 1px solid rgba(242, 242, 242, 0.18);
-  border-radius: 6px;
+  border-radius: var(--radius);
   color: #f8f8f2;
   font: inherit;
   font-size: 13px;
@@ -672,7 +634,7 @@
   aspect-ratio: 4 / 3;
   background: var(--ink-0);
   border: 1px solid var(--ink-3);
-  border-radius: 6px;
+  border-radius: var(--radius);
   display: grid;
   margin: 0;
   overflow: hidden;

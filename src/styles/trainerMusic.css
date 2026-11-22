@@ -136,7 +136,7 @@
 .trainer-music-state-card {
   background: var(--ink-2);
   border: 1px solid var(--ink-3);
-  border-radius: 6px;
+  border-radius: var(--radius);
 }
 
 .trainer-music-card {
@@ -227,7 +227,7 @@
 
 .trainer-music-status {
   background: #242635;
-  border-radius: 5px;
+  border-radius: var(--radius);
   color: #b9c0d2;
   font-size: 12px;
   line-height: 1.4;
@@ -277,14 +277,13 @@
   color: #aeb6c7;
   font-size: 11px;
   font-weight: 700;
-  text-transform: uppercase;
 }
 
 .trainer-music-search,
 .trainer-music-assignment-select {
   background: #242635;
   border: 1px solid #565b73;
-  border-radius: 5px;
+  border-radius: var(--radius);
   color: #eef2fb;
   min-width: 0;
   padding: 8px 10px;

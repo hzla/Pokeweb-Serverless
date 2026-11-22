@@ -80,8 +80,9 @@ void* navLaunch(Subscreen* subscreen) {
             r->tables[i] = data[i];
     }
     u8 excluded[nuzlocke::MaskBytes];
-    if (r->valid && nuzlocke::snapshot(game(subscreen), excluded)) {
-        r->reserved = 1 | (nuzlocke::preventAll() ? 2 : 0);
+    bool prevent;
+    if (r->valid && nuzlocke::snapshotPreview(game(subscreen), excluded, prevent)) {
+        r->reserved = 1 | (prevent ? 2 : 0);
         u32 physical = 0;
         for (u32 method = 0; method < 7; ++method)
             for (u32 slot = 0; slot < (method < 3 ? 12u : 5u); ++slot, ++physical) {

@@ -529,6 +529,10 @@ constexpr u32 ThreeCardGap=8, ThreeCardTop=31, FamilyBottom=68,
     AbilitiesTop=FamilyBottom+1+ThreeCardGap, ThreeCardBottom=135,
     StatsRight=105, FamilyLeft=StatsRight+1+ThreeCardGap,
     ThreeCardEvolutionY=ThreeCardBottom+1+ThreeCardGap, ThreeCardIconY=32, ThreeCardAbilityY=88;
+constexpr u32 StatBarOffsetY=4, StatBarHeight=8, StatBarHighlightHeight=2;
+constexpr u8 StatTrackInk=8, StatFillInk=10, StatHighlightInk=11;
+u32 statRowY(u32 row){return threeCards?33+17*row:StatY+StatStep*row;}
+u32 statBarX(){return threeCards?56:57;}
 u32 upperIconY(){return threeCards?ThreeCardIconY:IconY;}
 RecessedInk spareIconInk(const u8* frames) {
     // Palette entry zero is transparent in the DS bitmap. Find free opaque
@@ -780,6 +784,30 @@ void customLoad(Request* request) {
     customRegions=read32(program+12);
 }
 #if !defined(GAME_B) && !defined(GAME_W)
+void colorStatBars(u16* map,volatile u16* palette) {
+    // White 2 menu type-icon colors, with the mockup's brighter upper stripe.
+    constexpr u16 bands[][2]={
+        {rgb(247,82,49),rgb(247,156,140)}, {rgb(255,156,66),rgb(255,198,148)},
+        {rgb(255,198,49),rgb(255,222,140)}, {rgb(173,189,33),rgb(214,222,132)},
+        {rgb(123,206,82),rgb(181,231,156)}, {rgb(90,206,231),rgb(165,231,239)},
+    };
+    // Each bar occupies separate 8px tile rows in both layouts. Copy bank 9
+    // so every other pixel in those tiles keeps its panel, border or grid ink.
+    const u32 x=statBarX();
+    for(u32 i=0;i<6;++i) {
+        const u32 bank=1+i,y=statRowY(i)+StatBarOffsetY;
+        volatile u16* rowPalette=palette+bank*16;
+        for(u32 ink=0;ink<16;++ink)rowPalette[ink]=palette[9*16+ink];
+        const auto& band=bands[learnsetStatColorBand(state->stats[i])];
+        rowPalette[StatFillInk]=band[0];
+        rowPalette[StatHighlightInk]=band[1];
+        for(u32 tileY=y/8;tileY<=(y+StatBarHeight-1)/8;++tileY)
+            for(u32 tileX=x/8;tileX<=(x+LearnsetStatBarWidth-1)/8;++tileX) {
+                u16& tile=map[tileY*32+tileX];
+                tile=u16((tile&0x0fff)|(bank<<12));
+            }
+    }
+}
 #include "../pokenav/info_style.h"
 #endif
 void render() {
@@ -798,15 +826,20 @@ void render() {
     if((customRegions&1) && state->partyCue[0]!=End)put(state->partyCue,248-int(measure(state->partyCue)),4,(7<<10)|(3<<5));
     u16 text[128];
     if((customRegions&2) && state->statsValid)for(u32 i=0;i<6;++i) {
-        const u32 y=threeCards?33+17*i:StatY+StatStep*i, barX=threeCards?56:57;
+        const u32 y=statRowY(i),barX=statBarX(),barY=y+StatBarOffsetY;
         if(threeCards) {
             copyText(text,128,state->labels[i]);ellipsis(text,25);put(text,6,y,StatInk);
             if(i){infoRect(data,4,y-1,27,1,4);infoRect(data,34,y-1,69,1,2);}
         } else put(state->labels[i],6,y,StatInk);
         number(text,state->stats[i]);put(text,52-int(measure(text)),y,StatInk);
-        infoRect(data,barX,y+4,46,8,8);
-        infoRect(data,barX,y+4,statBar(state->stats[i]),8,10);
-        infoRect(data,barX,y+4,statBar(state->stats[i]),2,11);
+        infoRect(data,barX,barY,LearnsetStatBarWidth,StatBarHeight,StatTrackInk);
+#if defined(GAME_B) || defined(GAME_W)
+        const u32 width=statBar(state->stats[i]);
+#else
+        const u32 width=state->encounter?statBar(state->stats[i]):learnsetStatBar(state->stats[i]);
+#endif
+        infoRect(data,barX,barY,width,StatBarHeight,StatFillInk);
+        infoRect(data,barX,barY,width,StatBarHighlightHeight,StatHighlightInk);
     } else if(customRegions&2) {
         copyText(text,128,state->statsUnavailable);ellipsis(text,96);put(text,6,64,StatInk);
     }
@@ -878,6 +911,9 @@ void render() {
     // MakeTransWindow creates a single-palette map. Assign the three icon
     // rectangles their original ROM palettes in the *CPU* map before upload.
     u16* map=paletteMap();
+#if !defined(GAME_B) && !defined(GAME_W)
+    if(map && !state->encounter && (customRegions&2) && state->statsValid)colorStatBars(map,palette);
+#endif
     if(map)for(u32 i=0;(customRegions&4) && i<state->chain.count;++i)if(state->iconsValid[state->iconSlots[i]])
         for(u32 y=iconY/8;y<iconY/8+4;++y)for(u32 x=iconX(i)/8;x<iconX(i)/8+4;++x)
             map[y*32+x]=u16((map[y*32+x]&0x0fff)|((10+i)<<12));

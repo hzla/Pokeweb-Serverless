@@ -1,3 +1,10 @@
+import { resolveBattleConditionReaders } from "./battleFieldConditionBindings";
+import compactSideTemplate from "../assets/data/moveRuleRuntimeCompactSideConditions.json";
+import compactHistorySideTemplate from "../assets/data/moveRuleRuntimeHistoryCompactSideConditions.json";
+import compactPersistentSideTemplate from "../assets/data/moveRuleRuntimePersistentCompactSideConditions.json";
+import compactKnockSideTemplate from "../assets/data/moveRuleRuntimeModernKnockCompactSideConditions.json";
+import abilityBlack from "../assets/data/abilityBindingsB1.json";
+import abilityWhite from "../assets/data/abilityBindingsW1.json";
 import { estimateRpmMemory } from "./rpmMemory";
 import compactTemplate from "../assets/data/moveRuleRuntimeCompact.json";
 import compactHistoryTemplate from "../assets/data/moveRuleRuntimeHistoryCompact.json";
@@ -30,7 +37,7 @@ import abilityContracts from "../assets/data/abilityBindings.json";
 import { NintendoDSRom } from "../nds/rom";
 import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { BATTLE_RUNTIME_SIGNATURES, battleBranchTarget, battleRuntimeResolver, type BattleRuntimeSignature } from "./battleRuntimeBindings";
-import { checkedMoveEventList, encodeMoveRules, moveRecipeEvents, validateMoveRule, validateMoveRuleCategory, validateMoveRuleHits, MOVE_CONDITION_CODES,MOVE_PHASES,movePrimitive,type MoveCondition,type MoveRuleSet } from "./moveRules";
+import { checkedMoveEventList, encodeMoveRules, moveRecipeEvents, validateMoveRule, validateMoveRuleCategory, validateMoveRuleHits, MOVE_CONDITION_CODES,MOVE_PHASES,movePrimitive,moveUsesSideCondition,type MoveCondition,type MoveRuleSet } from "./moveRules";
 import { parseRpm, writeRpm, stripRpmPrivateSymbolNames, type RpmModule } from "./rpm";
 import { ensureFileSystemState, setRomFileReplacement } from "./fileSystemModel";
 import { installCodeInjectionPatch, loadCodeInjectionNarcs } from "./codeInjectionInstall";
@@ -132,6 +139,8 @@ function context(project: ProjectState, requireMoves = true) {
   const basic=(source.game==="IRBO"?black1Bindings.functions:source.game==="IRAO"?white1Bindings.functions:signatures) as Record<string,BattleRuntimeSignature>;
   const bw1=black1Bindings.functions as Record<string,BattleRuntimeSignature>;
   const nativeSignatures:Record<string,BattleRuntimeSignature>={...basic};
+  if (overlayId === 93) nativeSignatures.BtlServerFlow_GetSideEffectLayers ??=
+    (source.game === "IRAO" ? abilityWhite : abilityBlack).functions.BtlServerFlow_GetSideEffectLayers;
   nativeSignatures.MoveEvent_AddItem=moveRegistryDispatcherSignature(nativeSignatures.MoveEvent_AddItem);
   nativeSignatures.BattleMon_GetCritStage??={...bw1.BattleMon_GetCritStage,module:String(overlayId)};
   nativeSignatures.BtlCalc_RollCritical??={...bw1.BtlCalc_RollCritical,module:String(overlayId)};
@@ -254,7 +263,7 @@ function stored(c: Context): Saved {
   const bytes = c.files.get(MOVE_EFFECTS_DLL_PATH);
   if (!bytes || same(bytes, retired)) return { rules: new Map(), originals: new Map() };
   const module = parseRpm(bytes, { allowedMagics: ["DLXF"] });
-  if (![1,2,3,4,5,6,7,8,9,10,11].includes(Number(module.metadata.PokewebMoveRecipes))) throw Error("The installed move DLL is not a supported recipe module.");
+  if (![1,2,3,4,5,6,7,8,9,10,11,12].includes(Number(module.metadata.PokewebMoveRecipes))) throw Error("The installed move DLL is not a supported recipe module.");
   const packaging=module.metadata.PokewebMovePackaging;
   if(packaging!==undefined&&packaging!==1&&packaging!==2)throw Error("Unrecognized move packaging version.");
   let book=module.metadata.MoveRecipeBook;
@@ -296,10 +305,11 @@ function stored(c: Context): Saved {
   if(!config||config.address<0||config.address+4>module.code.length)throw Error("The saved move configuration is missing.");
   const encodedTypeCount=module.code[config.address+3];
   if(module.metadata.PokewebMoveRecipes===1?encodedTypeCount!==0:![17,18].includes(encodedTypeCount))throw Error("Invalid saved move type layout.");
-  const variants: RuntimeVariant[] = module.metadata.PokewebMoveRecipes===1 ? ["v1"] : module.metadata.PokewebMoveRecipes===2 ? ["v2a","v2b"] : module.metadata.PokewebMoveRecipes===3 ? ["v3"] : module.metadata.PokewebMoveRecipes===4 ? ["v4"] : module.metadata.PokewebMoveRecipes===5 ? ["v5"] : module.metadata.PokewebMoveRecipes===6 ? ["v6"] : module.metadata.PokewebMoveRecipes===8?["history"]:module.metadata.PokewebMoveRecipes===9?["persistent9"]:module.metadata.PokewebMoveRecipes===11?["modernKnock"]:module.metadata.PokewebMoveRecipes===10?["persistent"]:["current"];
+  const sideConditions = module.metadata.PokewebMoveRecipes === 12;
+  const variants: RuntimeVariant[] = sideConditions ? [currentVariant(rules)] : module.metadata.PokewebMoveRecipes===1 ? ["v1"] : module.metadata.PokewebMoveRecipes===2 ? ["v2a","v2b"] : module.metadata.PokewebMoveRecipes===3 ? ["v3"] : module.metadata.PokewebMoveRecipes===4 ? ["v4"] : module.metadata.PokewebMoveRecipes===5 ? ["v5"] : module.metadata.PokewebMoveRecipes===6 ? ["v6"] : module.metadata.PokewebMoveRecipes===8?["history"]:module.metadata.PokewebMoveRecipes===9?["persistent9"]:module.metadata.PokewebMoveRecipes===11?["modernKnock"]:module.metadata.PokewebMoveRecipes===10?["persistent"]:["current"];
   const compact=packaging===2?2:packaging===1;
   const packedBook=book.startsWith("z1:");
-  if (!variants.some(variant => same(writeRpm(moduleFor(c, saved, variant, encodedTypeCount,packedBook,compact), { ident: "DLXF" }), bytes))) throw Error("The installed move DLL has unrecognized edits.");
+  if (!variants.some(variant => same(writeRpm(moduleFor(c, saved, variant, encodedTypeCount,packedBook,compact,sideConditions), { ident: "DLXF" }), bytes))) throw Error("The installed move DLL has unrecognized edits.");
   return saved;
 }
 /** Allow ordinary callers to use this exact transparent adapter; copied bodies must fail. */
@@ -341,13 +351,22 @@ const hasPersistent=(rules:ReadonlyMap<number,MoveRuleSet>)=>{
   const uses=(c:import("./moveRules").MoveCondition):boolean=>c.kind==="group"?c.children.some(uses):c.kind==="persistentFromMove"||c.kind==="adjacent";
   return [...rules.values()].some(r=>uses(r.conditions)||uses(r.prerequisites)||r.effects.some(e=>uses(e.conditions)||e.kind==="tidyField"&&Boolean((e.parameters?.hazards??7)&8)||["vulnerableUntilAction","residualDamage","residualStat","fieldMoveType","targetMoveType","selfTrapBoost","mutualTrap","powderReaction","blockMoveFlag","focusCritical","spotlight","criticalStageBoost","fieldSwitchLock","entryStatHazard","swapSideEffects"].includes(e.kind)));
 };
-function moduleFor(c: Context, saved: Saved, variant: RuntimeVariant=[...saved.rules.values()].some(r=>r.effects.some(e=>e.kind==="modernKnockOff"))?"modernKnock":hasPersistent(saved.rules)?"persistent":hasHistory(saved.rules)?"history":"current", savedTypeCount?:number, packedBook=true, compact:boolean|2=2): RpmModule {
+function currentVariant(rules: ReadonlyMap<number, MoveRuleSet>): RuntimeVariant {
+  return [...rules.values()].some(r => r.effects.some(e => e.kind === "modernKnockOff")) ? "modernKnock"
+    : hasPersistent(rules) ? "persistent" : hasHistory(rules) ? "history" : "current";
+}
+function moduleFor(c: Context, saved: Saved, variant = currentVariant(saved.rules), savedTypeCount?: number,
+  packedBook = true, compact: boolean | 2 = 2, sideConditions = moveUsesSideCondition(saved.rules)): RpmModule {
   if (!saved.rules.size) throw Error("Choose at least one move recipe.");
   const rules = new Map([...saved.rules].sort(([a], [b]) => a - b).map(([id, rule]) => [id, validateMoveRule(rule)]));
   const legacy=variant==="v1",persistent=variant==="persistent"||variant==="persistent9"||variant==="modernKnock";
   const runtime=variant==="modernKnock"?modernKnockTemplate:legacy?legacyTemplate:variant==="v2a"?version2a:variant==="v2b"?version2b:variant==="v3"?version3:variant==="v4"?version4:variant==="v5"?version5:variant==="v6"?version6:variant==="persistent"?persistentTemplate:variant==="persistent9"?persistentV9:variant==="history"?historyTemplate:template;
   const optimized=compact===2;
-  const selectedRuntime=optimized?(variant==="modernKnock"?compactKnockTemplate:variant==="persistent"?compactPersistentTemplate:variant==="history"?compactHistoryTemplate:variant==="current"?compactTemplate:undefined):runtime;
+  if (moveUsesSideCondition(rules) !== sideConditions || sideConditions && !optimized)
+    throw Error("Side conditions require the current move runtime.");
+  const sideTemplate = variant === "modernKnock" ? compactKnockSideTemplate : variant === "persistent" ? compactPersistentSideTemplate
+    : variant === "history" ? compactHistorySideTemplate : variant === "current" ? compactSideTemplate : undefined;
+  const selectedRuntime = sideConditions ? sideTemplate : optimized?(variant==="modernKnock"?compactKnockTemplate:variant==="persistent"?compactPersistentTemplate:variant==="history"?compactHistoryTemplate:variant==="current"?compactTemplate:undefined):runtime;
   if(!selectedRuntime)throw Error("Optimized packaging requires a current move runtime.");
   const rpm = structuredClone(selectedRuntime) as unknown as RpmModule; rpm.code = Uint8Array.from(selectedRuntime.code);
   const bssBase = (rpm.code.length + 3) & ~3, bss = rpm.symbols.filter(s => !(s.attributes & 4) && s.address >= bssBase);
@@ -386,6 +405,11 @@ function moduleFor(c: Context, saved: Saved, variant: RuntimeVariant=[...saved.r
   const messages=hasFullMessages?["requireHeldItem","hazard","reducePP","statDrain","sourceCondition","suppressAbility","heal","cureAndHeal","copyAbility","maxHpRecoil","swapRawStat","changeType",...(latest?["allyHealInstead","drainEachHit"]:[]),...(persistent?["residualDamage","residualStat","selfTrapBoost","mutualTrap","powderReaction","blockMoveFlag","focusCritical","criticalStageBoost","spotlight","fieldSwitchLock","entryStatHazard","swapSideEffects"]:[])]:hasStatDrainMessage?["requireHeldItem","hazard","reducePP","statDrain"]:["requireHeldItem","hazard","reducePP"];
   const extraApis:Record<number,readonly string[]>={40:[],41:["hazard","entryStatHazard"],42:modern?["sourceCondition","requireHeldItem",...(persistent?["spotlight","condition:adjacent"]:[])]:["sourceCondition"],43:["swapRawStat","attackStat"],44:["reducePP"],45:["reducePP"],46:["reducePP"],47:["ignoreAbilities"],48:["ignoreAbilities"],49:["bypassSubstitute"],50:["changeType"],51:["changeType"],52:["changeType"],53:["tidyField","swapSideEffects"],54:hasTidyVisual?[]:["tidyField"],55:["condition:hidden",...(persistent?["criticalStageBoost"]:[])],56:messages,57:messages,58:["tidyField"],59:["typeMatchup"],60:["bypassSubstitute","modernKnockOff"],61:["thawTargets"],62:["attackStat"],63:["moveUserType","powderReaction"],64:["modernKnockOff"],65:["modernKnockOff"]};
   MOVE_RULE_API.forEach((name, index) => { if (!name || legacy&&index>=37 || !modern&&index>=56 || !hasTidyVisual&&index>=58 || !latest&&index>=59 || latest&&index===49 || index>=40&&!extraApis[index]?.some(kind=>kinds.has(kind))) return; const service = c.resolver.resolve(name); checkHook(c, name, service.address, service.code.length); writeU32(rpm.code, api + index * 4, service.address | 1); });
+  if (sideConditions) {
+    const fieldApi = named("MoveFieldConditionApi").address;
+    resolveBattleConditionReaders(c.resolver, false, true, (name, address, size) =>
+      checkHook(c, name, address, size)).forEach((address, index) => writeU32(rpm.code, fieldApi + index * 4, address));
+  }
   if(kinds.has("modernKnockOff")){
     const checked=new Set<string>();
     const verify=(name:string)=>{
@@ -652,7 +676,7 @@ function moduleFor(c: Context, saved: Saved, variant: RuntimeVariant=[...saved.r
     if (id >= c.moveCount) throw Error("The move does not exist in this ROM.");
   }
   const shift = ((rpm.code.length + 3) & ~3) - bssBase; bss.forEach(s => s.address += shift);
-  rpm.metadata = { PMCGameID: c.project.session.baseVersion, PMCVersion: "1.0.0", PMCModulePriority: 4, PokewebMoveRecipes: legacy?1:variant==="modernKnock"?11:variant==="persistent"?10:variant==="persistent9"?9:variant==="history"?8:variant==="current"?7:variant==="v6"?6:variant==="v5"?5:variant==="v4"?4:variant==="v3"?3:2, MoveRecipeBook: encodeMoveRecipeBook(rules, saved.originals, MOVE_RECIPE_MANAGED_FIELDS,latest&&packedBook) };
+  rpm.metadata = { PMCGameID: c.project.session.baseVersion, PMCVersion: "1.0.0", PMCModulePriority: 4, PokewebMoveRecipes: sideConditions?12:legacy?1:variant==="modernKnock"?11:variant==="persistent"?10:variant==="persistent9"?9:variant==="history"?8:variant==="current"?7:variant==="v6"?6:variant==="v5"?5:variant==="v4"?4:variant==="v3"?3:2, MoveRecipeBook: encodeMoveRecipeBook(rules, saved.originals, MOVE_RECIPE_MANAGED_FIELDS,latest&&packedBook) };
   if(modern&&saved.messageBase!==undefined)rpm.metadata.MoveItemMessageBase=saved.messageBase;
   if(hasFullMessages&&saved.swapMessageBase!==undefined)rpm.metadata.MoveSwapMessageBase=saved.swapMessageBase;
   if(hasFullMessages&&saved.typeLossMessageBase!==undefined)rpm.metadata.MoveTypeLossMessageBase=saved.typeLossMessageBase;
@@ -683,7 +707,7 @@ export function buildMoveRuleModule(project: ProjectState, rules: ReadonlyMap<nu
 export type MoveEffectsInspection={editable:boolean;rules:Map<number,MoveRuleSet>;message:string;runtimeVersion?:number;packagingVersion?:number;updateAvailable:boolean};
 function moveRuntimeNeedsUpdate(saved:Saved):boolean {
   if(saved.runtimeVersion===undefined)return false;
-  const expected=[...saved.rules.values()].some(r=>r.effects.some(e=>e.kind==="modernKnockOff"))?11:hasPersistent(saved.rules)?10:hasHistory(saved.rules)?8:7;
+  const expected=moveUsesSideCondition(saved.rules)?12:[...saved.rules.values()].some(r=>r.effects.some(e=>e.kind==="modernKnockOff"))?11:hasPersistent(saved.rules)?10:hasHistory(saved.rules)?8:7;
   return saved.packagingVersion!==CURRENT_MOVE_PACKAGING||saved.runtimeVersion!==expected;
 }
 export function inspectMoveEffects(project: ProjectState): MoveEffectsInspection {

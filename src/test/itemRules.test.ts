@@ -4,7 +4,7 @@ import { readU16 } from "../nds/binary";
 import { buildRuleRuntime, ITEM_RULE_API } from "../pokeweb/itemRuleRuntime";
 import { parseRpm, writeRpm } from "../pokeweb/rpm";
 import { makeItemEffectsProject } from "./fixtures/itemEffectsProject";
-import { buildItemTypeHealingModule, buildItemRuleModule } from "../pokeweb/itemEffectsModel";
+import { buildItemTypeHealingModule, buildItemRuleModule, inspectItemEffect, ITEM_EFFECTS_DLL_PATH } from "../pokeweb/itemEffectsModel";
 import { ITEM_RULE_PRESETS, itemRulePreset } from "../pokeweb/itemRulePresets";
 import { updateItemField } from "../pokeweb/moveItemModel";
 
@@ -12,6 +12,21 @@ const rule: ItemRuleSet = { effects: [{ kind: "attack", value: 2.5 }, { kind: "h
   conditions: { kind: "group", mode: "all", children: [{ kind: "hp", comparison: "lt", percent: 50 }, { kind: "group", mode: "any", children: [{ kind: "type", value: 5 }, { kind: "weather", value: 2 }] }] }, consumable: true };
 
 describe("custom item rule configuration", () => {
+  it("links field readers without new battle hooks and preserves conditions on reload", () => {
+    const { project } = makeItemEffectsProject(0,0,true,true);
+    const definition = validateItemRule({ ...rule, conditions: {kind:"group",mode:"all",children:[
+      {kind:"fieldEffect",value:1}, {kind:"sideEffect",value:6,side:"own",layers:2},
+    ]}});
+    const rules = new Map([[85,definition]]);
+    expect(() => buildItemRuleModule(project,rules,6)).toThrow(/field readers/u);
+    const runtime = buildItemRuleModule(project,rules);
+    const baseline = buildItemRuleModule(project,new Map([[85,rule]]));
+    const hookTargets = (dll: typeof runtime) => dll.relocations.filter(r => r.target.module !== "base").map(r => r.target);
+    expect(runtime.metadata.PMCVersion).toBe("8.0.0");
+    expect(hookTargets(runtime)).toEqual(hookTargets(baseline));
+    project.fileSystem={additions:{[ITEM_EFFECTS_DLL_PATH]:writeRpm(runtime,{ident:"DLXF"})},replacements:{}};
+    expect(inspectItemEffect(project,85).rules).toEqual(definition);
+  });
   it("makes every in-battle preset a valid editable composition", () => {
     expect(ITEM_RULE_PRESETS.some(preset => [223, 319].includes(preset.id))).toBe(false);
     for (const preset of ITEM_RULE_PRESETS) expect(validateItemRule(itemRulePreset(preset.id, true)).effects.length).toBeGreaterThan(0);

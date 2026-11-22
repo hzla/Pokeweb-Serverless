@@ -1,6 +1,7 @@
 # Hard Level Caps
 
-Adapts **PW2Code by Dararo** for checked stock US Black 2/White 2 layouts.
+Adapts **PW2Code by Dararo** for checked US revision-0 Black, White, Black 2 and
+White 2 layouts.
 Set work variable 16415 in a script, for example `EventWorks.Set(16415, 30)`.
 Values 1–100 set the cap; zero or out-of-range values use 100. Changes apply
 immediately. Installation adds code without editing saves or scripts.
@@ -17,8 +18,8 @@ Build with `npm run levelcaps:build`; compiled verification uses
 `npm run levelcaps:verify` and Unicorn. Party field `0x9E` is the level field;
 `0x05` is species and must not be used for cap comparisons.
 
-The optional **Trainer Level Caps** companion requires Hard Level Caps and US
-revision-0 B2/W2. Install it from Code Injection to expose **Lvl Cap after Win**
+The optional **Trainer Level Caps** companion requires Hard Level Caps. Install
+it from Code Injection to expose **Lvl Cap after Win**
 in trainer settings. A blank field or 0 leaves the cap unchanged; 1–100 writes
 that exact value to saved work variable 16415 after an offline trainer victory.
 This can lower an existing cap. Losses, draws, escapes, wild, link, facility and
@@ -27,8 +28,9 @@ configured cap; the player's partner is ignored. The new cap applies when
 returning to the field, after that battle's EXP has been awarded. Scripted writes
 to the same variable can still change it afterward.
 
-The companion replaces one checked BL in overlay 12's battle-return callback,
-preserving the retail result broadcaster. Edits elsewhere in that overlay are
+The companion replaces one checked BL in the field battle-return callback
+(overlay 10 on BW and overlay 12 on BW2), preserving the retail result broadcaster.
+Edits elsewhere in that overlay are
 allowed; changes to the checked callback or competing DLL hooks are rejected.
 Trainer records are unchanged. Values are stored in `battle/trainer-caps.bin`:
 a 16-byte little-endian header (`PWLC`, u16 version 1, u16 record size 1,
@@ -37,8 +39,9 @@ Missing, malformed or out-of-range runtime records perform no cap write.
 
 Build the companion with `npm run trainercaps:build`. Set
 `TRAINER_CAPS_BUILD_DIR` to choose the intermediate output directory. Check the
-shipped DLLs against clean inputs with `npm run trainercaps:verify -- --black2
-<black2.nds> --white2 <white2.nds>`. This runs the retail callback and relocated
+shipped DLLs against clean inputs with `npm run trainercaps:verify -- --black
+<black.nds> --white <white.nds> --black2 <black2.nds> --white2 <white2.nds>`.
+This runs the retail callback and relocated
 DLL in an ARM946 CPU model with native callees and filesystem I/O stubbed; it
 does not constitute a full DS playthrough. `npm run trainercaps:verify-rom --
-<black2.nds> <white2.nds>` checks installation, exported data, reimport and edits.
+<clean-rom.nds> [...]` checks installation, exported data, reimport and edits.

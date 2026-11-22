@@ -5,7 +5,7 @@ import {writeRpm,type RpmModule} from "../pokeweb/rpm";
 import {getPmcMemoryEstimate,PMC_BASE_ALLOCATION_BYTES} from "../pokeweb/pmcMemoryModel";
 import type {ProjectState} from "../pokeweb/projectStore";
 import {renderPmcCapacity} from "../ui/pmcCapacity";
-vi.mock("../pokeweb/pmcModel",()=>({getPmcHeapExpansionStatus:(p:ProjectState)=>({expanded:p.codeInjection?.pmc?.version?.includes("heap200")}),listCodeInjectionDlls:(p:ProjectState)=>Object.keys(p.fileSystem?.additions??{}).map(path=>({path,target:path.startsWith("lib/")?"lib":"patches"}))}));
+vi.mock("../pokeweb/pmcModel",()=>({getPmcHeapExpansionStatus:(p:ProjectState)=>({capKiB:p.codeInjection?.pmc?.version?.includes("heap220")?220:p.codeInjection?.pmc?.version?.includes("heap200")?200:160}),listCodeInjectionDlls:(p:ProjectState)=>Object.keys(p.fileSystem?.additions??{}).map(path=>({path,target:path.startsWith("lib/")?"lib":"patches"}))}));
 function dll(overlay="93",bssSize=1500,priority=4){
   const module:RpmModule={code:new Uint8Array(4096),bssSize,baseAddress:0,symbols:[{name:"Entry",type:"FUNCTION_THM",address:0,size:12,attributes:1}],relocations:[{target:{module:overlay,address:0x02100000,type:"THUMB_BRANCH"},sourceSymbolIndex:0},{target:{module:"base",address:16,type:"OFFSET"},sourceSymbolIndex:0}],metadata:{PMCModulePriority:priority,Book:"long metadata ".repeat(100)}};
   return writeRpm(module,{ident:"DLXF"});

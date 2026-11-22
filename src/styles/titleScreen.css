@@ -11,23 +11,23 @@
 .title-status { min-height: 24px; margin: 12px 0; color: #91d8ac; font-size: 13px; }
 .title-status.-error { color: #ffaaa5; }
 .title-layout { display: grid; grid-template-columns: 245px minmax(0, 1fr); gap: 22px; align-items: start; }
-.title-sidebar { background: #191d26; border: 1px solid #353b47; border-radius: 8px; padding: 12px; }
-.title-sidebar h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: #9fa8b9; margin: 24px 8px 10px; }
-.title-nav { display: block; text-align: left; width: 100%; border: 1px solid transparent; background: transparent; color: #c6ccda; padding: 10px; border-radius: 5px; font: inherit; font-size: 13px; cursor: pointer; }
+.title-sidebar { background: #191d26; border: 1px solid #353b47; border-radius: var(--radius); padding: 12px; }
+.title-sidebar h2 { font-size: 11px; color: #9fa8b9; margin: 24px 8px 10px; }
+.title-nav { display: block; text-align: left; width: 100%; border: 1px solid transparent; background: transparent; color: #c6ccda; padding: 10px; border-radius: var(--radius); font: inherit; font-size: 13px; cursor: pointer; }
 .title-nav:hover { background: #282d38; }
 .title-nav.-active { color: #fff; background: #383039; border-color: #986e78; }
 .title-nav small { display: block; margin-top: 4px; color: #9099ac; font-size: 11px; }
 .title-nav i { color: #ef9494; font-size: 10px; }
-.title-card { background: #1e222c; border: 1px solid #373d49; border-radius: 8px; padding: 22px; margin-bottom: 20px; overflow: hidden; }
+.title-card { background: #1e222c; border: 1px solid #373d49; border-radius: var(--radius); padding: 22px; margin-bottom: 20px; overflow: hidden; }
 .title-card p { font-size: 13px; color: #abb4c5; }
-.title-screen-wrap { background: #13161d; border-radius: 6px; display: flex; justify-content: center; padding: 22px; margin: 18px 0; }
+.title-screen-wrap { background: #13161d; border-radius: var(--radius); display: flex; justify-content: center; padding: 22px; margin: 18px 0; }
 #title-top-screen { width: min(100%, 512px); height: auto; image-rendering: pixelated; aspect-ratio: 4 / 3; box-shadow: 0 6px 20px #0005; }
 .title-playback { display: flex; gap: 16px; align-items: center; margin: 18px 0; font-size: 13px; }
 .title-playback input[type=range] { flex: 1; min-width: 70px; accent-color: #ef9494; }
-.title-playback input[type=number] { width: 90px; color: #eee; background: #141821; border: 1px solid #495063; border-radius: 4px; padding: 7px; }
+.title-playback input[type=number] { width: 90px; color: #eee; background: #141821; border: 1px solid #495063; border-radius: var(--radius); padding: 7px; }
 .title-layer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; }
 .title-layer-grid figure { margin: 0; min-width: 0; }
-.title-layer-grid canvas, .title-related-layer canvas { display: block; width: 100%; max-width: 256px; height: auto; object-fit: contain; image-rendering: pixelated; background: repeating-conic-gradient(#383e4b 0% 25%, #2a303c 0% 50%) 0 / 16px 16px; border-radius: 4px; }
+.title-layer-grid canvas, .title-related-layer canvas { display: block; width: 100%; max-width: 256px; height: auto; object-fit: contain; image-rendering: pixelated; background: repeating-conic-gradient(#383e4b 0% 25%, #2a303c 0% 50%) 0 / 16px 16px; border-radius: var(--radius); }
 .title-layer-grid figcaption { font-size: 12px; margin: 8px 0; overflow-wrap: anywhere; }
 .title-layer-grid .btn { font-size: 11px; margin-bottom: 12px; }
 .title-muted { color: #9aa5b8; font-size: 12px !important; }
@@ -38,7 +38,7 @@
 .title-values { width: 100%; border-collapse: collapse; font-size: 13px; margin: 20px 0; }
 .title-values th, .title-values td { padding: 14px 8px; border-bottom: 1px solid #373d49; text-align: right; font-variant-numeric: tabular-nums; }
 .title-values th:first-child { text-align: left; }
-.title-model-host { width: 100%; height: 380px; border-radius: 5px; overflow: hidden; }
+.title-model-host { width: 100%; height: 380px; border-radius: var(--radius); overflow: hidden; }
 .title-model-host canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
 .title-model-host canvas:active { cursor: grabbing; }
 .title-related-layer { margin: 18px 0; }
@@ -46,7 +46,7 @@
 #title-scene-host, #title-scene-host canvas, #title-scene-credits { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
 #title-scene-credits { position: absolute; inset: 0; pointer-events: none; }
 .title-scene-slider { display: block; width: 100%; accent-color: #ef9494; }
-.title-scene-badge { color: #bac3d4; font-size: 12px; white-space: nowrap; padding: 8px 10px; background: #2a303c; border-radius: 4px; }
+.title-scene-badge { color: #bac3d4; font-size: 12px; white-space: nowrap; padding: 8px 10px; background: #2a303c; border-radius: var(--radius); }
 .title-scene-controls { margin: 18px 0; font-size: 12px; }
 .title-scene-controls label { display: flex; gap: 6px; align-items: center; margin-right: auto; }
 #title-scene-error { color: #ffaaa5; }
@@ -58,13 +58,13 @@
 .title-png-dialog button:disabled { opacity: .5; cursor: wait; }
 .title-png-controls, .title-png-crop-controls { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; margin: 20px 0; }
 .title-png-controls label, .title-png-crop-controls label { display: grid; gap: 8px; font-size: 13px; flex: 1; }
-.title-png-controls select { padding: 9px; color: #eee; background: #141821; border: 1px solid #495063; border-radius: 4px; }
+.title-png-controls select { padding: 9px; color: #eee; background: #141821; border: 1px solid #495063; border-radius: var(--radius); }
 .title-png-crop-controls[hidden] { display: none; }
 .title-png-crop-controls input { width: 100%; accent-color: #ef9494; }
 .title-png-previews { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
 .title-png-previews figure { margin: 0; min-width: 0; }
 .title-png-previews figcaption { font-size: 12px; margin-bottom: 10px; color: #abb4c5; }
-.title-png-previews canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; background: repeating-conic-gradient(#383e4b 0% 25%, #2a303c 0% 50%) 0 / 16px 16px; border-radius: 5px; }
+.title-png-previews canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; background: repeating-conic-gradient(#383e4b 0% 25%, #2a303c 0% 50%) 0 / 16px 16px; border-radius: var(--radius); }
 .title-png-previews canvas.-cropping { cursor: grab; touch-action: none; }
 .title-png-previews canvas.-cropping:active { cursor: grabbing; }
 .title-png-actions { justify-content: flex-end; margin-top: 22px; }

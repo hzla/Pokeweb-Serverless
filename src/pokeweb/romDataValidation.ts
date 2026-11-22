@@ -49,8 +49,7 @@ type Row = { archive: Archive; id: number; bytes: Uint8Array; fields: Map<string
 const signed = (value: number) => value > 127 ? value - 256 : value;
 const blank = (bytes: Uint8Array) => bytes.every(value => value === 0);
 const effectCount = effectsText.split(/\r?\n/u).filter(Boolean).length;
-// Blank lines are reserved IDs, not removable gaps (Embargo/Perish Song/Ingrain
-// are native result effects 19/20/21).
+// One line per result effect ID, the battle condition it inflicts (0 None to 22 Mean Look).
 const resultEffectCount = resultEffectsText.trimEnd().split(/\r?\n/u).length;
 const core: NarcName[] = ["personal", "moves", "items", "learnsets", "evolutions", "egg_moves", "encounters", "trdata", "trpok", "ingame_trades", "marts", "mart_counts", "grottos"];
 

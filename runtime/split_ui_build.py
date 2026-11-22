@@ -2,11 +2,12 @@
 import hashlib, re, struct, subprocess
 from elftools.elf.elffile import ELFFile
 
-def package_split(here, build, tools, jar, assets, game, stem, source, extra, main_define, field_define, version):
+def package_split(here, build, tools, jar, assets, game, stem, source, extra, main_define, field_define, version, *, defines=()):
     out = build / (stem + '-split')
     out.mkdir(parents=True, exist_ok=True)
     def run(*args): subprocess.run([str(v) for v in args], check=True)
     flags = ['-std=c++17','-mthumb','-march=armv5t','-mlong-calls','-Os','-Wall','-Wextra','-Werror','-fno-jump-tables','-fvisibility=hidden','-fno-exceptions','-fno-rtti','-fno-unwind-tables','-fno-asynchronous-unwind-tables','-ffreestanding','-fno-builtin','-ffunction-sections','-fdata-sections',f'-DGAME_{game}','-I',build]
+    flags.extend('-D'+define for define in defines)
     asm = (build / (stem + '.s')).read_text()
     blocks = re.findall(r'\.balign 4\n\.global (?:THUMB_BRANCH_LINK|FULL_COPY)_.*?\.size [^\n]+\n', asm, re.S)
     assert blocks and ''.join(blocks) == asm[asm.index('.balign 4'):], 'Unrecognized hook assembly'

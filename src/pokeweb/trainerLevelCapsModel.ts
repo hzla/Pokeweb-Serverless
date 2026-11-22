@@ -12,8 +12,10 @@ import type { ProjectState } from "./projectStore";
 import { parseRpm, type RpmModule } from "./rpm";
 
 type Game = keyof typeof profiles;
-const isGame = (game: unknown): game is Game => game === "B2" || game === "W2";
+const isGame = (game: unknown): game is Game => typeof game === "string" && Object.hasOwn(profiles, game);
 const urls = {
+  B: new URL("../assets/codeinjection/TrainerLevelCapsB.dll", import.meta.url),
+  W: new URL("../assets/codeinjection/TrainerLevelCapsW.dll", import.meta.url),
   B2: new URL("../assets/codeinjection/TrainerLevelCapsB2.dll", import.meta.url),
   W2: new URL("../assets/codeinjection/TrainerLevelCapsW2.dll", import.meta.url),
 };
@@ -32,14 +34,15 @@ function sourceRom(project: ProjectState): NintendoDSRom | undefined {
 }
 /** Preserve the small editor inputs when autosave releases the full source ROM. */
 export function hydrateTrainerLevelCapsSources(project: ProjectState, rom: NintendoDSRom): void {
-  if (!Object.values(profiles).some(p => p.idCode === rom.idCode)) return;
+  const profile = Object.values(profiles).find(p => p.idCode === rom.idCode);
+  if (!profile) return;
   const source: Source = { idCode: rom.idCode, revision: rom.data[0x1e], overlayTable: rom.arm9OverlayTable.slice(), paths: {}, files: {} };
   for (const path of [TRAINER_LEVEL_CAPS_PATH, ...listCodeInjectionDlls(project).map(m => m.path)]) {
     const id = rom.filenames.idOf(path);
     if (id !== undefined) { source.paths[path.toLowerCase()] = id; source.files[id] = rom.files[id].slice(); }
   }
   try {
-    const overlay = loadOverlayTable(rom.arm9OverlayTable, (_, id) => rom.files[id], new Set([12])).get(12);
+    const overlay = loadOverlayTable(rom.arm9OverlayTable, (_, id) => rom.files[id], new Set([profile.overlay])).get(profile.overlay);
     if (overlay) source.files[overlay.fileId] = rom.files[overlay.fileId].slice();
     sources.set(project, source);
   } catch { sources.delete(project); }
@@ -116,9 +119,9 @@ export function isTrainerLevelCapsModule(rpm: RpmModule, game: Game): boolean {
       && a.target.type === r.type && a.sourceSymbolIndex === r.symbol).length === 1);
 }
 export function getTrainerLevelCapsStatus(project: ProjectState) {
-  const state = { supported: false, compatible: false, installed: false, message: "Trainer Level Caps requires US revision-0 Black 2 or White 2 and Hard Level Caps." };
+  const state = { supported: false, compatible: false, installed: false, message: "Trainer Level Caps requires a US revision-0 Black, White, Black 2 or White 2 ROM with Hard Level Caps." };
   const game = project.session.baseVersion;
-  if (project.session.baseRom !== "BW2" || !isGame(game)) return state;
+  if (!isGame(game) || project.session.baseRom !== (game.length === 1 ? "BW" : "BW2")) return state;
   try {
     const p = profiles[game], rom = sourceRom(project), retained = sources.get(project);
     if ((rom?.idCode ?? retained?.idCode ?? project.romInfo.idCode) !== p.idCode || (rom?.data[0x1e] ?? retained?.revision ?? 0) !== 0) return state;
@@ -135,7 +138,7 @@ export function getTrainerLevelCapsStatus(project: ProjectState) {
         || (rpm && Object.keys(profiles).some(g => isTrainerLevelCapsModule(rpm!, g as Game)))
         || rpm?.relocations.some(({ target: t, sourceSymbolIndex: i }) => {
           const size = t.type === "FULL_COPY" ? rpm!.symbols[i]?.size ?? 0 : t.type === "THUMB_BRANCH_SAFESTACK" ? 16 : t.type === "THUMB_BRANCH" ? 12 : 4;
-          return t.module === "12" && t.address < p.signatureAddress + p.expectedHex.length / 2 && t.address + size > p.signatureAddress;
+          return t.module === String(p.overlay) && t.address < p.signatureAddress + p.expectedHex.length / 2 && t.address + size > p.signatureAddress;
         })) throw new Error(`Conflicting trainer level cap runtime: ${entry.path}.`);
       if (entry.target === "patches" && entry.fileName.toLowerCase() === `hardlevelcaps${game}.dll`.toLowerCase()
         && rpm && inspectLevelCapsRuntime(rpm, game)) baseInstalled = true;
@@ -146,11 +149,11 @@ export function getTrainerLevelCapsStatus(project: ProjectState) {
     if (config) { tableCount(config); if (config.subarray(HEADER).some(cap => cap > 100)) throw new Error("Invalid trainer level cap."); }
     if (!rom && !retained) throw new Error("Reload the ROM to verify the battle-return hook.");
     const overlay = loadOverlayTable(project.patches?.arm9OverlayTable ?? rom?.arm9OverlayTable ?? retained!.overlayTable,
-      (_, id) => rom ? getRomFileBytes(project, rom, id) : project.fileSystem?.replacements?.[id] ?? retained!.files[id], new Set([12])).get(12);
+      (_, id) => rom ? getRomFileBytes(project, rom, id) : project.fileSystem?.replacements?.[id] ?? retained!.files[id], new Set([p.overlay])).get(p.overlay);
     const at = p.signatureAddress - (overlay?.ramAddress ?? 0);
-    for (const data of [overlay?.data, project.overlays[12] ?? overlay?.data])
+    for (const data of [overlay?.data, project.overlays[p.overlay] ?? overlay?.data])
       if (!data || at < 0 || hex(data.subarray(at, at + p.expectedHex.length / 2)) !== p.expectedHex)
-        throw new Error("The trainer battle-return code differs from the supported US BW2 code.");
+        throw new Error("The trainer battle-return code differs from the supported US ROM code.");
     state.compatible = true;
     state.message = state.installed ? "Installed." : "Ready.";
   } catch (error) { state.message = error instanceof Error ? error.message : String(error); }

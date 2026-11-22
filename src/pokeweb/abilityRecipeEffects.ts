@@ -4,6 +4,7 @@ import type {ItemRuleEffectDefinition,ItemRuleEffect} from "./itemRules";
 import {SCOPED_ABILITY_EFFECTS} from "./abilityScopedEffects";
 import {ACTION_ABILITY_EFFECTS} from "./abilityActionEffects";
 import { VANILLA_MOVE_FILTER_LABELS, VANILLA_MOVE_FILTER_MAX } from "./abilityMoveFilters";
+import { BATTLE_FIELD_EFFECTS, BATTLE_SIDE_EFFECTS } from "./battleFieldEffects";
 const p=(key:string,label:string,original:number,min:number,max:number,labels?:Record<number,string>,kind:NativeAbilityParameter["kind"]="number"):NativeAbilityParameter=>({key,label,original,min,max,step:1,kind,sites:[],...(labels?{labels,choices:Object.keys(labels).map(Number)}:{})});
 const stat=(highest=false)=>p("stat","Stat",1,1,highest?8:7,highest?{1:"Attack",2:"Defense",3:"Sp. Atk",4:"Sp. Def",5:"Speed",6:"Accuracy",7:"Evasion",8:"Highest raw stat"}:undefined,"stat");
 const scope=p("scope","Targets",0,0,4,{0:"Holder",1:"Allies",2:"Opponents",3:"All other Pokémon",4:"Attacker"});
@@ -50,8 +51,8 @@ export const RECIPE_ABILITY_EFFECTS:RecipeAbilityEffect[]=[
  effect("abilityStatGuard",165,"Block stat drops from other abilities",1,1,1,1,"",1,[p("stat","Stat",8,1,8,undefined,"stat")],true),
  effect("statusGuardSet",166,"Protect against conditions",1,1,1,1,"",1,[p("conditionMask","Conditions",1,1,8191,undefined,"conditionSet"),guardScope,protectedType,p("cure","Automatically cure",0,0,1,{0:"No",1:"Yes"}),p("excludeSelf","Self-inflicted conditions",0,0,1,{0:"Also prevent",1:"Allow"})],true),
  effect("statGroup",167,"Grouped stat changes",1,1,1,1,"",1,[trigger,...stageKeys.map((key,index)=>p(key,["Attack","Defense","Sp. Atk","Sp. Def","Speed","Accuracy","Evasion"][index]+" stages",0,-6,6)),scope,p("activationChance","Chance per stat (%)",100,0,100),p("threshold","HP threshold (%)",50,1,100),once,move,type,category,p("adjacent","Range",0,0,1,{0:"All active targets",1:"Adjacent targets"}),{...p("statOrder","Stat order",0,0,0x1fffff),hidden:true}]),
- effect("fieldEntry",168,"Set a field condition on entry",1,1,1,1,"",1,[p("condition","Field condition",1,1,7,{1:"Trick Room",2:"Gravity",4:"Water Sport",5:"Mud Sport",6:"Wonder Room",7:"Magic Room"}),p("duration","Duration (turns; 0 = permanent)",5,0,63),p("active","When already active",0,0,1,{0:"Leave unchanged",1:"Toggle off"})]),
- effect("sideEntry",169,"Set a side condition on entry",1,1,1,1,"",1,[p("condition","Side condition",4,0,13,{0:"Reflect",1:"Light Screen",2:"Safeguard",3:"Mist",4:"Tailwind",5:"Lucky Chant",6:"Spikes",7:"Toxic Spikes",8:"Stealth Rock",11:"Pledge rainbow",12:"Pledge sea of fire",13:"Pledge swamp"}),p("side","Sides",0,0,2,{0:"Own side",1:"Opposing side",2:"Both sides"}),p("duration","Duration (turns; 0 = permanent)",4,0,63),p("layers","Layers to add",1,1,3)]),
+ effect("fieldEntry",168,"Set a field condition on entry",1,1,1,1,"",1,[p("condition","Field condition",1,1,7,BATTLE_FIELD_EFFECTS),p("duration","Duration (turns; 0 = permanent)",5,0,63),p("active","When already active",0,0,1,{0:"Leave unchanged",1:"Toggle off"})]),
+ effect("sideEntry",169,"Set a side condition on entry",1,1,1,1,"",1,[p("condition","Side condition",4,0,13,BATTLE_SIDE_EFFECTS),p("side","Sides",0,0,2,{0:"Own side",1:"Opposing side",2:"Both sides"}),p("duration","Duration (turns; 0 = permanent)",4,0,63),p("layers","Layers to add",1,1,3)]),
  effect("damageGuard",170,"Prevent selected indirect damage",1,1,1,1,"",1,[p("sources","Damage sources",3,1,16383,undefined,"damageSet")]),
  effect("additionalStrike",171,"Additional strike",.25,.125,8,.001,"× second-hit damage",4096,[]),
  effect("moveWeather",173,"Moves act as if the weather is",1,1,1,1,"",1,[p("weather","Weather",1,1,4,undefined,"weather")]),

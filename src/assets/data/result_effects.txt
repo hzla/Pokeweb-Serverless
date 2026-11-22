@@ -7,16 +7,17 @@ Chance to poison
 Chance to confuse
 Chance to infatuate
 Binding effect
+Nightmare effect
 Cursed effect
-
-
+Taunt effect
 Torment effect
 Disables last used move
 Force sleep next turn
 Prevents healing
-
+Suppresses ability
 Forsight effect
 Leech seed effect
 Block item use
 Perish song effect
 Ingrain effect
+Prevents escape

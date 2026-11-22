@@ -73,6 +73,13 @@ conditions and use prerequisites with AND, preserving nested OR groups and
 existing edits. Imports that exceed editor bounds or require a different
 existing native operation leave the draft unchanged.
 
+**Field effect** checks whole-field effects such as Trick Room. **Side
+condition** checks the move user’s side or the opposing side for Tailwind,
+screens, hazards or Pledge effects, with layer thresholds for Spikes and Toxic
+Spikes. Both can be used as activation conditions, effect conditions or use
+prerequisites. They read live battle state, including opening conditions from
+Trainer Field Conditions on BW2.
+
 The move text panel's **In-game preview** loads the ROM's font and static Summary
 panel on demand. It updates while typing, preserves explicit line breaks and
 warns about text outside the three-line description box. Text is not automatically
@@ -255,8 +262,9 @@ deterministic and do not accept an effect-chance roll.
 `python3 runtime/move-effects/build.py` rebuilds the bundled relocatable runtime
 using ARM GNU tools and RPMTool. Set `ARM_TOOLCHAIN_BIN` and `RPM_TOOL_JAR` when
 they are not in the workspace's configured tool directories. No ROM is needed
-for this build. The default builds all four current compact runtime artifacts.
-Use `--base`, `--history`, `--persistent` or `--modern-knock` for one variant.
+for this build. The default builds all four compact runtime artifacts with side
+conditions. To build one of them, pass `--side-conditions` with `--base`,
+`--history`, `--persistent` or `--modern-knock`.
 Retained verification bundles are not overwritten. Add `--test-only` to compile
 an object with all named event wrappers for the Thumb interpreter tests without
 changing any bundled artifact.
@@ -303,5 +311,5 @@ This primary primitive cannot be combined with another item-removal card or a
 native base behavior. Its per-move callbacks cover action boundaries, power and
 hit completion, with no weather-query subscription or battle-history observer.
 Its activation cache uses 96 bytes regardless of the number of installed moves.
-Build its current bundle with `python3 runtime/move-effects/build.py --modern-knock`;
+Build its side-condition bundle with `python3 runtime/move-effects/build.py --modern-knock --side-conditions`;
 retained bundles remain unchanged for verification of older ROM exports.

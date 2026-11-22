@@ -174,7 +174,8 @@
         "module": "12",
         "type": "THUMB_BRANCH_LINK"
       }
-    ]
+    ],
+    "overlay": 12
   },
   "W2": {
     "idCode": "IRDO",
@@ -351,6 +352,195 @@
         "module": "12",
         "type": "THUMB_BRANCH_LINK"
       }
-    ]
+    ],
+    "overlay": 12
+  },
+  "B": {
+    "idCode": "IRBO",
+    "fileName": "TrainerLevelCapsB.dll",
+    "version": "1.0.0",
+    "hookAddress": 35057676,
+    "signatureAddress": 35057648,
+    "expectedHex": "38b5051c0c1ca968201c8c310968a3f625fda968201ceff7d3fa281cfff736ff281cfff7b7ff",
+    "codeHex": "4278037812021a438378c0781b04134300061843704737b513006a46d51d002204002a70934201d100203ebd1b688b42fad210331900074b98470028f4d0012229002000044b98470128edd128786428ead8eae7448b0702708b0702f0b599b005006ef1fbfe002d76d0ae68002e73d03000fff7c5ff01286ed130001c30fff7bfff002868d1731cdb7f002b64d130008c30fff7b5ff01285ed128001430fff7afff002858d028002030fff7a9ff041e52d16f68002f4fd0284b04a898472849284b04a89847002846d010226946264b04a8984710282fd16846fff791ff234b984229d101a8fff78bff214b984223d103a8fff785ff1f4b98421dd102a8fff77fff8023421e05005b029a4214d21a4b04a898472b00103398420dd12900f26c04a8fff778ff29000400726d04a8fff772ff844200d20400104b04a89847002c0ad0380012f002fc002805d0094914f02df9002800d0048019b0f0bdac880702a0010000188c0702708b070250574c43010001001f400000948a0702808a0702726f6d3a2f626174746c652f747261696e65722d636170732e62696e00000000",
+    "bssSize": 0,
+    "symbols": [
+      {
+        "name": null,
+        "size": 0,
+        "address": 35057276,
+        "type": 3,
+        "attributes": 4
+      },
+      {
+        "name": null,
+        "size": 0,
+        "address": 33630572,
+        "type": 3,
+        "attributes": 4
+      },
+      {
+        "name": null,
+        "size": 0,
+        "address": 33637324,
+        "type": 3,
+        "attributes": 4
+      },
+      {
+        "name": null,
+        "size": 0,
+        "address": 384,
+        "type": 1,
+        "attributes": 0
+      },
+      {
+        "name": null,
+        "size": 22,
+        "address": 0,
+        "type": 3,
+        "attributes": 1
+      },
+      {
+        "name": null,
+        "size": 292,
+        "address": 92,
+        "type": 3,
+        "attributes": 1
+      },
+      {
+        "name": null,
+        "size": 70,
+        "address": 22,
+        "type": 3,
+        "attributes": 1
+      }
+    ],
+    "relocations": [
+      {
+        "address": 98,
+        "symbol": 0,
+        "module": "base",
+        "type": "THUMB_BRANCH_LINK"
+      },
+      {
+        "address": 324,
+        "symbol": 1,
+        "module": "base",
+        "type": "THUMB_BRANCH_LINK"
+      },
+      {
+        "address": 334,
+        "symbol": 2,
+        "module": "base",
+        "type": "THUMB_BRANCH_LINK"
+      },
+      {
+        "address": 352,
+        "symbol": 3,
+        "module": "base",
+        "type": "OFFSET"
+      },
+      {
+        "address": 35057676,
+        "symbol": 5,
+        "module": "10",
+        "type": "THUMB_BRANCH_LINK"
+      }
+    ],
+    "overlay": 10
+  },
+  "W": {
+    "idCode": "IRAO",
+    "fileName": "TrainerLevelCapsW.dll",
+    "version": "1.0.0",
+    "hookAddress": 35057708,
+    "signatureAddress": 35057680,
+    "expectedHex": "38b5051c0c1ca968201c8c310968a3f615fda968201ceff7d3fa281cfff736ff281cfff7b7ff",
+    "codeHex": "4278037812021a438378c0781b04134300061843704737b513006a46d51d002204002a70934201d100203ebd1b688b42fad210331900074b98470028f4d0012229002000044b98470128edd128786428ead8eae75c8b0702888b0702f0b599b005006ef10bff002d76d0ae68002e73d03000fff7c5ff01286ed130001c30fff7bfff002868d1731cdb7f002b64d130008c30fff7b5ff01285ed128001430fff7afff002858d028002030fff7a9ff041e52d16f68002f4fd0284b04a898472849284b04a89847002846d010226946264b04a8984710282fd16846fff791ff234b984229d101a8fff78bff214b984223d103a8fff785ff1f4b98421dd102a8fff77fff8023421e05005b029a4214d21a4b04a898472b00103398420dd12900f26c04a8fff778ff29000400726d04a8fff772ff844200d20400104b04a89847002c0ad0380012f002fc002805d0094914f03bf9002800d0048019b0f0bdc4880702a0010000308c0702888b070250574c43010001001f400000ac8a0702988a0702726f6d3a2f626174746c652f747261696e65722d636170732e62696e00000000",
+    "bssSize": 0,
+    "symbols": [
+      {
+        "name": null,
+        "size": 0,
+        "address": 35057308,
+        "type": 3,
+        "attributes": 4
+      },
+      {
+        "name": null,
+        "size": 0,
+        "address": 33630572,
+        "type": 3,
+        "attributes": 4
+      },
+      {
+        "name": null,
+        "size": 0,
+        "address": 33637352,
+        "type": 3,
+        "attributes": 4
+      },
+      {
+        "name": null,
+        "size": 0,
+        "address": 384,
+        "type": 1,
+        "attributes": 0
+      },
+      {
+        "name": null,
+        "size": 22,
+        "address": 0,
+        "type": 3,
+        "attributes": 1
+      },
+      {
+        "name": null,
+        "size": 292,
+        "address": 92,
+        "type": 3,
+        "attributes": 1
+      },
+      {
+        "name": null,
+        "size": 70,
+        "address": 22,
+        "type": 3,
+        "attributes": 1
+      }
+    ],
+    "relocations": [
+      {
+        "address": 98,
+        "symbol": 0,
+        "module": "base",
+        "type": "THUMB_BRANCH_LINK"
+      },
+      {
+        "address": 324,
+        "symbol": 1,
+        "module": "base",
+        "type": "THUMB_BRANCH_LINK"
+      },
+      {
+        "address": 334,
+        "symbol": 2,
+        "module": "base",
+        "type": "THUMB_BRANCH_LINK"
+      },
+      {
+        "address": 352,
+        "symbol": 3,
+        "module": "base",
+        "type": "OFFSET"
+      },
+      {
+        "address": 35057708,
+        "symbol": 5,
+        "module": "10",
+        "type": "THUMB_BRANCH_LINK"
+      }
+    ],
+    "overlay": 10
   }
 }

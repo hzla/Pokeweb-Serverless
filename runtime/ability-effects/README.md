@@ -20,6 +20,16 @@ and native assignment without installing or updating the runtime.
 Rules support up to 16 effects and bounded conditions for HP, type, weather,
 species, status and moves. Templates and their editable controls are defined in
 `src/pokeweb/abilityLibrary.ts`, `abilityNativeRuntime.ts` and `abilityRules.ts`.
+**Activation conditions** apply to every effect. Each card’s **Effect
+conditions** adds a separate AND/OR group evaluated when that effect can run.
+**Pokémon type** and **Knows move** can check the holder, the opponent involved
+in the event, or any active opponent. An event without an identified opponent
+cannot satisfy an **Opponent involved** check. A **Same active opponent** group
+tests its opponent-scoped conditions against one foe at a time. **Knows move**
+reads the current battle moveset, including moves with no PP, by this ROM’s move ID.
+Protection bypass accepts holder and active-opponent checks because the native
+Protect/Detect bypass event supplies only the attacker.
+Recipes with these conditions use a newer version of the same shared DLL.
 Passive multipliers use the engine's fixed-point scale. Copied handlers preserve
 native triggers and intrinsic restrictions; copying a callback does not reproduce
 every ability-ID check elsewhere in the game. Imported recipes may implement
@@ -51,6 +61,13 @@ or 0 for permanent; an active condition can be left unchanged or toggled off.
 or Pledge effects on the chosen side(s). Hazards are permanent and obey native
 layer limits. Native expiration and removal continue to apply; losing or
 suppressing the ability does not remove an already created condition.
+
+Under **Activation conditions**, **Field effect** checks whether a whole-field
+effect such as Trick Room is active. **Side condition** checks the holder’s side
+or the opposing side for Tailwind, screens, hazards or Pledge effects. Spikes
+and Toxic Spikes can require a minimum number of layers. The checks use current
+battle state, including opening conditions set by the Trainer Field Conditions
+patch on BW2 and later changes made during battle.
 
 The **Magic Guard** import uses **Prevent selected indirect damage**, with
 checkboxes for burn, poison/bad poison, Curse, binding, Nightmare, hail,
@@ -282,18 +299,18 @@ Aura entry notices use the configured type's display name, including Fairy and
 renamed types, without relying on Gen 5's native type-name formatter.
 
 Build from the repository root with `python3 runtime/ability-effects/build.py`
-(the default builds the v17 `--zen-mode-messages-only` bundle,
-`src/assets/data/abilityRuleRuntimeZenModeMessages.json`).
+(the default builds the `--effect-conditions-only` bundle,
+`src/assets/data/abilityRuleRuntimeEffectConditions.json`).
 The original templates remain available for strict verification of older exports;
 the default build updates only the current bundle, including its 4-, 8- and
-16-slot work variants. `--form-conversion-only`, `--status-extensions-only`, `--weather-moves-only`,
+16-slot work variants. `--zen-mode-messages-only`, `--form-conversion-only`, `--status-extensions-only`, `--weather-moves-only`,
 `--protect-only`, `--native-flags-only`, `--compact-only`, `--stat-source-only`,
 `--action-results-only`, `--custom-flags-only`, `--messages-only`, `--move-classes-only` and `--optimized-only`
 rebuild retained bundles for verification of older exports;
 released bundles must remain byte-identical when making a new runtime. Consolidated
 execution records use shared immutable data. The
 `PokewebAbilityCompact: 1` and `PokewebAbilityWorkSlots` metadata identify the
-execution format and selected work capacity. Versions 1–16 remain readable through
+execution format and selected work capacity. Versions 1–17 remain readable through
 their retained bundles. **Update Ability Runtime** rebuilds them from their saved
 editor recipes.
 New modules retain `PokewebAbilityDispatchVersion: 2` and the 16-byte effect stride.

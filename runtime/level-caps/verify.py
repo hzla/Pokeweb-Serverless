@@ -1,4 +1,4 @@
-"""Exercise compiled BW2 cap code and the item trampoline in an ARM946 model.
+"""Exercise compiled BW/BW2 cap code and the item trampoline in an ARM946 model.
 
 Requires Unicorn (`python3 -m pip install unicorn`). Native game calls are
 stubbed at the ELF relocation sites; all local compiled code runs unchanged.
@@ -13,6 +13,7 @@ from unicorn.arm_const import (
     UC_CPU_ARM_946, UC_ARM_REG_LR, UC_ARM_REG_PC, UC_ARM_REG_R0, UC_ARM_REG_R1,
     UC_ARM_REG_R2, UC_ARM_REG_R3, UC_ARM_REG_R4, UC_ARM_REG_R7, UC_ARM_REG_SP,
 )
+from build import BW1_BEACONS
 
 HERE = Path(__file__).resolve().parent
 TOOLS = HERE.parents[2] / "toolchains/arm-gnu-toolchain-14.2.rel1-darwin-arm64-arm-none-eabi/bin"
@@ -71,9 +72,9 @@ def run(version, prepared, entry, cap, level, experience, item=622, gained=100, 
     uc.mem_map(0x02000000, 0x400000)
     uc.mem_write(BASE, bytes(code))
     uc.mem_write(BASE + symbols["LevelCaps_CandyItemId"], struct.pack("<I", candy_id))
-    beacon = 0x02141800 if version == "B2" else 0x02141840
+    beacon = BW1_BEACONS.get(version, 0x02141800 if version == "B2" else 0x02141840)
     uc.mem_write(beacon, struct.pack("<I", BEACON))
-    uc.mem_write(BEACON + 4, struct.pack("<I", GAME))
+    uc.mem_write(BEACON + (0 if version in BW1_BEACONS else 4), struct.pack("<I", GAME))
     uc.mem_write(CAP_PTR, struct.pack("<H", cap))
     uc.mem_write(DAYCARE + 8, struct.pack("<I", SAVE))
     uc.mem_write(MON, struct.pack("<IIIHH", PKM, 0, experience, species, 0))
@@ -146,11 +147,15 @@ def run(version, prepared, entry, cap, level, experience, item=622, gained=100, 
         uc.reg_write(UC_ARM_REG_R1, 100)
     if entry == "THUMB_BRANCH_PokeList_CanItemWithBattleStatsBeUsed":
         uc.reg_write(UC_ARM_REG_R7, MON)
+    if entry.startswith("THUMB_BRANCH_LINK_AddExpAndEVs"):
+        uc.reg_write(UC_ARM_REG_R0, gained)
+        uc.reg_write(UC_ARM_REG_R4, WORK)
+        uc.reg_write(UC_ARM_REG_R7, MON)
     uc.emu_start((BASE + symbols[entry]) | 1, STOP, count=500)
     return uc, recorded
 
 
-for version in ("B2", "W2"):
+for version in ("B", "W", "B2", "W2"):
     prepared = prepare(version)
     for cap, level, exp, expected in ((0, 29, 950, 200), (30, 29, 950, 50), (30, 30, 950, 0), (30, 29, 1005, 0)):
         uc, _ = run(version, prepared, "LevelCaps_ApplyBattleExp", cap, level, exp)
@@ -161,6 +166,9 @@ for version in ("B2", "W2"):
             assert uc.mem_read(WORK, 12) == struct.pack("<III", 100, 1, 2)
     uc, _ = run(version, prepared, "LevelCaps_ApplyBattleExp", 30, 29, 950, form=2)
     assert uc.reg_read(UC_ARM_REG_R0) == 50
+    hook = next(name for name in prepared[1] if name.startswith("THUMB_BRANCH_LINK_AddExpAndEVs"))
+    uc, _ = run(version, prepared, hook, 30, 29, 950)
+    assert uc.reg_read(UC_ARM_REG_R0) == 50 and uc.reg_read(UC_ARM_REG_R4) == WORK and uc.reg_read(UC_ARM_REG_R7) == MON
     for item, level, target in ((622, 30, STOP), (622, 29, CONTINUE), (50, 30, CONTINUE),
                                 (622, 11, CONTINUE), (622, 20, STOP)):
         cap = 20 if level in (11, 20) else 30

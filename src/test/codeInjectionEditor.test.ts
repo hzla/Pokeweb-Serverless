@@ -10,6 +10,7 @@ import * as candyModel from "../pokeweb/infiniteCandyModel";
 import * as levelCapsModel from "../pokeweb/levelCapsModel";
 import * as trainerLevelCapsModel from "../pokeweb/trainerLevelCapsModel";
 import * as pmcModel from "../pokeweb/pmcModel";
+import { FIVE_BOX_PMC_VERSION } from "../pokeweb/pmcFiveBoxRuntime";
 import * as megaEvolutionModel from "../pokeweb/megaEvolutionModel";
 import * as speciesExpansionModel from "../pokeweb/speciesExpansionModel";
 import * as abilityExpansionModel from "../pokeweb/abilityExpansionModel";
@@ -19,6 +20,8 @@ import manifest from "../assets/codeinjection/quickPokeBallManifest.json";
 import { NARC } from "../nds/narc";
 import { addRomFile } from "../pokeweb/fileSystemModel";
 import { getQuickPokeBallStatus, uninstallQuickPokeBall } from "../pokeweb/quickPokeBallModel";
+import { parseRpm } from "../pokeweb/rpm";
+import { uiSymbolHash } from "../pokeweb/uiRuntimeCompanion";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -41,18 +44,25 @@ it.each([["B2", "black2ApFix"], ["W2", "white2ApFix"]] as const)("enables the %s
 
 describe("optional PMC heap expansion", () => {
   it.each(["B", "W", "B2", "W2"] as const)("shows a separate opt-in sidebar action for %s", version => {
-    const project = makeProject(version, true); project.codeInjection!.pmc!.version = version === "B" || version === "W" ? "13.2.4-bw1" : "13.2.4";
+    const suffix = version === "B" || version === "W" ? "-bw1" : "";
+    const project = makeProject(version, true); project.codeInjection!.pmc!.version = `13.2.4${suffix}`;
     const expand = vi.spyOn(pmcModel, "expandPmcHeapAllocation");
     const root = { innerHTML: "", querySelector: () => null, querySelectorAll: () => [] };
     renderCodeInjectionEditor(project, root as unknown as HTMLElement, () => {});
     const sidebar = root.innerHTML.slice(root.innerHTML.indexOf("<aside"), root.innerHTML.indexOf("</aside>"));
-    expect(sidebar).toContain("Expand PMC Heap Allocation");
+    expect(sidebar).toContain("Expand PMC Heap Allocation (+60kb)");
     expect(sidebar).not.toMatch(/id="expand-pmc-heap-btn"[^>]*disabled/);
     expect(expand).not.toHaveBeenCalled();
-    project.codeInjection!.pmc!.version = version === "B" || version === "W" ? "13.2.4-heap200-bw1" : "13.2.4-heap200";
+    project.codeInjection!.pmc!.version = `13.2.4-heap200${suffix}`;
     renderCodeInjectionEditor(project, root as unknown as HTMLElement, () => {});
-    expect(root.innerHTML).toMatch(/id="expand-pmc-heap-btn"[^>]*disabled/);
+    expect(root.innerHTML).toContain("Expand PMC Heap Allocation (+20kb)");
+    expect(root.innerHTML).not.toMatch(/id="expand-pmc-heap-btn"[^>]*disabled/);
     expect(root.innerHTML).toContain("<strong>200 KiB</strong>");
+    project.codeInjection!.pmc!.version = `13.2.4-heap220${suffix}`;
+    renderCodeInjectionEditor(project, root as unknown as HTMLElement, () => {});
+    expect(root.innerHTML).toContain(">Expand PMC Heap Allocation</button>");
+    expect(root.innerHTML).toMatch(/id="expand-pmc-heap-btn"[^>]*disabled/);
+    expect(root.innerHTML).toContain("<strong>220 KiB</strong>");
     expect(expand).not.toHaveBeenCalled();
   });
   it("installs expansion only after the dedicated button is pressed", async () => {
@@ -66,6 +76,32 @@ describe("optional PMC heap expansion", () => {
     expect(expand).toHaveBeenCalledOnce(); expect(expand).toHaveBeenCalledWith(project); expect(dirty).toHaveBeenCalledOnce();
   });
   it("disables expansion until PMC is installed", () => expect(renderFixture("W2")).toMatch(/id="expand-pmc-heap-btn"[^>]*disabled/));
+  it("toggles five-box mode from the White 2 PMC sidebar and shows its estimated budget", async () => {
+    const project = makeProject("W2", true);
+    let click: () => Promise<void> = async () => {};
+    const button = { disabled: false, addEventListener: (_: string, fn: () => Promise<void>) => { click = fn; } };
+    const root = { innerHTML: "", querySelector: (selector: string) => selector === "#five-box-pmc-btn" ? button : null,
+      querySelectorAll: () => [] };
+    const change = vi.spyOn(pmcModel, "setFiveBoxPmcMode").mockImplementation(async (state, enabled) => {
+      const version = enabled ? FIVE_BOX_PMC_VERSION : "13.2.4-heap220";
+      state.codeInjection!.pmc!.version = version;
+      return { version, overlayId: 344, overlayBaseAddress: 0x021fd0c0, symbolPath: pmcModel.PMC_SYMBOL_PATH };
+    });
+    const dirty = vi.fn();
+    renderCodeInjectionEditor(project, root as unknown as HTMLElement, dirty);
+    expect(root.innerHTML).toContain("Enable Five-Box Mode (+72kb)");
+    expect(root.innerHTML).toContain("Repurposes PC box 6-24 for more PMC Heap");
+    expect(change).not.toHaveBeenCalled();
+    await click();
+    expect(change).toHaveBeenLastCalledWith(project, true);
+    expect(root.innerHTML).toContain("Restore 24 PC Boxes");
+    expect(root.innerHTML).toContain("276 KiB budget");
+    expect(root.innerHTML).not.toContain('id="expand-pmc-heap-btn"');
+    await click();
+    expect(change).toHaveBeenLastCalledWith(project, false);
+    expect(dirty).toHaveBeenCalledTimes(2);
+    expect(renderFixture("B2", true)).not.toContain('id="five-box-pmc-btn"');
+  });
 });
 
 describe("Hard Level Caps updates", () => {
@@ -124,13 +160,13 @@ describe("Type Icons appearance picker", () => {
 });
 
 describe("Infinite Candy item selection", () => {
-  it("shows the validated default slot as ready when item 622 is occupied", () => {
+  it("shows no badge for the validated default slot when item 622 is occupied", () => {
     const status = vi.spyOn(candyModel, "getInfiniteCandyStatus").mockReturnValue({ supported: true, compatible: true,
       installed: false, itemId: 113, message: "Ready" });
     const html = renderFixture("W2");
     expect(status).toHaveBeenCalledWith(expect.anything(), undefined);
     expect(html).toMatch(/id="infinite-candy-item-id"[^>]*value="113"/u);
-    expect(html).toMatch(/id="infinite-candy-status">[\s\S]*?Ready/u);
+    expect(html).toMatch(/id="infinite-candy-status"><\/span>/u);
     expect(html).toMatch(/id="install-infinite-candy-btn" type="button"\s*>/u);
   });
   it("updates compatibility and the install button when the selected ID changes", () => {
@@ -146,7 +182,7 @@ describe("Infinite Candy item selection", () => {
     renderCodeInjectionEditor(makeProject("W2"), root as unknown as HTMLElement, () => {});
     expect(root.innerHTML).toContain('id="infinite-candy-item-id" type="number"');
     handlers.get("input")!();
-    expect(button.disabled).toBe(false); expect(note.textContent).toBe(""); expect(badge.innerHTML).toContain("Ready");
+    expect(button.disabled).toBe(false); expect(note.textContent).toBe(""); expect(badge.innerHTML).toBe("");
     input.valueAsNumber = 50; handlers.get("input")!();
     expect(button.disabled).toBe(true); expect(note.textContent).toBe("Occupied item slot");
   });
@@ -182,13 +218,14 @@ function renderFixture(version: "W2" | "B2" | "B" | "W", pmcInstalled = false): 
 describe("Quick Poké Ball bundle", () => {
   const bundle = (name: string) => new Uint8Array(readFileSync(new URL(`../assets/codeinjection/${name}`, import.meta.url)));
 
-  it.each(["B", "W", "B2", "W2"] as const)("recognizes and removes the staged %s DLL and matching art together", async version => {
+  it.each(["B", "W", "B2", "W2"] as const)("recognizes and removes the staged %s runtime pair and art together", async version => {
     const project = makeProject(version);
     project.originalRomBytes = undefined;
-    const dllPath = `patches/${manifest.games[version].fileName}`;
-    addRomFile(project, dllPath, bundle(manifest.games[version].fileName));
-    expect(getQuickPokeBallStatus(project)).toMatchObject({ installed: false, compatible: true, canUninstall: true });
+    const profile = manifest.games[version];
+    addRomFile(project, `patches/${profile.fileName}`, bundle(profile.fileName));
     addRomFile(project, manifest.archivePath, bundle("quickPokeBall.narc"));
+    expect(getQuickPokeBallStatus(project)).toMatchObject({ installed: false, compatible: true, canUninstall: true });
+    addRomFile(project, `patches/${profile.session.fileName}`, bundle(profile.session.fileName));
     expect(getQuickPokeBallStatus(project)).toMatchObject({ installed: true, compatible: true, canUninstall: true });
     await uninstallQuickPokeBall(project);
     expect(project.fileSystem?.additions).toEqual({});
@@ -198,12 +235,39 @@ describe("Quick Poké Ball bundle", () => {
     const project = makeProject("W2");
     project.originalRomBytes = undefined;
     addRomFile(project, `patches/${manifest.games.W2.fileName}`, bundle(manifest.games.W2.fileName));
+    addRomFile(project, `patches/${manifest.games.W2.session.fileName}`, bundle(manifest.games.W2.session.fileName));
     const archive = new NARC(bundle("quickPokeBall.narc"));
     addRomFile(project, manifest.archivePath, archive.save());
     expect(getQuickPokeBallStatus(project)).toMatchObject({ installed: true, compatible: true });
     archive.files[3]![12] ^= 1;
     addRomFile(project, manifest.archivePath, archive.save());
     expect(getQuickPokeBallStatus(project)).toMatchObject({ installed: false, compatible: false });
+  });
+
+  it.each(["B", "W", "B2", "W2"] as const)("keeps only the %s session companion resident", version => {
+    const profile = manifest.games[version];
+    const battle = parseRpm(bundle(profile.fileName), { allowedMagics: ["DLXF"] });
+    const session = parseRpm(bundle(profile.session.fileName), { allowedMagics: ["DLXF"] });
+    const segments = (rpm: typeof battle) => [...new Set(rpm.relocations.map(r => r.target.module).filter(m => m !== "base"))];
+    const choice = uiSymbolHash("PokewebQuickBallChoice");
+    expect(segments(battle)).toEqual([version.length === 1 ? "93" : "167"]);
+    expect(segments(session)).toEqual(["ARM9"]);
+    expect(battle.symbols.filter(s => s.attributes & 2).map(s => s.address)).toEqual([choice]);
+    expect(session.symbols.some(s => (s.attributes & 1) && s.nameHash === choice && s.size === 2)).toBe(true);
+    expect(Number(session.metadata.PMCModulePriority)).toBeLessThan(Number(battle.metadata.PMCModulePriority));
+  });
+
+  it("rejects a corrupt session companion", () => {
+    const project = makeProject("W2");
+    project.originalRomBytes = undefined;
+    const name = manifest.games.W2.session.fileName;
+    const session = bundle(name);
+    session[32] ^= 1;
+    const path = `patches/${name}`;
+    addRomFile(project, path, session);
+    expect(getQuickPokeBallStatus(project)).toMatchObject({
+      installed: false, compatible: false, message: `Quick Poké Ball does not recognize ${path}.`,
+    });
   });
 
   it("keeps the arrow backing and quantity area inside every tab's border", () => {
@@ -435,7 +499,7 @@ describe("code-injection patch categories", () => {
 
     expect(headings(panels[0])).toEqual([
       "PWAN GIF Support", "Trainer PWAN GIF Support", "Overworld Weather Runtime", "Trainer Battle Log", "Item Expansion",
-      "Single-NPC Double Battle Fix", "Tag Battle Stabilization", "Added-Form Evolution Support", "Trainer Customization",
+      "Single-NPC Double Battle Fix", "Tag Battle Stabilization", "Rotation Battle AI", "Added-Form Evolution Support", "Trainer Customization",
     ]);
     expect(headings(panels[1])).toEqual([
       "Nature Palettes", "Summary IV/EV Viewer", "Enhanced Party Menu and Battle Log Integration", "Type Icons", "Party Menu Learnset/Dex Viewer", "Move Effectiveness Preview", "C-Gear Quick Actions", "Pokenav",

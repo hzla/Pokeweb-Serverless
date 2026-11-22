@@ -3,10 +3,16 @@
 #include "effects.h"
 #include "gifts.h"
 #define API __attribute__((visibility("default")))
+#ifdef FW_NATIVE_BEHAVIOR
+static void *dataBytes, *contextBytes;
+static int emotesChecked;
+#else
 static uint32_t dataBytes[FWR_CAPACITY/4];
 static uint32_t contextBytes[FWR_CONTEXT_CAPACITY/4];
+static int loaded;
+#endif
 static FwrData data;static FwrContext context;static FwrItems items;
-static int loaded,emotesValid,needRelease;
+static int emotesValid,needRelease;
 static uint32_t rng=0x48534753;
 static struct {
  FwFollower *f;const Moves *callbacks;void *system;Actor *actor,*player;void *field,*game,*event,*window,*string;
@@ -22,6 +28,43 @@ API volatile uint32_t FollowingTalkDebug[12]={0x4b545746,1,0,0,0,0,0,0,0,0,0,0};
    [6] claim mask, [7] rule chosen, [8] rule, [9] grant result,
    [10] item, [11] slot:quantity. */
 API volatile uint32_t FollowingGiftDebug[12]={0x46475746,1,0,0,0,0,0,0,0xffffffffu,0,0,0};
+#ifdef FW_NATIVE_BEHAVIOR
+/* The game-event heap also owns the conversation event. Leave its usual
+   headroom available and use the nonfatal allocator for the exact file size. */
+enum { ConversationHeap = 4, ConversationHeapReserve = 16384 };
+static void release_buffer(void **buffer){
+ if(*buffer)CALL(0x0203a279,void(*)(void*))(*buffer);
+ *buffer=0;
+}
+static void release_context(void){
+ context=(FwrContext){0};
+ items=(FwrItems){0};
+ release_buffer(&contextBytes);
+}
+static void release_conversation_data(void){
+ release_context();
+ data=(FwrData){0};
+ release_buffer(&dataBytes);
+}
+static unsigned read_conversation_file(const char *path,void **buffer,unsigned capacity){
+ uint32_t file[32];CALL(0x02070ca9,void(*)(void*))(file);
+ if(!CALL(0x02070ecd,int(*)(void*,const char*))(file,path))return 0;
+ unsigned size=CALL(0x02070ded,unsigned(*)(void*))(file);
+ if(size>=48&&size<=capacity&&
+    CALL(0x0203a2d5,unsigned(*)(unsigned))(ConversationHeap)>=size+ConversationHeapReserve&&
+    CALL(0x02039fbd,unsigned(*)(unsigned))(ConversationHeap)>=size){
+  *buffer=CALL(0x02039dc9,void*(*)(unsigned,unsigned))(ConversationHeap,size);
+  if(*buffer&&CALL(0x02070e6d,unsigned(*)(void*,void*,unsigned))(file,*buffer,size)!=size)
+   release_buffer(buffer);
+ }
+ CALL(0x02070de1,int(*)(void*))(file);
+ return *buffer?size:0;
+}
+static unsigned read_context(const char *path){
+ release_context();
+ return read_conversation_file(path,&contextBytes,FWR_CONTEXT_CAPACITY);
+}
+#else
 static int file_read(const char *path,void *out,unsigned capacity){
  uint32_t file[32];CALL(0x02070ca9,void(*)(void*))(file);
  if(!CALL(0x02070ecd,int(*)(void*,const char*))(file,path))return 0;
@@ -29,6 +72,8 @@ static int file_read(const char *path,void *out,unsigned capacity){
  if(ok)ok=CALL(0x02070e6d,unsigned(*)(void*,void*,unsigned))(file,out,size)==size;
  CALL(0x02070de1,int(*)(void*))(file);return ok?(int)size:0;
 }
+static unsigned read_context(const char *path){return file_read(path,contextBytes,sizeof(contextBytes));}
+#endif
 static int verify_emotes(void){
  uint32_t file[32],buffer[64];CALL(0x02070ca9,void(*)(void*))(file);
  if(!CALL(0x02070ecd,int(*)(void*,const char*))(file,"rom:/following/emotes.narc"))return 0;
@@ -40,11 +85,18 @@ static int verify_emotes(void){
  CALL(0x02070de1,int(*)(void*))(file);return ok&&~crc==data.emoteCrc;
 }
 static int load(void){
+#ifdef FW_NATIVE_BEHAVIOR
+ unsigned n=read_conversation_file("rom:/following/interactions.bin",&dataBytes,FWR_CAPACITY);
+ if(!n||!fwr_validate(&data,dataBytes,n)){FollowingTalkDebug[10]=1;return 0;}
+ if(!emotesChecked){emotesValid=verify_emotes();emotesChecked=1;}
+#else
  if(loaded)return loaded>0;
  loaded=-1;
  int n=file_read("rom:/following/interactions.bin",dataBytes,sizeof(dataBytes));
  if(!n||!fwr_validate(&data,dataBytes,(unsigned)n)){FollowingTalkDebug[10]=1;return 0;}
- loaded=1;emotesValid=verify_emotes();FollowingTalkDebug[9]=emotesValid;return 1;
+ loaded=1;emotesValid=verify_emotes();
+#endif
+ FollowingTalkDebug[9]=emotesValid;return 1;
 }
 static int valid_actor(void){return talk.f&&talk.f->generation==talk.generation&&talk.f->actor==(uintptr_t)talk.actor&&talk.actor&&(talk.actor->flags&1)&&talk.actor->system==talk.system&&talk.actor->callbacks==talk.callbacks;}
 void fwt_poll_input(void){if(needRelease&&!(CALL(0x0203df4d,unsigned(*)(void))()&3))needRelease=0;}
@@ -63,6 +115,9 @@ static void close_resources(void){
  if(talk.string){CALL(0x02048591,void(*)(void*))(talk.string);talk.string=0;}
  if(valid_actor()){talk.actor->drawOffset=talk.offset;CALL(0x02167099,void(*)(Actor*,unsigned))(talk.actor,talk.face);fwr_anchor(talk.actor,talk.face);talk.actor->flags|=16;}
  if(talk.f&&talk.f->generation==talk.generation&&talk.f->actor==(uintptr_t)talk.actor)fw_end_interaction(talk.f);
+#ifdef FW_NATIVE_BEHAVIOR
+ release_conversation_data();
+#endif
  talk.active=0;needRelease=1;FollowingTalkDebug[2]=0;FollowingTalkDebug[7]++;
 }
 static int finish_event(void){
@@ -79,7 +134,15 @@ void fwt_cancel(void){
  for(unsigned i=0;link&&*link&&i<16;++i){void *node=*link;if(node==event){*link=PTR(node,0);CALL(0x02016d09,void(*)(void*))(node);break;}link=(void**)node;}
  talk.event=0;FollowingTalkDebug[8]++;
 }
-void fwt_unload(void){fwt_cancel();loaded=0;data=(FwrData){0};context=(FwrContext){0};items=(FwrItems){0};emotesValid=0;}
+void fwt_unload(void){
+ fwt_cancel();
+#ifdef FW_NATIVE_BEHAVIOR
+ release_conversation_data();emotesChecked=0;
+#else
+ loaded=0;data=(FwrData){0};context=(FwrContext){0};items=(FwrItems){0};
+#endif
+ emotesValid=0;
+}
 static int abs32(int x){return x<0?-x:x;}
 static int reach_actual(FwFollower *f,Actor *p,Actor *a,void *field){
  if(!f||f->state!=FW_FOLLOWING||!p||!a||(a->flags&4)||fwfx_busy()||p->face>3||f->trail.count<2)return 0;
@@ -243,8 +306,9 @@ static int event_tick(void *event,int *seq,void *work){
  return 0;
 }
 void *fwt_begin(FwFollower *f,Actor *player,Actor *actor,void *field,void *game,const FwrSnapshot *snapshot){
- if(talk.active||needRelease||!load()||!fwt_reach(f,player,actor,field)||PTR(game,0x18))return 0;
+ if(talk.active||needRelease||!fwt_reach(f,player,actor,field)||PTR(game,0x18))return 0;
  if(CALL(0x0203a2d5,unsigned(*)(unsigned))(4)<16384)return 0;
+ if(!load())goto failed;
  FwrSnapshot current=*snapshot;
  /* Actor grid is matrix-wide; native grid Y is height, Z is map tile Y. */
  current.tileX=player->grid[0];current.tileY=player->grid[2];
@@ -253,20 +317,32 @@ void *fwt_begin(FwFollower *f,Actor *player,Actor *actor,void *field,void *game,
  current.direction=(uint8_t)face;
  void *gameData=PTR(field,8);
  int giftRule=-1,contextRule=-1,rule=-1;uint16_t claims=0;FwrItemChoice choice={0};
- int in=file_read("rom:/following/contextual-items.narc",contextBytes,sizeof(contextBytes));
+ unsigned in=read_context("rom:/following/contextual-items.narc");
  FollowingGiftDebug[2]++;FollowingGiftDebug[3]=(uint32_t)in;
  int itemsValid=in&&fwr_items_validate(&items,contextBytes,(unsigned)in);FollowingGiftDebug[4]=(uint32_t)itemsValid;
  int claimsValid=itemsValid&&gameData&&fwg_claims(gameData,&current,&claims);FollowingGiftDebug[5]=(uint32_t)claimsValid;FollowingGiftDebug[6]=claims;
  int giftChosen=claimsValid&&fwr_item_choose(&items,&current,claims,&choice);FollowingGiftDebug[7]=(uint32_t)giftChosen;
  FollowingGiftDebug[8]=giftChosen?choice.rule:0xffffffffu;FollowingGiftDebug[9]=0;FollowingGiftDebug[10]=giftChosen?choice.item:0;FollowingGiftDebug[11]=giftChosen?((uint32_t)choice.slot<<16)|choice.quantity:0;
  if(giftChosen)giftRule=(int)choice.rule;
- if(giftRule<0){int cn=file_read("rom:/following/contextual-dialogues.narc",contextBytes,sizeof(contextBytes));context=(FwrContext){0};if(cn)fwr_context_validate(&context,contextBytes,(unsigned)cn);contextRule=fwr_context_choose(&context,&current,&rng);rule=contextRule<0?fwr_choose(&data,&current,&rng):0;if(contextRule<0&&rule<0)return 0;}
- if(!fw_interact(f))return 0;
+ if(giftRule<0){
+  unsigned cn=read_context("rom:/following/contextual-dialogues.narc");
+  context=(FwrContext){0};
+  if(cn)fwr_context_validate(&context,contextBytes,cn);
+  contextRule=fwr_context_choose(&context,&current,&rng);
+  rule=contextRule<0?fwr_choose(&data,&current,&rng):0;
+#ifdef FW_NATIVE_BEHAVIOR
+  if(contextRule<0)release_context();
+#endif
+  if(contextRule<0&&rule<0)goto failed;
+ }
+ if(!fw_interact(f))goto failed;
  talk.f=f;talk.callbacks=actor->callbacks;talk.system=actor->system;talk.actor=actor;talk.player=player;talk.field=field;talk.game=game;talk.snapshot=current;
  talk.generation=f->generation;talk.offset=actor->drawOffset;talk.face=(uint16_t)face;
- talk.rule=(unsigned)(rule<0?0:rule);talk.contextRule=(unsigned)(contextRule<0?0:contextRule);talk.itemRule=(unsigned)(giftRule<0?0:giftRule);talk.contextual=contextRule>=0;talk.gift=giftRule>=0;talk.item=choice;talk.giftGranted=talk.gift?fwg_grant(gameData,&current,&choice):0;FollowingGiftDebug[9]=(uint32_t)talk.giftGranted; if(talk.gift&&talk.giftGranted<0){fw_end_interaction(f);return 0;}talk.stage=talk.stepIndex=talk.age=0;talk.window=talk.string=0;talk.released=talk.cryPending=talk.closing=talk.finished=0;
+ talk.rule=(unsigned)(rule<0?0:rule);talk.contextRule=(unsigned)(contextRule<0?0:contextRule);talk.itemRule=(unsigned)(giftRule<0?0:giftRule);talk.contextual=contextRule>=0;talk.gift=giftRule>=0;talk.item=choice;talk.giftGranted=talk.gift?fwg_grant(gameData,&current,&choice):0;FollowingGiftDebug[9]=(uint32_t)talk.giftGranted;
+ if(talk.gift&&talk.giftGranted<0){fw_end_interaction(f);goto failed;}
+ talk.stage=talk.stepIndex=talk.age=0;talk.window=talk.string=0;talk.released=talk.cryPending=talk.closing=talk.finished=0;
  talk.event=CALL(0x02016cb5,void*(*)(void*,void*,void*,unsigned))(game,0,event_tick,4);
- if(!talk.event){fw_end_interaction(f);return 0;}
+ if(!talk.event){fw_end_interaction(f);goto failed;}
  talk.active=1;actor->flags|=16;CALL(0x02167099,void(*)(Actor*,unsigned))(actor,talk.face);fwr_anchor(actor,talk.face);
  CALL(0x0219a5d9,void(*)(void*))(PTR(field,0x94));
  /* Retail NPC talk scripts open with the field message cue. Play it only
@@ -274,4 +350,9 @@ void *fwt_begin(FwFollower *f,Actor *player,Actor *actor,void *field,void *game,
  CALL(0x02006255,void(*)(unsigned))(1351u);
  FollowingTalkDebug[2]=1;FollowingTalkDebug[4]=talk.gift?(0x4000u|talk.itemRule):(talk.contextual?0x8000u|talk.contextRule:fwr_u16(data.bytes+data.rules+rule*12));FollowingTalkDebug[5]=snapshot->pokemon.species;FollowingTalkDebug[6]++;
  return talk.event;
+failed:
+#ifdef FW_NATIVE_BEHAVIOR
+ release_conversation_data();
+#endif
+ return 0;
 }

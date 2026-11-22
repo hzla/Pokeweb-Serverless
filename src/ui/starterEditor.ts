@@ -61,7 +61,7 @@ export function renderStarterEditor(project: ProjectState, root: HTMLElement, op
       <section class="script-pokemon-tab-panel" data-script-pokemon-panel="starters" ${activeScriptPokemonTab === "starters" ? "" : "hidden"}>
         <div class="script-pokemon-heading">
           <div><h2>Starters</h2><p>The dedicated starter selector keeps the selection script, sprites, overlay, and story text synchronized.</p></div>
-          <button class="primary-button" type="button" id="starter-apply-btn">Apply Starters</button>
+          <button class="btn -primary" type="button" id="starter-apply-btn">Apply Starters</button>
         </div>
         ${state.warnings.map((warning) => `<div class="starter-warning">${escapeHtml(warning)}</div>`).join("")}
         <div class="starter-grid">
@@ -212,7 +212,7 @@ async function installProfessorIntroEditor(project: ProjectState, root: HTMLElem
         <datalist id="professor-intro-species-list">${Array.from({ length: 649 }, (_, i) => `<option value="${escapeHtml(speciesDisplayValue(project, i + 1))}"></option>`).join("")}</datalist>
         <div class="script-pokemon-actions">
           <span role="status" data-professor-intro-status>Base form · Sprite and cry</span>
-          <button class="primary-button" type="button" data-professor-intro-apply>Apply Pokémon</button>
+          <button class="btn -primary" type="button" data-professor-intro-apply>Apply Pokémon</button>
         </div>
       </article>
     `;
@@ -376,7 +376,7 @@ function renderScriptGroup(project: ProjectState, group: ScriptPokemonGroup): st
         `).join("")}
         <div class="script-pokemon-actions">
           <span data-script-pokemon-status></span>
-          <button class="primary-button" type="button" data-script-pokemon-apply="${escapeHtml(group.key)}" ${group.editableFieldCount === 0 ? "disabled" : ""}>Apply Changes</button>
+          <button class="btn -primary" type="button" data-script-pokemon-apply="${escapeHtml(group.key)}" ${group.editableFieldCount === 0 ? "disabled" : ""}>Apply Changes</button>
         </div>
       </div>
     </details>
@@ -787,7 +787,6 @@ function renderStarterSlot(project: ProjectState, slot: number, speciesId: numbe
           <canvas data-starter-graphic="${slot}" width="96" height="96" hidden role="img" aria-label="Target starter graphic for ${escapeHtml(speciesName)}"></canvas>
           <img data-starter-graphic-fallback="${slot}" src="${escapeHtml(fallbackSrc)}" alt="Target starter graphic for ${escapeHtml(speciesName)}" />
         </div>
-        <figcaption>Target Graphic</figcaption>
       </figure>
       <select data-starter-slot="${slot}" aria-label="${escapeHtml(labels[slot] ?? `Slot ${slot + 1}`)} starter">
         ${starterOptions(project, speciesId)}

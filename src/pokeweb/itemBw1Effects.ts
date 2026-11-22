@@ -1,3 +1,4 @@
+import { battleFieldReaderSignatures, resolveBattleConditionReaders } from "./battleFieldConditionBindings";
 import { hasItemSelection, resolveItemSelection } from "./itemSelectionBindings";
 import { isVerifiedModernStatusImport } from "./frostbiteSnowModel";
 import black from "../assets/data/abilityBindingsB1.json";
@@ -5,8 +6,8 @@ import white from "../assets/data/abilityBindingsW1.json";
 import {NintendoDSRom} from "../nds/rom";
 import {readU32} from "../nds/binary";
 import {battleRuntimeResolver,battleBranchTarget,type BattleRuntimeSignature} from "./battleRuntimeBindings";
-import {buildRuleRuntime,ITEM_RULE_API,defaultItemMoveClasses} from "./itemRuleRuntime";
-import {validateItemRule,type ItemRuleSet} from "./itemRules";
+import {buildRuleRuntime,ITEM_RULE_API,defaultItemMoveClasses,itemRuntimeVersion} from "./itemRuleRuntime";
+import {validateItemRule,itemUsesBattleCondition,type ItemRuleSet} from "./itemRules";
 import {parseRpm,writeRpm,type RpmModule} from "./rpm";
 import {getItemRecord} from "./moveItemModel";
 import type {ProjectState} from "./projectStore";
@@ -39,7 +40,7 @@ function context(project:ProjectState){
  if(!["IRBO","IRAO"].includes(source.game)||source.revision!==0)throw Error("Item recipes require US revision-0 Black or White.");
  const data=project.overlays[93];if(!data?.length)throw Error("Reload the ROM with Items selected to load its battle overlay.");
  let base=source.base;const table=project.patches?.arm9OverlayTable;if(table)for(let at=0;at+32<=table.length;at+=32)if(readU32(table,at)===93)base=readU32(table,at+4);
- const functions=(source.game==="IRAO"?white:black).functions as Record<string,BattleRuntimeSignature>;
+ const functions: Record<string,BattleRuntimeSignature> = {...(source.game==="IRAO"?white:black).functions,...battleFieldReaderSignatures(source.game==="IRAO"?"W":"B")};
  const resolver=battleRuntimeResolver(data,base,project.arm9,source.armBase,functions);
  const files=new Map(source.files);for(const[path,id]of source.ids)if(project.fileSystem?.replacements[id])files.set(path,project.fileSystem.replacements[id]);
  for(const[path,bytes]of Object.entries(project.fileSystem?.additions??{}))if(path.toLowerCase().endsWith(".dll"))files.set(path,bytes);
@@ -64,7 +65,11 @@ export function buildBw1ItemModule(project:ProjectState,rules:ReadonlyMap<number
  const extras=["ItemGetParam","BattleEventVar_Push","BattleEventVar_Pop","BattleEventVar_SetConstValue","IsStatChangeValid","BtlCalc_MakeStatusCondition","MakeConditionBadlyPoisoned","BattleEventVar_GetValueIfExist","RollEffectChance","BattleEventVar_RewriteValue","GetBattleMonSpecies","CheckCondition","getMoveFlag","BattleEvent_CheckSkip","GetBattleMonHeldItem",null,null,null,null,null,null,null,"BtlServerFlow_CanUseHeldItem",null,"IsSubstituteActive","BattleEventItem_AttachSkipCheckHandler","GetSideFromMonID","IsEventTargetMon","BattleRandom"];
  if(classes===undefined){classes=defaultItemMoveClasses();for(const[id,flags]of expandedMoveDllDefaults(project))(classes as Map<number,number>).set(id,flags);const peer=c.files.get("patches/AbilityEffects.dll");if(peer&&!same(peer,Uint8Array.of(80,87,65,82))){const text=parseRpm(peer,{allowedMagics:["DLXF"]}).metadata.PokewebMoveClassOverrides;if(typeof text==="string")for(const[id,flags]of validateMoveClassOverrides(JSON.parse(text),new Map(),true))(classes as Map<number,number>).set(id,flags);}}
  const selection=hasItemSelection(rules)?resolveItemSelection(c.source.game,c.data,c.base,project.arm9,c.source.armBase,c.check):undefined;
- return buildRuleRuntime({game:project.session.baseVersion,rules,api,module:"93",portable:true,nativeVersion:selection?7:6,selection,moveClasses:classes,messages:itemMessageIds(project,rules),native:{resolve:c.resolve,api:new Map(extras.flatMap((name,i)=>name?[[19+i,c.resolve(name).address] as const]:[]))},
+ const nativeVersion = itemRuntimeVersion(rules);
+ const fieldReaders = nativeVersion === 8 ? resolveBattleConditionReaders(c.resolver,
+  itemUsesBattleCondition(rules,"fieldEffect"),itemUsesBattleCondition(rules,"sideEffect"),
+  (name,address,size) => c.check(address,size,name)) : undefined;
+ return buildRuleRuntime({game:project.session.baseVersion,rules,api,module:"93",portable:true,nativeVersion,selection,fieldReaders,moveClasses:classes,messages:itemMessageIds(project,rules),native:{resolve:c.resolve,api:new Map(extras.flatMap((name,i)=>name?[[19+i,c.resolve(name).address] as const]:[]))},
   dispatcher:{...dispatcher,calls:c.functions.ItemEvent_AddItemCore.calls.map(call=>({offset:call.offset,address:battleBranchTarget(dispatcher.code,call.offset,dispatcher.address)}))}});
 }
 const verified=new WeakMap<ProjectState,{overlay:Uint8Array;arm9:Uint8Array;base:number;files:Map<string,Uint8Array>;rules:Map<number,ItemRuleSet>;messages:string}>();
@@ -72,7 +77,7 @@ export function readBw1ItemRules(project:ProjectState):Map<number,ItemRuleSet>{
  const c=context(project),bytes=c.files.get(dllPath);if(!bytes||same(bytes,retired))return new Map();
  const cache=verified.get(project);
  if(cache&&cache.base===c.base&&same(cache.overlay,c.data)&&same(cache.arm9,project.arm9)&&cache.files.size===c.files.size&&[...c.files].every(([path,b])=>cache.files.has(path)&&same(cache.files.get(path)!,b))&&cache.messages===JSON.stringify(itemMessageIds(project,cache.rules)))return structuredClone(cache.rules);
- const rpm=parseRpm(bytes,{allowedMagics:["DLXF"]});if(!["6.0.0","7.0.0"].includes(String(rpm.metadata.PMCVersion))||rpm.metadata.PokewebItemEffects!=="rules"||typeof rpm.metadata.PokewebItemRules!=="string"||typeof rpm.metadata.PokewebItemMoveClasses!=="string")throw Error("Unrecognized shared item runtime.");
+ const rpm=parseRpm(bytes,{allowedMagics:["DLXF"]});if(!["6.0.0","7.0.0","8.0.0"].includes(String(rpm.metadata.PMCVersion))||rpm.metadata.PokewebItemEffects!=="rules"||typeof rpm.metadata.PokewebItemRules!=="string"||typeof rpm.metadata.PokewebItemMoveClasses!=="string")throw Error("Unrecognized shared item runtime.");
  const entries:unknown=JSON.parse(rpm.metadata.PokewebItemRules);if(!Array.isArray(entries)||!entries.length||entries.length>639)throw Error("Invalid item rule registry.");
  const rules=new Map<number,ItemRuleSet>();for(const entry of entries){if(!Array.isArray(entry)||entry.length!==2||!Number.isInteger(entry[0])||entry[0]<1||entry[0]>=640||rules.has(entry[0]))throw Error("Invalid item rule registry.");getItemRecord(project,entry[0]);rules.set(entry[0],checkedBw1ItemRule(project,entry[1]));}
  const classes=validateMoveClassOverrides(JSON.parse(rpm.metadata.PokewebItemMoveClasses),new Map(),true);

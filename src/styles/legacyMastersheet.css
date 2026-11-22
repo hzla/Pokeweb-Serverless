@@ -89,7 +89,7 @@
 #mastersheet-source {
   background: #1f2233;
   border: 1px solid #596078;
-  border-radius: 6px;
+  border-radius: var(--radius);
   color: #f2f2f2;
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   font-size: 14px;
@@ -189,13 +189,13 @@
 
 #mastersheet .expanded-card-content {
   background: rgb(255 255 255 / 10%);
-  border-radius: 8px;
+  border-radius: var(--radius);
   margin-top: 0;
   width: auto;
 }
 
 #mastersheet .expanded-field.filterable.ms-trainer {
-  border-radius: 6px;
+  border-radius: var(--radius);
   display: flex;
   flex-direction: row;
   justify-content: flex-start;
@@ -349,7 +349,7 @@
 
 #mastersheet .wild {
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius);
   cursor: pointer;
   padding: 4px;
 }
@@ -656,4 +656,47 @@
   display: grid;
   gap: 8px;
   grid-template-columns: 1fr 1fr;
+}
+
+/* Where the Mastersheet Viewer is available the sheet is edited there: this page launches it. */
+.mastersheet-page:has(> .mastersheet-launch) {
+  grid-template-columns: minmax(220px, 16vw) minmax(0, 1fr);
+}
+
+.mastersheet-editor-panel[hidden] {
+  display: none;
+}
+
+.mastersheet-launch {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+  overflow: auto;
+  padding: 32px;
+}
+
+.mastersheet-launch__card {
+  max-width: 640px;
+  padding: 24px;
+  border: 1px solid var(--ink-3);
+  background: rgb(255 255 255 / 4%);
+}
+
+.mastersheet-launch__card h2 {
+  margin: 0 0 12px;
+  font-size: 20px;
+}
+
+.mastersheet-launch__card p {
+  margin: 0 0 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.mastersheet-launch__card .btn {
+  margin: 8px 0 16px;
+}
+
+.mastersheet-launch__summary {
+  font-size: 13px;
 }

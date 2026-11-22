@@ -1,4 +1,4 @@
-/** In-memory native battle fixtures. Build with ABILITY_FORM_CONVERSION_TEST=1 for observation. */
+/** In-memory native battles. Use ABILITY_FORM_CONVERSION_TEST=1 with build.py --zen-mode-messages-only for observation. */
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { loadProjectFromRomBytes } from "../../src/pokeweb/loader";

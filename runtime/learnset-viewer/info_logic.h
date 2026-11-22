@@ -108,6 +108,22 @@ inline u32 statBar(u32 value,u32 width=46) {
     while(scaled>=255){scaled-=255;++result;}
     return result;
 }
+constexpr u32 LearnsetStatBarWidth=46;
+inline u32 learnsetStatBar(u32 value) {
+    constexpr u32 split=150, firstWidth=36;
+    const bool higher=value>split;
+    const u32 range=higher?255-split:split;
+    u32 scaled=higher?(value-split)*(LearnsetStatBarWidth-firstWidth):value*firstWidth;
+    scaled+=range>>1;
+    u32 width=higher?firstWidth:0;
+    while(scaled>=range){scaled-=range;++width;}
+    return width;
+}
+inline u32 learnsetStatColorBand(u32 value) {
+    u32 band=0;
+    while(value>=30 && band<5){value-=30;++band;}
+    return band;
+}
 inline u32 copyText(u16* out,u32 capacity,const u16* in) {
     if(!capacity)return 0;
     u32 n=0; if(in)while(in[n] && in[n]!=End && n+1<capacity){out[n]=in[n];++n;}

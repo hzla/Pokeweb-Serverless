@@ -73,6 +73,19 @@ describe("ROM-resident follower positioning", () => {
     writeU32(archive.files[0], 20, followerCrc32(archive.files[0].subarray(24)));
     expect(() => decodeFollowerPositioningNarc(archive.save(), encoded, undefined, 20)).toThrow(/gap/);
   });
+  it("authors native9 gaps and defaults while keeping the legacy runtime bound", () => {
+    const { encoded } = fixture();
+    const registry = decodeFollowerRegistry(encoded);
+    registry.entries[0].directionalGaps = [20, 16, 18, 14];
+    expect(() => encodeFollowerPositioningNarc(registry, encoded)).toThrow(/gap/);
+    const native = encodeFollowerPositioningNarc(registry, encoded, undefined, undefined, {}, 20);
+    expect(Array.from(decodeFollowerPositioningNarc(native, encoded, undefined, 20).land.slice(0, 4))).toEqual([20, 16, 18, 14]);
+    delete registry.entries[0].directionalGaps;
+    registry.entries[0].size = 64;
+    registry.entries[0].sideGap = 6;
+    const defaults = encodeFollowerPositioningNarc(registry, encoded, undefined, undefined, {}, 20);
+    expect(Array.from(decodeFollowerPositioningNarc(defaults, encoded, undefined, 20).land.slice(0, 4))).toEqual([20, 20, 20, 20]);
+  });
   it("rejects corrupt payloads, mismatched catalogs, and invalid authored offsets", () => {
     const { registry, encoded, anchors, surf } = fixture();
     const bytes = encodeFollowerPositioningNarc(registry, encoded, anchors, surf);

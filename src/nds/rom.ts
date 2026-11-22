@@ -22,6 +22,8 @@ export type RomReadOptions = {
 export type RomSaveOptions = {
   /** Automatically preserve DSi support when source metadata exists; false explicitly opts out. */
   forDsi?: boolean;
+  /** Omit TWL programs and clear their header metadata for a DS-only build. */
+  stripDsi?: boolean;
   /** Permit a warned DS-mode export when the input's DSi data is damaged or missing. */
   allowDamagedDsi?: boolean;
   onWarning?: (warning: DsiExportWarning) => void;
@@ -193,14 +195,15 @@ export class NintendoDSRom {
       ...files.map((_file, id) => id).filter((id) => !prioritySet.has(id))
         .sort((a, b) => placementRanks[a] - placementRanks[b] || a - b),
     ];
-    let twlSections = this.twlSections();
+    if (options.stripDsi && options.forDsi === true) throw Error("A DS-only export cannot rebuild DSi support.");
+    let twlSections = options.stripDsi ? [] : this.twlSections();
     const hasDigestMetadata = this.isTwlExtended()
       && (readU32(this.data, 0x1cc) > 0 || readU32(this.data, 0x1dc) > 0)
       && this.hasTwlDigestMetadata();
-    const rebuildDsi = options.forDsi ?? hasDigestMetadata;
+    const rebuildDsi = !options.stripDsi && (options.forDsi ?? hasDigestMetadata);
     let digestSource: DsiDigestSource | undefined;
     let damagedDsi = false;
-    const allowFallback = options.allowDamagedDsi && options.forDsi !== true && options.forDsi !== false && this.data[0x12] === 2;
+    const allowFallback = !options.stripDsi && options.allowDamagedDsi && options.forDsi !== true && options.forDsi !== false && this.data[0x12] === 2;
     try {
       digestSource = rebuildDsi || allowFallback ? readDsiDigestSource(this.data) : undefined;
       if ((rebuildDsi || allowFallback) && (twlSections.length !== 2 || !digestSource)) {
@@ -351,7 +354,7 @@ export class NintendoDSRom {
     }
     const out = writer.trim(romLength);
     if (options.preserveOriginalLength && romLength > compactRomLength) out.fill(0xff, compactRomLength, romLength);
-    if (damagedDsi) {
+    if (damagedDsi || options.stripDsi) {
       // Do not publish dangling binary, digest or encryption offsets. Keep
       // the native DS header and TWL memory mapping for later donor repair.
       out.fill(0, 0x1c0, 0x208);
@@ -455,7 +458,7 @@ export class NintendoDSRom {
   }
 
   private planDataOnlyLayout(options: RomSaveOptions, digest: DsiDigestSource | undefined) {
-    if (!options.preserveDataLayout || options.forDsi === false || options.arm9 || options.arm9OverlayTable
+    if (!options.preserveDataLayout || options.forDsi === false || options.stripDsi || options.arm9 || options.arm9OverlayTable
       || options.arm7OverlayTable || options.filenames || options.alignFntFirstFileToArm9OverlayCount
       || options.insertedFiles?.length || options.addedFiles?.length || options.priorityFileIds?.length
       || !this.hasRetailOverlayLayout()) return undefined;

@@ -1,10 +1,16 @@
 import { isGen5Project } from "./constants";
+import { isVanillaAbilityRule } from "./abilityNativeRuntime";
+import type { AbilityRuleSet } from "./abilityRules";
 import type { ProjectState } from "./projectStore";
 import { encodeGen5TextBank } from "./text";
 import { getTextBank, parseTextEntryId, updateTextEntry } from "./textModel";
 import vanillaAbilityNames from "../assets/data/vanilla_abilities.txt?raw";
+import vanillaAbilityDescriptions from "../assets/data/vanilla_ability_descriptions.txt?raw";
 
 const vanillaNames=vanillaAbilityNames.split(/\r?\n/u);
+const vanillaDescriptions=vanillaAbilityDescriptions.split(/\r?\n/u);
+/** Black, White, Black 2 and White 2 all ship abilities 1–164 with the same text; higher IDs are added ones. */
+export const VANILLA_ABILITY_COUNT=164;
 /** Display only: retain user capitalization and the ROM's original text. */
 export function displayAbilityName(id:number,name:string):string {
   return id>0&&id<=164&&name===vanillaNames[id]
@@ -42,3 +48,41 @@ export function updateAbilityDescription(project: ProjectState, id: number, text
   encodeGen5TextBank(entries);
   if (bank[index][1] !== value) updateTextEntry(project, "message_texts", bankId, index, value);
 }
+
+/** How an ability differs from the unmodified game. */
+export type AbilityChange = { added: boolean; renamed: boolean; described: boolean; effects: boolean };
+
+/**
+ * Compare names and descriptions to the original text and saved rules to the
+ * original handler settings. Normalize case and line wrapping for text.
+ */
+export function abilityChanges(project: ProjectState, rules: ReadonlyMap<number, AbilityRuleSet>): Map<number, AbilityChange> {
+  const names = project.texts.banks.abilities ?? [];
+  const descriptions = new Map<number, string>();
+  if (isGen5Project(project) && project.narcs.message_texts) {
+    for (const entry of getTextBank(project, "message_texts", project.session.baseRom === "BW" ? 183 : 375)) {
+      const key = parseTextEntryId(entry[0]);
+      if (key.block === 0) descriptions.set(key.entry, entry[1]);
+    }
+  }
+  const changes = new Map<number, AbilityChange>();
+  for (let id = 1; id < Math.min(names.length, 256); id += 1) {
+    const name = names[id]?.trim() ?? "";
+    if (!name) continue;
+    const rule = rules.get(id);
+    const change: AbilityChange = id > VANILLA_ABILITY_COUNT
+      ? { added: true, renamed: false, described: false, effects: false }
+      : {
+          added: false,
+          renamed: comparableName(name) !== comparableName(vanillaNames[id] ?? ""),
+          described: descriptions.has(id) && comparableDescription(descriptions.get(id)!) !== comparableDescription(vanillaDescriptions[id] ?? ""),
+          effects: rule !== undefined && !isVanillaAbilityRule(id, rule),
+        };
+    if (change.added || change.renamed || change.described || change.effects) changes.set(id, change);
+  }
+  return changes;
+}
+
+const comparableName = (name: string) => name.replace(/\s+/gu, " ").trim().toUpperCase();
+/** Line breaks (`\n`), scrolls (`\r`) and clears (`\c`) only lay the text out. */
+const comparableDescription = (text: string) => text.replace(/\\[nrc]/gu, " ").replace(/\s+/gu, " ").trim();

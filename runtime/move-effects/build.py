@@ -15,6 +15,9 @@ compact = True
 # The host interpreter tests use named wrappers for all native events. Never
 # overwrite retained verification assets when building those test objects.
 test_only = "--test-only" in sys.argv
+side_conditions = "--side-conditions" in sys.argv
+if side_conditions:
+    sys.argv.remove("--side-conditions")
 if test_only:
     sys.argv.remove("--test-only")
 if "--compact" in sys.argv:
@@ -28,17 +31,17 @@ def run(*args):
     subprocess.run([str(arg) for arg in args], check=True)
 if len(sys.argv)==1:
     for variant in ["--base","--history","--persistent","--modern-knock"]:
-        run(sys.executable,HERE / "build.py",variant, *(["--test-only"] if test_only else []))
+        run(sys.executable,HERE / "build.py",variant, *(["--test-only"] if test_only else ["--side-conditions"]))
     raise SystemExit(0)
 modern_knock = sys.argv[1:] == ["--modern-knock"]
 persistent = modern_knock or sys.argv[1:] == ["--persistent"]
 history = persistent or sys.argv[1:] == ["--history"]
 if sys.argv[1:] != ["--base"] and not history:
     raise SystemExit("Usage: build.py [--base|--history|--persistent|--modern-knock] [--compact]")
-run(TOOLS / "arm-none-eabi-gcc", "-std=c11", "-mthumb", "-mcpu=arm946e-s", "-Os", "-Wall", "-Wextra", "-Werror", "-Wno-parentheses", "-Wno-misleading-indentation", "-ffreestanding", "-fno-builtin", "-fno-jump-tables", "-fno-unwind-tables", "-fno-asynchronous-unwind-tables", "-fvisibility=hidden", *(["-DMOVE_HISTORY"] if history else []), *(["-DMOVE_PERSISTENT"] if persistent else []), *(["-DMOVE_MODERN_KNOCK"] if modern_knock else []), *(["-DMOVE_COMPACT"] if compact else []), "-c", HERE / "rules.c", "-o", BUILD / "rules.o")
+run(TOOLS / "arm-none-eabi-gcc", "-std=c11", "-mthumb", "-mcpu=arm946e-s", "-Os", "-Wall", "-Wextra", "-Werror", "-Wno-parentheses", "-Wno-misleading-indentation", "-ffreestanding", "-fno-builtin", "-fno-jump-tables", "-fno-unwind-tables", "-fno-asynchronous-unwind-tables", "-fvisibility=hidden", *(["-DMOVE_HISTORY"] if history else []), *(["-DMOVE_PERSISTENT"] if persistent else []), *(["-DMOVE_MODERN_KNOCK"] if modern_knock else []), *(["-DMOVE_COMPACT"] if compact else []), *(["-DMOVE_SIDE_CONDITIONS"] if side_conditions else []), "-c", HERE / "rules.c", "-o", BUILD / "rules.o")
 if test_only:
     raise SystemExit(0)
 (BUILD / "template.dll").unlink(missing_ok=True)
 run("java", "-cp", JAR, "rpm.cli.RPMTool", "-i", BUILD / "rules.o", "--fourcc", "DLXF", "-o", BUILD / "template.dll", "--esdb", BUILD / "symbols.yml", "--meta", BUILD / "meta.yml", "--generate-relocations")
-name = "moveRuleRuntime" + ("ModernKnock" if modern_knock else "Persistent" if persistent else "History" if history else "") + ("Compact" if compact else "")
+name = "moveRuleRuntime" + ("ModernKnock" if modern_knock else "Persistent" if persistent else "History" if history else "") + ("Compact" if compact else "") + ("SideConditions" if side_conditions else "")
 run(ROOT / "node_modules/.bin/vite-node", HERE / "describe.ts", BUILD / "template.dll", ROOT / f"src/assets/data/{name}.json", BUILD / "rules.o")

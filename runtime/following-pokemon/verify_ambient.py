@@ -38,7 +38,8 @@ for i in range(100):
  h.put(h.A,h.u32(h.A)&~4);h.put(h.P+140,TABLE);assert run(h.P)==0
 # Old tile is reserved during movement; a wider native footprint is respected.
 setup();grid(h.A,11,0,9);h.half(h.A+54,10);callback(10,0,9);assert run()==1
-setup();uc.mem_write(h.A+124,b'\2\1');callback(11,0,9);assert run()==1
+setup();uc.mem_write(h.A+124,b'\2\1');callback(11,0,9)
+assert run()==int(not h.NATIVE_BEHAVIOR) # Native9 keeps the private follower's logical footprint at one tile.
 # Native collision with an unrelated actor is unchanged, even outside callback.
 setup();grid(s.NPC+256,12,0,9);h.put(s.NPC+256,1);uc.mem_write(s.NPC+256+124,b'\1\1')
 callback(12,0,9);assert run()==1 and h.call(0x0215e538,[s.NPC,12,0,9])==1

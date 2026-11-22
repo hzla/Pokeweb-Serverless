@@ -2,7 +2,9 @@ import { expansionSpriteOf, speciesExpansionConfig } from "./speciesExpansionIds
 import { concatBytes, readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { NintendoDSRom } from "../nds/rom";
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
-import { PMC_OVERLAY_RESERVED_SIZE } from "./pmcModel";
+import { pmcOverlayReservationForVersion } from "./pmcModel";
+import { ICON_PALETTE_RELOCATION_HEADER_SIZE, ICON_PALETTE_RELOCATION_MAGIC, readRelocatedIconPalette,
+  WHITE_2_ICON_PALETTE_POINTER_OFFSET } from "./pokemonIconPaletteRuntime";
 import { decodeRecord, markDirty, type ProjectState } from "./projectStore";
 import { pokemonFormLabel } from "./pokemonFormLabels";
 import { findPokemonPersonalFormOwner, pokemonSpeciesLabel } from "./pokemonLabels";
@@ -401,7 +403,9 @@ export function getPokemonIconImage(project: ProjectState, spriteId: number, var
   const store = project.narcs.pokemon_icons;
   if (!store) throw new Error("Pokemon icon NARC is not loaded");
   const actualPaletteId = paletteId ?? getPokemonIconPaletteAssignment(project, spriteId, variant).paletteId;
-  const fileIndex = iconFileIndex(project, spriteId, variant);
+  // The game falls back to the default artwork independently of the palette nibble.
+  const graphicVariant = variant === "female" && !genderedPokemonIcons(project, spriteId) ? "male" : variant;
+  const fileIndex = iconFileIndex(project, spriteId, graphicVariant);
   const file = store.rawFiles[fileIndex];
   if (!file || file.length === 0) throw new Error("This icon variant is empty");
   const palette = getPokemonIconPalettes(project)[actualPaletteId] ?? getPokemonIconPalettes(project)[0];
@@ -595,33 +599,38 @@ export function repairPokemonIconPaletteAssignmentPlacement(project: ProjectStat
   return readU32(project.arm9, config.pointerOffset) !== previousPointer;
 }
 
-export function setPokemonIconPaletteAssignment(project: ProjectState, spriteId: number, variant: PokemonIconVariant, paletteId: number): void {
+export function setPokemonIconPaletteAssignment(project: ProjectState, spriteId: number, target: PokemonIconVariant | "both", paletteId: number): void {
   if (!Number.isInteger(paletteId) || paletteId < 0 || paletteId > 2) throw new Error("Icon palette must be 0, 1, or 2");
+  const mask = target === "male" ? 0x0f : target === "female" ? 0xf0 : 0xff;
+  const assignment = (paletteId | (paletteId << 4)) & mask;
   const external = externalIconPaletteMap(project);
+  let previous: number;
   if (external) {
     const out = new Uint8Array(Math.max(external.bytes.length, spriteId + 1));
     out.set(external.bytes);
-    const value = out[spriteId] ?? 0;
-    out[spriteId] = variant === "female" ? (value & 0x0f) | (paletteId << 4) : (value & 0xf0) | paletteId;
+    previous = out[spriteId] ?? 0;
+    out[spriteId] = (previous & ~mask) | assignment;
     external.commit(out);
-    recordFieldChange(project, "pokemon_icons", pokemonSpriteSubject(project, spriteId), `${variant} icon palette`, (variant === "female" ? (value >>> 4) & 0x0f : value & 0x0f), paletteId, {
+  } else {
+    ensurePokemonIconPaletteAssignmentCapacity(project, spriteId);
+    const layout = iconPaletteAssignmentLayout(project);
+    const assignmentIndex = iconPaletteAssignmentIndex(project, spriteId);
+    if (!layout || assignmentIndex === undefined || assignmentIndex >= layout.capacity) {
+      throw new Error("Icon palette assignments are not available for this ROM");
+    }
+    const index = layout.offset + assignmentIndex;
+    previous = project.arm9[index] ?? 0;
+    project.arm9[index] = (previous & ~mask) | assignment;
+    project.arm9Dirty = true;
+  }
+  const variants = target === "both" ? ["male", "female"] as const : [target];
+  const subject = pokemonSpriteSubject(project, spriteId);
+  for (const variant of variants) {
+    const previousPaletteId = (variant === "female" ? previous >>> 4 : previous) & 0x0f;
+    recordFieldChange(project, "pokemon_icons", subject, `${variant} icon palette`, previousPaletteId, paletteId, {
       key: `pokemon-icon-palette:${spriteId}:${variant}`,
     });
-    return;
   }
-  ensurePokemonIconPaletteAssignmentCapacity(project, spriteId);
-  const layout = iconPaletteAssignmentLayout(project);
-  const assignmentIndex = iconPaletteAssignmentIndex(project, spriteId);
-  if (!layout || assignmentIndex === undefined || assignmentIndex >= layout.capacity) {
-    throw new Error("Icon palette assignments are not available for this ROM");
-  }
-  const index = layout.offset + assignmentIndex;
-  const value = project.arm9[index] ?? 0;
-  project.arm9[index] = variant === "female" ? (value & 0x0f) | (paletteId << 4) : (value & 0xf0) | paletteId;
-  project.arm9Dirty = true;
-  recordFieldChange(project, "pokemon_icons", pokemonSpriteSubject(project, spriteId), `${variant} icon palette`, (variant === "female" ? (value >>> 4) & 0x0f : value & 0x0f), paletteId, {
-    key: `pokemon-icon-palette:${spriteId}:${variant}`,
-  });
 }
 
 export function clearPokemonIconPaletteAssignment(project: ProjectState, spriteId: number): void {
@@ -1378,8 +1387,6 @@ type IconPaletteAssignmentLayout = {
 
 const DEFAULT_GEN5_ARM9_RAM_ADDRESS = 0x02004000;
 const ARM9_MAIN_MEMORY_END = 0x02400000;
-const ICON_PALETTE_RELOCATION_HEADER_SIZE = 16;
-const ICON_PALETTE_RELOCATION_MAGIC = Uint8Array.of(0x50, 0x57, 0x49, 0x43, 0x4f, 0x4e, 0x50, 0x4c); // PWICONPL
 const EXTERNAL_ICON_PALETTE_MAP_PATH = "pokeicon_palette_map.bin";
 
 type ExternalIconPaletteMap = {
@@ -1436,7 +1443,7 @@ function iconPaletteAssignmentConfig(project: ProjectState): IconPaletteAssignme
   const whiteVersion = project.session.baseVersion === "W" || project.session.baseVersion === "W2";
   if (project.session.baseRom === "BW2") {
     return whiteVersion
-      ? { offset: 0x8c578, pointerOffset: 0x1d0e8, heapStartOffset: 0x7741c, capacity: 756, shiftAfter: 680 }
+      ? { offset: 0x8c578, pointerOffset: WHITE_2_ICON_PALETTE_POINTER_OFFSET, heapStartOffset: 0x7741c, capacity: 756, shiftAfter: 680 }
       : { offset: 0x8c54c, pointerOffset: 0x1d0bc, heapStartOffset: 0x773f0, capacity: 756, shiftAfter: 680 };
   }
   if (project.session.baseRom === "BW") {
@@ -1450,22 +1457,8 @@ function iconPaletteAssignmentConfig(project: ProjectState): IconPaletteAssignme
 function iconPaletteAssignmentLayout(project: ProjectState): IconPaletteAssignmentLayout | undefined {
   const config = iconPaletteAssignmentConfig(project);
   if (!config) return undefined;
-  const arm9RamAddress = projectArm9RamAddress(project);
-  const pointerAddress = config.pointerOffset + 4 <= project.arm9.length ? readU32(project.arm9, config.pointerOffset) : 0;
-  const pointerTableOffset = pointerAddress - arm9RamAddress;
-  const markerOffset = pointerTableOffset - ICON_PALETTE_RELOCATION_HEADER_SIZE;
-
-  if (
-    pointerTableOffset >= ICON_PALETTE_RELOCATION_HEADER_SIZE &&
-    markerOffset + ICON_PALETTE_RELOCATION_HEADER_SIZE <= project.arm9.length &&
-    bytesEqual(project.arm9, markerOffset, ICON_PALETTE_RELOCATION_MAGIC) &&
-    readU32(project.arm9, markerOffset + 12) === config.pointerOffset
-  ) {
-    const capacity = readU32(project.arm9, markerOffset + 8);
-    if (capacity > 0 && pointerTableOffset + capacity <= project.arm9.length && iconPaletteAssignmentValid(project, pointerTableOffset)) {
-      return { offset: pointerTableOffset, capacity };
-    }
-  }
+  const relocated = readRelocatedIconPalette(project.arm9, projectArm9RamAddress(project), config.pointerOffset);
+  if (relocated && iconPaletteAssignmentValid(project, relocated.offset)) return relocated;
 
   if (config.offset + config.capacity <= project.arm9.length && iconPaletteAssignmentValid(project, config.offset)) {
     return { offset: config.offset, capacity: config.capacity };
@@ -1481,11 +1474,12 @@ function iconPaletteAssignmentIndex(project: ProjectState, spriteId: number): nu
 }
 
 function iconPaletteAssignmentOverlapsPmc(project: ProjectState, layout: IconPaletteAssignmentLayout): boolean {
-  const overlayBaseAddress = project.codeInjection?.pmc?.overlayBaseAddress;
+  const pmc = project.codeInjection?.pmc;
+  const overlayBaseAddress = pmc?.overlayBaseAddress;
   if (overlayBaseAddress === undefined) return false;
   const tableStartAddress = projectArm9RamAddress(project) + layout.offset;
   const tableEndAddress = tableStartAddress + layout.capacity;
-  const overlayEndAddress = overlayBaseAddress + PMC_OVERLAY_RESERVED_SIZE;
+  const overlayEndAddress = overlayBaseAddress + pmcOverlayReservationForVersion(pmc?.version);
   return tableStartAddress < overlayEndAddress && tableEndAddress > overlayBaseAddress;
 }
 

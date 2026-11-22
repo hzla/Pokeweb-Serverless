@@ -53,7 +53,7 @@
 .randomizer-control input {
   background: #21232e;
   border: 1px solid #565a74;
-  border-radius: 6px;
+  border-radius: var(--radius);
   box-sizing: border-box;
   color: #f8f8f2;
   min-height: 40px;

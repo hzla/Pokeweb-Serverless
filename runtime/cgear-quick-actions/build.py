@@ -18,7 +18,7 @@ TOOLS = Path(
     )
 )
 JAR = Path(os.environ.get("RPM_TOOL_JAR", WS / "White2Upgrade/CTRMap.jar"))
-VERSION = "0.5.10"
+VERSION = "0.5.11"
 # Every native import is an explicit US address. No reference source is a build
 # dependency. Verified early getters share addresses; the saved flag helper
 # and the later imported helpers differ by 44.
@@ -577,6 +577,7 @@ def main():
                 "-fno-builtin",
                 "-fvisibility=hidden",
                 f"-DGAME_{game}",
+                "-DNUZLOCKE_PREVIEW_CACHE",
                 "-c",
                 item,
                 "-o",
@@ -638,7 +639,7 @@ def main():
         }
         parts = package_split(HERE, BUILD, TOOLS, JAR, ASSETS, game, stem, "quick_actions.cpp",
             [HERE.parent / "nuzlocke-encounters/runtime.cpp", HERE.parent / "learnset-viewer/memory.cpp"],
-            "CG_SPLIT_UI", "CG_SPLIT_FIELD", VERSION)
+            "CG_SPLIT_UI", "CG_SPLIT_FIELD", VERSION, defines=("NUZLOCKE_PREVIEW_CACHE",))
         manifest["games"][game].update(parts["ui"])
         manifest["games"][game]["field"] = parts["field"]
         print(dll.name, len(blob), "bytes; code", size)

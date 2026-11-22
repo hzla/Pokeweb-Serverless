@@ -26,7 +26,9 @@ import {
   pruneRedundantPatchesKeepAddition,
   repairLegacyPmcRootFnt,
   repairLegacyBw1PmcBootCalls,
+  validateFiveBoxPmcExport,
 } from "./pmcModel";
+import { FIVE_BOX_PC_OVERLAY, fiveBoxPmcEnabled } from "./pmcFiveBoxRuntime";
 import { materializeMastersheetRomFile } from "./mastersheetRomFile";
 import { materializePwanAnimations } from "./pwanAnimationModel";
 import { isW2AnimProject, materializeW2AnimAnimations } from "./w2animAnimationModel";
@@ -70,6 +72,9 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
   if (!originalRomBytes) throw new Error("This saved project does not include the original ROM bytes. Please load the ROM again before exporting.");
 
   const rom = new NintendoDSRom(originalRomBytes, { fileData: "view" });
+  const fiveBox = fiveBoxPmcEnabled(project);
+  if (fiveBox && options.forDsi === true) throw Error("Five-Box Mode requires a DS-mode export.");
+  const forDsi = fiveBox ? false : options.forDsi;
   if (options.frostCompatibility) assertFrostPmcRuntimeCopiesAgree(rom);
   hydrateKoMoveLearnsetFromRom(project, rom);
   const repairedLegacyPmcRootFnt = repairLegacyPmcRootFnt(project, rom);
@@ -92,6 +97,7 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
   pruneRedundantPatchesKeepAddition(project, rom);
   repairPokemonIconPaletteAssignmentPlacement(project);
   repairAppendedPokemonFormNames(project);
+  validateFiveBoxPmcExport(project, rom);
 
   const fileReplacements = new Map<number, Uint8Array>();
 
@@ -154,7 +160,8 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
     .map((path) => resolvePlannedRomPathFileId(rom, plannedAdditions, insertedFiles, path))
     .filter((fileId): fileId is number => fileId !== undefined);
   const out = rom.save({
-    forDsi: options.forDsi,
+    forDsi,
+    stripDsi: fiveBox,
     preserveDataLayout: true,
     preserveBw2PmcLayout: true,
     allowDamagedDsi: options.allowDamagedDsi ?? true,
@@ -169,7 +176,7 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
     minimumLength: options.minimumRomLength,
     preserveOriginalLength: options.preserveOriginalLength,
   });
-  return options.frostCompatibility ? exportFrostCompatibleRom(out, { forDsi: options.forDsi, onWarning: options.onFrostWarning }) : out;
+  return options.frostCompatibility ? exportFrostCompatibleRom(out, { forDsi, onWarning: options.onFrostWarning }) : out;
 }
 
 function codeInjectionPriorityPaths(project: ProjectState): string[] {
@@ -364,8 +371,10 @@ function patchOverlayFiles(project: ProjectState, rom: NintendoDSRom, fileReplac
     : undefined;
   for (const [id, bytes] of apFix?.files ?? []) fileReplacements.set(id, bytes);
   const pmcId = project.codeInjection?.pmc?.overlayId;
+  const excluded = new Set(pmcId === undefined ? [] : [pmcId]);
+  if (fiveBoxPmcEnabled(project)) excluded.add(FIVE_BOX_PC_OVERLAY);
   const packed = recompressOverlayFiles(apFix?.table ?? table, (_, id) => fileReplacements.get(id) ?? rom.files[id],
-    new Set(pmcId === undefined ? [] : [pmcId]));
+    excluded);
   for (const [id, bytes] of packed.files) fileReplacements.set(id, bytes);
   return overlayReplacements.size || apFix || packed.files.size ? packed.table : undefined;
 }

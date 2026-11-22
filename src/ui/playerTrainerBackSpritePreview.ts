@@ -72,14 +72,17 @@ export async function renderPlayerTrainerBackSpritePreview(
                 <button class="animation-icon-btn" id="player-back-step-forward" type="button" aria-label="Step forward" title="Step forward"><span class="animation-icon -step-forward" aria-hidden="true"></span></button>
               </div>
             </div>
-            <div class="animation-controls trainer-animation-details">
-              ${detail("Timeline", `${animation.totalTicks} ticks at 60 FPS`)}
-              ${detail("Cell sequences", animation.cellSequenceCount)}
-              ${detail("Multi-cells", animation.multiCellCount)}
-              ${detail("NMAR keys", animation.outerKeyFrameCount)}
-              ${detail("NMAR sequence", `${animation.outerSequenceIndex + 1} / ${animation.outerSequenceCount}`)}
-              ${detail("Graphic", appearanceIndex)}
-            </div>
+            <details class="player-back-details">
+              <summary>Details</summary>
+              <div class="trainer-animation-details player-back-details-grid">
+                ${detail("Timeline", `${animation.totalTicks} ticks at 60 FPS`)}
+                ${detail("Cell sequences", animation.cellSequenceCount)}
+                ${detail("Multi-cells", animation.multiCellCount)}
+                ${detail("NMAR keys", animation.outerKeyFrameCount)}
+                ${detail("NMAR sequence", `${animation.outerSequenceIndex + 1} / ${animation.outerSequenceCount}`)}
+                ${detail("Graphic", appearanceIndex)}
+              </div>
+            </details>
           </div>
         </section>
         <section class="sprite-section player-back-graphics">

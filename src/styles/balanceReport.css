@@ -15,7 +15,7 @@
   background: var(--ink-1);
   color: var(--text);
   border: 1px solid var(--field-line);
-  border-radius: 5px;
+  border-radius: var(--radius);
   padding: 6px 8px;
   font: inherit;
 }

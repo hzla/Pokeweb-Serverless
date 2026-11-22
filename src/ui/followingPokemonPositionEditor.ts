@@ -1,9 +1,9 @@
 import { readU16, readU32 } from "../nds/binary";
 import { NARC } from "../nds/narc";
 import { decodeBtxImage, type BtxImage } from "../pokeweb/btxModel";
-import { FOLLOWER_DIRECTIONS, FOLLOWER_MAX_DIRECTIONAL_GAP, followerDefaultDirectionalGaps, followerKey, followerLandAnchorDefaults, followerPreview, type FollowerAssetEntry } from "../pokeweb/followingPokemonModel";
+import { FOLLOWER_DIRECTIONS, followerDefaultDirectionalGaps, followerKey, followerLandAnchorDefaults, followerPreview, type FollowerAssetEntry } from "../pokeweb/followingPokemonModel";
 import { followerSurfKey, type FollowerRiderAdjustments } from "../pokeweb/followingPokemonPositioning";
-import { followerProfile, readFollowingFile, updateFollowerPositioning, type FollowerAssetWorkspace, type FollowerRom } from "../pokeweb/followingPokemonProject";
+import { followerProfile, followerPositioningGapLimit, readFollowingFile, updateFollowerPositioning, type FollowerAssetWorkspace, type FollowerRom } from "../pokeweb/followingPokemonProject";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
 import { escapeHtml } from "./dom";
@@ -61,6 +61,7 @@ export function createFollowerPositionEditor(args: {
   changed: (workspace: FollowerAssetWorkspace) => void;
 }): { refresh: () => void; destroy: () => void } {
   const { root, project, rom } = args;
+  const maxDirectionalGap = followerPositioningGapLimit(project, rom);
   let mode: Mode = "walking", gender: 0 | 1 = 0, tick = 0, surfEntries: SurfEntry[] = [], surfArt: Uint8Array | undefined;
   let surfKey = "", surfFilter = "", currentLand = "", error = "";
   let gaps: [number, number, number, number] = [0, 0, 0, 0], landOffsets = zeroRider(), surfOffsets = zeroRider();
@@ -124,7 +125,7 @@ export function createFollowerPositionEditor(args: {
       button.hidden = mode === "walking" && !delta;
       const value = mode === "walking" ? gaps[index] : (mode === "land" ? landOffsets : surfOffsets)[index][arrow === "left" || arrow === "right" ? 0 : 1];
       const step = mode === "walking" ? delta : arrow === "left" || arrow === "up" ? -1 : 1;
-      button.disabled = value + step < (mode === "walking" ? 0 : -32) || value + step > (mode === "walking" ? FOLLOWER_MAX_DIRECTIONAL_GAP : 32);
+      button.disabled = value + step < (mode === "walking" ? 0 : -32) || value + step > (mode === "walking" ? maxDirectionalGap : 32);
       button.setAttribute("aria-label", mode === "walking"
         ? `${step > 0 ? "Increase" : "Decrease"} ${FOLLOWER_DIRECTIONS[index]} follower gap`
         : `Move ${FOLLOWER_DIRECTIONS[index]} rider ${arrow} one unit`);
@@ -195,7 +196,7 @@ export function createFollowerPositionEditor(args: {
       const bytes = args.followerResource(entry);
       followerFrames = FOLLOWER_DIRECTIONS.map(direction => [0, 10].map(tick => frameCanvas(followerPreview(bytes, entry.animationProfile, direction, tick))));
       landDefault = followerLandAnchorDefaults(entry, bytes);
-      gaps = [...(entry.directionalGaps ?? followerDefaultDirectionalGaps(entry))] as typeof gaps;
+      gaps = [...(entry.directionalGaps ?? followerDefaultDirectionalGaps(entry, maxDirectionalGap))] as typeof gaps;
       landOffsets = structuredClone(entry.riderAdjustments ?? zeroRider());
     }
     renderFields(); draw(); updateNavigation();
@@ -211,7 +212,7 @@ export function createFollowerPositionEditor(args: {
     fields.innerHTML = `<div class="following-position-field-heading"><span>Direction</span>${mode === "walking" ? "<span>Extra gap</span>" : "<span>Rider left / right</span><span>Rider up / down</span>"}</div>` +
       (mode === "walking"
         ? walkingRows.map(row => `<label class="following-position-field-row"><span>${row.label}</span>
-          <input type="number" min="0" max="${FOLLOWER_MAX_DIRECTIONAL_GAP}" step="1" value="${row.value}" placeholder="${row.placeholder}"
+          <input type="number" min="0" max="${maxDirectionalGap}" step="1" value="${row.value}" placeholder="${row.placeholder}"
             data-position-value="${row.index === 2 ? "gap-both" : "gap"}:${row.index}" aria-label="${row.label} extra gap"></label>`).join("")
         : FOLLOWER_DIRECTIONS.map((direction, index) => `<label class="following-position-field-row"><span>${direction}</span>
           <input type="number" min="-32" max="32" step="1" value="${(mode === "land" ? landOffsets : surfOffsets)[index][0]}" data-position-value="x:${index}" aria-label="${direction} rider horizontal adjustment">
@@ -287,7 +288,7 @@ export function createFollowerPositionEditor(args: {
     }
     const index = Number(indexText), value = Number(input.value);
     if (!Number.isInteger(index) || index < 0 || index > 3 || !Number.isInteger(value) ||
-        value < (field.startsWith("gap") ? 0 : -32) || value > (field.startsWith("gap") ? FOLLOWER_MAX_DIRECTIONAL_GAP : 32)) { status.textContent = "Enter a value in the shown range."; return; }
+        value < (field.startsWith("gap") ? 0 : -32) || value > (field.startsWith("gap") ? maxDirectionalGap : 32)) { status.textContent = "Enter a value in the shown range."; return; }
     input.setCustomValidity("");
     status.textContent = "Unsaved preview";
     if (field === "gap") gaps[index] = value;

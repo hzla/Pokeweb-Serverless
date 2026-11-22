@@ -23,13 +23,15 @@ static void statusRecord(void*f,u32 event){
 }
 #endif
 
+#ifndef ABILITY_EFFECT_CONDITIONS
 static const volatile u8*extensionRecord(void*f,u32 owner,u32 kind){
  if(owner>=24)return 0;
  void*mon=MON(f,owner);
  const volatile u8*r=record(STAT(mon,17));if(!r||r[0]>ABILITY_EFFECT_SLOTS)return 0;
- const volatile u8*e=effects(r);for(u32 n=0;n<r[0];++n,e+=16)if(e[0]==kind)return active(r,f,mon)?r:0;
+ const volatile u8*e=effects(r);for(u32 n=0;n<r[0];++n,e+=16)if(e[0]==kind)return active(r,f,mon,owner)?r:0;
  return 0;
 }
+#endif
 static void extensionsInit(void){
 #ifdef ABILITY_STATUS_TEST
  statusLog.count=0;statusLog.magic=0;
@@ -38,11 +40,20 @@ statusScope=0;memset(chargeTypeSeen,0,sizeof(chargeTypeSeen));memset(charges,0,s
 static u32 extensionsRedirect(void*f,u32 event){
  if(event!=0x29&&event!=0x2a)return 0;
  s32 user,move;if(!variable(3,&user)||!variable(0x12,&move)||move<=0)return 0;
+#ifdef ABILITY_EFFECT_CONDITIONS
+ void*mon=(u32)user<24?MON(f,user):0;
+ const volatile u8*r=mon?record(STAT(mon,17)):0;
+#else
  const volatile u8*r=extensionRecord(f,(u32)user,174);
+#endif
 #ifdef ABILITY_STATUS_TEST
  statusRecord(f,event);
 #endif
- if(r){const volatile u8*e=effects(r);for(u32 n=0;n<r[0];++n,e+=16)if(e[0]==174&&conversionMatch(e[1],(u32)move,e[7]))return 1;}
+ if(r){const volatile u8*e=effects(r);for(u32 n=0;n<r[0];++n,e+=16)if(e[0]==174&&conversionMatch(e[1],(u32)move,e[7])
+#ifdef ABILITY_EFFECT_CONDITIONS
+ &&EFFECT_ENABLED(r,e,f,mon,user,event,CONDITION_AUTO_FOE)
+#endif
+ )return 1;}
  return 0;
 }
 /* The source is in r7 at the checked call site. Preserve the original fifth
@@ -54,12 +65,20 @@ PUBLIC u32 AbilityStatusCheck(void*f,void*target,u32 condition,u32 cont,u32 mode
  u32 result=CEX(0,u32(*)(void*,void*,u32,u32,u32))(f,target,condition,cont,mode);
  u32 owner=source?FN(15,u32(*)(void*))(source):31,id=FN(15,u32(*)(void*))(target);
  if(result==2){
+#ifdef ABILITY_EFFECT_CONDITIONS
+  const volatile u8*r=source?record(STAT(source,17)):0;
+#else
   const volatile u8*r=extensionRecord(f,owner,176);
+#endif
   if(r){
    u32 allowed=1,found=0;
    for(u32 type=0;type<18;++type)if((condition==5&&(type==3||type==8)||condition==4&&type==9||condition==3&&type==14)&&typeMatch(target,type)){
     found=1;u32 covered=0;const volatile u8*e=effects(r);
-    for(u32 n=0;n<r[0];++n,e+=16)if(e[0]==176&&e[1]==condition&&(type==e[4]||type==e[5]))covered=1;
+    for(u32 n=0;n<r[0];++n,e+=16)if(e[0]==176&&e[1]==condition&&(type==e[4]||type==e[5])
+#ifdef ABILITY_EFFECT_CONDITIONS
+    &&EFFECT_ENABLED(r,e,f,source,owner,0,id)
+#endif
+    )covered=1;
     if(!covered)allowed=0;
    }
    if(found&&allowed)result=0;

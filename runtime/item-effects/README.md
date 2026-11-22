@@ -15,6 +15,12 @@ exceed the editor bounds leave the draft unchanged. A first import into an empty
 item draft adopts the template's consumable setting. Apply custom effects commits
 the resulting composition.
 
+**Field effect** checks a whole-field effect such as Trick Room. **Side
+condition** checks the holder’s or opposing side for Tailwind, screens, hazards
+or Pledge effects. Spikes and Toxic Spikes support layer thresholds. Checks read
+current battle state, including opening conditions from Trainer Field Conditions
+on BW2.
+
 Shared native code parameters affect all users of that implementation; item-data
 parameters remain per item. Composed rules support up to 16 effects, native
 callbacks, trigger/target/chance settings and per-effect state. Native behaviors
@@ -77,7 +83,9 @@ compatible ARM9 bindings. Metadata supports project/ROM reopening and recognized
 legacy migrations; changed templates/dependencies are checked again on reopen.
 
 Build with `python3 runtime/item-effects/build_rules.py` (`--legacy` for v3 and
-`--v4`, `--v5` or `--v6` for the retained templates). Move restrictions use version 7; other new rules use version 6. Older templates stay
+`--v4`, `--v5`, `--v6` or `--v7` for retained templates). Field and side conditions
+use version 8. Rules without them use version 7 for move restrictions or
+version 6 for other effects. Older templates stay
 available for exact verification of existing exports. Native catalog generators require explicit local reference inputs.
 Run `npx vitest run src/test/itemEffectsModel.test.ts src/test/itemRules.test.ts src/test/itemRecipes.test.ts src/test/itemTemplatesPortable.test.ts`
 for model checks. `python3 runtime/item-effects/test_selection_runtime.py` exercises

@@ -278,7 +278,7 @@
 
 .expanded-pokemon-texts {
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
+  border-radius: var(--radius);
   display: none;
   flex: 0 0 calc(100% - 20px);
   overflow: hidden;
@@ -313,7 +313,7 @@
 :is(#personals, #pokemon-data) .pokemon-text-name-input {
   background: #f2f2f2;
   border: 1px solid var(--ink-3);
-  border-radius: 4px;
+  border-radius: var(--radius);
   color: var(--ink-0);
   font: 15px/1.35 Barlow, sans-serif;
   letter-spacing: 0;
@@ -455,7 +455,7 @@
 
 .pokemon-type[contenteditable] {
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--radius);
   height: 34px;
   margin-right: 0;
   min-height: 34px;
@@ -625,8 +625,6 @@
 .pokemon-cry-metadata strong {
   color: #f2f2f2;
   font-size: 11px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 .pokemon-cry-metadata .pokemon-cry-unavailable {
@@ -759,7 +757,7 @@
 .tm-compatibility-sort__direction {
   background: var(--ink-0);
   border: 1px solid #55586d;
-  border-radius: 6px;
+  border-radius: var(--radius);
   color: #f2f2f2;
   min-height: 36px;
 }
@@ -799,11 +797,9 @@
   font-size: 13px;
   font-weight: 800;
   grid-column: 1 / -1;
-  letter-spacing: 0.04em;
   margin-top: 8px;
   min-height: 28px;
   padding: 2px 4px;
-  text-transform: uppercase;
 }
 
 .tm-compatibility-group-header:first-child {
@@ -812,7 +808,7 @@
 
 .tutor-group {
   border: 1px solid rgba(242, 242, 242, 0.08);
-  border-radius: 8px;
+  border-radius: var(--radius);
   box-sizing: border-box;
   padding: 14px;
   width: calc(50% - 9px);
@@ -837,7 +833,7 @@
   appearance: none;
   background: var(--ink-0);
   border: 1px solid var(--ink-3);
-  border-radius: 4px;
+  border-radius: var(--radius);
   box-sizing: border-box;
   color: #f2f2f2;
   cursor: pointer;
@@ -1024,7 +1020,7 @@
 .learnset-copy-source {
   background: rgba(40, 42, 54, 0.72);
   border: 1px solid var(--field-line);
-  border-radius: 4px;
+  border-radius: var(--radius);
   color: #f8f8f2;
   min-height: 38px;
   padding: 7px 10px;
@@ -1107,7 +1103,7 @@
 
 .move-type .btn {
   align-items: center;
-  border-radius: 5px;
+  border-radius: var(--radius);
   display: inline-flex;
   font-weight: 700;
   justify-content: center;
@@ -1133,7 +1129,7 @@
   align-items: center;
   background: var(--ink-2);
   border: 1px solid #55586d;
-  border-radius: 4px;
+  border-radius: var(--radius);
   color: #f2f2f2;
   cursor: pointer;
   display: inline-flex;

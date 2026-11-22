@@ -13,7 +13,9 @@ import { decodeRecord, type ProjectState, type RawRecord, type ReadableRecord } 
 // and keep labels unique ignoring case: text selection resolves them back to IDs.
 // AI sequence semantics and vanilla move assignments: docs/move-ai-effects.md.
 export const EFFECTS = effectsText.split(/\r?\n/u).filter((line) => line.length > 0);
-export const RESULT_EFFECTS = resultEffectsText.split(/\r?\n/u).filter((line) => line.length > 0);
+// Line index is the added effect's ID (the battle condition it inflicts, pokebw2 include/constants/battle.h
+// CONDITION_*). Every ID keeps its line, so a blank line would still hold its place.
+export const RESULT_EFFECTS = resultEffectsText.trimEnd().split(/\r?\n/u);
 
 export const MOVE_EFFECT_FIELDS = [
   ["Effect Category", "effect_category", "effect_cats"],

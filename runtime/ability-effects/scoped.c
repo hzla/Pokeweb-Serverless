@@ -14,15 +14,28 @@ static void scopedInit(void){
  faintSeen=echoOrigin=transferClaim=started=0;fallen[0]=fallen[1]=fallenInitialized[0]=fallenInitialized[1]=0;
 }
 static u32 scopedLive(void*f,u8 id){return present(f,id)&&STAT(MON(f,id),13)&&!CHECK(MON(f,id),16);}
+#ifndef ABILITY_EFFECT_CONDITIONS
 static const volatile u8*scopedRule(void*f,u8 id){
  if(!scopedLive(f,id))return 0;
- const volatile u8*r=record(STAT(MON(f,id),16));return r&&active(r,f,MON(f,id))?r:0;
+ const volatile u8*r=record(STAT(MON(f,id),16));return r&&active(r,f,MON(f,id),id)?r:0;
 }
+#endif
 /* Field effects do not stack with duplicate providers. The ordinary callback
  * still controls eligibility of the provider that actually applies a modifier. */
 static u32 hasField(void*f,u8 id,u32 kind,u32 parameter){
- const volatile u8*r=scopedRule(f,id);if(!r)return 0;
- const volatile u8*e=effects(r);for(u32 n=0;n<r[0];++n,e+=16)if(e[0]==kind&&(kind==156||e[1]==parameter))return 1;
+#ifdef ABILITY_EFFECT_CONDITIONS
+ if(!scopedLive(f,id))return 0;
+ void*mon=MON(f,id);
+ const volatile u8*r=record(STAT(mon,16));
+#else
+ const volatile u8*r=scopedRule(f,id);
+#endif
+ if(!r)return 0;
+ const volatile u8*e=effects(r);for(u32 n=0;n<r[0];++n,e+=16)if(e[0]==kind&&(kind==156||e[1]==parameter)
+#ifdef ABILITY_EFFECT_CONDITIONS
+ &&EFFECT_ENABLED(r,e,f,mon,id,0x38,CONDITION_AUTO_FOE)
+#endif
+ )return 1;
  return 0;
 }
 static u32 firstField(void*f,u8 owner,u32 kind,u32 parameter){for(u8 id=0;id<owner;++id)if(hasField(f,id,kind,parameter))return 0;return 1;}

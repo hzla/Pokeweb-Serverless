@@ -7,6 +7,6 @@
 :is(#moves, #move-data) .move-text-editor > .description-preview { grid-column: 1 / -1; }
 .ability-description-editor { display: grid; gap: 10px; margin: 0 0 24px; }
 .ability-description-editor > label { display: grid; gap: 7px; font-size: 13px; font-weight: 600; }
-.ability-description-editor textarea { box-sizing: border-box; min-height: 76px; width: 100%; resize: vertical; padding: 9px 12px; font: 14px/1.5 Barlow, sans-serif; background: var(--ink-0); color: #f8f8f2; border: 1px solid var(--field-line); border-radius: 5px; }
+.ability-description-editor textarea { box-sizing: border-box; min-height: 76px; width: 100%; resize: vertical; padding: 9px 12px; font: 14px/1.5 Barlow, sans-serif; background: var(--ink-0); color: #f8f8f2; border: 1px solid var(--field-line); border-radius: var(--radius); }
 .ability-description-editor [role="status"] { margin: 0; font-size: 12px; color: #aeb7ca; }
 .ability-description-editor [data-ability-description-status]:empty { display: none; }

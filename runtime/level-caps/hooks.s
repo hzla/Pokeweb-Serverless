@@ -10,16 +10,28 @@
 .balign 4
 
 // Replaces the BL PassPower_ApplyEXP in AddExpAndEVs. r7 is the BattleMon.
+.ifdef LEVEL_CAP_BW1
+// The BW1 Pass Power call comes earlier in the same per-Pokémon loop.
+.global THUMB_BRANCH_LINK_AddExpAndEVs_0x23a
+.type THUMB_BRANCH_LINK_AddExpAndEVs_0x23a, %function
+.thumb_func
+THUMB_BRANCH_LINK_AddExpAndEVs_0x23a:
+.else
 .global THUMB_BRANCH_LINK_AddExpAndEVs_0x264
 .type THUMB_BRANCH_LINK_AddExpAndEVs_0x264, %function
 .thumb_func
 THUMB_BRANCH_LINK_AddExpAndEVs_0x264:
+.endif
     push {r4, r5, r7, lr}
     movs r1, r7
     movs r2, r4
     bl LevelCaps_ApplyBattleExp
     pop {r4, r5, r7, pc}
+.ifdef LEVEL_CAP_BW1
+.size THUMB_BRANCH_LINK_AddExpAndEVs_0x23a, .-THUMB_BRANCH_LINK_AddExpAndEVs_0x23a
+.else
 .size THUMB_BRANCH_LINK_AddExpAndEVs_0x264, .-THUMB_BRANCH_LINK_AddExpAndEVs_0x264
+.endif
 
 // At the item eligibility entry, guard the configured item, then replay the exact
 // eight retail prologue bytes and continue at +8. This preserves all other
@@ -37,8 +49,13 @@ THUMB_BRANCH_PokeList_CanItemWithBattleStatsBeUsed:
     mov lr, r4
     mov r4, r12
     bne 1f
+    .ifdef LEVEL_CAP_BW1
+    push {r3-r7, lr}
+    sub sp, #0x18
+    .else
     push {r4-r7, lr}
     sub sp, #0x1c
+    .endif
     adds r7, r2, #0
     lsls r2, r3, #0x10
     ldr r3, =PokeList_CanItemAfterPrologue

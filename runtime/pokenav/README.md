@@ -21,6 +21,10 @@ temporary fonts, icon/data caches and surfaces for the session and uses a privat
 PK5 shell without changing party or save data. Missing/empty encounters remain
 dismissible. Unknown field layouts or conflicting hooks are rejected.
 
+With Nuzlocke filtering enabled, the launcher builds a temporary family table
+from the ROM's Personal and Evolution data and reads the current caught flags.
+It frees the table before opening the viewer and passes a seven-byte slot mask.
+
 Build/check with `npm run pokenav:build`, `npm run pokenav:verify` and
 `npm run pokenav:verify-rom -- /path/cleanwhite2.nds`. Native benchmarks require
 copied fixtures, local melonDS bindings and a headless library. Other games,

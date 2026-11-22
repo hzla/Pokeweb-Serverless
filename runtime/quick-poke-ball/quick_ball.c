@@ -59,7 +59,6 @@ extern s32 IsFainted(void *);
 extern void *GetBagSave(void *), *GetBagCursor(void *);
 extern u16 BagSave_GetItemCountByID(void *, u16, u16);
 extern s32 GetItemParam(u16, u32, u16);
-extern void *BagCursor_Create(u16);
 extern u16 BagCursor_GetBattleLastItem(void *);
 extern void BagCursor_SetBattleLastItem(void *, u16, u8);
 extern void BattleAction_SetItemParam(void *, u16, u16, u32);
@@ -93,8 +92,8 @@ extern void PaletteFade_LoadFromVRAM(void *, u32, u16, u32);
 static const u16 ballIds[] = {BALL_IDS};
 enum { BallCount = sizeof(ballIds) / sizeof(ballIds[0]) };
 
-// The ARM9 session hook keeps this module in RAM between battle overlays.
-static u16 sessionBall;
+// The ARM9 companion owns the choice across battle-overlay lifetimes.
+extern u16 PokewebQuickBallChoice;
 
 typedef enum { Idle, Armed, Cycled, Cancelled } Gesture;
 static struct {
@@ -326,7 +325,7 @@ static void *eligibleInput(void *core, void *client, void *main) {
 }
 
 static void throwBall(void *core, void *client, void *main, void *input) {
-    sessionBall = tab.selected;
+    PokewebQuickBallChoice = tab.selected;
     u8 index = FIELD(u8, client, ClientActionIndex);
     BtlvInput_PlayDecideSE(input);
     BtlvCore_StopCommandSelect(core);
@@ -363,7 +362,7 @@ u32 HOOK_POLL(void *core) {
     if (!tab.inventoryChecked) {
         tab.inventoryChecked = 1;
         if (!tab.selected) {
-            tab.selected = sessionBall;
+            tab.selected = PokewebQuickBallChoice;
             if (!tab.selected || !stock(bag, heap, tab.selected)) {
                 void *cursor = GetBagCursor(main);
                 u16 last = cursor ? BagCursor_GetBattleLastItem(cursor) : 0;
@@ -398,7 +397,7 @@ u32 HOOK_POLL(void *core) {
             tab.gesture = Cycled;
             if (next >= 0 && next != index) {
                 index = next;
-                sessionBall = tab.selected;
+                PokewebQuickBallChoice = tab.selected;
                 BtlvInput_PlayCursorSE(input);
             }
         }
@@ -448,9 +447,4 @@ void HOOK_DELETE(void *core) {
 
 void HOOK_DELETE_SKIP(void *core) {
     HOOK_DELETE(core);
-}
-
-void *HOOK_NEW_SESSION(u16 heap) {
-    sessionBall = 0;
-    return BagCursor_Create(heap);
 }

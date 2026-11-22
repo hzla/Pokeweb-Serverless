@@ -9,8 +9,18 @@ template<class F> F api(u32 w){
 }
 void* allocate(u32 size){return api<void*(*)(u32,u32)>(0x2039dc8)(1,size);}
 void release(void* p){if(p)api<void(*)(void*)>(0x203a278)(p);}
-struct Cache {u16 parents[NodeLimit];u32 count;bool checked,enabled,prevent,ready;};
+struct Cache {
+#ifdef NUZLOCKE_PREVIEW_CACHE
+    u16* parents;
+#else
+    u16 parents[NodeLimit];
+#endif
+    u32 count;
+    bool checked,enabled,prevent,ready;
+};
+#ifndef NUZLOCKE_PREVIEW_CACHE
 Cache cache;
+#endif
 struct Reader {
     u32 file[20],size,count,image,imageSize,fatAt,fatSize,dataAt,dataSize;bool opened;
     u8 fat[1024],data[4096];
@@ -56,8 +66,14 @@ bool modulePresent(){
     u8 h[4];const bool ok=api<int(*)(void*,void*,u32)>(0x2070e6c)(file,h,4)==4&&word(h)==0x46584c44;
     api<u32(*)(void*)>(0x2070de0)(file);return ok;
 }
-bool prepare(){
+bool prepare(Cache& cache){
+#ifdef NUZLOCKE_PREVIEW_CACHE
+    // The optional companion is usually absent. Avoid allocating a reader
+    // until there is an actual encounter filter to preview.
+    if(!modulePresent())return false;
+#else
     if(cache.checked)return cache.enabled&&cache.ready;
+#endif
     auto* reader=static_cast<Reader*>(allocate(sizeof(Reader)));if(!reader)return false;
     *reader={};u8 bytes[192];bool valid=false;
     if(reader->open("rom:/nuzlocke/encounters.narc")&&reader->member(0,bytes,sizeof(bytes))==20&&configuration(bytes,20)){
@@ -65,9 +81,17 @@ bool prepare(){
         valid=true;
     }
     reader->close();
-    if(!valid||!cache.enabled||!modulePresent()){cache.checked=true;cache.enabled=false;release(reader);return false;}
+    if(!valid||!cache.enabled
+#ifndef NUZLOCKE_PREVIEW_CACHE
+        ||!modulePresent()
+#endif
+    ){cache.checked=true;cache.enabled=false;release(reader);return false;}
     if(reader->open("rom:/a/0/1/6")){
         cache.count=reader->count;
+#ifdef NUZLOCKE_PREVIEW_CACHE
+        cache.parents=static_cast<u16*>(allocate(cache.count*sizeof(*cache.parents)));
+        if(!cache.parents){reader->close();release(reader);return false;}
+#endif
         for(u32 i=0;i<cache.count;++i)cache.parents[i]=u16(i);
         valid=true;
         for(u32 id=1;id<cache.count&&valid;++id){
@@ -87,10 +111,8 @@ bool prepare(){
     reader->close();release(reader);
     cache.ready=valid;cache.checked=valid;return valid;
 }
-}
-bool preventAll(){return cache.prevent;}
-bool snapshot(void* game,u8* excluded){
-    if(!game||!excluded||!prepare())return false;
+bool snapshot(Cache& cache,void* game,u8* excluded){
+    if(!game||!excluded||!prepare(cache))return false;
     void* save=api<void*(*)(void*)>(0x2017934)(game);if(!save)return false;
     void* dex=api<void*(*)(void*)>(0x200d184)(save);if(!dex)return false;
     u8 caughtRoots[NodeLimit/8]={};
@@ -102,4 +124,17 @@ bool snapshot(void* game,u8* excluded){
     for(u32 id=1;id<count;++id){const u32 family=root(cache.parents,u16(id));if(caughtRoots[family>>3]&(1u<<(family&7)))set(excluded,id);}
     return true;
 }
+}
+#ifdef NUZLOCKE_PREVIEW_CACHE
+bool snapshotPreview(void* game,u8* excluded,bool& prevent){
+    Cache cache{};
+    const bool valid=snapshot(cache,game,excluded);
+    release(cache.parents);
+    prevent=valid&&cache.prevent;
+    return valid;
+}
+#else
+bool preventAll(){return cache.prevent;}
+bool snapshot(void* game,u8* excluded){return snapshot(cache,game,excluded);}
+#endif
 }

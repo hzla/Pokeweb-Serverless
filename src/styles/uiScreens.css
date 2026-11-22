@@ -5,7 +5,7 @@
 .ui-screens-editor h3 { font-size: 13px; margin: 18px 0 8px; color: var(--text-muted, #a5afbd); }
 .ui-screens-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .ui-screens-layout { display: grid; grid-template-columns: 155px minmax(300px, 1fr) 265px; gap: 18px; align-items: start; }
-.ui-screens-editor button, .ui-screens-editor input, .ui-screens-editor select { font: inherit; font-size: 13px; color: var(--text-color, #e6ebf0); background: var(--panel-background, #262d38); border: 1px solid #596370; border-radius: 5px; padding: 6px 9px; min-width: 0; }
+.ui-screens-editor button, .ui-screens-editor input, .ui-screens-editor select { font: inherit; font-size: 13px; color: var(--text-color, #e6ebf0); background: var(--panel-background, #262d38); border: 1px solid #596370; border-radius: var(--radius); padding: 6px 9px; min-width: 0; }
 .ui-screens-editor button { cursor: pointer; }
 .ui-screens-editor button:disabled { opacity: .45; cursor: default; }
 .ui-screens-editor button.-selected { border-color: #57caff; background: #183e50; }

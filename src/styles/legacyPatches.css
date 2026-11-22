@@ -43,7 +43,7 @@
 .patch-card {
   background: var(--ink-2);
   border: 1px solid var(--ink-3);
-  border-radius: 6px;
+  border-radius: var(--radius);
   margin-bottom: 18px;
   max-width: 900px;
   padding: 18px;
@@ -109,7 +109,7 @@
 }
 
 .patch-status.-ok {
-  color: #50fa7b;
+  color: var(--success);
 }
 
 .patch-status.-warn {

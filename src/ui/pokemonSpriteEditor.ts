@@ -116,6 +116,7 @@ type SpriteEditorState = {
   paletteSource: NaturePaletteSource;
   iconVariant: PokemonIconVariant;
   iconPaletteId: number;
+  setBothIconPalettes: boolean;
   rigSide: "front" | "back";
   animationSide: PokemonAnimationSide;
   animationSequence: number;
@@ -275,6 +276,7 @@ const state: SpriteEditorState = {
   paletteSource: "native",
   iconVariant: "male",
   iconPaletteId: 0,
+  setBothIconPalettes: true,
   rigSide: "front",
   animationSide: "front",
   animationSequence: 0,
@@ -513,6 +515,7 @@ export function renderPokemonSpriteEditor(
     const selectedForm = forms.find((form) => form.formIndex === formIndex) ?? forms[0];
     const spriteId = selectedForm.spriteId;
     const iconAddress = resolvePokemonIconAddress(project, speciesId, selectedForm.formIndex, spriteId);
+    if (state.speciesId !== speciesId || state.formIndex !== selectedForm.formIndex) state.setBothIconPalettes = true;
     state.speciesId = speciesId;
     state.formIndex = selectedForm.formIndex;
     const entry = getPokemonSpriteEntry(project, spriteId);
@@ -557,7 +560,7 @@ export function renderPokemonSpriteEditor(
       <div class="sprite-status" id="sprite-status" role="status"></div>
       ${state.tab === "animation" && showAnimationHotkeys ? renderAnimationHotkeyHint() : ""}
       <div class="sprite-editor-page sp-body -${state.tab}">
-        ${renderSpriteTab(project, spriteId, speciesId, entry.hasFemale, rigCells, iconAssignment.editable)}
+        ${renderSpriteTab(project, spriteId, speciesId, entry.hasFemale, rigCells, iconAssignment.editable, iconAddress)}
       </div>
     `;
     attachSpriteEditor(project, root, speciesId, selectedForm.formIndex, spriteId, iconAddress, options);
@@ -582,6 +585,7 @@ function renderSpriteTab(
   hasFemale: boolean,
   rigCells: RigCellsFile,
   iconEditable: boolean,
+  iconAddress: PokemonIconAddress,
 ): string {
   if (state.tab === "palettes") {
     return `<section class="sprite-section">
@@ -594,15 +598,17 @@ function renderSpriteTab(
     </section>`;
   }
   if (state.tab === "icon") {
+    const separateIcons = genderedPokemonIcons(project, iconAddress.archiveSpriteId);
     return `<section class="sprite-section"><div class="icon-editor-grid">
       <div class="icon-preview-wrap"><canvas id="pokemon-icon-preview" width="32" height="64"></canvas></div>
       <div class="icon-controls">
-        <label class="sprite-field"><span>Icon</span><select id="icon-variant"><option value="male" ${state.iconVariant === "male" ? "selected" : ""}>Male icon</option><option value="female" ${state.iconVariant === "female" ? "selected" : ""}>Female icon</option></select></label>
-        <label class="sprite-field"><span>Palette</span><input id="icon-palette-id" type="number" min="0" max="2" value="${state.iconPaletteId}"></label>
+        <label class="sprite-field"><span>${separateIcons ? "Icon" : "Preview"}</span><select id="icon-variant"><option value="male" ${state.iconVariant === "male" ? "selected" : ""}>${separateIcons ? "Male icon" : "Male"}</option><option value="female" ${state.iconVariant === "female" ? "selected" : ""}>${separateIcons ? "Female icon" : "Female / genderless"}</option></select></label>
+        <label class="sprite-field"><span>Palette</span><select id="icon-palette-id">${[0, 1, 2].map(id => `<option value="${id}" ${state.iconPaletteId === id ? "selected" : ""}>${id}</option>`).join("")}</select></label>
+        ${!separateIcons && iconEditable ? `<label class="sprite-field -checkbox"><span>Set both palette assignments</span><input id="icon-set-both" type="checkbox" ${state.setBothIconPalettes ? "checked" : ""}></label>` : ""}
         <div class="sp-icon-actions">
           <button class="btn sm -default" id="icon-set-palette" type="button" ${iconEditable ? "" : "disabled"}>Set palette</button>
           <button class="btn sm -default" id="icon-export-png" type="button">Export PNG</button>
-          <label class="btn sm -default file-btn">Import PNG<input id="icon-import-png" type="file" accept="image/png"></label>
+          ${separateIcons || state.iconVariant === "male" ? '<label class="btn sm -default file-btn">Import PNG<input id="icon-import-png" type="file" accept="image/png"></label>' : ""}
         </div>
       </div>
       <div class="icon-palettes">${renderIconPalettes(getPokemonIconPalettes(project))}</div>
@@ -776,16 +782,23 @@ function attachSpriteEditor(
     state.iconVariant = (event.currentTarget as HTMLSelectElement).value as PokemonIconVariant;
     rerender();
   });
-  root.querySelector<HTMLInputElement>("#icon-palette-id")?.addEventListener("change", (event) => {
-    state.iconPaletteId = clamp(Number((event.currentTarget as HTMLInputElement).value), 0, 2);
+  root.querySelector<HTMLSelectElement>("#icon-palette-id")?.addEventListener("change", (event) => {
+    state.iconPaletteId = Number((event.currentTarget as HTMLSelectElement).value);
+    setStatus("");
     drawIconPreview(project, iconAddress.archiveSpriteId);
+  });
+  const setBoth = root.querySelector<HTMLInputElement>("#icon-set-both");
+  setBoth?.addEventListener("change", () => {
+    state.setBothIconPalettes = setBoth.checked;
+    setStatus("");
   });
   root.querySelector("#icon-set-palette")?.addEventListener("click", () => {
     try {
-      setPokemonIconPaletteAssignment(project, iconAddress.paletteKey, state.iconVariant, state.iconPaletteId);
+      const target = setBoth?.checked ? "both" : state.iconVariant;
+      setPokemonIconPaletteAssignment(project, iconAddress.paletteKey, target, state.iconPaletteId);
       options.onDirty?.();
-      setStatus("Updated icon palette assignment");
-      rerender();
+      const description = target === "both" ? "both assignments" : target === "female" && setBoth ? "female / genderless" : target;
+      setStatus(`Set ${description} to palette ${state.iconPaletteId}.`);
     } catch (error) {
       setStatus(errorMessage(error));
     }

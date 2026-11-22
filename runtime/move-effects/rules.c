@@ -24,6 +24,10 @@ PUBLIC const volatile u8 *MoveRuleData=(const volatile u8*)1;
 PUBLIC const volatile u32 MoveItemMessageBase=0;
 PUBLIC const volatile u32 MoveSwapMessageBase=0;
 PUBLIC const volatile u32 MoveTypeLossMessageBase=0;
+#ifdef MOVE_SIDE_CONDITIONS
+PUBLIC const volatile u32 MoveFieldConditionApi[3]={0};
+#include "../battle-field-conditions.h"
+#endif
 #define FN(i,t) ((t)(uintptr_t)MoveRuleApi[i])
 #define GET(k) FN(0,u32(*)(u32))(k)
 #define TRY(k,p) FN(1,u32(*)(u32,s32*))(k,p)
@@ -116,6 +120,9 @@ static u32 condition(const volatile u8**cursor,Evaluation*x,u32 evaluate){
   u32 bit=1u<<id;if(!(x->hiddenKnown&bit)){void*mon=MON(x->flow,id);u32 hidden=FN(17,u32(*)(void*,u32))(mon,33);for(u32 flag=3;flag<=6&&!hidden;++flag)hidden=FN(55,u32(*)(void*,u32))(mon,flag);if(hidden)x->hidden|=bit;x->hiddenKnown|=bit;}
   result=((x->hidden&bit)!=0)==(v!=0);
  }
+#ifdef MOVE_SIDE_CONDITIONS
+ if(op==29)result=battleSideCondition(MoveFieldConditionApi,x->flow,x->owner,v);
+#endif
 #ifdef MOVE_HISTORY
  if(op==20)result=((moveHistory.ate_berry&move_history_mask(id))!=0)==(v!=0);
  if(op==21)result=((moveHistory.failed_last_turn&move_history_mask(id))!=0)==(v!=0);

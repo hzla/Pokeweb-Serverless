@@ -17,6 +17,7 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 sys.path.insert(0, str(REPO / "runtime/battle-type-hud"))
 from rpm_read import read_rpm, thumb_bl
+from build_trainer_caps import PROFILES, BW1_FS
 
 BASE, WORK, SETUP, GAME, EVENT, CAP = 0x02300000, 0x02310000, 0x02311000, 0x02312000, 0x02313000, 0x02314000
 TRAINER, SECOND, ALLY, STACK, STOP = 0x02315000, 0x02315100, 0x02315200, 0x023f0000, 0x02008000
@@ -32,10 +33,12 @@ def run(game, rom, profile, *, result=1, battle_type=1, cap=30, authored=55, sec
     uc.mem_map(0x02000000, 0x400000)
     code = bytearray(rpm["code"])
     hook = None
+    overlay_id = profile["overlay"]
+    bw1 = overlay_id == 10
     for r in rpm["relocations"]:
         symbol = rpm["symbols"][r["symbol"]]
         destination = symbol["address"] + (0 if symbol["attributes"] & 4 else BASE)
-        if r["module"] == "12":
+        if r["module"] == str(overlay_id):
             hook = (r["address"], thumb_bl(r["address"], destination))
         elif r["type"] == "THUMB_BRANCH_LINK":
             code[r["address"]:r["address"] + 4] = thumb_bl(BASE + r["address"], destination)
@@ -43,13 +46,13 @@ def run(game, rom, profile, *, result=1, battle_type=1, cap=30, authored=55, sec
             assert r["type"] == "OFFSET"
             struct.pack_into("<I", code, r["address"], destination)
     uc.mem_write(BASE, bytes(code))
-    overlay = rom.loadArm9Overlays([12])[12]
+    overlay = rom.loadArm9Overlays([overlay_id])[overlay_id]
     uc.mem_write(overlay.ramAddress, bytes(overlay.data))
     uc.mem_write(hook[0], hook[1])
     pack = lambda address, value: uc.mem_write(address, struct.pack("<I", value))
     pack(WORK, 0x12345678); pack(WORK + 4, 0 if no_game else GAME); pack(WORK + 8, SETUP); pack(WORK + 0x28, flags)
-    pack(WORK + 0x14, field_return); pack(WORK + 0x1c, trial_house); pack(SETUP + 0x1c, network)
-    pack(SETUP, battle_type); pack(SETUP + 0xa8, result); uc.mem_write(SETUP + 0x20, bytes([online]))
+    pack(WORK + 0x14, field_return); pack(WORK + (0x20 if bw1 else 0x1c), trial_house); pack(SETUP + 0x1c, network)
+    pack(SETUP, battle_type); pack(SETUP + (0x8c if bw1 else 0xa8), result); uc.mem_write(SETUP + 0x20, bytes([online]))
     for offset, ptr, trainer in [(0x4c, TRAINER, trainer_id), (0x54, SECOND, 801), (0x50, ALLY, 802)]:
         pack(SETUP + offset, ptr); pack(ptr, trainer)
     uc.mem_write(CAP, struct.pack("<H", cap))
@@ -69,6 +72,13 @@ def run(game, rom, profile, *, result=1, battle_type=1, cap=30, authored=55, sec
     api[0x02017544] = "zone"
     api[0x02032f3c if game == "B2" else 0x02032f68] = "weather"
     api[0x0216907c if game == "B2" else 0x021690bc] = "fled"
+    if bw1:
+        _, sync, broadcast, wkptr, fs_delta = PROFILES[game]
+        api = {address + fs_delta: name.lower() for name, address in BW1_FS.items()}
+        api.update({0x0201296c: "event", wkptr & ~1: "variable", broadcast & ~1: "broadcast",
+                    0x02012a4c: "last_result", 0x020127a4: "player_state", 0x02012ac8: "zone",
+                    0x0202c83c + fs_delta: "weather", sync - 0x6c: "record",
+                    0x0215e5b0 + (0x20 if game == "W" else 0): "handle_result"})
 
     def intercept(emu, address, _size, _data):
         nonlocal position
@@ -81,6 +91,7 @@ def run(game, rom, profile, *, result=1, battle_type=1, cap=30, authored=55, sec
         value = 0
         if name == "broadcast": assert a == WORK
         elif name == "last_result": assert (a, b) == (GAME, result)
+        elif name == "handle_result": assert (a, b) == (GAME, SETUP)
         elif name == "event": assert a == GAME; value = 0 if null_event else EVENT
         elif name == "variable": assert (a, b) == (EVENT, 16415); value = 0 if null_variable else CAP
         elif name == "open":
@@ -113,17 +124,20 @@ def run(game, rom, profile, *, result=1, battle_type=1, cap=30, authored=55, sec
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--black2", required=True, type=Path)
-    parser.add_argument("--white2", required=True, type=Path)
+    for key in ["black", "white", "black2", "white2"]:
+        parser.add_argument("--" + key, type=Path)
     args = parser.parse_args()
     profiles = json.loads((REPO / "src/assets/codeinjection/trainerLevelCapsManifest.json").read_text())
-    for game, path in [("B2", args.black2), ("W2", args.white2)]:
+    inputs = [(game, path) for game, path in [("B", args.black), ("W", args.white), ("B2", args.black2), ("W2", args.white2)] if path]
+    if not inputs:
+        parser.error("Supply at least one clean US ROM.")
+    for game, path in inputs:
         rom = ndspy.rom.NintendoDSRom.fromFile(path)
         p = profiles[game]
         with path.open("rb") as input_file:
             header = input_file.read(32)
         assert rom.idCode.decode() == p["idCode"] and header[0x1e] == 0
-        overlay = rom.loadArm9Overlays([12])[12]
+        overlay = rom.loadArm9Overlays([p["overlay"]])[p["overlay"]]
         at = p["signatureAddress"] - overlay.ramAddress
         assert overlay.data[at:at + len(p["expectedHex"]) // 2].hex() == p["expectedHex"]
         cases = [(dict(), 55), (dict(cap=100), 55), (dict(cap=0, authored=1), 1), (dict(authored=100), 100),
@@ -133,7 +147,9 @@ def main():
                  (dict(short_read=True), 30), (dict(no_game=True), 30), (dict(null_event=True), 30), (dict(null_variable=True), 30)]
         cases += [(dict(result=result), 30) for result in [0, 2, 3, 4, 5, 6]]
         cases += [(dict(battle_type=kind), 30) for kind in [0, 2, 3, 4, 5, 6]]
-        cases += [(dict(flags=4), 30), (dict(online=1), 30), (dict(network=1), 30), (dict(field_return=0), 30), (dict(trial_house=1), 30)]
+        cases += [(dict(online=1), 30), (dict(network=1), 30), (dict(field_return=0), 30), (dict(trial_house=1), 30)]
+        if p["overlay"] == 12:
+            cases.append((dict(flags=4), 30))
         good = bytearray(struct.pack("<IHHII", 0x434c5750, 1, 1, 801, 16415) + bytes(800) + b"\x37")
         for index in [0, 4, 6, 8, 12]:
             bad = good.copy(); bad[index] ^= 0xff; cases.append((dict(table=bad), 30))

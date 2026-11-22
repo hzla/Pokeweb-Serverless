@@ -24,7 +24,7 @@ static void weatherBefore(void*f,u32 event){
  void*mon=MON(f,user);
  const volatile u8*r=record(STAT(mon,17));if(!r||r[0]>ABILITY_EFFECT_SLOTS)return;
  const volatile u8*e=effects(r);
- for(u32 n=0;n<r[0];++n,e+=16)if(e[0]==173){if(e[1]>=1&&e[1]<=4&&active(r,f,mon))weatherScope=e[1];break;}
+ for(u32 n=0;n<r[0];++n,e+=16)if(e[0]==173&&e[1]>=1&&e[1]<=4&&EFFECT_ENABLED(r,e,f,mon,user,event,CONDITION_NO_FOE)){weatherScope=e[1];break;}
 }
 PUBLIC u32 AbilityWeatherQuery(void*f){
  if(weatherScope)return weatherScope;

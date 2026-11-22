@@ -42,6 +42,30 @@ export type NativeAbilityProfile = {
 };
 export const NATIVE_ABILITY_PROFILES = bindings.profiles as NativeAbilityProfile[];
 export function nativeAbilityProfile(kind: string): NativeAbilityProfile | undefined { return kind.startsWith("nativeAbility:") ? NATIVE_ABILITY_PROFILES.find(p => p.id === Number(kind.slice(14))) : undefined; }
+
+/** A copy of this ability's stock callbacks with their stock settings. */
+export function isVanillaAbilityRule(id: number, rule: AbilityRuleSet): boolean {
+    const [effect] = rule.effects;
+    if (rule.effects.length !== 1 || effect.kind !== `nativeAbility:${id}` || effect.bypassable === false)
+        return false;
+    const always = (condition?: AbilityRuleSet["conditions"]) =>
+        !condition || condition.kind === "group" && !condition.scope && !condition.children.length;
+    if (!always(rule.conditions) || !always(effect.conditions)) return false;
+
+    const profile = nativeAbilityProfile(effect.kind);
+    if (!profile) return false;
+    const usesOriginal = (value: number | undefined, sites?: ReadonlyArray<{original: number}>) =>
+        value === undefined || Boolean(sites?.length && sites.every(site => site.original === value));
+    // All four supported games share these parameter defaults. Their bindings
+    // store separate offsets for the callbacks.
+    return usesOriginal(effect.value === -1 ? undefined : effect.value, profile.multipliers)
+        && usesOriginal(effect.weather, profile.weather)
+        && usesOriginal(effect.chance, profile.chances)
+        && usesOriginal(effect.stat, profile.stats)
+        && Object.entries(effect.parameters ?? {}).every(([key, value]) =>
+            profile.parameters?.some(parameter => parameter.key === key && parameter.original === value));
+}
+
 export function nativeAbilityEvents(profile: NativeAbilityProfile, effect: AbilityRuleEffect) {
     return profile.events.filter(e => (profile.eventGates ?? []).filter(g => g.handler === e.handler).every(g => g.anyOf.some(c => (effect.parameters?.[c.key] ?? c.original) === c.equals)));
 }

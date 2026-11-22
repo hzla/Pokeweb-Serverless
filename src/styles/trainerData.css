@@ -581,7 +581,7 @@
   color: var(--text);
   background: var(--ink-0);
   border: 1px solid var(--field-line);
-  border-radius: 4px;
+  border-radius: var(--radius);
   font: inherit;
 }
 

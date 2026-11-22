@@ -48,9 +48,7 @@
   color: #d6d7e2;
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.04em;
   margin-bottom: 8px;
-  text-transform: uppercase;
 }
 
 .file-system-sidebar__arm9-status {
@@ -101,7 +99,7 @@
 .file-system-tree .tf-node {
   border-bottom: 1px solid rgb(68 71 90 / 55%);
   border-left: 2px solid transparent;
-  border-radius: 4px;
+  border-radius: var(--radius);
   color: #f2f2f2;
   cursor: pointer;
   min-height: 28px;
@@ -182,7 +180,7 @@
   align-items: center;
   background: var(--ink-2);
   border: 1px solid var(--ink-3);
-  border-radius: 6px;
+  border-radius: var(--radius);
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
@@ -209,7 +207,7 @@
 .file-system-hex-toolbar input {
   background: var(--ink-0);
   border: 1px solid var(--ink-3);
-  border-radius: 4px;
+  border-radius: var(--radius);
   color: #f2f2f2;
   font: inherit;
   height: 32px;
@@ -220,7 +218,7 @@
 .file-system-hex {
   background: #1d1f2a;
   border: 1px solid var(--ink-3);
-  border-radius: 6px;
+  border-radius: var(--radius);
   color: #eef2f6;
   font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
   font-size: 12px;
@@ -288,7 +286,7 @@
   align-items: center;
   background: var(--ink-2);
   border: 1px solid var(--ink-3);
-  border-radius: 6px;
+  border-radius: var(--radius);
   color: #d6d7e2;
   display: flex;
   min-height: 160px;
@@ -298,7 +296,7 @@
 .narc-reference {
   background: var(--ink-2);
   border: 1px solid var(--ink-3);
-  border-radius: 6px;
+  border-radius: var(--radius);
   overflow: hidden;
 }
 

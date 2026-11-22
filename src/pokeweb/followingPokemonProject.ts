@@ -2,6 +2,7 @@ import { followerHasTileBounds, type FollowerTileBounds } from "./followingPokem
 import upgradeRuntimeManifest from "../assets/following/white2upgrade/runtime.json";
 import laterManifest from "../assets/following/white2upgrade/later-followers.json";
 import upgradeContract from "../../runtime/following-pokemon/upgrade-contract.json";
+import native9Contract from "../../runtime/following-pokemon/native9-contract.json";
 import interactionManifest from "../assets/following/interactions.json";
 import italyInteractionManifest from "../assets/following/white2italy/interactions.json";
 import { validateFollowerInteractions } from "./followingPokemonInteractions";
@@ -167,9 +168,10 @@ export async function followerProfile(project: ProjectState, rom?: FollowerRom):
   return readFollowingFile(project, rom, "patches/White2Upgrade.dll") ? "white2upgrade" : "stock";
 }
 type FollowerRuntimeManifest = {
+  capabilities?: { movementPolicy: string; maxDirectionalGap: number };
   version: string; dialogueAnimations?: boolean; tileBounds?: boolean; fieldSha256: string; eventsSha256: string; eventsAbi: number; coreSha256: string; coreAbi: number; optionsModuleSha256: string; battleModuleSha256: string;
   variants?: Record<FollowerVariant, { fieldSha256: string; eventsSha256: string; eventsAbi: number }>;
-  previousVersions: Array<{ variant?: string; version: string; fieldSha256: string; eventsSha256?: string; eventsAbi?: number; coreSha256?: string; coreAbi?: number; optionsModuleSha256?: string; battleModuleSha256?: string;
+  previousVersions: Array<{ variant?: string; version: string; capabilities?: { movementPolicy: string; maxDirectionalGap: number }; fieldSha256: string; eventsSha256?: string; eventsAbi?: number; coreSha256?: string; coreAbi?: number; optionsModuleSha256?: string; battleModuleSha256?: string;
     registrySha256?: string; descriptorsSha256?: string; resourcesSha256?: string; effectsSha256?: string | null; interactionsSha256?: string; emotesSha256?: string }>;
 };
 function runtimeFor(profile: FollowerProfile): FollowerRuntimeManifest { return profile === "white2upgrade" ? upgradeRuntimeManifest : profile === "black2" ? black2RuntimeManifest : profile === "white2italy" ? italyRuntimeManifest : stockRuntimeManifest; }
@@ -234,7 +236,7 @@ export async function checkFollowerCompatibility(project: ProjectState, rom?: Fo
     const personal = readFollowingFile(project, rom, "a/0/1/6");
     checks.push({ name: "Expanded personal archive through species 1023", passed: !!personal && new NARC(personal).files.length > 1023 });
   }
-  const binarySites = [...hooks, ...binaryContract.nativeAdapters.filter(site => variant === "full" || !mountSite(site.id)), ...(profile === "white2upgrade" ? upgradeContract.nativeAdapters.filter(site => variant === "full" || !mountSite(site.id)) : [])];
+  const binarySites = [...hooks, ...binaryContract.nativeAdapters.filter(site => variant === "full" || !mountSite(site.id)), ...(profile === "stock" ? native9Contract.nativeAdapters : []), ...(profile === "white2upgrade" ? upgradeContract.nativeAdapters.filter(site => variant === "full" || !mountSite(site.id)) : [])];
   const overlays = loadOverlayTable(project.patches?.arm9OverlayTable ?? rom.arm9OverlayTable,
     (_id, fileId) => getRomFileBytes(project, rom, fileId),
     new Set(binarySites.filter(site => site.segment !== "ARM9").map(site => Number(site.segment))));
@@ -440,8 +442,9 @@ export async function updateFollowerPositioning(project: ProjectState, rom: Foll
       if (source?.directionalGaps) entry.directionalGaps = source.directionalGaps;
       if (source?.riderAdjustments) entry.riderAdjustments = source.riderAdjustments;
     }
-    const positioning = encodeFollowerPositioningNarc(decoded, registry, anchors, riding ? surfRegistry : undefined, riding ? workspace.surfAdjustments : undefined);
-    decodeFollowerPositioningNarc(positioning, registry, riding ? surfRegistry : undefined);
+    const maxGap = followerPositioningGapLimit(project, rom);
+    const positioning = encodeFollowerPositioningNarc(decoded, registry, anchors, riding ? surfRegistry : undefined, riding ? workspace.surfAdjustments : undefined, maxGap);
+    decodeFollowerPositioningNarc(positioning, registry, riding ? surfRegistry : undefined, maxGap);
     const state = { ...installed, positioningSha256: await followerRomSha256(positioning) };
     stageFollowingFiles(staged, rom, { [FOLLOWER_POSITIONING_PATH]: positioning,
       [FOLLOWER_INSTALL_PATH]: new TextEncoder().encode(JSON.stringify(state, null, 2) + "\n") });
@@ -567,6 +570,16 @@ export const FOLLOWER_EVENTS_B2_DLL_PATH = "patches/PokewebFollowingEventsB2.dll
 export const FOLLOWER_RUNTIME_VERSION = stockRuntimeManifest.version;
 export type FollowerExternalRuntime = { schemaVersion: 1; compatibleVersion: string; label: string; sourceRomSha256: string };
 export type FollowerAlphaInstall = { capabilities?: { movementPolicy: "native-v1"; maxDirectionalGap: 20 }; externalRuntime?: FollowerExternalRuntime; schemaVersion: 1 | 2; variant?: FollowerVariant; profile?: FollowerProfile; version: string; dialogueAnimations?: boolean; tileBounds?: boolean; enabled: boolean; targetSha256: string; moduleSha256: string; configCrc32: number; removed?: boolean; effectsSha256?: string; interactionsSha256?: string; emotesSha256?: string; dialoguesSha256?: string; itemsSha256?: string; languageSha256?: string; eventsSha256?: string; eventsAbi?: number; coreSha256?: string; coreAbi?: number; optionsModuleSha256?: string; battleModuleSha256?: string; registrySha256?: string; descriptorsSha256?: string; resourcesSha256?: string; surfSha256?: string; surfRegistrySha256?: string; landRiderSha256?: string; landAnchorsSha256?: string; positioningSha256?: string; optionsTextSha256?: string; optionsOriginalText?: string[] };
+export function followerPositioningGapLimit(project: ProjectState, rom: FollowerFiles): number {
+  const receipt = readFollowingFile(project, rom, FOLLOWER_INSTALL_PATH);
+  if (receipt) {
+    const state = JSON.parse(new TextDecoder().decode(receipt)) as FollowerAlphaInstall;
+    return state.capabilities?.maxDirectionalGap === 20 ? 20 : 12;
+  }
+  const idCode = "idCode" in rom ? rom.idCode : project.romInfo?.idCode;
+  const native = project.session.baseVersion === "W2" && idCode === "IRDO" && !readFollowingFile(project, rom, "patches/White2Upgrade.dll");
+  return native ? runtimeFor("stock").capabilities?.maxDirectionalGap ?? 12 : 12;
+}
 const upgradeFieldUrl = new URL("../assets/following/white2upgrade/PokewebFollowingFieldW2.dll", import.meta.url);
 const upgradeEventsUrl = new URL("../assets/following/white2upgrade/PokewebFollowingEventsW2.dll", import.meta.url);
 const upgradeCoreUrl = new URL("../assets/following/white2upgrade/PokewebFollowingCoreW2.dll", import.meta.url);
@@ -717,8 +730,10 @@ export async function readFollowerAlphaInstall(project: ProjectState, rom?: Foll
   const dll = readFollowingFile(project, rom, modulePaths.field), config = readFollowingFile(project, rom, FOLLOWER_NATIVE_PATH);
   if ((state.profile ?? "stock") !== profile) throw new Error("Follower installation belongs to a different ROM profile.");
   const external = state.externalRuntime;
-  if (state.capabilities && (!external || state.capabilities.movementPolicy !== "native-v1" || state.capabilities.maxDirectionalGap !== 20)) throw new Error("Invalid follower runtime capability.");
-  if (external && (external.schemaVersion !== 1 || external.compatibleVersion !== runtimeManifest.version ||
+  const capabilities = state.version === runtimeManifest.version ? runtimeManifest.capabilities : runtimeManifest.previousVersions.find(version => version.version === state.version)?.capabilities;
+  if (state.capabilities && ((!external && !capabilities) || state.capabilities.movementPolicy !== "native-v1" || state.capabilities.maxDirectionalGap !== 20)) throw new Error("Invalid follower runtime capability.");
+  const externalPrevious = external && runtimeManifest.previousVersions.find(version => version.version === external.compatibleVersion && (version.variant ?? "full") === variant && version.coreSha256);
+  if (external && (external.schemaVersion !== 1 || (external.compatibleVersion !== runtimeManifest.version && !externalPrevious) ||
       typeof external.label !== "string" || !external.label.trim() || external.label.length > 128 ||
       !/^[a-f0-9]{64}$/u.test(external.sourceRomSha256) || !/^[a-f0-9]{64}$/u.test(state.moduleSha256) ||
       state.schemaVersion !== 2 || state.removed || typeof state.version !== "string" || !state.version.trim() || state.version.length > 128 || !dll))
@@ -732,7 +747,7 @@ export async function readFollowerAlphaInstall(project: ProjectState, rom?: Foll
   const current = !!fingerprint && (external?.compatibleVersion ?? state.version) === runtimeManifest.version &&
     (!!external || state.moduleSha256 === (state.removed ? await followerRomSha256(removedModule(profile)) : fingerprint.fieldSha256));
   const removedHash = state.removed ? await followerRomSha256(removedModule(profile)) : undefined;
-  const previous = runtimeManifest.previousVersions.find(version => (version.variant ?? "full") === variant && version.version === state.version && (state.removed ? removedHash : version.fieldSha256) === state.moduleSha256);
+  const previous = externalPrevious || runtimeManifest.previousVersions.find(version => (version.variant ?? "full") === variant && version.version === state.version && (state.removed ? removedHash : version.fieldSha256) === state.moduleSha256);
   const extendedPrevious = !current && previous && "coreSha256" in previous ? previous : undefined;
   const extended = current || !!extendedPrevious;
   if ((state.schemaVersion !== 1 && state.schemaVersion !== 2) || (state.schemaVersion === 2 && !state.variant) || !fingerprint || (!current && !previous) || !ownsTarget(profile, state.targetSha256) || typeof state.enabled !== "boolean" || (state.removed && state.enabled) ||
@@ -1138,12 +1153,15 @@ export async function installFollowerAlpha(project: ProjectState, rom?: Follower
       const previousBytes = readFollowingFile(project, rom, FOLLOWER_POSITIONING_PATH);
       if (!previousRegistry || !previousBytes) throw new Error("Installed walking gaps are missing.");
       const previousSurf = (existing.variant ?? "full") === "full" ? readFollowingFile(project, rom, FOLLOWER_SURF_REGISTRY_PATH) : undefined;
-      const previous = decodeFollowerPositioningNarc(previousBytes, previousRegistry, previousSurf);
+      const previous = decodeFollowerPositioningNarc(previousBytes, previousRegistry, previousSurf, existing.capabilities?.maxDirectionalGap);
       const previousGaps = new Map(decodeFollowerRegistry(previousRegistry).entries.map(entry => [followerKey(entry.key),
         previous.land.slice((entry.descriptorRow - 1008) * 12, (entry.descriptorRow - 1008) * 12 + 4)]));
       for (const entry of positioningRegistry.entries) {
         const gaps = previousGaps.get(followerKey(entry.key));
-        if (gaps?.length === 4) entry.directionalGaps = Array.from(gaps) as [number, number, number, number];
+        if (gaps?.length === 4) {
+          const defaults = followerDefaultDirectionalGaps(entry, existing.capabilities?.maxDirectionalGap);
+          if (gaps.some((gap, direction) => gap !== defaults[direction])) entry.directionalGaps = Array.from(gaps) as [number, number, number, number];
+        }
       }
     }
     const authoredPositions = assetWorkspace ?? readFollowerWorkspace(project, rom);
@@ -1155,8 +1173,9 @@ export async function installFollowerAlpha(project: ProjectState, rom?: Follower
         if (source?.riderAdjustments) entry.riderAdjustments = source.riderAdjustments;
       }
     }
-    positioning = encodeFollowerPositioningNarc(positioningRegistry, registry, landAnchors, surfRegistry, variant === "full" ? authoredPositions?.surfAdjustments : undefined);
-    decodeFollowerPositioningNarc(positioning, registry, surfRegistry);
+    const maxGap = runtimeManifest.capabilities?.maxDirectionalGap ?? 12;
+    positioning = encodeFollowerPositioningNarc(positioningRegistry, registry, landAnchors, surfRegistry, variant === "full" ? authoredPositions?.surfAdjustments : undefined, maxGap);
+    decodeFollowerPositioningNarc(positioning, registry, surfRegistry, maxGap);
   }
   const state: FollowerAlphaInstall = { schemaVersion: 2, variant, profile, version: runtimeManifest.version, dialogueAnimations: runtimeManifest.dialogueAnimations === true, tileBounds: runtimeManifest.tileBounds === true, enabled: new DataView(config.buffer).getUint32(4, true) === 1, targetSha256: targetFor(profile),
     moduleSha256: fingerprint.fieldSha256, eventsSha256: fingerprint.eventsSha256, eventsAbi: fingerprint.eventsAbi, coreSha256: runtimeManifest.coreSha256, coreAbi: runtimeManifest.coreAbi, optionsModuleSha256: runtimeManifest.optionsModuleSha256, battleModuleSha256: runtimeManifest.battleModuleSha256,
@@ -1164,6 +1183,8 @@ export async function installFollowerAlpha(project: ProjectState, rom?: Follower
     effectsSha256: effectsManifest.sha256, interactionsSha256: activeInteractions.dataSha256, emotesSha256: activeInteractions.emotesSha256, dialoguesSha256: await followerRomSha256(dialogues), itemsSha256: await followerRomSha256(items),
     optionsTextSha256: await followerRomSha256(optionsText.bytes), optionsOriginalText: optionsText.original };
   if (language) state.languageSha256 = await followerRomSha256(language);
+  if (runtimeManifest.capabilities?.movementPolicy === "native-v1" && runtimeManifest.capabilities.maxDirectionalGap === 20)
+    state.capabilities = { movementPolicy: "native-v1", maxDirectionalGap: 20 };
   if (surfResources && surfRegistry) { state.surfSha256 = activeSurfManifest.sha256; state.surfRegistrySha256 = activeSurfManifest.registrySha256; }
   if (landRider && landAnchors) { state.landRiderSha256 = landRiderManifest.sha256; state.landAnchorsSha256 = await followerRomSha256(landAnchors); }
   if (positioning) state.positioningSha256 = await followerRomSha256(positioning);

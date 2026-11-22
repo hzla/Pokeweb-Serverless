@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {readFile,writeFile} from "node:fs/promises";
 import {NintendoDSRom} from "../../src/nds/rom";
 import {decompressCode} from "../../src/nds/codeCompression";
-import {readU16} from "../../src/nds/binary";
+import {readU16,readU32} from "../../src/nds/binary";
 import {battleBranchTarget,battleRuntimeResolver,BATTLE_RUNTIME_SIGNATURES,type BattleRuntimeSignature} from "../../src/pokeweb/battleRuntimeBindings";
 import black from "../../src/assets/data/abilityBindingsB1.json";
 import white from "../../src/assets/data/abilityBindingsW1.json";
@@ -29,6 +29,14 @@ for(const[key,path,id,overlayId,catalog]of [["BW2",w2,"IRDO",167,BATTLE_RUNTIME_
  for(let at=0;at+4<=eventBytes.length;at+=2)if((readU16(eventBytes,at)&0xf800)===0xf000&&(readU16(eventBytes,at+2)&0xf800)===0xf800){const target=battleBranchTarget(eventBytes,at,eventAddress),name=names.find(n=>resolver.matches(n,target));assert(name,`${key} unknown damage event call +${at}`);calls.push({offset:at,target:name});eventMask.fill(0,at,at+4);at+=2;}
  assert.equal(calls.length,7);assert(eventBytes.includes(0x80));
  result[key]={AbilityIndirectDamageBoundary:{module,hex:hex(siteBytes),mask:hex(siteMask),calls:[{offset:6,target:"AbilityCheckIndirectDamage"}]},AbilityCheckIndirectDamage:{module,hex:hex(check),mask:hex(checkMask),calls:[{offset:2,target:"AbilityIndirectDamageEvent"}]},AbilityIndirectDamageEvent:{module,hex:hex(eventBytes),mask:hex(eventMask),calls}};
+ const floating=key==="BW2"?resolver.resolve("ServerControl_CheckFloating"):undefined;
+ const fieldAddress=floating?battleBranchTarget(floating.code,10,floating.address):resolver.resolve("IsFieldEffectActive").address;
+ const fieldAt=fieldAddress-ov.ramAddress,field=ov.data.slice(fieldAt,fieldAt+16);
+ const getterAt=(readU32(field,12)&~1)-ov.ramAddress,getter=ov.data.slice(getterAt,getterAt+12);
+ assert.equal(hex(field.subarray(0,8)),"011c0148014b1847");
+ assert.equal(hex(getter),"890041185220800008587047");
+ result[key].IsFieldEffectActive={module,hex:hex(field),mask:"ffffffffffffffff0000000000000000",calls:[],tails:[{offset:12,target:"AbilityReadFieldEffect"}]};
+ result[key].AbilityReadFieldEffect={module,hex:hex(getter),mask:"ffffffffffffffffffffffff",calls:[]};
  console.log(`${key}: damage boundary ${address.toString(16)}, native check ${target.toString(16)}`);
 }
 await writeFile(output,JSON.stringify({version:1,profiles:result})+"\n");

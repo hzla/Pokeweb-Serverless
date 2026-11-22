@@ -130,7 +130,7 @@
 
 #headers .expanded-header {
   border: 1px solid rgba(242, 242, 242, 0.08);
-  border-radius: 8px;
+  border-radius: var(--radius);
   margin-top: 8px;
   padding: 18px;
   width: calc(100% - 40px);
@@ -150,7 +150,7 @@
 .header-detail-section {
   background: rgba(40, 42, 54, 0.5);
   border: 1px solid rgba(242, 242, 242, 0.08);
-  border-radius: 8px;
+  border-radius: var(--radius);
   min-width: 0;
   padding: 14px;
 }
@@ -202,7 +202,7 @@
 .header-detail-open-link {
   background: var(--ink-2);
   border: 1px solid #55586d;
-  border-radius: 4px;
+  border-radius: var(--radius);
   color: #f2f2f2;
   flex: 0 0 auto;
   font-size: 12px;
@@ -237,7 +237,7 @@
   align-items: center;
   background: rgba(68, 71, 90, 0.44);
   border: 1px solid rgba(242, 242, 242, 0.07);
-  border-radius: 6px;
+  border-radius: var(--radius);
   color: rgba(248, 248, 242, 0.88);
   display: flex;
   font-size: 12px;
@@ -276,7 +276,7 @@
 
 [contenteditable="true"]:not(.pokemon-type):not(.btn):not(.type-plate) {
   border: 1px solid rgba(242, 242, 242, 0.16);
-  border-radius: 4px;
+  border-radius: var(--radius);
   box-sizing: border-box;
   color: #1abc9c;
   background-color: var(--field) !important;
@@ -289,7 +289,7 @@
 
 [contenteditable="true"]:focus {
   border: 1px solid #1abc9c;
-  border-radius: 4px;
+  border-radius: var(--radius);
 }
 
 [contenteditable="true"].invalid {

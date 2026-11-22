@@ -8,7 +8,7 @@
 .phen-muted { color: #b8bccd; font-size: 13px; }
 .phen-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr)); gap: 20px; align-items: start; }
 .phen-grid + .phen-add { margin-top: 16px; }
-.phen-card { background: #303341; border: 1px solid #484b5e; border-radius: 8px; padding: 20px; display: grid; gap: 16px; align-content: start; }
+.phen-card { background: #303341; border: 1px solid #484b5e; border-radius: var(--radius); padding: 20px; display: grid; gap: 16px; align-content: start; }
 .phen-card > header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .phen-group > header { align-items: center; }
 .phen-group > header select { width: auto; margin: 0; }
@@ -17,7 +17,7 @@
 .phen-odds label { display: flex; align-items: center; gap: 8px; font-weight: 500; }
 .phen-pct { display: inline-flex; align-items: center; gap: 4px; }
 .phen-pct input { width: 80px; margin: 0; }
-.phen-bar { height: 8px; border-radius: 4px; background: #8be9fd; overflow: hidden; }
+.phen-bar { height: 8px; border-radius: var(--radius); background: #8be9fd; overflow: hidden; }
 .phen-bar .-battle { display: block; height: 100%; background: #ff79c6; }
 .phen-items { display: grid; gap: 4px; }
 .phen-row { display: grid; grid-template-columns: minmax(0, 1fr) 90px 64px 28px; gap: 8px; align-items: center; }
@@ -25,7 +25,7 @@
 .phen-row input { width: 100%; min-width: 0; margin: 0; }
 .phen-row.-head { color: #b8bccd; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
 .phen-share { text-align: right; font-variant-numeric: tabular-nums; }
-.phen-remove, .phen-chip button { background: none; border: 0; color: #b8bccd; font-size: 18px; line-height: 1; cursor: pointer; padding: 4px; border-radius: 4px; }
+.phen-remove, .phen-chip button { background: none; border: 0; color: #b8bccd; font-size: 18px; line-height: 1; cursor: pointer; padding: 4px; border-radius: var(--radius); }
 .phen-remove:hover, .phen-chip button:hover { color: #ffb3bd; }
 .phen-remove:focus-visible, .phen-chip button:focus-visible { outline: 2px solid #8be9fd; }
 .phen-add { justify-self: start; margin-top: 4px; }

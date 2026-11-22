@@ -7,13 +7,22 @@ import { ABILITY_NATIVE_EFFECTS, ABILITY_RULE_EFFECTS, ABILITY_RULE_PRESETS, EMP
 import { renderItemRuleForm, installItemRuleEditor, type RuleFormOptions } from "./itemRuleEditor";
 import { escapeHtml } from "./dom";
 import { installAbilityPrimitiveReference } from "./abilityPrimitiveReference";
-import { displayAbilityName, getAbilityDescription, getAbilitySummaryName, updateAbilityDescription } from "../pokeweb/abilityTextModel";
+import { abilityChanges, displayAbilityName, getAbilityDescription, getAbilitySummaryName, updateAbilityDescription, type AbilityChange } from "../pokeweb/abilityTextModel";
 import { descriptionPreviewMarkup, installLazyDescriptionPreview } from "./lazyDescriptionPreview";
 import { renderAbilityRuntimeUpdate, installAbilityRuntimeUpdate, refreshAbilityRuntimeUpdate } from "./abilityRuntimeUpdate";
 
 export const BLANK_ABILITY_DRAFT:AbilityRuleSet={effects:[],conditions:{kind:"group",mode:"all",children:[]}};
+type AbilityFilter="all"|"new"|"edited";
+const FILTER_LABELS:Record<AbilityFilter,string>={all:"All",new:"New",edited:"Edited"};
+/** What a row's tooltip says changed, e.g. "Edited: name, battle effects". */
+function changeSummary(change:AbilityChange):string{
+    if(change.added)return "Added ability";
+    return `Edited: ${[change.renamed&&"name",change.described&&"description",change.effects&&"battle effects"].filter(Boolean).join(", ")}`;
+}
 export function renderAbilityEditor(project: ProjectState, root: HTMLElement, onChange: () => void): void {
     let selected=1,previous=1,query="",customDraft=false,adding=false,newDescription="";
+    // New and edited abilities, against the unmodified game; refreshed with each panel and description change.
+    let filter:AbilityFilter="all",changes=new Map<number,AbilityChange>(),customRules:ReadonlyMap<number,AbilityRuleSet>=new Map(),editable=false;
     let descriptionPreview:ReturnType<typeof installLazyDescriptionPreview>|undefined;
     const options:RuleFormOptions={
         ability:true,
@@ -30,18 +39,32 @@ export function renderAbilityEditor(project: ProjectState, root: HTMLElement, on
             customDraft=false;onChange();
         },
     };
-    root.innerHTML=`<div class="ability-editor-layout"><aside class="pokemon-filter ability-sidebar"><h2>Abilities</h2><button type="button" class="btn -default" data-add-ability>Add ability</button>${renderAbilityRuntimeUpdate(project)}<input type="search" data-ability-search placeholder="Search abilities" aria-label="Search abilities"><div class="ability-list" data-ability-list></div></aside><main class="pokemon-list ability-page" data-ability-panel></main><aside class="ability-reference" aria-label="Ability primitive reference" data-ability-reference></aside></div>`;
+    root.innerHTML=`<div class="ability-editor-layout"><aside class="pokemon-filter ability-sidebar"><h2>Abilities</h2><button type="button" class="btn -default" data-add-ability>Add ability</button>${renderAbilityRuntimeUpdate(project)}<input type="search" data-ability-search placeholder="Search abilities" aria-label="Search abilities"><div class="ability-filters" role="group" aria-label="Show abilities" data-ability-filters></div><div class="ability-list" data-ability-list></div></aside><main class="pokemon-list ability-page" data-ability-panel></main><aside class="ability-reference" aria-label="Ability primitive reference" data-ability-reference></aside></div>`;
     const updateReference=installAbilityPrimitiveReference(root.querySelector<HTMLElement>("[data-ability-reference]")!,project);
     function list(){
         const names=(project.texts.banks.abilities??[]).map((name,id)=>displayAbilityName(id,name));
-        root.querySelector<HTMLElement>("[data-ability-list]")!.innerHTML=names.slice(1,256).flatMap((name,index)=>name&&`${index+1} ${name}`.toLowerCase().includes(query.toLowerCase())?[`<button type="button" class="ability-list-item ${!adding&&selected===index+1?"-active":""}" data-ability-id="${index+1}"><span>${index+1}</span>${escapeHtml(name)}</button>`]:[]).join("");
-        root.querySelector<HTMLButtonElement>("[data-add-ability]")!.disabled=nextCustomAbilityId(project)===undefined||!inspectAbilityEffects(project).editable;
+        const counts:Record<AbilityFilter,number>={all:0,new:0,edited:0};
+        for(const change of changes.values())++counts[change.added?"new":"edited"];
+        root.querySelector<HTMLElement>("[data-ability-filters]")!.innerHTML=(["all","new","edited"] as const).map(f=>`<button type="button" class="btn sm" data-ability-filter="${f}" aria-pressed="${filter===f}">${FILTER_LABELS[f]}${f==="all"?"":` <span class="ability-filter-count">${counts[f]}</span>`}</button>`).join("");
+        const rows=names.slice(1,256).flatMap((name,index)=>{
+            const id=index+1,change=changes.get(id);
+            if(!name||!`${id} ${name}`.toLowerCase().includes(query.toLowerCase()))return [];
+            if(filter==="new"&&!change?.added||filter==="edited"&&(!change||change.added))return [];
+            const mark=change?`<i class="ability-list-mark ${change.added?"-new":"-edited"}" aria-hidden="true"></i><b class="ability-sr">, ${change.added?"new":"edited"}</b>`:"";
+            return [`<button type="button" class="ability-list-item ${!adding&&selected===id?"-active":""}" data-ability-id="${id}"${change?` title="${escapeHtml(changeSummary(change))}"`:""}><span>${id}</span>${escapeHtml(name)}${mark}</button>`];
+        });
+        const empty=query.trim()?`No ${filter==="all"?"":`${FILTER_LABELS[filter].toLowerCase()} `}abilities match “${escapeHtml(query.trim())}”.`:filter==="new"?"No abilities added yet.":filter==="edited"?"No abilities differ from the original game.":"No abilities.";
+        root.querySelector<HTMLElement>("[data-ability-list]")!.innerHTML=rows.join("")||`<p class="ability-list-empty">${empty}</p>`;
+        root.querySelector<HTMLButtonElement>("[data-add-ability]")!.disabled=nextCustomAbilityId(project)===undefined||!editable;
     }
+    function refreshChanges(){changes=abilityChanges(project,customRules);}
     function panel(){
         descriptionPreview?.destroy();
         refreshAbilityRuntimeUpdate(root,project);
+        const state=inspectAbilityEffects(project);
+        editable=state.editable;customRules=state.rules;refreshChanges();
         list();
-        const state=inspectAbilityEffects(project),name=adding?"":displayAbilityName(selected,project.texts.banks.abilities?.[selected]??`Ability ${selected}`),rule=adding?undefined:state.rules.get(selected);
+        const name=adding?"":displayAbilityName(selected,project.texts.banks.abilities?.[selected]??`Ability ${selected}`),rule=adding?undefined:state.rules.get(selected);
         updateReference(new Map([...state.rules].map(([id,rule])=>[id,optimizeAbilityRule(rule)])));
         const native:AbilityRuleSet|undefined=!adding&&nativeAbilityProfile(`nativeAbility:${selected}`)?{effects:[{kind:`nativeAbility:${selected}`,value:-1}],conditions:EMPTY_ABILITY_RULE.conditions}:undefined;
         const noTemplate=!adding&&!rule&&!native&&!customDraft;
@@ -60,7 +83,7 @@ export function renderAbilityEditor(project: ProjectState, root: HTMLElement, on
         descriptionField.addEventListener("change",()=>{
             if(adding)return;
             const status=target.querySelector<HTMLElement>("[data-ability-description-status]")!;
-            try{updateAbilityDescription(project,selected,descriptionField.value);descriptionField.classList.remove("invalid");status.textContent="";onChange();}
+            try{updateAbilityDescription(project,selected,descriptionField.value);descriptionField.classList.remove("invalid");status.textContent="";onChange();refreshChanges();list();}
             catch(error){descriptionField.classList.add("invalid");status.textContent=error instanceof Error?error.message:String(error);}
         });
         target.querySelector<HTMLInputElement>("[data-ability-name]")!.addEventListener("input",()=>preview?.refresh());
@@ -72,6 +95,7 @@ export function renderAbilityEditor(project: ProjectState, root: HTMLElement, on
     }
     root.querySelector<HTMLButtonElement>("[data-add-ability]")!.addEventListener("click",()=>{const id=nextCustomAbilityId(project);if(id===undefined)return;previous=adding?previous:selected;selected=id;adding=true;customDraft=false;newDescription="";panel();root.querySelector<HTMLInputElement>("[data-ability-name]")!.focus();});
     root.querySelector<HTMLInputElement>("[data-ability-search]")!.addEventListener("input",event=>{query=(event.target as HTMLInputElement).value;list();});
+    root.querySelector<HTMLElement>("[data-ability-filters]")!.addEventListener("click",event=>{const button=(event.target as HTMLElement).closest<HTMLElement>("[data-ability-filter]");if(button){filter=button.dataset.abilityFilter as AbilityFilter;list();}});
     root.querySelector<HTMLElement>("[data-ability-list]")!.addEventListener("click",event=>{const row=(event.target as HTMLElement).closest<HTMLElement>("[data-ability-id]");if(row){selected=Number(row.dataset.abilityId);adding=false;customDraft=false;panel();}});
     installAbilityRuntimeUpdate(root,project,onChange);
     panel();

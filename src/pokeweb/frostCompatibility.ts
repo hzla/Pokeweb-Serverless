@@ -2,7 +2,8 @@ import { readAscii, readU32, writeU32 } from "../nds/binary";
 import { recompressOverlayFiles } from "../nds/code";
 import { type Folder } from "../nds/fnt";
 import { NintendoDSRom, type RomSaveOptions } from "../nds/rom";
-import { detectPmcInstallFromRom, PMC_OVERLAY_RESERVED_SIZE } from "./pmcModel";
+import { detectPmcInstallFromRom, getPmcOverlayReservation } from "./pmcModel";
+import { FIVE_BOX_PC_OVERLAY, FIVE_BOX_PMC_OVERLAY_SIZE, FIVE_BOX_PMC_VERSION } from "./pmcFiveBoxRuntime";
 import { frostSparseFormFiles } from "./frostSparseForms";
 
 export type FrostCompatibilityWarning = { code: "frost-reader-overflow"; message: string };
@@ -78,6 +79,8 @@ export function exportFrostCompatibleRom(bytes: Uint8Array, options: FrostExport
     }) : bytes);
   }
   const pmc = detectPmcInstallFromRom(rom)?.pmc;
+  const fiveBox = pmc?.version === FIVE_BOX_PMC_VERSION;
+  if (fiveBox && options.forDsi === true) throw Error("Five-Box Mode requires a DS-mode export.");
   const gameId = { IRA: "W", IRB: "B", IRD: "W2", IRE: "B2" }[rom.idCode.slice(0, 3)];
   if (!pmc?.version || pmc.gameId !== gameId || pmc.overlayId !== retailCount || count !== retailCount + 1) {
     return reject("The added overlay is not a recognized Pokeweb PMC installation.");
@@ -86,17 +89,20 @@ export function exportFrostCompatibleRom(bytes: Uint8Array, options: FrostExport
   const image = namedId === undefined ? undefined : rom.files[namedId];
   const rowOffset = retailCount * 32;
   const actualId = readU32(rom.arm9OverlayTable, rowOffset + 24);
-  if (!image || namedId! < count || readAscii(image, 0, 4) !== "RPM0" || image.length > PMC_OVERLAY_RESERVED_SIZE
+  const reservation = image ? getPmcOverlayReservation(rom, image, readU32(rom.arm9OverlayTable, rowOffset + 4), pmc.version) : 0;
+  if (!image || namedId! < count || readAscii(image, 0, 4) !== "RPM0" || image.length > reservation
     || readU32(rom.arm9OverlayTable, rowOffset) !== retailCount
     || readU32(rom.arm9OverlayTable, rowOffset + 8) !== image.length
-    || readU32(rom.arm9OverlayTable, rowOffset + 12) !== PMC_OVERLAY_RESERVED_SIZE - image.length
+    || readU32(rom.arm9OverlayTable, rowOffset + 12) !== reservation - image.length
     || (actualId !== namedId && actualId !== retailCount)) {
     return reject("PMC's named image and overlay table do not match the expected layout.");
   }
   const alreadyReserved = rom.filenames.firstId === count;
   if (alreadyReserved) {
     const reserved = rom.files[retailCount];
-    if (!reserved || reserved.length !== image.length || readAscii(reserved, 0, 4) !== "RPM0") {
+    const resizingFiveBox = actualId === namedId && [0x3000, FIVE_BOX_PMC_OVERLAY_SIZE].includes(image.length)
+      && reserved && [0x3000, FIVE_BOX_PMC_OVERLAY_SIZE].includes(reserved.length);
+    if (!reserved || (reserved.length !== image.length && !resizingFiveBox) || readAscii(reserved, 0, 4) !== "RPM0") {
       return reject("The presumed PMC slot contains another file.");
     }
     // Normal export can point the overlay at an updated named PMC image while
@@ -108,13 +114,14 @@ export function exportFrostCompatibleRom(bytes: Uint8Array, options: FrostExport
   validateNamedFiles(rom, alreadyReserved ? count : retailCount, reject);
   if (!alreadyReserved && rom.files.length >= 0x10000) return reject("The file-ID table is full.");
 
-  const { table, files } = recompressRetailOverlays(rom, retailCount);
+  const { table, files } = recompressRetailOverlays(rom, retailCount, fiveBox ? new Set([FIVE_BOX_PC_OVERLAY]) : undefined);
   writeU32(table, rowOffset + 24, retailCount);
   if (alreadyReserved) files.set(retailCount, image);
   // An insertion shifts all named paths together, preserving contiguous folder
   // ranges (especially /patches). Never erase the root filenames to fake firstId.
   return complete(rom.save({
-    forDsi: options.forDsi,
+    forDsi: fiveBox ? false : options.forDsi,
+    stripDsi: fiveBox,
     arm9OverlayTable: table,
     files,
     ...(!alreadyReserved ? { insertedFiles: [{ fileId: retailCount, bytes: image }] } : {}),
@@ -124,8 +131,8 @@ export function exportFrostCompatibleRom(bytes: Uint8Array, options: FrostExport
   }));
 }
 
-function recompressRetailOverlays(rom: NintendoDSRom, retailCount: number): { table: Uint8Array; files: Map<number, Uint8Array> } {
-  const packed = recompressOverlayFiles(rom.arm9OverlayTable.subarray(0, retailCount * 32), (_, id) => rom.files[id]);
+function recompressRetailOverlays(rom: NintendoDSRom, retailCount: number, excluded?: ReadonlySet<number>): { table: Uint8Array; files: Map<number, Uint8Array> } {
+  const packed = recompressOverlayFiles(rom.arm9OverlayTable.subarray(0, retailCount * 32), (_, id) => rom.files[id], excluded);
   for (const [id, bytes] of frostSparseFormFiles(rom)) packed.files.set(id, bytes);
   const table = rom.arm9OverlayTable.slice();
   table.set(packed.table);

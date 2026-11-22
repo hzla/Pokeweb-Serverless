@@ -1303,6 +1303,688 @@
         ],
         "bssSize": 0
       }
+    },
+    "B": {
+      "current": {
+        "version": "1.1.0",
+        "codeHex": "0a4b10b51b68002b01d1642010bd18680028fad012f09afc054914f0c7f90028f3d00088431e632bf0d9eee7406914021f40000070b50c00150011f085f80600fff7deff237e0200834204d30020a8606860286070bd4223ff33e15ca08918f081faa268030000209a42f3d2981ab042f0d93000eee7084b70b51b6800248b4208d122009e2117f0b9fe0500fff7b8ff85426441200070bde801000070b500220d009e21040017f0a9fe0600fff7a8ff864203d229002000c3f12afa70bdf7b5040015000191fff79bff002207000521200017f093fe002206006f21200017f08dfe010430043a00090c000c18f03afa002207000821200017f080fe874202d9bd4200d93d002a002000019917f088fef7bdf7b587680e0038000bf0b5fd0124002834d0310038000bf070fd00229e21050017f063fe0400fff762ff0090844225d200220521280017f058fe002204006f21280017f052fe002208210190280017f04cfe3100050038000bf0a5fd01002800c3f1bdf9019b020019042004090c000c18f0b3f9009c844200d904002000febdc046b0b539002200fff74bffb0bd1fb5fff768ff00281fbca44610bca646644605d1f8b586b0171c1a04014b18470020704781dd1b026e020000",
+        "itemIdOffset": 456,
+        "relocations": [
+          {
+            "address": 20,
+            "symbol": 4,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 26,
+            "symbol": 11,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 58,
+            "symbol": 10,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 94,
+            "symbol": 9,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 134,
+            "symbol": 7,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 152,
+            "symbol": 16,
+            "module": "base",
+            "type": "OFFSET"
+          },
+          {
+            "address": 166,
+            "symbol": 7,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 184,
+            "symbol": 1,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 210,
+            "symbol": 7,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 222,
+            "symbol": 7,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 236,
+            "symbol": 9,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 248,
+            "symbol": 7,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 268,
+            "symbol": 5,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 282,
+            "symbol": 3,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 296,
+            "symbol": 2,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 306,
+            "symbol": 7,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 328,
+            "symbol": 7,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 340,
+            "symbol": 7,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 352,
+            "symbol": 7,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 362,
+            "symbol": 8,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 370,
+            "symbol": 0,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 386,
+            "symbol": 6,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 452,
+            "symbol": 12,
+            "module": "base",
+            "type": "OFFSET"
+          },
+          {
+            "address": 35402780,
+            "symbol": 13,
+            "module": "21",
+            "type": "THUMB_BRANCH"
+          },
+          {
+            "address": 35380600,
+            "symbol": 15,
+            "module": "91",
+            "type": "THUMB_BRANCH"
+          },
+          {
+            "address": 35402392,
+            "symbol": 14,
+            "module": "21",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 35403144,
+            "symbol": 22,
+            "module": "21",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 35435790,
+            "symbol": 18,
+            "module": "93",
+            "type": "THUMB_BRANCH_LINK"
+          }
+        ],
+        "symbols": [
+          {
+            "name": null,
+            "size": 0,
+            "address": 35403024,
+            "type": 3,
+            "attributes": 4
+          },
+          {
+            "name": null,
+            "size": 0,
+            "address": 35403056,
+            "type": 3,
+            "attributes": 4
+          },
+          {
+            "name": null,
+            "size": 0,
+            "address": 33602604,
+            "type": 3,
+            "attributes": 4
+          },
+          {
+            "name": null,
+            "size": 0,
+            "address": 33602728,
+            "type": 3,
+            "attributes": 4
+          },
+          {
+            "name": null,
+            "size": 0,
+            "address": 33630572,
+            "type": 3,
+            "attributes": 4
+          },
+          {
+            "name": null,
+            "size": 0,
+            "address": 33652288,
+            "type": 3,
+            "attributes": 4
+          },
+          {
+            "name": null,
+            "size": 0,
+            "address": 33654028,
+            "type": 3,
+            "attributes": 4
+          },
+          {
+            "name": null,
+            "size": 0,
+            "address": 33652252,
+            "type": 3,
+            "attributes": 4
+          },
+          {
+            "name": null,
+            "size": 0,
+            "address": 33602776,
+            "type": 3,
+            "attributes": 4
+          },
+          {
+            "name": null,
+            "size": 0,
+            "address": 33654148,
+            "type": 3,
+            "attributes": 4
+          },
+          {
+            "name": null,
+            "size": 0,
+            "address": 33624424,
+            "type": 3,
+            "attributes": 4
+          },
+          {
+            "name": null,
+            "size": 0,
+            "address": 33637324,
+            "type": 3,
+            "attributes": 4
+          },
+          {
+            "name": null,
+            "size": 0,
+            "address": 35380608,
+            "type": 3,
+            "attributes": 4
+          },
+          {
+            "name": null,
+            "size": 128,
+            "address": 274,
+            "type": 3,
+            "attributes": 1
+          },
+          {
+            "name": null,
+            "size": 34,
+            "address": 156,
+            "type": 3,
+            "attributes": 1
+          },
+          {
+            "name": null,
+            "size": 36,
+            "address": 416,
+            "type": 3,
+            "attributes": 1
+          },
+          {
+            "name": null,
+            "size": 4,
+            "address": 456,
+            "type": 1,
+            "attributes": 1
+          },
+          {
+            "name": null,
+            "size": 52,
+            "address": 0,
+            "type": 3,
+            "attributes": 1
+          },
+          {
+            "name": null,
+            "size": 12,
+            "address": 404,
+            "type": 3,
+            "attributes": 1
+          },
+          {
+            "name": null,
+            "size": 0,
+            "address": 1,
+            "type": 1,
+            "attributes": 5
+          },
+          {
+            "name": null,
+            "size": 38,
+            "address": 118,
+            "type": 3,
+            "attributes": 1
+          },
+          {
+            "name": null,
+            "size": 66,
+            "address": 52,
+            "type": 3,
+            "attributes": 1
+          },
+          {
+            "name": null,
+            "size": 84,
+            "address": 190,
+            "type": 3,
+            "attributes": 1
+          }
+        ],
+        "bssSize": 0
+      }
+    },
+    "W": {
+      "current": {
+        "version": "1.1.0",
+        "codeHex": "0a4b10b51b68002b01d1642010bd18680028fad012f09afc054914f0d5f90028f3d00088431e632bf0d9eee7606914021f40000070b50c00150011f085f80600fff7deff237e0200834204d30020a8606860286070bd4223ff33e15ca08918f08ffaa268030000209a42f3d2981ab042f0d93000eee7084b70b51b6800248b4208d122009e2117f0c7fe0500fff7b8ff85426441200070bde801000070b500220d009e21040017f0b7fe0600fff7a8ff864203d229002000c3f136fa70bdf7b5040015000191fff79bff002207000521200017f0a1fe002206006f21200017f09bfe010430043a00090c000c18f048fa002207000821200017f08efe874202d9bd4200d93d002a002000019917f096fef7bdf7b587680e0038000bf0b5fd0124002834d0310038000bf070fd00229e21050017f071fe0400fff762ff0090844225d200220521280017f066fe002204006f21280017f060fe002208210190280017f05afe3100050038000bf0a5fd01002800c3f1c9f9019b020019042004090c000c18f0c1f9009c844200d904002000febdc046b0b539002200fff74bffb0bd1fb5fff768ff00281fbca44610bca646644605d1f8b586b0171c1a04014b184700207047a1dd1b026e020000",
+        "itemIdOffset": 456,
+        "relocations": [
+          {
+            "address": 20,
+            "symbol": 4,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 26,
+            "symbol": 11,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 58,
+            "symbol": 10,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 94,
+            "symbol": 9,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 134,
+            "symbol": 7,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 152,
+            "symbol": 16,
+            "module": "base",
+            "type": "OFFSET"
+          },
+          {
+            "address": 166,
+            "symbol": 7,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 184,
+            "symbol": 1,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 210,
+            "symbol": 7,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 222,
+            "symbol": 7,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 236,
+            "symbol": 9,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 248,
+            "symbol": 7,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 268,
+            "symbol": 5,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 282,
+            "symbol": 3,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 296,
+            "symbol": 2,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 306,
+            "symbol": 7,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 328,
+            "symbol": 7,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 340,
+            "symbol": 7,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 352,
+            "symbol": 7,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 362,
+            "symbol": 8,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 370,
+            "symbol": 0,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 386,
+            "symbol": 6,
+            "module": "base",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 452,
+            "symbol": 12,
+            "module": "base",
+            "type": "OFFSET"
+          },
+          {
+            "address": 35402804,
+            "symbol": 13,
+            "module": "21",
+            "type": "THUMB_BRANCH"
+          },
+          {
+            "address": 35380632,
+            "symbol": 15,
+            "module": "91",
+            "type": "THUMB_BRANCH"
+          },
+          {
+            "address": 35402416,
+            "symbol": 14,
+            "module": "21",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 35403168,
+            "symbol": 22,
+            "module": "21",
+            "type": "THUMB_BRANCH_LINK"
+          },
+          {
+            "address": 35435822,
+            "symbol": 18,
+            "module": "93",
+            "type": "THUMB_BRANCH_LINK"
+          }
+        ],
+        "symbols": [
+          {
+            "name": null,
+            "size": 0,
+            "address": 35403048,
+            "type": 3,
+            "attributes": 4
+          },
+          {
+            "name": null,
+            "size": 0,
+            "address": 35403080,
+            "type": 3,
+            "attributes": 4
+          },
+          {
+            "name": null,
+            "size": 0,
+            "address": 33602604,
+            "type": 3,
+            "attributes": 4
+          },
+          {
+            "name": null,
+            "size": 0,
+            "address": 33602728,
+            "type": 3,
+            "attributes": 4
+          },
+          {
+            "name": null,
+            "size": 0,
+            "address": 33630572,
+            "type": 3,
+            "attributes": 4
+          },
+          {
+            "name": null,
+            "size": 0,
+            "address": 33652316,
+            "type": 3,
+            "attributes": 4
+          },
+          {
+            "name": null,
+            "size": 0,
+            "address": 33654056,
+            "type": 3,
+            "attributes": 4
+          },
+          {
+            "name": null,
+            "size": 0,
+            "address": 33652280,
+            "type": 3,
+            "attributes": 4
+          },
+          {
+            "name": null,
+            "size": 0,
+            "address": 33602776,
+            "type": 3,
+            "attributes": 4
+          },
+          {
+            "name": null,
+            "size": 0,
+            "address": 33654176,
+            "type": 3,
+            "attributes": 4
+          },
+          {
+            "name": null,
+            "size": 0,
+            "address": 33624424,
+            "type": 3,
+            "attributes": 4
+          },
+          {
+            "name": null,
+            "size": 0,
+            "address": 33637352,
+            "type": 3,
+            "attributes": 4
+          },
+          {
+            "name": null,
+            "size": 0,
+            "address": 35380640,
+            "type": 3,
+            "attributes": 4
+          },
+          {
+            "name": null,
+            "size": 128,
+            "address": 274,
+            "type": 3,
+            "attributes": 1
+          },
+          {
+            "name": null,
+            "size": 34,
+            "address": 156,
+            "type": 3,
+            "attributes": 1
+          },
+          {
+            "name": null,
+            "size": 36,
+            "address": 416,
+            "type": 3,
+            "attributes": 1
+          },
+          {
+            "name": null,
+            "size": 4,
+            "address": 456,
+            "type": 1,
+            "attributes": 1
+          },
+          {
+            "name": null,
+            "size": 52,
+            "address": 0,
+            "type": 3,
+            "attributes": 1
+          },
+          {
+            "name": null,
+            "size": 12,
+            "address": 404,
+            "type": 3,
+            "attributes": 1
+          },
+          {
+            "name": null,
+            "size": 0,
+            "address": 1,
+            "type": 1,
+            "attributes": 5
+          },
+          {
+            "name": null,
+            "size": 38,
+            "address": 118,
+            "type": 3,
+            "attributes": 1
+          },
+          {
+            "name": null,
+            "size": 66,
+            "address": 52,
+            "type": 3,
+            "attributes": 1
+          },
+          {
+            "name": null,
+            "size": 84,
+            "address": 190,
+            "type": 3,
+            "attributes": 1
+          }
+        ],
+        "bssSize": 0
+      }
     }
   }
 }

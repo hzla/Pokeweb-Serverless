@@ -1,4 +1,4 @@
-// Adapted from PW2Code's Hard Level Caps by dararo for retail US BW2.
+// Adapted from PW2Code's Hard Level Caps by dararo for retail US BW and BW2.
 // The save work variable 16415 stores the cap; zero means the retail cap 100.
 #include <stdint.h>
 
@@ -39,16 +39,21 @@ enum {
     PKM_FIELD_LEVEL = 0x9E,
 };
 
-#if defined(LEVEL_CAP_B2)
+#if defined(LEVEL_CAP_BW1)
+#define GAME_BEACON LEVEL_CAP_GAME_BEACON
+#define GAME_DATA_OFFSET 0
+#elif defined(LEVEL_CAP_B2)
 #define GAME_BEACON 0x02141800u
+#define GAME_DATA_OFFSET 4
 #else
 #define GAME_BEACON 0x02141840u
+#define GAME_DATA_OFFSET 4
 #endif
 
 static uint32_t get_cap(void) {
     void *beacon = *(void * volatile *)GAME_BEACON;
     if (!beacon) return 100;
-    void *game_data = *(void **)((uint8_t *)beacon + 4);
+    void *game_data = *(void **)((uint8_t *)beacon + GAME_DATA_OFFSET);
     if (!game_data) return 100;
     uint16_t *work = EventWork_GetWkPtr(GameData_GetEventWork(game_data), 16415);
     uint32_t cap = work ? *work : 0;

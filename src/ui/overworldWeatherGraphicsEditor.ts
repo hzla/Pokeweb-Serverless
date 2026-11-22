@@ -190,7 +190,7 @@ function renderPage(project: ProjectState, document: WeatherGraphicsDocument, st
 function renderRuntimeSection(document: WeatherGraphicsDocument): string {
   const clone = document.clone;
   if (!clone) {
-    return `<section class="weather-graphics-panel"><div class="weather-panel-heading"><h2>Runtime behavior</h2><span class="weather-data-kind -code">overlay code</span></div><p>The stock effect's particle spawn rate, velocities, lifetime, fog depth/slope, sound, and screen-plane scrolling are hardcoded in its weather overlay. Its separate editable lighting keyframes are shown below.</p><p class="weather-help">Clone this effect to create an editable runtime template. Custom slots become assignable when the one-time weather expansion and its data registry are available.</p></section>`;
+    return `<section class="weather-graphics-panel"><div class="weather-panel-heading"><h2>Runtime behavior</h2><span class="weather-data-kind">overlay code</span></div><p>The stock effect's particle spawn rate, velocities, lifetime, fog depth/slope, sound, and screen-plane scrolling are hardcoded in its weather overlay. Its separate editable lighting keyframes are shown below.</p><p class="weather-help">Clone this effect to create an editable runtime template. Custom slots become assignable when the one-time weather expansion and its data registry are available.</p></section>`;
   }
   const runtime = clone.runtime;
   const preserveMapFog = clone.fogMode === "map";

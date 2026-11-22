@@ -501,8 +501,8 @@ function renderTournament(project: ProjectState, tournament: PwtTournament, expe
       : `<p class="td-empty">No trainer is in this tournament. Open a trainer and turn the tournament on.</p>`;
   return `
     <header class="pwt-head">
-      <div class="pwt-kicker">${tournament.counter === "left" ? "Left counter" : "Right counter"} · ${escapeHtml(pool.label)} teams</div>
       <h1>${escapeHtml(tournament.name)}${expertType === undefined ? "" : ` <span class="pwt-sub">${escapeHtml(PWT_TYPE_NAMES[expertType]!)}</span>`}</h1>
+      <p class="pwt-lede">${tournament.counter === "left" ? "Left counter" : "Right counter"} · ${escapeHtml(pool.label)} teams</p>
     </header>
     <div class="pwt-rules">
       <div><span>Level</span><strong>${tournament.level}</strong></div>
@@ -538,7 +538,7 @@ function trainerCard(project: ProjectState, trainer: PwtTrainer, pool: PwtPoolId
 
 function renderTrainerGroup(project: ProjectState, title: string, note: string, trainers: PwtTrainer[], _view: string): string {
   return `
-    <header class="pwt-head"><div class="pwt-kicker">World Tournament</div><h1>${escapeHtml(title)}</h1></header>
+    <header class="pwt-head"><h1>${escapeHtml(title)}</h1></header>
     <p class="pwt-note">${escapeHtml(note)}</p>
     <div class="section-bar md-gap">Trainers<span class="td-bar-note">${trainers.length}</span></div>
     ${trainers.length ? `<div class="pwt-cards">${trainers.map((trainer) => trainerCard(project, trainer, poolsForTrainer(trainer)[0] ?? "regular", true)).join("")}</div>` : `<p class="td-empty">None.</p>`}
@@ -817,7 +817,7 @@ function setIcon(project: ProjectState, pool: PwtPoolId, id: number, lead: boole
 
 function renderRental(project: ProjectState, state: PageState): string {
   return `
-    <header class="pwt-head"><div class="pwt-kicker">Rental and Rental Master tournaments</div><h1>Rental Pokémon</h1></header>
+    <header class="pwt-head"><h1>Rental Pokémon</h1><p class="pwt-lede">Rental and Rental Master tournaments</p></header>
     <p class="pwt-note">The Pokémon players borrow in Rental tournaments.</p>
     <div class="pwt-rental-search"><input class="md-search" type="search" data-rental-search value="${escapeHtml(state.rentalSearch)}" placeholder="Search Pokémon, moves, items" autocomplete="off" spellcheck="false" aria-label="Search rental Pokémon"></div>
     <div class="pwt-sets" data-rental-grid>${renderRentalCards(project, state.rentalSearch)}</div>

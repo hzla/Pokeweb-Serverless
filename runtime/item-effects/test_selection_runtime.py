@@ -27,6 +27,7 @@ def build_config():
     add(87, [(1, 0, 50), (128, 1, 0)])
     add(88, [(6, 0, 0), (5, 0, 9), (129, 2, 0)])
     add(89, [(3, 0, 1), (128, 1, 0)])
+    add(90, [(8, 0, 1), (9, 0, 6 | 1 << 8 | 2 << 9), (128, 2, 0)])
     return bytes(config)
 
 
@@ -37,7 +38,7 @@ def main():
         script.write_text("SECTIONS { . = 0x02100000; .text : { *(.text*) *(.rodata*) } .data : { *(.data*) } .bss : { *(.bss*) *(COMMON) } }\n")
         def run(tool, *args):
             return subprocess.run([str(TOOLS / f"arm-none-eabi-{tool}"), *map(str, args)], check=True, capture_output=True, text=True).stdout
-        run("gcc", "-std=c11", "-mthumb", "-mcpu=arm946e-s", "-Os", "-ffreestanding", "-fno-builtin", "-fno-jump-tables", "-fno-unwind-tables", "-fno-asynchronous-unwind-tables", "-fvisibility=hidden", "-c", HERE / "rules_v7.c", "-o", out / "rules.o")
+        run("gcc", "-std=c11", "-mthumb", "-mcpu=arm946e-s", "-Os", "-ffreestanding", "-fno-builtin", "-fno-jump-tables", "-fno-unwind-tables", "-fno-asynchronous-unwind-tables", "-fvisibility=hidden", "-DITEM_FIELD_CONDITIONS", "-c", HERE / "rules_v7.c", "-o", out / "rules.o")
         run("ld", "-T", script, out / "rules.o", "-o", out / "rules.elf")
         run("objcopy", "-O", "binary", out / "rules.elf", out / "rules.bin")
         symbols = {parts[2]: int(parts[0], 16) for line in run("nm", "-n", out / "rules.elf").splitlines() if len(parts := line.split()) == 3}
@@ -50,9 +51,13 @@ def main():
         for index in range(51):
             word(symbols["ItemRuleApi"] + index * 4, 0x02010001 + index * 16)
             emu.mem_write(0x02010000 + index * 16, b"\x70\x47")  # bx lr
+        for index in range(3):
+            address = 0x02010000 + (51 + index) * 16
+            word(symbols["ItemFieldConditionApi"] + index * 4, address | 1)
+            emu.mem_write(address, b"\x70\x47")
         stop = 0x0200f000
         emu.mem_write(stop, b"\x70\x47")
-        state = {"held": 85, "usable": 1, "native": 0, "hp": 100, "calls": []}
+        state = {"held": 85, "usable": 1, "native": 0, "hp": 100, "calls": [], "trick_room": 1, "spikes": 2}
         def trace(uc, address, _size, _context):
             if address == stop:
                 uc.emu_stop()
@@ -64,7 +69,9 @@ def main():
             state["calls"].append(index)
             values = {48: lambda: state["native"], 33: lambda: state["held"], 49: lambda: state["usable"],
                       17: lambda: 0 if args[0] == 45 else 1, 50: lambda: 9 if args[0] == 52 else 0,
-                      15: lambda: 0, 3: lambda: state["hp"] if args[1] == 13 else 100, 6: lambda: 1}
+                      15: lambda: 0, 3: lambda: state["hp"] if args[1] == 13 else 100, 6: lambda: 1,
+                      51: lambda: state["trick_room"] if args[0] == 1 else 0, 52: lambda: 0,
+                      53: lambda: state["spikes"] if args[:3] == [0x02050000, 1, 6] else 0}
             if index not in values: raise AssertionError(("Unexpected native service", index, args))
             uc.reg_write(UC_ARM_REG_R0, values[index]())
         emu.hook_add(UC_HOOK_CODE, trace)
@@ -85,7 +92,12 @@ def main():
         word(symbols["lastFlow"], 0x02050000)
         assert select(33, held=89) == (0, 0) and 6 not in state["calls"]
         assert select(45, held=89) == (1, 905) and state["calls"].count(6) == 1
-    print("Item selection runtime: status, type, conditions, suppression and weather query checks passed.")
+        assert select(45, held=90) == (1, 905) and state["calls"].count(53) == 1 and 6 not in state["calls"]
+        state["spikes"] = 1
+        assert select(45, held=90) == (0, 0)
+        state["trick_room"] = 0
+        assert select(45, held=90) == (0, 0) and 53 not in state["calls"]
+    print("Item selection runtime: status, type, suppression, weather and field condition checks passed.")
 
 
 if __name__ == "__main__":

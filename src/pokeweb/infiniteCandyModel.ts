@@ -112,7 +112,7 @@ export function getInfiniteCandyStatus(project: ProjectState, selectedItemId?: n
   if (installedItemId !== undefined && installedItemId !== itemId) {
     return { supported: true, compatible: false, installed, itemId, message: `Infinite Candy already uses item ${installedItemId}. Keep that ID when reinstalling.` };
   }
-  const capsModules = modules.filter(m => /^HardLevelCaps(?:B2|W2)\.dll$/iu.test(m.fileName));
+  const capsModules = modules.filter(m => /^HardLevelCaps(?:B|W)2?\.dll$/iu.test(m.fileName));
   if (capsModules.length > 1 || (capsModules.length && !getLevelCapsRuntime(project))) {
     return { supported: true, compatible: false, installed, itemId, message: project.originalRomBytes
       ? "The installed Hard Level Caps DLL is unrecognized or duplicated."

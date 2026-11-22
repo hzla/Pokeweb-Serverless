@@ -20,7 +20,9 @@ VARIANT=os.environ.get('FOLLOWING_VARIANT','full')
 if VARIANT not in ('base','full'):raise ValueError('FOLLOWING_VARIANT must be base or full')
 BUILD=ROOT_BUILD/'base' if VARIANT=='base' else ROOT_BUILD
 os.environ['FOLLOWING_BUILD_DIR']=str(BUILD)
-VERSION='0.7.44-alpha' if UPGRADE else '0.6.49-alpha' if ITALY else '0.6.93-alpha' if PROFILE=='stock' else '0.6.48-alpha'
+NATIVE=PROFILE=='stock'
+os.environ['FOLLOWING_NATIVE_BEHAVIOR']='1' if NATIVE else '0'
+VERSION='0.7.44-alpha' if UPGRADE else '0.6.49-alpha' if ITALY else '0.6.95-alpha-native9' if NATIVE else '0.6.48-alpha'
 SUFFIX=('B2' if BLACK2 else 'W2I' if ITALY else 'W2')+('Base' if VARIANT=='base' else '')
 CONTRACT=HERE/('black2-contract.json' if BLACK2 else 'italy-contract.json' if ITALY else 'contract.json')
 os.environ['FOLLOWING_MODULE_SUFFIX']=SUFFIX
@@ -77,6 +79,7 @@ def build(rom, publish=False):
         from italy_port import port_source
     objects=[]
     sources=['core','object_codes','registry','options','battle','resident_events','following','field','effects','reactions','interaction','gifts','events','scene','render','render_math','positioning']
+    if NATIVE:sources+=['native_route','native_follow','native_shadow','shadow_metrics']
     if VARIANT=='full':sources+=['surf','land','land_speed','transition']
     for name in sources:
         obj=BUILD/(name+'.o');objects.append(obj)
@@ -87,7 +90,7 @@ def build(rom, publish=False):
             source.write_text(battle_port_source((HERE/(name+'.c')).read_text(),PROFILE) if name=='battle' else port_source((HERE/(name+'.c')).read_text()))
         run(TOOLS/'arm-none-eabi-gcc','-mthumb','-mcpu=arm946e-s','-Os','-std=c11',
             '-fno-jump-tables','-ffreestanding','-fvisibility=hidden','-fno-builtin','-fno-unwind-tables','-fno-asynchronous-unwind-tables',
-            '-I',HERE,*(['-DFW_MOUNT=1','-DFW_ARCEUS_SURF=1'] if VARIANT=='full' else []),*(['-DFW_STOCK=1'] if PROFILE=='stock' else []),*(['-DFW_UPGRADE=1'] if UPGRADE else []),*(['-DFW_BLACK2=1'] if BLACK2 else []),*(['-DFW_ITALY=1'] if ITALY else []),'-Wall','-Wextra','-Werror','-c',source,'-o',obj)
+            '-I',HERE,*(['-DFW_NATIVE_BEHAVIOR=1'] if NATIVE else []),*(['-DFW_MOUNT=1','-DFW_ARCEUS_SURF=1'] if VARIANT=='full' else []),*(['-DFW_STOCK=1'] if PROFILE=='stock' else []),*(['-DFW_UPGRADE=1'] if UPGRADE else []),*(['-DFW_BLACK2=1'] if BLACK2 else []),*(['-DFW_ITALY=1'] if ITALY else []),'-Wall','-Wextra','-Werror','-c',source,'-o',obj)
     def assembly(name):
         source=HERE/name
         if BLACK2 or ITALY:
@@ -163,6 +166,7 @@ def build(rom, publish=False):
             run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',assembly(name+'.s'),'-o',BUILD/(name+'-hooks.o'))
     field=BUILD/f'PokewebFollowingField{SUFFIX}.elf'
     field_objects=['field','registry','effects','following','reactions','interaction','gifts','scene','render','render_math','positioning']
+    if NATIVE:field_objects+=['native_route','native_follow','native_shadow','shadow_metrics']
     if VARIANT=='full':field_objects+=['surf','land','land_speed','transition']
     hook_objects=['field-hooks','field-input-hooks']+(['surf-hooks','land-hooks','transition-hooks'] if VARIANT=='full' else [])
     run(TOOLS/'arm-none-eabi-ld','-r',*[BUILD/(name+'.o') for name in field_objects+hook_objects],'-o',field)
@@ -189,13 +193,14 @@ def build(rom, publish=False):
     run(os.environ.get('PYTHON','python3'),HERE/'verify_resident_events.py')
     run(os.environ.get('PYTHON','python3'),HERE/'verify_options.py',rom)
     run(os.environ.get('PYTHON','python3'),HERE/'verify_anchor.py')
+    if NATIVE:run(os.environ.get('PYTHON','python3'),HERE/'verify_native.py',rom)
     # Stock full runs these through continuity; base needs its own reach gate.
     if UPGRADE or (PROFILE=='stock' and VARIANT=='base'): run(os.environ.get('PYTHON','python3'),HERE/'verify_interactions.py')
     if PROFILE=='stock' and VARIANT=='base': run(os.environ.get('PYTHON','python3'),HERE/'verify_scenes.py',rom)
     if VARIANT=='full' and ITALY: run(os.environ.get('PYTHON','python3'),HERE/'verify_profile_runtime.py','white2italy',rom)
     elif VARIANT=='full' and BLACK2: run(os.environ.get('PYTHON','python3'),HERE/'verify_profile_runtime.py','black2',rom)
     elif VARIANT=='full' and not BLACK2 and not ITALY and not UPGRADE: run(os.environ.get('PYTHON','python3'),HERE/'verify_continuity.py',rom)
-    if VARIANT=='full' and not BLACK2 and not ITALY: run(os.environ.get('PYTHON','python3'),HERE/'verify_render.py')
+    if VARIANT=='full' and not BLACK2 and not ITALY and not NATIVE: run(os.environ.get('PYTHON','python3'),HERE/'verify_render.py')
     if VARIANT=='full' and PROFILE=='stock': run(os.environ.get('PYTHON','python3'),HERE/'verify_surf.py')
     if VARIANT=='full' and PROFILE=='stock':
         run(os.environ.get('PYTHON','python3'),HERE/'verify_effects.py',rom)
@@ -235,7 +240,7 @@ def build(rom, publish=False):
         shutil.copyfile(base_field,assets/base_field.name)
         shutil.copyfile(base_events,assets/base_events.name)
         old_runtime=json.loads((assets/'runtime.json').read_text()) if (assets/'runtime.json').exists() else None
-        old_current=({key:old_runtime[key] for key in ('version','fieldSha256','eventsSha256','eventsAbi','coreSha256','coreAbi','optionsModuleSha256','battleModuleSha256') if key in old_runtime} if old_runtime else None)
+        old_current=({key:old_runtime[key] for key in ('version','capabilities','fieldSha256','eventsSha256','eventsAbi','coreSha256','coreAbi','optionsModuleSha256','battleModuleSha256') if key in old_runtime} if old_runtime else None)
         if ITALY and old_current:
             interaction_manifest=assets/'interactions.json' if old_current['version']!='0.6.27-alpha' else REPO/'src/assets/following/interactions.json'
             previous_interactions=json.loads(interaction_manifest.read_text())
@@ -265,7 +270,8 @@ def build(rom, publish=False):
             previous_versions=dedupe_versions([{**old_current,**old_runtime['variants']['base'],'variant':'base'}]+previous_versions)
         full_fingerprint={'fieldSha256':hashlib.sha256(field_dll.read_bytes()).hexdigest(),'eventsSha256':hashlib.sha256(events_dll.read_bytes()).hexdigest(),'eventsAbi':6}
         base_fingerprint={'fieldSha256':hashlib.sha256(base_field.read_bytes()).hexdigest(),'eventsSha256':hashlib.sha256(base_events.read_bytes()).hexdigest(),'eventsAbi':4}
-        (assets/'runtime.json').write_text(json.dumps({'version':VERSION,'dialogueAnimations':True,'tileBounds':True,**full_fingerprint,'variants':{'base':base_fingerprint,'full':full_fingerprint},'coreSha256':hashlib.sha256(output.read_bytes()).hexdigest(),'coreAbi':3,'battleModuleSha256':hashlib.sha256(battle_dll.read_bytes()).hexdigest(),'optionsModuleSha256':hashlib.sha256(options_dll.read_bytes()).hexdigest(),'previousVersions':previous_versions},indent=2)+'\n')
+        capabilities={'capabilities':{'movementPolicy':'native-v1','maxDirectionalGap':20}} if NATIVE else {}
+        (assets/'runtime.json').write_text(json.dumps({'version':VERSION,'dialogueAnimations':True,'tileBounds':True,**capabilities,**full_fingerprint,'variants':{'base':base_fingerprint,'full':full_fingerprint},'coreSha256':hashlib.sha256(output.read_bytes()).hexdigest(),'coreAbi':3,'battleModuleSha256':hashlib.sha256(battle_dll.read_bytes()).hexdigest(),'optionsModuleSha256':hashlib.sha256(options_dll.read_bytes()).hexdigest(),'previousVersions':previous_versions},indent=2)+'\n')
     if publish and UPGRADE:
         manifest=json.loads((assets/'runtime.json').read_text())
         manifest['previousVersions']=dedupe_versions(([old_current] if old_current else [])+(old_runtime.get('previousVersions',[]) if old_runtime else [])+[json.loads((HERE/'upgrade-0.7.6-receipt.json').read_text()),json.loads((HERE/'upgrade-0.7.5-receipt.json').read_text()),json.loads((HERE/'upgrade-0.7.4-receipt.json').read_text()),json.loads((HERE/'upgrade-0.7.3-receipt.json').read_text()),json.loads((HERE/'upgrade-0.7.2-receipt.json').read_text()),json.loads((HERE/'upgrade-0.7.1-receipt.json').read_text())])

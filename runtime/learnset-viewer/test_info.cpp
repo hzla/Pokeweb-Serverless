@@ -90,6 +90,13 @@ int main() {
     slot(0,1,1,0);assert(!parseEvolutions(bytes,48,32).valid);
     for(u32 v=0;v<256;++v){assert(statBar(v)<=46);if(v)assert(statBar(v)>=statBar(v-1));}
     assert(statBar(0)==0 && statBar(255)==46 && statBar(100)==18);
+    for(u32 v=0;v<256;++v){
+        const u32 expected=v<=150?(v*36+75)/150:36+((v-150)*10+52)/105;
+        assert(learnsetStatBar(v)==expected);
+        assert(learnsetStatColorBand(v)==(v<150?v/30:5));
+    }
+    assert(learnsetStatBar(0)==0 && learnsetStatBar(150)==36 && learnsetStatBar(255)==46);
+    assert(learnsetStatBar(65)==16 && learnsetStatBar(63)==15 && learnsetStatBar(45)==11);
     assert(infoUpper('a')=='A' && infoUpper(0xe9)==0xc9 && infoUpper(0xf7)==0xf7 && infoUpper(0x2640)==0x2640);
     u16 format[80],out[256],a[32],b[32];
     asciiText(out,256,"POISON POINT / SOUL-HEART / KING'S TEST / #229");

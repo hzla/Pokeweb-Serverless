@@ -13,9 +13,10 @@ export function abilityWorkSlots(rules: ReadonlyMap<number, AbilityRuleSet>): 4 
 /** Compare equivalent UI representations without turning a rename into a rebuild. */
 export function abilityExecutionSignature(input: AbilityRuleSet): string {
   const rule=validateAbilityRule(optimizeAbilityRule(input));
-  const condition=(node:AbilityRuleSet["conditions"]):AbilityRuleSet["conditions"]=>node.kind!=="group"?node:node.children.length===1?condition(node.children[0]):{...node,children:node.children.map(condition)};
+  const condition=(node:AbilityRuleSet["conditions"]):AbilityRuleSet["conditions"]=>node.kind!=="group"?node:!node.scope&&node.children.length===1?condition(node.children[0]):{...node,children:node.children.map(condition)};
   return JSON.stringify({...rule,conditions:condition(rule.conditions),effects:rule.effects.map(effect=>{
     const definition=libraryAbilityEffect(effect.kind)??recipeAbilityEffect(effect.kind);
+    if(effect.conditions)effect={...effect,conditions:condition(effect.conditions)};
     if(!definition)return effect;
     const parameters:Record<string,number>=Object.fromEntries(definition.parameters.map(p=>[p.key,effect.parameters?.[p.key]??p.original]));
     for(const p of definition.parameters)if(p.when){const active=Array.isArray(p.when.value)?p.when.value.includes(parameters[p.when.key]):parameters[p.when.key]===p.when.value;if(!active)parameters[p.key]=p.original;}
@@ -37,13 +38,13 @@ export function optimizeAbilityRule(input: AbilityRuleSet): AbilityRuleSet {
   const effects = structuredClone(input.effects), output: AbilityRuleEffect[] = [];
   for (let at = 0; at < effects.length;) {
     const first = effects[at];
-    if (first.kind === "abilityRecipe:statusGuard" && !recipeAbilityParameter(first,"cure")) {
+    if (!first.conditions && first.kind === "abilityRecipe:statusGuard" && !recipeAbilityParameter(first,"cure")) {
       const keys = ["scope","protectedType","cure","excludeSelf"];
       const signature = (e: AbilityRuleEffect) => JSON.stringify([e.bypassable, ...keys.map(key => recipeAbilityParameter(e,key))]);
       const group = [first];
       while (at + group.length < effects.length) {
         const e = effects[at + group.length];
-        if (e.kind !== first.kind || signature(e) !== signature(first)) break;
+        if (e.conditions || e.kind !== first.kind || signature(e) !== signature(first)) break;
         group.push(e);
       }
       if (group.length > 1) {
@@ -51,13 +52,13 @@ export function optimizeAbilityRule(input: AbilityRuleSet): AbilityRuleSet {
         at += group.length; continue;
       }
     }
-    if (first.kind === "abilityRecipe:statAction" && recipeAbilityParameter(first,"stat") <= 7) {
+    if (!first.conditions && first.kind === "abilityRecipe:statAction" && recipeAbilityParameter(first,"stat") <= 7) {
       const keys = recipeAbilityEffect(first.kind)!.parameters.map(p=>p.key).filter(key=>key!=="stat"&&key!=="statSource");
       const signature = (e: AbilityRuleEffect) => JSON.stringify([e.bypassable,...keys.map(key=>recipeAbilityParameter(e,key))]);
       const group = [first], stats = new Set([recipeAbilityParameter(first,"stat")]);
       while (at + group.length < effects.length) {
         const e = effects[at+group.length];
-        if (e.kind!==first.kind || signature(e)!==signature(first)) break;
+        if (e.conditions || e.kind!==first.kind || signature(e)!==signature(first)) break;
         const stat=recipeAbilityParameter(e,"stat");
         if(stat>7||stats.has(stat))break;
         stats.add(stat);group.push(e);
@@ -70,11 +71,11 @@ export function optimizeAbilityRule(input: AbilityRuleSet): AbilityRuleSet {
         at+=group.length;continue;
       }
     }
-    if (libraryAbilityEffect(first.kind) && (first.parameters?.moveClass??0)===9) {
+    if (!first.conditions && libraryAbilityEffect(first.kind) && (first.parameters?.moveClass??0)===9) {
       const signature=(e:AbilityRuleEffect)=>JSON.stringify([e.kind,e.value,e.bypassable,Object.entries(e.parameters??{}).filter(([key])=>key!=="type"&&key!=="types").sort(([a],[b])=>a.localeCompare(b))]);
       let mask=first.parameters?.types??1<<(first.parameters?.type??0),count=1;
       while(at+count<effects.length){
-        const next=effects[at+count];if(signature(next)!==signature(first))break;
+        const next=effects[at+count];if(next.conditions || signature(next)!==signature(first))break;
         const bits=next.parameters?.types??1<<(next.parameters?.type??0);
         if(mask&bits)break; // Overlapping multiplier filters must still stack.
         mask|=bits;count++;

@@ -38,7 +38,9 @@ def verify(path):
         if h['kind'] == 'FULL_COPY' and h['address'] % 4:
             raise ValueError('PMC ABS32 copy target must be word-aligned')
         results.append({'id': h['id'], 'bytesMatch': True, 'status': h['status']})
-    for adapter in contract.get('nativeAdapters',[]):
+    adapters=contract.get('nativeAdapters',[])
+    if code=='IRDO':adapters+=json.loads((HERE/'native9-contract.json').read_text())['nativeAdapters']
+    for adapter in adapters:
         base,segment=segments[adapter['segment']]
         at=adapter['address']-base;expected=bytes.fromhex(adapter['expectedHex'])
         if not expected or at<0 or at+len(expected)>len(segment) or bytes(segment[at:at+len(expected)])!=expected:raise ValueError('Native adapter signature mismatch: '+adapter['id'])

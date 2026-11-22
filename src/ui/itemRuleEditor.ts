@@ -4,16 +4,17 @@ import { inspectCustomMoveFlags } from "../pokeweb/abilityEffectsModel";
 import { customMoveFlagFilter, customMoveFlagId, type CustomMoveFlag } from "../pokeweb/customMoveFlags";
 import {recipeAbilityEffect,ABILITY_PROTECTED_CONDITION_LABELS,ABILITY_DAMAGE_SOURCE_LABELS} from "../pokeweb/abilityRecipeEffects";
 import { nativeAbilityProfile } from "../pokeweb/abilityNativeRuntime";
-import { ITEM_RULE_EFFECTS, ITEM_RULE_WEATHER, ITEM_RULE_STATUS_LABELS, ITEM_RULE_STAT_LABELS, ITEM_RULE_TRIGGERS, ITEM_RULE_TARGETS, ITEM_RULE_TRIGGER_LABELS, validateItemRule, type ItemRuleCondition, type ItemRuleSet, type ItemRuleEffect, type ItemRuleEffectDefinition } from "../pokeweb/itemRules";
+import { ITEM_RULE_EFFECTS, ITEM_RULE_WEATHER, ITEM_RULE_STATUS_LABELS, ITEM_RULE_STAT_LABELS, ITEM_RULE_TRIGGERS, ITEM_RULE_TARGETS, ITEM_RULE_TRIGGER_LABELS, validateItemRule, type AbilityConditionSubject, type ItemRuleCondition, type ItemRuleSet, type ItemRuleEffect, type ItemRuleEffectDefinition } from "../pokeweb/itemRules";
 import { configureItemRuleSets } from "../pokeweb/itemEffectsModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { typeNamesForProject } from "../pokeweb/constants";
 import { ITEM_RULE_PRESETS, itemRulePreset } from "../pokeweb/itemRulePresets";
-import { getItemRecord } from "../pokeweb/moveItemModel";
+import { getItemRecord, getMoveCount } from "../pokeweb/moveItemModel";
 import { escapeHtml } from "./dom";
 import { libraryAbilityEffect } from "../pokeweb/abilityLibraryEffects";
 import { appendItemRuleTemplate } from "../pokeweb/appendRuleTemplate";
 import { itemRecipeEffect } from "../pokeweb/itemRecipeEffects";
+import { BATTLE_FIELD_EFFECTS, BATTLE_SIDE_EFFECTS, maxSideEffectLayers } from "../pokeweb/battleFieldEffects";
 
 export type RuleFormOptions = {
   definitions?: readonly ItemRuleEffectDefinition[];
@@ -25,19 +26,31 @@ export type RuleFormOptions = {
 };
 
 const option = (value: string | number, label: string, selected: string | number) => `<option value="${value}" ${value === selected ? "selected" : ""}>${escapeHtml(label)}</option>`;
-function group(node: ItemRuleCondition, types: string[], climate: (label: string) => string, path = "", depth = 0): string {
+const always = (): Extract<ItemRuleCondition, {kind: "group"}> => ({ kind: "group", mode: "all", children: [] });
+const conditionRoot = (node?: ItemRuleCondition): Extract<ItemRuleCondition, {kind: "group"}> =>
+  !node ? always() : node.kind === "group" ? node : { ...always(), children: [node] };
+function group(node: ItemRuleCondition, types: string[], climate: (label: string) => string, path: string, ability: boolean, depth = 0, scoped = false): string {
   if (node.kind === "group") return `<fieldset data-rule-group data-rule-path="${path}" class="item-rule-group">
-    <legend>${depth ? "Group" : "Activation conditions"}</legend>
+    <legend>${depth ? "Group" : path === "global" ? "Activation conditions" : "Conditions"}</legend>
     <div class="item-rule-group-tools"><select data-rule-mode aria-label="${depth ? "Group" : "Activation"} condition logic">${option("all", "All (AND)", node.mode)}${option("any", "Any (OR)", node.mode)}</select>
+      ${ability && node.children.length ? `<select data-rule-scope aria-label="Group scope">${option("", "Standard group", node.scope ?? "")}${option("anyOpponent", "Same active opponent", node.scope ?? "")}</select>` : ""}
       <button type="button" class="btn -default" data-rule-action="add-condition" data-rule-path="${path}" ${node.children.length >= 8 ? "disabled" : ""}>+ Condition</button>
       <button type="button" class="btn -default" data-rule-action="add-group" data-rule-path="${path}" ${depth >= 3 || node.children.length >= 8 ? "disabled" : ""}>+ Group</button>
       ${depth ? `<button type="button" class="btn -default" data-rule-action="remove-condition" data-rule-path="${path}" aria-label="Remove condition group">Remove</button>` : ""}</div>
-    <div data-rule-children>${node.children.length ? node.children.map((child, index) => group(child, types, climate, path ? `${path}.${index}` : String(index), depth + 1)).join("") : `<span class="item-native-hint">${depth ? "Add a condition" : "Always active"}</span>`}</div>
+    <div data-rule-children>${node.children.length ? node.children.map((child, index) => group(child, types, climate, `${path}.${index}`, ability, depth + 1, scoped || Boolean(node.scope))).join("") : `<span class="item-native-hint">${depth ? "Add a condition" : "Always active"}</span>`}</div>
   </fieldset>`;
+  const field = node.kind === "fieldEffect" || node.kind === "sideEffect";
+  const maxLayers = node.kind === "sideEffect" ? maxSideEffectLayers(node.value) : 1;
+  const fieldControls = field ? `
+    <select data-rule-condition-value aria-label="Battle condition">${Object.entries(node.kind === "fieldEffect" ? BATTLE_FIELD_EFFECTS : BATTLE_SIDE_EFFECTS).map(([id, label]) => option(Number(id), label, node.value)).join("")}</select>
+    ${node.kind === "sideEffect" ? `<select data-rule-condition-side aria-label="Battle side">${option("own", "Holder’s side", node.side)}${option("opposing", "Opposing side", node.side)}</select>` : ""}
+    <select data-rule-negate aria-label="Condition comparison">${option(0, maxLayers > 1 ? "At least" : "Is active", Number(Boolean(node.negate)))}${option(1, maxLayers > 1 ? "Fewer than" : "Is inactive", Number(Boolean(node.negate)))}</select>
+    ${maxLayers > 1 && node.kind === "sideEffect" ? `<select data-rule-condition-layers aria-label="Hazard layers">${Array.from({length: maxLayers}, (_, i) => option(i + 1, i === 0 ? "1 layer" : `${i + 1} layers`, node.layers ?? 1)).join("")}</select>` : ""}` : "";
   return `<div class="item-rule-condition" data-rule-condition data-rule-kind="${node.kind}" data-rule-path="${path}">
-    <select data-rule-condition-kind aria-label="Condition type">${option("hp", "Holder HP", node.kind)}${option("type", "Holder type", node.kind)}${option("weather", "Weather", node.kind)}${option("species", "Holder species", node.kind)}${option("status", "Holder status", node.kind)}${option("moveType", "Move type", node.kind)}${option("category", "Move category", node.kind)}</select>
-    ${node.kind === "hp" ? `<select data-rule-comparison aria-label="HP comparison">${[["lt", "Below (<)"], ["lte", "At most (≤)"], ["gt", "Above (>)"], ["gte", "At least (≥)"]].map(([v, label]) => option(v, label, node.comparison)).join("")}</select><label class="item-rule-value"><input data-rule-condition-value aria-label="HP percent" type="number" min="0" max="100" step="1" value="${node.percent}"><span>%</span></label>`
-      : `<select data-rule-negate aria-label="Condition comparison">${option(0, "Is", Number(Boolean(node.negate)))}${option(1, "Is not", Number(Boolean(node.negate)))}</select>${node.kind === "species" ? `<input data-rule-condition-value aria-label="Species ID" type="number" min="1" max="1023" value="${node.value}">` : `<select data-rule-condition-value aria-label="Condition value">${(node.kind === "type" || node.kind === "moveType" ? types : node.kind === "weather" ? ITEM_RULE_WEATHER : node.kind === "category" ? ["Status", "Physical", "Special"] : ["None", ...ITEM_RULE_STATUS_LABELS.slice(0, 6)]).map((label, id) => option(id, climate(label), node.value)).join("")}</select>`}`}
+    <select data-rule-condition-kind aria-label="Condition type">${option("hp", "Holder HP", node.kind)}${option("type", ability ? "Pokémon type" : "Holder type", node.kind)}${ability ? option("knowsMove", "Knows move", node.kind) : ""}${option("weather", "Weather", node.kind)}${option("species", "Holder species", node.kind)}${option("status", "Holder status", node.kind)}${option("moveType", "Move type", node.kind)}${option("category", "Move category", node.kind)}${option("fieldEffect", "Field effect", node.kind)}${option("sideEffect", "Side condition", node.kind)}</select>
+    ${ability && (node.kind === "type" || node.kind === "knowsMove") ? `<select data-rule-subject aria-label="Pokémon to check">${option("holder", "Holder", node.subject ?? "holder")}${option("opponent", "Opponent involved", node.subject ?? "holder")}${option("anyOpponent", scoped ? "Same active opponent" : "Any active opponent", node.subject ?? "holder")}</select>` : ""}
+    ${field ? fieldControls : node.kind === "hp" ? `<select data-rule-comparison aria-label="HP comparison">${[["lt", "Below (<)"], ["lte", "At most (≤)"], ["gt", "Above (>)"], ["gte", "At least (≥)"]].map(([v, label]) => option(v, label, node.comparison)).join("")}</select><label class="item-rule-value"><input data-rule-condition-value aria-label="HP percent" type="number" min="0" max="100" step="1" value="${node.percent}"><span>%</span></label>`
+      : `<select data-rule-negate aria-label="Condition comparison">${option(0, node.kind === "knowsMove" ? "Knows" : "Is", Number(Boolean(node.negate)))}${option(1, node.kind === "knowsMove" ? "Does not know" : "Is not", Number(Boolean(node.negate)))}</select>${node.kind === "species" ? `<input data-rule-condition-value aria-label="Species ID" type="number" min="1" max="1023" value="${node.value}">` : node.kind === "knowsMove" ? `<input data-rule-condition-value aria-label="Move name or ID" type="text" list="ability-condition-moves" value="${node.value}">` : `<select data-rule-condition-value aria-label="Condition value">${(node.kind === "type" || node.kind === "moveType" ? types : node.kind === "weather" ? ITEM_RULE_WEATHER : node.kind === "category" ? ["Status", "Physical", "Special"] : ["None", ...ITEM_RULE_STATUS_LABELS.slice(0, 6)]).map((label, id) => option(id, climate(label), node.value)).join("")}</select>`}`}
     <button type="button" class="btn -default" data-rule-action="remove-condition" data-rule-path="${path}" aria-label="Remove condition">×</button>
   </div>`;
 }
@@ -99,18 +112,25 @@ export function renderItemRuleForm(project: ProjectState, rule: ItemRuleSet, opt
   options=portableItemOptions(project,options);
   const climate = (label: string) => frostbiteSnowLabel(project, label);
   const customFlags=options.ability?inspectCustomMoveFlags(project).registry.flags:[];
-  const root = rule.conditions.kind === "group" ? rule.conditions : { kind: "group" as const, mode: "all" as const, children: [rule.conditions] };
+  const root = conditionRoot(rule.conditions);
+  const hasMove = (node?: ItemRuleCondition): boolean => node?.kind === "knowsMove" || node?.kind === "group" && node.children.some(hasMove);
+  const moves = options.ability && (hasMove(root) || rule.effects.some(effect => hasMove(effect.conditions)))
+    ? `<datalist id="ability-condition-moves">${(project.texts.banks.moves ?? []).slice(0, getMoveCount(project) || undefined).map((name, id) => id && name ? `<option value="${id} · ${escapeHtml(name)}"></option>` : "").join("")}</datalist>` : "";
   const presets=options.presets??ITEM_RULE_PRESETS,groups=[...new Set(presets.map(p=>"group"in p?p.group:undefined))];
   const choices=groups.map(name=>`${name?`<optgroup label="${escapeHtml(name)}">`:""}${presets.filter(p=>("group"in p?p.group:undefined)===name).map(p=>option(p.id,climate(p.label),"")).join("")}${name?"</optgroup>":""}`).join("");
   return `<div class="item-rule-form" data-item-rule-form>
-    ${options.ability ? `<p class="ability-effects-help">Abilities are made up of “effects”. You can import an effect template from an existing ability below, or click “+ Effect” to manually add a custom effect or the effect of an existing ability. Once an effect is added, you can further adjust its parameters.</p>` : ""}
+    ${options.ability ? `
+      <p class="ability-effects-help">Abilities are made up of “effects”. You can import an effect template from an existing ability below, or click “+ Effect” to manually add a custom effect or the effect of an existing ability. Once an effect is added, you can further adjust its parameters.</p>
+      <p class="ability-effects-help">Conditions are what's needed to be true for the ability effects to trigger. You can tie individual effects to condition(s), or tie an entire ability's effects to condition(s)</p>` : ""}
     <div class="item-rule-preset"><select data-rule-preset aria-label="${options.ability ? "Import ability effects" : "Import item effects"}"><option value="">Import effects…</option>${choices}</select><button type="button" class="btn -default" data-rule-action="preset">Import Effect Template</button></div>
     <div class="item-rule-effects-heading"><strong>Effects</strong><button type="button" class="btn -default" data-rule-action="add-effect" ${rule.effects.length >= 16 ? "disabled" : ""}>+ Effect</button></div>
     <div data-rule-effects>${rule.effects.map((effect, index) => `<div class="item-rule-effect" data-rule-effect data-rule-effect-kind="${effect.kind}" data-rule-index="${index}">
       <div class="item-rule-effect-heading"><select data-rule-effect-kind aria-label="Effect ${index + 1}">${[false, true].map(native => `<optgroup label="${native ? options.ability ? "Copied ability handlers" : "Native item behaviors" : "Adjustable primitives"}">${(options.definitions ?? ITEM_RULE_EFFECTS).filter(d => Boolean(d.nativeItem) === native).map(d => option(d.kind, d.label, effect.kind)).join("")}</optgroup>`).join("")}</select>
       <button type="button" class="btn -default" data-rule-action="remove-effect" data-rule-index="${index}" aria-label="Remove effect ${index + 1}" ${rule.effects.length === 1 ? "disabled" : ""}>×</button></div>
-      <div class="item-rule-effect-fields">${effectFields(effect, index, typeNamesForProject(project), climate, options, (project.texts.banks.abilities??[]).map((name,id)=>displayAbilityName(id,name)),customFlags)}</div></div>`).join("")}</div>
-    ${group(root, typeNamesForProject(project), climate)}
+      <div class="item-rule-effect-fields">${effectFields(effect, index, typeNamesForProject(project), climate, options, (project.texts.banks.abilities??[]).map((name,id)=>displayAbilityName(id,name)),customFlags)}</div>
+      ${options.ability ? `<details data-effect-conditions="${index}" ${effect.conditions ? "open" : ""}><summary>Effect conditions</summary>${group(conditionRoot(effect.conditions), typeNamesForProject(project), climate, String(index), true)}</details>` : ""}</div>`).join("")}</div>
+    ${group(root, typeNamesForProject(project), climate, "global", Boolean(options.ability))}
+    ${moves}
     ${options.ability ? "" : `<label class="item-rule-consumable"><input type="checkbox" data-rule-consumable ${rule.consumable ? "checked" : ""}>Consume on first successful effect</label>`}
     <button type="button" class="btn -default" data-rule-action="apply">${options.ability?"Apply ability":"Apply custom effects"}</button>
     <span data-rule-feedback class="item-native-feedback" role="status" aria-live="polite"></span>
@@ -118,12 +138,25 @@ export function renderItemRuleForm(project: ProjectState, rule: ItemRuleSet, opt
 }
 export function readItemRuleForm(container: HTMLElement): ItemRuleSet {
   function read(node: HTMLElement): ItemRuleCondition {
-    if (node.hasAttribute("data-rule-group")) return { kind: "group", mode: node.querySelector<HTMLSelectElement>(":scope > .item-rule-group-tools [data-rule-mode]")!.value as "all" | "any",
+    if (node.hasAttribute("data-rule-group")) return { kind: "group",
+      ...(node.querySelector<HTMLSelectElement>(":scope > .item-rule-group-tools [data-rule-scope]")?.value === "anyOpponent" ? { scope: "anyOpponent" as const } : {}), mode: node.querySelector<HTMLSelectElement>(":scope > .item-rule-group-tools [data-rule-mode]")!.value as "all" | "any",
       children: Array.from(node.querySelector<HTMLElement>(":scope > [data-rule-children]")!.children).filter((child): child is HTMLElement => child instanceof HTMLElement && (child.hasAttribute("data-rule-group") || child.hasAttribute("data-rule-condition"))).map(read) };
     const field = node.querySelector<HTMLInputElement>("[data-rule-condition-value]")!;
-    const value = field.value.trim() ? Number(field.value) : Number.NaN;
+    const text = field.value.trim();
+    const moveId = node.dataset.ruleKind === "knowsMove" ? /^(\d+)(?: · .+)?$/u.exec(text)?.[1] : undefined;
+    const value = text ? Number(moveId ?? text) : Number.NaN;
     if (node.dataset.ruleKind === "hp") return { kind: "hp", comparison: node.querySelector<HTMLSelectElement>("[data-rule-comparison]")!.value as "lt", percent: value };
-    return { kind: node.dataset.ruleKind as "type" | "weather", value, negate: node.querySelector<HTMLSelectElement>("[data-rule-negate]")!.value === "1" };
+    const negate = node.querySelector<HTMLSelectElement>("[data-rule-negate]")!.value === "1";
+    if (node.dataset.ruleKind === "sideEffect") return {
+      kind: "sideEffect", value, negate,
+      side: node.querySelector<HTMLSelectElement>("[data-rule-condition-side]")!.value as "own" | "opposing",
+      layers: Number(node.querySelector<HTMLSelectElement>("[data-rule-condition-layers]")?.value ?? 1),
+    };
+    if (node.dataset.ruleKind === "type" || node.dataset.ruleKind === "knowsMove") {
+      const subject = node.querySelector<HTMLSelectElement>("[data-rule-subject]")?.value as AbilityConditionSubject | undefined;
+      return { kind: node.dataset.ruleKind, value, negate, ...(subject && subject !== "holder" ? { subject } : {}) };
+    }
+    return { kind: node.dataset.ruleKind as "type" | "weather" | "fieldEffect" | "species" | "moveType" | "category" | "status", value, negate };
   }
   const numeric = (field: HTMLInputElement) => field.value.trim() ? Number(field.value) : Number.NaN;
   return { effects: Array.from(container.querySelectorAll<HTMLElement>("[data-rule-effect]")).map(row => {
@@ -143,17 +176,28 @@ export function readItemRuleForm(container: HTMLElement): ItemRuleSet {
       for(const key of new Set(Array.from(row.querySelectorAll<HTMLInputElement>("[data-rule-set]")).map(field=>field.dataset.ruleSet!)))parameters[key]=Array.from(row.querySelectorAll<HTMLInputElement>(`[data-rule-set="${key}"]:checked`)).reduce((mask,field)=>mask|Number(field.value),0);
       if(Object.keys(parameters).length)effect.parameters=parameters;
       if (row.querySelector("[data-rule-bypass]")) Object.assign(effect, { bypassable: row.querySelector<HTMLInputElement>("[data-rule-bypass]")!.checked });
+      const local = row.querySelector<HTMLElement>("[data-rule-group]");
+      if (local) {
+        const conditions = read(local);
+        if (conditions.kind !== "group" || conditions.children.length) effect.conditions = conditions;
+      }
       return effect;
     }),
-    conditions: read(container.querySelector<HTMLElement>("[data-rule-group]")!), consumable: container.querySelector<HTMLInputElement>("[data-rule-consumable]")?.checked ?? false };
+    conditions: read(container.querySelector<HTMLElement>('[data-rule-group][data-rule-path="global"]')!), consumable: container.querySelector<HTMLInputElement>("[data-rule-consumable]")?.checked ?? false };
 }
 export function installItemRuleEditor(container: HTMLElement, project: ProjectState, itemId: number, applied: () => void, changed: () => void, options: RuleFormOptions = {}): void {
   options=portableItemOptions(project,options);
-  const replace = (rule: ItemRuleSet) => { container.innerHTML = renderItemRuleForm(project, rule, options); };
+  const replace = (rule: ItemRuleSet) => {
+    const open = [...container.querySelectorAll<HTMLDetailsElement>("[data-effect-conditions][open]")].map(node => node.dataset.effectConditions);
+    container.innerHTML = renderItemRuleForm(project, rule, options);
+    for (const node of container.querySelectorAll<HTMLDetailsElement>("[data-effect-conditions]")) if (open.includes(node.dataset.effectConditions)) node.open = true;
+  };
   const feedback = (message: string) => { const node = container.querySelector<HTMLElement>("[data-rule-feedback]")!; node.textContent = message; node.classList.add("-error"); };
   function at(rule: ItemRuleSet, path: string): ItemRuleCondition {
-    let node = rule.conditions;
-    for (const index of path ? path.split(".").map(Number) : []) {
+    const [root, ...rest] = path.split(".");
+    const effect = root === "global" ? undefined : rule.effects[Number(root)];
+    let node = effect ? effect.conditions ??= always() : rule.conditions;
+    for (const index of rest.map(Number)) {
       if (node.kind !== "group") throw new Error("Invalid condition group.");
       node = node.children[index];
     }
@@ -169,19 +213,29 @@ export function installItemRuleEditor(container: HTMLElement, project: ProjectSt
     const target = event.target as HTMLElement;
     changed();
     if(target.matches('[data-rule-native-parameter="moveClass"],[data-rule-native-parameter="activation"],[data-rule-native-parameter="operation"],[data-rule-native-parameter="stat"]')&&(libraryAbilityEffect(target.closest<HTMLElement>("[data-rule-effect]")!.dataset.ruleEffectKind!)||recipeAbilityEffect(target.closest<HTMLElement>("[data-rule-effect]")!.dataset.ruleEffectKind!))){replace(readItemRuleForm(container));return;}
-    if (!target.matches("[data-rule-effect-kind], [data-rule-condition-kind], [data-rule-native-original]")) return;
+    const sideEffect = target.matches('[data-rule-kind="sideEffect"] [data-rule-condition-value]');
+    if (!sideEffect && !target.matches("[data-rule-effect-kind], [data-rule-condition-kind], [data-rule-native-original], [data-rule-scope]")) return;
     try {
       const rule = readItemRuleForm(container);
-      if (target.matches("[data-rule-native-original]")) {
+      if (target.matches("[data-rule-scope]")) {
+        replace(rule); return;
+      }
+      if (sideEffect) {
+        const node = at(rule, target.closest<HTMLElement>("[data-rule-condition]")!.dataset.rulePath!);
+        if (node.kind === "sideEffect") node.layers = 1;
+      } else if (target.matches("[data-rule-native-original]")) {
         const index = Number(target.closest<HTMLElement>("[data-rule-effect]")!.dataset.ruleIndex);
         rule.effects[index].value = (target as HTMLSelectElement).value === "1" ? -1 : options.ability ? 2 : 20;
       } else if (target.matches("[data-rule-effect-kind]")) {
         const index = Number(target.closest<HTMLElement>("[data-rule-effect]")!.dataset.ruleIndex), kind = (target as HTMLSelectElement).value;
         const definition = (options.definitions ?? ITEM_RULE_EFFECTS).find(d => d.kind === kind)!;
-        rule.effects[index] = { kind: definition.kind, value: definition.value };
+        rule.effects[index] = { kind: definition.kind, value: definition.value, conditions: rule.effects[index].conditions };
       } else {
         const path = target.closest<HTMLElement>("[data-rule-condition]")!.dataset.rulePath!, location = parent(rule, path), kind = (target as HTMLSelectElement).value;
-        location.node.children[location.index] = kind === "hp" ? { kind: "hp", comparison: "lt", percent: 50 } : { kind: kind as "type" | "weather", value: kind === "species" ? 1 : kind === "type" ? 5 : kind === "weather" ? 2 : 0 };
+        if (kind === "hp") location.node.children[location.index] = { kind, comparison: "lt", percent: 50 };
+        else if (kind === "sideEffect") location.node.children[location.index] = { kind, value: 4, side: "own", layers: 1 };
+        else location.node.children[location.index] = { kind: kind as Exclude<ItemRuleCondition["kind"], "group" | "hp" | "sideEffect">,
+          value: kind === "fieldEffect" || kind === "species" || kind === "knowsMove" ? 1 : kind === "type" ? 5 : kind === "weather" ? 2 : 0 };
       }
       replace(rule);
     } catch (error) { feedback(error instanceof Error ? error.message : String(error)); }
@@ -210,7 +264,7 @@ export function installItemRuleEditor(container: HTMLElement, project: ProjectSt
         const next = definitions.find(d => !rule.effects.some(effect => effect.kind === d.kind)) ?? definitions[0];
         if (next) rule.effects.push({ kind: next.kind, value: next.value });
       } else if (action === "remove-effect") rule.effects.splice(Number(button.dataset.ruleIndex), 1);
-      else if (action === "remove-condition") { const location = parent(rule, path); location.node.children.splice(location.index, 1); }
+      else if (action === "remove-condition") { const location = parent(rule, path); location.node.children.splice(location.index, 1); if (!location.node.children.length) delete location.node.scope; }
       else {
         const node = at(rule, path);
         if (node.kind !== "group") throw new Error("Invalid condition group.");

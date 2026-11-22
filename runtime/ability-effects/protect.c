@@ -31,13 +31,14 @@ static void protectRecord(u32 event,u32 a,u32 d,u32 x,u32 move,u32 y,u32 value){
 static void protectInit(void){protectAttacker=31;protectMove=protectEligible=0;}
 /* The holder's enabled bypass effect for this move, or 0. The current ability
  * reads as 0 while suppressed (Gastro Acid). Conditions see the event frame. */
-static const volatile u8*protectEffect(void*f,u32 attacker,u32 move){
+static const volatile u8*protectEffect(void*f,u32 attacker,u32 move,u32 defender){
  if(attacker>=24||!move)return 0;
  void*mon=MON(f,attacker);if(!STAT(mon,13))return 0;
  const volatile u8*r=record(STAT(mon,17));if(!r||r[0]>ABILITY_EFFECT_SLOTS)return 0;
  const volatile u8*e=effects(r),*selected=0;
  for(u32 n=0;n<r[0];++n,e+=16)if(e[0]==172&&conversionMatch(e[1],move,e[7])){selected=e;break;}
- if(!selected||!active(r,f,mon))return 0;
+ (void)defender;
+ if(!selected||!EFFECT_ENABLED(r,selected,f,mon,attacker,0,defender))return 0;
  return selected;
 }
 /* Mirrors the native guards' own blocking checks. */
@@ -62,7 +63,11 @@ static void protectBefore(void*f,u32 event,ProtectPause*pause){
  if(event==0x3||event==0x4){protectInit();return;}
  if(event!=0x2c)return;
  u32 attacker=VALUE(3),defender=VALUE(4),move=VALUE(0x12);
- if(attacker!=protectAttacker||move!=protectMove){protectAttacker=attacker;protectMove=move;protectEligible=protectEffect(f,attacker,move)!=0;}
+#ifdef ABILITY_EFFECT_CONDITIONS
+ protectAttacker=attacker;protectMove=move;protectEligible=protectEffect(f,attacker,move,defender)!=0;
+#else
+ if(attacker!=protectAttacker||move!=protectMove){protectAttacker=attacker;protectMove=move;protectEligible=protectEffect(f,attacker,move,defender)!=0;}
+#endif
  if(!protectEligible||attacker==defender||defender>=24)return;
  u32 s=side(defender);
  for(u8*item=PTX(1,u8*(*)(u32,u32))(PROTECT_SIDE_FACTOR,s);item&&pause->count<2;item=*(u8**)(item+4)){
@@ -84,7 +89,7 @@ static void protectAfter(void*f,u32 event,ProtectPause*pause){
 #endif
  if(event==0x47){
   u32 attacker=VALUE(3),defender=VALUE(4),move=VALUE(0x12);
-  const volatile u8*e=protectEffect(f,attacker,move);
+  const volatile u8*e=protectEffect(f,attacker,move,defender);
   if(e&&half(e+2)!=4096&&protectActive(f,attacker,defender,move))MUL(half(e+2));
 #ifdef ABILITY_PROTECT_TEST
   if(!preview(f))protectRecord(0x47,attacker,defender,e!=0,move,protectActive(f,attacker,defender,move),VALUE(0x35));

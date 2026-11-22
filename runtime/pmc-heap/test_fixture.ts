@@ -1,7 +1,8 @@
 import { readFile,writeFile } from "node:fs/promises";
 import { parseRpm,setRpmBaseAddress,updateRpmCodeImageForBase } from "../../src/pokeweb/rpm";
 import { buildExpandedPmcTemplate,adaptExpandedBw1PmcBoot } from "../../src/pokeweb/pmcHeapRuntime";
-const rpm=buildExpandedPmcTemplate(parseRpm(new Uint8Array(await readFile(new URL("../../src/assets/codeinjection/PMC_W2.rpm",import.meta.url)))));
+const cap = process.argv[3] === "220" ? 220 : 200;
+const rpm=buildExpandedPmcTemplate(parseRpm(new Uint8Array(await readFile(new URL("../../src/assets/codeinjection/PMC_W2.rpm",import.meta.url)))), cap);
 const index=(name:string)=>rpm.symbols.findIndex(s=>s.name===name),originals=rpm.symbols.map(s=>({...s}));
 const specs=new Uint8Array(16);new DataView(specs.buffer).setUint32(0,0x6000,true);new DataView(specs.buffer).setUint32(8,0x199500,true);
 adaptExpandedBw1PmcBoot(rpm,index("GFLAppInit"),specs,0x020055dc);

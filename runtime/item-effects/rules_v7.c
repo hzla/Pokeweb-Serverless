@@ -43,6 +43,11 @@ static u32 preview(void*f){return SIM(f)||PREVIEW(f);}
 #include "../ability-effects/conditions.h"
 PUBLIC const volatile u16 ItemRecipeMessages[3]={0};
 PUBLIC const volatile u8 *ItemRecipeMoveData=(const volatile u8*)1;
+#ifdef ITEM_FIELD_CONDITIONS
+PUBLIC const volatile u32 ItemFieldConditionApi[3]={0};
+#include "../battle-field-conditions.h"
+static u32 itemFieldEffect(u32 effect){return ((u32(*)(u32))(uintptr_t)ItemFieldConditionApi[0])(effect)!=0;}
+#endif
 typedef struct {void*flow,*mon;} ConditionContext;
 static u32 conditionLeaf(const volatile u8*p,void*context){
  ConditionContext*c=context;void*f=c->flow,*mon=c->mon;u32 result=0,v=half(p+2);s32 x;
@@ -53,6 +58,14 @@ static u32 conditionLeaf(const volatile u8*p,void*context){
   else if(p[0]==5)result=variable(0x16,&x)&&(u32)x==v;
   else if(p[0]==6){if(variable(0x1a,&x))result=(u32)x==v;else if(variable(0x12,&x))result=FN(17,u32(*)(u32))(x)==v;}
   else if(p[0]==7){if(v)result=CHECK(mon,v);else{result=1;for(u32 n=1;n<=5;++n)if(CHECK(mon,n))result=0;}}
+#ifdef ITEM_FIELD_CONDITIONS
+  else if(p[0]==8)result=itemFieldEffect(v);
+  else if(p[0]==9){
+   u32 owner=FN(15,u32(*)(void*))(mon);
+   if(owner>=24)return 0;
+   result=battleSideCondition(ItemFieldConditionApi,f,(u8)owner,v);
+  }
+#endif
   if(p[0]>=2&&p[0]<128&&p[1])result=!result;
  return result;
 }
@@ -337,6 +350,14 @@ static u32 selectCondition(const volatile u8*p,void*ctx){
  else if(p[0]==5)result=FN(50,u32(*)(u32))(c->move)==value;
  else if(p[0]==6)result=FN(17,u32(*)(u32))(c->move)==value;
  else if(p[0]==7){if(value)result=CHECK(mon,value);else{result=1;for(u32 n=1;n<=5;++n)if(CHECK(mon,n))result=0;}}
+#ifdef ITEM_FIELD_CONDITIONS
+ else if(p[0]==8)result=itemFieldEffect(value);
+ else if(p[0]==9){
+  u32 owner=FN(15,u32(*)(void*))(mon);
+  if(!lastFlow||owner>=24)return 0;
+  result=battleSideCondition(ItemFieldConditionApi,lastFlow,(u8)owner,value);
+ }
+#endif
  if(p[0]>=2&&p[0]<128&&p[1])result=!result;
  return result;
 }

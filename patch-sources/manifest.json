@@ -1310,9 +1310,17 @@
         {
           "name": "PMC_W2I_200.rpm",
           "sha256": "29be431e10e49b0777792783b6e934e445f5277f4c31fe796b1af02e0bb67da6"
+        },
+        {
+          "name": "PMC_W2_220.rpm",
+          "sha256": "150afba0a490a3f7e27f7214f07ff8c55bed2c60d890838e71de75348fdc4c0a"
+        },
+        {
+          "name": "PMC_B2_220.rpm",
+          "sha256": "f1eae6ae584c81289b1f3206bb633f941d9d36c33d1613bf8f04578723ee3568"
         }
       ],
-      "note": "W2I retargets the pinned W2 loader through the Pokeweb adapter. Optional 200 KiB packages derive from the retained original bundles; BW1 uses a bounded startup-budget adapter. B2/W2 framework sources remain in the PMC checkout. External toolchains and libraries are not vendored.",
+      "note": "W2I retargets the W2 loader through the Pokeweb adapter. Optional heap packages derive from the original bundles. US revision-0 Black, White, Black 2 and White 2 support a 12 KiB reservation with a 220 KiB cap. BW1 retargets the W2 packages and uses a bounded startup-budget adapter. B2/W2 framework sources remain in the PMC checkout.",
       "status": "source-available",
       "files": [
         {
@@ -1542,7 +1550,7 @@
             "path": "src/pokeweb/pmcHeapRuntime.ts"
           },
           "kind": "source",
-          "sha256": "a052a189ac06dd3daf14677d417525fad13d08792320092cd4f9ccd438669a79",
+          "sha256": "3f6e8c157745c89a09f73e0dfa941d9480c44d5b12e8fe9f56c911afb10ffa26",
           "normalized": false
         },
         {
@@ -1552,7 +1560,7 @@
             "path": "src/pokeweb/pmcModel.ts"
           },
           "kind": "source",
-          "sha256": "b7b6e65c986df4b2a5e2988bd8794fc06a37720a295555f1774c38aade22f46f",
+          "sha256": "e1f6bbeb4efaae04e558f3e463d054040f7fa734f1fd196fbb7a7838b02fd267",
           "normalized": false
         },
         {
@@ -1562,7 +1570,7 @@
             "path": "runtime/pmc-heap/budget.c"
           },
           "kind": "source",
-          "sha256": "3478ab1b31690cb512e2925ac19d3fe59ddc1a6bcd06275d02cb34fdf999a28d",
+          "sha256": "2a9d150348e202339f23ee4f97d6f0062bd212ac47eb3d03b395236bc7e071e2",
           "normalized": false
         },
         {
@@ -1572,7 +1580,7 @@
             "path": "runtime/pmc-heap/build.py"
           },
           "kind": "build-tool",
-          "sha256": "06a9a6a8c39f72378b7933860c494b2e29eb5380709a467eb857d0011b89bd1f",
+          "sha256": "3f51bc9951fcc4adebae6c1f5d2d4db9516e98fea4e83cbf19f3f11b73401791",
           "normalized": false
         },
         {
@@ -1582,7 +1590,7 @@
             "path": "runtime/pmc-heap/build.ts"
           },
           "kind": "build-tool",
-          "sha256": "fdbdbfaf9a3174ef9695f44a868a9053e383f48dd156a5dae6f8f687b921383d",
+          "sha256": "dc1d873dd5f9b118735c99efe3e6426d5ccbc9eb07241673d49ba73aa9857ebe",
           "normalized": false
         },
         {
@@ -1592,7 +1600,7 @@
             "path": "runtime/pmc-heap/README.md"
           },
           "kind": "documentation",
-          "sha256": "b168fd91e35b760af97f0055cd6187963f408eb7b5bf507dbfeab66bc85e7267",
+          "sha256": "9ce9e5216bdadc5d92364c8556c61cc5f666cef17f0928d83e0ddbae2a460170",
           "normalized": false
         },
         {
@@ -1602,7 +1610,7 @@
             "path": "runtime/pmc-heap/test_fixture.ts"
           },
           "kind": "test",
-          "sha256": "099d18329b70b48b1402e3c25ed5f633dc42556992e7cdce4b43dedcd168c4dd",
+          "sha256": "0d836a21f4de87700c530ae8b4892446675870a92ddfddadc1ad8cf03bd42c80",
           "normalized": false
         },
         {
@@ -1612,7 +1620,7 @@
             "path": "runtime/pmc-heap/test_runtime.py"
           },
           "kind": "test",
-          "sha256": "2d4ee393c84e6334c2340486f7a358561ab06ee89fb4a5d475ca629116a81cf4",
+          "sha256": "498cedce5866c9cebe7c2f6a2d43d524184e481be05384a71f247343a1120a29",
           "normalized": false
         },
         {
@@ -1622,7 +1630,7 @@
             "path": "runtime/pmc-heap/verify_rom.ts"
           },
           "kind": "test",
-          "sha256": "03949a6f2d1db9479386b88bfd6e924fa35925d594bb7aa958fe4849c5c1282f",
+          "sha256": "ad96ed0dab0c3bfbeceee9b024ff8e3f232c94f7391f5f949932893b5c48ea12",
           "normalized": false
         },
         {
@@ -1632,7 +1640,7 @@
             "path": "src/assets/data/pmcHeapBudgetRuntime.json"
           },
           "kind": "generated-source",
-          "sha256": "55dc8c4f8e5a2986c6e0005c84b47d9ac65be09deae8e957f9f25da333e99749",
+          "sha256": "9ad9ce33be3b62ebc33fa31f64be54630b369ee58ea7d827588034f47b92ac3e",
           "normalized": false
         },
         {
@@ -1642,7 +1650,7 @@
             "path": "src/test/pmcHeapRuntime.test.ts"
           },
           "kind": "test",
-          "sha256": "b3f3d77e9a4d7ed576fe2fa8852ae5097b697e00512e3924a838f3c1fbc95693",
+          "sha256": "3a5195e7974adbd46e9e3ba70d42a0778bb0a22f569330ed68a9850d28506bc7",
           "normalized": false
         },
         {
@@ -1652,7 +1660,7 @@
             "path": "src/test/pmcModel.test.ts"
           },
           "kind": "test",
-          "sha256": "531e5f6fd066f2295992a3f592d57bca28bb41de08c35233a948d707cfe34141",
+          "sha256": "183c0d5c51b26d93a43b95b6e02dfb398e05b69c75307b7312db846de6e7c947",
           "normalized": false
         },
         {
@@ -1662,7 +1670,7 @@
             "path": "src/ui/codeInjectionEditor.ts"
           },
           "kind": "source",
-          "sha256": "d3f4e5aa0b162726b759d6f3f99ce32eaa7cae2fa012f5d597f072fa25c6cad1",
+          "sha256": "25b34c86e11e4d9520b09617d1b160b658587ef7bcae6be03fd8818b43017f88",
           "normalized": false
         }
       ]
@@ -5925,12 +5933,28 @@
       "title": "Hard level caps",
       "artifacts": [
         {
+          "name": "HardLevelCapsB.dll",
+          "sha256": "60fa40d088b931e4a590540f23239658c10a63c04fcd4f3808644481c0e471b6"
+        },
+        {
+          "name": "HardLevelCapsW.dll",
+          "sha256": "561319231787a02b83fea56454c8f38a0d56bfce3c13a08771dbff533bcce96e"
+        },
+        {
           "name": "HardLevelCapsB2.dll",
           "sha256": "b37bd94b2630201801550bc2e85ddbff254d8e0d40f113d3f81585d1e29cc3c7"
         },
         {
           "name": "HardLevelCapsW2.dll",
           "sha256": "cacf88c7782f11feb1a252082644e7176f3a2f4cb9d4fe2b103bc76de412cae4"
+        },
+        {
+          "name": "TrainerLevelCapsB.dll",
+          "sha256": "a674f5c0b7255330d736dbba207a2b3b217564e3015b57182f0b598bd45971af"
+        },
+        {
+          "name": "TrainerLevelCapsW.dll",
+          "sha256": "b0754eb2df73687b040f6d0adec827118ddc9979d349edb767c1518e52923b99"
         },
         {
           "name": "TrainerLevelCapsB2.dll",
@@ -5941,7 +5965,7 @@
           "sha256": "b04719ef4bb964b7d277fd98065070762308686c1ccc728d89a4d10a1362cb77"
         }
       ],
-      "note": "US Black 2 / White 2 PMC modules. Runtime source, builder, verifier, and installer are inventoried; availability does not establish historical binary reproducibility.",
+      "note": "US revision-0 Black, White, Black 2 and White 2 PMC modules. Runtime source, builder, verifier, and installer are inventoried; availability does not establish historical binary reproducibility.",
       "status": "source-available",
       "files": [
         {
@@ -5951,7 +5975,7 @@
             "path": "runtime/level-caps/build_trainer_caps.py"
           },
           "kind": "build-tool",
-          "sha256": "b0a6a58abd710ba480f5bb7c52cbb1cfa5fea489095dbb63e6bb2d5c79edd318",
+          "sha256": "ffdfa3700a44be766e1786a455c982e4101c9fcf55653a198d152a0a88403802",
           "normalized": false
         },
         {
@@ -5961,7 +5985,7 @@
             "path": "runtime/level-caps/build.py"
           },
           "kind": "build-tool",
-          "sha256": "88a67a0d6b4ff75b28487f462b38496b2b984ed71285599ca8a2df90edccd5e3",
+          "sha256": "d99ac457e52d19b0c4e052c49e49b0fa010c13dfb195dee7802a587a207df187",
           "normalized": false
         },
         {
@@ -5971,7 +5995,7 @@
             "path": "runtime/level-caps/hooks.s"
           },
           "kind": "source",
-          "sha256": "1bff861464c4c9d4695fa6370a6afad00b765c424db74dca71842cb1b270048a",
+          "sha256": "1180568fed78ef1bc50b5057efdb7f35233463422c6923092e07c8b58a0b7781",
           "normalized": false
         },
         {
@@ -5981,7 +6005,7 @@
             "path": "runtime/level-caps/level_caps.c"
           },
           "kind": "source",
-          "sha256": "e49a4ff9dce8daabe4d57c1872372808ecccabb0a9323933b1fa628293b4bbd0",
+          "sha256": "8f99b68336e953cb0545501b4029a2dd9474a9b8e5ec9d264321e01a6ab0db16",
           "normalized": false
         },
         {
@@ -5991,7 +6015,7 @@
             "path": "runtime/level-caps/README.md"
           },
           "kind": "documentation",
-          "sha256": "cbfbaf9e997fa8b7f220d6d99c38374618afb5b7ff5b1201085f94e96e7b071c",
+          "sha256": "3f31726b3c6c41119bbf1013721385fa4364854bd1cc27ef20d52cdf0a43dcbe",
           "normalized": false
         },
         {
@@ -6001,7 +6025,7 @@
             "path": "runtime/level-caps/trainer_caps.c"
           },
           "kind": "source",
-          "sha256": "383ae19fdfc7f08f2eb8df5a784df3c6cefa9c6ef0e17bbe14951d800f15227a",
+          "sha256": "6e3204e1cda1712061afb5e8c1285a20e11ccc849230ee91662ae9d286f2d4d7",
           "normalized": false
         },
         {
@@ -6011,7 +6035,7 @@
             "path": "runtime/level-caps/verify_trainer_caps.py"
           },
           "kind": "test",
-          "sha256": "5d425135d8b4d45c358bf3f821efe26dcd29b4407bed8532e2003ee0c4176ab2",
+          "sha256": "3ac124293a55dc1e551ca6392f50162a2201e21875858a8cce2f69eb366f6e04",
           "normalized": false
         },
         {
@@ -6021,7 +6045,7 @@
             "path": "runtime/level-caps/verify.py"
           },
           "kind": "test",
-          "sha256": "ec458387aa0554e16704dd1db570b9f2d8db4350048c59ade807db2702e73c3b",
+          "sha256": "9c350e02fedd737030c54b8ea0b752d2bd230524b913d006735b0011a5bf925f",
           "normalized": false
         },
         {
@@ -6031,7 +6055,17 @@
             "path": "src/pokeweb/levelCapsModel.ts"
           },
           "kind": "support-only",
-          "sha256": "6742320712d8257b994641f5a1b292683e017a35c531d591aa685dc1dd8a0d73",
+          "sha256": "00c483399a397e5edef135392c0ca96eae27f954a580892500665e3b88448751",
+          "normalized": false
+        },
+        {
+          "path": "level-caps/integration/levelCapsRuntime.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/levelCapsRuntime.ts"
+          },
+          "kind": "source",
+          "sha256": "034e2a392599fe3024f766bc3fffe9dd2c258affda81d0af8f14c7a83c13a5da",
           "normalized": false
         },
         {
@@ -6041,7 +6075,7 @@
             "path": "src/pokeweb/trainerLevelCapsModel.ts"
           },
           "kind": "source",
-          "sha256": "2c5a0b9c5e6a27676c80214747471ea317a67f097544b8ffb912d6ea22d3c32c",
+          "sha256": "cd68a10d1f0a45967ce40a753315d5435f3a94ade2f10501ce2c64db28b6b8d7",
           "normalized": false
         },
         {
@@ -6055,13 +6089,23 @@
           "normalized": false
         },
         {
+          "path": "level-caps/metadata/levelCapsManifest.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/assets/codeinjection/levelCapsManifest.json"
+          },
+          "kind": "metadata",
+          "sha256": "ba40e1a23c4772a76ee04c02d97573cecbb6885bcb69dcc171687ad29ada127a",
+          "normalized": false
+        },
+        {
           "path": "level-caps/metadata/trainerLevelCapsManifest.json",
           "origin": {
             "repository": "pokeweb",
             "path": "src/assets/codeinjection/trainerLevelCapsManifest.json"
           },
           "kind": "metadata",
-          "sha256": "8cf517da7129ac5e4f901e191e82bae52578cfb7f067bbf47d7c4e9244512fa0",
+          "sha256": "040aa6605eb79363837e1564c3e7f37ee4b1175110e1693181e666fa2ccd62ec",
           "normalized": false
         },
         {
@@ -6071,7 +6115,7 @@
             "path": "src/test/trainerLevelCaps.test.ts"
           },
           "kind": "test",
-          "sha256": "a5a5952970cf70177edbfefd933da99f5f4fdfcc354964e993515a36a182d535",
+          "sha256": "5b1c03f98bd015bf07e68e2be2559ab84949314c38e36b1237b942566c0444be",
           "normalized": false
         },
         {
@@ -6081,7 +6125,7 @@
             "path": "scripts/verify-trainer-level-caps.ts"
           },
           "kind": "test",
-          "sha256": "8b49764ef80da08b42971d2080581a6ef2886c9aea5dd7f7860e7493b45d349c",
+          "sha256": "aa7e0cebbdd0718fe0fc9e791bab29ade8b00b672b272ab7ac2a414e3d95111c",
           "normalized": false
         },
         {
@@ -6091,7 +6135,7 @@
             "path": "scripts/verify-level-caps-install.ts"
           },
           "kind": "test",
-          "sha256": "460c3395a0ab91991f4e57377708d5e038b09067cf5711dfdfc97c194817afe9",
+          "sha256": "21abd30ad4b1a962a797f109aaee5570acaf824c030a238166bdd8748fe31025",
           "normalized": false
         }
       ]
@@ -6113,13 +6157,23 @@
       "status": "source-available",
       "files": [
         {
+          "path": "infinite-candy/build_bw1.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/infinite-candy/build_bw1.py"
+          },
+          "kind": "build-tool",
+          "sha256": "9d9af0e69d6d6b7f536f1c193a2e62385cead56f6b89cc908d7cc4f85b0fd4cf",
+          "normalized": false
+        },
+        {
           "path": "infinite-candy/build.py",
           "origin": {
             "repository": "pokeweb",
             "path": "runtime/infinite-candy/build.py"
           },
           "kind": "build-tool",
-          "sha256": "60d57e2bc05df909815f14de2e9ac2316f7642f7d1602f346b2aeedfdbfeb9eb",
+          "sha256": "fcaedfc550e22b7b01afb4c24f3fd02709ab1c8b7f6d6fbfe8b6d7397b95a31e",
           "normalized": false
         },
         {
@@ -6159,7 +6213,7 @@
             "path": "runtime/infinite-candy/README.md"
           },
           "kind": "documentation",
-          "sha256": "c7c2ba984d8c2c17d4d615d339a315f047c6c15e04f0f1198a6fa78873fd627f",
+          "sha256": "a4d714f82a2e6d2a982ab97476b4390305f879e96a7b59cbd075d1c54bc5b0ba",
           "normalized": false
         },
         {
@@ -6189,7 +6243,7 @@
             "path": "runtime/infinite-candy/verify.py"
           },
           "kind": "test",
-          "sha256": "40cdd07664b3c3713c4d0bc950b7e0bc7587545d0d4e20af5cec18c3b2af66ac",
+          "sha256": "d17659b777b724e327e48603e9441fc30c500f5543db78510e0adf68d1371470",
           "normalized": false
         },
         {
@@ -6199,7 +6253,7 @@
             "path": "src/pokeweb/infiniteCandyModel.ts"
           },
           "kind": "support-only",
-          "sha256": "e175fbdeaf2a55511e324394f0d2be5d8011ba9d6c575dae25db3c8cd99ec651",
+          "sha256": "fe821f827facb7d177ae90a50b01a78389bbf33aaa0ed4c973db935c193ad10c",
           "normalized": false
         },
         {
@@ -6650,15 +6704,15 @@
       "artifacts": [
         {
           "name": "CGearQuickActionsB2.dll",
-          "sha256": "4061b492ed3590ef25cc461f4d9edeea02a04e152672986d0aeceb71bfeda567"
+          "sha256": "a479a1ce9f2c5a57ee0baf5ca22d62a1a499a231ec8f73087becc1ce5ab61e23"
         },
         {
           "name": "CGearQuickActionsW2.dll",
-          "sha256": "ae0c4bab8a1ce089a65beaf4b97413a69601f5a5dd840d7d3d51656d81c8f0ac"
+          "sha256": "83acf9eaf3c58306d32712b6fb33b3cbf288179bd377b81a63a3faac0652cc23"
         },
         {
           "name": "CGearQuickActionsReduxW2.dll",
-          "sha256": "e2240b2d20eb699d4f7aa48d4d22801079a24fb2c60368c7d9b5333f443acd2e"
+          "sha256": "ed5a180a4ffd400aa98331737d949735e333b7e012b911637cfaaa5e46d6999a"
         },
         {
           "name": "CGearQuickActionsB.dll",
@@ -6670,14 +6724,14 @@
         },
         {
           "name": "CGearQuickActionsFieldB2.dll",
-          "sha256": "ad1397c5e5a933f686ac99a3ffec257e4aa325cd0e6d394e65c4e47b131f8a9f"
+          "sha256": "85b6f955244699544489f9c2204c8023846a07a13ae30f5c815c940d4d7c51f0"
         },
         {
           "name": "CGearQuickActionsFieldW2.dll",
-          "sha256": "0afda19f206493d0a2b78e74cf5e86b040f9a994ac996419f3ee8f8d16474137"
+          "sha256": "66a22f49562729f7f65ca57e984d5bcef48a112f4e8034466c4aa6c2fb28b811"
         }
       ],
-      "note": "BW2 C-Gear Quick Actions supports the bundled Item Expansion runtime and uses the active Bag size for shop purchase rollback. BW1 supports the bundled expanded Bag ownership API. C-Gear configurations retain their saved layouts and shop settings through updates.",
+      "note": "BW2 C-Gear Quick Actions supports the bundled Item Expansion runtime and uses the active Bag size for shop purchase rollback. BW1 supports the bundled expanded Bag ownership API. C-Gear configurations retain their saved layouts and shop settings through updates. Pokenav builds its optional Nuzlocke family table on demand.",
       "status": "source-available",
       "files": [
         {
@@ -6697,7 +6751,7 @@
             "path": "runtime/cgear-quick-actions/build_redux.py"
           },
           "kind": "build-tool",
-          "sha256": "aa1bf2649719a7578dc00189d67d4a21241e4041693b2055b823e74554ca469b",
+          "sha256": "4c46c90f74f24eba6ff5a152e895d15ecb1bf64111e1cfee9e3ae98368d82e9a",
           "normalized": false
         },
         {
@@ -6707,7 +6761,7 @@
             "path": "runtime/cgear-quick-actions/build.py"
           },
           "kind": "build-tool",
-          "sha256": "07b6a7d8dc3f72f489c115da35674ccc5ab9d1b187e0d2af6e0099a2d7690004",
+          "sha256": "9861cd3cb5f9fec556b681c914d6ac682f3b48e289e576d9e9a4c46dc1fa43dc",
           "normalized": false
         },
         {
@@ -6817,7 +6871,7 @@
             "path": "runtime/cgear-quick-actions/previous.json"
           },
           "kind": "metadata",
-          "sha256": "34ad9c95b62727cdcb7fb64c5f7c0f8ae070c99aafb139841216273abde46ade",
+          "sha256": "de08bace1811692ff93c3f9816e9f6d941ad0f1ebc564d56a36a84d80c09b384",
           "normalized": false
         },
         {
@@ -6867,7 +6921,7 @@
             "path": "runtime/cgear-quick-actions/redux-profile.json"
           },
           "kind": "metadata",
-          "sha256": "6eb44b6a98eb6c838cfc152bf043e21ccf341ba9bddd7613b22c1355f5de9c37",
+          "sha256": "a565dc80a33760cfbd24aba8a1e4ccaa928721e0f5f3329fe2d901dd8d962c8d",
           "normalized": false
         },
         {
@@ -6971,13 +7025,23 @@
           "normalized": false
         },
         {
+          "path": "cgear-quick-actions/bw2/request_types.inc",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/cgear-quick-actions/bw2/request_types.inc"
+          },
+          "kind": "source",
+          "sha256": "067cef2a1b07b10aa07f31613df619e5c9031dea5475d28a8a42aadf0cfa6866",
+          "normalized": false
+        },
+        {
           "path": "cgear-quick-actions/bw2/requests.inc",
           "origin": {
             "repository": "pokeweb",
             "path": "runtime/cgear-quick-actions/bw2/requests.inc"
           },
           "kind": "source",
-          "sha256": "54593b152e6b2e8dc2390b99321c29cbc93a82e857bd7059df435ffc01bb9c95",
+          "sha256": "5f689ff2f2db70f84afc7f03b9d9ebc27291c7a3cacf0136c357c4ce1b5dc3a3",
           "normalized": false
         },
         {
@@ -7057,7 +7121,7 @@
             "path": "docs/cgear-buttons/index.html"
           },
           "kind": "documentation",
-          "sha256": "ba91e6e90fabdabe280d3c708b276a851e0b91ff23a6bbd3d8577a8c72c9abd2",
+          "sha256": "7461ebfd5b6301d6c8edea436ebff0c8d44aa3b28343765f0c65aa81c5ff0359",
           "normalized": false
         },
         {
@@ -7261,6 +7325,16 @@
           "normalized": false
         },
         {
+          "path": "cgear-quick-actions/integration/cgearQuickActionsBw1Model.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/cgearQuickActionsBw1Model.ts"
+          },
+          "kind": "support-only",
+          "sha256": "6a091ebe63002ea5c09c9082dd63814fff9de1f008765b0c9f88cb9dbdf28730",
+          "normalized": false
+        },
+        {
           "path": "cgear-quick-actions/integration/cgearButtonsModel.ts",
           "origin": {
             "repository": "pokeweb",
@@ -7407,7 +7481,7 @@
             "path": "src/assets/codeinjection/cgearQuickActionsManifest.json"
           },
           "kind": "metadata",
-          "sha256": "18ff1e5638fa17402534ec0837b46155f1ba12ec212f6a7c463b079bc88fcf60",
+          "sha256": "b7c6aae8021dbff5d004e2bad181136e4aa7e9a4da3891b780386b901727ab86",
           "normalized": false
         },
         {
@@ -7417,17 +7491,7 @@
             "path": "src/assets/codeinjection/cgearQuickActionsReduxManifest.json"
           },
           "kind": "metadata",
-          "sha256": "98175f2b747e261e9a32d930c6b80d913e104a8d1412f647923e1de26f8d9d3b",
-          "normalized": false
-        },
-        {
-          "path": "cgear-quick-actions/integration/cgearQuickActionsBw1Model.ts",
-          "origin": {
-            "repository": "pokeweb",
-            "path": "src/pokeweb/cgearQuickActionsBw1Model.ts"
-          },
-          "kind": "support-only",
-          "sha256": "6a091ebe63002ea5c09c9082dd63814fff9de1f008765b0c9f88cb9dbdf28730",
+          "sha256": "45903e981d652b9cfd3422156048e17b65f507c31d9d71aed5294848d9868eb6",
           "normalized": false
         }
       ]
@@ -7486,7 +7550,7 @@
             "path": "runtime/pokenav/README.md"
           },
           "kind": "documentation",
-          "sha256": "e9239b934ee47f921d0f05b04419157f3b7349dd5274a9bab826a7304426100e",
+          "sha256": "33fb5a79af369f179dffb73a616ad50544333e1476dc77810ea705114ad2a0bd",
           "normalized": false
         },
         {
@@ -7704,7 +7768,7 @@
             "path": "runtime/nuzlocke-encounters/runtime.cpp"
           },
           "kind": "source",
-          "sha256": "278f89729b070e4b32e54e702cb02ff1144c89233013356108073b130923f5b3",
+          "sha256": "215fb1f99428a89ada1ccbdab63bac8ed57382a7a26dd1cac293d5704818ba39",
           "normalized": false
         },
         {
@@ -7714,7 +7778,7 @@
             "path": "runtime/nuzlocke-encounters/runtime.h"
           },
           "kind": "source",
-          "sha256": "49e645124760d703e09176e80111152dc025511f7fab06fd9ded47869f67403b",
+          "sha256": "b49e460c9d9374f245789002106ac32dc7c6e539c439b94842ab337d21eec284",
           "normalized": false
         },
         {
@@ -7744,7 +7808,7 @@
             "path": "runtime/nuzlocke-encounters/verify.py"
           },
           "kind": "test",
-          "sha256": "9bc67e19b70b8951dba7dbd05587a9324601414c01f8649a12ae80305ae27124",
+          "sha256": "838913d97ee39df3bf0a7a57460ed98e82c88b6e75d54391ab7fa39598b6784e",
           "normalized": false
         },
         {
@@ -8325,6 +8389,106 @@
           },
           "kind": "support-only",
           "sha256": "2628e6b555ab4e3456c28fc56f0e4a4b059d06274831de6cf580c5dd8f795d4e",
+          "normalized": false
+        }
+      ]
+    },
+    {
+      "name": "rotation-ai",
+      "title": "Rotation Battle AI",
+      "artifacts": [
+        {
+          "name": "RotationBattleAIB.dll",
+          "sha256": "c6d2ce96fe992d041c5431339e1762cd5c770e1c2a95b31640aa8b1ad0653741"
+        },
+        {
+          "name": "RotationBattleAIW.dll",
+          "sha256": "894ae5ababba4c88ec4794525ce2dfa5a653c159704e5666b484a86d360ef942"
+        },
+        {
+          "name": "RotationBattleAIB2.dll",
+          "sha256": "5b6cfb9de745d3c36837ba43c136df8ae00d4e4a3bb64a7176d2ecf49ae5162d"
+        },
+        {
+          "name": "RotationBattleAIW2.dll",
+          "sha256": "ab56bb5a55d6902d42250f2706bdece584bab3c299310702aa9c92b0df4e5f2a"
+        },
+        {
+          "name": "rotationBattleAiManifest.json",
+          "sha256": "9386098215a9c8e15a0b90bc59f35531abe899da5ee3afbe634ba8369e1536d4"
+        }
+      ],
+      "note": "Pokeweb runtime for US revision-0 Black, White, Black 2, and White 2. Scores legal moves across the three rotation slots against the opposing front Pokémon.",
+      "status": "source-available",
+      "files": [
+        {
+          "path": "rotation-ai/build.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/rotation-ai/build.py"
+          },
+          "kind": "build-tool",
+          "sha256": "8e824db06cdef47a0af3778a82a0888649cbcc80c742d21be91b42bbf1093643",
+          "normalized": false
+        },
+        {
+          "path": "rotation-ai/entry.S",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/rotation-ai/entry.S"
+          },
+          "kind": "source",
+          "sha256": "8063272400dba1b7a076c88051f2eb131edc5364b6e17f786349edca1a7eb6b5",
+          "normalized": false
+        },
+        {
+          "path": "rotation-ai/runtime-notes.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/rotation-ai/README.md"
+          },
+          "kind": "documentation",
+          "sha256": "d5e575c94084f374625637f4ff0c3114c25f2e4bd3dac693ad75f8ff7dd570e9",
+          "normalized": false
+        },
+        {
+          "path": "rotation-ai/runtime.c",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/rotation-ai/runtime.c"
+          },
+          "kind": "source",
+          "sha256": "8e32377e833aa5e0c07c7c33603c94a7ccdff299a688acc5a9d52d950db5276e",
+          "normalized": false
+        },
+        {
+          "path": "rotation-ai/verify_install.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/rotation-ai/verify_install.ts"
+          },
+          "kind": "test",
+          "sha256": "3552ff09e9f173ae9ab34c7f47fd86d39aab34ad451822c025afde2bb48b2f77",
+          "normalized": false
+        },
+        {
+          "path": "rotation-ai/verify_runtime.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/rotation-ai/verify_runtime.py"
+          },
+          "kind": "test",
+          "sha256": "2e2c4ea56edfc3510eab5aa43d2d083f27178b39084739972611a7f2c5c419da",
+          "normalized": false
+        },
+        {
+          "path": "rotation-ai/integration/rotationBattleAiModel.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/rotationBattleAiModel.ts"
+          },
+          "kind": "source",
+          "sha256": "a4da0246739f595ce9cb063d8c07a44eb7e145a1c226700a35edc714353fb5d8",
           "normalized": false
         }
       ]

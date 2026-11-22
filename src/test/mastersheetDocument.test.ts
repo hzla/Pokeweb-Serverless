@@ -30,7 +30,42 @@ describe("mastersheet document", () => {
     ]);
     // Area IDs stay unique, and an empty split ("End of Current Content") stays out of the outline.
     expect(doc.pages.map((page) => page.id)).toEqual(["introduction", "aspertia-city", "route-19", "route-19-2"]);
-    expect(doc.splits).toEqual([{ id: "split-cheren-split", title: "Cheren Split", detail: "Level Cap 15", pageIds: ["aspertia-city", "route-19", "route-19-2"] }]);
+    expect(doc.splits).toMatchObject([{ id: "split-cheren-split", title: "Cheren Split", detail: "Level Cap 15", pageIds: ["aspertia-city", "route-19", "route-19-2"] }]);
+    expect(doc.splits).toHaveLength(1);
+    // The editor still sees the empty split, so authors can add areas to it.
+    expect(doc.allSplits.map((split) => split.title)).toEqual(["Cheren Split", "End of Current Content"]);
+  });
+
+  it("knows which source lines every page, split and block came from", () => {
+    const doc = buildMastersheetDocument(makeProject(), SOURCE);
+    const lines = SOURCE.split("\n");
+    expect(doc.titleLine).toBe(0);
+    const [intro, aspertia, route19] = doc.pages;
+    expect(intro!.src).toEqual({ start: 0, end: 7 });
+    expect(intro!.blocks.map((block) => block.src)).toEqual([{ start: 1, end: 2 }, { start: 3, end: 4 }, { start: 4, end: 6 }]);
+    expect(lines[aspertia!.headingLine!]).toBe("## Aspertia City");
+    expect(aspertia!.src).toEqual({ start: 8, end: 10 });
+    expect(route19!.src).toEqual({ start: 10, end: 11 });
+    const cheren = doc.allSplits[0]!;
+    expect(cheren.src).toEqual({ start: 7, end: 12 });
+    expect(lines[cheren.headingLine]).toBe("# Cheren Split (Level Cap 15)");
+  });
+
+  it("reads zone links under a page heading, and keeps them out of the calc sheet", () => {
+    const source = "# Sheet\n## Route 1\n!zones 12, 40\nSome text\n";
+    const doc = buildMastersheetDocument(makeProject(), source);
+    const route = doc.pages.find((page) => page.title === "Route 1")!;
+    expect(route.zones).toEqual([12, 40]);
+    expect(route.zonesLine).toBe(2);
+    expect(route.blocks.map((block) => block.kind)).toEqual(["text"]);
+  });
+
+  it("reads Fill suggestions marked not needed under a page heading", () => {
+    const source = "# Sheet\n## Route 1\n!zones 12\n!skip tr 4, item 3\nSome text\n";
+    const route = buildMastersheetDocument(makeProject(), source).pages.find((page) => page.title === "Route 1")!;
+    expect(route.skips).toEqual(["tr 4", "item 3"]);
+    expect(route.skipLine).toBe(3);
+    expect(route.blocks.map((block) => block.kind)).toEqual(["text"]);
   });
 
   it("keeps sections, lists and links, without the source's empty paragraphs", () => {

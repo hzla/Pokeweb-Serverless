@@ -126,6 +126,8 @@ import { renderTextEditor, selectTextBank } from "./ui/textEditor";
 import { renderOverworldEditor } from "./ui/overworldEditor";
 import { renderDocGenerators } from "./ui/docGenerators";
 import { renderMastersheetEditor } from "./ui/mastersheetEditor";
+import { listenForMastersheet } from "./pokeweb/mastersheetSync";
+import { setMastersheetMarkdown } from "./pokeweb/mastersheetModel";
 import { renderRandomizerEditor } from "./ui/randomizerEditor";
 import { repairReasonLabel, repairRomNarcs, romHeaderRepairReasonLabel, type RomRepairResult } from "./pokeweb/romRepairModel";
 import { attachDsiRomRepairCard, renderDsiRomRepairCard } from "./ui/dsiRomRepair";
@@ -611,6 +613,12 @@ async function boot(): Promise<void> {
   if (project && hasExportBase) {
     hydrateProject(project);
   }
+  // The Mastersheet Viewer saves sheets edited there; keep this tab's copy current so its next save keeps them.
+  listenForMastersheet((markdown) => {
+    if (!project) return;
+    setMastersheetMarkdown(project, markdown);
+    if (route === "mastersheet") renderApp();
+  });
   const initialState = routeStateFromUrl() ?? routeStateFromStorage();
   activeHomeTab = homeTabOrDefault(initialState.homeTab);
   activeOverworldId = initialState.overworldId;

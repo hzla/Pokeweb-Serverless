@@ -7,6 +7,14 @@ import type { ProjectState } from "./projectStore";
 import { decodeRecord } from "./projectStore";
 import { bankText, normalizeName, titleCase, type MsMove } from "./mastersheetDocument";
 import { cleanDisplayText } from "./text";
+import { EFFECT_CATEGORIES, PROPERTIES, STATS, TARGETS } from "./constants";
+import effectsText from "../assets/data/effects.txt?raw";
+import resultEffectsText from "../assets/data/result_effects.txt?raw";
+
+/** The editor's labels for a move's battle effect and added effect (moveItemModel.ts reads the same files). */
+const MOVE_EFFECTS = effectsText.split(/\r?\n/u).filter((line) => line.length > 0);
+// Line index is the effect's ID; every ID keeps its line.
+const RESULT_EFFECTS = resultEffectsText.trimEnd().split(/\r?\n/u);
 
 /**
  * Details for the viewer's side drawer, read from the ROM on demand: a Pokémon's abilities, evolutions and level-up
@@ -97,14 +105,89 @@ export function getMastersheetMove(project: ProjectState, id: number): MsMove | 
   };
 }
 
-export type MsMoveDetail = MsMove & { description: string; effectChance: number };
+/** A stat change the move makes, with its chance (100 when it always happens). */
+export type MsMoveStatChange = { stat: string; stages: number; chance: number };
+
+export type MsMoveDetail = MsMove & {
+  description: string;
+  /** The battle effect the move runs (its AI sequence label), and the kind of effect it has. */
+  effect: string;
+  effectCategory: string;
+  target: string;
+  /** The added effect (Chance to burn, Binding effect…), and its chance; 0 when the move has none. */
+  secondary: string;
+  effectChance: number;
+  statusTurns?: { min: number; max: number };
+  statChanges: MsMoveStatChange[];
+  flinch: number;
+  critStage: number;
+  /** Percent of the damage dealt that the user takes as recoil, or that it drains back as HP. */
+  recoil: number;
+  drain: number;
+  /** Percent of the user's max HP the move restores. */
+  healing: number;
+  hits?: { min: number; max: number };
+  /** The move's flags, in the game's bit order, as short labels. */
+  flags: string[];
+};
+
+/** Labels for the move flags (constants.ts PROPERTIES, bit order). */
+const MOVE_FLAG_LABELS: Record<string, string> = {
+  contact: "Makes contact",
+  requires_charge: "Charges first",
+  recharge_turn: "Needs to recharge",
+  blocked_by_protect: "Blocked by Protect",
+  reflected_by_magic_coat: "Reflected by Magic Coat",
+  stolen_by_snatch: "Stolen by Snatch",
+  copied_by_mirror_move: "Copied by Mirror Move",
+  punch_move: "Punch",
+  sound_move: "Sound",
+  grounded_by_gravity: "Fails under Gravity",
+  defrosts_targets: "Thaws the user",
+  "hits_non-adjacent_opponents": "Reaches non-adjacent foes",
+  healing_move: "Healing",
+  hits_through_substitute: "Bypasses Substitute",
+};
 
 export function getMastersheetMoveDetail(project: ProjectState, id: number): MsMoveDetail | undefined {
   const move = getMastersheetMove(project, id);
   if (!move) return undefined;
   const banks = descriptionBanks(project);
-  const readable = decodeRecord(project, "moves", id).readable ?? {};
-  return { ...move, description: banks.moves === undefined ? "" : bankText(project, banks.moves, id), effectChance: Number(readable.effect_chance ?? 0) || 0 };
+  // Read from the raw record, labelled with the editor's tables (moveItemModel.ts syncMoveReadable), without
+  // pulling the editor's move code into the viewer.
+  const raw = decodeRecord(project, "moves", id).raw ?? {};
+  const number = (field: string) => Number(raw[field] ?? 0) || 0;
+  const label = (table: readonly string[], value: number) => table[value] ?? "";
+  // Signed: negative is recoil, positive drains.
+  const recoilByte = number("recoil") << 24 >> 24;
+  const resultEffect = number("result_effect");
+  // 0xFFFF hands the added effect to the move's own battle effect (Tri Attack, Telekinesis, Smack Down), which the
+  // Effect row already describes.
+  const secondary = resultEffect === 0xffff ? "" : label(RESULT_EFFECTS, resultEffect);
+  const statChanges: MsMoveStatChange[] = [1, 2, 3]
+    .map((n) => ({ stat: label(STATS, number(`stat_${n}`)), stages: number(`magnitude_${n}`) << 24 >> 24, chance: number(`stat_chance_${n}`) }))
+    .filter((change) => change.stat && change.stat !== "None" && change.stages !== 0)
+    .map((change) => ({ ...change, chance: change.chance || 100 }));
+  const minTurns = number("min_turns"), maxTurns = number("max_turns");
+  const minHits = number("hits") & 0x0f, maxHits = (number("hits") >> 4) & 0x0f;
+  return {
+    ...move,
+    description: banks.moves === undefined ? "" : bankText(project, banks.moves, id),
+    effect: label(MOVE_EFFECTS, number("effect")),
+    effectCategory: label(EFFECT_CATEGORIES, number("effect_category")),
+    target: label(TARGETS, number("target")),
+    secondary: secondary === "None" ? "" : secondary,
+    effectChance: number("effect_chance"),
+    statusTurns: maxTurns > 0 ? { min: minTurns || maxTurns, max: maxTurns } : undefined,
+    statChanges,
+    flinch: number("flinch"),
+    critStage: number("crit"),
+    recoil: recoilByte < 0 ? -recoilByte : 0,
+    drain: recoilByte > 0 ? recoilByte : 0,
+    healing: number("healing"),
+    hits: maxHits > 1 ? { min: minHits || maxHits, max: maxHits } : undefined,
+    flags: PROPERTIES.filter((_, bit) => (number("properties") >> bit) & 1).map((field) => MOVE_FLAG_LABELS[field] ?? field),
+  };
 }
 
 /** By name, for abilities shown by name only (trainer Pokémon). Prefer IDs: hacks rename abilities. */
@@ -165,6 +248,34 @@ export const ITEM_SOURCE_LABELS: Record<MsItemSourceKind, string> = {
  * - Mart stock: mart data
  * A source the ROM can't be read for is skipped, not fatal.
  */
+/** Items lying on the ground (Poké Ball NPCs), by the overworld file that places them. */
+export function getGroundItemsByOverworld(project: ProjectState): Map<number, number[]> {
+  const byOverworld = new Map<number, number[]>();
+  if (!project.narcs.overworlds || !project.narcs.scripts) return byOverworld;
+  let scriptMap: Map<number, number>;
+  try {
+    scriptMap = buildGroundItemScriptMap(project);
+  } catch {
+    return byOverworld;
+  }
+  for (let overworldId = 0; overworldId < project.narcs.overworlds.fileCount; overworldId += 1) {
+    let raw;
+    try {
+      raw = decodeRecord(project, "overworlds", overworldId).raw;
+    } catch {
+      continue;
+    }
+    if (!raw) continue;
+    for (let npc = 0; npc < Number(raw.npc_count ?? 0); npc += 1) {
+      const scriptId = Number(raw[`npc_${npc}_script_id`] ?? 0);
+      if (scriptId < GROUND_ITEM_SCRIPT_FIRST || scriptId > GROUND_ITEM_SCRIPT_LAST) continue;
+      const itemId = scriptMap.get(scriptId);
+      if (itemId !== undefined && itemId > 0) byOverworld.set(overworldId, [...(byOverworld.get(overworldId) ?? []), itemId]);
+    }
+  }
+  return byOverworld;
+}
+
 export function getMastersheetItemSources(project: ProjectState): Map<number, MsItemSource[]> {
   const sources = new Map<number, MsItemSource[]>();
   const add = (itemId: number, source: Omit<MsItemSource, "count">) => {

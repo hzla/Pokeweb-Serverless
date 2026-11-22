@@ -51,7 +51,7 @@
     "menuevolution:verify-rom": "vite-node scripts/verify-menu-evolution-install.ts",
     "learnset:build": "python3 runtime/learnset-viewer/build.py",
     "cgear:build": "python3 runtime/cgear-quick-actions/build.py",
-    "cgear:verify": "python3 runtime/cgear-quick-actions/verify.py",
+    "cgear:verify": "python3 runtime/cgear-quick-actions/verify.py && python3 runtime/nuzlocke-encounters/verify.py --preview",
     "cgear:verify-rom": "vite-node scripts/verify-cgear-quick-actions-install.ts",
     "cgear:emulator": "vite-node runtime/cgear-quick-actions/emulator.ts",
     "cgear:build-bw1": "python3 runtime/cgear-quick-actions/build_bw1.py",

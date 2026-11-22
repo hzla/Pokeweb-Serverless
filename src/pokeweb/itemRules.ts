@@ -1,6 +1,7 @@
 import nativeProfiles from "../assets/data/itemEffectProfiles.json";
 import nativeBindings from "../assets/data/itemNativeBindings.json";
 import { ITEM_RECIPE_EFFECTS, ITEM_RECIPE_STATS, itemRecipeEffect, itemRecipeParameter, encodeItemRecipe } from "./itemRecipeEffects";
+import { encodeSideBattleCondition, validateBattleFieldCondition, usesBattleCondition, type BattleFieldCondition } from "./battleFieldEffects";
 
 export type ItemRuleEffectKind = "attack" | "specialAttack" | "defense" | "specialDefense" | "speed" | "damage" | "healPercent" | "healFlat" | "healDivisor" | "status" | "statStage" | "recoil" | "moveLock" | "critical" | "accuracy" | "incomingAccuracy" | "moveType" | "escapeTrap" | `native:${number}` | `nativeAbility:${number}` | `abilityRecipe:${string}` | `itemRecipe:${string}` | "ability:power" | "ability:damage" | "ability:damageTaken" | "ability:immunity" | "ability:hitStat" | "ability:priority";
 export type ItemRuleEffectDefinition = { kind: ItemRuleEffectKind; label: string; value: number; min: number; max: number; step: number; unit: string; nativeItem?: number; parameterLabel?: string; valueChoices?: number[]; valueLabels?: Record<number,string> };
@@ -53,15 +54,22 @@ export const ITEM_RULE_TARGETS = ["holder", "attacker", "defender"] as const;
 export const ITEM_RULE_TRIGGER_LABELS = ["On entering battle", "At turn end", "After dealing damage", "After taking damage", "After taking contact damage", "When checking held items"];
 export const ITEM_RULE_STATUS_LABELS = ["Paralysis", "Sleep", "Freeze", "Burn", "Poison", "Confusion", "Bad poison"];
 export const ITEM_RULE_STAT_LABELS = ["Attack", "Defense", "Sp. Atk", "Sp. Def", "Speed", "Accuracy", "Evasion"];
-export type ItemRuleEffect = { kind: ItemRuleEffectKind; value: number; trigger?: typeof ITEM_RULE_TRIGGERS[number]; target?: typeof ITEM_RULE_TARGETS[number]; stat?: number; chance?: number; move?: number; weather?: number; bypassable?: boolean; parameters?: Record<string, number> };
+export type ItemRuleEffect = { kind: ItemRuleEffectKind; value: number; trigger?: typeof ITEM_RULE_TRIGGERS[number]; target?: typeof ITEM_RULE_TARGETS[number]; stat?: number; chance?: number; move?: number; weather?: number; bypassable?: boolean; parameters?: Record<string, number>; conditions?: ItemRuleCondition };
+export const ABILITY_CONDITION_SUBJECTS = ["holder", "opponent", "anyOpponent"] as const;
+export type AbilityConditionSubject = typeof ABILITY_CONDITION_SUBJECTS[number];
 export type ItemRuleCondition =
-  | { kind: "group"; mode: "all" | "any"; children: ItemRuleCondition[] }
+  | { kind: "group"; mode: "all" | "any"; scope?: "anyOpponent"; children: ItemRuleCondition[] }
   | { kind: "hp"; comparison: "lt" | "lte" | "gt" | "gte"; percent: number }
-  | { kind: "type"; value: number; negate?: boolean }
+  | { kind: "type" | "knowsMove"; value: number; negate?: boolean; subject?: AbilityConditionSubject }
   | { kind: "weather"; value: number; negate?: boolean }
-  | { kind: "species" | "moveType" | "category" | "status"; value: number; negate?: boolean };
+  | { kind: "species" | "moveType" | "category" | "status"; value: number; negate?: boolean }
+  | BattleFieldCondition;
+const STANDARD_CONDITION_CODES = { type: 2, weather: 3, species: 4, moveType: 5, category: 6, status: 7 } as const;
 export type ItemRuleSet = { effects: ItemRuleEffect[]; conditions: ItemRuleCondition; consumable: boolean };
 export const EMPTY_ITEM_RULE: ItemRuleSet = { effects: [{ kind: "attack", value: 1.5 }], conditions: { kind: "group", mode: "all", children: [] }, consumable: false };
+export const itemUsesBattleCondition = (rules: ReadonlyMap<number, ItemRuleSet>, kind: BattleFieldCondition["kind"]): boolean =>
+  [...rules.values()].some(rule => usesBattleCondition(rule.conditions, kind));
+
 export const ITEM_RULE_WEATHER = ["Clear", "Sun", "Rain", "Hail", "Sandstorm"];
 
 /** Return a canonical, bounded rule tree suitable for both UI and native code. */
@@ -69,6 +77,7 @@ export function validateItemRule(input: ItemRuleSet, definitions: readonly ItemR
   if (!input || !Array.isArray(input.effects) || input.effects.length < 1 || input.effects.length > 16 || typeof input.consumable !== "boolean") throw new Error("Choose one to sixteen effects.");
   const seen = new Set<string>();
   const effects = input.effects.map(effect => {
+    if (effect?.conditions !== undefined) throw Error("Effect conditions are available for abilities.");
     const definition = definitions.find(d => d.kind === effect?.kind);
     if (!definition || !Number.isFinite(effect.value) || effect.value < definition.min || effect.value > definition.max
       || Math.abs(effect.value / definition.step - Math.round(effect.value / definition.step)) > 1e-7) throw new Error("Invalid or duplicate item effect.");
@@ -112,17 +121,31 @@ export function validateItemRule(input: ItemRuleSet, definitions: readonly ItemR
     seen.add(identity);
     return result;
   });
+  return { effects, conditions: validateRuleConditions(input.conditions), consumable: input.consumable };
+}
+
+export function validateRuleConditions(input: ItemRuleCondition, ability = false): ItemRuleCondition {
   let nodes = 0;
   function condition(node: ItemRuleCondition, depth: number): ItemRuleCondition {
     if (!node || ++nodes > 31 || depth > 4) throw new Error("Use at most 31 condition entries and four group levels.");
     if (node.kind === "group") {
       if (!["all", "any"].includes(node.mode) || !Array.isArray(node.children) || node.children.length > 8 || depth > 0 && !node.children.length) throw new Error("Add a condition to each group.");
-      return { kind: "group", mode: node.children.length ? node.mode : "all", children: node.children.map(child => condition(child, depth + 1)) };
+      if (node.scope !== undefined && (!ability || node.scope !== "anyOpponent" || !node.children.length)) throw Error("Choose conditions for the same active opponent.");
+      return { kind: "group", mode: node.children.length ? node.mode : "all", ...(node.scope ? { scope: node.scope } : {}), children: node.children.map(child => condition(child, depth + 1)) };
     }
     if (node.kind === "hp" && ["lt", "lte", "gt", "gte"].includes(node.comparison) && Number.isInteger(node.percent) && node.percent >= 0 && node.percent <= 100)
       return { kind: "hp", comparison: node.comparison, percent: node.percent };
-    if ((node.kind === "type" || node.kind === "weather") && Number.isInteger(node.value) && node.value >= 0 && node.value < (node.kind === "type" ? 18 : 5) && (node.negate === undefined || typeof node.negate === "boolean"))
+    if (node.kind === "type" || node.kind === "knowsMove") {
+      const subject = node.subject ?? "holder";
+      if (node.subject !== undefined && (!ability || !ABILITY_CONDITION_SUBJECTS.includes(subject))
+        || node.kind === "knowsMove" && !ability || !Number.isInteger(node.value)
+        || node.value < (node.kind === "type" ? 0 : 1) || node.value > (node.kind === "type" ? 17 : 65535)
+        || node.negate !== undefined && typeof node.negate !== "boolean") throw Error("Invalid Pokémon condition.");
+      return { kind: node.kind, value: node.value, negate: Boolean(node.negate), ...(subject !== "holder" ? { subject } : {}) };
+    }
+    if ((node.kind === "weather") && Number.isInteger(node.value) && node.value >= 0 && node.value < 5 && (node.negate === undefined || typeof node.negate === "boolean"))
       return { kind: node.kind, value: node.value, negate: Boolean(node.negate) };
+    if (node.kind === "fieldEffect" || node.kind === "sideEffect") return validateBattleFieldCondition(node);
     if (["species", "moveType", "category", "status"].includes(node.kind)) {
       const value = (node as { value: number }).value, kind = node.kind as "species" | "moveType" | "category" | "status";
       const limit = kind === "species" ? 1024 : kind === "moveType" ? 18 : kind === "category" ? 3 : 7;
@@ -131,7 +154,20 @@ export function validateItemRule(input: ItemRuleSet, definitions: readonly ItemR
     }
     throw new Error("Invalid activation condition.");
   }
-  return { effects, conditions: condition(input.conditions, 0), consumable: input.consumable };
+  return condition(input, 0);
+}
+
+/** Both runtimes use the same postfix encoding for their common conditions. */
+export function emitRuleCondition(node: ItemRuleCondition, emit: (op: number, arg: number, value: number) => void): void {
+  if (node.kind === "group") {
+    node.children.forEach(child => emitRuleCondition(child, emit));
+    emit((node.scope ? 130 : 128) + Number(node.mode === "any"), node.children.length, 0);
+  } else if ((node.kind === "type" && node.subject) || node.kind === "knowsMove")
+    emit(node.kind === "type" ? 10 : 11, (ABILITY_CONDITION_SUBJECTS.indexOf(node.subject ?? "holder") << 1) | Number(Boolean(node.negate)), node.value);
+  else if (node.kind === "hp") emit(1, ["lt", "lte", "gt", "gte"].indexOf(node.comparison), node.percent);
+  else if (node.kind !== "fieldEffect" && node.kind !== "sideEffect") emit(STANDARD_CONDITION_CODES[node.kind], Number(Boolean(node.negate)), node.value);
+  else if (node.kind === "fieldEffect") emit(8, Number(Boolean(node.negate)), node.value);
+  else emit(9, Number(Boolean(node.negate)), encodeSideBattleCondition(node));
 }
 
 /** Postfix conditions: four-byte instructions, evaluated on a bounded stack. */
@@ -169,13 +205,10 @@ export function encodeItemRulesV4(entries: ReadonlyMap<number, ItemRuleSet>): En
     const rule = validateItemRule(input), at = bytes.length;
     bytes[id * 2] = at & 255; bytes[id * 2 + 1] = at >>> 8;
     bytes.push(rule.effects.length, 0, Number(rule.consumable), 4);
-    function node(value: ItemRuleCondition): void {
-      if (value.kind === "group") { value.children.forEach(node); emit(value.mode === "all" ? 128 : 129, value.children.length, 0); }
-      else if (value.kind === "hp") emit(1, ["lt", "lte", "gt", "gte"].indexOf(value.comparison), value.percent);
-      else emit(({ type: 2, weather: 3, species: 4, moveType: 5, category: 6, status: 7 })[value.kind], Number(Boolean(value.negate)), value.value);
+    emitRuleCondition(rule.conditions, (op, arg, value) => {
+      emit(op, arg, value);
       bytes[at + 1]++;
-    }
-    node(rule.conditions);
+    });
     for (const effect of rule.effects) {
       if(itemRecipeEffect(effect.kind)){bytes.push(...encodeItemRecipe(effect));continue;}
       const offset = bytes.length, index = ITEM_RULE_EFFECTS.findIndex(value => value.kind === effect.kind);

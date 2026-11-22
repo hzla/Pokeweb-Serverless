@@ -56,7 +56,7 @@
 .pwan-warning,
 .pwan-empty {
   border: 1px solid var(--pwan-border);
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: var(--pwan-panel);
 }
 
@@ -74,7 +74,7 @@
 
 .pwan-runtime.-ready {
   background: transparent;
-  border-left: 3px solid #50fa7b;
+  border-left: 3px solid var(--success);
 }
 
 .pwan-runtime.-pending {
@@ -150,14 +150,13 @@
   color: #c9c9d3;
   font-size: 12px;
   font-weight: 700;
-  text-transform: uppercase;
 }
 
 .pwan-library-panel select {
   min-width: 0;
   height: 36px;
   border: 1px solid #3b4254;
-  border-radius: 4px;
+  border-radius: var(--radius);
   padding: 0 10px;
   background: var(--pwan-panel-strong);
   color: #eef2fb;
@@ -184,7 +183,7 @@
   display: grid;
   gap: 8px;
   border: 1px solid #3b4254;
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 10px;
   background: var(--pwan-panel-strong);
   color: var(--pwan-muted);
@@ -219,7 +218,6 @@
   color: #c9c9d3;
   font-size: 12px;
   font-weight: 700;
-  text-transform: uppercase;
 }
 
 .pwan-side-summary-row {
@@ -227,7 +225,7 @@
   flex-wrap: wrap;
   gap: 4px 8px;
   border: 1px solid #3b4254;
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 9px 10px;
   background: var(--pwan-panel-strong);
   color: var(--pwan-muted);
@@ -249,7 +247,6 @@
   color: #c9c9d3;
   font-size: 12px;
   font-weight: 700;
-  text-transform: uppercase;
 }
 
 .pwan-species-picker select,
@@ -258,7 +255,7 @@
   min-width: 0;
   height: 36px;
   border: 1px solid #3b4254;
-  border-radius: 4px;
+  border-radius: var(--radius);
   padding: 0 10px;
   background: var(--pwan-panel-strong);
   color: #eef2fb;
@@ -331,7 +328,7 @@
   width: 100%;
   aspect-ratio: 1;
   border: 1px solid var(--pwan-border);
-  border-radius: 6px;
+  border-radius: var(--radius);
   background:
     linear-gradient(45deg, #303549 25%, transparent 25%),
     linear-gradient(-45deg, #303549 25%, transparent 25%),
@@ -419,7 +416,7 @@
 .pwan-segment-button {
   min-height: 32px;
   border: 1px solid #3b4254;
-  border-radius: 4px;
+  border-radius: var(--radius);
   padding: 5px 8px;
   background: var(--pwan-panel-strong);
   color: #c9c9d3;
@@ -504,7 +501,6 @@
   color: #c9c9d3;
   font-size: 12px;
   font-weight: 700;
-  text-transform: uppercase;
 }
 
 .pwan-preview-field strong {
@@ -527,7 +523,7 @@
   min-width: 0;
   height: 34px;
   border: 1px solid #3b4254;
-  border-radius: 4px;
+  border-radius: var(--radius);
   padding: 0 10px;
   background: var(--pwan-panel-strong);
   color: #eef2fb;
@@ -557,7 +553,7 @@
   display: grid;
   gap: 8px;
   border: 1px solid #333a4c;
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 8px;
   background: rgb(18 22 32 / 48%);
 }
@@ -700,7 +696,7 @@
 .pwan-pixel-swatch {
   width: 24px;
   height: 24px;
-  border-radius: 4px;
+  border-radius: var(--radius);
   cursor: pointer;
 }
 
@@ -736,7 +732,7 @@
   flex: 0 0 auto;
   width: 24px;
   height: 24px;
-  border-radius: 4px;
+  border-radius: var(--radius);
 }
 
 .pwan-pixel-lasso {
@@ -756,14 +752,13 @@
   color: #c9c9d3;
   font-size: 11px;
   font-weight: 800;
-  text-transform: uppercase;
 }
 
 .pwan-pixel-lasso select {
   min-width: 0;
   height: 32px;
   border: 1px solid #3b4254;
-  border-radius: 4px;
+  border-radius: var(--radius);
   background: var(--pwan-panel-strong);
   color: #eef2fb;
   font: inherit;
@@ -789,7 +784,7 @@
   justify-items: center;
   align-content: center;
   border: 1px dashed #777b8f;
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 14px;
   background: var(--ink-0);
   color: #d6d7e2;
@@ -848,7 +843,7 @@
   justify-content: center;
   width: 18px;
   height: 18px;
-  border-radius: 4px;
+  border-radius: var(--radius);
   color: #f8ffff;
   font-size: 11px;
   font-weight: 700;
@@ -889,7 +884,6 @@
 .pwan-section-title span {
   color: #c9c9d3;
   font-size: 12px;
-  text-transform: uppercase;
 }
 
 .pwan-form {
@@ -909,7 +903,6 @@
 .pwan-form label span {
   color: #c9c9d3;
   font-size: 12px;
-  text-transform: uppercase;
 }
 
 .pwan-form input[type="file"] {
@@ -939,7 +932,7 @@
   align-self: start;
   background: #202431;
   border: 1px solid var(--pwan-border);
-  border-radius: 6px;
+  border-radius: var(--radius);
   image-rendering: pixelated;
   max-height: 132px;
   max-width: 100%;
@@ -978,7 +971,7 @@
   min-width: 0;
   padding: 8px;
   border: 1px solid var(--ink-3);
-  border-radius: 4px;
+  border-radius: var(--radius);
   background: #282d3b;
   color: #eef2fb;
 }
@@ -1103,7 +1096,7 @@
   display: grid;
   gap: 3px;
   border: 1px solid #3b4254;
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 10px;
   background: var(--pwan-panel-strong);
 }
@@ -1199,7 +1192,7 @@
   display: grid;
   gap: 8px;
   border: 1px solid #333a4c;
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 8px;
   background: rgb(18 22 32 / 48%);
 }
@@ -1248,7 +1241,7 @@
   max-width: 100%;
   width: 192px;
   border: 1px solid #333a4c;
-  border-radius: 4px;
+  border-radius: var(--radius);
   background:
     linear-gradient(45deg, #2b3142 25%, transparent 25%),
     linear-gradient(-45deg, #2b3142 25%, transparent 25%),
@@ -1279,7 +1272,7 @@
   width: 28px;
   height: 28px;
   border: 1px solid rgb(238 242 251 / 24%);
-  border-radius: 4px;
+  border-radius: var(--radius);
   padding: 0;
   background-clip: padding-box;
   box-shadow: inset 0 0 0 1px rgb(0 0 0 / 35%);
@@ -1326,7 +1319,7 @@
   width: 40px;
   height: 30px;
   border: 1px solid #3b4254;
-  border-radius: 4px;
+  border-radius: var(--radius);
   padding: 2px;
   background: var(--pwan-panel-strong);
   cursor: pointer;
@@ -1335,7 +1328,7 @@
 .pwan-colors-hex {
   width: 84px;
   border: 1px solid #3b4254;
-  border-radius: 4px;
+  border-radius: var(--radius);
   padding: 5px 6px;
   background: var(--pwan-panel-strong);
   color: inherit;

@@ -23,7 +23,7 @@
   align-items: center;
   background: #242638;
   border: 1px solid #3b4254;
-  border-radius: 4px;
+  border-radius: var(--radius);
   color: #d7dbe7;
   display: flex;
   font: 12px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -89,7 +89,6 @@
 .trainer-animation-detail span {
   color: #aeb6c7;
   font-size: 11px;
-  text-transform: uppercase;
 }
 
 .trainer-animation-detail strong {
@@ -111,7 +110,7 @@
 .trainer-rig-atlas-wrap {
   background: #1d1f2f;
   border: 1px solid var(--ink-3);
-  border-radius: 6px;
+  border-radius: var(--radius);
   max-width: 516px;
   overflow: auto;
   padding: 2px;

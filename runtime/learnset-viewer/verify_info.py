@@ -516,6 +516,30 @@ def rom_name(h,name):
     # BW1 retail species names use uppercase; preserve them in the renderer.
     return next((n for n in h.messages[90] if n.casefold()==name.casefold()),name)
 
+def check_stat_bars(h,values,three_cards):
+    fills=((247,82,49),(255,156,66),(255,198,49),(173,189,33),(123,206,82),(90,206,231))
+    highlights=((247,156,140),(255,198,148),(255,222,140),(214,222,132),(181,231,156),(165,231,239))
+    def rgb555(channels):
+        return sum((channel>>3)<<(5*i) for i,channel in enumerate(channels))
+    def palette(bank):
+        return struct.unpack('<16H',h.c.mem_read(0x5000000+bank*32,32))
+    content=palette(9)
+    x=56 if three_cards else 57
+    for i,value in enumerate(values):
+        band=min(value//30,5)
+        width=(value*36+75)//150 if value<=150 else 36+((value-150)*10+52)//105
+        y=(37+17*i) if three_cards else (45+15*i)
+        bank=palette(1+i)
+        expected=list(content)
+        expected[10:12]=[rgb555(fills[band]),rgb555(highlights[band])]
+        assert tuple(expected)==bank, (value,bank)
+        for row in range(y,y+8):
+            ink=11 if row<y+2 else 10
+            assert [h.pixel(col,row) for col in range(x,x+46)]==[ink]*width+[8]*(46-width), (value,row)
+        for tile_y in range(y//8,(y+7)//8+1):
+            assert all(h.u16(MAP+(tile_y*32+tile_x)*2)>>12==1+i for tile_x in range(7,13))
+            assert h.u16(MAP+(tile_y*32+6)*2)>>12==9, 'Stat numbers retain the panel palette'
+
 def check_three_cards(h):
     config=h.symbols['learnsetConfig']+22
     def metagross_pixels():
@@ -530,6 +554,7 @@ def check_three_cards(h):
         h.files['a/0/1/6']=bytes(personal.save())
         h.c.mem_write(config,struct.pack('<H',layout))
         h.start(three_cards=bool(layout))
+        check_stat_bars(h,[80,135,130,95,90,70],bool(layout))
         h.preview('three-cards' if layout else 'classic')
         if layout:
             for x,y,dx,dy in [(106,90,1,0),(170,69,0,1),(80,136,0,1)]:
@@ -575,6 +600,18 @@ def check_three_cards(h):
         else:
             assert (8,140,'Does not evolve further.') in h.draws
         h.end()
+        h.reset();h.species=498
+        h.start(three_cards=bool(layout))
+        check_stat_bars(h,[65,63,45,45,45,45],bool(layout))
+        h.end()
+        h.reset();h.species=498
+        personal=ndspy.narc.NARC(h.files['a/0/1/6'])
+        record=bytearray(personal.files[498]);record[:6]=bytes([29,30,60,255,90,120])
+        personal.files[498]=record
+        h.files['a/0/1/6']=bytes(personal.save())
+        h.start(three_cards=bool(layout))
+        check_stat_bars(h,[29,30,60,90,120,255],bool(layout))
+        h.end()
     h.reset();h.species=376
     icons=ndspy.narc.NARC(h.files['a/0/0/7'])
     member=h.call(0x2020fc1-h.delta,376,0,0,0)
@@ -606,7 +643,7 @@ def check_three_cards(h):
     h.end()
     h.c.mem_write(config,b'\0\0')
     h.three_cards=False
-    print(h.game,'Classic and Three cards, gaps, paging, three abilities and recessed selection across both icon poses passed',flush=True)
+    print(h.game,'Classic and Three cards, stat widths and colors, gaps, paging, three abilities and recessed selection passed',flush=True)
 
 reports={}
 for game in (['B','W'] if '--bw1' in sys.argv else ['W2','B2']) if __name__=='__main__' else []:

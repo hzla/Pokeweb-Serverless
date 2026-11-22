@@ -16,7 +16,9 @@ On Black 2 and White 2, choose **Classic** or **Three cards** in Code
 Injection under **Party Menu Learnset/Dex Viewer**, then install, update, or
 apply the layout. Three cards uses eight-pixel gaps between the upper panels
 and extends the grid behind the move list. Both BW2 layouts show PP as
-`15 PP`. New BW2 installs default to Three cards. Updates preserve the installed layout.
+`15 PP` and color the stat bars by base stat. A stat of 150 fills 36 of 46
+pixels, with the last 10 pixels covering 150–255. New BW2 installs default to
+Three cards. Updates preserve the installed layout.
 Black and White use Classic.
 
 Two companions share private text IDs without replacing tutor strings. Installer

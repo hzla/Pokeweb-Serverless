@@ -17,7 +17,7 @@
   text-align: center;
 }
 
-.inline-status[data-tone="success"] > .inline-status__marker { color: #50fa7b; }
+.inline-status[data-tone="success"] > .inline-status__marker { color: var(--success); }
 .inline-status[data-tone="warning"] > .inline-status__marker { color: #ffb86c; }
 .inline-status[data-tone="error"] > .inline-status__marker { color: #ff8585; }
 .inline-status[data-tone="busy"] > .inline-status__marker { color: #8be9fd; }

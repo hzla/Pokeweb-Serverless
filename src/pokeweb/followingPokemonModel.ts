@@ -9,6 +9,7 @@ export const FOLLOWING_STOCK_ROWS = 1008;
 export const FOLLOWING_MAX_ASSETS = 6144;
 export const FOLLOWER_DEFAULT_SIDE_GAP_BONUS = 6;
 export const FOLLOWER_MAX_DIRECTIONAL_GAP = 12;
+export const FOLLOWER_NATIVE_MAX_DIRECTIONAL_GAP = 20;
 export type FollowerAppearanceKey = { species: number; form: number; gender: 0 | 1 | 2; shiny: boolean };
 export type FollowerAnimationProfile = "pokemon-mirrored" | "pokemon-asymmetric";
 export type FollowerAssetEntry = {
@@ -27,7 +28,11 @@ export type FollowerAssetEntry = {
   source: "stock" | "hgss" | "hg-engine" | "png";
   sourceLabel?: string;
 };
-export function followerDefaultDirectionalGaps(entry: Pick<FollowerAssetEntry, "sideGap"> & Partial<Pick<FollowerAssetEntry, "offsets">>): [number, number, number, number] {
+export function followerDefaultDirectionalGaps(entry: Pick<FollowerAssetEntry, "sideGap"> & Partial<Pick<FollowerAssetEntry, "offsets" | "size">>, maxDirectionalGap = FOLLOWER_MAX_DIRECTIONAL_GAP): [number, number, number, number] {
+  if (maxDirectionalGap === FOLLOWER_NATIVE_MAX_DIRECTIONAL_GAP) {
+    const gap = Math.min(maxDirectionalGap, (entry.sideGap ?? 0) + FOLLOWER_DEFAULT_SIDE_GAP_BONUS + (entry.size === 64 ? 8 : 0));
+    return [gap, gap, gap, gap];
+  }
   // The largest supported talk envelope is 29 world units. Reserve the
   // native two-unit art anchor, any authored X anchor, and one unit of slack.
   // Both side directions share the stricter bound; explicit values survive.
@@ -93,7 +98,9 @@ export function validateFollowerRegistry(registry: FollowerRegistry): void {
     integer(entry.sideGap ?? 0, 0, 6, "sideways spacing");
     if (entry.directionalGaps !== undefined) {
       if (!Array.isArray(entry.directionalGaps) || entry.directionalGaps.length !== 4) throw new Error("Four directional gaps are required.");
-      entry.directionalGaps.forEach(gap => integer(gap, 0, FOLLOWER_MAX_DIRECTIONAL_GAP, "directional gap"));
+      // Workspaces can target either runtime. The installed positioning archive
+      // separately enforces that runtime's smaller or larger movement envelope.
+      entry.directionalGaps.forEach(gap => integer(gap, 0, FOLLOWER_NATIVE_MAX_DIRECTIONAL_GAP, "directional gap"));
     }
     if (entry.riderAdjustments !== undefined) {
       if (!Array.isArray(entry.riderAdjustments) || entry.riderAdjustments.length !== 4) throw new Error("Four rider adjustments are required.");

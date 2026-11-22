@@ -162,7 +162,7 @@ export async function renderCutsceneWorkspace(project:ProjectState,root:HTMLElem
           fields+='<p>Each response jumps to a later frame. Clear response 3 to remove it. In W2 use Up/Down and A; B does not select a response. The prompt, speaker and responses must fit six native lines. Use Jump / rejoin to skip another branch after a reaction.</p>';
         }
         if(active.type==='timeline.jump')fields+=number('jump-target','Jump target frame',active.targetFrame,'1')+'<p>Jump forward to another timeline section. Skipped events do not run. Place a jump at the end of a response branch to rejoin a shared ending.</p>';
-        if(active.type==='native.cue')fields+=number('opcode','Native opcode (0–18)',active.opcode,'1')+`<label>Eight native arguments<input name="args" value="${active.args.join(', ')}" required></label>`;
+        if(active.type==='native.cue')fields+=number('opcode','Native opcode (0–18)',active.opcode,'1')+`<label>8 native arguments<input name="args" value="${active.args.join(', ')}" required></label>`;
       }
       fields+='<div class="scene-actions"><button type="submit">Apply item</button><button type="button" data-action="delete">Remove item</button></div>';
     } else fields='<p>Select a marker to edit it. Drag markers to move them; use arrow keys for one frame, Shift + arrows for one second.</p>';

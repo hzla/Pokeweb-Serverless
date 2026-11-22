@@ -1,6 +1,8 @@
+import { encodeSideBattleCondition, usesBattleCondition, validateBattleFieldCondition, type SideBattleCondition } from "./battleFieldEffects";
 /** Move-local recipes. Native move data continues to own ordinary attack properties. */
 export type MoveSubject = "user" | "target";
 export type MoveCondition =
+  | (SideBattleCondition & { subject?: never })
   | { kind: "group"; mode: "all" | "any"; children: MoveCondition[] }
   | { kind: "hp"; subject: MoveSubject; comparison: "lt" | "lte" | "gt" | "gte"; percent: number }
   | { kind: "stage"; subject: MoveSubject; stat: number; comparison: "lt" | "lte" | "gt" | "gte"; value: number }
@@ -23,6 +25,10 @@ export type MoveEffect = {
   parameters?: Record<string, number>;
 };
 export type MoveRuleSet = { conditions: MoveCondition; prerequisites: MoveCondition; effects: MoveEffect[]; nativeBase?: number };
+export const moveUsesSideCondition = (rules: ReadonlyMap<number, MoveRuleSet>): boolean => {
+  const usesSide = (node: MoveCondition) => usesBattleCondition(node, "sideEffect");
+  return [...rules.values()].some(rule => usesSide(rule.conditions) || usesSide(rule.prerequisites) || rule.effects.some(effect => usesSide(effect.conditions)));
+};
 export type MoveParameter = { key: string; label: string; min: number; max: number; original: number; labels?: Record<number, string>; flags?:Record<number,string> };
 export type MovePrimitive = {
   kind: string; code: number; label: string; description: string; value: number; min: number; max: number; step: number;
@@ -151,6 +157,7 @@ export function validateMoveCondition(input: MoveCondition): MoveCondition {
       if(!["user","target"].includes(c.subject)||!["lt","lte","gt","gte"].includes(c.comparison)||!integer(c.stat,1,7)||!integer(c.value,0,12))throw Error("Invalid stat-stage condition.");
       return {kind:c.kind,subject:c.subject,stat:c.stat,comparison:c.comparison,value:c.value};
     }
+    if (c.kind === "sideEffect") return validateBattleFieldCondition(c) as SideBattleCondition;
     const ranges: Record<string, [number, number]> = { ateBerry:[0,1],moveFailed:[0,1],hitsTaken:[1,255],partyFaints:[1,255],statRaised:[0,1],statLowered:[0,1],selectedMove:[0,65534],persistentFromMove:[0,65534],adjacent:[0,1],hidden:[0,1],heldItem:[1,65534],hasItem:[0,1],berry:[0,1],type: [0, 17], status: [0, 35], species: [1, 65534], ability: [1, 255], weather: [0, 4], field: [1, 8], effectiveness: [0, 5], targetActed: [0, 1], firstTurn: [0, 1], grounded: [0, 1], ally: [0, 1], pendingPriority: [-7, 7], sameMon: [0, 1] };
     const bounds = ranges[c.kind];
     if (!bounds || !integer(c.value, ...bounds) || c.subject !== undefined && !["user", "target"].includes(c.subject) || c.negate !== undefined && typeof c.negate !== "boolean") throw Error("Invalid move condition.");
@@ -166,7 +173,6 @@ export function validateMoveRule(input: MoveRuleSet): MoveRuleSet {
   if(usesEffectiveness(prerequisites))throw Error("Type effectiveness is available at the final damage stage, after use prerequisites.");
   if(!input.effects.length && !(conditions.kind==="group"&&!conditions.children.length))throw Error("Activation conditions require a recipe effect. Use prerequisites to restrict the whole move.");
   const identities = new Set<string>();
-  const needsRecipient = (c: MoveCondition): boolean => c?.kind === "group" ? c.children.some(needsRecipient) : !!c && !["weather","field"].includes(c.kind) && (c.subject ?? "target") === "target";
   const effects = input.effects.map(e => {
     const p = movePrimitive(e?.kind);
     if (!p || !Number.isFinite(e.value) || e.value < p.min || e.value > p.max || Math.abs(e.value / p.step - Math.round(e.value / p.step)) > 1e-7 || ["statStage","hpCostBoost","berryBoost","residualStat","selfTrapBoost","entryStatHazard"].includes(e.kind) && !e.value) throw Error("Invalid move effect value.");
@@ -179,7 +185,7 @@ export function validateMoveRule(input: MoveRuleSet): MoveRuleSet {
     if(e.kind==="residualDamage"&&[e.parameters?.type1??10,e.parameters?.type2??8].some(t=>t>17&&t!==255))throw Error("Choose a supported enhanced type or None.");
     if(e.kind==="mutualTrap"&&e.secondary)throw Error("Mutual trapping is a primary effect.");
     if(e.kind==="residualDamage"&&e.phase!=="hit")throw Error("Recurring effects require a successful hit.");
-    if(e.kind==="vulnerableUntilAction"&&(e.secondary||needsRecipient(conditions)||needsRecipient(effectConditions)))throw Error("Incoming-damage conditions can inspect the user, weather or field.");
+    if(e.kind==="vulnerableUntilAction"&&(e.secondary||needsMoveRecipient(conditions)||needsMoveRecipient(effectConditions)))throw Error("Incoming-damage conditions can inspect the user, weather or field.");
     if(e.kind==="selectionGate"){
       const allowed=(c:MoveCondition):boolean=>c.kind==="group"?c.children.every(allowed):["ateBerry","moveFailed","hitsTaken","partyFaints","statRaised","statLowered","selectedMove"].includes(c.kind)&&c.subject==="user";
       if(e.secondary||!allowed(conditions)||!allowed(effectConditions)||input.effects.filter(x=>x.kind==="selectionGate").length>1)throw Error("Selection restrictions can inspect only the user's battle history; choose one selection restriction.");
@@ -196,14 +202,14 @@ export function validateMoveRule(input: MoveRuleSet): MoveRuleSet {
     if(e.kind==="allyHealInstead"&&(e.secondary||e.value>(e.parameters?.denominator??2)||input.effects.filter(x=>x.kind==="allyHealInstead").length>1))throw Error("Choose one primary ally-healing effect with a fraction no greater than maximum HP.");
     if(e.kind==="typeMatchup"&&e.secondary)throw Error("A type-matchup override is a primary calculation effect.");
     if(e.kind==="damageWeather"&&(e.secondary||((e.parameters?.moveType??10)>17&&(e.parameters?.moveType??10)!==255)))throw Error("Choose a supported move type or any type for the damage-weather effect.");
-    if(e.kind==="thawTargets"&&(e.secondary||needsRecipient(conditions)||needsRecipient(effectConditions)))throw Error("Thaw conditions can inspect the user, weather or field before the native hit-target operation.");
+    if(e.kind==="thawTargets"&&(e.secondary||needsMoveRecipient(conditions)||needsMoveRecipient(effectConditions)))throw Error("Thaw conditions can inspect the user, weather or field before the native hit-target operation.");
     if(e.kind==="ignoreRedirection"&&e.secondary)throw Error("Redirection checks are primary effects.");
     if(e.kind==="attackStat"&&(e.secondary||input.effects.filter(x=>x.kind==="attackStat").length>1))throw Error("Choose one primary attacking-stat selector.");
-    if(e.kind==="moveUserType"&&(e.secondary||needsRecipient(conditions)||needsRecipient(effectConditions)||input.effects.filter(x=>x.kind==="moveUserType").length>1))throw Error("Move-type conditions can inspect the user, weather or field; choose one type selector.");
+    if(e.kind==="moveUserType"&&(e.secondary||needsMoveRecipient(conditions)||needsMoveRecipient(effectConditions)||input.effects.filter(x=>x.kind==="moveUserType").length>1))throw Error("Move-type conditions can inspect the user, weather or field; choose one type selector.");
     if(e.kind==="requireHeldItem"&&input.effects.filter(e=>e.kind==="requireHeldItem").length>1)throw Error("Choose one held-item requirement per recipe.");
-    if(e.kind==="bypassSubstitute"&&(needsRecipient(conditions)||needsRecipient(effectConditions)))throw Error("Substitute bypass conditions can inspect the user, weather or field.");
-    if(e.kind==="ignoreAbilities"&&(needsRecipient(conditions)||needsRecipient(effectConditions)))throw Error("Ability-window conditions can inspect the user, weather or field before targeting.");
-    if (e.kind === "accuracy" && (needsRecipient(conditions) || needsRecipient(effectConditions))) throw Error("Accuracy bypass conditions can inspect the user, weather or field; this native event has no recipient.");
+    if(e.kind==="bypassSubstitute"&&(needsMoveRecipient(conditions)||needsMoveRecipient(effectConditions)))throw Error("Substitute bypass conditions can inspect the user, weather or field.");
+    if(e.kind==="ignoreAbilities"&&(needsMoveRecipient(conditions)||needsMoveRecipient(effectConditions)))throw Error("Ability-window conditions can inspect the user, weather or field before targeting.");
+    if (e.kind === "accuracy" && (needsMoveRecipient(conditions) || needsMoveRecipient(effectConditions))) throw Error("Accuracy bypass conditions can inspect the user, weather or field; this native event has no recipient.");
     if (["heal","cureAndHeal"].includes(e.kind) && e.value > (e.parameters?.denominator ?? 2)) throw Error("A healing fraction cannot exceed maximum HP.");
     if(e.kind==="maxHpRecoil"&&e.value>(e.parameters?.denominator??2))throw Error("Recoil cannot exceed maximum HP.");
     if(e.kind==="hpCostBoost"&&(e.parameters?.numerator??33)>(e.parameters?.denominator??100))throw Error("An HP payment cannot exceed maximum HP.");
@@ -232,19 +238,22 @@ export function moveRecipeEvents(input: MoveRuleSet, legacyV2=false, legacyBypas
   const check = movePrerequisiteEvent(rule.prerequisites); if (check) events.add(check);
   return checkedMoveEventList(events);
 }
+function needsMoveRecipient(condition: MoveCondition): boolean {
+  return condition.kind === "group" ? condition.children.some(needsMoveRecipient)
+    : !["weather", "field", "sideEffect"].includes(condition.kind) && (condition.subject ?? "target") === "target";
+}
 /** Recipient requirements run after native targeting; user-only checks can fail early. */
 export function movePrerequisiteEvent(c: MoveCondition): number {
   if (c.kind === "group" && !c.children.length) return 0;
-  const targeted = (n: MoveCondition): boolean => n.kind === "group" ? n.children.some(targeted) : !["weather", "field"].includes(n.kind) && (n.subject ?? "target") === "target";
-  return targeted(c) ? 0x2c : 0x1f;
+  return needsMoveRecipient(c) ? 0x2c : 0x1f;
 }
-export const MOVE_CONDITION_CODES: Record<string, number> = { hp: 1, type: 2, weather: 3, species: 4, status: 5, ability: 6, field: 7, effectiveness: 8, targetActed: 9, firstTurn: 10, grounded: 11, ally: 12, pendingPriority: 13, sameMon: 14,stage:15,heldItem:16,hasItem:17,berry:18,hidden:19,ateBerry:20,moveFailed:21,hitsTaken:22,partyFaints:23,statRaised:24,statLowered:25,selectedMove:26,persistentFromMove:27,adjacent:28 };
+export const MOVE_CONDITION_CODES: Record<string, number> = { hp: 1, type: 2, weather: 3, species: 4, status: 5, ability: 6, field: 7, effectiveness: 8, targetActed: 9, firstTurn: 10, grounded: 11, ally: 12, pendingPriority: 13, sameMon: 14,stage:15,heldItem:16,hasItem:17,berry:18,hidden:19,ateBerry:20,moveFailed:21,hitsTaken:22,partyFaints:23,statRaised:24,statLowered:25,selectedMove:26,persistentFromMove:27,adjacent:28,sideEffect:29 };
 export function encodeMoveConditions(condition: MoveCondition): number[] {
   const bytes: number[] = [];
   function emit(c: MoveCondition) {
     if (c.kind === "group") { bytes.push(c.mode === "all" ? 128 : 129, c.children.length, 0, 0, 0, 0, 0, 0); c.children.forEach(emit); }
     else {
-      const v = c.kind === "hp" ? c.percent : c.value;
+      const v = c.kind === "hp" ? c.percent : c.kind === "sideEffect" ? encodeSideBattleCondition(c) : c.value;
       bytes.push(MOVE_CONDITION_CODES[c.kind], c.subject === "user" ? 0 : 1, c.kind === "hp" || c.kind === "stage" ? ["lt", "lte", "gt", "gte"].indexOf(c.comparison) : Number(Boolean(c.negate)), c.kind==="stage"?c.stat:0, v & 255, v >> 8 & 255, 0, 0);
     }
   }

@@ -49,7 +49,7 @@
 .type-chart-corner,
 .type-chart-heading {
   align-items: center;
-  border-radius: 6px;
+  border-radius: var(--radius);
   display: flex;
   font-size: 11px;
   font-weight: 800;
@@ -157,7 +157,7 @@
 .type-chart-cell {
   background: rgba(40, 42, 54, 0.68);
   border: 1px solid rgba(242, 242, 242, 0.08);
-  border-radius: 6px;
+  border-radius: var(--radius);
   min-height: 36px;
   min-width: 0;
   padding: 2px;
@@ -210,7 +210,7 @@
 
   .type-chart-corner,
   .type-chart-heading {
-    border-radius: 4px;
+    border-radius: var(--radius);
     font-size: 9px;
     min-height: 30px;
     padding: 2px;
@@ -221,7 +221,7 @@
   }
 
   .type-chart-cell {
-    border-radius: 4px;
+    border-radius: var(--radius);
     min-height: 30px;
     padding: 1px;
   }

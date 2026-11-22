@@ -120,10 +120,6 @@
   font-size: 13px;
 }
 
-#encounter-data .en-kind.-off .en-kind-head {
-  opacity: 0.8;
-}
-
 #encounter-data .en-table td {
   padding-top: 1px;
   padding-bottom: 1px;

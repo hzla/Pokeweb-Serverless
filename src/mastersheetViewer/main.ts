@@ -1,12 +1,15 @@
 import "../styles/mastersheetViewer.css";
-import { buildMastersheetDocument } from "../pokeweb/mastersheetDocument";
 import { hasAuthoredMastersheet } from "../pokeweb/mastersheetRomFile";
 import { canOpenMastersheetViewer } from "../pokeweb/mastersheetViewerAccess";
 import { applyAiFeaturesParam } from "../pokeweb/aiFeatureAccess";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { ImageCache, RomAssetProvider } from "./assets";
 import { mountViewer } from "./app";
+import { MastersheetSession } from "./session";
+import { ensureMastersheetMarkdown } from "../pokeweb/mastersheetModel";
+import { addCacheAlias, cacheKeyFor, loadDraft } from "./editor/storage";
 import { installGameFonts } from "./gameFonts";
+import { applyViewerSettings, setGameFontsAvailable } from "./settings";
 import { clearLastRom, loadLastRom, saveLastRom } from "./romStore";
 
 /**
@@ -20,6 +23,7 @@ const HATCH = `<svg class="msv-hatch" viewBox="0 0 40 16" aria-hidden="true" foc
 
 async function boot(): Promise<void> {
   applyAiFeaturesParam();
+  applyViewerSettings();
   if (!canOpenMastersheetViewer()) {
     root.innerHTML = `
       <main class="msv-open">
@@ -43,7 +47,7 @@ async function boot(): Promise<void> {
         showOpenScreen("There's no project open in the editor on this browser. Open a ROM file instead.");
         return;
       }
-      start(project);
+      await start(project, { source: "project" });
     } catch (error) {
       showOpenScreen(`The editor's project couldn't be opened: ${message(error)}`);
     }
@@ -89,12 +93,13 @@ async function openRom(file: Blob, name: string, from: { remembered: boolean; ca
       showOpenScreen(`${name} doesn't have a mastersheet saved in it. Authors can add one in Pokeweb (Mastersheet, "Save in the ROM") and export the ROM again.`);
       return;
     }
-    const cacheKey = from.cacheKey ?? (await ImageCache.keyForRom(bytes).catch(() => undefined));
+    // A ROM saved from the viewer's editor shares its renders with the ROM it was saved from.
+    const cacheKey = from.cacheKey ?? (await ImageCache.keyForRom(bytes).then(cacheKeyFor).catch(() => undefined));
     if (!from.remembered) {
       // Best effort: without storage (private window, full disk) the viewer still works, it just asks again after a refresh.
       await saveLastRom({ name, file, cacheKey: cacheKey ?? "" }).catch((error) => console.warn("The ROM couldn't be kept for the next visit:", error));
     }
-    start(project, cacheKey ? new ImageCache(cacheKey) : undefined, openAnotherRom);
+    await start(project, { source: "rom", name, cacheKey, cache: cacheKey ? new ImageCache(cacheKey) : undefined, onOpenAnotherRom: openAnotherRom });
   } catch (error) {
     if (from.remembered) await clearLastRom();
     showOpenScreen(`${name} couldn't be read: ${message(error)}`);
@@ -107,12 +112,45 @@ async function openAnotherRom(): Promise<void> {
   window.location.replace(`${window.location.pathname}${window.location.search}`);
 }
 
-function start(project: ProjectState, cache?: ImageCache, onOpenAnotherRom?: () => void): void {
-  const document = buildMastersheetDocument(project);
-  const assets = new RomAssetProvider(project, document, cache);
+type StartOptions =
+  | { source: "project" }
+  | { source: "rom"; name: string; cacheKey?: string; cache?: ImageCache; onOpenAnotherRom: () => Promise<void> };
+
+/**
+ * Shows the sheet, held in an editing session however it was opened: the Edit tab is always there, for a project opened
+ * from the editor and for a ROM file alike (editor/editor.ts).
+ */
+async function start(project: ProjectState, options: StartOptions): Promise<void> {
+  const markdown = ensureMastersheetMarkdown(project);
+  // Edits to a ROM file not yet saved into it come back after a refresh, if the ROM still holds the sheet they began from.
+  const draft = options.source === "rom" && options.cacheKey ? loadDraft(options.cacheKey) : undefined;
+  const restored = draft && draft.base === markdown && draft.source !== markdown ? draft.source : undefined;
+  const session = new MastersheetSession(project, restored ?? markdown, markdown);
+  const document = session.document;
+  const assets = new RomAssetProvider(project, document, options.source === "rom" ? options.cache : undefined);
   window.document.title = `${document.title} mastersheet`;
-  void installGameFonts(project);
-  mountViewer(root, { project, document, assets, onOpenAnotherRom: onOpenAnotherRom && (() => void onOpenAnotherRom()) });
+  void installGameFonts(project).then(setGameFontsAvailable);
+  const { createEditor } = await import("./editor/editor");
+  const editor = createEditor({
+    project,
+    session,
+    assets,
+    source: options.source,
+    romName: options.source === "rom" ? options.name : undefined,
+    romKey: options.source === "rom" ? options.cacheKey : undefined,
+    restoredDraft: Boolean(restored),
+    onRomSaved: options.source === "rom" ? (bytes) => rememberSavedRom(options.name, bytes, options.cacheKey) : undefined,
+  });
+  const onOpenAnotherRom = options.source === "rom" ? options.onOpenAnotherRom : undefined;
+  const controller = mountViewer(root, { project, document, assets, onOpenAnotherRom: onOpenAnotherRom && (() => void onOpenAnotherRom()), editing: editor.hooks });
+  editor.attach(controller);
+}
+
+/** After Save ROM: a refresh reopens the saved ROM, and its renders stay those of the ROM it came from. */
+async function rememberSavedRom(name: string, bytes: Uint8Array, cacheKey: string | undefined): Promise<void> {
+  const file = new Blob([bytes as Uint8Array<ArrayBuffer>]);
+  await saveLastRom({ name, file, cacheKey: cacheKey ?? "" }).catch((error) => console.warn("The saved ROM couldn't be kept for the next visit:", error));
+  if (cacheKey) void ImageCache.keyForRom(bytes).then((key) => addCacheAlias(key, cacheKey), () => undefined);
 }
 
 function showStatus(text: string): void {
