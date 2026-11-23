@@ -121,7 +121,9 @@ export function buildCalcBattleRules(project: ProjectState, moveName: (value: un
     moveData: Array.from({ length: Math.max(0, getMoveCount(project) - 1) }, (_, index) => {
       const id = index + 1, move = getMoveRecord(project, id);
       const name = moveName(banks.moves?.[id] ?? move.readable.name ?? `Move ${id}`);
-      return [id, name, move.raw.properties ?? 0, abilities?.flags[id] ?? defaultMoveDllFlags(id), ...(customFlags.has(id) ? [customFlags.get(id)!] : [])] as const;
+      const flags = customFlags.get(id);
+      const data = [id, name, move.raw.properties ?? 0, abilities?.flags[id] ?? defaultMoveDllFlags(id)] as const;
+      return flags ? [...data, flags] as const : data;
     }),
     ...(warnings.length ? { warnings } : {}),
   };

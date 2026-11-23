@@ -42,7 +42,7 @@ describe("docGeneratorModel", () => {
     header.setUint32(0, 0x43545750, true);
     header.setUint16(4, 1, true);
     settings.set([0, 4, 0, 1, 51, 0], 16 + 7 * 6 * 6);
-    project.fileSystem = { additions: {
+    project.fileSystem = { replacements: {}, additions: {
       [TRAINER_FIELD_CONDITIONS_PATH]: writeTrainerFieldTable(createTrainerFieldTable(8), 7, {
         weather: 1, fields: 4, player: 3, opponent: 16, playerSpikes: 2, playerToxicSpikes: 0,
         opponentSpikes: 0, opponentToxicSpikes: 1,
