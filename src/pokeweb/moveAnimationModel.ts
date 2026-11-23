@@ -11,7 +11,7 @@ import {
 import { formatMoveAnimationParam, parseMoveAnimationParamToken } from "./moveAnimationParamSemantics";
 import { getMoveAnimationVmSchema } from "./moveAnimationVmSchema";
 import { usesExpandedBw2Data } from "./black2UpgradeModel";
-import { MOVE_EXPANSION_FIRST_USABLE_ID, usesFrostMoveExpansionLayout } from "./moveExpansionPatch";
+import { firstDirectMoveAnimationId } from "./moveExpansionPatch";
 import { markDirty, type NarcStore, type ProjectState } from "./projectStore";
 
 const ADDRESSES_PER_ENTRY = 0x0e;
@@ -337,10 +337,10 @@ function resolveAnimationTarget(project: ProjectState, moveId: number, throwOnMi
 function resolveAnimationTarget(project: ProjectState, moveId: number, throwOnMissing?: false): AnimationTarget | undefined;
 function resolveAnimationTarget(project: ProjectState, moveId: number, throwOnMissing = false): AnimationTarget | undefined {
   const white2UpgradeLayout = usesWhite2UpgradeMoveAnimationLayout(project);
-  const frostMoveExpansionLayout = usesFrostMoveExpansionLayout(project);
+  const firstExpandedAnimationId = firstDirectMoveAnimationId(project);
   if (
     (white2UpgradeLayout && moveId >= WHITE2UPGRADE_FIRST_EXPANDED_MOVE_ANIMATION_ID) ||
-    (frostMoveExpansionLayout && moveId >= MOVE_EXPANSION_FIRST_USABLE_ID)
+    (firstExpandedAnimationId !== undefined && moveId >= firstExpandedAnimationId)
   ) {
     const directTarget = resolveAnimationStoreSlot(project, "move_animations", moveId, white2UpgradeLayout);
     if (directTarget) return directTarget;

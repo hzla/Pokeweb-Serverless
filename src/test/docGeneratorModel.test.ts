@@ -22,6 +22,7 @@ import { materializeProjectEdits } from "../pokeweb/projectMaterialize";
 import { decodeRecord, markDirty, type NarcStore, type ProjectState } from "../pokeweb/projectStore";
 import { encodeGen5TextBank, type Gen5TextEntry } from "../pokeweb/text";
 import { TYPE_CHART_OFFSET, TYPE_CHART_TYPES, updateTypeChartValue } from "../pokeweb/typeChartModel";
+import { createTrainerFieldTable, writeTrainerFieldTable, TRAINER_FIELD_CONDITIONS_PATH } from "../pokeweb/trainerFieldConditionsModel";
 
 describe("docGeneratorModel", () => {
   it("wraps calc payloads in backup_data and injects the ROM title", () => {
@@ -31,6 +32,30 @@ describe("docGeneratorModel", () => {
     expect(file.filename).toBe("voltwhiteplus-calc.js");
     expect(file.contents.startsWith("backup_data = ")).toBe(true);
     expect(file.contents).toContain('"title": "Volt White Plus"');
+  });
+
+  it("exports the ROM move IDs and the trainer’s field, weather, HP and status", () => {
+    const project = makeProject();
+    setProjectMoves(project, [{}, { properties: 0x1081 }], ["", "Test Swing"]);
+    const settings = new Uint8Array(16 + 8 * 6 * 6);
+    const header = new DataView(settings.buffer);
+    header.setUint32(0, 0x43545750, true);
+    header.setUint16(4, 1, true);
+    settings.set([0, 4, 0, 1, 51, 0], 16 + 7 * 6 * 6);
+    project.fileSystem = { additions: {
+      [TRAINER_FIELD_CONDITIONS_PATH]: writeTrainerFieldTable(createTrainerFieldTable(8), 7, {
+        weather: 1, fields: 4, player: 3, opponent: 16, playerSpikes: 2, playerToxicSpikes: 0,
+        opponentSpikes: 0, opponentToxicSpikes: 1,
+      }),
+      "battle/trainer-customization.bin": settings,
+    }};
+    const result = JSON.parse(generateCalcBridgePayload(project, "Opening conditions").scriptText.slice(18, -1));
+    expect(result.pokewebBattleRules).toMatchObject({ version: 1, baseGame: "BW2", moveData: [[1, "Test Swing", 0x1081, 0]] });
+    const set = Object.values(result.formatted_sets.Bulbasaur)[0];
+    expect(set).toMatchObject({
+      weather: "Clear", fieldGlobal: ["gravity"], fieldLeft: ["reflect", "lightscreen"], fieldRight: ["tailwind"],
+      spikesLeft: 2, toxicSpikesRight: 1, startingHpPercent: 51, status: "brn",
+    });
   });
 
   it("skips editor-only tutor move lookups for calc and dex Pokemon exports", () => {

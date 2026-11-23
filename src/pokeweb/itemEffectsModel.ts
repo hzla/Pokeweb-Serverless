@@ -706,6 +706,54 @@ function existingRules(c: Context): Map<number, ItemRuleSet> {
   if (existing) return new Map(existing);
   return new Map([...readHealingOverrides(c)].map(([id, type]) => [id, validateItemRule(typeHealingRule(type, Number(getItemRecord(c.project, id).raw.gain_values)))]));
 }
+const CALC_ITEM_TYPE_BOOSTS: Readonly<Record<number, number>> = {
+  222: 6, 233: 8, 237: 4, 238: 5, 239: 11, 240: 16, 241: 1, 242: 12, 243: 10,
+  244: 2, 245: 3, 246: 14, 247: 7, 248: 13, 249: 9, 250: 15, 251: 0, 254: 10,
+  298: 9, 299: 10, 300: 12, 301: 11, 302: 14, 303: 1, 304: 3, 305: 4,
+  306: 2, 307: 13, 308: 6, 309: 5, 310: 7, 311: 15, 312: 16, 313: 8,
+  314: 13, 315: 5, 317: 10, 318: 11,
+};
+
+export function calcNativeItemGain(id: number): {original: number; stage: "power" | "damage"; type?: number; category?: number; superEffective?: boolean} | undefined {
+  const type = CALC_ITEM_TYPE_BOOSTS[id];
+  if (type !== undefined) return { original: 20, stage: "power", type };
+  if (id === 266 || id === 267) return { original: 10, stage: "power", category: id === 266 ? 1 : 2 };
+  if (id === 268) return { original: 20, stage: "damage", superEffective: true };
+  if (id === 270) return { original: 30, stage: "damage" };
+}
+
+/** Read verified recipes and changed BW2 native assignments once per export. */
+export function readCalcItemEffects(project: ProjectState, includeRules: boolean) {
+  if (project.session.baseRom === "BW") {
+    return { rules: includeRules ? readBw1ItemRules(project) : new Map<number, ItemRuleSet>(), native: [] };
+  }
+  const c = nativeContext(project), rules = includeRules ? existingRules(c) : new Map<number, ItemRuleSet>();
+  const native = profiles.rows.flatMap((row, index) => {
+    if (rules.has(row.id)) return [];
+    const factory = c.factories.get(readU32(c.data, c.table + index * 8 + 4));
+    if (!factory?.profile) return [];
+    const events = factory.profile.events;
+    const choice = events.findIndex(event => /^HandlerChoice(BandPower|SpecsPower|Scarf)$/u.test(event.handler));
+    const sameProfile = row.events.length === events.length && row.events.every((event, i) =>
+      event.event === events[i].event && matchesSignature(c.data, factory.events[i].offset, event.handler));
+    const gain = calcNativeItemGain(factory.profile.id);
+    if (sameProfile && choice < 0 && !gain) return [];
+    if (choice < 0) {
+      const value = gain && project.narcs.items ? Number(getItemRecord(project, row.id).raw.gain_values) : -1;
+      if (sameProfile && (value === -1 || value === gain?.original)) return [];
+      assertFactoryUnhooked(c, factory);
+      return [{ id: row.id, profile: factory.profile.id, value }];
+    }
+    assertFactoryUnhooked(c, factory);
+    const name = events[choice].handler, at = factory.events[choice].offset;
+    assertServices(c, at, name);
+    const scarf = name === "HandlerChoiceScarf";
+    const value = c.data[at + (scarf ? 0xe : 6)] * 2 ** ((readU16(c.data, at + (scarf ? 0x12 : 0x24)) >> 6) & 31) / 4096;
+    return sameProfile && value === 1.5 ? [] : [{ id: row.id, profile: factory.profile.id, value }];
+  });
+  return { rules, native };
+}
+
 function stageGenericRules(c: Context, rules: ReadonlyMap<number, ItemRuleSet>): void {
   const ability=patchFiles(c).has("patches/AbilityEffects.dll")?prepareAbilityMoveParamForItem(c.project,Boolean(rules.size)):{chain:false};
   itemMessageIds(c.project,rules,true);

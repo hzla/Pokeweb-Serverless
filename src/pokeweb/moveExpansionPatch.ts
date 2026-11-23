@@ -15,6 +15,9 @@ import { getGen5BattleSpaWorkspaceBytes } from "./nitroSpa";
 
 export const MOVE_EXPANSION_TARGET_COUNT = 1000;
 export const MOVE_EXPANSION_FIRST_USABLE_ID = 680;
+// Live's first occupied ID is 675. The compact command compares groups of eight;
+// the preceding three filler IDs can use direct slots without touching lifecycle IDs.
+export const LIVE_MOVE_EXPANSION_ROUTING_START = 672;
 export const MOVE_EXPANSION_PARTICLE_WORKSPACE_BYTES = 0x4800;
 
 /** Allocation sizes from the BW/BW2 battle SPL_Init and SPL_Load routines.
@@ -126,6 +129,7 @@ type MoveExpansionRoutingCacheEntry = {
   loadedCommandOverlay: Uint8Array | undefined;
   state: MoveExpansionRoutingState;
   legacyFrost: boolean;
+  firstDirectMoveId?: number;
 };
 
 type RoutingOverlay = {
@@ -248,6 +252,7 @@ export async function installMoveExpansion(
   options: MoveExpansionInstallOptions = {},
 ): Promise<MoveExpansionInstallResult> {
   if (!isGen5BaseRom(project.session.baseRom)) throw new Error("Move Expansion is currently available for Black / White and Black 2 / White 2 only.");
+  if (usesMigratedLiveMoveLayout(project)) throw new Error("This ROM uses migrated Pokeweb Live move slots. Install animations by move ID in the Move Animation editor.");
 
   const includeBundledAnimations = options.includeBundledAnimations ?? options.includeGen6Animations ?? false;
   const animationBundleBytes = options.animationBundleBytes ?? options.gen6AnimationBundleBytes;
@@ -375,7 +380,22 @@ export function detectMoveExpansionPatch(project: ProjectState): MoveExpansionPa
   const routing = detectProjectMoveExpansionRouting(project);
   if (routing === "unknown") return project.patches?.applied?.moveExpansion ? "patched" : "unknown";
   if (routing === "unpatched") return "unpatched";
+  if (usesMigratedLiveMoveLayout(project)) {
+    const moveCount = project.narcs.moves?.rawFiles.length ?? 0;
+    return moveCount > LIVE_MOVE_EXPANSION_ROUTING_START &&
+      (project.narcs.move_animations?.rawFiles.length ?? 0) >= moveCount ? "patched" : "routing-only";
+  }
   return hasExpandedMoveData(project) ? "patched" : "routing-only";
+}
+
+export function firstDirectMoveAnimationId(project: ProjectState): number | undefined {
+  if (!isGen5BaseRom(project.session.baseRom)) return undefined;
+  if (detectProjectMoveExpansionRouting(project) !== "patched" && !project.patches?.applied?.moveExpansion) return undefined;
+  return moveExpansionRoutingCache.get(project)?.firstDirectMoveId ?? MOVE_EXPANSION_FIRST_USABLE_ID;
+}
+
+export function usesMigratedLiveMoveLayout(project: ProjectState): boolean {
+  return firstDirectMoveAnimationId(project) === LIVE_MOVE_EXPANSION_ROUTING_START;
 }
 
 export function usesFrostMoveExpansionLayout(project: ProjectState): boolean {
@@ -609,11 +629,18 @@ function isCompactRoutingLoader(data: Uint8Array, baseRom: Gen5BaseRom): boolean
     matchesSequence(data, [0x02, 0xd0], layout.secondaryLoaderHookOffset! + 4) &&
     matchesSequence(data, COMPACT_BW2_PRIMARY, end - 20) &&
     matchesSequence(data, COMPACT_BW2_SECONDARY, end + 4) &&
-    readU32(data, end + 24) === FIRST_ROUTED_MOVE_ANIMATION_ID && readU32(data, end + 28) === 0x7fff;
+    (readU32(data, end + 24) === FIRST_ROUTED_MOVE_ANIMATION_ID ||
+      readU32(data, end + 24) === LIVE_MOVE_EXPANSION_ROUTING_START + MOVE_ANIMATION_ARCHIVE_OFFSET) &&
+    readU32(data, end + 28) === 0x7fff;
 }
 
 /** Plan both overlays together; never truncate unrecognized appended code. */
-export function planMoveExpansionRouting(loader: RoutingOverlay, command: RoutingOverlay, baseRom: Gen5BaseRom): {
+export function planMoveExpansionRouting(
+  loader: RoutingOverlay,
+  command: RoutingOverlay,
+  baseRom: Gen5BaseRom,
+  migrateLiveLayout = false,
+): {
   loader: MoveExpansionRoutingPatchResult; command: MoveExpansionRoutingPatchResult;
 } | undefined {
   const layout = ROUTING_LAYOUTS[baseRom];
@@ -622,6 +649,10 @@ export function planMoveExpansionRouting(loader: RoutingOverlay, command: Routin
   const hook = findCommandHookOffset(command.data, baseRom);
   if (end === undefined || commandEnd !== command.data.length || hook === undefined) return undefined;
   const compact = isCompactRoutingLoader(loader.data, baseRom);
+  const firstDirectMoveId = baseRom === "BW2" && (migrateLiveLayout ||
+    (compact && readU32(loader.data, end + 24) === LIVE_MOVE_EXPANSION_ROUTING_START + MOVE_ANIMATION_ARCHIVE_OFFSET))
+    ? LIVE_MOVE_EXPANSION_ROUTING_START
+    : MOVE_EXPANSION_FIRST_USABLE_ID;
   const state = detectMoveExpansionRoutingHook(loader.data, baseRom);
   if (state === "unknown" || (compact ? loader.bssSize !== 0 && loader.bssSize !== 32 : loader.bssSize !== 32)) return undefined;
   let oldCommandAddress: number | undefined;
@@ -645,6 +676,7 @@ export function planMoveExpansionRouting(loader: RoutingOverlay, command: Routin
   const commandOffset = commandEnd - commandTemplate.length;
   const visualOffset = end - (baseRom === "BW" ? 12 : 20);
   if (baseRom === "BW") writeU32(commandTemplate, 24, loader.ramAddress + end + 28);
+  else commandTemplate[6] = firstDirectMoveId / 8;
   const commandAddress = command.ramAddress + commandOffset;
   const existingCommandAddress = decodeThumbBlTarget(command.data, hook, command.ramAddress + hook);
   if (command.data[commandOffset - 1] !== 0 || loader.data[visualOffset - 1] !== 0) return undefined;
@@ -678,7 +710,7 @@ export function planMoveExpansionRouting(loader: RoutingOverlay, command: Routin
   } else {
     out.set(COMPACT_BW2_PRIMARY, visualOffset);
     out.set(COMPACT_BW2_SECONDARY, end + 4);
-    writeU32(out, end + 24, FIRST_ROUTED_MOVE_ANIMATION_ID);
+    writeU32(out, end + 24, firstDirectMoveId + MOVE_ANIMATION_ARCHIVE_OFFSET);
     writeU32(out, end + 28, 0x7fff);
     writeThumbBl(out, layout.legacyCallerOffset + 8, loader.ramAddress + layout.legacyCallerOffset + 8, loader.ramAddress + visualOffset);
     out.set([0x38, 0xd0], layout.legacyCallerOffset + 12);
@@ -1214,30 +1246,30 @@ function detectProjectMoveExpansionRouting(project: ProjectState): MoveExpansion
     return cached.state;
   }
 
-  let state: MoveExpansionRoutingState = "unknown", legacyFrost = false;
-  if (loadedLoaderOverlay?.length && loadedCommandOverlay?.length) {
-    state = detectCompleteMoveExpansionRouting(loadedLoaderOverlay, loadedCommandOverlay, baseRom);
-    legacyFrost = isLegacyMoveExpansionRoutingHook(loadedLoaderOverlay, layout);
-  } else if (originalRomBytes) {
+  let loaderOverlay = loadedLoaderOverlay;
+  let commandOverlay = loadedCommandOverlay;
+  if ((!loaderOverlay?.length || !commandOverlay?.length) && originalRomBytes) {
     try {
-      const overlays = new NintendoDSRom(originalRomBytes).loadArm9Overlays([layout.loaderOverlayId, layout.commandOverlayId]);
-      const loaderOverlay = loadedLoaderOverlay ?? overlays.get(layout.loaderOverlayId)?.data;
-      const commandOverlay = loadedCommandOverlay ?? overlays.get(layout.commandOverlayId)?.data;
-      legacyFrost = Boolean(loaderOverlay && isLegacyMoveExpansionRoutingHook(loaderOverlay, layout));
-      state = loaderOverlay && commandOverlay
-        ? detectCompleteMoveExpansionRouting(loaderOverlay, commandOverlay, baseRom)
-        : "unknown";
-    } catch {
-      state = "unknown";
-    }
+      const overlays = new NintendoDSRom(originalRomBytes, { fileData: "view" }).loadArm9Overlays([layout.loaderOverlayId, layout.commandOverlayId]);
+      if (!loaderOverlay?.length) loaderOverlay = overlays.get(layout.loaderOverlayId)?.data;
+      if (!commandOverlay?.length) commandOverlay = overlays.get(layout.commandOverlayId)?.data;
+    } catch { /* A cached project may need its source ROM reconnected. */ }
   }
+  const state = loaderOverlay?.length && commandOverlay?.length
+    ? detectCompleteMoveExpansionRouting(loaderOverlay, commandOverlay, baseRom)
+    : "unknown";
+  const legacyFrost = Boolean(loaderOverlay && isLegacyMoveExpansionRoutingHook(loaderOverlay, layout));
+  const firstDirectMoveId = state === "patched" && baseRom === "BW2" && loaderOverlay &&
+    isCompactRoutingLoader(loaderOverlay, baseRom)
+    ? readU32(loaderOverlay, loaderOverlay.length - 8) - MOVE_ANIMATION_ARCHIVE_OFFSET
+    : undefined;
 
   moveExpansionRoutingCache.set(project, {
     baseRom,
     originalRomBytes,
     loadedLoaderOverlay,
     loadedCommandOverlay,
-    state, legacyFrost,
+    state, legacyFrost, firstDirectMoveId,
   });
   return state;
 }
@@ -1250,7 +1282,15 @@ function detectCompleteMoveExpansionRouting(
   const loaderState = detectMoveExpansionRoutingHook(loaderOverlay, baseRom);
   if (loaderState !== "patched") return loaderState;
   const hookOffset = findCommandHookOffset(commandOverlay, baseRom);
-  return hookOffset !== undefined && isThumbBl(commandOverlay, hookOffset) ? "patched" : "unpatched";
+  const helperOffset = hookOffset === undefined ? undefined : thumbBlTargetOffset(commandOverlay, hookOffset);
+  if (helperOffset === undefined) return "unpatched";
+  if (baseRom === "BW2" && isCompactRoutingLoader(loaderOverlay, baseRom) &&
+    readU32(loaderOverlay, loaderOverlay.length - 8) === LIVE_MOVE_EXPANSION_ROUTING_START + MOVE_ANIMATION_ARCHIVE_OFFSET) {
+    const commandTemplate = COMPACT_BW2_COMMAND.slice();
+    commandTemplate[6] = LIVE_MOVE_EXPANSION_ROUTING_START / 8;
+    if (!matchesSequence(commandOverlay, commandTemplate, helperOffset)) return "unknown";
+  }
+  return "patched";
 }
 
 /** Repair recognized partial installs and migrate appended helpers without RAM growth.

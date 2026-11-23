@@ -25,6 +25,8 @@ import { parseGen5ScriptEncounters, type Gen5ScriptEncounter } from "./gen5Scrip
 import { gen5ResolvedScriptOperands, gen5ScriptCommandOffsets, type ScriptWalkOptions } from "./gen5ScriptCommands";
 import { indirectTrainerContext, parseIndirectTrainerScripts, trainerMapEventContext } from "./trainerLocationModel";
 import { inferTrainerBattleWeather } from "./trainerBattleWeatherModel";
+import { buildCalcBattleRules, calcTrainerOpening } from "./calcBattleRulesModel";
+import { getTrainerMemberSettings } from "./trainerCustomizationModel";
 import { parseHeaders } from "./headerModel";
 import { getMartCount, getMartRecord } from "./martGrottoModel";
 import { getItemCount, getItemRecord, getMoveCount, getMoveRecord } from "./moveItemModel";
@@ -601,8 +603,10 @@ function buildCalcPayload(project: ProjectState, title: string) {
   // Validate exported replacement targets, not unused retail/key-item names.
   const replacementTargets = new Set(Object.values(itemReplacements));
   for (const name of itemNames) if (typeof name === "string" && replacementTargets.has(itemId(name))) items.resolve(name);
+  const battleRules = buildCalcBattleRules(project, showdownName, titleizeAbility);
   const payload = {
     title,
+    ...(battleRules ? { pokewebBattleRules: battleRules } : {}),
     ...(typeChart ? { type_chart: typeChart } : {}),
     pok_replacements: replacementMap(VANILLA.pokedex, project.texts.banks.pokedex ?? [], (value) =>
       toId(String(value).replace(/fletcinder/iu, "fletchinder").replace(/lycanrocm/iu, "lycanrocmidnight")),
@@ -1531,6 +1535,7 @@ function buildFormattedTrainerSets(project: ProjectState, itemName: (value: unkn
   for (let trainerId = 0; trainerId < getTrainerCount(project); trainerId += 1) {
     if (!project.narcs.trpok.rawFiles[trainerId]) continue;
     const trainer = getTrainerRecord(project, trainerId);
+    const opening = calcTrainerOpening(project, trainerId);
     const baseName = `${trainer.readable.class ?? ""} ${trainer.readable.name ?? ""}`.trim();
     nameCounts[baseName] = (nameCounts[baseName] ?? 0) + 1;
     for (const pok of trainer.party) {
@@ -1539,6 +1544,8 @@ function buildFormattedTrainerSets(project: ProjectState, itemName: (value: unkn
       formatted[species] ??= {};
       const setName = trainerSetName(project, trainer, pok.level, nameCounts[baseName]);
       const iv = Math.floor((pok.ivs * 31) / 255);
+      const member = getTrainerMemberSettings(project, trainer.id, pok.slot);
+      const status = ["", "par", "slp", "frz", "brn", "psn", "tox"][member.status];
       formatted[species][dedupeSetName(formatted[species], setName)] = {
         level: pok.level,
         ai: trainer.readable.ai ?? trainer.raw.ai ?? 0,
@@ -1549,6 +1556,10 @@ function buildFormattedTrainerSets(project: ProjectState, itemName: (value: unkn
         tr_id: trainer.id,
         diff: docs.trainerDiffs[String(trainerId)] ?? 0,
         ...(weather[trainerId] ? { weather: weather[trainerId] } : {}),
+        ...opening,
+        ...(status ? { status } : {}),
+        ...(member.hpMode === 1 ? { startingHpPercent: member.hp } : {}),
+        ...(member.hpMode === 2 ? { startingHp: member.hp } : {}),
         ivs: { hp: iv, at: iv, df: iv, sa: iv, sd: iv, sp: iv },
         battle_type: trainer.readable.battle_type_1,
         reward_item: itemName(trainer.readable.reward_item),

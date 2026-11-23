@@ -1033,6 +1033,13 @@ export function clearAbilityRules(project: ProjectState, id: number): void {
     verified.delete(project);
 }
 
+export function readCalcAbilityEffects(project: ProjectState, includeRules: boolean) {
+    const c = context(project), rules = includeRules ? readRules(c) : new Map<number, AbilityRuleSet>();
+    const overrides = storedMoveClasses(c), automatic = automaticMoveClasses(c, true);
+    const flags = Array.from({ length: project.narcs.moves?.fileCount ?? 0 }, (_, id) => moveDllFlags(overrides, id, automatic));
+    return { rules, flags, customFlags: storedCustomMoveFlags(c).flags };
+}
+
 export function inspectMoveDllFlags(project: ProjectState, moveId: number): { editable: boolean; flags: number; customized: boolean; message: string } {
     try {
         if (!Number.isInteger(moveId) || moveId < 0 || moveId > 65535 || !project.narcs.moves || moveId >= project.narcs.moves.fileCount) throw Error("Reload the ROM with Moves selected.");

@@ -14,13 +14,14 @@ import {
   applyMoveExpansionCommandHookToOverlay,
   applyMoveExpansionRoutingHookToOverlay,
   detectMoveExpansionRoutingHook,
+  firstDirectMoveAnimationId,
   parseMoveExpansionAnimationBundle,
   planMoveExpansionRouting,
   repairMoveExpansionOverlayLoadSize,
   usesFrostMoveExpansionLayout,
   hasExpandedMoveFlagLayout,
 } from "../pokeweb/moveExpansionPatch";
-import { decompileMoveAnimationBytes, parseMoveAnimationScript, remapMoveAnimationAssets, remapMoveAnimationParticleIds } from "../pokeweb/moveAnimationModel";
+import { decompileMoveAnimationBytes, getMoveAnimationTargetInfo, parseMoveAnimationScript, remapMoveAnimationAssets, remapMoveAnimationParticleIds } from "../pokeweb/moveAnimationModel";
 import { parseSpaArchive } from "../pokeweb/nitroSpa";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
 import { describe, expect, it, vi } from "vitest";
@@ -50,6 +51,30 @@ const ORIGINAL_SECONDARY_LOADER_HOOK = [0x84, 0x42, 0x10, 0x4b];
 const ORIGINAL_BW_VISUAL_HOOK = [0x31, 0x1c, 0x1a, 0x40];
 
 describe("Move Expansion patch", () => {
+  it("keeps migrated Pokeweb Live animations addressable without changing the battle animation slots", () => {
+    const { loader, command } = routingFixture("BW2");
+    const plan = planMoveExpansionRouting(loader, command, "BW2", true)!;
+    const migratedLoader = { ...loader, data: plan.loader.overlay, ramSize: plan.loader.overlay.length, bssSize: 0 };
+    const migratedCommand = { ...command, data: plan.command.overlay };
+    const project = {
+      session: { baseRom: "BW2" },
+      overlays: { 167: migratedCommand.data, 168: migratedLoader.data },
+      narcs: {
+        move_animations: { rawFiles: Array.from({ length: 1014 }, () => Uint8Array.of(1)) },
+        battle_animations: { rawFiles: Array.from({ length: 115 }, () => Uint8Array.of(2)) },
+      },
+    } as unknown as ProjectState;
+
+    expect(detectMoveExpansionRoutingHook(migratedLoader.data, "BW2")).toBe("patched");
+    expect(firstDirectMoveAnimationId(project)).toBe(672);
+    expect(getMoveAnimationTargetInfo(project, 671)).toMatchObject({ storeName: "battle_animations", index: 110 });
+    expect(getMoveAnimationTargetInfo(project, 675)).toMatchObject({ storeName: "move_animations", index: 675 });
+    expect(getMoveAnimationTargetInfo(project, 1013)).toMatchObject({ storeName: "move_animations", index: 1013 });
+    const repeated = planMoveExpansionRouting(migratedLoader, migratedCommand, "BW2");
+    expect(repeated?.loader.status).toBe("already-applied");
+    expect(repeated?.command.status).toBe("already-applied");
+  });
+
   it.each(["BW", "BW2"] as const)("preserves the retail %s arena and can roll back the previous paired 24 KiB patch", baseRom => {
     const overlay = routingFixture(baseRom).loader.data;
     const offsets = baseRom === "BW" ? [0x3c0e, 0x3c5c] : [0x40fe, 0x414c];

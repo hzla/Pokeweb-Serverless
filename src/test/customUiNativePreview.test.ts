@@ -63,7 +63,9 @@ for (const [game, name] of [["W2", "cleanwhite2.nds"], ["B2", "cleanblack2.nds"]
       const session = start(compiled.document, sample, "party"), result = preview(compiled, assets, sample, session);
       glyphAt(result.bottom, "T", 8, 0, 1); glyphAt(result.bottom, "a", 8, 16, 1); glyphAt(result.bottom, "d", 8, 32, 1);
       glyphAt(result.bottom, "P", 64, 48, 1); glyphAt(result.bottom, "A", 152, 48, 1);
-      glyphAt(result.bottom, "1", 66, 72, 15); glyphAt(result.bottom, "P", 184, 72, 1);
+      glyphAt(result.bottom, "1", 66, 72, 15); glyphAt(result.bottom, "1", 184, 72, 1);
+      const ppSuffixX = [..."15 "].reduce((x, char) => x + assets.glyph(0, char)!.advance, 184);
+      glyphAt(result.bottom, "P", ppSuffixX, 72, 1);
       spriteAt(result.bottom, "category-1", 33, 56);
       spriteAt(result.bottom, "type-9", 47, 80);
       expect(result.diagnostics.filter(d => d.element === "learnset-moves" && d.code !== "native-preview")).toEqual([]);

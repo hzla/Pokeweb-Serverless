@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -38,17 +39,22 @@ const RUNTIME = join(ROOT, "runtime");
 const runtimeDirs = readdirSync(RUNTIME).map(name => join(RUNTIME, name)).filter(path => statSync(path).isDirectory());
 
 describe("built binaries", () => {
+  // Build directories also hold private logs, captures, and historical binaries.
+  // Audit the files that can ship, including checked-in build outputs.
+  const repoBuildFiles = existsSync(join(ROOT, ".git"))
+    ? execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", ":(glob)runtime/*/build/**"], {
+        cwd: ROOT, encoding: "utf8",
+      }).split("\0").filter(Boolean).map(path => join(ROOT, path)).filter(path => existsSync(path))
+    : runtimeDirs.flatMap(dir => filesUnder(join(dir, "build")));
   const binaries = [
     ...filesUnder(join(ROOT, "src/assets/codeinjection")),
-    ...runtimeDirs.flatMap(dir => filesUnder(join(dir, "build"))),
+    ...new Set(repoBuildFiles),
   ].filter(path => !/\.(json|md|txt|ts|js)$/.test(path));
 
   it("hold no absolute paths, usernames or home folders", () => {
     expect(binaries.length).toBeGreaterThan(0);
-    const leaks = binaries.flatMap(path => {
-      const hit = printableRuns(readFileSync(path)).find(run => MACHINE_PATH.test(run));
-      return hit ? [`${relative(ROOT, path)}: ${hit.slice(0, 120)}`] : [];
-    });
+    const leaks = binaries.filter(path => printableRuns(readFileSync(path)).some(run => MACHINE_PATH.test(run)))
+      .map(path => relative(ROOT, path));
     // Fix the build script's path flags and rebuild; never patch the binary by hand.
     expect(leaks).toEqual([]);
   });
@@ -61,10 +67,19 @@ describe("C build scripts", () => {
     .map(name => join(dir, name)))
     .filter(path => compiles(readFileSync(path, "utf8")));
   // A script may take its flags from a helper module beside it, as item-expansion does.
-  const mapsRepoRoot = (path: string) => readdirSync(dirname(path)).filter(name => name.endsWith(".py")).some(name => {
-    const text = readFileSync(join(dirname(path), name), "utf8");
+  const directoryDefinesPathMap = (dir: string) => readdirSync(dir).filter(name => name.endsWith(".py")).some(name => {
+    const text = readFileSync(join(dir, name), "utf8");
     return /-ffile-prefix-map=/.test(text) || (/-fmacro-prefix-map=/.test(text) && /-fdebug-prefix-map=/.test(text));
   });
+  const mapsRepoRoot = (path: string) => {
+    if (directoryDefinesPathMap(dirname(path))) return true;
+    const text = readFileSync(path, "utf8");
+    // Quick Poké Ball passes the item-expansion compiler flags through to GCC.
+    if (!text.includes('HERE.parent / "item-expansion"') || !text.includes("import build as shared") || !text.includes("*shared.CFLAGS")) return false;
+    const itemExpansion = join(RUNTIME, "item-expansion");
+    return /CFLAGS\s*=\s*\[SOURCE_PATH_MAP\b/.test(readFileSync(join(itemExpansion, "build.py"), "utf8"))
+      && /SOURCE_PATH_MAP\s*=.*-ffile-prefix-map=/.test(readFileSync(join(itemExpansion, "generate.py"), "utf8"));
+  };
 
   it("map the repo root out of __FILE__ and debug info", () => {
     expect(scripts.length).toBeGreaterThan(0);

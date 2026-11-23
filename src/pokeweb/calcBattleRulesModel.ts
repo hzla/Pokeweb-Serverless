@@ -1,0 +1,128 @@
+import { ABILITY_EFFECTS_DLL_PATH, readCalcAbilityEffects } from "./abilityEffectsModel";
+import { libraryAbilityEffect } from "./abilityLibraryEffects";
+import { isVanillaAbilityRule, nativeAbilityProfile } from "./abilityNativeRuntime";
+import { recipeAbilityEffect } from "./abilityRecipeEffects";
+import { defaultMoveDllFlags } from "./abilityMoveClasses";
+import { resolveCalcItemName } from "./calcItemNames";
+import { calcNativeItemGain, readCalcItemEffects, ITEM_EFFECTS_DLL_PATH } from "./itemEffectsModel";
+import { itemRecipeEffect } from "./itemRecipeEffects";
+import { ITEM_RULE_EFFECTS, type ItemRuleEffect } from "./itemRules";
+import { inspectMoveEffects, MOVE_EFFECTS_DLL_PATH } from "./moveEffectsModel";
+import { MOVE_PRIMITIVES } from "./moveRules";
+import { getItemRecord, getMoveCount, getMoveRecord } from "./moveItemModel";
+import { listCodeInjectionDlls } from "./pmcModel";
+import type { ProjectState } from "./projectStore";
+import { getTrainerFieldConditions, TRAINER_GLOBAL_CONDITIONS, TRAINER_SIDE_CONDITIONS } from "./trainerFieldConditionsModel";
+
+export function calcTrainerOpening(project: ProjectState, id: number) {
+  if (project.session.baseRom !== "BW2") return {};
+  const field = getTrainerFieldConditions(project, id);
+  const names = (mask: number, definitions: readonly {id: number; label: string}[]) =>
+    definitions.filter(entry => mask & 1 << entry.id).map(entry => entry.label.toLowerCase().replaceAll(" ", ""));
+  const weather = [undefined, "Clear", "Sun", "Rain", "Hail", "Sand"][field.weather];
+  return {
+    ...(weather ? { weather } : {}),
+    ...(field.fields ? { fieldGlobal: names(field.fields, TRAINER_GLOBAL_CONDITIONS) } : {}),
+    ...(field.player ? { fieldLeft: names(field.player, TRAINER_SIDE_CONDITIONS) } : {}),
+    ...(field.opponent ? { fieldRight: names(field.opponent, TRAINER_SIDE_CONDITIONS) } : {}),
+    ...(field.playerSpikes ? { spikesLeft: field.playerSpikes } : {}),
+    ...(field.opponentSpikes ? { spikesRight: field.opponentSpikes } : {}),
+    ...(field.playerToxicSpikes ? { toxicSpikesLeft: field.playerToxicSpikes } : {}),
+    ...(field.opponentToxicSpikes ? { toxicSpikesRight: field.opponentToxicSpikes } : {}),
+  };
+}
+
+function exportEffect(effect: ItemRuleEffect) {
+  const definition = recipeAbilityEffect(effect.kind) ?? libraryAbilityEffect(effect.kind) ??
+    itemRecipeEffect(effect.kind) ?? nativeAbilityProfile(effect.kind);
+  const native = nativeAbilityProfile(effect.kind);
+  const original = (sites?: readonly { original: number }[]) =>
+    sites?.length && sites.every(site => site.original === sites[0].original) ? sites[0].original : undefined;
+  const defaults = Object.fromEntries((definition?.parameters ?? []).map(p => [p.key, p.original]));
+  if (libraryAbilityEffect(effect.kind)) delete defaults.types;
+  return {
+    ...effect,
+    label: libraryAbilityEffect(effect.kind)?.label ?? recipeAbilityEffect(effect.kind)?.label ??
+      ITEM_RULE_EFFECTS.find(entry => entry.kind === effect.kind)?.label,
+    value: effect.value === -1 && native ? original(native.multipliers) ?? -1 : effect.value,
+    ...(native ? { weather: effect.weather ?? original(native.weather) } : {}),
+    parameters: { ...defaults, ...effect.parameters },
+  };
+}
+
+function exportItemEffect(project: ProjectState, effect: ItemRuleEffect, assigned = false) {
+  const exported = exportEffect(effect);
+  const profile = effect.kind.startsWith("native:") ? Number(effect.kind.slice(7)) : 0;
+  const gain = calcNativeItemGain(profile);
+  if (!gain) return exported;
+  const percent = effect.value !== -1 ? effect.value :
+    !assigned && project.narcs.items?.rawFiles[profile] ? Number(getItemRecord(project, profile).raw.gain_values) : gain.original;
+  return {
+    ...exported,
+    // Native item percentages are truncated to fixed point by the ROM.
+    value: Math.floor((100 + percent) * 4096 / 100) / 4096,
+    kind: gain.stage === "power" ? "itemRecipe:power" : "itemRecipe:nativeDamage",
+    parameters: { type: gain.type ?? 18, category: gain.category ?? 0, superEffective: Number(gain.superEffective ?? false) },
+    ...(profile === 270 ? { additionalManualEffect: "recoil" } : {}),
+  };
+}
+
+export function buildCalcBattleRules(project: ProjectState, moveName: (value: unknown) => string, abilityName: (value: unknown) => string) {
+  if (project.session.baseRom !== "BW" && project.session.baseRom !== "BW2") return undefined;
+  const modules = new Set(listCodeInjectionDlls(project).map(module => module.path.toLowerCase()));
+  const has = (path: string) => modules.has(path.toLowerCase());
+  const warnings: string[] = [];
+  const read = <T>(label: string, installed: boolean, readRules: () => T) => {
+    try { return readRules(); }
+    catch {
+      if (installed) warnings.push(`${label} runtime could not be verified for calculator export.`);
+      return undefined;
+    }
+  };
+  const abilitiesInstalled = has(ABILITY_EFFECTS_DLL_PATH);
+  const abilities = read("Ability", abilitiesInstalled, () => readCalcAbilityEffects(project, abilitiesInstalled));
+  const itemsInstalled = has(ITEM_EFFECTS_DLL_PATH) || [...modules].some(path => /^patches\/itemtypehealing\d+\.dll$/u.test(path));
+  const items = read("Item", itemsInstalled, () => readCalcItemEffects(project, itemsInstalled));
+  const moves = read("Move", has(MOVE_EFFECTS_DLL_PATH), () => {
+    if (!has(MOVE_EFFECTS_DLL_PATH)) return [];
+    const result = inspectMoveEffects(project);
+    if (!result.editable) throw Error(result.message);
+    return [...result.rules].map(([id, rule]) => [id, {
+      ...rule, effects: rule.effects.map(effect => {
+        const definition = MOVE_PRIMITIVES.find(p => p.kind === effect.kind);
+        return { ...effect, label: definition?.label, parameters: { ...Object.fromEntries((definition?.parameters ?? []).map(p => [p.key, p.original])), ...effect.parameters } };
+      }),
+    }] as const);
+  });
+  const banks = project.texts.banks;
+  const nameRows = (names: readonly string[] | undefined, format: (name: string) => string) =>
+    (names ?? []).flatMap((name, id) => id && typeof name === "string" && name.trim() ? [[id, format(name)] as const] : []);
+  const customFlags = new Map<number, number[]>();
+  for (const flag of abilities?.customFlags ?? []) for (const id of flag.moves) {
+    const flags = customFlags.get(id) ?? [];
+    flags.push(flag.id);
+    customFlags.set(id, flags);
+  }
+  return {
+    version: 1,
+    baseGame: project.session.baseRom,
+    abilities: [...(abilities?.rules ?? [])].filter(([id, rule]) => !isVanillaAbilityRule(id, rule)).map(([id, rule]) =>
+      [id, { ...rule, effects: rule.effects.map(exportEffect) }] as const),
+    items: [
+      ...[...(items?.rules ?? [])].map(([id, rule]) => [id, { ...rule, effects: rule.effects.map(effect => exportItemEffect(project, effect)) }] as const),
+      ...(items?.native ?? []).map(({ id, profile, value }) =>
+        [id, { effects: [exportItemEffect(project, { kind: `native:${profile}`, value }, true)] }] as const),
+    ],
+    moves: moves ?? [],
+    names: {
+      abilities: nameRows(banks.abilities, abilityName),
+      items: nameRows(banks.items, name => resolveCalcItemName(name) ?? name),
+    },
+    moveData: Array.from({ length: Math.max(0, getMoveCount(project) - 1) }, (_, index) => {
+      const id = index + 1, move = getMoveRecord(project, id);
+      const name = moveName(banks.moves?.[id] ?? move.readable.name ?? `Move ${id}`);
+      return [id, name, move.raw.properties ?? 0, abilities?.flags[id] ?? defaultMoveDllFlags(id), ...(customFlags.has(id) ? [customFlags.get(id)!] : [])] as const;
+    }),
+    ...(warnings.length ? { warnings } : {}),
+  };
+}

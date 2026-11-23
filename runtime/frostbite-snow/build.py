@@ -21,6 +21,7 @@ def build_template(name, test):
     dll.unlink(missing_ok=True)
     subprocess.run([tool("arm-none-eabi-gcc"), "-mthumb", "-mcpu=arm946e-s", "-Os", "-Wall", "-Wextra", "-Werror",
                     "-ffreestanding", "-fno-unwind-tables", "-fno-asynchronous-unwind-tables", "-fvisibility=hidden",
+                    f"-ffile-prefix-map={ROOT}/=",
                     f"-D{name.upper()}", "-fno-builtin", *(["-DCLIMATE_TEST"] if test else []), "-c", HERE / "runtime.c", "-o", obj], check=True)
     subprocess.run(["java", "-cp", JAR, "rpm.cli.RPMTool", "-i", obj, "--fourcc", "DLXF", "-o", dll,
                     "--generate-relocations"], check=True)

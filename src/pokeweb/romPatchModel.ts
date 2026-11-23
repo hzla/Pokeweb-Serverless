@@ -6,7 +6,7 @@ import { applyFairyTypeGeneralPatch, fairyTypePatchAvailable } from "./generalPa
 import { loadActiveRomBytes } from "./persistence";
 import { createNarcStore, type NarcStore, type ProjectState } from "./projectStore";
 import { detectTrainerNaturePatchState, hasTrainerNaturePmcSetupSignatures, restoreLegacyTrainerNaturePatchToArm9, type TrainerNaturePatchState } from "./trainerNaturePatch";
-import { installMoveExpansion, type MoveExpansionInstallOptions } from "./moveExpansionPatch";
+import { installMoveExpansion, usesMigratedLiveMoveLayout, type MoveExpansionInstallOptions } from "./moveExpansionPatch";
 import { getPmcInstallStatus, installBundledPmc, listCodeInjectionDlls, stageCodeInjectionDll } from "./pmcModel";
 
 export { detectMoveExpansionPatch } from "./moveExpansionPatch";
@@ -313,6 +313,9 @@ export async function addMoveExpansion(
   project: ProjectState,
   options: AddMoveExpansionOptions = {},
 ): Promise<RomPatchApplyResult> {
+  if (usesMigratedLiveMoveLayout(project)) {
+    return { patchId: "moveExpansion", status: "already-applied", summary: "The upgraded routing is installed for this ROM’s Pokeweb Live move IDs. Assign animations by move ID in the Move Animation editor." };
+  }
   // Move Expansion brings Fairy Type Support with it, so the Gen 6+ Fairy moves keep their type.
   const fairyInstalled = detectFairyTypePatch(project) === "unpatched"
     ? Boolean(await addFairyTypeSupport(project, { updateModernFairyTypings: true }))

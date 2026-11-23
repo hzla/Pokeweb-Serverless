@@ -6,7 +6,7 @@ import { projectEditSession, type PreparedEdit } from "./editSession";
 import { EFFECT_CATEGORIES, PROPERTIES, STATS, STATUSES, TARGETS, moveCategoryNamesForProject, typeNamesForProject } from "./constants";
 import { frostbiteSnowLabel } from "./frostbiteSnowModel";
 import { prepareMoveAnimationCopy } from "./moveAnimationModel";
-import { getMoveExpansionSourceMoveId, MOVE_EXPANSION_FIRST_USABLE_ID, usesFrostMoveExpansionLayout } from "./moveExpansionPatch";
+import { firstDirectMoveAnimationId, getMoveExpansionSourceMoveId, usesFrostMoveExpansionLayout, usesMigratedLiveMoveLayout } from "./moveExpansionPatch";
 import { decodeRecord, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
 
 // Line index is the ROM's AISeqNo (0-337). Keep every slot, including unused ones,
@@ -208,6 +208,7 @@ const MOVE_GENERATION_LAST_IDS = [165, 251, 354, 467, 559, 621, 742, 850, 919];
 
 export function getMoveGeneration(project: ProjectState, moveId: number): number | undefined {
   if (!Number.isSafeInteger(moveId) || moveId < 1) return undefined;
+  if (moveId > 559 && usesMigratedLiveMoveLayout(project)) return undefined;
   // Frost keeps generic battle-animation slots before its relocated moves.
   const sourceId = moveId > 559 && usesFrostMoveExpansionLayout(project)
     ? getMoveExpansionSourceMoveId(moveId)
@@ -398,7 +399,8 @@ export function itemMatchesSearch(record: ItemRecord, searchText: string): boole
 export function syncMoveReadable(project: ProjectState, raw: RawRecord, readable: ReadableRecord, id: number): void {
   Object.assign(readable, raw);
   readable.index = id;
-  readable.animation = usesFrostMoveExpansionLayout(project) && id >= MOVE_EXPANSION_FIRST_USABLE_ID ? id : id >= 673 ? 0 : id;
+  const firstExpandedAnimationId = firstDirectMoveAnimationId(project);
+  readable.animation = (firstExpandedAnimationId !== undefined && id >= firstExpandedAnimationId) || id < 673 ? id : 0;
   readable.name = project.texts.banks.moves?.[id] ?? (id <= 559 ? `Move ${id}` : `EXPANDED MOVE ${id}`);
   readable.type = typeNamesForProject(project)[raw.type] ?? raw.type;
   readable.effect_category = EFFECT_CATEGORIES[raw.effect_category] ?? raw.effect_category;
