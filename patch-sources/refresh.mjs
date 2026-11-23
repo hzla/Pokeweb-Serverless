@@ -348,7 +348,7 @@ const additions = [
   },
   {
     name: 'learnset-viewer', title: 'Standalone LEARNSET party-menu viewer',
-    artifacts: ['LearnsetMenuB2.dll', 'LearnsetMenuW2.dll', 'LearnsetViewerB2.dll', 'LearnsetViewerW2.dll', 'LearnsetMenuB.dll', 'LearnsetMenuW.dll', 'LearnsetViewerB.dll', 'LearnsetViewerW.dll'],
+    artifacts: ['LearnsetMenuB2.dll', 'LearnsetMenuW2.dll', 'LearnsetViewerB2.dll', 'LearnsetViewerW2.dll', 'LearnsetMenuB.dll', 'LearnsetMenuW.dll', 'LearnsetViewerB.dll', 'LearnsetViewerW.dll', 'learnset-three-cards-bw1.narc'],
     note: `BW2 version ${learnset.version}, with separately compiled US revision-0 B/W ${learnset.games.B.version} companions using independent native profiles and overlays 10/91/173. ${bw1Status(learnset.games)} Shared read-only party/family navigation, session-owned graph/icons, native fonts/type resources and private text are retained. The installer validates fingerprints/native bindings/resources, rejects conflicts, commits PMC/text/both DLLs atomically, and preserves configured IDs and edited private text across update/reinstall/export/reopen. Compiled native-mode DS/extended-memory fixtures do not establish live DSi acceptance or native heap capacity. BW2 also hosts the Pokenav application mode and its explicit species/chance context; those sources are in runtime/pokenav. Canonical sources remain in Pokeweb runtime/learnset-viewer.`,
     extra: [
       file('learnset-viewer', 'metadata/learnsetViewerManifest.json', 'metadata', 'src/assets/codeinjection/learnsetViewerManifest.json'),

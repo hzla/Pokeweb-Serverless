@@ -1,4 +1,5 @@
 """Bundle verified BW1 Learnset artifacts with hash-bound DS release gates."""
+import argparse
 import hashlib
 import json
 from pathlib import Path
@@ -19,7 +20,7 @@ TYPES=['NULL','VALUE','FUNCTION_ARM','FUNCTION_THM','SECTION']
 
 def fingerprint(code):
     ranges=[]
-    for magic,start,end in ((b'LSVMSG1\0',10,22),(b'PWUICFG1',10,18)):
+    for magic,start,end in ((b'LSVMSG1\0',10,24),(b'PWUICFG1',10,18)):
         at=code.find(magic);assert at>=0 and code.count(magic)==1
         ranges.append((at+start,at+end))
     if b'LSVINF1\0' in code:
@@ -31,13 +32,21 @@ def fingerprint(code):
     return f'{h:08x}'
 
 def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--assets-dir',type=Path,default=ASSETS)
+    output_dir=parser.parse_args().assets_dir.resolve()
+    output_dir.mkdir(parents=True,exist_ok=True)
     manifest=json.loads((ASSETS/'learnsetViewerManifest.json').read_text())
     candidates=json.loads((HERE/'build/bw1-candidates.json').read_text())
     report={'scope':'Compiled artifact integrity; DS acceptance comes from the separate tested-build ledger; live DSi pending','games':{}}
+    art_name='learnset-three-cards-bw1.narc'
+    art=(HERE/'build'/art_name).read_bytes()
+    (output_dir/art_name).write_bytes(art)
     for game in ('B','W'):
         profile=candidates['games'][game]
         modules={}
-        artifacts={}
+        assert hashlib.sha256(art).hexdigest()==profile["threeCardArtworkSha256"]
+        artifacts={art_name:art}
         for output in profile['modules']:
             group=output['group'];data=(HERE/'build'/output['file']).read_bytes()
             digest=hashlib.sha256(data).hexdigest();assert digest==output['sha256']
@@ -55,7 +64,7 @@ def main():
             modules[group]={'fileName':output['file'],'sha256':digest,'codeFingerprint':fingerprint(rpm['code']),
                             'bssSize':rpm['bss'],'symbols':[{'address':s['address'],'type':TYPES[s['type']],'attributes':s['attributes']} for s in rpm['symbols']],
                             'relocations':rpm['relocations']}
-            (ASSETS/output['file']).write_bytes(data)
+            (output_dir/output['file']).write_bytes(data)
         old=manifest['games'].get(game,{})
         previous=dict(old.get('previousBuilds',{}))
         if old.get('version') and old['version']!=candidates['version']:previous[old['version']]=old['modules']
@@ -63,17 +72,19 @@ def main():
         manifest['games'][game]={**profile,'version':candidates['version'],'modules':modules,'previousBuilds':previous,'dsAccepted':accepted,'liveDsiAccepted':False}
         report['games'][game]={'modules':modules,'dsAccepted':accepted,'liveDsiAccepted':False}
     # Minimal native fixtures include only the profile's resource members.
-    for path in sorted({r['archive'] for r in candidates['games']['B']['resources']}):
+    if output_dir==ASSETS:
         rom=ndspy.rom.NintendoDSRom.fromFile(PROFILES['B']['default'])
-        files=ndspy.narc.NARC(rom.getFileByName(path)).files
-        resources=[r for r in candidates['games']['B']['resources'] if r['archive']==path]
-        narc=ndspy.narc.NARC();narc.files=[b'\0']*(max(r['member'] for r in resources)+1)
-        for r in resources:
-            assert hashlib.sha256(files[r['member']]).hexdigest()==r['sha256']
-            narc.files[r['member']]=files[r['member']]
-        dest=HERE.parents[1]/'src/test/fixtures/learnset-viewer'/('bw1-'+path.replace('/','-')+'.narc')
-        dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes(narc.save())
-    (ASSETS/'learnsetViewerManifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+        resources=candidates['games']['B']['resources']
+        for path in sorted({r['archive'] for r in resources}):
+            files=ndspy.narc.NARC(rom.getFileByName(path)).files
+            members=[r for r in resources if r['archive']==path]
+            narc=ndspy.narc.NARC();narc.files=[b'\0']*(max(r['member'] for r in members)+1)
+            for r in members:
+                assert hashlib.sha256(files[r['member']]).hexdigest()==r['sha256']
+                narc.files[r['member']]=files[r['member']]
+            dest=HERE.parents[1]/'src/test/fixtures/learnset-viewer'/('bw1-'+path.replace('/','-')+'.narc')
+            dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes(narc.save())
+    (output_dir/'learnsetViewerManifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
     (HERE/'build/bw1-artifact-verification.json').write_text(json.dumps(report,indent=2)+'\n')
     print('Bundled BW1 Learnset companions; DS acceptance',{g:manifest['games'][g]['dsAccepted'] for g in ('B','W')})
 

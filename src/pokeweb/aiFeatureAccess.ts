@@ -1,8 +1,8 @@
 /**
- * Experimental features (Map Studio, Mega Evolution, Regional Forms, Species Expansion, the Mastersheet Viewer, UI
- * screens, BW2 scripts, cutscenes, field tours and the Balance Report) are developed with AI assistance. They are
- * available locally and on the hosted site once a visitor opens it with `?okWithAI=true`: the unlock is kept in the
- * browser's storage until its site data is cleared (`?okWithAI=false` locks them again).
+ * Experimental features (Map Studio, Mega Evolution, Regional Forms, Species Expansion, UI screens, BW2 scripts,
+ * cutscenes, field tours and the Balance Report) are developed with AI assistance. They are available locally and on
+ * the hosted site once a visitor opens it with `?okWithAI=true`: the unlock is kept in the browser's storage until its
+ * site data is cleared (`?okWithAI=false` locks them again).
  *
  * Features that need the local development server (opening a ROM by its file path, W2U sync) stay local-only: see
  * localRomBridge.ts.

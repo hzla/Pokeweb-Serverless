@@ -64,7 +64,7 @@ import { readU32, writeU16, writeU32 } from "../nds/binary";
 import { battleRuntimeResolver, battleBranchTarget, BATTLE_RUNTIME_SIGNATURES } from "./battleRuntimeBindings";
 import { validateAbilityRule, encodeAbilityRules, EMPTY_ABILITY_RULE, type AbilityRuleSet } from "./abilityRules";
 import { installCodeInjectionPatch, withProjectMutationLock } from "./codeInjectionInstall";
-import { stageCodeInjectionDll } from "./pmcModel";
+import { listCodeInjectionDlls, stageCodeInjectionDll } from "./pmcModel";
 import { parseRpm, writeRpm, stripRpmPrivateSymbolNames, type RpmModule } from "./rpm";
 import { encodeAbilityRecipeBook, decodeAbilityRecipeBook } from "./abilityRecipeBook";
 import { ensureFileSystemState, setRomFileReplacement } from "./fileSystemModel";
@@ -818,7 +818,7 @@ export async function upgradeAbilityRuntime(project: ProjectState, refreshMoveCl
         if (detectSpecifyTrainerNaturesPatch(staged) === "legacy") await specifyTrainerNatures(staged);
         const c = context(staged), rules = readRules(c);
         const needsProvider = [...rules.values()].some(rule => rule.effects.some(effect => recipeAbilityEffect(effect.kind)));
-        const item = c.files.has("patches/ItemEffects.dll") ? prepareItemMoveParamForAbility(staged, needsProvider) : { present: false };
+        const item = c.files.has("patches/ItemEffects.dll") ? prepareItemMoveParamForAbility(staged, needsProvider, refreshMoveClasses ? { overrides:storedMoveClasses(c),customFlags:storedCustomMoveFlags(c) } : undefined) : { present: false };
         const blockMessage=ensureAbilityBlockMessages(staged,rules)??storedBlockMessage(c);
         const presentationMessages=ensureAbilityPresentationMessages(staged,rules)??storedPresentationMessages(c);
         const chain = needsProvider && item.present, module = moduleFor(c, rules, false, true, true, true, chain, chain,true,storedMoveClasses(c),true,blockMessage,presentationMessages);
@@ -1051,7 +1051,7 @@ async function editExpandedMoveFlags(project: ProjectState, edit: (registry: Cus
         edit(registry,overrides,c);
         const checked=validateCustomMoveFlags(registry);validateCustomFlagReferences(rules,checked);
         const needsProvider=[...rules.values()].some(rule=>rule.effects.some(effect=>recipeAbilityEffect(effect.kind)));
-        const item=c.files.has("patches/ItemEffects.dll")?prepareItemMoveParamForAbility(target,needsProvider):{present:false};
+        const item=c.files.has("patches/ItemEffects.dll")?prepareItemMoveParamForAbility(target,needsProvider,{overrides,customFlags:checked}):{present:false};
         const chain=needsProvider&&item.present;
         const blockMessage=(installMessages?ensureAbilityBlockMessages(target,rules):undefined)??storedBlockMessage(c);
         const presentationMessages=(installMessages?ensureAbilityPresentationMessages(target,rules):undefined)??storedPresentationMessages(c);
@@ -1120,7 +1120,14 @@ export async function configureCustomMoveFlag(project:ProjectState,moveId:number
 /** Our expansion can be installed after ability recipes. Refresh the same DLL
  * only when new, verified source-to-ROM mappings add classifications. */
 export async function refreshExpandedAbilityMoveFlags(project: ProjectState, currentOnly = false): Promise<void> {
-    if (!sources.get(project)?.files.has(ABILITY_EFFECTS_DLL_PATH) && !project.fileSystem?.additions?.[ABILITY_EFFECTS_DLL_PATH]) return;
+    if (!sources.get(project)?.files.has(ABILITY_EFFECTS_DLL_PATH) && !project.fileSystem?.additions?.[ABILITY_EFFECTS_DLL_PATH]) {
+        // Move Expansion can add flagged moves to a project that uses item recipes alone.
+        if (!currentOnly && listCodeInjectionDlls(project).some(module => module.path === "patches/ItemEffects.dll")) {
+            const item = prepareItemMoveParamForAbility(project, false, { overrides:new Map(),customFlags:emptyCustomMoveFlags() });
+            if (item.module) stageCodeInjectionDll(project, "ItemEffects.dll", writeRpm(item.module, { ident:"DLXF" }));
+        }
+        return;
+    }
     const state = inspectAbilityEffects(project);
     if (state.runtimeVersion === undefined || currentOnly && state.runtimeVersion !== CURRENT_ABILITY_RUNTIME_VERSION) return;
     if (!state.editable) throw Error(state.message);

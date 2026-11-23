@@ -154,7 +154,7 @@ function iconVariantForBuild(version: Version, build: string): TypeIconVariant |
 function getStatus(project: ProjectState, kind: Component, bytes = project.originalRomBytes): BattleTypeHudStatus {
   const status: BattleTypeHudStatus = { supported: false, compatible: false, checked: false, installed: false,
     updateAvailable: false, canUninstall: false, pmcInstalled: getPmcInstallStatus(project).installed,
-    message: "Battle HUD supports English Black 2 (IREO) and White 2 (IRDO)." };
+    message: `${title(kind)} supports US Black, White, Black 2, and White 2 (revision 0).` };
   const v = project.session.baseVersion;
   if (!isVersion(v) || project.session.baseRom !== (v === "B" || v === "W" ? "BW" : "BW2")) return status;
   const profile = profileFor(v, kind); let rom: NintendoDSRom | undefined;

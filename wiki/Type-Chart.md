@@ -25,7 +25,7 @@ The Type Chart editor edits type effectiveness. Rows are attacking types and col
 | Vanilla Gen 5 | 17 types, no Fairy. |
 | Fairy-aware project | 18 types, including Fairy. |
 
-The editor detects Fairy support from the project/session, personal data, move data, or a loaded 18x18 type chart file.
+The editor shows Fairy when it finds an 18×18 battle chart. Fairy IDs in Pokémon or move data can prompt a chart search. Legacy ROMs that still use the original battle chart show 17 types.
 
 ## Common Workflows
 

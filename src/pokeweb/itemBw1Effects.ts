@@ -6,7 +6,7 @@ import white from "../assets/data/abilityBindingsW1.json";
 import {NintendoDSRom} from "../nds/rom";
 import {readU32} from "../nds/binary";
 import {battleRuntimeResolver,battleBranchTarget,type BattleRuntimeSignature} from "./battleRuntimeBindings";
-import {buildRuleRuntime,ITEM_RULE_API,defaultItemMoveClasses,itemRuntimeVersion} from "./itemRuleRuntime";
+import {buildRuleRuntime,ITEM_RULE_API,itemMoveClassesForProject,readItemMoveFlagSources,itemRuntimeVersion} from "./itemRuleRuntime";
 import {validateItemRule,itemUsesBattleCondition,type ItemRuleSet} from "./itemRules";
 import {parseRpm,writeRpm,type RpmModule} from "./rpm";
 import {getItemRecord} from "./moveItemModel";
@@ -17,7 +17,8 @@ import {stageCodeInjectionDll} from "./pmcModel";
 import {ensureFileSystemState,setRomFileReplacement} from "./fileSystemModel";
 import {recordFieldChange} from "./actionChangelog";
 import {itemMessageIds} from "./itemBattleMessages";
-import {expandedMoveDllDefaults,validateMoveClassOverrides} from "./abilityMoveClasses";
+import {validateMoveClassOverrides} from "./abilityMoveClasses";
+import {validateCustomMoveFlags,type CustomMoveFlagRegistry} from "./customMoveFlags";
 import {isVerifiedAbilityWeatherImport} from "./abilityEffectsModel";
 const dllPath="patches/ItemEffects.dll",retired=Uint8Array.of(80,87,73,82);
 type Source={base:number;armBase:number;game:string;revision:number;files:Map<string,Uint8Array>;ids:Map<string,number>};
@@ -60,16 +61,20 @@ export function checkedBw1ItemRule(project:ProjectState,input:ItemRuleSet):ItemR
  if(!project.session.fairy&&rule.effects.some(e=>e.parameters?.type===17))throw Error("Fairy requires a Fairy-enabled ROM. Choose another move type.");
  return rule;
 }
-export function buildBw1ItemModule(project:ProjectState,rules:ReadonlyMap<number,ItemRuleSet>,classes?:ReadonlyMap<number,number>):RpmModule{
+export function buildBw1ItemModule(project:ProjectState,rules:ReadonlyMap<number,ItemRuleSet>,classes?:ReadonlyMap<number,number>,customFlags?:CustomMoveFlagRegistry):RpmModule{
  const c=context(project),dispatcher=c.resolve("ItemEvent_AddItemCore"),api=ITEM_RULE_API.map(name=>c.resolve(name).address);
  const extras=["ItemGetParam","BattleEventVar_Push","BattleEventVar_Pop","BattleEventVar_SetConstValue","IsStatChangeValid","BtlCalc_MakeStatusCondition","MakeConditionBadlyPoisoned","BattleEventVar_GetValueIfExist","RollEffectChance","BattleEventVar_RewriteValue","GetBattleMonSpecies","CheckCondition","getMoveFlag","BattleEvent_CheckSkip","GetBattleMonHeldItem",null,null,null,null,null,null,null,"BtlServerFlow_CanUseHeldItem",null,"IsSubstituteActive","BattleEventItem_AttachSkipCheckHandler","GetSideFromMonID","IsEventTargetMon","BattleRandom"];
- if(classes===undefined){classes=defaultItemMoveClasses();for(const[id,flags]of expandedMoveDllDefaults(project))(classes as Map<number,number>).set(id,flags);const peer=c.files.get("patches/AbilityEffects.dll");if(peer&&!same(peer,Uint8Array.of(80,87,65,82))){const text=parseRpm(peer,{allowedMagics:["DLXF"]}).metadata.PokewebMoveClassOverrides;if(typeof text==="string")for(const[id,flags]of validateMoveClassOverrides(JSON.parse(text),new Map(),true))(classes as Map<number,number>).set(id,flags);}}
- const selection=hasItemSelection(rules)?resolveItemSelection(c.source.game,c.data,c.base,project.arm9,c.source.armBase,c.check):undefined;
  const nativeVersion = itemRuntimeVersion(rules);
- const fieldReaders = nativeVersion === 8 ? resolveBattleConditionReaders(c.resolver,
+ if(classes===undefined||nativeVersion===9&&customFlags===undefined){
+  const flags=readItemMoveFlagSources(c.files.get("patches/AbilityEffects.dll"));
+  classes??=itemMoveClassesForProject(project,flags.overrides);
+  customFlags??=flags.customFlags;
+ }
+ const selection=hasItemSelection(rules)?resolveItemSelection(c.source.game,c.data,c.base,project.arm9,c.source.armBase,c.check):undefined;
+ const fieldReaders = nativeVersion >= 8 ? resolveBattleConditionReaders(c.resolver,
   itemUsesBattleCondition(rules,"fieldEffect"),itemUsesBattleCondition(rules,"sideEffect"),
   (name,address,size) => c.check(address,size,name)) : undefined;
- return buildRuleRuntime({game:project.session.baseVersion,rules,api,module:"93",portable:true,nativeVersion,selection,fieldReaders,moveClasses:classes,messages:itemMessageIds(project,rules),native:{resolve:c.resolve,api:new Map(extras.flatMap((name,i)=>name?[[19+i,c.resolve(name).address] as const]:[]))},
+ return buildRuleRuntime({game:project.session.baseVersion,rules,api,module:"93",portable:true,nativeVersion,selection,fieldReaders,moveClasses:classes,customFlags,messages:itemMessageIds(project,rules),native:{resolve:c.resolve,api:new Map(extras.flatMap((name,i)=>name?[[19+i,c.resolve(name).address] as const]:[]))},
   dispatcher:{...dispatcher,calls:c.functions.ItemEvent_AddItemCore.calls.map(call=>({offset:call.offset,address:battleBranchTarget(dispatcher.code,call.offset,dispatcher.address)}))}});
 }
 const verified=new WeakMap<ProjectState,{overlay:Uint8Array;arm9:Uint8Array;base:number;files:Map<string,Uint8Array>;rules:Map<number,ItemRuleSet>;messages:string}>();
@@ -77,11 +82,12 @@ export function readBw1ItemRules(project:ProjectState):Map<number,ItemRuleSet>{
  const c=context(project),bytes=c.files.get(dllPath);if(!bytes||same(bytes,retired))return new Map();
  const cache=verified.get(project);
  if(cache&&cache.base===c.base&&same(cache.overlay,c.data)&&same(cache.arm9,project.arm9)&&cache.files.size===c.files.size&&[...c.files].every(([path,b])=>cache.files.has(path)&&same(cache.files.get(path)!,b))&&cache.messages===JSON.stringify(itemMessageIds(project,cache.rules)))return structuredClone(cache.rules);
- const rpm=parseRpm(bytes,{allowedMagics:["DLXF"]});if(!["6.0.0","7.0.0","8.0.0"].includes(String(rpm.metadata.PMCVersion))||rpm.metadata.PokewebItemEffects!=="rules"||typeof rpm.metadata.PokewebItemRules!=="string"||typeof rpm.metadata.PokewebItemMoveClasses!=="string")throw Error("Unrecognized shared item runtime.");
+ const rpm=parseRpm(bytes,{allowedMagics:["DLXF"]});if(!["6.0.0","7.0.0","8.0.0","9.0.0"].includes(String(rpm.metadata.PMCVersion))||rpm.metadata.PokewebItemEffects!=="rules"||typeof rpm.metadata.PokewebItemRules!=="string"||typeof rpm.metadata.PokewebItemMoveClasses!=="string")throw Error("Unrecognized shared item runtime.");
  const entries:unknown=JSON.parse(rpm.metadata.PokewebItemRules);if(!Array.isArray(entries)||!entries.length||entries.length>639)throw Error("Invalid item rule registry.");
  const rules=new Map<number,ItemRuleSet>();for(const entry of entries){if(!Array.isArray(entry)||entry.length!==2||!Number.isInteger(entry[0])||entry[0]<1||entry[0]>=640||rules.has(entry[0]))throw Error("Invalid item rule registry.");getItemRecord(project,entry[0]);rules.set(entry[0],checkedBw1ItemRule(project,entry[1]));}
  const classes=validateMoveClassOverrides(JSON.parse(rpm.metadata.PokewebItemMoveClasses),new Map(),true);
- if(!same(bytes,writeRpm(buildBw1ItemModule(project,rules,classes),{ident:"DLXF"})))throw Error("The shared item rules DLL has been modified.");
+ const customFlags=rpm.metadata.PMCVersion==="9.0.0"?validateCustomMoveFlags(JSON.parse(String(rpm.metadata.PokewebItemCustomMoveFlags))):undefined;
+ if(!same(bytes,writeRpm(buildBw1ItemModule(project,rules,classes,customFlags),{ident:"DLXF"})))throw Error("The shared item rules DLL has been modified.");
  verified.set(project,{base:c.base,overlay:c.data.slice(),arm9:project.arm9.slice(),files:new Map([...c.files].map(([p,b])=>[p,b.slice()])),rules:structuredClone(rules),messages:JSON.stringify(itemMessageIds(project,rules))});return rules;
 }
 export function inspectBw1ItemEffect(project:ProjectState,itemId:number):ItemEffectState{

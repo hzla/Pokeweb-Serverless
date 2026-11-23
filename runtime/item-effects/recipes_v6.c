@@ -6,6 +6,41 @@ static u32 recipeMoveClass(u32 move,u32 filter){
  while(low<high){u32 mid=(low+high)/2,id=half(p+2+mid*4);if(id<move)low=mid+1;else high=mid;}
  return low<half(p)&&half(p+2+low*4)==move&&(half(p+4+low*4)&bit);
 }
+#ifdef ITEM_AFTER_MOVE_STAT
+PUBLIC const volatile u8 *ItemRecipeCustomMoveData=(const volatile u8*)1;
+static u32 afterMoveFlag(u32 move,const volatile u8*e){
+ u32 flag=e[1];
+ if(e[4])return FN(31,u32(*)(u32,u32))(move,flag);
+ if(flag<14)return !flag||recipeMoveClass(move,flag);
+ const volatile u8*p=ItemRecipeCustomMoveData;
+ u32 key=(move<<16)|(flag-13),low=0,high=half(p);
+ while(low<high){
+  u32 mid=(low+high)/2,at=2+mid*4,entry=((u32)half(p+at)<<16)|half(p+at+2);
+  if(entry<key)low=mid+1;else high=mid;
+ }
+ return low<half(p)&&half(p+2+low*4)==move&&half(p+4+low*4)==flag-13;
+}
+/* Native success, once after the move has resolved against all targets. */
+PUBLIC void RuleEvent_25(void*item,void*f,u8 owner,u32*w){
+ (void)w;
+ if(VALUE(2)!=owner||preview(f))return;
+ const volatile u8*r=record(SUB(item));
+ if(!r)return;
+ u32 move=VALUE(0x12),matched=0,queued=0;
+ if(!move)return;
+ const volatile u8*e=effects(r);
+ for(u32 n=0;n<r[0];++n,e+=16){
+  if(e[0]!=141||!afterMoveFlag(move,e))continue;
+  if(!matched){
+   if(!active(r,f,MON(f,owner)))return;
+   matched=1;
+  }
+  u8 stage[]={11,e[3],e[2],0,0,0,100};
+  queued|=action(item,f,owner,stage,owner);
+ }
+ if(queued&&r[2])consume(item,f,owner,1);
+}
+#endif
 static u32 recipeStages(void*item,void*f,u8 owner,const volatile u8*e){
  u32 queued=0;
  for(u32 n=0;n<7;++n){

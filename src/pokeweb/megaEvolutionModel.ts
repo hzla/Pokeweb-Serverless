@@ -154,7 +154,7 @@ export function getMegaEvolutionStatus(project: ProjectState): MegaEvolutionStat
   status.updateAvailable = status.installed && project.codeInjection?.megaEvolution?.version !== manifest.version;
   status.canUninstall = status.installed && canRemoveStagedCodeInjectionDll(project, dllPath(version));
   if (detectWhite2UpgradeDlls(project) || detectBlack2UpgradeDlls(project)) {
-    return { ...status, message: "White 2 Upgrade / Black 2 Upgrade include their own Mega Evolution." };
+    return { ...status, message: "This ROM already includes a Mega Evolution runtime." };
   }
   const conflicts = megaEvolutionConflicts(project);
   if (conflicts.length) return { ...status, message: `${conflicts.join(", ")} patches the same battle code.` };

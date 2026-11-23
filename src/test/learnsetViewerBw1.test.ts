@@ -8,7 +8,7 @@ import { Folder } from "../nds/fnt";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { exportModifiedRom } from "../pokeweb/exportRom";
-import { getLearnsetViewerStatus, installLearnsetViewer, learnsetViewerPaths, uninstallLearnsetViewer } from "../pokeweb/learnsetViewerModel";
+import { getLearnsetViewerStatus, installLearnsetViewer, LEARNSET_THREE_CARDS_ART_PATH, learnsetViewerPaths, uninstallLearnsetViewer } from "../pokeweb/learnsetViewerModel";
 import * as pmc from "../pokeweb/pmcModel";
 import { createNarcStore, type ProjectState } from "../pokeweb/projectStore";
 import { parseRpm, writeRpm } from "../pokeweb/rpm";
@@ -61,6 +61,26 @@ for (const game of ["B", "W"] as const) describe(`BW1 Learnset ${game}`, () => {
     await installLearnsetViewer(reopened);
     for (const path of learnsetViewerPaths(game)) expect(reopened.fileSystem!.replacements[rom.fileId(path)]).toBeDefined();
     expect(getTextBank(reopened, "message_texts", 204)[info][1]).toBe("Private title {0}");
+  });
+  it("keeps Classic selectable and preserves edited Three Cards artwork across exports", async () => {
+    const p = fixture(game), path = LEARNSET_THREE_CARDS_ART_PATH;
+    await installLearnsetViewer(p, { upperLayout: "classic" });
+    expect(getLearnsetViewerStatus(p).upperLayout).toBe("classic");
+    expect(p.fileSystem!.additions![path]).toBeUndefined();
+    await installLearnsetViewer(p, { upperLayout: "three-cards" });
+    expect(getLearnsetViewerStatus(p)).toMatchObject({ upperLayout: "three-cards", updateAvailable: false });
+    const archive = new NARC(p.fileSystem!.additions![path]);
+    expect(archive.filenames.files).toEqual(["tiles.ncgr", "screen.nscr", "palette.nclr"]);
+    archive.files[2][archive.files[2].length - 2] ^= 1;
+    const edited = archive.save();
+    p.fileSystem!.additions![path] = edited;
+    const reopened = fixture(game, await exportModifiedRom(p));
+    await installLearnsetViewer(reopened, { upperLayout: "classic" });
+    expect(getLearnsetViewerStatus(reopened).upperLayout).toBe("classic");
+    await installLearnsetViewer(reopened, { upperLayout: "three-cards" });
+    const final = new NintendoDSRom(await exportModifiedRom(reopened));
+    expect(final.files[final.fileId(path)]).toEqual(edited);
+    expect(getLearnsetViewerStatus(fixture(game, final.data)).upperLayout).toBe("three-cards");
   });
   it("rejects altered native APIs, hooks, resources, duplicates and conflicting DLLs", async () => {
     const p = fixture(game); const api = manifest.games[game].apis.find(a => a.segment === "ARM9")!;

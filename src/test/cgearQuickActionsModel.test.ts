@@ -120,6 +120,22 @@ describe("White 2 with modified phenomena and stock Repel", () => {
   });
 });
 
+it("accepts the shipped legacy Following Pokémon core and rejects modified copies", async () => {
+  const p = makeProject("W2");
+  const path = "patches/PokewebFollowingCoreW2.dll";
+  const legacy = new Uint8Array(readFileSync(new URL("./fixtures/cgear-following-core-v0.6.93.dll", import.meta.url)));
+  p.fileSystem = { replacements: {}, additions: { [path]: legacy } };
+  assets();
+  expect(getCGearQuickActionsStatus(p)).toMatchObject({ compatible: true });
+  await installCGearQuickActions(p);
+  expect(new NintendoDSRom(await exportModifiedRom(p)).getFileByName(path)).toEqual(legacy);
+
+  const changed = parseRpm(legacy, { allowedMagics: ["DLXF"] });
+  changed.code[0] ^= 1;
+  p.fileSystem!.additions![path] = writeRpm(changed, { ident: "DLXF" });
+  expect(getCGearQuickActionsStatus(p)).toMatchObject({ compatible: false, message: expect.stringContaining(path) });
+});
+
 describe("White 2 Redux C-Gear adapter", () => {
   it("accepts the current verified Following Pokémon core with the Redux adapter", async () => {
     const p = reduxProject(); assets();

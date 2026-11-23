@@ -1,6 +1,5 @@
 import "../styles/mastersheetViewer.css";
 import { hasAuthoredMastersheet } from "../pokeweb/mastersheetRomFile";
-import { canOpenMastersheetViewer } from "../pokeweb/mastersheetViewerAccess";
 import { applyAiFeaturesParam } from "../pokeweb/aiFeatureAccess";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { ImageCache, RomAssetProvider } from "./assets";
@@ -13,8 +12,9 @@ import { applyViewerSettings, setGameFontsAvailable } from "./settings";
 import { clearLastRom, loadLastRom, saveLastRom } from "./romStore";
 
 /**
- * Mastersheet Viewer: opens a ROM file (players) or, with ?source=project, the project open in the editor
- * (authors), and shows the mastersheet saved with it. The ROM never leaves the browser.
+ * Mastersheet Viewer: opened from the editor's Mastersheet page with ?source=project, it shows and edits the project
+ * open in the editor. Nothing links to it otherwise, but the page itself still opens a ROM file and shows the
+ * mastersheet saved in it. The ROM never leaves the browser.
  */
 
 const root = document.getElementById("mastersheet-viewer")!;
@@ -24,20 +24,6 @@ const HATCH = `<svg class="msv-hatch" viewBox="0 0 40 16" aria-hidden="true" foc
 async function boot(): Promise<void> {
   applyAiFeaturesParam();
   applyViewerSettings();
-  if (!canOpenMastersheetViewer()) {
-    root.innerHTML = `
-      <main class="msv-open">
-        <div class="msv-open__card">
-          <header class="msv-titlebar -run"><h1>Mastersheet Viewer</h1>${HATCH}</header>
-          <div class="msv-open__body">
-            <p>The Mastersheet Viewer is still in development and is available only when Pokeweb runs on localhost.</p>
-            <a class="msv-hex -nav" href="./"><span>Back to Pokeweb</span></a>
-          </div>
-        </div>
-      </main>
-    `;
-    return;
-  }
   const params = new URLSearchParams(window.location.search);
   if (params.get("source") === "project") {
     showStatus("Opening the project from the editor…");

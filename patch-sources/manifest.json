@@ -1870,38 +1870,42 @@
       "artifacts": [
         {
           "name": "LearnsetMenuB2.dll",
-          "sha256": "02519e130ff6eb25b57f22695f9e99fe6e9e35d7d5c5a031d001d44e0a6ae1eb"
+          "sha256": "08fcb8de2f6ac2f405c18ffa6f9cd080dbc51050e180890c84fe851e0450dd25"
         },
         {
           "name": "LearnsetMenuW2.dll",
-          "sha256": "d298a9b6774c0818287c9cdb9a8ff732e2d35566df62aaf072ef513994885ce6"
+          "sha256": "192bd68946dcc81b24b6c674e00b97284d11bf1b4002651641d503dccf020ae8"
         },
         {
           "name": "LearnsetViewerB2.dll",
-          "sha256": "e41a520bb6adfad3f33ec4e13bdfbbd29bfdba6275981c417f56cf26946428d2"
+          "sha256": "8ce5afccb1cc815d2c9dea6dac8913208bae426264af8a73aa96edbb2ebc8d92"
         },
         {
           "name": "LearnsetViewerW2.dll",
-          "sha256": "017909a91bdea66a8bd4c5edef6163485e00f60d7fa26cbca66beebdb379e5e3"
+          "sha256": "6679f665d6f9c46072bb5dedc61638e326d2570e274dc864fe2e81fe145f742f"
         },
         {
           "name": "LearnsetMenuB.dll",
-          "sha256": "d0c5b359f5a8e44422fe9cd4bb1310d33839fb9c89b3bd0ea37dc0d420d89898"
+          "sha256": "f3bb2f75a59cb1f4db66eba95f4d8a5aae648a97197ad85ade28f95d4a22821b"
         },
         {
           "name": "LearnsetMenuW.dll",
-          "sha256": "40ed5d424ca0010f0f476d0227f3dcc05793e96f207d6b59ce10dab18fc97bd3"
+          "sha256": "9341379db170bec7049e2a3279d04884fa8e4586c9d53dbd63e2e9875e6a6e12"
         },
         {
           "name": "LearnsetViewerB.dll",
-          "sha256": "e39f69ded0bd71d6fe043f28928032eddf928662b18e75efd55fd6ed08816892"
+          "sha256": "8cff6d0999569bbb98ac8c5947e2571818a023a1ca2c956fced1f600c1afeb9c"
         },
         {
           "name": "LearnsetViewerW.dll",
-          "sha256": "b982e1e98a4f820ed628a30bf919ff582a1856d7d6720ee8a3ba9a052ee12432"
+          "sha256": "02224b8c45771dfcfc2d0a713db05af31f43c4cc16bcffc2d4e48ea0b57ea2db"
+        },
+        {
+          "name": "learnset-three-cards-bw1.narc",
+          "sha256": "87297250e931d9c9719849fd218bd8502b91a45c8fc61be4dead141ca8e00515"
         }
       ],
-      "note": "BW2 version 1.8.0, with separately compiled US revision-0 B/W 0.1.0-bw1-candidate companions using independent native profiles and overlays 10/91/173. US revision-0 BW1 DS gameplay and visual acceptance is recorded for the exact bundled builds; live DSi acceptance remains pending. Shared read-only party/family navigation, session-owned graph/icons, native fonts/type resources and private text are retained. The installer validates fingerprints/native bindings/resources, rejects conflicts, commits PMC/text/both DLLs atomically, and preserves configured IDs and edited private text across update/reinstall/export/reopen. Compiled native-mode DS/extended-memory fixtures do not establish live DSi acceptance or native heap capacity. BW2 also hosts the Pokenav application mode and its explicit species/chance context; those sources are in runtime/pokenav. Canonical sources remain in Pokeweb runtime/learnset-viewer.",
+      "note": "BW2 version 1.11.0, with separately compiled US revision-0 B/W 0.2.0-bw1 companions using independent native profiles and overlays 10/91/173. US revision-0 BW1 DS gameplay and visual acceptance is recorded for the exact bundled builds; live DSi acceptance remains pending. Shared read-only party/family navigation, session-owned graph/icons, native fonts/type resources and private text are retained. The installer validates fingerprints/native bindings/resources, rejects conflicts, commits PMC/text/both DLLs atomically, and preserves configured IDs and edited private text across update/reinstall/export/reopen. Compiled native-mode DS/extended-memory fixtures do not establish live DSi acceptance or native heap capacity. BW2 also hosts the Pokenav application mode and its explicit species/chance context; those sources are in runtime/pokenav. Canonical sources remain in Pokeweb runtime/learnset-viewer.",
       "status": "source-available",
       "files": [
         {
@@ -1911,7 +1915,7 @@
             "path": "runtime/learnset-viewer/background.py"
           },
           "kind": "build-tool",
-          "sha256": "3129c009670dbcb8484eeb07c1203c62bda61f7bbf18cf60945c7c0bb6474fa6",
+          "sha256": "832e60bf56159f35725103067fb5f1235098cc78cc3370e580a2ddaaab0589ad",
           "normalized": false
         },
         {
@@ -1921,7 +1925,7 @@
             "path": "runtime/learnset-viewer/build_bw1.py"
           },
           "kind": "build-tool",
-          "sha256": "f6ce2babcecf213a3436c9c8e0f22993f80e010ea121690403bbb2e8fbc2d2c5",
+          "sha256": "101c8d849eb949d4262b3f73e6c31178e2d341ed68f5d30278190e11d4c39d88",
           "normalized": false
         },
         {
@@ -1931,7 +1935,7 @@
             "path": "runtime/learnset-viewer/build.py"
           },
           "kind": "build-tool",
-          "sha256": "4735f90c2cf051918285e1dbd17858ea730fd411e7c320d5b812b3280ba1c5f0",
+          "sha256": "5d4392d40add0170007de43d259bdedcf653438db5eb74954b0c615a49b58e50",
           "normalized": false
         },
         {
@@ -1941,7 +1945,7 @@
             "path": "runtime/learnset-viewer/bundle_bw1_candidates.py"
           },
           "kind": "build-tool",
-          "sha256": "2e67e13ad5af30c25b601b9d614598f4807aae1b77d632ebba8f2202cf393899",
+          "sha256": "7b55c0a90c105963b067369e1dd9776d7073054c9ed84d3f284d6fde39d39e9d",
           "normalized": false
         },
         {
@@ -1961,7 +1965,7 @@
             "path": "runtime/learnset-viewer/configure_bw1.py"
           },
           "kind": "build-tool",
-          "sha256": "96303cd37ff1b4d963c593d104085282a95edf3f951a71e973339416d7c93363",
+          "sha256": "359fbcfcad69fb15220056d1f53d860cf926d69ff44a95c97cef43d2c6ccff26",
           "normalized": false
         },
         {
@@ -1981,7 +1985,7 @@
             "path": "runtime/learnset-viewer/info_logic.h"
           },
           "kind": "source",
-          "sha256": "c704be03da85eaec26d9f5a8c7b1cbc11c0fca557af4456c9154b031a69d23e2",
+          "sha256": "8a92b8d51c8825160bb7f90ff0f88dbef5e44612f9cd5cfa7249c57c9924ebda",
           "normalized": false
         },
         {
@@ -2001,7 +2005,7 @@
             "path": "runtime/learnset-viewer/info.cpp"
           },
           "kind": "source",
-          "sha256": "db428b35b53a56ccc4072cfbf7d66400546155db46e60788397f546f31ab926c",
+          "sha256": "0fc28a1aeb0ea9100cea27506d42a00f2c05bd2940a306f8b7b858f10deeab9f",
           "normalized": false
         },
         {
@@ -2011,7 +2015,7 @@
             "path": "runtime/learnset-viewer/info.h"
           },
           "kind": "source",
-          "sha256": "44b2aa72a7ec209c7b00a19dd7ac04c6a33911cfad44f56094f151da40771fc8",
+          "sha256": "2d28a0c3eea56653ca7b9ab3c54a8ed478e7c330d7068087d26b19ef1a70592c",
           "normalized": false
         },
         {
@@ -2071,7 +2075,17 @@
             "path": "runtime/learnset-viewer/prepare_bw1_validation.ts"
           },
           "kind": "build-tool",
-          "sha256": "a38206c21b84727e6725c163b3a2d37dfdb68f1c5de53ddef510b4c78b2d50c3",
+          "sha256": "4d1cc91c099a5f30ffae3989f0e5dca0047da6826ffffde91503ebee1b836cc2",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/prepare_three_card_prototype.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/learnset-viewer/prepare_three_card_prototype.ts"
+          },
+          "kind": "build-tool",
+          "sha256": "c7d961adbab1086adb47ce492da31a02a0ccab20e067b57bbf8fdc9e57514483",
           "normalized": false
         },
         {
@@ -2091,7 +2105,7 @@
             "path": "runtime/learnset-viewer/profile-B.json"
           },
           "kind": "metadata",
-          "sha256": "5323cada29631fcf22a752251ddc36d6e4384dab3f78f54084c468b1202e4c0b",
+          "sha256": "227be08cbf57c7e0d61be0fee23d0a250c1613920c18227d820c117bdfd8762f",
           "normalized": false
         },
         {
@@ -2101,7 +2115,7 @@
             "path": "runtime/learnset-viewer/profile-W.json"
           },
           "kind": "metadata",
-          "sha256": "244cb288c274d11b0aab6c29a029c129a1c51f6ae6ff4da56da170501b8d890b",
+          "sha256": "41a2df81a2d781f4c3627b945cf450c81caf841874bf60c690c7509acd798ab3",
           "normalized": false
         },
         {
@@ -2111,7 +2125,7 @@
             "path": "runtime/learnset-viewer/README.md"
           },
           "kind": "documentation",
-          "sha256": "dbfae692b5d51d0fa7260b7f048ec8bd56b14e2f4fd28d4f8f53daea8df9b87a",
+          "sha256": "1aadeea908207cc9fff085f71dc71bf0e42ee85a35b9236a22e0cbca03868a3d",
           "normalized": false
         },
         {
@@ -2131,7 +2145,7 @@
             "path": "runtime/learnset-viewer/runtime.h"
           },
           "kind": "source",
-          "sha256": "f3bcce21f1e304d9c56d047ca3aa1cfd9005ce94de58712094095b2f1baf4321",
+          "sha256": "bf8addc4f5abc5ea26465e9db024a28c7eb194d09975d4d099516460948b1556",
           "normalized": false
         },
         {
@@ -2141,7 +2155,7 @@
             "path": "runtime/learnset-viewer/test_info.cpp"
           },
           "kind": "test",
-          "sha256": "95821d7ce3b097a35d0ff7cca6e426344f63d6b8f9ec62613198cec1e0877109",
+          "sha256": "0fd76fbcdf9c64e36336f2b5d4897aab7c81d382a51e244aab1ff96fd4cca2be",
           "normalized": false
         },
         {
@@ -2152,6 +2166,46 @@
           },
           "kind": "test",
           "sha256": "c0dad2d70d626f2a1201b4d46dfc40fc02007db526762615e221b213bc989698",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/three_card_art.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/learnset-viewer/three_card_art.h"
+          },
+          "kind": "source",
+          "sha256": "97bdeb75ff25466e0a7af480923308cdb9856d42616dadbe67b065db36dc24b5",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/three_card_assets.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/learnset-viewer/three_card_assets.py"
+          },
+          "kind": "build-tool",
+          "sha256": "cee4d1d7e02e6826f386cf441cd0ce8422e953a76693a7ff2819df84a9b5d37b",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/three_card_grid.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/learnset-viewer/three_card_grid.h"
+          },
+          "kind": "source",
+          "sha256": "341191468ac2c2c5c19f9a8340beacc4e5f10f2a25447fdfe30d79e194a5f206",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/three_card_runtime.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/learnset-viewer/three_card_runtime.h"
+          },
+          "kind": "source",
+          "sha256": "4a19c6636dff6f6193dd71d373be023c1c1a9cacef9bcb4a847ec5d5a2000b98",
           "normalized": false
         },
         {
@@ -2181,7 +2235,7 @@
             "path": "runtime/learnset-viewer/verify_graphics.py"
           },
           "kind": "test",
-          "sha256": "29a6f687a63905c28277be03d0c9a7204927cf034cb71faf3e2970bc692971bd",
+          "sha256": "ca82afeddd0afc1f73e6e4cd2a9347c6aa1a0c40a49d45df7e8d98964cc9ef9a",
           "normalized": false
         },
         {
@@ -2191,7 +2245,7 @@
             "path": "runtime/learnset-viewer/verify_info.py"
           },
           "kind": "test",
-          "sha256": "783c6d9df9b5fd2a486b8af23c4c9d8fcc69aa2fa99fffba26bc78f5a1b035ab",
+          "sha256": "c35f77f1f12c1caa655497a89a7cd9d8c49563e9c1cc30a2fa5af7a0a5bb9809",
           "normalized": false
         },
         {
@@ -2201,7 +2255,7 @@
             "path": "runtime/learnset-viewer/verify_runtime.py"
           },
           "kind": "test",
-          "sha256": "ee0a1cca42d998963c250594f2e7804be8d1d09c1726af41fd690ecc66c2de04",
+          "sha256": "9083b9014edc10cc9c75adf42fc6d896daffa685ae418d2fe7005cfd3f5de857",
           "normalized": false
         },
         {
@@ -2211,7 +2265,7 @@
             "path": "runtime/learnset-viewer/viewer.cpp"
           },
           "kind": "source",
-          "sha256": "b121ec70208b273f97ed7f2227baba472abac6760e49463e384a5539ad212c12",
+          "sha256": "793f6276d86ded94097d2187aa1685fd087c09f0601d3e89472d978d0e1dd6f8",
           "normalized": false
         },
         {
@@ -2221,7 +2275,7 @@
             "path": "src/assets/codeinjection/learnsetViewerManifest.json"
           },
           "kind": "metadata",
-          "sha256": "8c6f066cedbb709bb55b096669f144dbd4e8563953ab01912405cd91b3d053a0",
+          "sha256": "1952394c5a70feea2fbd2c711622226d6f7e2b2bb24c14ab3cdd20a3607f0bc2",
           "normalized": false
         },
         {
@@ -2231,7 +2285,7 @@
             "path": "src/pokeweb/learnsetViewerModel.ts"
           },
           "kind": "support-only",
-          "sha256": "1cb2f89b2a68f48b3414852458f4ec0f053d1bcafbe18b5e576bd4c37d9983cf",
+          "sha256": "5e5c8a1a35b4bcea8a193195bd4670a905f7d811dd2a6070384c00bb31011e4a",
           "normalized": false
         },
         {
@@ -2241,7 +2295,7 @@
             "path": "src/test/learnsetViewerModel.test.ts"
           },
           "kind": "test",
-          "sha256": "be43badfbb64ab67b60b63c8686f1985d3921a12cfe591ba34e19efd58984be1",
+          "sha256": "aa3f939db89aad11e192fea84345e75dc39ad5171edce04d32aecc15ad623e39",
           "normalized": false
         },
         {
@@ -2251,7 +2305,7 @@
             "path": "src/test/learnsetViewerBw1.test.ts"
           },
           "kind": "test",
-          "sha256": "f792de59fda1bc947026cb12404ae7e58b97e2ab146714bf852d89845c21806a",
+          "sha256": "c699644a191a71e64df4d9195c4a144ca1b769dbe16f94d27896289281e4be77",
           "normalized": false
         },
         {
@@ -2261,7 +2315,7 @@
             "path": "scripts/verify-learnset-viewer-install.ts"
           },
           "kind": "test",
-          "sha256": "e97bd320c4f5602b434520bf9ae23173ba3a49b1f98cea72399e968a3d3bb39c",
+          "sha256": "302d806d06ecba3a56cd9901a9381cc7d14712246598ff28ca99345f02e056a5",
           "normalized": false
         }
       ]
@@ -7301,7 +7355,7 @@
             "path": "src/test/cgearQuickActionsModel.test.ts"
           },
           "kind": "test",
-          "sha256": "46587d50498c7619bd25b9185bf56867b4bc2ba0f1e524ac549885e7d89e7b34",
+          "sha256": "c0014c69f4a3b2a835ca7ef44461843816c802956dcf8e69fa7bc3e22d6b2a7d",
           "normalized": false
         },
         {
@@ -7321,7 +7375,7 @@
             "path": "src/pokeweb/cgearQuickActionsModel.ts"
           },
           "kind": "support-only",
-          "sha256": "6e5a8acf8e5309f2b74fd523a81a5c77d9b0ad67e8f5938efe809ebea2ae01a8",
+          "sha256": "c28c4118bf29cfa96f44110e6de0101bdf29d7983090a322b5abcd74c549e5d3",
           "normalized": false
         },
         {
@@ -7431,7 +7485,7 @@
             "path": "src/styles/systemShops.css"
           },
           "kind": "support-only",
-          "sha256": "7cb26a46ad9b33ebccf3890f374f02d6e721ac348fe4479422d2362ce0dab213",
+          "sha256": "191506e9fdfd3eb9c6201c344076472ce1ce6993620773d435e71be357c0d278",
           "normalized": false
         },
         {

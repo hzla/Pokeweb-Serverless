@@ -22,6 +22,9 @@ def inputs(component, game):
     if component == 'summary-stat-viewer':
         profile = {**profile, 'signatures': shipped['signatures'], 'resources': shipped['resources']}
     artifacts = {f'{prefix}{game}.dll': (ASSETS / f'{prefix}{game}.dll').read_bytes() for prefix in prefixes}
+    if component == 'learnset-viewer' and shipped.get('threeCardArtworkSha256'):
+        name='learnset-three-cards-bw1.narc'
+        artifacts[name]=(ASSETS/name).read_bytes()
     if component == 'enhanced-party-menu':
         title = {'B': 'Black1', 'W': 'White1'}[game]
         for suffix in ('BattleLog', 'BattleCounters', 'BattleLogSummary'):

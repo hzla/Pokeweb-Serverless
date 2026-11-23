@@ -1,11 +1,13 @@
 import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { writeU32 } from "../nds/binary";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { makePaddedRom } from "./fixtures/projectRom";
 import { exportModifiedRom } from "../pokeweb/exportRom";
 import { loadProjectFromRomBytes } from "../pokeweb/loader";
 import { activeRomMatchesProject, loadActiveProject, loadActiveRomBytes, loadActiveRomMetadata, reconnectActiveRom, saveActiveProject, saveActiveRomBytes } from "../pokeweb/persistence";
+import { BW2_TYPE_CHART_OVERLAY_ID, TYPE_CHART_OFFSET, TYPE_CHART_VANILLA_TYPE_COUNT, getTypeChartTypes, updateTypeChartValue } from "../pokeweb/typeChartModel";
 
 const selectedNarcs = ["personal"] as const;
 let stores: Record<string, Map<IDBValidKey, unknown>>;
@@ -40,6 +42,44 @@ afterEach(() => {
 });
 
 describe("ROM import and persistence without rebuilding", () => {
+  it("round-trips a 17-type battle chart when legacy move data uses the Fairy type ID", async () => {
+    const rom = new NintendoDSRom(makePaddedRom("IREO"));
+    const chartLength = TYPE_CHART_VANILLA_TYPE_COUNT ** 2;
+    const overlay = new Uint8Array(TYPE_CHART_OFFSET + chartLength + 1).fill(0xff);
+    overlay.fill(4, TYPE_CHART_OFFSET, TYPE_CHART_OFFSET + chartLength);
+    overlay.set([0, 2, 8], TYPE_CHART_OFFSET + 1);
+    const table = new Uint8Array(rom.arm9OverlayTable.length + 32);
+    table.set(rom.arm9OverlayTable);
+    const row = rom.arm9OverlayTable.length;
+    writeU32(table, row, BW2_TYPE_CHART_OVERLAY_ID);
+    writeU32(table, row + 8, overlay.length);
+    writeU32(table, row + 24, rom.files.length);
+    const moves = new NARC();
+    const fairyMove = new Uint8Array(34);
+    fairyMove[0] = 17;
+    moves.files = [fairyMove];
+    const source = rom.save({
+      arm9OverlayTable: table,
+      addedFiles: [
+        { path: "overlay/overlay_0167.bin", bytes: overlay },
+        { path: "a/0/2/1", bytes: moves.save() },
+      ],
+    });
+
+    const project = await loadProjectFromRomBytes(source, "legacy.nds");
+    expect(project.session.fairy).toBe(false);
+    expect(getTypeChartTypes(project)).toHaveLength(TYPE_CHART_VANILLA_TYPE_COUNT);
+    expect(project.narcs.moves?.rawFiles[0][0]).toBe(17);
+
+    updateTypeChartValue(project, 1, 0, 8);
+    const exported = await exportModifiedRom(project);
+    const reloaded = await loadProjectFromRomBytes(exported, "legacy.nds", { fairy: true });
+    overlay[TYPE_CHART_OFFSET + TYPE_CHART_VANILLA_TYPE_COUNT] = 8;
+    expect(reloaded.overlays[BW2_TYPE_CHART_OVERLAY_ID]).toEqual(overlay);
+    expect(reloaded.session.fairy).toBe(false);
+    expect(reloaded.narcs.moves?.rawFiles[0][0]).toBe(17);
+  });
+
   it("retains the exact padded US Black 2 input and hash without rebuilding or copying for hashing", async () => {
     const source = makePaddedRom("IREO");
     const original = source.slice();

@@ -13,7 +13,7 @@ import { getItemRecord, getMoveCount } from "../pokeweb/moveItemModel";
 import { escapeHtml } from "./dom";
 import { libraryAbilityEffect } from "../pokeweb/abilityLibraryEffects";
 import { appendItemRuleTemplate } from "../pokeweb/appendRuleTemplate";
-import { itemRecipeEffect } from "../pokeweb/itemRecipeEffects";
+import { AFTER_MOVE_STAT, itemRecipeEffect } from "../pokeweb/itemRecipeEffects";
 import { BATTLE_FIELD_EFFECTS, BATTLE_SIDE_EFFECTS, maxSideEffectLayers } from "../pokeweb/battleFieldEffects";
 
 export type RuleFormOptions = {
@@ -87,7 +87,7 @@ function effectFields(effect: ItemRuleEffect, index: number, types: string[], cl
     }
     if(effect.kind==="abilityRecipe:statGroup"&&control.key==="attackStages"||effect.kind==="itemRecipe:hitStats"&&control.key==="attack")fields+='<fieldset class="ability-rule-stats"><legend>Stat changes</legend>';
     const value=effect.parameters?.[control.key], labels=control.kind==="ability"?abilityNames:control.kind==="type"?types:control.kind==="weather"?ITEM_RULE_WEATHER:control.kind==="category"?["Status","Physical","Special"]:control.kind==="stat"?["",...ITEM_RULE_STAT_LABELS,"All stats"]:control.kind==="status"||control.kind==="majorStatus"?["","Paralysis","Sleep","Freeze","Burn","Poison","Confusion","Infatuation"]:undefined;
-    const custom=options.ability&&library&&control.key==="moveClass"?new Map(customFlags.map(flag=>[customMoveFlagFilter(flag.id),`Custom: ${flag.name}`])):new Map<number,string>();
+    const custom=(options.ability&&library||effect.kind===AFTER_MOVE_STAT)&&control.key==="moveClass"?new Map(customFlags.map(flag=>[customMoveFlagFilter(flag.id),`Custom: ${flag.name}`])):new Map<number,string>();
     if(control.key==="moveClass"&&value!==undefined&&customMoveFlagId(value)!==undefined&&!custom.has(value))custom.set(value,`Missing custom flag ${value-13}`);
     const text = (id: number) => custom.get(id) ?? (control.kind === "ability"
       ? `${id} · ${labels?.[id] || `Ability ${id}`}`
@@ -111,7 +111,7 @@ function portableItemOptions(project:ProjectState,options:RuleFormOptions):RuleF
 export function renderItemRuleForm(project: ProjectState, rule: ItemRuleSet, options: RuleFormOptions = {}): string {
   options=portableItemOptions(project,options);
   const climate = (label: string) => frostbiteSnowLabel(project, label);
-  const customFlags=options.ability?inspectCustomMoveFlags(project).registry.flags:[];
+  const customFlags=options.ability||rule.effects.some(effect=>effect.kind===AFTER_MOVE_STAT)?inspectCustomMoveFlags(project).registry.flags:[];
   const root = conditionRoot(rule.conditions);
   const hasMove = (node?: ItemRuleCondition): boolean => node?.kind === "knowsMove" || node?.kind === "group" && node.children.some(hasMove);
   const moves = options.ability && (hasMove(root) || rule.effects.some(effect => hasMove(effect.conditions)))

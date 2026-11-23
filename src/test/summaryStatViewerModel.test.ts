@@ -190,9 +190,9 @@ describe("Summary installer rollback and compatibility", () => {
   });
   it("rejects unsupported games and languages", async () => {
     const p = makeProject("W2");p.session.baseRom = "BW";p.session.baseVersion = "W";
-    await expect(installSummaryStatViewer(p)).rejects.toThrow(/US Black 2/u);
+    await expect(installSummaryStatViewer(p)).rejects.toThrow(/US Black, White, Black 2, and White 2/u);
     const j = makeProject("W2");j.originalRomBytes![15] = 74;
-    await expect(installSummaryStatViewer(j)).rejects.toThrow(/US Black 2/u);
+    await expect(installSummaryStatViewer(j)).rejects.toThrow(/US Black, White, Black 2, and White 2/u);
   });
   it.each(["W2", "B2"] as const)("coexists with %s Summary sprite, learnset and Upgrade hook sites", async v => {
     stubAssets(); const p = makeProject(v); await installSummaryStatViewer(p);

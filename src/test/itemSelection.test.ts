@@ -3,7 +3,7 @@ import selection from "../assets/data/moveHistorySelectBindings.json";
 import callers from "../assets/data/itemSelectionCallBindings.json";
 import { writeU16 } from "../nds/binary";
 import { buildItemRuleModule, inspectItemEffect, ITEM_EFFECTS_DLL_PATH } from "../pokeweb/itemEffectsModel";
-import { itemRulePreset } from "../pokeweb/itemRulePresets";
+import { ITEM_RECIPE_TEMPLATE_IDS, itemRulePreset } from "../pokeweb/itemRulePresets";
 import { writeRpm } from "../pokeweb/rpm";
 import { makeItemEffectsProject } from "./fixtures/itemEffectsProject";
 
@@ -28,6 +28,13 @@ describe("item move-selection hook", () => {
     expect(hooks).toHaveLength(5);
     project.fileSystem={replacements:{},additions:{[ITEM_EFFECTS_DLL_PATH]:writeRpm(dll,{ident:"DLXF"})}};
     expect(inspectItemEffect(project,85).rules).toEqual(rules.get(85));
+    rules.set(86,itemRulePreset(ITEM_RECIPE_TEMPLATE_IDS.throatSpray));
+    const upgraded=buildItemRuleModule(project,rules);
+    expect(upgraded.metadata.PMCVersion).toBe("9.0.0");
+    expect(upgraded.relocations.filter(r=>r.target.module==="167"&&upgraded.symbols[r.sourceSymbolIndex]?.name==="RuleItemSelect")).toHaveLength(5);
+    project.fileSystem.additions![ITEM_EFFECTS_DLL_PATH]=writeRpm(upgraded,{ident:"DLXF"});
+    expect(inspectItemEffect(project,85).rules).toEqual(rules.get(85));
+    expect(inspectItemEffect(project,86).rules).toEqual(rules.get(86));
     overlay[sites[0]-2]^=1;
     expect(inspectItemEffect(project,85).editable).toBe(false);
   });

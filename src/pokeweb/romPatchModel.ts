@@ -327,7 +327,7 @@ export async function addMoveExpansion(
     ? ` The optional Gen 6-9 animation bundle is installed with ${result.bundledAnimationsInstalled} scripts; this run appended ${result.particleFilesInstalled} particle files and ${result.backgroundFilesInstalled} background files, with references adapted for this ROM.`
     : "";
   const summary = result.changed
-    ? `Expanded move data and animations to 1,000 entries, installed the Frost-compatible routing hook, and added ${result.importedMovesAdded} selectable White2Upgrade move definitions.${fairyText}${mappedFairyText}${bundledAnimationText}`
+    ? `Expanded move data and animations to 1,000 entries, installed the Frost-compatible routing hook, and added ${result.importedMovesAdded} selectable Gen 6–9 move definitions.${fairyText}${mappedFairyText}${bundledAnimationText}`
     : `Move Expansion, its routing hook, and the coordinated text and animation tables are already installed.${bundledAnimationText}`;
   return {
     patchId: "moveExpansion",

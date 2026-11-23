@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
-import { basename, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import manifest from "../../src/assets/codeinjection/learnsetViewerManifest.json";
 import { NintendoDSRom } from "../../src/nds/rom";
 import { NARC } from "../../src/nds/narc";
@@ -10,13 +10,18 @@ import { loadProjectFromRomBytes } from "../../src/pokeweb/loader";
 import { getLearnsetViewerStatus, installLearnsetViewer, learnsetViewerPaths } from "../../src/pokeweb/learnsetViewerModel";
 import { commitTextBank, getTextBank } from "../../src/pokeweb/textModel";
 
-const [input, output] = process.argv.slice(2);
-if (!input || !output || resolve(input) === resolve(output)) throw new Error("Usage: vite-node runtime/learnset-viewer/prepare_bw1_validation.ts INPUT.nds NEW-OUTPUT.nds");
+const [input, output, candidates, layout = "three-cards"] = process.argv.slice(2);
+if (!input || !output || resolve(input) === resolve(output)) throw new Error("Usage: vite-node runtime/learnset-viewer/prepare_bw1_validation.ts INPUT.nds NEW-OUTPUT.nds [CANDIDATE-ASSETS] [LAYOUT]");
 const hash = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 const bytes = new Uint8Array(await readFile(input)), sourceHash = hash(bytes);
 const rom = new NintendoDSRom(bytes, { fileData: "view" });
 const game = rom.idCode === "IRBO" ? "B" : rom.idCode === "IRAO" ? "W" : undefined;
 assert(game && rom.data[0x1e] === 0, "Expected US BW1 revision 0.");
+assert(layout === "classic" || layout === "three-cards");
+if (candidates) {
+  const candidateManifest: typeof manifest = JSON.parse(await readFile(join(candidates, "learnsetViewerManifest.json"), "utf8"));
+  Object.assign(manifest.games, candidateManifest.games);
+}
 const profile = manifest.games[game];
 const project = await loadProjectFromRomBytes(bytes, basename(input), { selectedNarcs: ["message_texts"] });
 assert.equal(getLearnsetViewerStatus(project).supported, manifest.games.B.dsAccepted && manifest.games.W.dsAccepted);
@@ -27,16 +32,21 @@ try {
   manifest.games.B.dsAccepted = manifest.games.W.dsAccepted = true;
   globalThis.fetch = async input => {
     const name = basename(new URL(String(input), "https://pokeweb.invalid").pathname);
-    return new Response(new Uint8Array(await readFile(new URL(`../../src/assets/codeinjection/${name}`, import.meta.url))));
+    const base = new URL(`../../src/assets/codeinjection/${name}`, import.meta.url);
+    const data = candidates
+      ? await readFile(join(candidates, name)).catch(() => readFile(base))
+      : await readFile(base);
+    return new Response(new Uint8Array(data));
   };
   const oldText = structuredClone(getTextBank(project, "message_texts", profile.viewerBankId));
-  const ids = await installLearnsetViewer(project), infoIds = project.codeInjection!.learnsetViewer!.infoMessageIds!.slice();
+  const ids = await installLearnsetViewer(project, { upperLayout: layout }), infoIds = project.codeInjection!.learnsetViewer!.infoMessageIds!.slice();
   assert.deepEqual(await installLearnsetViewer(project), ids);
   assert.deepEqual(project.codeInjection!.learnsetViewer!.infoMessageIds, infoIds);
   assert.deepEqual(getTextBank(project, "message_texts", profile.viewerBankId).slice(0, oldText.length), oldText);
   exported = await exportModifiedRom(project);
   const reopened = await loadProjectFromRomBytes(exported, basename(output), { selectedNarcs: ["message_texts"] });
   assert.deepEqual(getLearnsetViewerStatus(reopened).messageIds, ids);
+  assert.equal(getLearnsetViewerStatus(reopened).upperLayout, layout);
   assert(getLearnsetViewerStatus(reopened).installed && getLearnsetViewerStatus(reopened).compatible);
   assert(!getLearnsetViewerStatus(reopened).canUninstall && !getLearnsetViewerStatus(reopened).updateAvailable);
   const result = new NintendoDSRom(exported, { fileData: "view" });

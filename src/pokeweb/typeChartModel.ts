@@ -40,11 +40,9 @@ export function ensureTypeChartStore(project: ProjectState): void {
     }
     if ((existing.rawFiles[0]?.length ?? 0) === expectedLength) return;
     if (!overlay) return;
-    const offset = typeChartTableOffset(project, overlay);
-    existing.sourcePath = typeChartSourcePath(project, offset);
-    existing.rawFiles = [overlay.slice(offset, offset + expectedLength)];
-    existing.records = new Map();
-    existing.dirty = new Set();
+    const refreshed = createTypeChartStore(project, overlay);
+    if (existing.sourcePath === refreshed.sourcePath && existing.rawFiles[0]?.length === refreshed.rawFiles[0].length) return;
+    project.narcs.type_chart = refreshed;
     return;
   }
   if (!overlay) throw new Error("Type chart overlay data is not loaded. Load the Moves NARC or reload the ROM with Moves selected.");
@@ -65,15 +63,14 @@ export function createRomFsTypeChartStore(fileId: number, bytes: Uint8Array, sou
 }
 
 export function createTypeChartStore(project: ProjectState, overlay: Uint8Array): NarcStore {
-  if (!project.session.fairy && detectKnownFairyTypeChartOffset(overlay, project.session.baseRom) !== undefined) project.session.fairy = true;
-  const offset = typeChartTableOffset(project, overlay);
-  const length = typeChartTableLength(project);
+  const { offset, typeCount } = overlayTypeChartLayout(project, overlay);
+  project.session.fairy = typeCount === TYPE_CHART_FAIRY_TYPE_COUNT;
   return {
     name: "type_chart",
     fileId: -1,
     sourcePath: typeChartSourcePath(project, offset),
     fileCount: 1,
-    rawFiles: [overlay.slice(offset, offset + length)],
+    rawFiles: [overlay.slice(offset, offset + typeCount * typeCount)],
     records: new Map(),
     dirty: new Set(),
   };
@@ -138,12 +135,11 @@ export function getTypeChartTypes(project: ProjectState): string[] {
 }
 
 export function typeChartTypeCount(project: ProjectState): number {
-  const store = project.narcs.type_chart;
-  const storeLength = store?.rawFiles[0]?.length ?? 0;
-  if (isRomFsTypeChartStore(store) && storeLength >= TYPE_CHART_FAIRY_TYPE_COUNT * TYPE_CHART_FAIRY_TYPE_COUNT) return TYPE_CHART_FAIRY_TYPE_COUNT;
-  if (project.session.fairy || detectFairyTypeUsage(project)) return TYPE_CHART_FAIRY_TYPE_COUNT;
-  if (storeLength >= TYPE_CHART_FAIRY_TYPE_COUNT * TYPE_CHART_FAIRY_TYPE_COUNT) return TYPE_CHART_FAIRY_TYPE_COUNT;
-  return TYPE_CHART_VANILLA_TYPE_COUNT;
+  const storeLength = project.narcs.type_chart?.rawFiles[0]?.length ?? 0;
+  if (project.session.fairy || storeLength >= TYPE_CHART_FAIRY_TYPE_COUNT ** 2) return TYPE_CHART_FAIRY_TYPE_COUNT;
+  if (storeLength === TYPE_CHART_VANILLA_TYPE_COUNT ** 2) return TYPE_CHART_VANILLA_TYPE_COUNT;
+  const overlay = project.overlays[typeChartOverlayId(project)];
+  return overlay?.length ? overlayTypeChartLayout(project, overlay).typeCount : TYPE_CHART_VANILLA_TYPE_COUNT;
 }
 
 export function typeChartTableLength(project: ProjectState): number {
@@ -156,15 +152,32 @@ export function typeChartOverlayId(project: Pick<ProjectState, "session">): numb
 }
 
 export function typeChartTableOffset(project: ProjectState, overlay?: Uint8Array): number {
+  if (overlay) {
+    const { offset, typeCount } = overlayTypeChartLayout(project, overlay);
+    const store = project.narcs.type_chart;
+    if (store?.dirty.size && store.rawFiles[0]?.length !== typeCount * typeCount) {
+      throw new Error("Saved type chart edits use a different table size.");
+    }
+    return offset;
+  }
   if (typeChartTypeCount(project) <= TYPE_CHART_VANILLA_TYPE_COUNT) {
     return project.session.baseRom === "BW" ? BW_TYPE_CHART_OFFSET : TYPE_CHART_OFFSET;
   }
-  if (overlay) {
-    const detected = detectFairyTypeChartOffset(overlay, project.session.baseRom);
-    if (detected !== undefined) return detected;
+  return project.session.baseRom === "BW" ? BW_TYPE_CHART_FAIRY_FROST_OFFSET : TYPE_CHART_FAIRY_FROST_OFFSET;
+}
+
+function overlayTypeChartLayout(project: ProjectState, overlay: Uint8Array): { offset: number; typeCount: number } {
+  const { baseRom, fairy } = project.session;
+  const vanillaOffset = baseRom === "BW" ? BW_TYPE_CHART_OFFSET : TYPE_CHART_OFFSET;
+  const storeLength = project.narcs.type_chart?.rawFiles[0]?.length ?? 0;
+  const fairyHint = fairy || storeLength >= TYPE_CHART_FAIRY_TYPE_COUNT ** 2 || detectFairyTypeUsage(project);
+  const fairyOffset = fairyHint ? detectFairyTypeChartOffset(overlay, baseRom) : detectKnownFairyTypeChartOffset(overlay, baseRom);
+  if (fairyOffset !== undefined) return { offset: fairyOffset, typeCount: TYPE_CHART_FAIRY_TYPE_COUNT };
+  // Legacy projects can contain Fairy move data alongside the original battle chart.
+  if (fairyHint && !isPlausibleTypeChartAt(overlay, vanillaOffset, TYPE_CHART_VANILLA_TYPE_COUNT)) {
     throw new Error(`Could not locate an 18x18 Fairy type chart in overlay ${typeChartOverlayId(project)}.`);
   }
-  return project.session.baseRom === "BW" ? BW_TYPE_CHART_FAIRY_FROST_OFFSET : TYPE_CHART_FAIRY_FROST_OFFSET;
+  return { offset: vanillaOffset, typeCount: TYPE_CHART_VANILLA_TYPE_COUNT };
 }
 
 export function detectFairyTypeUsage(project: ProjectState): boolean {

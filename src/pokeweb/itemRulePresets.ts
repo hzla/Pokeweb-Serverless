@@ -1,6 +1,7 @@
+import { AFTER_MOVE_STAT } from "./itemRecipeEffects";
 import { ITEM_RULE_EFFECTS, validateItemRule, type ItemRuleSet } from "./itemRules";
 const always = () => ({ kind: "group" as const, mode: "all" as const, children: [] });
-export const ITEM_RECIPE_TEMPLATE_IDS = { maranga: 10001, weaknessPolicy: 10002, fairyFeather: 10003, roseli: 10004, safetyGoggles: 10005, heavyDutyBoots:10006, clearAmulet:10007, covertCloak:10008, loadedDice:10009, mirrorHerb:10010, punchingGlove:10011, assaultVest:10012 } as const;
+export const ITEM_RECIPE_TEMPLATE_IDS = { maranga: 10001, weaknessPolicy: 10002, fairyFeather: 10003, roseli: 10004, safetyGoggles: 10005, heavyDutyBoots:10006, clearAmulet:10007, covertCloak:10008, loadedDice:10009, mirrorHerb:10010, punchingGlove:10011, assaultVest:10012, throatSpray:10013 } as const;
 const recipes = new Map<number,{label:string;effects:ItemRuleSet["effects"];consumable:boolean}>([
   [10001,{label:"Maranga Berry",effects:[{kind:"itemRecipe:hitStats",value:1,parameters:{category:2,berryUse:1}}],consumable:true}],
   [10002,{label:"Weakness Policy",effects:[{kind:"itemRecipe:hitStats",value:1,parameters:{attack:2,specialAttack:2,specialDefense:0,effectiveness:4}}],consumable:true}],
@@ -14,6 +15,7 @@ const recipes = new Map<number,{label:string;effects:ItemRuleSet["effects"];cons
   [10010,{label:"Mirror Herb",effects:[{kind:"itemRecipe:mirrorBoosts",value:1}],consumable:true}],
   [10012,{label:"Assault Vest",effects:[{kind:"specialDefense",value:1.5},{kind:"itemRecipe:moveRestriction",value:1}],consumable:false}],
   [10011,{label:"Punching Glove (power)",effects:[{kind:"itemRecipe:flagPower",value:1.1}],consumable:false}],
+  [10013,{label:"Throat Spray",effects:[{kind:AFTER_MOVE_STAT,value:1}],consumable:true}],
 ]);
 export const ITEM_RULE_PRESETS = [
   ...ITEM_RULE_EFFECTS.filter(effect => effect.nativeItem).map(effect => ({ id: effect.nativeItem!, label: effect.label.replace(/ behavior$/u, "") })),

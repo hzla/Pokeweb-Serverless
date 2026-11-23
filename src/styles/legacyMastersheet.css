@@ -658,13 +658,9 @@
   grid-template-columns: 1fr 1fr;
 }
 
-/* Where the Mastersheet Viewer is available the sheet is edited there: this page launches it. */
+/* The sheet is edited in the Mastersheet Viewer: this page launches it. */
 .mastersheet-page:has(> .mastersheet-launch) {
   grid-template-columns: minmax(220px, 16vw) minmax(0, 1fr);
-}
-
-.mastersheet-editor-panel[hidden] {
-  display: none;
 }
 
 .mastersheet-launch {
@@ -683,20 +679,6 @@
 }
 
 .mastersheet-launch__card h2 {
-  margin: 0 0 12px;
+  margin: 0 0 16px;
   font-size: 20px;
-}
-
-.mastersheet-launch__card p {
-  margin: 0 0 12px;
-  color: var(--text-muted);
-  line-height: 1.5;
-}
-
-.mastersheet-launch__card .btn {
-  margin: 8px 0 16px;
-}
-
-.mastersheet-launch__summary {
-  font-size: 13px;
 }

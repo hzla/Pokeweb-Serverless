@@ -153,7 +153,7 @@ export function getSpeciesExpansionStatus(project: ProjectState): SpeciesExpansi
     return { ...base, message: `All ${config.count} species are installed (national 650-${649 + config.count}).` };
   }
   if (usesWhite2UpgradePokemonData(project) || detectWhite2UpgradeDlls(project) || detectBlack2UpgradeDlls(project)) {
-    return { ...base, message: "White 2 Upgrade / Black 2 Upgrade ROMs have their own species." };
+    return { ...base, message: "This ROM already includes a species expansion." };
   }
   return { ...base, ready: true, message: "Ready to install." };
 }
@@ -628,7 +628,7 @@ export async function stageSpeciesExpansion(project: ProjectState, nationals?: r
   recordGenericChange(project, "code_injection",
     `Species expansion: ${report.species} species added (${which}; ROM species = national + ${NATIONAL_OFFSET})` +
     (first ? `; ${report.formsMoved} form records and the regional Pokédex table moved by ${FORM_SHIFT}` : "") +
-    `. Data from White2Upgrade; sprites by ${credits.join("; ")}.`,
+    `. Sprites by ${credits.join("; ")}.`,
     "Species Expansion", { key: `code-injection:species-expansion:${[...present].sort((a, b) => a - b).join(",")}` });
   return report;
 }

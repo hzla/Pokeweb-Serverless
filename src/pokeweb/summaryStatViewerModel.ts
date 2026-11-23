@@ -87,7 +87,7 @@ function bytesAt(project: ProjectState, rom: NintendoDSRom | undefined, path: st
 export function getSummaryStatViewerStatus(project: ProjectState): SummaryStatViewerStatus {
   const state: SummaryStatViewerStatus = { supported: false, compatible: false, installed: false, canUninstall: false,
     pmcInstalled: getPmcInstallStatus(project).installed, options: { includeEvs: true }, updateAvailable: false,
-    message: "Summary IV/EV Viewer supports English US Black 2 (IREO) and White 2 (IRDO)." };
+    message: "Summary IV/EV Viewer supports US Black, White, Black 2, and White 2 (revision 0)." };
   const v = project.session.baseVersion;
   if (!isVersion(v) || project.session.baseRom !== (v === "B" || v === "W" ? "BW" : "BW2")) return state;
   let rom: NintendoDSRom | undefined;

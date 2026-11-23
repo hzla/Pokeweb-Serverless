@@ -95,7 +95,7 @@ export function getInfiniteCandyStatus(project: ProjectState, selectedItemId?: n
     return unsupported("Infinite Candy requires the audited US revision-0 ROM for this game.");
   }
   if (detectWhite2UpgradeDlls(project) || detectBlack2UpgradeDlls(project)) {
-    return unsupported("Item 622 is reserved by the installed BW2 upgrade patch.");
+    return unsupported("The installed expansion reserves item 622.");
   }
 
   const modules = listCodeInjectionDlls(project).filter((module) => module.target === "patches");

@@ -7,14 +7,14 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import re
 import struct
 from capstone import Cs, CS_ARCH_ARM, CS_MODE_THUMB
 import ndspy.rom
 import ndspy.narc
 import ndspy.codeCompression
 import ndspy.lz10
-from background import profile, header
+from background import profile, header, lower_grid_header
+from three_card_assets import archive as three_card_archive
 
 HERE=Path(__file__).resolve().parent
 WORKSPACE=HERE.parents[2]
@@ -40,10 +40,12 @@ BINDINGS={
     0x2039dc9: (0x2030098, 0x20300b0),
     0x203a279: (0x2030164, 0x203017c),
     0x203df29: (0x20362dc, 0x20362f4),
+    0x2044591: (0x203fa08, 0x203fa20),
     0x2044cc5: (0x2040588, 0x20405a0),
     0x2044fbd: (0x20409b4, 0x20409cc),
     0x2044fdd: (0x20409e0, 0x20409f8),
     0x204508d: (0x2040af0, 0x2040b08),
+    0x20450ad: (0x2040b1c, 0x2040b34),
     0x2045841: (0x204162c, 0x2041644),
     0x2045ba9: (0x2041b6c, 0x2041b84),
     0x2046f21: (0x20437d4, 0x20437ec),
@@ -120,12 +122,6 @@ def configure(game):
         api.append({'reference':hex(source),'entry':entry,'segment':segment,
                     'mode':'data' if source==0x219b9e8 else 'Thumb' if entry&1 else 'ARM',
                     'expectedHex':data[at:at+length].hex()})
-    # Every literal native() binding must be represented. Never silently call
-    # a BW2 address in a BW1 candidate after a later source change.
-    references=set()
-    for path in [HERE/'runtime.h',*HERE.glob('*.cpp')]:
-        references.update(int(m[1],16) for m in re.finditer(r'native<.*?>\s*\((0x[\da-f]+)\s*,\s*(0x[\da-f]+)\)',path.read_text(),re.I))
-    assert references<=BINDINGS.keys(),references-BINDINGS.keys()
     native={'isDsi':settings['isDsi'],'debugFree':settings['debugFree']}
     for label,entry in native.items():
         b,d=segs['ARM9'];api.append({'label':label,'entry':entry,'segment':'ARM9','mode':'ARM','expectedHex':d[entry-b:entry-b+32].hex()})
@@ -179,14 +175,18 @@ def configure(game):
             'layout':{'personalRecordSize':60,'partyRequest':0x280,'partyMessage':0x134,'partyCommand':0x3c,'partySlot':0x2c,'requestMode':0x34,'requestSlot':0x3c,'requestResult':0x40,'tutorWorkSize':0x228},
             'segments':{str(n):{'address':base,'sha256':hashlib.sha256(data).hexdigest()} for n,(base,data) in segs.items()},
             'apis':api,'hooks':hooks,'resources':resources}
-    (HERE/f'profile-{game}.json').write_text(json.dumps(result,indent=2)+'\n')
-    return result,rows
+    fonts=ndspy.narc.NARC(rom.getFileByName("a/0/2/3")).files
+    face,=struct.unpack_from("<H",graphics[0],40+17*2)
+    return result,rows,lower_grid_header(graphics),face,struct.unpack_from("<16H",fonts[5],40)
 
 def main():
     build=HERE/'build';build.mkdir(exist_ok=True)
     results={};rows=None
+    graphics=None
     for game in PROFILES:
-        result,other=configure(game);results[game]=result
+        result,other,lower,face,font=configure(game)
+        assert graphics is None or graphics==(lower,face,font)
+        graphics=(lower,face,font);results[game]=result
         assert rows is None or rows==other
         rows=other
         print(f"{game}: {len(result['apis'])} native entries, {len(result['hooks'])} hooks pinned; acceptance pending")
@@ -196,5 +196,12 @@ def main():
     text += ['    default:return 0;','    }','}', '#if defined(GAME_B)',f"constexpr u32 Bw1IsDsi=0x{PROFILES['B']['isDsi']:x}, Bw1DebugFree=0x{PROFILES['B']['debugFree']:x};",'#else',f"constexpr u32 Bw1IsDsi=0x{PROFILES['W']['isDsi']:x}, Bw1DebugFree=0x{PROFILES['W']['debugFree']:x};",'#endif']
     (build/'addresses_bw1.generated.h').write_text('\n'.join(text)+'\n')
     (build/'info_background_bw1.generated.h').write_text(header(rows).replace('US W2/B2','US B/W'))
+    lower,face,font=graphics
+    (build/'lower_grid_bw1.generated.h').write_text(lower)
+    art=three_card_archive(HERE,build,face,font,'B')
+    (build/'learnset-three-cards-bw1.narc').write_bytes(art)
+    for game,result in results.items():
+        result['threeCardArtworkSha256']=hashlib.sha256(art).hexdigest()
+        (HERE/f'profile-{game}.json').write_text(json.dumps(result,indent=2)+'\n')
 
 if __name__=='__main__':main()

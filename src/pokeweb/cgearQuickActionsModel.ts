@@ -121,15 +121,17 @@ function conflicts(rpm: RpmModule, profile: Profile, followingCore: boolean, ite
       s.label === "Native bag add/remove ownership" || s.label === "Native shop balance/price renderers"
       || (s.label === "Native API" && s.module === "ARM9" && sharedBagEntryPoints.has(s.address))))
       && !(sharedMusic&&s.label==="Shared music runtime hook")
-      && !(followingCore && s.label === "Native event allocation and destruction layout" && target.module === "ARM9"
+      && !(followingCore && !s.patchSize && s.label === "Native event allocation and destruction layout" && target.module === "ARM9"
         && target.type === "FULL_COPY" && size === 8 && [0x02016cf8, 0x02016d08].includes(target.address)) && s.module === target.module
       && target.address < s.address + s.expectedHex.length / 2 && target.address + size > s.address);
   });
 }
 function isVerifiedFollowingCore(path: string, bytes: Uint8Array | undefined, version: Version): boolean {
   if (!bytes || path !== `patches/PokewebFollowingCore${version}.dll`) return false;
-  const hashes = version === "W2" ? [followingWhite2.coreSha256, followingUpgrade.coreSha256] : [followingBlack2.coreSha256];
-  return hashes.includes(sha256Hex(bytes));
+  const hash = sha256Hex(bytes);
+  const manifests = version === "W2" ? [followingWhite2, followingUpgrade] : [followingBlack2];
+  return manifests.some(follower => follower.coreSha256 === hash || follower.previousVersions.some(previous =>
+    "coreSha256" in previous && previous.coreSha256 === hash));
 }
 function checkCGearPaletteSpace(project: ProjectState, rom: NintendoDSRom): void {
   const id=rom.filenames.idOf("a/2/8/7");
@@ -163,7 +165,7 @@ export function getCGearQuickActionsStatus(project: ProjectState): CGearQuickAct
   if(project.session.baseRom==="BW")return getBw1CGearStatus(project);
   const state: CGearQuickActionsStatus = { supported: false, compatible: false, installed: false, enabled: false,
     pmcInstalled: getPmcInstallStatus(project).installed, updateAvailable: false, canRemove: false, pcHideFlag:manifest.defaultPcHideFlag,
-    message: "C-Gear Quick Actions supports English US Black 2 and White 2 revision 0." };
+    message: "C-Gear Quick Actions supports US Black, White, Black 2, and White 2 (revision 0)." };
   const v = project.session.baseVersion;
   if (project.session.baseRom !== "BW2" || (v !== "W2" && v !== "B2")) return state;
   let rom: NintendoDSRom | undefined;

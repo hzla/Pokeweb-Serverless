@@ -1,3 +1,8 @@
+import templateV9 from "../assets/data/itemRuleRuntimeV9.json";
+import { hasAfterMoveStat, referencedItemMoveFlags } from "./itemRecipeEffects";
+import { emptyCustomMoveFlags, encodeCustomMoveFlags, validateCustomMoveFlags, type CustomMoveFlagRegistry } from "./customMoveFlags";
+import { expandedMoveDllDefaults, validateMoveClassOverrides } from "./abilityMoveClasses";
+import type { ProjectState } from "./projectStore";
 import templateV8 from "../assets/data/itemRuleRuntimeV8.json";
 import templateV7 from "../assets/data/itemRuleRuntimeV7.json";
 import { hasItemSelection, type ItemSelectionBindings } from "./itemSelectionBindings";
@@ -9,24 +14,27 @@ import moveClasses from "../assets/data/abilityMoveClasses.json";
 import { writeU32 } from "../nds/binary";
 import { encodeItemRules, encodeItemRulesV4, itemUsesBattleCondition, type ItemRuleSet } from "./itemRules";
 import { appendNativeItemEffects, type NativeItemResolver } from "./itemNativeRuntime";
-import { writeRpm, type RpmModule } from "./rpm";
+import { parseRpm, writeRpm, type RpmModule } from "./rpm";
 
 export const ITEM_RULE_API = ["BattleEventVar_GetValue", "BattleEventVar_MulValue", "GetBattleMon", "GetBattleMonStat", "GetPokeType", "PokeTypePair_IsMatch", "ServerEvent_GetWeather", "BtlServerFlow_IsSimulating", "BtlServerFlow_CheckMatchup", "BattleHandler_PushWork", "BattleHandler_PopWork", "BattleHandler_StrSetup", "BattleHandler_AddArg", "BattleEventItem_GetSubID", "BattleEvent_AddItem", "GetMonID", "RawBattleMonStat", "PML_MoveGetCategory"];
-export type ItemRuntimeVersion = 4 | 5 | 6 | 7 | 8;
+export type ItemRuntimeVersion = 4 | 5 | 6 | 7 | 8 | 9;
 export const itemRuntimeVersion = (rules: ReadonlyMap<number, ItemRuleSet>): ItemRuntimeVersion =>
-  itemUsesBattleCondition(rules, "fieldEffect") || itemUsesBattleCondition(rules, "sideEffect") ? 8 : hasItemSelection(rules) ? 7 : 6;
+  hasAfterMoveStat(rules) ? 9 : itemUsesBattleCondition(rules, "fieldEffect") || itemUsesBattleCondition(rules, "sideEffect") ? 8 : hasItemSelection(rules) ? 7 : 6;
 export type RuleRuntimeInput = { game: string; rules: ReadonlyMap<number, ItemRuleSet>; api: readonly number[];
   native?: { resolve: NativeItemResolver; api: ReadonlyMap<number, number> }; legacy?: boolean;
-  nativeVersion?:ItemRuntimeVersion; fieldReaders?: readonly number[]; selection?: ItemSelectionBindings; module?:string; portable?:boolean; messages?:readonly number[]; moveClasses?:ReadonlyMap<number,number>;
+  nativeVersion?:ItemRuntimeVersion; fieldReaders?: readonly number[]; selection?: ItemSelectionBindings; module?:string; portable?:boolean; messages?:readonly number[]; moveClasses?:ReadonlyMap<number,number>; customFlags?:CustomMoveFlagRegistry;
   dispatcher: { address: number; code: Uint8Array; calls: Array<{ offset: number; address: number }> } };
 
 export function buildRuleRuntime(input: RuleRuntimeInput): RpmModule {
-  const extended = Boolean(input.native) && !input.legacy, version=input.nativeVersion??6, modern=extended&&version>=5, latest=extended&&version>=6, sourceTemplate = extended ? version===8?templateV8:version===7?templateV7:latest?templateV6:modern?templateV5:template : templateV3;
+  const extended = Boolean(input.native) && !input.legacy, version=input.nativeVersion??6, modern=extended&&version>=5, latest=extended&&version>=6, sourceTemplate = extended ? version===9?templateV9:version===8?templateV8:version===7?templateV7:latest?templateV6:modern?templateV5:template : templateV3;
   if(extended&&!modern&&[...input.rules.values()].some(r=>r.effects.some(e=>e.kind.startsWith("itemRecipe:"))))throw Error("Item recipes require the version-5 runtime.");
   if(version<6&&[...input.rules.values()].some(r=>r.effects.some(e=>["hazardGuard","statGuard","secondaryGuard","hitCount","mirrorBoosts","flagPower"].some(k=>e.kind===`itemRecipe:${k}`))))throw Error("These item recipes require the version-6 runtime.");
-  if (itemRuntimeVersion(input.rules) === 8 && (version !== 8 || !extended || input.fieldReaders?.length !== 3))
+  if (hasAfterMoveStat(input.rules) && (!extended || version < 9))
+    throw Error("Stat changes after using a move require the version-9 item runtime.");
+  if ((itemUsesBattleCondition(input.rules,"fieldEffect") || itemUsesBattleCondition(input.rules,"sideEffect")) && (version < 8 || !extended || input.fieldReaders?.length !== 3))
     throw Error("Battlefield activation conditions require verified item field readers.");
   if (hasItemSelection(input.rules) && (version < 7 || !input.selection)) throw Error("Move restrictions require a verified selection adapter.");
+  const customFlags = version === 9 ? referencedItemMoveFlags(input.rules, input.customFlags ?? emptyCustomMoveFlags()) : undefined;
   const rpm = structuredClone(sourceTemplate) as unknown as RpmModule;
   const original = Uint8Array.from(sourceTemplate.code), dispatch = (original.length + 3) & ~3;
   const config = (dispatch + input.dispatcher.code.length + 3) & ~3;
@@ -74,11 +82,18 @@ export function buildRuleRuntime(input: RuleRuntimeInput): RpmModule {
       rpm.symbols.push({name:null,address:start,size:data.length,type:"SECTION",attributes:0});
       rpm.relocations.push({target:{module:"base",address:named("ItemRecipeMoveData").address,type:"OFFSET"},sourceSymbolIndex:rpm.symbols.length-1});
     }
+    if (customFlags) {
+      const start = (rpm.code.length + 3) & ~3, data = encodeCustomMoveFlags(customFlags);
+      const next = new Uint8Array(start + data.length); next.set(rpm.code); next.set(data, start); rpm.code = next;
+      rpm.symbols.push({name:null,address:start,size:data.length,type:"SECTION",attributes:0});
+      rpm.relocations.push({target:{module:"base",address:named("ItemRecipeCustomMoveData").address,type:"OFFSET"},sourceSymbolIndex:rpm.symbols.length-1});
+    }
     const shift = ((rpm.code.length + 3) & ~3) - bssBase;
     bssSymbols.forEach(symbol => { symbol.address += shift; });
   }
   rpm.metadata = { PMCGameID: input.game, PMCVersion: extended ? `${version}.0.0` : "3.0.0", PMCModulePriority: 4, PokewebItemEffects: "rules",
     PokewebItemRules: JSON.stringify([...input.rules].sort(([a], [b]) => a - b)) };
+  if(customFlags)rpm.metadata.PokewebItemCustomMoveFlags=JSON.stringify(customFlags);
   if(latest)rpm.metadata.PokewebItemMessages=JSON.stringify(input.messages??[0,0,0]);
   if(modern)rpm.metadata.PokewebItemMoveClasses=JSON.stringify([...(input.moveClasses??defaultItemMoveClasses())].filter(([,mask])=>mask).sort(([a],[b])=>a-b));
   // Bound both the resident image and the transient serialized image used by
@@ -92,4 +107,22 @@ export function defaultItemMoveClasses():Map<number,number>{
   for(const[key,mask]of [["bite",1],["pulse",2],["ball",4],["slicing",8],["powder",16],["wind",32],["healing",64]] as const)
     for(const id of moveClasses.classes[key])rows.set(id,(rows.get(id)??0)|mask);
   return rows;
+}
+
+export type ItemMoveFlagSources = { overrides: ReadonlyMap<number, number>; customFlags: CustomMoveFlagRegistry };
+
+export function readItemMoveFlagSources(ability?: Uint8Array): ItemMoveFlagSources {
+  const meta = ability && !(ability.length === 4 && String.fromCharCode(...ability) === "PWAR")
+    ? parseRpm(ability,{allowedMagics:["DLXF"]}).metadata : {};
+  return {
+    overrides: typeof meta.PokewebMoveClassOverrides === "string" ? validateMoveClassOverrides(JSON.parse(meta.PokewebMoveClassOverrides), new Map(), true) : new Map(),
+    customFlags: typeof meta.PokewebCustomMoveFlags === "string" ? validateCustomMoveFlags(JSON.parse(meta.PokewebCustomMoveFlags)) : emptyCustomMoveFlags(),
+  };
+}
+
+export function itemMoveClassesForProject(project: ProjectState, overrides: ReadonlyMap<number, number>): Map<number, number> {
+  const classes = defaultItemMoveClasses();
+  for (const [id,mask] of expandedMoveDllDefaults(project)) classes.set(id,mask);
+  for (const [id,mask] of overrides) classes.set(id,mask);
+  return classes;
 }

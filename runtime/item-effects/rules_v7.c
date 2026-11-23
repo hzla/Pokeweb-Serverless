@@ -267,12 +267,22 @@ static void dispatch(void*item,void*f,u8 owner,u32*w,u32 event){
 E(02) E(04) E(0b) E(0d) E(0f) E(12) E(13) E(22) E(28) E(2d) E(34) E(35) E(36) E(38) E(3b) E(3c) E(3e) E(44) E(47) E(4a) E(4b) E(4f) E(51) E(55) E(57) E(58) E(5b) E(5c) E(5d) E(62) E(64) E(69) E(6c) E(6d) E(72) E(73) E(74) E(75) E(76) E(77) E(7b) E(7c) E(7f) E(81) E(82) E(83) E(85) E(88) E(8c) E(91) E(94) E(97) E(9c) E(9d) E(9f)
 #undef E
 #define E(n) {0x##n,RuleEvent_##n},
-PUBLIC const Event ItemRuleEvents[]={E(02) E(04) E(0b) E(0d) E(0f) E(12) E(13) E(22) E(28) E(2d) E(34) E(35) E(36) E(38) E(3b) E(3c) E(3e) E(44) E(47) E(4a) E(4b) E(4f) E(51) E(55) E(57) E(58) E(5b) E(5c) E(5d) E(62) E(64) E(69) E(6c) E(6d) E(72) E(73) E(74) E(75) E(76) E(77) E(7b) E(7c) E(7f) E(81) E(82) E(83) E(85) E(88) E(8c) E(91) E(94) E(97) E(9c) E(9d) E(9f)};
+PUBLIC const Event ItemRuleEvents[]={E(02) E(04) E(0b) E(0d) E(0f) E(12) E(13) E(22) E(28) E(2d) E(34) E(35) E(36) E(38) E(3b) E(3c) E(3e) E(44) E(47) E(4a) E(4b) E(4f) E(51) E(55) E(57) E(58) E(5b) E(5c) E(5d) E(62) E(64) E(69) E(6c) E(6d) E(72) E(73) E(74) E(75) E(76) E(77) E(7b) E(7c) E(7f) E(81) E(82) E(83) E(85) E(88) E(8c) E(91) E(94) E(97) E(9c) E(9d) E(9f)
+#ifdef ITEM_AFTER_MOVE_STAT
+ E(25)
+#endif
+};
 #undef E
 static u32 itemSkip(void*,void*,u32,u32,u32,u32);
 PUBLIC void *RuleDispatch(void*mon,u16 id){
  if(record(id)){
-  void*item=FN(14,void*(*)(u32,u32,u32,u32,u32,const Event*,u32))(5,id,6,FN(16,u32(*)(void*,u32))(mon,12),FN(15,u32(*)(void*))(mon),ItemRuleEvents,sizeof(ItemRuleEvents)/sizeof(ItemRuleEvents[0]));
+  u32 count=sizeof(ItemRuleEvents)/sizeof(ItemRuleEvents[0]);
+#ifdef ITEM_AFTER_MOVE_STAT
+  const volatile u8*r=record(id),*e=effects(r);
+  --count;
+  for(u32 n=0;n<r[0];++n,e+=16)if(e[0]==141){++count;break;}
+#endif
+  void*item=FN(14,void*(*)(u32,u32,u32,u32,u32,const Event*,u32))(5,id,6,FN(16,u32(*)(void*,u32))(mon,12),FN(15,u32(*)(void*))(mon),ItemRuleEvents,count);
   if(item)for(u32 n=0;n<132;++n)if(slots[n].item==item||!slots[n].item){slots[n].item=item;slots[n].isolated=0;for(u32 j=0;j<16;++j)slots[n].cells[j]=0;((u32*)item)[7+5]=(u32)(uintptr_t)&slots[n];break;}
   if(item){const volatile u8*r=record(id),*e=effects(r);for(u32 n=0;n<r[0];++n,e+=16)if(e[0]==134){FN(44,void(*)(void*,void*))(item,(void*)itemSkip);break;}}
   return item;

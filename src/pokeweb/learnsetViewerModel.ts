@@ -7,7 +7,7 @@ import { decompressCode } from "../nds/codeCompression";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { recordGenericChange } from "./actionChangelog";
-import { getRomFileBytes } from "./fileSystemModel";
+import { addRomFile, getRomFileBytes, setRomFileReplacement } from "./fileSystemModel";
 import { loadActiveRomBytes } from "./persistence";
 import { adoptExistingPmcInstall, canRemoveStagedCodeInjectionDll, getPmcInstallStatus, installBundledPmc, listCodeInjectionDlls, removeStagedCodeInjectionDll, stageCodeInjectionDll } from "./pmcModel";
 import type { ProjectState } from "./projectStore";
@@ -16,6 +16,8 @@ import { addTextEntries, commitTextBank, getTextBank, parseTextEntryId } from ".
 
 export const LEARNSET_VIEWER_VERSION = manifestData.version;
 export const LEARNSET_INFO_MESSAGES = infoMessages;
+export const LEARNSET_THREE_CARDS_ART_PATH = "pokeweb/learnset-three-cards.narc";
+const bw1ThreeCardsArtwork = new URL("../assets/codeinjection/learnset-three-cards-bw1.narc", import.meta.url);
 const URLS = {
   W2: [new URL("../assets/codeinjection/LearnsetMenuW2.dll", import.meta.url), new URL("../assets/codeinjection/LearnsetViewerW2.dll", import.meta.url)],
   B2: [new URL("../assets/codeinjection/LearnsetMenuB2.dll", import.meta.url), new URL("../assets/codeinjection/LearnsetViewerB2.dll", import.meta.url)],
@@ -30,7 +32,7 @@ type ModuleBuild = { fileName: string; sha256: string; codeFingerprint: string; 
 type Profile = {
   idCode: string; revision?: number; dsAccepted?: boolean; version?: string;
   partyOverlay?: number; dispatchOverlay?: number; tutorOverlay?: number; graphicsArchive?: string;
-  menuBankId?: number; viewerBankId?: number;
+  menuBankId?: number; viewerBankId?: number; threeCardArtworkSha256?: string;
   hooks: { label: string; overlayId: number; address: number; expectedHex: string; patchType: string; patchSize: number }[];
   apis?: { label?: string; reference?: string; entry: number; segment: string | number; expectedHex: string }[];
   resources: { archive?: string; member: number; sha256: string }[];
@@ -39,7 +41,7 @@ type Profile = {
 const manifest = manifestData as { version: string; games: Record<Version, Profile> };
 const isVersion = (v: unknown): v is Version => v === "B" || v === "W" || v === "B2" || v === "W2";
 const isBw1 = (v: Version) => v === "B" || v === "W";
-async function loadCompanion(url: URL, group: Group, version: Version): Promise<Uint8Array> {
+async function loadCompanion(url: URL, group: Group | "artwork", version: Version): Promise<Uint8Array> {
   if (url.protocol === "data:") {
     const base64 = url.pathname.slice(url.pathname.indexOf(",") + 1);
     return Uint8Array.from(atob(base64), byte => byte.charCodeAt(0));
@@ -47,7 +49,8 @@ async function loadCompanion(url: URL, group: Group, version: Version): Promise<
   const response = await fetch(url);
   if (!response.ok) {
     const retry = response.status === 404 ? " Reload Pokeweb and try again." : "";
-    throw new Error(`Could not load the Learnset ${group} companion for ${version} (HTTP ${response.status}).${retry}`);
+    const resource = group === "artwork" ? "Three Cards artwork" : `${group} companion`;
+    throw new Error(`Could not load the Learnset ${resource} for ${version} (HTTP ${response.status}).${retry}`);
   }
   return new Uint8Array(await response.arrayBuffer());
 }
@@ -138,7 +141,7 @@ function hookSize(rpm: RpmModule, r: RpmModule["relocations"][number]) {
 }
 function codeFingerprint(code: Uint8Array): string {
   const ranges: [number, number][] = [];
-  const config = configOffset(code); ranges.push([config + 10, config + 22]);
+  const config = configOffset(code); ranges.push([config + 10, config + 24]);
   const customMarker = new TextEncoder().encode("PWUICFG1");
   const custom = Array.from({ length: Math.max(0, code.length - 19) }, (_, i) => i)
     .filter(i => customMarker.every((b, j) => code[i + j] === b));
@@ -181,7 +184,7 @@ function validModule(rpm: RpmModule, version: Version, group: Group) {
 export function getLearnsetViewerStatus(project: ProjectState, bytes = project.originalRomBytes): LearnsetViewerStatus {
   const status: LearnsetViewerStatus = { supported: false, compatible: false, checked: false, installed: false, partial: false,
     updateAvailable: false, canUninstall: false, pmcInstalled: getPmcInstallStatus(project).installed,
-    message: "Learnset Viewer supports US White 2 and Black 2 (vanilla or Upgrade)." };
+    message: "Learnset Viewer supports US Black, White, Black 2, and White 2 (revision 0)." };
   const version = project.session.baseVersion;
   if (!isVersion(version) || project.session.baseRom !== (isBw1(version) ? "BW" : "BW2")) return status;
   const layout = manifest.games[version];
@@ -221,7 +224,7 @@ export function getLearnsetViewerStatus(project: ProjectState, bytes = project.o
       if (isBw1(version) && !recognizedModule(rpm, version, group)) return { ...status,
         message: `Unrecognized Learnset companion: ${module.path}. Restore its verified DLL before updating.` };
       const ids = readConfiguration(data);
-      if (group === "Viewer") status.upperLayout = isBw1(version) ? "classic" : readLearnsetUpperLayout(data);
+      if (group === "Viewer") status.upperLayout = readLearnsetUpperLayout(data);
       if (!validModule(rpm, version, group) || !ids || (group === "Viewer" && (!validInfoConfiguration(data) || !status.upperLayout))) status.updateAvailable = true;
       if (ids && status.messageIds && (ids.menu !== status.messageIds.menu || ids.empty !== status.messageIds.empty || ids.error !== status.messageIds.error)) status.updateAvailable = true;
       status.messageIds ??= ids;
@@ -293,9 +296,9 @@ export async function installLearnsetViewer(project: ProjectState, options: {
   const paths = learnsetViewerPaths(version);
   const priorMenu = moduleBytes(staged, rom, paths[0]);
   const priorViewer = moduleBytes(staged, rom, paths[1]);
-  if (isBw1(version) && options.upperLayout === "three-cards") throw new Error("The three-card layout is available for Black 2 and White 2.");
-  const upperLayout = isBw1(version) ? "classic" : options.upperLayout
-    ?? (priorViewer ? status.upperLayout ?? "classic" : "three-cards");
+  const supportsThreeCards = !isBw1(version) || Boolean(profile.threeCardArtworkSha256);
+  if (!supportsThreeCards && options.upperLayout === "three-cards") throw new Error("This Learnset build only supports Classic.");
+  const upperLayout = options.upperLayout ?? (priorViewer ? status.upperLayout ?? "classic" : supportsThreeCards ? "three-cards" : "classic");
   const custom = priorMenu && readCustomUiConfig(priorMenu);
   const archives = new Map<string, NARC>();
   for (const resource of profile.resources) {
@@ -319,6 +322,20 @@ export async function installLearnsetViewer(project: ProjectState, options: {
     if (i === 1) infoConfigOffset(data);
     return data;
   }));
+  if (isBw1(version) && upperLayout === "three-cards" && profile.threeCardArtworkSha256) {
+    const path = LEARNSET_THREE_CARDS_ART_PATH;
+    const id = rom.filenames.idOf(path);
+    const removed = id !== undefined && staged.fileSystem?.tombstones?.[id] !== undefined;
+    if (removed || !moduleBytes(staged, rom, path)?.length) {
+      const art = await loadCompanion(bw1ThreeCardsArtwork, "artwork", version);
+      if (await sha256(art) !== profile.threeCardArtworkSha256) throw new Error("The bundled Learnset artwork failed its integrity check.");
+      if (id === undefined) addRomFile(staged, path, art);
+      else {
+        setRomFileReplacement(staged, id, art);
+        if (staged.fileSystem?.tombstones) delete staged.fileSystem.tombstones[id];
+      }
+    }
+  }
   const menuBank = profile.menuBankId ?? 178, viewerBank = profile.viewerBankId ?? 401;
   for (const bankId of [menuBank, viewerBank]) if (!getTextBank(staged, "message_texts", bankId).length) throw new Error(`Message bank ${bankId} is unavailable.`);
   if (!getPmcInstallStatus(staged).installed) {
@@ -343,7 +360,7 @@ export async function installLearnsetViewer(project: ProjectState, options: {
     if (custom?.validMenu || options.enableCommand === false) configured = configureCustomUi(configured, custom?.enabled ?? false, custom?.validMenu ? custom.menu : ids.menu, options.enableCommand ?? true);
     if (i === 1) {
       configured = configureLearnsetInfoDll(configured, infoMessageIds);
-      if (!isBw1(version)) configureLearnsetUpperLayout(configured, upperLayout);
+      configureLearnsetUpperLayout(configured, upperLayout);
     }
     stageCodeInjectionDll(staged, path.split("/").pop()!, configured, "patches", romBytes);
   });

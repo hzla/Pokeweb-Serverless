@@ -2,7 +2,7 @@ import {renderPmcCapacity,formatPmcKiB} from "./pmcCapacity";
 import { attachNaturePaletteInstaller, renderNaturePaletteInstaller } from "./naturePaletteInstaller";
 import { naturePalettesSupported } from "../pokeweb/naturePaletteModel";
 import {getPmcMemoryEstimate} from "../pokeweb/pmcMemoryModel";
-import { typeIconPreview, DEFAULT_TYPE_ICON_BORDER, DEFAULT_BW1_TYPE_ICON_BORDER } from "../pokeweb/typeIconAppearance";
+import { typeIconBorderHex, typeIconPreview, DEFAULT_TYPE_ICON_BORDER, DEFAULT_BW1_TYPE_ICON_BORDER } from "../pokeweb/typeIconAppearance";
 import { getTrainerFieldConditionsStatus } from "../pokeweb/trainerFieldConditionsModel";
 import { frostbiteSnowStatus, installFrostbiteSnowPatch } from "../pokeweb/frostbiteSnowModel";
 import { attachTrainerFieldInstaller, renderTrainerFieldInstaller } from "./trainerFieldConditions";
@@ -44,7 +44,6 @@ import {
 } from "../pokeweb/trainerPwanAnimationModel";
 import { detectTrainerPwanCompatibility } from "../pokeweb/trainerPwanCompatibilityModel";
 import {
-  battleLogDisplayName,
   canUninstallBattleLog,
   getBattleLogInstallStatus,
   installBattleLog,
@@ -55,7 +54,6 @@ import {
   canUninstallMenuEvolution,
   getMenuEvolutionInstallStatus,
   installMenuEvolution,
-  menuEvolutionDisplayName,
   uninstallMenuEvolution,
 } from "../pokeweb/menuEvolutionModel";
 import {
@@ -97,7 +95,7 @@ import { abilityExpansionRows, canUseAbilityExpansionInstaller, getAbilityExpans
 import { downloadBytes } from "../pokeweb/fileSystemModel";
 import { getIntroSkipStatus, stageIntroSkip, uninstallIntroSkip } from "../pokeweb/introSkipModel";
 import { TESTING_PATCHES, getTestingPatchStatus, installTestingPatch, uninstallTestingPatch, type TestingPatchId } from "../pokeweb/testingPatchesModel";
-import { getBattleTypeHudStatus, installBattleTypeHud, uninstallBattleTypeHud, getMoveEffectivenessStatus, installMoveEffectiveness, uninstallMoveEffectiveness, DEFAULT_MOVE_HIGHLIGHT_COLORS, type MoveHighlightColors, type TypeIconVariant } from "../pokeweb/battleTypeHudModel";
+import { getBattleTypeHudStatus, installBattleTypeHud, uninstallBattleTypeHud, getMoveEffectivenessStatus, installMoveEffectiveness, uninstallMoveEffectiveness, DEFAULT_MOVE_HIGHLIGHT_COLORS, moveHighlightRgb555, type MoveHighlightColors, type TypeIconVariant } from "../pokeweb/battleTypeHudModel";
 import { getQuickPokeBallStatus, installQuickPokeBall, uninstallQuickPokeBall } from "../pokeweb/quickPokeBallModel";
 import { detectAnimStreamsCompatibility } from "../pokeweb/animStreamsModel";
 import {
@@ -115,8 +113,35 @@ function renderInlineStatus(label: string, options?: Parameters<typeof renderSta
   return label === "Ready" ? "" : renderStatusBadge(label, options);
 }
 
+const US_GEN5 = "US Black, White, Black 2, and White 2";
+const US_BW2 = "US Black 2 and White 2";
+const US_GEN5_REV0 = `${US_GEN5} (revision 0)`;
+const US_BW2_REV0 = `${US_BW2} (revision 0)`;
+
+function supportedRomsFact(roms: string): string {
+  return `<div><span>Supported ROMs</span><strong>${escapeHtml(roms)}</strong></div>`;
+}
+
+function renderSupportedRoms(roms: string): string {
+  return `<div class="code-injection-facts">${supportedRomsFact(roms)}</div>`;
+}
+
 const codeInjectionHydrationProjects = new WeakSet<ProjectState>();
 const typeIconSolidPreview = new URL("../assets/codeinjection/type-icons-solid-preview.png", import.meta.url).href;
+const typeIconBattlePreviews = {
+  letters: {
+    singles: new URL("../assets/codeinjection/showcase/type-icons-letters-singles.png", import.meta.url).href,
+    triples: new URL("../assets/codeinjection/showcase/type-icons-letters-triples.png", import.meta.url).href,
+  },
+  circular: {
+    singles: new URL("../assets/codeinjection/showcase/type-icons-circular-singles.png", import.meta.url).href,
+    triples: new URL("../assets/codeinjection/showcase/type-icons-circular-triples.png", import.meta.url).href,
+  },
+  solid: {
+    singles: new URL("../assets/codeinjection/showcase/type-icons-solid-singles.png", import.meta.url).href,
+    triples: new URL("../assets/codeinjection/showcase/type-icons-solid-triples.png", import.meta.url).href,
+  },
+};
 const patchShowcases = {
   summary: [
     [new URL("../assets/codeinjection/showcase/summary-ivs.png", import.meta.url).href, "White 2 Summary IVs with the six stored individual values", 256, 132],
@@ -129,9 +154,6 @@ const patchShowcases = {
   learnset: [
     [new URL("../assets/codeinjection/showcase/learnset-info.png", import.meta.url).href, "Learnset Viewer base stats, abilities, evolution family, and evolution requirement", 256, 142],
     [new URL("../assets/codeinjection/showcase/learnset-moves.png", import.meta.url).href, "Learnset Viewer move types, learn levels, and maximum PP", 256, 102],
-  ],
-  moves: [
-    [new URL("../assets/codeinjection/showcase/move-effectiveness.png", import.meta.url).href, "Move names colored for super-effective, resisted, immune, and neutral attacks against Gyarados", 256, 94],
   ],
   quickPokeBall: [
     [new URL("../assets/codeinjection/showcase/quick-poke-ball-idle.png", import.meta.url).href, "White 2 wild battle with the Quick Poké Ball tab showing 12 Poké Balls", 256, 134],
@@ -149,6 +171,34 @@ function renderPatchShowcase(kind: keyof typeof patchShowcases): string {
   ).join("")}</div>`;
 }
 
+const singlesMovePreview = new URL("../assets/codeinjection/showcase/move-effectiveness.png", import.meta.url).href;
+const doublesTargetPreview = new URL("../assets/codeinjection/showcase/move-effectiveness-doubles.png", import.meta.url).href;
+const moveHighlightOptions = [
+  ["superEffective", "Super effective", new URL("../assets/codeinjection/showcase/move-effectiveness-mask-super.png", import.meta.url).href],
+  ["notVeryEffective", "Not very effective", new URL("../assets/codeinjection/showcase/move-effectiveness-mask-resisted.png", import.meta.url).href],
+  ["immune", "Immune / no damage", new URL("../assets/codeinjection/showcase/move-effectiveness-mask-immune.png", import.meta.url).href],
+] as const;
+
+function moveHighlightPreviewColor(color: string): string {
+  return typeIconBorderHex(moveHighlightRgb555(color));
+}
+
+function renderMoveEffectivenessPreviews(colors: MoveHighlightColors): string {
+  return `<div class="code-injection-showcase move-effectiveness-previews">
+    <figure>
+      <div class="move-effectiveness-preview-image">
+        <img src="${singlesMovePreview}" alt="Move names showing super-effective, resisted, immune, and neutral attacks against Gyarados" width="256" height="94" loading="lazy" decoding="async">
+        ${moveHighlightOptions.map(([key, , mask]) => `<span aria-hidden="true" data-move-highlight-glyph="${key}" style="--move-glyph-mask: url('${mask}'); background-color: ${moveHighlightPreviewColor(colors[key])}"></span>`).join("")}
+      </div>
+      <figcaption>Singles move selection</figcaption>
+    </figure>
+    <figure>
+      <img src="${doublesTargetPreview}" alt="Doubles target grid with the selected move shown in a white nameplate at the bottom" width="256" height="192" loading="lazy" decoding="async">
+      <figcaption>Doubles target selection</figcaption>
+    </figure>
+  </div>`;
+}
+
 const codeInjectionTabs = [
   { id: "infrastructure", label: "Infrastructure and Dependencies" },
   { id: "graphics", label: "Graphical/UI Enhancements" },
@@ -164,8 +214,8 @@ const showUnsupportedCodeInjectionPatches = new WeakMap<ProjectState, boolean>()
 const pendingTypeIcons = new WeakMap<ProjectState, { variant: TypeIconVariant; borderColor: string }>();
 const pendingLearnsetLayouts = new WeakMap<ProjectState, LearnsetUpperLayout>();
 const learnsetLayouts = [
-  ["classic", "Classic", new URL("../assets/codeinjection/showcase/learnset-classic.png", import.meta.url).href],
-  ["three-cards", "Three cards", new URL("../assets/codeinjection/showcase/learnset-three-cards.png", import.meta.url).href],
+  { layout: "classic", label: "Classic", bw1: new URL("../assets/codeinjection/showcase/learnset-bw1-classic.png", import.meta.url).href, bw2: new URL("../assets/codeinjection/showcase/learnset-classic.png", import.meta.url).href },
+  { layout: "three-cards", label: "Three cards", bw1: new URL("../assets/codeinjection/showcase/learnset-bw1-three-cards.png", import.meta.url).href, bw2: new URL("../assets/codeinjection/showcase/learnset-three-cards.png", import.meta.url).href },
 ] as const;
 const pendingCandyItemIds = new WeakMap<ProjectState, number>();
 
@@ -236,7 +286,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       <div class="code-injection-panel__header"><div>
         <h2>${escapeHtml(patch.title)}</h2><p>${escapeHtml(patch.description)}</p>
       </div>${renderInlineStatus(state.installed ? "Installed" : state.compatible ? "Ready" : state.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}</div>
-      <div class="code-injection-facts"><div><span>ROM</span><strong>US White 2</strong></div><div><span>Version</span><strong>0.1.0 alpha</strong></div></div>
+      <div class="code-injection-facts">${supportedRomsFact("US White 2 (revision 0)")}<div><span>Version</span><strong>0.1.0 alpha</strong></div></div>
       <p>${escapeHtml(state.message)}</p>
       <div class="code-injection-actions">
         <button class="btn -primary" id="install-${id}-btn" type="button" ${state.compatible && !state.installed ? "" : "disabled"}>${state.installed ? "Installed" : `Install ${escapeHtml(patch.title)}`}</button>
@@ -255,6 +305,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     return `<section class="code-injection-panel" ${patchVisibility(state.supported)}>
       <div class="code-injection-panel__header"><div><h2>${name}</h2><p>${description}</p></div>
         ${renderInlineStatus(state.updateAvailable ? "Update available" : state.installed ? "Installed" : state.supported ? "Ready" : "Unsupported", { className: "code-injection-status" })}</div>
+      ${renderSupportedRoms(US_GEN5_REV0)}
       <div class="code-injection-actions"><button class="btn -primary" type="button" data-install-battle-climate="${id}" ${state.supported && (!state.installed || state.updateAvailable) ? "" : "disabled"}>${action}</button>
       <div class="code-injection-note" role="status"></div></div>
     </section>`;
@@ -265,7 +316,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const portaPcStatus = getPortaPcStatus(project);
   const quickActionsStatus = getCGearQuickActionsStatus(project);
   const learnsetStatus = getLearnsetViewerStatus(project);
-  const canChooseLearnsetLayout = learnsetStatus.supported && project.session.baseRom === "BW2";
+  const canChooseLearnsetLayout = learnsetStatus.supported;
   const installedLearnsetLayout = learnsetStatus.upperLayout ?? "three-cards";
   let learnsetUpperLayout = pendingLearnsetLayouts.get(project) ?? installedLearnsetLayout;
   const learnsetInstallLabel = () => learnsetStatus.updateAvailable ? "Update" : learnsetStatus.partial ? "Repair"
@@ -323,9 +374,9 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div><h2>${card.title}</h2>${card.description ? `<p>${card.description}</p>` : ""}</div>
             ${renderInlineStatus(card.status.legacyCombined ? "Combined Patch Present" : card.status.updateAvailable ? "Update Available" : card.status.installed ? "Installed" : card.status.compatible ? "Ready" : card.status.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}
           </div>
-          ${card.id === "move-effectiveness" ? renderPatchShowcase("moves") : ""}
+          ${card.id === "move-effectiveness" ? renderMoveEffectivenessPreviews(moveColors) : ""}
           <div class="code-injection-facts">
-            <div><span>ROM</span><strong>English Black 2 / White 2</strong></div>
+            ${supportedRomsFact(US_GEN5_REV0)}
             <div><span>Dependency</span><strong>PMC only</strong></div>
           </div>
           ${card.id === "battle-hud" ? `<div class="type-icon-variant-picker">
@@ -337,13 +388,18 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               </button>`).join("")}
             </div>
             <label class="type-icon-border-color" ${typeIconSettings.variant === "solid" ? "hidden" : ""}><span>Border color</span><input id="type-icon-border-color" type="color" value="${escapeHtml(typeIconSettings.borderColor)}" aria-label="Type icon border color"></label>
+            <div class="type-icon-battle-previews" role="group" aria-label="Type icons in battle">
+              <p>White 2 · Default border</p>
+              ${([["singles", "Singles"], ["triples", "Triples"]] as const).map(([format, label]) => `<figure>
+                <img data-type-icon-battle-preview="${format}" src="${typeIconBattlePreviews[typeIconSettings.variant][format]}" alt="Type icons beside the HP bars in a ${format} battle" width="256" height="192" loading="lazy" decoding="async">
+                <figcaption>${label}</figcaption>
+              </figure>`).join("")}
+            </div>
           </div>` : ""}
           ${card.id === "move-effectiveness" ? `<div class="code-injection-facts">
-            ${([
-              ["superEffective", "Super effective"], ["notVeryEffective", "Not very effective"], ["immune", "Immune / no damage"],
-            ] as const).map(([key, label]) => `<label><span>${label}</span>
+            ${moveHighlightOptions.map(([key, label]) => `<label><span>${label}</span>
               <input type="color" data-move-highlight-color="${key}" aria-label="${label} color" value="${escapeHtml(moveColors[key])}">
-              <strong data-move-highlight-sample="${key}" style="color:${escapeHtml(moveColors[key])}">${label}</strong>
+              <strong data-move-highlight-sample="${key}" style="color:${moveHighlightPreviewColor(moveColors[key])}">${label}</strong>
             </label>`).join("")}
           </div><p class="code-injection-note">Choose colors, then ${card.status.installed ? "reinstall" : "install"} to apply them. Colors are stored with DS color precision. The preview uses current ability/item state, including unrevealed effects.</p>
           <button class="btn -default" type="button" id="reset-move-highlight-colors">Reset colors</button>` : ""}
@@ -375,6 +431,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           </div>
           <div class="code-injection-facts">
             <div><span>Version</span><strong>${status.installed && status.version ? escapeHtml(status.version) : "—"}</strong></div>
+            ${supportedRomsFact(`${US_GEN5} · Italian White 2`)}
             ${fiveBox.enabled ? `<div><span>PC storage</span><strong>5 boxes · 150 slots</strong></div>` : heapExpansion.expanded ? `<div><span>Heap cap</span><strong>${heapExpansion.capKiB} KiB</strong></div>` : ""}
           </div>
           ${memory?renderPmcCapacity(memory,project.session.baseRom==="BW",fiveBox.enabled):""}
@@ -429,6 +486,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           </div>
           ${pwanUpdateAvailable ? `<p class="code-injection-note">${escapeHtml(pwanRuntimeStatus.message)}</p>` : ""}
           <div class="code-injection-facts">
+            ${supportedRomsFact(US_GEN5)}
             <div><span>Runtime</span><strong>${pwanUpdateAvailable ? "PWAN (split)" : "Streaming"}</strong></div>
             <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
             <div><span>Compatibility</span><strong>${pwanCompatibility.compatible ? "Passed" : pwanCompatibility.supportedBase ? "Failed" : "Unsupported"}</strong></div>
@@ -458,7 +516,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div><span>Sprites</span><strong>Front trainers</strong></div>
             <div><span>Runtime</span><strong>${pwanStreaming ? "Shared (streaming)" : "Standalone"}</strong></div>
             <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
-            <div><span>ROM</span><strong>${escapeHtml(project.session.baseVersion)}</strong></div>
+            ${supportedRomsFact(US_GEN5)}
             <div><span>Hook Checks</span><strong>${trainerPwanCompatibility.passed}/${trainerPwanCompatibility.checks.length}</strong></div>
           </div>
           <div class="code-injection-actions">
@@ -478,7 +536,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             ${renderInlineStatus(weatherRuntimeInstalled ? "Installed" : weatherRuntimeSupported ? "Ready" : "Unsupported", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
-            <div><span>ROM</span><strong>US White 2 (IRDO)</strong></div>
+            ${supportedRomsFact("US White 2 (IRDO)")}
             <div><span>Custom Slots</span><strong>49 · IDs 15–63</strong></div>
             <div><span>Registry</span><strong>weather/pwth.bin</strong></div>
             <div><span>Generic Resources</span><strong>NCGR · NCLR · NCER · NANR · 2× BTX0</strong></div>
@@ -509,7 +567,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
                         : "Unsupported", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
-            <div><span>ROM</span><strong>US ${escapeHtml(battleLogDisplayName(project.session.baseVersion) ?? project.session.baseVersion)}</strong></div>
+            ${supportedRomsFact(US_GEN5)}
             <div><span>Capacity</span><strong>600 battles</strong></div>
             <div><span>Save Blocks</span><strong>29–31</strong></div>
             <div><span>Runtime</span><strong>${battleLogStatus.updateAvailable ? `Update to v${battleLogStatus.bundledRuntimeVersion}` : battleLogStatus.upToDate ? `v${battleLogStatus.bundledRuntimeVersion}` : `Bundled v${battleLogStatus.bundledRuntimeVersion}`}</strong></div>
@@ -542,6 +600,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             ${renderInlineStatus(!itemExpansionStatus.supported ? "Unsupported" : itemExpansionStatus.installed ? itemExpansionStatus.updateAvailable ? "Update Available" : "Installed" : itemExpansionStatus.compatible ? "Ready" : "Incompatible", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
+            ${supportedRomsFact(US_GEN5)}
             <div><span>Item IDs</span><strong>1–1023</strong></div>
             <div><span>New items named</span><strong>${itemExpansionStatus.installed ? itemExpansionStatus.authoredExtraItems : "—"}</strong></div>
             <div><span>Bag</span><strong>1,023 shared slots</strong></div>
@@ -567,14 +626,11 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-panel__header">
             <div>
               <h2>Single-NPC Double Battle Fix</h2>
-              <p>${
-                doubleBattleFixStatus !== "unsupported"
-                  ? "Fixes common-script trainers changed from Singles to Doubles. Available for US Black 1 and Black 2 / White 2. PMC is installed automatically if needed."
-                  : "A White 1 build of this patch is not bundled yet."
-              }</p>
+              <p>Fixes common-script trainers changed from Singles to Doubles. PMC is installed automatically if needed.</p>
             </div>
             ${renderInlineStatus(doubleBattleFixStatus === "patched" ? "Installed" : doubleBattleFixStatus === "unsupported" ? "Unsupported" : "Not Installed", { className: "code-injection-status" })}
           </div>
+          ${renderSupportedRoms("US Black, Black 2, and White 2")}
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-double-battle-fix-btn" type="button" ${doubleBattleFixSupported ? "" : "disabled"} title="Install the bundled double battle fix and any missing dependencies.">
               Install Double Battle Fix
@@ -596,7 +652,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             ${renderInlineStatus(!tagBattleStatus.supported ? "Unsupported" : !tagBattleStatus.compatible ? "Incompatible" : tagBattleStatus.installed ? "Installed" : "Ready", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
-            <div><span>Supported ROM</span><strong>US White 2</strong></div>
+            ${supportedRomsFact("US White 2")}
             <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
           </div>
           <p>Configure each trainer's team in the Trainer editor. This patch does not change team sizes.</p>
@@ -616,6 +672,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div><h2>Rotation Battle AI</h2><p>Scores all three rotation slots against your current front Pokémon.</p></div>
             ${renderInlineStatus(rotationBattleAi.installed ? "Installed" : rotationBattleAi.compatible ? "Ready" : rotationBattleAi.supported ? "Unavailable" : "Unsupported", { className: "code-injection-status" })}
           </div>
+          ${renderSupportedRoms(US_GEN5_REV0)}
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-rotation-battle-ai-btn" type="button"
               ${rotationBattleAi.compatible && !rotationBattleAi.installed ? "" : "disabled"}>Install Rotation Battle AI</button>
@@ -633,7 +690,8 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             ${renderInlineStatus(formEvolutionInstalled ? "Installed" : formEvolutionStatus === "unsupported" ? "Unsupported" : "Not Installed", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
-            <div><span>Runtime</span><strong>${formEvolutionStatus === "unsupported" ? "B/W/B2/W2 only" : `FormEvolution${escapeHtml(project.session.baseVersion)}.dll + FormEvolutionCore${escapeHtml(project.session.baseVersion)}.dll`}</strong></div>
+            ${supportedRomsFact(US_GEN5)}
+            ${formEvolutionStatus === "unsupported" ? "" : `<div><span>Runtime</span><strong>FormEvolution${escapeHtml(project.session.baseVersion)}.dll + FormEvolutionCore${escapeHtml(project.session.baseVersion)}.dll</strong></div>`}
             <div><span>Module Path</span><strong>${formEvolutionInstalled ? "patches/" : "Pending"}</strong></div>
             <div><span>Dependencies</span><strong>PMC (${status.installed ? "installed" : "installed with it"})</strong></div>
           </div>
@@ -641,9 +699,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             ${
               formEvolutionInstalled
                 ? "The bundled form-evolution DLL is active in this project and will be included in the exported ROM."
-                : formEvolutionStatus === "unsupported"
-                  ? "The bundled form-evolution runtime supports US Black, White, Black 2 and White 2."
-                  : "An earlier FormEvolution DLL is updated. PMC is installed automatically if needed."
+                : formEvolutionStatus === "unpatched" ? "An earlier FormEvolution DLL is updated. PMC is installed automatically if needed." : ""
             }
           </div>
           <div class="code-injection-actions">
@@ -659,6 +715,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             </div>
             ${renderInlineStatus(({ installed: "Installed", upgrade: "Upgrade available", unsupported: "Unsupported", unknown: "Unavailable", ready: "Ready" })[trainerCustomization], { className: "code-injection-status" })}
           </div>
+          ${renderSupportedRoms(US_BW2_REV0)}
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-trainer-natures-btn" type="button" ${trainerCustomization === "ready" || trainerCustomization === "upgrade" ? "" : "disabled"}>
               ${trainerCustomization === "installed" ? "Installed" : trainerCustomization === "upgrade" ? "Upgrade Trainer Customization" : "Install Trainer Customization"}
@@ -669,14 +726,14 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         ${renderCascadePersonalCard(cascadeStatus)}
         </section>
         <section class="code-injection-tab-panel" id="code-injection-panel-graphics" role="tabpanel" aria-labelledby="code-injection-tab-graphics" tabindex="0" ${activeTab === "graphics" ? "" : "hidden"}>
-        <section class="code-injection-panel" ${patchVisibility(naturePalettesSupported(project))}><div class="code-injection-panel__header"><div><h2>Nature Palettes</h2><p>25 normal/shiny palette pairs per form. Edit in the Pokémon sprite editor.</p></div></div>${renderNaturePaletteInstaller(project)}</section>
+        <section class="code-injection-panel" ${patchVisibility(naturePalettesSupported(project))}><div class="code-injection-panel__header"><div><h2>Nature Palettes</h2><p>25 normal/shiny palette pairs per form. Edit in the Pokémon sprite editor.</p></div></div>${renderSupportedRoms(US_BW2_REV0)}${renderNaturePaletteInstaller(project)}</section>
         <section class="code-injection-panel" ${patchVisibility(summaryStatStatus.supported)}>
           <div class="code-injection-panel__header"><div>
             <h2>Summary IV/EV Viewer</h2>
             <p>View IVs and optionaly EVs on the summary screen.</p>
           </div>${renderInlineStatus(summaryStatStatus.updateAvailable ? "Update Available" : summaryStatStatus.installed ? "Installed" : summaryStatStatus.compatible ? "Ready" : summaryStatStatus.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}</div>
           ${renderPatchShowcase("summary")}
-          <div class="code-injection-facts"><div><span>ROM</span><strong>English US Black 2 / White 2</strong></div><div><span>Version</span><strong>${SUMMARY_STAT_VIEWER_VERSION}</strong></div></div>
+          <div class="code-injection-facts">${supportedRomsFact(US_GEN5_REV0)}<div><span>Version</span><strong>${SUMMARY_STAT_VIEWER_VERSION}</strong></div></div>
           ${summaryStatStatus.message ? `<p>${escapeHtml(summaryStatStatus.message)}</p>` : ""}
           <label><input type="checkbox" id="summary-stat-evs" ${summaryStatStatus.options.includeEvs ? "checked" : ""} ${summaryStatStatus.compatible ? "" : "disabled"}> Include EV view</label>
           <div class="code-injection-actions">
@@ -704,7 +761,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           </div>
           ${renderPatchShowcase("party")}
           <div class="code-injection-facts">
-            <div><span>ROM</span><strong>US ${escapeHtml(menuEvolutionDisplayName(project.session.baseVersion) ?? project.session.baseVersion)}</strong></div>
+            ${supportedRomsFact(US_GEN5)}
             <div><span>Methods</span><strong>Level, KOs, Battles, Used</strong></div>
             <div><span>KO Moves</span><strong>32 per Pokémon</strong></div>
             <div><span>Relearn</span><strong>Current level + earned KOs</strong></div>
@@ -749,13 +806,13 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             ${renderInlineStatus(learnsetStatus.partial ? "Incomplete" : learnsetStatus.updateAvailable ? "Update Available" : learnsetStatus.installed ? "Installed" : learnsetStatus.compatible ? "Ready" : learnsetStatus.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}
           </div>
           ${canChooseLearnsetLayout ? `<div class="type-icon-variant-previews learnset-layout-previews" role="group" aria-label="Learnset top screen layout">
-            ${learnsetLayouts.map(([layout, label, preview]) => `<button type="button" class="type-icon-variant-preview ${learnsetUpperLayout === layout ? "is-selected" : ""}" data-learnset-upper-layout="${layout}" aria-pressed="${learnsetUpperLayout === layout}">
+            ${learnsetLayouts.map(({ layout, label, bw1, bw2 }) => `<button type="button" class="type-icon-variant-preview ${learnsetUpperLayout === layout ? "is-selected" : ""}" data-learnset-upper-layout="${layout}" aria-pressed="${learnsetUpperLayout === layout}">
               <span class="type-icon-variant-caption">${label}</span>
-              <img src="${preview}" alt="" width="256" height="192" loading="lazy" decoding="async">
+              <img src="${project.session.baseRom === "BW" ? bw1 : bw2}" alt="" width="256" height="192" loading="lazy" decoding="async">
             </button>`).join("")}
           </div>` : renderPatchShowcase("learnset")}
           <div class="code-injection-facts">
-            <div><span>ROM</span><strong>US W2 / B2 · vanilla or Upgrade</strong></div>
+            ${supportedRomsFact(US_GEN5_REV0)}
             <div><span>Dependency</span><strong>PMC only</strong></div>
             <div><span>Full party menu</span><strong>LEARNSET is hidden</strong></div>
           </div>
@@ -776,7 +833,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <a class="btn -primary" href="#cgearButtons" data-route="cgearButtons">Configure Buttons</a>
             <p>Add QoL shortcuts to C-Gear</p>
           </div>${renderInlineStatus(!quickActionsStatus.supported ? "Unsupported" : !quickActionsStatus.compatible ? "Incompatible" : quickActionsStatus.enabled ? "Enabled" : quickActionsStatus.installed ? "Disabled" : "Ready", { className: "code-injection-status" })}</div>
-          <div class="code-injection-facts"><div><span>Games</span><strong>English Black / White / Black 2 / White 2</strong></div>
+          <div class="code-injection-facts">${supportedRomsFact(US_GEN5_REV0)}
             <div><span>Dependency</span><strong>PMC only</strong></div>${quickActionsStatus.romProfile === "redux" ? '<div><span>ROM profile</span><strong>Redux</strong></div>' : ""}<div><span>Release</span><strong>${escapeHtml(project.session.baseRom==="BW"?CGEAR_QUICK_ACTIONS_BW1_VERSION:quickActionsStatus.runtimeVersion??CGEAR_QUICK_ACTIONS_VERSION)} development</strong></div></div>
           <img src="${project.session.baseRom==="BW"?new URL("../assets/codeinjection/cgearQuickActionsBw1Preview.png", import.meta.url).href:new URL("../assets/codeinjection/cgearQuickActionsPreview.png", import.meta.url).href}" alt="Editable C-Gear action button layout." width="256" height="192" style="max-width:100%;width:384px;height:auto;image-rendering:pixelated" />
           ${quickActionsStatus.message ? `<p>${escapeHtml(quickActionsStatus.message)}</p>` : ""}
@@ -792,6 +849,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <p>Browse the current area's seasonal Surf, Rod, and Grass encounters from a custom C-Gear button. The top screen shows species information and the selected Pokémon's combined encounter chance. All species are revealed.</p></div>
             ${renderInlineStatus(pokenavStatus.updateAvailable ? "Update Available" : pokenavStatus.enabled ? "Enabled" : pokenavStatus.installed ? "Disabled" : pokenavStatus.compatible ? "Ready" : "Incompatible", { className: "code-injection-status" })}
           </div>
+          ${renderSupportedRoms(US_BW2_REV0)}
           ${renderPatchShowcase("pokenav")}
           <p>${escapeHtml(pokenavStatus.message)}</p>
           <div class="code-injection-actions">
@@ -808,6 +866,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div><h2>Quick Poké Ball</h2><p>Wild singles only. Tap L to throw. Hold L + D-pad to cycle. Press B while holding L to cancel.</p></div>
             ${renderInlineStatus(!quickPokeBall.supported ? "Unsupported" : !quickPokeBall.compatible ? "Incompatible" : quickPokeBall.updateAvailable ? "Update Available" : quickPokeBall.installed ? "Installed" : "Ready", { className: "code-injection-status" })}
           </div>
+          ${renderSupportedRoms(US_GEN5_REV0)}
           ${renderPatchShowcase("quickPokeBall")}
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-quick-poke-ball-btn" type="button" ${quickPokeBall.compatible ? "" : "disabled"}>${quickPokeBall.updateAvailable ? "Update" : quickPokeBall.installed ? "Reinstall" : "Install"}</button>
@@ -826,7 +885,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             ${renderInlineStatus(bgmToggleStatus === "patched" ? "Installed" : bgmToggleStatus === "unsupported" ? "Unsupported" : "Ready", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
-            <div><span>ROM</span><strong>US Black / White / Black 2 / White 2</strong></div>
+            ${supportedRomsFact(US_GEN5)}
             <div><span>Shortcut</span><strong>L + R + Select</strong></div>
             <div><span>Scope</span><strong>Overworld + Battles</strong></div>
             <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
@@ -847,6 +906,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             </div>
             ${renderInlineStatus(shinyOddsStatus.rolls !== undefined ? "Installed" : shinyOddsStatus.compatible ? "Ready" : "Unavailable", { className: "code-injection-status" })}
           </div>
+          ${renderSupportedRoms(US_GEN5_REV0)}
           <div class="code-injection-actions">
             <label>PID rolls <input id="shiny-odds-rolls" type="number" min="1" max="${SHINY_ODDS_MAX_ROLLS}" step="1" required value="${shinyOddsStatus.rolls ?? 1}" ${shinyOddsStatus.compatible ? "" : "disabled"}></label>
             <output id="shiny-odds-preview" for="shiny-odds-rolls">${formatShinyOdds(shinyOddsStatus.rolls ?? 1)}</output>
@@ -862,6 +922,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             </div>
             ${renderInlineStatus({ unsupported: "Unsupported", ready: "Off", enabled: "Enabled" }[bw2ApFix], { className: "code-injection-status" })}
           </div>
+          ${renderSupportedRoms(US_BW2)}
           <div class="code-injection-actions">
             <button class="btn -primary" id="apply-bw2-ap-fix-btn" type="button" ${bw2ApFix === "unsupported" ? "disabled" : ""}>
               ${bw2ApFix === "enabled" ? "Disable on Export" : "Enable on Export"}
@@ -878,6 +939,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             </div>
             ${renderInlineStatus({ unsupported: "Unsupported", unavailable: "Unavailable", ready: "Ready", installed: "Installed" }[challengeStats.state], { className: "code-injection-status" })}
           </div>
+          ${renderSupportedRoms(US_BW2_REV0)}
           <div class="code-injection-actions">
             <button class="btn -primary" id="apply-challenge-stats-btn" type="button" ${challengeStats.state === "ready" ? "" : "disabled"}>Apply Stat Fix</button>
             <div class="code-injection-note" id="challenge-stats-note" aria-live="polite"></div>
@@ -892,6 +954,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             </div>
             ${renderInlineStatus({ unsupported: "Unsupported", unavailable: "Unavailable", ready: "Ready", installed: "Installed" }[earlyChallengeMode.state], { className: "code-injection-status" })}
           </div>
+          ${renderSupportedRoms(US_BW2_REV0)}
           <div class="code-injection-actions">
             <button class="btn -primary" id="apply-early-challenge-btn" type="button" ${earlyChallengeMode.state === "ready" ? "" : "disabled"}>Apply Patch</button>
             <div class="code-injection-note" id="early-challenge-note" aria-live="polite"></div>
@@ -906,6 +969,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             </div>
             ${renderInlineStatus({ unsupported: "Unsupported", unavailable: "Unavailable", ready: "Ready", installed: "Installed" }[earlyNationalDex.state], { className: "code-injection-status" })}
           </div>
+          ${renderSupportedRoms(US_BW2_REV0)}
           <div class="code-injection-actions">
             <button class="btn -primary" id="apply-early-national-dex-btn" type="button" ${earlyNationalDex.state === "ready" ? "" : "disabled"}>Apply Patch</button>
             <div class="code-injection-note" id="early-national-dex-note" aria-live="polite"></div>
@@ -920,7 +984,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             ${renderInlineStatus(forgettableHmsStatus === "patched" ? "Installed" : forgettableHmsStatus === "legacy" ? "Migration Available" : forgettableHmsStatus === "unknown" ? "Signature Unknown" : forgettableHmsStatus === "unsupported" ? "Unsupported" : "Ready", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
-            <div><span>ROM</span><strong>Black 2 / White 2</strong></div>
+            ${supportedRomsFact(`${US_BW2} · Italian White 2`)}
             <div><span>Hook</span><strong>PML_MoveIsHM</strong></div>
             <div><span>ARM9</span><strong>${forgettableHmsStatus === "legacy" ? "Inline edit restored" : "Unchanged"}</strong></div>
             <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
@@ -936,10 +1000,11 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-panel__header">
             <div>
               <h2>Make HM Moves Forgettable</h2>
-              <p>Lets the move deleter and move replacement screens forget HM moves in Black / White (an ARM9 edit; Black 2 / White 2 use Forgettable HMs above).</p>
+              <p>Lets the move deleter and move replacement screens forget HM moves using an ARM9 edit.</p>
             </div>
             ${renderInlineStatus(bw1HmStatus === "patched" ? "Installed" : bw1HmStatus === "unsupported" ? "Unsupported" : bw1HmStatus === "unknown" ? "Signature Unknown" : "Ready", { className: "code-injection-status" })}
           </div>
+          ${renderSupportedRoms("Black and White")}
           <div class="code-injection-actions">
             <button class="btn -primary" id="make-hms-forgettable-btn" type="button" ${bw1HmStatus === "unpatched" ? "" : "disabled"}>${bw1HmStatus === "patched" ? "HMs Forgettable" : "Make HMs Forgettable"}</button>
             <div class="code-injection-note" id="bw1-hms-note" aria-live="polite"></div>
@@ -954,7 +1019,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             ${renderInlineStatus(!autorunStatus.supported ? "Unsupported" : autorunStatus.installed ? autorunStatus.updateAvailable ? "Update Available" : "Installed" : autorunStatus.compatible ? "Ready" : "Incompatible", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
-            <div><span>ROM</span><strong>US Black / White / Black 2 / White 2</strong></div>
+            ${supportedRomsFact(US_GEN5_REV0)}
             <div><span>Walk</span><strong>Hold B</strong></div>
             <div><span>Options row</span><strong>${autorunStatus.optionsRow ? autorunStatus.sharedWithFollowing ? "With Followers" : "Installed" : "Will Install"}</strong></div>
             <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
@@ -976,7 +1041,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             ${renderInlineStatus(!introSkipStatus.supported ? "Unsupported" : introSkipStatus.installed ? introSkipStatus.updateAvailable ? "Update Available" : "Installed" : introSkipStatus.compatible ? "Ready" : "Incompatible", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
-            <div><span>ROM</span><strong>US Black 2 / White 2</strong></div>
+            ${supportedRomsFact(US_BW2_REV0)}
             <div><span>Hooks</span><strong>Overlay 35 new-game events</strong></div>
             <div><span>Saves</span><strong>New games only</strong></div>
             <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
@@ -1001,7 +1066,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             ${renderInlineStatus(fairyStatus === "patched" ? "Installed" : fairyStatus === "unsupported" ? "Unsupported" : "Ready", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
-            <div><span>ROM</span><strong>Black / White and Black 2 / White 2</strong></div>
+            ${supportedRomsFact(US_GEN5)}
             <div><span>Dependencies</span><strong>None</strong></div>
           </div>
           <div class="code-injection-actions">
@@ -1020,6 +1085,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             ${renderInlineStatus(moveExpansionStatus === "patched" ? "Installed" : moveExpansionStatus === "routing-only" ? "Routing Only" : moveExpansionStatus === "unsupported" ? "Unsupported" : moveExpansionStatus === "unknown" ? "Incompatible" : "Ready", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
+            ${supportedRomsFact(US_GEN5)}
             <div><span>Move slots</span><strong>1,000</strong></div>
             <div><span>Dependencies</span><strong>Fairy Type Support (${fairyStatus === "patched" ? "installed" : fairyStatus === "unsupported" ? "not available" : "installed with it"})</strong></div>
           </div>
@@ -1042,6 +1108,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             ${renderInlineStatus(!abilityStatus.supported ? "Unsupported" : abilityStatus.installed >= abilityRows.length ? "Installed" : abilityStatus.installed ? "Partly Installed" : "Ready", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
+            ${supportedRomsFact(US_GEN5)}
             <div><span>Abilities</span><strong>${abilityRows.length} in the library</strong></div>
             <div><span>Installed</span><strong>${abilityStatus.installed || "—"}</strong></div>
             <div><span>Free ability IDs</span><strong>${abilityStatus.freeSlots}</strong></div>
@@ -1080,6 +1147,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             ${renderInlineStatus(!megaStatus.supported ? "Unsupported" : megaStatus.installed ? megaStatus.updateAvailable ? "Update Available" : "Installed" : megaStatus.compatible ? "Ready" : "Incompatible", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
+            ${supportedRomsFact(US_GEN5)}
             <div><span>Routes</span><strong>${megaStatus.installed ? megaStatus.routes : "—"}</strong></div>
             <div><span>Turn order</span><strong>Generation 7</strong></div>
             <div><span>Dependencies</span><strong>Item Expansion, PWAN GIF Support, Fairy Type Support, Move Expansion (installed with it)</strong></div>
@@ -1139,10 +1207,11 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             ${renderInlineStatus(!regionalStatus.supported ? "Unsupported" : regionalStatus.installedForms ? regionalStatus.installedForms >= REGIONAL_FORMS.length ? "Installed" : "Partly Installed" : "Ready", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
+            ${supportedRomsFact(US_GEN5)}
             <div><span>Forms</span><strong>${REGIONAL_FORMS.length} in ${families.length} families</strong></div>
             <div><span>Installed</span><strong>${regionalStatus.installedForms || "—"}</strong></div>
             <div><span>Dependencies</span><strong>Fairy Type Support, Move Expansion, PWAN GIF Support, Added-Form Evolution Support (installed with it)</strong></div>
-            <div><span>Data</span><strong>White2Upgrade; sprites from the PWAN library</strong></div>
+            <div><span>Sprites</span><strong>PWAN library</strong></div>
           </div>
           <details class="code-injection-regional-families" open>
             <summary>Families (${families.filter((family) => family.installed.length < family.forms.length).length} to install)</summary>
@@ -1169,10 +1238,12 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             ${renderInlineStatus(!speciesStatus.supported ? "Unsupported" : !speciesStatus.installed ? "Ready" : speciesStatus.ready ? "Partly Installed" : "Installed", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
+            ${supportedRomsFact(US_BW2)}
             <div><span>Installed</span><strong>${speciesStatus.installed ? `${speciesStatus.count} of ${speciesTotal} species` : "—"}</strong></div>
             <div><span>Numbering</span><strong>ROM species = national + 37 (Chespin is 687), installed or not; summaries and the PC show national numbers</strong></div>
             <div><span>Dependencies</span><strong>Fairy Type Support, Move Expansion, PWAN GIF Support (installed with it)</strong></div>
-            <div><span>Data</span><strong>White2Upgrade; sprites from the PWAN library; cries are a similar Pokémon's</strong></div>
+            <div><span>Sprites</span><strong>PWAN library</strong></div>
+            <div><span>Cries</span><strong>Reused from similar Pokémon</strong></div>
           </div>
           ${speciesFamilies.length ? `<details class="code-injection-species-picker"${speciesStatus.ready ? " open" : ""}>
             <summary>Species (<span id="species-expansion-count">0</span> selected)</summary>
@@ -1205,6 +1276,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             </div>
             ${renderInlineStatus(pwtSixPokemonStatus === "installed" ? "Installed" : pwtSixPokemonStatus === "ready" ? "Ready" : "Unsupported", { className: "code-injection-status" })}
           </div>
+          ${renderSupportedRoms(US_BW2_REV0)}
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-pwt-six-pokemon-btn" type="button" ${pwtSixPokemonStatus === "ready" ? "" : "disabled"}>Install Six-Pokémon PWT</button>
             <div class="code-injection-note" id="pwt-six-pokemon-note" aria-live="polite"></div>
@@ -1219,7 +1291,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <span id="infinite-candy-status">${renderInlineStatus(infiniteCandyStatus.installed ? "Installed" : infiniteCandyStatus.compatible ? "Ready" : infiniteCandyStatus.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}</span>
           </div>
           <div class="code-injection-facts">
-            <div><span>ROM</span><strong>US Black 2 / White 2</strong></div>
+            ${supportedRomsFact(US_GEN5_REV0)}
             <label><span>Item ID</span><input id="infinite-candy-item-id" type="number" min="1" max="638" step="1" value="${infiniteCandyItemId}" aria-label="Infinite Candy item ID" aria-describedby="infinite-candy-note" ${project.session.baseRom === "BW" || infiniteCandyStatus.installed ? "readonly" : ""}></label>
             <div><span>Bag</span><strong>Key Items</strong></div>
             <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
@@ -1241,7 +1313,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             ${renderInlineStatus(levelCapsStatus.updateAvailable ? "Update Available" : levelCapsStatus.installed ? "Installed" : levelCapsStatus.compatible ? "Ready" : levelCapsStatus.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
-            <div><span>ROM</span><strong>US Black / White / Black 2 / White 2</strong></div>
+            ${supportedRomsFact(US_GEN5_REV0)}
             <div><span>Cap variable</span><strong>16415</strong></div>
             <div><span>Default</span><strong>100</strong></div>
             <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
@@ -1259,6 +1331,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div><h2>Trainer Level Caps</h2><p>Hard Level Caps companion. Set “Lvl Cap after Win” in a trainer’s settings to update the cap after victory.</p></div>
             ${renderInlineStatus(trainerLevelCapsStatus.installed ? "Installed" : trainerLevelCapsStatus.compatible ? "Ready" : "Unavailable", { className: "code-injection-status", title: trainerLevelCapsStatus.message })}
           </div>
+          ${renderSupportedRoms(US_GEN5_REV0)}
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-trainer-level-caps-btn" type="button" ${trainerLevelCapsStatus.compatible && !trainerLevelCapsStatus.installed ? "" : "disabled"}>${trainerLevelCapsStatus.installed ? "Installed" : "Install Trainer Level Caps"}</button>
             <div class="code-injection-note" id="trainer-level-caps-note" aria-live="polite"></div>
@@ -1267,7 +1340,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         <section class="code-injection-panel" ${patchVisibility(trainerFieldStatus.supported)}>
           <div class="code-injection-panel__header"><div><h2>Trainer Field Conditions</h2>
           </div></div>
-          <div class="code-injection-facts"><div><span>ROM</span><strong>English US Black 2 / White 2</strong></div><div><span>Dependency</span><strong>PMC only</strong></div></div>
+          <div class="code-injection-facts">${supportedRomsFact(US_BW2_REV0)}<div><span>Dependency</span><strong>PMC only</strong></div></div>
           ${renderTrainerFieldInstaller(trainerFieldStatus)}
         </section>
         <section class="code-injection-panel" ${patchVisibility(nuzlockeStatus.supported)}>
@@ -1276,6 +1349,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             ${renderInlineStatus(nuzlockeStatus.updateAvailable ? "Update Available" : nuzlockeStatus.enabled && nuzlockeStatus.installed ? "Enabled" : nuzlockeStatus.installed ? "Disabled" : nuzlockeStatus.compatible ? "Ready" : "Incompatible", { className: "code-injection-status" })}
           </div>
           <p>${escapeHtml(nuzlockeStatus.message)}</p>
+          ${renderSupportedRoms(US_BW2_REV0)}
           <label>If every slot is a dupe <select id="nuzlocke-exhausted-select" ${nuzlockeStatus.supported ? "" : "disabled"}>
             <option value="allow" ${nuzlockeStatus.allowExhausted ? "selected" : ""}>Allow the original encounters</option>
             <option value="prevent" ${!nuzlockeStatus.allowExhausted ? "selected" : ""}>Prevent encounters for that method</option>
@@ -1297,7 +1371,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           </div>
           <div class="code-injection-facts">
             <div><span>Button</span><strong>Start</strong></div>
-            <div><span>Supported ROMs</span><strong>US Black 2 / White 2</strong></div>
+            ${supportedRomsFact(US_BW2)}
             <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
           </div>
           <div class="code-injection-actions">
@@ -1315,6 +1389,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         <section class="code-injection-tab-panel" id="code-injection-panel-debug-helpers" role="tabpanel" aria-labelledby="code-injection-tab-debug-helpers" tabindex="0" ${activeTab === "debug-helpers" ? "" : "hidden"}>
           <section class="code-injection-panel" ${patchVisibility(debugFlag.supported)}>
             <div class="code-injection-panel-header"><div><h2>Debug Save Flag</h2><p>L + R + Y toggles the configured saved flag once per hold in the neutral overworld. Blank disables the shortcut.</p></div></div>
+            ${renderSupportedRoms(US_BW2_REV0)}
             <label>Save flag <input id="debug-save-flag" type="text" value="${debugFlag.flag ? `0x${debugFlag.flag.toString(16).toUpperCase()}` : ""}" placeholder="None" spellcheck="false" ${debugFlag.supported ? "" : "disabled"}></label>
             <p>${escapeHtml(debugFlag.message)}</p>
             <div class="code-injection-actions"><button class="btn -primary" id="install-debug-save-flag-btn" ${debugFlag.compatible ? "" : "disabled"}>${debugFlag.installed ? "Apply Changes" : "Install"}</button><div id="debug-save-flag-note" role="status"></div></div>
@@ -2356,7 +2431,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       renderCodeInjectionEditor(project, root, onDirty);
       const refreshedNote = root.querySelector<HTMLDivElement>("#battle-log-note");
       if (refreshedNote) {
-        refreshedNote.textContent = `Battle log ${updating ? "updated" : "staged"} at ${result.dllPath}, ${result.counterDllPath}, and ${result.summaryDllPath}; ancestry was generated from ${result.evolutionMembers} evolution records.${refreshMenuEvolution ? ` The installed ${MENU_EVOLUTION_TITLE} companion was refreshed for immediate KO events and KO moves.` : ""}`;
+        refreshedNote.textContent = `Battle log ${updating ? "updated" : "staged"}. Ancestry was generated from ${result.evolutionMembers} evolution records.${refreshMenuEvolution ? ` The installed ${MENU_EVOLUTION_TITLE} companion was refreshed for immediate KO events and KO moves.` : ""}`;
       }
     } catch (error) {
       const currentButton = root.querySelector<HTMLButtonElement>("#install-battle-log-btn") ?? battleLogButton;
@@ -2483,6 +2558,10 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     });
     const picker = root.querySelector<HTMLElement>(".type-icon-border-color");
     if (picker) picker.hidden = typeIconSettings.variant === "solid";
+    root.querySelectorAll<HTMLImageElement>("[data-type-icon-battle-preview]").forEach(image => {
+      const format = image.dataset.typeIconBattlePreview;
+      if (format === "singles" || format === "triples") image.src = typeIconBattlePreviews[typeIconSettings.variant][format];
+    });
   };
   root.querySelectorAll<HTMLButtonElement>("[data-type-icon-variant-card]").forEach(card => {
     card.addEventListener("click", () => {
@@ -2503,8 +2582,12 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   });
   root.querySelectorAll<HTMLInputElement>("[data-move-highlight-color]").forEach(input => {
     input.addEventListener("input", () => {
-      const sample = root.querySelector<HTMLElement>(`[data-move-highlight-sample="${input.dataset.moveHighlightColor}"]`);
-      if (sample) sample.style.color = input.value;
+      const key = input.dataset.moveHighlightColor;
+      const color = moveHighlightPreviewColor(input.value);
+      const sample = root.querySelector<HTMLElement>(`[data-move-highlight-sample="${key}"]`);
+      const glyph = root.querySelector<HTMLElement>(`[data-move-highlight-glyph="${key}"]`);
+      if (sample) sample.style.color = color;
+      if (glyph) glyph.style.backgroundColor = color;
     });
   });
   root.querySelector<HTMLButtonElement>("#reset-move-highlight-colors")?.addEventListener("click", () => {
@@ -2655,6 +2738,7 @@ export function renderCascadePersonalCard(cascadeStatus: ReturnType<typeof getCa
             </div>
             ${renderInlineStatus(cascadeStatus.installed ? "Migrated" : cascadeStatus.canMigrate ? "Ready" : "Unavailable", { className: "code-injection-status" })}
           </div>
+          ${renderSupportedRoms("Cascade White")}
           <div class="code-injection-actions">
             <button class="btn -primary" id="migrate-cascade-personal-btn" type="button" ${cascadeStatus.canMigrate ? "" : "disabled"}>${cascadeStatus.abilitiesMigrated && !cascadeStatus.installed ? "Import Hidden Ability Chances" : "Migrate AI Abilities &amp; Chances"}</button>
             <div class="code-injection-note" id="cascade-personal-note" aria-live="polite"></div>

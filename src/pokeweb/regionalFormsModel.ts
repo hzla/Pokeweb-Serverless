@@ -165,7 +165,7 @@ export function getRegionalFormsStatus(project: ProjectState): RegionalFormsStat
   }
   status.supported = true;
   if (detectWhite2UpgradeDlls(project) || detectBlack2UpgradeDlls(project) || (project.narcs.personal && usesWhite2UpgradePokemonData(project))) {
-    return { ...status, supported: false, message: "White 2 Upgrade / Black 2 Upgrade already have the regional forms." };
+    return { ...status, supported: false, message: "This ROM already includes regional forms from an expansion." };
   }
   status.installedForms = project.narcs.personal ? installedForms(project).size : project.codeInjection?.regionalForms?.forms.length ?? 0;
   status.ready = true;
@@ -288,7 +288,7 @@ export async function stageRegionalForms(project: ProjectState, families?: reado
   const credits = [...new Set(toAdd.flatMap((form) => [form.credits.front, form.credits.back]).filter((credit): credit is string => Boolean(credit)))];
   recordGenericChange(project, "code_injection",
     `Regional forms: ${report.forms.length} forms added (${[...new Set(toAdd.map((form) => pokemonSpeciesLabel(project, form.family)))].join(", ")}). ` +
-    `Data from White2Upgrade; sprites by ${credits.join("; ")}.`,
+    `Sprites by ${credits.join("; ")}.`,
     "Regional Forms", { key: "code-injection:regional-forms" });
   return report;
 }

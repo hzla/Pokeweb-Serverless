@@ -21,6 +21,13 @@ or Pledge effects. Spikes and Toxic Spikes support layer thresholds. Checks read
 current battle state, including opening conditions from Trainer Field Conditions
 on BW2.
 
+**Throat Spray** defaults to raising the holder’s Sp. Atk by one stage after
+it successfully uses a sound move. **Raise a stat after using a move** can
+match vanilla, expanded or named custom move flags. Set the stat and the
+number of stages on the effect card. The effect can trigger once per move,
+including successful status and spread moves. The consumable setting uses the
+item after a successful stat change.
+
 Shared native code parameters affect all users of that implementation; item-data
 parameters remain per item. Composed rules support up to 16 effects, native
 callbacks, trigger/target/chance settings and per-effect state. Native behaviors

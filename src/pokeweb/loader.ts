@@ -62,7 +62,6 @@ import {
   TYPE_CHART_ROMFS_PATH,
   createRomFsTypeChartStore,
   createTypeChartStore,
-  detectFairyTypeUsage,
   detectKnownFairyTypeChartOffset,
   typeChartOverlayId,
 } from "./typeChartModel";
@@ -200,7 +199,6 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
   }
   extractNarcSet(rom, project, editNarcs);
   normalizeEncounterFormReferences(project);
-  if (!project.session.fairy && detectFairyTypeUsage(project)) project.session.fairy = true;
 
   if (selectedNarcs.size === 0 || selectedNarcs.has("grottos") || selectedNarcs.has("moves") || selectedNarcs.has("items") || selectedNarcs.has("personal") || selectedNarcs.has("starter_sprites") || (project.session.baseRom === "BW2" && selectedNarcs.has("scripts"))) {
     await reportLoadProgress(onProgress, "Extracting overlays");
@@ -354,6 +352,20 @@ function extractOverlays(rom: NintendoDSRom, project: ProjectState, selectedNarc
   const overlays = rom.loadArm9Overlays(ids);
   for (const [id, overlay] of overlays) project.overlays[id] = overlay.data;
 
+  if (includeMoves || selectedNarcs.has("personal")) {
+    const romFsTypeChart = tryCreateRomFsTypeChartStore(rom);
+    const typeChartOverlay = project.overlays[typeChartOverlayId(project)];
+    if (romFsTypeChart) {
+      project.session.fairy = true;
+      if (includeMoves) project.narcs.type_chart = romFsTypeChart;
+    } else if (typeChartOverlay && includeMoves) {
+      project.narcs.type_chart = createTypeChartStore(project, typeChartOverlay);
+    } else if (typeChartOverlay && detectKnownFairyTypeChartOffset(typeChartOverlay, project.session.baseRom) !== undefined) {
+      // Ability selectors also need Fairy detection when Moves was not loaded.
+      project.session.fairy = true;
+    }
+  }
+
   const moveEffectOverlay = project.overlays[moveEffectOverlayId];
   if (includeMoves && moveEffectOverlay) {
     try { ensureMoveEffectHandlerStore(project); }
@@ -376,20 +388,6 @@ function extractOverlays(rom: NintendoDSRom, project: ProjectState, selectedNarc
     }
     if (includeTutorMoves && overlay36) {
       project.narcs.tutor_moves = createTutorMoveStore(overlay36, project.session.baseVersion);
-    }
-  }
-
-  if (includeMoves || selectedNarcs.has("personal")) {
-    const romFsTypeChart = tryCreateRomFsTypeChartStore(rom);
-    const typeChartOverlay = project.overlays[typeChartOverlayId(project)];
-    if (romFsTypeChart) {
-      project.session.fairy = true;
-      if (includeMoves) project.narcs.type_chart = romFsTypeChart;
-    } else if (typeChartOverlay && includeMoves) {
-      project.narcs.type_chart = createTypeChartStore(project, typeChartOverlay);
-    } else if (typeChartOverlay && detectKnownFairyTypeChartOffset(typeChartOverlay, project.session.baseRom) !== undefined) {
-      // Ability selectors also need Fairy detection when Moves was not loaded.
-      project.session.fairy = true;
     }
   }
 }

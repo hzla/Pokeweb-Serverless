@@ -99,7 +99,8 @@
       "dsChecks": [
         "Both companion install orders, eight-row/full six-member menus and eight reopen cycles",
         "Forms/Egg skip, PP/scroll, selected animation, seven Eevee branches, terminal/empty/truncated data",
-        "Read-only party data, native reminder/tutor and same-session menu/battle/menu"
+        "Read-only party data, native reminder/tutor and same-session menu/battle/menu",
+        "BW1 0.2.0 DS regression in melonDS on both games: Classic and Three cards, family and party navigation, PP and scrolling, native party return and in-game NARC palette edits"
       ],
       "games": {
         "B": {
@@ -107,10 +108,11 @@
           "revision": 0,
           "dsAccepted": true,
           "liveDsiAccepted": false,
-          "nativeProfileSha256": "5a9a1a8f3629279b2fab503d3a970f7a4bb3a9d6351487bc159d29cbff856bf6",
+          "nativeProfileSha256": "1b34ab2eb3b6745a54406a04f8e2b004a0cef984783044aad15364ad6826e55a",
           "artifacts": {
-            "LearnsetMenuB.dll": "d0c5b359f5a8e44422fe9cd4bb1310d33839fb9c89b3bd0ea37dc0d420d89898",
-            "LearnsetViewerB.dll": "e39f69ded0bd71d6fe043f28928032eddf928662b18e75efd55fd6ed08816892"
+            "LearnsetMenuB.dll": "f3bb2f75a59cb1f4db66eba95f4d8a5aae648a97197ad85ade28f95d4a22821b",
+            "LearnsetViewerB.dll": "8cff6d0999569bbb98ac8c5947e2571818a023a1ca2c956fced1f600c1afeb9c",
+            "learnset-three-cards-bw1.narc": "87297250e931d9c9719849fd218bd8502b91a45c8fc61be4dead141ca8e00515"
           }
         },
         "W": {
@@ -118,10 +120,11 @@
           "revision": 0,
           "dsAccepted": true,
           "liveDsiAccepted": false,
-          "nativeProfileSha256": "54d080be578cf8459b145616fa075ecd2dd5ccadb2df9917ec67c29f8520d7f4",
+          "nativeProfileSha256": "301390eda15cb8d4fc87aff023144aebfcf1b86e0f418916801196936c8d1e53",
           "artifacts": {
-            "LearnsetMenuW.dll": "40ed5d424ca0010f0f476d0227f3dcc05793e96f207d6b59ce10dab18fc97bd3",
-            "LearnsetViewerW.dll": "b982e1e98a4f820ed628a30bf919ff582a1856d7d6720ee8a3ba9a052ee12432"
+            "LearnsetMenuW.dll": "9341379db170bec7049e2a3279d04884fa8e4586c9d53dbd63e2e9875e6a6e12",
+            "LearnsetViewerW.dll": "02224b8c45771dfcfc2d0a713db05af31f43c4cc16bcffc2d4e48ea0b57ea2db",
+            "learnset-three-cards-bw1.narc": "87297250e931d9c9719849fd218bd8502b91a45c8fc61be4dead141ca8e00515"
           }
         }
       }

@@ -131,7 +131,7 @@ describe("Hard Level Caps updates", () => {
 });
 
 describe("Type Icons appearance picker", () => {
-  it("selects styles from preview buttons and recolors both outlined previews", () => {
+  it("switches the Singles and Triples captures and recolors both outlined swatches", () => {
     vi.spyOn(typeIcons, "getBattleTypeHudStatus").mockReturnValue({ supported: true, compatible: true, checked: true,
       installed: false, updateAvailable: false, canUninstall: false, pmcInstalled: false, message: "Ready" });
     const listeners = new Map<string, () => void>(), picker = { hidden: false };
@@ -143,19 +143,66 @@ describe("Type Icons appearance picker", () => {
       addEventListener: (_event: string, fn: () => void) => listeners.set(variant, fn),
       querySelector: (): { src: string } => cards.find(c => c.dataset.typeIconVariantCard === variant)!.image,
     }));
+    const previews = ["singles", "triples"].map(format => ({ dataset: { typeIconBattlePreview: format }, src: "" }));
     const root = { innerHTML: "", querySelector: (selector: string) => selector === "#type-icon-border-color" ? input : selector === ".type-icon-border-color" ? picker : null,
-      querySelectorAll: (selector: string) => selector === "[data-type-icon-variant-card]" ? cards : [] };
+      querySelectorAll: (selector: string) => selector === "[data-type-icon-variant-card]" ? cards : selector === "[data-type-icon-battle-preview]" ? previews : [] };
     const project = makeProject("W2"); renderCodeInjectionEditor(project, root as unknown as HTMLElement, () => {});
     expect(root.innerHTML).not.toContain('<select id="type-icon-variant"');
     expect(root.innerHTML).toContain('data-type-icon-variant-card="circular"');
+    expect(root.innerHTML).toMatch(/data-type-icon-battle-preview="singles"[^>]+type-icons-letters-singles\.png[^>]+loading="lazy"/u);
+    expect(root.innerHTML).toMatch(/data-type-icon-battle-preview="triples"[^>]+type-icons-letters-triples\.png[^>]+loading="lazy"/u);
     listeners.get("circular")!(); expect(cards[1]!.selected).toBe(true); expect(cards[1]!.pressed).toBe("true"); expect(picker.hidden).toBe(false);
+    expect(previews.map(({ src }) => src)).toEqual([expect.stringMatching(/type-icons-circular-singles\.png$/u), expect.stringMatching(/type-icons-circular-triples\.png$/u)]);
     listeners.get("input")!();
     expect(cards[0]!.image.src).toBe(typeIconPreview("letters", "#d6d6d6"));
     expect(cards[1]!.image.src).toBe(typeIconPreview("circular", "#d6d6d6")); expect(cards[2]!.image.src).toBe("");
     listeners.get("solid")!(); expect(picker.hidden).toBe(true);
+    expect(previews.map(({ src }) => src)).toEqual([expect.stringMatching(/type-icons-solid-singles\.png$/u), expect.stringMatching(/type-icons-solid-triples\.png$/u)]);
     listeners.get("letters")!(); expect(picker.hidden).toBe(false);
     renderCodeInjectionEditor(project, root as unknown as HTMLElement, () => {});
     expect(root.innerHTML).toContain('value="#d6d6d6"');
+  });
+});
+
+describe("Move Effectiveness Preview", () => {
+  it("recolors the battle glyphs and restores the defaults without changing the Doubles example", () => {
+    const keys = ["superEffective", "notVeryEffective", "immune"] as const;
+    const defaults = typeIcons.DEFAULT_MOVE_HIGHLIGHT_COLORS;
+    const colors = ["#05fe0b", "#224b86", "#6720a3"];
+    const expected = ["#00ff08", "#214a84", "#6321a5"];
+    const glyphs = keys.map(() => ({ style: { backgroundColor: "" } }));
+    const samples = keys.map(() => ({ style: { color: "" } }));
+    const changes: (() => void)[] = [];
+    const inputs = keys.map((key, index) => ({
+      value: defaults[key], dataset: { moveHighlightColor: key },
+      addEventListener: (_event: string, handler: () => void) => { changes[index] = handler; },
+      dispatchEvent: () => changes[index]!(),
+    }));
+    let reset = () => {};
+    const nodes = Object.fromEntries(keys.flatMap((key, index) => [
+      [`[data-move-highlight-glyph="${key}"]`, glyphs[index]],
+      [`[data-move-highlight-sample="${key}"]`, samples[index]],
+    ]));
+    const root = {
+      innerHTML: "",
+      querySelector: (selector: string) => selector === "#reset-move-highlight-colors"
+        ? { addEventListener: (_event: string, handler: () => void) => { reset = handler; } }
+        : nodes[selector] ?? null,
+      querySelectorAll: (selector: string) => selector === "[data-move-highlight-color]" ? inputs : [],
+    };
+    renderCodeInjectionEditor(makeProject("W2"), root as unknown as HTMLElement, () => {});
+    expect(root.innerHTML).toContain("Doubles target selection");
+    expect(root.innerHTML).toContain("move-effectiveness-doubles.png");
+    expect(root.innerHTML.match(/data-move-highlight-glyph=/gu)).toHaveLength(3);
+    inputs.forEach((input, index) => {
+      input.value = colors[index]!;
+      input.dispatchEvent();
+    });
+    expect(glyphs.map(glyph => glyph.style.backgroundColor)).toEqual(expected);
+    expect(samples.map(sample => sample.style.color)).toEqual(expected);
+    reset();
+    expect(inputs.map(input => input.value)).toEqual(keys.map(key => defaults[key]));
+    expect(glyphs.map(glyph => glyph.style.backgroundColor)).toEqual(["#f7d652", "#9cadc6", "#ff4242"]);
   });
 });
 
@@ -214,6 +261,45 @@ function renderFixture(version: "W2" | "B2" | "B" | "W", pmcInstalled = false): 
   renderCodeInjectionEditor(project, root as unknown as HTMLElement, () => {});
   return root.innerHTML;
 }
+
+describe("supported ROM labels", () => {
+  it.each(["B", "W", "B2", "W2"] as const)("shows each patch's base support on %s", version => {
+    const cards = renderFixture(version).match(/<section class="code-injection-panel"[^>]*>[\s\S]*?<\/section>/gu) ?? [];
+    const card = (title: string) => cards.find(html => html.includes(`<h2>${title}</h2>`)) ?? "";
+    const allGames = "US Black, White, Black 2, and White 2 (revision 0)";
+    for (const title of ["Type Icons", "Move Effectiveness Preview", "Summary IV/EV Viewer", "Infinite Rare Candy", "Trainer Level Caps"]) {
+      const html = card(title);
+      expect(html).toContain(`<span>Supported ROMs</span><strong>${allGames}</strong>`);
+      expect(html).toContain('data-code-injection-supported="true"');
+    }
+    expect(card("Trainer Battle Log")).toContain("<span>Supported ROMs</span><strong>US Black, White, Black 2, and White 2</strong>");
+    expect(card("Party Menu Learnset/Dex Viewer")).toContain(`<span>Supported ROMs</span><strong>${allGames}</strong>`);
+    expect(card("Party Menu Learnset/Dex Viewer")).toContain('data-code-injection-supported="true"');
+    expect(card("Trainer Field Conditions")).toContain("<span>Supported ROMs</span><strong>US Black 2 and White 2 (revision 0)</strong>");
+    expect(card("Trainer Field Conditions")).toContain(`data-code-injection-supported="${version.endsWith("2")}"`);
+    expect(card("Instant Fast Text")).toContain("<span>Supported ROMs</span><strong>US White 2 (revision 0)</strong>");
+    expect(card("Instant Fast Text")).toContain(`data-code-injection-supported="${version === "W2"}"`);
+  });
+
+  it.each([
+    ["B2", "Black2Upgrade.dll"],
+    ["W2", "White2Upgrade.dll"],
+  ] as const)("describes existing expansion conflicts on %s in feature terms", (version, dll) => {
+    vi.spyOn(megaEvolutionModel, "canUseMegaEvolutionInstaller").mockReturnValue(true);
+    vi.spyOn(speciesExpansionModel, "canUseSpeciesExpansionInstaller").mockReturnValue(true);
+    const project = makeProject(version);
+    addRomFile(project, `patches/${dll}`, new Uint8Array());
+    const root = { innerHTML: "", querySelector: () => null, querySelectorAll: () => [] };
+    renderCodeInjectionEditor(project, root as unknown as HTMLElement, () => {});
+    const cards = root.innerHTML.match(/<section class="code-injection-panel"[^>]*>[\s\S]*?<\/section>/gu) ?? [];
+    expect(cards.find(html => html.includes("<h2>Item Expansion</h2>"))).toContain("The installed expansion already manages items and the save format.");
+    expect(cards.find(html => html.includes("<h2>Regional Forms</h2>"))).toContain("This ROM already includes regional forms from an expansion.");
+    expect(cards.find(html => html.includes("<h2>Species Expansion</h2>"))).toContain("This ROM already includes a species expansion.");
+    expect(cards.find(html => html.includes("<h2>Infinite Rare Candy</h2>"))).toContain("The installed expansion reserves item 622.");
+    const copy = cards.join("").replaceAll(`patches/${dll}`, "");
+    expect(copy.match(/(?:Black|White)\s*2\s*Upgrade/giu) ?? []).toEqual([]);
+  });
+});
 
 describe("Quick Poké Ball bundle", () => {
   const bundle = (name: string) => new Uint8Array(readFileSync(new URL(`../assets/codeinjection/${name}`, import.meta.url)));
@@ -327,6 +413,17 @@ describe("code-injection design credits", () => {
     expect(cards.filter(html => html.includes("TrustyPeaches"))).toHaveLength(2);
     expect(cards.find(html => html.includes("<h2>Move Effectiveness Preview</h2>")))
       .not.toContain("TrustyPeaches");
+  });
+});
+
+describe("BW1 Learnset layout previews", () => {
+  it.each(["B", "W"] as const)("shows the BW1 captures and both layout choices on %s", version => {
+    const card = renderFixture(version).match(/<section class="code-injection-panel"[^>]*>[\s\S]*?<\/section>/g)!
+      .find(html => html.includes("<h2>Party Menu Learnset/Dex Viewer</h2>"))!;
+    expect(card).toContain('data-learnset-upper-layout="classic" aria-pressed="false"');
+    expect(card).toContain('data-learnset-upper-layout="three-cards" aria-pressed="true"');
+    expect(card).toContain("learnset-bw1-classic.png");
+    expect(card).toContain("learnset-bw1-three-cards.png");
   });
 });
 
@@ -469,8 +566,9 @@ describe("code-injection patch categories", () => {
       .find(html => html.includes("<h2>Single-NPC Double Battle Fix</h2>"))!;
     expect(card("B", false)).not.toMatch(/id="install-double-battle-fix-btn"[^>]*disabled/u);
     expect(card("B", true)).not.toMatch(/id="install-double-battle-fix-btn"[^>]*disabled/u);
-    expect(card("B", true)).toContain("US Black 1");
+    expect(card("B", true)).toContain("<span>Supported ROMs</span><strong>US Black, Black 2, and White 2</strong>");
     expect(card("W", true)).toContain("Unsupported");
+    expect(card("W", true)).toContain("<span>Supported ROMs</span><strong>US Black, Black 2, and White 2</strong>");
     expect(card("W", true)).toMatch(/id="install-double-battle-fix-btn"[^>]*disabled/u);
   });
   it.each(["W2", "B2"] as const)("offers the EV option by default on the %s Summary card", version => {
@@ -511,6 +609,10 @@ describe("code-injection patch categories", () => {
       "Trainer Field Conditions", "Nuzlocke Style Encounters", "Porta PC",
     ]);
     expect(headings(panels[5])).toEqual(["Debug Save Flag", "Walk Through Walls", "Instant Battle Victory"]);
+    for (const card of html.matchAll(/<section class="code-injection-panel"[^>]*>[\s\S]*?<\/section>/gu)) {
+      expect(card[0].match(/<span>Supported ROMs<\/span>/gu)).toHaveLength(1);
+      expect(card[0]).not.toMatch(/(?:Black|White)\s*2\s*Upgrade/iu);
+    }
     expect(html).toContain(">Major Features/Expansions</button>");
     expect(html).toContain(">Minor Features/Add-ons</button>");
     expect(panels[3]).toContain("Move animation credits");

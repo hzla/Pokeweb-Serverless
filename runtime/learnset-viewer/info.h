@@ -14,3 +14,9 @@ void infoName(learnset::u32 bank,learnset::u32 id,learnset::u16* text,learnset::
 void infoInput(void* work);
 bool infoNavigate(void* work,Request* request,bool forward);
 void infoEnd();
+
+#if defined(LEARNSET_TILED_PROTOTYPE) || defined(LEARNSET_TILED_ART)
+inline constexpr char TiledArtPath[]="pokeweb/learnset-three-cards.narc";
+bool learnsetWantsTiledUpper();
+void infoReleaseGraphics();
+#endif

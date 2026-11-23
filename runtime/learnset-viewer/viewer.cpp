@@ -1,9 +1,9 @@
+#include "three_card_grid.h"
 #include "runtime.h"
 #include "info.h"
 #if !defined(GAME_B) && !defined(GAME_W)
 #include "../pokenav/view.h"
 #include "../pokenav/style.h"
-#include "lower_grid.generated.h"
 #else
 inline bool pokenavActive(){return false;}
 inline bool pokenavBegin(void*,Request**){return false;}
@@ -12,6 +12,11 @@ inline bool pokenavInput(void*){return false;}
 inline void pokenavFrame(void*){}
 inline void pokenavEnd(){}
 inline void pokenavStop(){}
+#endif
+#if defined(LEARNSET_TILED_ART)
+#include "lower_grid_bw1.generated.h"
+#elif !defined(GAME_B) && !defined(GAME_W)
+#include "lower_grid.generated.h"
 #endif
 extern "C" void LearnsetDetails(void*,u32);
 namespace {
@@ -106,6 +111,24 @@ bool refreshFamily(void* work) {
 }
 }
 extern "C" bool LearnsetIsActive() { return active!=nullptr; }
+#if defined(LEARNSET_TILED_PROTOTYPE) || defined(LEARNSET_TILED_ART)
+bool learnsetWantsTiledUpper() { return active && threeCardLayout(*active); }
+#endif
+#ifdef LEARNSET_TILED_PROTOTYPE
+
+extern "C" void LearnsetCreateTutorHeap(u32 parent,u32 heap,u32 size) {
+    constexpr u32 TutorHeap=79, UserHeap=1, RetailSize=320*1024;
+    constexpr u32 TiledSavings=18*1024;
+    if(parent==UserHeap && heap==TutorHeap && size==RetailSize
+        && !pokenavActive() && learnsetWantsTiledUpper()) {
+        // This lookup runs before the child exists and uses no child memory.
+        struct { void* archive; u32 id; } artFile;
+        if(native<bool(*)(void*,const char*)>(0x2070cf5,0x2070cc9)(&artFile,TiledArtPath))
+            size-=TiledSavings;
+    }
+    native<void(*)(u32,u32,u32)>(0x203a189,0x203a15d)(parent,heap,size);
+}
+#endif
 #if !defined(GAME_B) && !defined(GAME_W)
 extern "C" void LearnsetOpeningFade(u32 mode,u32 main,u32 sub,u32 color,u32 duration,u32 timing,u32 heap){
     // The retail fade restores cached palettes and reveals the tutor's own
@@ -186,6 +209,9 @@ extern "C" u32 LearnsetViewerMain(void* proc,int* seq,void* data,void* work) {
 }
 extern "C" u32 LearnsetViewerEnd(void* proc,int* seq,void* data,void* work) {
     infoEnd();
+#if defined(LEARNSET_TILED_PROTOTYPE) || defined(LEARNSET_TILED_ART)
+    infoReleaseGraphics();
+#endif
     if(pokenavActive()){pokenavStop();const u32 result=native<Proc>(0x2199a51,0x2199a11)(proc,seq,active,work);pokenavEnd();active=nullptr;return result;}
     const u32 result=native<Proc>(0x2199a51,0x2199a11)(proc,seq,data,work);
 #if !defined(GAME_B) && !defined(GAME_W)
@@ -279,7 +305,7 @@ extern "C" void LearnsetScreen(void* arc,u32 member,u32 frame,u32 offset,u32 len
         row[18]=row[19]=row[20]=row[17];
     }
     const u32 size=length ? length : at<u32>(screen,8);
-#if !defined(GAME_B) && !defined(GAME_W)
+#if (!defined(GAME_B) && !defined(GAME_W)) || defined(LEARNSET_TILED_ART)
     if(threeCardLayout(*active) && offset==0 && size==2048) {
         // Frame 7 already has the retail art. Upload only the new tile
         // characters in unused slots and put their colors past the native

@@ -8,7 +8,7 @@ from pathlib import Path
 import struct
 import subprocess
 import tempfile
-from configure_bw1 import main as configure, PROFILES
+from configure_bw1 import main as configure, BINDINGS, PROFILES
 from generated import write_info_messages
 
 HERE=Path(__file__).resolve().parent
@@ -16,7 +16,7 @@ WORKSPACE=HERE.parents[2]
 BUILD=HERE/'build'
 TOOLS=Path(os.environ.get('ARM_TOOLCHAIN_BIN',WORKSPACE/'toolchains/arm-gnu-toolchain-14.2.rel1-darwin-arm64-arm-none-eabi/bin'))
 JAR=Path(os.environ.get('RPM_TOOL_JAR',WORKSPACE/'White2Upgrade/CTRMap.jar'))
-VERSION='0.1.0-bw1-candidate'
+VERSION='0.2.0-bw1'
 
 def run(*args):subprocess.run([str(x) for x in args],check=True)
 
@@ -59,9 +59,16 @@ def main():
             objects=[]
             for source in sources:
                 obj=BUILD/f'{source.stem}{group}{game}{suffix}.o';objects.append(obj)
+                flags=[f'-DGAME_{game}','-DLEARNSET_TILED_ART',*(['-DLEARNSET_BW1_TRACE'] if trace else []),
+                       '-I',BUILD,'-I',HERE]
+                expanded=subprocess.check_output([str(x) for x in
+                    (TOOLS/'arm-none-eabi-g++','-E','-P','-std=c++17',*flags,source)],text=True)
+                refs={int(m[1],16) for m in re.finditer(
+                    r'native<[^;]*?>\s*\((0x[\da-f]+)\s*,\s*(0x[\da-f]+)\)',expanded,re.I)}
+                assert refs<=BINDINGS.keys(),(source,refs-BINDINGS.keys())
                 run(TOOLS/'arm-none-eabi-g++','-std=c++17','-mthumb','-march=armv5t','-mlong-calls','-Os','-Wall','-Wextra','-Werror',
                     '-fno-exceptions','-fno-rtti','-fno-unwind-tables','-fno-asynchronous-unwind-tables','-ffreestanding','-fno-builtin',
-                    '-fvisibility=hidden',f'-DGAME_{game}',*(['-DLEARNSET_BW1_TRACE'] if trace else []),'-I',BUILD,'-I',HERE,'-c',source,'-o',obj)
+                    '-fvisibility=hidden',*flags,'-c',source,'-o',obj)
             obj=BUILD/f'{group}{game}.o';objects.append(obj)
             run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',asm,'-o',obj)
             elf=BUILD/f'Learnset{group}{game}{suffix}.elf'

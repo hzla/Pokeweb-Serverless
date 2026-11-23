@@ -45,9 +45,15 @@ def calls(data, base, target):
     assert found, hex(target)
     return found
 
+VERSION = "1.11.0"
+TILED_PROTOTYPE = os.environ.get("LEARNSET_TILED_PROTOTYPE") == "1"
+if TILED_PROTOTYPE and (
+    ASSETS.resolve() == (REPO / "src/assets/codeinjection").resolve()
+    or BUILD.resolve() == (HERE / "build").resolve()
+):
+    raise SystemExit("Set separate LEARNSET_BUILD_DIR and LEARNSET_ASSET_DIR for the tiled prototype.")
 BUILD.mkdir(parents=True, exist_ok=True)
 ASSETS.mkdir(parents=True, exist_ok=True)
-VERSION = "1.11.0"
 write_info_messages(BUILD)
 # PMC's priority-chain array has five entries (0..PMC_PATCH=4). Priority 5
 # writes past it and never reaches the overlay activation chain.
@@ -161,6 +167,16 @@ for game,filename,delta in [("W2","cleanwhite2.nds",0),("B2","cleanblack2.nds",0
             viewer += [".balign 4",f".global {symbol}",f".type {symbol},%function",".thumb_func",symbol+":",
                        "ldr r3,1f","bx r3","1: .word Learnset"+label,f".size {symbol},.-{symbol}"]
             signature(label,258,address,4,"THUMB_BRANCH_LINK",4)
+    if TILED_PROTOTYPE:
+        # WazaOshieProc_Init loads the stock 320 KiB size into r2 immediately
+        # before this call. Other child allocations stay on the retail path.
+        address=0x2199910-delta
+        assert address in calls(ov.data,ov.ramAddress,0x203a188-arm_delta)
+        assert bytes(ov.data[8:16])==bytes.fromhex("01204f2112040127")
+        symbol=f"THUMB_BRANCH_LINK_258_0x{address:x}"
+        viewer += [".balign 4",f".global {symbol}",f".type {symbol},%function",".thumb_func",symbol+":",
+                   "ldr r3,1f","bx r3","1: .word LearnsetCreateTutorHeap",f".size {symbol},.-{symbol}"]
+        signature("Three Cards private heap size",258,address,4,"THUMB_BRANCH_LINK",4)
     # This call has seven parameters: tail branch must preserve r3 and SP.
     address=0x2199f24-delta
     symbol=f"THUMB_BRANCH_LINK_258_0x{address:x}"
@@ -207,6 +223,17 @@ for game,filename,delta in [("W2","cleanwhite2.nds",0),("B2","cleanblack2.nds",0
     if background_rows is not None: assert rows==background_rows, 'US W2/B2 tutor backgrounds differ'
     background_rows=rows
     (BUILD/'info_background.generated.h').write_text(background_header(rows))
+    if TILED_PROTOTYPE:
+        from three_card_assets import archive as three_card_archive
+        fonts=ndspy.narc.NARC(rom.getFileByName("a/0/2/3")).files
+        face=struct.unpack_from('<H',graphics.files[0],40+17*2)[0]
+        font_colors=struct.unpack_from('<16H',fonts[5],40)
+        art=three_card_archive(SOURCE,BUILD,face,font_colors)
+        if game=='W2':
+            (ASSETS/'learnset-three-cards.narc').write_bytes(art)
+            three_card_art=art
+        else:
+            assert art==three_card_art, 'US Three Cards prototypes share one art archive'
     grid_header=lower_grid_header(graphics.files)
     if game=='W2': lower_grid=grid_header
     else: assert grid_header==lower_grid, 'US tutor lower grid assets differ'
@@ -222,7 +249,9 @@ for game,filename,delta in [("W2","cleanwhite2.nds",0),("B2","cleanblack2.nds",0
     # The wireless object's x halfword at +4 feeds the 9-bit OAM position.
     assert arm9[at+0x46:at+0x5c].hex()=='e388a1881b061d0e0123c9059b07c9092b4319439160'
     apis=[]
-    for label,address,length in [('Tutor BG character upload',0x20450ac-arm_delta,32),
+    heap_apis=[('Tutor child-heap creation',0x203a188-arm_delta,28),
+               ('Three Cards archive lookup',0x2070cf4-arm_delta,40)] if TILED_PROTOTYPE else []
+    for label,address,length in [*heap_apis,('Tutor BG character upload',0x20450ac-arm_delta,32),
                                  ('Wireless icon state',wireless_main,20),
                                  ('Wireless icon position',wireless_draw+0x46,22)]:
         at=address-rom.arm9RamAddress
@@ -240,7 +269,7 @@ for game,filename,delta in [("W2","cleanwhite2.nds",0),("B2","cleanblack2.nds",0
             obj=BUILD/f"{source.stem}{group}{game}.o"; objects.append(obj)
             run(TOOLS/"arm-none-eabi-g++","-std=c++17","-mthumb","-march=armv5t","-mlong-calls","-O2" if source.name=='style.cpp' else "-Os","-Wall","-Wextra","-Werror",
                 "-fno-exceptions","-fno-rtti","-fno-unwind-tables","-fno-asynchronous-unwind-tables","-ffreestanding","-fno-builtin",
-                "-fvisibility=hidden",f"-DGAME_{game}","-I",BUILD,"-I",SOURCE,"-c",source,"-o",obj)
+                "-fvisibility=hidden",f"-DGAME_{game}",*(["-DLEARNSET_TILED_PROTOTYPE"] if TILED_PROTOTYPE else []),"-I",BUILD,"-I",SOURCE,"-c",source,"-o",obj)
         hook=BUILD/f"{group}{game}.o"; objects.append(hook)
         run(TOOLS/"arm-none-eabi-as","-mthumb","-march=armv5t",BUILD/f"{group}{game}.s","-o",hook)
         elf=BUILD/f"Learnset{group}{game}.elf"

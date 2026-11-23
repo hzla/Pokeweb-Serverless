@@ -70,16 +70,13 @@ struct Config {
 static_assert(sizeof(Config) == 24, "Installer config");
 extern "C" volatile Config learnsetConfig;
 inline bool threeCardLayout(const Request& request) {
-#if defined(GAME_B) || defined(GAME_W)
+#if (defined(GAME_B) || defined(GAME_W)) && !defined(LEARNSET_TILED_ART)
     (void)request;
     return false;
 #else
     return request.reserved!=0x5057 && learnsetConfig.upperLayout==1;
 #endif
 }
-constexpr u16 ThreeCardGridBase=4|(4<<5)|(6<<10);
-constexpr u16 ThreeCardGridMinor=5|(6<<5)|(7<<10);
-constexpr u16 ThreeCardGridMajor=6|(7<<5)|(9<<10);
 inline bool configured(u16 value, u16 inverse) { return value != End && u16(value ^ inverse) == End; }
 
 // Shared bounded reader: field initialization uses heap 4; in-place viewer

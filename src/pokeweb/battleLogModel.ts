@@ -355,7 +355,7 @@ export function detectBattleLogCompatibility(
       checked: false,
       passed: 0,
       checks: [],
-      message: "The battle log supports US Black, White, Black 2, White 2, and the corresponding Upgrade ROMs.",
+      message: "The battle log supports US Black, White, Black 2, and White 2.",
     };
   }
   if (!romBytes) {
@@ -491,7 +491,7 @@ export async function installBattleLog(project: ProjectState): Promise<BattleLog
 async function installBattleLogStaged(project: ProjectState): Promise<BattleLogInstallResult> {
   const layout = battleLogLayout(project.session.baseVersion);
   if ((project.session.baseRom !== "BW" && project.session.baseRom !== "BW2") || !layout) {
-    throw new Error("The battle log supports US Black, White, Black 2, White 2, and the corresponding Upgrade ROMs.");
+    throw new Error("The battle log supports US Black, White, Black 2, and White 2.");
   }
   const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
   if (!romBytes) throw new Error("Reload the ROM before installing the battle log.");
@@ -563,7 +563,7 @@ async function installBattleLogStaged(project: ProjectState): Promise<BattleLogI
 export function uninstallBattleLog(project: ProjectState): void {
   const layout = battleLogLayout(project.session.baseVersion);
   if ((project.session.baseRom !== "BW" && project.session.baseRom !== "BW2") || !layout) {
-    throw new Error("The battle log supports US Black, White, Black 2, White 2, and the corresponding Upgrade ROMs.");
+    throw new Error("The battle log supports US Black, White, Black 2, and White 2.");
   }
   if (hasMenuEvolutionCompanion(project)) {
     throw new Error("Uninstall Enhanced Party Menu and Battle Log Integration before uninstalling its required battle-counter DLL.");

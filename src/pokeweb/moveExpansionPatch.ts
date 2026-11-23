@@ -318,7 +318,7 @@ export async function installMoveExpansion(
     textEntriesAdded > 0;
   if (changed) {
     const animationDetail = animationBundle
-      ? ` Included ${animationBundle.moves.length} White2Upgrade Gen 6-9 animation scripts and their particle and background dependencies.`
+      ? ` Included ${animationBundle.moves.length} Gen 6–9 animation scripts and their particle and background dependencies.`
       : "";
     recordGenericChange(
       project,
@@ -1330,7 +1330,7 @@ function markPatchOverlayDirty(project: ProjectState, overlayId: number): void {
 
 function requiredMoveFieldIndex(field: string): number {
   const index = MOVE_FIELD_INDEX.get(field);
-  if (index === undefined) throw new Error(`White2Upgrade move expansion data is missing field ${field}.`);
+  if (index === undefined) throw new Error(`Move Expansion data is missing field ${field}.`);
   return index;
 }
 

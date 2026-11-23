@@ -44,7 +44,7 @@ function conflicts(rpm:RpmModule,profile:Profile,itemExpansion:boolean):boolean{
  });
 }
 export function getBw1CGearStatus(project:ProjectState):CGearQuickActionsStatus{
- const state:CGearQuickActionsStatus={supported:false,compatible:false,installed:false,enabled:false,pmcInstalled:getPmcInstallStatus(project).installed,updateAvailable:false,canRemove:false,pcHideFlag:1517,message:"C-Gear Quick Actions supports US revision-0 Black and White."};
+ const state:CGearQuickActionsStatus={supported:false,compatible:false,installed:false,enabled:false,pmcInstalled:getPmcInstallStatus(project).installed,updateAvailable:false,canRemove:false,pcHideFlag:1517,message:"C-Gear Quick Actions supports US Black, White, Black 2, and White 2 (revision 0)."};
  const v=project.session.baseVersion;if(project.session.baseRom!=="BW"||(v!=="B"&&v!=="W"))return state;
  let rom:NintendoDSRom|undefined;
  try{if(project.originalRomBytes)rom=new NintendoDSRom(project.originalRomBytes,{fileData:"view"});}catch{return {...state,message:"Reload the ROM to check C-Gear compatibility."};}

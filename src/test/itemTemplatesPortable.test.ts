@@ -16,11 +16,11 @@ function fixture(game:"B"|"W",shift:number,relocate:number){
  return {project,locations};
 }
 describe("portable modern item recipes",()=>{
- for(const game of ["B","W"] as const)it(`${game}: verifies all eleven templates at moved code offsets and preserves them on reopen`,()=>{
+ for(const game of ["B","W"] as const)it(`${game}: verifies portable templates at moved code offsets and preserves them on reopen`,()=>{
   const {project,locations}=fixture(game,0x1400,0x3000);
   const rules=new Map(Object.values(ITEM_RECIPE_TEMPLATE_IDS).filter(id=>id!==ITEM_RECIPE_TEMPLATE_IDS.assaultVest).map((id,i)=>[85+i,itemRulePreset(id,false,false)]));
   const rpm=buildItemRuleModule(project,rules),api=rpm.symbols.find(s=>s.name==="ItemRuleApi")!.address;
-  expect(rpm.metadata.PMCVersion).toBe("6.0.0");expect(rpm.relocations.filter(r=>r.target.module==="93")).toHaveLength(1);
+  expect(rpm.metadata.PMCVersion).toBe("9.0.0");expect(rpm.relocations.filter(r=>r.target.module==="93")).toHaveLength(1);
   expect(readU32(rpm.code,api+44*4)).toBe(locations.get("BattleEventItem_AttachSkipCheckHandler")!|1);
   expect(rpm.code.length+rpm.bssSize).toBeLessThan(65536);
   project.fileSystem={replacements:{},additions:{[ITEM_EFFECTS_DLL_PATH]:writeRpm(rpm,{ident:"DLXF"})}};

@@ -242,9 +242,9 @@ describe("Battle HUD bundled installer", () => {
   });
   it("rejects other games and regions", async () => {
     const p = project("W2"); p.session.baseVersion = "W"; p.session.baseRom = "BW";
-    await expect(installBattleTypeHud(p)).rejects.toThrow(/English Black 2/);
+    await expect(installBattleTypeHud(p)).rejects.toThrow(/US Black, White, Black 2, and White 2/u);
     const q = project("B2"); q.originalRomBytes!.set(new TextEncoder().encode("IREJ"), 12);
-    await expect(installBattleTypeHud(q)).rejects.toThrow(/English Black 2/);
+    await expect(installBattleTypeHud(q)).rejects.toThrow(/US Black, White, Black 2, and White 2/u);
   });
   it.each(["B2", "W2"] as const)("edits only the six %s color bytes, preserving custom colors across export, reimport and reinstall", async v => {
     const p = project(v); assets();

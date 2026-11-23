@@ -116,6 +116,45 @@ for game,ovdelta,delta in ([("B",0,0),("W",0,0)] if bw1 else [("W2",0,0),("B2",0
     call(hook,[2,7,5,11,16,15,1]);assert windows[-1]==[2,0,24,1,1,15,1]
     call(hook,[6,8,9,21,11,15,1]);assert windows[-1]==[6,8,9,21,11,15,1]
     w32(active,0)
+    if "Viewer:LearnsetCreateTutorHeap" in symbols:
+        calls=[];found=[1];lookups=[]
+        def heap_call():
+            calls.append((r(0),r(1),r(2)))
+            ret()
+        def lookup_art():
+            lookups.append(r(1))
+            ret(found[0])
+        stubs[0x203a188-delta]=heap_call
+        stubs[0x2070cf4-delta]=lookup_art
+        hook=hook_symbol("Private tutor heap",0x2199910)
+        args=[1,79,320*1024]
+        cfg=symbols["Viewer:learnsetConfig"]
+        uc.mem_write(cfg+22,b"\x01\x00")
+        call(hook,args) # Native Reminder or Tutor.
+        assert calls[-1]==tuple(args) and not lookups
+        w32(active,0x2206000)
+        call(hook,args)
+        assert calls[-1]==(1,79,302*1024) and len(lookups)==1
+        found[0]=0
+        call(hook,args)
+        assert calls[-1]==tuple(args) and len(lookups)==2
+        found[0]=1
+        uc.mem_write(0x2206000+242,b"WP")
+        call(hook,args) # Custom UI.
+        assert calls[-1]==tuple(args) and len(lookups)==2
+        uc.mem_write(0x2206000+242,bytes(2))
+        launch_symbol=symbols["Viewer:_ZN12_GLOBAL__N_16launchE"]
+        w32(launch_symbol,0x2207000)
+        call(hook,args) # PokéNav.
+        assert calls[-1]==tuple(args) and len(lookups)==2
+        w32(launch_symbol,0)
+        call(hook,[1,79,304*1024])
+        assert calls[-1]==(1,79,304*1024) and len(lookups)==2
+        uc.mem_write(cfg+22,bytes(2))
+        call(hook,args) # Classic layout.
+        assert calls[-1]==tuple(args) and len(lookups)==2
+        w32(active,0)
+        print(game,"Three Cards heap veneer and native/Classic/Custom UI/PokéNav/missing-art guards passed",flush=True)
     for fields in range(5):
         for extras in range(3):
             count=4+fields+extras

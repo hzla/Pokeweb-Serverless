@@ -1,4 +1,3 @@
-import { canOpenMastersheetViewer } from "../pokeweb/mastersheetViewerAccess";
 import { announceMastersheet } from "../pokeweb/mastersheetSync";
 import {
   buildMastersheetPreview,
@@ -22,7 +21,6 @@ import {
 import type { ProjectState } from "../pokeweb/projectStore";
 import type { TextDownloadFile } from "../pokeweb/docGeneratorModel";
 import { escapeHtml } from "./dom";
-import { renderMasterData, renderMastersheetToc } from "./mastersheetRenderer";
 
 type RenderOptions = {
   onDirty?: () => void;
@@ -30,16 +28,11 @@ type RenderOptions = {
   beforeOpenViewer?: () => Promise<void>;
 };
 
-const RENDER_DEBOUNCE_MS = 150;
-
 /**
- * The Mastersheet page. Where the Mastersheet Viewer is available, the sheet is written there (it edits in place,
- * with the template beside it), so this page keeps the calc export, Import JS and the ROM option, and opens the
- * viewer. Elsewhere it is the template editor with the calc preview.
+ * The Mastersheet page. The sheet is written in the Mastersheet Viewer (it edits in place, with the template beside
+ * it), so this page opens the viewer and keeps the calc export, Import JS and the ROM option.
  */
 export function renderMastersheetEditor(project: ProjectState, root: HTMLElement, options: RenderOptions = {}): void {
-  const initialMarkdown = ensureMastersheetMarkdown(project);
-  const viewerMode = canOpenMastersheetViewer();
   let enrichmentStatus = "";
 
   root.innerHTML = `
@@ -56,38 +49,22 @@ export function renderMastersheetEditor(project: ProjectState, root: HTMLElement
         </div>
         <div class="mastersheet-rom" id="mastersheet-rom"></div>
         <div class="mastersheet-status" id="mastersheet-status">Ready.</div>
-        ${viewerMode ? "" : `<div class="mastersheet-toc" id="mastersheet-toc"></div>`}
       </aside>
-      ${viewerMode ? `
       <main class="mastersheet-launch">
         <div class="mastersheet-launch__card">
           <h2>Edit in the Mastersheet Viewer</h2>
-          <p>The viewer shows the sheet the way players read it, with maps, trainer scenes and sprites from this ROM, and edits it in place: add trainers, wild Pokémon, items, Pokémon lists, notices and text from the ROM's own data, fill an area from what the game puts there, or edit the template beside the sheet.</p>
-          <p>Changes save into this project as you make them.</p>
           <button class="btn -primary" id="mastersheet-viewer-btn" type="button">Open in viewer</button>
-          <p class="mastersheet-launch__summary" id="mastersheet-summary"></p>
         </div>
-      </main>` : `
-      <main class="mastersheet-preview-panel" id="mastersheet-preview-panel">
-        <div class="mastersheet-preview" id="mastersheet"></div>
-      </main>`}
-      <aside class="mastersheet-editor-panel"${viewerMode ? " hidden" : ""}>
-        <textarea id="mastersheet-source" spellcheck="false">${escapeHtml(initialMarkdown)}</textarea>
-      </aside>
+      </main>
     </section>
   `;
 
-  const textarea = root.querySelector<HTMLTextAreaElement>("#mastersheet-source");
-  const preview = root.querySelector<HTMLElement>("#mastersheet");
-  const previewPanel = root.querySelector<HTMLElement>("#mastersheet-preview-panel");
-  const toc = root.querySelector<HTMLElement>("#mastersheet-toc");
   const status = root.querySelector<HTMLElement>("#mastersheet-status");
   const importButton = root.querySelector<HTMLButtonElement>("#mastersheet-import-btn");
   const importInput = root.querySelector<HTMLInputElement>("#mastersheet-import-input");
   const downloadButton = root.querySelector<HTMLButtonElement>("#mastersheet-download-btn");
   const copyButton = root.querySelector<HTMLButtonElement>("#mastersheet-copy-btn");
   const romPanel = root.querySelector<HTMLElement>("#mastersheet-rom");
-  let renderTimeout: number | undefined;
   let lastExport: MastersheetExport | undefined;
   let enrichmentAttempted = false;
 
@@ -102,34 +79,9 @@ export function renderMastersheetEditor(project: ProjectState, root: HTMLElement
     }
   };
 
-  const summary = root.querySelector<HTMLElement>("#mastersheet-summary");
-
-  const refreshPreview = (): void => {
-    if (!textarea) return;
-    if (!preview || !toc || !previewPanel) {
-      // Viewer mode: no preview here, just the checks the calc export needs and a summary.
-      setMastersheetMarkdown(project, textarea.value);
-      lastExport = buildMastersheetPreview(project, textarea.value);
-      const blocking = lastExport.warnings.some((warning) => warning.blocking);
-      if (downloadButton) downloadButton.disabled = blocking;
-      if (copyButton) copyButton.disabled = blocking;
-      renderStatus(status, lastExport.warnings, enrichmentStatus);
-      if (summary) {
-        const count = (tag: string) => lastExport!.masterData.filter((element) => element.tag === tag).length;
-        summary.textContent = `${count("h2")} areas · ${count("trainer")} trainers · ${count("encounter")} wild areas`;
-      }
-      renderRomPanel();
-      return;
-    }
-    const markdown = textarea.value;
-    setMastersheetMarkdown(project, markdown);
-    lastExport = buildMastersheetPreview(project, markdown);
-    if (lastExport.masterData.some((element) => element.tag === "trainer") && !enrichmentAttempted) {
-      ensureTrainerLocationEnrichment();
-      lastExport = buildMastersheetPreview(project, markdown);
-    }
-    preview.innerHTML = renderMasterData(lastExport.masterData, lastExport.trainersById, lastExport.encountersById, { highlights: lastExport.highlights });
-    renderMastersheetToc(preview, toc, previewPanel);
+  /** The checks the calc export needs: its warnings, and whether it can be downloaded. */
+  const checkSheet = (): void => {
+    lastExport = buildMastersheetPreview(project, ensureMastersheetMarkdown(project));
     const blocking = lastExport.warnings.some((warning) => warning.blocking);
     if (downloadButton) downloadButton.disabled = blocking;
     if (copyButton) copyButton.disabled = blocking;
@@ -173,39 +125,26 @@ export function renderMastersheetEditor(project: ProjectState, root: HTMLElement
   });
   romPanel?.addEventListener("click", (event) => {
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-rom-choice]");
-    if (!button || !textarea) return;
+    if (!button) return;
     const choice = button.dataset.romChoice === "rom" ? "rom" : "project";
     resolveMastersheetRomConflict(project, choice);
-    if (choice === "rom") {
-      textarea.value = ensureMastersheetMarkdown(project);
-      announceMastersheet(textarea.value);
-    }
-    refreshPreview();
+    if (choice === "rom") announceMastersheet(ensureMastersheetMarkdown(project));
+    checkSheet();
     if (status) status.textContent = choice === "rom" ? "Loaded the mastersheet saved in the ROM." : "Kept this project's mastersheet.";
     options.onDirty?.();
   });
 
-  const scheduleRefresh = (): void => {
-    if (renderTimeout !== undefined) window.clearTimeout(renderTimeout);
-    renderTimeout = window.setTimeout(() => {
-      refreshPreview();
-      options.onDirty?.();
-    }, RENDER_DEBOUNCE_MS);
-  };
-
-  textarea?.addEventListener("input", scheduleRefresh);
   importButton?.addEventListener("click", () => importInput?.click());
   importInput?.addEventListener("change", async () => {
     const file = importInput.files?.[0];
-    if (!file || !textarea) return;
+    if (!file) return;
     try {
       if (status) status.textContent = `Importing ${file.name}...`;
       const source = await file.text();
       const markdown = mastersheetMarkdownFromLegacyJs(source);
-      textarea.value = markdown;
       setMastersheetMarkdown(project, markdown);
       setMastersheetHighlights(project, mastersheetHighlightsFromLegacyJs(source));
-      refreshPreview();
+      checkSheet();
       // An open viewer takes the imported sheet (unless it has unsaved edits of its own).
       announceMastersheet(markdown);
       if (status && !lastExport?.warnings.length) status.textContent = `Imported ${file.name}.`;
@@ -217,10 +156,8 @@ export function renderMastersheetEditor(project: ProjectState, root: HTMLElement
     }
   });
   downloadButton?.addEventListener("click", () => {
-    if (!textarea) return;
-    setMastersheetMarkdown(project, textarea.value);
     ensureTrainerLocationEnrichment();
-    lastExport = buildMastersheetPreview(project, textarea.value);
+    lastExport = buildMastersheetPreview(project, ensureMastersheetMarkdown(project));
     renderStatus(status, lastExport.warnings, enrichmentStatus);
     if (lastExport.warnings.some((warning) => warning.blocking)) return;
     runExportAction(status, () => {
@@ -230,17 +167,15 @@ export function renderMastersheetEditor(project: ProjectState, root: HTMLElement
     });
   });
   copyButton?.addEventListener("click", async () => {
-    if (!textarea) return;
-    setMastersheetMarkdown(project, textarea.value);
     ensureTrainerLocationEnrichment();
-    lastExport = buildMastersheetPreview(project, textarea.value);
+    lastExport = buildMastersheetPreview(project, ensureMastersheetMarkdown(project));
     if (lastExport.warnings.some((warning) => warning.blocking)) {
       renderStatus(status, lastExport.warnings, enrichmentStatus);
       return;
     }
     try {
       const file = generateMastersheetDownload(project);
-      await copyText(file.contents, textarea);
+      await copyText(file.contents);
       if (status) status.textContent = `Copied ${file.filename}.`;
     } catch (error) {
       if (status) status.textContent = error instanceof Error ? error.message : String(error);
@@ -248,7 +183,6 @@ export function renderMastersheetEditor(project: ProjectState, root: HTMLElement
   });
 
   root.querySelector<HTMLButtonElement>("#mastersheet-viewer-btn")?.addEventListener("click", async () => {
-    if (textarea) setMastersheetMarkdown(project, textarea.value);
     // Open the tab inside the click so popup blockers allow it, then point it at the viewer once saved.
     const viewer = window.open("about:blank", "_blank");
     try {
@@ -262,7 +196,7 @@ export function renderMastersheetEditor(project: ProjectState, root: HTMLElement
     }
   });
 
-  refreshPreview();
+  checkSheet();
 }
 
 function formatBytes(bytes: number): string {
@@ -317,11 +251,18 @@ function downloadFile(file: TextDownloadFile): void {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-async function copyText(text: string, fallback: HTMLTextAreaElement): Promise<void> {
+async function copyText(text: string): Promise<void> {
   try {
     await navigator.clipboard.writeText(text);
   } catch {
+    // Without clipboard access, copy from a hidden text field.
+    const fallback = document.createElement("textarea");
+    fallback.value = text;
+    fallback.setAttribute("readonly", "");
+    fallback.style.cssText = "position:fixed;opacity:0;pointer-events:none";
+    document.body.append(fallback);
     fallback.select();
     document.execCommand("copy");
+    fallback.remove();
   }
 }

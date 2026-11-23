@@ -8,6 +8,7 @@ import { writeRpm } from "../pokeweb/rpm";
 import { renderItemRuleForm } from "../ui/itemRuleEditor";
 import { renderItemEffects } from "../ui/itemEffectsEditor";
 import { makeItemEffectsProject } from "./fixtures/itemEffectsProject";
+import { VANILLA_MOVE_FLAGS } from "../pokeweb/abilityMoveFilters";
 
 describe("parameterized item templates",()=>{
  it("encodes both Weakness Policy boosts together and Maranga's forced-use path",()=>{
@@ -42,15 +43,34 @@ describe("parameterized item templates",()=>{
   expect(()=>validateItemRule({...r,effects:[{...r.effects[0],parameters:{specialDefense:0}}]})).toThrow("stat change");
   expect(()=>validateItemRule({...r,effects:[{...r.effects[0],parameters:{unknown:1}}]})).toThrow();
  });
+ it("defaults Throat Spray to one Sp. Atk stage after a sound move and supports edited flags",()=>{
+  const rule=itemRulePreset(ITEM_RECIPE_TEMPLATE_IDS.throatSpray);
+  const row=()=>{const bytes=encodeItemRulesV4(new Map([[85,rule]])).bytes,at=readU16(bytes,170)+8;return [...bytes.slice(at,at+5)];};
+  expect(rule.consumable).toBe(true);
+  expect(row()).toEqual([141,5,1,3,0]);
+  rule.effects[0].value=2;
+  rule.effects[0].parameters={moveClass:VANILLA_MOVE_FLAGS.find(flag=>flag.key==="healing_move")!.filter,stat:5};
+  expect(row()).toEqual([141,12,2,5,2]);
+  rule.effects[0].parameters.moveClass=14;
+  expect(row()).toEqual([141,14,2,5,0]);
+  expect(()=>validateItemRule({...rule,effects:[{...rule.effects[0],value:0}]})).toThrow();
+  const {project}=makeItemEffectsProject(0,0,true);
+  expect(renderItemRuleForm(project,itemRulePreset(ITEM_RECIPE_TEMPLATE_IDS.throatSpray))).toContain("Stat to raise");
+ });
  it("links every new recipe into one verified module and preserves parameters on reopening",()=>{
   const {project,base,offsets}=makeItemEffectsProject(0,0,true);
   project.session.fairy=true;
-  const rules=new Map(Object.values(ITEM_RECIPE_TEMPLATE_IDS).filter(id=>id!==ITEM_RECIPE_TEMPLATE_IDS.assaultVest).map((id,i)=>[85+i,itemRulePreset(id)]));
+  const rules=new Map(Object.values(ITEM_RECIPE_TEMPLATE_IDS).filter(id=>id!==ITEM_RECIPE_TEMPLATE_IDS.assaultVest&&id!==ITEM_RECIPE_TEMPLATE_IDS.throatSpray).map((id,i)=>[85+i,itemRulePreset(id)]));
   const rpm=buildItemRuleModule(project,rules);
   expect(readU32(rpm.code,rpm.symbols.find(s=>s.name==="ItemRuleApi")!.address+43*4)).toBe((base+offsets.get("IsSubstituteActive")!)|1);
   expect(rpm.metadata.PMCVersion).toBe("6.0.0");expect(rpm.code.length+rpm.bssSize).toBeLessThan(65536);
   project.fileSystem={replacements:{},additions:{[ITEM_EFFECTS_DLL_PATH]:writeRpm(rpm,{ident:"DLXF"})}};
   for(const[id,rule]of rules){const state=inspectItemEffect(project,id);expect(state.editable,state.message).toBe(true);expect(state.rules).toEqual(rule);}
+  rules.set(99,itemRulePreset(ITEM_RECIPE_TEMPLATE_IDS.throatSpray));
+  const upgraded=buildItemRuleModule(project,rules);
+  expect(upgraded.metadata.PMCVersion).toBe("9.0.0");
+  project.fileSystem.additions![ITEM_EFFECTS_DLL_PATH]=writeRpm(upgraded,{ident:"DLXF"});
+  for(const[id,rule]of rules)expect(inspectItemEffect(project,id).rules).toEqual(rule);
  });
  it("renders stage, ratio and immunity controls and a direct path from native berries",()=>{
   const {project}=makeItemEffectsProject(0,0,true);

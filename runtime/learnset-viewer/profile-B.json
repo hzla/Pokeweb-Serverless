@@ -194,6 +194,13 @@
       "expectedHex": "08402de9cffbffebf4ffffeb0880bde810402de90040a0e1c8fbffeb3d10d4e51e0051e324009005180090151080bde808402de9c3fbffebf4ffffeb0880bde8"
     },
     {
+      "reference": "0x2044591",
+      "entry": 33815048,
+      "segment": "ARM9",
+      "mode": "ARM",
+      "expectedHex": "f84f2de900a0a0e1ff000ae20190a0e102b0a0e1250700ebc4109fe50070a0e1006091e50710a0e10a0186e0700190e51c7201eb0a1186e00040a0e1b00191e5"
+    },
+    {
       "reference": "0x2044cc5",
       "entry": 33817992,
       "segment": "ARM9",
@@ -220,6 +227,13 @@
       "segment": "ARM9",
       "mode": "ARM",
       "expectedHex": "08402de91cc09fe500e09ce52cc0a0e390ec2ce008c09ce50100a0e183108ce094ffffeb0880bde8446a140208402de92ce09fe52cc0a0e300e09ee590ec2ce0"
+    },
+    {
+      "reference": "0x20450ad",
+      "entry": 33819420,
+      "segment": "ARM9",
+      "mode": "ARM",
+      "expectedHex": "08402de92ce09fe52cc0a0e300e09ee590ec2ce01ec0dce500005ce30200001a8332a0e1700600eb0880bde80333a0e16d0600eb0880bde8446a1402f8402de9"
     },
     {
       "reference": "0x2045841",
@@ -960,5 +974,6 @@
       "member": 6,
       "sha256": "1218ea72773ff436061cc9a179b1b0fd7eab924d7b96b2e82b739bc04a892d61"
     }
-  ]
+  ],
+  "threeCardArtworkSha256": "87297250e931d9c9719849fd218bd8502b91a45c8fc61be4dead141ca8e00515"
 }

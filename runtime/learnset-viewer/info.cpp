@@ -6,11 +6,7 @@
 #include "../pokenav/text.h"
 #endif
 #include "info_messages.generated.h"
-#if defined(GAME_B) || defined(GAME_W)
-#include "info_background_bw1.generated.h"
-#else
-#include "info_background.generated.h"
-#endif
+#include "three_card_art.h"
 
 
 namespace {
@@ -55,7 +51,7 @@ u32 customRegions=63;
 bool threeCards=false;
 struct RecessedInk { u8 tint,rim; };
 RecessedInk selectedIconInk;
-constexpr u32 ThreeCardFooterLeft=12, EvolutionTextRight=248;
+constexpr u32 EvolutionTextRight=248;
 u32 evolutionTextX(){return threeCards?ThreeCardFooterLeft+2:8;}
 u32 evolutionTextWidth(){return EvolutionTextRight-evolutionTextX();}
 
@@ -74,7 +70,7 @@ struct Archive {
             && native<u32(*)(void*,u32,u32)>(0x2070e55,0x2070e29)(file,offset,0)
             && native<int(*)(void*,void*,u32)>(0x2070e6d,0x2070e41)(file,out,length)==int(length);
     }
-    bool open(const char* path) {
+    bool open(const char* path,bool allowLittleHeader=false) {
 #if !defined(GAME_B) && !defined(GAME_W)
         SessionData* saved=state&&state->encounter?state->data:nullptr;u32 slot=4;
         const char* paths[]={"a/0/1/6","a/0/1/9","a/0/0/2","a/0/0/7"};
@@ -89,7 +85,8 @@ struct Archive {
         if(saved&&slot<4&&saved->metadata[slot].size==size){const auto& m=saved->metadata[slot];count=m.count;image=m.image;imageSize=m.imageSize;return true;}
 #endif
         u8 h[16];
-        if(!read(0,h,16) || read32(h)!=0x4352414e || read32(h+4)!=0x0100fffe
+        if(!read(0,h,16) || read32(h)!=0x4352414e
+            || (read32(h+4)!=0x0100fffe && (!allowLittleHeader || read32(h+4)!=0x0001feff))
             || read32(h+8)!=size || read16(h+12)!=16 || read16(h+14)!=3)return false;
         if(!read(16,h,12) || read32(h)!=0x46415442)return false;
         const u32 fat=read32(h+4);count=read16(h+8);
@@ -140,6 +137,15 @@ struct Archive {
         return cachedRead(image+begin,out,length,false)?length:0;
     }
     u32 memberSize(u32 id){u8 h[8];if(!image||id>=count||!read(28+8*id,h,8))return 0;const u32 begin=read32(h),end=read32(h+4);return begin<=end&&end<=imageSize?end-begin:0;}
+#if defined(LEARNSET_TILED_PROTOTYPE) || defined(LEARNSET_TILED_ART)
+    bool memberSlice(u32 id,u32 offset,void* out,u32 length) {
+        u8 h[8];
+        if(!image || id>=count || !read(28+8*id,h,8))return false;
+        const u32 begin=read32(h),end=read32(h+4);
+        return begin<=end && end<=imageSize && offset<=end-begin
+            && length<=end-begin-offset && read(image+begin+offset,out,length);
+    }
+#endif
     ~Archive(){unbuffer();if(opened)native<u32(*)(void*)>(0x2070de1,0x2070db5)(file);}
 };
 
@@ -172,10 +178,29 @@ struct Messages : Archive {
 
 void* bmp() { return native<void*(*)(void*)>(0x2048521,0x20484f5)(at<void*>(state->work,0x38)); }
 u8* pixels() { return native<u8*(*)(void*)>(0x2046f21,0x2046ef5)(bmp()); }
-void put(const u16* text,int x,int y,u32 color=0x3c40) {
-    void* buffer=at<void*>(state->work,0x4c);stringSet(buffer,text);
-    native<void(*)(void*,int,int,void*,void*,u32)>(0x2021d55,0x2021d29)(bmp(),x,y,buffer,at<void*>(state->work,0x60),color);
-}
+// The native font printer accepts both owned and borrowed tiled bitmaps.
+struct BitmapView { u8* data; u16 width,height,tileSize,storage; };
+struct Surface {
+    void* bitmap;
+    u8* data;
+    u32 left=0,top=0,width=256,height=192;
+    void pixel(u32 x,u32 y,u8 color) const {
+        if(x<left || x-left>=width || y<top || y-top>=height)return;
+        x-=left;y-=top;
+        const u32 offset=((y/8)*(width/8)+x/8)*32+(y%8)*4+(x%8)/2;
+        const u32 shift=(x&1)*4;
+        data[offset]=u8((data[offset]&~(15u<<shift))|(color<<shift));
+    }
+    void rect(u32 x,u32 y,u32 w,u32 h,u8 color) const {
+        for(u32 row=y;row<y+h;++row)for(u32 col=x;col<x+w;++col)pixel(col,row,color);
+    }
+    void put(const u16* text,int x,int y,u32 color=0x3c40) const {
+        void* buffer=at<void*>(state->work,0x4c);stringSet(buffer,text);
+        native<void(*)(void*,int,int,void*,void*,u32)>(0x2021d55,0x2021d29)(
+            bitmap,x-int(left),y-int(top),buffer,at<void*>(state->work,0x60),color);
+    }
+};
+
 u32 measure(const u16* text) {
 #if !defined(GAME_B) && !defined(GAME_W)
     if(state->encounter&&pokenav::ui::available())return pokenav::ui::measureFont(state->work,bmp(),text);
@@ -511,13 +536,6 @@ void load(Request* request) {
     // selection's deterministic predecessor lookup in the shared graph.
     nodes[selected].parent=defaultParent;
 }
-constexpr u16 rgb(u32 r,u32 g,u32 b){return (r>>3)|((g>>3)<<5)|((b>>3)<<10);}
-constexpr u16 colors[16]={rgb(48,50,65),rgb(48,50,65),rgb(32,33,43),rgb(24,27,31),
-    rgb(82,89,100),rgb(58,71,80),rgb(64,188,180),rgb(142,235,219),
-    rgb(180,184,192),rgb(218,218,222),rgb(238,175,62),rgb(255,219,149),
-    rgb(205,158,247),0,0,rgb(239,244,240)};
-constexpr u16 HiddenAbilityColor=rgb(120,72,160);
-constexpr u16 RecessTint=rgb(213,228,227), RecessRim=rgb(174,184,192), RecessLip=rgb(82,143,135);
 constexpr u32 InsetInk=13;
 constexpr u32 InsetTextInk=(6<<10)|(14<<5), HiddenAbilityInk=(12<<10)|(14<<5);
 u32 iconX(u32 index){return (state->chain.count==3?120:state->chain.count==2?144:168)+index*48;}
@@ -525,10 +543,6 @@ u32 iconX(u32 index){return (state->chain.count==3?120:state->chain.count==2?144
 constexpr u32 CardTop=46, CardBottom=81, IconY=48, StatY=41, StatStep=15,
     AbilityY=84, UpperBottom=131, GutterY=132, EvolutionY=140;
 constexpr u32 StatInk=InsetTextInk;
-constexpr u32 ThreeCardGap=8, ThreeCardTop=31, FamilyBottom=68,
-    AbilitiesTop=FamilyBottom+1+ThreeCardGap, ThreeCardBottom=135,
-    StatsRight=105, FamilyLeft=StatsRight+1+ThreeCardGap,
-    ThreeCardEvolutionY=ThreeCardBottom+1+ThreeCardGap, ThreeCardIconY=32, ThreeCardAbilityY=88;
 constexpr u32 StatBarOffsetY=4, StatBarHeight=8, StatBarHighlightHeight=2;
 constexpr u8 StatTrackInk=8, StatFillInk=10, StatHighlightInk=11;
 u32 statRowY(u32 row){return threeCards?33+17*row:StatY+StatStep*row;}
@@ -546,29 +560,29 @@ RecessedInk spareIconInk(const u8* frames) {
     }
     return ink;
 }
-void drawRecessedTile(u8* data,u32 x,bool hasIcon) {
+void drawRecessedTile(const Surface& surface,u32 x,bool hasIcon) {
     // Custom icons can use every opaque palette entry. In that case the lip
     // alone marks selection while preserving all of the original colors.
     if(!hasIcon || selectedIconInk.tint) {
         for(u32 row=0;row<34;++row) {
             const u32 cut=row<3?3-row:row>=31?row-30:0;
-            infoRect(data,x-3+cut,33+row,38-2*cut,1,2);
+            surface.rect(x-3+cut,33+row,38-2*cut,1,2);
         }
         for(u32 row=0;row<30;++row) {
             const u32 cut=row<2?2-row:row>=28?row-27:0;
-            infoRect(data,x-2+cut,35+row,36-2*cut,1,13);
+            surface.rect(x-2+cut,35+row,36-2*cut,1,13);
         }
     }
-    infoRect(data,x-1,64,34,1,7);
-    infoRect(data,x,65,32,1,7);
-    infoRect(data,x+1,66,30,1,2);
+    surface.rect(x-1,64,34,1,7);
+    surface.rect(x,65,32,1,7);
+    surface.rect(x+1,66,30,1,2);
 }
 // POKEICON_ANM_HPMAX in both US a/0/0/7 NANRs is cells 0/1, eight ticks each.
 // These informational species icons use healthy idle, not party HP/status.
 constexpr u32 IconFrameTicks=8;
-bool drawIconPixels(u8* data) {
+bool drawIconPixels(const Surface& surface) {
     bool changed=false;
-    const u32 tileY=upperIconY()/8;
+    const u32 tileY=(upperIconY()-surface.top)/8;
     for(u32 i=0;i<state->chain.count;++i) {
         const u32 slot=state->iconSlots[i],x=iconX(i);
         if(!state->iconsValid[slot])continue;
@@ -577,7 +591,7 @@ bool drawIconPixels(u8* data) {
         const RecessedInk ink=threeCards && selected?selectedIconInk:RecessedInk{};
         for(u32 t=0;t<16;++t) {
             const u32 tx=t%4,ty=t/4;
-            u8* dest=data+((tileY+ty)*32+x/8+tx)*32;
+            u8* dest=surface.data+((tileY+ty)*(surface.width/8)+(x-surface.left)/8+tx)*32;
             const u8* src=frame+t*32;
             if(!ink.tint) {
                 for(u32 b=0;b<32;++b)dest[b]=src[b];
@@ -599,6 +613,10 @@ bool drawIconPixels(u8* data) {
 #if !defined(GAME_B) && !defined(GAME_W)
 void animatePokenav();
 #endif
+#if defined(LEARNSET_TILED_PROTOTYPE) || defined(LEARNSET_TILED_ART)
+extern u8* upperScratch;
+void animateTiledFamily();
+#endif
 void animateIcons() {
     if(!(customRegions&4))return;
     if(++state->iconTicks<IconFrameTicks)return;
@@ -606,8 +624,11 @@ void animateIcons() {
 #if !defined(GAME_B) && !defined(GAME_W)
     if(state->encounter&&pokenav::ui::available()){animatePokenav();return;}
 #endif
+#if defined(LEARNSET_TILED_PROTOTYPE) || defined(LEARNSET_TILED_ART)
+    if(upperScratch){animateTiledFamily();return;}
+#endif
     u8* data=pixels();
-    if(data && drawIconPixels(data)) {
+    if(data && drawIconPixels({bmp(),data})) {
         // Native bitmap-character upload only. Keep the existing CPU tilemap,
         // per-icon palettes, text, frame and lower screen entirely untouched.
         native<void(*)(void*)>(0x2048271,0x2048245)(at<void*>(state->work,0x38));
@@ -693,75 +714,14 @@ void background(u8* data) {
     }
     infoRect(data,27,139,229,1,3);
 }
-void cardFace(u8* data,u32 left,u32 top,u32 right,u32 bottom,u32 entryCut,u32 exitCut) {
-    for(u32 y=top;y<=bottom;++y) {
-        const u32 start=left+(y<top+entryCut?top+entryCut-y:0);
-        const u32 end=right-(y>bottom-exitCut?y-(bottom-exitCut):0);
-        infoRect(data,start,y,end-start+1,1,y==top+1?15:y==bottom?4:y==top||y==bottom-1?2:9);
-        infoPixel(data,start,y,2);
-        infoPixel(data,end,y,4);
-    }
-}
-void abilityTab(u8* data) {
-    // Small custom lettering fits above three rows of native-size text.
-    constexpr u8 rows[5][9]={
-        {14,30,7,8,7,31,7,31,15},
-        {17,17,2,8,2,4,2,16,16},
-        {31,30,2,8,2,4,2,30,14},
-        {17,17,2,8,2,4,2,16,1},
-        {17,30,7,15,7,4,7,31,30},
-    };
-    for(u32 y=0;y<10;++y)infoRect(data,117,78+y,58-(y>3?y-3:0),1,4);
-    constexpr u8 widths[9]={5,5,3,4,3,5,3,5,5};
-    u32 x=121;
-    for(u32 i=0;i<9;++i) {
-        for(u32 y=0;y<5;++y)for(u32 bit=0;bit<widths[i];++bit)
-            if(rows[y][i]&(1u<<(widths[i]-1-bit)))infoPixel(data,x+bit,80+y,15);
-        x+=widths[i]+1;
-    }
-}
 void threeCardBackground(u8* data) {
     native<void(*)(u32,u32)>(0x2044cc5,0x2044c99)(3,0);
     volatile u16* palette=reinterpret_cast<volatile u16*>(0x05000000);
     const volatile u16* subBg=reinterpret_cast<const volatile u16*>(0x05000400);
-    const u16 face=subBg[17], foreground=palette[15*16+1], shadow=palette[15*16+2];
-    const u16 cardColors[16]={face,ThreeCardGridBase,RecessRim,ThreeCardGridMinor,
-        rgb(66,75,90),ThreeCardGridMajor,foreground,RecessLip,colors[8],face,
-        colors[10],colors[11],HiddenAbilityColor,RecessTint,shadow,rgb(248,250,250)};
-    palette[0]=face;
-    for(u32 i=0;i<16;++i) {
-        palette[9*16+i]=palette[8*16+i]=palette[13*16+i]=cardColors[i];
-        palette[14*16+i]=colors[i];
-    }
-    for(const auto& color:TutorBackgroundColors)palette[14*16+color.index]=color.value;
-    palette[14*16+1]=cardColors[1];palette[14*16+3]=cardColors[3];palette[14*16+5]=cardColors[5];
-    palette[8*16+6]=palette[15*16+15];palette[8*16+14]=rgb(33,33,40);
-    palette[8*16+13]=rgb(66,75,96);
-    palette[13*16+2]=rgb(33,33,40);palette[13*16+4]=rgb(112,126,139);
-    palette[13*16+10]=rgb(71,81,99);palette[13*16+13]=rgb(52,60,76);
-
-    infoRect(data,0,0,256,192,1);
-    for(u32 y=24;y<192;y+=8)infoRect(data,0,y,256,1,3);
-    for(u32 x=0;x<256;x+=8)infoRect(data,x,23,1,192-23,x%32?3:5);
-    for(const auto& row:TutorBackgroundRuns)if(row.y<23)
-        infoRect(data,0,row.y,256,row.height<23-row.y?row.height:23-row.y,row.color);
-    cardFace(data,2,ThreeCardTop,StatsRight,ThreeCardBottom,0,5);
-    cardFace(data,FamilyLeft,ThreeCardTop,253,FamilyBottom,4,3);
-    cardFace(data,FamilyLeft,AbilitiesTop,253,ThreeCardBottom,3,9);
+    threeCardPalette(palette,subBg[17],palette[15*16+1],palette[15*16+2],palette[15*16+15]);
+    paintThreeCardArt(data,(customRegions&8)!=0);
     if((customRegions&2) && state->statsValid)for(u32 y=33;y<ThreeCardBottom-1;++y)
         infoRect(data,3,y,(y<38?27+y-33:32)-3,1,13);
-    if(customRegions&8)abilityTab(data);
-    for(u32 y=ThreeCardEvolutionY;y<192;++y) {
-        const u32 left=y<ThreeCardEvolutionY+8?ThreeCardFooterLeft-(y-ThreeCardEvolutionY):4;
-        infoRect(data,left,y,256-left,1,y==ThreeCardEvolutionY?4:10);
-        if(y>ThreeCardEvolutionY && y<160) {
-            const u32 end=155+y-ThreeCardEvolutionY;
-            infoRect(data,left,y,end-left,1,13);
-            infoPixel(data,end,y,4);
-        }
-        infoPixel(data,left,y,4);
-    }
-    infoRect(data,4,160,252,1,4);
 }
 u16* paletteMap() {
     u16* map=native<u16*(*)(u32)>(0x2045841,0x2045815)(2);
@@ -783,7 +743,7 @@ void customLoad(Request* request) {
         || read32(program+8)!=32 || read32(program+12)>63 || !(read32(program+12)&32))return;
     customRegions=read32(program+12);
 }
-#if !defined(GAME_B) && !defined(GAME_W)
+#if (!defined(GAME_B) && !defined(GAME_W)) || defined(LEARNSET_TILED_ART)
 void colorStatBars(u16* map,volatile u16* palette) {
     // White 2 menu type-icon colors, with the mockup's brighter upper stripe.
     constexpr u16 bands[][2]={
@@ -808,41 +768,41 @@ void colorStatBars(u16* map,volatile u16* palette) {
             }
     }
 }
+#endif
+#if !defined(GAME_B) && !defined(GAME_W)
 #include "../pokenav/info_style.h"
 #endif
-void render() {
-#if !defined(GAME_B) && !defined(GAME_W)
-    if(state->encounter&&pokenav::ui::available()){renderPokenav();return;}
-#endif
-    u8* data=pixels();
-    if(!data)return;
-    // A full opaque BG2 panel covers retail BG3; disable BG3 so transparent
-    // icon pixels cannot reveal the old move bars or name plate underneath.
-    if(threeCards)threeCardBackground(data);
-    else background(data);
-    const u32 iconY=upperIconY(), evolutionY=threeCards?ThreeCardEvolutionY:EvolutionY;
-    volatile u16* palette=reinterpret_cast<volatile u16*>(0x05000000);
-    if(customRegions&1)put(state->title,8,4);
-    if((customRegions&1) && state->partyCue[0]!=End)put(state->partyCue,248-int(measure(state->partyCue)),4,(7<<10)|(3<<5));
+void drawHeader(const Surface& surface) {
+    if(customRegions&1)surface.put(state->title,8,4);
+    if((customRegions&1) && state->partyCue[0]!=End)surface.put(state->partyCue,248-int(measure(state->partyCue)),4,(7<<10)|(3<<5));
+}
+
+void drawStats(const Surface& surface) {
     u16 text[128];
     if((customRegions&2) && state->statsValid)for(u32 i=0;i<6;++i) {
         const u32 y=statRowY(i),barX=statBarX(),barY=y+StatBarOffsetY;
         if(threeCards) {
-            copyText(text,128,state->labels[i]);ellipsis(text,25);put(text,6,y,StatInk);
-            if(i){infoRect(data,4,y-1,27,1,4);infoRect(data,34,y-1,69,1,2);}
-        } else put(state->labels[i],6,y,StatInk);
-        number(text,state->stats[i]);put(text,52-int(measure(text)),y,StatInk);
-        infoRect(data,barX,barY,LearnsetStatBarWidth,StatBarHeight,StatTrackInk);
+            copyText(text,128,state->labels[i]);ellipsis(text,25);surface.put(text,6,y,StatInk);
+            if(i){surface.rect(4,y-1,27,1,4);surface.rect(34,y-1,69,1,2);}
+        } else surface.put(state->labels[i],6,y,StatInk);
+        number(text,state->stats[i]);surface.put(text,52-int(measure(text)),y,StatInk);
+        surface.rect(barX,barY,LearnsetStatBarWidth,StatBarHeight,StatTrackInk);
 #if defined(GAME_B) || defined(GAME_W)
-        const u32 width=statBar(state->stats[i]);
+        const u32 width=threeCards?learnsetStatBar(state->stats[i]):statBar(state->stats[i]);
 #else
         const u32 width=state->encounter?statBar(state->stats[i]):learnsetStatBar(state->stats[i]);
 #endif
-        infoRect(data,barX,barY,width,StatBarHeight,StatFillInk);
-        infoRect(data,barX,barY,width,StatBarHighlightHeight,StatHighlightInk);
+        surface.rect(barX,barY,width,StatBarHeight,StatFillInk);
+        surface.rect(barX,barY,width,StatBarHighlightHeight,StatHighlightInk);
     } else if(customRegions&2) {
-        copyText(text,128,state->statsUnavailable);ellipsis(text,96);put(text,6,64,StatInk);
+        copyText(text,128,state->statsUnavailable);ellipsis(text,96);surface.put(text,6,64,StatInk);
     }
+}
+
+void drawFamily(const Surface& surface) {
+    const u32 iconY=upperIconY();
+    u16 text[128];
+    volatile u16* palette=reinterpret_cast<volatile u16*>(0x05000000);
     selectedIconInk={};
     for(u32 i=0;(customRegions&4) && i<state->chain.count;++i) {
         const u32 x=iconX(i),slot=state->iconSlots[i];
@@ -850,10 +810,10 @@ void render() {
         // remain tile-aligned and unscaled, with no opaque default cards.
         if(i==state->chain.selected && threeCards) {
             if(state->iconsValid[slot])selectedIconInk=spareIconInk(state->icons[slot]);
-            drawRecessedTile(data,x,state->iconsValid[slot]);
+            drawRecessedTile(surface,x,state->iconsValid[slot]);
         } else if(i==state->chain.selected) {
-            infoRect(data,x-2,CardTop,36,CardBottom-CardTop+1,7);
-            infoRect(data,x-1,CardTop+1,34,CardBottom-CardTop-1,InsetInk);
+            surface.rect(x-2,CardTop,36,CardBottom-CardTop+1,7);
+            surface.rect(x-1,CardTop+1,34,CardBottom-CardTop-1,InsetInk);
         }
         if(state->iconsValid[slot]) {
             for(u32 t=0;t<16;++t)palette[(10+i)*16+t]=state->palettes[slot][t];
@@ -861,35 +821,44 @@ void render() {
                 if(selectedIconInk.tint)palette[(10+i)*16+selectedIconInk.tint]=RecessTint;
                 if(selectedIconInk.rim)palette[(10+i)*16+selectedIconInk.rim]=RecessRim;
             }
-        } else {asciiText(text,128,"?");put(text,x+12,iconY+8,InsetTextInk);}
+        } else {asciiText(text,128,"?");surface.put(text,x+12,iconY+8,InsetTextInk);}
         if(i+1<state->chain.count) {
             // A wider, explicit right-pointing arrow; no change to chain order.
-            infoRect(data,x+35,iconY+15,10,2,4);
-            for(u32 d=1;d<4;++d) {infoPixel(data,x+44-d,iconY+15-d,4);infoPixel(data,x+44-d,iconY+16+d,4);}
+            surface.rect(x+35,iconY+15,10,2,4);
+            for(u32 d=1;d<4;++d) {surface.pixel(x+44-d,iconY+15-d,4);surface.pixel(x+44-d,iconY+16+d,4);}
         }
     }
-    if(customRegions&4)drawIconPixels(data);
+    if(customRegions&4)drawIconPixels(surface);
     for(u32 dot=0;(customRegions&4) && dot<3;++dot) {
         const u32 y=threeCards?44+dot*3:iconY+15;
-        if(state->chain.before)infoPixel(data,threeCards?115:iconX(0)-7+dot*2,y,4);
-        if(state->chain.after)infoPixel(data,threeCards?252:iconX(state->chain.count-1)+34+dot*2,y,4);
+        if(state->chain.before)surface.pixel(threeCards?115:iconX(0)-7+dot*2,y,4);
+        if(state->chain.after)surface.pixel(threeCards?252:iconX(state->chain.count-1)+34+dot*2,y,4);
     }
+}
+
+void drawAbilities(const Surface& surface) {
+    u16 text[128];
     const u32 count=state->abilities.count?state->abilities.count:1;
     for(u32 i=0;(customRegions&8) && i<count;++i) {
         copyText(text,128,state->abilityNames[i]);
         if(state->abilities.count)infoTitleCase(text);
         const u32 y=threeCards?ThreeCardAbilityY+15*i:AbilityY+16*i;
-        if(threeCards && i)infoRect(data,117,y,133,1,2);
+        if(threeCards && i)surface.rect(117,y,133,1,2);
         ellipsis(text,threeCards?124:132);
-        put(text,120,y,state->abilities.hidden[i]?HiddenAbilityInk:InsetTextInk);
+        surface.put(text,120,y,state->abilities.hidden[i]?HiddenAbilityInk:InsetTextInk);
     }
+}
+
+void drawEvolution(const Surface& surface) {
+    const u32 evolutionY=threeCards?ThreeCardEvolutionY:EvolutionY;
+    u16 text[128];
     const u32 footerX=evolutionTextX(), footerWidth=evolutionTextWidth(), detailY=evolutionY+(threeCards?1:0);
     if((customRegions&16) && state->pageCount) {
         u32 headerWidth=footerWidth;
         if(state->pageCount>1) {
             asciiText(text,128,"A ");u32 n=2;n+=decimal(text+n,state->page+1);text[n++]='/';n+=decimal(text+n,state->pageCount);
             text[n]=End;
-            const u32 width=measure(text);put(text,EvolutionTextRight-int(width),evolutionY);headerWidth-=width+8;
+            const u32 width=measure(text);surface.put(text,EvolutionTextRight-int(width),evolutionY);headerWidth-=width+8;
         }
         const Page& p=state->pages[state->page];
         if(p.incoming)copyText(text,128,state->status);
@@ -898,13 +867,40 @@ void render() {
             ellipsis(a,(headerWidth-20)/2);ellipsis(b,(headerWidth-20)/2);u32 n=copyText(text,128,a);
             text[n++]=' ';text[n++]=0x2192;text[n++]=' ';copyText(text+n,128-n,b);
         }
-        ellipsis(text,headerWidth);put(text,footerX,evolutionY);
+        ellipsis(text,headerWidth);surface.put(text,footerX,evolutionY);
         u32 offset=p.offset;
-        for(u32 row=0;row<2;++row) {offset=wrapInfo(state->requirements[p.option],offset,text,128,footerWidth,measure);put(text,footerX,detailY+16+row*16);}
+        for(u32 row=0;row<2;++row) {offset=wrapInfo(state->requirements[p.option],offset,text,128,footerWidth,measure);surface.put(text,footerX,detailY+16+row*16);}
     } else if(customRegions&16) {
         u32 offset=0;
-        for(u32 row=0;row<3;++row){offset=wrapInfo(state->status,offset,text,128,footerWidth,measure);put(text,footerX,row?detailY+row*16:evolutionY);}
+        for(u32 row=0;row<3;++row){offset=wrapInfo(state->status,offset,text,128,footerWidth,measure);surface.put(text,footerX,row?detailY+row*16:evolutionY);}
     }
+}
+
+#if defined(LEARNSET_TILED_PROTOTYPE) || defined(LEARNSET_TILED_ART)
+#include "three_card_runtime.h"
+#endif
+
+void render() {
+#if !defined(GAME_B) && !defined(GAME_W)
+    if(state->encounter&&pokenav::ui::available()){renderPokenav();return;}
+#endif
+#if defined(LEARNSET_TILED_PROTOTYPE) || defined(LEARNSET_TILED_ART)
+    if(upperScratch){renderTiledUpper();return;}
+#endif
+    u8* data=pixels();
+    if(!data)return;
+    // A full opaque BG2 panel covers retail BG3; disable BG3 so transparent
+    // icon pixels cannot reveal the old move bars or name plate underneath.
+    if(threeCards)threeCardBackground(data);
+    else background(data);
+    const u32 iconY=upperIconY();
+    volatile u16* palette=reinterpret_cast<volatile u16*>(0x05000000);
+    const Surface surface{bmp(),data};
+    drawHeader(surface);
+    drawStats(surface);
+    drawFamily(surface);
+    drawAbilities(surface);
+    drawEvolution(surface);
     void* window=at<void*>(state->work,0x38);
     native<void(*)(void*)>(0x2048271,0x2048245)(window);
     native<void(*)(void*)>(0x2048299,0x204826d)(window);
@@ -913,6 +909,8 @@ void render() {
     u16* map=paletteMap();
 #if !defined(GAME_B) && !defined(GAME_W)
     if(map && !state->encounter && (customRegions&2) && state->statsValid)colorStatBars(map,palette);
+#elif defined(LEARNSET_TILED_ART)
+    if(map && threeCards && (customRegions&2) && state->statsValid)colorStatBars(map,palette);
 #endif
     if(map)for(u32 i=0;(customRegions&4) && i<state->chain.count;++i)if(state->iconsValid[state->iconSlots[i]])
         for(u32 y=iconY/8;y<iconY/8+4;++y)for(u32 x=iconX(i)/8;x<iconX(i)/8+4;++x)
@@ -928,6 +926,9 @@ void infoInit(void* work,Request* request,const InfoContext* context) {
         native<void(*)(void*,u32)>(0x204c151,0x204c125)(at<void*>(work,offset),0);
     state=static_cast<InfoState*>(alloc(Heap,sizeof(InfoState)));
     if(!state) {
+#if defined(LEARNSET_TILED_PROTOTYPE) || defined(LEARNSET_TILED_ART)
+        if(upperScratch){tiledUnavailable(work);return;}
+#endif
 #if !defined(GAME_B) && !defined(GAME_W)
         if(context&&pokenav::ui::available()){
             using namespace pokenav::ui;
@@ -1062,8 +1063,21 @@ extern "C" void* LearnsetWindow(u32 frame,u32 x,u32 y,u32 width,u32 height,u32 p
     if(pokenavActive())return pokenavWindow(frame,x,y,width,height,palette,direction);
 #endif
     if(LearnsetIsActive() && frame==2 && width>1) {
-        if(y==0){x=0;y=0;width=32;height=24;palette=14;}
+        if(y==0){
+#if defined(LEARNSET_TILED_PROTOTYPE) || defined(LEARNSET_TILED_ART)
+            if(prepareTiledUpper())return native<void*(*)(u32,u32,u32,u32,u32,u32,u32)>(
+                0x20480ed,0x20480c1)(frame,0,24,1,1,palette,direction);
+#endif
+            x=0;y=0;width=32;height=24;palette=14;
+        }
         else {x=0;y=24;width=1;height=1;}
     }
     return native<void*(*)(u32,u32,u32,u32,u32,u32,u32)>(0x20480ed,0x20480c1)(frame,x,y,width,height,palette,direction);
 }
+
+#if defined(LEARNSET_TILED_PROTOTYPE) || defined(LEARNSET_TILED_ART)
+void infoReleaseGraphics() {
+    release(upperScratch);
+    upperScratch=nullptr;
+}
+#endif

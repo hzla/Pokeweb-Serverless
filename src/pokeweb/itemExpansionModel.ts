@@ -144,7 +144,7 @@ export function getItemExpansionStatus(project: ProjectState): ItemExpansionStat
   status.updateAvailable = status.installed && (!status.complete || project.codeInjection?.itemExpansion?.version !== manifest.version);
   status.canUninstall = status.installed && parts.every((part) => canRemoveStagedCodeInjectionDll(project, dllPath(version, part)));
   if (detectWhite2UpgradeDlls(project) || detectBlack2UpgradeDlls(project)) {
-    return { ...status, message: "White 2 Upgrade / Black 2 Upgrade manage their own items and save format." };
+    return { ...status, message: "The installed expansion already manages items and the save format." };
   }
   if (version === "B2" || version === "W2") {
     const oldCGear = listCodeInjectionDlls(project).some(module =>

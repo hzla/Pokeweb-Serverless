@@ -1,6 +1,7 @@
+import { customMoveFlagId } from "./customMoveFlags";
 import nativeProfiles from "../assets/data/itemEffectProfiles.json";
 import nativeBindings from "../assets/data/itemNativeBindings.json";
-import { ITEM_RECIPE_EFFECTS, ITEM_RECIPE_STATS, itemRecipeEffect, itemRecipeParameter, encodeItemRecipe } from "./itemRecipeEffects";
+import { AFTER_MOVE_STAT, ITEM_RECIPE_EFFECTS, ITEM_RECIPE_STATS, itemRecipeEffect, itemRecipeParameter, encodeItemRecipe } from "./itemRecipeEffects";
 import { encodeSideBattleCondition, validateBattleFieldCondition, usesBattleCondition, type BattleFieldCondition } from "./battleFieldEffects";
 
 export type ItemRuleEffectKind = "attack" | "specialAttack" | "defense" | "specialDefense" | "speed" | "damage" | "healPercent" | "healFlat" | "healDivisor" | "status" | "statStage" | "recoil" | "moveLock" | "critical" | "accuracy" | "incomingAccuracy" | "moveType" | "escapeTrap" | `native:${number}` | `nativeAbility:${number}` | `abilityRecipe:${string}` | `itemRecipe:${string}` | "ability:power" | "ability:damage" | "ability:damageTaken" | "ability:immunity" | "ability:hitStat" | "ability:priority";
@@ -91,7 +92,7 @@ export function validateItemRule(input: ItemRuleSet, definitions: readonly ItemR
         if(!effect.parameters||typeof effect.parameters!=="object"||Array.isArray(effect.parameters))throw Error("Invalid item recipe parameters.");
         for(const[key,value]of Object.entries(effect.parameters).sort(([a],[b])=>a.localeCompare(b))){
           const control=recipe.parameters.find(p=>p.key===key);
-          if(!control||!Number.isFinite(value)||value<control.min||value>control.max||Math.abs(value/control.step-Math.round(value/control.step))>1e-7||control.choices&&!control.choices.includes(value))throw Error(`Invalid item recipe parameter: ${key}`);
+          if(!control||!Number.isFinite(value)||value<control.min||value>control.max||Math.abs(value/control.step-Math.round(value/control.step))>1e-7||control.choices&&!control.choices.includes(value)&&!(recipe.kind===AFTER_MOVE_STAT&&key==="moveClass"&&customMoveFlagId(value)!==undefined))throw Error(`Invalid item recipe parameter: ${key}`);
           parameters[key]=value;
         }
       }

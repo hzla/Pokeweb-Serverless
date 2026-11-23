@@ -72,8 +72,7 @@ html .upload-page #home-tab-about { order: 9; }
 html .upload-page #home-panel-about { order: 10; }
 html .upload-page #home-tab-ai-use-disclaimer { order: 11; }
 html .upload-page #home-panel-ai-use-disclaimer { order: 12; }
-html .upload-page .home-tab--link { order: 13; }
-html .upload-page .home-footer { order: 14; }
+html .upload-page .home-footer { order: 13; }
 
 /* ---------- Menu options ---------- */
 

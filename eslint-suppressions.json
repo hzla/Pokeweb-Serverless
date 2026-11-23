@@ -313,7 +313,7 @@
   },
   "src/ui/mastersheetEditor.ts": {
     "no-restricted-properties": {
-      "count": 2
+      "count": 1
     }
   },
   "src/ui/matrixSeasons.ts": {
