@@ -605,7 +605,7 @@ describe("code-injection patch categories", () => {
     expect(headings(panels[2])).toEqual(["Quick Poké Ball", "Instant Fast Text", "Background Music Toggle", "Shiny Odds", "Black 2 / White 2 AP Fix", "Challenge Mode Stat Fix", "Early Challenge Mode", "Early National Pokédex", "Forgettable HMs", "Make HM Moves Forgettable", "Autorun", "Skip Intro"]);
     expect(headings(panels[3])).toEqual(["Frostbite", "Snow", "Modern Status Effects", "Fairy Type Support", "Move Expansion", "Mega Evolution", "Regional Forms", "Species Expansion"]);
     expect(headings(panels[4])).toEqual([
-      "Six-Pokémon PWT", "Infinite Rare Candy", "Hard Level Caps", "Trainer Level Caps",
+      "Six-Pokémon PWT", "PWT Ability Selection", "Infinite Rare Candy", "Hard Level Caps", "Trainer Level Caps",
       "Trainer Field Conditions", "Nuzlocke Style Encounters", "Porta PC",
     ]);
     expect(headings(panels[5])).toEqual(["Debug Save Flag", "Walk Through Walls", "Instant Battle Victory"]);

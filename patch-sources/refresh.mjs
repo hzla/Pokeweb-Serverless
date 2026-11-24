@@ -89,6 +89,16 @@ function runtimeFiles(group) {
 }
 const additions = [
   {
+    name: 'tag-battle-stabilization', title: 'Tag-battle AI stabilization',
+    artifacts: ['B', 'W', 'B2', 'W2'].map(game => `TagBattleStabilization${game}.dll`),
+    note: 'One trainer AI scheduler with independently checked US revision-0 bindings for Black, White, Black 2 and White 2. White 2 retains its original runtime and Cascade DLL detection.',
+    extra: [
+      file('tag-battle-stabilization', 'metadata/tagBattleStabilizationManifest.json', 'metadata', 'src/assets/codeinjection/tagBattleStabilizationManifest.json'),
+      file('tag-battle-stabilization', 'integration/tagBattleStabilizationModel.ts', 'support-only', 'src/pokeweb/tagBattleStabilizationModel.ts'),
+      file('tag-battle-stabilization', 'tests/tagBattleStabilizationModel.test.ts', 'test', 'src/test/tagBattleStabilizationModel.test.ts'),
+    ],
+  },
+  {
     name:'field-environment',title:'White 2 live field environment and tree growth',artifacts:['cutscenes/field-environment-runtime.json'],
     note:'Original Aspertia field adapter, serialized seasonal clocks and shared-material tree growth. Native transfer and camera dispatch redirects exist only while the field module is loaded. Emulator evidence and hardware acceptance are separate.',
     extra:[...['fieldEnvironmentRuntime','fieldEnvironmentAssets','fieldEnvironmentClock','fieldTreeGrowth','fieldScene','fieldSceneNpcs','fieldSceneDialogue','fieldSceneTest'].map(n=>file('field-environment',`integration/${n}.ts`,'source',`src/pokeweb/${n}.ts`)),...['fieldSceneEffects','fieldEnvironment','fieldEnvironmentClock','fieldSceneDialogue'].map(n=>file('field-environment',`tests/${n}.test.ts`,'test',`src/test/${n}.test.ts`)),file('field-environment','tests/verify-field-tour-melonds.py','test','scripts/verify-field-tour-melonds.py'),file('field-environment','documentation/field-scenes.md','documentation','docs/cutscenes/field-scenes.md')],

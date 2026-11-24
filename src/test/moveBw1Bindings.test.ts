@@ -50,6 +50,28 @@ describe.each([["Black",black],["White",white]] as const)("%s move runtime contr
   });
 });
 
+it.each([["Black", black], ["White", white], ["BW2", bw2]] as const)(
+  "recognizes the exact 1.5x critical damage edit in %s",
+  (_name, catalog) => {
+    const name = "ServerEvent_CalcDamage";
+    const signature: BattleRuntimeSignature = catalog.functions[name];
+    const base = 0x02190000;
+    for (const pattern of [signature, ...(signature.variants ?? [])]) {
+      const bytes = Uint8Array.from(pattern.hex.match(/../gu)!, byte => Number.parseInt(byte, 16));
+      const matchesDamage = () => battleRuntimeResolver(bytes, base, new Uint8Array(), 0, {[name]: signature}).matches(name, base);
+      expect(matchesDamage()).toBe(true);
+      bytes.set([0x78, 0x08, 0x70, 0x43, 0xc7, 0x19], 0xfa);
+      expect(matchesDamage()).toBe(true);
+      expect(battleRuntimeResolver(bytes, base, new Uint8Array(), 0, {other: signature}).matches("other", base)).toBe(false);
+      bytes[0xfa] ^= 1;
+      expect(matchesDamage()).toBe(false);
+      bytes[0xfa] ^= 1;
+      bytes[0] ^= 1;
+      expect(matchesDamage()).toBe(false);
+    }
+  },
+);
+
 it("exposes the move editor only for Gen 5 projects",()=>{
   const project=(baseRom:string)=>({session:{baseRom}} as ProjectState);
   expect(supportsMoveRecipes(project("BW"))).toBe(true);

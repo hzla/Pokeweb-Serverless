@@ -5,6 +5,7 @@ import {
   getFacilityAutofills,
   getFacilitySetRecord,
   updateFacilitySetField,
+  getPwtSetAbilityOptions,
   type BattleFacilitySet,
   type FacilitySetNarcName,
 } from "../pokeweb/battleFacilityModel";
@@ -736,6 +737,10 @@ function renderSetCard(project: ProjectState, narc: FacilitySetNarcName, setId: 
     return `<article class="pwt-set -missing"><p class="fd-invalid">Set ${setId} is missing from this pool.</p>${context.pool !== undefined ? `<button class="btn sm -ghost" type="button" data-action="remove-set" data-trainer="${context.trainer}" data-pool="${context.pool}" data-set-id="${setId}">Remove</button>` : ""}</article>`;
   }
   const evs = evStatLabels();
+  const abilityOptions = set.abilitySlot === undefined ? [] : getPwtSetAbilityOptions(project, set.speciesId, set.form);
+  if (set.abilitySlot !== undefined && !abilityOptions.some(option => option.slot === set.abilitySlot)) {
+    abilityOptions.push({ slot: set.abilitySlot, label: "Unavailable slot · Random in battle" });
+  }
   const short = ["HP", "Atk", "Def", "Spe", "SpA", "SpD"];
   const users = context.pool !== undefined ? getPwtSetUsers(project, context.pool, setId) : [];
   // Only trainers whose tournaments use this pool battle with the set; unused rows that point at it don't count.
@@ -771,6 +776,7 @@ function renderSetCard(project: ProjectState, narc: FacilitySetNarcName, setId: 
       <div class="pwt-moves">${moves}</div>
       <div class="pwt-set-meta">
         <select data-field="nature" aria-label="Nature">${NATURES.map((nature) => `<option value="${escapeHtml(nature)}"${nature === set.natureName ? " selected" : ""}>${escapeHtml(nature)}</option>`).join("")}</select>
+        ${abilityOptions.length ? `<label>Ability <select data-field="abilitySlot">${abilityOptions.map(({ slot, label }) => `<option value="${slot}"${slot === set.abilitySlot ? " selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></label>` : ""}
         <div class="pwt-evs" role="group" aria-label="EVs">
           ${evs.map((label, index) => `<label class="pwt-ev" title="${escapeHtml(label)} EVs"><input type="checkbox" data-field="ev_${index}" ${set.evStats[index] ? "checked" : ""}><span>${short[index]}</span></label>`).join("")}
         </div>

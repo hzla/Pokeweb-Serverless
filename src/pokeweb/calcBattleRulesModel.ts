@@ -1,18 +1,20 @@
+import { calcAbilityTemplateId, exportCalcEffect } from "./calcAbilityCatalog";
+import calcAbilityManifest from "../assets/data/calcAbilityManifest.json";
+import vanillaAbilities from "../assets/data/vanilla_abilities.txt?raw";
 import { ABILITY_EFFECTS_DLL_PATH, readCalcAbilityEffects } from "./abilityEffectsModel";
-import { libraryAbilityEffect } from "./abilityLibraryEffects";
-import { isVanillaAbilityRule, nativeAbilityProfile } from "./abilityNativeRuntime";
-import { recipeAbilityEffect } from "./abilityRecipeEffects";
+import { isVanillaAbilityRule } from "./abilityNativeRuntime";
 import { defaultMoveDllFlags } from "./abilityMoveClasses";
 import { resolveCalcItemName } from "./calcItemNames";
 import { calcNativeItemGain, readCalcItemEffects, ITEM_EFFECTS_DLL_PATH } from "./itemEffectsModel";
-import { itemRecipeEffect } from "./itemRecipeEffects";
-import { ITEM_RULE_EFFECTS, type ItemRuleEffect } from "./itemRules";
+import type { ItemRuleEffect } from "./itemRules";
 import { inspectMoveEffects, MOVE_EFFECTS_DLL_PATH } from "./moveEffectsModel";
 import { MOVE_PRIMITIVES } from "./moveRules";
 import { getItemRecord, getMoveCount, getMoveRecord } from "./moveItemModel";
 import { listCodeInjectionDlls } from "./pmcModel";
 import type { ProjectState } from "./projectStore";
 import { getTrainerFieldConditions, TRAINER_GLOBAL_CONDITIONS, TRAINER_SIDE_CONDITIONS } from "./trainerFieldConditionsModel";
+
+const stockAbilityNames = vanillaAbilities.split(/\r?\n/u);
 
 export function calcTrainerOpening(project: ProjectState, id: number) {
   if (project.session.baseRom !== "BW2") return {};
@@ -32,26 +34,8 @@ export function calcTrainerOpening(project: ProjectState, id: number) {
   };
 }
 
-function exportEffect(effect: ItemRuleEffect) {
-  const definition = recipeAbilityEffect(effect.kind) ?? libraryAbilityEffect(effect.kind) ??
-    itemRecipeEffect(effect.kind) ?? nativeAbilityProfile(effect.kind);
-  const native = nativeAbilityProfile(effect.kind);
-  const original = (sites?: readonly { original: number }[]) =>
-    sites?.length && sites.every(site => site.original === sites[0].original) ? sites[0].original : undefined;
-  const defaults = Object.fromEntries((definition?.parameters ?? []).map(p => [p.key, p.original]));
-  if (libraryAbilityEffect(effect.kind)) delete defaults.types;
-  return {
-    ...effect,
-    label: libraryAbilityEffect(effect.kind)?.label ?? recipeAbilityEffect(effect.kind)?.label ??
-      ITEM_RULE_EFFECTS.find(entry => entry.kind === effect.kind)?.label,
-    value: effect.value === -1 && native ? original(native.multipliers) ?? -1 : effect.value,
-    ...(native ? { weather: effect.weather ?? original(native.weather) } : {}),
-    parameters: { ...defaults, ...effect.parameters },
-  };
-}
-
 function exportItemEffect(project: ProjectState, effect: ItemRuleEffect, assigned = false) {
-  const exported = exportEffect(effect);
+  const exported = exportCalcEffect(effect);
   const profile = effect.kind.startsWith("native:") ? Number(effect.kind.slice(7)) : 0;
   const gain = calcNativeItemGain(profile);
   if (!gain) return exported;
@@ -67,7 +51,7 @@ function exportItemEffect(project: ProjectState, effect: ItemRuleEffect, assigne
   };
 }
 
-export function buildCalcBattleRules(project: ProjectState, moveName: (value: unknown) => string, abilityName: (value: unknown) => string) {
+export function buildCalcBattleRules(project: ProjectState, moveName: (value: unknown) => string, abilityName: (value: unknown) => string, catalogFingerprint?: string) {
   if (project.session.baseRom !== "BW" && project.session.baseRom !== "BW2") return undefined;
   const modules = new Set(listCodeInjectionDlls(project).map(module => module.path.toLowerCase()));
   const has = (path: string) => modules.has(path.toLowerCase());
@@ -103,11 +87,26 @@ export function buildCalcBattleRules(project: ProjectState, moveName: (value: un
     flags.push(flag.id);
     customFlags.set(id, flags);
   }
+  const abilityRules = [...(abilities?.rules ?? [])].filter(([id, rule]) => !isVanillaAbilityRule(id, rule));
+  const editedSlots = new Set(abilityRules.map(([id]) => id));
+  const stockAliases = nameRows(banks.abilities, abilityName).flatMap(([id, name]) => {
+    const original = abilityName(stockAbilityNames[id]);
+    return original && name !== original && !editedSlots.has(id) ? [[id, original] as const] : [];
+  });
+  const references = new Map<number, number>();
+  if (catalogFingerprint === calcAbilityManifest.fingerprint) {
+    for (const [id, rule] of abilityRules) {
+      const template = calcAbilityTemplateId(rule, banks.abilities?.[id]);
+      if (template !== undefined) references.set(id, template);
+    }
+  }
   return {
     version: 1,
     baseGame: project.session.baseRom,
-    abilities: [...(abilities?.rules ?? [])].filter(([id, rule]) => !isVanillaAbilityRule(id, rule)).map(([id, rule]) =>
-      [id, { ...rule, effects: rule.effects.map(exportEffect) }] as const),
+    ...(references.size ? { abilityTemplateCatalog: catalogFingerprint, abilityTemplates: [...references] } : {}),
+    ...(stockAliases.length ? { stockAbilityAliases: stockAliases } : {}),
+    abilities: abilityRules.filter(([id]) => !references.has(id)).map(([id, rule]) =>
+      [id, { ...rule, effects: rule.effects.map(exportCalcEffect) }] as const),
     items: [
       ...[...(items?.rules ?? [])].map(([id, rule]) => [id, { ...rule, effects: rule.effects.map(effect => exportItemEffect(project, effect)) }] as const),
       ...(items?.native ?? []).map(({ id, profile, value }) =>

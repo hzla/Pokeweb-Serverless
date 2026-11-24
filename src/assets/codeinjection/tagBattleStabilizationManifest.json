@@ -1,0 +1,161 @@
+{
+  "version": "1.0.0",
+  "games": {
+    "B": {
+      "idCode": "IRBO",
+      "fileName": "TagBattleStabilizationB.dll",
+      "codeSha256": "aee9a6b847215ad4ffba2718946db2927349fe271e2807253a3a128279b297ed",
+      "calls": [
+        {
+          "overlayId": 93,
+          "address": 35444862,
+          "hex": "baf73ffb291cf031"
+        },
+        {
+          "overlayId": 93,
+          "address": 35457276,
+          "hex": "b7f758fb002838d1"
+        },
+        {
+          "overlayId": 93,
+          "address": 35444984,
+          "hex": "baf7c2fb4d208000"
+        }
+      ],
+      "entries": [
+        {
+          "overlayId": 96,
+          "address": 35159808,
+          "hex": "f0b583b0061c02930f1c0192089d2548"
+        },
+        {
+          "overlayId": 96,
+          "address": 35159984,
+          "hex": "f8b584b0009089f6b5f9051c98300068"
+        },
+        {
+          "overlayId": 96,
+          "address": 35160192,
+          "hex": "38b5051c89f64ef9041ca4300068c1f6"
+        }
+      ]
+    },
+    "W": {
+      "idCode": "IRAO",
+      "fileName": "TagBattleStabilizationW.dll",
+      "codeSha256": "70edacc36fe54925a3815e7ff47eb95aa7db0dba41636d7bb9803c0d8beaebdf",
+      "calls": [
+        {
+          "overlayId": 93,
+          "address": 35444894,
+          "hex": "baf73ffb291cf031"
+        },
+        {
+          "overlayId": 93,
+          "address": 35457308,
+          "hex": "b7f758fb002838d1"
+        },
+        {
+          "overlayId": 93,
+          "address": 35445016,
+          "hex": "baf7c2fb4d208000"
+        }
+      ],
+      "entries": [
+        {
+          "overlayId": 96,
+          "address": 35159840,
+          "hex": "f0b583b0061c02930f1c0192089d2548"
+        },
+        {
+          "overlayId": 96,
+          "address": 35160016,
+          "hex": "f8b584b0009089f6a5f9051c98300068"
+        },
+        {
+          "overlayId": 96,
+          "address": 35160224,
+          "hex": "38b5051c89f63ef9041ca4300068c1f6"
+        }
+      ]
+    },
+    "B2": {
+      "idCode": "IREO",
+      "fileName": "TagBattleStabilizationB2.dll",
+      "codeSha256": "e80f8ceef13462608b70bb272beb7c9fbdf3d3bbe79d2f944f54cf8e9a605a0e",
+      "calls": [
+        {
+          "overlayId": 167,
+          "address": 35330056,
+          "hex": "cdf7fafe291cf831"
+        },
+        {
+          "overlayId": 167,
+          "address": 35347282,
+          "hex": "c9f7adfd002843d1"
+        },
+        {
+          "overlayId": 167,
+          "address": 35330216,
+          "hex": "cdf76aff4f208000"
+        }
+      ],
+      "entries": [
+        {
+          "overlayId": 170,
+          "address": 35124736,
+          "hex": "f0b583b0061c02930f1c0192089d2548"
+        },
+        {
+          "overlayId": 170,
+          "address": 35124912,
+          "hex": "f8b584b0009096f691f9051c98300068"
+        },
+        {
+          "overlayId": 170,
+          "address": 35125120,
+          "hex": "38b5051c96f62af9041ca4300068cbf6"
+        }
+      ]
+    },
+    "W2": {
+      "idCode": "IRDO",
+      "fileName": "TagBattleStabilizationW2.dll",
+      "codeSha256": "47cf3db23cc1b2aae8304118aab9b0c243bc12a46ee4bd5b2ea7699159fda0ae",
+      "calls": [
+        {
+          "overlayId": 167,
+          "address": 35330120,
+          "hex": "cdf7fafe291cf831"
+        },
+        {
+          "overlayId": 167,
+          "address": 35347346,
+          "hex": "c9f7adfd002843d1"
+        },
+        {
+          "overlayId": 167,
+          "address": 35330280,
+          "hex": "cdf76aff4f208000"
+        }
+      ],
+      "entries": [
+        {
+          "overlayId": 170,
+          "address": 35124800,
+          "hex": "f0b583b0061c02930f1c0192089d2548"
+        },
+        {
+          "overlayId": 170,
+          "address": 35124976,
+          "hex": "f8b584b0009096f671f9051c98300068"
+        },
+        {
+          "overlayId": 170,
+          "address": 35125184,
+          "hex": "38b5051c96f60af9041ca4300068cbf6"
+        }
+      ]
+    }
+  }
+}

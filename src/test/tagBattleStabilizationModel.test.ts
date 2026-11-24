@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import manifest from "../assets/codeinjection/tagBattleStabilizationManifest.json";
 import { writeU32 } from "../nds/binary";
 import { Folder } from "../nds/fnt";
 import { NintendoDSRom } from "../nds/rom";
@@ -11,13 +12,14 @@ import { parseRpm, writeRpm } from "../pokeweb/rpm";
 import {
   getTagBattleStabilizationStatus,
   installTagBattleStabilization,
-  TAG_BATTLE_STABILIZATION_FILENAME,
   uninstallTagBattleStabilization,
 } from "../pokeweb/tagBattleStabilizationModel";
 
-const dll = new Uint8Array(readFileSync(new URL("../assets/codeinjection/TagBattleStabilizationW2.dll", import.meta.url)));
-const pmc = new Uint8Array(readFileSync(new URL("../assets/codeinjection/PMC_W2.rpm", import.meta.url)));
-const dllPath = `patches/${TAG_BATTLE_STABILIZATION_FILENAME}`;
+type Game = keyof typeof manifest.games;
+const games = ["B", "W", "B2", "W2"] as const;
+const readAsset = (name: string) => new Uint8Array(readFileSync(new URL(`../assets/codeinjection/${name}`, import.meta.url)));
+const dll = readAsset(manifest.games.W2.fileName);
+const dllPath = `patches/${manifest.games.W2.fileName}`;
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -36,25 +38,29 @@ describe("Tag Battle Stabilization", () => {
     ]);
   });
 
-  it("installs PMC automatically, exports the DLL, and recognizes it after reimport", async () => {
-    const project = makeProject();
+  it.each(games)("installs PMC and the correct %s DLL, then recognizes both after reimport", async game => {
+    const profile = manifest.games[game];
+    const path = `patches/${profile.fileName}`;
+    const expectedDll = readAsset(profile.fileName);
+    const project = makeProject(makeRom(game), game);
     const source = new NintendoDSRom(project.originalRomBytes!);
     expect(getTagBattleStabilizationStatus(project)).toMatchObject({ supported: true, compatible: true, installed: false, pmcInstalled: false });
     stubAssets();
     const result = await installTagBattleStabilization(project);
-    expect(result.path).toBe(dllPath);
+    expect(result).toMatchObject({ path, gameId: game });
     expect(getPmcInstallStatus(project).installed).toBe(true);
-    expect(project.fileSystem?.additions?.[dllPath]).toEqual(dll);
+    expect(project.fileSystem?.additions?.[path]).toEqual(expectedDll);
     expect(getTagBattleStabilizationStatus(project)).toMatchObject({ installed: true, compatible: true, canUninstall: true });
 
     const exported = new NintendoDSRom(await exportModifiedRom(project));
-    expect(exported.getFileByName(dllPath)).toEqual(dll);
-    for (const id of [167, 170]) expect(exported.loadArm9Overlays([id]).get(id)!.data).toEqual(source.loadArm9Overlays([id]).get(id)!.data);
-    const reimported = makeProject(exported.data);
+    expect(exported.getFileByName(path)).toEqual(expectedDll);
+    for (const id of [profile.calls[0].overlayId, profile.entries[0].overlayId])
+      expect(exported.loadArm9Overlays([id]).get(id)!.data).toEqual(source.loadArm9Overlays([id]).get(id)!.data);
+    const reimported = makeProject(exported.data, game);
     expect(getTagBattleStabilizationStatus(reimported)).toMatchObject({ installed: true, compatible: true, canUninstall: false });
     await installTagBattleStabilization(reimported);
-    expect(reimported.fileSystem?.additions?.[dllPath]).toBeUndefined();
-    expect(listCodeInjectionDlls(reimported).filter((entry) => entry.path === dllPath)).toHaveLength(1);
+    expect(reimported.fileSystem?.additions?.[path]).toBeUndefined();
+    expect(listCodeInjectionDlls(reimported).filter((entry) => entry.path === path)).toHaveLength(1);
   });
 
   it.each(["CascadeTagAI.dll", "renamed-ai.dll"])("recognizes %s without staging a second DLL", async (name) => {
@@ -74,11 +80,11 @@ describe("Tag Battle Stabilization", () => {
     expect(reimported.fileSystem?.additions?.[dllPath]).toBeUndefined();
   });
 
-  it.each(["B2", "W"] as const)("rejects %s before any mutation", async (version) => {
+  it.each(["B2", "W"] as const)("rejects a White 2 ROM mislabeled as %s before any mutation", async (version) => {
     const project = makeProject();
     project.session.baseVersion = version;
     if (version === "W") project.session.baseRom = "BW";
-    await expect(installTagBattleStabilization(project)).rejects.toThrow(/US White 2/u);
+    await expect(installTagBattleStabilization(project)).rejects.toThrow(/US revision-0/u);
     expect(project.codeInjection).toBeUndefined();
     expect(project.fileSystem).toBeUndefined();
   });
@@ -87,15 +93,23 @@ describe("Tag Battle Stabilization", () => {
     const project = makeProject();
     project.originalRomBytes!.set(new TextEncoder().encode("IRDJ"), 12);
     expect(getTagBattleStabilizationStatus(project).supported).toBe(false);
-    await expect(installTagBattleStabilization(project)).rejects.toThrow(/US White 2/u);
+    await expect(installTagBattleStabilization(project)).rejects.toThrow(/US revision-0/u);
   });
 
-  it.each([167, 170])("rejects changed overlay %i in the editor or a raw replacement", async (overlayId) => {
-    const project = makeProject();
+  it.each(["B", "W", "B2"] as const)("rejects an unverified %s revision", game => {
+    const project = makeProject(makeRom(game), game);
+    project.originalRomBytes![0x1e] = 1;
+    expect(getTagBattleStabilizationStatus(project).supported).toBe(false);
+  });
+
+  it.each(games.flatMap(game => (["calls", "entries"] as const).map(kind => [game, kind] as const)))(
+    "rejects changed %s %s in the editor or a raw replacement", async (game, kind) => {
+    const project = makeProject(makeRom(game), game);
+    const { overlayId, address } = manifest.games[game][kind][0];
     const rom = new NintendoDSRom(project.originalRomBytes!);
     const overlay = rom.loadArm9Overlays([overlayId]).get(overlayId)!;
     const changed = overlay.data.slice();
-    changed[overlayId === 167 ? 0x021b1848 - overlay.ramAddress : 0] ^= 0xff;
+    changed[address - overlay.ramAddress] ^= 0xff;
     project.overlays[overlayId] = changed;
     await expect(installTagBattleStabilization(project)).rejects.toThrow(/AI code differs/u);
     project.overlays[overlayId] = overlay.data;
@@ -119,13 +133,15 @@ describe("Tag Battle Stabilization", () => {
     expect(project.fileSystem!.additions!["patches/CascadeTagAI.dll"]).toEqual(new Uint8Array([1, 2, 3]));
   });
 
-  it("detects hooks that begin before a protected native entry point", async () => {
-    const project = makeProject();
+  it.each(games)("detects hooks that begin before a protected native entry point on %s", async game => {
+    const profile = manifest.games[game];
+    const project = makeProject(makeRom(game), game);
     stubAssets();
     await installTagBattleStabilization(project);
     uninstallTagBattleStabilization(project);
-    const conflicting = parseRpm(dll, { allowedMagics: ["DLXF"] });
-    conflicting.relocations = [{ sourceSymbolIndex: 0, target: { module: "170", address: 0x0217f638, type: "THUMB_BRANCH_SAFESTACK" } }];
+    const conflicting = parseRpm(readAsset(profile.fileName), { allowedMagics: ["DLXF"] });
+    const { overlayId, address } = profile.entries[0];
+    conflicting.relocations = [{ sourceSymbolIndex: 0, target: { module: String(overlayId), address: address - 8, type: "THUMB_BRANCH_SAFESTACK" } }];
     stageCodeInjectionDll(project, "OtherAI.dll", writeRpm(conflicting, { ident: "DLXF" }));
     await expect(installTagBattleStabilization(project)).rejects.toThrow(/OtherAI.dll/u);
   });
@@ -163,50 +179,52 @@ describe("Tag Battle Stabilization", () => {
 });
 
 function stubAssets(): void {
-  vi.stubGlobal("fetch", vi.fn(async (url: URL) => {
-    if (url.pathname.endsWith(TAG_BATTLE_STABILIZATION_FILENAME)) return new Response(dll.slice());
-    if (url.pathname.endsWith("PMC_W2.rpm")) return new Response(pmc.slice());
-    throw new Error(`Unexpected asset: ${url}`);
-  }));
+  vi.stubGlobal("fetch", vi.fn(async (url: URL) => new Response(readAsset(url.pathname.split("/").pop()!))));
 }
 
-function makeProject(bytes = makeRom()): ProjectState {
+function makeProject(bytes = makeRom(), game: Game = "W2"): ProjectState {
   const rom = new NintendoDSRom(bytes);
   return {
     originalRomBytes: bytes,
-    session: { romName: "test", baseVersion: "W2", baseRom: "BW2", fairy: false, fileIds: {}, blacklist: [] },
+    session: { romName: "test", baseVersion: game, baseRom: game.endsWith("2") ? "BW2" : "BW", fairy: false, fileIds: {}, blacklist: [] },
     romInfo: { title: "test", idCode: rom.idCode, fileName: "test.nds", size: bytes.length },
     arm9: rom.arm9, overlays: {}, narcs: {}, texts: { banks: {} }, formats: {}, trpokInfo: [],
     codeInjection: detectPmcInstallFromRom(rom),
   };
 }
 
-function makeRom(): Uint8Array {
+function makeRom(game: Game = "W2"): Uint8Array {
+  const profile = manifest.games[game];
+  const overlayCount = game.endsWith("2") ? 344 : 237;
   const rom = new NintendoDSRom(new Uint8Array(0x200));
-  rom.data.set(new TextEncoder().encode("IRDO"), 12);
-  rom.arm9 = new Uint8Array(0x80000);
+  rom.data.set(new TextEncoder().encode(profile.idCode), 12);
+  rom.arm9 = new Uint8Array(0x90000);
   rom.arm9RamAddress = 0x02000000;
   writeU32(rom.data, 0x28, rom.arm9RamAddress);
   rom.arm7 = new Uint8Array(4);
-  rom.arm9OverlayTable = new Uint8Array(344 * 32);
-  rom.files = Array.from({ length: 345 }, () => new Uint8Array(4));
-  rom.filenames = new Folder({ files: ["base.bin"], firstId: 344 });
-  for (let id = 0; id < 344; id++) {
+  rom.arm9OverlayTable = new Uint8Array(overlayCount * 32);
+  rom.files = Array.from({ length: overlayCount + 1 }, () => new Uint8Array(4));
+  rom.filenames = new Folder({ files: ["base.bin"], firstId: overlayCount });
+  for (let id = 0; id < overlayCount; id++) {
     writeU32(rom.arm9OverlayTable, id * 32, id);
     writeU32(rom.arm9OverlayTable, id * 32 + 24, id);
   }
-  // Small synthetic overlay snapshots; only the relevant call sites/prologues
-  // come from the verified White 2 layout. No ROM files are checked into git.
-  for (const [id, base, length, regions] of [
-    [167, 0x02199780, 0x20000, [
-      [0x021b1848, "cdf7fafe291cf831"], [0x021b18e8, "cdf76aff4f208000"], [0x021b5b92, "c9f7adfd002843d1"],
-    ]],
-    [170, 0x0217f640, 0x1000, [
-      [0x0217f640, "f0b583b0061c02930f1c0192089d2548"], [0x0217f6f0, "f8b584b0009096f671f9051c98300068"], [0x0217f7c0, "38b5051c96f60af9041ca4300068cbf6"],
-    ]],
-  ] as const) {
+  if (game === "B" || game === "W") {
+    const delta = game === "W" ? 0x18 : 0;
+    const put = (address: number, hex: string) => rom.arm9.set(Buffer.from(hex, "hex"), address - rom.arm9RamAddress);
+    put(0x0200512a, "00f097f9");
+    put(0x02034b7c + delta, "b81101eb");
+    put(0x02034a50 + delta, "181201eb");
+    put(0x02078ea8 + delta, "ed000000");
+    put(0x02078d77 + delta, "0a");
+  }
+  // Synthetic overlays hold only the installer signatures.
+  for (const regions of [profile.calls, profile.entries]) {
+    const id = regions[0].overlayId;
+    const base = Math.min(...regions.map(s => s.address)) & ~3;
+    const length = Math.max(...regions.map(s => s.address + s.hex.length / 2)) - base;
     rom.files[id] = new Uint8Array(length);
-    for (const [address, hex] of regions) rom.files[id].set(Buffer.from(hex, "hex"), address - base);
+    for (const { address, hex } of regions) rom.files[id].set(Buffer.from(hex, "hex"), address - base);
     writeU32(rom.arm9OverlayTable, id * 32 + 4, base);
     writeU32(rom.arm9OverlayTable, id * 32 + 8, length);
   }

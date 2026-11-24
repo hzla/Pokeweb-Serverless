@@ -1082,11 +1082,23 @@
       "title": "Tag-battle AI stabilization",
       "artifacts": [
         {
+          "name": "TagBattleStabilizationB.dll",
+          "sha256": "9801e94e3c459d901cde05031ba9d6199a3a06153b53d3fa36d223eb3d964a2a"
+        },
+        {
+          "name": "TagBattleStabilizationW.dll",
+          "sha256": "26c0913bdb055e0ce416d9d8276460ca9040fed31f8f98bb4ecabf70390d361f"
+        },
+        {
+          "name": "TagBattleStabilizationB2.dll",
+          "sha256": "7e356b617ff35fe713a41e3372927388907d16d87e9fe814accffc27266e1161"
+        },
+        {
           "name": "TagBattleStabilizationW2.dll",
           "sha256": "7ed12b4c532f4156365510bb18106c62c39fa5bbf848f0ffbdd8ce01eadd4f2a"
         }
       ],
-      "note": "Original maintained runtime remains in Pokeweb runtime/tag-battle-stabilization.",
+      "note": "One trainer AI scheduler with independently checked US revision-0 bindings for Black, White, Black 2 and White 2. White 2 retains its original runtime and Cascade DLL detection.",
       "status": "source-available",
       "files": [
         {
@@ -1096,17 +1108,17 @@
             "path": "runtime/tag-battle-stabilization/build.py"
           },
           "kind": "build-tool",
-          "sha256": "4a74c8378d74c6742939e626060e5f5d2e392b5ff782591d19a71d37eda3bddb",
+          "sha256": "9852c717f0c2c0e070279c1756b92fe2998fd824f94c627cf114b386558b2616",
           "normalized": false
         },
         {
-          "path": "tag-battle-stabilization/metadata.yml",
+          "path": "tag-battle-stabilization/runtime-notes.md",
           "origin": {
             "repository": "pokeweb",
-            "path": "runtime/tag-battle-stabilization/metadata.yml"
+            "path": "runtime/tag-battle-stabilization/README.md"
           },
-          "kind": "source",
-          "sha256": "4987573ba6bb9365c1592c242db86a42bdbe66cca5472815c8ebca2704a1b965",
+          "kind": "documentation",
+          "sha256": "bcfcdf4382895f69bc2d516915cb0479c65697d2e60b9195d6c4c8583bf3eddc",
           "normalized": false
         },
         {
@@ -1116,7 +1128,47 @@
             "path": "runtime/tag-battle-stabilization/serialized_ai.cpp"
           },
           "kind": "source",
-          "sha256": "e34413b0211f21a2f26d2fb6c5e7ca5c0b344184da54355c3457b6ff7e35f9bf",
+          "sha256": "1dd4520b0bda87f80a3951429a835b5e2b2c240119366824e824f4132b41986d",
+          "normalized": false
+        },
+        {
+          "path": "tag-battle-stabilization/verify_runtime.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/tag-battle-stabilization/verify_runtime.py"
+          },
+          "kind": "test",
+          "sha256": "e49c13d95e6ef95fdf7f3dec1fffcd3cd08a63d4c7e9511286d9a2306213b5c3",
+          "normalized": false
+        },
+        {
+          "path": "tag-battle-stabilization/metadata/tagBattleStabilizationManifest.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/assets/codeinjection/tagBattleStabilizationManifest.json"
+          },
+          "kind": "metadata",
+          "sha256": "327141464d81a46d57e879af5c6d13934d1479bc360c677ac2b34edf6d6c635d",
+          "normalized": false
+        },
+        {
+          "path": "tag-battle-stabilization/integration/tagBattleStabilizationModel.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/tagBattleStabilizationModel.ts"
+          },
+          "kind": "support-only",
+          "sha256": "040b04d7644b5a4b65433db211060927d283792a240a848d8247edefa7bf2fd7",
+          "normalized": false
+        },
+        {
+          "path": "tag-battle-stabilization/tests/tagBattleStabilizationModel.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/tagBattleStabilizationModel.test.ts"
+          },
+          "kind": "test",
+          "sha256": "a4c41e53832f136e145d4296f93fbd6c537cd002f62de57358fc7c5f208a50b2",
           "normalized": false
         }
       ]

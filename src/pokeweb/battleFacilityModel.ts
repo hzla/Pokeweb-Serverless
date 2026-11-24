@@ -2,7 +2,8 @@ import { readU16, writeU16 } from "../nds/binary";
 import { recordFieldChange } from "./actionChangelog";
 import { NATURES, type NarcName } from "./constants";
 import { findPokemonSpeciesId, pokemonSpeciesLabel, pokemonSpeciesNameOptions } from "./pokemonLabels";
-import { markDirty, type ProjectState } from "./projectStore";
+import { decodeRecord, markDirty, type ProjectState } from "./projectStore";
+import { getPwtAbilityStatus, PWT_ABILITY_SET_NARCS, PWT_SET_EV_MASK } from "./pwtAbilityRuntime";
 import { pokemonSpriteSlug } from "./spriteSlug";
 import { cleanDisplayText } from "./text";
 import { getTextBank } from "./textModel";
@@ -21,6 +22,7 @@ export type BattleFacilitySet = {
   moves: Array<{ id: number; name: string }>;
   evSpread: number;
   evStats: boolean[];
+  abilitySlot?: number;
   natureId: number;
   natureName: string;
   itemId: number;
@@ -328,7 +330,8 @@ export function getFacilitySetRecord(project: ProjectState, narc: FacilitySetNar
     const moveId = readU16(bytes, 2 + index * 2);
     return { id: moveId, name: labelFromBank(project, "moves", moveId, `Move ${moveId}`) };
   });
-  const evSpread = bytes[10] ?? 0;
+  const hasAbility = PWT_ABILITY_SET_NARCS.some(name => name === narc) && getPwtAbilityStatus(project) === "installed";
+  const evSpread = hasAbility ? bytes[10] & PWT_SET_EV_MASK : bytes[10];
   const natureId = bytes[11] ?? 0;
   const itemId = readU16(bytes, 12);
   const form = readU16(bytes, 14);
@@ -342,6 +345,7 @@ export function getFacilitySetRecord(project: ProjectState, narc: FacilitySetNar
     moves,
     evSpread,
     evStats: EV_STAT_LABELS.map((_label, index) => Boolean(evSpread & (1 << index))),
+    ...(hasAbility ? { abilitySlot: bytes[10] >> 6 } : {}),
     natureId,
     natureName: NATURES[natureId] ?? `Nature ${natureId}`,
     itemId,
@@ -349,6 +353,27 @@ export function getFacilitySetRecord(project: ProjectState, narc: FacilitySetNar
     form,
     rawHex: bytesToHex(bytes),
   };
+}
+
+export function getPwtSetAbilityOptions(project: ProjectState, species: number, form: number): Array<{ slot: number; label: string }> {
+  const options = [{ slot: 0, label: "Random" }];
+  const store = project.narcs.personal;
+  if (!species || !store?.rawFiles[species]) return options;
+  const base = decodeRecord(project, "personal", species).raw;
+  const formIndex = form & 31;
+  const firstForm = Number(base?.form_id ?? 0);
+  const personalId = formIndex > 0 && formIndex < Number(base?.num_forms ?? 1) && firstForm > 0
+    ? firstForm + formIndex - 1 : species;
+  if (!store.rawFiles[personalId]) return options;
+  const personal = decodeRecord(project, "personal", personalId).raw;
+  for (const [index, field] of ["ability_1", "ability_2", "ability_3"].entries()) {
+    const id = Number(personal?.[field] ?? 0);
+    if (id > 0 && id <= 0xff) {
+      const name = labelFromBank(project, "abilities", id, `Ability ${id}`);
+      options.push({ slot: index + 1, label: `${index === 2 ? "Hidden" : `Slot ${index + 1}`} · ${name}` });
+    }
+  }
+  return options;
 }
 
 export function getFacilityChoiceRecord(project: ProjectState, narc: FacilityChoiceNarcName, id: number): BattleFacilityChoiceRecord {
@@ -439,7 +464,15 @@ export function updateFacilitySetField(
     const moveIndex = Number(field.slice("move_".length));
     writeU16(bytes, 2 + moveIndex * 2, findValueIndex(project.texts.banks.moves ?? [], String(inputValue), "move"));
   } else if (field === "evSpread") {
-    bytes[10] = parseInteger(String(inputValue), 0, 255);
+    const pwtAbility = beforeRecord.abilitySlot;
+    const mask = pwtAbility === undefined ? 0xff : PWT_SET_EV_MASK;
+    bytes[10] = (bytes[10] & ~mask) | parseInteger(String(inputValue), 0, mask);
+  } else if (field === "abilitySlot" && beforeRecord.abilitySlot !== undefined) {
+    const slot = parseInteger(String(inputValue), 0, 3);
+    if (!getPwtSetAbilityOptions(project, beforeRecord.speciesId, beforeRecord.form).some(option => option.slot === slot)) {
+      throw new Error("The selected ability slot is unavailable for this Pokémon.");
+    }
+    bytes[10] = (bytes[10] & PWT_SET_EV_MASK) | (slot << 6);
   } else if (/^ev_[0-5]$/u.test(field)) {
     const statIndex = Number(field.slice("ev_".length));
     const mask = 1 << statIndex;
@@ -457,11 +490,22 @@ export function updateFacilitySetField(
     throw new Error(`Unsupported facility set field: ${field}`);
   }
 
+  const previousSlot = beforeRecord.abilitySlot;
+  if (previousSlot && (field === "species" || field === "form")
+    && !getPwtSetAbilityOptions(project, readU16(bytes, 0), readU16(bytes, 14)).some(option => option.slot === previousSlot)) {
+    bytes[10] &= PWT_SET_EV_MASK;
+  }
+
   setRawFile(project, narc, id, bytes);
   const afterRecord = getFacilitySetRecord(project, narc, id);
   recordFieldChange(project, narc, `${FACILITY_SET_LABELS[narc]} ${id}`, facilityFieldLabel(field), facilitySetFieldValue(beforeRecord, field), facilitySetFieldValue(afterRecord, field), {
     key: `facility-set:${narc}:${id}:${field}`,
   });
+  if (previousSlot && afterRecord.abilitySlot === 0 && (field === "species" || field === "form")) {
+    recordFieldChange(project, narc, `${FACILITY_SET_LABELS[narc]} ${id}`, "Ability slot", previousSlot, 0, {
+      key: `facility-set:${narc}:${id}:abilitySlot`,
+    });
+  }
   return afterRecord;
 }
 
@@ -747,6 +791,7 @@ function facilitySetFieldValue(record: BattleFacilitySet, field: string): string
   if (field === "species") return record.speciesName;
   if (/^move_[0-3]$/u.test(field)) return record.moves[Number(field.slice("move_".length))]?.name ?? "";
   if (field === "evSpread") return record.evSpread;
+  if (field === "abilitySlot") return record.abilitySlot ?? 0;
   if (/^ev_[0-5]$/u.test(field)) return record.evStats[Number(field.slice("ev_".length))] ?? false;
   if (field === "nature") return record.natureName;
   if (field === "item") return record.itemName;
@@ -777,6 +822,7 @@ function regulationFieldValue(record: BattleFacilityRegulationRecord, field: str
 }
 
 function facilityFieldLabel(field: string): string {
+  if (field === "abilitySlot") return "Ability slot";
   return field.replace(/_/gu, " ");
 }
 

@@ -544,6 +544,11 @@
   min-height: 26px;
 }
 
+#facility-data.pwt-data .pwt-set-meta select[data-field="abilitySlot"] {
+  width: auto;
+  max-width: 190px;
+}
+
 #facility-data.pwt-data .pwt-evs {
   display: flex;
   gap: 2px;

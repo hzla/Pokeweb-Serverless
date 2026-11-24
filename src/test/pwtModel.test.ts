@@ -3,6 +3,7 @@ import { writeU16 } from "../nds/binary";
 import { getNarcFormats } from "../pokeweb/formats";
 import type { NarcName } from "../pokeweb/constants";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
+import { getFacilitySetRecord, getPwtSetAbilityOptions, updateFacilitySetField } from "../pokeweb/battleFacilityModel";
 import {
   battleClassForObjCode,
   copyPwtSetForTrainer,
@@ -19,6 +20,28 @@ import {
 } from "../pokeweb/pwtModel";
 
 describe("pwtModel", () => {
+  it("preserves ability slots across EV edits and copies, and resets unavailable form slots", () => {
+    const project = makeProject();
+    project.romInfo.idCode = "IRDO";
+    project.codeInjection = { modules: [{ path: "patches/PwtAbilitySelectionW2.dll", target: "patches", fileName: "PwtAbilitySelectionW2.dll", version: "1.0.0", gameId: "W2" }] };
+    const rawFiles: Uint8Array[] = [];
+    const records = new Map();
+    project.narcs.personal = { name: "personal", fileId: 2, sourcePath: "test", fileCount: 510, rawFiles, records, dirty: new Set() };
+    rawFiles[508] = rawFiles[509] = new Uint8Array(76);
+    records.set(508, { id: 508, bytes: rawFiles[508], raw: { form_id: 509, num_forms: 2, ability_1: 1, ability_2: 2, ability_3: 3 } });
+    records.set(509, { id: 509, bytes: rawFiles[509], raw: { ability_1: 4, ability_2: 0, ability_3: 0 } });
+
+    expect(getPwtSetAbilityOptions(project, 508, 1)).toEqual([{ slot: 0, label: "Random" }, { slot: 1, label: "Slot 1 · Ability 4" }]);
+    updateFacilitySetField(project, "pwt_sets_3", 1, "abilitySlot", 3);
+    updateFacilitySetField(project, "pwt_sets_3", 1, "evSpread", 2);
+    updateFacilitySetField(project, "pwt_sets_3", 1, "ev_0", true);
+    expect(project.narcs.pwt_sets_3?.rawFiles[1][10]).toBe(0xc3);
+    const copy = copyPwtSetForTrainer(project, "leaders", 0, 1);
+    expect(getFacilitySetRecord(project, "pwt_sets_3", copy)).toMatchObject({ abilitySlot: 3, evSpread: 3 });
+    expect(updateFacilitySetField(project, "pwt_sets_3", copy, "form", 1)).toMatchObject({ abilitySlot: 0, evSpread: 3 });
+    expect(() => updateFacilitySetField(project, "pwt_sets_3", copy, "abilitySlot", 2)).toThrow(/unavailable/iu);
+    expect(getFacilitySetRecord(project, "pwt_sets_3", 1).abilitySlot).toBe(3);
+  });
   it("reads trainer rows, names and tournament membership", () => {
     const project = makeProject();
     const cheren = getPwtTrainer(project, 0);

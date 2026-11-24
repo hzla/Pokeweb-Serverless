@@ -80,6 +80,7 @@ import { getBw2ApFixStatus, setBw2ApFix } from "../pokeweb/bw2ApFixModel";
 import { applyEarlyChallengeMode, getEarlyChallengeModeStatus } from "../pokeweb/earlyChallengeModeModel";
 import { applyEarlyNationalDex, getEarlyNationalDexStatus } from "../pokeweb/earlyNationalDexModel";
 import { getPwtSixPokemonStatus, installPwtSixPokemon } from "../pokeweb/pwtSixPokemonRuntime";
+import { getPwtAbilityStatus, installPwtAbilitySelection } from "../pokeweb/pwtAbilityRuntime";
 import { getAutorunStatus, stageAutorun, uninstallAutorun } from "../pokeweb/autorunModel";
 import { getItemExpansionStatus, isItemExpansionInstalled, stageItemExpansion, uninstallItemExpansion } from "../pokeweb/itemExpansionModel";
 import { getTrainingItemsStatus, stageTrainingItems } from "../pokeweb/trainingItemsModel";
@@ -250,6 +251,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const earlyChallengeMode = getEarlyChallengeModeStatus(project);
   const earlyNationalDex = getEarlyNationalDexStatus(project);
   const pwtSixPokemonStatus = getPwtSixPokemonStatus(project);
+  const pwtAbilityStatus = getPwtAbilityStatus(project);
   const autorunStatus = getAutorunStatus(project);
   const itemExpansionStatus = getItemExpansionStatus(project);
   const trainingItemsStatus = getTrainingItemsStatus(project);
@@ -647,15 +649,15 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-panel__header">
             <div>
               <h2>Tag Battle Stabilization</h2>
-              <p>Allows tag battles with more than the vanilla limit of six opposing Pokemon, such as two opponents with four Pokemon each. Runs one trainer's AI at a time to reduce script memory use and prevent the related battle-start hang.</p>
+              <p>Runs one trainer’s AI at a time to reduce script memory use in tag battles with large opposing teams.</p>
             </div>
             ${renderInlineStatus(!tagBattleStatus.supported ? "Unsupported" : !tagBattleStatus.compatible ? "Incompatible" : tagBattleStatus.installed ? "Installed" : "Ready", { className: "code-injection-status" })}
           </div>
           <div class="code-injection-facts">
-            ${supportedRomsFact("US White 2")}
+            ${supportedRomsFact("US Black, White, Black 2, and White 2")}
             <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
           </div>
-          <p>Configure each trainer's team in the Trainer editor. This patch does not change team sizes.</p>
+          <p>Set team sizes in the Trainer editor.</p>
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-tag-battle-stabilization-btn" type="button" ${tagBattleCanInstall ? "" : "disabled"}>
               Install Tag Battle Stabilization
@@ -1282,6 +1284,17 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div class="code-injection-note" id="pwt-six-pokemon-note" aria-live="polite"></div>
           </div>
         </section>
+        <section class="code-injection-panel" ${patchVisibility(pwtAbilityStatus !== "unsupported")}>
+          <div class="code-injection-panel__header">
+            <div><h2>PWT Ability Selection</h2><p>Choose an ability for each trainer and rental set in the PWT editor.</p></div>
+            ${renderInlineStatus(pwtAbilityStatus === "installed" ? "Installed" : pwtAbilityStatus === "ready" ? "Ready" : "Unsupported", { className: "code-injection-status" })}
+          </div>
+          ${renderSupportedRoms(US_BW2_REV0)}
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-pwt-ability-btn" type="button" ${pwtAbilityStatus === "ready" ? "" : "disabled"}>Install PWT Ability Selection</button>
+            <div class="code-injection-note" id="pwt-ability-note" aria-live="polite"></div>
+          </div>
+        </section>
         <section class="code-injection-panel" ${patchVisibility(infiniteCandyStatus.supported)}>
           <div class="code-injection-panel__header">
             <div>
@@ -1860,6 +1873,21 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       if (refreshedNote) refreshedNote.textContent = "Export the ROM to apply this patch.";
     } catch (error) {
       pwtSixPokemonButton.disabled = false;
+      if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+
+  const pwtAbilityButton = root.querySelector<HTMLButtonElement>("#install-pwt-ability-btn");
+  pwtAbilityButton?.addEventListener("click", async () => {
+    const note = root.querySelector<HTMLDivElement>("#pwt-ability-note");
+    pwtAbilityButton.disabled = true;
+    if (note) note.textContent = "Installing…";
+    try {
+      await installPwtAbilitySelection(project);
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+    } catch (error) {
+      pwtAbilityButton.disabled = false;
       if (note) note.textContent = error instanceof Error ? error.message : String(error);
     }
   });

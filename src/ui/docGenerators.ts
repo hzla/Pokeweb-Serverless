@@ -28,14 +28,15 @@ const CALC_SYNC_ERROR_MESSAGE_TYPE = "ddex:calc-sync-error";
 type CalcBridgeState = {
   calcWindow: Window | null;
   calcReady: boolean;
-  pendingSyncPayload: CalcBridgePayload | null;
+  pendingSync: (() => boolean) | null;
+  abilityCatalogFingerprint?: string;
   status: string;
 };
 
 const calcBridgeState: CalcBridgeState = {
   calcWindow: null,
   calcReady: false,
-  pendingSyncPayload: null,
+  pendingSync: null,
   status: "",
 };
 
@@ -210,14 +211,13 @@ function handleCalcBridgeMessage(event: MessageEvent): void {
   if (data.type === CALC_READY_MESSAGE_TYPE) {
     calcBridgeState.calcWindow = event.source as Window || calcBridgeState.calcWindow;
     calcBridgeState.calcReady = true;
+    const catalog = data.pokewebAbilityCatalog;
+    calcBridgeState.abilityCatalogFingerprint = catalog?.protocol === 1 &&
+      typeof catalog.fingerprint === "string" && /^[a-f0-9]{64}$/u.test(catalog.fingerprint) ? catalog.fingerprint : undefined;
     setCalcBridgeStatus("Calc ready.");
-    if (calcBridgeState.pendingSyncPayload) {
-      const pendingPayload = calcBridgeState.pendingSyncPayload;
-      calcBridgeState.pendingSyncPayload = null;
-      if (postCalcBridgePayload(pendingPayload)) {
-        setCalcBridgeStatus("Syncing calc data...");
-      }
-    }
+    const pending = calcBridgeState.pendingSync;
+    calcBridgeState.pendingSync = null;
+    pending?.();
     return;
   }
 
@@ -240,7 +240,8 @@ function openCalc(config: CalcBridgeConfig, status: HTMLElement | null): boolean
 
   calcBridgeState.calcWindow = calcWindow;
   calcBridgeState.calcReady = false;
-  calcBridgeState.pendingSyncPayload = null;
+  calcBridgeState.pendingSync = null;
+  calcBridgeState.abilityCatalogFingerprint = undefined;
   setCalcBridgeStatus("Opening calc tab...", status);
   return true;
 }
@@ -252,35 +253,38 @@ function syncCalc(project: ProjectState, status: HTMLElement | null, syncTitle: 
     return false;
   }
 
-  const syncPayload = generateCalcBridgePayload(project, title);
-  showCalcItemValidation(root, syncPayload.itemValidation);
   if (!calcBridgeState.calcWindow || calcBridgeState.calcWindow.closed) {
     calcBridgeState.calcReady = false;
     calcBridgeState.calcWindow = null;
-    calcBridgeState.pendingSyncPayload = null;
+    calcBridgeState.pendingSync = null;
     setCalcBridgeStatus("Open Calc first.", status);
     return false;
   }
 
-  if (!calcBridgeState.calcReady) {
-    calcBridgeState.pendingSyncPayload = syncPayload;
-    setCalcBridgeStatus("Waiting for the calc tab to finish loading...", status);
-    return true;
-  }
-
-  calcBridgeState.pendingSyncPayload = null;
-  if (postCalcBridgePayload(syncPayload)) {
-    setCalcBridgeStatus("Syncing calc data...", status);
-    return true;
-  }
-  return false;
+  const send = () => {
+    try {
+      const payload = generateCalcBridgePayload(project, title, calcBridgeState.abilityCatalogFingerprint);
+      showCalcItemValidation(root, payload.itemValidation);
+      if (postCalcBridgePayload(payload)) {
+        setCalcBridgeStatus("Syncing calc data...", status);
+        return true;
+      }
+    } catch (error) {
+      setCalcBridgeStatus(error instanceof Error ? error.message : String(error), status);
+    }
+    return false;
+  };
+  if (calcBridgeState.calcReady) return send();
+  calcBridgeState.pendingSync = send;
+  setCalcBridgeStatus("Waiting for the calc tab to finish loading...", status);
+  return true;
 }
 
 function postCalcBridgePayload(payload: CalcBridgePayload): boolean {
   if (!calcBridgeState.calcWindow || calcBridgeState.calcWindow.closed) {
     calcBridgeState.calcReady = false;
     calcBridgeState.calcWindow = null;
-    calcBridgeState.pendingSyncPayload = null;
+    calcBridgeState.pendingSync = null;
     setCalcBridgeStatus("Open Calc first.");
     return false;
   }

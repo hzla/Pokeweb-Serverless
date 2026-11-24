@@ -83,6 +83,7 @@ export type CalcBridgePayload = {
   fileName: string;
   sourceGen: 5;
   scriptText: string;
+  backupData?: Record<string, unknown>;
   title: string;
   itemValidation: CalcItemValidation;
 };
@@ -426,15 +427,16 @@ export function generateCalcDownload(project: ProjectState, title: string): Text
   };
 }
 
-export function generateCalcBridgePayload(project: ProjectState, title: string): CalcBridgePayload {
+export function generateCalcBridgePayload(project: ProjectState, title: string, abilityCatalogFingerprint?: string): CalcBridgePayload {
   const exportTitle = title.trim();
-  const { payload, itemValidation } = buildCalcPayload(project, exportTitle);
+  const { payload, itemValidation } = buildCalcPayload(project, exportTitle, abilityCatalogFingerprint);
   return {
     type: "ddex:calc-sync",
     config: getCalcBridgeConfig(project.session.baseRom),
     fileName: `${safeFilename(exportTitle)}_npoint_data.js`,
     sourceGen: 5,
-    scriptText: `var backup_data = ${JSON.stringify(payload, null, 2)};`,
+    scriptText: payload.pokewebBattleRules?.abilityTemplates ? "" : `var backup_data = ${JSON.stringify(payload, null, 2)};`,
+    ...(payload.pokewebBattleRules?.abilityTemplates ? { backupData: payload } : {}),
     title: exportTitle,
     itemValidation,
   };
@@ -594,7 +596,7 @@ export function buildGroundItemScriptMap(project: ProjectState): Map<number, num
   return parseGroundItemScripts(bytes);
 }
 
-function buildCalcPayload(project: ProjectState, title: string) {
+function buildCalcPayload(project: ProjectState, title: string, abilityCatalogFingerprint?: string) {
   const typeChart = buildCalcTypeChart(project);
   const items = createCalcItemValidator();
   const itemNames = project.texts.banks.items ?? [];
@@ -603,7 +605,7 @@ function buildCalcPayload(project: ProjectState, title: string) {
   // Validate exported replacement targets, not unused retail/key-item names.
   const replacementTargets = new Set(Object.values(itemReplacements));
   for (const name of itemNames) if (typeof name === "string" && replacementTargets.has(itemId(name))) items.resolve(name);
-  const battleRules = buildCalcBattleRules(project, showdownName, titleizeAbility);
+  const battleRules = buildCalcBattleRules(project, showdownName, titleizeAbility, abilityCatalogFingerprint);
   const payload = {
     title,
     ...(battleRules ? { pokewebBattleRules: battleRules } : {}),
@@ -881,6 +883,9 @@ function buildDexPokemon(project: ProjectState, itemName: (value: unknown) => st
         ...(tutorGroups.length > 0 ? { tutors: dexTutorMoves(record.rawPersonal, tutorGroups) } : {}),
       },
       abs: calcPokemonAbilities(project, id, record),
+      ...(isGen5BaseRom(project.session.baseRom) ? {
+        abilityIds: [1, 2, 3].map(slot => Number(record.rawPersonal[`ability_${slot}`] ?? 0)),
+      } : {}),
     };
   }
 
@@ -1033,9 +1038,9 @@ function gen4TrainerPokemonFormExportName(project: ProjectState, pok: TrainerPok
   return name === GEN4_TRAINER_FORM_EXPORT_NAMES[pok.speciesId]?.[0] ? baseName : name;
 }
 
-export function trainerPokemonExportAbility(project: ProjectState, pok: TrainerPokemonSlot, resolvedBaseName?: string): string {
+function trainerPokemonCalcAbility(project: ProjectState, pok: TrainerPokemonSlot, resolvedBaseName?: string) {
   const resolvedSlot = Number(pok.resolvedAbilitySlot ?? pok.abilitySlot ?? 0);
-  if (resolvedSlot > 3) return titleizeAbility(cascadeWhiteTrainerAbilityName(project, pok.speciesId, resolvedSlot, pok.form) ?? pok.abilityName);
+  if (resolvedSlot > 3) return { name: titleizeAbility(cascadeWhiteTrainerAbilityName(project, pok.speciesId, resolvedSlot, pok.form) ?? pok.abilityName) };
   const baseName = resolvedBaseName ?? pokemonExportName(project, pok.speciesId);
   const altPersonalId = TRAINER_FORM_ABILITY_EXCLUSIONS.has(baseName) ? undefined : trainerAltFormPersonalId(project, pok.speciesId, pok.form);
   const record = safePokemonSummaryRecord(project, altPersonalId ?? storedSpeciesId(project, pok.speciesId));
@@ -1043,8 +1048,17 @@ export function trainerPokemonExportAbility(project: ProjectState, pok: TrainerP
   let ability = record?.personal[`ability_${slot}`];
   // Empty ordinary slots use the first ability of the selected personal form.
   // Check the raw ID too: ROMs can label ability zero as "EMPTY" or " -".
-  if (Number(record?.rawPersonal[`ability_${slot}`] ?? 0) === 0 || isEmptyExportValue(ability)) ability = record?.personal.ability_1;
-  return isEmptyExportValue(ability) ? titleizeAbility(pok.abilityName) : titleizeAbility(ability);
+  let abilityId = Number(record?.rawPersonal[`ability_${slot}`] ?? 0);
+  if (!abilityId || isEmptyExportValue(ability)) {
+    ability = record?.personal.ability_1;
+    abilityId = Number(record?.rawPersonal.ability_1 ?? 0);
+  }
+  return isEmptyExportValue(ability) ? { name: titleizeAbility(pok.abilityName) } :
+    { name: titleizeAbility(ability), id: abilityId || undefined };
+}
+
+export function trainerPokemonExportAbility(project: ProjectState, pok: TrainerPokemonSlot, resolvedBaseName?: string): string {
+  return trainerPokemonCalcAbility(project, pok, resolvedBaseName).name;
 }
 
 export function trainerPokemonExportFields(project: ProjectState, pok: TrainerPokemonSlot): { speciesName: string; abilityName: string } {
@@ -1545,6 +1559,7 @@ function buildFormattedTrainerSets(project: ProjectState, itemName: (value: unkn
       const setName = trainerSetName(project, trainer, pok.level, nameCounts[baseName]);
       const iv = Math.floor((pok.ivs * 31) / 255);
       const member = getTrainerMemberSettings(project, trainer.id, pok.slot);
+      const ability = trainerPokemonCalcAbility(project, pok);
       const status = ["", "par", "slp", "frz", "brn", "psn", "tox"][member.status];
       formatted[species][dedupeSetName(formatted[species], setName)] = {
         level: pok.level,
@@ -1568,7 +1583,8 @@ function buildFormattedTrainerSets(project: ProjectState, itemName: (value: unkn
         nature: pok.nature,
         moves: calcTrainerMoves(project, trainer, pok).map((move) => showdownName(move)),
         sub_index: pok.slot,
-        ability: trainerPokemonExportAbility(project, pok),
+        ability: ability.name,
+        ...(isGen5BaseRom(project.session.baseRom) && ability.id ? { abilityId: ability.id } : {}),
         sprite: trainer.spritePath,
         form: pok.form,
         evs: { df: 0 },

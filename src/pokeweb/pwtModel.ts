@@ -4,8 +4,10 @@ import { readU16, writeU16 } from "../nds/binary";
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
 import type { NarcName } from "./constants";
 import { getFacilitySetRecord, type BattleFacilitySet, type FacilitySetNarcName } from "./battleFacilityModel";
+import { getRomFileBytes } from "./fileSystemModel";
 import { loadActiveRomBytes } from "./persistence";
 import { createNarcStore, markDirty, type ProjectState } from "./projectStore";
+import { getPwtAbilityStatus } from "./pwtAbilityRuntime";
 import { cleanDisplayText } from "./text";
 import { getTextBank, updateTextEntry } from "./textModel";
 
@@ -41,6 +43,7 @@ export const PWT_POOL_ORDER: PwtPoolId[] = ["regular", "leaders", "masters"];
 export const PWT_RENTAL_SETS: FacilitySetNarcName = "pwt_sets_7";
 
 const PWT_ARCHIVE_PATHS: Partial<Record<NarcName, string>> = {
+  personal: "a/0/1/6",
   pwt_trainer_table: "a/2/4/7",
   pwt_regular_leads: "a/2/4/8",
   pwt_regular_rosters: "a/2/4/9",
@@ -157,7 +160,9 @@ export function hasPwtData(project: ProjectState): boolean {
 }
 
 export function missingPwtArchives(project: ProjectState): NarcName[] {
-  return ARCHIVES_TO_LOAD.filter((name) => !project.narcs[name]);
+  const missing = ARCHIVES_TO_LOAD.filter((name) => !project.narcs[name]);
+  if (!project.narcs.personal && getPwtAbilityStatus(project) === "installed") missing.push("personal");
+  return missing;
 }
 
 /** Projects opened before these archives were part of the editor get them from the ROM on first use. */
@@ -171,7 +176,7 @@ export async function ensurePwtArchives(project: ProjectState): Promise<void> {
     const path = PWT_ARCHIVE_PATHS[name];
     if (!path) continue;
     const fileId = rom.fileId(path);
-    const narc = new NARC(rom.files[fileId]);
+    const narc = new NARC(getRomFileBytes(project, rom, fileId));
     narc.files = narc.files.map((file) => file.slice());
     project.narcs[name] = createNarcStore(name, path, fileId, narc);
     project.session.fileIds[name] = fileId;

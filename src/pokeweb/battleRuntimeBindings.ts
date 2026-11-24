@@ -20,6 +20,26 @@ export type BattleRuntimeSignature = {
 export const BATTLE_RUNTIME_SIGNATURES: Record<string, BattleRuntimeSignature> = { ...native.functions, ...item.functions, ...ability.functions,...recipe.functions,...client.functions,...scoped.functions };
 const hex = (s: string) => Uint8Array.from(s.match(/../gu) ?? [], v => Number.parseInt(v, 16));
 
+function battleServicePatterns(name: string, signature: BattleRuntimeSignature) {
+    const patterns = [signature, ...(signature.variants ?? [])];
+    if (name === "ServerEvent_CalcDamage" || name === "BW1_BTL_SERVER_FLOW_CalcMoveDamage") {
+        // The common 1.5x crit edit replaces three Thumb instructions. The
+        // weather call and the rest of the damage routine still need to match.
+        const offset = 0xfa * 2;
+        const end = offset + 12;
+        for (const pattern of [...patterns]) {
+            if (pattern.hex.slice(offset, end) === "002e00d07f00" &&
+                pattern.mask.slice(offset, end) === "ffffffffffff") {
+                patterns.push({
+                    hex: pattern.hex.slice(0, offset) + "78087043c719" + pattern.hex.slice(end),
+                    mask: pattern.mask,
+                });
+            }
+        }
+    }
+    return patterns.map(pattern => ({bytes: hex(pattern.hex), mask: hex(pattern.mask)}));
+}
+
 export function battleBranchTarget(code: Uint8Array, at: number, base: number): number {
     const hi = readU16(code, at), lo = readU16(code, at + 2);
     if ((hi & 0xf800) !== 0xf000 || ![0xf800, 0xe800].includes(lo & 0xf800))
@@ -32,7 +52,7 @@ export function battleBranchTarget(code: Uint8Array, at: number, base: number): 
 }
 /** Resolve moved code through signatures and calls from verified callers. */
 export function battleRuntimeResolver(overlay: Uint8Array, overlayBase: number, arm9: Uint8Array, armBase: number, signatures: Record<string, BattleRuntimeSignature> = BATTLE_RUNTIME_SIGNATURES) {
-    const patterns = new Map(Object.entries(signatures).map(([name,s])=>[name,[s,...s.variants??[]].map(p=>({bytes:hex(p.hex),mask:hex(p.mask)}))]));
+    const patterns = new Map(Object.entries(signatures).map(([name, signature]) => [name, battleServicePatterns(name, signature)]));
     const found = new Map<string, number>(), scanned = new Map<string, number[]>();
     const source = (name: string) => signatures[name]?.module === "ARM9" ? { bytes: arm9, base: armBase } : { bytes: overlay, base: overlayBase };
     function matches(name: string, address: number): boolean {

@@ -23,6 +23,7 @@
     "scripts:bw2-audit": "vite-node scripts/audit-bw2-script-roundtrips.ts",
     "scripts:bw2-verify-editing": "vite-node scripts/verify-bw2-full-editing.ts",
     "privacy:check": "node scripts/check-source-privacy.mjs && node scripts/check-source-privacy.mjs --staged",
+    "calc:abilities:sync": "vite-node scripts/sync-calc-ability-catalog.ts",
     "calc:items:sync": "node scripts/sync-calc-item-names.mjs",
     "calc:items:check": "node scripts/sync-calc-item-names.mjs --check",
     "moveanim:helper": "vite-node scripts/move-animation-helper.ts",

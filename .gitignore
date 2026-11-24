@@ -64,6 +64,7 @@ src/test/local/
 !/scripts/verify-map-explore-test.ts
 !/scripts/verify-map-explore-emulator.ts
 !/scripts/verify-map-studio-emulator.ts
+!/scripts/sync-calc-ability-catalog.ts
 !/scripts/generate-item-effect-profiles.py
 !/scripts/build-item-sprite-library.py
 !/scripts/verify-item-effects.ts
