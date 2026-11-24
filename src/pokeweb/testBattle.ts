@@ -11,7 +11,8 @@ import { configureHarnessRuntime, patchHarnessExpandedPartyGuard, patchHarnessSa
 import { decodeTrainerPools, TRAINER_POOLS_PATH } from "./trainerPartyPools";
 import { setTrainerRosterChoices, setTrainerRosterRules, shareTrainerRosterSources } from "./trainerRosterModel";
 import { loadActiveRomBytes } from "./persistence";
-import type { ProjectState } from "./projectStore";
+import { decodeRecord, type ProjectState } from "./projectStore";
+import { loadTrainerClassBattleMusic, trainerClassBattleTrack } from "./trainerClassBattleMusic";
 import { normalizeTestBattleSavePartyNicknames, patchTestBattleSavePlayerFirstMove, patchTestBattleSavePlayerParty } from "./testBattleTeam";
 import { decodeGen5TextBank, encodeGen5TextBank, type Gen5TextEntry } from "./text";
 
@@ -284,10 +285,10 @@ export function supportsAutomaticTestBattle(project: ProjectState): boolean {
   return project.session.baseRom === "BW2" && project.session.baseVersion === "W2" && project.romInfo.idCode === "IRDO";
 }
 
-async function stageBattleHarness(project: ProjectState, trainerId: number, rule: number): Promise<void> {
+async function stageBattleHarness(project: ProjectState, trainerId: number, rule: number, music?: number): Promise<void> {
   const response = await fetch(BATTLE_HARNESS_URL);
   if (!response.ok) throw new Error(`Could not load bundled automatic battle runtime (${response.status})`);
-  stageCodeInjectionDll(project, BATTLE_HARNESS_FILENAME, configureHarnessRuntime(new Uint8Array(await response.arrayBuffer()), trainerId, rule));
+  stageCodeInjectionDll(project, BATTLE_HARNESS_FILENAME, configureHarnessRuntime(new Uint8Array(await response.arrayBuffer()), trainerId, rule, music));
 }
 
 async function exportAutomaticTestBattleRom(project: ProjectState, trainerId: number, rosterSource?: number): Promise<Uint8Array> {
@@ -299,9 +300,12 @@ async function exportAutomaticTestBattleRom(project: ProjectState, trainerId: nu
   const rom = new NintendoDSRom(bytes, { fileData: "view" });
   validateHarnessRom(rom, temporaryProject);
   const rule = patchHarnessTrainer(temporaryProject, { trainerId });
+  const classMusic = loadTrainerClassBattleMusic(temporaryProject, rom);
+  const trainerClass = classMusic ? decodeRecord(temporaryProject, "trdata", trainerId).raw?.class : undefined;
+  const music = classMusic && trainerClass !== undefined ? trainerClassBattleTrack(classMusic, trainerClass) : undefined;
   if (detectBw2Upgrade(temporaryProject) === "white2-upgrade") patchHarnessExpandedPartyGuard(temporaryProject, rom.loadArm9Overlays([36]).get(36)!);
   await prepareBw2TestBattleCodeInjection(temporaryProject);
-  await stageBattleHarness(temporaryProject, trainerId, rule);
+  await stageBattleHarness(temporaryProject, trainerId, rule, music);
   return exportModifiedRom(temporaryProject, { preserveOriginalLength: true });
 }
 

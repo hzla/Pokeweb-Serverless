@@ -7,6 +7,7 @@ import {
   type NitroRenderedPcm,
 } from "../pokeweb/nitroSound";
 import type { ProjectState } from "../pokeweb/projectStore";
+import { TRAINER_CLASS_MUSIC_DEFAULT } from "../pokeweb/trainerClassBattleMusic";
 import {
   assignTrainerBattleTheme,
   loadTrainerBattleMusicModel,
@@ -55,6 +56,7 @@ export async function renderTrainerMusicEditor(
     const model = await loadTrainerMusicModel(project);
     const battleModel = await loadTrainerBattleMusicModel(project, model.sdat);
     if (generation !== renderGeneration || !root.isConnected) return;
+    if (battleModel.classMusic?.migrated) options.onDirty?.();
     activeController = installTrainerMusicEditor(project, root, model, battleModel, options);
   } catch (error) {
     if (generation !== renderGeneration || !root.isConnected) return;
@@ -102,7 +104,7 @@ export function filterTrainerBattleMusicAssignments(
     const sequenceId = assignment.currentSequenceId;
     const sequence = sequenceId === undefined ? undefined : model.sdat.sequenceInfos[sequenceId];
     return [
-      assignment.groupIndex === undefined ? "Fallback" : `Group ${assignment.groupIndex}`,
+      battleAssignmentKind(assignment),
       assignment.name,
       assignment.scope,
       sequenceId,
@@ -114,6 +116,11 @@ export function filterTrainerBattleMusicAssignments(
       .toLowerCase()
       .includes(normalized);
   });
+}
+
+function battleAssignmentKind(assignment: TrainerBattleMusicAssignment): string {
+  if (assignment.trainerClassId !== undefined) return `Class ${assignment.trainerClassId}`;
+  return assignment.groupIndex === undefined ? "Default fallback" : `Group ${assignment.groupIndex}`;
 }
 
 function installTrainerMusicEditor(
@@ -315,7 +322,7 @@ function installTrainerMusicEditor(
     } else {
       const assignments = filterTrainerBattleMusicAssignments(battleModel, queries.battle);
       tableBody.innerHTML = assignments.map((assignment) => renderBattleAssignmentRow(battleModel, assignment, currentSequenceId())).join("");
-      resultCount.textContent = `${assignments.length} of ${battleModel.assignments.length} groups`;
+      resultCount.textContent = `${assignments.length} of ${battleModel.assignments.length} ${battleModel.classMusic ? "assignments" : "groups"}`;
     }
     tableBody.querySelectorAll<HTMLButtonElement>("[data-trainer-music-select]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -362,11 +369,12 @@ function installTrainerMusicEditor(
         stopPlayback();
         try {
           assignTrainerBattleTheme(project, battleModel, assignment, sequenceId);
-          selectedSequenceIds.battle = sequenceId;
+          const effective = battleModel.assignments.find(row => row.key === assignmentKey)?.currentSequenceId;
+          selectedSequenceIds.battle = effective;
           options.onDirty?.();
           renderInspector();
           renderRows();
-          setStatus(`${assignment.name} now uses ${trainerBattleMusicTrackLabel(battleModel, sequenceId)}.`);
+          setStatus(`${assignment.name} now uses ${trainerBattleMusicTrackLabel(battleModel, effective)}.`);
         } catch (error) {
           renderRows();
           setStatus(error instanceof Error ? error.message : String(error), true);
@@ -392,12 +400,12 @@ function installTrainerMusicEditor(
       ? `<div class="trainer-music-warning"><strong>Reassignment unavailable</strong><span>${escapeHtml(error)}</span></div>`
       : "";
     const searchLabel = root.querySelector<HTMLElement>(".trainer-music-search-label");
-    if (searchLabel) searchLabel.textContent = activeTab === "approach" ? "Find a trainer class or theme" : "Find a battle group or theme";
-    searchInput.placeholder = activeTab === "approach" ? "Search classes, IDs, or themes…" : "Search groups, scope, or themes…";
+    if (searchLabel) searchLabel.textContent = activeTab === "battle" && !battleModel.classMusic ? "Find a battle group or theme" : "Find a trainer class or theme";
+    searchInput.placeholder = activeTab === "approach" || battleModel.classMusic ? "Search classes, IDs, or themes…" : "Search groups, scope, or themes…";
     searchInput.value = queries[activeTab];
     tableHead.innerHTML = activeTab === "approach"
       ? "<th>Class</th><th>Approach theme</th><th>Preview</th><th>Assignment</th>"
-      : "<th>Battle group</th><th>Battle theme</th><th>Preview</th><th>Assignment</th>";
+      : `<th>${battleModel.classMusic ? "Class or group" : "Battle group"}</th><th>Battle theme</th><th>Preview</th><th>Assignment</th>`;
   };
 
   root.querySelectorAll<HTMLButtonElement>("[data-trainer-music-tab]").forEach((button) => {
@@ -482,7 +490,9 @@ function renderSelectedTrack(
   const label = activeTab === "approach" ? trainerMusicTrackLabel(model, sequenceId) : trainerBattleMusicTrackLabel(battleModel, sequenceId);
   const disabled = sequence ? "" : " disabled";
   const tableNote = activeTab === "battle"
-    ? "Battle assignments follow the game's battle-intro groups, so one change can affect several trainer types. The fallback row covers ordinary trainers without a dedicated group. Encounter animations are not modified."
+    ? battleModel.classMusic
+      ? "Class assignments override the battle group. Choose Use battle group to follow the shared theme."
+      : "Battle assignments follow the game's battle-intro groups. The fallback row covers ordinary trainers without a dedicated group."
     : model.project.session.baseRom === "BW"
       ? "Black and White store a sparse class mapping. Classes without a record use Eye 01 at runtime and remain read-only here."
       : "Black 2 and White 2 store one approach-theme record for each trainer class, so every displayed row can be reassigned.";
@@ -594,7 +604,7 @@ function renderBattleAssignmentRow(
     <tr class="${selected ? "-selected" : ""} ${assignment.editable ? "" : "-readonly"}">
       <td>
         <div class="trainer-music-class-name"><strong>${escapeHtml(assignment.name)}</strong>${fallback}</div>
-        <span class="trainer-music-class-id">${assignment.groupIndex === undefined ? "Default fallback" : `Group ${assignment.groupIndex}`}</span>
+        <span class="trainer-music-class-id">${battleAssignmentKind(assignment)}</span>
         <span class="trainer-music-group-scope">${escapeHtml(assignment.scope)}</span>
       </td>
       <td>${themeControl}</td>
@@ -610,16 +620,17 @@ function renderBattleAssignmentControl(model: TrainerBattleMusicModel, assignmen
   }
   const supported = model.themes.some((theme) => theme.sequenceId === assignment.currentSequenceId);
   const unsupportedOption =
-    assignment.currentSequenceId !== undefined && !supported
+    assignment.currentSequenceId !== undefined && !supported && !assignment.usesGroup
       ? `<option value="${assignment.currentSequenceId}" selected>${escapeHtml(trainerBattleMusicTrackLabel(model, assignment.currentSequenceId))}</option>`
       : "";
   return `
     <select class="trainer-music-assignment-select" data-trainer-battle-assignment="${escapeHtml(assignment.key)}" aria-label="Battle theme for ${escapeHtml(assignment.name)}"${model.themes.length === 0 ? " disabled" : ""}>
+      ${assignment.trainerClassId === undefined ? "" : `<option value="${TRAINER_CLASS_MUSIC_DEFAULT}"${assignment.usesGroup ? " selected" : ""}>Use battle group</option>`}
       ${unsupportedOption}
       ${model.themes
         .map(
           (theme) =>
-            `<option value="${theme.sequenceId}"${theme.sequenceId === assignment.currentSequenceId ? " selected" : ""}>${escapeHtml(theme.displayName)} · ${theme.sequenceId}</option>`,
+            `<option value="${theme.sequenceId}"${theme.sequenceId === assignment.currentSequenceId && !assignment.usesGroup ? " selected" : ""}>${escapeHtml(theme.displayName)} · ${theme.sequenceId}</option>`,
         )
         .join("")}
     </select>

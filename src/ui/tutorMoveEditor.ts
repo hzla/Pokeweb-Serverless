@@ -1,9 +1,11 @@
 import {
+  getPledgeTutorMoveRows,
   getTutorMoveRows,
   tutorMoveMatchesSearch,
+  updatePledgeTutorMove,
   updateTutorMoveField,
+  type TutorEditorRow,
   type TutorMoveField,
-  type TutorMoveRow,
 } from "../pokeweb/tutorMoveModel";
 import { getPokemonTutorCompatibilityRoster, updatePokemonTutorCompatibility } from "../pokeweb/pokemonModel";
 import type { ProjectState } from "../pokeweb/projectStore";
@@ -25,12 +27,15 @@ export function renderTutorMoveEditor(project: ProjectState, root: HTMLElement, 
   tutorMoveInstallations.delete(root);
   const render = () => {
     try {
-      const rows = getTutorMoveRows(project);
+      const shardRows = getTutorMoveRows(project);
+      const pledgeRows = getPledgeTutorMoveRows(project);
+      const rows = [...shardRows, ...(pledgeRows ?? [])];
       root.innerHTML = `
         <aside class="pokemon-filter tutor-move-filter">
           <div class="filter-title">Tutor Moves</div>
           <input class="filter-input" id="search-text" placeholder="Search tutors or moves"/>
           <button class="btn -default" id="search-text-btn" type="button">Search</button>
+          ${pledgeRows ? "" : `<div class="handler-status">Pledge tutor editing is unavailable for these overlays.</div>`}
           <div class="handler-status" id="tutor-move-status"></div>
         </aside>
         <main class="pokemon-list spreadsheet tutor-move-list" id="tutor-moves">
@@ -48,7 +53,7 @@ export function renderTutorMoveEditor(project: ProjectState, root: HTMLElement, 
               <div class="tutor-compatibility-column">Compatibility</div>
             </div>
           </div>
-          ${rows.map(renderRow).join("")}
+          ${[...(pledgeRows ?? []), ...shardRows].map(renderRow).join("")}
         </main>
       `;
       attach(root, project, rows, onDirty);
@@ -66,7 +71,7 @@ export function renderTutorMoveEditor(project: ProjectState, root: HTMLElement, 
   render();
 }
 
-function attach(root: HTMLElement, project: ProjectState, rows: TutorMoveRow[], onDirty: (() => void) | undefined): void {
+function attach(root: HTMLElement, project: ProjectState, rows: TutorEditorRow[], onDirty: (() => void) | undefined): void {
   const controller = new AbortController();
   const listenerOptions = { signal: controller.signal };
   const iconRenderer = createPokemonCompatibilityIconRenderer(project);
@@ -176,9 +181,11 @@ function attach(root: HTMLElement, project: ProjectState, rows: TutorMoveRow[], 
       const rowElement = input.closest<HTMLElement>(".tutor-move-row");
       const rowIndex = Number(rowElement?.dataset.index);
       const field = input.dataset.tutorMoveField as TutorMoveField | undefined;
-      if (!field) return;
+      const current = rows[rowIndex];
+      if (!field || !current) return;
       try {
-        const row = updateTutorMoveField(project, rowIndex, field, input.value);
+        const row = current.group === "pledge" ? updatePledgeTutorMove(project, current.groupOffset, input.value)
+          : updateTutorMoveField(project, rowIndex, field, input.value);
         rows[rowIndex] = row;
         syncRow(rowElement, row);
         syncCompatibilityPanelHeading(rowElement, row);
@@ -202,21 +209,22 @@ function attach(root: HTMLElement, project: ProjectState, rows: TutorMoveRow[], 
   runFilter();
 }
 
-function renderRow(row: TutorMoveRow): string {
+function renderRow(row: TutorEditorRow): string {
+  const slot = row.group === "pledge" ? row.slot : String(row.groupOffset + 1);
   return `
     <div class="expanded-field filterable tutor-move-row" data-index="${row.rowIndex}" data-move-id="${row.moveId}">
       <div class="expanded-field-main">
-        <div class="tutor-row-index">${row.rowIndex}</div>
+        <div class="tutor-row-index">${row.group === "pledge" ? "" : row.rowIndex}</div>
         <div class="tutor-group">${escapeHtml(row.groupLabel)}</div>
-        <div class="tutor-slot">${row.groupOffset + 1}</div>
+        <div class="tutor-slot">${slot}</div>
         <div class="tutor-move">
-          <input data-tutor-move-field="move" list="tutor-move-names" value="${escapeHtml(row.moveName)}" aria-label="Tutor row ${row.rowIndex} move">
+          <input data-tutor-move-field="move" list="tutor-move-names" value="${escapeHtml(row.moveName)}" aria-label="${escapeHtml(row.groupLabel)} ${slot} move">
         </div>
         <div class="tutor-cost">
-          <input data-tutor-move-field="shardCost" inputmode="numeric" value="${row.shardCost}" aria-label="Tutor row ${row.rowIndex} shard cost">
+          ${row.group === "pledge" ? "—" : `<input data-tutor-move-field="shardCost" inputmode="numeric" value="${row.shardCost}" aria-label="Tutor row ${row.rowIndex} shard cost">`}
         </div>
         <div class="tutor-index">
-          <input data-tutor-move-field="displayIndex" inputmode="numeric" value="${row.displayIndex}" aria-label="Tutor row ${row.rowIndex} index">
+          ${row.group === "pledge" ? "—" : `<input data-tutor-move-field="displayIndex" inputmode="numeric" value="${row.displayIndex}" aria-label="Tutor row ${row.rowIndex} index">`}
         </div>
         <div class="tutor-compatibility-column">
           <button
@@ -237,15 +245,16 @@ function renderRow(row: TutorMoveRow): string {
   `;
 }
 
-function syncRow(rowElement: HTMLElement | null | undefined, row: TutorMoveRow): void {
+function syncRow(rowElement: HTMLElement | null | undefined, row: TutorEditorRow): void {
   if (!rowElement) return;
   rowElement.dataset.moveId = String(row.moveId);
   rowElement.querySelector<HTMLInputElement>("[data-tutor-move-field='move']")!.value = row.moveName;
+  if (row.group === "pledge") return;
   rowElement.querySelector<HTMLInputElement>("[data-tutor-move-field='shardCost']")!.value = String(row.shardCost);
   rowElement.querySelector<HTMLInputElement>("[data-tutor-move-field='displayIndex']")!.value = String(row.displayIndex);
 }
 
-function renderTutorPokemonCompatibilityPanel(project: ProjectState, row: TutorMoveRow): string {
+function renderTutorPokemonCompatibilityPanel(project: ProjectState, row: TutorEditorRow): string {
   return renderPokemonCompatibilityPanel(project, {
     title: `${row.groupLabel} · ${row.moveName}`,
     ariaLabel: `${row.groupLabel} ${row.moveName} Pokemon compatibility`,
@@ -254,7 +263,7 @@ function renderTutorPokemonCompatibilityPanel(project: ProjectState, row: TutorM
   });
 }
 
-function syncCompatibilityPanelHeading(rowElement: HTMLElement | null | undefined, row: TutorMoveRow): void {
+function syncCompatibilityPanelHeading(rowElement: HTMLElement | null | undefined, row: TutorEditorRow): void {
   const panel = rowElement?.querySelector<HTMLElement>(".tm-pokemon-compatibility-panel");
   if (!panel) return;
   const title = `${row.groupLabel} · ${row.moveName}`;

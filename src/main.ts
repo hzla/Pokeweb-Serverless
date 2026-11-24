@@ -120,6 +120,7 @@ import { renderSubwayEditor } from "./ui/subwayEditor";
 import { renderPwtEditor } from "./ui/pwtEditor";
 import { renderGrottoEditor } from "./ui/grottoEditor";
 import { renderMartEditor } from "./ui/martGrottoEditor";
+import { renderVendorShopEditor, type VendorShopPage } from "./ui/vendorShopEditor";
 import { bw1MartsSupported } from "./pokeweb/bw1MartModel";
 import { renderTextEditor, selectTextBank } from "./ui/textEditor";
 import { renderOverworldEditor } from "./ui/overworldEditor";
@@ -196,6 +197,9 @@ type AppRoute =
   | "battleBackgrounds"
   | "randomizer"
   | "marts"
+  | "bpShops"
+  | "joinAvenueShops"
+  | "blackCityMarket"
   | "grottos"
   | "phenomena"
   | "dexAreas"
@@ -323,6 +327,9 @@ const APP_ROUTES: AppRoute[] = [
   "battleBackgrounds",
   "randomizer",
   "marts",
+  "bpShops",
+  "joinAvenueShops",
+  "blackCityMarket",
   "grottos",
   "phenomena",
   "dexAreas",
@@ -381,6 +388,9 @@ const EDITOR_REQUIREMENTS: Record<
   flagReference: [],
   randomizer: [],
   marts: ["marts", "mart_counts"],
+  bpShops: [],
+  joinAvenueShops: [],
+  blackCityMarket: [],
   grottos: ["grottos", "grotto_odds"],
   phenomena: ["items", "headers", "message_texts"],
   dexAreas: ["encounters", "headers", "personal"],
@@ -1396,6 +1406,15 @@ function renderApp(): void {
     return;
   }
 
+  if (route === "bpShops" || route === "joinAvenueShops" || route === "blackCityMarket") {
+    void openVendorShopPage(project, content, route, () => {
+      dirty = true;
+      scheduleSave(project!);
+      renderDirtyIndicator();
+    });
+    return;
+  }
+
   if (route === "marts") {
     const onDirty = () => {
       dirty = true;
@@ -1715,13 +1734,16 @@ function renderPokemonMenu(): string {
 function renderItemsMenu(): string {
   const martsAvailable = project?.session.baseRom === "BW2";
   const bw1Marts = project?.session.baseRom === "BW";
-  const active = route === "items" || ((martsAvailable || bw1Marts) && route === "marts") || (martsAvailable && route === "systemShops");
+  const active = ["items", "marts", "systemShops", "bpShops", "joinAvenueShops", "blackCityMarket"].includes(route);
   return `
     <div class="header-more ${active ? "-active" : ""}">
       <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Items</button>
       <div class="header-more-menu">
         ${navItem("items", "Item data")}
         ${martsAvailable || bw1Marts ? navItem("marts", "Marts") : ""}
+        ${martsAvailable || bw1Marts ? navItem("bpShops", "Battle Point Shops") : ""}
+        ${martsAvailable ? navItem("joinAvenueShops", "Join Avenue") : ""}
+        ${project?.session.baseVersion === "B" ? navItem("blackCityMarket", "Black City Market") : ""}
         ${martsAvailable ? navItem("systemShops", "C-Gear shops") : ""}
       </div>
     </div>
@@ -2273,6 +2295,20 @@ async function renderBw1Marts(current: ProjectState, content: HTMLElement, onDir
     return;
   }
   renderMartEditor(current, content, onDirty);
+}
+
+async function openVendorShopPage(current: ProjectState, content: HTMLElement, page: VendorShopPage, onDirty: () => void): Promise<void> {
+  const message = (text: string) => { content.innerHTML = `<div class="file-system-page"><div class="file-system-empty">${escapeHtml(text)}</div></div>`; };
+  try {
+    if (!current.originalRomBytes) message("Loading shop data…");
+    const bytes = current.originalRomBytes ?? (await activeRomMatchesProject(current) ? await loadActiveRomBytes() : undefined);
+    if (project !== current || route !== page || !content.isConnected) return;
+    if (!bytes) throw new Error("Reconnect the source ROM to edit shops.");
+    if (page === "bpShops" && current.session.baseRom === "BW") current.originalRomBytes ??= bytes;
+    renderVendorShopEditor(current, new NintendoDSRom(bytes, { fileData: "view" }), content, page, onDirty);
+  } catch (error) {
+    if (project === current && route === page && content.isConnected) message(error instanceof Error ? error.message : String(error));
+  }
 }
 
 async function ensurePokemonSpriteNarcs(currentProject: ProjectState): Promise<void> {
@@ -2853,6 +2889,9 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
   if (nextRoute === "cgearButtons") return (project.session.baseRom === "BW" || project.session.baseRom === "BW2") && hasExportBase;
   if (nextRoute === "flagReference") return project.session.baseRom === "BW" || project.session.baseRom === "BW2";
   if (nextRoute === "systemShops") return project.session.baseRom === "BW2" && hasExportBase;
+  if (nextRoute === "bpShops") return hasExportBase && isGen5Project(project);
+  if (nextRoute === "joinAvenueShops") return hasExportBase && project.session.baseRom === "BW2";
+  if (nextRoute === "blackCityMarket") return hasExportBase && project.session.baseVersion === "B";
   if (nextRoute === "uiScreens") return canUseAiFeatures() && project.session.baseRom === "BW2" && hasExportBase;
   if (nextRoute === "customUi") return false;
   if (nextRoute === "titleScreen") return project.session.baseRom === "BW2" && hasExportBase;

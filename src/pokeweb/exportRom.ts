@@ -1,4 +1,5 @@
 import { materializeTrainerRosters } from "./trainerRosterModel";
+import { loadTrainerClassBattleMusic } from "./trainerClassBattleMusic";
 import { materializeCGearButtonSource } from "./cgearButtonsModel";
 import { materializeSystemShopSource } from "./systemShopsModel";
 import { materializeCustomUiSource } from "./customUiModel";
@@ -76,6 +77,7 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
   if (fiveBox && options.forDsi === true) throw Error("Five-Box Mode requires a DS-mode export.");
   const forDsi = fiveBox ? false : options.forDsi;
   if (options.frostCompatibility) assertFrostPmcRuntimeCopiesAgree(rom);
+  loadTrainerClassBattleMusic(project, rom);
   hydrateKoMoveLearnsetFromRom(project, rom);
   const repairedLegacyPmcRootFnt = repairLegacyPmcRootFnt(project, rom);
   materializeProjectEdits(project);

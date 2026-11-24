@@ -1,6 +1,12 @@
 import { readU32, writeU32 } from "../nds/binary";
 import { recordFieldChange } from "./actionChangelog";
 import type { BaseVersion } from "./constants";
+import {
+  patchPledgeTutorMoves,
+  PLEDGE_TUTOR_PICKER_OVERLAY_ID,
+  readPledgeTutorMoves,
+  STOCK_PLEDGE_MOVES,
+} from "./pledgeTutorPatch";
 import { markDirty, type NarcStore, type ProjectState } from "./projectStore";
 
 export const BW2_TUTOR_MOVE_OVERLAY_ID = 36;
@@ -35,6 +41,16 @@ export type TutorMoveRow = {
   shardCost: number;
   displayIndex: number;
 };
+
+export type PledgeTutorMoveRow = Pick<TutorMoveRow, "rowIndex" | "groupLabel" | "groupOffset" | "moveId" | "moveName"> & {
+  group: "pledge";
+  groupField: "tutors";
+  slot: string;
+};
+
+export type TutorEditorRow = TutorMoveRow | PledgeTutorMoveRow;
+
+const PLEDGE_SLOTS = ["Grass", "Fire", "Water"] as const;
 
 export type TutorCompatibilityMove = {
   moveName: string;
@@ -110,6 +126,39 @@ export function getTutorMoveRows(project: ProjectState): TutorMoveRow[] {
   return Array.from({ length: BW2_TUTOR_MOVE_ROW_COUNT }, (_unused, rowIndex) => tutorMoveRow(project, bytes, rowIndex));
 }
 
+export function getPledgeTutorMoveRows(project: ProjectState): PledgeTutorMoveRow[] | undefined {
+  if (project.session.baseRom !== "BW2") return undefined;
+  const moves = readPledgeTutorMoves(project.overlays[BW2_TUTOR_MOVE_OVERLAY_ID], project.overlays[PLEDGE_TUTOR_PICKER_OVERLAY_ID]);
+  return moves?.map((moveId, slot) => pledgeTutorMoveRow(project, slot, moveId));
+}
+
+export function updatePledgeTutorMove(project: ProjectState, slot: number, inputValue: string | number): PledgeTutorMoveRow {
+  if (project.session.baseRom !== "BW2") throw new Error("The Pledge tutor is available in Black 2 and White 2.");
+  if (!Number.isInteger(slot) || slot < 0 || slot >= PLEDGE_SLOTS.length) throw new Error(`Invalid Pledge tutor slot: ${slot}`);
+  const field = project.overlays[BW2_TUTOR_MOVE_OVERLAY_ID];
+  const picker = project.overlays[PLEDGE_TUTOR_PICKER_OVERLAY_ID];
+  const current = readPledgeTutorMoves(field, picker);
+  if (!field || !picker || !current) throw new Error("The Pledge tutor code in overlays 36 and 165 is unsupported or out of sync.");
+  const input = String(inputValue).trim();
+  if (!input) throw new Error("Choose a move for the Pledge tutor.");
+  const moveId = parseMoveId(project, input);
+  if (moveId === 0) throw new Error("Choose a move for the Pledge tutor.");
+  const after = pledgeTutorMoveRow(project, slot, moveId);
+  if (current[slot] === moveId) return after;
+
+  const moves: [number, number, number] = [...current];
+  moves[slot] = moveId;
+  const next = patchPledgeTutorMoves(field, picker, moves);
+  project.overlays[BW2_TUTOR_MOVE_OVERLAY_ID] = next.field;
+  project.overlays[PLEDGE_TUTOR_PICKER_OVERLAY_ID] = next.picker;
+  const patches = project.patches ??= { dirtyOverlayIds: [] };
+  patches.dirtyOverlayIds = [...new Set([...patches.dirtyOverlayIds, BW2_TUTOR_MOVE_OVERLAY_ID, PLEDGE_TUTOR_PICKER_OVERLAY_ID])];
+  recordFieldChange(project, "tutor_moves", `Pledge Tutor (${after.slot})`, "Move", moveName(project, current[slot]), after.moveName, {
+    key: `pledge-tutor:${slot}`,
+  });
+  return after;
+}
+
 export function updateTutorMoveField(project: ProjectState, rowIndex: number, field: TutorMoveField, inputValue: string | number): TutorMoveRow {
   validateRowIndex(rowIndex);
   const store = ensureTutorMoveStore(project);
@@ -150,8 +199,12 @@ export function updateTutorMoveField(project: ProjectState, rowIndex: number, fi
 export function getTutorMoveCompatibilityGroups(project: ProjectState): TutorCompatibilityGroupDefinition[] {
   if (project.session.baseRom !== "BW2") return [];
   const rows = tryGetTutorMoveRows(project);
+  const pledges = getPledgeTutorMoveRows(project);
   return [
-    SPECIAL_TUTOR_GROUP,
+    {
+      ...SPECIAL_TUTOR_GROUP,
+      moves: SPECIAL_TUTOR_GROUP.moves.map((move, index) => ({ ...move, moveName: pledges?.[index]?.moveName ?? move.moveName })),
+    },
     ...TUTOR_MOVE_GROUPS.map((group) => ({
       key: group.key,
       label: group.label,
@@ -162,14 +215,29 @@ export function getTutorMoveCompatibilityGroups(project: ProjectState): TutorCom
   ];
 }
 
-export function tutorMoveMatchesSearch(row: TutorMoveRow, searchText: string): boolean {
+export function tutorMoveMatchesSearch(row: TutorEditorRow, searchText: string): boolean {
   const terms = searchText
     .split(",")
     .map((term) => term.trim().toLowerCase())
     .filter(Boolean);
   if (terms.length === 0) return true;
-  const haystack = `${row.rowIndex} ${row.groupLabel} ${row.groupOffset + 1} ${row.moveId} ${row.moveName} ${row.shardCost} ${row.displayIndex}`.toLowerCase();
+  const slot = row.group === "pledge" ? row.slot : row.groupOffset + 1;
+  const shardFields = row.group === "pledge" ? "" : `${row.shardCost} ${row.displayIndex}`;
+  const haystack = `${row.rowIndex} ${row.groupLabel} ${slot} ${row.moveId} ${row.moveName} ${shardFields}`.toLowerCase();
   return terms.some((term) => haystack.includes(term));
+}
+
+function pledgeTutorMoveRow(project: ProjectState, slot: number, moveId: number): PledgeTutorMoveRow {
+  return {
+    rowIndex: BW2_TUTOR_MOVE_ROW_COUNT + slot,
+    group: "pledge",
+    groupLabel: "Pledge Tutor",
+    groupField: "tutors",
+    groupOffset: slot,
+    slot: PLEDGE_SLOTS[slot],
+    moveId,
+    moveName: project.texts.banks.moves?.[moveId] ?? (moveId === STOCK_PLEDGE_MOVES[slot] ? `${PLEDGE_SLOTS[slot]} Pledge` : `Move ${moveId}`),
+  };
 }
 
 function tryGetTutorMoveRows(project: ProjectState): TutorMoveRow[] | undefined {

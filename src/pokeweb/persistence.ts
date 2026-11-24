@@ -18,6 +18,7 @@ import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { ensureMoveEffectHandlerStore, moveEffectHandlerOverlayId, moveEffectHandlerTableOffset, moveEffectHandlerTableLayout } from "./moveEffectHandlerModel";
 import { BW2_TUTOR_MOVE_OVERLAY_ID, BW2_TUTOR_MOVE_TABLE_LENGTH, tutorMoveTableOffset } from "./tutorMoveModel";
+import { PLEDGE_TUTOR_PICKER_OVERLAY_ID } from "./pledgeTutorPatch";
 import { hydrateMastersheetFromRom } from "./mastersheetRomFile";
 import { hydratePwanAnimationsFromRom } from "./pwanAnimationModel";
 import { hydrateW2AnimFromRom } from "./w2animAnimationModel";
@@ -378,7 +379,9 @@ async function hydratePersistedProject(project: ProjectState, availableSource?: 
   const moveEffectOverlayId = moveEffectHandlerOverlayId(project);
   const chartOverlayId = typeChartOverlayId(project);
   if (project.narcs.grotto_odds || project.overlays[36]?.length === 0) overlayIds.push(36);
-  if (project.narcs.tutor_moves || project.overlays[BW2_TUTOR_MOVE_OVERLAY_ID]?.length === 0) overlayIds.push(BW2_TUTOR_MOVE_OVERLAY_ID);
+  if (project.session.baseRom === "BW2" && (project.narcs.tutor_moves || project.narcs.grotto_odds || project.overlays[BW2_TUTOR_MOVE_OVERLAY_ID])) {
+    overlayIds.push(BW2_TUTOR_MOVE_OVERLAY_ID, PLEDGE_TUTOR_PICKER_OVERLAY_ID);
+  }
   if (project.narcs.move_effects_table || project.overlays[moveEffectOverlayId]?.length === 0) overlayIds.push(moveEffectOverlayId);
   if ((project.narcs.type_chart && !isRomFsTypeChartStore(project.narcs.type_chart)) || project.overlays[chartOverlayId]?.length === 0) overlayIds.push(chartOverlayId);
   for (const overlayId of project.patches?.dirtyOverlayIds ?? []) {

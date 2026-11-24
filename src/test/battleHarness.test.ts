@@ -48,7 +48,13 @@ describe("automatic battle harness", () => {
     expect(receipt.dllSha256).toBe(hash(template));
     expect(parseRpm(template, { allowedMagics: ["DLXF"] }).relocations.filter(r => r.target.module !== "base")).toEqual([expect.objectContaining({ target: { module: "167", address: 0x021ce9e4, type: "THUMB_BRANCH_LINK" } }), expect.objectContaining({ target: { module: "12", address: 0x0215a790, type: "FULL_COPY" } })]);
     for (const [name, expected] of Object.entries(receipt.sources)) expect(hash(readFileSync(new URL(`../../runtime/battle-harness/${name}`, import.meta.url)))).toBe(expected);
-    expect(receipt.verification).toMatchObject({ cpuChecks: 1400, fixedPayloadBytes: 780, temporaryEventBytes: 68, bootPath: "direct-save-to-battle", openingPresentation: "direct-placement" });
+    expect(receipt.verification).toMatchObject({ cpuChecks: 1400, fixedPayloadBytes: 788, temporaryEventBytes: 68, bootPath: "direct-save-to-battle", openingPresentation: "direct-placement" });
+  });
+  it("sets a battle theme independently of the selected battle rule", () => {
+    const configured = parseRpm(configureHarnessRuntime(template, 123, 2, 1262), { allowedMagics: ["DLXF"] });
+    const config = configured.symbols.find(symbol => symbol.nameHash === 0xc3592c1b)!;
+    expect(readU16(configured.code, config.address + 8)).toBe(2);
+    expect(readU16(configured.code, config.address + 10)).toBe(1262);
   });
   it.each([[123, 1], [456, 2], [65535, 3], [0, 0]])("configures trainer %i / rule %i without changing executable bytes or relocations", (trainer, rule) => {
     const before = parseRpm(template, { allowedMagics: ["DLXF"] });

@@ -108,17 +108,19 @@ export function validateHarnessRom(rom: NintendoDSRom, edits?: Pick<ProjectState
 }
 
 /** Configure the shipped template without a compiler or changes to its hooks. */
-export function configureHarnessRuntime(bytes: Uint8Array, trainerId: number, rule: number): Uint8Array {
+export function configureHarnessRuntime(bytes: Uint8Array, trainerId: number, rule: number, music = 0): Uint8Array {
   harnessInteger(trainerId, 0, 65535, "trainerId"); // Zero disables an imported test trigger for overworld launch.
   harnessInteger(rule, 0, 3, "battle type");
+  harnessInteger(music, 0, 0xfffe, "battle music");
   const rpm = parseRpm(bytes, { allowedMagics: ["DLXF"] });
   const config = rpm.symbols.find(symbol => symbol.nameHash === 0xc3592c1b);
-  if (rpm.metadata.PMCGameID !== "W2" || rpm.metadata.PMCVersion !== "battle-harness-5"
+  if (rpm.metadata.PMCGameID !== "W2" || rpm.metadata.PMCVersion !== "battle-harness-6"
     || !config || config.size !== 16 || config.address + config.size > rpm.code.length) throw new Error("Incompatible battle harness template");
   const at = config.address;
-  if (readU32(rpm.code, at) !== 0x32484250 || readU16(rpm.code, at + 4) !== 5 || readU32(rpm.code, at + 12) !== 0x57483242) throw new Error("Battle harness configuration integrity check failed");
+  if (readU32(rpm.code, at) !== 0x32484250 || readU16(rpm.code, at + 4) !== 6 || readU32(rpm.code, at + 12) !== 0x57483242) throw new Error("Battle harness configuration integrity check failed");
   writeU16(rpm.code, at + 6, trainerId);
-  writeU32(rpm.code, at + 8, rule);
+  writeU16(rpm.code, at + 8, rule);
+  writeU16(rpm.code, at + 10, music);
   return writeRpm(rpm, { ident: "DLXF" });
 }
 

@@ -6,6 +6,7 @@ import { NintendoDSRom } from "../nds/rom";
 import { makePaddedRom } from "./fixtures/projectRom";
 import { exportModifiedRom } from "../pokeweb/exportRom";
 import { loadProjectFromRomBytes } from "../pokeweb/loader";
+import { getTrainerRecord } from "../pokeweb/trainerModel";
 import { activeRomMatchesProject, loadActiveProject, loadActiveRomBytes, loadActiveRomMetadata, reconnectActiveRom, saveActiveProject, saveActiveRomBytes } from "../pokeweb/persistence";
 import { BW2_TYPE_CHART_OVERLAY_ID, TYPE_CHART_OFFSET, TYPE_CHART_VANILLA_TYPE_COUNT, getTypeChartTypes, updateTypeChartValue } from "../pokeweb/typeChartModel";
 
@@ -42,6 +43,32 @@ afterEach(() => {
 });
 
 describe("ROM import and persistence without rebuilding", () => {
+  it("restores missing party entries for trailing empty trainer records", async () => {
+    const rom = new NintendoDSRom(makePaddedRom("IREO"));
+    const metadata = new NARC();
+    metadata.files = Array.from({ length: 4 }, () => new Uint8Array(20));
+    metadata.files[1][3] = 1;
+    const parties = new NARC();
+    const existingParty = Uint8Array.of(0, 0, 5, 0, 1, 0, 0, 0);
+    parties.files = [new Uint8Array(), existingParty];
+    const source = rom.save({ addedFiles: [
+      { path: "a/0/9/1", bytes: metadata.save() },
+      { path: "a/0/9/2", bytes: parties.save() },
+    ] });
+
+    const project = await loadProjectFromRomBytes(source, "legacy.nds");
+    expect(getTrainerRecord(project, 1, { includeTexts: false }).party[0]).toMatchObject({ speciesId: 1, level: 5 });
+    expect(getTrainerRecord(project, 3, { includeTexts: false }).party).toEqual([]);
+
+    await saveActiveProject(project);
+    const restored = (await loadActiveProject())!;
+    expect(getTrainerRecord(restored, 3, { includeTexts: false }).party).toEqual([]);
+    const exported = new NintendoDSRom(await exportModifiedRom(restored), { fileData: "view" });
+    expect(new NARC(exported.getFileByName("a/0/9/2")).files).toEqual([
+      new Uint8Array(), existingParty, new Uint8Array(), new Uint8Array(),
+    ]);
+  });
+
   it("round-trips a 17-type battle chart when legacy move data uses the Fairy type ID", async () => {
     const rom = new NintendoDSRom(makePaddedRom("IREO"));
     const chartLength = TYPE_CHART_VANILLA_TYPE_COUNT ** 2;

@@ -4,6 +4,41 @@
   grid-template-columns: 320px minmax(0, 1fr);
 }
 
+.vendor-data .md-detail {
+  grid-column: 1 / -1;
+}
+
+.vendor-data .mt-card {
+  max-width: 960px;
+}
+
+.vendor-data .vendor-toolbar {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 0;
+}
+
+.vendor-data .section-bar {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.vendor-data .vendor-toolbar label {
+  display: grid;
+  gap: 4px;
+}
+
+.vendor-data .vendor-form input[type="number"] {
+  width: 105px;
+}
+
+.vendor-data .mt-actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
 #item-data .md-filters > select {
   width: 100%;
 }

@@ -106,6 +106,10 @@ There are three stat effect rows. Each row has:
 | Give a move a new animation | Set Animation ID or open [Move Animation Editor](Move-Animation-Editor). |
 | Make a move usable as a TM | Edit [TMs](TMs), then update compatibility in Pokemon. |
 
+## Pledge Tutor
+
+In **Moves → Tutors**, edit the Grass, Fire, and Water slots under **Pledge Tutor**. Each slot keeps its existing species and form compatibility, which you can edit from the row’s **Pokemon** button. ROM export updates the move lookup and the party picker together on supported US Black 2 and White 2 overlays. The picker follows the original tutor rule and marks a Pokémon as already knowing a move if it knows any of the three configured moves.
+
 ## Caveats
 
 Move data and battle code work together. Some effects require the right effect ID, result effect, flags, and code handler. If a custom move looks correct in data but behaves wrong in battle, check [Move Effect Handlers](Move-Effect-Handlers).

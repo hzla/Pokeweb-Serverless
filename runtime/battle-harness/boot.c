@@ -5,9 +5,10 @@
 typedef struct {
  uint32_t magic;
  uint16_t version, trainer;
- uint32_t rule, marker;
+ uint16_t rule, music;
+ uint32_t marker;
 } HarnessConfig;
-API const volatile HarnessConfig BattleHarnessConfig={0x32484250,5,TRAINER_ID,BATTLE_RULE,0x57483242};
+API const volatile HarnessConfig BattleHarnessConfig={0x32484250,6,TRAINER_ID,BATTLE_RULE,0,0x57483242};
 /* Bit zero is the boot latch; bit one arms only the first battle opening. */
 static unsigned launched;
 typedef struct {
@@ -52,7 +53,8 @@ API int BattleHarnessEvent(void *event,int *sequence,BootWork *work) {
    (work->battle,work->data,&situation,BattleHarnessConfig.trainer,4);
   CALL(0x020185d1,void(*)(void*,void*,unsigned))(work->battle,work->data,situation.zone);
   unsigned group=CALL(0x020307f1,unsigned(*)(unsigned))(cls);
-  uint16_t music=group<14?trainerMusic[group]:1130;
+  uint16_t music=BattleHarnessConfig.music;
+  if(!music)music=group<14?trainerMusic[group]:1130;
   *(uint16_t*)((uint8_t*)work->battle+0x18)=music;
   CALL(0x02019371,void(*)(void*,unsigned))(
    CALL(0x020175b5,void*(*)(void*))(work->data),1);

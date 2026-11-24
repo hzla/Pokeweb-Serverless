@@ -3,6 +3,7 @@ import { hydrateItemExpansionFromRom } from "./itemExpansionModel";
 import { hydrateMoveEffectsSource } from "./moveEffectsModel";
 import { hydrateAbilityEffectsSource } from "./abilityEffectsModel";
 import { hydrateTrainerRosters } from "./trainerRosterModel";
+import { loadTrainerClassBattleMusic } from "./trainerClassBattleMusic";
 import { hydrateTrainerCustomizationSources } from "./trainerCustomizationModel";
 import { hydrateTrainerFieldConditionsSources } from "./trainerFieldConditionsModel";
 import { hydrateTrainerLevelCapsSources } from "./trainerLevelCapsModel";
@@ -67,6 +68,7 @@ import {
 } from "./typeChartModel";
 import { parseTms } from "./tmModel";
 import { BW2_TUTOR_MOVE_OVERLAY_ID, createTutorMoveStore } from "./tutorMoveModel";
+import { PLEDGE_TUTOR_PICKER_OVERLAY_ID } from "./pledgeTutorPatch";
 
 export type LoadOptions = {
   fairy?: boolean;
@@ -200,10 +202,11 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
   extractNarcSet(rom, project, editNarcs);
   normalizeEncounterFormReferences(project);
 
-  if (selectedNarcs.size === 0 || selectedNarcs.has("grottos") || selectedNarcs.has("moves") || selectedNarcs.has("items") || selectedNarcs.has("personal") || selectedNarcs.has("starter_sprites") || (project.session.baseRom === "BW2" && selectedNarcs.has("scripts"))) {
+  if (selectedNarcs.size === 0 || selectedNarcs.has("grottos") || selectedNarcs.has("moves") || selectedNarcs.has("items") || selectedNarcs.has("personal") || selectedNarcs.has("starter_sprites") || (project.session.baseRom === "BW2" && (selectedNarcs.has("scripts") || selectedNarcs.has("tutor_moves")))) {
     await reportLoadProgress(onProgress, "Extracting overlays");
     extractOverlays(rom, project, selectedNarcs);
   }
+  loadTrainerClassBattleMusic(project, rom);
 
   await reportLoadProgress(onProgress, "Indexing trainer metadata");
   indexTrpokInfo(project);
@@ -341,7 +344,8 @@ function extractOverlays(rom: NintendoDSRom, project: ProjectState, selectedNarc
   const includeStarters = includeAll || selectedNarcs.has("starter_sprites");
   const moveEffectOverlayId = moveEffectHandlerOverlayId(project);
   const ids = [
-    ...(project.session.baseRom === "BW2" ? [includeGrottos || includeTutorMoves ? BW2_TUTOR_MOVE_OVERLAY_ID : undefined] : []),
+    ...(project.session.baseRom === "BW2" && (includeGrottos || includeTutorMoves)
+      ? [BW2_TUTOR_MOVE_OVERLAY_ID, PLEDGE_TUTOR_PICKER_OVERLAY_ID] : []),
     includeMoves ? moveEffectOverlayId : undefined,
     includeItemEffects ? project.session.baseRom==="BW"?93:167 : undefined,
     project.session.baseRom === "BW" && (includeAll || selectedNarcs.has("personal")) ? 93 : undefined,

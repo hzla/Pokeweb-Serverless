@@ -24,7 +24,7 @@ def build(trainer, rule, output):
     run(tools / 'arm-none-eabi-as', '-mthumb', '-march=armv5t', HERE / 'boot.s', '-o', output / 'hooks.o')
     run(tools / 'arm-none-eabi-ld', '-r', output / 'boot.o', output / 'hooks.o', '-o', output / 'boot.elf')
     meta = output / 'metadata.yml'
-    meta.write_text('PMCGameID: W2\nPMCModulePriority: 3\nPMCVersion: battle-harness-5\n')
+    meta.write_text('PMCGameID: W2\nPMCModulePriority: 3\nPMCVersion: battle-harness-6\n')
     dll = output / 'BattleHarnessW2.dll'
     dll.unlink(missing_ok=True)
     run('java', '-cp', jar, 'rpm.cli.RPMTool', '-i', output / 'boot.elf', '--fourcc', 'DLXF',
@@ -47,7 +47,7 @@ if __name__ == '__main__':
     if args.bundle:
         destination = HERE.parents[1] / 'src/assets/testbattle'
         shutil.copyfile(dll, destination / dll.name)
-        receipt = {'version': 5, 'dllSha256': hashlib.sha256(dll.read_bytes()).hexdigest(),
+        receipt = {'version': 6, 'dllSha256': hashlib.sha256(dll.read_bytes()).hexdigest(),
                    'sources': {name: hashlib.sha256((HERE / name).read_bytes()).hexdigest() for name in ('boot.c', 'boot.s', 'symbols.yml', 'build.py', 'test.py')},
                    'verification': json.loads((args.out / 'verification.json').read_text())}
         (destination / 'BattleHarnessW2.json').write_text(json.dumps(receipt, indent=2) + '\n')

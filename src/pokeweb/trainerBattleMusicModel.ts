@@ -6,6 +6,10 @@ import type { NitroSdat } from "./nitroSound";
 import { loadNitroSdatFromProject } from "./nitroSound";
 import { loadActiveRomBytes } from "./persistence";
 import type { ProjectState } from "./projectStore";
+import {
+  loadTrainerClassBattleMusic, stageTrainerClassBattleMusic, trainerClassBattleTrack,
+  TRAINER_CLASS_MUSIC_DEFAULT, type TrainerClassBattleMusic,
+} from "./trainerClassBattleMusic";
 import { displayNameForTrainerMusicSymbol, trainerMusicSequenceLabel } from "./trainerMusicModel";
 
 const BW_BATTLE_EFFECT_SIGNATURE = [
@@ -136,6 +140,8 @@ export type TrainerBattleTheme = {
 export type TrainerBattleMusicAssignment = {
   key: string;
   groupIndex?: number;
+  trainerClassId?: number;
+  usesGroup?: boolean;
   name: string;
   scope: string;
   currentSequenceId?: number;
@@ -168,13 +174,18 @@ export type TrainerBattleMusicModel = {
   overlay?: TrainerBattleMusicOverlay;
   location?: TrainerBattleMusicLocation;
   assignmentError?: string;
+  classMusic?: TrainerClassBattleMusic;
 };
 
 export async function loadTrainerBattleMusicModel(project: ProjectState, sdat?: NitroSdat): Promise<TrainerBattleMusicModel> {
   const loadedSdat = sdat ?? (await loadNitroSdatFromProject(project));
   try {
-    const overlay = await loadTrainerBattleMusicOverlay(project);
-    return createTrainerBattleMusicModel(project, loadedSdat, overlay);
+    const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
+    if (!romBytes) throw new Error("Original ROM bytes are not available; reload the ROM before editing trainer battle music.");
+    const rom = new NintendoDSRom(romBytes, { fileData: "view" });
+    const classMusic = loadTrainerClassBattleMusic(project, rom);
+    const overlay = loadTrainerBattleMusicOverlay(project, rom);
+    return createTrainerBattleMusicModel(project, loadedSdat, overlay, undefined, classMusic);
   } catch (error) {
     return createTrainerBattleMusicModel(
       project,
@@ -190,28 +201,30 @@ export function createTrainerBattleMusicModel(
   sdat: NitroSdat,
   overlay?: TrainerBattleMusicOverlay,
   overlayError?: string,
+  classMusic?: TrainerClassBattleMusic,
 ): TrainerBattleMusicModel {
   if (!isGen5Project(project)) throw new Error("Trainer battle music currently supports Pokémon Black, White, Black 2, and White 2 only.");
   const themes = buildTrainerBattleThemes(project, sdat);
   let location: TrainerBattleMusicLocation | undefined;
   let assignmentError = overlayError;
-  if (overlay) {
+  if (overlay && !classMusic?.installed) {
     try {
       location = locateTrainerBattleMusicTable(project, overlay);
     } catch (error) {
       assignmentError = error instanceof Error ? error.message : String(error);
     }
-  } else if (!assignmentError) {
+  } else if (!overlay && !assignmentError) {
     assignmentError = "The field battle overlay is not loaded. Reassignment is disabled to protect the ROM.";
   }
   return {
     project,
     sdat,
     themes,
-    assignments: buildTrainerBattleMusicAssignments(project, overlay, location, assignmentError),
+    assignments: classMusic ? classBattleAssignments(project, classMusic) : buildTrainerBattleMusicAssignments(project, overlay, location, assignmentError),
     overlay,
     location,
     assignmentError,
+    classMusic,
   };
 }
 
@@ -274,7 +287,13 @@ export function assignTrainerBattleTheme(
   sequenceId: number,
 ): void {
   const theme = model.themes.find((candidate) => candidate.sequenceId === sequenceId);
-  if (!theme) throw new Error(`Sequence ${sequenceId} is not an assignable battle theme for this game.`);
+  if (!theme && !(assignment.trainerClassId !== undefined && sequenceId === TRAINER_CLASS_MUSIC_DEFAULT)) {
+    throw new Error(`Sequence ${sequenceId} is not an assignable battle theme for this game.`);
+  }
+  if (model.classMusic) {
+    assignClassBattleTheme(project, model, model.classMusic, assignment, sequenceId);
+    return;
+  }
   if (!assignment.editable || assignment.writeOffset === undefined || !model.overlay || !model.location) {
     throw new Error(assignment.readOnlyReason || `${assignment.name} is read-only.`);
   }
@@ -296,9 +315,51 @@ export function assignTrainerBattleTheme(
     assignment.name,
     "Battle theme",
     trainerBattleMusicTrackLabel(model, beforeId),
-    theme.displayName,
+    trainerBattleMusicTrackLabel(model, sequenceId),
     { key: `trainer-battle-music:${assignment.key}` },
   );
+}
+
+function classBattleAssignments(project: ProjectState, state: TrainerClassBattleMusic): TrainerBattleMusicAssignment[] {
+  const groups = BATTLE_LAYOUTS[project.session.baseVersion as Gen5Version].groups;
+  const classes = state.overrides.map((sequence, trainerClassId): TrainerBattleMusicAssignment => {
+    const group = state.classGroups[trainerClassId];
+    const usesGroup = sequence === TRAINER_CLASS_MUSIC_DEFAULT;
+    return {
+      key: `class-${trainerClassId}`, trainerClassId, usesGroup, name: project.texts.banks.tr_classes?.[trainerClassId] || `Trainer Class ${trainerClassId}`,
+      scope: groups[group]?.name ?? "Other trainers", currentSequenceId: trainerClassBattleTrack(state, trainerClassId), editable: true, fallback: false,
+    };
+  });
+  const groupRows = groups.map((group, groupIndex): TrainerBattleMusicAssignment => ({
+    ...group, groupIndex, currentSequenceId: state.groups[groupIndex], editable: true, fallback: false,
+  }));
+  return [...classes, ...groupRows, {
+    key: "normal-fallback", name: "Other trainers (fallback)", scope: "Classes without a dedicated battle-intro group",
+    currentSequenceId: state.groups[groups.length], editable: true, fallback: true,
+  }];
+}
+
+function assignClassBattleTheme(project: ProjectState, model: TrainerBattleMusicModel, state: TrainerClassBattleMusic,
+  assignment: TrainerBattleMusicAssignment, sequenceId: number): void {
+  const cls = assignment.trainerClassId;
+  const group = assignment.groupIndex ?? state.groups.length - 1;
+  const list = cls === undefined ? state.groups : state.overrides;
+  const index = cls ?? group;
+  if (list[index] === sequenceId) return;
+  const before = assignment.currentSequenceId;
+  const previous = list[index];
+  list[index] = sequenceId;
+  try {
+    stageTrainerClassBattleMusic(project, state);
+  } catch (error) {
+    list[index] = previous;
+    throw error;
+  }
+  if (model.overlay) model.overlay.data = state.overlay;
+  model.assignments = classBattleAssignments(project, state);
+  const after = model.assignments.find(row => row.key === assignment.key)?.currentSequenceId;
+  recordFieldChange(project, "trainer_music", assignment.name, "Battle theme", trainerBattleMusicTrackLabel(model, before),
+    trainerBattleMusicTrackLabel(model, after), { key: `trainer-battle-music:${assignment.key}` });
 }
 
 export function trainerBattleMusicTrackLabel(model: TrainerBattleMusicModel, sequenceId: number | undefined): string {
@@ -308,12 +369,9 @@ export function trainerBattleMusicTrackLabel(model: TrainerBattleMusicModel, seq
   return `${trainerMusicSequenceLabel(model.sdat, sequenceId)} (unsupported)`;
 }
 
-async function loadTrainerBattleMusicOverlay(project: ProjectState): Promise<TrainerBattleMusicOverlay> {
+function loadTrainerBattleMusicOverlay(project: ProjectState, rom: NintendoDSRom): TrainerBattleMusicOverlay {
   const version = project.session.baseVersion as Gen5Version;
   const overlayId = BATTLE_LAYOUTS[version].overlayId;
-  const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
-  if (!romBytes) throw new Error("Original ROM bytes are not available; reload the ROM before editing trainer battle music.");
-  const rom = new NintendoDSRom(romBytes, { fileData: "view" });
   const original = rom.loadArm9Overlays([overlayId]).get(overlayId);
   if (!original) throw new Error(`Could not load trainer battle-music overlay ${overlayId} from the ROM.`);
   const current = project.overlays[overlayId];

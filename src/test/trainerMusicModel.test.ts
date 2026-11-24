@@ -4,10 +4,14 @@ import { unzipSync } from "fflate";
 import { describe, expect, it } from "vitest";
 import { readU16, writeU16, writeU32 } from "../nds/binary";
 import { decompressCode } from "../nds/codeCompression";
+import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import type { Gen5Version } from "../pokeweb/constants";
 import type { NitroSdat } from "../pokeweb/nitroSound";
 import type { ProjectState } from "../pokeweb/projectStore";
+import {
+  loadTrainerClassBattleMusic, TRAINER_CLASS_BATTLE_MUSIC_PATH, TRAINER_CLASS_MUSIC_DEFAULT,
+} from "../pokeweb/trainerClassBattleMusic";
 import { filterTrainerBattleMusicAssignments, filterTrainerMusicAssignments } from "../ui/trainerMusicEditor";
 import {
   assignTrainerBattleTheme,
@@ -25,6 +29,68 @@ import {
 } from "../pokeweb/trainerMusicModel";
 
 describe("trainerMusicModel", () => {
+  for (const fixture of [
+    { file: "cleanblack2.nds", version: "B2", table: 0x8e394, site: 0x46ba0, pool: 0x46c14, legacy: "1c498200895c21706af60cfb071c01986af6f6fa0e2f04d203b0" },
+    { file: "cleanwhite2.nds", version: "W2", table: 0x8e3c0, site: 0x46b98, pool: 0x46c0c, legacy: "1c498200895c21706af606fb071c01986af6f0fa0e2f04d203b0" },
+  ] as const) {
+    const url = new URL(`../../../${fixture.file}`, import.meta.url);
+    it.skipIf(!romFixtureExists(url))(`repairs legacy class music and round-trips assignments for ${fixture.version}`, () => {
+      const rom = new NintendoDSRom(readFileSync(url), { fileData: "view" });
+      const field = rom.loadArm9Overlays([36]).get(36)!;
+      const project = makeProject(fixture.version, 0);
+      project.romInfo.idCode = rom.idCode;
+      project.arm9 = decompressCode(rom.arm9);
+      const retailArm9 = project.arm9.slice();
+      const stock = loadTrainerClassBattleMusic(project, rom)!;
+      expect(stock.installed).toBe(false);
+      expect(stock.groups[14]).toBe(1130);
+      expect(stock.classGroups[112]).toBe(0);
+      expect(project.fileSystem).toBeUndefined();
+
+      const legacy = field.data.slice();
+      legacy.set(Uint8Array.from(fixture.legacy.match(/../gu)!, byte => parseInt(byte, 16)), fixture.site);
+      writeU16(legacy, fixture.pool - 8, 0x4804);
+      writeU32(legacy, fixture.pool, 0x02004000 + fixture.table + 1);
+
+      const genderOnlyRepair = { ...project, overlays: { 36: legacy } };
+      const defaults = loadTrainerClassBattleMusic(genderOnlyRepair, rom)!;
+      expect(defaults.overrides.every(sequence => sequence === TRAINER_CLASS_MUSIC_DEFAULT)).toBe(true);
+      const defaultsArchive = new NARC(genderOnlyRepair.fileSystem!.additions![TRAINER_CLASS_BATTLE_MUSIC_PATH]);
+      expect(readU16(defaultsArchive.files[49], 0)).toBe(1130);
+      expect(readU16(defaultsArchive.files[112], 0)).toBe(1132);
+
+      const customizedTracks = Array.from({ length: 236 }, (_, cls) => 0x046a + cls % 20);
+      customizedTracks.forEach((track, cls) => { project.arm9[fixture.table + cls * 4 + 1] = track & 0xff; });
+      project.overlays[36] = legacy;
+      const migrated = loadTrainerClassBattleMusic(project, rom)!;
+      expect(migrated.migrated).toBe(true);
+      expect(project.arm9).toEqual(retailArm9);
+      expect(project.arm9Dirty).toBe(true);
+      expect(project.patches?.dirtyOverlayIds).toEqual([36]);
+      const archive = () => new NARC(project.fileSystem!.additions![TRAINER_CLASS_BATTLE_MUSIC_PATH]);
+      expect(archive().files.slice(0, 236).map(track => readU16(track, 0))).toEqual(customizedTracks);
+
+      const model = createTrainerBattleMusicModel(project, makeSdat(true), {
+        overlayId: 36, ramAddress: field.ramAddress, data: migrated.overlay,
+      }, undefined, migrated);
+      const assignment = (key: string) => model.assignments.find(row => row.key === key)!;
+      expect(assignment("class-49").currentSequenceId).toBe(customizedTracks[49]);
+      assignTrainerBattleTheme(project, model, assignment("class-49"), 1262);
+      assignTrainerBattleTheme(project, model, assignment("class-50"), TRAINER_CLASS_MUSIC_DEFAULT);
+      assignTrainerBattleTheme(project, model, assignment("normal-fallback"), 1135);
+      expect(readU16(archive().files[49], 0)).toBe(1262);
+      expect(readU16(archive().files[50], 0)).toBe(1135);
+      expect(project.arm9).toEqual(retailArm9);
+
+      const restored = loadTrainerClassBattleMusic(project, rom)!;
+      expect(restored.installed).toBe(true);
+      expect(restored.migrated).toBeUndefined();
+      expect(restored.overrides[49]).toBe(1262);
+      expect(restored.overrides[50]).toBe(TRAINER_CLASS_MUSIC_DEFAULT);
+      expect(restored.groups[14]).toBe(1135);
+    });
+  }
+
   it("locates Black/White sparse tables after sequence reassignment and models fallback classes", () => {
     const project = makeProject("W", 0x800);
     writeBwTable(project.arm9, 0x100);

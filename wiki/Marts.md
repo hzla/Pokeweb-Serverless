@@ -40,9 +40,21 @@ Black and White keep their shop lists in overlay 21, so the page needs the ROM l
 
 Each list holds its retail number of items. **Expand inventories (PMC)** in the page header moves every list into a generated code injection module (`patches/PokewebMarts{B,W}.dll`, PMC is installed first if needed), after which every shop can hold up to 40 items. **Remove expansion** puts the lists back into the overlay once every shop fits its retail size again. Regular item prices come from the [Items](Items) editor.
 
+## Battle Point Shops
+
+Open **Items → Battle Point Shops** and choose **Items** or **TMs**. Edit the item and its price in BP, or add and remove offers within the current inventory capacity. In Black 2 and White 2, Battle Subway and the Pokémon World Tournament share the same stock and prices. The supported US BW2 layout holds up to 42 items and 18 TMs.
+
+## Join Avenue
+
+Open **Items → Join Avenue** in Black 2 or White 2. Choose a shop type, the shop owner’s game, and the shop rank. Each rank has up to 16 offers. Item offers have an item, quantity, and base price. Service offers use the game's service presets for that shop type and have an editable base price. Enter prices in multiples of 10 Poké Dollars. Edits apply to the selected stock list, and the game applies its normal discounts at checkout. Raffle prizes are drawn from a separate table.
+
+## Black City Market
+
+Open **Items → Black City Market** in Pokémon Black. Edit the item and price tied to each of the 30 resident records. Which offers are available in-game depends on the residents in the save.
+
 ## Caveats
 
-In BW2 the inventory count is synced from the number of non-None item slots, so leave unused slots as `None` instead of repeating filler items. In BW1, clearing a slot removes it and the items below move up. The Black City / White Forest resident shops are built from the save and are not listed.
+In BW2 the inventory count is synced from the number of non-None item slots, so leave unused slots as `None` instead of repeating filler items. In BW1, clearing a slot removes it and the items below move up.
 
 ## Related Pages
 

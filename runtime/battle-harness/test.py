@@ -37,8 +37,10 @@ def verify(dll, elf, trainer, rule):
         exports = module_exports(dll, base)
         config = exports[symbol_hash('BattleHarnessConfig')]
         callback = exports[symbol_hash('BattleHarnessEvent')]
-        assert struct.unpack('<IHHII', uc.mem_read(config, 16)) == (0x32484250, 5, trainer, rule, 0x57483242)
-        uc.mem_write(config + 6, struct.pack('<HI', tr, battle_rule))
+        assert struct.unpack('<IHHHHI', uc.mem_read(config, 16)) == (0x32484250, 6, trainer, rule, 0, 0x57483242)
+        music_override = 1260 if group in (0, 14) else 0
+        selected_music = music_override or (music_table[group] if group < 14 else 1130)
+        uc.mem_write(config + 6, struct.pack('<HHH', tr, battle_rule, music_override))
         install_hooks(uc, dll, base)
         game, init, data, event, work, bp = 0x02200000,0x02200100,0x02210000,0x02220000,0x02220100,0x02230000
         state = {'calls': [], 'freed': 0, 'busy': True}
@@ -103,7 +105,7 @@ def verify(dll, elf, trainer, rule):
             elif pc == 0x02019370: assert args[0] == data + 0x80 and args[1] in (0,1)
             elif pc in (0x02034ee8,0x02034f40): assert args[0] == data + 0x100
             elif pc == 0x0202fe7c:
-                assert args[:2] == [game, music_table[group] if group < 14 else 1130]
+                assert args[:2] == [game, selected_music]
                 result = 0x02222000
             elif pc == 0x02016d68: assert args[:2] in ([event,0x02222000],[event,0x02223000],[event,0x02221000])
             elif pc == 0x02016e38:
@@ -152,7 +154,7 @@ def verify(dll, elf, trainer, rule):
                 assert call(callback,[event,sequence,work]) == 0
                 pcs = [pc for pc,args in state['calls']]
                 if step < 4: assert not any(pc in (0x0203ce38,0x0217c980) for pc in pcs)
-                if step == 0: assert struct.unpack('<H',uc.mem_read(bp+0x18,2))[0] == (music_table[group] if group<14 else 1130)
+                if step == 0: assert struct.unpack('<H',uc.mem_read(bp+0x18,2))[0] == selected_music
                 if step == 1:
                     assert pcs == [0x02046e0c,0x02074900,0x02016e38]
                     assert struct.unpack('<I',uc.mem_read(0x04001000,4))[0] == 0x11713

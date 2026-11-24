@@ -1,4 +1,4 @@
-import type { NarcName } from "./constants";
+import { isGen5BaseRom, type NarcName } from "./constants";
 import { getNarcFormats } from "./formats";
 import type { NarcFormatMap } from "./formats";
 import type { HeaderCollection } from "./headerModel";
@@ -129,6 +129,8 @@ export function openProjectSession(document: ProjectDocument): ProjectSession {
 export function refreshProjectSessionIndexes(project: ProjectSession): void {
   refreshBwMoveNames(project);
   const trdata = project.narcs.trdata;
+  const trpok = project.narcs.trpok;
+  if (isGen5BaseRom(project.session.baseRom) && trdata && trpok) padEmptyTrainerPartyTail(trdata, trpok);
   project.trpokInfo = trdata?.rawFiles.map((bytes, id) => {
     const raw = trdata.records.get(id)?.raw;
     return { template: raw?.template ?? bytes[0] ?? 0, numPokemon: raw?.num_pokemon ?? bytes[3] ?? 0 };
@@ -137,3 +139,15 @@ export function refreshProjectSessionIndexes(project: ProjectSession): void {
     project.tms.readable[field] = project.texts.banks.moves?.[id] ?? `Move ${id}`;
 }
 
+function padEmptyTrainerPartyTail(trdata: NarcStore, trpok: NarcStore): void {
+  if (trdata.fileCount !== trdata.rawFiles.length || trpok.fileCount !== trpok.rawFiles.length ||
+      trpok.fileCount >= trdata.fileCount) return;
+  // Legacy exports can omit the party members for trailing, zeroed trainer records.
+  const missing = Array.from(trdata.rawFiles.slice(trpok.fileCount));
+  if (!missing.every(bytes => bytes && bytes.length >= 16 && bytes.every(value => value === 0))) return;
+  for (let id = trpok.fileCount; id < trdata.fileCount; id += 1) {
+    trpok.rawFiles.push(new Uint8Array());
+    trpok.dirty.add(id);
+  }
+  trpok.fileCount = trpok.rawFiles.length;
+}
