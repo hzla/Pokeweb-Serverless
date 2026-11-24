@@ -18,18 +18,73 @@ struct Session {
     u32 compact;
     u32 proxy[9];
     u8 hit[40];
+    void* hiddenPowerPokemon;
+    bool hiddenPowerRow;
+    bool rowPending;
 } session;
 bool evs() { return summaryStatConfiguration.version==1 && summaryStatConfiguration.size==20
     && summaryStatConfiguration.flags<=1 && summaryStatConfiguration.check==(summaryStatConfiguration.flags^0x53535631)
     && summaryStatConfiguration.flags==1; }
 bool eligible(void* work) { return work && !at<u32>(work,0x38) && at<u8>(at<void*>(work,8),0xd)!=2; }
 bool custom() { return session.work && session.actor && session.variant && eligible(session.work); }
+bool hiddenPowerPage(void* work) {
+    return session.work==work && at<u32>(work,0x58)==1 && custom();
+}
 void sequence(void* a,u32 n) { api<void(*)(void*,u32)>(0x204c4e4)(a,n); }
 void visible(void* a,bool on) { api<void(*)(void*,u32)>(0x204c150)(a,on); }
 void position(void* a,u16 x) { s16 xy[2]={static_cast<s16>(x),168}; api<void(*)(void*,const s16*)>(0x204c23c)(a,xy); }
 void proxy(void* a,u32 cgr) {
     api<void(*)(u32,void*)>(0x204bb84)(cgr,session.proxy);
     api<void(*)(void*,const void*)>(0x204c410)(a,session.proxy);
+}
+void hideMoveRow(void* slot) {
+    visible(at<void*>(slot,8),false);
+    visible(at<void*>(slot,12),false);
+    overlay<void(*)(void*,u32)>(0x21bab54)(at<void*>(slot,0x14),0);
+}
+void initMoveRow(void* work,void* skill,void* slot,bool hiddenPower) {
+    if (hiddenPower) session.hiddenPowerPokemon=overlay<void*(*)(void*)>(0x21b4ddc)(work);
+    overlay<void(*)(void*,void*,void*)>(0x21ba680)(work,skill,slot);
+    session.hiddenPowerPokemon=nullptr;
+    if (at<u8>(slot,0)==0) session.hiddenPowerRow=hiddenPower;
+    if (hiddenPowerPage(work)) hideMoveRow(slot);
+}
+void showMoveRow(void* work,void* skill,void* slot,bool restoreBitmap=false) {
+    const bool hiddenPower=hiddenPowerPage(work);
+    if (hiddenPower && at<u8>(slot,0)!=0) {
+        hideMoveRow(slot);
+        return;
+    }
+    if (hiddenPower) session.hiddenPowerPokemon=overlay<void*(*)(void*)>(0x21b4ddc)(work);
+    overlay<void(*)(void*,void*,void*)>(0x21ba814)(work,skill,slot);
+    session.hiddenPowerPokemon=nullptr;
+    if (hiddenPower || restoreBitmap) overlay<void(*)(void*,u32)>(0x21bab54)(at<void*>(slot,0x14),1);
+}
+void refreshMoveRows(void* queue) {
+    void* work=session.work;
+    if (!work || !session.actor || at<u32>(work,0x44)!=1 || at<u32>(work,0x58)!=1 || at<u32>(work,0xc)) return;
+    void* skill=at<void*>(work,0x90);
+    if (!skill || at<u32>(skill,0)!=1 || at<u8>(skill,0x2b)!=4) return;
+    const bool redraw=session.hiddenPowerRow!=hiddenPowerPage(work);
+    if ((!redraw && !session.rowPending) || !api<u32(*)(void*)>(0x2021c38)(queue)) return;
+    u8* first=static_cast<u8*>(skill)+0xb0;
+    if (redraw) {
+        // The print queue owns each bitmap until its pending jobs finish.
+        // Reuse the native first row's allocation budget and leave the other
+        // three rows ready for the regular Stats page.
+        for (u32 i=0;i<4;i++) hideMoveRow(first+i*0x18);
+        overlay<void(*)(void*,void*,void*)>(0x21ba898)(work,skill,first);
+        initMoveRow(work,skill,first,hiddenPowerPage(work));
+        hideMoveRow(first);
+        session.rowPending=true;
+        return;
+    }
+    for (u32 i=0;i<4;i++) {
+        void* slot=first+i*0x18;
+        at<u32>(slot,4)=1;
+        showMoveRow(work,skill,slot,true);
+    }
+    session.rowPending=false;
 }
 void footer() {
     void* w=session.work;
@@ -88,7 +143,7 @@ void change(void* w,u32 page,u32 variant,bool touch) {
     if (sameStats) {
         void* skill=at<void*>(w,0x90);
         // Clear only the six numeric CPU font buffers. Index 1 is the real
-        // HP bar; bottom move actors/windows and page ownership stay intact.
+        // HP bar. The move rows refresh when the print queue finishes.
         for (u32 i=0;i<7;i++) if (i!=1) {
             void* buffer=api<void*(*)(void*)>(0x2048520)(at<void*>(skill,0x5c+i*4));
             api<void(*)(void*,u32)>(0x2047168)(buffer,0);
@@ -107,6 +162,7 @@ void change(void* w,u32 page,u32 variant,bool touch) {
 }
 extern "C" int SummaryInit(void* w) {
     session.work=w;session.variant=0;session.actor=nullptr;session.unit=nullptr;
+    session.hiddenPowerPokemon=nullptr;session.hiddenPowerRow=false;session.rowPending=false;
     for (u32 i=0;i<3;i++) session.cgr[i]=0xffffffff;
     int result=overlay<int(*)(void*)>(0x21b2fc0)(w);
     if (result==1) attach(w);
@@ -119,7 +175,47 @@ extern "C" int SummaryEnd(void* w) {
 }
 extern "C" void SummaryTick(void* queue) {
     api<void(*)(void*)>(0x2021a68)(queue);
+    refreshMoveRows(queue);
     footer();
+}
+extern "C" void SummaryStatsSlotInit(void* work,void* skill,void* slot) {
+    const bool first=at<u8>(slot,0)==0;
+    if (first) session.rowPending=false;
+    initMoveRow(work,skill,slot,first && hiddenPowerPage(work));
+}
+extern "C" void SummaryStatsSlotShow(void* work,void* skill,void* slot) {
+    showMoveRow(work,skill,slot);
+}
+extern "C" u32 SummarySlotValue(void* pokemon,u32 field,void* out) {
+    if (session.hiddenPowerPokemon && session.hiddenPowerPokemon==pokemon) {
+        if (field==54) return 237; // Hidden Power, from the normal move-name bank.
+        if (field==58) return api<u32(*)(void*)>(0x201d87c)(pokemon);
+    }
+    return api<u32(*)(void*,u32,void*)>(0x201cdb4)(pokemon,field,out);
+}
+extern "C" u32 SummarySlotType(u32 move) {
+    if (session.hiddenPowerPokemon) return api<u32(*)(void*)>(0x201d7ec)(session.hiddenPowerPokemon);
+    return api<u32(*)(u32)>(0x202174c)(move);
+}
+extern "C" void SummarySlotLabel(void* work,void* bitmap,u32 id,u32 x,u32 y,u32 color) {
+    if (!session.hiddenPowerPokemon) {
+        overlay<void(*)(void*,void*,u32,u32,u32,u32)>(0x21b4ec4)(work,bitmap,id,x,y,color);
+    } else if (id==135) {
+        static const u16 bp[]={'B','P',0xffff};
+        void* text=api<void*(*)(u32,u32)>(0x204855c)(3,at<u16>(work,0));
+        if (!text) return;
+        api<void(*)(void*,const u16*)>(0x2048640)(text,bp);
+        api<void(*)(void*,void*,u32,u32,void*,void*,u32)>(0x2021ca8)(
+            at<void*>(work,0x84),bitmap,x,y,text,at<void*>(work,0x80),color);
+        api<void(*)(void*)>(0x2048590)(text);
+    }
+}
+extern "C" void SummarySlotPower(void* work,void* bmp,void* words,u32 id,u32 x,u32 y,u32 color) {
+    if (session.hiddenPowerPokemon) x=79;
+    overlay<void(*)(void*,void*,void*,u32,u32,u32,u32)>(0x21b5010)(work,bmp,words,id,x,y,color);
+}
+extern "C" void SummarySlotMax(void* work,void* bmp,void* words,u32 id,u32 x,u32 y,u32 color) {
+    if (!session.hiddenPowerPokemon) overlay<void(*)(void*,void*,void*,u32,u32,u32,u32)>(0x21b4f84)(work,bmp,words,id,x,y,color);
 }
 extern "C" int SummaryKeys(void* w) {
     u32 keys=api<u32(*)()>(0x203df70)();

@@ -18,6 +18,16 @@ def profile_digest(profile):
     return hashlib.sha256(json.dumps(native, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 
 
+def summary_profile(game, hidden_power):
+    directory = HERE / 'summary-stat-viewer'
+    profile = json.loads((directory / f'profile-{game}.json').read_text())
+    if hidden_power:
+        bindings = json.loads((directory / 'hidden-power-bw1.json').read_text())[game]
+        for section, entries in bindings.items():
+            profile[section].extend(entries)
+    return profile
+
+
 def ds_accepted(component, game, profile, artifacts, acceptance=None):
     """Changed bindings or artifacts require fresh acceptance; DSi is separate."""
     if acceptance is None:

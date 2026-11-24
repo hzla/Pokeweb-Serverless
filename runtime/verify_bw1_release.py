@@ -2,12 +2,12 @@
 import copy
 import json
 from pathlib import Path
-from bw1_release import ACCEPTANCE, ds_accepted
+from bw1_release import ACCEPTANCE, ds_accepted, summary_profile
 
 HERE = Path(__file__).resolve().parent
 ASSETS = HERE.parent / 'src/assets/codeinjection'
 COMPONENTS = {
-    'summary-stat-viewer': ('summaryStatViewerManifest.json', 'games', 'summary-stat-viewer/profile-{game}.json', ['SummaryStatViewer']),
+    'summary-stat-viewer': ('summaryStatViewerManifest.json', 'games', None, ['SummaryStatViewer']),
     'type-icons': ('battleTypeHudManifest.json', 'games', 'battle-type-hud/profile-TypeIcons-{game}.json', ['TypeIcons', 'TypeIconsCircular', 'TypeIconsSolid']),
     'move-effectiveness': ('battleTypeHudManifest.json', 'moveGames', 'battle-type-hud/profile-MoveEffectiveness-{game}.json', ['MoveEffectiveness']),
     'learnset-viewer': ('learnsetViewerManifest.json', 'games', 'learnset-viewer/profile-{game}.json', ['LearnsetMenu', 'LearnsetViewer']),
@@ -20,6 +20,8 @@ def inputs(component, game):
     shipped = json.loads((ASSETS / manifest_name).read_text())[key][game]
     profile = json.loads((HERE / profile_name.format(game=game)).read_text()) if profile_name else shipped
     if component == 'summary-stat-viewer':
+        has_hidden_power = any(s.get('label') == 'SummarySlotType' for s in shipped['signatures'])
+        profile = summary_profile(game, hidden_power=has_hidden_power)
         profile = {**profile, 'signatures': shipped['signatures'], 'resources': shipped['resources']}
     artifacts = {f'{prefix}{game}.dll': (ASSETS / f'{prefix}{game}.dll').read_bytes() for prefix in prefixes}
     if component == 'learnset-viewer' and shipped.get('threeCardArtworkSha256'):

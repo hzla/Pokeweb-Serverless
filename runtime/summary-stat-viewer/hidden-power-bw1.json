@@ -1,0 +1,272 @@
+{
+  "B": {
+    "apis": [
+      {
+        "reference": "0x2021c38",
+        "address": "0x201c6b5",
+        "anchor": null
+      },
+      {
+        "reference": "0x201cdb4",
+        "address": "0x2017e89",
+        "anchor": "0x21db7ee"
+      },
+      {
+        "reference": "0x202174c",
+        "address": "0x201c1c9",
+        "anchor": "0x21db992"
+      },
+      {
+        "reference": "0x201d7ec",
+        "address": "0x2018791",
+        "anchor": null
+      },
+      {
+        "reference": "0x201d87c",
+        "address": "0x2018821",
+        "anchor": null
+      },
+      {
+        "reference": "0x204855c",
+        "address": "0x20457b0",
+        "anchor": null
+      },
+      {
+        "reference": "0x2048640",
+        "address": "0x2045924",
+        "anchor": null
+      },
+      {
+        "reference": "0x2048590",
+        "address": "0x2045808",
+        "anchor": "0x21db866"
+      },
+      {
+        "reference": "0x2021ca8",
+        "address": "0x201c725",
+        "anchor": "0x21db860"
+      }
+    ],
+    "native": [
+      {
+        "reference": "0x21b4ddc",
+        "address": "0x21d6064"
+      },
+      {
+        "reference": "0x21ba680",
+        "address": "0x21db7d4"
+      },
+      {
+        "reference": "0x21ba814",
+        "address": "0x21db964"
+      },
+      {
+        "reference": "0x21ba898",
+        "address": "0x21db9e8"
+      },
+      {
+        "reference": "0x21bab54",
+        "address": "0x21dbca4"
+      },
+      {
+        "reference": "0x21b4ec4",
+        "address": "0x21d614c"
+      },
+      {
+        "reference": "0x21b5010",
+        "address": "0x21d6244"
+      },
+      {
+        "reference": "0x21b4f84",
+        "address": "0x21d61b8"
+      }
+    ],
+    "hooks": [
+      {
+        "label": "SummaryStatsSlotInit",
+        "address": "0x21d9c9e",
+        "target": "0x21db7d5"
+      },
+      {
+        "label": "SummaryStatsSlotShow",
+        "address": "0x21d9d20",
+        "target": "0x21db965"
+      },
+      {
+        "label": "SummarySlotValue",
+        "address": "0x21db7ee",
+        "target": "0x2017e89"
+      },
+      {
+        "label": "SummarySlotValue",
+        "address": "0x21db7fc",
+        "target": "0x2017e89"
+      },
+      {
+        "label": "SummarySlotValue",
+        "address": "0x21db97a",
+        "target": "0x2017e89"
+      },
+      {
+        "label": "SummarySlotType",
+        "address": "0x21db992",
+        "target": "0x201c1c9"
+      },
+      {
+        "label": "SummarySlotLabel",
+        "address": "0x21db884",
+        "target": "0x21d614d"
+      },
+      {
+        "label": "SummarySlotLabel",
+        "address": "0x21db8ca",
+        "target": "0x21d614d"
+      },
+      {
+        "label": "SummarySlotPower",
+        "address": "0x21db8b2",
+        "target": "0x21d6245"
+      },
+      {
+        "label": "SummarySlotMax",
+        "address": "0x21db8f8",
+        "target": "0x21d61b9"
+      }
+    ]
+  },
+  "W": {
+    "apis": [
+      {
+        "reference": "0x2021c38",
+        "address": "0x201c6d1",
+        "anchor": null
+      },
+      {
+        "reference": "0x201cdb4",
+        "address": "0x2017ea5",
+        "anchor": "0x21db80e"
+      },
+      {
+        "reference": "0x202174c",
+        "address": "0x201c1e5",
+        "anchor": "0x21db9b2"
+      },
+      {
+        "reference": "0x201d7ec",
+        "address": "0x20187ad",
+        "anchor": null
+      },
+      {
+        "reference": "0x201d87c",
+        "address": "0x201883d",
+        "anchor": null
+      },
+      {
+        "reference": "0x204855c",
+        "address": "0x20457c8",
+        "anchor": null
+      },
+      {
+        "reference": "0x2048640",
+        "address": "0x204593c",
+        "anchor": null
+      },
+      {
+        "reference": "0x2048590",
+        "address": "0x2045820",
+        "anchor": "0x21db886"
+      },
+      {
+        "reference": "0x2021ca8",
+        "address": "0x201c741",
+        "anchor": "0x21db880"
+      }
+    ],
+    "native": [
+      {
+        "reference": "0x21b4ddc",
+        "address": "0x21d6084"
+      },
+      {
+        "reference": "0x21ba680",
+        "address": "0x21db7f4"
+      },
+      {
+        "reference": "0x21ba814",
+        "address": "0x21db984"
+      },
+      {
+        "reference": "0x21ba898",
+        "address": "0x21dba08"
+      },
+      {
+        "reference": "0x21bab54",
+        "address": "0x21dbcc4"
+      },
+      {
+        "reference": "0x21b4ec4",
+        "address": "0x21d616c"
+      },
+      {
+        "reference": "0x21b5010",
+        "address": "0x21d6264"
+      },
+      {
+        "reference": "0x21b4f84",
+        "address": "0x21d61d8"
+      }
+    ],
+    "hooks": [
+      {
+        "label": "SummaryStatsSlotInit",
+        "address": "0x21d9cbe",
+        "target": "0x21db7f5"
+      },
+      {
+        "label": "SummaryStatsSlotShow",
+        "address": "0x21d9d40",
+        "target": "0x21db985"
+      },
+      {
+        "label": "SummarySlotValue",
+        "address": "0x21db80e",
+        "target": "0x2017ea5"
+      },
+      {
+        "label": "SummarySlotValue",
+        "address": "0x21db81c",
+        "target": "0x2017ea5"
+      },
+      {
+        "label": "SummarySlotValue",
+        "address": "0x21db99a",
+        "target": "0x2017ea5"
+      },
+      {
+        "label": "SummarySlotType",
+        "address": "0x21db9b2",
+        "target": "0x201c1e5"
+      },
+      {
+        "label": "SummarySlotLabel",
+        "address": "0x21db8a4",
+        "target": "0x21d616d"
+      },
+      {
+        "label": "SummarySlotLabel",
+        "address": "0x21db8ea",
+        "target": "0x21d616d"
+      },
+      {
+        "label": "SummarySlotPower",
+        "address": "0x21db8d2",
+        "target": "0x21d6265"
+      },
+      {
+        "label": "SummarySlotMax",
+        "address": "0x21db918",
+        "target": "0x21d61d9"
+      }
+    ]
+  }
+}

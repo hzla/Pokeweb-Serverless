@@ -232,7 +232,7 @@ function renderMartDetail(project: ProjectState, id: number): string {
         <td class="mt-pos">${slot + 1}</td>
         <td class="en-mon-cell"><div class="en-mon"><span class="en-mon-icon" data-derived="icon-${slot}">${itemIcon(name)}</span><div autocorrect="off" spellcheck="false" contenteditable="true" data-field-name="item_${slot}" data-autofill="items">${escapeHtml(name)}</div></div></td>
         ${bp
-          ? `<td class="r mt-price"><div autocorrect="off" spellcheck="false" contenteditable="true" data-field-name="price_${slot}">${escapeHtml(String(mart.readable[`price_${slot}`] ?? 0))}</div> BP</td>`
+          ? `<td class="r mt-price"><div autocorrect="off" spellcheck="false" contenteditable="true" data-field-name="price_${slot}">${escapeHtml(String(mart.readable[`price_${slot}`] ?? 0))}</div>&nbsp;BP</td>`
           : `<td class="r mt-price" data-derived="price-${slot}">${itemPrice(project, itemId)}</td>`}
         <td class="mt-actions">
           <button class="btn sm -ghost" type="button" data-mart-move="-1" data-slot="${slot}" title="Move up" aria-label="Move up" ${slot === 0 ? "disabled" : ""}>↑</button>

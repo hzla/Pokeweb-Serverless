@@ -2,6 +2,7 @@ import type { ProjectState } from "../pokeweb/projectStore";
 import {
   assignWeatherToArea,
   assignWeatherToAreas,
+  clearWeatherCalendarSchedule,
   getAssignableWeatherEffects,
   getHeaderWeatherId,
   getWeatherEffects,
@@ -13,7 +14,7 @@ import {
   weatherCalendarDate,
   weatherCalendarUsageCounts,
   weatherUsageCounts,
-  type OverworldWeatherCalendar,
+  type LoadedOverworldWeatherCalendar,
   type OverworldWeatherPreview,
   type WeatherCalendarRange,
   type WeatherCalendarZone,
@@ -44,7 +45,7 @@ export function renderOverworldWeatherEditor(project: ProjectState, root: HTMLEl
   const selectedRows = new Set<number>();
   let stopPreview = () => {};
   let previewRequest = 0;
-  let calendar: OverworldWeatherCalendar | undefined;
+  let calendar: LoadedOverworldWeatherCalendar | undefined;
   let calendarError = "";
   let disposed = false;
 
@@ -65,11 +66,11 @@ export function renderOverworldWeatherEditor(project: ProjectState, root: HTMLEl
           </div>
           ${renderWeatherResourceFootprint([
             { access: "write", target: project.narcs.headers?.sourcePath ?? "a/0/1/2", description: "Zone header weather IDs" },
-            { access: "read", target: "a/0/9/6", description: "366-day calendar schedules" },
+            { access: "write", target: "a/0/9/6", description: "Zone calendar overrides" },
             { access: "read", target: "a/0/5/5", description: "Particle resources used by previews" },
             { access: "runtime", target: "overlay 36", description: "Field weather selection and dispatch; not rewritten here" },
             { access: "runtime", target: "overlays 74–78", description: "Retail effect families; executed, not rewritten here" },
-          ], `To transplant area assignments, copy ${project.narcs.headers?.sourcePath ?? "a/0/1/2"}. The calendar and preview NARCs are read-only here. Imported bundles may declare additional files in their manifests.`)}
+          ], `To transplant header weather, copy ${project.narcs.headers?.sourcePath ?? "a/0/1/2"}. Copy a/0/9/6 if you cleared calendar overrides. Imported bundles may declare additional files in their manifests.`)}
           <label class="weather-field-label" for="weather-preview-effect">Effect preview</label>
           <select class="filter-input" id="weather-preview-effect">
             ${effects.map((effect) => `<option value="${effect.id}" ${effect.id === selectedEffectId ? "selected" : ""}>${effect.id}: ${escapeHtml(effect.name)}</option>`).join("")}
@@ -125,7 +126,10 @@ export function renderOverworldWeatherEditor(project: ProjectState, root: HTMLEl
                   <div class="weather-matrix-id">${escapeHtml(String(row.matrix_id))}</div>
                   <div class="weather-area-name">${escapeHtml(String(row.location_name))}</div>
                   <select class="filter-input weather-area-select" data-weather-assignment="${rowId}">${assignmentOptions(assignable, weatherId, effect)}</select>
-                  <div class="weather-calendar-cell">${renderCalendarSchedule(calendarZone, effects, Boolean(calendar), calendarError)}</div>
+                  <div class="weather-calendar-cell">
+                    ${renderCalendarSchedule(calendarZone, effects, Boolean(calendar), calendarError)}
+                    ${calendarZone ? `<button class="weather-calendar-clear" type="button" data-clear-weather-calendar="${rowId}" aria-label="Clear calendar for ${escapeHtml(row.location_name)}, area ${row.index}">Clear calendar</button>` : ""}
+                  </div>
                   <button class="weather-preview-link" type="button" data-preview-weather="${weatherId}" title="Preview this effect">Preview</button>
                 </div>`;
             }).join("")}
@@ -203,6 +207,23 @@ export function renderOverworldWeatherEditor(project: ProjectState, root: HTMLEl
           onDirty?.();
           renderPage(`Updated area ${project.headers!.rows[rowId]?.index ?? rowId}.`);
           applyFilters(root, searchText, weatherFilter);
+        } catch (error) {
+          renderPage(error instanceof Error ? error.message : String(error), true);
+        }
+      });
+    });
+    root.querySelectorAll<HTMLButtonElement>("[data-clear-weather-calendar]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const rowId = Number(button.dataset.clearWeatherCalendar);
+        const row = project.headers?.rows[rowId];
+        if (!calendar || !row) return;
+        try {
+          const result = clearWeatherCalendarSchedule(project, calendar, row.index);
+          calendar = result.calendar;
+          if (result.changed) onDirty?.();
+          renderPage(`Area ${row.index} now uses its header weather as the default.`);
+          const area = root.querySelector<HTMLElement>(`[data-weather-row="${rowId}"]:not([hidden]) [data-weather-assignment]`);
+          (area ?? root.querySelector<HTMLElement>("#weather-area-search"))?.focus();
         } catch (error) {
           renderPage(error instanceof Error ? error.message : String(error), true);
         }

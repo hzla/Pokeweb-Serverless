@@ -77,7 +77,7 @@ function buildingEntry(source: Sources, uid: number) {
   return matches[0];
 }
 
-async function manifest(source: Sources, data: Map3dSceneData): Promise<MapGlbManifest> {
+async function manifest(source: Sources, data: Map3dSceneData, includeBuildings = true): Promise<MapGlbManifest> {
   const chunks = await Promise.all([...new Set(data.chunks.map(c => c.chunkId))].map(async id => {
     const bytes = source.maps.narc.files[id]; requireValue(bytes, `Missing chunk ${id}.`);
     return { id, hash: await modelAssetHash(bytes) };
@@ -90,7 +90,8 @@ async function manifest(source: Sources, data: Map3dSceneData): Promise<MapGlbMa
     textures: { terrainId: data.textureId, terrainHash: await modelAssetHash(source.terrainTextures.narc.files[data.textureId]), buildingHash: await modelAssetHash(source.buildingTextures.narc.files[data.buildingsId]) },
     terrain: data.chunks.map(c => ({ id: `terrain:${c.matrixX}:${c.matrixY}:${c.chunkId}`, kind: "terrain", exported: hasGeometry(c.primitives),
       chunkId: c.chunkId, sourceChunkId: c.sourceChunkId, matrixX: c.matrixX, matrixY: c.matrixY })),
-    buildings: data.buildings.map(b => {
+    ...(includeBuildings ? {} : { buildingsIncluded: false as const }),
+    buildings: !includeBuildings ? [] : data.buildings.map(b => {
       requireValue(b.chunkOrigin && Number.isInteger(b.placementIndex), "Reopen this map before exporting import metadata.");
       const entry = buildingEntry(source, b.uid);
       return { id: `building:${b.chunkOrigin.matrixX}:${b.chunkOrigin.matrixY}:${b.chunkId}:${b.placementIndex}`, kind: "building",
@@ -100,8 +101,19 @@ async function manifest(source: Sources, data: Map3dSceneData): Promise<MapGlbMa
   };
 }
 
-export async function exportMapGlbForImport(project: ProjectState, data: Map3dSceneData) {
-  return exportMap3dGlb(data, { mapManifest: await manifest(await sources(project, data), data) });
+/** Export the loaded map with import metadata. Without buildings, the GLB holds terrain only, and importing it leaves
+ * building placements and models untouched (for maps whose buildings are edited separately, or can't round-trip). */
+export async function exportMapGlbForImport(project: ProjectState, data: Map3dSceneData, options: { buildings?: boolean } = {}) {
+  const includeBuildings = options.buildings !== false;
+  const mapManifest = await manifest(await sources(project, data), data, includeBuildings);
+  if (includeBuildings) return exportMap3dGlb(data, { mapManifest });
+  const result = await exportMap3dGlb(terrainOnly(data), { mapManifest });
+  return { ...result, filename: result.filename.replace(/\.glb$/, "-terrain.glb") };
+}
+
+/** The loaded map without its building placements, for a terrain-only export. */
+export function terrainOnly(data: Map3dSceneData): Map3dSceneData {
+  return { ...data, buildings: [], buildingDiagnostics: [] };
 }
 
 function replaceMember(container: Uint8Array, member: number, replacement: Uint8Array): Uint8Array {
@@ -153,7 +165,7 @@ export async function prepareMapGlbImport(project: ProjectState, data: Map3dScen
   const inputManifest = imported.metadata.mapImport as MapGlbManifest | undefined;
   requireValue(inputManifest?.version === 1, "Export this full map again from Pokeweb and enable Include → Custom Properties in Blender. Older map GLBs cannot be imported.");
   requireValue(inputManifest.zoneId === data.zoneId && inputManifest.season === data.season, "Load the same map and season that this GLB was exported from.");
-  const source = await sources(project, data), baseline = await manifest(source, data);
+  const source = await sources(project, data), baseline = await manifest(source, data, inputManifest.buildingsIncluded !== false);
   if (stable(inputManifest) !== stable(baseline)) {
     const chunk = baseline.chunks.find(c => inputManifest.chunks?.find(old => old.id === c.id)?.hash !== c.hash);
     const difference = chunk ? `chunk ${chunk.id} geometry or placements` : inputManifest.bundleHash !== baseline.bundleHash
@@ -285,7 +297,12 @@ export async function prepareMapGlbImport(project: ProjectState, data: Map3dScen
       const model = writeStaticNitroModel(edit.template, edit.meshes);
       if (uid === entry.uid) bundle = replaceBuildingModelMember(bundle, memberCount / 2 + entry.resourceIndex, model);
       else { const metadata = entry.metadataBytes.slice(); writeU16(metadata, 0, uid); clones.push({ metadata, model }); }
-    } catch (error) { throw new Error(`Building UID ${uid}: ${error instanceof Error ? error.message : error}`); }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      // The static model writer can't rebuild billboards (rocks, signs), skinned or custom-drawn models.
+      if (message.startsWith("Billboards, skinning")) throw new Error(`Building UID ${uid} uses billboards, skinning or custom draw commands, which can't be rebuilt from a GLB yet, and the GLB changes its mesh or materials. Undo those changes in Blender (moving, copying or deleting it still works), or export the terrain only.`);
+      throw new Error(`Building UID ${uid}: ${message}`);
+    }
     result.notes.push(uid === entry.uid
       ? `UID ${uid}: updates the shared model in ${source.kind} bundle ${data.buildingsId}, including other maps using this bundle.`
       : `UID ${uid}: separate variant of UID ${entry.uid}, retaining its behavior and material animations. Scripts that explicitly target the original UID will not target this variant.`);

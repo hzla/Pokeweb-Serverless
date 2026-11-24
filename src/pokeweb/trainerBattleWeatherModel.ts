@@ -1,7 +1,7 @@
 import { readU16, readU32 } from "../nds/binary";
-import { NARC } from "../nds/narc";
 import { gen5ResolvedScriptOperands, gen5ScriptCommandSize, gen5ScriptEntries, type ScriptWalkOptions } from "./gen5ScriptCommands";
 import { getHeaderPackedValue } from "./headerModel";
+import { parseOverworldWeatherCalendar } from "./overworldWeatherModel";
 import { decodeRecord, type ProjectState } from "./projectStore";
 import { getTrainerFieldConditions } from "./trainerFieldConditionsModel";
 import { indirectTrainerContext, parseIndirectTrainerScripts, trainerMapEventContext } from "./trainerLocationModel";
@@ -147,13 +147,9 @@ function trainerWeatherCalendar(project: ProjectState): Map<number, Weather[]> {
   const result = new Map<number, Weather[]>(), source = project.trainerLocationTables?.weatherCalendar;
   if (!source) return result;
   try {
-    const files = new NARC(project.fileSystem?.replacements?.[source.fileId] ?? source.bytes).files;
-    const data = files[0], index = files[1];
-    if (!data || !index || index.length < 2 || 2 + readU16(index, 0) * 4 > index.length) return result;
-    for (let i = 0; i < readU16(index, 0); i += 1) {
-      const zone = readU16(index, 2 + i * 4), offset = readU16(index, 4 + i * 4);
-      if (offset + 366 > data.length) continue;
-      result.set(zone, [...new Set(Array.from(data.subarray(offset, offset + 366), fieldBattleWeather))]);
+    const calendar = parseOverworldWeatherCalendar(project.fileSystem?.replacements?.[source.fileId] ?? source.bytes);
+    for (const [zone, { weatherIds }] of calendar.zones) {
+      result.set(zone, [...new Set(weatherIds.map(fieldBattleWeather))]);
     }
   } catch { /* Unknown calendar data cannot establish constant weather. */ }
   return result;

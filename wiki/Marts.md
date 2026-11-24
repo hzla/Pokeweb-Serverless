@@ -52,6 +52,14 @@ Open **Items → Join Avenue** in Black 2 or White 2. Choose a shop type, the sh
 
 Open **Items → Black City Market** in Pokémon Black. Edit the item and price tied to each of the 30 resident records. Which offers are available in-game depends on the residents in the save.
 
+## Special Vendors
+
+Open **Items → Special Vendors**. **Scripted vendors** covers vending machines, the Castelia and Driftveil stands, the Marvelous Bridge Pokémon seller, Royal Unova tickets, and the Move Reminder. BW2 also includes the Route 5 and Skyarrow Bridge sellers, Shopping Mall Nine’s evening deals, and the weekday and weekend offers in Black City and White Forest. The editor updates associated stock text where it can match the original item or price. Use **Story Text** to revise custom dialogue or promotional wording.
+
+In BW and BW2, **Item collectors** edits which items each collector buys and the payout. **Day Care** edits the base withdrawal fee and the charge per level gained, each from 0 to 255 Poké Dollars. BW2 also has **Funfest sales**, **Funfest exchanges**, and the **Join Avenue raffle** and **Antique appraisals** prize tables. Prize weights are relative to the sum of the weights in the selected table.
+
+Special Vendors edits existing script operands, archives, or code and data in the supported US overlays. Day Care patches its existing fee routine in place. Funfest edits the existing overlay tables. These changes are included in a normal ROM export without installing a code injection module.
+
 ## Caveats
 
 In BW2 the inventory count is synced from the number of non-None item slots, so leave unused slots as `None` instead of repeating filler items. In BW1, clearing a slot removes it and the items below move up.

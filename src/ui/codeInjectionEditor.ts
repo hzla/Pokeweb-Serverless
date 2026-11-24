@@ -732,10 +732,10 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         <section class="code-injection-panel" ${patchVisibility(summaryStatStatus.supported)}>
           <div class="code-injection-panel__header"><div>
             <h2>Summary IV/EV Viewer</h2>
-            <p>View IVs and optionaly EVs on the summary screen.</p>
+            <p>View IVs and optionally EVs on the summary screen.</p>
           </div>${renderInlineStatus(summaryStatStatus.updateAvailable ? "Update Available" : summaryStatStatus.installed ? "Installed" : summaryStatStatus.compatible ? "Ready" : summaryStatStatus.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}</div>
           ${renderPatchShowcase("summary")}
-          <div class="code-injection-facts">${supportedRomsFact(US_GEN5_REV0)}<div><span>Version</span><strong>${SUMMARY_STAT_VIEWER_VERSION}</strong></div></div>
+          <div class="code-injection-facts">${supportedRomsFact(US_GEN5_REV0)}<div><span>Version</span><strong>${summaryStatStatus.availableVersion ?? SUMMARY_STAT_VIEWER_VERSION}</strong></div></div>
           ${summaryStatStatus.message ? `<p>${escapeHtml(summaryStatStatus.message)}</p>` : ""}
           <label><input type="checkbox" id="summary-stat-evs" ${summaryStatStatus.options.includeEvs ? "checked" : ""} ${summaryStatStatus.compatible ? "" : "disabled"}> Include EV view</label>
           <div class="code-injection-actions">

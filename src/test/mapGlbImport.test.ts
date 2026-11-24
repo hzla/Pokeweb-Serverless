@@ -13,6 +13,7 @@ import { materialRecords } from "../pokeweb/nitroResourceWriter";
 import { loadBuildingLibrary } from "../pokeweb/buildingLibraryModel";
 import { applyMapGlbImport, exportMapGlbForImport, prepareMapGlbImport } from "../pokeweb/mapGlbImport";
 import { compileStaticFaces } from "../pokeweb/nitroGeometryFaces";
+import { sameVisiblePixels } from "../pokeweb/glbMaterialImport";
 import { sameStaticGeometry } from "../pokeweb/staticMeshCompare";
 import type { StaticModelMesh } from "../pokeweb/nitroModelWriter";
 import type { ProjectState } from "../pokeweb/projectStore";
@@ -42,6 +43,15 @@ describe("native geometry comparison and quad reconstruction", () => {
     const first = { ...mesh, indices: mesh.indices.slice(0, 3) };
     const second = { ...mesh, indices: mesh.indices.slice(3), colors: new Float32Array(12).fill(0.5) };
     expect(compileStaticFaces([first, second]).map(f => f.length)).toEqual([3, 3]);
+  });
+  it("treats a browser canvas's premultiplied-alpha rounding as unchanged pixels, but not real texture edits", () => {
+    const premultiplied = (rgba: number[]) => rgba.map((v, i) => i % 4 === 3 ? v : rgba[i - i % 4 + 3] ? Math.round(Math.round(v * rgba[i - i % 4 + 3] / 255) * 255 / rgba[i - i % 4 + 3]) : 0);
+    const source = [200, 100, 50, 0, 201, 99, 47, 8, 13, 250, 77, 36, 90, 90, 90, 255];
+    expect(sameVisiblePixels(source, premultiplied(source))).toBe(true);
+    expect(premultiplied(source).slice(0, 3)).toEqual([0, 0, 0]); // the colour under a transparent pixel is lost
+    expect(sameVisiblePixels(source, source.map((v, i) => i === 12 ? v + 2 : v))).toBe(false); // opaque pixels: ±1
+    expect(sameVisiblePixels(source, source.map((v, i) => i === 3 ? 255 : v))).toBe(false); // alpha edits count
+    expect(sameVisiblePixels(source, source.map((v, i) => i === 8 ? 200 : v))).toBe(false); // so do visible colour edits
   });
   it("ignores Blender normal changes only on zero-area faces", () => {
     const mesh = { ...square(), normals: new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1]) };
@@ -97,6 +107,14 @@ class TestCanvas {
   constructor(public width: number, public height: number) {}
   getContext() { return { putImageData: (image: TestImageData) => { this.image = image; } }; }
   async convertToBlob() { const png = new PNG({ width: this.width, height: this.height }); png.data = Buffer.from(this.image.data); return new Blob([new Uint8Array(PNG.sync.write(png))], { type: "image/png" }); }
+}
+/** A canvas that keeps pixels premultiplied by alpha, as browsers do, so exported PNGs lose transparent pixels' colour. */
+class PremultipliedCanvas extends TestCanvas {
+  getContext() { return { putImageData: (image: TestImageData) => {
+    const data = new Uint8ClampedArray(image.data);
+    for (let i = 0; i < data.length; i += 4) for (let k = 0; k < 3; k++) data[i + k] = data[i + 3] ? Math.round(Math.round(data[i + k] * data[i + 3] / 255) * 255 / data[i + 3]) : 0;
+    this.image = new TestImageData(data, image.width, image.height);
+  } }; }
 }
 class TestFileReader {
   result?: ArrayBuffer; onloadend?: () => void;
@@ -171,6 +189,34 @@ describe.skipIf(!romFixtureExists(romPath))("BW2 full map GLB import", () => {
       expect(sameStaticGeometry(expected.map(p => ({ ...p, materialName: p.material.name })), chunk.primitives.map(p => ({ ...p, materialName: p.material.name })))).toBe(true);
     }
     expect(project.narcs.maps!.dirty.size).toBe(0);
+  });
+  it("round-trips Floccesy Town's billboard rocks after a browser canvas premultiplies their textures", async () => {
+    // UID 258 (rock01) is a billboard; its texture keeps a colour under transparent pixels that a browser export drops.
+    vi.stubGlobal("OffscreenCanvas", PremultipliedCanvas);
+    try {
+      const { project } = await setup(), data = await loadMap3dZone(project, 439, { season: "winter" });
+      expect(data.buildings.some(b => b.uid === 258)).toBe(true);
+      const bytes = new Uint8Array((await exportMapGlbForImport(project, data)).bytes);
+      expect((await prepareMapGlbImport(project, data, bytes)).patches).toHaveLength(0);
+    } finally { vi.stubGlobal("OffscreenCanvas", TestCanvas); }
+  });
+  it("exports terrain only, and importing it edits terrain while leaving every building alone", async () => {
+    const { project, data } = await setup();
+    const exportedTerrain = await exportMapGlbForImport(project, data, { buildings: false });
+    expect(exportedTerrain.filename.endsWith("-terrain.glb")).toBe(true);
+    expect(exportedTerrain.buildingCount).toBe(0);
+    const bytes = new Uint8Array(exportedTerrain.bytes), file = unpack(bytes);
+    expect(roots(file, "building")).toEqual([]);
+    expect(roots(file, "terrain").length).toBeGreaterThan(0);
+    expect(file.json.scenes[0].extras.pokeweb.mapImport.buildingsIncluded).toBe(false);
+    expect((await prepareMapGlbImport(project, data, bytes)).patches).toHaveLength(0);
+    alterGeometry(file, roots(file, "terrain")[0]);
+    const result = await prepareMapGlbImport(project, data, pack(file));
+    expect([result.terrainModels, result.buildingModels, result.moved, result.added, result.deleted]).toEqual([1, 0, 0, 0, 0]);
+    expect(result.patches.map(patch => patch.archive.name)).toEqual(["maps"]);
+    const before = extractGameFreakContainer(result.patches[0].bytes).files, after = extractGameFreakContainer(result.patches[0].after).files;
+    expect(after.slice(1)).toEqual(before.slice(1)); // collision and building placements unchanged
+    expect(result.converted.buildings.length).toBe(data.buildings.length);
   });
   it("imports interior terrain while retaining its interior building bundle", async () => {
     const { project } = await setup();

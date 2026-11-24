@@ -50,6 +50,22 @@ export function decodeGlbPng(bytes: Uint8Array): Omit<ImportTexture, "name"> {
   return { width, height, rgba };
 }
 
+/** Whether two RGBA images draw the same. A PNG written through a browser canvas (as the map export's is) comes back
+ * premultiplied by alpha: fully transparent pixels lose their colour and faint ones are rounded, which never shows. */
+export function sameVisiblePixels(a: ArrayLike<number>, b: ArrayLike<number>): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 4) {
+    if (Math.abs(a[i + 3] - b[i + 3]) > 1) return false;
+    const alpha = Math.max(a[i + 3], b[i + 3]);
+    if (alpha <= 1) continue;
+    // Premultiplied rounding: ±0.5 at alpha/255 scale is ±127.5/alpha once divided back out, plus the final rounding
+    // (±1 for opaque pixels, as before).
+    const tolerance = Math.max(1, Math.ceil(127.5 / Math.min(a[i + 3], b[i + 3]) + 0.5));
+    for (let k = 0; k < 3; k++) if (Math.abs(a[i + k] - b[i + k]) > tolerance) return false;
+  }
+  return true;
+}
+
 export class GlbMaterialCompiler {
   readonly textures = new Map<string, EncodedTexture>();
   readonly notes = new Set<string>();
@@ -97,7 +113,7 @@ export class GlbMaterialCompiler {
       ensure(mesh.materialIndex !== undefined, "GLB mesh has no material.");
       const a = await this.appearance(mesh.materialIndex), source = original.find(p => p.material.name === mesh.materialName)?.material;
       const originalRecord = records.find(r => r.name === mesh.materialName);
-      const pixelsEqual = source?.texture && a.image && source.texture.width === a.image.width && source.texture.height === a.image.height && source.texture.rgba.length === a.image.rgba.length && source.texture.rgba.every((v, i) => Math.abs(v - a.image!.rgba[i]) <= 1);
+      const pixelsEqual = source?.texture && a.image && source.texture.width === a.image.width && source.texture.height === a.image.height && sameVisiblePixels(source.texture.rgba, a.image.rgba);
       // Blender can normalize sampler metadata while retaining identical pixels. Preserve native wrap in that no-edit case.
       const same = source && originalRecord && Math.abs(source.alpha - a.alpha) < 0.002 && !a.emissive && (source.texture ? pixelsEqual : !a.image && source.diffuse.every((v, i) => Math.abs(v - a.color[i]) < 0.002));
       if (same) { output.push(mesh); continue; }

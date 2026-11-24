@@ -1,17 +1,22 @@
 import { zipSync } from "fflate";
 import { describe, expect, it } from "vitest";
-import { writeU16 } from "../nds/binary";
+import { readU16, writeU16 } from "../nds/binary";
 import { NARC } from "../nds/narc";
+import { NintendoDSRom } from "../nds/rom";
 import type { NarcName } from "../pokeweb/constants";
+import { exportModifiedRom } from "../pokeweb/exportRom";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import { getHeaderPackedValue, parseHeaders } from "../pokeweb/headerModel";
 import {
   assignWeatherToArea,
   assignWeatherToAreas,
+  clearWeatherCalendarSchedule,
   dormantWeatherEffects,
   getAssignableWeatherEffects,
   getHeaderWeatherId,
   isWeatherEffectAssignable,
+  loadOverworldWeatherCalendar,
+  OVERWORLD_WEATHER_CALENDAR_PATH,
   parseOverworldWeatherCalendar,
   parseOverworldWeatherBundle,
   stockWeatherEffects,
@@ -21,6 +26,7 @@ import {
   weatherUsageCounts,
 } from "../pokeweb/overworldWeatherModel";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
+import { makeTwlRom } from "./fixtures/dsiRom";
 
 describe("overworldWeatherModel", () => {
   it("defines the complete retail BW2 registry and the three dormant source candidates", () => {
@@ -92,6 +98,50 @@ describe("overworldWeatherModel", () => {
     expect(weatherCalendarDate(60)).toEqual({ month: 3, day: 1, season: "Autumn" });
     expect([1, 5, 9].map(weatherCalendarSeason)).toEqual(["Spring", "Spring", "Spring"]);
     expect([4, 8, 12].map(weatherCalendarSeason)).toEqual(["Winter", "Winter", "Winter"]);
+  });
+
+  it("exports cleared schedules as native header fallbacks and preserves other zones", async () => {
+    const project = makeProject([{ weather_id: 0 }, { weather_id: 0 }]);
+    const headers = new NARC();
+    headers.files = project.narcs.headers!.rawFiles;
+    const calendar = new NARC();
+    const weatherData = new Uint8Array(732).fill(2, 366);
+    const index = new Uint8Array(98);
+    writeU16(index, 0, 24);
+    const zones = [0, 96, 331, 96, ...Array.from({ length: 20 }, (_, id) => 400 + id)];
+    zones.forEach((zone, entry) => {
+      writeU16(index, 2 + entry * 4, zone);
+      writeU16(index, 4 + entry * 4, entry === 1 ? 0 : 366);
+    });
+    calendar.files = [weatherData, index];
+    project.originalRomBytes = new NintendoDSRom(makeTwlRom("IREO")).save({
+      addedFiles: [
+        { path: "a/0/1/2", bytes: headers.save() },
+        { path: OVERWORLD_WEATHER_CALENDAR_PATH, bytes: calendar.save() },
+      ],
+    });
+    project.headers = parseHeaders(project);
+    const loaded = await loadOverworldWeatherCalendar(project);
+    expect(loaded.zones.get(96)?.weatherIds).toEqual([0]);
+    assignWeatherToArea(project, 1, 9);
+
+    expect(clearWeatherCalendarSchedule(project, loaded, 96).changed).toBe(true);
+    expect(clearWeatherCalendarSchedule(project, loaded, 0).changed).toBe(true);
+    expect(clearWeatherCalendarSchedule(project, loaded, 96).changed).toBe(false);
+    expect(getHeaderWeatherId(project.headers.rows[1])).toBe(9);
+
+    const exported = new NintendoDSRom(await exportModifiedRom(project));
+    const archive = new NARC(exported.getFileByName(OVERWORLD_WEATHER_CALENDAR_PATH));
+    expect(archive.files[0]).toEqual(weatherData);
+    expect(archive.files[1]).toHaveLength(98);
+    expect(readU16(archive.files[1], 0)).toBe(24);
+    const expectedIndex = index.slice();
+    for (const offset of [4, 8, 16]) writeU16(expectedIndex, offset, 0xffff);
+    expect(archive.files[1]).toEqual(expectedIndex);
+    const reopened = parseOverworldWeatherCalendar(exported.getFileByName(OVERWORLD_WEATHER_CALENDAR_PATH));
+    expect(reopened.zones.has(0)).toBe(false);
+    expect(reopened.zones.has(96)).toBe(false);
+    expect(reopened.zones.get(331)).toEqual(loaded.zones.get(331));
   });
 
   it("does not expose dormant IDs until a custom runtime bundle is registered", () => {

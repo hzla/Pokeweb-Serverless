@@ -17,6 +17,11 @@ The HP bar, nature colors, artwork and other native controls remain intact.
 The runtime reads Pokémon data without setters and owns/releases its footer
 graphics within the native Summary lifetime.
 
+In Black 2 and White 2 version 1.0.4, IVs and EVs show one native move row
+for Hidden Power. The type badge and BP value come from the current Pokémon’s
+IVs, including for Pokémon that have never learned the move. Stats and the
+move-detail screen retain their regular move lists.
+
 The installer checks signatures, graphics, module integrity and hook conflicts
 on an isolated staged state. Compatible hacks must retain these native resources.
 Other languages/revisions are unsupported. BW1 uses independent overlay-131
@@ -28,3 +33,7 @@ Build/check with `npm run summarystats:build`, `npm run summarystats:verify` and
 `summarystats:build-bw1` and `summarystats:verify-bw1`. Set the per-game
 `SUMMARY_*_ROM`, `ARM_TOOLCHAIN_BIN` and `RPM_TOOL_JAR` inputs as needed.
 Cold boot new exports; old states restore old loaded DLLs.
+BW1 Hidden Power candidates use the same rendering logic. Normal installation
+continues to use the accepted BW1 1.0.3 bundles until both candidates pass DS
+gameplay and visual acceptance. Run `summarystats:prepare-bw1` with an input
+ROM and `--verify-only` to check a candidate’s installer round trip in memory.

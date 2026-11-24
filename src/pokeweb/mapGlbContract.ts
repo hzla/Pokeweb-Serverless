@@ -28,4 +28,7 @@ export type MapGlbManifest = {
   textures?: { terrainId: number; terrainHash: string; buildingHash: string };
   terrain: MapGlbObject[];
   buildings: MapGlbObject[];
+  /** False when the GLB was exported without buildings: importing it leaves every placement and building model as it
+   * is (absent buildings are not deletions). Missing in older exports, which always include buildings. */
+  buildingsIncluded?: false;
 };

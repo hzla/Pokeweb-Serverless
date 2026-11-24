@@ -6439,11 +6439,11 @@
       "artifacts": [
         {
           "name": "SummaryStatViewerB2.dll",
-          "sha256": "9672f1c7538b30e4791806dec071031fd37bbf3265e78713dc406574d9913950"
+          "sha256": "715afbd10ae636661bdc18a8b76d498817b2ebe366d4f8fd31680b790ea3ebe0"
         },
         {
           "name": "SummaryStatViewerW2.dll",
-          "sha256": "f32bee5f8650224a4b0309d289b60e5c06cfc5aa3bd1f3664825ed86d62c231a"
+          "sha256": "4de750a8423b74bc447ea34a872aef8b50b2ea43e65070b56558e4fccd62da92"
         },
         {
           "name": "SummaryStatViewerB.dll",
@@ -6454,7 +6454,7 @@
           "sha256": "8c2d5ccf6171ba0930955cd7321b8c9eb54b50551d2d6536e57216811470c51f"
         }
       ],
-      "note": "Independent B2/W2 native Summary Stats variants and shared footer tab, plus separately built US revision-0 B/W companions. US revision-0 BW1 DS gameplay and visual acceptance is recorded for the exact bundled builds; live DSi acceptance remains pending. Canonical source and configuration metadata are recorded; compiled and DS gameplay checks remain separate.",
+      "note": "B2/W2 version 1.0.4 displays a native Hidden Power row on IV and EV pages. The independently accepted B/W bundles remain on their listed per-game versions. US revision-0 BW1 DS gameplay and visual acceptance is recorded for the exact bundled builds; live DSi acceptance remains pending.",
       "status": "source-available",
       "files": [
         {
@@ -6464,7 +6464,7 @@
             "path": "runtime/summary-stat-viewer/build_bw1.py"
           },
           "kind": "build-tool",
-          "sha256": "51d80394982b36d2dffe6951ba5bdacde640295364728d12fcac896c217a45e6",
+          "sha256": "5b52c94d40e87ffebad698d83c7ddd958bbab77440d31fccc1231118ee58a12f",
           "normalized": false
         },
         {
@@ -6474,7 +6474,17 @@
             "path": "runtime/summary-stat-viewer/build.py"
           },
           "kind": "build-tool",
-          "sha256": "0cc7b7b59d44d5dbc9f791f645e5437ea9c151791ebed03a666fe59e7df92720",
+          "sha256": "bb684c9e6377ff80380f39e7d8d5fbcf692fbd9f5200411612a8d1384f970f31",
+          "normalized": false
+        },
+        {
+          "path": "summary-stat-viewer/hidden-power-bw1.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/summary-stat-viewer/hidden-power-bw1.json"
+          },
+          "kind": "metadata",
+          "sha256": "4dfb3420a6a2a0da5e577e7a814ba62bb71a1487fccebf588f58b5ddc5cdf7bd",
           "normalized": false
         },
         {
@@ -6484,7 +6494,7 @@
             "path": "runtime/summary-stat-viewer/prepare_bw1_validation.ts"
           },
           "kind": "build-tool",
-          "sha256": "fddb527f6af8e1af183f6582b38faeb6e01f40a24870b7756f042ee44303f5e7",
+          "sha256": "114cbce1bf0b5d0f2394e5ce26787b5b8a249a5eda18dd82cdbd226b54c61c10",
           "normalized": false
         },
         {
@@ -6514,7 +6524,7 @@
             "path": "runtime/summary-stat-viewer/README.md"
           },
           "kind": "documentation",
-          "sha256": "da24eecfaf901cc4c5d5067053273a532edc50b16caa7e3d9739f72426d6bcc6",
+          "sha256": "e591390ffeb10277ef6c13cb4c4f87ce8119a0fa29d8df1b39da06a042605cfa",
           "normalized": false
         },
         {
@@ -6524,7 +6534,7 @@
             "path": "runtime/summary-stat-viewer/runtime.h"
           },
           "kind": "source",
-          "sha256": "8d0471e60833bd917f77ac2ce2a1305736e5a5ae024ec86721d60bfbeee7b01e",
+          "sha256": "e17757229060b6d6db9d6ceecc7c780d3a627a2a4915f05d42cc1e6ece1364b7",
           "normalized": false
         },
         {
@@ -6534,7 +6544,7 @@
             "path": "runtime/summary-stat-viewer/verify_bw1.py"
           },
           "kind": "test",
-          "sha256": "34b9efdcf4a4231be0c10dc620b340beac1d33fa2f0b1a5c9fc1318f74b3b110",
+          "sha256": "259eb2c3e655a4b8cfd5c8cf9b91bd7825e02b866b389668463247a4dc65fa5b",
           "normalized": false
         },
         {
@@ -6544,7 +6554,7 @@
             "path": "runtime/summary-stat-viewer/verify.py"
           },
           "kind": "test",
-          "sha256": "db7398bb2d8a56610fd4627cbdcccaa372f8fa84cf3ffe64966da686b8ef023f",
+          "sha256": "58b5117efb4b93a710eb84c05d5bcafac3902a60e399b5a9c8bed72756914bdf",
           "normalized": false
         },
         {
@@ -6554,7 +6564,7 @@
             "path": "runtime/summary-stat-viewer/viewer.cpp"
           },
           "kind": "source",
-          "sha256": "02171e57f23eaef7a70ed24e3e66d71a5a2eb52a38ad742ef00a1808ad281e88",
+          "sha256": "c3e85e1281187191551379bb6d314ee732fe80426f583a76cc80e764a962d7f3",
           "normalized": false
         },
         {
@@ -6564,7 +6574,7 @@
             "path": "src/assets/codeinjection/summaryStatViewerManifest.json"
           },
           "kind": "metadata",
-          "sha256": "f68f01c7403aa2e5ad83a004f87ea2451b10ec8be18174b0965f0f5d98c430c0",
+          "sha256": "90a758efcf8481d9227e803ecc0ea81bbc7843e2458a131efff42bdced9aa671",
           "normalized": false
         },
         {
@@ -6574,7 +6584,7 @@
             "path": "src/pokeweb/summaryStatViewerModel.ts"
           },
           "kind": "support-only",
-          "sha256": "e99d5ad23f4abd5bf6645bf3696f985ac667925693e02f5596ae0b441c2d9835",
+          "sha256": "35b79111723aada65ca59775ace85f6705a03df0482d5376a96d76c56c8fd5cc",
           "normalized": false
         },
         {
@@ -6584,7 +6594,7 @@
             "path": "src/test/summaryStatViewerModel.test.ts"
           },
           "kind": "test",
-          "sha256": "0f29d4fa09163de8389a5f250493a9417ea873e03f9bb5cd8b157c4f89446af2",
+          "sha256": "bb13c1e2e1add179c91b65d93720ffdcd2fde00fd9cab22ffa197bdce64a3868",
           "normalized": false
         }
       ]
@@ -6603,7 +6613,7 @@
             "path": "runtime/bw1_release.py"
           },
           "kind": "build-tool",
-          "sha256": "dffc8ee0f4a5555c9ff7d61a073b4292101fff7bf715dcdbe33344ef92301e64",
+          "sha256": "47c71e8aa2e10b05784a0a5447e7d8094b289b82ab0a5ceed438dd2074d0c228",
           "normalized": false
         },
         {
@@ -6613,7 +6623,7 @@
             "path": "runtime/verify_bw1_release.py"
           },
           "kind": "test",
-          "sha256": "d0c88361f9876b62b9b6dde6ee035eb5d5d6bf1983e9acfe488c52a9c2499059",
+          "sha256": "288b256e42c878b39f645ea03c7c942d1a1364d954a96eb94b6124dba2d1d1e9",
           "normalized": false
         },
         {
@@ -6623,7 +6633,7 @@
             "path": "runtime/bw1-ui-acceptance.json"
           },
           "kind": "metadata",
-          "sha256": "f30845ebf567323508b71a1d69679eee1bf503bafb7bb2d19ac66d336f1a2bf5",
+          "sha256": "bc757d058f50a44049365cf648b42f567992e37a27667de07546a09908e05e14",
           "normalized": false
         }
       ]

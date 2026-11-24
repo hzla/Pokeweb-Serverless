@@ -1,5 +1,5 @@
 {
-  "version": "1.0.3",
+  "version": "1.0.4",
   "configMagic": "5353564346473100",
   "previousVersions": [
     {
@@ -460,6 +460,307 @@
           ]
         }
       }
+    },
+    {
+      "version": "1.0.3",
+      "games": {
+        "W2": {
+          "codeFingerprint": "1b9acfe7",
+          "bssSize": 108,
+          "hooks": [
+            {
+              "module": "207",
+              "address": 35345190
+            },
+            {
+              "module": "207",
+              "address": 35345234
+            },
+            {
+              "module": "207",
+              "address": 35337082
+            },
+            {
+              "module": "207",
+              "address": 35340346
+            },
+            {
+              "module": "207",
+              "address": 35340356
+            },
+            {
+              "module": "207",
+              "address": 35340306
+            },
+            {
+              "module": "207",
+              "address": 35360718
+            },
+            {
+              "module": "207",
+              "address": 35360692
+            },
+            {
+              "module": "207",
+              "address": 35360776
+            },
+            {
+              "module": "207",
+              "address": 35360078
+            },
+            {
+              "module": "207",
+              "address": 35338086
+            },
+            {
+              "module": "207",
+              "address": 35360652
+            },
+            {
+              "module": "207",
+              "address": 35360830
+            },
+            {
+              "module": "207",
+              "address": 35360924
+            },
+            {
+              "module": "207",
+              "address": 35361018
+            },
+            {
+              "module": "207",
+              "address": 35361112
+            },
+            {
+              "module": "207",
+              "address": 35361206
+            }
+          ]
+        },
+        "B2": {
+          "codeFingerprint": "26234bad",
+          "bssSize": 108,
+          "hooks": [
+            {
+              "module": "207",
+              "address": 35345126
+            },
+            {
+              "module": "207",
+              "address": 35345170
+            },
+            {
+              "module": "207",
+              "address": 35337018
+            },
+            {
+              "module": "207",
+              "address": 35340282
+            },
+            {
+              "module": "207",
+              "address": 35340292
+            },
+            {
+              "module": "207",
+              "address": 35340242
+            },
+            {
+              "module": "207",
+              "address": 35360654
+            },
+            {
+              "module": "207",
+              "address": 35360628
+            },
+            {
+              "module": "207",
+              "address": 35360712
+            },
+            {
+              "module": "207",
+              "address": 35360014
+            },
+            {
+              "module": "207",
+              "address": 35338022
+            },
+            {
+              "module": "207",
+              "address": 35360588
+            },
+            {
+              "module": "207",
+              "address": 35360766
+            },
+            {
+              "module": "207",
+              "address": 35360860
+            },
+            {
+              "module": "207",
+              "address": 35360954
+            },
+            {
+              "module": "207",
+              "address": 35361048
+            },
+            {
+              "module": "207",
+              "address": 35361142
+            }
+          ]
+        },
+        "B": {
+          "codeFingerprint": "2da9ba6f",
+          "bssSize": 108,
+          "hooks": [
+            {
+              "module": "131",
+              "address": 35480922
+            },
+            {
+              "module": "131",
+              "address": 35480966
+            },
+            {
+              "module": "131",
+              "address": 35472890
+            },
+            {
+              "module": "131",
+              "address": 35476162
+            },
+            {
+              "module": "131",
+              "address": 35476172
+            },
+            {
+              "module": "131",
+              "address": 35476122
+            },
+            {
+              "module": "131",
+              "address": 35496238
+            },
+            {
+              "module": "131",
+              "address": 35496212
+            },
+            {
+              "module": "131",
+              "address": 35496296
+            },
+            {
+              "module": "131",
+              "address": 35495598
+            },
+            {
+              "module": "131",
+              "address": 35473894
+            },
+            {
+              "module": "131",
+              "address": 35496172
+            },
+            {
+              "module": "131",
+              "address": 35496350
+            },
+            {
+              "module": "131",
+              "address": 35496444
+            },
+            {
+              "module": "131",
+              "address": 35496538
+            },
+            {
+              "module": "131",
+              "address": 35496632
+            },
+            {
+              "module": "131",
+              "address": 35496726
+            }
+          ]
+        },
+        "W": {
+          "codeFingerprint": "95ac7648",
+          "bssSize": 108,
+          "hooks": [
+            {
+              "module": "131",
+              "address": 35480954
+            },
+            {
+              "module": "131",
+              "address": 35480998
+            },
+            {
+              "module": "131",
+              "address": 35472922
+            },
+            {
+              "module": "131",
+              "address": 35476194
+            },
+            {
+              "module": "131",
+              "address": 35476204
+            },
+            {
+              "module": "131",
+              "address": 35476154
+            },
+            {
+              "module": "131",
+              "address": 35496270
+            },
+            {
+              "module": "131",
+              "address": 35496244
+            },
+            {
+              "module": "131",
+              "address": 35496328
+            },
+            {
+              "module": "131",
+              "address": 35495630
+            },
+            {
+              "module": "131",
+              "address": 35473926
+            },
+            {
+              "module": "131",
+              "address": 35496204
+            },
+            {
+              "module": "131",
+              "address": 35496382
+            },
+            {
+              "module": "131",
+              "address": 35496476
+            },
+            {
+              "module": "131",
+              "address": 35496570
+            },
+            {
+              "module": "131",
+              "address": 35496664
+            },
+            {
+              "module": "131",
+              "address": 35496758
+            }
+          ]
+        }
+      }
     }
   ],
   "games": {
@@ -469,9 +770,9 @@
       "overlayId": 207,
       "graphicsArchive": "a/0/7/7",
       "fileName": "SummaryStatViewerW2.dll",
-      "codeFingerprint": "1b9acfe7",
-      "bssSize": 108,
-      "sha256": "f32bee5f8650224a4b0309d289b60e5c06cfc5aa3bd1f3664825ed86d62c231a",
+      "codeFingerprint": "8226cf61",
+      "bssSize": 116,
+      "sha256": "4de750a8423b74bc447ea34a872aef8b50b2ea43e65070b56558e4fccd62da92",
       "signatures": [
         {
           "label": "SummaryInit",
@@ -593,6 +894,76 @@
           "patchSize": 4
         },
         {
+          "label": "SummaryStatsSlotInit",
+          "module": "207",
+          "address": 35359550,
+          "expectedHex": "01f09ffd",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryStatsSlotShow",
+          "module": "207",
+          "address": 35359680,
+          "expectedHex": "01f028fe",
+          "patchSize": 4
+        },
+        {
+          "label": "SummarySlotValue",
+          "module": "207",
+          "address": 35366554,
+          "expectedHex": "62f68bfb",
+          "patchSize": 4
+        },
+        {
+          "label": "SummarySlotValue",
+          "module": "207",
+          "address": 35366568,
+          "expectedHex": "62f684fb",
+          "patchSize": 4
+        },
+        {
+          "label": "SummarySlotValue",
+          "module": "207",
+          "address": 35366954,
+          "expectedHex": "62f6c3fa",
+          "patchSize": 4
+        },
+        {
+          "label": "SummarySlotType",
+          "module": "207",
+          "address": 35366978,
+          "expectedHex": "66f683ff",
+          "patchSize": 4
+        },
+        {
+          "label": "SummarySlotLabel",
+          "module": "207",
+          "address": 35366704,
+          "expectedHex": "faf7c8fb",
+          "patchSize": 4
+        },
+        {
+          "label": "SummarySlotLabel",
+          "module": "207",
+          "address": 35366774,
+          "expectedHex": "faf7a5fb",
+          "patchSize": 4
+        },
+        {
+          "label": "SummarySlotPower",
+          "module": "207",
+          "address": 35366750,
+          "expectedHex": "faf757fc",
+          "patchSize": 4
+        },
+        {
+          "label": "SummarySlotMax",
+          "module": "207",
+          "address": 35366820,
+          "expectedHex": "faf7eefb",
+          "patchSize": 4
+        },
+        {
           "label": "Native Summary ABI",
           "module": "207",
           "address": 35336128,
@@ -653,6 +1024,62 @@
           "module": "207",
           "address": 35360592,
           "expectedHex": "f0b58fb0051c0c1c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35343836,
+          "expectedHex": "10b5041ca168087b",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35366528,
+          "expectedHex": "f8b590b0141c051c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35366932,
+          "expectedHex": "78b589b0141c051c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35367064,
+          "expectedHex": "10b5141c20698cf6",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35367764,
+          "expectedHex": "f8b5051c23300078",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35344068,
+          "expectedHex": "f0b583b0051ce86f",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35344400,
+          "expectedHex": "f8b584b0051c0391",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35344260,
+          "expectedHex": "f8b584b0051c0391",
           "patchSize": 0
         },
         {
@@ -824,6 +1251,69 @@
           "patchSize": 0
         },
         {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33692728,
+          "expectedHex": "0069002801d10120",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33672628,
+          "expectedHex": "70b5051c0c1c161c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33691468,
+          "expectedHex": "08b50021fff7acfd",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33675244,
+          "expectedHex": "38b546210022051c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33675388,
+          "expectedHex": "38b546210022051c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33850716,
+          "expectedHex": "38b5051c64200090",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33850944,
+          "expectedHex": "30b4002242800e4c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33850768,
+          "expectedHex": "014b002141601847",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33692840,
+          "expectedHex": "f8b50b4f0e1c151c",
+          "patchSize": 0
+        },
+        {
           "label": "Summary layout",
           "module": "207",
           "address": 35361460,
@@ -932,9 +1422,9 @@
       "overlayId": 207,
       "graphicsArchive": "a/0/7/7",
       "fileName": "SummaryStatViewerB2.dll",
-      "codeFingerprint": "26234bad",
-      "bssSize": 108,
-      "sha256": "9672f1c7538b30e4791806dec071031fd37bbf3265e78713dc406574d9913950",
+      "codeFingerprint": "4ccc4880",
+      "bssSize": 116,
+      "sha256": "715afbd10ae636661bdc18a8b76d498817b2ebe366d4f8fd31680b790ea3ebe0",
       "signatures": [
         {
           "label": "SummaryInit",
@@ -1056,6 +1546,76 @@
           "patchSize": 4
         },
         {
+          "label": "SummaryStatsSlotInit",
+          "module": "207",
+          "address": 35359486,
+          "expectedHex": "01f09ffd",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryStatsSlotShow",
+          "module": "207",
+          "address": 35359616,
+          "expectedHex": "01f028fe",
+          "patchSize": 4
+        },
+        {
+          "label": "SummarySlotValue",
+          "module": "207",
+          "address": 35366490,
+          "expectedHex": "62f695fb",
+          "patchSize": 4
+        },
+        {
+          "label": "SummarySlotValue",
+          "module": "207",
+          "address": 35366504,
+          "expectedHex": "62f68efb",
+          "patchSize": 4
+        },
+        {
+          "label": "SummarySlotValue",
+          "module": "207",
+          "address": 35366890,
+          "expectedHex": "62f6cdfa",
+          "patchSize": 4
+        },
+        {
+          "label": "SummarySlotType",
+          "module": "207",
+          "address": 35366914,
+          "expectedHex": "66f68dff",
+          "patchSize": 4
+        },
+        {
+          "label": "SummarySlotLabel",
+          "module": "207",
+          "address": 35366640,
+          "expectedHex": "faf7c8fb",
+          "patchSize": 4
+        },
+        {
+          "label": "SummarySlotLabel",
+          "module": "207",
+          "address": 35366710,
+          "expectedHex": "faf7a5fb",
+          "patchSize": 4
+        },
+        {
+          "label": "SummarySlotPower",
+          "module": "207",
+          "address": 35366686,
+          "expectedHex": "faf757fc",
+          "patchSize": 4
+        },
+        {
+          "label": "SummarySlotMax",
+          "module": "207",
+          "address": 35366756,
+          "expectedHex": "faf7eefb",
+          "patchSize": 4
+        },
+        {
           "label": "Native Summary ABI",
           "module": "207",
           "address": 35336064,
@@ -1116,6 +1676,62 @@
           "module": "207",
           "address": 35360528,
           "expectedHex": "f0b58fb0051c0c1c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35343772,
+          "expectedHex": "10b5041ca168087b",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35366464,
+          "expectedHex": "f8b590b0141c051c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35366868,
+          "expectedHex": "78b589b0141c051c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35367000,
+          "expectedHex": "10b5141c20698cf6",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35367700,
+          "expectedHex": "f8b5051c23300078",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35344004,
+          "expectedHex": "f0b583b0051ce86f",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35344336,
+          "expectedHex": "f8b584b0051c0391",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35344196,
+          "expectedHex": "f8b584b0051c0391",
           "patchSize": 0
         },
         {
@@ -1287,6 +1903,69 @@
           "patchSize": 0
         },
         {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33692684,
+          "expectedHex": "0069002801d10120",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33672584,
+          "expectedHex": "70b5051c0c1c161c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33691424,
+          "expectedHex": "08b50021fff7acfd",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33675200,
+          "expectedHex": "38b546210022051c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33675344,
+          "expectedHex": "38b546210022051c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33850672,
+          "expectedHex": "38b5051c64200090",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33850900,
+          "expectedHex": "30b4002242800e4c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33850724,
+          "expectedHex": "014b002141601847",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33692796,
+          "expectedHex": "f8b50b4f0e1c151c",
+          "patchSize": 0
+        },
+        {
           "label": "Summary layout",
           "module": "207",
           "address": 35361396,
@@ -1390,6 +2069,7 @@
       ]
     },
     "B": {
+      "version": "1.0.3",
       "idCode": "IRBO",
       "revision": 0,
       "overlayId": 131,
@@ -1827,6 +2507,7 @@
       ]
     },
     "W": {
+      "version": "1.0.3",
       "idCode": "IRAO",
       "revision": 0,
       "overlayId": 131,

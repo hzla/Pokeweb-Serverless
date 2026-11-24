@@ -1,9 +1,9 @@
 import { unzipSync } from "fflate";
-import { readU16 } from "../nds/binary";
+import { readU16, writeU16 } from "../nds/binary";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { recordGenericChange } from "./actionChangelog";
-import { addRomFile, getRomFileBytes, insertNarcFiles, replaceNarcFile, replaceRomFile } from "./fileSystemModel";
+import { addRomFile, getRomFileBytes, insertNarcFiles, replaceNarcFile, replaceRomFile, setRomFileReplacement } from "./fileSystemModel";
 import { getHeaderPackedValue, parseHeaders, updateHeaderPackedField, type HeaderRow } from "./headerModel";
 import { nitroCellEffectFrameAt, parseNitroCellEffect, type NitroCellEffect } from "./nitroCell";
 import { loadActiveRomBytes } from "./persistence";
@@ -15,6 +15,7 @@ import { normalizeWeatherCloneRuntime, type WeatherCloneRuntime } from "./overwo
 export const OVERWORLD_WEATHER_ARCHIVE_PATH = "a/0/5/5";
 export const OVERWORLD_WEATHER_CALENDAR_PATH = "a/0/9/6";
 export const OVERWORLD_WEATHER_CALENDAR_DAY_COUNT = 366;
+const WEATHER_CALENDAR_USE_HEADER = 0xffff;
 export const STOCK_WEATHER_ID_MAX = 14;
 export const CUSTOM_WEATHER_ID_MIN = 15;
 export const CUSTOM_WEATHER_ID_MAX = 63;
@@ -60,6 +61,11 @@ export type OverworldWeatherCalendar = {
   sourcePath: string;
   zones: Map<number, WeatherCalendarZone>;
   warnings: string[];
+};
+
+export type LoadedOverworldWeatherCalendar = OverworldWeatherCalendar & {
+  fileId: number;
+  sourceBytes: Uint8Array;
 };
 
 export type WeatherCalendarDate = {
@@ -185,17 +191,51 @@ export function weatherUsageCounts(project: ProjectState): Map<number, number> {
   return counts;
 }
 
-export async function loadOverworldWeatherCalendar(project: ProjectState): Promise<OverworldWeatherCalendar> {
-  const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
-  if (!romBytes) throw new Error("Reload the source ROM to read its calendar weather schedules.");
-  const rom = new NintendoDSRom(romBytes);
-  const fileId = rom.filenames.idOf(OVERWORLD_WEATHER_CALENDAR_PATH);
-  if (fileId === undefined) throw new Error(`ROM path ${OVERWORLD_WEATHER_CALENDAR_PATH} was not found.`);
-  return parseOverworldWeatherCalendar(getRomFileBytes(project, rom, fileId), OVERWORLD_WEATHER_CALENDAR_PATH);
+export async function loadOverworldWeatherCalendar(project: ProjectState): Promise<LoadedOverworldWeatherCalendar> {
+  let source = project.trainerLocationTables?.weatherCalendar;
+  if (!source) {
+    const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
+    if (!romBytes) throw new Error("Reload the source ROM to read its calendar weather schedules.");
+    const rom = new NintendoDSRom(romBytes, { fileData: "view" });
+    const fileId = rom.filenames.idOf(OVERWORLD_WEATHER_CALENDAR_PATH);
+    if (fileId === undefined) throw new Error(`ROM path ${OVERWORLD_WEATHER_CALENDAR_PATH} was not found.`);
+    source = { fileId, bytes: rom.files[fileId].slice() };
+  }
+  const { fileId, bytes: sourceBytes } = source;
+  const calendar = parseOverworldWeatherCalendar(project.fileSystem?.replacements?.[fileId] ?? sourceBytes);
+  return { ...calendar, fileId, sourceBytes };
+}
+
+export function clearWeatherCalendarSchedule(
+  project: ProjectState,
+  loaded: LoadedOverworldWeatherCalendar,
+  zoneId: number,
+): { calendar: LoadedOverworldWeatherCalendar; changed: boolean } {
+  const { fileId, sourceBytes, sourcePath } = loaded;
+  const narc = new NARC(project.fileSystem?.replacements?.[fileId] ?? sourceBytes);
+  const calendar = readWeatherCalendar(narc, sourcePath);
+  if (!calendar.zones.has(zoneId)) return { calendar: { ...calendar, fileId, sourceBytes }, changed: false };
+
+  const index = narc.files[1];
+  // The game reads a fixed-size table. An offset of 0xffff selects the header
+  // default while preserving the slot and every other zone's schedule.
+  for (let entry = 0; entry < readU16(index, 0); entry += 1) {
+    const indexOffset = 2 + entry * 4;
+    if (readU16(index, indexOffset) === zoneId) writeU16(index, indexOffset + 2, WEATHER_CALENDAR_USE_HEADER);
+  }
+  const updated = readWeatherCalendar(narc, sourcePath);
+  setRomFileReplacement(project, fileId, narc.save());
+  recordGenericChange(project, "headers", `Cleared calendar weather for area ${zoneId}.`, `Area ${zoneId}`, {
+    key: `weather-calendar-clear:${zoneId}`,
+  });
+  return { calendar: { ...updated, fileId, sourceBytes }, changed: true };
 }
 
 export function parseOverworldWeatherCalendar(bytes: Uint8Array, sourcePath = OVERWORLD_WEATHER_CALENDAR_PATH): OverworldWeatherCalendar {
-  const narc = new NARC(bytes);
+  return readWeatherCalendar(new NARC(bytes), sourcePath);
+}
+
+function readWeatherCalendar(narc: NARC, sourcePath: string): OverworldWeatherCalendar {
   const weatherData = narc.files[0];
   const indexData = narc.files[1];
   if (!weatherData || !indexData) throw new Error(`Calendar archive ${sourcePath} must contain weather data and an index.`);
@@ -206,15 +246,21 @@ export function parseOverworldWeatherCalendar(bytes: Uint8Array, sourcePath = OV
   }
 
   const zones = new Map<number, WeatherCalendarZone>();
+  const seen = new Set<number>();
   const warnings: string[] = [];
   for (let entry = 0; entry < entryCount; entry += 1) {
     const indexOffset = 2 + entry * 4;
     const zoneId = readU16(indexData, indexOffset);
     const dataOffset = readU16(indexData, indexOffset + 2);
+    if (seen.has(zoneId)) {
+      warnings.push(`Calendar zone ${zoneId} appears more than once; the game uses the first entry.`);
+      continue;
+    }
+    seen.add(zoneId);
+    if (dataOffset === WEATHER_CALENDAR_USE_HEADER) continue;
     if (dataOffset + OVERWORLD_WEATHER_CALENDAR_DAY_COUNT > weatherData.length) {
       throw new Error(`Calendar schedule ${entry} for zone ${zoneId} extends past the weather data.`);
     }
-    if (zones.has(zoneId)) warnings.push(`Calendar zone ${zoneId} appears more than once; the last schedule is shown.`);
     const weatherByDay = weatherData.slice(dataOffset, dataOffset + OVERWORLD_WEATHER_CALENDAR_DAY_COUNT);
     const weatherIds = [...new Set(weatherByDay)].sort((a, b) => a - b);
     zones.set(zoneId, { zoneId, weatherByDay, weatherIds, ranges: weatherCalendarRanges(weatherByDay) });

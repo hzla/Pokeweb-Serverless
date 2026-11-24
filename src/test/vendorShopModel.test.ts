@@ -5,6 +5,8 @@ import type { NintendoDSRom } from "../nds/rom";
 import { readBattlePointShop, setBattlePointShop } from "../pokeweb/battlePointShopModel";
 import { getBlackCityOffers, getJoinAvenueGoods, getJoinAvenueShops, setBlackCityOffer, setJoinAvenueOffer } from "../pokeweb/localShopModel";
 import type { ProjectState } from "../pokeweb/projectStore";
+import { specialVendorEntries } from "../pokeweb/specialVendorModel";
+import { decodeGen5TextBank, encodeGen5TextBank } from "../pokeweb/text";
 
 describe("stock and prices for native shops", () => {
   it.each([
@@ -78,6 +80,64 @@ describe("stock and prices for native shops", () => {
     expect(files[6][0x27]).toBe(1);
     expect(files[6][0x2c]).toBe(1);
     expect(readU16(new NARC(rom.files[0]).files[6], 0x28)).toBe(257);
+  });
+
+  it("changes the vending operands and matching dialogue while preserving other script and text edits", () => {
+    const project = makeProject();
+    const files: Uint8Array[] = Array.from({ length: 1264 }, () => new Uint8Array());
+    const vending = words(0x160, []);
+    writeU16(vending, 0xe9, 0x28);
+    writeU16(vending, 0xeb, 0x8021);
+    writeU16(vending, 0xed, 30);
+    writeU16(vending, 0xef, 0x28);
+    writeU16(vending, 0xf1, 0x8022);
+    writeU16(vending, 0xf3, 200);
+    vending[0x150] = 47;
+    files[1263] = vending;
+    const banks: Uint8Array[] = Array.from({ length: 665 }, () => new Uint8Array());
+    banks[664] = encodeGen5TextBank(Array.from({ length: 8 }, (_, i) => [`0_${i}`, i === 6 ? "Item 30VAR(48387, 1)$200" : "Unrelated $200", 0]));
+    const scriptArchive = new NARC();
+    scriptArchive.files = files;
+    const textArchive = new NARC();
+    textArchive.files = banks;
+    const rom = {
+      fileId: (path: string) => path === "a/0/5/6" ? 0 : 1,
+      files: [scriptArchive.save(), textArchive.save()],
+    } as unknown as NintendoDSRom;
+    // The loaded script store can already contain staged changes from elsewhere in Pokeweb.
+    project.narcs.scripts = { name: "scripts", fileId: 0, sourcePath: "a/0/5/6", fileCount: files.length, rawFiles: files, records: new Map(), dirty: new Set([1263]) };
+    const entry = specialVendorEntries({ project, rom }, "scripts", 0)[0];
+    expect(entry.values.map(({ value }) => value)).toEqual([30, 200]);
+    entry.save([17, 275]);
+    expect(specialVendorEntries({ project, rom }, "scripts", 0)[0].values.map(({ value }) => value)).toEqual([17, 275]);
+    expect(vending[0xed]).toBe(30);
+    expect(project.narcs.scripts.rawFiles[1263][0x150]).toBe(47);
+    const lines = decodeGen5TextBank(new NARC(project.fileSystem!.replacements[1]).files[664]);
+    expect(lines[6][1]).toBe("Item 17VAR(48387, 1)$275");
+    expect(lines[0][1]).toBe("Unrelated $200");
+    expect(() => entry.save([18, 300])).toThrow("This vendor changed");
+  });
+
+  it("keeps nearby overlay changes when making base and per-level Day Care fees independent", () => {
+    const project = makeProject();
+    const native = 0x3df8c;
+    const data = new Uint8Array(native + 14);
+    data.set(Uint8Array.of(0x08, 0xb5, 0xff, 0xf7, 0xeb, 0xff, 0x41, 0x1c, 0x64, 0x20, 0x48, 0x43, 0x08, 0xbd), native);
+    data[0x42] = 39;
+    project.overlays[36] = data;
+    project.patches = { dirtyOverlayIds: [165, 36] };
+    const arm9OverlayTable = new Uint8Array(32);
+    writeU32(arm9OverlayTable, 0, 36);
+    writeU32(arm9OverlayTable, 8, data.length);
+    const rom = { idCode: "IREO", arm9OverlayTable } as NintendoDSRom;
+    const context = { project, rom };
+    specialVendorEntries(context, "daycare", 0)[0].save([125, 60]);
+    const next = project.overlays[36]!;
+    expect(next[0x42]).toBe(39);
+    expect(project.patches.dirtyOverlayIds).toEqual([165, 36]);
+    expect(specialVendorEntries(context, "daycare", 0)[0].values.map(({ value }) => value)).toEqual([125, 60]);
+    specialVendorEntries(context, "daycare", 0)[0].save([100, 100]);
+    expect(Buffer.compare(project.overlays[36]!, data)).toBe(0);
   });
 });
 

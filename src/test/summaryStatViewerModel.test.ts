@@ -44,12 +44,14 @@ describe.each(versions)("Summary IV/EV Viewer %s", version => {
   beforeEach(() => { if (!version.endsWith("2")) acceptBw1Fixture(); });
   it("bundles the exact localized hooks, without other patch dependencies", () => {
     const rpm = parseRpm(assets[`SummaryStatViewer${version}.dll`], { allowedMagics: ["DLXF"] });
-    expect(rpm.metadata).toMatchObject({ PMCGameID: version, PMCModulePriority: 4, PMCVersion: manifest.version });
+    const profile = manifest.games[version];
+    expect(rpm.metadata).toMatchObject({ PMCGameID: version, PMCModulePriority: 4,
+      PMCVersion: "version" in profile ? profile.version : manifest.version });
     expect(rpm.symbols.every(s => !s.name && !(s.attributes & 2))).toBe(true);
     expect(rpm.relocations.filter(r => r.target.module !== "base").map(r => r.target.address).sort()).toEqual(
       manifest.games[version].signatures.filter(s => s.patchSize).map(s => s.address).sort());
     expect(rpm.bssSize).toBeLessThan(256);
-    expect(assets[`SummaryStatViewer${version}.dll`].length).toBeLessThan(13000);
+    expect(assets[`SummaryStatViewer${version}.dll`].length).toBeLessThan(13500);
     for (const includeEvs of [false, true]) expect(() => configureSummaryStatViewerDll(assets[`SummaryStatViewer${version}.dll`], { includeEvs })).not.toThrow();
   });
   it("installs independently, defaults to EVs, and updates the recognized DLL", async () => {
@@ -101,7 +103,7 @@ describe.each(versions)("Summary IV/EV Viewer %s", version => {
   if (version.endsWith("2")) it("recognizes legacy viewers and migrates their shared layout while preserving the EV choice", async () => {
     stubAssets(); const p = makeProject(version);
     await installSummaryStatViewer(p); uninstallSummaryStatViewer(p);
-    for (const previousVersion of ["1.0.0", "1.0.1", "1.0.2"]) {
+    for (const previousVersion of ["1.0.0", "1.0.1", "1.0.2", "1.0.3"]) {
       const previous = new Uint8Array(readFileSync(new URL(`./fixtures/SummaryStatViewer${version}-v${previousVersion}.dll`, import.meta.url)));
       stageCodeInjectionDll(p, `SummaryStatViewer${version}.dll`, configureSummaryStatViewerDll(previous, { includeEvs: false }));
       expect(getSummaryStatViewerStatus(p), previousVersion).toMatchObject({ installed: true, compatible: true, updateAvailable: true,
@@ -111,7 +113,7 @@ describe.each(versions)("Summary IV/EV Viewer %s", version => {
     const reopened = makeProject(version, exported.data);
     const oldStatus = getSummaryStatViewerStatus(reopened);
     expect(oldStatus).toMatchObject({ installed: true, compatible: true, updateAvailable: true,
-      installedVersion: "1.0.2", options: { includeEvs: false } });
+      installedVersion: "1.0.3", options: { includeEvs: false } });
     const id = exported.fileId(oldStatus.dllPath!);
     await installSummaryStatViewer(reopened, oldStatus.options);
     const updated = new NintendoDSRom(await exportModifiedRom(reopened));

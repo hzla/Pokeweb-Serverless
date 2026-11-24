@@ -1,8 +1,7 @@
 """Build BW1 Summary companions from independently pinned inputs.
 
-Candidates and profiles stay in build/ unless --bundle-candidates is requested.
-Only artifacts and profiles recorded in the DS acceptance ledger receive
-normal installation support. This builder does not certify new gameplay.
+Candidates and profiles stay in build/ until both games pass the DS
+acceptance ledger check and --bundle-candidates is requested.
 """
 import hashlib
 import json
@@ -17,7 +16,7 @@ import ndspy.narc
 import ndspy.codeCompression
 from build import HERE, BUILD, ASSETS, REPO, TOOLS, JAR, VERSION, graphics, run
 sys.path.insert(0, str(HERE.parent))
-from bw1_release import ds_accepted
+from bw1_release import ds_accepted, summary_profile
 
 
 def call_target(data, address):
@@ -35,7 +34,7 @@ def call_target(data, address):
 def profile_header(profiles):
     lines = ['#pragma once']
     for name, key in [('nativeApiAddress', 'apis'), ('nativeOverlayAddress', 'native')]:
-        lines += [f'inline u32 {name}(u32 reference) {{', '#ifdef GAME_B']
+        lines += [f'__attribute__((always_inline)) inline u32 {name}(u32 reference) {{', '#ifdef GAME_B']
         for game in ('B', 'W'):
             if game == 'W':
                 lines += ['#else']
@@ -48,15 +47,14 @@ def profile_header(profiles):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--bundle-candidates', action='store_true', help='Bundle companions and installer fixtures; only recorded builds receive DS acceptance.')
+    parser.add_argument('--bundle-candidates', action='store_true', help='Bundle the companions after acceptance of both exact builds.')
     args = parser.parse_args()
     BUILD.mkdir(exist_ok=True)
-    profiles = {game: json.loads((HERE / f'profile-{game}.json').read_text()) for game in ('B', 'W')}
+    profiles = {game: summary_profile(game, hidden_power=True) for game in ('B', 'W')}
     (BUILD / 'profiles-bw1.generated.h').write_text(profile_header(profiles))
     manifest = {'version': VERSION, 'games': {}}
     generated_graphics = None
-    defaults = {'B': HERE.parents[2] / 'cleanblack.nds',
-                'W': Path.home() / 'Downloads/cleanroms/cleanwhite.nds'}
+    defaults = {'B': REPO.parent / 'cleanblack.nds', 'W': REPO.parent / 'cleanwhite.nds'}
     for game, profile in profiles.items():
         rom = ndspy.rom.NintendoDSRom.fromFile(os.environ.get(f'SUMMARY_{game}_ROM', defaults[game]))
         assert bytes(rom.idCode).decode() == profile['idCode'] and rom.version == profile['revision']
@@ -133,6 +131,7 @@ def main():
                      for n in (3, 9, 11, 65, 69, 75, 76, 78, 129)]
         native_profile = {**profile, 'signatures': signatures, 'resources': resources}
         manifest['games'][game] = {'idCode': profile['idCode'], 'revision': profile['revision'],
+            'version': VERSION,
             'overlayId': 131, 'graphicsArchive': profile['graphicsArchive'],
             'dsAccepted': ds_accepted('summary-stat-viewer', game, native_profile, {output.name: data}),
             'liveDsiAccepted': False,
@@ -143,6 +142,8 @@ def main():
         print(output.name, len(data), 'DS accepted' if manifest['games'][game]['dsAccepted'] else 'candidate; DS acceptance pending')
     (BUILD / 'bw1-candidates.json').write_text(json.dumps(manifest, indent=2) + '\n')
     if args.bundle_candidates:
+        if not all(profile['dsAccepted'] for profile in manifest['games'].values()):
+            raise SystemExit('Both exact BW1 candidates need DS acceptance before replacing the current bundles.')
         path = ASSETS / 'summaryStatViewerManifest.json'
         shipped = json.loads(path.read_text())
         assert shipped['version'] == VERSION, 'Build BW2 companions for the same version first'

@@ -15,8 +15,9 @@ import { parseRpm } from "../../src/pokeweb/rpm";
 // Exercise the normal installer on separately named validation ROMs. The
 // temporary acceptance override exists only in this process, never on disk.
 const [inputPath, outputPath, option] = process.argv.slice(2);
-if (!inputPath || !outputPath || resolve(inputPath) === resolve(outputPath) || (option && option !== "--iv-only")) {
-  throw new Error("Usage: vite-node runtime/summary-stat-viewer/prepare_bw1_validation.ts INPUT.nds NEW-OUTPUT.nds [--iv-only]");
+const verifyOnly = outputPath === "--verify-only";
+if (!inputPath || !outputPath || (!verifyOnly && resolve(inputPath) === resolve(outputPath)) || (option && option !== "--iv-only")) {
+  throw new Error("Usage: vite-node runtime/summary-stat-viewer/prepare_bw1_validation.ts INPUT.nds NEW-OUTPUT.nds|--verify-only [--iv-only]");
 }
 const digest = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 const bytes = new Uint8Array(await readFile(inputPath)), sourceHash = digest(bytes);
@@ -26,7 +27,6 @@ assert(game && rom.data[0x1e] === 0, "Only US BW1 revision 0 is a candidate targ
 const manifest = JSON.parse(await readFile(new URL("./build/bw1-candidates.json", import.meta.url), "utf8"));
 const profile = manifest.games[game];
 assert(profile, "Expected a BW1 profile.");
-assert.deepEqual(shippedManifest.games[game], profile, "Rebuild and bundle matching candidate profiles before validation.");
 const overlay = loadOverlayTable(rom.arm9OverlayTable, (_id, fileId) => rom.files[fileId], new Set([profile.overlayId])).get(profile.overlayId)!;
 const arm9 = decompressCode(rom.arm9);
 for (const signature of profile.signatures) {
@@ -44,16 +44,17 @@ const rpm = parseRpm(dll, { allowedMagics: ["DLXF"] });
 assert.equal(rpm.metadata.PMCGameID, game);
 assert.equal(rpm.metadata.PMCVersion, manifest.version);
 const project = await loadProjectFromRomBytes(bytes, basename(inputPath), { selectedNarcs: [] });
-assert.equal(getSummaryStatViewerStatus(project).supported, shippedManifest.games.B.dsAccepted && shippedManifest.games.W.dsAccepted);
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async (input) => {
   const name = basename(new URL(String(input), "https://pokeweb.invalid").pathname);
+  if (name === profile.fileName) return new Response(dll);
   return new Response(new Uint8Array(await readFile(new URL(`../../src/assets/codeinjection/${name}`, import.meta.url))));
 };
-const savedAcceptance = { B: shippedManifest.games.B.dsAccepted, W: shippedManifest.games.W.dsAccepted };
+const previous = { B: shippedManifest.games.B, W: shippedManifest.games.W };
 let exported: Uint8Array;
 try {
-  shippedManifest.games.B.dsAccepted = shippedManifest.games.W.dsAccepted = true;
+  shippedManifest.games.B = { ...manifest.games.B, dsAccepted: true };
+  shippedManifest.games.W = { ...manifest.games.W, dsAccepted: true };
   const options = { includeEvs: option !== "--iv-only" };
   const installed = await installSummaryStatViewer(project, options);
   assert.equal(installed.path, `patches/${profile.fileName}`);
@@ -68,8 +69,7 @@ try {
   assert(reopened.fileSystem?.replacements[id], "Reinstall did not update the existing FAT entry.");
   assert.deepEqual(getSummaryStatViewerStatus(reopened).options, { includeEvs: !options.includeEvs });
 } finally {
-  shippedManifest.games.B.dsAccepted = savedAcceptance.B;
-  shippedManifest.games.W.dsAccepted = savedAcceptance.W;
+  Object.assign(shippedManifest.games, previous);
   globalThis.fetch = originalFetch;
 }
 const result = new NintendoDSRom(exported!, { fileData: "view" });
@@ -77,5 +77,5 @@ assert.deepEqual(result.loadArm9Overlays([profile.overlayId]).get(profile.overla
 assert.deepEqual(new NARC(result.getFileByName(profile.graphicsArchive)).files, graphics.files);
 assert.equal(parseRpm(result.getFileByName(`patches/${profile.fileName}`), { allowedMagics: ["DLXF"] }).metadata.PMCGameID, game);
 assert.equal(digest(new Uint8Array(await readFile(inputPath))), sourceHash, "Source ROM changed.");
-await writeFile(outputPath, exported, { flag: "wx" });
-console.log(`${game}: separately named Summary validation export prepared; export alone does not certify gameplay.`);
+if (!verifyOnly) await writeFile(outputPath, exported, { flag: "wx" });
+console.log(`${game}: candidate installed, exported and reopened${verifyOnly ? " in memory" : ""}.`);

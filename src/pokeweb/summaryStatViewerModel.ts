@@ -19,12 +19,12 @@ export const SUMMARY_STAT_VIEWER_VERSION = manifestData.version;
 export type SummaryStatViewerStatus = {
   supported: boolean; compatible: boolean; installed: boolean; canUninstall: boolean;
   pmcInstalled: boolean; options: SummaryStatViewerOptions; dllPath?: string; message: string;
-  installedVersion?: string; updateAvailable: boolean;
+  installedVersion?: string; availableVersion?: string; updateAvailable: boolean;
 };
 type Version = "B" | "W" | "B2" | "W2";
 type Signature = { module: string; address: number; expectedHex: string; patchSize: number };
 type SummaryProfile = {
-  idCode: string; revision: number; overlayId: number; graphicsArchive: string; dsAccepted?: boolean;
+  idCode: string; revision: number; overlayId: number; graphicsArchive: string; version?: string; dsAccepted?: boolean;
   fileName: string; codeFingerprint: string; bssSize: number; sha256: string;
   signatures: Signature[]; resources: { member: number; sha256: string }[];
 };
@@ -57,13 +57,14 @@ function fingerprint(code: Uint8Array): string {
 }
 function recognized(rpm: RpmModule, version: Version): boolean {
   const current = manifest.games[version];
+  const latest = rpm.metadata.PMCVersion === (current.version ?? manifest.version);
   const legacy = manifest.previousVersions.find(p => p.version === rpm.metadata.PMCVersion)?.games[version];
-  const profile = rpm.metadata.PMCVersion === manifest.version ? current : legacy;
+  const profile = latest ? current : legacy;
   try {
     if (!profile || rpm.baseAddress !== 0 || rpm.bssSize !== profile.bssSize || rpm.metadata.PMCGameID !== version
       || rpm.metadata.PMCModulePriority !== 4
       || rpm.symbols.some(s => s.attributes & 2) || fingerprint(rpm.code) !== profile.codeFingerprint) return false;
-    const hooks = rpm.metadata.PMCVersion === manifest.version ? current.signatures.filter(s => s.patchSize) : legacy!.hooks;
+    const hooks = latest ? current.signatures.filter(s => s.patchSize) : legacy!.hooks;
     const expected = hooks.map(s => `${s.module}:${s.address}:THUMB_BRANCH_LINK`).sort();
     const actual = rpm.relocations.filter(r => r.target.module !== "base").map(r => `${r.target.module}:${r.target.address}:${r.target.type}`).sort();
     return actual.join("|") === expected.join("|");
@@ -101,6 +102,7 @@ export function getSummaryStatViewerStatus(project: ProjectState): SummaryStatVi
     return { ...state, message: "BW1 Summary IV/EV Viewer is awaiting DS gameplay and visual acceptance in Black and White." };
   }
   state.supported = true;
+  state.availableVersion = profile.version ?? manifest.version;
   const found: string[] = [];
   for (const entry of listCodeInjectionDlls(project)) {
     let rpm: RpmModule | undefined;
@@ -108,7 +110,7 @@ export function getSummaryStatViewerStatus(project: ProjectState): SummaryStatVi
     if (entry.target === "patches" && rpm && recognized(rpm, v)) {
       found.push(entry.path); state.options = { includeEvs: Boolean(readU32(rpm.code, configOffset(rpm.code) + 12)) };
       state.installedVersion = String(rpm.metadata.PMCVersion);
-      state.updateAvailable = state.installedVersion !== manifest.version;
+      state.updateAvailable = state.installedVersion !== state.availableVersion;
     } else {
       const overlap = rpm?.relocations.some(({ target, sourceSymbolIndex }) => {
         const size = target.type === "FULL_COPY" ? rpm!.symbols[sourceSymbolIndex]?.size ?? 0
@@ -140,7 +142,7 @@ export function getSummaryStatViewerStatus(project: ProjectState): SummaryStatVi
   state.compatible = true;
   state.message = state.installed ? `Summary viewer installed (${state.options.includeEvs ? "IVs and EVs" : "IVs only"}).`
     : "";
-  if (state.updateAvailable) state.message += ` Version ${manifest.version} is available; update for native title lettering and restored Stats tab flashing.`;
+  if (state.updateAvailable) state.message += ` Version ${state.availableVersion} is available.`;
   return state;
 }
 export async function installSummaryStatViewer(project: ProjectState, options: SummaryStatViewerOptions = { includeEvs: true }): Promise<CodeInjectionDllInstallResult> {

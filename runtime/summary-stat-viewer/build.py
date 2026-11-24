@@ -3,7 +3,6 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import re
 import struct
 import subprocess
 import tempfile
@@ -17,8 +16,8 @@ WORKSPACE=REPO.parent
 BUILD=HERE/'build'
 ASSETS=REPO/'src/assets/codeinjection'
 TOOLS=Path(os.environ.get('ARM_TOOLCHAIN_BIN',WORKSPACE/'toolchains/arm-gnu-toolchain-14.2.rel1-darwin-arm64-arm-none-eabi/bin'))
-JAR=Path(os.environ.get('RPM_TOOL_JAR',WORKSPACE/'White2Upgrade/CTRMap.jar'))
-VERSION='1.0.3'
+JAR=Path(os.environ.get('RPM_TOOL_JAR',WORKSPACE/'pw2-build-work/ctrmap/CTRMap.jar'))
+VERSION='1.0.4'
 PINS={'W2':'26657348bd732a2e970d9244cd37817141013af0a62444a816f4333ebfadb985',
       'B2':'9cf7894e8f4244ce0b06b92e9113b14eefbfabf8174e7dbab8a7986497418cce'}
 HOOKS=[
@@ -29,6 +28,13 @@ HOOKS=[
     ('SummaryMaxHp',0x21b9008,0x21b5080),('SummaryTitle',0x21b8d4e,0x2045500),
     ('SummaryTitleChars',0x21b3766,0x204add4),
     *[('SummaryValue',a,0x201cd24) for a in (0x21b8f8c,0x21b903e,0x21b909c,0x21b90fa,0x21b9158,0x21b91b6)],
+    ('SummaryStatsSlotInit',0x21b8b3e,0x21ba680),
+    ('SummaryStatsSlotShow',0x21b8bc0,0x21ba814),
+    *[('SummarySlotValue',a,0x201cdb4) for a in (0x21ba69a,0x21ba6a8,0x21ba82a)],
+    ('SummarySlotType',0x21ba842,0x202174c),
+    *[('SummarySlotLabel',a,0x21b4ec4) for a in (0x21ba730,0x21ba776)],
+    ('SummarySlotPower',0x21ba75e,0x21b5010),
+    ('SummarySlotMax',0x21ba7a4,0x21b4f84),
 ]
 # Explicit W2 -> B2 entry points; early ARM9 functions do not share the UI
 # helpers' offset. Optional anchors are independently verified retail BLs.
@@ -46,9 +52,15 @@ APIS={
     0x204add4:(0x204ada8,0x21b3766),0x20450ac:(0x2045080,None),
     0x2045500:(0x20454d4,0x21b8d4e),0x2048520:(0x20484f4,0x21b8612),
     0x2047168:(0x204713c,0x21b934e),
+    0x2021c38:(0x2021c0c,0x21b8722),0x201cdb4:(0x201cd88,0x21ba69a),
+    0x202174c:(0x2021720,0x21ba842),0x201d7ec:(0x201d7c0,None),
+    0x201d87c:(0x201d850,None),0x204855c:(0x2048530,None),
+    0x2048640:(0x2048614,None),0x2048590:(0x2048564,0x21ba712),
+    0x2021ca8:(0x2021c7c,0x21ba70c),
 }
 NATIVE=[0x21b2fc0,0x21b3198,0x21b4a10,0x21b404c,0x21b4220,0x21b4f04,0x21b5080,
-        0x21b4e4c,0x21b8f50]
+        0x21b4e4c,0x21b8f50,0x21b4ddc,0x21ba680,0x21ba814,0x21ba898,0x21bab54,
+        0x21b4ec4,0x21b5010,0x21b4f84]
 
 def run(*args): subprocess.run([str(x) for x in args],check=True)
 def bl_target(b,address):
@@ -173,19 +185,17 @@ def main():
     previous=[];bw1_games={}
     if manifest_path.exists():
         prior=json.loads(manifest_path.read_text())
-        bw1_games={g:p for g,p in prior['games'].items() if g in ('B','W')}
-        if prior['version']!=VERSION:
-            for p in bw1_games.values():p['dsAccepted']=False
+        bw1_games={g:{'version':prior['version'],**p} for g,p in prior['games'].items() if g in ('B','W')}
         previous=prior.get('previousVersions',[])
         if prior['version']!=VERSION and not any(p['version']==prior['version'] for p in previous):
             previous.append({'version':prior['version'],'games':{g:{
                 'codeFingerprint':p['codeFingerprint'],'bssSize':p['bssSize'],
                 'hooks':[{'module':s['module'],'address':s['address']} for s in p['signatures'] if s['patchSize']]
-            } for g,p in prior['games'].items()}})
-    manifest={'version':VERSION,'configMagic':'5353564346473100','previousVersions':previous,'games':bw1_games}
+            } for g,p in prior['games'].items() if p.get('version',prior['version'])==prior['version']}})
+    manifest={'version':VERSION,'configMagic':'5353564346473100','previousVersions':previous,'games':{}}
     original_graphics=None
     w2_api_bytes={}
-    profile=['#pragma once','inline u32 nativeApiAddress(u32 w2) {','#ifdef GAME_B2','switch (w2) {']
+    profile=['#pragma once','__attribute__((always_inline)) inline u32 nativeApiAddress(u32 w2) {','#ifdef GAME_B2','switch (w2) {']
     profile += [f'case 0x{a:x}: return 0x{b:x};' for a,(b,_) in APIS.items()]
     profile += ['default: __builtin_trap();','}','#else','return w2;','#endif','}']
     (BUILD/'profiles.generated.h').write_text('\n'.join(profile)+'\n')
@@ -194,7 +204,7 @@ def main():
         assert bytes(rom.idCode)==(b'IRDO' if game=='W2' else b'IREO')
         o=rom.loadArm9Overlays([207])[207]
         assert hashlib.sha256(o.data).hexdigest()==PINS[game]
-        arm=ndspy.codeCompression.decompress(rom.arm9);ad=0 if game=='W2' else 0x2c
+        arm=ndspy.codeCompression.decompress(rom.arm9)
         f=ndspy.narc.NARC(rom.getFileByName('a/0/7/7')).files
         generated=graphics(f)
         if original_graphics is not None:assert generated==original_graphics
@@ -203,7 +213,8 @@ def main():
         signatures=[];asm=['.syntax unified','.thumb']
         for label,w2,target in HOOKS:
             a=w2-delta;at=a-o.ramAddress;b=bytes(o.data[at:at+4])
-            assert bl_target(b,a)==target-(delta if target>=0x21b0000 else ad),(game,label,hex(a))
+            mapped=target-delta if target>=0x21b0000 else APIS[target][0] if game=='B2' else target
+            assert bl_target(b,a)==mapped,(game,label,hex(a))
             signatures.append({'label':label,'module':'207','address':a,'expectedHex':b.hex(),'patchSize':4})
             sym=f'THUMB_BRANCH_LINK_207_0x{a:x}'
             # r3 and SP are preserved even for seven/ten-argument native calls.
@@ -259,6 +270,7 @@ def main():
           'sha256':hashlib.sha256(data).hexdigest(),'signatures':signatures,
           'resources':[{'member':n,'sha256':hashlib.sha256(f[n]).hexdigest()} for n in (5,11,13,67,71,77,78,80,131)]}
         print(output.name,len(data))
+    manifest['games'].update(bw1_games)
     manifest_path.write_text(json.dumps(manifest,indent=2)+'\n')
     fixture=ndspy.narc.NARC();fixture.files=[b'']*132
     for resource in manifest['games']['W2']['resources']:

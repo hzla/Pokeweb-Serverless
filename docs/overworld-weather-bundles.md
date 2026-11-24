@@ -180,6 +180,7 @@ files present in the ZIP. Appended registry resources use 16-bit indices:
 `0xFFFE` is the theoretical maximum, `0xFFFF` is reserved, and every index must
 be below the archive's actual member count.
 
-The area editor changes the zone-header default. Moving-Pokémon areas,
-facilities, scripts, birthdays, and calendar weather can still replace that
-default through retail selection logic.
+In **Weather areas**, set the **Header default** and use **Clear calendar** on
+any zone that should use it year-round. Clearing a schedule changes the calendar
+archive (`a/0/9/6`). Moving-Pokémon areas, facilities, scripts, and birthdays
+can still override the header weather.

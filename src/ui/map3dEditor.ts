@@ -518,6 +518,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
             <summary class="btn sm -ghost">Files</summary>
             <div class="mx-menu-list" role="menu">
               <button class="mx-menu-item" id="map3d-export" type="button" role="menuitem" disabled title="Export the loaded map and season, including terrain, buildings, and textures">Export for Blender (.glb)</button>
+              <button class="mx-menu-item" id="map3d-export-terrain" type="button" role="menuitem" disabled title="Export the loaded map and season without buildings. Importing it changes terrain only: building placements and models stay as they are">Export terrain only (.glb)</button>
               ${project.session.baseRom === "BW2" ? '<button class="mx-menu-item" id="map3d-import" type="button" role="menuitem" disabled>Import edited map (.glb)</button><input id="map3d-import-file" type="file" accept=".glb" hidden />' : ""}
               ${gen4 ? "" : '<button class="mx-menu-item" id="map3d-native-folder" type="button" role="menuitem" disabled>Open DS Map Studio folder…</button><button class="mx-menu-item" id="map3d-native-import" type="button" role="menuitem" disabled>Import DS Map Studio map…</button>'}
             </div>
@@ -589,6 +590,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
 
   const select = root.querySelector<HTMLSelectElement>("#map3d-zone");
   const exportButton = root.querySelector<HTMLButtonElement>("#map3d-export");
+  const exportTerrainButton = root.querySelector<HTMLButtonElement>("#map3d-export-terrain");
   const exportStatus = root.querySelector<HTMLDivElement>("#map3d-export-status");
   const grassSurface = root.querySelector<HTMLSelectElement>("#map3d-grass-surface");
   const swatches = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-brush]"));
@@ -820,6 +822,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
       applyCurrentLayerSettings(false);
     }
     if (exportButton) exportButton.disabled = true;
+    if (exportTerrainButton) exportTerrainButton.disabled = true;
     if (importButton) importButton.disabled = true;
     if (nativeImportButton) nativeImportButton.disabled = true;
     setStatus("Loading map…");
@@ -887,6 +890,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
       if (!data.matrixCell) rememberMap3dView(project, zoneId, activeSeason);
       setStatus("");
       if (exportButton) exportButton.disabled = exporting;
+      if (exportTerrainButton) exportTerrainButton.disabled = exporting;
       refreshImportButtons();
     } catch (error) {
       if (token !== loadToken) return;
@@ -1033,19 +1037,22 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   texturesReset?.addEventListener("click", () => { state?.texturePreview.seek(0); refreshTextureControls(); });
   texturesFrame?.addEventListener("input", () => { state?.texturePreview.setPlaying(false); state?.texturePreview.seek(Number(texturesFrame.value)); refreshTextureControls(); });
 
-  exportButton?.addEventListener("click", async () => {
-    if (!activeData || exporting || importing || pendingImport) return;
-    const data = activeData;
+  /** Export the loaded map for Blender; without buildings, the GLB holds terrain only and its import leaves them alone. */
+  async function exportGlb(includeBuildings: boolean) {
+    const button = includeBuildings ? exportButton : exportTerrainButton;
+    if (!button || !activeData || exporting || importing || pendingImport) return;
+    const data = activeData, label = button.textContent ?? "";
     exporting = true;
     refreshImportButtons();
-    exportButton.disabled = true;
-    exportButton.textContent = "Exporting…";
-    if (exportStatus) exportStatus.textContent = `Preparing ${data.label} (${data.season})…`;
+    button.textContent = "Exporting…";
+    if (exportStatus) exportStatus.textContent = `Preparing ${data.label} (${data.season})${includeBuildings ? "" : " without buildings"}…`;
     try {
       const { exportMap3dGlb } = await import("../pokeweb/map3dExport");
+      const glb = await import("../pokeweb/mapGlbImport");
       const result = project.session.baseRom === "BW2"
-        ? await (await import("../pokeweb/mapGlbImport")).exportMapGlbForImport(project, data)
-        : await exportMap3dGlb(data);
+        ? await glb.exportMapGlbForImport(project, data, { buildings: includeBuildings })
+        : includeBuildings ? await exportMap3dGlb(data)
+        : await exportMap3dGlb(glb.terrainOnly(data)).then(r => ({ ...r, filename: r.filename.replace(/\.glb$/, "-terrain.glb") }));
       const url = URL.createObjectURL(new Blob([result.bytes], { type: "model/gltf-binary" }));
       const link = document.createElement("a");
       link.href = url;
@@ -1055,17 +1062,21 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
       if (exportStatus && activeData === data) {
-        exportStatus.textContent = `Exported ${result.chunkCount} terrain chunk${result.chunkCount === 1 ? "" : "s"} and ${result.buildingCount} building${result.buildingCount === 1 ? "" : "s"}. To import edits, keep the chunk/building parent objects and export the complete scene with Include → Custom Properties enabled and animations disabled. Keep texture dimensions power-of-two (8–1024 pixels), use PNG color textures, and bake complex shaders before import.${result.warnings.length ? " Map loading reported warnings; check the diagnostics below for missing assets." : ""}`;
+        const what = includeBuildings
+          ? `${result.chunkCount} terrain chunk${result.chunkCount === 1 ? "" : "s"} and ${result.buildingCount} building${result.buildingCount === 1 ? "" : "s"}`
+          : `${result.chunkCount} terrain chunk${result.chunkCount === 1 ? "" : "s"} without buildings (importing it leaves building placements and models as they are)`;
+        exportStatus.textContent = `Exported ${what}. To import edits, keep the chunk${includeBuildings ? "/building" : ""} parent objects and export the complete scene with Include → Custom Properties enabled and animations disabled. Keep texture dimensions power-of-two (8–1024 pixels), use PNG color textures, and bake complex shaders before import.${result.warnings.length ? " Map loading reported warnings; check the diagnostics below for missing assets." : ""}`;
       }
     } catch (error) {
       if (exportStatus && activeData === data) exportStatus.textContent = `Export failed: ${error instanceof Error ? error.message : String(error)}`;
     } finally {
       exporting = false;
-      exportButton.disabled = !activeData;
-      exportButton.textContent = "Export for Blender (.glb)";
+      button.textContent = label;
       refreshImportButtons();
     }
-  });
+  }
+  exportButton?.addEventListener("click", () => void exportGlb(true));
+  exportTerrainButton?.addEventListener("click", () => void exportGlb(false));
 
   function updateTileToolHints() {
     if (dragLabel) dragLabel.textContent = warpDestination ? "Click the tile to warp to · Drag: pan · Esc: cancel"
@@ -1487,6 +1498,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     if (nativeImportButton) nativeImportButton.disabled = !activeData || grassBusy || importing || exporting || !!pendingImport;
     if (nativeFolderButton) nativeFolderButton.disabled = !activeData || grassBusy || importing || exporting || !!pendingImport;
     if (exportButton) exportButton.disabled = !activeData || grassBusy || importing || exporting || !!pendingImport;
+    if (exportTerrainButton) exportTerrainButton.disabled = !activeData || grassBusy || importing || exporting || !!pendingImport;
     if (heightGenerate) heightGenerate.disabled = !activeData || grassBusy || importing || exporting || !!pendingImport;
     if (mapGameTest) mapGameTest.disabled = grassDisabled;
     for (const button of toolButtons) if (button.dataset.mapTool === "collision" || button.dataset.mapTool === "camera") button.disabled = !activeData || busy;

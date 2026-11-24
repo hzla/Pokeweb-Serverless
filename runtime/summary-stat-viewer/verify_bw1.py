@@ -3,14 +3,12 @@
 This is isolated CPU verification, not DS gameplay or visual acceptance.
 """
 import hashlib
-import json
 import os
-from pathlib import Path
 import struct
 import ndspy.rom
 import ndspy.codeCompression
 from build import HERE, WORKSPACE
-from build_bw1 import call_target
+from build_bw1 import call_target, summary_profile
 from verify import verify
 
 
@@ -25,9 +23,9 @@ def arm_branch(data, address):
 
 def main():
     for game, default in [('B', WORKSPACE / 'cleanblack.nds'),
-                          ('W', Path.home() / 'Downloads/cleanroms/cleanwhite.nds')]:
+                          ('W', WORKSPACE / 'cleanwhite.nds')]:
         path = os.environ.get(f'SUMMARY_{game}_ROM', default)
-        profile = json.loads((HERE / f'profile-{game}.json').read_text())
+        profile = summary_profile(game, hidden_power=True)
         rom = ndspy.rom.NintendoDSRom.fromFile(path)
         assert bytes(rom.idCode).decode() == profile['idCode'] and rom.version == 0
         overlay = rom.loadArm9Overlays([131])[131]
@@ -47,6 +45,8 @@ def main():
             0x2048500: 0x21d97ae, 0x2045ba8: 0x21d97b2,
             0x21ba67c: 0x21d98da, 0x20457bc: 0x21d9e52,
             0x2044fbc: 0x21d9e6e, 0x2045080: 0x21d9e86,
+            0x2046e54: 0x21db828, 0x21ba980: 0x21db94c,
+            0x202d814: 0x21db9b4, 0x204c3a4: 0x21db9be, 0x21baba4: 0x21db9d2,
         }
         for reference, site in anchors.items():
             site += 0x20 if game == 'W' else 0

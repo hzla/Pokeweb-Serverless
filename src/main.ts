@@ -200,6 +200,7 @@ type AppRoute =
   | "bpShops"
   | "joinAvenueShops"
   | "blackCityMarket"
+  | "specialVendors"
   | "grottos"
   | "phenomena"
   | "dexAreas"
@@ -330,6 +331,7 @@ const APP_ROUTES: AppRoute[] = [
   "bpShops",
   "joinAvenueShops",
   "blackCityMarket",
+  "specialVendors",
   "grottos",
   "phenomena",
   "dexAreas",
@@ -391,6 +393,7 @@ const EDITOR_REQUIREMENTS: Record<
   bpShops: [],
   joinAvenueShops: [],
   blackCityMarket: [],
+  specialVendors: [],
   grottos: ["grottos", "grotto_odds"],
   phenomena: ["items", "headers", "message_texts"],
   dexAreas: ["encounters", "headers", "personal"],
@@ -1406,7 +1409,7 @@ function renderApp(): void {
     return;
   }
 
-  if (route === "bpShops" || route === "joinAvenueShops" || route === "blackCityMarket") {
+  if (route === "bpShops" || route === "joinAvenueShops" || route === "blackCityMarket" || route === "specialVendors") {
     void openVendorShopPage(project, content, route, () => {
       dirty = true;
       scheduleSave(project!);
@@ -1734,7 +1737,7 @@ function renderPokemonMenu(): string {
 function renderItemsMenu(): string {
   const martsAvailable = project?.session.baseRom === "BW2";
   const bw1Marts = project?.session.baseRom === "BW";
-  const active = ["items", "marts", "systemShops", "bpShops", "joinAvenueShops", "blackCityMarket"].includes(route);
+  const active = ["items", "marts", "systemShops", "bpShops", "joinAvenueShops", "blackCityMarket", "specialVendors"].includes(route);
   return `
     <div class="header-more ${active ? "-active" : ""}">
       <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Items</button>
@@ -1742,6 +1745,7 @@ function renderItemsMenu(): string {
         ${navItem("items", "Item data")}
         ${martsAvailable || bw1Marts ? navItem("marts", "Marts") : ""}
         ${martsAvailable || bw1Marts ? navItem("bpShops", "Battle Point Shops") : ""}
+        ${martsAvailable || bw1Marts ? navItem("specialVendors", "Special Vendors") : ""}
         ${martsAvailable ? navItem("joinAvenueShops", "Join Avenue") : ""}
         ${project?.session.baseVersion === "B" ? navItem("blackCityMarket", "Black City Market") : ""}
         ${martsAvailable ? navItem("systemShops", "C-Gear shops") : ""}
@@ -2889,7 +2893,7 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
   if (nextRoute === "cgearButtons") return (project.session.baseRom === "BW" || project.session.baseRom === "BW2") && hasExportBase;
   if (nextRoute === "flagReference") return project.session.baseRom === "BW" || project.session.baseRom === "BW2";
   if (nextRoute === "systemShops") return project.session.baseRom === "BW2" && hasExportBase;
-  if (nextRoute === "bpShops") return hasExportBase && isGen5Project(project);
+  if (nextRoute === "bpShops" || nextRoute === "specialVendors") return hasExportBase && isGen5Project(project);
   if (nextRoute === "joinAvenueShops") return hasExportBase && project.session.baseRom === "BW2";
   if (nextRoute === "blackCityMarket") return hasExportBase && project.session.baseVersion === "B";
   if (nextRoute === "uiScreens") return canUseAiFeatures() && project.session.baseRom === "BW2" && hasExportBase;

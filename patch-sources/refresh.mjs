@@ -166,7 +166,7 @@ const additions = [
   {
     name: 'summary-stat-viewer', title: 'Summary IV/EV viewer',
     artifacts: ['SummaryStatViewerB2.dll', 'SummaryStatViewerW2.dll', 'SummaryStatViewerB.dll', 'SummaryStatViewerW.dll'],
-    note: `Independent B2/W2 native Summary Stats variants and shared footer tab, plus separately built US revision-0 B/W companions. ${bw1Status(summary.games)} Canonical source and configuration metadata are recorded; compiled and DS gameplay checks remain separate.`,
+    note: `B2/W2 version ${summary.version} displays a native Hidden Power row on IV and EV pages. The independently accepted B/W bundles remain on their listed per-game versions. ${bw1Status(summary.games)}`,
     extra: [
       file('summary-stat-viewer', 'metadata/summaryStatViewerManifest.json', 'metadata', 'src/assets/codeinjection/summaryStatViewerManifest.json'),
       file('summary-stat-viewer', 'integration/summaryStatViewerModel.ts', 'support-only', 'src/pokeweb/summaryStatViewerModel.ts'),

@@ -20,9 +20,21 @@
   padding: 12px 0;
 }
 
-.vendor-data .section-bar {
+.vendor-stock-header {
+  display: flex;
   align-items: center;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.vendor-stock-header .section-bar {
+  flex: 1 1 9rem;
+  margin: 0;
+}
+
+.vendor-stock-header [data-add-offer] {
+  white-space: nowrap;
 }
 
 .vendor-data .vendor-toolbar label {
@@ -34,8 +46,57 @@
   width: 105px;
 }
 
-.vendor-data .mt-actions {
+.vendor-table-scroll {
+  overflow-x: auto;
+}
+
+.vendor-data .vendor-table .vendor-col-vendor {
+  width: 32%;
+}
+
+.vendor-data .vendor-table :is(.vendor-col-price, .vendor-col-quantity, .vendor-col-resident, .vendor-col-actions) {
+  width: 1%;
+}
+
+.vendor-data .vendor-table :is(thead th, tbody td) {
+  padding: 7px 12px;
+  vertical-align: middle;
+}
+
+.vendor-data .vendor-table tbody td {
+  border-top: 1px solid var(--ink-2);
+}
+
+.vendor-data .vendor-table tbody td:first-child {
+  width: auto;
+}
+
+.vendor-data .vendor-table :is(.vendor-price, .vendor-quantity, .vendor-resident, .mt-actions) {
+  white-space: nowrap;
   text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.vendor-data .vendor-table .vendor-offer {
+  min-width: 12ch;
+  overflow-wrap: anywhere;
+}
+
+.vendor-data .vendor-table .vendor-vendor {
+  min-width: 10ch;
+  overflow-wrap: anywhere;
+}
+
+.vendor-offer-details {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 12px;
+}
+
+.vendor-offer-meta {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
@@ -168,6 +229,11 @@
 #item-data .mt-price {
   color: var(--text-muted);
   white-space: nowrap;
+}
+
+#item-data .mt-price > [contenteditable] {
+  display: inline-block;
+  min-width: 1ch;
 }
 
 #item-data .mt-actions {

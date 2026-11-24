@@ -9,7 +9,7 @@ using s16=short;
 #include "profiles.generated.h"
 #endif
 template<class T> inline T& at(void* p,u32 n) { return *reinterpret_cast<T*>(static_cast<u8*>(p)+n); }
-template<class F> inline F api(u32 w2) {
+template<class F> __attribute__((always_inline)) inline F api(u32 w2) {
 #if defined(GAME_B) || defined(GAME_W)
     // BW1's graphics library uses ARM entry points; Pokémon helpers are Thumb.
     return reinterpret_cast<F>(nativeApiAddress(w2));

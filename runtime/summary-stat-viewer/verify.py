@@ -62,9 +62,15 @@ def verify(game,od,ad,bw1=None,extended=False):
     uc.mem_write(bitmap_get,bytes(arm[bitmap_get-rom.arm9RamAddress:bitmap_get-rom.arm9RamAddress+bitmap_size]))
     sequence_if_changed=addr(0x204c4e4);sequence_size=36 if bw1 else 26
     uc.mem_write(sequence_if_changed,bytes(arm[sequence_if_changed-rom.arm9RamAddress:sequence_if_changed-rom.arm9RamAddress+sequence_size]))
-    retail_ranges=[(addr(a,True),addr(a,True)+n) for a,n in [(0x21b8f50,0x354),(0x21b85e0,0x240),(0x21b8ce4,0xa4)]]
-    for start,end in retail_ranges:
-        uc.mem_write(start,bytes(native_summary.data[start-native_summary.ramAddress:end-native_summary.ramAddress]))
+    retail_ranges=[(addr(a,True),addr(a,True)+n) for a,n in [
+        (0x21b8f50,0x354),(0x21b85e0,0x240),(0x21b8ce4,0xa4),
+        (0x21ba680,0x190 if bw1 else 0x194),(0x21ba814,0x84)]]
+    uc.mem_write(native_summary.ramAddress,bytes(native_summary.data))
+    hidden_power_start=addr(0x201d7ec)
+    uc.mem_write(hidden_power_start,bytes(arm[hidden_power_start-rom.arm9RamAddress:hidden_power_start-rom.arm9RamAddress+0x11c]))
+    type_table=struct.unpack_from('<I',arm,hidden_power_start-rom.arm9RamAddress+0x8c)[0]
+    uc.mem_write(type_table,bytes(arm[type_table-rom.arm9RamAddress:type_table-rom.arm9RamAddress+16]))
+    retail_ranges.append((hidden_power_start,hidden_power_start+0x11c))
     for label,address,_ in hooks:
         if any(start<=address<end for start,end in retail_ranges):
             d=(symbols[label]&~1)-address-4
@@ -294,10 +300,148 @@ def verify(game,od,ad,bw1=None,extended=False):
     for _ in range(25):
         call('SummaryInit',[WORK]);assert len(live_cgr)==3 and len(actors)==1 and len(units)==1
         call('SummaryEnd',[WORK]);assert not live_cgr and not actors and not units
+    # Use the real native row renderer with traceable bitmap/character
+    # owners, and the retail Hidden Power routines with controlled IVs.
+    rows=[SKILL+0xb0+i*0x18 for i in range(4)]
+    queue=0x2208000
+    pokemon=POKE
+    pkm={POKE:[31]*6,POKE+0x100:[0]*6}
+    moves={POKE:33,POKE+0x100:0}
+    visibility={}
+    names={}
+    move_bitmaps=set()
+    glyphs=[]
+    lifecycle=[]
+    type_icons={}
+    next_allocation=0x221c000
+    word_value=0
+    current_move=0
+    def get_pokemon():ret(pokemon)
+    def box_value():
+        field=r(1)
+        assert r(0) in pkm and r(2)==0
+        ret({54:moves[r(0)],58:5,66:10}.get(field,2))
+    def iv_value():
+        if r(0) in pkm and 70<=r(1)<=75:ret(pkm[r(0)][r(1)-70])
+        else:getter()
+    def alloc_bitmap():
+        nonlocal next_allocation
+        assert args(4)==[11,4,32,23]
+        move_bitmaps.add(next_allocation)
+        ret(next_allocation)
+        next_allocation+=0x100
+    def alloc_text_actors():
+        nonlocal next_allocation
+        assert u32(r(1))!=0
+        names[next_allocation]=u32(r(1))
+        visibility[next_allocation]=True
+        ret(next_allocation)
+        next_allocation+=0x100
+    def free_row():
+        assert not queue_busy
+        slot=r(2);assert slot==rows[0]
+        move_bitmaps.remove(names.pop(u32(slot+0x14)))
+        lifecycle.append('free')
+        ret()
+    def name_string():
+        nonlocal current_move
+        current_move=r(1)
+        ret(0x2223400)
+    def paint():
+        a=args(7)
+        if a[1] not in move_bitmaps:ret();return
+        assert a[0]==queue and a[5:]==[0x2223600,1088]
+        if a[4]==0x2223500:
+            assert a[2:4]==[13,17]
+            glyphs.append(('BP',a[1]))
+        else:
+            assert a[4]==0x2223400
+            glyphs.append(('name',a[1],current_move))
+        ret()
+    def set_word_value():
+        nonlocal word_value
+        word_value=r(2)
+        ret()
+    def show_type_proxy():
+        type_icons[r(0)]=u32(r(1))
+        ret()
+    def set_visible():
+        visibility[r(0)]=bool(r(1))
+        ret()
+    def print_number(kind):
+        glyphs.append((kind,r(1),word_value,args(7)[4]))
+        ret()
+    def set_bp():
+        assert r(0)==0x2223500 and read(r(1),6)==b'B\0P\0\xff\xff'
+        ret()
+    def print_label():
+        glyphs.append(('label',r(1),r(2)))
+        ret()
+    def record_upload():
+        assert not queue_busy
+        lifecycle.append(('show',r(0)))
+        ret()
+    stub(0x21b4ddc,get_pokemon,True);stub(0x201cd24,iv_value);stub(0x201cdb4,box_value)
+    stub(0x2046e54,alloc_bitmap);stub(0x21ba980,alloc_text_actors,True);stub(0x21ba898,free_row,True)
+    stub(0x20489b8,name_string);stub(0x2021ca8,paint);stub(0x204855c,lambda:ret(0x2223500))
+    stub(0x2048640,set_bp);stub(0x21b4ec4,print_label,True);stub(0x2024548,set_word_value)
+    stub(0x21b5010,lambda:print_number('right'),True);stub(0x21b4f84,lambda:print_number('max'),True)
+    stub(0x202174c,lambda:ret(3));stub(0x202d814,lambda:ret(r(0)));stub(0x204c3a4,lambda:ret())
+    stub(0x204c410,show_type_proxy);stub(0x204c150,set_visible);stub(0x21bab54,set_visible,True)
+    stub(0x21baba4,record_upload,True);stub(0x2021c38,lambda:ret(int(not queue_busy)))
+    division=(0x209c2b0 if game=='B' else 0x209c2c8) if bw1 else 0x208d894-ad
+    native[division]=lambda:ret(r(0)//r(1))
+    modes[division]=False
+    write(WORK+0x80,0x2223600);write(WORK+0x84,queue)
+    for type_id in range(18):write(WORK+0x130+4*type_id,100+type_id)
+    write(WORK+0x58,1);write(SKILL,1)
+    uc.mem_write(SKILL+0x2b,b'\4')
+    for i,slot in enumerate(rows):
+        write(slot,i);write(slot+8,0x221b000+i*8);write(slot+0xc,0x221b004+i*8)
+    write(config+12,1);write(config+16,1^0x53535631)
+    call('SummaryInit',[WORK])
+    def build_rows():
+        for slot in rows:call('SummaryStatsSlotInit',[WORK,SKILL,slot])
+        for slot in rows:call('SummaryStatsSlotShow',[WORK,SKILL,slot])
+    def check_visibility(count):
+        for i,slot in enumerate(rows):
+            assert visibility[u32(slot+8)]==(i<count)
+            assert visibility[u32(slot+0x14)]==(i<count)
+            if i>=count:assert not visibility[u32(slot+0xc)]
+    def check_hidden_power(type_id,power):
+        bmp=u32(rows[0]+0x10)
+        assert [g for g in glyphs if g[1]==bmp]==[
+            ('name',bmp,237),('BP',bmp),('right',bmp,power,79)]
+        assert type_icons[u32(rows[0]+0xc)]==100+type_id,(game,type_icons,type_id)
+        check_visibility(1)
+    build_rows()
+    check_visibility(4)
+    before=read(POKE,512)
+    keys=0x10;call('SummaryKeys',[WORK]);queue_busy=True
+    pending=len(lifecycle)
+    call('SummaryTick',[queue]);assert len(lifecycle)==pending
+    queue_busy=False;glyphs.clear()
+    call('SummaryTick',[queue]);assert lifecycle[-1]=='free'
+    queue_busy=True;call('SummaryTick',[queue]);assert lifecycle[-1]=='free'
+    queue_busy=False;call('SummaryTick',[queue]);check_hidden_power(16,70)
+    pending=len(lifecycle);call('SummaryKeys',[WORK]);call('SummaryTick',[queue])
+    assert len(lifecycle)==pending,'EVs should retain the same Hidden Power row'
+    pokemon=POKE+0x100;glyphs.clear();build_rows();check_hidden_power(1,30)
+    pokemon=POKE
+    pkm[POKE]=[2,3,0,1,2,0]
+    glyphs.clear();build_rows();check_hidden_power(3,42)
+    write(WORK+0x24,1);call('SummaryTouch',[WORK]);glyphs.clear()
+    call('SummaryTick',[queue]);call('SummaryTick',[queue])
+    check_visibility(4)
+    bmp=u32(rows[0]+0x10)
+    assert [g for g in glyphs if g[1]==bmp]==[
+        ('name',bmp,33),('label',bmp,135),('right',bmp,5,57),('label',bmp,117),('max',bmp,10,61)]
+    assert read(POKE,512)==before
+    call('SummaryEnd',[WORK])
     assert uploads and all(len(x)==2304 for x in uploads)
     assert sounds
     verify_titles(rom,read,symbols,bool(bw1))
-    print(f'{game} ({"extended RAM" if extended else "DS RAM"}): ABI, IV/EV values/navigation, retail sound/touch/conditional sequence code, restored Stats selection without frame resets, top-only queued uploads, ownership and failure cleanup passed')
+    print(f'{game} ({"extended RAM" if extended else "DS RAM"}): IV/EV navigation, native Hidden Power rows, queue/deallocation, Stats restoration and cleanup passed')
 
 def verify_titles(rom,read,symbols,bw1=False):
     files=ndspy.narc.NARC(rom.getFileByName('a/0/7/8' if bw1 else 'a/0/7/7')).files
