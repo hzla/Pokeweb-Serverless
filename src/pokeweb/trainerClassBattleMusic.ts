@@ -2,11 +2,12 @@ import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { loadOverlayTable } from "../nds/code";
 import { NARC } from "../nds/narc";
 import type { NintendoDSRom } from "../nds/rom";
+import { bw2TrainerClassGenderColumnAt, BW2_TRAINER_CLASS_COUNT } from "./bw2TrainerClassResources";
 import { addRomFile, getRomFileBytes, setRomFileReplacement } from "./fileSystemModel";
 import type { ProjectState } from "./projectStore";
 
 export const TRAINER_CLASS_BATTLE_MUSIC_PATH = "m/b";
-export const TRAINER_CLASS_MUSIC_COUNT = 236;
+export const TRAINER_CLASS_MUSIC_COUNT = BW2_TRAINER_CLASS_COUNT;
 export const TRAINER_CLASS_MUSIC_DEFAULT = 0xffff;
 const OVERLAY_ID = 36;
 const ARM9_BASE = 0x02004000;
@@ -165,9 +166,7 @@ export function loadTrainerClassBattleMusic(project: ProjectState, rom: Nintendo
   const profile = profileFor(project, rom);
   if (!profile) return undefined;
   const arm9 = project.arm9;
-  if (arm9.length < profile.table + 4 * TRAINER_CLASS_MUSIC_COUNT
-    || !matches(arm9, profile.genderGetter, bytes("81000148405c7047"))
-    || readU32(arm9, profile.genderGetter + 8) !== ARM9_BASE + profile.table + 1) return undefined;
+  if (bw2TrainerClassGenderColumnAt(arm9, profile.genderGetter) !== profile.table + 1) return undefined;
   const field = loadOverlayTable(project.patches?.arm9OverlayTable ?? rom.arm9OverlayTable,
     (_, id) => getRomFileBytes(project, rom, id), new Set([OVERLAY_ID])).get(OVERLAY_ID);
   if (field?.ramAddress !== profile.base) return undefined;

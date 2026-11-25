@@ -15,8 +15,10 @@ The Hidden Grotto editor edits BW2 Hidden Grotto Pokemon, item pools, levels, ge
 | Control | Meaning |
 | --- | --- |
 | Search | Filters grottos by location or contents. |
-| Edit Odds | Opens the Grotto Odds editor. |
-| Grottos | Returns from odds to the main Grotto editor. |
+| Steps between checks | Sets the refill check interval for all grottos. Accepts 1–256 steps and defaults to 256. |
+| Refill chance (%) | Sets the base chance per empty grotto at each check. Accepts 0–100% and defaults to 5%. |
+
+Refill settings are available on compatible US Black 2 and White 2 ROMs. They are stored directly in the field overlay and included in ROM exports. Grotto Pass Powers still apply. With a one-step interval and 100% chance, an empty grotto refills on the next eligible overworld step. Re-enter the grotto to see the new contents.
 
 ## Pokemon Fields
 

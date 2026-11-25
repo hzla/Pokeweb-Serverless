@@ -34,6 +34,26 @@ describe("docGeneratorModel", () => {
     expect(file.contents).toContain('"title": "Volt White Plus"');
   });
 
+  it("exports BW2 genders resolved from the trainer class and earlier party overrides", () => {
+    const project = makeProject();
+    project.arm9 = new Uint8Array(0x400);
+    project.arm9.set([0x81, 0, 1, 0x48, 0x40, 0x5c, 0x70, 0x47, 0x21, 0x40, 0, 2, 0x10, 0xb5, 1, 0x22, 0x11, 0x42]);
+    project.arm9[0x25] = 1;
+    decodeRecord(project, "personal", 1).raw!.gender = 127;
+    decodeRecord(project, "personal", 5).raw!.gender = 127;
+
+    const genders = () => {
+      const { formatted_sets: sets } = JSON.parse(generateCalcDownload(project, "Genders").contents.slice(14, -2));
+      const party = Object.values<Record<string, { sub_index: number; gender: string }>>(sets)
+        .flatMap(species => Object.values(species));
+      return party.sort((left, right) => left.sub_index - right.sub_index).map(set => set.gender);
+    };
+
+    expect(genders()).toEqual(["Female", "Female"]);
+    decodeRecord(project, "trpok", 7).raw!.ability_0 = 1;
+    expect(genders()).toEqual(["Male", "Male"]);
+  });
+
   it("exports the ROM move IDs and the trainer’s field, weather, HP and status", () => {
     const project = makeProject();
     setProjectMoves(project, [{}, { properties: 0x1081 }], ["", "Test Swing"]);

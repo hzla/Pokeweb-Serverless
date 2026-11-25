@@ -36,6 +36,50 @@
   font-size: 12px;
 }
 
+.gr-refill {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 10px 10px;
+  border: 1px solid var(--ink-3);
+  border-radius: var(--radius);
+}
+
+.gr-refill legend {
+  padding: 0 4px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.gr-refill label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.gr-refill input {
+  box-sizing: border-box;
+  width: 70px;
+  min-height: 30px;
+  padding: 3px 6px;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius);
+  background: var(--ink-0);
+  color: inherit;
+  font: inherit;
+}
+
+.gr-refill-feedback {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.gr-refill-feedback:empty {
+  display: none;
+}
+
 /* ---------- Detail ---------- */
 
 #encounter-data .en-card {

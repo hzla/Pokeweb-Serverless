@@ -143,10 +143,16 @@ const typeIconBattlePreviews = {
     triples: new URL("../assets/codeinjection/showcase/type-icons-solid-triples.png", import.meta.url).href,
   },
 };
+const summaryShowcase = [
+  [new URL("../assets/codeinjection/showcase/summary-ivs.png", import.meta.url).href, "White 2 Summary IVs with the six stored individual values", 256, 132],
+  [new URL("../assets/codeinjection/showcase/summary-evs.png", import.meta.url).href, "White 2 Summary EVs with the six stored effort values", 256, 132],
+] as const;
+
 const patchShowcases = {
-  summary: [
-    [new URL("../assets/codeinjection/showcase/summary-ivs.png", import.meta.url).href, "White 2 Summary IVs with the six stored individual values", 256, 132],
-    [new URL("../assets/codeinjection/showcase/summary-evs.png", import.meta.url).href, "White 2 Summary EVs with the six stored effort values", 256, 132],
+  summary: summaryShowcase,
+  summaryBw2: [
+    ...summaryShowcase,
+    [new URL("../assets/codeinjection/showcase/summary-hidden-power.png", import.meta.url).href, "White 2 Summary showing Dark-type Hidden Power with 70 BP", 256, 132],
   ],
   party: [
     [new URL("../assets/codeinjection/showcase/enhanced-menu.png", import.meta.url).href, "White 2 party commands including EVOLVE and RELEARN", 104, 170],
@@ -734,7 +740,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <h2>Summary IV/EV Viewer</h2>
             <p>View IVs and optionally EVs on the summary screen.</p>
           </div>${renderInlineStatus(summaryStatStatus.updateAvailable ? "Update Available" : summaryStatStatus.installed ? "Installed" : summaryStatStatus.compatible ? "Ready" : summaryStatStatus.supported ? "Incompatible" : "Unsupported", { className: "code-injection-status" })}</div>
-          ${renderPatchShowcase("summary")}
+          ${renderPatchShowcase(project.session.baseVersion === "B2" || project.session.baseVersion === "W2" ? "summaryBw2" : "summary")}
           <div class="code-injection-facts">${supportedRomsFact(US_GEN5_REV0)}<div><span>Version</span><strong>${summaryStatStatus.availableVersion ?? SUMMARY_STAT_VIEWER_VERSION}</strong></div></div>
           ${summaryStatStatus.message ? `<p>${escapeHtml(summaryStatStatus.message)}</p>` : ""}
           <label><input type="checkbox" id="summary-stat-evs" ${summaryStatStatus.options.includeEvs ? "checked" : ""} ${summaryStatStatus.compatible ? "" : "disabled"}> Include EV view</label>

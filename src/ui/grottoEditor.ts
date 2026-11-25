@@ -1,5 +1,11 @@
 import { publicAsset } from "../assetUrl";
 import {
+  GROTTO_REFILL_LIMITS,
+  getGrottoRefillSettings,
+  updateGrottoRefillSettings,
+  type GrottoRefillSettings,
+} from "../pokeweb/grottoRefillModel";
+import {
   GROTTO_ITEM_RARITIES,
   GROTTO_ITEM_TYPES,
   GROTTO_POKEMON_RARITIES,
@@ -55,6 +61,7 @@ export function renderGrottoEditor(project: ProjectState, root: HTMLElement, onD
       <aside class="md-list" aria-label="Hidden grottos">
         <div class="md-filters">
           <input class="md-search" id="grotto-search" type="search" value="${escapeHtml(state.search)}" placeholder="Search grottos, Pokémon, items" autocomplete="off" spellcheck="false" aria-label="Search grottos">
+          ${renderRefillSettings(getGrottoRefillSettings(project))}
         </div>
         <div class="md-rows" id="grotto-list" role="listbox" aria-label="Hidden grottos" tabindex="0">
           ${Array.from({ length: count }, (_unused, id) => renderGrottoRow(project, id)).join("")}
@@ -67,6 +74,24 @@ export function renderGrottoEditor(project: ProjectState, root: HTMLElement, onD
   const list = root.querySelector<HTMLElement>("#grotto-list")!;
   const detail = root.querySelector<HTMLElement>("#grotto-detail")!;
   const searchInput = root.querySelector<HTMLInputElement>("#grotto-search")!;
+  const refillFeedback = root.querySelector<HTMLElement>("#grotto-refill-feedback");
+  root.querySelectorAll<HTMLInputElement>("#grotto-refill-settings input").forEach((input) => {
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") input.blur();
+    });
+    input.addEventListener("change", () => {
+      const current = getGrottoRefillSettings(project);
+      const setting = input.name === "steps" ? "steps" : "chance";
+      try {
+        if (!current) throw new Error("Refill settings are unavailable for this ROM.");
+        if (updateGrottoRefillSettings(project, { ...current, [setting]: input.valueAsNumber })) onDirty?.();
+        if (refillFeedback) refillFeedback.textContent = "";
+      } catch (error) {
+        if (current) input.value = String(current[setting]);
+        if (refillFeedback) refillFeedback.textContent = error instanceof Error ? error.message : String(error);
+      }
+    });
+  });
 
   const isLinked = (id: number) => {
     let linked = state.linked.get(id);
@@ -186,6 +211,22 @@ export function renderGrottoEditor(project: ProjectState, root: HTMLElement, onD
 
   filter();
   select(state.grottoId, true);
+}
+
+function renderRefillSettings(settings: GrottoRefillSettings | undefined): string {
+  const labels = { steps: "Steps between checks", chance: "Refill chance (%)" };
+  return `
+    <fieldset class="gr-refill" id="grotto-refill-settings">
+      <legend>Refill settings for all grottos</legend>
+      ${settings ? (["steps", "chance"] as const).map((name) => `
+        <label${name === "chance" ? ' title="Base chance per empty grotto. Grotto Pass Powers can increase it."' : ""}>
+          <span>${labels[name]}</span>
+          <input type="number" name="${name}" value="${settings[name]}" min="${GROTTO_REFILL_LIMITS[name].min}" max="${GROTTO_REFILL_LIMITS[name].max}" step="1" aria-describedby="grotto-refill-feedback">
+        </label>
+      `).join("") : '<span class="en-none">Refill settings are unavailable for this ROM.</span>'}
+      <span id="grotto-refill-feedback" class="gr-refill-feedback" role="status"></span>
+    </fieldset>
+  `;
 }
 
 /** Copy one version's Pokémon slots onto the other through the normal field updates. */

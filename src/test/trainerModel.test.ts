@@ -552,6 +552,53 @@ describe("trainerModel", () => {
     expect(calculateTrainerPokemonNature(project, 1, 0)).toBe("Impish");
   });
 
+  it("resolves BW2 genders from the class and carries the PID value across species and forms", () => {
+    const project = makeProject(0);
+    // TrainerClass_GetSex and the start of GetTrSpriteBaseDatID, with a relocated class table at 0x20.
+    project.arm9 = new Uint8Array(0x400);
+    project.arm9.set([0x81, 0, 1, 0x48, 0x40, 0x5c, 0x70, 0x47, 0x21, 0x40, 0, 2, 0x10, 0xb5, 1, 0x22, 0x11, 0x42]);
+    project.arm9[0x25] = 1;
+    project.narcs.personal = makeStore("personal", packRows(project.formats.personal!, [
+      {}, { gender: 127 }, { gender: 127, form_id: 3, num_forms: 2 }, { gender: 191 }, { gender: 255 },
+    ]), 5);
+    const party: Array<Record<string, number>> = [
+      { species_id: 1, ability: 0 },
+      { species_id: 2, form: 1, ability: 2 }, // Force female relative to its form's 191 cutoff, yielding 189.
+      { species_id: 1, ability: 0 },
+      { species_id: 1, ability: 0x11 }, // Force male and select ability 1, yielding 128.
+      { species_id: 2, form: 1, ability: 0 },
+      { species_id: 4, ability: 0 },
+    ];
+    decodeRecord(project, "trdata", 1).raw!.num_pokemon = party.length;
+    project.trpokInfo[1].numPokemon = party.length;
+    project.narcs.trpok!.rawFiles[1] = packTrpok(0, party);
+
+    expect(party.map((_, slot) => resolveTrainerPokemonGender(project, 1, slot)))
+      .toEqual(["Female", "Female", "Male", "Male", "Female", ""]);
+    project.arm9[0x25] = 0x6a; // A legacy music byte fails the same equality check as a male class.
+    expect(resolveTrainerPokemonGender(project, 1, 0)).toBe("Male");
+  });
+
+  it("carries normal ability bit edits without changing the PID byte for hidden abilities in BW2", () => {
+    const project = makeProject(0);
+    project.narcs.personal = makeStore("personal", packRows(project.formats.personal!, [
+      {}, { gender: 127 }, { gender: 129 },
+    ]), 3);
+    const party = [
+      { species_id: 1, ability: 1 }, // 129
+      { species_id: 2, ability: 0x10 }, // Clear bit 0, yielding 128.
+      { species_id: 2, ability: 0x30 }, // Hidden leaves the byte at 128.
+      { species_id: 2, ability: 0x20 }, // Set bit 0, yielding 129.
+      { species_id: 2, ability: 0 },
+    ];
+    decodeRecord(project, "trdata", 1).raw!.num_pokemon = party.length;
+    project.trpokInfo[1].numPokemon = party.length;
+    project.narcs.trpok!.rawFiles[1] = packTrpok(0, party);
+
+    expect(party.map((_, slot) => resolveTrainerPokemonGender(project, 1, slot)))
+      .toEqual(["Male", "Female", "Female", "Male", "Male"]);
+  });
+
   it("calculates Gen IV JAK7 trainer natures and abilities from the Platinum trainer data", () => {
     const project = makeJak7Project();
 

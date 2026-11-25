@@ -14,6 +14,8 @@ import { publicAsset } from "../assetUrl";
 import { learnsetEntries } from "./pokemonModel";
 import { pokemonFormSuffix } from "./pokemonFormLabels";
 import { detectSpecifyTrainerNaturesPatch } from "./romPatchModel";
+import { bw2TrainerClassIsFemale } from "./bw2TrainerClassResources";
+import { trainerFormPersonalId } from "./trainerSlotFacts";
 
 export type TrainerPokemonSlot = {
   slot: number;
@@ -734,6 +736,7 @@ export function resolveTrainerPokemonGender(project: ProjectState, trainerId: nu
   const trdata = decodeRecord(project, "trdata", trainerId);
   const trpok = decodeRecord(project, "trpok", trainerId);
   if (!trdata.raw || !trpok.raw) return "";
+  if (project.session.baseRom === "BW2") return resolveBw2TrainerPokemonGender(project, trdata.raw, trpok.raw, slot);
   const speciesId = Number(trpok.raw[`species_id_${slot}`] ?? 0);
   if (speciesId === 0 || !project.narcs.personal) return "";
   const personalId = storedSpeciesId(project, speciesId);
@@ -760,6 +763,32 @@ export function resolveTrainerPokemonGender(project: ProjectState, trainerId: nu
     Math.floor(rawAbilityGender / 16),
   );
   return resolvedGenderFromPidByte(personalGender, Number(pid & 0xffn));
+}
+
+function resolveBw2TrainerPokemonGender(project: ProjectState, trainer: RawRecord, party: RawRecord, slot: number): string {
+  const personalCount = project.narcs.personal?.fileCount ?? 0;
+  let pidBase = bw2TrainerClassIsFemale(project.arm9, trainer.class ?? 0) ? 120 : 136;
+  for (let index = 0; index <= slot; index += 1) {
+    const packed = party[`ability_${index}`] ?? 0;
+    const genderOverride = packed & 0x0f;
+    const abilityOverride = packed >>> 4;
+    let ratio = 255;
+    if (genderOverride !== 0 || index === slot) {
+      const species = party[`species_id_${index}`] ?? 0;
+      if (species === 0 || personalCount === 0) return "";
+      const personalId = trainerFormPersonalId(project, species, party[`form_${index}`] ?? 0);
+      if (personalId >= personalCount) return "";
+      ratio = decodeRecord(project, "personal", personalId).raw?.gender ?? 255;
+    }
+
+    // The game reuses the base across the party. A gender override sets it relative
+    // to this slot's species/form, while only normal ability overrides alter bit 0.
+    if (genderOverride !== 0) pidBase = ratio + (genderOverride === 1 ? 2 : -2);
+    if (abilityOverride === 1) pidBase &= ~1;
+    else if (abilityOverride === 2) pidBase |= 1;
+    if (index === slot) return resolvedGenderFromPidByte(ratio, pidBase & 0xff);
+  }
+  return "";
 }
 
 function resolvedGenderFromPidByte(personalGender: number, pidByte = 136): string {
