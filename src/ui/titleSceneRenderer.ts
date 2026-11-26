@@ -3,7 +3,7 @@ import type { TitleScene } from "../pokeweb/titleScreenScene";
 import { titleCameraFrame, type TitleCamera } from "../pokeweb/titleScreenModel";
 
 /** Native 256×192 viewport, fixed to the title's recorded camera. No ROM edits. */
-export function mountTitleSceneRenderer(host: HTMLElement, data: TitleScene, track: TitleCamera) {
+export function mountTitleSceneRenderer(host: HTMLElement, data: TitleScene, track: TitleCamera, { environmentOnly = false } = {}) {
   const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false });
   // Nitro colors are already display values; don't add Three's sRGB lighting curve.
   renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
@@ -12,7 +12,7 @@ export function mountTitleSceneRenderer(host: HTMLElement, data: TitleScene, tra
   host.replaceChildren(renderer.domElement);
   const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(60, 4 / 3, .1, 2048);
   const geometries: THREE.BufferGeometry[] = [], materials: THREE.Material[] = [], textures: THREE.Texture[] = [];
-  for (const model of data.models) for (const primitive of model.primitives) {
+  for (const model of environmentOnly ? data.models.slice(2) : data.models) for (const primitive of model.primitives) {
     const geometry = new THREE.BufferGeometry(), pmat = primitive.material;
     geometry.setAttribute("position", new THREE.BufferAttribute(primitive.positions, 3).setUsage(THREE.DynamicDrawUsage));
     geometry.setAttribute("color", new THREE.BufferAttribute(primitive.colors!, 3).setUsage(THREE.DynamicDrawUsage));
@@ -38,10 +38,12 @@ export function mountTitleSceneRenderer(host: HTMLElement, data: TitleScene, tra
   return {
     draw(frame: number) {
       if (disposed) return;
-      data.sample(frame);
       const values = titleCameraFrame(track, frame), [x, y, z] = values.rotation ?? [0, 0, 0];
       camera.position.fromArray(values.position ?? [0, 0, 60]);
       camera.rotation.set(x * Math.PI / 180, y * Math.PI / 180, z * Math.PI / 180, "YXZ");
+      camera.updateMatrixWorld();
+      const e = camera.matrixWorld.elements;
+      data.sample(frame, [e[0], e[4], e[8], 0, e[1], e[5], e[9], 0, e[2], e[6], e[10], 0, 0, 0, 0, 1]);
       for (const geometry of geometries) for (const name of ["position", "color", "uv"]) geometry.getAttribute(name).needsUpdate = true;
       renderer.render(scene, camera);
     },

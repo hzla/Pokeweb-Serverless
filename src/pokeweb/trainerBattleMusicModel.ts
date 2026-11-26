@@ -10,7 +10,7 @@ import {
   loadTrainerClassBattleMusic, stageTrainerClassBattleMusic, trainerClassBattleTrack,
   TRAINER_CLASS_MUSIC_DEFAULT, type TrainerClassBattleMusic,
 } from "./trainerClassBattleMusic";
-import { displayNameForTrainerMusicSymbol, trainerMusicSequenceLabel } from "./trainerMusicModel";
+import { displayNameForTrainerMusicSymbol, standaloneTrainerThemes, trainerMusicSequenceLabel, type TrainerEyeTheme } from "./trainerMusicModel";
 
 const BW_BATTLE_EFFECT_SIGNATURE = [
   0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16,
@@ -131,11 +131,7 @@ const BW2_BATTLE_SEQUENCE_SYMBOLS: Readonly<Record<number, string>> = {
   1267: "SEQ_BGM_VS_ELITE_PLASMA",
 };
 
-export type TrainerBattleTheme = {
-  sequenceId: number;
-  symbol: string;
-  displayName: string;
-};
+export type TrainerBattleTheme = TrainerEyeTheme;
 
 export type TrainerBattleMusicAssignment = {
   key: string;
@@ -235,7 +231,7 @@ export function buildTrainerBattleThemes(project: ProjectState, sdat: NitroSdat)
     const symbol = sequence?.symbol || sdat.sequenceSymbols[sequence.id];
     if (symbol && /^SEQ_BGM_VS_/u.test(symbol)) sequenceIds.add(sequence.id);
   });
-  return [...sequenceIds]
+  const themes = [...sequenceIds]
     .filter((sequenceId) => Boolean(sdat.sequenceInfos[sequenceId]))
     .sort((a, b) => a - b)
     .map((sequenceId) => {
@@ -243,6 +239,15 @@ export function buildTrainerBattleThemes(project: ProjectState, sdat: NitroSdat)
       const symbol = sequence?.symbol || sdat.sequenceSymbols[sequenceId] || fallbacks[sequenceId] || `SEQ_BGM_VS_${sequenceId}`;
       return { sequenceId, symbol, displayName: displayNameForTrainerMusicSymbol(symbol, sequenceId) };
     });
+  return [...themes, ...standaloneTrainerThemes(project, sdat)];
+}
+
+export function trainerBattleSequenceInUse(project: ProjectState, rom: NintendoDSRom, sequenceId: number): boolean {
+  const classMusic = loadTrainerClassBattleMusic(project, rom);
+  if (classMusic) return classMusic.groups.includes(sequenceId) || classMusic.overrides.includes(sequenceId);
+  const overlay = loadTrainerBattleMusicOverlay(project, rom);
+  const location = locateTrainerBattleMusicTable(project, overlay);
+  return buildTrainerBattleMusicAssignments(project, overlay, location, undefined).some((row) => row.currentSequenceId === sequenceId);
 }
 
 export function locateTrainerBattleMusicTable(
@@ -287,7 +292,7 @@ export function assignTrainerBattleTheme(
   sequenceId: number,
 ): void {
   const theme = model.themes.find((candidate) => candidate.sequenceId === sequenceId);
-  if (!theme && !(assignment.trainerClassId !== undefined && sequenceId === TRAINER_CLASS_MUSIC_DEFAULT)) {
+  if ((!theme || sequenceId < 0) && !(assignment.trainerClassId !== undefined && sequenceId === TRAINER_CLASS_MUSIC_DEFAULT)) {
     throw new Error(`Sequence ${sequenceId} is not an assignable battle theme for this game.`);
   }
   if (model.classMusic) {

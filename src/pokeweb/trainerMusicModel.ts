@@ -1,5 +1,5 @@
 import { zipSync } from "fflate";
-import { readU16, writeU16 } from "../nds/binary";
+import { readAscii, readU16, writeU16 } from "../nds/binary";
 import { recordFieldChange } from "./actionChangelog";
 import { isGen5Project, type Gen5Version } from "./constants";
 import {
@@ -7,7 +7,7 @@ import {
   loadNitroSdatFromProject,
   type NitroSdat,
 } from "./nitroSound";
-import type { ProjectState } from "./projectStore";
+import { getStandaloneStreamConfigs, type ProjectState, type StandaloneStreamConfig } from "./projectStore";
 
 const BW_TRAINER_CLASS_COUNT = 105;
 const BW2_TRAINER_CLASS_COUNT = 236;
@@ -117,6 +117,7 @@ export type TrainerEyeTheme = {
   sequenceId: number;
   symbol: string;
   displayName: string;
+  streamId?: number;
 };
 
 export type TrainerMusicClassAssignment = {
@@ -173,10 +174,37 @@ export function buildTrainerEyeThemes(project: ProjectState, sdat: NitroSdat): T
   const sequenceIds = trainerEyeSequenceIds(project);
   const missing = sequenceIds.filter((sequenceId) => !sdat.sequenceInfos[sequenceId]);
   if (missing.length > 0) throw new Error(`The ROM's SDAT is missing Trainer Eye sequence${missing.length === 1 ? "" : "s"}: ${missing.join(", ")}.`);
-  return sequenceIds.map((sequenceId) => {
+  const themes = sequenceIds.map((sequenceId) => {
     const symbol = sdat.sequenceInfos[sequenceId]?.symbol || sdat.sequenceSymbols[sequenceId] || fallbackThemeSymbol(project, sequenceId);
     return { sequenceId, symbol, displayName: displayNameForTrainerMusicSymbol(symbol, sequenceId) };
   });
+  return [...themes, ...standaloneTrainerThemes(project, sdat)];
+}
+
+function trainerMusicSelectionId(track: StandaloneStreamConfig): number {
+  // Unregistered streams use a selection ID outside the native sequence range.
+  return track.trainerSequenceId ?? -1 - track.streamId;
+}
+
+export function standaloneTrainerTrack(project: ProjectState, selectionId: number | undefined): StandaloneStreamConfig | undefined {
+  return getStandaloneStreamConfigs(project).find((track) => trainerMusicSelectionId(track) === selectionId);
+}
+
+export function standaloneTrainerThemes(project: ProjectState, sdat: NitroSdat): TrainerEyeTheme[] {
+  return getStandaloneStreamConfigs(project)
+    .filter((track) => {
+      const file = sdat.files[track.streamFileId]?.data;
+      return file && readAscii(file, 0, 4) === "STRM"
+        && (track.trainerSequenceId === undefined || Boolean(sdat.sequenceInfos[track.trainerSequenceId]));
+    })
+    .map((track) => ({
+      sequenceId: trainerMusicSelectionId(track), streamId: track.streamId, symbol: `STRM_${track.streamId}`, displayName: track.name,
+    }));
+}
+
+export function trainerEyeSequenceInUse(project: ProjectState, sequenceId: number): boolean {
+  const location = locateTrainerMusicTable(project);
+  return buildTrainerMusicAssignments(project, location, undefined).some((row) => row.currentSequenceId === sequenceId);
 }
 
 export function locateTrainerMusicTable(project: ProjectState): TrainerMusicTableLocation {
@@ -212,7 +240,7 @@ export function assignTrainerEyeTheme(
   sequenceId: number,
 ): void {
   const theme = model.themes.find((candidate) => candidate.sequenceId === sequenceId);
-  if (!theme) throw new Error(`Sequence ${sequenceId} is not an assignable Trainer Eye theme for this game.`);
+  if (!theme || sequenceId < 0) throw new Error(`Sequence ${sequenceId} is not an assignable Trainer Eye theme for this game.`);
   if (!assignment.editable || assignment.writeOffset === undefined) {
     throw new Error(assignment.readOnlyReason || `Trainer class ${assignment.trainerClassId} is read-only.`);
   }

@@ -122,7 +122,8 @@ describe("Music editor sequence list", () => {
   });
 
   it("shows standalone songs as custom streams without offering direct replacement", () => {
-    const entries = buildNativeStreamReference([nativeStream(0, "STRM_TITLE", 1), nativeStream(1, "STRM_1", 3)], [], [{
+    const linked = { ...streamedConfig(1128, 1), streamFileId: 3, standaloneStreamId: 1 };
+    const entries = buildNativeStreamReference([nativeStream(0, "STRM_TITLE", 1), nativeStream(1, "STRM_1", 3)], [linked], [{
       streamId: 1, streamFileId: 3, name: "Menu Song", sourceName: "song.wav", encoding: "adpcm", loop: true,
       sampleRate: 32728, sampleCount: 32728, loopStartSample: 0, loopEndSample: 32728,
       encodedBytes: 32768, audioSha256: "a".repeat(64),

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
-import { appendGroundItemEntry, checkItemFlag, parseGroundItemFile, suggestItemFlag, trainerIdForScript } from "../pokeweb/overworldShortcutModel";
-import type { ProjectState } from "../pokeweb/projectStore";
+import { groundItemScriptFileId } from "../pokeweb/docGeneratorModel";
+import { getNarcFormats } from "../pokeweb/formats";
+import { appendGroundItemEntry, checkItemFlag, parseGroundItemFile, replaceItemBallReward, replaceTrainerNpc, suggestItemFlag, trainerIdForScript } from "../pokeweb/overworldShortcutModel";
+import { materializeProjectEdits } from "../pokeweb/projectMaterialize";
+import { decodeRecord, type NarcStore, type ProjectState } from "../pokeweb/projectStore";
 
 /** A small global item script file: two item balls calling one pickup routine, in the retail layout. */
 function itemFile(): Uint8Array {
@@ -35,6 +38,32 @@ function project(baseRom: "BW" | "BW2", trainerCount = 800): ProjectState {
   return { session: { baseRom }, narcs: { trdata: { fileCount: trainerCount } } } as unknown as ProjectState;
 }
 
+function store(name: NarcStore["name"], rawFiles: Uint8Array[]): NarcStore {
+  return { name, rawFiles, fileCount: rawFiles.length, fileId: 0, sourcePath: "test", container: "narc", records: new Map(), dirty: new Set() };
+}
+
+function overworldProject(baseRom: "BW" | "BW2", npcs: { script: number; sprite: number; flag: number }[]): ProjectState {
+  const state = project(baseRom);
+  state.formats = getNarcFormats(baseRom);
+  state.texts = { banks: {} };
+  const bytes = new Uint8Array(8 + 36 * npcs.length);
+  writeU32(bytes, 0, bytes.length - 4);
+  bytes[5] = npcs.length;
+  npcs.forEach(({ script, sprite, flag }, index) => {
+    const offset = 8 + index * 36;
+    writeU16(bytes, offset, index);
+    writeU16(bytes, offset + 2, sprite);
+    writeU16(bytes, offset + 8, flag);
+    writeU16(bytes, offset + 10, script);
+    writeU16(bytes, offset + 12, 2);
+    writeU16(bytes, offset + 28, index + 4);
+  });
+  state.narcs.overworlds = store("overworlds", [bytes]);
+  state.narcs.scripts = store("scripts", []);
+  state.narcs.trdata = store("trdata", []);
+  return state;
+}
+
 describe("item ball scripts", () => {
   it("reads the retail entries and skips the pickup routine", () => {
     expect(parseGroundItemFile(itemFile())).toEqual([
@@ -64,6 +93,32 @@ describe("item ball scripts", () => {
     expect(start + 20 + (readU32(after, start + 16) | 0)).toBe(newStarts[2]);
     // So do the old ones.
     expect(newStarts[0]! + 20 + (readU32(after, newStarts[0]! + 16) | 0)).toBe(newStarts[2]);
+  });
+
+  it.each(["BW", "BW2"] as const)("changes just the selected %s ball even when it shares a script", (baseRom) => {
+    const state = overworldProject(baseRom, [{ script: 7000, sprite: 210, flag: 1100 }, { script: 7000, sprite: 110, flag: 1101 }]);
+    const scripts = state.narcs.scripts!;
+    const fileId = groundItemScriptFileId(state);
+    scripts.rawFiles[fileId] = itemFile();
+    const overworld = state.narcs.overworlds!;
+    const original = overworld.rawFiles[0].slice();
+
+    expect(replaceItemBallReward(state, 0, 0, 380, 1)).toBe(false);
+    expect(overworld.dirty.size).toBe(0);
+    expect(replaceItemBallReward(state, 0, 0, 84, 3)).toBe(true);
+    expect(scripts.dirty.size).toBe(0);
+    expect(decodeRecord(state, "overworlds", 0).raw?.npc_0_script_id).toBe(7001);
+    expect(replaceItemBallReward(state, 0, 0, 25, 2)).toBe(true);
+
+    materializeProjectEdits(state);
+    writeU16(original, 18, 7003);
+    expect(overworld.rawFiles[0]).toEqual(original);
+    expect(scripts.dirty.has(fileId)).toBe(true);
+    expect(parseGroundItemFile(scripts.rawFiles[fileId])).toEqual([
+      { scriptId: 7000, itemId: 380, quantity: 1 },
+      { scriptId: 7001, itemId: 84, quantity: 3 },
+      { scriptId: 7003, itemId: 25, quantity: 2 },
+    ]);
   });
 });
 
@@ -97,5 +152,52 @@ describe("trainer scripts", () => {
     expect(trainerIdForScript(3012)).toBe(12);
     expect(trainerIdForScript(5012)).toBe(12);
     expect(trainerIdForScript(7012)).toBeUndefined();
+  });
+
+  function trainerProject(): ProjectState {
+    const state = overworldProject("BW2", [
+      { script: 3001, sprite: 25, flag: 50 },
+      { script: 5001, sprite: 26, flag: 51 },
+      { script: 3002, sprite: 42, flag: 52 },
+    ]);
+    const entries = 18;
+    const code = entries * 4 + 2;
+    const scripts = new Uint8Array(code + 10);
+    for (let id = 0; id < entries; id += 1) writeU32(scripts, id * 4, code + (id >= 16 ? 2 : 0) - id * 4 - 4);
+    writeU16(scripts, entries * 4, 0xfd13);
+    state.narcs.scripts!.rawFiles[1239] = scripts;
+    const trainers = store("trdata", Array.from({ length: 19 }, () => new Uint8Array(20)));
+    for (const [id, trainerClass, battleType] of [[1, 1, 1], [2, 8, 0], [3, 250, 0], [18, 8, 1]]) {
+      trainers.records.set(id, { id, bytes: trainers.rawFiles[id], raw: { class: trainerClass, battle_type_1: battleType } });
+    }
+    state.narcs.trdata = trainers;
+    return state;
+  }
+
+  it("redirects both halves of a doubles pair and expands the table for a new trainer", () => {
+    const state = trainerProject();
+    const original = state.narcs.overworlds!.rawFiles[0].slice();
+    expect(() => replaceTrainerNpc(state, 0, 1, 2)).toThrow(/Choose a Doubles trainer/);
+    expect(state.narcs.overworlds!.dirty.size).toBe(0);
+    expect(state.narcs.scripts!.dirty.size).toBe(0);
+
+    expect(replaceTrainerNpc(state, 0, 1, 18)).toBe(true);
+    expect(state.narcs.scripts!.dirty.has(1239)).toBe(true);
+    materializeProjectEdits(state);
+    writeU16(original, 10, 42);
+    writeU16(original, 18, 3018);
+    writeU16(original, 46, 42);
+    writeU16(original, 54, 5018);
+    expect(state.narcs.overworlds!.rawFiles[0]).toEqual(original);
+  });
+
+  it("retains the current sprite when there is no mapping for the new trainer class", () => {
+    const state = trainerProject();
+    expect(replaceTrainerNpc(state, 0, 2, 3)).toBe(true);
+    expect(decodeRecord(state, "overworlds", 0).raw).toMatchObject({
+      npc_2_script_id: 3003,
+      npc_2_overworld_sprite: 42,
+    });
+    expect(state.narcs.scripts!.dirty.size).toBe(0);
   });
 });

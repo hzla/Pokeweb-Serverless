@@ -5,6 +5,16 @@ replacements and standalone streams in the Music editor. Adding a standalone
 song does not redirect a game sequence. Each native target ID has at most one
 replacement; 0xffff is reserved. The exporter retains its 512 MiB safety limit.
 
+In the **Music** tab, choose an upload from **New songs** as a replacement source.
+Multiple BGM sequences can use the same stored audio and its loop settings.
+Restore or reassign the replacements before removing their source song.
+
+Songs added in **Music → New songs** appear in the **Trainer Music** approach
+and battle dropdowns. The first assignment registers a BGM sequence that plays
+the existing stream. The same song can be assigned to multiple rows. Reassign
+those rows before removing the song. Assignment availability follows the game's
+trainer music tables, including the sparse approach table in Black/White.
+
 **L + R + Select** toggles BGM volume without pausing the sequence player. C-Gear
 mute controls share that state. Native pause/resume and fades remain supported.
 BW1 uses a bounded buffered stream player; BW2 delegates to its native player.

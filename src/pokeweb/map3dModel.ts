@@ -2445,7 +2445,7 @@ function avgColor(a: [number, number, number, number], b: [number, number, numbe
   ];
 }
 
-class TextureParams {
+export class TextureParams {
   constructor(private readonly value: number) {}
   offset(): number {
     return (this.value & 0xffff) << 3;

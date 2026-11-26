@@ -175,6 +175,18 @@
   grid-template-columns: 112px minmax(0, 1fr) auto;
 }
 
+#overworld-editor .ow-pickup-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#overworld-editor .ow-reference-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 13px;
+}
+
 #overworld-editor .ow-label {
   overflow: hidden;
   color: var(--text-muted);

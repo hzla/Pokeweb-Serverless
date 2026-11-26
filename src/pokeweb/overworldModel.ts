@@ -370,7 +370,9 @@ export function updateOverworldEntityField(
   if (isGen4Project(project)) return updateGen4EventEntityField(project, record.raw, overworldId, selection, field, value);
   if (!entityIndexes(record.raw, selection.kind).includes(selection.index)) throw new Error(`${entityKindLabel(selection.kind)} ${selection.index} does not exist`);
   const next = coerceInt(value, 0, semanticFieldMax(selection.kind, field), field);
-  const translation = gen5SceneTranslation(project, overworldId);
+  const translation = selection.kind === "npc" && field !== "x_cord" && field !== "y_cord"
+    ? { translateX: 0, translateY: 0 }
+    : gen5SceneTranslation(project, overworldId);
   const before = getSemanticEntityField(record.raw, selection.kind, selection.index, field, translation);
   setSemanticEntityField(record.raw, selection.kind, selection.index, field, next, translation);
   markDirty(project, "overworlds", overworldId);

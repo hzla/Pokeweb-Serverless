@@ -21,6 +21,8 @@ Load a Black 2 or White 2 ROM and open **More → Title Screen**.
 - Native resource export/import, individually or as a ZIP bundle.
 - PNG import for the logo, scrolling background, credits, and Press Start,
   with resizing, adjustable cropping, and a converted preview.
+- Static PNG replacement for Kyurem on the bottom screen, with adjustable
+  placement and size.
 - **Preview in game**, which boots the current exported project in the
   built-in emulator with a temporary blank save. Press Enter (Start) to skip
   the opening movie and reach the title. Reopen it after making further edits.
@@ -60,6 +62,21 @@ Choose **Import PNG** in the dialog to apply the converted resources, then
 inspect the composition and use **Preview in game**. Cancel leaves the project
 unchanged. Use **Export ROM** to save an edited `.nds` file. PNG inputs are
 limited to 16 MiB, 8192 pixels per side, and 16 megapixels.
+
+## Replace Kyurem with a static image
+
+Open **Bottom-screen animation** and choose **Replace Kyurem with PNG**.
+Drag the image in the converted preview, use the position and size sliders, or choose **Fit screen**.
+Choose **Apply image**, then **Preview in game** to see the title effects.
+
+For a full-screen replacement, use a 256×192 PNG and choose **Fit screen**.
+Larger images are scaled to fit while keeping their proportions. Artwork uses
+an indexed RGB555 palette, alpha below 50% becomes transparent, and the
+reflection is hidden. The original credits still appear over the image.
+The artwork follows the title's camera and fades, so its edges can shift
+slightly in-game.
+Use **Edit image placement** to adjust applied artwork or **Restore original**
+to recover the title model, animation, and reflection from the project's source ROM.
 
 ## External native editing workflow
 

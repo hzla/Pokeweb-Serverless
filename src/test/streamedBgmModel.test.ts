@@ -378,6 +378,32 @@ describe("multiple streamed BGM replacements", () => {
     expect(project.codeInjection!.streamedBgms?.[0]?.audioSha256).toBe(bgmHash);
   });
 
+  it("shares a standalone stream across replacements and restores targets independently", async () => {
+    const project = makeRuntimeUpdateProject("W2");
+    const song = await installStandaloneStream(project, { name: "Shared song", sourceName: "shared.wav", pcm, encoding: "adpcm", loop: false });
+    const library = project.fileSystem!.replacements[0]!;
+    const fileCount = parseNitroSdat(library).files.length;
+
+    for (const targetSequenceId of [0, 2]) {
+      const mapping = await installStreamedBgm(project, { targetSequenceId, standaloneStreamId: song.streamId, shortcutEnabled: false });
+      expect(mapping).toMatchObject({ sourceName: song.name, standaloneStreamId: song.streamId, streamFileId: song.streamFileId, audioSha256: song.audioSha256 });
+    }
+    const shared = parseNitroSdat(project.fileSystem!.replacements[0]!);
+    expect(shared.files).toHaveLength(fileCount + 2);
+    expect(sdatStreamCount(shared.bytes)).toBe(sdatStreamCount(library));
+    expect(shared.files[song.streamFileId]!.data[0x19]).toBe(0);
+    await expect(removeLastStandaloneStream(project)).rejects.toThrow(/replacements using this song/u);
+
+    await installStreamedBgm(project, { targetSequenceId: 0, sourceName: "upload.wav", pcm, shortcutEnabled: false });
+    expect(project.codeInjection!.streamedBgms!.find((mapping) => mapping.targetSequenceId === 0)?.standaloneStreamId).toBeUndefined();
+    await removeStreamedBgm(project, 0);
+    expect(project.codeInjection!.streamedBgms!.find((mapping) => mapping.targetSequenceId === 2)?.streamId).toBe(song.streamId);
+    await removeStreamedBgm(project, 2);
+    expect(project.fileSystem!.replacements[0]).toEqual(library);
+    await removeLastStandaloneStream(project);
+    expect(project.codeInjection!.standaloneStreams).toEqual([]);
+  });
+
   it.each(["B2", "W2"] as const)("migrates %s single-track state, adds tracks, updates just one, and removes the middle then all", async (version) => {
     const project = makeRuntimeUpdateProject(version);
     const legacy = { ...project.codeInjection!.streamedBgm! };

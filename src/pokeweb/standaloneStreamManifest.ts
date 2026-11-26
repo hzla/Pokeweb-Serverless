@@ -16,6 +16,7 @@ export function decodeStandaloneStreamManifest(bytes: Uint8Array): StandaloneStr
   }
   const streams = root.streams as Array<Record<string, unknown>>;
   const ids = new Set<number>();
+  const sequenceIds = new Set<number>();
   for (const stream of streams) {
     if (!stream || !Number.isInteger(stream.streamId) || Number(stream.streamId) < 0 || Number(stream.streamId) >= 0xffff
       || !Number.isInteger(stream.streamFileId) || Number(stream.streamFileId) < 0 || Number(stream.streamFileId) >= 0xffff
@@ -30,6 +31,13 @@ export function decodeStandaloneStreamManifest(bytes: Uint8Array): StandaloneStr
       throw new Error("Standalone stream manifest contains an invalid track.");
     }
     ids.add(Number(stream.streamId));
+    if (stream.trainerSequenceId !== undefined) {
+      const id = Number(stream.trainerSequenceId);
+      if (!Number.isInteger(stream.trainerSequenceId) || id < 0 || id >= 0xffff || sequenceIds.has(id)) {
+        throw new Error("Standalone stream manifest contains an invalid trainer sequence.");
+      }
+      sequenceIds.add(id);
+    }
   }
   return streams as StandaloneStreamConfig[];
 }

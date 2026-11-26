@@ -27,8 +27,8 @@ import type { OverworldTestWarpSelection } from "../pokeweb/testOverworldWarp";
 import { escapeHtml, selectText } from "./dom";
 import { changedKeys } from "./detailFields";
 import { installPicker } from "./trainerInteractions";
-import { openItemShortcut, openSpritePicker, openTrainerShortcut, spriteClassLabels } from "./overworldShortcuts";
-import { buildTrainerOverworldIndex, supportsOverworldShortcuts } from "../pokeweb/overworldShortcutModel";
+import { installTrainerReferencePicker, openItemShortcut, openSpritePicker, openTrainerShortcut, spriteClassLabels } from "./overworldShortcuts";
+import { buildTrainerOverworldIndex, checkTrainerScript, groundItemEntryForScript, replaceTrainerNpc, supportsOverworldShortcuts, trainerIdForScript } from "../pokeweb/overworldShortcutModel";
 import { overworldZoneScriptFile, resolveScriptId, type ScriptTarget } from "../pokeweb/scriptIdModel";
 import { publicAsset } from "../assetUrl";
 import { gen4PermissionTileFill } from "./gen4MapPreviewRenderer";
@@ -1158,6 +1158,43 @@ export function renderOverworldEditor(
       const target = input && scriptTarget ? scriptTarget(Number(input.value)) : undefined;
       if (target) onOpenScript?.(target);
     });
+    const npc = selectedEntity?.kind === "npc" ? selectedEntity : undefined;
+    if (npc) {
+      const scriptId = Number(scene.raw[`npc_${npc.index}_script_id`]);
+      const trainer = host.querySelector<HTMLElement>("[data-trainer-reference]");
+      const trainerId = trainerIdForScript(scriptId);
+      if (trainer && trainerId !== undefined) {
+        const notice = host.querySelector<HTMLElement>("[data-trainer-reference-error]")!;
+        installTrainerReferencePicker(project, trainer, trainerId, (nextId) => {
+          notice.textContent = "";
+          notice.hidden = true;
+          try {
+            if (replaceTrainerNpc(project, overworldId, npc.index, nextId)) {
+              reloadScene();
+              onDirty?.();
+            }
+            return true;
+          } catch (error) {
+            notice.textContent = error instanceof Error ? error.message : String(error);
+            notice.hidden = false;
+            return false;
+          }
+        });
+      }
+      host.querySelector<HTMLButtonElement>("[data-edit-pickup]")?.addEventListener("click", () => {
+        const entry = groundItemEntryForScript(project, scriptId);
+        if (!entry) return;
+        openItemShortcut(root, project, {
+          overworldId,
+          npcIndex: npc.index,
+          entry,
+          onEdited: () => {
+            reloadScene();
+            onDirty?.();
+          },
+        });
+      });
+    }
     host.querySelector<HTMLButtonElement>("[data-sprite-picker]")?.addEventListener("click", () => {
       const selection = selectedEntity;
       const entity = visibleEntityBySelection(selection);
@@ -1766,11 +1803,18 @@ function renderEntityFields(
           if (entity.kind === "npc" && field.key === "overworld_sprite") {
             return control.replace("</label>", `${renderSpritePreview(project, entity)}</label>`).replace('class="ow-row', 'class="ow-row -sprite');
           }
-          if (scriptTarget && (field.key === "script_id" || field.key === "script")) {
-            const target = scriptTarget(value);
-            const title = target ? `Open script file ${target.fileId}, entry ${target.entry}` : "No script to open";
-            const link = `<button class="btn sm -ghost ow-script-link" type="button" data-open-script ${target ? "" : "disabled"} title="${escapeHtml(title)}">Open</button>`;
-            return control.replace("</label>", `${link}</label>`).replace('class="ow-row', 'class="ow-row -script');
+          if (field.key === "script_id" || field.key === "script") {
+            let scriptControl = control;
+            if (scriptTarget) {
+              const target = scriptTarget(value);
+              const title = target ? `Open script file ${target.fileId}, entry ${target.entry}` : "No script to open";
+              const link = `<button class="btn sm -ghost ow-script-link" type="button" data-open-script ${target ? "" : "disabled"} title="${escapeHtml(title)}">Open</button>`;
+              scriptControl = control.replace("</label>", `${link}</label>`).replace('class="ow-row', 'class="ow-row -script');
+            }
+            if (entity.kind === "npc" && supportsOverworldShortcuts(project)) {
+              return scriptControl + renderNpcScriptShortcut(project, value);
+            }
+            return scriptControl;
           }
           return control;
         })
@@ -1781,6 +1825,28 @@ function renderEntityFields(
       return `<section class="ow-group"><div class="ow-group-title">${FIELD_GROUP_LABELS[group]}</div><div class="ow-grid ${group === "position" ? "-pos" : ""}">${rows}</div></section>`;
     })
     .join("");
+}
+
+function renderNpcScriptShortcut(project: ProjectState, scriptId: number): string {
+  const item = groundItemEntryForScript(project, scriptId);
+  if (item) {
+    const name = project.texts.banks.items?.[item.itemId] || `Item ${item.itemId}`;
+    const label = item.quantity === 1 ? name : `${name} ×${item.quantity}`;
+    return `<div class="ow-row -script">
+      <span class="ow-label">Pickup</span>
+      <span class="ow-pickup-name" title="${escapeHtml(label)}">${escapeHtml(label)}</span>
+      <button class="btn sm -ghost" type="button" data-edit-pickup aria-label="Edit pickup item">Edit</button>
+    </div>`;
+  }
+  const trainerId = trainerIdForScript(scriptId);
+  if (trainerId === undefined) return "";
+  const status = checkTrainerScript(project, trainerId);
+  if (!status.ok || status.expands) return "";
+  return `<div class="ow-row">
+    <span class="ow-label">Trainer</span>
+    <div class="ow-file-picker"><div contenteditable="true" spellcheck="false" data-trainer-reference aria-label="Trainer"></div></div>
+  </div>
+  <p class="ow-reference-error" data-trainer-reference-error role="status" hidden></p>`;
 }
 
 function renderSpritePreview(project: ProjectState, npc: OverworldNpc): string {

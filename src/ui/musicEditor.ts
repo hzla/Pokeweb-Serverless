@@ -37,6 +37,7 @@ import {
   updateStreamedBgmRuntime,
   type NativeSdatStream,
   type StreamedBgmEncoding,
+  type StreamedBgmInstallInput,
   type StereoPcm,
 } from "../pokeweb/streamedBgmModel";
 import { escapeHtml } from "./dom";
@@ -53,6 +54,7 @@ type StreamedBgmDraft = {
   previewUrl?: string;
   currentTrackPreviewUrl?: string;
   targetSequenceId: number;
+  bgmReplacementSource?: number | "upload";
   encoding: StreamedBgmEncoding;
   trimStartSeconds: number;
   loopStartSeconds: number;
@@ -179,7 +181,7 @@ export function buildNativeStreamReference(
   standalone: readonly StandaloneStreamConfig[] = [],
 ): NativeStreamReferenceEntry[] {
   return streams.map((stream) => {
-    const mapping = mappings.find((entry) => entry.streamId === stream.id);
+    const mapping = mappings.find((entry) => entry.streamId === stream.id && entry.standaloneStreamId === undefined);
     if (mapping) {
       return {
         stream,
@@ -379,7 +381,8 @@ export function renderMusicEditor(project: ProjectState, root: HTMLElement, onDi
   const hasEditableNativeStream = Boolean(draft.nativeStreams?.some((entry) => !managedStreamIds.has(entry.id)));
   const availableTabs: readonly MusicEditorTab[] = bw1 && !hasEditableNativeStream ? ["bgm", "standalone"] : MUSIC_EDITOR_TABS;
   if (!availableTabs.includes(draft.activeTab)) draft.activeTab = "bgm";
-  const totalBytes = [...configs, ...nativeConfigs, ...standalone].reduce((total, entry) => total + entry.encodedBytes, 0);
+  const totalBytes = [...configs.filter((entry) => entry.standaloneStreamId === undefined), ...nativeConfigs, ...standalone]
+    .reduce((total, entry) => total + entry.encodedBytes, 0);
 
   root.innerHTML = `
     <div class="music-data" id="music-data">
@@ -471,7 +474,7 @@ function renderListRows(project: ProjectState, draft: StreamedBgmDraft, bw1: boo
 }
 
 function renderBgmTools(project: ProjectState, draft: StreamedBgmDraft, configs: readonly StreamedBgmConfig[], bw1: boolean): string {
-  const runtimeEnabled = configs.length || (bw1 && getStandaloneStreamConfigs(project).length);
+  const runtimeEnabled = configs.length || getStandaloneStreamConfigs(project).some((track) => bw1 || track.trainerSequenceId !== undefined);
   return `<details class="md-tools mu-tools" ${draft.toolsOpen ? "open" : ""}>
     <summary>Settings</summary>
     <div class="mu-tools-body">
@@ -517,6 +520,9 @@ function renderDetail(
   if (!sequence) return `<div class="mu-empty">${draft.hydrating ? "Loading the sound archive…" : escapeHtml(draft.message ?? "Pick a track.")}</div>`;
   const info = bgmTrackInfo(draft.sequences ?? [], bw1).get(sequence.id);
   const config = configs.find((entry) => entry.targetSequenceId === sequence.id);
+  const currentSong = standalone.find((song) => song.streamId === config?.standaloneStreamId);
+  const source = draft.bgmReplacementSource ?? currentSong?.streamId;
+  const selectedSong = standalone.find((song) => song.streamId === source);
   const legacyTarget = config && !config.targetSequenceSymbol?.startsWith("SEQ_BGM_");
   return `
     <header class="mu-head">
@@ -526,7 +532,7 @@ function renderDetail(
     <input type="hidden" id="streamed-bgm-target" value="${sequence.id}">
     <section class="mu-section">
       <div class="mu-section-title">Now playing in game</div>
-      ${config ? `<div class="mu-installed"><strong>${escapeHtml(config.sourceName)}</strong><span>${megabytes(config.encodedBytes)} · ${escapeHtml(streamedBgmEncodingLabel(config.encoding ?? "pcm16"))} · loop ${(config.loopStartSample / config.sampleRate).toFixed(2)}–${(config.loopEndSample / config.sampleRate).toFixed(2)} s</span>
+      ${config ? `<div class="mu-installed"><strong>${escapeHtml(config.sourceName)}</strong><span>${megabytes(config.encodedBytes)} · ${escapeHtml(streamedBgmEncodingLabel(config.encoding ?? "pcm16"))} · ${currentSong?.loop === false ? "Plays once" : `loop ${(config.loopStartSample / config.sampleRate).toFixed(2)}–${(config.loopEndSample / config.sampleRate).toFixed(2)} s`}</span>
         <button class="btn sm -default" id="remove-streamed-bgm-btn" type="button">Restore original</button></div>` : `<div class="mu-original">Original track</div>`}
       <div class="mu-current">
         <button class="btn sm -default" id="preview-current-bgm-btn" type="button">Listen (15 s)</button>
@@ -535,11 +541,16 @@ function renderDetail(
     </section>
     <section class="mu-section">
       <div class="mu-section-title">${config ? "Replace again" : "Replace with"}</div>
-      ${renderAudioImport("bgm", "streamed-bgm-file", draft.pcm, draft.sourceName, "streamed-bgm-preview", draft.previewUrl, true)}
-      ${renderTimingFields({ trimStart: "streamed-bgm-trim-start", trimEnd: "streamed-bgm-loop-end", loopStart: "streamed-bgm-loop-start" },
+      ${standalone.length ? `<label class="mu-field -wide"><span>Source</span><select id="streamed-bgm-source">
+        <option value="upload"${selectedSong ? "" : " selected"}>Upload MP3 or WAV</option>
+        <optgroup label="New songs">${standalone.map((song) =>
+          `<option value="${song.streamId}"${song === selectedSong ? " selected" : ""}>${escapeHtml(song.name)}</option>`).join("")}</optgroup>
+      </select></label>` : ""}
+      ${selectedSong ? "" : renderAudioImport("bgm", "streamed-bgm-file", draft.pcm, draft.sourceName, "streamed-bgm-preview", draft.previewUrl, true)}
+      ${selectedSong ? "" : renderTimingFields({ trimStart: "streamed-bgm-trim-start", trimEnd: "streamed-bgm-loop-end", loopStart: "streamed-bgm-loop-start" },
         { trimStart: draft.trimStartSeconds, trimEnd: draft.loopEndSeconds ?? (draft.pcm ? draft.pcm.left.length / draft.pcm.sampleRate : undefined), loopStart: draft.loopStartSeconds }, true,
         { id: "streamed-bgm-encoding", value: draft.encoding })}
-      <div class="mu-actions"><button class="btn -primary" id="install-streamed-bgm-btn" type="button" ${draft.pcm ? "" : "disabled"}>${config ? "Update replacement" : "Replace track"}</button></div>
+      <div class="mu-actions"><button class="btn -primary" id="install-streamed-bgm-btn" type="button" ${selectedSong || draft.pcm ? "" : "disabled"}>${config ? "Update replacement" : "Replace track"}</button></div>
     </section>
     <div class="mu-note" id="streamed-bgm-note" role="status">${escapeHtml(draft.message ?? (legacyTarget ? `This older replacement targets non-BGM sequence ${config!.targetSequenceId}; import the audio again to reconfigure it.` : ""))}</div>`;
 }
@@ -694,6 +705,7 @@ function installMusicEditorInteractions(project: ProjectState, root: HTMLElement
   const selectBgm = (id: number) => {
     if (id === draft.targetSequenceId) return;
     draft.targetSequenceId = id;
+    draft.bgmReplacementSource = undefined;
     const installed = getStreamedBgmConfigs(project).find((entry) => entry.targetSequenceId === id);
     draft.encoding = installed?.encoding ?? (installed ? "pcm16" : draft.encoding);
     if (draft.currentTrackPreviewUrl) URL.revokeObjectURL(draft.currentTrackPreviewUrl);
@@ -794,6 +806,7 @@ function installMusicEditorInteractions(project: ProjectState, root: HTMLElement
   };
 
   // ---------- BGM ----------
+  const sourceSelect = root.querySelector<HTMLSelectElement>("#streamed-bgm-source");
   const fileInput = root.querySelector<HTMLInputElement>("#streamed-bgm-file");
   const encodingSelect = root.querySelector<HTMLSelectElement>("#streamed-bgm-encoding");
   const trimStartInput = root.querySelector<HTMLInputElement>("#streamed-bgm-trim-start");
@@ -819,6 +832,12 @@ function installMusicEditorInteractions(project: ProjectState, root: HTMLElement
   loopStartInput?.addEventListener("input", updateInputs);
   loopEndInput?.addEventListener("input", updateInputs);
   shortcutInput?.addEventListener("change", updateInputs);
+  sourceSelect?.addEventListener("change", () => {
+    updateInputs();
+    draft.bgmReplacementSource = sourceSelect.value === "upload" ? "upload" : Number(sourceSelect.value);
+    rerender();
+    root.querySelector<HTMLSelectElement>("#streamed-bgm-source")?.focus();
+  });
   constrainImportedPreview(root.querySelector<HTMLAudioElement>("#streamed-bgm-preview"), trimStartInput, loopEndInput, updateInputs);
 
   root.querySelector<HTMLButtonElement>("#update-streamed-bgm-runtime-btn")?.addEventListener("click", async () => {
@@ -867,31 +886,35 @@ function installMusicEditorInteractions(project: ProjectState, root: HTMLElement
   installButton?.addEventListener("click", async () => {
     await runEdit(async () => {
       updateInputs();
-      if (!draft.pcm || !draft.sourceName) throw new Error("Choose an MP3 or WAV file first.");
       const sequence = draft.sequences?.find((entry) => entry.id === draft.targetSequenceId);
       if (!sequence) throw new Error("Pick a track first.");
+      const source = sourceSelect?.value;
+      const songId = source && source !== "upload" ? Number(source) : undefined;
+      const input = { targetSequenceId: sequence.id, targetSequenceSymbol: sequence.symbol, shortcutEnabled: draft.shortcutEnabled };
+      let replacement: StreamedBgmInstallInput;
+      if (songId !== undefined) {
+        replacement = { ...input, standaloneStreamId: songId };
+      } else {
+        if (!draft.pcm || !draft.sourceName) throw new Error("Choose an MP3 or WAV file first.");
+        replacement = {
+          ...input, sourceName: draft.sourceName, pcm: draft.pcm, encoding: draft.encoding,
+          trimStartSeconds: draft.trimStartSeconds, trimEndSeconds: draft.loopEndSeconds, loopStartSeconds: draft.loopStartSeconds,
+        };
+      }
       installButton.textContent = "Installing…";
-      if (note) note.textContent = "Encoding and rebuilding the sound archive…";
-      await installStreamedBgm(project, {
-        sourceName: draft.sourceName,
-        pcm: draft.pcm,
-        targetSequenceId: sequence.id,
-        targetSequenceSymbol: sequence.symbol,
-        encoding: draft.encoding,
-        trimStartSeconds: draft.trimStartSeconds,
-        trimEndSeconds: draft.loopEndSeconds,
-        loopStartSeconds: draft.loopStartSeconds,
-        shortcutEnabled: draft.shortcutEnabled,
-      });
+      if (note && songId === undefined) note.textContent = "Encoding and rebuilding the sound archive…";
+      const installed = await installStreamedBgm(project, replacement);
       if (draft.currentTrackPreviewUrl) URL.revokeObjectURL(draft.currentTrackPreviewUrl);
       draft.currentTrackPreviewUrl = undefined;
-      draft.message = `${draft.sourceName} now plays as ${sequence.id}.`;
+      draft.bgmReplacementSource = undefined;
+      draft.message = `${installed.sourceName} now plays as ${sequence.id}.`;
     });
   });
 
   const remove = (id?: number) => runEdit(async () => {
     if (note) note.textContent = "Restoring the original track…";
     await removeStreamedBgm(project, id);
+    draft.bgmReplacementSource = undefined;
     if (draft.currentTrackPreviewUrl) URL.revokeObjectURL(draft.currentTrackPreviewUrl);
     draft.currentTrackPreviewUrl = undefined;
     draft.message = id === undefined ? "All replacements removed." : "Original track restored.";

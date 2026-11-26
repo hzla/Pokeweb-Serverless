@@ -2,7 +2,7 @@ import { concatBytes, readAscii, readU16, readU32, writeU16, writeU32 } from "..
 import { NintendoDSRom } from "../nds/rom";
 import { recordGenericChange } from "./actionChangelog";
 import { addRomFile, getRomFileBytes, replaceRomFile, setRomFileReplacement } from "./fileSystemModel";
-import { invalidateNitroSdatCache, loadNitroSdatFromProject } from "./nitroSound";
+import { invalidateNitroSdatCache, loadNitroSdatFromProject, type NitroSdat } from "./nitroSound";
 import { loadActiveRomBytes } from "./persistence";
 import {
   assertBundledBgmRuntimeCompatibility,
@@ -36,6 +36,9 @@ const SDAT_HEADER_SIZE = 0x40;
 const STRM_HEADER_SIZE = 0x68;
 const SDAT_FILE_ALIGNMENT = 0x20;
 const SDAT_FIRST_FILE_ALIGNMENT = 0x80;
+const TRAINER_SEQUENCE_TAG = 0x51545750; // "PWTQ"
+const TRAINER_SEQUENCE_RECORD_SIZE = 16;
+const TRAINER_SEQUENCE_TEMPLATE = 1130; // Trainer battle BGM player and bank.
 const ADPCM_BLOCK_SAMPLES = 960;
 const ADPCM_INDEX_TABLE = [-1, -1, -1, -1, 2, 4, 6, 8, -1, -1, -1, -1, 2, 4, 6, 8] as const;
 const ADPCM_STEP_TABLE = [
@@ -67,6 +70,7 @@ export type SdatStreamedBgmInstall = {
   bytes: Uint8Array;
   targetSequenceId: number;
   streamId: number;
+  standaloneStreamId?: number;
   streamFileId: number;
   shadowFileId: number;
   originalSequenceFileId: number;
@@ -74,11 +78,12 @@ export type SdatStreamedBgmInstall = {
 
 export type SdatStreamedBgmConfig = Omit<SdatStreamedBgmInstall, "bytes">;
 
-export type StreamedBgmInstallInput = {
+type SdatBgmSource = { bytes: Uint8Array; standaloneStreamId?: never } | { standaloneStreamId: number };
+type SdatBgmReplacement = SdatBgmSource & { targetSequenceId: number };
+
+type BgmUpload = {
   sourceName: string;
   pcm: StereoPcm;
-  targetSequenceId: number;
-  targetSequenceSymbol?: string;
   /** Explicit per-track storage format. Omit to retain the legacy automatic policy. */
   encoding?: StreamedBgmEncoding;
   /** Start/end positions in the imported source. Loop points are relative to the cropped result. */
@@ -87,6 +92,12 @@ export type StreamedBgmInstallInput = {
   loopStartSeconds?: number;
   /** Legacy alias for trimEndSeconds, retained for programmatic callers. */
   loopEndSeconds?: number;
+  standaloneStreamId?: never;
+};
+
+export type StreamedBgmInstallInput = (BgmUpload | { standaloneStreamId: number }) & {
+  targetSequenceId: number;
+  targetSequenceSymbol?: string;
   shortcutEnabled: boolean;
 };
 
@@ -816,8 +827,102 @@ export function encodeAdpcmStrm(
 
 export function installStreamedBgmInSdat(sdatBytes: Uint8Array, targetSequenceId: number, strmBytes: Uint8Array): SdatStreamedBgmInstall {
   const parts = parseSdat(sdatBytes);
-  const mapping = appendMapping(parts, targetSequenceId, strmBytes);
+  const trainerSequences = takeTrainerSequenceFiles(parts);
+  const mapping = appendMapping(parts, targetSequenceId, { bytes: strmBytes });
+  restoreTrainerSequenceFiles(parts, trainerSequences);
   return { bytes: rebuildSdat(parts), ...mapping };
+}
+
+function trainerSequenceRecords(info: Uint8Array): Array<{ id: number; offset: number; fileId: number }> {
+  const table = infoTableOffset(info, 0);
+  const count = readU32(info, table);
+  requireRange(info, table + 4, count * 4, "SDAT sequence table");
+  const records = [];
+  for (let id = 0; id < count; id += 1) {
+    const offset = readU32(info, table + 4 + id * 4);
+    if (offset && offset + TRAINER_SEQUENCE_RECORD_SIZE <= info.length && readU32(info, offset + 12) === TRAINER_SEQUENCE_TAG) {
+      records.push({ id, offset, fileId: readU16(info, offset) });
+    }
+  }
+  return records;
+}
+
+// Trainer sequences share the original standalone STRMs. Keep their small SSEQ
+// files at the end so edits to the stream/BGM tail can keep existing stream IDs.
+function takeTrainerSequenceFiles(parts: SdatParts): Map<number, Uint8Array> {
+  const records = trainerSequenceRecords(parts.info).sort((a, b) => a.fileId - b.fileId);
+  const start = parts.files.length - records.length;
+  const silent = createSilentShadowSseq();
+  const files = new Map<number, Uint8Array>();
+  for (const [index, record] of records.entries()) {
+    const bytes = parts.files[record.fileId];
+    if (record.fileId !== start + index || !bytes || bytes.length !== silent.length || silent.some((byte, i) => bytes[i] !== byte)) {
+      throw new Error("The trainer stream sequences no longer match the SDAT file tail.");
+    }
+    files.set(record.id, bytes);
+  }
+  if (files.size) {
+    const aliasRecords = new Set(records.map((record) => record.offset));
+    for (const part of [0, 1, 2, 3, 7]) {
+      const table = infoTableOffset(parts.info, part);
+      for (let id = 0; id < readU32(parts.info, table); id += 1) {
+        const offset = readU32(parts.info, table + 4 + id * 4);
+        const fileId = offset ? readU16(parts.info, offset) : 0xffff;
+        if (fileId >= start && fileId < parts.files.length && (part !== 0 || !aliasRecords.has(offset))) {
+          throw new Error("Unrelated SDAT entries reference trainer-owned sequence files.");
+        }
+      }
+    }
+    parts.files.length = start;
+  }
+  return files;
+}
+
+function restoreTrainerSequenceFiles(parts: SdatParts, files: Map<number, Uint8Array>): void {
+  if (parts.files.length + files.size > 0xffff) throw new Error("The sound archive has exhausted its 16-bit file IDs.");
+  for (const [id, file] of files) {
+    writeU16(parts.info, infoRecordOffset(parts.info, 0, id), parts.files.length);
+    parts.files.push(file);
+  }
+}
+
+function addTrainerSequence(sdatBytes: Uint8Array): { bytes: Uint8Array; sequenceId: number } {
+  const parts = parseSdat(sdatBytes);
+  const files = takeTrainerSequenceFiles(parts);
+  const table = infoTableOffset(parts.info, 0);
+  const sequenceId = readU32(parts.info, table);
+  if (sequenceId >= 0xffff) throw new Error("The sound archive has exhausted its 16-bit sequence IDs.");
+  const template = infoRecordOffset(parts.info, 0, TRAINER_SEQUENCE_TEMPLATE);
+  requireRange(parts.info, template, 12, "Trainer sequence template");
+  const record = new Uint8Array(TRAINER_SEQUENCE_RECORD_SIZE);
+  record.set(parts.info.subarray(template, template + 12));
+  writeU32(record, 12, TRAINER_SEQUENCE_TAG);
+  const slot = table + 4 + sequenceId * 4;
+  parts.info = replaceRange(parts.info, slot, 0, concatBytes([new Uint8Array(4), record]));
+  adjustInfoOffsets(parts.info, slot, 4 + record.length);
+  writeU32(parts.info, table, sequenceId + 1);
+  writeU32(parts.info, slot, slot + 4);
+  writeU32(parts.info, 4, parts.info.length);
+  files.set(sequenceId, createSilentShadowSseq());
+  restoreTrainerSequenceFiles(parts, files);
+  return { bytes: rebuildSdat(parts), sequenceId };
+}
+
+function removeTrainerSequence(parts: SdatParts, sequenceId: number): void {
+  const table = infoTableOffset(parts.info, 0);
+  const slot = table + 4 + sequenceId * 4;
+  const offset = infoRecordOffset(parts.info, 0, sequenceId);
+  writeU32(parts.info, slot, 0);
+  parts.info = replaceRange(parts.info, offset, TRAINER_SEQUENCE_RECORD_SIZE, new Uint8Array());
+  adjustInfoOffsets(parts.info, offset + TRAINER_SEQUENCE_RECORD_SIZE, -TRAINER_SEQUENCE_RECORD_SIZE);
+  // Keep surviving IDs and any padding in the retail sequence table stable.
+  const count = readU32(parts.info, table);
+  if (sequenceId === count - 1) {
+    parts.info = replaceRange(parts.info, slot, 4, new Uint8Array());
+    writeU32(parts.info, table, count - 1);
+    adjustInfoOffsets(parts.info, slot + 4, -4);
+  }
+  writeU32(parts.info, 4, parts.info.length);
 }
 
 /** Add a native STRM without redirecting or changing any existing sequence. */
@@ -827,6 +932,7 @@ export function appendStandaloneSdatStream(sdatBytes: Uint8Array, strmBytes: Uin
     throw new Error("The standalone STRM header is malformed.");
   }
   const parts = parseSdat(sdatBytes);
+  const trainerSequences = takeTrainerSequenceFiles(parts);
   if (parts.files.length >= 0xffff || readU32(parts.info, infoTableOffset(parts.info, 7)) >= 0xffff) {
     throw new Error("The sound archive has exhausted its native 16-bit stream or file IDs.");
   }
@@ -834,48 +940,73 @@ export function appendStandaloneSdatStream(sdatBytes: Uint8Array, strmBytes: Uin
   const appended = appendStreamInfo(parts.info, streamFileId, parts.firstFileAlignment);
   parts.info = appended.info;
   parts.files.push(strmBytes);
+  restoreTrainerSequenceFiles(parts, trainerSequences);
   return { bytes: rebuildSdat(parts), streamId: appended.streamId, streamFileId };
 }
 
 /** A standalone stream is removable only after later owned BGM entries are lifted. */
-export function removeFinalStandaloneSdatStream(sdatBytes: Uint8Array, streamId: number, streamFileId: number): Uint8Array {
+export function removeFinalStandaloneSdatStream(sdatBytes: Uint8Array, streamId: number, streamFileId: number, trainerSequenceId?: number): Uint8Array {
   const parts = parseSdat(sdatBytes);
+  const trainerSequences = takeTrainerSequenceFiles(parts);
+  if (trainerSequenceId !== undefined) {
+    if (!trainerSequences.delete(trainerSequenceId)) throw new Error("The trainer sequence for this stream is missing.");
+    removeTrainerSequence(parts, trainerSequenceId);
+  }
   if (streamFileId !== parts.files.length - 1) throw new Error("The standalone stream is no longer the final SDAT file.");
   const file = parts.files[streamFileId];
   if (!file) throw new Error("The standalone stream file is missing.");
   requireMagic(file, 0, "STRM");
   parts.info = removeStreamInfo(parts.info, streamId, streamFileId);
   parts.files.pop();
+  restoreTrainerSequenceFiles(parts, trainerSequences);
   return rebuildSdat(parts);
 }
 
-function appendMapping(parts: SdatParts, targetSequenceId: number, strmBytes: Uint8Array): SdatStreamedBgmConfig {
-  requireMagic(strmBytes, 0, "STRM");
-  if (targetSequenceId >= 0xffff || parts.files.length + 1 >= 0xffff
-    || readU32(parts.info, infoTableOffset(parts.info, 7)) >= 0xffff) {
+function appendMapping(parts: SdatParts, targetSequenceId: number, source: SdatBgmSource): SdatStreamedBgmConfig {
+  const shadowFileId = parts.files.length;
+  const ownedStream = source.standaloneStreamId === undefined;
+  if (targetSequenceId >= 0xffff || shadowFileId + Number(ownedStream) >= 0xffff
+    || (ownedStream && readU32(parts.info, infoTableOffset(parts.info, 7)) >= 0xffff)) {
     throw new Error("The sound archive has exhausted its native 16-bit sequence, stream, or file IDs.");
   }
   const targetRecord = infoRecordOffset(parts.info, 0, targetSequenceId);
+  if (readU32(parts.info, targetRecord + 12) === TRAINER_SEQUENCE_TAG) throw new Error("This sequence is managed by a standalone trainer track.");
   const originalSequenceFileId = readU16(parts.info, targetRecord);
   if (!parts.files[originalSequenceFileId]) throw new Error("The selected sequence has no original SDAT file.");
-  const shadowFileId = parts.files.length;
-  const streamFileId = shadowFileId + 1;
-  const appended = appendStreamInfo(parts.info, streamFileId, parts.firstFileAlignment);
-  writeU16(appended.info, infoRecordOffset(appended.info, 0, targetSequenceId), shadowFileId);
-  parts.info = appended.info;
-  parts.files.push(createSilentShadowSseq(), strmBytes);
+  let streamId: number;
+  let streamFileId: number;
+  const shadow = createSilentShadowSseq();
+  if (source.standaloneStreamId === undefined) {
+    requireMagic(source.bytes, 0, "STRM");
+    streamFileId = shadowFileId + 1;
+    const appended = appendStreamInfo(parts.info, streamFileId, parts.firstFileAlignment);
+    parts.info = appended.info;
+    streamId = appended.streamId;
+    parts.files.push(shadow, source.bytes);
+  } else {
+    streamId = source.standaloneStreamId;
+    streamFileId = readU16(parts.info, infoRecordOffset(parts.info, 7, streamId));
+    const stream = parts.files[streamFileId];
+    if (!stream) throw new Error(`Standalone stream ${streamId} is missing from the sound archive.`);
+    requireMagic(stream, 0, "STRM");
+    parts.files.push(shadow);
+  }
+  writeU16(parts.info, infoRecordOffset(parts.info, 0, targetSequenceId), shadowFileId);
   return {
     targetSequenceId,
-    streamId: appended.streamId,
+    streamId,
     streamFileId,
     shadowFileId,
     originalSequenceFileId,
+    ...(ownedStream ? {} : { standaloneStreamId: streamId }),
   };
 }
 
 export function removeStreamedBgmFromSdat(sdatBytes: Uint8Array, config: SdatStreamedBgmConfig): Uint8Array {
   const parts = parseSdat(sdatBytes);
+  const trainerSequences = takeTrainerSequenceFiles(parts);
   removeMapping(parts, config);
+  restoreTrainerSequenceFiles(parts, trainerSequences);
   return rebuildSdat(parts);
 }
 
@@ -896,18 +1027,24 @@ function validateMapping(parts: SdatParts, config: SdatStreamedBgmConfig): void 
   if (config.originalSequenceFileId >= config.shadowFileId || !parts.files[config.originalSequenceFileId]) {
     throw new Error("The original sequence file cannot be safely restored.");
   }
+  if (config.standaloneStreamId !== undefined
+    ? config.standaloneStreamId !== config.streamId || config.streamFileId >= config.shadowFileId
+    : config.streamFileId !== config.shadowFileId + 1) {
+    throw new Error("The music replacement no longer matches its SDAT file layout.");
+  }
 }
 
 function removeMapping(parts: SdatParts, config: SdatStreamedBgmConfig): void {
-  if (config.streamFileId !== parts.files.length - 1 || config.shadowFileId !== parts.files.length - 2) {
+  const ownedStream = config.standaloneStreamId === undefined;
+  if (config.shadowFileId !== parts.files.length - (ownedStream ? 2 : 1)
+    || (ownedStream && config.streamFileId !== parts.files.length - 1)) {
     throw new Error("The installed streamed-BGM files are no longer the final SDAT files.");
   }
   validateMapping(parts, config);
   const targetRecord = infoRecordOffset(parts.info, 0, config.targetSequenceId);
-  if (readU16(parts.info, targetRecord) !== config.shadowFileId) throw new Error("The mapped BGM sequence was changed after streamed music was installed.");
   writeU16(parts.info, targetRecord, config.originalSequenceFileId);
-  parts.info = removeStreamInfo(parts.info, config.streamId, config.streamFileId);
-  parts.files.splice(parts.files.length - 2, 2);
+  if (ownedStream) parts.info = removeStreamInfo(parts.info, config.streamId, config.streamFileId);
+  parts.files.length = config.shadowFileId;
 }
 
 /** Rebuild the verified owned tail once, so removing a middle mapping can
@@ -915,9 +1052,10 @@ function removeMapping(parts: SdatParts, config: SdatStreamedBgmConfig): void {
 export function rebuildStreamedBgmMappings(
   sdatBytes: Uint8Array,
   existing: readonly SdatStreamedBgmConfig[],
-  replacements: readonly { targetSequenceId: number; bytes: Uint8Array }[],
+  replacements: readonly SdatBgmReplacement[],
 ): { bytes: Uint8Array; mappings: SdatStreamedBgmConfig[] } {
   const parts = parseSdat(sdatBytes);
+  const trainerSequences = takeTrainerSequenceFiles(parts);
   const targets = new Set<number>();
   for (const mapping of existing) {
     if (targets.has(mapping.targetSequenceId)) throw new Error("Duplicate installed BGM target.");
@@ -926,7 +1064,8 @@ export function rebuildStreamedBgmMappings(
   }
   // Refuse to remove files newly referenced by unrelated entries, including
   // bank, wave-archive, and sequence-archive INFO records.
-  const owned = new Set(existing.flatMap((mapping) => [mapping.shadowFileId, mapping.streamFileId]));
+  const owned = new Set(existing.flatMap((mapping) => mapping.standaloneStreamId === undefined
+    ? [mapping.shadowFileId, mapping.streamFileId] : [mapping.shadowFileId]));
   for (const part of [0, 1, 2, 3, 7]) {
     const table = infoTableOffset(parts.info, part);
     const count = readU32(parts.info, table);
@@ -936,18 +1075,23 @@ export function rebuildStreamedBgmMappings(
       const fileId = readU16(parts.info, at);
       if (!owned.has(fileId)) continue;
       if (!existing.some((mapping) => part === 0 && id === mapping.targetSequenceId && fileId === mapping.shadowFileId
-        || part === 7 && id === mapping.streamId && fileId === mapping.streamFileId)) {
+        || part === 7 && mapping.standaloneStreamId === undefined && id === mapping.streamId && fileId === mapping.streamFileId)) {
         throw new Error("Unrelated sound entries now reference replacement-owned files; removal is unsafe.");
       }
     }
   }
-  for (const mapping of [...existing].sort((a, b) => b.streamId - a.streamId)) removeMapping(parts, mapping);
+  for (const mapping of [...existing].sort((a, b) => b.shadowFileId - a.shadowFileId)) removeMapping(parts, mapping);
   targets.clear();
+  const baseStreamCount = readU32(parts.info, infoTableOffset(parts.info, 7));
   const mappings = replacements.map((replacement) => {
     if (targets.has(replacement.targetSequenceId)) throw new Error("Duplicate replacement BGM target.");
+    if (replacement.standaloneStreamId !== undefined && replacement.standaloneStreamId >= baseStreamCount) {
+      throw new Error("A replacement refers to a stream outside the standalone library.");
+    }
     targets.add(replacement.targetSequenceId);
-    return appendMapping(parts, replacement.targetSequenceId, replacement.bytes);
+    return appendMapping(parts, replacement.targetSequenceId, replacement);
   });
+  restoreTrainerSequenceFiles(parts, trainerSequences);
   return { bytes: rebuildSdat(parts), mappings };
 }
 
@@ -1068,7 +1212,8 @@ async function musicTransaction<T>(project: ProjectState, operation: (draft: Pro
   const draft: ProjectState = {
     ...project,
     arm9: installingPmc ? project.arm9.slice() : project.arm9,
-    overlays: installingPmc ? Object.fromEntries(Object.entries(project.overlays).map(([id, bytes]) => [id, bytes?.slice()])) : project.overlays,
+    overlays: installingPmc ? Object.fromEntries(Object.entries(project.overlays).map(([id, bytes]) => [id, bytes?.slice()])) : { ...project.overlays },
+    patches: project.patches && { ...project.patches, dirtyOverlayIds: [...project.patches.dirtyOverlayIds] },
     fileSystem: { replacements: { ...project.fileSystem?.replacements }, additions: { ...project.fileSystem?.additions }, tombstones: { ...project.fileSystem?.tombstones } },
     codeInjection: structuredClone(project.codeInjection),
     actionChangelog: structuredClone(project.actionChangelog),
@@ -1078,6 +1223,7 @@ async function musicTransaction<T>(project: ProjectState, operation: (draft: Pro
     project.arm9 = draft.arm9;
     project.arm9Dirty = draft.arm9Dirty;
     project.overlays = draft.overlays;
+    project.patches = draft.patches;
     project.fileSystem = draft.fileSystem;
     project.codeInjection = draft.codeInjection;
     project.actionChangelog = draft.actionChangelog;
@@ -1140,50 +1286,140 @@ function commitStandaloneStreams(project: ProjectState, rom: NintendoDSRom, conf
   else addRomFile(project, STANDALONE_STREAM_MANIFEST_PATH, bytes);
 }
 
+function trainerStreamMappings(parts: SdatParts, streams: readonly StandaloneStreamConfig[]): SdatStreamedBgmConfig[] {
+  const sequences = trainerSequenceRecords(parts.info);
+  const tracks = streams.filter((stream) => stream.trainerSequenceId !== undefined);
+  if (sequences.length !== tracks.length) throw new Error("The trainer stream sequences disagree with the standalone song manifest.");
+  return tracks.map((track) => {
+    const sequence = sequences.find((entry) => entry.id === track.trainerSequenceId);
+    if (!sequence || readU16(parts.info, infoRecordOffset(parts.info, 7, track.streamId)) !== track.streamFileId) {
+      throw new Error(`The trainer sequence for ${track.name} no longer points to its standalone audio.`);
+    }
+    return {
+      targetSequenceId: sequence.id,
+      streamId: track.streamId,
+      streamFileId: track.streamFileId,
+      // An alias has no original sequence to restore; both fields point to its own silent SSEQ.
+      shadowFileId: sequence.fileId,
+      originalSequenceFileId: sequence.fileId,
+    };
+  });
+}
+
+function configureMusicRuntime(
+  version: Gen5MusicVersion,
+  shortcutEnabled: boolean,
+  mappings: SdatStreamedBgmConfig[],
+  sdatBytes: Uint8Array,
+  standalone: readonly StandaloneStreamConfig[],
+): Promise<Uint8Array> {
+  const aliases = standalone.some((track) => track.trainerSequenceId !== undefined)
+    ? trainerStreamMappings(parseSdat(sdatBytes), standalone) : [];
+  return configureBundledBgmRuntime(version, { shortcutEnabled, mappings: [...mappings, ...aliases] });
+}
+
+function streamPlaybackMetadata(strm: Uint8Array) {
+  const encoding: StreamedBgmEncoding = strm[0x18] === 2 ? "adpcm" : "pcm16";
+  return {
+    encoding,
+    sampleRate: STREAMED_BGM_SAMPLE_RATE,
+    channels: STREAMED_BGM_CHANNELS,
+    sampleCount: readU32(strm, 0x24),
+    loopStartSample: readU32(strm, 0x20),
+    loopEndSample: readU32(strm, 0x24),
+    encodedBytes: strm.length,
+  };
+}
+
 /** Detect both legacy ABI 1 ROMs and variable-length ABI 2 tables without
  * changing project state before the caller's transaction has succeeded. */
-async function readInstalledMusic(project: ProjectState, rom: NintendoDSRom, version: Gen5MusicVersion, sdatBytes: Uint8Array): Promise<{ configs: StreamedBgmConfig[]; shortcutEnabled: boolean }> {
+async function readInstalledMusic(project: ProjectState, rom: NintendoDSRom, version: Gen5MusicVersion, sdatBytes: Uint8Array) {
   const runtime = findRuntimeBytes(project, rom, version);
   const runtimeConfig = runtime ? readBgmRuntimeConfig(runtime) : undefined;
   if (runtime && !runtimeConfig) throw new Error("The installed music runtime configuration is corrupt or unsupported.");
   const saved = getStreamedBgmConfigs(project);
-  const mappings = runtimeConfig?.mappings ?? saved;
+  const parts = parseSdat(sdatBytes);
+  const manifest = standaloneManifestBytes(project, rom);
+  const standalone = manifest ? decodeStandaloneStreamManifest(manifest) : [];
+  const aliases = trainerStreamMappings(parts, standalone);
+  for (const alias of aliases) {
+    const actual = runtimeConfig?.mappings?.find((entry) => entry.targetSequenceId === alias.targetSequenceId);
+    if (!actual || JSON.stringify(runtimeArchiveConfig(actual)) !== JSON.stringify(alias)) {
+      throw new Error("A trainer song's sequence disagrees with the installed music runtime.");
+    }
+  }
+  const mappings = runtimeConfig?.mappings?.filter((entry) => !aliases.some((alias) => alias.targetSequenceId === entry.targetSequenceId)) ?? saved;
   if (runtimeConfig && saved.length && (saved.length !== mappings.length || saved.some((entry) => {
     const actual = mappings.find((mapping) => mapping.targetSequenceId === entry.targetSequenceId);
     return !actual || JSON.stringify(runtimeArchiveConfig(entry)) !== JSON.stringify(runtimeArchiveConfig(actual));
   }))) throw new Error("The project's music metadata disagrees with its runtime; reload the exported ROM before editing.");
-  const parts = parseSdat(sdatBytes);
   const shortcutEnabled = runtimeConfig?.shortcutEnabled ?? saved[0]?.toggleEnabled ?? false;
   const configs: StreamedBgmConfig[] = [];
-  for (const mapping of [...mappings].sort((a, b) => a.streamId - b.streamId)) {
-    validateMapping(parts, mapping);
+  const hashes = new Map<number, string>();
+  for (const mapping of [...mappings].sort((a, b) => a.shadowFileId - b.shadowFileId)) {
+    const track = standalone.find((entry) => entry.streamId === mapping.streamId);
+    if (track && track.streamFileId !== mapping.streamFileId) {
+      throw new Error(`Sequence ${mapping.targetSequenceId} no longer points to its standalone song.`);
+    }
+    const source = track ? { standaloneStreamId: track.streamId } : {};
+    validateMapping(parts, { ...mapping, ...source });
     const strm = parts.files[mapping.streamFileId]!;
     const previous = saved.find((entry) => entry.targetSequenceId === mapping.targetSequenceId);
-    const audioSha256 = await sha256Hex(strm);
-    if (previous && previous.audioSha256 !== audioSha256) throw new Error(`Installed audio for sequence ${mapping.targetSequenceId} has changed outside the Music editor.`);
+    const audioSha256 = hashes.get(mapping.streamFileId) ?? await sha256Hex(strm);
+    hashes.set(mapping.streamFileId, audioSha256);
+    if ((previous && previous.audioSha256 !== audioSha256) || (track && track.audioSha256 !== audioSha256)) {
+      throw new Error(`Installed audio for sequence ${mapping.targetSequenceId} has changed outside the Music editor.`);
+    }
     configs.push({
       ...runtimeArchiveConfig(mapping),
+      ...source,
       runtimeVersion: previous?.runtimeVersion ?? (runtimeConfig?.abiVersion === 2 ? musicRuntimeVersion(version) : 2),
       targetSequenceSymbol: previous?.targetSequenceSymbol,
-      sourceName: previous?.sourceName ?? "Imported ROM stream",
-      encoding: strm[0x18] === 2 ? "adpcm" : "pcm16",
-      sampleRate: STREAMED_BGM_SAMPLE_RATE,
-      channels: STREAMED_BGM_CHANNELS,
-      sampleCount: readU32(strm, 0x24),
-      loopStartSample: readU32(strm, 0x20),
-      loopEndSample: readU32(strm, 0x24),
-      encodedBytes: strm.length,
+      sourceName: track?.name ?? previous?.sourceName ?? "Imported ROM stream",
+      ...streamPlaybackMetadata(strm),
       audioSha256,
       toggleEnabled: shortcutEnabled,
       sourceTrimStartSeconds: previous?.sourceTrimStartSeconds,
       sourceTrimEndSeconds: previous?.sourceTrimEndSeconds,
     });
   }
-  return { configs, shortcutEnabled };
+  return { configs, shortcutEnabled, standalone };
+}
+
+function retainedBgmReplacement(sdat: NitroSdat, config: StreamedBgmConfig): SdatBgmReplacement {
+  const { targetSequenceId, standaloneStreamId } = config;
+  return standaloneStreamId === undefined
+    ? { targetSequenceId, bytes: sdat.files[config.streamFileId]!.data }
+    : { targetSequenceId, standaloneStreamId };
 }
 
 export async function installStreamedBgm(project: ProjectState, input: StreamedBgmInstallInput): Promise<StreamedBgmConfig> {
   return musicTransaction(project, (draft) => installStreamedBgmTransaction(draft, input));
+}
+
+/** Register a stable BGM sequence for an existing upload on first trainer assignment. */
+export async function registerStandaloneTrainerSequence(project: ProjectState, streamId: number): Promise<number> {
+  return musicTransaction(project, async (draft) => {
+    const { bytes: romBytes, rom, version } = await projectRom(draft);
+    const sdat = await loadNitroSdatFromProject(draft);
+    if (sdat.sourceFileId === undefined) throw new Error("The active SDAT has no NitroFS file ID.");
+    const tracks = await readStandaloneStreams(draft, rom, sdat.bytes);
+    const track = tracks.find((entry) => entry.streamId === streamId);
+    if (!track) throw new Error(`Standalone stream ${streamId} is missing.`);
+    const { configs, shortcutEnabled } = await readInstalledMusic(draft, rom, version, sdat.bytes);
+    if (track.trainerSequenceId !== undefined) return track.trainerSequenceId;
+    assertBundledBgmRuntimeCompatibility(draft, romBytes);
+    const archive = addTrainerSequence(sdat.bytes);
+    track.trainerSequenceId = archive.sequenceId;
+    const oldRuntime = findRuntimeBytes(draft, rom, version);
+    const runtime = await configureMusicRuntime(version, shortcutEnabled, configs, archive.bytes, tracks);
+    assertRomCapacity(draft, rom, sdat.bytes.length, archive.bytes.length, runtime.length - (oldRuntime?.length ?? 0));
+    if (!getPmcInstallStatus(draft).installed) await installBundledPmc(draft);
+    stageCodeInjectionDll(draft, runtimeFileName(version), runtime, "patches", romBytes);
+    replaceRomFile(draft, rom, sdat.sourceFileId, archive.bytes);
+    commitStandaloneStreams(draft, rom, tracks);
+    return archive.sequenceId;
+  });
 }
 
 function nativeStreamBytes(sdatBytes: Uint8Array, streamId: number): { descriptor: NativeSdatStream; bytes: Uint8Array } {
@@ -1224,7 +1460,7 @@ export async function installNativeStreamReplacement(
     if (sdat.sourceFileId === undefined) throw new Error("The active SDAT has no NitroFS file ID.");
     const installed = await readInstalledMusic(draft, rom, version, sdat.bytes);
     const standalone = await readStandaloneStreams(draft, rom, sdat.bytes);
-    if (installed.configs.some((mapping) => mapping.streamId === input.streamId)) {
+    if (installed.configs.some((mapping) => mapping.streamId === input.streamId && mapping.standaloneStreamId === undefined)) {
       throw new Error("This stream belongs to a sequence replacement. Update that track from Installed replacements instead.");
     }
     if (standalone.some((entry) => entry.streamId === input.streamId)) {
@@ -1340,7 +1576,8 @@ export async function installStandaloneStream(project: ProjectState, input: Stan
     const standalone = await readStandaloneStreams(draft, rom, sdat.bytes);
     if (standalone.some((entry) => entry.name.toLowerCase() === name.toLowerCase())) throw new Error("A standalone track already has that name.");
     const { configs: bgms, shortcutEnabled } = await readInstalledMusic(draft, rom, version, sdat.bytes);
-    if (bgms.length || version === "B" || version === "W") assertBundledBgmRuntimeCompatibility(draft, romBytes);
+    const needsRuntime = bgms.length || standalone.some((track) => track.trainerSequenceId !== undefined) || version === "B" || version === "W";
+    if (needsRuntime) assertBundledBgmRuntimeCompatibility(draft, romBytes);
     const cropped = cropImportedAudio(input.pcm, input.trimStartSeconds, input.trimEndSeconds, undefined);
     const loopStartSeconds = input.loop === false ? 0 : input.loopStartSeconds ?? 0;
     if (!Number.isFinite(loopStartSeconds) || loopStartSeconds < 0 || loopStartSeconds >= cropped.pcm.left.length / cropped.pcm.sampleRate) {
@@ -1351,12 +1588,12 @@ export async function installStandaloneStream(project: ProjectState, input: Stan
     const encoded = input.encoding === "pcm16"
       ? encodePcm16Strm(cropped.pcm, loopStartSample, loopEndSample, input.loop !== false)
       : encodeAdpcmStrm(cropped.pcm, loopStartSample, loopEndSample, input.loop !== false);
-    const retainedBgms = bgms.map((entry) => ({ targetSequenceId: entry.targetSequenceId, bytes: sdat.files[entry.streamFileId]!.data }));
+    const retainedBgms = bgms.map((entry) => retainedBgmReplacement(sdat, entry));
     const cleared = bgms.length ? rebuildStreamedBgmMappings(sdat.bytes, bgms, []).bytes : sdat.bytes;
     const added = appendStandaloneSdatStream(prepareBw1StreamPlayer(cleared, version), encoded.bytes);
     const rebuilt = bgms.length ? rebuildStreamedBgmMappings(added.bytes, [], retainedBgms) : { bytes: added.bytes, mappings: [] };
-    const oldRuntime = (bgms.length || version === "B" || version === "W") ? findRuntimeBytes(draft, rom, version) : undefined;
-    const runtime = (bgms.length || version === "B" || version === "W") ? await configureBundledBgmRuntime(version, { shortcutEnabled, mappings: rebuilt.mappings }) : undefined;
+    const oldRuntime = needsRuntime ? findRuntimeBytes(draft, rom, version) : undefined;
+    const runtime = needsRuntime ? await configureMusicRuntime(version, shortcutEnabled, rebuilt.mappings, rebuilt.bytes, standalone) : undefined;
     assertRomCapacity(draft, rom, sdat.bytes.length, rebuilt.bytes.length, (runtime?.length ?? 0) - (oldRuntime?.length ?? 0));
     const config: StandaloneStreamConfig = {
       name, sourceName: input.sourceName, streamId: added.streamId, streamFileId: added.streamFileId,
@@ -1391,6 +1628,17 @@ export async function removeLastStandaloneStream(project: ProjectState): Promise
     const standalone = await readStandaloneStreams(draft, rom, sdat.bytes);
     const last = standalone.at(-1);
     if (!last) throw new Error("No standalone stream is installed.");
+    const { configs: bgms, shortcutEnabled } = await readInstalledMusic(draft, rom, version, sdat.bytes);
+    if (bgms.some((entry) => entry.standaloneStreamId === last.streamId)) {
+      throw new Error("Restore or reassign the music replacements using this song before removing it.");
+    }
+    if (last.trainerSequenceId !== undefined) {
+      const { trainerEyeSequenceInUse } = await import("./trainerMusicModel");
+      const { trainerBattleSequenceInUse } = await import("./trainerBattleMusicModel");
+      if (trainerEyeSequenceInUse(draft, last.trainerSequenceId) || trainerBattleSequenceInUse(draft, rom, last.trainerSequenceId)) {
+        throw new Error("Reassign this song's trainer approach and battle themes before removing it.");
+      }
+    }
     const settingsPath = "ui/save-menu/settings.bin";
     const settingsId = rom.filenames.idOf(settingsPath);
     const settings = Object.entries(draft.fileSystem?.additions ?? {}).find(([path]) => path.toLowerCase() === settingsPath)?.[1]
@@ -1400,19 +1648,20 @@ export async function removeLastStandaloneStream(project: ProjectState): Promise
       && readU16(settings, 6) === 1 && readU16(settings, 8) === last.streamId) {
       throw new Error("This stream is used by the ROM's save menu and cannot be removed.");
     }
-    const { configs: bgms, shortcutEnabled } = await readInstalledMusic(draft, rom, version, sdat.bytes);
-    if (bgms.length || version === "B" || version === "W") assertBundledBgmRuntimeCompatibility(draft, romBytes);
-    const retainedBgms = bgms.map((entry) => ({ targetSequenceId: entry.targetSequenceId, bytes: sdat.files[entry.streamFileId]!.data }));
+    const needsRuntime = bgms.length || standalone.some((track) => track.trainerSequenceId !== undefined) || version === "B" || version === "W";
+    if (needsRuntime) assertBundledBgmRuntimeCompatibility(draft, romBytes);
+    const retainedBgms = bgms.map((entry) => retainedBgmReplacement(sdat, entry));
     const cleared = bgms.length ? rebuildStreamedBgmMappings(sdat.bytes, bgms, []).bytes : sdat.bytes;
-    const removed = removeFinalStandaloneSdatStream(cleared, last.streamId, last.streamFileId);
+    const removed = removeFinalStandaloneSdatStream(cleared, last.streamId, last.streamFileId, last.trainerSequenceId);
     const rebuilt = bgms.length ? rebuildStreamedBgmMappings(removed, [], retainedBgms) : { bytes: removed, mappings: [] };
-    const runtime = (bgms.length || version === "B" || version === "W") ? await configureBundledBgmRuntime(version, { shortcutEnabled, mappings: rebuilt.mappings }) : undefined;
+    const retainedStandalone = standalone.slice(0, -1);
+    const runtime = needsRuntime ? await configureMusicRuntime(version, shortcutEnabled, rebuilt.mappings, rebuilt.bytes, retainedStandalone) : undefined;
     if (runtime) {
       if (!getPmcInstallStatus(draft).installed) await installBundledPmc(draft);
       stageCodeInjectionDll(draft, runtimeFileName(version), runtime, "patches", romBytes);
     }
     replaceRomFile(draft, rom, sdat.sourceFileId, rebuilt.bytes);
-    commitStandaloneStreams(draft, rom, standalone.slice(0, -1));
+    commitStandaloneStreams(draft, rom, retainedStandalone);
     if (bgms.length) commitMusicState(draft, rebuilt.mappings.map((mapping) => ({
       ...bgms.find((entry) => entry.targetSequenceId === mapping.targetSequenceId)!, ...mapping,
     })));
@@ -1421,6 +1670,37 @@ export async function removeLastStandaloneStream(project: ProjectState): Promise
       key: `music:standalone:${last.streamId}`,
     });
   });
+}
+
+function prepareBgmSource(
+  input: StreamedBgmInstallInput,
+  sdat: NitroSdat,
+  standalone: readonly StandaloneStreamConfig[],
+  updating?: StreamedBgmConfig,
+): { source: SdatBgmSource; bytes: Uint8Array; sourceName: string; track?: StandaloneStreamConfig; trimStart?: number; trimEnd?: number } {
+  if (input.standaloneStreamId !== undefined) {
+    const track = standalone.find((song) => song.streamId === input.standaloneStreamId);
+    if (!track) throw new Error("The selected song is missing from New songs.");
+    const bytes = sdat.files[track.streamFileId]?.data;
+    if (!bytes || sdatStreamFileId(sdat.bytes, track.streamId) !== track.streamFileId) {
+      throw new Error("The selected song no longer points to its standalone audio.");
+    }
+    return { source: { standaloneStreamId: track.streamId }, bytes, sourceName: track.name, track };
+  }
+  const cropped = cropImportedAudio(input.pcm, input.trimStartSeconds, input.trimEndSeconds, input.loopEndSeconds);
+  const loopStartSeconds = input.loopStartSeconds ?? 0;
+  if (!Number.isFinite(loopStartSeconds) || loopStartSeconds < 0 || loopStartSeconds >= cropped.pcm.left.length / cropped.pcm.sampleRate) {
+    throw new Error("Loop start must be inside the cropped audio.");
+  }
+  const loopStartSample = Math.round(loopStartSeconds * cropped.pcm.sampleRate);
+  const loopEndSample = cropped.pcm.left.length;
+  const resampledEndSample = Math.round(loopEndSample * STREAMED_BGM_SAMPLE_RATE / cropped.pcm.sampleRate);
+  const reclaimableBytes = updating?.standaloneStreamId === undefined ? updating?.encodedBytes ?? 0 : 0;
+  const encoding = input.encoding ?? chooseStreamedBgmEncoding(sdat.bytes.length - reclaimableBytes, resampledEndSample);
+  const encoded = encoding === "pcm16"
+    ? encodePcm16Strm(cropped.pcm, loopStartSample, loopEndSample)
+    : encodeAdpcmStrm(cropped.pcm, loopStartSample, loopEndSample);
+  return { source: { bytes: encoded.bytes }, bytes: encoded.bytes, sourceName: input.sourceName, trimStart: cropped.startSeconds, trimEnd: cropped.endSeconds };
 }
 
 async function installStreamedBgmTransaction(project: ProjectState, input: StreamedBgmInstallInput): Promise<StreamedBgmConfig> {
@@ -1434,48 +1714,31 @@ async function installStreamedBgmTransaction(project: ProjectState, input: Strea
   if (!targetSymbol?.startsWith("SEQ_BGM_")) {
     throw new Error(`Sequence ${input.targetSequenceId}${targetSymbol ? ` (${targetSymbol})` : ""} is not a background-music sequence.`);
   }
-  const cropped = cropImportedAudio(input.pcm, input.trimStartSeconds, input.trimEndSeconds, input.loopEndSeconds);
-  const loopStartSeconds = input.loopStartSeconds ?? 0;
-  if (!Number.isFinite(loopStartSeconds) || loopStartSeconds < 0 || loopStartSeconds >= cropped.pcm.left.length / cropped.pcm.sampleRate) {
-    throw new Error("Loop start must be inside the cropped audio.");
-  }
   const currentRuntime = findRuntimeBytes(project, rom, version);
-  const { configs: current } = await readInstalledMusic(project, rom, version, sdat.bytes);
+  const { configs: current, standalone } = await readInstalledMusic(project, rom, version, sdat.bytes);
   const updating = current.find((mapping) => mapping.targetSequenceId === input.targetSequenceId);
-  const loopStartSample = Math.round(loopStartSeconds * cropped.pcm.sampleRate);
-  const loopEndSample = cropped.pcm.left.length;
-  const resampledEndSample = Math.round(loopEndSample * STREAMED_BGM_SAMPLE_RATE / cropped.pcm.sampleRate);
-  const encoding = input.encoding
-    ?? chooseStreamedBgmEncoding(sdat.bytes.length - (updating?.encodedBytes ?? 0), resampledEndSample);
-  const encoded = encoding === "pcm16"
-    ? encodePcm16Strm(cropped.pcm, loopStartSample, loopEndSample)
-    : encodeAdpcmStrm(cropped.pcm, loopStartSample, loopEndSample);
-  const replacements = current.map((mapping) => ({
-    targetSequenceId: mapping.targetSequenceId,
-    bytes: mapping.targetSequenceId === input.targetSequenceId ? encoded.bytes : sdat.files[mapping.streamFileId]!.data,
-  }));
-  if (!updating) replacements.push({ targetSequenceId: input.targetSequenceId, bytes: encoded.bytes });
+  const prepared = prepareBgmSource(input, sdat, standalone, updating);
+  const audioHash = await sha256Hex(prepared.bytes);
+  if (prepared.track && audioHash !== prepared.track.audioSha256) {
+    throw new Error(`The song ${prepared.track.name} changed outside the Music editor.`);
+  }
+  const replacement = { ...prepared.source, targetSequenceId: input.targetSequenceId };
+  const replacements = current.map((mapping) => mapping === updating ? replacement : retainedBgmReplacement(sdat, mapping));
+  if (!updating) replacements.push(replacement);
   const archive = rebuildStreamedBgmMappings(prepareBw1StreamPlayer(sdat.bytes, version), current, replacements);
   const mapping = archive.mappings.find((entry) => entry.targetSequenceId === input.targetSequenceId)!;
-  const runtime = await configureBundledBgmRuntime(version, { shortcutEnabled: input.shortcutEnabled, mappings: archive.mappings });
+  const runtime = await configureMusicRuntime(version, input.shortcutEnabled, archive.mappings, archive.bytes, standalone);
   assertRomCapacity(project, rom, sdat.bytes.length, archive.bytes.length, runtime.length - (currentRuntime?.length ?? 0));
-  const audioHash = await sha256Hex(encoded.bytes);
   const state: StreamedBgmConfig = {
     runtimeVersion: musicRuntimeVersion(version),
     ...mapping,
     targetSequenceSymbol: targetSymbol,
-    sourceName: input.sourceName,
-    encoding: encoded.encoding,
-    sampleRate: STREAMED_BGM_SAMPLE_RATE,
-    channels: STREAMED_BGM_CHANNELS,
-    sampleCount: encoded.sampleCount,
-    loopStartSample: encoded.loopStartSample,
-    loopEndSample: encoded.loopEndSample,
-    encodedBytes: encoded.bytes.length,
+    sourceName: prepared.sourceName,
+    ...streamPlaybackMetadata(prepared.bytes),
     audioSha256: audioHash,
     toggleEnabled: input.shortcutEnabled,
-    sourceTrimStartSeconds: cropped.startSeconds,
-    sourceTrimEndSeconds: cropped.endSeconds,
+    sourceTrimStartSeconds: prepared.trimStart,
+    sourceTrimEndSeconds: prepared.trimEnd,
   };
   const states = archive.mappings.map((entry) => ({
     ...(entry.targetSequenceId === input.targetSequenceId ? state : current.find((old) => old.targetSequenceId === entry.targetSequenceId)!),
@@ -1489,7 +1752,7 @@ async function installStreamedBgmTransaction(project: ProjectState, input: Strea
   replaceRomFile(project, rom, sdat.sourceFileId, archive.bytes);
   commitMusicState(project, states);
   invalidateNitroSdatCache(project);
-  recordGenericChange(project, "code_injection", `Sequence ${mapping.targetSequenceId} redirected to streamed audio from ${input.sourceName}; ${states.length} replacement(s) installed.`, "Streamed BGM Replacement", {
+  recordGenericChange(project, "code_injection", `Sequence ${mapping.targetSequenceId} now uses ${prepared.sourceName}; ${states.length} replacement(s) installed.`, "Streamed BGM Replacement", {
     key: `code-injection:streamed-bgm:${mapping.targetSequenceId}`,
   });
   return state;
@@ -1510,15 +1773,11 @@ async function removeStreamedBgmTransaction(project: ProjectState, targetSequenc
     throw new Error("No configured streamed-BGM replacement was found for that target.");
   }
   const retained = targetSequenceId === undefined ? [] : configs.filter((mapping) => mapping.targetSequenceId !== targetSequenceId);
-  const archive = rebuildStreamedBgmMappings(sdat.bytes, configs, retained.map((mapping) => ({
-    targetSequenceId: mapping.targetSequenceId, bytes: sdat.files[mapping.streamFileId]!.data,
-  })));
+  const archive = rebuildStreamedBgmMappings(sdat.bytes, configs, retained.map((mapping) => retainedBgmReplacement(sdat, mapping)));
   let disabledRuntime: Uint8Array | undefined;
-  if (retained.length || (await readStandaloneStreams(project, rom, sdat.bytes)).length || shortcutEnabled || rom.filenames.idOf(runtimePath(version)) !== undefined) {
-    disabledRuntime = await configureBundledBgmRuntime(version, {
-      shortcutEnabled,
-      mappings: archive.mappings,
-    });
+  const standalone = await readStandaloneStreams(project, rom, sdat.bytes);
+  if (retained.length || standalone.length || shortcutEnabled || rom.filenames.idOf(runtimePath(version)) !== undefined) {
+    disabledRuntime = await configureMusicRuntime(version, shortcutEnabled, archive.mappings, archive.bytes, standalone);
   }
 
   if (disabledRuntime) stageCodeInjectionDll(project, runtimeFileName(version), disabledRuntime, "patches", romBytes);
@@ -1552,7 +1811,7 @@ export async function updateStreamedBgmRuntime(project: ProjectState): Promise<v
       if (sdat.sourceFileId === undefined) throw new Error("The active SDAT has no NitroFS file ID.");
       replaceRomFile(draft, rom, sdat.sourceFileId, archive);
     }
-    const runtime = await configureBundledBgmRuntime(version, { shortcutEnabled, mappings: configs });
+    const runtime = await configureMusicRuntime(version, shortcutEnabled, configs, archive, standalone);
     if (!getPmcInstallStatus(draft).installed) await installBundledPmc(draft);
     stageCodeInjectionDll(draft, runtimeFileName(version), runtime, "patches", bytes);
     commitMusicState(draft, configs.map((entry) => ({ ...entry, runtimeVersion: musicRuntimeVersion(version) })));

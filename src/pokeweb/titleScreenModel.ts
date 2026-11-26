@@ -62,8 +62,8 @@ export function titleAssetDefinitions(version: TitleVersion): Definition[] {
   const models: Array<[string, string, TitleAsset["format"], string]> = [
     ["model-01-animation", "Kyurem skeletal animation", "NSBCA", "01"],
     ["model-01", "Kyurem model", "NSBMD", "01"],
-    ["model-02-animation", "Additional geometry animation", "NSBCA", "02"],
-    ["model-02", "Additional geometry", "NSBMD", "02"],
+    ["model-02-animation", "Kyurem reflection animation", "NSBCA", "02"],
+    ["model-02", "Kyurem reflection", "NSBMD", "02"],
     ["model-03-animation", "Environment skeletal animation", "NSBCA", "03"],
     ["model-03", "Environment model", "NSBMD", "03"],
     ["model-03-texture-animation", "Environment texture animation", "NSBTA", "03"],
@@ -82,7 +82,7 @@ async function loadArchives(project: ProjectState) {
   const version = versionOf(project);
   const bytes = project.originalRomBytes ?? await loadActiveRomBytes();
   if (!bytes) throw new Error("Reload the ROM to open its title-screen assets.");
-  const rom = new NintendoDSRom(bytes);
+  const rom = new NintendoDSRom(bytes, { fileData: "view" });
   const archives = new Map([TITLE_GRAPHICS_PATH, TITLE_DEMO_PATH].map((path) => {
     const fileId = rom.fileId(path);
     return [path, { fileId, original: new NARC(rom.files[fileId]), current: new NARC(getRomFileBytes(project, rom, fileId)) }] as const;
@@ -301,7 +301,22 @@ export function readTitleBundle(bytes: Uint8Array, version: TitleVersion): Map<s
 
 /** Validate a complete candidate scene before committing either archive. */
 export async function importTitleAssets(project: ProjectState, imports: Map<string, Uint8Array>): Promise<number> {
-  const { version, rom, archives } = await loadArchives(project);
+  return writeTitleAssets(project, await loadArchives(project), imports);
+}
+
+export async function restoreTitleAssets(project: ProjectState, ids: readonly string[]): Promise<number> {
+  const source = await loadArchives(project);
+  const definitions = titleAssetDefinitions(source.version);
+  const originals = new Map(ids.map((id) => {
+    const definition = definitions.find((asset) => asset.id === id);
+    const bytes = definition && source.archives.get(definition.path)?.original.files[definition.member];
+    if (!bytes) throw new Error(`Missing original title asset: ${id}`);
+    return [id, bytes];
+  }));
+  return writeTitleAssets(project, source, originals, true);
+}
+
+function writeTitleAssets(project: ProjectState, { version, rom, archives }: Awaited<ReturnType<typeof loadArchives>>, imports: Map<string, Uint8Array>, restoring = false): number {
   const definitions = titleAssetDefinitions(version);
   const changes: Array<{ definition: Definition; stored: Uint8Array }> = [];
   for (const [id, input] of imports) {
@@ -311,11 +326,12 @@ export async function importTitleAssets(project: ProjectState, imports: Map<stri
     if (!current) throw new Error(`Missing title asset: ${id}`);
     const bytes = decodeNative(definition, input);
     validateTitleAsset(definition, bytes);
-    if (equalBytes(bytes, decodeNative(definition, current))) continue;
+    if (restoring ? equalBytes(input, current) : equalBytes(bytes, decodeNative(definition, current))) continue;
     if ((definition.format === "NSBCA" || definition.format === "NSBTA") && titleAnimationFrames(bytes) <= 7780) throw new Error("Replacement title animations must include event frame 7780 (at least 7781 frames).");
     if (definition.format === "camera" && parseTitleCamera(bytes).frameCount <= 7780) throw new Error("Replacement camera must include event frame 7780 (at least 7781 frames).");
     if (definition.format === "NSBMD") compileNitroAnimatedModel(bytes);
-    changes.push({ definition, stored: definition.compressed ? encodeTitleLz10(bytes) : bytes });
+    const stored = restoring ? input : definition.compressed ? encodeTitleLz10(bytes) : bytes;
+    changes.push({ definition, stored });
   }
   if (!changes.length) return 0;
   for (const { definition, stored } of changes) archives.get(definition.path)!.current.files[definition.member] = stored;

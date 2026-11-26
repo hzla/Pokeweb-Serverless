@@ -855,7 +855,7 @@ export async function installBundledBgmToggleDll(project: ProjectState, options:
   const existingRuntime = stagedRuntime ?? (existingRuntimeFileId === undefined ? undefined : getRomFileBytes(project, sourceRom, existingRuntimeFileId));
   const importedConfig = existingRuntime ? readBgmRuntimeConfig(existingRuntime) : undefined;
   if (existingRuntime && !importedConfig) throw new Error("The installed music runtime has an unreadable configuration; cannot safely replace it.");
-  const mappings = streamed.length ? streamed : importedConfig?.mappings ?? [];
+  const mappings = importedConfig?.mappings ?? streamed;
   const shortcutEnabled = options.preserveShortcut ? importedConfig?.shortcutEnabled ?? true : true;
   const bytes = await configureBundledBgmRuntime(version, {
     shortcutEnabled,
@@ -955,20 +955,24 @@ function bgmMappingIds(mapping: BgmRuntimeMapping): number[] {
 function validateBgmMappings(mappings: BgmRuntimeMapping[], allowStreamZero = false): void {
   if (mappings.length > 0xffff) throw new Error("Too many background-music mappings for the native 16-bit IDs.");
   const targets = new Set<number>();
-  const streams = new Set<number>();
-  const ownedFiles = new Set<number>();
+  const streamFiles = new Map<number, number>();
+  const fileStreams = new Map<number, number>();
+  const shadows = new Set<number>();
   for (const mapping of mappings) {
     if (bgmMappingIds(mapping).some((id) => !Number.isInteger(id) || id < 0 || id >= 0xffff)) {
       throw new Error("Background-music runtime IDs must fit in 16 bits and cannot use the 0xffff sentinel.");
     }
-    if (targets.has(mapping.targetSequenceId) || streams.has(mapping.streamId) || (!allowStreamZero && mapping.streamId === 0)
-      || ownedFiles.has(mapping.shadowFileId) || ownedFiles.has(mapping.streamFileId) || mapping.shadowFileId === mapping.streamFileId) {
-      throw new Error("Background-music mappings contain duplicate targets, streams, or owned files.");
+    const { streamId, streamFileId, shadowFileId } = mapping;
+    if (targets.has(mapping.targetSequenceId) || (!allowStreamZero && streamId === 0)
+      || (streamFiles.get(streamId) ?? streamFileId) !== streamFileId
+      || (fileStreams.get(streamFileId) ?? streamId) !== streamId
+      || shadows.has(shadowFileId) || fileStreams.has(shadowFileId) || shadows.has(streamFileId) || shadowFileId === streamFileId) {
+      throw new Error("Background-music mappings contain duplicate targets, conflicting streams, or duplicate owned files.");
     }
     targets.add(mapping.targetSequenceId);
-    streams.add(mapping.streamId);
-    ownedFiles.add(mapping.shadowFileId);
-    ownedFiles.add(mapping.streamFileId);
+    streamFiles.set(streamId, streamFileId);
+    fileStreams.set(streamFileId, streamId);
+    shadows.add(shadowFileId);
   }
 }
 
@@ -1204,7 +1208,10 @@ export function canRemoveStagedCodeInjectionDll(project: ProjectState, path: str
 
 function bgmMuteConsumer(project:ProjectState,path:string):string|undefined {
   if(!/^patches\/BgmToggle[WB]2?\.dll$/iu.test(path))return;
-  if (/BgmToggle[WB]\.dll$/iu.test(path) && getStandaloneStreamConfigs(project).length) return "Standalone streamed songs";
+  const tracks = getStandaloneStreamConfigs(project);
+  if (tracks.some((track) => track.trainerSequenceId !== undefined)) return "Standalone trainer music";
+  if (getStreamedBgmConfigs(project).some((track) => track.standaloneStreamId !== undefined)) return "Music replacements using New songs";
+  if (/BgmToggle[WB]\.dll$/iu.test(path) && tracks.length) return "Standalone streamed songs";
   const rom=project.originalRomBytes?new NintendoDSRom(project.originalRomBytes,{fileData:"view"}):undefined;
   for(const entry of listCodeInjectionDlls(project)){
     if(!/^CGearQuickActions[WB]2?\.dll$/iu.test(entry.fileName))continue;

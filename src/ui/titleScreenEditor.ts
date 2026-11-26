@@ -1,6 +1,6 @@
 import {
   decodeTitleComposition, decodeTitleModel, exportTitleBundle, importTitleAssets,
-  loadTitleScreenDocument, readTitleBundle, titleAnimationFrames, titleCameraFrame,
+  loadTitleScreenDocument, readTitleBundle, restoreTitleAssets, titleAnimationFrames, titleCameraFrame,
   type TitleAsset, type TitleComposition, type TitleScreenDocument,
 } from "../pokeweb/titleScreenModel";
 import { nitroCellEffectFrameAt } from "../pokeweb/nitroCell";
@@ -10,7 +10,9 @@ import { mountBattleBackgroundRenderer, type BattleBackgroundRenderer } from "./
 import { advanceTitleFrame, compileTitleScene, TITLE_IDLE_START, TITLE_LAST_FRAME, type TitleScene } from "../pokeweb/titleScreenScene";
 import { mountTitleSceneRenderer } from "./titleSceneRenderer";
 import { openTitlePngImport, readTitlePng } from "./titleScreenPngImport";
-import type { TitlePngLayer } from "../pokeweb/titleScreenPng";
+import type { TitlePngImage, TitlePngLayer } from "../pokeweb/titleScreenPng";
+import { defaultTitleArtworkPlacement, prepareTitleArtwork, readTitleArtwork, TITLE_ART_ASSETS, type TitleArtPlacement } from "../pokeweb/titleScreenArtwork";
+import { openTitleArtworkDialog } from "./titleScreenArtworkDialog";
 
 let disposeEditor: (() => void) | undefined;
 export function stopTitleScreenEditor(): void { disposeEditor?.(); disposeEditor = undefined; }
@@ -27,7 +29,8 @@ export function renderTitleScreenEditor(project: ProjectState, root: HTMLElement
   let scene: TitleScene | undefined;
   let animationRequest = 0, lastTick = 0;
   let layerImages: Record<string, HTMLCanvasElement> = {};
-  let pngDialog: ReturnType<typeof openTitlePngImport> | undefined;
+  let pngDialog: { close: () => void } | undefined;
+  let artwork: ReturnType<typeof readTitleArtwork>;
   disposeEditor = () => { disposed = true; pngDialog?.close(); playing = false; cancelAnimationFrame(animationRequest); renderer?.dispose(); sceneRenderer?.dispose(); };
   root.innerHTML = `<main class="title-editor"><section class="title-card"><h1>Title Screen</h1><p>Loading title assets…</p></section></main>`;
 
@@ -68,15 +71,17 @@ export function renderTitleScreenEditor(project: ProjectState, root: HTMLElement
       if (file) void runImport(async () => readTitleBundle(await readFile(file), document.version));
     });
     root.querySelector<HTMLInputElement>("#title-png-input")?.addEventListener("change", (event) => {
-      const input = event.target as HTMLInputElement, file = input.files?.[0], layer = input.dataset.layer as TitlePngLayer;
+      const input = event.target as HTMLInputElement, file = input.files?.[0], layer = input.dataset.layer as TitlePngLayer | "artwork";
       input.value = "";
       if (file) void runImport(async () => {
         const source = await readTitlePng(file);
         if (disposed) return;
-        pngDialog = openTitlePngImport(document, layer, source);
-        const result = await pngDialog.result; pngDialog = undefined;
+        if (layer === "artwork") return editArtwork(source, artwork?.placement);
+        const dialog = openTitlePngImport(document, layer, source);
+        pngDialog = dialog;
+        const result = await dialog.result; pngDialog = undefined;
         return result?.imports;
-      }, "Preparing PNG import…", `Imported ${layer === "prompt" ? "Press Start" : layer} PNG.`);
+      }, "Preparing PNG import…", layer === "artwork" ? "Applied static title image." : `Imported ${layer === "prompt" ? "Press Start" : layer} PNG.`);
     });
     if (selected === "scene") {
       hydrateScene();
@@ -99,7 +104,13 @@ export function renderTitleScreenEditor(project: ProjectState, root: HTMLElement
   }
 
   function sceneHtml(): string {
-    return `<section class="title-card"><div class="title-section-header"><div><h2>Bottom-screen animation</h2><p>Kyurem, its reflection, and the animated environment through the game's recorded camera.</p></div><span class="title-scene-badge">256 × 192 · 60 fps</span></div>
+    const canRestore = artwork && document.assets.some((asset) => asset.changed && TITLE_ART_ASSETS.some((id) => id === asset.id));
+    return `<section class="title-card"><div class="title-section-header"><div><h2>Bottom-screen animation</h2></div><span class="title-scene-badge">256 × 192 · 60 fps</span></div>
+      <div class="title-toolbar">
+        ${artwork ? '<button class="btn -primary" data-action="edit-artwork">Edit image placement</button>' : ""}
+        <button class="btn ${artwork ? "-default" : "-primary"}" data-action="import-png-artwork">${artwork ? "Replace PNG" : "Replace Kyurem with PNG"}</button>
+        ${canRestore ? '<button class="btn -default" data-action="restore-artwork">Restore original</button>' : ""}
+      </div>
       <div class="title-screen-wrap"><div class="title-bottom-screen"><div id="title-scene-host"></div><canvas id="title-scene-credits" width="256" height="192" aria-label="Game Freak credit overlay"></canvas></div></div>
       <div class="title-playback"><button class="btn -default" data-action="play">${playing ? "Pause" : "Play"}</button><label for="title-scene-number">Frame</label><input id="title-scene-number" type="number" min="0" max="7780" value="${sceneFrame}" step="1"><span id="title-scene-time" class="title-muted"></span></div>
       <input id="title-scene-frame" class="title-scene-slider" type="range" aria-label="Animation frame" min="0" max="7780" step="1" value="${sceneFrame}">
@@ -257,6 +268,11 @@ export function renderTitleScreenEditor(project: ProjectState, root: HTMLElement
         const input = root.querySelector<HTMLInputElement>("#title-native-input")!; input.accept = `.${asset.format === "camera" ? "bin" : asset.format.toLowerCase()},.bin`; input.value = ""; input.click();
       } else if (name.startsWith("import-png-")) {
         const input = root.querySelector<HTMLInputElement>("#title-png-input")!; input.dataset.layer = name.slice(11); input.value = ""; input.click();
+      } else if (name === "edit-artwork" && artwork) {
+        const { image, placement } = artwork;
+        await runImport(() => editArtwork(image, placement), "Preparing title image…", "Updated title image placement.");
+      } else if (name === "restore-artwork" && artwork) {
+        await runEdit(() => restoreTitleAssets(project, TITLE_ART_ASSETS), "Restoring original title assets…", "Restored the original title model and reflection.");
       } else if (name === "export-composition") savePng(root.querySelector<HTMLCanvasElement>("#title-top-screen")!, `${document.version}-title-logo-screen.png`);
       else if (name.startsWith("png-")) savePng(layerImages[name.slice(4)], `${document.version}-${name.slice(4)}.png`);
       else if (name === "play") {
@@ -284,19 +300,34 @@ export function renderTitleScreenEditor(project: ProjectState, root: HTMLElement
     finally { busy = false; if (!disposed) updateBusy(); }
   }
 
-  async function runImport(read: () => Promise<Map<string, Uint8Array> | undefined>, preparing = "Validating native title assets…", imported?: string): Promise<void> {
+  async function editArtwork(source: TitlePngImage, placement?: TitleArtPlacement): Promise<Map<string, Uint8Array> | undefined> {
+    const converted = prepareTitleArtwork(source);
+    const dialog = openTitleArtworkDialog(document, converted, placement ?? defaultTitleArtworkPlacement(converted.image), layerImages.credits);
+    pngDialog = dialog;
+    const imports = await dialog.result;
+    pngDialog = undefined;
+    return imports;
+  }
+
+  function runImport(read: () => Promise<Map<string, Uint8Array> | undefined>, preparing = "Validating native title assets…", imported?: string): Promise<void> {
+    return runEdit(async () => {
+      const imports = await read();
+      if (disposed || !imports) return undefined;
+      setStatus("Validating title assets…");
+      return importTitleAssets(project, imports);
+    }, preparing, imported);
+  }
+
+  async function runEdit(edit: () => Promise<number | undefined>, preparing: string, imported?: string): Promise<void> {
     if (busy) return;
     busy = true; updateBusy(); setStatus(preparing);
     try {
-      const imports = await read();
-      if (disposed) return;
-      if (!imports) { setStatus("PNG import cancelled."); return; }
-      setStatus("Validating title assets…");
-      const count = await importTitleAssets(project, imports);
+      const count = await edit();
       if (count) options.onDirty();
       if (disposed) return;
+      if (count === undefined) { setStatus(""); return; }
       await reload();
-      if (!disposed) { setStatus(count ? `${imported ?? `Imported ${count} native asset${count === 1 ? "" : "s"}.`} Changes are saved with your project.` : "All imported assets already match the project."); render(); }
+      if (!disposed) { setStatus(count ? `${imported ?? `Imported ${count} native asset${count === 1 ? "" : "s"}.`} Changes are saved with your project.` : "Title assets already match."); render(); }
     } catch (error) { if (!disposed) setStatus(errorMessage(error), true); }
     finally { busy = false; if (!disposed) updateBusy(); }
   }
@@ -309,7 +340,7 @@ export function renderTitleScreenEditor(project: ProjectState, root: HTMLElement
   async function reload(): Promise<void> {
     const loaded = await loadTitleScreenDocument(project);
     if (disposed) return;
-    document = loaded; composition = decodeTitleComposition(document); scene = undefined; playing = false;
+    document = loaded; composition = decodeTitleComposition(document); artwork = readTitleArtwork(document); scene = undefined; playing = false;
     cameraFrame = Math.min(cameraFrame, document.camera.frameCount - 1);
     layerImages = Object.fromEntries(["logo", "background", "credits"].map((key) => {
       const image = composition[key as "logo" | "background" | "credits"];

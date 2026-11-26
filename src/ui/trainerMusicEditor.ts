@@ -2,14 +2,17 @@ import { renderInlineStatus } from "./inlineStatus";
 import { downloadBytes } from "../pokeweb/fileSystemModel";
 import {
   encodeNitroPcmWav,
+  loadNitroSdatFromProject,
   renderNitroSequenceLoopPcm,
   renderNitroSequencePcm,
   type NitroRenderedPcm,
 } from "../pokeweb/nitroSound";
-import type { ProjectState } from "../pokeweb/projectStore";
+import type { ProjectState, StandaloneStreamConfig } from "../pokeweb/projectStore";
+import { decodeStrmPcm, registerStandaloneTrainerSequence } from "../pokeweb/streamedBgmModel";
 import { TRAINER_CLASS_MUSIC_DEFAULT } from "../pokeweb/trainerClassBattleMusic";
 import {
   assignTrainerBattleTheme,
+  buildTrainerBattleThemes,
   loadTrainerBattleMusicModel,
   trainerBattleMusicTrackLabel,
   type TrainerBattleMusicAssignment,
@@ -17,10 +20,13 @@ import {
 } from "../pokeweb/trainerBattleMusicModel";
 import {
   assignTrainerEyeTheme,
+  buildTrainerEyeThemes,
   buildTrainerMusicNativeZip,
   loadTrainerMusicModel,
+  standaloneTrainerTrack,
   trainerMusicExportBaseName,
   trainerMusicTrackLabel,
+  type TrainerEyeTheme,
   type TrainerMusicClassAssignment,
   type TrainerMusicModel,
 } from "../pokeweb/trainerMusicModel";
@@ -142,6 +148,7 @@ function installTrainerMusicEditor(
   let playingSequenceId: number | undefined;
   let playSerial = 0;
   let exportSerial = 0;
+  let registeringTrack = false;
   let statusMessage = model.assignmentError ? "Playback and export are available, but approach-theme reassignment is disabled for this ARM9." : "Ready.";
   let statusError = false;
 
@@ -157,6 +164,24 @@ function installTrainerMusicEditor(
   const currentSequenceId = (): number | undefined => selectedSequenceIds[activeTab];
   const trackLabel = (sequenceId: number | undefined): string =>
     activeTab === "approach" ? trainerMusicTrackLabel(model, sequenceId) : trainerBattleMusicTrackLabel(battleModel, sequenceId);
+
+  const registerTrack = async (selectionId: number): Promise<number> => {
+    const track = standaloneTrainerTrack(project, selectionId);
+    if (!track) throw new Error("The selected streamed track is missing.");
+    registeringTrack = true;
+    tableBody.querySelectorAll<HTMLSelectElement>(".trainer-music-assignment-select").forEach((select) => { select.disabled = true; });
+    setStatus(`Preparing ${track.name} for trainer music…`);
+    try {
+      const sequenceId = await registerStandaloneTrainerSequence(project, track.streamId);
+      const sdat = await loadNitroSdatFromProject(project);
+      model.sdat = battleModel.sdat = sdat;
+      model.themes = buildTrainerEyeThemes(project, sdat);
+      battleModel.themes = buildTrainerBattleThemes(project, sdat);
+      return sequenceId;
+    } finally {
+      registeringTrack = false;
+    }
+  };
 
   const setStatus = (message: string, error = false): void => {
     statusMessage = message;
@@ -232,11 +257,11 @@ function installTrainerMusicEditor(
       const context = ensureAudioContext();
       if (context.state === "suspended") await context.resume();
       setStatus(`Rendering ${trackLabel(sequenceId)} preview…`);
-      const pcm = await renderNitroSequencePcm(model.sdat, sequenceId, {
-        maxSeconds: PREVIEW_SECONDS,
-        sampleRate: PREVIEW_SAMPLE_RATE,
-        cache: false,
-      });
+      const track = standaloneTrainerTrack(project, sequenceId);
+      const pcm = track ? renderTrainerStream(model, track, PREVIEW_SECONDS)
+        : await renderNitroSequencePcm(model.sdat, sequenceId, {
+          maxSeconds: PREVIEW_SECONDS, sampleRate: PREVIEW_SAMPLE_RATE, cache: false,
+        });
       if (destroyed || serial !== playSerial) return;
       if (!hasAudibleSamples(pcm)) throw new Error(`Sequence ${sequenceId} rendered silent audio.`);
       const buffer = context.createBuffer(2, pcm.length, pcm.sampleRate);
@@ -269,17 +294,18 @@ function installTrainerMusicEditor(
     const sequenceId = currentSequenceId();
     if (sequenceId === undefined) return;
     const displayName = trackLabel(sequenceId);
+    const track = standaloneTrainerTrack(project, sequenceId);
     const serial = ++exportSerial;
     setExportButtonsDisabled(true);
-    setStatus("Finding and rendering the complete musical loop…");
+    setStatus(track ? "Decoding the streamed track…" : "Finding and rendering the complete musical loop…");
     try {
       await nextPaint();
-      const pcm = await renderNitroSequenceLoopPcm(model.sdat, sequenceId, {
+      const pcm = track ? renderTrainerStream(model, track) : await renderNitroSequenceLoopPcm(model.sdat, sequenceId, {
         sampleRate: WAV_SAMPLE_RATE,
       });
       if (destroyed || serial !== exportSerial) return;
       downloadBytes(encodeNitroPcmWav(pcm), `${trainerMusicExportBaseName(model, sequenceId, displayName)}.wav`);
-      const coverage = pcm.loop ? "intro plus one complete loop" : "complete non-looping sequence";
+      const coverage = pcm.loop ? "intro plus one complete loop" : track ? "complete stream" : "complete non-looping sequence";
       setStatus(`WAV exported (${formatAudioDuration(pcm.duration)}, ${coverage}).`);
     } catch (error) {
       if (!destroyed && serial === exportSerial) setStatus(error instanceof Error ? error.message : String(error), true);
@@ -292,15 +318,16 @@ function installTrainerMusicEditor(
     const sequenceId = currentSequenceId();
     if (sequenceId === undefined) return;
     const displayName = trackLabel(sequenceId);
+    const track = standaloneTrainerTrack(project, sequenceId);
     const serial = ++exportSerial;
     setExportButtonsDisabled(true);
-    setStatus("Collecting native SSEQ, SBNK, and SWAR assets…");
+    setStatus(track ? "Collecting the native STRM…" : "Collecting native SSEQ, SBNK, and SWAR assets…");
     try {
       await nextPaint();
-      const bytes = buildTrainerMusicNativeZip(model, sequenceId, displayName);
+      const bytes = track ? trainerStreamBytes(model, track) : buildTrainerMusicNativeZip(model, sequenceId, displayName);
       if (destroyed || serial !== exportSerial) return;
-      downloadBytes(bytes, `${trainerMusicExportBaseName(model, sequenceId, displayName)}-native.zip`);
-      setStatus("Native asset ZIP exported.");
+      downloadBytes(bytes, `${trainerMusicExportBaseName(model, sequenceId, displayName)}${track ? ".strm" : "-native.zip"}`);
+      setStatus(track ? "Native STRM exported." : "Native asset ZIP exported.");
     } catch (error) {
       if (!destroyed && serial === exportSerial) setStatus(error instanceof Error ? error.message : String(error), true);
     } finally {
@@ -341,13 +368,14 @@ function installTrainerMusicEditor(
       });
     });
     tableBody.querySelectorAll<HTMLSelectElement>("[data-trainer-music-assignment]").forEach((select) => {
-      select.addEventListener("change", () => {
+      select.addEventListener("change", async () => {
         const trainerClassId = Number(select.dataset.trainerMusicAssignment);
-        const sequenceId = Number(select.value);
+        const selectionId = Number(select.value);
         const assignment = model.assignments[trainerClassId];
-        if (!assignment || !Number.isInteger(sequenceId)) return;
+        if (!assignment?.editable || !Number.isInteger(selectionId) || registeringTrack) return;
         stopPlayback();
         try {
+          const sequenceId = selectionId < 0 ? await registerTrack(selectionId) : selectionId;
           assignTrainerEyeTheme(project, model, assignment, sequenceId);
           selectedSequenceIds.approach = sequenceId;
           options.onDirty?.();
@@ -361,13 +389,14 @@ function installTrainerMusicEditor(
       });
     });
     tableBody.querySelectorAll<HTMLSelectElement>("[data-trainer-battle-assignment]").forEach((select) => {
-      select.addEventListener("change", () => {
+      select.addEventListener("change", async () => {
         const assignmentKey = select.dataset.trainerBattleAssignment;
-        const sequenceId = Number(select.value);
+        const selectionId = Number(select.value);
         const assignment = battleModel.assignments.find((candidate) => candidate.key === assignmentKey);
-        if (!assignment || !Number.isInteger(sequenceId)) return;
+        if (!assignment?.editable || !Number.isInteger(selectionId) || registeringTrack) return;
         stopPlayback();
         try {
+          const sequenceId = selectionId < 0 ? await registerTrack(selectionId) : selectionId;
           assignTrainerBattleTheme(project, battleModel, assignment, sequenceId);
           const effective = battleModel.assignments.find(row => row.key === assignmentKey)?.currentSequenceId;
           selectedSequenceIds.battle = effective;
@@ -471,6 +500,25 @@ function renderEditorShell(_model: TrainerMusicModel, _battleModel: TrainerBattl
   `;
 }
 
+function trainerStreamBytes(model: TrainerMusicModel, track: StandaloneStreamConfig): Uint8Array {
+  const bytes = model.sdat.files[track.streamFileId]?.data;
+  if (!bytes) throw new Error(`The audio for ${track.name} is missing.`);
+  return bytes;
+}
+
+function renderTrainerStream(model: TrainerMusicModel, track: StandaloneStreamConfig, maxSeconds?: number): NitroRenderedPcm {
+  const pcm = decodeStrmPcm(trainerStreamBytes(model, track), maxSeconds ?? (track.sampleCount + 1) / track.sampleRate, track.name);
+  return {
+    ...pcm, length: pcm.left.length, duration: pcm.left.length / pcm.sampleRate, numberOfChannels: 2,
+    capped: pcm.left.length < track.sampleCount,
+  };
+}
+
+function renderTrackOption(theme: TrainerEyeTheme, selected: boolean): string {
+  const suffix = theme.streamId === undefined ? String(theme.sequenceId) : `Stream ${theme.streamId}`;
+  return `<option value="${theme.sequenceId}"${selected ? " selected" : ""}>${escapeHtml(theme.displayName)} · ${suffix}</option>`;
+}
+
 function renderSelectedTrack(
   model: TrainerMusicModel,
   battleModel: TrainerBattleMusicModel,
@@ -483,12 +531,13 @@ function renderSelectedTrack(
     return `<div class="trainer-music-card"><h2>Selected theme</h2><p>No playable ${activeTab === "approach" ? "Trainer Eye" : "trainer battle"} themes were found.</p></div>`;
   }
   const sequence = model.sdat.sequenceInfos[sequenceId];
+  const track = standaloneTrainerTrack(model.project, sequenceId);
   const symbol = sequence?.symbol || model.sdat.sequenceSymbols[sequenceId] || `Sequence ${sequenceId}`;
   const bank = sequence ? model.sdat.bankInfos[sequence.bankId] : undefined;
   const waveArchiveCount = bank?.swarIds.filter((id, index, ids) => id !== 0xffff && ids.indexOf(id) === index).length ?? 0;
   const supported = (activeTab === "approach" ? model.themes : battleModel.themes).some((theme) => theme.sequenceId === sequenceId);
   const label = activeTab === "approach" ? trainerMusicTrackLabel(model, sequenceId) : trainerBattleMusicTrackLabel(battleModel, sequenceId);
-  const disabled = sequence ? "" : " disabled";
+  const disabled = sequence || track ? "" : " disabled";
   const tableNote = activeTab === "battle"
     ? battleModel.classMusic
       ? "Class assignments override the battle group. Choose Use battle group to follow the shared theme."
@@ -506,25 +555,27 @@ function renderSelectedTrack(
         ${renderInlineStatus(supported ? "Assignable" : "Unsupported", { className: "trainer-music-badge" })}
       </div>
       <dl class="trainer-music-metadata">
+        ${track ? `<div><dt>Stream</dt><dd>${track.streamId}</dd></div>
+        <div><dt>Source</dt><dd>${escapeHtml(track.sourceName)}</dd></div>` : `
         <div><dt>Sequence</dt><dd>${sequenceId}</dd></div>
         <div><dt>Symbol</dt><dd><code>${escapeHtml(symbol)}</code></dd></div>
         <div><dt>Bank</dt><dd>${sequence ? sequence.bankId : "Unavailable"}</dd></div>
         <div><dt>Wave archives</dt><dd>${waveArchiveCount}</dd></div>
-        <div><dt>Source</dt><dd>${escapeHtml(model.sdat.sourcePath || "ROM SDAT")}</dd></div>
+        <div><dt>Source</dt><dd>${escapeHtml(model.sdat.sourcePath || "ROM SDAT")}</dd></div>`}
       </dl>
       <div class="trainer-music-primary-actions">
         <button class="btn -default trainer-music-preview-selected" type="button" data-trainer-music-play="${sequenceId}" data-play-label="Play ${PREVIEW_SECONDS}s preview" data-stop-label="Stop preview"${disabled}>Play ${PREVIEW_SECONDS}s preview</button>
       </div>
       <div class="trainer-music-export-actions">
-        <button class="btn -default trainer-music-export-wav" type="button"${disabled}>Export Complete Loop WAV</button>
-        <button class="btn -default trainer-music-export-native" type="button"${disabled}>Export Native ZIP</button>
+        <button class="btn -default trainer-music-export-wav" type="button"${disabled}>${track ? "Export WAV" : "Export Complete Loop WAV"}</button>
+        <button class="btn -default trainer-music-export-native" type="button"${disabled}>${track ? "Export STRM" : "Export Native ZIP"}</button>
       </div>
       <div class="trainer-music-status${statusError ? " -error" : ""}" aria-live="polite">${escapeHtml(status)}</div>
     </div>
     <div class="trainer-music-card trainer-music-help-card">
       <h3>About this table</h3>
       <p>${tableNote}</p>
-      <p>WAV export includes the intro and one complete musical loop at 48 kHz. Native ZIPs include the selected theme's SSEQ, SBNK, referenced SWAR files, and metadata.</p>
+      ${track ? "" : "<p>WAV export includes the intro and one complete musical loop at 48 kHz. Native ZIPs include the selected theme's SSEQ, SBNK, referenced SWAR files, and metadata.</p>"}
     </div>
   `;
 }
@@ -572,12 +623,7 @@ function renderAssignmentControl(model: TrainerMusicModel, assignment: TrainerMu
   return `
     <select class="trainer-music-assignment-select" data-trainer-music-assignment="${assignment.trainerClassId}" aria-label="Approach theme for ${escapeHtml(assignment.trainerClassName)}">
       ${unsupportedOption}
-      ${model.themes
-        .map(
-          (theme) =>
-            `<option value="${theme.sequenceId}"${theme.sequenceId === assignment.currentSequenceId ? " selected" : ""}>${escapeHtml(theme.displayName)} · ${theme.sequenceId}</option>`,
-        )
-        .join("")}
+      ${model.themes.map((theme) => renderTrackOption(theme, theme.sequenceId === assignment.currentSequenceId)).join("")}
     </select>
   `;
 }
@@ -627,12 +673,7 @@ function renderBattleAssignmentControl(model: TrainerBattleMusicModel, assignmen
     <select class="trainer-music-assignment-select" data-trainer-battle-assignment="${escapeHtml(assignment.key)}" aria-label="Battle theme for ${escapeHtml(assignment.name)}"${model.themes.length === 0 ? " disabled" : ""}>
       ${assignment.trainerClassId === undefined ? "" : `<option value="${TRAINER_CLASS_MUSIC_DEFAULT}"${assignment.usesGroup ? " selected" : ""}>Use battle group</option>`}
       ${unsupportedOption}
-      ${model.themes
-        .map(
-          (theme) =>
-            `<option value="${theme.sequenceId}"${theme.sequenceId === assignment.currentSequenceId && !assignment.usesGroup ? " selected" : ""}>${escapeHtml(theme.displayName)} · ${theme.sequenceId}</option>`,
-        )
-        .join("")}
+      ${model.themes.map((theme) => renderTrackOption(theme, theme.sequenceId === assignment.currentSequenceId && !assignment.usesGroup)).join("")}
     </select>
   `;
 }

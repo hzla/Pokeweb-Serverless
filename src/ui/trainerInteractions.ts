@@ -936,9 +936,10 @@ type Picker = {
  * Picker for a contenteditable field: lists every option on focus (current one
  * marked), filters as you type, and supports arrow keys and Enter. Options
  * written as "Name (12)" show the name and keep the id for an exact commit.
+ * A callback supplies the options on first use when building the list is expensive.
  */
-export function installPicker(field: HTMLElement, values: string[]): Picker | undefined {
-  if (values.length === 0) return undefined;
+export function installPicker(field: HTMLElement, values: string[] | (() => string[])): Picker | undefined {
+  if (Array.isArray(values) && values.length === 0) return undefined;
   const host = document.createElement("span");
   host.setAttribute("data-autocomplete", "");
   field.before(host);
@@ -947,11 +948,12 @@ export function installPicker(field: HTMLElement, values: string[]): Picker | un
   list.className = "suggestions";
   list.hidden = true;
   host.append(list);
-  const options = values.map((value) => {
+  const readOptions = () => (typeof values === "function" ? values() : values).map((value) => {
     const match = /^(.*) \((\d+)\)$/u.exec(value);
     return match ? { value, label: match[1], hint: match[2] } : { value, label: value, hint: "" };
   });
 
+  let options: ReturnType<typeof readOptions> | undefined;
   let focusValue = "";
   let active = -1;
   const items = () => [...list.querySelectorAll<HTMLElement>("[data-index]")];
@@ -965,7 +967,7 @@ export function installPicker(field: HTMLElement, values: string[]): Picker | un
   const render = () => {
     const query = field.textContent?.trim().toLowerCase() ?? "";
     const browsing = query === "" || query === focusValue.toLowerCase();
-    const matches = options
+    const matches = (options ??= readOptions())
       .map((option, index) => ({ option, index }))
       .filter(({ option }) => browsing || option.label.toLowerCase().includes(query) || option.hint === query)
       .slice(0, browsing ? undefined : 60);
@@ -979,7 +981,7 @@ export function installPicker(field: HTMLElement, values: string[]): Picker | un
     list.scrollTop = browsing && current ? Math.max(0, current.offsetTop - list.clientHeight / 2) : 0;
   };
   const choose = (index: number) => {
-    const option = options[index];
+    const option = options?.[index];
     if (!option) return;
     field.textContent = option.label;
     if (option.hint) {

@@ -129,6 +129,7 @@ export type StreamedBgmConfig = {
   encodedBytes: number;
   audioSha256: string;
   streamId: number;
+  standaloneStreamId?: number;
   streamFileId: number;
   shadowFileId: number;
   originalSequenceFileId: number;
@@ -161,6 +162,7 @@ export type NativeStreamReplacementConfig = {
 export type StandaloneStreamConfig = {
   streamId: number;
   streamFileId: number;
+  trainerSequenceId?: number;
   name: string;
   sourceName: string;
   encoding: "pcm16" | "adpcm";

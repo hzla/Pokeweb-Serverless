@@ -11,16 +11,18 @@ import {
   DEFAULT_TRAINER_SIGHT,
   ITEM_BALL_SPRITE,
   readGroundItemScripts,
+  replaceItemBallReward,
   suggestItemFlag,
   usedEventFlags,
   MAX_SHORTCUT_TRAINER_ID,
   suggestedTrainerSprite,
   TRAINER_PAIR_SCRIPT_BASE,
   TRAINER_SCRIPT_BASE,
+  type GroundItemEntry,
   type TrainerOverworldIndex,
 } from "../pokeweb/overworldShortcutModel";
 import { getPokemonIconImage } from "../pokeweb/pokemonSpriteModel";
-import type { ProjectState } from "../pokeweb/projectStore";
+import { decodeRecord, type ProjectState } from "../pokeweb/projectStore";
 import { getTrainerCount, getTrainerRecord, type TrainerRecord } from "../pokeweb/trainerModel";
 import { escapeHtml } from "./dom";
 import { renderPartyIcon, trainerDisplayName } from "./trainerDetail";
@@ -32,6 +34,83 @@ const FACINGS = [
   { value: 2, label: "Left" },
   { value: 3, label: "Right" },
 ] as const;
+
+type ShortcutChoice = { id: number; label: string };
+
+/** Keeps the displayed choice tied to its ID when multiple rows have the same label. */
+function installShortcutPicker(
+  field: HTMLElement,
+  choices: () => ShortcutChoice[],
+  current: ShortcutChoice | undefined,
+  onPick: (choice: ShortcutChoice) => boolean,
+): void {
+  let options: ShortcutChoice[] | undefined;
+  field.textContent = current?.label ?? "";
+  const picker = installPicker(field, () => {
+    options = choices();
+    return options.map(({ id, label }) => `${label} (${id})`);
+  });
+  field.addEventListener("focus", () => {
+    picker?.open();
+    window.setTimeout(() => {
+      if (document.activeElement !== field) return;
+      const range = document.createRange();
+      range.selectNodeContents(field);
+      window.getSelection()?.removeAllRanges();
+      window.getSelection()?.addRange(range);
+    }, 0);
+  });
+  field.addEventListener("keydown", (event) => {
+    if (picker?.handleKey(event)) return;
+    if (event.key === "Enter" || event.key === "Escape") {
+      event.preventDefault();
+      if (event.key === "Escape") field.textContent = current?.label ?? "";
+      field.blur();
+    }
+  });
+  field.addEventListener("blur", () => {
+    picker?.close();
+    const picked = field.dataset.commitValue;
+    const query = field.textContent?.trim() ?? "";
+    delete field.dataset.commitValue;
+    delete field.dataset.commitLabel;
+    if (picked || query !== (current?.label ?? "")) {
+      const id = /\((\d+)\)$/u.exec(picked ?? "")?.[1] ?? /^#?(\d+)$/u.exec(query)?.[1];
+      const matches = options?.filter((option) => id !== undefined ? option.id === Number(id) : option.label.toLowerCase() === query.toLowerCase());
+      const choice = matches?.length === 1 ? matches[0] : undefined;
+      if (choice && onPick(choice)) current = choice;
+    }
+    field.textContent = current?.label ?? "";
+  });
+}
+
+export function installTrainerReferencePicker(
+  project: ProjectState,
+  field: HTMLElement,
+  trainerId: number,
+  onPick: (trainerId: number) => boolean,
+): void {
+  const choiceFor = (id: number): ShortcutChoice | undefined => {
+    try {
+      const trainer = decodeRecord(project, "trdata", id).raw;
+      if (!trainer) return undefined;
+      const trainerClass = project.texts.banks.tr_classes?.[trainer.class] ?? "";
+      const name = project.texts.banks.tr_names?.[id]?.trim() || `Trainer ${id}`;
+      return { id, label: `${trainerClass} ${name}`.trim() };
+    } catch {
+      return undefined;
+    }
+  };
+  installShortcutPicker(field, () => {
+    const choices: ShortcutChoice[] = [];
+    const count = Math.min(getTrainerCount(project), MAX_SHORTCUT_TRAINER_ID + 1);
+    for (let id = 1; id < count; id += 1) {
+      const choice = choiceFor(id);
+      if (choice) choices.push(choice);
+    }
+    return choices;
+  }, choiceFor(trainerId), (choice) => onPick(choice.id));
+}
 
 /** Opens a modal dialog inside host (so the editor's scoped styles reach it) and removes it once closed. */
 function openDialog(host: HTMLElement, className: string, title: string, body: string): HTMLDialogElement {
@@ -175,7 +254,6 @@ export function openTrainerShortcut(host: HTMLElement, project: ProjectState, op
     }
   }
   const optionLabel = (trainer: TrainerRecord) => `${String(trainer.readable.class ?? "").trim()} ${trainerDisplayName(trainer)}`.trim();
-  const pickerValues = trainers.map((trainer) => `${optionLabel(trainer)} (${trainer.id})`);
   const byId = new Map(trainers.map((trainer) => [trainer.id, trainer]));
 
   const state = { trainer: undefined as TrainerRecord | undefined, sprite: 1, partnerSprite: 1, direction: 1, sight: DEFAULT_TRAINER_SIGHT, pair: false };
@@ -289,46 +367,16 @@ export function openTrainerShortcut(host: HTMLElement, project: ProjectState, op
       : `Places an NPC ${where} that battles the player on sight, with script ${TRAINER_SCRIPT_BASE + trainer.id}.${expands}`;
   };
 
-  const chooseTrainer = (trainer: TrainerRecord | undefined) => {
+  installShortcutPicker(picker, () => trainers.map((trainer) => ({ id: trainer.id, label: optionLabel(trainer) })), undefined, ({ id }) => {
+    const trainer = byId.get(id)!;
     state.trainer = trainer;
-    if (trainer) {
-      picker.textContent = optionLabel(trainer);
-      const sprite = suggestedTrainerSprite(project, index, Number(trainer.raw.class ?? 0));
-      if (sprite !== undefined) {
-        state.sprite = sprite;
-        state.partnerSprite = sprite;
-      }
+    const sprite = suggestedTrainerSprite(project, index, Number(trainer.raw.class ?? 0));
+    if (sprite !== undefined) {
+      state.sprite = sprite;
+      state.partnerSprite = sprite;
     }
     render();
-  };
-
-  const trainerPicker = installPicker(picker, pickerValues);
-  picker.addEventListener("focus", () => {
-    window.setTimeout(() => {
-      if (document.activeElement !== picker) return;
-      const range = document.createRange();
-      range.selectNodeContents(picker);
-      window.getSelection()?.removeAllRanges();
-      window.getSelection()?.addRange(range);
-    }, 0);
-    trainerPicker?.open();
-  });
-  picker.addEventListener("keydown", (event) => {
-    if (trainerPicker?.handleKey(event)) return;
-    if (event.key === "Enter") {
-      event.preventDefault();
-      picker.blur();
-    }
-  });
-  picker.addEventListener("blur", () => {
-    trainerPicker?.close();
-    const raw = (picker.dataset.commitValue ?? picker.textContent ?? "").trim();
-    delete picker.dataset.commitValue;
-    delete picker.dataset.commitLabel;
-    const id = /\((\d+)\)$/u.exec(raw)?.[1] ?? /^#?(\d+)$/u.exec(raw)?.[1];
-    const trainer = id !== undefined ? byId.get(Number(id)) : trainers.find((entry) => optionLabel(entry).toLowerCase() === raw.toLowerCase());
-    if (trainer) chooseTrainer(trainer);
-    else if (state.trainer) picker.textContent = optionLabel(state.trainer);
+    return true;
   });
 
   facing.addEventListener("change", () => {
@@ -369,39 +417,56 @@ export function openTrainerShortcut(host: HTMLElement, project: ProjectState, op
 
 // ---------- Items ----------
 
-export type ItemShortcutOptions = {
+type PlaceItemShortcut = {
   overworldId: number;
   position: { x: number; y: number };
   onPlaced: (npcIndex: number) => void;
+};
+
+type EditItemShortcut = {
+  overworldId: number;
+  npcIndex: number;
+  entry: GroundItemEntry;
+  onEdited: () => void;
 };
 
 function itemIconSrc(itemName: string): string {
   return publicAsset(`images/item_sprites/${itemName.normalize("NFKD").replace(/[^a-zA-Z0-9]/gu, "").toLowerCase()}.png`);
 }
 
-/** "+ Item": pick an item and place a ball that gives it once, with its own event flag. */
-export function openItemShortcut(host: HTMLElement, project: ProjectState, options: ItemShortcutOptions): void {
+/** Places a new ball or changes an existing ball's reward. */
+export function openItemShortcut(host: HTMLElement, project: ProjectState, options: PlaceItemShortcut | EditItemShortcut): void {
+  const edit = "entry" in options ? options : undefined;
   const itemNames = project.texts.banks.items ?? [];
-  const items = itemNames
-    .map((name, id) => ({ id, name: String(name ?? "").trim() }))
-    .filter((item) => item.id > 0 && item.name && item.name !== "???" && item.name !== "-----");
-  const byId = new Map(items.map((item) => [item.id, item]));
+  const itemCount = Math.max(itemNames.length, edit ? project.narcs.items?.fileCount ?? 0 : 0);
+  const items: ShortcutChoice[] = [];
+  for (let id = 1; id < itemCount; id += 1) {
+    const label = itemNames[id]?.trim();
+    if (label && label !== "???" && label !== "-----") items.push({ id, label });
+    else if (edit && id < (project.narcs.items?.fileCount ?? 0)) items.push({ id, label: `Item ${id}` });
+  }
+  const current = edit && (items.find((item) => item.id === edit.entry.itemId) ?? { id: edit.entry.itemId, label: `Item ${edit.entry.itemId}` });
   const scriptFile = readGroundItemScripts(project);
-  const used = usedEventFlags(project);
-  const suggested = suggestItemFlag(project, used);
-  const state = { item: undefined as { id: number; name: string } | undefined, quantity: 1, flag: suggested ?? 0, sprite: ITEM_BALL_SPRITE };
+  const used = edit ? new Map<number, string>() : usedEventFlags(project);
+  const maxQuantity = Math.max(999, edit?.entry.quantity ?? 0);
+  const state = {
+    item: current,
+    quantity: edit?.entry.quantity ?? 1,
+    flag: edit ? 0 : suggestItemFlag(project, used) ?? 0,
+    sprite: ITEM_BALL_SPRITE,
+  };
 
   const dialog = openDialog(
     host,
     "-item",
-    "Place an item ball",
+    edit ? "Edit item ball" : "Place an item ball",
     `<form class="ow-dialog-body" method="dialog">
       <div class="ow-row">
         <span class="ow-label">Item</span>
         <div class="ow-file-picker"><div contenteditable="true" spellcheck="false" data-item-picker aria-label="Item"></div></div>
       </div>
       <div class="ow-item-card">
-        <button class="ow-sprite-button -large" type="button" data-pick-sprite title="Choose the ball's sprite" aria-label="Choose the ball's sprite"></button>
+        ${edit ? "" : '<button class="ow-sprite-button -large" type="button" data-pick-sprite title="Choose the ball\'s sprite" aria-label="Choose the ball\'s sprite"></button>'}
         <img class="ow-item-icon" data-item-icon alt="" hidden>
         <div class="ow-trainer-main">
           <div class="ow-trainer-name" data-item-name>No item chosen</div>
@@ -411,17 +476,17 @@ export function openItemShortcut(host: HTMLElement, project: ProjectState, optio
       <div class="ow-dialog-grid">
         <label class="ow-row">
           <span class="ow-label">Quantity</span>
-          <input class="ow-input" data-item-quantity type="number" min="1" max="999" step="1" value="1">
+          <input class="ow-input" data-item-quantity type="number" min="1" max="${maxQuantity}" step="1" value="${state.quantity}" required>
         </label>
-        <label class="ow-row">
+        ${edit ? "" : `<label class="ow-row">
           <span class="ow-label">Event flag</span>
           <input class="ow-input" data-item-flag type="number" min="1" max="16383" step="1" value="${state.flag || ""}">
-        </label>
+        </label>`}
       </div>
-      <p class="ow-dialog-note" data-item-flag-note></p>
+      <p class="ow-dialog-note" data-item-flag-note role="status" ${edit ? "hidden" : ""}></p>
       <footer class="ow-dialog-actions">
         <button class="btn sm -ghost" type="button" data-dialog-close>Cancel</button>
-        <button class="btn sm -default" type="submit" data-item-place disabled>Place item</button>
+        <button class="btn sm -default" type="submit" data-item-place disabled>${edit ? "Save item" : "Place item"}</button>
       </footer>
     </form>`,
   );
@@ -431,32 +496,35 @@ export function openItemShortcut(host: HTMLElement, project: ProjectState, optio
   const name = dialog.querySelector<HTMLElement>("[data-item-name]")!;
   const scriptLine = dialog.querySelector<HTMLElement>("[data-item-script]")!;
   const quantity = dialog.querySelector<HTMLInputElement>("[data-item-quantity]")!;
-  const flag = dialog.querySelector<HTMLInputElement>("[data-item-flag]")!;
+  const flag = dialog.querySelector<HTMLInputElement>("[data-item-flag]");
   const flagNote = dialog.querySelector<HTMLElement>("[data-item-flag-note]")!;
   const place = dialog.querySelector<HTMLButtonElement>("[data-item-place]")!;
-  const spriteButton = dialog.querySelector<HTMLButtonElement>("[data-pick-sprite]")!;
+  const spriteButton = dialog.querySelector<HTMLButtonElement>("[data-pick-sprite]");
   icon.addEventListener("error", () => {
     icon.hidden = true;
   });
 
   const render = () => {
-    spriteButton.innerHTML = spriteFrameHtml(state.sprite);
-    fitSpriteFrames(spriteButton);
+    if (spriteButton) {
+      spriteButton.innerHTML = spriteFrameHtml(state.sprite);
+      fitSpriteFrames(spriteButton);
+    }
     const item = state.item;
-    name.textContent = item ? `${item.name}${state.quantity > 1 ? ` ×${state.quantity}` : ""}` : "No item chosen";
+    name.textContent = item ? `${item.label}${state.quantity > 1 ? ` ×${state.quantity}` : ""}` : "No item chosen";
     if (item) {
       icon.hidden = false;
-      icon.src = itemIconSrc(item.name);
+      icon.src = itemIconSrc(item.label);
     } else {
       icon.hidden = true;
     }
+    const unchanged = edit && item?.id === edit.entry.itemId && state.quantity === edit.entry.quantity;
     let scriptOk = Boolean(scriptFile);
     if (!scriptFile) {
-      scriptLine.textContent = "The item ball script file isn't in the usual format, so items can't be placed here.";
+      scriptLine.textContent = "The item ball script file isn't in the usual format.";
     } else if (item) {
-      const shared = scriptFile.entries.filter((entry) => entry.itemId === item.id && entry.quantity === state.quantity);
-      if (shared.length) {
-        scriptLine.textContent = `Uses item ball script ${shared[0]!.scriptId}.`;
+      const shared = unchanged ? edit.entry : scriptFile.entries.find((entry) => entry.itemId === item.id && entry.quantity === state.quantity);
+      if (shared) {
+        scriptLine.textContent = `Uses item ball script ${shared.scriptId}.`;
       } else if (scriptFile.freeSlots > 0) {
         scriptLine.textContent = `Adds item ball script ${7000 + 800 - scriptFile.freeSlots} (${scriptFile.freeSlots} free).`;
       } else {
@@ -465,6 +533,11 @@ export function openItemShortcut(host: HTMLElement, project: ProjectState, optio
       }
     } else {
       scriptLine.textContent = "Type an item's name or id.";
+    }
+    if (edit) {
+      flagNote.hidden = true;
+      place.disabled = !item || !scriptOk || !quantity.validity.valid || Boolean(unchanged);
+      return;
     }
     const check = checkItemFlag(project, state.flag, used);
     if (!state.flag) flagNote.textContent = "Every flag the item could use is taken. Enter one yourself.";
@@ -476,47 +549,24 @@ export function openItemShortcut(host: HTMLElement, project: ProjectState, optio
     place.disabled = !item || !scriptOk || !check.ok;
   };
 
-  const itemPicker = installPicker(picker, items.map((item) => `${item.name} (${item.id})`));
-  picker.addEventListener("focus", () => {
-    window.setTimeout(() => {
-      if (document.activeElement !== picker) return;
-      const range = document.createRange();
-      range.selectNodeContents(picker);
-      window.getSelection()?.removeAllRanges();
-      window.getSelection()?.addRange(range);
-    }, 0);
-    itemPicker?.open();
-  });
-  picker.addEventListener("keydown", (event) => {
-    if (itemPicker?.handleKey(event)) return;
-    if (event.key === "Enter") {
-      event.preventDefault();
-      picker.blur();
-    }
-  });
-  picker.addEventListener("blur", () => {
-    itemPicker?.close();
-    const raw = (picker.dataset.commitValue ?? picker.textContent ?? "").trim();
-    delete picker.dataset.commitValue;
-    delete picker.dataset.commitLabel;
-    const id = /\((\d+)\)$/u.exec(raw)?.[1] ?? /^#?(\d+)$/u.exec(raw)?.[1];
-    const item = id !== undefined ? byId.get(Number(id)) : items.find((entry) => entry.name.toLowerCase() === raw.toLowerCase());
-    if (item) state.item = item;
-    picker.textContent = state.item?.name ?? "";
+  installShortcutPicker(picker, () => items, current, (item) => {
+    state.item = item;
     render();
+    return true;
   });
   quantity.addEventListener("input", () => {
-    state.quantity = Math.max(1, Math.min(999, Math.trunc(Number(quantity.value) || 1)));
+    state.quantity = Math.max(1, Math.min(maxQuantity, Math.trunc(Number(quantity.value) || 1)));
     render();
   });
   quantity.addEventListener("change", () => {
     quantity.value = String(state.quantity);
+    render();
   });
-  flag.addEventListener("input", () => {
+  flag?.addEventListener("input", () => {
     state.flag = Math.trunc(Number(flag.value) || 0);
     render();
   });
-  spriteButton.addEventListener("click", () =>
+  spriteButton?.addEventListener("click", () =>
     openSpritePicker(host, {
       current: state.sprite,
       onPick: (spriteId) => {
@@ -527,8 +577,14 @@ export function openItemShortcut(host: HTMLElement, project: ProjectState, optio
   );
   dialog.querySelector("form")?.addEventListener("submit", (event) => {
     event.preventDefault();
-    if (!state.item) return;
+    if (!state.item || place.disabled) return;
     try {
+      if ("entry" in options) {
+        const changed = replaceItemBallReward(project, options.overworldId, options.npcIndex, state.item.id, state.quantity);
+        dialog.close();
+        if (changed) options.onEdited();
+        return;
+      }
       const result = addItemBallNpc(project, options.overworldId, {
         itemId: state.item.id,
         quantity: state.quantity,
@@ -541,6 +597,7 @@ export function openItemShortcut(host: HTMLElement, project: ProjectState, optio
       options.onPlaced(result.npcIndex);
     } catch (error) {
       flagNote.textContent = error instanceof Error ? error.message : String(error);
+      flagNote.hidden = false;
       flagNote.classList.add("-bad");
     }
   });

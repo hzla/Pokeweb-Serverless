@@ -3,7 +3,7 @@ import { recordGenericChange } from "./actionChangelog";
 import { isGen4Project } from "./constants";
 import { GROUND_ITEM_SCRIPT_FIRST, GROUND_ITEM_SCRIPT_LAST, groundItemScriptFileId } from "./docGeneratorModel";
 import { projectFlagReference } from "./flagReferenceModel";
-import { addOverworldEntity, moveOverworldEntity } from "./overworldModel";
+import { addOverworldEntity, moveOverworldEntity, updateOverworldEntityField } from "./overworldModel";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord } from "./projectStore";
 import { objCodeForBattleClass } from "./pwtModel";
 import { expandTrainerScriptArchive, getTrainerScriptArchiveStatus } from "./trainerScriptArchiveModel";
@@ -106,14 +106,58 @@ export type TrainerScriptCheck =
 /**
  * Whether the trainer's common script exists. Script 3000 + id runs entry `id` of the global trainer script file,
  * which has one entry per trainer the ROM shipped with (plus a few helper scripts in the middle). A trainer added
- * since needs the table expanded first, which placing it does; a trainer whose id lands on a helper can't use it.
+ * since may need the table expanded first. A trainer whose id lands on a helper can't use it.
  */
 export function checkTrainerScript(project: ProjectState, trainerId: number): TrainerScriptCheck {
-  if (trainerId < 1 || trainerId > MAX_SHORTCUT_TRAINER_ID) return { ok: false, reason: `Trainer scripts cover trainers 1-${MAX_SHORTCUT_TRAINER_ID}.` };
+  if (!Number.isInteger(trainerId) || trainerId < 1 || trainerId > MAX_SHORTCUT_TRAINER_ID) return { ok: false, reason: `Trainer scripts cover trainers 1-${MAX_SHORTCUT_TRAINER_ID}.` };
   const status = getTrainerScriptArchiveStatus(project);
   if (!status.ok) return { ok: false, reason: status.message };
+  if (trainerId >= status.trainerCount) return { ok: false, reason: `Trainer ${trainerId} does not exist.` };
   if (status.helperTrainerIds.includes(trainerId)) return { ok: false, reason: `Script ${TRAINER_SCRIPT_BASE + trainerId} is one of the game's helper scripts, so trainer ${trainerId} can't battle from it.` };
   return { ok: true, expands: trainerId >= status.tableEntryCount };
+}
+
+/** Changes a common-script trainer reference, keeping a linked doubles pair together. */
+export function replaceTrainerNpc(project: ProjectState, overworldId: number, npcIndex: number, trainerId: number): boolean {
+  const raw = shortcutNpcRaw(project, overworldId, npcIndex);
+  const scriptAt = (index: number) => Number(raw[`npc_${index}_script_id`]);
+  const currentScript = scriptAt(npcIndex);
+  const currentTrainerId = trainerIdForScript(currentScript);
+  if (!currentTrainerId) throw new Error("This NPC doesn't use a common trainer script.");
+  const current = checkTrainerScript(project, currentTrainerId);
+  if (!current.ok || current.expands) throw new Error("This NPC doesn't reference an existing common trainer script.");
+  if (currentTrainerId === trainerId) return false;
+
+  const target = checkTrainerScript(project, trainerId);
+  if (!target.ok) throw new Error(target.reason);
+  const trainer = decodeRecord(project, "trdata", trainerId).raw;
+  if (!trainer) throw new Error(`Trainer ${trainerId} could not be read.`);
+  const peers = npcIndexes(raw).filter((index) => index !== npcIndex);
+  const scriptBase = currentScript - currentTrainerId;
+  const partnerBase = scriptBase === TRAINER_SCRIPT_BASE ? TRAINER_PAIR_SCRIPT_BASE : TRAINER_SCRIPT_BASE;
+  const partners = peers.filter((index) => scriptAt(index) === partnerBase + currentTrainerId);
+  const members = [{ index: npcIndex, base: scriptBase }];
+  if (partners.length || scriptBase === TRAINER_PAIR_SCRIPT_BASE) {
+    if (partners.length !== 1 || peers.some((index) => scriptAt(index) === currentScript)) {
+      throw new Error("This trainer pair doesn't have exactly one NPC for each script.");
+    }
+    if (Number(trainer.battle_type_1) !== 1) throw new Error("Choose a Doubles trainer for this NPC pair.");
+    if (peers.some((index) => trainerIdForScript(scriptAt(index)) === trainerId)) {
+      throw new Error("This trainer already has an NPC in this overworld.");
+    }
+    members.push({ index: partners[0]!, base: partnerBase });
+  }
+
+  const sprite = suggestedTrainerSprite(project, buildTrainerOverworldIndex(project), Number(trainer.class));
+  if (target.expands) expandTrainerScriptArchive(project);
+  for (const { index, base } of members) {
+    const selection = { kind: "npc", index } as const;
+    updateOverworldEntityField(project, overworldId, selection, "script_id", base + trainerId);
+    if (sprite !== undefined && sprite !== raw[`npc_${index}_overworld_sprite`]) {
+      updateOverworldEntityField(project, overworldId, selection, "overworld_sprite", sprite);
+    }
+  }
+  return true;
 }
 
 /** Adds the trainer (and its pair partner) as NPCs ready to battle. Returns the new NPC indexes. */
@@ -180,6 +224,13 @@ function npcIndexes(raw: RawRecord): number[] {
     if (match) indexes.push(Number(match[1]));
   }
   return indexes;
+}
+
+function shortcutNpcRaw(project: ProjectState, overworldId: number, npcIndex: number): RawRecord {
+  if (!supportsOverworldShortcuts(project)) throw new Error("Overworld shortcuts require a Gen 5 overworld.");
+  const raw = decodeRecord(project, "overworlds", overworldId).raw;
+  if (!raw || !(`npc_${npcIndex}_script_id` in raw)) throw new Error(`NPC ${npcIndex} does not exist in overworld ${overworldId}.`);
+  return raw;
 }
 
 // ---------- Item balls ----------
@@ -271,6 +322,25 @@ export function readGroundItemScripts(project: ProjectState): GroundItemScriptFi
     entries: [...parsed.items.values()],
     freeSlots: Math.max(0, GROUND_ITEM_SCRIPT_LAST - GROUND_ITEM_SCRIPT_FIRST + 1 - parsed.starts.length),
   };
+}
+
+export function groundItemEntryForScript(project: ProjectState, scriptId: number): GroundItemEntry | undefined {
+  if (scriptId < GROUND_ITEM_SCRIPT_FIRST || scriptId > GROUND_ITEM_SCRIPT_LAST) return undefined;
+  return readGroundItemScripts(project)?.entries.find((entry) => entry.scriptId === scriptId);
+}
+
+/** Reuses or adds a pickup entry and redirects just this item ball to it. */
+export function replaceItemBallReward(project: ProjectState, overworldId: number, npcIndex: number, itemId: number, quantity: number): boolean {
+  const raw = shortcutNpcRaw(project, overworldId, npcIndex);
+  const current = groundItemEntryForScript(project, Number(raw[`npc_${npcIndex}_script_id`]));
+  if (!current) throw new Error("This NPC doesn't use a recognized item ball script.");
+  if (current.itemId === itemId && current.quantity === quantity) return false;
+  if (!Number.isInteger(itemId) || itemId < 1 || itemId > 0xffff) throw new Error("Choose an item.");
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 0xffff) throw new Error("Enter a quantity from 1 to 65,535.");
+
+  const { scriptId } = ensureGroundItemScript(project, itemId, quantity);
+  updateOverworldEntityField(project, overworldId, { kind: "npc", index: npcIndex }, "script_id", scriptId);
+  return true;
 }
 
 /** The script that gives this item: an existing entry when one gives the same item and quantity, else a new one. */
