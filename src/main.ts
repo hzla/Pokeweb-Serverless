@@ -3,6 +3,8 @@ import { supportsAbilityEditor } from "./pokeweb/abilityEffectsModel";
 import { renderAbilityEditor } from "./ui/abilityEditor";
 import "./styles/flagReference.css";
 import { renderFlagReference } from "./ui/flagReference";
+import { supportsObedienceCaps } from "./pokeweb/obedienceCapsModel";
+import { renderObedienceCapsEditor } from "./ui/obedienceCapsEditor";
 import "./styles/cgearButtons.css";
 import "./styles/systemShops.css";
 import { renderSystemShopsEditor } from "./ui/systemShopsEditor";
@@ -192,6 +194,7 @@ type AppRoute =
   | "cgearButtons"
   | "systemShops"
   | "flagReference"
+  | "obedienceCaps"
   | "uiScreens"
   | "customUi"
   | "battleBackgrounds"
@@ -325,6 +328,7 @@ const APP_ROUTES: AppRoute[] = [
   "cgearButtons",
   "systemShops",
   "flagReference",
+  "obedienceCaps",
   "battleBackgrounds",
   "randomizer",
   "marts",
@@ -388,6 +392,7 @@ const EDITOR_REQUIREMENTS: Record<
   cgearButtons: [],
   systemShops: [],
   flagReference: [],
+  obedienceCaps: [],
   randomizer: [],
   marts: ["marts", "mart_counts"],
   bpShops: [],
@@ -1369,6 +1374,15 @@ function renderApp(): void {
     renderFlagReference(project, content);
     return;
   }
+  if (route === "obedienceCaps") {
+    const activeProject = project;
+    void renderObedienceCapsEditor(activeProject, content, () => {
+      dirty = true;
+      scheduleSave(activeProject);
+      renderDirtyIndicator();
+    });
+    return;
+  }
   if (route === "systemShops") {
     void renderSystemShopsEditor(project,content,()=>{dirty=true;scheduleSave(project!);renderDirtyIndicator();});
     return;
@@ -1669,6 +1683,7 @@ function renderMoreMenu(): string {
     moreRoutes.splice(4, 0, ["titleScreen", "Title screen"]);
     if (canUseAiFeatures()) moreRoutes.splice(5, 0, ["uiScreens", "UI screens"]);
   }
+  if (project && supportsObedienceCaps(project)) moreRoutes.push(["obedienceCaps", "Obedience caps"]);
   const active = moreRoutes.some(([moreRoute]) => route === moreRoute);
   return `
     <div class="header-more ${active ? "-active" : ""}">
@@ -2892,6 +2907,7 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
   if (nextRoute === "changelog") return true;
   if (nextRoute === "cgearButtons") return (project.session.baseRom === "BW" || project.session.baseRom === "BW2") && hasExportBase;
   if (nextRoute === "flagReference") return project.session.baseRom === "BW" || project.session.baseRom === "BW2";
+  if (nextRoute === "obedienceCaps") return hasExportBase && supportsObedienceCaps(project);
   if (nextRoute === "systemShops") return project.session.baseRom === "BW2" && hasExportBase;
   if (nextRoute === "bpShops" || nextRoute === "specialVendors") return hasExportBase && isGen5Project(project);
   if (nextRoute === "joinAvenueShops") return hasExportBase && project.session.baseRom === "BW2";
@@ -3000,6 +3016,8 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
       ? ` title="Reload the ROM before opening Patches"`
     : nextRoute === "marts" && project?.session.baseRom === "BW"
       ? ` title="Reload the ROM before opening Marts"`
+    : nextRoute === "obedienceCaps"
+      ? ` title="Reconnect the source ROM to edit obedience caps"`
     : nextRoute === "cutscenes" || nextRoute === "field-scenes"
       ? ` title="Native cutscenes currently require a US White 2 source ROM"`
       : nextRoute === "maps3d"

@@ -14,6 +14,14 @@ The Code Injection page applies bundled binary changes to the ROM (the separate 
 
 Use these tools carefully. They modify ARM9, overlays, or ROM files at known byte locations. Pokeweb checks the ROM version and expected original bytes before applying supported patches, but you should still keep backups.
 
+## Obedience Caps
+
+Open **More → Obedience caps** on a compatible US revision-0 Black, White, Black 2 or White 2 ROM. Set the highest level that always obeys for each count from zero through eight badges. Caps accept whole levels from 1 to 100. Traded Pokémon above that level can disobey during ordinary battles.
+
+The defaults are 10 through 80 for zero through seven badges and 100 for eight. Pokeweb writes the values directly to the battle overlay on export. The editor uses the existing ownership and battle checks and requires no PMC. To update badge dialogue to match custom caps, edit the corresponding text separately.
+
+Fairy Type Support and Obedience Caps can be applied in either order. The editor checks the native routine at its RAM address, including when Fairy Type Support has moved its offset within the overlay.
+
 ## Required Data
 
 | Feature | Required data | Notes |

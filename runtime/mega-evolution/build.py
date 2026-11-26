@@ -28,7 +28,8 @@ import build as items  # noqa: E402
 
 CFLAGS = ["-std=gnu99", "-mthumb", "-mcpu=arm946e-s", "-Os", "-ffreestanding", "-fno-builtin", "-fno-short-enums",
           "-ffunction-sections", "-fdata-sections", "-fno-jump-tables", "-fno-unwind-tables",
-          "-fno-asynchronous-unwind-tables", "-Wall", "-Wextra", "-Wno-unused-parameter", "-Werror"]
+          "-fno-asynchronous-unwind-tables", "-Wall", "-Wextra", "-Wno-unused-parameter", "-Werror",
+          f"-fmacro-prefix-map={REPO}=.", f"-fdebug-prefix-map={REPO}=."]  # no machine paths in the DLLs
 SEGMENTS = ["167", "168", "169", "ARM9"]
 BW1_SEGMENTS = ["93", "94", "95", "ARM9"]
 TABLE_TAG = struct.pack("<I", 0x474D5750)  # "PWMG"
@@ -54,6 +55,8 @@ def build_game(game, cfg, version, out_root, test_routes):
         "HOOK_ITEM_CHECK": items.hook_name("THUMB_BRANCH", "167", addr("GiratinaArceusGenesectItemCheck")),
         "HOOK_WAIT_MOVE_SELECT": items.hook_name(
             "THUMB_BRANCH_LINK", "167", bl("BattleClient_ActionSelectFight", "BtlvCore_WaitMoveSelect")),
+        "HOOK_WAIT_TARGET_SELECT": items.hook_name(
+            "THUMB_BRANCH_LINK", "167", bl("BattleClient_ActionSelectFight", "BtlvCore_WaitTargetSelect")),
         "HOOK_START_FORM_CHANGE": items.hook_name("THUMB_BRANCH", "167", addr("BtlvCore_StartFormChange")),
         "HOOK_WAIT_FORM_CHANGE": items.hook_name("THUMB_BRANCH", "167", addr("BtlvCore_WaitFormChange")),
     }
@@ -100,6 +103,7 @@ def build_bw1_game(game, version, out_root, test_routes):
         "HOOK_WRITE_TO_SRC": entry("BTL_POKEPARAM_WriteBackToParam"),
         "HOOK_ITEM_CHECK": entry("HAND_COMMON_IsItemBoundToSpecies"),
         "HOOK_WAIT_MOVE_SELECT": call("BTL_CLIENT_StepSelectMove", "BTLV_CORE_PollMoveMenu"),
+        "HOOK_WAIT_TARGET_SELECT": call("BTL_CLIENT_StepSelectMove", "BTLV_CORE_PollTargetMenu"),
         "HOOK_START_FORM_CHANGE": call("BTL_CLIENT_CmdChangeForm", "BTLV_CORE_StartMonSpriteChange"),
         "HOOK_WAIT_FORM_CHANGE": call("BTL_CLIENT_CmdChangeForm", "BTLV_CORE_WaitMonSpriteChange"),
     }
@@ -127,12 +131,13 @@ def main():
     args = parser.parse_args()
     cfg = json.loads((REPO / "runtime/item-expansion/games.json").read_text())
     out_root = HERE / "build"
-    shipped = {"version": 3, "tableTag": "PWMG", "games": {}}
+    VERSION = 4  # 4: the armed form survives a double / triple battle's target selection
+    shipped = {"version": VERSION, "tableTag": "PWMG", "games": {}}
     for game in args.game or [*cfg["games"], "B", "W"]:
         if game in ("B", "W"):
-            manifest = build_bw1_game(game, 3, out_root, args.test_routes)
+            manifest = build_bw1_game(game, VERSION, out_root, args.test_routes)
         else:
-            manifest = build_game(game, cfg["games"][game], 3, out_root, args.test_routes)
+            manifest = build_game(game, cfg["games"][game], VERSION, out_root, args.test_routes)
         shipped["games"][game] = manifest
         print(f"{game} {manifest['fileName']}: {manifest['size']} bytes, {len(manifest['targets'])} targets, "
               f"table at 0x{manifest['tableOffset']:x}")

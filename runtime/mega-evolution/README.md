@@ -54,6 +54,7 @@ identifies, without White2Upgrade's other systems.
 | `BattleMon_WriteToSrc` | replace | retail, after restoring the party's own form and ability |
 | `GiratinaArceusGenesectItemCheck` | replace | retail, plus Mega Stones |
 | `BattleClient_ActionSelectFight` → `BtlvCore_WaitMoveSelect` | call | START / touch button, the form travels in the fight action's spare bits 27–31 |
+| `BattleClient_ActionSelectFight` → `BtlvCore_WaitTargetSelect` | call | doubles / triples: the target screen rebuilds the fight action (`BattleAction_SetFightParam` clears it), so the armed form is written again once a target is chosen |
 | `BtlvCore_StartFormChange`, `BtlvCore_WaitFormChange` | replace | the transformation animation |
 
 Retail calls and data are absolute symbols (see the item expansion's `build.py`), so the DLL's only extern module is
@@ -74,7 +75,7 @@ at their one call site in `BTL_CLIENT_CmdChangeForm` instead of at their entries
 | `BTL_SERVER_FLOW_StartTurn` → `BTL_SERVER_FLOW_BuildActionOrder` | call |
 | `BTL_SERVER_FLOW_RunActionOrder` → `BTL_SERVER_FLOW_ProcAction` | call |
 | `BTL_POKEPARAM_ChangeForm`, `BTL_POKEPARAM_WriteBackToParam`, `HAND_COMMON_IsItemBoundToSpecies` | replace |
-| `BTL_CLIENT_StepSelectMove` → `BTLV_CORE_PollMoveMenu` | call |
+| `BTL_CLIENT_StepSelectMove` → `BTLV_CORE_PollMoveMenu`, → `BTLV_CORE_PollTargetMenu` | call |
 | `BTL_CLIENT_CmdChangeForm` → `BTLV_CORE_StartMonSpriteChange`, → `BTLV_CORE_WaitMonSpriteChange` | call |
 
 Server commands (0x4f form change, 29 ability, 0x5b "set" message), ability/item IDs, Pokémon and personal parameter
@@ -104,12 +105,21 @@ Pokeweb sets the class whenever it writes the table. It reads the class from the
 So Megas added in the Pokémon editor work with the Megites when they are named that way. The table stays version 2:
 a version 2 DLL ignores both fields, and `universalItem` 0 turns them off.
 
+## Double battles (DLL version 4)
+
+Up to version 3 the armed Mega was dropped in double and triple battles: the target screen comes after the move
+screen and rebuilds the whole fight action word (`BattleAction_SetFightParam` / Black / White's `BTL_ACTION_SetFight`
+start from 0), which cleared the form the move screen had written. The turn ran without the Mega Evolution and the
+game did not report anything. Version 4 hooks the target screen too. Pokeweb shows Update on a project with an older
+Mega DLL; the update keeps its routes and settings.
+
 ## Build and check
 
     POKEBW2_CONFIG=... POKEBW2_EXTRACT=... ARM_TOOLCHAIN_BIN=... RPM_TOOL_JAR=... python3 runtime/mega-evolution/build.py
     python3 runtime/mega-evolution/build.py --test-routes   # a DLL with built-in test routes, build/ only
     ALETHEIA=... BW1_ROM_B=... BW1_ROM_W=... python3 runtime/mega-evolution/build.py --game B --game W
-    npx vite-node runtime/mega-evolution/emulator_battle.ts /path/clean.nds [--giratina] [--touch] [--dll path]
+    npx vite-node runtime/mega-evolution/emulator_battle.ts /path/clean.nds [--giratina] [--touch] [--dll path] [--doubles]
+    npx vite-node runtime/mega-evolution/emulator_doubles.ts /path/rom-with-mega.nds [--keep-dll] [--trainer ID] [--team TEXT --species N]   # doubles / triples
     npx vite-node runtime/mega-evolution/emulator_content.ts /path/clean.nds [--foe] [--no-animation] [--native] [--no-move-expansion] [--gmax] [--team TEXT --species N]
 
 The emulator check installs through the model with two test routes that need no content: Rotom holding Leftovers
@@ -120,7 +130,15 @@ reads the party back.
 Verified in desmond (White 2 and Black 2): the button appears and arms, the Pokémon changes form on both the server's
 and the client's copy (types, stats, ability, weight, sprite), and after the battle and an in-game save the party has
 its own form and ability back. The same on Black (START) and White (touch button; Giratina's Pressure → Levitate).
-Not yet verified: doubles/triples, hardware.
+Double battles (version 4, desmond): `emulator_battle.ts --doubles` on clean White 2 (Rotom → Heat Rotom with a
+Pikachu partner, target picked after the move), and `emulator_doubles.ts` on a user's Black 2 ROM with the content
+package (Scizor @ Scizorite beside Pikachu against a doubles trainer): with the ROM's version 3 DLL (`--keep-dll`) the
+turn runs without the Mega Evolution; with version 4 "Scizor has Mega Evolved!" then Bullet Punch. The same in a
+triple battle (`--trainer 171` on that ROM, Scizor on the left beside Pikachu and Lucario).
+`emulator_doubles.ts` swaps the bundled DLL in with the ROM's own table. Black / White get the same hook (the same
+source, aletheia's `BTL_CLIENT_StepSelectMove` → `BTLV_CORE_PollTargetMenu` call); their test battle (a field NPC)
+does not start a double battle trainer, so only their singles are checked in desmond. Not yet verified: rotation
+battles (a rotation on the same turn moves the fight into a new action word), hardware.
 
 ## Mega Pokémon (content package)
 

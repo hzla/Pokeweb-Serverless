@@ -584,6 +584,25 @@ BOOL HOOK_WAIT_MOVE_SELECT(BtlvCore *core) {
     return TRUE;
 }
 
+// BattleClient_ActionSelectFight's BtlvCore_WaitTargetSelect call, after the move screen in a double or triple
+// battle. Choosing the target rebuilds the whole fight action (BattleAction_SetFightParam clears it), so the form
+// the move screen wrote is put back once a target is chosen. Going back to the move screen (2) keeps the selection.
+u32 HOOK_WAIT_TARGET_SELECT(BtlvCore *core) {
+    u32 result = BtlvCore_WaitTargetSelect(core);
+    BattleMon *mon = CORE_MON(core);
+    BattleAction *action = CORE_ACTION(core);
+    u8 form;
+
+    if (result != 1 || mon == NULL || MON_ID(mon) >= MON_IDS || action == NULL) {
+        return result;
+    }
+    form = sSelection[MON_ID(mon)];
+    if (form != NO_FORM && ACTION_KIND(action) == 1 && PlayerHasRing(core) && SelectableForm(mon) == form) {
+        ACTION_SET_MEGA(action, form);
+    }
+    return result;
+}
+
 // ---- Transformation (Hibiki's animation) ----
 
 static struct {

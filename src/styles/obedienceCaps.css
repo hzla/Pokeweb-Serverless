@@ -1,0 +1,45 @@
+.obedience-caps {
+  max-width: 520px;
+  margin: 24px auto;
+  padding: 0 16px;
+}
+
+.obedience-caps p {
+  color: var(--text-muted);
+}
+
+.obedience-caps table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.obedience-caps th,
+.obedience-caps td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--ink-3);
+}
+
+.obedience-caps thead {
+  background: var(--ink-1);
+}
+
+.obedience-caps tbody th {
+  font-weight: 500;
+}
+
+.obedience-caps input {
+  box-sizing: border-box;
+  width: 80px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius);
+  background: var(--ink-0);
+  color: inherit;
+  font: inherit;
+}
+
+.obedience-caps-error:empty {
+  display: none;
+}

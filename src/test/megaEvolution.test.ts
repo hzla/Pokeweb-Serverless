@@ -22,16 +22,17 @@ const config: MegaEvolutionConfig = {
 
 describe("Mega Evolution runtime", () => {
   for (const game of ["W2", "B2", "B", "W"] as const) {
-    // Black 2 / White 2 hook three call sites; Black / White also the form change's two (its own are short thunks).
+    // Black 2 / White 2 hook four call sites (turn build, action proc, move and target select); Black / White also
+    // the form change's two (its own are short thunks).
     const overlay = game.endsWith("2") ? "167" : "93";
-    const callSites = game.endsWith("2") ? 3 : 5;
+    const callSites = game.endsWith("2") ? 4 : 6;
     it(`${game}: hooks only battle overlay ${overlay} and carries one route table`, () => {
       const rpm = parseRpm(dll(game), { allowedMagics: ["DLXF"] });
       const modules = new Set(rpm.relocations.map((relocation) => relocation.target.module).filter((module) => module !== "base"));
       expect([...modules]).toEqual([overlay]);
       expect(rpm.metadata.PMCGameID).toBe(game);
       const targets = manifest.games[game].targets;
-      expect(targets).toHaveLength(8);
+      expect(targets).toHaveLength(9);
       expect(targets.filter((target) => target.kind === "THUMB_BRANCH_LINK")).toHaveLength(callSites);
     });
 

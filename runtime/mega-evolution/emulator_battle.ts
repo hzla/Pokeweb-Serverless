@@ -1,11 +1,14 @@
 // Mega Evolution check on a clean US White 2 / Black 2 / Black / White ROM (desmond, headless).
 // npx vite-node runtime/mega-evolution/emulator_battle.ts /path/clean.nds [--giratina] [--touch] [--no-mega] [--dll path]
+//   [--doubles]
 //
 // Installs Mega Evolution through the model with two test routes (Rotom holding Leftovers -> Heat Rotom, Giratina
 // holding Leftovers -> Origin Forme), or stages --dll as is (build.py --test-routes), starts a test battle with
 // a level 100 Rotom, opens the move screen, arms the Mega (START, or the touch button with --touch) and picks the
 // first move. Reports the player's BattleMons (server and client copies) before and after the turn: form, types,
 // base form, ability, and the party data after the battle. Screenshots go to runtime/mega-evolution/build/emulator/.
+// --doubles (Black 2 / White 2) fights the first double battle trainer with a partner (Pikachu): the Rotom picks its target after the
+// move, which rebuilds the fight action (the armed form has to survive it), then the partner picks its move.
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,8 +17,10 @@ import vm from "node:vm";
 import { PNG } from "pngjs";
 import { loadProjectFromRomBytes } from "../../src/pokeweb/loader";
 import { buildTestBattleDownloads } from "../../src/pokeweb/testBattle";
-import { installCodeInjectionPatch } from "../../src/pokeweb/codeInjectionInstall";
+import { installCodeInjectionPatch, loadCodeInjectionNarcs } from "../../src/pokeweb/codeInjectionInstall";
 import { stageCodeInjectionDll } from "../../src/pokeweb/pmcModel";
+import { decodeRecord } from "../../src/pokeweb/projectStore";
+import { NintendoDSRom } from "../../src/nds/rom";
 import { setMegaEvolutionConfig, stageMegaEvolution } from "../../src/pokeweb/megaEvolutionModel";
 import { readGen5SavePokemon } from "../../src/pokeweb/gen5SaveReader";
 
@@ -26,12 +31,22 @@ const romBytesIn = new Uint8Array(await readFile(romPath));
 const GAMES: Record<string, string> = { IREO: "B2", IRDO: "W2", IRBO: "B", IRAO: "W" };
 const game = GAMES[String.fromCharCode(...romBytesIn.subarray(0x0c, 0x10))] ?? "W2";
 const dllPath = option("--dll");
-const trainerId = Number(option("--trainer") ?? (game.endsWith("2") ? 156 : 1));
-const label = option("--name") ?? `${basename(romPath, ".nds")}-${argv.includes("--touch") ? "touch" : "start"}${argv.includes("--no-mega") ? "-nomega" : ""}`;
+const doubles = argv.includes("--doubles");
+const label = option("--name") ?? `${basename(romPath, ".nds")}-${argv.includes("--touch") ? "touch" : "start"}${argv.includes("--no-mega") ? "-nomega" : ""}${doubles ? "-doubles" : ""}`;
 const output = fileURLToPath(new URL(`./build/emulator/${label}/`, import.meta.url));
 await mkdir(output, { recursive: true });
 globalThis.fetch = (async (input: RequestInfo | URL) => new Response(new Uint8Array(await readFile(new URL(input instanceof Request ? input.url : String(input)))))) as typeof fetch;
 const project = await loadProjectFromRomBytes(romBytesIn, basename(romPath), { selectedNarcs: [] });
+// Black / White's test battle (a field NPC) does not start a double battle trainer: --doubles is Black 2 / White 2 only.
+if (doubles && !game.endsWith("2")) throw new Error("--doubles needs a Black 2 / White 2 ROM");
+let trainerId = Number(option("--trainer") ?? (doubles ? 0 : game.endsWith("2") ? 156 : 1));
+if (!trainerId) {
+  loadCodeInjectionNarcs(project, new NintendoDSRom(romBytesIn, { fileData: "view" }), ["trdata"]);
+  for (let id = 1; !trainerId && id < (project.narcs.trdata?.fileCount ?? 0); id++) {
+    const raw = decodeRecord(project, "trdata", id).raw!;
+    if (Number(raw.battle_type_1) === 1 && Number(raw.num_pokemon) >= 2) trainerId = id;
+  }
+}
 if (dllPath) {
   const dll = new Uint8Array(await readFile(dllPath));
   await installCodeInjectionPatch(project, (staged) => { stageCodeInjectionDll(staged, basename(dllPath), dll); });
@@ -49,6 +64,8 @@ const { romBytes, saveBytes } = await buildTestBattleDownloads(project, trainerI
   playerTeamText: giratina
     ? "Giratina @ Leftovers\nAbility: Pressure\nLevel: 100\n- Dragon Claw\n- Shadow Sneak"
     : "Rotom @ Leftovers\nAbility: Levitate\nLevel: 100\n- Thunderbolt\n- Shadow Ball",
+  ...(doubles ? { playerTeamText: `${giratina ? "Giratina @ Leftovers\nAbility: Pressure\nLevel: 100\n- Dragon Claw\n- Shadow Sneak"
+    : "Rotom @ Leftovers\nAbility: Levitate\nLevel: 100\n- Thunderbolt\n- Shadow Ball"}\n\nPikachu\nLevel: 100\n- Thunderbolt\n- Quick Attack` } : {}),
 });
 const corePath = fileURLToPath(new URL("../../public/desmond/desmond.js", import.meta.url));
 const generated = await readFile(corePath, "utf8");
@@ -96,6 +113,11 @@ if (!argv.includes("--no-mega")) {
   step(20); await capture("moves-armed");
 }
 touch(64, 44); step(30); await capture("after-pick");
+if (doubles) {
+  // The target (A takes the highlighted foe), then the partner's move and target.
+  step(10); step(4, KEY.a); step(40); await capture("after-target");
+  for (let i = 0; i < 4; i++) { touch(128, 85); step(40); touch(64, 44); step(40); step(4, KEY.a); step(40); }
+}
 const frames: string[] = [];
 for (let i = 0; i < 12; i++) { step(60, 0); if (i % 3 === 1) { await capture(`turn-${i}`); frames.push(`turn-${i}`); } }
 const after = battleMons();
@@ -114,6 +136,6 @@ if (!battleMons().length) {
   party = readGen5SavePokemon(project, card).filter((mon) => mon.storage === "party")
     .map((mon) => ({ species: mon.speciesId, form: mon.formIndex, ability: mon.abilityId, item: mon.itemId }));
 }
-const result = { label, game, frame, before, after, megaEvolved: after.some((mon) => mon.form === 1 && mon.baseForm === 1), party };
+const result = { label, game, trainerId, frame, before, after, megaEvolved: after.some((mon) => mon.form === 1 && mon.baseForm === 1), party };
 console.log(JSON.stringify(result, null, 1));
 await writeFile(join(output, "summary.json"), JSON.stringify(result, null, 2));

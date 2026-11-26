@@ -40,6 +40,7 @@ void BTL_SERVER_FLOW_ProcDamagedItemReaction(BtlServerFlow *flow, BattleMon *mon
 __attribute__((long_call)) int BTL_ID_IsArceusPlate(unsigned item);
 __attribute__((long_call)) int BTL_ID_IsGenesectDrive(unsigned item);
 u32 BTLV_CORE_PollMoveMenu(BtlvCore *core);
+u32 BTLV_CORE_PollTargetMenu(BtlvCore *core);
 u32 BTL_ACTION_GetFightSlotFlag(const BattleAction *action);
 u32 KEY_GetCont(void);
 int TOUCHPANEL_HitCont(const TouchRect *rects); // -1 when not touched, else the rectangle's index (0xff ends)
@@ -86,6 +87,7 @@ int BTLV_SCU_RunWazaProc(void *scu);
 #define IsArceusPlate BTL_ID_IsArceusPlate
 #define IsGenesectDrive BTL_ID_IsGenesectDrive
 #define BtlvCore_WaitMoveSelect BTLV_CORE_PollMoveMenu
+#define BtlvCore_WaitTargetSelect BTLV_CORE_PollTargetMenu
 #define BattleAction_GetMoveInfoFlag BTL_ACTION_GetFightSlotFlag
 #define GCTX_HIDGetHeldKeys KEY_GetCont
 #define GFL_HIDGetTouchHeldRect TOUCHPANEL_HitCont

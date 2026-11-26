@@ -141,6 +141,7 @@ void ServerControl_CheckItemReaction(BtlServerFlow *flow, BattleMon *mon, u32 ar
 BOOL IsArceusPlate(u16 item);
 BOOL IsGenesectDrive(u16 item);
 BOOL BtlvCore_WaitMoveSelect(BtlvCore *core);
+u32 BtlvCore_WaitTargetSelect(BtlvCore *core); // 1 chosen, 2 back to the move screen
 BOOL BattleAction_GetMoveInfoFlag(const BattleAction *action);
 u32 GCTX_HIDGetHeldKeys(void);
 s32 GFL_HIDGetTouchHeldRect(const TouchRect *rects);
